@@ -1,0 +1,1246 @@
+<!DOCTYPE html>
+
+<html class="dark" lang="en"><head><meta charset="utf-8"/><meta content="width=device-width, initial-scale=1.0" name="viewport"/><meta content="web_dashboard" name="shell-type"/><title>WishMagic | Admin Studio</title>
+<link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&amp;family=JetBrains+Mono:wght@400;500;600&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:opsz,wght,FILL,GRAD@20..48,100..700,0..1,-50..200&amp;display=swap" rel="stylesheet"/>
+<!-- Tailwind Config must load BEFORE Tailwind CDN -->
+<script src="js/tailwind-config.js"></script>
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<script>
+  if (typeof tailwind !== 'undefined' && typeof sharedTailwindConfig !== 'undefined') {
+    tailwind.config = sharedTailwindConfig;
+  }
+</script>
+<script src="js/WishMagicCore.js"></script>
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:opsz,wght,FILL,GRAD@20..48,100..700,0..1,-50..200&display=swap');
+
+  .material-symbols-outlined {
+    font-family: 'Material Symbols Outlined' !important;
+    font-weight: normal;
+    font-style: normal;
+    font-size: 20px;
+    line-height: 1;
+    letter-spacing: normal;
+    text-transform: none;
+    display: inline-block;
+    white-space: nowrap;
+    word-wrap: normal;
+    direction: ltr;
+    vertical-align: middle;
+    -webkit-font-feature-settings: 'liga';
+    -webkit-font-smoothing: antialiased;
+    font-feature-settings: 'liga';
+  }
+
+  body {
+    background-color: #0d071a !important;
+    color: #f5f0ff !important;
+    font-family: 'Plus Jakarta Sans', sans-serif;
+    margin: 0;
+    padding: 0;
+    overflow-x: hidden;
+  }
+
+  /* Reliable theme fallbacks */
+  .bg-background { background-color: #0d071a; }
+  .bg-surface { background-color: #130a24; }
+  .bg-surface-container-lowest { background-color: #090414; }
+  .bg-surface-container-low { background-color: #150c29; }
+  .bg-surface-container { background-color: #1c1036; }
+  .bg-surface-container-high { background-color: #241544; }
+  .bg-surface-container-highest { background-color: #2f1c57; }
+  .text-on-surface { color: #f5f0ff; }
+  .text-on-surface-variant { color: #c4b5fd; }
+  .text-outline { color: #7c6d99; }
+  .text-primary { color: #a855f7; }
+  .text-secondary { color: #ec4899; }
+  .text-tertiary { color: #10b981; }
+  .bg-primary { background-color: #a855f7; }
+  .bg-primary-container { background-color: #7e22ce; }
+  .text-on-primary { color: #ffffff; }
+  .text-on-primary-container { color: #f3e8ff; }
+  .bg-secondary { background-color: #ec4899; }
+  .bg-secondary-container { background-color: #9d174d; }
+
+  ::-webkit-scrollbar { display: none; }
+</style>
+</head><body class="bg-[#0d071a] text-[#f5f0ff] font-body-md min-h-screen selection:bg-primary selection:text-on-primary antialiased">
+
+<!-- Mobile Sidebar Backdrop Overlay -->
+<div id="sidebar-backdrop" class="fixed inset-0 bg-black/75 backdrop-blur-sm z-40 hidden md:hidden" onclick="toggleSidebar()"></div>
+
+<!-- Responsive Sidebar Drawer -->
+<aside id="admin-sidebar" class="fixed left-0 top-0 h-screen w-72 bg-[#090414] border-r border-purple-900/40 z-50 flex flex-col justify-between shadow-2xl -translate-x-full md:translate-x-0 transition-transform duration-300 ease-in-out">
+<div class="flex flex-col">
+<div class="px-space-lg pt-space-lg pb-space-md">
+<div class="flex items-center justify-between">
+<div class="flex items-center gap-space-sm">
+<div class="w-9 h-9 rounded-xl bg-gradient-to-tr from-primary-container to-secondary flex items-center justify-center shadow-[0_0_20px_rgba(124,58,237,0.45)]">
+<span class="material-symbols-outlined text-white text-[20px]">auto_fix_high</span>
+</div>
+<div class="flex flex-col">
+<span class="font-headline-sm text-headline-sm text-on-surface font-bold tracking-tight">WishMagic</span>
+<span class="font-label-sm text-label-sm text-primary tracking-widest uppercase">Admin Studio</span>
+</div>
+</div>
+<!-- Close button on mobile -->
+<button class="md:hidden p-1.5 rounded-lg bg-surface-container hover:bg-surface-container-high text-on-surface-variant hover:text-white" onclick="toggleSidebar()" aria-label="Close Sidebar">
+<span class="material-symbols-outlined text-[20px]">close</span>
+</button>
+</div>
+<div class="mt-space-md px-space-sm py-1.5 rounded-full bg-surface-container/60 flex items-center justify-between">
+<div class="flex items-center gap-2">
+<span class="relative flex h-2 w-2">
+<span class="animate-ping absolute inline-flex h-full w-full rounded-full bg-tertiary opacity-75"></span>
+<span class="relative inline-flex rounded-full h-2 w-2 bg-tertiary"></span>
+</span>
+<span class="font-label-sm text-label-sm text-on-surface-variant font-medium">Operational</span>
+</div>
+<span class="font-label-sm text-label-sm text-primary font-bold">99.98%</span>
+</div>
+</div>
+<nav class="flex flex-col gap-1 px-space-md mt-space-sm" data-active-classes="bg-primary-container text-on-primary-container font-semibold shadow-[0_0_24px_rgba(124,58,237,0.35)]">
+<a class="group flex items-center gap-space-sm px-space-md py-2.5 rounded-lg text-on-surface-variant hover:bg-surface-container-high hover:text-on-surface transition-all duration-200 " data-path="overview" href="admin-overview.html">
+<span class="material-symbols-outlined text-[20px] transition-transform group-hover:scale-110">dashboard</span>
+<span class="font-body-md text-body-md">Overview</span>
+</a>
+<a class="group flex items-center gap-space-sm px-space-md py-2.5 rounded-lg text-on-surface-variant hover:bg-surface-container-high hover:text-on-surface transition-all duration-200 " data-path="templates-manager" href="admin-templates.html">
+<span class="material-symbols-outlined text-[20px] transition-transform group-hover:scale-110">style</span>
+<span class="font-body-md text-body-md">Templates Manager</span>
+</a>
+<a class="group flex items-center gap-space-sm px-space-md py-2.5 rounded-lg text-on-surface-variant hover:bg-surface-container-high hover:text-on-surface transition-all duration-200 " data-path="occasions-and-tags" href="admin-occasions.html">
+<span class="material-symbols-outlined text-[20px] transition-transform group-hover:scale-110">loyalty</span>
+<span class="font-body-md text-body-md">Occasions &amp; Tags</span>
+</a>
+<a class="group flex items-center gap-space-sm px-space-md py-2.5 rounded-lg text-on-surface-variant hover:bg-surface-container-high hover:text-on-surface transition-all duration-200 " data-path="wishes-and-orders" href="admin-orders.html">
+<span class="material-symbols-outlined text-[20px] transition-transform group-hover:scale-110">card_giftcard</span>
+<span class="font-body-md text-body-md flex-1">Wishes &amp; Orders</span>
+<span class="px-2 py-0.5 rounded-full bg-secondary-container text-on-secondary-container font-label-sm text-label-sm">Live</span>
+</a>
+<a class="group flex items-center gap-space-sm px-space-md py-2.5 rounded-lg text-on-surface-variant hover:bg-surface-container-high hover:text-on-surface transition-all duration-200 " data-path="media-and-audio-library" href="admin-media.html">
+<span class="material-symbols-outlined text-[20px] transition-transform group-hover:scale-110">perm_media</span>
+<span class="font-body-md text-body-md">Media &amp; Audio Library</span>
+</a>
+<a class="group flex items-center gap-space-sm px-space-md py-2.5 rounded-lg text-on-surface-variant hover:bg-surface-container-high hover:text-on-surface transition-all duration-200 bg-primary-container text-on-primary-container font-semibold shadow-[0_0_24px_rgba(124,58,237,0.35)]" data-path="pricing-and-plans" href="admin-pricing.html">
+<span class="material-symbols-outlined text-[20px] transition-transform group-hover:scale-110">payments</span>
+<span class="font-body-md text-body-md">Pricing &amp; Plans</span>
+</a>
+<a class="group flex items-center gap-space-sm px-space-md py-2.5 rounded-lg text-on-surface-variant hover:bg-surface-container-high hover:text-on-surface transition-all duration-200 " data-path="settings-and-team" href="admin-settings.html">
+<span class="material-symbols-outlined text-[20px] transition-transform group-hover:scale-110">admin_panel_settings</span>
+<span class="font-body-md text-body-md">Settings &amp; Team</span>
+</a>
+</nav>
+</div>
+<div class="p-space-md">
+<div class="p-space-md rounded-xl bg-surface-container/60 backdrop-blur-md flex flex-col gap-2">
+<div class="flex items-center justify-between">
+<span class="font-label-sm text-label-sm text-on-surface-variant">Studio Engine</span>
+<span class="font-label-sm text-label-sm text-primary">v4.8.2-cosmic</span>
+</div>
+<div class="w-full bg-surface-container-highest rounded-full h-1">
+<div class="bg-gradient-to-r from-primary-container to-secondary h-1 rounded-full w-4/5"></div>
+</div>
+</div>
+</div>
+</aside>
+
+<!-- Main Viewport Wrapper with Responsive Margin -->
+<div class="w-full md:pl-72 min-h-screen flex flex-col">
+<header class="fixed top-0 left-0 md:left-72 right-0 h-16 md:h-20 bg-[#090414]/90 backdrop-blur-xl z-30 flex items-center justify-between px-3 md:px-space-lg border-b border-purple-900/40 shadow-lg">
+<!-- Mobile hamburger menu button -->
+<div class="flex items-center gap-2 flex-1 max-w-xl">
+<button class="md:hidden p-2 rounded-lg bg-surface-container hover:bg-surface-container-high text-on-surface flex items-center justify-center flex-shrink-0" onclick="toggleSidebar()" aria-label="Toggle Navigation Menu">
+<span class="material-symbols-outlined text-[22px]">menu</span>
+</button>
+<div class="relative flex items-center w-full">
+<span class="material-symbols-outlined absolute left-3.5 text-on-surface-variant text-[20px]">search</span>
+<input class="w-full h-10 md:h-11 pl-11 pr-4 md:pr-12 rounded-xl bg-surface-container-low/70 text-on-surface placeholder:text-outline font-body-sm text-body-sm transition-all duration-200 focus:outline-none focus:bg-surface-container-high/90 focus:shadow-[0_0_0_2px_rgba(210,187,255,0.4)]" id="orderSearchInput" placeholder="Search orders, wishes, TXN hash, recipients..." type="text"/>
+<div class="hidden sm:block absolute right-3 px-1.5 py-0.5 rounded bg-surface-container-highest text-on-surface-variant font-label-sm text-label-sm uppercase">⌘K</div>
+</div>
+</div>
+<div class="flex items-center gap-2 md:gap-space-md ml-2 flex-shrink-0">
+<a class="flex items-center gap-1.5 px-2.5 md:px-3 py-1.5 md:py-2 rounded-lg bg-surface-container-low hover:bg-surface-container-high text-on-surface-variant hover:text-on-surface transition-all duration-200 text-xs md:font-label-lg md:text-label-lg" href="index.html">
+<span class="material-symbols-outlined text-[18px]">storefront</span>
+<span class="hidden sm:inline">Live Storefront</span>
+<span class="material-symbols-outlined text-[14px]">arrow_outward</span>
+</a>
+<button class="relative p-2 md:p-2.5 rounded-lg bg-surface-container-low hover:bg-surface-container-high text-on-surface-variant hover:text-on-surface transition-all duration-200" type="button">
+<span class="material-symbols-outlined text-[20px] md:text-[22px]">notifications</span>
+<span class="absolute top-2 right-2 w-2 h-2 rounded-full bg-secondary shadow-[0_0_8px_rgba(255,176,205,0.8)]"></span>
+</button>
+<div class="flex items-center gap-2 md:gap-3 pl-1 md:pl-2">
+<div class="hidden sm:flex flex-col text-right">
+<span class="font-headline-sm text-body-sm font-semibold text-on-surface leading-tight">Aman</span>
+<span class="font-label-sm text-label-sm text-primary">Chief Magician</span>
+</div>
+<div class="w-8 h-8 rounded-full bg-primary flex items-center justify-center shadow-md">
+<span class="material-symbols-outlined text-on-primary text-[18px]">person</span>
+</div>
+</div>
+</div>
+</header>
+<main class="relative pt-16 md:pt-20 w-full min-h-screen bg-background overflow-x-hidden">
+<div class="w-full px-3 md:px-space-lg py-space-md">
+<div class="flex flex-col w-full gap-space-lg">
+<!-- Ambient Glow Spots -->
+<div class="relative w-full">
+<div class="absolute -top-16 left-1/4 w-96 h-96 bg-primary-container/15 rounded-full blur-[128px] pointer-events-none"></div>
+<div class="absolute top-32 right-12 w-80 h-80 bg-secondary/10 rounded-full blur-[100px] pointer-events-none"></div>
+<!-- Header Section -->
+<div class="relative flex flex-col xl:flex-row xl:items-center justify-between gap-space-md">
+<div class="flex flex-col gap-1">
+<div class="flex items-center gap-2 font-label-md text-label-md text-on-surface-variant tracking-wider uppercase">
+<span>WishMagic OS</span>
+<span class="text-outline">/</span>
+<span class="text-primary font-semibold">Wishes &amp; Orders</span>
+<span class="text-outline">/</span>
+<span class="px-2 py-0.5 rounded-full bg-secondary-container/30 text-on-secondary-container text-label-sm font-semibold">Edge Gateway Live</span>
+</div>
+<div class="flex items-center gap-3">
+<h1 class="font-headline-lg text-headline-lg text-on-surface font-extrabold tracking-tight">Wishes &amp; Orders Intelligence &amp; Moderation</h1>
+<span class="material-symbols-outlined text-primary text-[24px]">verified</span>
+</div>
+<p class="font-body-md text-body-md text-on-surface-variant max-w-3xl">
+          Monitor live generated experiences, ₹49 VIP pass checkouts, unboxing interaction rates, and viral delivery channels across real-time global edge nodes.
+        </p>
+</div>
+<!-- Action Controls -->
+<div class="flex items-center flex-wrap gap-2.5">
+<!-- Live Polling Badge -->
+<div class="flex items-center gap-2 px-3 py-2 rounded-lg bg-surface-container-low/80 backdrop-blur-md">
+<span class="relative flex h-2.5 w-2.5">
+<span class="animate-ping absolute inline-flex h-full w-full rounded-full bg-tertiary opacity-75"></span>
+<span class="relative inline-flex rounded-full h-2.5 w-2.5 bg-tertiary"></span>
+</span>
+<span class="font-label-sm text-label-sm text-on-surface font-medium">Auto-refresh: <strong class="text-tertiary font-semibold">LIVE (3s)</strong></span>
+</div>
+<!-- Export CSV Button -->
+<button class="group flex items-center gap-2 px-3.5 py-2 rounded-lg bg-surface-container-high/60 hover:bg-surface-container-high text-on-surface transition-all duration-200" type="button">
+<span class="material-symbols-outlined text-[18px] text-on-surface-variant group-hover:text-on-surface">download</span>
+<span class="font-label-lg text-label-lg font-medium">Export CSV / Audit</span>
+</button>
+<!-- Manual Comp/Pass Generator Trigger -->
+<button class="flex items-center gap-2 px-4 py-2 rounded-lg bg-gradient-to-r from-primary-container to-secondary text-white font-label-lg text-label-lg font-semibold shadow-[0_0_24px_rgba(124,58,237,0.35)] hover:shadow-[0_0_32px_rgba(236,72,153,0.5)] transition-all duration-300" onclick="document.getElementById('comp-modal').classList.remove('hidden')" type="button">
+<span class="material-symbols-outlined text-[20px]">add_circle</span>
+<span>+ Generate Manual Gift Pass</span>
+</button>
+</div>
+</div>
+</div>
+<!-- Analytics KPI Ribbon -->
+<div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-space-md">
+<!-- KPI 1: Generated Wishes -->
+<div class="relative overflow-hidden rounded-xl bg-surface-container-low/70 backdrop-blur-xl p-space-md shadow-md flex flex-col justify-between">
+<div class="absolute top-0 right-0 w-24 h-24 bg-primary/10 rounded-full blur-2xl pointer-events-none"></div>
+<div class="flex items-start justify-between">
+<div class="flex flex-col">
+<span class="font-label-md text-label-md uppercase text-on-surface-variant tracking-wider">Total Generated Wishes</span>
+<div class="flex items-baseline gap-2 mt-1">
+<span class="font-headline-lg text-headline-lg font-extrabold text-on-surface">142,850</span>
+<span class="inline-flex items-center gap-0.5 px-1.5 py-0.5 rounded-full bg-surface-container-high text-tertiary font-label-sm text-label-sm font-semibold">
+<span class="material-symbols-outlined text-[12px]">trending_up</span>+18.4%
+            </span>
+</div>
+</div>
+<div class="w-10 h-10 rounded-lg bg-primary-container/20 flex items-center justify-center text-primary">
+<span class="material-symbols-outlined text-[22px]">auto_awesome</span>
+</div>
+</div>
+<div class="mt-4 pt-3 flex items-center justify-between text-on-surface-variant font-label-sm text-label-sm">
+<span class="flex items-center gap-1.5"><span class="w-1.5 h-1.5 rounded-full bg-secondary"></span>118,420 Free Viral</span>
+<span class="text-outline">•</span>
+<span class="flex items-center gap-1.5"><span class="w-1.5 h-1.5 rounded-full bg-primary"></span>24,430 VIP Passes</span>
+</div>
+</div>
+<!-- KPI 2: VIP Revenue -->
+<div class="relative overflow-hidden rounded-xl bg-surface-container-low/70 backdrop-blur-xl p-space-md shadow-md flex flex-col justify-between">
+<div class="absolute top-0 right-0 w-24 h-24 bg-secondary/15 rounded-full blur-2xl pointer-events-none"></div>
+<div class="flex items-start justify-between">
+<div class="flex flex-col">
+<span class="font-label-md text-label-md uppercase text-on-surface-variant tracking-wider">VIP Pass Revenue (₹49)</span>
+<div class="flex items-baseline gap-2 mt-1">
+<span class="font-headline-lg text-headline-lg font-extrabold text-secondary">₹11,97,070</span>
+<span class="inline-flex items-center gap-0.5 px-1.5 py-0.5 rounded-full bg-surface-container-high text-secondary font-label-sm text-label-sm font-semibold">
+<span class="material-symbols-outlined text-[12px]">trending_up</span>+24.2%
+            </span>
+</div>
+</div>
+<div class="w-10 h-10 rounded-lg bg-secondary-container/20 flex items-center justify-center text-secondary">
+<span class="material-symbols-outlined text-[22px]">account_balance_wallet</span>
+</div>
+</div>
+<div class="mt-4 pt-3 flex items-center justify-between text-on-surface-variant font-label-sm text-label-sm">
+<span>Instant UPI: <strong class="text-on-surface">94.6%</strong></span>
+<span class="text-outline">•</span>
+<span>Cards: <strong class="text-on-surface">5.4%</strong></span>
+<span class="text-outline">•</span>
+<span class="text-tertiary">0 Chgback</span>
+</div>
+</div>
+<!-- KPI 3: Unboxing Interaction Rate -->
+<div class="relative overflow-hidden rounded-xl bg-surface-container-low/70 backdrop-blur-xl p-space-md shadow-md flex flex-col justify-between">
+<div class="absolute top-0 right-0 w-24 h-24 bg-tertiary/15 rounded-full blur-2xl pointer-events-none"></div>
+<div class="flex items-start justify-between">
+<div class="flex flex-col">
+<span class="font-label-md text-label-md uppercase text-on-surface-variant tracking-wider">Recipient Unboxing Rate</span>
+<div class="flex items-baseline gap-2 mt-1">
+<span class="font-headline-lg text-headline-lg font-extrabold text-on-surface">89.4%</span>
+<span class="inline-flex items-center gap-0.5 px-1.5 py-0.5 rounded-full bg-surface-container-high text-primary font-label-sm text-label-sm font-semibold">
+<span class="material-symbols-outlined text-[12px]">bolt</span>Optimal
+            </span>
+</div>
+</div>
+<div class="w-10 h-10 rounded-lg bg-tertiary-container/30 flex items-center justify-center text-tertiary">
+<span class="material-symbols-outlined text-[22px]">mark_email_read</span>
+</div>
+</div>
+<div class="mt-4 pt-3 flex items-center justify-between text-on-surface-variant font-label-sm text-label-sm">
+<span>Avg Time: <strong class="text-on-surface">42s</strong></span>
+<span class="text-outline">•</span>
+<span>Replays: <strong class="text-on-surface">6.2 / wish</strong></span>
+</div>
+</div>
+<!-- KPI 4: Edge CDN & Active Concurrency -->
+<div class="relative overflow-hidden rounded-xl bg-surface-container-low/70 backdrop-blur-xl p-space-md shadow-md flex flex-col justify-between">
+<div class="absolute top-0 right-0 w-24 h-24 bg-primary-container/20 rounded-full blur-2xl pointer-events-none"></div>
+<div class="flex items-start justify-between">
+<div class="flex flex-col">
+<span class="font-label-md text-label-md uppercase text-on-surface-variant tracking-wider">Live Traffic &amp; Edge Sync</span>
+<div class="flex items-baseline gap-2 mt-1">
+<span class="font-headline-lg text-headline-lg font-extrabold text-primary">840</span>
+<span class="font-body-sm text-body-sm text-on-surface-variant">live viewing</span>
+</div>
+</div>
+<!-- Sparkline visualization SVG -->
+<div class="w-14 h-9">
+<svg class="w-full h-full text-primary" fill="none" viewbox="0 0 100 40">
+<path d="M0 32 Q 20 10, 40 24 T 70 8 T 100 18" fill="none" stroke="currentColor" stroke-linecap="round" stroke-width="2.5"></path>
+<path d="M0 32 Q 20 10, 40 24 T 70 8 T 100 18 L 100 40 L 0 40 Z" fill="currentColor" fill-opacity="0.12"></path>
+</svg>
+</div>
+</div>
+<div class="mt-4 pt-3 flex items-center justify-between text-on-surface-variant font-label-sm text-label-sm">
+<span>Edge Latency: <strong class="text-primary font-semibold">18ms</strong></span>
+<span class="text-outline">•</span>
+<span class="text-tertiary">0 link dropouts</span>
+</div>
+</div>
+</div>
+<!-- Main Multi-Column Console Area -->
+<div class="grid grid-cols-1 xl:grid-cols-12 gap-space-lg">
+<!-- Primary Center-Left: High Density Filter & Orders Table (9 Columns on XL) -->
+<div class="xl:col-span-9 flex flex-col gap-space-md">
+<!-- Glass Filter Toolbar -->
+<div class="rounded-xl bg-surface-container-low/75 backdrop-blur-xl p-space-md shadow-md flex flex-col gap-space-md">
+<!-- Search and Quick Action Bar -->
+<div class="flex flex-col md:flex-row items-center gap-space-sm justify-between">
+<div class="relative w-full md:max-w-xl">
+<span class="material-symbols-outlined absolute left-3.5 top-1/2 -translate-y-1/2 text-on-surface-variant text-[20px]">search</span>
+<input class="w-full h-11 pl-11 pr-14 rounded-lg bg-surface-container-lowest/80 text-on-surface placeholder:text-outline font-body-sm text-body-sm transition-all focus:outline-none focus:bg-surface-container-high focus:shadow-[0_0_0_2px_rgba(210,187,255,0.4)]" id="orderSearchInput" placeholder="Search by Order ID (#WM-...), Sender, Recipient phone, or Wish Slug..." type="text"/>
+<span class="absolute right-3 top-1/2 -translate-y-1/2 px-1.5 py-0.5 rounded bg-surface-container-highest text-on-surface-variant font-label-sm text-label-sm">⌘F</span>
+</div>
+<div class="flex items-center gap-2 w-full md:w-auto justify-end">
+<!-- Occasion Filter -->
+<select class="h-10 px-3 rounded-lg bg-surface-container-lowest/80 text-on-surface font-body-sm text-body-sm focus:outline-none focus:bg-surface-container-high cursor-pointer">
+<option value="all">All Occasions</option>
+<option value="birthday">Birthdays 🎂</option>
+<option value="romance">Love &amp; Romance ❤️</option>
+<option value="anniversary">Anniversaries 🥂</option>
+<option value="diwali">Diwali Lights 🪔</option>
+<option value="corporate">Thank You / Corporate ✨</option>
+</select>
+<!-- Channel Filter -->
+<select class="h-10 px-3 rounded-lg bg-surface-container-lowest/80 text-on-surface font-body-sm text-body-sm focus:outline-none focus:bg-surface-container-high cursor-pointer">
+<option value="all">All Channels</option>
+<option value="wa">WhatsApp Direct</option>
+<option value="qr">Dynamic QR Code</option>
+<option value="ig">Instagram DM</option>
+<option value="link">Custom Secret Link</option>
+</select>
+<!-- Date Scope Dropdown -->
+<div class="relative">
+<button class="h-10 px-3 rounded-lg bg-surface-container-high text-on-surface font-body-sm text-body-sm flex items-center gap-1.5 hover:bg-surface-bright" type="button">
+<span class="material-symbols-outlined text-[16px]">calendar_today</span>
+<span>Last 24 Hours</span>
+<span class="material-symbols-outlined text-[14px]">expand_more</span>
+</button>
+</div>
+</div>
+</div>
+<!-- Segmented Status Tabs & Bulk Action Pill -->
+<div class="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pt-2">
+<!-- Filter Tabs -->
+<div class="flex items-center gap-1 overflow-x-auto pb-1 sm:pb-0 font-body-sm text-body-sm scrollbar-none">
+<button class="px-3.5 py-1.5 rounded-lg bg-primary-container text-on-primary-container font-semibold shadow-sm whitespace-nowrap" type="button">
+              All Wishes <span class="ml-1 text-on-primary-container/80 text-label-sm">142,850</span>
+</button>
+<button class="px-3.5 py-1.5 rounded-lg text-on-surface-variant hover:text-on-surface hover:bg-surface-container-high transition-all whitespace-nowrap" type="button">
+              VIP Paid ₹49 <span class="ml-1 px-1.5 py-0.2 rounded-full bg-secondary-container/40 text-secondary text-label-sm font-semibold">24,430</span>
+</button>
+<button class="px-3.5 py-1.5 rounded-lg text-on-surface-variant hover:text-on-surface hover:bg-surface-container-high transition-all whitespace-nowrap" type="button">
+              Free Viral Tier <span class="ml-1 text-outline text-label-sm">118,420</span>
+</button>
+<button class="px-3.5 py-1.5 rounded-lg text-on-surface-variant hover:text-on-surface hover:bg-surface-container-high transition-all whitespace-nowrap" type="button">
+              Pending Unbox <span class="ml-1 px-1.5 py-0.2 rounded-full bg-tertiary-container/30 text-tertiary text-label-sm font-semibold">1,420</span>
+</button>
+<button class="px-3.5 py-1.5 rounded-lg text-on-surface-variant hover:text-on-surface hover:bg-surface-container-high transition-all whitespace-nowrap flex items-center gap-1.5" type="button">
+<span>Flagged / Moderation</span>
+<span class="w-2 h-2 rounded-full bg-error"></span>
+<span class="text-error font-semibold text-label-sm">4</span>
+</button>
+</div>
+<!-- Quick Bulk Actions Dropdown -->
+<div class="flex items-center gap-2 shrink-0">
+<span class="font-label-sm text-label-sm text-on-surface-variant">Selected: <strong class="text-primary font-semibold">0</strong></span>
+<button class="h-8 px-2.5 rounded-lg bg-surface-container-high text-on-surface-variant hover:text-on-surface font-label-md text-label-md flex items-center gap-1" type="button">
+<span>Bulk Actions</span>
+<span class="material-symbols-outlined text-[16px]">keyboard_arrow_down</span>
+</button>
+</div>
+</div>
+</div>
+<!-- High-Density Orders & Wishes Data Table -->
+<div class="relative overflow-hidden rounded-xl bg-surface-container-low/75 backdrop-blur-xl shadow-lg">
+<div class="overflow-x-auto">
+<table class="w-full text-left font-body-sm text-body-sm border-collapse">
+<thead>
+<tr class="bg-surface-container-lowest/80 text-on-surface-variant font-label-md text-label-md uppercase tracking-wider">
+<th class="py-3.5 pl-4 pr-2 w-10">
+<input class="rounded bg-surface-container-high text-primary-container focus:ring-0 cursor-pointer" type="checkbox"/>
+</th>
+<th class="py-3.5 px-3">Order / Wish ID</th>
+<th class="py-3.5 px-3">Sender ➔ Recipient</th>
+<th class="py-3.5 px-3">Template &amp; Soundscape</th>
+<th class="py-3.5 px-3">Channel</th>
+<th class="py-3.5 px-3">Monetization</th>
+<th class="py-3.5 px-3">Unbox Engagement</th>
+<th class="py-3.5 pr-4 pl-2 text-right">Actions</th>
+</tr>
+</thead>
+<tbody class="text-on-surface divide-none">
+<!-- ROW 1 -->
+<tr class="hover:bg-primary-container/5 transition-colors group">
+<td class="py-3 pl-4 pr-2">
+<input class="rounded bg-surface-container-high text-primary cursor-pointer" type="checkbox"/>
+</td>
+<td class="py-3 px-3 whitespace-nowrap">
+<div class="flex items-center gap-1.5">
+<span class="font-label-md text-label-md font-semibold text-primary">#WM-98412</span>
+<button class="opacity-0 group-hover:opacity-100 text-outline hover:text-on-surface transition-opacity" title="Copy ID" type="button">
+<span class="material-symbols-outlined text-[14px]">content_copy</span>
+</button>
+</div>
+<span class="font-label-sm text-label-sm text-on-surface-variant">2 mins ago</span>
+</td>
+<td class="py-3 px-3">
+<div class="flex items-center gap-2.5 min-w-[210px]">
+<div class="w-8 h-8 rounded-full bg-primary/20 text-primary flex items-center justify-center font-bold text-[12px] shrink-0">RS</div>
+<div class="flex flex-col min-w-0">
+<div class="flex items-center gap-1 truncate font-semibold text-on-surface">
+<span>Rohan S.</span>
+<span class="text-on-surface-variant text-[11px] font-normal">➔</span>
+<span class="text-secondary truncate">Priya Patel</span>
+</div>
+<span class="font-label-sm text-label-sm text-on-surface-variant truncate">+91 98201 44102 • Birthday</span>
+</div>
+</div>
+</td>
+<td class="py-3 px-3">
+<div class="flex items-center gap-2 min-w-[190px]">
+<div class="w-7 h-7 rounded-lg bg-surface-container-high flex items-center justify-center text-primary shrink-0">
+<span class="material-symbols-outlined text-[16px]">celebration</span>
+</div>
+<div class="flex flex-col truncate">
+<span class="font-medium text-on-surface truncate">Glitter Birthday Bash</span>
+<span class="font-label-sm text-label-sm text-on-surface-variant truncate">Lo-Fi Celestial Waltz</span>
+</div>
+</div>
+</td>
+<td class="py-3 px-3 whitespace-nowrap">
+<span class="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-surface-container-high text-on-surface font-label-sm text-label-sm">
+<span class="w-1.5 h-1.5 rounded-full bg-tertiary"></span>
+<span>WhatsApp</span>
+</span>
+<div class="text-[10px] text-on-surface-variant font-label-sm mt-0.5">Shared 4x</div>
+</td>
+<td class="py-3 px-3 whitespace-nowrap">
+<div class="flex flex-col">
+<span class="inline-flex items-center gap-1 px-2 py-0.5 rounded-md bg-secondary-container/30 text-on-secondary-container font-label-sm text-label-sm font-semibold w-max">
+<span class="material-symbols-outlined text-[12px]">verified</span>
+<span>VIP Pass ₹49</span>
+</span>
+<span class="font-label-sm text-label-sm text-outline mt-0.5">UPI #pay_Nz98231</span>
+</div>
+</td>
+<td class="py-3 px-3 whitespace-nowrap">
+<div class="flex items-center gap-2">
+<span class="inline-flex items-center gap-1 px-2.5 py-1 rounded-full bg-surface-container-high text-tertiary font-label-sm text-label-sm font-medium">
+<span class="material-symbols-outlined text-[14px]">magic_button</span>
+<span>Opened 3x</span>
+</span>
+<span class="font-label-sm text-label-sm text-on-surface-variant">3m 14s stay</span>
+</div>
+</td>
+<td class="py-3 pr-4 pl-2 text-right whitespace-nowrap">
+<div class="flex items-center justify-end gap-1.5">
+<button class="px-2.5 py-1.5 rounded-lg bg-surface-container-high hover:bg-primary-container hover:text-on-primary-container text-on-surface font-label-sm text-label-sm transition-all flex items-center gap-1" onclick="previewWishModal('Priya Patel', 'Glitter Birthday Bash', 'Rohan Sharma', 'Happy 24th Birthday to the most shining soul! May this year bring endless magic.')" type="button">
+<span>Inspect</span>
+<span class="material-symbols-outlined text-[13px]">open_in_new</span>
+</button>
+<button class="p-1.5 rounded-lg text-on-surface-variant hover:text-on-surface hover:bg-surface-container-high transition-colors" title="More options" type="button">
+<span class="material-symbols-outlined text-[18px]">more_vert</span>
+</button>
+</div>
+</td>
+</tr>
+<!-- ROW 2 -->
+<tr class="hover:bg-primary-container/5 transition-colors group bg-surface-container-lowest/30">
+<td class="py-3 pl-4 pr-2">
+<input class="rounded bg-surface-container-high text-primary cursor-pointer" type="checkbox"/>
+</td>
+<td class="py-3 px-3 whitespace-nowrap">
+<div class="flex items-center gap-1.5">
+<span class="font-label-md text-label-md font-semibold text-primary">#WM-98411</span>
+<button class="opacity-0 group-hover:opacity-100 text-outline hover:text-on-surface transition-opacity" title="Copy ID" type="button">
+<span class="material-symbols-outlined text-[14px]">content_copy</span>
+</button>
+</div>
+<span class="font-label-sm text-label-sm text-on-surface-variant">6 mins ago</span>
+</td>
+<td class="py-3 px-3">
+<div class="flex items-center gap-2.5 min-w-[210px]">
+<div class="w-8 h-8 rounded-full bg-secondary-container/40 text-secondary flex items-center justify-center font-bold text-[12px] shrink-0">AK</div>
+<div class="flex flex-col min-w-0">
+<div class="flex items-center gap-1 truncate font-semibold text-on-surface">
+<span>Ananya K.</span>
+<span class="text-on-surface-variant text-[11px] font-normal">➔</span>
+<span class="text-on-surface truncate">Kabir M.</span>
+</div>
+<span class="font-label-sm text-label-sm text-on-surface-variant truncate">+91 97112 00983 • Friend</span>
+</div>
+</div>
+</td>
+<td class="py-3 px-3">
+<div class="flex items-center gap-2 min-w-[190px]">
+<div class="w-7 h-7 rounded-lg bg-surface-container-high flex items-center justify-center text-secondary shrink-0">
+<span class="material-symbols-outlined text-[16px]">pets</span>
+</div>
+<div class="flex flex-col truncate">
+<span class="font-medium text-on-surface truncate">Purr-fect Birthday 3D</span>
+<span class="font-label-sm text-label-sm text-on-surface-variant truncate">Meow Party Bass Boost</span>
+</div>
+</div>
+</td>
+<td class="py-3 px-3 whitespace-nowrap">
+<span class="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-surface-container-high text-on-surface font-label-sm text-label-sm">
+<span class="material-symbols-outlined text-[13px] text-primary">qr_code_2</span>
+<span>Dynamic QR</span>
+</span>
+<div class="text-[10px] text-on-surface-variant font-label-sm mt-0.5">Scanned on Box</div>
+</td>
+<td class="py-3 px-3 whitespace-nowrap">
+<span class="inline-flex items-center gap-1 px-2 py-0.5 rounded-md bg-surface-container-high text-on-surface-variant font-label-sm text-label-sm">
+<span>Free Catalyst</span>
+</span>
+</td>
+<td class="py-3 px-3 whitespace-nowrap">
+<div class="flex items-center gap-2">
+<span class="inline-flex items-center gap-1 px-2.5 py-1 rounded-full bg-surface-container-high text-on-surface font-label-sm text-label-sm">
+<span class="material-symbols-outlined text-[13px] text-primary">visibility</span>
+<span>Opened 1x</span>
+</span>
+<span class="font-label-sm text-label-sm text-on-surface-variant">48s duration</span>
+</div>
+</td>
+<td class="py-3 pr-4 pl-2 text-right whitespace-nowrap">
+<div class="flex items-center justify-end gap-1.5">
+<button class="px-2.5 py-1.5 rounded-lg bg-surface-container-high hover:bg-primary-container hover:text-on-primary-container text-on-surface font-label-sm text-label-sm transition-all flex items-center gap-1" onclick="previewWishModal('Kabir M.', 'Purr-fect Birthday 3D', 'Ananya K.', 'Hope your birthday is paws-itively epic!')" type="button">
+<span>Inspect</span>
+<span class="material-symbols-outlined text-[13px]">open_in_new</span>
+</button>
+<button class="p-1.5 rounded-lg text-on-surface-variant hover:text-on-surface hover:bg-surface-container-high transition-colors" title="More options" type="button">
+<span class="material-symbols-outlined text-[18px]">more_vert</span>
+</button>
+</div>
+</td>
+</tr>
+<!-- ROW 3 -->
+<tr class="hover:bg-primary-container/5 transition-colors group">
+<td class="py-3 pl-4 pr-2">
+<input class="rounded bg-surface-container-high text-primary cursor-pointer" type="checkbox"/>
+</td>
+<td class="py-3 px-3 whitespace-nowrap">
+<div class="flex items-center gap-1.5">
+<span class="font-label-md text-label-md font-semibold text-primary">#WM-98410</span>
+<button class="opacity-0 group-hover:opacity-100 text-outline hover:text-on-surface transition-opacity" title="Copy ID" type="button">
+<span class="material-symbols-outlined text-[14px]">content_copy</span>
+</button>
+</div>
+<span class="font-label-sm text-label-sm text-on-surface-variant">11 mins ago</span>
+</td>
+<td class="py-3 px-3">
+<div class="flex items-center gap-2.5 min-w-[210px]">
+<div class="w-8 h-8 rounded-full bg-tertiary-container/40 text-tertiary flex items-center justify-center font-bold text-[12px] shrink-0">VS</div>
+<div class="flex flex-col min-w-0">
+<div class="flex items-center gap-1 truncate font-semibold text-on-surface">
+<span>Vikram &amp; Sneha</span>
+<span class="text-on-surface-variant text-[11px] font-normal">➔</span>
+<span class="text-tertiary truncate">Parents (30th)</span>
+</div>
+<span class="font-label-sm text-label-sm text-on-surface-variant truncate">+91 94441 88390 • Anniversary</span>
+</div>
+</div>
+</td>
+<td class="py-3 px-3">
+<div class="flex items-center gap-2 min-w-[190px]">
+<div class="w-7 h-7 rounded-lg bg-surface-container-high flex items-center justify-center text-tertiary shrink-0">
+<span class="material-symbols-outlined text-[16px]">workspace_premium</span>
+</div>
+<div class="flex flex-col truncate">
+<span class="font-medium text-on-surface truncate">Golden Anniversary 3D</span>
+<span class="font-label-sm text-label-sm text-on-surface-variant truncate">Violin Serenade 432Hz</span>
+</div>
+</div>
+</td>
+<td class="py-3 px-3 whitespace-nowrap">
+<span class="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-surface-container-high text-on-surface font-label-sm text-label-sm">
+<span class="w-1.5 h-1.5 rounded-full bg-tertiary"></span>
+<span>WhatsApp VIP</span>
+</span>
+<div class="text-[10px] text-on-surface-variant font-label-sm mt-0.5">Family Group Circulated</div>
+</td>
+<td class="py-3 px-3 whitespace-nowrap">
+<div class="flex flex-col">
+<span class="inline-flex items-center gap-1 px-2 py-0.5 rounded-md bg-secondary-container/30 text-on-secondary-container font-label-sm text-label-sm font-semibold w-max">
+<span class="material-symbols-outlined text-[12px]">verified</span>
+<span>VIP Pass ₹49</span>
+</span>
+<span class="font-label-sm text-label-sm text-outline mt-0.5">UPI #pay_Kk44199</span>
+</div>
+</td>
+<td class="py-3 px-3 whitespace-nowrap">
+<div class="flex items-center gap-2">
+<span class="inline-flex items-center gap-1 px-2.5 py-1 rounded-full bg-secondary-container/20 text-secondary font-label-sm text-label-sm font-bold">
+<span class="material-symbols-outlined text-[13px]">groups</span>
+<span>Opened 14x</span>
+</span>
+<span class="font-label-sm text-label-sm text-on-surface-variant">Family viral!</span>
+</div>
+</td>
+<td class="py-3 pr-4 pl-2 text-right whitespace-nowrap">
+<div class="flex items-center justify-end gap-1.5">
+<button class="px-2.5 py-1.5 rounded-lg bg-surface-container-high hover:bg-primary-container hover:text-on-primary-container text-on-surface font-label-sm text-label-sm transition-all flex items-center gap-1" onclick="previewWishModal('Mom &amp; Dad', 'Golden Anniversary 3D', 'Vikram &amp; Sneha', '30 years of unconditional love, resilience, and inspiration.')" type="button">
+<span>Inspect</span>
+<span class="material-symbols-outlined text-[13px]">open_in_new</span>
+</button>
+<button class="p-1.5 rounded-lg text-on-surface-variant hover:text-on-surface hover:bg-surface-container-high transition-colors" title="More options" type="button">
+<span class="material-symbols-outlined text-[18px]">more_vert</span>
+</button>
+</div>
+</td>
+</tr>
+<!-- ROW 4 -->
+<tr class="hover:bg-primary-container/5 transition-colors group bg-surface-container-lowest/30">
+<td class="py-3 pl-4 pr-2">
+<input class="rounded bg-surface-container-high text-primary cursor-pointer" type="checkbox"/>
+</td>
+<td class="py-3 px-3 whitespace-nowrap">
+<div class="flex items-center gap-1.5">
+<span class="font-label-md text-label-md font-semibold text-primary">#WM-98409</span>
+<button class="opacity-0 group-hover:opacity-100 text-outline hover:text-on-surface transition-opacity" title="Copy ID" type="button">
+<span class="material-symbols-outlined text-[14px]">content_copy</span>
+</button>
+</div>
+<span class="font-label-sm text-label-sm text-on-surface-variant">19 mins ago</span>
+</td>
+<td class="py-3 px-3">
+<div class="flex items-center gap-2.5 min-w-[210px]">
+<div class="w-8 h-8 rounded-full bg-primary-container/30 text-primary-fixed flex items-center justify-center font-bold text-[12px] shrink-0">AR</div>
+<div class="flex flex-col min-w-0">
+<div class="flex items-center gap-1 truncate font-semibold text-on-surface">
+<span>Aditya Roy</span>
+<span class="text-on-surface-variant text-[11px] font-normal">➔</span>
+<span class="text-primary truncate">Meera Sen</span>
+</div>
+<span class="font-label-sm text-label-sm text-on-surface-variant truncate">meera.sen@gmail... • Love</span>
+</div>
+</div>
+</td>
+<td class="py-3 px-3">
+<div class="flex items-center gap-2 min-w-[190px]">
+<div class="w-7 h-7 rounded-lg bg-surface-container-high flex items-center justify-center text-secondary shrink-0">
+<span class="material-symbols-outlined text-[16px]">favorite</span>
+</div>
+<div class="flex flex-col truncate">
+<span class="font-medium text-on-surface truncate">Endless Love Romantic 3D</span>
+<span class="font-label-sm text-label-sm text-on-surface-variant truncate">Acoustic Midnight Glow</span>
+</div>
+</div>
+</td>
+<td class="py-3 px-3 whitespace-nowrap">
+<span class="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-surface-container-high text-on-surface font-label-sm text-label-sm">
+<span class="material-symbols-outlined text-[13px] text-secondary">link</span>
+<span>Secret Link</span>
+</span>
+<div class="text-[10px] text-on-surface-variant font-label-sm mt-0.5">Password Encrypted</div>
+</td>
+<td class="py-3 px-3 whitespace-nowrap">
+<div class="flex flex-col">
+<span class="inline-flex items-center gap-1 px-2 py-0.5 rounded-md bg-secondary-container/30 text-on-secondary-container font-label-sm text-label-sm font-semibold w-max">
+<span class="material-symbols-outlined text-[12px]">verified</span>
+<span>VIP Pass ₹49</span>
+</span>
+<span class="font-label-sm text-label-sm text-outline mt-0.5">Card #pay_Qq12003</span>
+</div>
+</td>
+<td class="py-3 px-3 whitespace-nowrap">
+<div class="flex items-center gap-2">
+<span class="inline-flex items-center gap-1 px-2.5 py-1 rounded-full bg-surface-container-high text-tertiary font-label-sm text-label-sm">
+<span class="material-symbols-outlined text-[13px]">lock_open</span>
+<span>Opened 6x</span>
+</span>
+<span class="font-label-sm text-label-sm text-on-surface-variant">5m 20s total</span>
+</div>
+</td>
+<td class="py-3 pr-4 pl-2 text-right whitespace-nowrap">
+<div class="flex items-center justify-end gap-1.5">
+<button class="px-2.5 py-1.5 rounded-lg bg-surface-container-high hover:bg-primary-container hover:text-on-primary-container text-on-surface font-label-sm text-label-sm transition-all flex items-center gap-1" onclick="previewWishModal('Meera Sen', 'Endless Love Romantic 3D', 'Aditya Roy', 'To forever and the universe in between. Every second with you is magic.')" type="button">
+<span>Inspect</span>
+<span class="material-symbols-outlined text-[13px]">open_in_new</span>
+</button>
+<button class="p-1.5 rounded-lg text-on-surface-variant hover:text-on-surface hover:bg-surface-container-high transition-colors" title="More options" type="button">
+<span class="material-symbols-outlined text-[18px]">more_vert</span>
+</button>
+</div>
+</td>
+</tr>
+<!-- ROW 5 -->
+<tr class="hover:bg-primary-container/5 transition-colors group">
+<td class="py-3 pl-4 pr-2">
+<input class="rounded bg-surface-container-high text-primary cursor-pointer" type="checkbox"/>
+</td>
+<td class="py-3 px-3 whitespace-nowrap">
+<div class="flex items-center gap-1.5">
+<span class="font-label-md text-label-md font-semibold text-primary">#WM-98408</span>
+<button class="opacity-0 group-hover:opacity-100 text-outline hover:text-on-surface transition-opacity" title="Copy ID" type="button">
+<span class="material-symbols-outlined text-[14px]">content_copy</span>
+</button>
+</div>
+<span class="font-label-sm text-label-sm text-on-surface-variant">32 mins ago</span>
+</td>
+<td class="py-3 px-3">
+<div class="flex items-center gap-2.5 min-w-[210px]">
+<div class="w-8 h-8 rounded-full bg-surface-variant text-on-surface flex items-center justify-center font-bold text-[12px] shrink-0">NG</div>
+<div class="flex flex-col min-w-0">
+<div class="flex items-center gap-1 truncate font-semibold text-on-surface">
+<span>Neha Gupta</span>
+<span class="text-on-surface-variant text-[11px] font-normal">➔</span>
+<span class="text-on-surface truncate">Tanmay</span>
+</div>
+<span class="font-label-sm text-label-sm text-on-surface-variant truncate">+91 99820 11200 • Birthday</span>
+</div>
+</div>
+</td>
+<td class="py-3 px-3">
+<div class="flex items-center gap-2 min-w-[190px]">
+<div class="w-7 h-7 rounded-lg bg-surface-container-high flex items-center justify-center text-primary shrink-0">
+<span class="material-symbols-outlined text-[16px]">flare</span>
+</div>
+<div class="flex flex-col truncate">
+<span class="font-medium text-on-surface truncate">Midnight Neon Fireworks</span>
+<span class="font-label-sm text-label-sm text-on-surface-variant truncate">EDM Party Anthem 2025</span>
+</div>
+</div>
+</td>
+<td class="py-3 px-3 whitespace-nowrap">
+<span class="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-surface-container-high text-on-surface font-label-sm text-label-sm">
+<span class="w-1.5 h-1.5 rounded-full bg-tertiary"></span>
+<span>WhatsApp</span>
+</span>
+<div class="text-[10px] text-tertiary font-label-sm mt-0.5">Delivered ✓✓</div>
+</td>
+<td class="py-3 px-3 whitespace-nowrap">
+<div class="flex flex-col">
+<span class="inline-flex items-center gap-1 px-2 py-0.5 rounded-md bg-secondary-container/30 text-on-secondary-container font-label-sm text-label-sm font-semibold w-max">
+<span class="material-symbols-outlined text-[12px]">verified</span>
+<span>VIP Pass ₹49</span>
+</span>
+<span class="font-label-sm text-label-sm text-outline mt-0.5">UPI #pay_Mm89104</span>
+</div>
+</td>
+<td class="py-3 px-3 whitespace-nowrap">
+<span class="inline-flex items-center gap-1 px-2.5 py-1 rounded-full bg-surface-container-high text-on-surface-variant font-label-sm text-label-sm">
+<span class="material-symbols-outlined text-[14px] text-tertiary">schedule</span>
+<span>Delivered (Unopened)</span>
+</span>
+</td>
+<td class="py-3 pr-4 pl-2 text-right whitespace-nowrap">
+<div class="flex items-center justify-end gap-1.5">
+<button class="px-2.5 py-1.5 rounded-lg bg-surface-container-high hover:bg-secondary-container/40 hover:text-secondary text-on-surface font-label-sm text-label-sm transition-all flex items-center gap-1" type="button">
+<span class="material-symbols-outlined text-[13px]">forward_to_inbox</span>
+<span>Resend</span>
+</button>
+<button class="p-1.5 rounded-lg text-on-surface-variant hover:text-on-surface hover:bg-surface-container-high transition-colors" title="More options" type="button">
+<span class="material-symbols-outlined text-[18px]">more_vert</span>
+</button>
+</div>
+</td>
+</tr>
+<!-- ROW 6 -->
+<tr class="hover:bg-primary-container/5 transition-colors group bg-surface-container-lowest/30">
+<td class="py-3 pl-4 pr-2">
+<input class="rounded bg-surface-container-high text-primary cursor-pointer" type="checkbox"/>
+</td>
+<td class="py-3 px-3 whitespace-nowrap">
+<div class="flex items-center gap-1.5">
+<span class="font-label-md text-label-md font-semibold text-primary">#WM-98407</span>
+<button class="opacity-0 group-hover:opacity-100 text-outline hover:text-on-surface transition-opacity" title="Copy ID" type="button">
+<span class="material-symbols-outlined text-[14px]">content_copy</span>
+</button>
+</div>
+<span class="font-label-sm text-label-sm text-on-surface-variant">54 mins ago</span>
+</td>
+<td class="py-3 px-3">
+<div class="flex items-center gap-2.5 min-w-[210px]">
+<div class="w-8 h-8 rounded-full bg-primary/20 text-primary flex items-center justify-center font-bold text-[12px] shrink-0">RV</div>
+<div class="flex flex-col min-w-0">
+<div class="flex items-center gap-1 truncate font-semibold text-on-surface">
+<span>Rahul Verma</span>
+<span class="text-on-surface-variant text-[11px] font-normal">➔</span>
+<span class="text-on-surface truncate">Engineering Pod</span>
+</div>
+<span class="font-label-sm text-label-sm text-on-surface-variant truncate">team-slack-channel • Work</span>
+</div>
+</div>
+</td>
+<td class="py-3 px-3">
+<div class="flex items-center gap-2 min-w-[190px]">
+<div class="w-7 h-7 rounded-lg bg-surface-container-high flex items-center justify-center text-primary shrink-0">
+<span class="material-symbols-outlined text-[16px]">handshake</span>
+</div>
+<div class="flex flex-col truncate">
+<span class="font-medium text-on-surface truncate">Thank You Sparkle</span>
+<span class="font-label-sm text-label-sm text-on-surface-variant truncate">Inspiring Corporate Chill</span>
+</div>
+</div>
+</td>
+<td class="py-3 px-3 whitespace-nowrap">
+<span class="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-surface-container-high text-on-surface font-label-sm text-label-sm">
+<span class="material-symbols-outlined text-[13px] text-tertiary">hub</span>
+<span>Slack Web Link</span>
+</span>
+<div class="text-[10px] text-on-surface-variant font-label-sm mt-0.5">Multi-recipient</div>
+</td>
+<td class="py-3 px-3 whitespace-nowrap">
+<span class="inline-flex items-center gap-1 px-2 py-0.5 rounded-md bg-surface-container-high text-on-surface-variant font-label-sm text-label-sm">
+<span>Free Catalyst</span>
+</span>
+</td>
+<td class="py-3 px-3 whitespace-nowrap">
+<div class="flex items-center gap-2">
+<span class="inline-flex items-center gap-1 px-2.5 py-1 rounded-full bg-primary-container/20 text-primary font-label-sm text-label-sm font-semibold">
+<span class="material-symbols-outlined text-[13px]">bar_chart</span>
+<span>Opened 22x</span>
+</span>
+<span class="font-label-sm text-label-sm text-on-surface-variant">Viral peer hit</span>
+</div>
+</td>
+<td class="py-3 pr-4 pl-2 text-right whitespace-nowrap">
+<div class="flex items-center justify-end gap-1.5">
+<button class="px-2.5 py-1.5 rounded-lg bg-surface-container-high hover:bg-primary-container hover:text-on-primary-container text-on-surface font-label-sm text-label-sm transition-all flex items-center gap-1" onclick="previewWishModal('Engineering Pod', 'Thank You Sparkle', 'Rahul Verma', 'Huge gratitude to the entire team for pushing through launch week like champions!')" type="button">
+<span>Inspect</span>
+<span class="material-symbols-outlined text-[13px]">open_in_new</span>
+</button>
+<button class="p-1.5 rounded-lg text-on-surface-variant hover:text-on-surface hover:bg-surface-container-high transition-colors" title="More options" type="button">
+<span class="material-symbols-outlined text-[18px]">more_vert</span>
+</button>
+</div>
+</td>
+</tr>
+<!-- ROW 7 (Flagged Example) -->
+<tr class="hover:bg-error-container/10 transition-colors group">
+<td class="py-3 pl-4 pr-2">
+<input class="rounded bg-surface-container-high text-primary cursor-pointer" type="checkbox"/>
+</td>
+<td class="py-3 px-3 whitespace-nowrap">
+<div class="flex items-center gap-1.5">
+<span class="font-label-md text-label-md font-semibold text-error">#WM-98406</span>
+<button class="opacity-0 group-hover:opacity-100 text-outline hover:text-on-surface transition-opacity" title="Copy ID" type="button">
+<span class="material-symbols-outlined text-[14px]">content_copy</span>
+</button>
+</div>
+<span class="font-label-sm text-label-sm text-on-surface-variant">1h 14m ago</span>
+</td>
+<td class="py-3 px-3">
+<div class="flex items-center gap-2.5 min-w-[210px]">
+<div class="w-8 h-8 rounded-full bg-error-container text-error flex items-center justify-center font-bold text-[12px] shrink-0">SB</div>
+<div class="flex flex-col min-w-0">
+<div class="flex items-center gap-1 truncate font-semibold text-on-surface">
+<span>Simran Bhatia</span>
+<span class="text-on-surface-variant text-[11px] font-normal">➔</span>
+<span class="text-error truncate">Aarav</span>
+</div>
+<span class="font-label-sm text-label-sm text-on-surface-variant truncate">+91 93210 99812 • Diwali</span>
+</div>
+</div>
+</td>
+<td class="py-3 px-3">
+<div class="flex items-center gap-2 min-w-[190px]">
+<div class="w-7 h-7 rounded-lg bg-surface-container-high flex items-center justify-center text-tertiary shrink-0">
+<span class="material-symbols-outlined text-[16px]">light_mode</span>
+</div>
+<div class="flex flex-col truncate">
+<span class="font-medium text-on-surface truncate">Diwali Magical Pass</span>
+<span class="font-label-sm text-label-sm text-on-surface-variant truncate">Dhol Tasha Euphoria</span>
+</div>
+</div>
+</td>
+<td class="py-3 px-3 whitespace-nowrap">
+<span class="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-surface-container-high text-on-surface font-label-sm text-label-sm">
+<span class="w-1.5 h-1.5 rounded-full bg-tertiary"></span>
+<span>WhatsApp</span>
+</span>
+<div class="text-[10px] text-error font-label-sm mt-0.5">Rate Limit 84 req/m</div>
+</td>
+<td class="py-3 px-3 whitespace-nowrap">
+<div class="flex flex-col">
+<span class="inline-flex items-center gap-1 px-2 py-0.5 rounded-md bg-secondary-container/30 text-on-secondary-container font-label-sm text-label-sm font-semibold w-max">
+<span class="material-symbols-outlined text-[12px]">verified</span>
+<span>VIP Pass ₹49</span>
+</span>
+<span class="font-label-sm text-label-sm text-outline mt-0.5">UPI #pay_Yy99411</span>
+</div>
+</td>
+<td class="py-3 px-3 whitespace-nowrap">
+<span class="inline-flex items-center gap-1 px-2.5 py-1 rounded-full bg-error-container/40 text-error font-label-sm text-label-sm font-semibold">
+<span class="material-symbols-outlined text-[14px]">warning</span>
+<span>Excessive Hits (Spam Bot?)</span>
+</span>
+</td>
+<td class="py-3 pr-4 pl-2 text-right whitespace-nowrap">
+<div class="flex items-center justify-end gap-1.5">
+<button class="px-2.5 py-1.5 rounded-lg bg-error-container text-on-error font-label-sm text-label-sm hover:brightness-110 transition-all flex items-center gap-1" type="button">
+<span class="material-symbols-outlined text-[13px]">gavel</span>
+<span>Review</span>
+</button>
+<button class="p-1.5 rounded-lg text-on-surface-variant hover:text-on-surface hover:bg-surface-container-high transition-colors" title="More options" type="button">
+<span class="material-symbols-outlined text-[18px]">more_vert</span>
+</button>
+</div>
+</td>
+</tr>
+</tbody>
+</table>
+</div>
+<!-- Table Footer / Pagination Controls -->
+<div class="px-space-md py-3 bg-surface-container-lowest/80 flex flex-col md:flex-row items-center justify-between gap-3">
+<div class="flex items-center gap-2 font-label-md text-label-md text-on-surface-variant">
+<span>Showing <strong class="text-on-surface">1 - 25</strong> of <strong class="text-primary font-semibold">142,850</strong> total wishes</span>
+<span class="text-outline">•</span>
+<span class="text-tertiary">Edge Cache Hit Ratio: 98.7%</span>
+</div>
+<div class="flex items-center gap-2">
+<button class="px-3 py-1.5 rounded-lg bg-surface-container-high text-on-surface-variant hover:text-on-surface font-label-md text-label-md disabled:opacity-40" disabled="" type="button">
+              Previous
+            </button>
+<div class="flex items-center gap-1 font-label-md text-label-md">
+<button class="w-8 h-8 rounded-lg bg-primary-container text-on-primary-container font-semibold" type="button">1</button>
+<button class="w-8 h-8 rounded-lg text-on-surface-variant hover:bg-surface-container-high" type="button">2</button>
+<button class="w-8 h-8 rounded-lg text-on-surface-variant hover:bg-surface-container-high" type="button">3</button>
+<span class="text-outline px-1">...</span>
+<button class="w-8 h-8 rounded-lg text-on-surface-variant hover:bg-surface-container-high" type="button">5,714</button>
+</div>
+<button class="px-3 py-1.5 rounded-lg bg-surface-container-high text-on-surface-variant hover:text-on-surface font-label-md text-label-md" type="button">
+              Next
+            </button>
+<div class="hidden lg:flex items-center gap-1.5 pl-3">
+<span class="font-label-sm text-label-sm text-on-surface-variant">Jump:</span>
+<input class="w-20 h-8 px-2 rounded-lg bg-surface-container-high text-on-surface font-label-sm text-label-sm focus:outline-none focus:bg-surface-bright" placeholder="#WM-" type="text"/>
+</div>
+</div>
+</div>
+</div>
+</div>
+<!-- Secondary Right Column: Live Telemetry, Activity Stream & Quick Diagnostics (3 Columns on XL) -->
+<div class="xl:col-span-3 flex flex-col gap-space-md">
+<!-- Live Heartbeat Real-Time Activity Feed -->
+<div class="rounded-xl bg-surface-container-low/75 backdrop-blur-xl p-space-md shadow-md flex flex-col gap-space-md">
+<div class="flex items-center justify-between">
+<div class="flex items-center gap-2">
+<span class="w-2 h-2 rounded-full bg-secondary animate-pulse"></span>
+<span class="font-headline-sm text-body-lg font-bold text-on-surface">Live Unbox Stream</span>
+</div>
+<span class="font-label-sm text-label-sm text-secondary font-semibold">Edge SSE Active</span>
+</div>
+<!-- Activity Timeline -->
+<div class="flex flex-col gap-3 font-body-sm text-body-sm">
+<!-- Stream Item 1 -->
+<div class="flex items-start gap-2.5 p-2.5 rounded-lg bg-surface-container-lowest/60 hover:bg-surface-container-lowest transition-all">
+<div class="w-8 h-8 rounded-lg bg-secondary-container/20 text-secondary flex items-center justify-center shrink-0 mt-0.5">
+<span class="material-symbols-outlined text-[18px]">drafts</span>
+</div>
+<div class="flex flex-col min-w-0">
+<div class="text-on-surface font-medium leading-snug">
+<strong class="text-secondary font-semibold">Priya P.</strong> cracked wax seal!
+              </div>
+<span class="text-on-surface-variant text-[11px]">Glitter Birthday Bash</span>
+<span class="font-label-sm text-label-sm text-primary mt-1">12s ago • Mumbai Edge</span>
+</div>
+</div>
+<!-- Stream Item 2 -->
+<div class="flex items-start gap-2.5 p-2.5 rounded-lg bg-surface-container-lowest/60 hover:bg-surface-container-lowest transition-all">
+<div class="w-8 h-8 rounded-lg bg-primary-container/20 text-primary flex items-center justify-center shrink-0 mt-0.5">
+<span class="material-symbols-outlined text-[18px]">music_note</span>
+</div>
+<div class="flex flex-col min-w-0">
+<div class="text-on-surface font-medium leading-snug">
+<strong class="text-primary font-semibold">Kabir M.</strong> triggered audio replay
+              </div>
+<span class="text-on-surface-variant text-[11px]">Meow Party Remix (Replay #2)</span>
+<span class="font-label-sm text-label-sm text-on-surface-variant mt-1">45s ago • Bengaluru</span>
+</div>
+</div>
+<!-- Stream Item 3 -->
+<div class="flex items-start gap-2.5 p-2.5 rounded-lg bg-surface-container-lowest/60 hover:bg-surface-container-lowest transition-all">
+<div class="w-8 h-8 rounded-lg bg-tertiary-container/30 text-tertiary flex items-center justify-center shrink-0 mt-0.5">
+<span class="material-symbols-outlined text-[18px]">currency_rupee</span>
+</div>
+<div class="flex flex-col min-w-0">
+<div class="text-on-surface font-medium leading-snug">
+                New VIP Checkout: <strong class="text-tertiary font-bold">₹49</strong>
+</div>
+<span class="text-on-surface-variant text-[11px]">Vikram M. (PhonePe UPI)</span>
+<span class="font-label-sm text-label-sm text-on-surface-variant mt-1">2m ago • Delhi Node</span>
+</div>
+</div>
+<!-- Stream Item 4 -->
+<div class="flex items-start gap-2.5 p-2.5 rounded-lg bg-surface-container-lowest/60 hover:bg-surface-container-lowest transition-all">
+<div class="w-8 h-8 rounded-lg bg-surface-variant text-on-surface-variant flex items-center justify-center shrink-0 mt-0.5">
+<span class="material-symbols-outlined text-[18px]">sentiment_satisfied</span>
+</div>
+<div class="flex flex-col min-w-0">
+<div class="text-on-surface font-medium leading-snug">
+<strong class="text-on-surface font-semibold">Meera Sen</strong> left reaction: <span class="text-base">🥹❤️</span>
+</div>
+<span class="text-on-surface-variant text-[11px]">Endless Love Romantic</span>
+<span class="font-label-sm text-label-sm text-on-surface-variant mt-1">4m ago • Kolkata</span>
+</div>
+</div>
+</div>
+</div>
+<!-- Quick Diagnostic & Gateway Health Widget -->
+<div class="rounded-xl bg-surface-container-low/75 backdrop-blur-xl p-space-md shadow-md flex flex-col gap-space-sm">
+<span class="font-headline-sm text-body-lg font-bold text-on-surface">Delivery &amp; Safety Telemetry</span>
+<div class="flex flex-col gap-3 font-body-sm text-body-sm mt-1">
+<!-- Item 1 -->
+<div class="flex flex-col gap-1 p-2.5 rounded-lg bg-surface-container-lowest/50">
+<div class="flex items-center justify-between">
+<span class="font-medium text-on-surface flex items-center gap-1.5">
+<span class="material-symbols-outlined text-[16px] text-primary">security</span>
+<span>Abuse &amp; Phishing Filter</span>
+</span>
+<span class="font-label-sm text-label-sm text-tertiary font-semibold">Clean (0 threat)</span>
+</div>
+<span class="text-[11px] text-on-surface-variant">Real-time keyword scanning &amp; spam throttle.</span>
+</div>
+<!-- Item 2 -->
+<div class="flex flex-col gap-1 p-2.5 rounded-lg bg-surface-container-lowest/50">
+<div class="flex items-center justify-between">
+<span class="font-medium text-on-surface flex items-center gap-1.5">
+<span class="material-symbols-outlined text-[16px] text-tertiary">chat</span>
+<span>WhatsApp Cloud API</span>
+</span>
+<span class="font-label-sm text-label-sm text-tertiary font-semibold">99.9% Delivered</span>
+</div>
+<div class="w-full bg-surface-container-highest rounded-full h-1 mt-1">
+<div class="bg-tertiary h-1 rounded-full w-[99.9%]"></div>
+</div>
+</div>
+<!-- Item 3 -->
+<div class="flex flex-col gap-1 p-2.5 rounded-lg bg-surface-container-lowest/50">
+<div class="flex items-center justify-between">
+<span class="font-medium text-on-surface flex items-center gap-1.5">
+<span class="material-symbols-outlined text-[16px] text-secondary">flash_on</span>
+<span>UPI Webhook Latency</span>
+</span>
+<span class="font-label-sm text-label-sm text-primary font-bold">42ms ping</span>
+</div>
+<span class="text-[11px] text-on-surface-variant">Razorpay + PhonePe Dual-redundancy active.</span>
+</div>
+</div>
+</div>
+<!-- Quick VIP Revenue Target Card -->
+<div class="rounded-xl bg-gradient-to-br from-primary-container/20 to-secondary-container/20 p-space-md backdrop-blur-xl shadow-md flex flex-col gap-2">
+<div class="flex items-center justify-between">
+<span class="font-label-sm text-label-sm uppercase tracking-wider text-primary">Monthly VIP Goal (₹15L)</span>
+<span class="font-label-sm text-label-sm font-bold text-secondary">79.8%</span>
+</div>
+<div class="w-full bg-surface-container-lowest rounded-full h-2">
+<div class="bg-gradient-to-r from-primary-container to-secondary h-2 rounded-full w-[79.8%]"></div>
+</div>
+<span class="text-on-surface-variant font-body-sm text-body-sm">
+          ₹3,02,930 remaining with 8 days to close the monthly sprint.
+        </span>
+</div>
+</div>
+</div>
+<!-- MODAL: Inspect Live Digital Wish Preview -->
+<div class="fixed inset-0 z-50 flex items-center justify-center p-4 bg-surface-container-lowest/80 backdrop-blur-2xl hidden" id="wish-preview-modal">
+<div class="relative w-full max-w-lg rounded-2xl bg-surface-container-low p-space-lg shadow-2xl flex flex-col gap-space-md">
+<!-- Close Button -->
+<button class="absolute top-4 right-4 p-1.5 rounded-lg text-on-surface-variant hover:text-on-surface hover:bg-surface-container-high transition-colors" onclick="closeWishModal()" type="button">
+<span class="material-symbols-outlined text-[20px]">close</span>
+</button>
+<!-- Modal Header -->
+<div class="flex flex-col">
+<div class="flex items-center gap-2">
+<span class="px-2 py-0.5 rounded-full bg-primary-container text-on-primary-container font-label-sm text-label-sm font-semibold">Live Experience Render</span>
+<span class="font-label-sm text-label-sm text-secondary font-semibold">VIP Pass Verified</span>
+</div>
+<h3 class="font-headline-md text-headline-md font-bold text-on-surface mt-1" id="modalWishRecipient">Priya Patel</h3>
+<p class="font-label-md text-label-md text-primary" id="modalWishTemplate">Template: Glitter Birthday Bash</p>
+</div>
+<!-- Simulated Phone Screen Preview Frame -->
+<div class="relative w-full h-80 rounded-xl bg-surface-container-lowest overflow-hidden flex flex-col justify-between p-6 shadow-inner">
+<!-- Floating sparkles SVG -->
+<div class="absolute inset-0 pointer-events-none opacity-30">
+<svg class="w-full h-full" xmlns="http://www.w3.org/2000/svg">
+<circle cx="20%" cy="20%" fill="#d2bbff" r="2"></circle>
+<circle cx="80%" cy="30%" fill="#ffb0cd" r="3"></circle>
+<circle cx="40%" cy="70%" fill="#ffb95f" r="2.5"></circle>
+<circle cx="70%" cy="80%" fill="#d2bbff" r="1.5"></circle>
+</svg>
+</div>
+<div class="flex justify-between items-center z-10">
+<span class="px-2.5 py-1 rounded-full bg-surface-container/60 backdrop-blur-md text-[11px] font-label-md text-primary">✨ 3D Wax Seal Opened</span>
+<span class="material-symbols-outlined text-secondary text-[20px] animate-pulse">favorite</span>
+</div>
+<div class="flex flex-col items-center text-center z-10 my-auto">
+<div class="w-14 h-14 rounded-full bg-gradient-to-tr from-primary-container to-secondary flex items-center justify-center text-white shadow-[0_0_24px_rgba(124,58,237,0.6)] mb-3">
+<span class="material-symbols-outlined text-[28px]">cake</span>
+</div>
+<p class="font-body-md text-body-md text-on-surface italic max-w-xs leading-relaxed" id="modalWishMessage">
+            "Happy 24th Birthday to the most shining soul! May this year bring endless magic."
+          </p>
+<span class="font-label-md text-label-md text-on-surface-variant mt-2 font-semibold" id="modalWishSender">— From Rohan Sharma</span>
+</div>
+<div class="flex items-center justify-between z-10 pt-2 bg-surface-container-lowest/80 backdrop-blur-sm rounded-lg px-3 py-1.5">
+<div class="flex items-center gap-1.5">
+<span class="material-symbols-outlined text-[16px] text-primary">volume_up</span>
+<span class="text-[11px] font-label-sm text-on-surface-variant">Celestial Waltz Lo-Fi (Playing)</span>
+</div>
+<span class="font-label-sm text-label-sm text-tertiary">01:42</span>
+</div>
+</div>
+<!-- Action buttons -->
+<div class="flex items-center justify-end gap-2 pt-2">
+<button class="px-3.5 py-2 rounded-lg bg-surface-container-high text-on-surface font-label-lg text-label-lg hover:bg-surface-bright" onclick="closeWishModal()" type="button">
+          Close Inspector
+        </button>
+<button class="px-4 py-2 rounded-lg bg-gradient-to-r from-primary-container to-secondary text-white font-label-lg text-label-lg font-semibold flex items-center gap-1.5" type="button">
+<span class="material-symbols-outlined text-[18px]">share</span>
+<span>Copy Public Web URL</span>
+</button>
+</div>
+</div>
+</div>
+<!-- MODAL: Generate Manual Comp Pass -->
+<div class="fixed inset-0 z-50 flex items-center justify-center p-4 bg-surface-container-lowest/80 backdrop-blur-2xl hidden" id="comp-modal">
+<div class="relative w-full max-w-lg rounded-2xl bg-surface-container-low p-space-lg shadow-2xl flex flex-col gap-space-md">
+<!-- Close Button -->
+<button class="absolute top-4 right-4 p-1.5 rounded-lg text-on-surface-variant hover:text-on-surface hover:bg-surface-container-high transition-colors" onclick="document.getElementById('comp-modal').classList.add('hidden')" type="button">
+<span class="material-symbols-outlined text-[20px]">close</span>
+</button>
+<div class="flex flex-col">
+<div class="flex items-center gap-2">
+<span class="material-symbols-outlined text-primary text-[20px]">card_membership</span>
+<h3 class="font-headline-md text-headline-md font-bold text-on-surface">Issue Complimentary VIP Pass</h3>
+</div>
+<p class="font-body-sm text-body-sm text-on-surface-variant mt-0.5">
+          Bypass the ₹49 UPI gateway for influencers, VIP support cases, or brand partners.
+        </p>
+</div>
+<!-- Comp Form -->
+<div class="flex flex-col gap-3 font-body-sm text-body-sm">
+<div>
+<label class="block font-label-sm text-label-sm text-on-surface-variant uppercase mb-1">Recipient Name</label>
+<input class="w-full h-10 px-3 rounded-lg bg-surface-container-lowest text-on-surface focus:outline-none focus:bg-surface-container-high" placeholder="e.g. Aanya Singhania" type="text"/>
+</div>
+<div>
+<label class="block font-label-sm text-label-sm text-on-surface-variant uppercase mb-1">Recipient Mobile / WhatsApp</label>
+<input class="w-full h-10 px-3 rounded-lg bg-surface-container-lowest text-on-surface focus:outline-none focus:bg-surface-container-high" placeholder="+91 98..." type="text"/>
+</div>
+<div>
+<label class="block font-label-sm text-label-sm text-on-surface-variant uppercase mb-1">Template Style</label>
+<select class="w-full h-10 px-3 rounded-lg bg-surface-container-lowest text-on-surface focus:outline-none focus:bg-surface-container-high">
+<option>Glitter Birthday Bash (3D Golden Wax Seal)</option>
+<option>Endless Love Romantic 3D</option>
+<option>Golden Anniversary 3D</option>
+<option>Midnight Neon Fireworks</option>
+</select>
+</div>
+<div>
+<label class="block font-label-sm text-label-sm text-on-surface-variant uppercase mb-1">Reason / Campaign Tag</label>
+<input class="w-full h-10 px-3 rounded-lg bg-surface-container-lowest text-on-surface focus:outline-none focus:bg-surface-container-high" placeholder="e.g. IG Influencer Collab @aanya_vibes" type="text"/>
+</div>
+</div>
+<div class="flex items-center justify-end gap-2 pt-2">
+<button class="px-3.5 py-2 rounded-lg bg-surface-container-high text-on-surface font-label-lg text-label-lg hover:bg-surface-bright" onclick="document.getElementById('comp-modal').classList.add('hidden')" type="button">
+          Cancel
+        </button>
+<button class="px-4 py-2 rounded-lg bg-gradient-to-r from-primary-container to-secondary text-white font-label-lg text-label-lg font-semibold flex items-center gap-1.5 shadow-[0_0_20px_rgba(124,58,237,0.4)]" onclick="generateCompSuccess()" type="button">
+<span class="material-symbols-outlined text-[18px]">bolt</span>
+<span>Generate &amp; Dispatch Comp Link</span>
+</button>
+</div>
+</div>
+</div>
+<!-- Inline Micro-Interaction Logic -->
+<script>
+    function previewWishModal(recipient, template, sender, message) {
+      document.getElementById('modalWishRecipient').innerText = recipient;
+      document.getElementById('modalWishTemplate').innerText = 'Template: ' + template;
+      document.getElementById('modalWishSender').innerText = '— From ' + sender;
+      document.getElementById('modalWishMessage').innerText = '"' + message + '"';
+      document.getElementById('wish-preview-modal').classList.remove('hidden');
+    }
+
+    function closeWishModal() {
+      document.getElementById('wish-preview-modal').classList.add('hidden');
+    }
+
+    function generateCompSuccess() {
+      document.getElementById('comp-modal').classList.add('hidden');
+      alert('Complimentary VIP Pass generated & dispatched via WhatsApp Edge worker!');
+    }
+
+    function toggleSidebar() {
+      const sidebar = document.getElementById('admin-sidebar');
+      const backdrop = document.getElementById('sidebar-backdrop');
+      if (sidebar && backdrop) {
+        const isClosed = sidebar.classList.contains('-translate-x-full');
+        if (isClosed) {
+          sidebar.classList.remove('-translate-x-full');
+          backdrop.classList.remove('hidden');
+          document.body.style.overflow = 'hidden';
+        } else {
+          sidebar.classList.add('-translate-x-full');
+          backdrop.classList.add('hidden');
+          document.body.style.overflow = '';
+        }
+      }
+    }
+
+    // Keyboard shortcut CMD+F focusing search input
+    document.addEventListener('keydown', function(e) {
+      if ((e.metaKey || e.ctrlKey) && e.key === 'f') {
+        const input = document.getElementById('orderSearchInput');
+        if (input) {
+          e.preventDefault();
+          input.focus();
+        }
+      }
+    });
+  </script>
+</div></div></main></div></body></html>
