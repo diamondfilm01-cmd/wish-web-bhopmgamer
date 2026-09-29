@@ -1,0 +1,1338 @@
+<!DOCTYPE html>
+
+<html lang="en"><head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+<title>WishMagic | Gift a Magical Web-Experience!</title>
+<meta name="description" content="Gift a magical, interactive web experience with customizable wishes, animations, and templates."/>
+<meta property="og:title" content="WishMagic | Gift a Magical Web-Experience!"/>
+<meta property="og:description" content="Gift a magical, interactive web experience with customizable wishes, animations, and templates."/>
+<meta property="og:type" content="website"/>
+<!-- Tailwind CSS CDN with forms and container queries -->
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<!-- Google Fonts: Plus Jakarta Sans & Outfit for modern playful rounded look -->
+<link href="https://fonts.googleapis.com" rel="preconnect"/>
+<link crossorigin="" href="https://fonts.gstatic.com" rel="preconnect"/>
+<link href="https://fonts.googleapis.com/css2?family=Outfit:wght@400;500;600;700;800;900&amp;family=Plus+Jakarta+Sans:wght@400;500;600;700;800&amp;family=Playfair+Display:ital,wght@1,600&amp;display=swap" rel="stylesheet"/>
+<!-- Tailwind Configuration -->
+<script data-purpose="tailwind-config">
+    tailwind.config = {
+      theme: {
+        extend: {
+          fontFamily: {
+            sans: ['"Plus Jakarta Sans"', 'sans-serif'],
+            display: ['"Outfit"', 'sans-serif'],
+            serifAccent: ['"Playfair Display"', 'serif'],
+          },
+          colors: {
+            magic: {
+              50: '#faf5ff',
+              100: '#f3e8ff',
+              200: '#e9d5ff',
+              300: '#d8b4fe',
+              400: '#c084fc',
+              500: '#a855f7',
+              600: '#9333ea',
+              700: '#7e22ce',
+              800: '#6b21a8',
+              900: '#581c87',
+              deep: '#1D0B36',
+              midnight: '#140628',
+              royal: '#2E0854'
+            },
+            accent: {
+              pink: '#ec4899',
+              hotpink: '#ff1493',
+              glow: '#ff0080',
+              gold: '#F4C542',
+              amber: '#f59e0b',
+              emerald: '#16A34A'
+            }
+          },
+          animation: {
+            'float-slow': 'floating 6s ease-in-out infinite',
+            'float-delayed': 'floating 7s ease-in-out 2s infinite',
+            'pulse-glow': 'pulseGlow 3s ease-in-out infinite',
+            'sparkle-twinkle': 'twinkle 3s ease-in-out infinite',
+            'shimmer-card': 'shimmer 4s infinite linear'
+          },
+          keyframes: {
+            floating: {
+              '0%, 100%': { transform: 'translateY(0px)' },
+              '50%': { transform: 'translateY(-14px)' },
+            },
+            pulseGlow: {
+              '0%, 100%': { opacity: '0.6', filter: 'drop-shadow(0 0 25px rgba(236, 72, 153, 0.45))' },
+              '50%': { opacity: '1', filter: 'drop-shadow(0 0 45px rgba(168, 85, 247, 0.8))' }
+            },
+            twinkle: {
+              '0%, 100%': { opacity: '0.3', transform: 'scale(0.85)' },
+              '50%': { opacity: '1', transform: 'scale(1.2)' }
+            }
+          }
+        }
+      }
+    };
+  </script>
+<!-- Core Glassmorphism & Custom Styling -->
+<style data-purpose="base-theme">
+    body {
+      background-color: #F6F0FF;
+      background-image: 
+        radial-gradient(at 10% 8%, rgba(233, 213, 255, 0.75) 0px, transparent 45%),
+        radial-gradient(at 90% 12%, rgba(251, 207, 232, 0.6) 0px, transparent 50%),
+        radial-gradient(at 50% 45%, rgba(243, 232, 255, 0.8) 0px, transparent 65%),
+        radial-gradient(at 85% 75%, rgba(230, 205, 254, 0.5) 0px, transparent 55%),
+        radial-gradient(at 15% 90%, rgba(254, 215, 240, 0.5) 0px, transparent 50%);
+      min-height: 100vh;
+      overflow-x: hidden;
+      color: #24113F;
+    }
+
+    /* Ambient cloud shapes */
+    .bg-ambient-layer {
+      position: fixed;
+      inset: 0;
+      pointer-events: none;
+      z-index: 0;
+      overflow: hidden;
+      opacity: 0.6;
+    }
+
+    .ambient-cloud {
+      position: absolute;
+      fill: #ffffff;
+      filter: blur(50px);
+      opacity: 0.7;
+    }
+
+    /* Reference Glass Shell */
+    .glass-card {
+      background: rgba(255, 255, 255, 0.82);
+      backdrop-filter: blur(20px);
+      -webkit-backdrop-filter: blur(20px);
+      border: 1px solid rgba(255, 255, 255, 0.95);
+      box-shadow: 0 16px 40px -10px rgba(107, 33, 168, 0.08), 0 0 0 1px rgba(255, 255, 255, 0.6) inset;
+    }
+
+    .glass-nav {
+      background: rgba(255, 255, 255, 0.78);
+      backdrop-filter: blur(24px);
+      -webkit-backdrop-filter: blur(24px);
+      border: 1px solid rgba(255, 255, 255, 0.85);
+      box-shadow: 0 14px 35px -8px rgba(107, 33, 168, 0.12), 0 0 0 1px rgba(255, 255, 255, 0.7) inset;
+    }
+
+    .glass-pill {
+      background: rgba(255, 255, 255, 0.88);
+      backdrop-filter: blur(14px);
+      border: 1px solid rgba(255, 255, 255, 0.9);
+      box-shadow: 0 4px 14px rgba(126, 34, 206, 0.06);
+      transition: all 0.25s cubic-bezier(0.4, 0, 0.2, 1);
+    }
+    .glass-pill:hover {
+      background: rgba(255, 255, 255, 0.98);
+      transform: translateY(-2px);
+      box-shadow: 0 8px 24px rgba(126, 34, 206, 0.14);
+    }
+
+    .pill-active {
+      background: linear-gradient(135deg, #EC4899 0%, #7C3AED 100%) !important;
+      color: #ffffff !important;
+      box-shadow: 0 8px 25px rgba(236, 72, 153, 0.35) !important;
+      border-color: rgba(255, 255, 255, 0.35) !important;
+    }
+
+    /* 3D Hero Gradient & Lighting */
+    .hero-desktop-canvas {
+      background: radial-gradient(circle at 75% 25%, #9d174d 0%, #6d28d9 28%, #4c1d95 62%, #2e0854 100%);
+      box-shadow: 0 30px 80px -15px rgba(46, 8, 84, 0.45), 0 0 0 1px rgba(255, 255, 255, 0.2) inset;
+    }
+
+    /* Shimmering magical sparkles */
+    .sparkle-dot {
+      position: absolute;
+      border-radius: 9999px;
+      background: white;
+      box-shadow: 0 0 14px 3px #fff, 0 0 28px 8px #f472b6;
+    }
+
+    /* Template preview image frame */
+    .template-thumb {
+      aspect-ratio: 16 / 10;
+      position: relative;
+      overflow: hidden;
+    }
+
+    /* Custom scrollbar */
+    ::-webkit-scrollbar {
+      width: 10px;
+      height: 10px;
+    }
+    ::-webkit-scrollbar-track {
+      background: #F6F0FF;
+    }
+    ::-webkit-scrollbar-thumb {
+      background: rgba(147, 51, 234, 0.3);
+      border-radius: 9999px;
+    }
+    ::-webkit-scrollbar-thumb:hover {
+      background: rgba(147, 51, 234, 0.6);
+    }
+
+    .no-scrollbar::-webkit-scrollbar {
+      display: none;
+    }
+    .no-scrollbar {
+      -ms-overflow-style: none;
+      scrollbar-width: none;
+    }
+  </style>
+</head>
+<body class="w-full min-h-screen bg-[#F6F0FF] text-[#24113F] font-sans antialiased selection:bg-pink-500 selection:text-white">
+<!-- Ambient Cloud Decorative Background Layers -->
+<div class="bg-ambient-layer">
+<div class="ambient-cloud w-[750px] h-[400px] -top-20 -left-20 bg-purple-200/50 rounded-full"></div>
+<div class="ambient-cloud w-[850px] h-[450px] top-1/4 -right-48 bg-pink-200/50 rounded-full"></div>
+<div class="ambient-cloud w-[950px] h-[500px] bottom-10 left-1/4 bg-indigo-200/40 rounded-full"></div>
+</div>
+<div class="relative z-10 flex flex-col min-h-screen w-full">
+<!-- BEGIN: FloatingGlassNavbar -->
+<header class="sticky top-6 z-50 px-6 md:px-12 max-w-7xl mx-auto w-full transition-all duration-300" data-purpose="site-navigation">
+<div class="glass-nav rounded-full px-6 lg:px-8 py-3.5 flex items-center justify-between gap-4">
+<!-- Left: Brand Logo & Tagline -->
+<a class="flex items-center gap-3 group flex-shrink-0" href="#">
+<div class="w-11 h-11 rounded-full bg-gradient-to-tr from-purple-600 via-pink-500 to-amber-300 flex items-center justify-center shadow-lg shadow-pink-500/25 group-hover:rotate-12 transition-transform duration-300">
+<svg class="w-6 h-6 text-white" fill="none" stroke="currentColor" viewbox="0 0 24 24">
+<path d="M19.428 15.428a2 2 0 00-1.022-.547l-2.387-.477a6 6 0 00-3.86.517l-.318.158a6 6 0 01-3.86.517L6.05 15.21a2 2 0 00-1.806.547M8 4h8l-1 1v5.172a2 2 0 00.586 1.414l5 5c1.26 1.26.367 3.414-1.415 3.414H4.828c-1.782 0-2.674-2.154-1.414-3.414l5-5A2 2 0 009 10.172V5L8 4z" stroke-linecap="round" stroke-linejoin="round" stroke-width="2"></path>
+</svg>
+</div>
+<div class="flex flex-col">
+<span class="font-display font-extrabold text-2xl tracking-tight bg-gradient-to-r from-purple-900 via-pink-600 to-purple-800 bg-clip-text text-transparent leading-none">WishMagic</span>
+<span class="text-[11px] font-semibold text-purple-800/80 tracking-wider mt-0.5 hidden sm:inline-block">Create. Personalize. Celebrate.</span>
+</div>
+</a>
+<!-- Center: Nav links -->
+<nav class="hidden lg:flex items-center gap-2 text-sm font-semibold text-magic-900">
+<a class="px-4 py-2 rounded-full bg-purple-700 text-white shadow-sm flex items-center gap-1.5 transition-all" href="#">
+<svg class="w-4 h-4" fill="currentColor" viewbox="0 0 20 20"><path d="M10.707 2.293a1 1 0 00-1.414 0l-7 7a1 1 0 001.414 1.414L4 10.414V17a1 1 0 001 1h2a1 1 0 001-1v-2a1 1 0 011-1h2a1 1 0 011 1v2a1 1 0 001 1h2a1 1 0 001-1v-6.586l.293.293a1 1 0 001.414-1.414l-7-7z"></path></svg>
+            Home
+          </a>
+<a class="px-4 py-2 rounded-full hover:bg-white/70 hover:text-purple-700 transition-all flex items-center gap-1.5" href="#templates-section">
+<svg class="w-4 h-4 text-magic-600" fill="none" stroke="currentColor" viewbox="0 0 24 24"><path d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" stroke-linecap="round" stroke-linejoin="round" stroke-width="2"></path></svg>
+            Templates
+          </a>
+<a class="px-4 py-2 rounded-full hover:bg-white/70 hover:text-purple-700 transition-all flex items-center gap-1.5" href="#how-it-works">
+<svg class="w-4 h-4 text-magic-600" fill="none" stroke="currentColor" viewbox="0 0 24 24"><path d="M13 10V3L4 14h7v7l9-11h-7z" stroke-linecap="round" stroke-linejoin="round" stroke-width="2"></path></svg>
+            How It Works
+          </a>
+<a class="px-4 py-2 rounded-full hover:bg-white/70 hover:text-purple-700 transition-all flex items-center gap-1.5" href="#pricing-section">
+<svg class="w-4 h-4 text-magic-600" fill="none" stroke="currentColor" viewbox="0 0 24 24"><path d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z" stroke-linecap="round" stroke-linejoin="round" stroke-width="2"></path></svg>
+            Pricing
+          </a>
+<a class="px-4 py-2 rounded-full hover:bg-white/70 hover:text-purple-700 transition-all flex items-center gap-1.5" href="#about-section">
+<svg class="w-4 h-4 text-magic-600" fill="none" stroke="currentColor" viewbox="0 0 24 24"><path d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" stroke-linecap="round" stroke-linejoin="round" stroke-width="2"></path></svg>
+            About
+          </a>
+</nav>
+<!-- Right: Search pill + Auth CTAs -->
+<div class="flex items-center gap-3 flex-shrink-0">
+<!-- Sleek Search Input -->
+<div class="relative hidden xl:block w-64">
+<input class="w-full text-xs font-semibold pl-10 pr-8 py-2.5 rounded-full border border-purple-200/90 bg-white/70 focus:bg-white focus:outline-none focus:ring-2 focus:ring-purple-400 placeholder-purple-400 transition" id="nav-search-input" placeholder="Search templates, occasions..." type="text"/>
+<svg class="w-4 h-4 text-purple-600 absolute left-3.5 top-3" fill="none" stroke="currentColor" viewbox="0 0 24 24">
+<path d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" stroke-linecap="round" stroke-linejoin="round" stroke-width="2"></path>
+</svg>
+<button class="hidden absolute right-3 top-3 text-gray-400 hover:text-gray-600 text-xs font-bold" id="search-clear-btn">✕</button>
+</div>
+<a href="admin-orders.html" class="px-3.5 py-2 text-xs md:text-sm font-bold text-purple-700 bg-purple-100 hover:bg-purple-200 border border-purple-200 rounded-full transition flex items-center gap-1.5" title="Open Admin Studio">
+  <span>⚙️</span>
+  <span>Admin</span>
+</a>
+<button class="px-5 py-2.5 text-xs md:text-sm font-bold text-magic-900 glass-pill rounded-full hover:text-purple-700 transition" onclick="openAuthModal('signin')">
+            Sign In
+          </button>
+<button class="px-5 py-2.5 text-xs md:text-sm font-bold text-white bg-gradient-to-r from-[#EC4899] to-[#7C3AED] rounded-full shadow-lg shadow-pink-500/25 hover:shadow-pink-500/40 hover:scale-105 active:scale-95 transition-all flex items-center gap-2" onclick="openAuthModal('signup')">
+<span>Sign Up</span>
+<span class="text-amber-300">✨</span>
+</button>
+</div>
+</div>
+</header>
+<!-- END: FloatingGlassNavbar -->
+<!-- BEGIN: HeroSection (MAJOR UPGRADE - 2-COLUMN EXPANSIVE DESKTOP) -->
+<main class="flex-grow pt-8 pb-16 px-6 md:px-12 max-w-7xl mx-auto w-full">
+<section class="hero-desktop-canvas rounded-[36px] p-8 md:p-14 lg:p-16 text-white relative overflow-hidden min-h-[590px] flex items-center" data-purpose="hero-carousel">
+<!-- Ambient Decorative Backdrop inside Hero -->
+<div class="absolute inset-0 pointer-events-none overflow-hidden">
+<!-- Radial Glowing orbs -->
+<div class="absolute -top-24 -left-24 w-96 h-96 bg-[#EC4899]/35 rounded-full blur-3xl"></div>
+<div class="absolute -bottom-28 right-1/4 w-[450px] h-[450px] bg-[#A855F7]/30 rounded-full blur-3xl"></div>
+<!-- Dreamy Castle Silhouettes (Desktop Width Visual) -->
+<svg class="absolute -bottom-6 -left-12 w-96 h-[420px] text-purple-300/20 fill-current opacity-80" viewbox="0 0 200 300">
+<path d="M20,300 L20,170 L35,150 L35,115 L45,105 L45,30 L50,18 L55,30 L55,105 L65,115 L65,150 L85,170 L85,300 Z M95,300 L95,135 L115,105 L115,55 L120,40 L125,55 L125,105 L145,135 L145,300 Z"></path>
+</svg>
+<svg class="absolute -bottom-8 right-2 w-[420px] h-[420px] text-pink-300/15 fill-current opacity-80" viewbox="0 0 200 300">
+<path d="M45,300 L45,155 L65,135 L65,85 L70,65 L75,85 L75,135 L95,155 L95,300 Z M115,300 L115,125 L130,95 L130,25 L135,12 L140,25 L140,95 L155,125 L155,300 Z"></path>
+</svg>
+<!-- Golden Crescent Moon & Star Dust -->
+<div class="absolute top-10 right-14 text-amber-200 text-5xl filter drop-shadow-[0_0_20px_rgba(244,197,66,0.9)] animate-float-delayed">
+            🌙
+          </div>
+<div class="sparkle-dot w-2.5 h-2.5 top-16 left-1/3 animate-sparkle-twinkle"></div>
+<div class="sparkle-dot w-2 h-2 top-1/2 left-1/4 animate-ping"></div>
+<div class="sparkle-dot w-3 h-3 top-28 right-1/3 animate-sparkle-twinkle"></div>
+<div class="sparkle-dot w-1.5 h-1.5 bottom-24 right-1/4 animate-pulse"></div>
+<!-- Soft Floating Cloud Waves at Bottom -->
+<div class="absolute -bottom-10 inset-x-0 flex justify-between opacity-35">
+<div class="w-80 h-28 bg-white/40 rounded-full blur-xl transform -translate-x-12"></div>
+<div class="w-[600px] h-32 bg-white/30 rounded-full blur-2xl"></div>
+<div class="w-80 h-28 bg-white/40 rounded-full blur-xl transform translate-x-12"></div>
+</div>
+</div>
+<!-- 2-COLUMN EXPANSIVE DESKTOP HERO -->
+<div class="relative z-10 grid grid-cols-1 lg:grid-cols-12 gap-10 lg:gap-12 items-center w-full">
+<!-- Left Column: 55% Content -->
+<div class="lg:col-span-7 space-y-6">
+<!-- Glowing pill badge -->
+<div class="inline-flex items-center gap-2.5 px-5 py-2 rounded-full bg-white/10 backdrop-blur-md border border-white/25 text-xs sm:text-sm font-bold tracking-wider text-pink-200 shadow-inner">
+<span class="tracking-widest uppercase">Make Every Moment Magical</span>
+<span class="text-amber-300 text-base">✨</span>
+</div>
+<!-- Main Display Headline -->
+<div>
+<h1 class="font-display text-4xl sm:text-5xl lg:text-6xl font-extrabold tracking-tight leading-[1.12] text-white">
+                Gift a <br/>
+<span class="bg-gradient-to-r from-[#F472B6] via-[#EC4899] to-[#F4C542] bg-clip-text text-transparent drop-shadow-[0_4px_25px_rgba(236,72,153,0.5)]">Magical</span> <br/>
+<span class="text-transparent bg-clip-text bg-gradient-to-r from-white via-purple-100 to-pink-200">Web-Experience!</span>
+</h1>
+</div>
+<!-- Subheadline -->
+<p class="text-purple-100/90 text-base sm:text-lg lg:text-xl max-w-xl font-normal leading-relaxed">
+              Create beautiful personalized digital wishes that feel like a real experience — not just another message. Interactive 3D cards, music &amp; unboxing magic.
+            </p>
+<!-- CTA Row -->
+<div class="flex flex-wrap items-center gap-4 pt-3">
+<button class="px-8 py-4 rounded-full bg-gradient-to-r from-[#EC4899] to-[#7C3AED] text-white font-bold text-lg shadow-xl shadow-pink-500/35 hover:scale-105 active:scale-95 transition-transform flex items-center gap-2.5 group" onclick="document.getElementById('templates-section').scrollIntoView({ behavior: 'smooth' })">
+<span>Explore Magic</span>
+<span class="group-hover:rotate-45 transition-transform duration-300">✨</span>
+</button>
+<button class="px-7 py-4 rounded-full backdrop-blur-md bg-white/15 border border-white/30 text-white font-semibold text-lg hover:bg-white/25 transition-all active:scale-95" onclick="openQuickCustomize('Glitter Birthday Bash')">
+                Create Your Wish
+              </button>
+</div>
+<!-- Trust Badges Row -->
+<div class="pt-6 border-t border-white/15 flex flex-wrap items-center gap-5 sm:gap-7 text-xs sm:text-sm font-semibold text-purple-200">
+<div class="flex items-center gap-2">
+<span class="w-7 h-7 rounded-full bg-amber-400/20 text-amber-300 flex items-center justify-center font-bold">⚡</span>
+<span>Instant Delivery</span>
+</div>
+<div class="flex items-center gap-2">
+<span class="w-7 h-7 rounded-full bg-pink-400/20 text-pink-300 flex items-center justify-center font-bold">🎨</span>
+<span>Easy to Customize</span>
+</div>
+<div class="flex items-center gap-2">
+<span class="w-7 h-7 rounded-full bg-purple-400/20 text-purple-200 flex items-center justify-center font-bold">💖</span>
+<span>Loved by Everyone</span>
+</div>
+<div class="flex items-center gap-2">
+<span class="w-7 h-7 rounded-full bg-emerald-400/20 text-emerald-300 flex items-center justify-center font-bold">📱</span>
+<span>100% Mobile Ready</span>
+</div>
+</div>
+</div>
+<!-- Right Column: 45% Multi-Layered Visual Composition -->
+<div class="lg:col-span-5 relative flex justify-center items-center py-4 lg:py-6">
+<!-- Ambient Radiance Background -->
+<div class="absolute w-80 h-80 sm:w-96 sm:h-96 rounded-full bg-pink-500/35 blur-3xl -z-10 animate-pulse-glow"></div>
+<!-- Visual 3D Showcase Canvas -->
+<div class="relative w-full max-w-md aspect-square flex items-center justify-center">
+<!-- Floating Balloons & Elements -->
+<div class="absolute -top-3 left-6 animate-float-slow text-5xl filter drop-shadow-[0_12px_20px_rgba(0,0,0,0.35)]">
+                🎈
+              </div>
+<div class="absolute top-4 right-10 animate-float-delayed text-5xl filter drop-shadow-[0_12px_20px_rgba(0,0,0,0.35)]">
+                💖
+              </div>
+<div class="absolute top-20 right-0 animate-float-slow text-4xl filter drop-shadow-[0_8px_16px_rgba(0,0,0,0.3)]">
+                ✨
+              </div>
+<div class="absolute bottom-6 left-4 animate-float-delayed text-4xl">
+                🎵
+              </div>
+<!-- Floating Note Card: Spread Joy Create Magic -->
+<div class="absolute top-10 right-4 rotate-12 bg-white/95 text-purple-900 rounded-2xl p-3.5 shadow-2xl border border-white/80 animate-float-delayed text-center z-20">
+<span class="block text-[11px] font-extrabold uppercase tracking-wider text-purple-600">Spread Joy</span>
+<span class="font-serifAccent text-base font-bold italic text-pink-600 leading-tight">Create Magic</span>
+<span class="block text-xs mt-1">❤️✨</span>
+</div>
+<!-- Large 3D Gift Box Centerpiece -->
+<div class="relative w-72 sm:w-80 h-72 sm:h-80 flex items-center justify-center">
+<!-- Glowing Golden Light Rays Bursting Upward -->
+<div class="absolute -top-12 inset-x-4 h-48 bg-gradient-to-t from-amber-400/40 via-yellow-200/25 to-transparent rounded-full filter blur-xl transform scale-110"></div>
+<!-- Main Gift Box Visual Representation -->
+<div class="relative z-10 w-64 h-64 bg-gradient-to-br from-pink-500 via-purple-700 to-purple-950 rounded-[32px] p-6 shadow-2xl border-2 border-pink-400/50 flex flex-col items-center justify-center text-center transform hover:rotate-1 hover:scale-105 transition duration-500">
+<!-- Surprise Inside Floating Pill -->
+<div class="w-full py-1.5 px-4 bg-gradient-to-r from-amber-300 via-yellow-400 to-amber-500 rounded-full mb-3 shadow-md flex items-center justify-center gap-1.5">
+<span class="w-2 h-2 rounded-full bg-red-600 animate-ping"></span>
+<span class="text-[11px] font-black text-amber-950 uppercase tracking-widest">Surprise Inside 🎁</span>
+</div>
+<!-- 3D Gift Icon with glowing burst -->
+<div class="text-7xl my-1 filter drop-shadow-[0_0_25px_rgba(251,191,36,0.9)] animate-bounce">
+                    🎁
+                  </div>
+<!-- Equalizer / Interactive Preview Badge -->
+<div class="text-xs font-bold text-pink-100 mt-2 px-3 py-1.5 rounded-full bg-white/15 backdrop-blur-md border border-white/20 flex items-center gap-2">
+<span class="flex items-end gap-0.5 h-3">
+<span class="w-1 bg-pink-300 h-2 animate-pulse"></span>
+<span class="w-1 bg-amber-300 h-3 animate-pulse"></span>
+<span class="w-1 bg-purple-300 h-1.5 animate-pulse"></span>
+</span>
+<span>Interactive Music &amp; Confetti</span>
+</div>
+</div>
+<!-- Ribbons & Confetti Around Base -->
+<div class="absolute -bottom-2 -left-3 text-4xl">🎀</div>
+<div class="absolute -bottom-4 right-6 text-4xl">🎉</div>
+</div>
+</div>
+</div>
+</div>
+<!-- Carousel Navigation Arrows & Indicators -->
+<div class="absolute left-6 top-1/2 -translate-y-1/2 hidden md:block">
+<button aria-label="Previous Hero Slide" class="w-11 h-11 rounded-full bg-white/20 hover:bg-white/40 backdrop-blur-md border border-white/30 text-white flex items-center justify-center transition shadow-lg">
+            ❮
+          </button>
+</div>
+<div class="absolute right-6 top-1/2 -translate-y-1/2 hidden md:block">
+<button aria-label="Next Hero Slide" class="w-11 h-11 rounded-full bg-white/20 hover:bg-white/40 backdrop-blur-md border border-white/30 text-white flex items-center justify-center transition shadow-lg">
+            ❯
+          </button>
+</div>
+<div class="absolute bottom-5 inset-x-0 flex justify-center items-center gap-2.5">
+<span class="w-8 h-2 rounded-full bg-pink-400 transition-all"></span>
+<span class="w-2.5 h-2 rounded-full bg-white/40 hover:bg-white/70 transition cursor-pointer"></span>
+<span class="w-2.5 h-2 rounded-full bg-white/40 hover:bg-white/70 transition cursor-pointer"></span>
+</div>
+</section>
+</main>
+<!-- END: HeroSection -->
+<!-- BEGIN: CategoryNavigationBar -->
+<section class="px-6 md:px-12 max-w-7xl mx-auto w-full mb-16" data-purpose="category-tabs">
+<div class="flex items-center justify-between mb-4">
+<h3 class="font-display font-bold text-lg md:text-xl text-[#24113F] flex items-center gap-2">
+<span>Explore by Occasion</span>
+<span class="text-xs font-semibold text-purple-600 bg-purple-100/70 px-2.5 py-0.5 rounded-full">Curated Collections</span>
+</h3>
+</div>
+<div class="glass-card rounded-full p-2.5 overflow-x-auto no-scrollbar shadow-lg shadow-purple-900/5">
+<div class="flex items-center gap-2.5 min-w-max" id="category-container">
+<button class="category-btn pill-active px-6 py-2.5 rounded-full text-xs sm:text-sm font-bold flex items-center gap-2 transition duration-200" data-category="all" onclick="filterTemplates('all', this)">
+<span>🔥</span>
+<span>Trending</span>
+</button>
+<button class="category-btn glass-pill text-[#24113F] px-6 py-2.5 rounded-full text-xs sm:text-sm font-semibold flex items-center gap-2" data-category="birthday" onclick="filterTemplates('birthday', this)">
+<span>🎂</span>
+<span>Birthdays</span>
+</button>
+<button class="category-btn glass-pill text-[#24113F] px-6 py-2.5 rounded-full text-xs sm:text-sm font-semibold flex items-center gap-2" data-category="love" onclick="filterTemplates('love', this)">
+<span>❤️</span>
+<span>Love</span>
+</button>
+<button class="category-btn glass-pill text-[#24113F] px-6 py-2.5 rounded-full text-xs sm:text-sm font-semibold flex items-center gap-2" data-category="anniversary" onclick="filterTemplates('anniversary', this)">
+<span>💍</span>
+<span>Anniversary</span>
+</button>
+<button class="category-btn glass-pill text-[#24113F] px-6 py-2.5 rounded-full text-xs sm:text-sm font-semibold flex items-center gap-2" data-category="funny" onclick="filterTemplates('funny', this)">
+<span>😂</span>
+<span>Funny</span>
+</button>
+<button class="category-btn glass-pill text-[#24113F] px-6 py-2.5 rounded-full text-xs sm:text-sm font-semibold flex items-center gap-2" data-category="thankyou" onclick="filterTemplates('thankyou', this)">
+<span>🌸</span>
+<span>Thank You</span>
+</button>
+<button class="category-btn glass-pill text-[#24113F] px-6 py-2.5 rounded-full text-xs sm:text-sm font-semibold flex items-center gap-2" data-category="congrats" onclick="filterTemplates('congrats', this)">
+<span>🎓</span>
+<span>Congratulations</span>
+</button>
+<button class="category-btn glass-pill text-[#24113F] px-6 py-2.5 rounded-full text-xs sm:text-sm font-semibold flex items-center gap-2" data-category="festival" onclick="filterTemplates('festival', this)">
+<span>🎄</span>
+<span>Festivals</span>
+</button>
+<button class="glass-pill text-[#24113F] px-6 py-2.5 rounded-full text-xs sm:text-sm font-semibold flex items-center gap-2" onclick="alert('More magical categories are being unlocked every week! Stay tuned.')">
+<span>•••</span>
+<span>More</span>
+</button>
+</div>
+</div>
+</section>
+<!-- END: CategoryNavigationBar -->
+<!-- BEGIN: PopularTemplatesGallery (EXPANSIVE 4-COLUMN MARKETPLACE GALLERY) -->
+<section class="px-6 md:px-12 max-w-7xl mx-auto w-full mb-24" data-purpose="templates-catalog" id="templates-section">
+<!-- Section Header -->
+<div class="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-8">
+<div>
+<div class="flex items-center gap-2.5">
+<h2 class="font-display text-3xl sm:text-4xl font-extrabold text-[#24113F] tracking-tight">Popular Templates</h2>
+<span class="text-amber-500 text-2xl">✨</span>
+</div>
+<p class="text-sm sm:text-base text-purple-800/80 mt-1 font-medium">Interactive experiences ready to personalize in less than 60 seconds.</p>
+</div>
+<button class="inline-flex items-center gap-2 px-6 py-3 rounded-full glass-pill text-xs sm:text-sm font-bold text-purple-700 hover:text-purple-900 transition self-start sm:self-auto shadow-sm" onclick="resetAllFilters()">
+<span>View All Templates</span>
+<span class="text-base font-normal">→</span>
+</button>
+</div>
+<!-- Live Search & Filter Feedback Bar -->
+<div class="hidden mb-6 p-4 rounded-2xl bg-purple-100/80 border border-purple-200 text-xs sm:text-sm font-semibold text-purple-900 flex items-center justify-between" id="search-feedback">
+<span>Showing results for: <span class="text-pink-600 font-bold" id="active-query-text"></span></span>
+<button class="underline text-purple-700 hover:text-purple-900 font-bold" onclick="resetSearch()">Clear Search</button>
+</div>
+<!-- 8 High-Fidelity Cards Grid (4 Columns Desktop) -->
+<div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-7" id="templates-grid">
+<!-- CARD 1: Glitter Birthday Bash (Free) -->
+<div class="template-card bg-white rounded-3xl p-4 shadow-lg shadow-purple-900/5 border border-purple-100 hover:shadow-2xl hover:-translate-y-1.5 transition-all duration-300 flex flex-col justify-between group" data-category="birthday" data-name="glitter birthday bash">
+<div>
+<div class="h-52 rounded-2xl relative overflow-hidden mb-4 bg-gradient-to-tr from-purple-950 via-indigo-900 to-purple-800 flex items-center justify-center p-5">
+<!-- Free Badge -->
+<div class="absolute top-3 right-3 px-3 py-1 rounded-full bg-[#16A34A] text-white text-[11px] font-bold flex items-center gap-1 shadow-md z-10">
+<span>🎁</span> Free
+              </div>
+<!-- Artwork preview -->
+<div class="text-center text-white relative z-0">
+<span class="text-4xl block filter drop-shadow-[0_4px_8px_rgba(0,0,0,0.5)]">🎂🎈</span>
+<p class="font-serifAccent text-lg font-bold text-pink-200 italic mt-1.5">Happy Birthday</p>
+<div class="flex items-center justify-center gap-1 mt-1 text-[11px] text-amber-300 font-medium">
+<span>✦</span> Sparkle Confetti <span>✦</span>
+</div>
+</div>
+<div class="absolute inset-0 bg-black/15 group-hover:bg-transparent transition-colors"></div>
+</div>
+<h3 class="font-display font-bold text-lg text-[#24113F] group-hover:text-purple-700 transition">Glitter Birthday Bash</h3>
+<div class="flex items-center gap-2 mt-1">
+<span class="text-amber-500 text-xs font-bold">★★★★★</span>
+<span class="text-xs font-semibold text-purple-700/80">4.8 (125)</span>
+</div>
+</div>
+<div class="flex items-center gap-2 mt-5 pt-2 border-t border-purple-50">
+<button class="flex-1 py-3 px-4 rounded-xl bg-gradient-to-r from-[#EC4899] to-[#7C3AED] hover:opacity-95 text-white text-xs font-bold flex items-center justify-center gap-1.5 shadow-md active:scale-95 transition" onclick="openQuickCustomize('Glitter Birthday Bash', 'Free')">
+<span>Customize</span>
+<span>🪄</span>
+</button>
+<button aria-label="Bookmark Template" class="bookmark-btn p-3 rounded-xl border border-purple-200 bg-purple-50/50 hover:bg-white text-purple-600 hover:text-purple-800 transition" onclick="toggleBookmark(this)">
+<svg class="w-4 h-4 fill-none stroke-current" viewbox="0 0 24 24"><path d="M5 5a2 2 0 012-2h10a2 2 0 012 2v16l-7-3.5L5 21V5z" stroke-linecap="round" stroke-linejoin="round" stroke-width="2"></path></svg>
+</button>
+</div>
+</div>
+<!-- CARD 2: Endless Love (Premium ₹49) -->
+<div class="template-card bg-white rounded-3xl p-4 shadow-lg shadow-purple-900/5 border border-purple-100 hover:shadow-2xl hover:-translate-y-1.5 transition-all duration-300 flex flex-col justify-between group" data-category="love" data-name="endless love">
+<div>
+<div class="h-52 rounded-2xl relative overflow-hidden mb-4 bg-gradient-to-br from-rose-950 via-red-900 to-pink-900 flex items-center justify-center p-5">
+<!-- Premium Badge -->
+<div class="absolute top-3 right-3 px-3 py-1 rounded-full bg-[#F4C542] text-amber-950 text-[11px] font-extrabold flex items-center gap-1 shadow-md z-10">
+<span>👑</span> Premium ₹49
+              </div>
+<div class="text-center text-white relative z-0">
+<span class="text-4xl block filter drop-shadow-[0_4px_8px_rgba(0,0,0,0.5)]">💖✨</span>
+<p class="font-serifAccent text-base font-bold text-rose-200 italic mt-1.5 leading-snug">"You are my today &amp; tomorrow"</p>
+<div class="text-[11px] text-pink-300 mt-1 font-sans">Romantic Violin BGM</div>
+</div>
+<div class="absolute inset-0 bg-black/15 group-hover:bg-transparent transition-colors"></div>
+</div>
+<h3 class="font-display font-bold text-lg text-[#24113F] group-hover:text-purple-700 transition">Endless Love</h3>
+<div class="flex items-center gap-2 mt-1">
+<span class="text-amber-500 text-xs font-bold">★★★★★</span>
+<span class="text-xs font-semibold text-purple-700/80">4.9 (98)</span>
+</div>
+</div>
+<div class="flex items-center gap-2 mt-5 pt-2 border-t border-purple-50">
+<button class="flex-1 py-3 px-4 rounded-xl bg-gradient-to-r from-[#EC4899] to-[#7C3AED] hover:opacity-95 text-white text-xs font-bold flex items-center justify-center gap-1.5 shadow-md active:scale-95 transition" onclick="openQuickCustomize('Endless Love', 'Premium ₹49')">
+<span>Customize</span>
+<span>🪄</span>
+</button>
+<button aria-label="Bookmark Template" class="bookmark-btn p-3 rounded-xl border border-purple-200 bg-purple-50/50 hover:bg-white text-purple-600 hover:text-purple-800 transition" onclick="toggleBookmark(this)">
+<svg class="w-4 h-4 fill-none stroke-current" viewbox="0 0 24 24"><path d="M5 5a2 2 0 012-2h10a2 2 0 012 2v16l-7-3.5L5 21V5z" stroke-linecap="round" stroke-linejoin="round" stroke-width="2"></path></svg>
+</button>
+</div>
+</div>
+<!-- CARD 3: Golden Anniversary Wishes (Premium ₹49) -->
+<div class="template-card bg-white rounded-3xl p-4 shadow-lg shadow-purple-900/5 border border-purple-100 hover:shadow-2xl hover:-translate-y-1.5 transition-all duration-300 flex flex-col justify-between group" data-category="anniversary" data-name="golden anniversary wishes">
+<div>
+<div class="h-52 rounded-2xl relative overflow-hidden mb-4 bg-gradient-to-br from-amber-950 via-yellow-900 to-stone-900 flex items-center justify-center p-5">
+<!-- Premium Badge -->
+<div class="absolute top-3 right-3 px-3 py-1 rounded-full bg-[#F4C542] text-amber-950 text-[11px] font-extrabold flex items-center gap-1 shadow-md z-10">
+<span>👑</span> Premium ₹49
+              </div>
+<div class="text-center text-white relative z-0">
+<span class="text-4xl block filter drop-shadow-[0_4px_8px_rgba(0,0,0,0.5)]">💍🥂</span>
+<p class="font-serifAccent text-base font-bold text-amber-200 italic mt-1.5 leading-tight">Happy Anniversary to a beautiful couple!</p>
+<div class="text-[11px] text-amber-300/90 mt-1 font-sans">Floral Arch &amp; Photo Album</div>
+</div>
+<div class="absolute inset-0 bg-black/15 group-hover:bg-transparent transition-colors"></div>
+</div>
+<h3 class="font-display font-bold text-lg text-[#24113F] group-hover:text-purple-700 transition">Golden Anniversary Wishes</h3>
+<div class="flex items-center gap-2 mt-1">
+<span class="text-amber-500 text-xs font-bold">★★★★★</span>
+<span class="text-xs font-semibold text-purple-700/80">4.7 (86)</span>
+</div>
+</div>
+<div class="flex items-center gap-2 mt-5 pt-2 border-t border-purple-50">
+<button class="flex-1 py-3 px-4 rounded-xl bg-gradient-to-r from-[#EC4899] to-[#7C3AED] hover:opacity-95 text-white text-xs font-bold flex items-center justify-center gap-1.5 shadow-md active:scale-95 transition" onclick="openQuickCustomize('Golden Anniversary Wishes', 'Premium ₹49')">
+<span>Customize</span>
+<span>🪄</span>
+</button>
+<button aria-label="Bookmark Template" class="bookmark-btn p-3 rounded-xl border border-purple-200 bg-purple-50/50 hover:bg-white text-purple-600 hover:text-purple-800 transition" onclick="toggleBookmark(this)">
+<svg class="w-4 h-4 fill-none stroke-current" viewbox="0 0 24 24"><path d="M5 5a2 2 0 012-2h10a2 2 0 012 2v16l-7-3.5L5 21V5z" stroke-linecap="round" stroke-linejoin="round" stroke-width="2"></path></svg>
+</button>
+</div>
+</div>
+<!-- CARD 4: Purr-fect Birthday (Free) -->
+<div class="template-card bg-white rounded-3xl p-4 shadow-lg shadow-purple-900/5 border border-purple-100 hover:shadow-2xl hover:-translate-y-1.5 transition-all duration-300 flex flex-col justify-between group" data-category="funny" data-name="purr-fect birthday funny cat">
+<div>
+<div class="h-52 rounded-2xl relative overflow-hidden mb-4 bg-gradient-to-tr from-sky-900 via-blue-800 to-indigo-900 flex items-center justify-center p-5">
+<!-- Free Badge -->
+<div class="absolute top-3 right-3 px-3 py-1 rounded-full bg-[#16A34A] text-white text-[11px] font-bold flex items-center gap-1 shadow-md z-10">
+<span>🎁</span> Free
+              </div>
+<div class="text-center text-white relative z-0">
+<span class="text-4xl block filter drop-shadow-[0_4px_8px_rgba(0,0,0,0.5)]">😼🕶️</span>
+<p class="font-display text-sm font-extrabold text-cyan-200 mt-1.5">Another year older? No worries!</p>
+<p class="font-serifAccent text-xs text-amber-200 italic mt-0.5">You're purr-fect!</p>
+</div>
+<div class="absolute inset-0 bg-black/15 group-hover:bg-transparent transition-colors"></div>
+</div>
+<h3 class="font-display font-bold text-lg text-[#24113F] group-hover:text-purple-700 transition">Purr-fect Birthday</h3>
+<div class="flex items-center gap-2 mt-1">
+<span class="text-amber-500 text-xs font-bold">★★★★★</span>
+<span class="text-xs font-semibold text-purple-700/80">4.6 (72)</span>
+</div>
+</div>
+<div class="flex items-center gap-2 mt-5 pt-2 border-t border-purple-50">
+<button class="flex-1 py-3 px-4 rounded-xl bg-gradient-to-r from-[#EC4899] to-[#7C3AED] hover:opacity-95 text-white text-xs font-bold flex items-center justify-center gap-1.5 shadow-md active:scale-95 transition" onclick="openQuickCustomize('Purr-fect Birthday', 'Free')">
+<span>Customize</span>
+<span>🪄</span>
+</button>
+<button aria-label="Bookmark Template" class="bookmark-btn p-3 rounded-xl border border-purple-200 bg-purple-50/50 hover:bg-white text-purple-600 hover:text-purple-800 transition" onclick="toggleBookmark(this)">
+<svg class="w-4 h-4 fill-none stroke-current" viewbox="0 0 24 24"><path d="M5 5a2 2 0 012-2h10a2 2 0 012 2v16l-7-3.5L5 21V5z" stroke-linecap="round" stroke-linejoin="round" stroke-width="2"></path></svg>
+</button>
+</div>
+</div>
+<!-- CARD 5: Thank You Sparkle (Free) -->
+<div class="template-card bg-white rounded-3xl p-4 shadow-lg shadow-purple-900/5 border border-purple-100 hover:shadow-2xl hover:-translate-y-1.5 transition-all duration-300 flex flex-col justify-between group" data-category="thankyou" data-name="thank you sparkle">
+<div>
+<div class="h-52 rounded-2xl relative overflow-hidden mb-4 bg-gradient-to-br from-teal-950 via-emerald-900 to-cyan-950 flex items-center justify-center p-5">
+<!-- Free Badge -->
+<div class="absolute top-3 right-3 px-3 py-1 rounded-full bg-[#16A34A] text-white text-[11px] font-bold flex items-center gap-1 shadow-md z-10">
+<span>🎁</span> Free
+              </div>
+<div class="text-center text-white relative z-0">
+<span class="text-4xl block">💐🌸</span>
+<p class="font-serifAccent text-lg font-bold text-emerald-200 italic mt-1.5">Thank You So Much</p>
+<div class="text-[11px] text-teal-200 font-sans mt-0.5">Gentle acoustic harp &amp; flowers</div>
+</div>
+<div class="absolute inset-0 bg-black/15 group-hover:bg-transparent transition-colors"></div>
+</div>
+<h3 class="font-display font-bold text-lg text-[#24113F] group-hover:text-purple-700 transition">Thank You Sparkle</h3>
+<div class="flex items-center gap-2 mt-1">
+<span class="text-amber-500 text-xs font-bold">★★★★★</span>
+<span class="text-xs font-semibold text-purple-700/80">4.9 (110)</span>
+</div>
+</div>
+<div class="flex items-center gap-2 mt-5 pt-2 border-t border-purple-50">
+<button class="flex-1 py-3 px-4 rounded-xl bg-gradient-to-r from-[#EC4899] to-[#7C3AED] hover:opacity-95 text-white text-xs font-bold flex items-center justify-center gap-1.5 shadow-md active:scale-95 transition" onclick="openQuickCustomize('Thank You Sparkle', 'Free')">
+<span>Customize</span>
+<span>🪄</span>
+</button>
+<button aria-label="Bookmark Template" class="bookmark-btn p-3 rounded-xl border border-purple-200 bg-purple-50/50 hover:bg-white text-purple-600 hover:text-purple-800 transition" onclick="toggleBookmark(this)">
+<svg class="w-4 h-4 fill-none stroke-current" viewbox="0 0 24 24"><path d="M5 5a2 2 0 012-2h10a2 2 0 012 2v16l-7-3.5L5 21V5z" stroke-linecap="round" stroke-linejoin="round" stroke-width="2"></path></svg>
+</button>
+</div>
+</div>
+<!-- CARD 6: Grand Congratulations (Premium ₹49) -->
+<div class="template-card bg-white rounded-3xl p-4 shadow-lg shadow-purple-900/5 border border-purple-100 hover:shadow-2xl hover:-translate-y-1.5 transition-all duration-300 flex flex-col justify-between group" data-category="congrats" data-name="grand congratulations fireworks">
+<div>
+<div class="h-52 rounded-2xl relative overflow-hidden mb-4 bg-gradient-to-tr from-indigo-950 via-purple-900 to-fuchsia-950 flex items-center justify-center p-5">
+<!-- Premium Badge -->
+<div class="absolute top-3 right-3 px-3 py-1 rounded-full bg-[#F4C542] text-amber-950 text-[11px] font-extrabold flex items-center gap-1 shadow-md z-10">
+<span>👑</span> Premium ₹49
+              </div>
+<div class="text-center text-white relative z-0">
+<span class="text-4xl block">🎆🎓</span>
+<p class="font-display text-base font-extrabold text-fuchsia-200 mt-1.5 uppercase tracking-wide">Congratulations!</p>
+<div class="text-[11px] text-amber-300 font-sans mt-0.5">Midnight sky fireworks show</div>
+</div>
+<div class="absolute inset-0 bg-black/15 group-hover:bg-transparent transition-colors"></div>
+</div>
+<h3 class="font-display font-bold text-lg text-[#24113F] group-hover:text-purple-700 transition">Grand Congratulations</h3>
+<div class="flex items-center gap-2 mt-1">
+<span class="text-amber-500 text-xs font-bold">★★★★★</span>
+<span class="text-xs font-semibold text-purple-700/80">4.8 (145)</span>
+</div>
+</div>
+<div class="flex items-center gap-2 mt-5 pt-2 border-t border-purple-50">
+<button class="flex-1 py-3 px-4 rounded-xl bg-gradient-to-r from-[#EC4899] to-[#7C3AED] hover:opacity-95 text-white text-xs font-bold flex items-center justify-center gap-1.5 shadow-md active:scale-95 transition" onclick="openQuickCustomize('Grand Congratulations', 'Premium ₹49')">
+<span>Customize</span>
+<span>🪄</span>
+</button>
+<button aria-label="Bookmark Template" class="bookmark-btn p-3 rounded-xl border border-purple-200 bg-purple-50/50 hover:bg-white text-purple-600 hover:text-purple-800 transition" onclick="toggleBookmark(this)">
+<svg class="w-4 h-4 fill-none stroke-current" viewbox="0 0 24 24"><path d="M5 5a2 2 0 012-2h10a2 2 0 012 2v16l-7-3.5L5 21V5z" stroke-linecap="round" stroke-linejoin="round" stroke-width="2"></path></svg>
+</button>
+</div>
+</div>
+<!-- CARD 7: Celebration Fiesta (Free) -->
+<div class="template-card bg-white rounded-3xl p-4 shadow-lg shadow-purple-900/5 border border-purple-100 hover:shadow-2xl hover:-translate-y-1.5 transition-all duration-300 flex flex-col justify-between group" data-category="festival" data-name="celebration fiesta festivals">
+<div>
+<div class="h-52 rounded-2xl relative overflow-hidden mb-4 bg-gradient-to-r from-amber-900 via-orange-800 to-red-900 flex items-center justify-center p-5">
+<!-- Free Badge -->
+<div class="absolute top-3 right-3 px-3 py-1 rounded-full bg-[#16A34A] text-white text-[11px] font-bold flex items-center gap-1 shadow-md z-10">
+<span>🎁</span> Free
+              </div>
+<div class="text-center text-white relative z-0">
+<span class="text-4xl block">🪔✨</span>
+<p class="font-display text-base font-bold text-orange-200 mt-1.5">Festival Of Joy</p>
+<div class="text-[11px] text-amber-200 font-sans mt-0.5">Floating Lantern Night Scene</div>
+</div>
+<div class="absolute inset-0 bg-black/15 group-hover:bg-transparent transition-colors"></div>
+</div>
+<h3 class="font-display font-bold text-lg text-[#24113F] group-hover:text-purple-700 transition">Celebration Fiesta</h3>
+<div class="flex items-center gap-2 mt-1">
+<span class="text-amber-500 text-xs font-bold">★★★★★</span>
+<span class="text-xs font-semibold text-purple-700/80">4.7 (89)</span>
+</div>
+</div>
+<div class="flex items-center gap-2 mt-5 pt-2 border-t border-purple-50">
+<button class="flex-1 py-3 px-4 rounded-xl bg-gradient-to-r from-[#EC4899] to-[#7C3AED] hover:opacity-95 text-white text-xs font-bold flex items-center justify-center gap-1.5 shadow-md active:scale-95 transition" onclick="openQuickCustomize('Celebration Fiesta', 'Free')">
+<span>Customize</span>
+<span>🪄</span>
+</button>
+<button aria-label="Bookmark Template" class="bookmark-btn p-3 rounded-xl border border-purple-200 bg-purple-50/50 hover:bg-white text-purple-600 hover:text-purple-800 transition" onclick="toggleBookmark(this)">
+<svg class="w-4 h-4 fill-none stroke-current" viewbox="0 0 24 24"><path d="M5 5a2 2 0 012-2h10a2 2 0 012 2v16l-7-3.5L5 21V5z" stroke-linecap="round" stroke-linejoin="round" stroke-width="2"></path></svg>
+</button>
+</div>
+</div>
+<!-- CARD 8: Forever & Always (Premium ₹49) -->
+<div class="template-card bg-white rounded-3xl p-4 shadow-lg shadow-purple-900/5 border border-purple-100 hover:shadow-2xl hover:-translate-y-1.5 transition-all duration-300 flex flex-col justify-between group" data-category="love" data-name="forever and always love romance">
+<div>
+<div class="h-52 rounded-2xl relative overflow-hidden mb-4 bg-gradient-to-tr from-purple-950 via-slate-900 to-rose-950 flex items-center justify-center p-5">
+<!-- Premium Badge -->
+<div class="absolute top-3 right-3 px-3 py-1 rounded-full bg-[#F4C542] text-amber-950 text-[11px] font-extrabold flex items-center gap-1 shadow-md z-10">
+<span>👑</span> Premium ₹49
+              </div>
+<div class="text-center text-white relative z-0">
+<span class="text-4xl block">🕯️🌌</span>
+<p class="font-serifAccent text-base font-bold text-rose-200 italic mt-1.5 leading-snug">Forever &amp; Always Under Stars</p>
+<div class="text-[11px] text-pink-300 font-sans mt-0.5">Interactive constellation tap</div>
+</div>
+<div class="absolute inset-0 bg-black/15 group-hover:bg-transparent transition-colors"></div>
+</div>
+<h3 class="font-display font-bold text-lg text-[#24113F] group-hover:text-purple-700 transition">Forever &amp; Always</h3>
+<div class="flex items-center gap-2 mt-1">
+<span class="text-amber-500 text-xs font-bold">★★★★★</span>
+<span class="text-xs font-semibold text-purple-700/80">5.0 (210)</span>
+</div>
+</div>
+<div class="flex items-center gap-2 mt-5 pt-2 border-t border-purple-50">
+<button class="flex-1 py-3 px-4 rounded-xl bg-gradient-to-r from-[#EC4899] to-[#7C3AED] hover:opacity-95 text-white text-xs font-bold flex items-center justify-center gap-1.5 shadow-md active:scale-95 transition" onclick="openQuickCustomize('Forever &amp; Always', 'Premium ₹49')">
+<span>Customize</span>
+<span>🪄</span>
+</button>
+<button aria-label="Bookmark Template" class="bookmark-btn p-3 rounded-xl border border-purple-200 bg-purple-50/50 hover:bg-white text-purple-600 hover:text-purple-800 transition" onclick="toggleBookmark(this)">
+<svg class="w-4 h-4 fill-none stroke-current" viewbox="0 0 24 24"><path d="M5 5a2 2 0 012-2h10a2 2 0 012 2v16l-7-3.5L5 21V5z" stroke-linecap="round" stroke-linejoin="round" stroke-width="2"></path></svg>
+</button>
+</div>
+</div>
+</div>
+<!-- No Results State -->
+<div class="hidden text-center py-16" id="no-results-msg">
+<span class="text-5xl block mb-2">🔍</span>
+<h4 class="font-display font-bold text-xl text-[#24113F]">No magical templates found</h4>
+<p class="text-sm text-purple-700 mt-1">Try another keyword like "birthday", "love", or "anniversary".</p>
+<button class="mt-4 px-6 py-2.5 rounded-full bg-purple-600 text-white font-semibold text-xs sm:text-sm shadow-md" onclick="resetSearch()">Reset Search</button>
+</div>
+</section>
+<!-- END: PopularTemplatesGallery -->
+<!-- BEGIN: HowWishMagicWorks -->
+<section class="py-16 md:py-24 px-6 md:px-12 max-w-7xl mx-auto w-full mb-12" data-purpose="how-it-works-steps" id="how-it-works">
+<div class="text-center max-w-2xl mx-auto mb-14">
+<span class="text-xs font-bold uppercase tracking-widest text-purple-800 bg-purple-200/60 px-4 py-1.5 rounded-full border border-purple-300/60 shadow-sm">Easy 4-Step Process</span>
+<h2 class="font-display text-3xl sm:text-4xl lg:text-5xl font-black text-[#24113F] mt-4">How WishMagic Works</h2>
+<p class="text-base text-purple-800/80 mt-2.5 font-medium">Send an unforgettable, interactive celebration in four delightful steps.</p>
+</div>
+<div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-7 relative">
+<!-- Step 1 -->
+<div class="glass-card rounded-[28px] p-7 relative flex flex-col justify-between hover:-translate-y-2 transition-transform duration-300">
+<div>
+<div class="w-13 h-13 w-12 h-12 rounded-2xl bg-purple-600 text-white flex items-center justify-center font-black text-lg mb-5 shadow-lg shadow-purple-500/30">
+              01
+            </div>
+<h3 class="font-display font-bold text-xl text-[#24113F] mb-2">Pick a Template</h3>
+<p class="text-sm text-purple-800/80 leading-relaxed font-normal">
+              Browse our curated gallery of birthday, anniversary, and celebration themes with rich 3D animations.
+            </p>
+</div>
+<div class="mt-6 text-3xl">🎨✨</div>
+</div>
+<!-- Step 2 -->
+<div class="glass-card rounded-[28px] p-7 relative flex flex-col justify-between hover:-translate-y-2 transition-transform duration-300">
+<div>
+<div class="w-12 h-12 rounded-2xl bg-pink-500 text-white flex items-center justify-center font-black text-lg mb-5 shadow-lg shadow-pink-500/30">
+              02
+            </div>
+<h3 class="font-display font-bold text-xl text-[#24113F] mb-2">Personalize Your Wish</h3>
+<p class="text-sm text-purple-800/80 leading-relaxed font-normal">
+              Add your favorite memories, heart-touching message, upload photos, and choose delightful background music.
+            </p>
+</div>
+<div class="mt-6 text-3xl">📸🎶</div>
+</div>
+<!-- Step 3 -->
+<div class="glass-card rounded-[28px] p-7 relative flex flex-col justify-between hover:-translate-y-2 transition-transform duration-300">
+<div>
+<div class="w-12 h-12 rounded-2xl bg-amber-500 text-white flex items-center justify-center font-black text-lg mb-5 shadow-lg shadow-amber-500/30">
+              03
+            </div>
+<h3 class="font-display font-bold text-xl text-[#24113F] mb-2">Instant Magical Link</h3>
+<p class="text-sm text-purple-800/80 leading-relaxed font-normal">
+              WishMagic instantly crafts a private, encrypted web page loaded with unboxing animations and confetti.
+            </p>
+</div>
+<div class="mt-6 text-3xl">🔗⚡</div>
+</div>
+<!-- Step 4 -->
+<div class="glass-card rounded-[28px] p-7 relative flex flex-col justify-between hover:-translate-y-2 transition-transform duration-300">
+<div>
+<div class="w-12 h-12 rounded-2xl bg-emerald-600 text-white flex items-center justify-center font-black text-lg mb-5 shadow-lg shadow-emerald-500/30">
+              04
+            </div>
+<h3 class="font-display font-bold text-xl text-[#24113F] mb-2">Share the Joy</h3>
+<p class="text-sm text-purple-800/80 leading-relaxed font-normal">
+              Share directly via WhatsApp, iMessage, Instagram, or QR code. Watch them light up with genuine smiles!
+            </p>
+</div>
+<div class="mt-6 text-3xl">💖🎁</div>
+</div>
+</div>
+</section>
+<!-- END: HowWishMagicWorks -->
+<!-- BEGIN: InteractiveExperienceShowcase (MORE THAN A GREETING CARD) -->
+<section class="py-16 md:py-24 px-6 md:px-12 max-w-7xl mx-auto w-full mb-12" data-purpose="experience-features">
+<div class="glass-card rounded-[36px] p-8 sm:p-12 lg:p-16 border border-white/80 overflow-hidden relative shadow-2xl shadow-purple-900/10">
+<div class="grid grid-cols-1 lg:grid-cols-12 gap-12 lg:gap-14 items-center">
+<!-- Left: Persuasive copy & Value points -->
+<div class="lg:col-span-6 space-y-6">
+<span class="px-4 py-1.5 rounded-full bg-pink-100 text-pink-700 text-xs font-extrabold uppercase tracking-wider">
+              More than a greeting card
+            </span>
+<h2 class="font-display text-3xl sm:text-4xl lg:text-5xl font-black text-[#24113F] leading-tight">
+              An Immersive Web Experience That Never Gets Lost.
+            </h2>
+<p class="text-base sm:text-lg text-purple-800/80 leading-relaxed font-normal">
+              Paper greeting cards gather dust, but WishMagic creates a digital keepsake. Recipients unlock interactive envelopes, watch celebratory fireworks, and listen to songs curated just for them.
+            </p>
+<!-- Feature Checklist with custom icons -->
+<div class="grid grid-cols-1 sm:grid-cols-2 gap-4 pt-3">
+<div class="flex items-center gap-3.5 p-3 rounded-2xl bg-white/70 border border-purple-100">
+<span class="w-10 h-10 rounded-xl bg-purple-100 text-purple-700 flex items-center justify-center font-bold text-lg">🎵</span>
+<span class="text-sm font-bold text-[#24113F]">Licensed BGM Tracks</span>
+</div>
+<div class="flex items-center gap-3.5 p-3 rounded-2xl bg-white/70 border border-purple-100">
+<span class="w-10 h-10 rounded-xl bg-pink-100 text-pink-700 flex items-center justify-center font-bold text-lg">🎆</span>
+<span class="text-sm font-bold text-[#24113F]">Full Screen Fireworks</span>
+</div>
+<div class="flex items-center gap-3.5 p-3 rounded-2xl bg-white/70 border border-purple-100">
+<span class="w-10 h-10 rounded-xl bg-amber-100 text-amber-700 flex items-center justify-center font-bold text-lg">💌</span>
+<span class="text-sm font-bold text-[#24113F]">Interactive Wax Seal Unboxing</span>
+</div>
+<div class="flex items-center gap-3.5 p-3 rounded-2xl bg-white/70 border border-purple-100">
+<span class="w-10 h-10 rounded-xl bg-emerald-100 text-emerald-700 flex items-center justify-center font-bold text-lg">📱</span>
+<span class="text-sm font-bold text-[#24113F]">100% Mobile Optimized</span>
+</div>
+</div>
+<div class="pt-4">
+<button class="px-8 py-4 rounded-full bg-[#1D0B36] hover:bg-[#2E0854] text-white text-base font-bold shadow-xl shadow-purple-950/20 hover:scale-105 active:scale-95 transition flex items-center gap-2.5" onclick="openQuickCustomize('Sample Magical Greeting', 'Free')">
+<span>Try An Interactive Preview</span>
+<span class="text-amber-300">✨</span>
+</button>
+</div>
+</div>
+<!-- Right: Realistic Mobile Preview Frame -->
+<div class="lg:col-span-6 flex justify-center">
+<div class="relative w-full max-w-sm">
+<!-- Floating Feature Badges -->
+<div class="absolute -top-4 -left-4 bg-white/95 rounded-2xl px-4 py-2 shadow-xl border border-purple-200 text-xs font-bold text-purple-700 animate-float-slow z-20 flex items-center gap-2">
+<span>🎵</span> Background Music
+              </div>
+<div class="absolute top-1/2 -right-6 bg-white/95 rounded-2xl px-4 py-2 shadow-xl border border-pink-200 text-xs font-bold text-pink-600 animate-float-delayed z-20 flex items-center gap-2">
+<span>✨</span> Confetti Shower
+              </div>
+<!-- Phone Frame Outer -->
+<div class="bg-gray-950 p-3.5 rounded-[3rem] shadow-2xl border-4 border-white/70">
+<div class="bg-gradient-to-b from-purple-950 via-indigo-950 to-purple-900 rounded-[2.3rem] p-6 text-white text-center relative overflow-hidden min-h-[420px] flex flex-col justify-between">
+<!-- Top Bar Indicator -->
+<div class="flex justify-between items-center text-[11px] text-purple-300 mb-4 px-2 font-mono">
+<span>9:41 AM</span>
+<span class="font-bold text-white/90">wishmagic.link/special-for-you</span>
+<span>🔋 100%</span>
+</div>
+<!-- Envelope Experience Card Inside Mobile -->
+<div class="space-y-4 my-auto">
+<div class="w-18 h-18 w-16 h-16 rounded-full bg-pink-500/25 mx-auto flex items-center justify-center text-3xl border border-pink-400/50 shadow-inner animate-pulse">
+                      💌
+                    </div>
+<div>
+<p class="text-[11px] uppercase tracking-widest text-amber-300 font-extrabold">Special Delivery For You</p>
+<h4 class="font-serifAccent text-2xl font-bold italic mt-1 text-white">"Happy Birthday, Sarah!"</h4>
+<p class="text-xs text-purple-200 mt-2 line-clamp-2">"May your year be as radiant, joyful and magical as you are!"</p>
+</div>
+<button class="px-6 py-2.5 rounded-full bg-gradient-to-r from-pink-500 to-purple-600 text-white text-xs font-bold shadow-lg hover:brightness-110 active:scale-95 transition" onclick="triggerConfettiDemo()">
+                      Tap to Unseal Envelope ✨
+                    </button>
+</div>
+<div class="text-[11px] text-purple-300/80 pt-2 border-t border-purple-800/40">Made with ❤️ via WishMagic</div>
+</div>
+</div>
+</div>
+</div>
+</div>
+</div>
+</section>
+<!-- END: InteractiveExperienceShowcase -->
+<!-- BEGIN: SimpleTransparentPricing -->
+<section class="py-16 md:py-24 px-6 md:px-12 max-w-7xl mx-auto w-full mb-12" data-purpose="pricing-plans" id="pricing-section">
+<div class="text-center max-w-2xl mx-auto mb-14">
+<span class="text-xs font-bold uppercase tracking-widest text-purple-800 bg-purple-200/60 px-4 py-1.5 rounded-full border border-purple-300/60 shadow-sm">Transparent &amp; Affordable</span>
+<h2 class="font-display text-3xl sm:text-4xl lg:text-5xl font-black text-[#24113F] mt-4">Simple Pricing For Infinite Smiles</h2>
+<p class="text-base text-purple-800/80 mt-2.5 font-medium">Start for free or unlock ultra-custom luxury magic for less than a cup of chai.</p>
+</div>
+<div class="grid grid-cols-1 md:grid-cols-2 gap-8 max-w-4xl mx-auto">
+<!-- Plan 1: Free Forever -->
+<div class="glass-card rounded-[32px] p-8 md:p-10 flex flex-col justify-between hover:shadow-2xl transition duration-300">
+<div>
+<div class="flex justify-between items-center mb-4">
+<span class="px-3.5 py-1 rounded-full bg-emerald-100 text-emerald-800 text-xs font-black uppercase">Free Starter</span>
+<span class="text-3xl">🌱</span>
+</div>
+<h3 class="font-display text-3xl font-black text-[#24113F]">Free Forever</h3>
+<p class="text-xs sm:text-sm text-purple-700/80 mt-1">Perfect for spontaneous cute wishes.</p>
+<div class="my-7">
+<span class="font-display text-5xl font-black text-[#24113F]">₹0</span>
+<span class="text-sm font-semibold text-purple-700"> / forever free</span>
+</div>
+<ul class="space-y-3.5 text-sm text-[#24113F] font-semibold">
+<li class="flex items-center gap-2.5">
+<span class="text-emerald-600 font-bold text-base">✓</span> Access to all Free Templates
+              </li>
+<li class="flex items-center gap-2.5">
+<span class="text-emerald-600 font-bold text-base">✓</span> Up to 3 personalized photos
+              </li>
+<li class="flex items-center gap-2.5">
+<span class="text-emerald-600 font-bold text-base">✓</span> Standard background music library
+              </li>
+<li class="flex items-center gap-2.5">
+<span class="text-emerald-600 font-bold text-base">✓</span> Instant shareable web link
+              </li>
+<li class="flex items-center gap-2.5 text-purple-400">
+<span>✕</span> <s class="font-normal">No WishMagic watermark</s>
+</li>
+</ul>
+</div>
+<button class="mt-8 w-full py-3.5 rounded-full border border-purple-300 bg-white hover:bg-purple-50 text-purple-900 font-bold text-sm shadow-sm transition active:scale-95" onclick="document.getElementById('templates-section').scrollIntoView({ behavior: 'smooth' })">
+            Start Free
+          </button>
+</div>
+<!-- Plan 2: Magic Premium -->
+<div class="glass-card rounded-[32px] p-8 md:p-10 flex flex-col justify-between relative border-2 border-pink-400 shadow-2xl bg-gradient-to-b from-white to-purple-50/80">
+<!-- Popular ribbon -->
+<div class="absolute -top-3.5 right-8 px-4 py-1 rounded-full bg-gradient-to-r from-[#EC4899] to-[#7C3AED] text-white text-[11px] font-black tracking-wider uppercase shadow-md">
+            Most Magical
+          </div>
+<div>
+<div class="flex justify-between items-center mb-4">
+<span class="px-3.5 py-1 rounded-full bg-amber-100 text-amber-900 text-xs font-black uppercase">Magic Premium</span>
+<span class="text-3xl">👑</span>
+</div>
+<h3 class="font-display text-3xl font-black text-[#24113F]">Per Wish Pass</h3>
+<p class="text-xs sm:text-sm text-purple-700/80 mt-1">For those milestone days that deserve total wonder.</p>
+<div class="my-7">
+<span class="font-display text-5xl font-black text-purple-900">₹49</span>
+<span class="text-sm font-semibold text-purple-700"> / per custom wish link</span>
+</div>
+<ul class="space-y-3.5 text-sm text-[#24113F] font-semibold">
+<li class="flex items-center gap-2.5">
+<span class="text-pink-600 font-bold text-base">★</span> <span class="font-extrabold text-purple-950">Unlock ALL Premium 3D Templates</span>
+</li>
+<li class="flex items-center gap-2.5">
+<span class="text-pink-600 font-bold text-base">★</span> Unlimited photos + voice memo note
+              </li>
+<li class="flex items-center gap-2.5">
+<span class="text-pink-600 font-bold text-base">★</span> Custom audio upload (their favorite song)
+              </li>
+<li class="flex items-center gap-2.5">
+<span class="text-pink-600 font-bold text-base">★</span> Zero ads &amp; 100% white-labeled link
+              </li>
+<li class="flex items-center gap-2.5">
+<span class="text-pink-600 font-bold text-base">★</span> Live Countdown timer + Fireworks burst
+              </li>
+</ul>
+</div>
+<button class="mt-8 w-full py-3.5 rounded-full bg-gradient-to-r from-[#EC4899] via-rose-500 to-[#7C3AED] hover:opacity-95 text-white font-bold text-sm shadow-xl shadow-pink-500/30 hover:scale-[1.02] active:scale-95 transition" onclick="openQuickCustomize('Milestone Special', 'Premium ₹49')">
+            Create Premium Wish (₹49) 🪄
+          </button>
+</div>
+</div>
+</section>
+<!-- END: SimpleTransparentPricing -->
+<!-- BEGIN: EmotionalClimaxBanner -->
+<section class="py-8 px-6 md:px-12 max-w-7xl mx-auto w-full mb-20" data-purpose="call-to-action-banner">
+<div class="relative rounded-[36px] bg-gradient-to-r from-[#2E0854] via-[#4C1D95] to-[#9D174D] text-white p-10 sm:p-16 text-center overflow-hidden shadow-2xl border border-white/20">
+<div class="sparkle-dot w-2.5 h-2.5 top-8 left-12 animate-ping"></div>
+<div class="sparkle-dot w-2 h-2 bottom-8 right-16 animate-pulse"></div>
+<div class="max-w-2xl mx-auto relative z-10 space-y-5">
+<span class="text-5xl block">✨💌✨</span>
+<h2 class="font-display text-3xl sm:text-4xl lg:text-5xl font-extrabold tracking-tight">
+            Make Their Special Day Truly Unforgettable.
+          </h2>
+<p class="text-purple-200 text-sm sm:text-base font-normal max-w-lg mx-auto">
+            Join over 50,000+ happy gifters who replaced boring text messages with magical digital surprises.
+          </p>
+<div class="pt-4">
+<button class="px-9 py-4 rounded-full bg-white text-purple-950 font-black text-base shadow-xl hover:bg-pink-50 hover:scale-105 active:scale-95 transition-all" onclick="document.getElementById('templates-section').scrollIntoView({ behavior: 'smooth' })">
+              Create Your Wish Now 🪄
+            </button>
+</div>
+</div>
+</div>
+</section>
+<!-- END: EmotionalClimaxBanner -->
+<!-- BEGIN: DeepMagicalPurpleFooter -->
+<footer class="bg-[#1D0B36] text-white pt-16 pb-12 px-6 md:px-12 mt-auto border-t border-purple-900/50" data-purpose="site-footer" id="about-section">
+<div class="max-w-7xl mx-auto">
+<!-- Trust & Support Horizontal Bar -->
+<div class="grid grid-cols-1 md:grid-cols-3 gap-8 pb-12 border-b border-purple-800/40 text-purple-200 text-xs sm:text-sm">
+<div class="flex items-start gap-4">
+<div class="w-10 h-10 rounded-full bg-purple-900/80 flex items-center justify-center text-pink-400 flex-shrink-0 text-base">
+<svg class="w-5 h-5" fill="none" stroke="currentColor" viewbox="0 0 24 24"><path d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z" stroke-linecap="round" stroke-linejoin="round" stroke-width="2"></path></svg>
+</div>
+<div>
+<p class="font-bold text-white text-base">Privacy Policy</p>
+<p class="text-purple-300/80 mt-1 leading-relaxed">Your privacy is important to us. Photos and wishes remain strictly confidential.</p>
+</div>
+</div>
+<div class="flex items-start gap-4">
+<div class="w-10 h-10 rounded-full bg-purple-900/80 flex items-center justify-center text-pink-400 flex-shrink-0 text-base">
+<svg class="w-5 h-5" fill="none" stroke="currentColor" viewbox="0 0 24 24"><path d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" stroke-linecap="round" stroke-linejoin="round" stroke-width="2"></path></svg>
+</div>
+<div>
+<p class="font-bold text-white text-base">Terms &amp; Conditions</p>
+<p class="text-purple-300/80 mt-1 leading-relaxed">Simple, honest guidelines for creating pure joyful experiences.</p>
+</div>
+</div>
+<div class="flex items-start gap-4">
+<div class="w-10 h-10 rounded-full bg-purple-900/80 flex items-center justify-center text-pink-400 flex-shrink-0 text-base">
+<svg class="w-5 h-5" fill="none" stroke="currentColor" viewbox="0 0 24 24"><path d="M18.364 5.636l-3.536 3.536m0 5.656l3.536 3.536M9.172 9.172L5.636 5.636m3.536 9.192l-3.536 3.536M21 12a9 9 0 11-18 0 9 9 0 0118 0zm-5 0a4 4 0 11-8 0 4 4 0 018 0z" stroke-linecap="round" stroke-linejoin="round" stroke-width="2"></path></svg>
+</div>
+<div>
+<p class="font-bold text-white text-base">Contact Support</p>
+<p class="text-purple-300/80 mt-1 leading-relaxed">We're here to help you 24/7 at hello@wishmagic.com.</p>
+</div>
+</div>
+</div>
+<!-- Footer Main Navigation & Brand Columns -->
+<div class="grid grid-cols-2 md:grid-cols-5 gap-10 py-12 text-sm">
+<div class="col-span-2">
+<div class="flex items-center gap-3 mb-4">
+<div class="w-9 h-9 rounded-full bg-pink-500 flex items-center justify-center font-bold text-white shadow-md">🪄</div>
+<span class="font-display font-extrabold text-2xl text-white">WishMagic</span>
+</div>
+<p class="text-purple-300/80 leading-relaxed max-w-sm mb-5 text-sm">
+              Crafting joyous, emotional, and interactive digital web experiences that turn every birthday, anniversary, and celebration into a treasured memory.
+            </p>
+<!-- Social Icons -->
+<div class="flex items-center gap-3 text-purple-300 text-sm">
+<a aria-label="Instagram" class="w-9 h-9 rounded-full bg-purple-900/70 hover:bg-pink-600 hover:text-white flex items-center justify-center transition" href="#">📷</a>
+<a aria-label="YouTube" class="w-9 h-9 rounded-full bg-purple-900/70 hover:bg-pink-600 hover:text-white flex items-center justify-center transition" href="#">▶</a>
+<a aria-label="Facebook" class="w-9 h-9 rounded-full bg-purple-900/70 hover:bg-pink-600 hover:text-white flex items-center justify-center transition" href="#">f</a>
+<a aria-label="X Twitter" class="w-9 h-9 rounded-full bg-purple-900/70 hover:bg-pink-600 hover:text-white flex items-center justify-center transition" href="#">𝕏</a>
+<a aria-label="Pinterest" class="w-9 h-9 rounded-full bg-purple-900/70 hover:bg-pink-600 hover:text-white flex items-center justify-center transition" href="#">📌</a>
+</div>
+</div>
+<div>
+<h4 class="font-bold text-white mb-4 uppercase tracking-wider text-xs">Occasions</h4>
+<ul class="space-y-2.5 text-purple-300/80">
+<li><a class="hover:text-white transition" href="#">Birthday Wishes</a></li>
+<li><a class="hover:text-white transition" href="#">Anniversary Celebrations</a></li>
+<li><a class="hover:text-white transition" href="#">Romantic Love Notes</a></li>
+<li><a class="hover:text-white transition" href="#">Graduation &amp; Success</a></li>
+<li><a class="hover:text-white transition" href="#">Festive Seasons</a></li>
+</ul>
+</div>
+<div>
+<h4 class="font-bold text-white mb-4 uppercase tracking-wider text-xs">Product</h4>
+<ul class="space-y-2.5 text-purple-300/80">
+<li><a class="hover:text-white transition" href="#">Template Library</a></li>
+<li><a class="hover:text-white transition" href="#">Custom Audio Studio</a></li>
+<li><a class="hover:text-white transition" href="#">QR Code Delivery</a></li>
+<li><a class="hover:text-white transition" href="#">Magic Premium Pass</a></li>
+<li><a class="hover:text-white transition" href="#">Customer Stories</a></li>
+</ul>
+</div>
+<div>
+<h4 class="font-bold text-white mb-4 uppercase tracking-wider text-xs">Company</h4>
+<ul class="space-y-2.5 text-purple-300/80">
+<li><a class="hover:text-white transition" href="#">About WishMagic</a></li>
+<li><a class="hover:text-white transition text-pink-300 font-semibold" href="admin-orders.html">⚙️ Admin Studio (Orders)</a></li>
+<li><a class="hover:text-white transition text-pink-300 font-semibold" href="admin-templates.html">🎨 Admin Templates</a></li>
+<li><a class="hover:text-white transition" href="#">Help Center</a></li>
+<li><a class="hover:text-white transition" href="#">Contact Us</a></li>
+</ul>
+</div>
+</div>
+<!-- Copyright Badge bottom -->
+<div class="pt-8 border-t border-purple-900/50 flex flex-col sm:flex-row items-center justify-between text-xs sm:text-sm text-purple-400 gap-3">
+<span>© 2026 WishMagic. All rights reserved. 💜</span>
+<span class="text-purple-300/60 text-xs">Designed with wonder for people who care deeply.</span>
+</div>
+</div>
+</footer>
+<!-- END: DeepMagicalPurpleFooter -->
+</div>
+<!-- BEGIN: InteractiveModalCustomizer -->
+<!-- Template Customizer & Live Preview Modal -->
+<div class="fixed inset-0 z-50 bg-black/70 backdrop-blur-md hidden items-center justify-center p-4" id="customize-modal">
+<div class="bg-white rounded-3xl max-w-lg w-full p-6 sm:p-8 shadow-2xl relative border border-purple-200">
+<!-- Close button -->
+<button class="absolute top-4 right-4 w-8 h-8 rounded-full bg-gray-100 text-gray-500 hover:text-black flex items-center justify-center font-bold" onclick="closeModal('customize-modal')">
+        ✕
+      </button>
+<div class="flex items-center gap-2 mb-2">
+<span class="text-2xl">🪄</span>
+<h3 class="font-display font-extrabold text-xl text-[#24113F]" id="modal-template-title">Customize Template</h3>
+</div>
+<p class="text-xs text-purple-700/80 mb-6 font-semibold" id="modal-template-plan">Free Interactive Experience</p>
+<form class="space-y-4 text-xs font-semibold text-[#24113F]" id="customize-form" onsubmit="handleCustomizeSubmit(event)">
+<div>
+<label class="block mb-1">Recipient Name</label>
+<input class="w-full text-xs rounded-xl border border-purple-200 p-3 focus:ring-2 focus:ring-purple-400 focus:outline-none" id="cust-recipient" placeholder="e.g. Sarah Jenkins" required="" type="text"/>
+</div>
+<div>
+<label class="block mb-1">Sender Name (From)</label>
+<input class="w-full text-xs rounded-xl border border-purple-200 p-3 focus:ring-2 focus:ring-purple-400 focus:outline-none" id="cust-sender" placeholder="e.g. Alex" required="" type="text"/>
+</div>
+<div>
+<label class="block mb-1">Your Personal Message</label>
+<textarea class="w-full text-xs rounded-xl border border-purple-200 p-3 focus:ring-2 focus:ring-purple-400 focus:outline-none" id="cust-message" placeholder="Write your heartfelt message here..." rows="3"></textarea>
+</div>
+<div>
+<label class="block mb-1">Background Music Track</label>
+<select class="w-full text-xs rounded-xl border border-purple-200 p-3 focus:ring-2 focus:ring-purple-400 focus:outline-none bg-white font-medium">
+<option>✨ Whimsical Acoustic Guitar (Default)</option>
+<option>🎂 Happy Birthday Orchestral Spark</option>
+<option>💖 Soft Romantic Piano Melody</option>
+<option>🎉 Upbeat Confetti Celebration</option>
+</select>
+</div>
+<div class="pt-4 flex gap-3">
+<button class="w-1/3 py-3 rounded-full border border-gray-300 text-gray-700 hover:bg-gray-50 font-bold transition" onclick="closeModal('customize-modal')" type="button">
+            Cancel
+          </button>
+<button class="w-2/3 py-3 rounded-full bg-gradient-to-r from-[#EC4899] to-[#7C3AED] text-white font-bold shadow-md hover:brightness-105 active:scale-95 transition" type="submit">
+            Generate Magic Link ✨
+          </button>
+</div>
+</form>
+</div>
+</div>
+<!-- Auth Modal (Sign In / Sign Up) -->
+<div class="fixed inset-0 z-50 bg-black/70 backdrop-blur-md hidden items-center justify-center p-4" id="auth-modal">
+<div class="bg-white rounded-3xl max-w-sm w-full p-6 sm:p-8 shadow-2xl relative border border-purple-200 text-center">
+<button class="absolute top-4 right-4 w-8 h-8 rounded-full bg-gray-100 text-gray-500 hover:text-black flex items-center justify-center font-bold" onclick="closeModal('auth-modal')">
+        ✕
+      </button>
+<div class="w-12 h-12 rounded-full bg-purple-100 text-purple-700 flex items-center justify-center mx-auto text-2xl mb-3">
+        🪄
+      </div>
+<h3 class="font-display font-black text-xl text-[#24113F]" id="auth-title">Welcome to WishMagic</h3>
+<p class="text-xs text-purple-700/80 mb-6" id="auth-subtitle">Save your wishes and revisit smiles anytime.</p>
+<div class="space-y-3">
+<button class="w-full py-2.5 px-4 rounded-xl border border-gray-300 hover:bg-gray-50 text-xs font-bold text-gray-700 flex items-center justify-center gap-2 transition" onclick="mockAuthSuccess('Google')">
+<span>Continue with Google</span>
+</button>
+<button class="w-full py-2.5 px-4 rounded-xl border border-gray-300 hover:bg-gray-50 text-xs font-bold text-gray-700 flex items-center justify-center gap-2 transition" onclick="mockAuthSuccess('Apple')">
+<span>Continue with Apple</span>
+</button>
+<div class="text-[11px] text-gray-400 my-2">or with email</div>
+<input class="w-full text-xs rounded-xl border border-purple-200 p-3 focus:ring-2 focus:ring-purple-400 focus:outline-none" placeholder="name@example.com" type="email"/>
+<button class="w-full py-3 rounded-xl bg-purple-600 text-white text-xs font-bold shadow-md hover:bg-purple-700 transition" onclick="mockAuthSuccess('Email')">
+          Continue
+        </button>
+</div>
+</div>
+</div>
+<!-- END: InteractiveModalCustomizer -->
+<!-- BEGIN: InteractiveScriptHandlers -->
+<script data-purpose="card-filtering">
+    function filterTemplates(category, btnElement) {
+      const allButtons = document.querySelectorAll('.category-btn');
+      allButtons.forEach(btn => {
+        btn.classList.remove('pill-active');
+        btn.classList.add('glass-pill');
+      });
+      if (btnElement) {
+        btnElement.classList.add('pill-active');
+        btnElement.classList.remove('glass-pill');
+      }
+
+      const cards = document.querySelectorAll('.template-card');
+      let visibleCount = 0;
+
+      cards.forEach(card => {
+        const cardCategory = card.getAttribute('data-category');
+        if (category === 'all' || cardCategory === category) {
+          card.classList.remove('hidden');
+          visibleCount++;
+        } else {
+          card.classList.add('hidden');
+        }
+      });
+
+      const noResults = document.getElementById('no-results-msg');
+      if (visibleCount === 0) {
+        noResults.classList.remove('hidden');
+      } else {
+        noResults.classList.add('hidden');
+      }
+    }
+
+    function resetAllFilters() {
+      const firstTab = document.querySelector('.category-btn');
+      if (firstTab) {
+        firstTab.click();
+      }
+      resetSearch();
+      document.getElementById('templates-section').scrollIntoView({ behavior: 'smooth' });
+    }
+  </script>
+<script data-purpose="search-filtering">
+    const searchInput = document.getElementById('nav-search-input');
+    const searchClear = document.getElementById('search-clear-btn');
+    const searchFeedback = document.getElementById('search-feedback');
+    const activeQueryText = document.getElementById('active-query-text');
+
+    if (searchInput) {
+      searchInput.addEventListener('input', function(e) {
+        const query = e.target.value.toLowerCase().trim();
+        
+        if (query.length > 0) {
+          searchClear.classList.remove('hidden');
+          searchFeedback.classList.remove('hidden');
+          activeQueryText.textContent = `"${query}"`;
+        } else {
+          searchClear.classList.add('hidden');
+          searchFeedback.classList.add('hidden');
+        }
+
+        const cards = document.querySelectorAll('.template-card');
+        let matchCount = 0;
+
+        cards.forEach(card => {
+          const cardName = card.getAttribute('data-name') || '';
+          const cardCategory = card.getAttribute('data-category') || '';
+          if (cardName.includes(query) || cardCategory.includes(query)) {
+            card.classList.remove('hidden');
+            matchCount++;
+          } else {
+            card.classList.add('hidden');
+          }
+        });
+
+        const noResults = document.getElementById('no-results-msg');
+        if (matchCount === 0) {
+          noResults.classList.remove('hidden');
+        } else {
+          noResults.classList.add('hidden');
+        }
+      });
+
+      searchClear.addEventListener('click', resetSearch);
+    }
+
+    function resetSearch() {
+      if (searchInput) {
+        searchInput.value = '';
+        searchClear.classList.add('hidden');
+        searchFeedback.classList.add('hidden');
+        
+        document.querySelectorAll('.template-card').forEach(card => card.classList.remove('hidden'));
+        document.getElementById('no-results-msg').classList.add('hidden');
+      }
+    }
+  </script>
+<script data-purpose="modals-and-bookmarks">
+    function toggleBookmark(btn) {
+      const svg = btn.querySelector('svg');
+      const isSaved = btn.getAttribute('data-saved') === 'true';
+
+      if (isSaved) {
+        btn.setAttribute('data-saved', 'false');
+        svg.classList.remove('fill-pink-500', 'text-pink-500');
+        svg.classList.add('fill-none', 'text-purple-600');
+      } else {
+        btn.setAttribute('data-saved', 'true');
+        svg.classList.remove('fill-none', 'text-purple-600');
+        svg.classList.add('fill-pink-500', 'text-pink-500');
+      }
+    }
+
+    function openModal(modalId) {
+      const modal = document.getElementById(modalId);
+      if (modal) {
+        modal.classList.remove('hidden');
+        modal.classList.add('flex');
+      }
+    }
+
+    function closeModal(modalId) {
+      const modal = document.getElementById(modalId);
+      if (modal) {
+        modal.classList.remove('flex');
+        modal.classList.add('hidden');
+      }
+    }
+
+    function openQuickCustomize(templateName, planBadge) {
+      document.getElementById('modal-template-title').textContent = templateName;
+      document.getElementById('modal-template-plan').textContent = (planBadge ? `${planBadge} • ` : '') + 'Customize & Preview Live Experience';
+      openModal('customize-modal');
+    }
+
+    function handleCustomizeSubmit(e) {
+      e.preventDefault();
+      const recipient = document.getElementById('cust-recipient').value || 'Friend';
+      closeModal('customize-modal');
+      alert(`🎉 Magic generated! A unique interactive link for "${recipient}" has been created! (wishmagic.link/${recipient.toLowerCase().replace(/\\s+/g, '-')})`);
+    }
+
+    function openAuthModal(mode) {
+      const title = document.getElementById('auth-title');
+      const subtitle = document.getElementById('auth-subtitle');
+      if (mode === 'signup') {
+        title.textContent = "Join WishMagic Today";
+        subtitle.textContent = "Start surprising your friends with web magic ✨";
+      } else {
+        title.textContent = "Welcome Back to WishMagic";
+        subtitle.textContent = "Access your saved memories and active wishes.";
+      }
+      openModal('auth-modal');
+    }
+
+    function mockAuthSuccess(provider) {
+      closeModal('auth-modal');
+      alert(`✨ Successfully authenticated via ${provider}! Welcome to the magical circle.`);
+    }
+
+    function triggerConfettiDemo() {
+      alert("🎊 Envelope Opened! Fireworks & joyful celebration sound ignited ✨");
+    }
+  </script>
+<!-- END: InteractiveScriptHandlers -->
+</body></html>
