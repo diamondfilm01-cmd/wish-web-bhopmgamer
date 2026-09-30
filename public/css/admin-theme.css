@@ -1,0 +1,217 @@
+/* WishMagic Admin Studio - Universal Dual Theme & Mobile Styles */
+
+:root {
+  --bg-main: #0d071a;
+  --bg-card: #1c1036;
+  --bg-card-sub: #150c29;
+  --bg-sidebar: #090414;
+  --bg-header: rgba(9, 4, 20, 0.95);
+  --border-color: rgba(124, 58, 237, 0.25);
+  --text-main: #f5f0ff;
+  --text-muted: #c4b5fd;
+  --text-sub: #7c6d99;
+  --input-bg: rgba(21, 12, 41, 0.75);
+}
+
+html:not(.dark) {
+  --bg-main: #f8f7fc;
+  --bg-card: #ffffff;
+  --bg-card-sub: #f3effa;
+  --bg-sidebar: #ffffff;
+  --bg-header: rgba(255, 255, 255, 0.98);
+  --border-color: #e2d9f3;
+  --text-main: #180d2b;
+  --text-muted: #4e3f6b;
+  --text-sub: #72628f;
+  --input-bg: #f1ecfa;
+}
+
+body {
+  background-color: var(--bg-main) !important;
+  color: var(--text-main) !important;
+  font-family: 'Plus Jakarta Sans', sans-serif;
+  margin: 0;
+  padding: 0;
+  overflow-x: hidden;
+  transition: background-color 0.2s ease, color 0.2s ease;
+}
+
+/* Material Symbols font display guarantee */
+.material-symbols-outlined {
+  font-family: 'Material Symbols Outlined' !important;
+  font-weight: normal;
+  font-style: normal;
+  font-size: 20px;
+  line-height: 1;
+  display: inline-block;
+  white-space: nowrap;
+  word-wrap: normal;
+  direction: ltr;
+  vertical-align: middle;
+  -webkit-font-feature-settings: 'liga';
+  -webkit-font-smoothing: antialiased;
+  font-feature-settings: 'liga';
+}
+
+/* Light Mode Overrides for Tailwind Utility Classes & Layouts */
+html:not(.dark) body {
+  background-color: #f8f7fc !important;
+  color: #180d2b !important;
+}
+
+html:not(.dark) .bg-background { background-color: #f8f7fc !important; }
+html:not(.dark) .bg-surface { background-color: #f8f7fc !important; }
+html:not(.dark) .bg-surface-container-lowest { background-color: #ffffff !important; }
+html:not(.dark) .bg-surface-container-low { background-color: #ffffff !important; }
+html:not(.dark) .bg-surface-container { background-color: #ffffff !important; }
+html:not(.dark) .bg-surface-container-high { background-color: #f3effa !important; }
+html:not(.dark) .bg-surface-container-highest { background-color: #eae3f7 !important; }
+html:not(.dark) .bg-surface-bright { background-color: #f0eaf8 !important; }
+
+html:not(.dark) [class*="bg-[#0d071a]"],
+html:not(.dark) [class*="bg-[#130a24]"] {
+  background-color: #f8f7fc !important;
+}
+html:not(.dark) [class*="bg-[#090414]"] {
+  background-color: #ffffff !important;
+}
+
+/* In Light Mode: Explicit High-Contrast Text Colors */
+html:not(.dark) .text-on-surface { color: #180d2b !important; }
+html:not(.dark) .text-on-surface-variant { color: #4e3f6b !important; }
+html:not(.dark) .text-outline { color: #6b5a88 !important; }
+html:not(.dark) .text-purple-100,
+html:not(.dark) .text-purple-200,
+html:not(.dark) .text-purple-300 {
+  color: #581c87 !important;
+}
+html:not(.dark) .text-gray-300,
+html:not(.dark) .text-gray-400,
+html:not(.dark) .text-slate-400 {
+  color: #4b5563 !important;
+}
+
+/* Headings and table text visibility in light mode */
+html:not(.dark) h1:not([class*="bg-clip-text"]),
+html:not(.dark) h2:not([class*="bg-clip-text"]),
+html:not(.dark) h3:not([class*="bg-clip-text"]),
+html:not(.dark) h4:not([class*="bg-clip-text"]) {
+  color: #180d2b;
+}
+
+html:not(.dark) td,
+html:not(.dark) th {
+  color: #180d2b;
+}
+
+html:not(.dark) tr {
+  border-color: #e4ddf4 !important;
+}
+
+html:not(.dark) .text-white\/90,
+html:not(.dark) .text-white\/80,
+html:not(.dark) .text-white\/70 {
+  color: #2b1747 !important;
+}
+html:not(.dark) .text-white\/60,
+html:not(.dark) .text-white\/50 {
+  color: #574673 !important;
+}
+
+/* Turn generic text-white on light backgrounds into dark text, UNLESS inside solid colored/gradient buttons */
+html:not(.dark) .text-white:not(.btn-solid-text):not(.keep-white) {
+  color: #180d2b;
+}
+
+/* Maintain crisp white text on colored/gradient badges and buttons */
+html:not(.dark) .bg-primary,
+html:not(.dark) .bg-primary-container,
+html:not(.dark) .bg-secondary,
+html:not(.dark) .bg-secondary-container,
+html:not(.dark) [class*="bg-gradient-to"],
+html:not(.dark) .text-on-primary,
+html:not(.dark) .text-on-primary-container,
+html:not(.dark) .keep-white,
+html:not(.dark) .btn-solid-text,
+html:not(.dark) button.bg-primary,
+html:not(.dark) button[class*="bg-gradient-to"] {
+  color: #ffffff !important;
+}
+
+html:not(.dark) .bg-primary-container .text-white,
+html:not(.dark) .bg-secondary-container .text-white,
+html:not(.dark) [class*="bg-gradient-to"] .text-white,
+html:not(.dark) .bg-emerald-600 .text-white,
+html:not(.dark) .bg-purple-600 .text-white {
+  color: #ffffff !important;
+}
+
+/* Border adjustments for light mode */
+html:not(.dark) .border-purple-900\/40,
+html:not(.dark) .border-purple-900\/30,
+html:not(.dark) .border-purple-900\/20,
+html:not(.dark) .border-purple-900\/50,
+html:not(.dark) .border-purple-500\/20,
+html:not(.dark) .border-purple-500\/30,
+html:not(.dark) .border-outline\/20 {
+  border-color: #e2d9f3 !important;
+}
+
+html:not(.dark) aside#admin-sidebar {
+  background-color: #ffffff !important;
+  border-color: #e2d9f3 !important;
+  box-shadow: 0 4px 20px rgba(0,0,0,0.05);
+}
+
+html:not(.dark) header {
+  background-color: rgba(255, 255, 255, 0.98) !important;
+  border-color: #e2d9f3 !important;
+}
+
+html:not(.dark) input,
+html:not(.dark) select,
+html:not(.dark) textarea {
+  background-color: #f6f3fb !important;
+  color: #180d2b !important;
+  border: 1px solid #d5c8ea !important;
+}
+
+html:not(.dark) input::placeholder,
+html:not(.dark) textarea::placeholder {
+  color: #8c7b9f !important;
+}
+
+html:not(.dark) table thead {
+  background-color: #f3effa !important;
+  color: #3b2a59 !important;
+}
+
+html:not(.dark) table tbody tr {
+  border-color: #ede7f8 !important;
+}
+
+html:not(.dark) table tbody tr:hover {
+  background-color: #f8f6fc !important;
+}
+
+html:not(.dark) .modal-panel {
+  background-color: #ffffff !important;
+  border-color: #e2d9f3 !important;
+  color: #180d2b !important;
+}
+
+/* Theme card helper */
+.admin-card {
+  background-color: var(--bg-card);
+  border: 1px solid var(--border-color);
+}
+
+.admin-header {
+  background-color: var(--bg-header);
+  border-color: var(--border-color);
+}
+
+.admin-sidebar {
+  background-color: var(--bg-sidebar);
+  border-color: var(--border-color);
+}

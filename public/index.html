@@ -296,27 +296,27 @@
 <div class="lg:col-span-7 space-y-3.5 sm:space-y-4">
 <!-- Glowing pill badge -->
 <div class="inline-flex items-center gap-2 px-3.5 py-1 rounded-full bg-white/10 backdrop-blur-md border border-white/25 text-xs font-bold tracking-wider text-pink-200 shadow-inner">
-<span class="tracking-widest uppercase text-[11px]">Make Every Moment Magical</span>
+<span id="hero-badge-text" class="tracking-widest uppercase text-[11px]">Make Every Moment Magical</span>
 <span class="text-amber-300 text-xs">✨</span>
 </div>
 <!-- Main Display Headline -->
 <div>
-<h1 class="font-display text-2xl sm:text-3xl lg:text-4xl font-extrabold tracking-tight leading-tight text-white">
+<h1 id="hero-headline" class="font-display text-2xl sm:text-3xl lg:text-4xl font-extrabold tracking-tight leading-tight text-white">
   Gift a <span class="bg-gradient-to-r from-[#F472B6] via-[#EC4899] to-[#F4C542] bg-clip-text text-transparent drop-shadow-[0_2px_15px_rgba(236,72,153,0.4)]">Magical</span> <span class="text-transparent bg-clip-text bg-gradient-to-r from-white via-purple-100 to-pink-200">Web-Experience!</span>
 </h1>
 </div>
 <!-- Subheadline -->
-<p class="text-xs sm:text-sm text-purple-100/90 max-w-lg leading-relaxed font-normal">
+<p id="hero-subheadline" class="text-xs sm:text-sm text-purple-100/90 max-w-lg leading-relaxed font-normal">
   Create beautiful personalized digital wishes that feel like a real experience — interactive 3D unboxing, customized music & unforgettable celebration magic.
 </p>
 <!-- CTA Row -->
 <div class="flex flex-wrap items-center gap-3 pt-1">
 <button class="px-5 py-2.5 rounded-full bg-gradient-to-r from-[#EC4899] to-[#7C3AED] text-white text-xs sm:text-sm font-bold shadow-lg shadow-pink-500/30 hover:scale-105 active:scale-95 transition-transform flex items-center gap-2 group" onclick="document.getElementById('templates-section').scrollIntoView({ behavior: 'smooth' })">
-<span>Explore Magic</span>
+<span id="hero-cta1-text">Explore Magic</span>
 <span class="group-hover:rotate-45 transition-transform duration-300">✨</span>
 </button>
 <button class="px-5 py-2.5 rounded-full backdrop-blur-md bg-white/15 border border-white/30 text-white text-xs sm:text-sm font-bold hover:bg-white/25 transition-all active:scale-95" onclick="openQuickCustomize('Glitter Birthday Bash')">
-  Create Your Wish
+  <span id="hero-cta2-text">Create Your Wish</span>
 </button>
 </div>
 <!-- Trust Badges Row -->
@@ -469,247 +469,247 @@
 <span>Showing results for: <span class="text-pink-600 font-bold" id="active-query-text"></span></span>
 <button class="underline text-purple-700 hover:text-purple-900 font-bold" onclick="resetSearch()">Clear Search</button>
 </div>
-<!-- 8 High-Fidelity Cards Grid (4 Columns Desktop) -->
-<div class="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 xl:grid-cols-4 gap-4 sm:gap-5 lg:gap-6" id="templates-grid">
+<!-- 8 High-Fidelity Cards Grid (2 Columns Mobile, 3 Columns Tablet, 4 Columns Desktop) -->
+<div class="grid grid-cols-2 md:grid-cols-3 xl:grid-cols-4 gap-2.5 sm:gap-4 md:gap-5" id="templates-grid">
 <!-- CARD 1: Glitter Birthday Bash (Free) -->
-<div class="template-card bg-white rounded-2xl p-3.5 sm:p-4 shadow-lg shadow-purple-900/5 border border-purple-100 hover:shadow-2xl hover:-translate-y-1.5 transition-all duration-300 flex flex-col justify-between group" data-category="birthday" data-name="glitter birthday bash">
+<div class="template-card bg-white rounded-xl sm:rounded-2xl p-2.5 sm:p-4 shadow-md sm:shadow-lg shadow-purple-900/5 border border-purple-100 hover:shadow-2xl hover:-translate-y-1 transition-all duration-300 flex flex-col justify-between group" data-category="birthday" data-name="glitter birthday bash">
 <div>
-<div class="h-36 sm:h-40 rounded-xl relative overflow-hidden mb-3 bg-gradient-to-tr from-purple-950 via-indigo-900 to-purple-800 flex items-center justify-center p-3 sm:p-4">
+<div class="h-28 sm:h-36 md:h-40 rounded-lg sm:rounded-xl relative overflow-hidden mb-2 sm:mb-3 bg-gradient-to-tr from-purple-950 via-indigo-900 to-purple-800 flex items-center justify-center p-2 sm:p-4">
 <!-- Free Badge -->
-<div class="absolute top-3 right-3 px-2 py-0.5 rounded-full bg-[#16A34A] text-white text-[10px] sm:text-xs font-bold flex items-center gap-1 shadow-md z-10">
+<div class="absolute top-2 right-2 sm:top-3 sm:right-3 px-1.5 sm:px-2 py-0.5 rounded-full bg-[#16A34A] text-white text-[9px] sm:text-xs font-bold flex items-center gap-0.5 sm:gap-1 shadow-md z-10">
 <span>🎁</span> Free
-              </div>
+</div>
 <!-- Artwork preview -->
 <div class="text-center text-white relative z-0">
-<span class="text-4xl block filter drop-shadow-[0_4px_8px_rgba(0,0,0,0.5)]">🎂🎈</span>
-<p class="font-serifAccent text-lg font-bold text-pink-200 italic mt-1.5">Happy Birthday</p>
-<div class="flex items-center justify-center gap-1 mt-1 text-[11px] text-amber-300 font-medium">
+<span class="text-2xl sm:text-4xl block filter drop-shadow-[0_4px_8px_rgba(0,0,0,0.5)]">🎂🎈</span>
+<p class="font-serifAccent text-xs sm:text-base font-bold text-pink-200 italic mt-1 truncate">Happy Birthday</p>
+<div class="hidden sm:flex items-center justify-center gap-1 mt-1 text-[11px] text-amber-300 font-medium">
 <span>✦</span> Sparkle Confetti <span>✦</span>
 </div>
 </div>
 <div class="absolute inset-0 bg-black/15 group-hover:bg-transparent transition-colors"></div>
 </div>
-<h3 class="font-display font-bold text-sm sm:text-base text-gray-900 group-hover:text-purple-700 transition truncate">Glitter Birthday Bash</h3>
-<div class="flex items-center gap-2 mt-1">
-<span class="text-amber-500 text-xs font-bold">★★★★★</span>
-<span class="text-xs font-semibold text-purple-700/80">4.8 (125)</span>
+<h3 class="font-display font-bold text-xs sm:text-base text-gray-900 group-hover:text-purple-700 transition truncate">Glitter Birthday Bash</h3>
+<div class="flex items-center gap-1.5 mt-0.5 sm:mt-1">
+<span class="text-amber-500 text-[10px] sm:text-xs font-bold">★★★★★</span>
+<span class="text-[10px] sm:text-xs font-semibold text-purple-700/80">4.8 (125)</span>
 </div>
 </div>
-<div class="grid grid-cols-2 gap-2 mt-3 pt-2 border-t border-purple-50">
-  <button class="py-1.5 px-2 rounded-xl bg-purple-50 hover:bg-purple-100 text-purple-700 text-xs font-bold transition flex items-center justify-center gap-1" onclick="openQuickCustomize('Glitter Birthday Bash', 'Free')">
+<div class="grid grid-cols-2 gap-1.5 sm:gap-2 mt-2 sm:mt-3 pt-1.5 sm:pt-2 border-t border-purple-50">
+  <button class="py-1 sm:py-1.5 px-1.5 sm:px-2 rounded-lg sm:rounded-xl bg-purple-50 hover:bg-purple-100 text-purple-700 text-[10px] sm:text-xs font-bold transition flex items-center justify-center gap-1" onclick="openQuickCustomize('Glitter Birthday Bash', 'Free')">
     <span>Preview</span>
   </button>
-  <button class="py-1.5 px-2 rounded-xl bg-gradient-to-r from-pink-500 to-purple-600 text-white text-xs font-bold shadow hover:brightness-110 transition flex items-center justify-center gap-1" onclick="openQuickCustomize('Glitter Birthday Bash', 'Free')">
+  <button class="py-1 sm:py-1.5 px-1.5 sm:px-2 rounded-lg sm:rounded-xl bg-gradient-to-r from-pink-500 to-purple-600 text-white text-[10px] sm:text-xs font-bold shadow hover:brightness-110 transition flex items-center justify-center gap-1" onclick="openQuickCustomize('Glitter Birthday Bash', 'Free')">
     <span>Customize</span>
   </button>
 </div>
 </div>
 <!-- CARD 2: Endless Love (Premium ₹49) -->
-<div class="template-card bg-white rounded-2xl p-3.5 sm:p-4 shadow-lg shadow-purple-900/5 border border-purple-100 hover:shadow-2xl hover:-translate-y-1.5 transition-all duration-300 flex flex-col justify-between group" data-category="love" data-name="endless love">
+<div class="template-card bg-white rounded-xl sm:rounded-2xl p-2.5 sm:p-4 shadow-md sm:shadow-lg shadow-purple-900/5 border border-purple-100 hover:shadow-2xl hover:-translate-y-1 transition-all duration-300 flex flex-col justify-between group" data-category="love" data-name="endless love">
 <div>
-<div class="h-36 sm:h-40 rounded-xl relative overflow-hidden mb-3 bg-gradient-to-br from-rose-950 via-red-900 to-pink-900 flex items-center justify-center p-3 sm:p-4">
+<div class="h-28 sm:h-36 md:h-40 rounded-lg sm:rounded-xl relative overflow-hidden mb-2 sm:mb-3 bg-gradient-to-br from-rose-950 via-red-900 to-pink-900 flex items-center justify-center p-2 sm:p-4">
 <!-- Premium Badge -->
-<div class="absolute top-3 right-3 px-2 py-0.5 rounded-full bg-[#F4C542] text-amber-950 text-[10px] sm:text-xs font-bold flex items-center gap-1 shadow-md z-10">
-<span>👑</span> Premium ₹49
-              </div>
+<div class="absolute top-2 right-2 sm:top-3 sm:right-3 px-1.5 sm:px-2 py-0.5 rounded-full bg-[#F4C542] text-amber-950 text-[9px] sm:text-xs font-bold flex items-center gap-0.5 sm:gap-1 shadow-md z-10">
+<span>👑</span> VIP ₹49
+</div>
 <div class="text-center text-white relative z-0">
-<span class="text-4xl block filter drop-shadow-[0_4px_8px_rgba(0,0,0,0.5)]">💖✨</span>
-<p class="font-serifAccent text-base font-bold text-rose-200 italic mt-1.5 leading-snug">"You are my today &amp; tomorrow"</p>
-<div class="text-[11px] text-pink-300 mt-1 font-sans">Romantic Violin BGM</div>
+<span class="text-2xl sm:text-4xl block filter drop-shadow-[0_4px_8px_rgba(0,0,0,0.5)]">💖✨</span>
+<p class="font-serifAccent text-xs sm:text-base font-bold text-rose-200 italic mt-1 truncate">Endless Love</p>
+<div class="hidden sm:block text-[11px] text-pink-300 mt-1 font-sans">Violin BGM</div>
 </div>
 <div class="absolute inset-0 bg-black/15 group-hover:bg-transparent transition-colors"></div>
 </div>
-<h3 class="font-display font-bold text-sm sm:text-base text-gray-900 group-hover:text-purple-700 transition truncate">Endless Love</h3>
-<div class="flex items-center gap-2 mt-1">
-<span class="text-amber-500 text-xs font-bold">★★★★★</span>
-<span class="text-xs font-semibold text-purple-700/80">4.9 (98)</span>
+<h3 class="font-display font-bold text-xs sm:text-base text-gray-900 group-hover:text-purple-700 transition truncate">Endless Love</h3>
+<div class="flex items-center gap-1.5 mt-0.5 sm:mt-1">
+<span class="text-amber-500 text-[10px] sm:text-xs font-bold">★★★★★</span>
+<span class="text-[10px] sm:text-xs font-semibold text-purple-700/80">4.9 (98)</span>
 </div>
 </div>
-<div class="grid grid-cols-2 gap-2 mt-3 pt-2 border-t border-purple-50">
-  <button class="py-1.5 px-2 rounded-xl bg-purple-50 hover:bg-purple-100 text-purple-700 text-xs font-bold transition flex items-center justify-center gap-1" onclick="openQuickCustomize('Endless Love', 'Premium ₹49')">
+<div class="grid grid-cols-2 gap-1.5 sm:gap-2 mt-2 sm:mt-3 pt-1.5 sm:pt-2 border-t border-purple-50">
+  <button class="py-1 sm:py-1.5 px-1.5 sm:px-2 rounded-lg sm:rounded-xl bg-purple-50 hover:bg-purple-100 text-purple-700 text-[10px] sm:text-xs font-bold transition flex items-center justify-center gap-1" onclick="openQuickCustomize('Endless Love', 'Premium ₹49')">
     <span>Preview</span>
   </button>
-  <button class="py-1.5 px-2 rounded-xl bg-gradient-to-r from-pink-500 to-purple-600 text-white text-xs font-bold shadow hover:brightness-110 transition flex items-center justify-center gap-1" onclick="openQuickCustomize('Endless Love', 'Premium ₹49')">
+  <button class="py-1 sm:py-1.5 px-1.5 sm:px-2 rounded-lg sm:rounded-xl bg-gradient-to-r from-pink-500 to-purple-600 text-white text-[10px] sm:text-xs font-bold shadow hover:brightness-110 transition flex items-center justify-center gap-1" onclick="openQuickCustomize('Endless Love', 'Premium ₹49')">
     <span>Customize</span>
   </button>
 </div>
 </div>
 <!-- CARD 3: Golden Anniversary Wishes (Premium ₹49) -->
-<div class="template-card bg-white rounded-2xl p-3.5 sm:p-4 shadow-lg shadow-purple-900/5 border border-purple-100 hover:shadow-2xl hover:-translate-y-1.5 transition-all duration-300 flex flex-col justify-between group" data-category="anniversary" data-name="golden anniversary wishes">
+<div class="template-card bg-white rounded-xl sm:rounded-2xl p-2.5 sm:p-4 shadow-md sm:shadow-lg shadow-purple-900/5 border border-purple-100 hover:shadow-2xl hover:-translate-y-1 transition-all duration-300 flex flex-col justify-between group" data-category="anniversary" data-name="golden anniversary wishes">
 <div>
-<div class="h-36 sm:h-40 rounded-xl relative overflow-hidden mb-3 bg-gradient-to-br from-amber-950 via-yellow-900 to-stone-900 flex items-center justify-center p-3 sm:p-4">
+<div class="h-28 sm:h-36 md:h-40 rounded-lg sm:rounded-xl relative overflow-hidden mb-2 sm:mb-3 bg-gradient-to-br from-amber-950 via-yellow-900 to-stone-900 flex items-center justify-center p-2 sm:p-4">
 <!-- Premium Badge -->
-<div class="absolute top-3 right-3 px-2 py-0.5 rounded-full bg-[#F4C542] text-amber-950 text-[10px] sm:text-xs font-bold flex items-center gap-1 shadow-md z-10">
-<span>👑</span> Premium ₹49
-              </div>
+<div class="absolute top-2 right-2 sm:top-3 sm:right-3 px-1.5 sm:px-2 py-0.5 rounded-full bg-[#F4C542] text-amber-950 text-[9px] sm:text-xs font-bold flex items-center gap-0.5 sm:gap-1 shadow-md z-10">
+<span>👑</span> VIP ₹49
+</div>
 <div class="text-center text-white relative z-0">
-<span class="text-4xl block filter drop-shadow-[0_4px_8px_rgba(0,0,0,0.5)]">💍🥂</span>
-<p class="font-serifAccent text-base font-bold text-amber-200 italic mt-1.5 leading-tight">Happy Anniversary to a beautiful couple!</p>
-<div class="text-[11px] text-amber-300/90 mt-1 font-sans">Floral Arch &amp; Photo Album</div>
+<span class="text-2xl sm:text-4xl block filter drop-shadow-[0_4px_8px_rgba(0,0,0,0.5)]">💍🥂</span>
+<p class="font-serifAccent text-xs sm:text-base font-bold text-amber-200 italic mt-1 truncate">Golden Anniversary</p>
+<div class="hidden sm:block text-[11px] text-amber-300/90 mt-1 font-sans">Floral Arch</div>
 </div>
 <div class="absolute inset-0 bg-black/15 group-hover:bg-transparent transition-colors"></div>
 </div>
-<h3 class="font-display font-bold text-sm sm:text-base text-gray-900 group-hover:text-purple-700 transition truncate">Golden Anniversary Wishes</h3>
-<div class="flex items-center gap-2 mt-1">
-<span class="text-amber-500 text-xs font-bold">★★★★★</span>
-<span class="text-xs font-semibold text-purple-700/80">4.7 (86)</span>
+<h3 class="font-display font-bold text-xs sm:text-base text-gray-900 group-hover:text-purple-700 transition truncate">Golden Anniversary</h3>
+<div class="flex items-center gap-1.5 mt-0.5 sm:mt-1">
+<span class="text-amber-500 text-[10px] sm:text-xs font-bold">★★★★★</span>
+<span class="text-[10px] sm:text-xs font-semibold text-purple-700/80">4.7 (86)</span>
 </div>
 </div>
-<div class="grid grid-cols-2 gap-2 mt-3 pt-2 border-t border-purple-50">
-  <button class="py-1.5 px-2 rounded-xl bg-purple-50 hover:bg-purple-100 text-purple-700 text-xs font-bold transition flex items-center justify-center gap-1" onclick="openQuickCustomize('Golden Anniversary Wishes', 'Premium ₹49')">
+<div class="grid grid-cols-2 gap-1.5 sm:gap-2 mt-2 sm:mt-3 pt-1.5 sm:pt-2 border-t border-purple-50">
+  <button class="py-1 sm:py-1.5 px-1.5 sm:px-2 rounded-lg sm:rounded-xl bg-purple-50 hover:bg-purple-100 text-purple-700 text-[10px] sm:text-xs font-bold transition flex items-center justify-center gap-1" onclick="openQuickCustomize('Golden Anniversary Wishes', 'Premium ₹49')">
     <span>Preview</span>
   </button>
-  <button class="py-1.5 px-2 rounded-xl bg-gradient-to-r from-pink-500 to-purple-600 text-white text-xs font-bold shadow hover:brightness-110 transition flex items-center justify-center gap-1" onclick="openQuickCustomize('Golden Anniversary Wishes', 'Premium ₹49')">
+  <button class="py-1 sm:py-1.5 px-1.5 sm:px-2 rounded-lg sm:rounded-xl bg-gradient-to-r from-pink-500 to-purple-600 text-white text-[10px] sm:text-xs font-bold shadow hover:brightness-110 transition flex items-center justify-center gap-1" onclick="openQuickCustomize('Golden Anniversary Wishes', 'Premium ₹49')">
     <span>Customize</span>
   </button>
 </div>
 </div>
 <!-- CARD 4: Purr-fect Birthday (Free) -->
-<div class="template-card bg-white rounded-2xl p-3.5 sm:p-4 shadow-lg shadow-purple-900/5 border border-purple-100 hover:shadow-2xl hover:-translate-y-1.5 transition-all duration-300 flex flex-col justify-between group" data-category="funny" data-name="purr-fect birthday funny cat">
+<div class="template-card bg-white rounded-xl sm:rounded-2xl p-2.5 sm:p-4 shadow-md sm:shadow-lg shadow-purple-900/5 border border-purple-100 hover:shadow-2xl hover:-translate-y-1 transition-all duration-300 flex flex-col justify-between group" data-category="funny" data-name="purr-fect birthday funny cat">
 <div>
-<div class="h-36 sm:h-40 rounded-xl relative overflow-hidden mb-3 bg-gradient-to-tr from-sky-900 via-blue-800 to-indigo-900 flex items-center justify-center p-3 sm:p-4">
+<div class="h-28 sm:h-36 md:h-40 rounded-lg sm:rounded-xl relative overflow-hidden mb-2 sm:mb-3 bg-gradient-to-tr from-sky-900 via-blue-800 to-indigo-900 flex items-center justify-center p-2 sm:p-4">
 <!-- Free Badge -->
-<div class="absolute top-3 right-3 px-2 py-0.5 rounded-full bg-[#16A34A] text-white text-[10px] sm:text-xs font-bold flex items-center gap-1 shadow-md z-10">
+<div class="absolute top-2 right-2 sm:top-3 sm:right-3 px-1.5 sm:px-2 py-0.5 rounded-full bg-[#16A34A] text-white text-[9px] sm:text-xs font-bold flex items-center gap-0.5 sm:gap-1 shadow-md z-10">
 <span>🎁</span> Free
-              </div>
+</div>
 <div class="text-center text-white relative z-0">
-<span class="text-4xl block filter drop-shadow-[0_4px_8px_rgba(0,0,0,0.5)]">😼🕶️</span>
-<p class="font-display text-sm font-extrabold text-cyan-200 mt-1.5">Another year older? No worries!</p>
-<p class="font-serifAccent text-xs text-amber-200 italic mt-0.5">You're purr-fect!</p>
+<span class="text-2xl sm:text-4xl block filter drop-shadow-[0_4px_8px_rgba(0,0,0,0.5)]">😼🕶️</span>
+<p class="font-display text-xs sm:text-sm font-extrabold text-cyan-200 mt-1 truncate">Purr-fect Birthday</p>
+<div class="hidden sm:block text-[11px] text-amber-200 font-sans mt-0.5">Meme Sound FX</div>
 </div>
 <div class="absolute inset-0 bg-black/15 group-hover:bg-transparent transition-colors"></div>
 </div>
-<h3 class="font-display font-bold text-sm sm:text-base text-gray-900 group-hover:text-purple-700 transition truncate">Purr-fect Birthday</h3>
-<div class="flex items-center gap-2 mt-1">
-<span class="text-amber-500 text-xs font-bold">★★★★★</span>
-<span class="text-xs font-semibold text-purple-700/80">4.6 (72)</span>
+<h3 class="font-display font-bold text-xs sm:text-base text-gray-900 group-hover:text-purple-700 transition truncate">Purr-fect Birthday</h3>
+<div class="flex items-center gap-1.5 mt-0.5 sm:mt-1">
+<span class="text-amber-500 text-[10px] sm:text-xs font-bold">★★★★★</span>
+<span class="text-[10px] sm:text-xs font-semibold text-purple-700/80">4.6 (72)</span>
 </div>
 </div>
-<div class="grid grid-cols-2 gap-2 mt-3 pt-2 border-t border-purple-50">
-  <button class="py-1.5 px-2 rounded-xl bg-purple-50 hover:bg-purple-100 text-purple-700 text-xs font-bold transition flex items-center justify-center gap-1" onclick="openQuickCustomize('Purr-fect Birthday', 'Free')">
+<div class="grid grid-cols-2 gap-1.5 sm:gap-2 mt-2 sm:mt-3 pt-1.5 sm:pt-2 border-t border-purple-50">
+  <button class="py-1 sm:py-1.5 px-1.5 sm:px-2 rounded-lg sm:rounded-xl bg-purple-50 hover:bg-purple-100 text-purple-700 text-[10px] sm:text-xs font-bold transition flex items-center justify-center gap-1" onclick="openQuickCustomize('Purr-fect Birthday', 'Free')">
     <span>Preview</span>
   </button>
-  <button class="py-1.5 px-2 rounded-xl bg-gradient-to-r from-pink-500 to-purple-600 text-white text-xs font-bold shadow hover:brightness-110 transition flex items-center justify-center gap-1" onclick="openQuickCustomize('Purr-fect Birthday', 'Free')">
+  <button class="py-1 sm:py-1.5 px-1.5 sm:px-2 rounded-lg sm:rounded-xl bg-gradient-to-r from-pink-500 to-purple-600 text-white text-[10px] sm:text-xs font-bold shadow hover:brightness-110 transition flex items-center justify-center gap-1" onclick="openQuickCustomize('Purr-fect Birthday', 'Free')">
     <span>Customize</span>
   </button>
 </div>
 </div>
 <!-- CARD 5: Thank You Sparkle (Free) -->
-<div class="template-card bg-white rounded-2xl p-3.5 sm:p-4 shadow-lg shadow-purple-900/5 border border-purple-100 hover:shadow-2xl hover:-translate-y-1.5 transition-all duration-300 flex flex-col justify-between group" data-category="thankyou" data-name="thank you sparkle">
+<div class="template-card bg-white rounded-xl sm:rounded-2xl p-2.5 sm:p-4 shadow-md sm:shadow-lg shadow-purple-900/5 border border-purple-100 hover:shadow-2xl hover:-translate-y-1 transition-all duration-300 flex flex-col justify-between group" data-category="thankyou" data-name="thank you sparkle">
 <div>
-<div class="h-36 sm:h-40 rounded-xl relative overflow-hidden mb-3 bg-gradient-to-br from-teal-950 via-emerald-900 to-cyan-950 flex items-center justify-center p-3 sm:p-4">
+<div class="h-28 sm:h-36 md:h-40 rounded-lg sm:rounded-xl relative overflow-hidden mb-2 sm:mb-3 bg-gradient-to-br from-teal-950 via-emerald-900 to-cyan-950 flex items-center justify-center p-2 sm:p-4">
 <!-- Free Badge -->
-<div class="absolute top-3 right-3 px-2 py-0.5 rounded-full bg-[#16A34A] text-white text-[10px] sm:text-xs font-bold flex items-center gap-1 shadow-md z-10">
+<div class="absolute top-2 right-2 sm:top-3 sm:right-3 px-1.5 sm:px-2 py-0.5 rounded-full bg-[#16A34A] text-white text-[9px] sm:text-xs font-bold flex items-center gap-0.5 sm:gap-1 shadow-md z-10">
 <span>🎁</span> Free
-              </div>
+</div>
 <div class="text-center text-white relative z-0">
-<span class="text-4xl block">💐🌸</span>
-<p class="font-serifAccent text-lg font-bold text-emerald-200 italic mt-1.5">Thank You So Much</p>
-<div class="text-[11px] text-teal-200 font-sans mt-0.5">Gentle acoustic harp &amp; flowers</div>
+<span class="text-2xl sm:text-4xl block">💐🌸</span>
+<p class="font-serifAccent text-xs sm:text-base font-bold text-emerald-200 italic mt-1 truncate">Thank You</p>
+<div class="hidden sm:block text-[11px] text-teal-200 font-sans mt-0.5">Gentle acoustic harp</div>
 </div>
 <div class="absolute inset-0 bg-black/15 group-hover:bg-transparent transition-colors"></div>
 </div>
-<h3 class="font-display font-bold text-sm sm:text-base text-gray-900 group-hover:text-purple-700 transition truncate">Thank You Sparkle</h3>
-<div class="flex items-center gap-2 mt-1">
-<span class="text-amber-500 text-xs font-bold">★★★★★</span>
-<span class="text-xs font-semibold text-purple-700/80">4.9 (110)</span>
+<h3 class="font-display font-bold text-xs sm:text-base text-gray-900 group-hover:text-purple-700 transition truncate">Thank You Sparkle</h3>
+<div class="flex items-center gap-1.5 mt-0.5 sm:mt-1">
+<span class="text-amber-500 text-[10px] sm:text-xs font-bold">★★★★★</span>
+<span class="text-[10px] sm:text-xs font-semibold text-purple-700/80">4.9 (110)</span>
 </div>
 </div>
-<div class="grid grid-cols-2 gap-2 mt-3 pt-2 border-t border-purple-50">
-  <button class="py-1.5 px-2 rounded-xl bg-purple-50 hover:bg-purple-100 text-purple-700 text-xs font-bold transition flex items-center justify-center gap-1" onclick="openQuickCustomize('Thank You Sparkle', 'Free')">
+<div class="grid grid-cols-2 gap-1.5 sm:gap-2 mt-2 sm:mt-3 pt-1.5 sm:pt-2 border-t border-purple-50">
+  <button class="py-1 sm:py-1.5 px-1.5 sm:px-2 rounded-lg sm:rounded-xl bg-purple-50 hover:bg-purple-100 text-purple-700 text-[10px] sm:text-xs font-bold transition flex items-center justify-center gap-1" onclick="openQuickCustomize('Thank You Sparkle', 'Free')">
     <span>Preview</span>
   </button>
-  <button class="py-1.5 px-2 rounded-xl bg-gradient-to-r from-pink-500 to-purple-600 text-white text-xs font-bold shadow hover:brightness-110 transition flex items-center justify-center gap-1" onclick="openQuickCustomize('Thank You Sparkle', 'Free')">
+  <button class="py-1 sm:py-1.5 px-1.5 sm:px-2 rounded-lg sm:rounded-xl bg-gradient-to-r from-pink-500 to-purple-600 text-white text-[10px] sm:text-xs font-bold shadow hover:brightness-110 transition flex items-center justify-center gap-1" onclick="openQuickCustomize('Thank You Sparkle', 'Free')">
     <span>Customize</span>
   </button>
 </div>
 </div>
 <!-- CARD 6: Grand Congratulations (Premium ₹49) -->
-<div class="template-card bg-white rounded-2xl p-3.5 sm:p-4 shadow-lg shadow-purple-900/5 border border-purple-100 hover:shadow-2xl hover:-translate-y-1.5 transition-all duration-300 flex flex-col justify-between group" data-category="congrats" data-name="grand congratulations fireworks">
+<div class="template-card bg-white rounded-xl sm:rounded-2xl p-2.5 sm:p-4 shadow-md sm:shadow-lg shadow-purple-900/5 border border-purple-100 hover:shadow-2xl hover:-translate-y-1 transition-all duration-300 flex flex-col justify-between group" data-category="congrats" data-name="grand congratulations fireworks">
 <div>
-<div class="h-36 sm:h-40 rounded-xl relative overflow-hidden mb-3 bg-gradient-to-tr from-indigo-950 via-purple-900 to-fuchsia-950 flex items-center justify-center p-3 sm:p-4">
+<div class="h-28 sm:h-36 md:h-40 rounded-lg sm:rounded-xl relative overflow-hidden mb-2 sm:mb-3 bg-gradient-to-tr from-indigo-950 via-purple-900 to-fuchsia-950 flex items-center justify-center p-2 sm:p-4">
 <!-- Premium Badge -->
-<div class="absolute top-3 right-3 px-2 py-0.5 rounded-full bg-[#F4C542] text-amber-950 text-[10px] sm:text-xs font-bold flex items-center gap-1 shadow-md z-10">
-<span>👑</span> Premium ₹49
-              </div>
+<div class="absolute top-2 right-2 sm:top-3 sm:right-3 px-1.5 sm:px-2 py-0.5 rounded-full bg-[#F4C542] text-amber-950 text-[9px] sm:text-xs font-bold flex items-center gap-0.5 sm:gap-1 shadow-md z-10">
+<span>👑</span> VIP ₹49
+</div>
 <div class="text-center text-white relative z-0">
-<span class="text-4xl block">🎆🎓</span>
-<p class="font-display text-base font-extrabold text-fuchsia-200 mt-1.5 uppercase tracking-wide">Congratulations!</p>
-<div class="text-[11px] text-amber-300 font-sans mt-0.5">Midnight sky fireworks show</div>
+<span class="text-2xl sm:text-4xl block">🎆🎓</span>
+<p class="font-display text-xs sm:text-base font-extrabold text-fuchsia-200 mt-1 uppercase tracking-wide truncate">Congrats!</p>
+<div class="hidden sm:block text-[11px] text-amber-300 font-sans mt-0.5">Fireworks show</div>
 </div>
 <div class="absolute inset-0 bg-black/15 group-hover:bg-transparent transition-colors"></div>
 </div>
-<h3 class="font-display font-bold text-sm sm:text-base text-gray-900 group-hover:text-purple-700 transition truncate">Grand Congratulations</h3>
-<div class="flex items-center gap-2 mt-1">
-<span class="text-amber-500 text-xs font-bold">★★★★★</span>
-<span class="text-xs font-semibold text-purple-700/80">4.8 (145)</span>
+<h3 class="font-display font-bold text-xs sm:text-base text-gray-900 group-hover:text-purple-700 transition truncate">Congratulations</h3>
+<div class="flex items-center gap-1.5 mt-0.5 sm:mt-1">
+<span class="text-amber-500 text-[10px] sm:text-xs font-bold">★★★★★</span>
+<span class="text-[10px] sm:text-xs font-semibold text-purple-700/80">4.8 (145)</span>
 </div>
 </div>
-<div class="grid grid-cols-2 gap-2 mt-3 pt-2 border-t border-purple-50">
-  <button class="py-1.5 px-2 rounded-xl bg-purple-50 hover:bg-purple-100 text-purple-700 text-xs font-bold transition flex items-center justify-center gap-1" onclick="openQuickCustomize('Grand Congratulations', 'Premium ₹49')">
+<div class="grid grid-cols-2 gap-1.5 sm:gap-2 mt-2 sm:mt-3 pt-1.5 sm:pt-2 border-t border-purple-50">
+  <button class="py-1 sm:py-1.5 px-1.5 sm:px-2 rounded-lg sm:rounded-xl bg-purple-50 hover:bg-purple-100 text-purple-700 text-[10px] sm:text-xs font-bold transition flex items-center justify-center gap-1" onclick="openQuickCustomize('Grand Congratulations', 'Premium ₹49')">
     <span>Preview</span>
   </button>
-  <button class="py-1.5 px-2 rounded-xl bg-gradient-to-r from-pink-500 to-purple-600 text-white text-xs font-bold shadow hover:brightness-110 transition flex items-center justify-center gap-1" onclick="openQuickCustomize('Grand Congratulations', 'Premium ₹49')">
+  <button class="py-1 sm:py-1.5 px-1.5 sm:px-2 rounded-lg sm:rounded-xl bg-gradient-to-r from-pink-500 to-purple-600 text-white text-[10px] sm:text-xs font-bold shadow hover:brightness-110 transition flex items-center justify-center gap-1" onclick="openQuickCustomize('Grand Congratulations', 'Premium ₹49')">
     <span>Customize</span>
   </button>
 </div>
 </div>
 <!-- CARD 7: Celebration Fiesta (Free) -->
-<div class="template-card bg-white rounded-2xl p-3.5 sm:p-4 shadow-lg shadow-purple-900/5 border border-purple-100 hover:shadow-2xl hover:-translate-y-1.5 transition-all duration-300 flex flex-col justify-between group" data-category="festival" data-name="celebration fiesta festivals">
+<div class="template-card bg-white rounded-xl sm:rounded-2xl p-2.5 sm:p-4 shadow-md sm:shadow-lg shadow-purple-900/5 border border-purple-100 hover:shadow-2xl hover:-translate-y-1 transition-all duration-300 flex flex-col justify-between group" data-category="festival" data-name="celebration fiesta festivals">
 <div>
-<div class="h-36 sm:h-40 rounded-xl relative overflow-hidden mb-3 bg-gradient-to-r from-amber-900 via-orange-800 to-red-900 flex items-center justify-center p-3 sm:p-4">
+<div class="h-28 sm:h-36 md:h-40 rounded-lg sm:rounded-xl relative overflow-hidden mb-2 sm:mb-3 bg-gradient-to-r from-amber-900 via-orange-800 to-red-900 flex items-center justify-center p-2 sm:p-4">
 <!-- Free Badge -->
-<div class="absolute top-3 right-3 px-2 py-0.5 rounded-full bg-[#16A34A] text-white text-[10px] sm:text-xs font-bold flex items-center gap-1 shadow-md z-10">
+<div class="absolute top-2 right-2 sm:top-3 sm:right-3 px-1.5 sm:px-2 py-0.5 rounded-full bg-[#16A34A] text-white text-[9px] sm:text-xs font-bold flex items-center gap-0.5 sm:gap-1 shadow-md z-10">
 <span>🎁</span> Free
-              </div>
+</div>
 <div class="text-center text-white relative z-0">
-<span class="text-4xl block">🪔✨</span>
-<p class="font-display text-base font-bold text-orange-200 mt-1.5">Festival Of Joy</p>
-<div class="text-[11px] text-amber-200 font-sans mt-0.5">Floating Lantern Night Scene</div>
+<span class="text-2xl sm:text-4xl block">🪔✨</span>
+<p class="font-display text-xs sm:text-base font-bold text-orange-200 mt-1 truncate">Festival Of Joy</p>
+<div class="hidden sm:block text-[11px] text-amber-200 font-sans mt-0.5">Floating Lanterns</div>
 </div>
 <div class="absolute inset-0 bg-black/15 group-hover:bg-transparent transition-colors"></div>
 </div>
-<h3 class="font-display font-bold text-sm sm:text-base text-gray-900 group-hover:text-purple-700 transition truncate">Celebration Fiesta</h3>
-<div class="flex items-center gap-2 mt-1">
-<span class="text-amber-500 text-xs font-bold">★★★★★</span>
-<span class="text-xs font-semibold text-purple-700/80">4.7 (89)</span>
+<h3 class="font-display font-bold text-xs sm:text-base text-gray-900 group-hover:text-purple-700 transition truncate">Celebration Fiesta</h3>
+<div class="flex items-center gap-1.5 mt-0.5 sm:mt-1">
+<span class="text-amber-500 text-[10px] sm:text-xs font-bold">★★★★★</span>
+<span class="text-[10px] sm:text-xs font-semibold text-purple-700/80">4.7 (89)</span>
 </div>
 </div>
-<div class="grid grid-cols-2 gap-2 mt-3 pt-2 border-t border-purple-50">
-  <button class="py-1.5 px-2 rounded-xl bg-purple-50 hover:bg-purple-100 text-purple-700 text-xs font-bold transition flex items-center justify-center gap-1" onclick="openQuickCustomize('Celebration Fiesta', 'Free')">
+<div class="grid grid-cols-2 gap-1.5 sm:gap-2 mt-2 sm:mt-3 pt-1.5 sm:pt-2 border-t border-purple-50">
+  <button class="py-1 sm:py-1.5 px-1.5 sm:px-2 rounded-lg sm:rounded-xl bg-purple-50 hover:bg-purple-100 text-purple-700 text-[10px] sm:text-xs font-bold transition flex items-center justify-center gap-1" onclick="openQuickCustomize('Celebration Fiesta', 'Free')">
     <span>Preview</span>
   </button>
-  <button class="py-1.5 px-2 rounded-xl bg-gradient-to-r from-pink-500 to-purple-600 text-white text-xs font-bold shadow hover:brightness-110 transition flex items-center justify-center gap-1" onclick="openQuickCustomize('Celebration Fiesta', 'Free')">
+  <button class="py-1 sm:py-1.5 px-1.5 sm:px-2 rounded-lg sm:rounded-xl bg-gradient-to-r from-pink-500 to-purple-600 text-white text-[10px] sm:text-xs font-bold shadow hover:brightness-110 transition flex items-center justify-center gap-1" onclick="openQuickCustomize('Celebration Fiesta', 'Free')">
     <span>Customize</span>
   </button>
 </div>
 </div>
 <!-- CARD 8: Forever & Always (Premium ₹49) -->
-<div class="template-card bg-white rounded-2xl p-3.5 sm:p-4 shadow-lg shadow-purple-900/5 border border-purple-100 hover:shadow-2xl hover:-translate-y-1.5 transition-all duration-300 flex flex-col justify-between group" data-category="love" data-name="forever and always love romance">
+<div class="template-card bg-white rounded-xl sm:rounded-2xl p-2.5 sm:p-4 shadow-md sm:shadow-lg shadow-purple-900/5 border border-purple-100 hover:shadow-2xl hover:-translate-y-1 transition-all duration-300 flex flex-col justify-between group" data-category="love" data-name="forever and always love romance">
 <div>
-<div class="h-36 sm:h-40 rounded-xl relative overflow-hidden mb-3 bg-gradient-to-tr from-purple-950 via-slate-900 to-rose-950 flex items-center justify-center p-3 sm:p-4">
+<div class="h-28 sm:h-36 md:h-40 rounded-lg sm:rounded-xl relative overflow-hidden mb-2 sm:mb-3 bg-gradient-to-tr from-purple-950 via-slate-900 to-rose-950 flex items-center justify-center p-2 sm:p-4">
 <!-- Premium Badge -->
-<div class="absolute top-3 right-3 px-2 py-0.5 rounded-full bg-[#F4C542] text-amber-950 text-[10px] sm:text-xs font-bold flex items-center gap-1 shadow-md z-10">
-<span>👑</span> Premium ₹49
-              </div>
+<div class="absolute top-2 right-2 sm:top-3 sm:right-3 px-1.5 sm:px-2 py-0.5 rounded-full bg-[#F4C542] text-amber-950 text-[9px] sm:text-xs font-bold flex items-center gap-0.5 sm:gap-1 shadow-md z-10">
+<span>👑</span> VIP ₹49
+</div>
 <div class="text-center text-white relative z-0">
-<span class="text-4xl block">🕯️🌌</span>
-<p class="font-serifAccent text-base font-bold text-rose-200 italic mt-1.5 leading-snug">Forever &amp; Always Under Stars</p>
-<div class="text-[11px] text-pink-300 font-sans mt-0.5">Interactive constellation tap</div>
+<span class="text-2xl sm:text-4xl block">🕯️🌌</span>
+<p class="font-serifAccent text-xs sm:text-base font-bold text-rose-200 italic mt-1 truncate">Forever &amp; Always</p>
+<div class="hidden sm:block text-[11px] text-pink-300 font-sans mt-0.5">Constellation tap</div>
 </div>
 <div class="absolute inset-0 bg-black/15 group-hover:bg-transparent transition-colors"></div>
 </div>
-<h3 class="font-display font-bold text-sm sm:text-base text-gray-900 group-hover:text-purple-700 transition truncate">Forever &amp; Always</h3>
-<div class="flex items-center gap-2 mt-1">
-<span class="text-amber-500 text-xs font-bold">★★★★★</span>
-<span class="text-xs font-semibold text-purple-700/80">5.0 (210)</span>
+<h3 class="font-display font-bold text-xs sm:text-base text-gray-900 group-hover:text-purple-700 transition truncate">Forever &amp; Always</h3>
+<div class="flex items-center gap-1.5 mt-0.5 sm:mt-1">
+<span class="text-amber-500 text-[10px] sm:text-xs font-bold">★★★★★</span>
+<span class="text-[10px] sm:text-xs font-semibold text-purple-700/80">5.0 (210)</span>
 </div>
 </div>
-<div class="grid grid-cols-2 gap-2 mt-3 pt-2 border-t border-purple-50">
-  <button class="py-1.5 px-2 rounded-xl bg-purple-50 hover:bg-purple-100 text-purple-700 text-xs font-bold transition flex items-center justify-center gap-1" onclick="openQuickCustomize('Forever &amp; Always', 'Premium ₹49')">
+<div class="grid grid-cols-2 gap-1.5 sm:gap-2 mt-2 sm:mt-3 pt-1.5 sm:pt-2 border-t border-purple-50">
+  <button class="py-1 sm:py-1.5 px-1.5 sm:px-2 rounded-lg sm:rounded-xl bg-purple-50 hover:bg-purple-100 text-purple-700 text-[10px] sm:text-xs font-bold transition flex items-center justify-center gap-1" onclick="openQuickCustomize('Forever &amp; Always', 'Premium ₹49')">
     <span>Preview</span>
   </button>
-  <button class="py-1.5 px-2 rounded-xl bg-gradient-to-r from-pink-500 to-purple-600 text-white text-xs font-bold shadow hover:brightness-110 transition flex items-center justify-center gap-1" onclick="openQuickCustomize('Forever &amp; Always', 'Premium ₹49')">
+  <button class="py-1 sm:py-1.5 px-1.5 sm:px-2 rounded-lg sm:rounded-xl bg-gradient-to-r from-pink-500 to-purple-600 text-white text-[10px] sm:text-xs font-bold shadow hover:brightness-110 transition flex items-center justify-center gap-1" onclick="openQuickCustomize('Forever &amp; Always', 'Premium ₹49')">
     <span>Customize</span>
   </button>
 </div>
@@ -1306,6 +1306,41 @@
     function triggerConfettiDemo() {
       alert("🎊 Envelope Opened! Fireworks & joyful celebration sound ignited ✨");
     }
+
+    // Dynamic Live Sync from WishMagic Admin Settings
+    (function syncAdminStorefrontConfig() {
+      try {
+        const raw = localStorage.getItem('wishmagic_site_config');
+        if (!raw) return;
+        const config = JSON.parse(raw);
+        if (config.heroHeadline) {
+          const el = document.getElementById('hero-headline');
+          if (el) el.innerHTML = config.heroHeadline;
+        }
+        if (config.heroSubheadline) {
+          const el = document.getElementById('hero-subheadline');
+          if (el) el.textContent = config.heroSubheadline;
+        }
+        if (config.heroBadge) {
+          const el = document.getElementById('hero-badge-text');
+          if (el) el.textContent = config.heroBadge;
+        }
+        if (config.heroCta1) {
+          const el = document.getElementById('hero-cta1-text');
+          if (el) el.textContent = config.heroCta1;
+        }
+        if (config.heroCta2) {
+          const el = document.getElementById('hero-cta2-text');
+          if (el) el.textContent = config.heroCta2;
+        }
+        if (config.heroGiftIcon) {
+          const el = document.getElementById('hero-gift-icon');
+          if (el) el.textContent = config.heroGiftIcon;
+        }
+      } catch (err) {
+        console.warn('Site config sync note:', err);
+      }
+    })();
   </script>
 <!-- END: InteractiveScriptHandlers -->
 </body></html>
