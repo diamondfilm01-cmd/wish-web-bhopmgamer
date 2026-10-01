@@ -1,0 +1,112 @@
+[
+  {
+    "id": "tpl_cyber_bday",
+    "name": "Neon Cyber Birthday 3D",
+    "category": "Birthday",
+    "description": "Futuristic glowing neon celebration with floating glass cards, ambient light orbs, and confetti explosions.",
+    "thumbnail": "https://images.unsplash.com/photo-1513151233558-d860c5398176?w=600&auto=format&fit=crop&q=80",
+    "tier": "vip",
+    "price": 49,
+    "entryFile": "index.html",
+    "folder": "tpl_cyber_bday",
+    "featured": true,
+    "placement": 1,
+    "detectedFields": [
+      { "key": "recipient_name", "label": "Recipient Name", "type": "text", "defaultValue": "Kritika Sharma" },
+      { "key": "sender_name", "label": "Sender Name (From)", "type": "text", "defaultValue": "Ankit Verma" },
+      { "key": "sender_contact", "label": "Sender Contact / Phone", "type": "text", "defaultValue": "+91 98765 43210" },
+      { "key": "event_date", "label": "Celebration Date", "type": "text", "defaultValue": "2026-10-01" },
+      { "key": "custom_message", "label": "Heartfelt Message", "type": "textarea", "defaultValue": "Happy Birthday Kritika! ✨ Keep shining bright across this universe!" },
+      { "key": "photo_1", "label": "Celebrant Photo", "type": "image", "defaultValue": "https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=500&auto=format&fit=crop&q=80" }
+    ],
+    "createdAt": "2026-09-30T10:00:00.000Z"
+  },
+  {
+    "id": "tpl_golden_anniv",
+    "name": "Golden Luxe Anniversary",
+    "category": "Anniversary",
+    "description": "Royal gold and velvet elegance with glowing champagne sparkles, romantic toast, and golden confetti.",
+    "thumbnail": "https://images.unsplash.com/photo-1519741497674-611481863552?w=600&auto=format&fit=crop&q=80",
+    "tier": "free",
+    "price": 0,
+    "entryFile": "index.html",
+    "folder": "tpl_golden_anniv",
+    "featured": true,
+    "placement": 2,
+    "detectedFields": [
+      { "key": "recipient_name", "label": "Couple Names", "type": "text", "defaultValue": "Rohan & Ananya" },
+      { "key": "sender_name", "label": "Sender Name", "type": "text", "defaultValue": "Sharma Family" },
+      { "key": "sender_contact", "label": "Contact Info", "type": "text", "defaultValue": "+91 98200 11223" },
+      { "key": "event_date", "label": "Anniversary Date", "type": "text", "defaultValue": "2026-10-25" },
+      { "key": "custom_message", "label": "Warm Wishes", "type": "textarea", "defaultValue": "May your love grow deeper and more beautiful with each passing sunset. Wishing you a lifetime of joy!" },
+      { "key": "photo_1", "label": "Couple Photo", "type": "image", "defaultValue": "https://images.unsplash.com/photo-1519741497674-611481863552?w=500&auto=format&fit=crop&q=80" }
+    ],
+    "createdAt": "2026-09-30T10:05:00.000Z"
+  },
+  {
+    "id": "tpl_romantic_love",
+    "name": "Eternal Romance & Love Letter",
+    "category": "Love & Romance",
+    "description": "An intimate digital wax-sealed love letter with floating red hearts, rose petals, and soulful romantic ambiance.",
+    "thumbnail": "https://images.unsplash.com/photo-1518199266791-5375a83190b7?w=600&auto=format&fit=crop&q=80",
+    "tier": "vip",
+    "price": 49,
+    "entryFile": "index.html",
+    "folder": "tpl_romantic_love",
+    "featured": true,
+    "placement": 3,
+    "detectedFields": [
+      { "key": "recipient_name", "label": "Beloved Name", "type": "text", "defaultValue": "Pooja" },
+      { "key": "sender_name", "label": "Your Name", "type": "text", "defaultValue": "Aman" },
+      { "key": "sender_contact", "label": "Your Phone / Email", "type": "text", "defaultValue": "+91 99112 33445" },
+      { "key": "event_date", "label": "Special Date", "type": "text", "defaultValue": "2026-10-14" },
+      { "key": "custom_message", "label": "Love Note", "type": "textarea", "defaultValue": "You are the melody in my silence and the sunshine in my mornings. Every second with you feels like an answered prayer!" },
+      { "key": "photo_1", "label": "Romantic Photo", "type": "image", "defaultValue": "https://images.unsplash.com/photo-1518199266791-5375a83190b7?w=500&auto=format&fit=crop&q=80" }
+    ],
+    "createdAt": "2026-09-30T10:10:00.000Z"
+  },
+  {
+    "id": "tpl_festive_sparkle",
+    "name": "Diwali & Festive Sparkle 3D",
+    "category": "Festivals (Diwali/Holi)",
+    "description": "Traditional Indian diya lamps, golden fireworks, rangoli patterns, and festive sweets greeting experience.",
+    "thumbnail": "https://images.unsplash.com/photo-1543807535-eceef0bc6599?w=600&auto=format&fit=crop&q=80",
+    "tier": "free",
+    "price": 0,
+    "entryFile": "index.html",
+    "folder": "tpl_festive_sparkle",
+    "featured": true,
+    "placement": 4,
+    "detectedFields": [
+      { "key": "recipient_name", "label": "Family / Recipient", "type": "text", "defaultValue": "Gupta Ji & Family" },
+      { "key": "sender_name", "label": "Sender Name", "type": "text", "defaultValue": "Vikram & Neha" },
+      { "key": "sender_contact", "label": "Sender Contact", "type": "text", "defaultValue": "+91 97711 22334" },
+      { "key": "event_date", "label": "Festival Date", "type": "text", "defaultValue": "2026-11-01" },
+      { "key": "custom_message", "label": "Festive Message", "type": "textarea", "defaultValue": "May the divine light of Diyas illuminate your life with endless peace, prosperity, health, and happiness! Shubh Deepawali!" },
+      { "key": "photo_1", "label": "Family Photo", "type": "image", "defaultValue": "https://images.unsplash.com/photo-1543807535-eceef0bc6599?w=500&auto=format&fit=crop&q=80" }
+    ],
+    "createdAt": "2026-09-30T10:15:00.000Z"
+  },
+  {
+    "id": "tpl_confetti_party",
+    "name": "Pop Party Balloon Bash",
+    "category": "Birthday",
+    "description": "Playful pastel pop celebration with floating balloons, interactive sound effects, and birthday party cheering.",
+    "thumbnail": "https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?w=600&auto=format&fit=crop&q=80",
+    "tier": "free",
+    "price": 0,
+    "entryFile": "index.html",
+    "folder": "tpl_confetti_party",
+    "featured": true,
+    "placement": 5,
+    "detectedFields": [
+      { "key": "recipient_name", "label": "Celebrant Name", "type": "text", "defaultValue": "Kabir Mehta" },
+      { "key": "sender_name", "label": "From Gang", "type": "text", "defaultValue": "Sameer & Gang" },
+      { "key": "sender_contact", "label": "Contact", "type": "text", "defaultValue": "+91 98110 55667" },
+      { "key": "event_date", "label": "Party Date", "type": "text", "defaultValue": "2026-10-01" },
+      { "key": "custom_message", "label": "Party Wish", "type": "textarea", "defaultValue": "Happy Birthday to the most energetic soul! May this year bring you epic road trips, massive wins, and countless unforgettable moments!" },
+      { "key": "photo_1", "label": "Party Photo", "type": "image", "defaultValue": "https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?w=500&auto=format&fit=crop&q=80" }
+    ],
+    "createdAt": "2026-09-30T10:20:00.000Z"
+  }
+]

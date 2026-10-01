@@ -1,0 +1,120 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>Diwali & Festive Sparkle Celebration | WishMagic</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <link rel="preconnect" href="https://fonts.googleapis.com"/>
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin/>
+  <link href="https://fonts.googleapis.com/css2?family=Rozha+One&family=Plus+Jakarta+Sans:wght@400;500;600;700&display=swap" rel="stylesheet"/>
+  <style>
+    body {
+      font-family: 'Plus Jakarta Sans', sans-serif;
+      background: radial-gradient(circle at 50% 15%, #3b1700 0%, #1c0a00 50%, #0a0300 100%);
+      color: #ffffff;
+      min-height: 100vh;
+      overflow-x: hidden;
+    }
+    .font-festive { font-family: 'Rozha One', serif; }
+    .diya-glow {
+      text-shadow: 0 0 15px rgba(249, 115, 22, 0.8), 0 0 30px rgba(234, 88, 12, 0.6);
+    }
+    .glass-festive-card {
+      background: rgba(40, 15, 5, 0.75);
+      backdrop-filter: blur(20px);
+      border: 1px solid rgba(249, 115, 22, 0.35);
+      box-shadow: 0 20px 50px rgba(0, 0, 0, 0.8), 0 0 35px rgba(249, 115, 22, 0.2);
+    }
+  </style>
+</head>
+<body class="relative flex flex-col items-center justify-center p-4 sm:p-8 min-h-screen">
+  <div class="fixed top-12 -left-16 w-80 h-80 bg-orange-600/20 rounded-full blur-[110px] pointer-events-none"></div>
+  <div class="fixed bottom-12 -right-16 w-96 h-96 bg-amber-500/20 rounded-full blur-[120px] pointer-events-none"></div>
+
+  <div class="relative z-10 w-full max-w-xl mx-auto my-auto text-center flex flex-col items-center">
+    <div class="inline-flex items-center gap-2 px-5 py-1.5 rounded-full bg-orange-950/60 backdrop-blur-md border border-orange-500/40 text-xs sm:text-sm font-semibold text-orange-300 shadow-xl mb-6">
+      <span>🪔 Shubh Deepawali &amp; Festive Blessings</span>
+      <span class="text-orange-500/50">•</span>
+      <span data-wm="event_date">November 01, 2026</span>
+    </div>
+
+    <!-- Festive Diya & Photo Frame -->
+    <div class="relative group mb-6">
+      <div class="absolute -inset-2 bg-gradient-to-tr from-amber-400 via-orange-500 to-red-500 rounded-3xl blur-md opacity-80"></div>
+      <div class="relative w-44 h-44 sm:w-56 sm:h-56 rounded-2xl overflow-hidden border-2 border-orange-300/60 shadow-2xl bg-black/50">
+        <img data-wm="photo_1" id="wm-img-photo_1" src="https://images.unsplash.com/photo-1543807535-eceef0bc6599?w=500&auto=format&fit=crop&q=80" alt="Family Photo" class="w-full h-full object-cover"/>
+      </div>
+      <div class="absolute -top-4 -right-3 text-3xl">🪔</div>
+    </div>
+
+    <h1 class="font-festive text-3xl sm:text-5xl font-black tracking-wide leading-tight mb-2">
+      <span class="block text-amber-200/80 text-xs sm:text-sm uppercase tracking-[0.25em] font-sans font-semibold mb-1">Heartiest Wishes To</span>
+      <span data-wm="recipient_name" class="diya-glow text-amber-300">Gupta Ji &amp; Family</span>
+    </h1>
+
+    <div class="glass-festive-card rounded-2xl p-6 sm:p-8 mt-5 text-left w-full relative overflow-hidden">
+      <div class="absolute top-0 left-0 right-0 h-1 bg-gradient-to-r from-amber-400 via-orange-500 to-yellow-400"></div>
+      <div class="text-2xl text-amber-400 mb-2 font-serif opacity-90">“</div>
+      <p data-wm="custom_message" class="text-sm sm:text-base leading-relaxed text-amber-100/90 font-medium whitespace-pre-line mb-4">
+        May the divine light of Diyas illuminate your life with endless peace, prosperity, health, and happiness! Shubh Deepawali to you and your loved ones!
+      </p>
+      
+      <div class="flex items-center justify-between pt-4 border-t border-orange-500/20 mt-4 text-xs sm:text-sm text-amber-200/90">
+        <span class="text-orange-400/70">Warm blessings from</span>
+        <span data-wm="sender_name" class="font-bold text-amber-300 diya-glow">Vikram &amp; Neha</span>
+      </div>
+    </div>
+
+    <button onclick="blastFestiveFireworks()" class="mt-8 px-7 py-3 rounded-full bg-gradient-to-r from-orange-500 via-amber-500 to-yellow-500 text-stone-950 font-black text-sm shadow-[0_0_30px_rgba(249,115,22,0.5)] hover:scale-105 active:scale-95 transition-all flex items-center gap-2 cursor-pointer">
+      <span>🎆 Burst Golden Sparklers</span>
+    </button>
+  </div>
+
+  <script src="https://cdn.jsdelivr.net/npm/canvas-confetti@1.6.0/dist/confetti.browser.min.js"></script>
+  <script>
+    function blastFestiveFireworks() {
+      if (typeof confetti === 'function') {
+        confetti({
+          particleCount: 80,
+          spread: 80,
+          colors: ['#FF8C00', '#FFD700', '#FF4500', '#FFA500'],
+          origin: { y: 0.6 }
+        });
+      }
+    }
+    window.addEventListener('load', () => setTimeout(blastFestiveFireworks, 500));
+
+    function applyWishMagicPayload(payload) {
+      if (!payload) return;
+      window.WishMagicData = payload;
+      document.querySelectorAll('[data-wm]').forEach(el => {
+        const key = el.getAttribute('data-wm');
+        if (!key || payload[key] === undefined) return;
+        if (el.tagName === 'IMG') {
+          if (payload[key]) el.src = payload[key];
+        } else {
+          el.textContent = payload[key];
+        }
+      });
+      const dateEl = document.querySelector('[data-wm="event_date"]');
+      if (dateEl && payload.event_date) {
+        try {
+          const d = new Date(payload.event_date);
+          if (!isNaN(d.getTime())) {
+            dateEl.textContent = d.toLocaleDateString('en-US', { day: 'numeric', month: 'long', year: 'numeric' });
+          }
+        } catch (e) {}
+      }
+    }
+
+    window.addEventListener('message', (event) => {
+      if (event.data && (event.data.type === 'WISHMAGIC_LIVE_UPDATE' || event.data.type === 'WISHMAGIC_INIT')) {
+        applyWishMagicPayload(event.data.payload);
+      }
+    });
+
+    if (window.WishMagicData) applyWishMagicPayload(window.WishMagicData);
+  </script>
+</body>
+</html>
