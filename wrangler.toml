@@ -12,7 +12,7 @@ binding = "ASSETS"
 PUBLIC_APP_URL = "https://wishmagic.pages.dev"
 ENVIRONMENT = "production"
 ENABLE_RATE_LIMITING = "true"
-ALLOWED_ORIGIN = "*"
+ALLOWED_ORIGIN = "https://wishmagic.live"
 
 # Cloudflare D1 Database Binding
 [[d1_databases]]

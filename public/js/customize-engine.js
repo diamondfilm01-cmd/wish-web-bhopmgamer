@@ -198,7 +198,7 @@ document.addEventListener('DOMContentLoaded', async () => {
 
   if (cloneWishId) {
     try {
-      const wishRes = await fetch(`/api/wishes/${encodeURIComponent(cloneWishId)}`);
+      const wishRes = await fetch(`/api/wishes/${encodeURIComponent(cloneWishId)}`, { credentials: 'include' });
       const wishResult = await wishRes.json();
       if (wishResult.success && wishResult.wish) {
         const clonedWish = wishResult.wish;
@@ -225,7 +225,7 @@ document.addEventListener('DOMContentLoaded', async () => {
     }
   } else if (editWishId) {
     try {
-      const wishRes = await fetch(`/api/wishes/${encodeURIComponent(editWishId)}`);
+      const wishRes = await fetch(`/api/wishes/${encodeURIComponent(editWishId)}`, { credentials: 'include' });
       const wishResult = await wishRes.json();
       if (wishResult.success && wishResult.wish) {
         const editWish = wishResult.wish;
@@ -3264,12 +3264,19 @@ window.publishWishAndGetLink = async function() {
 
 async function executeWishCreation(extraPayload = {}) {
   try {
-    const currentUserId = (window.WishAuth && window.WishAuth.getCurrentUser()?.id) || 'usr_ankit_101';
+    const currentUser = window.WishAuth && window.WishAuth.getCurrentUser();
+    if (!currentUser) {
+      if (typeof window.openAuthModal === 'function') {
+        window.openAuthModal('signin', 'Please sign in or create an account to publish your wish website.');
+      } else {
+        alert('Please sign in to publish your wish.');
+      }
+      return null;
+    }
 
     const payload = {
       templateId: activeTemplate.id,
       customData: currentCustomData,
-      userId: currentUserId,
       ...extraPayload
     };
 
@@ -3284,8 +3291,9 @@ async function executeWishCreation(extraPayload = {}) {
       });
       data = await res.json();
     }
-    if (data.success && data.wishId) {
-      const wishSlug = data.slug || (data.wish && data.wish.slug) || data.wishId;
+    const createdWishId = data.wishId || (data.wish && data.wish.id);
+    if (data.success && createdWishId) {
+      const wishSlug = data.slug || (data.wish && data.wish.slug) || createdWishId;
       const fullLink = `${window.location.origin}/w/${wishSlug}`;
 
       // Save to local user wishes collection for creator dashboard with repository

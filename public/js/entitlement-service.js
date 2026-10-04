@@ -73,11 +73,9 @@
     let record = safeJSONParse(raw, null);
 
     if (!record || !record.planId) {
-      // By default in dev environment:
-      // If user is 'usr_ankit_101', default to free plan to let developers test Free experience
-      // If user is 'usr_admin_999', grant development admin VIP pass
-      const defaultPlan = (userId === 'usr_admin_999') ? 'premium' : 'free';
-      record = createDefaultEntitlement(userId, defaultPlan, 'dev_adapter');
+      const isUserPremium = Boolean(window.WishAuth && (window.WishAuth.getCurrentUser()?.isPremium || window.WishAuth.getCurrentUser()?.plan === 'VIP'));
+      const defaultPlan = isUserPremium ? 'premium' : 'free';
+      record = createDefaultEntitlement(userId, defaultPlan, 'auth_session');
       saveEntitlementForUser(userId, record);
     }
 

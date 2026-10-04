@@ -100,10 +100,10 @@
     } else {
       // Fallback
       try {
-        const res = await fetch('/api/wishes');
+        const res = await fetch('/api/wishes', { credentials: 'include' });
         const data = await res.json();
         if (data.success && Array.isArray(data.wishes)) {
-          data.wishes.filter(w => w.userId === userId || (!w.userId && userId === 'usr_ankit_101')).forEach(w => {
+          data.wishes.filter(w => w.userId === userId).forEach(w => {
             const status = window.WishLifecycle ? window.WishLifecycle.getWishStatus(w) : (w.lifecycleStatus || 'active');
             wishesMap.set(w.id, {
               ...w,
@@ -131,7 +131,7 @@
       try {
         const drafts = JSON.parse(localStorage.getItem('wishmagic_drafts') || '[]');
         if (Array.isArray(drafts)) {
-          drafts.filter(d => d.userId === userId || (!d.userId && userId === 'usr_ankit_101')).forEach(d => {
+          drafts.filter(d => d.userId === userId).forEach(d => {
             wishesMap.set(d.id, {
               ...d,
               status: 'draft',
@@ -141,11 +141,6 @@
           });
         }
       } catch (e) {}
-    }
-
-    // 3. Seed user-specific demo wishes if this user has none yet (ensures test isolation)
-    if (wishesMap.size === 0) {
-      seedUserSpecificSampleWishes(userId, wishesMap);
     }
 
     allWishes = Array.from(wishesMap.values());
@@ -1026,7 +1021,7 @@
     const wish = allWishes.find(w => w.id === wishId);
     if (!wish) return;
     const user = window.WishAuth ? window.WishAuth.getCurrentUser() : null;
-    const currentUserId = user ? user.id : 'usr_ankit_101';
+    const currentUserId = user ? user.id : null;
 
     if (wish.isDraft || wish.status === 'draft') {
       if (window.WishRepositories) {
@@ -1046,7 +1041,7 @@
         await WishRepositories.wishRepository.delete(wishId, currentUserId);
       } else {
         try {
-          await fetch(`/api/wishes/${encodeURIComponent(wishId)}`, { method: 'DELETE' });
+          await fetch(`/api/wishes/${encodeURIComponent(wishId)}`, { method: 'DELETE', credentials: 'include' });
         } catch (e) {}
         try {
           let localUserWishes = JSON.parse(localStorage.getItem('wishmagic_user_wishes') || '[]');

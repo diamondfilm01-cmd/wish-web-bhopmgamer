@@ -1,9 +1,9 @@
 /**
  * WishMagic Centralized API Client Layer
- * Part 22: Full Frontend <-> Worker <-> D1/R2 Integration
+ * Part 28: Full Frontend <-> Worker API Contract & End-to-End Regression Lock
  * 
  * Provides unified HTTP operations, structured error classification,
- * credentials handling, retry policies, and centralized configuration.
+ * credentials handling, CSRF token attachment, retry policies, and centralized configuration.
  */
 
 (function(window) {
@@ -23,71 +23,86 @@
   // =========================================================================
 
   class WishApiError extends Error {
-    constructor(message, status = 500, code = 'API_ERROR', details = null) {
+    constructor(message, status = 500, code = 'API_ERROR', details = null, requestId = null) {
       super(message);
       this.name = 'WishApiError';
       this.status = status;
       this.code = code;
       this.details = details;
+      this.requestId = requestId;
       this.timestamp = new Date().toISOString();
     }
   }
 
   class WishAuthenticationError extends WishApiError {
-    constructor(message = 'Authentication required. Please sign in.', details = null) {
-      super(message, 401, 'UNAUTHORIZED', details);
+    constructor(message = 'Authentication required. Please sign in.', details = null, requestId = null) {
+      super(message, 401, 'AUTH_REQUIRED', details, requestId);
       this.name = 'WishAuthenticationError';
     }
   }
 
   class WishAuthorizationError extends WishApiError {
-    constructor(message = 'Access denied. You do not have permission to perform this action.', details = null) {
-      super(message, 403, 'FORBIDDEN', details);
+    constructor(message = 'Access denied. You do not have permission to perform this action.', details = null, requestId = null) {
+      super(message, 403, 'FORBIDDEN', details, requestId);
       this.name = 'WishAuthorizationError';
     }
   }
 
+  class WishPremiumRequiredError extends WishApiError {
+    constructor(message = 'VIP or Premium subscription required to use this template or feature.', details = null, requestId = null) {
+      super(message, 403, 'PREMIUM_REQUIRED', details, requestId);
+      this.name = 'WishPremiumRequiredError';
+    }
+  }
+
   class WishNotFoundError extends WishApiError {
-    constructor(message = 'The requested resource was not found.', details = null) {
-      super(message, 404, 'NOT_FOUND', details);
+    constructor(message = 'The requested resource was not found.', details = null, requestId = null) {
+      super(message, 404, 'NOT_FOUND', details, requestId);
       this.name = 'WishNotFoundError';
     }
   }
 
   class WishValidationError extends WishApiError {
-    constructor(message = 'Validation failed for request data.', details = null, fields = {}) {
-      super(message, 400, 'VALIDATION_ERROR', details);
+    constructor(message = 'Validation failed for request data.', details = null, fields = {}, requestId = null) {
+      super(message, 400, 'VALIDATION_ERROR', details, requestId);
       this.name = 'WishValidationError';
       this.fields = fields;
     }
   }
 
   class WishConflictError extends WishApiError {
-    constructor(message = 'A resource conflict occurred.', details = null) {
-      super(message, 409, 'CONFLICT', details);
+    constructor(message = 'A resource conflict occurred.', details = null, requestId = null) {
+      super(message, 409, 'CONFLICT', details, requestId);
       this.name = 'WishConflictError';
     }
   }
 
   class WishRateLimitError extends WishApiError {
-    constructor(message = 'Too many requests. Please try again shortly.', retryAfter = 60, details = null) {
-      super(message, 429, 'RATE_LIMITED', details);
+    constructor(message = 'Too many requests. Please try again shortly.', retryAfter = 60, details = null, requestId = null) {
+      super(message, 429, 'RATE_LIMITED', details, requestId);
       this.name = 'WishRateLimitError';
       this.retryAfter = retryAfter;
     }
   }
 
   class WishServerError extends WishApiError {
-    constructor(message = 'A server error occurred. Please try again later.', status = 500, details = null) {
-      super(message, status, 'SERVER_ERROR', details);
+    constructor(message = 'A server error occurred. Please try again later.', status = 500, details = null, requestId = null) {
+      super(message, status, 'INTERNAL_ERROR', details, requestId);
       this.name = 'WishServerError';
     }
   }
 
   class WishNotConfiguredError extends WishApiError {
-    constructor(message = 'This service or integration is not yet configured in production.', details = null) {
-      super(message, 503, 'NOT_CONFIGURED', details);
+    constructor(message = 'This service or integration is not yet configured in production.', details = null, requestId = null) {
+      super(message, 503, 'NOT_CONFIGURED', details, requestId);
       this.name = 'WishNotConfiguredError';
+    }
+  }
+
+  class WishServiceUnavailableError extends WishApiError {
+    constructor(message = 'The service is temporarily unavailable. Please try again shortly.', details = null, requestId = null) {
+      super(message, 503, 'SERVICE_UNAVAILABLE', details, requestId);
+      this.name = 'WishServiceUnavailableError';
     }
   }
 
@@ -109,12 +124,14 @@
       ApiError: WishApiError,
       AuthenticationError: WishAuthenticationError,
       AuthorizationError: WishAuthorizationError,
+      PremiumRequiredError: WishPremiumRequiredError,
       NotFoundError: WishNotFoundError,
       ValidationError: WishValidationError,
       ConflictError: WishConflictError,
       RateLimitError: WishRateLimitError,
       ServerError: WishServerError,
       NotConfiguredError: WishNotConfiguredError,
+      ServiceUnavailableError: WishServiceUnavailableError,
       NetworkError: WishNetworkError
     },
 
@@ -175,35 +192,43 @@
      * Helper to classify response status into specific error instances
      */
     _handleHttpError(status, errorBody = {}) {
-      const code = errorBody.code || (errorBody.error && errorBody.error.code) || 'UNKNOWN_ERROR';
-      const message = errorBody.message || (errorBody.error && errorBody.error.message) || `HTTP Error ${status}`;
-      const details = errorBody.details || (errorBody.error && errorBody.error.details) || null;
+      const errObj = errorBody.error || {};
+      const code = errorBody.code || errObj.code || (status === 401 ? 'AUTH_REQUIRED' : status === 403 ? 'FORBIDDEN' : 'UNKNOWN_ERROR');
+      const message = errorBody.message || errObj.message || `HTTP Error ${status}`;
+      const details = errorBody.details || errObj.details || null;
+      const requestId = errorBody.requestId || errObj.requestId || null;
 
-      if (status === 401) {
-        return new WishAuthenticationError(message, details);
+      if (status === 401 || code === 'AUTH_REQUIRED' || code === 'UNAUTHORIZED') {
+        return new WishAuthenticationError(message, details, requestId);
       }
-      if (status === 403) {
-        return new WishAuthorizationError(message, details);
+      if (status === 403 && (code === 'PREMIUM_REQUIRED' || code === 'ENTITLEMENT_REQUIRED')) {
+        return new WishPremiumRequiredError(message, details, requestId);
       }
-      if (status === 404) {
-        return new WishNotFoundError(message, details);
+      if (status === 403 || code === 'FORBIDDEN') {
+        return new WishAuthorizationError(message, details, requestId);
       }
-      if (status === 400 || status === 422) {
-        return new WishValidationError(message, details, errorBody.fields || {});
+      if (status === 404 || code === 'NOT_FOUND') {
+        return new WishNotFoundError(message, details, requestId);
       }
-      if (status === 409) {
-        return new WishConflictError(message, details);
+      if (status === 400 || status === 422 || code === 'VALIDATION_ERROR' || code === 'BAD_REQUEST') {
+        return new WishValidationError(message, details, errorBody.fields || errObj.fields || {}, requestId);
       }
-      if (status === 429) {
-        return new WishRateLimitError(message, errorBody.retryAfter || 60, details);
+      if (status === 409 || code === 'CONFLICT') {
+        return new WishConflictError(message, details, requestId);
+      }
+      if (status === 429 || code === 'RATE_LIMITED') {
+        return new WishRateLimitError(message, errorBody.retryAfter || 60, details, requestId);
+      }
+      if (status === 503 && (code === 'DATABASE_UNAVAILABLE' || code === 'SERVICE_UNAVAILABLE')) {
+        return new WishServiceUnavailableError(message, details, requestId);
       }
       if (status === 503 || code === 'NOT_CONFIGURED' || code === 'PROVIDER_NOT_CONFIGURED') {
-        return new WishNotConfiguredError(message, details);
+        return new WishNotConfiguredError(message, details, requestId);
       }
       if (status >= 500) {
-        return new WishServerError(message, status, details);
+        return new WishServerError(message, status, details, requestId);
       }
-      return new WishApiError(message, status, code, details);
+      return new WishApiError(message, status, code, details, requestId);
     },
 
     /**
@@ -344,12 +369,14 @@
     window.WishApiError = WishApiError;
     window.WishAuthenticationError = WishAuthenticationError;
     window.WishAuthorizationError = WishAuthorizationError;
+    window.WishPremiumRequiredError = WishPremiumRequiredError;
     window.WishNotFoundError = WishNotFoundError;
     window.WishValidationError = WishValidationError;
     window.WishConflictError = WishConflictError;
     window.WishRateLimitError = WishRateLimitError;
     window.WishServerError = WishServerError;
     window.WishNotConfiguredError = WishNotConfiguredError;
+    window.WishServiceUnavailableError = WishServiceUnavailableError;
     window.WishNetworkError = WishNetworkError;
   }
 
@@ -360,12 +387,14 @@
       WishApiError,
       WishAuthenticationError,
       WishAuthorizationError,
+      WishPremiumRequiredError,
       WishNotFoundError,
       WishValidationError,
       WishConflictError,
       WishRateLimitError,
       WishServerError,
       WishNotConfiguredError,
+      WishServiceUnavailableError,
       WishNetworkError
     };
   }

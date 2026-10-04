@@ -129,79 +129,9 @@
       const raw = localStorage.getItem(STORAGE_KEY_NOTIFICATIONS);
       if (raw) {
         const parsed = JSON.parse(raw);
-        if (Array.isArray(parsed) && parsed.length > 0) return parsed;
+        if (Array.isArray(parsed)) return parsed;
       }
-      // Initial development sample seeding with strict user isolation
-      const defaultSeed = [
-        {
-          id: 'ntf_ankit_01',
-          userId: 'usr_ankit_101',
-          type: NOTIFICATION_TYPES.WISH_PUBLISHED,
-          title: 'Wish Published Live 🚀',
-          message: 'Your celebration for Kritika is live! Public link is ready to share.',
-          createdAt: new Date(Date.now() - 3600000 * 2).toISOString(),
-          readAt: null,
-          relatedType: 'wish',
-          relatedId: 'wm_ankit_01',
-          actionUrl: '/w/ankit-to-kritika-x7k92',
-          icon: 'public',
-          severity: 'success'
-        },
-        {
-          id: 'ntf_ankit_02',
-          userId: 'usr_ankit_101',
-          type: NOTIFICATION_TYPES.PREMIUM_UPGRADE,
-          title: 'VIP Pass Activated! 🎉',
-          message: 'Welcome to VIP Creator! All premium 3D templates and unlisted sharing features are now unlocked.',
-          createdAt: new Date(Date.now() - 3600000 * 24).toISOString(),
-          readAt: new Date(Date.now() - 3600000 * 20).toISOString(),
-          relatedType: 'order',
-          actionUrl: '/account',
-          icon: 'workspace_premium',
-          severity: 'success'
-        },
-        {
-          id: 'ntf_ankit_03',
-          userId: 'usr_ankit_101',
-          type: NOTIFICATION_TYPES.DRAFT_REMINDER,
-          title: 'Unfinished Celebration Draft 📝',
-          message: 'You have an unfinished wish draft for Rohan. Complete it before the special date!',
-          createdAt: new Date(Date.now() - 3600000 * 4).toISOString(),
-          readAt: null,
-          relatedType: 'draft',
-          actionUrl: '/my-wishes?tab=drafts',
-          icon: 'edit_note',
-          severity: 'warning'
-        },
-        {
-          id: 'ntf_priya_01',
-          userId: 'usr_priya_202',
-          type: NOTIFICATION_TYPES.WISH_CREATED,
-          title: 'Wish Created ✨',
-          message: 'Your wish for Aarav has been saved.',
-          createdAt: new Date(Date.now() - 3600000 * 12).toISOString(),
-          readAt: null,
-          relatedType: 'wish',
-          actionUrl: '/my-wishes',
-          icon: 'celebration',
-          severity: 'success'
-        },
-        {
-          id: 'ntf_admin_01',
-          userId: 'usr_admin_999',
-          type: NOTIFICATION_TYPES.ADMIN_ALERT,
-          title: 'Platform System Alert 🛡️',
-          message: 'WishMagic Engine v4.17 communication layer initialized. All storage repositories passing health checks.',
-          createdAt: new Date(Date.now() - 3600000 * 1).toISOString(),
-          readAt: null,
-          relatedType: 'system',
-          actionUrl: '/admin/overview',
-          icon: 'shield',
-          severity: 'info'
-        }
-      ];
-      localStorage.setItem(STORAGE_KEY_NOTIFICATIONS, JSON.stringify(defaultSeed));
-      return defaultSeed;
+      return [];
     } catch (e) {
       console.warn('[NotificationService] Error reading stored notifications:', e);
       return [];

@@ -69,7 +69,7 @@
     try {
       let res = await fetch(`/api/public/wishes/${encodeURIComponent(wishId)}`);
       if (!res.ok) {
-        res = await fetch(`/api/wishes/${encodeURIComponent(wishId)}`);
+        res = await fetch(`/api/wishes/${encodeURIComponent(wishId)}`, { credentials: 'include' });
       }
       const result = await res.json();
 

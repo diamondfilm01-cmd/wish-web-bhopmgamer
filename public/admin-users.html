@@ -337,10 +337,6 @@
                 <span class="material-symbols-outlined text-[14px]">visibility</span>
                 <span>Details</span>
               </button>
-              <button onclick="switchDevIdentity('${u.id}')" class="px-2.5 py-1 rounded-lg bg-primary-container/30 hover:bg-primary-container text-white text-xs font-bold transition flex items-center gap-1 cursor-pointer" title="Switch active dev identity">
-                <span class="material-symbols-outlined text-[14px]">switch_account</span>
-                <span>Switch</span>
-              </button>
             </div>
           </td>
         </tr>
@@ -441,14 +437,6 @@
 
   function closeUserDetailsModal() {
     document.getElementById('user-details-modal').classList.add('hidden');
-  }
-
-  function switchDevIdentity(userId) {
-    if (window.WishAuth) {
-      window.WishAuth.signInWithDevAccount(userId);
-      alert(`Switched active development account to ${userId}! Creator dashboard will now show this user's data.`);
-      window.location.href = '/my-wishes';
-    }
   }
 
   function openCreateTestUserModal() {

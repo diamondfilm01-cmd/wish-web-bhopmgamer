@@ -1040,15 +1040,15 @@
 <h3 class="font-display font-black text-xl text-[#24113F]" id="auth-title">Welcome to WishMagic</h3>
 <p class="text-xs text-purple-700/80 mb-6" id="auth-subtitle">Save your wishes and revisit smiles anytime.</p>
 <div class="space-y-3">
-<button class="w-full py-2.5 px-4 rounded-xl border border-gray-300 hover:bg-gray-50 text-xs font-bold text-gray-700 flex items-center justify-center gap-2 transition" onclick="mockAuthSuccess('Google')">
+<button class="w-full py-2.5 px-4 rounded-xl border border-gray-300 hover:bg-gray-50 text-xs font-bold text-gray-700 flex items-center justify-center gap-2 transition" onclick="if (window.WishAuth) window.WishAuth.signInWithOAuth('Google');">
 <span>Continue with Google</span>
 </button>
-<button class="w-full py-2.5 px-4 rounded-xl border border-gray-300 hover:bg-gray-50 text-xs font-bold text-gray-700 flex items-center justify-center gap-2 transition" onclick="mockAuthSuccess('Apple')">
+<button class="w-full py-2.5 px-4 rounded-xl border border-gray-300 hover:bg-gray-50 text-xs font-bold text-gray-700 flex items-center justify-center gap-2 transition" onclick="if (window.WishAuth) window.WishAuth.signInWithOAuth('Apple');">
 <span>Continue with Apple</span>
 </button>
 <div class="text-[11px] text-gray-400 my-2">or with email</div>
-<input class="w-full text-xs rounded-xl border border-purple-200 p-3 focus:ring-2 focus:ring-purple-400 focus:outline-none" placeholder="name@example.com" type="email"/>
-<button class="w-full py-3 rounded-xl bg-purple-600 text-white text-xs font-bold shadow-md hover:bg-purple-700 transition" onclick="mockAuthSuccess('Email')">
+<input id="auth-modal-email-input" class="w-full text-xs rounded-xl border border-purple-200 p-3 focus:ring-2 focus:ring-purple-400 focus:outline-none" placeholder="name@example.com" type="email"/>
+<button class="w-full py-3 rounded-xl bg-purple-600 text-white text-xs font-bold shadow-md hover:bg-purple-700 transition" onclick="const em = document.getElementById('auth-modal-email-input')?.value; if (window.WishAuth && em) window.WishAuth.signInWithEmail(em); closeModal('auth-modal');">
           Continue
         </button>
 </div>

@@ -1,3 +1,8 @@
+// ============================================================================
+// LEGACY DEVELOPMENT SERVER ONLY (Local express development runner)
+// PRODUCTION SOURCE OF TRUTH: Cloudflare Worker (src/worker.js) + D1 + R2
+// ============================================================================
+
 import express from 'express';
 import path from 'path';
 import fs from 'fs';
