@@ -1,0 +1,121 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>Starlit Romance & Love Letter 💌</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script src="https://cdn.jsdelivr.net/npm/canvas-confetti@1.6.0/dist/confetti.browser.min.js"></script>
+  <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@400;600;800&family=Playfair+Display:ital,wght@0,600;1,600;1,700&family=Plus+Jakarta+Sans:wght@400;500;600&display=swap" rel="stylesheet"/>
+  <style>
+    body {
+      font-family: 'Plus Jakarta Sans', sans-serif;
+      background: radial-gradient(circle at 50% 10%, #360a1e 0%, #1a030d 50%, #0a0105 100%);
+      color: #ffffff;
+      min-height: 100vh;
+      overflow-x: hidden;
+    }
+    .font-serif-luxury { font-family: 'Playfair Display', serif; }
+  </style>
+</head>
+<body class="flex flex-col items-center justify-between min-h-screen p-4 sm:p-8 text-center relative select-none">
+  <!-- Subtle Rose Ambient Lighting -->
+  <div class="fixed inset-0 pointer-events-none overflow-hidden opacity-40 z-0">
+    <div class="absolute w-96 h-96 rounded-full bg-rose-600/15 blur-3xl top-1/4 -left-20"></div>
+    <div class="absolute w-96 h-96 rounded-full bg-amber-500/10 blur-3xl bottom-10 right-0"></div>
+  </div>
+
+  <main class="relative z-10 w-full max-w-lg mx-auto my-auto py-6">
+    <!-- Occasion Badge -->
+    <div class="inline-flex items-center gap-2 px-4 py-1.5 rounded-full bg-rose-950/60 border border-rose-500/30 text-xs font-semibold text-rose-300 mb-6 shadow-xl backdrop-blur-md">
+      <span>🌹 Sealed With Everlasting Love</span>
+      <span class="text-amber-400">✦</span>
+      <span data-wm="event_date">Our Anniversary</span>
+    </div>
+
+    <!-- Sealed Envelope View (State 1) -->
+    <div id="sealed-state" class="transition-all duration-500">
+      <div class="relative w-44 h-44 mx-auto mb-6 cursor-pointer group" onclick="openEnvelope()">
+        <div class="w-44 h-44 rounded-full bg-rose-500/10 border border-rose-400/30 flex items-center justify-center text-7xl shadow-2xl group-hover:scale-105 transition-transform duration-300">
+          💌
+        </div>
+        <div class="absolute bottom-2 right-4 w-12 h-12 rounded-full bg-gradient-to-tr from-amber-600 to-amber-400 text-amber-950 flex items-center justify-center text-lg font-black shadow-xl border-2 border-rose-950 animate-bounce">
+          ✨
+        </div>
+      </div>
+
+      <h1 class="font-serif-luxury text-3xl sm:text-4xl font-bold italic text-rose-200 mb-2">
+        A Letter For <span data-wm="recipient_name">My Dearest Love</span>
+      </h1>
+      <p class="text-xs sm:text-sm text-rose-300/80 mb-6">
+        Every heartbeat carries a quiet song meant only for you.
+      </p>
+
+      <button onclick="openEnvelope()" class="px-8 py-3.5 rounded-full bg-gradient-to-r from-rose-500 via-pink-600 to-amber-500 text-white text-xs sm:text-sm font-bold shadow-xl shadow-rose-900/40 hover:scale-105 active:scale-95 transition-all">
+        Break The Seal & Read Letter 💖
+      </button>
+    </div>
+
+    <!-- Revealed Letter Card (State 2) -->
+    <div id="revealed-state" class="hidden transition-all duration-700 bg-white/10 backdrop-blur-2xl p-6 sm:p-8 rounded-3xl border border-rose-300/30 shadow-2xl text-left">
+      <div class="flex items-center justify-between border-b border-rose-300/20 pb-3 mb-5">
+        <span class="text-xs font-serif-luxury italic text-amber-300 font-bold">Forever & Always</span>
+        <span class="text-xs text-rose-300">✦ Treasured Keepsake</span>
+      </div>
+
+      <!-- Photo Memory Frame -->
+      <div class="w-full h-44 rounded-2xl overflow-hidden bg-rose-950/60 mb-5 border border-rose-400/20 shadow-inner">
+        <img class="w-full h-full object-cover" data-wm="photo_1" src="https://images.unsplash.com/photo-1518199266791-5375a83190b7?w=600&auto=format&fit=crop&q=80" alt="Our Memory" onerror="this.src='/assets/file_ab2082.png'"/>
+      </div>
+
+      <h2 class="font-serif-luxury text-2xl font-bold italic text-rose-200 mb-3">
+        Dear <span data-wm="recipient_name">My Soulmate</span>,
+      </h2>
+
+      <p class="font-serif-luxury text-sm sm:text-base text-rose-100 leading-relaxed italic mb-6" data-wm="custom_message">
+        "In a world of billions, every road led me to you. You are my home, my favorite adventure, and the brightest star in my sky. Happy celebration, my love!"
+      </p>
+
+      <div class="pt-4 border-t border-rose-300/20 flex items-center justify-between text-xs">
+        <span class="text-rose-300 font-serif-luxury italic">Yours unconditionally,</span>
+        <span class="font-bold text-white text-sm" data-wm="sender_name">— Forever Yours</span>
+      </div>
+    </div>
+  </main>
+
+  <footer class="relative z-10 py-4 text-[11px] text-rose-300/50">
+    Sealed on WishMagic Atelier 🌹
+  </footer>
+
+  <script>
+    function openEnvelope() {
+      document.getElementById('sealed-state').classList.add('hidden');
+      document.getElementById('revealed-state').classList.remove('hidden');
+      if (typeof confetti === 'function') {
+        confetti({
+          particleCount: 100,
+          spread: 70,
+          origin: { y: 0.6 },
+          colors: ['#f43f5e', '#fb7185', '#fde047', '#ffffff']
+        });
+      }
+    }
+
+    window.addEventListener('message', (event) => {
+      if (event.data && event.data.type === 'WISHMAGIC_INIT') {
+        const d = event.data.payload || {};
+        document.querySelectorAll('[data-wm]').forEach(el => {
+          const key = el.getAttribute('data-wm');
+          if (d[key] !== undefined) {
+            if (el.tagName === 'IMG') {
+              if (d[key]) el.src = d[key];
+            } else {
+              el.textContent = d[key];
+            }
+          }
+        });
+      }
+    });
+  </script>
+</body>
+</html>

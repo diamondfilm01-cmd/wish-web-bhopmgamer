@@ -1,0 +1,88 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>Golden Memories Keepsake 👑</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script src="https://cdn.jsdelivr.net/npm/canvas-confetti@1.6.0/dist/confetti.browser.min.js"></script>
+  <link href="https://fonts.googleapis.com/css2?family=Playfair+Display:ital,wght@0,600;0,800;1,600&family=Plus+Jakarta+Sans:wght@400;500;600;700&display=swap" rel="stylesheet"/>
+  <style>
+    body {
+      font-family: 'Plus Jakarta Sans', sans-serif;
+      background: radial-gradient(circle at 50% 15%, #2a200b 0%, #151004 60%, #080601 100%);
+      color: #ffffff;
+      min-height: 100vh;
+      overflow-x: hidden;
+    }
+    .font-serif-gold { font-family: 'Playfair Display', serif; }
+  </style>
+</head>
+<body class="flex flex-col items-center justify-between min-h-screen p-4 sm:p-8 text-center relative select-none">
+  <!-- Warm Gold Ambient Lighting -->
+  <div class="fixed inset-0 pointer-events-none overflow-hidden opacity-30 z-0">
+    <div class="absolute w-96 h-96 rounded-full bg-amber-500/20 blur-3xl top-1/4 -right-20"></div>
+    <div class="absolute w-80 h-80 rounded-full bg-yellow-600/15 blur-3xl bottom-10 left-0"></div>
+  </div>
+
+  <main class="relative z-10 w-full max-w-lg mx-auto my-auto py-6">
+    <div class="inline-flex items-center gap-2 px-4 py-1.5 rounded-full bg-amber-950/60 border border-amber-400/30 text-xs font-semibold text-amber-300 mb-6 shadow-xl backdrop-blur-md">
+      <span>👑 Golden Jubilee Keepsake</span>
+      <span class="text-amber-400">✦</span>
+      <span data-wm="event_date">Milestone Year</span>
+    </div>
+
+    <h1 class="font-serif-gold text-3xl sm:text-4xl md:text-5xl font-bold text-transparent bg-clip-text bg-gradient-to-r from-amber-200 via-yellow-100 to-amber-300 mb-3 tracking-tight">
+      Honoring <span data-wm="recipient_name">Mom & Dad</span>
+    </h1>
+
+    <p class="text-xs sm:text-sm text-amber-200/80 max-w-md mx-auto mb-8 font-medium leading-relaxed">
+      A celebration of endless devotion, gentle wisdom, and beautiful memories that blossom across generations.
+    </p>
+
+    <!-- Memory Photo Frame with Gold Border -->
+    <div class="p-4 rounded-3xl bg-amber-950/40 backdrop-blur-xl border-2 border-amber-400/40 shadow-2xl max-w-sm mx-auto mb-6">
+      <div class="aspect-[4/3] rounded-2xl overflow-hidden bg-black/50 mb-3 border border-amber-500/30">
+        <img class="w-full h-full object-cover" data-wm="photo_1" src="https://images.unsplash.com/photo-1511285560929-80b456fea0bc?w=600&auto=format&fit=crop&q=80" alt="Milestone Photo" onerror="this.src='/assets/file_ab2082.png'"/>
+      </div>
+      <div class="text-xs font-serif-gold italic text-amber-200 text-center">
+        ✦ A Lifetime of Beautiful Moments ✦
+      </div>
+    </div>
+
+    <!-- Letter Note -->
+    <div class="bg-white/5 backdrop-blur-xl p-6 rounded-3xl border border-amber-300/20 shadow-xl text-left max-w-sm mx-auto">
+      <p class="font-serif-gold text-sm text-amber-100 leading-relaxed italic mb-4" data-wm="custom_message">
+        "Thank you for showing us what unconditional love and strength truly mean. Wishing you endless health, radiant smiles, and peaceful joy on this golden occasion!"
+      </p>
+
+      <div class="pt-3 border-t border-amber-400/20 flex items-center justify-between text-xs">
+        <span class="text-amber-300/70 font-serif-gold italic">With deep respect & gratitude,</span>
+        <span class="font-bold text-amber-200 text-sm" data-wm="sender_name">— Your Loving Family</span>
+      </div>
+    </div>
+  </main>
+
+  <footer class="relative z-10 py-4 text-[11px] text-amber-300/50">
+    Crafted on WishMagic Golden Keepsake 👑
+  </footer>
+
+  <script>
+    window.addEventListener('message', (event) => {
+      if (event.data && event.data.type === 'WISHMAGIC_INIT') {
+        const d = event.data.payload || {};
+        document.querySelectorAll('[data-wm]').forEach(el => {
+          const key = el.getAttribute('data-wm');
+          if (d[key] !== undefined) {
+            if (el.tagName === 'IMG') {
+              if (d[key]) el.src = d[key];
+            } else {
+              el.textContent = d[key];
+            }
+          }
+        });
+      }
+    });
+  </script>
+</body>
+</html>

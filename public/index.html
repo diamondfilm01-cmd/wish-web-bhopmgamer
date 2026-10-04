@@ -347,27 +347,28 @@
 <div class="lg:col-span-7 space-y-3.5 sm:space-y-4">
 <!-- Glowing pill badge -->
 <div class="inline-flex items-center gap-2 px-3.5 py-1 rounded-full bg-white/10 backdrop-blur-md border border-white/25 text-xs font-bold tracking-wider text-pink-200 shadow-inner">
-<span id="hero-badge-text" class="tracking-widest uppercase text-[11px]">Make Every Moment Magical</span>
+<span id="hero-badge-text" class="tracking-widest uppercase text-[11px]">Make Every Moment Unforgettable</span>
 <span class="text-amber-300 text-xs">✨</span>
 </div>
 <!-- Main Display Headline -->
 <div>
-<h1 id="hero-headline" class="font-display text-2xl sm:text-3xl lg:text-4xl font-extrabold tracking-tight leading-tight text-white">
-  Gift a <span class="bg-gradient-to-r from-[#F472B6] via-[#EC4899] to-[#F4C542] bg-clip-text text-transparent drop-shadow-[0_2px_15px_rgba(236,72,153,0.4)]">Magical</span> <span class="text-transparent bg-clip-text bg-gradient-to-r from-white via-purple-100 to-pink-200">Web-Experience!</span>
+<h1 id="hero-headline" class="font-display text-2xl sm:text-3xl lg:text-4xl xl:text-5xl font-extrabold tracking-tight leading-tight text-white">
+  Create a Beautiful <span class="bg-gradient-to-r from-[#F472B6] via-[#EC4899] to-[#F4C542] bg-clip-text text-transparent drop-shadow-[0_2px_15px_rgba(236,72,153,0.4)]">Wish Website</span><br class="hidden sm:inline"/> for Someone Special
 </h1>
 </div>
 <!-- Subheadline -->
-<p id="hero-subheadline" class="text-xs sm:text-sm text-purple-100/90 max-w-lg leading-relaxed font-normal">
-  Create beautiful personalized digital wishes that feel like a real experience — interactive 3D unboxing, customized music & unforgettable celebration magic.
+<p id="hero-subheadline" class="text-xs sm:text-sm md:text-base text-purple-100/90 max-w-lg leading-relaxed font-normal">
+  Personalize an interactive celebration web-experience in seconds — complete with 3D unboxing, customized music, photo memories, and instant magic.
 </p>
 <!-- CTA Row -->
 <div class="flex flex-wrap items-center gap-3 pt-1">
-<button class="px-5 py-2.5 rounded-full bg-gradient-to-r from-[#EC4899] to-[#7C3AED] text-white text-xs sm:text-sm font-bold shadow-lg shadow-pink-500/30 hover:scale-105 active:scale-95 transition-transform flex items-center gap-2 group" onclick="document.getElementById('templates-section').scrollIntoView({ behavior: 'smooth' })">
-<span id="hero-cta1-text">Explore Magic</span>
-<span class="group-hover:rotate-45 transition-transform duration-300">✨</span>
-</button>
-<button class="px-5 py-2.5 rounded-full backdrop-blur-md bg-white/15 border border-white/30 text-white text-xs sm:text-sm font-bold hover:bg-white/25 transition-all active:scale-95" onclick="location.href='/customize.html'">
-  <span id="hero-cta2-text">Create Your Wish</span>
+<a href="/customize.html" class="px-6 py-2.5 sm:py-3 rounded-full bg-gradient-to-r from-[#EC4899] via-pink-600 to-[#7C3AED] text-white text-xs sm:text-sm font-bold shadow-lg shadow-pink-500/30 hover:scale-105 active:scale-95 transition-transform flex items-center gap-2 group">
+  <span id="hero-cta1-text">Create a Wish</span>
+  <span class="group-hover:rotate-45 transition-transform duration-300">✨</span>
+</a>
+<button class="px-6 py-2.5 sm:py-3 rounded-full backdrop-blur-md bg-white/15 border border-white/30 text-white text-xs sm:text-sm font-bold hover:bg-white/25 transition-all active:scale-95 flex items-center gap-1.5" onclick="document.getElementById('templates-section').scrollIntoView({ behavior: 'smooth' })">
+  <span id="hero-cta2-text">Explore Templates</span>
+  <span class="text-xs opacity-75">↓</span>
 </button>
 </div>
 <!-- Trust Badges Row -->
@@ -450,86 +451,126 @@
 </main>
 <!-- END: HeroSection -->
 <!-- BEGIN: CategoryNavigationBar -->
-<section class="px-6 md:px-12 max-w-7xl mx-auto w-full mb-16" data-purpose="category-tabs">
-<div class="flex items-center justify-between mb-4">
-<h3 class="font-display font-bold text-lg md:text-xl text-[#24113F] flex items-center gap-2">
-<span>Explore by Occasion</span>
-<span class="text-xs font-semibold text-purple-600 bg-purple-100/70 px-2.5 py-0.5 rounded-full">Curated Collections</span>
-</h3>
+<section class="px-4 sm:px-6 md:px-12 max-w-7xl mx-auto w-full mb-10 sm:mb-14" data-purpose="category-tabs">
+<div class="flex flex-col sm:flex-row sm:items-center justify-between gap-2 mb-3 sm:mb-4">
+<div>
+  <h3 class="font-display font-bold text-lg sm:text-xl text-[#24113F] dark:text-white flex items-center gap-2">
+    <span>Occasions &amp; Relationships</span>
+    <span class="text-xs font-semibold text-purple-600 dark:text-purple-300 bg-purple-100/80 dark:bg-purple-900/60 px-2.5 py-0.5 rounded-full">Curated Magic</span>
+  </h3>
+  <p class="text-xs text-purple-800/80 dark:text-purple-300/80">Choose who you're surprising today to see hand-picked designs</p>
 </div>
-<div class="glass-card rounded-full p-2.5 overflow-x-auto no-scrollbar shadow-lg shadow-purple-900/5">
-<div class="flex items-center gap-2.5 min-w-max" id="category-container">
-<button class="category-btn pill-active px-6 py-2.5 rounded-full text-xs sm:text-sm font-bold flex items-center gap-2 transition duration-200" data-category="all" onclick="filterTemplates('all', this)">
-<span>🔥</span>
-<span>Trending</span>
-</button>
-<button class="category-btn glass-pill text-[#24113F] px-6 py-2.5 rounded-full text-xs sm:text-sm font-semibold flex items-center gap-2" data-category="birthday" onclick="filterTemplates('birthday', this)">
-<span>🎂</span>
-<span>Birthdays</span>
-</button>
-<button class="category-btn glass-pill text-[#24113F] px-6 py-2.5 rounded-full text-xs sm:text-sm font-semibold flex items-center gap-2" data-category="love" onclick="filterTemplates('love', this)">
-<span>❤️</span>
-<span>Love</span>
-</button>
-<button class="category-btn glass-pill text-[#24113F] px-6 py-2.5 rounded-full text-xs sm:text-sm font-semibold flex items-center gap-2" data-category="anniversary" onclick="filterTemplates('anniversary', this)">
-<span>💍</span>
-<span>Anniversary</span>
-</button>
-<button class="category-btn glass-pill text-[#24113F] px-6 py-2.5 rounded-full text-xs sm:text-sm font-semibold flex items-center gap-2" data-category="funny" onclick="filterTemplates('funny', this)">
-<span>😂</span>
-<span>Funny</span>
-</button>
-<button class="category-btn glass-pill text-[#24113F] px-6 py-2.5 rounded-full text-xs sm:text-sm font-semibold flex items-center gap-2" data-category="thankyou" onclick="filterTemplates('thankyou', this)">
-<span>🌸</span>
-<span>Thank You</span>
-</button>
-<button class="category-btn glass-pill text-[#24113F] px-6 py-2.5 rounded-full text-xs sm:text-sm font-semibold flex items-center gap-2" data-category="congrats" onclick="filterTemplates('congrats', this)">
-<span>🎓</span>
-<span>Congratulations</span>
-</button>
-<button class="category-btn glass-pill text-[#24113F] px-6 py-2.5 rounded-full text-xs sm:text-sm font-semibold flex items-center gap-2" data-category="festival" onclick="filterTemplates('festival', this)">
-<span>🎄</span>
-<span>Festivals</span>
-</button>
-<button class="glass-pill text-[#24113F] px-6 py-2.5 rounded-full text-xs sm:text-sm font-semibold flex items-center gap-2" onclick="alert('More magical categories are being unlocked every week! Stay tuned.')">
-<span>•••</span>
-<span>More</span>
-</button>
+<div class="text-xs font-semibold text-purple-700 dark:text-purple-300 flex items-center gap-1.5 self-end sm:self-auto">
+  <span class="w-2 h-2 rounded-full bg-emerald-500 animate-pulse"></span>
+  <span id="active-category-indicator">Showing: All Occasions</span>
+</div>
+</div>
+<!-- Horizontal Scrollable Category Chips Container -->
+<div class="glass-card rounded-2xl sm:rounded-3xl p-2 sm:p-2.5 overflow-x-auto no-scrollbar shadow-lg shadow-purple-900/5 border border-purple-200/60 dark:border-purple-800/60">
+<div class="flex items-center gap-1.5 sm:gap-2 min-w-max" id="category-container">
+  <button class="category-btn pill-active px-4 sm:px-5 py-2 rounded-full text-xs sm:text-sm font-bold flex items-center gap-1.5 transition duration-200" data-category="all" onclick="filterTemplates('all', this)">
+    <span>✨</span><span>All</span>
+  </button>
+  <button class="category-btn glass-pill text-[#24113F] dark:text-purple-100 px-4 sm:px-5 py-2 rounded-full text-xs sm:text-sm font-semibold flex items-center gap-1.5 transition duration-200 hover:border-purple-400" data-category="birthday" onclick="filterTemplates('birthday', this)">
+    <span>🎂</span><span>Birthday</span>
+  </button>
+  <button class="category-btn glass-pill text-[#24113F] dark:text-purple-100 px-4 sm:px-5 py-2 rounded-full text-xs sm:text-sm font-semibold flex items-center gap-1.5 transition duration-200 hover:border-purple-400" data-category="anniversary" onclick="filterTemplates('anniversary', this)">
+    <span>💍</span><span>Anniversary</span>
+  </button>
+  <button class="category-btn glass-pill text-[#24113F] dark:text-purple-100 px-4 sm:px-5 py-2 rounded-full text-xs sm:text-sm font-semibold flex items-center gap-1.5 transition duration-200 hover:border-purple-400" data-category="love" onclick="filterTemplates('love', this)">
+    <span>❤️</span><span>Love</span>
+  </button>
+  <button class="category-btn glass-pill text-[#24113F] dark:text-purple-100 px-4 sm:px-5 py-2 rounded-full text-xs sm:text-sm font-semibold flex items-center gap-1.5 transition duration-200 hover:border-purple-400" data-category="crush" onclick="filterTemplates('crush', this)">
+    <span>💌</span><span>Crush</span>
+  </button>
+  <button class="category-btn glass-pill text-[#24113F] dark:text-purple-100 px-4 sm:px-5 py-2 rounded-full text-xs sm:text-sm font-semibold flex items-center gap-1.5 transition duration-200 hover:border-purple-400" data-category="girlfriend" onclick="filterTemplates('girlfriend', this)">
+    <span>🌹</span><span>Girlfriend</span>
+  </button>
+  <button class="category-btn glass-pill text-[#24113F] dark:text-purple-100 px-4 sm:px-5 py-2 rounded-full text-xs sm:text-sm font-semibold flex items-center gap-1.5 transition duration-200 hover:border-purple-400" data-category="boyfriend" onclick="filterTemplates('boyfriend', this)">
+    <span>✨</span><span>Boyfriend</span>
+  </button>
+  <button class="category-btn glass-pill text-[#24113F] dark:text-purple-100 px-4 sm:px-5 py-2 rounded-full text-xs sm:text-sm font-semibold flex items-center gap-1.5 transition duration-200 hover:border-purple-400" data-category="wife" onclick="filterTemplates('wife', this)">
+    <span>👑</span><span>Wife</span>
+  </button>
+  <button class="category-btn glass-pill text-[#24113F] dark:text-purple-100 px-4 sm:px-5 py-2 rounded-full text-xs sm:text-sm font-semibold flex items-center gap-1.5 transition duration-200 hover:border-purple-400" data-category="husband" onclick="filterTemplates('husband', this)">
+    <span>👔</span><span>Husband</span>
+  </button>
+  <button class="category-btn glass-pill text-[#24113F] dark:text-purple-100 px-4 sm:px-5 py-2 rounded-full text-xs sm:text-sm font-semibold flex items-center gap-1.5 transition duration-200 hover:border-purple-400" data-category="mother" onclick="filterTemplates('mother', this)">
+    <span>🌸</span><span>Mother</span>
+  </button>
+  <button class="category-btn glass-pill text-[#24113F] dark:text-purple-100 px-4 sm:px-5 py-2 rounded-full text-xs sm:text-sm font-semibold flex items-center gap-1.5 transition duration-200 hover:border-purple-400" data-category="father" onclick="filterTemplates('father', this)">
+    <span>🌟</span><span>Father</span>
+  </button>
+  <button class="category-btn glass-pill text-[#24113F] dark:text-purple-100 px-4 sm:px-5 py-2 rounded-full text-xs sm:text-sm font-semibold flex items-center gap-1.5 transition duration-200 hover:border-purple-400" data-category="brother" onclick="filterTemplates('brother', this)">
+    <span>⚡</span><span>Brother</span>
+  </button>
+  <button class="category-btn glass-pill text-[#24113F] dark:text-purple-100 px-4 sm:px-5 py-2 rounded-full text-xs sm:text-sm font-semibold flex items-center gap-1.5 transition duration-200 hover:border-purple-400" data-category="sister" onclick="filterTemplates('sister', this)">
+    <span>🦋</span><span>Sister</span>
+  </button>
+  <button class="category-btn glass-pill text-[#24113F] dark:text-purple-100 px-4 sm:px-5 py-2 rounded-full text-xs sm:text-sm font-semibold flex items-center gap-1.5 transition duration-200 hover:border-purple-400" data-category="best-friend" onclick="filterTemplates('best friend', this)">
+    <span>👯</span><span>Best Friend</span>
+  </button>
+  <button class="category-btn glass-pill text-[#24113F] dark:text-purple-100 px-4 sm:px-5 py-2 rounded-full text-xs sm:text-sm font-semibold flex items-center gap-1.5 transition duration-200 hover:border-purple-400" data-category="female-friend" onclick="filterTemplates('female friend', this)">
+    <span>💖</span><span>Female Friend</span>
+  </button>
+  <button class="category-btn glass-pill text-[#24113F] dark:text-purple-100 px-4 sm:px-5 py-2 rounded-full text-xs sm:text-sm font-semibold flex items-center gap-1.5 transition duration-200 hover:border-purple-400" data-category="male-friend" onclick="filterTemplates('male friend', this)">
+    <span>🤝</span><span>Male Friend</span>
+  </button>
+  <button class="category-btn glass-pill text-[#24113F] dark:text-purple-100 px-4 sm:px-5 py-2 rounded-full text-xs sm:text-sm font-semibold flex items-center gap-1.5 transition duration-200 hover:border-purple-400" data-category="family" onclick="filterTemplates('family', this)">
+    <span>🏡</span><span>Family</span>
+  </button>
+  <button class="category-btn glass-pill text-[#24113F] dark:text-purple-100 px-4 sm:px-5 py-2 rounded-full text-xs sm:text-sm font-semibold flex items-center gap-1.5 transition duration-200 hover:border-purple-400" data-category="friendship" onclick="filterTemplates('friendship', this)">
+    <span>🌈</span><span>Friendship</span>
+  </button>
 </div>
 </div>
 </section>
 <!-- END: CategoryNavigationBar -->
 <!-- BEGIN: PopularTemplatesGallery (EXPANSIVE 4-COLUMN MARKETPLACE GALLERY) -->
-<section class="px-6 md:px-12 max-w-7xl mx-auto w-full mb-24" data-purpose="templates-catalog" id="templates-section">
-<!-- Section Header -->
-<div class="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-8">
+<section class="px-4 sm:px-6 md:px-12 max-w-7xl mx-auto w-full mb-24" data-purpose="templates-catalog" id="templates-section">
+<!-- Section Header & Filter Console -->
+<div class="flex flex-col lg:flex-row lg:items-end justify-between gap-6 mb-8">
 <div>
-<div class="flex items-center gap-2.5">
-<h2 class="font-display text-3xl sm:text-4xl font-extrabold text-[#24113F] dark:text-white tracking-tight">Popular Templates</h2>
-<span class="text-amber-500 text-2xl">✨</span>
+  <div class="flex items-center gap-2.5">
+    <h2 class="font-display text-2xl sm:text-3xl lg:text-4xl font-extrabold text-[#24113F] dark:text-white tracking-tight">Template Marketplace</h2>
+    <span class="text-amber-500 text-2xl">✨</span>
+  </div>
+  <p class="text-xs sm:text-sm text-purple-800/80 dark:text-purple-300/80 mt-1 font-medium">Browse, preview, and personalize handcrafted web keepsakes in under 60 seconds.</p>
 </div>
-<p class="text-sm sm:text-base text-purple-800/80 dark:text-purple-300/80 mt-1 font-medium">Interactive experiences ready to personalize in less than 60 seconds.</p>
+<!-- Marketplace Search & Tier Filter Controls -->
+<div class="flex flex-col sm:flex-row items-stretch sm:items-center gap-3 w-full lg:w-auto">
+  <!-- Search Box -->
+  <div class="relative w-full sm:w-72">
+    <input type="text" id="marketplace-search-box" class="w-full text-xs font-semibold pl-9 pr-8 py-2.5 rounded-full border border-purple-200 dark:border-purple-800 bg-white/90 dark:bg-purple-950/70 text-purple-950 dark:text-purple-100 placeholder-purple-400 dark:placeholder-purple-400/70 shadow-sm focus:outline-none focus:ring-2 focus:ring-purple-400 transition" placeholder="Search by name, relation, or occasion..." oninput="handleMarketplaceSearch(this.value)"/>
+    <svg class="w-4 h-4 text-purple-500 absolute left-3 top-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" stroke-linecap="round" stroke-linejoin="round" stroke-width="2"></path></svg>
+    <button class="hidden absolute right-3 top-2.5 text-gray-400 hover:text-gray-700 text-xs font-bold" id="marketplace-search-clear" onclick="clearMarketplaceSearch()">✕</button>
+  </div>
+  <!-- Tier Switcher Chips -->
+  <div class="flex items-center gap-1.5 p-1 rounded-full bg-purple-100/70 dark:bg-purple-950/60 border border-purple-200/80 dark:border-purple-800/80 text-xs font-bold self-start sm:self-auto">
+    <button class="tier-filter-btn px-3 py-1.5 rounded-full bg-white dark:bg-purple-800 text-purple-950 dark:text-white shadow-sm transition" data-tier="all" onclick="filterByTier('all', this)">All</button>
+    <button class="tier-filter-btn px-3 py-1.5 rounded-full text-purple-700 dark:text-purple-300 hover:text-purple-950 dark:hover:text-white transition" data-tier="free" onclick="filterByTier('free', this)">Free</button>
+    <button class="tier-filter-btn px-3 py-1.5 rounded-full text-purple-700 dark:text-purple-300 hover:text-purple-950 dark:hover:text-white transition" data-tier="vip" onclick="filterByTier('vip', this)">Premium</button>
+  </div>
 </div>
-<button class="inline-flex items-center gap-2 px-6 py-3 rounded-full glass-pill text-xs sm:text-sm font-bold text-purple-700 dark:text-purple-300 hover:text-purple-900 dark:hover:text-pink-300 transition self-start sm:self-auto shadow-sm" onclick="resetAllFilters()">
-<span>View All Templates</span>
-<span class="text-base font-normal">→</span>
-</button>
 </div>
 <!-- Live Search & Filter Feedback Bar -->
-<div class="hidden mb-6 p-4 rounded-2xl bg-purple-100/80 dark:bg-purple-950/80 border border-purple-200 dark:border-purple-800 text-xs sm:text-sm font-semibold text-purple-900 dark:text-purple-200 flex items-center justify-between" id="search-feedback">
-<span>Showing results for: <span class="text-pink-600 dark:text-pink-400 font-bold" id="active-query-text"></span></span>
-<button class="underline text-purple-700 dark:text-purple-300 hover:text-purple-900 dark:hover:text-white font-bold" onclick="resetSearch()">Clear Search</button>
+<div class="hidden mb-6 p-3.5 sm:p-4 rounded-2xl bg-purple-100/90 dark:bg-purple-950/90 border border-purple-200 dark:border-purple-800 text-xs sm:text-sm font-semibold text-purple-900 dark:text-purple-200 flex items-center justify-between" id="search-feedback">
+<span class="flex items-center gap-2">
+  <span class="text-base">🎯</span>
+  <span>Filtered: <span class="text-pink-600 dark:text-pink-400 font-bold" id="active-query-text">All Templates</span></span>
+</span>
+<button class="underline text-purple-700 dark:text-purple-300 hover:text-purple-950 dark:hover:text-white font-bold" onclick="resetAllFilters()">Reset All Filters</button>
 </div>
 <!-- 8 High-Fidelity Cards Grid (2 Columns Mobile, 3 Columns Tablet, 4 Columns Desktop) -->
-<div class="grid grid-cols-2 md:grid-cols-3 xl:grid-cols-4 gap-2.5 sm:gap-4 md:gap-5" id="templates-grid">
-
+<div class="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 xl:grid-cols-3 2xl:grid-cols-4 gap-4 sm:gap-6" id="templates-grid">
+  <!-- Dynamic template cards rendered via JS -->
 </div>
 <!-- No Results State -->
-<div class="hidden text-center py-16" id="no-results-msg">
-<span class="text-5xl block mb-2">🔍</span>
-<h4 class="font-display font-bold text-xl text-[#24113F] dark:text-white">No magical templates found</h4>
-<p class="text-sm text-purple-700 dark:text-purple-300 mt-1">Try another keyword like "birthday", "love", or "anniversary".</p>
-<button class="mt-4 px-6 py-2.5 rounded-full bg-purple-600 text-white font-semibold text-xs sm:text-sm shadow-md" onclick="resetSearch()">Reset Search</button>
+<div class="hidden text-center py-16 px-4 bg-white/60 dark:bg-purple-950/40 rounded-3xl border border-dashed border-purple-200 dark:border-purple-800" id="no-results-msg">
+<span class="text-5xl block mb-3">🔍</span>
+<h4 class="font-display font-bold text-xl text-[#24113F] dark:text-white">No magical templates matched your selection</h4>
+<p class="text-xs sm:text-sm text-purple-700 dark:text-purple-300 mt-1 max-w-md mx-auto">Try clearing your search term, switching categories, or resetting filters to browse our full collection.</p>
+<button class="mt-4 px-6 py-2.5 rounded-full bg-gradient-to-r from-purple-600 to-pink-500 text-white font-bold text-xs sm:text-sm shadow-md hover:scale-105 transition-all" onclick="resetAllFilters()">Reset All Filters</button>
 </div>
 </section>
 <!-- END: PopularTemplatesGallery -->
@@ -923,6 +964,57 @@
 </form>
 </div>
 </div>
+<!-- Template Live Preview Modal -->
+<div class="fixed inset-0 z-50 bg-black/80 backdrop-blur-md hidden items-center justify-center p-2 sm:p-4" id="template-preview-modal">
+<div class="bg-white dark:bg-[#1A0B2E] rounded-3xl max-w-4xl w-full h-[90vh] flex flex-col shadow-2xl relative border border-purple-200/60 dark:border-purple-800/60 overflow-hidden">
+  <!-- Modal Top Bar -->
+  <div class="px-4 sm:px-6 py-3.5 border-b border-purple-100 dark:border-purple-900/60 flex items-center justify-between gap-3 bg-white/95 dark:bg-[#1A0B2E]/95 backdrop-blur-md flex-shrink-0">
+    <div class="flex items-center gap-3 min-w-0">
+      <span class="w-8 h-8 rounded-xl bg-purple-100 dark:bg-purple-900/80 text-purple-700 dark:text-purple-300 flex items-center justify-center font-bold text-sm flex-shrink-0">👁️</span>
+      <div class="min-w-0">
+        <div class="flex items-center gap-2">
+          <h3 class="font-display font-extrabold text-sm sm:text-base text-purple-950 dark:text-white truncate" id="preview-modal-title">Template Preview</h3>
+          <span class="px-2 py-0.5 rounded-full text-[10px] font-black uppercase tracking-wider" id="preview-modal-badge">Free</span>
+        </div>
+        <p class="text-[11px] text-purple-800/70 dark:text-purple-300/70 truncate" id="preview-modal-cat">Interactive Experience</p>
+      </div>
+    </div>
+    <!-- Device Viewport Toggle & Close -->
+    <div class="flex items-center gap-2 flex-shrink-0">
+      <div class="hidden sm:flex items-center bg-purple-100/70 dark:bg-purple-950/80 p-0.5 rounded-xl border border-purple-200 dark:border-purple-800 text-xs font-semibold">
+        <button class="px-2.5 py-1 rounded-lg bg-white dark:bg-purple-800 text-purple-950 dark:text-white shadow-xs transition" id="preview-btn-mobile" onclick="setPreviewDevice('mobile')">📱 Mobile</button>
+        <button class="px-2.5 py-1 rounded-lg text-purple-700 dark:text-purple-300 hover:text-purple-950 dark:hover:text-white transition" id="preview-btn-desktop" onclick="setPreviewDevice('desktop')">💻 Desktop</button>
+      </div>
+      <a href="#" target="_blank" id="preview-modal-external" class="p-2 rounded-xl text-purple-700 dark:text-purple-300 hover:bg-purple-100 dark:hover:bg-purple-900 transition" title="Open in new window">
+        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14" stroke-linecap="round" stroke-linejoin="round" stroke-width="2"></path></svg>
+      </a>
+      <button class="w-8 h-8 rounded-full bg-purple-100 dark:bg-purple-900/80 text-purple-700 dark:text-purple-300 hover:bg-purple-200 dark:hover:bg-purple-800 flex items-center justify-center font-bold text-xs transition" onclick="closeModal('template-preview-modal')">✕</button>
+    </div>
+  </div>
+  <!-- Live Iframe Sandbox Preview Container -->
+  <div class="flex-grow bg-[#0c0316] relative flex items-center justify-center overflow-hidden p-2 sm:p-4" id="preview-viewport-shell">
+    <div class="w-full max-w-[390px] h-full max-h-[740px] bg-black rounded-[36px] p-2.5 shadow-2xl border-4 border-purple-950 transition-all duration-300 relative flex flex-col overflow-hidden" id="preview-frame-container">
+      <div class="w-24 h-4 bg-black rounded-b-xl mx-auto mb-1 flex items-center justify-center flex-shrink-0">
+        <span class="w-2 h-2 rounded-full bg-gray-800"></span>
+      </div>
+      <iframe id="preview-modal-iframe" class="w-full h-full rounded-[24px] bg-white border-0 flex-grow" src="about:blank"></iframe>
+    </div>
+  </div>
+  <!-- Modal Bottom Actions Bar -->
+  <div class="px-4 sm:px-6 py-3 border-t border-purple-100 dark:border-purple-900/60 bg-white/95 dark:bg-[#1A0B2E]/95 backdrop-blur-md flex flex-wrap items-center justify-between gap-3 flex-shrink-0">
+    <div class="text-xs text-purple-800/80 dark:text-purple-300/80 font-medium hidden sm:block">
+      ✨ All texts, photos, song &amp; surprise effects can be personalized in the customizer.
+    </div>
+    <div class="flex items-center gap-2.5 w-full sm:w-auto justify-end">
+      <button class="px-4 py-2 rounded-full border border-purple-200 dark:border-purple-700 text-purple-900 dark:text-purple-200 text-xs font-bold hover:bg-purple-50 dark:hover:bg-purple-900/40 transition" onclick="closeModal('template-preview-modal')">Close</button>
+      <a href="/customize.html" id="preview-modal-cta" class="px-6 py-2.5 rounded-full bg-gradient-to-r from-pink-500 via-purple-600 to-indigo-600 text-white text-xs sm:text-sm font-bold shadow-md hover:scale-105 active:scale-95 transition-all flex items-center gap-1.5">
+        <span>Create This Wish</span>
+        <span class="text-amber-300 text-xs">✨</span>
+      </a>
+    </div>
+  </div>
+</div>
+</div>
 <!-- Auth Modal (Sign In / Sign Up) -->
 <div class="fixed inset-0 z-50 bg-black/70 backdrop-blur-md hidden items-center justify-center p-4" id="auth-modal">
 <div class="bg-white rounded-3xl max-w-sm w-full p-6 sm:p-8 shadow-2xl relative border border-purple-200 text-center">
@@ -951,8 +1043,155 @@
 </div>
 <!-- END: InteractiveModalCustomizer -->
 <!-- BEGIN: InteractiveScriptHandlers -->
-<script data-purpose="card-filtering">
+<script data-purpose="marketplace-engine">
+    let loadedTemplates = [];
+    let currentCategory = 'all';
+    let currentTier = 'all';
+    let currentSearchTerm = '';
+
+    // Load templates from API
+    async function initHomepageTemplates() {
+      try {
+        const res = await fetch("/api/templates");
+        const data = await res.json();
+        const grid = document.getElementById("templates-grid");
+        if (!grid) return;
+
+        if (!data.success || !data.templates || data.templates.length === 0) {
+          grid.innerHTML = `
+            <div class="col-span-full py-16 px-4 flex flex-col items-center justify-center text-center bg-white/60 dark:bg-purple-950/40 backdrop-blur-md rounded-3xl border border-dashed border-purple-200 dark:border-purple-800 shadow-sm max-w-xl mx-auto my-4">
+              <div class="w-14 h-14 rounded-2xl bg-purple-100 dark:bg-purple-900/60 text-purple-700 dark:text-purple-300 flex items-center justify-center mb-3">
+                <span class="text-2xl">✨</span>
+              </div>
+              <h3 class="font-display font-bold text-lg sm:text-xl text-[#24113F] dark:text-white mb-1">New Magical Templates Coming Soon</h3>
+              <p class="text-xs sm:text-sm text-purple-800/80 dark:text-purple-300/80 max-w-md mb-2 leading-relaxed">
+                Check back soon or explore our customization engine!
+              </p>
+            </div>
+          `;
+          return;
+        }
+
+        loadedTemplates = data.templates;
+        renderTemplateCards(loadedTemplates);
+      } catch (e) {
+        console.error("Error loading templates on home:", e);
+      }
+    }
+
+    function getSavedFavorites() {
+      try {
+        return JSON.parse(localStorage.getItem('wishmagic_favs') || '[]');
+      } catch (e) {
+        return [];
+      }
+    }
+
+    function toggleFavorite(templateId, btn) {
+      const favs = getSavedFavorites();
+      const index = favs.indexOf(templateId);
+      const isFav = index !== -1;
+
+      if (isFav) {
+        favs.splice(index, 1);
+        btn.setAttribute('data-saved', 'false');
+        btn.querySelector('svg').classList.remove('fill-pink-500', 'text-pink-500');
+        btn.querySelector('svg').classList.add('fill-none', 'text-white/80');
+      } else {
+        favs.push(templateId);
+        btn.setAttribute('data-saved', 'true');
+        btn.querySelector('svg').classList.remove('fill-none', 'text-white/80');
+        btn.querySelector('svg').classList.add('fill-pink-500', 'text-pink-500');
+      }
+      localStorage.setItem('wishmagic_favs', JSON.stringify(favs));
+    }
+
+    function renderTemplateCards(templates) {
+      const grid = document.getElementById("templates-grid");
+      if (!grid) return;
+      grid.innerHTML = "";
+
+      const favs = getSavedFavorites();
+
+      templates.forEach(tpl => {
+        const isFav = favs.includes(tpl.id);
+        const card = document.createElement("div");
+        card.className = "template-card group relative bg-white/85 dark:bg-purple-950/70 backdrop-blur-md rounded-2xl sm:rounded-3xl p-3.5 sm:p-4 border border-purple-200/70 dark:border-purple-800/60 shadow-lg shadow-purple-900/5 hover:shadow-2xl hover:shadow-pink-500/15 hover:-translate-y-1.5 transition-all duration-300 flex flex-col justify-between";
+        
+        // Data attributes for multi-axis filtering
+        card.setAttribute("data-id", tpl.id);
+        card.setAttribute("data-name", (tpl.name || "").toLowerCase());
+        card.setAttribute("data-category", (tpl.category || "").toLowerCase());
+        card.setAttribute("data-relationships", ((tpl.relationships || []).join(" ")).toLowerCase());
+        card.setAttribute("data-tier", tpl.tier === "vip" || (tpl.price && Number(tpl.price) > 0) ? "vip" : "free");
+        card.setAttribute("data-description", (tpl.description || "").toLowerCase());
+
+        const isVip = tpl.tier === "vip" || (tpl.price && Number(tpl.price) > 0);
+        const priceBadge = isVip ? `PREMIUM • ₹${tpl.price || 49}` : "FREE";
+        const priceBadgeClass = isVip ? "bg-gradient-to-r from-amber-400 to-amber-500 text-purple-950 shadow-amber-500/30" : "bg-emerald-500 text-white shadow-emerald-500/30";
+
+        const previewUrl = `/templates-store/${tpl.folder || tpl.id}/${tpl.entryFile || "index.html"}`;
+        const previewImg = tpl.thumbnail || tpl.previewImage || "/assets/file_ab2082.png";
+
+        // Display relationships tags (up to 3)
+        const relTags = (tpl.relationships || []).slice(0, 3).map(r => `<span class="px-2 py-0.5 rounded-full bg-purple-100/80 dark:bg-purple-900/60 text-purple-800 dark:text-purple-200 text-[10px] font-semibold">#${r}</span>`).join(" ");
+
+        card.innerHTML = `
+          <div>
+            <!-- Image & Badges Banner -->
+            <div class="relative rounded-2xl overflow-hidden mb-3 aspect-[16/10] bg-purple-900/10 dark:bg-purple-950/80 shadow-inner">
+              <img class="w-full h-full object-cover group-hover:scale-108 transition-transform duration-500" src="${previewImg}" alt="${tpl.name}" loading="lazy"/>
+              <div class="absolute inset-0 bg-gradient-to-t from-black/60 via-transparent to-black/20 pointer-events-none"></div>
+              
+              <!-- Top Left: Tier Badge -->
+              <div class="absolute top-2.5 left-2.5 flex items-center gap-1.5 z-10">
+                <span class="px-2.5 py-1 rounded-full text-[10px] font-black uppercase tracking-wider ${priceBadgeClass} shadow-md">${priceBadge}</span>
+              </div>
+              
+              <!-- Top Right: Favorite Button -->
+              <button class="absolute top-2.5 right-2.5 w-8 h-8 rounded-full bg-black/40 backdrop-blur-md border border-white/20 text-white flex items-center justify-center hover:scale-110 active:scale-95 transition-all z-10" onclick="toggleFavorite('${tpl.id}', this)" data-saved="${isFav}" title="Favorite template" aria-label="Favorite">
+                <svg class="w-4 h-4 ${isFav ? 'fill-pink-500 text-pink-500' : 'fill-none text-white/80'} transition-colors" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M4.318 6.318a4.5 4.5 0 000 6.364L12 20.364l7.682-7.682a4.5 4.5 0 00-6.364-6.364L12 7.636l-1.318-1.318a4.5 4.5 0 00-6.364 0z"></path></svg>
+              </button>
+
+              <!-- Bottom Left: Category Pill -->
+              <div class="absolute bottom-2.5 left-2.5 z-10 flex items-center gap-1.5">
+                <span class="px-2.5 py-0.5 rounded-lg bg-black/60 backdrop-blur-md text-pink-200 border border-white/10 text-[11px] font-bold">✦ ${tpl.category || "Celebration"}</span>
+              </div>
+            </div>
+
+            <!-- Title & Description -->
+            <div class="space-y-1 mb-2">
+              <h3 class="font-display font-extrabold text-base sm:text-lg text-purple-950 dark:text-white line-clamp-1 group-hover:text-pink-600 dark:group-hover:text-pink-400 transition-colors">${tpl.name}</h3>
+              <p class="text-xs text-purple-900/75 dark:text-purple-300/80 line-clamp-2 leading-relaxed font-normal">${tpl.description || ""}</p>
+            </div>
+
+            <!-- Relationships Tags -->
+            <div class="flex flex-wrap gap-1 mb-3">
+              ${relTags}
+            </div>
+          </div>
+
+          <!-- Bottom Action Buttons: Preview & Create This Wish -->
+          <div class="pt-3 border-t border-purple-100 dark:border-purple-800/60 flex items-center justify-between gap-2 mt-auto">
+            <button onclick="openTemplatePreview('${tpl.id}')" class="px-3 py-2 rounded-xl bg-purple-50 dark:bg-purple-900/50 hover:bg-purple-100 dark:hover:bg-purple-900 text-purple-800 dark:text-purple-200 text-xs font-bold transition flex items-center gap-1.5 active:scale-95">
+              <span>👁️</span><span>Preview</span>
+            </button>
+            <a href="/customize.html?template=${tpl.id}" class="flex-grow py-2 px-3 sm:px-4 rounded-xl bg-gradient-to-r from-pink-500 via-purple-600 to-indigo-600 text-white text-xs font-bold shadow-md shadow-pink-500/20 hover:brightness-110 active:scale-95 transition-all text-center flex items-center justify-center gap-1 group/btn">
+              <span>Create This Wish</span>
+              <span class="group-hover/btn:translate-x-0.5 transition-transform text-amber-300">✨</span>
+            </a>
+          </div>
+        `;
+        grid.appendChild(card);
+      });
+
+      applyActiveFilters();
+    }
+
+    // Category Filter Handler
     function filterTemplates(category, btnElement) {
+      currentCategory = category.toLowerCase().trim();
+
       const allButtons = document.querySelectorAll('.category-btn');
       allButtons.forEach(btn => {
         btn.classList.remove('pill-active');
@@ -963,12 +1202,88 @@
         btnElement.classList.remove('glass-pill');
       }
 
+      const indicator = document.getElementById('active-category-indicator');
+      if (indicator) {
+        indicator.textContent = `Showing: ${category.charAt(0).toUpperCase() + category.slice(1)}`;
+      }
+
+      applyActiveFilters();
+    }
+
+    // Tier Filter Handler (All / Free / VIP)
+    function filterByTier(tier, btnElement) {
+      currentTier = tier;
+      document.querySelectorAll('.tier-filter-btn').forEach(btn => {
+        btn.classList.remove('bg-white', 'dark:bg-purple-800', 'text-purple-950', 'dark:text-white', 'shadow-sm');
+        btn.classList.add('text-purple-700', 'dark:text-purple-300');
+      });
+      if (btnElement) {
+        btnElement.classList.add('bg-white', 'dark:bg-purple-800', 'text-purple-950', 'dark:text-white', 'shadow-sm');
+        btnElement.classList.remove('text-purple-700', 'dark:text-purple-300');
+      }
+      applyActiveFilters();
+    }
+
+    // Marketplace Search Box Handler
+    function handleMarketplaceSearch(query) {
+      currentSearchTerm = (query || '').toLowerCase().trim();
+      const clearBtn = document.getElementById('marketplace-search-clear');
+      if (clearBtn) {
+        if (currentSearchTerm.length > 0) {
+          clearBtn.classList.remove('hidden');
+        } else {
+          clearBtn.classList.add('hidden');
+        }
+      }
+      applyActiveFilters();
+    }
+
+    function clearMarketplaceSearch() {
+      const input = document.getElementById('marketplace-search-box');
+      if (input) input.value = '';
+      currentSearchTerm = '';
+      const clearBtn = document.getElementById('marketplace-search-clear');
+      if (clearBtn) clearBtn.classList.add('hidden');
+      applyActiveFilters();
+    }
+
+    // Consolidated Filter Engine
+    function applyActiveFilters() {
       const cards = document.querySelectorAll('.template-card');
+      const feedback = document.getElementById('search-feedback');
+      const queryText = document.getElementById('active-query-text');
+      const noResults = document.getElementById('no-results-msg');
+
       let visibleCount = 0;
 
       cards.forEach(card => {
-        const cardCategory = card.getAttribute('data-category');
-        if (category === 'all' || cardCategory === category) {
+        const name = card.getAttribute('data-name') || '';
+        const cat = card.getAttribute('data-category') || '';
+        const rels = card.getAttribute('data-relationships') || '';
+        const tier = card.getAttribute('data-tier') || '';
+        const desc = card.getAttribute('data-description') || '';
+
+        // 1. Category match (matches category OR relationships)
+        let matchesCategory = true;
+        if (currentCategory !== 'all') {
+          matchesCategory = cat.includes(currentCategory) || rels.includes(currentCategory);
+        }
+
+        // 2. Tier match
+        let matchesTier = true;
+        if (currentTier === 'free') {
+          matchesTier = tier === 'free';
+        } else if (currentTier === 'vip') {
+          matchesTier = tier === 'vip';
+        }
+
+        // 3. Search term match (checks name, category, relationships, and description)
+        let matchesSearch = true;
+        if (currentSearchTerm.length > 0) {
+          matchesSearch = name.includes(currentSearchTerm) || cat.includes(currentSearchTerm) || rels.includes(currentSearchTerm) || desc.includes(currentSearchTerm);
+        }
+
+        if (matchesCategory && matchesTier && matchesSearch) {
           card.classList.remove('hidden');
           visibleCount++;
         } else {
@@ -976,99 +1291,74 @@
         }
       });
 
-      const noResults = document.getElementById('no-results-msg');
-      if (visibleCount === 0) {
-        noResults.classList.remove('hidden');
-      } else {
-        noResults.classList.add('hidden');
-      }
-    }
-
-    function resetAllFilters() {
-      const firstTab = document.querySelector('.category-btn');
-      if (firstTab) {
-        firstTab.click();
-      }
-      resetSearch();
-      document.getElementById('templates-section').scrollIntoView({ behavior: 'smooth' });
-    }
-  </script>
-<script data-purpose="search-filtering">
-    const searchInput = document.getElementById('nav-search-input');
-    const searchClear = document.getElementById('search-clear-btn');
-    const searchFeedback = document.getElementById('search-feedback');
-    const activeQueryText = document.getElementById('active-query-text');
-
-    if (searchInput) {
-      searchInput.addEventListener('input', function(e) {
-        const query = e.target.value.toLowerCase().trim();
-        
-        if (query.length > 0) {
-          searchClear.classList.remove('hidden');
-          searchFeedback.classList.remove('hidden');
-          activeQueryText.textContent = `"${query}"`;
+      // Update feedback banner
+      const hasFilter = currentCategory !== 'all' || currentTier !== 'all' || currentSearchTerm.length > 0;
+      if (feedback && queryText) {
+        if (hasFilter) {
+          feedback.classList.remove('hidden');
+          const terms = [];
+          if (currentCategory !== 'all') terms.push(`Occasion: ${currentCategory}`);
+          if (currentTier !== 'all') terms.push(`Tier: ${currentTier.toUpperCase()}`);
+          if (currentSearchTerm.length > 0) terms.push(`"${currentSearchTerm}"`);
+          queryText.textContent = `${terms.join(' • ')} (${visibleCount} found)`;
         } else {
-          searchClear.classList.add('hidden');
-          searchFeedback.classList.add('hidden');
+          feedback.classList.add('hidden');
         }
+      }
 
-        const cards = document.querySelectorAll('.template-card');
-        let matchCount = 0;
-
-        cards.forEach(card => {
-          const cardName = card.getAttribute('data-name') || '';
-          const cardCategory = card.getAttribute('data-category') || '';
-          if (cardName.includes(query) || cardCategory.includes(query)) {
-            card.classList.remove('hidden');
-            matchCount++;
-          } else {
-            card.classList.add('hidden');
-          }
-        });
-
-        const noResults = document.getElementById('no-results-msg');
-        if (matchCount === 0) {
+      if (noResults) {
+        if (visibleCount === 0) {
           noResults.classList.remove('hidden');
         } else {
           noResults.classList.add('hidden');
         }
-      });
-
-      searchClear.addEventListener('click', resetSearch);
-    }
-
-    function resetSearch() {
-      if (searchInput) {
-        searchInput.value = '';
-        searchClear.classList.add('hidden');
-        searchFeedback.classList.add('hidden');
-        
-        document.querySelectorAll('.template-card').forEach(card => card.classList.remove('hidden'));
-        document.getElementById('no-results-msg').classList.add('hidden');
-      }
-    }
-  </script>
-<script data-purpose="modals-and-bookmarks">
-    function toggleBookmark(btn) {
-      const svg = btn.querySelector('svg');
-      const isSaved = btn.getAttribute('data-saved') === 'true';
-
-      if (isSaved) {
-        btn.setAttribute('data-saved', 'false');
-        svg.classList.remove('fill-pink-500', 'text-pink-500');
-        svg.classList.add('fill-none', 'text-purple-600');
-      } else {
-        btn.setAttribute('data-saved', 'true');
-        svg.classList.remove('fill-none', 'text-purple-600');
-        svg.classList.add('fill-pink-500', 'text-pink-500');
       }
     }
 
+    function resetAllFilters() {
+      currentCategory = 'all';
+      currentTier = 'all';
+      currentSearchTerm = '';
+
+      const searchInput = document.getElementById('marketplace-search-box');
+      if (searchInput) searchInput.value = '';
+      const clearBtn = document.getElementById('marketplace-search-clear');
+      if (clearBtn) clearBtn.classList.add('hidden');
+
+      const firstCatBtn = document.querySelector('.category-btn[data-category="all"]');
+      if (firstCatBtn) {
+        document.querySelectorAll('.category-btn').forEach(btn => {
+          btn.classList.remove('pill-active');
+          btn.classList.add('glass-pill');
+        });
+        firstCatBtn.classList.add('pill-active');
+        firstCatBtn.classList.remove('glass-pill');
+      }
+
+      const allTierBtn = document.querySelector('.tier-filter-btn[data-tier="all"]');
+      if (allTierBtn) {
+        document.querySelectorAll('.tier-filter-btn').forEach(btn => {
+          btn.classList.remove('bg-white', 'dark:bg-purple-800', 'text-purple-950', 'dark:text-white', 'shadow-sm');
+          btn.classList.add('text-purple-700', 'dark:text-purple-300');
+        });
+        allTierBtn.classList.add('bg-white', 'dark:bg-purple-800', 'text-purple-950', 'dark:text-white', 'shadow-sm');
+        allTierBtn.classList.remove('text-purple-700', 'dark:text-purple-300');
+      }
+
+      const indicator = document.getElementById('active-category-indicator');
+      if (indicator) indicator.textContent = 'Showing: All Occasions';
+
+      applyActiveFilters();
+      document.getElementById('templates-section').scrollIntoView({ behavior: 'smooth' });
+    }
+
+    // Modal Control Functions
     function openModal(modalId) {
       const modal = document.getElementById(modalId);
       if (modal) {
         modal.classList.remove('hidden');
         modal.classList.add('flex');
+        document.body.classList.add('overflow-hidden');
       }
     }
 
@@ -1077,20 +1367,76 @@
       if (modal) {
         modal.classList.remove('flex');
         modal.classList.add('hidden');
+        document.body.classList.remove('overflow-hidden');
+        if (modalId === 'template-preview-modal') {
+          const iframe = document.getElementById('preview-modal-iframe');
+          if (iframe) iframe.src = 'about:blank';
+        }
       }
     }
 
-    function openQuickCustomize(templateName, planBadge) {
-      document.getElementById('modal-template-title').textContent = templateName;
-      document.getElementById('modal-template-plan').textContent = (planBadge ? `${planBadge} • ` : '') + 'Customize & Preview Live Experience';
-      openModal('customize-modal');
+    // Dedicated Live Template Preview Modal
+    function openTemplatePreview(tplId) {
+      const tpl = loadedTemplates.find(t => t.id === tplId);
+      if (!tpl) return;
+
+      const titleEl = document.getElementById('preview-modal-title');
+      const catEl = document.getElementById('preview-modal-cat');
+      const badgeEl = document.getElementById('preview-modal-badge');
+      const iframeEl = document.getElementById('preview-modal-iframe');
+      const extLink = document.getElementById('preview-modal-external');
+      const ctaBtn = document.getElementById('preview-modal-cta');
+
+      const url = `/templates-store/${tpl.folder || tpl.id}/${tpl.entryFile || "index.html"}`;
+      const isVip = tpl.tier === 'vip' || (tpl.price && Number(tpl.price) > 0);
+
+      if (titleEl) titleEl.textContent = tpl.name;
+      if (catEl) catEl.textContent = `${tpl.category || "Celebration"} • ${tpl.type || "Interactive 3D"}`;
+      if (badgeEl) {
+        badgeEl.textContent = isVip ? `PREMIUM • ₹${tpl.price || 49}` : 'FREE';
+        badgeEl.className = `px-2 py-0.5 rounded-full text-[10px] font-black uppercase tracking-wider ${isVip ? 'bg-amber-400 text-purple-950' : 'bg-emerald-500 text-white'}`;
+      }
+      if (iframeEl) iframeEl.src = url;
+      if (extLink) extLink.href = url;
+      if (ctaBtn) {
+        ctaBtn.href = `/customize.html?template=${tpl.id}`;
+        ctaBtn.innerHTML = `<span>Create This Wish</span><span class="text-amber-300 text-xs">✨</span>`;
+      }
+
+      setPreviewDevice('mobile');
+      openModal('template-preview-modal');
     }
 
-    function handleCustomizeSubmit(e) {
-      e.preventDefault();
-      const recipient = document.getElementById('cust-recipient').value || 'Friend';
-      closeModal('customize-modal');
-      alert(`🎉 Magic generated! A unique interactive link for "${recipient}" has been created! (wishmagic.link/${recipient.toLowerCase().replace(/\\s+/g, '-')})`);
+    function setPreviewDevice(mode) {
+      const container = document.getElementById('preview-frame-container');
+      const btnMobile = document.getElementById('preview-btn-mobile');
+      const btnDesktop = document.getElementById('preview-btn-desktop');
+
+      if (!container) return;
+
+      if (mode === 'desktop') {
+        container.classList.remove('max-w-[390px]', 'rounded-[36px]', 'p-2.5', 'border-4');
+        container.classList.add('max-w-full', 'rounded-xl', 'p-1', 'border-2');
+        if (btnDesktop) {
+          btnDesktop.classList.add('bg-white', 'dark:bg-purple-800', 'text-purple-950', 'dark:text-white', 'shadow-xs');
+          btnDesktop.classList.remove('text-purple-700', 'dark:text-purple-300');
+        }
+        if (btnMobile) {
+          btnMobile.classList.remove('bg-white', 'dark:bg-purple-800', 'text-purple-950', 'dark:text-white', 'shadow-xs');
+          btnMobile.classList.add('text-purple-700', 'dark:text-purple-300');
+        }
+      } else {
+        container.classList.add('max-w-[390px]', 'rounded-[36px]', 'p-2.5', 'border-4');
+        container.classList.remove('max-w-full', 'rounded-xl', 'p-1', 'border-2');
+        if (btnMobile) {
+          btnMobile.classList.add('bg-white', 'dark:bg-purple-800', 'text-purple-950', 'dark:text-white', 'shadow-xs');
+          btnMobile.classList.remove('text-purple-700', 'dark:text-purple-300');
+        }
+        if (btnDesktop) {
+          btnDesktop.classList.remove('bg-white', 'dark:bg-purple-800', 'text-purple-950', 'dark:text-white', 'shadow-xs');
+          btnDesktop.classList.add('text-purple-700', 'dark:text-purple-300');
+        }
+      }
     }
 
     function openAuthModal(mode) {
@@ -1111,11 +1457,7 @@
       alert(`✨ Successfully authenticated via ${provider}! Welcome to the magical circle.`);
     }
 
-    function triggerConfettiDemo() {
-      alert("🎊 Envelope Opened! Fireworks & joyful celebration sound ignited ✨");
-    }
-
-    // Dynamic Live Sync from WishMagic Admin Settings
+    // Sync admin storefront config
     (function syncAdminStorefrontConfig() {
       try {
         const raw = localStorage.getItem('wishmagic_site_config');
@@ -1133,84 +1475,13 @@
           const el = document.getElementById('hero-badge-text');
           if (el) el.textContent = config.heroBadge;
         }
-        if (config.heroCta1) {
-          const el = document.getElementById('hero-cta1-text');
-          if (el) el.textContent = config.heroCta1;
-        }
-        if (config.heroCta2) {
-          const el = document.getElementById('hero-cta2-text');
-          if (el) el.textContent = config.heroCta2;
-        }
-        if (config.heroGiftIcon) {
-          const el = document.getElementById('hero-gift-icon');
-          if (el) el.textContent = config.heroGiftIcon;
-        }
       } catch (err) {
         console.warn('Site config sync note:', err);
       }
     })();
 
-    // Dynamic Live Custom Templates Loading on Homepage
-    (async function loadCustomTemplatesOnHome() {
-      try {
-        const res = await fetch("/api/templates");
-        const data = await res.json();
-        const grid = document.getElementById("templates-grid");
-        if (!grid) return;
-
-        if (!data.success || !data.templates || data.templates.length === 0) {
-          grid.innerHTML = `
-            <div class="col-span-full py-16 px-4 flex flex-col items-center justify-center text-center bg-white/60 backdrop-blur-md rounded-3xl border border-dashed border-purple-200 shadow-sm max-w-xl mx-auto my-4">
-              <div class="w-14 h-14 rounded-2xl bg-purple-100 text-purple-700 flex items-center justify-center mb-3">
-                <span class="text-2xl">✨</span>
-              </div>
-              <h3 class="font-display font-bold text-lg sm:text-xl text-[#24113F] mb-1">New Magical Templates Coming Soon</h3>
-              <p class="text-xs sm:text-sm text-purple-800/80 max-w-md mb-2 leading-relaxed">
-                Admin portal se nayi website ka code upload hote hi yahan aapke real interactive templates feature ho jayenge!
-              </p>
-            </div>
-          `;
-          return;
-        }
-
-        grid.innerHTML = "";
-        data.templates.forEach(tpl => {
-          const card = document.createElement("div");
-          card.className = "template-card group relative bg-white/80 backdrop-blur-md rounded-2xl p-2.5 sm:p-3.5 border border-purple-200/60 shadow-lg shadow-purple-900/5 hover:shadow-xl hover:shadow-pink-500/10 hover:-translate-y-1 transition-all duration-300 flex flex-col justify-between";
-
-          const priceBadge = tpl.tier === "vip" ? `VIP Pass ₹${tpl.price || 49}` : "Free";
-          const priceBadgeClass = tpl.tier === "vip" ? "bg-amber-400 text-purple-950" : "bg-emerald-500 text-white";
-
-          card.innerHTML = `
-            <div>
-              <div class="relative rounded-xl overflow-hidden mb-2.5 aspect-[16/10] bg-purple-900/10">
-                <img class="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500" src="${tpl.thumbnail}" alt="${tpl.name}"/>
-                <div class="absolute top-2 left-2 flex gap-1">
-                  <span class="px-2 py-0.5 rounded-full text-[10px] font-extrabold uppercase tracking-wider ${priceBadgeClass} shadow-sm">${priceBadge}</span>
-                </div>
-                <div class="absolute bottom-2 left-2">
-                  <span class="px-2 py-0.5 rounded-md bg-purple-900/80 backdrop-blur-sm text-white text-[10px] font-bold">✦ ${tpl.category}</span>
-                </div>
-              </div>
-              <h3 class="font-display font-extrabold text-sm sm:text-base text-purple-950 line-clamp-1 mb-1">${tpl.name}</h3>
-              <p class="text-xs text-purple-900/70 line-clamp-2 mb-2 font-medium">${tpl.description}</p>
-            </div>
-            <div class="pt-2 border-t border-purple-100 flex items-center justify-between gap-1 mt-auto">
-              <a href="/templates-store/${tpl.folder || tpl.id}/${tpl.entryFile || "index.html"}" target="_blank" class="text-xs font-bold text-purple-700 hover:text-pink-600 transition flex items-center gap-1">
-                <span class="text-xs">👁️</span> Preview
-              </a>
-              <a href="/customize.html?template=${tpl.id}" class="px-2.5 sm:px-3 py-1.5 rounded-full bg-gradient-to-r from-purple-600 to-pink-500 text-white text-xs font-bold shadow-sm hover:scale-105 active:scale-95 transition-all flex items-center gap-1">
-                <span>Customize</span>
-                <span class="text-[10px]">✨</span>
-              </a>
-            </div>
-          `;
-          grid.appendChild(card);
-        });
-      } catch (e) {
-        console.error("Error loading custom templates on home:", e);
-      }
-    })();
+    // Initialize templates when DOM is ready
+    document.addEventListener("DOMContentLoaded", initHomepageTemplates);
   </script>
 <!-- END: InteractiveScriptHandlers -->
 </body></html>

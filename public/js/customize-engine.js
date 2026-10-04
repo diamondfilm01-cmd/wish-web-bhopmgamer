@@ -40,7 +40,7 @@ window.syncMessage = function(val) {
 
 document.addEventListener('DOMContentLoaded', async () => {
   const urlParams = new URLSearchParams(window.location.search);
-  const templateId = urlParams.get('template') || 'tpl_cyber_bday';
+  const templateId = urlParams.get('template') || 'tpl_glitter_birthday';
   
   await loadTemplateData(templateId);
   setupEventListeners();
