@@ -166,6 +166,20 @@
         console.warn('[WishAuth] Error saving session to storage:', e);
       }
 
+      // Sync session with Production Server API (Sets HttpOnly wm_session cookie)
+      try {
+        fetch('/api/auth/signin', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          credentials: 'include',
+          body: JSON.stringify({
+            userId: currentUser.id,
+            email: currentUser.email,
+            displayName: currentUser.displayName
+          })
+        }).catch(() => {});
+      } catch (e) {}
+
       // Migrate any guest draft or unassigned local wishes to this user
       WishAuth.migrateGuestData(currentUser.id);
 
@@ -246,6 +260,14 @@
       try {
         localStorage.removeItem(STORAGE_KEY_USER);
         localStorage.removeItem(STORAGE_KEY_SESSION);
+      } catch (e) {}
+
+      // Clear server session cookie
+      try {
+        fetch('/api/auth/signout', {
+          method: 'POST',
+          credentials: 'include'
+        }).catch(() => {});
       } catch (e) {}
 
       notifyAuthChange();

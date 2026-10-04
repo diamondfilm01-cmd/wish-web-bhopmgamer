@@ -192,20 +192,36 @@
       } catch (e) {}
     },
 
+    async fetchServerFavorites(userId) {
+      try {
+        const res = await fetch(`/api/favorites?userId=${encodeURIComponent(userId || '')}`);
+        const data = await res.json();
+        if (data.success && Array.isArray(data.favorites)) {
+          const map = this._getMap();
+          map[userId] = data.favorites;
+          this._saveMap(map);
+          return data.favorites;
+        }
+      } catch (e) {}
+      return null;
+    },
+
     getByUser(userId) {
       if (!userId) return [];
       const map = this._getMap();
       const list = map[userId];
+      // Asynchronously refresh from server
+      this.fetchServerFavorites(userId);
       return Array.isArray(list) ? [...list] : [];
     },
 
     has(userId, itemId) {
       if (!userId || !itemId) return false;
-      const list = this.getByUser(userId);
+      const list = Array.isArray(this._getMap()[userId]) ? this._getMap()[userId] : [];
       return list.includes(itemId);
     },
 
-    toggle(userId, itemId) {
+    async toggle(userId, itemId) {
       if (!userId || !itemId) return false;
       const map = this._getMap();
       let list = Array.isArray(map[userId]) ? map[userId] : [];
@@ -221,10 +237,20 @@
 
       map[userId] = list;
       this._saveMap(map);
+
+      // Server sync
+      try {
+        fetch('/api/favorites', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ userId, itemId })
+        }).catch(() => {});
+      } catch (e) {}
+
       return isFavorited;
     },
 
-    add(userId, itemId) {
+    async add(userId, itemId) {
       if (!userId || !itemId) return;
       const map = this._getMap();
       const list = Array.isArray(map[userId]) ? map[userId] : [];
@@ -232,15 +258,27 @@
         list.push(itemId);
         map[userId] = list;
         this._saveMap(map);
+        try {
+          fetch('/api/favorites', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ userId, itemId })
+          }).catch(() => {});
+        } catch (e) {}
       }
     },
 
-    remove(userId, itemId) {
+    async remove(userId, itemId) {
       if (!userId || !itemId) return;
       const map = this._getMap();
       if (Array.isArray(map[userId])) {
         map[userId] = map[userId].filter(id => id !== itemId);
         this._saveMap(map);
+        try {
+          fetch(`/api/favorites/${encodeURIComponent(itemId)}?userId=${encodeURIComponent(userId)}`, {
+            method: 'DELETE'
+          }).catch(() => {});
+        } catch (e) {}
       }
     }
   };

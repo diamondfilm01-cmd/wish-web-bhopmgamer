@@ -1,0 +1,35 @@
+name = "wishmagic"
+main = "src/worker.js"
+compatibility_date = "2024-09-23"
+
+# Cloudflare Pages / Workers Static Assets
+[assets]
+directory = "./public"
+binding = "ASSETS"
+
+# Environment Variables
+[vars]
+PUBLIC_APP_URL = "https://wishmagic.pages.dev"
+ENVIRONMENT = "production"
+ENABLE_RATE_LIMITING = "true"
+ALLOWED_ORIGIN = "*"
+
+# Cloudflare D1 Database Binding
+[[d1_databases]]
+binding = "DB"
+database_name = "wishmagic-db"
+database_id = "00000000-0000-0000-0000-000000000000"
+migrations_dir = "migrations"
+
+# Cloudflare R2 Media Storage Bucket Binding
+[[r2_buckets]]
+binding = "BUCKET"
+bucket_name = "wishmagic-media"
+
+# Production Environment
+[env.production]
+vars = { ENVIRONMENT = "production" }
+
+# Preview / Staging Environment
+[env.preview]
+vars = { ENVIRONMENT = "preview" }

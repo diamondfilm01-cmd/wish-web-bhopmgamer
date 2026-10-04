@@ -67,7 +67,10 @@
     }
 
     try {
-      const res = await fetch(`/api/wishes/${encodeURIComponent(wishId)}`);
+      let res = await fetch(`/api/public/wishes/${encodeURIComponent(wishId)}`);
+      if (!res.ok) {
+        res = await fetch(`/api/wishes/${encodeURIComponent(wishId)}`);
+      }
       const result = await res.json();
 
       if (!result.success || !result.wish) {

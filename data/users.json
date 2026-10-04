@@ -1,0 +1,41 @@
+[
+  {
+    "id": "usr_ankit_101",
+    "email": "ankit@example.com",
+    "displayName": "Ankit Verma",
+    "avatarUrl": "https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=150&auto=format&fit=crop&q=80",
+    "role": "creator",
+    "plan": "VIP",
+    "isPremium": true,
+    "provider": "email",
+    "status": "active",
+    "createdAt": "2026-01-15T10:00:00.000Z",
+    "updatedAt": "2026-10-01T12:00:00.000Z"
+  },
+  {
+    "id": "usr_priya_202",
+    "email": "priya@example.com",
+    "displayName": "Priya Sharma",
+    "avatarUrl": "https://images.unsplash.com/photo-1494790108377-be9c29b29330?w=150&auto=format&fit=crop&q=80",
+    "role": "creator",
+    "plan": "Free",
+    "isPremium": false,
+    "provider": "email",
+    "status": "active",
+    "createdAt": "2026-02-20T14:30:00.000Z",
+    "updatedAt": "2026-10-02T09:15:00.000Z"
+  },
+  {
+    "id": "usr_admin_999",
+    "email": "admin@wishmagic.internal",
+    "displayName": "Platform Admin",
+    "avatarUrl": "https://images.unsplash.com/photo-1535713875002-d1d0cf377fde?w=150&auto=format&fit=crop&q=80",
+    "role": "admin",
+    "plan": "VIP",
+    "isPremium": true,
+    "provider": "system",
+    "status": "active",
+    "createdAt": "2026-01-01T00:00:00.000Z",
+    "updatedAt": "2026-10-04T00:00:00.000Z"
+  }
+]

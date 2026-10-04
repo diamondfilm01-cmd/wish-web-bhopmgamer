@@ -36,7 +36,22 @@
         currency: 'INR'
       };
 
-      const checkoutId = 'chk_' + Date.now().toString(36) + '_' + Math.random().toString(36).substr(2, 6);
+      // Call Production Server Payment Abstraction
+      let serverOrder = null;
+      try {
+        const res = await fetch('/api/entitlements/checkout', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          credentials: 'include',
+          body: JSON.stringify({ planId, options })
+        });
+        const data = await res.json();
+        if (data.success) {
+          serverOrder = data;
+        }
+      } catch (e) {}
+
+      const checkoutId = (serverOrder && serverOrder.orderId) || ('chk_' + Date.now().toString(36) + '_' + Math.random().toString(36).substr(2, 6));
       const session = {
         id: checkoutId,
         planId: plan.id,
@@ -44,8 +59,9 @@
         amount: plan.price,
         currency: plan.currency,
         status: 'pending', // 'pending' | 'completed' | 'cancelled'
-        provider: 'development_sandbox',
+        provider: (serverOrder && serverOrder.mode) || 'development_sandbox',
         options,
+        serverOrder,
         createdAt: new Date().toISOString(),
         expiresAt: new Date(Date.now() + 30 * 60 * 1000).toISOString()
       };
