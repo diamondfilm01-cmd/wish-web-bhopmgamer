@@ -1,6 +1,8 @@
 // ============================================================================
-// LEGACY DEVELOPMENT SERVER ONLY (Local express development runner)
+// ⚠️ DEVELOPMENT ENVIRONMENT ONLY (Local express development runner)
+// ⚠️ DO NOT USE FOR PRODUCTION DEPLOYMENT
 // PRODUCTION SOURCE OF TRUTH: Cloudflare Worker (src/worker.js) + D1 + R2
+// PRODUCTION DEPLOYMENT: npx wrangler pages deploy public OR npx wrangler deploy
 // ============================================================================
 
 import express from 'express';

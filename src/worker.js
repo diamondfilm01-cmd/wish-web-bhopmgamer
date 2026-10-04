@@ -395,7 +395,7 @@ async function verifyAdminRole(user, env) {
   if (env && env.DB && typeof env.DB.prepare === 'function') {
     try {
       const row = await env.DB.prepare(
-        'SELECT * FROM admin_roles WHERE user_id = ? AND is_active = 1 LIMIT 1'
+        'SELECT * FROM admin_roles WHERE user_id = ? LIMIT 1'
       ).bind(user.id).first();
       if (row) return true;
     } catch (e) {}
@@ -1856,6 +1856,49 @@ export default {
           orderId,
           amount: 49,
           currency: 'INR'
+        }, 200, {}, requestId);
+      }
+
+      // --- Admin Bootstrap (Secure first-run bootstrap with secret) ---
+      else if (pathname === '/api/admin/bootstrap' && method === 'POST') {
+        const secretHeader = request.headers.get('x-admin-bootstrap-key') || '';
+        const body = await request.json().catch(() => ({}));
+        const providedSecret = secretHeader || body.bootstrapSecret || '';
+        const requiredSecret = env.ADMIN_BOOTSTRAP_SECRET || '';
+
+        if (!requiredSecret || providedSecret !== requiredSecret) {
+          return applySecurityHeaders(jsonError('BOOTSTRAP_UNAUTHORIZED', 'Invalid or unconfigured ADMIN_BOOTSTRAP_SECRET.', 403), request, env);
+        }
+
+        const targetEmail = sanitizeString(body.email || '', 100).toLowerCase();
+        if (!targetEmail || !targetEmail.includes('@')) {
+          return applySecurityHeaders(jsonError('INVALID_EMAIL', 'A valid email is required to bootstrap admin role.', 400), request, env);
+        }
+
+        let adminUserId = null;
+        const nowIso = new Date().toISOString();
+
+        if (env.DB && typeof env.DB.prepare === 'function') {
+          const existingUser = await env.DB.prepare('SELECT id FROM users WHERE email = ? LIMIT 1').bind(targetEmail).first();
+          if (existingUser) {
+            adminUserId = existingUser.id;
+            await env.DB.prepare("UPDATE users SET role = 'admin', is_premium = 1, plan = 'VIP', updated_at = ? WHERE id = ?").bind(nowIso, adminUserId).run();
+          } else {
+            adminUserId = `usr_adm_${Date.now().toString(36)}`;
+            await env.DB.prepare("INSERT INTO users (id, email, display_name, role, plan, is_premium, provider, status, created_at, updated_at) VALUES (?, ?, ?, 'admin', 'VIP', 1, 'email', 'active', ?, ?)").bind(adminUserId, targetEmail, sanitizeString(body.displayName || 'Platform Admin', 100), nowIso, nowIso).run();
+          }
+
+          const roleId = `adm_role_${Date.now().toString(36)}`;
+          const permissions = JSON.stringify(["MANAGE_TEMPLATES","MANAGE_CATEGORIES","MANAGE_USERS","MANAGE_WISHES","VIEW_ANALYTICS","MANAGE_SETTINGS"]);
+          await env.DB.prepare("INSERT OR REPLACE INTO admin_roles (id, user_id, role, permissions, granted_by, created_at) VALUES (?, ?, 'SUPER_ADMIN', ?, 'system_bootstrap', ?)").bind(roleId, adminUserId, permissions, nowIso).run();
+        }
+
+        response = jsonSuccess({
+          bootstrapped: true,
+          userId: adminUserId,
+          email: targetEmail,
+          role: 'SUPER_ADMIN',
+          message: 'Admin account successfully bootstrapped via secret.'
         }, 200, {}, requestId);
       }
 

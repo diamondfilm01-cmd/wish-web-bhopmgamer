@@ -37,7 +37,7 @@
     async get(endpoint, params) {
       if (window.WishApiClient) return await window.WishApiClient.get(endpoint, params);
       const qs = params ? '?' + new URLSearchParams(params).toString() : '';
-      const res = await fetch(endpoint + qs);
+      const res = await fetch(endpoint + qs, { credentials: 'include' });
       return await res.json();
     },
     async post(endpoint, body) {
@@ -45,6 +45,7 @@
       const res = await fetch(endpoint, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
+        credentials: 'include',
         body: JSON.stringify(body)
       });
       return await res.json();
@@ -54,13 +55,14 @@
       const res = await fetch(endpoint, {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
+        credentials: 'include',
         body: JSON.stringify(body)
       });
       return await res.json();
     },
     async delete(endpoint) {
       if (window.WishApiClient) return await window.WishApiClient.delete(endpoint);
-      const res = await fetch(endpoint, { method: 'DELETE' });
+      const res = await fetch(endpoint, { method: 'DELETE', credentials: 'include' });
       return await res.json();
     }
   };

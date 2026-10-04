@@ -311,6 +311,19 @@ function createTestD1Database() {
                 if (existing) existing.views = (existing.views || 0) + 1;
                 return { success: true };
               }
+              if (normalized.startsWith('INSERT OR REPLACE INTO admin_roles') || normalized.startsWith('INSERT INTO admin_roles')) {
+                const [id, user_id, role, permissions, granted_by, created_at] = args;
+                adminRoles.set(user_id, { id, user_id, role, permissions, granted_by, created_at });
+                return { success: true };
+              }
+              if (normalized.startsWith("UPDATE users SET role = 'admin'")) {
+                const [updatedAt, id] = args;
+                const existing = users.get(id);
+                if (existing) {
+                  users.set(id, { ...existing, role: 'admin', is_premium: 1, plan: 'VIP', updated_at: updatedAt });
+                }
+                return { success: true };
+              }
               if (normalized.startsWith('INSERT INTO analytics_events')) {
                 analyticsEvents.push(args);
                 return { success: true };
@@ -952,6 +965,33 @@ async function runTests() {
       body: JSON.stringify({ filename: 'malicious.php.exe' })
     }), prodEnv);
     assert(badFileRes.status === 400, 'Forbidden file extension returns 400 VALIDATION_ERROR');
+  }
+
+  // Admin Bootstrap via Secret Test
+  {
+    console.log('• Admin Bootstrap via Secret Verification');
+    const bootstrapEnv = {
+      ...prodEnv,
+      ADMIN_BOOTSTRAP_SECRET: 'test_super_secret_bootstrap_key_999'
+    };
+
+    // 1. Unauthorized when secret is wrong
+    const badBootRes = await worker.fetch(new Request('http://localhost/api/admin/bootstrap', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', 'x-admin-bootstrap-key': 'wrong_key' },
+      body: JSON.stringify({ email: 'newadmin@wishmagic.live' })
+    }), bootstrapEnv);
+    assert(badBootRes.status === 403, 'Wrong bootstrap secret returns 403 BOOTSTRAP_UNAUTHORIZED');
+
+    // 2. Successful bootstrap with valid secret
+    const goodBootRes = await worker.fetch(new Request('http://localhost/api/admin/bootstrap', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', 'x-admin-bootstrap-key': 'test_super_secret_bootstrap_key_999' },
+      body: JSON.stringify({ email: 'newadmin@wishmagic.live', displayName: 'Bootstrap Admin' })
+    }), bootstrapEnv);
+    assert(goodBootRes.status === 200, 'Valid bootstrap secret succeeds with 200');
+    const bootData = await goodBootRes.json();
+    assert(bootData.data.bootstrapped === true, 'Admin successfully bootstrapped into system');
   }
 
   // ============================================================================
