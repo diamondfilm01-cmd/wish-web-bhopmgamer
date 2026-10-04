@@ -1,6 +1,6 @@
 // WishMagic Data Repository Layer
-// Part 9: Strict User Ownership & Data Isolation Boundary
-// Isolates Component -> Repository -> Current User -> Storage
+// Part 22: Full Frontend <-> Worker <-> D1/R2 Integration & Production Architecture
+// Isolates Component -> Repository -> API Client -> Cloudflare Worker / D1
 
 (function(window) {
   'use strict';
@@ -32,21 +32,53 @@
     }
   }
 
+  // Helper: Call API Client with graceful fallback
+  const api = {
+    async get(endpoint, params) {
+      if (window.WishApiClient) return await window.WishApiClient.get(endpoint, params);
+      const qs = params ? '?' + new URLSearchParams(params).toString() : '';
+      const res = await fetch(endpoint + qs);
+      return await res.json();
+    },
+    async post(endpoint, body) {
+      if (window.WishApiClient) return await window.WishApiClient.post(endpoint, body);
+      const res = await fetch(endpoint, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(body)
+      });
+      return await res.json();
+    },
+    async put(endpoint, body) {
+      if (window.WishApiClient) return await window.WishApiClient.put(endpoint, body);
+      const res = await fetch(endpoint, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(body)
+      });
+      return await res.json();
+    },
+    async delete(endpoint) {
+      if (window.WishApiClient) return await window.WishApiClient.delete(endpoint);
+      const res = await fetch(endpoint, { method: 'DELETE' });
+      return await res.json();
+    }
+  };
+
   // ---------------------------------------------------------------------------
   // 1. WISH REPOSITORY (User-Scoped Wishes)
   // ---------------------------------------------------------------------------
   const wishRepository = {
     /**
-     * Get all wishes owned by specific user
+     * Get all wishes owned by specific user from API
      */
     async getByUser(userId) {
       if (!userId) return [];
 
       let serverWishes = [];
       try {
-        const res = await fetch('/api/wishes');
-        const data = await res.json();
-        if (data.success && Array.isArray(data.wishes)) {
+        const data = await api.get('/api/wishes', { userId });
+        if (data && data.success && Array.isArray(data.wishes)) {
           serverWishes = data.wishes;
         }
       } catch (err) {
@@ -55,18 +87,15 @@
 
       const localWishes = getStoredList(STORAGE_KEY_USER_WISHES);
 
-      // Merge server + local
+      // Merge server + local with server authority
       const mergedMap = new Map();
 
-      // Filter and associate server wishes
       serverWishes.forEach(w => {
-        // If server wish has matching userId or was created by this user
         if (w.userId === userId || (!w.userId && localWishes.some(lw => lw.id === w.id && lw.userId === userId))) {
           mergedMap.set(w.id, { ...w, userId });
         }
       });
 
-      // Filter local wishes
       localWishes.forEach(w => {
         if (w.userId === userId) {
           if (!mergedMap.has(w.id)) {
@@ -79,16 +108,16 @@
     },
 
     async getById(wishId) {
+      if (!wishId) return null;
       try {
-        const res = await fetch(`/api/wishes/${encodeURIComponent(wishId)}`);
-        const data = await res.json();
-        if (data.success && data.wish) {
+        const data = await api.get(`/api/wishes/${encodeURIComponent(wishId)}`);
+        if (data && data.success && data.wish) {
           return data.wish;
         }
       } catch (e) {}
 
       const localWishes = getStoredList(STORAGE_KEY_USER_WISHES);
-      return localWishes.find(w => w.id === wishId) || null;
+      return localWishes.find(w => w.id === wishId || w.slug === wishId) || null;
     },
 
     async save(wish, userId) {
@@ -98,6 +127,17 @@
         updatedAt: new Date().toISOString()
       };
 
+      // 1. Try persisting via Worker API
+      try {
+        const data = await api.post('/api/wishes', wishRecord);
+        if (data && data.success && data.wish) {
+          return data.wish;
+        }
+      } catch (e) {
+        console.warn('[wishRepository] Server save fallback to local:', e);
+      }
+
+      // 2. Local fallback
       const localWishes = getStoredList(STORAGE_KEY_USER_WISHES);
       const existingIdx = localWishes.findIndex(w => w.id === wishRecord.id);
 
@@ -114,7 +154,7 @@
     async delete(wishId, userId) {
       // 1. Delete from server
       try {
-        await fetch(`/api/wishes/${encodeURIComponent(wishId)}`, { method: 'DELETE' });
+        await api.delete(`/api/wishes/${encodeURIComponent(wishId)}`);
       } catch (e) {}
 
       // 2. Delete from local storage
@@ -126,18 +166,18 @@
   };
 
   // ---------------------------------------------------------------------------
-  // 2. DRAFT REPOSITORY (User-Scoped Drafts)
+  // 2. DRAFT REPOSITORY (User-Scoped Drafts + Guest Draft Migration)
   // ---------------------------------------------------------------------------
   const draftRepository = {
     getByUser(userId) {
       if (!userId) return [];
       const drafts = getStoredList(STORAGE_KEY_DRAFTS);
-      return drafts.filter(d => d.userId === userId);
+      return drafts.filter(d => d.userId === userId || d.userId === 'guest');
     },
 
     getById(draftId, userId) {
       const drafts = getStoredList(STORAGE_KEY_DRAFTS);
-      return drafts.find(d => d.id === draftId && (!userId || d.userId === userId)) || null;
+      return drafts.find(d => d.id === draftId && (!userId || d.userId === userId || d.userId === 'guest')) || null;
     },
 
     save(draft, userId) {
@@ -150,7 +190,7 @@
       };
 
       const drafts = getStoredList(STORAGE_KEY_DRAFTS);
-      const existingIdx = drafts.findIndex(d => d.id === draftRecord.id && d.userId === draftRecord.userId);
+      const existingIdx = drafts.findIndex(d => d.id === draftRecord.id);
 
       if (existingIdx >= 0) {
         drafts[existingIdx] = draftRecord;
@@ -164,9 +204,31 @@
 
     delete(draftId, userId) {
       const drafts = getStoredList(STORAGE_KEY_DRAFTS);
-      const filtered = drafts.filter(d => !(d.id === draftId && (!userId || d.userId === userId)));
+      const filtered = drafts.filter(d => !(d.id === draftId && (!userId || d.userId === userId || d.userId === 'guest')));
       setStoredList(STORAGE_KEY_DRAFTS, filtered);
       return true;
+    },
+
+    /**
+     * Migrates any guest-created drafts to the authenticated user account upon sign-in
+     */
+    migrateGuestDrafts(userId) {
+      if (!userId) return 0;
+      const drafts = getStoredList(STORAGE_KEY_DRAFTS);
+      let migratedCount = 0;
+
+      drafts.forEach(d => {
+        if (!d.userId || d.userId === 'guest') {
+          d.userId = userId;
+          d.updatedAt = new Date().toISOString();
+          migratedCount++;
+        }
+      });
+
+      if (migratedCount > 0) {
+        setStoredList(STORAGE_KEY_DRAFTS, drafts);
+      }
+      return migratedCount;
     }
   };
 
@@ -174,9 +236,6 @@
   // 3. FAVORITE REPOSITORY (User-Scoped Favorites)
   // ---------------------------------------------------------------------------
   const favoriteRepository = {
-    /**
-     * Map of { [userId]: string[] } (template or wish IDs)
-     */
     _getMap() {
       try {
         const raw = localStorage.getItem(STORAGE_KEY_FAVORITES_MAP);
@@ -194,9 +253,8 @@
 
     async fetchServerFavorites(userId) {
       try {
-        const res = await fetch(`/api/favorites?userId=${encodeURIComponent(userId || '')}`);
-        const data = await res.json();
-        if (data.success && Array.isArray(data.favorites)) {
+        const data = await api.get('/api/favorites', { userId: userId || '' });
+        if (data && data.success && Array.isArray(data.favorites)) {
           const map = this._getMap();
           map[userId] = data.favorites;
           this._saveMap(map);
@@ -210,7 +268,6 @@
       if (!userId) return [];
       const map = this._getMap();
       const list = map[userId];
-      // Asynchronously refresh from server
       this.fetchServerFavorites(userId);
       return Array.isArray(list) ? [...list] : [];
     },
@@ -221,7 +278,7 @@
       return list.includes(itemId);
     },
 
-    async toggle(userId, itemId) {
+    async toggle(userId, itemId, itemType = 'template') {
       if (!userId || !itemId) return false;
       const map = this._getMap();
       let list = Array.isArray(map[userId]) ? map[userId] : [];
@@ -230,27 +287,23 @@
       if (list.includes(itemId)) {
         list = list.filter(id => id !== itemId);
         isFavorited = false;
+        try {
+          api.delete(`/api/favorites/${encodeURIComponent(itemId)}`).catch(() => {});
+        } catch (e) {}
       } else {
         list.push(itemId);
         isFavorited = true;
+        try {
+          api.post('/api/favorites', { userId, itemId, itemType }).catch(() => {});
+        } catch (e) {}
       }
 
       map[userId] = list;
       this._saveMap(map);
-
-      // Server sync
-      try {
-        fetch('/api/favorites', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ userId, itemId })
-        }).catch(() => {});
-      } catch (e) {}
-
       return isFavorited;
     },
 
-    async add(userId, itemId) {
+    async add(userId, itemId, itemType = 'template') {
       if (!userId || !itemId) return;
       const map = this._getMap();
       const list = Array.isArray(map[userId]) ? map[userId] : [];
@@ -259,11 +312,7 @@
         map[userId] = list;
         this._saveMap(map);
         try {
-          fetch('/api/favorites', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ userId, itemId })
-          }).catch(() => {});
+          api.post('/api/favorites', { userId, itemId, itemType }).catch(() => {});
         } catch (e) {}
       }
     },
@@ -275,51 +324,40 @@
         map[userId] = map[userId].filter(id => id !== itemId);
         this._saveMap(map);
         try {
-          fetch(`/api/favorites/${encodeURIComponent(itemId)}?userId=${encodeURIComponent(userId)}`, {
-            method: 'DELETE'
-          }).catch(() => {});
+          api.delete(`/api/favorites/${encodeURIComponent(itemId)}`).catch(() => {});
         } catch (e) {}
       }
     }
   };
 
   // ---------------------------------------------------------------------------
-  // 4. TEMPLATE REPOSITORY (Part 10 Template Management System)
+  // 4. TEMPLATE REPOSITORY
   // ---------------------------------------------------------------------------
   const templateRepository = {
-    /**
-     * Get templates with optional filters
-     * @param {Object} options { includeDrafts, category, search, tier, status, isFeatured, sort }
-     */
     async getAll(options = {}) {
       try {
-        const queryParams = new URLSearchParams();
-        if (options.includeDrafts) queryParams.set('includeDrafts', 'true');
-        if (options.category && options.category !== 'all') queryParams.set('category', options.category);
-        if (options.search) queryParams.set('search', options.search);
-        if (options.tier && options.tier !== 'all') queryParams.set('tier', options.tier);
-        if (options.isFeatured) queryParams.set('featured', 'true');
+        const queryParams = {};
+        if (options.includeDrafts) queryParams.includeDrafts = 'true';
+        if (options.category && options.category !== 'all') queryParams.category = options.category;
+        if (options.search) queryParams.search = options.search;
+        if (options.tier && options.tier !== 'all') queryParams.tier = options.tier;
+        if (options.isFeatured) queryParams.featured = 'true';
 
-        const url = `/api/templates${queryParams.toString() ? '?' + queryParams.toString() : ''}`;
-        const res = await fetch(url);
-        const data = await res.json();
+        const data = await api.get('/api/templates', queryParams);
 
-        if (data.success && Array.isArray(data.templates)) {
+        if (data && data.success && Array.isArray(data.templates)) {
           let list = data.templates;
 
-          // Client-side filtering if needed
           if (options.status && options.status !== 'all') {
             list = list.filter(t => t.status === options.status);
           }
 
-          // Client-side sorting
           if (options.sort) {
             list = [...list].sort((a, b) => {
               if (options.sort === 'name') return (a.name || '').localeCompare(b.name || '');
               if (options.sort === 'category') return (a.category || '').localeCompare(b.category || '');
               if (options.sort === 'newest') return new Date(b.createdAt || 0) - new Date(a.createdAt || 0);
               if (options.sort === 'oldest') return new Date(a.createdAt || 0) - new Date(b.createdAt || 0);
-              // default: recent update
               return new Date(b.updatedAt || b.createdAt || 0) - new Date(a.updatedAt || a.createdAt || 0);
             });
           }
@@ -335,9 +373,8 @@
     async getById(templateId) {
       if (!templateId) return null;
       try {
-        const res = await fetch(`/api/templates/${encodeURIComponent(templateId)}`);
-        const data = await res.json();
-        if (data.success && data.template) {
+        const data = await api.get(`/api/templates/${encodeURIComponent(templateId)}`);
+        if (data && data.success && data.template) {
           return data.template;
         }
       } catch (e) {}
@@ -350,42 +387,27 @@
         throw new Error(validation.errors.join('; '));
       }
 
-      const res = await fetch('/api/templates/create', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(templateData)
-      });
-      const data = await res.json();
-      if (!data.success) {
-        throw new Error(data.message || 'Failed to create template');
+      const data = await api.post('/api/templates/create', templateData);
+      if (!data || !data.success) {
+        throw new Error((data && data.message) || 'Failed to create template');
       }
       return data.template;
     },
 
     async update(templateData) {
       if (!templateData.id) throw new Error('Template ID is required for update');
-      const res = await fetch('/api/templates/update', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(templateData)
-      });
-      const data = await res.json();
-      if (!data.success) {
-        throw new Error(data.message || 'Failed to update template');
+      const data = await api.post('/api/templates/update', templateData);
+      if (!data || !data.success) {
+        throw new Error((data && data.message) || 'Failed to update template');
       }
       return data.template;
     },
 
     async duplicate(templateId) {
       if (!templateId) throw new Error('Template ID is required to duplicate');
-      const res = await fetch('/api/templates/duplicate', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ id: templateId })
-      });
-      const data = await res.json();
-      if (!data.success) {
-        throw new Error(data.message || 'Failed to duplicate template');
+      const data = await api.post('/api/templates/duplicate', { id: templateId });
+      if (!data || !data.success) {
+        throw new Error((data && data.message) || 'Failed to duplicate template');
       }
       return data.template;
     },
@@ -401,9 +423,7 @@
     async delete(templateId, force = false) {
       if (!templateId) throw new Error('Template ID is required');
       const url = `/api/templates/${encodeURIComponent(templateId)}${force ? '?force=true' : ''}`;
-      const res = await fetch(url, { method: 'DELETE' });
-      const data = await res.json();
-      return data;
+      return await api.delete(url);
     },
 
     validate(template) {
@@ -428,14 +448,13 @@
   };
 
   // ---------------------------------------------------------------------------
-  // 5. CATEGORY REPOSITORY (Part 10 Categories Taxonomy)
+  // 5. CATEGORY REPOSITORY
   // ---------------------------------------------------------------------------
   const categoryRepository = {
     async getAll(options = {}) {
       try {
-        const res = await fetch('/api/categories');
-        const data = await res.json();
-        if (data.success && Array.isArray(data.categories)) {
+        const data = await api.get('/api/categories');
+        if (data && data.success && Array.isArray(data.categories)) {
           let list = data.categories;
           if (options.activeOnly) {
             list = list.filter(c => c.isActive !== false);
@@ -457,62 +476,42 @@
       if (!categoryData.name || !categoryData.name.trim()) {
         throw new Error('Category name is required');
       }
-      const res = await fetch('/api/categories', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(categoryData)
-      });
-      const data = await res.json();
-      if (!data.success) {
-        throw new Error(data.message || 'Failed to create category');
+      const data = await api.post('/api/categories', categoryData);
+      if (!data || !data.success) {
+        throw new Error((data && data.message) || 'Failed to create category');
       }
       return data.category;
     },
 
     async update(id, updates) {
-      const res = await fetch(`/api/categories/${encodeURIComponent(id)}`, {
-        method: 'PUT',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(updates)
-      });
-      const data = await res.json();
-      if (!data.success) {
-        throw new Error(data.message || 'Failed to update category');
+      const data = await api.put(`/api/categories/${encodeURIComponent(id)}`, updates);
+      if (!data || !data.success) {
+        throw new Error((data && data.message) || 'Failed to update category');
       }
       return data.category;
     },
 
     async reorder(orderedIds) {
-      const res = await fetch('/api/categories/reorder', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ orderedIds })
-      });
-      const data = await res.json();
-      if (!data.success) {
-        throw new Error(data.message || 'Failed to reorder categories');
+      const data = await api.post('/api/categories/reorder', { orderedIds });
+      if (!data || !data.success) {
+        throw new Error((data && data.message) || 'Failed to reorder categories');
       }
       return data.categories;
     },
 
     async delete(id, force = false) {
-      const res = await fetch(`/api/categories/${encodeURIComponent(id)}${force ? '?force=true' : ''}`, {
-        method: 'DELETE'
-      });
-      const data = await res.json();
-      return data;
+      return await api.delete(`/api/categories/${encodeURIComponent(id)}${force ? '?force=true' : ''}`);
     }
   };
 
   // ---------------------------------------------------------------------------
-  // 6. MEDIA REPOSITORY (Part 10 Template Assets & Audio Library)
+  // 6. MEDIA REPOSITORY
   // ---------------------------------------------------------------------------
   const mediaRepository = {
     async getAll() {
       try {
-        const res = await fetch('/api/media');
-        const data = await res.json();
-        if (data.success && Array.isArray(data.tracks)) {
+        const data = await api.get('/api/media');
+        if (data && data.success && Array.isArray(data.tracks)) {
           return data.tracks;
         }
       } catch (err) {
@@ -522,69 +521,60 @@
     },
 
     async upload(fileData, meta = {}) {
-      // Validate file safety
       const filename = meta.filename || 'asset.mp3';
       const ext = filename.split('.').pop().toLowerCase();
-      const forbiddenExts = ['js', 'html', 'htm', 'php', 'sh', 'bat', 'exe', 'py'];
+      const forbiddenExts = ['js', 'html', 'htm', 'php', 'sh', 'bat', 'exe', 'py', 'svg'];
 
       if (forbiddenExts.includes(ext)) {
-        throw new Error(`File type .${ext} is rejected. Executable code cannot be uploaded as media.`);
+        throw new Error(`File type .${ext} is rejected. Executable code or unparsed vectors cannot be uploaded as media.`);
       }
 
-      const res = await fetch('/api/media/upload', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          title: meta.title || filename,
-          genre: meta.genre || 'Celebration',
-          duration: meta.duration || '2:30',
-          license: meta.license || 'Royalty-Free Commercial',
-          fileData: fileData,
-          filename: filename
-        })
+      const data = await api.post('/api/media/upload', {
+        title: meta.title || filename,
+        genre: meta.genre || 'Celebration',
+        duration: meta.duration || '2:30',
+        license: meta.license || 'Royalty-Free Commercial',
+        fileData: fileData,
+        filename: filename
       });
-      const data = await res.json();
-      if (!data.success) {
-        throw new Error(data.message || 'Failed to upload media asset');
+
+      if (!data || !data.success) {
+        throw new Error((data && data.message) || 'Failed to upload media asset');
       }
       return data.track;
     },
 
     async setDefault(id) {
-      const res = await fetch(`/api/media/${encodeURIComponent(id)}/default`, { method: 'POST' });
-      const data = await res.json();
-      if (!data.success) {
-        throw new Error(data.message || 'Failed to set default track');
+      const data = await api.post(`/api/media/${encodeURIComponent(id)}/default`, {});
+      if (!data || !data.success) {
+        throw new Error((data && data.message) || 'Failed to set default track');
       }
       return true;
     },
 
     async delete(id) {
-      const res = await fetch(`/api/media/${encodeURIComponent(id)}`, { method: 'DELETE' });
-      const data = await res.json();
-      if (!data.success) {
-        throw new Error(data.message || 'Failed to delete media track');
+      const data = await api.delete(`/api/media/${encodeURIComponent(id)}`);
+      if (!data || !data.success) {
+        throw new Error((data && data.message) || 'Failed to delete media track');
       }
       return true;
     }
   };
 
   // ---------------------------------------------------------------------------
-  // 7. USER REPOSITORY (Part 16 User Accounts & Creator Analytics Management)
+  // 7. USER REPOSITORY
   // ---------------------------------------------------------------------------
   const userRepository = {
     async getAll() {
       try {
-        const res = await fetch('/api/admin/users');
-        const data = await res.json();
-        if (data.success && Array.isArray(data.users)) {
+        const data = await api.get('/api/admin/users');
+        if (data && data.success && Array.isArray(data.users)) {
           return data.users;
         }
       } catch (e) {
         console.warn('[userRepository] Error fetching users from server:', e);
       }
 
-      // Fallback: Read from WishAuth if available
       if (window.WishAuth) {
         const list = window.WishAuth.getAllKnownUsers();
         return list.map(u => ({
@@ -607,7 +597,6 @@
       const user = await this.getById(userId);
       if (!user) return null;
 
-      // Fetch user's wishes
       const userWishes = await wishRepository.getByUser(userId);
       const userDrafts = draftRepository.getByUser(userId);
       const userFavorites = favoriteRepository.getByUser(userId);
@@ -622,14 +611,10 @@
   };
 
   // ---------------------------------------------------------------------------
-  // 8. ADMIN & ANALYTICS REPOSITORY (Part 16 Centralized Metrics & Validation)
+  // 8. ADMIN & ANALYTICS REPOSITORY
   // ---------------------------------------------------------------------------
   const adminRepository = {
-    /**
-     * Calculates real, truthful platform metrics within an active date range
-     */
     async getPlatformMetrics(dateRangeKey = 'all', customRange = null) {
-      // 1. Fetch raw datasets
       let templates = [];
       let wishes = [];
       let categories = [];
@@ -643,9 +628,8 @@
         media = await mediaRepository.getAll();
         users = await userRepository.getAll();
 
-        const wRes = await fetch('/api/wishes');
-        const wData = await wRes.json();
-        if (wData.success && Array.isArray(wData.wishes)) {
+        const wData = await api.get('/api/wishes');
+        if (wData && wData.success && Array.isArray(wData.wishes)) {
           wishes = wData.wishes;
         }
 
@@ -656,7 +640,6 @@
         console.warn('[adminRepository] Error assembling datasets:', err);
       }
 
-      // 2. Date Filtering
       const nowMs = Date.now();
       let startMs = 0;
       let endMs = Infinity;
@@ -679,21 +662,18 @@
         if (customRange.end) endMs = new Date(customRange.end).getTime() + (24 * 60 * 60 * 1000) - 1;
       }
 
-      // Filter wishes by createdAt for range calculations
       const filteredWishes = wishes.filter(w => {
         if (!w.createdAt) return true;
         const cMs = new Date(w.createdAt).getTime();
         return cMs >= startMs && cMs <= endMs;
       });
 
-      // Filter events by timestamp
       const filteredEvents = events.filter(e => {
         if (!e.timestamp) return true;
         const eMs = new Date(e.timestamp).getTime();
         return eMs >= startMs && eMs <= endMs;
       });
 
-      // 3. Compute Metrics
       let activeCount = 0;
       let upcomingCount = 0;
       let expiredCount = 0;
@@ -741,7 +721,6 @@
       const vipUsers = users.filter(u => u.isPremium || u.plan === 'VIP').length;
       const freeUsers = users.filter(u => !u.isPremium && u.plan !== 'VIP').length;
 
-      // Event counts
       const shareEventsCount = filteredEvents.filter(e => e.eventName === 'wish_shared' || e.eventName === 'share_link_copied').length;
       const qrEventsCount = filteredEvents.filter(e => e.eventName === 'qr_generated').length;
       const favoriteEventsCount = filteredEvents.filter(e => e.eventName === 'wish_favorited' || e.eventName === 'template_favorited').length;
@@ -777,14 +756,10 @@
       };
     },
 
-    /**
-     * Run full diagnostic health check on templates and media
-     */
     async validateHealth() {
       try {
-        const res = await fetch('/api/admin/validation');
-        const data = await res.json();
-        if (data.success) {
+        const data = await api.get('/api/admin/validation');
+        if (data && data.success) {
           return data;
         }
       } catch (e) {}
@@ -796,9 +771,6 @@
       };
     },
 
-    /**
-     * Global Admin Search across all entities
-     */
     async globalSearch(query) {
       if (!query || !query.trim()) return { templates: [], wishes: [], categories: [], users: [] };
       const q = query.trim().toLowerCase();
@@ -807,10 +779,10 @@
         templateRepository.getAll({ includeDrafts: true }),
         categoryRepository.getAll(),
         userRepository.getAll(),
-        fetch('/api/wishes').then(r => r.json()).catch(() => ({ wishes: [] }))
+        api.get('/api/wishes').catch(() => ({ wishes: [] }))
       ]);
 
-      const wishes = wishesRes.wishes || [];
+      const wishes = (wishesRes && wishesRes.wishes) || [];
 
       return {
         templates: templates.filter(t => 
@@ -828,12 +800,12 @@
         ).slice(0, 8),
 
         categories: categories.filter(c => 
-          (c.name && c.name.toLowerCase().includes(q)) ||
+          (c.name && c.name.toLowerCase().includes(q)) || 
           (c.slug && c.slug.toLowerCase().includes(q))
         ).slice(0, 6),
 
         users: users.filter(u => 
-          (u.displayName && u.displayName.toLowerCase().includes(q)) ||
+          (u.displayName && u.displayName.toLowerCase().includes(q)) || 
           (u.email && u.email.toLowerCase().includes(q)) ||
           (u.id && u.id.toLowerCase().includes(q))
         ).slice(0, 6)
@@ -842,31 +814,19 @@
   };
 
   // ---------------------------------------------------------------------------
-  // 9. AUTHORIZATION ABSTRACTION (Part 16 Centralized RBAC Layer)
+  // 9. AUTHORIZATION ABSTRACTION
   // ---------------------------------------------------------------------------
   const WishAuthorization = {
     isAdmin() {
       if (window.WishAuth && typeof window.WishAuth.isAdmin === 'function') {
         return window.WishAuth.isAdmin();
       }
-      return true; // Dev environment fallback
+      return true;
     },
-
-    canManageTemplates() {
-      return this.isAdmin();
-    },
-
-    canManageUsers() {
-      return this.isAdmin();
-    },
-
-    canManageWishes() {
-      return this.isAdmin();
-    },
-
-    canViewAnalytics() {
-      return this.isAdmin();
-    }
+    canManageTemplates() { return this.isAdmin(); },
+    canManageUsers() { return this.isAdmin(); },
+    canManageWishes() { return this.isAdmin(); },
+    canViewAnalytics() { return this.isAdmin(); }
   };
 
   // Global namespace export
@@ -896,4 +856,4 @@
   window.adminRepository = adminRepository;
   window.authorizationService = WishAuthorization;
 
-})(window);
+})(typeof window !== 'undefined' ? window : this);

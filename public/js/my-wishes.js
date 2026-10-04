@@ -790,7 +790,7 @@
 
           <!-- Top-Right Favorite Button -->
           <button onclick="toggleFavorite('${w.id}', event)" class="absolute top-3 right-3 p-2 rounded-full bg-black/40 backdrop-blur-md border border-white/20 text-white hover:scale-110 active:scale-95 transition z-10 cursor-pointer" title="${isFav ? 'Remove from favorites' : 'Add to favorites'}">
-            <span class="material-symbols-outlined text-[18px] ${isFav ? 'text-pink-500 font-fill' : 'text-white'}" style="${isFav ? 'font-variation-settings: \\'FILL\\' 1;' : ''}">
+            <span class="material-symbols-outlined text-[18px] ${isFav ? 'text-pink-500 font-fill' : 'text-white'}">
               ${isFav ? 'favorite' : 'favorite_border'}
             </span>
           </button>

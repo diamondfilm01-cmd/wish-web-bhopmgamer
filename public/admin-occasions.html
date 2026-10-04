@@ -21,6 +21,7 @@
   <script src="js/WishMagicCore.js"></script>
   <script src="js/admin-theme.js"></script>
   <!-- Part 10 Auth & Repositories Layer -->
+  <script src="js/api-client.js"></script>
   <script src="js/auth-service.js"></script>
   <script src="js/repositories.js"></script>
 </head>
@@ -102,7 +103,7 @@
         </button>
         <div class="relative flex items-center w-full">
           <span class="material-symbols-outlined absolute left-3 text-outline text-[18px]">search</span>
-          <input class="w-full bg-surface-container-low pl-9 pr-space-md py-space-xs rounded-lg font-body-sm text-body-sm text-on-surface placeholder:text-outline focus:outline-none focus:ring-1 focus:ring-secondary" id="search-occasions" placeholder="Search occasions, viral tags, slugs..." type="text" onkeyup="filterOccasions()"/>
+          <input class="w-full bg-surface-container-low pl-9 pr-space-md py-space-xs rounded-lg font-body-sm text-body-sm text-on-surface placeholder:text-outline focus:outline-none focus:ring-1 focus:ring-secondary" id="header-search-occasions" placeholder="Search occasions, viral tags, slugs..." type="text" onkeyup="filterOccasions(this.value)"/>
         </div>
       </div>
       <div class="flex items-center gap-2 md:gap-space-md flex-shrink-0">

@@ -2128,7 +2128,15 @@ app.post('/api/wishes', (req, res) => {
       buyerContact,
       recipientName: customData.recipient_name || customData.recipientName || 'Special Person',
       eventDate,
-      expiryDate: new Date(new Date(eventDate).getTime() + (7 * 24 * 60 * 60 * 1000)).toISOString().split('T')[0],
+      expiryDate: (function() {
+        const clean = String(eventDate || '').includes('T') ? String(eventDate).split('T')[0] : String(eventDate || '').trim();
+        const parts = clean.split('-').map(Number);
+        if (parts.length === 3 && !isNaN(parts[0]) && !isNaN(parts[1]) && !isNaN(parts[2])) {
+          const nextDayMs = Date.UTC(parts[0], parts[1] - 1, parts[2] + 1, 0, 0, 0, 0) - (330 * 60 * 1000);
+          return new Date(nextDayMs).toISOString().split('T')[0];
+        }
+        return clean;
+      })(),
       payment: isVip ? {
         status: (payment && payment.status) || 'Completed',
         method: (payment && payment.method) || 'UPI / PhonePe',
@@ -2351,6 +2359,21 @@ app.get('/api/wishes/:id', (req, res) => {
   });
 });
 
+// Templates Marketplace Route: /templates and /marketplace
+app.get(['/templates', '/templates/', '/marketplace', '/marketplace.html'], (req, res) => {
+  res.sendFile(path.join(__dirname, 'public', 'marketplace.html'));
+});
+
+// Customizer Route: /create and /customize
+app.get(['/create', '/create/', '/customize', '/customize.html'], (req, res) => {
+  res.sendFile(path.join(__dirname, 'public', 'customize.html'));
+});
+
+// Favorites Route: /favorites
+app.get(['/favorites', '/favorites/'], (req, res) => {
+  res.sendFile(path.join(__dirname, 'public', 'my-wishes.html'));
+});
+
 // Creator Dashboard Route: /my-wishes and /dashboard
 app.get(['/my-wishes', '/my-wishes.html', '/dashboard', '/my-wishes/'], (req, res) => {
   res.sendFile(path.join(__dirname, 'public', 'my-wishes.html'));
@@ -2482,10 +2505,14 @@ app.get([
   '/admin/overview',
   '/admin/overview.html',
   '/admin/dashboard',
+  '/admin/analytics',
+  '/admin/analytics.html',
   ADMIN_BASE,
   `${ADMIN_BASE}/`,
   `${ADMIN_BASE}/overview`,
-  `${ADMIN_BASE}/overview.html`
+  `${ADMIN_BASE}/overview.html`,
+  `${ADMIN_BASE}/analytics`,
+  `${ADMIN_BASE}/analytics.html`
 ], (req, res) => {
   sendAdminPage('admin-overview.html', res);
 });
@@ -2560,8 +2587,12 @@ app.get([
 app.get([
   '/admin/settings',
   '/admin/settings.html',
+  '/admin/diagnostics',
+  '/admin/diagnostics.html',
   `${ADMIN_BASE}/settings`,
-  `${ADMIN_BASE}/settings.html`
+  `${ADMIN_BASE}/settings.html`,
+  `${ADMIN_BASE}/diagnostics`,
+  `${ADMIN_BASE}/diagnostics.html`
 ], (req, res) => {
   sendAdminPage('admin-settings.html', res);
 });

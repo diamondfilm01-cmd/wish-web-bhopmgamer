@@ -151,7 +151,8 @@
       }
 
       try {
-        const parsed = new URL(clean, window.location.origin);
+        const base = (typeof window !== 'undefined' && window.location && window.location.origin) ? window.location.origin : 'https://wishmagic.live';
+        const parsed = new URL(clean, base);
         if (allowedProtocols.includes(parsed.protocol.toLowerCase())) {
           return parsed.href;
         }
@@ -260,6 +261,10 @@
     init() {
       if (this._initialized) return;
       this._initialized = true;
+
+      if (typeof window === 'undefined' || typeof window.addEventListener !== 'function') {
+        return;
+      }
 
       // Global window error catcher
       window.addEventListener('error', (event) => {
@@ -466,10 +471,26 @@
   // Auto-initialize error boundary
   WishErrorBoundary.init();
 
-  // Expose to window
-  window.WishSecurity = WishSecurity;
-  window.WishErrorBoundary = WishErrorBoundary;
-  window.WishDataMigrator = WishDataMigrator;
-  window.WishAuditEngine = WishAuditEngine;
+  // Expose to window / global
+  if (typeof window !== 'undefined') {
+    window.WishSecurity = WishSecurity;
+    window.WishErrorBoundary = WishErrorBoundary;
+    window.WishDataMigrator = WishDataMigrator;
+    window.WishAuditEngine = WishAuditEngine;
+  }
+  if (typeof global !== 'undefined') {
+    global.WishSecurity = WishSecurity;
+    global.WishErrorBoundary = WishErrorBoundary;
+    global.WishDataMigrator = WishDataMigrator;
+    global.WishAuditEngine = WishAuditEngine;
+  }
+  if (typeof module !== 'undefined' && module.exports) {
+    module.exports = {
+      WishSecurity,
+      WishErrorBoundary,
+      WishDataMigrator,
+      WishAuditEngine
+    };
+  }
 
 })(typeof window !== 'undefined' ? window : this);

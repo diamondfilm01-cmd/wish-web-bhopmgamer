@@ -45,10 +45,12 @@
 
   let currentUser = null;
   let currentSession = null;
+  let isCheckingSession = false;
   const authListeners = new Set();
 
   // Initialize Auth State from storage on load
   function initAuth() {
+    isCheckingSession = true;
     try {
       const storedUser = localStorage.getItem(STORAGE_KEY_USER);
       const storedSession = localStorage.getItem(STORAGE_KEY_SESSION);
@@ -61,6 +63,7 @@
         if (currentSession && currentSession.expiresAt && Date.now() > currentSession.expiresAt) {
           console.warn('[WishAuth] Session expired, clearing...');
           signOut();
+          isCheckingSession = false;
           return;
         }
       } else {
@@ -69,13 +72,15 @@
         const hasInitialized = localStorage.getItem('wishmagic_auth_initialized');
         if (!hasInitialized) {
           localStorage.setItem('wishmagic_auth_initialized', 'true');
-          signInWithDevAccount('usr_ankit_101', false);
+          WishAuth.signInWithDevAccount('usr_ankit_101', false);
         }
       }
     } catch (e) {
       console.warn('[WishAuth] Error initializing auth state:', e);
       currentUser = null;
       currentSession = null;
+    } finally {
+      isCheckingSession = false;
     }
   }
 
@@ -105,6 +110,26 @@
 
     isAuthenticated() {
       return currentUser !== null && currentSession !== null;
+    },
+
+    isCheckingSession() {
+      return isCheckingSession;
+    },
+
+    async hydrateSessionFromServer() {
+      try {
+        const res = await fetch('/api/auth/session', { credentials: 'include' });
+        const data = await res.json();
+        if (data && data.success && data.user) {
+          currentUser = data.user;
+          try {
+            localStorage.setItem(STORAGE_KEY_USER, JSON.stringify(currentUser));
+          } catch (e) {}
+          notifyAuthChange();
+          return currentUser;
+        }
+      } catch (e) {}
+      return currentUser;
     },
 
     /**

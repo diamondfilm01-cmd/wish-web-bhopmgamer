@@ -54,7 +54,7 @@ function toggleSidebar() {
   }
 }
 
-function showToast(msg) {
+var showToast = function(msg) {
   let toast = document.getElementById('admin-toast');
   if (!toast) {
     toast = document.createElement('div');

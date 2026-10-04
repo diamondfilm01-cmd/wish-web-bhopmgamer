@@ -3193,7 +3193,14 @@ window.resetCustomizerChanges = function() {
 // -----------------------------------------------------------------------------
 // PUBLISHING & LINK GENERATION FLOW
 // -----------------------------------------------------------------------------
+let isPublishingInProgress = false;
+
 window.publishWishAndGetLink = async function() {
+  if (isPublishingInProgress) {
+    console.warn('[Customizer] Publish already in progress. Ignoring duplicate click.');
+    return;
+  }
+
   if (!validateStep1()) {
     window.goToStep(1);
     return;
@@ -3230,42 +3237,53 @@ window.publishWishAndGetLink = async function() {
     }
   }
 
-  const isVipEntitled = window.WishEntitlement ? window.WishEntitlement.isPremium() : false;
-  const isVipTemplate = activeTemplate.tier === 'vip' || activeTemplate.isPremium === true || (activeTemplate.price && Number(activeTemplate.price) > 0);
-  const isVip = isVipEntitled || isVipTemplate || Boolean(currentCustomData.lifetimePreservation) || Boolean(currentCustomData.watermarkRemoved);
+  isPublishingInProgress = true;
+  try {
+    const isVipEntitled = window.WishEntitlement ? window.WishEntitlement.isPremium() : false;
+    const isVipTemplate = activeTemplate.tier === 'vip' || activeTemplate.isPremium === true || (activeTemplate.price && Number(activeTemplate.price) > 0);
+    const isVip = isVipEntitled || isVipTemplate || Boolean(currentCustomData.lifetimePreservation) || Boolean(currentCustomData.watermarkRemoved);
 
-  // Direct generation with verified entitlement
-  await executeWishCreation({
-    tier: isVip ? 'vip' : 'free',
-    price: isVip ? (activeTemplate.price || 49) : 0,
-    buyerDetails: {
-      name: currentCustomData.sender_name || 'Creator',
-      phone: currentCustomData.sender_contact || ''
-    },
-    payment: isVip ? {
-      status: 'Completed',
-      method: 'VIP Pass Entitlement',
-      transactionId: 'ENT_' + Date.now().toString(36).toUpperCase()
-    } : null
-  });
+    // Direct generation with verified entitlement
+    await executeWishCreation({
+      tier: isVip ? 'vip' : 'free',
+      price: isVip ? (activeTemplate.price || 49) : 0,
+      buyerDetails: {
+        name: currentCustomData.sender_name || 'Creator',
+        phone: currentCustomData.sender_contact || ''
+      },
+      payment: isVip ? {
+        status: 'Completed',
+        method: 'VIP Pass Entitlement',
+        transactionId: 'ENT_' + Date.now().toString(36).toUpperCase()
+      } : null
+    });
+  } finally {
+    isPublishingInProgress = false;
+  }
 };
 
 async function executeWishCreation(extraPayload = {}) {
   try {
     const currentUserId = (window.WishAuth && window.WishAuth.getCurrentUser()?.id) || 'usr_ankit_101';
 
-    const res = await fetch('/api/wishes', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        templateId: activeTemplate.id,
-        customData: currentCustomData,
-        userId: currentUserId,
-        ...extraPayload
-      })
-    });
+    const payload = {
+      templateId: activeTemplate.id,
+      customData: currentCustomData,
+      userId: currentUserId,
+      ...extraPayload
+    };
 
-    const data = await res.json();
+    let data = null;
+    if (window.WishApiClient && typeof window.WishApiClient.post === 'function') {
+      data = await window.WishApiClient.post('/api/wishes', payload);
+    } else {
+      const res = await fetch('/api/wishes', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(payload)
+      });
+      data = await res.json();
+    }
     if (data.success && data.wishId) {
       const wishSlug = data.slug || (data.wish && data.wish.slug) || data.wishId;
       const fullLink = `${window.location.origin}/w/${wishSlug}`;
@@ -3450,7 +3468,7 @@ function copyGeneratedLink() {
 }
 
 // Toast notification helper
-function showToast(msg) {
+var showToast = function(msg) {
   let toast = document.getElementById('customizer-toast');
   if (!toast) {
     toast = document.createElement('div');

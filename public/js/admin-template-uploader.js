@@ -1175,7 +1175,7 @@ function hideUploadProgress() {
   if (progElem) progElem.classList.add('hidden');
 }
 
-function showToast(msg) {
+var showToast = function(msg) {
   let toast = document.getElementById('wm-admin-toast');
   if (!toast) {
     toast = document.createElement('div');
