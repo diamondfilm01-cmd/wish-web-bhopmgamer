@@ -20,6 +20,9 @@ const WISHES_FILE = path.join(DATA_DIR, 'wishes.json');
 const MEDIA_FILE = path.join(DATA_DIR, 'media.json');
 const CATEGORIES_FILE = path.join(DATA_DIR, 'categories.json');
 const EVENTS_FILE = path.join(DATA_DIR, 'events.json');
+const NOTIFICATIONS_FILE = path.join(DATA_DIR, 'notifications.json');
+const PREFERENCES_FILE = path.join(DATA_DIR, 'preferences.json');
+const ANNOUNCEMENTS_FILE = path.join(DATA_DIR, 'announcements.json');
 const STORE_DIR = path.join(__dirname, 'public', 'templates-store');
 const MEDIA_DIR = path.join(__dirname, 'public', 'media');
 
@@ -27,6 +30,63 @@ const MEDIA_DIR = path.join(__dirname, 'public', 'media');
 if (!fs.existsSync(DATA_DIR)) fs.mkdirSync(DATA_DIR, { recursive: true });
 if (!fs.existsSync(STORE_DIR)) fs.mkdirSync(STORE_DIR, { recursive: true });
 if (!fs.existsSync(MEDIA_DIR)) fs.mkdirSync(MEDIA_DIR, { recursive: true });
+
+function getNotifications() {
+  try {
+    if (fs.existsSync(NOTIFICATIONS_FILE)) {
+      const data = fs.readFileSync(NOTIFICATIONS_FILE, 'utf8');
+      const parsed = JSON.parse(data || '[]');
+      if (Array.isArray(parsed)) return parsed;
+    }
+    return [];
+  } catch (e) {
+    return [];
+  }
+}
+
+function saveNotifications(notifications) {
+  try {
+    fs.writeFileSync(NOTIFICATIONS_FILE, JSON.stringify(notifications.slice(0, 2000), null, 2), 'utf8');
+  } catch (e) {}
+}
+
+function getPreferences() {
+  try {
+    if (fs.existsSync(PREFERENCES_FILE)) {
+      const data = fs.readFileSync(PREFERENCES_FILE, 'utf8');
+      const parsed = JSON.parse(data || '{}');
+      if (typeof parsed === 'object' && parsed !== null) return parsed;
+    }
+    return {};
+  } catch (e) {
+    return {};
+  }
+}
+
+function savePreferences(prefs) {
+  try {
+    fs.writeFileSync(PREFERENCES_FILE, JSON.stringify(prefs, null, 2), 'utf8');
+  } catch (e) {}
+}
+
+function getAnnouncements() {
+  try {
+    if (fs.existsSync(ANNOUNCEMENTS_FILE)) {
+      const data = fs.readFileSync(ANNOUNCEMENTS_FILE, 'utf8');
+      const parsed = JSON.parse(data || '[]');
+      if (Array.isArray(parsed)) return parsed;
+    }
+    return [];
+  } catch (e) {
+    return [];
+  }
+}
+
+function saveAnnouncements(announcements) {
+  try {
+    fs.writeFileSync(ANNOUNCEMENTS_FILE, JSON.stringify(announcements, null, 2), 'utf8');
+  } catch (e) {}
+}
 
 function getEvents() {
   try {
@@ -1153,6 +1213,223 @@ app.get('/api/admin/users', (req, res) => {
     res.json({ success: true, count: enrichedUsers.length, users: enrichedUsers });
   } catch (err) {
     res.status(500).json({ success: false, count: 0, users: [] });
+  }
+});
+
+// ============================================================================
+// PART 17 — NOTIFICATION & COMMUNICATION ARCHITECTURE API ENDPOINTS
+// ============================================================================
+
+// API: Get Notifications with user isolation & filters
+app.get('/api/notifications', (req, res) => {
+  try {
+    const { userId, type, unreadOnly } = req.query;
+    let list = getNotifications();
+
+    if (userId) {
+      list = list.filter(n => n.userId === userId || n.userId === 'all');
+    }
+
+    if (unreadOnly === 'true') {
+      list = list.filter(n => !n.readAt);
+    }
+
+    if (type && type !== 'all') {
+      list = list.filter(n => n.type === type);
+    }
+
+    list.sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt));
+    res.json({ success: true, count: list.length, notifications: list });
+  } catch (err) {
+    res.status(500).json({ success: false, count: 0, notifications: [], message: err.message });
+  }
+});
+
+// API: Create new notification
+app.post('/api/notifications', (req, res) => {
+  try {
+    const payload = req.body || {};
+    if (!payload.title && !payload.message) {
+      return res.status(400).json({ success: false, message: 'Notification title or message required' });
+    }
+
+    const item = {
+      id: payload.id || ('ntf_' + Date.now().toString(36) + '_' + Math.random().toString(36).substr(2, 5)),
+      userId: payload.userId || 'guest',
+      type: payload.type || 'SYSTEM_NOTICE',
+      title: payload.title || 'Notification',
+      message: payload.message || '',
+      createdAt: payload.createdAt || new Date().toISOString(),
+      readAt: payload.readAt || null,
+      relatedType: payload.relatedType || null,
+      relatedId: payload.relatedId || null,
+      actionUrl: payload.actionUrl || null,
+      icon: payload.icon || 'notifications',
+      severity: payload.severity || 'info',
+      isGrouped: Boolean(payload.isGrouped),
+      groupCount: Number(payload.groupCount) || 1,
+      metadata: payload.metadata || {}
+    };
+
+    const list = getNotifications();
+    list.unshift(item);
+    saveNotifications(list);
+
+    res.json({ success: true, notification: item });
+  } catch (err) {
+    res.status(500).json({ success: false, message: err.message });
+  }
+});
+
+// API: Mark notification as read
+app.put('/api/notifications/:id/read', (req, res) => {
+  try {
+    const id = req.params.id;
+    const { userId } = req.body || {};
+    const list = getNotifications();
+    const target = list.find(n => n.id === id && (!userId || n.userId === userId || n.userId === 'all'));
+
+    if (target) {
+      target.readAt = new Date().toISOString();
+      saveNotifications(list);
+      return res.json({ success: true, notification: target });
+    }
+
+    res.status(404).json({ success: false, message: 'Notification not found' });
+  } catch (err) {
+    res.status(500).json({ success: false, message: err.message });
+  }
+});
+
+// API: Mark all notifications as read for user
+app.post('/api/notifications/mark-all-read', (req, res) => {
+  try {
+    const { userId } = req.body || {};
+    const list = getNotifications();
+    const now = new Date().toISOString();
+    let updated = 0;
+
+    list.forEach(n => {
+      if ((!userId || n.userId === userId || n.userId === 'all') && !n.readAt) {
+        n.readAt = now;
+        updated++;
+      }
+    });
+
+    saveNotifications(list);
+    res.json({ success: true, updatedCount: updated });
+  } catch (err) {
+    res.status(500).json({ success: false, message: err.message });
+  }
+});
+
+// API: Delete single notification
+app.delete('/api/notifications/:id', (req, res) => {
+  try {
+    const id = req.params.id;
+    const { userId } = req.body || {};
+    let list = getNotifications();
+    list = list.filter(n => !(n.id === id && (!userId || n.userId === userId || n.userId === 'all')));
+    saveNotifications(list);
+    res.json({ success: true, message: 'Notification deleted' });
+  } catch (err) {
+    res.status(500).json({ success: false, message: err.message });
+  }
+});
+
+// API: Clear all notifications for user
+app.delete('/api/notifications', (req, res) => {
+  try {
+    const { userId } = req.query;
+    if (!userId) {
+      return res.status(400).json({ success: false, message: 'userId query parameter required' });
+    }
+    let list = getNotifications();
+    list = list.filter(n => n.userId !== userId && n.userId !== 'all');
+    saveNotifications(list);
+    res.json({ success: true, message: 'Notifications cleared' });
+  } catch (err) {
+    res.status(500).json({ success: false, message: err.message });
+  }
+});
+
+// API: Get & Update User Notification Preferences
+app.get('/api/notifications/preferences', (req, res) => {
+  try {
+    const { userId } = req.query;
+    const allPrefs = getPreferences();
+    const userPrefs = (userId && allPrefs[userId]) ? allPrefs[userId] : {
+      inApp: true,
+      email: true,
+      whatsapp: false,
+      marketing: false,
+      wishReminders: true,
+      draftReminders: true,
+      expiryReminders: true,
+      productUpdates: true
+    };
+    res.json({ success: true, preferences: userPrefs });
+  } catch (err) {
+    res.status(500).json({ success: false, message: err.message });
+  }
+});
+
+app.post('/api/notifications/preferences', (req, res) => {
+  try {
+    const { userId, preferences } = req.body || {};
+    if (!userId || !preferences) {
+      return res.status(400).json({ success: false, message: 'userId and preferences object required' });
+    }
+    const allPrefs = getPreferences();
+    allPrefs[userId] = {
+      inApp: preferences.inApp !== false,
+      email: preferences.email !== false,
+      whatsapp: Boolean(preferences.whatsapp),
+      marketing: Boolean(preferences.marketing),
+      wishReminders: preferences.wishReminders !== false,
+      draftReminders: preferences.draftReminders !== false,
+      expiryReminders: preferences.expiryReminders !== false,
+      productUpdates: preferences.productUpdates !== false
+    };
+    savePreferences(allPrefs);
+    res.json({ success: true, preferences: allPrefs[userId], message: 'Preferences saved' });
+  } catch (err) {
+    res.status(500).json({ success: false, message: err.message });
+  }
+});
+
+// API: System Announcements
+app.get('/api/announcements', (req, res) => {
+  try {
+    const announcements = getAnnouncements();
+    const active = announcements.filter(a => a.isActive !== false);
+    res.json({ success: true, announcements: active });
+  } catch (err) {
+    res.status(500).json({ success: false, announcements: [] });
+  }
+});
+
+app.post('/api/announcements', (req, res) => {
+  try {
+    const { title, message, severity, expiresAt } = req.body || {};
+    if (!title || !message) {
+      return res.status(400).json({ success: false, message: 'Title and message required' });
+    }
+    const newAnnouncement = {
+      id: 'ann_' + Date.now().toString(36),
+      title: title.trim(),
+      message: message.trim(),
+      severity: severity || 'info',
+      createdAt: new Date().toISOString(),
+      expiresAt: expiresAt || null,
+      isActive: true
+    };
+    const list = getAnnouncements();
+    list.unshift(newAnnouncement);
+    saveAnnouncements(list);
+    res.json({ success: true, announcement: newAnnouncement, message: 'Announcement created' });
+  } catch (err) {
+    res.status(500).json({ success: false, message: err.message });
   }
 });
 

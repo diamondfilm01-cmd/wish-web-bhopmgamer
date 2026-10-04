@@ -3323,6 +3323,25 @@ async function executeWishCreation(extraPayload = {}) {
         });
       }
 
+      // Part 17: Notification Dispatch & Floating Toast
+      if (window.WishNotificationService) {
+        window.WishNotificationService.notify(window.WishNotificationService.TYPES.WISH_PUBLISHED, {
+          userId: currentUserId,
+          wishId: data.wishId,
+          slug: wishSlug,
+          recipientName: currentCustomData.recipient_name,
+          templateName: activeTemplate.name,
+          actionUrl: `/w/${wishSlug}`
+        });
+        if (window.WishToast) {
+          window.WishToast.show({
+            title: 'Celebration Published! ✨',
+            message: `Your wish for ${currentCustomData.recipient_name || 'your loved one'} is now live and ready to share!`,
+            type: 'success'
+          });
+        }
+      }
+
       if (window.WishShareSystem) {
         WishShareSystem.openShareModal(data.wish || {
           id: data.wishId,

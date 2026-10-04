@@ -545,6 +545,15 @@
         });
       }
 
+      // Part 17: Toast Feedback
+      if (window.WishToast) {
+        window.WishToast.show({
+          title: 'Link Copied! 📋',
+          message: 'Public celebration URL copied to clipboard.',
+          type: 'success'
+        });
+      }
+
       return copied;
     },
 

@@ -94,6 +94,22 @@
         window.WishEntitlement.setDevelopmentPlan('premium');
       }
 
+      // Part 17: Notification & Toast Dispatch
+      if (window.WishNotificationService) {
+        window.WishNotificationService.notify(window.WishNotificationService.TYPES.PREMIUM_UPGRADE, {
+          title: 'VIP Pass Activated! 👑',
+          message: 'VIP Creator privileges enabled! Unlimited premium templates and watermark removal unlocked.',
+          actionUrl: '/account'
+        });
+        if (window.WishToast) {
+          window.WishToast.show({
+            title: 'VIP Pass Active! 👑',
+            message: 'All premium features and watermark-free exports are unlocked!',
+            type: 'success'
+          });
+        }
+      }
+
       return {
         success: true,
         mode: 'development_sandbox',

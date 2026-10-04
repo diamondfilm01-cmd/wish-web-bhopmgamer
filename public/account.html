@@ -101,9 +101,11 @@
     .font-fill { font-variation-settings: 'FILL' 1; }
   </style>
 
-  <!-- Auth & Repositories -->
+  <!-- Auth & Repositories & Part 17 Notification System -->
   <script src="js/auth-service.js"></script>
   <script src="js/repositories.js"></script>
+  <script src="js/wish-lifecycle.js"></script>
+  <script src="js/notification-service.js"></script>
 </head>
 <body class="w-full min-h-screen antialiased flex flex-col selection:bg-pink-500 selection:text-white">
 
@@ -272,6 +274,118 @@
         </form>
       </section>
 
+      <!-- Part 17: Notification Preferences & Communication Channels -->
+      <section class="glass-card rounded-3xl p-6 sm:p-8">
+        <div class="flex items-center justify-between mb-4">
+          <div class="flex items-center gap-2">
+            <span class="material-symbols-outlined text-primary text-[22px]">notifications_active</span>
+            <div>
+              <h2 class="font-display font-extrabold text-xl text-purple-950 dark:text-white">Notification Preferences &amp; Channels</h2>
+              <p class="text-xs text-purple-800/80 dark:text-purple-300/80 mt-0.5">Control how and when WishMagic communicates updates, celebration milestones, and reminders.</p>
+            </div>
+          </div>
+          <button onclick="saveNotificationPreferences()" id="btn-save-notif-prefs" class="px-4 py-2 rounded-xl bg-primary hover:bg-pink-600 text-white text-xs font-bold transition shadow-sm cursor-pointer">
+            Save Preferences
+          </button>
+        </div>
+
+        <div class="grid grid-cols-1 md:grid-cols-2 gap-6 pt-2">
+          <!-- Column 1: Delivery Channels -->
+          <div class="p-4 rounded-2xl bg-purple-50/50 dark:bg-purple-950/30 border border-purple-200/60 dark:border-purple-800/50 flex flex-col gap-3.5">
+            <div class="text-xs font-bold uppercase tracking-wider text-purple-900 dark:text-purple-200 flex items-center gap-1.5">
+              <span class="material-symbols-outlined text-[16px] text-pink-500">cell_tower</span>
+              <span>Delivery Channels</span>
+            </div>
+
+            <!-- In-App Notification Center -->
+            <label class="flex items-start justify-between gap-3 p-3 rounded-xl bg-white/70 dark:bg-purple-900/30 border border-purple-200/50 dark:border-purple-800/40 cursor-pointer">
+              <div>
+                <div class="text-xs font-bold text-purple-950 dark:text-white flex items-center gap-1.5">
+                  <span>In-App Notification Center</span>
+                  <span class="px-1.5 py-0.2 rounded bg-emerald-500/20 text-emerald-600 dark:text-emerald-400 font-bold text-[9px] uppercase">Active</span>
+                </div>
+                <div class="text-[11px] text-purple-800/70 dark:text-purple-300/70 mt-0.5">Show notifications in the top navbar bell &amp; popover drawer.</div>
+              </div>
+              <input type="checkbox" id="pref-inApp" class="rounded text-pink-500 focus:ring-pink-500 mt-1 cursor-pointer" checked/>
+            </label>
+
+            <!-- Email Delivery (Provider Notice) -->
+            <label class="flex items-start justify-between gap-3 p-3 rounded-xl bg-white/70 dark:bg-purple-900/30 border border-purple-200/50 dark:border-purple-800/40 cursor-pointer">
+              <div>
+                <div class="text-xs font-bold text-purple-950 dark:text-white flex items-center gap-1.5">
+                  <span>Email Notifications</span>
+                  <span class="px-1.5 py-0.2 rounded bg-amber-500/20 text-amber-600 dark:text-amber-400 font-bold text-[9px] uppercase">Cloud Ready</span>
+                </div>
+                <div class="text-[11px] text-purple-800/70 dark:text-purple-300/70 mt-0.5">Send purchase receipts &amp; special date summaries. <em>(Available when email delivery is connected in Part 20)</em></div>
+              </div>
+              <input type="checkbox" id="pref-email" class="rounded text-pink-500 focus:ring-pink-500 mt-1 cursor-pointer" checked/>
+            </label>
+
+            <!-- WhatsApp Delivery (Provider Notice) -->
+            <label class="flex items-start justify-between gap-3 p-3 rounded-xl bg-white/70 dark:bg-purple-900/30 border border-purple-200/50 dark:border-purple-800/40 cursor-pointer">
+              <div>
+                <div class="text-xs font-bold text-purple-950 dark:text-white flex items-center gap-1.5">
+                  <span>Automated WhatsApp Alerts</span>
+                  <span class="px-1.5 py-0.2 rounded bg-purple-500/20 text-purple-600 dark:text-purple-400 font-bold text-[9px] uppercase">Optional</span>
+                </div>
+                <div class="text-[11px] text-purple-800/70 dark:text-purple-300/70 mt-0.5">Direct reminder messages for upcoming dates. <em>(Available when WhatsApp API is connected)</em></div>
+              </div>
+              <input type="checkbox" id="pref-whatsapp" class="rounded text-pink-500 focus:ring-pink-500 mt-1 cursor-pointer"/>
+            </label>
+          </div>
+
+          <!-- Column 2: Event Triggers -->
+          <div class="p-4 rounded-2xl bg-purple-50/50 dark:bg-purple-950/30 border border-purple-200/60 dark:border-purple-800/50 flex flex-col gap-3.5">
+            <div class="text-xs font-bold uppercase tracking-wider text-purple-900 dark:text-purple-200 flex items-center gap-1.5">
+              <span class="material-symbols-outlined text-[16px] text-pink-500">checklist</span>
+              <span>Celebration &amp; Lifecycle Alerts</span>
+            </div>
+
+            <label class="flex items-start justify-between gap-3 p-3 rounded-xl bg-white/70 dark:bg-purple-900/30 border border-purple-200/50 dark:border-purple-800/40 cursor-pointer">
+              <div>
+                <div class="text-xs font-bold text-purple-950 dark:text-white">Upcoming Wish Reminders</div>
+                <div class="text-[11px] text-purple-800/70 dark:text-purple-300/70 mt-0.5">Alerts when a celebration date is tomorrow or today (Asia/Kolkata timezone).</div>
+              </div>
+              <input type="checkbox" id="pref-wishReminders" class="rounded text-pink-500 focus:ring-pink-500 mt-1 cursor-pointer" checked/>
+            </label>
+
+            <label class="flex items-start justify-between gap-3 p-3 rounded-xl bg-white/70 dark:bg-purple-900/30 border border-purple-200/50 dark:border-purple-800/40 cursor-pointer">
+              <div>
+                <div class="text-xs font-bold text-purple-950 dark:text-white">Unfinished Draft Reminders</div>
+                <div class="text-[11px] text-purple-800/70 dark:text-purple-300/70 mt-0.5">Smart nudges for drafts waiting to be completed and published.</div>
+              </div>
+              <input type="checkbox" id="pref-draftReminders" class="rounded text-pink-500 focus:ring-pink-500 mt-1 cursor-pointer" checked/>
+            </label>
+
+            <label class="flex items-start justify-between gap-3 p-3 rounded-xl bg-white/70 dark:bg-purple-900/30 border border-purple-200/50 dark:border-purple-800/40 cursor-pointer">
+              <div>
+                <div class="text-xs font-bold text-purple-950 dark:text-white">7-Day Expiry &amp; Grace Period Alerts</div>
+                <div class="text-[11px] text-purple-800/70 dark:text-purple-300/70 mt-0.5">Notify before celebration links reach the end of their 7-day grace window.</div>
+              </div>
+              <input type="checkbox" id="pref-expiryReminders" class="rounded text-pink-500 focus:ring-pink-500 mt-1 cursor-pointer" checked/>
+            </label>
+          </div>
+        </div>
+
+        <!-- Live Reminder Scan & Simulation Test Tool -->
+        <div class="mt-5 p-4 rounded-2xl bg-pink-50/60 dark:bg-pink-950/20 border border-pink-200/60 dark:border-pink-800/40">
+          <div class="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3">
+            <div>
+              <div class="text-xs font-bold text-purple-950 dark:text-white flex items-center gap-1.5">
+                <span class="material-symbols-outlined text-pink-500 text-[18px]">rule</span>
+                <span>Reminder Eligibility Scanner (Part 17 Architecture)</span>
+              </div>
+              <p class="text-[11px] text-purple-800/80 dark:text-purple-300/80 mt-0.5">Scans current user's drafts and active wishes using the centralized lifecycle engine without spamming.</p>
+            </div>
+            <button onclick="runReminderScanner()" class="px-3.5 py-1.5 rounded-xl bg-pink-500 hover:bg-pink-600 text-white font-bold text-xs shadow-sm transition flex items-center gap-1.5 cursor-pointer flex-shrink-0">
+              <span class="material-symbols-outlined text-[15px]">radar</span>
+              <span>Scan Reminders</span>
+            </button>
+          </div>
+          <div id="reminder-scan-results" class="mt-3 text-xs hidden space-y-2"></div>
+        </div>
+      </section>
+
       <!-- Development Identity Switcher (Part 9 Verification Requirement) -->
       <section class="glass-card rounded-3xl p-6 sm:p-8 border border-amber-500/40">
         <div class="flex items-center justify-between mb-3">
@@ -351,6 +465,115 @@
       }
 
       renderDevSwitcherGrid(user.id);
+      loadNotificationPreferences(user.id);
+    }
+
+    // Part 17: Notification Preferences Handlers
+    function loadNotificationPreferences(userId) {
+      if (!window.WishNotificationService) return;
+      const prefs = window.WishNotificationService.getNotificationPreferences(userId);
+      
+      const inAppEl = document.getElementById('pref-inApp');
+      const emailEl = document.getElementById('pref-email');
+      const whatsappEl = document.getElementById('pref-whatsapp');
+      const wishRemindersEl = document.getElementById('pref-wishReminders');
+      const draftRemindersEl = document.getElementById('pref-draftReminders');
+      const expiryRemindersEl = document.getElementById('pref-expiryReminders');
+
+      if (inAppEl) inAppEl.checked = prefs.inApp !== false;
+      if (emailEl) emailEl.checked = prefs.email !== false;
+      if (whatsappEl) whatsappEl.checked = Boolean(prefs.whatsapp);
+      if (wishRemindersEl) wishRemindersEl.checked = prefs.wishReminders !== false;
+      if (draftRemindersEl) draftRemindersEl.checked = prefs.draftReminders !== false;
+      if (expiryRemindersEl) expiryRemindersEl.checked = prefs.expiryReminders !== false;
+    }
+
+    function saveNotificationPreferences() {
+      const user = WishAuth.getCurrentUser();
+      if (!user || !window.WishNotificationService) return;
+
+      const prefs = {
+        inApp: document.getElementById('pref-inApp')?.checked ?? true,
+        email: document.getElementById('pref-email')?.checked ?? true,
+        whatsapp: document.getElementById('pref-whatsapp')?.checked ?? false,
+        marketing: false,
+        wishReminders: document.getElementById('pref-wishReminders')?.checked ?? true,
+        draftReminders: document.getElementById('pref-draftReminders')?.checked ?? true,
+        expiryReminders: document.getElementById('pref-expiryReminders')?.checked ?? true,
+        productUpdates: true
+      };
+
+      window.WishNotificationService.updateNotificationPreferences(user.id, prefs);
+      
+      const btn = document.getElementById('btn-save-notif-prefs');
+      if (btn) {
+        btn.textContent = 'Saved! ✨';
+        btn.classList.add('bg-emerald-500');
+        setTimeout(() => {
+          btn.textContent = 'Save Preferences';
+          btn.classList.remove('bg-emerald-500');
+        }, 2000);
+      }
+
+      if (window.WishToast) {
+        window.WishToast.show({ title: 'Preferences Updated', message: 'Notification preferences saved successfully.', type: 'success' });
+      }
+    }
+
+    async function runReminderScanner() {
+      const user = WishAuth.getCurrentUser();
+      const resultsContainer = document.getElementById('reminder-scan-results');
+      if (!user || !resultsContainer || !window.WishNotificationService) return;
+
+      resultsContainer.classList.remove('hidden');
+      resultsContainer.innerHTML = '<div class="py-2 text-purple-600 dark:text-purple-400">Scanning celebration dates &amp; unfinished drafts...</div>';
+
+      const [draftReminders, upcomingReminders, expiringReminders] = await Promise.all([
+        window.WishNotificationService.getEligibleDraftReminders(user.id),
+        window.WishNotificationService.getUpcomingWishReminders(user.id),
+        window.WishNotificationService.getExpiringWishReminders(user.id)
+      ]);
+
+      const totalFound = draftReminders.length + upcomingReminders.length + expiringReminders.length;
+
+      if (totalFound === 0) {
+        resultsContainer.innerHTML = `
+          <div class="p-3 rounded-xl bg-white/80 dark:bg-purple-900/40 border border-emerald-500/40 text-emerald-700 dark:text-emerald-300 flex items-center gap-2">
+            <span class="material-symbols-outlined text-[18px]">verified</span>
+            <span>All celebrations and drafts are up to date. No pending reminders required!</span>
+          </div>
+        `;
+        return;
+      }
+
+      resultsContainer.innerHTML = `
+        <div class="p-3 rounded-xl bg-white/80 dark:bg-purple-900/40 border border-purple-200 dark:border-purple-800 space-y-2">
+          <div class="font-bold text-purple-950 dark:text-white flex items-center justify-between">
+            <span>Found ${totalFound} Reminder Opportunities:</span>
+            <span class="px-2 py-0.5 rounded-full bg-pink-500/20 text-pink-600 dark:text-pink-400 text-[10px] font-black">${totalFound} PENDING</span>
+          </div>
+          <div class="space-y-1.5 divide-y divide-purple-100 dark:divide-purple-900/40 text-[11px]">
+            ${draftReminders.map(d => `
+              <div class="pt-1.5 flex items-center justify-between text-amber-700 dark:text-amber-300">
+                <span>📝 Unfinished draft for <strong>${d.recipientName}</strong> (modified ${d.ageHours}h ago)</span>
+                <a href="/customize?draft=${d.draftId}" class="underline font-bold">Resume Draft →</a>
+              </div>
+            `).join('')}
+            ${upcomingReminders.map(u => `
+              <div class="pt-1.5 flex items-center justify-between text-purple-800 dark:text-purple-300">
+                <span>🎉 Upcoming wish for <strong>${u.recipientName}</strong> (${u.daysRemaining === 0 ? 'Today' : `${u.daysRemaining} days away`})</span>
+                <a href="/w/${u.slug || u.wishId}" target="_blank" class="underline font-bold">Preview Live →</a>
+              </div>
+            `).join('')}
+            ${expiringReminders.map(e => `
+              <div class="pt-1.5 flex items-center justify-between text-rose-700 dark:text-rose-400">
+                <span>⏳ Grace period active for <strong>${e.recipientName}</strong></span>
+                <a href="/my-wishes" class="underline font-bold">View Status →</a>
+              </div>
+            `).join('')}
+          </div>
+        </div>
+      `;
     }
 
     function renderDevSwitcherGrid(currentUserId) {

@@ -840,7 +840,9 @@
     categoryRepository,
     mediaRepository,
     userRepository,
-    adminRepository
+    adminRepository,
+    get notificationRepository() { return window.notificationRepository; },
+    get notificationPreferencesRepository() { return window.notificationPreferencesRepository; }
   };
 
   window.WishAuthorization = WishAuthorization;
