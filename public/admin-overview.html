@@ -20,6 +20,9 @@
   <link rel="stylesheet" href="css/admin-theme.css"/>
   <script src="js/WishMagicCore.js"></script>
   <script src="js/admin-theme.js"></script>
+  <!-- Part 10 Auth & Repositories -->
+  <script src="js/auth-service.js"></script>
+  <script src="js/repositories.js"></script>
 </head>
 <body class="bg-background text-on-surface font-body-md min-h-screen antialiased">
 
@@ -125,7 +128,7 @@
   </header>
 
   <!-- Main Content Area -->
-  <main class="w-full pt-20 px-4 sm:px-6 lg:px-8 pb-16 max-w-7xl mx-auto flex flex-col gap-8">
+  <main id="admin-main-content" class="w-full pt-20 px-4 sm:px-6 lg:px-8 pb-16 max-w-7xl mx-auto flex flex-col gap-8">
     <!-- Header Summary -->
     <div class="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
       <div>
@@ -152,10 +155,71 @@
             <span class="material-symbols-outlined text-[13px]">visibility</span>
           </span>
         </button>
-        <a href="admin-orders.html" class="px-4 py-2.5 rounded-xl bg-primary-container text-white text-xs sm:text-sm font-bold flex items-center gap-2 hover:brightness-110 transition shadow-lg shadow-purple-600/30">
-          <span class="material-symbols-outlined text-sm">receipt_long</span>
-          <span>View Orders &amp; Buyers</span>
+        <a href="/admin/templates" class="px-4 py-2.5 rounded-xl bg-primary-container text-white text-xs sm:text-sm font-bold flex items-center gap-2 hover:brightness-110 transition shadow-lg shadow-purple-600/30">
+          <span class="material-symbols-outlined text-sm">style</span>
+          <span>Templates Studio</span>
         </a>
+      </div>
+    </div>
+
+    <!-- Part 10 Requirement 5: Live Template & Category Taxonomy Summary Ribbon -->
+    <div class="bg-surface-container rounded-2xl p-5 border border-purple-900/30 shadow-xl">
+      <div class="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 pb-4 mb-4 border-b border-purple-900/30">
+        <div class="flex items-center gap-2.5">
+          <span class="w-8 h-8 rounded-xl bg-gradient-to-tr from-primary to-secondary flex items-center justify-center text-white text-base">🎨</span>
+          <div>
+            <h3 class="font-bold text-sm sm:text-base text-on-surface">Template Studio &amp; Category Statistics</h3>
+            <p class="text-xs text-on-surface-variant">Live metrics calculated directly from template repository &amp; taxonomy database</p>
+          </div>
+        </div>
+        <div class="flex items-center gap-2">
+          <a href="/admin/templates" class="px-3 py-1.5 rounded-lg bg-primary hover:bg-secondary text-white text-xs font-bold transition flex items-center gap-1.5 shadow-sm">
+            <span class="material-symbols-outlined text-[16px]">style</span>
+            <span>Manage Templates</span>
+          </a>
+          <a href="/admin/categories" class="px-3 py-1.5 rounded-lg bg-surface-container-high hover:bg-surface-container-highest text-on-surface text-xs font-bold transition flex items-center gap-1.5">
+            <span class="material-symbols-outlined text-[16px]">category</span>
+            <span>Categories</span>
+          </a>
+        </div>
+      </div>
+
+      <div class="grid grid-cols-2 sm:grid-cols-4 lg:grid-cols-7 gap-3">
+        <div class="p-3 rounded-xl bg-surface-container-low border border-purple-900/20">
+          <span class="text-[10px] font-bold uppercase tracking-wider text-outline">Templates</span>
+          <div id="stat-total-templates" class="font-headline-lg text-2xl font-black text-on-surface mt-0.5">0</div>
+          <span class="text-[10px] text-on-surface-variant">All designs</span>
+        </div>
+        <div class="p-3 rounded-xl bg-emerald-500/10 border border-emerald-500/30">
+          <span class="text-[10px] font-bold uppercase tracking-wider text-emerald-400">Published</span>
+          <div id="stat-published-templates" class="font-headline-lg text-2xl font-black text-emerald-400 mt-0.5">0</div>
+          <span class="text-[10px] text-emerald-400/80">Live in market</span>
+        </div>
+        <div class="p-3 rounded-xl bg-amber-500/10 border border-amber-500/30">
+          <span class="text-[10px] font-bold uppercase tracking-wider text-amber-400">Drafts</span>
+          <div id="stat-draft-templates" class="font-headline-lg text-2xl font-black text-amber-400 mt-0.5">0</div>
+          <span class="text-[10px] text-amber-400/80">Unpublished</span>
+        </div>
+        <div class="p-3 rounded-xl bg-purple-500/10 border border-purple-500/30">
+          <span class="text-[10px] font-bold uppercase tracking-wider text-purple-400">Categories</span>
+          <div id="stat-total-categories" class="font-headline-lg text-2xl font-black text-purple-400 mt-0.5">0</div>
+          <span class="text-[10px] text-purple-400/80">Active tags</span>
+        </div>
+        <div class="p-3 rounded-xl bg-pink-500/10 border border-pink-500/30">
+          <span class="text-[10px] font-bold uppercase tracking-wider text-pink-400">Featured</span>
+          <div id="stat-featured-templates" class="font-headline-lg text-2xl font-black text-pink-400 mt-0.5">0</div>
+          <span class="text-[10px] text-pink-400/80">Homepage hero</span>
+        </div>
+        <div class="p-3 rounded-xl bg-amber-500/10 border border-amber-500/30">
+          <span class="text-[10px] font-bold uppercase tracking-wider text-amber-400">Premium</span>
+          <div id="stat-premium-templates" class="font-headline-lg text-2xl font-black text-amber-400 mt-0.5">0</div>
+          <span class="text-[10px] text-amber-400/80">VIP pass</span>
+        </div>
+        <div class="p-3 rounded-xl bg-cyan-500/10 border border-cyan-500/30">
+          <span class="text-[10px] font-bold uppercase tracking-wider text-cyan-400">Free</span>
+          <div id="stat-free-templates" class="font-headline-lg text-2xl font-black text-cyan-400 mt-0.5">0</div>
+          <span class="text-[10px] text-cyan-400/80">Complimentary</span>
+        </div>
       </div>
     </div>
 
@@ -764,8 +828,73 @@ function formatTimeAgo(isoString) {
   return `${Math.floor(hours / 24)}d ago`;
 }
 
-document.addEventListener('DOMContentLoaded', fetchAdminMetrics);
-setInterval(fetchAdminMetrics, 2500); // 2.5 second real-time polling
+async function fetchTemplateAndCategoryStats() {
+  try {
+    if (!window.templateRepository || !window.categoryRepository) return;
+
+    const [templates, categories] = await Promise.all([
+      templateRepository.getAll({ includeDrafts: true }),
+      categoryRepository.getAll()
+    ]);
+
+    const totalTemplates = templates.length;
+    const published = templates.filter(t => t.status === 'published' || t.isPublished !== false).length;
+    const drafts = templates.filter(t => t.status === 'draft' || t.isPublished === false).length;
+    const totalCategories = categories.length;
+    const featured = templates.filter(t => Boolean(t.featured)).length;
+    const premium = templates.filter(t => t.tier === 'vip' || t.isPremium === true).length;
+    const free = templates.filter(t => t.tier === 'free' && !t.isPremium).length;
+
+    // Update Part 10 Requirement 5 Statistics Ribbon
+    const elTotal = document.getElementById('stat-total-templates');
+    const elPub = document.getElementById('stat-published-templates');
+    const elDraft = document.getElementById('stat-draft-templates');
+    const elCats = document.getElementById('stat-total-categories');
+    const elFeat = document.getElementById('stat-featured-templates');
+    const elPrem = document.getElementById('stat-premium-templates');
+    const elFree = document.getElementById('stat-free-templates');
+
+    if (elTotal) elTotal.textContent = totalTemplates;
+    if (elPub) elPub.textContent = published;
+    if (elDraft) elDraft.textContent = drafts;
+    if (elCats) elCats.textContent = totalCategories;
+    if (elFeat) elFeat.textContent = featured;
+    if (elPrem) elPrem.textContent = premium;
+    if (elFree) elFree.textContent = free;
+
+    // Also update overview stat-templates card
+    const statTpl = document.getElementById('stat-templates');
+    if (statTpl) statTpl.textContent = totalTemplates;
+  } catch (err) {
+    console.warn('Error fetching template overview stats:', err);
+  }
+}
+
+document.addEventListener('DOMContentLoaded', () => {
+  // Part 10 Authorization Guard: requireAuth() + requireAdmin()
+  if (window.WishAuth) {
+    const isAllowed = WishAuth.requireAdmin({ containerId: 'admin-main-content' });
+    if (!isAllowed) {
+      return; // Stop loading admin telemetry if access denied
+    }
+
+    // Update admin user badge in header
+    const user = WishAuth.getCurrentUser();
+    if (user) {
+      const nameEl = document.querySelector('.font-label-lg.text-label-lg.font-semibold.text-on-surface');
+      if (nameEl) nameEl.textContent = user.displayName;
+    }
+  }
+
+  fetchAdminMetrics();
+  fetchTemplateAndCategoryStats();
+});
+setInterval(() => {
+  if (window.WishAuth && WishAuth.isAdmin()) {
+    fetchAdminMetrics();
+    fetchTemplateAndCategoryStats();
+  }
+}, 4000);
 </script>
 </body>
 </html>

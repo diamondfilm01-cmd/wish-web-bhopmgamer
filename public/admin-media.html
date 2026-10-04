@@ -20,6 +20,9 @@
   <link rel="stylesheet" href="css/admin-theme.css"/>
   <script src="js/WishMagicCore.js"></script>
   <script src="js/admin-theme.js"></script>
+  <!-- Part 10 Auth & Repositories Layer -->
+  <script src="js/auth-service.js"></script>
+  <script src="js/repositories.js"></script>
 </head>
 <body class="bg-background text-on-surface font-body-md min-h-screen antialiased">
 
@@ -125,7 +128,7 @@
   </header>
 
   <!-- Main Content Area -->
-  <main class="w-full pt-20 px-4 sm:px-6 lg:px-8 pb-16 max-w-7xl mx-auto flex flex-col gap-8">
+  <main id="admin-main-content" class="w-full pt-20 px-4 sm:px-6 lg:px-8 pb-16 max-w-7xl mx-auto flex flex-col gap-8">
     <!-- Page Header & Action Bar -->
     <div class="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
       <div>
@@ -641,7 +644,16 @@
   }
 
   // Load catalog on boot
-  document.addEventListener('DOMContentLoaded', loadAudioCatalog);
+  document.addEventListener('DOMContentLoaded', () => {
+    // Part 10 Authorization Guard: requireAuth() + requireAdmin()
+    if (window.WishAuth) {
+      const isAllowed = WishAuth.requireAdmin({ containerId: 'admin-main-content' });
+      if (!isAllowed) {
+        return; // Halt if unauthorized
+      }
+    }
+    loadAudioCatalog();
+  });
 </script>
 </body>
 </html>

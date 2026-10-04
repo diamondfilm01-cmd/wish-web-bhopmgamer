@@ -385,187 +385,736 @@ async function deployUploadedTemplate() {
   }
 }
 
-// 6. Fetch & Load Templates in Admin Grid
+// 6. Comprehensive Template Management Studio Engine (Part 10)
+let allAdminTemplates = [];
+let activeAdminFilter = 'all'; // 'all' | 'published' | 'draft' | 'free' | 'vip' | 'featured'
+let activeAdminOccasion = 'all';
+let activeAdminSearch = '';
+let activeAdminSort = 'updated';
+let activeAdminViewMode = 'grid'; // 'grid' | 'table'
+let currentEditingTemplateId = null;
+
+// Expose filter & sort functions to window for onclick handlers
+window.filterTemplatesByTier = function(tier) {
+  activeAdminFilter = tier;
+  updateFilterButtonsUI();
+  applyFiltersAndRender();
+};
+
+window.filterTemplatesByOccasion = function(occ) {
+  activeAdminOccasion = occ;
+  updateOccasionButtonsUI();
+  applyFiltersAndRender();
+};
+
+window.handleSortChange = function(sortKey) {
+  activeAdminSort = sortKey;
+  applyFiltersAndRender();
+};
+
+window.handleAdminSearch = function(query) {
+  activeAdminSearch = (query || '').toLowerCase().trim();
+  applyFiltersAndRender();
+};
+
+window.setTemplateViewMode = function(mode) {
+  activeAdminViewMode = mode;
+  const gridSection = document.getElementById('master-templates-grid');
+  const tableSection = document.getElementById('master-templates-table-container');
+  const btnGrid = document.getElementById('btn-view-grid');
+  const btnTable = document.getElementById('btn-view-table');
+
+  if (mode === 'table') {
+    if (gridSection) gridSection.classList.add('hidden');
+    if (tableSection) tableSection.classList.remove('hidden');
+    if (btnGrid) btnGrid.className = 'p-1.5 rounded text-outline hover:text-on-surface transition-colors flex items-center justify-center cursor-pointer';
+    if (btnTable) btnTable.className = 'p-1.5 rounded bg-primary-container text-white shadow-sm flex items-center justify-center cursor-pointer';
+  } else {
+    if (gridSection) gridSection.classList.remove('hidden');
+    if (tableSection) tableSection.classList.add('hidden');
+    if (btnGrid) btnGrid.className = 'p-1.5 rounded bg-primary-container text-white shadow-sm flex items-center justify-center cursor-pointer';
+    if (btnTable) btnTable.className = 'p-1.5 rounded text-outline hover:text-on-surface transition-colors flex items-center justify-center cursor-pointer';
+  }
+  applyFiltersAndRender();
+};
+
+function updateFilterButtonsUI() {
+  const filterMap = {
+    'all': 'btn-filter-all',
+    'published': 'btn-filter-published',
+    'draft': 'btn-filter-draft',
+    'free': 'btn-filter-free',
+    'vip': 'btn-filter-vip',
+    'featured': 'btn-filter-featured'
+  };
+
+  Object.entries(filterMap).forEach(([key, btnId]) => {
+    const btn = document.getElementById(btnId);
+    if (!btn) return;
+    if (activeAdminFilter === key) {
+      btn.className = 'px-space-sm py-1 rounded-full font-label-sm text-label-sm bg-primary-container text-white font-bold shadow-md cursor-pointer';
+    } else {
+      btn.className = 'px-space-sm py-1 rounded-full font-label-sm text-label-sm bg-surface-container-lowest text-on-surface-variant hover:text-on-surface hover:bg-surface-container-high transition-colors cursor-pointer';
+    }
+  });
+}
+
+function updateOccasionButtonsUI() {
+  const occContainer = document.getElementById('filter-occasions-container');
+  if (!occContainer) return;
+  const buttons = occContainer.querySelectorAll('button');
+  buttons.forEach(btn => {
+    const dataOcc = btn.getAttribute('data-occ') || '';
+    if (dataOcc.toLowerCase() === activeAdminOccasion.toLowerCase()) {
+      btn.className = 'px-2.5 py-1 rounded-lg font-label-sm text-label-sm bg-secondary text-white font-bold flex items-center gap-1.5 shadow-sm cursor-pointer';
+    } else {
+      btn.className = 'px-2.5 py-1 rounded-lg font-label-sm text-label-sm bg-surface-container-lowest text-on-surface-variant hover:text-on-surface hover:bg-surface-container-high flex items-center gap-1.5 transition-colors cursor-pointer';
+    }
+  });
+}
+
+// Fetch & Load Templates in Admin Studio
 async function loadDynamicTemplates() {
-  const container = document.getElementById('dynamic-templates-container');
-  if (!container) return;
-
   try {
-    const res = await fetch('/api/templates');
-    const data = await res.json();
-    if (!data.success || !data.templates) return;
-
-    container.innerHTML = '';
-    const templates = data.templates;
-
-    // Update metrics with real dynamic counts
-    const countTotal = document.getElementById('count-total');
-    const countPublished = document.getElementById('count-published');
-    const countDrafts = document.getElementById('count-drafts');
-    const countPremium = document.getElementById('count-premium');
-    const countFree = document.getElementById('count-free');
-    const countFooter = document.getElementById('count-footer-total');
-
-    const filterAllCount = document.getElementById('filter-all-count');
-    const filterPublishedCount = document.getElementById('filter-published-count');
-    const filterFreeCount = document.getElementById('filter-free-count');
-    const filterPremiumCount = document.getElementById('filter-premium-count');
-
-    const vipCount = templates.filter(t => t.tier === 'vip' || (t.price && Number(t.price) > 0)).length;
-    const freeCount = templates.length - vipCount;
-
-    if (countTotal) countTotal.textContent = templates.length;
-    if (countPublished) countPublished.textContent = templates.length;
-    if (countDrafts) countDrafts.textContent = 0;
-    if (countPremium) countPremium.textContent = vipCount;
-    if (countFree) countFree.textContent = freeCount;
-    if (countFooter) countFooter.textContent = templates.length;
-
-    if (filterAllCount) filterAllCount.textContent = templates.length;
-    if (filterPublishedCount) filterPublishedCount.textContent = templates.length;
-    if (filterFreeCount) filterFreeCount.textContent = freeCount;
-    if (filterPremiumCount) filterPremiumCount.textContent = vipCount;
-
-    // Dynamically populate Occasions Filter List from REAL templates
-    const occContainer = document.getElementById('filter-occasions-container');
-    if (occContainer) {
-      const occMap = {};
-      templates.forEach(t => {
-        const cat = t.category || 'General';
-        occMap[cat] = (occMap[cat] || 0) + 1;
-      });
-
-      const occEntries = Object.entries(occMap);
-      if (occEntries.length === 0) {
-        occContainer.innerHTML = '<span class="text-xs text-outline">No occasions active yet</span>';
-      } else {
-        occContainer.innerHTML = occEntries.map(([cat, count]) => `
-          <button onclick="filterTemplatesByOccasion('${escapeQuotes(cat)}')" class="px-2.5 py-1 rounded-lg font-label-sm text-label-sm bg-surface-container-lowest text-on-surface-variant hover:text-on-surface hover:bg-surface-container-high flex items-center gap-1.5 transition-colors cursor-pointer">
-            <span>${cat}</span>
-            <span class="font-mono text-outline font-bold">${count}</span>
-          </button>
-        `).join('');
-      }
+    let templates = [];
+    if (window.templateRepository && typeof window.templateRepository.getAll === 'function') {
+      templates = await window.templateRepository.getAll({ includeDrafts: true });
+    } else {
+      const res = await fetch('/api/templates?includeDrafts=true');
+      const data = await res.json();
+      templates = data.templates || [];
     }
 
-    if (templates.length === 0) {
-      container.innerHTML = `
-        <div class="col-span-full py-16 px-4 flex flex-col items-center justify-center text-center bg-surface-container-low rounded-2xl border border-dashed border-purple-500/30">
-          <div class="w-16 h-16 rounded-2xl bg-primary-container/20 text-primary flex items-center justify-center mb-4 shadow-lg shadow-purple-600/20">
-            <span class="material-symbols-outlined text-[36px]">folder_open</span>
-          </div>
-          <h3 class="font-headline-sm text-lg sm:text-xl font-bold text-on-surface mb-2">No Templates Uploaded Yet</h3>
-          <p class="text-sm text-on-surface-variant max-w-md mb-6 leading-relaxed">
-            Sabhi mock / fake templates hata diye gaye hain. Aap upar diye gaye <strong class="text-primary">"Upload Website / Code Folder"</strong> button se apna poora code folder ya ZIP upload kar sakte hain!
-          </p>
-          <button onclick="toggleModal('upload-code-modal')" class="flex items-center gap-2 px-5 py-2.5 rounded-xl bg-gradient-to-r from-primary to-secondary text-white font-bold text-sm shadow-lg shadow-purple-600/30 hover:brightness-110 active:scale-95 transition">
-            <span class="material-symbols-outlined text-[18px]">cloud_upload</span>
-            <span>Upload Website Code (Folder ya ZIP)</span>
-          </button>
-        </div>
-      `;
-      return;
-    }
-
-    templates.forEach(tpl => {
-      const card = document.createElement('article');
-      card.className = "bg-surface-container-low rounded-2xl overflow-hidden flex flex-col justify-between shadow-xl hover:shadow-[0_12px_40px_-8px_rgba(124,58,237,0.35)] transition-all duration-300 group border border-purple-500/20";
-      
-      const priceText = tpl.tier === 'vip' ? `₹${tpl.price || 49}` : '₹0';
-      const tierBadge = tpl.tier === 'vip' ? 'VIP MAGIC PASS' : 'FREE TIER';
-      const tierClass = tpl.tier === 'vip' ? 'bg-gradient-to-r from-pink-500 to-purple-600 text-white' : 'bg-primary-container text-on-primary-container';
-      const fieldsCount = tpl.detectedFields ? tpl.detectedFields.length : 4;
-
-      card.innerHTML = `
-        <div class="relative h-36 sm:h-48 md:h-56 w-full overflow-hidden bg-surface-container-lowest">
-          <img src="${tpl.thumbnail}" alt="${tpl.name}" class="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500"/>
-          <div class="absolute inset-0 bg-gradient-to-t from-surface-container-low via-surface-container-low/40 to-transparent"></div>
-          
-          <div class="absolute top-3 left-3 flex flex-wrap gap-1.5">
-            <span class="px-2 py-0.5 rounded-full font-label-sm text-label-sm uppercase font-bold ${tierClass} shadow-md">${tierBadge}</span>
-            <span class="px-2 py-0.5 rounded-full font-label-sm text-label-sm uppercase font-bold bg-emerald-500/20 text-emerald-300">LIVE</span>
-          </div>
-
-          <div class="absolute top-3 right-3 flex items-center gap-1 px-2.5 py-0.5 rounded-full bg-surface-container-lowest/80 backdrop-blur-md text-amber-300 font-label-sm text-label-sm font-bold shadow-lg">
-            <span class="material-symbols-outlined text-[14px]" style="font-variation-settings: 'FILL' 1;">star</span>
-            <span>${tpl.category}</span>
-          </div>
-
-          <div class="absolute bottom-3 left-3 right-3 flex items-center justify-between text-on-surface">
-            <div class="flex items-center gap-1 font-label-md text-label-md bg-surface-container-lowest/90 backdrop-blur-md px-2.5 py-1 rounded-lg shadow-sm">
-              <span class="material-symbols-outlined text-[16px] text-primary">auto_awesome</span>
-              <span class="font-bold">${fieldsCount} Custom Slots</span>
-            </div>
-            <div class="flex items-center gap-1 font-label-md text-label-md bg-surface-container-lowest/90 backdrop-blur-md px-2.5 py-1 rounded-lg text-emerald-400 font-bold">
-              ${priceText}
-            </div>
-          </div>
-        </div>
-
-        <div class="p-3 sm:p-space-md flex flex-col gap-2 flex-1">
-          <div class="flex items-start justify-between gap-2">
-            <div class="flex flex-col">
-              <h3 class="font-headline-sm text-headline-sm font-bold text-on-surface">${tpl.name}</h3>
-              <span class="font-label-sm text-label-sm text-primary font-mono mt-0.5">${tpl.id}</span>
-            </div>
-          </div>
-
-          <p class="font-body-sm text-body-sm text-on-surface-variant line-clamp-2">
-            ${tpl.description}
-          </p>
-
-          <div class="bg-surface-container-lowest p-2 rounded-xl flex flex-col gap-1.5 mt-auto">
-            <div class="flex items-center justify-between px-1">
-              <span class="font-label-sm text-label-sm text-outline uppercase tracking-wider">Dynamic Slots</span>
-              <span class="font-label-sm text-label-sm text-primary font-bold">Live Synced</span>
-            </div>
-            <div class="flex flex-wrap gap-1">
-              ${(tpl.detectedFields || []).slice(0, 4).map(f => `
-                <span class="font-label-sm text-label-sm px-2 py-0.5 rounded bg-surface-container-high text-on-surface-variant">${f.label}</span>
-              `).join('')}
-            </div>
-          </div>
-        </div>
-
-        <div class="p-3 sm:p-space-md pt-0 flex flex-wrap items-center justify-between gap-2">
-          <a href="/templates-store/${tpl.folder || tpl.id}/${tpl.entryFile || 'index.html'}" target="_blank" class="flex-1 flex items-center justify-center gap-1 py-2 px-2.5 rounded-lg bg-surface-container-high hover:bg-surface-container-highest text-on-surface font-label-md text-label-md transition-colors">
-            <span class="material-symbols-outlined text-[16px]">visibility</span>
-            <span>Preview</span>
-          </a>
-          <a href="/customize.html?template=${tpl.id}" target="_blank" class="flex-1 flex items-center justify-center gap-1 py-2 px-2.5 rounded-lg bg-primary-container text-white font-label-md text-label-md font-bold shadow-md hover:brightness-110 transition-all">
-            <span class="material-symbols-outlined text-[16px]">auto_fix_high</span>
-            <span>Customize</span>
-          </a>
-          <button onclick="deleteCustomTemplate('${tpl.id}', '${escapeQuotes(tpl.name)}')" class="p-2 rounded-lg bg-red-500/10 hover:bg-red-500/20 text-red-400 transition" title="Delete Template">
-            <span class="material-symbols-outlined text-[18px]">delete</span>
-          </button>
-        </div>
-      `;
-      container.appendChild(card);
-    });
+    allAdminTemplates = templates;
+    updateKpiMetrics(templates);
+    renderOccasionsFilter(templates);
+    applyFiltersAndRender();
   } catch (e) {
-    console.error('Error loading dynamic templates:', e);
+    console.error('Error loading admin templates:', e);
   }
 }
 
-async function deleteCustomTemplate(id, name) {
-  if (!confirm(`Are you sure you want to delete template "${name}"? This action cannot be undone.`)) {
+function updateKpiMetrics(templates) {
+  const total = templates.length;
+  const published = templates.filter(t => t.status === 'published' || t.isPublished !== false).length;
+  const drafts = templates.filter(t => t.status === 'draft' || t.isPublished === false).length;
+  const vipCount = templates.filter(t => t.tier === 'vip' || t.isPremium === true || (t.price && Number(t.price) > 0)).length;
+  const freeCount = total - vipCount;
+  const featuredCount = templates.filter(t => Boolean(t.featured)).length;
+
+  const countTotal = document.getElementById('count-total');
+  const countPublished = document.getElementById('count-published');
+  const countDrafts = document.getElementById('count-drafts');
+  const countPremium = document.getElementById('count-premium');
+  const countFree = document.getElementById('count-free');
+  const countFooter = document.getElementById('count-footer-total');
+
+  const filterAllCount = document.getElementById('filter-all-count');
+  const filterPublishedCount = document.getElementById('filter-published-count');
+  const filterDraftCount = document.getElementById('filter-draft-count');
+  const filterFreeCount = document.getElementById('filter-free-count');
+  const filterPremiumCount = document.getElementById('filter-premium-count');
+  const filterFeaturedCount = document.getElementById('filter-featured-count');
+
+  if (countTotal) countTotal.textContent = total;
+  if (countPublished) countPublished.textContent = published;
+  if (countDrafts) countDrafts.textContent = drafts;
+  if (countPremium) countPremium.textContent = vipCount;
+  if (countFree) countFree.textContent = freeCount;
+  if (countFooter) countFooter.textContent = total;
+
+  if (filterAllCount) filterAllCount.textContent = total;
+  if (filterPublishedCount) filterPublishedCount.textContent = published;
+  if (filterDraftCount) filterDraftCount.textContent = drafts;
+  if (filterFreeCount) filterFreeCount.textContent = freeCount;
+  if (filterPremiumCount) filterPremiumCount.textContent = vipCount;
+  if (filterFeaturedCount) filterFeaturedCount.textContent = featuredCount;
+}
+
+function renderOccasionsFilter(templates) {
+  const occContainer = document.getElementById('filter-occasions-container');
+  if (!occContainer) return;
+
+  const occMap = {};
+  templates.forEach(t => {
+    const cat = t.category || 'General';
+    occMap[cat] = (occMap[cat] || 0) + 1;
+  });
+
+  const occEntries = Object.entries(occMap);
+  let html = `
+    <button data-occ="all" onclick="filterTemplatesByOccasion('all')" class="px-2.5 py-1 rounded-lg font-label-sm text-label-sm ${activeAdminOccasion === 'all' ? 'bg-secondary text-white font-bold' : 'bg-surface-container-lowest text-on-surface-variant hover:text-on-surface hover:bg-surface-container-high'} flex items-center gap-1.5 transition-colors cursor-pointer">
+      <span>All Categories</span>
+    </button>
+  `;
+
+  occEntries.forEach(([cat, count]) => {
+    const isAct = activeAdminOccasion.toLowerCase() === cat.toLowerCase();
+    html += `
+      <button data-occ="${escapeQuotes(cat)}" onclick="filterTemplatesByOccasion('${escapeQuotes(cat)}')" class="px-2.5 py-1 rounded-lg font-label-sm text-label-sm ${isAct ? 'bg-secondary text-white font-bold' : 'bg-surface-container-lowest text-on-surface-variant hover:text-on-surface hover:bg-surface-container-high'} flex items-center gap-1.5 transition-colors cursor-pointer">
+        <span>${cat}</span>
+        <span class="font-mono text-outline font-bold">${count}</span>
+      </button>
+    `;
+  });
+
+  occContainer.innerHTML = html;
+}
+
+function applyFiltersAndRender() {
+  let list = [...allAdminTemplates];
+
+  // 1. Status / Tier Filter
+  if (activeAdminFilter === 'published') {
+    list = list.filter(t => t.status === 'published' || (t.isPublished !== false && t.status !== 'draft'));
+  } else if (activeAdminFilter === 'draft') {
+    list = list.filter(t => t.status === 'draft' || t.isPublished === false);
+  } else if (activeAdminFilter === 'free') {
+    list = list.filter(t => t.tier === 'free' && !t.isPremium && (!t.price || Number(t.price) === 0));
+  } else if (activeAdminFilter === 'vip') {
+    list = list.filter(t => t.tier === 'vip' || t.isPremium === true || (t.price && Number(t.price) > 0));
+  } else if (activeAdminFilter === 'featured') {
+    list = list.filter(t => Boolean(t.featured));
+  }
+
+  // 2. Occasion Filter
+  if (activeAdminOccasion && activeAdminOccasion !== 'all') {
+    const occLower = activeAdminOccasion.toLowerCase();
+    list = list.filter(t => {
+      const matchCat = (t.category || '').toLowerCase() === occLower;
+      const matchRel = Array.isArray(t.relationships) && t.relationships.some(r => r.toLowerCase() === occLower);
+      return matchCat || matchRel;
+    });
+  }
+
+  // 3. Search Filter (by title, id, slug, category, relationships, tags)
+  if (activeAdminSearch) {
+    const q = activeAdminSearch;
+    list = list.filter(t => {
+      return (t.name && t.name.toLowerCase().includes(q)) ||
+             (t.id && t.id.toLowerCase().includes(q)) ||
+             (t.slug && t.slug.toLowerCase().includes(q)) ||
+             (t.category && t.category.toLowerCase().includes(q)) ||
+             (t.description && t.description.toLowerCase().includes(q)) ||
+             (Array.isArray(t.relationships) && t.relationships.some(r => r.toLowerCase().includes(q))) ||
+             (Array.isArray(t.tags) && t.tags.some(tag => tag.toLowerCase().includes(q)));
+    });
+  }
+
+  // 4. Sort
+  list.sort((a, b) => {
+    if (activeAdminSort === 'name') return (a.name || '').localeCompare(b.name || '');
+    if (activeAdminSort === 'category') return (a.category || '').localeCompare(b.category || '');
+    if (activeAdminSort === 'newest') return new Date(b.createdAt || 0) - new Date(a.createdAt || 0);
+    if (activeAdminSort === 'oldest') return new Date(a.createdAt || 0) - new Date(b.createdAt || 0);
+    // default: recently updated
+    return new Date(b.updatedAt || b.createdAt || 0) - new Date(a.updatedAt || a.createdAt || 0);
+  });
+
+  renderTemplatesGrid(list);
+  renderTemplatesTable(list);
+}
+
+function formatDate(isoStr) {
+  if (!isoStr) return 'Recently';
+  try {
+    const d = new Date(isoStr);
+    return d.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
+  } catch (e) {
+    return 'Recently';
+  }
+}
+
+// Render Master Grid
+function renderTemplatesGrid(templates) {
+  const container = document.getElementById('dynamic-templates-container');
+  if (!container) return;
+
+  container.innerHTML = '';
+
+  if (templates.length === 0) {
+    container.innerHTML = `
+      <div class="col-span-full py-16 px-4 flex flex-col items-center justify-center text-center bg-surface-container-low rounded-2xl border border-dashed border-purple-500/30">
+        <div class="w-16 h-16 rounded-2xl bg-primary-container/20 text-primary flex items-center justify-center mb-4">
+          <span class="material-symbols-outlined text-[36px]">filter_alt_off</span>
+        </div>
+        <h3 class="font-headline-sm text-lg font-bold text-on-surface mb-1">No Matching Templates Found</h3>
+        <p class="text-xs text-on-surface-variant max-w-sm mb-4">Try clearing filters or search terms.</p>
+        <button onclick="filterTemplatesByTier('all'); document.getElementById('template-search-input').value=''; handleAdminSearch('');" class="px-4 py-2 rounded-xl bg-surface-container-high text-xs font-bold text-on-surface hover:bg-surface-container-highest transition">
+          Clear All Filters
+        </button>
+      </div>
+    `;
+    return;
+  }
+
+  templates.forEach(tpl => {
+    const card = document.createElement('article');
+    card.className = "bg-surface-container-low rounded-2xl overflow-hidden flex flex-col justify-between shadow-xl hover:shadow-[0_12px_40px_-8px_rgba(124,58,237,0.35)] transition-all duration-300 group border border-purple-500/20";
+
+    const isVip = tpl.tier === 'vip' || tpl.isPremium === true || Number(tpl.price) > 0;
+    const isPub = tpl.status === 'published' || (tpl.isPublished !== false && tpl.status !== 'draft');
+    const priceText = isVip ? `₹${tpl.price || 49}` : '₹0';
+    const tierBadge = isVip ? 'VIP PASS' : 'FREE TIER';
+    const tierClass = isVip ? 'bg-gradient-to-r from-amber-400 to-amber-600 text-purple-950 font-black' : 'bg-primary-container text-white';
+    const relsText = Array.isArray(tpl.relationships) && tpl.relationships.length > 0 ? tpl.relationships.slice(0, 3).join(', ') : 'All Celebrants';
+
+    card.innerHTML = `
+      <div class="relative h-44 sm:h-52 w-full overflow-hidden bg-surface-container-lowest">
+        <img src="${tpl.thumbnail || '/assets/file_ab2082.png'}" alt="${tpl.name}" class="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500" onerror="this.src='/assets/file_ab2082.png'"/>
+        <div class="absolute inset-0 bg-gradient-to-t from-surface-container-low via-surface-container-low/30 to-transparent"></div>
+        
+        <div class="absolute top-3 left-3 flex flex-wrap gap-1.5">
+          <span class="px-2 py-0.5 rounded-full font-label-sm text-[10px] uppercase font-bold ${tierClass} shadow-md">${tierBadge}</span>
+          ${isPub ? `
+            <span class="px-2 py-0.5 rounded-full font-label-sm text-[10px] uppercase font-bold bg-emerald-500/90 text-white shadow-sm flex items-center gap-1">
+              <span class="w-1.5 h-1.5 rounded-full bg-white animate-pulse"></span> Published
+            </span>
+          ` : `
+            <span class="px-2 py-0.5 rounded-full font-label-sm text-[10px] uppercase font-bold bg-amber-500/90 text-white shadow-sm flex items-center gap-1">
+              <span class="w-1.5 h-1.5 rounded-full bg-white"></span> Draft
+            </span>
+          `}
+          ${tpl.featured ? `
+            <span class="px-2 py-0.5 rounded-full font-label-sm text-[10px] uppercase font-bold bg-pink-500 text-white shadow-sm flex items-center gap-0.5">
+              <span>★</span> Featured
+            </span>
+          ` : ''}
+        </div>
+
+        <div class="absolute top-3 right-3 flex items-center gap-1 px-2.5 py-0.5 rounded-full bg-surface-container-lowest/90 backdrop-blur-md text-amber-300 font-label-sm text-xs font-bold shadow-lg">
+          <span>${tpl.category || 'Celebration'}</span>
+        </div>
+
+        <div class="absolute bottom-3 left-3 right-3 flex items-center justify-between text-on-surface">
+          <div class="flex items-center gap-1 text-[11px] bg-surface-container-lowest/90 backdrop-blur-md px-2.5 py-1 rounded-lg shadow-sm text-on-surface-variant font-medium">
+            <span class="material-symbols-outlined text-[14px] text-primary">group</span>
+            <span class="truncate max-w-[150px]">${relsText}</span>
+          </div>
+          <div class="flex items-center gap-1 text-xs bg-surface-container-lowest/90 backdrop-blur-md px-2.5 py-1 rounded-lg text-emerald-400 font-bold">
+            ${priceText}
+          </div>
+        </div>
+      </div>
+
+      <div class="p-4 flex flex-col gap-2.5 flex-1">
+        <div>
+          <div class="flex items-start justify-between gap-2">
+            <h3 class="font-headline-sm text-base font-bold text-on-surface group-hover:text-primary transition-colors">${tpl.name}</h3>
+            <span class="text-[10px] font-mono text-outline shrink-0">${formatDate(tpl.updatedAt || tpl.createdAt)}</span>
+          </div>
+          <div class="flex items-center gap-2 mt-0.5">
+            <span class="text-[10px] font-mono text-primary font-semibold">${tpl.id}</span>
+            <span class="text-[10px] text-outline">• slug: /${tpl.slug || ''}</span>
+          </div>
+        </div>
+
+        <p class="font-body-sm text-xs text-on-surface-variant line-clamp-2">
+          ${tpl.description || 'Interactive digital celebration experience.'}
+        </p>
+
+        <!-- Capabilities summary tags -->
+        <div class="bg-surface-container-lowest p-2 rounded-xl flex flex-col gap-1.5 mt-auto">
+          <div class="flex items-center justify-between text-[10px] text-outline uppercase tracking-wider font-bold">
+            <span>Capabilities</span>
+            <span class="text-primary font-mono">${Object.values(tpl.capabilities || {}).filter(Boolean).length} Active</span>
+          </div>
+          <div class="flex flex-wrap gap-1">
+            ${tpl.capabilities?.voiceNote ? '<span class="text-[9px] px-1.5 py-0.5 rounded bg-purple-500/20 text-purple-300 font-bold">Voice</span>' : ''}
+            ${tpl.capabilities?.gallery ? '<span class="text-[9px] px-1.5 py-0.5 rounded bg-pink-500/20 text-pink-300 font-bold">Gallery</span>' : ''}
+            ${tpl.capabilities?.music ? '<span class="text-[9px] px-1.5 py-0.5 rounded bg-emerald-500/20 text-emerald-300 font-bold">Music</span>' : ''}
+            ${tpl.capabilities?.countdown ? '<span class="text-[9px] px-1.5 py-0.5 rounded bg-amber-500/20 text-amber-300 font-bold">Countdown</span>' : ''}
+            ${tpl.capabilities?.themeSupport ? '<span class="text-[9px] px-1.5 py-0.5 rounded bg-cyan-500/20 text-cyan-300 font-bold">Themes</span>' : ''}
+            ${tpl.capabilities?.openWhen ? '<span class="text-[9px] px-1.5 py-0.5 rounded bg-rose-500/20 text-rose-300 font-bold">OpenWhen</span>' : ''}
+          </div>
+        </div>
+      </div>
+
+      <!-- Action Buttons Row -->
+      <div class="p-3 bg-surface-container/60 border-t border-purple-500/10 flex items-center justify-between gap-1.5">
+        <a href="/template/${tpl.id}" target="_blank" class="p-2 rounded-lg bg-surface-container-high hover:bg-surface-container-highest text-on-surface transition flex items-center justify-center text-xs font-semibold" title="Preview Live Template">
+          <span class="material-symbols-outlined text-[16px]">visibility</span>
+        </a>
+        <button onclick="openEditTemplateModal('${tpl.id}')" class="flex-1 py-1.5 px-2 rounded-lg bg-surface-container-high hover:bg-surface-container-highest text-on-surface font-semibold text-xs transition flex items-center justify-center gap-1 cursor-pointer">
+          <span class="material-symbols-outlined text-[15px] text-primary">edit</span>
+          <span>Edit</span>
+        </button>
+        <button onclick="duplicateTemplate('${tpl.id}')" class="py-1.5 px-2 rounded-lg bg-surface-container-high hover:bg-surface-container-highest text-on-surface font-semibold text-xs transition flex items-center justify-center gap-1 cursor-pointer" title="Duplicate as Draft">
+          <span class="material-symbols-outlined text-[15px] text-secondary">content_copy</span>
+          <span class="hidden sm:inline">Clone</span>
+        </button>
+        <button onclick="togglePublishTemplate('${tpl.id}', '${tpl.status || (tpl.isPublished ? 'published' : 'draft')}')" class="py-1.5 px-2 rounded-lg ${isPub ? 'bg-amber-500/15 hover:bg-amber-500/25 text-amber-400' : 'bg-emerald-500/15 hover:bg-emerald-500/25 text-emerald-400'} font-semibold text-xs transition flex items-center justify-center gap-1 cursor-pointer" title="${isPub ? 'Unpublish to Draft' : 'Publish to Store'}">
+          <span class="material-symbols-outlined text-[15px]">${isPub ? 'unpublished' : 'publish'}</span>
+          <span>${isPub ? 'Draft' : 'Publish'}</span>
+        </button>
+        <button onclick="deleteTemplate('${tpl.id}', '${escapeQuotes(tpl.name)}')" class="p-2 rounded-lg bg-rose-500/10 hover:bg-rose-500/25 text-rose-400 transition cursor-pointer" title="Delete Template">
+          <span class="material-symbols-outlined text-[16px]">delete</span>
+        </button>
+      </div>
+    `;
+    container.appendChild(card);
+  });
+}
+
+// Render Master Table
+function renderTemplatesTable(templates) {
+  const tableBody = document.getElementById('master-templates-table-body');
+  if (!tableBody) return;
+
+  if (templates.length === 0) {
+    tableBody.innerHTML = `
+      <tr>
+        <td colspan="8" class="text-center py-10 text-on-surface-variant text-xs">
+          No templates match your filters.
+        </td>
+      </tr>
+    `;
+    return;
+  }
+
+  tableBody.innerHTML = templates.map(tpl => {
+    const isVip = tpl.tier === 'vip' || tpl.isPremium === true || Number(tpl.price) > 0;
+    const isPub = tpl.status === 'published' || (tpl.isPublished !== false && tpl.status !== 'draft');
+    const priceText = isVip ? `₹${tpl.price || 49}` : 'Free';
+    const relsText = Array.isArray(tpl.relationships) ? tpl.relationships.slice(0, 2).join(', ') : 'All';
+
+    return `
+      <tr class="hover:bg-surface-container transition border-b border-purple-900/20 text-xs">
+        <td class="py-3 px-4">
+          <div class="flex items-center gap-3">
+            <img src="${tpl.thumbnail || '/assets/file_ab2082.png'}" alt="${tpl.name}" class="w-12 h-9 rounded-lg object-cover bg-surface-container-lowest shrink-0" onerror="this.src='/assets/file_ab2082.png'"/>
+            <div>
+              <div class="font-bold text-on-surface text-sm flex items-center gap-1.5">
+                <span>${tpl.name}</span>
+                ${tpl.featured ? '<span class="text-amber-400 text-xs font-black">★</span>' : ''}
+              </div>
+              <span class="font-mono text-[10px] text-primary">${tpl.id}</span>
+            </div>
+          </div>
+        </td>
+        <td class="py-3 px-3">
+          <span class="px-2 py-0.5 rounded-full bg-purple-500/10 text-purple-300 font-bold">${tpl.category || 'Birthday'}</span>
+        </td>
+        <td class="py-3 px-3 text-on-surface-variant font-medium">${relsText}</td>
+        <td class="py-3 px-3">
+          <button onclick="toggleTierTemplate('${tpl.id}', '${tpl.tier || (tpl.isPremium ? 'vip' : 'free')}', ${tpl.price || 0})" class="px-2 py-0.5 rounded-md ${isVip ? 'bg-amber-400/20 text-amber-300 font-bold hover:bg-amber-400/30' : 'bg-emerald-500/20 text-emerald-300 font-bold hover:bg-emerald-500/30'} cursor-pointer transition text-left" title="Click to toggle between VIP Pass & Free Tier">
+            ${priceText} ${isVip ? '👑' : '✨'}
+          </button>
+        </td>
+        <td class="py-3 px-3">
+          <button onclick="togglePublishTemplate('${tpl.id}', '${tpl.status || (tpl.isPublished ? 'published' : 'draft')}')" class="px-2 py-0.5 rounded-full text-[10px] font-bold ${isPub ? 'bg-emerald-500/20 text-emerald-400' : 'bg-amber-500/20 text-amber-400'} cursor-pointer">
+            ${isPub ? '● Published' : '○ Draft'}
+          </button>
+        </td>
+        <td class="py-3 px-3 text-on-surface-variant font-mono text-[11px]">${formatDate(tpl.updatedAt || tpl.createdAt)}</td>
+        <td class="py-3 px-3 text-right">
+          <div class="flex items-center justify-end gap-1.5">
+            <a href="/template/${tpl.id}" target="_blank" class="p-1.5 rounded-lg bg-surface-container-high hover:bg-surface-container-highest text-on-surface" title="Preview">
+              <span class="material-symbols-outlined text-[15px]">visibility</span>
+            </a>
+            <button onclick="openEditTemplateModal('${tpl.id}')" class="p-1.5 rounded-lg bg-surface-container-high hover:bg-surface-container-highest text-primary" title="Edit">
+              <span class="material-symbols-outlined text-[15px]">edit</span>
+            </button>
+            <button onclick="duplicateTemplate('${tpl.id}')" class="p-1.5 rounded-lg bg-surface-container-high hover:bg-surface-container-highest text-secondary" title="Duplicate">
+              <span class="material-symbols-outlined text-[15px]">content_copy</span>
+            </button>
+            <button onclick="deleteTemplate('${tpl.id}', '${escapeQuotes(tpl.name)}')" class="p-1.5 rounded-lg bg-rose-500/15 hover:bg-rose-500/30 text-rose-400" title="Delete">
+              <span class="material-symbols-outlined text-[15px]">delete</span>
+            </button>
+          </div>
+        </td>
+      </tr>
+    `;
+  }).join('');
+}
+
+// 7. Duplicate Template Action
+async function duplicateTemplate(templateId) {
+  try {
+    showToast('Duplicating template...');
+    let resData;
+    if (window.templateRepository && typeof window.templateRepository.duplicate === 'function') {
+      resData = await window.templateRepository.duplicate(templateId);
+    } else {
+      const res = await fetch('/api/templates/duplicate', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ id: templateId })
+      });
+      resData = await res.json();
+    }
+
+    showToast('🎉 Template duplicated as Draft!');
+    await loadDynamicTemplates();
+  } catch (err) {
+    alert('Failed to duplicate template: ' + err.message);
+  }
+}
+
+// 8. Publish / Unpublish Toggle Action
+async function togglePublishTemplate(templateId, currentStatus) {
+  try {
+    const isCurrentlyPub = currentStatus === 'published';
+    const newStatus = isCurrentlyPub ? 'draft' : 'published';
+    const isPub = !isCurrentlyPub;
+
+    if (window.templateRepository) {
+      if (isCurrentlyPub) {
+        await window.templateRepository.unpublish(templateId);
+      } else {
+        await window.templateRepository.publish(templateId);
+      }
+    } else {
+      await fetch('/api/templates/update', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ id: templateId, status: newStatus, isPublished: isPub })
+      });
+    }
+
+    showToast(isPub ? '🎉 Template published to live marketplace!' : '📁 Template moved to Drafts.');
+    await loadDynamicTemplates();
+  } catch (err) {
+    alert('Error toggling publish state: ' + err.message);
+  }
+}
+
+// 8b. Toggle Tier / Pricing Action (Part 11 Section 16)
+async function toggleTierTemplate(templateId, currentTier, currentPrice) {
+  try {
+    const isVip = currentTier === 'vip' || currentTier === 'premium';
+    const newTier = isVip ? 'free' : 'vip';
+    const newPrice = isVip ? 0 : (currentPrice && currentPrice > 0 ? currentPrice : 49);
+    const isPremium = newTier === 'vip';
+
+    const payload = {
+      id: templateId,
+      tier: newTier,
+      price: newPrice,
+      isPremium
+    };
+
+    if (window.templateRepository && typeof window.templateRepository.update === 'function') {
+      await window.templateRepository.update(payload);
+    } else {
+      await fetch('/api/templates/update', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(payload)
+      });
+    }
+
+    showToast(isPremium ? '👑 Switched to VIP Pass (₹' + newPrice + ')' : '✨ Switched to Free Tier (₹0)');
+    await loadDynamicTemplates();
+  } catch (err) {
+    alert('Error toggling template tier: ' + err.message);
+  }
+}
+
+// 9. Safe Template Delete Action (Part 10 Section 12)
+async function deleteTemplate(templateId, name) {
+  if (!confirm(`Are you sure you want to delete template "${name}"?\n\nIf active celebration wishes are using this template, you should Unpublish it instead.`)) {
     return;
   }
 
   try {
-    const res = await fetch(`/api/templates/${id}`, { method: 'DELETE' });
-    const data = await res.json();
-    if (data.success) {
-      showToast(`Template "${name}" deleted.`);
-      loadDynamicTemplates();
+    let result;
+    if (window.templateRepository && typeof window.templateRepository.delete === 'function') {
+      result = await window.templateRepository.delete(templateId);
     } else {
-      alert('Error deleting template: ' + data.message);
+      const res = await fetch(`/api/templates/${encodeURIComponent(templateId)}`, { method: 'DELETE' });
+      result = await res.json();
+    }
+
+    if (result.success) {
+      showToast(`Template "${name}" deleted.`);
+      await loadDynamicTemplates();
+    } else if (result.referenced) {
+      // Safety block active wishes
+      alert(`⚠️ SAFEGUARD BLOCKED DELETION:\n\n${result.message}\n\nAction: Please use the "Unpublish / Draft" button to safely hide this template from the store without breaking existing recipient links.`);
+    } else {
+      alert('Error deleting template: ' + (result.message || 'Unknown error'));
     }
   } catch (err) {
     alert('Network error deleting template: ' + err.message);
   }
 }
+
+// 10. Open Edit Template Modal (Part 10 Section 6 & 11)
+window.openEditTemplateModal = async function(templateId) {
+  currentEditingTemplateId = templateId;
+  const tpl = allAdminTemplates.find(t => t.id === templateId);
+  if (!tpl) {
+    alert('Template not found');
+    return;
+  }
+
+  // Populate Categories Select from Category Repository
+  const catSelect = document.getElementById('edit-tpl-category');
+  if (catSelect && window.categoryRepository) {
+    const cats = await window.categoryRepository.getAll();
+    catSelect.innerHTML = cats.map(c => `
+      <option value="${c.name}" ${c.name.toLowerCase() === (tpl.category || '').toLowerCase() ? 'selected' : ''}>
+        ${c.icon || '✦'} ${c.name}
+      </option>
+    `).join('');
+  }
+
+  // Form fields
+  const elId = document.getElementById('edit-tpl-id');
+  const elName = document.getElementById('edit-tpl-name');
+  const elSlug = document.getElementById('edit-tpl-slug');
+  const elRels = document.getElementById('edit-tpl-relationships');
+  const elTags = document.getElementById('edit-tpl-tags');
+  const elDesc = document.getElementById('edit-tpl-desc');
+  const elTier = document.getElementById('edit-tpl-tier');
+  const elPrice = document.getElementById('edit-tpl-price');
+  const elStatus = document.getElementById('edit-tpl-status');
+  const elFeatured = document.getElementById('edit-tpl-featured');
+  const elPlacement = document.getElementById('edit-tpl-placement');
+  const elThumb = document.getElementById('edit-tpl-thumb');
+  const elThumbImg = document.getElementById('edit-tpl-thumb-preview');
+
+  if (elId) elId.value = tpl.id;
+  if (elName) elName.value = tpl.name || '';
+  if (elSlug) elSlug.value = tpl.slug || '';
+  if (elRels) elRels.value = Array.isArray(tpl.relationships) ? tpl.relationships.join(', ') : '';
+  if (elTags) elTags.value = Array.isArray(tpl.tags) ? tpl.tags.join(', ') : '';
+  if (elDesc) elDesc.value = tpl.description || '';
+  if (elTier) elTier.value = tpl.tier === 'vip' || tpl.isPremium ? 'vip' : 'free';
+  if (elPrice) elPrice.value = tpl.price !== undefined ? tpl.price : 49;
+  if (elStatus) elStatus.value = tpl.status || (tpl.isPublished ? 'published' : 'draft');
+  if (elFeatured) elFeatured.checked = Boolean(tpl.featured);
+  if (elPlacement) elPlacement.value = tpl.placement || 1;
+  if (elThumb) elThumb.value = tpl.thumbnail || '';
+  if (elThumbImg) elThumbImg.src = tpl.thumbnail || '/assets/file_ab2082.png';
+
+  // Capabilities Matrix
+  const caps = tpl.capabilities || {};
+  const capKeys = [
+    'hero', 'gallery', 'message', 'memories', 'timeline', 'music', 'voiceNote',
+    'countdown', 'openWhen', 'secretMessage', 'finalSurprise', 'galleryLayouts',
+    'themeSupport', 'animationSupport', 'backgroundSupport'
+  ];
+
+  capKeys.forEach(k => {
+    const checkEl = document.getElementById(`cap-check-${k}`);
+    if (checkEl) {
+      checkEl.checked = caps[k] !== false;
+    }
+  });
+
+  const modal = document.getElementById('edit-template-modal');
+  if (modal) modal.classList.remove('hidden');
+};
+
+window.closeEditTemplateModal = function() {
+  const modal = document.getElementById('edit-template-modal');
+  if (modal) modal.classList.add('hidden');
+  currentEditingTemplateId = null;
+};
+
+window.saveTemplateEdits = async function() {
+  if (!currentEditingTemplateId) return;
+
+  const btn = document.getElementById('btn-save-tpl-edits');
+  if (btn) {
+    btn.disabled = true;
+    btn.innerHTML = '<span class="material-symbols-outlined text-sm animate-spin">refresh</span> Saving...';
+  }
+
+  try {
+    const name = document.getElementById('edit-tpl-name').value.trim();
+    const slug = document.getElementById('edit-tpl-slug').value.trim();
+    const category = document.getElementById('edit-tpl-category').value;
+    const relsRaw = document.getElementById('edit-tpl-relationships').value;
+    const tagsRaw = document.getElementById('edit-tpl-tags').value;
+    const description = document.getElementById('edit-tpl-desc').value.trim();
+    const tier = document.getElementById('edit-tpl-tier').value;
+    const price = Number(document.getElementById('edit-tpl-price').value) || 0;
+    const status = document.getElementById('edit-tpl-status').value;
+    const featured = document.getElementById('edit-tpl-featured').checked;
+    const placement = Number(document.getElementById('edit-tpl-placement').value) || 1;
+    const thumbnail = document.getElementById('edit-tpl-thumb').value.trim();
+
+    const relationships = relsRaw.split(',').map(s => s.trim()).filter(Boolean);
+    const tags = tagsRaw.split(',').map(s => s.trim()).filter(Boolean);
+
+    const capabilities = {
+      hero: document.getElementById('cap-check-hero')?.checked ?? true,
+      gallery: document.getElementById('cap-check-gallery')?.checked ?? true,
+      message: document.getElementById('cap-check-message')?.checked ?? true,
+      memories: document.getElementById('cap-check-memories')?.checked ?? true,
+      timeline: document.getElementById('cap-check-timeline')?.checked ?? false,
+      music: document.getElementById('cap-check-music')?.checked ?? true,
+      voiceNote: document.getElementById('cap-check-voiceNote')?.checked ?? true,
+      countdown: document.getElementById('cap-check-countdown')?.checked ?? false,
+      openWhen: document.getElementById('cap-check-openWhen')?.checked ?? false,
+      secretMessage: document.getElementById('cap-check-secretMessage')?.checked ?? true,
+      finalSurprise: document.getElementById('cap-check-finalSurprise')?.checked ?? true,
+      galleryLayouts: document.getElementById('cap-check-galleryLayouts')?.checked ?? true,
+      themeSupport: document.getElementById('cap-check-themeSupport')?.checked ?? true,
+      animationSupport: document.getElementById('cap-check-animationSupport')?.checked ?? true,
+      backgroundSupport: document.getElementById('cap-check-backgroundSupport')?.checked ?? true
+    };
+
+    const updatePayload = {
+      id: currentEditingTemplateId,
+      name,
+      slug,
+      category,
+      relationships,
+      tags,
+      description,
+      tier,
+      price: tier === 'vip' ? price : 0,
+      isPremium: tier === 'vip',
+      status,
+      isPublished: status === 'published',
+      featured,
+      placement,
+      thumbnail: thumbnail || '/assets/file_ab2082.png',
+      capabilities,
+      templateVersion: 1
+    };
+
+    // Part 12: Admin Template Validation
+    if (window.WishTemplateDefinitionService) {
+      const val = window.WishTemplateDefinitionService.validateTemplate(updatePayload);
+      if (!val.valid) {
+        alert('⚠️ Template Validation Failed:\n\n' + val.errors.join('\n'));
+        if (btn) {
+          btn.disabled = false;
+          btn.textContent = 'Save Changes';
+        }
+        return;
+      }
+    }
+
+    if (window.templateRepository && typeof window.templateRepository.update === 'function') {
+      await window.templateRepository.update(updatePayload);
+    } else {
+      const res = await fetch('/api/templates/update', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(updatePayload)
+      });
+      const data = await res.json();
+      if (!data.success) throw new Error(data.message || 'Update failed');
+    }
+
+    closeEditTemplateModal();
+    showToast(`🎉 Template "${name}" updated successfully!`);
+    await loadDynamicTemplates();
+  } catch (err) {
+    alert('Failed to save changes: ' + err.message);
+  } finally {
+    if (btn) {
+      btn.disabled = false;
+      btn.innerHTML = 'Save Changes';
+    }
+  }
+};
 
 // Helper Utilities
 function isMediaFile(filename) {

@@ -17,6 +17,10 @@
 <script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
 <script src="js/WishMagicCore.js"></script>
 <script src="js/admin-theme.js"></script>
+<!-- Part 10-12 Auth, Repositories & Section System Layer -->
+<script src="js/auth-service.js"></script>
+<script src="js/repositories.js"></script>
+<script src="js/template-section-system.js"></script>
 <script src="js/admin-template-uploader.js"></script>
 </head><body class="bg-background text-on-surface font-body-md antialiased min-h-screen">
 
@@ -144,7 +148,7 @@
 </div>
 </div>
 </header>
-<main class="w-full pt-16 bg-surface overflow-x-hidden min-h-screen">
+<main id="admin-main-content" class="w-full pt-16 bg-surface overflow-x-hidden min-h-screen">
 <div class="flex flex-col w-full">
 <!-- Subtle Ambient Glow Orbs -->
 <div class="relative w-full overflow-hidden">
@@ -282,75 +286,72 @@
 <!-- Omnisearch input -->
 <div class="relative flex-1 min-w-[280px]">
 <span class="material-symbols-outlined absolute left-3.5 top-1/2 -translate-y-1/2 text-outline text-[20px]">search</span>
-<input class="w-full bg-surface-container-lowest text-on-surface pl-11 pr-24 py-2.5 rounded-lg font-body-sm text-body-sm placeholder:text-outline focus:outline-none focus:bg-surface-container-high transition-colors" id="template-search-input" placeholder="Search templates by name, ID, tags, or blueprint slug... (⌘K)" type="text"/>
+<input class="w-full bg-surface-container-lowest text-on-surface pl-11 pr-24 py-2.5 rounded-lg font-body-sm text-body-sm placeholder:text-outline focus:outline-none focus:bg-surface-container-high transition-colors" id="template-search-input" oninput="handleAdminSearch(this.value)" placeholder="Search templates by name, ID, category, relationships, tags... (⌘K)" type="text"/>
 <div class="absolute right-3 top-1/2 -translate-y-1/2 flex items-center gap-1 pointer-events-none">
 <kbd class="font-label-sm text-label-sm px-1.5 py-0.5 rounded bg-surface-container-high text-on-surface-variant font-mono">⌘K</kbd>
 </div>
 </div>
 <!-- Secondary Toolbar Actions -->
 <div class="flex flex-wrap items-center gap-space-sm justify-between xl:justify-end">
-<!-- Sort dropdown -->
+<!-- Sort dropdown (Part 10 Section 9) -->
 <div class="flex items-center gap-space-xs bg-surface-container-lowest px-space-sm py-1.5 rounded-lg text-on-surface">
 <span class="material-symbols-outlined text-outline text-[18px]">sort</span>
 <span class="font-label-sm text-label-sm text-outline">Sort:</span>
-<select class="bg-transparent font-label-md text-label-md text-on-surface focus:outline-none cursor-pointer pr-space-xs">
+<select id="template-sort-select" onchange="handleSortChange(this.value)" class="bg-transparent font-label-md text-label-md text-on-surface focus:outline-none cursor-pointer pr-space-xs">
+<option class="bg-surface-container-high" value="updated">Recently Updated</option>
+<option class="bg-surface-container-high" value="name">Name (A-Z)</option>
+<option class="bg-surface-container-high" value="category">Category</option>
 <option class="bg-surface-container-high" value="newest">Newest First</option>
-<option class="bg-surface-container-high" value="used">Most Used</option>
-<option class="bg-surface-container-high" value="rated">Highest Rated</option>
-<option class="bg-surface-container-high" value="price-desc">Price: High to Low</option>
-<option class="bg-surface-container-high" value="price-asc">Price: Low to High</option>
-<option class="bg-surface-container-high" value="oldest">Oldest</option>
+<option class="bg-surface-container-high" value="oldest">Oldest First</option>
 </select>
 </div>
 <!-- Bulk actions dropdown -->
 <div class="relative">
-<button class="flex items-center gap-space-xs px-space-sm py-2 rounded-lg bg-surface-container-lowest hover:bg-surface-container-high text-on-surface-variant hover:text-on-surface transition-colors" onclick="toggleDropdown('bulk-dropdown')">
+<button class="flex items-center gap-space-xs px-space-sm py-2 rounded-lg bg-surface-container-lowest hover:bg-surface-container-high text-on-surface-variant hover:text-on-surface transition-colors cursor-pointer" onclick="toggleDropdown('bulk-dropdown')">
 <span class="material-symbols-outlined text-[18px]">checklist</span>
-<span class="font-label-md text-label-md">Bulk Actions</span>
+<span class="font-label-md text-label-md">Export</span>
 <span class="material-symbols-outlined text-[16px]">expand_more</span>
 </button>
 <div class="hidden absolute right-0 mt-2 w-48 bg-surface-container-highest rounded-xl shadow-2xl p-space-xs z-30 flex flex-col gap-0.5" id="bulk-dropdown">
-<button class="flex items-center gap-space-xs px-space-sm py-2 text-left rounded-lg text-on-surface hover:bg-surface-container font-body-sm text-body-sm transition-colors">
+<button onclick="window.open('/api/templates?includeDrafts=true')" class="flex items-center gap-space-xs px-space-sm py-2 text-left rounded-lg text-on-surface hover:bg-surface-container font-body-sm text-body-sm transition-colors cursor-pointer">
 <span class="material-symbols-outlined text-[16px] text-primary">download</span>
                   Export Manifest (JSON)
-                </button>
-<button class="flex items-center gap-space-xs px-space-sm py-2 text-left rounded-lg text-on-surface hover:bg-surface-container font-body-sm text-body-sm transition-colors">
-<span class="material-symbols-outlined text-[16px] text-emerald-400">publish</span>
-                  Bulk Publish Staged
-                </button>
-<button class="flex items-center gap-space-xs px-space-sm py-2 text-left rounded-lg text-error hover:bg-surface-container font-body-sm text-body-sm transition-colors">
-<span class="material-symbols-outlined text-[16px]">archive</span>
-                  Batch Archive
                 </button>
 </div>
 </div>
 <!-- Grid / List Switcher -->
 <div class="flex items-center bg-surface-container-lowest p-1 rounded-lg">
-<button class="p-1.5 rounded bg-primary-container text-on-primary-container shadow-sm flex items-center justify-center" title="Grid Layout">
+<button id="btn-view-grid" onclick="setTemplateViewMode('grid')" class="p-1.5 rounded bg-primary-container text-white shadow-sm flex items-center justify-center cursor-pointer" title="Grid Layout">
 <span class="material-symbols-outlined text-[18px]">grid_view</span>
 </button>
-<button class="p-1.5 rounded text-outline hover:text-on-surface transition-colors flex items-center justify-center" title="Table Layout">
+<button id="btn-view-table" onclick="setTemplateViewMode('table')" class="p-1.5 rounded text-outline hover:text-on-surface transition-colors flex items-center justify-center cursor-pointer" title="Table Layout">
 <span class="material-symbols-outlined text-[18px]">view_list</span>
 </button>
 </div>
 </div>
 </div>
-<!-- Filter Segment Rows -->
+<!-- Filter Segment Rows (Part 10 Section 8) -->
 <div class="flex flex-col gap-space-sm pt-space-xs">
 <!-- Primary Lifecycle & Pricing Badges -->
 <div class="flex flex-wrap items-center gap-space-xs">
-<span class="font-label-sm text-label-sm text-outline uppercase tracking-wider mr-2">Lifecycle:</span>
-<button onclick="filterTemplatesByTier('all')" id="btn-filter-all" class="px-space-sm py-1 rounded-full font-label-sm text-label-sm bg-primary-container text-on-primary-container font-bold shadow-sm cursor-pointer">
+<span class="font-label-sm text-label-sm text-outline uppercase tracking-wider mr-2">Filters:</span>
+<button onclick="filterTemplatesByTier('all')" id="btn-filter-all" class="px-space-sm py-1 rounded-full font-label-sm text-label-sm bg-primary-container text-white font-bold shadow-md cursor-pointer">
               All (<span id="filter-all-count">0</span>)
             </button>
 <button onclick="filterTemplatesByTier('published')" id="btn-filter-published" class="px-space-sm py-1 rounded-full font-label-sm text-label-sm bg-surface-container-lowest text-on-surface-variant hover:text-on-surface hover:bg-surface-container-high transition-colors cursor-pointer">
               Published (<span id="filter-published-count">0</span>)
             </button>
+<button onclick="filterTemplatesByTier('draft')" id="btn-filter-draft" class="px-space-sm py-1 rounded-full font-label-sm text-label-sm bg-surface-container-lowest text-on-surface-variant hover:text-on-surface hover:bg-surface-container-high transition-colors cursor-pointer">
+              Drafts (<span id="filter-draft-count">0</span>)
+            </button>
 <button onclick="filterTemplatesByTier('free')" id="btn-filter-free" class="px-space-sm py-1 rounded-full font-label-sm text-label-sm bg-surface-container-lowest text-on-surface-variant hover:text-on-surface hover:bg-surface-container-high transition-colors cursor-pointer">
               Free (<span id="filter-free-count">0</span>)
             </button>
 <button onclick="filterTemplatesByTier('vip')" id="btn-filter-vip" class="px-space-sm py-1 rounded-full font-label-sm text-label-sm bg-surface-container-lowest text-on-surface-variant hover:text-on-surface hover:bg-surface-container-high transition-colors cursor-pointer">
-              VIP Pass (<span id="filter-premium-count">0</span>)
+              Premium VIP (<span id="filter-premium-count">0</span>)
+            </button>
+<button onclick="filterTemplatesByTier('featured')" id="btn-filter-featured" class="px-space-sm py-1 rounded-full font-label-sm text-label-sm bg-surface-container-lowest text-on-surface-variant hover:text-on-surface hover:bg-surface-container-high transition-colors cursor-pointer">
+              ★ Featured (<span id="filter-featured-count">0</span>)
             </button>
 </div>
 <!-- Occasion Multiselect Row -->
@@ -362,10 +363,35 @@
 </div>
 </div>
 </section>
+
 <!-- Master Template Cards Grid (2 Columns Mobile, 3 Columns Desktop) -->
-<section class="grid grid-cols-2 md:grid-cols-2 xl:grid-cols-3 gap-3 md:gap-space-lg" id="master-templates-grid">
+<section class="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 gap-4 md:gap-space-lg" id="master-templates-grid">
 <!-- DYNAMIC UPLOADED CUSTOM TEMPLATES CONTAINER -->
 <div id="dynamic-templates-container" class="contents"></div>
+</section>
+
+<!-- Master Template Data Table View (Alternative Layout) -->
+<section class="hidden w-full overflow-x-auto bg-surface-container-low rounded-2xl shadow-xl border border-purple-500/20" id="master-templates-table-container">
+  <table class="w-full text-left border-collapse" id="master-templates-table">
+    <thead>
+      <tr class="border-b border-purple-900/30 text-outline text-[11px] uppercase font-bold bg-surface-container-lowest/60">
+        <th class="py-3 px-4">Template &amp; ID</th>
+        <th class="py-3 px-3">Category</th>
+        <th class="py-3 px-3">Relationships</th>
+        <th class="py-3 px-3">Pricing Tier</th>
+        <th class="py-3 px-3">Status</th>
+        <th class="py-3 px-3">Updated</th>
+        <th class="py-3 px-3 text-right">Actions</th>
+      </tr>
+    </thead>
+    <tbody class="divide-y divide-purple-900/20" id="master-templates-table-body">
+      <tr>
+        <td colspan="7" class="text-center py-8 text-on-surface-variant text-xs">
+          Loading templates registry...
+        </td>
+      </tr>
+    </tbody>
+  </table>
 </section>
 <!-- Pagination & Edge Status Bar -->
 <footer class="mt-space-md pt-space-md flex flex-col md:flex-row items-center justify-between gap-space-md text-outline">
@@ -668,8 +694,212 @@
     </div>
   </div>
 </div>
+
+<!-- ======================================================== -->
+<!-- MODAL: EDIT TEMPLATE METADATA & CAPABILITIES MATRIX (Part 10) -->
+<!-- ======================================================== -->
+<div class="fixed inset-0 z-50 hidden bg-black/85 backdrop-blur-xl flex items-center justify-center p-3 sm:p-6 transition-opacity overflow-y-auto" id="edit-template-modal">
+  <div class="w-full max-w-4xl bg-surface-container-low rounded-2xl shadow-2xl flex flex-col overflow-hidden border border-purple-500/30 my-auto max-h-[92vh]">
+    <!-- Header -->
+    <div class="p-4 sm:p-5 bg-surface-container flex items-center justify-between border-b border-purple-500/20">
+      <div class="flex items-center gap-3">
+        <div class="w-10 h-10 rounded-xl bg-gradient-to-tr from-primary to-secondary flex items-center justify-center text-white shadow-md">
+          <span class="material-symbols-outlined text-[22px]">tune</span>
+        </div>
+        <div>
+          <h3 class="font-headline-sm text-base sm:text-lg font-bold text-on-surface">Edit Template &amp; Capabilities</h3>
+          <span class="text-xs text-on-surface-variant">Update metadata, capabilities, visibility, and pricing</span>
+        </div>
+      </div>
+      <button onclick="closeEditTemplateModal()" class="p-1.5 rounded-lg text-outline hover:text-on-surface hover:bg-surface-container-high transition cursor-pointer">
+        <span class="material-symbols-outlined text-[20px]">close</span>
+      </button>
+    </div>
+
+    <!-- Body -->
+    <div class="p-4 sm:p-6 overflow-y-auto flex flex-col gap-5 text-xs text-on-surface">
+      <!-- ID & Thumbnail preview -->
+      <div class="grid grid-cols-1 md:grid-cols-3 gap-4 bg-surface-container-lowest p-4 rounded-xl border border-purple-500/20">
+        <div class="md:col-span-2 flex flex-col gap-3">
+          <div>
+            <label class="block text-[11px] font-bold uppercase tracking-wider text-outline mb-1">Template ID</label>
+            <input id="edit-tpl-id" type="text" readonly class="w-full bg-surface-container text-primary font-mono px-3 py-2 rounded-lg border border-purple-500/20 cursor-not-allowed"/>
+          </div>
+          <div>
+            <label class="block text-[11px] font-bold uppercase tracking-wider text-outline mb-1">Template Name <span class="text-pink-400">*</span></label>
+            <input id="edit-tpl-name" type="text" class="w-full bg-surface-container text-on-surface font-semibold px-3 py-2 rounded-lg border border-purple-500/30 focus:outline-none focus:ring-1 focus:ring-primary"/>
+          </div>
+          <div>
+            <label class="block text-[11px] font-bold uppercase tracking-wider text-outline mb-1">URL Slug</label>
+            <input id="edit-tpl-slug" type="text" class="w-full bg-surface-container text-on-surface font-mono px-3 py-2 rounded-lg border border-purple-500/30 focus:outline-none focus:ring-1 focus:ring-primary"/>
+          </div>
+        </div>
+        <div class="flex flex-col items-center justify-center gap-2">
+          <label class="block text-[11px] font-bold uppercase tracking-wider text-outline">Cover Thumbnail</label>
+          <img id="edit-tpl-thumb-preview" src="/assets/file_ab2082.png" alt="Preview" class="w-28 h-20 rounded-xl object-cover border border-purple-500/30 shadow-md" onerror="this.src='/assets/file_ab2082.png'"/>
+          <input id="edit-tpl-thumb" type="text" oninput="document.getElementById('edit-tpl-thumb-preview').src = this.value" placeholder="Thumbnail URL" class="w-full bg-surface-container text-[11px] text-on-surface px-2.5 py-1.5 rounded-lg border border-purple-500/20"/>
+        </div>
+      </div>
+
+      <!-- Categories & Relationships & Tags -->
+      <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
+        <div>
+          <label class="block text-[11px] font-bold uppercase tracking-wider text-outline mb-1">Category <span class="text-pink-400">*</span></label>
+          <select id="edit-tpl-category" class="w-full bg-surface-container-lowest text-on-surface px-3 py-2 rounded-lg border border-purple-500/30 font-medium">
+            <!-- Dynamically populated from categoryRepository -->
+          </select>
+        </div>
+        <div>
+          <label class="block text-[11px] font-bold uppercase tracking-wider text-outline mb-1">Relationships (comma separated)</label>
+          <input id="edit-tpl-relationships" type="text" placeholder="Birthday, Best Friend, Sister" class="w-full bg-surface-container-lowest text-on-surface px-3 py-2 rounded-lg border border-purple-500/30 font-medium"/>
+        </div>
+        <div>
+          <label class="block text-[11px] font-bold uppercase tracking-wider text-outline mb-1">Search Tags (comma separated)</label>
+          <input id="edit-tpl-tags" type="text" placeholder="celebration, 3d, candles" class="w-full bg-surface-container-lowest text-on-surface px-3 py-2 rounded-lg border border-purple-500/30 font-medium"/>
+        </div>
+      </div>
+
+      <!-- Description -->
+      <div>
+        <label class="block text-[11px] font-bold uppercase tracking-wider text-outline mb-1">Description / Tagline</label>
+        <textarea id="edit-tpl-desc" rows="2" class="w-full bg-surface-container-lowest text-on-surface px-3 py-2 rounded-lg border border-purple-500/30 font-medium"></textarea>
+      </div>
+
+      <!-- Pricing & Publishing Status -->
+      <div class="grid grid-cols-2 md:grid-cols-4 gap-4 p-3 bg-surface-container-lowest rounded-xl border border-purple-500/20">
+        <div>
+          <label class="block text-[11px] font-bold uppercase tracking-wider text-outline mb-1">Tier</label>
+          <select id="edit-tpl-tier" onchange="document.getElementById('edit-tpl-price').value = this.value === 'vip' ? '49' : '0'" class="w-full bg-surface-container text-on-surface px-3 py-1.5 rounded-lg border border-purple-500/30">
+            <option value="free">Free Tier</option>
+            <option value="vip">VIP Magic Pass</option>
+          </select>
+        </div>
+        <div>
+          <label class="block text-[11px] font-bold uppercase tracking-wider text-outline mb-1">Price (₹ INR)</label>
+          <input id="edit-tpl-price" type="number" class="w-full bg-surface-container text-on-surface px-3 py-1.5 rounded-lg border border-purple-500/30 font-bold"/>
+        </div>
+        <div>
+          <label class="block text-[11px] font-bold uppercase tracking-wider text-outline mb-1">Publish Status</label>
+          <select id="edit-tpl-status" class="w-full bg-surface-container text-on-surface px-3 py-1.5 rounded-lg border border-purple-500/30 font-bold">
+            <option value="published">Published (Live)</option>
+            <option value="draft">Draft (Hidden)</option>
+          </select>
+        </div>
+        <div>
+          <label class="block text-[11px] font-bold uppercase tracking-wider text-outline mb-1">Placement Priority</label>
+          <input id="edit-tpl-placement" type="number" min="1" max="999" class="w-full bg-surface-container text-on-surface px-3 py-1.5 rounded-lg border border-purple-500/30 font-bold text-center"/>
+        </div>
+      </div>
+
+      <div class="flex items-center gap-3">
+        <label class="flex items-center gap-2 cursor-pointer text-xs font-bold text-on-surface">
+          <input id="edit-tpl-featured" type="checkbox" class="rounded text-primary focus:ring-primary w-4 h-4"/>
+          <span>Featured on Homepage &amp; Top Marketplace Carousel</span>
+        </label>
+      </div>
+
+      <!-- Part 10 Section 11: Capabilities Matrix Management -->
+      <div class="border border-purple-500/30 rounded-xl p-4 bg-surface-container-lowest/80">
+        <div class="flex items-center justify-between pb-2 mb-3 border-b border-purple-500/20">
+          <div>
+            <h4 class="font-bold text-sm text-on-surface flex items-center gap-1.5">
+              <span class="material-symbols-outlined text-[18px] text-primary">extension</span>
+              <span>Template Capabilities Matrix</span>
+            </h4>
+            <p class="text-[11px] text-on-surface-variant">Controls which interactive features the customizer and recipient view activate for this template.</p>
+          </div>
+          <span class="text-[10px] px-2 py-0.5 rounded-full bg-primary/20 text-primary font-mono font-bold">15 Capabilities</span>
+        </div>
+
+        <div class="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-5 gap-3">
+          <label class="flex items-center gap-2 p-2 rounded-lg bg-surface-container hover:bg-surface-container-high transition cursor-pointer">
+            <input id="cap-check-hero" type="checkbox" class="rounded text-primary w-4 h-4"/>
+            <span class="font-semibold text-xs">Hero Unboxing</span>
+          </label>
+          <label class="flex items-center gap-2 p-2 rounded-lg bg-surface-container hover:bg-surface-container-high transition cursor-pointer">
+            <input id="cap-check-gallery" type="checkbox" class="rounded text-primary w-4 h-4"/>
+            <span class="font-semibold text-xs">Photo Gallery</span>
+          </label>
+          <label class="flex items-center gap-2 p-2 rounded-lg bg-surface-container hover:bg-surface-container-high transition cursor-pointer">
+            <input id="cap-check-message" type="checkbox" class="rounded text-primary w-4 h-4"/>
+            <span class="font-semibold text-xs">Dedication Letter</span>
+          </label>
+          <label class="flex items-center gap-2 p-2 rounded-lg bg-surface-container hover:bg-surface-container-high transition cursor-pointer">
+            <input id="cap-check-memories" type="checkbox" class="rounded text-primary w-4 h-4"/>
+            <span class="font-semibold text-xs">Memories Timeline</span>
+          </label>
+          <label class="flex items-center gap-2 p-2 rounded-lg bg-surface-container hover:bg-surface-container-high transition cursor-pointer">
+            <input id="cap-check-music" type="checkbox" class="rounded text-primary w-4 h-4"/>
+            <span class="font-semibold text-xs">Music BGM</span>
+          </label>
+          <label class="flex items-center gap-2 p-2 rounded-lg bg-surface-container hover:bg-surface-container-high transition cursor-pointer">
+            <input id="cap-check-voiceNote" type="checkbox" class="rounded text-primary w-4 h-4"/>
+            <span class="font-semibold text-xs">Voice Note</span>
+          </label>
+          <label class="flex items-center gap-2 p-2 rounded-lg bg-surface-container hover:bg-surface-container-high transition cursor-pointer">
+            <input id="cap-check-countdown" type="checkbox" class="rounded text-primary w-4 h-4"/>
+            <span class="font-semibold text-xs">Countdown Clock</span>
+          </label>
+          <label class="flex items-center gap-2 p-2 rounded-lg bg-surface-container hover:bg-surface-container-high transition cursor-pointer">
+            <input id="cap-check-secretMessage" type="checkbox" class="rounded text-primary w-4 h-4"/>
+            <span class="font-semibold text-xs">Secret Message</span>
+          </label>
+          <label class="flex items-center gap-2 p-2 rounded-lg bg-surface-container hover:bg-surface-container-high transition cursor-pointer">
+            <input id="cap-check-openWhen" type="checkbox" class="rounded text-primary w-4 h-4"/>
+            <span class="font-semibold text-xs">Open When</span>
+          </label>
+          <label class="flex items-center gap-2 p-2 rounded-lg bg-surface-container hover:bg-surface-container-high transition cursor-pointer">
+            <input id="cap-check-timeline" type="checkbox" class="rounded text-primary w-4 h-4"/>
+            <span class="font-semibold text-xs">Milestones</span>
+          </label>
+          <label class="flex items-center gap-2 p-2 rounded-lg bg-surface-container hover:bg-surface-container-high transition cursor-pointer">
+            <input id="cap-check-finalSurprise" type="checkbox" class="rounded text-primary w-4 h-4"/>
+            <span class="font-semibold text-xs">Finale Surprise</span>
+          </label>
+          <label class="flex items-center gap-2 p-2 rounded-lg bg-surface-container hover:bg-surface-container-high transition cursor-pointer">
+            <input id="cap-check-galleryLayouts" type="checkbox" class="rounded text-primary w-4 h-4"/>
+            <span class="font-semibold text-xs">Collage Layouts</span>
+          </label>
+          <label class="flex items-center gap-2 p-2 rounded-lg bg-surface-container hover:bg-surface-container-high transition cursor-pointer">
+            <input id="cap-check-themeSupport" type="checkbox" class="rounded text-primary w-4 h-4"/>
+            <span class="font-semibold text-xs">Theme Switching</span>
+          </label>
+          <label class="flex items-center gap-2 p-2 rounded-lg bg-surface-container hover:bg-surface-container-high transition cursor-pointer">
+            <input id="cap-check-animationSupport" type="checkbox" class="rounded text-primary w-4 h-4"/>
+            <span class="font-semibold text-xs">3D Particles</span>
+          </label>
+          <label class="flex items-center gap-2 p-2 rounded-lg bg-surface-container hover:bg-surface-container-high transition cursor-pointer">
+            <input id="cap-check-backgroundSupport" type="checkbox" class="rounded text-primary w-4 h-4"/>
+            <span class="font-semibold text-xs">Dynamic Backdrops</span>
+          </label>
+        </div>
+      </div>
+    </div>
+
+    <!-- Footer -->
+    <div class="p-4 bg-surface-container flex items-center justify-between border-t border-purple-500/20">
+      <button onclick="closeEditTemplateModal()" class="px-4 py-2 rounded-xl bg-surface-container-high hover:bg-surface-container-highest text-on-surface font-semibold text-xs transition cursor-pointer">
+        Cancel
+      </button>
+      <button id="btn-save-tpl-edits" onclick="saveTemplateEdits()" class="px-6 py-2 rounded-xl bg-gradient-to-r from-primary to-secondary text-white font-bold text-xs shadow-lg hover:brightness-110 active:scale-95 transition cursor-pointer">
+        Save Changes
+      </button>
+    </div>
+  </div>
+</div>
+
 <!-- Interactive Utility Scripts -->
 <script>
+    document.addEventListener('DOMContentLoaded', () => {
+      // Part 10 Authorization Guard: requireAuth() + requireAdmin()
+      if (window.WishAuth) {
+        const isAllowed = WishAuth.requireAdmin({ containerId: 'admin-main-content' });
+        if (!isAllowed) {
+          return; // Stop loading studio data if access denied
+        }
+      }
+      loadDynamicTemplates();
+    });
     function toggleModal(modalId) {
       const modal = document.getElementById(modalId);
       if (modal) {

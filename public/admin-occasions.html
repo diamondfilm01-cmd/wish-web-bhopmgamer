@@ -20,6 +20,9 @@
   <link rel="stylesheet" href="css/admin-theme.css"/>
   <script src="js/WishMagicCore.js"></script>
   <script src="js/admin-theme.js"></script>
+  <!-- Part 10 Auth & Repositories Layer -->
+  <script src="js/auth-service.js"></script>
+  <script src="js/repositories.js"></script>
 </head>
 <body class="bg-background text-on-surface font-body-md min-h-screen antialiased">
 
@@ -125,7 +128,7 @@
   </header>
 
   <!-- Main Content Area -->
-  <main class="w-full pt-20 px-4 sm:px-6 lg:px-8 pb-16 max-w-7xl mx-auto flex flex-col gap-8">
+  <main id="admin-main-content" class="w-full pt-20 px-4 sm:px-6 lg:px-8 pb-16 max-w-7xl mx-auto flex flex-col gap-8">
     <!-- Page Header & Action Bar -->
     <div class="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
       <div>
@@ -182,31 +185,38 @@
       </div>
     </div>
 
-    <!-- Occasions Catalog Table -->
+    <!-- Occasions Catalog Table (Part 10 Section 13) -->
     <div class="bg-surface-container rounded-2xl p-5 sm:p-7 border border-purple-900/30 shadow-xl flex flex-col gap-5">
       <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pb-4 border-b border-purple-900/20">
         <div>
-          <h2 class="font-headline-sm text-lg font-bold text-on-surface">Storefront Occasions Registry</h2>
-          <p class="text-xs sm:text-sm text-on-surface-variant">Enable/disable categories, reorder tabs, and see active template inventory.</p>
+          <h2 class="font-headline-sm text-lg font-bold text-on-surface">Storefront Categories &amp; Occasions Taxonomy</h2>
+          <p class="text-xs sm:text-sm text-on-surface-variant">Manage categories, icons, reorder navigation priority, and safeguard against broken template references.</p>
         </div>
-        <span class="text-xs text-outline font-mono" id="occasions-count-badge">0 Categories Configured</span>
+        <div class="flex items-center gap-3">
+          <div class="relative flex items-center">
+            <span class="material-symbols-outlined absolute left-2.5 text-outline text-[16px]">search</span>
+            <input id="search-occasions" oninput="filterOccasions(this.value)" placeholder="Search categories..." class="bg-surface-container-low text-on-surface pl-8 pr-3 py-1.5 rounded-lg border border-purple-900/30 text-xs focus:outline-none focus:ring-1 focus:ring-primary w-48"/>
+          </div>
+          <span class="text-xs text-outline font-mono" id="occasions-count-badge">0 Categories</span>
+        </div>
       </div>
 
       <div class="overflow-x-auto">
         <table class="w-full text-left border-collapse" id="occasions-table">
           <thead>
-            <tr class="border-b border-purple-900/30 text-outline text-xs uppercase font-bold">
+            <tr class="border-b border-purple-900/30 text-outline text-[11px] uppercase font-bold bg-surface-container-lowest/50">
+              <th class="py-3 px-3 w-16">Order</th>
               <th class="py-3 px-3">Occasion &amp; Category</th>
               <th class="py-3 px-3">Storefront Slug</th>
+              <th class="py-3 px-3">Description</th>
               <th class="py-3 px-3">Templates</th>
-              <th class="py-3 px-3">Traffic Share</th>
               <th class="py-3 px-3">Public Status</th>
               <th class="py-3 px-3 text-right">Actions</th>
             </tr>
           </thead>
-          <tbody class="divide-y divide-purple-900/20 text-sm" id="occasions-table-body">
+          <tbody class="divide-y divide-purple-900/20 text-xs" id="occasions-table-body">
             <tr>
-              <td colspan="6" class="text-center py-10 text-on-surface-variant text-xs">
+              <td colspan="7" class="text-center py-10 text-on-surface-variant text-xs">
                 <span class="material-symbols-outlined text-3xl text-outline mb-1 block">category</span>
                 <p class="font-semibold text-sm text-on-surface">Loading Occasions Registry...</p>
               </td>
@@ -271,41 +281,93 @@
   </main>
 </div>
 
-<!-- Modal: Add New Occasion -->
+<!-- Modal: Add New Occasion Category -->
 <div id="new-occasion-modal" class="fixed inset-0 bg-black/80 backdrop-blur-sm z-50 hidden items-center justify-center p-4">
   <div class="bg-surface-container w-full max-w-md rounded-2xl p-6 border border-purple-900/40 shadow-2xl flex flex-col gap-4">
-    <div class="flex items-center justify-between">
-      <h3 class="font-headline-sm text-lg font-bold text-on-surface">Add New Storefront Occasion</h3>
-      <button onclick="toggleModal('new-occasion-modal')" class="text-on-surface-variant hover:text-on-surface">
+    <div class="flex items-center justify-between border-b border-purple-900/30 pb-3">
+      <h3 class="font-headline-sm text-base font-bold text-on-surface flex items-center gap-2">
+        <span class="material-symbols-outlined text-primary">add_circle</span>
+        <span>Add New Storefront Category</span>
+      </h3>
+      <button onclick="toggleModal('new-occasion-modal')" class="text-on-surface-variant hover:text-on-surface cursor-pointer">
         <span class="material-symbols-outlined">close</span>
       </button>
     </div>
     <div>
-      <label class="block text-xs font-bold uppercase text-outline mb-1">Occasion Title</label>
-      <input id="new-occasion-name" class="w-full px-3 py-2 rounded-lg bg-surface-container-low text-on-surface border border-purple-900/30 text-sm" placeholder="e.g. Housewarming Party"/>
+      <label class="block text-[11px] font-bold uppercase text-outline mb-1">Category Name <span class="text-pink-400">*</span></label>
+      <input id="new-occasion-name" oninput="autoGenerateSlug(this.value, 'new-occasion-slug')" class="w-full px-3 py-2 rounded-lg bg-surface-container-low text-on-surface border border-purple-900/30 text-sm focus:outline-none focus:ring-1 focus:ring-primary" placeholder="e.g. Housewarming, Crush, Boyfriend..."/>
     </div>
     <div class="grid grid-cols-2 gap-3">
       <div>
-        <label class="block text-xs font-bold uppercase text-outline mb-1">Icon / Emoji</label>
-        <input id="new-occasion-icon" class="w-full px-3 py-2 rounded-lg bg-surface-container-low text-on-surface border border-purple-900/30 text-sm" placeholder="🏡"/>
+        <label class="block text-[11px] font-bold uppercase text-outline mb-1">Icon / Emoji</label>
+        <input id="new-occasion-icon" class="w-full px-3 py-2 rounded-lg bg-surface-container-low text-on-surface border border-purple-900/30 text-sm text-center" placeholder="🎂, 💖, 💐" value="✨"/>
       </div>
       <div>
-        <label class="block text-xs font-bold uppercase text-outline mb-1">URL Slug</label>
-        <input id="new-occasion-slug" class="w-full px-3 py-2 rounded-lg bg-surface-container-low text-on-surface border border-purple-900/30 text-sm" placeholder="/housewarming"/>
+        <label class="block text-[11px] font-bold uppercase text-outline mb-1">URL Slug</label>
+        <input id="new-occasion-slug" class="w-full px-3 py-2 rounded-lg bg-surface-container-low text-on-surface border border-purple-900/30 text-sm font-mono" placeholder="housewarming"/>
       </div>
     </div>
     <div>
-      <label class="block text-xs font-bold uppercase text-outline mb-1">Description</label>
-      <textarea id="new-occasion-desc" rows="2" class="w-full px-3 py-2 rounded-lg bg-surface-container-low text-on-surface border border-purple-900/30 text-sm" placeholder="Warm wishes for new homes and new journeys"></textarea>
+      <label class="block text-[11px] font-bold uppercase text-outline mb-1">Description</label>
+      <textarea id="new-occasion-desc" rows="2" class="w-full px-3 py-2 rounded-lg bg-surface-container-low text-on-surface border border-purple-900/30 text-xs" placeholder="Celebration wishes and templates for this occasion"></textarea>
     </div>
-    <div class="flex justify-end gap-2 pt-2">
-      <button onclick="toggleModal('new-occasion-modal')" class="px-4 py-2 rounded-lg bg-surface-container-high text-on-surface text-xs font-bold">Cancel</button>
-      <button onclick="saveNewOccasion()" class="px-4 py-2 rounded-lg bg-primary-container text-white text-xs font-bold">Save Occasion</button>
+    <div class="flex items-center justify-between p-2 rounded-lg bg-surface-container-low border border-purple-900/20">
+      <span class="text-xs font-semibold text-on-surface">Active on Marketplace:</span>
+      <input id="new-occasion-active" type="checkbox" checked class="rounded text-primary w-4 h-4"/>
+    </div>
+    <div class="flex justify-end gap-2 pt-2 border-t border-purple-900/30">
+      <button onclick="toggleModal('new-occasion-modal')" class="px-4 py-2 rounded-lg bg-surface-container-high text-on-surface text-xs font-bold cursor-pointer">Cancel</button>
+      <button onclick="saveNewOccasion()" class="px-5 py-2 rounded-lg bg-gradient-to-r from-primary to-secondary text-white text-xs font-bold shadow-md cursor-pointer">Create Category</button>
+    </div>
+  </div>
+</div>
+
+<!-- Modal: Edit Occasion Category -->
+<div id="edit-occasion-modal" class="fixed inset-0 bg-black/80 backdrop-blur-sm z-50 hidden items-center justify-center p-4">
+  <div class="bg-surface-container w-full max-w-md rounded-2xl p-6 border border-purple-900/40 shadow-2xl flex flex-col gap-4">
+    <div class="flex items-center justify-between border-b border-purple-900/30 pb-3">
+      <h3 class="font-headline-sm text-base font-bold text-on-surface flex items-center gap-2">
+        <span class="material-symbols-outlined text-secondary">edit</span>
+        <span>Edit Occasion Category</span>
+      </h3>
+      <button onclick="closeEditCategoryModal()" class="text-on-surface-variant hover:text-on-surface cursor-pointer">
+        <span class="material-symbols-outlined">close</span>
+      </button>
+    </div>
+    <input id="edit-occasion-id" type="hidden"/>
+    <div>
+      <label class="block text-[11px] font-bold uppercase text-outline mb-1">Category Name <span class="text-pink-400">*</span></label>
+      <input id="edit-occasion-name" class="w-full px-3 py-2 rounded-lg bg-surface-container-low text-on-surface border border-purple-900/30 text-sm focus:outline-none focus:ring-1 focus:ring-primary"/>
+    </div>
+    <div class="grid grid-cols-2 gap-3">
+      <div>
+        <label class="block text-[11px] font-bold uppercase text-outline mb-1">Icon / Emoji</label>
+        <input id="edit-occasion-icon" class="w-full px-3 py-2 rounded-lg bg-surface-container-low text-on-surface border border-purple-900/30 text-sm text-center"/>
+      </div>
+      <div>
+        <label class="block text-[11px] font-bold uppercase text-outline mb-1">URL Slug</label>
+        <input id="edit-occasion-slug" class="w-full px-3 py-2 rounded-lg bg-surface-container-low text-on-surface border border-purple-900/30 text-sm font-mono"/>
+      </div>
+    </div>
+    <div>
+      <label class="block text-[11px] font-bold uppercase text-outline mb-1">Description</label>
+      <textarea id="edit-occasion-desc" rows="2" class="w-full px-3 py-2 rounded-lg bg-surface-container-low text-on-surface border border-purple-900/30 text-xs"></textarea>
+    </div>
+    <div class="flex items-center justify-between p-2 rounded-lg bg-surface-container-low border border-purple-900/20">
+      <span class="text-xs font-semibold text-on-surface">Active on Marketplace:</span>
+      <input id="edit-occasion-active" type="checkbox" class="rounded text-primary w-4 h-4"/>
+    </div>
+    <div class="flex justify-end gap-2 pt-2 border-t border-purple-900/30">
+      <button onclick="closeEditCategoryModal()" class="px-4 py-2 rounded-lg bg-surface-container-high text-on-surface text-xs font-bold cursor-pointer">Cancel</button>
+      <button onclick="saveCategoryEdits()" class="px-5 py-2 rounded-lg bg-gradient-to-r from-primary to-secondary text-white text-xs font-bold shadow-md cursor-pointer">Update Category</button>
     </div>
   </div>
 </div>
 
 <script>
+  let loadedCategories = [];
+  let templateCountsMap = {};
+
   function toggleModal(id) {
     const el = document.getElementById(id);
     if (!el) return;
@@ -313,16 +375,337 @@
     el.classList.toggle('flex');
   }
 
-  function toggleOccasionStatus(btn) {
-    const isAct = btn.textContent.includes('Active');
-    if (isAct) {
-      btn.className = "px-2.5 py-1 rounded-full bg-slate-500/20 text-slate-400 font-bold text-xs flex items-center gap-1";
-      btn.innerHTML = `<span class="w-2 h-2 rounded-full bg-slate-400"></span> Hidden`;
-      showToast('Occasion visibility set to Hidden');
-    } else {
-      btn.className = "px-2.5 py-1 rounded-full bg-emerald-500/20 text-emerald-400 font-bold text-xs flex items-center gap-1";
-      btn.innerHTML = `<span class="w-2 h-2 rounded-full bg-emerald-400"></span> Active`;
-      showToast('Occasion visibility set to Active');
+  function autoGenerateSlug(text, targetInputId) {
+    const target = document.getElementById(targetInputId);
+    if (target) {
+      target.value = (text || '').toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-+|-+$/g, '');
+    }
+  }
+
+  function filterOccasions(q) {
+    const term = (q || '').toLowerCase().trim();
+    const rows = document.querySelectorAll('#occasions-table tbody tr');
+    rows.forEach(r => {
+      const text = r.textContent.toLowerCase();
+      r.style.display = text.includes(term) ? '' : 'none';
+    });
+  }
+
+  async function loadOccasionsData() {
+    try {
+      const [cats, templates] = await Promise.all([
+        window.categoryRepository ? window.categoryRepository.getAll() : fetch('/api/categories').then(r => r.json()).then(d => d.categories || []),
+        window.templateRepository ? window.templateRepository.getAll({ includeDrafts: true }) : fetch('/api/templates?includeDrafts=true').then(r => r.json()).then(d => d.templates || [])
+      ]);
+
+      loadedCategories = cats;
+
+      // Count templates per category
+      templateCountsMap = {};
+      templates.forEach(t => {
+        const catName = t.category || 'General';
+        templateCountsMap[catName.toLowerCase()] = (templateCountsMap[catName.toLowerCase()] || 0) + 1;
+      });
+
+      // Update KPI Tiles
+      const activeCount = cats.filter(c => c.isActive !== false).length;
+      const statActive = document.getElementById('stat-active-occasions');
+      const statTemplates = document.getElementById('stat-total-templates');
+      const statTop = document.getElementById('stat-top-occasion');
+      const statTopSub = document.getElementById('stat-top-occasion-sub');
+      const badgeCount = document.getElementById('occasions-count-badge');
+
+      if (statActive) statActive.textContent = `${activeCount} Live`;
+      if (statTemplates) statTemplates.textContent = templates.length;
+      if (badgeCount) badgeCount.textContent = `${cats.length} Categories Configured`;
+
+      // Top category by template count
+      if (cats.length > 0) {
+        const sortedByTemplates = [...cats].sort((a, b) => {
+          const cA = templateCountsMap[a.name.toLowerCase()] || 0;
+          const cB = templateCountsMap[b.name.toLowerCase()] || 0;
+          return cB - cA;
+        });
+        const topCat = sortedByTemplates[0];
+        const topCount = templateCountsMap[topCat.name.toLowerCase()] || 0;
+        if (statTop) statTop.textContent = `${topCat.icon || ''} ${topCat.name}`;
+        if (statTopSub) statTopSub.textContent = `${topCount} Templates assigned`;
+      }
+
+      renderCategoriesTable(cats);
+    } catch (err) {
+      console.error('Error loading categories data:', err);
+    }
+  }
+
+  function renderCategoriesTable(categories) {
+    const tbody = document.getElementById('occasions-table-body');
+    if (!tbody) return;
+
+    if (categories.length === 0) {
+      tbody.innerHTML = `
+        <tr>
+          <td colspan="7" class="text-center py-10 text-on-surface-variant text-xs">
+            <span class="material-symbols-outlined text-3xl text-outline mb-1 block">category</span>
+            <p class="font-semibold text-sm text-on-surface">No Categories Configured</p>
+            <span class="text-outline">Click "Add New Occasion" above to create your first category.</span>
+          </td>
+        </tr>
+      `;
+      return;
+    }
+
+    tbody.innerHTML = categories.map((cat, idx) => {
+      const count = templateCountsMap[cat.name.toLowerCase()] || templateCountsMap[cat.slug.toLowerCase()] || 0;
+      const isActive = cat.isActive !== false;
+
+      return `
+        <tr class="hover:bg-surface-container-low transition border-b border-purple-900/20">
+          <!-- Order Buttons -->
+          <td class="py-3 px-3">
+            <div class="flex items-center gap-1">
+              <span class="font-mono text-outline font-bold text-xs w-5 text-center">${cat.sortOrder || (idx + 1)}</span>
+              <div class="flex flex-col">
+                <button onclick="moveCategory('${cat.id}', 'up')" class="text-outline hover:text-primary leading-none text-xs cursor-pointer" title="Move Up" ${idx === 0 ? 'disabled style="opacity:0.3"' : ''}>▲</button>
+                <button onclick="moveCategory('${cat.id}', 'down')" class="text-outline hover:text-primary leading-none text-xs cursor-pointer" title="Move Down" ${idx === categories.length - 1 ? 'disabled style="opacity:0.3"' : ''}>▼</button>
+              </div>
+            </div>
+          </td>
+
+          <!-- Name & Icon -->
+          <td class="py-3.5 px-3">
+            <div class="flex items-center gap-3">
+              <span class="text-2xl p-1.5 rounded-xl bg-purple-500/10 shrink-0">${cat.icon || '✨'}</span>
+              <div>
+                <span class="font-bold text-on-surface block text-sm">${cat.name}</span>
+                <span class="text-[11px] text-on-surface-variant">${cat.description || 'Occasion category'}</span>
+              </div>
+            </div>
+          </td>
+
+          <!-- Slug -->
+          <td class="py-3.5 px-3 font-mono text-xs text-primary font-semibold">/${cat.slug}</td>
+
+          <!-- Description -->
+          <td class="py-3.5 px-3 text-on-surface-variant text-[11px] max-w-xs truncate">${cat.description || '—'}</td>
+
+          <!-- Template Count -->
+          <td class="py-3.5 px-3">
+            <span class="px-2 py-0.5 rounded-full font-bold text-xs ${count > 0 ? 'bg-primary/20 text-primary' : 'bg-surface-container-highest text-outline'}">
+              ${count} Templates
+            </span>
+          </td>
+
+          <!-- Active Status Toggle -->
+          <td class="py-3.5 px-3">
+            <button onclick="toggleCategoryActive('${cat.id}', ${isActive})" class="px-2.5 py-1 rounded-full font-bold text-xs flex items-center gap-1 cursor-pointer ${isActive ? 'bg-emerald-500/20 text-emerald-400' : 'bg-slate-500/20 text-slate-400'}" title="Toggle Active / Hidden on Store">
+              <span class="w-2 h-2 rounded-full ${isActive ? 'bg-emerald-400 animate-pulse' : 'bg-slate-400'}"></span>
+              <span>${isActive ? 'Active' : 'Hidden'}</span>
+            </button>
+          </td>
+
+          <!-- Actions -->
+          <td class="py-3.5 px-3 text-right">
+            <div class="flex items-center justify-end gap-1.5">
+              <button onclick="openEditCategoryModal('${cat.id}')" class="p-1.5 rounded-lg bg-surface-container-high hover:bg-surface-container-highest text-primary transition cursor-pointer" title="Edit Category">
+                <span class="material-symbols-outlined text-[16px]">edit</span>
+              </button>
+              <button onclick="deleteCategory('${cat.id}', '${escapeQuotes(cat.name)}')" class="p-1.5 rounded-lg bg-rose-500/10 hover:bg-rose-500/20 text-rose-400 transition cursor-pointer" title="Delete Category">
+                <span class="material-symbols-outlined text-[16px]">delete</span>
+              </button>
+            </div>
+          </td>
+        </tr>
+      `;
+    }).join('');
+  }
+
+  // Save New Category
+  async function saveNewOccasion() {
+    const name = document.getElementById('new-occasion-name').value.trim();
+    const icon = document.getElementById('new-occasion-icon').value.trim() || '✨';
+    const slug = document.getElementById('new-occasion-slug').value.trim();
+    const description = document.getElementById('new-occasion-desc').value.trim();
+    const isActive = document.getElementById('new-occasion-active').checked;
+
+    if (!name) {
+      alert('Please enter a category name');
+      return;
+    }
+
+    try {
+      const payload = {
+        name,
+        slug: slug || name.toLowerCase().replace(/[^a-z0-9]+/g, '-'),
+        icon,
+        description,
+        sortOrder: loadedCategories.length + 1,
+        isActive
+      };
+
+      if (window.categoryRepository) {
+        await window.categoryRepository.create(payload);
+      } else {
+        const res = await fetch('/api/categories', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(payload)
+        });
+        const data = await res.json();
+        if (!data.success) throw new Error(data.message);
+      }
+
+      toggleModal('new-occasion-modal');
+      showToast(`🎉 Category "${name}" created and synced!`);
+      document.getElementById('new-occasion-name').value = '';
+      document.getElementById('new-occasion-slug').value = '';
+      document.getElementById('new-occasion-desc').value = '';
+      await loadOccasionsData();
+    } catch (err) {
+      alert('Failed to save category: ' + err.message);
+    }
+  }
+
+  // Open Edit Category Modal
+  function openEditCategoryModal(id) {
+    const cat = loadedCategories.find(c => c.id === id);
+    if (!cat) return;
+
+    document.getElementById('edit-occasion-id').value = cat.id;
+    document.getElementById('edit-occasion-name').value = cat.name || '';
+    document.getElementById('edit-occasion-icon').value = cat.icon || '✨';
+    document.getElementById('edit-occasion-slug').value = cat.slug || '';
+    document.getElementById('edit-occasion-desc').value = cat.description || '';
+    document.getElementById('edit-occasion-active').checked = cat.isActive !== false;
+
+    const modal = document.getElementById('edit-occasion-modal');
+    if (modal) {
+      modal.classList.remove('hidden');
+      modal.classList.add('flex');
+    }
+  }
+
+  function closeEditCategoryModal() {
+    const modal = document.getElementById('edit-occasion-modal');
+    if (modal) {
+      modal.classList.add('hidden');
+      modal.classList.remove('flex');
+    }
+  }
+
+  // Save Category Edits
+  async function saveCategoryEdits() {
+    const id = document.getElementById('edit-occasion-id').value;
+    const name = document.getElementById('edit-occasion-name').value.trim();
+    const icon = document.getElementById('edit-occasion-icon').value.trim() || '✨';
+    const slug = document.getElementById('edit-occasion-slug').value.trim();
+    const description = document.getElementById('edit-occasion-desc').value.trim();
+    const isActive = document.getElementById('edit-occasion-active').checked;
+
+    if (!name) {
+      alert('Please enter a category name');
+      return;
+    }
+
+    try {
+      const updates = { name, icon, slug, description, isActive };
+
+      if (window.categoryRepository) {
+        await window.categoryRepository.update(id, updates);
+      } else {
+        const res = await fetch(`/api/categories/${encodeURIComponent(id)}`, {
+          method: 'PUT',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(updates)
+        });
+        const data = await res.json();
+        if (!data.success) throw new Error(data.message);
+      }
+
+      closeEditCategoryModal();
+      showToast(`Category "${name}" updated and synced to Marketplace.`);
+      await loadOccasionsData();
+    } catch (err) {
+      alert('Failed to update category: ' + err.message);
+    }
+  }
+
+  // Reorder Category (Move Up or Down)
+  async function moveCategory(id, direction) {
+    const idx = loadedCategories.findIndex(c => c.id === id);
+    if (idx === -1) return;
+
+    const targetIdx = direction === 'up' ? idx - 1 : idx + 1;
+    if (targetIdx < 0 || targetIdx >= loadedCategories.length) return;
+
+    // Swap
+    const temp = loadedCategories[idx];
+    loadedCategories[idx] = loadedCategories[targetIdx];
+    loadedCategories[targetIdx] = temp;
+
+    const orderedIds = loadedCategories.map(c => c.id);
+
+    try {
+      if (window.categoryRepository) {
+        await window.categoryRepository.reorder(orderedIds);
+      } else {
+        await fetch('/api/categories/reorder', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ orderedIds })
+        });
+      }
+      showToast('Category ordering updated.');
+      await loadOccasionsData();
+    } catch (err) {
+      console.error('Error reordering categories:', err);
+    }
+  }
+
+  // Toggle Category Active Status
+  async function toggleCategoryActive(id, currentStatus) {
+    try {
+      if (window.categoryRepository) {
+        await window.categoryRepository.update(id, { isActive: !currentStatus });
+      } else {
+        await fetch(`/api/categories/${encodeURIComponent(id)}`, {
+          method: 'PUT',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ isActive: !currentStatus })
+        });
+      }
+      showToast(!currentStatus ? 'Category set to Active on Store' : 'Category hidden from Store');
+      await loadOccasionsData();
+    } catch (err) {
+      alert('Error updating status: ' + err.message);
+    }
+  }
+
+  // Safe Category Delete (Checks template dependency)
+  async function deleteCategory(id, name) {
+    if (!confirm(`Are you sure you want to delete category "${name}"?\n\nIf templates currently use this category, deletion will be guarded to prevent breaking template catalogs.`)) {
+      return;
+    }
+
+    try {
+      let result;
+      if (window.categoryRepository) {
+        result = await window.categoryRepository.delete(id);
+      } else {
+        const res = await fetch(`/api/categories/${encodeURIComponent(id)}`, { method: 'DELETE' });
+        result = await res.json();
+      }
+
+      if (result.success) {
+        showToast(`Category "${name}" deleted.`);
+        await loadOccasionsData();
+      } else if (result.inUse) {
+        alert(`⚠️ SAFEGUARD BLOCKED DELETION:\n\n${result.message}\n\nAction: Please use the "Active / Hidden" toggle button to hide this category from the store instead.`);
+      } else {
+        alert('Error deleting category: ' + (result.message || 'Unknown error'));
+      }
+    } catch (err) {
+      alert('Failed to delete category: ' + err.message);
     }
   }
 
@@ -334,7 +717,7 @@
     const cloud = document.getElementById('tags-cloud');
     const span = document.createElement('span');
     span.className = "px-3 py-1.5 rounded-xl bg-surface-container-low border border-purple-900/30 text-xs font-semibold text-on-surface flex items-center gap-2 hover:border-primary transition";
-    span.innerHTML = `<span class="text-primary font-bold">${val}</span><span class="text-outline text-[11px]">0</span><button onclick="removeTag(this)" class="text-outline hover:text-red-400 text-xs">×</button>`;
+    span.innerHTML = `<span class="text-primary font-bold">${val}</span><span class="text-outline text-[11px]">0</span><button onclick="removeTag(this)" class="text-outline hover:text-red-400 text-xs cursor-pointer">×</button>`;
     cloud.appendChild(span);
     input.value = '';
     showToast(`Tag ${val} added`);
@@ -345,138 +728,35 @@
     showToast('Tag removed');
   }
 
-  function saveNewOccasion() {
-    const name = document.getElementById('new-occasion-name').value;
-    const icon = document.getElementById('new-occasion-icon').value || '✨';
-    const slug = document.getElementById('new-occasion-slug').value || '/occasion';
-    if (!name) {
-      alert('Please provide occasion name');
-      return;
+  function showToast(msg) {
+    let toast = document.getElementById('wm-admin-toast');
+    if (!toast) {
+      toast = document.createElement('div');
+      toast.id = 'wm-admin-toast';
+      toast.className = 'fixed bottom-6 right-6 z-50 px-5 py-3 rounded-xl bg-purple-900/90 text-white font-semibold shadow-2xl border border-purple-500/40 backdrop-blur-xl transition-all duration-300 transform translate-y-12 opacity-0 pointer-events-none text-xs';
+      document.body.appendChild(toast);
     }
-    toggleModal('new-occasion-modal');
-    showToast(`🎉 Occasion "${name}" created and synced to Storefront!`);
-    document.getElementById('new-occasion-name').value = '';
+    toast.textContent = msg;
+    toast.classList.remove('translate-y-12', 'opacity-0', 'pointer-events-none');
+    setTimeout(() => {
+      toast.classList.add('translate-y-12', 'opacity-0', 'pointer-events-none');
+    }, 4000);
   }
 
-  function filterOccasions() {
-    const q = document.getElementById('search-occasions').value.toLowerCase();
-    const rows = document.querySelectorAll('#occasions-table tbody tr');
-    rows.forEach(r => {
-      const text = r.textContent.toLowerCase();
-      r.style.display = text.includes(q) ? '' : 'none';
-    });
+  function escapeQuotes(str) {
+    return (str || '').replace(/'/g, "\\'");
   }
 
-  async function loadOccasionsData() {
-    try {
-      const [tplRes, metricsRes] = await Promise.all([
-        fetch('/api/templates'),
-        fetch('/api/admin/metrics')
-      ]);
-      const tplData = await tplRes.json();
-      const metricsData = await metricsRes.json();
-
-      if (!tplData.success || !tplData.templates) return;
-      const templates = tplData.templates;
-      const metrics = (metricsData.success && metricsData.metrics) ? metricsData.metrics : {};
-      const breakdown = metrics.occasionsBreakdown || {};
-      const totalWishes = metrics.totalWishes || 0;
-
-      // Group templates by occasion / category
-      const catMap = {};
-      templates.forEach(t => {
-        const cat = t.category || 'General';
-        if (!catMap[cat]) {
-          catMap[cat] = {
-            name: cat,
-            count: 0,
-            icon: cat.toLowerCase().includes('bday') || cat.toLowerCase().includes('birthday') ? '🎂' :
-                  cat.toLowerCase().includes('love') || cat.toLowerCase().includes('romance') ? '💖' :
-                  cat.toLowerCase().includes('anniv') ? '💍' :
-                  cat.toLowerCase().includes('festival') ? '🪔' :
-                  cat.toLowerCase().includes('party') ? '🎉' : '✨',
-            slug: '/' + cat.toLowerCase().replace(/[^a-z0-9]/g, '-')
-          };
-        }
-        catMap[cat].count++;
-      });
-
-      const categories = Object.values(catMap);
-
-      // Update KPI Tiles with REAL numbers
-      const statActive = document.getElementById('stat-active-occasions');
-      const statTemplates = document.getElementById('stat-total-templates');
-      const statTop = document.getElementById('stat-top-occasion');
-      const statTopSub = document.getElementById('stat-top-occasion-sub');
-      const badgeCount = document.getElementById('occasions-count-badge');
-
-      if (statActive) statActive.textContent = `${categories.length} Live`;
-      if (statTemplates) statTemplates.textContent = templates.length;
-      if (badgeCount) badgeCount.textContent = `${categories.length} Categories Configured`;
-
-      // Find top occasion by template count
-      if (categories.length > 0) {
-        const sorted = [...categories].sort((a, b) => b.count - a.count);
-        if (statTop) statTop.textContent = sorted[0].name;
-        if (statTopSub) statTopSub.textContent = `${sorted[0].count} Templates active`;
-      } else {
-        if (statTop) statTop.textContent = 'None';
-        if (statTopSub) statTopSub.textContent = '0 Templates active';
+  document.addEventListener('DOMContentLoaded', () => {
+    // Part 10 Authorization Guard: requireAuth() + requireAdmin()
+    if (window.WishAuth) {
+      const isAllowed = WishAuth.requireAdmin({ containerId: 'admin-main-content' });
+      if (!isAllowed) {
+        return; // Halt if unauthorized
       }
-
-      // Render table
-      const tbody = document.getElementById('occasions-table-body');
-      if (!tbody) return;
-
-      if (categories.length === 0) {
-        tbody.innerHTML = `
-          <tr>
-            <td colspan="6" class="text-center py-10 text-on-surface-variant text-xs">
-              <span class="material-symbols-outlined text-3xl text-outline mb-1 block">category</span>
-              <p class="font-semibold text-sm text-on-surface">No Occasions Registered Yet</p>
-              <span class="text-outline">Upload a template or add an occasion to start configuring.</span>
-            </td>
-          </tr>
-        `;
-        return;
-      }
-
-      tbody.innerHTML = categories.map(cat => {
-        const wishCount = breakdown[cat.name] || 0;
-        const pct = totalWishes > 0 ? Math.round((wishCount / totalWishes) * 100) : 0;
-        const trafficText = totalWishes > 0 ? `${pct}% (${wishCount} wishes)` : `${cat.count} templates`;
-
-        return `
-          <tr class="hover:bg-surface-container-low transition">
-            <td class="py-3.5 px-3">
-              <div class="flex items-center gap-3">
-                <span class="text-2xl p-2 rounded-xl bg-purple-500/10">${cat.icon}</span>
-                <div>
-                  <span class="font-bold text-on-surface block">${cat.name}</span>
-                  <span class="text-xs text-on-surface-variant">Storefront Category</span>
-                </div>
-              </div>
-            </td>
-            <td class="py-3.5 px-3 font-mono text-xs text-primary">${cat.slug}</td>
-            <td class="py-3.5 px-3 font-bold text-on-surface">${cat.count}</td>
-            <td class="py-3.5 px-3 font-bold text-emerald-400">${trafficText}</td>
-            <td class="py-3.5 px-3">
-              <button class="px-2.5 py-1 rounded-full bg-emerald-500/20 text-emerald-400 font-bold text-xs flex items-center gap-1" onclick="toggleOccasionStatus(this)">
-                <span class="w-2 h-2 rounded-full bg-emerald-400"></span> Active
-              </button>
-            </td>
-            <td class="py-3.5 px-3 text-right">
-              <button class="text-xs text-primary hover:underline font-bold" onclick="showToast('Occasion settings saved')">Config</button>
-            </td>
-          </tr>
-        `;
-      }).join('');
-    } catch (err) {
-      console.error('Error loading real occasions data:', err);
     }
-  }
-
-  document.addEventListener('DOMContentLoaded', loadOccasionsData);
+    loadOccasionsData();
+  });
 </script>
 </body>
 </html>

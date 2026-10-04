@@ -1,1294 +1,1328 @@
 <!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8"/>
+  <base href="/"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>Studio Customizer | WishMagic</title>
+  <meta name="description" content="Personalize every detail of your interactive 3D wish website. Customize recipient names, photo memories, music, and celebration animations."/>
+  
+  <!-- Device-Adaptive Theme Controller -->
+  <script src="js/site-theme.js"></script>
 
-<html lang="en"><head>
-<meta charset="utf-8"/>
-<base href="/"/>
-<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
-<title>WishMagic | Gift a Magical Web-Experience!</title>
-<script src="js/site-theme.js"></script>
-<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
-<link href="https://fonts.googleapis.com" rel="preconnect"/>
-<link crossorigin="" href="https://fonts.gstatic.com" rel="preconnect"/>
-<link href="https://fonts.googleapis.com/css2?family=Outfit:wght@400;500;600;700;800;900&amp;family=Plus+Jakarta+Sans:wght@400;500;600;700;800&amp;family=Playfair+Display:ital,wght@1,600&amp;display=swap" rel="stylesheet"/>
-<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
-<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
-<script src="js/tailwind-config.js"></script>
-<script src="https://cdn.jsdelivr.net/npm/canvas-confetti@1.6.0/dist/confetti.browser.min.js"></script>
-<script src="js/WishMagicCore.js"></script>
-<script src="js/customize-engine.js"></script>
-<style>
-    :root {
-      --bg-body: #F6F0FF;
-      --text-main: #24113F;
-      --card-bg: rgba(255, 255, 255, 0.84);
-      --card-border: rgba(255, 255, 255, 0.95);
-      --nav-bg: rgba(255, 255, 255, 0.8);
-      --nav-border: rgba(255, 255, 255, 0.9);
-      --pill-bg: rgba(255, 255, 255, 0.9);
-      --pill-text: #24113F;
-      --pill-border: rgba(233, 213, 255, 0.9);
+  <!-- Tailwind CSS CDN with Custom Tailwind Config -->
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script src="js/tailwind-config.js"></script>
+
+  <!-- Google Fonts: Plus Jakarta Sans, Outfit, Playfair Display, Material Symbols -->
+  <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@400;500;600;700;800;900&family=Plus+Jakarta+Sans:wght@300;400;500;600;700;800&family=Playfair+Display:ital,wght@0,600;0,700;1,400;1,600&display=swap" rel="stylesheet"/>
+  <link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:opsz,wght,FILL,GRAD@20..48,100..700,0..1,-50..200" rel="stylesheet"/>
+
+  <!-- Confetti Engine -->
+  <script src="https://cdn.jsdelivr.net/npm/canvas-confetti@1.6.0/dist/confetti.browser.min.js"></script>
+
+  <style>
+    body {
+      font-family: 'Plus Jakarta Sans', sans-serif;
+      transition: background-color 0.3s ease, color 0.3s ease;
     }
+    .font-display { font-family: 'Outfit', sans-serif; }
+    .font-serif-accent { font-family: 'Playfair Display', serif; }
 
+    :root {
+      --bg-ambient-1: rgba(244, 114, 182, 0.12);
+      --bg-ambient-2: rgba(168, 85, 247, 0.14);
+      --card-bg: rgba(255, 255, 255, 0.88);
+      --card-border: rgba(216, 180, 254, 0.6);
+      --text-main: #24113F;
+    }
     html.dark {
-      --bg-body: #0F0521;
+      --bg-ambient-1: rgba(236, 72, 153, 0.15);
+      --bg-ambient-2: rgba(124, 58, 237, 0.22);
+      --card-bg: rgba(26, 11, 46, 0.88);
+      --card-border: rgba(147, 51, 234, 0.35);
       --text-main: #F3E8FF;
-      --card-bg: rgba(29, 11, 54, 0.75);
-      --card-border: rgba(147, 51, 234, 0.25);
-      --nav-bg: rgba(20, 6, 40, 0.85);
-      --nav-border: rgba(147, 51, 234, 0.35);
-      --pill-bg: rgba(29, 11, 54, 0.8);
-      --pill-text: #E9D5FF;
-      --pill-border: rgba(147, 51, 234, 0.3);
     }
 
     body {
-      background-color: var(--bg-body);
-      background-image: 
-        radial-gradient(at 10% 8%, rgba(233, 213, 255, 0.75) 0px, transparent 45%),
-        radial-gradient(at 90% 12%, rgba(251, 207, 232, 0.6) 0px, transparent 50%),
-        radial-gradient(at 50% 45%, rgba(243, 232, 255, 0.8) 0px, transparent 65%),
-        radial-gradient(at 85% 75%, rgba(230, 205, 254, 0.5) 0px, transparent 55%),
-        radial-gradient(at 15% 90%, rgba(254, 215, 240, 0.5) 0px, transparent 50%);
-      min-height: 100vh;
-      overflow-x: hidden;
+      background: radial-gradient(circle at 15% 10%, var(--bg-ambient-1) 0%, transparent 45%),
+                  radial-gradient(circle at 85% 60%, var(--bg-ambient-2) 0%, transparent 50%),
+                  linear-gradient(180deg, #FBF8FF 0%, #F5EEFD 50%, #FAF5FF 100%);
       color: var(--text-main);
-      transition: background-color 0.3s ease, color 0.3s ease;
+      min-height: 100vh;
     }
-
     html.dark body {
-      background-image: 
-        radial-gradient(at 10% 8%, rgba(147, 51, 234, 0.22) 0px, transparent 50%),
-        radial-gradient(at 90% 12%, rgba(236, 72, 153, 0.18) 0px, transparent 50%),
-        radial-gradient(at 50% 45%, rgba(88, 28, 135, 0.25) 0px, transparent 65%),
-        radial-gradient(at 85% 75%, rgba(126, 34, 206, 0.18) 0px, transparent 55%),
-        radial-gradient(at 15% 90%, rgba(157, 23, 77, 0.18) 0px, transparent 50%);
+      background: radial-gradient(circle at 15% 10%, var(--bg-ambient-1) 0%, transparent 45%),
+                  radial-gradient(circle at 85% 60%, var(--bg-ambient-2) 0%, transparent 50%),
+                  linear-gradient(180deg, #0F041B 0%, #17072B 50%, #0B0215 100%);
     }
 
-    .glass-card {
+    .glass-surface {
       background: var(--card-bg);
-      backdrop-filter: blur(20px);
+      backdrop-filter: blur(16px);
+      -webkit-backdrop-filter: blur(16px);
       border: 1px solid var(--card-border);
-      box-shadow: 0 16px 40px -10px rgba(107, 33, 168, 0.08);
     }
+
     .glass-nav {
-      background: var(--nav-bg);
-      backdrop-filter: blur(24px);
-      border: 1px solid var(--nav-border);
-      box-shadow: 0 14px 35px -8px rgba(107, 33, 168, 0.12);
+      background: rgba(255, 255, 255, 0.82);
+      backdrop-filter: blur(18px);
+      border: 1px solid rgba(233, 213, 255, 0.8);
     }
-    .glass-pill {
-      background: var(--pill-bg);
-      color: var(--pill-text);
-      backdrop-filter: blur(14px);
-      border: 1px solid var(--pill-border);
-      box-shadow: 0 4px 14px rgba(126, 34, 206, 0.06);
-      transition: all 0.2s ease;
+    html.dark .glass-nav {
+      background: rgba(26, 11, 46, 0.85);
+      border: 1px solid rgba(147, 51, 234, 0.3);
     }
-    .glass-pill:hover {
-      transform: translateY(-2px);
-      box-shadow: 0 8px 24px rgba(126, 34, 206, 0.14);
+
+    /* Device frame styling */
+    .sandbox-frame-shell {
+      transition: all 0.35s cubic-bezier(0.4, 0, 0.2, 1);
+      box-shadow: 0 25px 50px -12px rgba(109, 40, 217, 0.25);
     }
-    .pill-active {
-      background: linear-gradient(135deg, #EC4899 0%, #7C3AED 100%) !important;
-      color: #ffffff !important;
-      box-shadow: 0 8px 25px rgba(236, 72, 153, 0.35) !important;
-    }
-    .hero-desktop-canvas {
-      background: radial-gradient(circle at 75% 25%, #9d174d 0%, #6d28d9 28%, #4c1d95 62%, #2e0854 100%);
-      box-shadow: 0 30px 80px -15px rgba(46, 8, 84, 0.45);
-    }
-    .sparkle-dot {
-      position: absolute;
-      border-radius: 9999px;
-      background: white;
-      box-shadow: 0 0 14px 3px #fff, 0 0 28px 8px #f472b6;
-    }
-    @keyframes fallConfetti {
-      0% { transform: translateY(-20px) rotate(0deg); opacity: 1; }
-      100% { transform: translateY(280px) rotate(720deg); opacity: 0; }
-    }
-    .confetti-piece {
-      position: absolute;
-      width: 7px;
-      height: 10px;
-      pointer-events: none;
-      animation: fallConfetti 2s linear forwards;
-    }
-    @keyframes soundwave {
-      0%, 100% { height: 4px; }
-      50% { height: 18px; }
-    }
-    .wave-bar-1 { animation: soundwave 0.8s ease-in-out infinite; }
-    .wave-bar-2 { animation: soundwave 1.1s ease-in-out infinite 0.2s; }
-    .wave-bar-3 { animation: soundwave 0.7s ease-in-out infinite 0.4s; }
-    .wave-bar-4 { animation: soundwave 1.3s ease-in-out infinite 0.1s; }
+
+    /* Custom scrollbar */
+    ::-webkit-scrollbar { width: 6px; height: 6px; }
+    ::-webkit-scrollbar-track { background: transparent; }
+    ::-webkit-scrollbar-thumb { background: rgba(168, 85, 247, 0.35); border-radius: 9999px; }
+    ::-webkit-scrollbar-thumb:hover { background: rgba(168, 85, 247, 0.65); }
   </style>
-<meta content="web_standard" name="shell-type"/>  <script src="js/site-tracker.js"></script>
+
+  <!-- Theme Engine -->
+  <script src="js/theme-engine.js"></script>
+
+  <!-- Media System Engine -->
+  <script src="js/media-system.js"></script>
+
+  <!-- Lifecycle Engine -->
+  <script src="js/wish-lifecycle.js"></script>
+
+  <!-- Auth Service & Repositories -->
+  <script src="js/auth-service.js"></script>
+  <script src="js/repositories.js"></script>
+
+  <!-- Part 11, Part 12 & Part 13: Monetization, Section Content & Animation Engine -->
+  <script src="js/plan-service.js"></script>
+  <script src="js/entitlement-service.js"></script>
+  <script src="js/feature-access-service.js"></script>
+  <script src="js/payment-service.js"></script>
+  <script src="js/premium-lock-modal.js"></script>
+  <script src="js/template-section-system.js"></script>
+  <script src="js/animation-effects-engine.js"></script>
+
+  <!-- Core Customizer Logic -->
+  <script src="js/customize-engine.js"></script>
 </head>
-<body class="w-full min-h-screen font-sans antialiased selection:bg-pink-500 selection:text-white">
-<!-- Header -->
-<header class="sticky top-2 sm:top-5 z-40 px-2.5 sm:px-6 md:px-8 max-w-7xl mx-auto w-full transition-all">
-<div class="glass-nav rounded-2xl sm:rounded-full px-3 sm:px-5 lg:px-7 py-1.5 sm:py-2.5 flex items-center justify-between gap-2 sm:gap-4 shadow-lg shadow-purple-900/5">
-<a class="flex items-center gap-2 sm:gap-2.5 group flex-shrink-0" href="index.html">
-<div class="w-8 h-8 sm:w-9 sm:h-9 rounded-full bg-gradient-to-tr from-purple-600 via-pink-500 to-amber-300 flex items-center justify-center shadow-md shadow-pink-500/25 group-hover:rotate-12 transition-transform">
-<svg class="w-4 h-4 sm:w-4.5 sm:h-4.5 text-white" fill="none" stroke="currentColor" viewbox="0 0 24 24">
-<path d="M19.428 15.428a2 2 0 00-1.022-.547l-2.387-.477a6 6 0 00-3.86.517l-.318.158a6 6 0 01-3.86.517L6.05 15.21a2 2 0 00-1.806.547M8 4h8l-1 1v5.172a2 2 0 00.586 1.414l5 5c1.26 1.26.367 3.414-1.415 3.414H4.828c-1.782 0-2.674-2.154-1.414-3.414l5-5A2 2 0 009 10.172V5L8 4z" stroke-linecap="round" stroke-linejoin="round" stroke-width="2"></path>
-</svg>
-</div>
-<div class="flex flex-col">
-<span class="font-display font-extrabold text-base sm:text-xl lg:text-2xl tracking-tight bg-gradient-to-r from-purple-900 via-pink-600 to-purple-800 dark:from-purple-200 dark:via-pink-400 dark:to-purple-300 bg-clip-text text-transparent leading-none">WishMagic</span>
-<span class="text-[9px] sm:text-[10px] font-semibold text-purple-800/80 dark:text-purple-300/80 tracking-wider mt-0.5 hidden md:inline-block">Create. Personalize. Celebrate.</span>
-</div>
-</a>
-<nav class="hidden lg:flex items-center gap-1 xl:gap-2 text-sm font-semibold text-purple-950 dark:text-purple-100">
-<a class="px-3.5 py-1.5 rounded-full hover:bg-white/70 dark:hover:bg-purple-900/60 hover:text-purple-700 dark:hover:text-pink-300 transition" href="index.html">Home</a>
-<a class="px-3.5 py-1.5 rounded-full bg-purple-700 text-white shadow-sm" href="marketplace.html">Templates</a>
-<a class="px-3.5 py-1.5 rounded-full hover:bg-white/70 dark:hover:bg-purple-900/60 hover:text-purple-700 dark:hover:text-pink-300 transition" href="index.html#how-it-works">How It Works</a>
-<a class="px-3.5 py-1.5 rounded-full hover:bg-white/70 dark:hover:bg-purple-900/60 hover:text-purple-700 dark:hover:text-pink-300 transition" href="index.html#pricing-section">Pricing</a>
-<a class="px-3.5 py-1.5 rounded-full hover:bg-white/70 dark:hover:bg-purple-900/60 hover:text-purple-700 dark:hover:text-pink-300 transition" href="index.html#about-section">About</a>
-</nav>
-<div class="flex items-center gap-1.5 sm:gap-2 flex-shrink-0">
-<!-- Dynamic Device/Manual Theme Switcher -->
-<button class="p-1.5 sm:px-2.5 sm:py-1 rounded-full glass-pill flex items-center gap-1 text-xs font-bold hover:text-pink-600 transition cursor-pointer" onclick="toggleSiteTheme()" title="Switch Light / Dark Theme (Matches Device Theme automatically)" aria-label="Toggle Theme">
-  <span class="material-symbols-outlined text-[18px] site-theme-icon">dark_mode</span>
-  <span class="hidden xl:inline text-[11px] site-theme-label">Theme</span>
-</button>
-<div class="relative hidden xl:block w-52">
-<input class="w-full text-xs font-semibold pl-9 pr-7 py-1.5 rounded-full border border-purple-200/90 dark:border-purple-800/80 bg-white/80 dark:bg-purple-950/60 text-purple-950 dark:text-purple-100 focus:bg-white dark:focus:bg-purple-900 focus:outline-none focus:ring-2 focus:ring-purple-400 placeholder-purple-400 dark:placeholder-purple-400/60 transition" id="nav-search-input" oninput="handleNavSearch(this.value)" placeholder="Search templates, occasions..." type="text"/>
-<svg class="w-3.5 h-3.5 text-purple-600 dark:text-purple-400 absolute left-3 top-2" fill="none" stroke="currentColor" viewbox="0 0 24 24"><path d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" stroke-linecap="round" stroke-linejoin="round" stroke-width="2"></path></svg>
-</div>
-<button class="px-2.5 sm:px-3.5 py-1 sm:py-1.5 text-[11px] sm:text-xs md:text-sm font-bold text-purple-950 dark:text-purple-100 rounded-full hover:bg-white/80 dark:hover:bg-purple-900/70 hover:text-purple-700 dark:hover:text-pink-300 transition whitespace-nowrap" onclick="openModal('auth-modal')">Sign In</button>
-<button class="px-2.5 sm:px-3.5 py-1 sm:py-1.5 text-[11px] sm:text-xs md:text-sm font-bold text-white bg-gradient-to-r from-[#EC4899] to-[#7C3AED] rounded-full shadow-sm hover:shadow-md hover:scale-105 active:scale-95 transition-all flex items-center gap-1 whitespace-nowrap" onclick="openModal('auth-modal')">
-<span>Sign Up</span><span class="text-amber-300 text-[10px] sm:text-xs">✨</span>
-</button>
-</div>
-</div>
-</header>
-<!-- Hero Section -->
-<main class="flex-grow pt-8 pb-16 px-6 md:px-12 max-w-7xl mx-auto w-full"><div class="flex flex-col w-full">
-<!-- Studio Breadcrumb & Status Ribbon -->
-<div class="w-full bg-surface-container-lowest/80 backdrop-blur-xl rounded-xl p-space-md mb-space-lg shadow-xl flex flex-wrap items-center justify-between gap-space-md">
-<div class="flex flex-wrap items-center gap-space-md">
-<div class="flex items-center gap-space-sm bg-surface-container-high px-space-md py-space-xs rounded-full">
-<span class="material-symbols-outlined text-primary text-headline-sm" style="font-variation-settings: 'FILL' 1;">auto_fix_high</span>
-<span class="font-headline-sm text-headline-sm text-on-surface">Studio Customizer</span>
-</div>
-<div class="flex items-center gap-space-xs bg-secondary-container/20 px-space-md py-space-xs rounded-full text-secondary">
-<span class="material-symbols-outlined text-body-sm">diamond</span>
-<span class="font-label-md text-label-md uppercase tracking-wider" id="customizer-ribbon-title">Custom Experience Blueprint</span>
-</div>
-<div class="flex items-center gap-space-xs text-on-surface-variant font-label-sm text-label-sm">
-<span class="w-2 h-2 rounded-full bg-emerald-400 animate-ping"></span>
-<span>Auto-saved 2s ago</span>
-</div>
-</div>
-<div class="flex items-center gap-space-sm">
-<button class="bg-surface-container-high hover:bg-surface-variant text-on-surface px-space-md py-space-xs rounded-lg font-label-md text-label-md flex items-center gap-space-xs transition shadow-md">
-<span class="material-symbols-outlined text-body-sm">help_outline</span>
-<span>Guide &amp; FAQ</span>
-</button>
-<button class="bg-surface-container-high hover:bg-surface-variant text-on-surface px-space-md py-space-xs rounded-lg font-label-md text-label-md flex items-center gap-space-xs transition shadow-md" onclick="toggleDevice('desktop')">
-<span class="material-symbols-outlined text-body-sm">fullscreen</span>
-<span>Live Popout</span>
-</button>
-<button onclick="publishWishAndGetLink()" class="bg-gradient-to-r from-primary-container via-secondary-container to-tertiary-container hover:brightness-110 active:scale-95 text-on-primary px-space-lg py-space-xs rounded-lg font-headline-sm text-headline-sm flex items-center gap-space-xs shadow-lg transition cursor-pointer">
-<span id="btn-top-gift-text">Proceed to Gift • ₹49</span>
-<span class="material-symbols-outlined text-body-md">arrow_forward</span>
-</button>
-</div>
-</div>
-<!-- Stepper Progression Header -->
-<div class="w-full bg-surface-container-low rounded-xl p-space-md mb-space-lg shadow-lg flex items-center justify-between overflow-x-auto">
-<div class="flex items-center gap-space-lg min-w-max mx-auto">
-<div class="flex items-center gap-space-xs cursor-pointer text-primary">
-<span class="w-7 h-7 rounded-full bg-primary-container text-on-primary flex items-center justify-center font-label-md text-label-md shadow-md">01</span>
-<span class="font-headline-sm text-headline-sm">Details &amp; Names</span>
-</div>
-<div class="w-12 h-0.5 bg-primary/40"></div>
-<div class="flex items-center gap-space-xs cursor-pointer text-on-surface-variant hover:text-on-surface transition">
-<span class="w-7 h-7 rounded-full bg-surface-container-highest text-on-surface-variant flex items-center justify-center font-label-md text-label-md">02</span>
-<span class="font-headline-sm text-headline-sm">Memory Reel</span>
-</div>
-<div class="w-12 h-0.5 bg-outline-variant/30"></div>
-<div class="flex items-center gap-space-xs cursor-pointer text-on-surface-variant hover:text-on-surface transition">
-<span class="w-7 h-7 rounded-full bg-surface-container-highest text-on-surface-variant flex items-center justify-center font-label-md text-label-md">03</span>
-<span class="font-headline-sm text-headline-sm">Personal Note</span>
-</div>
-<div class="w-12 h-0.5 bg-outline-variant/30"></div>
-<div class="flex items-center gap-space-xs cursor-pointer text-on-surface-variant hover:text-on-surface transition">
-<span class="w-7 h-7 rounded-full bg-surface-container-highest text-on-surface-variant flex items-center justify-center font-label-md text-label-md">04</span>
-<span class="font-headline-sm text-headline-sm">Sound &amp; FX</span>
-</div>
-</div>
-</div>
-<!-- Dual-Pane Split Layout (45% Form / 55% Sandbox) -->
-<div class="grid grid-cols-1 lg:grid-cols-12 gap-space-lg w-full items-start">
-<!-- LEFT PANE: Dynamic Schema Form -->
-<div class="lg:col-span-5 flex flex-col gap-space-lg">
-<!-- DYNAMIC TEMPLATE SCHEMA FORM CONTAINER -->
-<div id="dynamic-customizer-form" class="bg-surface-container-low rounded-xl p-space-lg shadow-xl relative overflow-hidden flex flex-col gap-4">
-<!-- Dynamic fields are automatically rendered here by customize-engine.js -->
-</div>
-<!-- Section 1: The Honoree & Sender -->
-<div class="bg-surface-container-low rounded-xl p-space-lg shadow-xl relative overflow-hidden">
-<div class="flex items-center justify-between mb-space-md">
-<div class="flex items-center gap-space-xs">
-<span class="w-2.5 h-2.5 rounded-full bg-primary"></span>
-<h3 class="font-headline-md text-headline-md text-on-surface">Recipient &amp; Occasion</h3>
-</div>
-<span class="font-label-sm text-label-sm bg-surface-container px-space-sm py-0.5 rounded text-tertiary">Schema: {{core_meta}}</span>
-</div>
-<div class="flex flex-col gap-space-md">
-<div>
-<div class="flex justify-between items-center mb-space-xs">
-<label class="font-label-md text-label-md text-on-surface-variant" for="recipient-input">Birthday Star's Name (Recipient)</label>
-<span class="font-label-sm text-label-sm text-primary flex items-center gap-1">
-<span class="material-symbols-outlined text-body-sm">sync</span> Syncing Live
-              </span>
-</div>
-<div class="relative">
-<input class="w-full bg-surface-container-lowest text-on-surface rounded-lg px-space-md py-space-sm font-body-md text-body-md shadow-inner focus:outline-none focus:bg-surface-container-high transition" id="recipient-input" oninput="syncRecipient(this.value)" placeholder="Enter recipient's name" type="text" value=""/>
-<span class="material-symbols-outlined absolute right-space-md top-space-sm text-tertiary">celebration</span>
-</div>
-</div>
-<div class="grid grid-cols-1 sm:grid-cols-2 gap-space-md">
-<div>
-<label class="block font-label-md text-label-md text-on-surface-variant mb-space-xs" for="sender-input">From (Sender Name)</label>
-<input class="w-full bg-surface-container-lowest text-on-surface rounded-lg px-space-md py-space-sm font-body-md text-body-md shadow-inner focus:outline-none focus:bg-surface-container-high transition" id="sender-input" oninput="syncSender(this.value)" type="text" placeholder="Your name" value=""/>
-</div>
-<div>
-<label class="block font-label-md text-label-md text-on-surface-variant mb-space-xs" for="contact-input">Sender Phone / WhatsApp (for link &amp; receipt)</label>
-<input class="w-full bg-surface-container-lowest text-on-surface rounded-lg px-space-md py-space-sm font-body-md text-body-md shadow-inner focus:outline-none focus:bg-surface-container-high transition" id="contact-input" oninput="syncContact(this.value)" type="text" placeholder="+91 ..."/>
-</div>
-</div>
-<div class="mt-space-sm">
-<label class="block font-label-md text-label-md text-on-surface-variant mb-space-xs" for="date-input">Celebration / Event Date (determines live/future/expiry status)</label>
-<input class="w-full bg-surface-container-lowest text-on-surface rounded-lg px-space-md py-space-sm font-body-md text-body-md shadow-inner focus:outline-none focus:bg-surface-container-high transition" id="date-input" oninput="syncDate(this.value)" type="date"/>
-</div>
-</div>
-</div>
-<!-- Section 2: Time-Capsule Memory Reel -->
-<div class="bg-surface-container-low rounded-xl p-space-lg shadow-xl relative overflow-hidden">
-<div class="flex items-center justify-between mb-space-md">
-<div class="flex items-center gap-space-xs">
-<span class="w-2.5 h-2.5 rounded-full bg-secondary"></span>
-<h3 class="font-headline-md text-headline-md text-on-surface">Time-Capsule Memory Reel</h3>
-</div>
-<span class="font-label-sm text-label-sm text-secondary bg-surface-container px-space-sm py-0.5 rounded" id="photo-upload-count">0 of 6 Uploaded</span>
-</div>
-<!-- Photo Upload Dropzone -->
-<div class="bg-surface-container-lowest/60 hover:bg-surface-container-lowest p-space-lg rounded-lg flex flex-col items-center justify-center text-center cursor-pointer transition shadow-inner border border-dashed border-purple-900/40" onclick="document.getElementById('memory-photo-input')?.click()">
-<input type="file" id="memory-photo-input" accept="image/*" multiple class="hidden" onchange="handleMemoryPhotosUpload(this)"/>
-<span class="material-symbols-outlined text-headline-lg text-primary mb-space-xs">cloud_upload</span>
-<span class="font-headline-sm text-headline-sm text-on-surface">Upload Celebration Memories</span>
-<span class="font-body-sm text-body-sm text-on-surface-variant">Add up to 6 high-res photos to create your memory reel</span>
-</div>
-<div id="memory-reel-preview" class="grid grid-cols-3 gap-space-sm mt-space-sm hidden"></div>
-</div>
-<!-- Section 3: Heartfelt Custom Note -->
-<div class="bg-surface-container-low rounded-xl p-space-lg shadow-xl relative overflow-hidden">
-<div class="flex items-center justify-between mb-space-md">
-<div class="flex items-center gap-space-xs">
-<span class="w-2.5 h-2.5 rounded-full bg-tertiary"></span>
-<h3 class="font-headline-md text-headline-md text-on-surface">Personal Message</h3>
-</div>
-<span class="font-label-sm text-label-sm text-on-surface-variant" id="char-count">0 / 500</span>
-</div>
-<div class="relative">
-<textarea class="w-full bg-surface-container-lowest text-on-surface rounded-lg p-space-md font-body-md text-body-md shadow-inner focus:outline-none focus:bg-surface-container-high transition leading-relaxed" id="message-input" maxlength="500" oninput="syncMessage(this.value)" rows="4" placeholder="Write your heartfelt message here..."></textarea>
-<div class="flex justify-between items-center mt-space-xs">
-<div class="flex gap-space-xs">
-<button class="bg-surface-container-high hover:bg-surface-variant px-space-sm py-0.5 rounded font-label-sm text-label-sm text-primary">✨ Enhance with Magic AI</button>
-<button class="bg-surface-container-high hover:bg-surface-variant px-space-sm py-0.5 rounded font-label-sm text-label-sm text-secondary">💌 Poetic Tone</button>
-</div>
-<span class="font-label-sm text-label-sm text-tertiary">Auto-fitting typography</span>
-</div>
-</div>
-</div>
-<!-- Section 4: Soundscape & Unboxing FX -->
-<div class="bg-surface-container-low rounded-xl p-space-lg shadow-xl relative overflow-hidden">
-<div class="flex items-center justify-between mb-space-md">
-<div class="flex items-center gap-space-xs">
-<span class="w-2.5 h-2.5 rounded-full bg-primary-container"></span>
-<h3 class="font-headline-md text-headline-md text-on-surface">Soundscape &amp; Audio</h3>
-</div>
-<span class="font-label-sm text-label-sm bg-primary-container/20 text-primary px-space-sm py-0.5 rounded">Master Audio</span>
-</div>
-<!-- Audio Selector Card -->
-<div class="bg-surface-container-high p-space-md rounded-lg flex items-center justify-between gap-space-md mb-space-md shadow-md">
-<div class="flex items-center gap-space-sm">
-<button class="w-10 h-10 rounded-full bg-gradient-to-tr from-primary to-secondary text-on-primary flex items-center justify-center shadow-lg transition active:scale-95" onclick="toggleAudioPreviewStudio()">
-<span class="material-symbols-outlined text-headline-sm" id="audio-play-icon">play_arrow</span>
-</button>
-<div>
-<p class="font-headline-sm text-headline-sm text-on-surface" id="customizer-audio-title">Interactive Celebration Synth</p>
-<p class="font-label-sm text-label-sm text-secondary" id="customizer-audio-desc">Synthesized Celebration Audio</p>
-</div>
-</div>
-<!-- Waveform Visualizer simulation -->
-<div class="flex items-end gap-1 h-6">
-<span class="w-1 bg-primary rounded-full h-3"></span>
-<span class="w-1 bg-secondary rounded-full h-5"></span>
-<span class="w-1 bg-tertiary rounded-full h-2"></span>
-<span class="w-1 bg-primary rounded-full h-6"></span>
-<span class="w-1 bg-secondary rounded-full h-4"></span>
-<span class="w-1 bg-tertiary rounded-full h-5"></span>
-<span class="w-1 bg-primary rounded-full h-2"></span>
-</div>
-</div>
+<body class="w-full flex flex-col min-h-screen antialiased selection:bg-pink-500 selection:text-white">
 
-<div class="mb-space-md">
-  <label class="block font-label-md text-label-md text-on-surface mb-space-xs" for="target-date-input">Target Date <span class="text-error">*</span></label>
-  <input class="w-full bg-surface-container-lowest border border-outline rounded-lg px-space-sm py-space-sm text-on-surface focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent transition-shadow" id="target-date-input" type="date" required/>
-  <p class="font-label-sm text-label-sm text-on-surface-variant mt-1">The wish link will be active 1 day before and 1 day after this date.</p>
-</div>
-
-<!-- Custom Wax Stamp Monogram Selector -->
-<div class="bg-surface-container p-space-md rounded-lg flex items-center justify-between">
-<div>
-<p class="font-headline-sm text-headline-sm text-on-surface">Gold Wax Monogram</p>
-<p class="font-label-sm text-label-sm text-on-surface-variant">Embossed on the opening virtual seal</p>
-</div>
-<div class="flex items-center gap-space-sm">
-<input class="w-20 text-center uppercase tracking-widest bg-surface-container-lowest text-tertiary font-label-lg text-label-lg rounded-lg py-space-xs shadow-inner focus:outline-none" id="monogram-input" maxlength="6" oninput="syncMonogram(this.value)" type="text" placeholder="Initials" value=""/>
-<div class="w-10 h-10 rounded-full bg-tertiary text-on-tertiary font-headline-sm text-headline-sm flex items-center justify-center shadow-md font-serif" id="monogram-stamp-preview">
-  ✦
-</div>
-</div>
-</div>
-</div>
-<!-- Left Bottom Sticky Action Bar -->
-<div class="bg-surface-container-lowest/90 backdrop-blur-xl p-space-md rounded-xl flex items-center justify-between shadow-2xl">
-<button class="text-on-surface-variant hover:text-on-surface font-label-md text-label-md underline">Save as Draft Blueprint</button>
-<button onclick="publishWishAndGetLink()" id="btn-bottom-generate" class="bg-gradient-to-r from-primary via-secondary to-tertiary text-on-primary font-headline-sm text-headline-sm px-space-lg py-space-sm rounded-lg shadow-xl hover:scale-105 active:scale-95 transition flex items-center gap-space-xs cursor-pointer">
-<span id="btn-bottom-gift-text">Finalize &amp; Generate Link</span>
-<span class="material-symbols-outlined text-body-md">magic_button</span>
-</button>
-</div>
-</div>
-<!-- RIGHT PANE: Real-Time Live Web-Drop Sandbox Preview -->
-<div class="lg:col-span-7 flex flex-col gap-space-md sticky top-6">
-<!-- Preview Browser Chrome / Toolbar -->
-<div class="bg-surface-container-high rounded-t-xl p-space-sm shadow-md flex items-center justify-between gap-space-md">
-<!-- Mock Address Bar -->
-<div class="flex items-center gap-space-xs flex-1 bg-surface-container-lowest px-space-md py-1.5 rounded-full shadow-inner max-w-md">
-<span class="material-symbols-outlined text-body-sm text-emerald-400">lock</span>
-<span class="font-label-sm text-label-sm text-on-surface-variant truncate">https://wishmagic.in/live/glitter-sandbox-wm892</span>
-</div>
-<!-- Viewport Mode Toggles -->
-<div class="flex items-center bg-surface-container p-0.5 rounded-lg">
-<button class="px-space-sm py-1 rounded bg-primary text-on-primary font-label-sm text-label-sm flex items-center gap-1" id="btn-desktop" onclick="toggleDevice('desktop')">
-<span class="material-symbols-outlined text-body-sm">desktop_windows</span>
-<span>Desktop</span>
-</button>
-<button class="px-space-sm py-1 rounded text-on-surface-variant hover:text-on-surface font-label-sm text-label-sm flex items-center gap-1" id="btn-tablet" onclick="toggleDevice('tablet')">
-<span class="material-symbols-outlined text-body-sm">tablet_mac</span>
-<span>Tablet</span>
-</button>
-<button class="px-space-sm py-1 rounded text-on-surface-variant hover:text-on-surface font-label-sm text-label-sm flex items-center gap-1" id="btn-mobile" onclick="toggleDevice('mobile')">
-<span class="material-symbols-outlined text-body-sm">smartphone</span>
-<span>Mobile</span>
-</button>
-</div>
-<div class="flex items-center gap-1 text-emerald-400 font-label-sm text-label-sm">
-<span class="w-2 h-2 rounded-full bg-emerald-400 animate-pulse"></span>
-<span>Synced</span>
-</div>
-</div>
-<!-- Physical Sandbox Canvas Container -->
-<div class="w-full bg-surface-container-lowest rounded-b-xl shadow-2xl overflow-hidden relative transition-all duration-300 min-h-[720px] flex flex-col justify-between" id="sandbox-viewport">
-<!-- Ambient Particle Canvas / Cosmic Glow Backdrop -->
-<div class="absolute inset-0 pointer-events-none opacity-40 bg-radial-gradient">
-<div class="absolute top-10 left-10 w-72 h-72 rounded-full bg-primary/20 blur-3xl"></div>
-<div class="absolute bottom-10 right-10 w-80 h-80 rounded-full bg-secondary/20 blur-3xl"></div>
-<div class="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-96 h-96 rounded-full bg-tertiary/10 blur-3xl"></div>
-</div>
-<!-- Floating Preview Watermark Pill -->
-<div class="absolute top-4 left-1/2 -translate-x-1/2 z-30 bg-surface-container-lowest/80 backdrop-blur-md px-space-md py-1 rounded-full text-on-surface-variant font-label-sm text-label-sm shadow-md flex items-center gap-space-xs">
-<span class="material-symbols-outlined text-tertiary text-body-sm">verified_user</span>
-<span>Interactive Guest View • Watermark removed upon order</span>
-</div>
-<!-- Audio Floating Controller in Preview -->
-<div class="absolute top-4 right-4 z-30 bg-surface-container-high/90 backdrop-blur-md px-space-sm py-1 rounded-full text-on-surface font-label-sm text-label-sm flex items-center gap-space-xs shadow-lg">
-<span class="material-symbols-outlined text-secondary text-body-sm animate-spin">music_note</span>
-<span id="preview-song-name">Celestial Waltz (432Hz)</span>
-</div>
-<!-- 3D Scene Interactive Centerpiece -->
-<div class="relative z-10 w-full flex-1 flex flex-col items-center justify-center p-space-lg text-center">
-<!-- Floating Metallic Balloon Cluster Mockup -->
-<div class="flex items-center justify-center gap-space-sm mb-space-sm animate-bounce">
-<span class="text-display-lg text-secondary">🎈</span>
-<span class="text-display-lg text-primary">✨</span>
-<span class="text-display-lg text-tertiary">🎈</span>
-</div>
-<!-- Dynamic Headline -->
-<h1 class="font-display-lg text-display-lg bg-gradient-to-r from-primary via-secondary to-tertiary bg-clip-text text-transparent mb-space-xs tracking-tight" id="preview-headline">
-            Happy Celebration!
-          </h1>
-<!-- Date Subheading -->
-<div class="flex items-center gap-space-xs font-label-md text-label-md text-tertiary uppercase tracking-widest mb-space-lg">
-<span>✦</span>
-<span id="preview-date">Special Day</span>
-<span>✦</span>
-</div>
-<!-- Interactive 3D Unboxing Box / Cake Hologram -->
-<div class="relative my-space-md group cursor-pointer" onclick="triggerConfettiExplosion()">
-<!-- Cake / Box SVG Graphic Container -->
-<div class="w-48 h-48 mx-auto rounded-3xl bg-gradient-to-br from-surface-container-high via-surface-container-lowest to-surface-container p-space-md shadow-2xl flex flex-col items-center justify-center relative overflow-hidden transform group-hover:scale-105 transition duration-500">
-<div class="w-24 h-24 rounded-full bg-secondary-container/40 flex items-center justify-center text-display-lg shadow-inner mb-space-xs">
-                🎂
-              </div>
-<span class="font-label-md text-label-md text-secondary font-bold">Tap for 3D Confetti</span>
-<span class="font-label-sm text-label-sm text-on-surface-variant">Candles Flickering</span>
-<!-- Wax Seal Stamp Overlap -->
-<div class="absolute -bottom-2 -right-2 w-14 h-14 rounded-full bg-tertiary text-on-tertiary flex items-center justify-center shadow-2xl transform rotate-12 font-headline-sm text-headline-sm font-serif" id="preview-seal-stamp">
-                WM
-              </div>
-</div>
-</div>
-<!-- Dynamic Note Bubble -->
-<div class="max-w-md w-full bg-surface-container-high/80 backdrop-blur-xl rounded-2xl p-space-md shadow-xl my-space-md text-left relative">
-<span class="material-symbols-outlined absolute -top-3 left-4 text-headline-lg text-primary">format_quote</span>
-<p class="font-body-md text-body-md text-on-surface leading-relaxed mt-space-xs" id="preview-message-body">
-              Wishing you all the joy, love, and magic on your special celebration!
-            </p>
-<div class="flex justify-end items-center gap-space-xs mt-space-sm text-tertiary font-headline-sm text-headline-sm">
-<span class="font-body-sm text-body-sm text-on-surface-variant">With love,</span>
-<span id="preview-sender-name">Someone Special</span>
-</div>
-</div>
-<!-- Time-Capsule Polaroid Carousel Preview -->
-<div class="w-full max-w-lg mt-space-md">
-<p class="font-label-sm text-label-sm uppercase tracking-wider text-on-surface-variant mb-space-xs text-center">Unwrapped Memories Carousel</p>
-<div class="flex items-center justify-center gap-space-md overflow-hidden py-space-xs">
-<div class="w-24 bg-surface-container-high p-1 rounded shadow-md transform -rotate-6 hover:rotate-0 transition">
-<div class="w-full aspect-square bg-surface-container-lowest rounded overflow-hidden mb-1">
-<img class="w-full h-full object-cover" data-alt="Warm golden sunset on a tropical Goa beach with two laughing young friends holding coconuts, atmospheric lens flare, golden hour, 4k cinematic photorealistic style, violet tinted sky." src="https://lh3.googleusercontent.com/aida-public/AB6AXuD1917Pn4q-03YbB_6C6sqslPnfkGKkqemtLwJvRjaJjVq_V7JViy3IOH8swIzKw52JDfdYIIc0010AfVSbRL7VDgUrE9iHOW-aqAe5qPWM5LScLhHZztITwf2rPMj5FtxdnIbPRsU3tu6E5sjSwAqk6hMOul1lv_2xfsHsJHfGZLHv0xdA2P-2SpFcsv79XSJ72TfXtIQj2-PoSFEFbGQOjHlwjhFqQr9Kblx1xI-xfSuO02_YK5gX"/>
-</div>
-<p class="font-label-sm text-label-sm text-on-surface truncate text-center">Goa Sunset</p>
-</div>
-<div class="w-28 bg-surface-container-high p-1.5 rounded shadow-xl transform scale-110 z-10">
-<div class="w-full aspect-square bg-surface-container-lowest rounded overflow-hidden mb-1">
-<img class="w-full h-full object-cover" data-alt="College graduation ceremony joyous moment, happy student in academic graduation cap throwing confetti in auditorium, ambient studio lighting with warm purple glow and magenta accent." src="https://lh3.googleusercontent.com/aida-public/AB6AXuAJP1n_3sC-8jZzDQQi04PfHZ1XGxdj6XMeRnxwdWRku78Tfa3bVE-iOmQblVaFLYmXrms6jOUUnHy5w_yz1zVnsj4xDmUCI0YGxS0YogAfbCW5ZQU5VDk-ewTnfDjd65SjdWzcl8R1sHp1gdDD7XlCgI5FQfWyaMXkdbMylj6kbLcyTyXrmXeLTWvdz0NLKYP3dLtTVE0duqoCeuFAtK5dzOpv0IVCdccWDhscE-N-s_8CDThh73W_"/>
-</div>
-<p class="font-label-sm text-label-sm text-on-surface truncate text-center">Farewell 🎓</p>
-</div>
-<div class="w-24 bg-surface-container-high p-1 rounded shadow-md transform rotate-6 hover:rotate-0 transition">
-<div class="w-full aspect-square bg-surface-container-lowest rounded overflow-hidden mb-1">
-<img class="w-full h-full object-cover" data-alt="Two best friends sitting at an outdoor late night tea stall stall in Mumbai, steaming hot chai glasses, soft bokeh streetlights, warm nostalgic night atmosphere with deep violet shadows." src="https://lh3.googleusercontent.com/aida-public/AB6AXuCigeLgWxvWcBCX4YRsdOxJiOtLVjHwLw6er96nhm0IreJIKqKaSRi4nOrcviJbKItMpcgmE7Wfe9gH9evHH67hEQU52RAUn1OBu1e-SJ2UORLFsKx1pBjbQ037OLP7loJAWeFLcUBUYEHjN5Gb1YFx3UR1l9YyobeLPdzztljtSjWynQVEL-m4LnDYRSzqiEluoOSpPU-n6INlCyp3h8EKJdtlAEWoHZQf8hIEwgEP2TSo01mlaJlF"/>
-</div>
-<p class="font-label-sm text-label-sm text-on-surface truncate text-center">Late Night Chai</p>
-</div>
-</div>
-</div>
-</div>
-<!-- Confetti Particles Canvas Target -->
-<div class="absolute inset-0 pointer-events-none z-20" id="confetti-layer"></div>
-<!-- Simulated WishMagic Footer Branding inside Guest Screen -->
-<div class="bg-surface-container-low/60 backdrop-blur-md p-space-sm flex items-center justify-between text-on-surface-variant font-label-sm text-label-sm z-10">
-<span>Experience designed via WishMagic 🪄</span>
-<span>Tap anywhere on mobile to sound track</span>
-</div>
-</div>
-<!-- Quick Tips & Live Inspector Metric Deck -->
-<div class="grid grid-cols-3 gap-space-md">
-<div class="bg-surface-container-low p-space-md rounded-xl shadow-md">
-<p class="font-label-sm text-label-sm text-on-surface-variant">Asset Pre-load</p>
-<p class="font-headline-sm text-headline-sm text-emerald-400 mt-1">100% Ready</p>
-<p class="font-label-sm text-label-sm text-on-surface-variant mt-1">WebGL 3D Core Enabled</p>
-</div>
-<div class="bg-surface-container-low p-space-md rounded-xl shadow-md">
-<p class="font-label-sm text-label-sm text-on-surface-variant">Recipient Device</p>
-<p class="font-headline-sm text-headline-sm text-primary mt-1">Universal</p>
-<p class="font-label-sm text-label-sm text-on-surface-variant mt-1">iOS, Android, Desktop</p>
-</div>
-<div class="bg-surface-container-low p-space-md rounded-xl shadow-md">
-<p class="font-label-sm text-label-sm text-on-surface-variant">Security &amp; Expiry</p>
-<p class="font-headline-sm text-headline-sm text-tertiary mt-1">Lifetime Pass</p>
-<p class="font-label-sm text-label-sm text-on-surface-variant mt-1">Encrypted Cloud Reel</p>
-</div>
-</div>
-</div>
-</div>
-</div>
-<script>
-  // Dynamic Real-Time Schema Synchronization
-  function syncRecipient(val) {
-    if (typeof updateFieldValue === 'function') updateFieldValue('recipient_name', val);
-    const clean = val.trim() || 'Someone Special';
-    const h = document.getElementById('preview-headline');
-    if (h) h.innerText = `Happy Birthday, ${clean}!`;
-  }
-
-  function syncSender(val) {
-    if (typeof updateFieldValue === 'function') updateFieldValue('sender_name', val);
-    const clean = val.trim() || 'A Secret Admirer';
-    const s = document.getElementById('preview-sender-name');
-    if (s) s.innerText = clean;
-  }
-
-  function syncContact(val) {
-    if (typeof updateFieldValue === 'function') updateFieldValue('sender_contact', val);
-  }
-
-  function syncDate(val) {
-    if (typeof updateFieldValue === 'function') updateFieldValue('event_date', val);
-    const clean = val.trim() || 'Today';
-    const d = document.getElementById('preview-date');
-    if (d) d.innerText = clean;
-  }
-
-  function syncMessage(val) {
-    if (typeof updateFieldValue === 'function') updateFieldValue('custom_message', val);
-    const clean = val.trim() || 'Wishing you infinite smiles, joy, and memories!';
-    const m = document.getElementById('preview-message-body');
-    if (m) m.innerText = clean;
-    const c = document.getElementById('char-count');
-    if (c) c.innerText = `${val.length} / 500`;
-  }
-
-  function syncMonogram(val) {
-    const clean = val.trim().toUpperCase() || '✦';
-    const s = document.getElementById('preview-seal-stamp');
-    if (s) s.innerText = clean;
-    const stamp = document.getElementById('monogram-stamp-preview');
-    if (stamp) stamp.innerText = clean;
-  }
-
-  function handleMemoryPhotosUpload(input) {
-    if (!input.files || input.files.length === 0) return;
-    const files = Array.from(input.files).slice(0, 6);
-    const countEl = document.getElementById('photo-upload-count');
-    if (countEl) countEl.innerText = `${files.length} of 6 Uploaded`;
-    const previewGrid = document.getElementById('memory-reel-preview');
-    if (previewGrid) {
-      previewGrid.innerHTML = '';
-      previewGrid.classList.remove('hidden');
-      files.forEach((f, idx) => {
-        const reader = new FileReader();
-        reader.onload = (e) => {
-          const card = document.createElement('div');
-          card.className = 'bg-surface-container-high p-space-xs rounded-lg flex flex-col items-center shadow-md relative';
-          card.innerHTML = `
-            <div class="w-full aspect-square rounded overflow-hidden mb-space-xs bg-surface-container-lowest relative">
-              <img class="w-full h-full object-cover" src="${e.target.result}" alt="Memory photo"/>
-              <span class="absolute top-1 right-1 bg-surface-container-lowest/80 text-emerald-400 p-0.5 rounded-full material-symbols-outlined text-[14px]">check_circle</span>
-            </div>
-            <span class="text-[10px] text-on-surface truncate w-full text-center">Photo #${idx + 1}</span>
-          `;
-          previewGrid.appendChild(card);
-        };
-        reader.readAsDataURL(f);
-      });
-    }
-  }
-
-  // Viewport Device Switcher
-  function toggleDevice(mode) {
-    const viewport = document.getElementById('sandbox-viewport');
-    const btnD = document.getElementById('btn-desktop');
-    const btnT = document.getElementById('btn-tablet');
-    const btnM = document.getElementById('btn-mobile');
-
-    // Reset styles
-    [btnD, btnT, btnM].forEach(b => {
-      b.className = 'px-space-sm py-1 rounded text-on-surface-variant hover:text-on-surface font-label-sm text-label-sm flex items-center gap-1';
-    });
-
-    if (mode === 'desktop') {
-      viewport.style.maxWidth = '100%';
-      viewport.style.margin = '0 auto';
-      btnD.className = 'px-space-sm py-1 rounded bg-primary text-on-primary font-label-sm text-label-sm flex items-center gap-1';
-    } else if (mode === 'tablet') {
-      viewport.style.maxWidth = '580px';
-      viewport.style.margin = '0 auto';
-      btnT.className = 'px-space-sm py-1 rounded bg-primary text-on-primary font-label-sm text-label-sm flex items-center gap-1';
-    } else if (mode === 'mobile') {
-      viewport.style.maxWidth = '360px';
-      viewport.style.margin = '0 auto';
-      btnM.className = 'px-space-sm py-1 rounded bg-primary text-on-primary font-label-sm text-label-sm flex items-center gap-1';
-    }
-  }
-
-  // Audio Playback Simulation
-  let isStudioPlaying = false;
-  function toggleAudioPreviewStudio() {
-    isStudioPlaying = !isStudioPlaying;
-    const icon = document.getElementById('audio-play-icon');
-    if (isStudioPlaying) {
-      icon.innerText = 'pause';
-      triggerConfettiExplosion();
-    } else {
-      icon.innerText = 'play_arrow';
-    }
-  }
-
-  // Confetti Physics Trigger
-  function triggerConfettiExplosion() {
-    const layer = document.getElementById('confetti-layer');
-    if (!layer) return;
-    layer.innerHTML = '';
-    const hues = ['#d2bbff', '#ffb0cd', '#ffb95f', '#10b981', '#ffffff'];
-
-    for (let i = 0; i < 40; i++) {
-      const bit = document.createElement('div');
-      bit.style.position = 'absolute';
-      bit.style.width = `${Math.floor(Math.random() * 8) + 6}px`;
-      bit.style.height = `${Math.floor(Math.random() * 12) + 6}px`;
-      bit.style.backgroundColor = hues[Math.floor(Math.random() * hues.length)];
-      bit.style.borderRadius = '2px';
-      bit.style.left = `${Math.random() * 90 + 5}%`;
-      bit.style.top = `${Math.random() * 40 + 20}%`;
-      bit.style.opacity = '1';
-      bit.style.transform = `rotate(${Math.random() * 360}deg)`;
-      bit.style.transition = 'all 1.6s cubic-bezier(0.25, 1, 0.5, 1)';
-
-      layer.appendChild(bit);
-
-      setTimeout(() => {
-        bit.style.top = '95%';
-        bit.style.opacity = '0';
-        bit.style.transform = `rotate(${Math.random() * 720}deg) scale(0.6)`;
-      }, 50);
-    }
-  }
-</script></main>
-<!-- Adaptive Footer -->
-<footer class="bg-gradient-to-b from-purple-50/80 via-white to-purple-100/50 dark:from-[#140628] dark:via-[#1D0B36] dark:to-[#0D041A] text-[#24113F] dark:text-white pt-16 pb-12 px-6 md:px-12 mt-auto border-t border-purple-200/80 dark:border-purple-900/50 transition-colors duration-300" id="about-section">
-<div class="max-w-7xl mx-auto">
-<div class="grid grid-cols-1 md:grid-cols-3 gap-8 pb-12 border-b border-purple-200/70 dark:border-purple-800/40 text-xs sm:text-sm">
-<div class="p-4 rounded-2xl bg-white/90 dark:bg-purple-950/60 border border-purple-200/70 dark:border-purple-900/40 shadow-sm flex items-start gap-4 transition-colors">
-<div class="w-10 h-10 rounded-xl bg-purple-100 dark:bg-purple-900/80 text-pink-600 dark:text-pink-400 flex items-center justify-center flex-shrink-0 text-base shadow-sm">🛡️</div>
-<div><p class="font-bold text-purple-950 dark:text-white text-base">Privacy Policy</p><p class="text-purple-800/80 dark:text-purple-300/80 mt-1">Your privacy is important to us. Photos and wishes remain strictly confidential.</p></div>
-</div>
-<div class="p-4 rounded-2xl bg-white/90 dark:bg-purple-950/60 border border-purple-200/70 dark:border-purple-900/40 shadow-sm flex items-start gap-4 transition-colors">
-<div class="w-10 h-10 rounded-xl bg-purple-100 dark:bg-purple-900/80 text-pink-600 dark:text-pink-400 flex items-center justify-center flex-shrink-0 text-base shadow-sm">📄</div>
-<div><p class="font-bold text-purple-950 dark:text-white text-base">Terms &amp; Conditions</p><p class="text-purple-800/80 dark:text-purple-300/80 mt-1">Simple, honest guidelines for creating pure joyful experiences.</p></div>
-</div>
-<div class="p-4 rounded-2xl bg-white/90 dark:bg-purple-950/60 border border-purple-200/70 dark:border-purple-900/40 shadow-sm flex items-start gap-4 transition-colors">
-<div class="w-10 h-10 rounded-xl bg-purple-100 dark:bg-purple-900/80 text-pink-600 dark:text-pink-400 flex items-center justify-center flex-shrink-0 text-base shadow-sm">💬</div>
-<div><p class="font-bold text-purple-950 dark:text-white text-base">Contact Support</p><p class="text-purple-800/80 dark:text-purple-300/80 mt-1">We're here to help you 24/7 at hello@wishmagic.com.</p></div>
-</div>
-</div>
-<div class="grid grid-cols-2 md:grid-cols-5 gap-10 py-12 text-sm">
-<div class="col-span-2">
-<div class="flex items-center gap-3 mb-4">
-<div class="w-9 h-9 rounded-full bg-gradient-to-tr from-purple-600 to-pink-500 flex items-center justify-center font-bold text-white shadow-md">🪄</div>
-<span class="font-display font-extrabold text-2xl text-purple-950 dark:text-white">WishMagic</span>
-</div>
-<p class="text-purple-800/80 dark:text-purple-300/80 leading-relaxed max-w-sm mb-5 text-sm font-medium">Crafting joyous, emotional, and interactive digital web experiences that turn every birthday, anniversary, and celebration into a treasured memory.</p>
-</div>
-<div>
-<h4 class="font-bold text-purple-950 dark:text-white mb-4 uppercase tracking-wider text-xs">Occasions</h4>
-<ul class="space-y-2 text-purple-800/80 dark:text-purple-300/80 text-xs font-medium">
-<li>Birthday Wishes</li><li>Anniversary Celebrations</li><li>Romantic Love Notes</li><li>Graduation &amp; Success</li>
-</ul>
-</div>
-<div>
-<h4 class="font-bold text-purple-950 dark:text-white mb-4 uppercase tracking-wider text-xs">Product</h4>
-<ul class="space-y-2 text-purple-800/80 dark:text-purple-300/80 text-xs font-medium">
-<li>Template Library</li><li>Custom Audio Studio</li><li>QR Code Delivery</li><li>Magic Premium Pass</li>
-</ul>
-</div>
-<div>
-<h4 class="font-bold text-purple-950 dark:text-white mb-4 uppercase tracking-wider text-xs">Company</h4>
-<ul class="space-y-2 text-purple-800/80 dark:text-purple-300/80 text-xs font-medium">
-<li>About WishMagic</li><li>Press &amp; Media</li><li>Help Center</li><li>Contact Us</li>
-</ul>
-</div>
-</div>
-<div class="pt-8 border-t border-purple-200/80 dark:border-purple-900/50 flex flex-col sm:flex-row items-center justify-between text-xs text-purple-800/80 dark:text-purple-400 gap-3">
-<span>© 2026 WishMagic. All rights reserved. 💜</span>
-<span class="text-purple-600/80 dark:text-purple-300/60">Designed with wonder for people who care deeply.</span>
-</div>
-</div>
-</footer>
-<!-- ========================================== -->
-<!-- INTERACTIVE TEMPLATE CUSTOMIZATION MODAL   -->
-<!-- ========================================== -->
-<div class="fixed inset-0 z-50 bg-purple-950/70 backdrop-blur-md hidden items-center justify-center p-3 sm:p-5 md:p-6 overflow-y-auto" id="customize-modal" onclick="handleBackdropClick(event)">
-<div class="bg-white/95 rounded-3xl max-w-5xl w-full my-auto shadow-2xl relative border border-purple-300/50 backdrop-blur-2xl flex flex-col max-h-[942px] overflow-hidden" onclick="event.stopPropagation()">
-<!-- Modal Top Header Bar -->
-<div class="px-6 py-4 border-b border-purple-100 flex items-center justify-between bg-gradient-to-r from-purple-50/90 via-pink-50/50 to-white flex-shrink-0">
-<div class="flex items-center gap-3">
-<div class="w-10 h-10 rounded-2xl bg-gradient-to-tr from-purple-600 to-pink-500 text-white flex items-center justify-center text-xl shadow-md shadow-pink-500/20" id="modal-template-icon">
-            🪄
-          </div>
-<div>
-<div class="flex items-center gap-2.5">
-<h3 class="font-display font-extrabold text-lg sm:text-xl text-[#24113F]" id="modal-template-title">Glitter Birthday Bash</h3>
-<span class="px-2.5 py-0.5 rounded-full text-[11px] font-extrabold bg-emerald-100 text-emerald-800" id="modal-plan-badge">Free</span>
-</div>
-<div class="flex items-center gap-2 text-xs text-purple-700/80 mt-0.5">
-<span class="text-amber-500 font-bold" id="modal-rating-stars">★★★★★</span>
-<span class="font-medium" id="modal-rating-score">4.8 (125 reviews)</span>
-<span class="text-purple-300">•</span>
-<span class="text-emerald-700 font-semibold flex items-center gap-1">
-<span class="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse"></span> Live Interactive Editor
-              </span>
-</div>
-</div>
-</div>
-<!-- Close Button -->
-<button aria-label="Close modal" class="w-9 h-9 rounded-full bg-purple-100/70 hover:bg-pink-100 text-purple-800 hover:text-pink-600 flex items-center justify-center font-bold text-sm transition shadow-sm" onclick="closeModal('customize-modal')">
-          ✕
-        </button>
-</div>
-<!-- Modal Body: 2-Column Responsive Split Layout -->
-<div class="grid grid-cols-1 lg:grid-cols-12 flex-grow overflow-y-auto">
-<!-- LEFT COLUMN: Customization Controls -->
-<div class="lg:col-span-7 p-6 sm:p-7 border-b lg:border-b-0 lg:border-r border-purple-100/80 flex flex-col justify-between space-y-6">
-<div>
-<!-- Step Navigation Tabs -->
-<div class="flex items-center gap-2 p-1.5 rounded-2xl bg-purple-100/60 border border-purple-200/60 mb-6 text-xs font-bold text-purple-900" role="tablist">
-<button class="flex-1 py-2 px-3 rounded-xl transition bg-white text-purple-900 shadow-sm flex items-center justify-center gap-1.5" id="tab-btn-details" onclick="switchCustomizerTab('details')">
-<span>1. Details</span><span class="text-pink-500">✨</span>
-</button>
-<button class="flex-1 py-2 px-3 rounded-xl transition text-purple-700 hover:text-purple-950 flex items-center justify-center gap-1.5" id="tab-btn-style" onclick="switchCustomizerTab('style')">
-<span>2. Style &amp; Media</span>
-</button>
-<button class="flex-1 py-2 px-3 rounded-xl transition text-purple-700 hover:text-purple-950 flex items-center justify-center gap-1.5" id="tab-btn-effects" onclick="switchCustomizerTab('effects')">
-<span>3. Music &amp; FX</span>
-</button>
-</div>
-<!-- TAB 1: DETAILS -->
-<div class="space-y-4" id="tab-content-details">
-<div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
-<div>
-<label class="block text-xs font-bold text-purple-950 mb-1.5">Recipient's Name <span class="text-pink-500">*</span></label>
-<input class="w-full text-xs font-medium rounded-xl border border-purple-200 px-3.5 py-2.5 focus:ring-2 focus:ring-purple-400 focus:outline-none bg-purple-50/30 text-purple-950 transition" id="cust-recipient" oninput="updateLivePreview()" placeholder="e.g. Sophia Parker" type="text" value="Sophia"/>
-</div>
-<div>
-<label class="block text-xs font-bold text-purple-950 mb-1.5">Sender / From <span class="text-pink-500">*</span></label>
-<input class="w-full text-xs font-medium rounded-xl border border-purple-200 px-3.5 py-2.5 focus:ring-2 focus:ring-purple-400 focus:outline-none bg-purple-50/30 text-purple-950 transition" id="cust-sender" oninput="updateLivePreview()" placeholder="e.g. Alex &amp; The Crew" type="text" value="Alex"/>
-</div>
-</div>
-<div>
-<label class="block text-xs font-bold text-purple-950 mb-1.5">Occasion / Greeting Headline</label>
-<select class="w-full text-xs font-medium rounded-xl border border-purple-200 px-3.5 py-2.5 focus:ring-2 focus:ring-purple-400 focus:outline-none bg-white text-purple-950 transition" id="cust-headline-select" onchange="updateHeadlineFromSelect()">
-<option value="Happy Birthday, {name}! 🎂">🎂 Happy Birthday, {name}!</option>
-<option value="You Make My World Sparkle, {name}! 💖">💖 You Make My World Sparkle, {name}!</option>
-<option value="Happy Anniversary, Beautiful Soul! 🥂">🥂 Happy Anniversary, Beautiful Soul!</option>
-<option value="Huge Congratulations, Super Star! 🎓">🎓 Huge Congratulations, Super Star!</option>
-<option value="A Huge Thank You From My Heart! 🌸">🌸 A Huge Thank You From My Heart!</option>
-<option value="Happy Festival &amp; Infinite Joy! 🪔">🪔 Happy Festival &amp; Infinite Joy!</option>
-</select>
-</div>
-<div>
-<div class="flex items-center justify-between mb-1.5">
-<label class="block text-xs font-bold text-purple-950">Heartfelt Message</label>
-<span class="text-[11px] text-purple-500 font-semibold" id="char-counter">112 / 300</span>
-</div>
-<textarea class="w-full text-xs font-medium rounded-xl border border-purple-200 px-3.5 py-2.5 focus:ring-2 focus:ring-purple-400 focus:outline-none bg-purple-50/30 text-purple-950 transition leading-relaxed" id="cust-message" maxlength="300" oninput="updateLivePreview()" rows="3">May your day be filled with warm magic, sparkling smiles, and memories that stay with you forever! Wishing you the brightest year ahead!</textarea>
-</div>
-</div>
-<!-- TAB 2: STYLE & MEDIA -->
-<div class="space-y-4 hidden" id="tab-content-style">
-<div>
-<label class="block text-xs font-bold text-purple-950 mb-1.5">Select Greeting Mood / Atmosphere</label>
-<div class="grid grid-cols-4 gap-2.5" id="color-mood-picker">
-<button class="mood-btn border-2 border-purple-600 rounded-xl p-2.5 bg-purple-50 text-left transition flex items-center gap-2" onclick="setMoodGradient(this, 'from-purple-950 via-indigo-900 to-purple-800')">
-<span class="w-4 h-4 rounded-full bg-gradient-to-tr from-purple-700 to-pink-500 flex-shrink-0"></span>
-<span class="text-[11px] font-bold text-purple-950">Cosmic</span>
-</button>
-<button class="mood-btn border border-purple-200 rounded-xl p-2.5 bg-white text-left transition flex items-center gap-2" onclick="setMoodGradient(this, 'from-rose-950 via-red-900 to-pink-900')">
-<span class="w-4 h-4 rounded-full bg-gradient-to-tr from-rose-500 to-red-600 flex-shrink-0"></span>
-<span class="text-[11px] font-bold text-purple-950">Rose</span>
-</button>
-<button class="mood-btn border border-purple-200 rounded-xl p-2.5 bg-white text-left transition flex items-center gap-2" onclick="setMoodGradient(this, 'from-amber-950 via-yellow-900 to-stone-900')">
-<span class="w-4 h-4 rounded-full bg-gradient-to-tr from-amber-400 to-yellow-600 flex-shrink-0"></span>
-<span class="text-[11px] font-bold text-purple-950">Golden</span>
-</button>
-<button class="mood-btn border border-purple-200 rounded-xl p-2.5 bg-white text-left transition flex items-center gap-2" onclick="setMoodGradient(this, 'from-teal-950 via-emerald-900 to-cyan-950')">
-<span class="w-4 h-4 rounded-full bg-gradient-to-tr from-emerald-400 to-teal-600 flex-shrink-0"></span>
-<span class="text-[11px] font-bold text-purple-950">Emerald</span>
-</button>
-</div>
-</div>
-<div>
-<label class="block text-xs font-bold text-purple-950 mb-1.5">Include a Favorite Memory Photo</label>
-<div class="border-2 border-dashed border-purple-300 rounded-2xl p-4 text-center bg-purple-50/40 hover:bg-purple-100/40 transition cursor-pointer" onclick="toggleSamplePhoto()">
-<div class="flex flex-col items-center justify-center gap-1">
-<span class="text-2xl" id="upload-icon-state">📸</span>
-<p class="text-xs font-bold text-purple-900" id="photo-upload-label">Sample Memory Photo Attached (Click to switch)</p>
-<p class="text-[11px] text-purple-600">Supports JPG, PNG up to 10MB • Auto-enhanced</p>
-</div>
-</div>
-</div>
-</div>
-<!-- TAB 3: MUSIC & EFFECTS -->
-<div class="space-y-4 hidden" id="tab-content-effects">
-<div>
-<label class="block text-xs font-bold text-purple-950 mb-1.5">Background Music Track</label>
-<div class="flex items-center gap-2.5 p-3 rounded-2xl bg-purple-50/80 border border-purple-200">
-<button class="w-10 h-10 rounded-xl bg-pink-500 hover:bg-pink-600 text-white flex items-center justify-center font-bold text-sm shadow-md transition flex-shrink-0" id="audio-play-toggle-btn" onclick="toggleAudioPreview()">
-<span id="play-icon">▶</span>
-</button>
-<div class="flex-grow">
-<select class="w-full text-xs font-semibold rounded-lg border border-purple-200 p-1.5 bg-white text-purple-950 focus:outline-none" id="bgm-selector" onchange="changeMusicTrack()">
-<option value="Magical Stardust Waltz">✨ Magical Stardust Waltz (Acoustic Strings)</option>
-<option value="Acoustic Birthday Ukulele">🎂 Acoustic Birthday Ukulele (Cheerful Pop)</option>
-<option value="Romantic Sunset Piano">💖 Romantic Sunset Piano (Soulful Melody)</option>
-<option value="Midnight Fireworks BGM">🎆 Midnight Fireworks Celebration Orchestral</option>
-</select>
-<div class="flex items-center gap-2 mt-1.5">
-<div class="flex items-end gap-1 h-3.5" id="audio-wave-bars">
-<span class="w-1 bg-pink-400 rounded-full h-1 wave-bar-1"></span>
-<span class="w-1 bg-purple-500 rounded-full h-1 wave-bar-2"></span>
-<span class="w-1 bg-amber-400 rounded-full h-1 wave-bar-3"></span>
-<span class="w-1 bg-indigo-500 rounded-full h-1 wave-bar-4"></span>
-</div>
-<span class="text-[10px] font-bold text-purple-700" id="audio-status-label">Click ▶ to preview audio</span>
-</div>
-</div>
-</div>
-</div>
-<div>
-<label class="block text-xs font-bold text-purple-950 mb-1.5">Active Celebration Magic Effects</label>
-<div class="grid grid-cols-2 gap-2 text-xs font-semibold">
-<label class="flex items-center gap-2 p-2.5 rounded-xl border border-purple-200 bg-white hover:bg-purple-50 cursor-pointer">
-<input checked="" class="rounded text-purple-600 focus:ring-purple-400" id="fx-confetti" type="checkbox"/>
-<span>🎉 Confetti Shower</span>
-</label>
-<label class="flex items-center gap-2 p-2.5 rounded-xl border border-purple-200 bg-white hover:bg-purple-50 cursor-pointer">
-<input checked="" class="rounded text-purple-600 focus:ring-purple-400" id="fx-waxseal" type="checkbox"/>
-<span>💌 Interactive Wax Seal</span>
-</label>
-<label class="flex items-center gap-2 p-2.5 rounded-xl border border-purple-200 bg-white hover:bg-purple-50 cursor-pointer">
-<input checked="" class="rounded text-purple-600 focus:ring-purple-400" id="fx-sparkles" type="checkbox"/>
-<span>✨ Floating Star Dust</span>
-</label>
-<label class="flex items-center gap-2 p-2.5 rounded-xl border border-purple-200 bg-white hover:bg-purple-50 cursor-pointer">
-<input class="rounded text-purple-600 focus:ring-purple-400" id="fx-fireworks" type="checkbox"/>
-<span>🎆 Midnight Fireworks</span>
-</label>
-</div>
-</div>
-</div>
-</div>
-<!-- Action Footer inside Left Column -->
-<div class="pt-4 border-t border-purple-100 flex flex-col sm:flex-row items-center gap-3">
-<button class="w-full sm:w-auto px-5 py-3 rounded-full border border-purple-300 hover:bg-purple-50 text-purple-900 font-bold text-xs flex items-center justify-center gap-2 transition" onclick="triggerConfettiBurstInsidePreview()">
-<span>🎉 Test Confetti</span>
-</button>
-<button class="w-full sm:flex-1 py-3 px-6 rounded-full bg-gradient-to-r from-[#EC4899] via-pink-600 to-[#7C3AED] hover:brightness-105 active:scale-95 text-white font-extrabold text-xs sm:text-sm shadow-lg shadow-pink-500/30 flex items-center justify-center gap-2 transition" onclick="handleCreateWish()">
-<span>Generate Magic Link</span><span>🪄</span>
-</button>
-</div>
-</div>
-<!-- RIGHT COLUMN: Interactive Live Mobile Preview Frame -->
-<div class="lg:col-span-5 p-6 sm:p-7 bg-gradient-to-b from-purple-50/60 via-purple-100/30 to-pink-50/40 flex flex-col items-center justify-between">
-<div class="w-full flex items-center justify-between mb-4">
-<span class="text-xs font-bold uppercase tracking-wider text-purple-800 flex items-center gap-1.5">
-<span class="w-2 h-2 rounded-full bg-emerald-500 animate-ping"></span> Live Real-Time Preview
-            </span>
-<div class="flex items-center gap-1 bg-white p-1 rounded-full border border-purple-200 shadow-sm text-xs font-bold text-purple-800">
-<button class="px-3 py-1 rounded-full bg-purple-700 text-white" id="view-mobile-btn" onclick="setViewMode('mobile')">📱 Mobile</button>
-<button class="px-3 py-1 rounded-full text-purple-700 hover:text-purple-950" id="view-card-btn" onclick="setViewMode('card')">🃏 Card</button>
-</div>
-</div>
-<!-- Phone Mockup Container -->
-<div class="relative w-full max-w-[290px] transition-all duration-300" id="preview-frame-wrapper">
-<!-- Floating Live Track Badge -->
-<div class="absolute -top-3 -left-3 bg-white/95 rounded-xl px-2.5 py-1 shadow-lg border border-purple-200 text-[10px] font-bold text-purple-700 z-20 flex items-center gap-1">
-<span>🎵</span> <span id="preview-floating-track-name">Magical Stardust Waltz</span>
-</div>
-<!-- Physical Phone Shell -->
-<div class="bg-gray-950 p-3 rounded-[2.5rem] shadow-2xl border-4 border-white/90 relative overflow-hidden" id="phone-shell">
-<div class="w-24 h-4 bg-gray-900 rounded-full mx-auto mb-2 flex items-center justify-center">
-<div class="w-8 h-1 bg-gray-700 rounded-full"></div>
-</div>
-<!-- Screen Canvas -->
-<div class="bg-gradient-to-tr from-purple-950 via-indigo-900 to-purple-800 rounded-[1.8rem] p-4 text-white text-center relative overflow-hidden min-h-[440px] flex flex-col justify-between transition-all duration-500" id="preview-screen-bg">
-<div class="flex justify-between items-center text-[10px] text-purple-300/80 mb-2 px-1 font-mono">
-<span>9:41</span><span class="text-white/80 font-bold truncate max-w-[130px]">wishmagic.link/for-you</span><span>⚡100%</span>
-</div>
-<div class="absolute inset-0 pointer-events-none overflow-hidden" id="screen-confetti-layer"></div>
-<!-- STATE 1: SEALED ENVELOPE -->
-<div class="space-y-4 my-auto transition-all duration-500" id="preview-sealed-state">
-<div class="relative w-20 h-20 mx-auto cursor-pointer" onclick="unsealEnvelopePreview()">
-<div class="w-20 h-20 rounded-full bg-pink-500/20 mx-auto flex items-center justify-center text-4xl border border-pink-400/40 shadow-inner animate-pulse">
-                      💌
-                    </div>
-<div class="absolute -bottom-1 -right-1 w-7 h-7 rounded-full bg-amber-400 text-amber-950 flex items-center justify-center text-xs font-black shadow-md border-2 border-purple-950" id="preview-wax-badge">
-                      ✨
-                    </div>
-</div>
-<div>
-<p class="text-[10px] uppercase tracking-widest text-amber-300 font-extrabold" id="preview-special-tag">Special Delivery For You</p>
-<h4 class="font-serifAccent text-xl font-bold italic mt-1 text-white leading-tight" id="preview-sealed-headline">
-                      "Happy Birthday, Sophia!"
-                    </h4>
-<p class="text-[11px] text-purple-200/90 mt-1.5 line-clamp-2 px-2" id="preview-sealed-snippet">
-                      "May your day be filled with warm magic, sparkling smiles..."
-                    </p>
-</div>
-<button class="w-full py-2.5 px-4 rounded-full bg-gradient-to-r from-[#EC4899] to-[#7C3AED] hover:brightness-110 active:scale-95 text-white text-xs font-bold shadow-lg flex items-center justify-center gap-1.5 transition" onclick="unsealEnvelopePreview()">
-<span>Tap to Unseal Envelope</span><span class="text-amber-300">✨</span>
-</button>
-<p class="text-[10px] text-purple-300/70">Click button or envelope to open</p>
-</div>
-<!-- STATE 2: UNBOXED REVEAL -->
-<div class="hidden space-y-3.5 my-auto text-left transition-all duration-500" id="preview-revealed-state">
-<div class="flex items-center justify-between pb-2 border-b border-white/20">
-<span class="text-[10px] font-bold text-amber-300 flex items-center gap-1">
-<span>✦</span> Unwrapped with Love
-                    </span>
-<button class="text-[10px] text-pink-300 hover:text-white underline" onclick="resealEnvelopePreview()">
-                      Close Envelope ↺
-                    </button>
-</div>
-<!-- Photo Frame -->
-<div class="relative w-full h-32 rounded-2xl overflow-hidden shadow-lg border border-white/30 bg-purple-900/50" id="preview-photo-box">
-<img alt="Personalized Memory" class="w-full h-full object-cover" id="preview-photo-img" src="https://lh3.googleusercontent.com/aida-public/AB6AXuDezlqPj5lm8nmhW_lrDCbZcHVfShmypgckEYJVl76VdD_wF-3cb1S24tsEyhhhFNYk3gRFkjpsnRJx-ZuCKWGLHeRTeeFuOyxAqvZGbAQwHb1zjYPCyCeCnQIyFrErRkWE0xCEXqH2U7JW_wrM-ahhk6okJlUGXnegMS_gVYSWfk0tYYzU41Y1jK4gM1pFceNSND1-NjDXI6SnWlSaixjtRPq7DE9cP1oX0up5buKgNEfZDBjAU9cN"/>
-<div class="absolute bottom-2 left-2 bg-black/60 backdrop-blur-sm px-2 py-0.5 rounded-md text-[10px] font-bold text-white flex items-center gap-1">
-<span>📸</span> Forever Memory
-                    </div>
-</div>
-<!-- Dynamic Text -->
-<div class="bg-white/10 backdrop-blur-md rounded-2xl p-3 border border-white/20">
-<h4 class="font-display font-extrabold text-sm text-pink-200" id="preview-revealed-recipient">Dear Sophia,</h4>
-<p class="text-xs text-white/95 mt-1 leading-relaxed font-sans" id="preview-revealed-message">
-                      May your day be filled with warm magic, sparkling smiles, and memories that stay with you forever! Wishing you the brightest year ahead!
-                    </p>
-<div class="mt-2.5 pt-2 border-t border-white/10 flex items-center justify-between text-[11px] text-amber-300 font-serifAccent italic">
-<span>With all my love,</span>
-<span class="font-bold text-white not-italic" id="preview-revealed-sender">— Alex</span>
-</div>
-</div>
-<div class="px-3 py-1.5 rounded-full bg-black/40 backdrop-blur-md border border-white/15 flex items-center justify-between text-[10px] text-purple-200">
-<span class="flex items-center gap-1.5">
-<span class="text-pink-400">🎶</span>
-<span class="truncate max-w-[130px]" id="preview-card-track-label">Magical Stardust Waltz</span>
-</span>
-<span class="text-amber-400 font-bold">Playing...</span>
-</div>
-</div>
-<div class="text-[10px] text-purple-300/80 pt-2 border-t border-purple-800/40">
-                  Made with ❤️ via WishMagic
-                </div>
-</div>
-</div>
-</div>
-<p class="text-[11px] font-semibold text-purple-700/80 mt-3 text-center">
-            ✨ Everything updates instantly as you customize.
-          </p>
-</div>
-</div>
-</div>
-</div>
-<!-- Auth Modal -->
-<div class="fixed inset-0 z-50 bg-black/70 backdrop-blur-md hidden items-center justify-center p-4" id="auth-modal">
-<div class="bg-white rounded-3xl max-w-sm w-full p-6 sm:p-8 shadow-2xl relative border border-purple-200 text-center">
-<button class="absolute top-4 right-4 w-8 h-8 rounded-full bg-gray-100 text-gray-500 hover:text-black flex items-center justify-center font-bold" onclick="closeModal('auth-modal')">✕</button>
-<div class="w-12 h-12 rounded-full bg-purple-100 text-purple-700 flex items-center justify-center mx-auto text-2xl mb-3">🪄</div>
-<h3 class="font-display font-black text-xl text-[#24113F]">Welcome to WishMagic</h3>
-<p class="text-xs text-purple-700/80 mb-6">Save your wishes and revisit smiles anytime.</p>
-<div class="space-y-3">
-<button class="w-full py-2.5 px-4 rounded-xl border border-gray-300 hover:bg-gray-50 text-xs font-bold text-gray-700 flex items-center justify-center gap-2 transition" onclick="alert('Signed in successfully!')">Continue with Google</button>
-<button class="w-full py-2.5 px-4 rounded-xl border border-gray-300 hover:bg-gray-50 text-xs font-bold text-gray-700 flex items-center justify-center gap-2 transition" onclick="alert('Signed in successfully!')">Continue with Email</button>
-</div>
-</div>
-</div>
-<!-- Interactive JavaScript Logic -->
-<script>
-    let isAudioPlaying = false;
-    let samplePhotoActive = true;
-    const samplePhotos = [
-      "https://images.unsplash.com/photo-1513151233558-d860c5398176?w=600&auto=format&fit=crop&q=80",
-      "https://images.unsplash.com/photo-1530103862676-de8c9debad1d?w=600&auto=format&fit=crop&q=80",
-      "https://images.unsplash.com/photo-1514525253161-7a46d19cd819?w=600&auto=format&fit=crop&q=80"
-    ];
-    let photoIndex = 0;
-
-    function openModal(id) {
-      const modal = document.getElementById(id);
-      if (modal) {
-        modal.classList.remove('hidden');
-        modal.classList.add('flex');
-        document.body.style.overflow = 'hidden';
-      }
-    }
-
-    function closeModal(id) {
-      const modal = document.getElementById(id);
-      if (modal) {
-        modal.classList.add('hidden');
-        modal.classList.remove('flex');
-        document.body.style.overflow = '';
-      }
-    }
-
-    function handleBackdropClick(event) {
-      if (event.target.id === 'customize-modal') {
-        closeModal('customize-modal');
-      }
-    }
-
-    document.addEventListener('keydown', function(e) {
-      if (e.key === 'Escape') {
-        closeModal('customize-modal');
-        closeModal('auth-modal');
-      }
-    });
-
-    function openCustomizerModal(templateName, plan, rating) {
-      document.getElementById('modal-template-title').innerText = templateName || 'Glitter Birthday Bash';
-      const badge = document.getElementById('modal-plan-badge');
-      if (plan && plan.includes('Premium')) {
-        badge.innerText = 'Premium ₹49';
-        badge.className = 'px-2.5 py-0.5 rounded-full text-[11px] font-extrabold bg-[#F4C542] text-amber-950 shadow-sm';
-      } else {
-        badge.innerText = 'Free';
-        badge.className = 'px-2.5 py-0.5 rounded-full text-[11px] font-extrabold bg-emerald-100 text-emerald-800';
-      }
-      if (rating) {
-        document.getElementById('modal-rating-score').innerText = rating + ' reviews';
-      }
-      resealEnvelopePreview();
-      updateLivePreview();
-      openModal('customize-modal');
-    }
-
-    function switchCustomizerTab(tab) {
-      ['details', 'style', 'effects'].forEach(t => {
-        const btn = document.getElementById(`tab-btn-${t}`);
-        const content = document.getElementById(`tab-content-${t}`);
-        if (t === tab) {
-          btn.className = 'flex-1 py-2 px-3 rounded-xl transition bg-white text-purple-900 shadow-sm flex items-center justify-center gap-1.5 font-bold';
-          content.classList.remove('hidden');
-        } else {
-          btn.className = 'flex-1 py-2 px-3 rounded-xl transition text-purple-700 hover:text-purple-950 flex items-center justify-center gap-1.5 font-medium';
-          content.classList.add('hidden');
-        }
-      });
-    }
-
-    function updateLivePreview() {
-      const recipient = document.getElementById('cust-recipient').value.trim() || 'Someone Special';
-      const sender = document.getElementById('cust-sender').value.trim() || 'A Secret Admirer';
-      const message = document.getElementById('cust-message').value.trim() || 'Wishing you infinite smiles!';
-
-      // Counter
-      document.getElementById('char-counter').innerText = `${document.getElementById('cust-message').value.length} / 300`;
-
-      // Update Headline
-      const select = document.getElementById('cust-headline-select');
-      const headline = select.value.replace('{name}', recipient);
-      document.getElementById('preview-sealed-headline').innerText = `"${headline}"`;
-
-      // Update Snippet
-      document.getElementById('preview-sealed-snippet').innerText = `"${message.slice(0, 60)}..."`;
-
-      // Update Revealed Card
-      document.getElementById('preview-revealed-recipient').innerText = `Dear ${recipient},`;
-      document.getElementById('preview-revealed-message').innerText = message;
-      document.getElementById('preview-revealed-sender').innerText = `— ${sender}`;
-    }
-
-    function updateHeadlineFromSelect() {
-      updateLivePreview();
-    }
-
-    function setMoodGradient(btn, gradientClass) {
-      document.querySelectorAll('.mood-btn').forEach(b => {
-        b.classList.remove('border-2', 'border-purple-600', 'bg-purple-50');
-        b.classList.add('border', 'border-purple-200', 'bg-white');
-      });
-      btn.classList.add('border-2', 'border-purple-600', 'bg-purple-50');
-      btn.classList.remove('border-purple-200', 'bg-white');
-
-      const screenBg = document.getElementById('preview-screen-bg');
-      screenBg.className = `bg-gradient-to-tr ${gradientClass} rounded-[1.8rem] p-4 text-white text-center relative overflow-hidden min-h-[440px] flex flex-col justify-between transition-all duration-500`;
-    }
-
-    function toggleSamplePhoto() {
-      photoIndex = (photoIndex + 1) % samplePhotos.length;
-      document.getElementById('preview-photo-img').src = samplePhotos[photoIndex];
-      document.getElementById('upload-icon-state').innerText = '🖼️';
-      document.getElementById('photo-upload-label').innerText = `Memory Photo #${photoIndex + 1} Selected`;
-    }
-
-    function changeMusicTrack() {
-      const track = document.getElementById('bgm-selector').value;
-      document.getElementById('preview-floating-track-name').innerText = track;
-      document.getElementById('preview-card-track-label').innerText = track;
-    }
-
-    function toggleAudioPreview() {
-      isAudioPlaying = !isAudioPlaying;
-      const playIcon = document.getElementById('play-icon');
-      const statusLabel = document.getElementById('audio-status-label');
-      const waveBars = document.getElementById('audio-wave-bars');
+  <!-- ========================================== -->
+  <!-- 1. TOP HEADER & STUDIO STATUS BAR          -->
+  <!-- ========================================== -->
+  <header class="sticky top-2 sm:top-4 z-40 px-3 sm:px-6 md:px-8 max-w-7xl mx-auto w-full transition-all">
+    <div class="glass-nav rounded-2xl sm:rounded-full px-3.5 sm:px-6 py-2 sm:py-2.5 flex items-center justify-between gap-3 shadow-lg shadow-purple-900/5">
       
-      if (isAudioPlaying) {
-        playIcon.innerText = '⏸';
-        statusLabel.innerText = 'Playing preview melody...';
-        statusLabel.className = 'text-[10px] font-bold text-pink-600 animate-pulse';
-        waveBars.classList.remove('opacity-40');
-      } else {
-        playIcon.innerText = '▶';
-        statusLabel.innerText = 'Click ▶ to preview audio';
-        statusLabel.className = 'text-[10px] font-bold text-purple-700';
-        waveBars.classList.add('opacity-40');
-      }
-    }
+      <!-- Left: Back Button & Template Wordmark -->
+      <div class="flex items-center gap-2 sm:gap-3">
+        <a id="btn-back-to-preview" href="marketplace.html" class="p-2 sm:px-3 sm:py-1.5 rounded-full glass-surface hover:bg-purple-100 dark:hover:bg-purple-900/60 text-xs font-bold text-purple-900 dark:text-purple-200 flex items-center gap-1.5 transition active:scale-95 group" title="Return to Template Preview">
+          <span class="text-sm font-extrabold group-hover:-translate-x-0.5 transition-transform">←</span>
+          <span class="hidden sm:inline">Preview</span>
+        </a>
 
-    function unsealEnvelopePreview() {
-      document.getElementById('preview-sealed-state').classList.add('hidden');
-      document.getElementById('preview-revealed-state').classList.remove('hidden');
-      triggerConfettiBurstInsidePreview();
-    }
+        <div class="h-4 w-[1px] bg-purple-200 dark:bg-purple-800 hidden sm:block"></div>
 
-    function resealEnvelopePreview() {
-      document.getElementById('preview-revealed-state').classList.add('hidden');
-      document.getElementById('preview-sealed-state').classList.remove('hidden');
-    }
+        <div class="flex items-center gap-2">
+          <div class="w-7 h-7 sm:w-8 sm:h-8 rounded-full bg-gradient-to-tr from-purple-600 via-pink-500 to-amber-300 flex items-center justify-center shadow-md shadow-pink-500/25">
+            <span class="text-xs sm:text-sm">🪄</span>
+          </div>
+          <div class="flex flex-col">
+            <div class="flex items-center gap-1.5">
+              <span class="font-display font-bold text-xs sm:text-sm text-purple-950 dark:text-white truncate max-w-[150px] sm:max-w-[220px]" id="customizer-template-name">Loading Template...</span>
+              <span id="customizer-tier-badge" class="px-2 py-0.2 rounded-full text-[9px] font-black uppercase tracking-wider bg-emerald-500 text-white shadow-xs">FREE</span>
+            </div>
+            <span class="text-[10px] text-purple-700/80 dark:text-purple-300/80 hidden sm:inline" id="customizer-category-name">✦ Celebration Blueprint</span>
+          </div>
+        </div>
+      </div>
 
-    function triggerConfettiBurstInsidePreview() {
-      const container = document.getElementById('screen-confetti-layer');
-      if (!container) return;
-      container.innerHTML = '';
-      const colors = ['#EC4899', '#F4C542', '#A855F7', '#10B981', '#3B82F6', '#FFFFFF'];
-      for (let i = 0; i < 28; i++) {
-        const piece = document.createElement('div');
-        piece.className = 'confetti-piece';
-        piece.style.left = Math.random() * 100 + '%';
-        piece.style.top = Math.random() * 20 + '%';
-        piece.style.backgroundColor = colors[Math.floor(Math.random() * colors.length)];
-        piece.style.animationDelay = Math.random() * 0.4 + 's';
-        piece.style.animationDuration = (1.5 + Math.random() * 1) + 's';
-        container.appendChild(piece);
-      }
-    }
+      <!-- Center: Autosave Status Indicator -->
+      <div class="hidden md:flex items-center gap-2 text-xs font-medium text-purple-800/80 dark:text-purple-300/80" id="autosave-indicator">
+        <span class="w-2 h-2 rounded-full bg-emerald-500"></span>
+        <span>Draft saved locally</span>
+      </div>
 
-    function setViewMode(mode) {
-      const wrapper = document.getElementById('preview-frame-wrapper');
-      const phoneShell = document.getElementById('phone-shell');
-      const mobileBtn = document.getElementById('view-mobile-btn');
-      const cardBtn = document.getElementById('view-card-btn');
+      <!-- Right: Action Controls (Theme, Reset, Save Draft, Auth, Continue) -->
+      <div class="flex items-center gap-1.5 sm:gap-2">
+        <!-- Part 11: Development-Only Entitlement Switcher (Section 17) -->
+        <div class="hidden md:flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-purple-950/80 border border-purple-500/40 text-[10px]" title="Development Mode: Switch between Free and VIP entitlement for testing without real payments">
+          <span class="text-amber-400 font-mono font-bold">🧪 DEV:</span>
+          <button id="dev-toggle-entitlement-btn" type="button" onclick="toggleDevelopmentEntitlement()" class="px-2 py-0.5 rounded-full font-extrabold text-[10px] bg-emerald-500/30 text-emerald-300 hover:bg-emerald-500 hover:text-white transition cursor-pointer">
+            FREE TIER
+          </button>
+        </div>
 
-      if (mode === 'card') {
-        wrapper.classList.remove('max-w-[290px]');
-        wrapper.classList.add('max-w-[340px]');
-        phoneShell.classList.remove('rounded-[2.5rem]', 'border-4');
-        phoneShell.classList.add('rounded-2xl', 'border-2');
-        cardBtn.className = 'px-3 py-1 rounded-full bg-purple-700 text-white';
-        mobileBtn.className = 'px-3 py-1 rounded-full text-purple-700 hover:text-purple-950';
-      } else {
-        wrapper.classList.add('max-w-[290px]');
-        wrapper.classList.remove('max-w-[340px]');
-        phoneShell.classList.add('rounded-[2.5rem]', 'border-4');
-        phoneShell.classList.remove('rounded-2xl', 'border-2');
-        mobileBtn.className = 'px-3 py-1 rounded-full bg-purple-700 text-white';
-        cardBtn.className = 'px-3 py-1 rounded-full text-purple-700 hover:text-purple-950';
-      }
-    }
+        <!-- Theme Toggle -->
+        <button class="p-2 sm:px-2.5 sm:py-1.5 rounded-full glass-surface flex items-center gap-1 text-xs font-bold hover:text-pink-600 transition cursor-pointer" onclick="toggleSiteTheme()" title="Switch Light / Dark Theme" aria-label="Toggle Theme">
+          <span class="material-symbols-outlined text-[18px] site-theme-icon">dark_mode</span>
+        </button>
 
-    function generateMagicLink() {
-      const name = document.getElementById('cust-recipient').value || 'Friend';
-      const link = `https://wishmagic.link/w/${encodeURIComponent(name.toLowerCase())}-magic-982`;
-      navigator.clipboard ? navigator.clipboard.writeText(link) : null;
-      alert(`🎉 Magical link generated for ${name}!\n\nLink copied to clipboard:\n${link}\n\nReady to surprise them!`);
-    }
+        <!-- Navbar Auth Component -->
+        <div data-purpose="navbar-auth" class="navbar-auth-container"></div>
 
-    function filterCategory(category, button) {
-      document.querySelectorAll('.cat-pill').forEach(btn => {
-        btn.className = 'cat-pill glass-pill text-purple-950 px-6 py-2.5 rounded-full text-xs sm:text-sm font-semibold flex items-center gap-2';
-      });
-      button.className = 'cat-pill pill-active px-6 py-2.5 rounded-full text-xs sm:text-sm font-bold flex items-center gap-2 transition';
+        <!-- My Wishes Link -->
+        <a href="/my-wishes" class="hidden sm:flex p-2 sm:px-3 sm:py-1.5 rounded-full glass-surface hover:bg-purple-100 dark:hover:bg-purple-900/60 text-xs font-bold text-purple-900 dark:text-purple-200 items-center gap-1 transition" title="Go to My Wishes Dashboard">
+          <span class="material-symbols-outlined text-[16px] text-pink-500">auto_awesome_mosaic</span>
+          <span>My Wishes</span>
+        </a>
 
-      const cards = document.querySelectorAll('.template-card');
-      cards.forEach(card => {
-        if (category === 'all' || card.getAttribute('data-category') === category) {
-          card.classList.remove('hidden');
-        } else {
-          card.classList.add('hidden');
-        }
-      });
-    }
+        <!-- Reset Button -->
+        <button onclick="resetCustomizerChanges()" class="hidden lg:flex p-2 sm:px-3 sm:py-1.5 rounded-full glass-surface hover:bg-red-50 dark:hover:bg-red-950/40 text-xs font-semibold text-purple-900 dark:text-purple-200 hover:text-red-600 transition items-center gap-1" title="Reset changes to template defaults">
+          <span class="material-symbols-outlined text-[16px]">restart_alt</span>
+          <span>Reset</span>
+        </button>
 
-    function handleNavSearch(query) {
-      const term = query.toLowerCase().trim();
-      const cards = document.querySelectorAll('.template-card');
-      cards.forEach(card => {
-        const name = card.getAttribute('data-name') || '';
-        const cat = card.getAttribute('data-category') || '';
-        if (!term || name.includes(term) || cat.includes(term)) {
-          card.classList.remove('hidden');
-        } else {
-          card.classList.add('hidden');
-        }
-      });
-    }
+        <!-- Save Draft Button -->
+        <button onclick="saveDraftLocally(); showToast('💾 Draft saved to browser!');" class="p-2 sm:px-3 sm:py-1.5 rounded-full glass-surface hover:bg-purple-100 dark:hover:bg-purple-900/60 text-xs font-bold text-purple-900 dark:text-purple-200 flex items-center gap-1 transition cursor-pointer" title="Save draft locally">
+          <span class="material-symbols-outlined text-[16px]">save</span>
+          <span class="hidden sm:inline">Save</span>
+        </button>
 
-    function toggleBookmark(btn) {
-      const svg = btn.querySelector('svg');
-      if (svg.getAttribute('fill') === 'currentColor') {
-        svg.setAttribute('fill', 'none');
-        btn.classList.remove('bg-purple-200');
-      } else {
-        svg.setAttribute('fill', 'currentColor');
-        btn.classList.add('bg-purple-200');
-      }
-    }
-  </script>
+        <!-- Top Direct Finalize CTA Button -->
+        <button id="btn-header-continue" onclick="publishWishAndGetLink()" class="px-3.5 sm:px-4 py-1.5 sm:py-2 text-xs sm:text-sm font-bold text-white bg-gradient-to-r from-pink-500 via-purple-600 to-indigo-600 rounded-full shadow-md shadow-pink-500/20 hover:scale-105 active:scale-95 transition-all flex items-center gap-1 whitespace-nowrap cursor-pointer">
+          <span>Finalize</span>
+          <span class="material-symbols-outlined text-[16px]">arrow_forward</span>
+        </button>
+      </div>
+
+    </div>
+  </header>
+
+  <!-- ========================================== -->
+  <!-- 2. STEPPER PROGRESSION NAVIGATION BAR      -->
+  <!-- ========================================== -->
+  <section class="px-3 sm:px-6 md:px-8 max-w-7xl mx-auto w-full pt-3 sm:pt-5 pb-2">
+    <div class="glass-surface rounded-2xl sm:rounded-full p-1.5 sm:p-2 flex items-center justify-between gap-1 overflow-x-auto no-scrollbar shadow-sm">
+      
+      <!-- Step 1 Tab -->
+      <button id="step-tab-1" onclick="goToStep(1)" class="step-tab-btn flex-1 flex items-center justify-center gap-1.5 py-2 px-3 sm:px-4 rounded-xl font-bold text-xs sm:text-sm bg-purple-700 text-white shadow-md transition-all">
+        <span id="step-check-1" class="hidden text-emerald-300">✓</span>
+        <span id="step-num-1" class="w-4 h-4 rounded-full bg-white/20 text-[10px] flex items-center justify-center font-black">1</span>
+        <span class="truncate">Details</span>
+      </button>
+
+      <span class="text-purple-300 dark:text-purple-700 font-bold hidden sm:inline">→</span>
+
+      <!-- Step 2 Tab -->
+      <button id="step-tab-2" onclick="goToStep(2)" class="step-tab-btn flex-1 flex items-center justify-center gap-1.5 py-2 px-3 sm:px-4 rounded-xl font-semibold text-xs sm:text-sm text-purple-800/60 dark:text-purple-300/60 hover:text-purple-950 dark:hover:text-white transition-all cursor-pointer">
+        <span id="step-check-2" class="hidden text-emerald-400">✓</span>
+        <span id="step-num-2" class="w-4 h-4 rounded-full bg-purple-200 dark:bg-purple-800 text-[10px] flex items-center justify-center font-black">2</span>
+        <span class="truncate">Customize</span>
+      </button>
+
+      <span class="text-purple-300 dark:text-purple-700 font-bold hidden sm:inline">→</span>
+
+      <!-- Step 3 Tab -->
+      <button id="step-tab-3" onclick="goToStep(3)" class="step-tab-btn flex-1 flex items-center justify-center gap-1.5 py-2 px-3 sm:px-4 rounded-xl font-semibold text-xs sm:text-sm text-purple-800/60 dark:text-purple-300/60 hover:text-purple-950 dark:hover:text-white transition-all cursor-pointer">
+        <span id="step-check-3" class="hidden text-emerald-400">✓</span>
+        <span id="step-num-3" class="w-4 h-4 rounded-full bg-purple-200 dark:bg-purple-800 text-[10px] flex items-center justify-center font-black">3</span>
+        <span class="truncate">Sections</span>
+      </button>
+
+      <span class="text-purple-300 dark:text-purple-700 font-bold hidden sm:inline">→</span>
+
+      <!-- Step 4 Tab -->
+      <button id="step-tab-4" onclick="goToStep(4)" class="step-tab-btn flex-1 flex items-center justify-center gap-1.5 py-2 px-3 sm:px-4 rounded-xl font-semibold text-xs sm:text-sm text-purple-800/60 dark:text-purple-300/60 hover:text-purple-950 dark:hover:text-white transition-all cursor-pointer">
+        <span id="step-check-4" class="hidden text-emerald-400">✓</span>
+        <span id="step-num-4" class="w-4 h-4 rounded-full bg-purple-200 dark:bg-purple-800 text-[10px] flex items-center justify-center font-black">4</span>
+        <span class="truncate">Preview</span>
+      </button>
+
+    </div>
+  </section>
+
+  <!-- ========================================== -->
+  <!-- 3. MAIN SPLIT BUILDER INTERFACE             -->
+  <!-- ========================================== -->
+  <main class="flex-grow pt-2 sm:pt-4 pb-24 px-3 sm:px-6 md:px-8 max-w-7xl mx-auto w-full">
+    
+    <div class="grid grid-cols-1 lg:grid-cols-12 gap-6 sm:gap-8 items-start">
+      
+      <!-- ============================================ -->
+      <!-- LEFT COLUMN: CONTROLS & FORMS (5 COLS)       -->
+      <!-- ============================================ -->
+      <div class="lg:col-span-5 flex flex-col gap-5 order-2 lg:order-1">
+        
+        <!-- STEP 1: DETAILS CONTAINER -->
+        <div id="step-content-1" class="flex flex-col gap-5">
+          
+          <!-- Validation error box placeholder -->
+          <div id="step-1-validation-error" class="hidden"></div>
+
+          <!-- Section: Personal Information -->
+          <div class="glass-surface rounded-3xl p-5 sm:p-6 shadow-xl space-y-4">
+            <div class="flex items-center justify-between pb-3 border-b border-purple-200/60 dark:border-purple-800/40">
+              <h3 class="font-display font-extrabold text-base text-purple-950 dark:text-white flex items-center gap-2">
+                <span>👤 Personal Information</span>
+              </h3>
+              <span class="text-[11px] text-pink-600 dark:text-pink-400 font-bold">Step 1 of 4</span>
+            </div>
+
+            <!-- Recipient Name -->
+            <div>
+              <label for="input-recipient" class="block text-xs font-bold text-purple-950 dark:text-white mb-1.5">
+                Recipient's Name <span class="text-pink-500">*</span>
+              </label>
+              <input type="text" id="input-recipient" oninput="handleRecipientInput(this.value)" placeholder="e.g. Priya Sharma, Kritika, Ananya" class="w-full text-xs sm:text-sm font-semibold rounded-2xl border border-purple-200/80 dark:border-purple-800/60 px-4 py-3 bg-white/80 dark:bg-purple-950/60 text-purple-950 dark:text-purple-100 focus:outline-none focus:ring-2 focus:ring-pink-500 transition shadow-inner"/>
+            </div>
+
+            <!-- Sender Name & Contact Grid -->
+            <div class="grid grid-cols-1 sm:grid-cols-2 gap-3.5">
+              <div>
+                <label for="input-sender" class="block text-xs font-bold text-purple-950 dark:text-white mb-1.5">
+                  From (Your Name) <span class="text-pink-500">*</span>
+                </label>
+                <input type="text" id="input-sender" oninput="handleSenderInput(this.value)" placeholder="e.g. Rohan & Squad" class="w-full text-xs sm:text-sm font-semibold rounded-2xl border border-purple-200/80 dark:border-purple-800/60 px-4 py-3 bg-white/80 dark:bg-purple-950/60 text-purple-950 dark:text-purple-100 focus:outline-none focus:ring-2 focus:ring-pink-500 transition shadow-inner"/>
+              </div>
+
+              <div>
+                <label for="input-date" class="block text-xs font-bold text-purple-950 dark:text-white mb-1.5">
+                  Celebration Date <span class="text-pink-500">*</span>
+                </label>
+                <input type="date" id="input-date" onchange="handleDateInput(this.value)" class="w-full text-xs sm:text-sm font-semibold rounded-2xl border border-purple-200/80 dark:border-purple-800/60 px-4 py-3 bg-white/80 dark:bg-purple-950/60 text-purple-950 dark:text-purple-100 focus:outline-none focus:ring-2 focus:ring-pink-500 transition shadow-inner"/>
+              </div>
+            </div>
+
+            <!-- Sender WhatsApp (Optional) -->
+            <div>
+              <label for="input-contact" class="block text-xs font-bold text-purple-950 dark:text-white mb-1.5">
+                Your WhatsApp / Phone <span class="text-purple-500 font-normal">(Optional, for 1-tap link backup)</span>
+              </label>
+              <input type="text" id="input-contact" oninput="handleContactInput(this.value)" placeholder="+91 98765 43210" class="w-full text-xs sm:text-sm font-semibold rounded-2xl border border-purple-200/80 dark:border-purple-800/60 px-4 py-3 bg-white/80 dark:bg-purple-950/60 text-purple-950 dark:text-purple-100 focus:outline-none focus:ring-2 focus:ring-pink-500 transition shadow-inner"/>
+            </div>
+
+            <!-- Personal Message Editor -->
+            <div>
+              <div class="flex items-center justify-between mb-1.5">
+                <label for="input-message" class="block text-xs font-bold text-purple-950 dark:text-white">
+                  Heartfelt Dedication Message
+                </label>
+                <span class="text-[11px] font-mono text-purple-700 dark:text-purple-300 font-semibold" id="message-char-count">0 / 500</span>
+              </div>
+              <textarea id="input-message" rows="4" maxlength="500" oninput="handleMessageInput(this.value)" placeholder="Write your heartfelt greeting, unforgettable memories, or inside jokes here..." class="w-full text-xs sm:text-sm font-medium rounded-2xl border border-purple-200/80 dark:border-purple-800/60 p-4 bg-white/80 dark:bg-purple-950/60 text-purple-950 dark:text-purple-100 focus:outline-none focus:ring-2 focus:ring-pink-500 transition shadow-inner leading-relaxed"></textarea>
+            </div>
+          </div>
+
+          <!-- ======================================================== -->
+          <!-- PART 5: ADVANCED MEDIA SYSTEM (PHOTOS, GALLERY, AUDIO)   -->
+          <!-- ======================================================== -->
+
+          <!-- SECTION 1: MULTIPLE PHOTO MEMORIES & GALLERY MANAGER -->
+          <div class="glass-surface rounded-3xl p-5 sm:p-6 shadow-xl space-y-4">
+            <div class="flex items-center justify-between pb-3 border-b border-purple-200/60 dark:border-purple-800/40">
+              <div>
+                <h3 class="font-display font-extrabold text-base text-purple-950 dark:text-white flex items-center gap-2">
+                  <span>📸 Celebration Photos &amp; Keepsake Gallery</span>
+                </h3>
+                <p class="text-[11px] text-purple-700/80 dark:text-purple-300/80 mt-0.5">Attach precious memories, set cover photo &amp; choose gallery style</p>
+              </div>
+              <span id="photo-count-badge" class="px-2.5 py-1 rounded-full text-[10px] font-black uppercase tracking-wider bg-purple-100 dark:bg-purple-900/70 text-purple-900 dark:text-purple-200">
+                0 / 8 Photos
+              </span>
+            </div>
+
+            <!-- Template Capability Notice (if template restricts gallery) -->
+            <div id="gallery-capability-notice" class="hidden p-3 rounded-2xl bg-purple-500/10 border border-purple-500/30 text-purple-800 dark:text-purple-200 text-xs flex items-center gap-2">
+              <span class="text-sm">ℹ️</span>
+              <span id="gallery-capability-text">This template supports up to 8 celebration photos.</span>
+            </div>
+
+            <!-- Error banner -->
+            <div id="photo-upload-error" class="hidden p-3 rounded-2xl bg-red-500/10 border border-red-500/30 text-red-600 dark:text-red-400 text-xs font-semibold flex items-center gap-2">
+              <span class="material-symbols-outlined text-[16px]">error</span>
+              <span id="photo-upload-error-text">Image could not be uploaded.</span>
+            </div>
+
+            <!-- Gallery Layout Switcher (Section 15) -->
+            <div>
+              <div class="flex items-center justify-between mb-1.5">
+                <label class="block text-xs font-bold text-purple-950 dark:text-white">Gallery Presentation Layout</label>
+                <span class="text-[10px] text-pink-600 dark:text-pink-400 font-semibold">Updates live in preview</span>
+              </div>
+              <div class="grid grid-cols-2 sm:grid-cols-4 gap-2" id="gallery-layout-selector">
+                <button type="button" onclick="selectGalleryLayout('grid')" data-layout="grid" class="gallery-layout-btn py-2 px-3 rounded-xl border border-pink-500 bg-pink-50 dark:bg-pink-950/40 text-pink-700 dark:text-pink-300 text-xs font-bold flex items-center justify-center gap-1.5 transition cursor-pointer">
+                  <span>▦</span><span>Grid</span>
+                </button>
+                <button type="button" onclick="selectGalleryLayout('polaroid')" data-layout="polaroid" class="gallery-layout-btn py-2 px-3 rounded-xl border border-purple-200/70 dark:border-purple-800/60 bg-white/70 dark:bg-purple-950/40 text-purple-950 dark:text-white text-xs font-bold flex items-center justify-center gap-1.5 transition cursor-pointer">
+                  <span>📷</span><span>Polaroids</span>
+                </button>
+                <button type="button" onclick="selectGalleryLayout('carousel')" data-layout="carousel" class="gallery-layout-btn py-2 px-3 rounded-xl border border-purple-200/70 dark:border-purple-800/60 bg-white/70 dark:bg-purple-950/40 text-purple-950 dark:text-white text-xs font-bold flex items-center justify-center gap-1.5 transition cursor-pointer">
+                  <span>🎞️</span><span>Filmstrip</span>
+                </button>
+                <button type="button" onclick="selectGalleryLayout('masonry')" data-layout="masonry" class="gallery-layout-btn py-2 px-3 rounded-xl border border-purple-200/70 dark:border-purple-800/60 bg-white/70 dark:bg-purple-950/40 text-purple-950 dark:text-white text-xs font-bold flex items-center justify-center gap-1.5 transition cursor-pointer">
+                  <span>✨</span><span>Mosaic</span>
+                </button>
+              </div>
+            </div>
+
+            <!-- Upload Dropzone Area (Drag & Drop + Native File Picker) -->
+            <div id="photo-dropzone" class="w-full p-4 sm:p-5 rounded-2xl border-2 border-dashed border-purple-300 dark:border-purple-700 hover:border-pink-500 bg-purple-50/50 dark:bg-purple-950/30 flex flex-col items-center justify-center gap-2 cursor-pointer transition text-center group relative">
+              <input type="file" id="photo-file-picker" accept="image/jpeg,image/png,image/webp,image/jpg" multiple class="hidden" onchange="handlePhotoFileInput(this)"/>
+              
+              <div class="w-11 h-11 rounded-full bg-pink-100 dark:bg-pink-950/60 text-pink-600 dark:text-pink-400 flex items-center justify-center text-2xl group-hover:scale-110 transition-transform shadow-inner">
+                +
+              </div>
+              <div class="space-y-0.5">
+                <span class="text-xs sm:text-sm font-bold text-purple-950 dark:text-white block">+ Add Photo Memories</span>
+                <span class="text-[11px] text-purple-700/80 dark:text-purple-300/80 block">Drop photos here or click to browse</span>
+              </div>
+              <span class="text-[10px] text-purple-600/70 dark:text-purple-400/70 font-mono">JPG, PNG, or WEBP up to 8MB each • Auto-optimized</span>
+            </div>
+
+            <!-- Hidden file input for Photo Replacement in-place -->
+            <input type="file" id="photo-replace-picker" accept="image/jpeg,image/png,image/webp,image/jpg" class="hidden" onchange="handleReplacePhotoFile(this)"/>
+
+            <!-- Empty State Notice when 0 photos -->
+            <div id="photos-empty-state" class="p-6 rounded-2xl border border-dashed border-purple-200 dark:border-purple-800 text-center space-y-2 bg-white/40 dark:bg-purple-950/20">
+              <span class="text-3xl block">🖼️</span>
+              <h4 class="text-xs font-bold text-purple-950 dark:text-white">Add your favorite memories</h4>
+              <p class="text-[11px] text-purple-700/80 dark:text-purple-300/80 max-w-xs mx-auto">Upload photos to bring this wish to life. The first photo or chosen cover will shine in the main celebration view.</p>
+              <button type="button" onclick="document.getElementById('photo-file-picker').click()" class="mt-2 py-2 px-4 rounded-xl bg-pink-600 hover:bg-pink-500 text-white font-bold text-xs shadow-md transition cursor-pointer">
+                + Choose Photos
+              </button>
+            </div>
+
+            <!-- Thumbnails List (Reorder, Set Cover, Replace, Remove, Lightbox) -->
+            <div id="photo-thumbnails-list" class="grid grid-cols-2 sm:grid-cols-4 gap-3 pt-1">
+              <!-- Dynamically populated with photo thumbnails -->
+            </div>
+          </div>
+
+          <!-- SECTION 2: DEDICATED VOICE DEDICATION NOTE -->
+          <div class="glass-surface rounded-3xl p-5 sm:p-6 shadow-xl space-y-4" id="voice-note-section-wrapper">
+            <div class="flex items-center justify-between pb-3 border-b border-purple-200/60 dark:border-purple-800/40">
+              <div>
+                <h3 class="font-display font-extrabold text-base text-purple-950 dark:text-white flex items-center gap-2">
+                  <span>🎙️ Spoken Voice Dedication</span>
+                </h3>
+                <p class="text-[11px] text-purple-700/80 dark:text-purple-300/80 mt-0.5">Let them hear your laughter, authentic voice &amp; spoken blessings</p>
+              </div>
+              <span id="voice-status-pill" class="px-2.5 py-0.5 rounded-full text-[10px] font-bold bg-pink-100 dark:bg-pink-950/70 text-pink-700 dark:text-pink-300">
+                Optional
+              </span>
+            </div>
+
+            <!-- Template Voice Capability Notice -->
+            <div id="voice-capability-notice" class="hidden p-3 rounded-2xl bg-amber-500/10 border border-amber-500/30 text-amber-700 dark:text-amber-300 text-xs font-semibold flex items-center gap-2">
+              <span class="text-sm">ℹ️</span>
+              <span>This template's current layout does not display voice note widgets.</span>
+            </div>
+
+            <!-- Voice Recorder / Upload Error banner -->
+            <div id="voice-recorder-error" class="hidden p-3 rounded-2xl bg-amber-500/10 border border-amber-500/30 text-amber-700 dark:text-amber-300 text-xs font-semibold"></div>
+
+            <!-- Action buttons (Record / Upload) -->
+            <div id="voice-action-buttons-group" class="flex flex-col sm:flex-row items-center gap-2.5">
+              <button type="button" id="btn-record-voice" onclick="startVoiceRecording()" class="w-full sm:flex-1 py-3 px-4 rounded-2xl bg-purple-100/90 dark:bg-purple-900/60 hover:bg-purple-200 dark:hover:bg-purple-800 text-purple-950 dark:text-purple-100 font-bold text-xs flex items-center justify-center gap-2 transition active:scale-95 cursor-pointer shadow-sm">
+                <span class="text-base">🎙️</span>
+                <span id="btn-record-voice-label">Record Spoken Note</span>
+              </button>
+
+              <label class="w-full sm:flex-1 py-3 px-4 rounded-2xl glass-surface hover:bg-purple-100 dark:hover:bg-purple-900/60 text-purple-950 dark:text-purple-100 font-bold text-xs flex items-center justify-center gap-2 transition cursor-pointer text-center shadow-sm">
+                <input type="file" id="voice-file-picker" accept="audio/*" class="hidden" onchange="handleVoiceFileUpload(this)"/>
+                <span class="text-base">📁</span>
+                <span>Upload Audio File</span>
+              </label>
+            </div>
+
+            <!-- Active Recording State Banner -->
+            <div id="voice-recording-banner" class="hidden p-4 rounded-2xl bg-red-500/10 border border-red-500/30 flex items-center justify-between gap-3">
+              <div class="flex items-center gap-2.5">
+                <span class="w-3 h-3 rounded-full bg-red-500 animate-ping"></span>
+                <div>
+                  <span class="text-xs font-black text-red-600 dark:text-red-400 uppercase tracking-wider block">Recording Voice Note</span>
+                  <span id="voice-live-timer" class="text-sm font-mono font-bold text-red-700 dark:text-red-300">00:00 (Max 02:00)</span>
+                </div>
+              </div>
+
+              <div class="flex items-center gap-2">
+                <button type="button" onclick="stopVoiceRecording()" class="py-1.5 px-3 rounded-xl bg-red-600 hover:bg-red-700 text-white font-bold text-xs transition cursor-pointer shadow-sm">
+                  ⏹️ Done
+                </button>
+                <button type="button" onclick="cancelVoiceRecording()" class="py-1.5 px-2.5 rounded-xl bg-neutral-200 dark:bg-neutral-800 text-neutral-800 dark:text-neutral-200 text-xs font-semibold transition cursor-pointer">
+                  Cancel
+                </button>
+              </div>
+            </div>
+
+            <!-- Voice Player & Management Container -->
+            <div id="voice-player-container" class="hidden pt-1">
+              <!-- Dynamically populated with voice player -->
+            </div>
+          </div>
+
+          <!-- SECTION 3: BACKGROUND SOUNDSCAPE & MUSIC ENGINE -->
+          <div class="glass-surface rounded-3xl p-5 sm:p-6 shadow-xl space-y-4" id="music-section-wrapper">
+            <div class="flex items-center justify-between pb-3 border-b border-purple-200/60 dark:border-purple-800/40">
+              <div>
+                <h3 class="font-display font-extrabold text-base text-purple-950 dark:text-white flex items-center gap-2">
+                  <span>🎵 Background Music Soundscape</span>
+                </h3>
+                <p class="text-[11px] text-purple-700/80 dark:text-purple-300/80 mt-0.5">Curated melodies or personal mp3 soundscapes</p>
+              </div>
+              <label class="relative inline-flex items-center cursor-pointer">
+                <input type="checkbox" id="switch-enable-music" checked onchange="handleMusicToggle(this.checked)" class="sr-only peer"/>
+                <div class="w-11 h-6 bg-purple-200 peer-focus:outline-none rounded-full peer dark:bg-purple-900 peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-gradient-to-r peer-checked:from-pink-500 peer-checked:to-purple-600"></div>
+              </label>
+            </div>
+
+            <!-- Template Music Capability Notice -->
+            <div id="music-capability-notice" class="hidden p-3 rounded-2xl bg-purple-500/10 border border-purple-500/30 text-purple-800 dark:text-purple-200 text-xs font-semibold flex items-center gap-2">
+              <span class="text-sm">ℹ️</span>
+              <span>This template's soundscape capability is active.</span>
+            </div>
+
+            <!-- Music Controls Container -->
+            <div id="music-controls-container" class="space-y-3.5">
+              <!-- Mode Tabs: Curated Library vs Custom Upload -->
+              <div class="flex items-center gap-2 p-1 rounded-2xl bg-purple-100/70 dark:bg-purple-950/60 border border-purple-200/60 dark:border-purple-800/40">
+                <button type="button" id="tab-music-curated" onclick="switchMusicMode('curated')" class="flex-1 py-1.5 px-3 rounded-xl bg-white dark:bg-purple-900 text-purple-950 dark:text-white font-bold text-xs shadow-xs transition cursor-pointer">
+                  🎼 Curated Melodies
+                </button>
+                <button type="button" id="tab-music-upload" onclick="switchMusicMode('upload')" class="flex-1 py-1.5 px-3 rounded-xl text-purple-700 dark:text-purple-300 hover:text-purple-950 dark:hover:text-white font-bold text-xs transition cursor-pointer">
+                  📁 Custom Audio Upload
+                </button>
+              </div>
+
+              <!-- View A: Curated Tracks List -->
+              <div id="music-view-curated" class="space-y-2">
+                <div id="curated-tracks-list" class="space-y-2">
+                  <!-- Dynamically populated with track cards -->
+                </div>
+              </div>
+
+              <!-- View B: Custom Music Upload Area -->
+              <div id="music-view-upload" class="hidden space-y-3">
+                <div class="p-4 rounded-2xl border-2 border-dashed border-purple-300 dark:border-purple-700 bg-purple-50/40 dark:bg-purple-950/30 flex flex-col items-center justify-center gap-2 text-center">
+                  <span class="text-2xl">🎵</span>
+                  <div>
+                    <h5 class="text-xs font-bold text-purple-950 dark:text-white">Upload Custom Celebration Track</h5>
+                    <p class="text-[11px] text-purple-700/80 dark:text-purple-300/80 mt-0.5">MP3, WAV, M4A, or OGG up to 15MB</p>
+                  </div>
+                  <label class="mt-1 py-2 px-4 rounded-xl bg-pink-600 hover:bg-pink-500 text-white font-bold text-xs shadow-md transition cursor-pointer">
+                    <input type="file" id="music-file-picker" accept="audio/mpeg,audio/mp3,audio/wav,audio/m4a,audio/ogg" class="hidden" onchange="handleCustomMusicUpload(this)"/>
+                    <span>+ Select Audio File</span>
+                  </label>
+                </div>
+                <div id="custom-music-file-info" class="hidden p-3 rounded-2xl bg-white/70 dark:bg-purple-950/40 border border-purple-200/60 dark:border-purple-800/40 flex items-center justify-between">
+                  <div class="flex items-center gap-2 truncate">
+                    <span class="text-base">🎶</span>
+                    <span id="custom-music-file-name" class="text-xs font-bold text-purple-950 dark:text-white truncate">my_song.mp3</span>
+                  </div>
+                  <button type="button" onclick="removeMusicTrack()" class="text-purple-600 hover:text-red-500 text-xs font-bold px-2 py-1">Remove</button>
+                </div>
+              </div>
+
+              <!-- Studio Live Audio Player Control (Volume & Seek) -->
+              <div id="studio-audio-player-bar" class="p-3.5 rounded-2xl bg-white/80 dark:bg-purple-950/60 border border-purple-200/80 dark:border-purple-800/60 shadow-sm space-y-2.5">
+                <div class="flex items-center justify-between">
+                  <div class="flex items-center gap-2 truncate">
+                    <span id="player-status-icon" class="text-sm">🎵</span>
+                    <div class="truncate">
+                      <h5 id="player-track-title" class="text-xs font-bold text-purple-950 dark:text-white truncate">Celebration Acoustic Strings</h5>
+                      <p id="player-track-genre" class="text-[10px] text-purple-700 dark:text-purple-300">Indie Celebration</p>
+                    </div>
+                  </div>
+
+                  <div class="flex items-center gap-2">
+                    <button type="button" id="btn-studio-play-pause" onclick="toggleStudioMusicPreview()" class="w-8 h-8 rounded-full bg-gradient-to-r from-pink-500 to-purple-600 text-white flex items-center justify-center text-xs shadow-md hover:scale-105 active:scale-95 transition cursor-pointer" title="Play / Pause Preview">
+                      ▶
+                    </button>
+                    <button type="button" onclick="removeMusicTrack()" class="p-1 rounded-lg text-purple-600 dark:text-purple-400 hover:text-red-500 transition text-xs" title="Disable Music">
+                      ✕
+                    </button>
+                  </div>
+                </div>
+
+                <!-- Progress / Time bar -->
+                <div class="flex items-center gap-2">
+                  <span id="player-current-time" class="text-[10px] font-mono text-purple-700 dark:text-purple-300 w-8">0:00</span>
+                  <input type="range" id="player-seek-slider" min="0" max="100" value="0" oninput="handlePlayerSeek(this.value)" class="flex-1 h-1.5 rounded-lg appearance-none bg-purple-200 dark:bg-purple-800 accent-pink-500 cursor-pointer"/>
+                  <span id="player-total-time" class="text-[10px] font-mono text-purple-700 dark:text-purple-300 w-8">2:40</span>
+                </div>
+
+                <!-- Volume Control -->
+                <div class="flex items-center justify-between pt-1 border-t border-purple-100 dark:border-purple-800/40">
+                  <div class="flex items-center gap-1.5 text-xs text-purple-700 dark:text-purple-300">
+                    <span>🔊</span>
+                    <span class="text-[10px] font-semibold">Volume</span>
+                  </div>
+                  <input type="range" id="player-volume-slider" min="0" max="1" step="0.05" value="0.8" oninput="handlePlayerVolume(this.value)" class="w-24 h-1.5 rounded-lg appearance-none bg-purple-200 dark:bg-purple-800 accent-purple-600 cursor-pointer"/>
+                </div>
+              </div>
+            </div>
+          </div>
+
+        </div>
+
+        <!-- STEP 2: ADVANCED THEME ENGINE & VISUAL ATMOSPHERE CONTAINER -->
+        <div id="step-content-2" class="hidden flex flex-col gap-5">
+          
+          <!-- 1. Theme Presets Selector -->
+          <div class="glass-surface rounded-3xl p-5 sm:p-6 shadow-xl space-y-4">
+            <div class="flex items-center justify-between pb-3 border-b border-purple-200/60 dark:border-purple-800/40">
+              <div>
+                <h3 class="font-display font-extrabold text-base text-purple-950 dark:text-white flex items-center gap-2">
+                  <span>🎨 Visual Theme Preset</span>
+                </h3>
+                <p class="text-[11px] text-purple-700/80 dark:text-purple-300/80 mt-0.5">Transforms colors, fonts, atmosphere, cards, and animations in 1-tap</p>
+              </div>
+              <button type="button" onclick="resetThemeToDefaults()" class="px-3 py-1.5 rounded-xl bg-purple-100/90 dark:bg-purple-900/60 hover:bg-purple-200 dark:hover:bg-purple-800 text-purple-900 dark:text-purple-200 text-xs font-bold transition flex items-center gap-1 active:scale-95" title="Reset theme to default preset values">
+                <span>↺</span>
+                <span>Reset Defaults</span>
+              </button>
+            </div>
+
+            <!-- Theme Cards Grid (8 Curated Presets) -->
+            <div class="grid grid-cols-2 sm:grid-cols-4 gap-2.5">
+              <!-- Magical -->
+              <button type="button" data-theme="magical" onclick="selectThemePreset('magical')" class="theme-preset-card p-3 rounded-2xl border border-purple-200/60 bg-white/70 dark:bg-purple-950/40 text-left transition hover:scale-102 flex flex-col justify-between h-28 relative group cursor-pointer">
+                <div class="flex items-center justify-between">
+                  <span class="text-2xl">🪄</span>
+                  <div class="flex items-center -space-x-1">
+                    <span class="w-3 h-3 rounded-full border border-black/20" style="background: #ec4899;"></span>
+                    <span class="w-3 h-3 rounded-full border border-black/20" style="background: #8b5cf6;"></span>
+                    <span class="w-3 h-3 rounded-full border border-black/20" style="background: #fbbf24;"></span>
+                  </div>
+                </div>
+                <div>
+                  <h5 class="text-xs font-black text-purple-950 dark:text-white flex items-center justify-between">
+                    <span>Magical</span>
+                    <span class="theme-check-badge text-[11px] text-pink-500 hidden">✓</span>
+                  </h5>
+                  <p class="text-[10px] text-purple-700/80 dark:text-purple-300/80 line-clamp-1">Dreamy Starlight</p>
+                </div>
+              </button>
+
+              <!-- Romantic -->
+              <button type="button" data-theme="romantic" onclick="selectThemePreset('romantic')" class="theme-preset-card p-3 rounded-2xl border border-purple-200/60 bg-white/70 dark:bg-purple-950/40 text-left transition hover:scale-102 flex flex-col justify-between h-28 relative group cursor-pointer">
+                <div class="flex items-center justify-between">
+                  <span class="text-2xl">🌹</span>
+                  <div class="flex items-center -space-x-1">
+                    <span class="w-3 h-3 rounded-full border border-black/20" style="background: #f43f5e;"></span>
+                    <span class="w-3 h-3 rounded-full border border-black/20" style="background: #fb7185;"></span>
+                    <span class="w-3 h-3 rounded-full border border-black/20" style="background: #f59e0b;"></span>
+                  </div>
+                </div>
+                <div>
+                  <h5 class="text-xs font-black text-purple-950 dark:text-white flex items-center justify-between">
+                    <span>Romantic</span>
+                    <span class="theme-check-badge text-[11px] text-pink-500 hidden">✓</span>
+                  </h5>
+                  <p class="text-[10px] text-purple-700/80 dark:text-purple-300/80 line-clamp-1">Velvet Rose & Hearts</p>
+                </div>
+              </button>
+
+              <!-- Cute -->
+              <button type="button" data-theme="cute" onclick="selectThemePreset('cute')" class="theme-preset-card p-3 rounded-2xl border border-purple-200/60 bg-white/70 dark:bg-purple-950/40 text-left transition hover:scale-102 flex flex-col justify-between h-28 relative group cursor-pointer">
+                <div class="flex items-center justify-between">
+                  <span class="text-2xl">🎀</span>
+                  <div class="flex items-center -space-x-1">
+                    <span class="w-3 h-3 rounded-full border border-black/20" style="background: #ec4899;"></span>
+                    <span class="w-3 h-3 rounded-full border border-black/20" style="background: #f472b6;"></span>
+                    <span class="w-3 h-3 rounded-full border border-black/20" style="background: #38bdf8;"></span>
+                  </div>
+                </div>
+                <div>
+                  <h5 class="text-xs font-black text-purple-950 dark:text-white flex items-center justify-between">
+                    <span>Cute</span>
+                    <span class="theme-check-badge text-[11px] text-pink-500 hidden">✓</span>
+                  </h5>
+                  <p class="text-[10px] text-purple-700/80 dark:text-purple-300/80 line-clamp-1">Sweet Bubblegum</p>
+                </div>
+              </button>
+
+              <!-- Elegant -->
+              <button type="button" data-theme="elegant" onclick="selectThemePreset('elegant')" class="theme-preset-card p-3 rounded-2xl border border-purple-200/60 bg-white/70 dark:bg-purple-950/40 text-left transition hover:scale-102 flex flex-col justify-between h-28 relative group cursor-pointer">
+                <div class="flex items-center justify-between">
+                  <span class="text-2xl">👑</span>
+                  <div class="flex items-center -space-x-1">
+                    <span class="w-3 h-3 rounded-full border border-black/20" style="background: #d97706;"></span>
+                    <span class="w-3 h-3 rounded-full border border-black/20" style="background: #fbbf24;"></span>
+                    <span class="w-3 h-3 rounded-full border border-black/20" style="background: #e5e7eb;"></span>
+                  </div>
+                </div>
+                <div>
+                  <h5 class="text-xs font-black text-purple-950 dark:text-white flex items-center justify-between">
+                    <span>Elegant</span>
+                    <span class="theme-check-badge text-[11px] text-pink-500 hidden">✓</span>
+                  </h5>
+                  <p class="text-[10px] text-purple-700/80 dark:text-purple-300/80 line-clamp-1">Champagne Gold</p>
+                </div>
+              </button>
+
+              <!-- Royal -->
+              <button type="button" data-theme="royal" onclick="selectThemePreset('royal')" class="theme-preset-card p-3 rounded-2xl border border-purple-200/60 bg-white/70 dark:bg-purple-950/40 text-left transition hover:scale-102 flex flex-col justify-between h-28 relative group cursor-pointer">
+                <div class="flex items-center justify-between">
+                  <span class="text-2xl">💜</span>
+                  <div class="flex items-center -space-x-1">
+                    <span class="w-3 h-3 rounded-full border border-black/20" style="background: #7c3aed;"></span>
+                    <span class="w-3 h-3 rounded-full border border-black/20" style="background: #f59e0b;"></span>
+                    <span class="w-3 h-3 rounded-full border border-black/20" style="background: #ec4899;"></span>
+                  </div>
+                </div>
+                <div>
+                  <h5 class="text-xs font-black text-purple-950 dark:text-white flex items-center justify-between">
+                    <span>Royal</span>
+                    <span class="theme-check-badge text-[11px] text-pink-500 hidden">✓</span>
+                  </h5>
+                  <p class="text-[10px] text-purple-700/80 dark:text-purple-300/80 line-clamp-1">Imperial Amethyst</p>
+                </div>
+              </button>
+
+              <!-- Dark -->
+              <button type="button" data-theme="dark" onclick="selectThemePreset('dark')" class="theme-preset-card p-3 rounded-2xl border border-purple-200/60 bg-white/70 dark:bg-purple-950/40 text-left transition hover:scale-102 flex flex-col justify-between h-28 relative group cursor-pointer">
+                <div class="flex items-center justify-between">
+                  <span class="text-2xl">🌌</span>
+                  <div class="flex items-center -space-x-1">
+                    <span class="w-3 h-3 rounded-full border border-black/20" style="background: #06b6d4;"></span>
+                    <span class="w-3 h-3 rounded-full border border-black/20" style="background: #6366f1;"></span>
+                    <span class="w-3 h-3 rounded-full border border-black/20" style="background: #f43f5e;"></span>
+                  </div>
+                </div>
+                <div>
+                  <h5 class="text-xs font-black text-purple-950 dark:text-white flex items-center justify-between">
+                    <span>Dark</span>
+                    <span class="theme-check-badge text-[11px] text-pink-500 hidden">✓</span>
+                  </h5>
+                  <p class="text-[10px] text-purple-700/80 dark:text-purple-300/80 line-clamp-1">Obsidian & Cyber Cyan</p>
+                </div>
+              </button>
+
+              <!-- Pastel -->
+              <button type="button" data-theme="pastel" onclick="selectThemePreset('pastel')" class="theme-preset-card p-3 rounded-2xl border border-purple-200/60 bg-white/70 dark:bg-purple-950/40 text-left transition hover:scale-102 flex flex-col justify-between h-28 relative group cursor-pointer">
+                <div class="flex items-center justify-between">
+                  <span class="text-2xl">🌸</span>
+                  <div class="flex items-center -space-x-1">
+                    <span class="w-3 h-3 rounded-full border border-black/20" style="background: #a855f7;"></span>
+                    <span class="w-3 h-3 rounded-full border border-black/20" style="background: #f472b6;"></span>
+                    <span class="w-3 h-3 rounded-full border border-black/20" style="background: #38bdf8;"></span>
+                  </div>
+                </div>
+                <div>
+                  <h5 class="text-xs font-black text-purple-950 dark:text-white flex items-center justify-between">
+                    <span>Pastel</span>
+                    <span class="theme-check-badge text-[11px] text-pink-500 hidden">✓</span>
+                  </h5>
+                  <p class="text-[10px] text-purple-700/80 dark:text-purple-300/80 line-clamp-1">Whisper Lilac & Peony</p>
+                </div>
+              </button>
+
+              <!-- Celebration -->
+              <button type="button" data-theme="celebration" onclick="selectThemePreset('celebration')" class="theme-preset-card p-3 rounded-2xl border border-purple-200/60 bg-white/70 dark:bg-purple-950/40 text-left transition hover:scale-102 flex flex-col justify-between h-28 relative group cursor-pointer">
+                <div class="flex items-center justify-between">
+                  <span class="text-2xl">🎉</span>
+                  <div class="flex items-center -space-x-1">
+                    <span class="w-3 h-3 rounded-full border border-black/20" style="background: #e11d48;"></span>
+                    <span class="w-3 h-3 rounded-full border border-black/20" style="background: #f59e0b;"></span>
+                    <span class="w-3 h-3 rounded-full border border-black/20" style="background: #10b981;"></span>
+                  </div>
+                </div>
+                <div>
+                  <h5 class="text-xs font-black text-purple-950 dark:text-white flex items-center justify-between">
+                    <span>Celebration</span>
+                    <span class="theme-check-badge text-[11px] text-pink-500 hidden">✓</span>
+                  </h5>
+                  <p class="text-[10px] text-purple-700/80 dark:text-purple-300/80 line-clamp-1">Joyful Confetti Burst</p>
+                </div>
+              </button>
+            </div>
+          </div>
+
+          <!-- 2. Curated Color Palettes -->
+          <div class="glass-surface rounded-3xl p-5 sm:p-6 shadow-xl space-y-4">
+            <div class="flex items-center justify-between pb-3 border-b border-purple-200/60 dark:border-purple-800/40">
+              <div>
+                <h3 class="font-display font-extrabold text-base text-purple-950 dark:text-white flex items-center gap-2">
+                  <span>🌈 Curated Harmonious Palettes</span>
+                </h3>
+                <p class="text-[11px] text-purple-700/80 dark:text-purple-300/80 mt-0.5">Balanced color schemes designed by digital artists</p>
+              </div>
+            </div>
+
+            <div class="grid grid-cols-2 sm:grid-cols-4 gap-2.5">
+              <button type="button" data-palette="rose-gold" onclick="selectColorPalette('rose-gold')" class="palette-choice-chip p-2.5 rounded-2xl border border-purple-200/70 dark:border-purple-800/60 bg-white/70 dark:bg-purple-950/40 hover:border-pink-500 transition flex items-center gap-2 text-left cursor-pointer">
+                <span class="w-6 h-6 rounded-full shadow-sm flex-shrink-0" style="background: linear-gradient(135deg, #f43f5e 50%, #fb7185 50%);"></span>
+                <span class="text-xs font-bold text-purple-950 dark:text-white truncate">Rose Gold</span>
+              </button>
+
+              <button type="button" data-palette="burgundy-gold" onclick="selectColorPalette('burgundy-gold')" class="palette-choice-chip p-2.5 rounded-2xl border border-purple-200/70 dark:border-purple-800/60 bg-white/70 dark:bg-purple-950/40 hover:border-pink-500 transition flex items-center gap-2 text-left cursor-pointer">
+                <span class="w-6 h-6 rounded-full shadow-sm flex-shrink-0" style="background: linear-gradient(135deg, #be123c 50%, #f59e0b 50%);"></span>
+                <span class="text-xs font-bold text-purple-950 dark:text-white truncate">Burgundy Gold</span>
+              </button>
+
+              <button type="button" data-palette="blue-gold" onclick="selectColorPalette('blue-gold')" class="palette-choice-chip p-2.5 rounded-2xl border border-purple-200/70 dark:border-purple-800/60 bg-white/70 dark:bg-purple-950/40 hover:border-pink-500 transition flex items-center gap-2 text-left cursor-pointer">
+                <span class="w-6 h-6 rounded-full shadow-sm flex-shrink-0" style="background: linear-gradient(135deg, #0284c7 50%, #f59e0b 50%);"></span>
+                <span class="text-xs font-bold text-purple-950 dark:text-white truncate">Blue Gold</span>
+              </button>
+
+              <button type="button" data-palette="lavender" onclick="selectColorPalette('lavender')" class="palette-choice-chip p-2.5 rounded-2xl border border-purple-200/70 dark:border-purple-800/60 bg-white/70 dark:bg-purple-950/40 hover:border-pink-500 transition flex items-center gap-2 text-left cursor-pointer">
+                <span class="w-6 h-6 rounded-full shadow-sm flex-shrink-0" style="background: linear-gradient(135deg, #8b5cf6 50%, #c084fc 50%);"></span>
+                <span class="text-xs font-bold text-purple-950 dark:text-white truncate">Lavender</span>
+              </button>
+
+              <button type="button" data-palette="peach" onclick="selectColorPalette('peach')" class="palette-choice-chip p-2.5 rounded-2xl border border-purple-200/70 dark:border-purple-800/60 bg-white/70 dark:bg-purple-950/40 hover:border-pink-500 transition flex items-center gap-2 text-left cursor-pointer">
+                <span class="w-6 h-6 rounded-full shadow-sm flex-shrink-0" style="background: linear-gradient(135deg, #f97316 50%, #fb7185 50%);"></span>
+                <span class="text-xs font-bold text-purple-950 dark:text-white truncate">Peach Sunset</span>
+              </button>
+
+              <button type="button" data-palette="emerald" onclick="selectColorPalette('emerald')" class="palette-choice-chip p-2.5 rounded-2xl border border-purple-200/70 dark:border-purple-800/60 bg-white/70 dark:bg-purple-950/40 hover:border-pink-500 transition flex items-center gap-2 text-left cursor-pointer">
+                <span class="w-6 h-6 rounded-full shadow-sm flex-shrink-0" style="background: linear-gradient(135deg, #059669 50%, #10b981 50%);"></span>
+                <span class="text-xs font-bold text-purple-950 dark:text-white truncate">Emerald Gem</span>
+              </button>
+
+              <button type="button" data-palette="midnight" onclick="selectColorPalette('midnight')" class="palette-choice-chip p-2.5 rounded-2xl border border-purple-200/70 dark:border-purple-800/60 bg-white/70 dark:bg-purple-950/40 hover:border-pink-500 transition flex items-center gap-2 text-left cursor-pointer">
+                <span class="w-6 h-6 rounded-full shadow-sm flex-shrink-0" style="background: linear-gradient(135deg, #06b6d4 50%, #6366f1 50%);"></span>
+                <span class="text-xs font-bold text-purple-950 dark:text-white truncate">Midnight Aurora</span>
+              </button>
+
+              <button type="button" data-palette="champagne" onclick="selectColorPalette('champagne')" class="palette-choice-chip p-2.5 rounded-2xl border border-purple-200/70 dark:border-purple-800/60 bg-white/70 dark:bg-purple-950/40 hover:border-pink-500 transition flex items-center gap-2 text-left cursor-pointer">
+                <span class="w-6 h-6 rounded-full shadow-sm flex-shrink-0" style="background: linear-gradient(135deg, #d97706 50%, #fbbf24 50%);"></span>
+                <span class="text-xs font-bold text-purple-950 dark:text-white truncate">Champagne</span>
+              </button>
+            </div>
+          </div>
+
+          <!-- 3. Granular Color Controls & Contrast Protection -->
+          <div class="glass-surface rounded-3xl p-5 sm:p-6 shadow-xl space-y-4">
+            <div class="flex items-center justify-between pb-3 border-b border-purple-200/60 dark:border-purple-800/40">
+              <h3 class="font-display font-extrabold text-base text-purple-950 dark:text-white">
+                🎨 Custom Color Pickers
+              </h3>
+              <!-- Dynamic Contrast Protection Badge -->
+              <div id="theme-contrast-badge" class="px-2.5 py-1 rounded-full text-[10px] font-bold bg-emerald-500/15 border border-emerald-500/30 text-emerald-700 dark:text-emerald-300 flex items-center gap-1.5">
+                <span class="w-1.5 h-1.5 rounded-full bg-emerald-500"></span>
+                <span id="contrast-badge-text">Optimal Contrast (AAA)</span>
+              </div>
+            </div>
+
+            <div class="grid grid-cols-1 sm:grid-cols-3 gap-3">
+              <!-- Primary Color -->
+              <div class="p-3.5 rounded-2xl bg-white/60 dark:bg-purple-950/40 border border-purple-200/60 dark:border-purple-800/40">
+                <label class="block text-xs font-bold text-purple-950 dark:text-white mb-2">Primary Accent</label>
+                <div class="flex items-center gap-3">
+                  <input type="color" id="color-primary-input" value="#ec4899" onchange="handlePrimaryColorChange(this.value)" class="w-10 h-10 rounded-xl border-0 cursor-pointer"/>
+                  <span class="text-xs font-mono font-bold text-purple-800 dark:text-purple-200" id="hex-primary-label">#ec4899</span>
+                </div>
+              </div>
+
+              <!-- Secondary Color -->
+              <div class="p-3.5 rounded-2xl bg-white/60 dark:bg-purple-950/40 border border-purple-200/60 dark:border-purple-800/40">
+                <label class="block text-xs font-bold text-purple-950 dark:text-white mb-2">Secondary Accent</label>
+                <div class="flex items-center gap-3">
+                  <input type="color" id="color-secondary-input" value="#8b5cf6" onchange="handleSecondaryColorChange(this.value)" class="w-10 h-10 rounded-xl border-0 cursor-pointer"/>
+                  <span class="text-xs font-mono font-bold text-purple-800 dark:text-purple-200" id="hex-secondary-label">#8b5cf6</span>
+                </div>
+              </div>
+
+              <!-- Accent Color -->
+              <div class="p-3.5 rounded-2xl bg-white/60 dark:bg-purple-950/40 border border-purple-200/60 dark:border-purple-800/40">
+                <label class="block text-xs font-bold text-purple-950 dark:text-white mb-2">Glow & Highlights</label>
+                <div class="flex items-center gap-3">
+                  <input type="color" id="color-accent-input" value="#fbbf24" onchange="handleAccentColorChange(this.value)" class="w-10 h-10 rounded-xl border-0 cursor-pointer"/>
+                  <span class="text-xs font-mono font-bold text-purple-800 dark:text-purple-200" id="hex-accent-label">#fbbf24</span>
+                </div>
+              </div>
+            </div>
+
+            <!-- Background Style Options -->
+            <div class="pt-2">
+              <label class="block text-xs font-bold text-purple-950 dark:text-white mb-2">Atmospheric Background Atmosphere</label>
+              <div class="grid grid-cols-2 sm:grid-cols-4 gap-2">
+                <button type="button" data-bg="gradient" onclick="selectBackgroundStyle('gradient')" class="bg-style-btn p-2.5 rounded-2xl border border-purple-200/70 bg-white/70 text-xs font-semibold text-center transition cursor-pointer">
+                  <span>🌌 Radial Glow</span>
+                </button>
+                <button type="button" data-bg="glow" onclick="selectBackgroundStyle('glow')" class="bg-style-btn p-2.5 rounded-2xl border border-purple-200/70 bg-white/70 text-xs font-semibold text-center transition cursor-pointer">
+                  <span>✨ Warm Ambient</span>
+                </button>
+                <button type="button" data-bg="cosmic" onclick="selectBackgroundStyle('cosmic')" class="bg-style-btn p-2.5 rounded-2xl border border-purple-200/70 bg-white/70 text-xs font-semibold text-center transition cursor-pointer">
+                  <span>🪐 Deep Cosmic</span>
+                </button>
+                <button type="button" data-bg="solid" onclick="selectBackgroundStyle('solid')" class="bg-style-btn p-2.5 rounded-2xl border border-purple-200/70 bg-white/70 text-xs font-semibold text-center transition cursor-pointer">
+                  <span>🌑 Obsidian Minimal</span>
+                </button>
+              </div>
+            </div>
+          </div>
+
+          <!-- 4. Typography Engine -->
+          <div class="glass-surface rounded-3xl p-5 sm:p-6 shadow-xl space-y-4">
+            <h3 class="font-display font-extrabold text-base text-purple-950 dark:text-white pb-3 border-b border-purple-200/60 dark:border-purple-800/40">
+              ✍️ Typography Engine & Pairings
+            </h3>
+
+            <div class="grid grid-cols-2 sm:grid-cols-4 gap-2.5">
+              <button type="button" data-font="modern" onclick="selectFont('modern')" class="font-choice-btn flex-1 p-3 rounded-2xl border border-purple-200/70 bg-white/70 text-xs text-center transition cursor-pointer">
+                <span class="block font-bold text-base mb-1 font-display">Modern</span>
+                <span class="text-[10px] text-purple-700/80 dark:text-purple-300/80">Outfit Geometric</span>
+              </button>
+
+              <button type="button" data-font="elegant" onclick="selectFont('elegant')" class="font-choice-btn flex-1 p-3 rounded-2xl border border-purple-200/70 bg-white/70 text-xs text-center transition cursor-pointer">
+                <span class="block font-bold text-base mb-1 font-serif-accent">Elegant</span>
+                <span class="text-[10px] text-purple-700/80 dark:text-purple-300/80">Playfair Display</span>
+              </button>
+
+              <button type="button" data-font="romantic" onclick="selectFont('romantic')" class="font-choice-btn flex-1 p-3 rounded-2xl border border-purple-200/70 bg-white/70 text-xs text-center transition cursor-pointer">
+                <span class="block font-bold text-base mb-1 font-serif-accent italic">Romantic</span>
+                <span class="text-[10px] text-purple-700/80 dark:text-purple-300/80">Playfair Italic</span>
+              </button>
+
+              <button type="button" data-font="playful" onclick="selectFont('playful')" class="font-choice-btn flex-1 p-3 rounded-2xl border border-purple-200/70 bg-white/70 text-xs text-center transition cursor-pointer">
+                <span class="block font-bold text-base mb-1 font-sans">Playful</span>
+                <span class="text-[10px] text-purple-700/80 dark:text-purple-300/80">Jakarta Rounded</span>
+              </button>
+            </div>
+          </div>
+
+          <!-- 5. Surfaces, Cards & Buttons Styling -->
+          <div class="glass-surface rounded-3xl p-5 sm:p-6 shadow-xl space-y-4">
+            <h3 class="font-display font-extrabold text-base text-purple-950 dark:text-white pb-3 border-b border-purple-200/60 dark:border-purple-800/40">
+              💎 Card Surfaces &amp; Button Shapes
+            </h3>
+
+            <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
+              <!-- Surfaces / Cards -->
+              <div>
+                <label class="block text-xs font-bold text-purple-950 dark:text-white mb-2">Card Surface Style</label>
+                <div class="grid grid-cols-2 gap-2">
+                  <button type="button" data-surface="glass" onclick="selectCardStyle('glass')" class="surface-choice-btn p-2.5 rounded-2xl border border-purple-200/70 bg-white/70 text-xs font-semibold text-center transition cursor-pointer">
+                    <span>🪟 Glass Frosted</span>
+                  </button>
+                  <button type="button" data-surface="clean" onclick="selectCardStyle('clean')" class="surface-choice-btn p-2.5 rounded-2xl border border-purple-200/70 bg-white/70 text-xs font-semibold text-center transition cursor-pointer">
+                    <span>✨ Clean Minimal</span>
+                  </button>
+                  <button type="button" data-surface="elevated" onclick="selectCardStyle('elevated')" class="surface-choice-btn p-2.5 rounded-2xl border border-purple-200/70 bg-white/70 text-xs font-semibold text-center transition cursor-pointer">
+                    <span>🔮 Elevated Glow</span>
+                  </button>
+                  <button type="button" data-surface="soft" onclick="selectCardStyle('soft')" class="surface-choice-btn p-2.5 rounded-2xl border border-purple-200/70 bg-white/70 text-xs font-semibold text-center transition cursor-pointer">
+                    <span>☁️ Soft Rounded</span>
+                  </button>
+                </div>
+              </div>
+
+              <!-- Button Styles -->
+              <div>
+                <label class="block text-xs font-bold text-purple-950 dark:text-white mb-2">CTA Button Style</label>
+                <div class="grid grid-cols-2 gap-2">
+                  <button type="button" data-btn-style="gradient" onclick="selectButtonStyle('gradient')" class="btn-style-choice p-2.5 rounded-2xl border border-purple-200/70 bg-white/70 text-xs font-semibold text-center transition cursor-pointer">
+                    <span>💊 Gradient Pill</span>
+                  </button>
+                  <button type="button" data-btn-style="outline" onclick="selectButtonStyle('outline')" class="btn-style-choice p-2.5 rounded-2xl border border-purple-200/70 bg-white/70 text-xs font-semibold text-center transition cursor-pointer">
+                    <span>⭕ Outline Glow</span>
+                  </button>
+                  <button type="button" data-btn-style="glass" onclick="selectButtonStyle('glass')" class="btn-style-choice p-2.5 rounded-2xl border border-purple-200/70 bg-white/70 text-xs font-semibold text-center transition cursor-pointer">
+                    <span>🪞 Glassmorphic</span>
+                  </button>
+                  <button type="button" data-btn-style="filled" onclick="selectButtonStyle('filled')" class="btn-style-choice p-2.5 rounded-2xl border border-purple-200/70 bg-white/70 text-xs font-semibold text-center transition cursor-pointer">
+                    <span>⏹️ Bold Solid</span>
+                  </button>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <!-- 6. Advanced Animation & Magical Effects Engine (Part 13) -->
+          <div class="glass-surface rounded-3xl p-5 sm:p-6 shadow-xl space-y-5">
+            <div class="flex items-center justify-between pb-3 border-b border-purple-200/60 dark:border-purple-800/40">
+              <div>
+                <h3 class="font-display font-extrabold text-base text-purple-950 dark:text-white flex items-center gap-2">
+                  <span>✨ Motion, Animations &amp; Magical Effects</span>
+                </h3>
+                <p class="text-[11px] text-purple-700/80 dark:text-purple-300/80 mt-0.5">Hardware-accelerated reveals, floating particle physics &amp; interactive bursts</p>
+              </div>
+              <label class="relative inline-flex items-center cursor-pointer">
+                <input type="checkbox" id="switch-master-fx" checked onchange="handleEffectToggle('master', this.checked)" class="sr-only peer"/>
+                <div class="w-11 h-6 bg-purple-200 peer-focus:outline-none rounded-full peer dark:bg-purple-900 peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-gradient-to-r peer-checked:from-pink-500 peer-checked:to-purple-600"></div>
+              </label>
+            </div>
+
+            <!-- Entrance & Scroll Reveal Animations Grid -->
+            <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
+              <!-- Page Entrance -->
+              <div>
+                <label class="block text-xs font-bold text-purple-950 dark:text-white mb-1.5 flex items-center gap-1.5">
+                  <span>🎬 Page Entrance Style</span>
+                </label>
+                <select id="select-entrance-anim" onchange="handleEntranceAnimation(this.value)" class="w-full text-xs font-semibold rounded-2xl border border-purple-200/80 dark:border-purple-800/60 p-2.5 bg-white/80 dark:bg-purple-950/60 text-purple-950 dark:text-purple-100 focus:outline-none cursor-pointer">
+                  <option value="fade-up" selected>Gentle Fade Up (Smooth)</option>
+                  <option value="fade">Soft Opacity Fade</option>
+                  <option value="soft-scale">Soft Scale Expansion</option>
+                  <option value="blur-reveal">Dreamy Blur Focus</option>
+                  <option value="cinematic">Cinematic Theater Pan</option>
+                  <option value="magical">Magical Starlight Shimmer</option>
+                  <option value="none">Instant (No Entrance)</option>
+                </select>
+              </div>
+
+              <!-- Section Scroll Transition -->
+              <div>
+                <label class="block text-xs font-bold text-purple-950 dark:text-white mb-1.5 flex items-center gap-1.5">
+                  <span>📜 Section Scroll Reveal</span>
+                </label>
+                <select id="select-section-transition" onchange="handleSectionTransition(this.value)" class="w-full text-xs font-semibold rounded-2xl border border-purple-200/80 dark:border-purple-800/60 p-2.5 bg-white/80 dark:bg-purple-950/60 text-purple-950 dark:text-purple-100 focus:outline-none cursor-pointer">
+                  <option value="slide" selected>Slide Up with Smooth Rise</option>
+                  <option value="fade">Soft Dissolve Fade</option>
+                  <option value="soft-scale">Soft Scale Elevation</option>
+                  <option value="cinematic">Cinematic Stagger Pan</option>
+                  <option value="dissolve">Frosted Blur to Sharp</option>
+                  <option value="none">Instant Visibility</option>
+                </select>
+              </div>
+            </div>
+
+            <!-- Text & Image Reveal Grid -->
+            <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
+              <!-- Text Reveal Flow -->
+              <div>
+                <label class="block text-xs font-bold text-purple-950 dark:text-white mb-1.5 flex items-center gap-1.5">
+                  <span>✍️ Text &amp; Message Reveal</span>
+                </label>
+                <select id="select-text-reveal" onchange="handleTextReveal(this.value)" class="w-full text-xs font-semibold rounded-2xl border border-purple-200/80 dark:border-purple-800/60 p-2.5 bg-white/80 dark:bg-purple-950/60 text-purple-950 dark:text-purple-100 focus:outline-none cursor-pointer">
+                  <option value="fade" selected>Soft Letter Fade</option>
+                  <option value="typewriter">Typewriter Cadence (Live Cursor)</option>
+                  <option value="soft-glow">Luminescent Aura Glow</option>
+                  <option value="none">Instant Display</option>
+                </select>
+              </div>
+
+              <!-- Image & Keepsake Reveal -->
+              <div>
+                <label class="block text-xs font-bold text-purple-950 dark:text-white mb-1.5 flex items-center gap-1.5">
+                  <span>🖼️ Photo &amp; Media Reveal</span>
+                </label>
+                <select id="select-image-reveal" onchange="handleImageReveal(this.value)" class="w-full text-xs font-semibold rounded-2xl border border-purple-200/80 dark:border-purple-800/60 p-2.5 bg-white/80 dark:bg-purple-950/60 text-purple-950 dark:text-purple-100 focus:outline-none cursor-pointer">
+                  <option value="fade" selected>Soft Opacity Fade</option>
+                  <option value="zoom">Gentle Ken-Burns Zoom</option>
+                  <option value="polaroid-pop">Polaroid Tilt Pop</option>
+                  <option value="blur-to-clear">Frosted Focus Clarify</option>
+                  <option value="none">Instant</option>
+                </select>
+              </div>
+            </div>
+
+            <!-- Floating Particle Types Selection -->
+            <div>
+              <label class="block text-xs font-bold text-purple-950 dark:text-white mb-2">Floating Particle Atmosphere</label>
+              <div class="grid grid-cols-2 sm:grid-cols-4 gap-2">
+                <button type="button" data-ptype="sparkles" onclick="selectParticleType('sparkles')" class="ptype-choice-btn p-2.5 rounded-2xl border border-purple-200/70 bg-white/70 text-xs font-semibold text-center transition cursor-pointer">
+                  <span>✨ Sparkles</span>
+                </button>
+                <button type="button" data-ptype="hearts" onclick="selectParticleType('hearts')" class="ptype-choice-btn p-2.5 rounded-2xl border border-purple-200/70 bg-white/70 text-xs font-semibold text-center transition cursor-pointer">
+                  <span>💖 Floating Hearts</span>
+                </button>
+                <button type="button" data-ptype="petals" onclick="selectParticleType('petals')" class="ptype-choice-btn p-2.5 rounded-2xl border border-purple-200/70 bg-white/70 text-xs font-semibold text-center transition cursor-pointer">
+                  <span>🌸 Rose Petals</span>
+                </button>
+                <button type="button" data-ptype="stars" onclick="selectParticleType('stars')" class="ptype-choice-btn p-2.5 rounded-2xl border border-purple-200/70 bg-white/70 text-xs font-semibold text-center transition cursor-pointer">
+                  <span>🌟 Twinkling Stars</span>
+                </button>
+                <button type="button" data-ptype="confetti" onclick="selectParticleType('confetti')" class="ptype-choice-btn p-2.5 rounded-2xl border border-purple-200/70 bg-white/70 text-xs font-semibold text-center transition cursor-pointer">
+                  <span>🎉 Confetti Flutter</span>
+                </button>
+                <button type="button" data-ptype="dots" onclick="selectParticleType('dots')" class="ptype-choice-btn p-2.5 rounded-2xl border border-purple-200/70 bg-white/70 text-xs font-semibold text-center transition cursor-pointer">
+                  <span>💫 Starlight Bokeh</span>
+                </button>
+                <button type="button" data-ptype="none" onclick="selectParticleType('none')" class="ptype-choice-btn p-2.5 rounded-2xl border border-purple-200/70 bg-white/70 text-xs font-semibold text-center transition cursor-pointer col-span-2">
+                  <span>🚫 Clean (No Particles)</span>
+                </button>
+              </div>
+            </div>
+
+            <!-- Particle Intensity & Motion Density -->
+            <div class="grid grid-cols-1 sm:grid-cols-2 gap-3 pt-1">
+              <div>
+                <label class="block text-xs font-bold text-purple-950 dark:text-white mb-1.5">Particle Density &amp; Speed</label>
+                <select id="select-particle-intensity" onchange="handleParticleIntensity(this.value)" class="w-full text-xs font-semibold rounded-2xl border border-purple-200/80 dark:border-purple-800/60 p-2.5 bg-white/80 dark:bg-purple-950/60 text-purple-950 dark:text-purple-100 focus:outline-none cursor-pointer">
+                  <option value="minimal">Minimal (Subtle Drift, Battery Saver)</option>
+                  <option value="soft" selected>Soft Ambient (Balanced &amp; Elegant)</option>
+                  <option value="expressive">Expressive (Festive Rich Atmosphere)</option>
+                </select>
+              </div>
+
+              <div>
+                <label class="block text-xs font-bold text-purple-950 dark:text-white mb-1.5">Interactive Flourishes</label>
+                <div class="flex flex-col gap-2 pt-0.5">
+                  <label class="flex items-center gap-2 cursor-pointer text-xs font-semibold text-purple-950 dark:text-white">
+                    <input type="checkbox" id="check-interactive-bursts" checked onchange="handleInteractiveBurstsToggle(this.checked)" class="rounded text-pink-600 focus:ring-0 cursor-pointer"/>
+                    <span>Tap / Click Magical Sparkle Bursts</span>
+                  </label>
+                  <label class="flex items-center gap-2 cursor-pointer text-xs font-semibold text-purple-950 dark:text-white">
+                    <input type="checkbox" id="check-glow-fx" checked onchange="handleEffectToggle('glow', this.checked)" class="rounded text-pink-600 focus:ring-0 cursor-pointer"/>
+                    <span>Ambient Background Aura Glow</span>
+                  </label>
+                </div>
+              </div>
+            </div>
+          </div>
+
+        </div>
+
+        <!-- STEP 3: SECTIONS & MODULAR LAYOUT CONTAINER -->
+        <div id="step-content-3" class="hidden flex flex-col gap-5">
+          
+          <div class="glass-surface rounded-3xl p-5 sm:p-6 shadow-xl space-y-4">
+            <div class="flex items-center justify-between pb-3 border-b border-purple-200/60 dark:border-purple-800/40">
+              <div>
+                <h3 class="font-display font-extrabold text-base text-purple-950 dark:text-white flex items-center gap-2">
+                  <span>📑 Sections &amp; Structure</span>
+                </h3>
+                <p class="text-[11px] text-purple-700/80 dark:text-purple-300/80 mt-0.5">Toggle sections on/off or reorder their position</p>
+              </div>
+              <span class="text-[11px] text-pink-600 dark:text-pink-400 font-bold">Step 3 of 4</span>
+            </div>
+
+            <div class="p-3 rounded-2xl bg-purple-100/60 dark:bg-purple-900/40 border border-purple-200/60 dark:border-purple-800/40 text-xs text-purple-900 dark:text-purple-200 flex items-center gap-2">
+              <span class="text-base">💡</span>
+              <span>Sections toggled <strong>OFF</strong> are immediately hidden in the live preview. Use <strong>▲ / ▼</strong> to reorder.</span>
+            </div>
+
+            <!-- Dynamic Sections Manager List -->
+            <div id="sections-manager-list" class="space-y-2.5">
+              <!-- Dynamically populated with template sections -->
+            </div>
+          </div>
+
+        </div>
+
+        <!-- STEP 4: PREVIEW & FINALIZE CONTAINER -->
+        <div id="step-content-4" class="hidden flex flex-col gap-5">
+          
+          <div class="glass-surface rounded-3xl p-5 sm:p-6 shadow-xl space-y-4">
+            <div class="flex items-center justify-between pb-3 border-b border-purple-200/60 dark:border-purple-800/40">
+              <div>
+                <h3 class="font-display font-extrabold text-base text-purple-950 dark:text-white flex items-center gap-2">
+                  <span>🏁 Personalization Summary</span>
+                </h3>
+                <p class="text-[11px] text-purple-700/80 dark:text-purple-300/80 mt-0.5">Ready to generate your live celebration website</p>
+              </div>
+              <span class="text-[11px] text-emerald-600 dark:text-emerald-400 font-bold">Step 4 of 4</span>
+            </div>
+
+            <!-- Summary Checklist Card -->
+            <div class="space-y-2.5 text-xs">
+              <div class="p-3 rounded-2xl bg-white/70 dark:bg-purple-950/40 border border-purple-100 dark:border-purple-800/40 flex items-center justify-between">
+                <span class="text-purple-700 dark:text-purple-300 font-semibold">Recipient:</span>
+                <span class="font-bold text-purple-950 dark:text-white" id="summary-recipient-name">Someone Special</span>
+              </div>
+
+              <div class="p-3 rounded-2xl bg-white/70 dark:bg-purple-950/40 border border-purple-100 dark:border-purple-800/40 flex items-center justify-between">
+                <span class="text-purple-700 dark:text-purple-300 font-semibold">From (Sender):</span>
+                <span class="font-bold text-purple-950 dark:text-white" id="summary-sender-name">Someone Who Cares</span>
+              </div>
+
+              <div class="p-3 rounded-2xl bg-white/70 dark:bg-purple-950/40 border border-purple-100 dark:border-purple-800/40 flex items-center justify-between">
+                <span class="text-purple-700 dark:text-purple-300 font-semibold">Special Date:</span>
+                <span class="font-bold text-purple-950 dark:text-white" id="summary-event-date">Today</span>
+              </div>
+
+              <div class="p-3 rounded-2xl bg-white/70 dark:bg-purple-950/40 border border-purple-100 dark:border-purple-800/40 flex items-center justify-between">
+                <span class="text-purple-700 dark:text-purple-300 font-semibold">Photo Memories:</span>
+                <span class="font-bold text-purple-950 dark:text-white" id="summary-photos-count">0 photos attached</span>
+              </div>
+
+              <div class="p-3 rounded-2xl bg-white/70 dark:bg-purple-950/40 border border-purple-100 dark:border-purple-800/40 flex items-center justify-between">
+                <span class="text-purple-700 dark:text-purple-300 font-semibold">Voice Dedication:</span>
+                <span class="font-bold text-purple-950 dark:text-white" id="summary-voice-status">None attached (Optional)</span>
+              </div>
+
+              <div class="p-3 rounded-2xl bg-white/70 dark:bg-purple-950/40 border border-purple-100 dark:border-purple-800/40 flex items-center justify-between">
+                <span class="text-purple-700 dark:text-purple-300 font-semibold">Theme &amp; Mood:</span>
+                <span class="font-bold text-purple-950 dark:text-white flex items-center gap-1.5" id="summary-theme-status">
+                  <span id="summary-theme-icon">🪄</span>
+                  <span id="summary-theme-name">Magical</span>
+                </span>
+              </div>
+
+              <div class="p-3 rounded-2xl bg-white/70 dark:bg-purple-950/40 border border-purple-100 dark:border-purple-800/40 flex items-center justify-between">
+                <span class="text-purple-700 dark:text-purple-300 font-semibold">Background Music:</span>
+                <span class="font-bold text-purple-950 dark:text-white" id="summary-music-status">Celebration Acoustic Strings</span>
+              </div>
+
+              <div class="p-3 rounded-2xl bg-white/70 dark:bg-purple-950/40 border border-purple-100 dark:border-purple-800/40 flex items-center justify-between">
+                <span class="text-purple-700 dark:text-purple-300 font-semibold">Active Sections:</span>
+                <span class="font-bold text-purple-950 dark:text-white" id="summary-sections-count">6 sections active</span>
+              </div>
+            </div>
+
+            <!-- Confetti Test in Preview -->
+            <button onclick="triggerConfettiExplosionInsidePreview()" class="w-full py-2.5 px-4 rounded-2xl glass-surface hover:bg-purple-100 dark:hover:bg-purple-900/60 text-xs font-bold text-purple-900 dark:text-purple-200 transition flex items-center justify-center gap-2 cursor-pointer">
+              <span>🎉 Test Confetti Burst in Preview</span>
+            </button>
+          </div>
+
+          <!-- Part 11: VIP Preservation & White-Label Watermark Card -->
+          <div class="glass-surface rounded-3xl p-5 sm:p-6 shadow-xl space-y-4">
+            <div class="flex items-center justify-between pb-3 border-b border-purple-200/60 dark:border-purple-800/40">
+              <div>
+                <h3 class="font-display font-extrabold text-base text-purple-950 dark:text-white flex items-center gap-2">
+                  <span>👑 VIP Magic Pass Perks</span>
+                </h3>
+                <p class="text-[11px] text-purple-700/80 dark:text-purple-300/80 mt-0.5">Permanent link preservation &amp; zero platform branding</p>
+              </div>
+              <span id="vip-pass-status-pill" class="px-2.5 py-0.5 rounded-full text-[10px] font-black uppercase tracking-wider bg-purple-100 dark:bg-purple-900/70 text-purple-800 dark:text-purple-200">FREE PLAN</span>
+            </div>
+
+            <div class="space-y-3 text-xs">
+              <!-- Keep This Memory Forever -->
+              <div class="p-3.5 rounded-2xl bg-white/70 dark:bg-purple-950/40 border border-purple-200/60 dark:border-purple-800/40 flex items-start justify-between gap-3">
+                <div class="space-y-0.5 pr-2">
+                  <div class="flex items-center gap-2">
+                    <span class="text-sm">♾️</span>
+                    <h5 class="font-bold text-purple-950 dark:text-white text-xs sm:text-sm">Keep This Memory Forever</h5>
+                    <span class="px-1.5 py-0.5 rounded bg-amber-400/20 text-amber-600 dark:text-amber-400 font-extrabold text-[9px] uppercase tracking-wider">VIP</span>
+                  </div>
+                  <p class="text-[11px] text-purple-700/80 dark:text-purple-300/80 leading-relaxed">
+                    Standard celebration links expire after 7 days. Permanent link preservation keeps your gift accessible for lifetime anniversaries.
+                  </p>
+                  <span class="text-[10px] text-purple-400/80 italic block pt-0.5">Note: Premium entitlement unlocks permanent flag locally; cloud cold-storage infrastructure connects in subsequent backend phase.</span>
+                </div>
+                <label class="relative inline-flex items-center cursor-pointer flex-shrink-0 mt-1">
+                  <input type="checkbox" id="toggle-lifetime-preservation" onchange="handlePreservationToggle(this.checked)" class="sr-only peer"/>
+                  <div class="w-11 h-6 bg-purple-200 peer-focus:outline-none rounded-full peer dark:bg-purple-900 peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-gradient-to-r peer-checked:from-amber-400 peer-checked:to-pink-500"></div>
+                </label>
+              </div>
+
+              <!-- Remove Platform Watermark -->
+              <div class="p-3.5 rounded-2xl bg-white/70 dark:bg-purple-950/40 border border-purple-200/60 dark:border-purple-800/40 flex items-start justify-between gap-3">
+                <div class="space-y-0.5 pr-2">
+                  <div class="flex items-center gap-2">
+                    <span class="text-sm">✨</span>
+                    <h5 class="font-bold text-purple-950 dark:text-white text-xs sm:text-sm">Remove Platform Watermark</h5>
+                    <span class="px-1.5 py-0.5 rounded bg-amber-400/20 text-amber-600 dark:text-amber-400 font-extrabold text-[9px] uppercase tracking-wider">VIP</span>
+                  </div>
+                  <p class="text-[11px] text-purple-700/80 dark:text-purple-300/80 leading-relaxed">
+                    100% white-label gift. Removes "Crafted with love on WishMagic" watermark from the recipient's footer.
+                  </p>
+                </div>
+                <label class="relative inline-flex items-center cursor-pointer flex-shrink-0 mt-1">
+                  <input type="checkbox" id="toggle-remove-watermark" onchange="handleWatermarkRemovalToggle(this.checked)" class="sr-only peer"/>
+                  <div class="w-11 h-6 bg-purple-200 peer-focus:outline-none rounded-full peer dark:bg-purple-900 peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-gradient-to-r peer-checked:from-amber-400 peer-checked:to-pink-500"></div>
+                </label>
+              </div>
+            </div>
+          </div>
+
+        </div>
+
+        <!-- ============================================ -->
+        <!-- STEP BOTTOM NAVIGATION (BACK | CONTINUE)     -->
+        <!-- ============================================ -->
+        <div class="glass-surface rounded-2xl p-3.5 sm:p-4 shadow-lg flex items-center justify-between gap-3">
+          <button id="btn-step-prev" onclick="handlePrevStep()" class="py-2.5 px-4 sm:px-5 rounded-full glass-surface hover:bg-purple-100 dark:hover:bg-purple-900/60 text-purple-900 dark:text-purple-200 font-bold text-xs sm:text-sm transition flex items-center gap-1 active:scale-95 cursor-pointer">
+            <span class="material-symbols-outlined text-[16px]">arrow_back</span>
+            <span>Previous</span>
+          </button>
+
+          <span id="step-indicator-text" class="text-xs font-semibold text-purple-800/80 dark:text-purple-300/80 hidden sm:inline">
+            Step 1 of 4: Personal Details
+          </span>
+
+          <button id="btn-step-next" onclick="handleNextStep()" class="py-2.5 sm:py-3 px-6 sm:px-8 rounded-full bg-gradient-to-r from-pink-500 via-purple-600 to-indigo-600 hover:brightness-110 active:scale-95 text-white font-extrabold text-xs sm:text-sm shadow-xl shadow-pink-500/20 flex items-center gap-2 transition-all cursor-pointer">
+            <span>Continue to Step 2</span>
+            <span class="material-symbols-outlined text-[16px]">arrow_forward</span>
+          </button>
+        </div>
+
+      </div>
+
+      <!-- ============================================ -->
+      <!-- RIGHT COLUMN: REAL-TIME SANDBOX (7 COLS)    -->
+      <!-- ============================================ -->
+      <div class="lg:col-span-7 flex flex-col gap-3.5 order-1 lg:order-2 sticky top-20">
+        
+        <!-- Viewport Controls & Toolbar Bar -->
+        <div class="glass-surface rounded-2xl p-2 sm:px-4 sm:py-2.5 flex items-center justify-between gap-2 shadow-sm">
+          <div class="flex items-center gap-1 sm:gap-2">
+            <span class="text-xs font-bold text-purple-900 dark:text-purple-200 hidden sm:inline mr-1">Preview Device:</span>
+            <button id="btn-view-desktop" onclick="setDeviceViewport('desktop')" class="px-3 py-1.5 rounded-xl bg-purple-700 text-white font-bold text-xs shadow-xs transition flex items-center gap-1 cursor-pointer">
+              <span>💻</span><span class="hidden sm:inline">Desktop</span>
+            </button>
+            <button id="btn-view-tablet" onclick="setDeviceViewport('tablet')" class="px-3 py-1.5 rounded-xl text-purple-700 dark:text-purple-300 hover:text-purple-950 dark:hover:text-white font-semibold text-xs transition flex items-center gap-1 cursor-pointer">
+              <span>📱</span><span class="hidden sm:inline">Tablet</span>
+            </button>
+            <button id="btn-view-mobile" onclick="setDeviceViewport('mobile')" class="px-3 py-1.5 rounded-xl text-purple-700 dark:text-purple-300 hover:text-purple-950 dark:hover:text-white font-semibold text-xs transition flex items-center gap-1 cursor-pointer">
+              <span>📱</span><span>Mobile</span>
+            </button>
+          </div>
+
+          <div class="flex items-center gap-1.5">
+            <button onclick="reloadSandboxIframe()" class="p-1.5 rounded-lg text-purple-700 dark:text-purple-300 hover:bg-purple-100 dark:hover:bg-purple-900/60 transition text-xs flex items-center gap-1 cursor-pointer" title="Refresh Live Preview">
+              <span class="material-symbols-outlined text-[16px]">refresh</span>
+              <span class="hidden md:inline text-[11px] font-semibold">Refresh</span>
+            </button>
+            <div class="flex items-center gap-1 text-emerald-500 font-bold text-[11px] pl-1">
+              <span class="w-2 h-2 rounded-full bg-emerald-500 animate-pulse"></span>
+              <span class="hidden sm:inline">Live Synced</span>
+            </div>
+          </div>
+        </div>
+
+        <!-- Physical Frame Sandbox Canvas -->
+        <div class="w-full flex items-center justify-center p-2 sm:p-5 rounded-3xl glass-surface border border-purple-200/80 dark:border-purple-800/60 shadow-xl overflow-hidden min-h-[600px]" id="sandbox-stage-wrapper">
+          <div id="sandbox-device-frame" class="sandbox-frame-shell w-full max-w-full h-[680px] rounded-2xl p-2 bg-[#090314] border-2 border-purple-900/40 flex flex-col relative overflow-hidden">
+            
+            <!-- Smartphone speaker notch (hidden on desktop) -->
+            <div id="device-frame-notch" class="hidden w-24 h-4 bg-black rounded-b-xl mx-auto mb-1 flex items-center justify-center flex-shrink-0 z-20">
+              <span class="w-2.5 h-2.5 rounded-full bg-gray-800"></span>
+            </div>
+
+            <!-- Desktop address bar styling (shown on desktop) -->
+            <div id="device-frame-browserbar" class="w-full px-3 py-1.5 bg-[#140628] border-b border-purple-900/60 rounded-t-lg flex items-center justify-between gap-2 flex-shrink-0 text-[11px] text-purple-300">
+              <div class="flex items-center gap-1.5">
+                <span class="w-2.5 h-2.5 rounded-full bg-red-500/80"></span>
+                <span class="w-2.5 h-2.5 rounded-full bg-amber-500/80"></span>
+                <span class="w-2.5 h-2.5 rounded-full bg-emerald-500/80"></span>
+              </div>
+              <div class="px-4 py-0.5 rounded-md bg-purple-950/70 border border-purple-800/60 text-purple-200 text-center font-mono text-[10px] truncate max-w-sm flex-grow mx-4">
+                🔒 wishmagic.live/studio/live-preview
+              </div>
+              <div class="text-[10px] font-bold text-pink-400">Live Studio Sandbox</div>
+            </div>
+
+            <!-- Live Isolated Sandboxed Iframe Container -->
+            <div id="sandbox-iframe-container" class="w-full h-full rounded-xl bg-white border-0 flex-grow relative overflow-hidden">
+              <!-- Dynamically populated with template iframe -->
+            </div>
+          </div>
+        </div>
+
+        <!-- Sandbox Bottom Notice -->
+        <div class="flex items-center justify-between text-[11px] text-purple-800/70 dark:text-purple-300/70 px-2 font-medium">
+          <span class="flex items-center gap-1">
+            <span>✦</span> Changes update instantly without refreshing the browser
+          </span>
+          <span class="hidden sm:inline font-semibold">100% Isolated Sandbox</span>
+        </div>
+
+      </div>
+
+    </div>
+
+  </main>
 
   <script>
-    function handleCreateWish() {
-      const recipientName = document.querySelector('input[oninput="syncRecipient(this.value)"]').value;
-      const senderName = document.querySelector('input[oninput="syncSender(this.value)"]').value;
-      const message = document.querySelector('textarea[oninput="syncMessage(this.value)"]').value;
-      const targetDate = document.getElementById('target-date-input').value;
-
-      if(!targetDate) {
-        alert("Please select a target date.");
-        return;
+    function triggerConfettiExplosionInsidePreview() {
+      const iframe = document.getElementById('live-custom-iframe');
+      if (iframe && iframe.contentWindow) {
+        if (typeof iframe.contentWindow.blowCandle === 'function') {
+          iframe.contentWindow.blowCandle();
+        } else if (typeof iframe.contentWindow.triggerFireworks === 'function') {
+          iframe.contentWindow.triggerFireworks();
+        } else if (typeof iframe.contentWindow.openEnvelope === 'function') {
+          iframe.contentWindow.openEnvelope();
+        }
       }
-
-      const templateSlug = new URLSearchParams(window.location.search).get('template') || 'glitter-birthday-bash-3d';
-
-      try {
-        const wish = window.WishMagicCore.createWish(templateSlug, {
-          recipient_name: recipientName,
-          sender_name: senderName,
-          message: message
-        }, targetDate);
-
-        window.location.href = 'checkout.html?wish_id=' + wish.id;
-      } catch (e) {
-        alert(e.message);
+      if (typeof confetti === 'function') {
+        confetti({ particleCount: 80, spread: 70, origin: { y: 0.6 } });
       }
     }
   </script>
-
-
-  <script>
-    function handleCreateWish() {
-      const recipientName = document.getElementById('cust-recipient').value;
-      const senderName = document.getElementById('cust-sender').value;
-      const message = document.getElementById('cust-message').value;
-      const targetDate = document.getElementById('target-date-input').value;
-
-      if(!targetDate) {
-        alert("Please select a target date.");
-        return;
-      }
-
-      const templateSlug = new URLSearchParams(window.location.search).get('template') || 'glitter-birthday-bash-3d';
-
-      try {
-        const wish = window.WishMagicCore.createWish(templateSlug, {
-          recipient_name: recipientName,
-          sender_name: senderName,
-          message: message
-        }, targetDate);
-
-        window.location.href = 'checkout.html?wish_id=' + wish.id;
-      } catch (e) {
-        alert(e.message);
-      }
-    }
-  </script>
-
-</body></html>
+</body>
+</html>

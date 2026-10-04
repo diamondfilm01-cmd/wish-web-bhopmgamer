@@ -1,0 +1,461 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8"/>
+  <base href="/"/>
+  <meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+  <title>Upgrade to VIP Magic Pass | WishMagic</title>
+  <meta name="description" content="Unlock exclusive 3D celebration templates, lifetime anniversary preservation, spoken voice notes, zero watermark, and up to 16 photo memories."/>
+
+  <!-- Site Theme Controller -->
+  <script src="js/site-theme.js"></script>
+
+  <!-- Tailwind CSS CDN with forms and container queries -->
+  <script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+  <script src="js/tailwind-config.js"></script>
+
+  <!-- Google Fonts: Outfit, Plus Jakarta Sans, Material Symbols -->
+  <link href="https://fonts.googleapis.com" rel="preconnect"/>
+  <link crossorigin="" href="https://fonts.gstatic.com" rel="preconnect"/>
+  <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@400;500;600;700;800;900&family=Plus+Jakarta+Sans:wght@400;500;600;700;800&family=Playfair+Display:ital,wght@1,600&display=swap" rel="stylesheet"/>
+  <link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:opsz,wght,FILL,GRAD@20..48,100..700,0..1,-50..200" rel="stylesheet"/>
+
+  <!-- WishMagic Core Architecture -->
+  <script src="js/WishMagicCore.js"></script>
+  <script src="js/auth-service.js"></script>
+  <script src="js/plan-service.js"></script>
+  <script src="js/entitlement-service.js"></script>
+  <script src="js/feature-access-service.js"></script>
+  <script src="js/payment-service.js"></script>
+  <script src="js/premium-lock-modal.js"></script>
+
+  <style>
+    :root {
+      --bg-body: #F6F0FF;
+      --text-main: #24113F;
+      --card-bg: rgba(255, 255, 255, 0.88);
+      --card-border: rgba(233, 213, 255, 0.8);
+      --nav-bg: rgba(255, 255, 255, 0.84);
+      --nav-border: rgba(233, 213, 255, 0.9);
+      --pill-bg: rgba(255, 255, 255, 0.9);
+      --pill-text: #24113F;
+      --pill-border: rgba(233, 213, 255, 0.9);
+    }
+    html.dark {
+      --bg-body: #0E041D;
+      --text-main: #F3E8FF;
+      --card-bg: rgba(24, 9, 44, 0.85);
+      --card-border: rgba(147, 51, 234, 0.35);
+      --nav-bg: rgba(18, 6, 36, 0.9);
+      --nav-border: rgba(147, 51, 234, 0.4);
+      --pill-bg: rgba(29, 11, 54, 0.8);
+      --pill-text: #E9D5FF;
+      --pill-border: rgba(147, 51, 234, 0.3);
+    }
+
+    body {
+      background-color: var(--bg-body);
+      background-image: 
+        radial-gradient(at 10% 8%, rgba(233, 213, 255, 0.75) 0px, transparent 45%),
+        radial-gradient(at 90% 12%, rgba(251, 207, 232, 0.6) 0px, transparent 50%),
+        radial-gradient(at 50% 45%, rgba(243, 232, 255, 0.8) 0px, transparent 65%),
+        radial-gradient(at 85% 75%, rgba(230, 205, 254, 0.5) 0px, transparent 55%);
+      min-height: 100vh;
+      color: var(--text-main);
+      font-family: 'Plus Jakarta Sans', sans-serif;
+      transition: background-color 0.3s ease, color 0.3s ease;
+    }
+
+    html.dark body {
+      background-image: 
+        radial-gradient(at 10% 8%, rgba(147, 51, 234, 0.22) 0px, transparent 50%),
+        radial-gradient(at 90% 12%, rgba(236, 72, 153, 0.18) 0px, transparent 50%),
+        radial-gradient(at 50% 45%, rgba(88, 28, 135, 0.25) 0px, transparent 65%),
+        radial-gradient(at 85% 75%, rgba(126, 34, 206, 0.18) 0px, transparent 55%);
+    }
+
+    .font-display { font-family: 'Outfit', sans-serif; }
+    .glass-nav {
+      background: var(--nav-bg);
+      backdrop-filter: blur(24px);
+      -webkit-backdrop-filter: blur(24px);
+      border: 1px solid var(--nav-border);
+      box-shadow: 0 14px 35px -8px rgba(107, 33, 168, 0.12);
+    }
+    .glass-surface {
+      background: var(--card-bg);
+      backdrop-filter: blur(20px);
+      -webkit-backdrop-filter: blur(20px);
+      border: 1px solid var(--card-border);
+    }
+    .glass-pill {
+      background: var(--pill-bg);
+      color: var(--pill-text);
+      backdrop-filter: blur(14px);
+      border: 1px solid var(--pill-border);
+      box-shadow: 0 4px 14px rgba(126, 34, 206, 0.06);
+      transition: all 0.2s ease;
+    }
+    .glass-pill:hover {
+      transform: translateY(-2px);
+      box-shadow: 0 8px 24px rgba(126, 34, 206, 0.14);
+    }
+  </style>
+</head>
+<body class="w-full min-h-screen antialiased selection:bg-pink-500 selection:text-white flex flex-col justify-between">
+
+  <!-- ========================================================================= -->
+  <!-- 1. UNIVERSAL NAVIGATION BAR                                               -->
+  <!-- ========================================================================= -->
+  <header class="sticky top-2 sm:top-5 z-40 px-3 sm:px-6 md:px-8 max-w-7xl mx-auto w-full transition-all">
+    <div class="glass-nav rounded-2xl sm:rounded-full px-3.5 sm:px-6 py-2 flex items-center justify-between gap-3 shadow-lg shadow-purple-900/5">
+      <!-- Logo -->
+      <a class="flex items-center gap-2 group flex-shrink-0" href="/">
+        <div class="w-8 h-8 sm:w-9 sm:h-9 rounded-full bg-gradient-to-tr from-purple-600 via-pink-500 to-amber-300 flex items-center justify-center shadow-md shadow-pink-500/25 group-hover:rotate-12 transition-transform">
+          <svg class="w-4 h-4 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path d="M19.428 15.428a2 2 0 00-1.022-.547l-2.387-.477a6 6 0 00-3.86.517l-.318.158a6 6 0 01-3.86.517L6.05 15.21a2 2 0 00-1.806.547M8 4h8l-1 1v5.172a2 2 0 00.586 1.414l5 5c1.26 1.26.367 3.414-1.415 3.414H4.828c-1.782 0-2.674-2.154-1.414-3.414l5-5A2 2 0 009 10.172V5L8 4z" stroke-linecap="round" stroke-linejoin="round" stroke-width="2"></path>
+          </svg>
+        </div>
+        <div class="flex flex-col">
+          <span class="font-display font-extrabold text-base sm:text-xl tracking-tight bg-gradient-to-r from-purple-900 via-pink-600 to-purple-800 dark:from-purple-200 dark:via-pink-400 dark:to-purple-300 bg-clip-text text-transparent leading-none">WishMagic</span>
+          <span class="text-[9px] font-semibold text-purple-800/80 dark:text-purple-300/80 tracking-wider mt-0.5 hidden sm:inline-block">VIP Magic Pass</span>
+        </div>
+      </a>
+
+      <!-- Center Links -->
+      <nav class="hidden md:flex items-center gap-1 text-sm font-semibold text-purple-950 dark:text-purple-100">
+        <a class="px-3 py-1.5 rounded-full hover:bg-white/70 dark:hover:bg-purple-900/60 hover:text-purple-700 dark:hover:text-pink-300 transition" href="/">Home</a>
+        <a class="px-3 py-1.5 rounded-full hover:bg-white/70 dark:hover:bg-purple-900/60 hover:text-purple-700 dark:hover:text-pink-300 transition" href="/marketplace.html">Templates</a>
+        <a class="px-3 py-1.5 rounded-full hover:bg-white/70 dark:hover:bg-purple-900/60 hover:text-purple-700 dark:hover:text-pink-300 transition" href="/my-wishes">My Wishes</a>
+        <a class="px-3 py-1.5 rounded-full bg-amber-400 text-purple-950 font-bold shadow-sm" href="/premium">VIP Pass</a>
+      </nav>
+
+      <!-- Right Actions: Theme Toggle, Dev Mode, Navbar Auth -->
+      <div class="flex items-center gap-2">
+        <button class="p-2 rounded-full glass-pill flex items-center justify-center hover:text-pink-600 transition cursor-pointer" onclick="toggleSiteTheme()" title="Toggle Theme" aria-label="Toggle Theme">
+          <span class="material-symbols-outlined text-[18px] site-theme-icon">dark_mode</span>
+        </button>
+
+        <div data-purpose="navbar-auth" class="navbar-auth-container">
+          <!-- Injected dynamically by auth-service.js -->
+        </div>
+      </div>
+    </div>
+  </header>
+
+  <!-- ========================================================================= -->
+  <!-- 2. MAIN HERO SECTION                                                      -->
+  <!-- ========================================================================= -->
+  <main class="flex-grow pt-8 sm:pt-12 pb-24 px-4 sm:px-6 md:px-8 max-w-7xl mx-auto w-full flex flex-col gap-12 sm:gap-16">
+    
+    <!-- Hero Header -->
+    <section class="text-center max-w-3xl mx-auto flex flex-col items-center">
+      <div class="inline-flex items-center gap-2 px-3.5 py-1.5 rounded-full bg-amber-400/20 text-amber-600 dark:text-amber-300 border border-amber-400/40 text-xs font-black tracking-wider uppercase mb-4 shadow-sm">
+        <span>👑</span>
+        <span>VIP Magic Pass • ₹49 One-Time</span>
+      </div>
+      <h1 class="font-display font-black text-3xl sm:text-5xl lg:text-6xl tracking-tight text-purple-950 dark:text-white leading-[1.1]">
+        Turn Any Birthday or Anniversary Into a <span class="bg-gradient-to-r from-pink-500 via-purple-600 to-amber-500 bg-clip-text text-transparent">Living Digital Universe</span>
+      </h1>
+      <p class="text-sm sm:text-base text-purple-800/80 dark:text-purple-300/80 max-w-xl mx-auto mt-4 leading-relaxed font-medium">
+        Elevate your heartfelt greetings with spoken voice notes, 16 precious memories, permanent lifetime preservation, and zero platform watermarks.
+      </p>
+
+      <!-- Live Development Mode Switcher Ribbon (Section 17) -->
+      <div class="mt-6 p-4 rounded-2xl glass-surface border border-purple-500/40 max-w-md w-full shadow-lg flex flex-col sm:flex-row items-center justify-between gap-3 text-left">
+        <div>
+          <span class="text-[10px] font-black uppercase tracking-wider text-purple-600 dark:text-purple-300 block">Development Entitlement Sandbox</span>
+          <div class="flex items-center gap-2 mt-0.5">
+            <span class="text-xs text-on-surface-variant font-medium">Active Entitlement:</span>
+            <span id="active-entitlement-badge" class="px-2 py-0.5 rounded-full font-black text-xs bg-purple-100 text-purple-800">FREE TIER</span>
+          </div>
+        </div>
+        <button id="btn-toggle-dev-entitlement" onclick="toggleDevEntitlementMode()" class="px-3.5 py-2 rounded-xl bg-gradient-to-r from-amber-400 to-pink-500 text-purple-950 font-black text-xs shadow-md hover:scale-105 active:scale-95 transition cursor-pointer whitespace-nowrap">
+          Switch to VIP
+        </button>
+      </div>
+    </section>
+
+    <!-- ========================================================================= -->
+    <!-- 3. PLAN COMPARISON CARDS (FREE VS VIP)                                     -->
+    <!-- ========================================================================= -->
+    <section class="grid grid-cols-1 md:grid-cols-2 gap-6 sm:gap-8 max-w-4xl mx-auto w-full items-stretch">
+      
+      <!-- CARD 1: FREE FOREVER -->
+      <div class="glass-surface rounded-3xl p-6 sm:p-8 flex flex-col justify-between shadow-xl border border-purple-200/80 dark:border-purple-800/50">
+        <div>
+          <div class="flex items-center justify-between mb-4">
+            <span class="px-3 py-1 rounded-full text-xs font-black uppercase tracking-wider bg-purple-100 dark:bg-purple-900/60 text-purple-900 dark:text-purple-200">
+              Free Forever
+            </span>
+            <span class="text-xs text-purple-600 dark:text-purple-400 font-bold">Standard</span>
+          </div>
+          
+          <div class="mb-4">
+            <div class="font-display font-black text-4xl text-purple-950 dark:text-white">
+              ₹0 <span class="text-sm font-semibold text-purple-700/60 dark:text-purple-400/60">/ celebration</span>
+            </div>
+            <p class="text-xs text-purple-800/80 dark:text-purple-300/80 mt-1 font-medium">
+              Beautiful celebration websites for casual friends and viral invitations.
+            </p>
+          </div>
+
+          <div class="pt-5 border-t border-purple-200/60 dark:border-purple-800/40">
+            <span class="text-[11px] font-bold uppercase tracking-wider text-purple-700 dark:text-purple-300 block mb-3">Included Capabilities:</span>
+            <ul class="flex flex-col gap-2.5 text-xs text-purple-900 dark:text-purple-200">
+              <li class="flex items-center gap-2.5"><span class="text-emerald-500 font-bold">✓</span> Beautiful standard 3D blueprints</li>
+              <li class="flex items-center gap-2.5"><span class="text-emerald-500 font-bold">✓</span> Heartfelt dedication letter & names</li>
+              <li class="flex items-center gap-2.5"><span class="text-emerald-500 font-bold">✓</span> Up to 3 photo memories (Grid view)</li>
+              <li class="flex items-center gap-2.5"><span class="text-emerald-500 font-bold">✓</span> Standard background acoustic chimes</li>
+              <li class="flex items-center gap-2.5"><span class="text-emerald-500 font-bold">✓</span> 7-day active link lifecycle</li>
+              <li class="flex items-center gap-2.5 text-purple-500/70 dark:text-purple-400/60"><span class="text-purple-400">✕</span> Spoken voice note dedication</li>
+              <li class="flex items-center gap-2.5 text-purple-500/70 dark:text-purple-400/60"><span class="text-purple-400">✕</span> Zero watermark (Includes subtle tag)</li>
+              <li class="flex items-center gap-2.5 text-purple-500/70 dark:text-purple-400/60"><span class="text-purple-400">✕</span> Lifetime anniversary preservation</li>
+            </ul>
+          </div>
+        </div>
+
+        <div class="mt-8 pt-4 border-t border-purple-200/50 dark:border-purple-800/40">
+          <a href="/marketplace.html" class="w-full py-3 px-5 rounded-2xl glass-pill hover:bg-purple-100 dark:hover:bg-purple-900/60 text-purple-950 dark:text-purple-100 font-bold text-xs sm:text-sm text-center block transition">
+            Explore Free Templates
+          </a>
+        </div>
+      </div>
+
+      <!-- CARD 2: VIP MAGIC PASS (HIGHLIGHTED) -->
+      <div class="glass-surface rounded-3xl p-6 sm:p-8 flex flex-col justify-between shadow-2xl border-2 border-amber-400 relative overflow-hidden bg-gradient-to-b from-white/95 to-amber-50/40 dark:from-purple-950/80 dark:to-amber-950/20">
+        <!-- Floating badge -->
+        <div class="absolute -top-3.5 left-1/2 -translate-x-1/2 px-4 py-1 rounded-full bg-gradient-to-r from-amber-400 via-pink-500 to-purple-600 text-purple-950 font-black text-[10px] uppercase tracking-wider shadow-md">
+          ⭐ MOST POPULAR • 92% OF GIFTERS CHOOSE VIP
+        </div>
+
+        <div>
+          <div class="flex items-center justify-between mb-4">
+            <span class="px-3 py-1 rounded-full text-xs font-black uppercase tracking-wider bg-amber-400 text-purple-950 shadow-sm">
+              👑 VIP Magic Pass
+            </span>
+            <span class="text-xs text-amber-500 font-extrabold">Full Access</span>
+          </div>
+
+          <div class="mb-4">
+            <div class="flex items-baseline gap-2">
+              <span class="font-display font-black text-4xl text-purple-950 dark:text-white">₹49</span>
+              <span class="text-xs font-bold text-purple-700/80 dark:text-purple-300/80">one-time pass</span>
+            </div>
+            <p class="text-xs text-purple-800/80 dark:text-purple-300/80 mt-1 font-medium">
+              A bespoke, lifetime celebration keepsake crafted with your voice and memories.
+            </p>
+          </div>
+
+          <div class="pt-5 border-t border-purple-200/60 dark:border-purple-800/40">
+            <span class="text-[11px] font-bold uppercase tracking-wider text-amber-500 block mb-3">Everything in Free, plus:</span>
+            <ul class="flex flex-col gap-2.5 text-xs text-purple-950 dark:text-purple-100 font-medium">
+              <li class="flex items-center gap-2.5"><span class="text-amber-500 font-bold">★</span> <strong>All VIP Blueprints</strong> (Glitter, Scrapbook, Midnight)</li>
+              <li class="flex items-center gap-2.5"><span class="text-amber-500 font-bold">★</span> <strong>16 Photos Capacity</strong> (Polaroid, Filmstrip, Mosaic)</li>
+              <li class="flex items-center gap-2.5"><span class="text-amber-500 font-bold">★</span> <strong>Voice Dedication Note</strong> (Up to 2 mins audio)</li>
+              <li class="flex items-center gap-2.5"><span class="text-amber-500 font-bold">★</span> <strong>Custom MP3 Music Upload</strong> or curated orchestra</li>
+              <li class="flex items-center gap-2.5"><span class="text-amber-500 font-bold">★</span> <strong>100% Zero Watermark</strong> (Pure white-label)</li>
+              <li class="flex items-center gap-2.5"><span class="text-amber-500 font-bold">★</span> <strong>Lifetime Preservation</strong> (Link never expires)</li>
+              <li class="flex items-center gap-2.5"><span class="text-amber-500 font-bold">★</span> <strong>4K Confetti & Wax Seal</strong> interactive animations</li>
+            </ul>
+          </div>
+        </div>
+
+        <div class="mt-8 pt-4 border-t border-purple-200/50 dark:border-purple-800/40">
+          <button onclick="handleUpgradeCTA()" class="w-full py-3.5 px-6 rounded-2xl bg-gradient-to-r from-amber-400 via-pink-500 to-purple-600 hover:brightness-110 active:scale-95 text-purple-950 font-black text-xs sm:text-sm text-center block transition-all shadow-xl shadow-pink-500/25 cursor-pointer">
+            ✨ Unlock VIP Pass Now • ₹49
+          </button>
+        </div>
+      </div>
+
+    </section>
+
+    <!-- ========================================================================= -->
+    <!-- 4. SIDE-BY-SIDE FEATURE COMPARISON MATRIX (Section 19)                     -->
+    <!-- ========================================================================= -->
+    <section class="max-w-4xl mx-auto w-full">
+      <div class="text-center mb-6">
+        <h2 class="font-display font-extrabold text-2xl sm:text-3xl text-purple-950 dark:text-white">
+          Detailed Feature Comparison
+        </h2>
+        <p class="text-xs sm:text-sm text-purple-800/80 dark:text-purple-300/80 mt-1">
+          Every capability is handcrafted to maximize recipient joy and emotion.
+        </p>
+      </div>
+
+      <div class="glass-surface rounded-3xl overflow-hidden shadow-xl border border-purple-200/80 dark:border-purple-800/50">
+        <div class="overflow-x-auto">
+          <table class="w-full text-left border-collapse text-xs sm:text-sm">
+            <thead>
+              <tr class="border-b border-purple-200/60 dark:border-purple-800/40 bg-purple-50/60 dark:bg-purple-950/60">
+                <th class="py-3.5 px-4 font-bold text-purple-950 dark:text-white">Platform Capability</th>
+                <th class="py-3.5 px-4 font-bold text-center text-purple-800 dark:text-purple-300 w-32">Free Plan</th>
+                <th class="py-3.5 px-4 font-extrabold text-center text-amber-500 dark:text-amber-300 w-36 bg-amber-50/50 dark:bg-amber-950/20">VIP Magic Pass</th>
+              </tr>
+            </thead>
+            <tbody class="divide-y divide-purple-200/40 dark:divide-purple-800/30">
+              <tr>
+                <td class="py-3 px-4 font-medium">Standard 3D Templates (Birthday, Tribute)</td>
+                <td class="py-3 px-4 text-center text-emerald-500 font-bold">✓ Included</td>
+                <td class="py-3 px-4 text-center text-emerald-500 font-bold bg-amber-50/30 dark:bg-amber-950/10">✓ Included</td>
+              </tr>
+              <tr>
+                <td class="py-3 px-4 font-medium">VIP Blueprints (Glitter, Scrapbook, Countdown)</td>
+                <td class="py-3 px-4 text-center text-purple-400">—</td>
+                <td class="py-3 px-4 text-center text-amber-500 font-bold bg-amber-50/30 dark:bg-amber-950/10">✓ Full Access</td>
+              </tr>
+              <tr>
+                <td class="py-3 px-4 font-medium">Personal Dedication Letter & Headline</td>
+                <td class="py-3 px-4 text-center text-emerald-500 font-bold">✓ Included</td>
+                <td class="py-3 px-4 text-center text-emerald-500 font-bold bg-amber-50/30 dark:bg-amber-950/10">✓ Included</td>
+              </tr>
+              <tr>
+                <td class="py-3 px-4 font-medium">Photo Memories Limit</td>
+                <td class="py-3 px-4 text-center text-purple-800 dark:text-purple-300 font-semibold">Up to 3 Photos</td>
+                <td class="py-3 px-4 text-center text-amber-500 font-bold bg-amber-50/30 dark:bg-amber-950/10">Up to 16 Photos</td>
+              </tr>
+              <tr>
+                <td class="py-3 px-4 font-medium">Gallery Presentation Styles</td>
+                <td class="py-3 px-4 text-center text-purple-800 dark:text-purple-300">Standard Grid</td>
+                <td class="py-3 px-4 text-center text-amber-500 font-bold bg-amber-50/30 dark:bg-amber-950/10">Polaroids, Filmstrip, Mosaic</td>
+              </tr>
+              <tr>
+                <td class="py-3 px-4 font-medium">Spoken Voice Note Dedication</td>
+                <td class="py-3 px-4 text-center text-purple-400">—</td>
+                <td class="py-3 px-4 text-center text-amber-500 font-bold bg-amber-50/30 dark:bg-amber-950/10">✓ Up to 2 Mins</td>
+              </tr>
+              <tr>
+                <td class="py-3 px-4 font-medium">Background Celebration Audio</td>
+                <td class="py-3 px-4 text-center text-purple-800 dark:text-purple-300">Curated Chimes</td>
+                <td class="py-3 px-4 text-center text-amber-500 font-bold bg-amber-50/30 dark:bg-amber-950/10">Upload Any MP3 + Studio</td>
+              </tr>
+              <tr>
+                <td class="py-3 px-4 font-medium">Exclusive Story Sections (Countdown, Timeline)</td>
+                <td class="py-3 px-4 text-center text-purple-400">—</td>
+                <td class="py-3 px-4 text-center text-amber-500 font-bold bg-amber-50/30 dark:bg-amber-950/10">✓ All Sections</td>
+              </tr>
+              <tr>
+                <td class="py-3 px-4 font-medium">Visual Themes & Color Palettes</td>
+                <td class="py-3 px-4 text-center text-purple-800 dark:text-purple-300">4 Base Themes</td>
+                <td class="py-3 px-4 text-center text-amber-500 font-bold bg-amber-50/30 dark:bg-amber-950/10">All 8 Luxury Themes</td>
+              </tr>
+              <tr>
+                <td class="py-3 px-4 font-medium">Platform Watermark</td>
+                <td class="py-3 px-4 text-center text-purple-700 dark:text-purple-300">Subtle Footer Tag</td>
+                <td class="py-3 px-4 text-center text-emerald-500 font-bold bg-amber-50/30 dark:bg-amber-950/10">100% Removed (White-Label)</td>
+              </tr>
+              <tr>
+                <td class="py-3 px-4 font-medium">Celebration Link Duration</td>
+                <td class="py-3 px-4 text-center text-purple-800 dark:text-purple-300 font-semibold">7 Days (Standard)</td>
+                <td class="py-3 px-4 text-center text-amber-500 font-bold bg-amber-50/30 dark:bg-amber-950/10">Lifetime Permanent Keepsake</td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </section>
+
+    <!-- ========================================================================= -->
+    <!-- 5. FREQUENTLY ASKED QUESTIONS (FAQ)                                       -->
+    <!-- ========================================================================= -->
+    <section class="max-w-3xl mx-auto w-full">
+      <div class="text-center mb-6">
+        <h2 class="font-display font-extrabold text-2xl sm:text-3xl text-purple-950 dark:text-white">
+          Frequently Asked Questions
+        </h2>
+        <p class="text-xs sm:text-sm text-purple-800/80 dark:text-purple-300/80 mt-1">
+          Everything you need to know about the VIP Magic Pass.
+        </p>
+      </div>
+
+      <div class="flex flex-col gap-3">
+        <div class="glass-surface p-4 sm:p-5 rounded-2xl">
+          <h4 class="font-bold text-sm text-purple-950 dark:text-white">Is the ₹49 fee a subscription or one-time?</h4>
+          <p class="text-xs text-purple-800/80 dark:text-purple-300/80 mt-1.5 leading-relaxed">
+            It is a 100% one-time pass per celebration wish. There are no recurring subscriptions or hidden charges. Once created, the website remains active forever.
+          </p>
+        </div>
+
+        <div class="glass-surface p-4 sm:p-5 rounded-2xl">
+          <h4 class="font-bold text-sm text-purple-950 dark:text-white">Does the recipient need to download an app?</h4>
+          <p class="text-xs text-purple-800/80 dark:text-purple-300/80 mt-1.5 leading-relaxed">
+            No! The recipient simply taps the private link on their phone, tablet, or desktop browser to experience the unboxing surprise instantly.
+          </p>
+        </div>
+
+        <div class="glass-surface p-4 sm:p-5 rounded-2xl">
+          <h4 class="font-bold text-sm text-purple-950 dark:text-white">Can I record my voice note directly on my phone?</h4>
+          <p class="text-xs text-purple-800/80 dark:text-purple-300/80 mt-1.5 leading-relaxed">
+            Yes! You can record directly in the customizer with 1-tap, preview it, and re-record anytime, or upload an existing audio file.
+          </p>
+        </div>
+
+        <div class="glass-surface p-4 sm:p-5 rounded-2xl">
+          <h4 class="font-bold text-sm text-purple-950 dark:text-white">What payment methods will be supported in production?</h4>
+          <p class="text-xs text-purple-800/80 dark:text-purple-300/80 mt-1.5 leading-relaxed">
+            When production payments are connected, UPI (GPay, PhonePe, Paytm), Credit/Debit Cards, and Net Banking will be supported seamlessly.
+          </p>
+        </div>
+      </div>
+    </section>
+
+  </main>
+
+  <!-- ========================================================================= -->
+  <!-- 6. FOOTER                                                                 -->
+  <!-- ========================================================================= -->
+  <footer class="py-8 px-4 text-center border-t border-purple-200/60 dark:border-purple-800/40 text-xs text-purple-700 dark:text-purple-300">
+    <p>© 2026 WishMagic. Crafted with wonder for people who care deeply. ✨</p>
+  </footer>
+
+  <script>
+    function updateEntitlementUI() {
+      const isPrem = window.WishEntitlement ? window.WishEntitlement.isPremium() : false;
+      const badge = document.getElementById('active-entitlement-badge');
+      const toggleBtn = document.getElementById('btn-toggle-dev-entitlement');
+
+      if (badge) {
+        if (isPrem) {
+          badge.textContent = '👑 VIP PASS (ACTIVE)';
+          badge.className = 'px-2 py-0.5 rounded-full font-black text-xs bg-amber-400 text-purple-950 shadow-sm';
+        } else {
+          badge.textContent = 'FREE TIER';
+          badge.className = 'px-2 py-0.5 rounded-full font-black text-xs bg-purple-100 dark:bg-purple-900/60 text-purple-800 dark:text-purple-200';
+        }
+      }
+
+      if (toggleBtn) {
+        toggleBtn.textContent = isPrem ? 'Switch to Free Tier' : 'Switch to VIP (Dev)';
+      }
+    }
+
+    function toggleDevEntitlementMode() {
+      if (!window.WishEntitlement) return;
+      const isPrem = window.WishEntitlement.isPremium();
+      const target = isPrem ? 'free' : 'premium';
+      window.WishEntitlement.setDevelopmentPlan(target);
+      updateEntitlementUI();
+    }
+
+    function handleUpgradeCTA() {
+      if (window.WishPremiumLock) {
+        WishPremiumLock.open({
+          context: 'template',
+          onUnlocked: () => {
+            updateEntitlementUI();
+          }
+        });
+      }
+    }
+
+    document.addEventListener('DOMContentLoaded', () => {
+      updateEntitlementUI();
+      if (window.WishEntitlement) {
+        window.WishEntitlement.onEntitlementChange(() => {
+          updateEntitlementUI();
+        });
+      }
+    });
+  </script>
+</body>
+</html>

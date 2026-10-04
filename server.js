@@ -18,6 +18,7 @@ const DATA_DIR = path.join(__dirname, 'data');
 const TEMPLATES_FILE = path.join(DATA_DIR, 'templates.json');
 const WISHES_FILE = path.join(DATA_DIR, 'wishes.json');
 const MEDIA_FILE = path.join(DATA_DIR, 'media.json');
+const CATEGORIES_FILE = path.join(DATA_DIR, 'categories.json');
 const STORE_DIR = path.join(__dirname, 'public', 'templates-store');
 const MEDIA_DIR = path.join(__dirname, 'public', 'media');
 
@@ -26,12 +27,70 @@ if (!fs.existsSync(DATA_DIR)) fs.mkdirSync(DATA_DIR, { recursive: true });
 if (!fs.existsSync(STORE_DIR)) fs.mkdirSync(STORE_DIR, { recursive: true });
 if (!fs.existsSync(MEDIA_DIR)) fs.mkdirSync(MEDIA_DIR, { recursive: true });
 
+function getCategories() {
+  try {
+    if (fs.existsSync(CATEGORIES_FILE)) {
+      const data = fs.readFileSync(CATEGORIES_FILE, 'utf8');
+      const parsed = JSON.parse(data || '[]');
+      if (Array.isArray(parsed)) {
+        return parsed.sort((a, b) => (Number(a.sortOrder) || 0) - (Number(b.sortOrder) || 0));
+      }
+    }
+    return [];
+  } catch (e) {
+    return [];
+  }
+}
+
+function saveCategories(categories) {
+  fs.writeFileSync(CATEGORIES_FILE, JSON.stringify(categories, null, 2), 'utf8');
+}
+
 function getTemplates() {
   try {
     if (fs.existsSync(TEMPLATES_FILE)) {
       const data = fs.readFileSync(TEMPLATES_FILE, 'utf8');
       const parsed = JSON.parse(data || '[]');
-      if (Array.isArray(parsed) && parsed.length > 0) return parsed;
+      if (Array.isArray(parsed) && parsed.length > 0) {
+        return parsed.map(t => {
+          const isPub = t.status ? (t.status === 'published') : (t.isPublished !== false);
+          const isVip = t.tier === 'vip' || t.isPremium === true || (Number(t.price) > 0);
+          return {
+            ...t,
+            templateVersion: t.templateVersion || 1,
+            slug: t.slug || (t.name || t.id).toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-+|-+$/g, ''),
+            status: isPub ? 'published' : 'draft',
+            isPublished: isPub,
+            isPremium: isVip,
+            tier: isVip ? 'vip' : 'free',
+            price: isVip ? (Number(t.price) || 49) : 0,
+            featured: Boolean(t.featured),
+            tags: Array.isArray(t.tags) ? t.tags : [String(t.category || '').toLowerCase(), 'celebration'],
+            previewImages: Array.isArray(t.previewImages) && t.previewImages.length > 0 ? t.previewImages : [t.thumbnail || '/assets/default-template.jpg'],
+            sections: t.sections || ['Hero Cake Unboxing', 'Memory Polaroid Reel', 'Birthday Dedication', 'Confetti Finale'],
+            sectionDefinitions: t.sectionDefinitions || null,
+            layouts: t.layouts || null,
+            capabilities: {
+              hero: true,
+              gallery: true,
+              message: true,
+              memories: true,
+              timeline: Boolean(t.capabilities?.timeline || t.supportsTimeline || t.id?.includes('chronicles') || t.id?.includes('tribute')),
+              music: true,
+              voiceNote: t.supportsVoice !== false,
+              countdown: Boolean(t.capabilities?.countdown !== false && (t.id?.includes('countdown') || t.name?.toLowerCase().includes('countdown') || (t.category || '').toLowerCase().includes('birthday'))),
+              openWhen: Boolean(t.capabilities?.openWhen || t.supportsOpenWhen || t.id?.includes('romantic') || t.id?.includes('scrapbook')),
+              secretMessage: true,
+              finalSurprise: true,
+              galleryLayouts: true,
+              themeSupport: true,
+              animationSupport: true,
+              backgroundSupport: true,
+              ...(t.capabilities || {})
+            }
+          };
+        });
+      }
     }
     return [];
   } catch (e) {
@@ -86,16 +145,116 @@ app.use(express.static(path.join(__dirname, 'public'), {
   extensions: ['html', 'htm']
 }));
 
-// API: Get all templates (for marketplace and admin)
+// API: Get all templates (supports ?includeDrafts=true for admin, ?category=..., ?search=..., ?tier=..., ?featured=...)
 app.get('/api/templates', (req, res) => {
-  const templates = getTemplates();
-  res.json({ success: true, templates });
+  const { includeDrafts, category, search, tier, featured } = req.query;
+  let templates = getTemplates();
+
+  // If not explicitly requesting drafts (public marketplace/home/preview), filter for published only
+  if (includeDrafts !== 'true' && includeDrafts !== '1') {
+    templates = templates.filter(t => t.isPublished !== false && t.status !== 'draft');
+  }
+
+  if (category && category !== 'all') {
+    const catLower = category.toLowerCase().trim();
+    templates = templates.filter(t => {
+      const matchCat = (t.category || '').toLowerCase() === catLower;
+      const matchRel = Array.isArray(t.relationships) && t.relationships.some(r => r.toLowerCase() === catLower);
+      return matchCat || matchRel;
+    });
+  }
+
+  if (tier) {
+    templates = templates.filter(t => {
+      if (tier === 'vip') return t.tier === 'vip' || t.isPremium === true;
+      if (tier === 'free') return t.tier === 'free' && !t.isPremium;
+      return t.tier === tier;
+    });
+  }
+
+  if (featured === 'true' || featured === '1') {
+    templates = templates.filter(t => Boolean(t.featured));
+  }
+
+  if (search) {
+    const q = search.toLowerCase().trim();
+    templates = templates.filter(t => {
+      return (t.name && t.name.toLowerCase().includes(q)) ||
+             (t.id && t.id.toLowerCase().includes(q)) ||
+             (t.slug && t.slug.toLowerCase().includes(q)) ||
+             (t.category && t.category.toLowerCase().includes(q)) ||
+             (t.description && t.description.toLowerCase().includes(q)) ||
+             (Array.isArray(t.tags) && t.tags.some(tag => tag.toLowerCase().includes(q))) ||
+             (Array.isArray(t.relationships) && t.relationships.some(rel => rel.toLowerCase().includes(q)));
+    });
+  }
+
+  res.json({ success: true, count: templates.length, templates });
 });
+
+// Helper to find template by ID, slug, folder, or semantic alias
+function findTemplateByIdOrSlug(templates, queryId) {
+  if (!queryId) return null;
+  const raw = String(queryId).toLowerCase().trim();
+  const slug = raw.replace(/[^a-z0-9]+/g, '-').replace(/^-+|-+$/g, '');
+
+  // 1. Direct ID match
+  let found = templates.find(t => t.id && t.id.toLowerCase() === raw);
+  if (found) return found;
+
+  // 2. Direct folder match
+  found = templates.find(t => t.folder && t.folder.toLowerCase() === raw);
+  if (found) return found;
+
+  // 3. ID without 'tpl_' or converted underscore-to-dash
+  found = templates.find(t => {
+    const stripped = (t.id || '').toLowerCase().replace(/^tpl_/, '').replace(/_/g, '-');
+    return stripped === slug || stripped === raw;
+  });
+  if (found) return found;
+
+  // 4. Name slug match
+  found = templates.find(t => {
+    const nameSlug = (t.name || '').toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-+|-+$/g, '');
+    return nameSlug === slug || nameSlug === raw;
+  });
+  if (found) return found;
+
+  // 5. Semantic keyword matching (e.g. 'birthday-romantic', 'romantic', 'anniversary', 'friendship')
+  const queryTokens = slug.split('-').filter(Boolean);
+  let bestMatch = null;
+  let highestScore = 0;
+
+  for (const t of templates) {
+    let score = 0;
+    const searchable = [
+      t.id,
+      t.name,
+      t.category,
+      t.type,
+      ...(t.relationships || []),
+      ...(t.features || [])
+    ].join(' ').toLowerCase();
+
+    for (const token of queryTokens) {
+      if (token.length > 2 && searchable.includes(token)) {
+        score += token.length;
+      }
+    }
+
+    if (score > highestScore && score >= 4) {
+      highestScore = score;
+      bestMatch = t;
+    }
+  }
+
+  return bestMatch;
+}
 
 // API: Get single template by ID
 app.get('/api/templates/:id', (req, res) => {
   const templates = getTemplates();
-  const template = templates.find(t => t.id === req.params.id);
+  const template = findTemplateByIdOrSlug(templates, req.params.id);
   if (!template) {
     return res.status(404).json({ success: false, message: 'Template not found' });
   }
@@ -190,10 +349,179 @@ app.post('/api/templates/upload', (req, res) => {
   }
 });
 
-// API: Update template metadata (edit title, price, category, etc.)
+// API: Create new template (Part 10 Template Management)
+app.post('/api/templates/create', (req, res) => {
+  try {
+    const {
+      name,
+      slug,
+      description,
+      category,
+      relationships,
+      tags,
+      tier,
+      price,
+      isPremium,
+      status,
+      isPublished,
+      featured,
+      thumbnail,
+      previewImages,
+      capabilities,
+      detectedFields,
+      folder,
+      entryFile
+    } = req.body;
+
+    if (!name || !name.trim()) {
+      return res.status(400).json({ success: false, message: 'Template name is required' });
+    }
+
+    const cleanName = name.trim();
+    const cleanCategory = (category || 'Birthday').trim();
+    const generatedSlug = (slug || cleanName).toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-+|-+$/g, '');
+    const templateId = 'tpl_' + generatedSlug.replace(/-/g, '_').slice(0, 24) + '_' + Math.random().toString(36).substr(2, 4);
+
+    const isVip = tier === 'vip' || isPremium === true || Number(price) > 0;
+    const isPub = status === 'published' || (status === undefined && isPublished !== false);
+
+    const defaultCapabilities = {
+      hero: true,
+      gallery: true,
+      message: true,
+      memories: true,
+      timeline: false,
+      music: true,
+      voiceNote: true,
+      countdown: Boolean(templateId.includes('countdown') || cleanName.toLowerCase().includes('countdown')),
+      openWhen: false,
+      secretMessage: true,
+      finalSurprise: true,
+      galleryLayouts: true,
+      themeSupport: true,
+      animationSupport: true,
+      backgroundSupport: true,
+      ...(capabilities || {})
+    };
+
+    const newTemplate = {
+      id: templateId,
+      name: cleanName,
+      slug: generatedSlug,
+      description: description || 'Handcrafted celebratory experience.',
+      category: cleanCategory,
+      relationships: Array.isArray(relationships) && relationships.length > 0 ? relationships : [cleanCategory, 'Friendship', 'Best Friend', 'Family'],
+      tags: Array.isArray(tags) ? tags : [cleanCategory.toLowerCase(), 'celebration'],
+      type: '3D Interactive',
+      tier: isVip ? 'vip' : 'free',
+      isPremium: isVip,
+      price: isVip ? (Number(price) || 49) : 0,
+      status: isPub ? 'published' : 'draft',
+      isPublished: isPub,
+      featured: Boolean(featured),
+      placement: 99,
+      thumbnail: thumbnail || '/assets/file_ab2082.png',
+      previewImage: thumbnail || '/assets/file_ab2082.png',
+      previewImages: Array.isArray(previewImages) && previewImages.length > 0 ? previewImages : [thumbnail || '/assets/file_ab2082.png'],
+      capabilities: defaultCapabilities,
+      sections: ['Hero Unboxing', 'Memory Gallery', 'Personal Dedication', 'Confetti Finale'],
+      features: ['Personalized Greeting', 'Interactive Animations', 'Photo Gallery', 'Music BGM'],
+      theme: {
+        mood: 'Joyful & Celebratory',
+        accentColor: '#ec4899',
+        gradient: 'from-pink-500 via-purple-600 to-amber-400'
+      },
+      animations: 'Canvas Confetti + Sound + 3D Effects',
+      supportsGallery: 8,
+      supportsMusic: 'Celebration Acoustic Strings',
+      supportsVoice: defaultCapabilities.voiceNote !== false,
+      folder: folder || 'tpl_glitter_birthday',
+      entryFile: entryFile || 'index.html',
+      detectedFields: Array.isArray(detectedFields) && detectedFields.length > 0 ? detectedFields : [
+        { key: 'recipient_name', label: 'Recipient Name', type: 'text', defaultValue: 'Alex' },
+        { key: 'sender_name', label: 'Sender Name', type: 'text', defaultValue: 'Someone Special' },
+        { key: 'custom_message', label: 'Celebration Message', type: 'textarea', defaultValue: 'Wishing you a magnificent day filled with endless laughter, boundless smiles, and pure magic!' },
+        { key: 'event_date', label: 'Event Date', type: 'date', defaultValue: new Date().toISOString().split('T')[0] },
+        { key: 'photo_1', label: 'Memory Photo', type: 'image', defaultValue: thumbnail || '/assets/file_ab2082.png' }
+      ],
+      createdAt: new Date().toISOString(),
+      updatedAt: new Date().toISOString()
+    };
+
+    const templates = getTemplates();
+    templates.unshift(newTemplate);
+    saveTemplates(templates);
+
+    res.json({ success: true, template: newTemplate, message: 'Template created successfully' });
+  } catch (err) {
+    console.error('Error creating template:', err);
+    res.status(500).json({ success: false, message: err.message });
+  }
+});
+
+// API: Duplicate template (Part 10)
+app.post('/api/templates/duplicate', (req, res) => {
+  try {
+    const { id } = req.body;
+    if (!id) return res.status(400).json({ success: false, message: 'Template ID is required' });
+
+    const templates = getTemplates();
+    const source = templates.find(t => t.id === id);
+    if (!source) return res.status(404).json({ success: false, message: 'Source template not found' });
+
+    const randSuffix = Math.random().toString(36).substr(2, 4);
+    const newId = 'tpl_' + (source.slug || source.id.replace(/^tpl_/, '')).slice(0, 18) + '_copy_' + randSuffix;
+    const newSlug = (source.slug || 'template') + '-copy-' + randSuffix;
+
+    const duplicated = {
+      ...JSON.parse(JSON.stringify(source)),
+      id: newId,
+      name: `Copy of ${source.name}`,
+      slug: newSlug,
+      status: 'draft',
+      isPublished: false,
+      featured: false,
+      createdAt: new Date().toISOString(),
+      updatedAt: new Date().toISOString()
+    };
+
+    templates.unshift(duplicated);
+    saveTemplates(templates);
+
+    res.json({ success: true, template: duplicated, message: 'Template duplicated as Draft' });
+  } catch (err) {
+    res.status(500).json({ success: false, message: err.message });
+  }
+});
+
+// API: Update template metadata (edit title, price, category, capabilities, status, etc.)
 app.post('/api/templates/update', (req, res) => {
   try {
-    const { id, name, category, description, thumbnail, tier, price, featured, placement, detectedFields } = req.body;
+    const {
+      id,
+      name,
+      slug,
+      category,
+      relationships,
+      tags,
+      description,
+      thumbnail,
+      previewImages,
+      tier,
+      price,
+      isPremium,
+      status,
+      isPublished,
+      featured,
+      placement,
+      capabilities,
+      detectedFields,
+      sections,
+      sectionDefinitions,
+      layouts,
+      templateVersion
+    } = req.body;
+
     const templates = getTemplates();
     const idx = templates.findIndex(t => t.id === id);
 
@@ -201,31 +529,50 @@ app.post('/api/templates/update', (req, res) => {
       return res.status(404).json({ success: false, message: 'Template not found' });
     }
 
+    const current = templates[idx];
+    const isVip = tier !== undefined ? (tier === 'vip') : (isPremium !== undefined ? Boolean(isPremium) : current.isPremium);
+    const determinedStatus = status !== undefined ? status : (isPublished !== undefined ? (isPublished ? 'published' : 'draft') : current.status);
+    const determinedIsPublished = determinedStatus === 'published';
+
     templates[idx] = {
-      ...templates[idx],
-      name: name !== undefined ? name : templates[idx].name,
-      category: category !== undefined ? category : templates[idx].category,
-      description: description !== undefined ? description : templates[idx].description,
-      thumbnail: thumbnail !== undefined ? thumbnail : templates[idx].thumbnail,
-      tier: tier !== undefined ? tier : templates[idx].tier,
-      price: price !== undefined ? Number(price) : templates[idx].price,
-      featured: featured !== undefined ? Boolean(featured) : templates[idx].featured,
-      placement: placement !== undefined ? Number(placement) : templates[idx].placement,
-      detectedFields: detectedFields !== undefined ? detectedFields : templates[idx].detectedFields,
+      ...current,
+      name: name !== undefined ? name.trim() : current.name,
+      slug: slug !== undefined ? slug.trim() : current.slug,
+      category: category !== undefined ? category.trim() : current.category,
+      relationships: relationships !== undefined ? relationships : current.relationships,
+      tags: tags !== undefined ? tags : current.tags,
+      description: description !== undefined ? description : current.description,
+      thumbnail: thumbnail !== undefined ? thumbnail : current.thumbnail,
+      previewImage: thumbnail !== undefined ? thumbnail : current.previewImage,
+      previewImages: previewImages !== undefined ? previewImages : current.previewImages,
+      tier: isVip ? 'vip' : 'free',
+      isPremium: isVip,
+      price: isVip ? (price !== undefined ? Number(price) : (current.price || 49)) : 0,
+      status: determinedStatus,
+      isPublished: determinedIsPublished,
+      featured: featured !== undefined ? Boolean(featured) : current.featured,
+      placement: placement !== undefined ? Number(placement) : current.placement,
+      capabilities: capabilities !== undefined ? { ...current.capabilities, ...capabilities } : current.capabilities,
+      detectedFields: detectedFields !== undefined ? detectedFields : current.detectedFields,
+      sections: sections !== undefined ? sections : current.sections,
+      sectionDefinitions: sectionDefinitions !== undefined ? sectionDefinitions : current.sectionDefinitions,
+      layouts: layouts !== undefined ? layouts : current.layouts,
+      templateVersion: templateVersion !== undefined ? templateVersion : (current.templateVersion || 1),
       updatedAt: new Date().toISOString()
     };
 
     saveTemplates(templates);
-    res.json({ success: true, template: templates[idx] });
+    res.json({ success: true, template: templates[idx], message: 'Template updated successfully' });
   } catch (err) {
     res.status(500).json({ success: false, message: err.message });
   }
 });
 
-// API: Delete a custom template
+// API: Delete a template (with safe delete check against active wishes)
 app.delete('/api/templates/:id', (req, res) => {
   try {
     const id = req.params.id;
+    const force = req.query.force === 'true' || req.query.force === '1';
     let templates = getTemplates();
     const target = templates.find(t => t.id === id);
 
@@ -233,16 +580,208 @@ app.delete('/api/templates/:id', (req, res) => {
       return res.status(404).json({ success: false, message: 'Template not found' });
     }
 
+    // Safety check: verify if existing user wishes reference this template
+    const wishes = getWishes();
+    const activeReferences = wishes.filter(w => w.templateId === id);
+
+    if (activeReferences.length > 0 && !force) {
+      return res.status(409).json({
+        success: false,
+        referenced: true,
+        count: activeReferences.length,
+        message: `Template is currently used by ${activeReferences.length} live celebration wishes. Please Unpublish the template instead of deleting to keep active recipient celebration links working safely.`
+      });
+    }
+
     templates = templates.filter(t => t.id !== id);
     saveTemplates(templates);
 
-    // Remove folder
-    const targetFolder = path.join(STORE_DIR, target.folder || id);
-    if (fs.existsSync(targetFolder)) {
-      fs.rmSync(targetFolder, { recursive: true, force: true });
+    // Only remove folder if it is an uploaded custom folder (not a system demo folder)
+    const systemProtectedFolders = [
+      'tpl_glitter_birthday',
+      'tpl_romantic_scrapbook',
+      'tpl_midnight_countdown',
+      'tpl_golden_anniversary',
+      'tpl_friendship_chronicles',
+      'tpl_parents_tribute'
+    ];
+
+    if (!systemProtectedFolders.includes(target.folder || id)) {
+      const targetFolder = path.join(STORE_DIR, target.folder || id);
+      if (fs.existsSync(targetFolder)) {
+        try {
+          fs.rmSync(targetFolder, { recursive: true, force: true });
+        } catch (e) {}
+      }
     }
 
-    res.json({ success: true, message: 'Template deleted' });
+    res.json({ success: true, message: 'Template deleted successfully' });
+  } catch (err) {
+    res.status(500).json({ success: false, message: err.message });
+  }
+});
+
+// ---------------------------------------------------------------------------
+// CATEGORIES REST APIS (Part 10 Category Taxonomy Engine)
+// ---------------------------------------------------------------------------
+
+// API: Get all categories (sorted by sortOrder)
+app.get('/api/categories', (req, res) => {
+  try {
+    const categories = getCategories();
+    res.json({ success: true, count: categories.length, categories });
+  } catch (err) {
+    res.status(500).json({ success: false, message: err.message, categories: [] });
+  }
+});
+
+// API: Create new category
+app.post('/api/categories', (req, res) => {
+  try {
+    const { name, slug, description, icon, sortOrder, isActive } = req.body;
+    if (!name || !name.trim()) {
+      return res.status(400).json({ success: false, message: 'Category name is required' });
+    }
+
+    const cleanName = name.trim();
+    const cleanSlug = (slug || cleanName).toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-+|-+$/g, '');
+    const categories = getCategories();
+
+    // Check duplicate name or slug
+    if (categories.some(c => c.slug === cleanSlug)) {
+      return res.status(400).json({ success: false, message: `Category with slug "${cleanSlug}" already exists` });
+    }
+
+    const newCategory = {
+      id: 'cat_' + cleanSlug.replace(/-/g, '_'),
+      name: cleanName,
+      slug: cleanSlug,
+      description: description || `Celebration templates for ${cleanName}`,
+      icon: icon || '✨',
+      sortOrder: Number(sortOrder) || (categories.length + 1),
+      isActive: isActive !== false,
+      createdAt: new Date().toISOString()
+    };
+
+    categories.push(newCategory);
+    saveCategories(categories);
+
+    res.json({ success: true, category: newCategory, message: 'Category created successfully' });
+  } catch (err) {
+    res.status(500).json({ success: false, message: err.message });
+  }
+});
+
+// API: Update category
+app.put('/api/categories/:id', (req, res) => {
+  try {
+    const id = req.params.id;
+    const { name, slug, description, icon, sortOrder, isActive } = req.body;
+    const categories = getCategories();
+    const idx = categories.findIndex(c => c.id === id || c.slug === id);
+
+    if (idx === -1) {
+      return res.status(404).json({ success: false, message: 'Category not found' });
+    }
+
+    const prevName = categories[idx].name;
+    const newName = name !== undefined ? name.trim() : categories[idx].name;
+
+    categories[idx] = {
+      ...categories[idx],
+      name: newName,
+      slug: slug !== undefined ? slug.trim().toLowerCase().replace(/[^a-z0-9]+/g, '-') : categories[idx].slug,
+      description: description !== undefined ? description : categories[idx].description,
+      icon: icon !== undefined ? icon : categories[idx].icon,
+      sortOrder: sortOrder !== undefined ? Number(sortOrder) : categories[idx].sortOrder,
+      isActive: isActive !== undefined ? Boolean(isActive) : categories[idx].isActive,
+      updatedAt: new Date().toISOString()
+    };
+
+    saveCategories(categories);
+
+    // If category name changed, update templates referencing it to keep synchronization
+    if (prevName && newName && prevName !== newName) {
+      const templates = getTemplates();
+      let tplUpdated = false;
+      templates.forEach(t => {
+        if (t.category === prevName) {
+          t.category = newName;
+          tplUpdated = true;
+        }
+      });
+      if (tplUpdated) saveTemplates(templates);
+    }
+
+    res.json({ success: true, category: categories[idx], message: 'Category updated successfully' });
+  } catch (err) {
+    res.status(500).json({ success: false, message: err.message });
+  }
+});
+
+// API: Reorder categories (accepts { orderedIds: string[] })
+app.post('/api/categories/reorder', (req, res) => {
+  try {
+    const { orderedIds } = req.body;
+    if (!Array.isArray(orderedIds)) {
+      return res.status(400).json({ success: false, message: 'orderedIds array required' });
+    }
+
+    const categories = getCategories();
+    const catMap = new Map(categories.map(c => [c.id, c]));
+
+    const reordered = [];
+    orderedIds.forEach((id, index) => {
+      const cat = catMap.get(id);
+      if (cat) {
+        cat.sortOrder = index + 1;
+        reordered.push(cat);
+        catMap.delete(id);
+      }
+    });
+
+    // Append any not in orderedIds list
+    for (const remaining of catMap.values()) {
+      remaining.sortOrder = reordered.length + 1;
+      reordered.push(remaining);
+    }
+
+    saveCategories(reordered);
+    res.json({ success: true, categories: reordered, message: 'Category ordering saved' });
+  } catch (err) {
+    res.status(500).json({ success: false, message: err.message });
+  }
+});
+
+// API: Delete category (checks template dependencies)
+app.delete('/api/categories/:id', (req, res) => {
+  try {
+    const id = req.params.id;
+    const force = req.query.force === 'true' || req.query.force === '1';
+    let categories = getCategories();
+    const target = categories.find(c => c.id === id || c.slug === id);
+
+    if (!target) {
+      return res.status(404).json({ success: false, message: 'Category not found' });
+    }
+
+    // Check template dependency
+    const templates = getTemplates();
+    const usingTemplates = templates.filter(t => (t.category || '').toLowerCase() === target.name.toLowerCase() || (t.category || '').toLowerCase() === target.slug.toLowerCase());
+
+    if (usingTemplates.length > 0 && !force) {
+      return res.status(409).json({
+        success: false,
+        inUse: true,
+        count: usingTemplates.length,
+        message: `Category "${target.name}" is used by ${usingTemplates.length} templates. We recommend deactivating it instead of deleting to keep template categories intact.`
+      });
+    }
+
+    categories = categories.filter(c => c.id !== target.id);
+    saveCategories(categories);
+
+    res.json({ success: true, message: `Category "${target.name}" deleted successfully` });
   } catch (err) {
     res.status(500).json({ success: false, message: err.message });
   }
@@ -432,46 +971,45 @@ app.get('/api/admin/live-visitors', (req, res) => {
   }
 });
 
-// Helper: Compute Wish Link Lifecycle Status ('live', 'future', 'expired')
+// Helper: Compute Wish Link Lifecycle Status ('upcoming', 'active', 'expired', 'draft')
+// Timezone: Asia/Kolkata (IST = UTC+05:30)
+const IST_OFFSET_MS = 330 * 60 * 1000;
+
 function computeWishStatus(wish) {
-  const now = new Date();
-  const todayMidnight = new Date(now.getFullYear(), now.getMonth(), now.getDate()).getTime();
+  if (!wish) return 'expired';
+  if (wish.isDraft || wish.status === 'draft') return 'draft';
 
-  // 1. Check explicit expiry date if provided
-  const explicitExpiry = wish.expiryDate || (wish.customData && (wish.customData.expiry_date || wish.customData.expiryDate));
-  if (explicitExpiry) {
-    const expTime = new Date(explicitExpiry).getTime();
-    if (!isNaN(expTime) && expTime < now.getTime()) {
-      return 'expired';
-    }
-  }
-
-  // 2. Extract celebration / event date
+  // 1. Extract celebration / event date
   const eventDateStr = wish.eventDate || (wish.customData && (wish.customData.event_date || wish.customData.eventDate || wish.customData.target_date || wish.customData.targetDate));
 
-  if (eventDateStr) {
-    const parsedDate = new Date(eventDateStr);
-    if (!isNaN(parsedDate.getTime())) {
-      const eventMidnight = new Date(parsedDate.getFullYear(), parsedDate.getMonth(), parsedDate.getDate()).getTime();
-      if (eventMidnight > todayMidnight) {
-        return 'future'; // Scheduled for future celebration
-      }
-      // If event was today or within past 7 days -> still live
-      const daysSinceEvent = (todayMidnight - eventMidnight) / (1000 * 60 * 60 * 24);
-      if (daysSinceEvent <= 7) {
-        return 'live';
-      }
-      return 'expired'; // Event was more than 7 days ago
-    }
+  if (!eventDateStr) {
+    return 'active';
   }
 
-  // 3. Fallback: If no event date specified, active for 30 days from creation
-  const createdTime = new Date(wish.createdAt).getTime();
-  const daysOld = (now.getTime() - createdTime) / (1000 * 60 * 60 * 24);
-  if (daysOld <= 30) {
-    return 'live';
+  const cleanDate = String(eventDateStr).includes('T') ? String(eventDateStr).split('T')[0] : String(eventDateStr).trim();
+  const parts = cleanDate.split('-').map(Number);
+  let year = parts[0];
+  let month = parts[1];
+  let day = parts[2];
+
+  if (isNaN(year) || isNaN(month) || isNaN(day) || month < 1 || month > 12 || day < 1 || day > 31) {
+    return 'active';
   }
-  return 'expired';
+
+  // 00:00:00.000 IST start
+  const startMs = Date.UTC(year, month - 1, day, 0, 0, 0, 0) - IST_OFFSET_MS;
+  // 00:00:00.000 IST start of next day (expiry moment)
+  const endMs = Date.UTC(year, month - 1, day + 1, 0, 0, 0, 0) - IST_OFFSET_MS;
+
+  const nowMs = Date.now();
+
+  if (nowMs < startMs) {
+    return 'upcoming';
+  } else if (nowMs >= startMs && nowMs < endMs) {
+    return 'active';
+  } else {
+    return 'expired';
+  }
 }
 
 // API: Create a customized wish record
@@ -494,9 +1032,11 @@ app.post('/api/wishes', (req, res) => {
     const buyerContact = (buyerDetails && (buyerDetails.phone || buyerDetails.email)) || customData.sender_contact || customData.senderPhone || customData.senderEmail || 'Direct Web Visitor';
 
     const eventDate = customData.event_date || customData.eventDate || customData.target_date || new Date().toISOString().split('T')[0];
+    const userId = req.body.userId || customData.userId || 'usr_ankit_101';
 
     const newWish = {
       id: wishId,
+      userId,
       orderId: 'ORD-' + Math.random().toString(36).substring(2, 7).toUpperCase() + '-' + Date.now().toString().slice(-4),
       templateId,
       templateName: template ? template.name : (customData.templateName || 'Magical Celebration Experience'),
@@ -617,8 +1157,8 @@ app.get('/api/admin/metrics', (req, res) => {
         freeWishes++;
       }
 
-      if (status === 'live') liveLinks++;
-      else if (status === 'future') futureLinks++;
+      if (status === 'active' || status === 'live') liveLinks++;
+      else if (status === 'upcoming' || status === 'future') futureLinks++;
       else if (status === 'expired') expiredLinks++;
 
       const cat = (t && t.category) ? t.category : 'Celebration';
@@ -695,9 +1235,29 @@ app.get('/api/wishes/:id', (req, res) => {
   });
 });
 
-// Short URL Route: /w/:id redirects to /wish.html?id=:id
+// Creator Dashboard Route: /my-wishes and /dashboard
+app.get(['/my-wishes', '/my-wishes.html', '/dashboard', '/my-wishes/'], (req, res) => {
+  res.sendFile(path.join(__dirname, 'public', 'my-wishes.html'));
+});
+
+// Creator Account Route: /account and /account.html
+app.get(['/account', '/account.html', '/profile', '/profile.html'], (req, res) => {
+  res.sendFile(path.join(__dirname, 'public', 'account.html'));
+});
+
+// Premium Upgrade Route: /premium and /pricing
+app.get(['/premium', '/premium.html', '/pricing', '/pricing.html'], (req, res) => {
+  res.sendFile(path.join(__dirname, 'public', 'premium.html'));
+});
+
+// Dedicated Template Preview Route: /template/:templateId, /template/:templateId/, /template-preview.html
+app.get(['/template/:templateId', '/template/:templateId/', '/template-preview.html', '/template-preview'], (req, res) => {
+  res.sendFile(path.join(__dirname, 'public', 'template-preview.html'));
+});
+
+// Short URL Route: /w/:id directly serves wish.html for clean URL experience
 app.get('/w/:id', (req, res) => {
-  res.redirect(`/wish.html?id=${encodeURIComponent(req.params.id)}`);
+  res.sendFile(path.join(__dirname, 'public', 'wish.html'));
 });
 
 // Secret Admin Entry Routes: /admin/anktech/anktech/admin
@@ -707,38 +1267,77 @@ function sendAdminPage(file, res) {
   res.sendFile(path.join(__dirname, 'public', file));
 }
 
-// Secret Admin Portal routes
-app.get([ADMIN_BASE, `${ADMIN_BASE}/`, `${ADMIN_BASE}/overview`, `${ADMIN_BASE}/overview.html`], (req, res) => {
+// Admin Portal routes (/admin, /admin/templates, /admin/categories, /admin/media, etc.)
+app.get([
+  '/admin',
+  '/admin/',
+  '/admin/overview',
+  '/admin/overview.html',
+  '/admin/dashboard',
+  ADMIN_BASE,
+  `${ADMIN_BASE}/`,
+  `${ADMIN_BASE}/overview`,
+  `${ADMIN_BASE}/overview.html`
+], (req, res) => {
   sendAdminPage('admin-overview.html', res);
 });
 
-app.get([`${ADMIN_BASE}/templates`, `${ADMIN_BASE}/templates.html`], (req, res) => {
+app.get([
+  '/admin/templates',
+  '/admin/templates.html',
+  `${ADMIN_BASE}/templates`,
+  `${ADMIN_BASE}/templates.html`
+], (req, res) => {
   sendAdminPage('admin-templates.html', res);
 });
 
-app.get([`${ADMIN_BASE}/occasions`, `${ADMIN_BASE}/occasions.html`], (req, res) => {
+app.get([
+  '/admin/categories',
+  '/admin/categories.html',
+  '/admin/occasions',
+  '/admin/occasions.html',
+  `${ADMIN_BASE}/occasions`,
+  `${ADMIN_BASE}/occasions.html`,
+  `${ADMIN_BASE}/categories`,
+  `${ADMIN_BASE}/categories.html`
+], (req, res) => {
   sendAdminPage('admin-occasions.html', res);
 });
 
-app.get([`${ADMIN_BASE}/orders`, `${ADMIN_BASE}/orders.html`], (req, res) => {
+app.get([
+  '/admin/orders',
+  '/admin/orders.html',
+  `${ADMIN_BASE}/orders`,
+  `${ADMIN_BASE}/orders.html`
+], (req, res) => {
   sendAdminPage('admin-orders.html', res);
 });
 
-app.get([`${ADMIN_BASE}/media`, `${ADMIN_BASE}/media.html`], (req, res) => {
+app.get([
+  '/admin/media',
+  '/admin/media.html',
+  `${ADMIN_BASE}/media`,
+  `${ADMIN_BASE}/media.html`
+], (req, res) => {
   sendAdminPage('admin-media.html', res);
 });
 
-app.get([`${ADMIN_BASE}/pricing`, `${ADMIN_BASE}/pricing.html`], (req, res) => {
+app.get([
+  '/admin/pricing',
+  '/admin/pricing.html',
+  `${ADMIN_BASE}/pricing`,
+  `${ADMIN_BASE}/pricing.html`
+], (req, res) => {
   sendAdminPage('admin-pricing.html', res);
 });
 
-app.get([`${ADMIN_BASE}/settings`, `${ADMIN_BASE}/settings.html`], (req, res) => {
+app.get([
+  '/admin/settings',
+  '/admin/settings.html',
+  `${ADMIN_BASE}/settings`,
+  `${ADMIN_BASE}/settings.html`
+], (req, res) => {
   sendAdminPage('admin-settings.html', res);
-});
-
-// Protect generic unauthorized /admin path attempts
-app.get(['/admin', '/admin/'], (req, res) => {
-  res.redirect('/');
 });
 
 // Any unmatched route fallback
