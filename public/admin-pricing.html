@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<html class="dark" lang="en">
+<html lang="en">
 <head>
   <meta charset="utf-8"/>
   <base href="/"/>
@@ -27,7 +27,7 @@
 <div id="sidebar-backdrop" class="fixed inset-0 bg-black/75 backdrop-blur-sm z-40 hidden md:hidden" onclick="toggleSidebar()"></div>
 
 <!-- Responsive Sidebar Drawer -->
-<aside id="admin-sidebar" class="fixed left-0 top-0 h-screen w-72 bg-[#090414] border-r border-purple-900/40 z-50 flex flex-col justify-between shadow-2xl -translate-x-full md:translate-x-0 transition-transform duration-300 ease-in-out">
+<aside id="admin-sidebar" class="fixed left-0 top-0 h-screen w-72 bg-surface-container-lowest border-r border-outline-variant/30 z-50 flex flex-col justify-between shadow-2xl -translate-x-full md:translate-x-0 transition-transform duration-300 ease-in-out">
   <div class="flex flex-col">
     <div class="px-space-lg pt-space-lg pb-space-md">
       <div class="flex items-center justify-between">
@@ -91,7 +91,7 @@
 <!-- Main Viewport Wrapper -->
 <div class="w-full md:pl-72 min-h-screen flex flex-col">
   <!-- Universal Header -->
-  <header class="fixed top-0 left-0 md:left-72 right-0 h-16 bg-[#090414]/90 backdrop-blur-xl z-30 shadow-[0_1px_8px_rgba(0,0,0,0.04)] border-b border-purple-900/40">
+  <header class="fixed top-0 left-0 md:left-72 right-0 h-16 bg-surface/90 backdrop-blur-xl z-30 shadow-[0_1px_8px_rgba(0,0,0,0.04)] border-b border-outline-variant/30">
     <div class="w-full h-full px-3 md:px-space-lg flex items-center justify-between gap-2 md:gap-space-lg">
       <div class="flex items-center gap-2 flex-1 max-w-md">
         <button class="md:hidden p-2 rounded-lg bg-surface-container hover:bg-surface-container-high text-on-surface flex items-center justify-center flex-shrink-0" onclick="toggleSidebar()" aria-label="Toggle Navigation Menu">
@@ -159,8 +159,8 @@
           <span>Conversion Rate</span>
           <span class="material-symbols-outlined text-primary text-base">pie_chart</span>
         </div>
-        <div class="font-headline-lg text-xl sm:text-2xl font-black text-on-surface">16.8%</div>
-        <span class="text-[11px] text-emerald-400 mt-1 block">+2.3% this month</span>
+        <div class="font-headline-lg text-xl sm:text-2xl font-black text-on-surface" id="stat-conversion-rate">0.0%</div>
+        <span class="text-[11px] text-emerald-400 mt-1 block" id="stat-conversion-sub">From created wishes</span>
       </div>
 
       <div class="bg-surface-container rounded-2xl p-4 sm:p-5 border border-purple-900/30 shadow-lg">
@@ -168,8 +168,8 @@
           <span>VIP Revenue</span>
           <span class="material-symbols-outlined text-emerald-400 text-base">payments</span>
         </div>
-        <div class="font-headline-lg text-xl sm:text-2xl font-black text-on-surface">₹1,42,850</div>
-        <span class="text-[11px] text-on-surface-variant mt-1 block">2,915 paid passes</span>
+        <div class="font-headline-lg text-xl sm:text-2xl font-black text-primary" id="stat-vip-revenue">₹0</div>
+        <span class="text-[11px] text-on-surface-variant mt-1 block" id="stat-vip-orders-count">0 paid passes</span>
       </div>
 
       <div class="bg-surface-container rounded-2xl p-4 sm:p-5 border border-purple-900/30 shadow-lg">
@@ -178,7 +178,7 @@
           <span class="material-symbols-outlined text-secondary text-base">local_offer</span>
         </div>
         <div class="font-headline-lg text-xl sm:text-2xl font-black text-on-surface">3 Live</div>
-        <span class="text-[11px] text-on-surface-variant mt-1 block">2,760 redemptions</span>
+        <span class="text-[11px] text-on-surface-variant mt-1 block">0 redemptions</span>
       </div>
     </div>
 
@@ -298,7 +298,7 @@
                 <span class="font-mono font-bold text-primary bg-primary-container/20 px-2 py-1 rounded">MAGIC50</span>
               </td>
               <td class="py-3.5 px-3 font-semibold text-on-surface">50% OFF VIP Pass</td>
-              <td class="py-3.5 px-3 font-mono text-xs text-on-surface-variant">1,420 / 2,000</td>
+              <td class="py-3.5 px-3 font-mono text-xs text-on-surface-variant">0 / 2,000</td>
               <td class="py-3.5 px-3 text-xs text-outline">Dec 31, 2026</td>
               <td class="py-3.5 px-3">
                 <span class="px-2 py-0.5 rounded-full bg-emerald-500/20 text-emerald-400 text-xs font-bold">Active</span>
@@ -312,7 +312,7 @@
                 <span class="font-mono font-bold text-amber-400 bg-amber-500/20 px-2 py-1 rounded">BIRTHDAYGIFT</span>
               </td>
               <td class="py-3.5 px-3 font-semibold text-on-surface">Flat ₹20 OFF</td>
-              <td class="py-3.5 px-3 font-mono text-xs text-on-surface-variant">890 / 1,000</td>
+              <td class="py-3.5 px-3 font-mono text-xs text-on-surface-variant">0 / 1,000</td>
               <td class="py-3.5 px-3 text-xs text-outline">Nov 15, 2026</td>
               <td class="py-3.5 px-3">
                 <span class="px-2 py-0.5 rounded-full bg-emerald-500/20 text-emerald-400 text-xs font-bold">Active</span>
@@ -326,7 +326,7 @@
                 <span class="font-mono font-bold text-emerald-400 bg-emerald-500/20 px-2 py-1 rounded">LAUNCHVIP</span>
               </td>
               <td class="py-3.5 px-3 font-semibold text-on-surface">100% Free VIP Pass</td>
-              <td class="py-3.5 px-3 font-mono text-xs text-on-surface-variant">450 / 500</td>
+              <td class="py-3.5 px-3 font-mono text-xs text-on-surface-variant">0 / 500</td>
               <td class="py-3.5 px-3 text-xs text-outline">Oct 10, 2026</td>
               <td class="py-3.5 px-3">
                 <span class="px-2 py-0.5 rounded-full bg-amber-500/20 text-amber-300 text-xs font-bold">Expiring Soon</span>
@@ -439,6 +439,36 @@
     showToast(`🎟 Coupon "${code.toUpperCase()}" created and active!`);
     document.getElementById('coupon-code').value = '';
   }
+
+  async function loadPricingMetrics() {
+    try {
+      const res = await fetch('/api/admin/metrics');
+      const data = await res.json();
+      if (!data.success || !data.metrics) return;
+      const m = data.metrics;
+
+      const revEl = document.getElementById('stat-vip-revenue');
+      const ordersEl = document.getElementById('stat-vip-orders-count');
+      const convEl = document.getElementById('stat-conversion-rate');
+      const convSub = document.getElementById('stat-conversion-sub');
+
+      if (revEl) revEl.textContent = '₹' + (m.totalRevenue || 0).toLocaleString('en-IN');
+      if (ordersEl) ordersEl.textContent = `${m.vipWishes || 0} paid pass${m.vipWishes === 1 ? '' : 'es'}`;
+
+      if (convEl) {
+        const rate = m.totalWishes > 0 ? ((m.vipWishes / m.totalWishes) * 100).toFixed(1) + '%' : '0.0%';
+        convEl.textContent = rate;
+      }
+      if (convSub) {
+        convSub.textContent = `${m.vipWishes || 0} VIP of ${m.totalWishes || 0} total wishes`;
+      }
+    } catch (e) {
+      console.error('Error loading pricing telemetry:', e);
+    }
+  }
+
+  document.addEventListener('DOMContentLoaded', loadPricingMetrics);
+  setInterval(loadPricingMetrics, 3000);
 </script>
 </body>
 </html>

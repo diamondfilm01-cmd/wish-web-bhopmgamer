@@ -1,6 +1,6 @@
 <!DOCTYPE html>
 
-<html class="dark" lang="en"><head><meta charset="utf-8"/><base href="/"/><meta content="width=device-width, initial-scale=1.0" name="viewport"/><meta content="web_dashboard" name="shell-type"/><title>WishMagic | Templates Library</title>
+<html lang="en"><head><meta charset="utf-8"/><base href="/"/><meta content="width=device-width, initial-scale=1.0" name="viewport"/><meta content="web_dashboard" name="shell-type"/><title>WishMagic | Templates Library</title>
 <link rel="preconnect" href="https://fonts.googleapis.com"/>
 <link crossorigin="" href="https://fonts.gstatic.com" rel="preconnect"/>
 <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;600;700&amp;family=Plus+Jakarta+Sans:wght@400;500;600;700;800&amp;display=swap" rel="stylesheet"/>
@@ -24,7 +24,7 @@
 <div id="sidebar-backdrop" class="fixed inset-0 bg-black/75 backdrop-blur-sm z-40 hidden md:hidden" onclick="toggleSidebar()"></div>
 
 <!-- Responsive Sidebar Drawer -->
-<aside id="admin-sidebar" class="fixed left-0 top-0 h-full w-72 bg-[#090414] border-r border-purple-900/40 z-50 flex flex-col justify-between shadow-2xl -translate-x-full md:translate-x-0 transition-transform duration-300 ease-in-out">
+<aside id="admin-sidebar" class="fixed left-0 top-0 h-full w-72 bg-surface-container-lowest border-r border-outline-variant/30 z-50 flex flex-col justify-between shadow-2xl -translate-x-full md:translate-x-0 transition-transform duration-300 ease-in-out">
 <div class="flex flex-col">
 <div class="h-16 px-space-lg flex items-center justify-between">
 <div class="flex items-center gap-space-sm">
@@ -108,7 +108,7 @@
 
 <!-- Main Viewport Wrapper with Responsive Margin -->
 <div class="w-full md:pl-72 min-h-screen flex flex-col">
-<header class="fixed top-0 left-0 md:left-72 right-0 h-16 bg-[#090414]/90 backdrop-blur-xl z-30 shadow-[0_1px_8px_rgba(0,0,0,0.04)] border-b border-purple-900/40">
+<header class="fixed top-0 left-0 md:left-72 right-0 h-16 bg-surface/90 backdrop-blur-xl z-30 shadow-[0_1px_8px_rgba(0,0,0,0.04)] border-b border-outline-variant/30">
 <div class="w-full h-full px-3 md:px-space-lg flex items-center justify-between gap-2 md:gap-space-lg">
 <!-- Mobile hamburger menu button -->
 <div class="flex items-center gap-2 flex-1 max-w-md">
@@ -340,53 +340,25 @@
 <!-- Primary Lifecycle & Pricing Badges -->
 <div class="flex flex-wrap items-center gap-space-xs">
 <span class="font-label-sm text-label-sm text-outline uppercase tracking-wider mr-2">Lifecycle:</span>
-<button class="px-space-sm py-1 rounded-full font-label-sm text-label-sm bg-primary-container text-on-primary-container font-bold shadow-sm">
-              All (156)
+<button onclick="filterTemplatesByTier('all')" id="btn-filter-all" class="px-space-sm py-1 rounded-full font-label-sm text-label-sm bg-primary-container text-on-primary-container font-bold shadow-sm cursor-pointer">
+              All (<span id="filter-all-count">0</span>)
             </button>
-<button class="px-space-sm py-1 rounded-full font-label-sm text-label-sm bg-surface-container-lowest text-on-surface-variant hover:text-on-surface hover:bg-surface-container-high transition-colors">
-              Published (142)
+<button onclick="filterTemplatesByTier('published')" id="btn-filter-published" class="px-space-sm py-1 rounded-full font-label-sm text-label-sm bg-surface-container-lowest text-on-surface-variant hover:text-on-surface hover:bg-surface-container-high transition-colors cursor-pointer">
+              Published (<span id="filter-published-count">0</span>)
             </button>
-<button class="px-space-sm py-1 rounded-full font-label-sm text-label-sm bg-surface-container-lowest text-on-surface-variant hover:text-on-surface hover:bg-surface-container-high transition-colors">
-              Draft (8)
+<button onclick="filterTemplatesByTier('free')" id="btn-filter-free" class="px-space-sm py-1 rounded-full font-label-sm text-label-sm bg-surface-container-lowest text-on-surface-variant hover:text-on-surface hover:bg-surface-container-high transition-colors cursor-pointer">
+              Free (<span id="filter-free-count">0</span>)
             </button>
-<button class="px-space-sm py-1 rounded-full font-label-sm text-label-sm bg-surface-container-lowest text-on-surface-variant hover:text-on-surface hover:bg-surface-container-high transition-colors">
-              Free (60)
-            </button>
-<button class="px-space-sm py-1 rounded-full font-label-sm text-label-sm bg-surface-container-lowest text-on-surface-variant hover:text-on-surface hover:bg-surface-container-high transition-colors">
-              Premium (96)
+<button onclick="filterTemplatesByTier('vip')" id="btn-filter-vip" class="px-space-sm py-1 rounded-full font-label-sm text-label-sm bg-surface-container-lowest text-on-surface-variant hover:text-on-surface hover:bg-surface-container-high transition-colors cursor-pointer">
+              VIP Pass (<span id="filter-premium-count">0</span>)
             </button>
 </div>
 <!-- Occasion Multiselect Row -->
-<div class="flex flex-wrap items-center gap-space-xs">
-<span class="font-label-sm text-label-sm text-outline uppercase tracking-wider mr-2">Occasion:</span>
-<button class="px-2.5 py-1 rounded-lg font-label-sm text-label-sm bg-surface-container-highest text-on-surface flex items-center gap-1.5 transition-colors hover:bg-surface-bright">
-<span>🎂 Birthday</span>
-<span class="font-mono text-outline">54</span>
-</button>
-<button class="px-2.5 py-1 rounded-lg font-label-sm text-label-sm bg-surface-container-lowest text-on-surface-variant hover:text-on-surface hover:bg-surface-container-high flex items-center gap-1.5 transition-colors">
-<span>💖 Love</span>
-<span class="font-mono text-outline">38</span>
-</button>
-<button class="px-2.5 py-1 rounded-lg font-label-sm text-label-sm bg-surface-container-lowest text-on-surface-variant hover:text-on-surface hover:bg-surface-container-high flex items-center gap-1.5 transition-colors">
-<span>💍 Anniversary</span>
-<span class="font-mono text-outline">26</span>
-</button>
-<button class="px-2.5 py-1 rounded-lg font-label-sm text-label-sm bg-surface-container-lowest text-on-surface-variant hover:text-on-surface hover:bg-surface-container-high flex items-center gap-1.5 transition-colors">
-<span>🎭 Funny</span>
-<span class="font-mono text-outline">14</span>
-</button>
-<button class="px-2.5 py-1 rounded-lg font-label-sm text-label-sm bg-surface-container-lowest text-on-surface-variant hover:text-on-surface hover:bg-surface-container-high flex items-center gap-1.5 transition-colors">
-<span>🙏 Thank You</span>
-<span class="font-mono text-outline">12</span>
-</button>
-<button class="px-2.5 py-1 rounded-lg font-label-sm text-label-sm bg-surface-container-lowest text-on-surface-variant hover:text-on-surface hover:bg-surface-container-high flex items-center gap-1.5 transition-colors">
-<span>🎉 Congratulations</span>
-<span class="font-mono text-outline">8</span>
-</button>
-<button class="px-2.5 py-1 rounded-lg font-label-sm text-label-sm bg-surface-container-lowest text-on-surface-variant hover:text-on-surface hover:bg-surface-container-high flex items-center gap-1.5 transition-colors">
-<span>🪔 Festivals</span>
-<span class="font-mono text-outline">4</span>
-</button>
+<div class="flex flex-wrap items-center gap-space-xs" id="filter-occasions-row">
+<span class="font-label-sm text-label-sm text-outline uppercase tracking-wider mr-2">Occasions:</span>
+<div id="filter-occasions-container" class="flex flex-wrap items-center gap-space-xs">
+  <!-- Dynamically injected from real templates -->
+</div>
 </div>
 </div>
 </section>
@@ -400,21 +372,11 @@
 <div class="flex items-center gap-space-sm font-label-sm text-label-sm">
 <span>Showing <strong id="count-footer-total">0</strong> Registered Templates</span>
 <span>•</span>
-<span class="font-mono text-tertiary">KV SYNC SHA-256: 7f83b165...49a</span>
+<span class="font-mono text-tertiary">Real-time Node Telemetry Active</span>
 </div>
 <!-- Custom Pagination Segment -->
-<div class="flex items-center gap-1 bg-surface-container-low p-1 rounded-xl shadow-inner">
-<button class="p-1.5 rounded-lg text-outline hover:text-on-surface hover:bg-surface-container transition-colors disabled:opacity-30" disabled="">
-<span class="material-symbols-outlined text-[18px]">chevron_left</span>
-</button>
-<button class="w-8 h-8 rounded-lg bg-primary-container text-on-primary-container font-label-sm text-label-sm font-bold flex items-center justify-center shadow">1</button>
-<button class="w-8 h-8 rounded-lg text-on-surface-variant hover:bg-surface-container font-label-sm text-label-sm flex items-center justify-center transition-colors">2</button>
-<button class="w-8 h-8 rounded-lg text-on-surface-variant hover:bg-surface-container font-label-sm text-label-sm flex items-center justify-center transition-colors">3</button>
-<span class="px-1 text-xs">...</span>
-<button class="w-8 h-8 rounded-lg text-on-surface-variant hover:bg-surface-container font-label-sm text-label-sm flex items-center justify-center transition-colors">26</button>
-<button class="p-1.5 rounded-lg text-outline hover:text-on-surface hover:bg-surface-container transition-colors">
-<span class="material-symbols-outlined text-[18px]">chevron_right</span>
-</button>
+<div class="flex items-center gap-1 bg-surface-container-low p-1 rounded-xl shadow-inner text-xs font-semibold">
+<span class="px-3 py-1 text-on-surface">Page 1 of 1</span>
 </div>
 </footer>
 </div>

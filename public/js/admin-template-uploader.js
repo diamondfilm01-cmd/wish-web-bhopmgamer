@@ -406,6 +406,11 @@ async function loadDynamicTemplates() {
     const countFree = document.getElementById('count-free');
     const countFooter = document.getElementById('count-footer-total');
 
+    const filterAllCount = document.getElementById('filter-all-count');
+    const filterPublishedCount = document.getElementById('filter-published-count');
+    const filterFreeCount = document.getElementById('filter-free-count');
+    const filterPremiumCount = document.getElementById('filter-premium-count');
+
     const vipCount = templates.filter(t => t.tier === 'vip' || (t.price && Number(t.price) > 0)).length;
     const freeCount = templates.length - vipCount;
 
@@ -415,6 +420,33 @@ async function loadDynamicTemplates() {
     if (countPremium) countPremium.textContent = vipCount;
     if (countFree) countFree.textContent = freeCount;
     if (countFooter) countFooter.textContent = templates.length;
+
+    if (filterAllCount) filterAllCount.textContent = templates.length;
+    if (filterPublishedCount) filterPublishedCount.textContent = templates.length;
+    if (filterFreeCount) filterFreeCount.textContent = freeCount;
+    if (filterPremiumCount) filterPremiumCount.textContent = vipCount;
+
+    // Dynamically populate Occasions Filter List from REAL templates
+    const occContainer = document.getElementById('filter-occasions-container');
+    if (occContainer) {
+      const occMap = {};
+      templates.forEach(t => {
+        const cat = t.category || 'General';
+        occMap[cat] = (occMap[cat] || 0) + 1;
+      });
+
+      const occEntries = Object.entries(occMap);
+      if (occEntries.length === 0) {
+        occContainer.innerHTML = '<span class="text-xs text-outline">No occasions active yet</span>';
+      } else {
+        occContainer.innerHTML = occEntries.map(([cat, count]) => `
+          <button onclick="filterTemplatesByOccasion('${escapeQuotes(cat)}')" class="px-2.5 py-1 rounded-lg font-label-sm text-label-sm bg-surface-container-lowest text-on-surface-variant hover:text-on-surface hover:bg-surface-container-high flex items-center gap-1.5 transition-colors cursor-pointer">
+            <span>${cat}</span>
+            <span class="font-mono text-outline font-bold">${count}</span>
+          </button>
+        `).join('');
+      }
+    }
 
     if (templates.length === 0) {
       container.innerHTML = `

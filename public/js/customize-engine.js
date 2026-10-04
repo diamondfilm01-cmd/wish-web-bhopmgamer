@@ -2,12 +2,12 @@
 
 let activeTemplate = null;
 let currentCustomData = {
-  recipient_name: 'Kritika Sharma',
-  sender_name: 'Ankit Verma',
-  sender_contact: '+91 98765 43210',
+  recipient_name: '',
+  sender_name: '',
+  sender_contact: '',
   event_date: new Date().toISOString().split('T')[0],
-  custom_message: "Happy Birthday Kritika! ✨ From chaotic late-night study sessions to surviving college together, you've been my constant anchor. Keep shining bright across this universe!",
-  photo_1: 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=500&auto=format&fit=crop&q=80',
+  custom_message: '',
+  photo_1: '',
   video_1: '',
   bg_music: ''
 };
@@ -62,6 +62,9 @@ async function loadTemplateData(templateId) {
         activeTemplate = allData.templates[0];
         renderCustomizerUI();
         loadTemplateInSandbox();
+      } else {
+        const ribbonTitle = document.getElementById('customizer-ribbon-title') || document.querySelector('.bg-secondary-container\\/20 span.font-label-md');
+        if (ribbonTitle) ribbonTitle.textContent = 'No Templates Uploaded Yet • Upload via Admin';
       }
     }
   } catch (err) {
@@ -278,8 +281,8 @@ function showVipPaymentModal() {
   }
 
   const price = activeTemplate.price || 49;
-  const buyerName = currentCustomData.sender_name || 'Ankit Verma';
-  const buyerPhone = currentCustomData.sender_contact || '+91 98765 43210';
+  const buyerName = currentCustomData.sender_name || '';
+  const buyerPhone = currentCustomData.sender_contact || '';
 
   modal.innerHTML = `
     <div class="w-full max-w-md bg-surface-container-low rounded-3xl border border-amber-500/40 shadow-2xl p-6 sm:p-7 flex flex-col gap-4 relative">

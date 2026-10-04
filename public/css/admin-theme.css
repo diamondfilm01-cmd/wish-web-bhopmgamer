@@ -1,34 +1,50 @@
 /* WishMagic Admin Studio - Universal Dual Theme & Mobile Styles */
 
 :root {
-  --bg-main: #0d071a;
-  --bg-card: #1c1036;
-  --bg-card-sub: #150c29;
-  --bg-sidebar: #090414;
-  --bg-header: rgba(9, 4, 20, 0.95);
-  --border-color: rgba(124, 58, 237, 0.25);
-  --text-main: #f5f0ff;
-  --text-muted: #c4b5fd;
-  --text-sub: #7c6d99;
-  --input-bg: rgba(21, 12, 41, 0.75);
+  --color-background: #f8f7fc;
+  --color-surface: #ffffff;
+  --color-surface-variant: #f1ecfa;
+  --color-surface-bright: #e9e2f5;
+  --color-surface-container-lowest: #ffffff;
+  --color-surface-container-low: #f8f6fc;
+  --color-surface-container: #ffffff;
+  --color-surface-container-high: #f3effa;
+  --color-surface-container-highest: #eae3f7;
+  --color-on-surface: #180d2b;
+  --color-on-surface-variant: #4e3f6b;
+  --color-outline: #72628f;
+  --color-outline-variant: #e2d9f3;
+  --color-border: #e2d9f3;
+  --color-card-bg: #ffffff;
+  --color-header-bg: rgba(255, 255, 255, 0.95);
+  --color-sidebar-bg: #ffffff;
+  --color-input-bg: #f6f3fb;
 }
 
-html:not(.dark) {
-  --bg-main: #f8f7fc;
-  --bg-card: #ffffff;
-  --bg-card-sub: #f3effa;
-  --bg-sidebar: #ffffff;
-  --bg-header: rgba(255, 255, 255, 0.98);
-  --border-color: #e2d9f3;
-  --text-main: #180d2b;
-  --text-muted: #4e3f6b;
-  --text-sub: #72628f;
-  --input-bg: #f1ecfa;
+html.dark, :root.dark {
+  --color-background: #0d071a;
+  --color-surface: #130a24;
+  --color-surface-variant: #1f1338;
+  --color-surface-bright: #2b1b4d;
+  --color-surface-container-lowest: #090414;
+  --color-surface-container-low: #150c29;
+  --color-surface-container: #1c1036;
+  --color-surface-container-high: #241544;
+  --color-surface-container-highest: #2f1c57;
+  --color-on-surface: #f5f0ff;
+  --color-on-surface-variant: #c4b5fd;
+  --color-outline: #7c6d99;
+  --color-outline-variant: #473b61;
+  --color-border: rgba(124, 58, 237, 0.25);
+  --color-card-bg: #1c1036;
+  --color-header-bg: rgba(9, 4, 20, 0.95);
+  --color-sidebar-bg: #090414;
+  --color-input-bg: rgba(21, 12, 41, 0.75);
 }
 
 body {
-  background-color: var(--bg-main) !important;
-  color: var(--text-main) !important;
+  background-color: var(--color-background) !important;
+  color: var(--color-on-surface) !important;
   font-family: 'Plus Jakarta Sans', sans-serif;
   margin: 0;
   padding: 0;
@@ -53,73 +69,114 @@ body {
   font-feature-settings: 'liga';
 }
 
-/* Light Mode Overrides for Tailwind Utility Classes & Layouts */
+/* ==========================================================================
+   LIGHT MODE TOTAL OVERRIDES (When <html> does NOT have .dark)
+   ========================================================================== */
+
 html:not(.dark) body {
   background-color: #f8f7fc !important;
   color: #180d2b !important;
 }
 
-html:not(.dark) .bg-background { background-color: #f8f7fc !important; }
-html:not(.dark) .bg-surface { background-color: #f8f7fc !important; }
-html:not(.dark) .bg-surface-container-lowest { background-color: #ffffff !important; }
-html:not(.dark) .bg-surface-container-low { background-color: #ffffff !important; }
-html:not(.dark) .bg-surface-container { background-color: #ffffff !important; }
-html:not(.dark) .bg-surface-container-high { background-color: #f3effa !important; }
-html:not(.dark) .bg-surface-container-highest { background-color: #eae3f7 !important; }
-html:not(.dark) .bg-surface-bright { background-color: #f0eaf8 !important; }
-
-html:not(.dark) [class*="bg-[#0d071a]"],
-html:not(.dark) [class*="bg-[#130a24]"] {
+html:not(.dark) .bg-background {
   background-color: #f8f7fc !important;
 }
-html:not(.dark) [class*="bg-[#090414]"] {
+
+html:not(.dark) .bg-surface {
+  background-color: #f8f7fc !important;
+}
+
+html:not(.dark) .bg-surface-container-lowest {
   background-color: #ffffff !important;
 }
 
-/* In Light Mode: Explicit High-Contrast Text Colors */
-html:not(.dark) .text-on-surface { color: #180d2b !important; }
-html:not(.dark) .text-on-surface-variant { color: #4e3f6b !important; }
-html:not(.dark) .text-outline { color: #6b5a88 !important; }
+html:not(.dark) .bg-surface-container-low {
+  background-color: #ffffff !important;
+  border-color: #e4ddf4 !important;
+}
+
+html:not(.dark) .bg-surface-container {
+  background-color: #ffffff !important;
+  border-color: #e4ddf4 !important;
+}
+
+html:not(.dark) .bg-surface-container-high {
+  background-color: #f3effa !important;
+}
+
+html:not(.dark) .bg-surface-container-highest {
+  background-color: #eae3f7 !important;
+}
+
+html:not(.dark) .bg-surface-bright {
+  background-color: #f0eaf8 !important;
+}
+
+/* Hardcoded Dark Hex Overrides in Light Mode */
+html:not(.dark) [class*="bg-[#0d071a]"],
+html:not(.dark) [class*="bg-[#130a24]"],
+html:not(.dark) [class*="bg-[#090414]"],
+html:not(.dark) [class*="bg-[#1c1036]"],
+html:not(.dark) [class*="bg-[#150c29]"] {
+  background-color: #ffffff !important;
+}
+
+html:not(.dark) [class*="bg-[#090414]/90"],
+html:not(.dark) [class*="bg-[#090414]/80"],
+html:not(.dark) [class*="bg-[#0d071a]/90"],
+html:not(.dark) [class*="bg-[#130a24]/90"] {
+  background-color: rgba(255, 255, 255, 0.96) !important;
+}
+
+/* Sidebar & Header in Light Mode */
+html:not(.dark) aside#admin-sidebar {
+  background-color: #ffffff !important;
+  border-right-color: #e4ddf4 !important;
+  box-shadow: 4px 0 24px rgba(107, 33, 168, 0.06) !important;
+}
+
+html:not(.dark) header {
+  background-color: rgba(255, 255, 255, 0.96) !important;
+  border-bottom-color: #e4ddf4 !important;
+  box-shadow: 0 4px 20px rgba(107, 33, 168, 0.05) !important;
+}
+
+/* Light Mode Typography & High Contrast */
+html:not(.dark) .text-on-surface {
+  color: #180d2b !important;
+}
+
+html:not(.dark) .text-on-surface-variant {
+  color: #4e3f6b !important;
+}
+
+html:not(.dark) .text-outline {
+  color: #6b5a88 !important;
+}
+
+html:not(.dark) h1:not([class*="bg-clip-text"]):not(.keep-white),
+html:not(.dark) h2:not([class*="bg-clip-text"]):not(.keep-white),
+html:not(.dark) h3:not([class*="bg-clip-text"]):not(.keep-white),
+html:not(.dark) h4:not([class*="bg-clip-text"]):not(.keep-white),
+html:not(.dark) h5:not([class*="bg-clip-text"]):not(.keep-white) {
+  color: #180d2b !important;
+}
+
+/* Soft muted purple text to high-contrast readable dark purple */
 html:not(.dark) .text-purple-100,
 html:not(.dark) .text-purple-200,
 html:not(.dark) .text-purple-300 {
   color: #581c87 !important;
 }
+
 html:not(.dark) .text-gray-300,
 html:not(.dark) .text-gray-400,
 html:not(.dark) .text-slate-400 {
   color: #4b5563 !important;
 }
 
-/* Headings and table text visibility in light mode */
-html:not(.dark) h1:not([class*="bg-clip-text"]),
-html:not(.dark) h2:not([class*="bg-clip-text"]),
-html:not(.dark) h3:not([class*="bg-clip-text"]),
-html:not(.dark) h4:not([class*="bg-clip-text"]) {
-  color: #180d2b;
-}
-
-html:not(.dark) td,
-html:not(.dark) th {
-  color: #180d2b;
-}
-
-html:not(.dark) tr {
-  border-color: #e4ddf4 !important;
-}
-
-html:not(.dark) .text-white\/90,
-html:not(.dark) .text-white\/80,
-html:not(.dark) .text-white\/70 {
-  color: #2b1747 !important;
-}
-html:not(.dark) .text-white\/60,
-html:not(.dark) .text-white\/50 {
-  color: #574673 !important;
-}
-
-/* Turn generic text-white on light backgrounds into dark text, UNLESS inside solid colored/gradient buttons */
-html:not(.dark) .text-white:not(.btn-solid-text):not(.keep-white) {
+/* Turn generic text-white on light backgrounds into dark text, UNLESS inside colored/gradient buttons */
+html:not(.dark) .text-white:not(.btn-solid-text):not(.keep-white):not([class*="bg-gradient-to"]):not(.bg-primary-container):not(.bg-secondary-container):not(.bg-primary) {
   color: #180d2b;
 }
 
@@ -133,8 +190,8 @@ html:not(.dark) .text-on-primary,
 html:not(.dark) .text-on-primary-container,
 html:not(.dark) .keep-white,
 html:not(.dark) .btn-solid-text,
-html:not(.dark) button.bg-primary,
-html:not(.dark) button[class*="bg-gradient-to"] {
+html:not(.dark) button[class*="bg-gradient-to"],
+html:not(.dark) a[class*="bg-gradient-to"] {
   color: #ffffff !important;
 }
 
@@ -146,32 +203,46 @@ html:not(.dark) .bg-purple-600 .text-white {
   color: #ffffff !important;
 }
 
-/* Border adjustments for light mode */
-html:not(.dark) .border-purple-900\/40,
-html:not(.dark) .border-purple-900\/30,
-html:not(.dark) .border-purple-900\/20,
-html:not(.dark) .border-purple-900\/50,
-html:not(.dark) .border-purple-500\/20,
-html:not(.dark) .border-purple-500\/30,
-html:not(.dark) .border-outline\/20 {
-  border-color: #e2d9f3 !important;
+/* Tables in Light Mode */
+html:not(.dark) table {
+  color: #180d2b !important;
 }
 
-html:not(.dark) aside#admin-sidebar {
+html:not(.dark) table thead,
+html:not(.dark) table thead tr {
+  background-color: #f3effa !important;
+  color: #3b2a59 !important;
+}
+
+html:not(.dark) table thead th {
+  color: #3b2a59 !important;
+  border-bottom: 1px solid #e4ddf4 !important;
+}
+
+html:not(.dark) table tbody tr {
   background-color: #ffffff !important;
-  border-color: #e2d9f3 !important;
-  box-shadow: 0 4px 20px rgba(0,0,0,0.05);
+  border-color: #ede7f8 !important;
+  color: #180d2b !important;
 }
 
-html:not(.dark) header {
-  background-color: rgba(255, 255, 255, 0.98) !important;
-  border-color: #e2d9f3 !important;
+html:not(.dark) table tbody td {
+  color: #180d2b !important;
 }
 
-html:not(.dark) input,
+html:not(.dark) table tbody tr:hover {
+  background-color: #f8f6fc !important;
+}
+
+html:not(.dark) .divide-purple-900\/20 > :not([hidden]) ~ :not([hidden]),
+html:not(.dark) .divide-purple-900\/30 > :not([hidden]) ~ :not([hidden]) {
+  border-color: #ede7f8 !important;
+}
+
+/* Inputs, Selects & Forms in Light Mode */
+html:not(.dark) input:not([type="checkbox"]):not([type="radio"]),
 html:not(.dark) select,
 html:not(.dark) textarea {
-  background-color: #f6f3fb !important;
+  background-color: #ffffff !important;
   color: #180d2b !important;
   border: 1px solid #d5c8ea !important;
 }
@@ -181,37 +252,52 @@ html:not(.dark) textarea::placeholder {
   color: #8c7b9f !important;
 }
 
-html:not(.dark) table thead {
-  background-color: #f3effa !important;
-  color: #3b2a59 !important;
+/* Borders in Light Mode */
+html:not(.dark) .border-purple-900\/50,
+html:not(.dark) .border-purple-900\/40,
+html:not(.dark) .border-purple-900\/30,
+html:not(.dark) .border-purple-900\/20,
+html:not(.dark) .border-purple-500\/30,
+html:not(.dark) .border-purple-500\/20,
+html:not(.dark) .border-amber-500\/30,
+html:not(.dark) .border-emerald-500\/30,
+html:not(.dark) .border-rose-500\/30 {
+  border-color: #e4ddf4 !important;
 }
 
-html:not(.dark) table tbody tr {
-  border-color: #ede7f8 !important;
-}
-
-html:not(.dark) table tbody tr:hover {
-  background-color: #f8f6fc !important;
-}
-
+/* Modals & Dialogs in Light Mode */
+html:not(.dark) #live-visitors-modal > div,
+html:not(.dark) #upload-code-modal > div,
 html:not(.dark) .modal-panel {
   background-color: #ffffff !important;
-  border-color: #e2d9f3 !important;
+  border-color: #e4ddf4 !important;
   color: #180d2b !important;
+  box-shadow: 0 25px 60px -15px rgba(0, 0, 0, 0.25) !important;
 }
 
-/* Theme card helper */
-.admin-card {
-  background-color: var(--bg-card);
-  border: 1px solid var(--border-color);
+html:not(.dark) #live-visitors-modal .bg-surface-container,
+html:not(.dark) #live-visitors-modal .bg-surface-container-lowest\/80 {
+  background-color: #f7f4fc !important;
+  border-color: #e4ddf4 !important;
 }
 
-.admin-header {
-  background-color: var(--bg-header);
-  border-color: var(--border-color);
+/* Bento Cards in Light Mode */
+html:not(.dark) .shadow-xl,
+html:not(.dark) .shadow-lg,
+html:not(.dark) .shadow-md {
+  box-shadow: 0 4px 20px -2px rgba(107, 33, 168, 0.07), 0 2px 6px -1px rgba(0, 0, 0, 0.04) !important;
 }
 
-.admin-sidebar {
-  background-color: var(--bg-sidebar);
-  border-color: var(--border-color);
+/* Amber / Emerald / Primary stat numbers in Light Mode */
+html:not(.dark) #stat-live-visitors,
+html:not(.dark) #header-live-visitors {
+  color: #059669 !important;
+}
+
+html:not(.dark) #stat-revenue {
+  color: #7e22ce !important;
+}
+
+html:not(.dark) #stat-vip {
+  color: #d97706 !important;
 }

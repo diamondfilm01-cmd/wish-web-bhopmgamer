@@ -17,11 +17,14 @@ app.use(express.urlencoded({ limit: '50mb', extended: true }));
 const DATA_DIR = path.join(__dirname, 'data');
 const TEMPLATES_FILE = path.join(DATA_DIR, 'templates.json');
 const WISHES_FILE = path.join(DATA_DIR, 'wishes.json');
+const MEDIA_FILE = path.join(DATA_DIR, 'media.json');
 const STORE_DIR = path.join(__dirname, 'public', 'templates-store');
+const MEDIA_DIR = path.join(__dirname, 'public', 'media');
 
 // Ensure base directories exist
 if (!fs.existsSync(DATA_DIR)) fs.mkdirSync(DATA_DIR, { recursive: true });
 if (!fs.existsSync(STORE_DIR)) fs.mkdirSync(STORE_DIR, { recursive: true });
+if (!fs.existsSync(MEDIA_DIR)) fs.mkdirSync(MEDIA_DIR, { recursive: true });
 
 function getTemplates() {
   try {
@@ -38,6 +41,23 @@ function getTemplates() {
 
 function saveTemplates(templates) {
   fs.writeFileSync(TEMPLATES_FILE, JSON.stringify(templates, null, 2), 'utf8');
+}
+
+function getMedia() {
+  try {
+    if (fs.existsSync(MEDIA_FILE)) {
+      const data = fs.readFileSync(MEDIA_FILE, 'utf8');
+      const parsed = JSON.parse(data || '[]');
+      if (Array.isArray(parsed)) return parsed;
+    }
+    return [];
+  } catch (e) {
+    return [];
+  }
+}
+
+function saveMedia(media) {
+  fs.writeFileSync(MEDIA_FILE, JSON.stringify(media, null, 2), 'utf8');
 }
 
 function getWishes() {
@@ -59,6 +79,7 @@ function saveWishes(wishes) {
 
 // Serve templates-store files directly
 app.use('/templates-store', express.static(STORE_DIR));
+app.use('/media', express.static(MEDIA_DIR));
 
 // Serve static files from public directory
 app.use(express.static(path.join(__dirname, 'public'), {
@@ -222,6 +243,116 @@ app.delete('/api/templates/:id', (req, res) => {
     }
 
     res.json({ success: true, message: 'Template deleted' });
+  } catch (err) {
+    res.status(500).json({ success: false, message: err.message });
+  }
+});
+
+// API: Get all audio and media assets
+app.get('/api/media', (req, res) => {
+  try {
+    const media = getMedia();
+    res.json({ success: true, tracks: media });
+  } catch (err) {
+    res.status(500).json({ success: false, message: err.message, tracks: [] });
+  }
+});
+
+// API: Upload a new audio track
+app.post('/api/media/upload', (req, res) => {
+  try {
+    const { title, genre, duration, license, fileData, filename } = req.body;
+    if (!title || !fileData) {
+      return res.status(400).json({ success: false, message: 'Track title and audio file are required' });
+    }
+
+    const trackId = 'trk_' + Date.now().toString(36) + '_' + Math.random().toString(36).substr(2, 4);
+    const ext = path.extname(filename || 'track.mp3') || '.mp3';
+    const diskFilename = `${trackId}${ext}`;
+    const filePath = path.join(MEDIA_DIR, diskFilename);
+
+    let base64Content = fileData;
+    if (fileData.includes(',')) {
+      base64Content = fileData.split(',')[1];
+    }
+    const buffer = Buffer.from(base64Content, 'base64');
+    fs.writeFileSync(filePath, buffer);
+
+    const media = getMedia();
+    const isFirst = media.length === 0;
+
+    const newTrack = {
+      id: trackId,
+      title: title.trim(),
+      genre: genre || 'Celebration / Ambient',
+      duration: duration || '2:30',
+      license: license || 'Royalty-Free Commercial',
+      filename: diskFilename,
+      url: `/media/${diskFilename}`,
+      fileSize: buffer.length,
+      fileSizeFormatted: (buffer.length / (1024 * 1024)).toFixed(2) + ' MB',
+      isDefault: isFirst,
+      createdAt: new Date().toISOString()
+    };
+
+    media.unshift(newTrack);
+    saveMedia(media);
+
+    res.json({ success: true, track: newTrack, message: 'Audio track uploaded successfully' });
+  } catch (err) {
+    console.error('Error uploading audio:', err);
+    res.status(500).json({ success: false, message: err.message });
+  }
+});
+
+// API: Set track as default BGM
+app.post('/api/media/:id/default', (req, res) => {
+  try {
+    const id = req.params.id;
+    const media = getMedia();
+    let found = false;
+    media.forEach(t => {
+      if (t.id === id) {
+        t.isDefault = true;
+        found = true;
+      } else {
+        t.isDefault = false;
+      }
+    });
+    if (!found) {
+      return res.status(404).json({ success: false, message: 'Track not found' });
+    }
+    saveMedia(media);
+    res.json({ success: true, message: 'Default track updated' });
+  } catch (err) {
+    res.status(500).json({ success: false, message: err.message });
+  }
+});
+
+// API: Delete an audio track
+app.delete('/api/media/:id', (req, res) => {
+  try {
+    const id = req.params.id;
+    let media = getMedia();
+    const target = media.find(t => t.id === id);
+    if (!target) {
+      return res.status(404).json({ success: false, message: 'Track not found' });
+    }
+
+    media = media.filter(t => t.id !== id);
+    if (target.isDefault && media.length > 0) {
+      media[0].isDefault = true;
+    }
+    saveMedia(media);
+
+    if (target.filename) {
+      const filePath = path.join(MEDIA_DIR, target.filename);
+      if (fs.existsSync(filePath)) {
+        fs.unlinkSync(filePath);
+      }
+    }
+
+    res.json({ success: true, message: 'Audio track removed' });
   } catch (err) {
     res.status(500).json({ success: false, message: err.message });
   }
@@ -506,6 +637,10 @@ app.get('/api/admin/metrics', (req, res) => {
     const vipTemplates = templates.filter(t => t.tier === 'vip').length;
     const freeTemplates = templates.filter(t => t.tier !== 'vip').length;
 
+    const media = getMedia();
+    const totalMediaStorageBytes = media.reduce((acc, m) => acc + (m.fileSize || 0), 0);
+    const defaultTrack = media.find(m => m.isDefault) || null;
+
     res.json({
       success: true,
       metrics: {
@@ -522,6 +657,9 @@ app.get('/api/admin/metrics', (req, res) => {
         publishedTemplates,
         vipTemplates,
         freeTemplates,
+        mediaCount: media.length,
+        totalMediaStorageBytes,
+        defaultTrack: defaultTrack ? defaultTrack.title : 'None configured',
         occasionsBreakdown: occasionsCount,
         premiumBuyers,
         annotatedWishes: annotatedWishes.slice(0, 50),

@@ -5,6 +5,7 @@
 <base href="/"/>
 <meta content="width=device-width, initial-scale=1.0" name="viewport"/>
 <title>WishMagic | Gift a Magical Web-Experience!</title>
+<script src="js/site-theme.js"></script>
 <script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
 <link href="https://fonts.googleapis.com" rel="preconnect"/>
 <link crossorigin="" href="https://fonts.gstatic.com" rel="preconnect"/>
@@ -16,8 +17,32 @@
 <script src="js/WishMagicCore.js"></script>
 <script src="js/customize-engine.js"></script>
 <style>
+    :root {
+      --bg-body: #F6F0FF;
+      --text-main: #24113F;
+      --card-bg: rgba(255, 255, 255, 0.84);
+      --card-border: rgba(255, 255, 255, 0.95);
+      --nav-bg: rgba(255, 255, 255, 0.8);
+      --nav-border: rgba(255, 255, 255, 0.9);
+      --pill-bg: rgba(255, 255, 255, 0.9);
+      --pill-text: #24113F;
+      --pill-border: rgba(233, 213, 255, 0.9);
+    }
+
+    html.dark {
+      --bg-body: #0F0521;
+      --text-main: #F3E8FF;
+      --card-bg: rgba(29, 11, 54, 0.75);
+      --card-border: rgba(147, 51, 234, 0.25);
+      --nav-bg: rgba(20, 6, 40, 0.85);
+      --nav-border: rgba(147, 51, 234, 0.35);
+      --pill-bg: rgba(29, 11, 54, 0.8);
+      --pill-text: #E9D5FF;
+      --pill-border: rgba(147, 51, 234, 0.3);
+    }
+
     body {
-      background-color: #F6F0FF;
+      background-color: var(--bg-body);
       background-image: 
         radial-gradient(at 10% 8%, rgba(233, 213, 255, 0.75) 0px, transparent 45%),
         radial-gradient(at 90% 12%, rgba(251, 207, 232, 0.6) 0px, transparent 50%),
@@ -26,29 +51,40 @@
         radial-gradient(at 15% 90%, rgba(254, 215, 240, 0.5) 0px, transparent 50%);
       min-height: 100vh;
       overflow-x: hidden;
-      color: #24113F;
+      color: var(--text-main);
+      transition: background-color 0.3s ease, color 0.3s ease;
     }
+
+    html.dark body {
+      background-image: 
+        radial-gradient(at 10% 8%, rgba(147, 51, 234, 0.22) 0px, transparent 50%),
+        radial-gradient(at 90% 12%, rgba(236, 72, 153, 0.18) 0px, transparent 50%),
+        radial-gradient(at 50% 45%, rgba(88, 28, 135, 0.25) 0px, transparent 65%),
+        radial-gradient(at 85% 75%, rgba(126, 34, 206, 0.18) 0px, transparent 55%),
+        radial-gradient(at 15% 90%, rgba(157, 23, 77, 0.18) 0px, transparent 50%);
+    }
+
     .glass-card {
-      background: rgba(255, 255, 255, 0.84);
+      background: var(--card-bg);
       backdrop-filter: blur(20px);
-      border: 1px solid rgba(255, 255, 255, 0.95);
-      box-shadow: 0 16px 40px -10px rgba(107, 33, 168, 0.08), 0 0 0 1px rgba(255, 255, 255, 0.6) inset;
+      border: 1px solid var(--card-border);
+      box-shadow: 0 16px 40px -10px rgba(107, 33, 168, 0.08);
     }
     .glass-nav {
-      background: rgba(255, 255, 255, 0.8);
+      background: var(--nav-bg);
       backdrop-filter: blur(24px);
-      border: 1px solid rgba(255, 255, 255, 0.9);
+      border: 1px solid var(--nav-border);
       box-shadow: 0 14px 35px -8px rgba(107, 33, 168, 0.12);
     }
     .glass-pill {
-      background: rgba(255, 255, 255, 0.9);
+      background: var(--pill-bg);
+      color: var(--pill-text);
       backdrop-filter: blur(14px);
-      border: 1px solid rgba(255, 255, 255, 0.95);
+      border: 1px solid var(--pill-border);
       box-shadow: 0 4px 14px rgba(126, 34, 206, 0.06);
       transition: all 0.2s ease;
     }
     .glass-pill:hover {
-      background: #ffffff;
       transform: translateY(-2px);
       box-shadow: 0 8px 24px rgba(126, 34, 206, 0.14);
     }
@@ -89,7 +125,7 @@
   </style>
 <meta content="web_standard" name="shell-type"/>  <script src="js/site-tracker.js"></script>
 </head>
-<body class="w-full min-h-screen bg-[#F6F0FF] text-[#24113F] font-sans antialiased selection:bg-pink-500 selection:text-white">
+<body class="w-full min-h-screen font-sans antialiased selection:bg-pink-500 selection:text-white">
 <!-- Header -->
 <header class="sticky top-2 sm:top-5 z-40 px-2.5 sm:px-6 md:px-8 max-w-7xl mx-auto w-full transition-all">
 <div class="glass-nav rounded-2xl sm:rounded-full px-3 sm:px-5 lg:px-7 py-1.5 sm:py-2.5 flex items-center justify-between gap-2 sm:gap-4 shadow-lg shadow-purple-900/5">
@@ -100,23 +136,28 @@
 </svg>
 </div>
 <div class="flex flex-col">
-<span class="font-display font-extrabold text-base sm:text-xl lg:text-2xl tracking-tight bg-gradient-to-r from-purple-900 via-pink-600 to-purple-800 bg-clip-text text-transparent leading-none">WishMagic</span>
-<span class="text-[9px] sm:text-[10px] font-semibold text-purple-800/80 tracking-wider mt-0.5 hidden md:inline-block">Create. Personalize. Celebrate.</span>
+<span class="font-display font-extrabold text-base sm:text-xl lg:text-2xl tracking-tight bg-gradient-to-r from-purple-900 via-pink-600 to-purple-800 dark:from-purple-200 dark:via-pink-400 dark:to-purple-300 bg-clip-text text-transparent leading-none">WishMagic</span>
+<span class="text-[9px] sm:text-[10px] font-semibold text-purple-800/80 dark:text-purple-300/80 tracking-wider mt-0.5 hidden md:inline-block">Create. Personalize. Celebrate.</span>
 </div>
 </a>
-<nav class="hidden lg:flex items-center gap-1 xl:gap-2 text-sm font-semibold text-purple-950">
-<a class="px-3.5 py-1.5 rounded-full hover:bg-white/70 hover:text-purple-700 transition" href="index.html">Home</a>
+<nav class="hidden lg:flex items-center gap-1 xl:gap-2 text-sm font-semibold text-purple-950 dark:text-purple-100">
+<a class="px-3.5 py-1.5 rounded-full hover:bg-white/70 dark:hover:bg-purple-900/60 hover:text-purple-700 dark:hover:text-pink-300 transition" href="index.html">Home</a>
 <a class="px-3.5 py-1.5 rounded-full bg-purple-700 text-white shadow-sm" href="marketplace.html">Templates</a>
-<a class="px-3.5 py-1.5 rounded-full hover:bg-white/70 hover:text-purple-700 transition" href="index.html#how-it-works">How It Works</a>
-<a class="px-3.5 py-1.5 rounded-full hover:bg-white/70 hover:text-purple-700 transition" href="index.html#pricing-section">Pricing</a>
-<a class="px-3.5 py-1.5 rounded-full hover:bg-white/70 hover:text-purple-700 transition" href="index.html#about-section">About</a>
+<a class="px-3.5 py-1.5 rounded-full hover:bg-white/70 dark:hover:bg-purple-900/60 hover:text-purple-700 dark:hover:text-pink-300 transition" href="index.html#how-it-works">How It Works</a>
+<a class="px-3.5 py-1.5 rounded-full hover:bg-white/70 dark:hover:bg-purple-900/60 hover:text-purple-700 dark:hover:text-pink-300 transition" href="index.html#pricing-section">Pricing</a>
+<a class="px-3.5 py-1.5 rounded-full hover:bg-white/70 dark:hover:bg-purple-900/60 hover:text-purple-700 dark:hover:text-pink-300 transition" href="index.html#about-section">About</a>
 </nav>
 <div class="flex items-center gap-1.5 sm:gap-2 flex-shrink-0">
+<!-- Dynamic Device/Manual Theme Switcher -->
+<button class="p-1.5 sm:px-2.5 sm:py-1 rounded-full glass-pill flex items-center gap-1 text-xs font-bold hover:text-pink-600 transition cursor-pointer" onclick="toggleSiteTheme()" title="Switch Light / Dark Theme (Matches Device Theme automatically)" aria-label="Toggle Theme">
+  <span class="material-symbols-outlined text-[18px] site-theme-icon">dark_mode</span>
+  <span class="hidden xl:inline text-[11px] site-theme-label">Theme</span>
+</button>
 <div class="relative hidden xl:block w-52">
-<input class="w-full text-xs font-semibold pl-9 pr-7 py-1.5 rounded-full border border-purple-200 bg-white/80 focus:bg-white focus:outline-none focus:ring-2 focus:ring-purple-400 placeholder-purple-400 transition" id="nav-search-input" oninput="handleNavSearch(this.value)" placeholder="Search templates, occasions..." type="text"/>
-<svg class="w-3.5 h-3.5 text-purple-600 absolute left-3 top-2" fill="none" stroke="currentColor" viewbox="0 0 24 24"><path d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" stroke-linecap="round" stroke-linejoin="round" stroke-width="2"></path></svg>
+<input class="w-full text-xs font-semibold pl-9 pr-7 py-1.5 rounded-full border border-purple-200/90 dark:border-purple-800/80 bg-white/80 dark:bg-purple-950/60 text-purple-950 dark:text-purple-100 focus:bg-white dark:focus:bg-purple-900 focus:outline-none focus:ring-2 focus:ring-purple-400 placeholder-purple-400 dark:placeholder-purple-400/60 transition" id="nav-search-input" oninput="handleNavSearch(this.value)" placeholder="Search templates, occasions..." type="text"/>
+<svg class="w-3.5 h-3.5 text-purple-600 dark:text-purple-400 absolute left-3 top-2" fill="none" stroke="currentColor" viewbox="0 0 24 24"><path d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" stroke-linecap="round" stroke-linejoin="round" stroke-width="2"></path></svg>
 </div>
-<button class="px-2.5 sm:px-3.5 py-1 sm:py-1.5 text-[11px] sm:text-xs md:text-sm font-bold text-purple-950 rounded-full hover:bg-white/80 hover:text-purple-700 transition whitespace-nowrap" onclick="openModal('auth-modal')">Sign In</button>
+<button class="px-2.5 sm:px-3.5 py-1 sm:py-1.5 text-[11px] sm:text-xs md:text-sm font-bold text-purple-950 dark:text-purple-100 rounded-full hover:bg-white/80 dark:hover:bg-purple-900/70 hover:text-purple-700 dark:hover:text-pink-300 transition whitespace-nowrap" onclick="openModal('auth-modal')">Sign In</button>
 <button class="px-2.5 sm:px-3.5 py-1 sm:py-1.5 text-[11px] sm:text-xs md:text-sm font-bold text-white bg-gradient-to-r from-[#EC4899] to-[#7C3AED] rounded-full shadow-sm hover:shadow-md hover:scale-105 active:scale-95 transition-all flex items-center gap-1 whitespace-nowrap" onclick="openModal('auth-modal')">
 <span>Sign Up</span><span class="text-amber-300 text-[10px] sm:text-xs">✨</span>
 </button>
@@ -134,7 +175,7 @@
 </div>
 <div class="flex items-center gap-space-xs bg-secondary-container/20 px-space-md py-space-xs rounded-full text-secondary">
 <span class="material-symbols-outlined text-body-sm">diamond</span>
-<span class="font-label-md text-label-md uppercase tracking-wider">Template: Glitter Birthday Bash 3D (v2.4) • ₹49 VIP Blueprint</span>
+<span class="font-label-md text-label-md uppercase tracking-wider" id="customizer-ribbon-title">Custom Experience Blueprint</span>
 </div>
 <div class="flex items-center gap-space-xs text-on-surface-variant font-label-sm text-label-sm">
 <span class="w-2 h-2 rounded-full bg-emerald-400 animate-ping"></span>
@@ -206,18 +247,18 @@
               </span>
 </div>
 <div class="relative">
-<input class="w-full bg-surface-container-lowest text-on-surface rounded-lg px-space-md py-space-sm font-body-md text-body-md shadow-inner focus:outline-none focus:bg-surface-container-high transition" id="recipient-input" oninput="syncRecipient(this.value)" placeholder="Enter recipient name" type="text" value="Kritika Sharma"/>
+<input class="w-full bg-surface-container-lowest text-on-surface rounded-lg px-space-md py-space-sm font-body-md text-body-md shadow-inner focus:outline-none focus:bg-surface-container-high transition" id="recipient-input" oninput="syncRecipient(this.value)" placeholder="Enter recipient's name" type="text" value=""/>
 <span class="material-symbols-outlined absolute right-space-md top-space-sm text-tertiary">celebration</span>
 </div>
 </div>
 <div class="grid grid-cols-1 sm:grid-cols-2 gap-space-md">
 <div>
 <label class="block font-label-md text-label-md text-on-surface-variant mb-space-xs" for="sender-input">From (Sender Name)</label>
-<input class="w-full bg-surface-container-lowest text-on-surface rounded-lg px-space-md py-space-sm font-body-md text-body-md shadow-inner focus:outline-none focus:bg-surface-container-high transition" id="sender-input" oninput="syncSender(this.value)" type="text" value="Ankit Verma"/>
+<input class="w-full bg-surface-container-lowest text-on-surface rounded-lg px-space-md py-space-sm font-body-md text-body-md shadow-inner focus:outline-none focus:bg-surface-container-high transition" id="sender-input" oninput="syncSender(this.value)" type="text" placeholder="Your name" value=""/>
 </div>
 <div>
 <label class="block font-label-md text-label-md text-on-surface-variant mb-space-xs" for="contact-input">Sender Phone / WhatsApp (for link &amp; receipt)</label>
-<input class="w-full bg-surface-container-lowest text-on-surface rounded-lg px-space-md py-space-sm font-body-md text-body-md shadow-inner focus:outline-none focus:bg-surface-container-high transition" id="contact-input" oninput="syncContact(this.value)" type="text" placeholder="+91 98765 43210"/>
+<input class="w-full bg-surface-container-lowest text-on-surface rounded-lg px-space-md py-space-sm font-body-md text-body-md shadow-inner focus:outline-none focus:bg-surface-container-high transition" id="contact-input" oninput="syncContact(this.value)" type="text" placeholder="+91 ..."/>
 </div>
 </div>
 <div class="mt-space-sm">
@@ -233,41 +274,16 @@
 <span class="w-2.5 h-2.5 rounded-full bg-secondary"></span>
 <h3 class="font-headline-md text-headline-md text-on-surface">Time-Capsule Memory Reel</h3>
 </div>
-<span class="font-label-sm text-label-sm text-secondary bg-surface-container px-space-sm py-0.5 rounded">3 of 6 Uploaded</span>
+<span class="font-label-sm text-label-sm text-secondary bg-surface-container px-space-sm py-0.5 rounded" id="photo-upload-count">0 of 6 Uploaded</span>
 </div>
-<!-- Polaroid Upload Grid -->
-<div class="grid grid-cols-3 gap-space-sm mb-space-md">
-<!-- Card 1 -->
-<div class="bg-surface-container-high p-space-xs rounded-lg flex flex-col items-center shadow-md group relative">
-<div class="w-full aspect-square rounded overflow-hidden mb-space-xs bg-surface-container-lowest relative">
-<img class="w-full h-full object-cover group-hover:scale-105 transition" data-alt="Warm golden sunset on a tropical Goa beach with two laughing young friends holding coconuts, atmospheric lens flare, golden hour, 4k cinematic photorealistic style, violet tinted sky." src="https://lh3.googleusercontent.com/aida-public/AB6AXuDe54fGiea8Z_WpNJlgdup4qs1xPykvRFfk_Ca2gLAp-GM0KNEQy5Sq0oyRqDCvDE7_nZHOe-HaWYvTVfwAIdFGJOxMrcXpTYy8R61jSwKkrk10BoTBYaieF0IZIgiMnqCHqVLg8PPo5ApvPe930YmK_jZGRwq9feL4UTiVOVXuyrRkvhSDlfD_mbqzZV-iAwYHzjHAQm4nvGJthg7ARmO7T1LjzK3KtcpiQkL5ZMOhg2sLSSoQ-x_B"/>
-<span class="absolute top-1 right-1 bg-surface-container-lowest/80 text-emerald-400 p-0.5 rounded-full material-symbols-outlined text-body-sm">check_circle</span>
-</div>
-<input class="w-full text-center bg-transparent text-on-surface font-label-sm text-label-sm focus:outline-none" type="text" value="Goa Sunset 🏖️"/>
-</div>
-<!-- Card 2 -->
-<div class="bg-surface-container-high p-space-xs rounded-lg flex flex-col items-center shadow-md group relative">
-<div class="w-full aspect-square rounded overflow-hidden mb-space-xs bg-surface-container-lowest relative">
-<img class="w-full h-full object-cover group-hover:scale-105 transition" data-alt="College graduation ceremony joyous moment, happy student in academic graduation cap throwing confetti in auditorium, ambient studio lighting with warm purple glow and magenta accent." src="https://lh3.googleusercontent.com/aida-public/AB6AXuAjEDH9reQNJxMMTN6rkNZGQpS7f_4tk0vgcOyuWHSERkCwnevnT4EZx2qGIZy3DYVhTtuc_-dKe03s9TTu-p9S-3WC8umgcdoIJyh9eeporRb_8PPkIssYV-jB3D3nnSvl940x8EVBv6Wg9urfMUd-elLkUoitn6fj_T1bbSHZ8JqL9qaIqkEAJe7LJDi2nUkO2yrxXPjeI7uhz1rX9kCsd8I0fdb00uSDxpmzD48UH9KjNhUtsoVK"/>
-<span class="absolute top-1 right-1 bg-surface-container-lowest/80 text-emerald-400 p-0.5 rounded-full material-symbols-outlined text-body-sm">check_circle</span>
-</div>
-<input class="w-full text-center bg-transparent text-on-surface font-label-sm text-label-sm focus:outline-none" type="text" value="Farewell 🎓"/>
-</div>
-<!-- Card 3 -->
-<div class="bg-surface-container-high p-space-xs rounded-lg flex flex-col items-center shadow-md group relative">
-<div class="w-full aspect-square rounded overflow-hidden mb-space-xs bg-surface-container-lowest relative">
-<img class="w-full h-full object-cover group-hover:scale-105 transition" data-alt="Two best friends sitting at an outdoor late night tea stall stall in Mumbai, steaming hot chai glasses, soft bokeh streetlights, warm nostalgic night atmosphere with deep violet shadows." src="https://lh3.googleusercontent.com/aida-public/AB6AXuDVFSbzejyX2bf6G1tlvzAWjr3Y4zNWsURqZ36a8f5uKPqrdFZ8_omJyahjgZ2v6RI8ra-KUraxCeaKs3EOydmDHZXUZM8YNzQJrnRm350dE-yVUJAFv2-RY7iTOK90fZ_QbdHr8CWB_12qI4pyaf4MH2FjkHcK259U5wvxxtwHZSlb74XTZAssESj8FzDKHFlupv5thuUYkIYuGxjGLbHfl8_phxzDKazljHq4FAzmQGZuq76jNm4s"/>
-<span class="absolute top-1 right-1 bg-surface-container-lowest/80 text-emerald-400 p-0.5 rounded-full material-symbols-outlined text-body-sm">check_circle</span>
-</div>
-<input class="w-full text-center bg-transparent text-on-surface font-label-sm text-label-sm focus:outline-none" type="text" value="Late Night Chai ☕"/>
-</div>
-</div>
-<!-- Add Dropzone -->
-<div class="bg-surface-container-lowest/60 hover:bg-surface-container-lowest p-space-md rounded-lg flex flex-col items-center justify-center text-center cursor-pointer transition shadow-inner">
+<!-- Photo Upload Dropzone -->
+<div class="bg-surface-container-lowest/60 hover:bg-surface-container-lowest p-space-lg rounded-lg flex flex-col items-center justify-center text-center cursor-pointer transition shadow-inner border border-dashed border-purple-900/40" onclick="document.getElementById('memory-photo-input')?.click()">
+<input type="file" id="memory-photo-input" accept="image/*" multiple class="hidden" onchange="handleMemoryPhotosUpload(this)"/>
 <span class="material-symbols-outlined text-headline-lg text-primary mb-space-xs">cloud_upload</span>
-<span class="font-headline-sm text-headline-sm text-on-surface">+ Add 3 More Photos</span>
-<span class="font-body-sm text-body-sm text-on-surface-variant">Drag high-res snapshots or click to browse</span>
+<span class="font-headline-sm text-headline-sm text-on-surface">Upload Celebration Memories</span>
+<span class="font-body-sm text-body-sm text-on-surface-variant">Add up to 6 high-res photos to create your memory reel</span>
 </div>
+<div id="memory-reel-preview" class="grid grid-cols-3 gap-space-sm mt-space-sm hidden"></div>
 </div>
 <!-- Section 3: Heartfelt Custom Note -->
 <div class="bg-surface-container-low rounded-xl p-space-lg shadow-xl relative overflow-hidden">
@@ -276,10 +292,10 @@
 <span class="w-2.5 h-2.5 rounded-full bg-tertiary"></span>
 <h3 class="font-headline-md text-headline-md text-on-surface">Personal Message</h3>
 </div>
-<span class="font-label-sm text-label-sm text-on-surface-variant" id="char-count">174 / 500</span>
+<span class="font-label-sm text-label-sm text-on-surface-variant" id="char-count">0 / 500</span>
 </div>
 <div class="relative">
-<textarea class="w-full bg-surface-container-lowest text-on-surface rounded-lg p-space-md font-body-md text-body-md shadow-inner focus:outline-none focus:bg-surface-container-high transition leading-relaxed" id="message-input" maxlength="500" oninput="syncMessage(this.value)" rows="4">Happy Birthday Kritika! ✨ From chaotic late-night study sessions to surviving college together, you've been my constant anchor. Keep shining bright across this universe!</textarea>
+<textarea class="w-full bg-surface-container-lowest text-on-surface rounded-lg p-space-md font-body-md text-body-md shadow-inner focus:outline-none focus:bg-surface-container-high transition leading-relaxed" id="message-input" maxlength="500" oninput="syncMessage(this.value)" rows="4" placeholder="Write your heartfelt message here..."></textarea>
 <div class="flex justify-between items-center mt-space-xs">
 <div class="flex gap-space-xs">
 <button class="bg-surface-container-high hover:bg-surface-variant px-space-sm py-0.5 rounded font-label-sm text-label-sm text-primary">✨ Enhance with Magic AI</button>
@@ -294,9 +310,9 @@
 <div class="flex items-center justify-between mb-space-md">
 <div class="flex items-center gap-space-xs">
 <span class="w-2.5 h-2.5 rounded-full bg-primary-container"></span>
-<h3 class="font-headline-md text-headline-md text-on-surface">Soundscape &amp; Unboxing FX</h3>
+<h3 class="font-headline-md text-headline-md text-on-surface">Soundscape &amp; Audio</h3>
 </div>
-<span class="font-label-sm text-label-sm bg-primary-container/20 text-primary px-space-sm py-0.5 rounded">432Hz Master Audio</span>
+<span class="font-label-sm text-label-sm bg-primary-container/20 text-primary px-space-sm py-0.5 rounded">Master Audio</span>
 </div>
 <!-- Audio Selector Card -->
 <div class="bg-surface-container-high p-space-md rounded-lg flex items-center justify-between gap-space-md mb-space-md shadow-md">
@@ -305,8 +321,8 @@
 <span class="material-symbols-outlined text-headline-sm" id="audio-play-icon">play_arrow</span>
 </button>
 <div>
-<p class="font-headline-sm text-headline-sm text-on-surface">Celestial Waltz</p>
-<p class="font-label-sm text-label-sm text-secondary">Lo-Fi Acoustic Strings • 02:44</p>
+<p class="font-headline-sm text-headline-sm text-on-surface" id="customizer-audio-title">Interactive Celebration Synth</p>
+<p class="font-label-sm text-label-sm text-secondary" id="customizer-audio-desc">Synthesized Celebration Audio</p>
 </div>
 </div>
 <!-- Waveform Visualizer simulation -->
@@ -334,10 +350,10 @@
 <p class="font-label-sm text-label-sm text-on-surface-variant">Embossed on the opening virtual seal</p>
 </div>
 <div class="flex items-center gap-space-sm">
-<input class="w-20 text-center uppercase tracking-widest bg-surface-container-lowest text-tertiary font-label-lg text-label-lg rounded-lg py-space-xs shadow-inner focus:outline-none" id="monogram-input" maxlength="6" oninput="syncMonogram(this.value)" type="text" value="K &amp; A"/>
-<div class="w-10 h-10 rounded-full bg-tertiary text-on-tertiary font-headline-sm text-headline-sm flex items-center justify-center shadow-md font-serif">
-              KA
-            </div>
+<input class="w-20 text-center uppercase tracking-widest bg-surface-container-lowest text-tertiary font-label-lg text-label-lg rounded-lg py-space-xs shadow-inner focus:outline-none" id="monogram-input" maxlength="6" oninput="syncMonogram(this.value)" type="text" placeholder="Initials" value=""/>
+<div class="w-10 h-10 rounded-full bg-tertiary text-on-tertiary font-headline-sm text-headline-sm flex items-center justify-center shadow-md font-serif" id="monogram-stamp-preview">
+  ✦
+</div>
 </div>
 </div>
 </div>
@@ -407,12 +423,12 @@
 </div>
 <!-- Dynamic Headline -->
 <h1 class="font-display-lg text-display-lg bg-gradient-to-r from-primary via-secondary to-tertiary bg-clip-text text-transparent mb-space-xs tracking-tight" id="preview-headline">
-            Happy Birthday, Kritika Sharma!
+            Happy Celebration!
           </h1>
 <!-- Date Subheading -->
 <div class="flex items-center gap-space-xs font-label-md text-label-md text-tertiary uppercase tracking-widest mb-space-lg">
 <span>✦</span>
-<span id="preview-date">12 January 2027</span>
+<span id="preview-date">Special Day</span>
 <span>✦</span>
 </div>
 <!-- Interactive 3D Unboxing Box / Cake Hologram -->
@@ -426,7 +442,7 @@
 <span class="font-label-sm text-label-sm text-on-surface-variant">Candles Flickering</span>
 <!-- Wax Seal Stamp Overlap -->
 <div class="absolute -bottom-2 -right-2 w-14 h-14 rounded-full bg-tertiary text-on-tertiary flex items-center justify-center shadow-2xl transform rotate-12 font-headline-sm text-headline-sm font-serif" id="preview-seal-stamp">
-                K &amp; A
+                WM
               </div>
 </div>
 </div>
@@ -434,11 +450,11 @@
 <div class="max-w-md w-full bg-surface-container-high/80 backdrop-blur-xl rounded-2xl p-space-md shadow-xl my-space-md text-left relative">
 <span class="material-symbols-outlined absolute -top-3 left-4 text-headline-lg text-primary">format_quote</span>
 <p class="font-body-md text-body-md text-on-surface leading-relaxed mt-space-xs" id="preview-message-body">
-              Happy Birthday Kritika! ✨ From chaotic late-night study sessions to surviving college together, you've been my constant anchor. Keep shining bright across this universe!
+              Wishing you all the joy, love, and magic on your special celebration!
             </p>
 <div class="flex justify-end items-center gap-space-xs mt-space-sm text-tertiary font-headline-sm text-headline-sm">
-<span class="font-body-sm text-body-sm text-on-surface-variant">Deepest love,</span>
-<span id="preview-sender-name">Ankit Verma</span>
+<span class="font-body-sm text-body-sm text-on-surface-variant">With love,</span>
+<span id="preview-sender-name">Someone Special</span>
 </div>
 </div>
 <!-- Time-Capsule Polaroid Carousel Preview -->
@@ -532,9 +548,39 @@
   }
 
   function syncMonogram(val) {
-    const clean = val.trim().toUpperCase() || 'KA';
+    const clean = val.trim().toUpperCase() || '✦';
     const s = document.getElementById('preview-seal-stamp');
     if (s) s.innerText = clean;
+    const stamp = document.getElementById('monogram-stamp-preview');
+    if (stamp) stamp.innerText = clean;
+  }
+
+  function handleMemoryPhotosUpload(input) {
+    if (!input.files || input.files.length === 0) return;
+    const files = Array.from(input.files).slice(0, 6);
+    const countEl = document.getElementById('photo-upload-count');
+    if (countEl) countEl.innerText = `${files.length} of 6 Uploaded`;
+    const previewGrid = document.getElementById('memory-reel-preview');
+    if (previewGrid) {
+      previewGrid.innerHTML = '';
+      previewGrid.classList.remove('hidden');
+      files.forEach((f, idx) => {
+        const reader = new FileReader();
+        reader.onload = (e) => {
+          const card = document.createElement('div');
+          card.className = 'bg-surface-container-high p-space-xs rounded-lg flex flex-col items-center shadow-md relative';
+          card.innerHTML = `
+            <div class="w-full aspect-square rounded overflow-hidden mb-space-xs bg-surface-container-lowest relative">
+              <img class="w-full h-full object-cover" src="${e.target.result}" alt="Memory photo"/>
+              <span class="absolute top-1 right-1 bg-surface-container-lowest/80 text-emerald-400 p-0.5 rounded-full material-symbols-outlined text-[14px]">check_circle</span>
+            </div>
+            <span class="text-[10px] text-on-surface truncate w-full text-center">Photo #${idx + 1}</span>
+          `;
+          previewGrid.appendChild(card);
+        };
+        reader.readAsDataURL(f);
+      });
+    }
   }
 
   // Viewport Device Switcher
@@ -607,53 +653,53 @@
     }
   }
 </script></main>
-<!-- Footer -->
-<footer class="bg-[#1D0B36] text-white pt-16 pb-12 px-6 md:px-12 mt-auto border-t border-purple-900/50" id="about-section">
+<!-- Adaptive Footer -->
+<footer class="bg-gradient-to-b from-purple-50/80 via-white to-purple-100/50 dark:from-[#140628] dark:via-[#1D0B36] dark:to-[#0D041A] text-[#24113F] dark:text-white pt-16 pb-12 px-6 md:px-12 mt-auto border-t border-purple-200/80 dark:border-purple-900/50 transition-colors duration-300" id="about-section">
 <div class="max-w-7xl mx-auto">
-<div class="grid grid-cols-1 md:grid-cols-3 gap-8 pb-12 border-b border-purple-800/40 text-purple-200 text-xs sm:text-sm">
-<div class="flex items-start gap-4">
-<div class="w-10 h-10 rounded-full bg-purple-900/80 flex items-center justify-center text-pink-400 font-bold">🛡️</div>
-<div><p class="font-bold text-white text-base">Privacy Policy</p><p class="text-purple-300/80 mt-1">Your privacy is important to us. Photos and wishes remain strictly confidential.</p></div>
+<div class="grid grid-cols-1 md:grid-cols-3 gap-8 pb-12 border-b border-purple-200/70 dark:border-purple-800/40 text-xs sm:text-sm">
+<div class="p-4 rounded-2xl bg-white/90 dark:bg-purple-950/60 border border-purple-200/70 dark:border-purple-900/40 shadow-sm flex items-start gap-4 transition-colors">
+<div class="w-10 h-10 rounded-xl bg-purple-100 dark:bg-purple-900/80 text-pink-600 dark:text-pink-400 flex items-center justify-center flex-shrink-0 text-base shadow-sm">🛡️</div>
+<div><p class="font-bold text-purple-950 dark:text-white text-base">Privacy Policy</p><p class="text-purple-800/80 dark:text-purple-300/80 mt-1">Your privacy is important to us. Photos and wishes remain strictly confidential.</p></div>
 </div>
-<div class="flex items-start gap-4">
-<div class="w-10 h-10 rounded-full bg-purple-900/80 flex items-center justify-center text-pink-400 font-bold">📄</div>
-<div><p class="font-bold text-white text-base">Terms &amp; Conditions</p><p class="text-purple-300/80 mt-1">Simple, honest guidelines for creating pure joyful experiences.</p></div>
+<div class="p-4 rounded-2xl bg-white/90 dark:bg-purple-950/60 border border-purple-200/70 dark:border-purple-900/40 shadow-sm flex items-start gap-4 transition-colors">
+<div class="w-10 h-10 rounded-xl bg-purple-100 dark:bg-purple-900/80 text-pink-600 dark:text-pink-400 flex items-center justify-center flex-shrink-0 text-base shadow-sm">📄</div>
+<div><p class="font-bold text-purple-950 dark:text-white text-base">Terms &amp; Conditions</p><p class="text-purple-800/80 dark:text-purple-300/80 mt-1">Simple, honest guidelines for creating pure joyful experiences.</p></div>
 </div>
-<div class="flex items-start gap-4">
-<div class="w-10 h-10 rounded-full bg-purple-900/80 flex items-center justify-center text-pink-400 font-bold">💬</div>
-<div><p class="font-bold text-white text-base">Contact Support</p><p class="text-purple-300/80 mt-1">We're here to help you 24/7 at hello@wishmagic.com.</p></div>
+<div class="p-4 rounded-2xl bg-white/90 dark:bg-purple-950/60 border border-purple-200/70 dark:border-purple-900/40 shadow-sm flex items-start gap-4 transition-colors">
+<div class="w-10 h-10 rounded-xl bg-purple-100 dark:bg-purple-900/80 text-pink-600 dark:text-pink-400 flex items-center justify-center flex-shrink-0 text-base shadow-sm">💬</div>
+<div><p class="font-bold text-purple-950 dark:text-white text-base">Contact Support</p><p class="text-purple-800/80 dark:text-purple-300/80 mt-1">We're here to help you 24/7 at hello@wishmagic.com.</p></div>
 </div>
 </div>
 <div class="grid grid-cols-2 md:grid-cols-5 gap-10 py-12 text-sm">
 <div class="col-span-2">
 <div class="flex items-center gap-3 mb-4">
-<div class="w-9 h-9 rounded-full bg-pink-500 flex items-center justify-center font-bold text-white shadow-md">🪄</div>
-<span class="font-display font-extrabold text-2xl text-white">WishMagic</span>
+<div class="w-9 h-9 rounded-full bg-gradient-to-tr from-purple-600 to-pink-500 flex items-center justify-center font-bold text-white shadow-md">🪄</div>
+<span class="font-display font-extrabold text-2xl text-purple-950 dark:text-white">WishMagic</span>
 </div>
-<p class="text-purple-300/80 leading-relaxed max-w-sm mb-5 text-sm">Crafting joyous, emotional, and interactive digital web experiences that turn every birthday, anniversary, and celebration into a treasured memory.</p>
+<p class="text-purple-800/80 dark:text-purple-300/80 leading-relaxed max-w-sm mb-5 text-sm font-medium">Crafting joyous, emotional, and interactive digital web experiences that turn every birthday, anniversary, and celebration into a treasured memory.</p>
 </div>
 <div>
-<h4 class="font-bold text-white mb-4 uppercase tracking-wider text-xs">Occasions</h4>
-<ul class="space-y-2 text-purple-300/80 text-xs">
+<h4 class="font-bold text-purple-950 dark:text-white mb-4 uppercase tracking-wider text-xs">Occasions</h4>
+<ul class="space-y-2 text-purple-800/80 dark:text-purple-300/80 text-xs font-medium">
 <li>Birthday Wishes</li><li>Anniversary Celebrations</li><li>Romantic Love Notes</li><li>Graduation &amp; Success</li>
 </ul>
 </div>
 <div>
-<h4 class="font-bold text-white mb-4 uppercase tracking-wider text-xs">Product</h4>
-<ul class="space-y-2 text-purple-300/80 text-xs">
+<h4 class="font-bold text-purple-950 dark:text-white mb-4 uppercase tracking-wider text-xs">Product</h4>
+<ul class="space-y-2 text-purple-800/80 dark:text-purple-300/80 text-xs font-medium">
 <li>Template Library</li><li>Custom Audio Studio</li><li>QR Code Delivery</li><li>Magic Premium Pass</li>
 </ul>
 </div>
 <div>
-<h4 class="font-bold text-white mb-4 uppercase tracking-wider text-xs">Company</h4>
-<ul class="space-y-2 text-purple-300/80 text-xs">
+<h4 class="font-bold text-purple-950 dark:text-white mb-4 uppercase tracking-wider text-xs">Company</h4>
+<ul class="space-y-2 text-purple-800/80 dark:text-purple-300/80 text-xs font-medium">
 <li>About WishMagic</li><li>Press &amp; Media</li><li>Help Center</li><li>Contact Us</li>
 </ul>
 </div>
 </div>
-<div class="pt-8 border-t border-purple-900/50 flex flex-col sm:flex-row items-center justify-between text-xs text-purple-400 gap-3">
+<div class="pt-8 border-t border-purple-200/80 dark:border-purple-900/50 flex flex-col sm:flex-row items-center justify-between text-xs text-purple-800/80 dark:text-purple-400 gap-3">
 <span>© 2026 WishMagic. All rights reserved. 💜</span>
-<span class="text-purple-300/60">Designed with wonder for people who care deeply.</span>
+<span class="text-purple-600/80 dark:text-purple-300/60">Designed with wonder for people who care deeply.</span>
 </div>
 </div>
 </footer>

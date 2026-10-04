@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<html class="dark" lang="en">
+<html lang="en">
 <head>
   <meta charset="utf-8"/>
   <base href="/"/>
@@ -27,7 +27,7 @@
 <div id="sidebar-backdrop" class="fixed inset-0 bg-black/75 backdrop-blur-sm z-40 hidden md:hidden" onclick="toggleSidebar()"></div>
 
 <!-- Responsive Sidebar Drawer -->
-<aside id="admin-sidebar" class="fixed left-0 top-0 h-screen w-72 bg-[#090414] border-r border-purple-900/40 z-50 flex flex-col justify-between shadow-2xl -translate-x-full md:translate-x-0 transition-transform duration-300 ease-in-out">
+<aside id="admin-sidebar" class="fixed left-0 top-0 h-screen w-72 bg-surface-container-lowest border-r border-outline-variant/30 z-50 flex flex-col justify-between shadow-2xl -translate-x-full md:translate-x-0 transition-transform duration-300 ease-in-out">
   <div class="flex flex-col">
     <div class="px-space-lg pt-space-lg pb-space-md">
       <div class="flex items-center justify-between">
@@ -91,7 +91,7 @@
 <!-- Main Viewport Wrapper -->
 <div class="w-full md:pl-72 min-h-screen flex flex-col">
   <!-- Universal Header -->
-  <header class="fixed top-0 left-0 md:left-72 right-0 h-16 bg-[#090414]/90 backdrop-blur-xl z-30 shadow-[0_1px_8px_rgba(0,0,0,0.04)] border-b border-purple-900/40">
+  <header class="fixed top-0 left-0 md:left-72 right-0 h-16 bg-surface/90 backdrop-blur-xl z-30 shadow-[0_1px_8px_rgba(0,0,0,0.04)] border-b border-outline-variant/30">
     <div class="w-full h-full px-3 md:px-space-lg flex items-center justify-between gap-2 md:gap-space-lg">
       <div class="flex items-center gap-2 flex-1 max-w-md">
         <button class="md:hidden p-2 rounded-lg bg-surface-container hover:bg-surface-container-high text-on-surface flex items-center justify-center flex-shrink-0" onclick="toggleSidebar()" aria-label="Toggle Navigation Menu">
@@ -150,8 +150,8 @@
           <span>Active Soundtracks</span>
           <span class="material-symbols-outlined text-primary text-base">library_music</span>
         </div>
-        <div class="font-headline-lg text-xl sm:text-2xl font-black text-on-surface">48 Tracks</div>
-        <span class="text-[11px] text-emerald-400 mt-1 block">Royalty-free curated audio</span>
+        <div class="font-headline-lg text-xl sm:text-2xl font-black text-on-surface" id="stat-active-tracks">0 Tracks</div>
+        <span class="text-[11px] text-emerald-400 mt-1 block">Curated celebration audio</span>
       </div>
 
       <div class="bg-surface-container rounded-2xl p-4 sm:p-5 border border-purple-900/30 shadow-lg">
@@ -159,26 +159,26 @@
           <span>Sound Effects</span>
           <span class="material-symbols-outlined text-secondary text-base">graphic_eq</span>
         </div>
-        <div class="font-headline-lg text-xl sm:text-2xl font-black text-on-surface">24 SFX</div>
-        <span class="text-[11px] text-on-surface-variant mt-1 block">Live synthesized triggers</span>
+        <div class="font-headline-lg text-xl sm:text-2xl font-black text-on-surface" id="stat-sfx-count">4 Live SFX</div>
+        <span class="text-[11px] text-on-surface-variant mt-1 block">Live synthesized Web Audio triggers</span>
       </div>
 
       <div class="bg-surface-container rounded-2xl p-4 sm:p-5 border border-purple-900/30 shadow-lg">
         <div class="flex items-center justify-between text-outline text-xs uppercase font-bold mb-2">
-          <span>Storage Quota</span>
+          <span>Storage Status</span>
           <span class="material-symbols-outlined text-amber-400 text-base">cloud</span>
         </div>
-        <div class="font-headline-lg text-xl sm:text-2xl font-black text-on-surface">342 MB</div>
-        <span class="text-[11px] text-on-surface-variant mt-1 block">17.1% of 2.0 GB used</span>
+        <div class="font-headline-lg text-xl sm:text-2xl font-black text-on-surface" id="stat-storage-used">0.00 MB</div>
+        <span class="text-[11px] text-emerald-400 mt-1 block">Real storage utilization</span>
       </div>
 
       <div class="bg-surface-container rounded-2xl p-4 sm:p-5 border border-purple-900/30 shadow-lg">
         <div class="flex items-center justify-between text-outline text-xs uppercase font-bold mb-2">
-          <span>Top BGM</span>
+          <span>Default BGM</span>
           <span class="material-symbols-outlined text-emerald-400 text-base">audiotrack</span>
         </div>
-        <div class="font-headline-lg text-xl sm:text-2xl font-black text-on-surface truncate">Cosmic Lo-Fi</div>
-        <span class="text-[11px] text-primary mt-1 block">18,400 wish playbacks</span>
+        <div class="font-headline-lg text-xl sm:text-2xl font-black text-on-surface truncate" id="stat-default-bgm">None configured</div>
+        <span class="text-[11px] text-primary mt-1 block">Celebration soundtrack</span>
       </div>
     </div>
 
@@ -235,129 +235,11 @@
           <h2 class="font-headline-sm text-lg font-bold text-on-surface">Background Music Catalog (BGM)</h2>
           <p class="text-xs sm:text-sm text-on-surface-variant">Default and selectable celebration tracks embedded in interactive templates.</p>
         </div>
-        <span class="text-xs text-outline font-mono">6 Master Tracks Configured</span>
+        <span class="text-xs text-outline font-mono" id="stat-tracks-header-count">0 Tracks Configured</span>
       </div>
 
       <div class="grid grid-cols-1 md:grid-cols-2 gap-4" id="audio-catalog-grid">
-        <!-- Track 1 -->
-        <div class="p-4 rounded-xl bg-surface-container-low border border-purple-900/30 flex flex-col justify-between gap-3 group hover:border-primary transition">
-          <div class="flex items-start justify-between gap-3">
-            <div class="flex items-center gap-3">
-              <button onclick="simulateAudioPlay(this, 'Cosmic Stardust Lo-Fi')" class="w-10 h-10 rounded-full bg-primary-container text-white flex items-center justify-center shadow-md hover:scale-105 transition">
-                <span class="material-symbols-outlined text-lg">play_arrow</span>
-              </button>
-              <div>
-                <span class="font-bold text-sm text-on-surface block">Cosmic Stardust Lo-Fi</span>
-                <span class="text-xs text-on-surface-variant">Chill Beats · 2:45 · MP3 320kbps</span>
-              </div>
-            </div>
-            <span class="px-2 py-0.5 rounded-full bg-purple-500/20 text-purple-300 font-label-sm text-[11px] font-bold">18 Templates</span>
-          </div>
-          <div class="flex items-center justify-between pt-2 border-t border-purple-900/20 text-xs text-outline">
-            <span>License: CC-BY Royalty-Free</span>
-            <span class="text-emerald-400 font-semibold">Active Default</span>
-          </div>
-        </div>
-
-        <!-- Track 2 -->
-        <div class="p-4 rounded-xl bg-surface-container-low border border-purple-900/30 flex flex-col justify-between gap-3 group hover:border-primary transition">
-          <div class="flex items-start justify-between gap-3">
-            <div class="flex items-center gap-3">
-              <button onclick="simulateAudioPlay(this, 'Romantic Acoustic Violin')" class="w-10 h-10 rounded-full bg-secondary-container text-white flex items-center justify-center shadow-md hover:scale-105 transition">
-                <span class="material-symbols-outlined text-lg">play_arrow</span>
-              </button>
-              <div>
-                <span class="font-bold text-sm text-on-surface block">Romantic Acoustic Violin</span>
-                <span class="text-xs text-on-surface-variant">Classical Romance · 3:12 · MP3 320kbps</span>
-              </div>
-            </div>
-            <span class="px-2 py-0.5 rounded-full bg-rose-500/20 text-rose-300 font-label-sm text-[11px] font-bold">12 Templates</span>
-          </div>
-          <div class="flex items-center justify-between pt-2 border-t border-purple-900/20 text-xs text-outline">
-            <span>License: CC0 Public Domain</span>
-            <span class="text-emerald-400 font-semibold">Active Default</span>
-          </div>
-        </div>
-
-        <!-- Track 3 -->
-        <div class="p-4 rounded-xl bg-surface-container-low border border-purple-900/30 flex flex-col justify-between gap-3 group hover:border-primary transition">
-          <div class="flex items-start justify-between gap-3">
-            <div class="flex items-center gap-3">
-              <button onclick="simulateAudioPlay(this, 'Birthday Celebration Brass & Chimes')" class="w-10 h-10 rounded-full bg-amber-600 text-white flex items-center justify-center shadow-md hover:scale-105 transition">
-                <span class="material-symbols-outlined text-lg">play_arrow</span>
-              </button>
-              <div>
-                <span class="font-bold text-sm text-on-surface block">Birthday Celebration Brass &amp; Chimes</span>
-                <span class="text-xs text-on-surface-variant">Festive Upbeat · 2:10 · MP3 320kbps</span>
-              </div>
-            </div>
-            <span class="px-2 py-0.5 rounded-full bg-amber-500/20 text-amber-300 font-label-sm text-[11px] font-bold">24 Templates</span>
-          </div>
-          <div class="flex items-center justify-between pt-2 border-t border-purple-900/20 text-xs text-outline">
-            <span>License: Custom Purchased</span>
-            <span class="text-emerald-400 font-semibold">Active Default</span>
-          </div>
-        </div>
-
-        <!-- Track 4 -->
-        <div class="p-4 rounded-xl bg-surface-container-low border border-purple-900/30 flex flex-col justify-between gap-3 group hover:border-primary transition">
-          <div class="flex items-start justify-between gap-3">
-            <div class="flex items-center gap-3">
-              <button onclick="simulateAudioPlay(this, 'Retro 8-Bit Party Fun')" class="w-10 h-10 rounded-full bg-cyan-600 text-white flex items-center justify-center shadow-md hover:scale-105 transition">
-                <span class="material-symbols-outlined text-lg">play_arrow</span>
-              </button>
-              <div>
-                <span class="font-bold text-sm text-on-surface block">Retro 8-Bit Party Fun</span>
-                <span class="text-xs text-on-surface-variant">Chiptune Arcade · 1:55 · MP3 320kbps</span>
-              </div>
-            </div>
-            <span class="px-2 py-0.5 rounded-full bg-cyan-500/20 text-cyan-300 font-label-sm text-[11px] font-bold">8 Templates</span>
-          </div>
-          <div class="flex items-center justify-between pt-2 border-t border-purple-900/20 text-xs text-outline">
-            <span>License: CC-BY Royalty-Free</span>
-            <span class="text-emerald-400 font-semibold">Active Default</span>
-          </div>
-        </div>
-
-        <!-- Track 5 -->
-        <div class="p-4 rounded-xl bg-surface-container-low border border-purple-900/30 flex flex-col justify-between gap-3 group hover:border-primary transition">
-          <div class="flex items-start justify-between gap-3">
-            <div class="flex items-center gap-3">
-              <button onclick="simulateAudioPlay(this, 'Gentle Rain & Piano')" class="w-10 h-10 rounded-full bg-teal-600 text-white flex items-center justify-center shadow-md hover:scale-105 transition">
-                <span class="material-symbols-outlined text-lg">play_arrow</span>
-              </button>
-              <div>
-                <span class="font-bold text-sm text-on-surface block">Gentle Rain &amp; Piano</span>
-                <span class="text-xs text-on-surface-variant">Peaceful Piano · 3:30 · MP3 320kbps</span>
-              </div>
-            </div>
-            <span class="px-2 py-0.5 rounded-full bg-teal-500/20 text-teal-300 font-label-sm text-[11px] font-bold">6 Templates</span>
-          </div>
-          <div class="flex items-center justify-between pt-2 border-t border-purple-900/20 text-xs text-outline">
-            <span>License: CC0 Public Domain</span>
-            <span class="text-emerald-400 font-semibold">Active Default</span>
-          </div>
-        </div>
-
-        <!-- Track 6 -->
-        <div class="p-4 rounded-xl bg-surface-container-low border border-purple-900/30 flex flex-col justify-between gap-3 group hover:border-primary transition">
-          <div class="flex items-start justify-between gap-3">
-            <div class="flex items-center gap-3">
-              <button onclick="simulateAudioPlay(this, 'Bollywood Dhol Celebration')" class="w-10 h-10 rounded-full bg-orange-600 text-white flex items-center justify-center shadow-md hover:scale-105 transition">
-                <span class="material-symbols-outlined text-lg">play_arrow</span>
-              </button>
-              <div>
-                <span class="font-bold text-sm text-on-surface block">Bollywood Dhol Celebration</span>
-                <span class="text-xs text-on-surface-variant">Festive Indian · 2:20 · MP3 320kbps</span>
-              </div>
-            </div>
-            <span class="px-2 py-0.5 rounded-full bg-orange-500/20 text-orange-300 font-label-sm text-[11px] font-bold">14 Templates</span>
-          </div>
-          <div class="flex items-center justify-between pt-2 border-t border-purple-900/20 text-xs text-outline">
-            <span>License: Commercial Studio Exclusive</span>
-            <span class="text-emerald-400 font-semibold">Active Default</span>
-          </div>
-        </div>
+        <!-- Rendered dynamically via loadAudioCatalog() -->
       </div>
     </div>
   </main>
@@ -373,31 +255,45 @@
       </button>
     </div>
     <div>
-      <label class="block text-xs font-bold uppercase text-outline mb-1">Track Title</label>
-      <input id="new-track-title" class="w-full px-3 py-2 rounded-lg bg-surface-container-low text-on-surface border border-purple-900/30 text-sm" placeholder="e.g. Celestial Harp Melodies"/>
+      <label class="block text-xs font-bold uppercase text-outline mb-1">Track Title <span class="text-rose-400">*</span></label>
+      <input id="new-track-title" class="w-full px-3 py-2 rounded-lg bg-surface-container-low text-on-surface border border-purple-900/30 text-sm focus:outline-none focus:border-primary" placeholder="e.g. Celestial Harp Melodies"/>
     </div>
     <div class="grid grid-cols-2 gap-3">
       <div>
-        <label class="block text-xs font-bold uppercase text-outline mb-1">Genre / Category</label>
-        <select id="new-track-genre" class="w-full px-3 py-2 rounded-lg bg-surface-container-low text-on-surface border border-purple-900/30 text-sm">
+        <label class="block text-xs font-bold uppercase text-outline mb-1">Genre / Mood</label>
+        <select id="new-track-genre" class="w-full px-3 py-2 rounded-lg bg-surface-container-low text-on-surface border border-purple-900/30 text-sm focus:outline-none">
           <option>Lo-Fi / Chill</option>
           <option>Romance / Strings</option>
           <option>Celebration / Upbeat</option>
           <option>Ambient / Piano</option>
+          <option>Festive / Dhol</option>
+          <option>Acoustic / Guitar</option>
         </select>
       </div>
       <div>
-        <label class="block text-xs font-bold uppercase text-outline mb-1">Duration</label>
-        <input id="new-track-duration" class="w-full px-3 py-2 rounded-lg bg-surface-container-low text-on-surface border border-purple-900/30 text-sm" placeholder="2:30"/>
+        <label class="block text-xs font-bold uppercase text-outline mb-1">Duration (e.g. 2:45)</label>
+        <input id="new-track-duration" class="w-full px-3 py-2 rounded-lg bg-surface-container-low text-on-surface border border-purple-900/30 text-sm focus:outline-none" placeholder="2:30"/>
       </div>
     </div>
     <div>
-      <label class="block text-xs font-bold uppercase text-outline mb-1">Select Audio File (MP3, WAV)</label>
-      <input type="file" class="w-full px-3 py-2 rounded-lg bg-surface-container-low text-on-surface border border-purple-900/30 text-xs"/>
+      <label class="block text-xs font-bold uppercase text-outline mb-1">Licensing Terms</label>
+      <select id="new-track-license" class="w-full px-3 py-2 rounded-lg bg-surface-container-low text-on-surface border border-purple-900/30 text-sm focus:outline-none">
+        <option>Royalty-Free Commercial</option>
+        <option>Public Domain (CC0)</option>
+        <option>Creative Commons (CC-BY)</option>
+        <option>Studio Exclusive</option>
+      </select>
     </div>
-    <div class="flex justify-end gap-2 pt-2">
+    <div>
+      <label class="block text-xs font-bold uppercase text-outline mb-1">Audio File (MP3, WAV, OGG) <span class="text-rose-400">*</span></label>
+      <input id="new-track-file" type="file" accept="audio/*,.mp3,.wav,.ogg,.m4a" class="w-full px-3 py-2 rounded-lg bg-surface-container-low text-on-surface border border-purple-900/30 text-xs focus:outline-none file:mr-3 file:py-1 file:px-3 file:rounded-md file:border-0 file:text-xs file:font-semibold file:bg-primary/20 file:text-primary hover:file:bg-primary/30"/>
+    </div>
+    <div class="flex justify-end gap-2 pt-2 border-t border-purple-900/20">
       <button onclick="toggleModal('upload-audio-modal')" class="px-4 py-2 rounded-lg bg-surface-container-high text-on-surface text-xs font-bold">Cancel</button>
-      <button onclick="saveNewAudioTrack()" class="px-4 py-2 rounded-lg bg-primary-container text-white text-xs font-bold">Upload Track</button>
+      <button onclick="saveNewAudioTrack()" id="btn-submit-audio" class="px-5 py-2 rounded-lg bg-primary-container text-white text-xs font-bold hover:brightness-110 active:scale-95 transition flex items-center gap-1.5">
+        <span class="material-symbols-outlined text-sm">cloud_upload</span>
+        <span>Upload Track</span>
+      </button>
     </div>
   </div>
 </div>
@@ -410,33 +306,329 @@
     el.classList.toggle('flex');
   }
 
-  let currentPlayingBtn = null;
-  function simulateAudioPlay(btn, trackName) {
-    const icon = btn.querySelector('.material-symbols-outlined');
-    if (currentPlayingBtn && currentPlayingBtn !== btn) {
-      currentPlayingBtn.querySelector('.material-symbols-outlined').textContent = 'play_arrow';
+  // --- Real Web Audio Synthesizer (Zero Fake Simulation) ---
+  let audioCtx = null;
+  function getAudioContext() {
+    if (!audioCtx) {
+      audioCtx = new (window.AudioContext || window.webkitAudioContext)();
     }
-    if (icon.textContent === 'play_arrow') {
-      icon.textContent = 'pause';
-      currentPlayingBtn = btn;
-      playMagicSound('chime');
-      showToast(`▶ Now Playing Preview: "${trackName}"`);
-    } else {
-      icon.textContent = 'play_arrow';
-      currentPlayingBtn = null;
-      showToast(`⏸ Paused: "${trackName}"`);
+    if (audioCtx.state === 'suspended') {
+      audioCtx.resume();
+    }
+    return audioCtx;
+  }
+
+  function playMagicSound(type) {
+    try {
+      const ctx = getAudioContext();
+      const now = ctx.currentTime;
+      if (type === 'pop') {
+        const osc = ctx.createOscillator();
+        const gain = ctx.createGain();
+        osc.type = 'sine';
+        osc.frequency.setValueAtTime(300, now);
+        osc.frequency.exponentialRampToValueAtTime(800, now + 0.05);
+        osc.frequency.exponentialRampToValueAtTime(150, now + 0.15);
+        gain.gain.setValueAtTime(0.4, now);
+        gain.gain.exponentialRampToValueAtTime(0.001, now + 0.15);
+        osc.connect(gain);
+        gain.connect(ctx.destination);
+        osc.start(now);
+        osc.stop(now + 0.15);
+      } else if (type === 'chime') {
+        [523.25, 659.25, 783.99, 1046.50].forEach((freq, idx) => {
+          const osc = ctx.createOscillator();
+          const gain = ctx.createGain();
+          osc.type = 'sine';
+          osc.frequency.setValueAtTime(freq, now + idx * 0.06);
+          gain.gain.setValueAtTime(0.25, now + idx * 0.06);
+          gain.gain.exponentialRampToValueAtTime(0.001, now + idx * 0.06 + 0.4);
+          osc.connect(gain);
+          gain.connect(ctx.destination);
+          osc.start(now + idx * 0.06);
+          osc.stop(now + idx * 0.06 + 0.4);
+        });
+      } else if (type === 'unbox') {
+        [392.00, 523.25, 659.25].forEach((freq, idx) => {
+          const osc = ctx.createOscillator();
+          const gain = ctx.createGain();
+          osc.type = 'triangle';
+          osc.frequency.setValueAtTime(freq, now + idx * 0.08);
+          gain.gain.setValueAtTime(0.3, now + idx * 0.08);
+          gain.gain.exponentialRampToValueAtTime(0.001, now + idx * 0.08 + 0.5);
+          osc.connect(gain);
+          gain.connect(ctx.destination);
+          osc.start(now + idx * 0.08);
+          osc.stop(now + idx * 0.08 + 0.5);
+        });
+      } else if (type === 'firework') {
+        const osc = ctx.createOscillator();
+        const gain = ctx.createGain();
+        osc.type = 'sawtooth';
+        osc.frequency.setValueAtTime(160, now);
+        osc.frequency.exponentialRampToValueAtTime(40, now + 0.35);
+        gain.gain.setValueAtTime(0.4, now);
+        gain.gain.exponentialRampToValueAtTime(0.001, now + 0.35);
+        osc.connect(gain);
+        gain.connect(ctx.destination);
+        osc.start(now);
+        osc.stop(now + 0.35);
+      }
+      showToast(`🔊 Triggered ${type.toUpperCase()} Synth SFX`);
+    } catch (e) {
+      console.log('Audio playback notice:', e);
     }
   }
 
-  function saveNewAudioTrack() {
-    const title = document.getElementById('new-track-title').value;
+  // --- Real Audio Track Player ---
+  let activeAudio = null;
+  let activeTrackId = null;
+  let activePlayBtn = null;
+
+  function togglePlayTrack(trackId, url, title, btn) {
+    const icon = btn.querySelector('.material-symbols-outlined');
+    if (activeAudio && activeTrackId === trackId) {
+      if (activeAudio.paused) {
+        activeAudio.play();
+        icon.textContent = 'pause';
+        showToast(`▶ Playing: "${title}"`);
+      } else {
+        activeAudio.pause();
+        icon.textContent = 'play_arrow';
+        showToast(`⏸ Paused: "${title}"`);
+      }
+      return;
+    }
+
+    if (activeAudio) {
+      activeAudio.pause();
+      if (activePlayBtn) {
+        const prevIcon = activePlayBtn.querySelector('.material-symbols-outlined');
+        if (prevIcon) prevIcon.textContent = 'play_arrow';
+      }
+    }
+
+    activeAudio = new Audio(url);
+    activeTrackId = trackId;
+    activePlayBtn = btn;
+    icon.textContent = 'pause';
+    showToast(`▶ Playing: "${title}"`);
+
+    activeAudio.onended = () => {
+      icon.textContent = 'play_arrow';
+      activeAudio = null;
+      activeTrackId = null;
+      activePlayBtn = null;
+    };
+
+    activeAudio.onerror = () => {
+      icon.textContent = 'play_arrow';
+      showToast(`⚠️ Could not play audio file`);
+    };
+
+    activeAudio.play().catch(e => {
+      console.warn('Playback error:', e);
+      icon.textContent = 'play_arrow';
+    });
+  }
+
+  // --- Dynamic Audio Catalog Loader ---
+  let cachedTracks = [];
+
+  async function loadAudioCatalog() {
+    const grid = document.getElementById('audio-catalog-grid');
+    if (!grid) return;
+
+    try {
+      const res = await fetch('/api/media');
+      const data = await res.json();
+      const tracks = (data && data.success && Array.isArray(data.tracks)) ? data.tracks : [];
+      cachedTracks = tracks;
+
+      // Update KPI Bento Cards
+      const statTracks = document.getElementById('stat-active-tracks');
+      if (statTracks) {
+        statTracks.textContent = `${tracks.length} Master ${tracks.length === 1 ? 'Track' : 'Tracks'}`;
+      }
+
+      const headerCount = document.getElementById('stat-tracks-header-count');
+      if (headerCount) {
+        headerCount.textContent = `${tracks.length} Tracks Configured`;
+      }
+
+      let totalBytes = 0;
+      let defaultTrack = null;
+      tracks.forEach(t => {
+        totalBytes += (t.fileSize || 0);
+        if (t.isDefault) defaultTrack = t;
+      });
+
+      const statStorage = document.getElementById('stat-storage-used');
+      if (statStorage) {
+        statStorage.textContent = (totalBytes / (1024 * 1024)).toFixed(2) + ' MB';
+      }
+
+      const statBgm = document.getElementById('stat-default-bgm');
+      if (statBgm) {
+        statBgm.textContent = defaultTrack ? defaultTrack.title : (tracks.length > 0 ? tracks[0].title : 'None configured');
+      }
+
+      if (tracks.length === 0) {
+        grid.innerHTML = `
+          <div class="col-span-full py-12 px-6 rounded-2xl bg-surface-container-low border border-dashed border-purple-900/40 text-center flex flex-col items-center justify-center gap-3">
+            <span class="material-symbols-outlined text-4xl text-purple-400/60">library_music</span>
+            <h3 class="text-base font-bold text-on-surface">No Audio Tracks Uploaded Yet</h3>
+            <p class="text-xs text-on-surface-variant max-w-sm">Upload background music tracks (MP3 or WAV) to power celebration soundtracks and custom audio greetings.</p>
+            <button onclick="toggleModal('upload-audio-modal')" class="mt-2 px-5 py-2.5 rounded-xl bg-primary text-white text-xs font-bold hover:brightness-110 active:scale-95 transition flex items-center gap-2 shadow-lg shadow-purple-600/30">
+              <span class="material-symbols-outlined text-sm">cloud_upload</span>
+              <span>Upload First Audio Track</span>
+            </button>
+          </div>
+        `;
+        return;
+      }
+
+      grid.innerHTML = tracks.map(t => `
+        <div class="p-4 rounded-xl bg-surface-container-low border ${t.isDefault ? 'border-primary shadow-lg shadow-primary/10' : 'border-purple-900/30'} flex flex-col justify-between gap-3 group hover:border-primary transition" data-id="${t.id}">
+          <div class="flex items-start justify-between gap-3">
+            <div class="flex items-center gap-3 min-w-0">
+              <button onclick="togglePlayTrack('${t.id}', '${t.url}', '${t.title.replace(/'/g, "\\'")}', this)" class="w-10 h-10 rounded-full ${t.isDefault ? 'bg-primary' : 'bg-primary-container'} text-white flex items-center justify-center shadow-md hover:scale-105 active:scale-95 transition flex-shrink-0">
+                <span class="material-symbols-outlined text-lg">play_arrow</span>
+              </button>
+              <div class="min-w-0">
+                <span class="font-bold text-sm text-on-surface block truncate" title="${t.title}">${t.title}</span>
+                <span class="text-xs text-on-surface-variant truncate block">${t.genre || 'Celebration'} · ${t.duration || '2:30'} · ${t.fileSizeFormatted || 'Audio'}</span>
+              </div>
+            </div>
+            <div class="flex items-center gap-1.5 flex-shrink-0">
+              ${t.isDefault ? '<span class="px-2 py-0.5 rounded-full bg-emerald-500/20 text-emerald-300 font-label-sm text-[10px] font-bold">★ Default</span>' : ''}
+              <button onclick="deleteAudioTrack('${t.id}', '${t.title.replace(/'/g, "\\'")}')" class="p-1 rounded text-outline hover:text-rose-400 hover:bg-rose-500/10 transition" title="Delete Track">
+                <span class="material-symbols-outlined text-base">delete</span>
+              </button>
+            </div>
+          </div>
+          <div class="flex items-center justify-between pt-2 border-t border-purple-900/20 text-xs text-outline">
+            <span class="truncate">License: ${t.license || 'Royalty-Free'}</span>
+            ${!t.isDefault ? `
+              <button onclick="setDefaultAudioTrack('${t.id}', '${t.title.replace(/'/g, "\\'")}')" class="text-primary hover:text-secondary text-[11px] font-bold hover:underline">
+                Set as Default BGM
+              </button>
+            ` : `
+              <span class="text-emerald-400 font-semibold text-[11px]">Active Store Default</span>
+            `}
+          </div>
+        </div>
+      `).join('');
+
+    } catch (e) {
+      console.error('Error loading audio tracks:', e);
+      grid.innerHTML = `<div class="col-span-full py-8 text-center text-xs text-rose-400">Failed to load audio catalog.</div>`;
+    }
+  }
+
+  // --- Real Audio Upload Flow ---
+  async function saveNewAudioTrack() {
+    const titleInput = document.getElementById('new-track-title');
+    const genreInput = document.getElementById('new-track-genre');
+    const durationInput = document.getElementById('new-track-duration');
+    const licenseInput = document.getElementById('new-track-license');
+    const fileInput = document.getElementById('new-track-file');
+    const btnSubmit = document.getElementById('btn-submit-audio');
+
+    const title = titleInput.value.trim();
     if (!title) {
       alert('Please enter a track title');
       return;
     }
-    toggleModal('upload-audio-modal');
-    showToast(`🎵 Audio "${title}" uploaded and processed for template distribution!`);
-    document.getElementById('new-track-title').value = '';
+
+    if (!fileInput.files || fileInput.files.length === 0) {
+      alert('Please select an audio file (MP3 or WAV)');
+      return;
+    }
+
+    const file = fileInput.files[0];
+    btnSubmit.disabled = true;
+    btnSubmit.innerHTML = `<span class="material-symbols-outlined text-sm animate-spin">refresh</span><span>Uploading...</span>`;
+
+    try {
+      const reader = new FileReader();
+      reader.onload = async (e) => {
+        try {
+          const fileData = e.target.result;
+          const res = await fetch('/api/media/upload', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              title,
+              genre: genreInput.value,
+              duration: durationInput.value.trim() || '2:30',
+              license: licenseInput.value,
+              filename: file.name,
+              fileData
+            })
+          });
+
+          const data = await res.json();
+          if (data.success) {
+            toggleModal('upload-audio-modal');
+            titleInput.value = '';
+            durationInput.value = '';
+            fileInput.value = '';
+            showToast(`🎵 Audio "${title}" uploaded to library!`);
+            loadAudioCatalog();
+          } else {
+            alert('Upload failed: ' + (data.message || 'Unknown error'));
+          }
+        } catch (err) {
+          alert('Upload failed: ' + err.message);
+        } finally {
+          btnSubmit.disabled = false;
+          btnSubmit.innerHTML = `<span class="material-symbols-outlined text-sm">cloud_upload</span><span>Upload Track</span>`;
+        }
+      };
+      reader.onerror = () => {
+        alert('Failed to read file');
+        btnSubmit.disabled = false;
+        btnSubmit.innerHTML = `<span class="material-symbols-outlined text-sm">cloud_upload</span><span>Upload Track</span>`;
+      };
+      reader.readAsDataURL(file);
+    } catch (err) {
+      alert('Upload failed: ' + err.message);
+      btnSubmit.disabled = false;
+      btnSubmit.innerHTML = `<span class="material-symbols-outlined text-sm">cloud_upload</span><span>Upload Track</span>`;
+    }
+  }
+
+  async function setDefaultAudioTrack(id, title) {
+    try {
+      const res = await fetch(`/api/media/${id}/default`, { method: 'POST' });
+      const data = await res.json();
+      if (data.success) {
+        showToast(`★ "${title}" set as default celebration BGM!`);
+        loadAudioCatalog();
+      }
+    } catch (e) {
+      console.error(e);
+    }
+  }
+
+  async function deleteAudioTrack(id, title) {
+    if (!confirm(`Are you sure you want to remove audio track "${title}"?`)) return;
+    try {
+      if (activeAudio && activeTrackId === id) {
+        activeAudio.pause();
+        activeAudio = null;
+        activeTrackId = null;
+      }
+      const res = await fetch(`/api/media/${id}`, { method: 'DELETE' });
+      const data = await res.json();
+      if (data.success) {
+        showToast(`🗑 Audio "${title}" removed.`);
+        loadAudioCatalog();
+      }
+    } catch (e) {
+      console.error(e);
+    }
   }
 
   function filterAudioTracks() {
@@ -447,6 +639,9 @@
       c.style.display = text.includes(q) ? '' : 'none';
     });
   }
+
+  // Load catalog on boot
+  document.addEventListener('DOMContentLoaded', loadAudioCatalog);
 </script>
 </body>
 </html>

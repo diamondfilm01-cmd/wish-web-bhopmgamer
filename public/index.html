@@ -15,9 +15,14 @@
 <link href="https://fonts.googleapis.com" rel="preconnect"/>
 <link crossorigin="" href="https://fonts.gstatic.com" rel="preconnect"/>
 <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@400;500;600;700;800;900&amp;family=Plus+Jakarta+Sans:wght@400;500;600;700;800&amp;family=Playfair+Display:ital,wght@1,600&amp;display=swap" rel="stylesheet"/>
+<!-- Google Material Symbols Icons -->
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:opsz,wght,FILL,GRAD@20..48,100..700,0..1,-50..200" />
+<!-- Auto Device Theme Detector & Engine (Initializes before render) -->
+<script src="js/site-theme.js"></script>
 <!-- Tailwind Configuration -->
 <script data-purpose="tailwind-config">
     tailwind.config = {
+      darkMode: 'class',
       theme: {
         extend: {
           fontFamily: {
@@ -75,10 +80,38 @@
       }
     };
   </script>
-<!-- Core Glassmorphism & Custom Styling -->
+<!-- Core Glassmorphism & Adaptive Dual-Theme Styling -->
 <style data-purpose="base-theme">
+    :root {
+      --bg-body: #F8F4FF;
+      --text-main: #24113F;
+      --card-bg: rgba(255, 255, 255, 0.85);
+      --card-border: rgba(255, 255, 255, 0.95);
+      --nav-bg: rgba(255, 255, 255, 0.82);
+      --nav-border: rgba(233, 213, 255, 0.75);
+      --pill-bg: rgba(255, 255, 255, 0.9);
+      --pill-text: #24113F;
+      --pill-border: rgba(233, 213, 255, 0.9);
+      --subtext: #6B21A8;
+      --heading: #24113F;
+    }
+
+    html.dark {
+      --bg-body: #0F0521;
+      --text-main: #F3E8FF;
+      --card-bg: rgba(29, 11, 54, 0.75);
+      --card-border: rgba(147, 51, 234, 0.25);
+      --nav-bg: rgba(20, 6, 40, 0.85);
+      --nav-border: rgba(147, 51, 234, 0.35);
+      --pill-bg: rgba(29, 11, 54, 0.8);
+      --pill-text: #E9D5FF;
+      --pill-border: rgba(147, 51, 234, 0.3);
+      --subtext: #D8B4FE;
+      --heading: #FFFFFF;
+    }
+
     body {
-      background-color: #F6F0FF;
+      background-color: var(--bg-body);
       background-image: 
         radial-gradient(at 10% 8%, rgba(233, 213, 255, 0.75) 0px, transparent 45%),
         radial-gradient(at 90% 12%, rgba(251, 207, 232, 0.6) 0px, transparent 50%),
@@ -87,7 +120,17 @@
         radial-gradient(at 15% 90%, rgba(254, 215, 240, 0.5) 0px, transparent 50%);
       min-height: 100vh;
       overflow-x: hidden;
-      color: #24113F;
+      color: var(--text-main);
+      transition: background-color 0.3s ease, color 0.3s ease;
+    }
+
+    html.dark body {
+      background-image: 
+        radial-gradient(at 10% 8%, rgba(147, 51, 234, 0.22) 0px, transparent 50%),
+        radial-gradient(at 90% 12%, rgba(236, 72, 153, 0.18) 0px, transparent 50%),
+        radial-gradient(at 50% 45%, rgba(88, 28, 135, 0.25) 0px, transparent 65%),
+        radial-gradient(at 85% 75%, rgba(126, 34, 206, 0.18) 0px, transparent 55%),
+        radial-gradient(at 15% 90%, rgba(157, 23, 77, 0.18) 0px, transparent 50%);
     }
 
     /* Ambient cloud shapes */
@@ -106,33 +149,38 @@
       filter: blur(50px);
       opacity: 0.7;
     }
+    html.dark .ambient-cloud {
+      opacity: 0.2;
+    }
 
     /* Reference Glass Shell */
     .glass-card {
-      background: rgba(255, 255, 255, 0.82);
+      background: var(--card-bg);
       backdrop-filter: blur(20px);
       -webkit-backdrop-filter: blur(20px);
-      border: 1px solid rgba(255, 255, 255, 0.95);
-      box-shadow: 0 16px 40px -10px rgba(107, 33, 168, 0.08), 0 0 0 1px rgba(255, 255, 255, 0.6) inset;
+      border: 1px solid var(--card-border);
+      box-shadow: 0 16px 40px -10px rgba(107, 33, 168, 0.08);
+      transition: background 0.3s ease, border-color 0.3s ease, box-shadow 0.3s ease;
     }
 
     .glass-nav {
-      background: rgba(255, 255, 255, 0.78);
+      background: var(--nav-bg);
       backdrop-filter: blur(24px);
       -webkit-backdrop-filter: blur(24px);
-      border: 1px solid rgba(255, 255, 255, 0.85);
-      box-shadow: 0 14px 35px -8px rgba(107, 33, 168, 0.12), 0 0 0 1px rgba(255, 255, 255, 0.7) inset;
+      border: 1px solid var(--nav-border);
+      box-shadow: 0 14px 35px -8px rgba(107, 33, 168, 0.12);
+      transition: background 0.3s ease, border-color 0.3s ease;
     }
 
     .glass-pill {
-      background: rgba(255, 255, 255, 0.88);
+      background: var(--pill-bg);
+      color: var(--pill-text);
       backdrop-filter: blur(14px);
-      border: 1px solid rgba(255, 255, 255, 0.9);
+      border: 1px solid var(--pill-border);
       box-shadow: 0 4px 14px rgba(126, 34, 206, 0.06);
       transition: all 0.25s cubic-bezier(0.4, 0, 0.2, 1);
     }
     .glass-pill:hover {
-      background: rgba(255, 255, 255, 0.98);
       transform: translateY(-2px);
       box-shadow: 0 8px 24px rgba(126, 34, 206, 0.14);
     }
@@ -171,7 +219,7 @@
       height: 10px;
     }
     ::-webkit-scrollbar-track {
-      background: #F6F0FF;
+      background: var(--bg-body);
     }
     ::-webkit-scrollbar-thumb {
       background: rgba(147, 51, 234, 0.3);
@@ -191,12 +239,12 @@
   </style>
   <script src="js/site-tracker.js"></script>
 </head>
-<body class="w-full min-h-screen bg-[#F6F0FF] text-[#24113F] font-sans antialiased selection:bg-pink-500 selection:text-white">
+<body class="w-full min-h-screen font-sans antialiased selection:bg-pink-500 selection:text-white">
 <!-- Ambient Cloud Decorative Background Layers -->
 <div class="bg-ambient-layer">
-<div class="ambient-cloud w-[750px] h-[400px] -top-20 -left-20 bg-purple-200/50 rounded-full"></div>
-<div class="ambient-cloud w-[850px] h-[450px] top-1/4 -right-48 bg-pink-200/50 rounded-full"></div>
-<div class="ambient-cloud w-[950px] h-[500px] bottom-10 left-1/4 bg-indigo-200/40 rounded-full"></div>
+<div class="ambient-cloud w-[750px] h-[400px] -top-20 -left-20 bg-purple-200/50 dark:bg-purple-900/30 rounded-full"></div>
+<div class="ambient-cloud w-[850px] h-[450px] top-1/4 -right-48 bg-pink-200/50 dark:bg-pink-900/30 rounded-full"></div>
+<div class="ambient-cloud w-[950px] h-[500px] bottom-10 left-1/4 bg-indigo-200/40 dark:bg-indigo-950/40 rounded-full"></div>
 </div>
 <div class="relative z-10 flex flex-col min-h-screen w-full">
 <!-- BEGIN: FloatingGlassNavbar -->
@@ -210,44 +258,49 @@
 </svg>
 </div>
 <div class="flex flex-col">
-<span class="font-display font-extrabold text-base sm:text-xl lg:text-2xl tracking-tight bg-gradient-to-r from-purple-900 via-pink-600 to-purple-800 bg-clip-text text-transparent leading-none">WishMagic</span>
-<span class="text-[9px] sm:text-[10px] font-semibold text-purple-800/80 tracking-wider mt-0.5 hidden md:inline-block">Create. Personalize. Celebrate.</span>
+<span class="font-display font-extrabold text-base sm:text-xl lg:text-2xl tracking-tight bg-gradient-to-r from-purple-900 via-pink-600 to-purple-800 dark:from-purple-200 dark:via-pink-400 dark:to-purple-300 bg-clip-text text-transparent leading-none">WishMagic</span>
+<span class="text-[9px] sm:text-[10px] font-semibold text-purple-800/80 dark:text-purple-300/80 tracking-wider mt-0.5 hidden md:inline-block">Create. Personalize. Celebrate.</span>
 </div>
 </a>
 <!-- Center: Nav links -->
-<nav class="hidden lg:flex items-center gap-1 xl:gap-2 text-sm font-semibold text-magic-900">
+<nav class="hidden lg:flex items-center gap-1 xl:gap-2 text-sm font-semibold text-magic-900 dark:text-magic-100">
 <a class="px-3.5 py-1.5 rounded-full bg-purple-700 text-white shadow-sm flex items-center gap-1.5 transition-all" href="#">
 <svg class="w-4 h-4" fill="currentColor" viewbox="0 0 20 20"><path d="M10.707 2.293a1 1 0 00-1.414 0l-7 7a1 1 0 001.414 1.414L4 10.414V17a1 1 0 001 1h2a1 1 0 001-1v-2a1 1 0 011-1h2a1 1 0 011 1v2a1 1 0 001 1h2a1 1 0 001-1v-6.586l.293.293a1 1 0 001.414-1.414l-7-7z"></path></svg>
             Home
           </a>
-<a class="px-3.5 py-1.5 rounded-full hover:bg-white/70 hover:text-purple-700 transition-all flex items-center gap-1.5" href="#templates-section">
-<svg class="w-4 h-4 text-magic-600" fill="none" stroke="currentColor" viewbox="0 0 24 24"><path d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" stroke-linecap="round" stroke-linejoin="round" stroke-width="2"></path></svg>
+<a class="px-3.5 py-1.5 rounded-full hover:bg-white/70 dark:hover:bg-purple-900/60 hover:text-purple-700 dark:hover:text-pink-300 transition-all flex items-center gap-1.5" href="#templates-section">
+<svg class="w-4 h-4 text-magic-600 dark:text-magic-400" fill="none" stroke="currentColor" viewbox="0 0 24 24"><path d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" stroke-linecap="round" stroke-linejoin="round" stroke-width="2"></path></svg>
             Templates
           </a>
-<a class="px-3.5 py-1.5 rounded-full hover:bg-white/70 hover:text-purple-700 transition-all flex items-center gap-1.5" href="#how-it-works">
-<svg class="w-4 h-4 text-magic-600" fill="none" stroke="currentColor" viewbox="0 0 24 24"><path d="M13 10V3L4 14h7v7l9-11h-7z" stroke-linecap="round" stroke-linejoin="round" stroke-width="2"></path></svg>
+<a class="px-3.5 py-1.5 rounded-full hover:bg-white/70 dark:hover:bg-purple-900/60 hover:text-purple-700 dark:hover:text-pink-300 transition-all flex items-center gap-1.5" href="#how-it-works">
+<svg class="w-4 h-4 text-magic-600 dark:text-magic-400" fill="none" stroke="currentColor" viewbox="0 0 24 24"><path d="M13 10V3L4 14h7v7l9-11h-7z" stroke-linecap="round" stroke-linejoin="round" stroke-width="2"></path></svg>
             How It Works
           </a>
-<a class="px-3.5 py-1.5 rounded-full hover:bg-white/70 hover:text-purple-700 transition-all flex items-center gap-1.5" href="#pricing-section">
-<svg class="w-4 h-4 text-magic-600" fill="none" stroke="currentColor" viewbox="0 0 24 24"><path d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z" stroke-linecap="round" stroke-linejoin="round" stroke-width="2"></path></svg>
+<a class="px-3.5 py-1.5 rounded-full hover:bg-white/70 dark:hover:bg-purple-900/60 hover:text-purple-700 dark:hover:text-pink-300 transition-all flex items-center gap-1.5" href="#pricing-section">
+<svg class="w-4 h-4 text-magic-600 dark:text-magic-400" fill="none" stroke="currentColor" viewbox="0 0 24 24"><path d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z" stroke-linecap="round" stroke-linejoin="round" stroke-width="2"></path></svg>
             Pricing
           </a>
-<a class="px-3.5 py-1.5 rounded-full hover:bg-white/70 hover:text-purple-700 transition-all flex items-center gap-1.5" href="#about-section">
-<svg class="w-4 h-4 text-magic-600" fill="none" stroke="currentColor" viewbox="0 0 24 24"><path d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" stroke-linecap="round" stroke-linejoin="round" stroke-width="2"></path></svg>
+<a class="px-3.5 py-1.5 rounded-full hover:bg-white/70 dark:hover:bg-purple-900/60 hover:text-purple-700 dark:hover:text-pink-300 transition-all flex items-center gap-1.5" href="#about-section">
+<svg class="w-4 h-4 text-magic-600 dark:text-magic-400" fill="none" stroke="currentColor" viewbox="0 0 24 24"><path d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" stroke-linecap="round" stroke-linejoin="round" stroke-width="2"></path></svg>
             About
           </a>
 </nav>
-<!-- Right: Search pill + Auth CTAs -->
+<!-- Right: Theme toggle, Search pill + Auth CTAs -->
 <div class="flex items-center gap-1.5 sm:gap-2 flex-shrink-0">
+<!-- Dynamic Device/Manual Theme Switcher -->
+<button class="p-1.5 sm:px-2.5 sm:py-1 rounded-full glass-pill flex items-center gap-1 text-xs font-bold hover:text-pink-600 transition cursor-pointer" onclick="toggleSiteTheme()" title="Switch Light / Dark Theme (Matches Device Theme automatically)" aria-label="Toggle Theme">
+  <span class="material-symbols-outlined text-[18px] site-theme-icon">dark_mode</span>
+  <span class="hidden xl:inline text-[11px] site-theme-label">Theme</span>
+</button>
 <!-- Sleek Search Input -->
-<div class="relative hidden xl:block w-52">
-<input class="w-full text-xs font-semibold pl-9 pr-7 py-1.5 rounded-full border border-purple-200/90 bg-white/70 focus:bg-white focus:outline-none focus:ring-2 focus:ring-purple-400 placeholder-purple-400 transition" id="nav-search-input" placeholder="Search templates..." type="text"/>
-<svg class="w-3.5 h-3.5 text-purple-600 absolute left-3 top-2" fill="none" stroke="currentColor" viewbox="0 0 24 24">
+<div class="relative hidden xl:block w-48">
+<input class="w-full text-xs font-semibold pl-9 pr-7 py-1.5 rounded-full border border-purple-200/90 dark:border-purple-800/80 bg-white/70 dark:bg-purple-950/60 text-purple-950 dark:text-purple-100 focus:bg-white dark:focus:bg-purple-900 focus:outline-none focus:ring-2 focus:ring-purple-400 placeholder-purple-400 dark:placeholder-purple-400/60 transition" id="nav-search-input" placeholder="Search templates..." type="text"/>
+<svg class="w-3.5 h-3.5 text-purple-600 dark:text-purple-400 absolute left-3 top-2" fill="none" stroke="currentColor" viewbox="0 0 24 24">
 <path d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" stroke-linecap="round" stroke-linejoin="round" stroke-width="2"></path>
 </svg>
 <button class="hidden absolute right-2.5 top-1.5 text-gray-400 hover:text-gray-600 text-xs font-bold" id="search-clear-btn">✕</button>
 </div>
-<button class="px-2.5 sm:px-3.5 py-1 sm:py-1.5 text-[11px] sm:text-xs md:text-sm font-bold text-magic-900 rounded-full hover:bg-white/80 hover:text-purple-700 transition whitespace-nowrap" onclick="openAuthModal('signin')">
+<button class="px-2.5 sm:px-3.5 py-1 sm:py-1.5 text-[11px] sm:text-xs md:text-sm font-bold text-magic-900 dark:text-magic-100 rounded-full hover:bg-white/80 dark:hover:bg-purple-900/70 hover:text-purple-700 dark:hover:text-pink-300 transition whitespace-nowrap" onclick="openAuthModal('signin')">
   Sign In
 </button>
 <button class="px-2.5 sm:px-3.5 py-1 sm:py-1.5 text-[11px] sm:text-xs md:text-sm font-bold text-white bg-gradient-to-r from-[#EC4899] to-[#7C3AED] rounded-full shadow-sm hover:shadow-md hover:scale-105 active:scale-95 transition-all flex items-center gap-1 whitespace-nowrap" onclick="openAuthModal('signup')">
@@ -313,7 +366,7 @@
 <span id="hero-cta1-text">Explore Magic</span>
 <span class="group-hover:rotate-45 transition-transform duration-300">✨</span>
 </button>
-<button class="px-5 py-2.5 rounded-full backdrop-blur-md bg-white/15 border border-white/30 text-white text-xs sm:text-sm font-bold hover:bg-white/25 transition-all active:scale-95" onclick="openQuickCustomize('Glitter Birthday Bash')">
+<button class="px-5 py-2.5 rounded-full backdrop-blur-md bg-white/15 border border-white/30 text-white text-xs sm:text-sm font-bold hover:bg-white/25 transition-all active:scale-95" onclick="location.href='/customize.html'">
   <span id="hero-cta2-text">Create Your Wish</span>
 </button>
 </div>
@@ -452,20 +505,20 @@
 <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-8">
 <div>
 <div class="flex items-center gap-2.5">
-<h2 class="font-display text-3xl sm:text-4xl font-extrabold text-[#24113F] tracking-tight">Popular Templates</h2>
+<h2 class="font-display text-3xl sm:text-4xl font-extrabold text-[#24113F] dark:text-white tracking-tight">Popular Templates</h2>
 <span class="text-amber-500 text-2xl">✨</span>
 </div>
-<p class="text-sm sm:text-base text-purple-800/80 mt-1 font-medium">Interactive experiences ready to personalize in less than 60 seconds.</p>
+<p class="text-sm sm:text-base text-purple-800/80 dark:text-purple-300/80 mt-1 font-medium">Interactive experiences ready to personalize in less than 60 seconds.</p>
 </div>
-<button class="inline-flex items-center gap-2 px-6 py-3 rounded-full glass-pill text-xs sm:text-sm font-bold text-purple-700 hover:text-purple-900 transition self-start sm:self-auto shadow-sm" onclick="resetAllFilters()">
+<button class="inline-flex items-center gap-2 px-6 py-3 rounded-full glass-pill text-xs sm:text-sm font-bold text-purple-700 dark:text-purple-300 hover:text-purple-900 dark:hover:text-pink-300 transition self-start sm:self-auto shadow-sm" onclick="resetAllFilters()">
 <span>View All Templates</span>
 <span class="text-base font-normal">→</span>
 </button>
 </div>
 <!-- Live Search & Filter Feedback Bar -->
-<div class="hidden mb-6 p-4 rounded-2xl bg-purple-100/80 border border-purple-200 text-xs sm:text-sm font-semibold text-purple-900 flex items-center justify-between" id="search-feedback">
-<span>Showing results for: <span class="text-pink-600 font-bold" id="active-query-text"></span></span>
-<button class="underline text-purple-700 hover:text-purple-900 font-bold" onclick="resetSearch()">Clear Search</button>
+<div class="hidden mb-6 p-4 rounded-2xl bg-purple-100/80 dark:bg-purple-950/80 border border-purple-200 dark:border-purple-800 text-xs sm:text-sm font-semibold text-purple-900 dark:text-purple-200 flex items-center justify-between" id="search-feedback">
+<span>Showing results for: <span class="text-pink-600 dark:text-pink-400 font-bold" id="active-query-text"></span></span>
+<button class="underline text-purple-700 dark:text-purple-300 hover:text-purple-900 dark:hover:text-white font-bold" onclick="resetSearch()">Clear Search</button>
 </div>
 <!-- 8 High-Fidelity Cards Grid (2 Columns Mobile, 3 Columns Tablet, 4 Columns Desktop) -->
 <div class="grid grid-cols-2 md:grid-cols-3 xl:grid-cols-4 gap-2.5 sm:gap-4 md:gap-5" id="templates-grid">
@@ -474,8 +527,8 @@
 <!-- No Results State -->
 <div class="hidden text-center py-16" id="no-results-msg">
 <span class="text-5xl block mb-2">🔍</span>
-<h4 class="font-display font-bold text-xl text-[#24113F]">No magical templates found</h4>
-<p class="text-sm text-purple-700 mt-1">Try another keyword like "birthday", "love", or "anniversary".</p>
+<h4 class="font-display font-bold text-xl text-[#24113F] dark:text-white">No magical templates found</h4>
+<p class="text-sm text-purple-700 dark:text-purple-300 mt-1">Try another keyword like "birthday", "love", or "anniversary".</p>
 <button class="mt-4 px-6 py-2.5 rounded-full bg-purple-600 text-white font-semibold text-xs sm:text-sm shadow-md" onclick="resetSearch()">Reset Search</button>
 </div>
 </section>
@@ -483,9 +536,9 @@
 <!-- BEGIN: HowWishMagicWorks -->
 <section class="py-16 md:py-24 px-6 md:px-12 max-w-7xl mx-auto w-full mb-12" data-purpose="how-it-works-steps" id="how-it-works">
 <div class="text-center max-w-2xl mx-auto mb-14">
-<span class="text-xs font-bold uppercase tracking-widest text-purple-800 bg-purple-200/60 px-4 py-1.5 rounded-full border border-purple-300/60 shadow-sm">Easy 4-Step Process</span>
-<h2 class="font-display text-3xl sm:text-4xl lg:text-5xl font-black text-[#24113F] mt-4">How WishMagic Works</h2>
-<p class="text-base text-purple-800/80 mt-2.5 font-medium">Send an unforgettable, interactive celebration in four delightful steps.</p>
+<span class="text-xs font-bold uppercase tracking-widest text-purple-800 dark:text-purple-300 bg-purple-200/60 dark:bg-purple-900/60 px-4 py-1.5 rounded-full border border-purple-300/60 dark:border-purple-700/60 shadow-sm">Easy 4-Step Process</span>
+<h2 class="font-display text-3xl sm:text-4xl lg:text-5xl font-black text-[#24113F] dark:text-white mt-4">How WishMagic Works</h2>
+<p class="text-base text-purple-800/80 dark:text-purple-300/80 mt-2.5 font-medium">Send an unforgettable, interactive celebration in four delightful steps.</p>
 </div>
 <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-7 relative">
 <!-- Step 1 -->
@@ -494,8 +547,8 @@
 <div class="w-13 h-13 w-12 h-12 rounded-2xl bg-purple-600 text-white flex items-center justify-center font-black text-lg mb-5 shadow-lg shadow-purple-500/30">
               01
             </div>
-<h3 class="font-display font-bold text-xl text-[#24113F] mb-2">Pick a Template</h3>
-<p class="text-sm text-purple-800/80 leading-relaxed font-normal">
+<h3 class="font-display font-bold text-xl text-[#24113F] dark:text-white mb-2">Pick a Template</h3>
+<p class="text-sm text-purple-800/80 dark:text-purple-300/80 leading-relaxed font-normal">
               Browse our curated gallery of birthday, anniversary, and celebration themes with rich 3D animations.
             </p>
 </div>
@@ -507,8 +560,8 @@
 <div class="w-12 h-12 rounded-2xl bg-pink-500 text-white flex items-center justify-center font-black text-lg mb-5 shadow-lg shadow-pink-500/30">
               02
             </div>
-<h3 class="font-display font-bold text-xl text-[#24113F] mb-2">Personalize Your Wish</h3>
-<p class="text-sm text-purple-800/80 leading-relaxed font-normal">
+<h3 class="font-display font-bold text-xl text-[#24113F] dark:text-white mb-2">Personalize Your Wish</h3>
+<p class="text-sm text-purple-800/80 dark:text-purple-300/80 leading-relaxed font-normal">
               Add your favorite memories, heart-touching message, upload photos, and choose delightful background music.
             </p>
 </div>
@@ -520,8 +573,8 @@
 <div class="w-12 h-12 rounded-2xl bg-amber-500 text-white flex items-center justify-center font-black text-lg mb-5 shadow-lg shadow-amber-500/30">
               03
             </div>
-<h3 class="font-display font-bold text-xl text-[#24113F] mb-2">Instant Magical Link</h3>
-<p class="text-sm text-purple-800/80 leading-relaxed font-normal">
+<h3 class="font-display font-bold text-xl text-[#24113F] dark:text-white mb-2">Instant Magical Link</h3>
+<p class="text-sm text-purple-800/80 dark:text-purple-300/80 leading-relaxed font-normal">
               WishMagic instantly crafts a private, encrypted web page loaded with unboxing animations and confetti.
             </p>
 </div>
@@ -533,8 +586,8 @@
 <div class="w-12 h-12 rounded-2xl bg-emerald-600 text-white flex items-center justify-center font-black text-lg mb-5 shadow-lg shadow-emerald-500/30">
               04
             </div>
-<h3 class="font-display font-bold text-xl text-[#24113F] mb-2">Share the Joy</h3>
-<p class="text-sm text-purple-800/80 leading-relaxed font-normal">
+<h3 class="font-display font-bold text-xl text-[#24113F] dark:text-white mb-2">Share the Joy</h3>
+<p class="text-sm text-purple-800/80 dark:text-purple-300/80 leading-relaxed font-normal">
               Share directly via WhatsApp, iMessage, Instagram, or QR code. Watch them light up with genuine smiles!
             </p>
 </div>
@@ -545,41 +598,41 @@
 <!-- END: HowWishMagicWorks -->
 <!-- BEGIN: InteractiveExperienceShowcase (MORE THAN A GREETING CARD) -->
 <section class="py-16 md:py-24 px-6 md:px-12 max-w-7xl mx-auto w-full mb-12" data-purpose="experience-features">
-<div class="glass-card rounded-[36px] p-8 sm:p-12 lg:p-16 border border-white/80 overflow-hidden relative shadow-2xl shadow-purple-900/10">
+<div class="glass-card rounded-[36px] p-8 sm:p-12 lg:p-16 border border-white/80 dark:border-purple-900/40 overflow-hidden relative shadow-2xl shadow-purple-900/10">
 <div class="grid grid-cols-1 lg:grid-cols-12 gap-12 lg:gap-14 items-center">
 <!-- Left: Persuasive copy & Value points -->
 <div class="lg:col-span-6 space-y-6">
-<span class="px-4 py-1.5 rounded-full bg-pink-100 text-pink-700 text-xs font-extrabold uppercase tracking-wider">
+<span class="px-4 py-1.5 rounded-full bg-pink-100 dark:bg-pink-900/40 text-pink-700 dark:text-pink-300 text-xs font-extrabold uppercase tracking-wider">
               More than a greeting card
             </span>
-<h2 class="font-display text-3xl sm:text-4xl lg:text-5xl font-black text-[#24113F] leading-tight">
+<h2 class="font-display text-3xl sm:text-4xl lg:text-5xl font-black text-[#24113F] dark:text-white leading-tight">
               An Immersive Web Experience That Never Gets Lost.
             </h2>
-<p class="text-base sm:text-lg text-purple-800/80 leading-relaxed font-normal">
+<p class="text-base sm:text-lg text-purple-800/80 dark:text-purple-300/80 leading-relaxed font-normal">
               Paper greeting cards gather dust, but WishMagic creates a digital keepsake. Recipients unlock interactive envelopes, watch celebratory fireworks, and listen to songs curated just for them.
             </p>
 <!-- Feature Checklist with custom icons -->
 <div class="grid grid-cols-1 sm:grid-cols-2 gap-4 pt-3">
-<div class="flex items-center gap-3.5 p-3 rounded-2xl bg-white/70 border border-purple-100">
-<span class="w-10 h-10 rounded-xl bg-purple-100 text-purple-700 flex items-center justify-center font-bold text-lg">🎵</span>
-<span class="text-sm font-bold text-[#24113F]">Licensed BGM Tracks</span>
+<div class="flex items-center gap-3.5 p-3 rounded-2xl bg-white/70 dark:bg-purple-950/60 border border-purple-100 dark:border-purple-900/40">
+<span class="w-10 h-10 rounded-xl bg-purple-100 dark:bg-purple-900/80 text-purple-700 dark:text-purple-300 flex items-center justify-center font-bold text-lg">🎵</span>
+<span class="text-sm font-bold text-[#24113F] dark:text-purple-100">Licensed BGM Tracks</span>
 </div>
-<div class="flex items-center gap-3.5 p-3 rounded-2xl bg-white/70 border border-purple-100">
-<span class="w-10 h-10 rounded-xl bg-pink-100 text-pink-700 flex items-center justify-center font-bold text-lg">🎆</span>
-<span class="text-sm font-bold text-[#24113F]">Full Screen Fireworks</span>
+<div class="flex items-center gap-3.5 p-3 rounded-2xl bg-white/70 dark:bg-purple-950/60 border border-purple-100 dark:border-purple-900/40">
+<span class="w-10 h-10 rounded-xl bg-pink-100 dark:bg-pink-900/80 text-pink-700 dark:text-pink-300 flex items-center justify-center font-bold text-lg">🎆</span>
+<span class="text-sm font-bold text-[#24113F] dark:text-purple-100">Full Screen Fireworks</span>
 </div>
-<div class="flex items-center gap-3.5 p-3 rounded-2xl bg-white/70 border border-purple-100">
-<span class="w-10 h-10 rounded-xl bg-amber-100 text-amber-700 flex items-center justify-center font-bold text-lg">💌</span>
-<span class="text-sm font-bold text-[#24113F]">Interactive Wax Seal Unboxing</span>
+<div class="flex items-center gap-3.5 p-3 rounded-2xl bg-white/70 dark:bg-purple-950/60 border border-purple-100 dark:border-purple-900/40">
+<span class="w-10 h-10 rounded-xl bg-amber-100 dark:bg-amber-900/80 text-amber-700 dark:text-amber-300 flex items-center justify-center font-bold text-lg">💌</span>
+<span class="text-sm font-bold text-[#24113F] dark:text-purple-100">Interactive Wax Seal Unboxing</span>
 </div>
-<div class="flex items-center gap-3.5 p-3 rounded-2xl bg-white/70 border border-purple-100">
-<span class="w-10 h-10 rounded-xl bg-emerald-100 text-emerald-700 flex items-center justify-center font-bold text-lg">📱</span>
-<span class="text-sm font-bold text-[#24113F]">100% Mobile Optimized</span>
+<div class="flex items-center gap-3.5 p-3 rounded-2xl bg-white/70 dark:bg-purple-950/60 border border-purple-100 dark:border-purple-900/40">
+<span class="w-10 h-10 rounded-xl bg-emerald-100 dark:bg-emerald-900/80 text-emerald-700 dark:text-emerald-300 flex items-center justify-center font-bold text-lg">📱</span>
+<span class="text-sm font-bold text-[#24113F] dark:text-purple-100">100% Mobile Optimized</span>
 </div>
 </div>
 <div class="pt-4">
-<button class="px-8 py-4 rounded-full bg-[#1D0B36] hover:bg-[#2E0854] text-white text-base font-bold shadow-xl shadow-purple-950/20 hover:scale-105 active:scale-95 transition flex items-center gap-2.5" onclick="openQuickCustomize('Sample Magical Greeting', 'Free')">
-<span>Try An Interactive Preview</span>
+<button class="px-8 py-4 rounded-full bg-[#1D0B36] dark:bg-purple-600 hover:bg-[#2E0854] dark:hover:bg-purple-500 text-white text-base font-bold shadow-xl shadow-purple-950/20 hover:scale-105 active:scale-95 transition flex items-center gap-2.5" onclick="document.getElementById('templates-section').scrollIntoView({ behavior: 'smooth' })">
+<span>Explore All Templates</span>
 <span class="text-amber-300">✨</span>
 </button>
 </div>
@@ -588,14 +641,14 @@
 <div class="lg:col-span-6 flex justify-center">
 <div class="relative w-full max-w-sm">
 <!-- Floating Feature Badges -->
-<div class="absolute -top-4 -left-4 bg-white/95 rounded-2xl px-4 py-2 shadow-xl border border-purple-200 text-xs font-bold text-purple-700 animate-float-slow z-20 flex items-center gap-2">
+<div class="absolute -top-4 -left-4 bg-white/95 dark:bg-purple-900/90 rounded-2xl px-4 py-2 shadow-xl border border-purple-200 dark:border-purple-700 text-xs font-bold text-purple-700 dark:text-purple-200 animate-float-slow z-20 flex items-center gap-2">
 <span>🎵</span> Background Music
               </div>
-<div class="absolute top-1/2 -right-6 bg-white/95 rounded-2xl px-4 py-2 shadow-xl border border-pink-200 text-xs font-bold text-pink-600 animate-float-delayed z-20 flex items-center gap-2">
+<div class="absolute top-1/2 -right-6 bg-white/95 dark:bg-purple-900/90 rounded-2xl px-4 py-2 shadow-xl border border-pink-200 dark:border-pink-700 text-xs font-bold text-pink-600 dark:text-pink-300 animate-float-delayed z-20 flex items-center gap-2">
 <span>✨</span> Confetti Shower
               </div>
 <!-- Phone Frame Outer -->
-<div class="bg-gray-950 p-3.5 rounded-[3rem] shadow-2xl border-4 border-white/70">
+<div class="bg-gray-950 p-3.5 rounded-[3rem] shadow-2xl border-4 border-white/70 dark:border-purple-500/40">
 <div class="bg-gradient-to-b from-purple-950 via-indigo-950 to-purple-900 rounded-[2.3rem] p-6 text-white text-center relative overflow-hidden min-h-[420px] flex flex-col justify-between">
 <!-- Top Bar Indicator -->
 <div class="flex justify-between items-center text-[11px] text-purple-300 mb-4 px-2 font-mono">
@@ -629,82 +682,82 @@
 <!-- BEGIN: SimpleTransparentPricing -->
 <section class="py-16 md:py-24 px-6 md:px-12 max-w-7xl mx-auto w-full mb-12" data-purpose="pricing-plans" id="pricing-section">
 <div class="text-center max-w-2xl mx-auto mb-14">
-<span class="text-xs font-bold uppercase tracking-widest text-purple-800 bg-purple-200/60 px-4 py-1.5 rounded-full border border-purple-300/60 shadow-sm">Transparent &amp; Affordable</span>
-<h2 class="font-display text-3xl sm:text-4xl lg:text-5xl font-black text-[#24113F] mt-4">Simple Pricing For Infinite Smiles</h2>
-<p class="text-base text-purple-800/80 mt-2.5 font-medium">Start for free or unlock ultra-custom luxury magic for less than a cup of chai.</p>
+<span class="text-xs font-bold uppercase tracking-widest text-purple-800 dark:text-purple-300 bg-purple-200/60 dark:bg-purple-900/60 px-4 py-1.5 rounded-full border border-purple-300/60 dark:border-purple-700/60 shadow-sm">Transparent &amp; Affordable</span>
+<h2 class="font-display text-3xl sm:text-4xl lg:text-5xl font-black text-[#24113F] dark:text-white mt-4">Simple Pricing For Infinite Smiles</h2>
+<p class="text-base text-purple-800/80 dark:text-purple-300/80 mt-2.5 font-medium">Start for free or unlock ultra-custom luxury magic for less than a cup of chai.</p>
 </div>
 <div class="grid grid-cols-1 md:grid-cols-2 gap-8 max-w-4xl mx-auto">
 <!-- Plan 1: Free Forever -->
 <div class="glass-card rounded-[32px] p-8 md:p-10 flex flex-col justify-between hover:shadow-2xl transition duration-300">
 <div>
 <div class="flex justify-between items-center mb-4">
-<span class="px-3.5 py-1 rounded-full bg-emerald-100 text-emerald-800 text-xs font-black uppercase">Free Starter</span>
+<span class="px-3.5 py-1 rounded-full bg-emerald-100 dark:bg-emerald-900/50 text-emerald-800 dark:text-emerald-300 text-xs font-black uppercase">Free Starter</span>
 <span class="text-3xl">🌱</span>
 </div>
-<h3 class="font-display text-3xl font-black text-[#24113F]">Free Forever</h3>
-<p class="text-xs sm:text-sm text-purple-700/80 mt-1">Perfect for spontaneous cute wishes.</p>
+<h3 class="font-display text-3xl font-black text-[#24113F] dark:text-white">Free Forever</h3>
+<p class="text-xs sm:text-sm text-purple-700/80 dark:text-purple-300/80 mt-1">Perfect for spontaneous cute wishes.</p>
 <div class="my-7">
-<span class="font-display text-5xl font-black text-[#24113F]">₹0</span>
-<span class="text-sm font-semibold text-purple-700"> / forever free</span>
+<span class="font-display text-5xl font-black text-[#24113F] dark:text-white">₹0</span>
+<span class="text-sm font-semibold text-purple-700 dark:text-purple-300"> / forever free</span>
 </div>
-<ul class="space-y-3.5 text-sm text-[#24113F] font-semibold">
+<ul class="space-y-3.5 text-sm text-[#24113F] dark:text-purple-200 font-semibold">
 <li class="flex items-center gap-2.5">
-<span class="text-emerald-600 font-bold text-base">✓</span> Access to all Free Templates
+<span class="text-emerald-600 dark:text-emerald-400 font-bold text-base">✓</span> Access to all Free Templates
               </li>
 <li class="flex items-center gap-2.5">
-<span class="text-emerald-600 font-bold text-base">✓</span> Up to 3 personalized photos
+<span class="text-emerald-600 dark:text-emerald-400 font-bold text-base">✓</span> Up to 3 personalized photos
               </li>
 <li class="flex items-center gap-2.5">
-<span class="text-emerald-600 font-bold text-base">✓</span> Standard background music library
+<span class="text-emerald-600 dark:text-emerald-400 font-bold text-base">✓</span> Standard background music library
               </li>
 <li class="flex items-center gap-2.5">
-<span class="text-emerald-600 font-bold text-base">✓</span> Instant shareable web link
+<span class="text-emerald-600 dark:text-emerald-400 font-bold text-base">✓</span> Instant shareable web link
               </li>
-<li class="flex items-center gap-2.5 text-purple-400">
+<li class="flex items-center gap-2.5 text-purple-400 dark:text-purple-500/70">
 <span>✕</span> <s class="font-normal">No WishMagic watermark</s>
 </li>
 </ul>
 </div>
-<button class="mt-8 w-full py-3.5 rounded-full border border-purple-300 bg-white hover:bg-purple-50 text-purple-900 font-bold text-sm shadow-sm transition active:scale-95" onclick="document.getElementById('templates-section').scrollIntoView({ behavior: 'smooth' })">
+<button class="mt-8 w-full py-3.5 rounded-full border border-purple-300 dark:border-purple-700 bg-white dark:bg-purple-900/60 hover:bg-purple-50 dark:hover:bg-purple-800 text-purple-900 dark:text-purple-100 font-bold text-sm shadow-sm transition active:scale-95" onclick="document.getElementById('templates-section').scrollIntoView({ behavior: 'smooth' })">
             Start Free
           </button>
 </div>
 <!-- Plan 2: Magic Premium -->
-<div class="glass-card rounded-[32px] p-8 md:p-10 flex flex-col justify-between relative border-2 border-pink-400 shadow-2xl bg-gradient-to-b from-white to-purple-50/80">
+<div class="glass-card rounded-[32px] p-8 md:p-10 flex flex-col justify-between relative border-2 border-pink-400 dark:border-pink-500 shadow-2xl bg-gradient-to-b from-white to-purple-50/80 dark:from-purple-950/80 dark:to-[#1D0B36]">
 <!-- Popular ribbon -->
 <div class="absolute -top-3.5 right-8 px-4 py-1 rounded-full bg-gradient-to-r from-[#EC4899] to-[#7C3AED] text-white text-[11px] font-black tracking-wider uppercase shadow-md">
             Most Magical
           </div>
 <div>
 <div class="flex justify-between items-center mb-4">
-<span class="px-3.5 py-1 rounded-full bg-amber-100 text-amber-900 text-xs font-black uppercase">Magic Premium</span>
+<span class="px-3.5 py-1 rounded-full bg-amber-100 dark:bg-amber-900/50 text-amber-900 dark:text-amber-300 text-xs font-black uppercase">Magic Premium</span>
 <span class="text-3xl">👑</span>
 </div>
-<h3 class="font-display text-3xl font-black text-[#24113F]">Per Wish Pass</h3>
-<p class="text-xs sm:text-sm text-purple-700/80 mt-1">For those milestone days that deserve total wonder.</p>
+<h3 class="font-display text-3xl font-black text-[#24113F] dark:text-white">Per Wish Pass</h3>
+<p class="text-xs sm:text-sm text-purple-700/80 dark:text-purple-300/80 mt-1">For those milestone days that deserve total wonder.</p>
 <div class="my-7">
-<span class="font-display text-5xl font-black text-purple-900">₹49</span>
-<span class="text-sm font-semibold text-purple-700"> / per custom wish link</span>
+<span class="font-display text-5xl font-black text-purple-900 dark:text-pink-300">₹49</span>
+<span class="text-sm font-semibold text-purple-700 dark:text-purple-300"> / per custom wish link</span>
 </div>
-<ul class="space-y-3.5 text-sm text-[#24113F] font-semibold">
+<ul class="space-y-3.5 text-sm text-[#24113F] dark:text-purple-200 font-semibold">
 <li class="flex items-center gap-2.5">
-<span class="text-pink-600 font-bold text-base">★</span> <span class="font-extrabold text-purple-950">Unlock ALL Premium 3D Templates</span>
+<span class="text-pink-600 dark:text-pink-400 font-bold text-base">★</span> <span class="font-extrabold text-purple-950 dark:text-white">Unlock ALL Premium 3D Templates</span>
 </li>
 <li class="flex items-center gap-2.5">
-<span class="text-pink-600 font-bold text-base">★</span> Unlimited photos + voice memo note
+<span class="text-pink-600 dark:text-pink-400 font-bold text-base">★</span> Unlimited photos + voice memo note
               </li>
 <li class="flex items-center gap-2.5">
-<span class="text-pink-600 font-bold text-base">★</span> Custom audio upload (their favorite song)
+<span class="text-pink-600 dark:text-pink-400 font-bold text-base">★</span> Custom audio upload (their favorite song)
               </li>
 <li class="flex items-center gap-2.5">
-<span class="text-pink-600 font-bold text-base">★</span> Zero ads &amp; 100% white-labeled link
+<span class="text-pink-600 dark:text-pink-400 font-bold text-base">★</span> Zero ads &amp; 100% white-labeled link
               </li>
 <li class="flex items-center gap-2.5">
-<span class="text-pink-600 font-bold text-base">★</span> Live Countdown timer + Fireworks burst
+<span class="text-pink-600 dark:text-pink-400 font-bold text-base">★</span> Live Countdown timer + Fireworks burst
               </li>
 </ul>
 </div>
-<button class="mt-8 w-full py-3.5 rounded-full bg-gradient-to-r from-[#EC4899] via-rose-500 to-[#7C3AED] hover:opacity-95 text-white font-bold text-sm shadow-xl shadow-pink-500/30 hover:scale-[1.02] active:scale-95 transition" onclick="openQuickCustomize('Milestone Special', 'Premium ₹49')">
+<button class="mt-8 w-full py-3.5 rounded-full bg-gradient-to-r from-[#EC4899] via-rose-500 to-[#7C3AED] hover:opacity-95 text-white font-bold text-sm shadow-xl shadow-pink-500/30 hover:scale-[1.02] active:scale-95 transition" onclick="location.href='/customize.html'">
             Create Premium Wish (₹49) 🪄
           </button>
 </div>
@@ -712,7 +765,7 @@
 </section>
 <!-- END: SimpleTransparentPricing -->
 <!-- BEGIN: EmotionalClimaxBanner -->
-<section class="py-8 px-6 md:px-12 max-w-7xl mx-auto w-full mb-20" data-purpose="call-to-action-banner">
+<section class="py-8 px-6 md:px-12 max-w-7xl mx-auto w-full mb-16" data-purpose="call-to-action-banner">
 <div class="relative rounded-[36px] bg-gradient-to-r from-[#2E0854] via-[#4C1D95] to-[#9D174D] text-white p-10 sm:p-16 text-center overflow-hidden shadow-2xl border border-white/20">
 <div class="sparkle-dot w-2.5 h-2.5 top-8 left-12 animate-ping"></div>
 <div class="sparkle-dot w-2 h-2 bottom-8 right-16 animate-pulse"></div>
@@ -722,7 +775,7 @@
             Make Their Special Day Truly Unforgettable.
           </h2>
 <p class="text-purple-200 text-sm sm:text-base font-normal max-w-lg mx-auto">
-            Join over 50,000+ happy gifters who replaced boring text messages with magical digital surprises.
+            Replace boring text messages with magical, interactive digital surprises.
           </p>
 <div class="pt-4">
 <button class="px-9 py-4 rounded-full bg-white text-purple-950 font-black text-base shadow-xl hover:bg-pink-50 hover:scale-105 active:scale-95 transition-all" onclick="document.getElementById('templates-section').scrollIntoView({ behavior: 'smooth' })">
@@ -733,36 +786,36 @@
 </div>
 </section>
 <!-- END: EmotionalClimaxBanner -->
-<!-- BEGIN: DeepMagicalPurpleFooter -->
-<footer class="bg-[#1D0B36] text-white pt-16 pb-12 px-6 md:px-12 mt-auto border-t border-purple-900/50" data-purpose="site-footer" id="about-section">
+<!-- BEGIN: AdaptiveLightDarkFooter -->
+<footer class="bg-gradient-to-b from-purple-50/80 via-white to-purple-100/50 dark:from-[#140628] dark:via-[#1D0B36] dark:to-[#0D041A] text-[#24113F] dark:text-white pt-16 pb-12 px-6 md:px-12 mt-auto border-t border-purple-200/80 dark:border-purple-900/50 transition-colors duration-300" data-purpose="site-footer" id="about-section">
 <div class="max-w-7xl mx-auto">
 <!-- Trust & Support Horizontal Bar -->
-<div class="grid grid-cols-1 md:grid-cols-3 gap-8 pb-12 border-b border-purple-800/40 text-purple-200 text-xs sm:text-sm">
-<div class="flex items-start gap-4">
-<div class="w-10 h-10 rounded-full bg-purple-900/80 flex items-center justify-center text-pink-400 flex-shrink-0 text-base">
+<div class="grid grid-cols-1 md:grid-cols-3 gap-6 pb-12 border-b border-purple-200/70 dark:border-purple-800/40">
+<div class="p-4 rounded-2xl bg-white/90 dark:bg-purple-950/60 border border-purple-200/70 dark:border-purple-900/40 shadow-sm flex items-start gap-4 transition-colors">
+<div class="w-10 h-10 rounded-xl bg-purple-100 dark:bg-purple-900/80 text-pink-600 dark:text-pink-400 flex items-center justify-center flex-shrink-0 text-base shadow-sm">
 <svg class="w-5 h-5" fill="none" stroke="currentColor" viewbox="0 0 24 24"><path d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z" stroke-linecap="round" stroke-linejoin="round" stroke-width="2"></path></svg>
 </div>
 <div>
-<p class="font-bold text-white text-base">Privacy Policy</p>
-<p class="text-purple-300/80 mt-1 leading-relaxed">Your privacy is important to us. Photos and wishes remain strictly confidential.</p>
+<p class="font-bold text-purple-950 dark:text-white text-base">Privacy Policy</p>
+<p class="text-purple-800/80 dark:text-purple-300/80 mt-1 leading-relaxed text-xs sm:text-sm">Your privacy is important to us. Photos and wishes remain strictly confidential.</p>
 </div>
 </div>
-<div class="flex items-start gap-4">
-<div class="w-10 h-10 rounded-full bg-purple-900/80 flex items-center justify-center text-pink-400 flex-shrink-0 text-base">
+<div class="p-4 rounded-2xl bg-white/90 dark:bg-purple-950/60 border border-purple-200/70 dark:border-purple-900/40 shadow-sm flex items-start gap-4 transition-colors">
+<div class="w-10 h-10 rounded-xl bg-purple-100 dark:bg-purple-900/80 text-pink-600 dark:text-pink-400 flex items-center justify-center flex-shrink-0 text-base shadow-sm">
 <svg class="w-5 h-5" fill="none" stroke="currentColor" viewbox="0 0 24 24"><path d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" stroke-linecap="round" stroke-linejoin="round" stroke-width="2"></path></svg>
 </div>
 <div>
-<p class="font-bold text-white text-base">Terms &amp; Conditions</p>
-<p class="text-purple-300/80 mt-1 leading-relaxed">Simple, honest guidelines for creating pure joyful experiences.</p>
+<p class="font-bold text-purple-950 dark:text-white text-base">Terms &amp; Conditions</p>
+<p class="text-purple-800/80 dark:text-purple-300/80 mt-1 leading-relaxed text-xs sm:text-sm">Simple, honest guidelines for creating pure joyful experiences.</p>
 </div>
 </div>
-<div class="flex items-start gap-4">
-<div class="w-10 h-10 rounded-full bg-purple-900/80 flex items-center justify-center text-pink-400 flex-shrink-0 text-base">
+<div class="p-4 rounded-2xl bg-white/90 dark:bg-purple-950/60 border border-purple-200/70 dark:border-purple-900/40 shadow-sm flex items-start gap-4 transition-colors">
+<div class="w-10 h-10 rounded-xl bg-purple-100 dark:bg-purple-900/80 text-pink-600 dark:text-pink-400 flex items-center justify-center flex-shrink-0 text-base shadow-sm">
 <svg class="w-5 h-5" fill="none" stroke="currentColor" viewbox="0 0 24 24"><path d="M18.364 5.636l-3.536 3.536m0 5.656l3.536 3.536M9.172 9.172L5.636 5.636m3.536 9.192l-3.536 3.536M21 12a9 9 0 11-18 0 9 9 0 0118 0zm-5 0a4 4 0 11-8 0 4 4 0 018 0z" stroke-linecap="round" stroke-linejoin="round" stroke-width="2"></path></svg>
 </div>
 <div>
-<p class="font-bold text-white text-base">Contact Support</p>
-<p class="text-purple-300/80 mt-1 leading-relaxed">We're here to help you 24/7 at hello@wishmagic.com.</p>
+<p class="font-bold text-purple-950 dark:text-white text-base">Contact Support</p>
+<p class="text-purple-800/80 dark:text-purple-300/80 mt-1 leading-relaxed text-xs sm:text-sm">We're here to help you 24/7 at hello@wishmagic.com.</p>
 </div>
 </div>
 </div>
@@ -770,59 +823,59 @@
 <div class="grid grid-cols-2 md:grid-cols-5 gap-10 py-12 text-sm">
 <div class="col-span-2">
 <div class="flex items-center gap-3 mb-4">
-<div class="w-9 h-9 rounded-full bg-pink-500 flex items-center justify-center font-bold text-white shadow-md">🪄</div>
-<span class="font-display font-extrabold text-2xl text-white">WishMagic</span>
+<div class="w-9 h-9 rounded-full bg-gradient-to-tr from-purple-600 to-pink-500 flex items-center justify-center font-bold text-white shadow-md">🪄</div>
+<span class="font-display font-extrabold text-2xl text-purple-950 dark:text-white">WishMagic</span>
 </div>
-<p class="text-purple-300/80 leading-relaxed max-w-sm mb-5 text-sm">
+<p class="text-purple-800/80 dark:text-purple-300/80 leading-relaxed max-w-sm mb-5 text-sm font-medium">
               Crafting joyous, emotional, and interactive digital web experiences that turn every birthday, anniversary, and celebration into a treasured memory.
             </p>
 <!-- Social Icons -->
-<div class="flex items-center gap-3 text-purple-300 text-sm">
-<a aria-label="Instagram" class="w-9 h-9 rounded-full bg-purple-900/70 hover:bg-pink-600 hover:text-white flex items-center justify-center transition" href="#">📷</a>
-<a aria-label="YouTube" class="w-9 h-9 rounded-full bg-purple-900/70 hover:bg-pink-600 hover:text-white flex items-center justify-center transition" href="#">▶</a>
-<a aria-label="Facebook" class="w-9 h-9 rounded-full bg-purple-900/70 hover:bg-pink-600 hover:text-white flex items-center justify-center transition" href="#">f</a>
-<a aria-label="X Twitter" class="w-9 h-9 rounded-full bg-purple-900/70 hover:bg-pink-600 hover:text-white flex items-center justify-center transition" href="#">𝕏</a>
-<a aria-label="Pinterest" class="w-9 h-9 rounded-full bg-purple-900/70 hover:bg-pink-600 hover:text-white flex items-center justify-center transition" href="#">📌</a>
+<div class="flex items-center gap-3 text-sm">
+<a aria-label="Instagram" class="w-9 h-9 rounded-full bg-purple-100 dark:bg-purple-900/70 text-purple-700 dark:text-purple-300 hover:bg-pink-500 hover:text-white flex items-center justify-center transition shadow-sm" href="#">📷</a>
+<a aria-label="YouTube" class="w-9 h-9 rounded-full bg-purple-100 dark:bg-purple-900/70 text-purple-700 dark:text-purple-300 hover:bg-pink-500 hover:text-white flex items-center justify-center transition shadow-sm" href="#">▶</a>
+<a aria-label="Facebook" class="w-9 h-9 rounded-full bg-purple-100 dark:bg-purple-900/70 text-purple-700 dark:text-purple-300 hover:bg-pink-500 hover:text-white flex items-center justify-center transition shadow-sm" href="#">f</a>
+<a aria-label="X Twitter" class="w-9 h-9 rounded-full bg-purple-100 dark:bg-purple-900/70 text-purple-700 dark:text-purple-300 hover:bg-pink-500 hover:text-white flex items-center justify-center transition shadow-sm" href="#">𝕏</a>
+<a aria-label="Pinterest" class="w-9 h-9 rounded-full bg-purple-100 dark:bg-purple-900/70 text-purple-700 dark:text-purple-300 hover:bg-pink-500 hover:text-white flex items-center justify-center transition shadow-sm" href="#">📌</a>
 </div>
 </div>
 <div>
-<h4 class="font-bold text-white mb-4 uppercase tracking-wider text-xs">Occasions</h4>
-<ul class="space-y-2.5 text-purple-300/80">
-<li><a class="hover:text-white transition" href="#">Birthday Wishes</a></li>
-<li><a class="hover:text-white transition" href="#">Anniversary Celebrations</a></li>
-<li><a class="hover:text-white transition" href="#">Romantic Love Notes</a></li>
-<li><a class="hover:text-white transition" href="#">Graduation &amp; Success</a></li>
-<li><a class="hover:text-white transition" href="#">Festive Seasons</a></li>
+<h4 class="font-bold text-purple-950 dark:text-white mb-4 uppercase tracking-wider text-xs">Occasions</h4>
+<ul class="space-y-2.5 text-purple-800/80 dark:text-purple-300/80 font-medium">
+<li><a class="hover:text-pink-600 dark:hover:text-pink-400 transition" href="#">Birthday Wishes</a></li>
+<li><a class="hover:text-pink-600 dark:hover:text-pink-400 transition" href="#">Anniversary Celebrations</a></li>
+<li><a class="hover:text-pink-600 dark:hover:text-pink-400 transition" href="#">Romantic Love Notes</a></li>
+<li><a class="hover:text-pink-600 dark:hover:text-pink-400 transition" href="#">Graduation &amp; Success</a></li>
+<li><a class="hover:text-pink-600 dark:hover:text-pink-400 transition" href="#">Festive Seasons</a></li>
 </ul>
 </div>
 <div>
-<h4 class="font-bold text-white mb-4 uppercase tracking-wider text-xs">Product</h4>
-<ul class="space-y-2.5 text-purple-300/80">
-<li><a class="hover:text-white transition" href="#">Template Library</a></li>
-<li><a class="hover:text-white transition" href="#">Custom Audio Studio</a></li>
-<li><a class="hover:text-white transition" href="#">QR Code Delivery</a></li>
-<li><a class="hover:text-white transition" href="#">Magic Premium Pass</a></li>
-<li><a class="hover:text-white transition" href="#">Customer Stories</a></li>
+<h4 class="font-bold text-purple-950 dark:text-white mb-4 uppercase tracking-wider text-xs">Product</h4>
+<ul class="space-y-2.5 text-purple-800/80 dark:text-purple-300/80 font-medium">
+<li><a class="hover:text-pink-600 dark:hover:text-pink-400 transition" href="#">Template Library</a></li>
+<li><a class="hover:text-pink-600 dark:hover:text-pink-400 transition" href="#">Custom Audio Studio</a></li>
+<li><a class="hover:text-pink-600 dark:hover:text-pink-400 transition" href="#">QR Code Delivery</a></li>
+<li><a class="hover:text-pink-600 dark:hover:text-pink-400 transition" href="#">Magic Premium Pass</a></li>
+<li><a class="hover:text-pink-600 dark:hover:text-pink-400 transition" href="#">Customer Stories</a></li>
 </ul>
 </div>
 <div>
-<h4 class="font-bold text-white mb-4 uppercase tracking-wider text-xs">Company</h4>
-<ul class="space-y-2.5 text-purple-300/80">
-<li><a class="hover:text-white transition" href="#">About WishMagic</a></li>
-<li><a class="hover:text-white transition" href="#">Privacy &amp; Terms</a></li>
-<li><a class="hover:text-white transition" href="#">Help Center</a></li>
-<li><a class="hover:text-white transition" href="#">Contact Us</a></li>
+<h4 class="font-bold text-purple-950 dark:text-white mb-4 uppercase tracking-wider text-xs">Company</h4>
+<ul class="space-y-2.5 text-purple-800/80 dark:text-purple-300/80 font-medium">
+<li><a class="hover:text-pink-600 dark:hover:text-pink-400 transition" href="#">About WishMagic</a></li>
+<li><a class="hover:text-pink-600 dark:hover:text-pink-400 transition" href="#">Privacy &amp; Terms</a></li>
+<li><a class="hover:text-pink-600 dark:hover:text-pink-400 transition" href="#">Help Center</a></li>
+<li><a class="hover:text-pink-600 dark:hover:text-pink-400 transition" href="#">Contact Us</a></li>
 </ul>
 </div>
 </div>
 <!-- Copyright Badge bottom -->
-<div class="pt-8 border-t border-purple-900/50 flex flex-col sm:flex-row items-center justify-between text-xs sm:text-sm text-purple-400 gap-3">
+<div class="pt-8 border-t border-purple-200/80 dark:border-purple-900/50 flex flex-col sm:flex-row items-center justify-between text-xs sm:text-sm text-purple-800/90 dark:text-purple-400 gap-3">
 <span>© 2026 WishMagic. All rights reserved. 💜</span>
-<span class="text-purple-300/60 text-xs">Designed with wonder for people who care deeply.</span>
+<span class="text-purple-600/80 dark:text-purple-300/60 text-xs">Designed with wonder for people who care deeply.</span>
 </div>
 </div>
 </footer>
-<!-- END: DeepMagicalPurpleFooter -->
+<!-- END: AdaptiveLightDarkFooter -->
 </div>
 <!-- BEGIN: InteractiveModalCustomizer -->
 <!-- Template Customizer & Live Preview Modal -->

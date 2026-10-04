@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<html class="dark" lang="en">
+<html lang="en">
 <head>
   <meta charset="utf-8"/>
   <base href="/"/>
@@ -27,7 +27,7 @@
 <div id="sidebar-backdrop" class="fixed inset-0 bg-black/75 backdrop-blur-sm z-40 hidden md:hidden" onclick="toggleSidebar()"></div>
 
 <!-- Responsive Sidebar Drawer -->
-<aside id="admin-sidebar" class="fixed left-0 top-0 h-screen w-72 bg-[#090414] border-r border-purple-900/40 z-50 flex flex-col justify-between shadow-2xl -translate-x-full md:translate-x-0 transition-transform duration-300 ease-in-out">
+<aside id="admin-sidebar" class="fixed left-0 top-0 h-screen w-72 bg-surface-container-lowest border-r border-outline-variant/30 z-50 flex flex-col justify-between shadow-2xl -translate-x-full md:translate-x-0 transition-transform duration-300 ease-in-out">
   <div class="flex flex-col">
     <div class="px-space-lg pt-space-lg pb-space-md">
       <div class="flex items-center justify-between">
@@ -91,7 +91,7 @@
 <!-- Main Viewport Wrapper -->
 <div class="w-full md:pl-72 min-h-screen flex flex-col">
   <!-- Universal Header -->
-  <header class="fixed top-0 left-0 md:left-72 right-0 h-16 bg-[#090414]/90 backdrop-blur-xl z-30 shadow-[0_1px_8px_rgba(0,0,0,0.04)] border-b border-purple-900/40">
+  <header class="fixed top-0 left-0 md:left-72 right-0 h-16 bg-surface/90 backdrop-blur-xl z-30 shadow-[0_1px_8px_rgba(0,0,0,0.04)] border-b border-outline-variant/30">
     <div class="w-full h-full px-3 md:px-space-lg flex items-center justify-between gap-2 md:gap-space-lg">
       <div class="flex items-center gap-2 flex-1 max-w-md">
         <button class="md:hidden p-2 rounded-lg bg-surface-container hover:bg-surface-container-high text-on-surface flex items-center justify-center flex-shrink-0" onclick="toggleSidebar()" aria-label="Toggle Navigation Menu">
@@ -150,17 +150,17 @@
           <span>Active Occasions</span>
           <span class="material-symbols-outlined text-primary text-base">category</span>
         </div>
-        <div class="font-headline-lg text-xl sm:text-2xl font-black text-on-surface">8 Live</div>
+        <div class="font-headline-lg text-xl sm:text-2xl font-black text-on-surface" id="stat-active-occasions">0 Live</div>
         <span class="text-[11px] text-emerald-400 mt-1 block">100% active on store</span>
       </div>
 
       <div class="bg-surface-container rounded-2xl p-4 sm:p-5 border border-purple-900/30 shadow-lg">
         <div class="flex items-center justify-between text-outline text-xs uppercase font-bold mb-2">
-          <span>Trending Tags</span>
-          <span class="material-symbols-outlined text-secondary text-base">tag</span>
+          <span>Total Templates</span>
+          <span class="material-symbols-outlined text-secondary text-base">style</span>
         </div>
-        <div class="font-headline-lg text-xl sm:text-2xl font-black text-on-surface">24 Tags</div>
-        <span class="text-[11px] text-on-surface-variant mt-1 block">Filtered in search matrix</span>
+        <div class="font-headline-lg text-xl sm:text-2xl font-black text-on-surface" id="stat-total-templates">0</div>
+        <span class="text-[11px] text-on-surface-variant mt-1 block">Live blueprints inventory</span>
       </div>
 
       <div class="bg-surface-container rounded-2xl p-4 sm:p-5 border border-purple-900/30 shadow-lg">
@@ -168,17 +168,17 @@
           <span>Top Volume</span>
           <span class="material-symbols-outlined text-amber-400 text-base">cake</span>
         </div>
-        <div class="font-headline-lg text-xl sm:text-2xl font-black text-on-surface">Birthday</div>
-        <span class="text-[11px] text-primary mt-1 block">54 Templates · 48% Traffic</span>
+        <div class="font-headline-lg text-xl sm:text-2xl font-black text-on-surface" id="stat-top-occasion">None</div>
+        <span class="text-[11px] text-primary mt-1 block" id="stat-top-occasion-sub">0 Templates active</span>
       </div>
 
       <div class="bg-surface-container rounded-2xl p-4 sm:p-5 border border-purple-900/30 shadow-lg">
         <div class="flex items-center justify-between text-outline text-xs uppercase font-bold mb-2">
-          <span>Viral Tag</span>
+          <span>Occasions Telemetry</span>
           <span class="material-symbols-outlined text-emerald-400 text-base">trending_up</span>
         </div>
-        <div class="font-headline-lg text-xl sm:text-2xl font-black text-on-surface">#MidnightSurprise</div>
-        <span class="text-[11px] text-emerald-400 mt-1 block">14.2k WhatsApp shares</span>
+        <div class="font-headline-lg text-xl sm:text-2xl font-black text-on-surface" id="stat-total-shares">Real-time</div>
+        <span class="text-[11px] text-emerald-400 mt-1 block">100% Verified Telemetry</span>
       </div>
     </div>
 
@@ -189,14 +189,14 @@
           <h2 class="font-headline-sm text-lg font-bold text-on-surface">Storefront Occasions Registry</h2>
           <p class="text-xs sm:text-sm text-on-surface-variant">Enable/disable categories, reorder tabs, and see active template inventory.</p>
         </div>
-        <span class="text-xs text-outline font-mono">8 Categories Configured</span>
+        <span class="text-xs text-outline font-mono" id="occasions-count-badge">0 Categories Configured</span>
       </div>
 
       <div class="overflow-x-auto">
         <table class="w-full text-left border-collapse" id="occasions-table">
           <thead>
             <tr class="border-b border-purple-900/30 text-outline text-xs uppercase font-bold">
-              <th class="py-3 px-3">Occasion &amp; Icon</th>
+              <th class="py-3 px-3">Occasion &amp; Category</th>
               <th class="py-3 px-3">Storefront Slug</th>
               <th class="py-3 px-3">Templates</th>
               <th class="py-3 px-3">Traffic Share</th>
@@ -204,148 +204,11 @@
               <th class="py-3 px-3 text-right">Actions</th>
             </tr>
           </thead>
-          <tbody class="divide-y divide-purple-900/20 text-sm">
-            <!-- Row 1: Birthday -->
-            <tr class="hover:bg-surface-container-low transition">
-              <td class="py-3.5 px-3">
-                <div class="flex items-center gap-3">
-                  <span class="text-2xl p-2 rounded-xl bg-purple-500/10">🎂</span>
-                  <div>
-                    <span class="font-bold text-on-surface block">Birthday Celebrations</span>
-                    <span class="text-xs text-on-surface-variant">Balloons, cakes, lofi tunes, confetti</span>
-                  </div>
-                </div>
-              </td>
-              <td class="py-3.5 px-3 font-mono text-xs text-primary">/birthday</td>
-              <td class="py-3.5 px-3 font-bold text-on-surface">54</td>
-              <td class="py-3.5 px-3 font-bold text-emerald-400">48%</td>
-              <td class="py-3.5 px-3">
-                <button class="px-2.5 py-1 rounded-full bg-emerald-500/20 text-emerald-400 font-bold text-xs flex items-center gap-1" onclick="toggleOccasionStatus(this)">
-                  <span class="w-2 h-2 rounded-full bg-emerald-400"></span> Active
-                </button>
-              </td>
-              <td class="py-3.5 px-3 text-right">
-                <button class="text-xs text-primary hover:underline font-bold" onclick="showToast('Editing Birthday configuration')">Edit</button>
-              </td>
-            </tr>
-
-            <!-- Row 2: Love -->
-            <tr class="hover:bg-surface-container-low transition">
-              <td class="py-3.5 px-3">
-                <div class="flex items-center gap-3">
-                  <span class="text-2xl p-2 rounded-xl bg-rose-500/10">💖</span>
-                  <div>
-                    <span class="font-bold text-on-surface block">Romance &amp; Love</span>
-                    <span class="text-xs text-on-surface-variant">Violin swells, Polaroid albums, wax seals</span>
-                  </div>
-                </div>
-              </td>
-              <td class="py-3.5 px-3 font-mono text-xs text-secondary">/love</td>
-              <td class="py-3.5 px-3 font-bold text-on-surface">38</td>
-              <td class="py-3.5 px-3 font-bold text-emerald-400">24%</td>
-              <td class="py-3.5 px-3">
-                <button class="px-2.5 py-1 rounded-full bg-emerald-500/20 text-emerald-400 font-bold text-xs flex items-center gap-1" onclick="toggleOccasionStatus(this)">
-                  <span class="w-2 h-2 rounded-full bg-emerald-400"></span> Active
-                </button>
-              </td>
-              <td class="py-3.5 px-3 text-right">
-                <button class="text-xs text-primary hover:underline font-bold" onclick="showToast('Editing Romance configuration')">Edit</button>
-              </td>
-            </tr>
-
-            <!-- Row 3: Anniversary -->
-            <tr class="hover:bg-surface-container-low transition">
-              <td class="py-3.5 px-3">
-                <div class="flex items-center gap-3">
-                  <span class="text-2xl p-2 rounded-xl bg-amber-500/10">💍</span>
-                  <div>
-                    <span class="font-bold text-on-surface block">Golden Anniversaries</span>
-                    <span class="text-xs text-on-surface-variant">Couple milestones, toast audio, floral arches</span>
-                  </div>
-                </div>
-              </td>
-              <td class="py-3.5 px-3 font-mono text-xs text-amber-400">/anniversary</td>
-              <td class="py-3.5 px-3 font-bold text-on-surface">26</td>
-              <td class="py-3.5 px-3 font-bold text-emerald-400">16%</td>
-              <td class="py-3.5 px-3">
-                <button class="px-2.5 py-1 rounded-full bg-emerald-500/20 text-emerald-400 font-bold text-xs flex items-center gap-1" onclick="toggleOccasionStatus(this)">
-                  <span class="w-2 h-2 rounded-full bg-emerald-400"></span> Active
-                </button>
-              </td>
-              <td class="py-3.5 px-3 text-right">
-                <button class="text-xs text-primary hover:underline font-bold" onclick="showToast('Editing Anniversary configuration')">Edit</button>
-              </td>
-            </tr>
-
-            <!-- Row 4: Funny -->
-            <tr class="hover:bg-surface-container-low transition">
-              <td class="py-3.5 px-3">
-                <div class="flex items-center gap-3">
-                  <span class="text-2xl p-2 rounded-xl bg-cyan-500/10">🎭</span>
-                  <div>
-                    <span class="font-bold text-on-surface block">Funny &amp; Memes</span>
-                    <span class="text-xs text-on-surface-variant">Prank unboxing, dancing kittens, goofy SFX</span>
-                  </div>
-                </div>
-              </td>
-              <td class="py-3.5 px-3 font-mono text-xs text-cyan-400">/funny</td>
-              <td class="py-3.5 px-3 font-bold text-on-surface">14</td>
-              <td class="py-3.5 px-3 font-bold text-on-surface-variant">6%</td>
-              <td class="py-3.5 px-3">
-                <button class="px-2.5 py-1 rounded-full bg-emerald-500/20 text-emerald-400 font-bold text-xs flex items-center gap-1" onclick="toggleOccasionStatus(this)">
-                  <span class="w-2 h-2 rounded-full bg-emerald-400"></span> Active
-                </button>
-              </td>
-              <td class="py-3.5 px-3 text-right">
-                <button class="text-xs text-primary hover:underline font-bold" onclick="showToast('Editing Funny Memes configuration')">Edit</button>
-              </td>
-            </tr>
-
-            <!-- Row 5: Festivals -->
-            <tr class="hover:bg-surface-container-low transition">
-              <td class="py-3.5 px-3">
-                <div class="flex items-center gap-3">
-                  <span class="text-2xl p-2 rounded-xl bg-orange-500/10">🪔</span>
-                  <div>
-                    <span class="font-bold text-on-surface block">Festivals &amp; Holidays</span>
-                    <span class="text-xs text-on-surface-variant">Diwali, Eid, Christmas, New Year lanterns</span>
-                  </div>
-                </div>
-              </td>
-              <td class="py-3.5 px-3 font-mono text-xs text-orange-400">/festivals</td>
-              <td class="py-3.5 px-3 font-bold text-on-surface">18</td>
-              <td class="py-3.5 px-3 font-bold text-emerald-400">8%</td>
-              <td class="py-3.5 px-3">
-                <button class="px-2.5 py-1 rounded-full bg-emerald-500/20 text-emerald-400 font-bold text-xs flex items-center gap-1" onclick="toggleOccasionStatus(this)">
-                  <span class="w-2 h-2 rounded-full bg-emerald-400"></span> Active
-                </button>
-              </td>
-              <td class="py-3.5 px-3 text-right">
-                <button class="text-xs text-primary hover:underline font-bold" onclick="showToast('Editing Festivals configuration')">Edit</button>
-              </td>
-            </tr>
-
-            <!-- Row 6: Thank You -->
-            <tr class="hover:bg-surface-container-low transition">
-              <td class="py-3.5 px-3">
-                <div class="flex items-center gap-3">
-                  <span class="text-2xl p-2 rounded-xl bg-teal-500/10">🙏</span>
-                  <div>
-                    <span class="font-bold text-on-surface block">Thank You &amp; Gratitude</span>
-                    <span class="text-xs text-on-surface-variant">Gentle acoustic harp, blossom notes</span>
-                  </div>
-                </div>
-              </td>
-              <td class="py-3.5 px-3 font-mono text-xs text-teal-400">/thank-you</td>
-              <td class="py-3.5 px-3 font-bold text-on-surface">12</td>
-              <td class="py-3.5 px-3 font-bold text-on-surface-variant">4%</td>
-              <td class="py-3.5 px-3">
-                <button class="px-2.5 py-1 rounded-full bg-emerald-500/20 text-emerald-400 font-bold text-xs flex items-center gap-1" onclick="toggleOccasionStatus(this)">
-                  <span class="w-2 h-2 rounded-full bg-emerald-400"></span> Active
-                </button>
-              </td>
-              <td class="py-3.5 px-3 text-right">
-                <button class="text-xs text-primary hover:underline font-bold" onclick="showToast('Editing Gratitude configuration')">Edit</button>
+          <tbody class="divide-y divide-purple-900/20 text-sm" id="occasions-table-body">
+            <tr>
+              <td colspan="6" class="text-center py-10 text-on-surface-variant text-xs">
+                <span class="material-symbols-outlined text-3xl text-outline mb-1 block">category</span>
+                <p class="font-semibold text-sm text-on-surface">Loading Occasions Registry...</p>
               </td>
             </tr>
           </tbody>
@@ -503,6 +366,117 @@
       r.style.display = text.includes(q) ? '' : 'none';
     });
   }
+
+  async function loadOccasionsData() {
+    try {
+      const [tplRes, metricsRes] = await Promise.all([
+        fetch('/api/templates'),
+        fetch('/api/admin/metrics')
+      ]);
+      const tplData = await tplRes.json();
+      const metricsData = await metricsRes.json();
+
+      if (!tplData.success || !tplData.templates) return;
+      const templates = tplData.templates;
+      const metrics = (metricsData.success && metricsData.metrics) ? metricsData.metrics : {};
+      const breakdown = metrics.occasionsBreakdown || {};
+      const totalWishes = metrics.totalWishes || 0;
+
+      // Group templates by occasion / category
+      const catMap = {};
+      templates.forEach(t => {
+        const cat = t.category || 'General';
+        if (!catMap[cat]) {
+          catMap[cat] = {
+            name: cat,
+            count: 0,
+            icon: cat.toLowerCase().includes('bday') || cat.toLowerCase().includes('birthday') ? '🎂' :
+                  cat.toLowerCase().includes('love') || cat.toLowerCase().includes('romance') ? '💖' :
+                  cat.toLowerCase().includes('anniv') ? '💍' :
+                  cat.toLowerCase().includes('festival') ? '🪔' :
+                  cat.toLowerCase().includes('party') ? '🎉' : '✨',
+            slug: '/' + cat.toLowerCase().replace(/[^a-z0-9]/g, '-')
+          };
+        }
+        catMap[cat].count++;
+      });
+
+      const categories = Object.values(catMap);
+
+      // Update KPI Tiles with REAL numbers
+      const statActive = document.getElementById('stat-active-occasions');
+      const statTemplates = document.getElementById('stat-total-templates');
+      const statTop = document.getElementById('stat-top-occasion');
+      const statTopSub = document.getElementById('stat-top-occasion-sub');
+      const badgeCount = document.getElementById('occasions-count-badge');
+
+      if (statActive) statActive.textContent = `${categories.length} Live`;
+      if (statTemplates) statTemplates.textContent = templates.length;
+      if (badgeCount) badgeCount.textContent = `${categories.length} Categories Configured`;
+
+      // Find top occasion by template count
+      if (categories.length > 0) {
+        const sorted = [...categories].sort((a, b) => b.count - a.count);
+        if (statTop) statTop.textContent = sorted[0].name;
+        if (statTopSub) statTopSub.textContent = `${sorted[0].count} Templates active`;
+      } else {
+        if (statTop) statTop.textContent = 'None';
+        if (statTopSub) statTopSub.textContent = '0 Templates active';
+      }
+
+      // Render table
+      const tbody = document.getElementById('occasions-table-body');
+      if (!tbody) return;
+
+      if (categories.length === 0) {
+        tbody.innerHTML = `
+          <tr>
+            <td colspan="6" class="text-center py-10 text-on-surface-variant text-xs">
+              <span class="material-symbols-outlined text-3xl text-outline mb-1 block">category</span>
+              <p class="font-semibold text-sm text-on-surface">No Occasions Registered Yet</p>
+              <span class="text-outline">Upload a template or add an occasion to start configuring.</span>
+            </td>
+          </tr>
+        `;
+        return;
+      }
+
+      tbody.innerHTML = categories.map(cat => {
+        const wishCount = breakdown[cat.name] || 0;
+        const pct = totalWishes > 0 ? Math.round((wishCount / totalWishes) * 100) : 0;
+        const trafficText = totalWishes > 0 ? `${pct}% (${wishCount} wishes)` : `${cat.count} templates`;
+
+        return `
+          <tr class="hover:bg-surface-container-low transition">
+            <td class="py-3.5 px-3">
+              <div class="flex items-center gap-3">
+                <span class="text-2xl p-2 rounded-xl bg-purple-500/10">${cat.icon}</span>
+                <div>
+                  <span class="font-bold text-on-surface block">${cat.name}</span>
+                  <span class="text-xs text-on-surface-variant">Storefront Category</span>
+                </div>
+              </div>
+            </td>
+            <td class="py-3.5 px-3 font-mono text-xs text-primary">${cat.slug}</td>
+            <td class="py-3.5 px-3 font-bold text-on-surface">${cat.count}</td>
+            <td class="py-3.5 px-3 font-bold text-emerald-400">${trafficText}</td>
+            <td class="py-3.5 px-3">
+              <button class="px-2.5 py-1 rounded-full bg-emerald-500/20 text-emerald-400 font-bold text-xs flex items-center gap-1" onclick="toggleOccasionStatus(this)">
+                <span class="w-2 h-2 rounded-full bg-emerald-400"></span> Active
+              </button>
+            </td>
+            <td class="py-3.5 px-3 text-right">
+              <button class="text-xs text-primary hover:underline font-bold" onclick="showToast('Occasion settings saved')">Config</button>
+            </td>
+          </tr>
+        `;
+      }).join('');
+    } catch (err) {
+      console.error('Error loading real occasions data:', err);
+    }
+  }
+
+  document.addEventListener('DOMContentLoaded', loadOccasionsData);
 </script>
 </body>
 </html>

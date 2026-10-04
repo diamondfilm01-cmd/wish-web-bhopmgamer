@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<html class="dark" lang="en">
+<html lang="en">
 <head>
   <meta charset="utf-8"/>
   <base href="/"/>
@@ -27,7 +27,7 @@
 <div id="sidebar-backdrop" class="fixed inset-0 bg-black/75 backdrop-blur-sm z-40 hidden md:hidden" onclick="toggleSidebar()"></div>
 
 <!-- Responsive Sidebar Drawer -->
-<aside id="admin-sidebar" class="fixed left-0 top-0 h-screen w-72 bg-[#090414] border-r border-purple-900/40 z-50 flex flex-col justify-between shadow-2xl -translate-x-full md:translate-x-0 transition-transform duration-300 ease-in-out">
+<aside id="admin-sidebar" class="fixed left-0 top-0 h-screen w-72 bg-surface-container-lowest border-r border-outline-variant/30 z-50 flex flex-col justify-between shadow-2xl -translate-x-full md:translate-x-0 transition-transform duration-300 ease-in-out">
   <div class="flex flex-col">
     <div class="px-space-lg pt-space-lg pb-space-md">
       <div class="flex items-center justify-between">
@@ -91,7 +91,7 @@
 <!-- Main Viewport Wrapper -->
 <div class="w-full md:pl-72 min-h-screen flex flex-col">
   <!-- Universal Header -->
-  <header class="fixed top-0 left-0 md:left-72 right-0 h-16 bg-[#090414]/90 backdrop-blur-xl z-30 shadow-[0_1px_8px_rgba(0,0,0,0.04)] border-b border-purple-900/40">
+  <header class="fixed top-0 left-0 md:left-72 right-0 h-16 bg-surface/90 backdrop-blur-xl z-30 shadow-[0_1px_8px_rgba(0,0,0,0.04)] border-b border-outline-variant/30">
     <div class="w-full h-full px-3 md:px-space-lg flex items-center justify-between gap-2 md:gap-space-lg">
       <div class="flex items-center gap-2 flex-1 max-w-md">
         <button class="md:hidden p-2 rounded-lg bg-surface-container hover:bg-surface-container-high text-on-surface flex items-center justify-center flex-shrink-0" onclick="toggleSidebar()" aria-label="Toggle Navigation Menu">
