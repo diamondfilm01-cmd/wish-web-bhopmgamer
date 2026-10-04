@@ -250,8 +250,9 @@ document.addEventListener('DOMContentLoaded', async () => {
     }
   } else if (draftId) {
     try {
-      const drafts = JSON.parse(localStorage.getItem('wishmagic_drafts') || '[]');
-      const targetDraft = drafts.find(d => d.id === draftId);
+      const rawDrafts = localStorage.getItem('wishmagic_drafts');
+      const drafts = window.WishSecurity ? window.WishSecurity.safeJSONParse(rawDrafts, []) : JSON.parse(rawDrafts || '[]');
+      const targetDraft = Array.isArray(drafts) ? drafts.find(d => d.id === draftId) : null;
       if (targetDraft) {
         templateId = targetDraft.templateId || templateId;
         await loadTemplateData(templateId);
@@ -304,16 +305,12 @@ async function loadTemplateData(templateId) {
 
     // Check for existing local draft
     const draftKey = `wishmagic_draft_${activeTemplate.id}`;
-    const savedDraft = localStorage.getItem(draftKey);
-    if (savedDraft) {
-      try {
-        const parsed = JSON.parse(savedDraft);
-        if (parsed && typeof parsed === 'object') {
-          currentCustomData = { ...currentCustomData, ...parsed };
-          showToast('Restored your saved local draft ✨');
-        }
-      } catch (e) {
-        console.warn('Error reading saved draft:', e);
+    const rawSavedDraft = localStorage.getItem(draftKey);
+    if (rawSavedDraft) {
+      const parsed = window.WishSecurity ? window.WishSecurity.safeJSONParse(rawSavedDraft, null) : JSON.parse(rawSavedDraft);
+      if (parsed && typeof parsed === 'object') {
+        currentCustomData = { ...currentCustomData, ...parsed };
+        showToast('Restored your saved local draft ✨');
       }
     }
 
