@@ -51,6 +51,15 @@
       }
     });
 
+    // Fast-path: Check for pre-injected SSR data
+    if (window.__SSR_WISH_DATA__ && window.__SSR_WISH_DATA__.wish) {
+      currentRawWish = window.__SSR_WISH_DATA__.wish;
+      currentTemplate = window.__SSR_WISH_DATA__.template || null;
+      currentWishData = currentRawWish.customData || {};
+      renderWishLifecycleRouter(currentWishData, currentTemplate);
+      return;
+    }
+
     if (!wishId) {
       console.log('No wish ID specified, displaying fallback celebration demo');
       loadDemoCelebrationWish();
@@ -1208,13 +1217,22 @@
         <span class="text-xs uppercase font-extrabold tracking-widest text-pink-300">The Journey Together</span>
         <h3 class="text-xl sm:text-2xl font-bold font-display text-white mt-1 mb-6">Our Story Timeline</h3>
 
-        <div class="relative border-l-2 border-pink-500/40 ml-4 sm:ml-8 space-y-6 text-left pl-6">
+        <div class="relative border-l-2 border-pink-500/40 ml-4 sm:ml-8 space-y-4 text-left pl-6">
           ${timeline.map((item, idx) => `
-            <div class="relative">
-              <span class="absolute -left-[31px] top-1 w-4 h-4 rounded-full bg-pink-500 border-2 border-white shadow"></span>
-              <span class="text-[10px] font-mono uppercase text-amber-300 font-bold">${escapeHTML(item.date || `Milestone ${idx + 1}`)}</span>
-              <h4 class="text-sm sm:text-base font-bold text-white mt-0.5">${escapeHTML(item.title || 'Special Milestone')}</h4>
-              <p class="text-xs text-white/70 mt-1">${escapeHTML(item.description || '')}</p>
+            <div class="relative group p-3.5 rounded-2xl bg-white/5 hover:bg-white/10 border border-white/10 transition cursor-pointer wm-accordion-item" onclick="WishInteractionEngine.toggleTimelineItem(this)">
+              <span class="absolute -left-[31px] top-4 w-4 h-4 rounded-full bg-pink-500 border-2 border-white shadow"></span>
+              <div class="flex items-center justify-between gap-2">
+                <div>
+                  <span class="text-[10px] font-mono uppercase text-amber-300 font-bold">${escapeHTML(item.date || `Milestone ${idx + 1}`)}</span>
+                  <h4 class="text-sm sm:text-base font-bold text-white mt-0.5">${escapeHTML(item.title || 'Special Milestone')}</h4>
+                </div>
+                <button type="button" aria-expanded="false" class="text-xs text-pink-300 group-hover:text-white font-bold px-2 py-1 rounded-lg bg-white/10" aria-label="Toggle details">
+                  <span>▼</span>
+                </button>
+              </div>
+              <div class="wm-accordion-content pt-2">
+                <p class="text-xs text-white/80 leading-relaxed">${escapeHTML(item.description || '')}</p>
+              </div>
             </div>
           `).join('')}
         </div>
@@ -1231,11 +1249,11 @@
 
         <div class="grid grid-cols-1 sm:grid-cols-2 gap-3.5 text-left">
           ${cards.map((c, idx) => `
-            <div onclick="WishRenderer.openEnvelopeCard('${escapeHTML(c.id || idx)}', '${escapeHTML(c.title)}', '${escapeHTML(c.message)}', '${escapeHTML(c.color || '#ec4899')}')" class="group relative p-5 rounded-3xl bg-gradient-to-br from-white/10 to-white/5 backdrop-blur-xl border border-white/20 hover:border-pink-400/80 shadow-xl transition-all duration-300 hover:-translate-y-1 cursor-pointer overflow-hidden">
+            <div onclick="WishRenderer.openEnvelopeCard('${escapeHTML(c.id || idx)}', '${escapeHTML(c.title)}', '${escapeHTML(c.message)}', '${escapeHTML(c.color || '#ec4899')}', '${escapeHTML(c.image || '')}')" class="group relative p-5 rounded-3xl bg-gradient-to-br from-white/10 to-white/5 backdrop-blur-xl border border-white/20 hover:border-pink-400/80 shadow-xl transition-all duration-300 hover:-translate-y-1 cursor-pointer overflow-hidden" role="button" tabindex="0" aria-label="Open letter: ${escapeHTML(c.title)}">
               <div class="absolute -right-4 -bottom-4 w-16 h-16 rounded-full opacity-20 group-hover:opacity-40 transition-opacity blur-lg" style="background-color: ${escapeHTML(c.color || '#ec4899')};"></div>
               <div class="flex items-center gap-3 mb-2">
                 <div class="w-10 h-10 rounded-2xl flex items-center justify-center text-xl shadow-md border border-white/20" style="background: linear-gradient(135deg, ${escapeHTML(c.color || '#ec4899')} 0%, #3b0764 100%);">
-                  ✉️
+                  💌
                 </div>
                 <span class="text-[10px] font-mono uppercase tracking-wider text-pink-300 font-bold">Envelope #${idx + 1}</span>
               </div>
@@ -1257,30 +1275,53 @@
     const title = secretConfig.title || 'A Secret Surprise Just For You 🤫';
     const text = secretConfig.secretText || 'May every wish in your heart come true!';
     const hint = secretConfig.hint || 'Tap the glowing wax seal to reveal!';
+    const hasPassword = Boolean(secretConfig.password && secretConfig.password.trim());
+
+    // Configure in-memory secret vault so text is never leaked in plaintext DOM before unlock
+    if (window.WishInteractionEngine && typeof window.WishInteractionEngine.configureSecretVault === 'function') {
+      window.WishInteractionEngine.configureSecretVault({
+        password: secretConfig.password || '',
+        secretText: text,
+        hint: hint
+      });
+    }
 
     return `
       <div class="w-full rounded-3xl bg-gradient-to-br from-purple-950/70 via-indigo-950/60 to-black/80 backdrop-blur-2xl p-6 sm:p-8 border border-purple-500/40 shadow-2xl text-center relative overflow-hidden">
         <div class="relative z-10">
           <span class="text-xs uppercase font-extrabold tracking-widest text-pink-300">Confidential Dedication</span>
           <h3 class="text-xl sm:text-2xl font-bold font-display text-white mt-1 mb-2">${escapeHTML(title)}</h3>
-          <p class="text-xs text-purple-200/70 mb-6 font-medium">${escapeHTML(hint)}</p>
+          ${hint ? `<p class="text-xs text-purple-200/70 mb-4 font-medium italic">Hint: "${escapeHTML(hint)}"</p>` : ''}
 
-          <!-- Interactive Scratch / Seal Reveal Area -->
-          <div id="secret-message-box" class="relative max-w-md mx-auto min-h-[140px] rounded-2xl p-6 bg-white/5 border border-purple-400/30 flex items-center justify-center transition-all duration-500">
-            <!-- Unrevealed State -->
-            <div id="secret-sealed-state" class="flex flex-col items-center gap-3 cursor-pointer py-4" onclick="WishRenderer.revealSecretMessage()">
+          <!-- Interactive Vault Area -->
+          <div id="wm-secret-vault-box" class="relative max-w-md mx-auto min-h-[140px] rounded-2xl p-6 bg-white/5 border border-purple-400/30 flex items-center justify-center transition-all duration-500">
+            <!-- Sealed State -->
+            <div id="wm-vault-sealed-state" class="flex flex-col items-center gap-3 w-full py-2">
               <div class="w-16 h-16 rounded-full bg-gradient-to-tr from-rose-500 via-purple-600 to-amber-400 flex items-center justify-center text-3xl shadow-[0_0_25px_rgba(244,63,94,0.6)] animate-pulse">
                 🔐
               </div>
-              <span class="px-4 py-1.5 rounded-full bg-white/10 hover:bg-white/20 border border-white/20 text-xs font-bold text-white transition">
-                Tap to Break Wax Seal & Reveal ✨
-              </span>
+
+              ${hasPassword ? `
+                <div class="w-full max-w-xs space-y-2">
+                  <div class="flex items-center gap-2">
+                    <input type="password" id="wm-vault-pass-input" placeholder="Enter key code..." class="flex-1 px-3 py-2 rounded-xl bg-white/10 border border-purple-300/40 text-xs text-white placeholder-white/40 focus:outline-none focus:border-pink-400 text-center font-mono tracking-widest"/>
+                    <button onclick="WishRenderer.attemptVaultPasswordUnlock(document.getElementById('wm-vault-pass-input').value)" class="px-4 py-2 rounded-xl bg-gradient-to-r from-pink-500 to-purple-600 text-white text-xs font-bold shadow-md hover:brightness-110 active:scale-95 transition cursor-pointer">
+                      Unlock
+                    </button>
+                  </div>
+                  <p id="wm-vault-error-msg" class="text-[11px] text-rose-300 font-bold hidden"></p>
+                </div>
+              ` : `
+                <button onclick="WishRenderer.unlockSecretVaultDirectly()" class="px-5 py-2 rounded-full bg-white/10 hover:bg-white/20 border border-white/20 text-xs font-bold text-white transition active:scale-95 cursor-pointer shadow-md">
+                  Tap to Break Wax Seal & Reveal ✨
+                </button>
+              `}
             </div>
 
             <!-- Revealed State -->
-            <div id="secret-revealed-state" class="hidden flex flex-col items-center text-center animate-fade-in py-2">
+            <div id="wm-vault-revealed-state" class="hidden flex flex-col items-center text-center animate-fade-in py-2">
               <span class="text-2xl mb-2">💌</span>
-              <p class="text-sm sm:text-base font-serif font-medium text-pink-100 leading-relaxed italic">
+              <p id="wm-vault-secret-content" class="text-sm sm:text-base font-serif font-medium text-pink-100 leading-relaxed italic">
                 "${escapeHTML(text)}"
               </p>
               <span class="text-[10px] text-amber-300 uppercase font-mono font-bold mt-3 tracking-wider">
@@ -1299,23 +1340,56 @@
     const btnText = finaleConfig.buttonText || 'Celebrate Again 🎊';
 
     return `
-      <div class="w-full rounded-3xl bg-gradient-to-tr from-pink-900/40 via-purple-900/40 to-indigo-950/40 backdrop-blur-2xl p-8 border border-white/20 shadow-2xl text-center flex flex-col items-center">
-        <div class="text-4xl sm:text-5xl mb-3 animate-bounce-soft">🎉</div>
-        <h3 class="text-2xl sm:text-3xl font-black font-display text-white mb-2">
-          ${escapeHTML(title)}
-        </h3>
-        <p class="text-xs sm:text-sm text-purple-200/80 max-w-md mb-6 leading-relaxed">
-          ${escapeHTML(msg)}
-        </p>
+      <div class="w-full rounded-3xl bg-gradient-to-tr from-pink-900/40 via-purple-900/40 to-indigo-950/40 backdrop-blur-2xl p-6 sm:p-8 border border-white/20 shadow-2xl text-center flex flex-col items-center">
+        <!-- Step 1: One Last Thing... -->
+        <div id="wm-finale-step-1" class="flex flex-col items-center w-full">
+          <div class="text-4xl sm:text-5xl mb-3 animate-bounce-soft">🎁</div>
+          <span class="text-xs uppercase font-extrabold tracking-widest text-amber-300">Before You Go</span>
+          <h3 class="text-2xl sm:text-3xl font-black font-display text-white mt-1 mb-3">
+            One Last Surprise...
+          </h3>
+          <p class="text-xs sm:text-sm text-purple-200/80 max-w-md mb-6 leading-relaxed">
+            There is one final blessing prepared with love from ${escapeHTML(sender)}.
+          </p>
+          <button onclick="WishRenderer.advanceFinalSurpriseStep(2)" class="px-8 py-3 rounded-full bg-gradient-to-r from-pink-500 via-purple-600 to-amber-400 text-white text-xs sm:text-sm font-extrabold shadow-xl hover:scale-105 active:scale-95 transition cursor-pointer flex items-center gap-2">
+            <span>Unwrap Finale</span>
+            <span>✨</span>
+          </button>
+        </div>
 
-        <div class="flex items-center gap-3">
-          <button onclick="WishRenderer.triggerConfettiBurst(120)" class="px-6 py-3 rounded-full bg-gradient-to-r from-pink-500 via-purple-600 to-amber-400 text-white text-xs sm:text-sm font-extrabold shadow-xl hover:scale-105 active:scale-95 transition flex items-center gap-2">
-            <span>${escapeHTML(btnText)}</span>
+        <!-- Step 2: Emotional Message & Photo Spotlight -->
+        <div id="wm-finale-step-2" class="hidden flex flex-col items-center w-full animate-fade-in">
+          <div class="text-4xl sm:text-5xl mb-3">💖</div>
+          <h3 class="text-2xl sm:text-3xl font-black font-display text-white mb-2">
+            ${escapeHTML(title)}
+          </h3>
+          <p class="text-xs sm:text-sm text-purple-200/90 max-w-md mb-6 leading-relaxed font-serif italic text-base">
+            "${escapeHTML(msg)}"
+          </p>
+          <button onclick="WishRenderer.advanceFinalSurpriseStep(3)" class="px-8 py-3 rounded-full bg-gradient-to-r from-pink-500 to-purple-600 text-white text-xs sm:text-sm font-extrabold shadow-xl hover:scale-105 active:scale-95 transition cursor-pointer flex items-center gap-2">
+            <span>Celebrate All Together!</span>
+            <span>🎉</span>
           </button>
-          <button onclick="WishRenderer.replaySurprise()" class="px-4 py-3 rounded-full bg-white/10 hover:bg-white/20 text-white text-xs font-bold transition flex items-center gap-1.5" title="Replay from Beginning">
-            <span class="material-symbols-outlined text-sm">replay</span>
-            <span>Top</span>
-          </button>
+        </div>
+
+        <!-- Step 3: Full Celebration Climax -->
+        <div id="wm-finale-step-3" class="hidden flex flex-col items-center w-full animate-fade-in">
+          <div class="text-5xl sm:text-6xl mb-3 animate-bounce">🎊</div>
+          <h3 class="text-2xl sm:text-3xl font-black font-display text-transparent bg-clip-text bg-gradient-to-r from-pink-300 via-amber-200 to-white mb-2">
+            Wishes Showered With Love!
+          </h3>
+          <p class="text-xs sm:text-sm text-purple-200/80 max-w-md mb-6 leading-relaxed">
+            May joy follow you at every step and warmth surround your journey today and always.
+          </p>
+          <div class="flex items-center gap-3">
+            <button onclick="WishRenderer.triggerConfettiBurst(120)" class="px-6 py-3 rounded-full bg-gradient-to-r from-pink-500 via-purple-600 to-amber-400 text-white text-xs sm:text-sm font-extrabold shadow-xl hover:scale-105 active:scale-95 transition flex items-center gap-2 cursor-pointer">
+              <span>${escapeHTML(btnText)}</span>
+            </button>
+            <button onclick="WishRenderer.replaySurprise()" class="px-4 py-3 rounded-full bg-white/10 hover:bg-white/20 text-white text-xs font-bold transition flex items-center gap-1.5 cursor-pointer" title="Replay from Beginning">
+              <span class="material-symbols-outlined text-sm">replay</span>
+              <span>Replay</span>
+            </button>
+          </div>
         </div>
       </div>
     `;
@@ -1606,8 +1680,10 @@
   }
 
   function openLightbox(photoIndex) {
-    if (window.WishMediaSystem && window.WishMediaSystem.lightbox) {
-      const photos = currentWishData.photos || (currentWishData.media && currentWishData.media.photos) || [];
+    const photos = currentWishData.photos || (currentWishData.media && currentWishData.media.photos) || [];
+    if (window.WishInteractionEngine && typeof window.WishInteractionEngine.openLightbox === 'function') {
+      window.WishInteractionEngine.openLightbox(photos, photoIndex);
+    } else if (window.WishMediaSystem && window.WishMediaSystem.lightbox) {
       window.WishMediaSystem.lightbox.open(photos, photoIndex);
     }
   }
@@ -1627,7 +1703,12 @@
       .replace(/'/g, '&#039;');
   }
 
-  function openEnvelopeCard(cardId, title, message, color) {
+  function openEnvelopeCard(cardId, title, message, color, image = '') {
+    if (window.WishInteractionEngine && typeof window.WishInteractionEngine.openEnvelopeCard === 'function') {
+      window.WishInteractionEngine.openEnvelopeCard({ id: cardId, title, message, color, image });
+      return;
+    }
+
     let modal = document.getElementById('open-when-letter-modal');
     if (!modal) {
       modal = document.createElement('div');
@@ -1675,12 +1756,35 @@
   function closeEnvelopeModal() {
     const modal = document.getElementById('open-when-letter-modal');
     if (modal) modal.classList.add('hidden');
+    if (window.WishInteractionEngine && typeof window.WishInteractionEngine.closeActiveModal === 'function') {
+      window.WishInteractionEngine.closeActiveModal();
+    }
+  }
+
+  function unlockSecretVaultDirectly() {
+    if (window.WishInteractionEngine && typeof window.WishInteractionEngine.unlockSecretVaultDirectly === 'function') {
+      window.WishInteractionEngine.unlockSecretVaultDirectly();
+    } else {
+      revealSecretMessage();
+    }
+  }
+
+  function attemptVaultPasswordUnlock(pwd) {
+    if (window.WishInteractionEngine && typeof window.WishInteractionEngine.attemptVaultPasswordUnlock === 'function') {
+      window.WishInteractionEngine.attemptVaultPasswordUnlock(pwd);
+    }
+  }
+
+  function advanceFinalSurpriseStep(step) {
+    if (window.WishInteractionEngine && typeof window.WishInteractionEngine.advanceFinalSurpriseStep === 'function') {
+      window.WishInteractionEngine.advanceFinalSurpriseStep(step);
+    }
   }
 
   function revealSecretMessage() {
-    const sealed = document.getElementById('secret-sealed-state');
-    const revealed = document.getElementById('secret-revealed-state');
-    const box = document.getElementById('secret-message-box');
+    const sealed = document.getElementById('wm-vault-sealed-state') || document.getElementById('secret-sealed-state');
+    const revealed = document.getElementById('wm-vault-revealed-state') || document.getElementById('secret-revealed-state');
+    const box = document.getElementById('wm-secret-vault-box') || document.getElementById('secret-message-box');
 
     if (sealed) sealed.classList.add('hidden');
     if (revealed) revealed.classList.remove('hidden');
@@ -1698,6 +1802,9 @@
     openEnvelopeCard,
     closeEnvelopeModal,
     revealSecretMessage,
+    unlockSecretVaultDirectly,
+    attemptVaultPasswordUnlock,
+    advanceFinalSurpriseStep,
     launchFireworks,
     triggerConfettiBurst,
     scrollToNextSection,

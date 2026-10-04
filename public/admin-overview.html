@@ -5,10 +5,10 @@
   <base href="/"/>
   <meta content="width=device-width, initial-scale=1.0" name="viewport"/>
   <meta content="web_dashboard" name="shell-type"/>
-  <title>WishMagic | Studio Overview</title>
+  <title>WishMagic | Executive Analytics &amp; Admin Studio</title>
   <link rel="preconnect" href="https://fonts.googleapis.com"/>
   <link crossorigin="" href="https://fonts.gstatic.com" rel="preconnect"/>
-  <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;600;700&family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet"/>
+  <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;600;700&family=Plus+Jakarta+Sans:wght@400;500;600;700;800&family=Outfit:wght@500;600;700;800&display=swap" rel="stylesheet"/>
   <link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:opsz,wght,FILL,GRAD@20..48,100..700,0..1,-50..200&display=swap" rel="stylesheet"/>
   <script src="js/tailwind-config.js"></script>
   <script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
@@ -20,11 +20,13 @@
   <link rel="stylesheet" href="css/admin-theme.css"/>
   <script src="js/WishMagicCore.js"></script>
   <script src="js/admin-theme.js"></script>
-  <!-- Part 10 Auth & Repositories -->
+  <script src="js/wish-lifecycle.js"></script>
   <script src="js/auth-service.js"></script>
   <script src="js/repositories.js"></script>
+  <script src="js/analytics-service.js"></script>
+  <script src="js/share-system.js"></script>
 </head>
-<body class="bg-background text-on-surface font-body-md min-h-screen antialiased">
+<body class="bg-background text-on-surface font-body-md min-h-screen antialiased selection:bg-primary selection:text-white">
 
 <!-- Mobile Sidebar Backdrop Overlay -->
 <div id="sidebar-backdrop" class="fixed inset-0 bg-black/75 backdrop-blur-sm z-40 hidden md:hidden" onclick="toggleSidebar()"></div>
@@ -51,34 +53,38 @@
     <div class="px-space-md mt-space-sm">
       <div class="px-space-sm pb-space-xs font-label-sm text-label-sm uppercase tracking-wider text-outline">Core Navigation</div>
       <nav class="flex flex-col gap-1 px-space-xs mt-space-xs">
-        <a class="group flex items-center gap-space-sm px-space-md py-2.5 rounded-lg bg-primary-container text-white font-semibold shadow-[0_0_24px_rgba(124,58,237,0.35)] transition-all duration-200" href="admin-overview.html">
+        <a class="group flex items-center gap-space-sm px-space-md py-2.5 rounded-lg bg-primary-container text-white font-semibold shadow-[0_0_24px_rgba(124,58,237,0.35)] transition-all duration-200" href="/admin/overview">
           <span class="material-symbols-outlined text-[20px] transition-transform group-hover:scale-110">dashboard</span>
-          <span class="font-body-md text-body-md">Overview</span>
+          <span class="font-body-md text-body-md">Overview &amp; Analytics</span>
         </a>
-        <a class="group flex items-center gap-space-sm px-space-md py-2.5 rounded-lg text-on-surface-variant hover:bg-surface-container-high hover:text-on-surface transition-all duration-200" href="admin-templates.html">
+        <a class="group flex items-center gap-space-sm px-space-md py-2.5 rounded-lg text-on-surface-variant hover:bg-surface-container-high hover:text-on-surface transition-all duration-200" href="/admin/templates">
           <span class="material-symbols-outlined text-[20px] transition-transform group-hover:scale-110">style</span>
           <span class="font-body-md text-body-md">Templates Manager</span>
         </a>
-        <a class="group flex items-center gap-space-sm px-space-md py-2.5 rounded-lg text-on-surface-variant hover:bg-surface-container-high hover:text-on-surface transition-all duration-200" href="admin-occasions.html">
+        <a class="group flex items-center gap-space-sm px-space-md py-2.5 rounded-lg text-on-surface-variant hover:bg-surface-container-high hover:text-on-surface transition-all duration-200" href="/admin/wishes">
+          <span class="material-symbols-outlined text-[20px] transition-transform group-hover:scale-110">card_giftcard</span>
+          <span class="font-body-md text-body-md">Wishes &amp; Celebrations</span>
+        </a>
+        <a class="group flex items-center gap-space-sm px-space-md py-2.5 rounded-lg text-on-surface-variant hover:bg-surface-container-high hover:text-on-surface transition-all duration-200" href="/admin/users">
+          <span class="material-symbols-outlined text-[20px] transition-transform group-hover:scale-110">group</span>
+          <span class="font-body-md text-body-md">Users &amp; Creators</span>
+        </a>
+        <a class="group flex items-center gap-space-sm px-space-md py-2.5 rounded-lg text-on-surface-variant hover:bg-surface-container-high hover:text-on-surface transition-all duration-200" href="/admin/occasions">
           <span class="material-symbols-outlined text-[20px] transition-transform group-hover:scale-110">loyalty</span>
           <span class="font-body-md text-body-md">Occasions &amp; Tags</span>
         </a>
-        <a class="group flex items-center gap-space-sm px-space-md py-2.5 rounded-lg text-on-surface-variant hover:bg-surface-container-high hover:text-on-surface transition-all duration-200" href="admin-orders.html">
-          <span class="material-symbols-outlined text-[20px] transition-transform group-hover:scale-110">card_giftcard</span>
-          <span class="font-body-md text-body-md flex-1">Wishes &amp; Orders</span>
-          <span class="px-2 py-0.5 rounded-full bg-secondary-container text-white font-label-sm text-label-sm">Live</span>
+        <a class="group flex items-center gap-space-sm px-space-md py-2.5 rounded-lg text-on-surface-variant hover:bg-surface-container-high hover:text-on-surface transition-all duration-200" href="/admin/orders">
+          <span class="material-symbols-outlined text-[20px] transition-transform group-hover:scale-110">receipt_long</span>
+          <span class="font-body-md text-body-md flex-1">Orders &amp; Billing</span>
+          <span class="px-2 py-0.5 rounded-full bg-secondary-container text-white font-label-sm text-label-sm">Simulated</span>
         </a>
-        <a class="group flex items-center gap-space-sm px-space-md py-2.5 rounded-lg text-on-surface-variant hover:bg-surface-container-high hover:text-on-surface transition-all duration-200" href="admin-media.html">
+        <a class="group flex items-center gap-space-sm px-space-md py-2.5 rounded-lg text-on-surface-variant hover:bg-surface-container-high hover:text-on-surface transition-all duration-200" href="/admin/media">
           <span class="material-symbols-outlined text-[20px] transition-transform group-hover:scale-110">perm_media</span>
-          <span class="font-body-md text-body-md">Media &amp; Audio Library</span>
+          <span class="font-body-md text-body-md">Media &amp; Audio</span>
         </a>
-        <a class="group flex items-center gap-space-sm px-space-md py-2.5 rounded-lg text-on-surface-variant hover:bg-surface-container-high hover:text-on-surface transition-all duration-200" href="admin-pricing.html">
-          <span class="material-symbols-outlined text-[20px] transition-transform group-hover:scale-110">payments</span>
-          <span class="font-body-md text-body-md">Pricing &amp; Plans</span>
-        </a>
-        <a class="group flex items-center gap-space-sm px-space-md py-2.5 rounded-lg text-on-surface-variant hover:bg-surface-container-high hover:text-on-surface transition-all duration-200" href="admin-settings.html">
+        <a class="group flex items-center gap-space-sm px-space-md py-2.5 rounded-lg text-on-surface-variant hover:bg-surface-container-high hover:text-on-surface transition-all duration-200" href="/admin/settings">
           <span class="material-symbols-outlined text-[20px] transition-transform group-hover:scale-110">admin_panel_settings</span>
-          <span class="font-body-md text-body-md">Settings &amp; Team</span>
+          <span class="font-body-md text-body-md">Settings &amp; Diagnostics</span>
         </a>
       </nav>
     </div>
@@ -86,7 +92,7 @@
   <div class="p-space-md flex flex-col gap-space-xs bg-surface-container-lowest border-t border-purple-900/30">
     <div class="flex items-center justify-between text-on-surface-variant text-xs">
       <span>WishMagic Engine</span>
-      <span class="px-2 py-0.5 rounded-full bg-surface-container-high text-primary font-mono font-bold">v4.12</span>
+      <span class="px-2 py-0.5 rounded-full bg-surface-container-high text-primary font-mono font-bold">v4.16</span>
     </div>
   </div>
 </aside>
@@ -97,804 +103,563 @@
   <header class="fixed top-0 left-0 md:left-72 right-0 h-16 bg-surface/90 backdrop-blur-xl z-30 shadow-[0_1px_8px_rgba(0,0,0,0.04)] border-b border-outline-variant/30">
     <div class="w-full h-full px-3 md:px-space-lg flex items-center justify-between gap-2 md:gap-space-lg">
       <div class="flex items-center gap-2 flex-1 max-w-md">
-        <button class="md:hidden p-2 rounded-lg bg-surface-container hover:bg-surface-container-high text-on-surface flex items-center justify-center flex-shrink-0" onclick="toggleSidebar()" aria-label="Toggle Navigation Menu">
+        <button class="md:hidden p-2 rounded-lg bg-surface-container hover:bg-surface-container-high text-on-surface flex items-center justify-center flex-shrink-0" onclick="toggleSidebar()">
           <span class="material-symbols-outlined text-[22px]">menu</span>
         </button>
+        <!-- Global Search Bar -->
         <div class="relative flex items-center w-full">
           <span class="material-symbols-outlined absolute left-3 text-outline text-[18px]">search</span>
-          <input class="w-full bg-surface-container-low pl-9 pr-space-md py-space-xs rounded-lg font-body-sm text-body-sm text-on-surface placeholder:text-outline focus:outline-none focus:ring-1 focus:ring-secondary" placeholder="Search metrics, analytics, wishes..." type="text"/>
+          <input id="global-admin-search-input" oninput="handleGlobalSearch(this.value)" class="w-full bg-surface-container-low pl-9 pr-space-md py-space-xs rounded-lg font-body-sm text-body-sm text-on-surface placeholder:text-outline focus:outline-none focus:ring-1 focus:ring-secondary" placeholder="Global search: templates, wishes, categories, creators..." type="text"/>
+          <!-- Search Dropdown Results Container -->
+          <div id="global-search-results" class="hidden absolute top-12 left-0 right-0 bg-surface-container rounded-2xl border border-purple-500/30 shadow-2xl p-3 z-50 max-h-96 overflow-y-auto custom-scrollbar"></div>
         </div>
       </div>
       <div class="flex items-center gap-2 md:gap-space-md flex-shrink-0">
         <!-- Dark / Light Theme Toggle -->
-        <button class="p-2 rounded-lg bg-surface-container hover:bg-surface-container-high text-on-surface transition-all flex items-center justify-center cursor-pointer" onclick="toggleAdminTheme()" title="Toggle Dark / Light Theme" aria-label="Toggle Theme">
+        <button class="p-2 rounded-lg bg-surface-container hover:bg-surface-container-high text-on-surface transition-all flex items-center justify-center cursor-pointer" onclick="toggleAdminTheme()" title="Toggle Dark / Light Theme">
           <span class="material-symbols-outlined text-[20px] theme-toggle-icon" id="theme-toggle-icon">light_mode</span>
         </button>
-        <a class="flex items-center gap-1.5 px-2.5 md:px-space-sm py-1.5 md:py-space-xs rounded-lg bg-surface-container-high hover:bg-surface-container-highest text-on-surface-variant hover:text-on-surface transition-all text-xs md:font-label-md md:text-label-md" href="index.html" target="_blank">
-          <span class="hidden sm:inline">Live Store</span>
+        <a class="flex items-center gap-1.5 px-2.5 md:px-space-sm py-1.5 md:py-space-xs rounded-lg bg-surface-container-high hover:bg-surface-container-highest text-on-surface-variant hover:text-on-surface transition-all text-xs" href="/" target="_blank">
+          <span class="hidden sm:inline">Storefront</span>
           <span class="material-symbols-outlined text-[16px]">open_in_new</span>
         </a>
-        <div class="flex items-center gap-2 md:gap-space-sm pl-1 md:pl-space-xs">
-          <div class="w-8 h-8 rounded-full bg-primary flex items-center justify-center shadow-md text-white font-bold text-xs">
-            A
-          </div>
-          <div class="hidden sm:flex flex-col text-left">
-            <span class="font-label-lg text-label-lg font-semibold text-on-surface leading-tight">Aman</span>
-            <span class="font-label-sm text-label-sm text-primary font-medium leading-none">Chief Magician</span>
-          </div>
-        </div>
       </div>
     </div>
   </header>
 
   <!-- Main Content Area -->
-  <main id="admin-main-content" class="w-full pt-20 px-4 sm:px-6 lg:px-8 pb-16 max-w-7xl mx-auto flex flex-col gap-8">
-    <!-- Header Summary -->
-    <div class="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
+  <main id="admin-main-content" class="w-full pt-20 px-4 sm:px-6 lg:px-8 pb-16 max-w-7xl mx-auto flex flex-col gap-6">
+    
+    <!-- Executive Title & Date Range Toolbar -->
+    <div class="flex flex-col lg:flex-row items-start lg:items-center justify-between gap-4">
       <div>
         <div class="flex items-center gap-2 mb-1">
-          <span class="px-2 py-0.5 rounded bg-primary-container/20 text-primary font-label-sm text-label-sm font-bold uppercase tracking-wider">Executive Pulse</span>
+          <span class="px-2 py-0.5 rounded bg-primary-container/20 text-primary font-label-sm text-label-sm font-bold uppercase tracking-wider">Executive Analytics</span>
           <span class="text-outline">•</span>
-          <span class="text-on-surface-variant text-xs font-mono">REAL-TIME TELEMETRY</span>
+          <span class="text-on-surface-variant text-xs font-mono">REAL DATA TELEMETRY</span>
         </div>
-        <h1 class="font-display-lg text-2xl sm:text-3xl font-extrabold text-on-surface">Platform Overview &amp; Growth</h1>
-        <p class="text-sm text-on-surface-variant mt-1">Real-time live visitors, template link lifecycle tracking, and premium purchase intelligence.</p>
+        <h1 class="font-display text-2xl sm:text-3xl font-extrabold text-on-surface">Platform Analytics &amp; Operations</h1>
+        <p class="text-sm text-on-surface-variant mt-0.5">Real-time metrics derived from template usage, wish lifecycles, and creator engagements.</p>
       </div>
 
-      <!-- Live Visitors Pulse Badge & Actions -->
-      <div class="flex flex-wrap items-center gap-3 self-stretch sm:self-auto">
-        <button onclick="openLiveVisitorsModal()" type="button" class="group flex items-center gap-2.5 px-4 py-2 rounded-xl bg-emerald-500/10 hover:bg-emerald-500/20 border border-emerald-500/30 text-emerald-300 shadow-md transition cursor-pointer">
-          <span class="relative flex h-2.5 w-2.5">
-            <span class="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
-            <span class="relative inline-flex rounded-full h-2.5 w-2.5 bg-emerald-400"></span>
-          </span>
-          <span class="text-xs uppercase font-bold tracking-wider text-emerald-400">Live Website Visitors:</span>
-          <span class="font-headline-lg text-base sm:text-lg font-black text-white" id="header-live-visitors">0</span>
-          <span class="text-[11px] text-emerald-300/80 group-hover:underline flex items-center gap-1">
-            <span>Online</span>
-            <span class="material-symbols-outlined text-[13px]">visibility</span>
-          </span>
+      <!-- Date Range Selector -->
+      <div class="flex items-center gap-1.5 bg-surface-container rounded-2xl p-1.5 border border-purple-900/30 shadow-md flex-wrap">
+        <button onclick="setAnalyticsRange('today')" id="btn-range-today" class="px-3 py-1.5 rounded-xl text-xs font-semibold text-on-surface-variant hover:text-on-surface cursor-pointer transition">Today</button>
+        <button onclick="setAnalyticsRange('7d')" id="btn-range-7d" class="px-3 py-1.5 rounded-xl text-xs font-semibold text-on-surface-variant hover:text-on-surface cursor-pointer transition">7 Days</button>
+        <button onclick="setAnalyticsRange('30d')" id="btn-range-30d" class="px-3 py-1.5 rounded-xl text-xs font-bold bg-primary text-white cursor-pointer transition">30 Days</button>
+        <button onclick="setAnalyticsRange('90d')" id="btn-range-90d" class="px-3 py-1.5 rounded-xl text-xs font-semibold text-on-surface-variant hover:text-on-surface cursor-pointer transition">90 Days</button>
+        <button onclick="setAnalyticsRange('year')" id="btn-range-year" class="px-3 py-1.5 rounded-xl text-xs font-semibold text-on-surface-variant hover:text-on-surface cursor-pointer transition">This Year</button>
+        <button onclick="setAnalyticsRange('all')" id="btn-range-all" class="px-3 py-1.5 rounded-xl text-xs font-semibold text-on-surface-variant hover:text-on-surface cursor-pointer transition">All Time</button>
+      </div>
+    </div>
+
+    <!-- Quick Diagnostics & Export Bar -->
+    <div class="bg-surface-container rounded-2xl p-4 border border-purple-900/30 shadow-md flex flex-wrap items-center justify-between gap-3">
+      <div class="flex items-center gap-2">
+        <button onclick="openHealthModal()" class="px-3.5 py-2 rounded-xl bg-emerald-500/15 hover:bg-emerald-500/25 border border-emerald-500/30 text-emerald-300 font-bold text-xs flex items-center gap-1.5 cursor-pointer transition">
+          <span class="material-symbols-outlined text-[16px]">health_and_safety</span>
+          <span>Validate Template Health</span>
+          <span id="badge-health-summary" class="px-1.5 py-0.2 rounded bg-emerald-500 text-purple-950 font-black text-[9px] uppercase">OK</span>
         </button>
-        <a href="/admin/templates" class="px-4 py-2.5 rounded-xl bg-primary-container text-white text-xs sm:text-sm font-bold flex items-center gap-2 hover:brightness-110 transition shadow-lg shadow-purple-600/30">
-          <span class="material-symbols-outlined text-sm">style</span>
-          <span>Templates Studio</span>
-        </a>
+        <button onclick="openResetAnalyticsModal()" class="px-3 py-2 rounded-xl bg-surface-container-high hover:bg-surface-container-highest text-outline hover:text-rose-400 font-semibold text-xs transition flex items-center gap-1 cursor-pointer" title="Clear development-only analytics events">
+          <span class="material-symbols-outlined text-[15px]">restart_alt</span>
+          <span class="hidden sm:inline">Reset Dev Events</span>
+        </button>
+      </div>
+
+      <!-- Export Buttons -->
+      <div class="flex items-center gap-1.5">
+        <span class="text-xs font-bold text-outline pr-1">Export:</span>
+        <button onclick="exportData('wishes')" class="px-2.5 py-1.5 rounded-lg bg-surface-container-high hover:bg-surface-container-highest text-on-surface font-semibold text-xs transition flex items-center gap-1 cursor-pointer">
+          <span class="material-symbols-outlined text-[14px]">table_view</span>
+          <span>Wishes CSV</span>
+        </button>
+        <button onclick="exportData('templates')" class="px-2.5 py-1.5 rounded-lg bg-surface-container-high hover:bg-surface-container-highest text-on-surface font-semibold text-xs transition flex items-center gap-1 cursor-pointer">
+          <span class="material-symbols-outlined text-[14px]">style</span>
+          <span>Templates CSV</span>
+        </button>
+        <button onclick="exportData('events')" class="px-2.5 py-1.5 rounded-lg bg-surface-container-high hover:bg-surface-container-highest text-on-surface font-semibold text-xs transition flex items-center gap-1 cursor-pointer">
+          <span class="material-symbols-outlined text-[14px]">event_note</span>
+          <span>Events CSV</span>
+        </button>
       </div>
     </div>
 
-    <!-- Part 10 Requirement 5: Live Template & Category Taxonomy Summary Ribbon -->
-    <div class="bg-surface-container rounded-2xl p-5 border border-purple-900/30 shadow-xl">
-      <div class="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 pb-4 mb-4 border-b border-purple-900/30">
-        <div class="flex items-center gap-2.5">
-          <span class="w-8 h-8 rounded-xl bg-gradient-to-tr from-primary to-secondary flex items-center justify-center text-white text-base">🎨</span>
-          <div>
-            <h3 class="font-bold text-sm sm:text-base text-on-surface">Template Studio &amp; Category Statistics</h3>
-            <p class="text-xs text-on-surface-variant">Live metrics calculated directly from template repository &amp; taxonomy database</p>
-          </div>
-        </div>
-        <div class="flex items-center gap-2">
-          <a href="/admin/templates" class="px-3 py-1.5 rounded-lg bg-primary hover:bg-secondary text-white text-xs font-bold transition flex items-center gap-1.5 shadow-sm">
-            <span class="material-symbols-outlined text-[16px]">style</span>
-            <span>Manage Templates</span>
-          </a>
-          <a href="/admin/categories" class="px-3 py-1.5 rounded-lg bg-surface-container-high hover:bg-surface-container-highest text-on-surface text-xs font-bold transition flex items-center gap-1.5">
-            <span class="material-symbols-outlined text-[16px]">category</span>
-            <span>Categories</span>
-          </a>
-        </div>
+    <!-- Primary KPI Bento Grid (Calculated from Real Data) -->
+    <div class="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-3">
+      <!-- Total Wishes -->
+      <div class="bg-surface-container rounded-2xl p-4 border border-purple-900/30 flex flex-col justify-between shadow-md">
+        <span class="text-[10px] font-bold uppercase tracking-wider text-outline">Total Wishes</span>
+        <div id="stat-wishes" class="font-display text-2xl font-black text-on-surface mt-1">0</div>
+        <span class="text-[10px] text-on-surface-variant" id="stat-wishes-sub">In selected range</span>
       </div>
 
-      <div class="grid grid-cols-2 sm:grid-cols-4 lg:grid-cols-7 gap-3">
-        <div class="p-3 rounded-xl bg-surface-container-low border border-purple-900/20">
-          <span class="text-[10px] font-bold uppercase tracking-wider text-outline">Templates</span>
-          <div id="stat-total-templates" class="font-headline-lg text-2xl font-black text-on-surface mt-0.5">0</div>
-          <span class="text-[10px] text-on-surface-variant">All designs</span>
-        </div>
-        <div class="p-3 rounded-xl bg-emerald-500/10 border border-emerald-500/30">
-          <span class="text-[10px] font-bold uppercase tracking-wider text-emerald-400">Published</span>
-          <div id="stat-published-templates" class="font-headline-lg text-2xl font-black text-emerald-400 mt-0.5">0</div>
-          <span class="text-[10px] text-emerald-400/80">Live in market</span>
-        </div>
-        <div class="p-3 rounded-xl bg-amber-500/10 border border-amber-500/30">
-          <span class="text-[10px] font-bold uppercase tracking-wider text-amber-400">Drafts</span>
-          <div id="stat-draft-templates" class="font-headline-lg text-2xl font-black text-amber-400 mt-0.5">0</div>
-          <span class="text-[10px] text-amber-400/80">Unpublished</span>
-        </div>
-        <div class="p-3 rounded-xl bg-purple-500/10 border border-purple-500/30">
-          <span class="text-[10px] font-bold uppercase tracking-wider text-purple-400">Categories</span>
-          <div id="stat-total-categories" class="font-headline-lg text-2xl font-black text-purple-400 mt-0.5">0</div>
-          <span class="text-[10px] text-purple-400/80">Active tags</span>
-        </div>
-        <div class="p-3 rounded-xl bg-pink-500/10 border border-pink-500/30">
-          <span class="text-[10px] font-bold uppercase tracking-wider text-pink-400">Featured</span>
-          <div id="stat-featured-templates" class="font-headline-lg text-2xl font-black text-pink-400 mt-0.5">0</div>
-          <span class="text-[10px] text-pink-400/80">Homepage hero</span>
-        </div>
-        <div class="p-3 rounded-xl bg-amber-500/10 border border-amber-500/30">
-          <span class="text-[10px] font-bold uppercase tracking-wider text-amber-400">Premium</span>
-          <div id="stat-premium-templates" class="font-headline-lg text-2xl font-black text-amber-400 mt-0.5">0</div>
-          <span class="text-[10px] text-amber-400/80">VIP pass</span>
-        </div>
-        <div class="p-3 rounded-xl bg-cyan-500/10 border border-cyan-500/30">
-          <span class="text-[10px] font-bold uppercase tracking-wider text-cyan-400">Free</span>
-          <div id="stat-free-templates" class="font-headline-lg text-2xl font-black text-cyan-400 mt-0.5">0</div>
-          <span class="text-[10px] text-cyan-400/80">Complimentary</span>
-        </div>
+      <!-- Live Active -->
+      <div class="bg-emerald-500/10 rounded-2xl p-4 border border-emerald-500/30 flex flex-col justify-between shadow-md">
+        <span class="text-[10px] font-bold uppercase tracking-wider text-emerald-400">🟢 Live Active</span>
+        <div id="stat-active-wishes" class="font-display text-2xl font-black text-emerald-400 mt-1">0</div>
+        <span class="text-[10px] text-emerald-300/80">Available now</span>
+      </div>
+
+      <!-- Scheduled Upcoming -->
+      <div class="bg-purple-500/10 rounded-2xl p-4 border border-purple-500/30 flex flex-col justify-between shadow-md">
+        <span class="text-[10px] font-bold uppercase tracking-wider text-purple-300">🟣 Scheduled</span>
+        <div id="stat-upcoming-wishes" class="font-display text-2xl font-black text-purple-300 mt-1">0</div>
+        <span class="text-[10px] text-purple-300/80">Future dates</span>
+      </div>
+
+      <!-- Expired -->
+      <div class="bg-rose-500/10 rounded-2xl p-4 border border-rose-500/30 flex flex-col justify-between shadow-md">
+        <span class="text-[10px] font-bold uppercase tracking-wider text-rose-400">🔴 Expired</span>
+        <div id="stat-expired-wishes" class="font-display text-2xl font-black text-rose-400 mt-1">0</div>
+        <span class="text-[10px] text-rose-300/80">Past 7 days</span>
+      </div>
+
+      <!-- Templates Count -->
+      <div class="bg-surface-container rounded-2xl p-4 border border-purple-900/30 flex flex-col justify-between shadow-md">
+        <span class="text-[10px] font-bold uppercase tracking-wider text-outline">Templates</span>
+        <div id="stat-templates" class="font-display text-2xl font-black text-on-surface mt-1">0</div>
+        <span class="text-[10px] text-primary" id="stat-templates-sub">Published designs</span>
+      </div>
+
+      <!-- Total Users -->
+      <div class="bg-surface-container rounded-2xl p-4 border border-purple-900/30 flex flex-col justify-between shadow-md">
+        <span class="text-[10px] font-bold uppercase tracking-wider text-outline">Registered Users</span>
+        <div id="stat-users" class="font-display text-2xl font-black text-on-surface mt-1">0</div>
+        <span class="text-[10px] text-amber-400" id="stat-users-sub">Creators registered</span>
       </div>
     </div>
 
-    <!-- 5-Metric Bento Grid -->
-    <div class="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-4">
-      <!-- Metric 1: Live Concurrent Visitors -->
-      <div class="bg-surface-container rounded-2xl p-4 sm:p-5 border border-emerald-500/40 flex flex-col justify-between shadow-lg relative overflow-hidden">
-        <div class="absolute -right-4 -top-4 w-20 h-20 bg-emerald-500/10 rounded-full blur-xl pointer-events-none"></div>
-        <div class="flex items-center justify-between text-outline text-xs uppercase font-bold">
-          <span class="text-emerald-400 flex items-center gap-1.5"><span class="w-2 h-2 rounded-full bg-emerald-400 animate-pulse"></span> Live Right Now</span>
-          <span class="material-symbols-outlined text-emerald-400 text-base">group</span>
+    <!-- Secondary Metric Ribbon (Commerce, Views, Engagements) -->
+    <div class="grid grid-cols-2 sm:grid-cols-4 gap-3">
+      <!-- Simulated Revenue -->
+      <div class="p-4 rounded-2xl bg-amber-500/10 border border-amber-500/30 shadow-md">
+        <div class="flex items-center justify-between text-xs font-bold text-amber-400">
+          <span>Simulated Revenue</span>
+          <span class="px-1.5 py-0.2 rounded bg-amber-500/20 text-[9px] font-extrabold uppercase">Dev Data</span>
         </div>
-        <div class="my-2">
-          <div class="font-headline-lg text-xl sm:text-3xl font-black text-emerald-300" id="stat-live-visitors">0</div>
-          <span class="text-on-surface-variant text-xs font-medium flex items-center gap-0.5 mt-0.5">
-            Active online browsing site
-          </span>
-        </div>
-        <span class="text-[11px] text-emerald-400 font-semibold">100% Real-Time Heartbeat</span>
+        <div id="stat-revenue" class="font-display text-2xl font-black text-amber-300 mt-1">₹0</div>
+        <span class="text-[10px] text-amber-300/80" id="stat-paid-orders">0 VIP pass orders</span>
       </div>
 
-      <!-- Metric 2: Total Wishes Created -->
-      <div class="bg-surface-container rounded-2xl p-4 sm:p-5 border border-purple-900/30 flex flex-col justify-between shadow-lg">
-        <div class="flex items-center justify-between text-outline text-xs uppercase font-bold">
-          <span>Total Wishes Created</span>
-          <span class="material-symbols-outlined text-secondary text-base">auto_awesome</span>
-        </div>
-        <div class="my-2">
-          <div class="font-headline-lg text-xl sm:text-2xl font-black text-on-surface" id="stat-wishes">0</div>
-          <span class="text-on-surface-variant text-xs font-medium flex items-center gap-0.5 mt-0.5" id="stat-wishes-sub">
-            <span class="material-symbols-outlined text-sm text-secondary">insights</span> Free &amp; VIP Web Experiences
-          </span>
-        </div>
-        <span class="text-[11px] text-on-surface-variant">Lifetime generated wishes</span>
+      <!-- Total Recipient Views -->
+      <div class="p-4 rounded-2xl bg-surface-container border border-purple-900/30 shadow-md">
+        <div class="text-xs font-bold text-outline">Total Recipient Views</div>
+        <div id="stat-views" class="font-display text-2xl font-black text-on-surface mt-1">0</div>
+        <span class="text-[10px] text-on-surface-variant">Public page visits</span>
       </div>
 
-      <!-- Metric 3: VIP ₹49 Purchases -->
-      <div class="bg-surface-container rounded-2xl p-4 sm:p-5 border border-purple-900/30 flex flex-col justify-between shadow-lg">
-        <div class="flex items-center justify-between text-outline text-xs uppercase font-bold">
-          <span>VIP Purchases</span>
-          <span class="material-symbols-outlined text-amber-400 text-base">stars</span>
-        </div>
-        <div class="my-2">
-          <div class="font-headline-lg text-xl sm:text-2xl font-black text-amber-300" id="stat-vip">0</div>
-          <span class="text-on-surface-variant text-xs font-medium mt-0.5 block" id="stat-vip-sub">₹49 VIP Pass Buyers</span>
-        </div>
-        <span class="text-[11px] text-on-surface-variant">Paid premium unlocks</span>
+      <!-- Shares & Links Copied -->
+      <div class="p-4 rounded-2xl bg-surface-container border border-purple-900/30 shadow-md">
+        <div class="text-xs font-bold text-outline">Shares &amp; Link Copies</div>
+        <div id="stat-shares" class="font-display text-2xl font-black text-pink-400 mt-1">0</div>
+        <span class="text-[10px] text-on-surface-variant">WhatsApp, Native, QR</span>
       </div>
 
-      <!-- Metric 4: Gross Revenue -->
-      <div class="bg-surface-container rounded-2xl p-4 sm:p-5 border border-purple-900/30 flex flex-col justify-between shadow-lg">
-        <div class="flex items-center justify-between text-outline text-xs uppercase font-bold">
-          <span>Gross Revenue</span>
-          <span class="material-symbols-outlined text-primary text-base">payments</span>
-        </div>
-        <div class="my-2">
-          <div class="font-headline-lg text-xl sm:text-2xl font-black text-primary" id="stat-revenue">₹0</div>
-          <span class="text-on-surface-variant text-xs font-medium mt-0.5 block" id="stat-revenue-sub">From VIP Pass Orders</span>
-        </div>
-        <span class="text-[11px] text-on-surface-variant">Direct checkout earnings</span>
-      </div>
-
-      <!-- Metric 5: Active Templates -->
-      <div class="bg-surface-container rounded-2xl p-4 sm:p-5 border border-purple-900/30 flex flex-col justify-between shadow-lg col-span-2 sm:col-span-1">
-        <div class="flex items-center justify-between text-outline text-xs uppercase font-bold">
-          <span>Active Templates</span>
-          <span class="material-symbols-outlined text-tertiary text-base">category</span>
-        </div>
-        <div class="my-2">
-          <div class="font-headline-lg text-xl sm:text-2xl font-black text-on-surface" id="stat-templates">0</div>
-          <span class="text-emerald-400 text-xs font-bold mt-0.5 block" id="stat-templates-sub">Uploaded &amp; Ready</span>
-        </div>
-        <span class="text-[11px] text-on-surface-variant">Web code engines online</span>
-      </div>
-    </div>
-
-    <!-- 4-Box Link Lifecycle Dashboard -->
-    <div class="flex flex-col gap-3">
-      <div class="flex items-center justify-between">
-        <h2 class="font-headline-sm text-base sm:text-lg font-bold text-on-surface flex items-center gap-2">
-          <span class="material-symbols-outlined text-primary text-[20px]">timeline</span>
-          <span>Wish Links Lifecycle &amp; Expiry Monitor</span>
-        </h2>
-        <span class="text-xs text-outline font-mono">Live Link Classification</span>
-      </div>
-
-      <div class="grid grid-cols-2 lg:grid-cols-4 gap-4">
-        <!-- Box 1: Currently Live -->
-        <div class="bg-surface-container rounded-2xl p-4 sm:p-5 border border-emerald-500/30 flex flex-col justify-between shadow-lg hover:border-emerald-500/60 transition">
-          <div class="flex items-center justify-between text-outline text-xs uppercase font-bold">
-            <span class="text-emerald-400 flex items-center gap-1.5"><span class="w-2 h-2 rounded-full bg-emerald-400 animate-pulse"></span> Live Now Links</span>
-            <span class="material-symbols-outlined text-emerald-400 text-lg">celebration</span>
-          </div>
-          <div class="my-2">
-            <div class="font-headline-lg text-2xl sm:text-3xl font-black text-on-surface" id="metric-live-links">0</div>
-            <span class="text-[11px] text-emerald-400 font-medium">Active &amp; shareable right now</span>
-          </div>
-          <span class="text-[11px] text-on-surface-variant">Event is today or within grace period</span>
-        </div>
-
-        <!-- Box 2: Future Scheduled -->
-        <div class="bg-surface-container rounded-2xl p-4 sm:p-5 border border-purple-500/30 flex flex-col justify-between shadow-lg hover:border-purple-500/60 transition">
-          <div class="flex items-center justify-between text-outline text-xs uppercase font-bold">
-            <span class="text-purple-300 flex items-center gap-1.5"><span class="w-2 h-2 rounded-full bg-purple-400"></span> Future Scheduled Links</span>
-            <span class="material-symbols-outlined text-purple-400 text-lg">event_upcoming</span>
-          </div>
-          <div class="my-2">
-            <div class="font-headline-lg text-2xl sm:text-3xl font-black text-on-surface" id="metric-future-links">0</div>
-            <span class="text-[11px] text-purple-300 font-medium">Upcoming celebrations locked</span>
-          </div>
-          <span class="text-[11px] text-on-surface-variant">Event celebration date is in future</span>
-        </div>
-
-        <!-- Box 3: Expired Links -->
-        <div class="bg-surface-container rounded-2xl p-4 sm:p-5 border border-rose-500/30 flex flex-col justify-between shadow-lg hover:border-rose-500/60 transition">
-          <div class="flex items-center justify-between text-outline text-xs uppercase font-bold">
-            <span class="text-rose-400 flex items-center gap-1.5"><span class="w-2 h-2 rounded-full bg-rose-400"></span> Expired Links</span>
-            <span class="material-symbols-outlined text-rose-400 text-lg">hourglass_disabled</span>
-          </div>
-          <div class="my-2">
-            <div class="font-headline-lg text-2xl sm:text-3xl font-black text-rose-300" id="metric-expired-links">0</div>
-            <span class="text-[11px] text-rose-400 font-medium">Past celebration validity</span>
-          </div>
-          <span class="text-[11px] text-on-surface-variant">Event date concluded</span>
-        </div>
-
-        <!-- Box 4: Total Free Links -->
-        <div class="bg-surface-container rounded-2xl p-4 sm:p-5 border border-primary/30 flex flex-col justify-between shadow-lg hover:border-primary/60 transition">
-          <div class="flex items-center justify-between text-outline text-xs uppercase font-bold">
-            <span class="text-primary flex items-center gap-1.5"><span class="w-2 h-2 rounded-full bg-primary"></span> Free Links Created</span>
-            <span class="material-symbols-outlined text-primary text-lg">card_giftcard</span>
-          </div>
-          <div class="my-2">
-            <div class="font-headline-lg text-2xl sm:text-3xl font-black text-on-surface" id="metric-free-links">0</div>
-            <span class="text-[11px] text-primary font-medium">Viral free tier links</span>
-          </div>
-          <span class="text-[11px] text-on-surface-variant">Non-monetized viral acquisitions</span>
-        </div>
-      </div>
-    </div>
-
-    <!-- Premium Buyers & Paid Orders Console -->
-    <div class="bg-surface-container rounded-2xl p-5 sm:p-6 border border-amber-500/30 shadow-xl flex flex-col gap-4">
-      <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pb-3 border-b border-purple-900/20">
-        <div>
-          <div class="flex items-center gap-2">
-            <span class="w-3 h-3 rounded-full bg-amber-400 animate-pulse"></span>
-            <h2 class="font-headline-sm text-base sm:text-lg font-bold text-on-surface flex items-center gap-2">
-              <span>👑 Verified Premium Template Buyers &amp; Orders</span>
-              <span class="px-2 py-0.5 rounded-full bg-amber-500/20 text-amber-300 text-xs font-mono font-bold" id="badge-buyers-count">0 Paid Buyers</span>
-            </h2>
-          </div>
-          <p class="text-xs text-on-surface-variant mt-0.5">Real users who purchased premium template access (UPI / PhonePe / Cards).</p>
-        </div>
-        <a href="admin-orders.html" class="px-3.5 py-1.5 rounded-lg bg-surface-container-high hover:bg-surface-container-highest text-on-surface text-xs font-bold transition flex items-center gap-1.5 self-start sm:self-auto">
-          <span>Manage in Orders Portal</span>
-          <span class="material-symbols-outlined text-sm">arrow_forward</span>
-        </a>
-      </div>
-
-      <div class="overflow-x-auto">
-        <table class="w-full text-left font-body-sm text-xs border-collapse">
-          <thead>
-            <tr class="bg-surface-container-lowest/80 text-on-surface-variant font-label-sm uppercase tracking-wider">
-              <th class="py-3 px-3">Order ID</th>
-              <th class="py-3 px-3">Buyer / Customer</th>
-              <th class="py-3 px-3">Contact</th>
-              <th class="py-3 px-3">Recipient</th>
-              <th class="py-3 px-3">Template Purchased</th>
-              <th class="py-3 px-3">Amount</th>
-              <th class="py-3 px-3">Payment Info</th>
-              <th class="py-3 px-3">Status</th>
-              <th class="py-3 px-3 text-right">Action</th>
-            </tr>
-          </thead>
-          <tbody id="premium-buyers-tbody" class="divide-y divide-purple-900/20 text-on-surface">
-            <tr>
-              <td colspan="9" class="text-center py-10 text-on-surface-variant text-xs">
-                <span class="material-symbols-outlined text-3xl text-outline mb-1 block">shopping_bag</span>
-                <p class="font-semibold text-sm text-on-surface">No Premium Buyers Yet</p>
-                <span class="text-outline">As soon as a user purchases a VIP ₹49 template, their customer profile, transaction ID, and generated link will appear here instantly.</span>
-              </td>
-            </tr>
-          </tbody>
-        </table>
+      <!-- Total Favorites -->
+      <div class="p-4 rounded-2xl bg-surface-container border border-purple-900/30 shadow-md">
+        <div class="text-xs font-bold text-outline">Template Favorites</div>
+        <div id="stat-favorites" class="font-display text-2xl font-black text-purple-300 mt-1">0</div>
+        <span class="text-[10px] text-on-surface-variant">Saved by creators</span>
       </div>
     </div>
 
     <!-- Charts & Analytics Section (2 Columns) -->
     <div class="grid grid-cols-1 lg:grid-cols-12 gap-6">
-      <!-- 7-Day Revenue Trend (8 Cols) -->
-      <div class="lg:col-span-8 bg-surface-container rounded-2xl p-5 sm:p-7 border border-purple-900/30 shadow-xl flex flex-col justify-between">
-        <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-3 mb-6">
+      
+      <!-- Chart 1: Creations & Activity Over Time (8 Cols) -->
+      <div class="lg:col-span-8 bg-surface-container rounded-2xl p-5 sm:p-6 border border-purple-900/30 shadow-xl flex flex-col justify-between">
+        <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-3 mb-4">
           <div>
-            <h2 class="font-headline-sm text-base sm:text-lg font-bold text-on-surface">7-Day Revenue &amp; Traffic Velocity</h2>
-            <p class="text-xs text-on-surface-variant">Daily VIP passes converted vs. visitor traffic spike.</p>
+            <h3 class="font-display text-lg font-bold text-on-surface">Creations &amp; Engagements Over Time</h3>
+            <p class="text-xs text-on-surface-variant">Dynamic trajectory calculated for selected period.</p>
           </div>
-          <div class="flex items-center gap-2">
-            <span class="flex items-center gap-1.5 text-xs text-on-surface-variant"><span class="w-3 h-3 rounded-full bg-primary inline-block"></span> VIP ₹49</span>
-            <span class="flex items-center gap-1.5 text-xs text-on-surface-variant ml-2"><span class="w-3 h-3 rounded-full bg-secondary inline-block"></span> Free Shares</span>
-          </div>
-        </div>
-
-        <!-- SVG Visual Graphic Chart -->
-        <div class="w-full h-48 sm:h-56 relative flex items-end justify-between gap-2 pt-6 pb-4 px-2" id="chart-bars-container">
-          <!-- Mon -->
-          <div class="flex-1 flex flex-col items-center gap-2 group cursor-pointer">
-            <div class="w-full flex justify-center items-end gap-1 h-36">
-              <div class="w-3 sm:w-5 bg-primary/40 rounded-t-lg transition-all group-hover:bg-primary" style="height: 4%;"></div>
-              <div class="w-3 sm:w-5 bg-secondary/30 rounded-t-lg transition-all group-hover:bg-secondary" style="height: 4%;"></div>
-            </div>
-            <span class="text-[11px] text-outline font-mono">Mon</span>
-          </div>
-          <!-- Tue -->
-          <div class="flex-1 flex flex-col items-center gap-2 group cursor-pointer">
-            <div class="w-full flex justify-center items-end gap-1 h-36">
-              <div class="w-3 sm:w-5 bg-primary/40 rounded-t-lg transition-all group-hover:bg-primary" style="height: 4%;"></div>
-              <div class="w-3 sm:w-5 bg-secondary/30 rounded-t-lg transition-all group-hover:bg-secondary" style="height: 4%;"></div>
-            </div>
-            <span class="text-[11px] text-outline font-mono">Tue</span>
-          </div>
-          <!-- Wed -->
-          <div class="flex-1 flex flex-col items-center gap-2 group cursor-pointer">
-            <div class="w-full flex justify-center items-end gap-1 h-36">
-              <div class="w-3 sm:w-5 bg-primary/40 rounded-t-lg transition-all group-hover:bg-primary" style="height: 4%;"></div>
-              <div class="w-3 sm:w-5 bg-secondary/30 rounded-t-lg transition-all group-hover:bg-secondary" style="height: 4%;"></div>
-            </div>
-            <span class="text-[11px] text-outline font-mono">Wed</span>
-          </div>
-          <!-- Thu -->
-          <div class="flex-1 flex flex-col items-center gap-2 group cursor-pointer">
-            <div class="w-full flex justify-center items-end gap-1 h-36">
-              <div class="w-3 sm:w-5 bg-primary/40 rounded-t-lg transition-all group-hover:bg-primary" style="height: 4%;"></div>
-              <div class="w-3 sm:w-5 bg-secondary/30 rounded-t-lg transition-all group-hover:bg-secondary" style="height: 4%;"></div>
-            </div>
-            <span class="text-[11px] text-outline font-mono">Thu</span>
-          </div>
-          <!-- Fri -->
-          <div class="flex-1 flex flex-col items-center gap-2 group cursor-pointer">
-            <div class="w-full flex justify-center items-end gap-1 h-36">
-              <div class="w-3 sm:w-5 bg-primary/40 rounded-t-lg transition-all group-hover:bg-primary" style="height: 4%;"></div>
-              <div class="w-3 sm:w-5 bg-secondary/30 rounded-t-lg transition-all group-hover:bg-secondary" style="height: 4%;"></div>
-            </div>
-            <span class="text-[11px] text-outline font-mono">Fri</span>
-          </div>
-          <!-- Sat -->
-          <div class="flex-1 flex flex-col items-center gap-2 group cursor-pointer">
-            <div class="w-full flex justify-center items-end gap-1 h-36">
-              <div class="w-3 sm:w-5 bg-primary/40 rounded-t-lg transition-all group-hover:bg-primary" style="height: 4%;"></div>
-              <div class="w-3 sm:w-5 bg-secondary/30 rounded-t-lg transition-all group-hover:bg-secondary" style="height: 4%;"></div>
-            </div>
-            <span class="text-[11px] text-outline font-mono">Sat</span>
-          </div>
-          <!-- Sun -->
-          <div class="flex-1 flex flex-col items-center gap-2 group cursor-pointer">
-            <div class="w-full flex justify-center items-end gap-1 h-36">
-              <div class="w-3 sm:w-5 bg-primary/40 rounded-t-lg transition-all group-hover:bg-primary" style="height: 4%;"></div>
-              <div class="w-3 sm:w-5 bg-secondary/30 rounded-t-lg transition-all group-hover:bg-secondary" style="height: 4%;"></div>
-            </div>
-            <span class="text-[11px] text-outline font-mono">Sun</span>
+          <div class="flex items-center gap-3 text-xs">
+            <span class="flex items-center gap-1.5 text-pink-400 font-semibold"><span class="w-2.5 h-2.5 rounded-full bg-pink-500"></span> Wishes</span>
+            <span class="flex items-center gap-1.5 text-purple-300 font-semibold"><span class="w-2.5 h-2.5 rounded-full bg-purple-400"></span> Events</span>
           </div>
         </div>
 
-        <div class="pt-4 border-t border-purple-900/20 flex flex-wrap items-center justify-between text-xs text-on-surface-variant">
-          <span id="chart-subtext">Telemetry tracking real user orders and customized visits.</span>
-          <span class="font-bold text-primary">Avg VIP Order: ₹49.00</span>
+        <!-- Pure Responsive SVG Area / Bar Chart -->
+        <div id="time-series-chart-container" class="w-full h-56 flex items-end justify-between gap-1 pt-4 pb-2 px-1 relative">
+          <!-- Dynamically populated bars / nodes -->
         </div>
       </div>
 
-      <!-- Occasions Breakdown (4 Cols) -->
-      <div class="lg:col-span-4 bg-surface-container rounded-2xl p-5 sm:p-7 border border-purple-900/30 shadow-xl flex flex-col justify-between">
+      <!-- Chart 2: Lifecycle Breakdown & Categories (4 Cols) -->
+      <div class="lg:col-span-4 bg-surface-container rounded-2xl p-5 sm:p-6 border border-purple-900/30 shadow-xl flex flex-col gap-4">
         <div>
-          <h2 class="font-headline-sm text-base sm:text-lg font-bold text-on-surface mb-1">Occasions Distribution</h2>
-          <p class="text-xs text-on-surface-variant mb-5">Share of wishes created by category.</p>
-
-          <div class="flex flex-col gap-3.5" id="occasions-distribution-list">
-            <!-- Will be dynamically populated or shows empty state -->
-            <div class="py-8 text-center text-on-surface-variant text-xs flex flex-col items-center justify-center gap-2">
-              <span class="material-symbols-outlined text-3xl text-outline">pie_chart</span>
-              <p class="font-medium">No templates or wishes created yet.</p>
-              <span class="text-[11px] text-outline">Occasion percentages will appear as soon as wishes are generated.</span>
-            </div>
-          </div>
+          <h3 class="font-display text-lg font-bold text-on-surface">Occasions &amp; Taxonomy</h3>
+          <p class="text-xs text-on-surface-variant">Wishes distribution by celebration category.</p>
         </div>
 
-        <a href="admin-occasions.html" class="mt-6 w-full py-2 rounded-xl bg-surface-container-high hover:bg-surface-container-highest text-center text-xs font-bold text-on-surface block transition">
-          Manage Occasions &amp; Tags →
-        </a>
+        <div id="category-bars-container" class="space-y-3 flex-1">
+          <!-- Populated dynamically -->
+        </div>
       </div>
+
     </div>
 
-    <!-- Live Real-Time Activity Feed & Quick Actions -->
+    <!-- Template Performance Leaderboard & Live Activity Feed (2 Columns) -->
     <div class="grid grid-cols-1 lg:grid-cols-12 gap-6">
-      <!-- Activity Feed (8 cols) -->
-      <div class="lg:col-span-8 bg-surface-container rounded-2xl p-5 sm:p-7 border border-purple-900/30 shadow-xl flex flex-col gap-4">
-        <div class="flex items-center justify-between pb-3 border-b border-purple-900/20">
-          <div class="flex items-center gap-2">
-            <span class="w-2.5 h-2.5 rounded-full bg-emerald-400 animate-pulse"></span>
-            <h3 class="font-headline-sm text-base sm:text-lg font-bold text-on-surface">Live Event Stream</h3>
+      
+      <!-- Template Performance Leaderboard (7 Cols) -->
+      <div class="lg:col-span-7 bg-surface-container rounded-2xl p-5 sm:p-6 border border-purple-900/30 shadow-xl flex flex-col gap-4">
+        <div class="flex items-center justify-between pb-2 border-b border-purple-900/20">
+          <div>
+            <h3 class="font-display text-lg font-bold text-on-surface">Template Popularity Ranking</h3>
+            <p class="text-xs text-on-surface-variant">Real usage &amp; creation volume per template.</p>
           </div>
-          <span class="text-xs text-outline font-mono" id="stream-status">Real-time Node Connected</span>
+          <a href="/admin/templates" class="text-xs text-primary font-bold hover:underline">Manage All →</a>
         </div>
 
-        <div class="flex flex-col gap-3" id="live-activity-feed-list">
-          <!-- Will be dynamically populated or shows empty state -->
-          <div class="py-10 text-center text-on-surface-variant text-xs flex flex-col items-center justify-center gap-2">
-            <span class="material-symbols-outlined text-3xl text-outline">stream</span>
-            <p class="font-medium">No live events recorded yet.</p>
-            <span class="text-[11px] text-outline">When users customize and share wishes, live events will stream here automatically.</span>
-          </div>
+        <div class="overflow-x-auto">
+          <table class="w-full text-left border-collapse text-xs">
+            <thead>
+              <tr class="text-outline uppercase text-[10px] font-bold border-b border-purple-900/30">
+                <th class="py-2.5 px-3">Template</th>
+                <th class="py-2.5 px-3">Category</th>
+                <th class="py-2.5 px-3">Tier</th>
+                <th class="py-2.5 px-3 text-center">Wishes</th>
+                <th class="py-2.5 px-3 text-right">Action</th>
+              </tr>
+            </thead>
+            <tbody id="template-ranking-tbody" class="divide-y divide-purple-900/20 font-medium">
+              <!-- Populated dynamically -->
+            </tbody>
+          </table>
         </div>
       </div>
 
-      <!-- Quick Studio Shortcuts (4 cols) -->
-      <div class="lg:col-span-4 bg-surface-container rounded-2xl p-5 sm:p-7 border border-purple-900/30 shadow-xl flex flex-col justify-between">
-        <div>
-          <h3 class="font-headline-sm text-base sm:text-lg font-bold text-on-surface mb-1">Quick Studio Actions</h3>
-          <p class="text-xs text-on-surface-variant mb-4">Direct shortcuts to admin tools.</p>
-          <div class="flex flex-col gap-2.5">
-            <a href="admin-settings.html" class="flex items-center justify-between p-3 rounded-xl bg-surface-container-low hover:bg-surface-container-high transition text-xs sm:text-sm font-semibold text-on-surface">
-              <span class="flex items-center gap-2"><span class="material-symbols-outlined text-primary text-base">edit_note</span> Edit Hero &amp; CMS</span>
-              <span class="material-symbols-outlined text-outline text-sm">chevron_right</span>
-            </a>
-            <a href="admin-templates.html" class="flex items-center justify-between p-3 rounded-xl bg-surface-container-low hover:bg-surface-container-high transition text-xs sm:text-sm font-semibold text-on-surface">
-              <span class="flex items-center gap-2"><span class="material-symbols-outlined text-secondary text-base">style</span> <span id="shortcut-templates-count">Browse Templates</span></span>
-              <span class="material-symbols-outlined text-outline text-sm">chevron_right</span>
-            </a>
-            <a href="admin-media.html" class="flex items-center justify-between p-3 rounded-xl bg-surface-container-low hover:bg-surface-container-high transition text-xs sm:text-sm font-semibold text-on-surface">
-              <span class="flex items-center gap-2"><span class="material-symbols-outlined text-amber-400 text-base">music_note</span> Audio &amp; Soundboard</span>
-              <span class="material-symbols-outlined text-outline text-sm">chevron_right</span>
-            </a>
-            <a href="admin-pricing.html" class="flex items-center justify-between p-3 rounded-xl bg-surface-container-low hover:bg-surface-container-high transition text-xs sm:text-sm font-semibold text-on-surface">
-              <span class="flex items-center gap-2"><span class="material-symbols-outlined text-emerald-400 text-base">confirmation_number</span> Coupons &amp; VIP Pass</span>
-              <span class="material-symbols-outlined text-outline text-sm">chevron_right</span>
-            </a>
+      <!-- Real-Time Activity Feed (5 Cols) -->
+      <div class="lg:col-span-5 bg-surface-container rounded-2xl p-5 sm:p-6 border border-purple-900/30 shadow-xl flex flex-col gap-4">
+        <div class="flex items-center justify-between pb-2 border-b border-purple-900/20">
+          <div>
+            <h3 class="font-display text-lg font-bold text-on-surface">Recent Event Activity</h3>
+            <p class="text-xs text-on-surface-variant">Real platform actions &amp; user interactions.</p>
           </div>
+          <span class="w-2 h-2 rounded-full bg-emerald-400 animate-pulse"></span>
         </div>
-        <div class="pt-4 mt-4 border-t border-purple-900/20 text-center">
-          <span class="text-xs text-outline">All systems nominal · Zero mock data loaded</span>
+
+        <div id="activity-feed-container" class="space-y-2.5 max-h-80 overflow-y-auto custom-scrollbar">
+          <!-- Populated dynamically -->
         </div>
       </div>
+
     </div>
+
   </main>
 </div>
 
-<!-- Modal: Live Active Visitors Inspector -->
-<div id="live-visitors-modal" class="fixed inset-0 z-50 bg-black/80 backdrop-blur-xl flex items-center justify-center p-4 hidden">
-  <div class="w-full max-w-2xl bg-surface-container-low rounded-2xl border border-emerald-500/30 shadow-2xl p-6 flex flex-col gap-4">
-    <div class="flex items-center justify-between pb-3 border-b border-purple-900/30">
-      <div class="flex items-center gap-2">
-        <span class="w-3 h-3 rounded-full bg-emerald-400 animate-ping"></span>
-        <h3 class="font-headline-sm text-lg font-bold text-on-surface">Live Concurrent Website Visitors</h3>
-        <span class="px-2.5 py-0.5 rounded-full bg-emerald-500/20 text-emerald-300 text-xs font-mono font-bold" id="modal-visitor-count">0 Online</span>
-      </div>
-      <button onclick="closeLiveVisitorsModal()" type="button" class="p-1 rounded-lg text-outline hover:text-on-surface hover:bg-surface-container-high transition">
-        <span class="material-symbols-outlined text-[20px]">close</span>
-      </button>
+<!-- Template Health Diagnostic Modal -->
+<div id="health-modal" class="fixed inset-0 z-50 bg-black/85 backdrop-blur-md hidden flex items-center justify-center p-4">
+  <div class="w-full max-w-3xl bg-surface-container rounded-3xl border border-purple-500/30 shadow-2xl p-6 sm:p-8 flex flex-col gap-5 max-h-[90vh] overflow-y-auto custom-scrollbar relative">
+    <button onclick="closeHealthModal()" class="absolute top-4 right-4 p-2 text-on-surface-variant hover:text-on-surface rounded-full hover:bg-surface-container-high transition cursor-pointer">
+      <span class="material-symbols-outlined text-[20px]">close</span>
+    </button>
+    <div>
+      <h3 class="font-display text-xl font-extrabold text-on-surface flex items-center gap-2">
+        <span class="material-symbols-outlined text-emerald-400">health_and_safety</span>
+        <span>Template &amp; System Health Diagnostics</span>
+      </h3>
+      <p class="text-xs text-on-surface-variant mt-0.5">Automated validation of template metadata, schema fields, category references, and media disk files.</p>
     </div>
 
-    <p class="text-xs text-on-surface-variant">Real-time sessions connected via edge heartbeat telemetry. Updates live every 2 seconds.</p>
-
-    <div class="overflow-y-auto max-h-80 rounded-xl bg-surface-container-lowest/80 p-2 border border-purple-900/20">
-      <div id="modal-visitors-list" class="flex flex-col gap-2">
-        <!-- Dynamically rendered -->
-      </div>
-    </div>
-
-    <div class="flex items-center justify-between pt-2 text-xs text-on-surface-variant">
-      <span class="flex items-center gap-1.5"><span class="w-2 h-2 rounded-full bg-emerald-400"></span> Active Heartbeat Ping: 10s window</span>
-      <button onclick="closeLiveVisitorsModal()" type="button" class="px-4 py-2 rounded-xl bg-surface-container-high hover:bg-surface-container-highest text-on-surface font-semibold text-xs">
-        Close Window
-      </button>
+    <div id="health-report-content" class="space-y-4 text-xs">
+      <!-- Populated dynamically -->
     </div>
   </div>
 </div>
 
 <script>
-// Dynamic Admin Overview Metrics Fetcher
-async function fetchAdminMetrics() {
-  try {
-    const res = await fetch('/api/admin/metrics');
-    const data = await res.json();
-    if (!data.success) return;
+  let currentRange = '30d';
+  let activeMetrics = null;
 
-    const m = data.metrics;
+  document.addEventListener('DOMContentLoaded', async () => {
+    await loadDashboard();
+  });
 
-    // 1. Live Concurrent Visitors Tracking
-    const liveCount = m.liveVisitorsCount || 0;
-    const headerLive = document.getElementById('header-live-visitors');
-    const statLive = document.getElementById('stat-live-visitors');
-    if (headerLive) headerLive.textContent = liveCount;
-    if (statLive) statLive.textContent = liveCount;
-
-    // 2. Gross Revenue
-    const revEl = document.getElementById('stat-revenue');
-    if (revEl) revEl.textContent = '₹' + (m.totalRevenue || 0).toLocaleString('en-IN');
-
-    // 3. Wishes Created
-    const wishesEl = document.getElementById('stat-wishes');
-    if (wishesEl) wishesEl.textContent = (m.totalWishes || 0).toLocaleString();
-
-    // 4. VIP Purchases
-    const vipEl = document.getElementById('stat-vip');
-    if (vipEl) vipEl.textContent = (m.vipWishes || 0).toLocaleString();
-
-    // 5. Active Templates
-    const tplEl = document.getElementById('stat-templates');
-    if (tplEl) tplEl.textContent = (m.totalTemplates || 0).toLocaleString();
-
-    // 6. Link Lifecycle Classification
-    const liveLinksEl = document.getElementById('metric-live-links');
-    if (liveLinksEl) liveLinksEl.textContent = (m.liveLinks || 0).toLocaleString();
-
-    const futureLinksEl = document.getElementById('metric-future-links');
-    if (futureLinksEl) futureLinksEl.textContent = (m.futureLinks || 0).toLocaleString();
-
-    const expiredLinksEl = document.getElementById('metric-expired-links');
-    if (expiredLinksEl) expiredLinksEl.textContent = (m.expiredLinks || 0).toLocaleString();
-
-    const freeLinksEl = document.getElementById('metric-free-links');
-    if (freeLinksEl) freeLinksEl.textContent = (m.freeWishes || 0).toLocaleString();
-
-    // 7. Shortcut Templates Count
-    const shortcutTpl = document.getElementById('shortcut-templates-count');
-    if (shortcutTpl) {
-      shortcutTpl.textContent = `Browse ${m.totalTemplates || 0} Templates`;
-    }
-
-    // 8. Premium Buyers Table
-    const buyersBadge = document.getElementById('badge-buyers-count');
-    if (buyersBadge) {
-      buyersBadge.textContent = `${m.vipWishes || 0} Paid Customer${m.vipWishes === 1 ? '' : 's'}`;
-    }
-
-    const buyersTbody = document.getElementById('premium-buyers-tbody');
-    if (buyersTbody) {
-      const buyers = m.premiumBuyers || [];
-      if (buyers.length === 0) {
-        buyersTbody.innerHTML = `
-          <tr>
-            <td colspan="9" class="text-center py-10 text-on-surface-variant text-xs">
-              <span class="material-symbols-outlined text-3xl text-outline mb-1 block">shopping_bag</span>
-              <p class="font-semibold text-sm text-on-surface">No Premium Buyers Yet</p>
-              <span class="text-outline">As soon as a user purchases a VIP ₹49 template, their customer profile, transaction ID, and generated link will appear here instantly.</span>
-            </td>
-          </tr>
-        `;
-      } else {
-        buyersTbody.innerHTML = buyers.map(b => {
-          const dateStr = b.createdAt ? new Date(b.createdAt).toLocaleDateString('en-IN', { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' }) : 'Recently';
-          let statusBadge = `<span class="px-2 py-0.5 rounded-full bg-emerald-500/20 text-emerald-300 text-[11px] font-semibold">Live Active</span>`;
-          if (b.status === 'future') statusBadge = `<span class="px-2 py-0.5 rounded-full bg-purple-500/20 text-purple-300 text-[11px] font-semibold">Future Event</span>`;
-          if (b.status === 'expired') statusBadge = `<span class="px-2 py-0.5 rounded-full bg-rose-500/20 text-rose-300 text-[11px] font-semibold">Expired</span>`;
-
-          return `
-            <tr class="hover:bg-amber-500/5 transition">
-              <td class="py-3 px-3 font-mono font-bold text-amber-300">${b.orderId}</td>
-              <td class="py-3 px-3 font-semibold text-on-surface">${b.senderName}</td>
-              <td class="py-3 px-3 text-on-surface-variant font-mono text-[11px]">${b.senderContact}</td>
-              <td class="py-3 px-3 text-secondary font-medium">${b.recipientName}</td>
-              <td class="py-3 px-3 font-medium text-purple-300">${b.templateName}</td>
-              <td class="py-3 px-3 font-bold text-emerald-400 font-mono">${b.amountPaid}</td>
-              <td class="py-3 px-3 text-[11px] text-on-surface-variant">
-                <span class="block text-on-surface font-semibold">${b.paymentMethod}</span>
-                <span class="text-outline text-[10px] font-mono">${dateStr}</span>
-              </td>
-              <td class="py-3 px-3">${statusBadge}</td>
-              <td class="py-3 px-3 text-right">
-                <a href="${b.url}" target="_blank" class="px-2.5 py-1 rounded-lg bg-surface-container-high hover:bg-amber-400 hover:text-black font-bold text-[11px] transition inline-flex items-center gap-1 text-on-surface">
-                  <span>View</span>
-                  <span class="material-symbols-outlined text-[13px]">open_in_new</span>
-                </a>
-              </td>
-            </tr>
-          `;
-        }).join('');
+  async function loadDashboard() {
+    try {
+      if (window.WishRepositories && window.WishRepositories.adminRepository) {
+        activeMetrics = await window.WishRepositories.adminRepository.getPlatformMetrics(currentRange);
+        renderMetrics(activeMetrics);
       }
+    } catch (e) {
+      console.warn('Error loading metrics:', e);
     }
-
-    // 9. Occasions Breakdown
-    const occContainer = document.getElementById('occasions-distribution-list');
-    if (occContainer) {
-      const keys = Object.keys(m.occasionsBreakdown || {});
-      if (keys.length === 0) {
-        occContainer.innerHTML = `
-          <div class="py-8 text-center text-on-surface-variant text-xs flex flex-col items-center justify-center gap-2">
-            <span class="material-symbols-outlined text-3xl text-outline">pie_chart</span>
-            <p class="font-medium">No wishes created yet.</p>
-            <span class="text-[11px] text-outline">Occasion percentages will calculate live from custom wishes.</span>
-          </div>`;
-      } else {
-        const total = m.totalWishes || 1;
-        occContainer.innerHTML = keys.map(k => {
-          const count = m.occasionsBreakdown[k];
-          const pct = Math.round((count / total) * 100);
-          return `
-            <div>
-              <div class="flex justify-between text-xs font-bold mb-1">
-                <span class="flex items-center gap-1.5 text-on-surface">✨ ${k}</span>
-                <span class="text-primary font-mono">${pct}% (${count})</span>
-              </div>
-              <div class="w-full h-2 rounded-full bg-surface-container-high overflow-hidden">
-                <div class="bg-primary h-full rounded-full" style="width: ${pct}%;"></div>
-              </div>
-            </div>`;
-        }).join('');
-      }
-    }
-
-    // 10. Live Activity Feed
-    const feedContainer = document.getElementById('live-activity-feed-list');
-    if (feedContainer) {
-      const recent = m.recentWishes || [];
-      if (recent.length === 0) {
-        feedContainer.innerHTML = `
-          <div class="py-10 text-center text-on-surface-variant text-xs flex flex-col items-center justify-center gap-2">
-            <span class="material-symbols-outlined text-3xl text-outline">stream</span>
-            <p class="font-medium">No live events recorded yet.</p>
-            <span class="text-[11px] text-outline">When users customize and share wishes, live events will stream here automatically.</span>
-          </div>`;
-      } else {
-        feedContainer.innerHTML = recent.map(w => {
-          const recipient = (w.customData && (w.customData.recipient_name || w.customData.recipientName)) || 'A Friend';
-          const sender = (w.customData && (w.customData.sender_name || w.customData.senderName)) || 'Someone Special';
-          const timeAgo = formatTimeAgo(w.createdAt);
-          const isVip = w.tier === 'vip' || (w.price && w.price > 0);
-          return `
-            <div class="flex items-center justify-between p-3 rounded-xl bg-surface-container-low border border-purple-900/20">
-              <div class="flex items-center gap-3">
-                <span class="w-8 h-8 rounded-full ${isVip ? 'bg-amber-400/20 text-amber-300' : 'bg-primary-container/20 text-primary'} flex items-center justify-center text-sm font-bold">${isVip ? '👑' : '✨'}</span>
-                <div>
-                  <span class="font-bold text-xs sm:text-sm text-on-surface block">Wish Created: ${recipient} ${isVip ? '<span class="text-[10px] text-amber-300 font-mono px-1.5 py-0.5 rounded bg-amber-400/20 ml-1">VIP ₹49</span>' : ''}</span>
-                  <span class="text-[11px] text-on-surface-variant">${w.templateName || 'Custom Template'} · From ${sender} · ${w.views || 0} views · <span class="text-outline">${timeAgo}</span></span>
-                </div>
-              </div>
-              <a href="/wish.html?id=${w.id}" target="_blank" class="text-xs text-primary font-mono hover:underline flex items-center gap-1">
-                <span>View</span>
-                <span class="material-symbols-outlined text-[14px]">open_in_new</span>
-              </a>
-            </div>`;
-        }).join('');
-      }
-    }
-  } catch (err) {
-    console.error('Error fetching admin metrics:', err);
   }
-}
 
-async function openLiveVisitorsModal() {
-  const modal = document.getElementById('live-visitors-modal');
-  if (modal) modal.classList.remove('hidden');
+  function setAnalyticsRange(range) {
+    currentRange = range;
+    ['today', '7d', '30d', '90d', 'year', 'all'].forEach(r => {
+      const btn = document.getElementById(`btn-range-${r}`);
+      if (btn) {
+        if (r === range) {
+          btn.className = 'px-3 py-1.5 rounded-xl text-xs font-bold bg-primary text-white cursor-pointer transition';
+        } else {
+          btn.className = 'px-3 py-1.5 rounded-xl text-xs font-semibold text-on-surface-variant hover:text-on-surface cursor-pointer transition';
+        }
+      }
+    });
+    loadDashboard();
+  }
 
-  try {
-    const res = await fetch('/api/admin/live-visitors');
-    const data = await res.json();
-    const countEl = document.getElementById('modal-visitor-count');
-    const listEl = document.getElementById('modal-visitors-list');
+  function renderMetrics(m) {
+    if (!m) return;
 
-    if (countEl) countEl.textContent = `${data.count || 0} Online`;
+    // Primary KPIs
+    document.getElementById('stat-wishes').textContent = m.totalWishes;
+    document.getElementById('stat-active-wishes').textContent = m.activeWishes;
+    document.getElementById('stat-upcoming-wishes').textContent = m.upcomingWishes;
+    document.getElementById('stat-expired-wishes').textContent = m.expiredWishes;
+    document.getElementById('stat-templates').textContent = m.totalTemplates;
+    document.getElementById('stat-templates-sub').textContent = `${m.publishedTemplates} Published • ${m.vipTemplates} VIP`;
+    document.getElementById('stat-users').textContent = m.totalUsers;
+    document.getElementById('stat-users-sub').textContent = `${m.vipUsers} VIP • ${m.freeUsers} Free`;
 
-    if (listEl) {
-      if (!data.visitors || data.visitors.length === 0) {
-        listEl.innerHTML = `
-          <div class="py-8 text-center text-on-surface-variant text-xs">
-            <span class="material-symbols-outlined text-3xl text-outline mb-1 block">wifi_tethering_off</span>
-            <p class="font-medium text-sm text-on-surface">No Active Visitors Online Right Now</p>
-            <span class="text-outline">Open the website in another browser window or tab to see live tracking in action!</span>
+    // Secondary KPIs
+    document.getElementById('stat-revenue').textContent = `₹${m.simulatedRevenue}`;
+    document.getElementById('stat-paid-orders').textContent = `${m.simulatedPaidOrders} simulated VIP orders`;
+    document.getElementById('stat-views').textContent = m.totalViews;
+    document.getElementById('stat-shares').textContent = m.totalShares;
+    document.getElementById('stat-favorites').textContent = m.totalFavorites;
+
+    renderTimeSeriesChart(m);
+    renderCategoryBars(m);
+    renderTemplateRanking(m);
+    renderActivityFeed(m);
+  }
+
+  function renderTimeSeriesChart(m) {
+    const container = document.getElementById('time-series-chart-container');
+    if (!container || !window.WishAnalyticsService) return;
+
+    const series = window.WishAnalyticsService.getTimeSeriesData(currentRange, m.wishes, m.events);
+    const maxVal = Math.max(1, ...series.map(s => Math.max(s.wishesCreated, s.eventsTotal)));
+
+    container.innerHTML = series.map(s => {
+      const wishHeight = Math.max(4, Math.round((s.wishesCreated / maxVal) * 100));
+      const eventHeight = Math.max(4, Math.round((s.eventsTotal / maxVal) * 100));
+
+      return `
+        <div class="flex-1 flex flex-col items-center gap-1 group cursor-pointer h-full justify-end" title="${s.dateKey}: ${s.wishesCreated} Wishes Created, ${s.eventsTotal} Events">
+          <div class="w-full flex justify-center items-end gap-0.5 h-44">
+            <div class="w-1.5 sm:w-3 bg-pink-500 rounded-t transition-all group-hover:brightness-125" style="height: ${wishHeight}%"></div>
+            <div class="w-1.5 sm:w-3 bg-purple-500/60 rounded-t transition-all group-hover:bg-purple-400" style="height: ${eventHeight}%"></div>
           </div>
-        `;
+          <span class="text-[9px] text-outline truncate max-w-[32px]">${s.label.split(',')[0]}</span>
+        </div>
+      `;
+    }).join('');
+  }
+
+  function renderCategoryBars(m) {
+    const container = document.getElementById('category-bars-container');
+    if (!container) return;
+
+    const entries = Object.entries(m.wishesByCategory || {}).sort((a, b) => b[1] - a[1]);
+    const maxCount = Math.max(1, ...entries.map(e => e[1]));
+
+    if (entries.length === 0) {
+      container.innerHTML = '<p class="text-xs text-outline py-6 text-center">No category distribution data available yet.</p>';
+      return;
+    }
+
+    container.innerHTML = entries.slice(0, 5).map(([cat, count]) => {
+      const pct = Math.round((count / maxCount) * 100);
+      return `
+        <div class="space-y-1">
+          <div class="flex items-center justify-between text-xs font-semibold">
+            <span class="text-on-surface truncate">${cat}</span>
+            <span class="text-outline font-mono">${count} wishes</span>
+          </div>
+          <div class="w-full h-2 rounded-full bg-surface-container-high overflow-hidden">
+            <div class="h-full bg-gradient-to-r from-pink-500 to-purple-600 rounded-full" style="width: ${pct}%"></div>
+          </div>
+        </div>
+      `;
+    }).join('');
+  }
+
+  function renderTemplateRanking(m) {
+    const tbody = document.getElementById('template-ranking-tbody');
+    if (!tbody) return;
+
+    const templates = (m.templates || []).map(t => {
+      const count = m.wishesByTemplate[t.name] || m.wishesByTemplate[t.id] || 0;
+      return { ...t, usageCount: count };
+    }).sort((a, b) => b.usageCount - a.usageCount);
+
+    tbody.innerHTML = templates.slice(0, 6).map(t => `
+      <tr class="hover:bg-surface-container-high/40 transition">
+        <td class="py-2.5 px-3 font-bold text-on-surface truncate max-w-[140px]">${t.name}</td>
+        <td class="py-2.5 px-3 text-on-surface-variant">${t.category || 'General'}</td>
+        <td class="py-2.5 px-3">
+          ${t.tier === 'vip' ? '<span class="px-1.5 py-0.5 rounded bg-amber-400/20 text-amber-400 text-[9px] font-bold">VIP</span>' : '<span class="px-1.5 py-0.5 rounded bg-surface-container-high text-on-surface-variant text-[9px]">Free</span>'}
+        </td>
+        <td class="py-2.5 px-3 text-center font-mono font-bold text-primary">${t.usageCount}</td>
+        <td class="py-2.5 px-3 text-right">
+          <a href="/template/${t.id}" target="_blank" class="text-primary hover:underline text-xs">Preview</a>
+        </td>
+      </tr>
+    `).join('');
+  }
+
+  function renderActivityFeed(m) {
+    const container = document.getElementById('activity-feed-container');
+    if (!container) return;
+
+    const events = (m.events || []).slice(0, 8);
+    if (events.length === 0) {
+      container.innerHTML = '<p class="text-xs text-outline py-6 text-center">No activity recorded yet in this range.</p>';
+      return;
+    }
+
+    container.innerHTML = events.map(e => {
+      const timeAgo = getTimeAgo(e.timestamp);
+      let icon = 'event';
+      let color = 'text-primary';
+
+      if (e.eventName === 'wish_created') { icon = 'add_circle'; color = 'text-emerald-400'; }
+      else if (e.eventName === 'wish_shared') { icon = 'share'; color = 'text-pink-400'; }
+      else if (e.eventName === 'template_viewed') { icon = 'visibility'; color = 'text-purple-300'; }
+      else if (e.eventName === 'qr_generated') { icon = 'qr_code'; color = 'text-amber-400'; }
+
+      return `
+        <div class="p-2.5 rounded-xl bg-surface-container-low border border-purple-900/20 flex items-center justify-between gap-2 text-xs">
+          <div class="flex items-center gap-2 min-w-0">
+            <span class="material-symbols-outlined text-[18px] ${color}">${icon}</span>
+            <div class="truncate">
+              <span class="font-bold text-on-surface capitalize">${e.eventName.replace(/_/g, ' ')}</span>
+              <span class="text-outline text-[11px] block truncate">${e.recipientName ? 'For ' + e.recipientName : (e.templateName || e.templateId || 'Platform')}</span>
+            </div>
+          </div>
+          <span class="text-[10px] text-outline font-mono shrink-0">${timeAgo}</span>
+        </div>
+      `;
+    }).join('');
+  }
+
+  function getTimeAgo(dateStr) {
+    if (!dateStr) return '';
+    const diff = Math.floor((Date.now() - new Date(dateStr).getTime()) / 1000);
+    if (diff < 60) return 'Just now';
+    if (diff < 3600) return `${Math.floor(diff / 60)}m ago`;
+    if (diff < 86400) return `${Math.floor(diff / 3600)}h ago`;
+    return `${Math.floor(diff / 86400)}d ago`;
+  }
+
+  // Global Search Handler
+  async function handleGlobalSearch(val) {
+    const resBox = document.getElementById('global-search-results');
+    if (!val || val.trim().length < 2) {
+      resBox.classList.add('hidden');
+      return;
+    }
+
+    if (window.WishRepositories && window.WishRepositories.adminRepository) {
+      const results = await window.WishRepositories.adminRepository.globalSearch(val);
+      const totalResults = results.templates.length + results.wishes.length + results.categories.length + results.users.length;
+
+      if (totalResults === 0) {
+        resBox.innerHTML = '<p class="text-xs text-outline py-2 text-center">No matching entities found.</p>';
       } else {
-        listEl.innerHTML = data.visitors.map((v, i) => `
-          <div class="p-3 rounded-xl bg-surface-container flex items-center justify-between border border-purple-900/20 text-xs">
-            <div class="flex items-center gap-3">
-              <span class="w-2.5 h-2.5 rounded-full bg-emerald-400 animate-pulse shrink-0"></span>
+        resBox.innerHTML = `
+          <div class="space-y-3 text-xs">
+            ${results.templates.length > 0 ? `
               <div>
-                <span class="font-bold text-on-surface block text-sm">${v.title || 'Page'}</span>
-                <span class="text-primary font-mono text-[11px]">${v.page}</span>
+                <div class="text-[10px] font-bold text-outline uppercase tracking-wider mb-1">Templates</div>
+                ${results.templates.map(t => `<a href="/template/${t.id}" target="_blank" class="block p-1.5 rounded-lg hover:bg-surface-container-high font-semibold text-on-surface truncate">🎨 ${t.name} (${t.category})</a>`).join('')}
               </div>
-            </div>
-            <div class="text-right text-[11px] text-on-surface-variant">
-              <span class="block font-semibold text-emerald-400">Active ${v.activeSeconds}s</span>
-              <span class="text-outline">Pinged ${v.lastSeenSecondsAgo}s ago</span>
-            </div>
+            ` : ''}
+            ${results.wishes.length > 0 ? `
+              <div>
+                <div class="text-[10px] font-bold text-outline uppercase tracking-wider mb-1">Wishes</div>
+                ${results.wishes.map(w => `<a href="/w/${w.slug || w.id}" target="_blank" class="block p-1.5 rounded-lg hover:bg-surface-container-high font-semibold text-on-surface truncate">🎁 For ${w.recipientName || 'Friend'} (${w.templateName || w.id})</a>`).join('')}
+              </div>
+            ` : ''}
+            ${results.users.length > 0 ? `
+              <div>
+                <div class="text-[10px] font-bold text-outline uppercase tracking-wider mb-1">Users</div>
+                ${results.users.map(u => `<a href="/admin/users" class="block p-1.5 rounded-lg hover:bg-surface-container-high font-semibold text-on-surface truncate">👤 ${u.displayName} (${u.email})</a>`).join('')}
+              </div>
+            ` : ''}
           </div>
-        `).join('');
+        `;
       }
-    }
-  } catch (e) {
-    console.error('Error fetching visitors list:', e);
-  }
-}
-
-function closeLiveVisitorsModal() {
-  const modal = document.getElementById('live-visitors-modal');
-  if (modal) modal.classList.add('hidden');
-}
-
-function formatTimeAgo(isoString) {
-  if (!isoString) return 'recently';
-  const diff = Date.now() - new Date(isoString).getTime();
-  const mins = Math.floor(diff / 60000);
-  if (mins < 1) return 'just now';
-  if (mins < 60) return `${mins}m ago`;
-  const hours = Math.floor(mins / 60);
-  if (hours < 24) return `${hours}h ago`;
-  return `${Math.floor(hours / 24)}d ago`;
-}
-
-async function fetchTemplateAndCategoryStats() {
-  try {
-    if (!window.templateRepository || !window.categoryRepository) return;
-
-    const [templates, categories] = await Promise.all([
-      templateRepository.getAll({ includeDrafts: true }),
-      categoryRepository.getAll()
-    ]);
-
-    const totalTemplates = templates.length;
-    const published = templates.filter(t => t.status === 'published' || t.isPublished !== false).length;
-    const drafts = templates.filter(t => t.status === 'draft' || t.isPublished === false).length;
-    const totalCategories = categories.length;
-    const featured = templates.filter(t => Boolean(t.featured)).length;
-    const premium = templates.filter(t => t.tier === 'vip' || t.isPremium === true).length;
-    const free = templates.filter(t => t.tier === 'free' && !t.isPremium).length;
-
-    // Update Part 10 Requirement 5 Statistics Ribbon
-    const elTotal = document.getElementById('stat-total-templates');
-    const elPub = document.getElementById('stat-published-templates');
-    const elDraft = document.getElementById('stat-draft-templates');
-    const elCats = document.getElementById('stat-total-categories');
-    const elFeat = document.getElementById('stat-featured-templates');
-    const elPrem = document.getElementById('stat-premium-templates');
-    const elFree = document.getElementById('stat-free-templates');
-
-    if (elTotal) elTotal.textContent = totalTemplates;
-    if (elPub) elPub.textContent = published;
-    if (elDraft) elDraft.textContent = drafts;
-    if (elCats) elCats.textContent = totalCategories;
-    if (elFeat) elFeat.textContent = featured;
-    if (elPrem) elPrem.textContent = premium;
-    if (elFree) elFree.textContent = free;
-
-    // Also update overview stat-templates card
-    const statTpl = document.getElementById('stat-templates');
-    if (statTpl) statTpl.textContent = totalTemplates;
-  } catch (err) {
-    console.warn('Error fetching template overview stats:', err);
-  }
-}
-
-document.addEventListener('DOMContentLoaded', () => {
-  // Part 10 Authorization Guard: requireAuth() + requireAdmin()
-  if (window.WishAuth) {
-    const isAllowed = WishAuth.requireAdmin({ containerId: 'admin-main-content' });
-    if (!isAllowed) {
-      return; // Stop loading admin telemetry if access denied
-    }
-
-    // Update admin user badge in header
-    const user = WishAuth.getCurrentUser();
-    if (user) {
-      const nameEl = document.querySelector('.font-label-lg.text-label-lg.font-semibold.text-on-surface');
-      if (nameEl) nameEl.textContent = user.displayName;
+      resBox.classList.remove('hidden');
     }
   }
 
-  fetchAdminMetrics();
-  fetchTemplateAndCategoryStats();
-});
-setInterval(() => {
-  if (window.WishAuth && WishAuth.isAdmin()) {
-    fetchAdminMetrics();
-    fetchTemplateAndCategoryStats();
+  // Health Diagnostics
+  async function openHealthModal() {
+    const modal = document.getElementById('health-modal');
+    const content = document.getElementById('health-report-content');
+    modal.classList.remove('hidden');
+    content.innerHTML = '<p class="text-xs text-outline py-4 text-center">Scanning templates and media integrity...</p>';
+
+    if (window.WishRepositories && window.WishRepositories.adminRepository) {
+      const report = await window.WishRepositories.adminRepository.validateHealth();
+      const s = report.summary;
+
+      content.innerHTML = `
+        <div class="grid grid-cols-4 gap-2 text-center">
+          <div class="p-3 rounded-xl bg-surface-container-low border border-purple-900/20">
+            <div class="text-xs text-outline">Total Scanned</div>
+            <div class="font-bold text-lg text-on-surface mt-0.5">${s.totalTemplates}</div>
+          </div>
+          <div class="p-3 rounded-xl bg-emerald-500/10 border border-emerald-500/30">
+            <div class="text-xs text-emerald-400">Passing</div>
+            <div class="font-bold text-lg text-emerald-400 mt-0.5">${s.passCount}</div>
+          </div>
+          <div class="p-3 rounded-xl bg-amber-500/10 border border-amber-500/30">
+            <div class="text-xs text-amber-400">Warnings</div>
+            <div class="font-bold text-lg text-amber-400 mt-0.5">${s.warningCount}</div>
+          </div>
+          <div class="p-3 rounded-xl bg-rose-500/10 border border-rose-500/30">
+            <div class="text-xs text-rose-400">Errors</div>
+            <div class="font-bold text-lg text-rose-400 mt-0.5">${s.errorCount}</div>
+          </div>
+        </div>
+
+        <div class="space-y-2 max-h-72 overflow-y-auto custom-scrollbar pt-2">
+          ${report.templates.map(t => `
+            <div class="p-2.5 rounded-xl bg-surface-container-low border border-purple-900/20 flex items-center justify-between gap-2">
+              <div>
+                <div class="font-bold text-on-surface">${t.name}</div>
+                <div class="text-[11px] text-outline font-mono">${t.id} • ${t.category}</div>
+                ${t.issues.length > 0 ? `<div class="text-[10px] text-amber-400 mt-0.5">${t.issues.map(i => i.message).join('; ')}</div>` : ''}
+              </div>
+              <span class="px-2 py-0.5 rounded text-[9px] font-black uppercase ${t.status === 'PASS' ? 'bg-emerald-500/20 text-emerald-400' : (t.status === 'WARNING' ? 'bg-amber-500/20 text-amber-400' : 'bg-rose-500/20 text-rose-400')}">${t.status}</span>
+            </div>
+          `).join('')}
+        </div>
+      `;
+    }
   }
-}, 4000);
+
+  function closeHealthModal() {
+    document.getElementById('health-modal').classList.add('hidden');
+  }
+
+  async function openResetAnalyticsModal() {
+    if (!confirm('Reset development analytics events? This clears event tracking logs but keeps wishes, templates, and users intact.')) return;
+
+    if (window.WishAnalyticsService) {
+      await window.WishAnalyticsService.clearDevelopmentAnalytics();
+      alert('Development analytics events reset successfully!');
+      loadDashboard();
+    }
+  }
+
+  function exportData(type) {
+    if (!activeMetrics || !window.WishAnalyticsService) return;
+    if (type === 'wishes') window.WishAnalyticsService.exportToCSV('wishes', activeMetrics.wishes);
+    else if (type === 'templates') window.WishAnalyticsService.exportToCSV('templates', activeMetrics.templates);
+    else if (type === 'events') window.WishAnalyticsService.exportToCSV('events', activeMetrics.events);
+  }
 </script>
+
 </body>
 </html>

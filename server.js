@@ -19,6 +19,7 @@ const TEMPLATES_FILE = path.join(DATA_DIR, 'templates.json');
 const WISHES_FILE = path.join(DATA_DIR, 'wishes.json');
 const MEDIA_FILE = path.join(DATA_DIR, 'media.json');
 const CATEGORIES_FILE = path.join(DATA_DIR, 'categories.json');
+const EVENTS_FILE = path.join(DATA_DIR, 'events.json');
 const STORE_DIR = path.join(__dirname, 'public', 'templates-store');
 const MEDIA_DIR = path.join(__dirname, 'public', 'media');
 
@@ -26,6 +27,25 @@ const MEDIA_DIR = path.join(__dirname, 'public', 'media');
 if (!fs.existsSync(DATA_DIR)) fs.mkdirSync(DATA_DIR, { recursive: true });
 if (!fs.existsSync(STORE_DIR)) fs.mkdirSync(STORE_DIR, { recursive: true });
 if (!fs.existsSync(MEDIA_DIR)) fs.mkdirSync(MEDIA_DIR, { recursive: true });
+
+function getEvents() {
+  try {
+    if (fs.existsSync(EVENTS_FILE)) {
+      const data = fs.readFileSync(EVENTS_FILE, 'utf8');
+      const parsed = JSON.parse(data || '[]');
+      if (Array.isArray(parsed)) return parsed;
+    }
+    return [];
+  } catch (e) {
+    return [];
+  }
+}
+
+function saveEvents(events) {
+  try {
+    fs.writeFileSync(EVENTS_FILE, JSON.stringify(events.slice(0, 5000), null, 2), 'utf8');
+  } catch (e) {}
+}
 
 function getCategories() {
   try {
@@ -124,7 +144,18 @@ function getWishes() {
     if (fs.existsSync(WISHES_FILE)) {
       const data = fs.readFileSync(WISHES_FILE, 'utf8');
       const parsed = JSON.parse(data || '[]');
-      if (Array.isArray(parsed) && parsed.length > 0) return parsed;
+      if (Array.isArray(parsed) && parsed.length > 0) {
+        // Backfill slugs if missing
+        let modified = false;
+        parsed.forEach(w => {
+          if (!w.slug) {
+            w.slug = generateUniqueWishSlug(w.customData || {}, null, parsed.filter(other => other !== w));
+            modified = true;
+          }
+        });
+        if (modified) saveWishes(parsed);
+        return parsed;
+      }
     }
     return [];
   } catch (e) {
@@ -134,6 +165,56 @@ function getWishes() {
 
 function saveWishes(wishes) {
   fs.writeFileSync(WISHES_FILE, JSON.stringify(wishes, null, 2), 'utf8');
+}
+
+// Helper: Slugify string
+function slugifyText(text) {
+  if (!text) return '';
+  return String(text)
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '')
+    .toLowerCase()
+    .trim()
+    .replace(/[^a-z0-9\s-]/g, '')
+    .replace(/\s+/g, '-')
+    .replace(/-+/g, '-')
+    .replace(/^-+|-+$/g, '');
+}
+
+// Helper: Generate collision-resistant slug for celebration wish
+function generateUniqueWishSlug(customData = {}, template = null, existingWishes = []) {
+  const recipient = slugifyText(customData.recipient_name || customData.recipientName || 'special-person');
+  const sender = slugifyText(customData.sender_name || customData.senderName || '');
+  const occasion = slugifyText((template && template.category) || customData.occasion || 'celebration');
+
+  let baseSlug = '';
+  if (sender && recipient) {
+    baseSlug = `${sender}-to-${recipient}`;
+  } else if (recipient) {
+    baseSlug = `${recipient}-${occasion}`;
+  } else {
+    baseSlug = `magical-${occasion}`;
+  }
+
+  if (baseSlug.length > 35) {
+    baseSlug = baseSlug.slice(0, 35).replace(/-+$/, '');
+  }
+
+  const existingSet = new Set((existingWishes || []).map(w => (w.slug || '').toLowerCase()));
+  const chars = '23456789abcdefghjkmnpqrstuvwxyz';
+
+  let slug = '';
+  let attempts = 0;
+  do {
+    let suffix = '';
+    for (let i = 0; i < 5; i++) {
+      suffix += chars.charAt(Math.floor(Math.random() * chars.length));
+    }
+    slug = `${baseSlug}-${suffix}`;
+    attempts++;
+  } while (existingSet.has(slug) && attempts < 30);
+
+  return slug;
 }
 
 // Serve templates-store files directly
@@ -945,29 +1026,255 @@ app.post('/api/analytics/leave', (req, res) => {
   }
 });
 
-// API: Live Active Visitors Details for Admin
-app.get('/api/admin/live-visitors', (req, res) => {
+// API: Record Analytics Event
+app.post('/api/analytics/events', (req, res) => {
   try {
-    cleanStaleVisitors();
-    const now = Date.now();
-    const visitorsList = [];
-    for (const [id, data] of activeVisitors.entries()) {
-      visitorsList.push({
-        sessionId: id,
-        page: data.page || '/',
-        title: data.title || 'Page',
-        ip: data.ip || '127.0.0.1',
-        activeSeconds: Math.max(1, Math.round((now - data.enteredAt) / 1000)),
-        lastSeenSecondsAgo: Math.max(0, Math.round((now - data.lastSeen) / 1000))
-      });
+    const event = req.body;
+    if (!event || !event.eventName) {
+      return res.status(400).json({ success: false, message: 'eventName is required' });
     }
+
+    const newEvent = {
+      id: event.id || ('evt_' + Date.now().toString(36) + '_' + Math.random().toString(36).substr(2, 4)),
+      eventName: String(event.eventName).trim(),
+      timestamp: event.timestamp || new Date().toISOString(),
+      userId: event.userId || 'guest',
+      wishId: event.wishId || null,
+      slug: event.slug || null,
+      templateId: event.templateId || null,
+      templateName: event.templateName || null,
+      category: event.category || null,
+      recipientName: event.recipientName || null,
+      metadata: event.metadata || {}
+    };
+
+    const events = getEvents();
+    events.unshift(newEvent);
+    saveEvents(events);
+
+    res.json({ success: true, event: newEvent });
+  } catch (err) {
+    res.status(500).json({ success: false, message: err.message });
+  }
+});
+
+// API: Get Analytics Events with filters
+app.get('/api/analytics/events', (req, res) => {
+  try {
+    const { startDate, endDate, eventName, templateId, limit } = req.query;
+    let events = getEvents();
+
+    if (startDate) {
+      const sMs = new Date(startDate).getTime();
+      events = events.filter(e => new Date(e.timestamp).getTime() >= sMs);
+    }
+    if (endDate) {
+      const eMs = new Date(endDate).getTime();
+      events = events.filter(e => new Date(e.timestamp).getTime() <= eMs);
+    }
+    if (eventName && eventName !== 'all') {
+      events = events.filter(e => e.eventName === eventName);
+    }
+    if (templateId && templateId !== 'all') {
+      events = events.filter(e => e.templateId === templateId);
+    }
+
+    const max = Number(limit) || 1000;
+    res.json({ success: true, count: events.length, events: events.slice(0, max) });
+  } catch (err) {
+    res.status(500).json({ success: false, count: 0, events: [] });
+  }
+});
+
+// API: Reset Development Analytics Events
+app.post('/api/analytics/events/reset', (req, res) => {
+  try {
+    saveEvents([]);
+    res.json({ success: true, message: 'Development analytics events reset successfully' });
+  } catch (err) {
+    res.status(500).json({ success: false, message: err.message });
+  }
+});
+
+// API: Admin Users List with enriched counts
+app.get('/api/admin/users', (req, res) => {
+  try {
+    const wishes = getWishes();
+
+    // Default normalized dev accounts
+    const baseUsers = [
+      {
+        id: 'usr_ankit_101',
+        name: 'Ankit Verma',
+        displayName: 'Ankit Verma',
+        email: 'ankit@example.com',
+        role: 'creator',
+        plan: 'VIP',
+        isPremium: true,
+        createdAt: '2026-01-15T10:00:00.000Z'
+      },
+      {
+        id: 'usr_priya_202',
+        name: 'Priya Sharma',
+        displayName: 'Priya Sharma',
+        email: 'priya@example.com',
+        role: 'creator',
+        plan: 'Free',
+        isPremium: false,
+        createdAt: '2026-02-20T14:30:00.000Z'
+      },
+      {
+        id: 'usr_admin_999',
+        name: 'Development Admin',
+        displayName: 'Development Admin',
+        email: 'admin@wishmagic.internal',
+        role: 'admin',
+        plan: 'VIP',
+        isPremium: true,
+        createdAt: '2026-01-01T00:00:00.000Z'
+      }
+    ];
+
+    // Compute metrics for each user from real wishes
+    const enrichedUsers = baseUsers.map(u => {
+      const userWishes = wishes.filter(w => w.userId === u.id);
+      const vipWishes = userWishes.filter(w => w.tier === 'vip' || w.price > 0);
+      const totalViews = userWishes.reduce((sum, w) => sum + (w.views || 0), 0);
+
+      return {
+        ...u,
+        wishesCount: userWishes.length,
+        vipWishesCount: vipWishes.length,
+        totalViews,
+        lastActiveAt: userWishes.length > 0 ? userWishes[0].createdAt : u.createdAt
+      };
+    });
+
+    res.json({ success: true, count: enrichedUsers.length, users: enrichedUsers });
+  } catch (err) {
+    res.status(500).json({ success: false, count: 0, users: [] });
+  }
+});
+
+// API: Comprehensive Template & Media Health Diagnostic Scanner
+app.get('/api/admin/validation', (req, res) => {
+  try {
+    const templates = getTemplates();
+    const categories = getCategories();
+    const media = getMedia();
+    const validCategories = new Set(categories.map(c => c.name.toLowerCase()));
+
+    const templateReports = templates.map(t => {
+      const issues = [];
+      let status = 'PASS';
+
+      if (!t.id || !t.id.trim()) {
+        issues.push({ level: 'ERROR', message: 'Missing template ID' });
+      }
+      if (!t.name || !t.name.trim()) {
+        issues.push({ level: 'ERROR', message: 'Missing template title / name' });
+      }
+      if (!t.category || !t.category.trim()) {
+        issues.push({ level: 'ERROR', message: 'Missing category assignment' });
+      } else if (!validCategories.has(t.category.toLowerCase())) {
+        issues.push({ level: 'WARNING', message: `Category "${t.category}" is not in active categories list` });
+      }
+
+      if (t.tier === 'vip' && (!t.price || Number(t.price) <= 0)) {
+        issues.push({ level: 'ERROR', message: 'VIP template missing valid price' });
+      }
+
+      if (!t.thumbnail) {
+        issues.push({ level: 'WARNING', message: 'Missing cover thumbnail image' });
+      }
+
+      if (!Array.isArray(t.detectedFields) || t.detectedFields.length === 0) {
+        issues.push({ level: 'WARNING', message: 'No customizable detected fields declared' });
+      }
+
+      const hasError = issues.some(i => i.level === 'ERROR');
+      const hasWarning = issues.some(i => i.level === 'WARNING');
+      if (hasError) status = 'ERROR';
+      else if (hasWarning) status = 'WARNING';
+
+      return {
+        id: t.id,
+        name: t.name || 'Untitled Template',
+        category: t.category || 'Unassigned',
+        tier: t.tier || 'free',
+        status,
+        issues
+      };
+    });
+
+    // Check duplicate IDs or duplicate slugs
+    const idCounts = {};
+    const slugCounts = {};
+    templates.forEach(t => {
+      idCounts[t.id] = (idCounts[t.id] || 0) + 1;
+      if (t.slug) slugCounts[t.slug] = (slugCounts[t.slug] || 0) + 1;
+    });
+
+    templates.forEach((t, idx) => {
+      if (idCounts[t.id] > 1) {
+        templateReports[idx].status = 'ERROR';
+        templateReports[idx].issues.push({ level: 'ERROR', message: `Duplicate template ID detected: ${t.id}` });
+      }
+      if (t.slug && slugCounts[t.slug] > 1) {
+        templateReports[idx].status = 'WARNING';
+        templateReports[idx].issues.push({ level: 'WARNING', message: `Duplicate slug detected: ${t.slug}` });
+      }
+    });
+
+    // Media asset health checks
+    const mediaReports = media.map(m => {
+      const issues = [];
+      let status = 'PASS';
+
+      if (!m.id) issues.push({ level: 'ERROR', message: 'Missing media ID' });
+      if (!m.title) issues.push({ level: 'WARNING', message: 'Missing track title' });
+
+      if (m.filename) {
+        const fullPath = path.join(MEDIA_DIR, m.filename);
+        if (!fs.existsSync(fullPath)) {
+          issues.push({ level: 'ERROR', message: `Audio file missing from storage disk: ${m.filename}` });
+        }
+      }
+
+      const hasError = issues.some(i => i.level === 'ERROR');
+      const hasWarning = issues.some(i => i.level === 'WARNING');
+      if (hasError) status = 'ERROR';
+      else if (hasWarning) status = 'WARNING';
+
+      return {
+        id: m.id,
+        title: m.title || 'Untitled Track',
+        filename: m.filename,
+        url: m.url,
+        status,
+        issues
+      };
+    });
+
+    const errorCount = templateReports.filter(r => r.status === 'ERROR').length + mediaReports.filter(r => r.status === 'ERROR').length;
+    const warningCount = templateReports.filter(r => r.status === 'WARNING').length + mediaReports.filter(r => r.status === 'WARNING').length;
+    const passCount = templateReports.filter(r => r.status === 'PASS').length + mediaReports.filter(r => r.status === 'PASS').length;
+
     res.json({
       success: true,
-      count: activeVisitors.size,
-      visitors: visitorsList
+      summary: {
+        totalTemplates: templates.length,
+        totalMedia: media.length,
+        passCount,
+        warningCount,
+        errorCount,
+        overallStatus: errorCount > 0 ? 'FAIL' : (warningCount > 0 ? 'WARNING' : 'HEALTHY')
+      },
+      templates: templateReports,
+      media: mediaReports
     });
   } catch (err) {
-    res.status(500).json({ success: false, count: 0, visitors: [] });
+    res.status(500).json({ success: false, message: err.message });
   }
 });
 
@@ -1034,14 +1341,21 @@ app.post('/api/wishes', (req, res) => {
     const eventDate = customData.event_date || customData.eventDate || customData.target_date || new Date().toISOString().split('T')[0];
     const userId = req.body.userId || customData.userId || 'usr_ankit_101';
 
+    const wishes = getWishes();
+    const generatedSlug = (customData.customSlug ? slugifyText(customData.customSlug) : '') || generateUniqueWishSlug(customData, template, wishes);
+
+    const isPrivate = Boolean(customData.isPrivate || customData.unlisted || req.body.isPrivate);
+
     const newWish = {
       id: wishId,
+      slug: generatedSlug,
       userId,
       orderId: 'ORD-' + Math.random().toString(36).substring(2, 7).toUpperCase() + '-' + Date.now().toString().slice(-4),
       templateId,
       templateName: template ? template.name : (customData.templateName || 'Magical Celebration Experience'),
       tier: isVip ? 'vip' : 'free',
       price: wishPrice,
+      isPrivate,
       buyerName,
       buyerContact,
       recipientName: customData.recipient_name || customData.recipientName || 'Special Person',
@@ -1059,14 +1373,15 @@ app.post('/api/wishes', (req, res) => {
       views: 0
     };
 
-    const wishes = getWishes();
     wishes.unshift(newWish);
     saveWishes(wishes);
 
     res.json({
       success: true,
       wishId: wishId,
-      url: `/wish.html?id=${wishId}`,
+      slug: generatedSlug,
+      url: `/w/${generatedSlug}`,
+      legacyUrl: `/wish.html?id=${wishId}`,
       wish: {
         ...newWish,
         lifecycleStatus: computeWishStatus(newWish)
@@ -1212,10 +1527,11 @@ app.get('/api/admin/metrics', (req, res) => {
   }
 });
 
-// API: Get customized wish data by ID
+// API: Get customized wish data by ID or Slug (supports both /api/wishes/wm_xxx and /api/wishes/ankit-to-kritika-x7k92)
 app.get('/api/wishes/:id', (req, res) => {
+  const query = (req.params.id || '').trim();
   const wishes = getWishes();
-  const wish = wishes.find(w => w.id === req.params.id);
+  const wish = wishes.find(w => w.id === query || w.slug === query || w.id === 'wm_' + query);
 
   if (!wish) {
     return res.status(404).json({ success: false, message: 'Wish not found or has expired' });
@@ -1231,7 +1547,8 @@ app.get('/api/wishes/:id', (req, res) => {
   res.json({
     success: true,
     wish,
-    template: template || null
+    template: template || null,
+    publicUrl: `/w/${wish.slug || wish.id}`
   });
 });
 
@@ -1255,9 +1572,101 @@ app.get(['/template/:templateId', '/template/:templateId/', '/template-preview.h
   res.sendFile(path.join(__dirname, 'public', 'template-preview.html'));
 });
 
-// Short URL Route: /w/:id directly serves wish.html for clean URL experience
+// Public Clean URL Route: /w/:id and /w/:slug with Dynamic Server-Side SEO & Social Preview Meta Injection
 app.get('/w/:id', (req, res) => {
-  res.sendFile(path.join(__dirname, 'public', 'wish.html'));
+  const wishParam = (req.params.id || '').trim();
+  const wishes = getWishes();
+  const wish = wishes.find(w => w.id === wishParam || w.slug === wishParam || w.id === 'wm_' + wishParam);
+
+  const htmlPath = path.join(__dirname, 'public', 'wish.html');
+  if (!fs.existsSync(htmlPath)) {
+    return res.status(404).send('Wish renderer not found');
+  }
+
+  let htmlContent = fs.readFileSync(htmlPath, 'utf8');
+
+  if (wish) {
+    const templates = getTemplates();
+    const template = templates.find(t => t.id === wish.templateId);
+    const customData = wish.customData || {};
+
+    const recipient = customData.recipient_name || customData.recipientName || wish.recipientName || 'Someone Special';
+    const sender = customData.sender_name || customData.senderName || wish.buyerName || 'Someone Special';
+    const occasion = (template && template.category) || customData.occasion || 'Celebration';
+
+    const pageTitle = `${recipient}'s Special ${occasion} Surprise ✨ | WishMagic`;
+    const metaDesc = `A personalized celebration website created with love by ${sender} for ${recipient}. Open this link to unwrap music, photographs, and cherished memories! 💖`;
+
+    const baseUrl = `${req.protocol}://${req.get('host')}`;
+    const canonicalUrl = `${baseUrl}/w/${wish.slug || wish.id}`;
+
+    // Resolve cover photo / thumbnail
+    let coverPhoto = customData.cover_photo || customData.photo_1 || (customData.photos && customData.photos[0] && customData.photos[0].src);
+    if (!coverPhoto && template) {
+      coverPhoto = template.thumbnail || (template.previewImages && template.previewImages[0]);
+    }
+    if (!coverPhoto) coverPhoto = '/assets/file_ab2082.png';
+    if (!coverPhoto.startsWith('http')) {
+      coverPhoto = `${baseUrl}${coverPhoto.startsWith('/') ? '' : '/'}${coverPhoto}`;
+    }
+
+    const isPrivate = Boolean(wish.isPrivate || customData.isPrivate || customData.unlisted);
+    const robotsContent = isPrivate ? 'noindex, nofollow' : 'index, follow';
+
+    const seoMetas = `
+  <!-- Server-Side Generated SEO & Social Preview Tags (Part 15) -->
+  <meta name="description" content="${metaDesc.replace(/"/g, '&quot;')}"/>
+  <meta name="robots" content="${robotsContent}"/>
+  <link rel="canonical" href="${canonicalUrl}"/>
+
+  <!-- OpenGraph Metadata -->
+  <meta property="og:site_name" content="WishMagic"/>
+  <meta property="og:type" content="website"/>
+  <meta property="og:url" content="${canonicalUrl}"/>
+  <meta property="og:title" content="${pageTitle.replace(/"/g, '&quot;')}"/>
+  <meta property="og:description" content="${metaDesc.replace(/"/g, '&quot;')}"/>
+  <meta property="og:image" content="${coverPhoto}"/>
+  <meta property="og:image:alt" content="Celebration for ${recipient}"/>
+
+  <!-- Twitter Card Metadata -->
+  <meta name="twitter:card" content="summary_large_image"/>
+  <meta name="twitter:url" content="${canonicalUrl}"/>
+  <meta name="twitter:title" content="${pageTitle.replace(/"/g, '&quot;')}"/>
+  <meta name="twitter:description" content="${metaDesc.replace(/"/g, '&quot;')}"/>
+  <meta name="twitter:image" content="${coverPhoto}"/>
+
+  <!-- Schema.org JSON-LD Structured Data -->
+  <script type="application/ld+json">
+  {
+    "@context": "https://schema.org",
+    "@type": "WebApplication",
+    "name": "${pageTitle.replace(/"/g, '\\"')}",
+    "description": "${metaDesc.replace(/"/g, '\\"')}",
+    "url": "${canonicalUrl}",
+    "applicationCategory": "LifestyleApplication",
+    "operatingSystem": "All",
+    "author": {
+      "@type": "Person",
+      "name": "${sender.replace(/"/g, '\\"')}"
+    }
+  }
+  </script>
+
+  <!-- Instant SSR Hydration Data -->
+  <script>
+    window.__SSR_WISH_DATA__ = ${JSON.stringify({ wish, template: template || null })};
+  </script>
+`;
+
+    // Replace Title
+    htmlContent = htmlContent.replace(/<title>.*?<\/title>/i, `<title>${pageTitle}</title>`);
+
+    // Inject Metas before </head>
+    htmlContent = htmlContent.replace('</head>', `${seoMetas}\n</head>`);
+  }
+
+  res.setHeader('Content-Type', 'text/html; charset=utf-8');
+  res.send(htmlContent);
 });
 
 // Secret Admin Entry Routes: /admin/anktech/anktech/admin
@@ -1302,6 +1711,24 @@ app.get([
   `${ADMIN_BASE}/categories.html`
 ], (req, res) => {
   sendAdminPage('admin-occasions.html', res);
+});
+
+app.get([
+  '/admin/users',
+  '/admin/users.html',
+  `${ADMIN_BASE}/users`,
+  `${ADMIN_BASE}/users.html`
+], (req, res) => {
+  sendAdminPage('admin-users.html', res);
+});
+
+app.get([
+  '/admin/wishes',
+  '/admin/wishes.html',
+  `${ADMIN_BASE}/wishes`,
+  `${ADMIN_BASE}/wishes.html`
+], (req, res) => {
+  sendAdminPage('admin-wishes.html', res);
 });
 
 app.get([

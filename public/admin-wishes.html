@@ -1,0 +1,462 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8"/>
+  <base href="/"/>
+  <meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+  <meta content="web_dashboard" name="shell-type"/>
+  <title>WishMagic | Wishes &amp; Celebrations Management</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com"/>
+  <link crossorigin="" href="https://fonts.gstatic.com" rel="preconnect"/>
+  <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;600;700&family=Plus+Jakarta+Sans:wght@400;500;600;700;800&family=Outfit:wght@500;600;700;800&display=swap" rel="stylesheet"/>
+  <link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:opsz,wght,FILL,GRAD@20..48,100..700,0..1,-50..200&display=swap" rel="stylesheet"/>
+  <script src="js/tailwind-config.js"></script>
+  <script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+  <script>
+    if (typeof tailwind !== 'undefined' && typeof sharedTailwindConfig !== 'undefined') {
+      tailwind.config = sharedTailwindConfig;
+    }
+  </script>
+  <link rel="stylesheet" href="css/admin-theme.css"/>
+  <script src="js/WishMagicCore.js"></script>
+  <script src="js/admin-theme.js"></script>
+  <script src="js/wish-lifecycle.js"></script>
+  <script src="js/auth-service.js"></script>
+  <script src="js/repositories.js"></script>
+  <script src="js/analytics-service.js"></script>
+  <script src="js/share-system.js"></script>
+</head>
+<body class="bg-background text-on-surface font-body-md min-h-screen antialiased">
+
+<!-- Mobile Sidebar Backdrop -->
+<div id="sidebar-backdrop" class="fixed inset-0 bg-black/75 backdrop-blur-sm z-40 hidden md:hidden" onclick="toggleSidebar()"></div>
+
+<!-- Responsive Sidebar Drawer -->
+<aside id="admin-sidebar" class="fixed left-0 top-0 h-screen w-72 bg-surface-container-lowest border-r border-outline-variant/30 z-50 flex flex-col justify-between shadow-2xl -translate-x-full md:translate-x-0 transition-transform duration-300 ease-in-out">
+  <div class="flex flex-col">
+    <div class="px-space-lg pt-space-lg pb-space-md">
+      <div class="flex items-center justify-between">
+        <div class="flex items-center gap-space-sm">
+          <div class="w-9 h-9 rounded-xl bg-gradient-to-tr from-primary-container to-secondary flex items-center justify-center shadow-[0_0_20px_rgba(124,58,237,0.45)]">
+            <span class="material-symbols-outlined text-white text-[20px]">auto_fix_high</span>
+          </div>
+          <div class="flex flex-col">
+            <span class="font-headline-sm text-headline-sm text-on-surface font-bold tracking-tight">WishMagic</span>
+            <span class="font-label-sm text-label-sm text-primary tracking-widest uppercase">Admin Studio</span>
+          </div>
+        </div>
+        <button class="md:hidden p-1.5 rounded-lg bg-surface-container-high hover:bg-surface-container-highest text-on-surface transition-colors" onclick="toggleSidebar()">
+          <span class="material-symbols-outlined text-[20px]">close</span>
+        </button>
+      </div>
+    </div>
+    <div class="px-space-md mt-space-sm">
+      <div class="px-space-sm pb-space-xs font-label-sm text-label-sm uppercase tracking-wider text-outline">Core Navigation</div>
+      <nav class="flex flex-col gap-1 px-space-xs mt-space-xs">
+        <a class="group flex items-center gap-space-sm px-space-md py-2.5 rounded-lg text-on-surface-variant hover:bg-surface-container-high hover:text-on-surface transition-all duration-200" href="/admin/overview">
+          <span class="material-symbols-outlined text-[20px] transition-transform group-hover:scale-110">dashboard</span>
+          <span class="font-body-md text-body-md">Overview</span>
+        </a>
+        <a class="group flex items-center gap-space-sm px-space-md py-2.5 rounded-lg text-on-surface-variant hover:bg-surface-container-high hover:text-on-surface transition-all duration-200" href="/admin/templates">
+          <span class="material-symbols-outlined text-[20px] transition-transform group-hover:scale-110">style</span>
+          <span class="font-body-md text-body-md">Templates Manager</span>
+        </a>
+        <a class="group flex items-center gap-space-sm px-space-md py-2.5 rounded-lg bg-primary-container text-white font-semibold shadow-[0_0_24px_rgba(124,58,237,0.35)] transition-all duration-200" href="/admin/wishes">
+          <span class="material-symbols-outlined text-[20px] transition-transform group-hover:scale-110">card_giftcard</span>
+          <span class="font-body-md text-body-md">Wishes &amp; Celebrations</span>
+        </a>
+        <a class="group flex items-center gap-space-sm px-space-md py-2.5 rounded-lg text-on-surface-variant hover:bg-surface-container-high hover:text-on-surface transition-all duration-200" href="/admin/users">
+          <span class="material-symbols-outlined text-[20px] transition-transform group-hover:scale-110">group</span>
+          <span class="font-body-md text-body-md">Users &amp; Creators</span>
+        </a>
+        <a class="group flex items-center gap-space-sm px-space-md py-2.5 rounded-lg text-on-surface-variant hover:bg-surface-container-high hover:text-on-surface transition-all duration-200" href="/admin/occasions">
+          <span class="material-symbols-outlined text-[20px] transition-transform group-hover:scale-110">loyalty</span>
+          <span class="font-body-md text-body-md">Occasions &amp; Tags</span>
+        </a>
+        <a class="group flex items-center gap-space-sm px-space-md py-2.5 rounded-lg text-on-surface-variant hover:bg-surface-container-high hover:text-on-surface transition-all duration-200" href="/admin/orders">
+          <span class="material-symbols-outlined text-[20px] transition-transform group-hover:scale-110">receipt_long</span>
+          <span class="font-body-md text-body-md">Orders &amp; Billing</span>
+        </a>
+        <a class="group flex items-center gap-space-sm px-space-md py-2.5 rounded-lg text-on-surface-variant hover:bg-surface-container-high hover:text-on-surface transition-all duration-200" href="/admin/media">
+          <span class="material-symbols-outlined text-[20px] transition-transform group-hover:scale-110">perm_media</span>
+          <span class="font-body-md text-body-md">Media &amp; Audio</span>
+        </a>
+        <a class="group flex items-center gap-space-sm px-space-md py-2.5 rounded-lg text-on-surface-variant hover:bg-surface-container-high hover:text-on-surface transition-all duration-200" href="/admin/settings">
+          <span class="material-symbols-outlined text-[20px] transition-transform group-hover:scale-110">admin_panel_settings</span>
+          <span class="font-body-md text-body-md">Settings &amp; Logs</span>
+        </a>
+      </nav>
+    </div>
+  </div>
+  <div class="p-space-md flex flex-col gap-space-xs bg-surface-container-lowest border-t border-purple-900/30">
+    <div class="flex items-center justify-between text-on-surface-variant text-xs">
+      <span>WishMagic Engine</span>
+      <span class="px-2 py-0.5 rounded-full bg-surface-container-high text-primary font-mono font-bold">v4.16</span>
+    </div>
+  </div>
+</aside>
+
+<!-- Main Wrapper -->
+<div class="w-full md:pl-72 min-h-screen flex flex-col">
+  <!-- Universal Header -->
+  <header class="fixed top-0 left-0 md:left-72 right-0 h-16 bg-surface/90 backdrop-blur-xl z-30 shadow-[0_1px_8px_rgba(0,0,0,0.04)] border-b border-outline-variant/30">
+    <div class="w-full h-full px-3 md:px-space-lg flex items-center justify-between gap-2 md:gap-space-lg">
+      <div class="flex items-center gap-2 flex-1 max-w-md">
+        <button class="md:hidden p-2 rounded-lg bg-surface-container hover:bg-surface-container-high text-on-surface flex items-center justify-center flex-shrink-0" onclick="toggleSidebar()">
+          <span class="material-symbols-outlined text-[22px]">menu</span>
+        </button>
+        <div class="relative flex items-center w-full">
+          <span class="material-symbols-outlined absolute left-3 text-outline text-[18px]">search</span>
+          <input id="wish-search-input" oninput="handleWishSearch(this.value)" class="w-full bg-surface-container-low pl-9 pr-space-md py-space-xs rounded-lg font-body-sm text-body-sm text-on-surface placeholder:text-outline focus:outline-none focus:ring-1 focus:ring-secondary" placeholder="Search by recipient, sender, wish ID, or slug..." type="text"/>
+        </div>
+      </div>
+      <div class="flex items-center gap-2 md:gap-space-md flex-shrink-0">
+        <button class="p-2 rounded-lg bg-surface-container hover:bg-surface-container-high text-on-surface transition-all flex items-center justify-center cursor-pointer" onclick="toggleAdminTheme()" title="Toggle Dark / Light Theme">
+          <span class="material-symbols-outlined text-[20px] theme-toggle-icon">light_mode</span>
+        </button>
+        <a class="flex items-center gap-1.5 px-2.5 md:px-space-sm py-1.5 md:py-space-xs rounded-lg bg-surface-container-high hover:bg-surface-container-highest text-on-surface-variant hover:text-on-surface transition-all text-xs" href="/" target="_blank">
+          <span class="hidden sm:inline">Storefront</span>
+          <span class="material-symbols-outlined text-[16px]">open_in_new</span>
+        </a>
+      </div>
+    </div>
+  </header>
+
+  <!-- Main Content -->
+  <main class="w-full pt-20 px-4 sm:px-6 lg:px-8 pb-16 max-w-7xl mx-auto flex flex-col gap-6">
+    
+    <!-- Title and Actions -->
+    <div class="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
+      <div>
+        <div class="flex items-center gap-2 mb-1">
+          <span class="px-2 py-0.5 rounded bg-primary-container/20 text-primary font-label-sm text-label-sm font-bold uppercase tracking-wider">Celebration Registry</span>
+          <span class="text-outline">•</span>
+          <span class="text-on-surface-variant text-xs font-mono">LIFECYCLE INTELLIGENCE</span>
+        </div>
+        <h1 class="font-display text-2xl sm:text-3xl font-extrabold text-on-surface">Wishes &amp; Celebrations Registry</h1>
+        <p class="text-sm text-on-surface-variant mt-1">Audit active celebration links, lifecycle milestones, upcoming dates, and archived wishes.</p>
+      </div>
+
+      <div class="flex items-center gap-2">
+        <button onclick="exportWishesCSV()" class="px-4 py-2.5 rounded-xl bg-surface-container-high hover:bg-surface-container-highest border border-purple-500/20 text-on-surface text-xs font-bold transition flex items-center gap-2 cursor-pointer shadow-sm">
+          <span class="material-symbols-outlined text-[18px]">download</span>
+          <span>Export CSV</span>
+        </button>
+      </div>
+    </div>
+
+    <!-- Lifecycle KPI Summary Cards -->
+    <div class="grid grid-cols-2 sm:grid-cols-5 gap-3">
+      <div class="p-3.5 rounded-2xl bg-surface-container border border-purple-900/30 shadow-md">
+        <span class="text-[10px] font-bold uppercase tracking-wider text-outline">Total Wishes</span>
+        <div id="kpi-total-wishes" class="font-display text-2xl font-black text-on-surface mt-0.5">0</div>
+        <span class="text-[10px] text-on-surface-variant">All lifetime creations</span>
+      </div>
+      <div class="p-3.5 rounded-2xl bg-emerald-500/10 border border-emerald-500/30 shadow-md">
+        <span class="text-[10px] font-bold uppercase tracking-wider text-emerald-400">🟢 Live Active</span>
+        <div id="kpi-active-wishes" class="font-display text-2xl font-black text-emerald-400 mt-0.5">0</div>
+        <span class="text-[10px] text-emerald-300/80">Available right now</span>
+      </div>
+      <div class="p-3.5 rounded-2xl bg-purple-500/10 border border-purple-500/30 shadow-md">
+        <span class="text-[10px] font-bold uppercase tracking-wider text-purple-300">🟣 Scheduled</span>
+        <div id="kpi-upcoming-wishes" class="font-display text-2xl font-black text-purple-300 mt-0.5">0</div>
+        <span class="text-[10px] text-purple-300/80">Future countdown</span>
+      </div>
+      <div class="p-3.5 rounded-2xl bg-rose-500/10 border border-rose-500/30 shadow-md">
+        <span class="text-[10px] font-bold uppercase tracking-wider text-rose-400">🔴 Expired</span>
+        <div id="kpi-expired-wishes" class="font-display text-2xl font-black text-rose-400 mt-0.5">0</div>
+        <span class="text-[10px] text-rose-300/80">Past 7-day window</span>
+      </div>
+      <div class="p-3.5 rounded-2xl bg-amber-500/10 border border-amber-500/30 shadow-md">
+        <span class="text-[10px] font-bold uppercase tracking-wider text-amber-400">👑 VIP Wishes</span>
+        <div id="kpi-vip-wishes" class="font-display text-2xl font-black text-amber-400 mt-0.5">0</div>
+        <span class="text-[10px] text-amber-300/80">Permanent pass</span>
+      </div>
+    </div>
+
+    <!-- Filters & Search Toolbar -->
+    <div class="bg-surface-container rounded-2xl p-4 border border-purple-900/30 shadow-md flex flex-wrap items-center justify-between gap-3">
+      <!-- Status Tabs -->
+      <div class="flex items-center gap-1.5 flex-wrap">
+        <button onclick="filterStatus('all')" id="tab-status-all" class="px-3 py-1 rounded-xl text-xs font-bold bg-primary text-white cursor-pointer transition">All Wishes</button>
+        <button onclick="filterStatus('active')" id="tab-status-active" class="px-3 py-1 rounded-xl text-xs font-semibold text-on-surface-variant hover:text-on-surface cursor-pointer transition">🟢 Live</button>
+        <button onclick="filterStatus('upcoming')" id="tab-status-upcoming" class="px-3 py-1 rounded-xl text-xs font-semibold text-on-surface-variant hover:text-on-surface cursor-pointer transition">🟣 Upcoming</button>
+        <button onclick="filterStatus('expired')" id="tab-status-expired" class="px-3 py-1 rounded-xl text-xs font-semibold text-on-surface-variant hover:text-on-surface cursor-pointer transition">🔴 Expired</button>
+        <button onclick="filterStatus('vip')" id="tab-status-vip" class="px-3 py-1 rounded-xl text-xs font-semibold text-on-surface-variant hover:text-on-surface cursor-pointer transition">👑 VIP</button>
+      </div>
+
+      <!-- Sorting -->
+      <div class="flex items-center gap-2">
+        <span class="text-xs font-bold text-on-surface-variant">Sort:</span>
+        <select id="wish-sort-select" onchange="sortWishes(this.value)" class="bg-surface-container-low text-on-surface text-xs font-semibold rounded-xl px-3 py-1.5 border border-purple-900/30 focus:outline-none">
+          <option value="recent">Recently Created</option>
+          <option value="event">Special Event Date</option>
+          <option value="views">Most Views</option>
+          <option value="recipient">Recipient Name (A-Z)</option>
+        </select>
+      </div>
+    </div>
+
+    <!-- Wishes Table -->
+    <div class="bg-surface-container rounded-2xl border border-purple-900/30 shadow-xl overflow-hidden">
+      <div class="overflow-x-auto custom-scrollbar">
+        <table class="w-full text-left border-collapse text-xs">
+          <thead>
+            <tr class="border-b border-purple-900/30 bg-surface-container-high/50 text-outline uppercase font-bold text-[10px] tracking-wider">
+              <th class="py-3.5 px-4">Recipient &amp; Occasion</th>
+              <th class="py-3.5 px-4">Sender / Creator</th>
+              <th class="py-3.5 px-4">Event Date</th>
+              <th class="py-3.5 px-4">Lifecycle Status</th>
+              <th class="py-3.5 px-4">Tier / Pass</th>
+              <th class="py-3.5 px-4 text-center">Views</th>
+              <th class="py-3.5 px-4">Public URL</th>
+              <th class="py-3.5 px-4 text-right">Actions</th>
+            </tr>
+          </thead>
+          <tbody id="wishes-table-body" class="divide-y divide-purple-900/20 font-medium text-on-surface">
+            <!-- Dynamic Rows Injected Here -->
+          </tbody>
+        </table>
+      </div>
+
+      <!-- Empty State -->
+      <div id="wishes-empty-state" class="hidden p-12 text-center flex flex-col items-center justify-center gap-2">
+        <span class="material-symbols-outlined text-4xl text-outline">card_giftcard</span>
+        <h4 class="font-bold text-base text-on-surface">No celebration wishes found</h4>
+        <p class="text-xs text-on-surface-variant">No items match the current search or status filters.</p>
+      </div>
+    </div>
+
+  </main>
+</div>
+
+<script>
+  let allWishes = [];
+  let currentStatusFilter = 'all';
+  let currentSearch = '';
+  let currentSort = 'recent';
+
+  document.addEventListener('DOMContentLoaded', async () => {
+    await loadWishes();
+  });
+
+  async function loadWishes() {
+    try {
+      const res = await fetch('/api/wishes');
+      const data = await res.json();
+      allWishes = data.wishes || [];
+      updateKPIs();
+      renderWishesTable();
+    } catch (e) {
+      console.warn('Error loading wishes:', e);
+    }
+  }
+
+  function updateKPIs() {
+    document.getElementById('kpi-total-wishes').textContent = allWishes.length;
+
+    let active = 0, upcoming = 0, expired = 0, vip = 0;
+    allWishes.forEach(w => {
+      const status = window.WishLifecycle ? window.WishLifecycle.getWishStatus(w) : (w.lifecycleStatus || 'active');
+      if (status === 'active' || status === 'live') active++;
+      else if (status === 'upcoming' || status === 'future') upcoming++;
+      else if (status === 'expired') expired++;
+      if (w.tier === 'vip' || (w.price && w.price > 0)) vip++;
+    });
+
+    document.getElementById('kpi-active-wishes').textContent = active;
+    document.getElementById('kpi-upcoming-wishes').textContent = upcoming;
+    document.getElementById('kpi-expired-wishes').textContent = expired;
+    document.getElementById('kpi-vip-wishes').textContent = vip;
+  }
+
+  function renderWishesTable() {
+    const tbody = document.getElementById('wishes-table-body');
+    const empty = document.getElementById('wishes-empty-state');
+    if (!tbody) return;
+
+    let filtered = [...allWishes];
+
+    // Filter by Status
+    if (currentStatusFilter !== 'all') {
+      if (currentStatusFilter === 'vip') {
+        filtered = filtered.filter(w => w.tier === 'vip' || (w.price && w.price > 0));
+      } else {
+        filtered = filtered.filter(w => {
+          const status = window.WishLifecycle ? window.WishLifecycle.getWishStatus(w) : (w.lifecycleStatus || 'active');
+          if (currentStatusFilter === 'active') return status === 'active' || status === 'live';
+          if (currentStatusFilter === 'upcoming') return status === 'upcoming' || status === 'future';
+          if (currentStatusFilter === 'expired') return status === 'expired';
+          return true;
+        });
+      }
+    }
+
+    // Filter by Search
+    if (currentSearch) {
+      const q = currentSearch.toLowerCase();
+      filtered = filtered.filter(w => 
+        (w.recipientName && w.recipientName.toLowerCase().includes(q)) ||
+        (w.buyerName && w.buyerName.toLowerCase().includes(q)) ||
+        (w.templateName && w.templateName.toLowerCase().includes(q)) ||
+        (w.id && w.id.toLowerCase().includes(q)) ||
+        (w.slug && w.slug.toLowerCase().includes(q))
+      );
+    }
+
+    // Sort
+    if (currentSort === 'recent') {
+      filtered.sort((a, b) => new Date(b.createdAt || 0) - new Date(a.createdAt || 0));
+    } else if (currentSort === 'event') {
+      filtered.sort((a, b) => new Date(b.eventDate || 0) - new Date(a.eventDate || 0));
+    } else if (currentSort === 'views') {
+      filtered.sort((a, b) => (b.views || 0) - (a.views || 0));
+    } else if (currentSort === 'recipient') {
+      filtered.sort((a, b) => (a.recipientName || '').localeCompare(b.recipientName || ''));
+    }
+
+    if (filtered.length === 0) {
+      tbody.innerHTML = '';
+      empty.classList.remove('hidden');
+      return;
+    }
+
+    empty.classList.add('hidden');
+    tbody.innerHTML = filtered.map(w => {
+      const status = window.WishLifecycle ? window.WishLifecycle.getWishStatus(w) : (w.lifecycleStatus || 'active');
+      const isVIP = w.tier === 'vip' || (w.price && w.price > 0);
+      const isExpired = status === 'expired';
+      const isUpcoming = status === 'upcoming' || status === 'future';
+      const publicSlug = w.slug || w.id;
+      const publicUrl = `/w/${publicSlug}`;
+
+      let statusBadge = `<span class="px-2.5 py-1 rounded-full text-[10px] font-black uppercase tracking-wider bg-emerald-500/20 text-emerald-300 border border-emerald-500/30 flex items-center gap-1 w-fit"><span class="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse"></span> 🟢 Live</span>`;
+      if (isUpcoming) {
+        statusBadge = `<span class="px-2.5 py-1 rounded-full text-[10px] font-black uppercase tracking-wider bg-purple-500/20 text-purple-300 border border-purple-500/30 flex items-center gap-1 w-fit"><span class="w-1.5 h-1.5 rounded-full bg-purple-400"></span> 🟣 Upcoming</span>`;
+      } else if (isExpired) {
+        statusBadge = `<span class="px-2.5 py-1 rounded-full text-[10px] font-black uppercase tracking-wider bg-rose-500/20 text-rose-300 border border-rose-500/30 flex items-center gap-1 w-fit"><span class="w-1.5 h-1.5 rounded-full bg-rose-400"></span> 🔴 Expired</span>`;
+      }
+
+      return `
+        <tr class="hover:bg-surface-container-high/40 transition">
+          <td class="py-3 px-4">
+            <div class="font-bold text-on-surface text-sm flex items-center gap-1.5">
+              <span>${w.recipientName || 'Special Person'}</span>
+            </div>
+            <div class="text-[11px] text-primary font-semibold truncate max-w-xs">${w.templateName || w.templateId}</div>
+          </td>
+          <td class="py-3 px-4">
+            <div class="font-semibold text-on-surface">${w.buyerName || w.customData?.sender_name || 'Anonymous'}</div>
+            <div class="text-[10px] text-outline font-mono">${w.userId || 'guest'}</div>
+          </td>
+          <td class="py-3 px-4 font-mono text-[11px] text-on-surface">
+            ${w.eventDate || 'N/A'}
+          </td>
+          <td class="py-3 px-4">
+            ${statusBadge}
+          </td>
+          <td class="py-3 px-4">
+            ${isVIP 
+              ? '<span class="px-2 py-0.5 rounded-md text-[10px] font-extrabold bg-amber-400/20 text-amber-400 border border-amber-400/30">👑 VIP</span>'
+              : '<span class="px-2 py-0.5 rounded-md text-[10px] font-medium bg-surface-container-high text-on-surface-variant">Free</span>'
+            }
+          </td>
+          <td class="py-3 px-4 text-center font-mono text-purple-300 font-bold">
+            ${w.views || 0}
+          </td>
+          <td class="py-3 px-4 font-mono text-[11px]">
+            <a href="${publicUrl}" target="_blank" class="text-pink-400 hover:underline flex items-center gap-1 max-w-[140px] truncate">
+              <span>${publicSlug}</span>
+              <span class="material-symbols-outlined text-[13px] shrink-0">open_in_new</span>
+            </a>
+          </td>
+          <td class="py-3 px-4 text-right">
+            <div class="flex items-center justify-end gap-1.5">
+              ${isExpired ? `
+                <button onclick="createAgainFromExpired('${w.templateId}', '${encodeURIComponent(w.recipientName || '')}')" class="px-2.5 py-1 rounded-lg bg-pink-500/20 hover:bg-pink-500 text-pink-300 hover:text-white text-xs font-bold transition flex items-center gap-1 cursor-pointer" title="Create a new celebration wish for this recipient">
+                  <span class="material-symbols-outlined text-[14px]">replay</span>
+                  <span>Create Again</span>
+                </button>
+              ` : `
+                <a href="${publicUrl}" target="_blank" class="px-2 py-1 rounded-lg bg-surface-container-high hover:bg-surface-container-highest text-on-surface text-xs font-bold transition flex items-center gap-1" title="Live Preview">
+                  <span class="material-symbols-outlined text-[14px]">visibility</span>
+                </a>
+              `}
+              <button onclick="shareWishFromAdmin('${w.id}')" class="p-1.5 rounded-lg bg-purple-500/20 hover:bg-purple-500/40 text-purple-300 text-xs transition cursor-pointer" title="Share Modal">
+                <span class="material-symbols-outlined text-[14px]">share</span>
+              </button>
+              <button onclick="deleteWishPrompt('${w.id}', '${(w.recipientName || '').replace(/'/g, "\\'")}')" class="p-1.5 rounded-lg bg-rose-500/10 hover:bg-rose-500/30 text-rose-400 text-xs transition cursor-pointer" title="Delete Wish">
+                <span class="material-symbols-outlined text-[14px]">delete</span>
+              </button>
+            </div>
+          </td>
+        </tr>
+      `;
+    }).join('');
+  }
+
+  function handleWishSearch(val) {
+    currentSearch = val;
+    renderWishesTable();
+  }
+
+  function filterStatus(status) {
+    currentStatusFilter = status;
+    ['all', 'active', 'upcoming', 'expired', 'vip'].forEach(s => {
+      const btn = document.getElementById(`tab-status-${s}`);
+      if (btn) {
+        if (s === status) {
+          btn.className = 'px-3 py-1 rounded-xl text-xs font-bold bg-primary text-white cursor-pointer transition';
+        } else {
+          btn.className = 'px-3 py-1 rounded-xl text-xs font-semibold text-on-surface-variant hover:text-on-surface cursor-pointer transition';
+        }
+      }
+    });
+    renderWishesTable();
+  }
+
+  function sortWishes(val) {
+    currentSort = val;
+    renderWishesTable();
+  }
+
+  function createAgainFromExpired(templateId, recipient) {
+    // Note Part 16 Rule: Expired wishes cannot simply be reactivated in place.
+    // Create Again safely spawns a fresh creation in customizer with a new unique slug!
+    window.location.href = `/customize.html?template=${encodeURIComponent(templateId)}&recipient=${recipient}`;
+  }
+
+  function shareWishFromAdmin(wishId) {
+    const wish = allWishes.find(w => w.id === wishId);
+    if (wish && window.WishShareSystem) {
+      WishShareSystem.openShareModal(wish);
+    }
+  }
+
+  async function deleteWishPrompt(wishId, recipient) {
+    if (!confirm(`Are you sure you want to delete celebration wish for "${recipient}"?`)) return;
+
+    try {
+      const res = await fetch(`/api/wishes/${encodeURIComponent(wishId)}`, { method: 'DELETE' });
+      const data = await res.json();
+      if (data.success) {
+        allWishes = allWishes.filter(w => w.id !== wishId);
+        updateKPIs();
+        renderWishesTable();
+      } else {
+        alert('Error: ' + (data.message || 'Failed to delete'));
+      }
+    } catch (e) {
+      alert('Network error deleting wish');
+    }
+  }
+
+  function exportWishesCSV() {
+    if (window.WishAnalyticsService) {
+      window.WishAnalyticsService.exportToCSV('wishes', allWishes);
+    }
+  }
+</script>
+
+</body>
+</html>

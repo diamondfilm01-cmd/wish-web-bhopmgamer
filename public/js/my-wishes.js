@@ -874,8 +874,15 @@
     if (!wish) return;
 
     selectedWishForAction = wish;
+
+    // Part 15: Use Centralized WishShareSystem with rich social preview and printable QR
+    if (window.WishShareSystem) {
+      window.WishShareSystem.openShareModal(wish);
+      return;
+    }
+
     const recipient = wish.recipientName || wish.customData?.recipient_name || 'Special Person';
-    const fullLink = `${window.location.origin}/w/${wish.id}`;
+    const fullLink = `${window.location.origin}/w/${wish.slug || wish.id}`;
     const whatsappText = encodeURIComponent(`✨ Hey ${recipient}! I crafted an immersive personalized celebration website for you. Open your surprise here: ${fullLink}`);
 
     let modal = document.getElementById('dashboard-share-modal');

@@ -100,7 +100,7 @@
   <script src="js/auth-service.js"></script>
   <script src="js/repositories.js"></script>
 
-  <!-- Part 11, Part 12 & Part 13: Monetization, Section Content & Animation Engine -->
+  <!-- Part 11, Part 12, Part 13, Part 14 & Part 15: Monetization, Section Content, Animation, Interaction & Share Engine -->
   <script src="js/plan-service.js"></script>
   <script src="js/entitlement-service.js"></script>
   <script src="js/feature-access-service.js"></script>
@@ -108,6 +108,9 @@
   <script src="js/premium-lock-modal.js"></script>
   <script src="js/template-section-system.js"></script>
   <script src="js/animation-effects-engine.js"></script>
+  <script src="js/public-interaction-engine.js"></script>
+  <script src="js/share-system.js"></script>
+  <script src="js/analytics-service.js"></script>
 
   <!-- Core Customizer Logic -->
   <script src="js/customize-engine.js"></script>
@@ -1204,6 +1207,51 @@
                 <label class="relative inline-flex items-center cursor-pointer flex-shrink-0 mt-1">
                   <input type="checkbox" id="toggle-remove-watermark" onchange="handleWatermarkRemovalToggle(this.checked)" class="sr-only peer"/>
                   <div class="w-11 h-6 bg-purple-200 peer-focus:outline-none rounded-full peer dark:bg-purple-900 peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-gradient-to-r peer-checked:from-amber-400 peer-checked:to-pink-500"></div>
+                </label>
+              </div>
+            </div>
+          </div>
+
+          <!-- Part 15: Public Sharing, SEO & Link Discovery Options -->
+          <div class="glass-surface rounded-3xl p-5 sm:p-6 shadow-xl space-y-4">
+            <div class="flex items-center justify-between pb-3 border-b border-purple-200/60 dark:border-purple-800/40">
+              <div>
+                <h3 class="font-display font-extrabold text-base text-purple-950 dark:text-white flex items-center gap-2">
+                  <span>🔗 Link &amp; Sharing Discoverability</span>
+                </h3>
+                <p class="text-[11px] text-purple-700/80 dark:text-purple-300/80 mt-0.5">Clean vanity URLs, social preview cards, and privacy controls</p>
+              </div>
+              <span class="px-2.5 py-0.5 rounded-full text-[10px] font-black uppercase tracking-wider bg-pink-100 dark:bg-pink-900/50 text-pink-700 dark:text-pink-300">PART 15</span>
+            </div>
+
+            <div class="space-y-3.5 text-xs">
+              <!-- Custom Vanity Slug -->
+              <div class="space-y-1.5">
+                <label class="font-bold text-purple-900 dark:text-purple-200 text-xs flex items-center justify-between">
+                  <span>Custom URL Suffix (Optional)</span>
+                  <span class="text-[10px] text-purple-400 font-normal">e.g. ankit-to-kritika</span>
+                </label>
+                <div class="flex items-center rounded-2xl bg-white/80 dark:bg-purple-950/60 border border-purple-200/80 dark:border-purple-800/60 overflow-hidden px-3 py-2 shadow-xs focus-within:border-pink-500">
+                  <span class="text-purple-400 font-mono text-[11px] select-none pr-1">wishmagic.live/w/</span>
+                  <input type="text" id="custom-slug-input" oninput="handleCustomSlugInput(this.value)" placeholder="auto-generated-slug" class="w-full bg-transparent font-mono text-xs text-purple-950 dark:text-purple-100 focus:outline-none"/>
+                </div>
+                <p class="text-[10px] text-purple-600 dark:text-purple-400">Leave blank for automatic, clean collision-protected slug.</p>
+              </div>
+
+              <!-- Unlisted / Private Link Toggle -->
+              <div class="p-3.5 rounded-2xl bg-white/70 dark:bg-purple-950/40 border border-purple-200/60 dark:border-purple-800/40 flex items-start justify-between gap-3">
+                <div class="space-y-0.5 pr-2">
+                  <div class="flex items-center gap-2">
+                    <span class="text-sm">🔒</span>
+                    <h5 class="font-bold text-purple-950 dark:text-white text-xs">Unlisted Private Link</h5>
+                  </div>
+                  <p class="text-[11px] text-purple-700/80 dark:text-purple-300/80 leading-relaxed">
+                    Instructs search engines not to index this celebration (adds <code class="text-pink-500 text-[10px]">noindex, nofollow</code>). Only people with the link can view.
+                  </p>
+                </div>
+                <label class="relative inline-flex items-center cursor-pointer flex-shrink-0 mt-1">
+                  <input type="checkbox" id="toggle-unlisted-link" onchange="handleUnlistedToggle(this.checked)" class="sr-only peer"/>
+                  <div class="w-11 h-6 bg-purple-200 peer-focus:outline-none rounded-full peer dark:bg-purple-900 peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-gradient-to-r peer-checked:from-pink-500 peer-checked:to-purple-600"></div>
                 </label>
               </div>
             </div>

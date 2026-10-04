@@ -2298,6 +2298,27 @@ window.handleInteractiveBurstsToggle = function(checked) {
   syncDataToIframe();
 };
 
+// Part 15: Slug & Link Discovery Handlers
+window.handleCustomSlugInput = function(val) {
+  if (window.WishSlugService) {
+    currentCustomData.customSlug = WishSlugService.slugify(val);
+  } else {
+    currentCustomData.customSlug = String(val).toLowerCase().replace(/[^a-z0-9-]/g, '-').replace(/-+/g, '-');
+  }
+  triggerAutosave();
+};
+
+window.handleUnlistedToggle = function(checked) {
+  currentCustomData.isPrivate = checked;
+  currentCustomData.unlisted = checked;
+  triggerAutosave();
+  if (checked) {
+    showToast('🔒 Link marked as unlisted (noindex)');
+  } else {
+    showToast('🌐 Link discoverability enabled');
+  }
+};
+
 window.updateContrastBadge = function() {
   const badge = document.getElementById('theme-contrast-badge');
   const badgeText = document.getElementById('contrast-badge-text');
@@ -3249,12 +3270,14 @@ async function executeWishCreation(extraPayload = {}) {
 
     const data = await res.json();
     if (data.success && data.wishId) {
-      const fullLink = `${window.location.origin}/w/${data.wishId}`;
+      const wishSlug = data.slug || (data.wish && data.wish.slug) || data.wishId;
+      const fullLink = `${window.location.origin}/w/${wishSlug}`;
 
       // Save to local user wishes collection for creator dashboard with repository
       try {
         const wishRecord = data.wish || {
           id: data.wishId,
+          slug: wishSlug,
           userId: currentUserId,
           templateId: activeTemplate.id,
           customData: currentCustomData,
@@ -3281,7 +3304,36 @@ async function executeWishCreation(extraPayload = {}) {
         console.warn('Error saving to creator storage:', e);
       }
 
-      showGeneratedLinkModal(data.wishId, fullLink, data.wish);
+      // Trigger Confetti Celebration
+      if (typeof confetti === 'function') {
+        confetti({ particleCount: 120, spread: 80, origin: { y: 0.6 } });
+      }
+
+      // Part 16: Track Event
+      if (window.WishAnalyticsService) {
+        window.WishAnalyticsService.trackEvent('wish_created', {
+          wishId: data.wishId,
+          slug: wishSlug,
+          templateId: activeTemplate.id,
+          templateName: activeTemplate.name,
+          category: activeTemplate.category,
+          recipientName: currentCustomData.recipient_name,
+          userId: currentUserId,
+          metadata: { isVip: Boolean(currentCustomData.lifetimePreservation || currentCustomData.watermarkRemoved || activeTemplate.isPremium) }
+        });
+      }
+
+      if (window.WishShareSystem) {
+        WishShareSystem.openShareModal(data.wish || {
+          id: data.wishId,
+          slug: wishSlug,
+          recipientName: currentCustomData.recipient_name,
+          buyerName: currentCustomData.sender_name,
+          customData: currentCustomData
+        }, { template: activeTemplate });
+      } else {
+        showGeneratedLinkModal(data.wishId, fullLink, data.wish);
+      }
     } else {
       alert('Error generating wish: ' + (data.message || 'Unknown error'));
     }
