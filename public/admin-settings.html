@@ -20,10 +20,12 @@
   <link rel="stylesheet" href="css/admin-theme.css"/>
   <script src="js/WishMagicCore.js"></script>
   <script src="js/admin-theme.js"></script>
+  <script src="js/wish-lifecycle.js"></script>
   <script src="js/auth-service.js"></script>
   <script src="js/repositories.js"></script>
   <script src="js/analytics-service.js"></script>
   <script src="js/notification-service.js"></script>
+  <script src="js/security-hardening.js"></script>
 </head>
 <body class="bg-background text-on-surface font-body-md min-h-screen antialiased">
 
@@ -403,7 +405,57 @@
       </div>
     </div>
 
-    <!-- SECTION 4: DATA BACKUP & EXPORT -->
+    <!-- SECTION 4: PART 18 SECURITY & PRODUCTION READINESS DIAGNOSTIC MATRIX -->
+    <div class="bg-surface-container rounded-2xl p-5 sm:p-7 border border-emerald-500/40 shadow-xl flex flex-col gap-5">
+      <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pb-4 border-b border-purple-900/20">
+        <div class="flex items-center gap-3">
+          <div class="w-10 h-10 rounded-xl bg-emerald-500/20 text-emerald-400 flex items-center justify-center">
+            <span class="material-symbols-outlined text-2xl">verified_user</span>
+          </div>
+          <div>
+            <h2 class="font-headline-sm text-lg sm:text-xl font-bold text-on-surface">Security, Performance &amp; Production Hardening Matrix</h2>
+            <p class="text-xs sm:text-sm text-on-surface-variant">Automated audit verifying XSS sanitation, URL validation, media policies, memory leak cleanup, and Asia/Kolkata lifecycle rules.</p>
+          </div>
+        </div>
+        <button onclick="runSecurityAudit()" class="px-4 py-2 rounded-xl bg-emerald-500 hover:bg-emerald-600 text-purple-950 font-black text-xs sm:text-sm flex items-center gap-1.5 shadow-md transition cursor-pointer self-start sm:self-auto">
+          <span class="material-symbols-outlined text-sm">play_arrow</span>
+          <span>Run Full Diagnostic Audit</span>
+        </button>
+      </div>
+
+      <!-- Diagnostic Results Dashboard -->
+      <div id="security-audit-summary-container" class="grid grid-cols-1 sm:grid-cols-3 gap-3">
+        <div class="p-3.5 rounded-xl bg-emerald-500/10 border border-emerald-500/30 flex items-center justify-between">
+          <span class="text-xs font-bold text-emerald-400 uppercase tracking-wider">Passing Checks</span>
+          <span id="audit-pass-count" class="text-xl font-extrabold text-emerald-400 font-mono">0</span>
+        </div>
+        <div class="p-3.5 rounded-xl bg-amber-500/10 border border-amber-500/30 flex items-center justify-between">
+          <span class="text-xs font-bold text-amber-400 uppercase tracking-wider">Warnings / Notices</span>
+          <span id="audit-warning-count" class="text-xl font-extrabold text-amber-400 font-mono">0</span>
+        </div>
+        <div class="p-3.5 rounded-xl bg-rose-500/10 border border-rose-500/30 flex items-center justify-between">
+          <span class="text-xs font-bold text-rose-400 uppercase tracking-wider">Blockers</span>
+          <span id="audit-blocker-count" class="text-xl font-extrabold text-rose-400 font-mono">0</span>
+        </div>
+      </div>
+
+      <div id="security-audit-details-container" class="space-y-4 pt-2">
+        <div class="p-4 rounded-xl bg-surface-container-low text-center text-xs text-outline">
+          Click "Run Full Diagnostic Audit" to evaluate runtime security, memory management, and production readiness.
+        </div>
+      </div>
+
+      <!-- Production Notice Banner -->
+      <div class="p-3.5 rounded-xl bg-purple-950/60 border border-purple-800/60 text-xs text-purple-300 flex items-start gap-2.5">
+        <span class="material-symbols-outlined text-primary text-[18px] shrink-0 mt-0.5">info</span>
+        <div>
+          <strong class="text-white">Architecture Boundary Notice:</strong>
+          Client-side security and sanitization hardened. Full server-side authorization, rate limiting, and Cloudflare edge deployment will be provisioned in <strong>Part 20</strong>.
+        </div>
+      </div>
+    </div>
+
+    <!-- SECTION 5: DATA BACKUP & EXPORT -->
     <div class="bg-surface-container rounded-2xl p-5 sm:p-7 border border-purple-900/30 shadow-xl flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
       <div>
         <h3 class="font-headline-sm text-base sm:text-lg font-bold text-on-surface">Data Snapshot &amp; Configuration Export</h3>
@@ -541,6 +593,52 @@
     document.getElementById('invite-name').value = '';
     document.getElementById('invite-email').value = '';
   }
+
+  // Part 18: Security & Production Readiness Audit Runner
+  async function runSecurityAudit() {
+    const detailsContainer = document.getElementById('security-audit-details-container');
+    if (!detailsContainer || !window.WishAuditEngine) return;
+
+    detailsContainer.innerHTML = '<div class="p-4 rounded-xl bg-surface-container-low text-center text-xs text-primary font-bold animate-pulse">Running security vectors, memory leak tests, and policy evaluations...</div>';
+
+    const report = await window.WishAuditEngine.runFullDiagnostic();
+    
+    document.getElementById('audit-pass-count').textContent = report.scoreSummary.pass;
+    document.getElementById('audit-warning-count').textContent = report.scoreSummary.warning;
+    document.getElementById('audit-blocker-count').textContent = report.scoreSummary.blocker;
+
+    detailsContainer.innerHTML = report.categories.map(cat => `
+      <div class="p-4 rounded-xl bg-surface-container-low border border-purple-900/30 space-y-2.5">
+        <div class="text-xs font-bold uppercase tracking-wider text-primary">${cat.name} Evaluations</div>
+        <div class="space-y-2">
+          ${cat.checks.map(chk => {
+            let badgeClass = 'bg-emerald-500/20 text-emerald-400 border border-emerald-500/30';
+            if (chk.status === 'WARNING') badgeClass = 'bg-amber-500/20 text-amber-400 border border-amber-500/30';
+            if (chk.status === 'BLOCKER') badgeClass = 'bg-rose-500/20 text-rose-400 border border-rose-500/30';
+            return `
+              <div class="p-3 rounded-lg bg-surface-container border border-purple-900/20 flex flex-col sm:flex-row sm:items-center justify-between gap-2 text-xs">
+                <div>
+                  <div class="font-bold text-on-surface flex items-center gap-1.5">
+                    <span>${chk.name}</span>
+                  </div>
+                  <div class="text-[11px] text-on-surface-variant mt-0.5">${chk.details}</div>
+                  ${chk.recommendation ? `<div class="text-[10px] text-amber-300/90 font-mono mt-1">Action: ${chk.recommendation}</div>` : ''}
+                </div>
+                <span class="px-2.5 py-1 rounded-md text-[10px] font-black uppercase tracking-wider ${badgeClass} shrink-0 self-start sm:self-center">
+                  ${chk.status}
+                </span>
+              </div>
+            `;
+          }).join('')}
+        </div>
+      </div>
+    `).join('');
+  }
+
+  // Auto-run security diagnostic on page load
+  document.addEventListener('DOMContentLoaded', () => {
+    setTimeout(runSecurityAudit, 300);
+  });
 
   // Load existing saved configuration on init
   (function initCMS() {
