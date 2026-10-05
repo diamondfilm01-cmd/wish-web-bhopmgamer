@@ -2352,6 +2352,362 @@ window.handleInteractiveBurstsToggle = function(checked) {
 // SMART WISH LINK & CUSTOM SLUG SUGGESTIONS SYSTEM
 // =============================================================================
 
+let currentLinkStyle = 'magical';
+let currentPersonalizeWithName = true;
+let isChangeLinkModeActive = false;
+let isPersonalizedStudioOpen = false;
+let currentWishLinkSettings = {
+  personalized: {
+    enabled: true,
+    price: 49,
+    currency: 'INR',
+    displayName: 'Personalized Link',
+    description: 'Create a memorable link for your wish.'
+  },
+  random: {
+    enabled: true,
+    prefix: 'wish-',
+    length: 6,
+    allowedCharacters: 'abcdefghijklmnopqrstuvwxyz0123456789'
+  }
+};
+
+function getCurrencySymbol(curr) {
+  switch (String(curr || 'INR').toUpperCase()) {
+    case 'INR': return '₹';
+    case 'USD': return '$';
+    case 'EUR': return '€';
+    case 'GBP': return '£';
+    case 'CAD': return 'CA$';
+    case 'AUD': return 'AU$';
+    default: return curr + ' ';
+  }
+}
+
+window.loadWishLinkStudioSettings = async function() {
+  try {
+    const res = await fetch('/api/settings/wish-links', { credentials: 'include' });
+    const data = await res.json();
+    if (data && data.success && data.settings) {
+      currentWishLinkSettings = data.settings;
+    }
+  } catch (e) {
+    console.warn('[Customizer] Using default wish link settings:', e);
+  }
+
+  // Update Card 1: Personalized Link UI
+  const cardPersonalized = document.getElementById('card-personalized-option');
+  const priceLabel = document.getElementById('card-personalized-price');
+  const nameLabel = document.getElementById('card-personalized-name');
+  const descLabel = document.getElementById('card-personalized-desc');
+  const sym = getCurrencySymbol(currentWishLinkSettings.personalized.currency);
+
+  if (priceLabel) {
+    priceLabel.textContent = `${sym}${currentWishLinkSettings.personalized.price}`;
+  }
+  if (nameLabel && currentWishLinkSettings.personalized.displayName) {
+    nameLabel.textContent = currentWishLinkSettings.personalized.displayName;
+  }
+  if (descLabel && currentWishLinkSettings.personalized.description) {
+    descLabel.textContent = currentWishLinkSettings.personalized.description;
+  }
+  if (cardPersonalized) {
+    if (!currentWishLinkSettings.personalized.enabled) {
+      cardPersonalized.classList.add('opacity-40', 'pointer-events-none');
+    } else {
+      cardPersonalized.classList.remove('opacity-40', 'pointer-events-none');
+    }
+  }
+
+  // Update Card 2: Free Random Link UI
+  const cardRandom = document.getElementById('card-random-option');
+  const randomSample = document.getElementById('card-random-sample');
+  if (randomSample && currentWishLinkSettings.random) {
+    const sample = currentWishLinkSettings.random.sampleSlug || `${currentWishLinkSettings.random.prefix}7k4m9x`;
+    randomSample.textContent = sample;
+  }
+  if (cardRandom) {
+    if (!currentWishLinkSettings.random.enabled) {
+      cardRandom.classList.add('opacity-40', 'pointer-events-none');
+    } else {
+      cardRandom.classList.remove('opacity-40', 'pointer-events-none');
+    }
+  }
+
+  window.renderPersonalizedPaymentCallout();
+};
+
+window.renderPersonalizedPaymentCallout = function(overrideState = null) {
+  const container = document.getElementById('personalized-payment-callout');
+  if (!container) return;
+
+  const sym = getCurrencySymbol(currentWishLinkSettings.personalized.currency);
+  const price = currentWishLinkSettings.personalized.price;
+  const isVipUser = (window.WishEntitlement && window.WishEntitlement.isPremium()) || (window.WishAuth && window.WishAuth.getCurrentUser() && window.WishAuth.getCurrentUser().isPremium);
+
+  if (overrideState && overrideState.notConfigured) {
+    // REQUIREMENT 16: Payment not configured state
+    container.className = 'p-4 rounded-2xl bg-amber-500/10 border border-amber-500/30 text-amber-900 dark:text-amber-200 text-xs space-y-2';
+    container.innerHTML = `
+      <div class="flex items-start gap-2.5">
+        <span class="material-symbols-outlined text-amber-500 text-lg shrink-0">info</span>
+        <div>
+          <span class="font-bold block">Payment Gateway Currently Unavailable (NOT_CONFIGURED)</span>
+          <p class="text-[11px] text-amber-800/80 dark:text-amber-300/80 mt-0.5 leading-relaxed">
+            The platform payment processor is not currently connected in environment variables. Personalized link purchases (${sym}${price}) cannot be completed at this time.
+          </p>
+        </div>
+      </div>
+      <div class="pt-1 flex items-center justify-between">
+        <span class="text-[10px] uppercase font-bold tracking-wider text-amber-600 dark:text-amber-400">Alternative Available</span>
+        <button type="button" onclick="publishFreeRandomWish()" class="px-3 py-1.5 rounded-xl bg-emerald-500 hover:bg-emerald-600 text-white font-bold text-xs transition cursor-pointer">
+          Continue with Free Random Link 🎲
+        </button>
+      </div>
+    `;
+    return;
+  }
+
+  if (isVipUser) {
+    container.className = 'p-3.5 rounded-2xl bg-emerald-500/10 border border-emerald-500/30 text-emerald-900 dark:text-emerald-200 text-xs flex items-center justify-between gap-3';
+    container.innerHTML = `
+      <div class="flex items-center gap-2">
+        <span class="material-symbols-outlined text-emerald-500 text-lg">verified</span>
+        <div>
+          <span class="font-bold block">VIP Pass Entitled</span>
+          <span class="text-[11px] text-emerald-800/80 dark:text-emerald-300/80">Personalized links included at no extra charge.</span>
+        </div>
+      </div>
+      <button type="button" onclick="publishWishAndGetLink()" class="px-4 py-2 rounded-xl bg-gradient-to-r from-emerald-500 to-teal-600 text-white font-bold text-xs shadow-sm hover:brightness-110 transition cursor-pointer">
+        Publish Personalized Link ✨
+      </button>
+    `;
+    return;
+  }
+
+  container.className = 'p-4 rounded-2xl bg-gradient-to-br from-pink-500/10 via-purple-500/5 to-transparent border border-pink-500/30 text-purple-950 dark:text-purple-100 text-xs space-y-3';
+  container.innerHTML = `
+    <div class="flex items-center justify-between">
+      <div class="flex items-center gap-2">
+        <span class="text-base">✨</span>
+        <span class="font-bold text-sm text-purple-950 dark:text-white">Get Personalized Link Access</span>
+      </div>
+      <span class="font-black text-base text-pink-600 dark:text-pink-400">${sym}${price}</span>
+    </div>
+    <p class="text-[11px] text-purple-700/80 dark:text-purple-300/80 leading-relaxed">
+      Unlock a unique, personalized address for your wish website. Securely processed via our authorized payment provider.
+    </p>
+    <button type="button" onclick="handlePersonalizedLinkCheckout()" class="w-full py-2.5 px-4 rounded-xl bg-gradient-to-r from-pink-500 to-purple-600 text-white font-bold text-xs shadow-md hover:brightness-110 transition flex items-center justify-center gap-2 cursor-pointer">
+      <span class="material-symbols-outlined text-sm">lock</span>
+      <span>Get Personalized Link (${sym}${price})</span>
+    </button>
+  `;
+};
+
+window.selectPersonalizedOption = function() {
+  const panel = document.getElementById('personalized-selection-panel');
+  if (panel) {
+    panel.classList.remove('hidden');
+    isPersonalizedStudioOpen = true;
+    panel.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+  }
+  const input = document.getElementById('wish-slug-input');
+  if (input) input.focus();
+  window.initSmartWishLinkUI();
+};
+
+window.closePersonalizedStudio = function() {
+  const panel = document.getElementById('personalized-selection-panel');
+  if (panel) {
+    panel.classList.add('hidden');
+    isPersonalizedStudioOpen = false;
+  }
+};
+
+window.setLinkStyle = function(style) {
+  currentLinkStyle = style || 'magical';
+  
+  // Update style pills UI
+  const pills = document.querySelectorAll('#style-selector-pills .style-pill');
+  pills.forEach(pill => {
+    const pStyle = pill.getAttribute('data-style');
+    if (pStyle === currentLinkStyle) {
+      pill.className = 'style-pill active-style px-3 py-1.5 rounded-full text-xs font-bold border-2 border-pink-500 bg-pink-100/90 dark:bg-pink-950/80 text-pink-700 dark:text-pink-300 transition cursor-pointer ring-2 ring-pink-500/20';
+    } else {
+      pill.className = 'style-pill px-3 py-1.5 rounded-full text-xs font-semibold border border-purple-200 dark:border-purple-800 bg-white/80 dark:bg-purple-950/60 text-purple-900 dark:text-purple-200 hover:border-pink-400 transition cursor-pointer';
+    }
+  });
+
+  const styleLabel = document.getElementById('active-style-label');
+  if (styleLabel) {
+    const styleNames = {
+      romantic: '💖 Romantic',
+      magical: '✨ Magical',
+      cute: '🌸 Cute',
+      celebration: '🎉 Celebration',
+      simple: '🤍 Simple',
+      elegant: '👑 Elegant'
+    };
+    styleLabel.textContent = styleNames[currentLinkStyle] || '✨ Magical';
+  }
+
+  // Regenerate suggestions ranked by the new style
+  window.initSmartWishLinkUI();
+};
+
+window.handlePersonalizeNameToggle = function(checked) {
+  currentPersonalizeWithName = Boolean(checked);
+  window.initSmartWishLinkUI();
+};
+
+window.toggleChangeLinkMode = function() {
+  isChangeLinkModeActive = !isChangeLinkModeActive;
+  const btn = document.getElementById('btn-change-link-toggle');
+  const panel = document.getElementById('personalized-selection-panel');
+  const cards = document.getElementById('link-options-cards-container');
+
+  if (isChangeLinkModeActive) {
+    if (btn) btn.textContent = 'Keep Current Link';
+    if (panel) panel.classList.remove('hidden');
+    if (cards) cards.classList.remove('hidden');
+  } else {
+    if (btn) btn.textContent = 'Change Link';
+    if (panel) panel.classList.add('hidden');
+    if (currentEditingWishSlug) {
+      currentCustomData.customSlug = currentEditingWishSlug;
+      currentCustomData.slug = currentEditingWishSlug;
+      const input = document.getElementById('wish-slug-input');
+      if (input) input.value = currentEditingWishSlug;
+    }
+  }
+};
+
+window.publishFreeRandomWish = async function() {
+  if (isPublishingInProgress) return;
+  if (!validateStep1()) {
+    window.goToStep(1);
+    return;
+  }
+  if (!activeTemplate) {
+    showToast('Please select a template');
+    return;
+  }
+  const currentUser = window.WishAuth && window.WishAuth.getCurrentUser();
+  if (!currentUser) {
+    if (typeof window.openAuthModal === 'function') {
+      window.openAuthModal('signin', 'Please sign in or create an account to publish your wish website.');
+    } else {
+      alert('Please sign in to publish your wish.');
+    }
+    return;
+  }
+
+  isPublishingInProgress = true;
+  try {
+    showToast('🎲 Generating unique free random link...');
+    let randomSlug = '';
+    try {
+      const res = await fetch('/api/wishes/generate-random-slug', { credentials: 'include' });
+      const data = await res.json();
+      if (data && data.success && data.slug) {
+        randomSlug = data.slug;
+      }
+    } catch (e) {
+      console.warn('Random slug API call failed:', e);
+    }
+
+    if (!randomSlug) {
+      const prefix = (currentWishLinkSettings && currentWishLinkSettings.random && currentWishLinkSettings.random.prefix) || 'wish-';
+      randomSlug = `${prefix}${Math.random().toString(36).substring(2, 8)}`;
+    }
+
+    currentCustomData.customSlug = randomSlug;
+    currentCustomData.slug = randomSlug;
+    currentCustomData.linkType = 'random';
+    currentCustomData.link_type = 'random';
+
+    await executeWishCreation({
+      slug: randomSlug,
+      linkType: 'random',
+      tier: 'free',
+      price: 0,
+      customData: {
+        ...currentCustomData,
+        customSlug: randomSlug,
+        slug: randomSlug,
+        linkType: 'random',
+        link_type: 'random'
+      }
+    });
+  } catch (err) {
+    alert('Error publishing random link wish: ' + err.message);
+  } finally {
+    isPublishingInProgress = false;
+  }
+};
+
+window.handlePersonalizedLinkCheckout = async function() {
+  const chosenSlug = (currentCustomData.customSlug || currentCustomData.slug || '').toLowerCase().trim();
+  if (!chosenSlug) {
+    showToast('⚠️ Please choose or enter a personalized link first');
+    const input = document.getElementById('wish-slug-input');
+    if (input) input.focus();
+    return;
+  }
+
+  const currentUser = window.WishAuth && window.WishAuth.getCurrentUser();
+  if (!currentUser) {
+    if (typeof window.openAuthModal === 'function') {
+      window.openAuthModal('signin', 'Please sign in or create an account to get a personalized link.');
+    } else {
+      alert('Please sign in first.');
+    }
+    return;
+  }
+
+  if (lastSlugCheckResult && lastSlugCheckResult.available === false && !lastSlugCheckResult.isCurrent) {
+    showToast('⚠️ Please choose an available link first');
+    return;
+  }
+
+  try {
+    const res = await fetch('/api/entitlements/checkout', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      credentials: 'include',
+      body: JSON.stringify({
+        planId: 'personalized_link',
+        options: {
+          planId: 'personalized_link',
+          slug: chosenSlug
+        }
+      })
+    });
+    const data = await res.json();
+
+    if (data.status === 'provider_not_configured' || data.configured === false) {
+      renderPersonalizedPaymentCallout({
+        notConfigured: true,
+        message: data.message || 'Payment currently unavailable / NOT_CONFIGURED. Gateway is not configured in environment variables.',
+        amount: data.amount || currentWishLinkSettings.personalized.price,
+        currency: data.currency || currentWishLinkSettings.personalized.currency
+      });
+      showToast('⚠️ Payment currently unavailable. You can publish using Free Random Link.');
+      return;
+    }
+
+    if (data.checkoutUrl) {
+      window.location.href = data.checkoutUrl;
+    } else if (data.success) {
+      currentCustomData.linkType = 'personalized';
+      currentCustomData.link_type = 'personalized';
+      await window.publishWishAndGetLink();
+    }
+  } catch (err) {
+    showToast('⚠️ Could not initiate checkout: ' + err.message);
+  }
+};
+
 window.initSmartWishLinkUI = function() {
   const originLabel = document.getElementById('slug-origin-label');
   const domainPrefix = document.getElementById('slug-domain-prefix');
@@ -2360,7 +2716,24 @@ window.initSmartWishLinkUI = function() {
   if (originLabel) originLabel.textContent = `${hostDomain}/w/`;
   if (domainPrefix) domainPrefix.textContent = `/w/`;
 
-  // 1. Generate Contextual Suggestions
+  // Check if editing an existing published wish
+  const editingBanner = document.getElementById('editing-wish-link-banner');
+  const currentSlugLabel = document.getElementById('current-published-slug-label');
+  if (currentEditingWishSlug) {
+    if (editingBanner) editingBanner.classList.remove('hidden');
+    if (currentSlugLabel) currentSlugLabel.textContent = `/w/${currentEditingWishSlug}`;
+    if (!isChangeLinkModeActive) {
+      currentCustomData.customSlug = currentEditingWishSlug;
+      currentCustomData.slug = currentEditingWishSlug;
+    }
+  } else {
+    if (editingBanner) editingBanner.classList.add('hidden');
+  }
+
+  // Load and apply server settings
+  window.loadWishLinkStudioSettings();
+
+  // 1. Generate Contextual Suggestions using selected Style and Personalize Name toggle
   const occasion = currentCustomData.occasion || (activeTemplate && activeTemplate.category) || 'birthday';
   const relationship = currentCustomData.relationship || '';
   const recipientName = currentCustomData.recipient_name || '';
@@ -2373,31 +2746,37 @@ window.initSmartWishLinkUI = function() {
       relationship,
       recipientName,
       senderName,
-      category
+      category,
+      style: currentLinkStyle,
+      personalizeWithName: currentPersonalizeWithName
     });
   } else {
-    const norm = (recipientName || 'celebration').toLowerCase().replace(/[^a-z0-9]/g, '-').replace(/-+/g, '-').replace(/^-+|-+$/g, '');
+    const norm = currentPersonalizeWithName ? (recipientName || 'celebration').toLowerCase().replace(/[^a-z0-9]/g, '-').replace(/-+/g, '-').replace(/^-+|-+$/g, '') : 'celebration';
     currentSlugSuggestions = [`happy-birthday-${norm}`, `just-for-you-${norm}`, `special-wish-${norm}`, `celebrate-${norm}`, 'a-special-wish'];
+  }
+
+  // Update sample personalized slug on Card 1
+  const cardPersonalizedSample = document.getElementById('card-personalized-sample');
+  if (cardPersonalizedSample && currentSlugSuggestions.length > 0) {
+    cardPersonalizedSample.textContent = currentSlugSuggestions[0];
   }
 
   // Update context label
   const contextPill = document.getElementById('suggestions-context-pill');
   if (contextPill) {
     const parts = [];
-    if (recipientName) parts.push(recipientName);
+    if (recipientName && currentPersonalizeWithName) parts.push(recipientName);
     if (occasion) parts.push(occasion.replace(/_/g, ' '));
     if (relationship) parts.push(relationship.replace(/_/g, ' '));
-    contextPill.textContent = parts.length > 0 ? `Matched for ${parts.join(' • ')}` : 'Based on your celebration';
+    contextPill.textContent = parts.length > 0 ? `Ranked by ${currentLinkStyle} • ${parts.join(' • ')}` : `Ranked by ${currentLinkStyle} style`;
   }
 
   // 2. Select initial slug if not set or if using empty state
   const input = document.getElementById('wish-slug-input') || document.getElementById('custom-slug-input');
   
-  if (currentEditingWishSlug && !currentCustomData.customSlug) {
+  if (currentEditingWishSlug && !isChangeLinkModeActive) {
     currentCustomData.customSlug = currentEditingWishSlug;
-  }
-
-  if (!currentCustomData.customSlug && currentSlugSuggestions.length > 0) {
+  } else if (!currentCustomData.customSlug && currentSlugSuggestions.length > 0) {
     currentCustomData.customSlug = currentSlugSuggestions[0];
   }
 
@@ -3658,14 +4037,18 @@ async function executeWishCreation(extraPayload = {}) {
       return null;
     }
 
-    const chosenSlug = (currentCustomData.customSlug || currentCustomData.slug || '').toLowerCase().trim();
+    const chosenSlug = (extraPayload.slug || currentCustomData.customSlug || currentCustomData.slug || '').toLowerCase().trim();
+    const linkType = extraPayload.linkType || currentCustomData.linkType || (chosenSlug ? 'personalized' : 'random');
 
     const payload = {
       templateId: activeTemplate.id,
+      linkType,
       customData: {
         ...currentCustomData,
         customSlug: chosenSlug,
-        slug: chosenSlug
+        slug: chosenSlug,
+        linkType,
+        link_type: linkType
       },
       slug: chosenSlug,
       ...extraPayload

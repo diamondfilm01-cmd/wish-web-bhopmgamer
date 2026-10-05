@@ -1414,6 +1414,261 @@ async function runTests() {
   assert(conflictRes.status === 409, 'Duplicate custom slug creation returns 409 Conflict');
 
   // ============================================================================
+  // 8. Smart Wish Link Studio: Options A/B, Admin Config, Dynamic Price & Random Slugs
+  // ============================================================================
+  console.log('\n--- 8. Smart Wish Link Studio: Options A/B, Admin Settings & Dynamic Pricing ---');
+
+  // A. Public Wish Link Settings API
+  console.log('• Public Wish Link Settings Contract');
+  const pubSettingsRes = await worker.fetch(new Request('http://localhost/api/settings/wish-links'), prodEnv);
+  assert(pubSettingsRes.status === 200, 'Public settings returns 200');
+  const pubSettingsData = await pubSettingsRes.json();
+  assert(pubSettingsData.success === true, 'Public settings success is true');
+  assert(pubSettingsData.settings.personalized.price === 49, 'Default price is 49');
+  assert(pubSettingsData.settings.personalized.currency === 'INR', 'Default currency is INR');
+  assert(pubSettingsData.settings.personalized.enabled === true, 'Personalized links enabled by default');
+  assert(pubSettingsData.settings.random.enabled === true, 'Random links enabled by default');
+  assert(pubSettingsData.settings.random.prefix === 'wish-', 'Default prefix is "wish-"');
+  assert(pubSettingsData.settings.random.length === 6, 'Default random length is 6');
+  assert(typeof pubSettingsData.settings.random.sampleSlug === 'string', 'Sample slug is provided');
+  assert(pubSettingsData.settings.random.sampleSlug.startsWith('wish-'), 'Sample slug starts with default prefix');
+
+  // B. Server-Side Random Slug Generator
+  console.log('• Server-Side Random Slug Generator');
+  const randomSlugRes = await worker.fetch(new Request('http://localhost/api/wishes/generate-random-slug'), prodEnv);
+  assert(randomSlugRes.status === 200, 'Generate random slug returns 200');
+  const randomSlugData = await randomSlugRes.json();
+  assert(randomSlugData.success === true, 'Random slug success is true');
+  assert(typeof randomSlugData.slug === 'string', 'Returns string slug');
+  assert(randomSlugData.slug.startsWith('wish-'), 'Random slug starts with prefix');
+  assert(randomSlugData.slug.length === randomSlugData.prefix.length + 6, 'Random slug has correct prefix + 6 chars length');
+  assert(WishLinkSuggestions.isValidSlug(randomSlugData.slug), 'Generated random slug is valid');
+  assert(!WishLinkSuggestions.isReservedSlug(randomSlugData.slug), 'Generated random slug is not reserved');
+
+  // C. Option B — Free Random Link Publishing Flow
+  console.log('• Option B: Free Random Link Publishing Flow');
+  const freeWishRes = await worker.fetch(new Request('http://localhost/api/wishes', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', 'Cookie': userACookie },
+    body: JSON.stringify({
+      templateId: 'tpl_glitter_birthday',
+      linkType: 'random',
+      customData: {
+        recipient_name: 'Priya Sharma',
+        occasion: 'birthday',
+        linkType: 'random'
+      }
+    })
+  }), prodEnv);
+  assert(freeWishRes.status === 201, 'Free random wish created with 201 Created');
+  const freeWishData = await freeWishRes.json();
+  const createdFreeWish = (freeWishData.data && freeWishData.data.wish) || freeWishData.wish;
+  assert(createdFreeWish.slug.startsWith('wish-'), 'Created free wish has server-generated random slug');
+  assert(createdFreeWish.price === 0, 'Free random wish price is 0 (Free)');
+  assert(createdFreeWish.tier === 'free', 'Free random wish tier is free');
+  const parsedFreeCd = typeof createdFreeWish.custom_data === 'string' ? JSON.parse(createdFreeWish.custom_data) : createdFreeWish.customData;
+  assert(parsedFreeCd.linkType === 'random' || parsedFreeCd.link_type === 'random', 'Link type stored server-side as random');
+
+  // D. Option A — Personalized Link Publishing Flow
+  console.log('• Option A: Personalized Link Publishing Flow');
+  const personalizedSlug = 'happy-birthday-priya-special';
+  const persWishRes = await worker.fetch(new Request('http://localhost/api/wishes', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', 'Cookie': userACookie },
+    body: JSON.stringify({
+      templateId: 'tpl_glitter_birthday',
+      slug: personalizedSlug,
+      linkType: 'personalized',
+      customData: {
+        recipient_name: 'Priya Sharma',
+        occasion: 'birthday',
+        customSlug: personalizedSlug,
+        linkType: 'personalized'
+      }
+    })
+  }), prodEnv);
+  assert(persWishRes.status === 201, 'Personalized wish created with 201 Created');
+  const persWishData = await persWishRes.json();
+  const createdPersWish = (persWishData.data && persWishData.data.wish) || persWishData.wish;
+  assert(createdPersWish.slug === personalizedSlug, 'Personalized wish preserved chosen slug');
+  const parsedPersCd = typeof createdPersWish.custom_data === 'string' ? JSON.parse(createdPersWish.custom_data) : createdPersWish.customData;
+  assert(parsedPersCd.linkType === 'personalized' || parsedPersCd.link_type === 'personalized', 'Link type stored server-side as personalized');
+
+  // E. Edit Existing Wish: Slug Preservation
+  console.log('• Edit Existing Wish Slug Preservation');
+  const editRes = await worker.fetch(new Request(`http://localhost/api/wishes/${createdPersWish.id}`, {
+    method: 'PUT',
+    headers: { 'Content-Type': 'application/json', 'Cookie': userACookie },
+    body: JSON.stringify({
+      customData: {
+        recipient_name: 'Priya Verma',
+        occasion: 'birthday',
+        custom_message: 'Updated anniversary greetings without changing URL'
+      }
+    })
+  }), prodEnv);
+  assert(editRes.status === 200, 'Wish update succeeds with 200');
+  const editData = await editRes.json();
+  const updatedSlug = (editData.data && editData.data.slug) || editData.slug;
+  assert(updatedSlug === personalizedSlug, 'Original slug preserved intact on edit without re-randomizing');
+
+  // F. Admin Settings Configuration & Authoritative Dynamic Pricing
+  console.log('• Admin Wish Link Settings Configurator & Dynamic Price Updates');
+
+  // Non-admin rejected
+  const nonAdminSaveRes = await worker.fetch(new Request('http://localhost/api/admin/settings/wish-links', {
+    method: 'PUT',
+    headers: { 'Content-Type': 'application/json', 'Cookie': userACookie },
+    body: JSON.stringify({ settings: { personalized: { price: 29 } } })
+  }), prodEnv);
+  assert(nonAdminSaveRes.status === 403, 'Non-admin rejected from updating wish link settings with 403');
+
+  // Admin updates price to ₹29, prefix to 'w-', length to 7
+  const adminSaveRes = await worker.fetch(new Request('http://localhost/api/admin/settings/wish-links', {
+    method: 'PUT',
+    headers: { 'Content-Type': 'application/json', 'Cookie': `wm_session=${adminToken}` },
+    body: JSON.stringify({
+      settings: {
+        personalized: {
+          enabled: true,
+          price: 29,
+          currency: 'INR',
+          displayName: 'VIP Custom Link',
+          description: 'A special customized address for your celebration'
+        },
+        random: {
+          enabled: true,
+          prefix: 'w-',
+          length: 7,
+          allowedCharacters: 'abcdefghijklmnopqrstuvwxyz0123456789'
+        }
+      }
+    })
+  }), prodEnv);
+  assert(adminSaveRes.status === 200, 'Admin successfully saves wish link settings with 200');
+
+  // Check public endpoint returns updated price (₹29) and prefix ('w-')
+  const updatedPubRes = await worker.fetch(new Request('http://localhost/api/settings/wish-links'), prodEnv);
+  const updatedPubData = await updatedPubRes.json();
+  assert(updatedPubData.settings.personalized.price === 29, 'Dynamic price is now 29');
+  assert(updatedPubData.settings.personalized.displayName === 'VIP Custom Link', 'Dynamic display name updated');
+  assert(updatedPubData.settings.random.prefix === 'w-', 'Dynamic prefix is now "w-"');
+  assert(updatedPubData.settings.random.length === 7, 'Dynamic length is now 7');
+
+  // Check entitlements checkout endpoint uses dynamic price 29
+  const checkoutRes = await worker.fetch(new Request('http://localhost/api/entitlements/checkout', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', 'Cookie': userACookie },
+    body: JSON.stringify({ planId: 'personalized_link' })
+  }), prodEnv);
+  assert(checkoutRes.status === 200, 'Checkout endpoint returns 200');
+  const checkoutData = await checkoutRes.json();
+  assert(checkoutData.amount === 29, 'Checkout dynamically reflects updated ₹29 price');
+  assert(checkoutData.currency === 'INR', 'Checkout reflects dynamic INR currency');
+
+  // Generate random slug now uses new prefix 'w-' and length 7
+  const newRandomRes = await worker.fetch(new Request('http://localhost/api/wishes/generate-random-slug'), prodEnv);
+  const newRandomData = await newRandomRes.json();
+  assert(newRandomData.slug.startsWith('w-'), 'New random slug starts with new prefix "w-"');
+  assert(newRandomData.slug.length === 2 + 7, 'New random slug has prefix (2) + length (7) = 9 chars');
+
+  // G. Admin Settings Validation Constraints
+  console.log('• Admin Settings Validation Guards');
+
+  // Cannot disable both options
+  const disableBothRes = await worker.fetch(new Request('http://localhost/api/admin/settings/wish-links', {
+    method: 'PUT',
+    headers: { 'Content-Type': 'application/json', 'Cookie': `wm_session=${adminToken}` },
+    body: JSON.stringify({
+      settings: {
+        personalized: { enabled: false },
+        random: { enabled: false }
+      }
+    })
+  }), prodEnv);
+  assert(disableBothRes.status === 400, 'Cannot disable both publishing options (returns 400)');
+
+  // Invalid price
+  const badPriceRes = await worker.fetch(new Request('http://localhost/api/admin/settings/wish-links', {
+    method: 'PUT',
+    headers: { 'Content-Type': 'application/json', 'Cookie': `wm_session=${adminToken}` },
+    body: JSON.stringify({
+      settings: {
+        personalized: { price: -10 }
+      }
+    })
+  }), prodEnv);
+  assert(badPriceRes.status === 400, 'Negative price rejected with 400');
+
+  // Reserved prefix
+  const reservedPrefixRes = await worker.fetch(new Request('http://localhost/api/admin/settings/wish-links', {
+    method: 'PUT',
+    headers: { 'Content-Type': 'application/json', 'Cookie': `wm_session=${adminToken}` },
+    body: JSON.stringify({
+      settings: {
+        random: { prefix: 'admin-' }
+      }
+    })
+  }), prodEnv);
+  assert(reservedPrefixRes.status === 400, 'Reserved prefix rejected with 400');
+
+  // Invalid length
+  const badLengthRes = await worker.fetch(new Request('http://localhost/api/admin/settings/wish-links', {
+    method: 'PUT',
+    headers: { 'Content-Type': 'application/json', 'Cookie': `wm_session=${adminToken}` },
+    body: JSON.stringify({
+      settings: {
+        random: { length: 3 }
+      }
+    })
+  }), prodEnv);
+  assert(badLengthRes.status === 400, 'Length < 5 rejected with 400');
+
+  // H. Style Ranking and Name Personalization Toggle in Suggestions
+  console.log('• Style Ranking & Personalize With Name Engine');
+
+  const romanticRanked = WishLinkSuggestions.generateSuggestions({
+    occasion: 'birthday',
+    recipientName: 'Radha',
+    style: 'romantic'
+  });
+  const romanticKeywords = ['love', 'heart', 'forever', 'romantic'];
+  const hasRomanticTop = romanticKeywords.some(kw => romanticRanked[0].includes(kw) || romanticRanked[1].includes(kw));
+  assert(hasRomanticTop, 'Romantic style elevates romantic keywords to top ranks');
+
+  const magicalRanked = WishLinkSuggestions.generateSuggestions({
+    occasion: 'birthday',
+    recipientName: 'Radha',
+    style: 'magical'
+  });
+  const magicalKeywords = ['magic', 'starlight', 'surprise', 'wish'];
+  const hasMagicalTop = magicalKeywords.some(kw => magicalRanked[0].includes(kw) || magicalRanked[1].includes(kw));
+  assert(hasMagicalTop, 'Magical style elevates magical keywords to top ranks');
+
+  // Personalize with recipient name = OFF
+  const noNameSuggestions = WishLinkSuggestions.generateSuggestions({
+    occasion: 'birthday',
+    recipientName: 'Radha',
+    personalizeWithName: false
+  });
+  for (const s of noNameSuggestions) {
+    assert(!s.includes('radha'), `Suggestion "${s}" does not contain recipient name when personalizeWithName=false`);
+  }
+  assert(noNameSuggestions.length >= 5, 'Produces at least 5 suggestions even without recipient name');
+
+  // Reset admin settings to default for clean state
+  await worker.fetch(new Request('http://localhost/api/admin/settings/wish-links', {
+    method: 'PUT',
+    headers: { 'Content-Type': 'application/json', 'Cookie': `wm_session=${adminToken}` },
+    body: JSON.stringify({
+      settings: {
+        personalized: { enabled: true, price: 49, currency: 'INR', displayName: 'Personalized Link' },
+        random: { enabled: true, prefix: 'wish-', length: 6, allowedCharacters: 'abcdefghijklmnopqrstuvwxyz0123456789' }
+      }
+    })
+  }), prodEnv);
+
+  // ============================================================================
   // SUMMARY
   // ============================================================================
   console.log('\n================================================================');

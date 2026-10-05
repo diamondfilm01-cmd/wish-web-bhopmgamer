@@ -607,26 +607,193 @@ function computeLifecycle(wish) {
   return 'expired';
 }
 
-// Server Unique Slug Generator
-async function generateServerSlug(db, customData, templateId) {
-  const recipient = sanitizeString(customData.recipient_name || customData.recipientName || 'special-person', 40);
-  let base = slugify(recipient) || 'magical-wish';
-  if (base.length < 3) base = 'magical-wish';
-  const randomSuffix = Math.random().toString(36).substring(2, 6);
-  let candidate = `${base}-${randomSuffix}`;
-  if (isReservedSlug(candidate)) candidate = `wish-${candidate}`;
+// ============================================================================
+// CENTRALIZED WISH LINK & MONETIZATION SETTINGS ENGINE
+// ============================================================================
 
-  if (!db || typeof db.prepare !== 'function') {
-    return candidate;
+const DEFAULT_WISH_LINK_SETTINGS = {
+  personalized: {
+    enabled: true,
+    price: 49,
+    currency: 'INR',
+    displayName: 'Personalized Link',
+    description: 'Create a memorable link for your wish.'
+  },
+  random: {
+    enabled: true,
+    prefix: 'wish-',
+    length: 6,
+    allowedCharacters: 'abcdefghijklmnopqrstuvwxyz0123456789'
+  },
+  updatedAt: '2026-10-05T00:00:00.000Z'
+};
+
+let inMemoryWishLinkSettings = JSON.parse(JSON.stringify(DEFAULT_WISH_LINK_SETTINGS));
+
+function validateWishLinkSettings(settings) {
+  if (!settings || typeof settings !== 'object') {
+    return { valid: false, error: 'Invalid settings payload.' };
   }
 
-  try {
-    const existing = await db.prepare('SELECT id FROM wishes WHERE slug = ? LIMIT 1').bind(candidate).first();
-    if (!existing) return candidate;
-    return `${base}-${Date.now().toString(36).slice(-4)}-${randomSuffix}`;
-  } catch (e) {
-    return candidate;
+  const p = settings.personalized || {};
+  const r = settings.random || {};
+
+  const pEnabled = p.enabled !== undefined ? Boolean(p.enabled) : true;
+  const rEnabled = r.enabled !== undefined ? Boolean(r.enabled) : true;
+
+  // Rule: Cannot disable both
+  if (!pEnabled && !rEnabled) {
+    return { valid: false, error: 'Cannot disable both Personalized Links and Free Random Links. At least one publishing option must remain active.' };
   }
+
+  // Price validation: numeric, non-negative, sensible max
+  const price = Number(p.price !== undefined ? p.price : 49);
+  if (isNaN(price) || price < 0 || price > 100000) {
+    return { valid: false, error: 'Personalized link price must be a valid non-negative number up to 100,000.' };
+  }
+
+  // Currency validation
+  const currency = String(p.currency || 'INR').trim().toUpperCase();
+  if (!/^[A-Z]{3}$/.test(currency)) {
+    return { valid: false, error: 'Currency must be a valid 3-letter ISO code (e.g. INR, USD).' };
+  }
+
+  // Random length validation: 5-20 characters
+  const length = parseInt(r.length !== undefined ? r.length : 6, 10);
+  if (isNaN(length) || length < 5 || length > 20) {
+    return { valid: false, error: 'Random ID length must be an integer between 5 and 20.' };
+  }
+
+  // Prefix validation: URL safe, not reserved
+  const rawPrefix = String(r.prefix !== undefined ? r.prefix : 'wish-').trim().toLowerCase();
+  if (!/^[a-z0-9]+-?$/.test(rawPrefix) || rawPrefix.length > 20) {
+    return { valid: false, error: 'Random prefix must contain only lowercase letters, numbers, and an optional trailing hyphen (e.g. "wish-" or "w-").' };
+  }
+  const cleanPrefixCore = rawPrefix.replace(/-+$/, '');
+  if (cleanPrefixCore !== 'w' && cleanPrefixCore !== 'wish' && isReservedSlug(cleanPrefixCore)) {
+    return { valid: false, error: `Prefix "${rawPrefix}" collides with a reserved platform route.` };
+  }
+
+  // Allowed characters validation
+  const allowed = String(r.allowedCharacters || 'abcdefghijklmnopqrstuvwxyz0123456789').trim();
+  if (!/^[a-zA-Z0-9]+$/.test(allowed) || allowed.length < 5) {
+    return { valid: false, error: 'Allowed characters must contain only alphanumeric characters (at least 5 characters).' };
+  }
+
+  return {
+    valid: true,
+    normalized: {
+      personalized: {
+        enabled: pEnabled,
+        price,
+        currency,
+        displayName: sanitizeString(p.displayName || 'Personalized Link', 50),
+        description: sanitizeString(p.description || 'Create a memorable link for your wish.', 150)
+      },
+      random: {
+        enabled: rEnabled,
+        prefix: rawPrefix,
+        length,
+        allowedCharacters: allowed
+      },
+      updatedAt: new Date().toISOString()
+    }
+  };
+}
+
+async function getWishLinkSettings(env) {
+  if (env && env.DB && typeof env.DB.prepare === 'function') {
+    try {
+      const row = await env.DB.prepare('SELECT message FROM system_announcements WHERE id = ? LIMIT 1').bind('config_wish_links').first();
+      if (row && row.message) {
+        const parsed = JSON.parse(row.message);
+        if (parsed && parsed.personalized && parsed.random) {
+          inMemoryWishLinkSettings = parsed;
+          return parsed;
+        }
+      }
+    } catch (e) {}
+  }
+  return inMemoryWishLinkSettings;
+}
+
+async function saveWishLinkSettings(env, newSettings, actor = {}) {
+  const val = validateWishLinkSettings(newSettings);
+  if (!val.valid) {
+    return { success: false, error: val.error };
+  }
+
+  inMemoryWishLinkSettings = val.normalized;
+
+  if (env && env.DB && typeof env.DB.prepare === 'function') {
+    try {
+      const payload = JSON.stringify(val.normalized);
+      const nowIso = new Date().toISOString();
+      await env.DB.prepare(
+        `INSERT OR REPLACE INTO system_announcements (id, title, message, severity, is_active, created_at)
+         VALUES ('config_wish_links', 'wish_link_settings', ?, 'config', 1, ?)`
+      ).bind(payload, nowIso).run();
+    } catch (e) {}
+  }
+
+  await logAdminAudit(env, {
+    actorId: actor.id || 'system',
+    actorName: actor.name || 'Platform Admin',
+    actorRole: actor.role || 'admin',
+    action: 'WISH_LINK_SETTINGS_UPDATED',
+    details: `Updated personalized price: ${val.normalized.personalized.price} ${val.normalized.personalized.currency}, random prefix: ${val.normalized.random.prefix}`,
+    ipAddress: actor.ipAddress || '127.0.0.1'
+  });
+
+  return { success: true, settings: val.normalized };
+}
+
+// Cryptographically secure random ID generator using crypto.getRandomValues
+function generateSecureRandomId(length = 6, allowedChars = 'abcdefghijklmnopqrstuvwxyz0123456789') {
+  const chars = allowedChars || 'abcdefghijklmnopqrstuvwxyz0123456789';
+  const charsLen = chars.length;
+  const bytes = new Uint8Array(length);
+  crypto.getRandomValues(bytes);
+  let res = '';
+  for (let i = 0; i < length; i++) {
+    res += chars[bytes[i] % charsLen];
+  }
+  return res;
+}
+
+// Server Unique Slug Generator (Secure, collision-free, non-reserved)
+async function generateUniqueRandomWishSlug(db, config = {}) {
+  const prefix = (config.prefix !== undefined ? config.prefix : 'wish-').toLowerCase().trim();
+  const length = Math.max(5, Math.min(20, parseInt(config.length, 10) || 6));
+  const allowedChars = config.allowedCharacters || 'abcdefghijklmnopqrstuvwxyz0123456789';
+
+  for (let attempt = 0; attempt < 10; attempt++) {
+    const randomId = generateSecureRandomId(length, allowedChars);
+    const candidate = `${prefix}${randomId}`.toLowerCase();
+
+    if (!isValidSlug(candidate) || isReservedSlug(candidate)) {
+      continue;
+    }
+
+    if (!db || typeof db.prepare !== 'function') {
+      return candidate;
+    }
+
+    try {
+      const existing = await db.prepare('SELECT id FROM wishes WHERE slug = ? LIMIT 1').bind(candidate).first();
+      if (!existing) return candidate;
+    } catch (e) {
+      return candidate;
+    }
+  }
+
+  // Cryptographically secure fallback if collision occurred 10 times in a row
+  return `${prefix}${generateSecureRandomId(length, allowedChars)}-${Date.now().toString(36).slice(-4)}`;
+}
+
+// Backward-compatible alias for existing code
+async function generateServerSlug(db, customData, templateId, config = {}) {
+  return await generateUniqueRandomWishSlug(db, config);
 }
 
 // ============================================================================
@@ -963,6 +1130,20 @@ export default {
         }
       }
 
+      // --- Server-Authoritative Random Slug Generator (Option B) ---
+      else if (pathname === '/api/wishes/generate-random-slug' && method === 'GET') {
+        const settings = await getWishLinkSettings(env);
+        if (!settings.random.enabled) {
+          return applySecurityHeaders(jsonError('RANDOM_LINKS_DISABLED', 'Free random links are currently disabled by platform administrator.', 400), request, env);
+        }
+        const slug = await generateUniqueRandomWishSlug(env.DB, settings.random);
+        response = jsonSuccess({
+          slug,
+          prefix: settings.random.prefix,
+          canonicalUrl: `/w/${slug}`
+        }, 200, {}, requestId);
+      }
+
       // --- Wishes Endpoints (Strict Authentication, Ownership IDOR & Entitlement Verification) ---
       else if (pathname === '/api/wishes') {
         if (!env.DB || typeof env.DB.prepare !== 'function') {
@@ -1089,10 +1270,20 @@ export default {
             expiryDate = new Date(nextDayMs).toISOString().split('T')[0];
           }
 
+          const linkSettings = await getWishLinkSettings(env);
           let generatedSlug = '';
           const rawRequestedSlug = sanitizeString(body.slug || customData.slug || customData.customSlug || '', 80).toLowerCase().trim();
+          const isRandomRequested = body.linkType === 'random' || customData.linkType === 'random' || customData.link_type === 'random' || (!rawRequestedSlug && !body.slug);
 
-          if (rawRequestedSlug) {
+          if (!isRandomRequested && rawRequestedSlug) {
+            // Option A: Personalized Link Flow
+            if (!linkSettings.personalized.enabled) {
+              return applySecurityHeaders(
+                jsonError('PERSONALIZED_LINKS_DISABLED', 'Personalized links are currently disabled by platform administrator.', 400, {}, null, requestId),
+                request, env
+              );
+            }
+
             const normRequested = rawRequestedSlug.replace(/[^a-z0-9-]/g, '').replace(/-+/g, '-').replace(/^-+|-+$/g, '');
             if (!isValidSlug(normRequested)) {
               const isReserved = isReservedSlug(normRequested);
@@ -1109,8 +1300,21 @@ export default {
               );
             }
             generatedSlug = normRequested;
+            customData.linkType = 'personalized';
+            customData.link_type = 'personalized';
           } else {
-            generatedSlug = await generateServerSlug(env.DB, customData, templateId);
+            // Option B: Free Random Link Flow
+            if (!linkSettings.random.enabled) {
+              return applySecurityHeaders(
+                jsonError('RANDOM_LINKS_DISABLED', 'Free random links are currently disabled. A personalized link is required to publish.', 400, {}, null, requestId),
+                request, env
+              );
+            }
+            generatedSlug = await generateUniqueRandomWishSlug(env.DB, linkSettings.random);
+            customData.linkType = 'random';
+            customData.link_type = 'random';
+            customData.customSlug = generatedSlug;
+            customData.slug = generatedSlug;
           }
 
           const isPrivate = Boolean(customData.isPrivate || customData.unlisted || body.isPrivate);
@@ -2113,26 +2317,112 @@ export default {
         response = jsonSuccess({ entitlement }, 200, {}, requestId);
       }
 
+      // --- Public Wish Link Settings ---
+      else if (pathname === '/api/settings/wish-links' && method === 'GET') {
+        const settings = await getWishLinkSettings(env);
+        const sampleSlug = `${settings.random.prefix}${generateSecureRandomId(settings.random.length, settings.random.allowedCharacters)}`;
+        response = jsonSuccess({
+          settings: {
+            ...settings,
+            random: {
+              ...settings.random,
+              sampleSlug
+            }
+          }
+        }, 200, {}, requestId);
+      }
+
+      // --- Admin Wish Link & Monetization Settings Endpoints ---
+      else if (pathname === '/api/admin/settings/wish-links' && method === 'GET') {
+        const user = await getAuthenticatedUser(request, env);
+        if (!user) return applySecurityHeaders(jsonError('AUTH_REQUIRED', 'Admin authentication required', 401), request, env);
+        const isAdmin = await verifyAdminRole(user, env);
+        if (!isAdmin) return applySecurityHeaders(jsonError('FORBIDDEN', 'Insufficient administrative clearance', 403), request, env);
+
+        const settings = await getWishLinkSettings(env);
+        const sampleSlug = `${settings.random.prefix}${generateSecureRandomId(settings.random.length, settings.random.allowedCharacters)}`;
+        response = jsonSuccess({
+          settings: {
+            ...settings,
+            random: {
+              ...settings.random,
+              sampleSlug
+            }
+          }
+        }, 200, {}, requestId);
+      }
+
+      else if (pathname === '/api/admin/settings/wish-links' && (method === 'PUT' || method === 'POST')) {
+        const user = await getAuthenticatedUser(request, env);
+        if (!user) return applySecurityHeaders(jsonError('AUTH_REQUIRED', 'Admin authentication required', 401), request, env);
+        const isAdmin = await verifyAdminRole(user, env);
+        if (!isAdmin) return applySecurityHeaders(jsonError('FORBIDDEN', 'Insufficient administrative clearance', 403), request, env);
+
+        if (isCsrfViolation(request, env)) {
+          return applySecurityHeaders(jsonError('FORBIDDEN', 'Cross-origin mutation rejected', 403), request, env);
+        }
+
+        const body = await request.json().catch(() => ({}));
+        const newSettings = body.settings || body;
+        const saveRes = await saveWishLinkSettings(env, newSettings, {
+          id: user.id,
+          name: user.display_name || user.email,
+          role: user.role || 'admin',
+          ipAddress: clientIp
+        });
+
+        if (!saveRes.success) {
+          return applySecurityHeaders(jsonError('INVALID_SETTINGS', saveRes.error, 400), request, env);
+        }
+
+        response = jsonSuccess({
+          settings: saveRes.settings,
+          message: 'Wish link and monetization settings updated successfully.'
+        }, 200, {}, requestId);
+      }
+
       else if (pathname === '/api/entitlements/checkout' && method === 'POST') {
         const user = await getAuthenticatedUser(request, env);
         if (!user) return applySecurityHeaders(jsonError('AUTH_REQUIRED', 'Authentication required', 401), request, env);
+
+        const body = await request.json().catch(() => ({}));
+        const linkSettings = await getWishLinkSettings(env);
+        const isPersonalizedLink = body.planId === 'personalized_link' || (body.options && body.options.planId === 'personalized_link');
+
+        // Dynamic price and currency authoritative determination from server configuration
+        const amount = isPersonalizedLink ? linkSettings.personalized.price : 49;
+        const currency = isPersonalizedLink ? linkSettings.personalized.currency : 'INR';
 
         const providerConfigured = Boolean(env.RAZORPAY_KEY_ID || env.STRIPE_SECRET_KEY);
         if (!providerConfigured) {
           return jsonSuccess({
             status: 'provider_not_configured',
-            message: 'Real payment gateway (Razorpay/Stripe) is not configured in environment variables. Sandbox checkout initialized.',
+            configured: false,
+            message: 'Payment currently unavailable / NOT_CONFIGURED. Gateway is not configured in environment variables.',
             mode: 'sandbox',
+            amount,
+            currency,
             checkoutUrl: null
           }, 200, {}, requestId);
         }
 
         const orderId = 'ORD_' + Date.now().toString(36).toUpperCase();
+
+        if (env.DB && typeof env.DB.prepare === 'function') {
+          try {
+            const nowIso = new Date().toISOString();
+            await env.DB.prepare(
+              `INSERT INTO orders (id, user_id, plan, amount, currency, provider, status, created_at, updated_at)
+               VALUES (?, ?, ?, ?, ?, ?, 'PENDING', ?, ?)`
+            ).bind(orderId, user.id, isPersonalizedLink ? 'personalized_link' : 'vip_pass', amount, currency, 'razorpay', nowIso, nowIso).run();
+          } catch (e) {}
+        }
+
         response = jsonSuccess({
           status: 'ready',
           orderId,
-          amount: 49,
-          currency: 'INR'
+          amount,
+          currency
         }, 200, {}, requestId);
       }
 

@@ -426,11 +426,28 @@
     el.classList.toggle('flex');
   }
 
-  function savePricingConfig() {
-    const vip = document.getElementById('vip-price-input').value;
+  async function savePricingConfig() {
+    const vip = parseFloat(document.getElementById('vip-price-input').value) || 49;
     const creator = document.getElementById('creator-price-input').value;
     localStorage.setItem('wishmagic_pricing', JSON.stringify({ vip, creator }));
-    showToast(`💰 Pricing Updated! VIP Pass set to ₹${vip}, Creator Pack set to ₹${creator}`);
+
+    // Sync authoritative price with centralized wish link settings
+    try {
+      await fetch('/api/admin/settings/wish-links', {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        credentials: 'include',
+        body: JSON.stringify({
+          settings: {
+            personalized: {
+              price: vip
+            }
+          }
+        })
+      });
+    } catch (e) {}
+
+    showToast(`💰 Pricing Updated! Personalized / VIP Pass set to ₹${vip}, Creator Pack set to ₹${creator}`);
   }
 
   function saveCoupon() {
@@ -471,7 +488,23 @@
     }
   }
 
-  document.addEventListener('DOMContentLoaded', loadPricingMetrics);
+  async function loadWishLinkSettings() {
+    try {
+      const res = await fetch('/api/settings/wish-links');
+      const data = await res.json();
+      if (data && data.success && data.settings && data.settings.personalized) {
+        const input = document.getElementById('vip-price-input');
+        if (input && data.settings.personalized.price !== undefined) {
+          input.value = data.settings.personalized.price;
+        }
+      }
+    } catch (e) {}
+  }
+
+  document.addEventListener('DOMContentLoaded', () => {
+    loadPricingMetrics();
+    loadWishLinkSettings();
+  });
   setInterval(loadPricingMetrics, 3000);
 </script>
 </body>

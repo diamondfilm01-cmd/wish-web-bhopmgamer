@@ -1274,69 +1274,162 @@
             </div>
           </div>
 
-          <!-- Smart Wish Link / Custom Slug Suggestions -->
-          <div class="glass-surface rounded-3xl p-5 sm:p-6 shadow-xl space-y-4" id="smart-wish-link-section">
-            <div class="flex items-center justify-between pb-3 border-b border-purple-200/60 dark:border-purple-800/40">
+          <!-- Smart Wish Link Studio -->
+          <div class="glass-surface rounded-3xl p-5 sm:p-6 shadow-xl space-y-5" id="smart-wish-link-section">
+            
+            <!-- Section Header -->
+            <div class="flex items-center justify-between pb-3.5 border-b border-purple-200/60 dark:border-purple-800/40">
               <div>
-                <h3 class="font-display font-extrabold text-base text-purple-950 dark:text-white flex items-center gap-2">
+                <h3 class="font-display font-extrabold text-base sm:text-lg text-purple-950 dark:text-white flex items-center gap-2">
                   <span>🔗 Create Your Wish Link</span>
                 </h3>
-                <p class="text-[11px] text-purple-700/80 dark:text-purple-300/80 mt-0.5">Choose a beautiful, memorable link for your celebration website</p>
+                <p class="text-xs text-purple-700/80 dark:text-purple-300/80 mt-0.5">Choose how you want to share your wish.</p>
               </div>
-              <span class="px-2.5 py-0.5 rounded-full text-[10px] font-black uppercase tracking-wider bg-gradient-to-r from-pink-500 to-purple-600 text-white shadow-xs">SMART LINK</span>
+              <span class="px-2.5 py-1 rounded-full text-[10px] font-black uppercase tracking-wider bg-gradient-to-r from-pink-500 to-purple-600 text-white shadow-xs">
+                LINK STUDIO
+              </span>
             </div>
 
-            <div class="space-y-4 text-xs">
-              <!-- Destination URL Preview & Slug Input Box -->
+            <!-- Existing Wish Link Notice (When editing an already published wish) -->
+            <div id="editing-wish-link-banner" class="hidden p-3.5 rounded-2xl bg-purple-100/80 dark:bg-purple-950/60 border border-purple-300/60 dark:border-purple-800/60 flex items-center justify-between gap-3 text-xs">
+              <div class="flex items-center gap-2">
+                <span class="material-symbols-outlined text-pink-500 text-lg">bookmark</span>
+                <div>
+                  <span class="font-bold text-purple-950 dark:text-purple-100 block">Existing Published Link:</span>
+                  <span id="current-published-slug-label" class="font-mono text-purple-700 dark:text-purple-300">/w/...</span>
+                </div>
+              </div>
+              <button type="button" onclick="toggleChangeLinkMode()" class="px-3 py-1.5 rounded-xl bg-purple-200 dark:bg-purple-900/80 hover:bg-purple-300 dark:hover:bg-purple-800 text-purple-950 dark:text-purple-100 font-bold text-xs transition cursor-pointer" id="btn-change-link-toggle">
+                Change Link
+              </button>
+            </div>
+
+            <!-- TWO PUBLISHING OPTION CARDS (OPTION A & OPTION B) -->
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-4" id="link-options-cards-container">
+              
+              <!-- CARD 1 — PERSONALIZED LINK (PAID) -->
+              <div class="relative rounded-2xl p-5 border-2 transition-all flex flex-col justify-between gap-4 cursor-pointer group bg-gradient-to-br from-pink-50/70 via-purple-50/50 to-white/90 dark:from-pink-950/30 dark:via-purple-950/40 dark:to-slate-900/80 border-pink-400 dark:border-pink-500 shadow-md hover:shadow-xl" id="card-personalized-option" onclick="selectPersonalizedOption()">
+                <div class="absolute -top-3 right-4 px-2.5 py-0.5 rounded-full bg-gradient-to-r from-pink-500 to-purple-600 text-white text-[10px] font-black uppercase tracking-wider shadow-sm">
+                  POPULAR
+                </div>
+                <div>
+                  <div class="flex items-center justify-between mb-2">
+                    <span class="text-2xl filter drop-shadow">✨</span>
+                    <span class="font-display font-black text-lg text-pink-600 dark:text-pink-400" id="card-personalized-price">₹49</span>
+                  </div>
+                  <h4 class="font-display font-bold text-sm sm:text-base text-purple-950 dark:text-white mb-1" id="card-personalized-name">
+                    Personalized Link
+                  </h4>
+                  <p class="text-xs text-purple-700/80 dark:text-purple-300/80 leading-relaxed mb-3" id="card-personalized-desc">
+                    Create a memorable link for your wish.
+                  </p>
+                  <div class="p-2 rounded-xl bg-white/80 dark:bg-purple-950/60 border border-purple-200/60 dark:border-purple-800/40 text-[11px] font-mono text-purple-900 dark:text-purple-200 truncate flex items-center gap-1">
+                    <span class="text-pink-500 font-bold">/w/</span>
+                    <span class="text-purple-950 dark:text-purple-100 font-bold" id="card-personalized-sample">happy-birthday-radha</span>
+                  </div>
+                </div>
+                <button type="button" class="w-full py-2.5 px-4 rounded-xl bg-gradient-to-r from-pink-500 to-purple-600 text-white font-bold text-xs shadow-md transition group-hover:brightness-110 flex items-center justify-center gap-1.5 cursor-pointer">
+                  <span>Get Personalized Link</span>
+                  <span class="material-symbols-outlined text-[15px]">arrow_forward</span>
+                </button>
+              </div>
+
+              <!-- CARD 2 — FREE RANDOM LINK (FREE) -->
+              <div class="relative rounded-2xl p-5 border-2 transition-all flex flex-col justify-between gap-4 cursor-pointer group bg-white/70 dark:bg-purple-950/40 border-purple-200/80 dark:border-purple-800/60 hover:border-purple-400 hover:shadow-md" id="card-random-option" onclick="publishFreeRandomWish()">
+                <div>
+                  <div class="flex items-center justify-between mb-2">
+                    <span class="text-2xl filter drop-shadow">🎲</span>
+                    <span class="font-display font-black text-xs uppercase px-2 py-0.5 rounded-full bg-emerald-500/20 text-emerald-600 dark:text-emerald-400 border border-emerald-500/30">
+                      FREE
+                    </span>
+                  </div>
+                  <h4 class="font-display font-bold text-sm sm:text-base text-purple-950 dark:text-white mb-1">
+                    Free Random Link
+                  </h4>
+                  <p class="text-xs text-purple-700/80 dark:text-purple-300/80 leading-relaxed mb-3">
+                    Don't need a personalized link? We'll automatically create a secure random link for you.
+                  </p>
+                  <div class="p-2 rounded-xl bg-white/80 dark:bg-purple-950/60 border border-purple-200/60 dark:border-purple-800/40 text-[11px] font-mono text-purple-700 dark:text-purple-300 truncate flex items-center gap-1">
+                    <span class="text-emerald-500 font-bold">/w/</span>
+                    <span class="font-bold text-purple-950 dark:text-purple-100" id="card-random-sample">wish-7k4m9x</span>
+                  </div>
+                </div>
+                <button type="button" class="w-full py-2.5 px-4 rounded-xl bg-purple-100 dark:bg-purple-900/60 hover:bg-purple-200 dark:hover:bg-purple-800/80 text-purple-950 dark:text-purple-100 font-bold text-xs transition flex items-center justify-center gap-1.5 cursor-pointer">
+                  <span>Continue Free</span>
+                  <span class="material-symbols-outlined text-[15px]">arrow_forward</span>
+                </button>
+              </div>
+
+            </div>
+
+            <!-- PERSONALIZED LINK SELECTION UI (DRAWER/EXPANDER) -->
+            <div id="personalized-selection-panel" class="hidden space-y-4 pt-3 border-t border-purple-200/60 dark:border-purple-800/40">
+              
+              <div class="flex items-center justify-between">
+                <div>
+                  <h4 class="font-display font-bold text-sm text-purple-950 dark:text-white flex items-center gap-1.5">
+                    <span>✨ Choose Your Link</span>
+                  </h4>
+                  <p class="text-[11px] text-purple-700/80 dark:text-purple-300/80">Select a suggestion or type your own custom slug.</p>
+                </div>
+                <button type="button" onclick="closePersonalizedStudio()" class="text-xs font-semibold text-purple-600 dark:text-purple-400 hover:underline">
+                  ✕ Collapse
+                </button>
+              </div>
+
+              <!-- 1. LINK STYLE SELECTOR (ROMANTIC, MAGICAL, CUTE, CELEBRATION, SIMPLE, ELEGANT) -->
               <div class="space-y-1.5">
-                <label for="wish-slug-input" class="font-bold text-purple-900 dark:text-purple-200 text-xs flex items-center justify-between">
-                  <span>Your wish will be available at:</span>
-                  <span id="slug-origin-label" class="text-[10px] font-mono text-purple-600 dark:text-purple-400">wishmagic.live/w/</span>
+                <label class="font-bold text-xs text-purple-900 dark:text-purple-200 flex items-center justify-between">
+                  <span>Link Style Mood:</span>
+                  <span id="active-style-label" class="text-[10px] text-pink-600 dark:text-pink-400 font-bold uppercase">✨ Magical</span>
                 </label>
-
-                <div class="flex items-center rounded-2xl bg-white/90 dark:bg-purple-950/70 border-2 border-purple-200/80 dark:border-purple-800/60 overflow-hidden px-3.5 py-2.5 shadow-sm transition-all focus-within:border-pink-500 focus-within:ring-2 focus-within:ring-pink-500/20" id="slug-input-wrapper">
-                  <span class="text-purple-400 font-mono text-xs select-none pr-1 flex items-center gap-1 font-semibold flex-shrink-0">
-                    <span class="material-symbols-outlined text-[15px] text-pink-500">link</span>
-                    <span id="slug-domain-prefix">/w/</span>
-                  </span>
-                  <input type="text" id="wish-slug-input" oninput="handleSlugInputChange(this.value)" placeholder="happy-birthday-radha" autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false" class="w-full bg-transparent font-mono text-xs sm:text-sm font-bold text-purple-950 dark:text-purple-100 focus:outline-none"/>
-                  
-                  <!-- Live checking indicator in input -->
-                  <div id="slug-input-spinner" class="hidden flex-shrink-0 pl-2">
-                    <span class="w-4 h-4 border-2 border-pink-500 border-t-transparent rounded-full animate-spin inline-block"></span>
-                  </div>
-                </div>
-
-                <!-- Live Availability Badge & Guidance -->
-                <div id="slug-availability-badge" class="min-h-[22px] flex items-center gap-1.5 text-[11px] font-semibold transition-all">
-                  <!-- Dynamically populated: ✓ Available / ⚠️ Taken / Reserved / Invalid -->
-                </div>
-
-                <!-- Collision Alternatives (when taken) -->
-                <div id="slug-collision-alternatives" class="hidden p-3 rounded-2xl bg-amber-500/10 border border-amber-500/30 space-y-2">
-                  <div class="flex items-center gap-1.5 text-amber-800 dark:text-amber-200 font-bold text-[11px]">
-                    <span class="material-symbols-outlined text-[14px]">lightbulb</span>
-                    <span>Available variations you can use immediately:</span>
-                  </div>
-                  <div id="slug-alternatives-list" class="flex flex-wrap gap-1.5">
-                    <!-- Populated dynamically -->
-                  </div>
+                <div class="flex flex-wrap gap-1.5" id="style-selector-pills">
+                  <button type="button" onclick="setLinkStyle('romantic')" data-style="romantic" class="style-pill px-3 py-1.5 rounded-full text-xs font-semibold border border-purple-200 dark:border-purple-800 bg-white/80 dark:bg-purple-950/60 text-purple-900 dark:text-purple-200 hover:border-pink-400 transition cursor-pointer">
+                    <span>💖 Romantic</span>
+                  </button>
+                  <button type="button" onclick="setLinkStyle('magical')" data-style="magical" class="style-pill active-style px-3 py-1.5 rounded-full text-xs font-bold border-2 border-pink-500 bg-pink-100/90 dark:bg-pink-950/80 text-pink-700 dark:text-pink-300 transition cursor-pointer ring-2 ring-pink-500/20">
+                    <span>✨ Magical</span>
+                  </button>
+                  <button type="button" onclick="setLinkStyle('cute')" data-style="cute" class="style-pill px-3 py-1.5 rounded-full text-xs font-semibold border border-purple-200 dark:border-purple-800 bg-white/80 dark:bg-purple-950/60 text-purple-900 dark:text-purple-200 hover:border-pink-400 transition cursor-pointer">
+                    <span>🌸 Cute</span>
+                  </button>
+                  <button type="button" onclick="setLinkStyle('celebration')" data-style="celebration" class="style-pill px-3 py-1.5 rounded-full text-xs font-semibold border border-purple-200 dark:border-purple-800 bg-white/80 dark:bg-purple-950/60 text-purple-900 dark:text-purple-200 hover:border-pink-400 transition cursor-pointer">
+                    <span>🎉 Celebration</span>
+                  </button>
+                  <button type="button" onclick="setLinkStyle('simple')" data-style="simple" class="style-pill px-3 py-1.5 rounded-full text-xs font-semibold border border-purple-200 dark:border-purple-800 bg-white/80 dark:bg-purple-950/60 text-purple-900 dark:text-purple-200 hover:border-pink-400 transition cursor-pointer">
+                    <span>🤍 Simple</span>
+                  </button>
+                  <button type="button" onclick="setLinkStyle('elegant')" data-style="elegant" class="style-pill px-3 py-1.5 rounded-full text-xs font-semibold border border-purple-200 dark:border-purple-800 bg-white/80 dark:bg-purple-950/60 text-purple-900 dark:text-purple-200 hover:border-pink-400 transition cursor-pointer">
+                    <span>👑 Elegant</span>
+                  </button>
                 </div>
               </div>
 
-              <!-- Suggested Links Category & Chips -->
+              <!-- 2. PERSONALIZE WITH RECIPIENT NAME TOGGLE -->
+              <div class="p-3 rounded-2xl bg-white/70 dark:bg-purple-950/40 border border-purple-200/60 dark:border-purple-800/40 flex items-center justify-between gap-3 text-xs">
+                <div>
+                  <span class="font-bold text-purple-950 dark:text-white block">Personalize with recipient name</span>
+                  <span class="text-[11px] text-purple-700/80 dark:text-purple-300/80">When ON, includes recipient's name in URL suggestions.</span>
+                </div>
+                <label class="relative inline-flex items-center cursor-pointer flex-shrink-0">
+                  <input type="checkbox" id="toggle-personalize-name" checked onchange="handlePersonalizeNameToggle(this.checked)" class="sr-only peer"/>
+                  <div class="w-11 h-6 bg-purple-200 peer-focus:outline-none rounded-full peer dark:bg-purple-900 peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-gradient-to-r peer-checked:from-pink-500 peer-checked:to-purple-600"></div>
+                </label>
+              </div>
+
+              <!-- 3. SMART SUGGESTIONS SECTION -->
               <div class="space-y-2 pt-1">
                 <div class="flex items-center justify-between">
                   <div class="flex items-center gap-1.5">
                     <span class="text-xs">✨</span>
-                    <span class="font-extrabold text-purple-950 dark:text-white text-xs">Suggested Links</span>
+                    <span class="font-extrabold text-purple-950 dark:text-white text-xs">Smart Suggestions</span>
                   </div>
-                  <span id="suggestions-context-pill" class="text-[10px] text-purple-600 dark:text-purple-400 font-medium">Based on your details</span>
+                  <span id="suggestions-context-pill" class="text-[10px] text-purple-600 dark:text-purple-400 font-medium">Ranked by style</span>
                 </div>
 
-                <!-- Suggestion Chips Grid -->
+                <!-- Chips Grid -->
                 <div id="slug-suggestions-chips" class="flex flex-wrap gap-2">
-                  <!-- Populated dynamically: 5-8 top suggestions -->
+                  <!-- Populated dynamically -->
                 </div>
 
                 <!-- Show More / Less Toggle Button -->
@@ -1348,15 +1441,57 @@
                 </div>
               </div>
 
-              <!-- Unlisted / Private Link Toggle -->
-              <div class="p-3.5 rounded-2xl bg-white/70 dark:bg-purple-950/40 border border-purple-200/60 dark:border-purple-800/40 flex items-start justify-between gap-3 mt-2">
+              <!-- 4. CUSTOM LINK INPUT -->
+              <div class="space-y-1.5 pt-1">
+                <label for="wish-slug-input" class="font-bold text-purple-900 dark:text-purple-200 text-xs flex items-center justify-between">
+                  <span>Create Custom Link:</span>
+                  <span id="slug-origin-label" class="text-[10px] font-mono text-purple-600 dark:text-purple-400">wishmagic.live/w/</span>
+                </label>
+
+                <div class="flex items-center rounded-2xl bg-white/90 dark:bg-purple-950/70 border-2 border-purple-200/80 dark:border-purple-800/60 overflow-hidden px-3.5 py-2.5 shadow-sm transition-all focus-within:border-pink-500 focus-within:ring-2 focus-within:ring-pink-500/20" id="slug-input-wrapper">
+                  <span class="text-purple-400 font-mono text-xs select-none pr-1 flex items-center gap-1 font-semibold flex-shrink-0">
+                    <span class="material-symbols-outlined text-[15px] text-pink-500">link</span>
+                    <span id="slug-domain-prefix">/w/</span>
+                  </span>
+                  <input type="text" id="wish-slug-input" oninput="handleSlugInputChange(this.value)" placeholder="happy-birthday-radha" autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false" class="w-full bg-transparent font-mono text-xs sm:text-sm font-bold text-purple-950 dark:text-purple-100 focus:outline-none"/>
+                  
+                  <!-- Live checking spinner -->
+                  <div id="slug-input-spinner" class="hidden flex-shrink-0 pl-2">
+                    <span class="w-4 h-4 border-2 border-pink-500 border-t-transparent rounded-full animate-spin inline-block"></span>
+                  </div>
+                </div>
+
+                <!-- Live Availability Badge -->
+                <div id="slug-availability-badge" class="min-h-[22px] flex items-center gap-1.5 text-[11px] font-semibold transition-all">
+                  <!-- ✓ Available / ⚠️ Taken / Reserved / Invalid -->
+                </div>
+
+                <!-- Collision Alternatives -->
+                <div id="slug-collision-alternatives" class="hidden p-3 rounded-2xl bg-amber-500/10 border border-amber-500/30 space-y-2">
+                  <div class="flex items-center gap-1.5 text-amber-800 dark:text-amber-200 font-bold text-[11px]">
+                    <span class="material-symbols-outlined text-[14px]">lightbulb</span>
+                    <span>Available variations you can use immediately:</span>
+                  </div>
+                  <div id="slug-alternatives-list" class="flex flex-wrap gap-1.5">
+                    <!-- Populated dynamically -->
+                  </div>
+                </div>
+              </div>
+
+              <!-- 5. PAYMENT STATUS / CHECKOUT CALLOUT -->
+              <div id="personalized-payment-callout" class="p-4 rounded-2xl border space-y-2 text-xs">
+                <!-- Populated dynamically: NOT_CONFIGURED state or Pay ₹49 button -->
+              </div>
+
+              <!-- 6. UNLISTED PRIVATE LINK TOGGLE -->
+              <div class="p-3.5 rounded-2xl bg-white/70 dark:bg-purple-950/40 border border-purple-200/60 dark:border-purple-800/40 flex items-start justify-between gap-3">
                 <div class="space-y-0.5 pr-2">
                   <div class="flex items-center gap-2">
                     <span class="text-sm">🔒</span>
                     <h5 class="font-bold text-purple-950 dark:text-white text-xs">Unlisted Private Link</h5>
                   </div>
                   <p class="text-[11px] text-purple-700/80 dark:text-purple-300/80 leading-relaxed">
-                    Instructs search engines not to index this celebration (adds <code class="text-pink-500 text-[10px]">noindex, nofollow</code>). Only people with the link can view.
+                    Instructs search engines not to index this celebration. Only people with the direct URL can open it.
                   </p>
                 </div>
                 <label class="relative inline-flex items-center cursor-pointer flex-shrink-0 mt-1">
@@ -1364,7 +1499,9 @@
                   <div class="w-11 h-6 bg-purple-200 peer-focus:outline-none rounded-full peer dark:bg-purple-900 peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-gradient-to-r peer-checked:from-pink-500 peer-checked:to-purple-600"></div>
                 </label>
               </div>
+
             </div>
+
           </div>
 
         </div>

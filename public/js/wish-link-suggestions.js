@@ -579,20 +579,41 @@
     }
   };
 
+  const LINK_STYLES = [
+    { id: 'magical', name: 'Magical', icon: '✨' },
+    { id: 'romantic', name: 'Romantic', icon: '💖' },
+    { id: 'cute', name: 'Cute', icon: '🌸' },
+    { id: 'celebration', name: 'Celebration', icon: '🎉' },
+    { id: 'simple', name: 'Simple', icon: '🤍' },
+    { id: 'elegant', name: 'Elegant', icon: '👑' }
+  ];
+
+  const STYLE_KEYWORDS = {
+    romantic: ['love', 'heart', 'forever', 'romantic', 'sweet', 'darling', 'crush', 'my-love', 'beloved', 'us', 'story', 'together', 'kiss', 'passion', 'forever-us', 'our-special-day'],
+    magical: ['magic', 'magical', 'wonder', 'starlight', 'dream', 'sparkle', 'enchant', 'wish', 'special', 'surprise', 'star', 'secret', 'miracle'],
+    cute: ['cute', 'sweet', 'cuddle', 'hugs', 'smiles', 'joy', 'little', 'sunshine', 'buddy', 'dear', 'lovely', 'honey', 'blessing', 'happy'],
+    celebration: ['celebrate', 'celebration', 'party', 'cheers', 'birthday', 'anniversary', 'festive', 'happy', 'day', 'joyous', 'grand', 'festivities'],
+    simple: ['happy', 'for', 'dear', 'wishes', 'to', 'just'],
+    elegant: ['royal', 'precious', 'graceful', 'honor', 'legacy', 'elegant', 'treasured', 'golden', 'memorable', 'classic', 'timeless']
+  };
+
   /**
    * Generates deterministic, ranked, unique, and safe slug suggestions.
    * Follows strict fallback priority:
-   * 1. Occasion + relationship + recipient
+   * 1. Occasion + relationship + recipient (or without recipient if personalizeWithName=false)
    * 2. Occasion + recipient
    * 3. Relationship + recipient
    * 4. Occasion only
    * 5. Generic wish suggestions
+   * 6. Ranked by selected style (Romantic, Magical, Cute, Celebration, Simple, Elegant)
    */
-  function generateSuggestions({ occasion, relationship, recipientName, senderName, category } = {}) {
-    const normRecipient = normalizeNameForSlug(recipientName);
+  function generateSuggestions({ occasion, relationship, recipientName, senderName, category, style = 'magical', personalizeWithName = true } = {}) {
+    const rawRecipient = personalizeWithName ? normalizeNameForSlug(recipientName) : '';
+    const normRecipient = rawRecipient;
     const normSender = normalizeNameForSlug(senderName);
     const occ = canonicalizeOccasion(occasion, category);
     const rel = canonicalizeRelationship(relationship);
+    const currentStyle = (style || 'magical').toLowerCase();
 
     const pool = [];
 
@@ -611,18 +632,45 @@
       pool.push(...occBucket.generic(normRecipient));
     }
 
-    // 3. Sender combo suggestion if both recipient & sender are present
-    if (normRecipient && normSender && normRecipient !== normSender) {
+    // 3. Sender combo suggestion if both recipient & sender are present and personalizeWithName is true
+    if (personalizeWithName && normRecipient && normSender && normRecipient !== normSender) {
       pool.push(`${normSender}-to-${normRecipient}`);
       if (occ === 'birthday') pool.push(`birthday-from-${normSender}-to-${normRecipient}`);
     }
 
-    // 4. General fallback suggestions
+    // 4. Style-specific keywords and occasion combinations
+    if (normRecipient) {
+      if (currentStyle === 'romantic') {
+        pool.push(`forever-love-${normRecipient}`, `with-all-my-heart-${normRecipient}`, `special-love-for-${normRecipient}`);
+      } else if (currentStyle === 'magical') {
+        pool.push(`magical-wishes-for-${normRecipient}`, `starlight-wish-${normRecipient}`, `magical-surprise-${normRecipient}`);
+      } else if (currentStyle === 'cute') {
+        pool.push(`sweet-smiles-for-${normRecipient}`, `warm-hugs-${normRecipient}`, `little-joy-${normRecipient}`);
+      } else if (currentStyle === 'celebration') {
+        pool.push(`celebration-time-${normRecipient}`, `cheers-to-${normRecipient}`, `grand-celebration-${normRecipient}`);
+      } else if (currentStyle === 'elegant') {
+        pool.push(`honoring-${normRecipient}`, `treasured-moments-${normRecipient}`, `royal-wishes-${normRecipient}`);
+      }
+    } else {
+      if (currentStyle === 'romantic') {
+        pool.push('forever-us', 'our-love-story', 'from-the-heart', 'special-love');
+      } else if (currentStyle === 'magical') {
+        pool.push('magical-moments', 'starlight-celebration', 'pure-magic');
+      } else if (currentStyle === 'cute') {
+        pool.push('sweet-smiles', 'warm-hugs', 'little-bundle-of-joy');
+      } else if (currentStyle === 'celebration') {
+        pool.push('grand-celebration', 'cheers-to-life', 'celebration-vibes');
+      } else if (currentStyle === 'elegant') {
+        pool.push('treasured-memories', 'royal-celebration', 'timeless-grace');
+      }
+    }
+
+    // 5. General fallback suggestions
     if (typeof SUGGESTION_PATTERNS.general.generic === 'function') {
       pool.push(...SUGGESTION_PATTERNS.general.generic(normRecipient));
     }
 
-    // 5. Deduplicate, filter, and validate
+    // 6. Deduplicate, filter, and validate
     const seen = new Set();
     const cleanList = [];
 
@@ -647,6 +695,24 @@
       cleanList.push('a-special-wish', 'just-for-you', 'celebration-today', 'magical-surprise', 'made-with-love');
     }
 
+    // 7. Rank suggestions based on selected style
+    const keywords = STYLE_KEYWORDS[currentStyle] || [];
+    if (keywords.length > 0) {
+      cleanList.sort((a, b) => {
+        let scoreA = 0;
+        let scoreB = 0;
+        for (const kw of keywords) {
+          if (a.includes(kw)) scoreA += 2;
+          if (b.includes(kw)) scoreB += 2;
+        }
+        if (currentStyle === 'simple') {
+          scoreA += (100 - a.length);
+          scoreB += (100 - b.length);
+        }
+        return scoreB - scoreA;
+      });
+    }
+
     return cleanList;
   }
 
@@ -655,6 +721,8 @@
     isReservedSlug,
     isValidSlug,
     generateSuggestions,
+    LINK_STYLES,
+    STYLE_KEYWORDS,
     RESERVED_SLUGS
   };
 

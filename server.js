@@ -2116,6 +2116,277 @@ function computeWishStatus(wish) {
   }
 }
 
+// --- Smart Wish Link Settings & Random Slug Generator in Server ---
+const WISH_LINK_SETTINGS_FILE = path.join(DATA_DIR, 'wish_link_settings.json');
+
+const DEFAULT_SERVER_WISH_LINK_SETTINGS = {
+  personalized: {
+    enabled: true,
+    price: 49,
+    currency: 'INR',
+    displayName: 'Personalized Link',
+    description: 'Create a memorable link for your wish.'
+  },
+  random: {
+    enabled: true,
+    prefix: 'wish-',
+    length: 6,
+    allowedCharacters: 'abcdefghijklmnopqrstuvwxyz0123456789'
+  },
+  updatedAt: new Date().toISOString()
+};
+
+function getServerWishLinkSettings() {
+  try {
+    if (fs.existsSync(WISH_LINK_SETTINGS_FILE)) {
+      const data = fs.readFileSync(WISH_LINK_SETTINGS_FILE, 'utf8');
+      const parsed = JSON.parse(data || '{}');
+      if (parsed && parsed.personalized && parsed.random) {
+        return parsed;
+      }
+    }
+  } catch (e) {}
+  return DEFAULT_SERVER_WISH_LINK_SETTINGS;
+}
+
+function saveServerWishLinkSettings(settings) {
+  try {
+    fs.writeFileSync(WISH_LINK_SETTINGS_FILE, JSON.stringify(settings, null, 2), 'utf8');
+  } catch (e) {}
+}
+
+function generateSecureRandomId(length = 6, allowedChars = 'abcdefghijklmnopqrstuvwxyz0123456789') {
+  const chars = allowedChars || 'abcdefghijklmnopqrstuvwxyz0123456789';
+  const charsLen = chars.length;
+  const bytes = new Uint8Array(length);
+  crypto.getRandomValues(bytes);
+  let res = '';
+  for (let i = 0; i < length; i++) {
+    res += chars[bytes[i] % charsLen];
+  }
+  return res;
+}
+
+function generateUniqueServerRandomWishSlug(wishes, config = {}) {
+  const prefix = (config.prefix !== undefined ? config.prefix : 'wish-').toLowerCase().trim();
+  const length = Math.max(5, Math.min(20, parseInt(config.length, 10) || 6));
+  const allowedChars = config.allowedCharacters || 'abcdefghijklmnopqrstuvwxyz0123456789';
+
+  for (let attempt = 0; attempt < 15; attempt++) {
+    const randomId = generateSecureRandomId(length, allowedChars);
+    const candidate = `${prefix}${randomId}`.toLowerCase();
+
+    if (!isValidSlug(candidate) || isReservedSlug(candidate)) {
+      continue;
+    }
+
+    const collision = (wishes || []).some(w => (w.slug || '').toLowerCase() === candidate);
+    if (!collision) {
+      return candidate;
+    }
+  }
+  return `${prefix}${Date.now().toString(36).substring(2, 8)}`;
+}
+
+// Public API: Get current wish link configuration
+app.get('/api/settings/wish-links', (req, res) => {
+  const settings = getServerWishLinkSettings();
+  const sampleSlug = `${settings.random.prefix}${generateSecureRandomId(settings.random.length, settings.random.allowedCharacters)}`;
+  res.json({
+    success: true,
+    settings: {
+      ...settings,
+      random: {
+        ...settings.random,
+        sampleSlug
+      }
+    }
+  });
+});
+
+// Public API: Generate secure random wish slug
+app.get('/api/wishes/generate-random-slug', (req, res) => {
+  const settings = getServerWishLinkSettings();
+  if (!settings.random.enabled) {
+    return res.status(400).json({
+      success: false,
+      error: {
+        code: 'RANDOM_LINKS_DISABLED',
+        message: 'Free random links are currently disabled by platform administrator.'
+      }
+    });
+  }
+  const wishes = getWishes();
+  const slug = generateUniqueServerRandomWishSlug(wishes, settings.random);
+  res.json({
+    success: true,
+    slug,
+    prefix: settings.random.prefix,
+    canonicalUrl: `/w/${slug}`
+  });
+});
+
+// Admin API: Get wish link configuration
+app.get('/api/admin/settings/wish-links', (req, res) => {
+  const settings = getServerWishLinkSettings();
+  const sampleSlug = `${settings.random.prefix}${generateSecureRandomId(settings.random.length, settings.random.allowedCharacters)}`;
+  res.json({
+    success: true,
+    settings: {
+      ...settings,
+      random: {
+        ...settings.random,
+        sampleSlug
+      }
+    }
+  });
+});
+
+// Admin API: Save wish link configuration
+app.all(['/api/admin/settings/wish-links'], (req, res, next) => {
+  if (req.method !== 'POST' && req.method !== 'PUT') return next();
+
+  const body = req.body.settings || req.body || {};
+  const p = body.personalized || {};
+  const r = body.random || {};
+
+  const pEnabled = p.enabled !== undefined ? Boolean(p.enabled) : true;
+  const rEnabled = r.enabled !== undefined ? Boolean(r.enabled) : true;
+
+  if (!pEnabled && !rEnabled) {
+    return res.status(400).json({
+      success: false,
+      error: {
+        code: 'INVALID_SETTINGS',
+        message: 'Cannot disable both Personalized Links and Free Random Links. At least one publishing option must remain active.'
+      }
+    });
+  }
+
+  const price = Number(p.price !== undefined ? p.price : 49);
+  if (isNaN(price) || price < 0 || price > 100000) {
+    return res.status(400).json({
+      success: false,
+      error: {
+        code: 'INVALID_PRICE',
+        message: 'Personalized link price must be a valid non-negative number up to 100,000.'
+      }
+    });
+  }
+
+  const currency = String(p.currency || 'INR').trim().toUpperCase();
+  if (!/^[A-Z]{3}$/.test(currency)) {
+    return res.status(400).json({
+      success: false,
+      error: {
+        code: 'INVALID_CURRENCY',
+        message: 'Currency must be a valid 3-letter ISO code (e.g. INR, USD).'
+      }
+    });
+  }
+
+  const length = parseInt(r.length !== undefined ? r.length : 6, 10);
+  if (isNaN(length) || length < 5 || length > 20) {
+    return res.status(400).json({
+      success: false,
+      error: {
+        code: 'INVALID_LENGTH',
+        message: 'Random ID length must be an integer between 5 and 20.'
+      }
+    });
+  }
+
+  const rawPrefix = String(r.prefix !== undefined ? r.prefix : 'wish-').trim().toLowerCase();
+  if (!/^[a-z0-9]+-?$/.test(rawPrefix) || rawPrefix.length > 20) {
+    return res.status(400).json({
+      success: false,
+      error: {
+        code: 'INVALID_PREFIX',
+        message: 'Random prefix must contain only lowercase letters, numbers, and an optional trailing hyphen (e.g. "wish-" or "w-").'
+      }
+    });
+  }
+  const cleanPrefixCore = rawPrefix.replace(/-+$/, '');
+  if (cleanPrefixCore !== 'w' && cleanPrefixCore !== 'wish' && isReservedSlug(cleanPrefixCore)) {
+    return res.status(400).json({
+      success: false,
+      error: {
+        code: 'RESERVED_PREFIX',
+        message: `Prefix "${rawPrefix}" collides with a reserved platform route.`
+      }
+    });
+  }
+
+  const allowed = String(r.allowedCharacters || 'abcdefghijklmnopqrstuvwxyz0123456789').trim();
+  if (!/^[a-zA-Z0-9]+$/.test(allowed) || allowed.length < 5) {
+    return res.status(400).json({
+      success: false,
+      error: {
+        code: 'INVALID_CHARACTERS',
+        message: 'Allowed characters must contain only alphanumeric characters (at least 5 characters).'
+      }
+    });
+  }
+
+  const normalized = {
+    personalized: {
+      enabled: pEnabled,
+      price,
+      currency,
+      displayName: String(p.displayName || 'Personalized Link').trim().substring(0, 50),
+      description: String(p.description || 'Create a memorable link for your wish.').trim().substring(0, 150)
+    },
+    random: {
+      enabled: rEnabled,
+      prefix: rawPrefix,
+      length,
+      allowedCharacters: allowed
+    },
+    updatedAt: new Date().toISOString()
+  };
+
+  saveServerWishLinkSettings(normalized);
+
+  res.json({
+    success: true,
+    settings: normalized,
+    message: 'Wish link and monetization settings updated successfully.'
+  });
+});
+
+// Entitlements Checkout Endpoint (Authoritative Dynamic Pricing & NOT_CONFIGURED state)
+app.post('/api/entitlements/checkout', (req, res) => {
+  const settings = getServerWishLinkSettings();
+  const body = req.body || {};
+  const isPersonalized = body.planId === 'personalized_link' || (body.options && body.options.planId === 'personalized_link');
+
+  const amount = isPersonalized ? settings.personalized.price : 49;
+  const currency = isPersonalized ? settings.personalized.currency : 'INR';
+
+  const providerConfigured = Boolean(process.env.RAZORPAY_KEY_ID || process.env.STRIPE_SECRET_KEY);
+  if (!providerConfigured) {
+    return res.json({
+      success: true,
+      status: 'provider_not_configured',
+      configured: false,
+      message: 'Payment currently unavailable / NOT_CONFIGURED. Gateway is not configured in environment variables.',
+      mode: 'sandbox',
+      amount,
+      currency,
+      checkoutUrl: null
+    });
+  }
+
+  res.json({
+    success: true,
+    status: 'checkout_created',
+    configured: true,
+    amount,
+    currency,
+    checkoutUrl: `/checkout.html?order=ORD_${Date.now()}`
+  });
+});
+
 // API: Check wish slug availability
 app.get('/api/wishes/slug-availability', (req, res) => {
   try {
@@ -2220,10 +2491,21 @@ app.post('/api/wishes', (req, res) => {
     const userId = req.body.userId || customData.userId || 'usr_ankit_101';
 
     const wishes = getWishes();
+    const linkSettings = getServerWishLinkSettings();
     let generatedSlug = '';
     const rawRequestedSlug = String(req.body.slug || customData.slug || customData.customSlug || '').toLowerCase().trim();
+    const isRandomRequested = req.body.linkType === 'random' || customData.linkType === 'random' || customData.link_type === 'random' || (!rawRequestedSlug && !req.body.slug);
 
-    if (rawRequestedSlug) {
+    if (!isRandomRequested && rawRequestedSlug) {
+      if (!linkSettings.personalized.enabled) {
+        return res.status(400).json({
+          success: false,
+          error: {
+            code: 'PERSONALIZED_LINKS_DISABLED',
+            message: 'Personalized links are currently disabled by platform administrator.'
+          }
+        });
+      }
       const normRequested = rawRequestedSlug.replace(/[^a-z0-9-]/g, '').replace(/-+/g, '-').replace(/^-+|-+$/g, '');
       if (!isValidSlug(normRequested)) {
         const isReserved = isReservedSlug(normRequested);
@@ -2246,8 +2528,23 @@ app.post('/api/wishes', (req, res) => {
         });
       }
       generatedSlug = normRequested;
+      customData.linkType = 'personalized';
+      customData.link_type = 'personalized';
     } else {
-      generatedSlug = generateUniqueWishSlug(customData, template, wishes);
+      if (!linkSettings.random.enabled) {
+        return res.status(400).json({
+          success: false,
+          error: {
+            code: 'RANDOM_LINKS_DISABLED',
+            message: 'Free random links are currently disabled. A personalized link is required to publish.'
+          }
+        });
+      }
+      generatedSlug = generateUniqueServerRandomWishSlug(wishes, linkSettings.random);
+      customData.linkType = 'random';
+      customData.link_type = 'random';
+      customData.customSlug = generatedSlug;
+      customData.slug = generatedSlug;
     }
 
     const isPrivate = Boolean(customData.isPrivate || customData.unlisted || req.body.isPrivate);

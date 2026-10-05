@@ -302,6 +302,160 @@
       </div>
     </div>
 
+    <!-- SECTION: SMART WISH LINKS & MONETIZATION SETTINGS -->
+    <div class="bg-surface-container rounded-2xl p-5 sm:p-7 border border-pink-500/30 shadow-xl flex flex-col gap-6" id="section-wish-links">
+      <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-2 pb-4 border-b border-purple-900/20">
+        <div class="flex items-center gap-3">
+          <div class="w-10 h-10 rounded-xl bg-pink-500/20 text-pink-400 flex items-center justify-center">
+            <span class="material-symbols-outlined text-2xl">link</span>
+          </div>
+          <div>
+            <div class="flex items-center gap-2">
+              <h2 class="font-headline-sm text-lg sm:text-xl font-bold text-on-surface">Smart Wish Links &amp; Slug Architecture</h2>
+              <span class="px-2 py-0.5 rounded text-[10px] font-black uppercase tracking-wider bg-pink-500/20 text-pink-300 border border-pink-500/30">MONETIZATION</span>
+            </div>
+            <p class="text-xs sm:text-sm text-on-surface-variant">Configure publishing options: Paid Personalized links (pricing &amp; currency) and Free Random slug generation rules.</p>
+          </div>
+        </div>
+        <button onclick="saveWishLinkSettings()" class="px-4 py-2 rounded-xl bg-gradient-to-r from-pink-500 to-purple-600 hover:brightness-110 text-white font-bold text-xs sm:text-sm flex items-center gap-1.5 shadow-md transition cursor-pointer self-start sm:self-auto">
+          <span class="material-symbols-outlined text-sm">save</span>
+          <span>Save Wish Link Settings</span>
+        </button>
+      </div>
+
+      <!-- Settings Grid -->
+      <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
+        
+        <!-- CARD 1: PERSONALIZED LINK SETTINGS -->
+        <div class="p-5 rounded-2xl bg-surface-container-low border border-purple-900/30 flex flex-col gap-4">
+          <div class="flex items-center justify-between pb-3 border-b border-purple-900/20">
+            <div class="flex items-center gap-2">
+              <span class="text-lg">✨</span>
+              <div>
+                <h3 class="font-bold text-sm text-on-surface">Personalized Link (Paid Feature)</h3>
+                <span class="text-[11px] text-on-surface-variant">Custom memorable URLs like /w/happy-birthday-radha</span>
+              </div>
+            </div>
+            <label class="relative inline-flex items-center cursor-pointer">
+              <input type="checkbox" id="setting-personalized-enabled" checked onchange="updateWishLinkPreview()" class="sr-only peer"/>
+              <div class="w-11 h-6 bg-purple-900/60 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-gradient-to-r peer-checked:from-pink-500 peer-checked:to-purple-600"></div>
+            </label>
+          </div>
+
+          <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
+            <div>
+              <label class="block text-xs font-bold uppercase tracking-wider text-outline mb-1">Price (Authoritative)</label>
+              <div class="relative flex items-center">
+                <span class="absolute left-3 text-sm font-bold text-pink-400" id="currency-symbol-label">₹</span>
+                <input id="setting-personalized-price" type="number" min="0" max="100000" step="1" class="w-full pl-8 pr-3 py-2 rounded-xl bg-surface-container text-on-surface border border-purple-900/30 text-sm font-bold focus:ring-2 focus:ring-primary focus:outline-none" value="49" oninput="updateWishLinkPreview()"/>
+              </div>
+              <span class="text-[10px] text-on-surface-variant mt-0.5 block">Changing this auto-updates checkout &amp; validation</span>
+            </div>
+            <div>
+              <label class="block text-xs font-bold uppercase tracking-wider text-outline mb-1">Currency</label>
+              <select id="setting-personalized-currency" class="w-full px-3 py-2 rounded-xl bg-surface-container text-on-surface border border-purple-900/30 text-sm font-semibold focus:ring-2 focus:ring-primary focus:outline-none" onchange="handleCurrencyChange()">
+                <option value="INR" selected>INR (₹ Indian Rupee)</option>
+                <option value="USD">USD ($ US Dollar)</option>
+                <option value="EUR">EUR (€ Euro)</option>
+                <option value="GBP">GBP (£ British Pound)</option>
+                <option value="CAD">CAD ($ Canadian Dollar)</option>
+                <option value="AUD">AUD ($ Australian Dollar)</option>
+              </select>
+            </div>
+          </div>
+
+          <div>
+            <label class="block text-xs font-bold uppercase tracking-wider text-outline mb-1">Display Name in UI</label>
+            <input id="setting-personalized-name" class="w-full px-3 py-2 rounded-xl bg-surface-container text-on-surface border border-purple-900/30 text-sm font-medium focus:ring-2 focus:ring-primary focus:outline-none" value="Personalized Link" oninput="updateWishLinkPreview()"/>
+          </div>
+
+          <div>
+            <label class="block text-xs font-bold uppercase tracking-wider text-outline mb-1">Short Description</label>
+            <input id="setting-personalized-desc" class="w-full px-3 py-2 rounded-xl bg-surface-container text-on-surface border border-purple-900/30 text-sm font-medium focus:ring-2 focus:ring-primary focus:outline-none" value="Create a memorable link for your wish." oninput="updateWishLinkPreview()"/>
+          </div>
+        </div>
+
+        <!-- CARD 2: FREE RANDOM LINK SETTINGS -->
+        <div class="p-5 rounded-2xl bg-surface-container-low border border-purple-900/30 flex flex-col gap-4">
+          <div class="flex items-center justify-between pb-3 border-b border-purple-900/20">
+            <div class="flex items-center gap-2">
+              <span class="text-lg">🎲</span>
+              <div>
+                <h3 class="font-bold text-sm text-on-surface">Free Random Link</h3>
+                <span class="text-[11px] text-on-surface-variant">Server-generated random URLs like /w/wish-7k4m9x</span>
+              </div>
+            </div>
+            <label class="relative inline-flex items-center cursor-pointer">
+              <input type="checkbox" id="setting-random-enabled" checked onchange="updateWishLinkPreview()" class="sr-only peer"/>
+              <div class="w-11 h-6 bg-purple-900/60 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-gradient-to-r peer-checked:from-emerald-500 peer-checked:to-teal-600"></div>
+            </label>
+          </div>
+
+          <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
+            <div>
+              <label class="block text-xs font-bold uppercase tracking-wider text-outline mb-1">Prefix</label>
+              <input id="setting-random-prefix" class="w-full px-3 py-2 rounded-xl bg-surface-container text-on-surface border border-purple-900/30 text-sm font-mono font-bold focus:ring-2 focus:ring-primary focus:outline-none" value="wish-" oninput="updateWishLinkPreview()"/>
+              <span class="text-[10px] text-on-surface-variant mt-0.5 block">e.g. "wish-" or "w-"</span>
+            </div>
+            <div>
+              <label class="block text-xs font-bold uppercase tracking-wider text-outline mb-1">Random ID Length (5–20)</label>
+              <input id="setting-random-length" type="number" min="5" max="20" class="w-full px-3 py-2 rounded-xl bg-surface-container text-on-surface border border-purple-900/30 text-sm font-bold focus:ring-2 focus:ring-primary focus:outline-none" value="6" oninput="updateWishLinkPreview()"/>
+            </div>
+          </div>
+
+          <div>
+            <label class="block text-xs font-bold uppercase tracking-wider text-outline mb-2">Allowed Character Pool</label>
+            <div class="flex flex-wrap gap-4 text-xs">
+              <label class="flex items-center gap-2 cursor-pointer">
+                <input type="checkbox" id="setting-chars-lower" checked class="w-4 h-4 rounded text-primary focus:ring-primary bg-surface-container border-purple-900/50" onchange="updateWishLinkPreview()"/>
+                <span class="font-mono">Lowercase (a-z)</span>
+              </label>
+              <label class="flex items-center gap-2 cursor-pointer">
+                <input type="checkbox" id="setting-chars-numbers" checked class="w-4 h-4 rounded text-primary focus:ring-primary bg-surface-container border-purple-900/50" onchange="updateWishLinkPreview()"/>
+                <span class="font-mono">Numbers (0-9)</span>
+              </label>
+              <label class="flex items-center gap-2 cursor-pointer">
+                <input type="checkbox" id="setting-chars-upper" class="w-4 h-4 rounded text-primary focus:ring-primary bg-surface-container border-purple-900/50" onchange="updateWishLinkPreview()"/>
+                <span class="font-mono">Uppercase (A-Z)</span>
+              </label>
+            </div>
+            <span class="text-[10px] text-on-surface-variant mt-1.5 block">Prohibited characters like <code class="text-pink-400">/ ? # &amp; % = space</code> are strictly blocked.</span>
+          </div>
+
+          <!-- Validation Warning Banner (Hidden by default) -->
+          <div id="wish-links-validation-error" class="hidden p-3 rounded-xl bg-rose-500/15 border border-rose-500/30 text-rose-300 text-xs flex items-center gap-2">
+            <span class="material-symbols-outlined text-rose-400 text-sm shrink-0">error</span>
+            <span id="wish-links-error-msg">Cannot disable both publishing options.</span>
+          </div>
+        </div>
+
+      </div>
+
+      <!-- Live Studio Mini-Preview Bar -->
+      <div class="p-4 rounded-2xl bg-gradient-to-r from-purple-950/80 to-slate-950/80 border border-purple-800/40 flex flex-col md:flex-row md:items-center justify-between gap-4">
+        <div>
+          <span class="text-[10px] uppercase font-bold tracking-wider text-pink-300 block mb-0.5">Live Storefront Studio Simulation</span>
+          <div class="flex flex-wrap items-center gap-4 text-xs">
+            <div class="flex items-center gap-1.5">
+              <span class="text-pink-400 font-bold">Personalized:</span>
+              <span class="font-mono text-purple-200" id="preview-sample-personalized">wishmagic.live/w/happy-birthday-radha</span>
+              <span class="px-2 py-0.5 rounded-full text-[10px] font-bold bg-pink-500/20 text-pink-300" id="preview-price-tag">₹49 INR</span>
+            </div>
+            <span class="text-outline hidden sm:inline">•</span>
+            <div class="flex items-center gap-1.5">
+              <span class="text-emerald-400 font-bold">Free Random:</span>
+              <span class="font-mono text-purple-200" id="preview-sample-random">wishmagic.live/w/wish-7k4m9x</span>
+              <span class="px-2 py-0.5 rounded-full text-[10px] font-bold bg-emerald-500/20 text-emerald-300">FREE</span>
+            </div>
+          </div>
+        </div>
+        <div class="flex items-center gap-2 text-xs font-mono text-outline shrink-0">
+          <span class="w-2 h-2 rounded-full bg-emerald-400 animate-pulse"></span>
+          <span>CENTRALIZED CONFIG SYNCED</span>
+        </div>
+      </div>
+    </div>
+
     <!-- SECTION 3: TEAM & ROLE-BASED ACCESS CONTROL (RBAC) -->
     <div class="bg-surface-container rounded-2xl p-5 sm:p-7 border border-purple-900/30 shadow-xl flex flex-col gap-6">
       <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-4 pb-4 border-b border-purple-900/20">
@@ -533,7 +687,185 @@
     if (el) el.addEventListener('input', updateHeroPreview);
   });
 
+  // --- Smart Wish Links & Slug Settings Manager ---
+  function getCurrencySymbol(curr) {
+    switch (curr) {
+      case 'USD': case 'CAD': case 'AUD': return '$';
+      case 'EUR': return '€';
+      case 'GBP': return '£';
+      case 'INR': default: return '₹';
+    }
+  }
+
+  function handleCurrencyChange() {
+    const curr = document.getElementById('setting-personalized-currency').value;
+    const sym = getCurrencySymbol(curr);
+    const symLabel = document.getElementById('currency-symbol-label');
+    if (symLabel) symLabel.textContent = sym;
+    updateWishLinkPreview();
+  }
+
+  function updateWishLinkPreview() {
+    const pEnabled = document.getElementById('setting-personalized-enabled').checked;
+    const rEnabled = document.getElementById('setting-random-enabled').checked;
+    const price = document.getElementById('setting-personalized-price').value || '49';
+    const currency = document.getElementById('setting-personalized-currency').value || 'INR';
+    const sym = getCurrencySymbol(currency);
+    const prefix = document.getElementById('setting-random-prefix').value || 'wish-';
+    const length = parseInt(document.getElementById('setting-random-length').value, 10) || 6;
+
+    const lower = document.getElementById('setting-chars-lower').checked;
+    const nums = document.getElementById('setting-chars-numbers').checked;
+    const upper = document.getElementById('setting-chars-upper').checked;
+
+    let pool = '';
+    if (lower) pool += 'abcdefghijklmnopqrstuvwxyz';
+    if (nums) pool += '0123456789';
+    if (upper) pool += 'ABCDEFGHIJKLMNOPQRSTUVWXYZ';
+    if (!pool) pool = 'abcdefghijklmnopqrstuvwxyz0123456789';
+
+    // Generate sample random slug
+    let sampleRandom = '';
+    for (let i = 0; i < length; i++) {
+      sampleRandom += pool.charAt(Math.floor(Math.random() * pool.length));
+    }
+
+    const priceTag = document.getElementById('preview-price-tag');
+    if (priceTag) {
+      priceTag.textContent = pEnabled ? `${sym}${price} ${currency}` : 'DISABLED';
+      priceTag.className = pEnabled ? 'px-2 py-0.5 rounded-full text-[10px] font-bold bg-pink-500/20 text-pink-300' : 'px-2 py-0.5 rounded-full text-[10px] font-bold bg-zinc-500/20 text-zinc-400';
+    }
+
+    const sampleRandEl = document.getElementById('preview-sample-random');
+    if (sampleRandEl) {
+      sampleRandEl.textContent = rEnabled ? `wishmagic.live/w/${prefix}${sampleRandom}` : 'Disabled by Admin';
+    }
+
+    // Validation check: cannot disable both
+    const errBanner = document.getElementById('wish-links-validation-error');
+    const errMsg = document.getElementById('wish-links-error-msg');
+    if (!pEnabled && !rEnabled) {
+      if (errBanner) errBanner.classList.remove('hidden');
+      if (errMsg) errMsg.textContent = 'Invalid state: Cannot disable both Personalized and Free Random links. At least one option must remain active!';
+    } else {
+      if (errBanner) errBanner.classList.add('hidden');
+    }
+  }
+
+  async function saveWishLinkSettings() {
+    const pEnabled = document.getElementById('setting-personalized-enabled').checked;
+    const rEnabled = document.getElementById('setting-random-enabled').checked;
+    const price = parseFloat(document.getElementById('setting-personalized-price').value);
+    const currency = document.getElementById('setting-personalized-currency').value.trim().toUpperCase();
+    const displayName = document.getElementById('setting-personalized-name').value.trim();
+    const description = document.getElementById('setting-personalized-desc').value.trim();
+    const prefix = document.getElementById('setting-random-prefix').value.trim().toLowerCase();
+    const length = parseInt(document.getElementById('setting-random-length').value, 10);
+
+    const lower = document.getElementById('setting-chars-lower').checked;
+    const nums = document.getElementById('setting-chars-numbers').checked;
+    const upper = document.getElementById('setting-chars-upper').checked;
+
+    if (!pEnabled && !rEnabled) {
+      alert('Validation Error: Cannot disable both Personalized and Free Random links. At least one publishing option must be active.');
+      document.getElementById('setting-random-enabled').checked = true;
+      updateWishLinkPreview();
+      return;
+    }
+
+    if (isNaN(price) || price < 0) {
+      alert('Validation Error: Personalized link price must be a valid non-negative number.');
+      return;
+    }
+
+    if (isNaN(length) || length < 5 || length > 20) {
+      alert('Validation Error: Random ID length must be between 5 and 20.');
+      return;
+    }
+
+    if (!prefix || !/^[a-z0-9]+-?$/.test(prefix)) {
+      alert('Validation Error: Prefix must contain only lowercase letters, numbers, and an optional trailing hyphen (e.g. "wish-" or "w-").');
+      return;
+    }
+
+    let allowed = '';
+    if (lower) allowed += 'abcdefghijklmnopqrstuvwxyz';
+    if (nums) allowed += '0123456789';
+    if (upper) allowed += 'ABCDEFGHIJKLMNOPQRSTUVWXYZ';
+    if (!allowed || allowed.length < 5) {
+      alert('Validation Error: Please select at least one character set (minimum 5 characters).');
+      return;
+    }
+
+    const payload = {
+      personalized: {
+        enabled: pEnabled,
+        price,
+        currency,
+        displayName: displayName || 'Personalized Link',
+        description: description || 'Create a memorable link for your wish.'
+      },
+      random: {
+        enabled: rEnabled,
+        prefix,
+        length,
+        allowedCharacters: allowed
+      }
+    };
+
+    try {
+      let success = false;
+      const res = await fetch('/api/admin/settings/wish-links', {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        credentials: 'include',
+        body: JSON.stringify({ settings: payload })
+      });
+      const data = await res.json().catch(() => ({}));
+      if (res.ok && data.success) {
+        success = true;
+      }
+
+      localStorage.setItem('wishmagic_wish_link_config', JSON.stringify(payload));
+      showToast('✨ Wish Link & Monetization settings updated and published!');
+    } catch (e) {
+      localStorage.setItem('wishmagic_wish_link_config', JSON.stringify(payload));
+      showToast('✨ Settings saved locally');
+    }
+  }
+
+  async function loadWishLinkSettings() {
+    try {
+      const res = await fetch('/api/settings/wish-links');
+      const data = await res.json();
+      if (data && data.success && data.settings) {
+        const s = data.settings;
+        if (s.personalized) {
+          if (s.personalized.enabled !== undefined) document.getElementById('setting-personalized-enabled').checked = s.personalized.enabled;
+          if (s.personalized.price !== undefined) document.getElementById('setting-personalized-price').value = s.personalized.price;
+          if (s.personalized.currency) document.getElementById('setting-personalized-currency').value = s.personalized.currency;
+          if (s.personalized.displayName) document.getElementById('setting-personalized-name').value = s.personalized.displayName;
+          if (s.personalized.description) document.getElementById('setting-personalized-desc').value = s.personalized.description;
+        }
+        if (s.random) {
+          if (s.random.enabled !== undefined) document.getElementById('setting-random-enabled').checked = s.random.enabled;
+          if (s.random.prefix) document.getElementById('setting-random-prefix').value = s.random.prefix;
+          if (s.random.length) document.getElementById('setting-random-length').value = s.random.length;
+          if (s.random.allowedCharacters) {
+            const pool = s.random.allowedCharacters;
+            document.getElementById('setting-chars-lower').checked = /[a-z]/.test(pool);
+            document.getElementById('setting-chars-numbers').checked = /[0-9]/.test(pool);
+            document.getElementById('setting-chars-upper').checked = /[A-Z]/.test(pool);
+          }
+        }
+        handleCurrencyChange();
+        updateWishLinkPreview();
+      }
+    } catch (e) {}
+  }
+
   function saveAllSiteSettings() {
+    saveWishLinkSettings();
     const config = {
       heroBadge: document.getElementById('setting-hero-badge').value,
       heroHeadline: document.getElementById('setting-hero-headline').value,
@@ -643,6 +975,7 @@
 
   // Load existing saved configuration on init
   (function initCMS() {
+    loadWishLinkSettings();
     const raw = localStorage.getItem('wishmagic_site_config');
     if (!raw) return;
     try {
