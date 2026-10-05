@@ -59,6 +59,8 @@ function createTestD1Database() {
   const users = new Map();
   const sessions = new Map();
   const adminRoles = new Map();
+  const adminStaff = new Map();
+  const adminAuditLogs = [];
   const entitlements = new Map();
   const wishes = new Map();
   const templates = new Map();
@@ -69,13 +71,16 @@ function createTestD1Database() {
   const analyticsEvents = [];
 
   return {
-    _tables: { users, sessions, adminRoles, entitlements, wishes, templates, categories, favorites, wishMedia, notifications, analyticsEvents },
+    _tables: { users, sessions, adminRoles, adminStaff, adminAuditLogs, entitlements, wishes, templates, categories, favorites, wishMedia, notifications, analyticsEvents },
     prepare(sql) {
-      return {
-        bind(...args) {
-          return {
-            async first() {
-              const normalized = sql.replace(/\s+/g, ' ').trim();
+      function createStatement(boundArgs = []) {
+        return {
+          bind(...newArgs) {
+            return createStatement(newArgs);
+          },
+          async first() {
+            const args = boundArgs;
+            const normalized = sql.replace(/\s+/g, ' ').trim();
               if (normalized.includes('FROM users WHERE email = ?')) {
                 const email = args[0];
                 for (const u of users.values()) {
@@ -130,6 +135,25 @@ function createTestD1Database() {
                 const userId = args[0];
                 return adminRoles.get(userId) || null;
               }
+              if (normalized.includes('FROM admin_staff WHERE mobile = ?')) {
+                const mobile = args[0];
+                for (const s of adminStaff.values()) {
+                  if (s.mobile === mobile) return { ...s };
+                }
+                return null;
+              }
+              if (normalized.includes('FROM admin_staff WHERE user_id = ?') || normalized.includes('FROM admin_staff WHERE user_id = ? OR mobile = ?')) {
+                const uId = args[0];
+                const mob = args[1] || uId;
+                for (const s of adminStaff.values()) {
+                  if (s.user_id === uId || s.mobile === mob) return { ...s };
+                }
+                return null;
+              }
+              if (normalized.includes('FROM admin_staff WHERE id = ?')) {
+                const sId = args[0];
+                return adminStaff.get(sId) ? { ...adminStaff.get(sId) } : null;
+              }
               if (normalized.includes('FROM entitlements WHERE user_id = ?')) {
                 const userId = args[0];
                 for (const ent of entitlements.values()) {
@@ -161,6 +185,7 @@ function createTestD1Database() {
               return null;
             },
             async all() {
+              const args = boundArgs;
               const normalized = sql.replace(/\s+/g, ' ').trim();
               if (normalized.includes('FROM wishes WHERE user_id = ?')) {
                 const userId = args[0];
@@ -198,13 +223,55 @@ function createTestD1Database() {
                 }
                 return { results };
               }
+              if (normalized.includes('FROM admin_staff')) {
+                return { results: Array.from(adminStaff.values()) };
+              }
+              if (normalized.includes('FROM admin_audit_logs')) {
+                return { results: [...adminAuditLogs] };
+              }
               if (normalized.includes('FROM analytics_events')) {
                 return { results: [...analyticsEvents] };
               }
               return { results: [] };
             },
             async run() {
+              const args = boundArgs;
               const normalized = sql.replace(/\s+/g, ' ').trim();
+              if (normalized.startsWith('INSERT INTO admin_staff')) {
+                const [id, user_id, mobile, name, role, permissions, status, password_hash, password_salt, created_by, created_at, updated_at] = args;
+                adminStaff.set(id, { id, user_id, mobile, name, role, permissions, status, password_hash, password_salt, created_by, created_at, updated_at });
+                return { success: true };
+              }
+              if (normalized.startsWith('UPDATE admin_staff SET')) {
+                const [name, role, permissions, status, password_hash, password_salt, updated_at, id] = args;
+                const existing = adminStaff.get(id);
+                if (existing) {
+                  adminStaff.set(id, { ...existing, name, role, permissions, status, password_hash, password_salt, updated_at });
+                }
+                return { success: true };
+              }
+              if (normalized.startsWith('DELETE FROM admin_staff WHERE id = ?')) {
+                const id = args[0];
+                adminStaff.delete(id);
+                return { success: true };
+              }
+              if (normalized.startsWith('DELETE FROM admin_roles WHERE user_id = ?')) {
+                const userId = args[0];
+                adminRoles.delete(userId);
+                return { success: true };
+              }
+              if (normalized.startsWith('DELETE FROM sessions WHERE user_id = ?')) {
+                const userId = args[0];
+                for (const [token, s] of sessions.entries()) {
+                  if (s.user_id === userId) sessions.delete(token);
+                }
+                return { success: true };
+              }
+              if (normalized.startsWith('INSERT INTO admin_audit_logs')) {
+                const [id, actor_id, actor_name, actor_role, action, target_type, target_id, details, ip_address, created_at] = args;
+                adminAuditLogs.push({ id, actor_id, actor_name, actor_role, action, target_type, target_id, details, ip_address, created_at });
+                return { success: true };
+              }
               if (normalized.startsWith('INSERT INTO users')) {
                 const [id, email, display_name, avatar_url, role, plan, is_premium, provider, status, created_at, updated_at] = args;
                 users.set(id, { id, email, display_name, avatar_url, role, plan, is_premium, provider, status, created_at, updated_at });
@@ -332,10 +399,10 @@ function createTestD1Database() {
             }
           };
         }
-      };
-    }
-  };
-}
+        return createStatement([]);
+      }
+    };
+  }
 
 async function runTests() {
   console.log('================================================================');
@@ -992,6 +1059,172 @@ async function runTests() {
     assert(goodBootRes.status === 200, 'Valid bootstrap secret succeeds with 200');
     const bootData = await goodBootRes.json();
     assert(bootData.data.bootstrapped === true, 'Admin successfully bootstrapped into system');
+  }
+
+  // ============================================================================
+  // PART 30B: FIREBASE ADMIN 2FA OTP & STAFF RBAC VERIFICATION
+  // ============================================================================
+  {
+    console.log('\n--- Part 30B: Admin 2FA SMS OTP & Staff Management RBAC ---');
+
+    // 1. Normal User Login requires NO SMS OTP
+    console.log('• Normal Website User Flow (No SMS OTP required)');
+    const normalUserRes = await worker.fetch(new Request('http://localhost/api/auth/signin', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ email: 'creator@wishmagic.live', displayName: 'Creator User' })
+    }), prodEnv);
+    assert(normalUserRes.status === 200, 'Main website login succeeds without SMS OTP');
+    const normalData = await normalUserRes.json();
+    assert(normalData.data.user !== undefined && normalData.data.user.email === 'creator@wishmagic.live', 'Normal user session authenticated');
+    assert(normalData.data.requireOtp === undefined, 'No OTP requested for main website user');
+
+    // 2. OWNER 2FA Login Flow (Step 1: Mobile + Password -> Step 2: OTP)
+    console.log('• Admin 2FA: Mobile + Password + SMS OTP Flow');
+    const ownerMobile = '+919999900001';
+    const ownerPassword = 'SuperSecretOwnerPassword!2026';
+
+    const enc = new TextEncoder();
+    const saltBytes = new Uint8Array(16);
+    saltBytes.fill(1);
+    const ownerSalt = Array.from(saltBytes).map(b => b.toString(16).padStart(2, '0')).join('');
+
+    const keyMaterial = await globalThis.crypto.subtle.importKey('raw', enc.encode(ownerPassword), { name: 'PBKDF2' }, false, ['deriveBits', 'deriveKey']);
+    const derivedKey = await globalThis.crypto.subtle.deriveKey(
+      { name: 'PBKDF2', salt: saltBytes, iterations: 100000, hash: 'SHA-256' },
+      keyMaterial,
+      { name: 'AES-GCM', length: 256 },
+      true,
+      ['encrypt', 'decrypt']
+    );
+    const rawKey = await globalThis.crypto.subtle.exportKey('raw', derivedKey);
+    const ownerHash = Array.from(new Uint8Array(rawKey)).map(b => b.toString(16).padStart(2, '0')).join('');
+
+    // Seed Owner staff record in testDb
+    testDb._tables.adminStaff.set('stf_owner_01', {
+      id: 'stf_owner_01',
+      user_id: 'usr_owner_01',
+      mobile: ownerMobile,
+      name: 'Platform Owner',
+      role: 'OWNER',
+      permissions: JSON.stringify(['*']),
+      status: 'active',
+      password_hash: ownerHash,
+      password_salt: ownerSalt,
+      created_by: 'system',
+      created_at: new Date().toISOString(),
+      updated_at: new Date().toISOString()
+    });
+    testDb._tables.users.set('usr_owner_01', {
+      id: 'usr_owner_01',
+      email: 'owner@wishmagic.live',
+      display_name: 'Platform Owner',
+      role: 'admin',
+      status: 'active'
+    });
+    testDb._tables.adminRoles.set('usr_owner_01', {
+      id: 'adm_role_owner',
+      user_id: 'usr_owner_01',
+      role: 'OWNER',
+      permissions: JSON.stringify(['*'])
+    });
+
+    // Step 1a: Wrong password rejected
+    const badPassRes = await worker.fetch(new Request('http://localhost/api/admin/auth/verify-credentials', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ mobile: ownerMobile, password: 'WrongPassword123' })
+    }), prodEnv);
+    assert(badPassRes.status === 401, 'Step 1a: Wrong password rejected with 401');
+
+    // Step 1b: Valid password accepted, triggers OTP challenge
+    const step1Res = await worker.fetch(new Request('http://localhost/api/admin/auth/verify-credentials', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ mobile: ownerMobile, password: ownerPassword })
+    }), prodEnv);
+    assert(step1Res.status === 200, 'Step 1: Mobile + Password verified, returns challenge');
+    const step1Data = await step1Res.json();
+    assert(step1Data.data.requireOtp === true, 'Step 1 requires OTP verification');
+    const challengeId = step1Data.data.challengeId;
+    assert(challengeId !== undefined, 'Challenge ID generated');
+
+    // Step 2: Verify SMS OTP
+    const step2Res = await worker.fetch(new Request('http://localhost/api/admin/auth/verify-otp', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ challengeId, otpCode: '852963', mobile: ownerMobile })
+    }), prodEnv);
+    assert(step2Res.status === 200, 'Step 2: OTP verification succeeds');
+    const step2Data = await step2Res.json();
+    assert(step2Data.data.user.role === 'OWNER', 'User logged in with OWNER role');
+    assert(step2Data.data.user.isOwner === true, 'isOwner flag is true');
+
+    const ownerCookie = step2Res.headers.get('set-cookie');
+    assert(ownerCookie !== null && ownerCookie.includes('wm_session'), 'Owner received secure wm_session cookie');
+
+    // 3. OWNER Creates Staff Member
+    console.log('• OWNER Staff Management: Create Staff Member');
+    const createStaffRes = await worker.fetch(new Request('http://localhost/api/admin/staff', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', 'Cookie': ownerCookie },
+      body: JSON.stringify({
+        name: 'Rahul Editor',
+        mobile: '+919876543210',
+        role: 'EDITOR',
+        password: 'EditorPassword2026!',
+        permissions: ['templates.read', 'templates.write', 'wishes.read']
+      })
+    }), prodEnv);
+    assert(createStaffRes.status === 201, 'OWNER successfully creates staff member');
+    const staffData = await createStaffRes.json();
+    const createdStaffId = staffData.data.staff.id;
+    const staffUserId = staffData.data.staff.userId;
+    assert(staffData.data.staff.role === 'EDITOR', 'Staff created with role EDITOR');
+
+    // 4. Staff Cannot Create Secondary OWNER or Other Staff
+    console.log('• Privilege Escalation Protection: Staff Cannot Create Staff or OWNER');
+    // Simulate Staff Session
+    testDb._tables.sessions.set('tok_staff_test', {
+      id: 'ses_staff_test',
+      user_id: staffUserId,
+      token: 'tok_staff_test',
+      expires_at: Date.now() + 86400000,
+      created_at: new Date().toISOString()
+    });
+    const staffCookie = 'wm_session=tok_staff_test';
+
+    const escalRes = await worker.fetch(new Request('http://localhost/api/admin/staff', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', 'Cookie': staffCookie },
+      body: JSON.stringify({ name: 'Hacker', mobile: '+919999999999', role: 'OWNER', password: '123' })
+    }), prodEnv);
+    assert(escalRes.status === 403, 'Non-owner staff blocked from creating staff accounts (403)');
+
+    // 5. OWNER Disables Staff Account -> Immediate Session Revocation
+    console.log('• Staff Disabling & Session Revocation');
+    const disableRes = await worker.fetch(new Request(`http://localhost/api/admin/staff/${createdStaffId}`, {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json', 'Cookie': ownerCookie },
+      body: JSON.stringify({ status: 'disabled' })
+    }), prodEnv);
+    assert(disableRes.status === 200, 'OWNER disables staff account');
+
+    // Attempting API access with revoked session returns 401
+    const revokedRes = await worker.fetch(new Request('http://localhost/api/admin/staff', {
+      headers: { 'Cookie': staffCookie }
+    }), prodEnv);
+    assert(revokedRes.status === 401, 'Disabled staff active session immediately revoked (401)');
+
+    // 6. Audit Trail Logging Verification
+    console.log('• Security Audit Trail Verification');
+    const auditRes = await worker.fetch(new Request('http://localhost/api/admin/audit-logs', {
+      headers: { 'Cookie': ownerCookie }
+    }), prodEnv);
+    assert(auditRes.status === 200, 'Audit logs retrieved by OWNER');
+    const auditData = await auditRes.json();
+    assert(Array.isArray(auditData.data.logs), 'Audit logs returned as array');
+    assert(auditData.data.logs.length >= 2, `Audit logs contain login and staff management events (found ${auditData.data.logs.length})`);
   }
 
   // ============================================================================

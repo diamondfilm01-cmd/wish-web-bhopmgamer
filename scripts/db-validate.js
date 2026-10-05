@@ -23,6 +23,8 @@ const REQUIRED_TABLES = [
   'users',
   'sessions',
   'admin_roles',
+  'admin_staff',
+  'admin_audit_logs',
   'categories',
   'templates',
   'template_versions',
