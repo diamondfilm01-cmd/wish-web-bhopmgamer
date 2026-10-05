@@ -306,13 +306,42 @@ function sanitizeString(str, maxLength = 255) {
   return str.trim().slice(0, maxLength);
 }
 
+const RESERVED_SLUGS = new Set([
+  'admin', 'login', 'signup', 'register', 'dashboard', 'settings',
+  'api', 'auth', 'templates', 'preview', 'create', 'edit',
+  'my-wishes', 'favorites', 'pricing', 'about', 'contact', 'help',
+  'privacy', 'terms', 'robots', 'sitemap', 'w', 'wish',
+  'marketplace', 'checkout', 'premium', 'account', 'expired',
+  'media', 'css', 'js', 'assets', 'fonts', 'static', 'health',
+  'config', 'null', 'undefined', 'public', 'share', 'status',
+  'test', 'feed', 'rss', 'search'
+]);
+
 function slugify(text) {
   return String(text || '')
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '')
+    .replace(/['’]s\b/gi, 's')
+    .replace(/&/g, ' ')
     .toLowerCase()
     .trim()
-    .replace(/[^\w\s-]/g, '')
+    .replace(/[^a-z0-9\s-]/g, '')
     .replace(/[\s_-]+/g, '-')
     .replace(/^-+|-+$/g, '');
+}
+
+function isReservedSlug(slug) {
+  if (!slug || typeof slug !== 'string') return false;
+  return RESERVED_SLUGS.has(slug.toLowerCase().trim());
+}
+
+function isValidSlug(slug) {
+  if (!slug || typeof slug !== 'string') return false;
+  const s = slug.toLowerCase().trim();
+  if (s.length < 3 || s.length > 80) return false;
+  if (!/^[a-z0-9](?:[a-z0-9]|-(?!-)){1,78}[a-z0-9]$/.test(s)) return false;
+  if (isReservedSlug(s)) return false;
+  return true;
 }
 
 // Cookie Helpers
@@ -581,9 +610,11 @@ function computeLifecycle(wish) {
 // Server Unique Slug Generator
 async function generateServerSlug(db, customData, templateId) {
   const recipient = sanitizeString(customData.recipient_name || customData.recipientName || 'special-person', 40);
-  const base = slugify(recipient) || 'magical-wish';
+  let base = slugify(recipient) || 'magical-wish';
+  if (base.length < 3) base = 'magical-wish';
   const randomSuffix = Math.random().toString(36).substring(2, 6);
-  const candidate = `${base}-${randomSuffix}`;
+  let candidate = `${base}-${randomSuffix}`;
+  if (isReservedSlug(candidate)) candidate = `wish-${candidate}`;
 
   if (!db || typeof db.prepare !== 'function') {
     return candidate;
@@ -839,6 +870,99 @@ export default {
         }
       }
 
+      // --- Wish Slug Availability Check ---
+      else if (pathname === '/api/wishes/slug-availability' && method === 'GET') {
+        if (!env.DB || typeof env.DB.prepare !== 'function') {
+          return applySecurityHeaders(
+            jsonError('DATABASE_UNAVAILABLE', 'Database service is currently unavailable.', 503, {}, null, requestId, FailureCategory.DATABASE),
+            request, env
+          );
+        }
+
+        const rawSlug = url.searchParams.get('slug') || '';
+        const excludeWishId = sanitizeString(url.searchParams.get('wishId') || '', 60);
+        const normalizedSlug = rawSlug
+          .toLowerCase()
+          .trim()
+          .replace(/[^a-z0-9-]/g, '')
+          .replace(/-+/g, '-')
+          .replace(/^-+|-+$/g, '');
+
+        if (!rawSlug || !normalizedSlug || !isValidSlug(normalizedSlug)) {
+          const isReserved = isReservedSlug(normalizedSlug);
+          return applySecurityHeaders(
+            jsonSuccess({
+              available: false,
+              slug: normalizedSlug || rawSlug,
+              reason: isReserved ? 'reserved' : 'invalid',
+              message: isReserved
+                ? 'This link is reserved for system use. Please choose another.'
+                : 'Use only lowercase letters, numbers, and single hyphens (3-80 characters).'
+            }, 200, {}, requestId),
+            request, env
+          );
+        }
+
+        // Check database for collisions
+        try {
+          const row = await env.DB.prepare('SELECT id, user_id FROM wishes WHERE slug = ? LIMIT 1').bind(normalizedSlug).first();
+
+          if (!row) {
+            return applySecurityHeaders(
+              jsonSuccess({
+                available: true,
+                slug: normalizedSlug,
+                message: 'This link is available!'
+              }, 200, {}, requestId),
+              request, env
+            );
+          }
+
+          // If an existing wish is being edited, it can keep its own slug
+          if (excludeWishId && row.id === excludeWishId) {
+            return applySecurityHeaders(
+              jsonSuccess({
+                available: true,
+                slug: normalizedSlug,
+                isCurrent: true,
+                message: 'This is your current link.'
+              }, 200, {}, requestId),
+              request, env
+            );
+          }
+
+          // Slug is taken: suggest collision-free alternatives
+          const candidateSuffixes = ['2', 'special', 'surprise', 'love', 'celebration'];
+          const alternatives = [];
+          for (const suffix of candidateSuffixes) {
+            const altSlug = `${normalizedSlug}-${suffix}`;
+            if (altSlug.length <= 80 && !RESERVED_SLUGS.has(altSlug)) {
+              const altRow = await env.DB.prepare('SELECT id FROM wishes WHERE slug = ? LIMIT 1').bind(altSlug).first();
+              if (!altRow) {
+                alternatives.push(altSlug);
+                if (alternatives.length >= 3) break;
+              }
+            }
+          }
+
+          return applySecurityHeaders(
+            jsonSuccess({
+              available: false,
+              slug: normalizedSlug,
+              reason: 'taken',
+              alternatives,
+              message: 'That link is already taken. Try another one.'
+            }, 200, {}, requestId),
+            request, env
+          );
+        } catch (err) {
+          return applySecurityHeaders(
+            jsonError('INTERNAL_ERROR', 'Could not check link availability right now.', 500, {}, null, requestId),
+            request, env
+          );
+        }
+      }
+
       // --- Wishes Endpoints (Strict Authentication, Ownership IDOR & Entitlement Verification) ---
       else if (pathname === '/api/wishes') {
         if (!env.DB || typeof env.DB.prepare !== 'function') {
@@ -965,7 +1089,30 @@ export default {
             expiryDate = new Date(nextDayMs).toISOString().split('T')[0];
           }
 
-          const generatedSlug = (customData.customSlug ? slugify(sanitizeString(customData.customSlug, 50)) : '') || await generateServerSlug(env.DB, customData, templateId);
+          let generatedSlug = '';
+          const rawRequestedSlug = sanitizeString(body.slug || customData.slug || customData.customSlug || '', 80).toLowerCase().trim();
+
+          if (rawRequestedSlug) {
+            const normRequested = rawRequestedSlug.replace(/[^a-z0-9-]/g, '').replace(/-+/g, '-').replace(/^-+|-+$/g, '');
+            if (!isValidSlug(normRequested)) {
+              const isReserved = isReservedSlug(normRequested);
+              return applySecurityHeaders(
+                jsonError(isReserved ? 'SLUG_RESERVED' : 'INVALID_SLUG', isReserved ? 'This link is reserved for system use. Please choose another.' : 'Use only lowercase letters, numbers, and single hyphens (3-80 characters).', 400, {}, null, requestId),
+                request, env
+              );
+            }
+            const collision = await env.DB.prepare('SELECT id FROM wishes WHERE slug = ? LIMIT 1').bind(normRequested).first();
+            if (collision) {
+              return applySecurityHeaders(
+                jsonError('SLUG_TAKEN', 'That link is already taken. Try another one.', 409, {}, null, requestId),
+                request, env
+              );
+            }
+            generatedSlug = normRequested;
+          } else {
+            generatedSlug = await generateServerSlug(env.DB, customData, templateId);
+          }
+
           const isPrivate = Boolean(customData.isPrivate || customData.unlisted || body.isPrivate);
           const status = customData.isDraft ? 'draft' : 'published';
 
@@ -1204,11 +1351,33 @@ export default {
         const eventDate = sanitizeString(customData.event_date || customData.eventDate || existing.event_date, 10);
         const nowIso = new Date().toISOString();
 
-        await env.DB.prepare(
-          'UPDATE wishes SET recipient_name = ?, buyer_name = ?, event_date = ?, custom_data = ?, updated_at = ? WHERE id = ?'
-        ).bind(recipientName, buyerName, eventDate, JSON.stringify(customData), nowIso, existing.id).run();
+        // Preserve existing slug unless explicitly requested and validated
+        let targetSlug = existing.slug;
+        const rawRequestedSlug = sanitizeString(body.slug || customData.slug || customData.customSlug || '', 80).toLowerCase().trim();
+        if (rawRequestedSlug && rawRequestedSlug !== existing.slug) {
+          const normRequested = rawRequestedSlug.replace(/[^a-z0-9-]/g, '').replace(/-+/g, '-').replace(/^-+|-+$/g, '');
+          if (!isValidSlug(normRequested)) {
+            const isReserved = isReservedSlug(normRequested);
+            return applySecurityHeaders(
+              jsonError(isReserved ? 'SLUG_RESERVED' : 'INVALID_SLUG', isReserved ? 'This link is reserved for system use.' : 'Use only lowercase letters, numbers, and single hyphens (3-80 characters).', 400, {}, null, requestId),
+              request, env
+            );
+          }
+          const collision = await env.DB.prepare('SELECT id FROM wishes WHERE slug = ? AND id != ? LIMIT 1').bind(normRequested, existing.id).first();
+          if (collision) {
+            return applySecurityHeaders(
+              jsonError('SLUG_TAKEN', 'That link is already taken. Try another one.', 409, {}, null, requestId),
+              request, env
+            );
+          }
+          targetSlug = normRequested;
+        }
 
-        response = jsonSuccess({ updated: true, wishId: existing.id }, 200, {}, requestId);
+        await env.DB.prepare(
+          'UPDATE wishes SET slug = ?, recipient_name = ?, buyer_name = ?, event_date = ?, custom_data = ?, updated_at = ? WHERE id = ?'
+        ).bind(targetSlug, recipientName, buyerName, eventDate, JSON.stringify(customData), nowIso, existing.id).run();
+
+        response = jsonSuccess({ updated: true, wishId: existing.id, slug: targetSlug }, 200, {}, requestId);
       }
 
       else if (pathname.startsWith('/api/wishes/') && method === 'DELETE') {

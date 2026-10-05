@@ -39,6 +39,8 @@ require('./public/js/security-hardening.js');
 const WishSecurity = global.WishSecurity;
 require('./public/js/api-client.js');
 const WishApiClient = global.WishApiClient;
+require('./public/js/wish-link-suggestions.js');
+const WishLinkSuggestions = global.WishLinkSuggestions;
 
 let passedTests = 0;
 let failedTests = 0;
@@ -1258,6 +1260,158 @@ async function runTests() {
   assert(redacted.token === '[REDACTED]', 'Token redacted');
   assert(redacted.nested.apiKey === '[REDACTED]', 'API Key redacted');
   assert(redacted.publicName === 'Wish Celebration', 'Public field preserved');
+
+  // ============================================================================
+  // SMART WISH LINK & CUSTOM SLUG SUGGESTIONS SUITE
+  // ============================================================================
+  console.log('\n--- 7. Smart Wish Link & Custom Slug Suggestions Suite ---');
+
+  // 1. Slug Normalization Unit Tests
+  console.log('• Slug Normalization & Safety Hardening');
+  assert(WishLinkSuggestions.normalizeNameForSlug('Radha') === 'radha', 'Normalized simple name');
+  assert(WishLinkSuggestions.normalizeNameForSlug('Radha Sharma') === 'radha-sharma', 'Spaces to hyphens');
+  assert(WishLinkSuggestions.normalizeNameForSlug("Radha's Birthday") === 'radhas-birthday', 'Possessive handled');
+  assert(WishLinkSuggestions.normalizeNameForSlug('Rādha') === 'radha', 'Unicode diacritics stripped');
+  assert(WishLinkSuggestions.normalizeNameForSlug('Riya & Rahul') === 'riya-rahul', 'Ampersand converted to safe hyphen');
+  assert(WishLinkSuggestions.normalizeNameForSlug('   ---Alex---   ') === 'alex', 'Leading/trailing hyphens trimmed');
+  assert(WishLinkSuggestions.normalizeNameForSlug('<script>alert("xss")</script>') === 'scriptalertxssscript', 'HTML tags and quotes stripped');
+
+  // 2. Validation & Reserved Route Checking
+  console.log('• Reserved Route & Structure Validation');
+  assert(WishLinkSuggestions.isReservedSlug('admin') === true, 'admin is reserved');
+  assert(WishLinkSuggestions.isReservedSlug('api') === true, 'api is reserved');
+  assert(WishLinkSuggestions.isReservedSlug('dashboard') === true, 'dashboard is reserved');
+  assert(WishLinkSuggestions.isReservedSlug('happy-birthday-radha') === false, 'celebration slug is not reserved');
+
+  assert(WishLinkSuggestions.isValidSlug('happy-birthday-radha') === true, 'Standard slug is valid');
+  assert(WishLinkSuggestions.isValidSlug('a') === false, 'Too short slug is invalid (< 3 chars)');
+  assert(WishLinkSuggestions.isValidSlug('admin') === false, 'Reserved slug is invalid');
+  assert(WishLinkSuggestions.isValidSlug('invalid--double-hyphen') === false, 'Double hyphens invalid');
+  assert(WishLinkSuggestions.isValidSlug('a'.repeat(81)) === false, 'Too long slug is invalid (> 80 chars)');
+
+  // 3. Centralized Contextual Suggestion Generation
+  console.log('• Contextual Slug Suggestion Engine');
+  // Birthday + Radha
+  const bdaySuggestions = WishLinkSuggestions.generateSuggestions({
+    occasion: 'birthday',
+    recipientName: 'Radha'
+  });
+  assert(bdaySuggestions.includes('happy-birthday-radha'), 'Includes happy-birthday-radha');
+  assert(bdaySuggestions.includes('birthday-wishes-radha'), 'Includes birthday-wishes-radha');
+  assert(bdaySuggestions.includes('birthday-surprise-radha'), 'Includes birthday-surprise-radha');
+  assert(bdaySuggestions.length >= 5, `Provides at least 5 suggestions (got ${bdaySuggestions.length})`);
+
+  // Birthday + Crush (Radha)
+  const crushSuggestions = WishLinkSuggestions.generateSuggestions({
+    occasion: 'birthday',
+    relationship: 'crush',
+    recipientName: 'Radha'
+  });
+  assert(crushSuggestions.includes('just-for-you-radha'), 'Crush includes just-for-you-radha');
+  assert(crushSuggestions.includes('something-special-for-radha'), 'Crush includes something-special-for-radha');
+
+  // Birthday + Girlfriend (Radha)
+  const gfSuggestions = WishLinkSuggestions.generateSuggestions({
+    occasion: 'birthday',
+    relationship: 'girlfriend',
+    recipientName: 'Radha'
+  });
+  assert(gfSuggestions.includes('happy-birthday-my-love'), 'Girlfriend includes happy-birthday-my-love');
+  assert(gfSuggestions.includes('birthday-love-radha'), 'Girlfriend includes birthday-love-radha');
+
+  // Birthday + Mother
+  const momSuggestions = WishLinkSuggestions.generateSuggestions({
+    occasion: 'birthday',
+    relationship: 'mother'
+  });
+  assert(momSuggestions.includes('happy-birthday-mom'), 'Mother includes happy-birthday-mom');
+  assert(momSuggestions.includes('love-you-mom'), 'Mother includes love-you-mom');
+
+  // Anniversary
+  const annivSuggestions = WishLinkSuggestions.generateSuggestions({
+    occasion: 'anniversary',
+    recipientName: 'Radha'
+  });
+  assert(annivSuggestions.includes('happy-anniversary'), 'Anniversary includes happy-anniversary');
+  assert(annivSuggestions.includes('happy-anniversary-radha'), 'Anniversary includes happy-anniversary-radha');
+  assert(annivSuggestions.includes('our-special-day'), 'Anniversary includes our-special-day');
+
+  // Graceful handling of missing fields (no "undefined")
+  const emptySuggestions = WishLinkSuggestions.generateSuggestions({});
+  assert(emptySuggestions.length >= 5, 'Empty fields generates fallback suggestions');
+  for (const s of emptySuggestions) {
+    assert(!s.includes('undefined'), `No 'undefined' in slug "${s}"`);
+    assert(WishLinkSuggestions.isValidSlug(s), `Fallback suggestion "${s}" is valid`);
+  }
+
+  // 4. Backend /api/wishes/slug-availability Contract Tests
+  console.log('• Backend Slug Availability API Contract');
+
+  // Available slug check
+  const availRes = await worker.fetch(new Request('http://localhost/api/wishes/slug-availability?slug=super-unique-test-link-xyz'), prodEnv);
+  assert(availRes.status === 200, 'Availability check returns 200');
+  const availData = await availRes.json();
+  assert(availData.success === true, 'Availability success is true');
+  assert(availData.available === true, 'Unique slug is reported available');
+  assert(availData.slug === 'super-unique-test-link-xyz', 'Normalized slug returned');
+
+  // Reserved slug check
+  const reservedRes = await worker.fetch(new Request('http://localhost/api/wishes/slug-availability?slug=admin'), prodEnv);
+  assert(reservedRes.status === 200, 'Reserved check returns 200');
+  const reservedData = await reservedRes.json();
+  assert(reservedData.available === false, 'Reserved slug is unavailable');
+  assert(reservedData.reason === 'reserved', 'Reserved reason returned');
+
+  // Invalid slug check
+  const invalidRes = await worker.fetch(new Request('http://localhost/api/wishes/slug-availability?slug=ab'), prodEnv);
+  assert(invalidRes.status === 200, 'Invalid check returns 200');
+  const invalidData = await invalidRes.json();
+  assert(invalidData.available === false, 'Short slug is unavailable');
+  assert(invalidData.reason === 'invalid', 'Invalid reason returned');
+
+  // Taken slug check with alternatives
+  // First create a wish with a known slug
+  const takenSlug = 'celebrate-radha-now';
+  const wishWithCustomSlugRes = await worker.fetch(new Request('http://localhost/api/wishes', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', 'Cookie': userACookie },
+    body: JSON.stringify({
+      templateId: 'tpl_glitter_birthday',
+      slug: takenSlug,
+      customData: { recipient_name: 'Radha', customSlug: takenSlug }
+    })
+  }), prodEnv);
+  assert(wishWithCustomSlugRes.status === 201, 'Wish created with custom slug');
+  const wishCreatedData = await wishWithCustomSlugRes.json();
+  const createdWishIdForSlug = (wishCreatedData.data && wishCreatedData.data.wish && wishCreatedData.data.wish.id) || wishCreatedData.wishId;
+
+  // Now checking that taken slug returns available: false and collision alternatives
+  const takenRes = await worker.fetch(new Request(`http://localhost/api/wishes/slug-availability?slug=${takenSlug}`), prodEnv);
+  assert(takenRes.status === 200, 'Taken check returns 200');
+  const takenData = await takenRes.json();
+  assert(takenData.available === false, 'Taken slug is reported unavailable');
+  assert(takenData.reason === 'taken', 'Reason is taken');
+  assert(Array.isArray(takenData.alternatives), 'Alternatives returned as array');
+  assert(takenData.alternatives.length > 0, 'At least 1 collision alternative offered');
+
+  // Checking availability with wishId excluding itself (edit scenario)
+  const selfRes = await worker.fetch(new Request(`http://localhost/api/wishes/slug-availability?slug=${takenSlug}&wishId=${createdWishIdForSlug}`), prodEnv);
+  assert(selfRes.status === 200, 'Self-exclusion check returns 200');
+  const selfData = await selfRes.json();
+  assert(selfData.available === true, 'Wish editing its own slug is reported available');
+  assert(selfData.isCurrent === true, 'isCurrent flag is true');
+
+  // Conflict on duplicate POST with custom slug
+  const conflictRes = await worker.fetch(new Request('http://localhost/api/wishes', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', 'Cookie': userBCookie },
+    body: JSON.stringify({
+      templateId: 'tpl_glitter_birthday',
+      slug: takenSlug,
+      customData: { recipient_name: 'Imposter', customSlug: takenSlug }
+    })
+  }), prodEnv);
+  assert(conflictRes.status === 409, 'Duplicate custom slug creation returns 409 Conflict');
 
   // ============================================================================
   // SUMMARY

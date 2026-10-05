@@ -91,6 +91,7 @@
   <script src="js/WishMagicCore.js"></script>
   <script src="js/api-client.js"></script>
   <script src="js/auth-service.js"></script>
+  <script src="js/wish-link-suggestions.js"></script>
   <script src="js/repositories.js"></script>
 
   <!-- Theme Engine -->
@@ -303,6 +304,63 @@
                 Your WhatsApp / Phone <span class="text-purple-500 font-normal">(Optional, for 1-tap link backup)</span>
               </label>
               <input type="text" id="input-contact" oninput="handleContactInput(this.value)" placeholder="+91 98765 43210" class="w-full text-xs sm:text-sm font-semibold rounded-2xl border border-purple-200/80 dark:border-purple-800/60 px-4 py-3 bg-white/80 dark:bg-purple-950/60 text-purple-950 dark:text-purple-100 focus:outline-none focus:ring-2 focus:ring-pink-500 transition shadow-inner"/>
+            </div>
+
+            <!-- Occasion & Relationship Context Grid -->
+            <div class="grid grid-cols-1 sm:grid-cols-2 gap-3.5">
+              <div>
+                <label for="input-occasion" class="block text-xs font-bold text-purple-950 dark:text-white mb-1.5 flex items-center justify-between">
+                  <span>Celebration Occasion</span>
+                  <span class="text-[10px] text-pink-500 font-semibold" id="occasion-auto-badge">Auto-matched</span>
+                </label>
+                <select id="input-occasion" onchange="handleOccasionInput(this.value)" class="w-full text-xs sm:text-sm font-semibold rounded-2xl border border-purple-200/80 dark:border-purple-800/60 px-4 py-3 bg-white/80 dark:bg-purple-950/60 text-purple-950 dark:text-purple-100 focus:outline-none focus:ring-2 focus:ring-pink-500 transition shadow-inner">
+                  <option value="birthday">🎂 Birthday</option>
+                  <option value="anniversary">💍 Anniversary</option>
+                  <option value="love">💖 Love &amp; Romance</option>
+                  <option value="valentines">💝 Valentine's Day</option>
+                  <option value="wedding">💒 Wedding</option>
+                  <option value="engagement">💎 Engagement</option>
+                  <option value="friendship">🤝 Friendship</option>
+                  <option value="congratulations">🏆 Congratulations</option>
+                  <option value="thank_you">🙏 Thank You</option>
+                  <option value="mothers_day">🌸 Mother's Day</option>
+                  <option value="fathers_day">👔 Father's Day</option>
+                  <option value="christmas">🎄 Christmas</option>
+                  <option value="new_year">✨ New Year</option>
+                  <option value="farewell">✈️ Farewell</option>
+                  <option value="baby_shower">🍼 Baby Shower</option>
+                  <option value="graduation">🎓 Graduation</option>
+                  <option value="general">🪄 General Wish</option>
+                  <option value="custom">✏️ Other / Custom</option>
+                </select>
+              </div>
+
+              <div>
+                <label for="input-relationship" class="block text-xs font-bold text-purple-950 dark:text-white mb-1.5 flex items-center justify-between">
+                  <span>Relationship</span>
+                  <span class="text-[10px] text-purple-500 font-normal">Optional</span>
+                </label>
+                <select id="input-relationship" onchange="handleRelationshipInput(this.value)" class="w-full text-xs sm:text-sm font-semibold rounded-2xl border border-purple-200/80 dark:border-purple-800/60 px-4 py-3 bg-white/80 dark:bg-purple-950/60 text-purple-950 dark:text-purple-100 focus:outline-none focus:ring-2 focus:ring-pink-500 transition shadow-inner">
+                  <option value="">Choose relationship...</option>
+                  <option value="crush">Crush</option>
+                  <option value="girlfriend">Girlfriend</option>
+                  <option value="boyfriend">Boyfriend</option>
+                  <option value="wife">Wife</option>
+                  <option value="husband">Husband</option>
+                  <option value="mother">Mother / Mom</option>
+                  <option value="father">Father / Dad</option>
+                  <option value="brother">Brother</option>
+                  <option value="sister">Sister</option>
+                  <option value="friend">Friend</option>
+                  <option value="best_friend">Best Friend</option>
+                  <option value="son">Son</option>
+                  <option value="daughter">Daughter</option>
+                  <option value="family">Family</option>
+                  <option value="colleague">Colleague / Coworker</option>
+                  <option value="teacher">Teacher / Mentor</option>
+                  <option value="other">Other</option>
+                </select>
+              </div>
             </div>
 
             <!-- Personal Message Editor -->
@@ -1216,34 +1274,82 @@
             </div>
           </div>
 
-          <!-- Part 15: Public Sharing, SEO & Link Discovery Options -->
-          <div class="glass-surface rounded-3xl p-5 sm:p-6 shadow-xl space-y-4">
+          <!-- Smart Wish Link / Custom Slug Suggestions -->
+          <div class="glass-surface rounded-3xl p-5 sm:p-6 shadow-xl space-y-4" id="smart-wish-link-section">
             <div class="flex items-center justify-between pb-3 border-b border-purple-200/60 dark:border-purple-800/40">
               <div>
                 <h3 class="font-display font-extrabold text-base text-purple-950 dark:text-white flex items-center gap-2">
-                  <span>🔗 Link &amp; Sharing Discoverability</span>
+                  <span>🔗 Create Your Wish Link</span>
                 </h3>
-                <p class="text-[11px] text-purple-700/80 dark:text-purple-300/80 mt-0.5">Clean vanity URLs, social preview cards, and privacy controls</p>
+                <p class="text-[11px] text-purple-700/80 dark:text-purple-300/80 mt-0.5">Choose a beautiful, memorable link for your celebration website</p>
               </div>
-              <span class="px-2.5 py-0.5 rounded-full text-[10px] font-black uppercase tracking-wider bg-pink-100 dark:bg-pink-900/50 text-pink-700 dark:text-pink-300">PART 15</span>
+              <span class="px-2.5 py-0.5 rounded-full text-[10px] font-black uppercase tracking-wider bg-gradient-to-r from-pink-500 to-purple-600 text-white shadow-xs">SMART LINK</span>
             </div>
 
-            <div class="space-y-3.5 text-xs">
-              <!-- Custom Vanity Slug -->
+            <div class="space-y-4 text-xs">
+              <!-- Destination URL Preview & Slug Input Box -->
               <div class="space-y-1.5">
-                <label class="font-bold text-purple-900 dark:text-purple-200 text-xs flex items-center justify-between">
-                  <span>Custom URL Suffix (Optional)</span>
-                  <span class="text-[10px] text-purple-400 font-normal">e.g. ankit-to-kritika</span>
+                <label for="wish-slug-input" class="font-bold text-purple-900 dark:text-purple-200 text-xs flex items-center justify-between">
+                  <span>Your wish will be available at:</span>
+                  <span id="slug-origin-label" class="text-[10px] font-mono text-purple-600 dark:text-purple-400">wishmagic.live/w/</span>
                 </label>
-                <div class="flex items-center rounded-2xl bg-white/80 dark:bg-purple-950/60 border border-purple-200/80 dark:border-purple-800/60 overflow-hidden px-3 py-2 shadow-xs focus-within:border-pink-500">
-                  <span class="text-purple-400 font-mono text-[11px] select-none pr-1">wishmagic.live/w/</span>
-                  <input type="text" id="custom-slug-input" oninput="handleCustomSlugInput(this.value)" placeholder="auto-generated-slug" class="w-full bg-transparent font-mono text-xs text-purple-950 dark:text-purple-100 focus:outline-none"/>
+
+                <div class="flex items-center rounded-2xl bg-white/90 dark:bg-purple-950/70 border-2 border-purple-200/80 dark:border-purple-800/60 overflow-hidden px-3.5 py-2.5 shadow-sm transition-all focus-within:border-pink-500 focus-within:ring-2 focus-within:ring-pink-500/20" id="slug-input-wrapper">
+                  <span class="text-purple-400 font-mono text-xs select-none pr-1 flex items-center gap-1 font-semibold flex-shrink-0">
+                    <span class="material-symbols-outlined text-[15px] text-pink-500">link</span>
+                    <span id="slug-domain-prefix">/w/</span>
+                  </span>
+                  <input type="text" id="wish-slug-input" oninput="handleSlugInputChange(this.value)" placeholder="happy-birthday-radha" autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false" class="w-full bg-transparent font-mono text-xs sm:text-sm font-bold text-purple-950 dark:text-purple-100 focus:outline-none"/>
+                  
+                  <!-- Live checking indicator in input -->
+                  <div id="slug-input-spinner" class="hidden flex-shrink-0 pl-2">
+                    <span class="w-4 h-4 border-2 border-pink-500 border-t-transparent rounded-full animate-spin inline-block"></span>
+                  </div>
                 </div>
-                <p class="text-[10px] text-purple-600 dark:text-purple-400">Leave blank for automatic, clean collision-protected slug.</p>
+
+                <!-- Live Availability Badge & Guidance -->
+                <div id="slug-availability-badge" class="min-h-[22px] flex items-center gap-1.5 text-[11px] font-semibold transition-all">
+                  <!-- Dynamically populated: ✓ Available / ⚠️ Taken / Reserved / Invalid -->
+                </div>
+
+                <!-- Collision Alternatives (when taken) -->
+                <div id="slug-collision-alternatives" class="hidden p-3 rounded-2xl bg-amber-500/10 border border-amber-500/30 space-y-2">
+                  <div class="flex items-center gap-1.5 text-amber-800 dark:text-amber-200 font-bold text-[11px]">
+                    <span class="material-symbols-outlined text-[14px]">lightbulb</span>
+                    <span>Available variations you can use immediately:</span>
+                  </div>
+                  <div id="slug-alternatives-list" class="flex flex-wrap gap-1.5">
+                    <!-- Populated dynamically -->
+                  </div>
+                </div>
+              </div>
+
+              <!-- Suggested Links Category & Chips -->
+              <div class="space-y-2 pt-1">
+                <div class="flex items-center justify-between">
+                  <div class="flex items-center gap-1.5">
+                    <span class="text-xs">✨</span>
+                    <span class="font-extrabold text-purple-950 dark:text-white text-xs">Suggested Links</span>
+                  </div>
+                  <span id="suggestions-context-pill" class="text-[10px] text-purple-600 dark:text-purple-400 font-medium">Based on your details</span>
+                </div>
+
+                <!-- Suggestion Chips Grid -->
+                <div id="slug-suggestions-chips" class="flex flex-wrap gap-2">
+                  <!-- Populated dynamically: 5-8 top suggestions -->
+                </div>
+
+                <!-- Show More / Less Toggle Button -->
+                <div id="slug-show-more-container" class="hidden pt-1">
+                  <button type="button" onclick="toggleShowMoreSuggestions()" id="btn-show-more-slugs" class="text-[11px] font-bold text-pink-600 dark:text-pink-400 hover:text-pink-700 dark:hover:text-pink-300 flex items-center gap-1 transition cursor-pointer">
+                    <span id="show-more-slugs-text">Show More Suggestions</span>
+                    <span class="material-symbols-outlined text-[14px]" id="show-more-slugs-icon">expand_more</span>
+                  </button>
+                </div>
               </div>
 
               <!-- Unlisted / Private Link Toggle -->
-              <div class="p-3.5 rounded-2xl bg-white/70 dark:bg-purple-950/40 border border-purple-200/60 dark:border-purple-800/40 flex items-start justify-between gap-3">
+              <div class="p-3.5 rounded-2xl bg-white/70 dark:bg-purple-950/40 border border-purple-200/60 dark:border-purple-800/40 flex items-start justify-between gap-3 mt-2">
                 <div class="space-y-0.5 pr-2">
                   <div class="flex items-center gap-2">
                     <span class="text-sm">🔒</span>

@@ -330,17 +330,39 @@ function saveWishes(wishes) {
 }
 
 // Helper: Slugify string
+const RESERVED_SLUGS = new Set([
+  'admin', 'login', 'signup', 'register', 'dashboard', 'settings',
+  'api', 'auth', 'templates', 'preview', 'create', 'edit',
+  'my-wishes', 'favorites', 'pricing', 'about', 'contact', 'help',
+  'privacy', 'terms', 'robots', 'sitemap', 'w', 'wish',
+  'marketplace', 'checkout', 'premium', 'account', 'expired',
+  'media', 'css', 'js', 'assets', 'fonts', 'static', 'health',
+  'config', 'null', 'undefined', 'public', 'share', 'status',
+  'test', 'feed', 'rss', 'search'
+]);
+
 function slugifyText(text) {
   if (!text) return '';
   return String(text)
     .normalize('NFD')
     .replace(/[\u0300-\u036f]/g, '')
+    .replace(/['’]s\b/gi, 's')
+    .replace(/&/g, ' ')
     .toLowerCase()
     .trim()
     .replace(/[^a-z0-9\s-]/g, '')
     .replace(/\s+/g, '-')
     .replace(/-+/g, '-')
     .replace(/^-+|-+$/g, '');
+}
+
+function isValidSlug(slug) {
+  if (!slug || typeof slug !== 'string') return false;
+  const s = slug.toLowerCase().trim();
+  if (s.length < 3 || s.length > 80) return false;
+  if (!/^[a-z0-9](?:[a-z0-9]|-(?!-)){1,78}[a-z0-9]$/.test(s)) return false;
+  if (RESERVED_SLUGS.has(s)) return false;
+  return true;
 }
 
 // Helper: Generate collision-resistant slug for celebration wish
@@ -2094,6 +2116,87 @@ function computeWishStatus(wish) {
   }
 }
 
+// API: Check wish slug availability
+app.get('/api/wishes/slug-availability', (req, res) => {
+  try {
+    const rawSlug = String(req.query.slug || '').trim();
+    const excludeWishId = String(req.query.wishId || '').trim();
+    const normalized = rawSlug
+      .toLowerCase()
+      .trim()
+      .replace(/[^a-z0-9-]/g, '')
+      .replace(/-+/g, '-')
+      .replace(/^-+|-+$/g, '');
+
+    if (!rawSlug || !normalized || !isValidSlug(normalized)) {
+      const isReserved = isReservedSlug(normalized);
+      return res.json({
+        success: true,
+        data: {
+          available: false,
+          slug: normalized || rawSlug,
+          reason: isReserved ? 'reserved' : 'invalid',
+          message: isReserved
+            ? 'This link is reserved for system use. Please choose another.'
+            : 'Use only lowercase letters, numbers, and single hyphens (3-80 characters).'
+        }
+      });
+    }
+
+    const wishes = getWishes();
+    const existing = wishes.find(w => (w.slug || '').toLowerCase() === normalized);
+
+    if (!existing) {
+      return res.json({
+        success: true,
+        data: {
+          available: true,
+          slug: normalized,
+          message: 'This link is available!'
+        }
+      });
+    }
+
+    if (excludeWishId && existing.id === excludeWishId) {
+      return res.json({
+        success: true,
+        data: {
+          available: true,
+          slug: normalized,
+          isCurrent: true,
+          message: 'This is your current link.'
+        }
+      });
+    }
+
+    const candidateSuffixes = ['2', 'special', 'surprise', 'love', 'celebration'];
+    const alternatives = [];
+    for (const suffix of candidateSuffixes) {
+      const altSlug = `${normalized}-${suffix}`;
+      if (altSlug.length <= 80 && !RESERVED_SLUGS.has(altSlug)) {
+        const altCollision = wishes.some(w => (w.slug || '').toLowerCase() === altSlug);
+        if (!altCollision) {
+          alternatives.push(altSlug);
+          if (alternatives.length >= 3) break;
+        }
+      }
+    }
+
+    return res.json({
+      success: true,
+      data: {
+        available: false,
+        slug: normalized,
+        reason: 'taken',
+        alternatives,
+        message: 'That link is already taken. Try another one.'
+      }
+    });
+  } catch (err) {
+    res.status(500).json({ success: false, message: 'Could not check link availability right now.' });
+  }
+});
+
 // API: Create a customized wish record
 app.post('/api/wishes', (req, res) => {
   try {
@@ -2117,7 +2220,35 @@ app.post('/api/wishes', (req, res) => {
     const userId = req.body.userId || customData.userId || 'usr_ankit_101';
 
     const wishes = getWishes();
-    const generatedSlug = (customData.customSlug ? slugifyText(customData.customSlug) : '') || generateUniqueWishSlug(customData, template, wishes);
+    let generatedSlug = '';
+    const rawRequestedSlug = String(req.body.slug || customData.slug || customData.customSlug || '').toLowerCase().trim();
+
+    if (rawRequestedSlug) {
+      const normRequested = rawRequestedSlug.replace(/[^a-z0-9-]/g, '').replace(/-+/g, '-').replace(/^-+|-+$/g, '');
+      if (!isValidSlug(normRequested)) {
+        const isReserved = isReservedSlug(normRequested);
+        return res.status(400).json({
+          success: false,
+          error: {
+            code: isReserved ? 'SLUG_RESERVED' : 'INVALID_SLUG',
+            message: isReserved ? 'This link is reserved for system use.' : 'Use only lowercase letters, numbers, and single hyphens (3-80 characters).'
+          }
+        });
+      }
+      const collision = wishes.find(w => (w.slug || '').toLowerCase() === normRequested);
+      if (collision) {
+        return res.status(409).json({
+          success: false,
+          error: {
+            code: 'SLUG_TAKEN',
+            message: 'That link is already taken. Try another one.'
+          }
+        });
+      }
+      generatedSlug = normRequested;
+    } else {
+      generatedSlug = generateUniqueWishSlug(customData, template, wishes);
+    }
 
     const isPrivate = Boolean(customData.isPrivate || customData.unlisted || req.body.isPrivate);
 
@@ -2188,9 +2319,38 @@ app.put('/api/wishes/:id', (req, res) => {
     if (req.user && current.userId && current.userId !== req.user.id && req.user.role !== 'admin') {
       return res.status(403).json({ success: false, error: { code: 'FORBIDDEN', message: 'Forbidden: Cannot edit another user\'s wish' } });
     }
-    const { customData, recipientName, buyerName, eventDate } = req.body || {};
+    const { customData, recipientName, buyerName, eventDate, slug, customSlug } = req.body || {};
+    let targetSlug = current.slug;
+    const rawRequestedSlug = String(slug || (customData && customData.slug) || customSlug || (customData && customData.customSlug) || '').toLowerCase().trim();
+
+    if (rawRequestedSlug && rawRequestedSlug !== current.slug) {
+      const norm = rawRequestedSlug.replace(/[^a-z0-9-]/g, '').replace(/-+/g, '-').replace(/^-+|-+$/g, '');
+      if (!isValidSlug(norm)) {
+        const isReserved = isReservedSlug(norm);
+        return res.status(400).json({
+          success: false,
+          error: {
+            code: isReserved ? 'SLUG_RESERVED' : 'INVALID_SLUG',
+            message: isReserved ? 'This link is reserved for system use.' : 'Use only lowercase letters, numbers, and single hyphens (3-80 characters).'
+          }
+        });
+      }
+      const collision = wishes.find(w => (w.slug || '').toLowerCase() === norm && w.id !== current.id);
+      if (collision) {
+        return res.status(409).json({
+          success: false,
+          error: {
+            code: 'SLUG_TAKEN',
+            message: 'That link is already taken. Try another one.'
+          }
+        });
+      }
+      targetSlug = norm;
+    }
+
     wishes[idx] = {
       ...current,
+      slug: targetSlug,
       recipientName: recipientName || current.recipientName,
       buyerName: buyerName || current.buyerName,
       eventDate: eventDate || current.eventDate,

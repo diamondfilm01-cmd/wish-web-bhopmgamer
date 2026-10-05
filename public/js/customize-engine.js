@@ -5,11 +5,23 @@ let activeTemplate = null;
 let currentStep = 1;
 const TOTAL_STEPS = 4;
 
+let currentEditingWishId = null;
+let currentEditingWishSlug = null;
+let currentSlugSuggestions = [];
+let isShowingAllSlugSuggestions = false;
+let slugCheckDebounceTimer = null;
+let lastCheckedSlug = '';
+let lastSlugCheckResult = null;
+
 // Centralized Customizer State Model
 let currentCustomData = {
   recipient_name: '',
   sender_name: '',
   sender_contact: '',
+  occasion: 'birthday',
+  relationship: '',
+  customSlug: '',
+  slug: '',
   event_date: new Date().toISOString().split('T')[0],
   custom_message: '',
   cover_photo: '',
@@ -225,17 +237,25 @@ document.addEventListener('DOMContentLoaded', async () => {
     }
   } else if (editWishId) {
     try {
+      currentEditingWishId = editWishId;
       const wishRes = await fetch(`/api/wishes/${encodeURIComponent(editWishId)}`, { credentials: 'include' });
       const wishResult = await wishRes.json();
       if (wishResult.success && wishResult.wish) {
         const editWish = wishResult.wish;
+        currentEditingWishId = editWish.id;
+        if (editWish.slug) {
+          currentEditingWishSlug = editWish.slug;
+          currentCustomData.customSlug = editWish.slug;
+          currentCustomData.slug = editWish.slug;
+        }
         templateId = editWish.templateId || templateId;
         await loadTemplateData(templateId);
 
         if (editWish.customData) {
           currentCustomData = {
             ...currentCustomData,
-            ...editWish.customData
+            ...editWish.customData,
+            customSlug: editWish.slug || (editWish.customData && editWish.customData.customSlug) || currentCustomData.customSlug
           };
           populateFormValuesFromState();
           syncDataToIframe();
@@ -530,6 +550,17 @@ function populateFormValuesFromState() {
   const contactInput = document.getElementById('input-contact');
   if (contactInput) contactInput.value = currentCustomData.sender_contact || '';
 
+  const occasionInput = document.getElementById('input-occasion');
+  if (occasionInput && currentCustomData.occasion) occasionInput.value = currentCustomData.occasion;
+
+  const relationshipInput = document.getElementById('input-relationship');
+  if (relationshipInput && currentCustomData.relationship) relationshipInput.value = currentCustomData.relationship;
+
+  const slugInput = document.getElementById('wish-slug-input') || document.getElementById('custom-slug-input');
+  if (slugInput && (currentCustomData.customSlug || currentCustomData.slug)) {
+    slugInput.value = currentCustomData.customSlug || currentCustomData.slug;
+  }
+
   const messageInput = document.getElementById('input-message');
   if (messageInput) {
     messageInput.value = currentCustomData.custom_message || '';
@@ -745,12 +776,18 @@ function initFormInputs() {
     currentCustomData.recipient_name = val;
     triggerAutosave();
     syncDataToIframe();
+    if (typeof window.initSmartWishLinkUI === 'function' && currentStep === 4) {
+      window.initSmartWishLinkUI();
+    }
   };
 
   window.handleSenderInput = function(val) {
     currentCustomData.sender_name = val;
     triggerAutosave();
     syncDataToIframe();
+    if (typeof window.initSmartWishLinkUI === 'function' && currentStep === 4) {
+      window.initSmartWishLinkUI();
+    }
   };
 
   window.handleDateInput = function(val) {
@@ -762,6 +799,22 @@ function initFormInputs() {
   window.handleContactInput = function(val) {
     currentCustomData.sender_contact = val;
     triggerAutosave();
+  };
+
+  window.handleOccasionInput = function(val) {
+    currentCustomData.occasion = val;
+    triggerAutosave();
+    if (typeof window.initSmartWishLinkUI === 'function') {
+      window.initSmartWishLinkUI();
+    }
+  };
+
+  window.handleRelationshipInput = function(val) {
+    currentCustomData.relationship = val;
+    triggerAutosave();
+    if (typeof window.initSmartWishLinkUI === 'function') {
+      window.initSmartWishLinkUI();
+    }
   };
 
   window.handleMessageInput = function(val) {
@@ -2295,14 +2348,308 @@ window.handleInteractiveBurstsToggle = function(checked) {
   syncDataToIframe();
 };
 
-// Part 15: Slug & Link Discovery Handlers
-window.handleCustomSlugInput = function(val) {
-  if (window.WishSlugService) {
-    currentCustomData.customSlug = WishSlugService.slugify(val);
+// =============================================================================
+// SMART WISH LINK & CUSTOM SLUG SUGGESTIONS SYSTEM
+// =============================================================================
+
+window.initSmartWishLinkUI = function() {
+  const originLabel = document.getElementById('slug-origin-label');
+  const domainPrefix = document.getElementById('slug-domain-prefix');
+  const hostDomain = (window.location && window.location.host) || 'wishmagic.live';
+  
+  if (originLabel) originLabel.textContent = `${hostDomain}/w/`;
+  if (domainPrefix) domainPrefix.textContent = `/w/`;
+
+  // 1. Generate Contextual Suggestions
+  const occasion = currentCustomData.occasion || (activeTemplate && activeTemplate.category) || 'birthday';
+  const relationship = currentCustomData.relationship || '';
+  const recipientName = currentCustomData.recipient_name || '';
+  const senderName = currentCustomData.sender_name || '';
+  const category = (activeTemplate && activeTemplate.category) || '';
+
+  if (window.WishLinkSuggestions && typeof window.WishLinkSuggestions.generateSuggestions === 'function') {
+    currentSlugSuggestions = window.WishLinkSuggestions.generateSuggestions({
+      occasion,
+      relationship,
+      recipientName,
+      senderName,
+      category
+    });
   } else {
-    currentCustomData.customSlug = String(val).toLowerCase().replace(/[^a-z0-9-]/g, '-').replace(/-+/g, '-');
+    const norm = (recipientName || 'celebration').toLowerCase().replace(/[^a-z0-9]/g, '-').replace(/-+/g, '-').replace(/^-+|-+$/g, '');
+    currentSlugSuggestions = [`happy-birthday-${norm}`, `just-for-you-${norm}`, `special-wish-${norm}`, `celebrate-${norm}`, 'a-special-wish'];
   }
+
+  // Update context label
+  const contextPill = document.getElementById('suggestions-context-pill');
+  if (contextPill) {
+    const parts = [];
+    if (recipientName) parts.push(recipientName);
+    if (occasion) parts.push(occasion.replace(/_/g, ' '));
+    if (relationship) parts.push(relationship.replace(/_/g, ' '));
+    contextPill.textContent = parts.length > 0 ? `Matched for ${parts.join(' • ')}` : 'Based on your celebration';
+  }
+
+  // 2. Select initial slug if not set or if using empty state
+  const input = document.getElementById('wish-slug-input') || document.getElementById('custom-slug-input');
+  
+  if (currentEditingWishSlug && !currentCustomData.customSlug) {
+    currentCustomData.customSlug = currentEditingWishSlug;
+  }
+
+  if (!currentCustomData.customSlug && currentSlugSuggestions.length > 0) {
+    currentCustomData.customSlug = currentSlugSuggestions[0];
+  }
+
+  if (input && currentCustomData.customSlug) {
+    input.value = currentCustomData.customSlug;
+  }
+
+  // 3. Render suggestions
+  window.renderSlugSuggestionChips();
+
+  // 4. Initial live availability check
+  if (currentCustomData.customSlug) {
+    window.checkSlugAvailability(currentCustomData.customSlug, true);
+  }
+};
+
+window.renderSlugSuggestionChips = function() {
+  const container = document.getElementById('slug-suggestions-chips');
+  const showMoreContainer = document.getElementById('slug-show-more-container');
+  const showMoreText = document.getElementById('show-more-slugs-text');
+  const showMoreIcon = document.getElementById('show-more-slugs-icon');
+  if (!container) return;
+
+  container.innerHTML = '';
+
+  const total = currentSlugSuggestions.length;
+  const initialLimit = 6;
+  const visibleSuggestions = isShowingAllSlugSuggestions ? currentSlugSuggestions : currentSlugSuggestions.slice(0, initialLimit);
+
+  visibleSuggestions.forEach(slug => {
+    const isSelected = currentCustomData.customSlug === slug;
+    const btn = document.createElement('button');
+    btn.type = 'button';
+    btn.setAttribute('data-slug', slug);
+    btn.className = isSelected
+      ? 'px-3 py-1.5 rounded-full text-xs font-bold border-2 border-pink-500 bg-pink-100/90 dark:bg-pink-950/80 text-pink-700 dark:text-pink-300 shadow-xs flex items-center gap-1.5 transition-all cursor-pointer ring-2 ring-pink-500/20'
+      : 'px-3 py-1.5 rounded-full text-xs font-semibold border border-purple-200/90 dark:border-purple-800/60 bg-white/80 dark:bg-purple-950/50 text-purple-950 dark:text-purple-200 hover:border-pink-400 hover:bg-pink-50/70 dark:hover:bg-purple-900/40 transition-all cursor-pointer';
+
+    btn.innerHTML = `
+      ${isSelected ? '<span class="text-pink-600 dark:text-pink-400 text-[12px] font-black">✓</span>' : '<span class="text-purple-400 dark:text-purple-500 text-[11px]">✦</span>'}
+      <span class="font-mono">${escapeHtml(slug)}</span>
+    `;
+
+    btn.onclick = () => window.selectSuggestedSlug(slug);
+    container.appendChild(btn);
+  });
+
+  if (showMoreContainer) {
+    if (total > initialLimit) {
+      showMoreContainer.classList.remove('hidden');
+      if (showMoreText) {
+        showMoreText.textContent = isShowingAllSlugSuggestions ? 'Show Fewer Suggestions' : `Show More (${total - initialLimit} more)`;
+      }
+      if (showMoreIcon) {
+        showMoreIcon.textContent = isShowingAllSlugSuggestions ? 'expand_less' : 'expand_more';
+      }
+    } else {
+      showMoreContainer.classList.add('hidden');
+    }
+  }
+};
+
+window.toggleShowMoreSuggestions = function() {
+  isShowingAllSlugSuggestions = !isShowingAllSlugSuggestions;
+  window.renderSlugSuggestionChips();
+};
+
+window.selectSuggestedSlug = function(slug) {
+  currentCustomData.customSlug = slug;
+  currentCustomData.slug = slug;
+  const input = document.getElementById('wish-slug-input') || document.getElementById('custom-slug-input');
+  if (input) {
+    input.value = slug;
+  }
+
+  // Re-render chips to update active highlight
+  window.renderSlugSuggestionChips();
+
+  // Hide collision alternatives when picking a suggestion
+  const altContainer = document.getElementById('slug-collision-alternatives');
+  if (altContainer) altContainer.classList.add('hidden');
+
+  // Trigger immediate availability check
+  window.checkSlugAvailability(slug, true);
   triggerAutosave();
+};
+
+window.handleSlugInputChange = function(val) {
+  // Normalize while typing: only safe chars
+  const raw = String(val || '').toLowerCase();
+  const clean = raw.replace(/[^a-z0-9-]/g, '');
+  currentCustomData.customSlug = clean;
+  currentCustomData.slug = clean;
+
+  const input = document.getElementById('wish-slug-input') || document.getElementById('custom-slug-input');
+  if (input && input.value !== clean) {
+    input.value = clean;
+  }
+
+  // Update chip active states
+  window.renderSlugSuggestionChips();
+
+  // Hide collision alternatives while user types
+  const altContainer = document.getElementById('slug-collision-alternatives');
+  if (altContainer) altContainer.classList.add('hidden');
+
+  // Debounced check (350ms)
+  if (slugCheckDebounceTimer) {
+    clearTimeout(slugCheckDebounceTimer);
+  }
+
+  // Show spinner immediately
+  const spinner = document.getElementById('slug-input-spinner');
+  if (spinner) spinner.classList.remove('hidden');
+
+  slugCheckDebounceTimer = setTimeout(() => {
+    window.checkSlugAvailability(clean, false);
+  }, 350);
+
+  triggerAutosave();
+};
+
+// Legacy compatibility
+window.handleCustomSlugInput = function(val) {
+  window.handleSlugInputChange(val);
+};
+
+window.checkSlugAvailability = async function(slug, immediate = false) {
+  const badge = document.getElementById('slug-availability-badge');
+  const spinner = document.getElementById('slug-input-spinner');
+  const inputWrapper = document.getElementById('slug-input-wrapper');
+  const altContainer = document.getElementById('slug-collision-alternatives');
+  const altList = document.getElementById('slug-alternatives-list');
+
+  const normalized = (slug || '').toLowerCase().trim().replace(/^-+|-+$/g, '');
+
+  if (spinner) spinner.classList.remove('hidden');
+
+  function setWrapperState(state) {
+    if (!inputWrapper) return;
+    inputWrapper.classList.remove('border-emerald-500', 'border-rose-500', 'border-amber-500', 'ring-2', 'ring-emerald-500/20', 'ring-rose-500/20');
+    if (state === 'valid') {
+      inputWrapper.classList.add('border-emerald-500', 'ring-2', 'ring-emerald-500/20');
+    } else if (state === 'error') {
+      inputWrapper.classList.add('border-rose-500', 'ring-2', 'ring-rose-500/20');
+    } else if (state === 'warning') {
+      inputWrapper.classList.add('border-amber-500');
+    }
+  }
+
+  if (!normalized) {
+    if (spinner) spinner.classList.add('hidden');
+    if (badge) {
+      badge.innerHTML = '<span class="text-purple-600/80 dark:text-purple-400/80 font-normal">Choose a link above or type your own custom link</span>';
+    }
+    setWrapperState('normal');
+    lastSlugCheckResult = { available: false, reason: 'empty' };
+    return;
+  }
+
+  // Local client check first
+  const isValid = window.WishLinkSuggestions
+    ? window.WishLinkSuggestions.isValidSlug(normalized)
+    : /^[a-z0-9](?:[a-z0-9]|-(?!-)){1,78}[a-z0-9]$/.test(normalized);
+
+  const isReserved = window.WishLinkSuggestions
+    ? window.WishLinkSuggestions.isReservedSlug(normalized)
+    : false;
+
+  if (isReserved) {
+    if (spinner) spinner.classList.add('hidden');
+    if (badge) {
+      badge.innerHTML = '<span class="text-rose-600 dark:text-rose-400 font-bold flex items-center gap-1.5"><span class="material-symbols-outlined text-[15px]">block</span> This link is reserved for system use. Please choose another.</span>';
+    }
+    setWrapperState('error');
+    lastSlugCheckResult = { available: false, reason: 'reserved' };
+    return;
+  }
+
+  if (!isValid) {
+    if (spinner) spinner.classList.add('hidden');
+    if (badge) {
+      badge.innerHTML = '<span class="text-amber-600 dark:text-amber-400 font-semibold flex items-center gap-1.5"><span class="material-symbols-outlined text-[15px]">info</span> Use only lowercase letters, numbers, and single hyphens (3–80 characters).</span>';
+    }
+    setWrapperState('warning');
+    lastSlugCheckResult = { available: false, reason: 'invalid' };
+    return;
+  }
+
+  if (badge) {
+    badge.innerHTML = '<span class="text-purple-500 font-normal flex items-center gap-1.5"><span class="w-2.5 h-2.5 border-2 border-purple-500 border-t-transparent rounded-full animate-spin"></span> Checking availability...</span>';
+  }
+
+  lastCheckedSlug = normalized;
+
+  try {
+    const excludeParam = currentEditingWishId ? `&wishId=${encodeURIComponent(currentEditingWishId)}` : '';
+    const res = await fetch(`/api/wishes/slug-availability?slug=${encodeURIComponent(normalized)}${excludeParam}`, {
+      credentials: 'include'
+    });
+    const data = await res.json();
+
+    if (spinner) spinner.classList.add('hidden');
+
+    if (lastCheckedSlug !== normalized) return;
+
+    lastSlugCheckResult = data;
+
+    if (data.success && data.available) {
+      setWrapperState('valid');
+      if (altContainer) altContainer.classList.add('hidden');
+      if (badge) {
+        if (data.isCurrent) {
+          badge.innerHTML = '<span class="text-purple-700 dark:text-purple-300 font-bold flex items-center gap-1.5"><span class="material-symbols-outlined text-[16px] text-purple-600">check_circle</span> This is your wish\'s current link (preserved)</span>';
+        } else {
+          badge.innerHTML = '<span class="text-emerald-600 dark:text-emerald-400 font-bold flex items-center gap-1.5"><span class="material-symbols-outlined text-[16px] text-emerald-500">check_circle</span> ✓ Available! Your celebration will live here.</span>';
+        }
+      }
+    } else {
+      setWrapperState('error');
+      const reason = data.reason || 'taken';
+      if (badge) {
+        if (reason === 'taken') {
+          badge.innerHTML = '<span class="text-rose-600 dark:text-rose-400 font-bold flex items-center gap-1.5"><span class="material-symbols-outlined text-[16px] text-rose-500">cancel</span> That link is already taken. Try another or pick a variation below:</span>';
+        } else if (reason === 'reserved') {
+          badge.innerHTML = '<span class="text-rose-600 dark:text-rose-400 font-bold flex items-center gap-1.5"><span class="material-symbols-outlined text-[16px] text-rose-500">block</span> Reserved platform route. Please pick another.</span>';
+        } else {
+          badge.innerHTML = `<span class="text-amber-600 dark:text-amber-400 font-semibold flex items-center gap-1.5"><span class="material-symbols-outlined text-[16px]">info</span> ${escapeHtml(data.message || 'Link is unavailable')}</span>`;
+        }
+      }
+
+      if (data.alternatives && data.alternatives.length > 0 && altContainer && altList) {
+        altList.innerHTML = '';
+        data.alternatives.forEach(alt => {
+          const pill = document.createElement('button');
+          pill.type = 'button';
+          pill.className = 'px-2.5 py-1 rounded-full text-[11px] font-mono font-bold bg-amber-200/60 dark:bg-amber-900/60 text-amber-900 dark:text-amber-100 hover:bg-amber-300 dark:hover:bg-amber-800 transition cursor-pointer flex items-center gap-1';
+          pill.innerHTML = `<span>+ ${escapeHtml(alt)}</span>`;
+          pill.onclick = () => window.selectSuggestedSlug(alt);
+          altList.appendChild(pill);
+        });
+        altContainer.classList.remove('hidden');
+      } else if (altContainer) {
+        altContainer.classList.add('hidden');
+      }
+    }
+  } catch (err) {
+    if (spinner) spinner.classList.add('hidden');
+    if (badge) {
+      badge.innerHTML = '<span class="text-purple-600/70 text-[11px]">Could not verify link right now; server will validate at publish time.</span>';
+    }
+  }
 };
 
 window.handleUnlistedToggle = function(checked) {
@@ -2797,6 +3144,11 @@ function renderStep4Summary() {
   if (watermarkToggle) {
     watermarkToggle.checked = Boolean(currentCustomData.watermarkRemoved);
   }
+
+  // Initialize Smart Wish Link & Custom Slug Suggestions in Step 4
+  if (typeof window.initSmartWishLinkUI === 'function') {
+    window.initSmartWishLinkUI();
+  }
 }
 
 // -----------------------------------------------------------------------------
@@ -3206,9 +3558,41 @@ window.publishWishAndGetLink = async function() {
     return;
   }
 
+  // Navigate to Step 4 if user clicked from earlier steps
+  if (currentStep < 4) {
+    window.goToStep(4);
+    showToast('✨ Review your personalization and choose your link below');
+    return;
+  }
+
   if (!activeTemplate) {
     showToast('Please select a template');
     return;
+  }
+
+  // Validate chosen slug before publishing
+  const chosenSlug = (currentCustomData.customSlug || currentCustomData.slug || '').toLowerCase().trim();
+  if (chosenSlug) {
+    const isValid = window.WishLinkSuggestions ? window.WishLinkSuggestions.isValidSlug(chosenSlug) : true;
+    const isReserved = window.WishLinkSuggestions ? window.WishLinkSuggestions.isReservedSlug(chosenSlug) : false;
+    if (isReserved) {
+      showToast('🚫 This link is reserved for platform use. Please pick another.');
+      const slugInput = document.getElementById('wish-slug-input');
+      if (slugInput) slugInput.focus();
+      return;
+    }
+    if (!isValid) {
+      showToast('⚠️ Please enter a valid link name (3–80 letters, numbers, and hyphens).');
+      const slugInput = document.getElementById('wish-slug-input');
+      if (slugInput) slugInput.focus();
+      return;
+    }
+    if (lastSlugCheckResult && lastSlugCheckResult.available === false && lastSlugCheckResult.reason === 'taken') {
+      showToast('⚠️ That link is already taken. Please choose an available link.');
+      const slugInput = document.getElementById('wish-slug-input');
+      if (slugInput) slugInput.focus();
+      return;
+    }
   }
 
   // Part 12: Field & Template Content Validation Check
@@ -3274,26 +3658,66 @@ async function executeWishCreation(extraPayload = {}) {
       return null;
     }
 
+    const chosenSlug = (currentCustomData.customSlug || currentCustomData.slug || '').toLowerCase().trim();
+
     const payload = {
       templateId: activeTemplate.id,
-      customData: currentCustomData,
+      customData: {
+        ...currentCustomData,
+        customSlug: chosenSlug,
+        slug: chosenSlug
+      },
+      slug: chosenSlug,
       ...extraPayload
     };
 
     let data = null;
-    if (window.WishApiClient && typeof window.WishApiClient.post === 'function') {
-      data = await window.WishApiClient.post('/api/wishes', payload);
+    if (currentEditingWishId) {
+      if (window.WishApiClient && typeof window.WishApiClient.put === 'function') {
+        data = await window.WishApiClient.put(`/api/wishes/${encodeURIComponent(currentEditingWishId)}`, payload);
+      } else {
+        const res = await fetch(`/api/wishes/${encodeURIComponent(currentEditingWishId)}`, {
+          method: 'PUT',
+          headers: { 'Content-Type': 'application/json' },
+          credentials: 'include',
+          body: JSON.stringify(payload)
+        });
+        data = await res.json();
+      }
+      if (data && data.success) {
+        data.wishId = currentEditingWishId;
+      }
     } else {
-      const res = await fetch('/api/wishes', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(payload)
-      });
-      data = await res.json();
+      if (window.WishApiClient && typeof window.WishApiClient.post === 'function') {
+        data = await window.WishApiClient.post('/api/wishes', payload);
+      } else {
+        const res = await fetch('/api/wishes', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          credentials: 'include',
+          body: JSON.stringify(payload)
+        });
+        data = await res.json();
+      }
     }
-    const createdWishId = data.wishId || (data.wish && data.wish.id);
+
+    if (!data.success) {
+      if (data.error === 'SLUG_TAKEN' || (data.message && data.message.includes('already taken'))) {
+        showToast('⚠️ That link is already taken. Please choose another variation below!');
+        const slugInput = document.getElementById('wish-slug-input');
+        if (slugInput) slugInput.focus();
+        if (typeof window.checkSlugAvailability === 'function') {
+          window.checkSlugAvailability(chosenSlug, true);
+        }
+        return null;
+      }
+      alert('Error generating wish: ' + (data.message || 'Unknown error'));
+      return null;
+    }
+
+    const createdWishId = data.wishId || (data.wish && data.wish.id) || currentEditingWishId;
     if (data.success && createdWishId) {
-      const wishSlug = data.slug || (data.wish && data.wish.slug) || createdWishId;
+      const wishSlug = data.slug || (data.wish && data.wish.slug) || chosenSlug || createdWishId;
       const fullLink = `${window.location.origin}/w/${wishSlug}`;
 
       // Save to local user wishes collection for creator dashboard with repository
