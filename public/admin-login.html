@@ -160,7 +160,11 @@
       btn.innerHTML = '<span class="animate-spin material-symbols-outlined text-sm">progress_activity</span> Verifying Credentials...';
 
       try {
-        const payload = { password };
+        const payload = { 
+          username: identifier,
+          identifier: identifier,
+          password: password 
+        };
         if (identifier.startsWith('+') || /^\d{10,15}$/.test(identifier)) {
           payload.mobile = identifier;
         } else {

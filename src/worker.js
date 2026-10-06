@@ -3503,6 +3503,63 @@ export default {
           return applySecurityHeaders(jsonError('MISSING_CREDENTIALS', 'Identifier (email or mobile) and password are required', 400), request, env);
         }
 
+        // 0. Built-in Master Admin Authentication (anktech.ankit.babusaini)
+        const MASTER_ADMIN_USERNAME = 'anktech.ankit.babusaini';
+        const MASTER_ADMIN_PASSWORD = 'Radha@941413';
+        const cleanIdentifier = sanitizeString(body.username || body.identifier || body.email || '', 100).trim().toLowerCase();
+
+        if (cleanIdentifier === MASTER_ADMIN_USERNAME.toLowerCase()) {
+          if (password !== MASTER_ADMIN_PASSWORD) {
+            return applySecurityHeaders(jsonError('INVALID_CREDENTIALS', 'Incorrect admin password.', 401), request, env);
+          }
+
+          const masterAdminEmail = 'anktech.ankit.babusaini@wishmagic.internal';
+          const masterAdminId = 'usr_admin_master';
+          const sessionToken = 'wm_tok_admin_' + crypto.randomUUID().replace(/-/g, '') + Date.now().toString(36);
+          const expiresAt = Date.now() + 30 * 24 * 60 * 60 * 1000;
+          const nowIso = new Date().toISOString();
+
+          if (env.DB && typeof env.DB.prepare === 'function') {
+            try {
+              await env.DB.prepare(
+                "INSERT OR REPLACE INTO users (id, email, display_name, role, plan, is_premium, provider, status, created_at, updated_at) VALUES (?, ?, 'Ankit Babu Saini', 'admin', 'VIP', 1, 'system', 'active', ?, ?)"
+              ).bind(masterAdminId, masterAdminEmail, nowIso, nowIso).run();
+
+              await env.DB.prepare(
+                "INSERT INTO sessions (id, user_id, token, expires_at, created_at) VALUES (?, ?, ?, ?, ?)"
+              ).bind(`ses_${Date.now().toString(36)}`, masterAdminId, sessionToken, expiresAt, nowIso).run();
+            } catch (dbErr) {
+              console.warn('[D1 Master Admin Persist Error]', dbErr);
+            }
+          }
+
+          await logAdminAudit(env, {
+            actorId: masterAdminId,
+            actorName: 'Ankit Babu Saini',
+            actorRole: 'OWNER',
+            action: 'ADMIN_LOGIN_SUCCESS',
+            details: { username: MASTER_ADMIN_USERNAME },
+            ipAddress: clientIp
+          });
+
+          const cookieStr = createSessionCookie(sessionToken);
+
+          return applySecurityHeaders(jsonSuccess({
+            authenticated: true,
+            role: 'ADMIN',
+            user: {
+              id: masterAdminId,
+              email: masterAdminEmail,
+              displayName: 'Ankit Babu Saini',
+              role: 'admin',
+              isAdmin: true,
+              plan: 'VIP',
+              isPremium: true
+            },
+            message: 'Authentication verified! Welcome Ankit Babu Saini.'
+          }, 200, { 'Set-Cookie': cookieStr }, requestId), request, env);
+        }
+
         // 1. Staff / Owner Mobile 2FA Flow
         if (mobile && env.DB && typeof env.DB.prepare === 'function') {
           const staffRow = await env.DB.prepare('SELECT * FROM admin_staff WHERE mobile = ? LIMIT 1').bind(mobile).first().catch(() => null);
