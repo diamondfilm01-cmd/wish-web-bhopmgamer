@@ -714,13 +714,15 @@
     init() {
       if (this._initialized) return;
 
-      // DO NOT inject notification UI into the final public recipient page (/w/:slug or /public/wish.html)
-      const isPublicWish = window.location.pathname.startsWith('/w/') || 
-                           window.location.pathname.endsWith('wish.html') ||
+      // DO NOT inject notification UI into the final public recipient page (/w/:slug) or admin pages
+      const path = (window.location.pathname || '').toLowerCase();
+      const isPublicWish = path.startsWith('/w/') || 
+                           path.endsWith('wish.html') ||
+                           path.includes('admin') ||
                            document.body.dataset.page === 'public-wish';
 
       if (isPublicWish) {
-        return; // Strict recipient privacy boundary
+        return; // Strict recipient privacy and admin isolation boundary
       }
 
       this._initialized = true;
