@@ -52,6 +52,22 @@ body {
   transition: background-color 0.2s ease, color 0.2s ease;
 }
 
+/* Strict Isolation: Never render consumer notification elements in Admin Studio */
+#wishmagic-notification-bell-btn,
+[data-purpose="navbar-notifications"],
+#wishmagic-notification-popover,
+#wishmagic-notification-badge,
+header > [data-purpose="navbar-notifications"] {
+  display: none !important;
+  visibility: hidden !important;
+  pointer-events: none !important;
+  width: 0 !important;
+  height: 0 !important;
+  position: absolute !important;
+  opacity: 0 !important;
+  overflow: hidden !important;
+}
+
 /* Material Symbols font display guarantee */
 .material-symbols-outlined {
   font-family: 'Material Symbols Outlined' !important;
