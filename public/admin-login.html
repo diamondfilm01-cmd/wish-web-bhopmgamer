@@ -76,12 +76,9 @@
         <span class="material-symbols-outlined text-amber-400 text-xl shrink-0 mt-0.5">verified_user</span>
         <div>
           <h2 class="text-xs font-bold text-white uppercase tracking-wider">Authorized Google Access Only</h2>
-          <p class="text-xs text-purple-200/80 mt-1 leading-relaxed">
-            Yeh Admin Panel password-free hai aur sirf Master Admin Google ID se protected hai:
+          <p class="text-xs text-purple-200/80 mt-1.5 leading-relaxed">
+            Yeh Admin Studio password-free hai aur sirf authorized Master Admin Google account ke liye secured hai.
           </p>
-          <div class="mt-2 px-2.5 py-1.5 rounded-lg bg-black/40 border border-purple-500/30 font-mono text-xs text-pink-300 font-bold truncate">
-            ankitsaini941413@gmail.com
-          </div>
         </div>
       </div>
     </div>
@@ -117,8 +114,7 @@
   <script>
     const ADMIN_TARGET = '/admin/anktech/anktech/admin/overview';
     const MASTER_EMAILS = [
-      'ankit.babusaini@gmail.com',
-      'ankitsaini941413@gmail.com'
+      'ankit.babusaini@gmail.com'
     ];
 
     // Check on load: if user already authenticated with admin email, forward immediately
@@ -174,7 +170,7 @@
         if (!MASTER_EMAILS.includes(email)) {
           // NOT AUTHORIZED! Sign out immediately
           await window.WishFirebaseAuth.signOut();
-          throw new Error(`Access Denied: ${email} is not authorized for Admin Studio. Please use ankit.babusaini@gmail.com`);
+          throw new Error('Access Denied: Current Google account is not authorized for Admin Studio.');
         }
 
         // Authorize with server session

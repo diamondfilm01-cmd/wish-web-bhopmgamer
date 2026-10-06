@@ -54,7 +54,7 @@
         fb.onAuthStateChanged(async (fbUser) => {
           if (fbUser) {
             const email = (fbUser.email || '').trim().toLowerCase();
-            const isAdmin = fb.isAdminEmail ? fb.isAdminEmail(email) : (email === 'ankit.babusaini@gmail.com' || email === 'ankitsaini941413@gmail.com' || email === 'bhoomgamer@gmail.com');
+            const isAdmin = fb.isAdminEmail ? fb.isAdminEmail(email) : (email === 'ankit.babusaini@gmail.com' || email === 'bhoomgamer@gmail.com');
             const displayName = (fbUser.displayName || (email ? email.split('@')[0] : 'Creator')).trim();
             const avatarUrl = fbUser.photoURL || `https://api.dicebear.com/7.x/bottts/svg?seed=${encodeURIComponent(email || 'creator')}`;
 
@@ -145,7 +145,7 @@
   // Authoritatively sync authenticated Firebase identity with server-side session cookie
   async function syncSessionWithServer(fbUser, fallbackDisplayName = '') {
     const email = (fbUser.email || '').trim().toLowerCase();
-    const isAdmin = window.WishFirebaseAuth?.isAdminEmail ? window.WishFirebaseAuth.isAdminEmail(email) : (email === 'ankit.babusaini@gmail.com' || email === 'ankitsaini941413@gmail.com' || email === 'bhoomgamer@gmail.com');
+    const isAdmin = window.WishFirebaseAuth?.isAdminEmail ? window.WishFirebaseAuth.isAdminEmail(email) : (email === 'ankit.babusaini@gmail.com' || email === 'bhoomgamer@gmail.com');
     const displayName = (fbUser.displayName || fallbackDisplayName || (email ? email.split('@')[0] : 'Creator')).trim();
     const avatarUrl = fbUser.photoURL || `https://api.dicebear.com/7.x/bottts/svg?seed=${encodeURIComponent(email || 'creator')}`;
 
@@ -618,7 +618,7 @@
           ? `<img src="${user.avatarUrl}" alt="${user.displayName}" class="w-7 h-7 rounded-full object-cover border border-pink-400 shadow-sm"/>`
           : `<div class="w-7 h-7 rounded-full bg-gradient-to-tr from-pink-500 to-purple-600 text-white flex items-center justify-center font-bold text-[11px]">${initials}</div>`;
 
-        const isUserMaster = user.role === 'admin' || user.isAdmin === true || (window.WishFirebaseAuth?.isAdminEmail && window.WishFirebaseAuth.isAdminEmail(user.email)) || (user.email && (user.email.toLowerCase() === 'ankit.babusaini@gmail.com' || user.email.toLowerCase() === 'ankitsaini941413@gmail.com' || user.email.toLowerCase() === 'bhoomgamer@gmail.com'));
+        const isUserMaster = user.role === 'admin' || user.isAdmin === true || (window.WishFirebaseAuth?.isAdminEmail && window.WishFirebaseAuth.isAdminEmail(user.email)) || (user.email && (user.email.toLowerCase() === 'ankit.babusaini@gmail.com' || user.email.toLowerCase() === 'bhoomgamer@gmail.com'));
 
         container.innerHTML = `
           <div class="relative inline-block" id="account-dropdown-wrapper">
@@ -718,7 +718,7 @@
       e.stopPropagation();
     }
     const user = WishAuth.getCurrentUser();
-    const isMaster = user && (user.role === 'admin' || user.isAdmin || (user.email && (user.email.toLowerCase() === 'ankit.babusaini@gmail.com' || user.email.toLowerCase() === 'ankitsaini941413@gmail.com' || user.email.toLowerCase() === 'bhoomgamer@gmail.com')));
+    const isMaster = user && (user.role === 'admin' || user.isAdmin || (user.email && (user.email.toLowerCase() === 'ankit.babusaini@gmail.com' || user.email.toLowerCase() === 'bhoomgamer@gmail.com')));
 
     if (isMaster) {
       try {

@@ -4,7 +4,7 @@ const SECRET_ADMIN_PREFIX = '/admin/anktech/anktech/admin';
 
 // 1. Client-Side Admin Session Gatekeeper (Exclusively for Authorized Google Account, Zero Redirect Loop)
 (async function checkAdminGatekeeper() {
-  const MASTER_ADMINS = ['ankit.babusaini@gmail.com', 'ankitsaini941413@gmail.com', 'bhoomgamer@gmail.com'];
+  const MASTER_ADMINS = ['ankit.babusaini@gmail.com', 'bhoomgamer@gmail.com'];
 
   const isMaster = (email) => {
     if (!email) return false;
@@ -12,7 +12,7 @@ const SECRET_ADMIN_PREFIX = '/admin/anktech/anktech/admin';
     return MASTER_ADMINS.includes(clean) || clean.startsWith('admin@');
   };
 
-  // Modern High-Security Google Restricted Screen (NO username/password form)
+  // Modern High-Security Google Restricted Screen (NO username/password form, NO email details exposed)
   function showAccessRestrictedScreen(reasonUser) {
     if (document.getElementById('admin-access-restricted-screen')) return;
 
@@ -46,19 +46,16 @@ const SECRET_ADMIN_PREFIX = '/admin/anktech/anktech/admin';
             <span class="material-symbols-outlined text-amber-400 text-xl shrink-0 mt-0.5">verified_user</span>
             <div>
               <h2 class="text-xs font-bold text-white uppercase tracking-wider">Authorized Google Admin Only</h2>
-              <p class="text-xs text-purple-200/80 mt-1 leading-relaxed">
-                Yeh Admin Panel password-free hai aur sirf authorized Google account se hi khul sakta hai:
+              <p class="text-xs text-purple-200/80 mt-1.5 leading-relaxed">
+                Yeh Admin Studio password-free hai aur sirf authorized Master Admin Google account ke liye secured hai.
               </p>
-              <div class="mt-2 px-2.5 py-1.5 rounded-lg bg-black/50 border border-purple-500/30 font-mono text-xs text-pink-300 font-bold truncate">
-                ankitsaini941413@gmail.com
-              </div>
-              ${reasonUser && reasonUser.email ? `
+              ${reasonUser ? `
                 <div class="mt-2.5 pt-2 border-t border-purple-800/60 text-[11px] text-amber-300">
-                  Aap logged in hain as: <strong class="text-white">${reasonUser.email}</strong> (Not Authorized)
+                  Current logged-in account is not authorized for Admin Studio.
                 </div>
               ` : `
                 <div class="mt-2.5 pt-2 border-t border-purple-800/60 text-[11px] text-purple-300">
-                  Aap currently sign-in nahi hain. Niche diye button se Google login karein.
+                  Aap currently signed in nahi hain. Niche diye button se Google login karein.
                 </div>
               `}
             </div>
@@ -102,7 +99,7 @@ const SECRET_ADMIN_PREFIX = '/admin/anktech/anktech/admin';
           location.reload();
           return;
         } else if (u) {
-          alert('Access Denied: ' + u.email + ' is not authorized for Admin Studio. Please login with ankitsaini941413@gmail.com.');
+          alert('Access Denied: Current Google account is not authorized for Admin Studio.');
         }
       } else if (window.WishFirebaseAuth) {
         const fbUser = await window.WishFirebaseAuth.signInWithGoogle();
@@ -124,7 +121,7 @@ const SECRET_ADMIN_PREFIX = '/admin/anktech/anktech/admin';
           location.reload();
           return;
         } else if (fbUser) {
-          alert('Access Denied: ' + fbUser.email + ' is not authorized for Admin Studio.');
+          alert('Access Denied: Current Google account is not authorized for Admin Studio.');
         }
       }
     } catch(err) {

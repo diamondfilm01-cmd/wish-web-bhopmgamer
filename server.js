@@ -914,7 +914,7 @@ app.post('/api/auth/signin', (req, res) => {
   try {
     const { email, userId, displayName, avatarUrl, provider, firebaseUid } = req.body || {};
     const cleanEmail = (email || '').trim().toLowerCase();
-    const ADMIN_EMAILS_LIST = ['ankit.babusaini@gmail.com', 'ankitsaini941413@gmail.com', 'bhoomgamer@gmail.com', 'admin@wishmagic.internal', 'admin@anktech.internal'];
+    const ADMIN_EMAILS_LIST = ['ankit.babusaini@gmail.com', 'bhoomgamer@gmail.com', 'admin@wishmagic.internal', 'admin@anktech.internal'];
     const isUserAdmin = ADMIN_EMAILS_LIST.includes(cleanEmail);
     const users = getUsers();
 
@@ -1227,7 +1227,7 @@ app.get('/api/admin/auth/session', (req, res) => {
     }
   }
 
-  const MASTER_ADMINS = ['ankit.babusaini@gmail.com', 'ankitsaini941413@gmail.com', 'bhoomgamer@gmail.com'];
+  const MASTER_ADMINS = ['ankit.babusaini@gmail.com', 'bhoomgamer@gmail.com'];
   const userEmail = (user && user.email ? user.email.toLowerCase().trim() : '');
   const isMaster = user && (user.role === 'admin' || user.role === 'OWNER' || user.role === 'SUPER_ADMIN' || user.isAdmin || MASTER_ADMINS.includes(userEmail) || userEmail.startsWith('admin@'));
 
