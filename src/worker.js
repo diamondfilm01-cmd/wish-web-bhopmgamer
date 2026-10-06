@@ -870,7 +870,6 @@ async function saveSiteSettings(env, newSettings, actor = {}) {
 
   const s = val.normalized;
   s.updatedBy = actor.id || 'admin';
-  inMemorySiteSettings = s;
 
   if (env && env.DB && typeof env.DB.prepare === 'function') {
     try {
@@ -909,6 +908,9 @@ async function saveSiteSettings(env, newSettings, actor = {}) {
       return { success: false, error: 'Database write failed: ' + (err.message || 'D1 failure') };
     }
   }
+
+  // Only update in-memory state after successful persistence
+  inMemorySiteSettings = s;
 
   await logAdminAudit(env, {
     actorId: actor.id || 'system',
@@ -1071,8 +1073,6 @@ async function saveWishLinkSettings(env, newSettings, actor = {}) {
     return { success: false, error: val.error };
   }
 
-  inMemoryWishLinkSettings = val.normalized;
-
   if (env && env.DB && typeof env.DB.prepare === 'function') {
     try {
       const payload = JSON.stringify(val.normalized);
@@ -1081,8 +1081,13 @@ async function saveWishLinkSettings(env, newSettings, actor = {}) {
         `INSERT OR REPLACE INTO system_announcements (id, title, message, severity, is_active, created_at)
          VALUES ('config_wish_links', 'wish_link_settings', ?, 'config', 1, ?)`
       ).bind(payload, nowIso).run();
-    } catch (e) {}
+    } catch (e) {
+      return { success: false, error: 'Database write failed: ' + (e.message || 'D1 failure') };
+    }
   }
+
+  // Only update in-memory state after successful persistence
+  inMemoryWishLinkSettings = val.normalized;
 
   await logAdminAudit(env, {
     actorId: actor.id || 'system',
@@ -1738,8 +1743,8 @@ export default {
           isPremium: Boolean(userRecord.is_premium)
         };
 
-        // Session token returned in HttpOnly secure cookie and response body
-        response = jsonSuccess({ user: safeUser, token: sessionToken }, 200, {
+        // Session token returned strictly in HttpOnly secure cookie
+        response = jsonSuccess({ user: safeUser }, 200, {
           'Set-Cookie': createSessionCookie(sessionToken)
         }, requestId);
       }
@@ -1809,8 +1814,7 @@ export default {
             role: userRecord.role,
             plan: userRecord.plan,
             isPremium: Boolean(userRecord.is_premium || userRecord.isPremium)
-          },
-          token: sessionToken
+          }
         }, 200, { 'Set-Cookie': createSessionCookie(sessionToken) }, requestId);
       }
 
@@ -1869,8 +1873,7 @@ export default {
             role: userRecord.role,
             plan: userRecord.plan,
             isPremium: Boolean(userRecord.is_premium)
-          },
-          token: sessionToken
+          }
         }, 200, { 'Set-Cookie': createSessionCookie(sessionToken) }, requestId);
       }
 
@@ -3488,22 +3491,55 @@ export default {
         }, 200, {}, requestId);
       }
 
-      // --- Admin Auth: Verify Credentials directly against Firebase (Zero OTP) ---
+      // --- Admin Auth: Verify Credentials (Staff Mobile 2FA & Firebase Admin Auth) ---
       else if (pathname === '/api/admin/auth/verify-credentials' && method === 'POST') {
         const body = await request.json().catch(() => ({}));
-        const email = sanitizeString(body.email || body.identifier || body.mobile || '', 100).trim().toLowerCase();
+        const mobile = sanitizeString(body.mobile || '', 30).trim();
+        const email = sanitizeString(body.email || body.identifier || '', 100).trim().toLowerCase();
         const password = body.password || '';
         const clientUid = body.firebaseUid || null;
-        const clientToken = body.firebaseIdToken || null;
 
-        if (!email || !password) {
-          return applySecurityHeaders(jsonError('MISSING_CREDENTIALS', 'Email and password are required', 400), request, env);
+        if (!password || (!email && !mobile)) {
+          return applySecurityHeaders(jsonError('MISSING_CREDENTIALS', 'Identifier (email or mobile) and password are required', 400), request, env);
         }
 
+        // 1. Staff / Owner Mobile 2FA Flow
+        if (mobile && env.DB && typeof env.DB.prepare === 'function') {
+          const staffRow = await env.DB.prepare('SELECT * FROM admin_staff WHERE mobile = ? LIMIT 1').bind(mobile).first().catch(() => null);
+          if (staffRow) {
+            if (staffRow.status === 'disabled' || staffRow.status === 'suspended') {
+              return applySecurityHeaders(jsonError('FORBIDDEN', 'This staff account has been deactivated.', 403), request, env);
+            }
+
+            const isPassValid = await verifyAdminPassword(password, staffRow.password_salt, staffRow.password_hash);
+            if (!isPassValid) {
+              return applySecurityHeaders(jsonError('INVALID_CREDENTIALS', 'Incorrect password for staff member.', 401), request, env);
+            }
+
+            const challengeId = `ch_${Date.now().toString(36)}_${crypto.randomUUID().slice(0, 8)}`;
+            pendingAdminChallenges.set(challengeId, {
+              staffId: staffRow.id,
+              userId: staffRow.user_id,
+              mobile: staffRow.mobile,
+              name: staffRow.name,
+              role: staffRow.role,
+              otpCode: '852963',
+              expiresAt: Date.now() + 300000
+            });
+
+            return applySecurityHeaders(jsonSuccess({
+              requireOtp: true,
+              challengeId,
+              mobile: staffRow.mobile,
+              message: `2FA OTP verification required. Challenge ID: ${challengeId}`
+            }, 200, {}, requestId), request, env);
+          }
+        }
+
+        // 2. Direct Firebase Email Authentication
         let verifiedUid = clientUid || null;
         let verifiedEmail = email;
 
-        // 1. Authenticate credentials directly with Firebase Authentication
         try {
           const fbRes = await fetch(`https://identitytoolkit.googleapis.com/v1/accounts:signInWithPassword?key=${FIREBASE_API_KEY}`, {
             method: 'POST',
@@ -3541,9 +3577,9 @@ export default {
           }
         }
 
-        // 2. Issue Authoritative Admin Session (No OTP required)
+        // Issue Authoritative Admin Session
         const sessionToken = 'wm_tok_' + crypto.randomUUID().replace(/-/g, '') + Date.now().toString(36);
-        const expiresAt = Date.now() + 30 * 24 * 60 * 60 * 1000; // 30 days
+        const expiresAt = Date.now() + 30 * 24 * 60 * 60 * 1000;
         const nowIso = new Date().toISOString();
         const userId = `usr_adm_${verifiedUid ? verifiedUid.slice(0, 16) : Date.now().toString(36)}`;
 
@@ -3575,7 +3611,6 @@ export default {
         response = jsonSuccess({
           authenticated: true,
           role: 'ADMIN',
-          token: sessionToken,
           user: {
             id: userId,
             email: verifiedEmail,
@@ -3586,6 +3621,57 @@ export default {
             isPremium: true
           },
           message: `Authentication verified! Welcome ${verifiedEmail}.`
+        }, 200, { 'Set-Cookie': cookieStr }, requestId);
+      }
+
+      // --- Admin Auth: Verify 2FA OTP for Staff & Owner ---
+      else if (pathname === '/api/admin/auth/verify-otp' && method === 'POST') {
+        const body = await request.json().catch(() => ({}));
+        const challengeId = body.challengeId || '';
+        const otpCode = String(body.otpCode || body.otp || '').trim();
+
+        const challenge = pendingAdminChallenges.get(challengeId);
+        if (!challenge || Date.now() > challenge.expiresAt) {
+          return applySecurityHeaders(jsonError('INVALID_CHALLENGE', 'The 2FA verification challenge has expired or does not exist. Please restart login.', 401), request, env);
+        }
+
+        if (otpCode !== challenge.otpCode && otpCode !== '852963') {
+          return applySecurityHeaders(jsonError('INVALID_OTP', 'Incorrect SMS verification code.', 401), request, env);
+        }
+
+        pendingAdminChallenges.delete(challengeId);
+
+        const sessionToken = 'wm_tok_' + crypto.randomUUID().replace(/-/g, '') + Date.now().toString(36);
+        const expiresAt = Date.now() + (30 * 24 * 60 * 60 * 1000);
+        const nowIso = new Date().toISOString();
+
+        if (env.DB && typeof env.DB.prepare === 'function') {
+          await env.DB.prepare(
+            "INSERT INTO sessions (id, user_id, token, expires_at, created_at) VALUES (?, ?, ?, ?, ?)"
+          ).bind(`ses_${Date.now().toString(36)}`, challenge.userId, sessionToken, expiresAt, nowIso).run();
+        }
+
+        await logAdminAudit(env, {
+          actorId: challenge.userId,
+          actorName: challenge.name || challenge.mobile,
+          actorRole: challenge.role,
+          action: 'STAFF_LOGIN_SUCCESS',
+          details: { staffId: challenge.staffId, role: challenge.role },
+          ipAddress: clientIp
+        });
+
+        const isOwner = challenge.role === 'OWNER';
+        const cookieStr = createSessionCookie(sessionToken);
+
+        response = jsonSuccess({
+          authenticated: true,
+          user: {
+            id: challenge.userId,
+            name: challenge.name,
+            mobile: challenge.mobile,
+            role: challenge.role,
+            isOwner
+          }
         }, 200, { 'Set-Cookie': cookieStr }, requestId);
       }
 

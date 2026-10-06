@@ -4335,12 +4335,11 @@ app.get('/w/:id', (req, res) => {
 const ADMIN_BASE = '/admin/anktech/anktech/admin';
 
 function sendAdminPage(file, req, res) {
-  let isAdmin = req.user && (req.user.role === 'admin' || req.user.isAdmin === true);
+  let isAdmin = req.user && (req.user.role === 'admin' || req.user.role === 'OWNER' || req.user.isAdmin === true);
 
   if (!isAdmin) {
-    const token = (req.query && (req.query.auth || req.query.token)) ||
-                  (req.headers.cookie && (parseCookies(req.headers.cookie).wm_session || parseCookies(req.headers.cookie).wishmagic_admin_token)) ||
-                  (req.headers.authorization || '').replace(/^Bearer\s+/i, '');
+    const token = (req.headers.cookie && parseCookies(req.headers.cookie).wm_session) ||
+                  (req.headers.authorization || '').replace(/^Bearer\s+/i, '').trim();
 
     if (token) {
       const sessions = getSessions();
@@ -4348,41 +4347,29 @@ function sendAdminPage(file, req, res) {
       const users = getUsers();
       if (session) {
         const u = users.find(usr => usr.id === session.userId);
-        if (u && (u.role === 'admin' || u.isAdmin)) {
+        if (u && (u.role === 'admin' || u.role === 'OWNER' || u.isAdmin)) {
           req.user = u;
           isAdmin = true;
+        } else if (u) {
+          return res.status(403).send('Access Denied: Insufficient administrative privileges.');
         }
-      }
-      if (!isAdmin && (token.includes('admin') || token === 'dev_token_usr_admin_999')) {
-        req.user = users.find(u => u.id === 'usr_admin_999') || users.find(u => u.role === 'admin' || u.isAdmin) || {
-          id: 'usr_admin_999',
-          email: 'admin@wishmagic.internal',
-          displayName: 'Platform Admin',
-          role: 'admin',
-          isAdmin: true
-        };
-        isAdmin = true;
       }
     }
   }
 
   if (!isAdmin) {
-    // Not logged in -> Show Admin Login Page
-    return res.sendFile(path.join(__dirname, 'public', 'admin-login.html'));
+    // Not logged in -> Redirect to Secret Admin Login Page
+    return res.redirect(`${ADMIN_BASE}/login`);
   }
 
-  // Already logged in -> Ensure cookie is renewed and serve requested page
-  if (req.sessionToken) {
-    res.setHeader('Set-Cookie', `wm_session=${encodeURIComponent(req.sessionToken)}; Path=/; Max-Age=${30 * 24 * 60 * 60}; SameSite=Lax`);
-  }
   res.sendFile(path.join(__dirname, 'public', file));
 }
 
 // Direct Admin Login Route
 app.get(['/admin-login', '/admin-login.html', `${ADMIN_BASE}/login`], (req, res) => {
-  const isAdmin = req.user && (req.user.role === 'admin' || req.user.isAdmin === true);
+  const isAdmin = req.user && (req.user.role === 'admin' || req.user.role === 'OWNER' || req.user.isAdmin === true);
   if (isAdmin) {
-    return res.redirect(`${ADMIN_BASE}/overview${req.sessionToken ? '?auth=' + encodeURIComponent(req.sessionToken) : ''}`);
+    return res.redirect(`${ADMIN_BASE}/overview`);
   }
   res.sendFile(path.join(__dirname, 'public', 'admin-login.html'));
 });

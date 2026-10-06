@@ -33,17 +33,40 @@ export async function onRequest(context) {
     }
   }
 
-  // Secret Admin Portal Entry: Direct route mapping
+  // Secret Admin Portal Entry: Direct route mapping with Server-Side Protection
   if (pathname.startsWith('/admin/anktech/anktech/admin')) {
     if (pathname === '/admin/anktech/anktech/admin/login' || pathname.endsWith('/login')) {
       const loginReq = new Request(new URL('/admin-login.html', context.request.url), context.request);
       return await context.next(loginReq);
     }
 
-    const cleanPath = pathname.replace(/\/+$/, '');
-    const targetFile = ADMIN_ROUTES_MAP[cleanPath] || ADMIN_ROUTES_MAP[pathname] || '/admin-overview.html';
-    const pageReq = new Request(new URL(targetFile, context.request.url), context.request);
-    return await context.next(pageReq);
+    // Server-Side Authentication & Role Verification
+    try {
+      const sessionRes = await worker.fetch(new Request(new URL('/api/auth/session', context.request.url), {
+        headers: context.request.headers
+      }), context.env);
+
+      if (sessionRes.status === 200) {
+        const sessionData = await sessionRes.json().catch(() => ({}));
+        const u = sessionData.data?.user || sessionData.user;
+        if (u && (u.role === 'admin' || u.role === 'OWNER' || u.role === 'SUPER_ADMIN' || u.isAdmin === true)) {
+          const cleanPath = pathname.replace(/\/+$/, '');
+          const targetFile = ADMIN_ROUTES_MAP[cleanPath] || ADMIN_ROUTES_MAP[pathname] || '/admin-overview.html';
+          const pageReq = new Request(new URL(targetFile, context.request.url), context.request);
+          return await context.next(pageReq);
+        } else if (u) {
+          return new Response('Access Denied: Insufficient administrative privileges.', {
+            status: 403,
+            headers: { 'Content-Type': 'text/plain; charset=utf-8' }
+          });
+        }
+      }
+    } catch (e) {
+      console.warn('[Server Admin Guard]', e);
+    }
+
+    // Unauthenticated: redirect to login
+    return Response.redirect(new URL('/admin/anktech/anktech/admin/login', context.request.url), 302);
   }
 
   // Pretty admin and storefront route mapping

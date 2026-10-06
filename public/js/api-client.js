@@ -299,6 +299,15 @@
           }
 
           if (!response.ok) {
+            // One-time re-hydration attempt on 401 before giving up
+            if (response.status === 401 && !options._retried401 && typeof window !== 'undefined' && window.WishAuth && typeof window.WishAuth.hydrateSessionFromServer === 'function') {
+              try {
+                const refreshed = await window.WishAuth.hydrateSessionFromServer();
+                if (refreshed) {
+                  return await this.request(endpoint, { ...options, _retried401: true });
+                }
+              } catch (rehydrateErr) {}
+            }
             throw this._handleHttpError(response.status, parsedData || {});
           }
 

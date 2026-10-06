@@ -169,7 +169,7 @@
     },
 
     getSession() {
-      return currentUser ? { userId: currentUser.id, authenticated: true } : null;
+      return currentUser ? { userId: currentUser.id, authenticated: true, user: { ...currentUser } } : null;
     },
 
     isAuthenticated() {
@@ -178,6 +178,15 @@
 
     isCheckingSession() {
       return isCheckingSession;
+    },
+
+    async waitForAuthReady(timeoutMs = 4000) {
+      if (!isCheckingSession) return currentUser;
+      const start = Date.now();
+      while (isCheckingSession && (Date.now() - start < timeoutMs)) {
+        await new Promise(r => setTimeout(r, 50));
+      }
+      return currentUser;
     },
 
     /**
@@ -582,15 +591,15 @@
           : `<div class="w-7 h-7 rounded-full bg-gradient-to-tr from-pink-500 to-purple-600 text-white flex items-center justify-center font-bold text-[11px]">${initials}</div>`;
 
         container.innerHTML = `
-          <div class="relative" id="account-dropdown-wrapper">
-            <button onclick="window.toggleAccountMenu(event)" class="flex items-center gap-2 px-2.5 py-1 rounded-full bg-surface-container-high/60 hover:bg-surface-container-highest border border-purple-200/40 dark:border-purple-800/60 transition cursor-pointer">
+          <div class="relative inline-block" id="account-dropdown-wrapper">
+            <button onclick="window.toggleAccountMenu(event)" class="flex items-center gap-1.5 sm:gap-2 px-2 sm:px-2.5 py-1 rounded-full bg-surface-container-high/70 hover:bg-surface-container-highest border border-purple-200/50 dark:border-purple-800/60 transition cursor-pointer active:scale-95">
               ${avatarImg}
-              <span class="text-xs font-bold text-on-surface truncate max-w-[100px] sm:max-w-[130px]">${user.displayName || user.email}</span>
+              <span class="text-xs font-bold text-on-surface truncate max-w-[70px] xs:max-w-[100px] sm:max-w-[130px]">${user.displayName || user.email}</span>
               <span class="material-symbols-outlined text-[14px] text-outline">expand_more</span>
             </button>
 
             <!-- Dropdown Menu -->
-            <div id="account-dropdown-menu" class="hidden absolute right-0 mt-2 w-56 bg-surface-container-highest/95 backdrop-blur-xl rounded-2xl shadow-2xl border border-purple-200/50 dark:border-purple-800/80 p-2 z-50 animate-scaleUp text-left">
+            <div id="account-dropdown-menu" class="hidden absolute right-0 top-full mt-2 w-56 sm:w-64 max-w-[calc(100vw-24px)] bg-surface-container-highest/98 dark:bg-purple-950/98 backdrop-blur-2xl rounded-2xl shadow-2xl border border-purple-200/60 dark:border-purple-800/80 p-2 z-[100] animate-scaleUp text-left">
               <div class="px-3 py-2 border-b border-purple-100 dark:border-purple-900">
                 <div class="font-bold text-xs text-on-surface truncate">${user.displayName}</div>
                 <div class="text-[10px] text-on-surface-variant truncate">${user.email}</div>

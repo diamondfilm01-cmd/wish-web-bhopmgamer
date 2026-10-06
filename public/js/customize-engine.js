@@ -4008,10 +4008,15 @@ window.publishWishAndGetLink = async function() {
     }
   }
 
+  // Ensure auth check has resolved
+  if (window.WishAuth && typeof window.WishAuth.waitForAuthReady === 'function') {
+    await window.WishAuth.waitForAuthReady(2500);
+  }
+
   // Ensure user is authenticated before publishing
   if (!window.WishAuth || !window.WishAuth.isAuthenticated()) {
     if (typeof window.openAuthModal === 'function') {
-      window.openAuthModal('signin', '✨ Please sign in or create an account to publish and save your celebration website!');
+      window.openAuthModal('signin', '✨ Please sign in with your Google account to publish and save your celebration website!');
     } else {
       showToast('⚠️ Please sign in to publish your celebration website.');
     }

@@ -1069,7 +1069,13 @@
       }
 
       // Also persist wish link monetization settings
-      await saveWishLinkSettings();
+      const wishRes = await saveWishLinkSettings();
+      if (!wishRes || !wishRes.success) {
+        const errorMsg = wishRes?.error || 'Failed to persist wish link configuration.';
+        showStatusBanner(`Save Failed: ${errorMsg}`, 'error');
+        showToast(`❌ Wish Link Save Failed: ${errorMsg}`);
+        return;
+      }
 
       const persisted = (data.data && data.data.settings) || data.settings || payload;
       if (persisted.heroBadge) document.getElementById('setting-hero-badge').value = persisted.heroBadge;

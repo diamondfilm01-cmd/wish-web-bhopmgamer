@@ -141,87 +141,57 @@
       }
     }
 
-    // DIRECT BUILT-IN USERNAME & PASSWORD ADMIN LOGIN
+    // AUTHORITATIVE ADMIN LOGIN
     async function handleDirectAdminLogin(e) {
       e.preventDefault();
       hideAlert();
       hideInfo();
 
-      const username = (document.getElementById('admin-username-input')?.value || '').trim();
+      const identifier = (document.getElementById('admin-username-input')?.value || '').trim();
       const password = (document.getElementById('admin-password-input')?.value || '');
       const btn = document.getElementById('login-submit-btn');
 
-      if (!username || !password) {
-        showAlert('Please enter both username/email and password.');
+      if (!identifier || !password) {
+        showAlert('Please enter both email/mobile and password.');
         return;
       }
 
       btn.disabled = true;
       btn.innerHTML = '<span class="animate-spin material-symbols-outlined text-sm">progress_activity</span> Verifying Credentials...';
 
-      let verified = false;
-      let sessionToken = 'wm_tok_admin_' + Date.now().toString(36) + '_' + Math.random().toString(36).substr(2, 8);
-
-      // 1. Try server verification if backend is running
       try {
+        const payload = { password };
+        if (identifier.startsWith('+') || /^\d{10,15}$/.test(identifier)) {
+          payload.mobile = identifier;
+        } else {
+          payload.email = identifier;
+        }
+
         const res = await fetch('/api/admin/auth/verify-credentials', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           credentials: 'include',
-          body: JSON.stringify({ username, password })
+          body: JSON.stringify(payload)
         });
 
-        if (res.ok) {
-          const data = await res.json();
-          if (data && data.success && data.data) {
-            verified = true;
-            if (data.data.token) sessionToken = data.data.token;
-            if (data.data.user) localStorage.setItem('wishmagic_user', JSON.stringify(data.data.user));
-          }
+        const data = await res.json().catch(() => ({}));
+
+        if (res.ok && data && (data.success || data.authenticated)) {
+          btn.className = 'w-full py-3.5 px-4 rounded-xl bg-emerald-500 text-white font-bold text-sm tracking-wide shadow-lg flex items-center justify-center gap-2';
+          btn.innerHTML = '<span class="material-symbols-outlined text-lg animate-bounce">check_circle</span> <span>Access Granted! Opening Studio...</span>';
+
+          setTimeout(() => {
+            window.location.replace('/admin/anktech/anktech/admin/overview');
+          }, 200);
+          return;
         }
+
+        const errMessage = data?.error?.message || data?.message || 'Incorrect admin email/mobile or password. Please verify and try again.';
+        showAlert(errMessage);
       } catch (err) {
-        // Backend not accessible (e.g. static Cloudflare Pages)
-      }
-
-      // 2. Direct Built-in Fallback for Static Host / Cloudflare Pages
-      if (!verified) {
-        const cleanId = username.toLowerCase();
-        const REQUIRED_USERNAME = 'anktech.ankit.babusaini';
-        const REQUIRED_PASSWORD = 'Radha@941413';
-
-        if (cleanId === REQUIRED_USERNAME && password === REQUIRED_PASSWORD) {
-          verified = true;
-          const localAdminUser = {
-            id: 'usr_admin_master',
-            email: 'anktech.ankit.babusaini@wishmagic.internal',
-            displayName: 'Ankit Babu Saini',
-            role: 'admin',
-            isAdmin: true,
-            plan: 'VIP',
-            isPremium: true
-          };
-          localStorage.setItem('wishmagic_user', JSON.stringify(localAdminUser));
-        }
-      }
-
-      if (verified) {
-        // Store persistent admin session
-        localStorage.setItem('wishmagic_admin_token', sessionToken);
-        localStorage.setItem('wishmagic_auth_token', sessionToken);
-        sessionStorage.setItem('wm_admin_verified', 'true');
-        try {
-          document.cookie = 'wm_session=' + encodeURIComponent(sessionToken) + '; Path=/; Max-Age=2592000; SameSite=Lax';
-          document.cookie = 'wishmagic_admin_token=' + encodeURIComponent(sessionToken) + '; Path=/; Max-Age=2592000; SameSite=Lax';
-        } catch(e) {}
-
-        btn.className = 'w-full py-3.5 px-4 rounded-xl bg-emerald-500 text-white font-bold text-sm tracking-wide shadow-lg flex items-center justify-center gap-2';
-        btn.innerHTML = '<span class="material-symbols-outlined text-lg animate-bounce">check_circle</span> <span>Access Granted! Opening Studio...</span>';
-
-        setTimeout(() => {
-          window.location.replace('/admin/anktech/anktech/admin/overview?auth=' + encodeURIComponent(sessionToken));
-        }, 200);
-      } else {
-        showAlert('Incorrect admin username or password. Please verify and try again.');
+        console.error('[Admin Login Error]', err);
+        showAlert('Unable to connect to authentication server. Please check your network connection.');
+      } finally {
         btn.disabled = false;
         btn.innerHTML = '<span class="material-symbols-outlined text-lg">login</span> <span>Sign In to Admin Studio</span>';
       }
