@@ -642,6 +642,13 @@ const DEFAULT_SERVER_SITE_SETTINGS = {
   currency: 'INR',
   particleFx: true,
   maintenanceMode: false,
+  promoDiscountEnabled: false,
+  promoFreeOfferMode: false,
+  promoOriginalPrice: 99,
+  promoDiscountPrice: 49,
+  promoBadgeText: '🔥 Limited Time Offer - 100% OFF Free Today!',
+  promoBannerActive: false,
+  promoBannerText: '🎉 Special Launch Offer: All Personalized Links & VIP Wishes are 100% FREE Today!',
   updatedAt: '2026-10-05T00:00:00.000Z',
   updatedBy: 'system'
 };
@@ -756,6 +763,15 @@ function validateServerSiteSettings(settings) {
   const particleFx = s.particleFx !== undefined ? Boolean(s.particleFx) : current.particleFx;
   const maintenanceMode = s.maintenanceMode !== undefined ? Boolean(s.maintenanceMode) : current.maintenanceMode;
 
+  // Promo Discounts & Free Offer
+  const promoDiscountEnabled = s.promoDiscountEnabled !== undefined ? Boolean(s.promoDiscountEnabled) : current.promoDiscountEnabled;
+  const promoFreeOfferMode = s.promoFreeOfferMode !== undefined ? Boolean(s.promoFreeOfferMode) : current.promoFreeOfferMode;
+  const promoOriginalPrice = Math.max(0, Number(s.promoOriginalPrice !== undefined ? s.promoOriginalPrice : current.promoOriginalPrice) || 99);
+  const promoDiscountPrice = promoFreeOfferMode ? 0 : Math.max(0, Number(s.promoDiscountPrice !== undefined ? s.promoDiscountPrice : current.promoDiscountPrice) || 0);
+  const promoBadgeText = String(s.promoBadgeText !== undefined ? s.promoBadgeText : current.promoBadgeText).trim();
+  const promoBannerActive = s.promoBannerActive !== undefined ? Boolean(s.promoBannerActive) : current.promoBannerActive;
+  const promoBannerText = String(s.promoBannerText !== undefined ? s.promoBannerText : current.promoBannerText).trim();
+
   return {
     valid: true,
     normalized: {
@@ -770,7 +786,14 @@ function validateServerSiteSettings(settings) {
       supportWa,
       currency,
       particleFx,
-      maintenanceMode
+      maintenanceMode,
+      promoDiscountEnabled,
+      promoFreeOfferMode,
+      promoOriginalPrice,
+      promoDiscountPrice,
+      promoBadgeText,
+      promoBannerActive,
+      promoBannerText
     }
   };
 }
@@ -792,6 +815,13 @@ function formatServerPublicSiteSettings(settings) {
     currencySymbol: settings.currency === 'USD' || settings.currency === 'CAD' || settings.currency === 'AUD' ? '$' : settings.currency === 'EUR' ? '€' : settings.currency === 'GBP' ? '£' : '₹',
     particleFx: Boolean(settings.particleFx),
     maintenanceMode: Boolean(settings.maintenanceMode),
+    promoDiscountEnabled: Boolean(settings.promoDiscountEnabled),
+    promoFreeOfferMode: Boolean(settings.promoFreeOfferMode),
+    promoOriginalPrice: Number(settings.promoOriginalPrice || 99),
+    promoDiscountPrice: Number(settings.promoDiscountPrice || (settings.promoFreeOfferMode ? 0 : 49)),
+    promoBadgeText: settings.promoBadgeText || '🔥 Limited Time Offer',
+    promoBannerActive: Boolean(settings.promoBannerActive),
+    promoBannerText: settings.promoBannerText || '',
     updatedAt: settings.updatedAt
   };
 }

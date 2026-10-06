@@ -665,6 +665,13 @@ const DEFAULT_SITE_SETTINGS = {
   currency: 'INR',
   particleFx: true,
   maintenanceMode: false,
+  promoDiscountEnabled: false,
+  promoFreeOfferMode: false,
+  promoOriginalPrice: 99,
+  promoDiscountPrice: 49,
+  promoBadgeText: '🔥 Limited Time Offer - 100% OFF Free Today!',
+  promoBannerActive: false,
+  promoBannerText: '🎉 Special Launch Offer: All Personalized Links & VIP Wishes are 100% FREE Today!',
   updatedAt: '2026-10-05T00:00:00.000Z',
   updatedBy: 'system'
 };
@@ -783,6 +790,15 @@ function validateSiteSettings(settings) {
   // Maintenance Mode
   const maintenanceMode = s.maintenanceMode !== undefined ? Boolean(s.maintenanceMode) : inMemorySiteSettings.maintenanceMode;
 
+  // Promo Discounts & Free Offer
+  const promoDiscountEnabled = s.promoDiscountEnabled !== undefined ? Boolean(s.promoDiscountEnabled) : inMemorySiteSettings.promoDiscountEnabled;
+  const promoFreeOfferMode = s.promoFreeOfferMode !== undefined ? Boolean(s.promoFreeOfferMode) : inMemorySiteSettings.promoFreeOfferMode;
+  const promoOriginalPrice = Math.max(0, Number(s.promoOriginalPrice !== undefined ? s.promoOriginalPrice : inMemorySiteSettings.promoOriginalPrice) || 99);
+  const promoDiscountPrice = promoFreeOfferMode ? 0 : Math.max(0, Number(s.promoDiscountPrice !== undefined ? s.promoDiscountPrice : inMemorySiteSettings.promoDiscountPrice) || 0);
+  const promoBadgeText = sanitizeString(String(s.promoBadgeText !== undefined ? s.promoBadgeText : inMemorySiteSettings.promoBadgeText).trim(), 100);
+  const promoBannerActive = s.promoBannerActive !== undefined ? Boolean(s.promoBannerActive) : inMemorySiteSettings.promoBannerActive;
+  const promoBannerText = sanitizeString(String(s.promoBannerText !== undefined ? s.promoBannerText : inMemorySiteSettings.promoBannerText).trim(), 200);
+
   return {
     valid: true,
     normalized: {
@@ -798,6 +814,13 @@ function validateSiteSettings(settings) {
       currency,
       particleFx,
       maintenanceMode,
+      promoDiscountEnabled,
+      promoFreeOfferMode,
+      promoOriginalPrice,
+      promoDiscountPrice,
+      promoBadgeText,
+      promoBannerActive,
+      promoBannerText,
       updatedAt: new Date().toISOString()
     }
   };
@@ -829,6 +852,13 @@ async function getSiteSettings(env) {
           else if (row.key === 'currency') config.currency = val;
           else if (row.key === 'particle_fx') config.particleFx = val;
           else if (row.key === 'maintenance_mode') config.maintenanceMode = val;
+          else if (row.key === 'promo_discount_enabled') config.promoDiscountEnabled = val;
+          else if (row.key === 'promo_free_offer_mode') config.promoFreeOfferMode = val;
+          else if (row.key === 'promo_original_price') config.promoOriginalPrice = val;
+          else if (row.key === 'promo_discount_price') config.promoDiscountPrice = val;
+          else if (row.key === 'promo_badge_text') config.promoBadgeText = val;
+          else if (row.key === 'promo_banner_active') config.promoBannerActive = val;
+          else if (row.key === 'promo_banner_text') config.promoBannerText = val;
           if (row.updated_at) config.updatedAt = row.updated_at;
           if (row.updated_by) config.updatedBy = row.updated_by;
         }
@@ -866,7 +896,14 @@ async function saveSiteSettings(env, newSettings, actor = {}) {
         ['support_wa', s.supportWa, 'string'],
         ['currency', s.currency, 'string'],
         ['particle_fx', String(s.particleFx), 'boolean'],
-        ['maintenance_mode', String(s.maintenanceMode), 'boolean']
+        ['maintenance_mode', String(s.maintenanceMode), 'boolean'],
+        ['promo_discount_enabled', String(s.promoDiscountEnabled), 'boolean'],
+        ['promo_free_offer_mode', String(s.promoFreeOfferMode), 'boolean'],
+        ['promo_original_price', String(s.promoOriginalPrice), 'number'],
+        ['promo_discount_price', String(s.promoDiscountPrice), 'number'],
+        ['promo_badge_text', s.promoBadgeText, 'string'],
+        ['promo_banner_active', String(s.promoBannerActive), 'boolean'],
+        ['promo_banner_text', s.promoBannerText, 'string']
       ];
 
       for (const [k, v, t] of entries) {
@@ -918,6 +955,13 @@ function formatPublicSiteSettings(settings) {
     currencySymbol: getCurrencySymbol(settings.currency),
     particleFx: Boolean(settings.particleFx),
     maintenanceMode: Boolean(settings.maintenanceMode),
+    promoDiscountEnabled: Boolean(settings.promoDiscountEnabled),
+    promoFreeOfferMode: Boolean(settings.promoFreeOfferMode),
+    promoOriginalPrice: Number(settings.promoOriginalPrice || 99),
+    promoDiscountPrice: Number(settings.promoDiscountPrice || (settings.promoFreeOfferMode ? 0 : 49)),
+    promoBadgeText: settings.promoBadgeText || '🔥 Limited Time Offer',
+    promoBannerActive: Boolean(settings.promoBannerActive),
+    promoBannerText: settings.promoBannerText || '',
     updatedAt: settings.updatedAt
   };
 }
