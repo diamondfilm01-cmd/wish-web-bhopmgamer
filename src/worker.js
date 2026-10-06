@@ -1022,6 +1022,415 @@ async function saveWishLinkSettings(env, newSettings, actor = {}) {
   return { success: true, settings: val.normalized };
 }
 
+// =============================================================================
+// IMMUTABLE TEMPLATE VERSION SNAPSHOT ENGINE
+// =============================================================================
+
+const DEFAULT_TEMPLATE_THEMES = {
+  tpl_glitter_birthday: {
+    preset: 'glitter-pink',
+    colors: { primary: '#ec4899', secondary: '#a855f7', accent: '#fbbf24', background: '#0d0417', surface: '#1e0b36', text: '#ffffff' },
+    typography: { headlineFont: 'Cabinet Grotesk', bodyFont: 'Plus Jakarta Sans' },
+    animations: ['confetti-burst', 'floating-balloons', 'candle-blow']
+  },
+  tpl_golden_elegance: {
+    preset: 'midnight-gold',
+    colors: { primary: '#d97706', secondary: '#1e1b4b', accent: '#f59e0b', background: '#0a0a0f', surface: '#161622', text: '#fef3c7' },
+    typography: { headlineFont: 'Cinzel', bodyFont: 'Plus Jakarta Sans' },
+    animations: ['gold-stardust', 'wax-seal-unfurl', 'photo-shimmer']
+  },
+  tpl_romantic_starlight: {
+    preset: 'romantic-rose',
+    colors: { primary: '#e11d48', secondary: '#831843', accent: '#fda4af', background: '#120207', surface: '#240510', text: '#fff1f2' },
+    typography: { headlineFont: 'Playfair Display', bodyFont: 'Plus Jakarta Sans' },
+    animations: ['floating-hearts', 'shooting-stars', 'voice-wave']
+  },
+  tpl_neon_party: {
+    preset: 'neon-cyber',
+    colors: { primary: '#06b6d4', secondary: '#8b5cf6', accent: '#f43f5e', background: '#05050d', surface: '#0f172a', text: '#f8fafc' },
+    typography: { headlineFont: 'Space Grotesk', bodyFont: 'Plus Jakarta Sans' },
+    animations: ['equalizer-pulse', 'neon-glow', 'synth-grid']
+  }
+};
+
+const DEFAULT_TEMPLATE_SECTIONS = [
+  { id: 'hero', type: 'hero', label: 'Hero Surprise', required: true, enabledByDefault: true, order: 1 },
+  { id: 'message', type: 'special_message', label: 'Heartfelt Letter', required: true, enabledByDefault: true, order: 2 },
+  { id: 'gallery', type: 'photo_gallery', label: 'Photo Keepsakes', required: false, enabledByDefault: true, order: 3 },
+  { id: 'memories', type: 'memories', label: 'Memories Reel', required: false, enabledByDefault: true, order: 4 },
+  { id: 'countdown', type: 'countdown', label: 'Celebration Countdown', required: false, enabledByDefault: true, order: 5 },
+  { id: 'finale', type: 'finale', label: 'Grand Finale', required: false, enabledByDefault: true, order: 6 }
+];
+
+let inMemoryTemplateVersions = new Map();
+
+function buildCanonicalTemplateSnapshot(template, versionNumber = 1) {
+  const rawId = template.templateId || template.template_id || template.id || template.slug || 'tpl_custom';
+  const tId = String(rawId).replace(/^tv_/, '').replace(/_v\d+$/, '');
+  const versionId = `tv_${tId}_v${versionNumber}`;
+  let theme = template.theme;
+  if (!theme || (typeof theme === 'object' && Object.keys(theme).length === 0)) {
+    theme = DEFAULT_TEMPLATE_THEMES[tId] || {
+      preset: 'magical',
+      colors: { primary: '#ec4899', secondary: '#a855f7', accent: '#fbbf24', background: '#0d0417', surface: '#1e0b36', text: '#ffffff' },
+      typography: { headlineFont: 'Cabinet Grotesk', bodyFont: 'Plus Jakarta Sans' },
+      animations: ['confetti-burst', 'floating-sparkles']
+    };
+  }
+  const parsedTheme = typeof theme === 'string' ? JSON.parse(theme) : theme;
+
+  let sections = template.sections;
+  if (!sections || (Array.isArray(sections) && sections.length === 0)) {
+    sections = DEFAULT_TEMPLATE_SECTIONS;
+  }
+  const parsedSections = typeof sections === 'string' ? JSON.parse(sections) : sections;
+
+  let capabilities = template.capabilities || {
+    'interactive-3d': true,
+    'soundtrack': true,
+    'photo-gallery': true,
+    'candle-blow': true,
+    'countdown': true,
+    'confetti': true
+  };
+  const parsedCapabilities = typeof capabilities === 'string' ? JSON.parse(capabilities) : capabilities;
+
+  const layout = template.layout || 'centered-immersive';
+  const animations = template.animations || (parsedTheme.animations || ['confetti-burst', 'floating-sparkles']);
+  const parsedAnimations = typeof animations === 'string' ? JSON.parse(animations) : animations;
+  const defaultConfig = template.defaultConfig || template.detected_fields || {};
+  const parsedDefaultConfig = typeof defaultConfig === 'string' ? JSON.parse(defaultConfig) : defaultConfig;
+
+  const nowIso = new Date().toISOString();
+
+  const snapshot = {
+    id: versionId,
+    versionId,
+    templateId: tId,
+    versionNumber,
+    name: template.name || 'Magical Celebration Experience',
+    description: template.description || '',
+    category: template.category || 'Birthday',
+    tier: template.tier || (template.isPremium ? 'vip' : 'free'),
+    price: Number(template.price) || 0,
+    isPremium: Boolean(template.isPremium || template.is_premium || template.tier === 'vip'),
+    thumbnail: template.thumbnail || '/assets/default-template.jpg',
+    previewImages: template.previewImages || [template.thumbnail || '/assets/default-template.jpg'],
+    theme: parsedTheme,
+    sections: parsedSections,
+    capabilities: parsedCapabilities,
+    layout,
+    animations: parsedAnimations,
+    defaultConfig: parsedDefaultConfig,
+    folder: template.folder || `templates-store/${tId}`,
+    entryFile: template.entryFile || template.entry_file || 'index.html',
+    status: 'active',
+    createdAt: template.createdAt || nowIso
+  };
+
+  return snapshot;
+}
+
+async function getOrSeedActiveTemplateVersion(env, templateId, initialOverrides = null) {
+  if (!templateId) return null;
+  const cleanId = String(templateId).trim();
+
+  // 1. Try DB lookup for latest active version (if no explicit initialOverrides creating new version)
+  if (!initialOverrides && env && env.DB && typeof env.DB.prepare === 'function') {
+    try {
+      const row = await env.DB.prepare(
+        'SELECT * FROM template_versions WHERE template_id = ? ORDER BY version_number DESC LIMIT 1'
+      ).bind(cleanId).first();
+
+      if (row) {
+        let snapshotData = null;
+        if (row.snapshot_data) {
+          try { snapshotData = JSON.parse(row.snapshot_data); } catch (e) {}
+        }
+        if (snapshotData) return snapshotData;
+
+        // Construct from columns
+        return {
+          id: row.id,
+          versionId: row.id,
+          templateId: row.template_id,
+          versionNumber: row.version_number,
+          name: row.name,
+          description: row.description,
+          category: row.category,
+          tier: row.tier,
+          price: row.price,
+          isPremium: Boolean(row.tier === 'vip' || row.price > 0),
+          thumbnail: row.thumbnail,
+          theme: row.theme ? (typeof row.theme === 'string' ? JSON.parse(row.theme) : row.theme) : (DEFAULT_TEMPLATE_THEMES[row.template_id] || {}),
+          sections: row.sections ? (typeof row.sections === 'string' ? JSON.parse(row.sections) : row.sections) : DEFAULT_TEMPLATE_SECTIONS,
+          capabilities: row.capabilities ? (typeof row.capabilities === 'string' ? JSON.parse(row.capabilities) : row.capabilities) : {},
+          layout: row.layout || 'centered-immersive',
+          animations: row.animations ? (typeof row.animations === 'string' ? JSON.parse(row.animations) : row.animations) : [],
+          status: row.status || 'active',
+          createdAt: row.created_at
+        };
+      }
+    } catch (e) {}
+  }
+
+  // 2. Check in-memory store
+  if (!initialOverrides) {
+    let highestMem = null;
+    for (const [key, val] of inMemoryTemplateVersions.entries()) {
+      if (val.templateId === cleanId && val.status === 'active') {
+        if (!highestMem || (Number(val.versionNumber || 1) > Number(highestMem.versionNumber || 1))) {
+          highestMem = val;
+        }
+      }
+    }
+    if (highestMem) return highestMem;
+  }
+
+  // 3. Resolve template base and seed Version 1
+  let baseTemplate = SEED_TEMPLATES.find(t => t.id === cleanId || t.slug === cleanId);
+  if (!baseTemplate && env && env.DB && typeof env.DB.prepare === 'function') {
+    try {
+      baseTemplate = await env.DB.prepare('SELECT * FROM templates WHERE id = ? OR slug = ? LIMIT 1').bind(cleanId, cleanId).first();
+    } catch (e) {}
+  }
+
+  if (!baseTemplate) {
+    baseTemplate = {
+      id: cleanId,
+      name: cleanId.replace(/^tpl_/, '').replace(/-/g, ' ').replace(/\b\w/g, c => c.toUpperCase()),
+      category: 'Birthday',
+      tier: 'free',
+      price: 0,
+      isPremium: false,
+      isPublished: true,
+      thumbnail: '/assets/default-template.jpg'
+    };
+  }
+
+  if (initialOverrides) {
+    baseTemplate = { ...baseTemplate, ...initialOverrides };
+  }
+
+  const v1Snapshot = buildCanonicalTemplateSnapshot(baseTemplate, 1);
+  inMemoryTemplateVersions.set(v1Snapshot.id, v1Snapshot);
+
+  // Persist to D1
+  if (env && env.DB && typeof env.DB.prepare === 'function') {
+    try {
+      await env.DB.prepare(
+        `INSERT OR REPLACE INTO template_versions (id, template_id, version_number, name, description, category, tier, price, thumbnail, theme, sections, capabilities, layout, animations, default_config, snapshot_data, status, created_at, created_by)
+         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`
+      ).bind(
+        v1Snapshot.id,
+        v1Snapshot.templateId,
+        v1Snapshot.versionNumber,
+        v1Snapshot.name,
+        v1Snapshot.description,
+        v1Snapshot.category,
+        v1Snapshot.tier,
+        v1Snapshot.price,
+        v1Snapshot.thumbnail,
+        JSON.stringify(v1Snapshot.theme),
+        JSON.stringify(v1Snapshot.sections),
+        JSON.stringify(v1Snapshot.capabilities),
+        v1Snapshot.layout,
+        JSON.stringify(v1Snapshot.animations),
+        JSON.stringify(v1Snapshot.defaultConfig),
+        JSON.stringify(v1Snapshot),
+        'active',
+        v1Snapshot.createdAt,
+        'system'
+      ).run();
+    } catch (e) {}
+  }
+
+  return v1Snapshot;
+}
+
+async function getTemplateVersionById(env, versionId, fallbackTemplateId = null) {
+  if (!versionId && fallbackTemplateId) {
+    return await getOrSeedActiveTemplateVersion(env, fallbackTemplateId);
+  }
+  if (!versionId) return null;
+
+  // 1. Try DB lookup
+  if (env && env.DB && typeof env.DB.prepare === 'function') {
+    try {
+      const row = await env.DB.prepare(
+        'SELECT * FROM template_versions WHERE id = ? LIMIT 1'
+      ).bind(versionId).first();
+
+      if (row) {
+        if (row.snapshot_data) {
+          try {
+            const parsed = JSON.parse(row.snapshot_data);
+            if (parsed) return parsed;
+          } catch (e) {}
+        }
+        return {
+          id: row.id,
+          versionId: row.id,
+          templateId: row.template_id,
+          versionNumber: row.version_number,
+          name: row.name,
+          description: row.description,
+          category: row.category,
+          tier: row.tier,
+          price: row.price,
+          isPremium: Boolean(row.tier === 'vip' || row.price > 0),
+          thumbnail: row.thumbnail,
+          theme: row.theme ? JSON.parse(row.theme) : (DEFAULT_TEMPLATE_THEMES[row.template_id] || {}),
+          sections: row.sections ? JSON.parse(row.sections) : DEFAULT_TEMPLATE_SECTIONS,
+          capabilities: row.capabilities ? JSON.parse(row.capabilities) : {},
+          layout: row.layout || 'centered-immersive',
+          animations: row.animations ? JSON.parse(row.animations) : [],
+          status: row.status || 'active',
+          createdAt: row.created_at
+        };
+      }
+    } catch (e) {}
+  }
+
+  // 2. Check in-memory store
+  if (inMemoryTemplateVersions.has(versionId)) {
+    return inMemoryTemplateVersions.get(versionId);
+  }
+
+  // 3. Fallback
+  if (fallbackTemplateId) {
+    return await getOrSeedActiveTemplateVersion(env, fallbackTemplateId);
+  }
+
+  return null;
+}
+
+async function createNewTemplateVersion(env, templateId, updatedFields = {}, actor = {}) {
+  const cleanId = String(templateId).trim();
+  
+  // Get latest version number
+  let currentMaxVersion = 0;
+  let currentActive = null;
+
+  if (env && env.DB && typeof env.DB.prepare === 'function') {
+    try {
+      const row = await env.DB.prepare(
+        'SELECT * FROM template_versions WHERE template_id = ? ORDER BY version_number DESC LIMIT 1'
+      ).bind(cleanId).first();
+      if (row) {
+        currentMaxVersion = Number(row.version_number) || 0;
+        currentActive = row;
+      }
+    } catch (e) {}
+  }
+
+  if (currentMaxVersion === 0) {
+    for (const [k, v] of inMemoryTemplateVersions.entries()) {
+      if (v.templateId === cleanId && v.versionNumber > currentMaxVersion) {
+        currentMaxVersion = v.versionNumber;
+        currentActive = v;
+      }
+    }
+  }
+
+  const newVersionNumber = currentMaxVersion + 1;
+  const versionId = `tv_${cleanId}_v${newVersionNumber}`;
+  const nowIso = new Date().toISOString();
+
+  // Merge base/previous snapshot with updated fields
+  let base = currentActive;
+  if (base && base.snapshot_data) {
+    try { base = JSON.parse(base.snapshot_data); } catch (e) {}
+  }
+  if (!base) {
+    base = await getOrSeedActiveTemplateVersion(env, cleanId);
+  }
+  const merged = {
+    ...base,
+    ...updatedFields,
+    id: versionId,
+    versionId,
+    templateId: cleanId,
+    versionNumber: newVersionNumber,
+    name: updatedFields.name || base.name,
+    description: updatedFields.description !== undefined ? updatedFields.description : base.description,
+    category: updatedFields.category || base.category,
+    tier: updatedFields.tier || (updatedFields.isPremium ? 'vip' : base.tier),
+    price: updatedFields.price !== undefined ? Number(updatedFields.price) : base.price,
+    isPremium: updatedFields.isPremium !== undefined ? Boolean(updatedFields.isPremium) : base.isPremium,
+    thumbnail: updatedFields.thumbnail || base.thumbnail,
+    theme: updatedFields.theme || base.theme,
+    sections: updatedFields.sections || base.sections,
+    capabilities: updatedFields.capabilities || base.capabilities,
+    layout: updatedFields.layout || base.layout || 'centered-immersive',
+    animations: updatedFields.animations || base.animations,
+    defaultConfig: updatedFields.defaultConfig || base.defaultConfig,
+    status: 'active',
+    createdAt: nowIso
+  };
+
+  const newSnapshot = buildCanonicalTemplateSnapshot(merged, newVersionNumber);
+  inMemoryTemplateVersions.set(versionId, newSnapshot);
+
+  if (env && env.DB && typeof env.DB.prepare === 'function') {
+    try {
+      await env.DB.prepare(
+        `INSERT INTO template_versions (id, template_id, version_number, name, description, category, tier, price, thumbnail, theme, sections, capabilities, layout, animations, default_config, snapshot_data, status, created_at, created_by)
+         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`
+      ).bind(
+        newSnapshot.id,
+        newSnapshot.templateId,
+        newSnapshot.versionNumber,
+        newSnapshot.name,
+        newSnapshot.description,
+        newSnapshot.category,
+        newSnapshot.tier,
+        newSnapshot.price,
+        newSnapshot.thumbnail,
+        JSON.stringify(newSnapshot.theme),
+        JSON.stringify(newSnapshot.sections),
+        JSON.stringify(newSnapshot.capabilities),
+        newSnapshot.layout,
+        JSON.stringify(newSnapshot.animations),
+        JSON.stringify(newSnapshot.defaultConfig),
+        JSON.stringify(newSnapshot),
+        'active',
+        newSnapshot.createdAt,
+        actor.id || 'admin'
+      ).run();
+
+      // Also update live templates table pointer
+      await env.DB.prepare(
+        `UPDATE templates SET
+         name = ?, description = ?, category = ?, tier = ?, price = ?, is_premium = ?, thumbnail = ?, updated_at = ?
+         WHERE id = ? OR slug = ?`
+      ).bind(
+        newSnapshot.name,
+        newSnapshot.description,
+        newSnapshot.category,
+        newSnapshot.tier,
+        newSnapshot.price,
+        newSnapshot.isPremium ? 1 : 0,
+        newSnapshot.thumbnail,
+        nowIso,
+        cleanId,
+        cleanId
+      ).run();
+    } catch (e) {}
+  }
+
+  await logAdminAudit(env, {
+    actorId: actor.id || 'admin',
+    actorName: actor.name || 'Platform Admin',
+    actorRole: actor.role || 'admin',
+    action: 'TEMPLATE_VERSION_PUBLISHED',
+    details: `Created immutable Template Version ${newVersionNumber} (${versionId}) for ${cleanId}`,
+    ipAddress: actor.ipAddress || '127.0.0.1'
+  });
+
+  return newSnapshot;
+}
+
 // Cryptographically secure random ID generator using crypto.getRandomValues
 function generateSecureRandomId(length = 6, allowedChars = 'abcdefghijklmnopqrstuvwxyz0123456789') {
   const chars = allowedChars || 'abcdefghijklmnopqrstuvwxyz0123456789';
@@ -1466,6 +1875,8 @@ export default {
             try { cd = typeof r.custom_data === 'string' ? JSON.parse(r.custom_data) : (r.custom_data || {}); } catch (e) {}
             let pm = null;
             try { if (r.payment) pm = typeof r.payment === 'string' ? JSON.parse(r.payment) : r.payment; } catch (e) {}
+            const tvId = r.template_version_id || cd.templateVersionId || cd.template_version_id || `tv_${r.template_id}_v1`;
+            const tvNum = cd.template_version || (r.template_version_id ? parseInt(r.template_version_id.split('_v')[1] || '1', 10) : 1);
             return {
               id: r.id,
               slug: r.slug,
@@ -1473,6 +1884,8 @@ export default {
               orderId: r.order_id,
               templateId: r.template_id,
               templateName: r.template_name,
+              templateVersionId: tvId,
+              templateVersionNumber: tvNum,
               tier: r.tier,
               price: r.price,
               isPrivate: Boolean(r.is_private),
@@ -1506,7 +1919,7 @@ export default {
           const customData = body.customData || body;
           const templateId = sanitizeString(body.templateId || customData.templateId || 'tpl_glitter_birthday', 60);
 
-          // Find template metadata
+          // Find template metadata & active immutable version snapshot
           let template = SEED_TEMPLATES.find(t => t.id === templateId || t.slug === templateId);
           if (env.DB) {
             try {
@@ -1514,6 +1927,16 @@ export default {
               if (tRow) template = tRow;
             } catch (e) {}
           }
+
+          const activeVersion = await getOrSeedActiveTemplateVersion(env, template ? template.id : templateId);
+          const templateVersionId = activeVersion ? activeVersion.id : `tv_${templateId}_v1`;
+          const templateVersionNumber = activeVersion ? activeVersion.versionNumber : 1;
+
+          // Stamp immutable version IDs into customData
+          customData.templateId = templateId;
+          customData.template_version_id = templateVersionId;
+          customData.templateVersionId = templateVersionId;
+          customData.template_version = templateVersionNumber;
 
           // Authoritative Server-Side Entitlement Check (Never trust client tier/isPremium/entitlement overrides)
           const entitlement = await getEffectiveEntitlement(user, env);
@@ -1601,6 +2024,8 @@ export default {
             orderId: 'ORD-' + Math.random().toString(36).substring(2, 7).toUpperCase() + '-' + Date.now().toString().slice(-4),
             templateId,
             templateName: sanitizeString(customData.templateName || (template && template.name) || 'Magical Celebration Experience', 80),
+            templateVersionId,
+            templateVersionNumber,
             tier: isVip ? 'vip' : 'free',
             price: wishPrice,
             isPrivate,
@@ -1616,34 +2041,71 @@ export default {
             updatedAt: new Date().toISOString()
           };
 
-          await env.DB.prepare(
-            `INSERT INTO wishes (id, slug, user_id, order_id, template_id, template_name, tier, price, is_private, buyer_name, buyer_contact, recipient_name, event_date, expiry_date, lifecycle_status, views, custom_data, payment, status, created_at, updated_at)
-             VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`
-          ).bind(
-            newWish.id,
-            newWish.slug,
-            newWish.userId,
-            newWish.orderId,
-            newWish.templateId,
-            newWish.templateName,
-            newWish.tier,
-            newWish.price,
-            newWish.isPrivate ? 1 : 0,
-            newWish.buyerName,
-            newWish.buyerContact,
-            newWish.recipientName,
-            newWish.eventDate,
-            newWish.expiryDate,
-            'active',
-            0,
-            JSON.stringify(customData),
-            null,
-            status,
-            newWish.createdAt,
-            newWish.updatedAt
-          ).run();
+          try {
+            await env.DB.prepare(
+              `INSERT INTO wishes (id, slug, user_id, order_id, template_id, template_name, tier, price, is_private, buyer_name, buyer_contact, recipient_name, event_date, expiry_date, lifecycle_status, views, custom_data, payment, status, template_version_id, created_at, updated_at)
+               VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`
+            ).bind(
+              newWish.id,
+              newWish.slug,
+              newWish.userId,
+              newWish.orderId,
+              newWish.templateId,
+              newWish.templateName,
+              newWish.tier,
+              newWish.price,
+              newWish.isPrivate ? 1 : 0,
+              newWish.buyerName,
+              newWish.buyerContact,
+              newWish.recipientName,
+              newWish.eventDate,
+              newWish.expiryDate,
+              'active',
+              0,
+              JSON.stringify(customData),
+              null,
+              status,
+              templateVersionId,
+              newWish.createdAt,
+              newWish.updatedAt
+            ).run();
+          } catch (e) {
+            // Fallback without template_version_id column if legacy table format
+            await env.DB.prepare(
+              `INSERT INTO wishes (id, slug, user_id, order_id, template_id, template_name, tier, price, is_private, buyer_name, buyer_contact, recipient_name, event_date, expiry_date, lifecycle_status, views, custom_data, payment, status, created_at, updated_at)
+               VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`
+            ).bind(
+              newWish.id,
+              newWish.slug,
+              newWish.userId,
+              newWish.orderId,
+              newWish.templateId,
+              newWish.templateName,
+              newWish.tier,
+              newWish.price,
+              newWish.isPrivate ? 1 : 0,
+              newWish.buyerName,
+              newWish.buyerContact,
+              newWish.recipientName,
+              newWish.eventDate,
+              newWish.expiryDate,
+              'active',
+              0,
+              JSON.stringify(customData),
+              null,
+              status,
+              newWish.createdAt,
+              newWish.updatedAt
+            ).run();
+          }
 
-          response = jsonSuccess({ wish: newWish }, 201, {}, requestId);
+          response = jsonSuccess({
+            wishId: newWish.id,
+            slug: newWish.slug,
+            wish: newWish,
+            templateVersion: activeVersion,
+            templateVersionId: newWish.templateVersionId
+          }, 201, {}, requestId);
         }
       }
 
@@ -1668,22 +2130,40 @@ export default {
         try { cd = typeof existing.custom_data === 'string' ? JSON.parse(existing.custom_data) : (existing.custom_data || {}); } catch (e) {}
         cd.isDraft = true;
 
+        // Preserve original template version snapshot reference
+        const sourceVersionId = existing.template_version_id || cd.templateVersionId || cd.template_version_id || `tv_${existing.template_id}_v1`;
+        cd.template_version_id = sourceVersionId;
+        cd.templateVersionId = sourceVersionId;
+
         const newId = 'wm_' + Date.now().toString(36) + '_' + Math.random().toString(36).substring(2, 6);
         const newSlug = await generateServerSlug(env.DB, cd, existing.template_id);
         const nowIso = new Date().toISOString();
 
-        await env.DB.prepare(
-          `INSERT INTO wishes (id, slug, user_id, order_id, template_id, template_name, tier, price, is_private, buyer_name, buyer_contact, recipient_name, event_date, expiry_date, lifecycle_status, views, custom_data, payment, status, created_at, updated_at)
-           VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`
-        ).bind(
-          newId, newSlug, user.id, 'ORD-' + Math.random().toString(36).substring(2, 7).toUpperCase(),
-          existing.template_id, existing.template_name, existing.tier, 0, 1,
-          existing.buyer_name, existing.buyer_contact, `${existing.recipient_name} (Copy)`,
-          existing.event_date, existing.expiry_date, 'draft', 0,
-          JSON.stringify(cd), null, 'draft', nowIso, nowIso
-        ).run();
+        try {
+          await env.DB.prepare(
+            `INSERT INTO wishes (id, slug, user_id, order_id, template_id, template_name, tier, price, is_private, buyer_name, buyer_contact, recipient_name, event_date, expiry_date, lifecycle_status, views, custom_data, payment, status, template_version_id, created_at, updated_at)
+             VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`
+          ).bind(
+            newId, newSlug, user.id, 'ORD-' + Math.random().toString(36).substring(2, 7).toUpperCase(),
+            existing.template_id, existing.template_name, existing.tier, 0, 1,
+            existing.buyer_name, existing.buyer_contact, `${existing.recipient_name} (Copy)`,
+            existing.event_date, existing.expiry_date, 'draft', 0,
+            JSON.stringify(cd), null, 'draft', sourceVersionId, nowIso, nowIso
+          ).run();
+        } catch (e) {
+          await env.DB.prepare(
+            `INSERT INTO wishes (id, slug, user_id, order_id, template_id, template_name, tier, price, is_private, buyer_name, buyer_contact, recipient_name, event_date, expiry_date, lifecycle_status, views, custom_data, payment, status, created_at, updated_at)
+             VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`
+          ).bind(
+            newId, newSlug, user.id, 'ORD-' + Math.random().toString(36).substring(2, 7).toUpperCase(),
+            existing.template_id, existing.template_name, existing.tier, 0, 1,
+            existing.buyer_name, existing.buyer_contact, `${existing.recipient_name} (Copy)`,
+            existing.event_date, existing.expiry_date, 'draft', 0,
+            JSON.stringify(cd), null, 'draft', nowIso, nowIso
+          ).run();
+        }
 
-        response = jsonSuccess({ duplicated: true, wishId: newId, slug: newSlug }, 201, {}, requestId);
+        response = jsonSuccess({ duplicated: true, wishId: newId, slug: newSlug, templateVersionId: sourceVersionId }, 201, {}, requestId);
       }
 
       else if (pathname.match(/^\/api\/wishes\/([^\/]+)\/publish$/) && method === 'POST') {
@@ -1791,11 +2271,15 @@ export default {
           views: wish.views || 0,
           customData,
           payment,
+          templateVersionId: wish.template_version_id || customData.templateVersionId || customData.template_version_id || null,
           createdAt: wish.created_at,
           updatedAt: wish.updated_at
         };
 
-        response = jsonSuccess({ wish: normalizedWish }, 200, {}, requestId);
+        const versionId = normalizedWish.templateVersionId;
+        const templateSnapshot = await getTemplateVersionById(env, versionId, wish.template_id);
+
+        response = jsonSuccess({ wish: normalizedWish, template: templateSnapshot }, 200, {}, requestId);
       }
 
       else if (pathname.startsWith('/api/wishes/') && method === 'PUT') {
@@ -1947,6 +2431,9 @@ export default {
         }
 
         // Strictly safe public payload (Omits sensitive internals: user_id, payment, order_id, buyer_contact, private keys)
+        const versionId = wish.template_version_id || (customData && (customData.template_version_id || customData.templateVersionId));
+        const templateSnapshot = await getTemplateVersionById(env, versionId, wish.template_id);
+
         const safePublicWish = {
           id: wish.id,
           slug: wish.slug,
@@ -1954,6 +2441,7 @@ export default {
           buyerName,
           eventDate,
           templateId: wish.template_id,
+          templateVersionId: versionId || (templateSnapshot ? templateSnapshot.id : null),
           templateName: wish.template_name,
           tier: wish.tier,
           lifecycleStatus,
@@ -1961,7 +2449,7 @@ export default {
           customData
         };
 
-        response = jsonSuccess({ wish: safePublicWish }, 200, {}, requestId);
+        response = jsonSuccess({ wish: safePublicWish, template: templateSnapshot }, 200, {}, requestId);
       }
 
       // --- Templates API ---
@@ -2050,8 +2538,12 @@ export default {
           ).run();
         }
 
+        const v1Snapshot = await getOrSeedActiveTemplateVersion(env, id, body);
+
         response = jsonSuccess({
-          template: { id, slug, name, category, tier, price, isPremium: tier === 'vip', isPublished: true }
+          template: { id, slug, name, category, tier, price, isPremium: tier === 'vip', isPublished: true },
+          versionId: v1Snapshot ? v1Snapshot.id : `tv_${id}_v1`,
+          versionNumber: 1
         }, 201, {}, requestId);
       }
 
@@ -2063,35 +2555,17 @@ export default {
 
         const templateId = sanitizeString(pathname.replace('/api/templates/', '').replace('/update', ''), 60);
         const body = await request.json().catch(() => ({}));
+        const targetId = templateId || body.id;
 
-        if (env.DB && typeof env.DB.prepare === 'function') {
-          const nowIso = new Date().toISOString();
-          await env.DB.prepare(
-            `UPDATE templates SET 
-             name = COALESCE(?, name), 
-             category = COALESCE(?, category), 
-             tier = COALESCE(?, tier), 
-             price = COALESCE(?, price), 
-             is_premium = COALESCE(?, is_premium), 
-             is_published = COALESCE(?, is_published), 
-             status = COALESCE(?, status), 
-             updated_at = ?
-             WHERE id = ? OR slug = ?`
-          ).bind(
-            body.name || null,
-            body.category || null,
-            body.tier || null,
-            body.price !== undefined ? Number(body.price) : null,
-            body.isPremium !== undefined ? (body.isPremium ? 1 : 0) : null,
-            body.isPublished !== undefined ? (body.isPublished ? 1 : 0) : null,
-            body.status || null,
-            nowIso,
-            templateId || body.id,
-            templateId || body.id
-          ).run();
-        }
+        const updatedSnapshot = await createNewTemplateVersion(env, targetId, body, user);
 
-        response = jsonSuccess({ updated: true, templateId: templateId || body.id }, 200, {}, requestId);
+        response = jsonSuccess({
+          updated: true,
+          templateId: targetId,
+          versionId: updatedSnapshot ? updatedSnapshot.id : null,
+          versionNumber: updatedSnapshot ? updatedSnapshot.versionNumber : null,
+          template: updatedSnapshot
+        }, 200, {}, requestId);
       }
 
       else if (pathname === '/api/templates/update' && method === 'POST') {
@@ -2103,34 +2577,15 @@ export default {
         const body = await request.json().catch(() => ({}));
         const templateId = sanitizeString(body.id, 60);
 
-        if (env.DB && typeof env.DB.prepare === 'function' && templateId) {
-          const nowIso = new Date().toISOString();
-          await env.DB.prepare(
-            `UPDATE templates SET 
-             name = COALESCE(?, name), 
-             category = COALESCE(?, category), 
-             tier = COALESCE(?, tier), 
-             price = COALESCE(?, price), 
-             is_premium = COALESCE(?, is_premium), 
-             is_published = COALESCE(?, is_published), 
-             status = COALESCE(?, status), 
-             updated_at = ?
-             WHERE id = ? OR slug = ?`
-          ).bind(
-            body.name || null,
-            body.category || null,
-            body.tier || null,
-            body.price !== undefined ? Number(body.price) : null,
-            body.isPremium !== undefined ? (body.isPremium ? 1 : 0) : null,
-            body.isPublished !== undefined ? (body.isPublished ? 1 : 0) : null,
-            body.status || null,
-            nowIso,
-            templateId,
-            templateId
-          ).run();
-        }
+        const updatedSnapshot = await createNewTemplateVersion(env, templateId, body, user);
 
-        response = jsonSuccess({ updated: true, templateId }, 200, {}, requestId);
+        response = jsonSuccess({
+          updated: true,
+          templateId,
+          versionId: updatedSnapshot ? updatedSnapshot.id : null,
+          versionNumber: updatedSnapshot ? updatedSnapshot.versionNumber : null,
+          template: updatedSnapshot
+        }, 200, {}, requestId);
       }
 
       else if (pathname === '/api/templates/duplicate' && method === 'POST') {

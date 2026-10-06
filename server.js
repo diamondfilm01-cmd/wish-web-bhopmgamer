@@ -23,6 +23,7 @@ app.use(express.urlencoded({ limit: '50mb', extended: true }));
 
 const DATA_DIR = path.join(__dirname, 'data');
 const TEMPLATES_FILE = path.join(DATA_DIR, 'templates.json');
+const TEMPLATE_VERSIONS_FILE = path.join(DATA_DIR, 'template_versions.json');
 const WISHES_FILE = path.join(DATA_DIR, 'wishes.json');
 const MEDIA_FILE = path.join(DATA_DIR, 'media.json');
 const CATEGORIES_FILE = path.join(DATA_DIR, 'categories.json');
@@ -282,6 +283,124 @@ function getTemplates() {
 
 function saveTemplates(templates) {
   fs.writeFileSync(TEMPLATES_FILE, JSON.stringify(templates, null, 2), 'utf8');
+}
+
+function getTemplateVersions() {
+  try {
+    if (fs.existsSync(TEMPLATE_VERSIONS_FILE)) {
+      const data = fs.readFileSync(TEMPLATE_VERSIONS_FILE, 'utf8');
+      const parsed = JSON.parse(data || '[]');
+      if (Array.isArray(parsed)) return parsed;
+    }
+    return [];
+  } catch (e) {
+    return [];
+  }
+}
+
+function saveTemplateVersions(versions) {
+  fs.writeFileSync(TEMPLATE_VERSIONS_FILE, JSON.stringify(versions, null, 2), 'utf8');
+}
+
+function buildCanonicalTemplateSnapshot(template, versionNumber = 1) {
+  const versionId = `tv_${template.id}_v${versionNumber}`;
+  return {
+    id: versionId,
+    versionId,
+    templateId: template.id,
+    versionNumber,
+    name: template.name || 'Magical Celebration Experience',
+    description: template.description || 'A personalized celebration website with music and memories.',
+    category: template.category || 'Birthday',
+    tier: template.tier || (template.isPremium ? 'vip' : 'free'),
+    price: template.price !== undefined ? Number(template.price) : (template.tier === 'vip' ? 49 : 0),
+    isPremium: Boolean(template.tier === 'vip' || template.isPremium || template.price > 0),
+    thumbnail: template.thumbnail || template.previewImage || '/assets/file_ab2082.png',
+    theme: template.theme || {
+      mood: 'Joyful & Celebratory',
+      accentColor: '#ec4899',
+      gradient: 'from-pink-500 via-purple-600 to-amber-400'
+    },
+    sections: template.sections || ['Hero Unboxing', 'Memory Gallery', 'Personal Dedication', 'Confetti Finale'],
+    capabilities: template.capabilities || {
+      hero: true,
+      gallery: true,
+      message: true,
+      memories: true,
+      music: true,
+      voiceNote: true,
+      secretMessage: true,
+      finalSurprise: true,
+      themeSupport: true,
+      animationSupport: true,
+      backgroundSupport: true
+    },
+    layout: template.layout || 'centered-immersive',
+    animations: template.animations || 'Canvas Confetti + Sound + 3D Effects',
+    defaultConfig: template.defaultConfig || template.detectedFields || {},
+    status: 'active',
+    createdAt: template.createdAt || new Date().toISOString()
+  };
+}
+
+function getOrSeedTemplateVersion(templateId) {
+  if (!templateId) return null;
+  const versions = getTemplateVersions();
+  const found = versions.find(v => v.templateId === templateId && v.status === 'active');
+  if (found) return found;
+
+  const templates = getTemplates();
+  const base = templates.find(t => t.id === templateId) || {
+    id: templateId,
+    name: templateId.replace(/^tpl_/, '').replace(/-/g, ' ').replace(/\b\w/g, c => c.toUpperCase()),
+    category: 'Birthday',
+    tier: 'free',
+    price: 0
+  };
+
+  const v1 = buildCanonicalTemplateSnapshot(base, 1);
+  versions.push(v1);
+  saveTemplateVersions(versions);
+  return v1;
+}
+
+function getTemplateVersionById(versionId, fallbackTemplateId = null) {
+  if (!versionId && fallbackTemplateId) {
+    return getOrSeedTemplateVersion(fallbackTemplateId);
+  }
+  if (!versionId) return null;
+  const versions = getTemplateVersions();
+  const found = versions.find(v => v.id === versionId || v.versionId === versionId);
+  if (found) return found;
+  if (fallbackTemplateId) {
+    return getOrSeedTemplateVersion(fallbackTemplateId);
+  }
+  return null;
+}
+
+function createNewTemplateVersion(templateId, updatedFields = {}) {
+  const versions = getTemplateVersions();
+  const matching = versions.filter(v => v.templateId === templateId);
+  const maxVersion = matching.reduce((max, v) => Math.max(max, v.versionNumber || 1), 0);
+  const newVersionNumber = maxVersion + 1;
+  const versionId = `tv_${templateId}_v${newVersionNumber}`;
+
+  const currentActive = matching.find(v => v.versionNumber === maxVersion) || getOrSeedTemplateVersion(templateId);
+  const merged = {
+    ...currentActive,
+    ...updatedFields,
+    id: versionId,
+    versionId,
+    templateId,
+    versionNumber: newVersionNumber,
+    status: 'active',
+    createdAt: new Date().toISOString()
+  };
+
+  const snapshot = buildCanonicalTemplateSnapshot(merged, newVersionNumber);
+  versions.push(snapshot);
+  saveTemplateVersions(versions);
+  return snapshot;
 }
 
 function getMedia() {
@@ -1405,7 +1524,16 @@ app.post('/api/templates/update', (req, res) => {
     };
 
     saveTemplates(templates);
-    res.json({ success: true, template: templates[idx], message: 'Template updated successfully' });
+
+    const updatedSnapshot = createNewTemplateVersion(id, req.body);
+
+    res.json({
+      success: true,
+      template: templates[idx],
+      versionId: updatedSnapshot.id,
+      versionNumber: updatedSnapshot.versionNumber,
+      message: 'Template updated and new version snapshot published successfully'
+    });
   } catch (err) {
     res.status(500).json({ success: false, message: err.message });
   }
@@ -2831,12 +2959,20 @@ app.post('/api/wishes', (req, res) => {
 
     const isPrivate = Boolean(customData.isPrivate || customData.unlisted || req.body.isPrivate);
 
+    // Resolve immutable template version snapshot
+    const activeVersion = getOrSeedTemplateVersion(templateId);
+    const templateVersionId = activeVersion ? activeVersion.id : `tv_${templateId}_v1`;
+    customData.templateId = templateId;
+    customData.templateVersionId = templateVersionId;
+    customData.template_version_id = templateVersionId;
+
     const newWish = {
       id: wishId,
       slug: generatedSlug,
       userId,
       orderId: 'ORD-' + Math.random().toString(36).substring(2, 7).toUpperCase() + '-' + Date.now().toString().slice(-4),
       templateId,
+      templateVersionId,
       templateName: template ? template.name : (customData.templateName || 'Magical Celebration Experience'),
       tier: isVip ? 'vip' : 'free',
       price: wishPrice,
@@ -2882,6 +3018,69 @@ app.post('/api/wishes', (req, res) => {
     });
   } catch (err) {
     console.error('Error creating wish:', err);
+    res.status(500).json({ success: false, message: err.message });
+  }
+});
+
+// API: Duplicate Wish (Part 8 & 10: Preserves Immutable Template Version Snapshot)
+app.post(['/api/wishes/:id/duplicate', '/api/wishes/duplicate'], (req, res) => {
+  try {
+    const wishId = req.params.id || req.body.id || req.body.wishId;
+    if (!wishId) return res.status(400).json({ success: false, message: 'Wish ID is required' });
+
+    const wishes = getWishes();
+    const existing = wishes.find(w => w.id === wishId || w.slug === wishId);
+    if (!existing) return res.status(404).json({ success: false, message: 'Wish not found' });
+
+    if (req.user && existing.userId && existing.userId !== req.user.id && req.user.role !== 'admin') {
+      return res.status(403).json({ success: false, error: { code: 'FORBIDDEN', message: 'Access denied to duplicate this wish.' } });
+    }
+
+    let cd = {};
+    try { cd = typeof existing.customData === 'string' ? JSON.parse(existing.customData) : (existing.customData || {}); } catch (e) {}
+    cd.isDraft = true;
+
+    // Strictly preserve original template version snapshot reference
+    const sourceVersionId = existing.templateVersionId || existing.template_version_id || cd.templateVersionId || cd.template_version_id || `tv_${existing.templateId}_v1`;
+    cd.templateVersionId = sourceVersionId;
+    cd.template_version_id = sourceVersionId;
+
+    const newId = 'wm_' + Date.now().toString(36) + '_' + Math.random().toString(36).substring(2, 6);
+    const linkSettings = getServerWishLinkSettings();
+    const newSlug = generateUniqueServerRandomWishSlug(wishes, linkSettings.random);
+
+    const duplicatedWish = {
+      ...existing,
+      id: newId,
+      slug: newSlug,
+      userId: req.user ? req.user.id : existing.userId,
+      orderId: 'ORD-' + Math.random().toString(36).substring(2, 7).toUpperCase() + '-' + Date.now().toString().slice(-4),
+      templateId: existing.templateId,
+      templateVersionId: sourceVersionId,
+      templateName: existing.templateName,
+      tier: existing.tier,
+      price: 0,
+      isPrivate: true,
+      recipientName: `${existing.recipientName || 'Special Person'} (Copy)`,
+      customData: cd,
+      status: 'draft',
+      views: 0,
+      createdAt: new Date().toISOString(),
+      updatedAt: new Date().toISOString()
+    };
+
+    wishes.unshift(duplicatedWish);
+    saveWishes(wishes);
+
+    res.status(201).json({
+      success: true,
+      duplicated: true,
+      wishId: newId,
+      slug: newSlug,
+      templateVersionId: sourceVersionId,
+      wish: duplicatedWish
+    });
+  } catch (err) {
     res.status(500).json({ success: false, message: err.message });
   }
 });
@@ -3094,8 +3293,8 @@ app.get('/api/wishes/:id', (req, res) => {
   wish.views = (wish.views || 0) + 1;
   saveWishes(wishes);
 
-  const templates = getTemplates();
-  const template = templates.find(t => t.id === wish.templateId);
+  const versionId = wish.templateVersionId || wish.template_version_id || (wish.customData && (wish.customData.templateVersionId || wish.customData.template_version_id));
+  const template = getTemplateVersionById(versionId, wish.templateId);
 
   res.json({
     success: true,
@@ -3154,8 +3353,8 @@ app.get('/w/:id', (req, res) => {
   let htmlContent = fs.readFileSync(htmlPath, 'utf8');
 
   if (wish) {
-    const templates = getTemplates();
-    const template = templates.find(t => t.id === wish.templateId);
+    const versionId = wish.templateVersionId || wish.template_version_id || (wish.customData && (wish.customData.templateVersionId || wish.customData.template_version_id));
+    const template = getTemplateVersionById(versionId, wish.templateId);
     const customData = wish.customData || {};
 
     const recipient = customData.recipient_name || customData.recipientName || wish.recipientName || 'Someone Special';

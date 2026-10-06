@@ -66,6 +66,7 @@ function createTestD1Database() {
   const entitlements = new Map();
   const wishes = new Map();
   const templates = new Map();
+  const templateVersions = new Map();
   const categories = new Map();
   const favorites = new Map();
   const wishMedia = new Map();
@@ -74,7 +75,7 @@ function createTestD1Database() {
   const siteSettings = new Map();
 
   return {
-    _tables: { users, sessions, adminRoles, adminStaff, adminAuditLogs, entitlements, wishes, templates, categories, favorites, wishMedia, notifications, analyticsEvents, siteSettings },
+    _tables: { users, sessions, adminRoles, adminStaff, adminAuditLogs, entitlements, wishes, templates, templateVersions, categories, favorites, wishMedia, notifications, analyticsEvents, siteSettings },
     async batch(statements) {
       const res = [];
       for (const stmt of statements) {
@@ -198,6 +199,22 @@ function createTestD1Database() {
                 }
                 return null;
               }
+              if (normalized.includes('FROM template_versions WHERE id = ?')) {
+                const id = args[0];
+                return templateVersions.get(id) ? { ...templateVersions.get(id) } : null;
+              }
+              if (normalized.includes('FROM template_versions WHERE template_id = ?')) {
+                const templateId = args[0];
+                let highest = null;
+                for (const v of templateVersions.values()) {
+                  if (v.template_id === templateId || v.templateId === templateId) {
+                    if (!highest || (Number(v.version_number || v.versionNumber || 1) > Number(highest.version_number || highest.versionNumber || 1))) {
+                      highest = v;
+                    }
+                  }
+                }
+                return highest ? { ...highest } : null;
+              }
               return null;
             },
             async all() {
@@ -251,11 +268,19 @@ function createTestD1Database() {
               if (normalized.includes('FROM site_settings')) {
                 return { results: Array.from(siteSettings.values()) };
               }
+              if (normalized.includes('FROM template_versions')) {
+                return { results: Array.from(templateVersions.values()) };
+              }
               return { results: [] };
             },
             async run() {
               const args = boundArgs;
               const normalized = sql.replace(/\s+/g, ' ').trim();
+              if (normalized.startsWith('INSERT INTO template_versions') || normalized.startsWith('INSERT OR IGNORE INTO template_versions') || normalized.startsWith('INSERT OR REPLACE INTO template_versions')) {
+                const [id, template_id, version_number, name, description, category, tier, price, thumbnail, theme, sections, capabilities, layout, animations, default_config, snapshot_data, status, created_at, created_by] = args;
+                templateVersions.set(id, { id, template_id, version_number, name, description, category, tier, price, thumbnail, theme, sections, capabilities, layout, animations, default_config, snapshot_data, status, created_at, created_by });
+                return { success: true };
+              }
               if (normalized.startsWith('INSERT INTO site_settings') || normalized.startsWith('INSERT OR REPLACE INTO site_settings')) {
                 const [key, value, type, updated_at, updated_by] = args;
                 siteSettings.set(key, { key, value, type, updated_at, updated_by });
@@ -324,8 +349,21 @@ function createTestD1Database() {
                 return { success: true };
               }
               if (normalized.startsWith('INSERT INTO wishes')) {
-                const [id, slug, user_id, order_id, template_id, template_name, tier, price, is_private, buyer_name, buyer_contact, recipient_name, event_date, expiry_date, lifecycle_status, views, custom_data, payment, status, created_at, updated_at] = args;
-                wishes.set(id, { id, slug, user_id, order_id, template_id, template_name, tier, price, is_private, buyer_name, buyer_contact, recipient_name, event_date, expiry_date, lifecycle_status, views, custom_data, payment, status, created_at, updated_at });
+                if (normalized.includes('template_version_id')) {
+                  const [id, slug, user_id, order_id, template_id, template_name, tier, price, is_private, buyer_name, buyer_contact, recipient_name, event_date, expiry_date, lifecycle_status, views, custom_data, payment, status, template_version_id, created_at, updated_at] = args;
+                  wishes.set(id, { id, slug, user_id, order_id, template_id, template_name, tier, price, is_private, buyer_name, buyer_contact, recipient_name, event_date, expiry_date, lifecycle_status, views, custom_data, payment, status, template_version_id, created_at, updated_at });
+                } else {
+                  const [id, slug, user_id, order_id, template_id, template_name, tier, price, is_private, buyer_name, buyer_contact, recipient_name, event_date, expiry_date, lifecycle_status, views, custom_data, payment, status, created_at, updated_at] = args;
+                  wishes.set(id, { id, slug, user_id, order_id, template_id, template_name, tier, price, is_private, buyer_name, buyer_contact, recipient_name, event_date, expiry_date, lifecycle_status, views, custom_data, payment, status, created_at, updated_at });
+                }
+                return { success: true };
+              }
+              if (normalized.startsWith('UPDATE wishes SET slug = ?, recipient_name = ?')) {
+                const [slug, recipient_name, buyer_name, event_date, custom_data, updated_at, id] = args;
+                const existing = wishes.get(id);
+                if (existing) {
+                  wishes.set(id, { ...existing, slug, recipient_name, buyer_name, event_date, custom_data, updated_at });
+                }
                 return { success: true };
               }
               if (normalized.startsWith('UPDATE wishes SET recipient_name = ?')) {
@@ -1996,6 +2034,376 @@ async function runTests() {
     const pubRes = await worker.fetch(new Request('http://localhost/api/settings/site'), prodEnv);
     const pub = (await pubRes.json()).data.settings;
     assert(pub.brandName === 'WishMagic', 'Public configuration reflects restored defaults');
+  }
+
+  // ============================================================================
+  // PART 30: IMMUTABLE TEMPLATE VERSION SNAPSHOT SYSTEM (TESTS 1 - 24)
+  // ============================================================================
+  console.log('\n================================================================');
+  console.log('🏛️ RUNNING PART 30 IMMUTABLE TEMPLATE VERSION SNAPSHOT SUITE');
+  console.log('================================================================');
+
+  let testTemplateId = 'tpl_celestial_magic_' + Date.now().toString(36);
+  let v1Id = null;
+  let v2Id = null;
+  let wishAId = null;
+  let wishASlug = null;
+  let wishBId = null;
+  let wishBSlug = null;
+  let wishDupId = null;
+  let userAToken = null;
+  let userBToken = null;
+
+  // Setup test users
+  {
+    const userA = {
+      id: 'usr_creator_alice',
+      email: 'alice@example.com',
+      display_name: 'Alice Creator',
+      role: 'creator',
+      plan: 'free',
+      is_premium: 0,
+      status: 'active'
+    };
+    const userB = {
+      id: 'usr_creator_bob',
+      email: 'bob@example.com',
+      display_name: 'Bob Creator',
+      role: 'creator',
+      plan: 'free',
+      is_premium: 0,
+      status: 'active'
+    };
+    testDb._tables.users.set(userA.id, userA);
+    testDb._tables.users.set(userB.id, userB);
+
+    userAToken = 'tok_alice_' + Math.random().toString(36);
+    userBToken = 'tok_bob_' + Math.random().toString(36);
+    testDb._tables.sessions.set(userAToken, { id: 'sess_alice', user_id: userA.id, token: userAToken, expires_at: Date.now() + 86400000 });
+    testDb._tables.sessions.set(userBToken, { id: 'sess_bob', user_id: userB.id, token: userBToken, expires_at: Date.now() + 86400000 });
+  }
+
+  // TEST 1: Create Template Version 1
+  console.log('• TEST 1: Create Template Version 1');
+  {
+    const createRes = await worker.fetch(new Request('http://localhost/api/templates', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', 'Cookie': `wm_session=${adminToken}` },
+      body: JSON.stringify({
+        id: testTemplateId,
+        name: 'Celestial Magic',
+        category: 'Birthday',
+        tier: 'free',
+        price: 0,
+        theme: {
+          mood: 'Purple Gold Starlight',
+          accentColor: '#9333ea',
+          gradient: 'from-purple-900 via-indigo-900 to-amber-500'
+        },
+        sections: ['Hero Cosmic', 'Constellation Gallery', 'Starlight Dedication']
+      })
+    }), prodEnv);
+    assert(createRes.status === 201, 'Template created with 201 Created');
+    const body = await createRes.json();
+    v1Id = body.data.versionId;
+    assert(v1Id && v1Id.includes('v1'), 'Template Version 1 ID generated');
+  }
+
+  // TEST 2: Create Wish A using Version 1
+  console.log('• TEST 2: Create Wish A using Version 1');
+  {
+    const createWishRes = await worker.fetch(new Request('http://localhost/api/wishes', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', 'Cookie': `wm_session=${userAToken}` },
+      body: JSON.stringify({
+        templateId: testTemplateId,
+        customData: {
+          recipient_name: 'Luna Lovegood',
+          sender_name: 'Alice',
+          custom_message: 'Happy Birthday under the stars!'
+        }
+      })
+    }), prodEnv);
+    assert(createWishRes.status === 201, 'Wish A created with 201 Created');
+    const body = await createWishRes.json();
+    wishAId = body.data.wishId;
+    wishASlug = body.data.slug;
+    assert(wishAId && wishASlug, 'Wish A returned ID and unique slug');
+  }
+
+  // TEST 3: Verify Wish A stores Version 1
+  console.log('• TEST 3: Verify Wish A stores Version 1');
+  {
+    const getRes = await worker.fetch(new Request(`http://localhost/api/wishes/${wishAId}`, {
+      headers: { 'Cookie': `wm_session=${userAToken}` }
+    }), prodEnv);
+    assert(getRes.status === 200, 'Wish A fetch returns 200');
+    const body = await getRes.json();
+    assert(body.data.wish.templateVersionId === v1Id, 'Wish A stores exact Template Version 1 ID');
+    assert(body.data.template && body.data.template.versionNumber === 1, 'Wish A resolves Template Version 1 snapshot');
+    assert(body.data.template.theme.mood === 'Purple Gold Starlight', 'Wish A contains Version 1 Purple Gold theme');
+  }
+
+  // TEST 4: Create Template Version 2
+  console.log('• TEST 4: Create Template Version 2');
+  {
+    const updateRes = await worker.fetch(new Request(`http://localhost/api/templates/${testTemplateId}`, {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json', 'Cookie': `wm_session=${adminToken}` },
+      body: JSON.stringify({
+        name: 'Celestial Magic - Electric Pink & Cyan Re-imagined',
+        theme: {
+          mood: 'Electric Pink Neon',
+          accentColor: '#ec4899',
+          gradient: 'from-pink-600 via-rose-500 to-cyan-400'
+        },
+        sections: ['Hero Hologram', 'Cyber Neon Gallery', 'Synthwave Finale']
+      })
+    }), prodEnv);
+    assert(updateRes.status === 200, 'Template updated with 200 OK');
+    const body = await updateRes.json();
+    v2Id = body.data.versionId;
+    assert(v2Id && v2Id.includes('v2'), 'Template Version 2 ID generated');
+    assert(body.data.versionNumber === 2, 'Version Number incremented to 2');
+  }
+
+  // TEST 5: Verify Version 1 remains unchanged
+  console.log('• TEST 5: Verify Version 1 remains unchanged');
+  {
+    const v1Snapshot = testDb._tables.templateVersions.get(v1Id);
+    assert(v1Snapshot !== undefined, 'Version 1 snapshot row persists in database');
+    const v1Parsed = typeof v1Snapshot.snapshot_data === 'string' ? JSON.parse(v1Snapshot.snapshot_data) : v1Snapshot;
+    assert(v1Parsed.theme.mood === 'Purple Gold Starlight', 'Version 1 theme is immutable and unchanged');
+    assert(v1Parsed.versionNumber === 1, 'Version 1 version number remains 1');
+  }
+
+  // TEST 6: Create Wish B after Version 2 becomes current
+  console.log('• TEST 6: Create Wish B after Version 2 becomes current');
+  {
+    const createWishB = await worker.fetch(new Request('http://localhost/api/wishes', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', 'Cookie': `wm_session=${userBToken}` },
+      body: JSON.stringify({
+        templateId: testTemplateId,
+        customData: {
+          recipient_name: 'Bob Ross',
+          sender_name: 'Bob',
+          custom_message: 'Keep painting happy clouds!'
+        }
+      })
+    }), prodEnv);
+    assert(createWishB.status === 201, 'Wish B created with 201 Created');
+    const body = await createWishB.json();
+    wishBId = body.data.wishId;
+    wishBSlug = body.data.slug;
+  }
+
+  // TEST 7: Verify Wish B uses Version 2
+  console.log('• TEST 7: Verify Wish B uses Version 2');
+  {
+    const getResB = await worker.fetch(new Request(`http://localhost/api/wishes/${wishBId}`, {
+      headers: { 'Cookie': `wm_session=${userBToken}` }
+    }), prodEnv);
+    assert(getResB.status === 200, 'Wish B fetch returns 200');
+    const body = await getResB.json();
+    assert(body.data.wish.templateVersionId === v2Id, 'Wish B stores exact Template Version 2 ID');
+    assert(body.data.template.versionNumber === 2, 'Wish B resolves Template Version 2 snapshot');
+    assert(body.data.template.theme.mood === 'Electric Pink Neon', 'Wish B contains Version 2 Electric Pink theme');
+  }
+
+  // TEST 8: Verify Wish A still renders Version 1
+  console.log('• TEST 8: Verify Wish A still renders Version 1');
+  {
+    const pubResA = await worker.fetch(new Request(`http://localhost/api/public/wishes/${wishASlug}`), prodEnv);
+    assert(pubResA.status === 200, 'Public Wish A returns 200 OK');
+    const body = await pubResA.json();
+    assert(body.data.wish.templateVersionId === v1Id, 'Public Wish A maintains Version 1 ID reference');
+    assert(body.data.template.versionNumber === 1, 'Public Wish A renders Version 1 snapshot');
+    assert(body.data.template.theme.mood === 'Purple Gold Starlight', 'Public Wish A maintains original Version 1 design');
+  }
+
+  // TEST 9: Verify Wish B renders Version 2
+  console.log('• TEST 9: Verify Wish B renders Version 2');
+  {
+    const pubResB = await worker.fetch(new Request(`http://localhost/api/public/wishes/${wishBSlug}`), prodEnv);
+    assert(pubResB.status === 200, 'Public Wish B returns 200 OK');
+    const body = await pubResB.json();
+    assert(body.data.wish.templateVersionId === v2Id, 'Public Wish B maintains Version 2 ID reference');
+    assert(body.data.template.versionNumber === 2, 'Public Wish B renders Version 2 snapshot');
+    assert(body.data.template.theme.mood === 'Electric Pink Neon', 'Public Wish B renders new Version 2 design');
+  }
+
+  // TEST 10: Duplicate Wish A. Verify duplicate uses Version 1
+  console.log('• TEST 10: Duplicate Wish A (Preserves Version 1)');
+  {
+    const dupRes = await worker.fetch(new Request(`http://localhost/api/wishes/${wishAId}/duplicate`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', 'Cookie': `wm_session=${userAToken}` }
+    }), prodEnv);
+    assert(dupRes.status === 201, 'Duplicate Wish A returns 201 Created');
+    const body = await dupRes.json();
+    wishDupId = body.data.wishId;
+    assert(body.data.templateVersionId === v1Id, 'Duplicate Wish preserves original Version 1 snapshot ID');
+  }
+
+  // TEST 11: Verify duplicate has a new Wish ID
+  console.log('• TEST 11: Verify duplicate has a new Wish ID');
+  {
+    assert(wishDupId !== wishAId, 'Duplicate Wish ID is distinct from source Wish ID');
+  }
+
+  // TEST 12: Verify duplicate has correct ownership
+  console.log('• TEST 12: Verify duplicate has correct ownership');
+  {
+    const dupRow = testDb._tables.wishes.get(wishDupId);
+    assert(dupRow.user_id === 'usr_creator_alice', 'Duplicate wish is owned by Alice');
+  }
+
+  // TEST 13: Verify duplicate slug handling remains correct
+  console.log('• TEST 13: Verify duplicate slug handling remains correct');
+  {
+    const dupRow = testDb._tables.wishes.get(wishDupId);
+    assert(dupRow.slug && dupRow.slug !== wishASlug, 'Duplicate has unique fresh slug');
+  }
+
+  // TEST 14: Attempt unauthorized template-version manipulation
+  console.log('• TEST 14: Attempt unauthorized template-version manipulation');
+  {
+    const unauthUpdate = await worker.fetch(new Request(`http://localhost/api/templates/${testTemplateId}`, {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json', 'Cookie': `wm_session=${userAToken}` },
+      body: JSON.stringify({ name: 'Hacked Template' })
+    }), prodEnv);
+    assert(unauthUpdate.status === 403, 'Non-admin user rejected with 403 Forbidden on template version update');
+  }
+
+  // TEST 15: Attempt cross-user Wish access
+  console.log('• TEST 15: Attempt cross-user Wish access');
+  {
+    const crossRes = await worker.fetch(new Request(`http://localhost/api/wishes/${wishAId}`, {
+      headers: { 'Cookie': `wm_session=${userBToken}` }
+    }), prodEnv);
+    assert(crossRes.status === 403, 'Bob rejected with 403 Forbidden when attempting to access Alice Wish A');
+  }
+
+  // TEST 16: Modify current template. Verify old published Wish remains unchanged
+  console.log('• TEST 16: Modify current template -> Old published Wish A remains unchanged');
+  {
+    await worker.fetch(new Request(`http://localhost/api/templates/${testTemplateId}`, {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json', 'Cookie': `wm_session=${adminToken}` },
+      body: JSON.stringify({
+        name: 'Celestial Magic - Version 3 Gold & Emerald',
+        theme: {
+          mood: 'Gold & Emerald Deluxe',
+          accentColor: '#10b981',
+          gradient: 'from-emerald-900 via-teal-900 to-amber-300'
+        }
+      })
+    }), prodEnv);
+
+    // Wish A must still render Version 1
+    const pubResA = await worker.fetch(new Request(`http://localhost/api/public/wishes/${wishASlug}`), prodEnv);
+    const body = await pubResA.json();
+    assert(body.data.template.versionNumber === 1, 'Wish A still renders Version 1 snapshot after template changes to V3');
+    assert(body.data.template.theme.mood === 'Purple Gold Starlight', 'Wish A theme remains untouched');
+  }
+
+  // TEST 17: Archive/deactivate current template. Verify existing Wishes still work
+  console.log('• TEST 17: Archive/deactivate current template -> Existing Wishes still work');
+  {
+    const deleteAttempt = await worker.fetch(new Request(`http://localhost/api/templates/${testTemplateId}`, {
+      method: 'DELETE',
+      headers: { 'Cookie': `wm_session=${adminToken}` }
+    }), prodEnv);
+    assert(deleteAttempt.status === 200, 'Delete response received');
+    const deleteBody = await deleteAttempt.json();
+    // Verify safe check was triggered or soft-handled
+    assert(deleteBody.data.referenced === true || deleteBody.data.deleted === true, 'Safe deletion protects referenced wishes');
+
+    // Verify Wish A continues rendering safely
+    const pubResA = await worker.fetch(new Request(`http://localhost/api/public/wishes/${wishASlug}`), prodEnv);
+    assert(pubResA.status === 200, 'Existing Wish A continues rendering cleanly even after template archival');
+  }
+
+  // TEST 18: Verify old public URLs remain valid
+  console.log('• TEST 18: Verify old public URLs remain valid');
+  {
+    const pubResA = await worker.fetch(new Request(`http://localhost/api/public/wishes/${wishASlug}`), prodEnv);
+    assert(pubResA.status === 200, 'Old public wish URL /w/:slug remains 200 OK');
+    const body = await pubResA.json();
+    assert(body.data.wish.slug === wishASlug, 'Public slug resolves correct wish');
+  }
+
+  // TEST 19: Verify existing Wish expiration/lifecycle behavior remains unchanged
+  console.log('• TEST 19: Verify existing Wish expiration/lifecycle behavior remains unchanged');
+  {
+    const todayIso = new Date().toISOString().split('T')[0];
+    const lifecycleResult = WishLifecycle.getWishStatus({ eventDate: todayIso });
+    assert(lifecycleResult === 'active', 'Lifecycle engine computes active status correctly for today');
+    assert(WishLifecycle.getWishStatus({ eventDate: '2035-01-01' }) === 'upcoming', 'Future date is upcoming');
+    assert(WishLifecycle.getWishStatus({ eventDate: '2020-01-01' }) === 'expired', 'Past date is expired');
+  }
+
+  // TEST 20: Verify Smart Wish Link functionality still works
+  console.log('• TEST 20: Verify Smart Wish Link functionality still works');
+  {
+    const linkSettingsRes = await worker.fetch(new Request('http://localhost/api/settings/wish-links'), prodEnv);
+    assert(linkSettingsRes.status === 200, 'Smart Wish Link settings endpoint returns 200');
+    const body = await linkSettingsRes.json();
+    assert(body.data.settings.personalized.enabled === true, 'Personalized link setting is active');
+    assert(body.data.settings.random.enabled === true, 'Random link setting is active');
+  }
+
+  // TEST 21: Verify ₹49 Personalized Link functionality still works
+  console.log('• TEST 21: Verify ₹49 Personalized Link functionality still works');
+  {
+    const customSlug = 'celestial-star-' + Math.random().toString(36).slice(-4);
+    const createPersonalized = await worker.fetch(new Request('http://localhost/api/wishes', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', 'Cookie': `wm_session=${userAToken}` },
+      body: JSON.stringify({
+        templateId: testTemplateId,
+        slug: customSlug,
+        linkType: 'personalized',
+        customData: { recipient_name: 'Zoe', sender_name: 'Alice' }
+      })
+    }), prodEnv);
+    assert(createPersonalized.status === 201, 'Personalized link wish created with 201');
+    const body = await createPersonalized.json();
+    assert(body.data.slug === customSlug, 'Personalized slug preserved');
+  }
+
+  // TEST 22: Verify Free Random Link functionality still works
+  console.log('• TEST 22: Verify Free Random Link functionality still works');
+  {
+    const createRandom = await worker.fetch(new Request('http://localhost/api/wishes', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', 'Cookie': `wm_session=${userBToken}` },
+      body: JSON.stringify({
+        templateId: testTemplateId,
+        linkType: 'random',
+        customData: { recipient_name: 'Leo', sender_name: 'Bob' }
+      })
+    }), prodEnv);
+    assert(createRandom.status === 201, 'Free random link wish created with 201');
+    const body = await createRandom.json();
+    assert(body.data.slug.startsWith('wish-') || body.data.slug.length >= 6, 'Random slug generated with valid prefix/format');
+  }
+
+  // TEST 23: Verify Admin Settings functionality remains intact
+  console.log('• TEST 23: Verify Admin Settings functionality remains intact');
+  {
+    const adminSettingsRes = await worker.fetch(new Request('http://localhost/api/admin/settings/site', {
+      headers: { 'Cookie': `wm_session=${adminToken}` }
+    }), prodEnv);
+    assert(adminSettingsRes.status === 200, 'Admin settings endpoint returns 200 OK');
+  }
+
+  // TEST 24: Verify all existing tests continue passing
+  console.log('• TEST 24: Verify all existing tests continue passing');
+  {
+    assert(failedTests === 0, 'Zero test failures across all verification suites');
   }
 
   // ============================================================================
