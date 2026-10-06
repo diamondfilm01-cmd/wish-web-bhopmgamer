@@ -1,5 +1,5 @@
 // WishMagic Centralized Authentication & User Architecture Service
-// Part 27: Production Security Hardening & Zero-Trust Authentication Boundary
+// Single Authoritative Client Auth Bootstrap Engine
 
 (function(window) {
   'use strict';
@@ -14,119 +14,59 @@
       window.location.pathname === '/admin/anktech/anktech/admin'
     );
 
+  // Authoritative Client Auth States
+  const AUTH_STATE = Object.freeze({
+    BOOTING: 'BOOTING',
+    AUTHENTICATED: 'AUTHENTICATED',
+    UNAUTHENTICATED: 'UNAUTHENTICATED',
+    ERROR: 'ERROR'
+  });
+
+  let authState = AUTH_STATE.BOOTING;
   let currentUser = null;
-  let isCheckingSession = false;
+  let authInitialized = false;
+  let authBootstrapPromise = null;
+  let inFlightSessionPromise = null;
+  let inFlightSignInPromise = null;
   const authListeners = new Set();
 
-  // Admin Studio must never authorize from localStorage.
-  // Normal website pages may continue using the existing
-  // user cache only for non-security UI hydration.
-  if (!IS_ADMIN_STUDIO) {
-    try {
-      const cachedUserStr =
-        localStorage.getItem(STORAGE_KEY_USER) ||
-        localStorage.getItem('wishmagic_user');
+  let authReadyResolve = null;
+  const authReadyPromise = new Promise(resolve => {
+    authReadyResolve = resolve;
+  });
 
-      if (cachedUserStr) {
-        currentUser = JSON.parse(cachedUserStr);
-      }
-    } catch (e) {}
+  // Non-authoritative UI cache helpers (Updated ONLY after real authentication)
+  function persistUserCache(user) {
+    if (!user) return;
+    try {
+      localStorage.setItem(STORAGE_KEY_USER, JSON.stringify(user));
+      localStorage.setItem('wishmagic_user', JSON.stringify(user));
+    } catch (_) {}
   }
 
-  // If container is already in DOM at script execution time, render instantly
-  if (typeof document !== 'undefined' && !IS_ADMIN_STUDIO) {
-    if (document.readyState === 'interactive' || document.readyState === 'complete') {
-      renderNavbarAuthState();
-    } else {
-      document.addEventListener('readystatechange', () => {
-        if (document.readyState === 'interactive' || document.readyState === 'complete') {
-          renderNavbarAuthState();
-        }
-      });
-    }
+  function clearUserCache() {
+    try {
+      localStorage.removeItem(STORAGE_KEY_USER);
+      localStorage.removeItem('wishmagic_user');
+    } catch (_) {}
   }
 
-  // Initialize Auth State directly with Firebase SDK and fallback cache
-  async function initAuth() {
-    if (IS_ADMIN_STUDIO) {
-      /*
-       * Admin Studio has its own authoritative gate:
-       * public/js/admin-theme.js
-       *
-       * Do not start another Firebase observer here.
-       * Do not hydrate localStorage.
-       * Do not render cached user.
-       * Do not create another server session.
-       */
-      isCheckingSession = false;
-      return null;
+  // Single authoritative transition controller
+  function setAuthState(state, user = null) {
+    authState = state;
+    currentUser = user;
+
+    if (state === AUTH_STATE.AUTHENTICATED && user) {
+      persistUserCache(user);
+    } else if (state === AUTH_STATE.UNAUTHENTICATED || state === AUTH_STATE.ERROR) {
+      clearUserCache();
     }
 
-    isCheckingSession = true;
-    try {
-      // 1. Instant re-render of cached state
-      if (!currentUser) {
-        const storedUser = localStorage.getItem(STORAGE_KEY_USER) || localStorage.getItem('wishmagic_user');
-        if (storedUser) {
-          try {
-            currentUser = JSON.parse(storedUser);
-            notifyAuthChange();
-          } catch (e) {}
-        }
-      } else {
-        renderNavbarAuthState();
-      }
+    notifyAuthChange();
 
-      // 2. Connect Firebase Auth State Observer for real-time auth
-      const fb = await ensureFirebaseAuth();
-      if (fb && typeof fb.onAuthStateChanged === 'function') {
-        fb.onAuthStateChanged(async (fbUser) => {
-          if (fbUser) {
-            const email = (fbUser.email || '').trim().toLowerCase();
-            const isAdmin = fb.isAdminEmail ? fb.isAdminEmail(email) : (email === 'ankit.babusaini@gmail.com');
-            const displayName = (fbUser.displayName || (email ? email.split('@')[0] : 'Creator')).trim();
-            const avatarUrl = fbUser.photoURL || `https://api.dicebear.com/7.x/bottts/svg?seed=${encodeURIComponent(email || 'creator')}`;
-
-            currentUser = {
-              id: 'usr_fb_' + (fbUser.uid ? fbUser.uid.slice(0, 16) : Date.now().toString(36)),
-              email,
-              displayName,
-              avatarUrl,
-              role: isAdmin ? 'admin' : 'creator',
-              isAdmin: isAdmin,
-              plan: isAdmin ? 'VIP' : 'Free',
-              isPremium: isAdmin,
-              provider: fbUser.providerData?.[0]?.providerId || 'firebase',
-              firebaseUid: fbUser.uid
-            };
-
-            try {
-              localStorage.setItem(STORAGE_KEY_USER, JSON.stringify(currentUser));
-              localStorage.setItem('wishmagic_user', JSON.stringify(currentUser));
-            } catch (e) {}
-
-            notifyAuthChange();
-            // Background sync with server
-            syncSessionWithServer(fbUser, displayName).catch(() => {});
-          } else {
-            // User signed out in Firebase
-            const hadUser = currentUser !== null;
-            currentUser = null;
-            try {
-              localStorage.removeItem(STORAGE_KEY_USER);
-              localStorage.removeItem('wishmagic_user');
-            } catch (e) {}
-            if (hadUser) notifyAuthChange();
-          }
-        });
-      }
-
-      // 3. Try server hydration if running in Express environment
-      await WishAuth.hydrateSessionFromServer();
-    } catch (e) {
-      console.warn('[WishAuth] Error initializing auth state:', e);
-    } finally {
-      isCheckingSession = false;
+    if (state !== AUTH_STATE.BOOTING && authReadyResolve) {
+      authReadyResolve(user);
+      authReadyResolve = null;
     }
   }
 
@@ -141,48 +81,60 @@
     renderNavbarAuthState();
   }
 
-  // Helper to ensure WishFirebaseAuth is loaded
-  function ensureFirebaseAuth() {
-    if (window.WishFirebaseAuth) return Promise.resolve(window.WishFirebaseAuth);
-    return new Promise((resolve) => {
-      let existing = document.querySelector('script[src*="firebase-auth.js"]');
-      if (!existing) {
-        const script = document.createElement('script');
-        script.src = '/js/firebase-auth.js';
-        script.async = true;
-        script.onload = () => resolve(window.WishFirebaseAuth || null);
-        script.onerror = () => resolve(null);
-        document.head.appendChild(script);
-      } else {
-        let count = 0;
-        const interval = setInterval(() => {
-          if (window.WishFirebaseAuth || ++count > 40) {
-            clearInterval(interval);
-            resolve(window.WishFirebaseAuth || null);
-          }
-        }, 50);
-      }
-    });
-  }
-
-  // Authoritatively sync authenticated Firebase identity with server-side session cookie
-  async function syncSessionWithServer(
-    fbUser,
-    fallbackDisplayName = ''
-  ) {
-    if (!fbUser) {
-      throw new Error('Firebase user is missing.');
+  // Deduplicated Server Session Check
+  function fetchServerSessionOnce() {
+    if (inFlightSessionPromise) {
+      return inFlightSessionPromise;
     }
 
-    const email =
-      (fbUser.email || '').trim().toLowerCase();
+    inFlightSessionPromise = (async () => {
+      try {
+        const response = await fetch('/api/auth/session', {
+          method: 'GET',
+          credentials: 'include',
+          cache: 'no-store',
+          headers: {
+            'Accept': 'application/json'
+          }
+        });
 
-    const displayName =
-      (
-        fbUser.displayName ||
-        fallbackDisplayName ||
-        (email ? email.split('@')[0] : 'Creator')
-      ).trim();
+        const data = await response.json().catch(() => ({}));
+        if (
+          response.ok &&
+          data?.success === true &&
+          data?.isAuthenticated === true &&
+          data?.user
+        ) {
+          return data.user;
+        }
+
+        return null;
+      } catch (error) {
+        return null;
+      } finally {
+        inFlightSessionPromise = null;
+      }
+    })();
+
+    return inFlightSessionPromise;
+  }
+
+  // Deduplicated Server Sign-In Mutation
+  function syncSessionWithServer(fbUser, fallbackDisplayName = '') {
+    if (!fbUser) {
+      return Promise.reject(new Error('Firebase user is missing.'));
+    }
+
+    if (inFlightSignInPromise) {
+      return inFlightSignInPromise;
+    }
+
+    const email = (fbUser.email || '').trim().toLowerCase();
+    const displayName = (
+      fbUser.displayName ||
+      fallbackDisplayName ||
+      (email ? email.split('@')[0] : 'Creator')
+    ).trim();
 
     const avatarUrl =
       fbUser.photoURL ||
@@ -190,48 +142,198 @@
         email || 'creator'
       )}`;
 
-    const response = await fetch(
-      '/api/auth/signin',
-      {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'Accept': 'application/json'
-        },
-        credentials: 'include',
-        cache: 'no-store',
-        body: JSON.stringify({
-          email,
-          displayName,
-          avatarUrl,
-          provider:
-            fbUser.providerData?.[0]?.providerId ||
-            'firebase',
-          firebaseUid: fbUser.uid
-        })
+    inFlightSignInPromise = (async () => {
+      try {
+        const response = await fetch('/api/auth/signin', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'Accept': 'application/json'
+          },
+          credentials: 'include',
+          cache: 'no-store',
+          body: JSON.stringify({
+            email,
+            displayName,
+            avatarUrl,
+            provider: fbUser.providerData?.[0]?.providerId || 'firebase',
+            firebaseUid: fbUser.uid
+          })
+        });
+
+        const data = await response.json().catch(() => ({}));
+        if (!response.ok || data?.success !== true || !data?.user) {
+          throw new Error(
+            data?.error?.message ||
+            data?.message ||
+            'Server authentication failed.'
+          );
+        }
+
+        return data.user;
+      } finally {
+        inFlightSignInPromise = null;
       }
-    );
+    })();
 
-    const data =
-      await response.json().catch(() => ({}));
+    return inFlightSignInPromise;
+  }
 
-    if (
-      !response.ok ||
-      data?.success !== true ||
-      !data?.user
-    ) {
-      throw new Error(
-        data?.error?.message ||
-        data?.message ||
-        'Server authentication failed.'
-      );
+  // Ensure WishFirebaseAuth module is ready
+  function ensureFirebaseAuth() {
+    if (window.WishFirebaseAuth) {
+      if (typeof window.WishFirebaseAuth.ready === 'function') {
+        return window.WishFirebaseAuth.ready().then(() => window.WishFirebaseAuth).catch(() => window.WishFirebaseAuth);
+      }
+      return Promise.resolve(window.WishFirebaseAuth);
+    }
+    return new Promise((resolve) => {
+      let existing = document.querySelector('script[src*="firebase-auth.js"]');
+      if (!existing) {
+        const script = document.createElement('script');
+        script.src = '/js/firebase-auth.js';
+        script.async = true;
+        script.onload = () => {
+          if (window.WishFirebaseAuth && typeof window.WishFirebaseAuth.ready === 'function') {
+            window.WishFirebaseAuth.ready().then(() => resolve(window.WishFirebaseAuth)).catch(() => resolve(window.WishFirebaseAuth));
+          } else {
+            resolve(window.WishFirebaseAuth || null);
+          }
+        };
+        script.onerror = () => resolve(null);
+        document.head.appendChild(script);
+      } else {
+        let count = 0;
+        const interval = setInterval(() => {
+          if (window.WishFirebaseAuth || ++count > 40) {
+            clearInterval(interval);
+            if (window.WishFirebaseAuth && typeof window.WishFirebaseAuth.ready === 'function') {
+              window.WishFirebaseAuth.ready().then(() => resolve(window.WishFirebaseAuth)).catch(() => resolve(window.WishFirebaseAuth));
+            } else {
+              resolve(window.WishFirebaseAuth || null);
+            }
+          }
+        }, 50);
+      }
+    });
+  }
+
+  // Single Deterministic Auth Bootstrap Engine
+  async function performAuthBootstrap() {
+    if (IS_ADMIN_STUDIO) {
+      // Admin Studio uses window.AdminAuthController exclusively
+      authState = AUTH_STATE.UNAUTHENTICATED;
+      authInitialized = true;
+      if (authReadyResolve) {
+        authReadyResolve(null);
+        authReadyResolve = null;
+      }
+      return null;
     }
 
-    return data.user;
+    authState = AUTH_STATE.BOOTING;
+    renderNavbarAuthState();
+
+    try {
+      // Parallel Start: Firebase initialization + existing server session check
+      const firebasePromise = ensureFirebaseAuth();
+      const serverPromise = fetchServerSessionOnce();
+
+      const [firebaseAuth, serverUser] = await Promise.all([
+        firebasePromise,
+        serverPromise
+      ]);
+
+      // If a valid server session already exists, use it immediately
+      if (serverUser) {
+        setAuthState(AUTH_STATE.AUTHENTICATED, serverUser);
+
+        // Firebase continues warming in the background
+        if (
+          firebaseAuth &&
+          typeof firebaseAuth.onAuthStateChanged === 'function'
+        ) {
+          firebaseAuth.onAuthStateChanged(async (firebaseUser) => {
+            // NEVER clear server session just because Firebase temporarily emits null
+            if (!firebaseUser) {
+              return;
+            }
+          });
+        }
+
+        return serverUser;
+      }
+
+      // No server session. Wait for Firebase authoritative initial state.
+      if (
+        !firebaseAuth ||
+        typeof firebaseAuth.onAuthStateChanged !== 'function'
+      ) {
+        setAuthState(AUTH_STATE.UNAUTHENTICATED, null);
+        return null;
+      }
+
+      return await new Promise((resolve) => {
+        let firstEvent = true;
+
+        const unsubscribe = firebaseAuth.onAuthStateChanged(async (firebaseUser) => {
+          if (!firstEvent) {
+            return;
+          }
+          firstEvent = false;
+
+          if (!firebaseUser) {
+            setAuthState(AUTH_STATE.UNAUTHENTICATED, null);
+            try { unsubscribe(); } catch (_) {}
+            resolve(null);
+            return;
+          }
+
+          try {
+            // Firebase says user is authenticated: create server session
+            const syncedUser = await syncSessionWithServer(
+              firebaseUser,
+              firebaseUser.displayName || ''
+            );
+
+            if (!syncedUser) {
+              throw new Error('Server authentication did not return a user.');
+            }
+
+            // Verify with server session
+            const verifiedUser = (await fetchServerSessionOnce()) || syncedUser;
+            setAuthState(AUTH_STATE.AUTHENTICATED, verifiedUser);
+            resolve(verifiedUser);
+          } catch (error) {
+            console.error('[WishAuth] Firebase → server session sync failed:', error);
+            setAuthState(AUTH_STATE.ERROR, null);
+            resolve(null);
+          }
+        });
+      });
+    } catch (err) {
+      console.warn('[WishAuth] Bootstrap failed:', err);
+      setAuthState(AUTH_STATE.ERROR, null);
+      return null;
+    } finally {
+      authInitialized = true;
+    }
+  }
+
+  function initAuth() {
+    if (authBootstrapPromise) {
+      return authBootstrapPromise;
+    }
+    authBootstrapPromise = performAuthBootstrap();
+    return authBootstrapPromise;
   }
 
   // Centralized Auth Service API
   const WishAuth = {
+    getAuthState() {
+      return authState;
+    },
+
     getCurrentUser() {
       return currentUser ? { ...currentUser } : null;
     },
@@ -249,9 +351,20 @@
       }
 
       return (
+        authState === AUTH_STATE.AUTHENTICATED &&
         currentUser !== null &&
         Boolean(currentUser.id)
       );
+    },
+
+    async waitForAuthReady(timeoutMs = 5000) {
+      if (authState !== AUTH_STATE.BOOTING) {
+        return currentUser;
+      }
+      return Promise.race([
+        authReadyPromise,
+        new Promise(resolve => setTimeout(() => resolve(currentUser), timeoutMs))
+      ]);
     },
 
     requireAdmin(options = {}) {
@@ -326,17 +439,10 @@
      */
     async hydrateSessionFromServer() {
       try {
-        const res = await fetch('/api/auth/session', { credentials: 'include' });
-        if (res.ok) {
-          const data = await res.json();
-          if (data && data.success && data.user) {
-            currentUser = data.user;
-            try {
-              localStorage.setItem(STORAGE_KEY_USER, JSON.stringify(currentUser));
-            } catch (e) {}
-            notifyAuthChange();
-            return currentUser;
-          }
+        const user = await fetchServerSessionOnce();
+        if (user) {
+          setAuthState(AUTH_STATE.AUTHENTICATED, user);
+          return user;
         }
       } catch (e) {
         // Expected on static hosting like Cloudflare Pages
@@ -376,13 +482,9 @@
 
         const data = await res.json();
         if (res.ok && data && data.success && data.user) {
-          currentUser = data.user;
-          try {
-            localStorage.setItem(STORAGE_KEY_USER, JSON.stringify(currentUser));
-          } catch (e) {}
-          notifyAuthChange();
-          showAuthToast(`Welcome back, ${currentUser.displayName}! ✨`);
-          return currentUser;
+          setAuthState(AUTH_STATE.AUTHENTICATED, data.user);
+          showAuthToast(`Welcome back, ${data.user.displayName}! ✨`);
+          return data.user;
         } else {
           showAuthToast((data && data.message) || 'Sign in failed. Please try again.');
           return null;
@@ -410,14 +512,10 @@
         if (fbUser) {
           const serverUser = await syncSessionWithServer(fbUser);
           if (serverUser) {
-            currentUser = serverUser;
-            try {
-              localStorage.setItem(STORAGE_KEY_USER, JSON.stringify(currentUser));
-            } catch (e) {}
-            notifyAuthChange();
-            showAuthToast(`Welcome, ${currentUser.displayName}! ✨`);
+            setAuthState(AUTH_STATE.AUTHENTICATED, serverUser);
+            showAuthToast(`Welcome, ${serverUser.displayName}! ✨`);
             if (typeof window.closeAuthModal === 'function') window.closeAuthModal();
-            return currentUser;
+            return serverUser;
           }
         }
       } catch (err) {
@@ -449,14 +547,12 @@
           const fbUser = await window.WishFirebaseAuth.signInWithEmailPassword(cleanEmail, password);
           if (fbUser) {
             const serverUser = await syncSessionWithServer(fbUser);
-            currentUser = serverUser;
-            try {
-              localStorage.setItem(STORAGE_KEY_USER, JSON.stringify(currentUser));
-            } catch (e) {}
-            notifyAuthChange();
-            showAuthToast(`Welcome back, ${currentUser.displayName}! ✨`);
-            if (typeof window.closeAuthModal === 'function') window.closeAuthModal();
-            return currentUser;
+            if (serverUser) {
+              setAuthState(AUTH_STATE.AUTHENTICATED, serverUser);
+              showAuthToast(`Welcome back, ${serverUser.displayName}! ✨`);
+              if (typeof window.closeAuthModal === 'function') window.closeAuthModal();
+              return serverUser;
+            }
           }
         } catch (clientErr) {
           console.warn('[WishAuth] Client SDK sign-in notice, falling back to server verification:', clientErr.message);
@@ -479,18 +575,10 @@
 
         const data = await res.json();
         if (res.ok && data && data.success && data.user) {
-          currentUser = data.user;
-          try {
-            localStorage.setItem(STORAGE_KEY_USER, JSON.stringify(currentUser));
-            if (data.token) {
-              localStorage.setItem('wishmagic_auth_token', data.token);
-              document.cookie = `wm_session=${encodeURIComponent(data.token)}; Path=/; Max-Age=2592000; SameSite=Lax`;
-            }
-          } catch (e) {}
-          notifyAuthChange();
-          showAuthToast(`Welcome back, ${currentUser.displayName}! ✨`);
+          setAuthState(AUTH_STATE.AUTHENTICATED, data.user);
+          showAuthToast(`Welcome back, ${data.user.displayName}! ✨`);
           if (typeof window.closeAuthModal === 'function') window.closeAuthModal();
-          return currentUser;
+          return data.user;
         } else {
           const errMsg = data.error?.message || data.message || 'Incorrect email or password.';
           showAuthToast(errMsg);
@@ -525,14 +613,10 @@
           const fbUser = await window.WishFirebaseAuth.signUpWithEmailPassword(cleanEmail, password, displayName);
           if (fbUser) {
             const serverUser = await syncSessionWithServer(fbUser, displayName);
-            currentUser = serverUser;
-            try {
-              localStorage.setItem(STORAGE_KEY_USER, JSON.stringify(currentUser));
-            } catch (e) {}
-            notifyAuthChange();
-            showAuthToast(`Account created! Welcome, ${currentUser.displayName}! ✨`);
+            setAuthState(AUTH_STATE.AUTHENTICATED, serverUser);
+            showAuthToast(`Account created! Welcome, ${serverUser.displayName}! ✨`);
             if (typeof window.closeAuthModal === 'function') window.closeAuthModal();
-            return currentUser;
+            return serverUser;
           }
         } catch (clientErr) {
           console.warn('[WishAuth] Client SDK sign-up notice, falling back to server:', clientErr.message);
@@ -554,18 +638,16 @@
 
         const data = await res.json();
         if (res.ok && data && data.success && data.user) {
-          currentUser = data.user;
-          try {
-            localStorage.setItem(STORAGE_KEY_USER, JSON.stringify(currentUser));
-            if (data.token) {
+          if (data.token) {
+            try {
               localStorage.setItem('wishmagic_auth_token', data.token);
               document.cookie = `wm_session=${encodeURIComponent(data.token)}; Path=/; Max-Age=2592000; SameSite=Lax`;
-            }
-          } catch (e) {}
-          notifyAuthChange();
-          showAuthToast(`Account created! Welcome, ${currentUser.displayName}! ✨`);
+            } catch (e) {}
+          }
+          setAuthState(AUTH_STATE.AUTHENTICATED, data.user);
+          showAuthToast(`Account created! Welcome, ${data.user.displayName}! ✨`);
           if (typeof window.closeAuthModal === 'function') window.closeAuthModal();
-          return currentUser;
+          return data.user;
         } else {
           const errMsg = data.error?.message || data.message || 'Sign up could not be completed.';
           showAuthToast(errMsg);
@@ -647,38 +729,22 @@
         });
         const data = await res.json();
         if (res.ok && data && data.success && data.user) {
-          currentUser = data.user;
-          try {
-            localStorage.setItem(STORAGE_KEY_USER, JSON.stringify(currentUser));
-          } catch (e) {}
-          notifyAuthChange();
-          return currentUser;
+          setAuthState(AUTH_STATE.AUTHENTICATED, data.user);
+          return data.user;
         }
       } catch (e) {
         console.warn('[WishAuth] Profile update error:', e);
       }
 
-      currentUser = { ...currentUser, displayName: newName, avatarUrl: newAvatar };
-      try {
-        localStorage.setItem(STORAGE_KEY_USER, JSON.stringify(currentUser));
-      } catch (e) {}
-      notifyAuthChange();
-      return currentUser;
+      const updated = { ...currentUser, displayName: newName, avatarUrl: newAvatar };
+      setAuthState(AUTH_STATE.AUTHENTICATED, updated);
+      return updated;
     },
 
     /**
      * Sign Out
      */
     async signOut() {
-      currentUser = null;
-      try {
-        localStorage.removeItem(STORAGE_KEY_USER);
-      } catch (e) {}
-
-      if (window.WishFirebaseAuth) {
-        window.WishFirebaseAuth.signOut().catch(() => {});
-      }
-
       try {
         await fetch('/api/auth/signout', {
           method: 'POST',
@@ -686,37 +752,65 @@
         });
       } catch (e) {}
 
-      notifyAuthChange();
+      if (window.WishFirebaseAuth) {
+        try {
+          await window.WishFirebaseAuth.signOut();
+        } catch (_) {}
+      }
+
+      setAuthState(AUTH_STATE.UNAUTHENTICATED, null);
       showAuthToast('Signed out successfully.');
     }
   };
 
   // ---------------------------------------------------------------------------
-  // NAVBAR AUTH STATE RENDERER (Clean Sign In only, no sign-up button)
+  // NAVBAR AUTH STATE RENDERER
+  // Deterministic rendering based strictly on authState
   // ---------------------------------------------------------------------------
+  function renderNeutralAuthPlaceholder(container) {
+    container.innerHTML = `
+      <div id="auth-ui" data-auth-state="booting" class="h-8 w-20 rounded-full bg-purple-500/10 border border-purple-500/15 flex items-center justify-center animate-pulse" aria-hidden="true">
+        <span class="inline-block w-2.5 h-2.5 rounded-full bg-purple-400/40"></span>
+      </div>
+    `;
+  }
+
+  function renderLoginButton(container) {
+    container.innerHTML = `
+      <div class="flex items-center gap-1.5 sm:gap-2">
+        <button onclick="window.openAuthModal()" class="px-3.5 sm:px-4 py-1.5 rounded-full text-xs sm:text-sm font-bold text-white bg-gradient-to-r from-[#EC4899] to-[#7C3AED] hover:brightness-110 shadow-sm hover:shadow-md hover:scale-105 active:scale-95 transition-all flex items-center gap-1.5 cursor-pointer whitespace-nowrap">
+          <span class="material-symbols-outlined text-[16px]">account_circle</span>
+          <span>Sign In</span>
+        </button>
+      </div>
+    `;
+  }
+
   function renderNavbarAuthState() {
-    const user = WishAuth.getCurrentUser();
     const navContainers = document.querySelectorAll('.navbar-auth-container, .nav-auth-container, [data-purpose="navbar-auth"], [data-auth-container]');
-    const isDark = typeof document !== 'undefined' && (document.documentElement.classList.contains('dark') || document.documentElement.getAttribute('data-theme') === 'dark');
+    if (!navContainers || navContainers.length === 0) return;
 
-    navContainers.forEach(container => {
-      if (!user) {
-        container.innerHTML = `
-          <div class="flex items-center gap-1.5 sm:gap-2">
-            <button onclick="window.openAuthModal()" class="px-3.5 sm:px-4 py-1.5 rounded-full text-xs sm:text-sm font-bold text-white bg-gradient-to-r from-[#EC4899] to-[#7C3AED] hover:brightness-110 shadow-sm hover:shadow-md hover:scale-105 active:scale-95 transition-all flex items-center gap-1.5 cursor-pointer whitespace-nowrap">
-              <span class="material-symbols-outlined text-[16px]">account_circle</span>
-              <span>Sign In</span>
-            </button>
-          </div>
-        `;
-      } else {
-        const initials = (user.displayName || user.email || 'U').split(' ').map(n => n[0]).join('').slice(0, 2).toUpperCase();
-        const avatarImg = user.avatarUrl
-          ? `<img src="${user.avatarUrl}" alt="${user.displayName}" class="w-7 h-7 rounded-full object-cover border border-pink-400 shadow-sm"/>`
-          : `<div class="w-7 h-7 rounded-full bg-gradient-to-tr from-pink-500 to-purple-600 text-white flex items-center justify-center font-bold text-[11px]">${initials}</div>`;
+    if (authState === AUTH_STATE.BOOTING) {
+      navContainers.forEach(container => renderNeutralAuthPlaceholder(container));
+      return;
+    }
 
-        const isUserMaster = user.role === 'admin' || user.isAdmin === true || (window.WishFirebaseAuth?.isAdminEmail && window.WishFirebaseAuth.isAdminEmail(user.email)) || (user.email && user.email.toLowerCase() === 'ankit.babusaini@gmail.com');
+    if (authState === AUTH_STATE.UNAUTHENTICATED || authState === AUTH_STATE.ERROR) {
+      navContainers.forEach(container => renderLoginButton(container));
+      return;
+    }
 
+    if (authState === AUTH_STATE.AUTHENTICATED && currentUser) {
+      const user = currentUser;
+      const isDark = typeof document !== 'undefined' && (document.documentElement.classList.contains('dark') || document.documentElement.getAttribute('data-theme') === 'dark');
+      const initials = (user.displayName || user.email || 'U').split(' ').map(n => n[0]).join('').slice(0, 2).toUpperCase();
+      const avatarImg = user.avatarUrl
+        ? `<img src="${user.avatarUrl}" alt="${user.displayName}" class="w-7 h-7 rounded-full object-cover border border-pink-400 shadow-sm"/>`
+        : `<div class="w-7 h-7 rounded-full bg-gradient-to-tr from-pink-500 to-purple-600 text-white flex items-center justify-center font-bold text-[11px]">${initials}</div>`;
+
+      const isUserMaster = user.role === 'admin' || user.isAdmin === true || (window.WishFirebaseAuth?.isAdminEmail && window.WishFirebaseAuth.isAdminEmail(user.email)) || (user.email && user.email.toLowerCase() === 'ankit.babusaini@gmail.com');
+
+      navContainers.forEach(container => {
         container.innerHTML = `
           <div class="relative inline-block" id="account-dropdown-wrapper">
             <button onclick="window.toggleAccountMenu(event)" class="flex items-center gap-1.5 sm:gap-2 px-2 sm:px-2.5 py-1 rounded-full bg-surface-container-high/90 hover:bg-surface-container-highest border border-purple-200/80 dark:border-purple-800/80 transition cursor-pointer active:scale-95 shadow-sm">
@@ -775,8 +869,11 @@
             </div>
           </div>
         `;
-      }
-    });
+      });
+      return;
+    }
+
+    navContainers.forEach(container => renderLoginButton(container));
   }
 
   // Ensure solid opaque dropdown styling across all pages
@@ -1014,5 +1111,16 @@
 
   window.WishAuth = WishAuth;
   window.showAuthToast = showAuthToast;
+
+  // Auto-start deterministic bootstrap for non-admin storefront pages
+  if (typeof document !== 'undefined' && !IS_ADMIN_STUDIO) {
+    if (document.readyState === 'loading') {
+      document.addEventListener('DOMContentLoaded', () => {
+        initAuth().catch(() => {});
+      }, { once: true });
+    } else {
+      initAuth().catch(() => {});
+    }
+  }
 
 })(window);

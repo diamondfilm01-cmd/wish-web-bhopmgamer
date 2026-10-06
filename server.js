@@ -4383,9 +4383,9 @@ function sendAdminPage(file, req, res) {
   res.sendFile(path.join(__dirname, 'public', file));
 }
 
-// Direct Admin Routes (Redirect any legacy login to the unified portal)
-app.get(['/admin-login', '/admin-login.html', `${ADMIN_BASE}/login`], (req, res) => {
-  res.redirect(`${ADMIN_BASE}/overview`);
+// Direct Admin Login Routes
+app.get(['/admin-login', '/admin-login.html', `${ADMIN_BASE}/login`, `${ADMIN_BASE}/login.html`], (req, res) => {
+  res.sendFile(path.join(__dirname, 'public', 'admin-login.html'));
 });
 
 // Direct admin static pages

@@ -225,29 +225,34 @@
       if (typeof callback !== 'function') return () => {};
       stateChangeCallbacks.add(callback);
 
-      // Trigger if already initialized
-      if (fbAuth && fbAuth.currentUser !== undefined) {
-        try { callback(fbAuth.currentUser); } catch(e) {}
-      } else {
-        getFirebase().then(({ auth }) => {
-          try { callback(auth.currentUser); } catch(e) {}
-        }).catch(() => {});
-      }
+      // Start Firebase initialization if not started
+      waitForFirebaseReady().catch(() => {});
 
       return () => stateChangeCallbacks.delete(callback);
     }
   };
 
+  let firebaseReadyPromise = null;
+  function waitForFirebaseReady() {
+    if (firebaseReadyPromise) {
+      return firebaseReadyPromise;
+    }
+    firebaseReadyPromise = getFirebase();
+    return firebaseReadyPromise;
+  }
+
+  WishFirebaseAuth.ready = waitForFirebaseReady;
+  WishFirebaseAuth.getFirebase = getFirebase;
   window.WishFirebaseAuth = WishFirebaseAuth;
 
   // Background warm-up
   if (typeof document !== 'undefined') {
     if (document.readyState === 'loading') {
       document.addEventListener('DOMContentLoaded', () => {
-        getFirebase().catch(() => {});
+        waitForFirebaseReady().catch(() => {});
       });
     } else {
-      getFirebase().catch(() => {});
+      waitForFirebaseReady().catch(() => {});
     }
   }
 

@@ -22,6 +22,7 @@
   <script src="https://www.gstatic.com/firebasejs/10.8.0/firebase-app-compat.js"></script>
   <script src="https://www.gstatic.com/firebasejs/10.8.0/firebase-auth-compat.js"></script>
   <script src="/js/firebase-auth.js"></script>
+  <script src="/js/admin-theme.js"></script>
   <style>
     body {
       background-color: #07040d !important;
@@ -115,51 +116,12 @@
   (() => {
     'use strict';
 
-    const ADMIN_TARGET = '/admin/anktech/anktech/admin/overview';
-    const MASTER_EMAIL = 'ankit.babusaini@gmail.com';
-
-    let bootFinished = false;
-    let navigationInProgress = false;
-    let firebaseObserverAttached = false;
-    let serverSessionCheckInProgress = false;
-    let serverSigninInProgress = false;
-
-    function cleanEmail(value) {
-      return String(value || '').trim().toLowerCase();
-    }
-
-    function isAuthorizedEmail(email) {
-      return cleanEmail(email) === MASTER_EMAIL;
-    }
-
-    function getServerUser(data) {
-      return data?.data?.user || data?.user || null;
-    }
-
-    function isAdminServerUser(user) {
-      if (!user) return false;
-
-      const email = cleanEmail(user.email);
-
-      return (
-        email === MASTER_EMAIL &&
-        (
-          user.role === 'admin' ||
-          user.role === 'OWNER' ||
-          user.role === 'SUPER_ADMIN' ||
-          user.isAdmin === true
-        )
-      );
-    }
+    let isAuthenticating = false;
 
     function showBootState(message = 'Checking secure admin session...') {
       const btn = document.getElementById('google-admin-btn');
       const txt = document.getElementById('btn-text');
-
-      if (btn) {
-        btn.disabled = true;
-      }
-
+      if (btn) btn.disabled = true;
       if (txt) {
         txt.innerHTML = `
           <span class="inline-flex items-center gap-2">
@@ -173,359 +135,85 @@
     function showLoginState() {
       const btn = document.getElementById('google-admin-btn');
       const txt = document.getElementById('btn-text');
-
-      if (btn) {
-        btn.disabled = false;
-      }
-
+      if (btn) btn.disabled = false;
       if (txt) {
         txt.textContent = 'Sign In with Admin Google Account';
       }
+      isAuthenticating = false;
     }
 
-    function showError(message) {
+    function showError(message, showRetry = false) {
       const alertBox = document.getElementById('gatekeeper-alert');
       const alertMessage = document.getElementById('alert-message');
-
-      if (alertBox) {
-        alertBox.classList.remove('hidden');
-      }
-
+      if (alertBox) alertBox.classList.remove('hidden');
       if (alertMessage) {
-        alertMessage.textContent = message;
+        if (showRetry) {
+          alertMessage.innerHTML = `
+            <span>${message}</span>
+            <button onclick="handleAdminGoogleLogin()" class="ml-2 underline font-bold text-amber-300 hover:text-white cursor-pointer">Retry</button>
+          `;
+        } else {
+          alertMessage.textContent = message;
+        }
       }
     }
 
     function hideAlert() {
       const alertBox = document.getElementById('gatekeeper-alert');
-      if (alertBox) {
-        alertBox.classList.add('hidden');
-      }
-    }
-
-    async function getServerSession() {
-      if (serverSessionCheckInProgress) {
-        return null;
-      }
-
-      serverSessionCheckInProgress = true;
-
-      try {
-        const response = await fetch('/api/auth/session', {
-          method: 'GET',
-          credentials: 'include',
-          cache: 'no-store',
-          headers: {
-            'Accept': 'application/json'
-          }
-        });
-
-        const data = await response.json().catch(() => ({}));
-        const user = getServerUser(data);
-
-        if (
-          response.ok &&
-          data?.success === true &&
-          data?.isAuthenticated === true &&
-          isAdminServerUser(user)
-        ) {
-          return user;
-        }
-
-        return null;
-      } catch (error) {
-        console.warn('[AdminAuth] Server session check failed:', error);
-        return null;
-      } finally {
-        serverSessionCheckInProgress = false;
-      }
-    }
-
-    async function createServerSession(firebaseUser) {
-      if (!firebaseUser) {
-        throw new Error('Google authentication did not return a user.');
-      }
-
-      const email = cleanEmail(firebaseUser.email);
-
-      if (!isAuthorizedEmail(email)) {
-        throw new Error(
-          'Access Denied: This Google account is not authorized for Admin Studio.'
-        );
-      }
-
-      if (serverSigninInProgress) {
-        throw new Error('Admin session creation is already in progress.');
-      }
-
-      serverSigninInProgress = true;
-
-      try {
-        const response = await fetch('/api/auth/signin', {
-          method: 'POST',
-          credentials: 'include',
-          cache: 'no-store',
-          headers: {
-            'Content-Type': 'application/json',
-            'Accept': 'application/json'
-          },
-          body: JSON.stringify({
-            email: email,
-            displayName: firebaseUser.displayName || 'Ankit Saini',
-            avatarUrl: firebaseUser.photoURL || null,
-            provider: 'google',
-            firebaseUid: firebaseUser.uid
-          })
-        });
-
-        const data = await response.json().catch(() => ({}));
-        const user = getServerUser(data);
-
-        if (
-          !response.ok ||
-          data?.success !== true ||
-          !isAdminServerUser(user)
-        ) {
-          const message =
-            data?.error?.message ||
-            data?.message ||
-            'Secure Admin server session could not be established.';
-
-          throw new Error(message);
-        }
-
-        /*
-         * IMPORTANT:
-         * Do a SECOND server verification.
-         *
-         * Never assume that POST /signin automatically means
-         * the browser actually has a valid authenticated session.
-         */
-        const verifiedUser = await getServerSession();
-
-        if (!verifiedUser) {
-          throw new Error(
-            'Admin login succeeded but server session verification failed.'
-          );
-        }
-
-        return verifiedUser;
-
-      } finally {
-        serverSigninInProgress = false;
-      }
-    }
-
-    async function navigateToAdmin() {
-      if (navigationInProgress) {
-        return;
-      }
-
-      navigationInProgress = true;
-
-      showBootState('Authorized! Opening Admin Studio...');
-
-      /*
-       * Use replace only once.
-       */
-      window.location.replace(ADMIN_TARGET);
+      if (alertBox) alertBox.classList.add('hidden');
     }
 
     async function bootstrapAdminLogin() {
-      if (bootFinished) {
-        return;
-      }
-
-      bootFinished = true;
-
       showBootState('Checking secure admin session...');
 
-      /*
-       * STEP 1:
-       * Existing server session has priority.
-       */
-      const existingSession = await getServerSession();
-
-      if (existingSession) {
-        await navigateToAdmin();
-        return;
-      }
-
-      /*
-       * STEP 2:
-       * Wait for Firebase initialization.
-       *
-       * Do not assume currentUser === null means logged out
-       * until Firebase Auth has finished initialization.
-       */
-      if (
-        window.WishFirebaseAuth &&
-        typeof window.WishFirebaseAuth.onAuthStateChanged === 'function'
-      ) {
-        if (!firebaseObserverAttached) {
-          firebaseObserverAttached = true;
-
-          let handled = false;
-
-          window.WishFirebaseAuth.onAuthStateChanged(async (firebaseUser) => {
-
-            if (handled) {
-              return;
-            }
-
-            /*
-             * Firebase may initially report null.
-             * If null, show the login UI.
-             */
-            if (!firebaseUser) {
-              handled = true;
-              showLoginState();
-              return;
-            }
-
-            const email = cleanEmail(firebaseUser.email);
-
-            if (!isAuthorizedEmail(email)) {
-              handled = true;
-
-              try {
-                await window.WishFirebaseAuth.signOut();
-              } catch (_) {}
-
-              showLoginState();
-
-              showError(
-                'Access Denied: This Google account is not authorized for Admin Studio.'
-              );
-
-              return;
-            }
-
-            try {
-              showBootState('Authorized Google session detected...');
-
-              /*
-               * Create/refresh the real server session.
-               */
-              await createServerSession(firebaseUser);
-
-              handled = true;
-
-              await navigateToAdmin();
-
-            } catch (error) {
-              handled = true;
-
-              console.error('[AdminAuth] Existing Firebase session sync failed:', error);
-
-              showLoginState();
-
-              showError(
-                error?.message ||
-                'Could not establish the secure Admin session.'
-              );
-            }
-          });
+      try {
+        if (!window.AdminAuthController) {
+          // If controller not loaded yet, wait briefly
+          await new Promise(r => setTimeout(r, 60));
         }
 
-        return;
+        if (window.AdminAuthController) {
+          const user = await window.AdminAuthController.init();
+          if (user) {
+            showBootState('Authorized! Opening Admin Studio...');
+            return;
+          }
+        }
+      } catch (err) {
+        console.warn('[AdminLogin] Boot check note:', err);
       }
 
       showLoginState();
-
-      showError(
-        'Authentication system is still initializing. Please try again.'
-      );
     }
 
     window.handleAdminGoogleLogin = async function () {
-      if (navigationInProgress || serverSigninInProgress) {
-        return;
-      }
+      if (isAuthenticating) return;
+      isAuthenticating = true;
 
       hideAlert();
-
-      const btn = document.getElementById('google-admin-btn');
-      const txt = document.getElementById('btn-text');
-
-      if (!window.WishFirebaseAuth) {
-        showError('Authentication system is still initializing. Please try again.');
-        return;
-      }
-
-      if (btn) {
-        btn.disabled = true;
-      }
-
-      if (txt) {
-        txt.innerHTML = `
-          <span class="inline-flex items-center gap-2">
-            <span class="animate-spin inline-block w-3.5 h-3.5 border-2 border-white border-t-transparent rounded-full"></span>
-            Connecting to Google...
-          </span>
-        `;
-      }
+      showBootState('Connecting to Google...');
 
       try {
-        const firebaseUser =
-          await window.WishFirebaseAuth.signInWithGoogle();
-
-        if (!firebaseUser) {
-          throw new Error('Google Sign-In was cancelled.');
+        if (!window.AdminAuthController) {
+          throw new Error('Admin authentication module is initializing. Please try again.');
         }
 
-        const email = cleanEmail(firebaseUser.email);
-
-        if (!isAuthorizedEmail(email)) {
-          try {
-            await window.WishFirebaseAuth.signOut();
-          } catch (_) {}
-
-          throw new Error(
-            'Access Denied: This Google account is not authorized for Admin Studio.'
-          );
-        }
-
-        if (txt) {
-          txt.textContent = 'Verifying secure Admin session...';
-        }
-
-        /*
-         * CRITICAL:
-         * Wait for server response.
-         * Wait for second server verification.
-         * Only then navigate.
-         */
-        await createServerSession(firebaseUser);
-
-        await navigateToAdmin();
-
+        await window.AdminAuthController.signIn();
+        showBootState('Authorized! Opening Admin Studio...');
       } catch (error) {
-        console.error('[AdminAuth] Google login failed:', error);
-
-        showError(
-          error?.message ||
-          'Authentication failed. Please try again.'
-        );
-
+        console.error('[AdminLogin] Google sign-in failed:', error);
+        const isDbErr = error?.code === 'DATABASE_UNAVAILABLE';
+        showError(error?.message || 'Authentication failed. Please try again.', isDbErr);
         showLoginState();
       }
     };
 
-    /*
-     * Start exactly ONE bootstrap process.
-     */
     if (document.readyState === 'loading') {
-      document.addEventListener(
-        'DOMContentLoaded',
-        bootstrapAdminLogin,
-        { once: true }
-      );
+      document.addEventListener('DOMContentLoaded', bootstrapAdminLogin, { once: true });
     } else {
       bootstrapAdminLogin();
     }
-
   })();
-</script>
+  </script>
 </body>
 </html>
