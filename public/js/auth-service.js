@@ -429,17 +429,17 @@
   // ---------------------------------------------------------------------------
   function renderNavbarAuthState() {
     const user = WishAuth.getCurrentUser();
-    const navContainers = document.querySelectorAll('.nav-auth-container, [data-auth-container]');
+    const navContainers = document.querySelectorAll('.navbar-auth-container, .nav-auth-container, [data-purpose="navbar-auth"], [data-auth-container]');
 
     navContainers.forEach(container => {
       if (!user) {
         container.innerHTML = `
-          <div class="flex items-center gap-2">
-            <button onclick="window.openAuthModal('signin')" class="px-3.5 py-1.5 rounded-full text-xs font-bold text-purple-900 dark:text-purple-200 hover:bg-purple-100 dark:hover:bg-purple-900/60 transition cursor-pointer">
+          <div class="flex items-center gap-1.5 sm:gap-2">
+            <button onclick="window.openAuthModal('signin')" class="px-2.5 sm:px-3.5 py-1 sm:py-1.5 rounded-full text-[11px] sm:text-xs font-bold text-purple-900 dark:text-purple-200 hover:bg-purple-100 dark:hover:bg-purple-900/60 transition cursor-pointer">
               Sign In
             </button>
-            <button onclick="window.openAuthModal('signup')" class="px-3.5 py-1.5 rounded-full text-xs font-bold bg-gradient-to-r from-pink-500 to-purple-600 text-white hover:brightness-110 shadow-sm transition cursor-pointer flex items-center gap-1">
-              <span>Get Started</span>
+            <button onclick="window.openAuthModal('signup')" class="px-2.5 sm:px-3.5 py-1 sm:py-1.5 rounded-full text-[11px] sm:text-xs font-bold bg-gradient-to-r from-pink-500 to-purple-600 text-white hover:brightness-110 shadow-sm transition cursor-pointer flex items-center gap-1">
+              <span>Sign Up</span>
               <span class="text-[10px]">✨</span>
             </button>
           </div>
@@ -530,11 +530,11 @@
   });
 
   // ---------------------------------------------------------------------------
-  // AUTH MODAL DIALOG WITH FIREBASE SUPPORT
+  // AUTH MODAL DIALOG (GOOGLE GMAIL ONLY FOR USERS)
   // ---------------------------------------------------------------------------
   let currentAuthModalMode = 'signin';
 
-  window.openAuthModal = function(mode = 'signin', promptMessage = null) {
+  function showUniversalAuthModal(mode = 'signin', promptMessage = null) {
     currentAuthModalMode = (mode === 'signup') ? 'signup' : 'signin';
     let modal = document.getElementById('wishmagic-universal-auth-modal');
     if (!modal) {
@@ -544,112 +544,61 @@
       document.body.appendChild(modal);
     }
 
-    renderAuthModalContent(promptMessage);
+    renderAuthModalContent(promptMessage, currentAuthModalMode);
     modal.classList.remove('hidden');
     modal.classList.add('flex');
     document.body.classList.add('overflow-hidden');
-  };
+  }
 
-  window.switchAuthModalMode = function(mode) {
-    currentAuthModalMode = (mode === 'signup') ? 'signup' : 'signin';
-    renderAuthModalContent();
-  };
+  window.openAuthModal = showUniversalAuthModal;
+  window._openWishAuthModal = showUniversalAuthModal;
+  WishAuth.openAuthModal = showUniversalAuthModal;
 
-  function renderAuthModalContent(promptMessage = null) {
+  function renderAuthModalContent(promptMessage = null, mode = 'signin') {
     const modal = document.getElementById('wishmagic-universal-auth-modal');
     if (!modal) return;
 
-    const isSignUp = (currentAuthModalMode === 'signup');
-    const titleText = isSignUp ? 'Create Your Account' : 'Welcome Back';
+    const isSignUp = (mode === 'signup');
+    const titleText = isSignUp ? 'Join WishMagic ✨' : 'Welcome to WishMagic ✨';
     const subText = promptMessage || (isSignUp
-      ? 'Join WishMagic to build interactive celebration experiences ✨'
-      : 'Sign in to access your celebration wishes, continue drafts, and manage memories.');
+      ? 'Sign in with your Google (Gmail) account to personalize, save, and publish interactive celebration websites.'
+      : 'Sign in with your Google (Gmail) account to access your saved celebration wishes, drafts, and memories.');
 
     modal.innerHTML = `
-      <div class="bg-white dark:bg-[#1A0B2E] rounded-3xl max-w-md w-full p-5 sm:p-7 shadow-2xl relative border border-purple-200 dark:border-purple-800 text-center animate-scaleUp overflow-hidden max-h-[95vh] overflow-y-auto">
+      <div class="bg-white dark:bg-[#1A0B2E] rounded-3xl max-w-sm sm:max-w-md w-full p-6 sm:p-8 shadow-2xl relative border border-purple-200 dark:border-purple-800 text-center animate-scaleUp overflow-hidden">
         <!-- Close Button -->
         <button class="absolute top-4 right-4 w-8 h-8 rounded-full bg-purple-100 dark:bg-purple-900 text-purple-700 dark:text-purple-300 hover:text-black dark:hover:text-white flex items-center justify-center font-bold transition cursor-pointer" onclick="closeAuthModal()" aria-label="Close">
           ✕
         </button>
 
-        <div class="w-12 h-12 rounded-2xl bg-gradient-to-tr from-pink-500 via-purple-600 to-amber-300 text-white flex items-center justify-center mx-auto text-xl mb-2.5 shadow-lg shadow-pink-500/25">
+        <!-- Magical Glowing Wand Icon -->
+        <div class="w-14 h-14 rounded-2xl bg-gradient-to-tr from-pink-500 via-purple-600 to-amber-300 text-white flex items-center justify-center mx-auto text-2xl mb-3 shadow-lg shadow-pink-500/30">
           🪄
         </div>
 
         <h3 class="font-display font-extrabold text-xl sm:text-2xl text-purple-950 dark:text-white">${titleText}</h3>
-        <p class="text-xs text-purple-800/80 dark:text-purple-300/80 mt-1 mb-4">${subText}</p>
+        <p class="text-xs text-purple-800/80 dark:text-purple-300/80 mt-1.5 mb-6 max-w-xs mx-auto leading-relaxed">${subText}</p>
 
-        <!-- Mode Switcher Tabs -->
-        <div class="flex items-center p-1 rounded-2xl bg-purple-100/70 dark:bg-purple-950/70 border border-purple-200/50 dark:border-purple-800/60 mb-4">
-          <button type="button" onclick="switchAuthModalMode('signin')" class="flex-1 py-1.5 rounded-xl text-xs font-bold transition cursor-pointer ${!isSignUp ? 'bg-white dark:bg-purple-800/90 text-purple-950 dark:text-white shadow-sm' : 'text-purple-700 dark:text-purple-300 hover:text-purple-950'}">
-            Sign In
-          </button>
-          <button type="button" onclick="switchAuthModalMode('signup')" class="flex-1 py-1.5 rounded-xl text-xs font-bold transition cursor-pointer ${isSignUp ? 'bg-white dark:bg-purple-800/90 text-purple-950 dark:text-white shadow-sm' : 'text-purple-700 dark:text-purple-300 hover:text-purple-950'}">
-            Create Account
-          </button>
-        </div>
-
-        <!-- Google Continue Button -->
+        <!-- Google Continue Button (Exclusive 1-Tap Auth for Users) -->
         <div class="mb-4">
-          <button type="button" id="auth-google-btn" onclick="handleGoogleSignInClick()" class="w-full py-2.5 px-4 rounded-xl border border-gray-300 dark:border-purple-700/60 hover:bg-gray-50 dark:hover:bg-purple-900/40 text-xs font-bold text-gray-700 dark:text-purple-100 flex items-center justify-center gap-2.5 transition cursor-pointer shadow-sm">
-            <svg class="w-4 h-4 flex-shrink-0" viewBox="0 0 24 24"><path fill="#4285F4" d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z"/><path fill="#34A853" d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z"/><path fill="#FBBC05" d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.06H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.94l2.85-2.22.81-.63z"/><path fill="#EA4335" d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.06l3.66 2.84c.87-2.6 3.3-4.52 6.16-4.52z"/></svg>
-            <span>Continue with Google</span>
+          <button type="button" id="auth-google-btn" onclick="handleGoogleSignInClick()" class="w-full py-3.5 px-5 rounded-2xl bg-white dark:bg-purple-950/80 hover:bg-purple-50 dark:hover:bg-purple-900/60 border-2 border-purple-200 dark:border-purple-700/70 text-xs sm:text-sm font-bold text-gray-800 dark:text-white flex items-center justify-center gap-3 transition-all duration-200 shadow-md hover:shadow-lg hover:scale-[1.01] active:scale-[0.99] cursor-pointer">
+            <svg class="w-5 h-5 flex-shrink-0" viewBox="0 0 24 24">
+              <path fill="#4285F4" d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z"/>
+              <path fill="#34A853" d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z"/>
+              <path fill="#FBBC05" d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.06H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.94l2.85-2.22.81-.63z"/>
+              <path fill="#EA4335" d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.06l3.66 2.84c.87-2.6 3.3-4.52 6.16-4.52z"/>
+            </svg>
+            <span id="auth-google-btn-text">Continue with Google (Gmail)</span>
           </button>
         </div>
 
-        <div class="relative my-4 flex items-center justify-center">
-          <div class="border-t border-purple-200 dark:border-purple-800 w-full"></div>
-          <span class="bg-white dark:bg-[#1A0B2E] px-3 text-[11px] text-purple-400 font-semibold absolute">or with email</span>
-        </div>
+        <!-- Dynamic Status / Error banner -->
+        <div id="auth-modal-error" class="hidden text-xs font-semibold text-rose-500 bg-rose-50 dark:bg-rose-950/50 p-2.5 rounded-xl border border-rose-200 dark:border-rose-900/60 text-center my-3"></div>
 
-        <!-- Email & Password Form -->
-        <form onsubmit="handleUniversalAuthSubmit(event)" class="space-y-3 text-left">
-          ${isSignUp ? `
-            <div>
-              <label class="block text-[11px] font-bold text-purple-800 dark:text-purple-300 mb-1">Full Name</label>
-              <input id="auth-input-name" type="text" placeholder="e.g. Rahul Sharma" required class="w-full text-xs rounded-xl border border-purple-200 dark:border-purple-800 p-2.5 focus:ring-2 focus:ring-pink-500 focus:outline-none bg-white/70 dark:bg-purple-950/60 text-purple-950 dark:text-white"/>
-            </div>
-          ` : ''}
-
-          <div>
-            <label class="block text-[11px] font-bold text-purple-800 dark:text-purple-300 mb-1">Email Address</label>
-            <input id="auth-input-email" type="email" placeholder="you@example.com" required class="w-full text-xs rounded-xl border border-purple-200 dark:border-purple-800 p-2.5 focus:ring-2 focus:ring-pink-500 focus:outline-none bg-white/70 dark:bg-purple-950/60 text-purple-950 dark:text-white"/>
-          </div>
-
-          <div>
-            <div class="flex items-center justify-between mb-1">
-              <label class="block text-[11px] font-bold text-purple-800 dark:text-purple-300">Password</label>
-              ${!isSignUp ? `
-                <button type="button" onclick="handleForgotPassword()" class="text-[10px] text-pink-600 dark:text-pink-400 hover:underline font-bold cursor-pointer">
-                  Forgot password?
-                </button>
-              ` : ''}
-            </div>
-            <div class="relative flex items-center">
-              <input id="auth-input-password" type="password" placeholder="${isSignUp ? 'At least 6 characters' : 'Enter your password'}" minlength="6" required class="w-full text-xs rounded-xl border border-purple-200 dark:border-purple-800 p-2.5 pr-9 focus:ring-2 focus:ring-pink-500 focus:outline-none bg-white/70 dark:bg-purple-950/60 text-purple-950 dark:text-white"/>
-              <button type="button" onclick="togglePasswordVisibility()" class="absolute right-2.5 text-purple-400 hover:text-purple-700 dark:hover:text-purple-200 cursor-pointer p-1" aria-label="Toggle password visibility">
-                <span id="auth-pwd-toggle-icon" class="material-symbols-outlined text-[16px]">visibility</span>
-              </button>
-            </div>
-          </div>
-
-          <div id="auth-modal-error" class="hidden text-[11px] font-medium text-rose-500 bg-rose-50 dark:bg-rose-950/50 p-2 rounded-lg border border-rose-200 dark:border-rose-900/60 text-left"></div>
-
-          <button type="submit" id="auth-submit-btn" class="w-full py-2.5 rounded-xl bg-gradient-to-r from-pink-500 to-purple-600 text-white text-xs font-bold shadow-md hover:brightness-110 active:scale-95 transition cursor-pointer flex items-center justify-center gap-1.5 mt-2">
-            <span id="auth-submit-btn-text">${isSignUp ? 'Create Account' : 'Sign In'}</span>
-            <span>✨</span>
-          </button>
-        </form>
-
-        <div class="mt-4 pt-3 border-t border-purple-100 dark:border-purple-900 text-center">
-          <p class="text-[11px] text-purple-700 dark:text-purple-300">
-            ${isSignUp ? 'Already have an account?' : "Don't have an account?"}
-            <button type="button" onclick="switchAuthModalMode('${isSignUp ? 'signin' : 'signup'}')" class="font-bold text-pink-600 dark:text-pink-400 hover:underline ml-1 cursor-pointer">
-              ${isSignUp ? 'Sign In' : 'Create Account'}
-            </button>
-          </p>
-          <div class="text-[10px] text-purple-600/70 dark:text-purple-400/70 mt-2">
-            🔒 Powered by Firebase Auth &amp; Secure Cloudflare D1/Sessions
+        <div class="pt-3 border-t border-purple-100 dark:border-purple-900 text-center">
+          <div class="inline-flex items-center gap-1.5 text-[11px] font-medium text-purple-600/80 dark:text-purple-400/80">
+            <span class="material-symbols-outlined text-[14px]">lock</span>
+            <span>1-Tap Secure Login with Gmail • Powered by Firebase Auth</span>
           </div>
         </div>
       </div>
@@ -669,87 +618,39 @@
       legacyModal.classList.remove('flex');
     }
   };
-
-  window.togglePasswordVisibility = function() {
-    const pwdInput = document.getElementById('auth-input-password');
-    const icon = document.getElementById('auth-pwd-toggle-icon');
-    if (!pwdInput) return;
-    if (pwdInput.type === 'password') {
-      pwdInput.type = 'text';
-      if (icon) icon.textContent = 'visibility_off';
-    } else {
-      pwdInput.type = 'password';
-      if (icon) icon.textContent = 'visibility';
-    }
-  };
+  WishAuth.closeAuthModal = window.closeAuthModal;
 
   window.handleGoogleSignInClick = async function() {
     const btn = document.getElementById('auth-google-btn');
+    const txt = document.getElementById('auth-google-btn-text');
+    const errBox = document.getElementById('auth-modal-error');
+    if (errBox) errBox.classList.add('hidden');
+
     if (btn) {
       btn.disabled = true;
       btn.classList.add('opacity-70');
     }
-    try {
-      await WishAuth.signInWithGoogle();
-    } finally {
-      if (btn) {
-        btn.disabled = false;
-        btn.classList.remove('opacity-70');
-      }
-    }
-  };
-
-  window.handleForgotPassword = async function() {
-    const emailInput = document.getElementById('auth-input-email');
-    let email = (emailInput?.value || '').trim();
-    if (!email || !email.includes('@')) {
-      const prompted = prompt('Please enter your email address to receive password reset link:');
-      if (!prompted) return;
-      email = prompted.trim();
-    }
-    await WishAuth.sendPasswordReset(email);
-  };
-
-  window.handleUniversalAuthSubmit = async function(e) {
-    e.preventDefault();
-    const isSignUp = (currentAuthModalMode === 'signup');
-    const name = document.getElementById('auth-input-name')?.value || '';
-    const email = document.getElementById('auth-input-email')?.value || '';
-    const password = document.getElementById('auth-input-password')?.value || '';
-    const errBox = document.getElementById('auth-modal-error');
-    const submitBtn = document.getElementById('auth-submit-btn');
-    const submitText = document.getElementById('auth-submit-btn-text');
-
-    if (errBox) {
-      errBox.classList.add('hidden');
-      errBox.textContent = '';
-    }
-
-    if (submitBtn) {
-      submitBtn.disabled = true;
-      if (submitText) submitText.textContent = isSignUp ? 'Creating account... ⏳' : 'Signing in... ⏳';
+    if (txt) {
+      txt.innerHTML = '<span class="inline-flex items-center gap-2"><span class="animate-spin inline-block w-3.5 h-3.5 border-2 border-purple-600 border-t-transparent rounded-full"></span> Connecting to Google...</span>';
     }
 
     try {
-      let user = null;
-      if (isSignUp) {
-        user = await WishAuth.signUpWithEmailPassword(email, password, name);
-      } else {
-        user = await WishAuth.signInWithEmailPassword(email, password);
-      }
-
+      const user = await WishAuth.signInWithGoogle();
       if (user) {
         closeAuthModal();
       }
     } catch (err) {
       if (errBox) {
-        errBox.textContent = err.message || 'Authentication failed. Please try again.';
+        errBox.textContent = err.message || 'Google sign-in could not be completed.';
         errBox.classList.remove('hidden');
       }
     } finally {
-      if (submitBtn) {
-        submitBtn.disabled = false;
-        if (submitText) submitText.textContent = isSignUp ? 'Create Account' : 'Sign In';
+      if (btn) {
+        btn.disabled = false;
+        btn.classList.remove('opacity-70');
+      }
+      if (txt) {
+        txt.textContent = 'Continue with Google (Gmail)';
       }
     }
   };
@@ -776,13 +677,16 @@
     if (legacyOpen) {
       window.openModal = function(id) {
         if (id === 'auth-modal') {
-          window.openAuthModal('signin');
+          showUniversalAuthModal('signin');
           return;
         }
         legacyOpen(id);
       };
     }
   }
+
+  // Set up global modal interceptor immediately
+  setupGlobalAuthModal();
 
   window.WishAuth = WishAuth;
   window.showAuthToast = showAuthToast;

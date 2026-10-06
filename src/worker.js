@@ -3342,22 +3342,26 @@ export default {
         }, 200, {}, requestId);
       }
 
-      // --- Admin 2FA Auth Step 1: Verify Mobile + Password Credentials ---
+      // --- Admin 2FA Auth Step 1: Verify Email/Mobile + Password Credentials ---
       else if (pathname === '/api/admin/auth/verify-credentials' && method === 'POST') {
         const body = await request.json().catch(() => ({}));
-        const mobile = sanitizeString(body.mobile || body.phoneNumber || '', 30).trim();
+        const mobile = sanitizeString(body.email || body.mobile || body.phoneNumber || body.identifier || '', 100).trim();
         const password = body.password || '';
 
         if (!mobile || !password) {
-          return applySecurityHeaders(jsonError('MISSING_CREDENTIALS', 'Mobile number and password are required', 400), request, env);
+          return applySecurityHeaders(jsonError('MISSING_CREDENTIALS', 'Email or mobile number and password are required', 400), request, env);
         }
 
         let staffRecord = null;
         let userRecord = null;
 
         if (env.DB && typeof env.DB.prepare === 'function') {
-          // Look up staff record by mobile
-          staffRecord = await env.DB.prepare('SELECT * FROM admin_staff WHERE mobile = ? LIMIT 1').bind(mobile).first();
+          // Look up staff record by mobile or email
+          if (mobile.includes('@')) {
+            staffRecord = await env.DB.prepare('SELECT * FROM admin_staff WHERE email = ? LIMIT 1').bind(mobile).first().catch(() => null);
+          } else {
+            staffRecord = await env.DB.prepare('SELECT * FROM admin_staff WHERE mobile = ? LIMIT 1').bind(mobile).first();
+          }
           if (staffRecord) {
             if (staffRecord.status === 'disabled' || staffRecord.status === 'suspended') {
               await logAdminAudit(env, { actorId: staffRecord.user_id, actorName: staffRecord.name, actorRole: staffRecord.role, action: 'ADMIN_LOGIN_FAILED_DISABLED', ipAddress: clientIp });
@@ -3366,14 +3370,14 @@ export default {
             const valid = await verifyAdminPassword(password, staffRecord.password_salt, staffRecord.password_hash);
             if (!valid) {
               await logAdminAudit(env, { actorId: staffRecord.user_id, actorName: staffRecord.name, actorRole: staffRecord.role, action: 'ADMIN_LOGIN_FAILED_PASSWORD', ipAddress: clientIp });
-              return applySecurityHeaders(jsonError('INVALID_CREDENTIALS', 'Invalid mobile number or password', 401), request, env);
+              return applySecurityHeaders(jsonError('INVALID_CREDENTIALS', 'Invalid email, mobile number or password', 401), request, env);
             }
             userRecord = await env.DB.prepare('SELECT * FROM users WHERE id = ? LIMIT 1').bind(staffRecord.user_id).first();
           } else {
             // Check if this is an existing admin user in users table
             userRecord = await env.DB.prepare('SELECT * FROM users WHERE email = ? OR id = ? LIMIT 1').bind(mobile, mobile).first();
             if (!userRecord || userRecord.role !== 'admin') {
-              return applySecurityHeaders(jsonError('INVALID_CREDENTIALS', 'Admin account not found for this mobile number', 401), request, env);
+              return applySecurityHeaders(jsonError('INVALID_CREDENTIALS', 'Admin account not found for these credentials', 401), request, env);
             }
           }
         }

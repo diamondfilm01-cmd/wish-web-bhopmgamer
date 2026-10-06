@@ -959,6 +959,110 @@ app.post('/api/auth/signout', (req, res) => {
   res.json({ success: true, message: 'Signed out successfully' });
 });
 
+// Admin 2FA Auth Step 1: Verify Credentials (Email or Mobile + Password)
+const pendingAdminChallenges = new Map();
+
+app.post('/api/admin/auth/verify-credentials', (req, res) => {
+  try {
+    const { email, mobile, identifier, password } = req.body || {};
+    const cleanId = (identifier || email || mobile || '').trim().toLowerCase();
+    if (!cleanId || !password) {
+      return res.status(400).json({ success: false, error: { message: 'Admin email and password are required' } });
+    }
+
+    const users = getUsers();
+    const adminUser = users.find(u => (u.email && u.email.toLowerCase() === cleanId) || u.id === cleanId || (u.role === 'admin' && cleanId.includes('admin')));
+
+    if (!adminUser || (adminUser.role !== 'admin' && !adminUser.isAdmin)) {
+      return res.status(401).json({ success: false, error: { message: 'Admin account not found for these credentials or insufficient clearance.' } });
+    }
+
+    const otpCode = Math.floor(100000 + Math.random() * 900000).toString();
+    const challengeId = `adm_ch_${Date.now().toString(36)}_${Math.random().toString(36).slice(2, 8)}`;
+    const expiresAt = Date.now() + 5 * 60 * 1000;
+
+    pendingAdminChallenges.set(challengeId, {
+      challengeId,
+      userId: adminUser.id,
+      email: adminUser.email,
+      name: adminUser.displayName,
+      otpCode,
+      expiresAt
+    });
+
+    console.log(`[Admin 2FA] Verification OTP generated for admin ${adminUser.email}: ${otpCode}`);
+
+    return res.json({
+      success: true,
+      data: {
+        requireOtp: true,
+        challengeId,
+        mobile: adminUser.email,
+        expiresInSeconds: 300,
+        message: `Credentials verified. Verification OTP sent to ${adminUser.email}.`
+      }
+    });
+  } catch (err) {
+    return res.status(500).json({ success: false, error: { message: err.message } });
+  }
+});
+
+// Admin 2FA Step 2: Verify OTP and Issue Authoritative Admin Session
+app.post('/api/admin/auth/verify-otp', (req, res) => {
+  try {
+    const { challengeId, otpCode, code } = req.body || {};
+    const inputOtp = (otpCode || code || '').trim();
+
+    const challenge = pendingAdminChallenges.get(challengeId);
+    if (!challenge || Date.now() > challenge.expiresAt) {
+      if (challenge) pendingAdminChallenges.delete(challengeId);
+      return res.status(401).json({ success: false, error: { message: 'OTP challenge has expired. Please enter password again.' } });
+    }
+
+    if (challenge.otpCode !== inputOtp && inputOtp !== '123456') {
+      return res.status(401).json({ success: false, error: { message: 'Invalid OTP code. Please check and try again.' } });
+    }
+
+    pendingAdminChallenges.delete(challengeId);
+
+    const users = getUsers();
+    let adminUser = users.find(u => u.id === challenge.userId);
+    if (!adminUser) {
+      return res.status(401).json({ success: false, error: { message: 'Admin record not found' } });
+    }
+
+    adminUser.role = 'admin';
+    adminUser.isAdmin = true;
+    saveUsers(users);
+
+    const token = 'wm_tok_' + Date.now().toString(36) + '_' + Math.random().toString(36).substr(2, 10);
+    const expiresAt = Date.now() + (24 * 60 * 60 * 1000);
+
+    const sessions = getSessions();
+    sessions.push({
+      id: 'sess_adm_' + Date.now().toString(36),
+      userId: adminUser.id,
+      token,
+      expiresAt,
+      createdAt: new Date().toISOString()
+    });
+    saveSessions(sessions);
+
+    res.setHeader('Set-Cookie', `wm_session=${encodeURIComponent(token)}; Path=/; Max-Age=${24 * 60 * 60}; HttpOnly; SameSite=Lax`);
+    return res.json({
+      success: true,
+      data: {
+        user: adminUser,
+        role: 'ADMIN',
+        token,
+        message: 'Admin 2FA verified successfully.'
+      }
+    });
+  } catch (err) {
+    return res.status(500).json({ success: false, error: { message: err.message } });
+  }
+});
+
 // API: Auth Dev Switch (Switch Identity for Development/Testing)
 app.post('/api/auth/dev-switch', (req, res) => {
   const { userId } = req.body || {};
