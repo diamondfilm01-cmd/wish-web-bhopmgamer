@@ -29,7 +29,7 @@
         fb.onAuthStateChanged(async (fbUser) => {
           if (fbUser) {
             const email = (fbUser.email || '').trim().toLowerCase();
-            const isAdmin = fb.isAdminEmail ? fb.isAdminEmail(email) : (email === 'bhoomgamer@gmail.com' || email.includes('admin@'));
+            const isAdmin = fb.isAdminEmail ? fb.isAdminEmail(email) : (email === 'ankit.babusaini@gmail.com' || email === 'ankitsaini941413@gmail.com' || email === 'bhoomgamer@gmail.com');
             const displayName = (fbUser.displayName || (email ? email.split('@')[0] : 'Creator')).trim();
             const avatarUrl = fbUser.photoURL || `https://api.dicebear.com/7.x/bottts/svg?seed=${encodeURIComponent(email || 'creator')}`;
 
@@ -118,7 +118,7 @@
   // Authoritatively sync authenticated Firebase identity with server-side session cookie
   async function syncSessionWithServer(fbUser, fallbackDisplayName = '') {
     const email = (fbUser.email || '').trim().toLowerCase();
-    const isAdmin = window.WishFirebaseAuth?.isAdminEmail ? window.WishFirebaseAuth.isAdminEmail(email) : (email === 'bhoomgamer@gmail.com' || email.includes('admin@'));
+    const isAdmin = window.WishFirebaseAuth?.isAdminEmail ? window.WishFirebaseAuth.isAdminEmail(email) : (email === 'ankit.babusaini@gmail.com' || email === 'ankitsaini941413@gmail.com' || email === 'bhoomgamer@gmail.com');
     const displayName = (fbUser.displayName || fallbackDisplayName || (email ? email.split('@')[0] : 'Creator')).trim();
     const avatarUrl = fbUser.photoURL || `https://api.dicebear.com/7.x/bottts/svg?seed=${encodeURIComponent(email || 'creator')}`;
 
@@ -624,10 +624,13 @@
                   <span class="material-symbols-outlined text-[16px] text-purple-400">settings</span>
                   <span>Account Settings</span>
                 </a>
-                ${(user.role === 'admin' || user.isAdmin === true) ? `
-                  <a href="/admin/anktech/anktech/admin/overview" class="px-3 py-2 rounded-xl text-xs font-bold text-pink-400 hover:bg-pink-950/40 flex items-center gap-2 transition">
-                    <span class="material-symbols-outlined text-[16px] text-pink-500">admin_panel_settings</span>
-                    <span>Admin Portal</span>
+                ${(user.role === 'admin' || user.isAdmin === true || (window.WishFirebaseAuth?.isAdminEmail && window.WishFirebaseAuth.isAdminEmail(user.email)) || (user.email && (user.email.toLowerCase() === 'ankit.babusaini@gmail.com' || user.email.toLowerCase() === 'ankitsaini941413@gmail.com'))) ? `
+                  <a href="/admin/anktech/anktech/admin/overview" class="px-3 py-2 rounded-xl text-xs font-bold text-pink-400 hover:bg-pink-950/40 flex items-center justify-between transition group">
+                    <div class="flex items-center gap-2">
+                      <span class="material-symbols-outlined text-[16px] text-pink-500">admin_panel_settings</span>
+                      <span>Admin Panel</span>
+                    </div>
+                    <span class="px-1.5 py-0.5 rounded text-[8px] font-black bg-pink-500/20 text-pink-400 border border-pink-500/30">⚡ MASTER</span>
                   </a>
                 ` : ''}
               </div>

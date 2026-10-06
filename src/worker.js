@@ -1683,12 +1683,16 @@ export default {
         }
 
         // Look up user by email in authoritative D1 table
+        const ADMIN_EMAILS_WORKER = ['ankit.babusaini@gmail.com', 'ankitsaini941413@gmail.com', 'bhoomgamer@gmail.com', 'admin@wishmagic.internal', 'admin@anktech.internal'];
+        const isWorkerAdmin = ADMIN_EMAILS_WORKER.includes(email);
         let userRecord = await env.DB.prepare('SELECT * FROM users WHERE email = ? LIMIT 1').bind(email).first();
         if (!userRecord) {
-          // Register new user: strictly Creator role and Free plan (Clients cannot choose role or plan)
           const newUserId = 'usr_' + Date.now().toString(36) + '_' + Math.random().toString(36).substring(2, 7);
           const displayName = sanitizeString(body.displayName, 80) || email.split('@')[0];
           const nowIso = new Date().toISOString();
+          const targetRole = isWorkerAdmin ? 'admin' : 'creator';
+          const targetPlan = isWorkerAdmin ? 'VIP' : 'Free';
+          const targetPremium = isWorkerAdmin ? 1 : 0;
           await env.DB.prepare(
             'INSERT INTO users (id, email, display_name, avatar_url, role, plan, is_premium, provider, status, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)'
           ).bind(
@@ -1696,9 +1700,9 @@ export default {
             email,
             displayName,
             `https://api.dicebear.com/7.x/bottts/svg?seed=${encodeURIComponent(displayName)}`,
-            'creator',
-            'Free',
-            0,
+            targetRole,
+            targetPlan,
+            targetPremium,
             'email',
             'active',
             nowIso,
@@ -1710,11 +1714,17 @@ export default {
             email,
             display_name: displayName,
             avatar_url: `https://api.dicebear.com/7.x/bottts/svg?seed=${encodeURIComponent(displayName)}`,
-            role: 'creator',
-            plan: 'Free',
-            is_premium: 0,
+            role: targetRole,
+            plan: targetPlan,
+            is_premium: targetPremium,
             status: 'active'
           };
+        } else if (isWorkerAdmin && userRecord.role !== 'admin') {
+          await env.DB.prepare('UPDATE users SET role = ?, plan = ?, is_premium = 1, updated_at = ? WHERE id = ?')
+            .bind('admin', 'VIP', new Date().toISOString(), userRecord.id).run();
+          userRecord.role = 'admin';
+          userRecord.plan = 'VIP';
+          userRecord.is_premium = 1;
         }
 
         if (userRecord.status === 'suspended' || userRecord.status === 'deactivated') {

@@ -15,9 +15,7 @@
   };
 
   const ADMIN_EMAILS = [
-    'bhoomgamer@gmail.com',
-    'admin@wishmagic.internal',
-    'admin@anktech.internal'
+    'ankit.babusaini@gmail.com'
   ];
 
   let fbApp = null;

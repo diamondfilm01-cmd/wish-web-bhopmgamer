@@ -914,6 +914,8 @@ app.post('/api/auth/signin', (req, res) => {
   try {
     const { email, userId, displayName, avatarUrl, provider, firebaseUid } = req.body || {};
     const cleanEmail = (email || '').trim().toLowerCase();
+    const ADMIN_EMAILS_LIST = ['ankit.babusaini@gmail.com', 'ankitsaini941413@gmail.com', 'bhoomgamer@gmail.com', 'admin@wishmagic.internal', 'admin@anktech.internal'];
+    const isUserAdmin = ADMIN_EMAILS_LIST.includes(cleanEmail);
     const users = getUsers();
 
     let target = users.find(u => (userId && u.id === userId) || (cleanEmail && u.email === cleanEmail));
@@ -924,9 +926,10 @@ app.post('/api/auth/signin', (req, res) => {
         email: cleanEmail || 'creator@example.com',
         displayName: displayName || (cleanEmail ? cleanEmail.split('@')[0] : 'Celebration Creator'),
         avatarUrl: avatarUrl || `https://api.dicebear.com/7.x/bottts/svg?seed=${encodeURIComponent(cleanEmail || 'creator')}`,
-        role: 'creator',
-        plan: 'Free',
-        isPremium: false,
+        role: isUserAdmin ? 'admin' : 'creator',
+        isAdmin: isUserAdmin,
+        plan: isUserAdmin ? 'VIP' : 'Free',
+        isPremium: Boolean(isUserAdmin),
         provider: provider || 'firebase',
         firebaseUid: firebaseUid || null,
         status: 'active',
@@ -937,6 +940,13 @@ app.post('/api/auth/signin', (req, res) => {
       saveUsers(users);
     } else {
       let updated = false;
+      if (isUserAdmin && target.role !== 'admin') {
+        target.role = 'admin';
+        target.isAdmin = true;
+        target.plan = 'VIP';
+        target.isPremium = true;
+        updated = true;
+      }
       if (displayName && target.displayName !== displayName && (!target.displayName || target.displayName === 'Celebration Creator')) {
         target.displayName = displayName;
         updated = true;
