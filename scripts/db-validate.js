@@ -38,6 +38,7 @@ const REQUIRED_TABLES = [
   'entitlements',
   'analytics_events',
   'system_announcements',
+  'site_settings',
   '_migrations'
 ];
 

@@ -265,7 +265,7 @@
 </svg>
 </div>
 <div class="flex flex-col">
-<span class="font-display font-extrabold text-base sm:text-xl lg:text-2xl tracking-tight bg-gradient-to-r from-purple-900 via-pink-600 to-purple-800 dark:from-purple-200 dark:via-pink-400 dark:to-purple-300 bg-clip-text text-transparent leading-none">WishMagic</span>
+<span id="navbar-brand-name" class="brand-name-text font-display font-extrabold text-base sm:text-xl lg:text-2xl tracking-tight bg-gradient-to-r from-purple-900 via-pink-600 to-purple-800 dark:from-purple-200 dark:via-pink-400 dark:to-purple-300 bg-clip-text text-transparent leading-none">WishMagic</span>
 <span class="text-[9px] sm:text-[10px] font-semibold text-purple-800/80 dark:text-purple-300/80 tracking-wider mt-0.5 hidden md:inline-block">Create. Personalize. Celebrate.</span>
 </div>
 </a>
@@ -326,9 +326,9 @@
 <!-- END: FloatingGlassNavbar -->
 <!-- BEGIN: HeroSection (MAJOR UPGRADE - 2-COLUMN EXPANSIVE DESKTOP) -->
 <main class="flex-grow pt-3 sm:pt-4 pb-6 px-4 sm:px-6 md:px-8 max-w-7xl mx-auto w-full">
-<section class="hero-desktop-canvas rounded-2xl sm:rounded-3xl p-5 sm:p-7 md:p-8 text-white relative overflow-hidden flex items-center shadow-xl" data-purpose="hero-carousel">
+<section id="hero-desktop-section" class="hero-desktop-canvas rounded-2xl sm:rounded-3xl p-5 sm:p-7 md:p-8 text-white relative overflow-hidden flex items-center shadow-xl transition-all duration-700" data-purpose="hero-carousel">
 <!-- Ambient Decorative Backdrop inside Hero -->
-<div class="absolute inset-0 pointer-events-none overflow-hidden">
+<div id="ambient-hero-backdrop" class="absolute inset-0 pointer-events-none overflow-hidden">
 <!-- Radial Glowing orbs -->
 <div class="absolute -top-24 -left-24 w-72 h-72 bg-[#EC4899]/30 rounded-full blur-3xl"></div>
 <div class="absolute -bottom-20 right-1/4 w-60 h-60 bg-[#A855F7]/25 rounded-full blur-3xl"></div>
@@ -343,10 +343,12 @@
 <div class="absolute top-6 right-10 text-amber-200 text-3xl sm:text-4xl filter drop-shadow-[0_0_15px_rgba(244,197,66,0.8)] animate-float-delayed">
             🌙
           </div>
-<div class="sparkle-dot w-2 h-2 top-10 left-1/3 animate-sparkle-twinkle"></div>
-<div class="sparkle-dot w-1.5 h-1.5 top-1/2 left-1/4 animate-ping"></div>
-<div class="sparkle-dot w-2 h-2 top-20 right-1/3 animate-sparkle-twinkle"></div>
-<div class="sparkle-dot w-1 h-1 bottom-16 right-1/4 animate-pulse"></div>
+<div id="ambient-particles-container">
+  <div class="sparkle-dot w-2 h-2 top-10 left-1/3 animate-sparkle-twinkle"></div>
+  <div class="sparkle-dot w-1.5 h-1.5 top-1/2 left-1/4 animate-ping"></div>
+  <div class="sparkle-dot w-2 h-2 top-20 right-1/3 animate-sparkle-twinkle"></div>
+  <div class="sparkle-dot w-1 h-1 bottom-16 right-1/4 animate-pulse"></div>
+</div>
 <!-- Soft Floating Cloud Waves at Bottom -->
 <div class="absolute -bottom-10 inset-x-0 flex justify-between opacity-25">
 <div class="w-60 h-20 bg-white/40 rounded-full blur-xl transform -translate-x-12"></div>
@@ -440,7 +442,7 @@
 <span class="text-[9px] font-black text-amber-950 uppercase tracking-wider">Surprise Inside 🎁</span>
 </div>
 <!-- 3D Gift Icon with glowing burst -->
-<div class="text-3xl my-0.5 filter drop-shadow-[0_0_15px_rgba(251,191,36,0.9)] animate-bounce">
+<div id="hero-gift-icon-display" class="text-3xl my-0.5 filter drop-shadow-[0_0_15px_rgba(251,191,36,0.9)] animate-bounce">
   🎁
 </div>
 <!-- Equalizer / Interactive Preview Badge -->
@@ -869,7 +871,9 @@
 </div>
 <div>
 <p class="font-bold text-purple-950 dark:text-white text-base">Contact Support</p>
-<p class="text-purple-800/80 dark:text-purple-300/80 mt-1 leading-relaxed text-xs sm:text-sm">We're here to help you 24/7 at hello@wishmagic.com.</p>
+<p class="text-purple-800/80 dark:text-purple-300/80 mt-1 leading-relaxed text-xs sm:text-sm">
+  Need help? Reach our team on WhatsApp: <a id="footer-support-wa-link" href="https://wa.me/919876543210" target="_blank" rel="noopener noreferrer" class="font-bold text-pink-600 dark:text-pink-400 hover:underline"><span id="footer-support-wa-text">+91 98765 43210</span></a>
+</p>
 </div>
 </div>
 </div>
@@ -878,7 +882,7 @@
 <div class="col-span-2">
 <div class="flex items-center gap-3 mb-4">
 <div class="w-9 h-9 rounded-full bg-gradient-to-tr from-purple-600 to-pink-500 flex items-center justify-center font-bold text-white shadow-md">🪄</div>
-<span class="font-display font-extrabold text-2xl text-purple-950 dark:text-white">WishMagic</span>
+<span id="footer-brand-name" class="brand-name-text font-display font-extrabold text-2xl text-purple-950 dark:text-white">WishMagic</span>
 </div>
 <p class="text-purple-800/80 dark:text-purple-300/80 leading-relaxed max-w-sm mb-5 text-sm font-medium">
               Crafting joyous, emotional, and interactive digital web experiences that turn every birthday, anniversary, and celebration into a treasured memory.
@@ -924,7 +928,7 @@
 </div>
 <!-- Copyright Badge bottom -->
 <div class="pt-8 border-t border-purple-200/80 dark:border-purple-900/50 flex flex-col sm:flex-row items-center justify-between text-xs sm:text-sm text-purple-800/90 dark:text-purple-400 gap-3">
-<span>© 2026 WishMagic. All rights reserved. 💜</span>
+<span>© 2026 <span id="copyright-brand-name" class="brand-name-text">WishMagic</span>. All rights reserved. 💜</span>
 <span class="text-purple-600/80 dark:text-purple-300/60 text-xs">Designed with wonder for people who care deeply.</span>
 </div>
 </div>
@@ -1484,28 +1488,111 @@
       openModal('auth-modal');
     }
 
-    // Sync admin storefront config
-    (function syncAdminStorefrontConfig() {
+    // --- Central Live Site Configuration Engine (Server / D1 Persisted) ---
+    async function loadLiveSiteConfiguration() {
       try {
-        const raw = localStorage.getItem('wishmagic_site_config');
-        if (!raw) return;
-        const config = JSON.parse(raw);
-        if (config.heroHeadline) {
-          const el = document.getElementById('hero-headline');
-          if (el) el.innerHTML = config.heroHeadline;
+        const res = await fetch('/api/settings/site?_t=' + Date.now(), {
+          headers: { 'Cache-Control': 'no-cache', 'Pragma': 'no-cache' }
+        });
+        if (!res.ok) {
+          if (res.status === 503) {
+            // Server returned Maintenance Mode
+            window.location.reload();
+            return;
+          }
+          return;
         }
-        if (config.heroSubheadline) {
-          const el = document.getElementById('hero-subheadline');
-          if (el) el.textContent = config.heroSubheadline;
-        }
-        if (config.heroBadge) {
+        const data = await res.json().catch(() => ({}));
+        const s = (data.data && data.data.settings) || data.settings;
+        if (!s) return;
+
+        // 1. Hero Badge
+        if (s.heroBadge) {
           const el = document.getElementById('hero-badge-text');
-          if (el) el.textContent = config.heroBadge;
+          if (el) el.textContent = s.heroBadge;
+        }
+
+        // 2. Hero Headline
+        if (s.heroHeadline) {
+          const el = document.getElementById('hero-headline');
+          if (el) el.innerHTML = s.heroHeadline;
+        }
+
+        // 3. Hero Subheadline
+        if (s.heroSubheadline) {
+          const el = document.getElementById('hero-subheadline');
+          if (el) el.textContent = s.heroSubheadline;
+        }
+
+        // 4. Hero Gift Icon
+        if (s.heroGiftIcon) {
+          const el = document.getElementById('hero-gift-icon-display');
+          if (el) el.textContent = s.heroGiftIcon;
+        }
+
+        // 5. Hero Gradient / Style
+        if (s.heroStyleGradient) {
+          const heroSec = document.getElementById('hero-desktop-section');
+          if (heroSec) {
+            heroSec.style.background = s.heroStyleGradient;
+          }
+        }
+
+        // 6. CTAs
+        if (s.heroCta1) {
+          const el = document.getElementById('hero-cta1-text');
+          if (el) el.textContent = s.heroCta1;
+        }
+        if (s.heroCta2) {
+          const el = document.getElementById('hero-cta2-text');
+          if (el) el.textContent = s.heroCta2;
+        }
+
+        // 7. Brand Name
+        if (s.brandName) {
+          document.querySelectorAll('.brand-name-text').forEach(el => {
+            el.textContent = s.brandName;
+          });
+          const navBrand = document.getElementById('navbar-brand-name');
+          if (navBrand) navBrand.textContent = s.brandName;
+          const footerBrand = document.getElementById('footer-brand-name');
+          if (footerBrand) footerBrand.textContent = s.brandName;
+          const copyBrand = document.getElementById('copyright-brand-name');
+          if (copyBrand) copyBrand.textContent = s.brandName;
+        }
+
+        // 8. Support WhatsApp
+        if (s.supportWa) {
+          const waText = document.getElementById('footer-support-wa-text');
+          if (waText) waText.textContent = s.supportWa;
+        }
+        if (s.supportWaUrl) {
+          const waLink = document.getElementById('footer-support-wa-link');
+          if (waLink) waLink.href = s.supportWaUrl;
+        }
+
+        // 9. Ambient Cosmic Particle FX
+        if (s.particleFx !== undefined) {
+          const pContainer = document.getElementById('ambient-particles-container');
+          if (pContainer) {
+            pContainer.style.display = s.particleFx ? 'block' : 'none';
+          }
+          document.querySelectorAll('.sparkle-dot').forEach(el => {
+            el.style.display = s.particleFx ? 'block' : 'none';
+          });
+        }
+
+        // 10. Maintenance mode check
+        if (s.maintenanceMode) {
+          window.location.reload();
         }
       } catch (err) {
-        console.warn('Site config sync note:', err);
+        console.warn('[SiteConfig] Could not sync live server settings:', err);
       }
-    })();
+    }
+
+    // Immediately trigger server config sync
+    loadLiveSiteConfiguration();
 
     // Initialize templates when DOM is ready
     document.addEventListener("DOMContentLoaded", () => {

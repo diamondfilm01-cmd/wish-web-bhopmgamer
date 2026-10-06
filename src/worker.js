@@ -611,6 +611,280 @@ function computeLifecycle(wish) {
 // CENTRALIZED WISH LINK & MONETIZATION SETTINGS ENGINE
 // ============================================================================
 
+// =============================================================================
+// CENTRAL SITE CONFIGURATION & STOREFRONT CMS ENGINE
+// =============================================================================
+
+const DEFAULT_SITE_SETTINGS = {
+  heroBadge: 'Make Every Moment Magical ✨',
+  heroHeadline: 'Gift a <span class="bg-gradient-to-r from-[#F472B6] via-[#EC4899] to-[#F4C542] bg-clip-text text-transparent">Magical</span> Web-Experience!',
+  heroSubheadline: 'Create beautiful personalized digital wishes that feel like a real experience — interactive 3D unboxing, customized music & unforgettable celebration magic.',
+  heroGiftIcon: '🎁',
+  heroStyle: 'cosmic-purple',
+  heroCta1: 'Explore Magic',
+  heroCta2: 'Create Your Wish',
+  brandName: 'WishMagic',
+  supportWa: '+91 98765 43210',
+  currency: 'INR',
+  particleFx: true,
+  maintenanceMode: false,
+  updatedAt: '2026-10-05T00:00:00.000Z',
+  updatedBy: 'system'
+};
+
+const ALLOWED_HERO_STYLES = ['cosmic-purple', 'midnight-gold', 'romantic-rose'];
+const ALLOWED_SITE_CURRENCIES = ['INR', 'USD', 'EUR', 'GBP', 'CAD', 'AUD'];
+
+const HERO_STYLE_GRADIENTS = {
+  'cosmic-purple': 'radial-gradient(circle at 75% 25%, #9d174d 0%, #6d28d9 28%, #4c1d95 62%, #2e0854 100%)',
+  'midnight-gold': 'radial-gradient(circle at 75% 25%, #d97706 0%, #1e1b4b 28%, #0f172a 62%, #020617 100%)',
+  'romantic-rose': 'radial-gradient(circle at 75% 25%, #e11d48 0%, #831843 30%, #4c0519 65%, #1f020a 100%)'
+};
+
+const MAINTENANCE_HTML_FALLBACK = `<!DOCTYPE html>
+<html lang="en">
+<head><meta charset="utf-8"/><title>Under Maintenance | WishMagic</title>
+<style>body{background:#140628;color:#fff;font-family:sans-serif;display:flex;align-items:center;justify-content:center;height:100vh;margin:0;text-align:center}
+.card{background:rgba(255,255,255,0.08);padding:40px;border-radius:24px;max-width:500px;border:1px solid rgba(255,255,255,0.15)}
+h1{color:#f472b6}a{color:#f4c542;text-decoration:none;font-weight:bold}</style></head>
+<body><div class="card"><h1>✨ Polishing the Magic</h1><p>WishMagic is currently undergoing scheduled maintenance. We will be back online shortly!</p>
+<p><a href="/admin-login.html">Admin Sign In →</a></p></div></body></html>`;
+
+let inMemorySiteSettings = JSON.parse(JSON.stringify(DEFAULT_SITE_SETTINGS));
+
+function getCurrencySymbol(curr) {
+  switch (curr) {
+    case 'USD': case 'CAD': case 'AUD': return '$';
+    case 'EUR': return '€';
+    case 'GBP': return '£';
+    case 'INR': default: return '₹';
+  }
+}
+
+function generateSafeWhatsAppUrl(phone, defaultMsg = 'Hello! I need help with WishMagic.') {
+  if (!phone) return null;
+  const digits = String(phone).replace(/[^0-9]/g, '');
+  if (digits.length < 7 || digits.length > 15) return null;
+  return `https://wa.me/${digits}?text=${encodeURIComponent(defaultMsg)}`;
+}
+
+function validateSiteSettings(settings) {
+  if (!settings || typeof settings !== 'object') {
+    return { valid: false, error: 'Invalid settings payload.' };
+  }
+
+  const s = settings.settings || settings;
+
+  // Hero badge
+  const heroBadge = String(s.heroBadge !== undefined ? s.heroBadge : inMemorySiteSettings.heroBadge).trim();
+  if (!heroBadge || heroBadge.length > 120) {
+    return { valid: false, error: 'Hero badge must be between 1 and 120 characters.' };
+  }
+
+  // Hero headline
+  const heroHeadline = String(s.heroHeadline !== undefined ? s.heroHeadline : inMemorySiteSettings.heroHeadline).trim();
+  if (!heroHeadline || heroHeadline.length > 500) {
+    return { valid: false, error: 'Hero headline must be between 1 and 500 characters.' };
+  }
+  if (/<script|javascript:|onerror=|onload=/i.test(heroHeadline)) {
+    return { valid: false, error: 'Hero headline contains prohibited HTML/script tags.' };
+  }
+
+  // Hero subheadline
+  const heroSubheadline = String(s.heroSubheadline !== undefined ? s.heroSubheadline : inMemorySiteSettings.heroSubheadline).trim();
+  if (!heroSubheadline || heroSubheadline.length > 1000) {
+    return { valid: false, error: 'Hero subheadline must be between 1 and 1000 characters.' };
+  }
+
+  // Hero centerpiece icon
+  const heroGiftIcon = String(s.heroGiftIcon !== undefined ? s.heroGiftIcon : inMemorySiteSettings.heroGiftIcon).trim();
+  if (!heroGiftIcon || heroGiftIcon.length > 20) {
+    return { valid: false, error: 'Hero icon must be between 1 and 20 characters.' };
+  }
+
+  // Hero style
+  const heroStyle = String(s.heroStyle !== undefined ? s.heroStyle : inMemorySiteSettings.heroStyle).trim().toLowerCase();
+  if (!ALLOWED_HERO_STYLES.includes(heroStyle)) {
+    return { valid: false, error: `Hero style must be one of: ${ALLOWED_HERO_STYLES.join(', ')}.` };
+  }
+
+  // CTAs
+  const heroCta1 = String(s.heroCta1 !== undefined ? s.heroCta1 : inMemorySiteSettings.heroCta1).trim();
+  if (!heroCta1 || heroCta1.length > 60) {
+    return { valid: false, error: 'Primary CTA text must be between 1 and 60 characters.' };
+  }
+  const heroCta2 = String(s.heroCta2 !== undefined ? s.heroCta2 : inMemorySiteSettings.heroCta2).trim();
+  if (!heroCta2 || heroCta2.length > 60) {
+    return { valid: false, error: 'Secondary CTA text must be between 1 and 60 characters.' };
+  }
+
+  // Brand name
+  const brandName = String(s.brandName !== undefined ? s.brandName : inMemorySiteSettings.brandName).trim();
+  if (!brandName || brandName.length > 80) {
+    return { valid: false, error: 'Brand name must be between 1 and 80 characters.' };
+  }
+
+  // Support WhatsApp
+  const supportWa = String(s.supportWa !== undefined ? s.supportWa : inMemorySiteSettings.supportWa).trim();
+  if (!supportWa || !/^[\+0-9\s\-\(\)]+$/.test(supportWa)) {
+    return { valid: false, error: 'Support WhatsApp number contains invalid characters.' };
+  }
+  const digits = supportWa.replace(/[^0-9]/g, '');
+  if (digits.length < 7 || digits.length > 15) {
+    return { valid: false, error: 'Support WhatsApp number must contain between 7 and 15 digits.' };
+  }
+
+  // Currency
+  const currency = String(s.currency !== undefined ? s.currency : inMemorySiteSettings.currency).trim().toUpperCase();
+  if (!ALLOWED_SITE_CURRENCIES.includes(currency)) {
+    return { valid: false, error: `Storefront currency must be one of: ${ALLOWED_SITE_CURRENCIES.join(', ')}.` };
+  }
+
+  // Particle FX
+  const particleFx = s.particleFx !== undefined ? Boolean(s.particleFx) : inMemorySiteSettings.particleFx;
+
+  // Maintenance Mode
+  const maintenanceMode = s.maintenanceMode !== undefined ? Boolean(s.maintenanceMode) : inMemorySiteSettings.maintenanceMode;
+
+  return {
+    valid: true,
+    normalized: {
+      heroBadge,
+      heroHeadline,
+      heroSubheadline,
+      heroGiftIcon,
+      heroStyle,
+      heroCta1,
+      heroCta2,
+      brandName,
+      supportWa,
+      currency,
+      particleFx,
+      maintenanceMode,
+      updatedAt: new Date().toISOString()
+    }
+  };
+}
+
+async function getSiteSettings(env) {
+  if (env && env.DB && typeof env.DB.prepare === 'function') {
+    try {
+      const rows = await env.DB.prepare('SELECT key, value, type, updated_at, updated_by FROM site_settings').all();
+      if (rows && rows.results && rows.results.length > 0) {
+        const config = { ...DEFAULT_SITE_SETTINGS };
+        for (const row of rows.results) {
+          let val = row.value;
+          if (row.type === 'boolean') val = val === 'true' || val === '1';
+          else if (row.type === 'number') val = Number(val);
+          else if (row.type === 'json') {
+            try { val = JSON.parse(val); } catch (e) {}
+          }
+
+          if (row.key === 'hero_badge') config.heroBadge = val;
+          else if (row.key === 'hero_headline') config.heroHeadline = val;
+          else if (row.key === 'hero_subheadline') config.heroSubheadline = val;
+          else if (row.key === 'hero_gift_icon') config.heroGiftIcon = val;
+          else if (row.key === 'hero_style') config.heroStyle = val;
+          else if (row.key === 'hero_cta1') config.heroCta1 = val;
+          else if (row.key === 'hero_cta2') config.heroCta2 = val;
+          else if (row.key === 'brand_name') config.brandName = val;
+          else if (row.key === 'support_wa') config.supportWa = val;
+          else if (row.key === 'currency') config.currency = val;
+          else if (row.key === 'particle_fx') config.particleFx = val;
+          else if (row.key === 'maintenance_mode') config.maintenanceMode = val;
+          if (row.updated_at) config.updatedAt = row.updated_at;
+          if (row.updated_by) config.updatedBy = row.updated_by;
+        }
+        inMemorySiteSettings = config;
+        return config;
+      }
+    } catch (e) {}
+  }
+  return inMemorySiteSettings;
+}
+
+async function saveSiteSettings(env, newSettings, actor = {}) {
+  const val = validateSiteSettings(newSettings);
+  if (!val.valid) {
+    return { success: false, error: val.error };
+  }
+
+  const s = val.normalized;
+  s.updatedBy = actor.id || 'admin';
+  inMemorySiteSettings = s;
+
+  if (env && env.DB && typeof env.DB.prepare === 'function') {
+    try {
+      const nowIso = s.updatedAt;
+      const actorId = s.updatedBy;
+      const entries = [
+        ['hero_badge', s.heroBadge, 'string'],
+        ['hero_headline', s.heroHeadline, 'string'],
+        ['hero_subheadline', s.heroSubheadline, 'string'],
+        ['hero_gift_icon', s.heroGiftIcon, 'string'],
+        ['hero_style', s.heroStyle, 'string'],
+        ['hero_cta1', s.heroCta1, 'string'],
+        ['hero_cta2', s.heroCta2, 'string'],
+        ['brand_name', s.brandName, 'string'],
+        ['support_wa', s.supportWa, 'string'],
+        ['currency', s.currency, 'string'],
+        ['particle_fx', String(s.particleFx), 'boolean'],
+        ['maintenance_mode', String(s.maintenanceMode), 'boolean']
+      ];
+
+      for (const [k, v, t] of entries) {
+        await env.DB.prepare(
+          `INSERT OR REPLACE INTO site_settings (key, value, type, updated_at, updated_by)
+           VALUES (?, ?, ?, ?, ?)`
+        ).bind(k, String(v), t, nowIso, actorId).run();
+      }
+    } catch (err) {
+      return { success: false, error: 'Database write failed: ' + (err.message || 'D1 failure') };
+    }
+  }
+
+  await logAdminAudit(env, {
+    actorId: actor.id || 'system',
+    actorName: actor.name || 'Platform Admin',
+    actorRole: actor.role || 'admin',
+    action: 'SITE_SETTINGS_UPDATED',
+    details: `Updated site settings: brand=${s.brandName}, heroStyle=${s.heroStyle}, currency=${s.currency}, maintenance=${s.maintenanceMode}`,
+    ipAddress: actor.ipAddress || '127.0.0.1'
+  });
+
+  return { success: true, settings: s };
+}
+
+async function resetSiteSettingsToDefaults(env, actor = {}) {
+  const defaults = {
+    ...DEFAULT_SITE_SETTINGS,
+    updatedAt: new Date().toISOString(),
+    updatedBy: actor.id || 'admin'
+  };
+  return await saveSiteSettings(env, defaults, actor);
+}
+
+function formatPublicSiteSettings(settings) {
+  return {
+    heroBadge: settings.heroBadge,
+    heroHeadline: settings.heroHeadline,
+    heroSubheadline: settings.heroSubheadline,
+    heroGiftIcon: settings.heroGiftIcon,
+    heroStyle: settings.heroStyle,
+    heroStyleGradient: HERO_STYLE_GRADIENTS[settings.heroStyle] || HERO_STYLE_GRADIENTS['cosmic-purple'],
+    heroCta1: settings.heroCta1,
+    heroCta2: settings.heroCta2,
+    brandName: settings.brandName,
+    supportWa: settings.supportWa,
+    supportWaUrl: generateSafeWhatsAppUrl(settings.supportWa),
+    currency: settings.currency,
+    currencySymbol: getCurrencySymbol(settings.currency),
+    particleFx: Boolean(settings.particleFx),
+    maintenanceMode: Boolean(settings.maintenanceMode),
+    updatedAt: settings.updatedAt
+  };
+}
+
 const DEFAULT_WISH_LINK_SETTINGS = {
   personalized: {
     enabled: true,
@@ -2317,6 +2591,87 @@ export default {
         response = jsonSuccess({ entitlement }, 200, {}, requestId);
       }
 
+      // --- Public Site Settings ---
+      else if (pathname === '/api/settings/site' && method === 'GET') {
+        const settings = await getSiteSettings(env);
+        const publicSettings = formatPublicSiteSettings(settings);
+        response = jsonSuccess({ settings: publicSettings }, 200, {
+          'Cache-Control': 'no-cache, no-store, must-revalidate',
+          'Pragma': 'no-cache',
+          'Expires': '0'
+        }, requestId);
+      }
+
+      // --- Admin Site Settings Endpoints ---
+      else if (pathname === '/api/admin/settings/site' && method === 'GET') {
+        const user = await getAuthenticatedUser(request, env);
+        if (!user) return applySecurityHeaders(jsonError('AUTH_REQUIRED', 'Admin authentication required', 401), request, env);
+        const isAdmin = await verifyAdminRole(user, env);
+        if (!isAdmin) return applySecurityHeaders(jsonError('FORBIDDEN', 'Insufficient administrative clearance', 403), request, env);
+
+        const settings = await getSiteSettings(env);
+        response = jsonSuccess({ settings }, 200, {
+          'Cache-Control': 'no-cache, no-store, must-revalidate'
+        }, requestId);
+      }
+
+      else if (pathname === '/api/admin/settings/site' && (method === 'PUT' || method === 'POST')) {
+        const user = await getAuthenticatedUser(request, env);
+        if (!user) return applySecurityHeaders(jsonError('AUTH_REQUIRED', 'Admin authentication required', 401), request, env);
+        const isAdmin = await verifyAdminRole(user, env);
+        if (!isAdmin) return applySecurityHeaders(jsonError('FORBIDDEN', 'Insufficient administrative clearance', 403), request, env);
+
+        if (isCsrfViolation(request, env)) {
+          return applySecurityHeaders(jsonError('FORBIDDEN', 'Cross-origin mutation rejected', 403), request, env);
+        }
+
+        const body = await request.json().catch(() => ({}));
+        const incoming = body.settings || body;
+        const saveRes = await saveSiteSettings(env, incoming, {
+          id: user.id,
+          name: user.display_name || user.email,
+          role: user.role || 'admin',
+          ipAddress: clientIp
+        });
+
+        if (!saveRes.success) {
+          const status = saveRes.error.startsWith('Database write failed') ? 500 : 400;
+          return applySecurityHeaders(jsonError('INVALID_SETTINGS', saveRes.error, status), request, env);
+        }
+
+        response = jsonSuccess({
+          settings: saveRes.settings,
+          message: 'Site configuration updated and persisted successfully.'
+        }, 200, {}, requestId);
+      }
+
+      else if (pathname === '/api/admin/settings/site/reset' && method === 'POST') {
+        const user = await getAuthenticatedUser(request, env);
+        if (!user) return applySecurityHeaders(jsonError('AUTH_REQUIRED', 'Admin authentication required', 401), request, env);
+        const isAdmin = await verifyAdminRole(user, env);
+        if (!isAdmin) return applySecurityHeaders(jsonError('FORBIDDEN', 'Insufficient administrative clearance', 403), request, env);
+
+        if (isCsrfViolation(request, env)) {
+          return applySecurityHeaders(jsonError('FORBIDDEN', 'Cross-origin mutation rejected', 403), request, env);
+        }
+
+        const resetRes = await resetSiteSettingsToDefaults(env, {
+          id: user.id,
+          name: user.display_name || user.email,
+          role: user.role || 'admin',
+          ipAddress: clientIp
+        });
+
+        if (!resetRes.success) {
+          return applySecurityHeaders(jsonError('RESET_FAILED', resetRes.error, 500), request, env);
+        }
+
+        response = jsonSuccess({
+          settings: resetRes.settings,
+          message: 'Site configuration restored to factory defaults.'
+        }, 200, {}, requestId);
+      }
+
       // --- Public Wish Link Settings ---
       else if (pathname === '/api/settings/wish-links' && method === 'GET') {
         const settings = await getWishLinkSettings(env);
@@ -3010,7 +3365,44 @@ export default {
         response = jsonSuccess({ diagnostic }, 200, {}, requestId);
       }
 
-      // --- 4. Cloudflare Pages Pretty Routes & Deep Linking ---
+      // --- 4. Server-Side Maintenance Mode Enforcement for Public Storefront ---
+      const isPublicStorefront = pathname === '/' || pathname === '/index.html' || pathname === '/marketplace.html' || pathname === '/marketplace' || pathname === '/templates' || pathname === '/create.html' || pathname === '/create' || pathname === '/customize.html' || pathname === '/customize' || pathname === '/pricing.html' || pathname === '/pricing' || pathname === '/premium.html' || pathname === '/premium';
+
+      if (isPublicStorefront) {
+        const siteConfig = await getSiteSettings(env);
+        if (siteConfig && siteConfig.maintenanceMode) {
+          const user = await getAuthenticatedUser(request, env);
+          const isAdmin = user && await verifyAdminRole(user, env);
+          if (!isAdmin) {
+            if (env.ASSETS && typeof env.ASSETS.fetch === 'function') {
+              const maintReq = new Request(new URL('/maintenance.html', request.url), request);
+              const maintRes = await env.ASSETS.fetch(maintReq);
+              return applySecurityHeaders(new Response(maintRes.body, {
+                status: 503,
+                statusText: 'Service Unavailable',
+                headers: {
+                  'Content-Type': 'text/html; charset=utf-8',
+                  'Retry-After': '300',
+                  'Cache-Control': 'no-cache, no-store, must-revalidate',
+                  'X-Maintenance-Mode': 'active'
+                }
+              }), request, env);
+            }
+            return applySecurityHeaders(new Response(MAINTENANCE_HTML_FALLBACK, {
+              status: 503,
+              statusText: 'Service Unavailable',
+              headers: {
+                'Content-Type': 'text/html; charset=utf-8',
+                'Retry-After': '300',
+                'Cache-Control': 'no-cache, no-store, must-revalidate',
+                'X-Maintenance-Mode': 'active'
+              }
+            }), request, env);
+          }
+        }
+      }
+
+      // --- 5. Cloudflare Pages Pretty Routes & Deep Linking ---
       if (PRETTY_ROUTES[pathname] && env.ASSETS && typeof env.ASSETS.fetch === 'function') {
         const targetHtml = PRETTY_ROUTES[pathname];
         const pageReq = new Request(new URL(targetHtml, request.url), request);

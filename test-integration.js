@@ -71,9 +71,19 @@ function createTestD1Database() {
   const wishMedia = new Map();
   const notifications = new Map();
   const analyticsEvents = [];
+  const siteSettings = new Map();
 
   return {
-    _tables: { users, sessions, adminRoles, adminStaff, adminAuditLogs, entitlements, wishes, templates, categories, favorites, wishMedia, notifications, analyticsEvents },
+    _tables: { users, sessions, adminRoles, adminStaff, adminAuditLogs, entitlements, wishes, templates, categories, favorites, wishMedia, notifications, analyticsEvents, siteSettings },
+    async batch(statements) {
+      const res = [];
+      for (const stmt of statements) {
+        if (stmt && typeof stmt.run === 'function') {
+          res.push(await stmt.run());
+        }
+      }
+      return res;
+    },
     prepare(sql) {
       function createStatement(boundArgs = []) {
         return {
@@ -83,6 +93,10 @@ function createTestD1Database() {
           async first() {
             const args = boundArgs;
             const normalized = sql.replace(/\s+/g, ' ').trim();
+            if (normalized.includes('FROM site_settings WHERE key = ?')) {
+              const key = args[0];
+              return siteSettings.get(key) ? { ...siteSettings.get(key) } : null;
+            }
               if (normalized.includes('FROM users WHERE email = ?')) {
                 const email = args[0];
                 for (const u of users.values()) {
@@ -234,11 +248,23 @@ function createTestD1Database() {
               if (normalized.includes('FROM analytics_events')) {
                 return { results: [...analyticsEvents] };
               }
+              if (normalized.includes('FROM site_settings')) {
+                return { results: Array.from(siteSettings.values()) };
+              }
               return { results: [] };
             },
             async run() {
               const args = boundArgs;
               const normalized = sql.replace(/\s+/g, ' ').trim();
+              if (normalized.startsWith('INSERT INTO site_settings') || normalized.startsWith('INSERT OR REPLACE INTO site_settings')) {
+                const [key, value, type, updated_at, updated_by] = args;
+                siteSettings.set(key, { key, value, type, updated_at, updated_by });
+                return { success: true };
+              }
+              if (normalized.startsWith('DELETE FROM site_settings')) {
+                siteSettings.clear();
+                return { success: true };
+              }
               if (normalized.startsWith('INSERT INTO admin_staff')) {
                 const [id, user_id, mobile, name, role, permissions, status, password_hash, password_salt, created_by, created_at, updated_at] = args;
                 adminStaff.set(id, { id, user_id, mobile, name, role, permissions, status, password_hash, password_salt, created_by, created_at, updated_at });
@@ -1667,6 +1693,310 @@ async function runTests() {
       }
     })
   }), prodEnv);
+
+  // ============================================================================
+  // PART 29: CENTRAL SERVER-SIDE SITE CONFIGURATION & D1 INTEGRATION SUITE
+  // ============================================================================
+  console.log('\n================================================================');
+  console.log('🏛️ RUNNING PART 29 CENTRAL SITE CONFIGURATION SUITE');
+  console.log('================================================================\n');
+
+  // 1. Admin reads persisted site settings
+  console.log('• 1. Admin reads initial persisted site settings');
+  {
+    const req = new Request('http://localhost/api/admin/settings/site', {
+      method: 'GET',
+      headers: { 'Cookie': `wm_session=${adminToken}` }
+    });
+    const res = await worker.fetch(req, prodEnv);
+    assert(res.status === 200, 'Admin can read site settings with 200 OK');
+    const body = await res.json();
+    assert(body.success === true, 'Response indicates success');
+    const s = body.data.settings;
+    assert(s.heroHeadline && s.brandName === 'WishMagic', 'Initial settings contain hero headline and brand name');
+    assert(s.maintenanceMode === false, 'Maintenance mode is initially disabled');
+  }
+
+  // 2 & 3. Admin updates hero headline and D1 contains new headline
+  console.log('• 2 & 3. Admin updates hero headline -> D1 receives new headline');
+  const newHeadline = 'Celebrate Moments with <span class="magical">Unmatched Magic</span>!';
+  {
+    const updateReq = new Request('http://localhost/api/admin/settings/site', {
+      method: 'PUT',
+      headers: {
+        'Content-Type': 'application/json',
+        'Cookie': `wm_session=${adminToken}`
+      },
+      body: JSON.stringify({
+        settings: {
+          heroHeadline: newHeadline,
+          heroBadge: 'Exclusive Celebration Experience 🌟'
+        }
+      })
+    });
+    const res = await worker.fetch(updateReq, prodEnv);
+    assert(res.status === 200, 'Admin save returns 200 OK');
+    const body = await res.json();
+    assert(body.data.settings.heroHeadline === newHeadline, 'Returned persisted state has new headline');
+    assert(body.data.settings.heroBadge === 'Exclusive Celebration Experience 🌟', 'Returned persisted state has new badge');
+
+    // Verify D1 persistence directly
+    const d1HeadlineRow = testDb._tables.siteSettings.get('hero_headline');
+    assert(d1HeadlineRow && d1HeadlineRow.value === newHeadline, 'D1 database contains newly persisted hero headline');
+  }
+
+  // 4 & 5. Refresh admin page / fetch again -> new headline remains
+  console.log('• 4 & 5. Refresh admin settings -> persisted headline remains intact');
+  {
+    const readReq = new Request('http://localhost/api/admin/settings/site', {
+      method: 'GET',
+      headers: { 'Cookie': `wm_session=${adminToken}` }
+    });
+    const res = await worker.fetch(readReq, prodEnv);
+    const body = await res.json();
+    assert(body.data.settings.heroHeadline === newHeadline, 'Refreshed admin settings retain persisted headline');
+  }
+
+  // 6 & 7. Public settings endpoint returns new headline and safe schema
+  console.log('• 6 & 7. Public settings API returns updated headline with safe public schema');
+  {
+    const pubReq = new Request('http://localhost/api/settings/site', { method: 'GET' });
+    const res = await worker.fetch(pubReq, prodEnv);
+    assert(res.status === 200, 'Public settings API returns 200 OK');
+    assert(res.headers.get('Cache-Control').includes('no-cache'), 'Public endpoint specifies no-cache to prevent stale data');
+    const body = await res.json();
+    const pubSettings = body.data.settings;
+    assert(pubSettings.heroHeadline === newHeadline, 'Public settings expose new headline');
+    assert(pubSettings.heroBadge === 'Exclusive Celebration Experience 🌟', 'Public settings expose new badge');
+    assert(pubSettings.heroStyleGradient !== undefined, 'Public settings include computed hero gradient');
+    assert(pubSettings.supportWaUrl !== undefined, 'Public settings include safe support WhatsApp URL');
+    // Ensure no secret or private fields leaked
+    assert(pubSettings.databaseId === undefined && pubSettings.adminPassword === undefined, 'No secrets leaked in public config');
+  }
+
+  // 8. Change CTA text
+  console.log('• 8. Change primary & secondary CTA text');
+  {
+    const updateCta = await worker.fetch(new Request('http://localhost/api/admin/settings/site', {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json', 'Cookie': `wm_session=${adminToken}` },
+      body: JSON.stringify({
+        settings: {
+          heroCta1: 'Craft Magic Now',
+          heroCta2: 'Browse Gallery'
+        }
+      })
+    }), prodEnv);
+    assert(updateCta.status === 200, 'CTA update succeeds with 200');
+    const pubRes = await worker.fetch(new Request('http://localhost/api/settings/site'), prodEnv);
+    const pub = (await pubRes.json()).data.settings;
+    assert(pub.heroCta1 === 'Craft Magic Now', 'Public CTA 1 matches updated setting');
+    assert(pub.heroCta2 === 'Browse Gallery', 'Public CTA 2 matches updated setting');
+  }
+
+  // 9. Change Brand Name
+  console.log('• 9. Change Brand Name');
+  {
+    const updateBrand = await worker.fetch(new Request('http://localhost/api/admin/settings/site', {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json', 'Cookie': `wm_session=${adminToken}` },
+      body: JSON.stringify({
+        settings: { brandName: 'WishMagic Premium' }
+      })
+    }), prodEnv);
+    assert(updateBrand.status === 200, 'Brand name update succeeds');
+    const pubRes = await worker.fetch(new Request('http://localhost/api/settings/site'), prodEnv);
+    const pub = (await pubRes.json()).data.settings;
+    assert(pub.brandName === 'WishMagic Premium', 'Public settings show updated brand name');
+  }
+
+  // 10. Change Hero Canvas / Gradient Style
+  console.log('• 10. Change Hero Canvas / Gradient Style');
+  {
+    const updateStyle = await worker.fetch(new Request('http://localhost/api/admin/settings/site', {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json', 'Cookie': `wm_session=${adminToken}` },
+      body: JSON.stringify({
+        settings: { heroStyle: 'midnight-gold' }
+      })
+    }), prodEnv);
+    assert(updateStyle.status === 200, 'Hero style update succeeds');
+    const pubRes = await worker.fetch(new Request('http://localhost/api/settings/site'), prodEnv);
+    const pub = (await pubRes.json()).data.settings;
+    assert(pub.heroStyle === 'midnight-gold', 'Hero style is midnight-gold');
+    assert(pub.heroStyleGradient.includes('#d97706'), 'Public gradient reflects midnight-gold color scheme');
+  }
+
+  // 11. Toggle Particle FX
+  console.log('• 11. Toggle Ambient Cosmic Particle FX');
+  {
+    // Toggle off
+    await worker.fetch(new Request('http://localhost/api/admin/settings/site', {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json', 'Cookie': `wm_session=${adminToken}` },
+      body: JSON.stringify({ settings: { particleFx: false } })
+    }), prodEnv);
+    let pubRes = await worker.fetch(new Request('http://localhost/api/settings/site'), prodEnv);
+    let pub = (await pubRes.json()).data.settings;
+    assert(pub.particleFx === false, 'Particle FX disabled in public config');
+
+    // Toggle on
+    await worker.fetch(new Request('http://localhost/api/admin/settings/site', {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json', 'Cookie': `wm_session=${adminToken}` },
+      body: JSON.stringify({ settings: { particleFx: true } })
+    }), prodEnv);
+    pubRes = await worker.fetch(new Request('http://localhost/api/settings/site'), prodEnv);
+    pub = (await pubRes.json()).data.settings;
+    assert(pub.particleFx === true, 'Particle FX re-enabled in public config');
+  }
+
+  // 12. Change WhatsApp Number and Validate Safe URL Generation
+  console.log('• 12. Support WhatsApp update and URL generation');
+  {
+    const updateWa = await worker.fetch(new Request('http://localhost/api/admin/settings/site', {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json', 'Cookie': `wm_session=${adminToken}` },
+      body: JSON.stringify({ settings: { supportWa: '+91 99887 76655' } })
+    }), prodEnv);
+    assert(updateWa.status === 200, 'Valid WhatsApp number accepted');
+    const pubRes = await worker.fetch(new Request('http://localhost/api/settings/site'), prodEnv);
+    const pub = (await pubRes.json()).data.settings;
+    assert(pub.supportWa === '+91 99887 76655', 'Support WhatsApp number stored');
+    assert(pub.supportWaUrl.startsWith('https://wa.me/919988776655'), 'Safe WhatsApp direct link generated');
+  }
+
+  // 13, 14, 15, 16. Maintenance Mode Enforcement and Exemption
+  console.log('• 13-16. Maintenance Mode Server-Side Enforcement & Exemption');
+  {
+    // Enable Maintenance Mode
+    const enableMaint = await worker.fetch(new Request('http://localhost/api/admin/settings/site', {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json', 'Cookie': `wm_session=${adminToken}` },
+      body: JSON.stringify({ settings: { maintenanceMode: true } })
+    }), prodEnv);
+    assert(enableMaint.status === 200, 'Maintenance mode toggle to true succeeds');
+
+    // Non-admin request to public storefront should receive 503 Maintenance
+    const publicStorefrontReq = new Request('http://localhost/', {
+      method: 'GET',
+      headers: { 'Accept': 'text/html' }
+    });
+    const publicMaintRes = await worker.fetch(publicStorefrontReq, prodEnv);
+    assert(publicMaintRes.status === 503, 'Public storefront returns 503 Service Unavailable when maintenance is ON');
+    assert(publicMaintRes.headers.get('X-Maintenance-Mode') === 'active', 'Response contains X-Maintenance-Mode header');
+
+    // Admin request to storefront should be allowed through
+    const adminStorefrontReq = new Request('http://localhost/', {
+      method: 'GET',
+      headers: { 'Accept': 'text/html', 'Cookie': `wm_session=${adminToken}` }
+    });
+    const adminMaintRes = await worker.fetch(adminStorefrontReq, prodEnv);
+    assert(adminMaintRes.status === 200 || adminMaintRes.status === 404, 'Admin is not blocked by maintenance mode');
+
+    // Admin API routes continue working
+    const adminApiReq = new Request('http://localhost/api/admin/settings/site', {
+      method: 'GET',
+      headers: { 'Cookie': `wm_session=${adminToken}` }
+    });
+    const adminApiRes = await worker.fetch(adminApiReq, prodEnv);
+    assert(adminApiRes.status === 200, 'Admin API remains accessible during maintenance mode');
+
+    // Health check continues working
+    const healthRes = await worker.fetch(new Request('http://localhost/api/health'), prodEnv);
+    assert(healthRes.status === 200, 'Health check continues working during maintenance mode');
+
+    // Disable Maintenance Mode
+    const disableMaint = await worker.fetch(new Request('http://localhost/api/admin/settings/site', {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json', 'Cookie': `wm_session=${adminToken}` },
+      body: JSON.stringify({ settings: { maintenanceMode: false } })
+    }), prodEnv);
+    assert(disableMaint.status === 200, 'Maintenance mode disabled successfully');
+
+    // Public storefront now returns normal response
+    const normalStorefrontRes = await worker.fetch(new Request('http://localhost/', {
+      headers: { 'Accept': 'text/html' }
+    }), prodEnv);
+    assert(normalStorefrontRes.status !== 503, 'Storefront no longer returns 503 when maintenance mode is OFF');
+  }
+
+  // 17. Security & Authorization Checks
+  console.log('• 17. Security & Authorization Checks (401/403)');
+  {
+    // Unauthenticated GET
+    const unauthGet = await worker.fetch(new Request('http://localhost/api/admin/settings/site'), prodEnv);
+    assert(unauthGet.status === 401, 'Unauthenticated GET to admin settings returns 401 AUTH_REQUIRED');
+
+    // Unauthenticated PUT
+    const unauthPut = await worker.fetch(new Request('http://localhost/api/admin/settings/site', {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ settings: { heroHeadline: 'Hacked Headline' } })
+    }), prodEnv);
+    assert(unauthPut.status === 401, 'Unauthenticated PUT returns 401 AUTH_REQUIRED');
+
+    // Regular creator user (non-admin)
+    const creatorPut = await worker.fetch(new Request('http://localhost/api/admin/settings/site', {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json', 'Cookie': userACookie },
+      body: JSON.stringify({ settings: { heroHeadline: 'Hacked by Creator' } })
+    }), prodEnv);
+    assert(creatorPut.status === 403, 'Creator user PUT returns 403 FORBIDDEN');
+  }
+
+  // 18. Validation of Types, Lengths, Prohibited Inputs
+  console.log('• 18. Server-Side Input Validation & Sanitization');
+  {
+    // Prohibited script tag in headline
+    const xssHeadline = await worker.fetch(new Request('http://localhost/api/admin/settings/site', {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json', 'Cookie': `wm_session=${adminToken}` },
+      body: JSON.stringify({ settings: { heroHeadline: 'Headline with <script>alert(1)</script>' } })
+    }), prodEnv);
+    assert(xssHeadline.status === 400, 'Script injection in headline rejected with 400');
+
+    // Invalid hero style
+    const badStyle = await worker.fetch(new Request('http://localhost/api/admin/settings/site', {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json', 'Cookie': `wm_session=${adminToken}` },
+      body: JSON.stringify({ settings: { heroStyle: 'neon-cyberpunk-invalid' } })
+    }), prodEnv);
+    assert(badStyle.status === 400, 'Unsupported hero style rejected with 400');
+
+    // Invalid WhatsApp characters
+    const badWa = await worker.fetch(new Request('http://localhost/api/admin/settings/site', {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json', 'Cookie': `wm_session=${adminToken}` },
+      body: JSON.stringify({ settings: { supportWa: 'CALL-ME-NOW-123' } })
+    }), prodEnv);
+    assert(badWa.status === 400, 'Invalid WhatsApp characters rejected with 400');
+
+    // Invalid currency
+    const badCurrency = await worker.fetch(new Request('http://localhost/api/admin/settings/site', {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json', 'Cookie': `wm_session=${adminToken}` },
+      body: JSON.stringify({ settings: { currency: 'BITCOIN' } })
+    }), prodEnv);
+    assert(badCurrency.status === 400, 'Unsupported currency rejected with 400');
+  }
+
+  // 19. Reset to Factory Defaults
+  console.log('• 19. Reset site configuration to factory defaults');
+  {
+    const resetRes = await worker.fetch(new Request('http://localhost/api/admin/settings/site/reset', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', 'Cookie': `wm_session=${adminToken}` }
+    }), prodEnv);
+    assert(resetRes.status === 200, 'Reset to factory defaults returns 200 OK');
+    const body = await resetRes.json();
+    assert(body.data.settings.heroBadge === 'Make Every Moment Magical ✨', 'Hero badge reset to factory default');
+    assert(body.data.settings.brandName === 'WishMagic', 'Brand name reset to WishMagic');
+
+    const pubRes = await worker.fetch(new Request('http://localhost/api/settings/site'), prodEnv);
+    const pub = (await pubRes.json()).data.settings;
+    assert(pub.brandName === 'WishMagic', 'Public configuration reflects restored defaults');
+  }
 
   // ============================================================================
   // SUMMARY

@@ -507,6 +507,200 @@ app.use((req, res, next) => {
   next();
 });
 
+// --- Central Site Settings & Storefront Configuration Engine ---
+const SITE_SETTINGS_FILE = path.join(DATA_DIR, 'site_settings.json');
+
+const DEFAULT_SERVER_SITE_SETTINGS = {
+  heroBadge: 'Make Every Moment Magical ✨',
+  heroHeadline: 'Gift a <span class="bg-gradient-to-r from-[#F472B6] via-[#EC4899] to-[#F4C542] bg-clip-text text-transparent">Magical</span> Web-Experience!',
+  heroSubheadline: 'Create beautiful personalized digital wishes that feel like a real experience — interactive 3D unboxing, customized music & unforgettable celebration magic.',
+  heroGiftIcon: '🎁',
+  heroStyle: 'cosmic-purple',
+  heroCta1: 'Explore Magic',
+  heroCta2: 'Create Your Wish',
+  brandName: 'WishMagic',
+  supportWa: '+91 98765 43210',
+  currency: 'INR',
+  particleFx: true,
+  maintenanceMode: false,
+  updatedAt: '2026-10-05T00:00:00.000Z',
+  updatedBy: 'system'
+};
+
+const ALLOWED_SERVER_HERO_STYLES = ['cosmic-purple', 'midnight-gold', 'romantic-rose'];
+const ALLOWED_SERVER_CURRENCIES = ['INR', 'USD', 'EUR', 'GBP', 'CAD', 'AUD'];
+
+const SERVER_HERO_STYLE_GRADIENTS = {
+  'cosmic-purple': 'radial-gradient(circle at 75% 25%, #9d174d 0%, #6d28d9 28%, #4c1d95 62%, #2e0854 100%)',
+  'midnight-gold': 'radial-gradient(circle at 75% 25%, #d97706 0%, #1e1b4b 28%, #0f172a 62%, #020617 100%)',
+  'romantic-rose': 'radial-gradient(circle at 75% 25%, #e11d48 0%, #831843 30%, #4c0519 65%, #1f020a 100%)'
+};
+
+function generateServerSafeWhatsAppUrl(phone, defaultMsg = 'Hello! I need help with WishMagic.') {
+  if (!phone) return null;
+  const digits = String(phone).replace(/[^0-9]/g, '');
+  if (digits.length < 7 || digits.length > 15) return null;
+  return `https://wa.me/${digits}?text=${encodeURIComponent(defaultMsg)}`;
+}
+
+function getServerSiteSettings() {
+  try {
+    if (fs.existsSync(SITE_SETTINGS_FILE)) {
+      const data = fs.readFileSync(SITE_SETTINGS_FILE, 'utf8');
+      const parsed = JSON.parse(data || '{}');
+      if (parsed && typeof parsed === 'object') {
+        return { ...DEFAULT_SERVER_SITE_SETTINGS, ...parsed };
+      }
+    }
+  } catch (e) {}
+  return { ...DEFAULT_SERVER_SITE_SETTINGS };
+}
+
+function saveServerSiteSettings(settings, actor = {}) {
+  try {
+    const s = {
+      ...settings,
+      updatedAt: new Date().toISOString(),
+      updatedBy: actor.id || 'admin'
+    };
+    fs.writeFileSync(SITE_SETTINGS_FILE, JSON.stringify(s, null, 2), 'utf8');
+    return { success: true, settings: s };
+  } catch (err) {
+    return { success: false, error: 'Failed to write settings file: ' + err.message };
+  }
+}
+
+function validateServerSiteSettings(settings) {
+  if (!settings || typeof settings !== 'object') {
+    return { valid: false, error: 'Invalid settings payload.' };
+  }
+
+  const s = settings.settings || settings;
+  const current = getServerSiteSettings();
+
+  const heroBadge = String(s.heroBadge !== undefined ? s.heroBadge : current.heroBadge).trim();
+  if (!heroBadge || heroBadge.length > 120) {
+    return { valid: false, error: 'Hero badge must be between 1 and 120 characters.' };
+  }
+
+  const heroHeadline = String(s.heroHeadline !== undefined ? s.heroHeadline : current.heroHeadline).trim();
+  if (!heroHeadline || heroHeadline.length > 500) {
+    return { valid: false, error: 'Hero headline must be between 1 and 500 characters.' };
+  }
+  if (/<script|javascript:|onerror=|onload=/i.test(heroHeadline)) {
+    return { valid: false, error: 'Hero headline contains prohibited HTML/script tags.' };
+  }
+
+  const heroSubheadline = String(s.heroSubheadline !== undefined ? s.heroSubheadline : current.heroSubheadline).trim();
+  if (!heroSubheadline || heroSubheadline.length > 1000) {
+    return { valid: false, error: 'Hero subheadline must be between 1 and 1000 characters.' };
+  }
+
+  const heroGiftIcon = String(s.heroGiftIcon !== undefined ? s.heroGiftIcon : current.heroGiftIcon).trim();
+  if (!heroGiftIcon || heroGiftIcon.length > 20) {
+    return { valid: false, error: 'Hero icon must be between 1 and 20 characters.' };
+  }
+
+  const heroStyle = String(s.heroStyle !== undefined ? s.heroStyle : current.heroStyle).trim().toLowerCase();
+  if (!ALLOWED_SERVER_HERO_STYLES.includes(heroStyle)) {
+    return { valid: false, error: `Hero style must be one of: ${ALLOWED_SERVER_HERO_STYLES.join(', ')}.` };
+  }
+
+  const heroCta1 = String(s.heroCta1 !== undefined ? s.heroCta1 : current.heroCta1).trim();
+  if (!heroCta1 || heroCta1.length > 60) {
+    return { valid: false, error: 'Primary CTA text must be between 1 and 60 characters.' };
+  }
+  const heroCta2 = String(s.heroCta2 !== undefined ? s.heroCta2 : current.heroCta2).trim();
+  if (!heroCta2 || heroCta2.length > 60) {
+    return { valid: false, error: 'Secondary CTA text must be between 1 and 60 characters.' };
+  }
+
+  const brandName = String(s.brandName !== undefined ? s.brandName : current.brandName).trim();
+  if (!brandName || brandName.length > 80) {
+    return { valid: false, error: 'Brand name must be between 1 and 80 characters.' };
+  }
+
+  const supportWa = String(s.supportWa !== undefined ? s.supportWa : current.supportWa).trim();
+  if (!supportWa || !/^[\+0-9\s\-\(\)]+$/.test(supportWa)) {
+    return { valid: false, error: 'Support WhatsApp number contains invalid characters.' };
+  }
+  const digits = supportWa.replace(/[^0-9]/g, '');
+  if (digits.length < 7 || digits.length > 15) {
+    return { valid: false, error: 'Support WhatsApp number must contain between 7 and 15 digits.' };
+  }
+
+  const currency = String(s.currency !== undefined ? s.currency : current.currency).trim().toUpperCase();
+  if (!ALLOWED_SERVER_CURRENCIES.includes(currency)) {
+    return { valid: false, error: `Storefront currency must be one of: ${ALLOWED_SERVER_CURRENCIES.join(', ')}.` };
+  }
+
+  const particleFx = s.particleFx !== undefined ? Boolean(s.particleFx) : current.particleFx;
+  const maintenanceMode = s.maintenanceMode !== undefined ? Boolean(s.maintenanceMode) : current.maintenanceMode;
+
+  return {
+    valid: true,
+    normalized: {
+      heroBadge,
+      heroHeadline,
+      heroSubheadline,
+      heroGiftIcon,
+      heroStyle,
+      heroCta1,
+      heroCta2,
+      brandName,
+      supportWa,
+      currency,
+      particleFx,
+      maintenanceMode
+    }
+  };
+}
+
+function formatServerPublicSiteSettings(settings) {
+  return {
+    heroBadge: settings.heroBadge,
+    heroHeadline: settings.heroHeadline,
+    heroSubheadline: settings.heroSubheadline,
+    heroGiftIcon: settings.heroGiftIcon,
+    heroStyle: settings.heroStyle,
+    heroStyleGradient: SERVER_HERO_STYLE_GRADIENTS[settings.heroStyle] || SERVER_HERO_STYLE_GRADIENTS['cosmic-purple'],
+    heroCta1: settings.heroCta1,
+    heroCta2: settings.heroCta2,
+    brandName: settings.brandName,
+    supportWa: settings.supportWa,
+    supportWaUrl: generateServerSafeWhatsAppUrl(settings.supportWa),
+    currency: settings.currency,
+    currencySymbol: settings.currency === 'USD' || settings.currency === 'CAD' || settings.currency === 'AUD' ? '$' : settings.currency === 'EUR' ? '€' : settings.currency === 'GBP' ? '£' : '₹',
+    particleFx: Boolean(settings.particleFx),
+    maintenanceMode: Boolean(settings.maintenanceMode),
+    updatedAt: settings.updatedAt
+  };
+}
+
+// Maintenance Mode Enforcement Middleware for Storefront
+app.use((req, res, next) => {
+  const settings = getServerSiteSettings();
+  if (settings && settings.maintenanceMode) {
+    const p = req.path.toLowerCase();
+    const isPublicStorefront = p === '/' || p === '/index.html' || p === '/marketplace.html' || p === '/marketplace' || p === '/templates' || p === '/create.html' || p === '/create' || p === '/customize.html' || p === '/customize' || p === '/pricing.html' || p === '/pricing' || p === '/premium.html' || p === '/premium';
+    if (isPublicStorefront) {
+      const isAdmin = req.user && (req.user.role === 'admin' || req.user.isAdmin);
+      if (!isAdmin) {
+        res.status(503);
+        res.setHeader('Retry-After', '300');
+        res.setHeader('X-Maintenance-Mode', 'active');
+        res.setHeader('Cache-Control', 'no-cache, no-store, must-revalidate');
+        const maintFile = path.join(__dirname, 'public', 'maintenance.html');
+        if (fs.existsSync(maintFile)) {
+          return res.sendFile(maintFile);
+        }
+        return res.send('<h1>WishMagic Under Maintenance</h1>');
+      }
+    }
+  }
+  next();
+});
+
 // Serve static files from public directory
 app.use(express.static(path.join(__dirname, 'public'), {
   extensions: ['html', 'htm']
@@ -2187,6 +2381,94 @@ function generateUniqueServerRandomWishSlug(wishes, config = {}) {
   }
   return `${prefix}${Date.now().toString(36).substring(2, 8)}`;
 }
+
+// Public API: Get current site configuration
+app.get('/api/settings/site', (req, res) => {
+  const settings = getServerSiteSettings();
+  const publicSettings = formatServerPublicSiteSettings(settings);
+  res.setHeader('Cache-Control', 'no-cache, no-store, must-revalidate');
+  res.setHeader('Pragma', 'no-cache');
+  res.setHeader('Expires', '0');
+  res.json({
+    success: true,
+    settings: publicSettings
+  });
+});
+
+// Admin API: Get site configuration
+app.get('/api/admin/settings/site', (req, res) => {
+  if (!req.user) {
+    return res.status(401).json({ success: false, error: { code: 'AUTH_REQUIRED', message: 'Admin authentication required' } });
+  }
+  if (req.user.role !== 'admin' && !req.user.isAdmin) {
+    return res.status(403).json({ success: false, error: { code: 'FORBIDDEN', message: 'Insufficient administrative clearance' } });
+  }
+  const settings = getServerSiteSettings();
+  res.setHeader('Cache-Control', 'no-cache, no-store, must-revalidate');
+  res.json({
+    success: true,
+    settings
+  });
+});
+
+// Admin API: Save site configuration
+app.all(['/api/admin/settings/site'], (req, res, next) => {
+  if (req.method !== 'POST' && req.method !== 'PUT') return next();
+
+  if (!req.user) {
+    return res.status(401).json({ success: false, error: { code: 'AUTH_REQUIRED', message: 'Admin authentication required' } });
+  }
+  if (req.user.role !== 'admin' && !req.user.isAdmin) {
+    return res.status(403).json({ success: false, error: { code: 'FORBIDDEN', message: 'Insufficient administrative clearance' } });
+  }
+
+  const incoming = req.body.settings || req.body || {};
+  const validation = validateServerSiteSettings(incoming);
+  if (!validation.valid) {
+    return res.status(400).json({
+      success: false,
+      error: { code: 'INVALID_SETTINGS', message: validation.error }
+    });
+  }
+
+  const saveRes = saveServerSiteSettings(validation.normalized, req.user);
+  if (!saveRes.success) {
+    return res.status(500).json({
+      success: false,
+      error: { code: 'SAVE_FAILED', message: saveRes.error }
+    });
+  }
+
+  res.json({
+    success: true,
+    settings: saveRes.settings,
+    message: 'Site configuration updated and persisted successfully.'
+  });
+});
+
+// Admin API: Reset site configuration to defaults
+app.post('/api/admin/settings/site/reset', (req, res) => {
+  if (!req.user) {
+    return res.status(401).json({ success: false, error: { code: 'AUTH_REQUIRED', message: 'Admin authentication required' } });
+  }
+  if (req.user.role !== 'admin' && !req.user.isAdmin) {
+    return res.status(403).json({ success: false, error: { code: 'FORBIDDEN', message: 'Insufficient administrative clearance' } });
+  }
+
+  const saveRes = saveServerSiteSettings(DEFAULT_SERVER_SITE_SETTINGS, req.user);
+  if (!saveRes.success) {
+    return res.status(500).json({
+      success: false,
+      error: { code: 'RESET_FAILED', message: saveRes.error }
+    });
+  }
+
+  res.json({
+    success: true,
+    settings: saveRes.settings,
+    message: 'Site configuration restored to factory defaults.'
+  });
+});
 
 // Public API: Get current wish link configuration
 app.get('/api/settings/wish-links', (req, res) => {

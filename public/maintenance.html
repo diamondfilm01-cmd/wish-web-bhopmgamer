@@ -1,0 +1,89 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8"/>
+  <base href="/"/>
+  <meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+  <title>Under Maintenance | WishMagic</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com"/>
+  <link crossorigin="" href="https://fonts.gstatic.com" rel="preconnect"/>
+  <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@400;600;700;800;900&family=Plus+Jakarta+Sans:wght@400;500;600;700&display=swap" rel="stylesheet"/>
+  <script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+  <script>
+    tailwind.config = {
+      darkMode: 'class',
+      theme: {
+        extend: {
+          fontFamily: {
+            sans: ['"Plus Jakarta Sans"', 'sans-serif'],
+            display: ['"Outfit"', 'sans-serif']
+          }
+        }
+      }
+    };
+  </script>
+</head>
+<body class="bg-[#140628] text-white font-sans min-h-screen flex flex-col justify-between antialiased selection:bg-pink-500 selection:text-white relative overflow-hidden">
+  <!-- Glowing Cosmic Background Orbs -->
+  <div class="absolute -top-40 -left-40 w-96 h-96 bg-pink-500/20 rounded-full blur-3xl pointer-events-none"></div>
+  <div class="absolute -bottom-40 -right-40 w-96 h-96 bg-purple-600/25 rounded-full blur-3xl pointer-events-none"></div>
+
+  <!-- Top Header Navigation -->
+  <header class="p-6 max-w-7xl mx-auto w-full flex items-center justify-between z-10">
+    <div class="flex items-center gap-2.5">
+      <div class="w-9 h-9 rounded-full bg-gradient-to-tr from-purple-600 via-pink-500 to-amber-300 flex items-center justify-center shadow-lg shadow-pink-500/30">
+        <span class="text-white text-base">🪄</span>
+      </div>
+      <span class="font-display font-extrabold text-2xl tracking-tight bg-gradient-to-r from-purple-200 via-pink-300 to-amber-200 bg-clip-text text-transparent">WishMagic</span>
+    </div>
+    <a href="/admin-login.html" class="px-4 py-2 rounded-full bg-white/10 hover:bg-white/20 border border-white/20 text-xs font-bold text-purple-200 transition-all">
+      Admin Sign In
+    </a>
+  </header>
+
+  <!-- Main Maintenance Card -->
+  <main class="flex-grow flex items-center justify-center p-4 z-10">
+    <div class="max-w-xl w-full text-center space-y-6 bg-purple-950/40 backdrop-blur-xl border border-purple-500/30 p-8 sm:p-12 rounded-3xl shadow-2xl">
+      <!-- Animated Centerpiece Visual -->
+      <div class="inline-flex items-center justify-center w-20 h-20 rounded-3xl bg-gradient-to-tr from-pink-500 to-purple-700 shadow-xl shadow-purple-600/40 border border-pink-400/40 text-4xl animate-bounce">
+        ✨
+      </div>
+
+      <!-- Badge -->
+      <div>
+        <span class="inline-block px-3.5 py-1 rounded-full bg-amber-400/20 text-amber-300 border border-amber-400/30 text-xs font-bold uppercase tracking-wider">
+          Scheduled Platform Maintenance
+        </span>
+      </div>
+
+      <!-- Heading -->
+      <h1 class="font-display text-3xl sm:text-4xl font-extrabold tracking-tight text-white leading-tight">
+        Polishing the Magic for You
+      </h1>
+
+      <!-- Description -->
+      <p class="text-sm sm:text-base text-purple-200/90 leading-relaxed font-normal">
+        WishMagic storefront is temporarily undergoing scheduled improvements and celebration upgrades.
+        All existing wishes and celebration data are safe and sound. We will be back online shortly!
+      </p>
+
+      <!-- Status Indicator -->
+      <div class="inline-flex items-center gap-2 px-4 py-2 rounded-xl bg-purple-900/60 border border-purple-700/50 text-xs font-mono text-pink-300">
+        <span class="w-2 h-2 rounded-full bg-pink-400 animate-ping"></span>
+        <span>Storefront Engine Upgrade in Progress</span>
+      </div>
+
+      <!-- Admin Direct Access Hint -->
+      <div class="pt-4 border-t border-white/10 text-xs text-purple-300/80">
+        Staff &amp; Administrators can continue accessing the studio console at
+        <a href="/admin-login.html" class="text-pink-400 hover:underline font-bold ml-1">Admin Portal →</a>
+      </div>
+    </div>
+  </main>
+
+  <!-- Footer -->
+  <footer class="p-6 text-center text-xs text-purple-400/70 z-10">
+    © 2026 WishMagic. Platform Maintenance Mode active.
+  </footer>
+</body>
+</html>
