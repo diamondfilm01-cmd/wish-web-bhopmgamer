@@ -68,5 +68,12 @@
     "token": "wm_tok_admin_muwkzs3q_xepfwk8s4j",
     "expiresAt": 1793877259526,
     "createdAt": "2026-10-06T11:14:19.526Z"
+  },
+  {
+    "id": "sess_muwr1f7u",
+    "userId": "usr_muwr1f7u_tmsb",
+    "token": "wm_tok_muwr1f7u_lxve9zow",
+    "expiresAt": 1793887413834,
+    "createdAt": "2026-10-06T14:03:33.834Z"
   }
 ]

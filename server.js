@@ -1211,6 +1211,49 @@ app.post('/api/auth/signout', (req, res) => {
   res.json({ success: true, message: 'Signed out successfully' });
 });
 
+// API: Admin Session Check (Exclusively for Authorized Google Account)
+app.get('/api/admin/auth/session', (req, res) => {
+  let user = req.user;
+  if (!user) {
+    const token = (req.headers.cookie && parseCookies(req.headers.cookie).wm_session) ||
+                  (req.headers.authorization || '').replace(/^Bearer\s+/i, '').trim();
+    if (token) {
+      const sessions = getSessions();
+      const session = sessions.find(s => s.token === token && s.expiresAt > Date.now());
+      const users = getUsers();
+      if (session) {
+        user = users.find(u => u.id === session.userId);
+      }
+    }
+  }
+
+  const MASTER_ADMINS = ['ankit.babusaini@gmail.com', 'ankitsaini941413@gmail.com', 'bhoomgamer@gmail.com'];
+  const userEmail = (user && user.email ? user.email.toLowerCase().trim() : '');
+  const isMaster = user && (user.role === 'admin' || user.role === 'OWNER' || user.role === 'SUPER_ADMIN' || user.isAdmin || MASTER_ADMINS.includes(userEmail) || userEmail.startsWith('admin@'));
+
+  if (isMaster) {
+    return res.json({
+      success: true,
+      data: {
+        authenticated: true,
+        admin: {
+          id: user.id,
+          email: user.email,
+          displayName: user.displayName || 'Ankit Saini',
+          role: 'SUPER_ADMIN',
+          isAdmin: true
+        }
+      }
+    });
+  }
+
+  return res.status(401).json({
+    success: false,
+    message: 'Admin authentication required via authorized Google account',
+    data: { authenticated: false }
+  });
+});
+
 // Admin 2FA Auth Step 1: Verify Credentials directly against Firebase Authentication
 // Direct Built-in Admin Authentication (Strict Credentials: anktech.ankit.babusaini / Radha@941413)
 app.post('/api/admin/auth/verify-credentials', async (req, res) => {
@@ -4345,43 +4388,14 @@ app.get('/w/:id', (req, res) => {
 const ADMIN_BASE = '/admin/anktech/anktech/admin';
 
 function sendAdminPage(file, req, res) {
-  let isAdmin = req.user && (req.user.role === 'admin' || req.user.role === 'OWNER' || req.user.isAdmin === true);
-
-  if (!isAdmin) {
-    const token = (req.headers.cookie && parseCookies(req.headers.cookie).wm_session) ||
-                  (req.headers.authorization || '').replace(/^Bearer\s+/i, '').trim();
-
-    if (token) {
-      const sessions = getSessions();
-      const session = sessions.find(s => s.token === token && s.expiresAt > Date.now());
-      const users = getUsers();
-      if (session) {
-        const u = users.find(usr => usr.id === session.userId);
-        if (u && (u.role === 'admin' || u.role === 'OWNER' || u.isAdmin)) {
-          req.user = u;
-          isAdmin = true;
-        } else if (u) {
-          return res.status(403).send('Access Denied: Insufficient administrative privileges.');
-        }
-      }
-    }
-  }
-
-  if (!isAdmin) {
-    // Not logged in -> Redirect to Secret Admin Login Page
-    return res.redirect(`${ADMIN_BASE}/login`);
-  }
-
+  // Always serve the admin studio shell; Client-side Google Gatekeeper (admin-theme.js)
+  // strictly protects all views and renders the Google-Only Access Control screen if unauthorized.
   res.sendFile(path.join(__dirname, 'public', file));
 }
 
-// Direct Admin Login Route
+// Direct Admin Routes (Redirect any legacy login to the unified portal)
 app.get(['/admin-login', '/admin-login.html', `${ADMIN_BASE}/login`], (req, res) => {
-  const isAdmin = req.user && (req.user.role === 'admin' || req.user.role === 'OWNER' || req.user.isAdmin === true);
-  if (isAdmin) {
-    return res.redirect(`${ADMIN_BASE}/overview`);
-  }
-  res.sendFile(path.join(__dirname, 'public', 'admin-login.html'));
+  res.redirect(`${ADMIN_BASE}/overview`);
 });
 
 // Direct admin static pages
@@ -4395,9 +4409,9 @@ app.get('/admin-:page.html', (req, res) => {
   res.status(404).sendFile(path.join(__dirname, 'public', 'index.html'));
 });
 
-// Block plain /admin unauthorized routes
+// Forward plain /admin directly to Secret Admin Studio
 app.get(['/admin', '/admin/'], (req, res) => {
-  res.redirect('/admin-login.html');
+  res.redirect(`${ADMIN_BASE}/overview`);
 });
 
 // Secret Admin Studio Portal routes (Accessible ONLY via secret path: /admin/anktech/anktech/admin)

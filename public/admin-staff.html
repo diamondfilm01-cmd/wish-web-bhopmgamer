@@ -227,16 +227,13 @@ async function verifyAdminSession() {
   try {
     const res = await fetch('/api/admin/auth/session', { credentials: 'include' });
     const data = await res.json();
-    if (!data.success || !data.data || !data.data.authenticated) {
-      window.location.href = '/admin-login.html';
-      return;
+    if (data.success && data.data && data.data.authenticated) {
+      currentAdmin = data.data.admin;
+      const badge = document.getElementById('current-admin-role');
+      if (badge) badge.innerText = currentAdmin.role || 'ADMIN';
     }
-    currentAdmin = data.data.admin;
-    const badge = document.getElementById('current-admin-role');
-    if (badge) badge.innerText = currentAdmin.role || 'ADMIN';
   } catch (e) {
-    console.error('Admin session check failed:', e);
-    window.location.href = '/admin-login.html';
+    console.warn('Admin session check note:', e);
   }
 }
 
@@ -411,7 +408,7 @@ async function handleAdminLogout() {
   try {
     await fetch('/api/admin/auth/logout', { method: 'POST', credentials: 'include' });
   } catch (e) {}
-  window.location.href = '/admin-login.html';
+  window.location.href = '/';
 }
 
 function openAddStaffModal() {

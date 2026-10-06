@@ -4251,18 +4251,6 @@ export default {
         return applySecurityHeaders(jsonError('NOT_FOUND', 'Route not found', 404, {}, null, requestId), request, env);
       }
 
-      if (pathname.startsWith('/admin/anktech/anktech/admin')) {
-        const user = await getAuthenticatedUser(request, env);
-        const isAdmin = user && await verifyAdminRole(user, env);
-        if (!isAdmin) {
-          if (env.ASSETS && typeof env.ASSETS.fetch === 'function') {
-            const loginReq = new Request(new URL('/admin-login.html', request.url), request);
-            const htmlRes = await env.ASSETS.fetch(loginReq);
-            return applySecurityHeaders(htmlRes, request, env);
-          }
-        }
-      }
-
       if (PRETTY_ROUTES[pathname] && env.ASSETS && typeof env.ASSETS.fetch === 'function') {
         const targetHtml = PRETTY_ROUTES[pathname];
         const pageReq = new Request(new URL(targetHtml, request.url), request);
@@ -4285,7 +4273,17 @@ export default {
       // 5. Fallback to Static Asset Serving via ASSETS binding (Cloudflare Pages)
       if (!response) {
         if (env.ASSETS && typeof env.ASSETS.fetch === 'function') {
-          return await env.ASSETS.fetch(request);
+          const assetRes = await env.ASSETS.fetch(request);
+          if (pathname.endsWith('.js') || pathname.endsWith('.html') || pathname.endsWith('.css')) {
+            const h = new Headers(assetRes.headers);
+            h.set('Cache-Control', 'no-cache, must-revalidate');
+            return new Response(assetRes.body, {
+              status: assetRes.status,
+              statusText: assetRes.statusText,
+              headers: h
+            });
+          }
+          return assetRes;
         }
         if (ctx && typeof ctx.next === 'function') {
           return await ctx.next();

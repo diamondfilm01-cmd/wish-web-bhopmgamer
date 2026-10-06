@@ -88,9 +88,10 @@ export function runBuild() {
       const content = fs.readFileSync(path.join(publicDir, hf), 'utf8');
 
       // Check local script src references (e.g. src="js/auth-service.js")
-      const scriptMatches = content.matchAll(/src=["'](js\/[^"']+)["']/g);
+      const scriptMatches = content.matchAll(/src=["']\/?(js\/[^"']+)["']/g);
       for (const m of scriptMatches) {
-        const scriptPath = path.join(publicDir, m[1]);
+        const cleanRelPath = m[1].split('?')[0];
+        const scriptPath = path.join(publicDir, cleanRelPath);
         if (!fs.existsSync(scriptPath)) {
           brokenRefs++;
           errors.push(`Broken script ref in ${hf}: ${m[1]}`);
@@ -98,9 +99,10 @@ export function runBuild() {
       }
 
       // Check local css link references (e.g. href="css/theme.css")
-      const cssMatches = content.matchAll(/href=["'](css\/[^"']+)["']/g);
+      const cssMatches = content.matchAll(/href=["']\/?(css\/[^"']+)["']/g);
       for (const m of cssMatches) {
-        const cssPath = path.join(publicDir, m[1]);
+        const cleanCssPath = m[1].split('?')[0];
+        const cssPath = path.join(publicDir, cleanCssPath);
         if (!fs.existsSync(cssPath)) {
           brokenRefs++;
           errors.push(`Broken CSS ref in ${hf}: ${m[1]}`);

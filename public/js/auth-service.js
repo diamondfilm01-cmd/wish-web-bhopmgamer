@@ -10,17 +10,42 @@
   let isCheckingSession = false;
   const authListeners = new Set();
 
+  // 0. IMMEDIATE SYNCHRONOUS CACHE HYDRATION (0ms Delay - Eliminates Sign-In button flash)
+  try {
+    const cachedUserStr = localStorage.getItem(STORAGE_KEY_USER) || localStorage.getItem('wishmagic_user');
+    if (cachedUserStr) {
+      currentUser = JSON.parse(cachedUserStr);
+    }
+  } catch (e) {}
+
+  // If container is already in DOM at script execution time, render instantly
+  if (typeof document !== 'undefined') {
+    if (document.readyState === 'interactive' || document.readyState === 'complete') {
+      renderNavbarAuthState();
+    } else {
+      document.addEventListener('readystatechange', () => {
+        if (document.readyState === 'interactive' || document.readyState === 'complete') {
+          renderNavbarAuthState();
+        }
+      });
+    }
+  }
+
   // Initialize Auth State directly with Firebase SDK and fallback cache
   async function initAuth() {
     isCheckingSession = true;
     try {
-      // 1. Check cached local user state for instant initial UI render
-      const storedUser = localStorage.getItem(STORAGE_KEY_USER);
-      if (storedUser) {
-        try {
-          currentUser = JSON.parse(storedUser);
-          notifyAuthChange();
-        } catch (e) {}
+      // 1. Instant re-render of cached state
+      if (!currentUser) {
+        const storedUser = localStorage.getItem(STORAGE_KEY_USER) || localStorage.getItem('wishmagic_user');
+        if (storedUser) {
+          try {
+            currentUser = JSON.parse(storedUser);
+            notifyAuthChange();
+          } catch (e) {}
+        }
+      } else {
+        renderNavbarAuthState();
       }
 
       // 2. Connect Firebase Auth State Observer for real-time auth
@@ -48,6 +73,7 @@
 
             try {
               localStorage.setItem(STORAGE_KEY_USER, JSON.stringify(currentUser));
+              localStorage.setItem('wishmagic_user', JSON.stringify(currentUser));
               if (isAdmin) {
                 const adminToken = 'adm_token_' + fbUser.uid;
                 localStorage.setItem('wishmagic_admin_token', adminToken);
@@ -57,7 +83,7 @@
             } catch (e) {}
 
             notifyAuthChange();
-            // Background sync with server if available
+            // Background sync with server
             syncSessionWithServer(fbUser, displayName).catch(() => {});
           } else {
             // User signed out in Firebase
@@ -65,6 +91,7 @@
             currentUser = null;
             try {
               localStorage.removeItem(STORAGE_KEY_USER);
+              localStorage.removeItem('wishmagic_user');
             } catch (e) {}
             if (hadUser) notifyAuthChange();
           }
@@ -573,6 +600,7 @@
   function renderNavbarAuthState() {
     const user = WishAuth.getCurrentUser();
     const navContainers = document.querySelectorAll('.navbar-auth-container, .nav-auth-container, [data-purpose="navbar-auth"], [data-auth-container]');
+    const isDark = typeof document !== 'undefined' && (document.documentElement.classList.contains('dark') || document.documentElement.getAttribute('data-theme') === 'dark');
 
     navContainers.forEach(container => {
       if (!user) {
@@ -590,6 +618,8 @@
           ? `<img src="${user.avatarUrl}" alt="${user.displayName}" class="w-7 h-7 rounded-full object-cover border border-pink-400 shadow-sm"/>`
           : `<div class="w-7 h-7 rounded-full bg-gradient-to-tr from-pink-500 to-purple-600 text-white flex items-center justify-center font-bold text-[11px]">${initials}</div>`;
 
+        const isUserMaster = user.role === 'admin' || user.isAdmin === true || (window.WishFirebaseAuth?.isAdminEmail && window.WishFirebaseAuth.isAdminEmail(user.email)) || (user.email && (user.email.toLowerCase() === 'ankit.babusaini@gmail.com' || user.email.toLowerCase() === 'ankitsaini941413@gmail.com' || user.email.toLowerCase() === 'bhoomgamer@gmail.com'));
+
         container.innerHTML = `
           <div class="relative inline-block" id="account-dropdown-wrapper">
             <button onclick="window.toggleAccountMenu(event)" class="flex items-center gap-1.5 sm:gap-2 px-2 sm:px-2.5 py-1 rounded-full bg-surface-container-high/70 hover:bg-surface-container-highest border border-purple-200/50 dark:border-purple-800/60 transition cursor-pointer active:scale-95">
@@ -598,34 +628,37 @@
               <span class="material-symbols-outlined text-[14px] text-outline">expand_more</span>
             </button>
 
-            <!-- Dropdown Menu -->
-            <div id="account-dropdown-menu" class="hidden absolute right-0 top-full mt-2 w-64 max-w-[calc(100vw-24px)] !bg-white dark:!bg-[#150927] rounded-2xl shadow-2xl shadow-purple-950/25 dark:shadow-black/70 border-2 border-purple-200/90 dark:border-purple-800 p-2.5 z-[100] animate-scaleUp text-left" style="background-color: #ffffff; opacity: 1 !important;">
-              <div class="px-3 py-2.5 border-b border-purple-100 dark:border-purple-800/80 !bg-purple-50 dark:!bg-purple-900/30 rounded-xl mb-1.5" style="background-color: #f5f3ff;">
-                <div class="font-extrabold text-xs !text-purple-950 dark:!text-white truncate" style="color: #1e1b4b;">${user.displayName}</div>
-                <div class="text-[11px] font-medium !text-purple-700 dark:!text-purple-300 truncate mt-0.5" style="color: #6d28d9;">${user.email}</div>
+            <!-- 100% Solid Non-Transparent Dropdown Menu -->
+            <div id="account-dropdown-menu" class="hidden absolute right-0 top-full mt-2 w-64 max-w-[calc(100vw-24px)] rounded-2xl shadow-2xl p-2.5 z-[999999] text-left border-2" style="background-color: ${isDark ? '#150927' : '#ffffff'}; border-color: ${isDark ? '#7e22ce' : '#ddd6fe'}; color: ${isDark ? '#f3e8ff' : '#0f172a'}; opacity: 1;">
+              
+              <!-- User Profile Header Card -->
+              <div class="px-3 py-2.5 rounded-xl mb-1.5 border" style="background-color: ${isDark ? '#231042' : '#f5f3ff'}; border-color: ${isDark ? '#6b21a8' : '#e9d5ff'};">
+                <div class="font-extrabold text-xs truncate" style="color: ${isDark ? '#ffffff' : '#1e1b4b'};">${user.displayName}</div>
+                <div class="text-[11px] font-medium truncate mt-0.5" style="color: ${isDark ? '#d8b4fe' : '#6d28d9'};">${user.email}</div>
                 <div class="flex items-center gap-1.5 mt-2">
-                  <span class="px-2 py-0.5 rounded-full text-[9px] font-black uppercase tracking-wider ${user.isPremium || user.plan === 'VIP' ? 'bg-amber-400/20 text-amber-700 dark:text-amber-400 border border-amber-400/50' : 'bg-purple-500/20 text-purple-700 dark:text-purple-300 border border-purple-300/60'}">
+                  <span class="px-2 py-0.5 rounded-full text-[9px] font-black uppercase tracking-wider" style="background-color: ${user.isPremium || user.plan === 'VIP' ? 'rgba(245, 158, 11, 0.2)' : 'rgba(168, 85, 247, 0.2)'}; color: ${user.isPremium || user.plan === 'VIP' ? '#f59e0b' : '#c084fc'}; border: 1px solid ${user.isPremium || user.plan === 'VIP' ? 'rgba(245, 158, 11, 0.5)' : 'rgba(168, 85, 247, 0.4)'};">
                     ${user.plan || 'Free'} Plan
                   </span>
-                  ${user.role === 'admin' ? '<span class="px-2 py-0.5 rounded-full text-[9px] font-black uppercase bg-gradient-to-r from-pink-500 to-purple-600 text-white shadow-xs">ADMIN</span>' : ''}
+                  ${user.role === 'admin' || user.isAdmin ? '<span class="px-2 py-0.5 rounded-full text-[9px] font-black uppercase bg-gradient-to-r from-pink-500 to-purple-600 text-white shadow-xs">ADMIN</span>' : ''}
                 </div>
               </div>
 
+              <!-- Menu Items -->
               <div class="py-1 space-y-1">
-                <a href="/my-wishes" class="px-3 py-2.5 rounded-xl text-xs font-bold !text-gray-900 dark:!text-purple-100 hover:!bg-purple-100/80 dark:hover:!bg-purple-900/50 flex items-center gap-2.5 transition" style="color: #111827;">
+                <a href="/my-wishes" class="px-3 py-2.5 rounded-xl text-xs font-bold flex items-center gap-2.5 transition" style="color: ${isDark ? '#f3e8ff' : '#1e293b'};">
                   <span class="material-symbols-outlined text-[18px] text-pink-500">card_giftcard</span>
                   <span>My Celebration Wishes</span>
                 </a>
-                <a href="/favorites" class="px-3 py-2.5 rounded-xl text-xs font-bold !text-gray-900 dark:!text-purple-100 hover:!bg-purple-100/80 dark:hover:!bg-purple-900/50 flex items-center gap-2.5 transition" style="color: #111827;">
+                <a href="/favorites" class="px-3 py-2.5 rounded-xl text-xs font-bold flex items-center gap-2.5 transition" style="color: ${isDark ? '#f3e8ff' : '#1e293b'};">
                   <span class="material-symbols-outlined text-[18px] text-purple-500">favorite</span>
                   <span>Favorites</span>
                 </a>
-                <a href="/account" class="px-3 py-2.5 rounded-xl text-xs font-bold !text-gray-900 dark:!text-purple-100 hover:!bg-purple-100/80 dark:hover:!bg-purple-900/50 flex items-center gap-2.5 transition" style="color: #111827;">
+                <a href="/account" class="px-3 py-2.5 rounded-xl text-xs font-bold flex items-center gap-2.5 transition" style="color: ${isDark ? '#f3e8ff' : '#1e293b'};">
                   <span class="material-symbols-outlined text-[18px] text-purple-500">settings</span>
                   <span>Account Settings</span>
                 </a>
-                ${(user.role === 'admin' || user.isAdmin === true || (window.WishFirebaseAuth?.isAdminEmail && window.WishFirebaseAuth.isAdminEmail(user.email)) || (user.email && (user.email.toLowerCase() === 'ankit.babusaini@gmail.com' || user.email.toLowerCase() === 'ankitsaini941413@gmail.com'))) ? `
-                  <a href="/admin/anktech/anktech/admin/overview" onclick="window.handleAdminPortalClick(event)" class="px-3 py-2.5 rounded-xl text-xs font-bold !text-pink-600 dark:!text-pink-400 !bg-pink-50/80 dark:!bg-pink-950/40 hover:!bg-pink-100 dark:hover:!bg-pink-900/50 flex items-center justify-between transition group border border-pink-500/20 cursor-pointer" style="color: #db2777;">
+                ${isUserMaster ? `
+                  <a href="/admin/anktech/anktech/admin/overview" onclick="window.handleAdminPortalClick(event)" class="px-3 py-2.5 rounded-xl text-xs font-bold flex items-center justify-between transition border cursor-pointer" style="background-color: ${isDark ? 'rgba(80, 7, 36, 0.5)' : '#fdf2f8'}; border-color: ${isDark ? '#db2777' : '#f472b6'}; color: ${isDark ? '#f472b6' : '#db2777'};">
                     <div class="flex items-center gap-2.5">
                       <span class="material-symbols-outlined text-[18px] text-pink-500">admin_panel_settings</span>
                       <span>Admin Panel</span>
@@ -635,8 +668,9 @@
                 ` : ''}
               </div>
 
-              <div class="pt-1.5 mt-1 border-t border-purple-100 dark:border-purple-800/80">
-                <button onclick="WishAuth.signOut()" class="w-full text-left px-3 py-2.5 rounded-xl text-xs font-bold !text-rose-600 dark:!text-rose-400 hover:!bg-rose-50 dark:hover:!bg-rose-950/40 flex items-center gap-2.5 transition cursor-pointer" style="color: #e11d48;">
+              <!-- Sign Out -->
+              <div class="pt-1.5 mt-1 border-t" style="border-color: ${isDark ? '#4c1d95' : '#e9d5ff'};">
+                <button onclick="WishAuth.signOut()" class="w-full text-left px-3 py-2.5 rounded-xl text-xs font-bold flex items-center gap-2.5 transition cursor-pointer" style="color: #f43f5e;">
                   <span class="material-symbols-outlined text-[18px]">logout</span>
                   <span>Sign Out</span>
                 </button>
@@ -654,16 +688,22 @@
     styleEl.id = 'account-dropdown-solid-fix';
     styleEl.textContent = `
       #account-dropdown-menu {
-        background: #ffffff !important;
         background-color: #ffffff !important;
+        background: #ffffff !important;
         opacity: 1 !important;
         backdrop-filter: none !important;
         -webkit-backdrop-filter: none !important;
+        border: 2px solid #ddd6fe !important;
+        box-shadow: 0 25px 60px rgba(0, 0, 0, 0.35), 0 0 30px rgba(124, 58, 237, 0.2) !important;
+        z-index: 999999 !important;
       }
       html.dark #account-dropdown-menu,
-      body.dark #account-dropdown-menu {
-        background: #150927 !important;
+      body.dark #account-dropdown-menu,
+      [data-theme="dark"] #account-dropdown-menu {
         background-color: #150927 !important;
+        background: #150927 !important;
+        border-color: #7e22ce !important;
+        box-shadow: 0 25px 60px rgba(0, 0, 0, 0.85), 0 0 35px rgba(124, 58, 237, 0.4) !important;
       }
     `;
     if (!document.getElementById('account-dropdown-solid-fix')) {
@@ -678,7 +718,7 @@
       e.stopPropagation();
     }
     const user = WishAuth.getCurrentUser();
-    const isMaster = user && (user.role === 'admin' || user.isAdmin || (user.email && (user.email.toLowerCase() === 'ankit.babusaini@gmail.com' || user.email.toLowerCase() === 'ankitsaini941413@gmail.com')));
+    const isMaster = user && (user.role === 'admin' || user.isAdmin || (user.email && (user.email.toLowerCase() === 'ankit.babusaini@gmail.com' || user.email.toLowerCase() === 'ankitsaini941413@gmail.com' || user.email.toLowerCase() === 'bhoomgamer@gmail.com')));
 
     if (isMaster) {
       try {
@@ -701,12 +741,29 @@
     }
   };
 
-  // Toggle account menu open/closed
+  // Toggle account menu open/closed with guaranteed solid non-transparent background
   window.toggleAccountMenu = function(e) {
-    if (e) e.stopPropagation();
+    if (e) {
+      e.preventDefault();
+      e.stopPropagation();
+    }
     const menu = document.getElementById('account-dropdown-menu');
-    if (menu) {
-      menu.classList.toggle('hidden');
+    if (!menu) return;
+
+    const isHidden = menu.classList.contains('hidden');
+    if (isHidden) {
+      const isDark = document.documentElement.classList.contains('dark') || document.documentElement.getAttribute('data-theme') === 'dark';
+      menu.style.backgroundColor = isDark ? '#150927' : '#ffffff';
+      menu.style.background = isDark ? '#150927' : '#ffffff';
+      menu.style.borderColor = isDark ? '#7e22ce' : '#ddd6fe';
+      menu.style.color = isDark ? '#f3e8ff' : '#0f172a';
+      menu.style.opacity = '1';
+      menu.style.backdropFilter = 'none';
+      menu.style.webkitBackdropFilter = 'none';
+      menu.style.zIndex = '999999';
+      menu.classList.remove('hidden');
+    } else {
+      menu.classList.add('hidden');
     }
   };
 
