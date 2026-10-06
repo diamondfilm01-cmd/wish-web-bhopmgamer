@@ -5,10 +5,10 @@
   <base href="/"/>
   <meta content="width=device-width, initial-scale=1.0" name="viewport"/>
   <meta content="web_dashboard" name="shell-type"/>
-  <title>WishMagic | Media & Audio Library</title>
+  <title>WishMagic | Master Media Library & Hero Studio</title>
   <link rel="preconnect" href="https://fonts.googleapis.com"/>
   <link crossorigin="" href="https://fonts.gstatic.com" rel="preconnect"/>
-  <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;600;700&family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet"/>
+  <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;600;700&family=Plus+Jakarta+Sans:wght@400;500;600;700;800&family=Outfit:wght@500;600;700;800&display=swap" rel="stylesheet"/>
   <link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:opsz,wght,FILL,GRAD@20..48,100..700,0..1,-50..200&display=swap" rel="stylesheet"/>
   <script src="js/tailwind-config.js"></script>
   <script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
@@ -20,12 +20,23 @@
   <link rel="stylesheet" href="css/admin-theme.css"/>
   <script src="js/WishMagicCore.js"></script>
   <script src="js/admin-theme.js"></script>
-  <!-- Part 10 Auth & Repositories Layer -->
   <script src="js/api-client.js"></script>
   <script src="js/auth-service.js"></script>
   <script src="js/repositories.js"></script>
+  <style>
+    .audio-player-custom::-webkit-media-controls-panel {
+      background-color: #1e1338;
+    }
+    .media-card-hover {
+      transition: all 0.25s cubic-bezier(0.16, 1, 0.3, 1);
+    }
+    .media-card-hover:hover {
+      transform: translateY(-2px);
+      box-shadow: 0 12px 30px rgba(124, 58, 237, 0.15);
+    }
+  </style>
 </head>
-<body class="bg-background text-on-surface font-body-md min-h-screen antialiased">
+<body class="bg-background text-on-surface font-body-md min-h-screen antialiased selection:bg-primary selection:text-white">
 
 <!-- Mobile Sidebar Backdrop Overlay -->
 <div id="sidebar-backdrop" class="fixed inset-0 bg-black/75 backdrop-blur-sm z-40 hidden md:hidden" onclick="toggleSidebar()"></div>
@@ -52,34 +63,38 @@
     <div class="px-space-md mt-space-sm">
       <div class="px-space-sm pb-space-xs font-label-sm text-label-sm uppercase tracking-wider text-outline">Core Navigation</div>
       <nav class="flex flex-col gap-1 px-space-xs mt-space-xs">
-        <a class="group flex items-center gap-space-sm px-space-md py-2.5 rounded-lg text-on-surface-variant hover:bg-surface-container-high hover:text-on-surface transition-all duration-200" href="admin-overview.html">
+        <a class="group flex items-center gap-space-sm px-space-md py-2.5 rounded-lg text-on-surface-variant hover:bg-surface-container-high hover:text-on-surface transition-all duration-200" href="/admin/anktech/anktech/admin/overview">
           <span class="material-symbols-outlined text-[20px] transition-transform group-hover:scale-110">dashboard</span>
           <span class="font-body-md text-body-md">Overview</span>
         </a>
-        <a class="group flex items-center gap-space-sm px-space-md py-2.5 rounded-lg text-on-surface-variant hover:bg-surface-container-high hover:text-on-surface transition-all duration-200" href="admin-templates.html">
+        <a class="group flex items-center gap-space-sm px-space-md py-2.5 rounded-lg text-on-surface-variant hover:bg-surface-container-high hover:text-on-surface transition-all duration-200" href="/admin/anktech/anktech/admin/templates">
           <span class="material-symbols-outlined text-[20px] transition-transform group-hover:scale-110">style</span>
           <span class="font-body-md text-body-md">Templates Manager</span>
         </a>
-        <a class="group flex items-center gap-space-sm px-space-md py-2.5 rounded-lg text-on-surface-variant hover:bg-surface-container-high hover:text-on-surface transition-all duration-200" href="admin-occasions.html">
+        <a class="group flex items-center gap-space-sm px-space-md py-2.5 rounded-lg text-on-surface-variant hover:bg-surface-container-high hover:text-on-surface transition-all duration-200" href="/admin/anktech/anktech/admin/occasions">
           <span class="material-symbols-outlined text-[20px] transition-transform group-hover:scale-110">loyalty</span>
           <span class="font-body-md text-body-md">Occasions &amp; Tags</span>
         </a>
-        <a class="group flex items-center gap-space-sm px-space-md py-2.5 rounded-lg text-on-surface-variant hover:bg-surface-container-high hover:text-on-surface transition-all duration-200" href="admin-orders.html">
+        <a class="group flex items-center gap-space-sm px-space-md py-2.5 rounded-lg text-on-surface-variant hover:bg-surface-container-high hover:text-on-surface transition-all duration-200" href="/admin/anktech/anktech/admin/orders">
           <span class="material-symbols-outlined text-[20px] transition-transform group-hover:scale-110">card_giftcard</span>
           <span class="font-body-md text-body-md flex-1">Wishes &amp; Orders</span>
-          <span class="px-2 py-0.5 rounded-full bg-secondary-container text-white font-label-sm text-label-sm">Live</span>
         </a>
-        <a class="group flex items-center gap-space-sm px-space-md py-2.5 rounded-lg bg-primary-container text-white font-semibold shadow-[0_0_24px_rgba(124,58,237,0.35)] transition-all duration-200" href="admin-media.html">
+        <a class="group flex items-center gap-space-sm px-space-md py-2.5 rounded-lg text-on-surface-variant hover:bg-surface-container-high hover:text-on-surface transition-all duration-200" href="/admin/anktech/anktech/admin/user-creations">
+          <span class="material-symbols-outlined text-[20px] transition-transform group-hover:scale-110">folder_shared</span>
+          <span class="font-body-md text-body-md flex-1">User Creations &amp; Files</span>
+          <span class="px-2 py-0.5 rounded-full bg-pink-500 text-white font-bold text-[10px]">NEW</span>
+        </a>
+        <a class="group flex items-center gap-space-sm px-space-md py-2.5 rounded-lg bg-primary-container text-white font-semibold shadow-[0_0_24px_rgba(124,58,237,0.35)] transition-all duration-200" href="/admin/anktech/anktech/admin/media">
           <span class="material-symbols-outlined text-[20px] transition-transform group-hover:scale-110">perm_media</span>
-          <span class="font-body-md text-body-md">Media &amp; Audio Library</span>
+          <span class="font-body-md text-body-md">Media &amp; Hero Photo</span>
         </a>
-        <a class="group flex items-center gap-space-sm px-space-md py-2.5 rounded-lg text-on-surface-variant hover:bg-surface-container-high hover:text-on-surface transition-all duration-200" href="admin-pricing.html">
+        <a class="group flex items-center gap-space-sm px-space-md py-2.5 rounded-lg text-on-surface-variant hover:bg-surface-container-high hover:text-on-surface transition-all duration-200" href="/admin/anktech/anktech/admin/pricing">
           <span class="material-symbols-outlined text-[20px] transition-transform group-hover:scale-110">payments</span>
           <span class="font-body-md text-body-md">Pricing &amp; Plans</span>
         </a>
-        <a class="group flex items-center gap-space-sm px-space-md py-2.5 rounded-lg text-on-surface-variant hover:bg-surface-container-high hover:text-on-surface transition-all duration-200" href="admin-settings.html">
+        <a class="group flex items-center gap-space-sm px-space-md py-2.5 rounded-lg text-on-surface-variant hover:bg-surface-container-high hover:text-on-surface transition-all duration-200" href="/admin/anktech/anktech/admin/settings">
           <span class="material-symbols-outlined text-[20px] transition-transform group-hover:scale-110">admin_panel_settings</span>
-          <span class="font-body-md text-body-md">Settings &amp; Team</span>
+          <span class="font-body-md text-body-md">Settings &amp; Storefront</span>
         </a>
       </nav>
     </div>
@@ -87,7 +102,7 @@
   <div class="p-space-md flex flex-col gap-space-xs bg-surface-container-lowest border-t border-purple-900/30">
     <div class="flex items-center justify-between text-on-surface-variant text-xs">
       <span>WishMagic Engine</span>
-      <span class="px-2 py-0.5 rounded-full bg-surface-container-high text-primary font-mono font-bold">v4.12</span>
+      <span class="px-2 py-0.5 rounded-full bg-surface-container-high text-primary font-mono font-bold">v4.18</span>
     </div>
   </div>
 </aside>
@@ -103,7 +118,7 @@
         </button>
         <div class="relative flex items-center w-full">
           <span class="material-symbols-outlined absolute left-3 text-outline text-[18px]">search</span>
-          <input class="w-full bg-surface-container-low pl-9 pr-space-md py-space-xs rounded-lg font-body-sm text-body-sm text-on-surface placeholder:text-outline focus:outline-none focus:ring-1 focus:ring-secondary" id="search-tracks" placeholder="Search soundtracks, sound effects, artists..." type="text" onkeyup="filterAudioTracks()"/>
+          <input class="w-full bg-surface-container-low pl-9 pr-space-md py-space-xs rounded-lg font-body-sm text-body-sm text-on-surface placeholder:text-outline focus:outline-none focus:ring-1 focus:ring-secondary" id="search-media" placeholder="Search photos, videos, soundtracks, usage tags..." type="text" onkeyup="filterMediaCatalog()"/>
         </div>
       </div>
       <div class="flex items-center gap-2 md:gap-space-md flex-shrink-0">
@@ -111,7 +126,7 @@
         <button class="p-2 rounded-lg bg-surface-container hover:bg-surface-container-high text-on-surface transition-all flex items-center justify-center cursor-pointer" onclick="toggleAdminTheme()" title="Toggle Dark / Light Theme" aria-label="Toggle Theme">
           <span class="material-symbols-outlined text-[20px] theme-toggle-icon" id="theme-toggle-icon">light_mode</span>
         </button>
-        <a class="flex items-center gap-1.5 px-2.5 md:px-space-sm py-1.5 md:py-space-xs rounded-lg bg-surface-container-high hover:bg-surface-container-highest text-on-surface-variant hover:text-on-surface transition-all text-xs md:font-label-md md:text-label-md" href="index.html" target="_blank">
+        <a class="flex items-center gap-1.5 px-2.5 md:px-space-sm py-1.5 md:py-space-xs rounded-lg bg-surface-container-high hover:bg-surface-container-highest text-on-surface-variant hover:text-on-surface transition-all text-xs md:font-label-md md:text-label-md" href="/" target="_blank">
           <span class="hidden sm:inline">Live Store</span>
           <span class="material-symbols-outlined text-[16px]">open_in_new</span>
         </a>
@@ -120,8 +135,8 @@
             A
           </div>
           <div class="hidden sm:flex flex-col text-left">
-            <span class="font-label-lg text-label-lg font-semibold text-on-surface leading-tight">Aman</span>
-            <span class="font-label-sm text-label-sm text-primary font-medium leading-none">Chief Magician</span>
+            <span class="font-label-lg text-label-lg font-semibold text-on-surface leading-tight">Admin Studio</span>
+            <span class="font-label-sm text-label-sm text-primary font-medium leading-none">Media Controller</span>
           </div>
         </div>
       </div>
@@ -130,101 +145,220 @@
 
   <!-- Main Content Area -->
   <main id="admin-main-content" class="w-full pt-20 px-4 sm:px-6 lg:px-8 pb-16 max-w-7xl mx-auto flex flex-col gap-8">
+    
     <!-- Page Header & Action Bar -->
     <div class="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
       <div>
         <div class="flex items-center gap-2 mb-1">
-          <span class="px-2 py-0.5 rounded bg-primary-container/20 text-primary font-label-sm text-label-sm font-bold uppercase tracking-wider">Acoustic Audio Assets</span>
+          <span class="px-2 py-0.5 rounded bg-primary-container/20 text-primary font-label-sm text-label-sm font-bold uppercase tracking-wider">Multi-Asset Media Studio</span>
           <span class="text-outline">•</span>
-          <span class="text-on-surface-variant text-xs font-mono">WEB AUDIO SYNTHESIS</span>
+          <span class="text-on-surface-variant text-xs font-mono">PHOTOS · VIDEOS · AUDIOS · LIVE USAGE</span>
         </div>
-        <h1 class="font-display-lg text-2xl sm:text-3xl font-extrabold text-on-surface">Media &amp; Audio Soundscapes</h1>
-        <p class="text-sm text-on-surface-variant mt-1">Manage background celebration soundtracks, synthesized SFX triggers, and audio licensing.</p>
+        <h1 class="font-display-lg text-2xl sm:text-3xl font-extrabold text-on-surface">Media Assets, Hero Photo &amp; Soundscapes</h1>
+        <p class="text-sm text-on-surface-variant mt-1">Manage all photos, videos, and music tracks across the site. See exactly where every file is being used in templates, hero section, or user creations.</p>
       </div>
-      <button class="px-5 py-2.5 rounded-xl bg-gradient-to-r from-primary to-secondary text-white text-xs sm:text-sm font-bold flex items-center gap-2 shadow-lg shadow-purple-600/30 hover:brightness-110 active:scale-95 transition" onclick="toggleModal('upload-audio-modal')">
-        <span class="material-symbols-outlined text-sm">cloud_upload</span>
-        <span>Upload Audio Track</span>
-      </button>
+      <div class="flex items-center gap-3">
+        <button class="px-4 py-2.5 rounded-xl bg-surface-container hover:bg-surface-container-high text-on-surface text-xs sm:text-sm font-bold flex items-center gap-2 border border-purple-900/30 transition cursor-pointer" onclick="loadAllMedia()">
+          <span class="material-symbols-outlined text-sm">refresh</span>
+          <span>Refresh</span>
+        </button>
+        <button class="px-5 py-2.5 rounded-xl bg-gradient-to-r from-primary to-secondary text-white text-xs sm:text-sm font-bold flex items-center gap-2 shadow-lg shadow-purple-600/30 hover:brightness-110 active:scale-95 transition cursor-pointer" onclick="toggleModal('upload-media-modal')">
+          <span class="material-symbols-outlined text-sm">cloud_upload</span>
+          <span>Upload New Asset</span>
+        </button>
+      </div>
     </div>
 
-    <!-- 4 Bento Cards -->
+    <!-- HERO SECTION PHOTO LIVE CONTROLLER CARD (Requested Feature) -->
+    <div class="bg-gradient-to-br from-purple-950/40 via-surface-container to-pink-950/20 rounded-3xl p-5 sm:p-7 border border-pink-500/30 shadow-2xl relative overflow-hidden">
+      <!-- Glow ambient backdrop -->
+      <div class="absolute -top-24 -right-24 w-80 h-80 bg-pink-500/10 rounded-full blur-3xl pointer-events-none"></div>
+
+      <div class="flex flex-col lg:flex-row items-center justify-between gap-6 relative z-10">
+        <!-- Left: Image Preview & Live Status -->
+        <div class="flex flex-col sm:flex-row items-center gap-5 w-full lg:w-auto">
+          <div class="relative group w-36 h-36 sm:w-44 sm:h-44 rounded-2xl overflow-hidden p-1 bg-gradient-to-tr from-pink-500 via-purple-600 to-amber-400 shadow-xl flex-shrink-0">
+            <img id="hero-live-preview-img" src="/assets/file_ab2082.png" alt="Current Hero Banner Photo" class="w-full h-full object-cover rounded-xl" onerror="this.onerror=null;this.src='/assets/file_ab2082.png';"/>
+            <div class="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 flex items-center justify-center transition rounded-xl text-white cursor-pointer" onclick="openLightboxImage(document.getElementById('hero-live-preview-img').src, 'Storefront Hero Showcase Photo')">
+              <span class="material-symbols-outlined text-2xl">zoom_in</span>
+            </div>
+            <div class="absolute bottom-2 left-2 right-2 py-0.5 px-1.5 rounded-md bg-black/75 backdrop-blur-sm text-center text-[10px] font-bold text-pink-200 border border-white/20">
+              🌟 Active Hero Photo
+            </div>
+          </div>
+
+          <div class="flex flex-col gap-2 text-center sm:text-left max-w-md">
+            <div class="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-pink-500/20 border border-pink-500/40 text-pink-300 text-xs font-bold w-fit mx-auto sm:mx-0">
+              <span class="w-2 h-2 rounded-full bg-pink-400 animate-ping"></span>
+              <span>Homepage Hero Showcase Image</span>
+            </div>
+            <h2 class="text-xl sm:text-2xl font-black text-white font-['Outfit',sans-serif]">Storefront Hero Section Photo</h2>
+            <p class="text-xs text-purple-200/80 leading-relaxed">
+              Ye photo WishMagic ke main homepage ke Hero Showcase section me live display hoti hai. Aap niche se direct URL daal kar ya file upload karke isse change kar sakte hain.
+            </p>
+            <div class="text-[11px] font-mono text-purple-300/60 truncate max-w-sm mt-1" id="hero-current-url-display">
+              URL: /assets/file_ab2082.png
+            </div>
+          </div>
+        </div>
+
+        <!-- Right: Change Photo Controls Form -->
+        <div class="w-full lg:w-96 bg-surface-container-low/90 backdrop-blur-md rounded-2xl p-4 sm:p-5 border border-purple-500/30 flex flex-col gap-3">
+          <div class="flex items-center justify-between text-xs font-bold text-purple-200">
+            <span class="flex items-center gap-1">
+              <span class="material-symbols-outlined text-sm text-pink-400">edit_square</span>
+              <span>Change Hero Photo</span>
+            </span>
+            <span class="text-[10px] text-emerald-400 font-mono">Live Sync</span>
+          </div>
+
+          <!-- Option 1: Paste Image URL -->
+          <div>
+            <label class="block text-[11px] font-semibold text-outline uppercase mb-1">Enter Image URL or Path</label>
+            <div class="relative flex items-center">
+              <span class="material-symbols-outlined absolute left-2.5 text-purple-400 text-sm">link</span>
+              <input id="hero-photo-url-input" type="text" placeholder="https://... or /assets/..." class="w-full pl-8 pr-3 py-2 rounded-xl bg-purple-950/40 border border-purple-500/30 text-white text-xs focus:outline-none focus:border-pink-500"/>
+            </div>
+          </div>
+
+          <!-- Option 2: Upload new File -->
+          <div>
+            <label class="block text-[11px] font-semibold text-outline uppercase mb-1">Or Upload From Device</label>
+            <input id="hero-photo-file-input" type="file" accept="image/*" class="w-full text-xs text-purple-300 file:mr-2 file:py-1 file:px-3 file:rounded-lg file:border-0 file:text-xs file:font-bold file:bg-pink-500/20 file:text-pink-300 hover:file:bg-pink-500/30 cursor-pointer"/>
+          </div>
+
+          <div class="flex items-center gap-2 pt-1">
+            <button id="btn-save-hero-photo" onclick="applyHeroPhotoUpdate()" class="flex-1 py-2.5 px-4 rounded-xl bg-gradient-to-r from-pink-600 via-purple-600 to-indigo-600 text-white font-bold text-xs shadow-lg shadow-pink-600/30 hover:opacity-95 transition flex items-center justify-center gap-1.5 cursor-pointer">
+              <span class="material-symbols-outlined text-base">check_circle</span>
+              <span>Save &amp; Update Hero Photo</span>
+            </button>
+            <button onclick="resetDefaultHeroPhoto()" class="py-2.5 px-3 rounded-xl bg-surface-container hover:bg-surface-container-high text-outline hover:text-white text-xs font-semibold transition" title="Reset to default artwork">
+              <span class="material-symbols-outlined text-base">restart_alt</span>
+            </button>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- 4 Bento KPI Cards -->
     <div class="grid grid-cols-2 lg:grid-cols-4 gap-4">
       <div class="bg-surface-container rounded-2xl p-4 sm:p-5 border border-purple-900/30 shadow-lg">
         <div class="flex items-center justify-between text-outline text-xs uppercase font-bold mb-2">
-          <span>Active Soundtracks</span>
-          <span class="material-symbols-outlined text-primary text-base">library_music</span>
+          <span>Total Media Assets</span>
+          <span class="material-symbols-outlined text-primary text-base">perm_media</span>
         </div>
-        <div class="font-headline-lg text-xl sm:text-2xl font-black text-on-surface" id="stat-active-tracks">0 Tracks</div>
-        <span class="text-[11px] text-emerald-400 mt-1 block">Curated celebration audio</span>
+        <div class="font-headline-lg text-xl sm:text-2xl font-black text-on-surface" id="stat-total-assets">0</div>
+        <span class="text-[11px] text-emerald-400 mt-1 block">Indexed in master vault</span>
       </div>
 
       <div class="bg-surface-container rounded-2xl p-4 sm:p-5 border border-purple-900/30 shadow-lg">
         <div class="flex items-center justify-between text-outline text-xs uppercase font-bold mb-2">
-          <span>Sound Effects</span>
-          <span class="material-symbols-outlined text-secondary text-base">graphic_eq</span>
+          <span>Photos &amp; Artwork</span>
+          <span class="material-symbols-outlined text-pink-400 text-base">photo_library</span>
         </div>
-        <div class="font-headline-lg text-xl sm:text-2xl font-black text-on-surface" id="stat-sfx-count">4 Live SFX</div>
-        <span class="text-[11px] text-on-surface-variant mt-1 block">Live synthesized Web Audio triggers</span>
+        <div class="font-headline-lg text-xl sm:text-2xl font-black text-on-surface" id="stat-photos-count">0</div>
+        <span class="text-[11px] text-pink-300 mt-1 block">Hero, templates &amp; user photos</span>
       </div>
 
       <div class="bg-surface-container rounded-2xl p-4 sm:p-5 border border-purple-900/30 shadow-lg">
         <div class="flex items-center justify-between text-outline text-xs uppercase font-bold mb-2">
-          <span>Storage Status</span>
-          <span class="material-symbols-outlined text-amber-400 text-base">cloud</span>
+          <span>Videos &amp; Animations</span>
+          <span class="material-symbols-outlined text-secondary text-base">videocam</span>
         </div>
-        <div class="font-headline-lg text-xl sm:text-2xl font-black text-on-surface" id="stat-storage-used">0.00 MB</div>
-        <span class="text-[11px] text-emerald-400 mt-1 block">Real storage utilization</span>
+        <div class="font-headline-lg text-xl sm:text-2xl font-black text-on-surface" id="stat-videos-count">0</div>
+        <span class="text-[11px] text-purple-300 mt-1 block">Celebration clips &amp; background reels</span>
       </div>
 
       <div class="bg-surface-container rounded-2xl p-4 sm:p-5 border border-purple-900/30 shadow-lg">
         <div class="flex items-center justify-between text-outline text-xs uppercase font-bold mb-2">
-          <span>Default BGM</span>
-          <span class="material-symbols-outlined text-emerald-400 text-base">audiotrack</span>
+          <span>Soundtracks &amp; BGM</span>
+          <span class="material-symbols-outlined text-amber-400 text-base">music_note</span>
         </div>
-        <div class="font-headline-lg text-xl sm:text-2xl font-black text-on-surface truncate" id="stat-default-bgm">None configured</div>
-        <span class="text-[11px] text-primary mt-1 block">Celebration soundtrack</span>
+        <div class="font-headline-lg text-xl sm:text-2xl font-black text-on-surface" id="stat-audios-count">0</div>
+        <span class="text-[11px] text-amber-300 mt-1 block">Music tracks &amp; synthesizer SFX</span>
       </div>
     </div>
 
-    <!-- Working Interactive Soundboard -->
-    <div class="bg-surface-container rounded-2xl p-5 sm:p-7 border border-purple-900/30 shadow-xl flex flex-col gap-5">
+    <!-- Filter Pills & Search Section -->
+    <div class="flex flex-wrap items-center justify-between gap-4 bg-surface-container rounded-2xl p-4 border border-purple-900/30">
+      <div class="flex flex-wrap items-center gap-2">
+        <span class="text-xs font-bold text-outline uppercase tracking-wider mr-1">Filter Media:</span>
+        <button onclick="setMediaFilter('all')" id="tab-all" class="px-3.5 py-1.5 rounded-xl bg-primary text-white text-xs font-bold transition shadow-sm cursor-pointer">
+          All Assets
+        </button>
+        <button onclick="setMediaFilter('image')" id="tab-image" class="px-3.5 py-1.5 rounded-xl bg-surface-container-high text-on-surface-variant hover:text-white text-xs font-bold transition cursor-pointer">
+          📸 Photos &amp; Graphics
+        </button>
+        <button onclick="setMediaFilter('video')" id="tab-video" class="px-3.5 py-1.5 rounded-xl bg-surface-container-high text-on-surface-variant hover:text-white text-xs font-bold transition cursor-pointer">
+          🎬 Videos &amp; Reels
+        </button>
+        <button onclick="setMediaFilter('audio')" id="tab-audio" class="px-3.5 py-1.5 rounded-xl bg-surface-container-high text-on-surface-variant hover:text-white text-xs font-bold transition cursor-pointer">
+          🎵 Audio &amp; Soundtracks
+        </button>
+        <button onclick="setMediaFilter('inuse')" id="tab-inuse" class="px-3.5 py-1.5 rounded-xl bg-surface-container-high text-on-surface-variant hover:text-white text-xs font-bold transition cursor-pointer">
+          🌟 Active In-Use Only
+        </button>
+      </div>
+
+      <div class="text-xs text-outline font-mono" id="results-count-text">
+        Loading media catalog...
+      </div>
+    </div>
+
+    <!-- MASTER MEDIA GALLERY GRID WITH LIVE USAGE TRACKER -->
+    <div class="flex flex-col gap-4">
+      <div class="flex items-center justify-between">
+        <h2 class="font-headline-sm text-lg font-bold text-on-surface flex items-center gap-2">
+          <span>Active Media Library &amp; Usage Map</span>
+          <span class="px-2 py-0.5 rounded bg-purple-950 text-purple-300 font-mono text-[11px] font-bold border border-purple-800">KHAN KHAN USE HO RAHI HAI</span>
+        </h2>
+        <span class="text-xs text-purple-300/70">Click "Set as Hero Photo" to change homepage cover immediately</span>
+      </div>
+
+      <div id="media-assets-grid" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5">
+        <!-- Rendered dynamically via loadAllMedia() -->
+        <div class="col-span-full p-12 text-center bg-surface-container rounded-2xl border border-purple-900/30 text-on-surface-variant">
+          <span class="animate-spin material-symbols-outlined text-3xl mb-2 text-primary">progress_activity</span>
+          <p class="text-sm font-medium">Scanning media files and active usages across templates, wishes &amp; hero...</p>
+        </div>
+      </div>
+    </div>
+
+    <!-- Working Interactive Web Audio SFX Soundboard -->
+    <div class="bg-surface-container rounded-2xl p-5 sm:p-7 border border-purple-900/30 shadow-xl flex flex-col gap-5 mt-4">
       <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pb-4 border-b border-purple-900/20">
         <div>
           <h2 class="font-headline-sm text-lg font-bold text-on-surface flex items-center gap-2">
-            <span>Interactive SFX Soundboard</span>
+            <span>Interactive SFX Web Audio Soundboard</span>
             <span class="px-2 py-0.5 rounded bg-secondary-container text-white font-mono text-[10px] font-bold">SYNTH ENGINE</span>
           </h2>
-          <p class="text-xs sm:text-sm text-on-surface-variant">Click any button below to trigger and test instant Web Audio synthesis in your browser.</p>
+          <p class="text-xs sm:text-sm text-on-surface-variant">Click any trigger below to test live instant browser celebration sound effects.</p>
         </div>
         <span class="text-xs text-emerald-400 flex items-center gap-1 font-semibold">
-          <span class="w-2 h-2 rounded-full bg-emerald-400"></span> 0ms Latency
+          <span class="w-2 h-2 rounded-full bg-emerald-400"></span> 0ms Synthesis Latency
         </span>
       </div>
 
       <div class="grid grid-cols-2 sm:grid-cols-4 gap-4">
-        <!-- Button 1 -->
-        <button onclick="playMagicSound('pop')" class="p-4 rounded-xl bg-surface-container-low hover:bg-surface-container-high border border-purple-900/30 flex flex-col items-center justify-center gap-2 text-center group active:scale-95 transition">
+        <button onclick="playMagicSound('pop')" class="p-4 rounded-xl bg-surface-container-low hover:bg-surface-container-high border border-purple-900/30 flex flex-col items-center justify-center gap-2 text-center group active:scale-95 transition cursor-pointer">
           <span class="text-3xl group-hover:scale-125 transition-transform">🎉</span>
           <span class="font-bold text-xs sm:text-sm text-on-surface">Confetti Popper</span>
           <span class="text-[11px] text-outline">Pop &amp; Whistle</span>
         </button>
 
-        <!-- Button 2 -->
-        <button onclick="playMagicSound('chime')" class="p-4 rounded-xl bg-surface-container-low hover:bg-surface-container-high border border-purple-900/30 flex flex-col items-center justify-center gap-2 text-center group active:scale-95 transition">
+        <button onclick="playMagicSound('chime')" class="p-4 rounded-xl bg-surface-container-low hover:bg-surface-container-high border border-purple-900/30 flex flex-col items-center justify-center gap-2 text-center group active:scale-95 transition cursor-pointer">
           <span class="text-3xl group-hover:scale-125 transition-transform">✨</span>
           <span class="font-bold text-xs sm:text-sm text-on-surface">Magic Wand Bell</span>
           <span class="text-[11px] text-outline">Sparkle Harmonic</span>
         </button>
 
-        <!-- Button 3 -->
-        <button onclick="playMagicSound('unbox')" class="p-4 rounded-xl bg-surface-container-low hover:bg-surface-container-high border border-purple-900/30 flex flex-col items-center justify-center gap-2 text-center group active:scale-95 transition">
+        <button onclick="playMagicSound('unbox')" class="p-4 rounded-xl bg-surface-container-low hover:bg-surface-container-high border border-purple-900/30 flex flex-col items-center justify-center gap-2 text-center group active:scale-95 transition cursor-pointer">
           <span class="text-3xl group-hover:scale-125 transition-transform">🎁</span>
           <span class="font-bold text-xs sm:text-sm text-on-surface">Gift Box Unbox</span>
           <span class="text-[11px] text-outline">Ascending Chime</span>
         </button>
 
-        <!-- Button 4 -->
-        <button onclick="playMagicSound('firework')" class="p-4 rounded-xl bg-surface-container-low hover:bg-surface-container-high border border-purple-900/30 flex flex-col items-center justify-center gap-2 text-center group active:scale-95 transition">
+        <button onclick="playMagicSound('firework')" class="p-4 rounded-xl bg-surface-container-low hover:bg-surface-container-high border border-purple-900/30 flex flex-col items-center justify-center gap-2 text-center group active:scale-95 transition cursor-pointer">
           <span class="text-3xl group-hover:scale-125 transition-transform">🎆</span>
           <span class="font-bold text-xs sm:text-sm text-on-surface">Fireworks Burst</span>
           <span class="text-[11px] text-outline">Bass Boom &amp; Crackle</span>
@@ -232,77 +366,82 @@
       </div>
     </div>
 
-    <!-- Background Audio Tracks Catalog -->
-    <div class="bg-surface-container rounded-2xl p-5 sm:p-7 border border-purple-900/30 shadow-xl flex flex-col gap-5">
-      <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pb-4 border-b border-purple-900/20">
-        <div>
-          <h2 class="font-headline-sm text-lg font-bold text-on-surface">Background Music Catalog (BGM)</h2>
-          <p class="text-xs sm:text-sm text-on-surface-variant">Default and selectable celebration tracks embedded in interactive templates.</p>
-        </div>
-        <span class="text-xs text-outline font-mono" id="stat-tracks-header-count">0 Tracks Configured</span>
-      </div>
-
-      <div class="grid grid-cols-1 md:grid-cols-2 gap-4" id="audio-catalog-grid">
-        <!-- Rendered dynamically via loadAudioCatalog() -->
-      </div>
-    </div>
   </main>
 </div>
 
-<!-- Modal: Upload Audio -->
-<div id="upload-audio-modal" class="fixed inset-0 bg-black/80 backdrop-blur-sm z-50 hidden items-center justify-center p-4">
-  <div class="bg-surface-container w-full max-w-md rounded-2xl p-6 border border-purple-900/40 shadow-2xl flex flex-col gap-4">
-    <div class="flex items-center justify-between">
-      <h3 class="font-headline-sm text-lg font-bold text-on-surface">Upload Audio Track</h3>
-      <button onclick="toggleModal('upload-audio-modal')" class="text-on-surface-variant hover:text-on-surface">
+<!-- Modal: Universal Upload (Photos, Videos, Audios) -->
+<div id="upload-media-modal" class="fixed inset-0 bg-black/80 backdrop-blur-sm z-50 hidden items-center justify-center p-4">
+  <div class="bg-surface-container w-full max-w-lg rounded-3xl p-6 sm:p-7 border border-purple-500/40 shadow-2xl flex flex-col gap-4">
+    <div class="flex items-center justify-between pb-3 border-b border-purple-900/30">
+      <div class="flex items-center gap-2">
+        <span class="material-symbols-outlined text-primary text-xl">cloud_upload</span>
+        <h3 class="font-headline-sm text-lg font-bold text-on-surface">Upload Media to Vault</h3>
+      </div>
+      <button onclick="toggleModal('upload-media-modal')" class="text-on-surface-variant hover:text-on-surface cursor-pointer">
         <span class="material-symbols-outlined">close</span>
       </button>
     </div>
+
     <div>
-      <label class="block text-xs font-bold uppercase text-outline mb-1">Track Title <span class="text-rose-400">*</span></label>
-      <input id="new-track-title" class="w-full px-3 py-2 rounded-lg bg-surface-container-low text-on-surface border border-purple-900/30 text-sm focus:outline-none focus:border-primary" placeholder="e.g. Celestial Harp Melodies"/>
+      <label class="block text-xs font-bold uppercase text-outline mb-1">Asset Title <span class="text-rose-400">*</span></label>
+      <input id="upload-asset-title" class="w-full px-3.5 py-2.5 rounded-xl bg-surface-container-low text-on-surface border border-purple-900/30 text-sm focus:outline-none focus:border-primary" placeholder="e.g. Royal Golden Celebration Artwork"/>
     </div>
+
     <div class="grid grid-cols-2 gap-3">
       <div>
-        <label class="block text-xs font-bold uppercase text-outline mb-1">Genre / Mood</label>
-        <select id="new-track-genre" class="w-full px-3 py-2 rounded-lg bg-surface-container-low text-on-surface border border-purple-900/30 text-sm focus:outline-none">
-          <option>Lo-Fi / Chill</option>
-          <option>Romance / Strings</option>
-          <option>Celebration / Upbeat</option>
-          <option>Ambient / Piano</option>
-          <option>Festive / Dhol</option>
-          <option>Acoustic / Guitar</option>
+        <label class="block text-xs font-bold uppercase text-outline mb-1">Media Type <span class="text-rose-400">*</span></label>
+        <select id="upload-asset-type" class="w-full px-3.5 py-2.5 rounded-xl bg-surface-container-low text-on-surface border border-purple-900/30 text-xs focus:outline-none focus:border-primary" onchange="handleMediaTypeChange()">
+          <option value="image">📸 Photo / Graphic</option>
+          <option value="video">🎬 Video / Animation</option>
+          <option value="audio">🎵 Audio Track / Music</option>
         </select>
       </div>
       <div>
-        <label class="block text-xs font-bold uppercase text-outline mb-1">Duration (e.g. 2:45)</label>
-        <input id="new-track-duration" class="w-full px-3 py-2 rounded-lg bg-surface-container-low text-on-surface border border-purple-900/30 text-sm focus:outline-none" placeholder="2:30"/>
+        <label class="block text-xs font-bold uppercase text-outline mb-1">Category / Tag</label>
+        <input id="upload-asset-category" class="w-full px-3.5 py-2.5 rounded-xl bg-surface-container-low text-on-surface border border-purple-900/30 text-xs focus:outline-none focus:border-primary" placeholder="e.g. Hero Banner, BGM, Reels"/>
       </div>
     </div>
-    <div>
-      <label class="block text-xs font-bold uppercase text-outline mb-1">Licensing Terms</label>
-      <select id="new-track-license" class="w-full px-3 py-2 rounded-lg bg-surface-container-low text-on-surface border border-purple-900/30 text-sm focus:outline-none">
-        <option>Royalty-Free Commercial</option>
-        <option>Public Domain (CC0)</option>
-        <option>Creative Commons (CC-BY)</option>
-        <option>Studio Exclusive</option>
-      </select>
+
+    <!-- Option to set as Hero Photo -->
+    <div id="hero-checkbox-container" class="p-3 rounded-xl bg-pink-500/10 border border-pink-500/30 flex items-center gap-2.5">
+      <input type="checkbox" id="upload-set-as-hero" class="w-4 h-4 rounded text-pink-600 focus:ring-pink-500 cursor-pointer"/>
+      <label for="upload-set-as-hero" class="text-xs text-pink-200 font-semibold cursor-pointer">
+        🌟 Immediately set this image as Storefront Hero Section Photo
+      </label>
     </div>
+
     <div>
-      <label class="block text-xs font-bold uppercase text-outline mb-1">Audio File (MP3, WAV, OGG) <span class="text-rose-400">*</span></label>
-      <input id="new-track-file" type="file" accept="audio/*,.mp3,.wav,.ogg,.m4a" class="w-full px-3 py-2 rounded-lg bg-surface-container-low text-on-surface border border-purple-900/30 text-xs focus:outline-none file:mr-3 file:py-1 file:px-3 file:rounded-md file:border-0 file:text-xs file:font-semibold file:bg-primary/20 file:text-primary hover:file:bg-primary/30"/>
+      <label class="block text-xs font-bold uppercase text-outline mb-1">Select File from Device <span class="text-rose-400">*</span></label>
+      <input id="upload-asset-file" type="file" accept="image/*,video/*,audio/*" class="w-full px-3 py-2 rounded-xl bg-surface-container-low text-on-surface border border-purple-900/30 text-xs focus:outline-none file:mr-3 file:py-1 file:px-3 file:rounded-lg file:border-0 file:text-xs file:font-semibold file:bg-primary/20 file:text-primary hover:file:bg-primary/30 cursor-pointer"/>
     </div>
-    <div class="flex justify-end gap-2 pt-2 border-t border-purple-900/20">
-      <button onclick="toggleModal('upload-audio-modal')" class="px-4 py-2 rounded-lg bg-surface-container-high text-on-surface text-xs font-bold">Cancel</button>
-      <button onclick="saveNewAudioTrack()" id="btn-submit-audio" class="px-5 py-2 rounded-lg bg-primary-container text-white text-xs font-bold hover:brightness-110 active:scale-95 transition flex items-center gap-1.5">
+
+    <div class="flex justify-end gap-2.5 pt-3 border-t border-purple-900/20">
+      <button onclick="toggleModal('upload-media-modal')" class="px-4 py-2.5 rounded-xl bg-surface-container-high text-on-surface text-xs font-bold cursor-pointer">Cancel</button>
+      <button onclick="submitMediaUpload()" id="btn-submit-upload" class="px-5 py-2.5 rounded-xl bg-gradient-to-r from-primary to-secondary text-white text-xs font-bold hover:brightness-110 active:scale-95 transition flex items-center gap-1.5 cursor-pointer shadow-lg shadow-purple-600/30">
         <span class="material-symbols-outlined text-sm">cloud_upload</span>
-        <span>Upload Track</span>
+        <span>Upload &amp; Save</span>
       </button>
     </div>
   </div>
 </div>
 
+<!-- Lightbox Modal for Fullscreen Photo/Video Viewing -->
+<div id="media-lightbox-modal" class="fixed inset-0 z-50 bg-black/90 backdrop-blur-md hidden flex items-center justify-center p-4" onclick="closeLightbox()">
+  <div class="relative max-w-4xl max-h-[90vh] flex flex-col items-center" onclick="event.stopPropagation()">
+    <button onclick="closeLightbox()" class="absolute -top-10 right-0 p-2 rounded-full bg-white/20 hover:bg-white/40 text-white transition cursor-pointer">
+      <span class="material-symbols-outlined text-xl">close</span>
+    </button>
+    <img id="lightbox-img" src="" alt="Media Preview" class="max-h-[80vh] rounded-2xl object-contain shadow-2xl border border-white/20 hidden"/>
+    <video id="lightbox-video" src="" controls class="max-h-[80vh] rounded-2xl shadow-2xl border border-white/20 hidden"></video>
+    <div id="lightbox-caption" class="text-xs font-mono text-purple-200 mt-3 text-center"></div>
+  </div>
+</div>
+
 <script>
+  let allMediaAssets = [];
+  let currentFilter = 'all';
+  let currentHeroImage = '/assets/file_ab2082.png';
+
   function toggleModal(id) {
     const el = document.getElementById(id);
     if (!el) return;
@@ -310,15 +449,483 @@
     el.classList.toggle('flex');
   }
 
-  // --- Real Web Audio Synthesizer (Zero Fake Simulation) ---
+  function handleMediaTypeChange() {
+    const type = document.getElementById('upload-asset-type').value;
+    const heroBox = document.getElementById('hero-checkbox-container');
+    if (heroBox) {
+      heroBox.style.display = type === 'image' ? 'flex' : 'none';
+    }
+  }
+
+  // --- Load Hero Image and All Media Assets ---
+  async function loadAllMedia() {
+    const grid = document.getElementById('media-assets-grid');
+    grid.innerHTML = `
+      <div class="col-span-full p-12 text-center bg-surface-container rounded-2xl border border-purple-900/30 text-on-surface-variant">
+        <span class="animate-spin material-symbols-outlined text-3xl mb-2 text-primary">progress_activity</span>
+        <p class="text-sm font-medium">Scanning media vault and active usages...</p>
+      </div>
+    `;
+
+    try {
+      // 1. Fetch live Hero Image configuration
+      const heroRes = await fetch('/api/admin/hero-image', { credentials: 'include' });
+      if (heroRes.ok) {
+        const heroData = await heroRes.json();
+        if (heroData.success && heroData.heroImageUrl) {
+          currentHeroImage = heroData.heroImageUrl;
+          updateHeroDisplay(currentHeroImage);
+        }
+      }
+
+      // 2. Fetch all media assets with live usage tracking
+      const res = await fetch('/api/admin/media/all', { credentials: 'include' });
+      const data = await res.json();
+
+      if (!data.success) {
+        grid.innerHTML = `<div class="col-span-full p-6 bg-rose-500/10 border border-rose-500/30 rounded-2xl text-rose-300 text-sm">Failed to load media assets: ${data.message || 'Error'}</div>`;
+        return;
+      }
+
+      allMediaAssets = data.assets || [];
+      const s = data.summary || {};
+
+      if (s.currentHeroImage) {
+        currentHeroImage = s.currentHeroImage;
+        updateHeroDisplay(currentHeroImage);
+      }
+
+      // Update KPI Bento Cards
+      document.getElementById('stat-total-assets').innerText = s.totalAssets || allMediaAssets.length;
+      document.getElementById('stat-photos-count').innerText = s.photosCount || allMediaAssets.filter(a => a.type === 'image').length;
+      document.getElementById('stat-videos-count').innerText = s.videosCount || allMediaAssets.filter(a => a.type === 'video').length;
+      document.getElementById('stat-audios-count').innerText = s.audioCount || allMediaAssets.filter(a => a.type === 'audio').length;
+
+      renderMediaGrid();
+    } catch (err) {
+      grid.innerHTML = `<div class="col-span-full p-6 bg-rose-500/10 border border-rose-500/30 rounded-2xl text-rose-300 text-sm">Network error retrieving media assets.</div>`;
+    }
+  }
+
+  function updateHeroDisplay(url) {
+    const imgEl = document.getElementById('hero-live-preview-img');
+    const urlDisplay = document.getElementById('hero-current-url-display');
+    const inputEl = document.getElementById('hero-photo-url-input');
+    if (imgEl) imgEl.src = url;
+    if (urlDisplay) urlDisplay.innerText = `Current URL: ${url}`;
+    if (inputEl && !inputEl.value) inputEl.value = url;
+  }
+
+  // --- Filter Media Catalog ---
+  function setMediaFilter(filter) {
+    currentFilter = filter;
+    ['all', 'image', 'video', 'audio', 'inuse'].forEach(f => {
+      const btn = document.getElementById(`tab-${f}`);
+      if (btn) {
+        if (f === filter) {
+          btn.className = 'px-3.5 py-1.5 rounded-xl bg-primary text-white text-xs font-bold transition shadow-sm cursor-pointer';
+        } else {
+          btn.className = 'px-3.5 py-1.5 rounded-xl bg-surface-container-high text-on-surface-variant hover:text-white text-xs font-bold transition cursor-pointer';
+        }
+      }
+    });
+    renderMediaGrid();
+  }
+
+  function filterMediaCatalog() {
+    renderMediaGrid();
+  }
+
+  // --- Render Media Cards with Live Usage Details ---
+  function renderMediaGrid() {
+    const grid = document.getElementById('media-assets-grid');
+    const query = (document.getElementById('search-media')?.value || '').trim().toLowerCase();
+
+    let filtered = allMediaAssets.filter(asset => {
+      // Type Filter
+      if (currentFilter === 'image' && asset.type !== 'image') return false;
+      if (currentFilter === 'video' && asset.type !== 'video') return false;
+      if (currentFilter === 'audio' && asset.type !== 'audio') return false;
+      if (currentFilter === 'inuse' && !asset.isInUse) return false;
+
+      // Search Query
+      if (query) {
+        const usageText = (asset.usedIn || []).map(u => `${u.label} ${u.location}`).join(' ');
+        const searchStr = `${asset.title} ${asset.type} ${asset.format} ${asset.category} ${asset.url} ${usageText}`.toLowerCase();
+        if (!searchStr.includes(query)) return false;
+      }
+      return true;
+    });
+
+    document.getElementById('results-count-text').innerText = `Showing ${filtered.length} of ${allMediaAssets.length} media assets`;
+
+    if (filtered.length === 0) {
+      grid.innerHTML = `
+        <div class="col-span-full py-12 px-6 rounded-2xl bg-surface-container text-center flex flex-col items-center justify-center gap-3 border border-purple-900/30">
+          <span class="material-symbols-outlined text-4xl text-outline">search_off</span>
+          <h3 class="text-base font-bold text-on-surface">No media assets match your filter</h3>
+          <p class="text-xs text-outline max-w-sm">Try clearing your search query or uploading a new media file.</p>
+        </div>
+      `;
+      return;
+    }
+
+    grid.innerHTML = filtered.map(a => {
+      const isHero = a.url === currentHeroImage;
+      const isAudio = a.type === 'audio';
+      const isVideo = a.type === 'video';
+      const isImage = a.type === 'image';
+      const usedInList = a.usedIn || [];
+
+      return `
+        <div class="media-card-hover bg-surface-container rounded-2xl p-4 sm:p-5 border ${isHero ? 'border-pink-500 shadow-lg shadow-pink-500/10' : 'border-purple-900/30'} flex flex-col justify-between gap-4">
+          
+          <!-- Top: Thumbnail Preview & Type Badge -->
+          <div class="flex flex-col gap-3">
+            <div class="relative w-full h-44 rounded-xl overflow-hidden bg-surface-container-high border border-purple-900/30 flex items-center justify-center">
+              ${isImage ? `
+                <img src="${a.url}" alt="${escapeHtml(a.title)}" class="w-full h-full object-cover cursor-pointer hover:scale-105 transition duration-300" onclick="openLightboxImage('${a.url}', '${escapeHtml(a.title)}')" onerror="this.onerror=null;this.src='/assets/file_ab2082.png';"/>
+              ` : isVideo ? `
+                <video src="${a.url}" class="w-full h-full object-cover cursor-pointer" controls preload="metadata"></video>
+              ` : `
+                <div class="flex flex-col items-center justify-center gap-2 p-4 text-center">
+                  <div class="w-14 h-14 rounded-full bg-primary/20 text-primary flex items-center justify-center shadow-inner">
+                    <span class="material-symbols-outlined text-3xl">music_note</span>
+                  </div>
+                  <span class="font-mono text-xs text-purple-200 font-semibold truncate max-w-[200px]">${escapeHtml(a.title)}</span>
+                  <button onclick="playAudioItem('${a.id}', '${a.url}', '${escapeHtml(a.title)}')" class="mt-1 px-3 py-1 rounded-full bg-primary text-white text-[11px] font-bold flex items-center gap-1 hover:brightness-110 active:scale-95 transition cursor-pointer">
+                    <span class="material-symbols-outlined text-sm">play_arrow</span>
+                    <span>Play Audio Track</span>
+                  </button>
+                </div>
+              `}
+
+              <!-- Top Left: Media Type Badge -->
+              <div class="absolute top-2 left-2 flex items-center gap-1.5">
+                <span class="px-2 py-0.5 rounded-md ${isImage ? 'bg-pink-500' : (isVideo ? 'bg-indigo-600' : 'bg-amber-600')} text-white font-mono text-[10px] font-bold shadow uppercase">
+                  ${a.format || a.type}
+                </span>
+                ${isHero ? `
+                  <span class="px-2 py-0.5 rounded-md bg-pink-600 text-white font-bold text-[10px] shadow flex items-center gap-1">
+                    <span>🌟 HERO BANNER</span>
+                  </span>
+                ` : ''}
+              </div>
+
+              <!-- Top Right: In-Use Indicator -->
+              <div class="absolute top-2 right-2">
+                ${a.isInUse ? `
+                  <span class="px-2 py-0.5 rounded-full bg-emerald-500/90 text-white font-bold text-[10px] shadow flex items-center gap-1">
+                    <span class="w-1.5 h-1.5 rounded-full bg-white animate-pulse"></span>
+                    <span>IN USE (${a.usageCount})</span>
+                  </span>
+                ` : `
+                  <span class="px-2 py-0.5 rounded-full bg-black/60 text-outline text-[10px] font-medium backdrop-blur-sm">
+                    Vault Library
+                  </span>
+                `}
+              </div>
+            </div>
+
+            <!-- Title & Metadata -->
+            <div>
+              <h3 class="font-bold text-sm text-on-surface truncate" title="${escapeHtml(a.title)}">${escapeHtml(a.title)}</h3>
+              <div class="flex items-center gap-2 text-xs text-on-surface-variant mt-0.5">
+                <span>${a.category || 'Media'}</span>
+                <span>•</span>
+                <span class="font-mono text-[11px]">${a.fileSizeFormatted || 'Ready'}</span>
+                ${a.duration ? `<span>•</span><span class="font-mono text-[11px]">${a.duration}</span>` : ''}
+              </div>
+            </div>
+
+            <!-- ACTIVE USAGE TRACKER ("KHAN KHAN USE HO RAHI HAI") -->
+            <div class="bg-surface-container-low p-3 rounded-xl border border-purple-900/20 flex flex-col gap-1.5">
+              <span class="text-[10px] font-black uppercase tracking-wider text-outline flex items-center justify-between">
+                <span>Active Usages (Kahan Kahan Use Hai):</span>
+                <span class="text-purple-300 font-mono">${usedInList.length} locations</span>
+              </span>
+
+              ${usedInList.length > 0 ? `
+                <div class="flex flex-col gap-1">
+                  ${usedInList.map(u => `
+                    <div class="flex items-center justify-between gap-1.5 text-[11px] py-1 px-2 rounded-lg bg-purple-950/30 border border-purple-900/30">
+                      <span class="font-semibold text-purple-200 truncate flex items-center gap-1">
+                        <span class="w-1.5 h-1.5 rounded-full ${u.badgeColor === 'pink' ? 'bg-pink-400' : (u.badgeColor === 'emerald' ? 'bg-emerald-400' : 'bg-purple-400')}"></span>
+                        <span>${escapeHtml(u.label)}</span>
+                      </span>
+                      <span class="text-[10px] text-outline font-mono truncate max-w-[100px]">${escapeHtml(u.location)}</span>
+                    </div>
+                  `).join('')}
+                </div>
+              ` : `
+                <div class="text-[11px] text-outline italic py-0.5">
+                  Available in library (not currently attached to a live template)
+                </div>
+              `}
+            </div>
+          </div>
+
+          <!-- Bottom Action Buttons -->
+          <div class="pt-3 border-t border-purple-900/20 flex flex-wrap items-center justify-between gap-2">
+            <!-- If Photo: "Set as Hero Photo" Button -->
+            ${isImage ? `
+              <button onclick="setAsHeroPhotoFromAsset('${a.url}', '${escapeHtml(a.title)}')" class="py-1.5 px-3 rounded-xl ${isHero ? 'bg-pink-500/20 text-pink-300 border border-pink-500/40' : 'bg-gradient-to-r from-pink-600 to-purple-600 hover:opacity-95 text-white'} text-xs font-bold flex items-center gap-1 transition cursor-pointer shadow-sm">
+                <span class="material-symbols-outlined text-sm">stars</span>
+                <span>${isHero ? 'Current Hero Photo' : '✨ Set as Hero Photo'}</span>
+              </button>
+            ` : `
+              <div class="text-xs text-outline font-mono">Format: ${a.format}</div>
+            `}
+
+            <div class="flex items-center gap-1.5">
+              <button onclick="copyLink('${a.url.startsWith('http') ? a.url : window.location.origin + a.url}')" class="p-1.5 rounded-lg bg-surface-container-high hover:bg-surface-container-highest text-outline hover:text-white transition cursor-pointer" title="Copy Asset URL">
+                <span class="material-symbols-outlined text-sm">content_copy</span>
+              </button>
+              ${isImage ? `
+                <button onclick="openLightboxImage('${a.url}', '${escapeHtml(a.title)}')" class="p-1.5 rounded-lg bg-surface-container-high hover:bg-surface-container-highest text-outline hover:text-white transition cursor-pointer" title="Zoom Preview">
+                  <span class="material-symbols-outlined text-sm">zoom_in</span>
+                </button>
+              ` : ''}
+            </div>
+          </div>
+
+        </div>
+      `;
+    }).join('');
+  }
+
+  // --- Hero Section Photo Updates ---
+  async function applyHeroPhotoUpdate() {
+    const urlInput = document.getElementById('hero-photo-url-input');
+    const fileInput = document.getElementById('hero-photo-file-input');
+    const btn = document.getElementById('btn-save-hero-photo');
+
+    // If file is selected, upload file first!
+    if (fileInput.files && fileInput.files.length > 0) {
+      const file = fileInput.files[0];
+      btn.disabled = true;
+      btn.innerHTML = `<span class="material-symbols-outlined text-sm animate-spin">refresh</span><span>Uploading File...</span>`;
+
+      const reader = new FileReader();
+      reader.onload = async (e) => {
+        try {
+          const res = await fetch('/api/admin/media/upload', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            credentials: 'include',
+            body: JSON.stringify({
+              title: 'Storefront Hero Showcase Photo',
+              type: 'image',
+              category: 'Hero & Showcase',
+              filename: file.name,
+              fileData: e.target.result,
+              setAsHeroImage: true
+            })
+          });
+
+          const data = await res.json();
+          if (data.success && data.asset) {
+            currentHeroImage = data.asset.url;
+            updateHeroDisplay(currentHeroImage);
+            showToast('🌟 Hero Section photo uploaded & applied successfully!');
+            fileInput.value = '';
+            loadAllMedia();
+          } else {
+            alert('Upload failed: ' + (data.message || 'Error'));
+          }
+        } catch (err) {
+          alert('Network error: ' + err.message);
+        } finally {
+          btn.disabled = false;
+          btn.innerHTML = `<span class="material-symbols-outlined text-base">check_circle</span><span>Save &amp; Update Hero Photo</span>`;
+        }
+      };
+      reader.readAsDataURL(file);
+      return;
+    }
+
+    // Otherwise, use URL input
+    const targetUrl = urlInput.value.trim();
+    if (!targetUrl) {
+      alert('Please enter an image URL or choose a file to upload.');
+      return;
+    }
+
+    btn.disabled = true;
+    btn.innerHTML = `<span class="material-symbols-outlined text-sm animate-spin">refresh</span><span>Saving Hero Photo...</span>`;
+
+    try {
+      const res = await fetch('/api/admin/hero-image', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        credentials: 'include',
+        body: JSON.stringify({ heroImageUrl: targetUrl })
+      });
+
+      const data = await res.json();
+      if (data.success) {
+        currentHeroImage = targetUrl;
+        updateHeroDisplay(targetUrl);
+        showToast('🌟 Storefront Hero Photo updated live on Homepage!');
+        loadAllMedia();
+      } else {
+        alert('Update failed: ' + (data.message || 'Error'));
+      }
+    } catch (err) {
+      alert('Error: ' + err.message);
+    } finally {
+      btn.disabled = false;
+      btn.innerHTML = `<span class="material-symbols-outlined text-base">check_circle</span><span>Save &amp; Update Hero Photo</span>`;
+    }
+  }
+
+  async function setAsHeroPhotoFromAsset(url, title) {
+    if (!confirm(`Do you want to set "${title}" as the storefront Hero Section photo?`)) return;
+
+    try {
+      const res = await fetch('/api/admin/hero-image', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        credentials: 'include',
+        body: JSON.stringify({ heroImageUrl: url })
+      });
+
+      const data = await res.json();
+      if (data.success) {
+        currentHeroImage = url;
+        updateHeroDisplay(url);
+        showToast(`✨ "${title}" is now the live Hero Photo on homepage!`);
+        renderMediaGrid();
+      } else {
+        alert('Failed: ' + (data.message || 'Error'));
+      }
+    } catch (err) {
+      alert('Error updating hero image: ' + err.message);
+    }
+  }
+
+  async function resetDefaultHeroPhoto() {
+    const defaultUrl = '/assets/file_ab2082.png';
+    if (!confirm('Reset storefront hero photo to default WishMagic artwork?')) return;
+    try {
+      const res = await fetch('/api/admin/hero-image', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        credentials: 'include',
+        body: JSON.stringify({ heroImageUrl: defaultUrl })
+      });
+      if (res.ok) {
+        currentHeroImage = defaultUrl;
+        updateHeroDisplay(defaultUrl);
+        showToast('🔄 Hero photo reset to default artwork!');
+        renderMediaGrid();
+      }
+    } catch (e) {}
+  }
+
+  // --- Upload Modal Submit ---
+  async function submitMediaUpload() {
+    const titleInput = document.getElementById('upload-asset-title');
+    const typeSelect = document.getElementById('upload-asset-type');
+    const categoryInput = document.getElementById('upload-asset-category');
+    const fileInput = document.getElementById('upload-asset-file');
+    const heroCheck = document.getElementById('upload-set-as-hero');
+    const btnSubmit = document.getElementById('btn-submit-upload');
+
+    const title = titleInput.value.trim();
+    if (!title) {
+      alert('Please enter an asset title');
+      return;
+    }
+    if (!fileInput.files || fileInput.files.length === 0) {
+      alert('Please select a file to upload');
+      return;
+    }
+
+    const file = fileInput.files[0];
+    btnSubmit.disabled = true;
+    btnSubmit.innerHTML = `<span class="material-symbols-outlined text-sm animate-spin">refresh</span><span>Uploading...</span>`;
+
+    const reader = new FileReader();
+    reader.onload = async (e) => {
+      try {
+        const res = await fetch('/api/admin/media/upload', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          credentials: 'include',
+          body: JSON.stringify({
+            title,
+            type: typeSelect.value,
+            category: categoryInput.value.trim() || 'Custom Upload',
+            filename: file.name,
+            fileData: e.target.result,
+            setAsHeroImage: typeSelect.value === 'image' && heroCheck.checked
+          })
+        });
+
+        const data = await res.json();
+        if (data.success) {
+          toggleModal('upload-media-modal');
+          titleInput.value = '';
+          categoryInput.value = '';
+          fileInput.value = '';
+          showToast(`📁 Asset "${title}" uploaded to library!`);
+          loadAllMedia();
+        } else {
+          alert('Upload failed: ' + (data.message || 'Error'));
+        }
+      } catch (err) {
+        alert('Network error during upload: ' + err.message);
+      } finally {
+        btnSubmit.disabled = false;
+        btnSubmit.innerHTML = `<span class="material-symbols-outlined text-sm">cloud_upload</span><span>Upload &amp; Save</span>`;
+      }
+    };
+    reader.readAsDataURL(file);
+  }
+
+  // --- Lightbox & Audio Playback Utilities ---
+  function openLightboxImage(url, caption) {
+    const modal = document.getElementById('media-lightbox-modal');
+    const img = document.getElementById('lightbox-img');
+    const vid = document.getElementById('lightbox-video');
+    const cap = document.getElementById('lightbox-caption');
+
+    img.src = url;
+    img.classList.remove('hidden');
+    vid.classList.add('hidden');
+    cap.innerText = caption || 'Photo Preview';
+
+    modal.classList.remove('hidden');
+  }
+
+  function closeLightbox() {
+    const modal = document.getElementById('media-lightbox-modal');
+    const img = document.getElementById('lightbox-img');
+    const vid = document.getElementById('lightbox-video');
+    img.src = '';
+    vid.src = '';
+    modal.classList.add('hidden');
+  }
+
+  function copyLink(text) {
+    navigator.clipboard.writeText(text).then(() => {
+      showToast('📋 Copied URL to clipboard!');
+    }).catch(() => {
+      alert('URL: ' + text);
+    });
+  }
+
+  function escapeHtml(str) {
+    if (!str) return '';
+    return String(str).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
+  }
+
+  // --- Real Web Audio Synthesizer (Instant SFX) ---
   let audioCtx = null;
   function getAudioContext() {
-    if (!audioCtx) {
-      audioCtx = new (window.AudioContext || window.webkitAudioContext)();
-    }
-    if (audioCtx.state === 'suspended') {
-      audioCtx.resume();
-    }
+    if (!audioCtx) audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+    if (audioCtx.state === 'suspended') audioCtx.resume();
     return audioCtx;
   }
 
@@ -379,281 +986,33 @@
         osc.stop(now + 0.35);
       }
       showToast(`🔊 Triggered ${type.toUpperCase()} Synth SFX`);
-    } catch (e) {
-      console.log('Audio playback notice:', e);
-    }
+    } catch (e) {}
   }
 
-  // --- Real Audio Track Player ---
-  let activeAudio = null;
-  let activeTrackId = null;
-  let activePlayBtn = null;
-
-  function togglePlayTrack(trackId, url, title, btn) {
-    const icon = btn.querySelector('.material-symbols-outlined');
-    if (activeAudio && activeTrackId === trackId) {
-      if (activeAudio.paused) {
-        activeAudio.play();
-        icon.textContent = 'pause';
+  let activeAudioTrack = null;
+  function playAudioItem(id, url, title) {
+    if (url.startsWith('web-audio://')) {
+      playMagicSound('chime');
+      return;
+    }
+    if (activeAudioTrack) {
+      activeAudioTrack.pause();
+      activeAudioTrack = null;
+    }
+    try {
+      activeAudioTrack = new Audio(url);
+      activeAudioTrack.play().then(() => {
         showToast(`▶ Playing: "${title}"`);
-      } else {
-        activeAudio.pause();
-        icon.textContent = 'play_arrow';
-        showToast(`⏸ Paused: "${title}"`);
-      }
-      return;
-    }
-
-    if (activeAudio) {
-      activeAudio.pause();
-      if (activePlayBtn) {
-        const prevIcon = activePlayBtn.querySelector('.material-symbols-outlined');
-        if (prevIcon) prevIcon.textContent = 'play_arrow';
-      }
-    }
-
-    activeAudio = new Audio(url);
-    activeTrackId = trackId;
-    activePlayBtn = btn;
-    icon.textContent = 'pause';
-    showToast(`▶ Playing: "${title}"`);
-
-    activeAudio.onended = () => {
-      icon.textContent = 'play_arrow';
-      activeAudio = null;
-      activeTrackId = null;
-      activePlayBtn = null;
-    };
-
-    activeAudio.onerror = () => {
-      icon.textContent = 'play_arrow';
-      showToast(`⚠️ Could not play audio file`);
-    };
-
-    activeAudio.play().catch(e => {
-      console.warn('Playback error:', e);
-      icon.textContent = 'play_arrow';
-    });
-  }
-
-  // --- Dynamic Audio Catalog Loader ---
-  let cachedTracks = [];
-
-  async function loadAudioCatalog() {
-    const grid = document.getElementById('audio-catalog-grid');
-    if (!grid) return;
-
-    try {
-      const res = await fetch('/api/media');
-      const data = await res.json();
-      const tracks = (data && data.success && Array.isArray(data.tracks)) ? data.tracks : [];
-      cachedTracks = tracks;
-
-      // Update KPI Bento Cards
-      const statTracks = document.getElementById('stat-active-tracks');
-      if (statTracks) {
-        statTracks.textContent = `${tracks.length} Master ${tracks.length === 1 ? 'Track' : 'Tracks'}`;
-      }
-
-      const headerCount = document.getElementById('stat-tracks-header-count');
-      if (headerCount) {
-        headerCount.textContent = `${tracks.length} Tracks Configured`;
-      }
-
-      let totalBytes = 0;
-      let defaultTrack = null;
-      tracks.forEach(t => {
-        totalBytes += (t.fileSize || 0);
-        if (t.isDefault) defaultTrack = t;
+      }).catch(() => {
+        playMagicSound('chime');
       });
-
-      const statStorage = document.getElementById('stat-storage-used');
-      if (statStorage) {
-        statStorage.textContent = (totalBytes / (1024 * 1024)).toFixed(2) + ' MB';
-      }
-
-      const statBgm = document.getElementById('stat-default-bgm');
-      if (statBgm) {
-        statBgm.textContent = defaultTrack ? defaultTrack.title : (tracks.length > 0 ? tracks[0].title : 'None configured');
-      }
-
-      if (tracks.length === 0) {
-        grid.innerHTML = `
-          <div class="col-span-full py-12 px-6 rounded-2xl bg-surface-container-low border border-dashed border-purple-900/40 text-center flex flex-col items-center justify-center gap-3">
-            <span class="material-symbols-outlined text-4xl text-purple-400/60">library_music</span>
-            <h3 class="text-base font-bold text-on-surface">No Audio Tracks Uploaded Yet</h3>
-            <p class="text-xs text-on-surface-variant max-w-sm">Upload background music tracks (MP3 or WAV) to power celebration soundtracks and custom audio greetings.</p>
-            <button onclick="toggleModal('upload-audio-modal')" class="mt-2 px-5 py-2.5 rounded-xl bg-primary text-white text-xs font-bold hover:brightness-110 active:scale-95 transition flex items-center gap-2 shadow-lg shadow-purple-600/30">
-              <span class="material-symbols-outlined text-sm">cloud_upload</span>
-              <span>Upload First Audio Track</span>
-            </button>
-          </div>
-        `;
-        return;
-      }
-
-      grid.innerHTML = tracks.map(t => `
-        <div class="p-4 rounded-xl bg-surface-container-low border ${t.isDefault ? 'border-primary shadow-lg shadow-primary/10' : 'border-purple-900/30'} flex flex-col justify-between gap-3 group hover:border-primary transition" data-id="${t.id}">
-          <div class="flex items-start justify-between gap-3">
-            <div class="flex items-center gap-3 min-w-0">
-              <button onclick="togglePlayTrack('${t.id}', '${t.url}', '${t.title.replace(/'/g, "\\'")}', this)" class="w-10 h-10 rounded-full ${t.isDefault ? 'bg-primary' : 'bg-primary-container'} text-white flex items-center justify-center shadow-md hover:scale-105 active:scale-95 transition flex-shrink-0">
-                <span class="material-symbols-outlined text-lg">play_arrow</span>
-              </button>
-              <div class="min-w-0">
-                <span class="font-bold text-sm text-on-surface block truncate" title="${t.title}">${t.title}</span>
-                <span class="text-xs text-on-surface-variant truncate block">${t.genre || 'Celebration'} · ${t.duration || '2:30'} · ${t.fileSizeFormatted || 'Audio'}</span>
-              </div>
-            </div>
-            <div class="flex items-center gap-1.5 flex-shrink-0">
-              ${t.isDefault ? '<span class="px-2 py-0.5 rounded-full bg-emerald-500/20 text-emerald-300 font-label-sm text-[10px] font-bold">★ Default</span>' : ''}
-              <button onclick="deleteAudioTrack('${t.id}', '${t.title.replace(/'/g, "\\'")}')" class="p-1 rounded text-outline hover:text-rose-400 hover:bg-rose-500/10 transition" title="Delete Track">
-                <span class="material-symbols-outlined text-base">delete</span>
-              </button>
-            </div>
-          </div>
-          <div class="flex items-center justify-between pt-2 border-t border-purple-900/20 text-xs text-outline">
-            <span class="truncate">License: ${t.license || 'Royalty-Free'}</span>
-            ${!t.isDefault ? `
-              <button onclick="setDefaultAudioTrack('${t.id}', '${t.title.replace(/'/g, "\\'")}')" class="text-primary hover:text-secondary text-[11px] font-bold hover:underline">
-                Set as Default BGM
-              </button>
-            ` : `
-              <span class="text-emerald-400 font-semibold text-[11px]">Active Store Default</span>
-            `}
-          </div>
-        </div>
-      `).join('');
-
     } catch (e) {
-      console.error('Error loading audio tracks:', e);
-      grid.innerHTML = `<div class="col-span-full py-8 text-center text-xs text-rose-400">Failed to load audio catalog.</div>`;
+      playMagicSound('chime');
     }
   }
 
-  // --- Real Audio Upload Flow ---
-  async function saveNewAudioTrack() {
-    const titleInput = document.getElementById('new-track-title');
-    const genreInput = document.getElementById('new-track-genre');
-    const durationInput = document.getElementById('new-track-duration');
-    const licenseInput = document.getElementById('new-track-license');
-    const fileInput = document.getElementById('new-track-file');
-    const btnSubmit = document.getElementById('btn-submit-audio');
-
-    const title = titleInput.value.trim();
-    if (!title) {
-      alert('Please enter a track title');
-      return;
-    }
-
-    if (!fileInput.files || fileInput.files.length === 0) {
-      alert('Please select an audio file (MP3 or WAV)');
-      return;
-    }
-
-    const file = fileInput.files[0];
-    btnSubmit.disabled = true;
-    btnSubmit.innerHTML = `<span class="material-symbols-outlined text-sm animate-spin">refresh</span><span>Uploading...</span>`;
-
-    try {
-      const reader = new FileReader();
-      reader.onload = async (e) => {
-        try {
-          const fileData = e.target.result;
-          const res = await fetch('/api/media/upload', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({
-              title,
-              genre: genreInput.value,
-              duration: durationInput.value.trim() || '2:30',
-              license: licenseInput.value,
-              filename: file.name,
-              fileData
-            })
-          });
-
-          const data = await res.json();
-          if (data.success) {
-            toggleModal('upload-audio-modal');
-            titleInput.value = '';
-            durationInput.value = '';
-            fileInput.value = '';
-            showToast(`🎵 Audio "${title}" uploaded to library!`);
-            loadAudioCatalog();
-          } else {
-            alert('Upload failed: ' + (data.message || 'Unknown error'));
-          }
-        } catch (err) {
-          alert('Upload failed: ' + err.message);
-        } finally {
-          btnSubmit.disabled = false;
-          btnSubmit.innerHTML = `<span class="material-symbols-outlined text-sm">cloud_upload</span><span>Upload Track</span>`;
-        }
-      };
-      reader.onerror = () => {
-        alert('Failed to read file');
-        btnSubmit.disabled = false;
-        btnSubmit.innerHTML = `<span class="material-symbols-outlined text-sm">cloud_upload</span><span>Upload Track</span>`;
-      };
-      reader.readAsDataURL(file);
-    } catch (err) {
-      alert('Upload failed: ' + err.message);
-      btnSubmit.disabled = false;
-      btnSubmit.innerHTML = `<span class="material-symbols-outlined text-sm">cloud_upload</span><span>Upload Track</span>`;
-    }
-  }
-
-  async function setDefaultAudioTrack(id, title) {
-    try {
-      const res = await fetch(`/api/media/${id}/default`, { method: 'POST' });
-      const data = await res.json();
-      if (data.success) {
-        showToast(`★ "${title}" set as default celebration BGM!`);
-        loadAudioCatalog();
-      }
-    } catch (e) {
-      console.error(e);
-    }
-  }
-
-  async function deleteAudioTrack(id, title) {
-    if (!confirm(`Are you sure you want to remove audio track "${title}"?`)) return;
-    try {
-      if (activeAudio && activeTrackId === id) {
-        activeAudio.pause();
-        activeAudio = null;
-        activeTrackId = null;
-      }
-      const res = await fetch(`/api/media/${id}`, { method: 'DELETE' });
-      const data = await res.json();
-      if (data.success) {
-        showToast(`🗑 Audio "${title}" removed.`);
-        loadAudioCatalog();
-      }
-    } catch (e) {
-      console.error(e);
-    }
-  }
-
-  function filterAudioTracks() {
-    const q = document.getElementById('search-tracks').value.toLowerCase();
-    const cards = document.querySelectorAll('#audio-catalog-grid > div');
-    cards.forEach(c => {
-      const text = c.textContent.toLowerCase();
-      c.style.display = text.includes(q) ? '' : 'none';
-    });
-  }
-
-  // Load catalog on boot
   document.addEventListener('DOMContentLoaded', () => {
-    // Part 10 Authorization Guard: requireAuth() + requireAdmin()
-    if (window.WishAuth) {
-      const isAllowed = WishAuth.requireAdmin({ containerId: 'admin-main-content' });
-      if (!isAllowed) {
-        return; // Halt if unauthorized
-      }
-    }
-    loadAudioCatalog();
+    loadAllMedia();
   });
 </script>
 </body>

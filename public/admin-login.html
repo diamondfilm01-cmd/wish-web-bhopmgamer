@@ -18,6 +18,7 @@
     }
   </script>
   <link rel="stylesheet" href="/css/admin-theme.css"/>
+  <script src="/js/firebase-auth.js"></script>
   <style>
     body {
       background-color: #07040d !important;
@@ -67,20 +68,7 @@
           <span>WishMagic</span>
           <span class="bg-gradient-to-r from-purple-400 via-pink-400 to-amber-300 bg-clip-text text-transparent">Studio</span>
         </h1>
-        <p class="text-xs text-purple-200/70 font-medium mt-0.5">Firebase Authenticated Admin Gateway</p>
-      </div>
-
-      <!-- Secret Path Badge -->
-      <div class="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-purple-950/60 border border-purple-500/30 text-[11px] font-mono text-purple-300 shadow-inner">
-        <span class="w-2 h-2 rounded-full bg-emerald-400 animate-ping"></span>
-        <span class="material-symbols-outlined text-[13px] text-emerald-400">verified_user</span>
-        <span>/admin/anktech/anktech/admin</span>
-      </div>
-
-      <!-- Firebase Auth Badge -->
-      <div class="inline-flex items-center gap-1.5 px-3 py-1 rounded-xl bg-amber-500/10 border border-amber-500/20 text-amber-300 text-[11px] font-medium">
-        <span class="material-symbols-outlined text-sm text-amber-400">local_fire_department</span>
-        <span>Firebase Authentication Enabled (No OTP Required)</span>
+        <p class="text-xs text-purple-200/70 font-medium mt-0.5">Admin Security Gateway</p>
       </div>
     </div>
 
@@ -96,11 +84,11 @@
       <span id="info-message">Ready.</span>
     </div>
 
-    <!-- DIRECT FIREBASE EMAIL & PASSWORD LOGIN FORM -->
+    <!-- LOGIN FORM -->
     <form id="firebase-login-form" onsubmit="handleFirebaseLogin(event)" class="flex flex-col gap-4">
       <div>
         <label class="block text-xs font-semibold text-purple-200/80 uppercase tracking-wider mb-1.5">
-          Firebase Admin Email
+          Email Address
         </label>
         <div class="relative flex items-center">
           <span class="material-symbols-outlined absolute left-3.5 text-purple-400 text-lg">mail</span>
@@ -110,20 +98,15 @@
 
       <div>
         <label class="block text-xs font-semibold text-purple-200/80 uppercase tracking-wider mb-1.5">
-          Firebase Admin Password
+          Password
         </label>
         <div class="relative flex items-center">
           <span class="material-symbols-outlined absolute left-3.5 text-purple-400 text-lg">lock</span>
-          <input id="admin-password-input" type="password" required autocomplete="current-password" placeholder="Enter password created in Firebase" class="input-focus w-full pl-11 pr-11 py-3 rounded-xl bg-purple-950/40 border border-purple-500/30 text-white text-sm focus:outline-none placeholder-gray-500 transition-colors"/>
+          <input id="admin-password-input" type="password" required autocomplete="current-password" placeholder="Enter your password" class="input-focus w-full pl-11 pr-11 py-3 rounded-xl bg-purple-950/40 border border-purple-500/30 text-white text-sm focus:outline-none placeholder-gray-500 transition-colors"/>
           <button type="button" onclick="togglePasswordVisibility()" class="absolute right-3.5 text-purple-400 hover:text-white transition cursor-pointer" title="Toggle password view">
             <span id="pwd-toggle-icon" class="material-symbols-outlined text-lg">visibility</span>
           </button>
         </div>
-      </div>
-
-      <div class="p-3 rounded-xl bg-purple-950/30 border border-purple-900/40 text-[11px] text-purple-300/80 flex items-center gap-2">
-        <span class="material-symbols-outlined text-sm text-pink-400 shrink-0">security</span>
-        <span>Aapne jo email/password Firebase Console (Authentication &gt; Users) me banaya hai, usi se direct login hoga.</span>
       </div>
 
       <button type="submit" id="login-submit-btn" class="w-full py-3.5 px-4 rounded-xl bg-gradient-to-r from-purple-600 via-indigo-600 to-pink-600 hover:opacity-95 text-white font-bold text-sm tracking-wide shadow-[0_0_30px_rgba(147,51,234,0.4)] flex items-center justify-center gap-2 transition-all mt-1 cursor-pointer">
@@ -195,17 +178,47 @@
       btn.disabled = true;
       btn.innerHTML = '<span class="animate-spin material-symbols-outlined text-sm">progress_activity</span> Authenticating with Firebase...';
 
+      let firebaseIdToken = null;
+      let firebaseUid = null;
+
+      // 1. Try client-side Firebase Auth SDK first if available
+      if (window.WishFirebaseAuth && typeof window.WishFirebaseAuth.signInWithEmailPassword === 'function') {
+        try {
+          const user = await window.WishFirebaseAuth.signInWithEmailPassword(email, password);
+          if (user) {
+            firebaseUid = user.uid;
+            firebaseIdToken = await user.getIdToken();
+            console.log('[Firebase Admin] Client-side Firebase authentication successful for', email);
+          }
+        } catch (clientErr) {
+          console.warn('[Firebase Admin Client Auth Warning]:', clientErr.message);
+          // If it was explicitly incorrect password/credentials, show immediately
+          if (clientErr.message && (clientErr.message.includes('Incorrect') || clientErr.message.includes('password') || clientErr.message.includes('not found') || clientErr.message.includes('invalid-credential'))) {
+            showAlert(clientErr.message);
+            btn.disabled = false;
+            btn.innerHTML = '<span class="material-symbols-outlined text-lg">login</span> <span>Sign In to Admin Studio</span>';
+            return;
+          }
+        }
+      }
+
+      // 2. Authenticate & issue Authoritative Admin Session from server (also checks Firebase Identity Toolkit REST API)
       try {
         const res = await fetch('/api/admin/auth/verify-credentials', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           credentials: 'include',
-          body: JSON.stringify({ email, password })
+          body: JSON.stringify({ email, password, firebaseIdToken, firebaseUid })
         });
 
-        const data = await res.json();
+        let data = {};
+        try {
+          data = await res.json();
+        } catch (e) {
+          data = { success: false, error: { message: 'Authentication service connection error' } };
+        }
         if (!data.success) {
-          showAlert(data.error?.message || 'Firebase Authentication failed. Please check your credentials in Firebase Console.');
+          showAlert(data.error?.message || data.message || 'Incorrect email or password. Please verify and try again.');
           btn.disabled = false;
           btn.innerHTML = '<span class="material-symbols-outlined text-lg">login</span> <span>Sign In to Admin Studio</span>';
           return;

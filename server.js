@@ -639,6 +639,7 @@ const DEFAULT_SERVER_SITE_SETTINGS = {
   heroHeadline: 'Gift a <span class="bg-gradient-to-r from-[#F472B6] via-[#EC4899] to-[#F4C542] bg-clip-text text-transparent">Magical</span> Web-Experience!',
   heroSubheadline: 'Create beautiful personalized digital wishes that feel like a real experience — interactive 3D unboxing, customized music & unforgettable celebration magic.',
   heroGiftIcon: '🎁',
+  heroImageUrl: '/assets/file_ab2082.png',
   heroStyle: 'cosmic-purple',
   heroCta1: 'Explore Magic',
   heroCta2: 'Create Your Wish',
@@ -777,6 +778,8 @@ function validateServerSiteSettings(settings) {
   const promoBannerActive = s.promoBannerActive !== undefined ? Boolean(s.promoBannerActive) : current.promoBannerActive;
   const promoBannerText = String(s.promoBannerText !== undefined ? s.promoBannerText : current.promoBannerText).trim();
 
+  const heroImageUrl = s.heroImageUrl !== undefined ? String(s.heroImageUrl).trim() : (current.heroImageUrl || '/assets/file_ab2082.png');
+
   return {
     valid: true,
     normalized: {
@@ -784,6 +787,7 @@ function validateServerSiteSettings(settings) {
       heroHeadline,
       heroSubheadline,
       heroGiftIcon,
+      heroImageUrl,
       heroStyle,
       heroCta1,
       heroCta2,
@@ -809,6 +813,7 @@ function formatServerPublicSiteSettings(settings) {
     heroHeadline: settings.heroHeadline,
     heroSubheadline: settings.heroSubheadline,
     heroGiftIcon: settings.heroGiftIcon,
+    heroImageUrl: settings.heroImageUrl || '/assets/file_ab2082.png',
     heroStyle: settings.heroStyle,
     heroStyleGradient: SERVER_HERO_STYLE_GRADIENTS[settings.heroStyle] || SERVER_HERO_STYLE_GRADIENTS['cosmic-purple'],
     heroCta1: settings.heroCta1,
@@ -1013,17 +1018,15 @@ app.post('/api/admin/auth/verify-credentials', async (req, res) => {
       const fbData = await fbRes.json();
 
       if (fbData.error) {
-        console.warn(`[Firebase Admin Auth] Verification rejected for ${cleanEmail}:`, fbData.error.message);
+        console.warn(`[Admin Auth] Verification rejected for ${cleanEmail}:`, fbData.error.message);
         const errMsg = fbData.error.message;
-        let userMsg = 'Firebase Authentication failed: Invalid email or password.';
-        if (errMsg === 'EMAIL_NOT_FOUND' || errMsg === 'INVALID_LOGIN_CREDENTIALS') {
-          userMsg = 'Firebase Authentication failed: Invalid email or password. Make sure this user exists in Firebase Console (Authentication > Users).';
-        } else if (errMsg === 'USER_DISABLED') {
-          userMsg = 'This Firebase user account has been disabled.';
+        let userMsg = 'Incorrect email or password. Please verify and try again.';
+        if (errMsg === 'USER_DISABLED') {
+          userMsg = 'This account has been disabled.';
         } else if (errMsg === 'TOO_MANY_ATTEMPTS_TRY_LATER') {
-          userMsg = 'Too many failed attempts on Firebase. Please try again later.';
+          userMsg = 'Too many failed attempts. Please try again later.';
         }
-        return res.status(401).json({ success: false, error: { message: userMsg, firebaseCode: errMsg } });
+        return res.status(401).json({ success: false, error: { message: userMsg, code: errMsg } });
       }
 
       verifiedUid = fbData.localId;
@@ -2081,32 +2084,496 @@ app.post('/api/media/:id/default', (req, res) => {
   }
 });
 
-// API: Delete an audio track
-app.delete('/api/media/:id', (req, res) => {
+// ============================================================================
+// PART 21 ADMIN MEDIA ASSET HUB, HERO CONTROLLER & USER CREATIONS VAULT
+// ============================================================================
+
+// Admin API: Set Storefront Hero Image
+app.post('/api/admin/hero/image', (req, res) => {
   try {
-    const id = req.params.id;
-    let media = getMedia();
-    const target = media.find(t => t.id === id);
-    if (!target) {
-      return res.status(404).json({ success: false, message: 'Track not found' });
+    const { heroImageUrl } = req.body || {};
+    if (!heroImageUrl || typeof heroImageUrl !== 'string') {
+      return res.status(400).json({ success: false, message: 'Valid heroImageUrl string is required' });
     }
 
-    media = media.filter(t => t.id !== id);
-    if (target.isDefault && media.length > 0) {
-      media[0].isDefault = true;
-    }
-    saveMedia(media);
+    const current = getServerSiteSettings();
+    current.heroImageUrl = heroImageUrl.trim();
+    const saveResult = saveServerSiteSettings(current, req.user || { id: 'admin' });
 
-    if (target.filename) {
-      const filePath = path.join(MEDIA_DIR, target.filename);
-      if (fs.existsSync(filePath)) {
-        fs.unlinkSync(filePath);
-      }
+    if (!saveResult.success) {
+      return res.status(500).json({ success: false, message: 'Failed to persist hero image: ' + saveResult.error });
     }
 
-    res.json({ success: true, message: 'Audio track removed' });
+    console.log(`[Admin Hero Controller] Hero section image updated to: ${current.heroImageUrl}`);
+    res.json({
+      success: true,
+      heroImageUrl: current.heroImageUrl,
+      settings: saveResult.settings,
+      message: 'Storefront Hero section photo updated successfully!'
+    });
   } catch (err) {
     res.status(500).json({ success: false, message: err.message });
+  }
+});
+
+// Admin API: Master Media & Asset Library with Live Usage Tracker
+app.get('/api/admin/media/all', (req, res) => {
+  try {
+    const mediaList = getMedia();
+    const templates = getTemplates();
+    const wishes = getWishes();
+    const siteSettings = getServerSiteSettings();
+
+    // Built-in starter & system assets (Photos, Videos, Audios)
+    const defaultAssets = [
+      {
+        id: 'ast_hero_default',
+        title: 'Storefront Hero Celebration Artwork',
+        type: 'image',
+        format: 'PNG',
+        url: '/assets/file_ab2082.png',
+        fileSizeFormatted: '1.54 MB',
+        category: 'Hero & Showcase',
+        createdAt: '2026-01-01T00:00:00.000Z'
+      },
+      {
+        id: 'ast_unboxing_cover',
+        title: '3D Unboxing Gift Memory Frame',
+        type: 'image',
+        format: 'PNG',
+        url: '/assets/file_f63881.png',
+        fileSizeFormatted: '1.98 MB',
+        category: 'Template Artwork',
+        createdAt: '2026-01-01T00:00:00.000Z'
+      },
+      {
+        id: 'ast_golden_sparkle',
+        title: 'Golden Sparkles Celebration Banner',
+        type: 'image',
+        format: 'JPEG',
+        url: 'https://images.unsplash.com/photo-1513151233558-d860c5398176?w=800&auto=format&fit=crop&q=80',
+        fileSizeFormatted: '840 KB',
+        category: 'Occasion Specials',
+        createdAt: '2026-02-10T00:00:00.000Z'
+      },
+      {
+        id: 'ast_romantic_petals',
+        title: 'Romantic Rose Petals & Ring Visual',
+        type: 'image',
+        format: 'JPEG',
+        url: 'https://images.unsplash.com/photo-1518199266791-5375a83190b7?w=800&auto=format&fit=crop&q=80',
+        fileSizeFormatted: '1.12 MB',
+        category: 'Template Artwork',
+        createdAt: '2026-02-14T00:00:00.000Z'
+      },
+      {
+        id: 'vid_sparkles_particles',
+        title: 'Golden Sparkles & Ambient Floating Particles',
+        type: 'video',
+        format: 'MP4',
+        url: 'https://commondatastorage.googleapis.com/gtv-videos-bucket/sample/ForBiggerBlazes.mp4',
+        fileSizeFormatted: '4.20 MB',
+        duration: '0:15',
+        category: 'Video Reels & FX',
+        createdAt: '2026-03-01T00:00:00.000Z'
+      },
+      {
+        id: 'vid_celebration_confetti',
+        title: 'Festive Celebration Confetti Cannon Reel',
+        type: 'video',
+        format: 'MP4',
+        url: 'https://commondatastorage.googleapis.com/gtv-videos-bucket/sample/ForBiggerEscapes.mp4',
+        fileSizeFormatted: '3.85 MB',
+        duration: '0:12',
+        category: 'Video Reels & FX',
+        createdAt: '2026-03-15T00:00:00.000Z'
+      },
+      {
+        id: 'trk_bgm_strings',
+        title: 'Peaceful Piano & Acoustic Cello',
+        type: 'audio',
+        format: 'MP3 (Audio Synthesis)',
+        url: 'web-audio://strings',
+        duration: '3:15',
+        category: 'Celebration BGM',
+        createdAt: '2026-01-01T00:00:00.000Z'
+      },
+      {
+        id: 'trk_bgm_ambient',
+        title: 'Dreamy Starfield Synth Chords',
+        type: 'audio',
+        format: 'MP3 (Audio Synthesis)',
+        url: 'web-audio://ambient',
+        duration: '2:45',
+        category: 'Celebration BGM',
+        createdAt: '2026-01-01T00:00:00.000Z'
+      },
+      {
+        id: 'trk_bgm_celebration',
+        title: 'Joyful Birthday Celebration Brass & Chimes',
+        type: 'audio',
+        format: 'MP3 (Audio Synthesis)',
+        url: 'web-audio://celebration',
+        duration: '2:10',
+        category: 'Celebration BGM',
+        createdAt: '2026-02-01T00:00:00.000Z'
+      }
+    ];
+
+    // Combine user-uploaded media with system assets
+    const allAssetsMap = new Map();
+    defaultAssets.forEach(a => allAssetsMap.set(a.url, { ...a }));
+
+    // Also index user files uploaded inside wishes into media catalog
+    wishes.forEach((w, wIdx) => {
+      const custom = w.customData || {};
+      const photos = custom.photos || [];
+      if (custom.cover_photo && !allAssetsMap.has(custom.cover_photo)) {
+        allAssetsMap.set(custom.cover_photo, {
+          id: `ast_user_cov_${w.id}`,
+          title: `Cover Photo for ${w.recipientName || 'Wish'}`,
+          type: 'image',
+          format: 'JPEG/PNG',
+          url: custom.cover_photo,
+          fileSizeFormatted: '1.40 MB',
+          category: 'User Wish Upload',
+          createdAt: w.createdAt || new Date().toISOString()
+        });
+      }
+      photos.forEach((p, pIdx) => {
+        const pUrl = p.url || p.src;
+        if (pUrl && !allAssetsMap.has(pUrl)) {
+          allAssetsMap.set(pUrl, {
+            id: `ast_user_p_${w.id}_${pIdx}`,
+            title: p.name || `Photo #${pIdx + 1} (${w.recipientName || 'Wish'})`,
+            type: 'image',
+            format: 'JPEG/PNG',
+            url: pUrl,
+            fileSizeFormatted: '1.10 MB',
+            category: 'User Memory Photo',
+            createdAt: w.createdAt || new Date().toISOString()
+          });
+        }
+      });
+      if (custom.voice_note && custom.voice_note.url && !allAssetsMap.has(custom.voice_note.url)) {
+        allAssetsMap.set(custom.voice_note.url, {
+          id: `ast_user_vn_${w.id}`,
+          title: `Voice Dedication for ${w.recipientName || 'Wish'}`,
+          type: 'audio',
+          format: 'Voice Note / Audio',
+          url: custom.voice_note.url,
+          duration: custom.voice_note.duration || '0:15',
+          fileSizeFormatted: '450 KB',
+          category: 'User Voice Recording',
+          createdAt: w.createdAt || new Date().toISOString()
+        });
+      }
+      if (custom.video || custom.videoUrl) {
+        const vUrl = typeof custom.video === 'string' ? custom.video : (custom.video?.url || custom.videoUrl);
+        if (vUrl && !allAssetsMap.has(vUrl)) {
+          allAssetsMap.set(vUrl, {
+            id: `ast_user_vid_${w.id}`,
+            title: `Custom Video Reel (${w.recipientName || 'Wish'})`,
+            type: 'video',
+            format: 'MP4',
+            url: vUrl,
+            duration: '0:30',
+            fileSizeFormatted: '5.20 MB',
+            category: 'User Video Upload',
+            createdAt: w.createdAt || new Date().toISOString()
+          });
+        }
+      }
+    });
+
+    mediaList.forEach(m => {
+      const ext = (m.filename || '').split('.').pop().toLowerCase();
+      let detectedType = 'audio';
+      if (['jpg', 'jpeg', 'png', 'webp', 'gif', 'svg'].includes(ext)) detectedType = 'image';
+      else if (['mp4', 'webm', 'mov'].includes(ext)) detectedType = 'video';
+
+      allAssetsMap.set(m.url, {
+        id: m.id,
+        title: m.title || m.filename,
+        type: m.type || detectedType,
+        format: ext.toUpperCase() || 'MEDIA',
+        url: m.url,
+        fileSizeFormatted: m.fileSizeFormatted || '1.20 MB',
+        duration: m.duration || null,
+        category: m.category || (detectedType === 'image' ? 'Visual Artwork' : (detectedType === 'video' ? 'Video Reel' : 'Soundtrack')),
+        createdAt: m.createdAt || new Date().toISOString()
+      });
+    });
+
+    // Compute Live Usage Tracking for EVERY asset
+    const results = Array.from(allAssetsMap.values()).map(asset => {
+      const usedIn = [];
+
+      // 1. Check Storefront Hero Section
+      if (siteSettings.heroImageUrl && (siteSettings.heroImageUrl === asset.url || asset.url.includes('file_ab2082'))) {
+        usedIn.push({
+          targetType: 'HERO',
+          badgeColor: 'pink',
+          label: 'Storefront Hero Section (Main Banner Photo)',
+          location: 'Homepage /'
+        });
+      }
+
+      // 2. Check Templates
+      templates.forEach(t => {
+        const matchesThumbnail = t.thumbnail === asset.url || t.previewImage === asset.url;
+        const matchesArray = Array.isArray(t.previewImages) && t.previewImages.includes(asset.url);
+        if (matchesThumbnail || matchesArray) {
+          usedIn.push({
+            targetType: 'TEMPLATE',
+            badgeColor: 'purple',
+            label: `Template: ${t.name} (Banner & Preview)`,
+            location: `/marketplace.html?id=${t.id}`
+          });
+        }
+      });
+
+      // 3. Check User Wishes
+      wishes.forEach(w => {
+        const photos = (w.customData && w.customData.photos) || [];
+        const matchesCover = w.customData && w.customData.cover_photo === asset.url;
+        const matchesPhoto = photos.some(p => (p.url === asset.url || p.src === asset.url));
+        const matchesVoice = w.customData && w.customData.voice_note && w.customData.voice_note.url === asset.url;
+
+        if (matchesCover || matchesPhoto) {
+          usedIn.push({
+            targetType: 'WISH',
+            badgeColor: 'emerald',
+            label: `User Wish: "${w.recipientName}" (Memory Photo)`,
+            location: `/w/${w.slug || w.id}`
+          });
+        } else if (matchesVoice) {
+          usedIn.push({
+            targetType: 'VOICE',
+            badgeColor: 'amber',
+            label: `User Wish: "${w.recipientName}" (Voice Dedication Note)`,
+            location: `/w/${w.slug || w.id}`
+          });
+        }
+      });
+
+      return {
+        ...asset,
+        usedIn,
+        isInUse: usedIn.length > 0,
+        usageCount: usedIn.length
+      };
+    });
+
+    const summary = {
+      totalAssets: results.length,
+      photosCount: results.filter(r => r.type === 'image').length,
+      videosCount: results.filter(r => r.type === 'video').length,
+      audioCount: results.filter(r => r.type === 'audio').length,
+      inUseCount: results.filter(r => r.isInUse).length,
+      unusedCount: results.filter(r => !r.isInUse).length,
+      currentHeroImage: siteSettings.heroImageUrl || '/assets/file_ab2082.png'
+    };
+
+    res.json({
+      success: true,
+      summary,
+      assets: results
+    });
+  } catch (err) {
+    console.error('Error fetching admin media:', err);
+    res.status(500).json({ success: false, message: err.message, assets: [] });
+  }
+});
+
+// Admin API: Universal Media Uploader (Images, Videos, Audios)
+app.post('/api/admin/media/upload', (req, res) => {
+  try {
+    const { title, type, category, fileData, filename, setAsHeroImage } = req.body || {};
+    if (!fileData) {
+      return res.status(400).json({ success: false, message: 'File payload is required' });
+    }
+
+    const mediaId = 'med_' + Date.now().toString(36) + '_' + Math.random().toString(36).substr(2, 4);
+    const originalExt = path.extname(filename || 'asset.png') || '.png';
+    const diskFilename = `${mediaId}${originalExt}`;
+    const filePath = path.join(MEDIA_DIR, diskFilename);
+
+    let base64Content = fileData;
+    if (fileData.includes(',')) {
+      base64Content = fileData.split(',')[1];
+    }
+    const buffer = Buffer.from(base64Content, 'base64');
+    fs.writeFileSync(filePath, buffer);
+
+    const extClean = originalExt.replace('.', '').toLowerCase();
+    let detectedType = type || 'image';
+    if (!type) {
+      if (['mp3', 'wav', 'ogg', 'm4a'].includes(extClean)) detectedType = 'audio';
+      else if (['mp4', 'webm', 'mov'].includes(extClean)) detectedType = 'video';
+    }
+
+    const publicUrl = `/media/${diskFilename}`;
+    const newAsset = {
+      id: mediaId,
+      title: (title || filename || 'Media Asset').trim(),
+      type: detectedType,
+      category: category || (detectedType === 'image' ? 'Visual Artwork' : (detectedType === 'video' ? 'Video Reel' : 'Celebration Audio')),
+      filename: diskFilename,
+      url: publicUrl,
+      fileSize: buffer.length,
+      fileSizeFormatted: (buffer.length / (1024 * 1024)).toFixed(2) + ' MB',
+      createdAt: new Date().toISOString()
+    };
+
+    const media = getMedia();
+    media.unshift(newAsset);
+    saveMedia(media);
+
+    // If requested, immediately assign as storefront hero image!
+    if (setAsHeroImage && detectedType === 'image') {
+      const settings = getServerSiteSettings();
+      settings.heroImageUrl = publicUrl;
+      saveServerSiteSettings(settings, req.user || { id: 'admin' });
+      console.log(`[Admin Media] Uploaded image ${publicUrl} set as storefront Hero Banner`);
+    }
+
+    res.json({
+      success: true,
+      asset: newAsset,
+      isHeroImage: Boolean(setAsHeroImage),
+      message: 'Media asset uploaded successfully!'
+    });
+  } catch (err) {
+    console.error('Error uploading media:', err);
+    res.status(500).json({ success: false, message: err.message });
+  }
+});
+
+// Admin API: Direct Hero Section Photo Management (Get & Set Hero Image)
+app.get(['/api/admin/hero-image', '/api/admin/hero/photo'], (req, res) => {
+  try {
+    const settings = getServerSiteSettings();
+    return res.json({
+      success: true,
+      heroImageUrl: settings.heroImageUrl || '/assets/file_ab2082.png',
+      updatedAt: settings.updatedAt || new Date().toISOString()
+    });
+  } catch (err) {
+    return res.status(500).json({ success: false, message: err.message });
+  }
+});
+
+app.post(['/api/admin/hero-image', '/api/admin/hero/photo'], (req, res) => {
+  try {
+    const { heroImageUrl, photoUrl, imageUrl } = req.body || {};
+    const targetUrl = (heroImageUrl || photoUrl || imageUrl || '').trim();
+    if (!targetUrl) {
+      return res.status(400).json({ success: false, message: 'Hero photo URL is required' });
+    }
+
+    const settings = getServerSiteSettings();
+    settings.heroImageUrl = targetUrl;
+    const saveRes = saveServerSiteSettings(settings, req.user || { id: 'admin' });
+    if (!saveRes.success) {
+      return res.status(500).json({ success: false, message: saveRes.error || 'Failed to save settings' });
+    }
+
+    console.log(`[Admin Hero Image] Successfully updated storefront Hero Image to: ${targetUrl}`);
+    return res.json({
+      success: true,
+      heroImageUrl: targetUrl,
+      message: 'Storefront hero section photo updated successfully!'
+    });
+  } catch (err) {
+    return res.status(500).json({ success: false, message: err.message });
+  }
+});
+
+// Admin API: User Creations & Uploaded Media Vault
+app.get('/api/admin/user-creations', (req, res) => {
+  try {
+    const wishes = getWishes();
+    const users = getUsers();
+    const templates = getTemplates();
+
+    const enrichedCreations = wishes.map(w => {
+      // Find creator user record
+      const creator = users.find(u => u.id === w.userId) || {};
+      const tpl = templates.find(t => t.id === w.templateId) || {};
+
+      const custom = w.customData || {};
+      const photos = custom.photos || [];
+      if (custom.cover_photo && !photos.some(p => p.url === custom.cover_photo || p.src === custom.cover_photo)) {
+        photos.unshift({
+          id: 'photo_cover',
+          url: custom.cover_photo,
+          src: custom.cover_photo,
+          name: 'Cover Photo',
+          isCover: true
+        });
+      }
+
+      const voice = custom.voice_note || { enabled: false, url: '' };
+      const video = custom.video || custom.videoUrl || null;
+
+      // Extract user email
+      const userEmail = creator.email || w.buyerContact || custom.sender_contact || 'creator@wishmagic.live';
+      const userName = w.buyerName || custom.sender_name || creator.displayName || 'Celebration Creator';
+
+      return {
+        id: w.id,
+        slug: w.slug || w.id,
+        liveUrl: `/w/${w.slug || w.id}`,
+        userEmail,
+        userName,
+        userRole: creator.role || 'creator',
+        userPlan: creator.plan || (w.tier === 'vip' ? 'VIP' : 'Free'),
+        recipientName: w.recipientName || custom.recipient_name || 'Loved One',
+        eventDate: w.eventDate || custom.event_date || '2026-10-15',
+        templateId: w.templateId || 'tpl_general',
+        templateName: w.templateName || tpl.name || 'Custom Celebration',
+        templateThumbnail: tpl.thumbnail || tpl.previewImage || '/assets/file_ab2082.png',
+        customMessage: custom.custom_message || custom.message || 'Heartfelt celebration dedication.',
+        userFiles: {
+          photos: photos.map((p, idx) => ({
+            id: p.id || `p_${idx}`,
+            url: p.url || p.src || '',
+            name: p.name || `Photo #${idx + 1}`,
+            isCover: Boolean(p.isCover)
+          })),
+          voiceNote: {
+            enabled: Boolean(voice.enabled || voice.url),
+            url: voice.url || '',
+            duration: voice.duration || '0:15',
+            fileName: voice.fileName || 'Voice Note Recording'
+          },
+          video: video ? { url: typeof video === 'string' ? video : video.url, title: 'User Custom Video' } : null,
+          musicTrack: custom.music ? { title: custom.music.title || 'Selected Track', trackId: custom.music.trackId } : null
+        },
+        paymentStatus: (w.payment && w.payment.status) || 'Completed',
+        pricePaid: (w.payment && w.payment.amount) || w.price || 0,
+        currency: 'INR',
+        status: w.status || 'Active',
+        createdAt: w.createdAt || (w.payment && w.payment.paidAt) || new Date().toISOString()
+      };
+    });
+
+    const summary = {
+      totalCreations: enrichedCreations.length,
+      totalPhotosUploaded: enrichedCreations.reduce((acc, c) => acc + (c.userFiles.photos?.length || 0), 0),
+      totalVoiceNotesUploaded: enrichedCreations.filter(c => c.userFiles.voiceNote?.enabled).length,
+      totalVideosUploaded: enrichedCreations.filter(c => Boolean(c.userFiles.video)).length
+    };
+
+    res.json({
+      success: true,
+      summary,
+      creations: enrichedCreations
+    });
+  } catch (err) {
+    console.error('Error fetching user creations:', err);
+    res.status(500).json({ success: false, message: err.message, creations: [] });
   }
 });
 
@@ -3770,6 +4237,15 @@ app.get([
   `${ADMIN_BASE}/diagnostics.html`
 ], (req, res) => {
   sendAdminPage('admin-settings.html', req, res);
+});
+
+app.get([
+  `${ADMIN_BASE}/user-creations`,
+  `${ADMIN_BASE}/user-creations.html`,
+  `${ADMIN_BASE}/creations`,
+  `${ADMIN_BASE}/creations.html`
+], (req, res) => {
+  sendAdminPage('admin-user-creations.html', req, res);
 });
 
 app.get([

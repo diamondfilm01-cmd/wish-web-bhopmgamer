@@ -431,30 +431,21 @@
 <span class="block text-[9px] font-extrabold uppercase tracking-wider text-purple-600">Spread Joy</span>
 <span class="font-serifAccent text-xs font-bold italic text-pink-600 leading-tight">Create Magic</span>
 </div>
-<!-- 3D Gift Box Centerpiece -->
-<div class="relative w-40 h-40 sm:w-44 sm:h-44 flex items-center justify-center">
+<!-- 3D Gift Box & Hero Showcase Centerpiece (Controlled by Admin) -->
+<div class="relative w-44 h-44 sm:w-52 sm:h-52 flex items-center justify-center">
 <!-- Glowing Golden Light Rays Bursting Upward -->
-<div class="absolute -top-8 inset-x-2 h-32 bg-gradient-to-t from-amber-400/30 via-yellow-200/20 to-transparent rounded-full filter blur-lg transform scale-110"></div>
-<!-- Main Gift Box Visual Representation -->
-<div class="relative z-10 w-36 h-36 sm:w-40 sm:h-40 bg-gradient-to-br from-pink-500 via-purple-700 to-purple-950 rounded-2xl p-3 shadow-xl border-2 border-pink-400/50 flex flex-col items-center justify-center text-center transform hover:rotate-1 hover:scale-105 transition duration-500">
-<!-- Surprise Inside Floating Pill -->
-<div class="py-0.5 px-2.5 bg-gradient-to-r from-amber-300 via-yellow-400 to-amber-500 rounded-full mb-1.5 shadow-sm flex items-center justify-center gap-1">
-<span class="w-1.5 h-1.5 rounded-full bg-red-600 animate-ping"></span>
-<span class="text-[9px] font-black text-amber-950 uppercase tracking-wider">Surprise Inside 🎁</span>
-</div>
-<!-- 3D Gift Icon with glowing burst -->
-<div id="hero-gift-icon-display" class="text-3xl my-0.5 filter drop-shadow-[0_0_15px_rgba(251,191,36,0.9)] animate-bounce">
-  🎁
-</div>
-<!-- Equalizer / Interactive Preview Badge -->
-<div class="text-[10px] font-bold text-pink-100 mt-1 px-2 py-0.5 rounded-full bg-white/15 backdrop-blur-md border border-white/20 flex items-center gap-1.5">
-<span class="flex items-end gap-0.5 h-2.5">
-<span class="w-0.5 bg-pink-300 h-1.5 animate-pulse"></span>
-<span class="w-0.5 bg-amber-300 h-2.5 animate-pulse"></span>
-<span class="w-0.5 bg-purple-300 h-1 animate-pulse"></span>
-</span>
-<span>Music &amp; Confetti</span>
-</div>
+<div class="absolute -top-8 inset-x-2 h-36 bg-gradient-to-t from-amber-400/30 via-yellow-200/20 to-transparent rounded-full filter blur-lg transform scale-110"></div>
+<!-- Main Showcase Box with Admin Configured Photo -->
+<div id="hero-photo-container" class="relative z-10 w-40 h-40 sm:w-48 sm:h-48 rounded-2xl overflow-hidden p-1 bg-gradient-to-tr from-pink-500 via-purple-700 to-amber-400 shadow-[0_0_40px_rgba(236,72,153,0.4)] flex flex-col items-center justify-center text-center transform hover:rotate-1 hover:scale-105 transition duration-500">
+  <img id="hero-showcase-image" src="/assets/file_ab2082.png" alt="Celebration Experience Artwork" class="w-full h-full object-cover rounded-xl" onerror="this.onerror=null;this.src='/assets/file_ab2082.png';"/>
+  <!-- Floating Bottom Glass Pill -->
+  <div class="absolute bottom-2 inset-x-2 py-1 px-2 rounded-lg bg-black/65 backdrop-blur-md border border-white/20 flex items-center justify-between text-[10px] text-white">
+    <div class="flex items-center gap-1.5 font-bold">
+      <span class="w-2 h-2 rounded-full bg-pink-400 animate-pulse"></span>
+      <span id="hero-gift-icon-display" class="text-sm">🎁</span>
+      <span class="text-[9px] uppercase tracking-wider text-pink-200 font-extrabold">Surprise Inside</span>
+    </div>
+  </div>
 </div>
 <!-- Ribbons & Confetti Around Base -->
 <div class="absolute -bottom-1 -left-2 text-2xl">🎀</div>
@@ -1523,10 +1514,15 @@
           if (el) el.textContent = s.heroSubheadline;
         }
 
-        // 4. Hero Gift Icon
+        // 4. Hero Gift Icon & Custom Photo
         if (s.heroGiftIcon) {
           const el = document.getElementById('hero-gift-icon-display');
           if (el) el.textContent = s.heroGiftIcon;
+        }
+
+        if (s.heroImageUrl) {
+          const imgEl = document.getElementById('hero-showcase-image');
+          if (imgEl) imgEl.src = s.heroImageUrl;
         }
 
         // 5. Hero Gradient / Style

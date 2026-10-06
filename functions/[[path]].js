@@ -18,6 +18,7 @@ const ADMIN_ROUTES_MAP = {
   '/admin/anktech/anktech/admin/media': '/admin-media.html',
   '/admin/anktech/anktech/admin/pricing': '/admin-pricing.html',
   '/admin/anktech/anktech/admin/settings': '/admin-settings.html',
+  '/admin/anktech/anktech/admin/user-creations': '/admin-user-creations.html',
   '/admin/anktech/anktech/admin/staff': '/admin-staff.html'
 };
 
@@ -36,7 +37,8 @@ export async function onRequest(context) {
   if (pathname.startsWith('/admin/anktech/anktech/admin')) {
     const cookieHeader = context.request.headers.get('Cookie') || '';
     const match = cookieHeader.match(/wm_session=([^;]+)/);
-    const sessionToken = match ? decodeURIComponent(match[1]) : null;
+    const queryAuth = url.searchParams.get('auth') || url.searchParams.get('token');
+    const sessionToken = queryAuth || (match ? decodeURIComponent(match[1]) : null);
 
     let isAuthenticatedAdmin = false;
     if (sessionToken && context.env.DB && typeof context.env.DB.prepare === 'function') {
