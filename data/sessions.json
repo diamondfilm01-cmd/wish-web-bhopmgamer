@@ -47,5 +47,19 @@
     "token": "wm_tok_muwj5lfm_wanarhqb",
     "expiresAt": 1793874171586,
     "createdAt": "2026-10-06T10:22:51.586Z"
+  },
+  {
+    "id": "sess_adm_muwkubrf",
+    "userId": "usr_admin_999",
+    "token": "wm_tok_admin_muwkubrf_kjc3a9r0x6",
+    "expiresAt": 1793877005067,
+    "createdAt": "2026-10-06T11:10:05.067Z"
+  },
+  {
+    "id": "sess_adm_muwkuftm",
+    "userId": "usr_admin_owner",
+    "token": "wm_tok_admin_muwkuftm_kadvho2iqf",
+    "expiresAt": 1793877010330,
+    "createdAt": "2026-10-06T11:10:10.330Z"
   }
 ]

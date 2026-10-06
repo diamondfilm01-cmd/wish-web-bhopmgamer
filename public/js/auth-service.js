@@ -559,7 +559,7 @@
   };
 
   // ---------------------------------------------------------------------------
-  // NAVBAR AUTH STATE RENDERER
+  // NAVBAR AUTH STATE RENDERER (Clean Sign In only, no sign-up button)
   // ---------------------------------------------------------------------------
   function renderNavbarAuthState() {
     const user = WishAuth.getCurrentUser();
@@ -569,12 +569,9 @@
       if (!user) {
         container.innerHTML = `
           <div class="flex items-center gap-1.5 sm:gap-2">
-            <button onclick="window.openAuthModal('signin')" class="px-2.5 sm:px-3.5 py-1 sm:py-1.5 rounded-full text-[11px] sm:text-xs font-bold text-purple-900 dark:text-purple-200 hover:bg-purple-100 dark:hover:bg-purple-900/60 transition cursor-pointer">
-              Sign In
-            </button>
-            <button onclick="window.openAuthModal('signup')" class="px-2.5 sm:px-3.5 py-1 sm:py-1.5 rounded-full text-[11px] sm:text-xs font-bold bg-gradient-to-r from-pink-500 to-purple-600 text-white hover:brightness-110 shadow-sm transition cursor-pointer flex items-center gap-1">
-              <span>Sign Up</span>
-              <span class="text-[10px]">✨</span>
+            <button onclick="window.openAuthModal()" class="px-3.5 sm:px-4 py-1.5 rounded-full text-xs sm:text-sm font-bold text-white bg-gradient-to-r from-[#EC4899] to-[#7C3AED] hover:brightness-110 shadow-sm hover:shadow-md hover:scale-105 active:scale-95 transition-all flex items-center gap-1.5 cursor-pointer whitespace-nowrap">
+              <span class="material-symbols-outlined text-[16px]">account_circle</span>
+              <span>Sign In</span>
             </button>
           </div>
         `;
@@ -619,7 +616,7 @@
                   <span>Account Settings</span>
                 </a>
                 ${(user.role === 'admin' || user.isAdmin === true) ? `
-                  <a href="/admin/anktech/anktech/admin" class="px-3 py-2 rounded-xl text-xs font-bold text-pink-400 hover:bg-pink-950/40 flex items-center gap-2 transition">
+                  <a href="/admin/anktech/anktech/admin/overview" class="px-3 py-2 rounded-xl text-xs font-bold text-pink-400 hover:bg-pink-950/40 flex items-center gap-2 transition">
                     <span class="material-symbols-outlined text-[16px] text-pink-500">admin_panel_settings</span>
                     <span>Admin Portal</span>
                   </a>
@@ -664,12 +661,9 @@
   });
 
   // ---------------------------------------------------------------------------
-  // UNIVERSAL AUTH MODAL (FIREBASE EMAIL/PASSWORD + GOOGLE SIGN-IN)
+  // UNIVERSAL GOOGLE AUTH MODAL (100% PURE 1-TAP GOOGLE SIGN-IN)
   // ---------------------------------------------------------------------------
-  let currentAuthModalMode = 'signin'; // 'signin' | 'signup' | 'reset'
-
-  function showUniversalAuthModal(mode = 'signin', promptMessage = null) {
-    currentAuthModalMode = (mode === 'signup' || mode === 'reset') ? mode : 'signin';
+  function showUniversalAuthModal(promptMessage = null) {
     let modal = document.getElementById('wishmagic-universal-auth-modal');
     if (!modal) {
       modal = document.createElement('div');
@@ -678,7 +672,7 @@
       document.body.appendChild(modal);
     }
 
-    renderAuthModalContent(promptMessage, currentAuthModalMode);
+    renderAuthModalContent(promptMessage);
     modal.classList.remove('hidden');
     modal.classList.add('flex');
     document.body.classList.add('overflow-hidden');
@@ -688,26 +682,12 @@
   window._openWishAuthModal = showUniversalAuthModal;
   WishAuth.openAuthModal = showUniversalAuthModal;
 
-  window.switchAuthModalTab = function(mode) {
-    currentAuthModalMode = mode;
-    renderAuthModalContent(null, mode);
-  };
-
-  function renderAuthModalContent(promptMessage = null, mode = 'signin') {
+  function renderAuthModalContent(promptMessage = null) {
     const modal = document.getElementById('wishmagic-universal-auth-modal');
     if (!modal) return;
 
-    const isSignUp = (mode === 'signup');
-    const isReset = (mode === 'reset');
-    const titleText = isReset ? 'Reset Password 🔑' : (isSignUp ? 'Create Free Account ✨' : 'Welcome Back ✨');
-    const subText = promptMessage || (isReset
-      ? 'Enter your registered email to receive an official password reset link.'
-      : (isSignUp
-        ? 'Sign up with your email or Google to create, customize, and publish magical websites.'
-        : 'Sign in to access your saved celebration wishes, drafts, and memories.'));
-
     modal.innerHTML = `
-      <div class="bg-white dark:bg-[#150927] rounded-3xl max-w-sm sm:max-w-md w-full p-6 sm:p-7 shadow-2xl relative border border-purple-200/80 dark:border-purple-800 text-center animate-scaleUp overflow-hidden max-h-[92vh] flex flex-col">
+      <div class="bg-white dark:bg-[#150927] rounded-3xl max-w-sm w-full p-6 sm:p-7 shadow-2xl relative border border-purple-200/80 dark:border-purple-800 text-center animate-scaleUp overflow-hidden flex flex-col">
         <!-- Close Button -->
         <button class="absolute top-4 right-4 w-8 h-8 rounded-full bg-purple-100 dark:bg-purple-900/70 text-purple-700 dark:text-purple-300 hover:text-black dark:hover:text-white flex items-center justify-center font-bold transition cursor-pointer z-10" onclick="closeAuthModal()" aria-label="Close">
           ✕
@@ -715,176 +695,41 @@
 
         <div class="overflow-y-auto pr-1">
           <!-- Header Icon & Title -->
-          <div class="w-12 h-12 rounded-2xl bg-gradient-to-tr from-pink-500 via-purple-600 to-amber-300 text-white flex items-center justify-center mx-auto text-xl mb-2.5 shadow-lg shadow-pink-500/25">
+          <div class="w-14 h-14 rounded-2xl bg-gradient-to-tr from-pink-500 via-purple-600 to-amber-300 text-white flex items-center justify-center mx-auto text-2xl mb-3 shadow-lg shadow-pink-500/25">
             🪄
           </div>
 
-          <h3 class="font-display font-extrabold text-xl sm:text-2xl text-purple-950 dark:text-white">${titleText}</h3>
-          <p class="text-xs text-purple-800/80 dark:text-purple-300/80 mt-1 mb-4 leading-relaxed">${subText}</p>
+          <h3 class="font-display font-extrabold text-xl sm:text-2xl text-purple-950 dark:text-white">Sign In to WishMagic</h3>
+          <p class="text-xs text-purple-800/80 dark:text-purple-300/80 mt-1 mb-5 leading-relaxed">
+            ${promptMessage || 'Continue with your Google account to create, publish, and save your magical celebration websites.'}
+          </p>
 
-          ${!isReset ? `
-            <!-- Mode Switcher Tabs (Sign In / Sign Up) -->
-            <div class="flex items-center p-1 bg-purple-100/80 dark:bg-purple-950/90 rounded-2xl mb-4 border border-purple-200 dark:border-purple-800/60">
-              <button type="button" onclick="switchAuthModalTab('signin')" class="flex-1 py-2 text-xs font-bold rounded-xl transition-all ${!isSignUp ? 'bg-white dark:bg-purple-800 text-purple-950 dark:text-white shadow-sm' : 'text-purple-700 dark:text-purple-300 hover:text-purple-950 dark:hover:text-white'}">
-                Sign In
-              </button>
-              <button type="button" onclick="switchAuthModalTab('signup')" class="flex-1 py-2 text-xs font-bold rounded-xl transition-all ${isSignUp ? 'bg-gradient-to-r from-pink-500 to-purple-600 text-white shadow-sm' : 'text-purple-700 dark:text-purple-300 hover:text-purple-950 dark:hover:text-white'}">
-                Create Account ✨
-              </button>
-            </div>
-
-            <!-- Google Continue Button (1-Tap Auth) -->
-            <div class="mb-3.5">
-              <button type="button" id="auth-google-btn" onclick="handleGoogleSignInClick()" class="w-full py-2.5 px-4 rounded-xl bg-white dark:bg-purple-950/70 hover:bg-purple-50 dark:hover:bg-purple-900/60 border border-purple-200 dark:border-purple-700/80 text-xs font-bold text-gray-800 dark:text-white flex items-center justify-center gap-2.5 transition-all shadow-xs hover:shadow-md cursor-pointer">
-                <svg class="w-4 h-4 flex-shrink-0" viewBox="0 0 24 24">
-                  <path fill="#4285F4" d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z"/>
-                  <path fill="#34A853" d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z"/>
-                  <path fill="#FBBC05" d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.06H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.94l2.85-2.22.81-.63z"/>
-                  <path fill="#EA4335" d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.06l3.66 2.84c.87-2.6 3.3-4.52 6.16-4.52z"/>
-                </svg>
-                <span id="auth-google-btn-text">Continue with Google</span>
-              </button>
-            </div>
-
-            <!-- Divider -->
-            <div class="flex items-center gap-2 mb-3.5">
-              <div class="flex-grow h-[1px] bg-purple-200 dark:bg-purple-800/80"></div>
-              <span class="text-[10px] font-bold uppercase tracking-wider text-purple-600/70 dark:text-purple-400/70">or with email</span>
-              <div class="flex-grow h-[1px] bg-purple-200 dark:bg-purple-800/80"></div>
-            </div>
-          ` : ''}
-
-          <!-- EMAIL / PASSWORD FORM -->
-          <form id="auth-email-form" onsubmit="handleEmailAuthSubmit(event)" class="space-y-3 text-left">
-            ${isSignUp ? `
-              <div>
-                <label class="block text-[11px] font-bold text-purple-900 dark:text-purple-200 uppercase tracking-wider mb-1">Your Name</label>
-                <input id="auth-modal-name" type="text" placeholder="e.g. Priya Sharma" class="w-full px-3.5 py-2.5 rounded-xl bg-purple-50/70 dark:bg-purple-950/60 border border-purple-200 dark:border-purple-700/80 text-purple-950 dark:text-white text-xs focus:outline-none focus:border-pink-500 transition"/>
-              </div>
-            ` : ''}
-
-            <div>
-              <label class="block text-[11px] font-bold text-purple-900 dark:text-purple-200 uppercase tracking-wider mb-1">Email Address</label>
-              <input id="auth-modal-email" type="email" required placeholder="yourname@gmail.com" class="w-full px-3.5 py-2.5 rounded-xl bg-purple-50/70 dark:bg-purple-950/60 border border-purple-200 dark:border-purple-700/80 text-purple-950 dark:text-white text-xs focus:outline-none focus:border-pink-500 transition"/>
-            </div>
-
-            ${!isReset ? `
-              <div>
-                <div class="flex items-center justify-between mb-1">
-                  <label class="block text-[11px] font-bold text-purple-900 dark:text-purple-200 uppercase tracking-wider">Password</label>
-                  ${!isSignUp ? `
-                    <button type="button" onclick="switchAuthModalTab('reset')" class="text-[11px] text-pink-600 dark:text-pink-400 hover:underline font-semibold cursor-pointer">
-                      Forgot?
-                    </button>
-                  ` : ''}
-                </div>
-                <div class="relative flex items-center">
-                  <input id="auth-modal-password" type="password" required placeholder="${isSignUp ? 'Min 6 characters' : 'Enter your password'}" class="w-full pl-3.5 pr-10 py-2.5 rounded-xl bg-purple-50/70 dark:bg-purple-950/60 border border-purple-200 dark:border-purple-700/80 text-purple-950 dark:text-white text-xs focus:outline-none focus:border-pink-500 transition"/>
-                  <button type="button" onclick="toggleAuthPasswordVisibility()" class="absolute right-3 text-purple-400 hover:text-purple-700 dark:hover:text-white cursor-pointer" title="Toggle password view">
-                    <span id="auth-pwd-eye" class="material-symbols-outlined text-[16px]">visibility</span>
-                  </button>
-                </div>
-              </div>
-            ` : ''}
-
-            <!-- Dynamic Error message -->
-            <div id="auth-modal-error" class="hidden text-xs font-semibold text-rose-500 bg-rose-50 dark:bg-rose-950/50 p-2.5 rounded-xl border border-rose-200 dark:border-rose-900/60 text-center"></div>
-
-            <!-- Submit Button -->
-            <button type="submit" id="auth-email-submit-btn" class="w-full py-3 px-4 rounded-xl bg-gradient-to-r from-pink-500 via-purple-600 to-indigo-600 hover:brightness-110 active:scale-[0.99] text-white font-bold text-xs sm:text-sm tracking-wide shadow-md shadow-pink-500/20 flex items-center justify-center gap-2 transition cursor-pointer mt-1">
-              <span id="auth-submit-btn-text">
-                ${isReset ? 'Send Password Reset Link ✉️' : (isSignUp ? 'Create Free Account ✨' : 'Sign In with Email 🚀')}
-              </span>
+          <!-- Google Continue Button (1-Tap Auth) -->
+          <div class="mb-4">
+            <button type="button" id="auth-google-btn" onclick="handleGoogleSignInClick()" class="w-full py-3.5 px-4 rounded-2xl bg-white dark:bg-purple-950/70 hover:bg-purple-50 dark:hover:bg-purple-900/60 border-2 border-purple-200 dark:border-purple-700/80 text-xs sm:text-sm font-bold text-gray-800 dark:text-white flex items-center justify-center gap-3 transition-all shadow-sm hover:shadow-md active:scale-[0.99] cursor-pointer">
+              <svg class="w-5 h-5 flex-shrink-0" viewBox="0 0 24 24">
+                <path fill="#4285F4" d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z"/>
+                <path fill="#34A853" d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z"/>
+                <path fill="#FBBC05" d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.06H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.94l2.85-2.22.81-.63z"/>
+                <path fill="#EA4335" d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.06l3.66 2.84c.87-2.6 3.3-4.52 6.16-4.52z"/>
+              </svg>
+              <span id="auth-google-btn-text">Continue with Google (Gmail)</span>
             </button>
-          </form>
+          </div>
 
-          ${isReset ? `
-            <div class="mt-3 text-center">
-              <button type="button" onclick="switchAuthModalTab('signin')" class="text-xs text-purple-600 dark:text-purple-400 hover:underline font-semibold cursor-pointer inline-flex items-center gap-1">
-                <span>←</span><span>Back to Sign In</span>
-              </button>
-            </div>
-          ` : ''}
+          <!-- Dynamic Error message -->
+          <div id="auth-modal-error" class="hidden text-xs font-semibold text-rose-500 bg-rose-50 dark:bg-rose-950/50 p-2.5 rounded-xl border border-rose-200 dark:border-rose-900/60 text-center mb-3"></div>
 
-          <div class="pt-3 mt-3 border-t border-purple-100 dark:border-purple-900 text-center">
-            <div class="inline-flex items-center gap-1 text-[10px] font-medium text-purple-600/80 dark:text-purple-400/80">
-              <span class="material-symbols-outlined text-[12px]">verified_user</span>
-              <span>Secure Authentication • Instant Access Across Devices</span>
+          <div class="pt-3 border-t border-purple-100 dark:border-purple-900 text-center">
+            <div class="inline-flex items-center gap-1.5 text-[11px] font-medium text-purple-600/80 dark:text-purple-400/80">
+              <span class="material-symbols-outlined text-[13px]">lock</span>
+              <span>1-Tap secure login with Google</span>
             </div>
           </div>
         </div>
       </div>
     `;
   }
-
-  window.toggleAuthPasswordVisibility = function() {
-    const input = document.getElementById('auth-modal-password');
-    const eye = document.getElementById('auth-pwd-eye');
-    if (!input) return;
-    if (input.type === 'password') {
-      input.type = 'text';
-      if (eye) eye.textContent = 'visibility_off';
-    } else {
-      input.type = 'password';
-      if (eye) eye.textContent = 'visibility';
-    }
-  };
-
-  window.handleEmailAuthSubmit = async function(e) {
-    e.preventDefault();
-    const errBox = document.getElementById('auth-modal-error');
-    const btn = document.getElementById('auth-email-submit-btn');
-    const btnText = document.getElementById('auth-submit-btn-text');
-    if (errBox) errBox.classList.add('hidden');
-
-    const email = document.getElementById('auth-modal-email')?.value?.trim();
-    const password = document.getElementById('auth-modal-password')?.value;
-    const name = document.getElementById('auth-modal-name')?.value?.trim();
-
-    if (!email) {
-      if (errBox) {
-        errBox.textContent = 'Please enter your email address.';
-        errBox.classList.remove('hidden');
-      }
-      return;
-    }
-
-    if (btn) btn.disabled = true;
-
-    try {
-      if (currentAuthModalMode === 'reset') {
-        if (btnText) btnText.innerHTML = '<span class="animate-spin inline-block w-3 h-3 border-2 border-white border-t-transparent rounded-full"></span> Sending Link...';
-        const sent = await WishAuth.sendPasswordReset(email);
-        if (sent) {
-          switchAuthModalTab('signin');
-        }
-      } else if (currentAuthModalMode === 'signup') {
-        if (!password || password.length < 6) {
-          throw new Error('Password must be at least 6 characters long.');
-        }
-        if (btnText) btnText.innerHTML = '<span class="animate-spin inline-block w-3 h-3 border-2 border-white border-t-transparent rounded-full"></span> Creating Account...';
-        await WishAuth.signUpWithEmailPassword(email, password, name);
-      } else {
-        if (!password) {
-          throw new Error('Please enter your password.');
-        }
-        if (btnText) btnText.innerHTML = '<span class="animate-spin inline-block w-3 h-3 border-2 border-white border-t-transparent rounded-full"></span> Signing In...';
-        await WishAuth.signInWithEmailPassword(email, password);
-      }
-    } catch (err) {
-      if (errBox) {
-        errBox.textContent = err.message || 'Authentication error occurred.';
-        errBox.classList.remove('hidden');
-      }
-    } finally {
-      if (btn) btn.disabled = false;
-      if (btnText) {
-        btnText.textContent = (currentAuthModalMode === 'reset')
-          ? 'Send Password Reset Link ✉️'
-          : (currentAuthModalMode === 'signup' ? 'Create Free Account ✨' : 'Sign In with Email 🚀');
-      }
-    }
-  };
 
   window.closeAuthModal = function() {
     const modal = document.getElementById('wishmagic-universal-auth-modal');
