@@ -3955,7 +3955,7 @@ export default {
       }
 
       // --- 5. Secret Admin Routing Boundary & Cloudflare Pages Pretty Routes ---
-      if ((pathname === '/admin' || pathname.startsWith('/admin/')) && !pathname.startsWith('/admin/anktech/anktech/admin')) {
+      if ((pathname === '/admin' || pathname.startsWith('/admin/') || pathname.startsWith('/admin.') || pathname.startsWith('/admin-')) && !pathname.startsWith('/admin/anktech/anktech/admin')) {
         return applySecurityHeaders(jsonError('NOT_FOUND', 'Route not found', 404, {}, null, requestId), request, env);
       }
 

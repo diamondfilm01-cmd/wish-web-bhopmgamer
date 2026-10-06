@@ -18,18 +18,18 @@ const ADMIN_ROUTES_MAP = {
   '/admin/anktech/anktech/admin/media': '/admin-media.html',
   '/admin/anktech/anktech/admin/pricing': '/admin-pricing.html',
   '/admin/anktech/anktech/admin/settings': '/admin-settings.html',
-  '/admin/anktech/anktech/admin/staff': '/admin-staff.html',
-  '/admin-login': '/admin-login.html',
-  '/admin-login.html': '/admin-login.html'
+  '/admin/anktech/anktech/admin/staff': '/admin-staff.html'
 };
 
 export async function onRequest(context) {
   const url = new URL(context.request.url);
-  const pathname = url.pathname;
+  const pathname = url.pathname.toLowerCase();
 
-  // Block plain /admin routes without the secret token
-  if ((pathname === '/admin' || pathname.startsWith('/admin/')) && !pathname.startsWith('/admin/anktech/anktech/admin')) {
-    return new Response('Not Found', { status: 404 });
+  // Block ALL admin routes EXCEPT the secret path
+  if (pathname === '/admin' || pathname.startsWith('/admin/') || pathname.startsWith('/admin.') || pathname.startsWith('/admin-')) {
+    if (!pathname.startsWith('/admin/anktech/anktech/admin')) {
+      return new Response('Not Found', { status: 404 });
+    }
   }
 
   // Secret Admin Portal Entry: Verify admin session

@@ -4,17 +4,33 @@ const SECRET_ADMIN_PREFIX = '/admin/anktech/anktech/admin';
 
 // 1. Client-Side Admin Session Gatekeeper (Verifies session & prevents repeated logins)
 (async function checkAdminGatekeeper() {
-  if (window.location.pathname.includes('admin-login')) return;
+  const currentPath = window.location.pathname.toLowerCase();
+
+  // If already at the secret admin root, do not redirect
+  if (currentPath === SECRET_ADMIN_PREFIX || currentPath === SECRET_ADMIN_PREFIX + '/' || currentPath.endsWith('/login')) {
+    return;
+  }
+
+  // If already verified in this session, skip extra network check
+  if (sessionStorage.getItem('wm_admin_verified') === 'true') {
+    return;
+  }
 
   try {
-    const res = await fetch('/api/auth/session', { credentials: 'include' });
+    const adminToken = localStorage.getItem('wishmagic_admin_token');
+    const headers = {};
+    if (adminToken) {
+      headers['Authorization'] = 'Bearer ' + adminToken;
+    }
+
+    const res = await fetch('/api/auth/session', { credentials: 'include', headers });
     if (!res.ok) {
-      window.location.replace('/admin-login.html');
+      window.location.replace(SECRET_ADMIN_PREFIX);
       return;
     }
     const data = await res.json();
     if (!data || !data.isAuthenticated || !data.user || (data.user.role !== 'admin' && !data.user.isAdmin)) {
-      window.location.replace('/admin-login.html');
+      window.location.replace(SECRET_ADMIN_PREFIX);
       return;
     }
     sessionStorage.setItem('wm_admin_verified', 'true');

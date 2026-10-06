@@ -572,7 +572,8 @@ function parseCookies(cookieStr) {
 
 app.use((req, res, next) => {
   const cookies = parseCookies(req.headers.cookie);
-  const token = cookies.wm_session || (req.headers.authorization || '').replace(/^Bearer\s+/i, '');
+  const queryAuth = req.query && (req.query.auth || req.query.token);
+  const token = queryAuth || cookies.wm_session || (req.headers.authorization || '').replace(/^Bearer\s+/i, '');
   req.user = null;
   req.sessionToken = token;
 
@@ -619,6 +620,10 @@ app.use((req, res, next) => {
           isPremium: true
         };
       }
+    }
+
+    if (queryAuth && req.user && (req.user.role === 'admin' || req.user.isAdmin)) {
+      res.setHeader('Set-Cookie', `wm_session=${encodeURIComponent(token)}; Path=/; Max-Age=86400; SameSite=Lax`);
     }
   }
 
@@ -850,12 +855,21 @@ app.use((req, res, next) => {
   next();
 });
 
-// Security Gatekeeper: Block plain /admin routes without secret token
+// Security Gatekeeper: ONLY allow admin access via secret path /admin/anktech/anktech/admin
+const SECRET_ADMIN_PREFIX = '/admin/anktech/anktech/admin';
 app.use((req, res, next) => {
   const p = req.path.toLowerCase();
-  if (p === '/admin' || (p.startsWith('/admin/') && !p.startsWith('/admin/anktech/anktech/admin')) || (p.startsWith('/admin-') && p !== '/admin-login.html' && p !== '/admin-login')) {
+
+  // Allow the secret admin prefix and its nested paths
+  if (p === SECRET_ADMIN_PREFIX || p.startsWith(SECRET_ADMIN_PREFIX + '/')) {
+    return next();
+  }
+
+  // Block ANY other attempt to access admin via any other path
+  if (p === '/admin' || p.startsWith('/admin/') || p.startsWith('/admin.') || p.startsWith('/admin-')) {
     return res.status(404).sendFile(path.join(__dirname, 'public', 'index.html'));
   }
+
   next();
 });
 
@@ -1007,7 +1021,9 @@ app.post('/api/admin/auth/verify-credentials', (req, res) => {
         requireOtp: true,
         challengeId,
         mobile: adminUser.email,
+        email: adminUser.email,
         expiresInSeconds: 300,
+        demoOtp: otpCode,
         message: `Credentials verified. Verification OTP sent to ${adminUser.email}.`
       }
     });
@@ -3611,8 +3627,8 @@ function sendAdminPage(file, req, res) {
   res.sendFile(path.join(__dirname, 'public', file));
 }
 
-// Admin Login Portal Direct Route
-app.get(['/admin-login', '/admin-login.html', `${ADMIN_BASE}/login`], (req, res) => {
+// Admin Login Portal is accessible ONLY via the secret route
+app.get(`${ADMIN_BASE}/login`, (req, res) => {
   const isAdmin = req.user && (req.user.role === 'admin' || req.user.isAdmin === true);
   if (isAdmin) {
     return res.redirect(ADMIN_BASE);
