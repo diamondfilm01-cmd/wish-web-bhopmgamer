@@ -248,7 +248,7 @@
     },
 
     /**
-     * Firebase Email + Password Sign In
+     * Firebase Email + Password Sign In (with Server Proxy Fallback for Iframe/Domain Safety)
      */
     async signInWithEmailPassword(email, password) {
       const cleanEmail = (email || '').trim().toLowerCase();
@@ -262,32 +262,69 @@
       }
 
       await ensureFirebaseAuth();
-      if (!window.WishFirebaseAuth) {
-        return this.signInWithEmail(cleanEmail);
+
+      // 1. Try client SDK if available
+      if (window.WishFirebaseAuth && typeof window.WishFirebaseAuth.signInWithEmailPassword === 'function') {
+        try {
+          const fbUser = await window.WishFirebaseAuth.signInWithEmailPassword(cleanEmail, password);
+          if (fbUser) {
+            const serverUser = await syncSessionWithServer(fbUser);
+            currentUser = serverUser;
+            try {
+              localStorage.setItem(STORAGE_KEY_USER, JSON.stringify(currentUser));
+            } catch (e) {}
+            notifyAuthChange();
+            showAuthToast(`Welcome back, ${currentUser.displayName}! ✨`);
+            if (typeof window.closeAuthModal === 'function') window.closeAuthModal();
+            return currentUser;
+          }
+        } catch (clientErr) {
+          console.warn('[WishAuth] Client SDK sign-in notice, falling back to server verification:', clientErr.message);
+          // If explicitly wrong credentials from Firebase, report directly
+          if (clientErr.message && (clientErr.message.includes('Incorrect') || clientErr.message.includes('password') || clientErr.message.includes('not found') || clientErr.message.includes('invalid-credential'))) {
+            showAuthToast(clientErr.message);
+            throw clientErr;
+          }
+        }
       }
 
+      // 2. Authoritative Server Identity Toolkit Proxy
       try {
-        const fbUser = await window.WishFirebaseAuth.signInWithEmailPassword(cleanEmail, password);
-        if (fbUser) {
-          const serverUser = await syncSessionWithServer(fbUser);
-          currentUser = serverUser;
+        const res = await fetch('/api/auth/email-signin', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          credentials: 'include',
+          body: JSON.stringify({ email: cleanEmail, password })
+        });
+
+        const data = await res.json();
+        if (res.ok && data && data.success && data.user) {
+          currentUser = data.user;
           try {
             localStorage.setItem(STORAGE_KEY_USER, JSON.stringify(currentUser));
+            if (data.token) {
+              localStorage.setItem('wishmagic_auth_token', data.token);
+              document.cookie = `wm_session=${encodeURIComponent(data.token)}; Path=/; Max-Age=2592000; SameSite=Lax`;
+            }
           } catch (e) {}
           notifyAuthChange();
           showAuthToast(`Welcome back, ${currentUser.displayName}! ✨`);
           if (typeof window.closeAuthModal === 'function') window.closeAuthModal();
           return currentUser;
+        } else {
+          const errMsg = data.error?.message || data.message || 'Incorrect email or password.';
+          showAuthToast(errMsg);
+          throw new Error(errMsg);
         }
       } catch (err) {
-        console.error('[WishAuth] Email sign-in failed:', err);
-        showAuthToast(err.message || 'Incorrect email or password.');
-        return null;
+        console.error('[WishAuth] Server email sign-in error:', err);
+        showAuthToast(err.message || 'Incorrect email or password. Please verify and try again.');
+        throw err;
       }
     },
 
     /**
-     * Firebase Email + Password Sign Up (New Creator)
+     * Firebase Email + Password Sign Up (with Server Proxy Fallback)
      */
     async signUpWithEmailPassword(email, password, displayName = '') {
       const cleanEmail = (email || '').trim().toLowerCase();
@@ -301,27 +338,63 @@
       }
 
       await ensureFirebaseAuth();
-      if (!window.WishFirebaseAuth) {
-        return this.signInWithEmail(cleanEmail, displayName);
+
+      // 1. Try client SDK if available
+      if (window.WishFirebaseAuth && typeof window.WishFirebaseAuth.signUpWithEmailPassword === 'function') {
+        try {
+          const fbUser = await window.WishFirebaseAuth.signUpWithEmailPassword(cleanEmail, password, displayName);
+          if (fbUser) {
+            const serverUser = await syncSessionWithServer(fbUser, displayName);
+            currentUser = serverUser;
+            try {
+              localStorage.setItem(STORAGE_KEY_USER, JSON.stringify(currentUser));
+            } catch (e) {}
+            notifyAuthChange();
+            showAuthToast(`Account created! Welcome, ${currentUser.displayName}! ✨`);
+            if (typeof window.closeAuthModal === 'function') window.closeAuthModal();
+            return currentUser;
+          }
+        } catch (clientErr) {
+          console.warn('[WishAuth] Client SDK sign-up notice, falling back to server:', clientErr.message);
+          if (clientErr.message && (clientErr.message.includes('already exists') || clientErr.message.includes('already in use'))) {
+            showAuthToast(clientErr.message);
+            throw clientErr;
+          }
+        }
       }
 
+      // 2. Server Identity Toolkit Proxy
       try {
-        const fbUser = await window.WishFirebaseAuth.signUpWithEmailPassword(cleanEmail, password, displayName);
-        if (fbUser) {
-          const serverUser = await syncSessionWithServer(fbUser, displayName);
-          currentUser = serverUser;
+        const res = await fetch('/api/auth/email-signup', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          credentials: 'include',
+          body: JSON.stringify({ email: cleanEmail, password, displayName })
+        });
+
+        const data = await res.json();
+        if (res.ok && data && data.success && data.user) {
+          currentUser = data.user;
           try {
             localStorage.setItem(STORAGE_KEY_USER, JSON.stringify(currentUser));
+            if (data.token) {
+              localStorage.setItem('wishmagic_auth_token', data.token);
+              document.cookie = `wm_session=${encodeURIComponent(data.token)}; Path=/; Max-Age=2592000; SameSite=Lax`;
+            }
           } catch (e) {}
           notifyAuthChange();
           showAuthToast(`Account created! Welcome, ${currentUser.displayName}! ✨`);
           if (typeof window.closeAuthModal === 'function') window.closeAuthModal();
           return currentUser;
+        } else {
+          const errMsg = data.error?.message || data.message || 'Sign up could not be completed.';
+          showAuthToast(errMsg);
+          throw new Error(errMsg);
         }
       } catch (err) {
-        console.error('[WishAuth] Sign up failed:', err);
-        showAuthToast(err.message || 'Sign up could not be completed.');
-        return null;
+        console.error('[WishAuth] Server sign up error:', err);
+        showAuthToast(err.message || 'Failed to create account. Please try again.');
+        throw err;
       }
     },
 
@@ -336,18 +409,32 @@
       }
 
       await ensureFirebaseAuth();
-      if (!window.WishFirebaseAuth) {
-        showAuthToast('Authentication service is initializing, please try again.');
-        return false;
+
+      if (window.WishFirebaseAuth && typeof window.WishFirebaseAuth.sendPasswordReset === 'function') {
+        try {
+          await window.WishFirebaseAuth.sendPasswordReset(cleanEmail);
+          showAuthToast(`Password reset link sent to ${cleanEmail}! ✉️`);
+          return true;
+        } catch (e) {}
       }
 
+      // Fallback to server REST API
       try {
-        await window.WishFirebaseAuth.sendPasswordReset(cleanEmail);
-        showAuthToast(`Password reset link sent to ${cleanEmail}! Please check your inbox. ✉️`);
-        return true;
+        const res = await fetch('/api/auth/send-password-reset', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ email: cleanEmail })
+        });
+        const data = await res.json();
+        if (res.ok && data && data.success) {
+          showAuthToast(`Password reset link sent to ${cleanEmail}! Please check your inbox. ✉️`);
+          return true;
+        } else {
+          showAuthToast(data.error?.message || data.message || 'Could not send reset email.');
+          return false;
+        }
       } catch (err) {
-        console.error('[WishAuth] Password reset failed:', err);
-        showAuthToast(err.message || 'Failed to send password reset email.');
+        showAuthToast('Failed to send reset email. Please verify the address.');
         return false;
       }
     },
@@ -530,12 +617,12 @@
   });
 
   // ---------------------------------------------------------------------------
-  // AUTH MODAL DIALOG (GOOGLE GMAIL ONLY FOR USERS)
+  // UNIVERSAL AUTH MODAL (FIREBASE EMAIL/PASSWORD + GOOGLE SIGN-IN)
   // ---------------------------------------------------------------------------
-  let currentAuthModalMode = 'signin';
+  let currentAuthModalMode = 'signin'; // 'signin' | 'signup' | 'reset'
 
   function showUniversalAuthModal(mode = 'signin', promptMessage = null) {
-    currentAuthModalMode = (mode === 'signup') ? 'signup' : 'signin';
+    currentAuthModalMode = (mode === 'signup' || mode === 'reset') ? mode : 'signin';
     let modal = document.getElementById('wishmagic-universal-auth-modal');
     if (!modal) {
       modal = document.createElement('div');
@@ -554,56 +641,203 @@
   window._openWishAuthModal = showUniversalAuthModal;
   WishAuth.openAuthModal = showUniversalAuthModal;
 
+  window.switchAuthModalTab = function(mode) {
+    currentAuthModalMode = mode;
+    renderAuthModalContent(null, mode);
+  };
+
   function renderAuthModalContent(promptMessage = null, mode = 'signin') {
     const modal = document.getElementById('wishmagic-universal-auth-modal');
     if (!modal) return;
 
     const isSignUp = (mode === 'signup');
-    const titleText = isSignUp ? 'Join WishMagic ✨' : 'Welcome to WishMagic ✨';
-    const subText = promptMessage || (isSignUp
-      ? 'Sign in with your Google (Gmail) account to personalize, save, and publish interactive celebration websites.'
-      : 'Sign in with your Google (Gmail) account to access your saved celebration wishes, drafts, and memories.');
+    const isReset = (mode === 'reset');
+    const titleText = isReset ? 'Reset Password 🔑' : (isSignUp ? 'Create Free Account ✨' : 'Welcome Back ✨');
+    const subText = promptMessage || (isReset
+      ? 'Enter your registered email to receive an official password reset link.'
+      : (isSignUp
+        ? 'Sign up with your email or Google to create, customize, and publish magical websites.'
+        : 'Sign in to access your saved celebration wishes, drafts, and memories.'));
 
     modal.innerHTML = `
-      <div class="bg-white dark:bg-[#1A0B2E] rounded-3xl max-w-sm sm:max-w-md w-full p-6 sm:p-8 shadow-2xl relative border border-purple-200 dark:border-purple-800 text-center animate-scaleUp overflow-hidden">
+      <div class="bg-white dark:bg-[#150927] rounded-3xl max-w-sm sm:max-w-md w-full p-6 sm:p-7 shadow-2xl relative border border-purple-200/80 dark:border-purple-800 text-center animate-scaleUp overflow-hidden max-h-[92vh] flex flex-col">
         <!-- Close Button -->
-        <button class="absolute top-4 right-4 w-8 h-8 rounded-full bg-purple-100 dark:bg-purple-900 text-purple-700 dark:text-purple-300 hover:text-black dark:hover:text-white flex items-center justify-center font-bold transition cursor-pointer" onclick="closeAuthModal()" aria-label="Close">
+        <button class="absolute top-4 right-4 w-8 h-8 rounded-full bg-purple-100 dark:bg-purple-900/70 text-purple-700 dark:text-purple-300 hover:text-black dark:hover:text-white flex items-center justify-center font-bold transition cursor-pointer z-10" onclick="closeAuthModal()" aria-label="Close">
           ✕
         </button>
 
-        <!-- Magical Glowing Wand Icon -->
-        <div class="w-14 h-14 rounded-2xl bg-gradient-to-tr from-pink-500 via-purple-600 to-amber-300 text-white flex items-center justify-center mx-auto text-2xl mb-3 shadow-lg shadow-pink-500/30">
-          🪄
-        </div>
+        <div class="overflow-y-auto pr-1">
+          <!-- Header Icon & Title -->
+          <div class="w-12 h-12 rounded-2xl bg-gradient-to-tr from-pink-500 via-purple-600 to-amber-300 text-white flex items-center justify-center mx-auto text-xl mb-2.5 shadow-lg shadow-pink-500/25">
+            🪄
+          </div>
 
-        <h3 class="font-display font-extrabold text-xl sm:text-2xl text-purple-950 dark:text-white">${titleText}</h3>
-        <p class="text-xs text-purple-800/80 dark:text-purple-300/80 mt-1.5 mb-6 max-w-xs mx-auto leading-relaxed">${subText}</p>
+          <h3 class="font-display font-extrabold text-xl sm:text-2xl text-purple-950 dark:text-white">${titleText}</h3>
+          <p class="text-xs text-purple-800/80 dark:text-purple-300/80 mt-1 mb-4 leading-relaxed">${subText}</p>
 
-        <!-- Google Continue Button (Exclusive 1-Tap Auth for Users) -->
-        <div class="mb-4">
-          <button type="button" id="auth-google-btn" onclick="handleGoogleSignInClick()" class="w-full py-3.5 px-5 rounded-2xl bg-white dark:bg-purple-950/80 hover:bg-purple-50 dark:hover:bg-purple-900/60 border-2 border-purple-200 dark:border-purple-700/70 text-xs sm:text-sm font-bold text-gray-800 dark:text-white flex items-center justify-center gap-3 transition-all duration-200 shadow-md hover:shadow-lg hover:scale-[1.01] active:scale-[0.99] cursor-pointer">
-            <svg class="w-5 h-5 flex-shrink-0" viewBox="0 0 24 24">
-              <path fill="#4285F4" d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z"/>
-              <path fill="#34A853" d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z"/>
-              <path fill="#FBBC05" d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.06H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.94l2.85-2.22.81-.63z"/>
-              <path fill="#EA4335" d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.06l3.66 2.84c.87-2.6 3.3-4.52 6.16-4.52z"/>
-            </svg>
-            <span id="auth-google-btn-text">Continue with Google (Gmail)</span>
-          </button>
-        </div>
+          ${!isReset ? `
+            <!-- Mode Switcher Tabs (Sign In / Sign Up) -->
+            <div class="flex items-center p-1 bg-purple-100/80 dark:bg-purple-950/90 rounded-2xl mb-4 border border-purple-200 dark:border-purple-800/60">
+              <button type="button" onclick="switchAuthModalTab('signin')" class="flex-1 py-2 text-xs font-bold rounded-xl transition-all ${!isSignUp ? 'bg-white dark:bg-purple-800 text-purple-950 dark:text-white shadow-sm' : 'text-purple-700 dark:text-purple-300 hover:text-purple-950 dark:hover:text-white'}">
+                Sign In
+              </button>
+              <button type="button" onclick="switchAuthModalTab('signup')" class="flex-1 py-2 text-xs font-bold rounded-xl transition-all ${isSignUp ? 'bg-gradient-to-r from-pink-500 to-purple-600 text-white shadow-sm' : 'text-purple-700 dark:text-purple-300 hover:text-purple-950 dark:hover:text-white'}">
+                Create Account ✨
+              </button>
+            </div>
 
-        <!-- Dynamic Status / Error banner -->
-        <div id="auth-modal-error" class="hidden text-xs font-semibold text-rose-500 bg-rose-50 dark:bg-rose-950/50 p-2.5 rounded-xl border border-rose-200 dark:border-rose-900/60 text-center my-3"></div>
+            <!-- Google Continue Button (1-Tap Auth) -->
+            <div class="mb-3.5">
+              <button type="button" id="auth-google-btn" onclick="handleGoogleSignInClick()" class="w-full py-2.5 px-4 rounded-xl bg-white dark:bg-purple-950/70 hover:bg-purple-50 dark:hover:bg-purple-900/60 border border-purple-200 dark:border-purple-700/80 text-xs font-bold text-gray-800 dark:text-white flex items-center justify-center gap-2.5 transition-all shadow-xs hover:shadow-md cursor-pointer">
+                <svg class="w-4 h-4 flex-shrink-0" viewBox="0 0 24 24">
+                  <path fill="#4285F4" d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z"/>
+                  <path fill="#34A853" d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z"/>
+                  <path fill="#FBBC05" d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.06H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.94l2.85-2.22.81-.63z"/>
+                  <path fill="#EA4335" d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.06l3.66 2.84c.87-2.6 3.3-4.52 6.16-4.52z"/>
+                </svg>
+                <span id="auth-google-btn-text">Continue with Google</span>
+              </button>
+            </div>
 
-        <div class="pt-3 border-t border-purple-100 dark:border-purple-900 text-center">
-          <div class="inline-flex items-center gap-1.5 text-[11px] font-medium text-purple-600/80 dark:text-purple-400/80">
-            <span class="material-symbols-outlined text-[14px]">lock</span>
-            <span>1-Tap Secure Login with Gmail • Powered by Firebase Auth</span>
+            <!-- Divider -->
+            <div class="flex items-center gap-2 mb-3.5">
+              <div class="flex-grow h-[1px] bg-purple-200 dark:bg-purple-800/80"></div>
+              <span class="text-[10px] font-bold uppercase tracking-wider text-purple-600/70 dark:text-purple-400/70">or with email</span>
+              <div class="flex-grow h-[1px] bg-purple-200 dark:bg-purple-800/80"></div>
+            </div>
+          ` : ''}
+
+          <!-- EMAIL / PASSWORD FORM -->
+          <form id="auth-email-form" onsubmit="handleEmailAuthSubmit(event)" class="space-y-3 text-left">
+            ${isSignUp ? `
+              <div>
+                <label class="block text-[11px] font-bold text-purple-900 dark:text-purple-200 uppercase tracking-wider mb-1">Your Name</label>
+                <input id="auth-modal-name" type="text" placeholder="e.g. Priya Sharma" class="w-full px-3.5 py-2.5 rounded-xl bg-purple-50/70 dark:bg-purple-950/60 border border-purple-200 dark:border-purple-700/80 text-purple-950 dark:text-white text-xs focus:outline-none focus:border-pink-500 transition"/>
+              </div>
+            ` : ''}
+
+            <div>
+              <label class="block text-[11px] font-bold text-purple-900 dark:text-purple-200 uppercase tracking-wider mb-1">Email Address</label>
+              <input id="auth-modal-email" type="email" required placeholder="yourname@gmail.com" class="w-full px-3.5 py-2.5 rounded-xl bg-purple-50/70 dark:bg-purple-950/60 border border-purple-200 dark:border-purple-700/80 text-purple-950 dark:text-white text-xs focus:outline-none focus:border-pink-500 transition"/>
+            </div>
+
+            ${!isReset ? `
+              <div>
+                <div class="flex items-center justify-between mb-1">
+                  <label class="block text-[11px] font-bold text-purple-900 dark:text-purple-200 uppercase tracking-wider">Password</label>
+                  ${!isSignUp ? `
+                    <button type="button" onclick="switchAuthModalTab('reset')" class="text-[11px] text-pink-600 dark:text-pink-400 hover:underline font-semibold cursor-pointer">
+                      Forgot?
+                    </button>
+                  ` : ''}
+                </div>
+                <div class="relative flex items-center">
+                  <input id="auth-modal-password" type="password" required placeholder="${isSignUp ? 'Min 6 characters' : 'Enter your password'}" class="w-full pl-3.5 pr-10 py-2.5 rounded-xl bg-purple-50/70 dark:bg-purple-950/60 border border-purple-200 dark:border-purple-700/80 text-purple-950 dark:text-white text-xs focus:outline-none focus:border-pink-500 transition"/>
+                  <button type="button" onclick="toggleAuthPasswordVisibility()" class="absolute right-3 text-purple-400 hover:text-purple-700 dark:hover:text-white cursor-pointer" title="Toggle password view">
+                    <span id="auth-pwd-eye" class="material-symbols-outlined text-[16px]">visibility</span>
+                  </button>
+                </div>
+              </div>
+            ` : ''}
+
+            <!-- Dynamic Error message -->
+            <div id="auth-modal-error" class="hidden text-xs font-semibold text-rose-500 bg-rose-50 dark:bg-rose-950/50 p-2.5 rounded-xl border border-rose-200 dark:border-rose-900/60 text-center"></div>
+
+            <!-- Submit Button -->
+            <button type="submit" id="auth-email-submit-btn" class="w-full py-3 px-4 rounded-xl bg-gradient-to-r from-pink-500 via-purple-600 to-indigo-600 hover:brightness-110 active:scale-[0.99] text-white font-bold text-xs sm:text-sm tracking-wide shadow-md shadow-pink-500/20 flex items-center justify-center gap-2 transition cursor-pointer mt-1">
+              <span id="auth-submit-btn-text">
+                ${isReset ? 'Send Password Reset Link ✉️' : (isSignUp ? 'Create Free Account ✨' : 'Sign In with Email 🚀')}
+              </span>
+            </button>
+          </form>
+
+          ${isReset ? `
+            <div class="mt-3 text-center">
+              <button type="button" onclick="switchAuthModalTab('signin')" class="text-xs text-purple-600 dark:text-purple-400 hover:underline font-semibold cursor-pointer inline-flex items-center gap-1">
+                <span>←</span><span>Back to Sign In</span>
+              </button>
+            </div>
+          ` : ''}
+
+          <div class="pt-3 mt-3 border-t border-purple-100 dark:border-purple-900 text-center">
+            <div class="inline-flex items-center gap-1 text-[10px] font-medium text-purple-600/80 dark:text-purple-400/80">
+              <span class="material-symbols-outlined text-[12px]">verified_user</span>
+              <span>Secure Authentication • Instant Access Across Devices</span>
+            </div>
           </div>
         </div>
       </div>
     `;
   }
+
+  window.toggleAuthPasswordVisibility = function() {
+    const input = document.getElementById('auth-modal-password');
+    const eye = document.getElementById('auth-pwd-eye');
+    if (!input) return;
+    if (input.type === 'password') {
+      input.type = 'text';
+      if (eye) eye.textContent = 'visibility_off';
+    } else {
+      input.type = 'password';
+      if (eye) eye.textContent = 'visibility';
+    }
+  };
+
+  window.handleEmailAuthSubmit = async function(e) {
+    e.preventDefault();
+    const errBox = document.getElementById('auth-modal-error');
+    const btn = document.getElementById('auth-email-submit-btn');
+    const btnText = document.getElementById('auth-submit-btn-text');
+    if (errBox) errBox.classList.add('hidden');
+
+    const email = document.getElementById('auth-modal-email')?.value?.trim();
+    const password = document.getElementById('auth-modal-password')?.value;
+    const name = document.getElementById('auth-modal-name')?.value?.trim();
+
+    if (!email) {
+      if (errBox) {
+        errBox.textContent = 'Please enter your email address.';
+        errBox.classList.remove('hidden');
+      }
+      return;
+    }
+
+    if (btn) btn.disabled = true;
+
+    try {
+      if (currentAuthModalMode === 'reset') {
+        if (btnText) btnText.innerHTML = '<span class="animate-spin inline-block w-3 h-3 border-2 border-white border-t-transparent rounded-full"></span> Sending Link...';
+        const sent = await WishAuth.sendPasswordReset(email);
+        if (sent) {
+          switchAuthModalTab('signin');
+        }
+      } else if (currentAuthModalMode === 'signup') {
+        if (!password || password.length < 6) {
+          throw new Error('Password must be at least 6 characters long.');
+        }
+        if (btnText) btnText.innerHTML = '<span class="animate-spin inline-block w-3 h-3 border-2 border-white border-t-transparent rounded-full"></span> Creating Account...';
+        await WishAuth.signUpWithEmailPassword(email, password, name);
+      } else {
+        if (!password) {
+          throw new Error('Please enter your password.');
+        }
+        if (btnText) btnText.innerHTML = '<span class="animate-spin inline-block w-3 h-3 border-2 border-white border-t-transparent rounded-full"></span> Signing In...';
+        await WishAuth.signInWithEmailPassword(email, password);
+      }
+    } catch (err) {
+      if (errBox) {
+        errBox.textContent = err.message || 'Authentication error occurred.';
+        errBox.classList.remove('hidden');
+      }
+    } finally {
+      if (btn) btn.disabled = false;
+      if (btnText) {
+        btnText.textContent = (currentAuthModalMode === 'reset')
+          ? 'Send Password Reset Link ✉️'
+          : (currentAuthModalMode === 'signup' ? 'Create Free Account ✨' : 'Sign In with Email 🚀');
+      }
+    }
+  };
 
   window.closeAuthModal = function() {
     const modal = document.getElementById('wishmagic-universal-auth-modal');
@@ -650,7 +884,7 @@
         btn.classList.remove('opacity-70');
       }
       if (txt) {
-        txt.textContent = 'Continue with Google (Gmail)';
+        txt.textContent = 'Continue with Google';
       }
     }
   };

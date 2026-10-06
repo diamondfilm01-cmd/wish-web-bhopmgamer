@@ -975,6 +975,220 @@ app.post('/api/auth/signin', (req, res) => {
   }
 });
 
+// API: Firebase Email + Password Sign In (Proxy to Google Identity Toolkit)
+app.post('/api/auth/email-signin', async (req, res) => {
+  try {
+    const { email, password, firebaseIdToken, firebaseUid: clientUid } = req.body || {};
+    const cleanEmail = (email || '').trim().toLowerCase();
+
+    if (!cleanEmail || !password) {
+      return res.status(400).json({ success: false, error: { message: 'Email and password are required' } });
+    }
+
+    let verifiedUid = clientUid || null;
+    let verifiedEmail = cleanEmail;
+
+    try {
+      const fbRes = await fetch(`https://identitytoolkit.googleapis.com/v1/accounts:signInWithPassword?key=${FIREBASE_API_KEY}`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          email: cleanEmail,
+          password: password,
+          returnSecureToken: true
+        })
+      });
+
+      const fbData = await fbRes.json();
+      if (fbData.error) {
+        const code = fbData.error.message;
+        let msg = 'Incorrect email or password. Please verify and try again.';
+        if (code === 'EMAIL_NOT_FOUND' || code === 'INVALID_LOGIN_CREDENTIALS') {
+          msg = 'Incorrect email or password. Please check your details or sign up.';
+        } else if (code === 'INVALID_PASSWORD') {
+          msg = 'Incorrect password. Please try again or use password reset.';
+        } else if (code === 'USER_DISABLED') {
+          msg = 'This account has been disabled.';
+        } else if (code === 'TOO_MANY_ATTEMPTS_TRY_LATER') {
+          msg = 'Too many failed attempts. Please try again later.';
+        }
+        return res.status(401).json({ success: false, error: { message: msg, code } });
+      }
+
+      verifiedUid = fbData.localId;
+      verifiedEmail = (fbData.email || cleanEmail).toLowerCase();
+    } catch (fbErr) {
+      console.error('[Firebase Auth] Network error calling Identity Toolkit:', fbErr);
+      return res.status(502).json({ success: false, error: { message: 'Could not connect to Firebase Authentication service.' } });
+    }
+
+    // Lookup or synchronize user in local DB
+    const users = getUsers();
+    let target = users.find(u => (u.email && u.email.toLowerCase() === verifiedEmail) || (u.firebaseUid && u.firebaseUid === verifiedUid));
+
+    if (!target) {
+      target = {
+        id: `usr_fb_${verifiedUid ? verifiedUid.slice(0, 16) : Date.now().toString(36)}`,
+        email: verifiedEmail,
+        displayName: verifiedEmail.split('@')[0],
+        avatarUrl: `https://api.dicebear.com/7.x/bottts/svg?seed=${encodeURIComponent(verifiedEmail)}`,
+        role: 'creator',
+        plan: 'Free',
+        isPremium: false,
+        provider: 'password',
+        firebaseUid: verifiedUid,
+        status: 'active',
+        createdAt: new Date().toISOString(),
+        updatedAt: new Date().toISOString()
+      };
+      users.push(target);
+      saveUsers(users);
+    } else {
+      if (verifiedUid && !target.firebaseUid) {
+        target.firebaseUid = verifiedUid;
+        target.updatedAt = new Date().toISOString();
+        saveUsers(users);
+      }
+    }
+
+    const token = 'wm_tok_' + Date.now().toString(36) + '_' + Math.random().toString(36).substr(2, 8);
+    const expiresAt = Date.now() + (30 * 24 * 60 * 60 * 1000);
+
+    const sessions = getSessions();
+    sessions.push({
+      id: 'sess_' + Date.now().toString(36),
+      userId: target.id,
+      token,
+      expiresAt,
+      createdAt: new Date().toISOString()
+    });
+    saveSessions(sessions);
+
+    res.setHeader('Set-Cookie', `wm_session=${encodeURIComponent(token)}; Path=/; Max-Age=${30 * 24 * 60 * 60}; HttpOnly; SameSite=Lax`);
+    res.json({ success: true, user: target, token });
+  } catch (err) {
+    res.status(500).json({ success: false, error: { message: err.message } });
+  }
+});
+
+// API: Firebase Email + Password Sign Up (Creates user in Firebase Auth)
+app.post('/api/auth/email-signup', async (req, res) => {
+  try {
+    const { email, password, displayName } = req.body || {};
+    const cleanEmail = (email || '').trim().toLowerCase();
+
+    if (!cleanEmail || !password) {
+      return res.status(400).json({ success: false, error: { message: 'Email and password are required' } });
+    }
+    if (password.length < 6) {
+      return res.status(400).json({ success: false, error: { message: 'Password must be at least 6 characters' } });
+    }
+
+    let createdUid = null;
+
+    try {
+      const fbRes = await fetch(`https://identitytoolkit.googleapis.com/v1/accounts:signUp?key=${FIREBASE_API_KEY}`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          email: cleanEmail,
+          password: password,
+          returnSecureToken: true
+        })
+      });
+
+      const fbData = await fbRes.json();
+      if (fbData.error) {
+        const code = fbData.error.message;
+        let msg = 'Sign up failed.';
+        if (code === 'EMAIL_EXISTS') {
+          msg = 'An account already exists with this email address. Please sign in instead.';
+        } else if (code === 'OPERATION_NOT_ALLOWED') {
+          msg = 'Email/Password sign up is currently being enabled in Firebase console.';
+        } else if (code === 'TOO_MANY_ATTEMPTS_TRY_LATER') {
+          msg = 'Too many attempts. Please try again later.';
+        }
+        return res.status(400).json({ success: false, error: { message: msg, code } });
+      }
+
+      createdUid = fbData.localId;
+    } catch (fbErr) {
+      console.error('[Firebase Auth] Network error calling signUp:', fbErr);
+      return res.status(502).json({ success: false, error: { message: 'Could not connect to Firebase Authentication service.' } });
+    }
+
+    const users = getUsers();
+    let target = users.find(u => u.email && u.email.toLowerCase() === cleanEmail);
+
+    if (!target) {
+      target = {
+        id: `usr_fb_${createdUid ? createdUid.slice(0, 16) : Date.now().toString(36)}`,
+        email: cleanEmail,
+        displayName: (displayName || '').trim() || cleanEmail.split('@')[0],
+        avatarUrl: `https://api.dicebear.com/7.x/bottts/svg?seed=${encodeURIComponent(cleanEmail)}`,
+        role: 'creator',
+        plan: 'Free',
+        isPremium: false,
+        provider: 'password',
+        firebaseUid: createdUid,
+        status: 'active',
+        createdAt: new Date().toISOString(),
+        updatedAt: new Date().toISOString()
+      };
+      users.push(target);
+      saveUsers(users);
+    }
+
+    const token = 'wm_tok_' + Date.now().toString(36) + '_' + Math.random().toString(36).substr(2, 8);
+    const expiresAt = Date.now() + (30 * 24 * 60 * 60 * 1000);
+
+    const sessions = getSessions();
+    sessions.push({
+      id: 'sess_' + Date.now().toString(36),
+      userId: target.id,
+      token,
+      expiresAt,
+      createdAt: new Date().toISOString()
+    });
+    saveSessions(sessions);
+
+    res.setHeader('Set-Cookie', `wm_session=${encodeURIComponent(token)}; Path=/; Max-Age=${30 * 24 * 60 * 60}; HttpOnly; SameSite=Lax`);
+    res.json({ success: true, user: target, token });
+  } catch (err) {
+    res.status(500).json({ success: false, error: { message: err.message } });
+  }
+});
+
+// API: Send Password Reset Email via Firebase Identity Toolkit
+app.post('/api/auth/send-password-reset', async (req, res) => {
+  try {
+    const { email } = req.body || {};
+    const cleanEmail = (email || '').trim().toLowerCase();
+
+    if (!cleanEmail || !cleanEmail.includes('@')) {
+      return res.status(400).json({ success: false, error: { message: 'Valid email address is required' } });
+    }
+
+    const fbRes = await fetch(`https://identitytoolkit.googleapis.com/v1/accounts:sendOobCode?key=${FIREBASE_API_KEY}`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        requestType: 'PASSWORD_RESET',
+        email: cleanEmail
+      })
+    });
+
+    const fbData = await fbRes.json();
+    if (fbData.error) {
+      return res.status(400).json({ success: false, error: { message: fbData.error.message || 'Could not send reset email.' } });
+    }
+
+    res.json({ success: true, message: `Password reset email sent to ${cleanEmail}.` });
+  } catch (err) {
+    res.status(500).json({ success: false, error: { message: err.message } });
+  }
+});
+
 // API: Auth Sign Out
 app.post('/api/auth/signout', (req, res) => {
   const token = req.sessionToken;
