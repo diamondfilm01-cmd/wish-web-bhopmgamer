@@ -1738,10 +1738,163 @@ export default {
           isPremium: Boolean(userRecord.is_premium)
         };
 
-        // Session token returned ONLY in HttpOnly secure cookie, never in raw JSON response body
-        response = jsonSuccess({ user: safeUser }, 200, {
+        // Session token returned in HttpOnly secure cookie and response body
+        response = jsonSuccess({ user: safeUser, token: sessionToken }, 200, {
           'Set-Cookie': createSessionCookie(sessionToken)
         }, requestId);
+      }
+
+      else if (pathname === '/api/auth/email-signin' && method === 'POST') {
+        const body = await request.json().catch(() => ({}));
+        const email = sanitizeString(body.email || '', 120).trim().toLowerCase();
+        const password = body.password || '';
+
+        if (!email || !password) {
+          return applySecurityHeaders(jsonError('VALIDATION_ERROR', 'Email and password are required', 400), request, env);
+        }
+
+        let verifiedUid = null;
+        let verifiedEmail = email;
+
+        try {
+          const fbRes = await fetch(`https://identitytoolkit.googleapis.com/v1/accounts:signInWithPassword?key=${FIREBASE_API_KEY}`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ email, password, returnSecureToken: true })
+          });
+          const fbData = await fbRes.json().catch(() => ({}));
+          if (fbData.error) {
+            const code = fbData.error.message;
+            let msg = 'Incorrect email or password. Please verify and try again.';
+            if (code === 'EMAIL_NOT_FOUND' || code === 'INVALID_LOGIN_CREDENTIALS') {
+              msg = 'Incorrect email or password. Please check your details or sign up.';
+            } else if (code === 'INVALID_PASSWORD') {
+              msg = 'Incorrect password. Please try again or use password reset.';
+            }
+            return applySecurityHeaders(jsonError('AUTH_FAILED', msg, 401), request, env);
+          }
+          verifiedUid = fbData.localId;
+          verifiedEmail = (fbData.email || email).toLowerCase();
+        } catch (e) {
+          return applySecurityHeaders(jsonError('GATEWAY_ERROR', 'Could not connect to Firebase Authentication service', 502), request, env);
+        }
+
+        let userRecord = null;
+        if (env.DB && typeof env.DB.prepare === 'function') {
+          userRecord = await env.DB.prepare('SELECT * FROM users WHERE email = ? LIMIT 1').bind(verifiedEmail).first();
+          if (!userRecord) {
+            const newUserId = 'usr_fb_' + (verifiedUid ? verifiedUid.slice(0, 16) : Date.now().toString(36));
+            const displayName = verifiedEmail.split('@')[0];
+            const nowIso = new Date().toISOString();
+            await env.DB.prepare(
+              'INSERT INTO users (id, email, display_name, avatar_url, role, plan, is_premium, provider, status, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)'
+            ).bind(newUserId, verifiedEmail, displayName, `https://api.dicebear.com/7.x/bottts/svg?seed=${encodeURIComponent(verifiedEmail)}`, 'creator', 'Free', 0, 'password', 'active', nowIso, nowIso).run();
+            userRecord = { id: newUserId, email: verifiedEmail, display_name: displayName, avatar_url: `https://api.dicebear.com/7.x/bottts/svg?seed=${encodeURIComponent(verifiedEmail)}`, role: 'creator', plan: 'Free', is_premium: 0 };
+          }
+        } else {
+          userRecord = { id: 'usr_' + Date.now().toString(36), email: verifiedEmail, display_name: verifiedEmail.split('@')[0], role: 'creator', plan: 'Free', is_premium: false };
+        }
+
+        const sessionToken = 'wm_tok_' + crypto.randomUUID().replace(/-/g, '') + Date.now().toString(36);
+        if (env.DB && typeof env.DB.prepare === 'function') {
+          await env.DB.prepare('INSERT INTO sessions (id, user_id, token, expires_at, created_at) VALUES (?, ?, ?, ?, ?)')
+            .bind('sess_' + Date.now().toString(36), userRecord.id, sessionToken, Date.now() + (30 * 24 * 60 * 60 * 1000), new Date().toISOString()).run();
+        }
+
+        response = jsonSuccess({
+          user: {
+            id: userRecord.id,
+            email: userRecord.email,
+            displayName: userRecord.display_name || userRecord.displayName,
+            role: userRecord.role,
+            plan: userRecord.plan,
+            isPremium: Boolean(userRecord.is_premium || userRecord.isPremium)
+          },
+          token: sessionToken
+        }, 200, { 'Set-Cookie': createSessionCookie(sessionToken) }, requestId);
+      }
+
+      else if (pathname === '/api/auth/email-signup' && method === 'POST') {
+        const body = await request.json().catch(() => ({}));
+        const email = sanitizeString(body.email || '', 120).trim().toLowerCase();
+        const password = body.password || '';
+        const displayName = sanitizeString(body.displayName || '', 80) || email.split('@')[0];
+
+        if (!email || !password || password.length < 6) {
+          return applySecurityHeaders(jsonError('VALIDATION_ERROR', 'Valid email and password (min 6 chars) required', 400), request, env);
+        }
+
+        let createdUid = null;
+        try {
+          const fbRes = await fetch(`https://identitytoolkit.googleapis.com/v1/accounts:signUp?key=${FIREBASE_API_KEY}`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ email, password, returnSecureToken: true })
+          });
+          const fbData = await fbRes.json().catch(() => ({}));
+          if (fbData.error) {
+            const code = fbData.error.message;
+            let msg = 'Sign up failed.';
+            if (code === 'EMAIL_EXISTS') msg = 'An account already exists with this email address. Please sign in instead.';
+            return applySecurityHeaders(jsonError('AUTH_FAILED', msg, 400), request, env);
+          }
+          createdUid = fbData.localId;
+        } catch (e) {
+          return applySecurityHeaders(jsonError('GATEWAY_ERROR', 'Could not connect to Firebase Authentication service', 502), request, env);
+        }
+
+        let userRecord = null;
+        if (env.DB && typeof env.DB.prepare === 'function') {
+          const newUserId = 'usr_fb_' + (createdUid ? createdUid.slice(0, 16) : Date.now().toString(36));
+          const nowIso = new Date().toISOString();
+          await env.DB.prepare(
+            'INSERT INTO users (id, email, display_name, avatar_url, role, plan, is_premium, provider, status, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)'
+          ).bind(newUserId, email, displayName, `https://api.dicebear.com/7.x/bottts/svg?seed=${encodeURIComponent(email)}`, 'creator', 'Free', 0, 'password', 'active', nowIso, nowIso).run();
+          userRecord = { id: newUserId, email, display_name: displayName, role: 'creator', plan: 'Free', is_premium: 0 };
+        } else {
+          userRecord = { id: 'usr_' + Date.now().toString(36), email, display_name: displayName, role: 'creator', plan: 'Free', is_premium: false };
+        }
+
+        const sessionToken = 'wm_tok_' + crypto.randomUUID().replace(/-/g, '') + Date.now().toString(36);
+        if (env.DB && typeof env.DB.prepare === 'function') {
+          await env.DB.prepare('INSERT INTO sessions (id, user_id, token, expires_at, created_at) VALUES (?, ?, ?, ?, ?)')
+            .bind('sess_' + Date.now().toString(36), userRecord.id, sessionToken, Date.now() + (30 * 24 * 60 * 60 * 1000), new Date().toISOString()).run();
+        }
+
+        response = jsonSuccess({
+          user: {
+            id: userRecord.id,
+            email: userRecord.email,
+            displayName: userRecord.display_name,
+            role: userRecord.role,
+            plan: userRecord.plan,
+            isPremium: Boolean(userRecord.is_premium)
+          },
+          token: sessionToken
+        }, 200, { 'Set-Cookie': createSessionCookie(sessionToken) }, requestId);
+      }
+
+      else if (pathname === '/api/auth/send-password-reset' && method === 'POST') {
+        const body = await request.json().catch(() => ({}));
+        const email = sanitizeString(body.email || '', 120).trim().toLowerCase();
+        if (!email || !email.includes('@')) {
+          return applySecurityHeaders(jsonError('VALIDATION_ERROR', 'Valid email required', 400), request, env);
+        }
+
+        try {
+          const fbRes = await fetch(`https://identitytoolkit.googleapis.com/v1/accounts:sendOobCode?key=${FIREBASE_API_KEY}`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ requestType: 'PASSWORD_RESET', email })
+          });
+          const fbData = await fbRes.json().catch(() => ({}));
+          if (fbData.error) {
+            return applySecurityHeaders(jsonError('RESET_FAILED', fbData.error.message || 'Could not send reset email', 400), request, env);
+          }
+          response = jsonSuccess({ message: `Password reset email sent to ${email}` }, 200, {}, requestId);
+        } catch (e) {
+          return applySecurityHeaders(jsonError('GATEWAY_ERROR', 'Could not connect to Firebase', 502), request, env);
+        }
       }
 
       else if (pathname === '/api/auth/dev-switch') {

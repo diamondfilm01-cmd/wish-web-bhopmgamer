@@ -2,6 +2,12 @@
 
 const SECRET_ADMIN_PREFIX = '/admin/anktech/anktech/admin';
 
+function isStaticEnvironment() {
+  const host = window.location.hostname.toLowerCase();
+  const path = window.location.pathname.toLowerCase();
+  return host.includes('pages.dev') || path.endsWith('.html') || path.startsWith('/admin-');
+}
+
 // Extract and cache any auth token passed via URL
 (function syncAdminTokenFromUrl() {
   const params = new URLSearchParams(window.location.search);
@@ -20,9 +26,10 @@ const SECRET_ADMIN_PREFIX = '/admin/anktech/anktech/admin';
 // 1. Client-Side Admin Session Gatekeeper (Verifies session & prevents repeated logins)
 (async function checkAdminGatekeeper() {
   const currentPath = window.location.pathname.toLowerCase();
+  const loginUrl = isStaticEnvironment() ? '/admin-login.html' : `${SECRET_ADMIN_PREFIX}/login`;
 
-  // If already at the secret admin root or login, do not redirect
-  if (currentPath === SECRET_ADMIN_PREFIX || currentPath === SECRET_ADMIN_PREFIX + '/' || currentPath.endsWith('/login')) {
+  // If already at login page, do not redirect
+  if (currentPath === loginUrl.toLowerCase() || currentPath.endsWith('admin-login.html') || currentPath.endsWith('/login')) {
     return;
   }
 
@@ -44,14 +51,15 @@ const SECRET_ADMIN_PREFIX = '/admin/anktech/anktech/admin';
       }
     }
     // If not authenticated, open login
-    window.location.replace(`${SECRET_ADMIN_PREFIX}/login`);
+    window.location.replace(loginUrl);
   } catch (err) {
     console.warn('[Admin Gatekeeper]', err);
   }
 })();
 
-// 2. Automatically ensure all navigation links use the secret admin path and preserve the session token
+// 2. Automatically ensure all navigation links work seamlessly on both Cloudflare Pages and Express
 function rewriteAdminSidebarLinks() {
+  const isStatic = isStaticEnvironment();
   const token = localStorage.getItem('wishmagic_admin_token') || localStorage.getItem('wishmagic_auth_token');
   if (token) {
     try {
@@ -59,14 +67,30 @@ function rewriteAdminSidebarLinks() {
     } catch (e) {}
   }
 
-  document.querySelectorAll('a[href*="/admin"]').forEach(a => {
+  document.querySelectorAll('a[href*="admin"]').forEach(a => {
     let href = a.getAttribute('href');
     if (!href || href.startsWith('#') || href.startsWith('javascript:')) return;
 
-    // Ensure secret admin prefix
-    if (href.startsWith('/admin') && !href.startsWith(SECRET_ADMIN_PREFIX)) {
-      const suffix = href.replace(/^\/admin/, '');
-      href = SECRET_ADMIN_PREFIX + (suffix || '/overview');
+    if (isStatic) {
+      // Map section names to static html files on Cloudflare Pages
+      if (href.includes('user-creations')) href = '/admin-user-creations.html';
+      else if (href.includes('overview')) href = '/admin-overview.html';
+      else if (href.includes('media')) href = '/admin-media.html';
+      else if (href.includes('templates')) href = '/admin-templates.html';
+      else if (href.includes('wishes')) href = '/admin-wishes.html';
+      else if (href.includes('users')) href = '/admin-users.html';
+      else if (href.includes('occasions')) href = '/admin-occasions.html';
+      else if (href.includes('orders')) href = '/admin-orders.html';
+      else if (href.includes('settings')) href = '/admin-settings.html';
+      else if (href.includes('pricing')) href = '/admin-pricing.html';
+      else if (href.includes('staff')) href = '/admin-staff.html';
+      else if (href.includes('login')) href = '/admin-login.html';
+    } else {
+      // Express router format
+      if (href.startsWith('/admin') && !href.startsWith(SECRET_ADMIN_PREFIX)) {
+        const suffix = href.replace(/^\/admin/, '');
+        href = SECRET_ADMIN_PREFIX + (suffix || '/overview');
+      }
     }
 
     // Attach token to avoid session dropping on section navigation

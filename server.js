@@ -860,19 +860,19 @@ app.use((req, res, next) => {
   next();
 });
 
-// Security Gatekeeper: ONLY allow admin access via secret path /admin/anktech/anktech/admin
+// Security Gatekeeper: ONLY allow admin access via secret path /admin/anktech/anktech/admin or direct admin html
 const SECRET_ADMIN_PREFIX = '/admin/anktech/anktech/admin';
 app.use((req, res, next) => {
   const p = req.path.toLowerCase();
 
-  // Allow the secret admin prefix and its nested paths
-  if (p === SECRET_ADMIN_PREFIX || p.startsWith(SECRET_ADMIN_PREFIX + '/')) {
+  // Allow the secret admin prefix, direct login, or admin static pages
+  if (p === SECRET_ADMIN_PREFIX || p.startsWith(SECRET_ADMIN_PREFIX + '/') || p.startsWith('/admin-') || p.startsWith('/api/')) {
     return next();
   }
 
-  // Block ANY other attempt to access admin via any other path
-  if (p === '/admin' || p.startsWith('/admin/') || p.startsWith('/admin.') || p.startsWith('/admin-')) {
-    return res.status(404).sendFile(path.join(__dirname, 'public', 'index.html'));
+  // Block plain /admin unauthorized directory listing attempt
+  if (p === '/admin' || p === '/admin/') {
+    return res.redirect('/admin-login.html');
   }
 
   next();
@@ -4406,13 +4406,29 @@ function sendAdminPage(file, req, res) {
   res.sendFile(path.join(__dirname, 'public', file));
 }
 
-// Admin Login Portal is accessible ONLY via the secret route
-app.get(`${ADMIN_BASE}/login`, (req, res) => {
+// Direct Admin Login Route
+app.get(['/admin-login', '/admin-login.html', `${ADMIN_BASE}/login`], (req, res) => {
   const isAdmin = req.user && (req.user.role === 'admin' || req.user.isAdmin === true);
   if (isAdmin) {
     return res.redirect(`${ADMIN_BASE}/overview${req.sessionToken ? '?auth=' + encodeURIComponent(req.sessionToken) : ''}`);
   }
   res.sendFile(path.join(__dirname, 'public', 'admin-login.html'));
+});
+
+// Direct admin static pages
+app.get('/admin-:page.html', (req, res) => {
+  const page = req.params.page;
+  const fileName = `admin-${page}.html`;
+  const filePath = path.join(__dirname, 'public', fileName);
+  if (fs.existsSync(filePath)) {
+    return sendAdminPage(fileName, req, res);
+  }
+  res.status(404).sendFile(path.join(__dirname, 'public', 'index.html'));
+});
+
+// Block plain /admin unauthorized routes
+app.get(['/admin', '/admin/'], (req, res) => {
+  res.redirect('/admin-login.html');
 });
 
 // Secret Admin Studio Portal routes (Accessible ONLY via secret path: /admin/anktech/anktech/admin)
@@ -4501,11 +4517,6 @@ app.get([
   `${ADMIN_BASE}/staff.html`
 ], (req, res) => {
   sendAdminPage('admin-staff.html', req, res);
-});
-
-// Block plain /admin routes without secret token (return 404 or redirect)
-app.get(['/admin', '/admin/*', '/admin-*.html'], (req, res) => {
-  res.status(404).sendFile(path.join(__dirname, 'public', 'index.html'));
 });
 
 // Any unmatched route fallback

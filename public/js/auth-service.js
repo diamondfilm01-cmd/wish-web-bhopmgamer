@@ -10,7 +10,7 @@
   let isCheckingSession = false;
   const authListeners = new Set();
 
-  // Initialize Auth State directly from server session boundary
+  // Initialize Auth State directly with Firebase SDK and fallback cache
   async function initAuth() {
     isCheckingSession = true;
     try {
@@ -19,10 +19,59 @@
       if (storedUser) {
         try {
           currentUser = JSON.parse(storedUser);
+          notifyAuthChange();
         } catch (e) {}
       }
 
-      // 2. Authoritatively verify session with server boundary
+      // 2. Connect Firebase Auth State Observer for real-time auth
+      const fb = await ensureFirebaseAuth();
+      if (fb && typeof fb.onAuthStateChanged === 'function') {
+        fb.onAuthStateChanged(async (fbUser) => {
+          if (fbUser) {
+            const email = (fbUser.email || '').trim().toLowerCase();
+            const isAdmin = fb.isAdminEmail ? fb.isAdminEmail(email) : (email === 'bhoomgamer@gmail.com' || email.includes('admin@'));
+            const displayName = (fbUser.displayName || (email ? email.split('@')[0] : 'Creator')).trim();
+            const avatarUrl = fbUser.photoURL || `https://api.dicebear.com/7.x/bottts/svg?seed=${encodeURIComponent(email || 'creator')}`;
+
+            currentUser = {
+              id: 'usr_fb_' + (fbUser.uid ? fbUser.uid.slice(0, 16) : Date.now().toString(36)),
+              email,
+              displayName,
+              avatarUrl,
+              role: isAdmin ? 'admin' : 'creator',
+              isAdmin: isAdmin,
+              plan: isAdmin ? 'VIP' : 'Free',
+              isPremium: isAdmin,
+              provider: fbUser.providerData?.[0]?.providerId || 'firebase',
+              firebaseUid: fbUser.uid
+            };
+
+            try {
+              localStorage.setItem(STORAGE_KEY_USER, JSON.stringify(currentUser));
+              if (isAdmin) {
+                const adminToken = 'adm_token_' + fbUser.uid;
+                localStorage.setItem('wishmagic_admin_token', adminToken);
+                localStorage.setItem('wishmagic_auth_token', adminToken);
+                sessionStorage.setItem('wm_admin_verified', 'true');
+              }
+            } catch (e) {}
+
+            notifyAuthChange();
+            // Background sync with server if available
+            syncSessionWithServer(fbUser, displayName).catch(() => {});
+          } else {
+            // User signed out in Firebase
+            const hadUser = currentUser !== null;
+            currentUser = null;
+            try {
+              localStorage.removeItem(STORAGE_KEY_USER);
+            } catch (e) {}
+            if (hadUser) notifyAuthChange();
+          }
+        });
+      }
+
+      // 3. Try server hydration if running in Express environment
       await WishAuth.hydrateSessionFromServer();
     } catch (e) {
       console.warn('[WishAuth] Error initializing auth state:', e);
@@ -69,8 +118,22 @@
   // Authoritatively sync authenticated Firebase identity with server-side session cookie
   async function syncSessionWithServer(fbUser, fallbackDisplayName = '') {
     const email = (fbUser.email || '').trim().toLowerCase();
+    const isAdmin = window.WishFirebaseAuth?.isAdminEmail ? window.WishFirebaseAuth.isAdminEmail(email) : (email === 'bhoomgamer@gmail.com' || email.includes('admin@'));
     const displayName = (fbUser.displayName || fallbackDisplayName || (email ? email.split('@')[0] : 'Creator')).trim();
     const avatarUrl = fbUser.photoURL || `https://api.dicebear.com/7.x/bottts/svg?seed=${encodeURIComponent(email || 'creator')}`;
+
+    const fallbackUser = {
+      id: 'usr_fb_' + (fbUser.uid ? fbUser.uid.slice(0, 16) : Date.now().toString(36)),
+      email,
+      displayName,
+      avatarUrl,
+      role: isAdmin ? 'admin' : 'creator',
+      isAdmin: isAdmin,
+      plan: isAdmin ? 'VIP' : 'Free',
+      isPremium: isAdmin,
+      provider: fbUser.providerData?.[0]?.providerId || 'firebase',
+      firebaseUid: fbUser.uid
+    };
 
     try {
       const res = await fetch('/api/auth/signin', {
@@ -86,24 +149,17 @@
         })
       });
 
-      const data = await res.json();
-      if (res.ok && data && data.success && data.user) {
-        return data.user;
+      if (res.ok) {
+        const data = await res.json();
+        if (data && data.success && data.user) {
+          return data.user;
+        }
       }
     } catch (err) {
-      console.warn('[WishAuth] Server session sync warning:', err);
+      // Server is offline or static host (Cloudflare Pages), use direct client fallback
     }
 
-    // Safe fallback if offline
-    return {
-      id: 'usr_' + (fbUser.uid ? fbUser.uid.slice(0, 16) : Date.now().toString(36)),
-      email,
-      displayName,
-      avatarUrl,
-      role: 'creator',
-      plan: 'Free',
-      isPremium: false
-    };
+    return fallbackUser;
   }
 
   // Centralized Auth Service API
@@ -133,7 +189,7 @@
     },
 
     /**
-     * Hydrate and verify active session directly from server-side cookie boundary
+     * Hydrate active session from server if available without breaking static hosts
      */
     async hydrateSessionFromServer() {
       try {
@@ -150,18 +206,9 @@
           }
         }
       } catch (e) {
-        console.warn('[WishAuth] Session hydration error:', e);
+        // Expected on static hosting like Cloudflare Pages
       }
-
-      // If server session is invalid or missing, clear cached state
-      if (currentUser) {
-        currentUser = null;
-        try {
-          localStorage.removeItem(STORAGE_KEY_USER);
-        } catch (e) {}
-        notifyAuthChange();
-      }
-      return null;
+      return currentUser;
     },
 
     onAuthStateChange(callback) {

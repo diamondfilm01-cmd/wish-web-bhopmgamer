@@ -14,11 +14,18 @@
     appId: "1:281035115213:web:2af5b3a6f0ceb6c64eb784"
   };
 
+  const ADMIN_EMAILS = [
+    'bhoomgamer@gmail.com',
+    'admin@wishmagic.internal',
+    'admin@anktech.internal'
+  ];
+
   let fbApp = null;
   let fbAuth = null;
   let fbGoogleProvider = null;
   let fbSdk = null;
   let initPromise = null;
+  const stateChangeCallbacks = new Set();
 
   async function getFirebase() {
     if (initPromise) return initPromise;
@@ -34,6 +41,13 @@
         fbGoogleProvider = new authMod.GoogleAuthProvider();
         fbGoogleProvider.setCustomParameters({ prompt: 'select_account' });
         fbSdk = authMod;
+
+        // Set up global auth state observer
+        fbSdk.onAuthStateChanged(fbAuth, (user) => {
+          stateChangeCallbacks.forEach(cb => {
+            try { cb(user); } catch (e) { console.warn('[WishFirebaseAuth] Callback error:', e); }
+          });
+        });
 
         console.log('[WishFirebaseAuth] Firebase Auth initialized successfully for wish-magic-47944');
         return {
@@ -61,7 +75,7 @@
       case 'auth/user-not-found':
         return 'Incorrect email or password. Please verify and try again.';
       case 'auth/email-already-in-use':
-        return 'An account already exists with this email address. Please sign in.';
+        return 'An account already exists with this email address. Please sign in instead.';
       case 'auth/weak-password':
         return 'Password should be at least 6 characters.';
       case 'auth/invalid-email':
@@ -71,7 +85,7 @@
       case 'auth/popup-blocked':
         return 'Sign-in popup was blocked by your browser. Please allow popups for this site.';
       case 'auth/unauthorized-domain':
-        return 'This domain is not yet authorized in Firebase Console (Authentication > Settings > Authorized domains).';
+        return 'Domain is not authorized in Firebase Console (Authentication > Settings > Authorized domains).';
       case 'auth/network-request-failed':
         return 'Network connection error. Please check your internet connection.';
       case 'auth/too-many-requests':
@@ -84,6 +98,12 @@
   const WishFirebaseAuth = {
     getConfig() {
       return { ...firebaseConfig };
+    },
+
+    isAdminEmail(email) {
+      if (!email) return false;
+      const clean = email.trim().toLowerCase();
+      return ADMIN_EMAILS.some(adm => adm.toLowerCase() === clean);
     },
 
     async getAuthInstance() {
@@ -168,13 +188,20 @@
     },
 
     // Listen to Firebase auth state
-    async onAuthStateChanged(callback) {
-      try {
-        const { auth, sdk } = await getFirebase();
-        return sdk.onAuthStateChanged(auth, callback);
-      } catch (e) {
-        return () => {};
+    onAuthStateChanged(callback) {
+      if (typeof callback !== 'function') return () => {};
+      stateChangeCallbacks.add(callback);
+
+      // Trigger if already initialized
+      if (fbAuth && fbAuth.currentUser !== undefined) {
+        try { callback(fbAuth.currentUser); } catch(e) {}
+      } else {
+        getFirebase().then(({ auth }) => {
+          try { callback(auth.currentUser); } catch(e) {}
+        }).catch(() => {});
       }
+
+      return () => stateChangeCallbacks.delete(callback);
     }
   };
 
