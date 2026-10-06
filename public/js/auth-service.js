@@ -484,8 +484,8 @@
                   <span class="material-symbols-outlined text-[16px] text-purple-400">settings</span>
                   <span>Account Settings</span>
                 </a>
-                ${user.role === 'admin' ? `
-                  <a href="/admin" class="px-3 py-2 rounded-xl text-xs font-bold text-pink-400 hover:bg-pink-950/40 flex items-center gap-2 transition">
+                ${(user.role === 'admin' || user.isAdmin === true) ? `
+                  <a href="/admin/anktech/anktech/admin" class="px-3 py-2 rounded-xl text-xs font-bold text-pink-400 hover:bg-pink-950/40 flex items-center gap-2 transition">
                     <span class="material-symbols-outlined text-[16px] text-pink-500">admin_panel_settings</span>
                     <span>Admin Portal</span>
                   </a>

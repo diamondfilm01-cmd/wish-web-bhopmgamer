@@ -850,6 +850,15 @@ app.use((req, res, next) => {
   next();
 });
 
+// Security Gatekeeper: Block plain /admin routes without secret token
+app.use((req, res, next) => {
+  const p = req.path.toLowerCase();
+  if (p === '/admin' || (p.startsWith('/admin/') && !p.startsWith('/admin/anktech/anktech/admin')) || (p.startsWith('/admin-') && p !== '/admin-login.html' && p !== '/admin-login')) {
+    return res.status(404).sendFile(path.join(__dirname, 'public', 'index.html'));
+  }
+  next();
+});
+
 // Serve static files from public directory
 app.use(express.static(path.join(__dirname, 'public'), {
   extensions: ['html', 'htm']
@@ -3592,19 +3601,27 @@ app.get('/w/:id', (req, res) => {
 // Secret Admin Entry Routes: /admin/anktech/anktech/admin
 const ADMIN_BASE = '/admin/anktech/anktech/admin';
 
-function sendAdminPage(file, res) {
+function sendAdminPage(file, req, res) {
+  const isAdmin = req.user && (req.user.role === 'admin' || req.user.isAdmin === true);
+  if (!isAdmin) {
+    // Not logged in -> Show Admin 2FA Login Page first!
+    return res.sendFile(path.join(__dirname, 'public', 'admin-login.html'));
+  }
+  // Already logged in -> Directly open requested Admin Studio page (no repeated login!)
   res.sendFile(path.join(__dirname, 'public', file));
 }
 
-// Admin Portal routes (/admin, /admin/templates, /admin/categories, /admin/media, etc.)
+// Admin Login Portal Direct Route
+app.get(['/admin-login', '/admin-login.html', `${ADMIN_BASE}/login`], (req, res) => {
+  const isAdmin = req.user && (req.user.role === 'admin' || req.user.isAdmin === true);
+  if (isAdmin) {
+    return res.redirect(ADMIN_BASE);
+  }
+  res.sendFile(path.join(__dirname, 'public', 'admin-login.html'));
+});
+
+// Secret Admin Studio Portal routes (Accessible ONLY via secret path: /admin/anktech/anktech/admin)
 app.get([
-  '/admin',
-  '/admin/',
-  '/admin/overview',
-  '/admin/overview.html',
-  '/admin/dashboard',
-  '/admin/analytics',
-  '/admin/analytics.html',
   ADMIN_BASE,
   `${ADMIN_BASE}/`,
   `${ADMIN_BASE}/overview`,
@@ -3612,96 +3629,79 @@ app.get([
   `${ADMIN_BASE}/analytics`,
   `${ADMIN_BASE}/analytics.html`
 ], (req, res) => {
-  sendAdminPage('admin-overview.html', res);
+  sendAdminPage('admin-overview.html', req, res);
 });
 
 app.get([
-  '/admin/templates',
-  '/admin/templates.html',
   `${ADMIN_BASE}/templates`,
   `${ADMIN_BASE}/templates.html`
 ], (req, res) => {
-  sendAdminPage('admin-templates.html', res);
+  sendAdminPage('admin-templates.html', req, res);
 });
 
 app.get([
-  '/admin/categories',
-  '/admin/categories.html',
-  '/admin/occasions',
-  '/admin/occasions.html',
   `${ADMIN_BASE}/occasions`,
   `${ADMIN_BASE}/occasions.html`,
   `${ADMIN_BASE}/categories`,
   `${ADMIN_BASE}/categories.html`
 ], (req, res) => {
-  sendAdminPage('admin-occasions.html', res);
+  sendAdminPage('admin-occasions.html', req, res);
 });
 
 app.get([
-  '/admin/users',
-  '/admin/users.html',
   `${ADMIN_BASE}/users`,
   `${ADMIN_BASE}/users.html`
 ], (req, res) => {
-  sendAdminPage('admin-users.html', res);
+  sendAdminPage('admin-users.html', req, res);
 });
 
 app.get([
-  '/admin/wishes',
-  '/admin/wishes.html',
   `${ADMIN_BASE}/wishes`,
   `${ADMIN_BASE}/wishes.html`
 ], (req, res) => {
-  sendAdminPage('admin-wishes.html', res);
+  sendAdminPage('admin-wishes.html', req, res);
 });
 
 app.get([
-  '/admin/orders',
-  '/admin/orders.html',
   `${ADMIN_BASE}/orders`,
   `${ADMIN_BASE}/orders.html`
 ], (req, res) => {
-  sendAdminPage('admin-orders.html', res);
+  sendAdminPage('admin-orders.html', req, res);
 });
 
 app.get([
-  '/admin/media',
-  '/admin/media.html',
   `${ADMIN_BASE}/media`,
   `${ADMIN_BASE}/media.html`
 ], (req, res) => {
-  sendAdminPage('admin-media.html', res);
+  sendAdminPage('admin-media.html', req, res);
 });
 
 app.get([
-  '/admin/pricing',
-  '/admin/pricing.html',
   `${ADMIN_BASE}/pricing`,
   `${ADMIN_BASE}/pricing.html`
 ], (req, res) => {
-  sendAdminPage('admin-pricing.html', res);
+  sendAdminPage('admin-pricing.html', req, res);
 });
 
 app.get([
-  '/admin/settings',
-  '/admin/settings.html',
-  '/admin/diagnostics',
-  '/admin/diagnostics.html',
   `${ADMIN_BASE}/settings`,
   `${ADMIN_BASE}/settings.html`,
   `${ADMIN_BASE}/diagnostics`,
   `${ADMIN_BASE}/diagnostics.html`
 ], (req, res) => {
-  sendAdminPage('admin-settings.html', res);
+  sendAdminPage('admin-settings.html', req, res);
 });
 
 app.get([
-  '/admin/staff',
-  '/admin/staff.html',
   `${ADMIN_BASE}/staff`,
   `${ADMIN_BASE}/staff.html`
 ], (req, res) => {
-  sendAdminPage('admin-staff.html', res);
+  sendAdminPage('admin-staff.html', req, res);
+});
+
+// Block plain /admin routes without secret token (return 404 or redirect)
+app.get(['/admin', '/admin/*', '/admin-*.html'], (req, res) => {
+  res.status(404).sendFile(path.join(__dirname, 'public', 'index.html'));
 });
 
 // Any unmatched route fallback

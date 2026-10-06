@@ -1,5 +1,45 @@
 // WishMagic Admin Studio - Universal Dual Theme Engine & Utilities
 
+const SECRET_ADMIN_PREFIX = '/admin/anktech/anktech/admin';
+
+// 1. Client-Side Admin Session Gatekeeper (Verifies session & prevents repeated logins)
+(async function checkAdminGatekeeper() {
+  if (window.location.pathname.includes('admin-login')) return;
+
+  try {
+    const res = await fetch('/api/auth/session', { credentials: 'include' });
+    if (!res.ok) {
+      window.location.replace('/admin-login.html');
+      return;
+    }
+    const data = await res.json();
+    if (!data || !data.isAuthenticated || !data.user || (data.user.role !== 'admin' && !data.user.isAdmin)) {
+      window.location.replace('/admin-login.html');
+      return;
+    }
+    sessionStorage.setItem('wm_admin_verified', 'true');
+  } catch (err) {
+    console.warn('[Admin Gatekeeper]', err);
+  }
+})();
+
+// 2. Automatically ensure all sidebar links use the secret admin path
+function rewriteAdminSidebarLinks() {
+  document.querySelectorAll('#admin-sidebar a[href^="/admin"]').forEach(a => {
+    const href = a.getAttribute('href');
+    if (!href.startsWith(SECRET_ADMIN_PREFIX)) {
+      const suffix = href.replace(/^\/admin/, '');
+      a.setAttribute('href', SECRET_ADMIN_PREFIX + (suffix || '/overview'));
+    }
+  });
+}
+
+if (document.readyState === 'loading') {
+  document.addEventListener('DOMContentLoaded', rewriteAdminSidebarLinks);
+} else {
+  rewriteAdminSidebarLinks();
+}
+
 function updateThemeIcons(isDark) {
   const icons = document.querySelectorAll('.theme-toggle-icon, #theme-toggle-icon');
   icons.forEach(icon => {

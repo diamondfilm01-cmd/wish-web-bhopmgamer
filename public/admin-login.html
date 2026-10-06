@@ -109,7 +109,20 @@
     let targetMobile = null;
     let confirmationResult = null;
 
-    // Step 1: Verify Mobile + Password
+    // Check if admin is ALREADY logged in (do not force repeated logins!)
+    (async function checkExistingAdminSession() {
+      try {
+        const res = await fetch('/api/auth/session', { credentials: 'include' });
+        if (res.ok) {
+          const data = await res.json();
+          if (data && data.isAuthenticated && data.user && (data.user.role === 'admin' || data.user.isAdmin)) {
+            window.location.replace('/admin/anktech/anktech/admin');
+          }
+        }
+      } catch (e) {}
+    })();
+
+    // Step 1: Verify Email / Mobile + Password
     async function handleVerifyCredentials(e) {
       e.preventDefault();
       hideAlert();
@@ -188,8 +201,8 @@
           return;
         }
 
-        // Success -> Redirect to Admin Overview
-        window.location.href = '/admin/overview';
+        // Success -> Redirect to Secret Admin Studio
+        window.location.href = '/admin/anktech/anktech/admin';
 
       } catch (err) {
         showAlert('Error verifying OTP with server.');

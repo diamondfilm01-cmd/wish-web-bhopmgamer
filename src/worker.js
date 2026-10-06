@@ -133,20 +133,7 @@ const PRETTY_ROUTES = {
   '/admin/anktech/anktech/admin/pricing': '/admin-pricing.html',
   '/admin/anktech/anktech/admin/settings': '/admin-settings.html',
   '/admin/anktech/anktech/admin/staff': '/admin-staff.html',
-  '/admin': '/admin-overview.html',
-  '/admin/overview': '/admin-overview.html',
-  '/admin/templates': '/admin-templates.html',
-  '/admin/categories': '/admin-occasions.html',
-  '/admin/occasions': '/admin-occasions.html',
-  '/admin/users': '/admin-users.html',
-  '/admin/wishes': '/admin-wishes.html',
-  '/admin/orders': '/admin-orders.html',
-  '/admin/media': '/admin-media.html',
-  '/admin/pricing': '/admin-pricing.html',
-  '/admin/settings': '/admin-settings.html',
-  '/admin/staff': '/admin-staff.html',
-  '/admin/analytics': '/admin-overview.html',
-  '/admin/diagnostics': '/admin-overview.html'
+  '/admin-login': '/admin-login.html'
 };
 
 // In-memory rate limiting bucket
@@ -3967,7 +3954,23 @@ export default {
         }
       }
 
-      // --- 5. Cloudflare Pages Pretty Routes & Deep Linking ---
+      // --- 5. Secret Admin Routing Boundary & Cloudflare Pages Pretty Routes ---
+      if ((pathname === '/admin' || pathname.startsWith('/admin/')) && !pathname.startsWith('/admin/anktech/anktech/admin')) {
+        return applySecurityHeaders(jsonError('NOT_FOUND', 'Route not found', 404, {}, null, requestId), request, env);
+      }
+
+      if (pathname.startsWith('/admin/anktech/anktech/admin')) {
+        const user = await getAuthenticatedUser(request, env);
+        const isAdmin = user && await verifyAdminRole(user, env);
+        if (!isAdmin) {
+          if (env.ASSETS && typeof env.ASSETS.fetch === 'function') {
+            const loginReq = new Request(new URL('/admin-login.html', request.url), request);
+            const htmlRes = await env.ASSETS.fetch(loginReq);
+            return applySecurityHeaders(htmlRes, request, env);
+          }
+        }
+      }
+
       if (PRETTY_ROUTES[pathname] && env.ASSETS && typeof env.ASSETS.fetch === 'function') {
         const targetHtml = PRETTY_ROUTES[pathname];
         const pageReq = new Request(new URL(targetHtml, request.url), request);

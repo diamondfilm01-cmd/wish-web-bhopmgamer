@@ -19,60 +19,50 @@ const ADMIN_ROUTES_MAP = {
   '/admin/anktech/anktech/admin/pricing': '/admin-pricing.html',
   '/admin/anktech/anktech/admin/settings': '/admin-settings.html',
   '/admin/anktech/anktech/admin/staff': '/admin-staff.html',
-  '/admin': '/admin-overview.html',
-  '/admin/': '/admin-overview.html',
-  '/admin/overview': '/admin-overview.html',
-  '/admin/templates': '/admin-templates.html',
-  '/admin/occasions': '/admin-occasions.html',
-  '/admin/categories': '/admin-occasions.html',
-  '/admin/users': '/admin-users.html',
-  '/admin/wishes': '/admin-wishes.html',
-  '/admin/orders': '/admin-orders.html',
-  '/admin/media': '/admin-media.html',
-  '/admin/pricing': '/admin-pricing.html',
-  '/admin/settings': '/admin-settings.html',
-  '/admin/staff': '/admin-staff.html'
+  '/admin-login': '/admin-login.html',
+  '/admin-login.html': '/admin-login.html'
 };
 
 export async function onRequest(context) {
   const url = new URL(context.request.url);
   const pathname = url.pathname;
 
-  // Secret Admin Portal Entry: Automatically establish Owner Admin Session
+  // Block plain /admin routes without the secret token
+  if ((pathname === '/admin' || pathname.startsWith('/admin/')) && !pathname.startsWith('/admin/anktech/anktech/admin')) {
+    return new Response('Not Found', { status: 404 });
+  }
+
+  // Secret Admin Portal Entry: Verify admin session
   if (pathname.startsWith('/admin/anktech/anktech/admin')) {
-    const targetFile = ADMIN_ROUTES_MAP[pathname] || '/admin-overview.html';
-    const pageReq = new Request(new URL(targetFile, context.request.url), context.request);
-    const response = await context.next(pageReq);
+    const cookieHeader = context.request.headers.get('Cookie') || '';
+    const match = cookieHeader.match(/wm_session=([^;]+)/);
+    const sessionToken = match ? decodeURIComponent(match[1]) : null;
 
-    const token = 'wm_adm_' + crypto.randomUUID().replace(/-/g, '');
-    const expiresAt = Date.now() + 30 * 24 * 60 * 60 * 1000;
-    const nowIso = new Date().toISOString();
-
-    if (context.env.DB && typeof context.env.DB.prepare === 'function') {
+    let isAuthenticatedAdmin = false;
+    if (sessionToken && context.env.DB && typeof context.env.DB.prepare === 'function') {
       try {
-        await context.env.DB.prepare(
-          "INSERT OR IGNORE INTO users (id, mobile, created_at) VALUES ('usr_owner_anktech', '9414130000', ?)"
-        ).bind(nowIso).run();
+        const sessionRow = await context.env.DB.prepare(
+          'SELECT s.user_id, u.role as user_role, ar.role as admin_role FROM sessions s LEFT JOIN users u ON u.id = s.user_id LEFT JOIN admin_roles ar ON ar.user_id = s.user_id WHERE s.token = ? AND s.expires_at > ? LIMIT 1'
+        ).bind(sessionToken, Date.now()).first();
 
-        await context.env.DB.prepare(
-          "INSERT OR REPLACE INTO admin_roles (user_id, role, created_at) VALUES ('usr_owner_anktech', 'OWNER', ?)"
-        ).bind(nowIso).run();
-
-        await context.env.DB.prepare(
-          "INSERT INTO sessions (token, user_id, expires_at, created_at) VALUES (?, 'usr_owner_anktech', ?, ?)"
-        ).bind(token, expiresAt, nowIso).run();
+        if (sessionRow && (sessionRow.user_role === 'admin' || sessionRow.admin_role === 'OWNER' || sessionRow.admin_role === 'ADMIN')) {
+          isAuthenticatedAdmin = true;
+        }
       } catch (e) {
-        console.warn('[Admin Secret Auto-Auth Error]', e);
+        console.warn('[Admin Auth Check Error]', e);
       }
     }
 
-    const newHeaders = new Headers(response.headers);
-    newHeaders.append('Set-Cookie', `wm_session=${token}; Path=/; HttpOnly; SameSite=Lax; Max-Age=2592000`);
-    return new Response(response.body, {
-      status: response.status,
-      statusText: response.statusText,
-      headers: newHeaders
-    });
+    // If not authenticated, serve the login page first!
+    if (!isAuthenticatedAdmin) {
+      const loginReq = new Request(new URL('/admin-login.html', context.request.url), context.request);
+      return await context.next(loginReq);
+    }
+
+    // Already authenticated -> serve requested admin page directly without repeated login!
+    const targetFile = ADMIN_ROUTES_MAP[pathname] || '/admin-overview.html';
+    const pageReq = new Request(new URL(targetFile, context.request.url), context.request);
+    return await context.next(pageReq);
   }
 
   // Pretty admin and storefront route mapping
