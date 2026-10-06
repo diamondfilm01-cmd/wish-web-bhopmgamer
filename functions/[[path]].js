@@ -6,5 +6,13 @@
 import worker from '../src/worker.js';
 
 export async function onRequest(context) {
-  return await worker.fetch(context.request, context.env, context);
+  const env = {
+    ...context.env,
+    ASSETS: context.env.ASSETS || {
+      fetch: async (req) => {
+        return await context.next(req);
+      }
+    }
+  };
+  return await worker.fetch(context.request, env, context);
 }

@@ -1,15 +1,9 @@
 {
   "version": 1,
   "include": [
-    "/*"
+    "/api/*",
+    "/w/*",
+    "/template/*"
   ],
-  "exclude": [
-    "/assets/*",
-    "/css/*",
-    "/js/*",
-    "/templates-store/*",
-    "/media/*",
-    "/*.html",
-    "/favicon.ico"
-  ]
+  "exclude": []
 }

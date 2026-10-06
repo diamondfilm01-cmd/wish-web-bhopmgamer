@@ -3878,8 +3878,13 @@ export default {
       }
 
       // 5. Fallback to Static Asset Serving via ASSETS binding (Cloudflare Pages)
-      if (!response && env.ASSETS && typeof env.ASSETS.fetch === 'function') {
-        return await env.ASSETS.fetch(request);
+      if (!response) {
+        if (env.ASSETS && typeof env.ASSETS.fetch === 'function') {
+          return await env.ASSETS.fetch(request);
+        }
+        if (ctx && typeof ctx.next === 'function') {
+          return await ctx.next();
+        }
       }
 
       return applySecurityHeaders(response || jsonError('NOT_FOUND', 'Route not found', 404, {}, null, requestId), request, env);
