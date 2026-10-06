@@ -26,5 +26,12 @@
     "token": "wm_tok_muwdo975_8kvumh1jb0",
     "expiresAt": 1791359364497,
     "createdAt": "2026-10-06T07:49:24.497Z"
+  },
+  {
+    "id": "sess_adm_muwe1cx4",
+    "userId": "usr_admin_owner",
+    "token": "wm_tok_muwe1cx4_jqazi31lkp",
+    "expiresAt": 1791359975848,
+    "createdAt": "2026-10-06T07:59:35.848Z"
   }
 ]

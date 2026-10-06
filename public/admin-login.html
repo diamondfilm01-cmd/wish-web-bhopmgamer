@@ -4,7 +4,7 @@
   <meta charset="utf-8"/>
   <base href="/"/>
   <meta content="width=device-width, initial-scale=1.0" name="viewport"/>
-  <title>Admin 2FA Security Gateway | WishMagic Studio</title>
+  <title>Firebase Admin Login | WishMagic Studio</title>
   <link rel="preconnect" href="https://fonts.googleapis.com"/>
   <link crossorigin="" href="https://fonts.gstatic.com" rel="preconnect"/>
   <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&family=Outfit:wght@500;600;700;800&family=JetBrains+Mono:wght@400;500;600;700&display=swap" rel="stylesheet"/>
@@ -22,23 +22,23 @@
     body {
       background-color: #07040d !important;
       background-image: 
-        radial-gradient(circle at 15% 15%, rgba(124, 58, 237, 0.18), transparent 35%),
-        radial-gradient(circle at 85% 85%, rgba(236, 72, 153, 0.15), transparent 40%),
+        radial-gradient(circle at 15% 15%, rgba(124, 58, 237, 0.2), transparent 35%),
+        radial-gradient(circle at 85% 85%, rgba(236, 72, 153, 0.16), transparent 40%),
         radial-gradient(circle at 50% 50%, rgba(79, 70, 229, 0.08), transparent 50%);
     }
     .glass-card {
-      background: rgba(18, 10, 34, 0.82);
+      background: rgba(18, 10, 34, 0.84);
       backdrop-filter: blur(24px);
       -webkit-backdrop-filter: blur(24px);
-      border: 1px solid rgba(139, 92, 246, 0.22);
-      box-shadow: 0 0 60px rgba(0, 0, 0, 0.8), 0 0 30px rgba(124, 58, 237, 0.15);
+      border: 1px solid rgba(139, 92, 246, 0.25);
+      box-shadow: 0 0 60px rgba(0, 0, 0, 0.85), 0 0 30px rgba(124, 58, 237, 0.18);
     }
     .input-focus {
       transition: all 0.2s ease;
     }
     .input-focus:focus {
       border-color: #a855f7 !important;
-      box-shadow: 0 0 20px rgba(168, 85, 247, 0.25) !important;
+      box-shadow: 0 0 20px rgba(168, 85, 247, 0.3) !important;
     }
   </style>
 </head>
@@ -48,7 +48,7 @@
   <div class="fixed -top-32 -left-32 w-96 h-96 bg-purple-600/20 rounded-full blur-[128px] pointer-events-none animate-pulse"></div>
   <div class="fixed -bottom-32 -right-32 w-96 h-96 bg-pink-600/15 rounded-full blur-[128px] pointer-events-none"></div>
 
-  <!-- Main Login Container -->
+  <!-- Main Login Card Container -->
   <div class="w-full max-w-md glass-card rounded-3xl p-7 sm:p-9 relative z-10 flex flex-col gap-6">
 
     <!-- Header & Branding -->
@@ -67,7 +67,7 @@
           <span>WishMagic</span>
           <span class="bg-gradient-to-r from-purple-400 via-pink-400 to-amber-300 bg-clip-text text-transparent">Studio</span>
         </h1>
-        <p class="text-xs text-purple-200/70 font-medium mt-0.5">Restricted Enterprise Administration Gateway</p>
+        <p class="text-xs text-purple-200/70 font-medium mt-0.5">Firebase Authenticated Admin Gateway</p>
       </div>
 
       <!-- Secret Path Badge -->
@@ -77,20 +77,14 @@
         <span>/admin/anktech/anktech/admin</span>
       </div>
 
-      <!-- Step Indicator -->
-      <div class="w-full grid grid-cols-2 gap-2 mt-1">
-        <div id="step-tab-1" class="py-1.5 px-3 rounded-xl bg-purple-600/20 border border-purple-500/40 text-[11px] font-bold text-purple-300 flex items-center justify-center gap-1.5 transition-all">
-          <span class="w-4 h-4 rounded-full bg-purple-500 text-white text-[10px] flex items-center justify-center font-bold">1</span>
-          <span>Credentials</span>
-        </div>
-        <div id="step-tab-2" class="py-1.5 px-3 rounded-xl bg-white/[0.04] border border-white/10 text-[11px] font-semibold text-gray-400 flex items-center justify-center gap-1.5 transition-all">
-          <span class="w-4 h-4 rounded-full bg-gray-700 text-gray-300 text-[10px] flex items-center justify-center font-bold">2</span>
-          <span>2FA OTP</span>
-        </div>
+      <!-- Firebase Auth Badge -->
+      <div class="inline-flex items-center gap-1.5 px-3 py-1 rounded-xl bg-amber-500/10 border border-amber-500/20 text-amber-300 text-[11px] font-medium">
+        <span class="material-symbols-outlined text-sm text-amber-400">local_fire_department</span>
+        <span>Firebase Authentication Enabled (No OTP Required)</span>
       </div>
     </div>
 
-    <!-- Alert / Notification Banner -->
+    <!-- Alert / Error Banner -->
     <div id="login-alert" class="hidden p-3.5 rounded-2xl bg-rose-500/15 border border-rose-500/30 text-rose-300 text-xs font-medium flex items-center gap-2.5 transition-all">
       <span class="material-symbols-outlined text-base shrink-0 text-rose-400">error</span>
       <span id="alert-message">Authentication failed.</span>
@@ -102,91 +96,40 @@
       <span id="info-message">Ready.</span>
     </div>
 
-    <!-- STEP 1: EMAIL & PASSWORD FORM -->
-    <form id="step-credentials-form" onsubmit="handleVerifyCredentials(event)" class="flex flex-col gap-4">
+    <!-- DIRECT FIREBASE EMAIL & PASSWORD LOGIN FORM -->
+    <form id="firebase-login-form" onsubmit="handleFirebaseLogin(event)" class="flex flex-col gap-4">
       <div>
-        <div class="flex items-center justify-between mb-1.5">
-          <label class="block text-xs font-semibold text-purple-200/80 uppercase tracking-wider">Registered Admin Email</label>
-          <button type="button" onclick="fillDefaultAdmin()" class="text-[11px] text-pink-400 hover:text-pink-300 transition underline cursor-pointer">
-            Use Admin Email
-          </button>
-        </div>
+        <label class="block text-xs font-semibold text-purple-200/80 uppercase tracking-wider mb-1.5">
+          Firebase Admin Email
+        </label>
         <div class="relative flex items-center">
           <span class="material-symbols-outlined absolute left-3.5 text-purple-400 text-lg">mail</span>
-          <input id="admin-email-input" type="email" required placeholder="admin@wishmagic.internal" value="admin@wishmagic.internal" class="input-focus w-full pl-11 pr-4 py-3 rounded-xl bg-purple-950/40 border border-purple-500/30 text-white text-sm focus:outline-none placeholder-gray-500 transition-colors"/>
+          <input id="admin-email-input" type="email" required autocomplete="username" placeholder="admin@example.com" class="input-focus w-full pl-11 pr-4 py-3 rounded-xl bg-purple-950/40 border border-purple-500/30 text-white text-sm focus:outline-none placeholder-gray-500 transition-colors"/>
         </div>
       </div>
 
       <div>
-        <label class="block text-xs font-semibold text-purple-200/80 uppercase tracking-wider mb-1.5">Admin Password</label>
+        <label class="block text-xs font-semibold text-purple-200/80 uppercase tracking-wider mb-1.5">
+          Firebase Admin Password
+        </label>
         <div class="relative flex items-center">
           <span class="material-symbols-outlined absolute left-3.5 text-purple-400 text-lg">lock</span>
-          <input id="admin-password-input" type="password" required placeholder="Enter admin password" value="admin123" class="input-focus w-full pl-11 pr-11 py-3 rounded-xl bg-purple-950/40 border border-purple-500/30 text-white text-sm focus:outline-none placeholder-gray-500 transition-colors"/>
-          <button type="button" onclick="togglePasswordVisibility()" class="absolute right-3.5 text-purple-400 hover:text-white transition cursor-pointer">
+          <input id="admin-password-input" type="password" required autocomplete="current-password" placeholder="Enter password created in Firebase" class="input-focus w-full pl-11 pr-11 py-3 rounded-xl bg-purple-950/40 border border-purple-500/30 text-white text-sm focus:outline-none placeholder-gray-500 transition-colors"/>
+          <button type="button" onclick="togglePasswordVisibility()" class="absolute right-3.5 text-purple-400 hover:text-white transition cursor-pointer" title="Toggle password view">
             <span id="pwd-toggle-icon" class="material-symbols-outlined text-lg">visibility</span>
           </button>
         </div>
       </div>
 
       <div class="p-3 rounded-xl bg-purple-950/30 border border-purple-900/40 text-[11px] text-purple-300/80 flex items-center gap-2">
-        <span class="material-symbols-outlined text-sm text-pink-400 shrink-0">lock</span>
-        <span>Private administrative access only. Public user registration is disabled.</span>
+        <span class="material-symbols-outlined text-sm text-pink-400 shrink-0">security</span>
+        <span>Aapne jo email/password Firebase Console (Authentication &gt; Users) me banaya hai, usi se direct login hoga.</span>
       </div>
 
-      <button type="submit" id="credentials-submit-btn" class="w-full py-3.5 px-4 rounded-xl bg-gradient-to-r from-purple-600 via-indigo-600 to-pink-600 hover:opacity-95 text-white font-bold text-sm tracking-wide shadow-[0_0_30px_rgba(147,51,234,0.4)] flex items-center justify-center gap-2 transition-all mt-1 cursor-pointer">
-        <span>Verify Credentials &amp; Request OTP</span>
-        <span class="material-symbols-outlined text-lg">arrow_forward</span>
+      <button type="submit" id="login-submit-btn" class="w-full py-3.5 px-4 rounded-xl bg-gradient-to-r from-purple-600 via-indigo-600 to-pink-600 hover:opacity-95 text-white font-bold text-sm tracking-wide shadow-[0_0_30px_rgba(147,51,234,0.4)] flex items-center justify-center gap-2 transition-all mt-1 cursor-pointer">
+        <span class="material-symbols-outlined text-lg">login</span>
+        <span>Sign In to Admin Studio</span>
       </button>
-    </form>
-
-    <!-- STEP 2: 2FA OTP VERIFICATION FORM -->
-    <form id="step-otp-form" onsubmit="handleVerifyOtp(event)" class="flex flex-col gap-4 hidden">
-      <div class="p-3.5 rounded-2xl bg-purple-950/60 border border-purple-500/30 text-xs text-purple-200 flex flex-col gap-1.5 text-center">
-        <div class="flex items-center justify-center gap-1.5 text-emerald-400 font-bold">
-          <span class="material-symbols-outlined text-base">mark_email_read</span>
-          <span>Verification Code Dispatched</span>
-        </div>
-        <div>
-          <span>Sent to: </span>
-          <span id="display-otp-email" class="font-mono font-bold text-white"></span>
-        </div>
-      </div>
-
-      <!-- Live Simulation Helper for Testing -->
-      <div id="simulated-otp-banner" class="p-3 rounded-xl bg-indigo-950/50 border border-indigo-500/40 text-xs text-indigo-200 flex items-center justify-between gap-2">
-        <div class="flex items-center gap-1.5">
-          <span class="material-symbols-outlined text-base text-amber-400">notifications_active</span>
-          <span>Simulated Mail: OTP is <strong id="simulated-otp-code" class="text-amber-300 font-mono text-sm tracking-wider">123456</strong></span>
-        </div>
-        <button type="button" onclick="autofillSimulatedOtp()" class="px-2.5 py-1 rounded-lg bg-indigo-600/50 hover:bg-indigo-600 text-white font-bold text-[11px] transition cursor-pointer">
-          Auto-Fill
-        </button>
-      </div>
-
-      <div>
-        <label class="block text-xs font-semibold text-purple-200/80 uppercase tracking-wider mb-2 text-center">
-          Enter 6-Digit OTP Code
-        </label>
-        <div class="flex justify-center">
-          <input id="admin-otp-input" type="text" maxlength="6" pattern="[0-9]*" inputmode="numeric" required placeholder="••••••" class="input-focus w-56 text-center tracking-[0.45em] py-3.5 rounded-2xl bg-purple-950/60 border-2 border-purple-500/40 text-white font-mono text-2xl font-extrabold focus:outline-none transition-all placeholder-gray-600"/>
-        </div>
-      </div>
-
-      <button type="submit" id="otp-submit-btn" class="w-full py-3.5 px-4 rounded-xl bg-gradient-to-r from-emerald-500 via-teal-500 to-emerald-600 hover:opacity-95 text-white font-bold text-sm tracking-wide shadow-[0_0_30px_rgba(16,185,129,0.45)] flex items-center justify-center gap-2 transition-all mt-1 cursor-pointer">
-        <span class="material-symbols-outlined text-lg">verified_user</span>
-        <span>Confirm OTP &amp; Enter Admin Studio</span>
-      </button>
-
-      <div class="flex items-center justify-between text-xs text-purple-300/70 pt-1">
-        <button type="button" onclick="backToStep1()" class="hover:text-white transition flex items-center gap-1 cursor-pointer">
-          <span class="material-symbols-outlined text-sm">arrow_back</span>
-          <span>Change Email/Password</span>
-        </button>
-        <button type="button" id="resend-otp-btn" onclick="resendOtp()" class="hover:text-white transition flex items-center gap-1 cursor-pointer text-pink-400">
-          <span class="material-symbols-outlined text-sm">replay</span>
-          <span id="resend-otp-text">Resend OTP</span>
-        </button>
-      </div>
     </form>
 
     <!-- Footer Return Link -->
@@ -200,19 +143,11 @@
   </div>
 
   <script>
-    let activeChallengeId = null;
-    let targetEmail = null;
-    let simulatedOtp = null;
-    let resendCountdown = 0;
-    let resendInterval = null;
-
-    // Check if user is ALREADY authenticated as admin on startup!
-    // IMPORTANT: No reload loop guard!
-    (async function checkExistingSession() {
+    // Check if user is ALREADY authenticated as admin on startup
+    (async function checkExistingAdminSession() {
       const adminToken = localStorage.getItem('wishmagic_admin_token');
       if (!adminToken) return;
 
-      // Only attempt session verification once per page view
       try {
         const res = await fetch('/api/auth/session', {
           credentials: 'include',
@@ -221,7 +156,7 @@
         if (res.ok) {
           const data = await res.json();
           if (data && data.isAuthenticated && data.user && (data.user.role === 'admin' || data.user.isAdmin)) {
-            // Already logged in! Redirect to secret admin overview without repeatedly prompting for login
+            // Already logged in! Seamlessly open the admin dashboard without re-prompting
             window.location.replace('/admin/anktech/anktech/admin?auth=' + encodeURIComponent(adminToken));
           }
         }
@@ -229,12 +164,6 @@
         console.warn('[Admin Auth Check]', err);
       }
     })();
-
-    function fillDefaultAdmin() {
-      document.getElementById('admin-email-input').value = 'admin@wishmagic.internal';
-      document.getElementById('admin-password-input').value = 'admin123';
-      showInfo('Admin account filled.');
-    }
 
     function togglePasswordVisibility() {
       const pwdInput = document.getElementById('admin-password-input');
@@ -248,115 +177,41 @@
       }
     }
 
-    // STEP 1: Verify Credentials (Email + Password)
-    async function handleVerifyCredentials(e) {
+    // DIRECT FIREBASE LOGIN
+    async function handleFirebaseLogin(e) {
       e.preventDefault();
       hideAlert();
       hideInfo();
 
       const email = document.getElementById('admin-email-input').value.trim();
       const password = document.getElementById('admin-password-input').value;
-      const btn = document.getElementById('credentials-submit-btn');
+      const btn = document.getElementById('login-submit-btn');
 
       if (!email || !password) {
-        showAlert('Please enter both admin email and password.');
+        showAlert('Please enter both your Firebase email and password.');
         return;
       }
 
       btn.disabled = true;
-      btn.innerHTML = '<span class="animate-spin material-symbols-outlined text-sm">progress_activity</span> Verifying Credentials...';
+      btn.innerHTML = '<span class="animate-spin material-symbols-outlined text-sm">progress_activity</span> Authenticating with Firebase...';
 
       try {
         const res = await fetch('/api/admin/auth/verify-credentials', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           credentials: 'include',
-          body: JSON.stringify({ email, identifier: email, password })
+          body: JSON.stringify({ email, password })
         });
 
         const data = await res.json();
         if (!data.success) {
-          showAlert(data.error?.message || 'Invalid admin credentials or unauthorized account.');
+          showAlert(data.error?.message || 'Firebase Authentication failed. Please check your credentials in Firebase Console.');
           btn.disabled = false;
-          btn.innerHTML = '<span>Verify Credentials &amp; Request OTP</span> <span class="material-symbols-outlined text-lg">arrow_forward</span>';
+          btn.innerHTML = '<span class="material-symbols-outlined text-lg">login</span> <span>Sign In to Admin Studio</span>';
           return;
         }
 
-        activeChallengeId = data.data.challengeId;
-        targetEmail = email;
-        simulatedOtp = data.data.demoOtp || '123456';
-
-        // Update Step Tabs
-        document.getElementById('step-tab-1').className = 'py-1.5 px-3 rounded-xl bg-white/[0.04] border border-white/10 text-[11px] font-semibold text-gray-400 flex items-center justify-center gap-1.5 transition-all';
-        document.getElementById('step-tab-2').className = 'py-1.5 px-3 rounded-xl bg-purple-600/20 border border-purple-500/40 text-[11px] font-bold text-purple-300 flex items-center justify-center gap-1.5 transition-all';
-
-        // Switch to OTP view
-        document.getElementById('step-credentials-form').classList.add('hidden');
-        document.getElementById('step-otp-form').classList.remove('hidden');
-        document.getElementById('display-otp-email').innerText = email;
-        document.getElementById('simulated-otp-code').innerText = simulatedOtp;
-
-        showInfo(`Verification OTP sent to ${email}`);
-        startResendTimer(60);
-
-        const otpInput = document.getElementById('admin-otp-input');
-        otpInput.value = '';
-        otpInput.focus();
-
-      } catch (err) {
-        showAlert('Network error communicating with authentication service.');
-      } finally {
-        btn.disabled = false;
-        btn.innerHTML = '<span>Verify Credentials &amp; Request OTP</span> <span class="material-symbols-outlined text-lg">arrow_forward</span>';
-      }
-    }
-
-    function autofillSimulatedOtp() {
-      if (simulatedOtp) {
-        document.getElementById('admin-otp-input').value = simulatedOtp;
-        showInfo('OTP Auto-filled.');
-      }
-    }
-
-    // STEP 2: Verify OTP
-    async function handleVerifyOtp(e) {
-      e.preventDefault();
-      hideAlert();
-      hideInfo();
-
-      const otpCode = document.getElementById('admin-otp-input').value.trim();
-      const btn = document.getElementById('otp-submit-btn');
-
-      if (!otpCode || otpCode.length < 4) {
-        showAlert('Please enter the 6-digit OTP code.');
-        return;
-      }
-
-      btn.disabled = true;
-      btn.innerHTML = '<span class="animate-spin material-symbols-outlined text-sm">progress_activity</span> Authenticating Admin...';
-
-      try {
-        const res = await fetch('/api/admin/auth/verify-otp', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          credentials: 'include',
-          body: JSON.stringify({
-            challengeId: activeChallengeId,
-            otpCode: otpCode,
-            code: otpCode,
-            email: targetEmail
-          })
-        });
-
-        const data = await res.json();
-        if (!data.success) {
-          showAlert(data.error?.message || 'Invalid or expired OTP code.');
-          btn.disabled = false;
-          btn.innerHTML = '<span class="material-symbols-outlined text-lg">verified_user</span> <span>Confirm OTP &amp; Enter Admin Studio</span>';
-          return;
-        }
-
-        // Store authoritative session in localStorage & sessionStorage
+        // Authentication Successful! Store session token
         const token = data.data.token;
         if (token) {
           localStorage.setItem('wishmagic_admin_token', token);
@@ -368,52 +223,18 @@
         sessionStorage.setItem('wm_admin_verified', 'true');
 
         btn.className = 'w-full py-3.5 px-4 rounded-xl bg-emerald-500 text-white font-bold text-sm tracking-wide shadow-lg flex items-center justify-center gap-2';
-        btn.innerHTML = '<span class="material-symbols-outlined text-lg animate-bounce">check_circle</span> <span>Access Granted! Loading Studio...</span>';
+        btn.innerHTML = '<span class="material-symbols-outlined text-lg animate-bounce">check_circle</span> <span>Access Granted! Opening Studio...</span>';
 
-        // Redirect directly to the secret admin portal with query token for seamless verification
+        // Redirect directly to Secret Admin Studio
         setTimeout(() => {
           window.location.href = '/admin/anktech/anktech/admin?auth=' + encodeURIComponent(token);
         }, 300);
 
       } catch (err) {
-        showAlert('Error verifying OTP with server.');
+        showAlert('Network error communicating with authentication service.');
         btn.disabled = false;
-        btn.innerHTML = '<span class="material-symbols-outlined text-lg">verified_user</span> <span>Confirm OTP &amp; Enter Admin Studio</span>';
+        btn.innerHTML = '<span class="material-symbols-outlined text-lg">login</span> <span>Sign In to Admin Studio</span>';
       }
-    }
-
-    function backToStep1() {
-      document.getElementById('step-otp-form').classList.add('hidden');
-      document.getElementById('step-credentials-form').classList.remove('hidden');
-      document.getElementById('step-tab-1').className = 'py-1.5 px-3 rounded-xl bg-purple-600/20 border border-purple-500/40 text-[11px] font-bold text-purple-300 flex items-center justify-center gap-1.5 transition-all';
-      document.getElementById('step-tab-2').className = 'py-1.5 px-3 rounded-xl bg-white/[0.04] border border-white/10 text-[11px] font-semibold text-gray-400 flex items-center justify-center gap-1.5 transition-all';
-      hideAlert();
-      hideInfo();
-    }
-
-    function startResendTimer(seconds) {
-      resendCountdown = seconds;
-      const resendBtn = document.getElementById('resend-otp-btn');
-      const resendText = document.getElementById('resend-otp-text');
-      resendBtn.disabled = true;
-
-      if (resendInterval) clearInterval(resendInterval);
-      resendInterval = setInterval(() => {
-        resendCountdown--;
-        if (resendCountdown <= 0) {
-          clearInterval(resendInterval);
-          resendBtn.disabled = false;
-          resendText.innerText = 'Resend OTP';
-        } else {
-          resendText.innerText = `Resend in ${resendCountdown}s`;
-        }
-      }, 1000);
-    }
-
-    async function resendOtp() {
-      if (resendCountdown > 0) return;
-      showInfo('Requesting new OTP code...');
-      document.getElementById('step-credentials-form').dispatchEvent(new Event('submit'));
     }
 
     function showAlert(msg) {
@@ -436,7 +257,6 @@
       if (infoEl && msgEl) {
         msgEl.innerText = msg;
         infoEl.classList.remove('hidden');
-        setTimeout(() => hideInfo(), 5000);
       }
     }
 
