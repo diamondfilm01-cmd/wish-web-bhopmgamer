@@ -77,9 +77,39 @@
     "plan": "VIP",
     "isPremium": true,
     "provider": "firebase",
-    "firebaseUid": null,
+    "firebaseUid": "usr_ankit_master",
     "status": "active",
     "createdAt": "2026-10-06T14:03:33.834Z",
-    "updatedAt": "2026-10-06T14:03:33.834Z"
+    "updatedAt": "2026-10-06T16:47:47.757Z"
+  },
+  {
+    "id": "usr_fb_usr_test_123",
+    "email": "creator.test@wishmagic.live",
+    "displayName": "Test Creator",
+    "avatarUrl": "https://api.dicebear.com/7.x/bottts/svg?seed=creator.test%40wishmagic.live",
+    "role": "creator",
+    "isAdmin": false,
+    "plan": "Free",
+    "isPremium": false,
+    "provider": "google",
+    "firebaseUid": "usr_test_123",
+    "status": "active",
+    "createdAt": "2026-10-06T16:47:42.800Z",
+    "updatedAt": "2026-10-06T16:47:42.800Z"
+  },
+  {
+    "id": "usr_muwwy8gb_6xh7",
+    "email": "test@example.com",
+    "displayName": "test",
+    "avatarUrl": "https://api.dicebear.com/7.x/bottts/svg?seed=test%40example.com",
+    "role": "creator",
+    "isAdmin": false,
+    "plan": "Free",
+    "isPremium": false,
+    "provider": "firebase",
+    "firebaseUid": null,
+    "status": "active",
+    "createdAt": "2026-10-06T16:49:02.795Z",
+    "updatedAt": "2026-10-06T16:49:02.795Z"
   }
 ]

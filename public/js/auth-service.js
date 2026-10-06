@@ -144,30 +144,45 @@
 
     inFlightSignInPromise = (async () => {
       try {
+        let idToken = null;
+        if (typeof fbUser.getIdToken === 'function') {
+          try {
+            idToken = await fbUser.getIdToken();
+          } catch (tErr) {
+            console.warn('[WishAuth] getIdToken note:', tErr);
+          }
+        }
+
+        const headers = {
+          'Content-Type': 'application/json',
+          'Accept': 'application/json'
+        };
+        if (idToken) {
+          headers['Authorization'] = `Bearer ${idToken}`;
+        }
+
         const response = await fetch('/api/auth/signin', {
           method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-            'Accept': 'application/json'
-          },
+          headers,
           credentials: 'include',
           cache: 'no-store',
           body: JSON.stringify({
             email,
             displayName,
             avatarUrl,
-            provider: fbUser.providerData?.[0]?.providerId || 'firebase',
-            firebaseUid: fbUser.uid
+            provider: fbUser.providerData?.[0]?.providerId || 'google',
+            firebaseUid: fbUser.uid,
+            idToken: idToken || undefined
           })
         });
 
         const data = await response.json().catch(() => ({}));
         if (!response.ok || data?.success !== true || !data?.user) {
-          throw new Error(
+          const errMsg =
             data?.error?.message ||
             data?.message ||
-            'Server authentication failed.'
-          );
+            'Server authentication failed. Please try again.';
+          throw new Error(errMsg);
         }
 
         return data.user;

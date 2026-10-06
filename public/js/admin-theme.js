@@ -124,21 +124,36 @@ const AdminAuthController = (() => {
           throw err;
         }
 
+        let idToken = null;
+        if (typeof firebaseUser.getIdToken === 'function') {
+          try {
+            idToken = await firebaseUser.getIdToken();
+          } catch (tErr) {
+            console.warn('[AdminAuthController] getIdToken note:', tErr);
+          }
+        }
+
+        const headers = {
+          'Content-Type': 'application/json',
+          'Accept': 'application/json'
+        };
+        if (idToken) {
+          headers['Authorization'] = `Bearer ${idToken}`;
+        }
+
         // Call POST /api/auth/signin
         const signinRes = await fetch('/api/auth/signin', {
           method: 'POST',
           credentials: 'include',
           cache: 'no-store',
-          headers: {
-            'Content-Type': 'application/json',
-            'Accept': 'application/json'
-          },
+          headers,
           body: JSON.stringify({
             email,
             displayName: firebaseUser.displayName || 'Ankit Saini',
             avatarUrl: firebaseUser.photoURL || null,
             provider: 'google',
-            firebaseUid: firebaseUser.uid
+            firebaseUid: firebaseUser.uid,
+            idToken: idToken || undefined
           })
         });
 

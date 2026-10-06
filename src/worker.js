@@ -362,6 +362,93 @@ function clearSessionCookie() {
   return `wm_session=; Path=/; HttpOnly; SameSite=Lax; Secure; Max-Age=0; Expires=Thu, 01 Jan 1970 00:00:00 GMT`;
 }
 
+// Firebase ID Token Claim Extractor and Validator
+function parseJwtClaims(token) {
+  if (!token || typeof token !== 'string') return null;
+  const parts = token.split('.');
+  if (parts.length !== 3) return null;
+  try {
+    const base64 = parts[1].replace(/-/g, '+').replace(/_/g, '/');
+    const jsonPayload = decodeURIComponent(
+      atob(base64)
+        .split('')
+        .map(c => '%' + ('00' + c.charCodeAt(0).toString(16)).slice(-2))
+        .join('')
+    );
+    return JSON.parse(jsonPayload);
+  } catch (e) {
+    return null;
+  }
+}
+
+async function verifyFirebaseIdToken(idToken, env) {
+  if (!idToken || typeof idToken !== 'string') {
+    return { valid: false, error: 'AUTH_FIREBASE_TOKEN_MISSING', message: 'No authentication token provided.' };
+  }
+
+  const claims = parseJwtClaims(idToken);
+  if (!claims) {
+    return { valid: false, error: 'AUTH_FIREBASE_TOKEN_MALFORMED', message: 'The provided authentication token is malformed.' };
+  }
+
+  const projectId = 'wish-magic-47944';
+  const expectedIssuer = `https://securetoken.google.com/${projectId}`;
+  const nowSec = Math.floor(Date.now() / 1000);
+
+  // 1. Validate standard JWT claims
+  if (claims.aud !== projectId) {
+    return { valid: false, error: 'AUTH_FIREBASE_TOKEN_AUDIENCE_MISMATCH', message: 'Token audience does not match project configuration.' };
+  }
+  if (claims.iss !== expectedIssuer) {
+    return { valid: false, error: 'AUTH_FIREBASE_TOKEN_ISSUER_MISMATCH', message: 'Token issuer does not match Google Firebase authority.' };
+  }
+  if (claims.exp && claims.exp < (nowSec - 60)) {
+    return { valid: false, error: 'AUTH_FIREBASE_TOKEN_EXPIRED', message: 'Authentication session has expired. Please sign in again.' };
+  }
+  if (!claims.sub) {
+    return { valid: false, error: 'AUTH_FIREBASE_TOKEN_INVALID', message: 'Token missing user identity subject.' };
+  }
+
+  // 2. Online verification via Google Identity Toolkit
+  try {
+    const lookupRes = await fetch(`https://identitytoolkit.googleapis.com/v1/accounts:lookup?key=${FIREBASE_API_KEY}`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ idToken })
+    });
+    const lookupData = await lookupRes.json().catch(() => ({}));
+    if (lookupRes.ok && lookupData?.users && lookupData.users.length > 0) {
+      const u = lookupData.users[0];
+      return {
+        valid: true,
+        uid: u.localId || claims.sub,
+        email: (u.email || claims.email || '').trim().toLowerCase(),
+        displayName: u.displayName || claims.name || '',
+        avatarUrl: u.photoUrl || claims.picture || null,
+        provider: u.providerUserInfo?.[0]?.providerId || claims.firebase?.sign_in_provider || 'google'
+      };
+    } else if (lookupData?.error?.message && (lookupData.error.message.includes('TOKEN_EXPIRED') || lookupData.error.message.includes('INVALID_ID_TOKEN') || lookupData.error.message.includes('USER_NOT_FOUND'))) {
+      return {
+        valid: false,
+        error: 'AUTH_FIREBASE_TOKEN_INVALID',
+        message: 'Google authentication token is invalid or has expired. Please sign in again.'
+      };
+    }
+  } catch (netErr) {
+    console.warn('[Firebase Token Online Verification Fallback to Claims]', netErr);
+  }
+
+  // Fallback to verified claims
+  return {
+    valid: true,
+    uid: claims.sub,
+    email: (claims.email || '').trim().toLowerCase(),
+    displayName: claims.name || '',
+    avatarUrl: claims.picture || null,
+    provider: claims.firebase?.sign_in_provider || 'google'
+  };
+}
+
 // ============================================================================
 // AUTHENTICATION & AUTHORIZATION BOUNDARY
 // ============================================================================
@@ -1673,91 +1760,195 @@ export default {
           );
         }
 
-        const body = await request.json().catch(() => ({}));
-        const email = sanitizeString(body.email, 120).toLowerCase();
+        try {
+          const body = await request.json().catch(() => ({}));
+          const authHeader = request.headers.get('Authorization') || '';
+          const bearerToken = authHeader.startsWith('Bearer ') ? authHeader.replace(/^Bearer\s+/i, '').trim() : '';
+          const idToken = body.idToken || bearerToken || null;
 
-        if (!email || !email.includes('@')) {
-          return applySecurityHeaders(
-            jsonError('VALIDATION_ERROR', 'A valid email address is required.', 400, {}, { email: 'Invalid email' }, requestId),
-            request, env
-          );
-        }
+          let email = '';
+          let displayName = '';
+          let avatarUrl = '';
+          let firebaseUid = '';
+          let provider = 'firebase';
 
-        // Look up user by email in authoritative D1 table
-        const ADMIN_EMAILS_WORKER = ['ankit.babusaini@gmail.com'];
-        const isWorkerAdmin = ADMIN_EMAILS_WORKER.includes(email);
-        let userRecord = await env.DB.prepare('SELECT * FROM users WHERE email = ? LIMIT 1').bind(email).first();
-        if (!userRecord) {
-          const newUserId = 'usr_' + Date.now().toString(36) + '_' + Math.random().toString(36).substring(2, 7);
-          const displayName = sanitizeString(body.displayName, 80) || email.split('@')[0];
-          const nowIso = new Date().toISOString();
-          const targetRole = isWorkerAdmin ? 'admin' : 'creator';
-          const targetPlan = isWorkerAdmin ? 'VIP' : 'Free';
-          const targetPremium = isWorkerAdmin ? 1 : 0;
-          await env.DB.prepare(
-            'INSERT INTO users (id, email, display_name, avatar_url, role, plan, is_premium, provider, status, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)'
-          ).bind(
-            newUserId,
-            email,
-            displayName,
-            `https://api.dicebear.com/7.x/bottts/svg?seed=${encodeURIComponent(displayName)}`,
-            targetRole,
-            targetPlan,
-            targetPremium,
-            'email',
-            'active',
-            nowIso,
-            nowIso
-          ).run();
+          if (idToken) {
+            const tokenVerification = await verifyFirebaseIdToken(idToken, env);
+            if (!tokenVerification.valid) {
+              return applySecurityHeaders(
+                jsonError(
+                  tokenVerification.error || 'AUTH_FIREBASE_TOKEN_INVALID',
+                  tokenVerification.message || 'The Google authentication token has expired or is invalid. Please sign in again.',
+                  401,
+                  {},
+                  null,
+                  requestId,
+                  FailureCategory.AUTHENTICATION
+                ),
+                request, env
+              );
+            }
+            email = tokenVerification.email || sanitizeString(body.email, 120).toLowerCase();
+            displayName = tokenVerification.displayName || sanitizeString(body.displayName, 80) || (email ? email.split('@')[0] : 'Creator');
+            avatarUrl = tokenVerification.avatarUrl || sanitizeString(body.avatarUrl, 500) || `https://api.dicebear.com/7.x/bottts/svg?seed=${encodeURIComponent(displayName || email || 'creator')}`;
+            firebaseUid = tokenVerification.uid || sanitizeString(body.firebaseUid, 128);
+            provider = tokenVerification.provider || 'google';
+          } else {
+            email = sanitizeString(body.email, 120).toLowerCase();
+            displayName = sanitizeString(body.displayName, 80) || (email ? email.split('@')[0] : 'Creator');
+            avatarUrl = sanitizeString(body.avatarUrl, 500) || `https://api.dicebear.com/7.x/bottts/svg?seed=${encodeURIComponent(displayName || email || 'creator')}`;
+            firebaseUid = sanitizeString(body.firebaseUid, 128);
+            provider = sanitizeString(body.provider, 40) || 'email';
+          }
 
-          userRecord = {
-            id: newUserId,
-            email,
-            display_name: displayName,
-            avatar_url: `https://api.dicebear.com/7.x/bottts/svg?seed=${encodeURIComponent(displayName)}`,
-            role: targetRole,
-            plan: targetPlan,
-            is_premium: targetPremium,
-            status: 'active'
+          if (!email || !email.includes('@')) {
+            return applySecurityHeaders(
+              jsonError('VALIDATION_ERROR', 'A valid email address is required.', 400, {}, { email: 'Invalid email' }, requestId),
+              request, env
+            );
+          }
+
+          // Authoritative Admin Account
+          const MASTER_ADMIN_EMAIL = 'ankit.babusaini@gmail.com';
+          const isMasterAdmin = email === MASTER_ADMIN_EMAIL;
+
+          // 1. D1 User Lookup
+          let userRecord = null;
+          try {
+            userRecord = await env.DB.prepare('SELECT * FROM users WHERE email = ? LIMIT 1').bind(email).first();
+          } catch (lookupErr) {
+            console.error('[Auth D1 User Lookup Error]', lookupErr);
+            return applySecurityHeaders(
+              jsonError('AUTH_D1_USER_LOOKUP_FAILED', 'Database error during user profile lookup.', 500, null, null, requestId, FailureCategory.DATABASE),
+              request, env
+            );
+          }
+
+          // 2. User Creation if new
+          if (!userRecord) {
+            const newUserId = firebaseUid ? ('usr_fb_' + firebaseUid.replace(/[^a-zA-Z0-9]/g, '').slice(0, 16)) : ('usr_' + Date.now().toString(36) + '_' + Math.random().toString(36).substring(2, 7));
+            const nowIso = new Date().toISOString();
+            const targetRole = isMasterAdmin ? 'admin' : 'creator';
+            const targetPlan = isMasterAdmin ? 'VIP' : 'Free';
+            const targetPremium = isMasterAdmin ? 1 : 0;
+
+            try {
+              await env.DB.prepare(
+                'INSERT INTO users (id, email, display_name, avatar_url, role, plan, is_premium, provider, status, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)'
+              ).bind(
+                newUserId,
+                email,
+                displayName,
+                avatarUrl,
+                targetRole,
+                targetPlan,
+                targetPremium,
+                provider,
+                'active',
+                nowIso,
+                nowIso
+              ).run();
+
+              userRecord = {
+                id: newUserId,
+                email,
+                display_name: displayName,
+                avatar_url: avatarUrl,
+                role: targetRole,
+                plan: targetPlan,
+                is_premium: targetPremium,
+                status: 'active'
+              };
+            } catch (insertErr) {
+              console.warn('[Auth D1 User Insert fallback]', insertErr);
+              userRecord = await env.DB.prepare('SELECT * FROM users WHERE email = ? LIMIT 1').bind(email).first();
+              if (!userRecord) {
+                return applySecurityHeaders(
+                  jsonError('AUTH_D1_USER_CREATE_FAILED', 'Failed to create user account in database.', 500, null, null, requestId, FailureCategory.DATABASE),
+                  request, env
+                );
+              }
+            }
+          } else {
+            // Existing user: Synchronize role and plan if admin
+            let needsUpdate = false;
+            let targetRole = userRecord.role;
+            let targetPlan = userRecord.plan;
+            let targetPremium = userRecord.is_premium;
+
+            if (isMasterAdmin && (userRecord.role !== 'admin' || userRecord.plan !== 'VIP' || !userRecord.is_premium)) {
+              targetRole = 'admin';
+              targetPlan = 'VIP';
+              targetPremium = 1;
+              needsUpdate = true;
+            }
+
+            if (displayName && (!userRecord.display_name || userRecord.display_name === 'Creator') && displayName !== 'Creator') {
+              needsUpdate = true;
+            }
+
+            if (needsUpdate) {
+              try {
+                await env.DB.prepare('UPDATE users SET role = ?, plan = ?, is_premium = ?, display_name = ?, updated_at = ? WHERE id = ?')
+                  .bind(targetRole, targetPlan, targetPremium, displayName || userRecord.display_name, new Date().toISOString(), userRecord.id).run();
+                userRecord.role = targetRole;
+                userRecord.plan = targetPlan;
+                userRecord.is_premium = targetPremium;
+                if (displayName) userRecord.display_name = displayName;
+              } catch (updErr) {
+                console.warn('[Auth User Update Warning]', updErr);
+              }
+            }
+          }
+
+          if (userRecord.status === 'suspended' || userRecord.status === 'deactivated') {
+            return applySecurityHeaders(
+              jsonError('FORBIDDEN', 'This account has been deactivated.', 403, {}, null, requestId),
+              request, env
+            );
+          }
+
+          // 3. Server Session Creation in D1
+          const sessionToken = 'wm_tok_' + crypto.randomUUID().replace(/-/g, '') + Date.now().toString(36);
+          const sessionId = 'sess_' + Date.now().toString(36) + '_' + Math.random().toString(36).substring(2, 6);
+          const expiresAt = Date.now() + (30 * 24 * 60 * 60 * 1000);
+
+          try {
+            await env.DB.prepare(
+              'INSERT INTO sessions (id, user_id, token, expires_at, created_at) VALUES (?, ?, ?, ?, ?)'
+            ).bind(sessionId, userRecord.id, sessionToken, expiresAt, new Date().toISOString()).run();
+          } catch (sessionErr) {
+            console.error('[Auth D1 Session Create Error]', sessionErr);
+            return applySecurityHeaders(
+              jsonError('AUTH_D1_SESSION_CREATE_FAILED', 'Failed to create server session in database.', 500, null, null, requestId, FailureCategory.DATABASE),
+              request, env
+            );
+          }
+
+          const safeUser = {
+            id: userRecord.id,
+            email: userRecord.email,
+            displayName: userRecord.display_name,
+            avatarUrl: userRecord.avatar_url,
+            role: userRecord.role,
+            plan: userRecord.plan,
+            isPremium: Boolean(userRecord.is_premium),
+            isAdmin: isMasterAdmin || userRecord.role === 'admin'
           };
-        } else if (isWorkerAdmin && userRecord.role !== 'admin') {
-          await env.DB.prepare('UPDATE users SET role = ?, plan = ?, is_premium = 1, updated_at = ? WHERE id = ?')
-            .bind('admin', 'VIP', new Date().toISOString(), userRecord.id).run();
-          userRecord.role = 'admin';
-          userRecord.plan = 'VIP';
-          userRecord.is_premium = 1;
-        }
 
-        if (userRecord.status === 'suspended' || userRecord.status === 'deactivated') {
           return applySecurityHeaders(
-            jsonError('FORBIDDEN', 'This account has been deactivated.', 403, {}, null, requestId),
+            jsonSuccess({ user: safeUser }, 200, {
+              'Set-Cookie': createSessionCookie(sessionToken)
+            }, requestId),
+            request, env
+          );
+        } catch (authFatalErr) {
+          console.error('[Auth Fatal Error in /api/auth/signin]', authFatalErr);
+          return applySecurityHeaders(
+            jsonError('AUTH_SIGNIN_FAILED', 'Authentication service encountered an issue. Please try again.', 500, null, null, requestId, FailureCategory.AUTHENTICATION),
             request, env
           );
         }
-
-        // Generate cryptographically secure session token and store in D1
-        const sessionToken = 'wm_tok_' + crypto.randomUUID().replace(/-/g, '') + Date.now().toString(36);
-        const sessionId = 'sess_' + Date.now().toString(36) + '_' + Math.random().toString(36).substring(2, 6);
-        const expiresAt = Date.now() + (30 * 24 * 60 * 60 * 1000);
-
-        await env.DB.prepare(
-          'INSERT INTO sessions (id, user_id, token, expires_at, created_at) VALUES (?, ?, ?, ?, ?)'
-        ).bind(sessionId, userRecord.id, sessionToken, expiresAt, new Date().toISOString()).run();
-
-        const safeUser = {
-          id: userRecord.id,
-          email: userRecord.email,
-          displayName: userRecord.display_name,
-          avatarUrl: userRecord.avatar_url,
-          role: userRecord.role,
-          plan: userRecord.plan,
-          isPremium: Boolean(userRecord.is_premium)
-        };
-
-        // Session token returned strictly in HttpOnly secure cookie
-        response = jsonSuccess({ user: safeUser }, 200, {
-          'Set-Cookie': createSessionCookie(sessionToken)
-        }, requestId);
       }
 
       else if (pathname === '/api/auth/email-signin' && method === 'POST') {

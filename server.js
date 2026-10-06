@@ -901,8 +901,10 @@ app.get('/api/auth/session', (req, res) => {
 
 // API: Auth Sign In (Issues HttpOnly Cookie)
 app.post('/api/auth/signin', (req, res) => {
+  const requestId = 'req_' + Date.now().toString(36) + '_' + Math.random().toString(36).substr(2, 6);
+  res.setHeader('X-Request-ID', requestId);
   try {
-    const { email, userId, displayName, avatarUrl, provider, firebaseUid } = req.body || {};
+    const { email, userId, displayName, avatarUrl, provider, firebaseUid, idToken } = req.body || {};
     const cleanEmail = (email || '').trim().toLowerCase();
     const ADMIN_EMAILS_LIST = ['ankit.babusaini@gmail.com'];
     const isUserAdmin = ADMIN_EMAILS_LIST.includes(cleanEmail);
@@ -969,9 +971,16 @@ app.post('/api/auth/signin', (req, res) => {
     saveSessions(sessions);
 
     res.setHeader('Set-Cookie', `wm_session=${encodeURIComponent(token)}; Path=/; Max-Age=${30 * 24 * 60 * 60}; HttpOnly; SameSite=Lax`);
-    res.json({ success: true, user: target, token });
+    res.json({ success: true, user: target, requestId });
   } catch (err) {
-    res.status(500).json({ success: false, message: err.message });
+    res.status(500).json({
+      success: false,
+      error: {
+        code: 'AUTH_SIGNIN_FAILED',
+        message: err.message || 'Authentication failed.'
+      },
+      requestId
+    });
   }
 });
 
