@@ -30,6 +30,41 @@
   async function getFirebase() {
     if (initPromise) return initPromise;
     initPromise = (async () => {
+      // 1. Check if global compat SDK is present (e.g. via script tags)
+      if (typeof window.firebase !== 'undefined' && window.firebase.initializeApp && window.firebase.auth) {
+        try {
+          if (!window.firebase.apps || window.firebase.apps.length === 0) {
+            fbApp = window.firebase.initializeApp(firebaseConfig);
+          } else {
+            fbApp = window.firebase.app();
+          }
+          fbAuth = window.firebase.auth();
+          fbGoogleProvider = new window.firebase.auth.GoogleAuthProvider();
+          fbGoogleProvider.setCustomParameters({ prompt: 'select_account' });
+          fbSdk = {
+            signInWithPopup: (auth, provider) => auth.signInWithPopup(provider),
+            signInWithEmailAndPassword: (auth, email, password) => auth.signInWithEmailAndPassword(email, password),
+            createUserWithEmailAndPassword: (auth, email, password) => auth.createUserWithEmailAndPassword(email, password),
+            sendPasswordResetEmail: (auth, email) => auth.sendPasswordResetEmail(email),
+            signOut: (auth) => auth.signOut(),
+            onAuthStateChanged: (auth, cb) => auth.onAuthStateChanged(cb),
+            updateProfile: (user, profile) => user.updateProfile(profile)
+          };
+
+          fbAuth.onAuthStateChanged((user) => {
+            stateChangeCallbacks.forEach(cb => {
+              try { cb(user); } catch (e) { console.warn('[WishFirebaseAuth] Callback error:', e); }
+            });
+          });
+
+          console.log('[WishFirebaseAuth] Initialized via global Firebase SDK');
+          return { app: fbApp, auth: fbAuth, provider: fbGoogleProvider, sdk: fbSdk };
+        } catch (compatErr) {
+          console.warn('[WishFirebaseAuth] Global SDK init note, trying ESM:', compatErr);
+        }
+      }
+
+      // 2. Fallback to official Google ESM imports
       try {
         const [appMod, authMod] = await Promise.all([
           import('https://www.gstatic.com/firebasejs/10.8.0/firebase-app.js'),

@@ -18,6 +18,9 @@
     }
   </script>
   <link rel="stylesheet" href="/css/admin-theme.css"/>
+  <!-- Firebase Official SDK (Compat) -->
+  <script src="https://www.gstatic.com/firebasejs/10.8.0/firebase-app-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/10.8.0/firebase-auth-compat.js"></script>
   <script src="/js/firebase-auth.js"></script>
   <style>
     body {
@@ -127,11 +130,11 @@
 
   <script>
     function getAdminDestination(token) {
-      const isStaticOrCF = window.location.hostname.includes('pages.dev') || 
-                           window.location.hostname.includes('localhost') || 
-                           window.location.pathname.endsWith('.html');
-      const target = isStaticOrCF ? '/admin-overview.html' : '/admin/anktech/anktech/admin/overview';
-      return token ? `${target}?auth=${encodeURIComponent(token)}` : target;
+      let currentPath = window.location.pathname;
+      if (!currentPath || currentPath.endsWith('/login') || currentPath.endsWith('admin-login.html') || currentPath === '/') {
+        currentPath = '/admin/anktech/anktech/admin/overview';
+      }
+      return token ? `${currentPath}?auth=${encodeURIComponent(token)}` : currentPath;
     }
 
     // Check if user is ALREADY authenticated as admin on startup

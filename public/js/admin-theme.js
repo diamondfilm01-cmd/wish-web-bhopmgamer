@@ -2,12 +2,6 @@
 
 const SECRET_ADMIN_PREFIX = '/admin/anktech/anktech/admin';
 
-function isStaticEnvironment() {
-  const host = window.location.hostname.toLowerCase();
-  const path = window.location.pathname.toLowerCase();
-  return host.includes('pages.dev') || path.endsWith('.html') || path.startsWith('/admin-');
-}
-
 // Extract and cache any auth token passed via URL
 (function syncAdminTokenFromUrl() {
   const params = new URLSearchParams(window.location.search);
@@ -26,7 +20,7 @@ function isStaticEnvironment() {
 // 1. Client-Side Admin Session Gatekeeper (Verifies session & prevents repeated logins)
 (async function checkAdminGatekeeper() {
   const currentPath = window.location.pathname.toLowerCase();
-  const loginUrl = isStaticEnvironment() ? '/admin-login.html' : `${SECRET_ADMIN_PREFIX}/login`;
+  const loginUrl = `${SECRET_ADMIN_PREFIX}/login`;
 
   // If already at login page, do not redirect
   if (currentPath === loginUrl.toLowerCase() || currentPath.endsWith('admin-login.html') || currentPath.endsWith('/login')) {
@@ -57,48 +51,53 @@ function isStaticEnvironment() {
   }
 })();
 
-// 2. Automatically ensure all navigation links work seamlessly on both Cloudflare Pages and Express
+// 2. Automatically ensure all sidebar and navigation links strictly use /admin/anktech/anktech/admin/<section>
 function rewriteAdminSidebarLinks() {
-  const isStatic = isStaticEnvironment();
   const token = localStorage.getItem('wishmagic_admin_token') || localStorage.getItem('wishmagic_auth_token');
   if (token) {
     try {
       document.cookie = 'wm_session=' + encodeURIComponent(token) + '; Path=/; Max-Age=2592000; SameSite=Lax';
+      document.cookie = 'wishmagic_admin_token=' + encodeURIComponent(token) + '; Path=/; Max-Age=2592000; SameSite=Lax';
     } catch (e) {}
   }
+
+  const sectionMap = {
+    'user-creations': 'user-creations',
+    'overview': 'overview',
+    'media': 'media',
+    'templates': 'templates',
+    'wishes': 'wishes',
+    'users': 'users',
+    'occasions': 'occasions',
+    'categories': 'occasions',
+    'orders': 'orders',
+    'settings': 'settings',
+    'pricing': 'pricing',
+    'staff': 'staff',
+    'login': 'login'
+  };
 
   document.querySelectorAll('a[href*="admin"]').forEach(a => {
     let href = a.getAttribute('href');
     if (!href || href.startsWith('#') || href.startsWith('javascript:')) return;
 
-    if (isStatic) {
-      // Map section names to static html files on Cloudflare Pages
-      if (href.includes('user-creations')) href = '/admin-user-creations.html';
-      else if (href.includes('overview')) href = '/admin-overview.html';
-      else if (href.includes('media')) href = '/admin-media.html';
-      else if (href.includes('templates')) href = '/admin-templates.html';
-      else if (href.includes('wishes')) href = '/admin-wishes.html';
-      else if (href.includes('users')) href = '/admin-users.html';
-      else if (href.includes('occasions')) href = '/admin-occasions.html';
-      else if (href.includes('orders')) href = '/admin-orders.html';
-      else if (href.includes('settings')) href = '/admin-settings.html';
-      else if (href.includes('pricing')) href = '/admin-pricing.html';
-      else if (href.includes('staff')) href = '/admin-staff.html';
-      else if (href.includes('login')) href = '/admin-login.html';
-    } else {
-      // Express router format
-      if (href.startsWith('/admin') && !href.startsWith(SECRET_ADMIN_PREFIX)) {
-        const suffix = href.replace(/^\/admin/, '');
-        href = SECRET_ADMIN_PREFIX + (suffix || '/overview');
+    // Detect target section
+    let matchedSection = 'overview';
+    for (const [key, val] of Object.entries(sectionMap)) {
+      if (href.toLowerCase().includes(key)) {
+        matchedSection = val;
+        break;
       }
     }
 
+    // Strictly enforce /admin/anktech/anktech/admin/<section>
+    let newHref = `${SECRET_ADMIN_PREFIX}/${matchedSection}`;
+
     // Attach token to avoid session dropping on section navigation
-    if (token && !href.includes('auth=') && !href.includes('token=')) {
-      const sep = href.includes('?') ? '&' : '?';
-      href = href + sep + 'auth=' + encodeURIComponent(token);
+    if (token) {
+      newHref += `?auth=${encodeURIComponent(token)}`;
     }
-    a.setAttribute('href', href);
+    a.setAttribute('href', newHref);
   });
 }
 

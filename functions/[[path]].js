@@ -33,36 +33,15 @@ export async function onRequest(context) {
     }
   }
 
-  // Secret Admin Portal Entry: Verify admin session
+  // Secret Admin Portal Entry: Direct route mapping
   if (pathname.startsWith('/admin/anktech/anktech/admin')) {
-    const cookieHeader = context.request.headers.get('Cookie') || '';
-    const match = cookieHeader.match(/wm_session=([^;]+)/);
-    const queryAuth = url.searchParams.get('auth') || url.searchParams.get('token');
-    const sessionToken = queryAuth || (match ? decodeURIComponent(match[1]) : null);
-
-    let isAuthenticatedAdmin = false;
-    if (sessionToken && context.env.DB && typeof context.env.DB.prepare === 'function') {
-      try {
-        const sessionRow = await context.env.DB.prepare(
-          'SELECT s.user_id, u.role as user_role, ar.role as admin_role FROM sessions s LEFT JOIN users u ON u.id = s.user_id LEFT JOIN admin_roles ar ON ar.user_id = s.user_id WHERE s.token = ? AND s.expires_at > ? LIMIT 1'
-        ).bind(sessionToken, Date.now()).first();
-
-        if (sessionRow && (sessionRow.user_role === 'admin' || sessionRow.admin_role === 'OWNER' || sessionRow.admin_role === 'ADMIN')) {
-          isAuthenticatedAdmin = true;
-        }
-      } catch (e) {
-        console.warn('[Admin Auth Check Error]', e);
-      }
-    }
-
-    // If not authenticated, serve the login page first!
-    if (!isAuthenticatedAdmin) {
+    if (pathname === '/admin/anktech/anktech/admin/login' || pathname.endsWith('/login')) {
       const loginReq = new Request(new URL('/admin-login.html', context.request.url), context.request);
       return await context.next(loginReq);
     }
 
-    // Already authenticated -> serve requested admin page directly without repeated login!
-    const targetFile = ADMIN_ROUTES_MAP[pathname] || '/admin-overview.html';
+    const cleanPath = pathname.replace(/\/+$/, '');
+    const targetFile = ADMIN_ROUTES_MAP[cleanPath] || ADMIN_ROUTES_MAP[pathname] || '/admin-overview.html';
     const pageReq = new Request(new URL(targetFile, context.request.url), context.request);
     return await context.next(pageReq);
   }
