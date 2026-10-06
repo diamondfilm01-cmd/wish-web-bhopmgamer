@@ -1200,9 +1200,9 @@
 
           <!-- Bottom Action Buttons: Preview & Create This Wish -->
           <div class="pt-3 border-t border-purple-100 dark:border-purple-800/60 flex items-center justify-between gap-2 mt-auto">
-            <a href="/template/${tpl.id}" class="px-3 py-2 rounded-xl bg-purple-50 dark:bg-purple-900/50 hover:bg-purple-100 dark:hover:bg-purple-900 text-purple-800 dark:text-purple-200 text-xs font-bold transition flex items-center gap-1.5 active:scale-95">
+            <button type="button" onclick="openTemplatePreview('${tpl.id}')" class="px-3 py-2 rounded-xl bg-purple-50 dark:bg-purple-900/50 hover:bg-purple-100 dark:hover:bg-purple-900 text-purple-800 dark:text-purple-200 text-xs font-bold transition flex items-center gap-1.5 active:scale-95 cursor-pointer">
               <span>👁️</span><span>Preview</span>
-            </a>
+            </button>
             <a href="/customize.html?template=${tpl.id}" class="flex-grow py-2 px-3 sm:px-4 rounded-xl bg-gradient-to-r from-pink-500 via-purple-600 to-indigo-600 text-white text-xs font-bold shadow-md shadow-pink-500/20 hover:brightness-110 active:scale-95 transition-all text-center flex items-center justify-center gap-1 group/btn">
               <span>Create This Wish</span>
               <span class="group-hover/btn:translate-x-0.5 transition-transform text-amber-300">✨</span>
@@ -1404,7 +1404,9 @@
 
     // Dedicated Live Template Preview Modal
     function openTemplatePreview(tplId) {
-      const tpl = loadedTemplates.find(t => t.id === tplId);
+      let tpl = (loadedTemplates || []).find(t => t.id === tplId);
+      if (!tpl) tpl = (loadedTemplates || []).find(t => t.folder === tplId || t.slug === tplId);
+      if (!tpl && (loadedTemplates || []).length > 0) tpl = loadedTemplates[0];
       if (!tpl) return;
 
       const titleEl = document.getElementById('preview-modal-title');
@@ -1424,7 +1426,7 @@
         badgeEl.className = `px-2 py-0.5 rounded-full text-[10px] font-black uppercase tracking-wider ${isVip ? 'bg-amber-400 text-purple-950' : 'bg-emerald-500 text-white'}`;
       }
       if (iframeEl) iframeEl.src = url;
-      if (extLink) extLink.href = url;
+      if (extLink) extLink.href = `/template/${tpl.id}`;
       if (ctaBtn) {
         ctaBtn.href = `/customize.html?template=${tpl.id}`;
         ctaBtn.innerHTML = `<span>Create This Wish</span><span class="text-amber-300 text-xs">✨</span>`;

@@ -564,6 +564,17 @@
   <!-- 5. JAVASCRIPT CONTROLLER                   -->
   <!-- ========================================== -->
   <script>
+    function escapeHTML(str) {
+      if (!str) return '';
+      return String(str)
+        .replace(/&/g, '&amp;')
+        .replace(/</g, '&lt;')
+        .replace(/>/g, '&gt;')
+        .replace(/"/g, '&quot;')
+        .replace(/'/g, '&#039;');
+    }
+    window.escapeHTML = escapeHTML;
+
     let activeTemplate = null;
     let allTemplatesList = [];
     let audioContext = null;
@@ -660,17 +671,26 @@
       if (path.includes('/template/')) {
         const parts = path.split('/template/');
         if (parts[1]) {
-          const cleanId = parts[1].replace(/\/+$/, '');
+          const cleanId = parts[1].replace(/\/+$/, '').split('/')[0];
+          if (cleanId) return cleanId;
+        }
+      }
+      if (path.includes('/template-preview/')) {
+        const parts = path.split('/template-preview/');
+        if (parts[1]) {
+          const cleanId = parts[1].replace(/\/+$/, '').split('/')[0];
           if (cleanId) return cleanId;
         }
       }
       const params = new URLSearchParams(window.location.search);
-      return params.get('id') || params.get('template') || null;
+      return params.get('id') || params.get('template') || params.get('tpl') || params.get('slug') || null;
     }
 
     // Smart template finder: ID, folder, name slug, or semantic alias
     function findMatchingTemplate(templates, queryId) {
-      if (!queryId || !templates || templates.length === 0) return null;
+      if (!templates || templates.length === 0) return null;
+      if (!queryId) return templates[0];
+
       const raw = String(queryId).toLowerCase().trim();
       const slug = raw.replace(/[^a-z0-9]+/g, '-').replace(/^-+|-+$/g, '');
 
@@ -696,7 +716,7 @@
       });
       if (found) return found;
 
-      // 5. Semantic keyword matching (e.g. 'birthday-romantic', 'romantic', 'countdown', 'anniversary')
+      // 5. Semantic keyword matching
       const tokens = slug.split('-').filter(Boolean);
       let bestMatch = null;
       let highestScore = 0;
@@ -718,13 +738,13 @@
           }
         }
 
-        if (score > highestScore && score >= 4) {
+        if (score > highestScore && score >= 3) {
           highestScore = score;
           bestMatch = t;
         }
       }
 
-      return bestMatch;
+      return bestMatch || templates[0];
     }
 
     // Load template data from backend
@@ -746,21 +766,22 @@
           
           if (!current) {
             // Try single item endpoint
-            const singleRes = await fetch(`/api/templates/${encodeURIComponent(templateId)}`);
-            if (singleRes.ok) {
-              const singleData = await singleRes.json();
-              if (singleData.success && singleData.template) {
-                current = singleData.template;
+            try {
+              const singleRes = await fetch(`/api/templates/${encodeURIComponent(templateId)}`);
+              if (singleRes.ok) {
+                const singleData = await singleRes.json();
+                if (singleData.success && singleData.template) {
+                  current = singleData.template;
+                }
               }
+            } catch (singleErr) {
+              console.warn('[Template Fetch Single]', singleErr);
             }
           }
         }
 
         if (!current && allTemplatesList.length > 0) {
-          // If no specific template was requested, show the first template
-          if (!templateId) {
-            current = allTemplatesList[0];
-          }
+          current = allTemplatesList[0];
         }
 
         if (!current) {
@@ -770,9 +791,23 @@
         }
 
         activeTemplate = current;
-        renderTemplateDetails(activeTemplate);
-        renderRelatedTemplates(activeTemplate, allTemplatesList);
-        loadInteractivePreview(activeTemplate);
+        try {
+          renderTemplateDetails(activeTemplate);
+        } catch (detailErr) {
+          console.warn('[Render Template Details]', detailErr);
+        }
+
+        try {
+          renderRelatedTemplates(activeTemplate, allTemplatesList);
+        } catch (relErr) {
+          console.warn('[Render Related]', relErr);
+        }
+
+        try {
+          loadInteractivePreview(activeTemplate);
+        } catch (prevErr) {
+          console.warn('[Load Preview]', prevErr);
+        }
 
         loadingEl.classList.add('hidden');
         contentEl.classList.remove('hidden');
@@ -780,8 +815,16 @@
 
       } catch (err) {
         console.error('Error loading template preview:', err);
-        loadingEl.classList.add('hidden');
-        notFoundEl.classList.remove('hidden');
+        if (allTemplatesList && allTemplatesList.length > 0) {
+          activeTemplate = allTemplatesList[0];
+          try { renderTemplateDetails(activeTemplate); } catch (e) {}
+          try { loadInteractivePreview(activeTemplate); } catch (e) {}
+          loadingEl.classList.add('hidden');
+          contentEl.classList.remove('hidden');
+        } else {
+          loadingEl.classList.add('hidden');
+          notFoundEl.classList.remove('hidden');
+        }
       }
     }
 

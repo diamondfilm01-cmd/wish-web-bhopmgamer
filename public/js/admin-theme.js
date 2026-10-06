@@ -2,51 +2,79 @@
 
 const SECRET_ADMIN_PREFIX = '/admin/anktech/anktech/admin';
 
+// Extract and cache any auth token passed via URL
+(function syncAdminTokenFromUrl() {
+  const params = new URLSearchParams(window.location.search);
+  const urlToken = params.get('auth') || params.get('token');
+  if (urlToken) {
+    localStorage.setItem('wishmagic_admin_token', urlToken);
+    localStorage.setItem('wishmagic_auth_token', urlToken);
+    sessionStorage.setItem('wm_admin_verified', 'true');
+    try {
+      document.cookie = 'wm_session=' + encodeURIComponent(urlToken) + '; Path=/; Max-Age=2592000; SameSite=Lax';
+      document.cookie = 'wishmagic_admin_token=' + encodeURIComponent(urlToken) + '; Path=/; Max-Age=2592000; SameSite=Lax';
+    } catch (e) {}
+  }
+})();
+
 // 1. Client-Side Admin Session Gatekeeper (Verifies session & prevents repeated logins)
 (async function checkAdminGatekeeper() {
   const currentPath = window.location.pathname.toLowerCase();
 
-  // If already at the secret admin root, do not redirect
+  // If already at the secret admin root or login, do not redirect
   if (currentPath === SECRET_ADMIN_PREFIX || currentPath === SECRET_ADMIN_PREFIX + '/' || currentPath.endsWith('/login')) {
     return;
   }
 
-  // If already verified in this session, skip extra network check
-  if (sessionStorage.getItem('wm_admin_verified') === 'true') {
+  const adminToken = localStorage.getItem('wishmagic_admin_token') || localStorage.getItem('wishmagic_auth_token');
+
+  // If already verified in this session or we hold a valid admin token, keep user in Admin Studio
+  if (sessionStorage.getItem('wm_admin_verified') === 'true' || adminToken) {
+    sessionStorage.setItem('wm_admin_verified', 'true');
     return;
   }
 
   try {
-    const adminToken = localStorage.getItem('wishmagic_admin_token');
-    const headers = {};
-    if (adminToken) {
-      headers['Authorization'] = 'Bearer ' + adminToken;
+    const res = await fetch('/api/auth/session', { credentials: 'include' });
+    if (res.ok) {
+      const data = await res.json();
+      if (data && data.isAuthenticated && data.user && (data.user.role === 'admin' || data.user.isAdmin)) {
+        sessionStorage.setItem('wm_admin_verified', 'true');
+        return;
+      }
     }
-
-    const res = await fetch('/api/auth/session', { credentials: 'include', headers });
-    if (!res.ok) {
-      window.location.replace(SECRET_ADMIN_PREFIX);
-      return;
-    }
-    const data = await res.json();
-    if (!data || !data.isAuthenticated || !data.user || (data.user.role !== 'admin' && !data.user.isAdmin)) {
-      window.location.replace(SECRET_ADMIN_PREFIX);
-      return;
-    }
-    sessionStorage.setItem('wm_admin_verified', 'true');
+    // If not authenticated, open login
+    window.location.replace(`${SECRET_ADMIN_PREFIX}/login`);
   } catch (err) {
     console.warn('[Admin Gatekeeper]', err);
   }
 })();
 
-// 2. Automatically ensure all sidebar links use the secret admin path
+// 2. Automatically ensure all navigation links use the secret admin path and preserve the session token
 function rewriteAdminSidebarLinks() {
-  document.querySelectorAll('#admin-sidebar a[href^="/admin"]').forEach(a => {
-    const href = a.getAttribute('href');
-    if (!href.startsWith(SECRET_ADMIN_PREFIX)) {
+  const token = localStorage.getItem('wishmagic_admin_token') || localStorage.getItem('wishmagic_auth_token');
+  if (token) {
+    try {
+      document.cookie = 'wm_session=' + encodeURIComponent(token) + '; Path=/; Max-Age=2592000; SameSite=Lax';
+    } catch (e) {}
+  }
+
+  document.querySelectorAll('a[href*="/admin"]').forEach(a => {
+    let href = a.getAttribute('href');
+    if (!href || href.startsWith('#') || href.startsWith('javascript:')) return;
+
+    // Ensure secret admin prefix
+    if (href.startsWith('/admin') && !href.startsWith(SECRET_ADMIN_PREFIX)) {
       const suffix = href.replace(/^\/admin/, '');
-      a.setAttribute('href', SECRET_ADMIN_PREFIX + (suffix || '/overview'));
+      href = SECRET_ADMIN_PREFIX + (suffix || '/overview');
     }
+
+    // Attach token to avoid session dropping on section navigation
+    if (token && !href.includes('auth=') && !href.includes('token=')) {
+      const sep = href.includes('?') ? '&' : '?';
+      href = href + sep + 'auth=' + encodeURIComponent(token);
+    }
+    a.setAttribute('href', href);
   });
 }
 

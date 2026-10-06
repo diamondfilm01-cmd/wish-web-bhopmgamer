@@ -4,7 +4,7 @@
   <meta charset="utf-8"/>
   <base href="/"/>
   <meta content="width=device-width, initial-scale=1.0" name="viewport"/>
-  <title>Firebase Admin Login | WishMagic Studio</title>
+  <title>Admin Login | WishMagic Studio</title>
   <link rel="preconnect" href="https://fonts.googleapis.com"/>
   <link crossorigin="" href="https://fonts.gstatic.com" rel="preconnect"/>
   <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&family=Outfit:wght@500;600;700;800&family=JetBrains+Mono:wght@400;500;600;700&display=swap" rel="stylesheet"/>
@@ -128,7 +128,7 @@
   <script>
     // Check if user is ALREADY authenticated as admin on startup
     (async function checkExistingAdminSession() {
-      const adminToken = localStorage.getItem('wishmagic_admin_token');
+      const adminToken = localStorage.getItem('wishmagic_admin_token') || localStorage.getItem('wishmagic_auth_token');
       if (!adminToken) return;
 
       try {
@@ -140,7 +140,7 @@
           const data = await res.json();
           if (data && data.isAuthenticated && data.user && (data.user.role === 'admin' || data.user.isAdmin)) {
             // Already logged in! Seamlessly open the admin dashboard without re-prompting
-            window.location.replace('/admin/anktech/anktech/admin?auth=' + encodeURIComponent(adminToken));
+            window.location.replace('/admin/anktech/anktech/admin/overview?auth=' + encodeURIComponent(adminToken));
           }
         }
       } catch (err) {
@@ -160,7 +160,7 @@
       }
     }
 
-    // DIRECT FIREBASE LOGIN
+    // DIRECT SECURE ADMIN LOGIN
     async function handleFirebaseLogin(e) {
       e.preventDefault();
       hideAlert();
@@ -171,12 +171,12 @@
       const btn = document.getElementById('login-submit-btn');
 
       if (!email || !password) {
-        showAlert('Please enter both your Firebase email and password.');
+        showAlert('Please enter both your email and password.');
         return;
       }
 
       btn.disabled = true;
-      btn.innerHTML = '<span class="animate-spin material-symbols-outlined text-sm">progress_activity</span> Authenticating with Firebase...';
+      btn.innerHTML = '<span class="animate-spin material-symbols-outlined text-sm">progress_activity</span> Authenticating...';
 
       let firebaseIdToken = null;
       let firebaseUid = null;
@@ -188,11 +188,9 @@
           if (user) {
             firebaseUid = user.uid;
             firebaseIdToken = await user.getIdToken();
-            console.log('[Firebase Admin] Client-side Firebase authentication successful for', email);
           }
         } catch (clientErr) {
-          console.warn('[Firebase Admin Client Auth Warning]:', clientErr.message);
-          // If it was explicitly incorrect password/credentials, show immediately
+          console.warn('[Admin Client Auth Warning]:', clientErr.message);
           if (clientErr.message && (clientErr.message.includes('Incorrect') || clientErr.message.includes('password') || clientErr.message.includes('not found') || clientErr.message.includes('invalid-credential'))) {
             showAlert(clientErr.message);
             btn.disabled = false;
@@ -202,7 +200,7 @@
         }
       }
 
-      // 2. Authenticate & issue Authoritative Admin Session from server (also checks Firebase Identity Toolkit REST API)
+      // 2. Authenticate & issue Authoritative Admin Session from server
       try {
         const res = await fetch('/api/admin/auth/verify-credentials', {
           method: 'POST',
@@ -229,6 +227,10 @@
         if (token) {
           localStorage.setItem('wishmagic_admin_token', token);
           localStorage.setItem('wishmagic_auth_token', token);
+          try {
+            document.cookie = 'wm_session=' + encodeURIComponent(token) + '; Path=/; Max-Age=2592000; SameSite=Lax';
+            document.cookie = 'wishmagic_admin_token=' + encodeURIComponent(token) + '; Path=/; Max-Age=2592000; SameSite=Lax';
+          } catch(e) {}
         }
         if (data.data.user) {
           localStorage.setItem('wishmagic_user', JSON.stringify(data.data.user));
@@ -240,8 +242,8 @@
 
         // Redirect directly to Secret Admin Studio
         setTimeout(() => {
-          window.location.href = '/admin/anktech/anktech/admin?auth=' + encodeURIComponent(token);
-        }, 300);
+          window.location.replace('/admin/anktech/anktech/admin/overview?auth=' + encodeURIComponent(token));
+        }, 200);
 
       } catch (err) {
         showAlert('Network error communicating with authentication service.');
