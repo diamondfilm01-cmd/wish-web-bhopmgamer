@@ -1202,52 +1202,36 @@ app.post('/api/auth/signout', (req, res) => {
 });
 
 // Admin 2FA Auth Step 1: Verify Credentials directly against Firebase Authentication
-// Direct Built-in Admin Authentication (Username/Email & Password against Database)
+// Direct Built-in Admin Authentication (Strict Credentials: anktech.ankit.babusaini / Radha@941413)
 app.post('/api/admin/auth/verify-credentials', async (req, res) => {
   try {
     const { username, email, identifier, password } = req.body || {};
     const cleanId = (username || email || identifier || '').trim().toLowerCase();
 
     if (!cleanId || !password) {
-      return res.status(400).json({ success: false, error: { message: 'Username/email and password are required' } });
+      return res.status(400).json({ success: false, error: { message: 'Username and password are required' } });
     }
 
-    const users = getUsers();
-    const adminEmails = ['bhoomgamer@gmail.com', 'admin@wishmagic.internal', 'admin@anktech.internal'];
-    
-    // Find matching admin user or match admin identifier
-    let adminUser = users.find(u => 
-      (u.email && u.email.toLowerCase() === cleanId) || 
-      (u.id && u.id.toLowerCase() === cleanId) ||
-      (cleanId === 'admin' && (u.role === 'admin' || u.isAdmin)) ||
-      (cleanId === 'anktech' && (u.role === 'admin' || u.isAdmin))
-    );
+    const REQUIRED_USERNAME = 'anktech.ankit.babusaini';
+    const REQUIRED_PASSWORD = 'Radha@941413';
 
-    const isAuthorizedAdmin = Boolean(
-      cleanId === 'admin' ||
-      cleanId === 'anktech' ||
-      adminEmails.includes(cleanId) ||
-      (adminUser && (adminUser.role === 'admin' || adminUser.isAdmin))
-    );
-
-    if (!isAuthorizedAdmin) {
-      return res.status(401).json({ success: false, error: { message: 'Invalid admin username or unauthorized account.' } });
+    if (cleanId !== REQUIRED_USERNAME) {
+      return res.status(401).json({ success: false, error: { message: 'Invalid admin username.' } });
     }
 
-    // Direct password verification (accepts standard admin credentials / saved passwords)
-    const validPasswords = ['admin123', 'admin@123', 'wishmagic2026', 'bhoomgamer', 'admin', 'password', 'anktech123'];
-    const passwordMatches = validPasswords.includes(password) || (password.length >= 6);
-
-    if (!passwordMatches) {
+    if (password !== REQUIRED_PASSWORD) {
       return res.status(401).json({ success: false, error: { message: 'Incorrect admin password.' } });
     }
 
+    const users = getUsers();
+    let adminUser = users.find(u => u.email === 'anktech.ankit.babusaini@wishmagic.internal' || u.id === 'usr_admin_master');
+
     if (!adminUser) {
       adminUser = {
-        id: 'usr_admin_' + (cleanId === 'admin' ? '999' : Date.now().toString(36)),
-        email: cleanId.includes('@') ? cleanId : `${cleanId}@wishmagic.internal`,
-        displayName: cleanId === 'admin' ? 'Platform Admin' : cleanId,
-        avatarUrl: `https://api.dicebear.com/7.x/bottts/svg?seed=${encodeURIComponent(cleanId)}`,
+        id: 'usr_admin_master',
+        email: 'anktech.ankit.babusaini@wishmagic.internal',
+        displayName: 'Ankit Babu Saini',
+        avatarUrl: `https://api.dicebear.com/7.x/bottts/svg?seed=anktech_admin`,
         role: 'admin',
         isAdmin: true,
         plan: 'VIP',
@@ -1285,7 +1269,7 @@ app.post('/api/admin/auth/verify-credentials', async (req, res) => {
       `wishmagic_admin_token=${encodeURIComponent(token)}; Path=/; Max-Age=${30 * 24 * 60 * 60}; SameSite=Lax`
     ]);
 
-    console.log(`[Admin Auth] Authorized admin session issued for ${adminUser.email}`);
+    console.log(`[Admin Auth] Authorized admin session issued for ${adminUser.displayName}`);
 
     return res.json({
       success: true,
@@ -1293,7 +1277,7 @@ app.post('/api/admin/auth/verify-credentials', async (req, res) => {
         user: adminUser,
         role: 'ADMIN',
         token,
-        message: `Admin authentication successful! Welcome ${adminUser.displayName || adminUser.email}.`
+        message: `Admin authentication successful! Welcome ${adminUser.displayName}.`
       }
     });
   } catch (err) {

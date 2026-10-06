@@ -186,17 +186,15 @@
       // 2. Direct Built-in Fallback for Static Host / Cloudflare Pages
       if (!verified) {
         const cleanId = username.toLowerCase();
-        const validAdmins = ['admin', 'anktech', 'bhoomgamer@gmail.com', 'admin@wishmagic.internal', 'admin@anktech.internal'];
-        const isKnownAdmin = validAdmins.includes(cleanId) || cleanId.includes('admin') || cleanId.includes('bhoomgamer');
-        const validPasswords = ['admin123', 'admin@123', 'wishmagic2026', 'bhoomgamer', 'admin', 'password', 'anktech123'];
-        const isValidPassword = validPasswords.includes(password) || password.length >= 6;
+        const REQUIRED_USERNAME = 'anktech.ankit.babusaini';
+        const REQUIRED_PASSWORD = 'Radha@941413';
 
-        if (isKnownAdmin && isValidPassword) {
+        if (cleanId === REQUIRED_USERNAME && password === REQUIRED_PASSWORD) {
           verified = true;
           const localAdminUser = {
-            id: 'usr_admin_999',
-            email: cleanId.includes('@') ? cleanId : `${cleanId}@wishmagic.internal`,
-            displayName: cleanId === 'admin' ? 'Platform Admin' : cleanId,
+            id: 'usr_admin_master',
+            email: 'anktech.ankit.babusaini@wishmagic.internal',
+            displayName: 'Ankit Babu Saini',
             role: 'admin',
             isAdmin: true,
             plan: 'VIP',
