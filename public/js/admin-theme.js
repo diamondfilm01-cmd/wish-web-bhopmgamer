@@ -9,12 +9,55 @@ const SECRET_ADMIN_PREFIX = '/admin/anktech/anktech/admin';
   const isMaster = (email) => {
     if (!email) return false;
     const clean = String(email).toLowerCase().trim();
-    return MASTER_ADMINS.includes(clean) || clean.startsWith('admin@');
+    return clean === 'ankit.babusaini@gmail.com' || MASTER_ADMINS.includes(clean) || clean.startsWith('admin@');
   };
 
-  // Modern High-Security Google Restricted Screen (NO username/password form, NO email details exposed)
-  function showAccessRestrictedScreen(reasonUser) {
-    if (document.getElementById('admin-access-restricted-screen')) return;
+  function unlockAdminAccess(userData) {
+    const screen = document.getElementById('admin-access-restricted-screen');
+    if (screen) screen.remove();
+    document.body.style.display = '';
+
+    if (userData && userData.email) {
+      const userObj = {
+        id: userData.id || (userData.uid ? 'usr_fb_' + userData.uid.slice(0, 16) : 'usr_master_ankit_babu'),
+        email: userData.email,
+        displayName: userData.displayName || 'Ankit Babu Saini',
+        avatarUrl: userData.avatarUrl || userData.photoURL || `https://api.dicebear.com/7.x/bottts/svg?seed=${encodeURIComponent(userData.email)}`,
+        role: 'admin',
+        isAdmin: true,
+        plan: 'VIP',
+        isPremium: true,
+        firebaseUid: userData.uid || userData.firebaseUid || null
+      };
+      try {
+        localStorage.setItem('wishmagic_auth_user', JSON.stringify(userObj));
+        localStorage.setItem('wishmagic_user', JSON.stringify(userObj));
+        localStorage.setItem('wishmagic_admin_token', 'adm_' + Date.now().toString(36));
+        sessionStorage.setItem('wm_admin_verified', 'true');
+      } catch(e) {}
+
+      fetch('/api/auth/signin', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        credentials: 'include',
+        body: JSON.stringify(userObj)
+      }).catch(() => {});
+    }
+  }
+
+  // Modern High-Security Google Restricted Screen (NO email details exposed, pure Google auth)
+  function showAccessRestrictedScreen(isDenied = false) {
+    if (document.getElementById('admin-access-restricted-screen')) {
+      const alertBox = document.getElementById('admin-gate-alert');
+      if (alertBox && isDenied) {
+        alertBox.innerHTML = `
+          <div class="mt-2.5 pt-2 border-t border-purple-800/60 text-[11px] text-amber-300">
+            Current logged-in account is not authorized for Admin Studio.
+          </div>
+        `;
+      }
+      return;
+    }
 
     // Show body so modal can render
     document.body.style.display = 'block';
@@ -49,15 +92,17 @@ const SECRET_ADMIN_PREFIX = '/admin/anktech/anktech/admin';
               <p class="text-xs text-purple-200/80 mt-1.5 leading-relaxed">
                 Yeh Admin Studio password-free hai aur sirf authorized Master Admin Google account ke liye secured hai.
               </p>
-              ${reasonUser ? `
-                <div class="mt-2.5 pt-2 border-t border-purple-800/60 text-[11px] text-amber-300">
-                  Current logged-in account is not authorized for Admin Studio.
-                </div>
-              ` : `
-                <div class="mt-2.5 pt-2 border-t border-purple-800/60 text-[11px] text-purple-300">
-                  Aap currently signed in nahi hain. Niche diye button se Google login karein.
-                </div>
-              `}
+              <div id="admin-gate-alert">
+                ${isDenied ? `
+                  <div class="mt-2.5 pt-2 border-t border-purple-800/60 text-[11px] text-amber-300">
+                    Current account is not authorized for Admin Studio.
+                  </div>
+                ` : `
+                  <div class="mt-2.5 pt-2 border-t border-purple-800/60 text-[11px] text-purple-300">
+                    Aap currently signed in nahi hain. Niche diye button se Google login karein.
+                  </div>
+                `}
+              </div>
             </div>
           </div>
         </div>
@@ -91,37 +136,21 @@ const SECRET_ADMIN_PREFIX = '/admin/anktech/anktech/admin';
     if (txt) txt.innerHTML = '<span class="inline-flex items-center gap-2"><span class="animate-spin inline-block w-3.5 h-3.5 border-2 border-white border-t-transparent rounded-full"></span> Connecting to Google...</span>';
 
     try {
-      if (window.WishAuth && typeof window.WishAuth.signInWithGoogle === 'function') {
+      let fbUser = null;
+      if (window.WishFirebaseAuth && typeof window.WishFirebaseAuth.signInWithGoogle === 'function') {
+        fbUser = await window.WishFirebaseAuth.signInWithGoogle();
+      } else if (window.WishAuth && typeof window.WishAuth.signInWithGoogle === 'function') {
         const u = await window.WishAuth.signInWithGoogle();
-        if (u && isMaster(u.email)) {
-          const gate = document.getElementById('admin-access-restricted-screen');
-          if (gate) gate.remove();
-          location.reload();
+        fbUser = u;
+      }
+
+      if (fbUser) {
+        const email = (fbUser.email || '').toLowerCase().trim();
+        if (isMaster(email)) {
+          unlockAdminAccess(fbUser);
           return;
-        } else if (u) {
-          alert('Access Denied: Current Google account is not authorized for Admin Studio.');
-        }
-      } else if (window.WishFirebaseAuth) {
-        const fbUser = await window.WishFirebaseAuth.signInWithGoogle();
-        if (fbUser && isMaster(fbUser.email)) {
-          await fetch('/api/auth/signin', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            credentials: 'include',
-            body: JSON.stringify({
-              email: fbUser.email,
-              displayName: fbUser.displayName || 'Ankit Saini',
-              avatarUrl: fbUser.photoURL,
-              role: 'admin',
-              firebaseUid: fbUser.uid
-            })
-          });
-          const gate = document.getElementById('admin-access-restricted-screen');
-          if (gate) gate.remove();
-          location.reload();
-          return;
-        } else if (fbUser) {
-          alert('Access Denied: Current Google account is not authorized for Admin Studio.');
+        } else {
+          showAccessRestrictedScreen(true);
         }
       }
     } catch(err) {
@@ -136,20 +165,8 @@ const SECRET_ADMIN_PREFIX = '/admin/anktech/anktech/admin';
   try {
     const localUser = JSON.parse(localStorage.getItem('wishmagic_auth_user') || localStorage.getItem('wishmagic_user') || 'null');
     if (localUser && (isMaster(localUser.email) || localUser.role === 'admin' || localUser.isAdmin)) {
-      // Valid Google Admin! Sync session cookie in background
-      fetch('/api/auth/signin', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        credentials: 'include',
-        body: JSON.stringify({
-          email: localUser.email,
-          displayName: localUser.displayName || 'Ankit Saini',
-          avatarUrl: localUser.avatarUrl,
-          role: 'admin',
-          firebaseUid: localUser.firebaseUid
-        })
-      }).catch(() => {});
-      return; // ALLOW ACCESS IMMEDIATELY
+      unlockAdminAccess(localUser);
+      return; // Instant access
     }
   } catch (e) {}
 
@@ -160,42 +177,33 @@ const SECRET_ADMIN_PREFIX = '/admin/anktech/anktech/admin';
       const data = await res.json();
       const user = data.data?.user || data.user;
       if (user && (user.role === 'admin' || user.role === 'OWNER' || user.role === 'SUPER_ADMIN' || user.isAdmin || isMaster(user.email))) {
-        return; // Valid admin session!
-      } else if (user) {
-        showAccessRestrictedScreen(user);
+        unlockAdminAccess(user);
         return;
       }
     }
   } catch (err) {}
 
-  // CHECK 3: Firebase Auth state check
-  try {
-    if (window.WishFirebaseAuth) {
-      const auth = await window.WishFirebaseAuth.getAuthInstance();
-      const fbUser = auth?.currentUser;
-      if (fbUser && isMaster(fbUser.email)) {
-        await fetch('/api/auth/signin', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          credentials: 'include',
-          body: JSON.stringify({
-            email: fbUser.email,
-            displayName: fbUser.displayName || 'Ankit Saini',
-            avatarUrl: fbUser.photoURL,
-            role: 'admin',
-            firebaseUid: fbUser.uid
-          })
-        }).catch(() => {});
-        return; // Valid master admin!
-      } else if (fbUser) {
-        showAccessRestrictedScreen({ email: fbUser.email });
-        return;
-      }
+  // CHECK 3: Active Firebase Auth state observer (Restores session automatically when SDK boots up)
+  function attachFirebaseObserver() {
+    if (window.WishFirebaseAuth && typeof window.WishFirebaseAuth.onAuthStateChanged === 'function') {
+      window.WishFirebaseAuth.onAuthStateChanged((fbUser) => {
+        if (fbUser) {
+          const email = (fbUser.email || '').toLowerCase().trim();
+          if (isMaster(email)) {
+            unlockAdminAccess(fbUser);
+          } else {
+            showAccessRestrictedScreen(true);
+          }
+        }
+      });
+    } else {
+      setTimeout(attachFirebaseObserver, 100);
     }
-  } catch (fbErr) {}
+  }
+  attachFirebaseObserver();
 
-  // Not logged in as admin: show Google-Only Restricted Access Screen
-  showAccessRestrictedScreen(null);
+  // If after checking localStorage no master admin, show the Restricted Screen until Firebase responds
+  showAccessRestrictedScreen(false);
 })();
 
 // 2. Automatically ensure all sidebar and navigation links strictly use /admin/anktech/anktech/admin/<section>

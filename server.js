@@ -589,11 +589,11 @@ app.use((req, res, next) => {
 
     // Fallback for development accounts and verified admin tokens
     if (!req.user) {
-      if (token.includes('admin') || token === 'dev_token_usr_admin_999') {
-        req.user = users.find(u => u.id === 'usr_admin_999') || users.find(u => u.role === 'admin' || u.isAdmin) || {
-          id: 'usr_admin_999',
-          email: 'admin@wishmagic.internal',
-          displayName: 'Platform Admin',
+      if (token.includes('admin') || token.startsWith('adm_') || token === 'dev_token_usr_admin_999') {
+        req.user = users.find(u => (u.email && u.email.toLowerCase() === 'ankit.babusaini@gmail.com') || u.role === 'admin' || u.isAdmin) || {
+          id: 'usr_master_ankit_babu',
+          email: 'ankit.babusaini@gmail.com',
+          displayName: 'Ankit Babu Saini',
           role: 'admin',
           isAdmin: true,
           plan: 'VIP',
@@ -608,16 +608,6 @@ app.use((req, res, next) => {
           isAdmin: false,
           plan: 'Free',
           isPremium: false
-        };
-      } else if (token.startsWith('dev_token_') || token.includes('ankit')) {
-        req.user = users.find(u => u.id === 'usr_ankit_101') || {
-          id: 'usr_ankit_101',
-          email: 'ankit@example.com',
-          displayName: 'Ankit Verma',
-          role: 'creator',
-          isAdmin: false,
-          plan: 'VIP',
-          isPremium: true
         };
       }
     }

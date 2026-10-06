@@ -618,21 +618,21 @@
           ? `<img src="${user.avatarUrl}" alt="${user.displayName}" class="w-7 h-7 rounded-full object-cover border border-pink-400 shadow-sm"/>`
           : `<div class="w-7 h-7 rounded-full bg-gradient-to-tr from-pink-500 to-purple-600 text-white flex items-center justify-center font-bold text-[11px]">${initials}</div>`;
 
-        const isUserMaster = user.role === 'admin' || user.isAdmin === true || (window.WishFirebaseAuth?.isAdminEmail && window.WishFirebaseAuth.isAdminEmail(user.email)) || (user.email && (user.email.toLowerCase() === 'ankit.babusaini@gmail.com' || user.email.toLowerCase() === 'bhoomgamer@gmail.com'));
+        const isUserMaster = user.role === 'admin' || user.isAdmin === true || (window.WishFirebaseAuth?.isAdminEmail && window.WishFirebaseAuth.isAdminEmail(user.email)) || (user.email && user.email.toLowerCase() === 'ankit.babusaini@gmail.com');
 
         container.innerHTML = `
           <div class="relative inline-block" id="account-dropdown-wrapper">
-            <button onclick="window.toggleAccountMenu(event)" class="flex items-center gap-1.5 sm:gap-2 px-2 sm:px-2.5 py-1 rounded-full bg-surface-container-high/70 hover:bg-surface-container-highest border border-purple-200/50 dark:border-purple-800/60 transition cursor-pointer active:scale-95">
+            <button onclick="window.toggleAccountMenu(event)" class="flex items-center gap-1.5 sm:gap-2 px-2 sm:px-2.5 py-1 rounded-full bg-surface-container-high/90 hover:bg-surface-container-highest border border-purple-200/80 dark:border-purple-800/80 transition cursor-pointer active:scale-95 shadow-sm">
               ${avatarImg}
               <span class="text-xs font-bold text-on-surface truncate max-w-[70px] xs:max-w-[100px] sm:max-w-[130px]">${user.displayName || user.email}</span>
               <span class="material-symbols-outlined text-[14px] text-outline">expand_more</span>
             </button>
 
-            <!-- 100% Solid Non-Transparent Dropdown Menu -->
-            <div id="account-dropdown-menu" class="hidden absolute right-0 top-full mt-2 w-64 max-w-[calc(100vw-24px)] rounded-2xl shadow-2xl p-2.5 z-[999999] text-left border-2" style="background-color: ${isDark ? '#150927' : '#ffffff'}; border-color: ${isDark ? '#7e22ce' : '#ddd6fe'}; color: ${isDark ? '#f3e8ff' : '#0f172a'}; opacity: 1;">
+            <!-- 100% Solid Non-Transparent Dropdown Menu (Zero Blur / Zero Transparency) -->
+            <div id="account-dropdown-menu" class="hidden absolute right-0 top-full mt-2 w-64 max-w-[calc(100vw-24px)] rounded-2xl shadow-[0_25px_60px_rgba(0,0,0,0.55),0_0_25px_rgba(124,58,237,0.3)] p-2.5 z-[9999999] text-left border-2" style="background-color: ${isDark ? '#150927' : '#ffffff'} !important; background: ${isDark ? '#150927' : '#ffffff'} !important; border-color: ${isDark ? '#7e22ce' : '#ddd6fe'} !important; color: ${isDark ? '#f3e8ff' : '#0f172a'} !important; opacity: 1 !important; backdrop-filter: none !important; -webkit-backdrop-filter: none !important;">
               
               <!-- User Profile Header Card -->
-              <div class="px-3 py-2.5 rounded-xl mb-1.5 border" style="background-color: ${isDark ? '#231042' : '#f5f3ff'}; border-color: ${isDark ? '#6b21a8' : '#e9d5ff'};">
+              <div class="px-3 py-2.5 rounded-xl mb-1.5 border" style="background-color: ${isDark ? '#231042' : '#f5f3ff'} !important; background: ${isDark ? '#231042' : '#f5f3ff'} !important; border-color: ${isDark ? '#6b21a8' : '#e9d5ff'} !important;">
                 <div class="font-extrabold text-xs truncate" style="color: ${isDark ? '#ffffff' : '#1e1b4b'};">${user.displayName}</div>
                 <div class="text-[11px] font-medium truncate mt-0.5" style="color: ${isDark ? '#d8b4fe' : '#6d28d9'};">${user.email}</div>
                 <div class="flex items-center gap-1.5 mt-2">
@@ -645,20 +645,20 @@
 
               <!-- Menu Items -->
               <div class="py-1 space-y-1">
-                <a href="/my-wishes" class="px-3 py-2.5 rounded-xl text-xs font-bold flex items-center gap-2.5 transition" style="color: ${isDark ? '#f3e8ff' : '#1e293b'};">
+                <a href="/my-wishes" class="px-3 py-2.5 rounded-xl text-xs font-bold flex items-center gap-2.5 transition hover:bg-purple-100/70 dark:hover:bg-purple-900/50" style="color: ${isDark ? '#f3e8ff' : '#1e293b'};">
                   <span class="material-symbols-outlined text-[18px] text-pink-500">card_giftcard</span>
                   <span>My Celebration Wishes</span>
                 </a>
-                <a href="/favorites" class="px-3 py-2.5 rounded-xl text-xs font-bold flex items-center gap-2.5 transition" style="color: ${isDark ? '#f3e8ff' : '#1e293b'};">
+                <a href="/favorites" class="px-3 py-2.5 rounded-xl text-xs font-bold flex items-center gap-2.5 transition hover:bg-purple-100/70 dark:hover:bg-purple-900/50" style="color: ${isDark ? '#f3e8ff' : '#1e293b'};">
                   <span class="material-symbols-outlined text-[18px] text-purple-500">favorite</span>
                   <span>Favorites</span>
                 </a>
-                <a href="/account" class="px-3 py-2.5 rounded-xl text-xs font-bold flex items-center gap-2.5 transition" style="color: ${isDark ? '#f3e8ff' : '#1e293b'};">
+                <a href="/account" class="px-3 py-2.5 rounded-xl text-xs font-bold flex items-center gap-2.5 transition hover:bg-purple-100/70 dark:hover:bg-purple-900/50" style="color: ${isDark ? '#f3e8ff' : '#1e293b'};">
                   <span class="material-symbols-outlined text-[18px] text-purple-500">settings</span>
                   <span>Account Settings</span>
                 </a>
                 ${isUserMaster ? `
-                  <a href="/admin/anktech/anktech/admin/overview" onclick="window.handleAdminPortalClick(event)" class="px-3 py-2.5 rounded-xl text-xs font-bold flex items-center justify-between transition border cursor-pointer" style="background-color: ${isDark ? 'rgba(80, 7, 36, 0.5)' : '#fdf2f8'}; border-color: ${isDark ? '#db2777' : '#f472b6'}; color: ${isDark ? '#f472b6' : '#db2777'};">
+                  <a href="/admin/anktech/anktech/admin/overview" onclick="window.handleAdminPortalClick(event)" class="px-3 py-2.5 rounded-xl text-xs font-bold flex items-center justify-between transition border cursor-pointer hover:brightness-110" style="background-color: ${isDark ? 'rgba(80, 7, 36, 0.7)' : '#fdf2f8'} !important; border-color: ${isDark ? '#db2777' : '#f472b6'} !important; color: ${isDark ? '#f472b6' : '#db2777'};">
                     <div class="flex items-center gap-2.5">
                       <span class="material-symbols-outlined text-[18px] text-pink-500">admin_panel_settings</span>
                       <span>Admin Panel</span>
@@ -670,7 +670,7 @@
 
               <!-- Sign Out -->
               <div class="pt-1.5 mt-1 border-t" style="border-color: ${isDark ? '#4c1d95' : '#e9d5ff'};">
-                <button onclick="WishAuth.signOut()" class="w-full text-left px-3 py-2.5 rounded-xl text-xs font-bold flex items-center gap-2.5 transition cursor-pointer" style="color: #f43f5e;">
+                <button onclick="WishAuth.signOut()" class="w-full text-left px-3 py-2.5 rounded-xl text-xs font-bold flex items-center gap-2.5 transition cursor-pointer hover:bg-rose-50 dark:hover:bg-rose-950/40" style="color: #f43f5e;">
                   <span class="material-symbols-outlined text-[18px]">logout</span>
                   <span>Sign Out</span>
                 </button>
@@ -753,14 +753,14 @@
     const isHidden = menu.classList.contains('hidden');
     if (isHidden) {
       const isDark = document.documentElement.classList.contains('dark') || document.documentElement.getAttribute('data-theme') === 'dark';
-      menu.style.backgroundColor = isDark ? '#150927' : '#ffffff';
-      menu.style.background = isDark ? '#150927' : '#ffffff';
-      menu.style.borderColor = isDark ? '#7e22ce' : '#ddd6fe';
-      menu.style.color = isDark ? '#f3e8ff' : '#0f172a';
-      menu.style.opacity = '1';
-      menu.style.backdropFilter = 'none';
-      menu.style.webkitBackdropFilter = 'none';
-      menu.style.zIndex = '999999';
+      menu.style.setProperty('background-color', isDark ? '#150927' : '#ffffff', 'important');
+      menu.style.setProperty('background', isDark ? '#150927' : '#ffffff', 'important');
+      menu.style.setProperty('border-color', isDark ? '#7e22ce' : '#ddd6fe', 'important');
+      menu.style.setProperty('color', isDark ? '#f3e8ff' : '#0f172a', 'important');
+      menu.style.setProperty('opacity', '1', 'important');
+      menu.style.setProperty('backdrop-filter', 'none', 'important');
+      menu.style.setProperty('-webkit-backdrop-filter', 'none', 'important');
+      menu.style.setProperty('z-index', '9999999', 'important');
       menu.classList.remove('hidden');
     } else {
       menu.classList.add('hidden');

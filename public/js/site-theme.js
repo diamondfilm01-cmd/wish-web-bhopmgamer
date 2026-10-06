@@ -78,4 +78,34 @@
     const userSetting = localStorage.getItem('wishmagic_theme') || 'auto';
     updateThemeUI(isDark, userSetting);
   });
+
+  // Ensure solid opaque dropdown styling across all pages
+  if (typeof document !== 'undefined') {
+    const s = document.createElement('style');
+    s.id = 'wishmagic-dropdown-solid-css';
+    s.textContent = `
+      #account-dropdown-menu,
+      .account-dropdown-menu-solid {
+        background-color: #ffffff !important;
+        background: #ffffff !important;
+        opacity: 1 !important;
+        backdrop-filter: none !important;
+        -webkit-backdrop-filter: none !important;
+        border: 2px solid #ddd6fe !important;
+        box-shadow: 0 25px 60px rgba(0, 0, 0, 0.4), 0 0 30px rgba(124, 58, 237, 0.2) !important;
+        z-index: 9999999 !important;
+      }
+      html.dark #account-dropdown-menu,
+      body.dark #account-dropdown-menu,
+      [data-theme="dark"] #account-dropdown-menu {
+        background-color: #150927 !important;
+        background: #150927 !important;
+        border-color: #7e22ce !important;
+        box-shadow: 0 25px 60px rgba(0, 0, 0, 0.85), 0 0 35px rgba(124, 58, 237, 0.4) !important;
+      }
+    `;
+    if (!document.getElementById('wishmagic-dropdown-solid-css')) {
+      (document.head || document.documentElement).appendChild(s);
+    }
+  }
 })();
