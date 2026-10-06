@@ -2,30 +2,69 @@
 
 const SECRET_ADMIN_PREFIX = '/admin/anktech/anktech/admin';
 
-// 1. Client-Side Admin Session Gatekeeper (Verifies authoritative server session via cookie)
+// 1. Client-Side Admin Session Gatekeeper (Verifies authoritative server session via cookie or Google Admin account)
 (async function checkAdminGatekeeper() {
   const currentPath = window.location.pathname.toLowerCase();
   const loginUrl = `${SECRET_ADMIN_PREFIX}/login`;
+  const MASTER_ADMINS = ['ankit.babusaini@gmail.com', 'ankitsaini941413@gmail.com'];
 
   // If already at login page, do not redirect
   if (currentPath === loginUrl.toLowerCase() || currentPath.endsWith('admin-login.html') || currentPath.endsWith('/login')) {
     return;
   }
 
+  // Helper to check if email is master admin
+  const isMaster = (email) => email && MASTER_ADMINS.includes(email.toLowerCase().trim());
+
   try {
+    // 1. Check authoritative server session
     const res = await fetch('/api/auth/session', { credentials: 'include' });
     if (res.ok) {
       const data = await res.json();
       const user = data.data?.user || data.user;
-      if (user && (user.role === 'admin' || user.role === 'OWNER' || user.role === 'SUPER_ADMIN' || user.isAdmin)) {
-        return;
+      if (user && (user.role === 'admin' || user.role === 'OWNER' || user.role === 'SUPER_ADMIN' || user.isAdmin || isMaster(user.email))) {
+        return; // Valid admin session!
       }
     }
-    // If not authenticated or not admin, redirect to login
-    window.location.replace(loginUrl);
   } catch (err) {
-    console.warn('[Admin Gatekeeper]', err);
+    console.warn('[Admin Gatekeeper Session Check]', err);
   }
+
+  // 2. Fallback: Check Firebase Auth state (e.g. if page refreshed before cookie sync)
+  try {
+    if (window.WishFirebaseAuth) {
+      const auth = await window.WishFirebaseAuth.getAuthInstance();
+      const fbUser = auth?.currentUser;
+      if (fbUser && isMaster(fbUser.email)) {
+        // Sync server session immediately
+        await fetch('/api/auth/signin', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          credentials: 'include',
+          body: JSON.stringify({
+            email: fbUser.email,
+            displayName: fbUser.displayName || 'Ankit Saini',
+            avatarUrl: fbUser.photoURL,
+            role: 'admin',
+            firebaseUid: fbUser.uid
+          })
+        });
+        return; // Valid master admin!
+      }
+    }
+  } catch (fbErr) {}
+
+  // 3. Fallback: Check stored user in localStorage
+  try {
+    const localUser = JSON.parse(localStorage.getItem('wishmagic_user') || 'null');
+    if (localUser && isMaster(localUser.email)) {
+      return; // Authorized!
+    }
+  } catch (e) {}
+
+  // Unauthorized: Block access and redirect to login gatekeeper
+  document.body.style.display = 'none';
+  window.location.replace(loginUrl);
 })();
 
 // 2. Automatically ensure all sidebar and navigation links strictly use /admin/anktech/anktech/admin/<section>

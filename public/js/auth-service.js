@@ -599,45 +599,45 @@
             </button>
 
             <!-- Dropdown Menu -->
-            <div id="account-dropdown-menu" class="hidden absolute right-0 top-full mt-2 w-56 sm:w-64 max-w-[calc(100vw-24px)] bg-surface-container-highest/98 dark:bg-purple-950/98 backdrop-blur-2xl rounded-2xl shadow-2xl border border-purple-200/60 dark:border-purple-800/80 p-2 z-[100] animate-scaleUp text-left">
-              <div class="px-3 py-2 border-b border-purple-100 dark:border-purple-900">
-                <div class="font-bold text-xs text-on-surface truncate">${user.displayName}</div>
-                <div class="text-[10px] text-on-surface-variant truncate">${user.email}</div>
-                <div class="flex items-center gap-1.5 mt-1">
-                  <span class="px-2 py-0.5 rounded-full text-[9px] font-black uppercase tracking-wider ${user.isPremium || user.plan === 'VIP' ? 'bg-amber-400/20 text-amber-500 border border-amber-400/40' : 'bg-purple-500/20 text-purple-300'}">
+            <div id="account-dropdown-menu" class="hidden absolute right-0 top-full mt-2 w-64 max-w-[calc(100vw-24px)] !bg-white dark:!bg-[#150927] rounded-2xl shadow-2xl shadow-purple-950/25 dark:shadow-black/70 border-2 border-purple-200/90 dark:border-purple-800 p-2.5 z-[100] animate-scaleUp text-left" style="background-color: #ffffff; opacity: 1 !important;">
+              <div class="px-3 py-2.5 border-b border-purple-100 dark:border-purple-800/80 !bg-purple-50 dark:!bg-purple-900/30 rounded-xl mb-1.5" style="background-color: #f5f3ff;">
+                <div class="font-extrabold text-xs !text-purple-950 dark:!text-white truncate" style="color: #1e1b4b;">${user.displayName}</div>
+                <div class="text-[11px] font-medium !text-purple-700 dark:!text-purple-300 truncate mt-0.5" style="color: #6d28d9;">${user.email}</div>
+                <div class="flex items-center gap-1.5 mt-2">
+                  <span class="px-2 py-0.5 rounded-full text-[9px] font-black uppercase tracking-wider ${user.isPremium || user.plan === 'VIP' ? 'bg-amber-400/20 text-amber-700 dark:text-amber-400 border border-amber-400/50' : 'bg-purple-500/20 text-purple-700 dark:text-purple-300 border border-purple-300/60'}">
                     ${user.plan || 'Free'} Plan
                   </span>
-                  ${user.role === 'admin' ? '<span class="px-1.5 py-0.5 rounded-full text-[9px] font-black uppercase bg-pink-500 text-white">ADMIN</span>' : ''}
+                  ${user.role === 'admin' ? '<span class="px-2 py-0.5 rounded-full text-[9px] font-black uppercase bg-gradient-to-r from-pink-500 to-purple-600 text-white shadow-xs">ADMIN</span>' : ''}
                 </div>
               </div>
 
-              <div class="py-1 space-y-0.5">
-                <a href="/my-wishes" class="px-3 py-2 rounded-xl text-xs font-semibold text-on-surface hover:bg-purple-100 dark:hover:bg-purple-900/50 flex items-center gap-2 transition">
-                  <span class="material-symbols-outlined text-[16px] text-pink-500">card_giftcard</span>
+              <div class="py-1 space-y-1">
+                <a href="/my-wishes" class="px-3 py-2.5 rounded-xl text-xs font-bold !text-gray-900 dark:!text-purple-100 hover:!bg-purple-100/80 dark:hover:!bg-purple-900/50 flex items-center gap-2.5 transition" style="color: #111827;">
+                  <span class="material-symbols-outlined text-[18px] text-pink-500">card_giftcard</span>
                   <span>My Celebration Wishes</span>
                 </a>
-                <a href="/favorites" class="px-3 py-2 rounded-xl text-xs font-semibold text-on-surface hover:bg-purple-100 dark:hover:bg-purple-900/50 flex items-center gap-2 transition">
-                  <span class="material-symbols-outlined text-[16px] text-purple-400">favorite</span>
+                <a href="/favorites" class="px-3 py-2.5 rounded-xl text-xs font-bold !text-gray-900 dark:!text-purple-100 hover:!bg-purple-100/80 dark:hover:!bg-purple-900/50 flex items-center gap-2.5 transition" style="color: #111827;">
+                  <span class="material-symbols-outlined text-[18px] text-purple-500">favorite</span>
                   <span>Favorites</span>
                 </a>
-                <a href="/account" class="px-3 py-2 rounded-xl text-xs font-semibold text-on-surface hover:bg-purple-100 dark:hover:bg-purple-900/50 flex items-center gap-2 transition">
-                  <span class="material-symbols-outlined text-[16px] text-purple-400">settings</span>
+                <a href="/account" class="px-3 py-2.5 rounded-xl text-xs font-bold !text-gray-900 dark:!text-purple-100 hover:!bg-purple-100/80 dark:hover:!bg-purple-900/50 flex items-center gap-2.5 transition" style="color: #111827;">
+                  <span class="material-symbols-outlined text-[18px] text-purple-500">settings</span>
                   <span>Account Settings</span>
                 </a>
                 ${(user.role === 'admin' || user.isAdmin === true || (window.WishFirebaseAuth?.isAdminEmail && window.WishFirebaseAuth.isAdminEmail(user.email)) || (user.email && (user.email.toLowerCase() === 'ankit.babusaini@gmail.com' || user.email.toLowerCase() === 'ankitsaini941413@gmail.com'))) ? `
-                  <a href="/admin/anktech/anktech/admin/overview" class="px-3 py-2 rounded-xl text-xs font-bold text-pink-400 hover:bg-pink-950/40 flex items-center justify-between transition group">
-                    <div class="flex items-center gap-2">
-                      <span class="material-symbols-outlined text-[16px] text-pink-500">admin_panel_settings</span>
+                  <a href="/admin/anktech/anktech/admin/overview" onclick="window.handleAdminPortalClick(event)" class="px-3 py-2.5 rounded-xl text-xs font-bold !text-pink-600 dark:!text-pink-400 !bg-pink-50/80 dark:!bg-pink-950/40 hover:!bg-pink-100 dark:hover:!bg-pink-900/50 flex items-center justify-between transition group border border-pink-500/20 cursor-pointer" style="color: #db2777;">
+                    <div class="flex items-center gap-2.5">
+                      <span class="material-symbols-outlined text-[18px] text-pink-500">admin_panel_settings</span>
                       <span>Admin Panel</span>
                     </div>
-                    <span class="px-1.5 py-0.5 rounded text-[8px] font-black bg-pink-500/20 text-pink-400 border border-pink-500/30">⚡ MASTER</span>
+                    <span class="px-1.5 py-0.5 rounded text-[8px] font-black bg-pink-500 text-white shadow-xs">⚡ MASTER</span>
                   </a>
                 ` : ''}
               </div>
 
-              <div class="pt-1 mt-1 border-t border-purple-100 dark:border-purple-900">
-                <button onclick="WishAuth.signOut()" class="w-full text-left px-3 py-2 rounded-xl text-xs font-bold text-rose-500 hover:bg-rose-50 dark:hover:bg-rose-950/40 flex items-center gap-2 transition cursor-pointer">
-                  <span class="material-symbols-outlined text-[16px]">logout</span>
+              <div class="pt-1.5 mt-1 border-t border-purple-100 dark:border-purple-800/80">
+                <button onclick="WishAuth.signOut()" class="w-full text-left px-3 py-2.5 rounded-xl text-xs font-bold !text-rose-600 dark:!text-rose-400 hover:!bg-rose-50 dark:hover:!bg-rose-950/40 flex items-center gap-2.5 transition cursor-pointer" style="color: #e11d48;">
+                  <span class="material-symbols-outlined text-[18px]">logout</span>
                   <span>Sign Out</span>
                 </button>
               </div>
@@ -647,6 +647,59 @@
       }
     });
   }
+
+  // Ensure solid opaque dropdown styling across all pages
+  if (typeof document !== 'undefined') {
+    const styleEl = document.createElement('style');
+    styleEl.id = 'account-dropdown-solid-fix';
+    styleEl.textContent = `
+      #account-dropdown-menu {
+        background: #ffffff !important;
+        background-color: #ffffff !important;
+        opacity: 1 !important;
+        backdrop-filter: none !important;
+        -webkit-backdrop-filter: none !important;
+      }
+      html.dark #account-dropdown-menu,
+      body.dark #account-dropdown-menu {
+        background: #150927 !important;
+        background-color: #150927 !important;
+      }
+    `;
+    if (!document.getElementById('account-dropdown-solid-fix')) {
+      document.head.appendChild(styleEl);
+    }
+  }
+
+  // Seamless Master Admin Portal navigation
+  window.handleAdminPortalClick = async function(e) {
+    if (e) {
+      e.preventDefault();
+      e.stopPropagation();
+    }
+    const user = WishAuth.getCurrentUser();
+    const isMaster = user && (user.role === 'admin' || user.isAdmin || (user.email && (user.email.toLowerCase() === 'ankit.babusaini@gmail.com' || user.email.toLowerCase() === 'ankitsaini941413@gmail.com')));
+
+    if (isMaster) {
+      try {
+        await fetch('/api/auth/signin', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          credentials: 'include',
+          body: JSON.stringify({
+            email: user.email,
+            displayName: user.displayName || 'Ankit Saini',
+            avatarUrl: user.avatarUrl,
+            role: 'admin',
+            firebaseUid: user.firebaseUid
+          })
+        });
+      } catch (err) {}
+      window.location.href = '/admin/anktech/anktech/admin/overview';
+    } else {
+      showAuthToast('Admin panel is restricted to authorized Google account only.');
+    }
+  };
 
   // Toggle account menu open/closed
   window.toggleAccountMenu = function(e) {

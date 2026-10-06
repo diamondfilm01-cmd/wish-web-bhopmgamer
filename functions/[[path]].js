@@ -49,7 +49,8 @@ export async function onRequest(context) {
       if (sessionRes.status === 200) {
         const sessionData = await sessionRes.json().catch(() => ({}));
         const u = sessionData.data?.user || sessionData.user;
-        if (u && (u.role === 'admin' || u.role === 'OWNER' || u.role === 'SUPER_ADMIN' || u.isAdmin === true)) {
+        const isMaster = u && (u.role === 'admin' || u.role === 'OWNER' || u.role === 'SUPER_ADMIN' || u.isAdmin === true || (u.email && (u.email.toLowerCase() === 'ankit.babusaini@gmail.com' || u.email.toLowerCase() === 'ankitsaini941413@gmail.com')));
+        if (isMaster) {
           const cleanPath = pathname.replace(/\/+$/, '');
           const targetFile = ADMIN_ROUTES_MAP[cleanPath] || ADMIN_ROUTES_MAP[pathname] || '/admin-overview.html';
           const pageReq = new Request(new URL(targetFile, context.request.url), context.request);
