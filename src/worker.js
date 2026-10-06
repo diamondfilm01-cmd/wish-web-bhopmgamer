@@ -450,6 +450,198 @@ async function verifyFirebaseIdToken(idToken, env) {
 }
 
 // ============================================================================
+// D1 DATABASE SCHEMA INITIALIZATION & AUTO-RECOVERY
+// ============================================================================
+
+let schemaInitialized = false;
+let schemaInitPromise = null;
+
+async function ensureCoreSchema(db) {
+  if (!db || typeof db.prepare !== 'function') return false;
+  if (schemaInitialized) return true;
+  if (schemaInitPromise) return schemaInitPromise;
+
+  schemaInitPromise = (async () => {
+    try {
+      // 1. users table
+      await db.prepare(`
+        CREATE TABLE IF NOT EXISTS users (
+          id TEXT PRIMARY KEY,
+          email TEXT UNIQUE NOT NULL,
+          display_name TEXT NOT NULL,
+          avatar_url TEXT,
+          role TEXT NOT NULL DEFAULT 'creator',
+          plan TEXT NOT NULL DEFAULT 'Free',
+          is_premium INTEGER NOT NULL DEFAULT 0,
+          provider TEXT NOT NULL DEFAULT 'email',
+          status TEXT NOT NULL DEFAULT 'active',
+          created_at TEXT NOT NULL,
+          updated_at TEXT NOT NULL
+        )
+      `).run();
+      await db.prepare(`CREATE INDEX IF NOT EXISTS idx_users_email ON users(email)`).run().catch(() => {});
+      await db.prepare(`CREATE INDEX IF NOT EXISTS idx_users_role ON users(role)`).run().catch(() => {});
+
+      // 2. sessions table
+      await db.prepare(`
+        CREATE TABLE IF NOT EXISTS sessions (
+          id TEXT PRIMARY KEY,
+          user_id TEXT NOT NULL,
+          token TEXT UNIQUE NOT NULL,
+          expires_at INTEGER NOT NULL,
+          created_at TEXT NOT NULL,
+          FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
+        )
+      `).run();
+      await db.prepare(`CREATE INDEX IF NOT EXISTS idx_sessions_token ON sessions(token)`).run().catch(() => {});
+      await db.prepare(`CREATE INDEX IF NOT EXISTS idx_sessions_user_id ON sessions(user_id)`).run().catch(() => {});
+      await db.prepare(`CREATE INDEX IF NOT EXISTS idx_sessions_expires_at ON sessions(expires_at)`).run().catch(() => {});
+
+      // 3. admin_roles table
+      await db.prepare(`
+        CREATE TABLE IF NOT EXISTS admin_roles (
+          id TEXT PRIMARY KEY,
+          user_id TEXT NOT NULL,
+          role TEXT NOT NULL,
+          permissions TEXT NOT NULL,
+          granted_by TEXT,
+          created_at TEXT NOT NULL,
+          FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
+        )
+      `).run().catch(() => {});
+      await db.prepare(`CREATE UNIQUE INDEX IF NOT EXISTS idx_admin_roles_user ON admin_roles(user_id)`).run().catch(() => {});
+
+      // 4. admin_staff table
+      await db.prepare(`
+        CREATE TABLE IF NOT EXISTS admin_staff (
+          id TEXT PRIMARY KEY,
+          user_id TEXT UNIQUE NOT NULL,
+          mobile TEXT UNIQUE NOT NULL,
+          name TEXT NOT NULL,
+          role TEXT NOT NULL DEFAULT 'EDITOR',
+          permissions TEXT NOT NULL DEFAULT '[]',
+          status TEXT NOT NULL DEFAULT 'active',
+          password_hash TEXT NOT NULL DEFAULT '',
+          password_salt TEXT NOT NULL DEFAULT '',
+          firebase_uid TEXT,
+          created_by TEXT,
+          created_at TEXT NOT NULL,
+          updated_at TEXT NOT NULL,
+          FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
+        )
+      `).run().catch(() => {});
+
+      // 5. site_settings table
+      await db.prepare(`
+        CREATE TABLE IF NOT EXISTS site_settings (
+          key TEXT PRIMARY KEY,
+          value TEXT NOT NULL,
+          updated_by TEXT,
+          updated_at TEXT NOT NULL
+        )
+      `).run().catch(() => {});
+
+      // 6. wishes table
+      await db.prepare(`
+        CREATE TABLE IF NOT EXISTS wishes (
+          id TEXT PRIMARY KEY,
+          slug TEXT UNIQUE NOT NULL,
+          user_id TEXT NOT NULL,
+          order_id TEXT,
+          template_id TEXT NOT NULL,
+          template_name TEXT NOT NULL,
+          tier TEXT NOT NULL DEFAULT 'free',
+          price INTEGER NOT NULL DEFAULT 0,
+          is_private INTEGER NOT NULL DEFAULT 0,
+          buyer_name TEXT NOT NULL,
+          buyer_contact TEXT,
+          recipient_name TEXT NOT NULL,
+          event_date TEXT NOT NULL,
+          expiry_date TEXT NOT NULL,
+          lifecycle_status TEXT DEFAULT 'active',
+          views INTEGER NOT NULL DEFAULT 0,
+          custom_data TEXT NOT NULL,
+          payment TEXT,
+          status TEXT NOT NULL DEFAULT 'published',
+          created_at TEXT NOT NULL,
+          updated_at TEXT NOT NULL,
+          FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
+        )
+      `).run().catch(() => {});
+
+      // 7. templates table
+      await db.prepare(`
+        CREATE TABLE IF NOT EXISTS templates (
+          id TEXT PRIMARY KEY,
+          name TEXT NOT NULL,
+          slug TEXT UNIQUE NOT NULL,
+          description TEXT,
+          category TEXT NOT NULL,
+          relationships TEXT,
+          tags TEXT,
+          type TEXT DEFAULT '3D Interactive',
+          tier TEXT NOT NULL DEFAULT 'free',
+          price INTEGER NOT NULL DEFAULT 0,
+          is_premium INTEGER NOT NULL DEFAULT 0,
+          is_published INTEGER NOT NULL DEFAULT 1,
+          status TEXT NOT NULL DEFAULT 'published',
+          featured INTEGER NOT NULL DEFAULT 0,
+          placement INTEGER NOT NULL DEFAULT 99,
+          thumbnail TEXT NOT NULL,
+          preview_images TEXT,
+          capabilities TEXT,
+          detected_fields TEXT,
+          sections TEXT,
+          features TEXT,
+          theme TEXT,
+          folder TEXT NOT NULL,
+          entry_file TEXT NOT NULL DEFAULT 'index.html',
+          created_at TEXT NOT NULL,
+          updated_at TEXT NOT NULL
+        )
+      `).run().catch(() => {});
+
+      // 8. categories table
+      await db.prepare(`
+        CREATE TABLE IF NOT EXISTS categories (
+          id TEXT PRIMARY KEY,
+          name TEXT NOT NULL,
+          slug TEXT UNIQUE NOT NULL,
+          description TEXT,
+          icon TEXT DEFAULT '✨',
+          sort_order INTEGER NOT NULL DEFAULT 1,
+          is_active INTEGER NOT NULL DEFAULT 1,
+          created_at TEXT NOT NULL,
+          updated_at TEXT NOT NULL
+        )
+      `).run().catch(() => {});
+
+      // 9. template_version_snapshots table
+      await db.prepare(`
+        CREATE TABLE IF NOT EXISTS template_version_snapshots (
+          id TEXT PRIMARY KEY,
+          template_id TEXT NOT NULL,
+          version_number INTEGER NOT NULL,
+          snapshot_data TEXT NOT NULL,
+          created_at TEXT NOT NULL,
+          FOREIGN KEY (template_id) REFERENCES templates(id) ON DELETE CASCADE
+        )
+      `).run().catch(() => {});
+
+      schemaInitialized = true;
+      return true;
+    } catch (e) {
+      console.warn('[D1 Schema Auto-Init Notice]', e);
+      return false;
+    } finally {
+      schemaInitPromise = null;
+    }
+  })();
+
+  return schemaInitPromise;
+}
+
+// ============================================================================
 // AUTHENTICATION & AUTHORIZATION BOUNDARY
 // ============================================================================
 
@@ -465,11 +657,14 @@ async function getAuthenticatedUser(request, env) {
 
   if (!sessionToken) return null;
 
+  const db = env.DB || env.wishmagic_db || env.DATABASE || env.__D1_BETA__DB;
+
   // Authoritative D1 Session Verification
-  if (env.DB && typeof env.DB.prepare === 'function') {
+  if (db && typeof db.prepare === 'function') {
     try {
+      await ensureCoreSchema(db);
       const now = Date.now();
-      let sessionRow = await env.DB.prepare(
+      let sessionRow = await db.prepare(
         `SELECT s.id as session_id, s.expires_at, u.id as user_id, u.email, u.display_name, u.avatar_url, u.role, u.plan, u.is_premium, u.status
          FROM sessions s
          JOIN users u ON s.user_id = u.id
@@ -478,11 +673,11 @@ async function getAuthenticatedUser(request, env) {
       ).bind(sessionToken, now).first().catch(() => null);
 
       if (!sessionRow) {
-        const sRow = await env.DB.prepare(
+        const sRow = await db.prepare(
           `SELECT * FROM sessions WHERE token = ? LIMIT 1`
         ).bind(sessionToken).first().catch(() => null);
         if (sRow) {
-          const uRow = await env.DB.prepare(
+          const uRow = await db.prepare(
             `SELECT * FROM users WHERE id = ? LIMIT 1`
           ).bind(sRow.user_id).first().catch(() => null);
           if (uRow) {
@@ -1692,25 +1887,50 @@ export default {
 
       // --- Health & Diagnostic ---
       if (pathname === '/api/health') {
+        const db = env.DB || env.wishmagic_db || env.DATABASE || env.__D1_BETA__DB;
+        let dbOk = false;
+        let tablesOk = false;
+        if (db && typeof db.prepare === 'function') {
+          try {
+            await ensureCoreSchema(db);
+            const check = await db.prepare("SELECT name FROM sqlite_master WHERE type = 'table' AND name = 'users' LIMIT 1").first();
+            dbOk = true;
+            tablesOk = Boolean(check);
+          } catch (e) {
+            dbOk = false;
+          }
+        }
         response = jsonSuccess({
           status: 'ok',
           environment: env.ENVIRONMENT || 'production',
           version: APP_VERSION,
           timestamp: new Date().toISOString(),
-          d1Binding: Boolean(env.DB),
+          d1Binding: Boolean(db),
+          d1Connected: dbOk,
+          d1TablesReady: tablesOk,
           r2Binding: Boolean(env.BUCKET),
           rateLimiter: 'Active'
         }, 200, {}, requestId);
       }
 
       else if (pathname === '/api/health/readiness') {
+        const db = env.DB || env.wishmagic_db || env.DATABASE || env.__D1_BETA__DB;
+        let dbStatus = 'NOT_CONFIGURED';
+        if (db && typeof db.prepare === 'function') {
+          try {
+            await ensureCoreSchema(db);
+            dbStatus = 'CONNECTED';
+          } catch (_) {
+            dbStatus = 'DEGRADED';
+          }
+        }
         response = jsonSuccess({
           status: 'ok',
           environment: env.ENVIRONMENT || 'production',
           version: APP_VERSION,
           timestamp: new Date().toISOString(),
           dependencies: {
-            database: env.DB ? 'CONFIGURED' : 'NOT_CONFIGURED',
+            database: dbStatus,
             storage: env.BUCKET ? 'CONFIGURED' : 'NOT_CONFIGURED',
             payment: (env.RAZORPAY_KEY_ID || env.STRIPE_SECRET_KEY) ? 'CONFIGURED' : 'NOT_CONFIGURED',
             email: env.RESEND_API_KEY ? 'CONFIGURED' : 'NOT_CONFIGURED',
@@ -1753,9 +1973,13 @@ export default {
       }
 
       else if (pathname === '/api/auth/signin' && method === 'POST') {
-        if (!env.DB || typeof env.DB.prepare !== 'function') {
+        const db = env.DB || env.wishmagic_db || env.DATABASE || env.__D1_BETA__DB;
+        if (!db || typeof db.prepare !== 'function') {
           return applySecurityHeaders(
-            jsonError('DATABASE_UNAVAILABLE', 'Database service is currently unavailable. Please try again shortly.', 503, {}, null, requestId, FailureCategory.DATABASE),
+            jsonError('DATABASE_UNAVAILABLE', 'Database service is currently unavailable. Please try again shortly.', 503, {
+              d1BindingPresent: Boolean(db),
+              bindingName: 'DB'
+            }, null, requestId, FailureCategory.DATABASE),
             request, env
           );
         }
@@ -1812,16 +2036,36 @@ export default {
           const MASTER_ADMIN_EMAIL = 'ankit.babusaini@gmail.com';
           const isMasterAdmin = email === MASTER_ADMIN_EMAIL;
 
-          // 1. D1 User Lookup
+          // 1. D1 User Lookup with automatic schema preparation
           let userRecord = null;
           try {
-            userRecord = await env.DB.prepare('SELECT * FROM users WHERE email = ? LIMIT 1').bind(email).first();
+            await ensureCoreSchema(db);
+            userRecord = await db.prepare('SELECT * FROM users WHERE email = ? LIMIT 1').bind(email).first();
           } catch (lookupErr) {
-            console.error('[Auth D1 User Lookup Error]', lookupErr);
-            return applySecurityHeaders(
-              jsonError('AUTH_D1_USER_LOOKUP_FAILED', 'Database error during user profile lookup.', 500, null, null, requestId, FailureCategory.DATABASE),
-              request, env
-            );
+            console.error('[Auth D1 User Lookup Error]', {
+              requestId,
+              dbAvailable: Boolean(db),
+              operation: 'SELECT * FROM users WHERE email = ? LIMIT 1',
+              errorName: lookupErr?.name,
+              errorMessage: lookupErr?.message
+            });
+
+            // Automatic recovery: re-run schema creation and retry
+            try {
+              schemaInitialized = false;
+              await ensureCoreSchema(db);
+              userRecord = await db.prepare('SELECT * FROM users WHERE email = ? LIMIT 1').bind(email).first();
+            } catch (retryErr) {
+              console.error('[Auth D1 User Lookup Retry Error]', retryErr);
+              return applySecurityHeaders(
+                jsonError('AUTH_D1_USER_LOOKUP_FAILED', 'Database error during user profile lookup.', 500, {
+                  dbAvailable: Boolean(db),
+                  operation: 'user_lookup',
+                  error: lookupErr?.message || 'Query execution failed'
+                }, null, requestId, FailureCategory.DATABASE),
+                request, env
+              );
+            }
           }
 
           // 2. User Creation if new
@@ -1833,7 +2077,7 @@ export default {
             const targetPremium = isMasterAdmin ? 1 : 0;
 
             try {
-              await env.DB.prepare(
+              await db.prepare(
                 'INSERT INTO users (id, email, display_name, avatar_url, role, plan, is_premium, provider, status, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)'
               ).bind(
                 newUserId,
@@ -1861,10 +2105,14 @@ export default {
               };
             } catch (insertErr) {
               console.warn('[Auth D1 User Insert fallback]', insertErr);
-              userRecord = await env.DB.prepare('SELECT * FROM users WHERE email = ? LIMIT 1').bind(email).first();
+              userRecord = await db.prepare('SELECT * FROM users WHERE email = ? LIMIT 1').bind(email).first();
               if (!userRecord) {
                 return applySecurityHeaders(
-                  jsonError('AUTH_D1_USER_CREATE_FAILED', 'Failed to create user account in database.', 500, null, null, requestId, FailureCategory.DATABASE),
+                  jsonError('AUTH_D1_USER_CREATE_FAILED', 'Failed to create user account in database.', 500, {
+                    dbAvailable: Boolean(db),
+                    operation: 'user_create',
+                    error: insertErr?.message || 'Insert failed'
+                  }, null, requestId, FailureCategory.DATABASE),
                   request, env
                 );
               }
@@ -1889,7 +2137,7 @@ export default {
 
             if (needsUpdate) {
               try {
-                await env.DB.prepare('UPDATE users SET role = ?, plan = ?, is_premium = ?, display_name = ?, updated_at = ? WHERE id = ?')
+                await db.prepare('UPDATE users SET role = ?, plan = ?, is_premium = ?, display_name = ?, updated_at = ? WHERE id = ?')
                   .bind(targetRole, targetPlan, targetPremium, displayName || userRecord.display_name, new Date().toISOString(), userRecord.id).run();
                 userRecord.role = targetRole;
                 userRecord.plan = targetPlan;
@@ -1914,13 +2162,17 @@ export default {
           const expiresAt = Date.now() + (30 * 24 * 60 * 60 * 1000);
 
           try {
-            await env.DB.prepare(
+            await db.prepare(
               'INSERT INTO sessions (id, user_id, token, expires_at, created_at) VALUES (?, ?, ?, ?, ?)'
             ).bind(sessionId, userRecord.id, sessionToken, expiresAt, new Date().toISOString()).run();
           } catch (sessionErr) {
             console.error('[Auth D1 Session Create Error]', sessionErr);
             return applySecurityHeaders(
-              jsonError('AUTH_D1_SESSION_CREATE_FAILED', 'Failed to create server session in database.', 500, null, null, requestId, FailureCategory.DATABASE),
+              jsonError('AUTH_D1_SESSION_CREATE_FAILED', 'Failed to create server session in database.', 500, {
+                dbAvailable: Boolean(db),
+                operation: 'session_create',
+                error: sessionErr?.message || 'Session insert failed'
+              }, null, requestId, FailureCategory.DATABASE),
               request, env
             );
           }

@@ -87,6 +87,7 @@ export async function onRequest(context) {
 
   const env = {
     ...context.env,
+    DB: context.env.DB || context.env.wishmagic_db || context.env.DATABASE,
     ASSETS: {
       fetch: async (req) => {
         const fetchReq = typeof req === 'string' ? new Request(new URL(req, context.request.url), context.request) : req;
