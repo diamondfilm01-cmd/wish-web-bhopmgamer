@@ -6,20 +6,35 @@
 
   const STORAGE_KEY_USER = 'wishmagic_auth_user';
 
+  const IS_ADMIN_STUDIO =
+    typeof window !== 'undefined' &&
+    (
+      window.location.pathname.startsWith('/admin/anktech/anktech/admin/')
+      ||
+      window.location.pathname === '/admin/anktech/anktech/admin'
+    );
+
   let currentUser = null;
   let isCheckingSession = false;
   const authListeners = new Set();
 
-  // 0. IMMEDIATE SYNCHRONOUS CACHE HYDRATION (0ms Delay - Eliminates Sign-In button flash)
-  try {
-    const cachedUserStr = localStorage.getItem(STORAGE_KEY_USER) || localStorage.getItem('wishmagic_user');
-    if (cachedUserStr) {
-      currentUser = JSON.parse(cachedUserStr);
-    }
-  } catch (e) {}
+  // Admin Studio must never authorize from localStorage.
+  // Normal website pages may continue using the existing
+  // user cache only for non-security UI hydration.
+  if (!IS_ADMIN_STUDIO) {
+    try {
+      const cachedUserStr =
+        localStorage.getItem(STORAGE_KEY_USER) ||
+        localStorage.getItem('wishmagic_user');
+
+      if (cachedUserStr) {
+        currentUser = JSON.parse(cachedUserStr);
+      }
+    } catch (e) {}
+  }
 
   // If container is already in DOM at script execution time, render instantly
-  if (typeof document !== 'undefined') {
+  if (typeof document !== 'undefined' && !IS_ADMIN_STUDIO) {
     if (document.readyState === 'interactive' || document.readyState === 'complete') {
       renderNavbarAuthState();
     } else {
@@ -33,6 +48,20 @@
 
   // Initialize Auth State directly with Firebase SDK and fallback cache
   async function initAuth() {
+    if (IS_ADMIN_STUDIO) {
+      /*
+       * Admin Studio has its own authoritative gate:
+       * public/js/admin-theme.js
+       *
+       * Do not start another Firebase observer here.
+       * Do not hydrate localStorage.
+       * Do not render cached user.
+       * Do not create another server session.
+       */
+      isCheckingSession = false;
+      return null;
+    }
+
     isCheckingSession = true;
     try {
       // 1. Instant re-render of cached state
@@ -54,7 +83,7 @@
         fb.onAuthStateChanged(async (fbUser) => {
           if (fbUser) {
             const email = (fbUser.email || '').trim().toLowerCase();
-            const isAdmin = fb.isAdminEmail ? fb.isAdminEmail(email) : (email === 'ankit.babusaini@gmail.com' || email === 'bhoomgamer@gmail.com');
+            const isAdmin = fb.isAdminEmail ? fb.isAdminEmail(email) : (email === 'ankit.babusaini@gmail.com');
             const displayName = (fbUser.displayName || (email ? email.split('@')[0] : 'Creator')).trim();
             const avatarUrl = fbUser.photoURL || `https://api.dicebear.com/7.x/bottts/svg?seed=${encodeURIComponent(email || 'creator')}`;
 
@@ -74,12 +103,6 @@
             try {
               localStorage.setItem(STORAGE_KEY_USER, JSON.stringify(currentUser));
               localStorage.setItem('wishmagic_user', JSON.stringify(currentUser));
-              if (isAdmin) {
-                const adminToken = 'adm_token_' + fbUser.uid;
-                localStorage.setItem('wishmagic_admin_token', adminToken);
-                localStorage.setItem('wishmagic_auth_token', adminToken);
-                sessionStorage.setItem('wm_admin_verified', 'true');
-              }
             } catch (e) {}
 
             notifyAuthChange();
@@ -143,50 +166,68 @@
   }
 
   // Authoritatively sync authenticated Firebase identity with server-side session cookie
-  async function syncSessionWithServer(fbUser, fallbackDisplayName = '') {
-    const email = (fbUser.email || '').trim().toLowerCase();
-    const isAdmin = window.WishFirebaseAuth?.isAdminEmail ? window.WishFirebaseAuth.isAdminEmail(email) : (email === 'ankit.babusaini@gmail.com' || email === 'bhoomgamer@gmail.com');
-    const displayName = (fbUser.displayName || fallbackDisplayName || (email ? email.split('@')[0] : 'Creator')).trim();
-    const avatarUrl = fbUser.photoURL || `https://api.dicebear.com/7.x/bottts/svg?seed=${encodeURIComponent(email || 'creator')}`;
+  async function syncSessionWithServer(
+    fbUser,
+    fallbackDisplayName = ''
+  ) {
+    if (!fbUser) {
+      throw new Error('Firebase user is missing.');
+    }
 
-    const fallbackUser = {
-      id: 'usr_fb_' + (fbUser.uid ? fbUser.uid.slice(0, 16) : Date.now().toString(36)),
-      email,
-      displayName,
-      avatarUrl,
-      role: isAdmin ? 'admin' : 'creator',
-      isAdmin: isAdmin,
-      plan: isAdmin ? 'VIP' : 'Free',
-      isPremium: isAdmin,
-      provider: fbUser.providerData?.[0]?.providerId || 'firebase',
-      firebaseUid: fbUser.uid
-    };
+    const email =
+      (fbUser.email || '').trim().toLowerCase();
 
-    try {
-      const res = await fetch('/api/auth/signin', {
+    const displayName =
+      (
+        fbUser.displayName ||
+        fallbackDisplayName ||
+        (email ? email.split('@')[0] : 'Creator')
+      ).trim();
+
+    const avatarUrl =
+      fbUser.photoURL ||
+      `https://api.dicebear.com/7.x/bottts/svg?seed=${encodeURIComponent(
+        email || 'creator'
+      )}`;
+
+    const response = await fetch(
+      '/api/auth/signin',
+      {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: {
+          'Content-Type': 'application/json',
+          'Accept': 'application/json'
+        },
         credentials: 'include',
+        cache: 'no-store',
         body: JSON.stringify({
           email,
           displayName,
           avatarUrl,
-          provider: fbUser.providerData?.[0]?.providerId || 'firebase',
+          provider:
+            fbUser.providerData?.[0]?.providerId ||
+            'firebase',
           firebaseUid: fbUser.uid
         })
-      });
-
-      if (res.ok) {
-        const data = await res.json();
-        if (data && data.success && data.user) {
-          return data.user;
-        }
       }
-    } catch (err) {
-      // Server is offline or static host (Cloudflare Pages), use direct client fallback
+    );
+
+    const data =
+      await response.json().catch(() => ({}));
+
+    if (
+      !response.ok ||
+      data?.success !== true ||
+      !data?.user
+    ) {
+      throw new Error(
+        data?.error?.message ||
+        data?.message ||
+        'Server authentication failed.'
+      );
     }
 
-    return fallbackUser;
+    return data.user;
   }
 
   // Centralized Auth Service API
@@ -200,7 +241,63 @@
     },
 
     isAuthenticated() {
-      return currentUser !== null && Boolean(currentUser.id);
+      if (IS_ADMIN_STUDIO) {
+        return Boolean(
+          window.WishMagicAdminSession &&
+          window.WishMagicAdminSession.authenticated === true
+        );
+      }
+
+      return (
+        currentUser !== null &&
+        Boolean(currentUser.id)
+      );
+    },
+
+    requireAdmin(options = {}) {
+      const containerId =
+        options.containerId || 'admin-main-content';
+
+      const container =
+        document.getElementById(containerId);
+
+      const session =
+        window.WishMagicAdminSession;
+
+      const user =
+        session?.user || null;
+
+      const allowed =
+        session?.authenticated === true &&
+        user &&
+        (
+          user.role === 'admin' ||
+          user.role === 'OWNER' ||
+          user.role === 'SUPER_ADMIN' ||
+          user.isAdmin === true
+        );
+
+      if (!allowed) {
+        if (container) {
+          container.innerHTML = `
+            <div class="min-h-[50vh] flex items-center justify-center p-8">
+              <div class="text-center max-w-md">
+                <div class="text-4xl mb-4">🔒</div>
+                <h2 class="text-xl font-bold">
+                  Admin Session Required
+                </h2>
+                <p class="text-sm opacity-70 mt-2">
+                  Please complete Admin authentication first.
+                </p>
+              </div>
+            </div>
+          `;
+        }
+
+        return false;
+      }
+
+      return true;
     },
 
     isCheckingSession() {
@@ -712,33 +809,12 @@
   }
 
   // Seamless Master Admin Portal navigation
-  window.handleAdminPortalClick = async function(e) {
+  window.handleAdminPortalClick = function(e) {
     if (e) {
       e.preventDefault();
       e.stopPropagation();
     }
-    const user = WishAuth.getCurrentUser();
-    const isMaster = user && (user.role === 'admin' || user.isAdmin || (user.email && (user.email.toLowerCase() === 'ankit.babusaini@gmail.com' || user.email.toLowerCase() === 'bhoomgamer@gmail.com')));
-
-    if (isMaster) {
-      try {
-        await fetch('/api/auth/signin', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          credentials: 'include',
-          body: JSON.stringify({
-            email: user.email,
-            displayName: user.displayName || 'Ankit Saini',
-            avatarUrl: user.avatarUrl,
-            role: 'admin',
-            firebaseUid: user.firebaseUid
-          })
-        });
-      } catch (err) {}
-      window.location.href = '/admin/anktech/anktech/admin/overview';
-    } else {
-      showAuthToast('Admin panel is restricted to authorized Google account only.');
-    }
+    window.location.href = '/admin/anktech/anktech/admin/overview';
   };
 
   // Toggle account menu open/closed with guaranteed solid non-transparent background

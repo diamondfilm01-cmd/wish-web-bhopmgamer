@@ -552,9 +552,9 @@ async function getAdminProfile(user, env) {
     } catch (e) {}
   }
 
-  // 3. Fallback direct role check & Master Email Check
+  // 3. Fallback direct database role check & Master Email Check
   const userEmail = (user.email || '').toLowerCase().trim();
-  if (user.role === 'admin' || user.isAdmin === true || userEmail === 'ankit.babusaini@gmail.com') {
+  if (userEmail === 'ankit.babusaini@gmail.com' || (user.role === 'admin' && user.id)) {
     return { isAdmin: true, isOwner: true, role: 'OWNER', permissions: ['*'], status: 'active' };
   }
 
@@ -1684,7 +1684,7 @@ export default {
         }
 
         // Look up user by email in authoritative D1 table
-        const ADMIN_EMAILS_WORKER = ['ankit.babusaini@gmail.com', 'bhoomgamer@gmail.com', 'admin@wishmagic.internal', 'admin@anktech.internal'];
+        const ADMIN_EMAILS_WORKER = ['ankit.babusaini@gmail.com'];
         const isWorkerAdmin = ADMIN_EMAILS_WORKER.includes(email);
         let userRecord = await env.DB.prepare('SELECT * FROM users WHERE email = ? LIMIT 1').bind(email).first();
         if (!userRecord) {

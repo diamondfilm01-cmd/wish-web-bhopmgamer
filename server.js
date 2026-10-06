@@ -904,7 +904,7 @@ app.post('/api/auth/signin', (req, res) => {
   try {
     const { email, userId, displayName, avatarUrl, provider, firebaseUid } = req.body || {};
     const cleanEmail = (email || '').trim().toLowerCase();
-    const ADMIN_EMAILS_LIST = ['ankit.babusaini@gmail.com', 'bhoomgamer@gmail.com', 'admin@wishmagic.internal', 'admin@anktech.internal'];
+    const ADMIN_EMAILS_LIST = ['ankit.babusaini@gmail.com'];
     const isUserAdmin = ADMIN_EMAILS_LIST.includes(cleanEmail);
     const users = getUsers();
 

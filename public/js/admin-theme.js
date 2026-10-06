@@ -2,64 +2,82 @@
 
 const SECRET_ADMIN_PREFIX = '/admin/anktech/anktech/admin';
 
-// 1. Client-Side Admin Session Gatekeeper (Exclusively for Authorized Google Account, Zero Redirect Loop)
+/*
+ * WishMagic Admin Studio
+ * Authoritative Admin Session Gate
+ *
+ * IMPORTANT:
+ * - Never authorize from localStorage.
+ * - Never authorize from sessionStorage.
+ * - Never create fake admin tokens.
+ * - Never POST /api/auth/signin in background without checking it.
+ * - Server session is authoritative.
+ */
+
 (async function checkAdminGatekeeper() {
-  const MASTER_ADMINS = ['ankit.babusaini@gmail.com', 'bhoomgamer@gmail.com'];
+  'use strict';
 
-  const isMaster = (email) => {
-    if (!email) return false;
-    const clean = String(email).toLowerCase().trim();
-    return clean === 'ankit.babusaini@gmail.com' || MASTER_ADMINS.includes(clean) || clean.startsWith('admin@');
-  };
+  const ADMIN_TARGET = '/admin/anktech/anktech/admin/overview';
+  const MASTER_EMAIL = 'ankit.babusaini@gmail.com';
 
-  function unlockAdminAccess(userData) {
-    const screen = document.getElementById('admin-access-restricted-screen');
-    if (screen) screen.remove();
+  let navigationStarted = false;
+  let sessionCheckStarted = false;
+  let firebaseSyncStarted = false;
+
+  const cleanEmail = (value) =>
+    String(value || '').trim().toLowerCase();
+
+  const isAuthorizedEmail = (email) =>
+    cleanEmail(email) === MASTER_EMAIL;
+
+  function isValidAdminServerUser(user) {
+    if (!user) return false;
+
+    const email = cleanEmail(user.email);
+
+    return (
+      email === MASTER_EMAIL &&
+      (
+        user.role === 'admin' ||
+        user.role === 'OWNER' ||
+        user.role === 'SUPER_ADMIN' ||
+        user.isAdmin === true
+      )
+    );
+  }
+
+  function removeGate() {
+    const screen = document.getElementById(
+      'admin-access-restricted-screen'
+    );
+
+    if (screen) {
+      screen.remove();
+    }
+
     document.body.style.display = '';
 
-    if (userData && userData.email) {
-      const userObj = {
-        id: userData.id || (userData.uid ? 'usr_fb_' + userData.uid.slice(0, 16) : 'usr_master_ankit_babu'),
-        email: userData.email,
-        displayName: userData.displayName || 'Ankit Babu Saini',
-        avatarUrl: userData.avatarUrl || userData.photoURL || `https://api.dicebear.com/7.x/bottts/svg?seed=${encodeURIComponent(userData.email)}`,
-        role: 'admin',
-        isAdmin: true,
-        plan: 'VIP',
-        isPremium: true,
-        firebaseUid: userData.uid || userData.firebaseUid || null
+    if (window.__WishMagicVerifiedAdminUser) {
+      window.WishMagicAdminSession = {
+        authenticated: true,
+        user: window.__WishMagicVerifiedAdminUser
       };
-      try {
-        localStorage.setItem('wishmagic_auth_user', JSON.stringify(userObj));
-        localStorage.setItem('wishmagic_user', JSON.stringify(userObj));
-        localStorage.setItem('wishmagic_admin_token', 'adm_' + Date.now().toString(36));
-        sessionStorage.setItem('wm_admin_verified', 'true');
-      } catch(e) {}
-
-      fetch('/api/auth/signin', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        credentials: 'include',
-        body: JSON.stringify(userObj)
-      }).catch(() => {});
     }
   }
 
-  // Modern High-Security Google Restricted Screen (NO email details exposed, pure Google auth)
   function showAccessRestrictedScreen(isDenied = false) {
     if (document.getElementById('admin-access-restricted-screen')) {
       const alertBox = document.getElementById('admin-gate-alert');
       if (alertBox && isDenied) {
         alertBox.innerHTML = `
-          <div class="mt-2.5 pt-2 border-t border-purple-800/60 text-[11px] text-amber-300">
-            Current logged-in account is not authorized for Admin Studio.
+          <div class="mt-2.5 pt-2 border-t border-red-800/60 text-[11px] text-red-300">
+            Current account is not authorized for Admin Studio.
           </div>
         `;
       }
       return;
     }
 
-    // Show body so modal can render
     document.body.style.display = 'block';
 
     const container = document.createElement('div');
@@ -128,82 +146,352 @@ const SECRET_ADMIN_PREFIX = '/admin/anktech/anktech/admin';
     document.body.appendChild(container);
   }
 
-  // Google Sign-In directly from restricted gate
-  window.handleAdminGateGoogleLogin = async function() {
-    const btn = document.getElementById('admin-gate-google-btn');
-    const txt = document.getElementById('admin-gate-btn-txt');
-    if (btn) btn.disabled = true;
-    if (txt) txt.innerHTML = '<span class="inline-flex items-center gap-2"><span class="animate-spin inline-block w-3.5 h-3.5 border-2 border-white border-t-transparent rounded-full"></span> Connecting to Google...</span>';
+  function navigateOnce() {
+    if (navigationStarted) {
+      return;
+    }
+
+    navigationStarted = true;
+
+    window.location.replace(ADMIN_TARGET);
+  }
+
+  async function getServerAdminSession() {
+    if (sessionCheckStarted) {
+      return null;
+    }
+
+    sessionCheckStarted = true;
 
     try {
-      let fbUser = null;
-      if (window.WishFirebaseAuth && typeof window.WishFirebaseAuth.signInWithGoogle === 'function') {
-        fbUser = await window.WishFirebaseAuth.signInWithGoogle();
-      } else if (window.WishAuth && typeof window.WishAuth.signInWithGoogle === 'function') {
-        const u = await window.WishAuth.signInWithGoogle();
-        fbUser = u;
+      const response = await fetch('/api/auth/session', {
+        method: 'GET',
+        credentials: 'include',
+        cache: 'no-store',
+        headers: {
+          'Accept': 'application/json'
+        }
+      });
+
+      const data = await response.json().catch(() => ({}));
+
+      const user =
+        data?.data?.user ||
+        data?.user ||
+        null;
+
+      if (
+        response.ok &&
+        data?.success === true &&
+        data?.isAuthenticated === true &&
+        isValidAdminServerUser(user)
+      ) {
+        window.__WishMagicVerifiedAdminUser = user;
+        window.WishMagicAdminSession = {
+          authenticated: true,
+          user
+        };
+        return user;
       }
 
-      if (fbUser) {
-        const email = (fbUser.email || '').toLowerCase().trim();
-        if (isMaster(email)) {
-          unlockAdminAccess(fbUser);
-          return;
-        } else {
-          showAccessRestrictedScreen(true);
-        }
-      }
-    } catch(err) {
-      alert('Google Sign-In: ' + (err.message || err));
+      return null;
+
+    } catch (error) {
+      console.warn(
+        '[AdminGate] Server session check failed:',
+        error
+      );
+
+      return null;
+
     } finally {
-      if (btn) btn.disabled = false;
-      if (txt) txt.textContent = 'Continue with Google';
+      sessionCheckStarted = false;
+    }
+  }
+
+  async function createAndVerifyServerSession(firebaseUser) {
+    if (!firebaseUser) {
+      throw new Error('Firebase user is missing.');
+    }
+
+    const email = cleanEmail(firebaseUser.email);
+
+    if (!isAuthorizedEmail(email)) {
+      throw new Error(
+        'This Google account is not authorized for Admin Studio.'
+      );
+    }
+
+    if (firebaseSyncStarted) {
+      return null;
+    }
+
+    firebaseSyncStarted = true;
+
+    try {
+      const response = await fetch('/api/auth/signin', {
+        method: 'POST',
+        credentials: 'include',
+        cache: 'no-store',
+        headers: {
+          'Content-Type': 'application/json',
+          'Accept': 'application/json'
+        },
+        body: JSON.stringify({
+          email,
+          displayName:
+            firebaseUser.displayName ||
+            'Ankit Saini',
+          avatarUrl:
+            firebaseUser.photoURL ||
+            null,
+          provider: 'google',
+          firebaseUid: firebaseUser.uid
+        })
+      });
+
+      const data = await response.json().catch(() => ({}));
+
+      if (!response.ok || data?.success !== true) {
+        throw new Error(
+          data?.error?.message ||
+          data?.message ||
+          'Could not create secure server session.'
+        );
+      }
+
+      /*
+       * IMPORTANT:
+       * Verify the cookie/session using the server.
+       */
+      const verifiedUser = await getServerAdminSession();
+
+      if (!verifiedUser) {
+        throw new Error(
+          'Server session was created but could not be verified.'
+        );
+      }
+
+      window.__WishMagicVerifiedAdminUser = verifiedUser;
+      window.WishMagicAdminSession = {
+        authenticated: true,
+        user: verifiedUser
+      };
+
+      return verifiedUser;
+
+    } finally {
+      firebaseSyncStarted = false;
+    }
+  }
+
+  async function bootstrap() {
+    /*
+     * NEVER inspect localStorage for authorization.
+     */
+
+    /*
+     * STEP 1:
+     * Existing server session.
+     */
+    const existingUser =
+      await getServerAdminSession();
+
+    if (existingUser) {
+      window.__WishMagicVerifiedAdminUser = existingUser;
+      window.WishMagicAdminSession = {
+        authenticated: true,
+        user: existingUser
+      };
+      removeGate();
+      return;
+    }
+
+    /*
+     * STEP 2:
+     * Wait for Firebase auth state.
+     */
+    if (
+      window.WishFirebaseAuth &&
+      typeof window.WishFirebaseAuth.onAuthStateChanged === 'function'
+    ) {
+      let handled = false;
+
+      window.WishFirebaseAuth.onAuthStateChanged(
+        async (firebaseUser) => {
+          if (handled) {
+            return;
+          }
+
+          if (!firebaseUser) {
+            handled = true;
+            showAccessRestrictedScreen(false);
+            return;
+          }
+
+          const email =
+            cleanEmail(firebaseUser.email);
+
+          if (!isAuthorizedEmail(email)) {
+            handled = true;
+
+            try {
+              await window.WishFirebaseAuth.signOut();
+            } catch (_) {}
+
+            showAccessRestrictedScreen(true);
+            return;
+          }
+
+          try {
+            await createAndVerifyServerSession(
+              firebaseUser
+            );
+
+            handled = true;
+
+            /*
+             * Session is now server-verified.
+             */
+            removeGate();
+
+          } catch (error) {
+            handled = true;
+
+            console.error(
+              '[AdminGate] Firebase → server session failed:',
+              error
+            );
+
+            showAccessRestrictedScreen(false);
+
+            const alertBox =
+              document.getElementById('admin-gate-alert');
+
+            if (alertBox) {
+              alertBox.innerHTML = `
+                <div class="mt-2.5 pt-2 border-t border-red-800/60 text-[11px] text-red-300">
+                  ${String(
+                    error?.message ||
+                    'Secure Admin session could not be established.'
+                  )}
+                </div>
+              `;
+            }
+          }
+        }
+      );
+
+      return;
+    }
+
+    showAccessRestrictedScreen(false);
+  }
+
+  /*
+   * Existing Google gate button.
+   * It MUST establish and verify the server session.
+   */
+  window.handleAdminGateGoogleLogin = async function () {
+    if (navigationStarted || firebaseSyncStarted) {
+      return;
+    }
+
+    const btn =
+      document.getElementById('admin-gate-google-btn');
+
+    const txt =
+      document.getElementById('admin-gate-btn-txt');
+
+    if (btn) btn.disabled = true;
+
+    if (txt) {
+      txt.textContent =
+        'Connecting to Google...';
+    }
+
+    try {
+      const firebaseUser =
+        await window.WishFirebaseAuth.signInWithGoogle();
+
+      if (!firebaseUser) {
+        throw new Error(
+          'Google Sign-In was cancelled.'
+        );
+      }
+
+      const email =
+        cleanEmail(firebaseUser.email);
+
+      if (!isAuthorizedEmail(email)) {
+        try {
+          await window.WishFirebaseAuth.signOut();
+        } catch (_) {}
+
+        throw new Error(
+          'This Google account is not authorized for Admin Studio.'
+        );
+      }
+
+      if (txt) {
+        txt.textContent =
+          'Verifying secure Admin session...';
+      }
+
+      /*
+       * IMPORTANT:
+       * No navigation until server session is verified.
+       */
+      await createAndVerifyServerSession(
+        firebaseUser
+      );
+
+      removeGate();
+
+    } catch (error) {
+      console.error(
+        '[AdminGate] Login failed:',
+        error
+      );
+
+      if (txt) {
+        txt.textContent =
+          'Continue with Google';
+      }
+
+      if (btn) {
+        btn.disabled = false;
+      }
+
+      const alertBox =
+        document.getElementById('admin-gate-alert');
+
+      if (alertBox) {
+        alertBox.innerHTML = `
+          <div class="mt-2.5 pt-2 border-t border-red-800/60 text-[11px] text-red-300">
+            ${String(
+              error?.message ||
+              'Authentication failed.'
+            )}
+          </div>
+        `;
+      }
     }
   };
 
-  // CHECK 1: Synchronous check in localStorage for instant 0ms access
-  try {
-    const localUser = JSON.parse(localStorage.getItem('wishmagic_auth_user') || localStorage.getItem('wishmagic_user') || 'null');
-    if (localUser && (isMaster(localUser.email) || localUser.role === 'admin' || localUser.isAdmin)) {
-      unlockAdminAccess(localUser);
-      return; // Instant access
-    }
-  } catch (e) {}
-
-  // CHECK 2: Authoritative server session
-  try {
-    const res = await fetch('/api/auth/session', { credentials: 'include' });
-    if (res.ok) {
-      const data = await res.json();
-      const user = data.data?.user || data.user;
-      if (user && (user.role === 'admin' || user.role === 'OWNER' || user.role === 'SUPER_ADMIN' || user.isAdmin || isMaster(user.email))) {
-        unlockAdminAccess(user);
-        return;
-      }
-    }
-  } catch (err) {}
-
-  // CHECK 3: Active Firebase Auth state observer (Restores session automatically when SDK boots up)
-  function attachFirebaseObserver() {
-    if (window.WishFirebaseAuth && typeof window.WishFirebaseAuth.onAuthStateChanged === 'function') {
-      window.WishFirebaseAuth.onAuthStateChanged((fbUser) => {
-        if (fbUser) {
-          const email = (fbUser.email || '').toLowerCase().trim();
-          if (isMaster(email)) {
-            unlockAdminAccess(fbUser);
-          } else {
-            showAccessRestrictedScreen(true);
-          }
-        }
-      });
-    } else {
-      setTimeout(attachFirebaseObserver, 100);
-    }
+  /*
+   * Start only once.
+   */
+  if (document.readyState === 'loading') {
+    document.addEventListener(
+      'DOMContentLoaded',
+      bootstrap,
+      { once: true }
+    );
+  } else {
+    bootstrap();
   }
-  attachFirebaseObserver();
 
-  // If after checking localStorage no master admin, show the Restricted Screen until Firebase responds
-  showAccessRestrictedScreen(false);
 })();
 
 // 2. Automatically ensure all sidebar and navigation links strictly use /admin/anktech/anktech/admin/<section>
