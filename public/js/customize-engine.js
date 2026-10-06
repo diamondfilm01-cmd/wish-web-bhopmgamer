@@ -719,6 +719,13 @@ function updateStepVisibility() {
   // If entering Step 4 Preview, update the summary card
   if (currentStep === 4) {
     renderStep4Summary();
+    if (typeof window.setMobileActiveView === 'function' && window.innerWidth < 1024) {
+      window.setMobileActiveView('preview');
+    }
+  } else {
+    if (typeof window.setMobileActiveView === 'function' && window.innerWidth < 1024) {
+      window.setMobileActiveView('customize');
+    }
   }
 }
 
@@ -3805,9 +3812,10 @@ window.setDeviceViewport = function(mode) {
     if (browserBar) browserBar.classList.remove('hidden');
   } else {
     // Mobile
-    frame.style.maxWidth = '375px';
-    frame.style.height = '680px';
-    frame.style.borderRadius = '40px';
+    const isSmallScreen = window.innerWidth < 640;
+    frame.style.maxWidth = isSmallScreen ? '100%' : '375px';
+    frame.style.height = isSmallScreen ? '520px' : '640px';
+    frame.style.borderRadius = '32px';
     if (btnM) {
       btnM.classList.add('bg-purple-700', 'text-white', 'font-bold');
       btnM.classList.remove('text-purple-700', 'dark:text-purple-300');

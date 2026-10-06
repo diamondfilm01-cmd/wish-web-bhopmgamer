@@ -1,0 +1,194 @@
+// WishMagic Firebase Authentication Integration Module
+// Web SDK v10 (Official Google CDN ESM)
+// Project: wish-magic-47944
+
+(function(window) {
+  'use strict';
+
+  const firebaseConfig = {
+    apiKey: "AIzaSyCiZmxmfgyj555EI4af_rt5X_id31F4Vq0",
+    authDomain: "wish-magic-47944.firebaseapp.com",
+    projectId: "wish-magic-47944",
+    storageBucket: "wish-magic-47944.firebasestorage.app",
+    messagingSenderId: "281035115213",
+    appId: "1:281035115213:web:2af5b3a6f0ceb6c64eb784"
+  };
+
+  let fbApp = null;
+  let fbAuth = null;
+  let fbGoogleProvider = null;
+  let fbSdk = null;
+  let initPromise = null;
+
+  async function getFirebase() {
+    if (initPromise) return initPromise;
+    initPromise = (async () => {
+      try {
+        const [appMod, authMod] = await Promise.all([
+          import('https://www.gstatic.com/firebasejs/10.8.0/firebase-app.js'),
+          import('https://www.gstatic.com/firebasejs/10.8.0/firebase-auth.js')
+        ]);
+
+        fbApp = appMod.initializeApp(firebaseConfig);
+        fbAuth = authMod.getAuth(fbApp);
+        fbGoogleProvider = new authMod.GoogleAuthProvider();
+        fbGoogleProvider.setCustomParameters({ prompt: 'select_account' });
+        fbSdk = authMod;
+
+        console.log('[WishFirebaseAuth] Firebase Auth initialized successfully for wish-magic-47944');
+        return {
+          app: fbApp,
+          auth: fbAuth,
+          provider: fbGoogleProvider,
+          sdk: authMod
+        };
+      } catch (err) {
+        console.error('[WishFirebaseAuth] Failed to initialize Firebase SDK:', err);
+        initPromise = null; // allow retry
+        throw err;
+      }
+    })();
+    return initPromise;
+  }
+
+  // Friendly user-facing error message translator
+  function formatFirebaseError(err) {
+    if (!err) return 'Authentication failed';
+    const code = err.code || '';
+    switch (code) {
+      case 'auth/invalid-credential':
+      case 'auth/wrong-password':
+      case 'auth/user-not-found':
+        return 'Incorrect email or password. Please verify and try again.';
+      case 'auth/email-already-in-use':
+        return 'An account already exists with this email address. Please sign in.';
+      case 'auth/weak-password':
+        return 'Password should be at least 6 characters.';
+      case 'auth/invalid-email':
+        return 'Please enter a valid email address.';
+      case 'auth/popup-closed-by-user':
+        return 'Google sign-in popup was closed before completion.';
+      case 'auth/popup-blocked':
+        return 'Sign-in popup was blocked by your browser. Please allow popups for this site.';
+      case 'auth/unauthorized-domain':
+        return 'This domain is not yet authorized in Firebase Console (Authentication > Settings > Authorized domains).';
+      case 'auth/network-request-failed':
+        return 'Network connection error. Please check your internet connection.';
+      case 'auth/too-many-requests':
+        return 'Too many failed attempts. Please wait a moment or reset your password.';
+      default:
+        return err.message || 'Authentication error occurred.';
+    }
+  }
+
+  const WishFirebaseAuth = {
+    getConfig() {
+      return { ...firebaseConfig };
+    },
+
+    async getAuthInstance() {
+      const fb = await getFirebase();
+      return fb.auth;
+    },
+
+    // Sign in with Google Popup
+    async signInWithGoogle() {
+      const { auth, provider, sdk } = await getFirebase();
+      try {
+        const result = await sdk.signInWithPopup(auth, provider);
+        return result.user;
+      } catch (err) {
+        throw new Error(formatFirebaseError(err));
+      }
+    },
+
+    // Sign in with Email and Password
+    async signInWithEmailPassword(email, password) {
+      if (!email || !email.includes('@')) {
+        throw new Error('Please enter a valid email address.');
+      }
+      if (!password || password.length < 6) {
+        throw new Error('Password must be at least 6 characters.');
+      }
+
+      const { auth, sdk } = await getFirebase();
+      try {
+        const result = await sdk.signInWithEmailAndPassword(auth, email.trim(), password);
+        return result.user;
+      } catch (err) {
+        throw new Error(formatFirebaseError(err));
+      }
+    },
+
+    // Sign up / Create Account with Email and Password
+    async signUpWithEmailPassword(email, password, displayName = '') {
+      if (!email || !email.includes('@')) {
+        throw new Error('Please enter a valid email address.');
+      }
+      if (!password || password.length < 6) {
+        throw new Error('Password must be at least 6 characters.');
+      }
+
+      const { auth, sdk } = await getFirebase();
+      try {
+        const result = await sdk.createUserWithEmailAndPassword(auth, email.trim(), password);
+        if (displayName && displayName.trim()) {
+          try {
+            await sdk.updateProfile(result.user, { displayName: displayName.trim() });
+          } catch (e) {}
+        }
+        return result.user;
+      } catch (err) {
+        throw new Error(formatFirebaseError(err));
+      }
+    },
+
+    // Send Password Reset Email
+    async sendPasswordReset(email) {
+      if (!email || !email.includes('@')) {
+        throw new Error('Please enter a valid email address.');
+      }
+      const { auth, sdk } = await getFirebase();
+      try {
+        await sdk.sendPasswordResetEmail(auth, email.trim());
+        return true;
+      } catch (err) {
+        throw new Error(formatFirebaseError(err));
+      }
+    },
+
+    // Sign Out
+    async signOut() {
+      try {
+        const { auth, sdk } = await getFirebase();
+        await sdk.signOut(auth);
+      } catch (e) {
+        console.warn('[WishFirebaseAuth] Sign out error:', e);
+      }
+    },
+
+    // Listen to Firebase auth state
+    async onAuthStateChanged(callback) {
+      try {
+        const { auth, sdk } = await getFirebase();
+        return sdk.onAuthStateChanged(auth, callback);
+      } catch (e) {
+        return () => {};
+      }
+    }
+  };
+
+  window.WishFirebaseAuth = WishFirebaseAuth;
+
+  // Background warm-up
+  if (typeof document !== 'undefined') {
+    if (document.readyState === 'loading') {
+      document.addEventListener('DOMContentLoaded', () => {
+        getFirebase().catch(() => {});
+      });
+    } else {
+      getFirebase().catch(() => {});
+    }
+  }
+
+})(typeof window !== 'undefined' ? window : globalThis);

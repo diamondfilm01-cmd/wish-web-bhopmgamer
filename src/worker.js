@@ -236,13 +236,13 @@ function applySecurityHeaders(response, request, env) {
 
   const csp = [
     "default-src 'self'",
-    "script-src 'self' 'unsafe-inline' 'unsafe-eval' https://cdn.tailwindcss.com https://fonts.googleapis.com",
+    "script-src 'self' 'unsafe-inline' 'unsafe-eval' https://cdn.tailwindcss.com https://fonts.googleapis.com https://www.gstatic.com https://apis.google.com",
     "style-src 'self' 'unsafe-inline' https://fonts.googleapis.com",
     "font-src 'self' https://fonts.gstatic.com data:",
-    "img-src 'self' data: blob: https: https://images.unsplash.com https://api.dicebear.com https://media.wishmagic.live",
+    "img-src 'self' data: blob: https: https://images.unsplash.com https://api.dicebear.com https://media.wishmagic.live https://*.googleusercontent.com",
     "media-src 'self' data: blob: https: https://media.wishmagic.live",
     "connect-src 'self' https://* http://localhost:* ws://localhost:*",
-    "frame-src 'self'",
+    "frame-src 'self' https://*.firebaseapp.com https://accounts.google.com",
     "object-src 'none'",
     "base-uri 'self'"
   ].join('; ');

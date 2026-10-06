@@ -251,12 +251,26 @@
   <!-- ========================================== -->
   <main class="flex-grow pt-2 sm:pt-4 pb-24 px-3 sm:px-6 md:px-8 max-w-7xl mx-auto w-full">
     
+    <!-- Mobile View Mode Toggle (Customize vs Live Preview) -->
+    <div class="lg:hidden mb-4 sticky top-16 z-30 pt-1">
+      <div class="glass-surface rounded-2xl p-1.5 flex items-center shadow-md border border-purple-200/80 dark:border-purple-800/60 bg-white/95 dark:bg-[#1A0B2E]/95 backdrop-blur-xl">
+        <button type="button" id="mobile-view-customize-btn" onclick="setMobileActiveView('customize')" class="flex-1 py-2 px-3 rounded-xl font-bold text-xs flex items-center justify-center gap-1.5 transition-all bg-gradient-to-r from-pink-500 to-purple-600 text-white shadow-sm cursor-pointer">
+          <span class="material-symbols-outlined text-[16px]">tune</span>
+          <span>Customize Setup</span>
+        </button>
+        <button type="button" id="mobile-view-preview-btn" onclick="setMobileActiveView('preview')" class="flex-1 py-2 px-3 rounded-xl font-bold text-xs flex items-center justify-center gap-1.5 transition-all text-purple-800 dark:text-purple-300 hover:text-purple-950 cursor-pointer">
+          <span class="material-symbols-outlined text-[16px]">visibility</span>
+          <span>Live Preview</span>
+        </button>
+      </div>
+    </div>
+
     <div class="grid grid-cols-1 lg:grid-cols-12 gap-6 sm:gap-8 items-start">
       
       <!-- ============================================ -->
       <!-- LEFT COLUMN: CONTROLS & FORMS (5 COLS)       -->
       <!-- ============================================ -->
-      <div class="lg:col-span-5 flex flex-col gap-5 order-2 lg:order-1">
+      <div id="customizer-controls-column" class="lg:col-span-5 flex flex-col gap-5 order-1 lg:order-1 w-full lg:!flex">
         
         <!-- STEP 1: DETAILS CONTAINER -->
         <div id="step-content-1" class="flex flex-col gap-5">
@@ -1530,7 +1544,7 @@
       <!-- ============================================ -->
       <!-- RIGHT COLUMN: REAL-TIME SANDBOX (7 COLS)    -->
       <!-- ============================================ -->
-      <div class="lg:col-span-7 flex flex-col gap-3.5 order-1 lg:order-2 sticky top-20">
+      <div id="customizer-preview-column" class="lg:col-span-7 hidden lg:flex flex-col gap-3.5 order-2 lg:order-2 relative lg:sticky lg:top-20 w-full lg:!flex">
         
         <!-- Viewport Controls & Toolbar Bar -->
         <div class="glass-surface rounded-2xl p-2 sm:px-4 sm:py-2.5 flex items-center justify-between gap-2 shadow-sm">
@@ -1560,8 +1574,8 @@
         </div>
 
         <!-- Physical Frame Sandbox Canvas -->
-        <div class="w-full flex items-center justify-center p-2 sm:p-5 rounded-3xl glass-surface border border-purple-200/80 dark:border-purple-800/60 shadow-xl overflow-hidden min-h-[600px]" id="sandbox-stage-wrapper">
-          <div id="sandbox-device-frame" class="sandbox-frame-shell w-full max-w-full h-[680px] rounded-2xl p-2 bg-[#090314] border-2 border-purple-900/40 flex flex-col relative overflow-hidden">
+        <div class="w-full flex items-center justify-center p-2 sm:p-5 rounded-3xl glass-surface border border-purple-200/80 dark:border-purple-800/60 shadow-xl overflow-hidden min-h-[460px] sm:min-h-[540px] lg:min-h-[600px]" id="sandbox-stage-wrapper">
+          <div id="sandbox-device-frame" class="sandbox-frame-shell w-full max-w-full h-[520px] sm:h-[600px] lg:h-[680px] rounded-2xl p-2 bg-[#090314] border-2 border-purple-900/40 flex flex-col relative overflow-hidden">
             
             <!-- Smartphone speaker notch (hidden on desktop) -->
             <div id="device-frame-notch" class="hidden w-24 h-4 bg-black rounded-b-xl mx-auto mb-1 flex items-center justify-center flex-shrink-0 z-20">
@@ -1618,6 +1632,71 @@
         confetti({ particleCount: 80, spread: 70, origin: { y: 0.6 } });
       }
     }
+
+    // Mobile View Toggle Controller (Customize vs Live Preview)
+    let currentMobileView = 'customize';
+
+    window.setMobileActiveView = function(view) {
+      if (window.innerWidth >= 1024) return; // Desktop uses side-by-side grid
+      currentMobileView = view;
+      const controlsCol = document.getElementById('customizer-controls-column');
+      const previewCol = document.getElementById('customizer-preview-column');
+      const custBtn = document.getElementById('mobile-view-customize-btn');
+      const prevBtn = document.getElementById('mobile-view-preview-btn');
+      const floatingBtnText = document.getElementById('mobile-floating-toggle-text');
+      const floatingBtnIcon = document.getElementById('mobile-floating-toggle-icon');
+
+      if (view === 'preview') {
+        if (controlsCol) controlsCol.classList.add('hidden');
+        if (previewCol) {
+          previewCol.classList.remove('hidden');
+          previewCol.scrollIntoView({ behavior: 'smooth', block: 'start' });
+        }
+        if (custBtn) {
+          custBtn.className = 'flex-1 py-2 px-3 rounded-xl font-bold text-xs flex items-center justify-center gap-1.5 transition-all text-purple-800 dark:text-purple-300 hover:text-purple-950 cursor-pointer';
+        }
+        if (prevBtn) {
+          prevBtn.className = 'flex-1 py-2 px-3 rounded-xl font-bold text-xs flex items-center justify-center gap-1.5 transition-all bg-gradient-to-r from-pink-500 to-purple-600 text-white shadow-sm cursor-pointer';
+        }
+        if (floatingBtnText) floatingBtnText.textContent = 'Edit Setup';
+        if (floatingBtnIcon) floatingBtnIcon.textContent = 'tune';
+      } else {
+        if (controlsCol) controlsCol.classList.remove('hidden');
+        if (previewCol) previewCol.classList.add('hidden');
+        if (custBtn) {
+          custBtn.className = 'flex-1 py-2 px-3 rounded-xl font-bold text-xs flex items-center justify-center gap-1.5 transition-all bg-gradient-to-r from-pink-500 to-purple-600 text-white shadow-sm cursor-pointer';
+        }
+        if (prevBtn) {
+          prevBtn.className = 'flex-1 py-2 px-3 rounded-xl font-bold text-xs flex items-center justify-center gap-1.5 transition-all text-purple-800 dark:text-purple-300 hover:text-purple-950 cursor-pointer';
+        }
+        if (floatingBtnText) floatingBtnText.textContent = 'Live Preview';
+        if (floatingBtnIcon) floatingBtnIcon.textContent = 'visibility';
+      }
+    };
+
+    window.toggleMobileActiveView = function() {
+      window.setMobileActiveView(currentMobileView === 'customize' ? 'preview' : 'customize');
+    };
+
+    // Ensure desktop resize restores both columns
+    window.addEventListener('resize', () => {
+      const controlsCol = document.getElementById('customizer-controls-column');
+      const previewCol = document.getElementById('customizer-preview-column');
+      if (window.innerWidth >= 1024) {
+        if (controlsCol) controlsCol.classList.remove('hidden');
+        if (previewCol) previewCol.classList.remove('hidden');
+      } else {
+        window.setMobileActiveView(currentMobileView);
+      }
+    });
   </script>
+
+  <!-- Mobile Floating Quick-Toggle Button -->
+  <div class="lg:hidden fixed bottom-6 right-4 z-40">
+    <button type="button" id="mobile-floating-view-toggle" onclick="toggleMobileActiveView()" class="px-4 py-2.5 rounded-full bg-gradient-to-r from-purple-700 via-pink-600 to-purple-800 hover:brightness-110 active:scale-95 text-white text-xs font-black shadow-2xl shadow-purple-950/50 border border-white/20 flex items-center gap-1.5 transition-all cursor-pointer">
+      <span class="material-symbols-outlined text-[18px]" id="mobile-floating-toggle-icon">visibility</span>
+      <span id="mobile-floating-toggle-text">Live Preview</span>
+    </button>
+  </div>
 </body>
 </html>

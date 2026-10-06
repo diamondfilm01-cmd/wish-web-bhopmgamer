@@ -884,7 +884,7 @@ app.get('/api/auth/session', (req, res) => {
 // API: Auth Sign In (Issues HttpOnly Cookie)
 app.post('/api/auth/signin', (req, res) => {
   try {
-    const { email, userId, displayName } = req.body || {};
+    const { email, userId, displayName, avatarUrl, provider, firebaseUid } = req.body || {};
     const cleanEmail = (email || '').trim().toLowerCase();
     const users = getUsers();
 
@@ -892,20 +892,39 @@ app.post('/api/auth/signin', (req, res) => {
 
     if (!target) {
       target = {
-        id: userId || ('usr_' + Date.now().toString(36) + '_' + Math.random().toString(36).substr(2, 4)),
+        id: userId || (firebaseUid ? 'usr_fb_' + firebaseUid.slice(0, 16) : ('usr_' + Date.now().toString(36) + '_' + Math.random().toString(36).substr(2, 4))),
         email: cleanEmail || 'creator@example.com',
-        displayName: displayName || 'Celebration Creator',
-        avatarUrl: `https://api.dicebear.com/7.x/bottts/svg?seed=${encodeURIComponent(cleanEmail || 'creator')}`,
+        displayName: displayName || (cleanEmail ? cleanEmail.split('@')[0] : 'Celebration Creator'),
+        avatarUrl: avatarUrl || `https://api.dicebear.com/7.x/bottts/svg?seed=${encodeURIComponent(cleanEmail || 'creator')}`,
         role: 'creator',
         plan: 'Free',
         isPremium: false,
-        provider: 'email',
+        provider: provider || 'firebase',
+        firebaseUid: firebaseUid || null,
         status: 'active',
         createdAt: new Date().toISOString(),
         updatedAt: new Date().toISOString()
       };
       users.push(target);
       saveUsers(users);
+    } else {
+      let updated = false;
+      if (displayName && target.displayName !== displayName && (!target.displayName || target.displayName === 'Celebration Creator')) {
+        target.displayName = displayName;
+        updated = true;
+      }
+      if (avatarUrl && target.avatarUrl !== avatarUrl) {
+        target.avatarUrl = avatarUrl;
+        updated = true;
+      }
+      if (firebaseUid && !target.firebaseUid) {
+        target.firebaseUid = firebaseUid;
+        updated = true;
+      }
+      if (updated) {
+        target.updatedAt = new Date().toISOString();
+        saveUsers(users);
+      }
     }
 
     const token = 'wm_tok_' + Date.now().toString(36) + '_' + Math.random().toString(36).substr(2, 8);
