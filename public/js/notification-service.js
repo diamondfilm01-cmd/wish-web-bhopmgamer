@@ -752,13 +752,18 @@
     },
 
     _renderNotificationCenter() {
+      // Do not auto-inject storefront notification bell on admin studio or standalone /w/ viewer
+      const path = (window.location.pathname || '').toLowerCase();
+      if (path.includes('admin') || path.startsWith('/w/')) {
+        return;
+      }
+
       // Find suitable navbar host or create floating badge
       let bellHost = document.querySelector('[data-purpose="navbar-notifications"]');
       
       if (!bellHost) {
-        // Find navbar auth container or right CTA container
-        const authContainer = document.querySelector('.navbar-auth-container') || 
-                              document.querySelector('header .flex.items-center.gap-2');
+        // Find navbar auth container on public storefront pages
+        const authContainer = document.querySelector('.navbar-auth-container');
         if (authContainer) {
           bellHost = document.createElement('div');
           bellHost.setAttribute('data-purpose', 'navbar-notifications');

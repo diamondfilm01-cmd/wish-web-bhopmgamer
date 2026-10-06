@@ -2,6 +2,8 @@
   "version": 1,
   "include": [
     "/api/*",
+    "/admin/*",
+    "/admin",
     "/w/*",
     "/template/*"
   ],

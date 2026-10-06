@@ -3542,6 +3542,15 @@ app.get([
   sendAdminPage('admin-settings.html', res);
 });
 
+app.get([
+  '/admin/staff',
+  '/admin/staff.html',
+  `${ADMIN_BASE}/staff`,
+  `${ADMIN_BASE}/staff.html`
+], (req, res) => {
+  sendAdminPage('admin-staff.html', res);
+});
+
 // Any unmatched route fallback
 app.get('*', (req, res) => {
   res.sendFile(path.join(__dirname, 'public', 'index.html'));
