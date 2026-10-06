@@ -4000,6 +4000,16 @@ window.publishWishAndGetLink = async function() {
     }
   }
 
+  // Ensure user is authenticated before publishing
+  if (!window.WishAuth || !window.WishAuth.isAuthenticated()) {
+    if (typeof window.openAuthModal === 'function') {
+      window.openAuthModal('signin', '✨ Please sign in or create an account to publish and save your celebration website!');
+    } else {
+      showToast('⚠️ Please sign in to publish your celebration website.');
+    }
+    return;
+  }
+
   isPublishingInProgress = true;
   try {
     const isVipEntitled = window.WishEntitlement ? window.WishEntitlement.isPremium() : false;
@@ -4027,15 +4037,13 @@ window.publishWishAndGetLink = async function() {
 
 async function executeWishCreation(extraPayload = {}) {
   try {
-    const currentUser = window.WishAuth && window.WishAuth.getCurrentUser();
-    if (!currentUser) {
-      if (typeof window.openAuthModal === 'function') {
-        window.openAuthModal('signin', 'Please sign in or create an account to publish your wish website.');
-      } else {
-        alert('Please sign in to publish your wish.');
+    const currentUser = (window.WishAuth && window.WishAuth.getCurrentUser()) || null;
+    const currentUserId = currentUser ? currentUser.id : (localStorage.getItem('wishmagic_guest_user_id') || ('usr_guest_' + Date.now().toString(36)));
+    try {
+      if (!localStorage.getItem('wishmagic_guest_user_id')) {
+        localStorage.setItem('wishmagic_guest_user_id', currentUserId);
       }
-      return null;
-    }
+    } catch (e) {}
 
     const chosenSlug = (extraPayload.slug || currentCustomData.customSlug || currentCustomData.slug || '').toLowerCase().trim();
     const linkType = extraPayload.linkType || currentCustomData.linkType || (chosenSlug ? 'personalized' : 'random');
@@ -4043,8 +4051,10 @@ async function executeWishCreation(extraPayload = {}) {
     const payload = {
       templateId: activeTemplate.id,
       linkType,
+      userId: currentUserId,
       customData: {
         ...currentCustomData,
+        userId: currentUserId,
         customSlug: chosenSlug,
         slug: chosenSlug,
         linkType,
@@ -4084,8 +4094,8 @@ async function executeWishCreation(extraPayload = {}) {
       }
     }
 
-    if (!data.success) {
-      if (data.error === 'SLUG_TAKEN' || (data.message && data.message.includes('already taken'))) {
+    if (!data || !data.success) {
+      if (data && (data.error === 'SLUG_TAKEN' || (data.message && data.message.includes('already taken')))) {
         showToast('⚠️ That link is already taken. Please choose another variation below!');
         const slugInput = document.getElementById('wish-slug-input');
         if (slugInput) slugInput.focus();
@@ -4094,7 +4104,7 @@ async function executeWishCreation(extraPayload = {}) {
         }
         return null;
       }
-      alert('Error generating wish: ' + (data.message || 'Unknown error'));
+      showToast('⚠️ ' + (data && data.message ? data.message : 'Could not generate wish link. Please try again.'));
       return null;
     }
 

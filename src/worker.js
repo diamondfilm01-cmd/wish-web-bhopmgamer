@@ -2000,6 +2000,23 @@ export default {
           const customData = body.customData || body;
           const templateId = sanitizeString(body.templateId || customData.templateId || 'tpl_glitter_birthday', 60);
 
+          // Ensure authenticated creator exists in users table to satisfy foreign key constraints
+          if (env.DB && typeof env.DB.prepare === 'function') {
+            try {
+              await env.DB.prepare(
+                `INSERT OR IGNORE INTO users (id, email, display_name, role, plan, is_premium, status, created_at, updated_at)
+                 VALUES (?, ?, ?, ?, ?, ?, 'active', datetime('now'), datetime('now'))`
+              ).bind(
+                user.id,
+                user.email || `${user.id}@user.wishmagic.live`,
+                user.displayName || 'Creator',
+                user.role || 'creator',
+                user.plan || 'free',
+                user.isPremium ? 1 : 0
+              ).run();
+            } catch (e) {}
+          }
+
           // Find template metadata & active immutable version snapshot
           let template = SEED_TEMPLATES.find(t => t.id === templateId || t.slug === templateId);
           if (env.DB) {
@@ -2037,7 +2054,7 @@ export default {
           const recipientName = sanitizeString(customData.recipient_name || customData.recipientName || 'Special Person', 80);
           const eventDate = sanitizeString(customData.event_date || customData.eventDate || new Date().toISOString().split('T')[0], 10);
           const wishId = 'wm_' + Date.now().toString(36) + '_' + Math.random().toString(36).substring(2, 6);
-          const userId = user.id; // Strictly server-authoritative authenticated user ID
+          const userId = user.id; // Server-authoritative creator user ID
 
           // Compute IST expiry date (start of next day in IST)
           const cleanDate = eventDate.includes('T') ? eventDate.split('T')[0] : eventDate.trim();
@@ -2152,32 +2169,40 @@ export default {
             ).run();
           } catch (e) {
             // Fallback without template_version_id column if legacy table format
-            await env.DB.prepare(
-              `INSERT INTO wishes (id, slug, user_id, order_id, template_id, template_name, tier, price, is_private, buyer_name, buyer_contact, recipient_name, event_date, expiry_date, lifecycle_status, views, custom_data, payment, status, created_at, updated_at)
-               VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`
-            ).bind(
-              newWish.id,
-              newWish.slug,
-              newWish.userId,
-              newWish.orderId,
-              newWish.templateId,
-              newWish.templateName,
-              newWish.tier,
-              newWish.price,
-              newWish.isPrivate ? 1 : 0,
-              newWish.buyerName,
-              newWish.buyerContact,
-              newWish.recipientName,
-              newWish.eventDate,
-              newWish.expiryDate,
-              'active',
-              0,
-              JSON.stringify(customData),
-              null,
-              status,
-              newWish.createdAt,
-              newWish.updatedAt
-            ).run();
+            try {
+              await env.DB.prepare(
+                `INSERT INTO wishes (id, slug, user_id, order_id, template_id, template_name, tier, price, is_private, buyer_name, buyer_contact, recipient_name, event_date, expiry_date, lifecycle_status, views, custom_data, payment, status, created_at, updated_at)
+                 VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`
+              ).bind(
+                newWish.id,
+                newWish.slug,
+                newWish.userId,
+                newWish.orderId,
+                newWish.templateId,
+                newWish.templateName,
+                newWish.tier,
+                newWish.price,
+                newWish.isPrivate ? 1 : 0,
+                newWish.buyerName,
+                newWish.buyerContact,
+                newWish.recipientName,
+                newWish.eventDate,
+                newWish.expiryDate,
+                'active',
+                0,
+                JSON.stringify(customData),
+                null,
+                status,
+                newWish.createdAt,
+                newWish.updatedAt
+              ).run();
+            } catch (innerErr) {
+              console.error('[Worker DB Wish Insert Error]', innerErr);
+              return applySecurityHeaders(
+                jsonError('DATABASE_ERROR', 'Could not save wish to database. Please verify schema.', 500, {}, null, requestId, FailureCategory.DATABASE),
+                request, env
+              );
+            }
           }
 
           response = jsonSuccess({
