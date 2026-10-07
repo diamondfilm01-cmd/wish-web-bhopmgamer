@@ -798,8 +798,8 @@
   // ---------------------------------------------------------------------------
   function renderNeutralAuthPlaceholder(container) {
     container.innerHTML = `
-      <div id="auth-ui" data-auth-state="booting" class="h-8 w-20 rounded-full bg-purple-500/10 border border-purple-500/15 flex items-center justify-center animate-pulse" aria-hidden="true">
-        <span class="inline-block w-2.5 h-2.5 rounded-full bg-purple-400/40"></span>
+      <div id="auth-ui" data-auth-state="booting" class="h-8 w-8 rounded-full bg-purple-500/10 border border-purple-500/15 flex items-center justify-center animate-pulse" aria-hidden="true">
+        <span class="inline-block w-2 h-2 rounded-full bg-purple-400/40"></span>
       </div>
     `;
   }
@@ -807,9 +807,9 @@
   function renderLoginButton(container) {
     container.innerHTML = `
       <div class="flex items-center gap-1.5 sm:gap-2">
-        <button onclick="window.openAuthModal()" class="px-3.5 sm:px-4 py-1.5 rounded-full text-xs sm:text-sm font-bold text-white bg-gradient-to-r from-[#EC4899] to-[#7C3AED] hover:brightness-110 shadow-sm hover:shadow-md hover:scale-105 active:scale-95 transition-all flex items-center gap-1.5 cursor-pointer whitespace-nowrap">
+        <button onclick="window.openAuthModal()" class="px-2.5 sm:px-3.5 py-1.5 rounded-full text-xs font-bold text-white bg-gradient-to-r from-[#EC4899] to-[#7C3AED] hover:brightness-110 shadow-sm hover:scale-105 active:scale-95 transition-all flex items-center gap-1 cursor-pointer whitespace-nowrap">
           <span class="material-symbols-outlined text-[16px]">account_circle</span>
-          <span>Sign In</span>
+          <span class="hidden xs:inline">Sign In</span>
         </button>
       </div>
     `;
@@ -833,35 +833,44 @@
       const user = currentUser;
       const isDark = typeof document !== 'undefined' && (document.documentElement.classList.contains('dark') || document.documentElement.getAttribute('data-theme') === 'dark');
       const initials = (user.displayName || user.email || 'U').split(' ').map(n => n[0]).join('').slice(0, 2).toUpperCase();
-      const avatarImg = user.avatarUrl
-        ? `<img src="${user.avatarUrl}" alt="${user.displayName}" class="w-7 h-7 rounded-full object-cover border border-pink-400 shadow-sm"/>`
-        : `<div class="w-7 h-7 rounded-full bg-gradient-to-tr from-pink-500 to-purple-600 text-white flex items-center justify-center font-bold text-[11px]">${initials}</div>`;
+      const avatarContent = user.avatarUrl
+        ? `<img src="${user.avatarUrl}" alt="${user.displayName || 'User'}" class="w-full h-full object-cover rounded-full"/>`
+        : `<div class="w-full h-full bg-gradient-to-tr from-pink-500 to-purple-600 text-white flex items-center justify-center font-bold text-xs uppercase">${initials}</div>`;
 
       const isUserMaster = user.role === 'admin' || user.isAdmin === true || (window.WishFirebaseAuth?.isAdminEmail && window.WishFirebaseAuth.isAdminEmail(user.email)) || (user.email && user.email.toLowerCase() === 'ankit.babusaini@gmail.com');
 
       navContainers.forEach(container => {
         container.innerHTML = `
-          <div class="relative inline-block" id="account-dropdown-wrapper">
-            <button onclick="window.toggleAccountMenu(event)" class="flex items-center gap-1.5 sm:gap-2 px-2 sm:px-2.5 py-1 rounded-full bg-surface-container-high/90 hover:bg-surface-container-highest border border-purple-200/80 dark:border-purple-800/80 transition cursor-pointer active:scale-95 shadow-sm">
-              ${avatarImg}
-              <span class="text-xs font-bold text-on-surface truncate max-w-[70px] xs:max-w-[100px] sm:max-w-[130px]">${user.displayName || user.email}</span>
-              <span class="material-symbols-outlined text-[14px] text-outline">expand_more</span>
+          <div class="relative inline-block flex-shrink-0" id="account-dropdown-wrapper">
+            <!-- Profile Avatar Only Button (Compact & Sleek) -->
+            <button onclick="window.toggleAccountMenu(event)" class="w-8 h-8 sm:w-8.5 sm:h-8.5 rounded-full ring-2 ring-purple-300/80 dark:ring-purple-600/80 hover:ring-pink-500 hover:scale-105 transition-all cursor-pointer active:scale-95 shadow-sm overflow-hidden flex items-center justify-center p-0 focus:outline-none" title="${user.displayName || user.email || 'Profile & Settings'}" aria-label="User Profile Menu">
+              ${avatarContent}
             </button>
 
             <!-- 100% Solid Non-Transparent Dropdown Menu (Zero Blur / Zero Transparency) -->
-            <div id="account-dropdown-menu" class="hidden absolute right-0 top-full mt-2 w-64 max-w-[calc(100vw-24px)] rounded-2xl shadow-[0_25px_60px_rgba(0,0,0,0.55),0_0_25px_rgba(124,58,237,0.3)] p-2.5 z-[9999999] text-left border-2" style="background-color: ${isDark ? '#150927' : '#ffffff'} !important; background: ${isDark ? '#150927' : '#ffffff'} !important; border-color: ${isDark ? '#7e22ce' : '#ddd6fe'} !important; color: ${isDark ? '#f3e8ff' : '#0f172a'} !important; opacity: 1 !important; backdrop-filter: none !important; -webkit-backdrop-filter: none !important;">
+            <div id="account-dropdown-menu" class="hidden absolute right-0 top-full mt-2 w-64 max-w-[calc(100vw-20px)] rounded-2xl shadow-[0_25px_60px_rgba(0,0,0,0.55),0_0_25px_rgba(124,58,237,0.3)] p-2.5 z-[9999999] text-left border-2" style="background-color: ${isDark ? '#150927' : '#ffffff'} !important; background: ${isDark ? '#150927' : '#ffffff'} !important; border-color: ${isDark ? '#7e22ce' : '#ddd6fe'} !important; color: ${isDark ? '#f3e8ff' : '#0f172a'} !important; opacity: 1 !important; backdrop-filter: none !important; -webkit-backdrop-filter: none !important;">
               
-              <!-- User Profile Header Card -->
-              <div class="px-3 py-2.5 rounded-xl mb-1.5 border" style="background-color: ${isDark ? '#231042' : '#f5f3ff'} !important; background: ${isDark ? '#231042' : '#f5f3ff'} !important; border-color: ${isDark ? '#6b21a8' : '#e9d5ff'} !important;">
-                <div class="font-extrabold text-xs truncate" style="color: ${isDark ? '#ffffff' : '#1e1b4b'};">${user.displayName}</div>
-                <div class="text-[11px] font-medium truncate mt-0.5" style="color: ${isDark ? '#d8b4fe' : '#6d28d9'};">${user.email}</div>
-                <div class="flex items-center gap-1.5 mt-2">
-                  <span class="px-2 py-0.5 rounded-full text-[9px] font-black uppercase tracking-wider" style="background-color: ${user.isPremium || user.plan === 'VIP' ? 'rgba(245, 158, 11, 0.2)' : 'rgba(168, 85, 247, 0.2)'}; color: ${user.isPremium || user.plan === 'VIP' ? '#f59e0b' : '#c084fc'}; border: 1px solid ${user.isPremium || user.plan === 'VIP' ? 'rgba(245, 158, 11, 0.5)' : 'rgba(168, 85, 247, 0.4)'};">
-                    ${user.plan || 'Free'} Plan
-                  </span>
-                  ${user.role === 'admin' || user.isAdmin ? '<span class="px-2 py-0.5 rounded-full text-[9px] font-black uppercase bg-gradient-to-r from-pink-500 to-purple-600 text-white shadow-xs">ADMIN</span>' : ''}
+              <!-- User Profile Header Card (Clickable to open profile settings) -->
+              <a href="/account" class="block px-3 py-2.5 rounded-xl mb-1.5 border transition cursor-pointer hover:brightness-105 active:scale-98" style="background-color: ${isDark ? '#231042' : '#f5f3ff'} !important; background: ${isDark ? '#231042' : '#f5f3ff'} !important; border-color: ${isDark ? '#6b21a8' : '#e9d5ff'} !important;">
+                <div class="flex items-center gap-2.5">
+                  <div class="w-9 h-9 rounded-full overflow-hidden flex-shrink-0 border border-pink-400">
+                    ${avatarContent}
+                  </div>
+                  <div class="min-w-0 flex-1">
+                    <div class="font-extrabold text-xs truncate" style="color: ${isDark ? '#ffffff' : '#1e1b4b'};">${user.displayName || user.name || 'Creator Profile'}</div>
+                    <div class="text-[11px] font-medium truncate mt-0.5" style="color: ${isDark ? '#d8b4fe' : '#6d28d9'};">${user.email}</div>
+                  </div>
                 </div>
-              </div>
+                <div class="flex items-center justify-between mt-2 pt-1.5 border-t" style="border-color: ${isDark ? '#4c1d95' : '#e9d5ff'};">
+                  <div class="flex items-center gap-1.5">
+                    <span class="px-2 py-0.5 rounded-full text-[9px] font-black uppercase tracking-wider" style="background-color: ${user.isPremium || user.plan === 'VIP' ? 'rgba(245, 158, 11, 0.2)' : 'rgba(168, 85, 247, 0.2)'}; color: ${user.isPremium || user.plan === 'VIP' ? '#f59e0b' : '#c084fc'}; border: 1px solid ${user.isPremium || user.plan === 'VIP' ? 'rgba(245, 158, 11, 0.5)' : 'rgba(168, 85, 247, 0.4)'};">
+                      ${user.plan || 'Free'} Plan
+                    </span>
+                    ${user.role === 'admin' || user.isAdmin ? '<span class="px-2 py-0.5 rounded-full text-[9px] font-black uppercase bg-gradient-to-r from-pink-500 to-purple-600 text-white shadow-xs">ADMIN</span>' : ''}
+                  </div>
+                  <span class="text-[10px] font-bold text-pink-500 flex items-center gap-0.5">Edit Profile →</span>
+                </div>
+              </a>
 
               <!-- Menu Items -->
               <div class="py-1 space-y-1">
@@ -869,13 +878,13 @@
                   <span class="material-symbols-outlined text-[18px] text-pink-500">card_giftcard</span>
                   <span>My Celebration Wishes</span>
                 </a>
+                <a href="/account" class="px-3 py-2.5 rounded-xl text-xs font-bold flex items-center gap-2.5 transition hover:bg-purple-100/70 dark:hover:bg-purple-900/50" style="color: ${isDark ? '#f3e8ff' : '#1e293b'};">
+                  <span class="material-symbols-outlined text-[18px] text-purple-500">manage_accounts</span>
+                  <span>Profile &amp; Account Settings</span>
+                </a>
                 <a href="/favorites" class="px-3 py-2.5 rounded-xl text-xs font-bold flex items-center gap-2.5 transition hover:bg-purple-100/70 dark:hover:bg-purple-900/50" style="color: ${isDark ? '#f3e8ff' : '#1e293b'};">
                   <span class="material-symbols-outlined text-[18px] text-purple-500">favorite</span>
                   <span>Favorites</span>
-                </a>
-                <a href="/account" class="px-3 py-2.5 rounded-xl text-xs font-bold flex items-center gap-2.5 transition hover:bg-purple-100/70 dark:hover:bg-purple-900/50" style="color: ${isDark ? '#f3e8ff' : '#1e293b'};">
-                  <span class="material-symbols-outlined text-[18px] text-purple-500">settings</span>
-                  <span>Account Settings</span>
                 </a>
                 ${isUserMaster ? `
                   <a href="/admin/anktech/anktech/admin/overview" onclick="window.handleAdminPortalClick(event)" class="px-3 py-2.5 rounded-xl text-xs font-bold flex items-center justify-between transition border cursor-pointer hover:brightness-110" style="background-color: ${isDark ? 'rgba(80, 7, 36, 0.7)' : '#fdf2f8'} !important; border-color: ${isDark ? '#db2777' : '#f472b6'} !important; color: ${isDark ? '#f472b6' : '#db2777'};">
@@ -1005,6 +1014,15 @@
   window.openAuthModal = showUniversalAuthModal;
   window._openWishAuthModal = showUniversalAuthModal;
   WishAuth.openAuthModal = showUniversalAuthModal;
+
+  window.openProfileSettings = function() {
+    window.location.href = '/account';
+  };
+  window.openAccountSettings = function() {
+    window.location.href = '/account';
+  };
+  WishAuth.openProfileSettings = window.openProfileSettings;
+  WishAuth.openAccountSettings = window.openAccountSettings;
 
   function renderAuthModalContent(promptMessage = null) {
     const modal = document.getElementById('wishmagic-universal-auth-modal');

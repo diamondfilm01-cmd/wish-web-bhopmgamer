@@ -184,9 +184,9 @@
           <span class="material-symbols-outlined text-[18px] site-theme-icon">dark_mode</span>
         </button>
 
-        <div data-purpose="navbar-auth" class="navbar-auth-container">
-          <div id="auth-ui" data-auth-state="booting" class="h-8 w-20 rounded-full bg-purple-500/10 border border-purple-500/15 flex items-center justify-center animate-pulse" aria-hidden="true">
-            <span class="inline-block w-2.5 h-2.5 rounded-full bg-purple-400/40"></span>
+        <div data-purpose="navbar-auth" class="navbar-auth-container flex-shrink-0">
+          <div id="auth-ui" data-auth-state="booting" class="h-8 w-8 rounded-full bg-purple-500/10 border border-purple-500/15 flex items-center justify-center animate-pulse" aria-hidden="true">
+            <span class="inline-block w-2 h-2 rounded-full bg-purple-400/40"></span>
           </div>
         </div>
 
@@ -241,11 +241,17 @@
           </p>
         </div>
 
-        <a href="/marketplace.html" class="px-5 py-3 rounded-2xl bg-gradient-to-r from-pink-500 to-purple-600 hover:brightness-110 text-white font-extrabold text-xs sm:text-sm shadow-xl shadow-pink-500/25 flex items-center gap-2 transition active:scale-95 flex-shrink-0 cursor-pointer">
-          <span class="material-symbols-outlined text-[18px]">add_circle</span>
-          <span>+ Create New Wish</span>
-          <span class="text-amber-300">✨</span>
-        </a>
+        <div class="flex items-center gap-2 flex-wrap sm:flex-nowrap flex-shrink-0">
+          <a href="/account" class="px-4 py-2.5 rounded-2xl glass-pill hover:border-pink-500 font-bold text-xs sm:text-sm text-purple-950 dark:text-purple-100 flex items-center gap-1.5 transition cursor-pointer">
+            <span class="material-symbols-outlined text-[18px] text-purple-500">manage_accounts</span>
+            <span>Profile Settings</span>
+          </a>
+          <a href="/marketplace.html" class="px-5 py-2.5 rounded-2xl bg-gradient-to-r from-pink-500 to-purple-600 hover:brightness-110 text-white font-extrabold text-xs sm:text-sm shadow-xl shadow-pink-500/25 flex items-center gap-2 transition active:scale-95 cursor-pointer">
+            <span class="material-symbols-outlined text-[18px]">add_circle</span>
+            <span>+ Create New Wish</span>
+            <span class="text-amber-300">✨</span>
+          </a>
+        </div>
       </div>
 
       <!-- Quick Metrics Ribbon -->

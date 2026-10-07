@@ -4271,8 +4271,8 @@ app.get(['/my-wishes', '/my-wishes.html', '/dashboard', '/my-wishes/'], (req, re
   res.sendFile(path.join(__dirname, 'public', 'my-wishes.html'));
 });
 
-// Creator Account Route: /account and /account.html
-app.get(['/account', '/account.html', '/profile', '/profile.html'], (req, res) => {
+// Creator Account Route: /account, /profile, /settings
+app.get(['/account', '/account.html', '/profile', '/profile.html', '/settings', '/settings.html', '/profile-settings', '/account-settings'], (req, res) => {
   res.sendFile(path.join(__dirname, 'public', 'account.html'));
 });
 
