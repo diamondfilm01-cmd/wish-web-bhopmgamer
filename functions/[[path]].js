@@ -94,21 +94,40 @@ export async function onRequest(context) {
   }
 
   // Pretty admin and storefront route mapping
-  if (ADMIN_ROUTES_MAP[pathname]) {
-    const pageReq = new Request(new URL(ADMIN_ROUTES_MAP[pathname], context.request.url), context.request);
+  const cleanPath = pathname.replace(/\/+$/, '') || '/';
+  const targetAdminFile = ADMIN_ROUTES_MAP[cleanPath] || ADMIN_ROUTES_MAP[pathname];
+  if (targetAdminFile) {
+    if (context.env.ASSETS && typeof context.env.ASSETS.fetch === 'function') {
+      const pageReq = new Request(new URL(targetAdminFile, context.request.url), context.request);
+      return await context.env.ASSETS.fetch(pageReq);
+    }
+    const pageReq = new Request(new URL(targetAdminFile, context.request.url), context.request);
     return await context.next(pageReq);
   }
 
-  if (PUBLIC_PAGES_MAP[pathname]) {
-    const pageReq = new Request(new URL(PUBLIC_PAGES_MAP[pathname], context.request.url), context.request);
+  const targetPublicFile = PUBLIC_PAGES_MAP[cleanPath] || PUBLIC_PAGES_MAP[pathname];
+  if (targetPublicFile) {
+    if (context.env.ASSETS && typeof context.env.ASSETS.fetch === 'function') {
+      const pageReq = new Request(new URL(targetPublicFile, context.request.url), context.request);
+      return await context.env.ASSETS.fetch(pageReq);
+    }
+    const pageReq = new Request(new URL(targetPublicFile, context.request.url), context.request);
     return await context.next(pageReq);
   }
 
   if (pathname.startsWith('/w/')) {
+    if (context.env.ASSETS && typeof context.env.ASSETS.fetch === 'function') {
+      const wishReq = new Request(new URL('/wish.html', context.request.url), context.request);
+      return await context.env.ASSETS.fetch(wishReq);
+    }
     const wishReq = new Request(new URL('/wish.html', context.request.url), context.request);
     return await context.next(wishReq);
   }
   if (pathname.startsWith('/template/')) {
+    if (context.env.ASSETS && typeof context.env.ASSETS.fetch === 'function') {
+      const tplReq = new Request(new URL('/template-preview.html', context.request.url), context.request);
+      return await context.env.ASSETS.fetch(tplReq);
+    }
     const tplReq = new Request(new URL('/template-preview.html', context.request.url), context.request);
     return await context.next(tplReq);
   }

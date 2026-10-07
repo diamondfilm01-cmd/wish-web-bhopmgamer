@@ -16,6 +16,14 @@
 /template/* /template-preview.html 200
 /w/* /wish.html 200
 /my-wishes /my-wishes.html 200
+/my-wishes/ /my-wishes.html 200
 /account /account.html 200
+/account/ /account.html 200
+/profile /account.html 200
+/profile/ /account.html 200
+/settings /account.html 200
+/settings/ /account.html 200
 /favorites /favorites.html 200
+/favorites/ /favorites.html 200
 /marketplace /marketplace.html 200
+/marketplace/ /marketplace.html 200

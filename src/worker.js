@@ -111,16 +111,31 @@ const SEED_TEMPLATES = [
 const PRETTY_ROUTES = {
   '/': '/index.html',
   '/templates': '/marketplace.html',
+  '/templates/': '/marketplace.html',
   '/marketplace': '/marketplace.html',
+  '/marketplace/': '/marketplace.html',
   '/create': '/create.html',
+  '/create/': '/create.html',
   '/customize': '/customize.html',
+  '/customize/': '/customize.html',
   '/my-wishes': '/my-wishes.html',
+  '/my-wishes/': '/my-wishes.html',
   '/favorites': '/favorites.html',
+  '/favorites/': '/favorites.html',
   '/premium': '/pricing.html',
+  '/premium/': '/pricing.html',
   '/pricing': '/pricing.html',
+  '/pricing/': '/pricing.html',
   '/account': '/account.html',
+  '/account/': '/account.html',
+  '/profile': '/account.html',
+  '/profile/': '/account.html',
+  '/settings': '/account.html',
+  '/settings/': '/account.html',
   '/checkout': '/checkout.html',
+  '/checkout/': '/checkout.html',
   '/expired': '/expired.html',
+  '/expired/': '/expired.html',
   '/admin/anktech/anktech/admin': '/admin-overview.html',
   '/admin/anktech/anktech/admin/': '/admin-overview.html',
   '/admin/anktech/anktech/admin/overview': '/admin-overview.html',
@@ -5276,8 +5291,9 @@ export default {
         return applySecurityHeaders(jsonError('NOT_FOUND', 'Route not found', 404, {}, null, requestId), request, env);
       }
 
-      if (PRETTY_ROUTES[pathname] && env.ASSETS && typeof env.ASSETS.fetch === 'function') {
-        const targetHtml = PRETTY_ROUTES[pathname];
+      const normalizedPath = pathname.replace(/\/+$/, '') || '/';
+      const targetHtml = PRETTY_ROUTES[pathname] || PRETTY_ROUTES[normalizedPath];
+      if (targetHtml && env.ASSETS && typeof env.ASSETS.fetch === 'function') {
         const pageReq = new Request(new URL(targetHtml, request.url), request);
         const htmlRes = await env.ASSETS.fetch(pageReq);
         return applySecurityHeaders(htmlRes, request, env);
