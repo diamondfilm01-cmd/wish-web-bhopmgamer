@@ -16,7 +16,7 @@ database_name = "wishmagic-db"
 database_id = "c08b683b-eb07-4639-ab33-fb1139bfb295"
 migrations_dir = "migrations"
 
-# Cloudflare R2 Media Storage Bucket Binding
-[[r2_buckets]]
-binding = "BUCKET"
-bucket_name = "wishmagic-media"
+# Optional Cloudflare R2 Media Storage Bucket (Uncomment once 'wishmagic-media' is created in Cloudflare Dashboard)
+# [[r2_buckets]]
+# binding = "BUCKET"
+# bucket_name = "wishmagic-media"
