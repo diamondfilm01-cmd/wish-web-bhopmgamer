@@ -3,11 +3,6 @@ main = "src/worker.js"
 compatibility_date = "2024-09-23"
 pages_build_output_dir = "public"
 
-# Cloudflare Pages / Workers Static Assets
-[assets]
-directory = "./public"
-binding = "ASSETS"
-
 # Environment Variables
 [vars]
 PUBLIC_APP_URL = "https://wishmagic.pages.dev"
@@ -26,11 +21,3 @@ migrations_dir = "migrations"
 [[r2_buckets]]
 binding = "BUCKET"
 bucket_name = "wishmagic-media"
-
-# Production Environment
-[env.production]
-vars = { ENVIRONMENT = "production" }
-
-# Preview / Staging Environment
-[env.preview]
-vars = { ENVIRONMENT = "preview" }
