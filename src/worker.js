@@ -461,10 +461,30 @@ async function verifyAndEnsureAuthSchema(db) {
   if (authSchemaVerified) return { ok: true };
 
   try {
-    const existing = await db.prepare("SELECT name FROM sqlite_master WHERE type='table' AND name IN ('users', 'sessions')").all();
+    const existing = await db.prepare("SELECT name FROM sqlite_master WHERE type='table'").all();
     const tableNames = new Set((existing?.results || []).map(r => r.name));
 
-    // 1. Users Table Reconciliation
+    // Helper to safely reconcile missing columns in an existing table
+    async function reconcileTableColumns(tableName, columnDefs) {
+      if (!tableNames.has(tableName)) return;
+      try {
+        const info = await db.prepare(`PRAGMA table_info(${tableName})`).all();
+        const existingCols = new Set((info?.results || []).map(c => c.name));
+        for (const col of columnDefs) {
+          if (!existingCols.has(col.name)) {
+            try {
+              await db.prepare(`ALTER TABLE ${tableName} ADD COLUMN ${col.name} ${col.def}`).run();
+            } catch (alterErr) {
+              console.warn(`[Schema Alter Notice] ${tableName}.${col.name}:`, alterErr);
+            }
+          }
+        }
+      } catch (pragmaErr) {
+        console.warn(`[Schema Pragma Notice] ${tableName}:`, pragmaErr);
+      }
+    }
+
+    // 1. Users Table
     if (!tableNames.has('users')) {
       await db.prepare(`
         CREATE TABLE IF NOT EXISTS users (
@@ -477,44 +497,40 @@ async function verifyAndEnsureAuthSchema(db) {
           is_premium INTEGER NOT NULL DEFAULT 0,
           provider TEXT NOT NULL DEFAULT 'email',
           status TEXT NOT NULL DEFAULT 'active',
+          mobile TEXT,
+          phone TEXT,
+          firebase_uid TEXT,
+          password_hash TEXT,
+          password_salt TEXT,
           created_at TEXT NOT NULL,
           updated_at TEXT NOT NULL
         )
       `).run();
     } else {
-      // Reconcile columns in existing users table
-      const userColumnsInfo = await db.prepare("PRAGMA table_info(users)").all();
-      const existingUserCols = new Set((userColumnsInfo?.results || []).map(c => c.name));
-
-      const requiredUserColumns = [
+      await reconcileTableColumns('users', [
         { name: 'email', def: 'TEXT' },
         { name: 'display_name', def: 'TEXT' },
+        { name: 'name', def: 'TEXT' },
         { name: 'avatar_url', def: 'TEXT' },
+        { name: 'photo_url', def: 'TEXT' },
         { name: 'role', def: "TEXT DEFAULT 'creator'" },
         { name: 'plan', def: "TEXT DEFAULT 'Free'" },
         { name: 'is_premium', def: 'INTEGER DEFAULT 0' },
         { name: 'provider', def: "TEXT DEFAULT 'email'" },
         { name: 'status', def: "TEXT DEFAULT 'active'" },
+        { name: 'mobile', def: 'TEXT' },
+        { name: 'phone', def: 'TEXT' },
+        { name: 'firebase_uid', def: 'TEXT' },
+        { name: 'password_hash', def: 'TEXT' },
+        { name: 'password_salt', def: 'TEXT' },
         { name: 'created_at', def: 'TEXT' },
         { name: 'updated_at', def: 'TEXT' }
-      ];
-
-      for (const col of requiredUserColumns) {
-        if (!existingUserCols.has(col.name)) {
-          try {
-            await db.prepare(`ALTER TABLE users ADD COLUMN ${col.name} ${col.def}`).run();
-            console.log(`[Schema Migration] Added missing column '${col.name}' to users table`);
-          } catch (alterErr) {
-            console.warn(`[Schema Migration Warning] Could not add column '${col.name}':`, alterErr);
-          }
-        }
-      }
+      ]);
     }
-
     await db.prepare(`CREATE INDEX IF NOT EXISTS idx_users_email ON users(email)`).run().catch(() => {});
     await db.prepare(`CREATE INDEX IF NOT EXISTS idx_users_role ON users(role)`).run().catch(() => {});
 
-    // 2. Sessions Table Reconciliation
+    // 2. Sessions Table
     if (!tableNames.has('sessions')) {
       await db.prepare(`
         CREATE TABLE IF NOT EXISTS sessions (
@@ -527,32 +543,87 @@ async function verifyAndEnsureAuthSchema(db) {
         )
       `).run();
     } else {
-      const sessionColsInfo = await db.prepare("PRAGMA table_info(sessions)").all();
-      const existingSessionCols = new Set((sessionColsInfo?.results || []).map(c => c.name));
-
-      const requiredSessionColumns = [
+      await reconcileTableColumns('sessions', [
         { name: 'id', def: 'TEXT' },
         { name: 'user_id', def: 'TEXT' },
         { name: 'token', def: 'TEXT' },
         { name: 'expires_at', def: 'INTEGER' },
         { name: 'created_at', def: 'TEXT' }
-      ];
-
-      for (const col of requiredSessionColumns) {
-        if (!existingSessionCols.has(col.name)) {
-          try {
-            await db.prepare(`ALTER TABLE sessions ADD COLUMN ${col.name} ${col.def}`).run();
-            console.log(`[Schema Migration] Added missing column '${col.name}' to sessions table`);
-          } catch (alterErr) {
-            console.warn(`[Schema Migration Warning] Could not add column '${col.name}':`, alterErr);
-          }
-        }
-      }
+      ]);
     }
-
     await db.prepare(`CREATE INDEX IF NOT EXISTS idx_sessions_token ON sessions(token)`).run().catch(() => {});
     await db.prepare(`CREATE INDEX IF NOT EXISTS idx_sessions_user_id ON sessions(user_id)`).run().catch(() => {});
     await db.prepare(`CREATE INDEX IF NOT EXISTS idx_sessions_expires_at ON sessions(expires_at)`).run().catch(() => {});
+
+    // 3. Site Settings Table
+    if (!tableNames.has('site_settings')) {
+      await db.prepare(`
+        CREATE TABLE IF NOT EXISTS site_settings (
+          key TEXT PRIMARY KEY,
+          value TEXT NOT NULL,
+          type TEXT DEFAULT 'string',
+          description TEXT,
+          updated_by TEXT,
+          updated_at TEXT NOT NULL
+        )
+      `).run().catch(() => {});
+    } else {
+      await reconcileTableColumns('site_settings', [
+        { name: 'type', def: "TEXT DEFAULT 'string'" },
+        { name: 'description', def: 'TEXT' },
+        { name: 'updated_by', def: 'TEXT' },
+        { name: 'updated_at', def: 'TEXT' }
+      ]);
+    }
+
+    // 4. System Announcements Table
+    if (!tableNames.has('system_announcements')) {
+      await db.prepare(`
+        CREATE TABLE IF NOT EXISTS system_announcements (
+          id TEXT PRIMARY KEY,
+          title TEXT NOT NULL,
+          message TEXT NOT NULL,
+          severity TEXT DEFAULT 'info',
+          is_active INTEGER NOT NULL DEFAULT 1,
+          expires_at TEXT,
+          created_at TEXT NOT NULL
+        )
+      `).run().catch(() => {});
+    }
+
+    // 5. Wishes Table
+    if (tableNames.has('wishes')) {
+      await reconcileTableColumns('wishes', [
+        { name: 'template_version_id', def: 'TEXT' },
+        { name: 'lifecycle_status', def: "TEXT DEFAULT 'active'" },
+        { name: 'tier', def: "TEXT DEFAULT 'free'" },
+        { name: 'price', def: 'INTEGER DEFAULT 0' },
+        { name: 'is_private', def: 'INTEGER DEFAULT 0' },
+        { name: 'views', def: 'INTEGER DEFAULT 0' },
+        { name: 'buyer_contact', def: 'TEXT' },
+        { name: 'payment', def: 'TEXT' },
+        { name: 'order_id', def: 'TEXT' }
+      ]);
+    }
+
+    // 6. Templates Table
+    if (tableNames.has('templates')) {
+      await reconcileTableColumns('templates', [
+        { name: 'tier', def: "TEXT DEFAULT 'free'" },
+        { name: 'price', def: 'INTEGER DEFAULT 0' },
+        { name: 'is_premium', def: 'INTEGER DEFAULT 0' },
+        { name: 'is_published', def: 'INTEGER DEFAULT 1' },
+        { name: 'status', def: "TEXT DEFAULT 'published'" },
+        { name: 'featured', def: 'INTEGER DEFAULT 0' },
+        { name: 'placement', def: 'INTEGER DEFAULT 99' },
+        { name: 'preview_images', def: 'TEXT' },
+        { name: 'capabilities', def: 'TEXT' },
+        { name: 'detected_fields', def: 'TEXT' },
+        { name: 'sections', def: 'TEXT' },
+        { name: 'features', def: 'TEXT' },
+        { name: 'theme', def: 'TEXT' }
+      ]);
+    }
 
     authSchemaVerified = true;
     return { ok: true };
