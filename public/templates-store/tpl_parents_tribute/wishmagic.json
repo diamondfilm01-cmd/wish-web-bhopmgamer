@@ -1,0 +1,20 @@
+{
+  "protocol": "1.0",
+  "type": "wish-template",
+  "template": {
+    "id": "tpl_parents_tribute",
+    "title": "Dearest Parents Tribute",
+    "category": "family",
+    "description": "Gentle botanical heartfelt tribute card for parents with family photo keepsake and blessing letter."
+  },
+  "capabilities": {
+    "photos": true,
+    "video": false,
+    "music": true,
+    "voice": true,
+    "countdown": false,
+    "themes": true,
+    "animations": true,
+    "particles": true
+  }
+}

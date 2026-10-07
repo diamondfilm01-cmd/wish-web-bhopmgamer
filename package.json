@@ -6,8 +6,8 @@
   "scripts": {
     "dev": "node server.js",
     "start": "node server.js",
-    "lint": "node --check server.js functions/[[path]].js src/worker.js test-integration.js scripts/*.js",
-    "test": "node test-integration.js",
+    "lint": "node --check server.js functions/[[path]].js src/worker.js test-integration.js tests/template-analyzer-tests.js tests/customizer-generator-tests.js tests/section-system-tests.js tests/visual-system-tests.js tests/media-system-tests.js scripts/*.js",
+    "test": "node test-integration.js && node tests/template-analyzer-tests.js && node tests/customizer-generator-tests.js && node tests/section-system-tests.js && node tests/visual-system-tests.js && node tests/media-system-tests.js",
     "build": "node scripts/build.js"
   },
   "dependencies": {

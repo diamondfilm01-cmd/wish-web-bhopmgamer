@@ -3108,7 +3108,19 @@ window.toggleSection = function(sectionId, enabled) {
     }
   }
 
+  if (sec.required && !enabled) return;
+
   sec.enabled = enabled;
+
+  if (!currentCustomData.sectionsMap) currentCustomData.sectionsMap = {};
+  currentCustomData.sectionsMap[sectionId] = {
+    enabled: Boolean(enabled),
+    layout: sec.layout || null
+  };
+
+  if (window.WishMagicRuntimeBridge && typeof window.WishMagicRuntimeBridge.updateSection === 'function') {
+    window.WishMagicRuntimeBridge.updateSection(sectionId, enabled);
+  }
 
   renderSectionsUI();
   triggerAutosave();
@@ -3127,6 +3139,11 @@ window.moveSectionUp = function(sectionId) {
 
   // re-assign orders
   sections.forEach((s, i) => s.order = i + 1);
+  currentCustomData.sectionOrder = sections.map(s => s.id);
+
+  if (window.WishMagicRuntimeBridge && typeof window.WishMagicRuntimeBridge.updateSectionOrder === 'function') {
+    window.WishMagicRuntimeBridge.updateSectionOrder(currentCustomData.sectionOrder);
+  }
 
   renderSectionsUI();
   triggerAutosave();
@@ -3144,6 +3161,11 @@ window.moveSectionDown = function(sectionId) {
 
   // re-assign orders
   sections.forEach((s, i) => s.order = i + 1);
+  currentCustomData.sectionOrder = sections.map(s => s.id);
+
+  if (window.WishMagicRuntimeBridge && typeof window.WishMagicRuntimeBridge.updateSectionOrder === 'function') {
+    window.WishMagicRuntimeBridge.updateSectionOrder(currentCustomData.sectionOrder);
+  }
 
   renderSectionsUI();
   triggerAutosave();
@@ -3163,6 +3185,10 @@ window.setSectionGalleryLayout = function(layout) {
 
   const sec = (currentCustomData.sections || []).find(s => s.id === 'gallery' || s.type === 'photo_gallery');
   if (sec) sec.layout = layout;
+
+  if (window.WishMagicRuntimeBridge && typeof window.WishMagicRuntimeBridge.updateSectionLayout === 'function') {
+    window.WishMagicRuntimeBridge.updateSectionLayout('gallery', layout);
+  }
 
   renderSectionsUI();
   triggerAutosave();
