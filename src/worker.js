@@ -2170,21 +2170,63 @@ export default {
             const targetPremium = isMasterAdmin ? 1 : 0;
 
             try {
-              await db.prepare(
-                'INSERT INTO users (id, email, display_name, avatar_url, role, plan, is_premium, provider, status, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)'
-              ).bind(
-                newUserId,
-                email,
-                displayName,
-                avatarUrl,
-                targetRole,
-                targetPlan,
-                targetPremium,
-                provider,
-                'active',
-                nowIso,
-                nowIso
-              ).run();
+              // Read existing table schema to build a compatible INSERT statement
+              const colsInfo = await db.prepare("PRAGMA table_info(users)").all();
+              const existingCols = (colsInfo?.results || []);
+
+              const userValues = {
+                id: newUserId,
+                email: email,
+                display_name: displayName,
+                name: displayName,
+                avatar_url: avatarUrl,
+                avatar: avatarUrl,
+                photo_url: avatarUrl,
+                role: targetRole,
+                plan: targetPlan,
+                is_premium: targetPremium,
+                provider: provider,
+                status: 'active',
+                created_at: nowIso,
+                updated_at: nowIso,
+                mobile: '',
+                phone: '',
+                firebase_uid: firebaseUid || newUserId,
+                password_hash: '',
+                password_salt: '',
+                created_by: 'system'
+              };
+
+              const insertCols = [];
+              const insertPlaceholders = [];
+              const insertBindings = [];
+
+              for (const col of existingCols) {
+                const colName = col.name;
+                const colNameLower = colName.toLowerCase();
+
+                if (userValues[colNameLower] !== undefined) {
+                  insertCols.push(colName);
+                  insertPlaceholders.push('?');
+                  insertBindings.push(userValues[colNameLower]);
+                } else if (col.notnull && col.dflt_value === null && !col.pk) {
+                  insertCols.push(colName);
+                  insertPlaceholders.push('?');
+                  const val = (col.type && col.type.toUpperCase().includes('INT')) ? 0 : '';
+                  insertBindings.push(val);
+                }
+              }
+
+              if (insertCols.length > 0) {
+                const insertSql = `INSERT INTO users (${insertCols.join(', ')}) VALUES (${insertPlaceholders.join(', ')})`;
+                await db.prepare(insertSql).bind(...insertBindings).run();
+              } else {
+                await db.prepare(
+                  'INSERT INTO users (id, email, display_name, avatar_url, role, plan, is_premium, provider, status, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)'
+                ).bind(
+                  newUserId, email, displayName, avatarUrl, targetRole, targetPlan, targetPremium, provider, 'active', nowIso, nowIso
+                ).run();
+              }
 
               userRecord = {
                 id: newUserId,
@@ -2198,13 +2240,15 @@ export default {
               };
             } catch (insertErr) {
               console.warn('[Auth D1 User Insert fallback]', insertErr);
-              userRecord = await db.prepare('SELECT * FROM users WHERE email = ? LIMIT 1').bind(email).first();
+              userRecord = await db.prepare('SELECT * FROM users WHERE email = ? LIMIT 1').bind(email).first().catch(() => null);
               if (!userRecord) {
                 return applySecurityHeaders(
-                  jsonError('AUTH_D1_USER_CREATE_FAILED', 'Failed to create user account in database.', 500, {
+                  jsonError('AUTH_D1_USER_CREATE_FAILED', `Failed to create user account in database: ${insertErr?.message || 'Insert failed'}`, 500, {
                     dbAvailable: Boolean(db),
                     operation: 'user_create',
-                    error: insertErr?.message || 'Insert failed'
+                    errorName: insertErr?.name || 'D1InsertError',
+                    errorMessage: insertErr?.message || 'Insert failed',
+                    errorCode: insertErr?.code || insertErr?.sqliteCode || null
                   }, null, requestId, FailureCategory.DATABASE),
                   request, env
                 );
@@ -2261,10 +2305,12 @@ export default {
           } catch (sessionErr) {
             console.error('[Auth D1 Session Create Error]', sessionErr);
             return applySecurityHeaders(
-              jsonError('AUTH_D1_SESSION_CREATE_FAILED', 'Failed to create server session in database.', 500, {
+              jsonError('AUTH_D1_SESSION_CREATE_FAILED', `Failed to create server session in database: ${sessionErr?.message || 'Session insert failed'}`, 500, {
                 dbAvailable: Boolean(db),
                 operation: 'session_create',
-                error: sessionErr?.message || 'Session insert failed'
+                errorName: sessionErr?.name || 'D1SessionError',
+                errorMessage: sessionErr?.message || 'Session insert failed',
+                errorCode: sessionErr?.code || sessionErr?.sqliteCode || null
               }, null, requestId, FailureCategory.DATABASE),
               request, env
             );
