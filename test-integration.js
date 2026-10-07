@@ -98,10 +98,10 @@ function createTestD1Database() {
               const key = args[0];
               return siteSettings.get(key) ? { ...siteSettings.get(key) } : null;
             }
-              if (normalized.includes('FROM users WHERE email = ?')) {
-                const email = args[0];
+              if (normalized.includes('FROM users WHERE email = ?') || normalized.includes('LOWER(email) = LOWER(?)') || normalized.includes('email = ?')) {
+                const email = (args[0] || '').toLowerCase();
                 for (const u of users.values()) {
-                  if (u.email === email) return { ...u };
+                  if ((u.email || '').toLowerCase() === email) return { ...u };
                 }
                 return null;
               }
@@ -325,9 +325,12 @@ function createTestD1Database() {
                 adminAuditLogs.push({ id, actor_id, actor_name, actor_role, action, target_type, target_id, details, ip_address, created_at });
                 return { success: true };
               }
-              if (normalized.startsWith('INSERT INTO users')) {
-                const [id, email, display_name, avatar_url, role, plan, is_premium, provider, status, created_at, updated_at] = args;
-                users.set(id, { id, email, display_name, avatar_url, role, plan, is_premium, provider, status, created_at, updated_at });
+              if (normalized.startsWith('UPDATE users SET role = ?')) {
+                const [role, plan, is_premium, displayName, updatedAt, id] = args;
+                const existing = users.get(id);
+                if (existing) {
+                  users.set(id, { ...existing, role, plan, is_premium, display_name: displayName || existing.display_name, updated_at: updatedAt });
+                }
                 return { success: true };
               }
               if (normalized.startsWith('UPDATE users SET display_name = ?')) {
@@ -336,6 +339,21 @@ function createTestD1Database() {
                 if (existing) {
                   users.set(id, { ...existing, display_name: displayName, avatar_url: avatarUrl, updated_at: updatedAt });
                 }
+                return { success: true };
+              }
+              if (normalized.includes('INTO users')) {
+                const id = args[0] || ('usr_' + Date.now());
+                const email = args[1] || '';
+                const display_name = args[2] || (email ? email.split('@')[0] : 'Creator');
+                const avatar_url = args[3] || '';
+                const role = args[4] || 'creator';
+                const plan = args[5] || 'Free';
+                const is_premium = args[6] !== undefined ? args[6] : 0;
+                const provider = args[7] || 'email';
+                const status = args[8] || 'active';
+                const created_at = args[9] || new Date().toISOString();
+                const updated_at = args[10] || new Date().toISOString();
+                users.set(id, { id, email, display_name, avatar_url, role, plan, is_premium, provider, status, created_at, updated_at });
                 return { success: true };
               }
               if (normalized.startsWith('INSERT INTO sessions')) {
