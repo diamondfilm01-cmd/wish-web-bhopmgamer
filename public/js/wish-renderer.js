@@ -17,6 +17,38 @@
   let candleBlown = false;
   let envelopeOpened = false;
 
+  function extractCustomDataObject(wishObj) {
+    if (!wishObj) return {};
+    let cd = {};
+    if (wishObj.customData && typeof wishObj.customData === 'object') {
+      cd = { ...wishObj.customData };
+    } else if (typeof wishObj.customData === 'string') {
+      try { cd = JSON.parse(wishObj.customData); } catch (e) {}
+    } else if (wishObj.custom_data && typeof wishObj.custom_data === 'object') {
+      cd = { ...wishObj.custom_data };
+    } else if (typeof wishObj.custom_data === 'string') {
+      try { cd = JSON.parse(wishObj.custom_data); } catch (e) {}
+    }
+
+    const recipient = cd.recipient_name || cd.recipientName || wishObj.recipientName || wishObj.recipient_name || 'Someone Special';
+    const sender = cd.sender_name || cd.senderName || wishObj.buyerName || wishObj.buyer_name || 'A Special Friend';
+    const date = cd.event_date || cd.eventDate || wishObj.eventDate || wishObj.event_date || '';
+    const message = cd.custom_message || cd.customMessage || cd.message || wishObj.customMessage || '';
+
+    return {
+      ...cd,
+      recipient_name: recipient,
+      recipientName: recipient,
+      sender_name: sender,
+      senderName: sender,
+      event_date: date,
+      eventDate: date,
+      custom_message: message,
+      customMessage: message,
+      templateId: wishObj.templateId || wishObj.template_id || cd.templateId || 'tpl_glitter_birthday'
+    };
+  }
+
   // ---------------------------------------------------------------------------
   // 1. INITIALIZATION & DATA EXTRACTION
   // ---------------------------------------------------------------------------
@@ -35,10 +67,10 @@
     // 2. Check for live preview postMessage mode (inside Customizer Preview iframe)
     if (window.location.search.includes('preview=true') || window.name === 'wish-preview-frame') {
       window.addEventListener('message', (event) => {
-        if (event.data && event.data.type === 'WISHMAGIC_INIT') {
+        if (event.data && (event.data.type === 'WISHMAGIC_INIT' || event.data.type === 'WISHMAGIC_LIVE_UPDATE')) {
           const payload = event.data.payload || {};
-          currentWishData = payload;
-          renderWishLifecycleRouter(payload, null);
+          currentWishData = extractCustomDataObject(payload);
+          renderWishLifecycleRouter(currentWishData, currentTemplate);
         }
       });
     }
@@ -55,15 +87,7 @@
     if (window.__SSR_WISH_DATA__ && window.__SSR_WISH_DATA__.wish) {
       currentRawWish = window.__SSR_WISH_DATA__.wish;
       currentTemplate = window.__SSR_WISH_DATA__.template || null;
-      const rawCd = typeof currentRawWish.customData === 'object' ? currentRawWish.customData : {};
-      currentWishData = {
-        ...rawCd,
-        recipient_name: rawCd.recipient_name || rawCd.recipientName || currentRawWish.recipientName || currentRawWish.recipient_name || 'Someone Special',
-        recipientName: rawCd.recipient_name || rawCd.recipientName || currentRawWish.recipientName || currentRawWish.recipient_name || 'Someone Special',
-        sender_name: rawCd.sender_name || rawCd.senderName || currentRawWish.buyerName || currentRawWish.buyer_name || 'A Special Friend',
-        senderName: rawCd.sender_name || rawCd.senderName || currentRawWish.buyerName || currentRawWish.buyer_name || 'A Special Friend',
-        event_date: rawCd.event_date || rawCd.eventDate || currentRawWish.eventDate || currentRawWish.event_date || ''
-      };
+      currentWishData = extractCustomDataObject(currentRawWish);
       renderWishLifecycleRouter(currentWishData, currentTemplate);
       return;
     }
@@ -89,15 +113,7 @@
       currentRawWish = result.wish;
       const wish = result.wish;
       const template = result.template;
-      const rawCd = (wish.customData && typeof wish.customData === 'object') ? wish.customData : {};
-      const customData = {
-        ...rawCd,
-        recipient_name: rawCd.recipient_name || rawCd.recipientName || wish.recipientName || wish.recipient_name || 'Someone Special',
-        recipientName: rawCd.recipient_name || rawCd.recipientName || wish.recipientName || wish.recipient_name || 'Someone Special',
-        sender_name: rawCd.sender_name || rawCd.senderName || wish.buyerName || wish.buyer_name || 'A Special Friend',
-        senderName: rawCd.sender_name || rawCd.senderName || wish.buyerName || wish.buyer_name || 'A Special Friend',
-        event_date: rawCd.event_date || rawCd.eventDate || wish.eventDate || wish.event_date || ''
-      };
+      const customData = extractCustomDataObject(wish);
 
       // If template not bundled in response, fetch it
       if (!template && wish.templateId) {
@@ -764,6 +780,7 @@
     const eventDate = customData.event_date || customData.eventDate || 'Today';
     const formattedDate = window.WishLifecycle ? window.WishLifecycle.formatISTDate(eventDate) : eventDate;
     const coverPhoto = mediaState.coverPhoto || '/assets/file_ab2082.png';
+    const customMessage = customData.custom_message || customData.customMessage || '';
 
     // A: Glitter Birthday Bash (3D Interactive Floating Cake & Candle Blow)
     if (templateId === 'tpl_glitter_birthday' || templateId.includes('birthday')) {
@@ -780,8 +797,8 @@
             <span class="text-pink-400 font-serifAccent italic">${escapeHTML(recipient)}</span>! ✨
           </h1>
 
-          <p class="text-sm sm:text-base text-purple-200/90 max-w-md mx-auto mb-6 font-medium leading-relaxed">
-            A universe of wishes, joy, and sparkling dreams unfolds specially for you today.
+          <p class="text-sm sm:text-base text-purple-200/90 max-w-md mx-auto mb-6 font-medium leading-relaxed whitespace-pre-line">
+            ${escapeHTML(customMessage || 'A universe of wishes, joy, and sparkling dreams unfolds specially for you today.')}
           </p>
 
           <div class="relative w-64 h-64 sm:w-72 sm:h-72 my-4 flex items-center justify-center cursor-pointer group" id="cake-interactive-box" onclick="WishRenderer.blowCandle()">
@@ -834,8 +851,8 @@
             <h1 class="text-3xl sm:text-4xl md:text-5xl font-serifAccent font-bold italic text-rose-200 mb-2">
               A Letter For <span class="text-rose-400">${escapeHTML(recipient)}</span>
             </h1>
-            <p class="text-xs sm:text-sm text-rose-300/80 max-w-sm mb-6 leading-relaxed">
-              Every heartbeat carries a quiet song meant only for you.
+            <p class="text-xs sm:text-sm text-rose-300/80 max-w-sm mb-6 leading-relaxed whitespace-pre-line">
+              ${escapeHTML(customMessage || 'Every heartbeat carries a quiet song meant only for you.')}
             </p>
 
             <button onclick="WishRenderer.openEnvelope()" class="px-8 py-3.5 rounded-full bg-gradient-to-r from-rose-500 via-pink-600 to-amber-500 text-white text-xs sm:text-sm font-bold shadow-xl shadow-rose-900/40 hover:scale-105 active:scale-95 transition-all">
@@ -861,8 +878,8 @@
             Celebrate With <span class="text-cyan-400">${escapeHTML(recipient)}</span>! 🎆
           </h1>
 
-          <p class="text-xs sm:text-sm text-cyan-200/80 max-w-sm mx-auto mb-8 font-medium">
-            A universe of heartfelt wishes and fireworks sparks specially for you today.
+          <p class="text-xs sm:text-sm text-cyan-200/80 max-w-sm mx-auto mb-8 font-medium whitespace-pre-line">
+            ${escapeHTML(customMessage || 'A universe of heartfelt wishes and fireworks sparks specially for you today.')}
           </p>
 
           <div class="flex items-center gap-3 mb-6">
@@ -894,8 +911,8 @@
             Cheers to <span class="text-pink-400">${escapeHTML(recipient)}</span>! 🍕
           </h1>
 
-          <p class="text-xs sm:text-sm text-purple-200/90 max-w-md mx-auto mb-6 font-medium">
-            From late-night banter to unforgettable adventures — here's celebrating the realest friend in the universe!
+          <p class="text-xs sm:text-sm text-purple-200/90 max-w-md mx-auto mb-6 font-medium whitespace-pre-line">
+            ${escapeHTML(customMessage || "From late-night banter to unforgettable adventures — here's celebrating the realest friend in the universe!")}
           </p>
 
           <div class="relative w-64 h-64 sm:w-72 sm:h-72 mx-auto my-4 cursor-pointer group" onclick="WishRenderer.triggerConfettiBurst(80)">
@@ -931,8 +948,8 @@
             Honoring <span class="text-amber-400">${escapeHTML(recipient)}</span> 👑
           </h1>
 
-          <p class="text-xs sm:text-sm text-amber-200/80 max-w-md mx-auto mb-6 font-medium leading-relaxed">
-            A celebration of endless devotion, gentle wisdom, and beautiful memories that blossom across years.
+          <p class="text-xs sm:text-sm text-amber-200/80 max-w-md mx-auto mb-6 font-medium leading-relaxed whitespace-pre-line">
+            ${escapeHTML(customMessage || 'A celebration of endless devotion, gentle wisdom, and beautiful memories that blossom across years.')}
           </p>
 
           <div class="p-4 rounded-3xl bg-amber-950/40 backdrop-blur-xl border-2 border-amber-400/40 shadow-2xl max-w-sm mx-auto mb-6">
@@ -965,8 +982,8 @@
             Dearest <span class="text-rose-400">${escapeHTML(recipient)}</span> 🌸
           </h1>
 
-          <p class="text-xs sm:text-sm text-rose-200/80 max-w-md mx-auto mb-6 font-medium leading-relaxed">
-            For all the quiet sacrifices, unconditional warmth, and love that sheltered us through every storm.
+          <p class="text-xs sm:text-sm text-rose-200/80 max-w-md mx-auto mb-6 font-medium leading-relaxed whitespace-pre-line">
+            ${escapeHTML(customMessage || 'For all the quiet sacrifices, unconditional warmth, and love that sheltered us through every storm.')}
           </p>
 
           <div class="p-4 rounded-3xl bg-white/10 backdrop-blur-xl border border-rose-300/30 shadow-2xl max-w-sm mx-auto mb-6">
@@ -997,6 +1014,8 @@
         <h1 class="text-4xl sm:text-5xl font-black font-display tracking-tight text-white mb-3">
           For Someone Special: <span class="text-pink-400">${escapeHTML(recipient)}</span>
         </h1>
+
+        ${customMessage ? `<p class="text-sm sm:text-base text-purple-200/90 max-w-md mx-auto mb-6 font-medium leading-relaxed whitespace-pre-line">${escapeHTML(customMessage)}</p>` : ''}
 
         <div class="w-48 h-48 sm:w-56 sm:h-56 rounded-3xl overflow-hidden border-2 border-white/20 shadow-2xl my-4">
           <img src="${coverPhoto}" alt="${escapeHTML(recipient)}" class="w-full h-full object-cover"/>

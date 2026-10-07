@@ -728,7 +728,9 @@
       document.body.appendChild(modal);
     }
 
-    const qrUrl = `https://api.qrserver.com/v1/create-qr-code/?size=180x180&data=${encodeURIComponent(fullLink)}&color=24113F`;
+    const qrSVG = (window.WishQRCodeService && typeof window.WishQRCodeService.generateQRCodeSVG === 'function')
+      ? window.WishQRCodeService.generateQRCodeSVG(fullLink, { size: 100, margin: 4 })
+      : `<div class="w-24 h-24 bg-purple-100 flex items-center justify-center text-xs text-purple-900 font-bold">QR Ready</div>`;
 
     modal.innerHTML = `
       <div class="w-full max-w-md bg-white dark:bg-purple-950 rounded-3xl border border-purple-200 dark:border-purple-800 shadow-2xl p-6 sm:p-7 flex flex-col gap-4 relative animate-scaleUp">
@@ -748,12 +750,12 @@
 
         <!-- QR Code & Quick Scan -->
         <div class="flex flex-col sm:flex-row items-center gap-4 p-4 rounded-2xl bg-purple-50 dark:bg-purple-900/30 border border-purple-200 dark:border-purple-800">
-          <div class="p-2 bg-white rounded-xl shadow-md border border-purple-200 flex-shrink-0">
-            <img src="${qrUrl}" alt="QR Code" class="w-24 h-24 rounded-lg object-contain"/>
+          <div class="p-2 bg-white rounded-xl shadow-md border border-purple-200 flex-shrink-0 flex items-center justify-center">
+            ${qrSVG}
           </div>
           <div class="text-center sm:text-left flex-1">
             <div class="text-xs font-bold text-purple-950 dark:text-white">Instant QR Code</div>
-            <p class="text-[11px] text-purple-700 dark:text-purple-300 mt-1">Scan directly from mobile or share image in gift cards!</p>
+            <p class="text-[11px] text-purple-700 dark:text-purple-300 mt-1">Scan directly from mobile camera or share in cards!</p>
           </div>
         </div>
 

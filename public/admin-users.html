@@ -375,7 +375,7 @@
 
     let userWishes = [];
     try {
-      const res = await fetch('/api/wishes');
+      const res = await fetch(`/api/wishes?userId=${encodeURIComponent(userId)}`, { credentials: 'include' });
       const data = await res.json();
       if (data.success && Array.isArray(data.wishes)) {
         userWishes = data.wishes.filter(w => w.userId === userId);

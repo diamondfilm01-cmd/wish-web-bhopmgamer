@@ -630,7 +630,7 @@
         media = await mediaRepository.getAll();
         users = await userRepository.getAll();
 
-        const wData = await api.get('/api/wishes');
+        const wData = await api.get('/api/wishes?all=true');
         if (wData && wData.success && Array.isArray(wData.wishes)) {
           wishes = wData.wishes;
         }

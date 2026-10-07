@@ -567,9 +567,9 @@
     // Helper to generate a 100% spec-compliant, crisp, scannable QR Code SVG string
     generateQRCodeSVG(text, options = {}) {
       const size = options.size || 220;
-      const fgColor = options.fgColor || '#110221';
+      const fgColor = options.fgColor || '#0c0217';
       const bgColor = options.bgColor || '#ffffff';
-      const margin = options.margin !== undefined ? options.margin : 2; // quiet zone in modules
+      const margin = options.margin !== undefined ? options.margin : 4; // standard ISO 4-module quiet zone
 
       const rawMatrix = WishQRCodeEngine.createMatrix(text, options.ecLevel || 'M');
       const matrixSize = rawMatrix.length;
@@ -582,15 +582,15 @@
           if (rawMatrix[r][c]) {
             const x = ((c + margin) * cellSize).toFixed(2);
             const y = ((r + margin) * cellSize).toFixed(2);
-            const w = (cellSize + 0.15).toFixed(2);
-            const h = (cellSize + 0.15).toFixed(2);
+            const w = (cellSize + 0.05).toFixed(2);
+            const h = (cellSize + 0.05).toFixed(2);
             rects += `<rect x="${x}" y="${y}" width="${w}" height="${h}" fill="${fgColor}"/>`;
           }
         }
       }
 
       return `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 ${size} ${size}" width="${size}" height="${size}" shape-rendering="crispEdges">
-        <rect width="${size}" height="${size}" fill="${bgColor}" rx="14"/>
+        <rect width="${size}" height="${size}" fill="${bgColor}"/>
         <g>${rects}</g>
       </svg>`;
     },
@@ -605,18 +605,18 @@
 
       const fgColor = options.fgColor || '#0c0217';
       const bgColor = options.bgColor || '#ffffff';
-      const margin = options.margin !== undefined ? options.margin : 3; // standard quiet zone
+      const margin = options.margin !== undefined ? options.margin : 4; // standard ISO 4-module quiet zone
 
       const rawMatrix = WishQRCodeEngine.createMatrix(text, options.ecLevel || 'M');
       const matrixSize = rawMatrix.length;
       const totalModules = matrixSize + (margin * 2);
       const cellSize = size / totalModules;
 
-      // Fill background
+      // Fill clean background
       ctx.fillStyle = bgColor;
       ctx.fillRect(0, 0, size, size);
 
-      // Draw modules
+      // Draw high-contrast modules
       ctx.fillStyle = fgColor;
       for (let r = 0; r < matrixSize; r++) {
         for (let c = 0; c < matrixSize; c++) {
@@ -626,29 +626,6 @@
             ctx.fillRect(Math.floor(x), Math.floor(y), Math.ceil(cellSize), Math.ceil(cellSize));
           }
         }
-      }
-
-      // Add center logo badge if requested
-      if (options.logoText) {
-        const badgeSize = size * 0.18;
-        const badgeX = (size - badgeSize) / 2;
-        const badgeY = (size - badgeSize) / 2;
-
-        ctx.fillStyle = bgColor;
-        ctx.beginPath();
-        ctx.roundRect ? ctx.roundRect(badgeX - 4, badgeY - 4, badgeSize + 8, badgeSize + 8, 8) : ctx.fillRect(badgeX - 4, badgeY - 4, badgeSize + 8, badgeSize + 8);
-        ctx.fill();
-
-        ctx.fillStyle = '#ec4899';
-        ctx.beginPath();
-        ctx.roundRect ? ctx.roundRect(badgeX, badgeY, badgeSize, badgeSize, 6) : ctx.fillRect(badgeX, badgeY, badgeSize, badgeSize);
-        ctx.fill();
-
-        ctx.fillStyle = '#ffffff';
-        ctx.font = `bold ${Math.floor(badgeSize * 0.52)}px sans-serif`;
-        ctx.textAlign = 'center';
-        ctx.textBaseline = 'middle';
-        ctx.fillText(options.logoText || '✨', size / 2, size / 2 + 1);
       }
     },
 
@@ -709,8 +686,7 @@
         size: qrBoxSize - 40,
         fgColor: '#0a0114',
         bgColor: '#ffffff',
-        margin: 3,
-        logoText: '✨'
+        margin: 4
       });
       ctx.drawImage(qrTempCanvas, qrBoxX + 20, qrBoxY + 20);
 

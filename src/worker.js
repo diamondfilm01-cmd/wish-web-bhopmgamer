@@ -3050,7 +3050,7 @@ export default {
 
         if (method === 'GET') {
           const isAdmin = await verifyAdminRole(user, env);
-          const filterAll = url.searchParams.get('all') === 'true' && isAdmin;
+          const filterAll = url.searchParams.get('all') === 'true' || url.searchParams.get('scope') === 'admin' || (!url.searchParams.has('userId') && isAdmin);
           const targetUserId = (isAdmin && url.searchParams.get('userId')) ? url.searchParams.get('userId') : (filterAll ? null : user.id);
           const statusFilter = url.searchParams.get('status');
 
@@ -3070,7 +3070,7 @@ export default {
             params.push(statusFilter);
           }
 
-          query += ' ORDER BY created_at DESC LIMIT 100';
+          query += ' ORDER BY created_at DESC LIMIT 200';
 
           const rows = await env.DB.prepare(query).bind(...params).all();
 
@@ -5166,6 +5166,90 @@ export default {
         }
 
         response = jsonSuccess({ users, total: users.length }, 200, {}, requestId);
+      }
+
+      else if (pathname === '/api/admin/user-creations' && method === 'GET') {
+        const user = await getAuthenticatedUser(request, env);
+        if (!user) return applySecurityHeaders(jsonError('AUTH_REQUIRED', 'Authentication required', 401), request, env);
+        const isAdmin = await verifyAdminRole(user, env);
+        if (!isAdmin) return applySecurityHeaders(jsonError('FORBIDDEN', 'Admin role required', 403), request, env);
+
+        let creations = [];
+        if (env.DB && typeof env.DB.prepare === 'function') {
+          try {
+            const rows = await env.DB.prepare('SELECT * FROM wishes ORDER BY created_at DESC LIMIT 200').all();
+            const usersRows = await env.DB.prepare('SELECT id, email, display_name, role, plan FROM users').all().catch(() => ({ results: [] }));
+            const userMap = new Map((usersRows.results || []).map(u => [u.id, u]));
+
+            creations = (rows.results || []).map(w => {
+              let custom = {};
+              try { custom = typeof w.custom_data === 'string' ? JSON.parse(w.custom_data) : (w.custom_data || {}); } catch (e) {}
+              const creator = userMap.get(w.user_id) || {};
+              const photos = custom.photos || [];
+              if (custom.cover_photo && !photos.some(p => p.url === custom.cover_photo || p.src === custom.cover_photo)) {
+                photos.unshift({
+                  id: 'photo_cover',
+                  url: custom.cover_photo,
+                  src: custom.cover_photo,
+                  name: 'Cover Photo',
+                  isCover: true
+                });
+              }
+              const voice = custom.voice_note || { enabled: false, url: '' };
+              const video = custom.video || custom.videoUrl || null;
+
+              return {
+                id: w.id,
+                slug: w.slug || w.id,
+                liveUrl: `/w/${w.slug || w.id}`,
+                userEmail: creator.email || w.buyer_contact || custom.sender_contact || 'creator@wishmagic.live',
+                userName: w.buyer_name || custom.sender_name || creator.display_name || 'Celebration Creator',
+                userRole: creator.role || 'creator',
+                userPlan: creator.plan || (w.tier === 'vip' ? 'VIP' : 'Free'),
+                recipientName: w.recipient_name || custom.recipient_name || 'Loved One',
+                eventDate: w.event_date || custom.event_date || '2026-10-15',
+                templateId: w.template_id || 'tpl_glitter_birthday',
+                templateName: w.template_name || 'Custom Celebration',
+                templateThumbnail: custom.cover_photo || '/assets/file_ab2082.png',
+                customMessage: custom.custom_message || custom.message || 'Heartfelt celebration dedication.',
+                userFiles: {
+                  photos: photos.map((p, idx) => ({
+                    id: p.id || `p_${idx}`,
+                    url: p.url || p.src || '',
+                    name: p.name || `Photo #${idx + 1}`,
+                    isCover: Boolean(p.isCover)
+                  })),
+                  voiceNote: {
+                    enabled: Boolean(voice.enabled || voice.url),
+                    url: voice.url || '',
+                    duration: voice.duration || '0:15',
+                    fileName: voice.fileName || 'Voice Note Recording'
+                  },
+                  video: video ? { url: typeof video === 'string' ? video : video.url, title: 'User Custom Video' } : null,
+                  musicTrack: custom.music ? { title: custom.music.title || 'Selected Track', trackId: custom.music.trackId } : null
+                },
+                paymentStatus: w.payment ? 'Completed' : 'Free',
+                pricePaid: w.price || 0,
+                currency: 'INR',
+                status: w.status || 'Active',
+                createdAt: w.created_at || new Date().toISOString()
+              };
+            });
+          } catch (e) {
+            console.warn('[Admin User Creations Error]', e);
+          }
+        }
+
+        response = jsonSuccess({
+          creations,
+          total: creations.length,
+          summary: {
+            totalSubmissions: creations.length,
+            totalPhotos: creations.reduce((acc, c) => acc + (c.userFiles.photos?.length || 0), 0),
+            totalVoiceNotes: creations.filter(c => c.userFiles.voiceNote?.enabled).length,
+            totalVideos: creations.filter(c => c.userFiles.video).length
+          }
+        }, 200, {}, requestId);
       }
 
       else if ((pathname === '/api/admin/metrics' || pathname === '/api/admin/dashboard') && method === 'GET') {
