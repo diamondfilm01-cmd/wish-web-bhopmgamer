@@ -531,6 +531,7 @@ async function verifyAndEnsureAuthSchema(db) {
       const existingSessionCols = new Set((sessionColsInfo?.results || []).map(c => c.name));
 
       const requiredSessionColumns = [
+        { name: 'id', def: 'TEXT' },
         { name: 'user_id', def: 'TEXT' },
         { name: 'token', def: 'TEXT' },
         { name: 'expires_at', def: 'INTEGER' },
@@ -745,7 +746,7 @@ async function getAuthenticatedUser(request, env) {
     try {
       const now = Date.now();
       let sessionRow = await db.prepare(
-        `SELECT s.id as session_id, s.expires_at, u.id as user_id, u.email, u.display_name, u.avatar_url, u.role, u.plan, u.is_premium, u.status
+        `SELECT s.expires_at, u.id as user_id, u.email, u.display_name, u.avatar_url, u.role, u.plan, u.is_premium, u.status
          FROM sessions s
          JOIN users u ON s.user_id = u.id
          WHERE s.token = ? AND s.expires_at > ?
@@ -2297,11 +2298,53 @@ export default {
           const sessionToken = 'wm_tok_' + crypto.randomUUID().replace(/-/g, '') + Date.now().toString(36);
           const sessionId = 'sess_' + Date.now().toString(36) + '_' + Math.random().toString(36).substring(2, 6);
           const expiresAt = Date.now() + (30 * 24 * 60 * 60 * 1000);
+          const nowIso = new Date().toISOString();
 
           try {
-            await db.prepare(
-              'INSERT INTO sessions (id, user_id, token, expires_at, created_at) VALUES (?, ?, ?, ?, ?)'
-            ).bind(sessionId, userRecord.id, sessionToken, expiresAt, new Date().toISOString()).run();
+            const sessColsInfo = await db.prepare("PRAGMA table_info(sessions)").all();
+            const existingSessCols = (sessColsInfo?.results || []);
+
+            const sessValues = {
+              id: sessionId,
+              session_id: sessionId,
+              user_id: userRecord.id,
+              userid: userRecord.id,
+              token: sessionToken,
+              session_token: sessionToken,
+              expires_at: expiresAt,
+              expiresat: expiresAt,
+              created_at: nowIso,
+              createdat: nowIso
+            };
+
+            const insertSessCols = [];
+            const insertSessPlaceholders = [];
+            const insertSessBindings = [];
+
+            for (const col of existingSessCols) {
+              const colName = col.name;
+              const colNameLower = colName.toLowerCase();
+
+              if (sessValues[colNameLower] !== undefined) {
+                insertSessCols.push(colName);
+                insertSessPlaceholders.push('?');
+                insertSessBindings.push(sessValues[colNameLower]);
+              } else if (col.notnull && col.dflt_value === null && !col.pk) {
+                insertSessCols.push(colName);
+                insertSessPlaceholders.push('?');
+                const val = (col.type && col.type.toUpperCase().includes('INT')) ? 0 : '';
+                insertSessBindings.push(val);
+              }
+            }
+
+            if (insertSessCols.length > 0) {
+              const insertSql = `INSERT INTO sessions (${insertSessCols.join(', ')}) VALUES (${insertSessPlaceholders.join(', ')})`;
+              await db.prepare(insertSql).bind(...insertSessBindings).run();
+            } else {
+              await db.prepare(
+                'INSERT INTO sessions (id, user_id, token, expires_at, created_at) VALUES (?, ?, ?, ?, ?)'
+              ).bind(sessionId, userRecord.id, sessionToken, expiresAt, nowIso).run();
+            }
           } catch (sessionErr) {
             console.error('[Auth D1 Session Create Error]', sessionErr);
             return applySecurityHeaders(
