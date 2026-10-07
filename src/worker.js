@@ -453,17 +453,18 @@ async function verifyFirebaseIdToken(idToken, env) {
 // D1 DATABASE SCHEMA INITIALIZATION & AUTO-RECOVERY
 // ============================================================================
 
-let schemaInitialized = false;
-let schemaInitPromise = null;
+let authSchemaVerified = false;
+async function verifyAndEnsureAuthSchema(db) {
+  if (!db || typeof db.prepare !== 'function') {
+    return { ok: false, error: 'NO_DB_BINDING', errorMessage: 'Database binding DB is missing or invalid' };
+  }
+  if (authSchemaVerified) return { ok: true };
 
-async function ensureCoreSchema(db) {
-  if (!db || typeof db.prepare !== 'function') return false;
-  if (schemaInitialized) return true;
-  if (schemaInitPromise) return schemaInitPromise;
+  try {
+    const existing = await db.prepare("SELECT name FROM sqlite_master WHERE type='table' AND name IN ('users', 'sessions')").all();
+    const tableNames = new Set((existing?.results || []).map(r => r.name));
 
-  schemaInitPromise = (async () => {
-    try {
-      // 1. users table
+    if (!tableNames.has('users')) {
       await db.prepare(`
         CREATE TABLE IF NOT EXISTS users (
           id TEXT PRIMARY KEY,
@@ -481,8 +482,9 @@ async function ensureCoreSchema(db) {
       `).run();
       await db.prepare(`CREATE INDEX IF NOT EXISTS idx_users_email ON users(email)`).run().catch(() => {});
       await db.prepare(`CREATE INDEX IF NOT EXISTS idx_users_role ON users(role)`).run().catch(() => {});
+    }
 
-      // 2. sessions table
+    if (!tableNames.has('sessions')) {
       await db.prepare(`
         CREATE TABLE IF NOT EXISTS sessions (
           id TEXT PRIMARY KEY,
@@ -496,6 +498,32 @@ async function ensureCoreSchema(db) {
       await db.prepare(`CREATE INDEX IF NOT EXISTS idx_sessions_token ON sessions(token)`).run().catch(() => {});
       await db.prepare(`CREATE INDEX IF NOT EXISTS idx_sessions_user_id ON sessions(user_id)`).run().catch(() => {});
       await db.prepare(`CREATE INDEX IF NOT EXISTS idx_sessions_expires_at ON sessions(expires_at)`).run().catch(() => {});
+    }
+
+    authSchemaVerified = true;
+    return { ok: true };
+  } catch (err) {
+    console.error('[Auth Schema Check Error]', err);
+    return {
+      ok: false,
+      errorName: err?.name,
+      errorMessage: err?.message,
+      errorCode: err?.code || err?.sqliteCode || null
+    };
+  }
+}
+
+let schemaInitialized = false;
+let schemaInitPromise = null;
+
+async function ensureCoreSchema(db) {
+  if (!db || typeof db.prepare !== 'function') return false;
+  if (schemaInitialized) return true;
+  if (schemaInitPromise) return schemaInitPromise;
+
+  schemaInitPromise = (async () => {
+    try {
+      await verifyAndEnsureAuthSchema(db);
 
       // 3. admin_roles table
       await db.prepare(`
@@ -631,8 +659,8 @@ async function ensureCoreSchema(db) {
       schemaInitialized = true;
       return true;
     } catch (e) {
-      console.error('[D1 Schema Auto-Init Error]', e);
-      throw e;
+      console.warn('[D1 Schema Non-Fatal Init Notice]', e);
+      return false;
     } finally {
       schemaInitPromise = null;
     }
@@ -662,7 +690,6 @@ async function getAuthenticatedUser(request, env) {
   // Authoritative D1 Session Verification
   if (db && typeof db.prepare === 'function') {
     try {
-      await ensureCoreSchema(db);
       const now = Date.now();
       let sessionRow = await db.prepare(
         `SELECT s.id as session_id, s.expires_at, u.id as user_id, u.email, u.display_name, u.avatar_url, u.role, u.plan, u.is_premium, u.status
@@ -2036,10 +2063,29 @@ export default {
           const MASTER_ADMIN_EMAIL = 'ankit.babusaini@gmail.com';
           const isMasterAdmin = email === MASTER_ADMIN_EMAIL;
 
-          // 1. D1 User Lookup
+          // 1. D1 Schema Verification & User Lookup
+          const schemaState = await verifyAndEnsureAuthSchema(db);
+          if (!schemaState.ok) {
+            console.error('[Auth D1 Schema Verification Failed]', {
+              requestId,
+              errorName: schemaState.errorName,
+              errorMessage: schemaState.errorMessage,
+              errorCode: schemaState.errorCode
+            });
+            return applySecurityHeaders(
+              jsonError('AUTH_D1_SCHEMA_ERROR', `Database schema verification failed: ${schemaState.errorMessage || 'users table check failed'}`, 500, {
+                dbAvailable: Boolean(db),
+                operation: 'schema_verification',
+                errorName: schemaState.errorName || 'D1SchemaError',
+                errorMessage: schemaState.errorMessage || 'Schema verification failed',
+                errorCode: schemaState.errorCode || null
+              }, null, requestId, FailureCategory.DATABASE),
+              request, env
+            );
+          }
+
           let userRecord = null;
           try {
-            await ensureCoreSchema(db);
             userRecord = await db.prepare('SELECT * FROM users WHERE email = ? LIMIT 1').bind(email).first();
           } catch (lookupErr) {
             console.error('[Auth D1 User Lookup Error]', {
@@ -2051,7 +2097,7 @@ export default {
               errorCode: lookupErr?.code || lookupErr?.sqliteCode || null
             });
             return applySecurityHeaders(
-              jsonError('AUTH_D1_USER_LOOKUP_FAILED', 'Database error during user profile lookup.', 500, {
+              jsonError('AUTH_D1_USER_LOOKUP_FAILED', `Database error during user profile lookup: ${lookupErr?.message || 'Query failed'}`, 500, {
                 dbAvailable: Boolean(db),
                 operation: 'user_lookup',
                 errorName: lookupErr?.name || 'D1Error',
