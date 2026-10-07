@@ -1538,25 +1538,23 @@ app.get('/api/public/wishes/:slug', (req, res) => {
   const isOwner = Boolean(req.user && (req.user.id === wish.userId || req.user.role === 'admin'));
   let customData = { ...(wish.customData || {}) };
 
-  // Masking rules for Public Viewers
+  const eventDate = wish.eventDate || wish.event_date || customData.event_date || customData.eventDate || new Date().toISOString().split('T')[0];
+  const recipientName = customData.recipient_name || customData.recipientName || wish.recipientName || wish.recipient_name || 'Someone Special';
+  const senderName = customData.sender_name || customData.senderName || wish.buyerName || wish.buyer_name || 'A Loved One';
+
+  customData.recipient_name = recipientName;
+  customData.recipientName = recipientName;
+  customData.sender_name = senderName;
+  customData.senderName = senderName;
+  customData.event_date = eventDate;
+
   if (!isOwner) {
     if (lifecycleStatus === 'upcoming') {
-      customData = {
-        recipient_name: customData.recipient_name || wish.recipient_name,
-        sender_name: customData.sender_name || wish.buyer_name,
-        event_date: wish.eventDate || wish.event_date,
-        theme: customData.theme || 'magical',
-        is_locked: true,
-        lock_message: 'This celebration will unlock on the special celebration day! ✨'
-      };
+      customData.is_locked = true;
+      customData.lock_message = 'This celebration will unlock on the special celebration day! ✨';
     } else if (lifecycleStatus === 'expired') {
-      customData = {
-        recipient_name: wish.recipient_name,
-        sender_name: wish.buyer_name,
-        event_date: wish.eventDate || wish.event_date,
-        is_expired: true,
-        expired_message: 'This celebration keepsake has completed its active celebration cycle.'
-      };
+      customData.is_expired = true;
+      customData.expired_message = 'This celebration keepsake has completed its active celebration cycle.';
     }
   }
 
@@ -1564,6 +1562,8 @@ app.get('/api/public/wishes/:slug', (req, res) => {
     success: true,
     wish: {
       ...wish,
+      recipientName,
+      buyerName: senderName,
       customData,
       lifecycleStatus,
       isOwner

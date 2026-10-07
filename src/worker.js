@@ -3703,36 +3703,30 @@ export default {
           customData = typeof rawCd === 'string' ? JSON.parse(rawCd) : (rawCd || {});
         } catch (e) {}
 
-        const eventDate = wish.event_date;
-        const recipientName = wish.recipient_name || 'Someone Special';
-        const buyerName = wish.buyer_name || 'A Loved One';
+        const eventDate = wish.event_date || customData.event_date || customData.eventDate || new Date().toISOString().split('T')[0];
+        const recipientName = customData.recipient_name || customData.recipientName || wish.recipient_name || 'Someone Special';
+        const buyerName = customData.sender_name || customData.senderName || wish.buyer_name || 'A Loved One';
+
+        // Ensure canonical fields in customData are populated
+        customData.recipient_name = recipientName;
+        customData.recipientName = recipientName;
+        customData.sender_name = buyerName;
+        customData.senderName = buyerName;
+        customData.event_date = eventDate;
 
         const lifecycleStatus = computeLifecycle({ eventDate, customData, status: wish.status });
         const user = await getAuthenticatedUser(request, env);
         const isAdmin = await verifyAdminRole(user, env);
         const isOwner = Boolean(user && (user.id === wish.user_id || isAdmin));
 
-        // Masking rules for Public Viewers (Safe Public Normalized Model)
-        // Strips private messages, vault secrets, and private media for upcoming/expired
         if (!isOwner) {
           if (lifecycleStatus === 'upcoming') {
-            customData = {
-              recipient_name: recipientName,
-              sender_name: buyerName,
-              event_date: eventDate,
-              theme: customData.theme || 'magical',
-              is_locked: true,
-              lock_message: 'This magical surprise will automatically unlock when the clock strikes midnight on the celebration day! ✨'
-            };
+            customData.is_locked = true;
+            customData.lock_message = 'This magical surprise will automatically unlock when the clock strikes midnight on the celebration day! ✨';
           } else if (lifecycleStatus === 'expired') {
-            customData = {
-              recipient_name: recipientName,
-              sender_name: buyerName,
-              event_date: eventDate,
-              is_expired: true,
-              grace_period_ended: true,
-              expired_message: 'This celebration keepsake has completed its active celebration cycle.'
-            };
+            customData.is_expired = true;
+            customData.grace_period_ended = true;
+            customData.expired_message = 'This celebration keepsake has completed its active celebration cycle.';
           }
         }
 

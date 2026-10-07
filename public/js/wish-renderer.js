@@ -55,7 +55,15 @@
     if (window.__SSR_WISH_DATA__ && window.__SSR_WISH_DATA__.wish) {
       currentRawWish = window.__SSR_WISH_DATA__.wish;
       currentTemplate = window.__SSR_WISH_DATA__.template || null;
-      currentWishData = currentRawWish.customData || {};
+      const rawCd = typeof currentRawWish.customData === 'object' ? currentRawWish.customData : {};
+      currentWishData = {
+        ...rawCd,
+        recipient_name: rawCd.recipient_name || rawCd.recipientName || currentRawWish.recipientName || currentRawWish.recipient_name || 'Someone Special',
+        recipientName: rawCd.recipient_name || rawCd.recipientName || currentRawWish.recipientName || currentRawWish.recipient_name || 'Someone Special',
+        sender_name: rawCd.sender_name || rawCd.senderName || currentRawWish.buyerName || currentRawWish.buyer_name || 'A Special Friend',
+        senderName: rawCd.sender_name || rawCd.senderName || currentRawWish.buyerName || currentRawWish.buyer_name || 'A Special Friend',
+        event_date: rawCd.event_date || rawCd.eventDate || currentRawWish.eventDate || currentRawWish.event_date || ''
+      };
       renderWishLifecycleRouter(currentWishData, currentTemplate);
       return;
     }
@@ -81,7 +89,15 @@
       currentRawWish = result.wish;
       const wish = result.wish;
       const template = result.template;
-      const customData = wish.customData || {};
+      const rawCd = (wish.customData && typeof wish.customData === 'object') ? wish.customData : {};
+      const customData = {
+        ...rawCd,
+        recipient_name: rawCd.recipient_name || rawCd.recipientName || wish.recipientName || wish.recipient_name || 'Someone Special',
+        recipientName: rawCd.recipient_name || rawCd.recipientName || wish.recipientName || wish.recipient_name || 'Someone Special',
+        sender_name: rawCd.sender_name || rawCd.senderName || wish.buyerName || wish.buyer_name || 'A Special Friend',
+        senderName: rawCd.sender_name || rawCd.senderName || wish.buyerName || wish.buyer_name || 'A Special Friend',
+        event_date: rawCd.event_date || rawCd.eventDate || wish.eventDate || wish.event_date || ''
+      };
 
       // If template not bundled in response, fetch it
       if (!template && wish.templateId) {
@@ -428,14 +444,27 @@
           <p class="text-[11px] text-white/50 font-mono mt-3">Target Date: ${escapeHTML(formattedDate)} • Asia/Kolkata (IST)</p>
         </div>
 
+        <div class="flex flex-col sm:flex-row items-center justify-center gap-3 w-full max-w-sm mb-6">
+          <button onclick="WishRenderer.unwrapNow()" class="w-full py-3.5 px-6 rounded-2xl bg-gradient-to-r from-pink-500 via-purple-600 to-amber-400 hover:opacity-95 text-white font-extrabold text-sm shadow-xl shadow-pink-500/25 transition active:scale-95 cursor-pointer flex items-center justify-center gap-2">
+            <span>✨ Unwrap Surprise Now</span>
+            <span class="text-xs font-mono">→</span>
+          </button>
+        </div>
+
         <div class="p-4 rounded-2xl bg-white/5 border border-white/10 max-w-sm text-xs text-white/70">
-          💡 Keep this link saved! When midnight strikes, this page will open your complete surprise experience automatically without needing a refresh.
+          💡 Tap <strong>Unwrap Surprise Now</strong> to open the full personalized celebration website instantly, or wait for midnight to unlock!
         </div>
       </section>
     `;
 
     // Initialize upcoming countdown timer
     setupUpcomingCountdown(eventDate);
+  }
+
+  function unwrapNow() {
+    triggerConfettiBurst(120);
+    renderActiveWishStoryExperience(currentWishData, currentTemplate, currentWishData.event_date || '', isCreatorPreviewMode());
+    revealExperienceContainer();
   }
 
   function setupUpcomingCountdown(eventDate) {
@@ -1814,6 +1843,7 @@
     replaySurprise,
     toggleVoiceNotePlayback,
     openLightbox,
+    unwrapNow,
     simulateLifecycleStatus
   };
 

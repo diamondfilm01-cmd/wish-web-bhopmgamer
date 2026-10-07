@@ -162,44 +162,15 @@
    */
   function sanitizeWishDataForStatus(wishData, status, isCreatorPreview = false) {
     if (!wishData) return {};
-    if (isCreatorPreview || status === 'active') {
-      return JSON.parse(JSON.stringify(wishData));
-    }
-
-    const safe = {
-      recipient_name: wishData.recipient_name || wishData.recipientName || 'Someone Special',
-      event_date: wishData.event_date || wishData.eventDate || '',
-      templateId: wishData.templateId || '',
-      theme: wishData.theme || 'magical',
-      themeConfig: wishData.themeConfig || null,
-      lifecycleStatus: status
-    };
-
-    if (status === 'upcoming') {
-      // In upcoming mode, only basic metadata and countdown are allowed
-      safe.sender_name = wishData.sender_name || wishData.senderName || 'Someone Special';
-      // Strip private contents
-      safe.custom_message = '';
-      safe.photos = [];
-      safe.cover_photo = '';
-      safe.media = { coverPhoto: null, photos: [], music: { enabled: false }, voiceNote: { enabled: false } };
-      safe.voice_note = { enabled: false };
-      safe.music = { enabled: false };
-      safe.timeline = [];
-      safe.sections = [{ id: 'hero', name: 'Upcoming Surprise', enabled: true, order: 0 }];
-    } else if (status === 'expired') {
-      // In expired mode, only closure metadata is allowed
-      safe.sender_name = wishData.sender_name || wishData.senderName || 'Someone Special';
-      safe.custom_message = '';
-      safe.photos = [];
-      safe.cover_photo = '';
-      safe.media = { coverPhoto: null, photos: [], music: { enabled: false }, voiceNote: { enabled: false } };
-      safe.voice_note = { enabled: false };
-      safe.music = { enabled: false };
-      safe.timeline = [];
-      safe.sections = [{ id: 'hero', name: 'Wish Expired', enabled: true, order: 0 }];
-    }
-
+    // Always preserve full customData (recipient_name, sender_name, custom_message, photos, music, theme, etc.)
+    const safe = JSON.parse(JSON.stringify(wishData));
+    safe.recipient_name = safe.recipient_name || safe.recipientName || 'Someone Special';
+    safe.recipientName = safe.recipient_name;
+    safe.sender_name = safe.sender_name || safe.senderName || 'A Cherished Friend';
+    safe.senderName = safe.sender_name;
+    safe.event_date = safe.event_date || safe.eventDate || new Date().toISOString().split('T')[0];
+    safe.eventDate = safe.event_date;
+    safe.lifecycleStatus = status;
     return safe;
   }
 
