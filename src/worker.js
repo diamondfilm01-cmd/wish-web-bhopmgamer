@@ -631,8 +631,8 @@ async function ensureCoreSchema(db) {
       schemaInitialized = true;
       return true;
     } catch (e) {
-      console.warn('[D1 Schema Auto-Init Notice]', e);
-      return false;
+      console.error('[D1 Schema Auto-Init Error]', e);
+      throw e;
     } finally {
       schemaInitPromise = null;
     }
@@ -2036,7 +2036,7 @@ export default {
           const MASTER_ADMIN_EMAIL = 'ankit.babusaini@gmail.com';
           const isMasterAdmin = email === MASTER_ADMIN_EMAIL;
 
-          // 1. D1 User Lookup with automatic schema preparation
+          // 1. D1 User Lookup
           let userRecord = null;
           try {
             await ensureCoreSchema(db);
@@ -2047,25 +2047,19 @@ export default {
               dbAvailable: Boolean(db),
               operation: 'SELECT * FROM users WHERE email = ? LIMIT 1',
               errorName: lookupErr?.name,
-              errorMessage: lookupErr?.message
+              errorMessage: lookupErr?.message,
+              errorCode: lookupErr?.code || lookupErr?.sqliteCode || null
             });
-
-            // Automatic recovery: re-run schema creation and retry
-            try {
-              schemaInitialized = false;
-              await ensureCoreSchema(db);
-              userRecord = await db.prepare('SELECT * FROM users WHERE email = ? LIMIT 1').bind(email).first();
-            } catch (retryErr) {
-              console.error('[Auth D1 User Lookup Retry Error]', retryErr);
-              return applySecurityHeaders(
-                jsonError('AUTH_D1_USER_LOOKUP_FAILED', 'Database error during user profile lookup.', 500, {
-                  dbAvailable: Boolean(db),
-                  operation: 'user_lookup',
-                  error: lookupErr?.message || 'Query execution failed'
-                }, null, requestId, FailureCategory.DATABASE),
-                request, env
-              );
-            }
+            return applySecurityHeaders(
+              jsonError('AUTH_D1_USER_LOOKUP_FAILED', 'Database error during user profile lookup.', 500, {
+                dbAvailable: Boolean(db),
+                operation: 'user_lookup',
+                errorName: lookupErr?.name || 'D1Error',
+                errorMessage: lookupErr?.message || 'Query execution failed',
+                errorCode: lookupErr?.code || lookupErr?.sqliteCode || null
+              }, null, requestId, FailureCategory.DATABASE),
+              request, env
+            );
           }
 
           // 2. User Creation if new
