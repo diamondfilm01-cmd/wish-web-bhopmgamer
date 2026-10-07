@@ -22,6 +22,29 @@ const ADMIN_ROUTES_MAP = {
   '/admin/anktech/anktech/admin/staff': '/admin-staff.html'
 };
 
+const PUBLIC_PAGES_MAP = {
+  '/account': '/account.html',
+  '/account/': '/account.html',
+  '/profile': '/account.html',
+  '/profile/': '/account.html',
+  '/settings': '/account.html',
+  '/settings/': '/account.html',
+  '/my-wishes': '/my-wishes.html',
+  '/my-wishes/': '/my-wishes.html',
+  '/favorites': '/favorites.html',
+  '/favorites/': '/favorites.html',
+  '/marketplace': '/marketplace.html',
+  '/marketplace/': '/marketplace.html',
+  '/pricing': '/pricing.html',
+  '/pricing/': '/pricing.html',
+  '/checkout': '/checkout.html',
+  '/checkout/': '/checkout.html',
+  '/customize': '/customize.html',
+  '/customize/': '/customize.html',
+  '/create': '/create.html',
+  '/create/': '/create.html'
+};
+
 export async function onRequest(context) {
   const url = new URL(context.request.url);
   const pathname = url.pathname.toLowerCase();
@@ -73,6 +96,11 @@ export async function onRequest(context) {
   // Pretty admin and storefront route mapping
   if (ADMIN_ROUTES_MAP[pathname]) {
     const pageReq = new Request(new URL(ADMIN_ROUTES_MAP[pathname], context.request.url), context.request);
+    return await context.next(pageReq);
+  }
+
+  if (PUBLIC_PAGES_MAP[pathname]) {
+    const pageReq = new Request(new URL(PUBLIC_PAGES_MAP[pathname], context.request.url), context.request);
     return await context.next(pageReq);
   }
 

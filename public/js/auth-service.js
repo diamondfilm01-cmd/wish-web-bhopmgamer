@@ -730,22 +730,36 @@
      * Update Current User Profile (Display Name & Avatar)
      */
     async updateProfile(updates = {}) {
+      if (!currentUser) {
+        const cached = localStorage.getItem(STORAGE_KEY_USER) || localStorage.getItem('wishmagic_user');
+        if (cached) {
+          try { currentUser = JSON.parse(cached); } catch (_) {}
+        }
+      }
       if (!currentUser) return null;
 
       const newName = updates.displayName !== undefined ? updates.displayName.trim() : currentUser.displayName;
       const newAvatar = updates.avatarUrl !== undefined ? updates.avatarUrl.trim() : currentUser.avatarUrl;
 
+      const headers = { 'Content-Type': 'application/json' };
+      if (window.WishFirebaseAuth && typeof window.WishFirebaseAuth.getIdToken === 'function') {
+        const idToken = await window.WishFirebaseAuth.getIdToken().catch(() => null);
+        if (idToken) headers['Authorization'] = `Bearer ${idToken}`;
+      }
+
       try {
         const res = await fetch('/api/users/me', {
           method: 'PUT',
-          headers: { 'Content-Type': 'application/json' },
+          headers,
           credentials: 'include',
           body: JSON.stringify({ displayName: newName, avatarUrl: newAvatar })
         });
-        const data = await res.json();
-        if (res.ok && data && data.success && data.user) {
-          setAuthState(AUTH_STATE.AUTHENTICATED, data.user);
-          return data.user;
+        const data = await res.json().catch(() => ({}));
+        const returnedUser = data?.data?.user || data?.user;
+        if (res.ok && data && (data.success || returnedUser) && returnedUser) {
+          const merged = { ...currentUser, ...returnedUser, displayName: newName, avatarUrl: newAvatar };
+          setAuthState(AUTH_STATE.AUTHENTICATED, merged);
+          return merged;
         }
       } catch (e) {
         console.warn('[WishAuth] Profile update error:', e);

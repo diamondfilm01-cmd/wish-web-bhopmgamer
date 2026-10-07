@@ -651,7 +651,11 @@ async function verifyAndEnsureAuthSchema(db) {
         `).run().catch(() => {});
       } else {
         await reconcileTableColumns('wishes', [
+          { name: 'slug', def: "TEXT NOT NULL DEFAULT ''" },
+          { name: 'user_id', def: "TEXT NOT NULL DEFAULT ''" },
+          { name: 'template_id', def: "TEXT NOT NULL DEFAULT ''" },
           { name: 'template_version_id', def: 'TEXT' },
+          { name: 'template_name', def: 'TEXT' },
           { name: 'lifecycle_status', def: "TEXT DEFAULT 'active'" },
           { name: 'tier', def: "TEXT DEFAULT 'free'" },
           { name: 'price', def: 'INTEGER DEFAULT 0' },
@@ -665,7 +669,9 @@ async function verifyAndEnsureAuthSchema(db) {
           { name: 'payment', def: 'TEXT' },
           { name: 'order_id', def: 'TEXT' },
           { name: 'status', def: "TEXT DEFAULT 'published'" },
-          { name: 'custom_data', def: "TEXT DEFAULT '{}'" }
+          { name: 'custom_data', def: "TEXT DEFAULT '{}'" },
+          { name: 'created_at', def: 'TEXT' },
+          { name: 'updated_at', def: 'TEXT' }
         ]);
       }
 
@@ -1071,6 +1077,33 @@ async function getAuthenticatedUser(request, env) {
               status: uRow.status || 'active'
             };
           }
+        }
+      }
+
+      if (!sessionRow && sessionToken && sessionToken.includes('.')) {
+        try {
+          const verification = await verifyFirebaseIdToken(sessionToken, env);
+          if (verification && verification.valid && verification.email) {
+            const normalizedEmail = verification.email.toLowerCase();
+            const uRow = await db.prepare('SELECT * FROM users WHERE LOWER(email) = LOWER(?) LIMIT 1').bind(normalizedEmail).first().catch(() => null);
+            if (uRow) {
+              if (uRow.status === 'suspended' || uRow.status === 'deactivated') {
+                return null;
+              }
+              return {
+                id: uRow.id,
+                email: uRow.email,
+                displayName: uRow.display_name || (uRow.email ? uRow.email.split('@')[0] : 'Creator'),
+                avatarUrl: uRow.avatar_url,
+                role: uRow.role || 'creator',
+                plan: uRow.plan || 'Free',
+                isPremium: Boolean(uRow.is_premium),
+                status: uRow.status || 'active'
+              };
+            }
+          }
+        } catch (jwtErr) {
+          console.warn('[Firebase Token Session Fallback Warning]', jwtErr);
         }
       }
 
@@ -3071,6 +3104,11 @@ export default {
             );
           }
 
+          if (env.DB && typeof env.DB.prepare === 'function') {
+            await ensureCoreSchema(env.DB);
+            await verifyAndEnsureAuthSchema(env.DB);
+          }
+
           const body = await request.json().catch(() => ({}));
           const customData = body.customData || body;
           const templateId = sanitizeString(body.templateId || customData.templateId || 'tpl_glitter_birthday', 60);
@@ -3215,6 +3253,34 @@ export default {
             updatedAt: new Date().toISOString()
           };
 
+          const wishValues = {
+            id: newWish.id,
+            slug: newWish.slug,
+            user_id: newWish.userId,
+            order_id: newWish.orderId,
+            template_id: newWish.templateId,
+            template_version_id: templateVersionId,
+            template_name: newWish.templateName,
+            tier: newWish.tier,
+            price: newWish.price,
+            is_private: newWish.isPrivate ? 1 : 0,
+            buyer_name: newWish.buyerName,
+            buyer_contact: newWish.buyerContact,
+            recipient_name: newWish.recipientName,
+            event_date: newWish.eventDate,
+            expiry_date: newWish.expiryDate,
+            lifecycle_status: 'active',
+            views: 0,
+            custom_data: JSON.stringify(customData),
+            payment: null,
+            status: status,
+            created_at: newWish.createdAt,
+            updated_at: newWish.updatedAt
+          };
+
+          let inserted = false;
+
+          // 1. Primary insert with full schema
           try {
             await env.DB.prepare(
               `INSERT INTO wishes (id, slug, user_id, order_id, template_id, template_name, tier, price, is_private, buyer_name, buyer_contact, recipient_name, event_date, expiry_date, lifecycle_status, views, custom_data, payment, status, template_version_id, created_at, updated_at)
@@ -3243,8 +3309,50 @@ export default {
               newWish.createdAt,
               newWish.updatedAt
             ).run();
-          } catch (e) {
-            // Fallback without template_version_id column if legacy table format
+            inserted = true;
+          } catch (firstInsertErr) {
+            console.warn('[Primary Wish Insert Notice, running adaptive recovery]', firstInsertErr);
+          }
+
+          // 2. Adaptive schema-aware insert if first attempt failed
+          if (!inserted) {
+            try {
+              const colsInfo = await env.DB.prepare("PRAGMA table_info(wishes)").all().catch(() => null);
+              const existingCols = (colsInfo?.results || []);
+              if (existingCols.length > 0) {
+                const insertCols = [];
+                const insertPlaceholders = [];
+                const insertBindings = [];
+                for (const col of existingCols) {
+                  const colName = col.name;
+                  const colNameLower = colName.toLowerCase();
+                  if (wishValues[colNameLower] !== undefined && wishValues[colNameLower] !== null) {
+                    insertCols.push(colName);
+                    insertPlaceholders.push('?');
+                    insertBindings.push(wishValues[colNameLower]);
+                  } else if (col.notnull && col.dflt_value === null && !col.pk) {
+                    insertCols.push(colName);
+                    insertPlaceholders.push('?');
+                    if (col.type && col.type.toUpperCase().includes('INT')) {
+                      insertBindings.push(0);
+                    } else {
+                      insertBindings.push('');
+                    }
+                  }
+                }
+                if (insertCols.length > 0) {
+                  const adaptiveSql = `INSERT INTO wishes (${insertCols.join(', ')}) VALUES (${insertPlaceholders.join(', ')})`;
+                  await env.DB.prepare(adaptiveSql).bind(...insertBindings).run();
+                  inserted = true;
+                }
+              }
+            } catch (adaptiveErr) {
+              console.warn('[Adaptive Wish Insert Warning]', adaptiveErr);
+            }
+          }
+
+          // 3. Fallback standard insert
+          if (!inserted) {
             try {
               await env.DB.prepare(
                 `INSERT INTO wishes (id, slug, user_id, order_id, template_id, template_name, tier, price, is_private, buyer_name, buyer_contact, recipient_name, event_date, expiry_date, lifecycle_status, views, custom_data, payment, status, created_at, updated_at)
@@ -3272,8 +3380,9 @@ export default {
                 newWish.createdAt,
                 newWish.updatedAt
               ).run();
-            } catch (innerErr) {
-              console.error('[Worker DB Wish Insert Error]', innerErr);
+              inserted = true;
+            } catch (fallbackErr) {
+              console.error('[Worker DB Wish Insert Fatal Error]', fallbackErr);
               return applySecurityHeaders(
                 jsonError('DATABASE_ERROR', 'Could not save wish to database. Please verify schema.', 500, {}, null, requestId, FailureCategory.DATABASE),
                 request, env

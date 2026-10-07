@@ -432,12 +432,20 @@
     });
 
     async function syncAccountPage() {
-      if (window.WishAuth && typeof window.WishAuth.getAuthState === 'function') {
+      let user = (window.WishAuth && typeof window.WishAuth.getCurrentUser === 'function') ? window.WishAuth.getCurrentUser() : null;
+      if (!user) {
+        try {
+          const cached = localStorage.getItem('wishmagic_auth_user') || localStorage.getItem('wishmagic_user');
+          if (cached) user = JSON.parse(cached);
+        } catch (_) {}
+      }
+
+      if (!user && window.WishAuth && typeof window.WishAuth.getAuthState === 'function') {
         if (window.WishAuth.getAuthState() === 'BOOTING') {
           return; // Do not show barrier while booting
         }
       }
-      const user = WishAuth.getCurrentUser();
+
       const authBarrier = document.getElementById('account-auth-barrier');
       const authView = document.getElementById('account-authenticated-view');
 
@@ -451,36 +459,59 @@
       if (authView) authView.classList.remove('hidden');
 
       // Populate user info
-      document.getElementById('profile-display-name').textContent = user.displayName;
-      document.getElementById('profile-email').textContent = user.email;
-      document.getElementById('profile-user-id').textContent = user.id;
-      document.getElementById('profile-avatar-img').src = user.avatarUrl;
-      document.getElementById('edit-profile-name').value = user.displayName;
-      document.getElementById('edit-profile-avatar').value = user.avatarUrl;
+      const nameEl = document.getElementById('profile-display-name');
+      if (nameEl) nameEl.textContent = user.displayName || user.name || 'Creator';
+      const emailEl = document.getElementById('profile-email');
+      if (emailEl) emailEl.textContent = user.email || '';
+      const uidEl = document.getElementById('profile-user-id');
+      if (uidEl) uidEl.textContent = user.id || 'usr_...';
+      const avatarEl = document.getElementById('profile-avatar-img');
+      const fallbackAvatar = `https://api.dicebear.com/7.x/bottts/svg?seed=${encodeURIComponent(user.displayName || user.email || 'creator')}`;
+      if (avatarEl) avatarEl.src = user.avatarUrl || user.photoURL || fallbackAvatar;
+
+      const editNameInput = document.getElementById('edit-profile-name');
+      if (editNameInput && (!editNameInput.value || document.activeElement !== editNameInput)) {
+        editNameInput.value = user.displayName || user.name || '';
+      }
+      const editAvatarInput = document.getElementById('edit-profile-avatar');
+      if (editAvatarInput && (!editAvatarInput.value || document.activeElement !== editAvatarInput)) {
+        editAvatarInput.value = user.avatarUrl || user.photoURL || fallbackAvatar;
+      }
 
       if (user.createdAt) {
         const d = new Date(user.createdAt);
-        document.getElementById('profile-member-since').textContent = `Member since ${d.toLocaleString('default', { month: 'short', year: 'numeric' })}`;
+        const memberSinceEl = document.getElementById('profile-member-since');
+        if (memberSinceEl) memberSinceEl.textContent = `Member since ${d.toLocaleString('default', { month: 'short', year: 'numeric' })}`;
       }
 
-      // Fetch user-scoped stats from repositories
+      // Fetch user-scoped stats from repositories safely
       if (window.WishRepositories) {
-        const userWishes = await WishRepositories.wishRepository.getByUser(user.id);
-        const userDrafts = WishRepositories.draftRepository.getByUser(user.id);
-        const userFavs = WishRepositories.favoriteRepository.getByUser(user.id);
+        try {
+          const userWishes = await WishRepositories.wishRepository.getByUser(user.id);
+          const userDrafts = WishRepositories.draftRepository.getByUser(user.id);
+          const userFavs = WishRepositories.favoriteRepository.getByUser(user.id);
 
-        document.getElementById('stat-user-wishes-count').textContent = userWishes.length;
-        document.getElementById('stat-user-drafts-count').textContent = userDrafts.length;
-        document.getElementById('stat-user-favs-count').textContent = userFavs.length;
+          const wCountEl = document.getElementById('stat-user-wishes-count');
+          if (wCountEl) wCountEl.textContent = (userWishes || []).length;
+          const dCountEl = document.getElementById('stat-user-drafts-count');
+          if (dCountEl) dCountEl.textContent = (userDrafts || []).length;
+          const fCountEl = document.getElementById('stat-user-favs-count');
+          if (fCountEl) fCountEl.textContent = (userFavs || []).length;
 
-        const activeCount = userWishes.filter(w => {
-          return window.WishLifecycle ? window.WishLifecycle.getWishStatus(w) === 'active' : true;
-        }).length;
-        document.getElementById('stat-user-active-count').textContent = activeCount;
+          const activeCount = (userWishes || []).filter(w => {
+            return window.WishLifecycle ? window.WishLifecycle.getWishStatus(w) === 'active' : true;
+          }).length;
+          const aCountEl = document.getElementById('stat-user-active-count');
+          if (aCountEl) aCountEl.textContent = activeCount;
+        } catch (statsErr) {
+          console.warn('[Account] Stats fetch notice:', statsErr);
+        }
       }
 
-      renderDevSwitcherGrid(user.id);
-      loadNotificationPreferences(user.id);
+      try {
+        renderDevSwitcherGrid(user.id);
+        loadNotificationPreferences(user.id);
+      } catch (e) {}
     }
 
     // Part 17: Notification Preferences Handlers
