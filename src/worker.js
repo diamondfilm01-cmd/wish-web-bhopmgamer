@@ -710,6 +710,193 @@ async function ensureCoreSchema(db) {
         )
       `).run().catch(() => {});
 
+      // 10. system_announcements table (used for site config, wish links, and system broadcasts)
+      await db.prepare(`
+        CREATE TABLE IF NOT EXISTS system_announcements (
+          id TEXT PRIMARY KEY,
+          title TEXT NOT NULL,
+          message TEXT NOT NULL,
+          severity TEXT DEFAULT 'info',
+          is_active INTEGER NOT NULL DEFAULT 1,
+          expires_at TEXT,
+          created_at TEXT NOT NULL
+        )
+      `).run().catch(() => {});
+
+      // 11. admin_audit_logs table
+      await db.prepare(`
+        CREATE TABLE IF NOT EXISTS admin_audit_logs (
+          id TEXT PRIMARY KEY,
+          actor_id TEXT NOT NULL,
+          actor_name TEXT NOT NULL,
+          actor_role TEXT NOT NULL,
+          action TEXT NOT NULL,
+          details TEXT,
+          ip_address TEXT,
+          user_agent TEXT,
+          created_at TEXT NOT NULL
+        )
+      `).run().catch(() => {});
+      await db.prepare(`CREATE INDEX IF NOT EXISTS idx_audit_logs_created_at ON admin_audit_logs(created_at)`).run().catch(() => {});
+
+      // 12. template_versions table
+      await db.prepare(`
+        CREATE TABLE IF NOT EXISTS template_versions (
+          id TEXT PRIMARY KEY,
+          template_id TEXT NOT NULL,
+          version_number INTEGER NOT NULL,
+          name TEXT NOT NULL,
+          description TEXT,
+          category TEXT NOT NULL,
+          tier TEXT NOT NULL DEFAULT 'free',
+          price INTEGER NOT NULL DEFAULT 0,
+          thumbnail TEXT,
+          theme TEXT,
+          sections TEXT,
+          capabilities TEXT,
+          layout TEXT,
+          animations TEXT,
+          default_config TEXT,
+          snapshot_data TEXT NOT NULL,
+          status TEXT NOT NULL DEFAULT 'active',
+          created_at TEXT NOT NULL,
+          created_by TEXT,
+          FOREIGN KEY (template_id) REFERENCES templates(id) ON DELETE CASCADE
+        )
+      `).run().catch(() => {});
+      await db.prepare(`CREATE INDEX IF NOT EXISTS idx_tpl_versions_template ON template_versions(template_id)`).run().catch(() => {});
+
+      // 13. wish_sections table
+      await db.prepare(`
+        CREATE TABLE IF NOT EXISTS wish_sections (
+          id TEXT PRIMARY KEY,
+          wish_id TEXT NOT NULL,
+          section_type TEXT NOT NULL,
+          sort_order INTEGER NOT NULL DEFAULT 0,
+          data TEXT NOT NULL,
+          created_at TEXT NOT NULL,
+          updated_at TEXT NOT NULL,
+          FOREIGN KEY (wish_id) REFERENCES wishes(id) ON DELETE CASCADE
+        )
+      `).run().catch(() => {});
+
+      // 14. wish_media table
+      await db.prepare(`
+        CREATE TABLE IF NOT EXISTS wish_media (
+          id TEXT PRIMARY KEY,
+          wish_id TEXT,
+          user_id TEXT NOT NULL,
+          object_key TEXT NOT NULL,
+          filename TEXT NOT NULL,
+          media_type TEXT NOT NULL,
+          mime_type TEXT NOT NULL,
+          size_bytes INTEGER NOT NULL DEFAULT 0,
+          url TEXT NOT NULL,
+          is_public INTEGER NOT NULL DEFAULT 1,
+          created_at TEXT NOT NULL,
+          FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
+        )
+      `).run().catch(() => {});
+
+      // 15. favorites table
+      await db.prepare(`
+        CREATE TABLE IF NOT EXISTS favorites (
+          id TEXT PRIMARY KEY,
+          user_id TEXT NOT NULL,
+          item_id TEXT NOT NULL,
+          item_type TEXT NOT NULL DEFAULT 'template',
+          created_at TEXT NOT NULL,
+          FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
+        )
+      `).run().catch(() => {});
+
+      // 16. notifications table
+      await db.prepare(`
+        CREATE TABLE IF NOT EXISTS notifications (
+          id TEXT PRIMARY KEY,
+          user_id TEXT NOT NULL,
+          type TEXT NOT NULL,
+          title TEXT NOT NULL,
+          message TEXT NOT NULL,
+          read_at TEXT,
+          related_type TEXT,
+          related_id TEXT,
+          action_url TEXT,
+          icon TEXT DEFAULT 'notifications',
+          severity TEXT DEFAULT 'info',
+          metadata TEXT,
+          created_at TEXT NOT NULL,
+          FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
+        )
+      `).run().catch(() => {});
+
+      // 17. notification_preferences table
+      await db.prepare(`
+        CREATE TABLE IF NOT EXISTS notification_preferences (
+          user_id TEXT PRIMARY KEY,
+          in_app INTEGER NOT NULL DEFAULT 1,
+          email INTEGER NOT NULL DEFAULT 1,
+          whatsapp INTEGER NOT NULL DEFAULT 0,
+          marketing INTEGER NOT NULL DEFAULT 0,
+          wish_reminders INTEGER NOT NULL DEFAULT 1,
+          draft_reminders INTEGER NOT NULL DEFAULT 1,
+          expiry_reminders INTEGER NOT NULL DEFAULT 1,
+          product_updates INTEGER NOT NULL DEFAULT 1,
+          updated_at TEXT NOT NULL,
+          FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
+        )
+      `).run().catch(() => {});
+
+      // 18. orders table
+      await db.prepare(`
+        CREATE TABLE IF NOT EXISTS orders (
+          id TEXT PRIMARY KEY,
+          user_id TEXT NOT NULL,
+          plan TEXT NOT NULL,
+          amount INTEGER NOT NULL DEFAULT 0,
+          currency TEXT NOT NULL DEFAULT 'INR',
+          provider TEXT NOT NULL DEFAULT 'manual',
+          provider_order_id TEXT,
+          transaction_id TEXT,
+          status TEXT NOT NULL DEFAULT 'PENDING',
+          created_at TEXT NOT NULL,
+          updated_at TEXT NOT NULL,
+          verified_at TEXT,
+          FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
+        )
+      `).run().catch(() => {});
+
+      // 19. analytics_events table
+      await db.prepare(`
+        CREATE TABLE IF NOT EXISTS analytics_events (
+          id TEXT PRIMARY KEY,
+          event_name TEXT NOT NULL,
+          user_id TEXT DEFAULT 'guest',
+          wish_id TEXT,
+          slug TEXT,
+          template_id TEXT,
+          template_name TEXT,
+          category TEXT,
+          recipient_name TEXT,
+          metadata TEXT,
+          timestamp TEXT NOT NULL
+        )
+      `).run().catch(() => {});
+
+      // 20. entitlements table
+      await db.prepare(`
+        CREATE TABLE IF NOT EXISTS entitlements (
+          id TEXT PRIMARY KEY,
+          user_id TEXT NOT NULL,
+          item_type TEXT NOT NULL,
+          item_id TEXT NOT NULL,
+          source TEXT NOT NULL,
+          created_at TEXT NOT NULL,
+          expires_at TEXT,
+          FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
+        )
+      `).run().catch(() => {});
+
       schemaInitialized = true;
       return true;
     } catch (e) {
@@ -1237,6 +1424,7 @@ async function saveSiteSettings(env, newSettings, actor = {}) {
 
   if (env && env.DB && typeof env.DB.prepare === 'function') {
     try {
+      await ensureCoreSchema(env.DB);
       const nowIso = s.updatedAt;
       const actorId = s.updatedBy;
       const entries = [
@@ -1269,7 +1457,42 @@ async function saveSiteSettings(env, newSettings, actor = {}) {
         ).bind(k, String(v), t, nowIso, actorId).run();
       }
     } catch (err) {
-      return { success: false, error: 'Database write failed: ' + (err.message || 'D1 failure') };
+      try {
+        await ensureCoreSchema(env.DB);
+        const nowIso = s.updatedAt;
+        const actorId = s.updatedBy;
+        const entries = [
+          ['hero_badge', s.heroBadge, 'string'],
+          ['hero_headline', s.heroHeadline, 'string'],
+          ['hero_subheadline', s.heroSubheadline, 'string'],
+          ['hero_gift_icon', s.heroGiftIcon, 'string'],
+          ['hero_image_url', s.heroImageUrl, 'string'],
+          ['hero_style', s.heroStyle, 'string'],
+          ['hero_cta1', s.heroCta1, 'string'],
+          ['hero_cta2', s.heroCta2, 'string'],
+          ['brand_name', s.brandName, 'string'],
+          ['support_wa', s.supportWa, 'string'],
+          ['currency', s.currency, 'string'],
+          ['particle_fx', String(s.particleFx), 'boolean'],
+          ['maintenance_mode', String(s.maintenanceMode), 'boolean'],
+          ['promo_discount_enabled', String(s.promoDiscountEnabled), 'boolean'],
+          ['promo_free_offer_mode', String(s.promoFreeOfferMode), 'boolean'],
+          ['promo_original_price', String(s.promoOriginalPrice), 'number'],
+          ['promo_discount_price', String(s.promoDiscountPrice), 'number'],
+          ['promo_badge_text', s.promoBadgeText, 'string'],
+          ['promo_banner_active', String(s.promoBannerActive), 'boolean'],
+          ['promo_banner_text', s.promoBannerText, 'string']
+        ];
+
+        for (const [k, v, t] of entries) {
+          await env.DB.prepare(
+            `INSERT OR REPLACE INTO site_settings (key, value, type, updated_at, updated_by)
+             VALUES (?, ?, ?, ?, ?)`
+          ).bind(k, String(v), t, nowIso, actorId).run();
+        }
+      } catch (retryErr) {
+        return { success: false, error: 'Database write failed: ' + (retryErr.message || err.message || 'D1 failure') };
+      }
     }
   }
 
@@ -1439,6 +1662,7 @@ async function saveWishLinkSettings(env, newSettings, actor = {}) {
 
   if (env && env.DB && typeof env.DB.prepare === 'function') {
     try {
+      await ensureCoreSchema(env.DB);
       const payload = JSON.stringify(val.normalized);
       const nowIso = new Date().toISOString();
       await env.DB.prepare(
@@ -1446,7 +1670,17 @@ async function saveWishLinkSettings(env, newSettings, actor = {}) {
          VALUES ('config_wish_links', 'wish_link_settings', ?, 'config', 1, ?)`
       ).bind(payload, nowIso).run();
     } catch (e) {
-      return { success: false, error: 'Database write failed: ' + (e.message || 'D1 failure') };
+      try {
+        await ensureCoreSchema(env.DB);
+        const payload = JSON.stringify(val.normalized);
+        const nowIso = new Date().toISOString();
+        await env.DB.prepare(
+          `INSERT OR REPLACE INTO system_announcements (id, title, message, severity, is_active, created_at)
+           VALUES ('config_wish_links', 'wish_link_settings', ?, 'config', 1, ?)`
+        ).bind(payload, nowIso).run();
+      } catch (retryErr) {
+        return { success: false, error: 'Database write failed: ' + (retryErr.message || e.message || 'D1 failure') };
+      }
     }
   }
 
@@ -2190,11 +2424,11 @@ export default {
                 status: 'active',
                 created_at: nowIso,
                 updated_at: nowIso,
-                mobile: '',
-                phone: '',
-                firebase_uid: firebaseUid || newUserId,
-                password_hash: '',
-                password_salt: '',
+                mobile: null,
+                phone: null,
+                firebase_uid: firebaseUid || null,
+                password_hash: null,
+                password_salt: null,
                 created_by: 'system'
               };
 
@@ -2206,7 +2440,7 @@ export default {
                 const colName = col.name;
                 const colNameLower = colName.toLowerCase();
 
-                if (userValues[colNameLower] !== undefined) {
+                if (userValues[colNameLower] !== undefined && userValues[colNameLower] !== null) {
                   insertCols.push(colName);
                   insertPlaceholders.push('?');
                   insertBindings.push(userValues[colNameLower]);
