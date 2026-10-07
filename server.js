@@ -522,6 +522,95 @@ function generateUniqueWishSlug(customData = {}, template = null, existingWishes
 
 // Serve templates-store files directly
 app.use('/templates-store', express.static(STORE_DIR));
+
+// Dedicated fallback handler for /templates-store to guarantee clean standalone template preview
+app.get(['/templates-store/:templateId', '/templates-store/:templateId/*', '/templates-store/:templateId/index.html'], (req, res) => {
+  const tplParam = (req.params.templateId || '').trim();
+  const templates = getTemplates();
+  const matchedTpl = templates.find(t => t.id === tplParam || t.folder === tplParam || t.slug === tplParam);
+  
+  if (matchedTpl && matchedTpl.folder) {
+    const targetPath = path.join(STORE_DIR, matchedTpl.folder, 'index.html');
+    if (fs.existsSync(targetPath)) {
+      return res.sendFile(targetPath);
+    }
+  }
+
+  // Fallback to primary birthday template index.html if exists
+  const defaultTplPath = path.join(STORE_DIR, 'tpl_glitter_birthday', 'index.html');
+  if (fs.existsSync(defaultTplPath)) {
+    return res.sendFile(defaultTplPath);
+  }
+
+  // Pure standalone fallback template HTML with real-time live synchronization
+  const name = matchedTpl ? matchedTpl.name : 'Interactive Celebration Wish';
+  res.setHeader('Content-Type', 'text/html; charset=utf-8');
+  res.send(`<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>${name} ✨</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script src="https://cdn.jsdelivr.net/npm/canvas-confetti@1.6.0/dist/confetti.browser.min.js"></script>
+  <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@400;600;800;900&family=Plus+Jakarta+Sans:wght@400;600;700&display=swap" rel="stylesheet"/>
+  <style>
+    body {
+      font-family: 'Plus Jakarta Sans', sans-serif;
+      background: radial-gradient(circle at 50% 20%, #3b0764 0%, #1e1b4b 60%, #030712 100%);
+      color: #ffffff;
+      min-height: 100vh;
+      overflow-x: hidden;
+    }
+  </style>
+</head>
+<body class="flex flex-col items-center justify-between min-h-screen p-4 sm:p-8 text-center select-none">
+  <main class="relative z-10 w-full max-w-lg mx-auto my-auto py-6">
+    <div class="inline-flex items-center gap-2 px-4 py-1.5 rounded-full bg-white/10 border border-white/20 text-xs font-semibold text-pink-300 mb-6 backdrop-blur-md">
+      <span>✨ Interactive Wish Preview</span>
+      <span class="text-amber-400">✦</span>
+      <span data-wm="event_date">Special Day</span>
+    </div>
+    <h1 class="text-4xl sm:text-5xl font-black text-transparent bg-clip-text bg-gradient-to-r from-pink-300 via-purple-200 to-amber-200 mb-3">
+      Happy Celebration, <br/><span class="text-pink-400" data-wm="recipient_name">Someone Special</span>!
+    </h1>
+    <p class="text-sm sm:text-base text-purple-200/90 max-w-md mx-auto mb-8 leading-relaxed font-medium" data-wm="custom_message">
+      May your day be filled with warm magic, sparkling smiles, and infinite moments of joy!
+    </p>
+    <div class="my-4 p-4 rounded-3xl bg-white/10 backdrop-blur-xl border border-white/20 shadow-2xl max-w-xs mx-auto">
+      <div class="aspect-square rounded-2xl overflow-hidden bg-purple-950/60 mb-2">
+        <img class="w-full h-full object-cover" data-wm="photo_1" src="/assets/file_ab2082.png" alt="Memory" onerror="this.src='/assets/file_ab2082.png'"/>
+      </div>
+    </div>
+    <div class="mt-8 text-xs font-semibold text-purple-300">
+      <span>With all best wishes,</span><br/>
+      <span class="text-white font-bold text-sm" data-wm="sender_name">— Someone Special</span>
+    </div>
+  </main>
+  <footer class="py-4 text-[11px] text-purple-300/60">Crafted on WishMagic ✨</footer>
+  <script>
+    window.addEventListener('message', (event) => {
+      if (event.data && (event.data.type === 'WISHMAGIC_INIT' || event.data.type === 'WISHMAGIC_LIVE_UPDATE' || event.data.type === 'WISHMAGIC_UPDATE')) {
+        const d = event.data.payload || {};
+        document.querySelectorAll('[data-wm]').forEach(el => {
+          const key = el.getAttribute('data-wm');
+          if (d[key] !== undefined && d[key] !== null) {
+            if (el.tagName === 'IMG') {
+              const src = (d.photos && d.photos[0] && (d.photos[0].url || d.photos[0].src)) || d.cover_photo || d[key];
+              if (src) el.src = src;
+            } else if (key === 'sender_name') {
+              el.textContent = d.sender_name ? '— ' + d.sender_name : '— Someone Special';
+            } else {
+              el.textContent = d[key] || '';
+            }
+          }
+        });
+      }
+    });
+  </script>
+</body>
+</html>`);
+});
 app.use('/media', express.static(MEDIA_DIR));
 
 // 1. Security Headers Middleware (Production Policy)

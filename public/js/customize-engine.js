@@ -3667,10 +3667,35 @@ function syncDataToIframe() {
     });
 
     // Cover Photo & Photos
-    const activeCover = currentCustomData.cover_photo || (currentCustomData.photos.length > 0 ? currentCustomData.photos[0].url : '');
+    const photos = currentCustomData.photos || [];
+    const activeCover = currentCustomData.cover_photo || (photos.length > 0 ? photos[0].url : '');
     if (activeCover) {
       doc.querySelectorAll('[data-wm="photo_1"]').forEach(el => {
         el.src = activeCover;
+      });
+    }
+    photos.forEach((ph, idx) => {
+      const el = doc.querySelector(`[data-wm="photo_${idx + 1}"]`);
+      if (el && ph && (ph.url || ph.src)) {
+        el.src = ph.url || ph.src;
+      }
+    });
+
+    // Detected custom fields & arbitrary field sync
+    if (activeTemplate && Array.isArray(activeTemplate.detectedFields)) {
+      activeTemplate.detectedFields.forEach(f => {
+        const val = currentCustomData[f.key];
+        if (val !== undefined && val !== null) {
+          doc.querySelectorAll(`[data-wm="${f.key}"]`).forEach(el => {
+            if (el.tagName === 'IMG') {
+              el.src = val;
+            } else if (f.key === 'sender_name') {
+              el.textContent = val ? `— ${val}` : '— Someone Special';
+            } else {
+              el.textContent = val;
+            }
+          });
+        }
       });
     }
 

@@ -69,18 +69,31 @@
 
   <script>
     window.addEventListener('message', (event) => {
-      if (event.data && event.data.type === 'WISHMAGIC_INIT') {
+      if (event.data && (event.data.type === 'WISHMAGIC_INIT' || event.data.type === 'WISHMAGIC_LIVE_UPDATE' || event.data.type === 'WISHMAGIC_UPDATE')) {
         const d = event.data.payload || {};
-        document.querySelectorAll('[data-wm]').forEach(el => {
-          const key = el.getAttribute('data-wm');
-          if (d[key] !== undefined) {
-            if (el.tagName === 'IMG') {
-              if (d[key]) el.src = d[key];
-            } else {
-              el.textContent = d[key];
-            }
-          }
+        
+        document.querySelectorAll('[data-wm="recipient_name"]').forEach(el => {
+          el.textContent = d.recipient_name || 'Mom & Dad';
         });
+
+        document.querySelectorAll('[data-wm="sender_name"]').forEach(el => {
+          el.textContent = d.sender_name ? '— ' + d.sender_name : '— Your Loving Family';
+        });
+
+        document.querySelectorAll('[data-wm="event_date"]').forEach(el => {
+          el.textContent = d.event_date || 'Milestone Year';
+        });
+
+        document.querySelectorAll('[data-wm="custom_message"]').forEach(el => {
+          el.textContent = d.custom_message || '"Thank you for showing us what unconditional love and strength truly mean. Wishing you endless health, radiant smiles, and peaceful joy on this golden occasion!"';
+        });
+
+        const photoSrc = (d.photos && d.photos[0] && (d.photos[0].url || d.photos[0].src)) || d.cover_photo || d.photo_1;
+        if (photoSrc) {
+          document.querySelectorAll('[data-wm="photo_1"]').forEach(el => {
+            el.src = photoSrc;
+          });
+        }
       }
     });
   </script>

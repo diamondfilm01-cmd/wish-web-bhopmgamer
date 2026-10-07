@@ -996,18 +996,24 @@
 
       // Safe hydration when iframe loads
       iframe.onload = () => {
+        const sampleData = {
+          recipient_name: 'Someone Special',
+          sender_name: 'From Someone Who Cares',
+          custom_message: 'Wishing you a magnificent year filled with boundless joy, radiant smiles, and unforgettable magic!',
+          event_date: 'Today',
+          photo_1: t.thumbnail || t.previewImage || '/assets/file_ab2082.png'
+        };
+
+        if (iframe.contentWindow) {
+          iframe.contentWindow.postMessage({
+            type: 'WISHMAGIC_INIT',
+            payload: sampleData
+          }, '*');
+        }
+
         try {
           const doc = iframe.contentDocument || iframe.contentWindow.document;
           if (!doc) return;
-
-          // Safe mock preview data so the template looks populated and charming
-          const sampleData = {
-            recipient_name: 'Someone Special',
-            sender_name: 'From Someone Who Cares',
-            custom_message: 'Wishing you a magnificent year filled with boundless joy, radiant smiles, and unforgettable magic!',
-            event_date: 'Today',
-            photo_1: t.thumbnail || t.previewImage || '/assets/file_ab2082.png'
-          };
 
           // Apply to [data-wm] elements if present in template
           Object.keys(sampleData).forEach(key => {
@@ -1021,7 +1027,7 @@
             }
           });
         } catch (e) {
-          // Cross-origin safe guard: if iframe is isolated, it naturally runs its own default values
+          // Cross-origin safe guard
           console.log('Iframe isolated preview active');
         }
       };

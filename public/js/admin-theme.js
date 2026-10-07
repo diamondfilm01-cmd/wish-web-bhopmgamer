@@ -277,7 +277,7 @@ window.AdminAuthController = AdminAuthController;
   }
 })();
 
-// 2. Automatically ensure all sidebar and navigation links strictly use /admin/anktech/anktech/admin/<section>
+// 2. Automatically ensure all sidebar and navigation links strictly use /admin/anktech/anktech/admin/<section> and maintain consistent active styling
 function rewriteAdminSidebarLinks() {
   const sectionMap = {
     'user-creations': 'user-creations',
@@ -295,6 +295,16 @@ function rewriteAdminSidebarLinks() {
     'login': 'login'
   };
 
+  const currentPath = window.location.pathname.toLowerCase();
+  let currentSection = 'overview';
+  for (const [key, val] of Object.entries(sectionMap)) {
+    if (currentPath.includes(key)) {
+      currentSection = val;
+      break;
+    }
+  }
+
+  // Update hrefs on all admin links
   document.querySelectorAll('a[href*="admin"]').forEach(a => {
     let href = a.getAttribute('href');
     if (!href || href.startsWith('#') || href.startsWith('javascript:')) return;
@@ -312,6 +322,31 @@ function rewriteAdminSidebarLinks() {
     const newHref = `${SECRET_ADMIN_PREFIX}/${matchedSection}`;
     a.setAttribute('href', newHref);
   });
+
+  // Highlight active link in sidebar and ensure uniform heights & states across all pages
+  const sidebarNav = document.querySelector('#admin-sidebar nav');
+  if (sidebarNav) {
+    const navLinks = sidebarNav.querySelectorAll('a');
+    navLinks.forEach(a => {
+      const href = (a.getAttribute('href') || '').toLowerCase();
+      const isTarget = href.endsWith('/' + currentSection) || 
+                       (currentSection === 'overview' && (href.endsWith('/overview') || href.endsWith('/admin') || href.endsWith('admin.html')));
+      
+      const icon = a.querySelector('.material-symbols-outlined');
+
+      if (isTarget) {
+        a.className = 'flex items-center gap-3 px-4 py-3 rounded-2xl bg-gradient-to-r from-primary/15 to-primary/5 text-primary font-bold border-l-2 border-primary transition-all duration-200 shadow-sm';
+        if (icon) {
+          icon.className = 'material-symbols-outlined text-primary text-xl';
+        }
+      } else {
+        a.className = 'flex items-center gap-3 px-4 py-3 rounded-2xl text-on-surface-variant hover:text-on-surface hover:bg-surface-container-high/40 transition-all duration-200 font-medium group';
+        if (icon) {
+          icon.className = 'material-symbols-outlined text-on-surface-variant group-hover:text-primary transition-colors text-xl';
+        }
+      }
+    });
+  }
 }
 
 if (document.readyState === 'loading') {

@@ -35,11 +35,11 @@
 
 <!-- Responsive Sidebar Drawer -->
 <aside id="admin-sidebar" class="fixed left-0 top-0 h-screen w-72 bg-surface-container-lowest border-r border-outline-variant/30 z-50 flex flex-col justify-between shadow-2xl -translate-x-full md:translate-x-0 transition-transform duration-300 ease-in-out">
-  <div class="flex flex-col">
-    <div class="px-space-lg pt-space-lg pb-space-md">
+  <div class="flex flex-col min-h-0 flex-1">
+    <div class="px-space-lg pt-space-lg pb-space-md flex-shrink-0">
       <div class="flex items-center justify-between">
         <div class="flex items-center gap-space-sm">
-          <div class="w-9 h-9 rounded-xl bg-gradient-to-tr from-primary-container to-secondary flex items-center justify-center shadow-[0_0_20px_rgba(124,58,237,0.45)]">
+          <div class="w-9 h-9 rounded-xl bg-gradient-to-tr from-primary-container to-secondary flex items-center justify-center shadow-[0_0_20px_rgba(124,58,237,0.45)] flex-shrink-0">
             <span class="material-symbols-outlined text-white text-[20px]">auto_fix_high</span>
           </div>
           <div class="flex flex-col">
@@ -47,13 +47,13 @@
             <span class="font-label-sm text-label-sm text-primary tracking-widest uppercase">Admin Studio</span>
           </div>
         </div>
-        <button class="md:hidden p-1.5 rounded-lg bg-surface-container-high hover:bg-surface-container-highest text-on-surface transition-colors" onclick="toggleSidebar()">
+        <button class="md:hidden p-1.5 rounded-lg bg-surface-container-high hover:bg-surface-container-highest text-on-surface transition-colors" onclick="toggleSidebar()" aria-label="Close Sidebar">
           <span class="material-symbols-outlined text-[20px]">close</span>
         </button>
       </div>
     </div>
-    <div class="px-space-md mt-space-sm">
-      <div class="px-space-sm pb-space-xs font-label-sm text-label-sm uppercase tracking-wider text-outline">Core Navigation</div>
+    <div class="px-space-md mt-space-sm flex-1 overflow-y-auto custom-scrollbar pb-4">
+      <div class="px-space-sm pb-space-xs font-label-sm text-label-sm uppercase tracking-wider text-outline sticky top-0 bg-surface-container-lowest/95 backdrop-blur-xs z-10">Core Navigation</div>
       <nav class="flex flex-col gap-1 px-space-xs mt-space-xs">
         <a class="group flex items-center gap-space-sm px-space-md py-2.5 rounded-lg bg-primary-container text-white font-semibold shadow-[0_0_24px_rgba(124,58,237,0.35)] transition-all duration-200" href="/admin/anktech/anktech/admin/overview">
           <span class="material-symbols-outlined text-[20px] transition-transform group-hover:scale-110">dashboard</span>
@@ -64,30 +64,39 @@
           <span class="font-body-md text-body-md flex-1">User Creations &amp; Files</span>
           <span class="px-2 py-0.5 rounded-full bg-pink-500 text-white font-bold text-[10px]">NEW</span>
         </a>
-        <a class="group flex items-center gap-space-sm px-space-md py-2.5 rounded-lg text-on-surface-variant hover:bg-surface-container-high hover:text-on-surface transition-all duration-200" href="/admin/anktech/anktech/admin/media">
-          <span class="material-symbols-outlined text-[20px] transition-transform group-hover:scale-110">perm_media</span>
-          <span class="font-body-md text-body-md">Media &amp; Hero Photo</span>
-        </a>
         <a class="group flex items-center gap-space-sm px-space-md py-2.5 rounded-lg text-on-surface-variant hover:bg-surface-container-high hover:text-on-surface transition-all duration-200" href="/admin/anktech/anktech/admin/templates">
           <span class="material-symbols-outlined text-[20px] transition-transform group-hover:scale-110">style</span>
           <span class="font-body-md text-body-md">Templates Manager</span>
-        </a>
-        <a class="group flex items-center gap-space-sm px-space-md py-2.5 rounded-lg text-on-surface-variant hover:bg-surface-container-high hover:text-on-surface transition-all duration-200" href="/admin/anktech/anktech/admin/wishes">
-          <span class="material-symbols-outlined text-[20px] transition-transform group-hover:scale-110">card_giftcard</span>
-          <span class="font-body-md text-body-md">Wishes &amp; Celebrations</span>
-        </a>
-        <a class="group flex items-center gap-space-sm px-space-md py-2.5 rounded-lg text-on-surface-variant hover:bg-surface-container-high hover:text-on-surface transition-all duration-200" href="/admin/anktech/anktech/admin/users">
-          <span class="material-symbols-outlined text-[20px] transition-transform group-hover:scale-110">group</span>
-          <span class="font-body-md text-body-md">Users &amp; Creators</span>
         </a>
         <a class="group flex items-center gap-space-sm px-space-md py-2.5 rounded-lg text-on-surface-variant hover:bg-surface-container-high hover:text-on-surface transition-all duration-200" href="/admin/anktech/anktech/admin/occasions">
           <span class="material-symbols-outlined text-[20px] transition-transform group-hover:scale-110">loyalty</span>
           <span class="font-body-md text-body-md">Occasions &amp; Tags</span>
         </a>
+        <a class="group flex items-center gap-space-sm px-space-md py-2.5 rounded-lg text-on-surface-variant hover:bg-surface-container-high hover:text-on-surface transition-all duration-200" href="/admin/anktech/anktech/admin/wishes">
+          <span class="material-symbols-outlined text-[20px] transition-transform group-hover:scale-110">card_giftcard</span>
+          <span class="font-body-md text-body-md flex-1">Wishes &amp; Celebrations</span>
+          <span class="px-2 py-0.5 rounded-full bg-emerald-500/20 text-emerald-400 font-bold text-[10px]">Live</span>
+        </a>
+        <a class="group flex items-center gap-space-sm px-space-md py-2.5 rounded-lg text-on-surface-variant hover:bg-surface-container-high hover:text-on-surface transition-all duration-200" href="/admin/anktech/anktech/admin/users">
+          <span class="material-symbols-outlined text-[20px] transition-transform group-hover:scale-110">group</span>
+          <span class="font-body-md text-body-md">Users &amp; Creators</span>
+        </a>
+        <a class="group flex items-center gap-space-sm px-space-md py-2.5 rounded-lg text-on-surface-variant hover:bg-surface-container-high hover:text-on-surface transition-all duration-200" href="/admin/anktech/anktech/admin/media">
+          <span class="material-symbols-outlined text-[20px] transition-transform group-hover:scale-110">perm_media</span>
+          <span class="font-body-md text-body-md">Media &amp; Audio Library</span>
+        </a>
         <a class="group flex items-center gap-space-sm px-space-md py-2.5 rounded-lg text-on-surface-variant hover:bg-surface-container-high hover:text-on-surface transition-all duration-200" href="/admin/anktech/anktech/admin/orders">
           <span class="material-symbols-outlined text-[20px] transition-transform group-hover:scale-110">receipt_long</span>
           <span class="font-body-md text-body-md flex-1">Orders &amp; Billing</span>
-          <span class="px-2 py-0.5 rounded-full bg-secondary-container text-white font-label-sm text-label-sm">Simulated</span>
+          <span class="px-2 py-0.5 rounded-full bg-purple-500/20 text-purple-300 font-bold text-[10px]">Simulated</span>
+        </a>
+        <a class="group flex items-center gap-space-sm px-space-md py-2.5 rounded-lg text-on-surface-variant hover:bg-surface-container-high hover:text-on-surface transition-all duration-200" href="/admin/anktech/anktech/admin/pricing">
+          <span class="material-symbols-outlined text-[20px] transition-transform group-hover:scale-110">payments</span>
+          <span class="font-body-md text-body-md">Pricing &amp; Plans</span>
+        </a>
+        <a class="group flex items-center gap-space-sm px-space-md py-2.5 rounded-lg text-on-surface-variant hover:bg-surface-container-high hover:text-on-surface transition-all duration-200" href="/admin/anktech/anktech/admin/staff">
+          <span class="material-symbols-outlined text-[20px] transition-transform group-hover:scale-110">badge</span>
+          <span class="font-body-md text-body-md">Staff &amp; Team</span>
         </a>
         <a class="group flex items-center gap-space-sm px-space-md py-2.5 rounded-lg text-on-surface-variant hover:bg-surface-container-high hover:text-on-surface transition-all duration-200" href="/admin/anktech/anktech/admin/settings">
           <span class="material-symbols-outlined text-[20px] transition-transform group-hover:scale-110">admin_panel_settings</span>
@@ -96,7 +105,7 @@
       </nav>
     </div>
   </div>
-  <div class="p-space-md flex flex-col gap-space-xs bg-surface-container-lowest border-t border-purple-900/30">
+  <div class="p-space-md flex flex-col gap-space-xs bg-surface-container-lowest border-t border-purple-900/30 flex-shrink-0">
     <div class="flex items-center justify-between text-on-surface-variant text-xs">
       <span>WishMagic Engine</span>
       <span class="px-2 py-0.5 rounded-full bg-surface-container-high text-primary font-mono font-bold">v4.16</span>
