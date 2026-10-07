@@ -142,8 +142,8 @@ export function runBuild() {
     errors.push('Missing wrangler.toml');
   } else {
     const wranglerContent = fs.readFileSync(wranglerPath, 'utf8');
-    if (wranglerContent.includes('main = "src/worker.js"') && wranglerContent.includes('d1_databases')) {
-      console.log('  ✅ wrangler.toml contains valid main entry and D1 database binding.');
+    if ((wranglerContent.includes('pages_build_output_dir') || wranglerContent.includes('main = "src/worker.js"')) && wranglerContent.includes('d1_databases')) {
+      console.log('  ✅ wrangler.toml contains valid Pages configuration and D1 database binding.');
       checks.push('Wrangler Config Valid');
     } else {
       errors.push('wrangler.toml missing required configuration');
