@@ -464,6 +464,7 @@ async function verifyAndEnsureAuthSchema(db) {
     const existing = await db.prepare("SELECT name FROM sqlite_master WHERE type='table' AND name IN ('users', 'sessions')").all();
     const tableNames = new Set((existing?.results || []).map(r => r.name));
 
+    // 1. Users Table Reconciliation
     if (!tableNames.has('users')) {
       await db.prepare(`
         CREATE TABLE IF NOT EXISTS users (
@@ -480,10 +481,40 @@ async function verifyAndEnsureAuthSchema(db) {
           updated_at TEXT NOT NULL
         )
       `).run();
-      await db.prepare(`CREATE INDEX IF NOT EXISTS idx_users_email ON users(email)`).run().catch(() => {});
-      await db.prepare(`CREATE INDEX IF NOT EXISTS idx_users_role ON users(role)`).run().catch(() => {});
+    } else {
+      // Reconcile columns in existing users table
+      const userColumnsInfo = await db.prepare("PRAGMA table_info(users)").all();
+      const existingUserCols = new Set((userColumnsInfo?.results || []).map(c => c.name));
+
+      const requiredUserColumns = [
+        { name: 'email', def: 'TEXT' },
+        { name: 'display_name', def: 'TEXT' },
+        { name: 'avatar_url', def: 'TEXT' },
+        { name: 'role', def: "TEXT DEFAULT 'creator'" },
+        { name: 'plan', def: "TEXT DEFAULT 'Free'" },
+        { name: 'is_premium', def: 'INTEGER DEFAULT 0' },
+        { name: 'provider', def: "TEXT DEFAULT 'email'" },
+        { name: 'status', def: "TEXT DEFAULT 'active'" },
+        { name: 'created_at', def: 'TEXT' },
+        { name: 'updated_at', def: 'TEXT' }
+      ];
+
+      for (const col of requiredUserColumns) {
+        if (!existingUserCols.has(col.name)) {
+          try {
+            await db.prepare(`ALTER TABLE users ADD COLUMN ${col.name} ${col.def}`).run();
+            console.log(`[Schema Migration] Added missing column '${col.name}' to users table`);
+          } catch (alterErr) {
+            console.warn(`[Schema Migration Warning] Could not add column '${col.name}':`, alterErr);
+          }
+        }
+      }
     }
 
+    await db.prepare(`CREATE INDEX IF NOT EXISTS idx_users_email ON users(email)`).run().catch(() => {});
+    await db.prepare(`CREATE INDEX IF NOT EXISTS idx_users_role ON users(role)`).run().catch(() => {});
+
+    // 2. Sessions Table Reconciliation
     if (!tableNames.has('sessions')) {
       await db.prepare(`
         CREATE TABLE IF NOT EXISTS sessions (
@@ -495,10 +526,32 @@ async function verifyAndEnsureAuthSchema(db) {
           FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
         )
       `).run();
-      await db.prepare(`CREATE INDEX IF NOT EXISTS idx_sessions_token ON sessions(token)`).run().catch(() => {});
-      await db.prepare(`CREATE INDEX IF NOT EXISTS idx_sessions_user_id ON sessions(user_id)`).run().catch(() => {});
-      await db.prepare(`CREATE INDEX IF NOT EXISTS idx_sessions_expires_at ON sessions(expires_at)`).run().catch(() => {});
+    } else {
+      const sessionColsInfo = await db.prepare("PRAGMA table_info(sessions)").all();
+      const existingSessionCols = new Set((sessionColsInfo?.results || []).map(c => c.name));
+
+      const requiredSessionColumns = [
+        { name: 'user_id', def: 'TEXT' },
+        { name: 'token', def: 'TEXT' },
+        { name: 'expires_at', def: 'INTEGER' },
+        { name: 'created_at', def: 'TEXT' }
+      ];
+
+      for (const col of requiredSessionColumns) {
+        if (!existingSessionCols.has(col.name)) {
+          try {
+            await db.prepare(`ALTER TABLE sessions ADD COLUMN ${col.name} ${col.def}`).run();
+            console.log(`[Schema Migration] Added missing column '${col.name}' to sessions table`);
+          } catch (alterErr) {
+            console.warn(`[Schema Migration Warning] Could not add column '${col.name}':`, alterErr);
+          }
+        }
+      }
     }
+
+    await db.prepare(`CREATE INDEX IF NOT EXISTS idx_sessions_token ON sessions(token)`).run().catch(() => {});
+    await db.prepare(`CREATE INDEX IF NOT EXISTS idx_sessions_user_id ON sessions(user_id)`).run().catch(() => {});
+    await db.prepare(`CREATE INDEX IF NOT EXISTS idx_sessions_expires_at ON sessions(expires_at)`).run().catch(() => {});
 
     authSchemaVerified = true;
     return { ok: true };
