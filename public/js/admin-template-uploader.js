@@ -188,11 +188,47 @@ function finishProcessingFiles(foundIndex, htmlContent, firstFoundImage) {
 
 function scanDynamicFields(html) {
   detectedDynamicFields = [];
-  const fieldMap = new Map();
+  
+  if (typeof WishMagicTemplateAnalyzer !== 'undefined' && typeof WishMagicTemplateAnalyzer.analyze === 'function') {
+    // Collect package resources
+    let cssText = '';
+    let jsText = '';
+    let jsonManifest = null;
 
+    Object.keys(currentUploadedFiles).forEach(p => {
+      const entry = currentUploadedFiles[p];
+      if (!entry.isBase64) {
+        if (p.endsWith('.css')) cssText += '\n' + entry.content;
+        else if (p.endsWith('.js')) jsText += '\n' + entry.content;
+        else if (p.endsWith('wishmagic.json') || p.endsWith('manifest.json')) jsonManifest = entry.content;
+      }
+    });
+
+    const analysis = WishMagicTemplateAnalyzer.analyze({
+      html,
+      css: cssText,
+      js: jsText,
+      json: jsonManifest,
+      files: currentUploadedFiles
+    }, { force: true });
+
+    if (analysis && Array.isArray(analysis.fields) && analysis.fields.length > 0) {
+      detectedDynamicFields = analysis.fields.map(f => ({
+        key: f.key,
+        label: f.label || f.key,
+        type: f.type || 'text',
+        required: Boolean(f.required),
+        defaultValue: f.defaultValue || ''
+      }));
+      renderDetectedFieldsBadges();
+      return;
+    }
+  }
+
+  const fieldMap = new Map();
   if (html) {
-    // 1. Scan for data-wm="field_name"
-    const dataWmRegex = /data-wm=["']([^"']+)["']/gi;
+    // 1. Scan for data-wm="field_name" or data-wm-field="field_name"
+    const dataWmRegex = /data-wm(?:-field)?=["']([^"']+)["']/gi;
     let match;
     while ((match = dataWmRegex.exec(html)) !== null) {
       const key = match[1].trim();

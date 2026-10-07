@@ -6,8 +6,8 @@
   "scripts": {
     "dev": "node server.js",
     "start": "node server.js",
-    "lint": "node --check server.js functions/[[path]].js src/worker.js test-integration.js tests/template-analyzer-tests.js tests/customizer-generator-tests.js tests/section-system-tests.js tests/visual-system-tests.js tests/media-system-tests.js scripts/*.js",
-    "test": "node test-integration.js && node tests/template-analyzer-tests.js && node tests/customizer-generator-tests.js && node tests/section-system-tests.js && node tests/visual-system-tests.js && node tests/media-system-tests.js",
+    "lint": "node --check server.js functions/[[path]].js src/worker.js test-integration.js tests/template-analyzer-tests.js tests/customizer-generator-tests.js tests/section-system-tests.js tests/visual-system-tests.js tests/media-system-tests.js tests/content-system-tests.js tests/dependency-system-tests.js tests/field-renderer-tests.js tests/template-capability-analyzer-tests.js tests/sandbox-runtime-protocol-tests.js tests/preview-rendering-tests.js tests/state-migration-tests.js tests/final-renderer-published-tests.js tests/wishmagic-part17-compatibility-e2e-tests.js scripts/*.js",
+    "test": "node test-integration.js && node tests/template-analyzer-tests.js && node tests/customizer-generator-tests.js && node tests/section-system-tests.js && node tests/visual-system-tests.js && node tests/media-system-tests.js && node tests/content-system-tests.js && node tests/dependency-system-tests.js && node tests/field-renderer-tests.js && node tests/template-capability-analyzer-tests.js && node tests/sandbox-runtime-protocol-tests.js && node tests/preview-rendering-tests.js && node tests/state-migration-tests.js && node tests/final-renderer-published-tests.js && node --test tests/wishmagic-part17-compatibility-e2e-tests.js",
     "build": "node scripts/build.js"
   },
   "dependencies": {

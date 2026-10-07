@@ -77,7 +77,22 @@
         required: f.required === true,
         defaultValue: f.defaultValue !== undefined ? f.defaultValue : null,
         placeholder: f.placeholder || '',
+        description: f.description || '',
+        minlength: f.minlength !== undefined && f.minlength !== null ? f.minlength : null,
         maxLength: f.maxlength !== undefined && f.maxlength !== null ? f.maxlength : (f.maxLength !== undefined && f.maxLength !== null ? f.maxLength : null),
+        min: f.min !== undefined && f.min !== null ? f.min : null,
+        max: f.max !== undefined && f.max !== null ? f.max : null,
+        step: f.step !== undefined && f.step !== null ? f.step : null,
+        pattern: f.pattern || null,
+        format: f.format || null,
+        target: f.target || 'text',
+        order: f.order !== undefined && f.order !== null ? f.order : null,
+        visibleIf: f.visibleIf || null,
+        disabledIf: f.disabledIf || null,
+        requiredIf: f.requiredIf || null,
+        labelIf: f.labelIf || null,
+        descriptionIf: f.descriptionIf || null,
+        clearOnHide: f.clearOnHide === true,
         group: f.group || 'personal',
         section: f.section || null,
         options: Array.isArray(f.options) ? f.options : [],
@@ -680,6 +695,14 @@
 
       // Update matching DOM control if rendered
       this.syncFieldToDOM(key, value);
+
+      // Re-evaluate dependencies & update dynamic UI
+      if (global.WishMagicDependencies && typeof global.WishMagicDependencies.evaluateAll === 'function' && currentSchema?.fields) {
+        const evaluated = global.WishMagicDependencies.evaluateAll(currentSchema.fields, currentData);
+        if (currentContainer) {
+          global.WishMagicDependencies.updateDOM(currentContainer, evaluated);
+        }
+      }
     },
 
     /**
@@ -706,25 +729,56 @@
         return { valid: true, errors: [] };
       }
 
+      // 1. Run WishMagicContent validator if available
+      if (global.WishMagicContent && typeof global.WishMagicContent.validate === 'function') {
+        const contentValidation = global.WishMagicContent.validate(currentData.content || currentData);
+        if (contentValidation && Array.isArray(contentValidation.errors)) {
+          contentValidation.errors.forEach(err => {
+            if (!errors.some(e => e.field === err.field)) {
+              errors.push(err);
+            }
+          });
+        }
+      }
+
       currentSchema.fields.forEach(field => {
         const val = currentData[field.key];
-        const isBlank = val === undefined || val === null || String(val).trim() === '';
+        const isBlank = val === undefined || val === null || String(val).trim() === '' || (Array.isArray(val) && val.length === 0);
 
         // Required check
         if (field.required && isBlank) {
-          errors.push({
-            field: field.key,
-            message: `${field.label} is required.`
-          });
+          if (!errors.some(e => e.field === field.key)) {
+            errors.push({
+              field: field.key,
+              code: 'REQUIRED',
+              message: `${field.label} is required.`
+            });
+          }
           return;
+        }
+
+        if (isBlank) return;
+
+        // Minlength check
+        if (field.minlength !== null && field.minlength !== undefined && typeof val === 'string' && val.length < field.minlength) {
+          if (!errors.some(e => e.field === field.key)) {
+            errors.push({
+              field: field.key,
+              code: 'MIN_LENGTH',
+              message: `${field.label} must be at least ${field.minlength} characters.`
+            });
+          }
         }
 
         // Maxlength check
         if (field.maxLength && val && String(val).length > field.maxLength) {
-          errors.push({
-            field: field.key,
-            message: `${field.label} exceeds maximum allowed length of ${field.maxLength} characters.`
-          });
+          if (!errors.some(e => e.field === field.key)) {
+            errors.push({
+              field: field.key,
+              code: 'MAX_LENGTH',
+              message: `${field.label} exceeds maximum allowed length of ${field.maxLength} characters.`
+            });
+          }
         }
 
         // Select allowed options check
@@ -732,10 +786,13 @@
           const allowedValues = field.options.map(o => o.value);
           if (field.type === 'select') {
             if (!allowedValues.includes(val)) {
-              errors.push({
-                field: field.key,
-                message: `Invalid option selected for ${field.label}.`
-              });
+              if (!errors.some(e => e.field === field.key)) {
+                errors.push({
+                  field: field.key,
+                  code: 'INVALID_OPTION',
+                  message: `Invalid option selected for ${field.label}.`
+                });
+              }
             }
           }
         }
@@ -923,43 +980,58 @@
 
       html += `</div>`;
       target.innerHTML = html;
+
+      // Initial dependency evaluation and DOM update
+      if (global.WishMagicDependencies && typeof global.WishMagicDependencies.evaluateAll === 'function' && currentSchema?.fields) {
+        const evaluated = global.WishMagicDependencies.evaluateAll(currentSchema.fields, currentData);
+        global.WishMagicDependencies.updateDOM(target, evaluated);
+      }
     },
 
     /**
      * Render individual field controls
      */
     renderFieldControl(field) {
-      const val = currentData[field.key] !== undefined && currentData[field.key] !== null ? currentData[field.key] : '';
-      const reqIndicator = field.required ? '<span class="text-pink-500 font-bold ml-0.5">*</span>' : '';
+      const val = currentData[field.key] !== undefined && currentData[field.key] !== null ? currentData[field.key] : (field.defaultValue || '');
+      const reqIndicator = field.required ? '<span class="text-pink-500 font-bold ml-0.5" aria-hidden="true">*</span>' : '';
+      const visibleAttr = field.visibleIf ? `data-wm-visible-if="${escapeHTML(field.visibleIf)}"` : '';
 
       switch (field.type) {
         case 'text':
         case 'phone':
         case 'email':
-        case 'url':
+        case 'url': {
+          const max = field.maxLength || null;
+          const len = String(val).length;
           return `
-            <div class="wm-control-wrapper flex flex-col gap-1.5">
-              <label for="wm-field-${escapeHTML(field.key)}" class="text-xs font-bold text-purple-900 dark:text-purple-200">
-                ${escapeHTML(field.label)} ${reqIndicator}
-              </label>
+            <div class="wm-control-wrapper flex flex-col gap-1.5" ${visibleAttr}>
+              <div class="flex items-center justify-between">
+                <label for="wm-field-${escapeHTML(field.key)}" class="text-xs font-bold text-purple-900 dark:text-purple-200">
+                  ${escapeHTML(field.label)} ${reqIndicator}
+                </label>
+                ${max ? `<span data-wm-charcount-for="${escapeHTML(field.key)}" data-wm-max="${max}" class="text-[10px] font-mono text-purple-600 dark:text-purple-400">${len} / ${max}</span>` : ''}
+              </div>
               <input
                 id="wm-field-${escapeHTML(field.key)}"
                 data-wm-control-for="${escapeHTML(field.key)}"
                 type="${field.type === 'phone' ? 'tel' : field.type === 'email' ? 'email' : field.type === 'url' ? 'url' : 'text'}"
                 value="${escapeHTML(val)}"
                 placeholder="${escapeHTML(field.placeholder || 'Enter ' + field.label.toLowerCase())}"
-                ${field.maxLength ? `maxlength="${field.maxLength}"` : ''}
+                ${max ? `maxlength="${max}"` : ''}
+                ${field.required ? 'aria-required="true" required' : ''}
+                aria-label="${escapeHTML(field.label)}"
                 class="w-full text-xs sm:text-sm font-semibold rounded-2xl border border-purple-200/80 dark:border-purple-800/60 px-4 py-3 bg-white dark:bg-purple-950/60 text-purple-950 dark:text-purple-100 focus:outline-none focus:ring-2 focus:ring-pink-500 transition shadow-inner"
                 oninput="window.WishMagicCustomizer.setValue('${escapeHTML(field.key)}', this.value)"
               />
             </div>
           `;
+        }
 
         case 'textarea': {
           const max = field.maxLength || 500;
           const len = String(val).length;
           return `
-            <div class="wm-control-wrapper flex flex-col gap-1.5">
+            <div class="wm-control-wrapper flex flex-col gap-1.5" ${visibleAttr}>
               <div class="flex items-center justify-between">
                 <label for="wm-field-${escapeHTML(field.key)}" class="text-xs font-bold text-purple-900 dark:text-purple-200">
                   ${escapeHTML(field.label)} ${reqIndicator}
@@ -973,6 +1045,8 @@
                 data-wm-control-for="${escapeHTML(field.key)}"
                 rows="4"
                 maxlength="${max}"
+                ${field.required ? 'aria-required="true" required' : ''}
+                aria-label="${escapeHTML(field.label)}"
                 placeholder="${escapeHTML(field.placeholder || 'Write your message here...')}"
                 class="w-full text-xs sm:text-sm font-medium rounded-2xl border border-purple-200/80 dark:border-purple-800/60 p-4 bg-white dark:bg-purple-950/60 text-purple-950 dark:text-purple-100 focus:outline-none focus:ring-2 focus:ring-pink-500 transition shadow-inner leading-relaxed"
                 oninput="window.WishMagicCustomizer.setValue('${escapeHTML(field.key)}', this.value)"
@@ -985,7 +1059,7 @@
         case 'time':
         case 'datetime':
           return `
-            <div class="wm-control-wrapper flex flex-col gap-1.5">
+            <div class="wm-control-wrapper flex flex-col gap-1.5" ${visibleAttr}>
               <label for="wm-field-${escapeHTML(field.key)}" class="text-xs font-bold text-purple-900 dark:text-purple-200">
                 ${escapeHTML(field.label)} ${reqIndicator}
               </label>
@@ -994,38 +1068,70 @@
                 data-wm-control-for="${escapeHTML(field.key)}"
                 type="${field.type === 'datetime' ? 'datetime-local' : field.type === 'time' ? 'time' : 'date'}"
                 value="${escapeHTML(val)}"
+                ${field.required ? 'aria-required="true" required' : ''}
+                aria-label="${escapeHTML(field.label)}"
                 class="w-full text-xs sm:text-sm font-semibold rounded-2xl border border-purple-200/80 dark:border-purple-800/60 px-4 py-3 bg-white dark:bg-purple-950/60 text-purple-950 dark:text-purple-100 focus:outline-none focus:ring-2 focus:ring-pink-500 transition shadow-inner cursor-pointer"
                 onchange="window.WishMagicCustomizer.setValue('${escapeHTML(field.key)}', this.value)"
               />
             </div>
           `;
 
-        case 'number':
-        case 'range':
+        case 'number': {
+          const min = field.min !== null ? `min="${field.min}"` : '';
+          const max = field.max !== null ? `max="${field.max}"` : '';
+          const step = field.step !== null ? `step="${field.step}"` : '';
           return `
-            <div class="wm-control-wrapper flex flex-col gap-1.5">
+            <div class="wm-control-wrapper flex flex-col gap-1.5" ${visibleAttr}>
+              <label for="wm-field-${escapeHTML(field.key)}" class="text-xs font-bold text-purple-900 dark:text-purple-200">
+                ${escapeHTML(field.label)} ${reqIndicator}
+              </label>
+              <input
+                id="wm-field-${escapeHTML(field.key)}"
+                data-wm-control-for="${escapeHTML(field.key)}"
+                type="number"
+                value="${escapeHTML(val)}"
+                ${min} ${max} ${step}
+                ${field.required ? 'aria-required="true" required' : ''}
+                aria-label="${escapeHTML(field.label)}"
+                class="w-full text-xs sm:text-sm font-semibold rounded-2xl border border-purple-200/80 dark:border-purple-800/60 px-4 py-3 bg-white dark:bg-purple-950/60 text-purple-950 dark:text-purple-100 focus:outline-none focus:ring-2 focus:ring-pink-500 transition shadow-inner"
+                oninput="window.WishMagicCustomizer.setValue('${escapeHTML(field.key)}', Number(this.value))"
+              />
+            </div>
+          `;
+        }
+
+        case 'range': {
+          const minVal = field.min !== null ? field.min : 0;
+          const maxVal = field.max !== null ? field.max : 100;
+          const stepVal = field.step !== null ? field.step : 1;
+          const currentNum = val !== '' ? val : minVal;
+          return `
+            <div class="wm-control-wrapper flex flex-col gap-1.5" ${visibleAttr}>
               <div class="flex items-center justify-between">
                 <label for="wm-field-${escapeHTML(field.key)}" class="text-xs font-bold text-purple-900 dark:text-purple-200">
                   ${escapeHTML(field.label)} ${reqIndicator}
                 </label>
-                <span id="wm-range-val-${escapeHTML(field.key)}" class="text-xs font-mono font-bold text-pink-500">${val || '50'}</span>
+                <span id="wm-range-val-${escapeHTML(field.key)}" class="text-xs font-mono font-bold text-pink-500">${currentNum}</span>
               </div>
               <input
                 id="wm-field-${escapeHTML(field.key)}"
                 data-wm-control-for="${escapeHTML(field.key)}"
-                type="${field.type === 'range' ? 'range' : 'number'}"
-                value="${escapeHTML(val || '50')}"
-                min="0"
-                max="100"
+                type="range"
+                value="${escapeHTML(currentNum)}"
+                min="${minVal}"
+                max="${maxVal}"
+                step="${stepVal}"
+                aria-label="${escapeHTML(field.label)}"
                 class="w-full h-2 rounded-lg appearance-none bg-purple-200 dark:bg-purple-800 accent-pink-500 cursor-pointer"
                 oninput="document.getElementById('wm-range-val-${escapeHTML(field.key)}').textContent = this.value; window.WishMagicCustomizer.setValue('${escapeHTML(field.key)}', Number(this.value));"
               />
             </div>
           `;
+        }
 
         case 'color':
           return `
-            <div class="wm-control-wrapper flex items-center justify-between p-3 rounded-2xl bg-purple-50/60 dark:bg-purple-900/30 border border-purple-100/80 dark:border-purple-800/40">
+            <div class="wm-control-wrapper flex items-center justify-between p-3 rounded-2xl bg-purple-50/60 dark:bg-purple-900/30 border border-purple-100/80 dark:border-purple-800/40" ${visibleAttr}>
               <label for="wm-field-${escapeHTML(field.key)}" class="text-xs font-bold text-purple-900 dark:text-purple-200">
                 ${escapeHTML(field.label)} ${reqIndicator}
               </label>
@@ -1034,6 +1140,7 @@
                 data-wm-control-for="${escapeHTML(field.key)}"
                 type="color"
                 value="${escapeHTML(val || '#ec4899')}"
+                aria-label="${escapeHTML(field.label)}"
                 class="w-9 h-9 rounded-xl border-0 cursor-pointer bg-transparent"
                 onchange="window.WishMagicCustomizer.setValue('${escapeHTML(field.key)}', this.value)"
               />
@@ -1042,13 +1149,14 @@
 
         case 'select':
           return `
-            <div class="wm-control-wrapper flex flex-col gap-1.5">
+            <div class="wm-control-wrapper flex flex-col gap-1.5" ${visibleAttr}>
               <label for="wm-field-${escapeHTML(field.key)}" class="text-xs font-bold text-purple-900 dark:text-purple-200">
                 ${escapeHTML(field.label)} ${reqIndicator}
               </label>
               <select
                 id="wm-field-${escapeHTML(field.key)}"
                 data-wm-control-for="${escapeHTML(field.key)}"
+                aria-label="${escapeHTML(field.label)}"
                 class="w-full text-xs sm:text-sm font-semibold rounded-2xl border border-purple-200/80 dark:border-purple-800/60 px-4 py-3 bg-white dark:bg-purple-950/60 text-purple-950 dark:text-purple-100 focus:outline-none focus:ring-2 focus:ring-pink-500 transition shadow-inner cursor-pointer"
                 onchange="window.WishMagicCustomizer.setValue('${escapeHTML(field.key)}', this.value)"
               >
@@ -1057,9 +1165,42 @@
             </div>
           `;
 
+        case 'multiselect': {
+          const selectedList = Array.isArray(val) ? val : (val ? [val] : []);
+          return `
+            <div class="wm-control-wrapper flex flex-col gap-2" ${visibleAttr}>
+              <label class="text-xs font-bold text-purple-900 dark:text-purple-200">
+                ${escapeHTML(field.label)} ${reqIndicator}
+              </label>
+              <div class="flex flex-wrap gap-2">
+                ${(field.options || []).map(opt => {
+                  const isChecked = selectedList.includes(opt.value);
+                  return `
+                    <label class="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-medium cursor-pointer border transition ${isChecked ? 'bg-pink-500 text-white border-pink-500' : 'bg-purple-50 dark:bg-purple-900/40 text-purple-900 dark:text-purple-200 border-purple-200 dark:border-purple-800'}">
+                      <input
+                        type="checkbox"
+                        value="${escapeHTML(opt.value)}"
+                        ${isChecked ? 'checked' : ''}
+                        class="sr-only"
+                        onchange="
+                          const currentArr = Array.isArray(window.WishMagicCustomizer.getValue('${escapeHTML(field.key)}')) ? [...window.WishMagicCustomizer.getValue('${escapeHTML(field.key)}')] : [];
+                          if (this.checked) { if (!currentArr.includes('${escapeHTML(opt.value)}')) currentArr.push('${escapeHTML(opt.value)}'); }
+                          else { const idx = currentArr.indexOf('${escapeHTML(opt.value)}'); if (idx !== -1) currentArr.splice(idx, 1); }
+                          window.WishMagicCustomizer.setValue('${escapeHTML(field.key)}', currentArr);
+                        "
+                      />
+                      <span>${escapeHTML(opt.label)}</span>
+                    </label>
+                  `;
+                }).join('')}
+              </div>
+            </div>
+          `;
+        }
+
         case 'toggle':
           return `
-            <div class="wm-control-wrapper flex items-center justify-between p-3 rounded-2xl bg-purple-50/60 dark:bg-purple-900/30 border border-purple-100/80 dark:border-purple-800/40">
+            <div class="wm-control-wrapper flex items-center justify-between p-3 rounded-2xl bg-purple-50/60 dark:bg-purple-900/30 border border-purple-100/80 dark:border-purple-800/40" ${visibleAttr}>
               <div>
                 <p class="text-xs font-bold text-purple-950 dark:text-purple-100">${escapeHTML(field.label)} ${reqIndicator}</p>
               </div>
@@ -1069,6 +1210,7 @@
                   data-wm-control-for="${escapeHTML(field.key)}"
                   type="checkbox"
                   class="sr-only peer"
+                  aria-label="${escapeHTML(field.label)}"
                   ${val ? 'checked' : ''}
                   onchange="window.WishMagicCustomizer.setValue('${escapeHTML(field.key)}', this.checked)"
                 />
@@ -1076,6 +1218,56 @@
               </label>
             </div>
           `;
+
+        case 'font': {
+          const fonts = [
+            { value: 'Inter, sans-serif', label: 'Inter' },
+            { value: "'Playfair Display', serif", label: 'Playfair Display' },
+            { value: "'Dancing Script', cursive", label: 'Dancing Script' },
+            { value: "'Great Vibes', cursive", label: 'Great Vibes' },
+            { value: "'Poppins', sans-serif", label: 'Poppins' },
+            { value: "'Caveat', cursive", label: 'Caveat' },
+            { value: "'Pacifico', cursive", label: 'Pacifico' },
+            { value: "'Cinzel', serif", label: 'Cinzel' },
+            { value: "'Satisfy', cursive", label: 'Satisfy' }
+          ];
+          const currentFont = String(val || fonts[0].value);
+          return `
+            <div class="wm-control-wrapper flex flex-col gap-1.5" ${visibleAttr}>
+              <label for="wm-field-${escapeHTML(field.key)}" class="text-xs font-bold text-purple-900 dark:text-purple-200">
+                ${escapeHTML(field.label)} ${reqIndicator}
+              </label>
+              <select
+                id="wm-field-${escapeHTML(field.key)}"
+                data-wm-control-for="${escapeHTML(field.key)}"
+                aria-label="${escapeHTML(field.label)}"
+                class="w-full text-xs sm:text-sm font-semibold rounded-2xl border border-purple-200/80 dark:border-purple-800/60 px-4 py-3 bg-white dark:bg-purple-950/60 text-purple-950 dark:text-purple-100 focus:outline-none focus:ring-2 focus:ring-pink-500 transition shadow-inner cursor-pointer"
+                onchange="window.WishMagicCustomizer.setValue('${escapeHTML(field.key)}', this.value)"
+              >
+                ${fonts.map(f => `<option value="${escapeHTML(f.value)}" ${f.value === currentFont ? 'selected' : ''}>${escapeHTML(f.label)}</option>`).join('')}
+              </select>
+            </div>
+          `;
+        }
+
+        case 'icon': {
+          const icons = ['❤️', '🎂', '🎉', '🌟', '💍', '🌸', '🎁', '🕊️', '🥂', '🎈', '💖', '👑', '✨', '🌺'];
+          const currentIcon = String(val || icons[0]);
+          return `
+            <div class="wm-control-wrapper flex flex-col gap-1.5" ${visibleAttr}>
+              <label class="text-xs font-bold text-purple-900 dark:text-purple-200">
+                ${escapeHTML(field.label)} ${reqIndicator}
+              </label>
+              <div class="grid grid-cols-7 gap-1.5 p-2 bg-purple-50/50 dark:bg-purple-900/30 rounded-2xl border border-purple-100 dark:border-purple-800/50">
+                ${icons.map(ic => `
+                  <button type="button" class="w-8 h-8 rounded-xl flex items-center justify-center text-base transition ${ic === currentIcon ? 'bg-pink-500 text-white shadow-sm' : 'hover:bg-purple-200/60 dark:hover:bg-purple-800'}" onclick="window.WishMagicCustomizer.setValue('${escapeHTML(field.key)}', '${escapeHTML(ic)}')">
+                    ${escapeHTML(ic)}
+                  </button>
+                `).join('')}
+              </div>
+            </div>
+          `;
+        }
 
         case 'image':
           return `

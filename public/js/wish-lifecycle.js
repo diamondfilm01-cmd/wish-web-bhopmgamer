@@ -73,7 +73,7 @@
 
     // 1. Extract special date
     const customData = wish.customData || wish;
-    const dateStr = wish.eventDate || customData.event_date || customData.eventDate || customData.target_date || customData.targetDate;
+    const dateStr = wish.eventDate || wish.event_date || (wish.content && (wish.content.event_date || wish.content.eventDate)) || customData.event_date || customData.eventDate || customData.target_date || customData.targetDate || (customData.content && (customData.content.event_date || customData.content.eventDate));
 
     if (!dateStr) {
       // Fallback: if no date is set on a published wish, check creation time or default to active

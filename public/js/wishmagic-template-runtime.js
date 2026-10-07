@@ -123,9 +123,16 @@
 
       const mergedData = { ...runtimeState, ...data };
 
-      // Apply each field
+      const skipDirectUpdateKeys = new Set([
+        'content', 'media', 'mediaSettings', 'sections', 'sectionOrder',
+        'visual', 'theme', 'colors', 'animations', 'particles', 'typography', 'event'
+      ]);
+
+      // Apply each scalar field
       Object.keys(mergedData).forEach(key => {
-        this.updateField(key, mergedData[key], source);
+        if (!skipDirectUpdateKeys.has(key)) {
+          this.updateField(key, mergedData[key], source);
+        }
       });
 
       // Special handling for photo lists
@@ -172,11 +179,32 @@
         });
       }
 
+      // Special handling for WishMagicData.content (Part 9)
+      if (mergedData.content && typeof mergedData.content === 'object') {
+        Object.keys(mergedData.content).forEach(key => {
+          this.updateField(key, mergedData.content[key], source);
+        });
+      }
+
+      // Special handling for WishMagicData.event (Part 9 / Countdown)
+      if (mergedData.event && typeof mergedData.event === 'object') {
+        const ev = mergedData.event;
+        if (ev.date) this.updateCountdown(ev.date, ev.time, ev.timezone);
+      }
+
       // Special handling for WishMagicData.mediaSettings (Part 8 - Spec 77)
       if (mergedData.mediaSettings && typeof mergedData.mediaSettings === 'object') {
         Object.keys(mergedData.mediaSettings).forEach(mediaId => {
           this.updateMediaSettings(mediaId, mergedData.mediaSettings[mediaId]);
         });
+      }
+
+      // Refresh dynamic {{tokens}} across document safely
+      if (global.WishMagicContent && typeof global.WishMagicContent.renderTokens === 'function') {
+        try {
+          const doc = getDocument();
+          if (doc) global.WishMagicContent.renderTokens(doc, mergedData.content || mergedData);
+        } catch (e) {}
       }
 
       emitEvent('wishmagic:state-applied', { source });
@@ -190,6 +218,10 @@
       if (!key || !doc) return;
 
       runtimeState[key] = value;
+      if (key !== 'content' && (typeof value !== 'object' || Array.isArray(value))) {
+        if (!runtimeState.content) runtimeState.content = {};
+        runtimeState.content[key] = value;
+      }
 
       // Check optional template hook
       if (global.WishMagicTemplateHooks && typeof global.WishMagicTemplateHooks.onFieldUpdate === 'function') {
@@ -205,10 +237,15 @@
       }
 
       const elements = doc.querySelectorAll(`[data-wm-field="${key}"], [data-wm="${key}"]`);
-      if (elements.length === 0) return;
-
       elements.forEach(el => {
         const type = el.getAttribute('data-wm-type') || (el.tagName === 'IMG' ? 'image' : el.tagName === 'AUDIO' ? 'audio' : el.tagName === 'VIDEO' ? 'video' : 'text');
+        const format = el.getAttribute('data-wm-format');
+        const target = el.getAttribute('data-wm-target') || 'text';
+
+        let displayValue = value;
+        if (format && (type === 'date' || type === 'datetime') && global.WishMagicContent && typeof global.WishMagicContent.formatValue === 'function') {
+          displayValue = global.WishMagicContent.formatValue(key, value, format);
+        }
 
         switch (type) {
           case 'image':
@@ -247,28 +284,46 @@
             else if (key.includes('accent')) document.documentElement.style.setProperty('--wm-accent', value);
             break;
 
+          case 'toggle':
+            if (el.tagName === 'INPUT' && el.type === 'checkbox') {
+              el.checked = Boolean(value);
+            } else {
+              setTextSafe(el, value ? 'Yes' : 'No');
+            }
+            break;
+
           case 'text':
           case 'textarea':
           case 'date':
           case 'time':
           case 'datetime':
           default:
-            if (key === 'sender_name') {
-              setTextSafe(el, value ? `— ${value}` : '— Someone Special');
+            if (target && target.startsWith('attr:')) {
+              const attrName = target.slice(5).trim();
+              if (attrName) el.setAttribute(attrName, displayValue !== undefined && displayValue !== null ? String(displayValue) : '');
+            } else if (key === 'sender_name') {
+              setTextSafe(el, displayValue ? `— ${displayValue}` : '— Someone Special');
             } else if (key === 'recipient_name') {
-              setTextSafe(el, value || 'Someone Special');
+              setTextSafe(el, displayValue || 'Someone Special');
             } else if (key === 'custom_message') {
-              setTextSafe(el, value || 'May your day be filled with warm magic, sparkling smiles, and infinite moments of joy!');
+              setTextSafe(el, displayValue || 'May your day be filled with warm magic, sparkling smiles, and infinite moments of joy!');
             } else {
-              setTextSafe(el, value);
+              setTextSafe(el, displayValue);
             }
             break;
         }
       });
 
-      // Handle countdown dependency if date changed
-      if (key === 'event_date') {
-        this.updateCountdown(value);
+      // Refresh dynamic {{tokens}} safely
+      if (global.WishMagicContent && typeof global.WishMagicContent.renderTokens === 'function') {
+        try {
+          global.WishMagicContent.renderTokens(doc, runtimeState.content || runtimeState);
+        } catch (e) {}
+      }
+
+      // Handle countdown dependency if date/time/timezone changed
+      if (key === 'event_date' || key === 'event_time' || key === 'timezone') {
+        this.updateCountdown(runtimeState.event_date || runtimeState.content?.event_date, runtimeState.event_time || runtimeState.content?.event_time, runtimeState.timezone || runtimeState.content?.timezone);
       }
 
       emitEvent('wishmagic:field-updated', { key, value, source });
@@ -1522,6 +1577,51 @@
           break;
         }
 
+        case 'WISHMAGIC_INIT':
+          if (payload.data) {
+            WishMagicRuntime.updateState(payload.data, 'init');
+          }
+          if (payload.schema && typeof WishMagicRuntime.setSchema === 'function') {
+            WishMagicRuntime.setSchema(payload.schema);
+          }
+          if (global.WishMagicRuntime && typeof global.WishMagicRuntime.onInit === 'function') {
+            try {
+              global.WishMagicRuntime.onInit(payload.data || {}, payload.schema || {});
+            } catch (e) {
+              console.warn('[WishMagicRuntime] Author onInit error:', e);
+            }
+          }
+          break;
+
+        case 'WISHMAGIC_CONTENT':
+          if (payload && typeof payload === 'object') {
+            Object.keys(payload).forEach(k => WishMagicRuntime.updateField(k, payload[k]));
+          }
+          break;
+
+        case 'WISHMAGIC_PARTICLES':
+          if (typeof WishMagicRuntime.updateParticles === 'function') {
+            WishMagicRuntime.updateParticles(payload.effect || payload.particles || payload.value, payload.intensity);
+          }
+          break;
+
+        case 'WISHMAGIC_DESTROY':
+          WishMagicRuntime.destroy();
+          if (global.WishMagicRuntime && typeof global.WishMagicRuntime.onDestroy === 'function') {
+            try {
+              global.WishMagicRuntime.onDestroy();
+            } catch (e) {}
+          }
+          break;
+
+        case 'WISHMAGIC_PING':
+          try {
+            if (window.parent && window.parent !== window) {
+              window.parent.postMessage({ source: 'wishmagic', version: PROTOCOL_VERSION, type: 'WISHMAGIC_PONG' }, '*');
+            }
+          } catch (e) {}
+          break;
+
         case 'WISHMAGIC_RESET':
           WishMagicRuntime.reset();
           break;
@@ -1530,13 +1630,55 @@
 
     if (typeof window.addEventListener === 'function') {
       window.addEventListener('message', boundMessageListener);
+
+      // Part 13 Error Isolation: Catch unhandled errors and report structured diagnostic to parent
+      window.addEventListener('error', function (evt) {
+        try {
+          const errPayload = {
+            code: 'RUNTIME_SCRIPT_ERROR',
+            message: evt.message || 'Unknown runtime error',
+            filename: evt.filename ? evt.filename.split('/').pop() : '',
+            lineno: evt.lineno || 0,
+            stage: 'runtime'
+          };
+          if (window.parent && window.parent !== window) {
+            window.parent.postMessage({
+              source: 'wishmagic',
+              version: PROTOCOL_VERSION,
+              type: 'WISHMAGIC_ERROR',
+              payload: errPayload
+            }, '*');
+          }
+        } catch (e) {}
+      });
+
+      window.addEventListener('unhandledrejection', function (evt) {
+        try {
+          const errPayload = {
+            code: 'RUNTIME_PROMISE_REJECTION',
+            message: evt.reason ? (evt.reason.message || String(evt.reason)) : 'Unhandled promise rejection',
+            stage: 'async'
+          };
+          if (window.parent && window.parent !== window) {
+            window.parent.postMessage({
+              source: 'wishmagic',
+              version: PROTOCOL_VERSION,
+              type: 'WISHMAGIC_ERROR',
+              payload: errPayload
+            }, '*');
+          }
+        } catch (e) {}
+      });
     }
 
     // Send READY signal to parent customizer on load
     function signalReady() {
       const readyMsg = {
+        source: 'wishmagic',
+        version: PROTOCOL_VERSION,
         protocol: PROTOCOL_VERSION,
-        type: 'WISHMAGIC_READY'
+        type: 'WISHMAGIC_READY',
+        timestamp: Date.now()
       };
 
       try {
