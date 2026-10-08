@@ -4,6 +4,27 @@
  * Part 28: Full Frontend <-> Worker API Contract & End-to-End Regression Lock
  */
 
+import {
+  executeB2TemplateIngestPipeline,
+  validateZipMagicBytes,
+  extractAndVerifyZip
+} from './template-ingest-pipeline.js';
+import {
+  B2StorageProvider,
+  getB2Config,
+  buildTemplateStorageKeys,
+  getMimeType
+} from './storage-provider.js';
+import {
+  ImgBBProvider,
+  getImgBBConfig,
+  validateImageBuffer,
+  parseImageDimensions,
+  resolveSlotImage,
+  checkImageDeletionSafety,
+  IMAGE_LIMITS
+} from './imgbb-provider.js';
+
 // Timezone Constant: Strictly Asia/Kolkata (IST = UTC+05:30)
 const IST_OFFSET_MS = 5.5 * 60 * 60 * 1000;
 const APP_VERSION = '1.0.0-p28';
@@ -782,7 +803,21 @@ async function verifyAndEnsureAuthSchema(db) {
           { name: 'default_config', def: 'TEXT' },
           { name: 'snapshot_data', def: 'TEXT' },
           { name: 'status', def: "TEXT DEFAULT 'active'" },
-          { name: 'created_by', def: "TEXT DEFAULT 'system'" }
+          { name: 'created_by', def: "TEXT DEFAULT 'system'" },
+          { name: 'template_family_id', def: 'TEXT' },
+          { name: 'version_label', def: "TEXT DEFAULT 'v1.0.0'" },
+          { name: 'source_zip_storage_key', def: 'TEXT' },
+          { name: 'runtime_root_storage_key', def: 'TEXT' },
+          { name: 'manifest_storage_key', def: 'TEXT' },
+          { name: 'schema_hash', def: 'TEXT' },
+          { name: 'runtime_hash', def: 'TEXT' },
+          { name: 'source_zip_hash', def: 'TEXT' },
+          { name: 'storage_provider', def: "TEXT DEFAULT 'b2'" },
+          { name: 'storage_bucket', def: 'TEXT' },
+          { name: 'storage_metadata_json', def: "TEXT DEFAULT '{}'" },
+          { name: 'error_message', def: 'TEXT' },
+          { name: 'published_at', def: 'TEXT' },
+          { name: 'archived_at', def: 'TEXT' }
         ]);
       }
 
@@ -1017,6 +1052,275 @@ async function verifyAndEnsureAuthSchema(db) {
           )
         `).run().catch(() => {});
       }
+
+      // 16. Part 19: Storage Providers Layer
+      if (!tableNames.has('storage_providers')) {
+        await db.prepare(`
+          CREATE TABLE IF NOT EXISTS storage_providers (
+            id TEXT PRIMARY KEY,
+            name TEXT NOT NULL,
+            provider_type TEXT NOT NULL,
+            status TEXT NOT NULL DEFAULT 'active',
+            config_json TEXT DEFAULT '{}',
+            created_at TEXT NOT NULL,
+            updated_at TEXT NOT NULL
+          )
+        `).run().catch(() => {});
+        await db.prepare(`
+          INSERT OR IGNORE INTO storage_providers (id, name, provider_type, status, config_json, created_at, updated_at) VALUES
+          ('imgbb', 'ImgBB Image Hosting', 'images', 'active', '{"max_mb":32,"allowed_mime":["image/jpeg","image/png","image/webp","image/gif"]}', '2026-10-08T00:00:00.000Z', '2026-10-08T00:00:00.000Z'),
+          ('b2', 'Backblaze B2 Cloud Storage', 'files', 'active', '{"bucket":"wishmagic-prod","allowed_mime":["text/html","text/css","application/javascript","audio/mpeg","audio/wav","audio/ogg"]}', '2026-10-08T00:00:00.000Z', '2026-10-08T00:00:00.000Z'),
+          ('r2', 'Cloudflare R2 Object Storage', 'hybrid', 'active', '{"bucket":"wishmagic-media"}', '2026-10-08T00:00:00.000Z', '2026-10-08T00:00:00.000Z')
+        `).run().catch(() => {});
+      }
+
+      // 17. Part 19: Template Families
+      if (!tableNames.has('template_families')) {
+        await db.prepare(`
+          CREATE TABLE IF NOT EXISTS template_families (
+            id TEXT PRIMARY KEY,
+            slug TEXT UNIQUE NOT NULL,
+            name TEXT NOT NULL,
+            description TEXT,
+            thumbnail TEXT NOT NULL DEFAULT '',
+            category TEXT NOT NULL DEFAULT 'celebration',
+            tier TEXT NOT NULL DEFAULT 'free',
+            price INTEGER NOT NULL DEFAULT 0,
+            is_featured INTEGER NOT NULL DEFAULT 0,
+            is_premium INTEGER NOT NULL DEFAULT 0,
+            status TEXT NOT NULL DEFAULT 'published',
+            visibility TEXT NOT NULL DEFAULT 'public',
+            created_by TEXT DEFAULT 'system',
+            created_at TEXT NOT NULL,
+            updated_at TEXT NOT NULL
+          )
+        `).run().catch(() => {});
+      }
+
+      // 18. Part 19: Normalized Relationships
+      if (!tableNames.has('relationships')) {
+        await db.prepare(`
+          CREATE TABLE IF NOT EXISTS relationships (
+            id TEXT PRIMARY KEY,
+            slug TEXT UNIQUE NOT NULL,
+            name TEXT NOT NULL,
+            display_name TEXT NOT NULL,
+            icon TEXT DEFAULT '❤️',
+            category TEXT DEFAULT 'general',
+            status TEXT NOT NULL DEFAULT 'active',
+            sort_order INTEGER NOT NULL DEFAULT 1,
+            created_at TEXT NOT NULL,
+            updated_at TEXT NOT NULL
+          )
+        `).run().catch(() => {});
+        await db.prepare(`
+          INSERT OR IGNORE INTO relationships (id, slug, name, display_name, icon, category, status, sort_order, created_at, updated_at) VALUES
+          ('rel_girlfriend', 'girlfriend', 'Girlfriend', 'Dearest Girlfriend', '💖', 'romantic', 'active', 1, '2026-10-08T00:00:00.000Z', '2026-10-08T00:00:00.000Z'),
+          ('rel_boyfriend', 'boyfriend', 'Boyfriend', 'Handsome Boyfriend', '💙', 'romantic', 'active', 2, '2026-10-08T00:00:00.000Z', '2026-10-08T00:00:00.000Z'),
+          ('rel_crush', 'crush', 'Crush', 'Secret Crush', '✨', 'romantic', 'active', 3, '2026-10-08T00:00:00.000Z', '2026-10-08T00:00:00.000Z'),
+          ('rel_wife', 'wife', 'Wife', 'Beloved Wife', '💍', 'romantic', 'active', 4, '2026-10-08T00:00:00.000Z', '2026-10-08T00:00:00.000Z'),
+          ('rel_husband', 'husband', 'Husband', 'Loving Husband', '👑', 'romantic', 'active', 5, '2026-10-08T00:00:00.000Z', '2026-10-08T00:00:00.000Z'),
+          ('rel_friend', 'friend', 'Friend', 'Best Friend Forever', '🎈', 'friends', 'active', 6, '2026-10-08T00:00:00.000Z', '2026-10-08T00:00:00.000Z'),
+          ('rel_mother', 'mother', 'Mother', 'Dearest Mummy / Mother', '🌸', 'family', 'active', 7, '2026-10-08T00:00:00.000Z', '2026-10-08T00:00:00.000Z'),
+          ('rel_father', 'father', 'Father', 'Respected Papa / Father', '🌟', 'family', 'active', 8, '2026-10-08T00:00:00.000Z', '2026-10-08T00:00:00.000Z'),
+          ('rel_brother', 'brother', 'Brother', 'Cherished Brother', '🚀', 'family', 'active', 9, '2026-10-08T00:00:00.000Z', '2026-10-08T00:00:00.000Z'),
+          ('rel_sister', 'sister', 'Sister', 'Sweet Sister', '🎀', 'family', 'active', 10, '2026-10-08T00:00:00.000Z', '2026-10-08T00:00:00.000Z'),
+          ('rel_parents', 'parents', 'Parents Tribute', 'Mom & Dad Together', '🌺', 'family', 'active', 11, '2026-10-08T00:00:00.000Z', '2026-10-08T00:00:00.000Z')
+        `).run().catch(() => {});
+      }
+
+      // 19. Part 19: Template <-> Relationships Many-to-Many
+      if (!tableNames.has('template_relationships')) {
+        await db.prepare(`
+          CREATE TABLE IF NOT EXISTS template_relationships (
+            id TEXT PRIMARY KEY,
+            template_id TEXT NOT NULL,
+            relationship_id TEXT NOT NULL,
+            template_family_id TEXT,
+            template_version_id TEXT,
+            enabled INTEGER NOT NULL DEFAULT 1,
+            sort_order INTEGER NOT NULL DEFAULT 1,
+            created_at TEXT NOT NULL,
+            FOREIGN KEY (template_id) REFERENCES templates(id) ON DELETE CASCADE,
+            FOREIGN KEY (relationship_id) REFERENCES relationships(id) ON DELETE RESTRICT
+          )
+        `).run().catch(() => {});
+      }
+
+      // 20. Part 19: Template Relationship Variants
+      if (!tableNames.has('template_relationship_variants')) {
+        await db.prepare(`
+          CREATE TABLE IF NOT EXISTS template_relationship_variants (
+            id TEXT PRIMARY KEY,
+            template_version_id TEXT NOT NULL,
+            relationship_id TEXT NOT NULL,
+            name TEXT NOT NULL,
+            configuration_json TEXT NOT NULL DEFAULT '{}',
+            schema_hash TEXT,
+            status TEXT NOT NULL DEFAULT 'active',
+            created_at TEXT NOT NULL,
+            updated_at TEXT NOT NULL,
+            FOREIGN KEY (template_version_id) REFERENCES template_versions(id) ON DELETE CASCADE,
+            FOREIGN KEY (relationship_id) REFERENCES relationships(id) ON DELETE RESTRICT
+          )
+        `).run().catch(() => {});
+      }
+
+      // 21. Part 19: Template Fields / Slots
+      if (!tableNames.has('template_fields')) {
+        await db.prepare(`
+          CREATE TABLE IF NOT EXISTS template_fields (
+            id TEXT PRIMARY KEY,
+            template_version_id TEXT NOT NULL,
+            field_key TEXT NOT NULL,
+            field_type TEXT NOT NULL,
+            label TEXT NOT NULL,
+            placeholder TEXT,
+            help_text TEXT,
+            is_required INTEGER NOT NULL DEFAULT 0,
+            default_value TEXT,
+            validation_json TEXT DEFAULT '{}',
+            capabilities_json TEXT DEFAULT '{}',
+            sort_order INTEGER NOT NULL DEFAULT 0,
+            group_name TEXT DEFAULT 'personal',
+            status TEXT NOT NULL DEFAULT 'active',
+            created_at TEXT NOT NULL,
+            FOREIGN KEY (template_version_id) REFERENCES template_versions(id) ON DELETE CASCADE
+          )
+        `).run().catch(() => {});
+      }
+
+      // 22. Part 19: Template Files (B2 Code References)
+      if (!tableNames.has('template_files')) {
+        await db.prepare(`
+          CREATE TABLE IF NOT EXISTS template_files (
+            id TEXT PRIMARY KEY,
+            template_version_id TEXT NOT NULL,
+            relative_path TEXT NOT NULL,
+            storage_provider TEXT NOT NULL DEFAULT 'b2',
+            storage_key TEXT NOT NULL,
+            mime_type TEXT NOT NULL,
+            size_bytes INTEGER NOT NULL DEFAULT 0,
+            sha256 TEXT,
+            file_role TEXT DEFAULT 'asset',
+            is_entry_file INTEGER NOT NULL DEFAULT 0,
+            status TEXT NOT NULL DEFAULT 'active',
+            created_at TEXT NOT NULL,
+            FOREIGN KEY (template_version_id) REFERENCES template_versions(id) ON DELETE CASCADE
+          )
+        `).run().catch(() => {});
+      }
+
+      // 23. Part 19: Template Image Assets (ImgBB References)
+      if (!tableNames.has('template_images')) {
+        await db.prepare(`
+          CREATE TABLE IF NOT EXISTS template_images (
+            id TEXT PRIMARY KEY,
+            template_version_id TEXT NOT NULL,
+            asset_key TEXT NOT NULL,
+            original_filename TEXT NOT NULL,
+            storage_provider TEXT NOT NULL DEFAULT 'imgbb',
+            provider_asset_id TEXT,
+            original_url TEXT NOT NULL,
+            display_url TEXT NOT NULL,
+            thumbnail_url TEXT,
+            relationship_id TEXT,
+            mime_type TEXT NOT NULL DEFAULT 'image/jpeg',
+            width INTEGER,
+            height INTEGER,
+            size_bytes INTEGER NOT NULL DEFAULT 0,
+            sha256 TEXT,
+            status TEXT NOT NULL DEFAULT 'active',
+            created_at TEXT NOT NULL,
+            updated_at TEXT NOT NULL,
+            FOREIGN KEY (template_version_id) REFERENCES template_versions(id) ON DELETE CASCADE,
+            FOREIGN KEY (relationship_id) REFERENCES relationships(id) ON DELETE SET NULL
+          )
+        `).run().catch(() => {});
+      }
+
+      // 24. Part 19: Centralized Music Library (B2 Audio Index)
+      if (!tableNames.has('music_library')) {
+        await db.prepare(`
+          CREATE TABLE IF NOT EXISTS music_library (
+            id TEXT PRIMARY KEY,
+            title TEXT NOT NULL,
+            artist TEXT DEFAULT 'WishMagic Studio',
+            description TEXT,
+            category TEXT NOT NULL DEFAULT 'celebration',
+            relationship_suitability TEXT DEFAULT '[]',
+            storage_provider TEXT NOT NULL DEFAULT 'b2',
+            storage_key TEXT NOT NULL,
+            playback_url TEXT NOT NULL,
+            mime_type TEXT NOT NULL DEFAULT 'audio/mpeg',
+            duration_seconds INTEGER DEFAULT 0,
+            size_bytes INTEGER NOT NULL DEFAULT 0,
+            status TEXT NOT NULL DEFAULT 'active',
+            is_featured INTEGER NOT NULL DEFAULT 0,
+            created_by TEXT DEFAULT 'system',
+            created_at TEXT NOT NULL,
+            updated_at TEXT NOT NULL
+          )
+        `).run().catch(() => {});
+        await db.prepare(`
+          INSERT OR IGNORE INTO music_library (id, title, artist, description, category, relationship_suitability, storage_provider, storage_key, playback_url, mime_type, duration_seconds, size_bytes, status, is_featured, created_at, updated_at) VALUES
+          ('mus_celebration_strings', 'Celebration Acoustic Strings', 'WishMagic Ensemble', 'Uplifting joyful strings and acoustic melody', 'celebration', '["friend","brother","sister","parents"]', 'b2', 'music/celebration-acoustic-strings.mp3', 'https://assets.wishmagic.live/music/celebration-strings.mp3', 'audio/mpeg', 160, 3145728, 'active', 1, '2026-10-08T00:00:00.000Z', '2026-10-08T00:00:00.000Z'),
+          ('mus_romantic_piano', 'Romantic Midnight Piano', 'WishMagic Serenades', 'Gentle lyrical piano ballad for intimate celebrations', 'romantic', '["girlfriend","boyfriend","crush","wife","husband"]', 'b2', 'music/romantic-midnight-piano.mp3', 'https://assets.wishmagic.live/music/romantic-piano.mp3', 'audio/mpeg', 180, 4194304, 'active', 1, '2026-10-08T00:00:00.000Z', '2026-10-08T00:00:00.000Z'),
+          ('mus_golden_elegance', 'Golden Nostalgia & Acoustic Cello', 'WishMagic Classical', 'Warm acoustic guitar and cello honoring parents and family', 'peaceful', '["mother","father","parents","wife","husband"]', 'b2', 'music/golden-nostalgia-cello.mp3', 'https://assets.wishmagic.live/music/golden-nostalgia.mp3', 'audio/mpeg', 210, 5242880, 'active', 1, '2026-10-08T00:00:00.000Z', '2026-10-08T00:00:00.000Z')
+        `).run().catch(() => {});
+      }
+
+      // 25. Part 19: Template <-> Music Mappings
+      if (!tableNames.has('template_music')) {
+        await db.prepare(`
+          CREATE TABLE IF NOT EXISTS template_music (
+            id TEXT PRIMARY KEY,
+            template_version_id TEXT NOT NULL,
+            music_id TEXT NOT NULL,
+            relationship_variant_id TEXT,
+            is_default INTEGER NOT NULL DEFAULT 0,
+            sort_order INTEGER NOT NULL DEFAULT 0,
+            enabled INTEGER NOT NULL DEFAULT 1,
+            created_at TEXT NOT NULL,
+            FOREIGN KEY (template_version_id) REFERENCES template_versions(id) ON DELETE CASCADE,
+            FOREIGN KEY (music_id) REFERENCES music_library(id) ON DELETE RESTRICT,
+            FOREIGN KEY (relationship_variant_id) REFERENCES template_relationship_variants(id) ON DELETE SET NULL
+          )
+        `).run().catch(() => {});
+      }
+
+      // 26. Part 19: Wish Media Mappings (Critical Wish Slot Resolver)
+      if (!tableNames.has('wish_media_mappings')) {
+        await db.prepare(`
+          CREATE TABLE IF NOT EXISTS wish_media_mappings (
+            id TEXT PRIMARY KEY,
+            wish_id TEXT NOT NULL,
+            template_version_id TEXT,
+            field_key TEXT NOT NULL,
+            media_id TEXT NOT NULL,
+            section_key TEXT,
+            sort_order INTEGER NOT NULL DEFAULT 0,
+            created_at TEXT NOT NULL,
+            updated_at TEXT NOT NULL,
+            FOREIGN KEY (wish_id) REFERENCES wishes(id) ON DELETE CASCADE,
+            FOREIGN KEY (media_id) REFERENCES wish_media(id) ON DELETE CASCADE
+          )
+        `).run().catch(() => {});
+      }
+
+      // 27. Part 21: Additive column reconciliations for ImgBB Image Management
+      await db.prepare('ALTER TABLE template_images ADD COLUMN template_id TEXT').run().catch(() => {});
+      await db.prepare('ALTER TABLE template_images ADD COLUMN delete_url TEXT').run().catch(() => {});
+      await db.prepare("ALTER TABLE wish_media ADD COLUMN storage_provider TEXT DEFAULT 'imgbb'").run().catch(() => {});
+      await db.prepare('ALTER TABLE wish_media ADD COLUMN provider_asset_id TEXT').run().catch(() => {});
+      await db.prepare('ALTER TABLE wish_media ADD COLUMN display_url TEXT').run().catch(() => {});
+      await db.prepare('ALTER TABLE wish_media ADD COLUMN thumbnail_url TEXT').run().catch(() => {});
+      await db.prepare('ALTER TABLE wish_media ADD COLUMN delete_url TEXT').run().catch(() => {});
+      await db.prepare('ALTER TABLE wish_media ADD COLUMN sha256 TEXT').run().catch(() => {});
+      await db.prepare('ALTER TABLE wish_media ADD COLUMN width INTEGER').run().catch(() => {});
+      await db.prepare('ALTER TABLE wish_media ADD COLUMN height INTEGER').run().catch(() => {});
+      await db.prepare("ALTER TABLE wish_media ADD COLUMN status TEXT DEFAULT 'active'").run().catch(() => {});
+      await db.prepare('ALTER TABLE wish_media ADD COLUMN updated_at TEXT').run().catch(() => {});
 
       authSchemaVerified = true;
       schemaInitialized = true;
@@ -3798,6 +4102,34 @@ export default {
           templates = templates.filter(t => t.tier === tierFilter || (tierFilter === 'vip' && t.isPremium));
         }
 
+        // Part 19: Filter by Relationship (e.g. ?relationship=girlfriend or ?relationship=rel_girlfriend)
+        const relFilter = url.searchParams.get('relationship');
+        if (relFilter && relFilter !== 'all') {
+          const cleanRel = sanitizeString(relFilter.toLowerCase().trim(), 60);
+          if (env.DB && typeof env.DB.prepare === 'function') {
+            try {
+              const relRows = await env.DB.prepare(
+                `SELECT tr.template_id 
+                 FROM template_relationships tr
+                 JOIN relationships r ON tr.relationship_id = r.id
+                 WHERE tr.enabled = 1 AND (LOWER(r.slug) = ? OR LOWER(r.id) = ?)`
+              ).bind(cleanRel, cleanRel).all();
+              if (relRows.results && relRows.results.length > 0) {
+                const allowedTplIds = new Set(relRows.results.map(r => r.template_id));
+                templates = templates.filter(t => allowedTplIds.has(t.id));
+              } else {
+                // Check if templates themselves define relationships in their records
+                templates = templates.filter(t => {
+                  if (t.relationships && Array.isArray(t.relationships)) {
+                    return t.relationships.some(r => String(r).toLowerCase().includes(cleanRel));
+                  }
+                  return true;
+                });
+              }
+            } catch (e) {}
+          }
+        }
+
         const searchFilter = url.searchParams.get('search');
         if (searchFilter) {
           const q = searchFilter.toLowerCase();
@@ -3907,11 +4239,496 @@ export default {
         const isAdmin = await verifyAdminRole(user, env);
         if (!isAdmin) return applySecurityHeaders(jsonError('FORBIDDEN', 'Admin role required', 403), request, env);
 
-        const body = await request.json().catch(() => ({}));
-        const name = sanitizeString(body.title || body.name, 80);
-        const templateId = sanitizeString(body.id || `tpl_${slugify(name)}`, 60);
+        // Check if B2 storage is configured
+        const b2Config = getB2Config(env);
 
-        response = jsonSuccess({ success: true, templateId, message: 'Template successfully deployed.' }, 201, {}, requestId);
+        const contentType = request.headers.get('content-type') || '';
+        let zipBuffer = null;
+        let templateMeta = {};
+
+        if (contentType.includes('multipart/form-data')) {
+          try {
+            const formData = await request.formData();
+            const file = formData.get('file') || formData.get('zip') || formData.get('template_zip');
+            if (file && typeof file.arrayBuffer === 'function') {
+              const ab = await file.arrayBuffer();
+              zipBuffer = new Uint8Array(ab);
+            }
+            templateMeta = {
+              name: sanitizeString(formData.get('name') || formData.get('title') || 'Custom Template', 80),
+              category: sanitizeString(formData.get('category') || 'celebration', 50),
+              tier: formData.get('tier') === 'vip' ? 'vip' : 'free',
+              price: Number(formData.get('price') || 0),
+              description: sanitizeString(formData.get('description') || '', 300),
+              thumbnail: sanitizeString(formData.get('thumbnail') || '', 500)
+            };
+          } catch (formErr) {
+            return applySecurityHeaders(jsonError('INVALID_FORM_DATA', formErr.message, 400), request, env);
+          }
+        } else if (contentType.includes('application/zip') || contentType.includes('application/octet-stream')) {
+          const ab = await request.arrayBuffer();
+          zipBuffer = new Uint8Array(ab);
+          templateMeta = {
+            name: sanitizeString(url.searchParams.get('name') || 'Custom Template', 80),
+            category: sanitizeString(url.searchParams.get('category') || 'celebration', 50)
+          };
+        } else {
+          // JSON payload
+          const body = await request.json().catch(() => ({}));
+          templateMeta = {
+            name: sanitizeString(body.title || body.name || 'Custom Template', 80),
+            category: sanitizeString(body.category || 'celebration', 50),
+            tier: body.tier === 'vip' ? 'vip' : 'free',
+            price: Number(body.price || 0),
+            description: sanitizeString(body.description || '', 300),
+            thumbnail: sanitizeString(body.thumbnail || '', 500),
+            slug: sanitizeString(body.slug || '', 60),
+            familyId: sanitizeString(body.familyId || '', 60)
+          };
+
+          if (body.zipBase64) {
+            try {
+              const binStr = atob(body.zipBase64);
+              const len = binStr.length;
+              zipBuffer = new Uint8Array(len);
+              for (let i = 0; i < len; i++) {
+                zipBuffer[i] = binStr.charCodeAt(i);
+              }
+            } catch (b64Err) {
+              return applySecurityHeaders(jsonError('INVALID_BASE64', 'Invalid base64 ZIP payload', 400), request, env);
+            }
+          }
+        }
+
+        // Enforce: No fake storage success if B2 is not configured
+        if (!b2Config.isConfigured) {
+          return applySecurityHeaders(jsonSuccess({
+            success: false,
+            error: 'B2_NOT_CONFIGURED',
+            code: 'B2_NOT_CONFIGURED',
+            message: `Backblaze B2 storage credentials are not configured in environment secrets. Missing: ${b2Config.missingKeys.join(', ')}`,
+            details: {
+              missingKeys: b2Config.missingKeys,
+              provider: 'b2',
+              documentation: 'Configure B2_APPLICATION_KEY_ID, B2_APPLICATION_KEY, and B2_BUCKET_NAME in Cloudflare Worker environment secrets.'
+            }
+          }, 503), request, env);
+        }
+
+        if (!zipBuffer) {
+          return applySecurityHeaders(jsonError('ZIP_MISSING', 'A valid template ZIP archive is required for ingestion into Backblaze B2', 400), request, env);
+        }
+
+        // Execute Real Ingestion Pipeline
+        const ingestResult = await executeB2TemplateIngestPipeline({
+          zipBuffer,
+          templateMetadata: templateMeta,
+          env,
+          db: env.DB,
+          authorId: user.id || 'admin'
+        });
+
+        if (!ingestResult.success) {
+          const status = ingestResult.code === 'B2_NOT_CONFIGURED' ? 503 : 400;
+          return applySecurityHeaders(jsonSuccess(ingestResult, status), request, env);
+        }
+
+        response = jsonSuccess(ingestResult, 201, {}, requestId);
+      }
+
+      // --- Part 20: Template Version Preview Route ---
+      else if (pathname.includes('/versions/') && pathname.includes('/preview/')) {
+        const match = pathname.match(/\/api\/templates\/([^\/]+)\/versions\/([^\/]+)\/preview\/(.+)$/);
+        if (match) {
+          const templateId = match[1];
+          const versionId = match[2];
+          const relPath = match[3];
+
+          let fileRecord = null;
+          if (env.DB && typeof env.DB.prepare === 'function') {
+            fileRecord = await env.DB.prepare(`
+              SELECT storage_key, mime_type FROM template_files
+              WHERE template_version_id = ? AND (relative_path = ? OR relative_path = ?)
+              LIMIT 1
+            `).bind(versionId, relPath, relPath.replace(/^\/+/, '')).first();
+          }
+
+          const targetStorageKey = fileRecord?.storage_key || `templates/fam_${templateId}/versions/${versionId}/runtime/${relPath.replace(/^\/+/, '')}`;
+          const resolvedMime = fileRecord?.mime_type || getMimeType(relPath);
+
+          const b2Config = getB2Config(env);
+          if (b2Config.isConfigured) {
+            try {
+              const b2Provider = B2StorageProvider.fromEnv(env);
+              const b2Res = await b2Provider.getObject({ key: targetStorageKey });
+              return new Response(b2Res.body, {
+                status: 200,
+                headers: {
+                  'Content-Type': b2Res.contentType || resolvedMime,
+                  'Cache-Control': 'public, max-age=3600',
+                  'X-Frame-Options': 'SAMEORIGIN'
+                }
+              });
+            } catch (err) {
+              return applySecurityHeaders(jsonError('PREVIEW_FILE_NOT_FOUND', `File ${relPath} not found in B2: ${err.message}`, 404), request, env);
+            }
+          } else {
+            return applySecurityHeaders(jsonSuccess({
+              success: false,
+              code: 'B2_NOT_CONFIGURED',
+              message: 'Cannot serve version preview: Backblaze B2 is not configured in environment.'
+            }, 503), request, env);
+          }
+        }
+      }
+
+      // --- Part 20: Template Version Publish Route ---
+      else if (pathname.includes('/versions/') && pathname.endsWith('/publish') && method === 'POST') {
+        const user = await getAuthenticatedUser(request, env);
+        if (!user) return applySecurityHeaders(jsonError('AUTH_REQUIRED', 'Authentication required', 401), request, env);
+        const isAdmin = await verifyAdminRole(user, env);
+        if (!isAdmin) return applySecurityHeaders(jsonError('FORBIDDEN', 'Admin role required', 403), request, env);
+
+        const match = pathname.match(/\/api\/templates\/([^\/]+)\/versions\/([^\/]+)\/publish$/);
+        if (!match) return applySecurityHeaders(jsonError('BAD_REQUEST', 'Invalid publish URL', 400), request, env);
+
+        const templateId = match[1];
+        const versionId = match[2];
+        const nowIso = new Date().toISOString();
+
+        if (env.DB && typeof env.DB.prepare === 'function') {
+          const ver = await env.DB.prepare('SELECT id, status, name FROM template_versions WHERE id = ?').bind(versionId).first();
+          if (!ver) return applySecurityHeaders(jsonError('NOT_FOUND', 'Version not found', 404), request, env);
+
+          await env.DB.prepare("UPDATE template_versions SET status = 'archived', archived_at = ? WHERE template_id = ? AND status = 'published'").bind(nowIso, templateId).run();
+          await env.DB.prepare("UPDATE template_versions SET status = 'published', published_at = ? WHERE id = ?").bind(nowIso, versionId).run();
+          await env.DB.prepare("UPDATE templates SET status = 'published', is_published = 1, updated_at = ? WHERE id = ?").bind(nowIso, templateId).run();
+        }
+
+        response = jsonSuccess({
+          success: true,
+          published: true,
+          templateId,
+          versionId,
+          publishedAt: nowIso,
+          message: `Version ${versionId} is now published and active for wish creation.`
+        }, 200, {}, requestId);
+      }
+
+      // --- Part 20: List Template Versions ---
+      else if (pathname.startsWith('/api/templates/') && pathname.endsWith('/versions') && method === 'GET') {
+        const templateId = pathname.replace('/api/templates/', '').replace('/versions', '').trim();
+        let versions = [];
+        if (env.DB && typeof env.DB.prepare === 'function') {
+          const rows = await env.DB.prepare(`
+            SELECT id, template_id, template_family_id, version_number, version_label,
+                   name, status, source_zip_storage_key, runtime_root_storage_key,
+                   schema_hash, runtime_hash, source_zip_hash, storage_provider,
+                   published_at, created_at
+            FROM template_versions
+            WHERE template_id = ?
+            ORDER BY version_number DESC
+          `).bind(templateId).all();
+          versions = rows.results || [];
+        }
+        response = jsonSuccess({ success: true, templateId, versions }, 200, {}, requestId);
+      }
+
+      // --- Part 21: Admin Template Images API (ImgBB References & Slot Associations) ---
+      else if (pathname.match(/^\/api\/templates\/([^\/]+)\/versions\/([^\/]+)\/images$/)) {
+        const match = pathname.match(/^\/api\/templates\/([^\/]+)\/versions\/([^\/]+)\/images$/);
+        const templateId = match[1];
+        const versionId = match[2];
+
+        if (method === 'GET') {
+          const urlObj = new URL(request.url);
+          const relId = urlObj.searchParams.get('relationshipId') || urlObj.searchParams.get('relationship_id') || null;
+
+          let query = 'SELECT * FROM template_images WHERE template_version_id = ? AND status = "active"';
+          const params = [versionId];
+          if (relId) {
+            query += ' AND (relationship_id = ? OR relationship_id IS NULL OR relationship_id = "")';
+            params.push(relId);
+          }
+          query += ' ORDER BY created_at ASC';
+
+          let images = [];
+          if (env.DB && typeof env.DB.prepare === 'function') {
+            const rows = await env.DB.prepare(query).bind(...params).all();
+            images = rows.results || [];
+          }
+          response = jsonSuccess({ templateId, versionId, images, total: images.length }, 200, {}, requestId);
+        } else if (method === 'POST') {
+          const user = await getAuthenticatedUser(request, env);
+          if (!user) return applySecurityHeaders(jsonError('AUTH_REQUIRED', 'Authentication required', 401), request, env);
+          const isAdmin = await verifyAdminRole(user, env);
+          if (!isAdmin) return applySecurityHeaders(jsonError('FORBIDDEN', 'Admin role required to manage template images', 403), request, env);
+
+          if (isCsrfViolation(request, env)) {
+            return applySecurityHeaders(jsonError('FORBIDDEN', 'Cross-origin mutation rejected', 403), request, env);
+          }
+
+          const body = await request.json().catch(() => ({}));
+          const assetKey = sanitizeString(body.assetKey || body.asset_key || body.fieldKey || body.field_key || 'hero_photo', 60);
+          const relationshipId = sanitizeString(body.relationshipId || body.relationship_id || '', 60) || null;
+          const fileData = body.fileData || body.data || body.file;
+          const filename = sanitizeString(body.filename || 'template-asset.jpg', 100);
+
+          if (!fileData) {
+            return applySecurityHeaders(jsonError('VALIDATION_ERROR', 'Image file data is required (fileData as base64 or buffer)', 400), request, env);
+          }
+
+          // 1. Strict Server-Side Image Validation (Magic bytes, format, size <= 32MB, dimensions)
+          let validation;
+          try {
+            validation = await validateImageBuffer(fileData, { maxSizeBytes: IMAGE_LIMITS.MAX_IMAGE_BYTES });
+          } catch (valErr) {
+            return applySecurityHeaders(jsonError(valErr.code || 'IMAGE_INVALID', valErr.message, 400), request, env);
+          }
+
+          // 2. Check ImgBB Configuration
+          const imgbbConfig = getImgBBConfig(env);
+          if (!imgbbConfig.isConfigured) {
+            return applySecurityHeaders(jsonError('IMGBB_NOT_CONFIGURED', 'ImgBB image storage is not configured. Missing IMGBB_API_KEY environment secret.', 503), request, env);
+          }
+
+          // 3. Upload to ImgBB
+          const provider = ImgBBProvider.fromEnv(env);
+          let imgResult;
+          try {
+            imgResult = await provider.uploadImage({
+              data: validation.bytes,
+              filename,
+              name: `template_${templateId}_${versionId}_${assetKey}`
+            });
+          } catch (uploadErr) {
+            return applySecurityHeaders(jsonError(uploadErr.code || 'IMGBB_UPLOAD_FAILED', uploadErr.message, 502), request, env);
+          }
+
+          // 4. Persist in D1 template_images
+          const imageRecordId = `timg_${versionId}_${Date.now().toString(36)}_${Math.random().toString(36).substring(2, 6)}`;
+          const nowIso = new Date().toISOString();
+
+          if (env.DB && typeof env.DB.prepare === 'function') {
+            await env.DB.prepare(`
+              INSERT INTO template_images (
+                id, template_version_id, template_id, asset_key, original_filename,
+                storage_provider, provider_asset_id, original_url, display_url,
+                thumbnail_url, delete_url, relationship_id, mime_type,
+                width, height, size_bytes, sha256, status, created_at, updated_at
+              ) VALUES (?, ?, ?, ?, ?, 'imgbb', ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'active', ?, ?)
+            `).bind(
+              imageRecordId, versionId, templateId, assetKey, filename,
+              imgResult.providerAssetId, imgResult.url, imgResult.displayUrl,
+              imgResult.thumbnailUrl, imgResult.deleteUrl, relationshipId, validation.mimeType,
+              imgResult.width, imgResult.height, imgResult.sizeBytes, imgResult.sha256,
+              nowIso, nowIso
+            ).run();
+          }
+
+          response = jsonSuccess({
+            success: true,
+            image: {
+              id: imageRecordId,
+              templateId,
+              templateVersionId: versionId,
+              assetKey,
+              relationshipId,
+              url: imgResult.url,
+              displayUrl: imgResult.displayUrl,
+              thumbnailUrl: imgResult.thumbnailUrl,
+              width: imgResult.width,
+              height: imgResult.height,
+              sizeBytes: imgResult.sizeBytes,
+              mimeType: validation.mimeType,
+              storageProvider: 'imgbb'
+            }
+          }, 201, {}, requestId);
+        }
+      }
+
+      else if (pathname.match(/^\/api\/templates\/([^\/]+)\/versions\/([^\/]+)\/images\/([^\/]+)$/) && method === 'DELETE') {
+        const user = await getAuthenticatedUser(request, env);
+        if (!user) return applySecurityHeaders(jsonError('AUTH_REQUIRED', 'Authentication required', 401), request, env);
+        const isAdmin = await verifyAdminRole(user, env);
+        if (!isAdmin) return applySecurityHeaders(jsonError('FORBIDDEN', 'Admin role required', 403), request, env);
+
+        const match = pathname.match(/^\/api\/templates\/([^\/]+)\/versions\/([^\/]+)\/images\/([^\/]+)$/);
+        const versionId = match[2];
+        const imageId = match[3];
+
+        if (env.DB && typeof env.DB.prepare === 'function') {
+          const ver = await env.DB.prepare('SELECT status FROM template_versions WHERE id = ?').bind(versionId).first();
+          if (ver && ver.status === 'published') {
+            await env.DB.prepare('UPDATE template_images SET status = "archived", updated_at = ? WHERE id = ?').bind(new Date().toISOString(), imageId).run();
+            response = jsonSuccess({ success: true, archived: true, imageId, message: 'Template image archived because version is published.' }, 200, {}, requestId);
+          } else {
+            await env.DB.prepare('DELETE FROM template_images WHERE id = ?').bind(imageId).run();
+            response = jsonSuccess({ success: true, deleted: true, imageId }, 200, {}, requestId);
+          }
+        } else {
+          response = jsonSuccess({ success: true, deleted: true, imageId }, 200, {}, requestId);
+        }
+      }
+
+      else if (pathname.match(/^\/api\/templates\/([^\/]+)\/images$/) && method === 'GET') {
+        const match = pathname.match(/^\/api\/templates\/([^\/]+)\/images$/);
+        const templateId = match[1];
+        let images = [];
+        if (env.DB && typeof env.DB.prepare === 'function') {
+          const rows = await env.DB.prepare(`
+            SELECT ti.* FROM template_images ti
+            LEFT JOIN template_versions tv ON ti.template_version_id = tv.id
+            WHERE (ti.template_id = ? OR tv.template_id = ?) AND ti.status = 'active'
+            ORDER BY ti.created_at ASC
+          `).bind(templateId, templateId).all();
+          images = rows.results || [];
+        }
+        response = jsonSuccess({ templateId, images, total: images.length }, 200, {}, requestId);
+      }
+
+      // --- Part 21: Master Admin Template Images List & Search API ---
+      else if (pathname === '/api/admin/template-images' && method === 'GET') {
+        const urlObj = new URL(request.url);
+        const templateId = urlObj.searchParams.get('templateId') || urlObj.searchParams.get('template_id');
+        const relationshipId = urlObj.searchParams.get('relationshipId') || urlObj.searchParams.get('relationship_id');
+        const status = urlObj.searchParams.get('status');
+        const search = urlObj.searchParams.get('search');
+
+        let query = `
+          SELECT ti.*, t.name as templateName, t.slug as templateSlug, tv.version_number as versionNumber, tv.version_label as versionLabel
+          FROM template_images ti
+          LEFT JOIN template_versions tv ON ti.template_version_id = tv.id
+          LEFT JOIN templates t ON (ti.template_id = t.id OR tv.template_id = t.id)
+          WHERE 1=1
+        `;
+        const params = [];
+
+        if (templateId) {
+          query += ' AND (ti.template_id = ? OR tv.template_id = ?)';
+          params.push(templateId, templateId);
+        }
+        if (relationshipId) {
+          query += ' AND ti.relationship_id = ?';
+          params.push(relationshipId);
+        }
+        if (status) {
+          query += ' AND ti.status = ?';
+          params.push(status);
+        } else {
+          query += ' AND ti.status != "archived"';
+        }
+        if (search) {
+          query += ' AND (ti.asset_key LIKE ? OR ti.original_filename LIKE ? OR ti.relationship_id LIKE ? OR t.name LIKE ?)';
+          const sParam = `%${search}%`;
+          params.push(sParam, sParam, sParam, sParam);
+        }
+        query += ' ORDER BY ti.created_at DESC';
+
+        let images = [];
+        if (env.DB && typeof env.DB.prepare === 'function') {
+          const rows = await env.DB.prepare(query).bind(...params).all();
+          images = rows.results || [];
+        }
+        response = jsonSuccess({ images, total: images.length }, 200, {}, requestId);
+      }
+
+      // --- Part 21: Admin Template Image Metadata Update ---
+      else if (pathname.match(/^\/api\/admin\/template-images\/([^\/]+)$/) && method === 'PATCH') {
+        const user = await getAuthenticatedUser(request, env);
+        if (!user) return applySecurityHeaders(jsonError('AUTH_REQUIRED', 'Authentication required', 401), request, env);
+        const isAdmin = await verifyAdminRole(user, env);
+        if (!isAdmin) return applySecurityHeaders(jsonError('FORBIDDEN', 'Admin role required', 403), request, env);
+
+        const match = pathname.match(/^\/api\/admin\/template-images\/([^\/]+)$/);
+        const imageId = match[1];
+
+        const body = await request.json().catch(() => ({}));
+        const nowIso = new Date().toISOString();
+
+        if (env.DB && typeof env.DB.prepare === 'function') {
+          const existing = await env.DB.prepare('SELECT * FROM template_images WHERE id = ?').bind(imageId).first();
+          if (!existing) return applySecurityHeaders(jsonError('NOT_FOUND', 'Template image not found', 404), request, env);
+
+          const assetKey = body.assetKey !== undefined ? sanitizeString(body.assetKey, 60) : existing.asset_key;
+          const relationshipId = body.relationshipId !== undefined ? (sanitizeString(body.relationshipId, 60) || null) : existing.relationship_id;
+          const status = body.status !== undefined ? sanitizeString(body.status, 20) : existing.status;
+
+          await env.DB.prepare(`
+            UPDATE template_images SET asset_key = ?, relationship_id = ?, status = ?, updated_at = ? WHERE id = ?
+          `).bind(assetKey, relationshipId, status, nowIso, imageId).run();
+
+          const updated = await env.DB.prepare('SELECT * FROM template_images WHERE id = ?').bind(imageId).first();
+          response = jsonSuccess({ success: true, image: updated }, 200, {}, requestId);
+        } else {
+          response = jsonSuccess({ success: true, imageId }, 200, {}, requestId);
+        }
+      }
+
+      // --- Part 21: Admin Template Image Replacement via ImgBB ---
+      else if (pathname.match(/^\/api\/admin\/template-images\/replace\/([^\/]+)$/) && method === 'POST') {
+        const user = await getAuthenticatedUser(request, env);
+        if (!user) return applySecurityHeaders(jsonError('AUTH_REQUIRED', 'Authentication required', 401), request, env);
+        const isAdmin = await verifyAdminRole(user, env);
+        if (!isAdmin) return applySecurityHeaders(jsonError('FORBIDDEN', 'Admin role required', 403), request, env);
+
+        const match = pathname.match(/^\/api\/admin\/template-images\/replace\/([^\/]+)$/);
+        const imageId = match[1];
+
+        if (!env.DB || typeof env.DB.prepare !== 'function') {
+          return applySecurityHeaders(jsonError('DATABASE_UNAVAILABLE', 'Database service is currently unavailable.', 503), request, env);
+        }
+
+        const existing = await env.DB.prepare('SELECT * FROM template_images WHERE id = ?').bind(imageId).first();
+        if (!existing) return applySecurityHeaders(jsonError('NOT_FOUND', 'Template image not found', 404), request, env);
+
+        const body = await request.json().catch(() => ({}));
+        const fileData = body.fileData || body.data || body.file;
+        const filename = sanitizeString(body.filename || existing.original_filename || 'replaced.jpg', 100);
+
+        if (!fileData) {
+          return applySecurityHeaders(jsonError('VALIDATION_ERROR', 'Image fileData is required', 400), request, env);
+        }
+
+        let validation;
+        try {
+          validation = await validateImageBuffer(fileData, { maxSizeBytes: IMAGE_LIMITS.MAX_IMAGE_BYTES });
+        } catch (valErr) {
+          return applySecurityHeaders(jsonError(valErr.code || 'IMAGE_INVALID', valErr.message, 400), request, env);
+        }
+
+        const imgbbConfig = getImgBBConfig(env);
+        if (!imgbbConfig.isConfigured) {
+          return applySecurityHeaders(jsonError('IMGBB_NOT_CONFIGURED', 'ImgBB image storage is not configured. Missing IMGBB_API_KEY environment secret.', 503), request, env);
+        }
+
+        const provider = ImgBBProvider.fromEnv(env);
+        let imgResult;
+        try {
+          imgResult = await provider.uploadImage({
+            data: validation.bytes,
+            filename,
+            name: `template_${existing.template_id || 'tpl'}_${existing.asset_key}_replaced`
+          });
+        } catch (uploadErr) {
+          return applySecurityHeaders(jsonError(uploadErr.code || 'IMGBB_UPLOAD_FAILED', uploadErr.message, 502), request, env);
+        }
+
+        const nowIso = new Date().toISOString();
+        await env.DB.prepare(`
+          UPDATE template_images
+          SET original_url = ?, display_url = ?, thumbnail_url = ?, delete_url = ?,
+              provider_asset_id = ?, width = ?, height = ?, size_bytes = ?, sha256 = ?,
+              mime_type = ?, original_filename = ?, updated_at = ?
+          WHERE id = ?
+        `).bind(
+          imgResult.url, imgResult.displayUrl, imgResult.thumbnailUrl, imgResult.deleteUrl,
+          imgResult.providerAssetId, imgResult.width, imgResult.height, imgResult.sizeBytes, imgResult.sha256,
+          validation.mimeType, filename, nowIso, imageId
+        ).run();
+
+        const updated = await env.DB.prepare('SELECT * FROM template_images WHERE id = ?').bind(imageId).first();
+        response = jsonSuccess({ success: true, image: updated, message: 'Template image replaced successfully via ImgBB' }, 200, {}, requestId);
       }
 
       else if (pathname.startsWith('/api/templates/') && method === 'DELETE') {
@@ -4050,6 +4867,484 @@ export default {
         response = jsonSuccess({ deleted: true, categoryId: catId }, 200, {}, requestId);
       }
 
+      // --- Part 19: Centralized Relationships API ---
+      else if (pathname === '/api/relationships' && method === 'GET') {
+        let rels = [];
+        if (env.DB && typeof env.DB.prepare === 'function') {
+          try {
+            const rows = await env.DB.prepare('SELECT * FROM relationships WHERE status = "active" ORDER BY sort_order ASC').all();
+            if (rows.results) rels = rows.results;
+          } catch (e) {}
+        }
+        if (rels.length === 0) {
+          rels = [
+            { id: 'rel_girlfriend', slug: 'girlfriend', name: 'Girlfriend', displayName: 'Dearest Girlfriend', icon: '💖' },
+            { id: 'rel_boyfriend', slug: 'boyfriend', name: 'Boyfriend', displayName: 'Handsome Boyfriend', icon: '💙' },
+            { id: 'rel_crush', slug: 'crush', name: 'Crush', displayName: 'Secret Crush', icon: '✨' },
+            { id: 'rel_friend', slug: 'friend', name: 'Friend', displayName: 'Best Friend Forever', icon: '🎈' },
+            { id: 'rel_parents', slug: 'parents', name: 'Parents Tribute', displayName: 'Mom & Dad Together', icon: '🌺' }
+          ];
+        }
+        response = jsonSuccess({ relationships: rels, total: rels.length }, 200, {}, requestId);
+      }
+
+      // --- Part 19: Centralized Music Library API ---
+      else if (pathname === '/api/music' && method === 'GET') {
+        let music = [];
+        const categoryFilter = url.searchParams.get('category');
+        const relationshipFilter = url.searchParams.get('relationship');
+
+        if (env.DB && typeof env.DB.prepare === 'function') {
+          try {
+            let q = 'SELECT * FROM music_library WHERE status = "active"';
+            const params = [];
+            if (categoryFilter && categoryFilter !== 'all') {
+              q += ' AND category = ?';
+              params.push(categoryFilter);
+            }
+            q += ' ORDER BY is_featured DESC, title ASC';
+            const rows = params.length > 0 ? await env.DB.prepare(q).bind(...params).all() : await env.DB.prepare(q).all();
+            if (rows.results) {
+              music = rows.results;
+              if (relationshipFilter && relationshipFilter !== 'all') {
+                const cleanRel = relationshipFilter.toLowerCase().trim();
+                music = music.filter(m => {
+                  try {
+                    const list = typeof m.relationship_suitability === 'string' ? JSON.parse(m.relationship_suitability) : (m.relationship_suitability || []);
+                    return list.length === 0 || list.includes(cleanRel);
+                  } catch (e) {
+                    return true;
+                  }
+                });
+              }
+            }
+          } catch (e) {}
+        }
+        response = jsonSuccess({ music, total: music.length }, 200, {}, requestId);
+      }
+
+      // --- Part 19: Template Relationship Variants & Details API ---
+      else if (pathname.startsWith('/api/templates/') && pathname.includes('/variants') && method === 'GET') {
+        const parts = pathname.split('/').filter(Boolean);
+        const templateId = sanitizeString(parts[2], 60);
+        let variants = [];
+        if (env.DB && typeof env.DB.prepare === 'function') {
+          try {
+            const rows = await env.DB.prepare(
+              `SELECT trv.*, r.slug as relationship_slug, r.name as relationship_name, r.display_name as relationship_display_name
+               FROM template_relationship_variants trv
+               JOIN relationships r ON trv.relationship_id = r.id
+               JOIN template_versions tv ON trv.template_version_id = tv.id
+               WHERE tv.template_id = ? AND trv.status = "active"
+               ORDER BY r.sort_order ASC`
+            ).bind(templateId).all();
+            if (rows.results) variants = rows.results;
+          } catch (e) {}
+        }
+        response = jsonSuccess({ templateId, variants, total: variants.length }, 200, {}, requestId);
+      }
+
+      // --- Part 19: Wish Media Mappings API ---
+      else if (pathname.startsWith('/api/wishes/') && pathname.endsWith('/media-mappings')) {
+        const parts = pathname.split('/').filter(Boolean);
+        const wishId = sanitizeString(parts[2], 60);
+
+        if (!env.DB || typeof env.DB.prepare !== 'function') {
+          return applySecurityHeaders(jsonError('DATABASE_UNAVAILABLE', 'Database service is currently unavailable.', 503), request, env);
+        }
+
+        if (method === 'GET') {
+          // Resolve mappings for this wish
+          const rows = await env.DB.prepare(
+            `SELECT wmm.id, wmm.wish_id, wmm.field_key, wmm.media_id, wmm.section_key, wmm.sort_order,
+                    wm.url, wm.display_url, wm.thumbnail_url, wm.object_key, wm.filename, wm.media_type, wm.mime_type, wm.width, wm.height, wm.storage_provider
+             FROM wish_media_mappings wmm
+             JOIN wish_media wm ON wmm.media_id = wm.id
+             WHERE wmm.wish_id = ?
+             ORDER BY wmm.sort_order ASC`
+          ).bind(wishId).all();
+          response = jsonSuccess({ wishId, mappings: rows.results || [] }, 200, {}, requestId);
+        } else if (method === 'POST') {
+          const user = await getAuthenticatedUser(request, env);
+          if (!user) return applySecurityHeaders(jsonError('AUTH_REQUIRED', 'Authentication required', 401), request, env);
+
+          // Verify wish ownership
+          const wishRow = await env.DB.prepare('SELECT user_id, template_version_id FROM wishes WHERE id = ? LIMIT 1').bind(wishId).first();
+          if (!wishRow) return applySecurityHeaders(jsonError('NOT_FOUND', 'Wish not found', 404), request, env);
+          if (wishRow.user_id !== user.id && user.role !== 'admin') {
+            return applySecurityHeaders(jsonError('FORBIDDEN', 'Access denied to this wish', 403), request, env);
+          }
+
+          const body = await request.json().catch(() => ({}));
+          const fieldKey = sanitizeString(body.fieldKey || body.field_key, 60);
+          const mediaId = sanitizeString(body.mediaId || body.media_id, 60);
+          if (!fieldKey || !mediaId) {
+            return applySecurityHeaders(jsonError('VALIDATION_ERROR', 'fieldKey and mediaId are required', 400), request, env);
+          }
+
+          // Verify media ownership
+          const mediaRow = await env.DB.prepare('SELECT user_id FROM wish_media WHERE id = ? LIMIT 1').bind(mediaId).first();
+          if (!mediaRow || (mediaRow.user_id !== user.id && user.role !== 'admin')) {
+            return applySecurityHeaders(jsonError('FORBIDDEN', 'Access denied to this media asset', 403), request, env);
+          }
+
+          const mappingId = `wmm_${Date.now().toString(36)}_${Math.random().toString(36).substring(2, 6)}`;
+          const nowIso = new Date().toISOString();
+
+          await env.DB.prepare(
+            `INSERT OR REPLACE INTO wish_media_mappings (id, wish_id, template_version_id, field_key, media_id, section_key, sort_order, created_at, updated_at)
+             VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`
+          ).bind(mappingId, wishId, wishRow.template_version_id || null, fieldKey, mediaId, body.sectionKey || null, Number(body.sortOrder) || 0, nowIso, nowIso).run();
+
+          response = jsonSuccess({ success: true, mappingId, wishId, fieldKey, mediaId }, 201, {}, requestId);
+        }
+      }
+
+      // --- Part 21: Customer Wish Media Upload & Slot Mapping API (ImgBB Backed) ---
+      else if (pathname.match(/^\/api\/wishes\/([^\/]+)\/media(\/upload)?$/) && method === 'POST') {
+        const user = await getAuthenticatedUser(request, env);
+        if (!user) return applySecurityHeaders(jsonError('AUTH_REQUIRED', 'Authentication required', 401), request, env);
+
+        if (isCsrfViolation(request, env)) {
+          return applySecurityHeaders(jsonError('FORBIDDEN', 'Cross-origin mutation rejected', 403), request, env);
+        }
+
+        const match = pathname.match(/^\/api\/wishes\/([^\/]+)\/media(\/upload)?$/);
+        const wishId = match[1];
+
+        if (!env.DB || typeof env.DB.prepare !== 'function') {
+          return applySecurityHeaders(jsonError('DATABASE_UNAVAILABLE', 'Database service is currently unavailable.', 503), request, env);
+        }
+
+        // Verify wish ownership
+        const wishRow = await env.DB.prepare('SELECT id, user_id, template_id, template_version_id, custom_data, status FROM wishes WHERE id = ? LIMIT 1').bind(wishId).first();
+        if (!wishRow) return applySecurityHeaders(jsonError('NOT_FOUND', 'Wish not found', 404), request, env);
+        if (wishRow.user_id !== user.id && user.role !== 'admin') {
+          return applySecurityHeaders(jsonError('FORBIDDEN', 'Access denied to this wish', 403), request, env);
+        }
+
+        const body = await request.json().catch(() => ({}));
+        const fieldKey = sanitizeString(body.fieldKey || body.field_key || 'recipient_photo', 60);
+        const fileData = body.fileData || body.data || body.file;
+        const filename = sanitizeString(body.filename || 'wish-photo.jpg', 100);
+
+        if (!fileData) {
+          return applySecurityHeaders(jsonError('VALIDATION_ERROR', 'Image file data is required (fileData as base64 or buffer)', 400), request, env);
+        }
+
+        // 1. Strict Server-Side Validation (Magic bytes, format, size <= 32MB, dimensions)
+        let validation;
+        try {
+          validation = await validateImageBuffer(fileData, { maxSizeBytes: IMAGE_LIMITS.MAX_IMAGE_BYTES });
+        } catch (valErr) {
+          return applySecurityHeaders(jsonError(valErr.code || 'IMAGE_INVALID', valErr.message, 400), request, env);
+        }
+
+        // 2. Check ImgBB Configuration
+        const imgbbConfig = getImgBBConfig(env);
+        if (!imgbbConfig.isConfigured) {
+          return applySecurityHeaders(jsonError('IMGBB_NOT_CONFIGURED', 'ImgBB image storage is not configured. Missing IMGBB_API_KEY environment secret.', 503), request, env);
+        }
+
+        // 3. Upload to ImgBB
+        const provider = ImgBBProvider.fromEnv(env);
+        let imgResult;
+        try {
+          imgResult = await provider.uploadImage({
+            data: validation.bytes,
+            filename,
+            name: `wish_${wishId}_${fieldKey}`
+          });
+        } catch (uploadErr) {
+          return applySecurityHeaders(jsonError(uploadErr.code || 'IMGBB_UPLOAD_FAILED', uploadErr.message, 502), request, env);
+        }
+
+        // 4. Store in wish_media
+        const mediaId = `wmed_${Date.now().toString(36)}_${Math.random().toString(36).substring(2, 6)}`;
+        const nowIso = new Date().toISOString();
+
+        await env.DB.prepare(`
+          INSERT INTO wish_media (
+            id, wish_id, user_id, object_key, filename, media_type, mime_type,
+            size_bytes, url, display_url, thumbnail_url, delete_url, sha256,
+            width, height, storage_provider, status, is_public, created_at, updated_at
+          ) VALUES (?, ?, ?, ?, ?, 'image', ?, ?, ?, ?, ?, ?, ?, ?, ?, 'imgbb', 'active', 1, ?, ?)
+        `).bind(
+          mediaId, wishId, user.id, imgResult.providerAssetId, filename,
+          validation.mimeType, imgResult.sizeBytes, imgResult.url, imgResult.displayUrl,
+          imgResult.thumbnailUrl, imgResult.deleteUrl, imgResult.sha256,
+          imgResult.width, imgResult.height, nowIso, nowIso
+        ).run();
+
+        // 5. Store/Update mapping in wish_media_mappings
+        const mappingId = `wmm_${Date.now().toString(36)}_${Math.random().toString(36).substring(2, 6)}`;
+        await env.DB.prepare(`
+          INSERT OR REPLACE INTO wish_media_mappings (
+            id, wish_id, template_version_id, field_key, media_id, section_key, sort_order, created_at, updated_at
+          ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+        `).bind(
+          mappingId, wishId, wishRow.template_version_id || null, fieldKey, mediaId, body.sectionKey || null, Number(body.sortOrder) || 0, nowIso, nowIso
+        ).run();
+
+        // 6. Synchronize wishes.custom_data so both relational mapping and JSON state stay matched
+        let customData = {};
+        try { customData = JSON.parse(wishRow.custom_data || '{}'); } catch (_) {}
+        customData[fieldKey] = imgResult.displayUrl;
+        if (!Array.isArray(customData.photos)) customData.photos = [];
+        if (!customData.photos.includes(imgResult.displayUrl)) {
+          customData.photos.push(imgResult.displayUrl);
+        }
+        await env.DB.prepare('UPDATE wishes SET custom_data = ?, updated_at = ? WHERE id = ?').bind(
+          JSON.stringify(customData), nowIso, wishId
+        ).run();
+
+        response = jsonSuccess({
+          success: true,
+          media: {
+            id: mediaId,
+            wishId,
+            fieldKey,
+            mappingId,
+            url: imgResult.url,
+            displayUrl: imgResult.displayUrl,
+            thumbnailUrl: imgResult.thumbnailUrl,
+            width: imgResult.width,
+            height: imgResult.height,
+            sizeBytes: imgResult.sizeBytes,
+            mimeType: validation.mimeType,
+            storageProvider: 'imgbb'
+          }
+        }, 201, {}, requestId);
+      }
+
+      // --- Part 21: Get Wish Media Items & Slot Mappings ---
+      else if (pathname.match(/^\/api\/wishes\/([^\/]+)\/media$/) && method === 'GET') {
+        const match = pathname.match(/^\/api\/wishes\/([^\/]+)\/media$/);
+        const wishId = match[1];
+
+        if (!env.DB || typeof env.DB.prepare !== 'function') {
+          return applySecurityHeaders(jsonError('DATABASE_UNAVAILABLE', 'Database service is currently unavailable.', 503), request, env);
+        }
+
+        const rows = await env.DB.prepare(`
+          SELECT wm.id, wm.wish_id, wm.user_id, wm.object_key, wm.filename, wm.media_type,
+                 wm.mime_type, wm.size_bytes, wm.url, wm.display_url, wm.thumbnail_url,
+                 wm.width, wm.height, wm.storage_provider, wm.status, wm.created_at,
+                 wmm.field_key, wmm.section_key, wmm.sort_order
+          FROM wish_media wm
+          LEFT JOIN wish_media_mappings wmm ON wm.id = wmm.media_id AND wmm.wish_id = wm.wish_id
+          WHERE wm.wish_id = ? AND wm.status = 'active'
+          ORDER BY wm.created_at DESC
+        `).bind(wishId).all();
+
+        response = jsonSuccess({ wishId, media: rows.results || [], total: (rows.results || []).length }, 200, {}, requestId);
+      }
+
+      // --- Part 21: Delete Wish Media Item ---
+      else if (pathname.match(/^\/api\/wishes\/([^\/]+)\/media\/([^\/]+)$/) && method === 'DELETE') {
+        const user = await getAuthenticatedUser(request, env);
+        if (!user) return applySecurityHeaders(jsonError('AUTH_REQUIRED', 'Authentication required', 401), request, env);
+
+        const match = pathname.match(/^\/api\/wishes\/([^\/]+)\/media\/([^\/]+)$/);
+        const wishId = match[1];
+        const mediaId = match[2];
+
+        if (!env.DB || typeof env.DB.prepare !== 'function') {
+          return applySecurityHeaders(jsonError('DATABASE_UNAVAILABLE', 'Database service is currently unavailable.', 503), request, env);
+        }
+
+        const mediaRow = await env.DB.prepare('SELECT user_id, wish_id FROM wish_media WHERE id = ? LIMIT 1').bind(mediaId).first();
+        if (!mediaRow) return applySecurityHeaders(jsonError('NOT_FOUND', 'Media asset not found', 404), request, env);
+        if (mediaRow.user_id !== user.id && user.role !== 'admin') {
+          return applySecurityHeaders(jsonError('FORBIDDEN', 'Access denied to this media asset', 403), request, env);
+        }
+
+        // Remove mapping
+        await env.DB.prepare('DELETE FROM wish_media_mappings WHERE media_id = ? AND wish_id = ?').bind(mediaId, wishId).run();
+
+        // Check if wish is published: archive instead of hard delete
+        const wish = await env.DB.prepare('SELECT status FROM wishes WHERE id = ?').bind(wishId).first();
+        if (wish && wish.status === 'published') {
+          await env.DB.prepare('UPDATE wish_media SET status = "archived", updated_at = ? WHERE id = ?').bind(new Date().toISOString(), mediaId).run();
+        } else {
+          await env.DB.prepare('DELETE FROM wish_media WHERE id = ?').bind(mediaId).run();
+        }
+
+        response = jsonSuccess({ success: true, deleted: true, mediaId, wishId }, 200, {}, requestId);
+      }
+
+      // --- Part 21: Wish Resolved Media Engine (User Photo -> Variant Image -> Default Image -> Fallback) ---
+      else if (pathname.match(/^\/api\/wishes\/([^\/]+)\/resolved-media$/) && method === 'GET') {
+        const match = pathname.match(/^\/api\/wishes\/([^\/]+)\/resolved-media$/);
+        const wishId = match[1];
+
+        if (!env.DB || typeof env.DB.prepare !== 'function') {
+          return applySecurityHeaders(jsonError('DATABASE_UNAVAILABLE', 'Database service is currently unavailable.', 503), request, env);
+        }
+
+        const wish = await env.DB.prepare('SELECT * FROM wishes WHERE id = ?').bind(wishId).first();
+        if (!wish) return applySecurityHeaders(jsonError('NOT_FOUND', 'Wish not found', 404), request, env);
+
+        let customData = {};
+        try { customData = JSON.parse(wish.custom_data || '{}'); } catch (_) {}
+
+        // Get user mappings
+        const mappingsRows = await env.DB.prepare(`
+          SELECT wmm.field_key, wm.id as media_id, wm.url, wm.display_url, wm.thumbnail_url, wm.mime_type, wm.width, wm.height
+          FROM wish_media_mappings wmm
+          JOIN wish_media wm ON wmm.media_id = wm.id
+          WHERE wmm.wish_id = ? AND wm.status = 'active'
+        `).bind(wishId).all();
+        const userMappings = mappingsRows.results || [];
+
+        // Get template images
+        let templateImages = [];
+        if (wish.template_version_id) {
+          const tRows = await env.DB.prepare(`
+            SELECT * FROM template_images WHERE template_version_id = ? AND status = 'active'
+          `).bind(wish.template_version_id).all();
+          templateImages = tRows.results || [];
+        }
+
+        // Get fields
+        let fields = [];
+        if (wish.template_version_id) {
+          const fRows = await env.DB.prepare(`
+            SELECT field_key, field_type, default_value FROM template_fields WHERE template_version_id = ?
+          `).bind(wish.template_version_id).all();
+          fields = fRows.results || [];
+        }
+
+        const relationshipId = customData.relationship || null;
+        const resolved = {};
+
+        // Resolve each image field
+        fields.filter(f => f.field_type === 'image' || f.field_key.includes('photo') || f.field_key.includes('image')).forEach(f => {
+          resolved[f.field_key] = resolveSlotImage({
+            slotKey: f.field_key,
+            wishMediaMappings: userMappings,
+            templateImages,
+            relationshipId,
+            fallbackUrl: f.default_value || ''
+          });
+        });
+
+        response = jsonSuccess({ wishId, relationshipId, resolved }, 200, {}, requestId);
+      }
+
+      // --- Part 19: Centralized Template Families API ---
+      else if (pathname === '/api/template-families' && method === 'GET') {
+        let families = [];
+        if (env.DB && typeof env.DB.prepare === 'function') {
+          try {
+            const rows = await env.DB.prepare('SELECT * FROM template_families WHERE status = "published" ORDER BY is_featured DESC, name ASC').all();
+            if (rows.results && rows.results.length > 0) families = rows.results;
+          } catch (e) {}
+        }
+        if (families.length === 0) {
+          families = SEED_TEMPLATES.map(t => ({
+            id: 'fam_' + t.id,
+            slug: t.slug,
+            name: t.name,
+            description: t.description,
+            thumbnail: t.thumbnail,
+            category: t.category,
+            tier: t.tier,
+            price: t.price,
+            is_featured: t.featured ? 1 : 0,
+            is_premium: t.isPremium ? 1 : 0,
+            status: 'published',
+            visibility: 'public'
+          }));
+        }
+        response = jsonSuccess({ families, total: families.length }, 200, {}, requestId);
+      }
+
+      // --- Part 19 & Part 21: Storage Providers Registry & Capabilities API ---
+      else if (pathname === '/api/storage-providers' && method === 'GET') {
+        let providers = [];
+        if (env.DB && typeof env.DB.prepare === 'function') {
+          try {
+            const rows = await env.DB.prepare('SELECT * FROM storage_providers ORDER BY id ASC').all();
+            if (rows.results && rows.results.length > 0) providers = rows.results;
+          } catch (e) {}
+        }
+        if (providers.length === 0) {
+          providers = [
+            { id: 'imgbb', name: 'ImgBB Image Hosting', provider_type: 'images', status: 'active', config_json: '{"max_mb":32}' },
+            { id: 'b2', name: 'Backblaze B2 Cloud Storage', provider_type: 'files', status: 'active', config_json: '{"bucket":"wishmagic-prod"}' },
+            { id: 'r2', name: 'Cloudflare R2 Object Storage', provider_type: 'hybrid', status: 'active', config_json: '{"bucket":"wishmagic-media"}' }
+          ];
+        }
+
+        const imgbbCfg = getImgBBConfig(env);
+        const b2Cfg = getB2Config(env);
+
+        providers = providers.map(p => {
+          if (p.id === 'imgbb') {
+            return {
+              ...p,
+              isConfigured: imgbbCfg.isConfigured,
+              status: imgbbCfg.isConfigured ? 'active' : 'not_configured',
+              allowedMime: IMAGE_LIMITS.ALLOWED_MIME_TYPES,
+              maxBytes: IMAGE_LIMITS.MAX_IMAGE_BYTES
+            };
+          }
+          if (p.id === 'b2') {
+            return {
+              ...p,
+              isConfigured: b2Cfg.isConfigured,
+              status: b2Cfg.isConfigured ? 'active' : 'not_configured'
+            };
+          }
+          return p;
+        });
+
+        response = jsonSuccess({ providers, total: providers.length }, 200, {}, requestId);
+      }
+
+      // --- Part 19: Safe Storage Lifecycle & Deletion Audit API ---
+      else if (pathname === '/api/admin/storage/audit-lifecycle' && method === 'POST') {
+        const user = await getAuthenticatedUser(request, env);
+        if (!user || user.role !== 'admin') {
+          return applySecurityHeaders(jsonError('FORBIDDEN', 'Admin privileges required', 403), request, env);
+        }
+
+        const body = await request.json().catch(() => ({}));
+        const assetId = sanitizeString(body.assetId || body.id, 80);
+        const assetType = sanitizeString(body.assetType || 'image', 20);
+
+        let wishReferences = 0;
+        let versionReferences = 0;
+
+        if (env.DB && typeof env.DB.prepare === 'function' && assetId) {
+          try {
+            const wishCheck = await env.DB.prepare('SELECT COUNT(*) as count FROM wish_media_mappings WHERE media_id = ?').bind(assetId).first();
+            wishReferences = wishCheck ? Number(wishCheck.count) : 0;
+          } catch (e) {}
+
+          try {
+            const verCheck = await env.DB.prepare('SELECT COUNT(*) as count FROM template_images WHERE provider_asset_id = ? OR id = ?').bind(assetId, assetId).first();
+            versionReferences = verCheck ? Number(verCheck.count) : 0;
+          } catch (e) {}
+        }
+
+        const isSafe = wishReferences === 0 && versionReferences === 0;
+        response = jsonSuccess({
+          assetId,
+          assetType,
+          isSafeToDelete: isSafe,
+          recommendedAction: isSafe ? 'delete' : 'archive',
+          dependencies: {
+            publishedWishReferences: wishReferences,
+            templateVersionReferences: versionReferences
+          },
+          reason: isSafe
+            ? 'Asset has zero active wish or template version dependencies.'
+            : `Asset is referenced by ${wishReferences} published wish(es) and ${versionReferences} template version(s). It must be archived.`
+        }, 200, {}, requestId);
+      }
+
       // --- Favorites API ---
       else if (pathname === '/api/favorites') {
         const user = await getAuthenticatedUser(request, env);
@@ -4126,6 +5421,71 @@ export default {
 
         if (forbiddenExts.includes(ext)) {
           return applySecurityHeaders(jsonError('VALIDATION_ERROR', `File extension .${ext} is rejected for security.`, 400), request, env);
+        }
+
+        // Part 21: Dedicated ImgBB Routing for Image Uploads
+        const isImage = IMAGE_LIMITS.ALLOWED_EXTENSIONS.includes(ext) || (body.type === 'image') || Boolean(body.fileData && String(body.fileData).includes('image/'));
+        if (isImage) {
+          const imgbbConfig = getImgBBConfig(env);
+          if (!imgbbConfig.isConfigured) {
+            return applySecurityHeaders(jsonError('IMGBB_NOT_CONFIGURED', 'ImgBB image storage is not configured. Missing IMGBB_API_KEY environment secret.', 503), request, env);
+          }
+
+          const fileData = body.fileData || body.data;
+          if (!fileData) {
+            return applySecurityHeaders(jsonError('VALIDATION_ERROR', 'Image fileData is required', 400), request, env);
+          }
+
+          let validation;
+          try {
+            validation = await validateImageBuffer(fileData, { maxSizeBytes: IMAGE_LIMITS.MAX_IMAGE_BYTES });
+          } catch (valErr) {
+            return applySecurityHeaders(jsonError(valErr.code || 'IMAGE_INVALID', valErr.message, 400), request, env);
+          }
+
+          const provider = ImgBBProvider.fromEnv(env);
+          let imgResult;
+          try {
+            imgResult = await provider.uploadImage({
+              data: validation.bytes,
+              filename,
+              name: `user_${user.id}_${Date.now()}`
+            });
+          } catch (uploadErr) {
+            return applySecurityHeaders(jsonError(uploadErr.code || 'IMGBB_UPLOAD_FAILED', uploadErr.message, 502), request, env);
+          }
+
+          const mediaId = `media_${Date.now()}_${Math.random().toString(36).slice(2, 7)}`;
+          const nowIso = new Date().toISOString();
+
+          if (env.DB && typeof env.DB.prepare === 'function') {
+            await env.DB.prepare(`
+              INSERT INTO wish_media (
+                id, wish_id, user_id, object_key, filename, media_type, mime_type,
+                size_bytes, url, display_url, thumbnail_url, delete_url, sha256,
+                width, height, storage_provider, status, is_public, created_at, updated_at
+              ) VALUES (?, NULL, ?, ?, ?, 'image', ?, ?, ?, ?, ?, ?, ?, ?, ?, 'imgbb', 'active', 1, ?, ?)
+            `).bind(
+              mediaId, user.id, imgResult.providerAssetId, filename,
+              validation.mimeType, imgResult.sizeBytes, imgResult.url, imgResult.displayUrl,
+              imgResult.thumbnailUrl, imgResult.deleteUrl, imgResult.sha256,
+              imgResult.width, imgResult.height, nowIso, nowIso
+            ).run().catch(e => console.warn('wish_media insert warning:', e.message));
+          }
+
+          return applySecurityHeaders(jsonSuccess({
+            status: 'uploaded',
+            track: {
+              id: mediaId,
+              title: sanitizeString(body.title || filename, 80),
+              url: imgResult.displayUrl,
+              displayUrl: imgResult.displayUrl,
+              thumbnailUrl: imgResult.thumbnailUrl,
+              width: imgResult.width,
+              height: imgResult.height,
+              storageProvider: 'imgbb'
+            }
+          }, 201, {}, requestId), request, env);
         }
 
         const r2Configured = Boolean(env.BUCKET);
@@ -4803,6 +6163,264 @@ export default {
           heroImageUrl: targetUrl,
           message: 'Storefront hero section photo updated successfully!'
         }, 200, {}, requestId);
+      }
+
+      // --- Part 21: Admin Master Media Library & Live Usage Catalog ---
+      else if (pathname === '/api/admin/media/all' && method === 'GET') {
+        const user = await getAuthenticatedUser(request, env);
+        if (!user) return applySecurityHeaders(jsonError('AUTH_REQUIRED', 'Admin authentication required', 401), request, env);
+        const isAdmin = await verifyAdminRole(user, env);
+        if (!isAdmin) return applySecurityHeaders(jsonError('FORBIDDEN', 'Admin privileges required', 403), request, env);
+
+        const settings = await getSiteSettings(env);
+        const currentHeroImage = settings.heroImageUrl || '/assets/file_ab2082.png';
+
+        const defaultAssets = [
+          {
+            id: 'ast_hero_default',
+            title: 'Storefront Hero Celebration Artwork',
+            type: 'image',
+            format: 'PNG',
+            url: '/assets/file_ab2082.png',
+            fileSizeFormatted: '1.54 MB',
+            category: 'Hero & Showcase',
+            createdAt: '2026-01-01T00:00:00.000Z'
+          },
+          {
+            id: 'ast_unboxing_cover',
+            title: '3D Unboxing Gift Memory Frame',
+            type: 'image',
+            format: 'PNG',
+            url: '/assets/file_f63881.png',
+            fileSizeFormatted: '1.98 MB',
+            category: 'Template Artwork',
+            createdAt: '2026-01-01T00:00:00.000Z'
+          },
+          {
+            id: 'vid_sparkles_particles',
+            title: 'Golden Sparkles & Ambient Floating Particles',
+            type: 'video',
+            format: 'MP4',
+            url: 'https://commondatastorage.googleapis.com/gtv-videos-bucket/sample/ForBiggerBlazes.mp4',
+            fileSizeFormatted: '4.20 MB',
+            duration: '0:15',
+            category: 'Video Reels & FX',
+            createdAt: '2026-03-01T00:00:00.000Z'
+          },
+          {
+            id: 'trk_bgm_strings',
+            title: 'Celebration Acoustic Strings',
+            type: 'audio',
+            format: 'MP3',
+            url: 'web-audio://strings',
+            duration: '2:40',
+            category: 'Celebration BGM',
+            createdAt: '2026-01-01T00:00:00.000Z'
+          }
+        ];
+
+        const allAssetsMap = new Map();
+        defaultAssets.forEach(a => allAssetsMap.set(a.url, { ...a }));
+
+        // Index wish_media from D1
+        if (env.DB && typeof env.DB.prepare === 'function') {
+          try {
+            const wmRows = await env.DB.prepare('SELECT * FROM wish_media WHERE status != "archived" ORDER BY created_at DESC LIMIT 100').all();
+            (wmRows.results || []).forEach(m => {
+              const url = m.display_url || m.url;
+              if (url) {
+                allAssetsMap.set(url, {
+                  id: m.id,
+                  title: m.filename || 'Wish Media Asset',
+                  type: m.media_type || 'image',
+                  format: (m.mime_type || 'image/jpeg').split('/').pop().toUpperCase(),
+                  url,
+                  fileSizeFormatted: m.size_bytes ? `${(m.size_bytes / 1024).toFixed(1)} KB` : 'Media Asset',
+                  category: 'User Wish Upload',
+                  storageProvider: m.storage_provider || 'imgbb',
+                  createdAt: m.created_at
+                });
+              }
+            });
+          } catch (e) {}
+
+          // Index template_images from D1
+          try {
+            const tiRows = await env.DB.prepare(`
+              SELECT ti.*, t.name as templateName, t.slug as templateSlug
+              FROM template_images ti
+              LEFT JOIN template_versions tv ON ti.template_version_id = tv.id
+              LEFT JOIN templates t ON (ti.template_id = t.id OR tv.template_id = t.id)
+              WHERE ti.status != "archived"
+              ORDER BY ti.created_at DESC LIMIT 100
+            `).all();
+
+            (tiRows.results || []).forEach(ti => {
+              const url = ti.display_url || ti.original_url || ti.url;
+              if (url) {
+                const tName = ti.templateName || ti.template_id || 'Template';
+                const relLabel = ti.relationship_id ? ti.relationship_id.replace(/_/g, ' ') : 'Default / All Variants';
+                allAssetsMap.set(ti.id, {
+                  id: ti.id,
+                  title: `${tName} — ${ti.asset_key || 'Slot'} (${relLabel})`,
+                  type: 'image',
+                  format: (ti.mime_type || 'image/jpeg').split('/').pop().toUpperCase(),
+                  url,
+                  displayUrl: url,
+                  thumbnailUrl: ti.thumbnail_url || url,
+                  fileSizeFormatted: ti.size_bytes ? `${(ti.size_bytes / 1024).toFixed(1)} KB` : 'ImgBB Asset',
+                  category: 'Template Image',
+                  isTemplateImage: true,
+                  templateId: ti.template_id,
+                  templateName: tName,
+                  templateVersionId: ti.template_version_id,
+                  relationshipId: ti.relationship_id,
+                  assetKey: ti.asset_key,
+                  storageProvider: ti.storage_provider || 'imgbb',
+                  providerAssetId: ti.provider_asset_id,
+                  width: ti.width,
+                  height: ti.height,
+                  sha256: ti.sha256,
+                  status: ti.status || 'active',
+                  createdAt: ti.created_at
+                });
+              }
+            });
+          } catch (e) {}
+        }
+
+        const results = Array.from(allAssetsMap.values()).map(asset => {
+          const usedIn = [];
+
+          if (asset.isTemplateImage) {
+            usedIn.push({
+              targetType: 'TEMPLATE_IMAGE',
+              badgeColor: 'purple',
+              label: `Template: ${asset.templateName} (Slot: ${asset.assetKey || 'hero_photo'})`,
+              location: `Variant: ${asset.relationshipId || 'Default'}`
+            });
+          }
+
+          if (currentHeroImage && (currentHeroImage === asset.url || asset.url.includes('file_ab2082'))) {
+            usedIn.push({
+              targetType: 'HERO',
+              badgeColor: 'pink',
+              label: 'Storefront Hero Section (Main Banner Photo)',
+              location: 'Homepage /'
+            });
+          }
+
+          return {
+            ...asset,
+            usedIn,
+            isInUse: usedIn.length > 0,
+            usageCount: usedIn.length
+          };
+        });
+
+        const summary = {
+          totalAssets: results.length,
+          photosCount: results.filter(r => r.type === 'image').length,
+          templateImagesCount: results.filter(r => r.isTemplateImage).length,
+          videosCount: results.filter(r => r.type === 'video').length,
+          audioCount: results.filter(r => r.type === 'audio').length,
+          inUseCount: results.filter(r => r.isInUse).length,
+          unusedCount: results.filter(r => !r.isInUse).length,
+          currentHeroImage
+        };
+
+        response = jsonSuccess({ summary, assets: results }, 200, {}, requestId);
+      }
+
+      // --- Part 21: Admin Universal Media Uploader (with ImgBB support) ---
+      else if (pathname === '/api/admin/media/upload' && method === 'POST') {
+        const user = await getAuthenticatedUser(request, env);
+        if (!user) return applySecurityHeaders(jsonError('AUTH_REQUIRED', 'Admin authentication required', 401), request, env);
+        const isAdmin = await verifyAdminRole(user, env);
+        if (!isAdmin) return applySecurityHeaders(jsonError('FORBIDDEN', 'Admin privileges required', 403), request, env);
+
+        const body = await request.json().catch(() => ({}));
+        const fileData = body.fileData || body.data;
+        const filename = sanitizeString(body.filename || 'admin-upload.jpg', 100);
+        const title = sanitizeString(body.title || filename, 100);
+        const setAsHero = Boolean(body.setAsHeroImage);
+
+        if (!fileData) {
+          return applySecurityHeaders(jsonError('VALIDATION_ERROR', 'File payload is required', 400), request, env);
+        }
+
+        let validation;
+        try {
+          validation = await validateImageBuffer(fileData, { maxSizeBytes: IMAGE_LIMITS.MAX_IMAGE_BYTES });
+        } catch (valErr) {
+          return applySecurityHeaders(jsonError(valErr.code || 'IMAGE_INVALID', valErr.message, 400), request, env);
+        }
+
+        const imgbbConfig = getImgBBConfig(env);
+        let publicUrl = '';
+        let providerAssetId = null;
+        let imgResult = null;
+
+        if (imgbbConfig.isConfigured) {
+          const provider = ImgBBProvider.fromEnv(env);
+          try {
+            imgResult = await provider.uploadImage({
+              data: validation.bytes,
+              filename,
+              name: `admin_${Date.now()}`
+            });
+            publicUrl = imgResult.displayUrl;
+            providerAssetId = imgResult.providerAssetId;
+          } catch (uploadErr) {
+            return applySecurityHeaders(jsonError(uploadErr.code || 'IMGBB_UPLOAD_FAILED', uploadErr.message, 502), request, env);
+          }
+        } else {
+          return applySecurityHeaders(jsonError('IMGBB_NOT_CONFIGURED', 'ImgBB image storage is not configured. Missing IMGBB_API_KEY environment secret.', 503), request, env);
+        }
+
+        const mediaId = `med_${Date.now().toString(36)}_${Math.random().toString(36).substring(2, 6)}`;
+        const nowIso = new Date().toISOString();
+
+        if (env.DB && typeof env.DB.prepare === 'function') {
+          await env.DB.prepare(`
+            INSERT INTO wish_media (
+              id, wish_id, user_id, object_key, filename, media_type, mime_type,
+              size_bytes, url, display_url, thumbnail_url, delete_url, sha256,
+              width, height, storage_provider, status, is_public, created_at, updated_at
+            ) VALUES (?, NULL, ?, ?, ?, 'image', ?, ?, ?, ?, ?, ?, ?, ?, ?, 'imgbb', 'active', 1, ?, ?)
+          `).bind(
+            mediaId, user.id, providerAssetId, filename,
+            validation.mimeType, imgResult ? imgResult.sizeBytes : 0, publicUrl, publicUrl,
+            imgResult ? imgResult.thumbnailUrl : publicUrl, imgResult ? imgResult.deleteUrl : null,
+            imgResult ? imgResult.sha256 : null, imgResult ? imgResult.width : null,
+            imgResult ? imgResult.height : null, nowIso, nowIso
+          ).run().catch(e => console.warn('wish_media admin insert error:', e.message));
+        }
+
+        if (setAsHero) {
+          const settings = await getSiteSettings(env);
+          settings.heroImageUrl = publicUrl;
+          await saveSiteSettings(env, settings, user);
+        }
+
+        const newAsset = {
+          id: mediaId,
+          title,
+          type: 'image',
+          category: body.category || 'Visual Artwork',
+          url: publicUrl,
+          displayUrl: publicUrl,
+          thumbnailUrl: imgResult ? imgResult.thumbnailUrl : publicUrl,
+          storageProvider: 'imgbb',
+          createdAt: nowIso
+        };
+
+        response = jsonSuccess({
+          success: true,
+          asset: newAsset,
+          isHeroImage: setAsHero,
+          message: 'Media asset uploaded successfully via ImgBB!'
+        }, 201, {}, requestId);
       }
 
       // --- Admin Auth Session Details ---

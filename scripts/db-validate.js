@@ -39,7 +39,19 @@ const REQUIRED_TABLES = [
   'analytics_events',
   'system_announcements',
   'site_settings',
-  '_migrations'
+  '_migrations',
+  // Part 19 Additions
+  'storage_providers',
+  'template_families',
+  'relationships',
+  'template_relationships',
+  'template_relationship_variants',
+  'template_fields',
+  'template_files',
+  'template_images',
+  'music_library',
+  'template_music',
+  'wish_media_mappings'
 ];
 
 const REQUIRED_INDEXES = [
@@ -56,7 +68,18 @@ const REQUIRED_INDEXES = [
   'idx_notifications_user_id',
   'idx_orders_user_id',
   'idx_entitlements_user_id',
-  'idx_analytics_event_name'
+  'idx_analytics_event_name',
+  // Part 19 Indexes
+  'idx_template_families_slug',
+  'idx_relationships_slug',
+  'idx_template_relationships_unique',
+  'idx_template_rel_variants_unique',
+  'idx_template_fields_unique',
+  'idx_template_files_unique',
+  'idx_template_images_version',
+  'idx_music_library_category',
+  'idx_template_music_unique',
+  'idx_wish_media_mappings_unique'
 ];
 
 export function validateMigrations() {

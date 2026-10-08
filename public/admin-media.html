@@ -176,6 +176,10 @@
           <span class="material-symbols-outlined text-sm">refresh</span>
           <span>Refresh</span>
         </button>
+        <button class="px-4 py-2.5 rounded-xl bg-purple-900/60 hover:bg-purple-800 text-purple-200 text-xs sm:text-sm font-bold flex items-center gap-2 border border-purple-500/40 transition cursor-pointer" onclick="openUploadTemplateImageModal()">
+          <span class="material-symbols-outlined text-sm">photo_library</span>
+          <span>+ Upload Template Image</span>
+        </button>
         <button class="px-5 py-2.5 rounded-xl bg-gradient-to-r from-primary to-secondary text-white text-xs sm:text-sm font-bold flex items-center gap-2 shadow-lg shadow-purple-600/30 hover:brightness-110 active:scale-95 transition cursor-pointer" onclick="toggleModal('upload-media-modal')">
           <span class="material-symbols-outlined text-sm">cloud_upload</span>
           <span>Upload New Asset</span>
@@ -302,6 +306,9 @@
         </button>
         <button onclick="setMediaFilter('image')" id="tab-image" class="px-3.5 py-1.5 rounded-xl bg-surface-container-high text-on-surface-variant hover:text-white text-xs font-bold transition cursor-pointer">
           📸 Photos &amp; Graphics
+        </button>
+        <button onclick="setMediaFilter('template')" id="tab-template" class="px-3.5 py-1.5 rounded-xl bg-surface-container-high text-on-surface-variant hover:text-white text-xs font-bold transition cursor-pointer">
+          🖼️ Template Images (ImgBB)
         </button>
         <button onclick="setMediaFilter('video')" id="tab-video" class="px-3.5 py-1.5 rounded-xl bg-surface-container-high text-on-surface-variant hover:text-white text-xs font-bold transition cursor-pointer">
           🎬 Videos &amp; Reels
@@ -451,6 +458,166 @@
   </div>
 </div>
 
+<!-- Modal: Upload Template Image via ImgBB -->
+<div id="upload-template-image-modal" class="fixed inset-0 bg-black/80 backdrop-blur-sm z-50 hidden items-center justify-center p-4">
+  <div class="bg-surface-container w-full max-w-lg rounded-3xl p-6 sm:p-7 border border-purple-500/40 shadow-2xl flex flex-col gap-4">
+    <div class="flex items-center justify-between pb-3 border-b border-purple-900/30">
+      <div class="flex items-center gap-2">
+        <span class="material-symbols-outlined text-primary text-xl">photo_library</span>
+        <h3 class="font-headline-sm text-lg font-bold text-on-surface">Upload Template Image (ImgBB)</h3>
+      </div>
+      <button onclick="toggleModal('upload-template-image-modal')" class="text-on-surface-variant hover:text-on-surface cursor-pointer">
+        <span class="material-symbols-outlined">close</span>
+      </button>
+    </div>
+
+    <div>
+      <label class="block text-xs font-bold uppercase text-outline mb-1">Target Template <span class="text-rose-400">*</span></label>
+      <select id="tpl-img-template-select" class="w-full px-3.5 py-2.5 rounded-xl bg-surface-container-low text-on-surface border border-purple-900/30 text-xs focus:outline-none focus:border-primary" onchange="handleTemplateSelectChange()">
+        <option value="">Loading templates...</option>
+      </select>
+    </div>
+
+    <div class="grid grid-cols-2 gap-3">
+      <div>
+        <label class="block text-xs font-bold uppercase text-outline mb-1">Template Version ID</label>
+        <input id="tpl-img-version-id" class="w-full px-3.5 py-2.5 rounded-xl bg-surface-container-low text-on-surface border border-purple-900/30 text-xs focus:outline-none focus:border-primary" placeholder="ver_default or latest"/>
+      </div>
+      <div>
+        <label class="block text-xs font-bold uppercase text-outline mb-1">Asset Slot Key <span class="text-rose-400">*</span></label>
+        <input id="tpl-img-asset-key" class="w-full px-3.5 py-2.5 rounded-xl bg-surface-container-low text-on-surface border border-purple-900/30 text-xs focus:outline-none focus:border-primary" placeholder="hero_photo, gallery_1, background" value="hero_photo"/>
+      </div>
+    </div>
+
+    <div>
+      <label class="block text-xs font-bold uppercase text-outline mb-1">Relationship Variant (Optional)</label>
+      <select id="tpl-img-relationship" class="w-full px-3.5 py-2.5 rounded-xl bg-surface-container-low text-on-surface border border-purple-900/30 text-xs focus:outline-none focus:border-primary">
+        <option value="">Default / All Relationships</option>
+        <option value="girlfriend">Girlfriend</option>
+        <option value="boyfriend">Boyfriend</option>
+        <option value="crush">Crush</option>
+        <option value="best_friend">Best Friend</option>
+        <option value="friend">Friend</option>
+        <option value="family">Family</option>
+        <option value="spouse">Spouse / Partner</option>
+        <option value="sister">Sister</option>
+        <option value="brother">Brother</option>
+      </select>
+      <p class="text-[10px] text-purple-300/70 mt-1">Leave empty for master default image, or assign to specific relationship variant.</p>
+    </div>
+
+    <div>
+      <label class="block text-xs font-bold uppercase text-outline mb-1">Select Image File (JPG, PNG, WEBP, GIF) <span class="text-rose-400">*</span></label>
+      <input id="tpl-img-file-input" type="file" accept="image/jpeg,image/png,image/webp,image/gif" class="w-full px-3 py-2 rounded-xl bg-surface-container-low text-on-surface border border-purple-900/30 text-xs focus:outline-none file:mr-3 file:py-1 file:px-3 file:rounded-lg file:border-0 file:text-xs file:font-semibold file:bg-primary/20 file:text-primary hover:file:bg-primary/30 cursor-pointer"/>
+    </div>
+
+    <div class="flex justify-end gap-2.5 pt-3 border-t border-purple-900/20">
+      <button onclick="toggleModal('upload-template-image-modal')" class="px-4 py-2.5 rounded-xl bg-surface-container-high text-on-surface text-xs font-bold cursor-pointer">Cancel</button>
+      <button onclick="submitTemplateImageUpload()" id="btn-submit-tpl-img" class="px-5 py-2.5 rounded-xl bg-gradient-to-r from-primary to-secondary text-white text-xs font-bold hover:brightness-110 active:scale-95 transition flex items-center gap-1.5 cursor-pointer shadow-lg shadow-purple-600/30">
+        <span class="material-symbols-outlined text-sm">cloud_upload</span>
+        <span>Upload to ImgBB</span>
+      </button>
+    </div>
+  </div>
+</div>
+
+<!-- Modal: Inspect Storage Reference (No API key leaks) -->
+<div id="inspect-storage-modal" class="fixed inset-0 bg-black/80 backdrop-blur-sm z-50 hidden items-center justify-center p-4">
+  <div class="bg-surface-container w-full max-w-lg rounded-3xl p-6 sm:p-7 border border-purple-500/40 shadow-2xl flex flex-col gap-4">
+    <div class="flex items-center justify-between pb-3 border-b border-purple-900/30">
+      <div class="flex items-center gap-2">
+        <span class="material-symbols-outlined text-primary text-xl">database</span>
+        <h3 class="font-headline-sm text-lg font-bold text-on-surface">Storage &amp; Provider Reference</h3>
+      </div>
+      <button onclick="toggleModal('inspect-storage-modal')" class="text-on-surface-variant hover:text-on-surface cursor-pointer">
+        <span class="material-symbols-outlined">close</span>
+      </button>
+    </div>
+
+    <div id="storage-inspect-details" class="flex flex-col gap-2.5 font-mono text-xs">
+      <!-- Populated dynamically -->
+    </div>
+
+    <div class="flex justify-end pt-3 border-t border-purple-900/20">
+      <button onclick="toggleModal('inspect-storage-modal')" class="px-4 py-2 rounded-xl bg-surface-container-high text-on-surface text-xs font-bold cursor-pointer">Close</button>
+    </div>
+  </div>
+</div>
+
+<!-- Modal: Replace Template Image -->
+<div id="replace-template-image-modal" class="fixed inset-0 bg-black/80 backdrop-blur-sm z-50 hidden items-center justify-center p-4">
+  <div class="bg-surface-container w-full max-w-md rounded-3xl p-6 border border-purple-500/40 shadow-2xl flex flex-col gap-4">
+    <div class="flex items-center justify-between pb-2 border-b border-purple-900/30">
+      <h3 class="font-bold text-base text-on-surface flex items-center gap-2">
+        <span class="material-symbols-outlined text-primary text-lg">sync</span>
+        <span>Replace Template Image</span>
+      </h3>
+      <button onclick="toggleModal('replace-template-image-modal')" class="text-on-surface-variant hover:text-on-surface cursor-pointer">
+        <span class="material-symbols-outlined">close</span>
+      </button>
+    </div>
+    <p id="replace-target-label" class="text-xs text-purple-200/80"></p>
+    <input type="hidden" id="replace-target-id"/>
+    <div>
+      <label class="block text-xs font-bold uppercase text-outline mb-1">New Image File <span class="text-rose-400">*</span></label>
+      <input id="replace-tpl-file" type="file" accept="image/*" class="w-full text-xs text-purple-200 file:mr-2 file:py-1 file:px-3 file:rounded-lg file:border-0 file:text-xs file:font-semibold file:bg-primary/20 file:text-primary cursor-pointer"/>
+    </div>
+    <div class="flex justify-end gap-2 pt-2 border-t border-purple-900/20">
+      <button onclick="toggleModal('replace-template-image-modal')" class="px-4 py-2 rounded-xl bg-surface-container-high text-xs font-bold">Cancel</button>
+      <button onclick="submitReplaceTemplateImage()" id="btn-submit-replace" class="px-4 py-2 rounded-xl bg-primary text-white text-xs font-bold flex items-center gap-1 cursor-pointer">
+        <span>Upload &amp; Replace</span>
+      </button>
+    </div>
+  </div>
+</div>
+
+<!-- Modal: Edit Template Image Metadata -->
+<div id="edit-template-image-modal" class="fixed inset-0 bg-black/80 backdrop-blur-sm z-50 hidden items-center justify-center p-4">
+  <div class="bg-surface-container w-full max-w-md rounded-3xl p-6 border border-purple-500/40 shadow-2xl flex flex-col gap-4">
+    <div class="flex items-center justify-between pb-2 border-b border-purple-900/30">
+      <h3 class="font-bold text-base text-on-surface flex items-center gap-2">
+        <span class="material-symbols-outlined text-primary text-lg">edit</span>
+        <span>Edit Template Slot Metadata</span>
+      </h3>
+      <button onclick="toggleModal('edit-template-image-modal')" class="text-on-surface-variant hover:text-on-surface cursor-pointer">
+        <span class="material-symbols-outlined">close</span>
+      </button>
+    </div>
+    <input type="hidden" id="edit-target-id"/>
+    <div>
+      <label class="block text-xs font-bold uppercase text-outline mb-1">Asset Key / Slot</label>
+      <input id="edit-asset-key" class="w-full px-3 py-2 rounded-xl bg-surface-container-low text-xs border border-purple-900/30 text-white focus:outline-none focus:border-primary"/>
+    </div>
+    <div>
+      <label class="block text-xs font-bold uppercase text-outline mb-1">Relationship Variant</label>
+      <select id="edit-relationship" class="w-full px-3 py-2 rounded-xl bg-surface-container-low text-xs border border-purple-900/30 text-white focus:outline-none focus:border-primary">
+        <option value="">Default / All</option>
+        <option value="girlfriend">Girlfriend</option>
+        <option value="boyfriend">Boyfriend</option>
+        <option value="crush">Crush</option>
+        <option value="best_friend">Best Friend</option>
+        <option value="friend">Friend</option>
+        <option value="family">Family</option>
+        <option value="spouse">Spouse</option>
+        <option value="sister">Sister</option>
+        <option value="brother">Brother</option>
+      </select>
+    </div>
+    <div>
+      <label class="block text-xs font-bold uppercase text-outline mb-1">Status</label>
+      <select id="edit-status" class="w-full px-3 py-2 rounded-xl bg-surface-container-low text-xs border border-purple-900/30 text-white focus:outline-none focus:border-primary">
+        <option value="active">Active</option>
+        <option value="archived">Archived</option>
+        <option value="disabled">Disabled</option>
+      </select>
+    </div>
+    <div class="flex justify-end gap-2 pt-2 border-t border-purple-900/20">
+      <button onclick="toggleModal('edit-template-image-modal')" class="px-4 py-2 rounded-xl bg-surface-container-high text-xs font-bold">Cancel</button>
+      <button onclick="submitEditTemplateImage()" class="px-4 py-2 rounded-xl bg-primary text-white text-xs font-bold cursor-pointer">Save Metadata</button>
+    </div>
+  </div>
+</div>
+
 <script>
   let allMediaAssets = [];
   let currentFilter = 'all';
@@ -533,7 +700,7 @@
   // --- Filter Media Catalog ---
   function setMediaFilter(filter) {
     currentFilter = filter;
-    ['all', 'image', 'video', 'audio', 'inuse'].forEach(f => {
+    ['all', 'image', 'template', 'video', 'audio', 'inuse'].forEach(f => {
       const btn = document.getElementById(`tab-${f}`);
       if (btn) {
         if (f === filter) {
@@ -557,6 +724,7 @@
 
     let filtered = allMediaAssets.filter(asset => {
       // Type Filter
+      if (currentFilter === 'template' && !asset.isTemplateImage) return false;
       if (currentFilter === 'image' && asset.type !== 'image') return false;
       if (currentFilter === 'video' && asset.type !== 'video') return false;
       if (currentFilter === 'audio' && asset.type !== 'audio') return false;
@@ -565,7 +733,7 @@
       // Search Query
       if (query) {
         const usageText = (asset.usedIn || []).map(u => `${u.label} ${u.location}`).join(' ');
-        const searchStr = `${asset.title} ${asset.type} ${asset.format} ${asset.category} ${asset.url} ${usageText}`.toLowerCase();
+        const searchStr = `${asset.title} ${asset.type} ${asset.format} ${asset.category} ${asset.url} ${asset.assetKey || ''} ${asset.relationshipId || ''} ${asset.templateName || ''} ${usageText}`.toLowerCase();
         if (!searchStr.includes(query)) return false;
       }
       return true;
@@ -589,10 +757,11 @@
       const isAudio = a.type === 'audio';
       const isVideo = a.type === 'video';
       const isImage = a.type === 'image';
+      const isTpl = Boolean(a.isTemplateImage);
       const usedInList = a.usedIn || [];
 
       return `
-        <div class="media-card-hover bg-surface-container rounded-2xl p-4 sm:p-5 border ${isHero ? 'border-pink-500 shadow-lg shadow-pink-500/10' : 'border-purple-900/30'} flex flex-col justify-between gap-4">
+        <div class="media-card-hover bg-surface-container rounded-2xl p-4 sm:p-5 border ${isHero ? 'border-pink-500 shadow-lg shadow-pink-500/10' : (isTpl ? 'border-purple-500/50 shadow-md' : 'border-purple-900/30')} flex flex-col justify-between gap-4">
           
           <!-- Top: Thumbnail Preview & Type Badge -->
           <div class="flex flex-col gap-3">
@@ -615,9 +784,9 @@
               `}
 
               <!-- Top Left: Media Type Badge -->
-              <div class="absolute top-2 left-2 flex items-center gap-1.5">
-                <span class="px-2 py-0.5 rounded-md ${isImage ? 'bg-pink-500' : (isVideo ? 'bg-indigo-600' : 'bg-amber-600')} text-white font-mono text-[10px] font-bold shadow uppercase">
-                  ${a.format || a.type}
+              <div class="absolute top-2 left-2 flex flex-wrap items-center gap-1.5">
+                <span class="px-2 py-0.5 rounded-md ${isTpl ? 'bg-purple-600' : (isImage ? 'bg-pink-500' : (isVideo ? 'bg-indigo-600' : 'bg-amber-600'))} text-white font-mono text-[10px] font-bold shadow uppercase">
+                  ${isTpl ? 'TEMPLATE IMAGE' : (a.format || a.type)}
                 </span>
                 ${isHero ? `
                   <span class="px-2 py-0.5 rounded-md bg-pink-600 text-white font-bold text-[10px] shadow flex items-center gap-1">
@@ -626,16 +795,21 @@
                 ` : ''}
               </div>
 
-              <!-- Top Right: In-Use Indicator -->
-              <div class="absolute top-2 right-2">
+              <!-- Top Right: Provider or In-Use Indicator -->
+              <div class="absolute top-2 right-2 flex items-center gap-1">
+                ${a.storageProvider === 'imgbb' ? `
+                  <span class="px-2 py-0.5 rounded-full bg-black/75 text-purple-300 font-mono text-[10px] font-bold border border-purple-500/40 backdrop-blur-sm">
+                    ImgBB
+                  </span>
+                ` : ''}
                 ${a.isInUse ? `
                   <span class="px-2 py-0.5 rounded-full bg-emerald-500/90 text-white font-bold text-[10px] shadow flex items-center gap-1">
                     <span class="w-1.5 h-1.5 rounded-full bg-white animate-pulse"></span>
-                    <span>IN USE (${a.usageCount})</span>
+                    <span>IN USE</span>
                   </span>
                 ` : `
                   <span class="px-2 py-0.5 rounded-full bg-black/60 text-outline text-[10px] font-medium backdrop-blur-sm">
-                    Vault Library
+                    Vault
                   </span>
                 `}
               </div>
@@ -644,12 +818,23 @@
             <!-- Title & Metadata -->
             <div>
               <h3 class="font-bold text-sm text-on-surface truncate" title="${escapeHtml(a.title)}">${escapeHtml(a.title)}</h3>
-              <div class="flex items-center gap-2 text-xs text-on-surface-variant mt-0.5">
+              <div class="flex flex-wrap items-center gap-2 text-xs text-on-surface-variant mt-0.5">
                 <span>${a.category || 'Media'}</span>
                 <span>•</span>
                 <span class="font-mono text-[11px]">${a.fileSizeFormatted || 'Ready'}</span>
+                ${a.width && a.height ? `<span>•</span><span class="font-mono text-[11px]">${a.width}×${a.height}px</span>` : ''}
                 ${a.duration ? `<span>•</span><span class="font-mono text-[11px]">${a.duration}</span>` : ''}
               </div>
+              ${isTpl ? `
+                <div class="mt-2 flex flex-wrap gap-1">
+                  <span class="px-2 py-0.5 rounded bg-purple-950/70 border border-purple-800 text-purple-300 font-mono text-[10px]">
+                    Slot: ${escapeHtml(a.assetKey || 'hero')}
+                  </span>
+                  <span class="px-2 py-0.5 rounded bg-pink-950/70 border border-pink-800 text-pink-300 font-mono text-[10px]">
+                    Variant: ${escapeHtml(a.relationshipId || 'Default')}
+                  </span>
+                </div>
+              ` : ''}
             </div>
 
             <!-- ACTIVE USAGE TRACKER ("KHAN KHAN USE HO RAHI HAI") -->
@@ -681,16 +866,31 @@
 
           <!-- Bottom Action Buttons -->
           <div class="pt-3 border-t border-purple-900/20 flex flex-wrap items-center justify-between gap-2">
-            <!-- If Photo: "Set as Hero Photo" Button -->
-            ${isImage ? `
-              <button onclick="setAsHeroPhotoFromAsset('${a.url}', '${escapeHtml(a.title)}')" class="py-1.5 px-3 rounded-xl ${isHero ? 'bg-pink-500/20 text-pink-300 border border-pink-500/40' : 'bg-gradient-to-r from-pink-600 to-purple-600 hover:opacity-95 text-white'} text-xs font-bold flex items-center gap-1 transition cursor-pointer shadow-sm">
-                <span class="material-symbols-outlined text-sm">stars</span>
-                <span>${isHero ? 'Current Hero Photo' : '✨ Set as Hero Photo'}</span>
-              </button>
-            ` : `
-              <div class="text-xs text-outline font-mono">Format: ${a.format}</div>
-            `}
+            <!-- Left Side Actions -->
+            <div class="flex items-center gap-1.5">
+              ${isTpl ? `
+                <button onclick="inspectStorageAssetById('${a.id}')" class="px-2.5 py-1.5 rounded-lg bg-purple-950/70 hover:bg-purple-900 border border-purple-700/50 text-purple-200 text-xs font-semibold flex items-center gap-1 cursor-pointer transition" title="Inspect ImgBB Storage &amp; Hash">
+                  <span class="material-symbols-outlined text-sm">database</span>
+                  <span>Inspect</span>
+                </button>
+                <button onclick="openReplaceTemplateImageModalById('${a.id}')" class="px-2.5 py-1.5 rounded-lg bg-purple-950/70 hover:bg-purple-900 border border-purple-700/50 text-purple-200 text-xs font-semibold flex items-center gap-1 cursor-pointer transition" title="Replace Template Image via ImgBB">
+                  <span class="material-symbols-outlined text-sm">sync</span>
+                  <span>Replace</span>
+                </button>
+                <button onclick="openEditTemplateImageModalById('${a.id}')" class="p-1.5 rounded-lg bg-surface-container-high hover:bg-surface-container-highest text-outline hover:text-white transition cursor-pointer" title="Edit Metadata">
+                  <span class="material-symbols-outlined text-sm">edit</span>
+                </button>
+              ` : isImage ? `
+                <button onclick="setAsHeroPhotoFromAsset('${a.url}', '${escapeHtml(a.title)}')" class="py-1.5 px-3 rounded-xl ${isHero ? 'bg-pink-500/20 text-pink-300 border border-pink-500/40' : 'bg-gradient-to-r from-pink-600 to-purple-600 hover:opacity-95 text-white'} text-xs font-bold flex items-center gap-1 transition cursor-pointer shadow-sm">
+                  <span class="material-symbols-outlined text-sm">stars</span>
+                  <span>${isHero ? 'Current Hero' : 'Set as Hero'}</span>
+                </button>
+              ` : `
+                <div class="text-xs text-outline font-mono">${a.format}</div>
+              `}
+            </div>
 
+            <!-- Right Side Utility Icons -->
             <div class="flex items-center gap-1.5">
               <button onclick="copyLink('${a.url.startsWith('http') ? a.url : window.location.origin + a.url}')" class="p-1.5 rounded-lg bg-surface-container-high hover:bg-surface-container-highest text-outline hover:text-white transition cursor-pointer" title="Copy Asset URL">
                 <span class="material-symbols-outlined text-sm">content_copy</span>
@@ -698,6 +898,11 @@
               ${isImage ? `
                 <button onclick="openLightboxImage('${a.url}', '${escapeHtml(a.title)}')" class="p-1.5 rounded-lg bg-surface-container-high hover:bg-surface-container-highest text-outline hover:text-white transition cursor-pointer" title="Zoom Preview">
                   <span class="material-symbols-outlined text-sm">zoom_in</span>
+                </button>
+              ` : ''}
+              ${isTpl ? `
+                <button onclick="deleteOrArchiveTemplateImage('${a.id}', '${escapeHtml(a.title)}')" class="p-1.5 rounded-lg bg-surface-container-high hover:bg-rose-900/60 text-outline hover:text-rose-300 transition cursor-pointer" title="Delete or Archive Template Image">
+                  <span class="material-symbols-outlined text-sm">delete</span>
                 </button>
               ` : ''}
             </div>
@@ -1022,6 +1227,271 @@
       });
     } catch (e) {
       playMagicSound('chime');
+    }
+  }
+
+  // =========================================================================
+  // Part 21: Real ImgBB Template Image Management Handlers
+  // =========================================================================
+  let loadedTemplatesList = [];
+
+  async function openUploadTemplateImageModal() {
+    toggleModal('upload-template-image-modal');
+    const select = document.getElementById('tpl-img-template-select');
+    select.innerHTML = '<option value="">Loading templates...</option>';
+
+    try {
+      const res = await fetch('/api/templates', { credentials: 'include' });
+      const data = await res.json();
+      const templates = data.templates || [];
+      loadedTemplatesList = templates;
+
+      if (templates.length === 0) {
+        select.innerHTML = '<option value="">No templates found</option>';
+        return;
+      }
+
+      select.innerHTML = templates.map(t => `<option value="${t.id}">${escapeHtml(t.name)} (${t.slug || t.id})</option>`).join('');
+      handleTemplateSelectChange();
+    } catch (e) {
+      select.innerHTML = '<option value="">Failed to load templates</option>';
+    }
+  }
+
+  function handleTemplateSelectChange() {
+    const select = document.getElementById('tpl-img-template-select');
+    const versionInput = document.getElementById('tpl-img-version-id');
+    const selectedId = select.value;
+    const tpl = loadedTemplatesList.find(t => t.id === selectedId);
+    if (tpl) {
+      versionInput.value = tpl.active_version_id || tpl.versionId || 'ver_default';
+    }
+  }
+
+  async function submitTemplateImageUpload() {
+    const templateId = document.getElementById('tpl-img-template-select').value;
+    const versionId = document.getElementById('tpl-img-version-id').value.trim() || 'ver_default';
+    const assetKey = document.getElementById('tpl-img-asset-key').value.trim() || 'hero_photo';
+    const relationshipId = document.getElementById('tpl-img-relationship').value.trim() || null;
+    const fileInput = document.getElementById('tpl-img-file-input');
+    const btn = document.getElementById('btn-submit-tpl-img');
+
+    if (!templateId) {
+      alert('Please select a template');
+      return;
+    }
+    if (!fileInput.files || fileInput.files.length === 0) {
+      alert('Please select an image file to upload');
+      return;
+    }
+
+    const file = fileInput.files[0];
+    btn.disabled = true;
+    btn.innerHTML = `<span class="material-symbols-outlined text-sm animate-spin">refresh</span><span>Uploading to ImgBB...</span>`;
+
+    const reader = new FileReader();
+    reader.onload = async (e) => {
+      try {
+        const res = await fetch(`/api/templates/${encodeURIComponent(templateId)}/versions/${encodeURIComponent(versionId)}/images`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          credentials: 'include',
+          body: JSON.stringify({
+            assetKey,
+            relationshipId,
+            filename: file.name,
+            fileData: e.target.result
+          })
+        });
+
+        const data = await res.json();
+        if (data.success) {
+          toggleModal('upload-template-image-modal');
+          fileInput.value = '';
+          showToast(`🖼️ Template image "${assetKey}" uploaded to ImgBB & registered!`);
+          loadAllMedia();
+        } else {
+          if (data.code === 'IMGBB_NOT_CONFIGURED') {
+            alert('ImgBB Storage is not configured on server (Missing IMGBB_API_KEY secret).');
+          } else {
+            alert('Upload failed: ' + (data.message || data.error || 'Unknown error'));
+          }
+        }
+      } catch (err) {
+        alert('Network error: ' + err.message);
+      } finally {
+        btn.disabled = false;
+        btn.innerHTML = `<span class="material-symbols-outlined text-sm">cloud_upload</span><span>Upload to ImgBB</span>`;
+      }
+    };
+    reader.readAsDataURL(file);
+  }
+
+  async function inspectStorageAssetById(assetId) {
+    const asset = allMediaAssets.find(a => a.id === assetId);
+    if (!asset) return;
+
+    const detailsEl = document.getElementById('storage-inspect-details');
+    detailsEl.innerHTML = `
+      <div class="p-3 bg-purple-950/40 rounded-xl border border-purple-800/40 text-purple-200">
+        <div class="text-[11px] text-purple-400 font-bold uppercase mb-1">Asset Identity &amp; Role</div>
+        <div class="text-xs"><b>ID:</b> ${escapeHtml(asset.id)}</div>
+        <div class="text-xs"><b>Title:</b> ${escapeHtml(asset.title)}</div>
+        <div class="text-xs"><b>Category:</b> ${escapeHtml(asset.category || 'N/A')}</div>
+        ${asset.assetKey ? `<div class="text-xs text-pink-300"><b>Slot Key:</b> ${escapeHtml(asset.assetKey)}</div>` : ''}
+        ${asset.relationshipId ? `<div class="text-xs text-amber-300"><b>Relationship:</b> ${escapeHtml(asset.relationshipId)}</div>` : ''}
+      </div>
+
+      <div class="p-3 bg-purple-950/40 rounded-xl border border-purple-800/40 text-purple-200">
+        <div class="text-[11px] text-purple-400 font-bold uppercase mb-1">Provider &amp; Storage Architecture</div>
+        <div class="text-xs"><b>Storage Provider:</b> <span class="px-2 py-0.5 rounded bg-emerald-950 text-emerald-300 font-bold">${escapeHtml(asset.storageProvider || 'ImgBB')}</span></div>
+        <div class="text-xs truncate"><b>Provider Asset ID:</b> ${escapeHtml(asset.providerAssetId || asset.id)}</div>
+        <div class="text-xs"><b>MIME Type:</b> ${escapeHtml(asset.format || 'image/jpeg')}</div>
+        <div class="text-xs"><b>Dimensions:</b> ${asset.width && asset.height ? `${asset.width} × ${asset.height} px` : 'Preserved'}</div>
+        <div class="text-xs"><b>Size:</b> ${escapeHtml(asset.fileSizeFormatted || 'Dynamic')}</div>
+        ${asset.sha256 ? `<div class="text-[10px] break-all text-purple-300"><b>SHA-256 Digest:</b> ${escapeHtml(asset.sha256)}</div>` : ''}
+      </div>
+
+      <div class="p-3 bg-purple-950/40 rounded-xl border border-purple-800/40 text-purple-200">
+        <div class="text-[11px] text-purple-400 font-bold uppercase mb-1">Safe Storage Lifecycle Audit</div>
+        <div id="audit-check-spinner" class="text-xs text-outline animate-pulse">Running dependency check across published wishes &amp; templates...</div>
+      </div>
+    `;
+
+    toggleModal('inspect-storage-modal');
+
+    // Run real lifecycle audit
+    try {
+      const res = await fetch('/api/admin/storage/audit-lifecycle', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        credentials: 'include',
+        body: JSON.stringify({ assetId: asset.id, assetType: 'image' })
+      });
+      const data = await res.json();
+      const spinner = document.getElementById('audit-check-spinner');
+      if (spinner && data.success) {
+        spinner.innerHTML = `
+          <div class="text-xs"><b>Status:</b> ${data.isSafeToDelete ? '<span class="text-emerald-400 font-bold">Safe to Clean</span>' : '<span class="text-amber-400 font-bold">Protected / Dependencies Exist</span>'}</div>
+          <div class="text-[11px] text-purple-300 mt-1">${escapeHtml(data.reason)}</div>
+          <div class="text-[10px] text-outline mt-1">Recommended Action: <span class="uppercase font-bold text-white">${escapeHtml(data.recommendedAction)}</span></div>
+        `;
+      }
+    } catch (e) {}
+  }
+
+  function openReplaceTemplateImageModalById(assetId) {
+    const asset = allMediaAssets.find(a => a.id === assetId);
+    if (!asset) return;
+
+    document.getElementById('replace-target-id').value = asset.id;
+    document.getElementById('replace-target-label').innerText = `Target: ${asset.title} (Slot: ${asset.assetKey || 'hero'})`;
+    document.getElementById('replace-tpl-file').value = '';
+    toggleModal('replace-template-image-modal');
+  }
+
+  async function submitReplaceTemplateImage() {
+    const assetId = document.getElementById('replace-target-id').value;
+    const fileInput = document.getElementById('replace-tpl-file');
+    const btn = document.getElementById('btn-submit-replace');
+
+    if (!fileInput.files || fileInput.files.length === 0) {
+      alert('Please choose a replacement image');
+      return;
+    }
+
+    const file = fileInput.files[0];
+    btn.disabled = true;
+    btn.innerHTML = `<span class="material-symbols-outlined text-xs animate-spin">refresh</span><span>Replacing via ImgBB...</span>`;
+
+    const reader = new FileReader();
+    reader.onload = async (e) => {
+      try {
+        const res = await fetch(`/api/admin/template-images/replace/${encodeURIComponent(assetId)}`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          credentials: 'include',
+          body: JSON.stringify({
+            filename: file.name,
+            fileData: e.target.result
+          })
+        });
+
+        const data = await res.json();
+        if (data.success) {
+          toggleModal('replace-template-image-modal');
+          showToast('🔄 Template image replaced successfully via ImgBB!');
+          loadAllMedia();
+        } else {
+          alert('Replace failed: ' + (data.message || data.error || 'Error'));
+        }
+      } catch (err) {
+        alert('Network error: ' + err.message);
+      } finally {
+        btn.disabled = false;
+        btn.innerHTML = '<span>Upload &amp; Replace</span>';
+      }
+    };
+    reader.readAsDataURL(file);
+  }
+
+  function openEditTemplateImageModalById(assetId) {
+    const asset = allMediaAssets.find(a => a.id === assetId);
+    if (!asset) return;
+
+    document.getElementById('edit-target-id').value = asset.id;
+    document.getElementById('edit-asset-key').value = asset.assetKey || 'hero_photo';
+    document.getElementById('edit-relationship').value = asset.relationshipId || '';
+    document.getElementById('edit-status').value = asset.status || 'active';
+    toggleModal('edit-template-image-modal');
+  }
+
+  async function submitEditTemplateImage() {
+    const assetId = document.getElementById('edit-target-id').value;
+    const assetKey = document.getElementById('edit-asset-key').value.trim();
+    const relationshipId = document.getElementById('edit-relationship').value.trim() || null;
+    const status = document.getElementById('edit-status').value;
+
+    try {
+      const res = await fetch(`/api/admin/template-images/${encodeURIComponent(assetId)}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        credentials: 'include',
+        body: JSON.stringify({ assetKey, relationshipId, status })
+      });
+
+      const data = await res.json();
+      if (data.success) {
+        toggleModal('edit-template-image-modal');
+        showToast('✏️ Template image metadata updated!');
+        loadAllMedia();
+      } else {
+        alert('Update failed: ' + (data.message || 'Error'));
+      }
+    } catch (e) {
+      alert('Error updating metadata: ' + e.message);
+    }
+  }
+
+  async function deleteOrArchiveTemplateImage(assetId, title) {
+    if (!confirm(`Are you sure you want to remove or archive "${title}"?`)) return;
+
+    try {
+      const res = await fetch(`/api/admin/template-images/${encodeURIComponent(assetId)}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        credentials: 'include',
+        body: JSON.stringify({ status: 'archived' })
+      });
+
+      if (res.ok) {
+        showToast('🗄️ Template image archived safely!');
+        loadAllMedia();
+      } else {
+        alert('Failed to archive template image');
+      }
+    } catch (e) {
+      alert('Error: ' + e.message);
     }
   }
 

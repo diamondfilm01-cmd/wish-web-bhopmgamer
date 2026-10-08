@@ -4,6 +4,7 @@ let currentUploadedFiles = {}; // { [relativePath]: { content, isBase64 } }
 let detectedDynamicFields = []; // [ { key, label, type, defaultValue } ]
 let customCoverThumbnail = null;
 let currentPreviewBlobUrl = null;
+let currentZipRawFile = null; // Part 20: Real B2 ZIP archive buffer tracker
 
 // Initialize on page load
 document.addEventListener('DOMContentLoaded', () => {
@@ -57,6 +58,7 @@ function handleCustomCoverThumb(input) {
 // 1. Handle Selection of a Full Directory/Folder
 async function handleFolderSelection(fileList) {
   if (!fileList || fileList.length === 0) return;
+  currentZipRawFile = null;
   showUploadProgress('Reading folder files...');
   currentUploadedFiles = {};
   detectedDynamicFields = [];
@@ -98,6 +100,7 @@ async function handleFolderSelection(fileList) {
 // 2. Handle Selection of a ZIP file using JSZip
 async function handleZipFile(zipFile) {
   if (!zipFile) return;
+  currentZipRawFile = zipFile;
   if (typeof JSZip === 'undefined') {
     alert('JSZip library is loading. Please try again in a second.');
     return;
@@ -419,6 +422,21 @@ async function deployUploadedTemplate() {
     files: currentUploadedFiles
   };
 
+  if (currentZipRawFile) {
+    try {
+      const arrayBuffer = await currentZipRawFile.arrayBuffer();
+      const bytes = new Uint8Array(arrayBuffer);
+      let binary = '';
+      const len = bytes.byteLength;
+      for (let i = 0; i < len; i++) {
+        binary += String.fromCharCode(bytes[i]);
+      }
+      payload.zipBase64 = btoa(binary);
+    } catch (e) {
+      console.warn('Could not encode raw ZIP file, falling back to extracted files bundle:', e);
+    }
+  }
+
   try {
     const res = await fetch('/api/templates/upload', {
       method: 'POST',
@@ -431,9 +449,15 @@ async function deployUploadedTemplate() {
       // Close modal
       toggleModal('upload-code-modal');
       // Show success notification
-      showToast(`🎉 Template "${title}" successfully deployed and live!`);
+      if (data.versionId) {
+        showToast(`🎉 Version ${data.versionLabel || data.versionId} stored in Backblaze B2! Ready for preview.`);
+      } else {
+        showToast(`🎉 Template "${title}" successfully deployed!`);
+      }
       // Reload templates list
       loadDynamicTemplates();
+    } else if (data.code === 'B2_NOT_CONFIGURED') {
+      alert(`⚠️ Notice: Backblaze B2 is not configured in environment secrets.\n\n${data.message}\n\nPlease configure B2_APPLICATION_KEY_ID, B2_APPLICATION_KEY, and B2_BUCKET_NAME to ingest production templates into Backblaze B2.`);
     } else {
       alert('Error deploying template: ' + (data.message || 'Unknown error'));
     }

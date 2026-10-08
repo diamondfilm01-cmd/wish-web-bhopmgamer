@@ -1,0 +1,123 @@
+[
+  {
+    "id": "rel_girlfriend",
+    "slug": "girlfriend",
+    "name": "Girlfriend",
+    "displayName": "Dearest Girlfriend",
+    "icon": "💖",
+    "category": "romantic",
+    "status": "active",
+    "sortOrder": 1,
+    "createdAt": "2026-10-08T00:00:00.000Z"
+  },
+  {
+    "id": "rel_boyfriend",
+    "slug": "boyfriend",
+    "name": "Boyfriend",
+    "displayName": "Handsome Boyfriend",
+    "icon": "💙",
+    "category": "romantic",
+    "status": "active",
+    "sortOrder": 2,
+    "createdAt": "2026-10-08T00:00:00.000Z"
+  },
+  {
+    "id": "rel_crush",
+    "slug": "crush",
+    "name": "Crush",
+    "displayName": "Secret Crush",
+    "icon": "✨",
+    "category": "romantic",
+    "status": "active",
+    "sortOrder": 3,
+    "createdAt": "2026-10-08T00:00:00.000Z"
+  },
+  {
+    "id": "rel_wife",
+    "slug": "wife",
+    "name": "Wife",
+    "displayName": "Beloved Wife",
+    "icon": "💍",
+    "category": "romantic",
+    "status": "active",
+    "sortOrder": 4,
+    "createdAt": "2026-10-08T00:00:00.000Z"
+  },
+  {
+    "id": "rel_husband",
+    "slug": "husband",
+    "name": "Husband",
+    "displayName": "Loving Husband",
+    "icon": "👑",
+    "category": "romantic",
+    "status": "active",
+    "sortOrder": 5,
+    "createdAt": "2026-10-08T00:00:00.000Z"
+  },
+  {
+    "id": "rel_friend",
+    "slug": "friend",
+    "name": "Friend",
+    "displayName": "Best Friend Forever",
+    "icon": "🎈",
+    "category": "friends",
+    "status": "active",
+    "sortOrder": 6,
+    "createdAt": "2026-10-08T00:00:00.000Z"
+  },
+  {
+    "id": "rel_mother",
+    "slug": "mother",
+    "name": "Mother",
+    "displayName": "Dearest Mummy / Mother",
+    "icon": "🌸",
+    "category": "family",
+    "status": "active",
+    "sortOrder": 7,
+    "createdAt": "2026-10-08T00:00:00.000Z"
+  },
+  {
+    "id": "rel_father",
+    "slug": "father",
+    "name": "Father",
+    "displayName": "Respected Papa / Father",
+    "icon": "🌟",
+    "category": "family",
+    "status": "active",
+    "sortOrder": 8,
+    "createdAt": "2026-10-08T00:00:00.000Z"
+  },
+  {
+    "id": "rel_brother",
+    "slug": "brother",
+    "name": "Brother",
+    "displayName": "Cherished Brother",
+    "icon": "🚀",
+    "category": "family",
+    "status": "active",
+    "sortOrder": 9,
+    "createdAt": "2026-10-08T00:00:00.000Z"
+  },
+  {
+    "id": "rel_sister",
+    "slug": "sister",
+    "name": "Sister",
+    "displayName": "Sweet Sister",
+    "icon": "🎀",
+    "category": "family",
+    "status": "active",
+    "sortOrder": 10,
+    "createdAt": "2026-10-08T00:00:00.000Z"
+  },
+  {
+    "id": "rel_parents",
+    "slug": "parents",
+    "name": "Parents Tribute",
+    "displayName": "Mom & Dad Together",
+    "icon": "🌺",
+    "category": "family",
+    "status": "active",
+    "sortOrder": 11,
+    "createdAt": "2026-10-08T00:00:00.000Z"
+  }
+]

@@ -9,6 +9,26 @@ import express from 'express';
 import path from 'path';
 import fs from 'fs';
 import { fileURLToPath } from 'url';
+import {
+  executeB2TemplateIngestPipeline,
+  validateZipMagicBytes,
+  extractAndVerifyZip
+} from './src/template-ingest-pipeline.js';
+import {
+  B2StorageProvider,
+  getB2Config,
+  buildTemplateStorageKeys,
+  getMimeType
+} from './src/storage-provider.js';
+import {
+  ImgBBProvider,
+  getImgBBConfig,
+  validateImageBuffer,
+  parseImageDimensions,
+  resolveSlotImage,
+  checkImageDeletionSafety,
+  IMAGE_LIMITS
+} from './src/imgbb-provider.js';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -35,6 +55,10 @@ const USERS_FILE = path.join(DATA_DIR, 'users.json');
 const SESSIONS_FILE = path.join(DATA_DIR, 'sessions.json');
 const FAVORITES_FILE = path.join(DATA_DIR, 'favorites.json');
 const ORDERS_FILE = path.join(DATA_DIR, 'orders.json');
+const RELATIONSHIPS_FILE = path.join(DATA_DIR, 'relationships.json');
+const MUSIC_FILE = path.join(DATA_DIR, 'music.json');
+const WISH_MEDIA_MAPPINGS_FILE = path.join(DATA_DIR, 'wish_media_mappings.json');
+const TEMPLATE_IMAGES_FILE = path.join(DATA_DIR, 'template_images.json');
 const STORE_DIR = path.join(__dirname, 'public', 'templates-store');
 const MEDIA_DIR = path.join(__dirname, 'public', 'media');
 
@@ -227,6 +251,82 @@ function getCategories() {
 
 function saveCategories(categories) {
   fs.writeFileSync(CATEGORIES_FILE, JSON.stringify(categories, null, 2), 'utf8');
+}
+
+function getRelationships() {
+  try {
+    if (fs.existsSync(RELATIONSHIPS_FILE)) {
+      const data = fs.readFileSync(RELATIONSHIPS_FILE, 'utf8');
+      const parsed = JSON.parse(data || '[]');
+      if (Array.isArray(parsed) && parsed.length > 0) {
+        return parsed.sort((a, b) => (Number(a.sortOrder) || 0) - (Number(b.sortOrder) || 0));
+      }
+    }
+    return [
+      { id: 'rel_girlfriend', slug: 'girlfriend', name: 'Girlfriend', displayName: 'Dearest Girlfriend', icon: '💖', category: 'romantic', sortOrder: 1, status: 'active' },
+      { id: 'rel_boyfriend', slug: 'boyfriend', name: 'Boyfriend', displayName: 'Handsome Boyfriend', icon: '💙', category: 'romantic', sortOrder: 2, status: 'active' },
+      { id: 'rel_crush', slug: 'crush', name: 'Crush', displayName: 'Secret Crush', icon: '✨', category: 'romantic', sortOrder: 3, status: 'active' },
+      { id: 'rel_friend', slug: 'friend', name: 'Friend', displayName: 'Best Friend Forever', icon: '🎈', category: 'friends', sortOrder: 4, status: 'active' },
+      { id: 'rel_parents', slug: 'parents', name: 'Parents Tribute', displayName: 'Mom & Dad Together', icon: '🌺', category: 'family', sortOrder: 5, status: 'active' }
+    ];
+  } catch (e) {
+    return [];
+  }
+}
+
+function saveRelationships(relationships) {
+  fs.writeFileSync(RELATIONSHIPS_FILE, JSON.stringify(relationships, null, 2), 'utf8');
+}
+
+function getMusicLibrary() {
+  try {
+    if (fs.existsSync(MUSIC_FILE)) {
+      const data = fs.readFileSync(MUSIC_FILE, 'utf8');
+      const parsed = JSON.parse(data || '[]');
+      if (Array.isArray(parsed) && parsed.length > 0) return parsed;
+    }
+    return [
+      { id: 'mus_celebration_strings', title: 'Celebration Acoustic Strings', artist: 'WishMagic Ensemble', category: 'celebration', storageProvider: 'b2', playbackUrl: 'https://assets.wishmagic.live/music/celebration-strings.mp3', status: 'active', isFeatured: 1 },
+      { id: 'mus_romantic_piano', title: 'Romantic Midnight Piano', artist: 'WishMagic Serenades', category: 'romantic', storageProvider: 'b2', playbackUrl: 'https://assets.wishmagic.live/music/romantic-piano.mp3', status: 'active', isFeatured: 1 },
+      { id: 'mus_golden_elegance', title: 'Golden Nostalgia & Acoustic Cello', artist: 'WishMagic Classical', category: 'peaceful', storageProvider: 'b2', playbackUrl: 'https://assets.wishmagic.live/music/golden-nostalgia.mp3', status: 'active', isFeatured: 1 }
+    ];
+  } catch (e) {
+    return [];
+  }
+}
+
+function saveMusicLibrary(music) {
+  fs.writeFileSync(MUSIC_FILE, JSON.stringify(music, null, 2), 'utf8');
+}
+
+function getWishMediaMappings() {
+  try {
+    if (fs.existsSync(WISH_MEDIA_MAPPINGS_FILE)) {
+      const data = fs.readFileSync(WISH_MEDIA_MAPPINGS_FILE, 'utf8');
+      const parsed = JSON.parse(data || '[]');
+      if (Array.isArray(parsed)) return parsed;
+    }
+  } catch (e) {}
+  return [];
+}
+
+function saveWishMediaMappings(mappings) {
+  fs.writeFileSync(WISH_MEDIA_MAPPINGS_FILE, JSON.stringify(mappings, null, 2), 'utf8');
+}
+
+function getTemplateImages() {
+  try {
+    if (fs.existsSync(TEMPLATE_IMAGES_FILE)) {
+      const data = fs.readFileSync(TEMPLATE_IMAGES_FILE, 'utf8');
+      const parsed = JSON.parse(data || '[]');
+      if (Array.isArray(parsed)) return parsed;
+    }
+  } catch (e) {}
+  return [];
+}
+
+function saveTemplateImages(images) {
+  fs.writeFileSync(TEMPLATE_IMAGES_FILE, JSON.stringify(images, null, 2), 'utf8');
 }
 
 function getTemplates() {
@@ -1795,8 +1895,8 @@ app.get('/api/templates/:id', (req, res) => {
   res.json({ success: true, template });
 });
 
-// API: Upload a complete new website / folder / files bundle
-app.post('/api/templates/upload', (req, res) => {
+// API: Upload a complete new website / ZIP archive / folder files bundle
+app.post('/api/templates/upload', async (req, res) => {
   try {
     const {
       name,
@@ -1808,11 +1908,53 @@ app.post('/api/templates/upload', (req, res) => {
       featured,
       placement,
       detectedFields,
-      files
-    } = req.body;
+      files,
+      zipBase64
+    } = req.body || {};
+
+    const b2Config = getB2Config(process.env);
+
+    // If a ZIP archive is provided
+    if (zipBase64) {
+      if (!b2Config.isConfigured) {
+        return res.status(503).json({
+          success: false,
+          error: 'B2_NOT_CONFIGURED',
+          code: 'B2_NOT_CONFIGURED',
+          message: `Backblaze B2 storage credentials are not configured in environment secrets. Missing: ${b2Config.missingKeys.join(', ')}`,
+          details: {
+            missingKeys: b2Config.missingKeys,
+            provider: 'b2',
+            documentation: 'Configure B2_APPLICATION_KEY_ID, B2_APPLICATION_KEY, and B2_BUCKET_NAME in environment variables.'
+          }
+        });
+      }
+
+      const zipBuffer = Buffer.from(zipBase64, 'base64');
+      const ingestResult = await executeB2TemplateIngestPipeline({
+        zipBuffer,
+        templateMetadata: {
+          name,
+          category,
+          tier,
+          price,
+          description,
+          thumbnail,
+          featured
+        },
+        env: process.env,
+        authorId: req.session?.userId || 'admin_system'
+      });
+
+      if (!ingestResult.success) {
+        return res.status(ingestResult.code === 'B2_NOT_CONFIGURED' ? 503 : 400).json(ingestResult);
+      }
+
+      return res.status(201).json(ingestResult);
+    }
 
     if (!name || !files || typeof files !== 'object') {
-      return res.status(400).json({ success: false, message: 'Template name and files bundle are required' });
+      return res.status(400).json({ success: false, message: 'Template name and files bundle or zipBase64 are required' });
     }
 
     const templateId = 'tpl_' + Date.now().toString(36) + '_' + Math.random().toString(36).substr(2, 5);
@@ -1879,6 +2021,345 @@ app.post('/api/templates/upload', (req, res) => {
     });
   } catch (err) {
     console.error('Error uploading template:', err);
+    res.status(500).json({ success: false, message: err.message });
+  }
+});
+
+// Part 20: Template Version Preview Route
+app.get('/api/templates/:id/versions/:versionId/preview/*', async (req, res) => {
+  try {
+    const { id, versionId } = req.params;
+    const relPath = req.params[0] || 'index.html';
+    const b2Config = getB2Config(process.env);
+
+    if (b2Config.isConfigured) {
+      const b2Provider = B2StorageProvider.fromEnv(process.env);
+      const storageKey = `templates/fam_${id}/versions/${versionId}/runtime/${relPath.replace(/^\/+/, '')}`;
+      const obj = await b2Provider.getObject({ key: storageKey });
+      res.setHeader('Content-Type', obj.contentType || getMimeType(relPath));
+      res.setHeader('X-Frame-Options', 'SAMEORIGIN');
+      return res.send(Buffer.from(obj.body));
+    }
+
+    // Local file fallback if exists in STORE_DIR
+    const localPath = path.join(STORE_DIR, id, relPath);
+    if (fs.existsSync(localPath)) {
+      res.setHeader('Content-Type', getMimeType(relPath));
+      res.setHeader('X-Frame-Options', 'SAMEORIGIN');
+      return res.sendFile(localPath);
+    }
+
+    return res.status(503).json({
+      success: false,
+      code: 'B2_NOT_CONFIGURED',
+      message: 'Cannot serve version preview: Backblaze B2 is not configured in environment.'
+    });
+  } catch (err) {
+    res.status(404).json({ success: false, message: 'Preview file not found: ' + err.message });
+  }
+});
+
+// Part 20: Template Version Publish Route
+app.post('/api/templates/:id/versions/:versionId/publish', (req, res) => {
+  try {
+    const { id, versionId } = req.params;
+    const nowIso = new Date().toISOString();
+    const versions = getTemplateVersions();
+    const targetVer = versions.find(v => v.id === versionId);
+    if (!targetVer) {
+      return res.status(404).json({ success: false, message: 'Version not found' });
+    }
+
+    // Archive old published versions
+    versions.forEach(v => {
+      if (v.templateId === id && v.status === 'published') {
+        v.status = 'archived';
+        v.archivedAt = nowIso;
+      }
+    });
+
+    targetVer.status = 'published';
+    targetVer.publishedAt = nowIso;
+    saveTemplateVersions(versions);
+
+    // Update template
+    const templates = getTemplates();
+    const t = templates.find(item => item.id === id);
+    if (t) {
+      t.status = 'published';
+      t.isPublished = true;
+      t.currentVersionId = versionId;
+      t.updatedAt = nowIso;
+      saveTemplates(templates);
+    }
+
+    res.json({
+      success: true,
+      published: true,
+      templateId: id,
+      versionId,
+      publishedAt: nowIso,
+      message: `Version ${versionId} is now published and active.`
+    });
+  } catch (err) {
+    res.status(500).json({ success: false, message: err.message });
+  }
+});
+
+// Part 20: List Template Versions Route
+app.get('/api/templates/:id/versions', (req, res) => {
+  try {
+    const { id } = req.params;
+    const versions = getTemplateVersions().filter(v => v.templateId === id || v.template_id === id);
+    res.json({ success: true, templateId: id, versions });
+  } catch (err) {
+    res.status(500).json({ success: false, message: err.message });
+  }
+});
+
+// Part 21: Admin Template Images API
+app.get('/api/templates/:id/versions/:versionId/images', (req, res) => {
+  try {
+    const { id, versionId } = req.params;
+    const relId = req.query.relationshipId || req.query.relationship_id || null;
+    let images = getTemplateImages().filter(img => (img.template_version_id === versionId || img.templateVersionId === versionId) && img.status !== 'archived');
+    if (relId) {
+      images = images.filter(img => !img.relationship_id || img.relationship_id === relId || img.relationship_id === '');
+    }
+    res.json({ success: true, templateId: id, versionId, images, total: images.length });
+  } catch (err) {
+    res.status(500).json({ success: false, message: err.message });
+  }
+});
+
+app.post('/api/templates/:id/versions/:versionId/images', async (req, res) => {
+  try {
+    const { id, versionId } = req.params;
+    const { assetKey, relationshipId, fileData, filename } = req.body || {};
+
+    if (!fileData) {
+      return res.status(400).json({ success: false, message: 'Image fileData is required' });
+    }
+
+    // 1. Image validation
+    let validation;
+    try {
+      validation = await validateImageBuffer(fileData, { maxSizeBytes: IMAGE_LIMITS.MAX_IMAGE_BYTES });
+    } catch (valErr) {
+      return res.status(400).json({ success: false, code: valErr.code || 'IMAGE_INVALID', message: valErr.message });
+    }
+
+    // 2. Check ImgBB config
+    const imgbbConfig = getImgBBConfig(process.env);
+    if (!imgbbConfig.isConfigured) {
+      return res.status(503).json({
+        success: false,
+        code: 'IMGBB_NOT_CONFIGURED',
+        error: 'IMGBB_NOT_CONFIGURED',
+        message: 'ImgBB image storage is not configured. Missing IMGBB_API_KEY environment secret.'
+      });
+    }
+
+    // 3. Upload to ImgBB
+    const provider = ImgBBProvider.fromEnv(process.env);
+    const imgResult = await provider.uploadImage({
+      data: validation.bytes,
+      filename: filename || 'template-asset.jpg',
+      name: `template_${id}_${versionId}_${assetKey || 'hero'}`
+    });
+
+    // 4. Save to template_images
+    const allImages = getTemplateImages();
+    const newImage = {
+      id: `timg_${versionId}_${Date.now().toString(36)}_${Math.random().toString(36).substring(2, 6)}`,
+      template_id: id,
+      template_version_id: versionId,
+      asset_key: assetKey || 'hero_photo',
+      relationship_id: relationshipId || null,
+      original_filename: filename || 'template-asset.jpg',
+      storage_provider: 'imgbb',
+      provider_asset_id: imgResult.providerAssetId,
+      original_url: imgResult.url,
+      display_url: imgResult.displayUrl,
+      thumbnail_url: imgResult.thumbnailUrl,
+      delete_url: imgResult.deleteUrl,
+      mime_type: validation.mimeType,
+      width: imgResult.width,
+      height: imgResult.height,
+      size_bytes: imgResult.sizeBytes,
+      sha256: imgResult.sha256,
+      status: 'active',
+      created_at: new Date().toISOString(),
+      updated_at: new Date().toISOString()
+    };
+    allImages.push(newImage);
+    saveTemplateImages(allImages);
+
+    res.status(201).json({ success: true, image: newImage });
+  } catch (err) {
+    res.status(500).json({ success: false, message: err.message });
+  }
+});
+
+app.delete('/api/templates/:id/versions/:versionId/images/:imageId', (req, res) => {
+  try {
+    const { id, versionId, imageId } = req.params;
+    const allImages = getTemplateImages();
+    const target = allImages.find(img => img.id === imageId);
+    if (!target) {
+      return res.status(404).json({ success: false, message: 'Template image not found' });
+    }
+
+    const versions = getTemplateVersions();
+    const version = versions.find(v => v.id === versionId);
+    if (version && version.status === 'published') {
+      target.status = 'archived';
+      target.updated_at = new Date().toISOString();
+      saveTemplateImages(allImages);
+      return res.json({ success: true, archived: true, imageId, message: 'Image archived because template version is published.' });
+    }
+
+    const filtered = allImages.filter(img => img.id !== imageId);
+    saveTemplateImages(filtered);
+    res.json({ success: true, deleted: true, imageId });
+  } catch (err) {
+    res.status(500).json({ success: false, message: err.message });
+  }
+});
+
+app.get('/api/templates/:id/images', (req, res) => {
+  try {
+    const { id } = req.params;
+    const images = getTemplateImages().filter(img => (img.template_id === id || img.templateId === id) && img.status !== 'archived');
+    res.json({ success: true, templateId: id, images, total: images.length });
+  } catch (err) {
+    res.status(500).json({ success: false, message: err.message });
+  }
+});
+
+// Part 21: Master Admin Template Images List & Search API
+app.get('/api/admin/template-images', (req, res) => {
+  try {
+    const { templateId, relationshipId, status, search } = req.query;
+    let list = getTemplateImages();
+    const templates = getTemplates();
+    const versions = getTemplateVersions();
+
+    if (templateId) {
+      list = list.filter(img => img.template_id === templateId || img.templateId === templateId);
+    }
+    if (relationshipId) {
+      list = list.filter(img => img.relationship_id === relationshipId);
+    }
+    if (status) {
+      list = list.filter(img => img.status === status);
+    }
+    if (search) {
+      const q = String(search).toLowerCase();
+      list = list.filter(img =>
+        (img.asset_key && img.asset_key.toLowerCase().includes(q)) ||
+        (img.original_filename && img.original_filename.toLowerCase().includes(q)) ||
+        (img.relationship_id && img.relationship_id.toLowerCase().includes(q)) ||
+        (img.template_id && img.template_id.toLowerCase().includes(q))
+      );
+    }
+
+    const enriched = list.map(img => {
+      const t = templates.find(tpl => tpl.id === (img.template_id || img.templateId));
+      const v = versions.find(ver => ver.id === img.template_version_id);
+      return {
+        ...img,
+        templateName: t ? t.name : (img.template_id || 'Template'),
+        templateSlug: t ? t.slug : '',
+        versionNumber: v ? v.version_number : null,
+        versionLabel: v ? v.version_label : null
+      };
+    });
+
+    res.json({ success: true, images: enriched, total: enriched.length });
+  } catch (err) {
+    res.status(500).json({ success: false, message: err.message, images: [] });
+  }
+});
+
+// Part 21: Admin Template Image Metadata Update (Asset Key, Relationship, Status)
+app.patch('/api/admin/template-images/:imageId', (req, res) => {
+  try {
+    const { imageId } = req.params;
+    const { assetKey, relationshipId, status } = req.body || {};
+    const allImages = getTemplateImages();
+    const target = allImages.find(img => img.id === imageId);
+
+    if (!target) {
+      return res.status(404).json({ success: false, message: 'Template image not found' });
+    }
+
+    if (assetKey !== undefined) target.asset_key = String(assetKey).trim();
+    if (relationshipId !== undefined) target.relationship_id = relationshipId ? String(relationshipId).trim() : null;
+    if (status !== undefined) target.status = String(status).trim();
+    target.updated_at = new Date().toISOString();
+
+    saveTemplateImages(allImages);
+    res.json({ success: true, image: target });
+  } catch (err) {
+    res.status(500).json({ success: false, message: err.message });
+  }
+});
+
+// Part 21: Admin Template Image Replacement via ImgBB
+app.post('/api/admin/template-images/replace/:imageId', async (req, res) => {
+  try {
+    const { imageId } = req.params;
+    const { fileData, filename } = req.body || {};
+    const allImages = getTemplateImages();
+    const target = allImages.find(img => img.id === imageId);
+
+    if (!target) {
+      return res.status(404).json({ success: false, message: 'Template image not found' });
+    }
+    if (!fileData) {
+      return res.status(400).json({ success: false, message: 'Image fileData is required' });
+    }
+
+    let validation;
+    try {
+      validation = await validateImageBuffer(fileData, { maxSizeBytes: IMAGE_LIMITS.MAX_IMAGE_BYTES });
+    } catch (valErr) {
+      return res.status(400).json({ success: false, code: valErr.code || 'IMAGE_INVALID', message: valErr.message });
+    }
+
+    const imgbbConfig = getImgBBConfig(process.env);
+    if (!imgbbConfig.isConfigured) {
+      return res.status(503).json({
+        success: false,
+        code: 'IMGBB_NOT_CONFIGURED',
+        message: 'ImgBB image storage is not configured. Missing IMGBB_API_KEY environment secret.'
+      });
+    }
+
+    const provider = ImgBBProvider.fromEnv(process.env);
+    const imgResult = await provider.uploadImage({
+      data: validation.bytes,
+      filename: filename || target.original_filename || 'template-replaced.jpg',
+      name: `template_${target.template_id}_${target.asset_key}_replaced`
+    });
+
+    target.original_url = imgResult.url;
+    target.display_url = imgResult.displayUrl;
+    target.thumbnail_url = imgResult.thumbnailUrl;
+    target.delete_url = imgResult.deleteUrl;
+    target.provider_asset_id = imgResult.providerAssetId;
+    target.width = imgResult.width;
+    target.height = imgResult.height;
+    target.size_bytes = imgResult.sizeBytes;
+    target.sha256 = imgResult.sha256;
+    target.mime_type = validation.mimeType;
+    target.original_filename = filename || target.original_filename;
+    target.updated_at = new Date().toISOString();
+
+    saveTemplateImages(allImages);
+    res.json({ success: true, image: target, message: 'Template image replaced successfully via ImgBB' });
+  } catch (err) {
     res.status(500).json({ success: false, message: err.message });
   }
 });
@@ -2330,6 +2811,407 @@ app.delete('/api/categories/:id', (req, res) => {
   }
 });
 
+// --- Part 19: Centralized Relationships API ---
+app.get('/api/relationships', (req, res) => {
+  try {
+    const relationships = getRelationships();
+    res.json({ success: true, relationships, total: relationships.length });
+  } catch (err) {
+    res.status(500).json({ success: false, message: err.message, relationships: [] });
+  }
+});
+
+// --- Part 19: Centralized Music Library API ---
+app.get('/api/music', (req, res) => {
+  try {
+    let music = getMusicLibrary();
+    const { category, relationship } = req.query;
+    if (category && category !== 'all') {
+      music = music.filter(m => String(m.category).toLowerCase() === String(category).toLowerCase());
+    }
+    if (relationship && relationship !== 'all') {
+      const cleanRel = String(relationship).toLowerCase().trim();
+      music = music.filter(m => {
+        const suit = Array.isArray(m.relationshipSuitability) ? m.relationshipSuitability : [];
+        return suit.length === 0 || suit.includes(cleanRel);
+      });
+    }
+    res.json({ success: true, music, total: music.length });
+  } catch (err) {
+    res.status(500).json({ success: false, message: err.message, music: [] });
+  }
+});
+
+// --- Part 19: Centralized Template Families API ---
+app.get('/api/template-families', (req, res) => {
+  try {
+    const templates = getTemplates();
+    const families = templates.map(t => ({
+      id: 'fam_' + t.id,
+      slug: t.slug,
+      name: t.name,
+      description: t.description,
+      thumbnail: t.thumbnail,
+      category: t.category,
+      tier: t.tier,
+      price: t.price,
+      is_featured: t.featured ? 1 : 0,
+      is_premium: t.isPremium ? 1 : 0,
+      status: 'published',
+      visibility: 'public'
+    }));
+    res.json({ success: true, families, total: families.length });
+  } catch (err) {
+    res.status(500).json({ success: false, message: err.message, families: [] });
+  }
+});
+
+// --- Part 19: Template Relationship Variants & Details API ---
+app.get('/api/templates/:id/variants', (req, res) => {
+  try {
+    const templateId = req.params.id;
+    const rels = getRelationships();
+    const variants = rels.map(r => ({
+      id: `trv_${templateId}_${r.slug}`,
+      template_id: templateId,
+      relationship_id: r.id,
+      relationship_slug: r.slug,
+      relationship_name: r.name,
+      relationship_display_name: r.displayName,
+      status: 'active'
+    }));
+    res.json({ success: true, templateId, variants, total: variants.length });
+  } catch (err) {
+    res.status(500).json({ success: false, message: err.message, variants: [] });
+  }
+});
+
+// --- Part 19 & Part 21: Storage Providers Registry & Capabilities API ---
+app.get('/api/storage-providers', (req, res) => {
+  try {
+    const imgbbCfg = getImgBBConfig(process.env);
+    const b2Cfg = getB2Config(process.env);
+    const providers = [
+      {
+        id: 'imgbb',
+        name: 'ImgBB Image Hosting',
+        provider_type: 'images',
+        isConfigured: imgbbCfg.isConfigured,
+        status: imgbbCfg.isConfigured ? 'active' : 'not_configured',
+        allowedMime: IMAGE_LIMITS.ALLOWED_MIME_TYPES,
+        maxBytes: IMAGE_LIMITS.MAX_IMAGE_BYTES,
+        config_json: JSON.stringify({ isConfigured: imgbbCfg.isConfigured, max_mb: 32 })
+      },
+      {
+        id: 'b2',
+        name: 'Backblaze B2 Cloud Storage',
+        provider_type: 'files',
+        isConfigured: b2Cfg.isConfigured,
+        status: b2Cfg.isConfigured ? 'active' : 'not_configured',
+        config_json: JSON.stringify({ isConfigured: b2Cfg.isConfigured, bucket: b2Cfg.bucketName })
+      },
+      {
+        id: 'r2',
+        name: 'Cloudflare R2 Object Storage',
+        provider_type: 'hybrid',
+        status: 'active',
+        config_json: '{"bucket":"wishmagic-media"}'
+      }
+    ];
+    res.json({ success: true, providers, total: providers.length });
+  } catch (err) {
+    res.status(500).json({ success: false, message: err.message, providers: [] });
+  }
+});
+
+// --- Part 19: Wish Media Mappings API ---
+app.get('/api/wishes/:id/media-mappings', (req, res) => {
+  try {
+    const wishId = req.params.id;
+    const allMappings = getWishMediaMappings();
+    const mappings = allMappings.filter(m => m.wish_id === wishId);
+    res.json({ success: true, wishId, mappings });
+  } catch (err) {
+    res.status(500).json({ success: false, message: err.message, mappings: [] });
+  }
+});
+
+app.post('/api/wishes/:id/media-mappings', (req, res) => {
+  try {
+    const wishId = req.params.id;
+    const { fieldKey, mediaId, sectionKey, sortOrder } = req.body;
+    if (!fieldKey || !mediaId) {
+      return res.status(400).json({ success: false, message: 'fieldKey and mediaId are required' });
+    }
+    const allMappings = getWishMediaMappings();
+    const mappingId = `wmm_${Date.now().toString(36)}_${Math.random().toString(36).substring(2, 6)}`;
+    const nowIso = new Date().toISOString();
+    const newMapping = {
+      id: mappingId,
+      wish_id: wishId,
+      field_key: fieldKey,
+      media_id: mediaId,
+      section_key: sectionKey || null,
+      sort_order: Number(sortOrder) || 0,
+      created_at: nowIso,
+      updated_at: nowIso
+    };
+    allMappings.push(newMapping);
+    saveWishMediaMappings(allMappings);
+    res.status(201).json({ success: true, mappingId, wishId, fieldKey, mediaId });
+  } catch (err) {
+    res.status(500).json({ success: false, message: err.message });
+  }
+});
+
+// Part 21: Customer Wish Media Upload & Slot Mapping API
+app.post(['/api/wishes/:id/media/upload', '/api/wishes/:id/media'], async (req, res) => {
+  try {
+    const wishId = req.params.id;
+    const { fieldKey, fileData, filename, sectionKey, sortOrder } = req.body || {};
+
+    if (!fileData) {
+      return res.status(400).json({ success: false, message: 'Image fileData is required' });
+    }
+
+    // 1. Validate image
+    let validation;
+    try {
+      validation = await validateImageBuffer(fileData, { maxSizeBytes: IMAGE_LIMITS.MAX_IMAGE_BYTES });
+    } catch (valErr) {
+      return res.status(400).json({ success: false, code: valErr.code || 'IMAGE_INVALID', message: valErr.message });
+    }
+
+    // 2. Check ImgBB config
+    const imgbbConfig = getImgBBConfig(process.env);
+    if (!imgbbConfig.isConfigured) {
+      return res.status(503).json({
+        success: false,
+        code: 'IMGBB_NOT_CONFIGURED',
+        error: 'IMGBB_NOT_CONFIGURED',
+        message: 'ImgBB image storage is not configured. Missing IMGBB_API_KEY environment secret.'
+      });
+    }
+
+    // 3. Upload to ImgBB
+    const provider = ImgBBProvider.fromEnv(process.env);
+    const imgResult = await provider.uploadImage({
+      data: validation.bytes,
+      filename: filename || 'wish-photo.jpg',
+      name: `wish_${wishId}_${fieldKey || 'photo'}`
+    });
+
+    // 4. Store in media
+    const mediaList = getMedia();
+    const mediaId = `wmed_${Date.now().toString(36)}_${Math.random().toString(36).substring(2, 6)}`;
+    const nowIso = new Date().toISOString();
+
+    const newMedia = {
+      id: mediaId,
+      wish_id: wishId,
+      object_key: imgResult.providerAssetId,
+      filename: filename || 'wish-photo.jpg',
+      media_type: 'image',
+      mime_type: validation.mimeType,
+      size_bytes: imgResult.sizeBytes,
+      url: imgResult.url,
+      display_url: imgResult.displayUrl,
+      thumbnail_url: imgResult.thumbnailUrl,
+      delete_url: imgResult.deleteUrl,
+      sha256: imgResult.sha256,
+      width: imgResult.width,
+      height: imgResult.height,
+      storage_provider: 'imgbb',
+      status: 'active',
+      is_public: 1,
+      created_at: nowIso,
+      updated_at: nowIso
+    };
+    mediaList.unshift(newMedia);
+    saveMedia(mediaList);
+
+    // 5. Store/Update wish_media_mappings
+    const mappings = getWishMediaMappings();
+    const mappingId = `wmm_${Date.now().toString(36)}_${Math.random().toString(36).substring(2, 6)}`;
+    const newMapping = {
+      id: mappingId,
+      wish_id: wishId,
+      field_key: fieldKey || 'recipient_photo',
+      media_id: mediaId,
+      section_key: sectionKey || null,
+      sort_order: Number(sortOrder) || 0,
+      created_at: nowIso,
+      updated_at: nowIso
+    };
+    mappings.push(newMapping);
+    saveWishMediaMappings(mappings);
+
+    // 6. Sync wishes.customData
+    const wishes = getWishes();
+    const wish = wishes.find(w => w.id === wishId);
+    if (wish) {
+      if (!wish.customData) wish.customData = {};
+      if (fieldKey) wish.customData[fieldKey] = imgResult.displayUrl;
+      if (!Array.isArray(wish.customData.photos)) wish.customData.photos = [];
+      if (!wish.customData.photos.includes(imgResult.displayUrl)) {
+        wish.customData.photos.push(imgResult.displayUrl);
+      }
+      wish.updatedAt = nowIso;
+      saveWishes(wishes);
+    }
+
+    res.status(201).json({
+      success: true,
+      media: {
+        id: mediaId,
+        wishId,
+        fieldKey,
+        mappingId,
+        url: imgResult.url,
+        displayUrl: imgResult.displayUrl,
+        thumbnailUrl: imgResult.thumbnailUrl,
+        width: imgResult.width,
+        height: imgResult.height,
+        sizeBytes: imgResult.sizeBytes,
+        mimeType: validation.mimeType,
+        storageProvider: 'imgbb'
+      }
+    });
+  } catch (err) {
+    res.status(500).json({ success: false, message: err.message });
+  }
+});
+
+app.get('/api/wishes/:id/media', (req, res) => {
+  try {
+    const wishId = req.params.id;
+    const mediaList = getMedia().filter(m => (m.wish_id === wishId || m.wishId === wishId) && m.status !== 'archived');
+    const mappings = getWishMediaMappings().filter(m => m.wish_id === wishId);
+
+    const enriched = mediaList.map(m => {
+      const mapping = mappings.find(map => map.media_id === m.id);
+      return {
+        ...m,
+        field_key: mapping ? mapping.field_key : null,
+        section_key: mapping ? mapping.section_key : null,
+        sort_order: mapping ? mapping.sort_order : 0
+      };
+    });
+
+    res.json({ success: true, wishId, media: enriched, total: enriched.length });
+  } catch (err) {
+    res.status(500).json({ success: false, message: err.message, media: [] });
+  }
+});
+
+app.delete('/api/wishes/:id/media/:mediaId', (req, res) => {
+  try {
+    const { id: wishId, mediaId } = req.params;
+    const mappings = getWishMediaMappings().filter(m => !(m.media_id === mediaId && m.wish_id === wishId));
+    saveWishMediaMappings(mappings);
+
+    const mediaList = getMedia();
+    const target = mediaList.find(m => m.id === mediaId);
+    if (target) {
+      const wishes = getWishes();
+      const wish = wishes.find(w => w.id === wishId);
+      if (wish && (wish.status === 'published' || wish.isPublished)) {
+        target.status = 'archived';
+      } else {
+        const filteredMedia = mediaList.filter(m => m.id !== mediaId);
+        saveMedia(filteredMedia);
+        return res.json({ success: true, deleted: true, mediaId, wishId });
+      }
+      saveMedia(mediaList);
+    }
+    res.json({ success: true, deleted: true, mediaId, wishId });
+  } catch (err) {
+    res.status(500).json({ success: false, message: err.message });
+  }
+});
+
+app.get('/api/wishes/:id/resolved-media', (req, res) => {
+  try {
+    const wishId = req.params.id;
+    const wishes = getWishes();
+    const wish = wishes.find(w => w.id === wishId);
+    if (!wish) {
+      return res.status(404).json({ success: false, message: 'Wish not found' });
+    }
+
+    const customData = wish.customData || {};
+    const mappings = getWishMediaMappings().filter(m => m.wish_id === wishId);
+    const mediaList = getMedia();
+
+    const userMappings = mappings.map(m => {
+      const med = mediaList.find(item => item.id === m.media_id) || {};
+      return {
+        field_key: m.field_key,
+        url: med.display_url || med.url,
+        display_url: med.display_url || med.url,
+        thumbnail_url: med.thumbnail_url || null,
+        media_id: m.media_id,
+        mime_type: med.mime_type || 'image/jpeg',
+        width: med.width || null,
+        height: med.height || null
+      };
+    });
+
+    const templateId = wish.templateId || wish.template_id;
+    const templateImages = getTemplateImages().filter(ti => ti.template_id === templateId || ti.templateId === templateId);
+
+    const templates = getTemplates();
+    const template = templates.find(t => t.id === templateId);
+    const detectedFields = (template && template.detectedFields) || [];
+
+    const relationshipId = customData.relationship || null;
+    const resolved = {};
+
+    detectedFields.filter(f => f.type === 'image' || f.key.includes('photo') || f.key.includes('image')).forEach(f => {
+      resolved[f.key] = resolveSlotImage({
+        slotKey: f.key,
+        wishMediaMappings: userMappings,
+        templateImages,
+        relationshipId,
+        fallbackUrl: f.defaultValue || f.default_value || ''
+      });
+    });
+
+    res.json({ success: true, wishId, relationshipId, resolved });
+  } catch (err) {
+    res.status(500).json({ success: false, message: err.message });
+  }
+});
+
+// --- Part 19: Safe Storage Lifecycle & Deletion Audit API ---
+app.post('/api/admin/storage/audit-lifecycle', (req, res) => {
+  try {
+    const { assetId, id, assetType } = req.body || {};
+    const targetId = assetId || id || '';
+    const mappings = getWishMediaMappings();
+    const wishReferences = mappings.filter(m => m.media_id === targetId).length;
+    const templateImages = getTemplateImages();
+    const versionReferences = templateImages.filter(ti => ti.provider_asset_id === targetId || ti.id === targetId).length;
+    const isSafe = wishReferences === 0 && versionReferences === 0;
+    res.json({
+      success: true,
+      assetId: targetId,
+      assetType: assetType || 'image',
+      isSafeToDelete: isSafe,
+      recommendedAction: isSafe ? 'delete' : 'archive',
+      dependencies: {
+        publishedWishReferences: wishReferences,
+        templateVersionReferences: versionReferences
+      },
+      reason: isSafe
+        ? 'Asset has zero active wish or template version dependencies.'
+        : `Asset is referenced by ${wishReferences} published wish(es). It must be archived.`
+    });
+  } catch (err) {
+    res.status(500).json({ success: false, message: err.message });
+  }
+});
+
 // API: Get all audio and media assets
 app.get('/api/media', (req, res) => {
   try {
@@ -2340,17 +3222,78 @@ app.get('/api/media', (req, res) => {
   }
 });
 
-// API: Upload a new audio track
-app.post('/api/media/upload', (req, res) => {
+// API: Upload a new audio track or image asset
+app.post('/api/media/upload', async (req, res) => {
   try {
-    const { title, genre, duration, license, fileData, filename } = req.body;
-    if (!title || !fileData) {
+    const { title, genre, duration, license, fileData, filename, type } = req.body || {};
+    if (!fileData) {
+      return res.status(400).json({ success: false, message: 'File payload is required' });
+    }
+
+    const ext = path.extname(filename || '').replace('.', '').toLowerCase();
+    const isImage = IMAGE_LIMITS.ALLOWED_EXTENSIONS.includes(ext) || type === 'image' || String(fileData).includes('image/');
+
+    if (isImage) {
+      const imgbbConfig = getImgBBConfig(process.env);
+      if (!imgbbConfig.isConfigured) {
+        return res.status(503).json({
+          success: false,
+          code: 'IMGBB_NOT_CONFIGURED',
+          error: 'IMGBB_NOT_CONFIGURED',
+          message: 'ImgBB image storage is not configured. Missing IMGBB_API_KEY environment secret.'
+        });
+      }
+
+      let validation;
+      try {
+        validation = await validateImageBuffer(fileData, { maxSizeBytes: IMAGE_LIMITS.MAX_IMAGE_BYTES });
+      } catch (valErr) {
+        return res.status(400).json({ success: false, code: valErr.code || 'IMAGE_INVALID', message: valErr.message });
+      }
+
+      const provider = ImgBBProvider.fromEnv(process.env);
+      const imgResult = await provider.uploadImage({
+        data: validation.bytes,
+        filename: filename || 'user-upload.jpg',
+        name: `media_${Date.now()}`
+      });
+
+      const media = getMedia();
+      const newAsset = {
+        id: 'media_' + Date.now().toString(36),
+        title: (title || filename || 'Image Asset').trim(),
+        filename: filename || 'user-upload.jpg',
+        url: imgResult.displayUrl,
+        displayUrl: imgResult.displayUrl,
+        thumbnailUrl: imgResult.thumbnailUrl,
+        media_type: 'image',
+        mime_type: validation.mimeType,
+        width: imgResult.width,
+        height: imgResult.height,
+        size_bytes: imgResult.sizeBytes,
+        storage_provider: 'imgbb',
+        provider_asset_id: imgResult.providerAssetId,
+        createdAt: new Date().toISOString()
+      };
+      media.unshift(newAsset);
+      saveMedia(media);
+
+      return res.status(201).json({
+        success: true,
+        status: 'uploaded',
+        track: newAsset,
+        asset: newAsset,
+        message: 'Image asset uploaded successfully to ImgBB'
+      });
+    }
+
+    if (!title) {
       return res.status(400).json({ success: false, message: 'Track title and audio file are required' });
     }
 
     const trackId = 'trk_' + Date.now().toString(36) + '_' + Math.random().toString(36).substr(2, 4);
-    const ext = path.extname(filename || 'track.mp3') || '.mp3';
-    const diskFilename = `${trackId}${ext}`;
+    const audioExt = path.extname(filename || 'track.mp3') || '.mp3';
+    const diskFilename = `${trackId}${audioExt}`;
     const filePath = path.join(MEDIA_DIR, diskFilename);
 
     let base64Content = fileData;
@@ -2632,9 +3575,55 @@ app.get('/api/admin/media/all', (req, res) => {
       });
     });
 
+    // Part 21: Index ImgBB Template Images into Master Media Catalog
+    const templateImages = getTemplateImages();
+    templateImages.forEach(ti => {
+      const t = templates.find(tpl => tpl.id === (ti.template_id || ti.templateId));
+      const tName = t ? t.name : (ti.template_id || 'Template');
+      const relLabel = ti.relationship_id ? ti.relationship_id.replace(/_/g, ' ') : 'Default / All Variants';
+      const imgUrl = ti.display_url || ti.original_url || ti.url;
+
+      if (imgUrl) {
+        allAssetsMap.set(ti.id, {
+          id: ti.id,
+          title: `${tName} — ${ti.asset_key || 'Slot'} (${relLabel})`,
+          type: 'image',
+          format: (ti.mime_type || 'image/jpeg').split('/').pop().toUpperCase(),
+          url: imgUrl,
+          displayUrl: imgUrl,
+          thumbnailUrl: ti.thumbnail_url || imgUrl,
+          fileSizeFormatted: ti.size_bytes ? `${(ti.size_bytes / 1024).toFixed(1)} KB` : 'ImgBB Asset',
+          category: 'Template Image',
+          isTemplateImage: true,
+          templateId: ti.template_id,
+          templateName: tName,
+          templateVersionId: ti.template_version_id,
+          relationshipId: ti.relationship_id,
+          assetKey: ti.asset_key,
+          storageProvider: ti.storage_provider || 'imgbb',
+          providerAssetId: ti.provider_asset_id,
+          width: ti.width,
+          height: ti.height,
+          sha256: ti.sha256,
+          status: ti.status || 'active',
+          createdAt: ti.created_at || new Date().toISOString()
+        });
+      }
+    });
+
     // Compute Live Usage Tracking for EVERY asset
     const results = Array.from(allAssetsMap.values()).map(asset => {
       const usedIn = [];
+
+      // 0. Check Template Image Association (Part 21)
+      if (asset.isTemplateImage) {
+        usedIn.push({
+          targetType: 'TEMPLATE_IMAGE',
+          badgeColor: 'purple',
+          label: `Template: ${asset.templateName} (Slot: ${asset.assetKey || 'hero_photo'})`,
+          location: `Variant: ${asset.relationshipId || 'Default'}`
+        });
+      }
 
       // 1. Check Storefront Hero Section
       if (siteSettings.heroImageUrl && (siteSettings.heroImageUrl === asset.url || asset.url.includes('file_ab2082'))) {
@@ -2695,6 +3684,7 @@ app.get('/api/admin/media/all', (req, res) => {
     const summary = {
       totalAssets: results.length,
       photosCount: results.filter(r => r.type === 'image').length,
+      templateImagesCount: results.filter(r => r.isTemplateImage).length,
       videosCount: results.filter(r => r.type === 'video').length,
       audioCount: results.filter(r => r.type === 'audio').length,
       inUseCount: results.filter(r => r.isInUse).length,
