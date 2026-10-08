@@ -114,12 +114,41 @@ async function handleZipFile(zipFile) {
     let firstFoundImage = null;
 
     const entries = Object.keys(zip.files);
+
+    // ZIP Security Limits (Requirement 20)
+    const MAX_ZIP_FILES = 1000;
+    const MAX_ENTRY_UNCOMPRESSED_BYTES = 25 * 1024 * 1024; // 25 MB max per entry
+    if (entries.length > MAX_ZIP_FILES) {
+      throw new Error(`ZIP archive exceeds maximum file count limit of ${MAX_ZIP_FILES} entries.`);
+    }
+
+    const DANGEROUS_EXTENSIONS = /\.(exe|sh|bat|cmd|com|vbs|php|py|pl|cgi|jar|war|scr|msi)$/i;
+
     for (const rawPath of entries) {
       const entry = zip.files[rawPath];
       if (entry.dir) continue;
 
+      // Anti-Path Traversal Verification: reject absolute paths, .., \
+      const normalizedRaw = String(rawPath).replace(/\\/g, '/');
+      if (
+        normalizedRaw.startsWith('/') ||
+        normalizedRaw.includes('../') ||
+        normalizedRaw.includes('/..') ||
+        normalizedRaw === '..' ||
+        normalizedRaw.startsWith('../')
+      ) {
+        console.warn(`[ZIP Security] Skipping malicious traversal path in ZIP: ${rawPath}`);
+        continue;
+      }
+
+      // Reject dangerous executable extensions
+      if (DANGEROUS_EXTENSIONS.test(normalizedRaw)) {
+        console.warn(`[ZIP Security] Skipping disallowed executable file in ZIP: ${rawPath}`);
+        continue;
+      }
+
       // Normalize path to strip any top-level folder
-      let relPath = rawPath;
+      let relPath = normalizedRaw;
       const parts = relPath.split('/');
       if (parts.length > 1 && !entries.some(p => p === 'index.html')) {
         relPath = parts.slice(1).join('/');

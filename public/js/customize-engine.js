@@ -1753,7 +1753,7 @@ window.handleCustomMusicUpload = function(input) {
   const file = input.files[0];
 
   if (file.size > 15 * 1024 * 1024) {
-    alert('Audio file is too large. Please upload an audio file under 15MB.');
+    showToast('⚠️ Audio file is too large. Please upload an audio file under 15MB.');
     input.value = '';
     return;
   }
@@ -2647,7 +2647,7 @@ window.publishFreeRandomWish = async function() {
       }
     });
   } catch (err) {
-    alert('Error publishing random link wish: ' + err.message);
+    showToast('⚠️ Error publishing random link wish: ' + err.message);
   } finally {
     isPublishingInProgress = false;
   }
@@ -2667,7 +2667,7 @@ window.handlePersonalizedLinkCheckout = async function() {
     if (typeof window.openAuthModal === 'function') {
       window.openAuthModal('signin', 'Please sign in or create an account to get a personalized link.');
     } else {
-      alert('Please sign in first.');
+      showToast('⚠️ Please sign in first.');
     }
     return;
   }
@@ -4258,10 +4258,10 @@ async function executeWishCreation(extraPayload = {}) {
         showGeneratedLinkModal(data.wishId, fullLink, data.wish);
       }
     } else {
-      alert('Error generating wish: ' + (data.message || 'Unknown error'));
+      showToast('⚠️ Error generating wish: ' + (data.message || 'Unknown error'));
     }
   } catch (err) {
-    alert('Network error generating wish link: ' + err.message);
+    showToast('⚠️ Network error generating wish link: ' + err.message);
   }
 }
 
