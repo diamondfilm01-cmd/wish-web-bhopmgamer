@@ -16,6 +16,7 @@ const __dirname = path.dirname(__filename);
 const app = express();
 const PORT = process.env.PORT || 3000;
 const HOST = '0.0.0.0';
+const FIREBASE_API_KEY = process.env.FIREBASE_API_KEY || '';
 
 // High limits for ZIP and folder uploads (HTML, CSS, JS, images, audio)
 app.use(express.json({ limit: '50mb' }));
