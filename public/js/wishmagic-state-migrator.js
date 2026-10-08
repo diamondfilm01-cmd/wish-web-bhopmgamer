@@ -278,8 +278,9 @@
       }
 
       // Voice Note
-      if (flatData.voice_note && typeof flatData.voice_note === 'object') {
-        media.voiceNote = { ...media.voiceNote, ...flatData.voice_note };
+      const incomingVoice = flatData.voiceNote || flatData.voice_note;
+      if (incomingVoice && typeof incomingVoice === 'object') {
+        media.voiceNote = { ...media.voiceNote, ...incomingVoice };
       } else if (flatData.media?.voiceNote && typeof flatData.media.voiceNote === 'object') {
         media.voiceNote = { ...media.voiceNote, ...flatData.media.voiceNote };
       }
@@ -304,6 +305,7 @@
         flatData.sections.forEach((sec, idx) => {
           if (sec && sec.id) {
             sections[sec.id] = {
+              ...sec,
               id: sec.id,
               name: sec.name || sec.title || sec.id,
               enabled: sec.enabled !== false,
@@ -318,6 +320,7 @@
             sections[id] = { id, enabled: sec, order: Object.keys(sections).length };
           } else if (sec && typeof sec === 'object') {
             sections[id] = {
+              ...sec,
               id: sec.id || id,
               name: sec.name || sec.title || id,
               enabled: sec.enabled !== false,
@@ -374,9 +377,9 @@
     /**
      * Performs a state migration from canonical store / source data into target schema
      */
-    migrate({ canonicalData, currentData = null, sourceSchema = null, targetSchema = null, options = {} }) {
+    migrate({ canonicalData, canonicalStore, currentData = null, sourceSchema = null, targetSchema = null, options = {} }) {
       // 1. Ensure canonical data store is up-to-date
-      let canonical = canonicalData ? deepClone(canonicalData) : null;
+      let canonical = (canonicalData || canonicalStore) ? deepClone(canonicalData || canonicalStore) : null;
       if (!canonical) {
         canonical = this.createCanonicalData(currentData || {});
       } else if (currentData) {
@@ -599,7 +602,7 @@
       // Map Voice Note
       if (targetMediaCaps.voice === false && !normalizedTarget.capabilities?.voice) {
         projectedMedia.voiceNote.enabled = false;
-        if (canonical.media?.voiceNote?.enabled || canonical.media?.voiceNote?.src || canonical.media?.voiceNote?.recordingBlob) {
+        if (canonical.media?.voiceNote?.enabled || canonical.media?.voiceNote?.src || canonical.media?.voiceNote?.url || canonical.media?.voiceNote?.recordingBlob) {
           unsupported.push({
             key: 'voiceNote',
             type: 'voice',
@@ -610,7 +613,7 @@
           });
         }
       } else {
-        if (canonical.media?.voiceNote?.enabled || canonical.media?.voiceNote?.src) {
+        if (canonical.media?.voiceNote?.enabled || canonical.media?.voiceNote?.src || canonical.media?.voiceNote?.url) {
           projectedMedia.voiceNote.enabled = true;
           preserved.push({
             key: 'voiceNote',
@@ -766,6 +769,7 @@
         success: true,
         migratedAt: new Date().toISOString(),
         canonicalData: canonical,
+        canonicalStore: canonical,
         projectedData: projectedState,
         diff: {
           preserved,

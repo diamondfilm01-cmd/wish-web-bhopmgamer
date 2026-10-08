@@ -2500,7 +2500,126 @@
     }
   };
 
+  const WishMagicCustomizerGenerator = {
+    generateForm(templateOrOptions = {}) {
+      const caps = templateOrOptions.capabilities || templateOrOptions;
+      const rawFields = Array.isArray(caps.fields)
+        ? caps.fields
+        : (Array.isArray(templateOrOptions.fields) ? templateOrOptions.fields : []);
+
+      const normalizedFields = rawFields.map(f => {
+        const id = f.id || f.key;
+        return {
+          id,
+          key: id,
+          type: f.type || 'text',
+          label: f.label || id,
+          required: Boolean(f.required),
+          min: f.min,
+          max: f.max,
+          minLength: f.minLength,
+          maxLength: f.maxLength,
+          options: f.options,
+          default: f.default !== undefined ? f.default : f.defaultValue,
+          visibleIf: f.visibleIf,
+          ...f
+        };
+      });
+
+      return {
+        id: templateOrOptions.id || 'form_generated',
+        fields: normalizedFields,
+        sections: caps.sections || [],
+        media: caps.media || {},
+        render: (container) => {
+          if (WishMagicCustomizer && typeof WishMagicCustomizer.render === 'function') {
+            return WishMagicCustomizer.render(container, { fields: normalizedFields });
+          }
+        }
+      };
+    },
+
+    validateFormValues(values = {}, schema = {}) {
+      const fields = Array.isArray(schema.fields)
+        ? schema.fields
+        : (schema.capabilities && Array.isArray(schema.capabilities.fields) ? schema.capabilities.fields : []);
+
+      const errors = [];
+      const valObj = values || {};
+
+      fields.forEach(field => {
+        const key = field.id || field.key;
+        const val = valObj[key];
+
+        // Required check
+        if (field.required) {
+          if (val === undefined || val === null || val === '') {
+            errors.push({ field: key, message: `${field.label || key} is required` });
+            return;
+          }
+        }
+
+        if (val === undefined || val === null || val === '') {
+          return;
+        }
+
+        // minLength / maxLength for string types
+        if (typeof val === 'string') {
+          if (field.minLength !== undefined && val.length < field.minLength) {
+            errors.push({ field: key, message: `${field.label || key} must be at least ${field.minLength} characters` });
+          }
+          if (field.maxLength !== undefined && val.length > field.maxLength) {
+            errors.push({ field: key, message: `${field.label || key} must be at most ${field.maxLength} characters` });
+          }
+        }
+
+        // min / max for numbers
+        if (field.type === 'number' || field.type === 'range' || typeof val === 'number') {
+          const num = Number(val);
+          if (!isNaN(num)) {
+            if (field.min !== undefined && num < field.min) {
+              errors.push({ field: key, message: `${field.label || key} must be >= ${field.min}` });
+            }
+            if (field.max !== undefined && num > field.max) {
+              errors.push({ field: key, message: `${field.label || key} must be <= ${field.max}` });
+            }
+          }
+        }
+
+        // Email validation
+        if (field.type === 'email' && typeof val === 'string') {
+          const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+          if (!emailRegex.test(val)) {
+            errors.push({ field: key, message: `${field.label || key} must be a valid email address` });
+          }
+        }
+
+        // URL validation
+        if (field.type === 'url' && typeof val === 'string') {
+          try {
+            new URL(val);
+          } catch (e) {
+            errors.push({ field: key, message: `${field.label || key} must be a valid URL` });
+          }
+        }
+
+        // Phone validation
+        if (field.type === 'phone' && typeof val === 'string') {
+          if (!/^[+]?[(]?[0-9]{1,4}[)]?[-\s./0-9]{4,}$/.test(val)) {
+            errors.push({ field: key, message: `${field.label || key} must be a valid phone number` });
+          }
+        }
+      });
+
+      return {
+        valid: errors.length === 0,
+        errors
+      };
+    }
+  };
+
   // Expose global APIs
+  global.WishMagicCustomizerGenerator = WishMagicCustomizerGenerator;
   global.WishMagicCustomizerSchema = WishMagicCustomizerSchema;
   global.WishMagicRuntimeBridge = WishMagicRuntimeBridge;
   global.WishMagicCustomizer = WishMagicCustomizer;

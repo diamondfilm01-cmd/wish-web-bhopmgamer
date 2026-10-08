@@ -478,6 +478,10 @@
       return evaluateAST(ast, state);
     },
 
+    evaluateExpression(expression, state = {}) {
+      return this.evaluate(expression, state);
+    },
+
     /**
      * Get list of upstream field keys that an expression or field depends on
      */

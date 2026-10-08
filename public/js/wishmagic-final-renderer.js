@@ -382,6 +382,7 @@
         </div>
       `;
 
+      container.innerHTML = wrapper.innerHTML;
       container.appendChild(wrapper);
       this.startCountdownTimer(eventDate, () => {
         // Countdown reached zero -> Transition smoothly into Active Wish without page reload!
@@ -421,6 +422,7 @@
         </div>
       `;
 
+      container.innerHTML = wrapper.innerHTML;
       container.appendChild(wrapper);
     }
 

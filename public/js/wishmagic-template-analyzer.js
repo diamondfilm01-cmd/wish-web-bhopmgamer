@@ -187,7 +187,7 @@
             htmlContent = template.html || template.indexHtml || template.content || '';
             cssContent = template.css || template.styles || '';
             jsContent = template.js || template.scripts || '';
-            rawMetadata = template.json || template.wishmagicJson || template.metadata || template.manifest || null;
+            rawMetadata = template.json || template.wishmagicJson || template.manifestJson || template.metadata || template.manifest || null;
             files = Array.isArray(template.files) ? template.files : (template.files && typeof template.files === 'object' ? Object.keys(template.files).map(k => ({ path: k, ...template.files[k] })) : []);
           }
         }
@@ -212,6 +212,9 @@
 
       // 2. Perform modular sub-analyses
       const metadataResult = this.analyzeMetadata(rawMetadata);
+      if (metadataResult && metadataResult.valid === false && metadataResult.error) {
+        errors.push({ code: 'METADATA_ERROR', message: metadataResult.error });
+      }
       const htmlResult = doc ? this.analyzeHTML(doc, { warnings, errors }) : (htmlContent ? this.analyzeHTML(htmlContent, { warnings, errors }) : { fields: [], sections: [], media: [], themes: [], animations: {}, capabilities: {} });
       const cssResult = this.analyzeCSS(cssContent, { warnings, errors });
       const jsResult = this.analyzeJS(jsContent, { warnings, errors });
@@ -231,6 +234,17 @@
 
       // Validate assembled schema
       this.validateSchema(schema);
+
+      const isValid = errors.length === 0;
+      schema.valid = isValid;
+      schema.canPublish = isValid;
+      schema.errors = errors;
+      schema.warnings = warnings;
+      Object.defineProperty(schema, 'schema', {
+        get() { return this; },
+        enumerable: false,
+        configurable: true
+      });
 
       cachedAnalysisResult = schema;
       return schema;
@@ -1156,10 +1170,89 @@
         author: (metadata.template && metadata.template.author) || 'WishMagic'
       };
 
-      const fields = html.fields || [];
-      const sections = html.sections || [];
+      // Merge HTML fields and Metadata fields (Manifest has priority)
+      const rawMetaFields = Array.isArray(metadata.fields) && metadata.fields.length > 0
+        ? metadata.fields
+        : (metadata.capabilities && Array.isArray(metadata.capabilities.fields) ? metadata.capabilities.fields : []);
+
+      const fieldsMap = new Map();
+
+      // Seed with HTML fields
+      (html.fields || []).forEach(f => {
+        const id = f.id || f.key;
+        if (id) fieldsMap.set(id, { ...f, id, key: id });
+      });
+
+      // Override or augment with metadata fields (Manifest has priority)
+      rawMetaFields.forEach(mf => {
+        if (typeof mf === 'string') {
+          if (!fieldsMap.has(mf)) {
+            fieldsMap.set(mf, {
+              id: mf,
+              key: mf,
+              label: mf.replace(/_/g, ' ').replace(/\b\w/g, l => l.toUpperCase()),
+              type: 'text',
+              required: false
+            });
+          }
+        } else if (mf && typeof mf === 'object') {
+          const id = mf.id || mf.key || mf.name;
+          if (id) {
+            const existing = fieldsMap.get(id) || {};
+            fieldsMap.set(id, {
+              ...existing,
+              ...mf,
+              id,
+              key: id,
+              label: mf.label || existing.label || id.replace(/_/g, ' ').replace(/\b\w/g, l => l.toUpperCase()),
+              type: mf.type || existing.type || 'text',
+              required: mf.required !== undefined ? mf.required : (existing.required || false)
+            });
+          }
+        }
+      });
+
+      const fields = Array.from(fieldsMap.values());
+
+      // Merge HTML sections and Metadata sections
+      const rawMetaSections = Array.isArray(metadata.sections) && metadata.sections.length > 0
+        ? metadata.sections
+        : (metadata.capabilities && Array.isArray(metadata.capabilities.sections) ? metadata.capabilities.sections : []);
+
+      const sectionsMap = new Map();
+      (html.sections || []).forEach(s => {
+        const id = s.id || s.key;
+        const mapKey = s.instance ? `${id}:${s.instance}` : id;
+        if (mapKey) sectionsMap.set(mapKey, { ...s, id, key: id });
+      });
+
+      rawMetaSections.forEach(ms => {
+        if (typeof ms === 'string') {
+          if (!sectionsMap.has(ms)) {
+            sectionsMap.set(ms, { id: ms, key: ms, name: ms, required: false });
+          }
+        } else if (ms && typeof ms === 'object') {
+          const id = ms.id || ms.key;
+          if (id) {
+            const mapKey = ms.instance ? `${id}:${ms.instance}` : id;
+            const existing = sectionsMap.get(mapKey) || {};
+            sectionsMap.set(mapKey, {
+              ...existing,
+              ...ms,
+              id,
+              key: id,
+              name: ms.name || ms.label || existing.name || existing.label || id,
+              required: ms.required !== undefined ? ms.required : (existing.required || false)
+            });
+          }
+        }
+      });
+
+      const sections = Array.from(sectionsMap.values());
       const htmlThemesList = Array.isArray(html.themes) ? html.themes : ((html.themes && html.themes.supported) || []);
-      const metaThemesList = Array.isArray(metadata.themes) ? metadata.themes : [];
+      const metaThemesList = Array.isArray(metadata.themes) && metadata.themes.length > 0
+        ? metadata.themes
+        : (metadata.capabilities && Array.isArray(metadata.capabilities.themes) ? metadata.capabilities.themes : []);
       const themes = Array.from(new Set([...htmlThemesList, ...metaThemesList]));
       const mediaSlots = (html.media && html.media.slots) || [];
 
@@ -1185,13 +1278,15 @@
         sections: sections.length > 0
       };
 
+      const metaMedia = (metadata.capabilities && metadata.capabilities.media) || metadata.media || {};
       const media = {
-        images: hasImages,
-        multipleImages: hasMultipleImages,
-        video: hasVideo,
-        audio: hasAudio,
-        voice: hasVoice,
-        slots: mediaSlots
+        images: metaMedia.images !== undefined ? metaMedia.images : hasImages,
+        multipleImages: metaMedia.multipleImages !== undefined ? metaMedia.multipleImages : hasMultipleImages,
+        video: metaMedia.video !== undefined ? metaMedia.video : hasVideo,
+        audio: metaMedia.audio !== undefined ? metaMedia.audio : hasAudio,
+        voice: metaMedia.voice !== undefined ? metaMedia.voice : hasVoice,
+        slots: mediaSlots,
+        ...metaMedia
       };
 
       const colors = {
@@ -1232,7 +1327,7 @@
       const capabilitySchemaHash = computeDJB2Hash(deterministicPayload);
 
       const themeAnalysis = typeof html.themes === 'object' && html.themes.supported ? html.themes : { supported: Array.isArray(html.themes) ? html.themes : (html.themes ? [html.themes] : []), default: (html.themes && html.themes.default) || 'magical' };
-      const supportedThemes = Array.from(new Set([...(themeAnalysis.supported || []), ...(metadata.themes || [])]));
+      const supportedThemes = Array.from(new Set([...(themeAnalysis.supported || []), ...metaThemesList]));
       const defaultTheme = themeAnalysis.default || (supportedThemes[0] || 'magical');
 
       const visual = html.visual || {
@@ -1375,8 +1470,8 @@
         // Check for sections
         const sectionKey = attrs['data-wm-section'];
         if (sectionKey) {
-          const instance = attrs['data-wm-instance'] || '1';
-          const mapKey = `${sectionKey}_${instance}`;
+          const instance = attrs['data-wm-section-instance'] || attrs['data-wm-instance'] || null;
+          const mapKey = instance ? `${sectionKey}:${instance}` : sectionKey;
           if (!seenSections.has(mapKey)) {
             const rawLabel = attrs['data-wm-label'];
             const label = rawLabel || sectionKey.replace(/_/g, ' ').replace(/\b\w/g, l => l.toUpperCase());

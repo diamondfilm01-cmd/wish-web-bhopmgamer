@@ -327,7 +327,7 @@
       iframe.className = 'w-full h-full border-0 transition-opacity duration-300';
       iframe.setAttribute('title', 'WishMagic Template Live Preview');
       iframe.setAttribute('loading', 'eager');
-      iframe.setAttribute('sandbox', 'allow-scripts allow-same-origin allow-forms allow-popups');
+      iframe.setAttribute('sandbox', 'allow-scripts allow-same-origin');
 
       this.iframe = iframe;
       this.container.innerHTML = '';
