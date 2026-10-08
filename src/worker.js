@@ -3903,7 +3903,9 @@ export default {
           }
 
           const isPrivate = Boolean(customData.isPrivate || customData.unlisted || body.isPrivate);
-          const status = customData.isDraft ? 'draft' : 'published';
+          const isDraft = Boolean(customData.isDraft || body.isDraft || body.status === 'draft');
+          const status = isDraft ? 'draft' : 'published';
+          const lifecycleStatus = isDraft ? 'draft' : computeLifecycle({ eventDate: cleanDate, customData, status });
 
           const newWish = {
             id: wishId,
@@ -3922,6 +3924,7 @@ export default {
             recipientName,
             eventDate: cleanDate,
             expiryDate,
+            lifecycleStatus,
             views: 0,
             customData,
             status,
@@ -4175,6 +4178,63 @@ export default {
         response = jsonSuccess({ duplicated: true, wishId: newId, slug: newSlug, templateVersionId: sourceVersionId }, 201, {}, requestId);
       }
 
+      // --- Part 26: Create Again API (Clones Expired Wish into New Clean Draft for Future Celebration) ---
+      else if (pathname.match(/^\/api\/wishes\/([^\/]+)\/create-again$/) && method === 'POST') {
+        const user = await getAuthenticatedUser(request, env);
+        if (!user) return applySecurityHeaders(jsonError('AUTH_REQUIRED', 'Authentication required', 401), request, env);
+        if (!env.DB || typeof env.DB.prepare !== 'function') {
+          return applySecurityHeaders(jsonError('DATABASE_UNAVAILABLE', 'Database service is currently unavailable.', 503), request, env);
+        }
+
+        const wishId = pathname.split('/')[3];
+        const existing = await env.DB.prepare('SELECT * FROM wishes WHERE id = ? OR slug = ? LIMIT 1').bind(wishId, wishId).first();
+        if (!existing) return applySecurityHeaders(jsonError('NOT_FOUND', 'Wish not found', 404), request, env);
+
+        const isAdmin = await verifyAdminRole(user, env);
+        if (existing.user_id !== user.id && !isAdmin) {
+          return applySecurityHeaders(jsonError('FORBIDDEN', 'Access denied to create again from this wish.', 403), request, env);
+        }
+
+        let cd = {};
+        try { cd = typeof existing.custom_data === 'string' ? JSON.parse(existing.custom_data) : (existing.custom_data || {}); } catch (e) {}
+        cd.isDraft = true;
+        delete cd.publishedSnapshotId;
+
+        const todayStr = new Date().toISOString().split('T')[0];
+        cd.event_date = todayStr;
+        cd.eventDate = todayStr;
+
+        const sourceVersionId = existing.template_version_id || cd.templateVersionId || cd.template_version_id || `tv_${existing.template_id}_v1`;
+        cd.templateVersionId = sourceVersionId;
+        cd.template_version_id = sourceVersionId;
+
+        const newId = `wm_${Date.now().toString(36)}_${Math.random().toString(36).slice(-4)}`;
+        const newSlug = `wish-${Date.now().toString(36)}-${Math.random().toString(36).slice(-4)}`;
+        const nowIso = new Date().toISOString();
+
+        await env.DB.prepare(`
+          INSERT INTO wishes (
+            id, slug, user_id, order_id, template_id, template_version_id, template_name,
+            tier, price, is_private, buyer_name, buyer_contact, recipient_name,
+            event_date, expiry_date, status, views, custom_data, payment, created_at, updated_at
+          ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+        `).bind(
+          newId, newSlug, user.id, `ORD-${Date.now().toString(36).toUpperCase()}`,
+          existing.template_id, sourceVersionId, existing.template_name,
+          existing.tier, 0, 1, existing.buyer_name, existing.buyer_contact,
+          existing.recipient_name, todayStr, todayStr, 'draft', 0,
+          JSON.stringify(cd), null, nowIso, nowIso
+        ).run();
+
+        response = jsonSuccess({
+          createdAgain: true,
+          wishId: newId,
+          slug: newSlug,
+          templateVersionId: sourceVersionId,
+          message: 'New celebration draft created from expired wish ✨'
+        }, 201, {}, requestId);
+      }
+
       else if (pathname.match(/^\/api\/wishes\/([^\/]+)\/publish$/) && method === 'POST') {
         const user = await getAuthenticatedUser(request, env);
         if (!user) return applySecurityHeaders(jsonError('AUTH_REQUIRED', 'Authentication required to publish.', 401), request, env);
@@ -4423,6 +4483,7 @@ export default {
         }
 
         await env.DB.prepare('DELETE FROM wishes WHERE id = ?').bind(existing.id).run();
+        await env.DB.prepare('DELETE FROM favorites WHERE item_id = ?').bind(existing.id).run();
         response = jsonSuccess({ deleted: true, wishId: existing.id }, 200, {}, requestId);
       }
 
@@ -5812,11 +5873,19 @@ export default {
           const itemId = sanitizeString(body.itemId, 60);
           if (!itemId) return applySecurityHeaders(jsonError('VALIDATION_ERROR', 'itemId is required', 400), request, env);
 
-          await env.DB.prepare(
-            'INSERT OR IGNORE INTO favorites (id, user_id, item_id, item_type, created_at) VALUES (?, ?, ?, ?, ?)'
-          ).bind(`fav_${Date.now().toString(36)}`, user.id, itemId, body.itemType || 'template', new Date().toISOString()).run();
+          const existing = await env.DB.prepare('SELECT id FROM favorites WHERE user_id = ? AND item_id = ? LIMIT 1').bind(user.id, itemId).first();
+          let favorited = false;
+          if (existing) {
+            await env.DB.prepare('DELETE FROM favorites WHERE id = ?').bind(existing.id).run();
+            favorited = false;
+          } else {
+            await env.DB.prepare(
+              'INSERT OR IGNORE INTO favorites (id, user_id, item_id, item_type, created_at) VALUES (?, ?, ?, ?, ?)'
+            ).bind(`fav_${Date.now().toString(36)}`, user.id, itemId, body.itemType || 'wish', new Date().toISOString()).run();
+            favorited = true;
+          }
 
-          response = jsonSuccess({ favorited: true, itemId }, 200, {}, requestId);
+          response = jsonSuccess({ favorited, itemId }, 200, {}, requestId);
         }
       }
 

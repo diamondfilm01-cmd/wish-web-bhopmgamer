@@ -1626,16 +1626,22 @@ app.put('/api/users/me', (req, res) => {
   res.json({ success: true, user: req.user });
 });
 
-// API: Favorites Endpoints (Server-Side D1 Parity)
+// API: Favorites Endpoints (Server-Side D1 Parity - Part 26)
 app.get('/api/favorites', (req, res) => {
-  const userId = req.user ? req.user.id : (req.query.userId || 'usr_ankit_101');
+  if (!req.user) {
+    return res.status(401).json({ success: false, error: { code: 'AUTH_REQUIRED', message: 'Authentication required to access favorites.' } });
+  }
+  const userId = req.user.id;
   const favMap = getFavorites();
   const list = Array.isArray(favMap[userId]) ? favMap[userId] : [];
   res.json({ success: true, favorites: list });
 });
 
 app.post('/api/favorites', (req, res) => {
-  const userId = req.user ? req.user.id : (req.body.userId || 'usr_ankit_101');
+  if (!req.user) {
+    return res.status(401).json({ success: false, error: { code: 'AUTH_REQUIRED', message: 'Authentication required to modify favorites.' } });
+  }
+  const userId = req.user.id;
   const itemId = String(req.body.itemId || '').trim();
   if (!itemId) return res.status(400).json({ success: false, message: 'itemId is required' });
 
@@ -1657,7 +1663,10 @@ app.post('/api/favorites', (req, res) => {
 });
 
 app.delete('/api/favorites/:itemId', (req, res) => {
-  const userId = req.user ? req.user.id : (req.query.userId || 'usr_ankit_101');
+  if (!req.user) {
+    return res.status(401).json({ success: false, error: { code: 'AUTH_REQUIRED', message: 'Authentication required to remove favorite.' } });
+  }
+  const userId = req.user.id;
   const itemId = req.params.itemId;
   const favMap = getFavorites();
   if (Array.isArray(favMap[userId])) {
@@ -4907,7 +4916,14 @@ app.get('/api/wishes/slug-availability', (req, res) => {
 // API: Create a customized wish record
 app.post('/api/wishes', (req, res) => {
   try {
-    const { templateId, customData, tier, price, payment, buyerDetails } = req.body;
+    if (!req.user) {
+      return res.status(401).json({
+        success: false,
+        error: { code: 'AUTH_REQUIRED', message: 'Authentication required to create a wish.' }
+      });
+    }
+
+    const { templateId, customData, tier, price, payment, buyerDetails } = req.body || {};
     if (!templateId || !customData) {
       return res.status(400).json({ success: false, message: 'templateId and customData are required' });
     }
@@ -4915,16 +4931,25 @@ app.post('/api/wishes', (req, res) => {
     const templates = getTemplates();
     const template = templates.find(t => t.id === templateId);
 
-    const wishId = 'wm_' + Date.now().toString(36) + '_' + Math.random().toString(36).substr(2, 6);
     const isVip = tier === 'vip' || (template && template.tier === 'vip') || (price && Number(price) > 0) || (payment && payment.status === 'Completed');
+    const isUserPremium = Boolean(req.user.isPremium || req.user.plan === 'VIP' || req.user.role === 'admin' || req.user.isAdmin);
+
+    if (isVip && !isUserPremium && (!payment || payment.status !== 'Completed')) {
+      return res.status(403).json({
+        success: false,
+        error: { code: 'PREMIUM_REQUIRED', message: 'VIP subscription required to create a VIP celebration wish.' }
+      });
+    }
+
     const wishPrice = isVip ? (Number(price) || (template && template.price) || 49) : 0;
+    const wishId = 'wm_' + Date.now().toString(36) + '_' + Math.random().toString(36).substr(2, 6);
 
     // Contact/Buyer Details
-    const buyerName = (buyerDetails && buyerDetails.name) || customData.sender_name || customData.senderName || 'Anonymous User';
-    const buyerContact = (buyerDetails && (buyerDetails.phone || buyerDetails.email)) || customData.sender_contact || customData.senderPhone || customData.senderEmail || 'Direct Web Visitor';
+    const buyerName = (buyerDetails && buyerDetails.name) || customData.sender_name || customData.senderName || req.user.displayName || 'Anonymous User';
+    const buyerContact = (buyerDetails && (buyerDetails.phone || buyerDetails.email)) || customData.sender_contact || customData.senderPhone || customData.senderEmail || req.user.email || 'Direct Web Visitor';
 
     const eventDate = customData.event_date || customData.eventDate || customData.target_date || new Date().toISOString().split('T')[0];
-    const userId = req.body.userId || customData.userId || 'usr_ankit_101';
+    const userId = req.user.id;
 
     const wishes = getWishes();
     const linkSettings = getServerWishLinkSettings();
@@ -4984,6 +5009,8 @@ app.post('/api/wishes', (req, res) => {
     }
 
     const isPrivate = Boolean(customData.isPrivate || customData.unlisted || req.body.isPrivate);
+    const isDraft = Boolean(req.body.status === 'draft' || req.body.isDraft || customData.isDraft);
+    const wishStatus = isDraft ? 'draft' : 'published';
 
     // Resolve immutable template version snapshot
     const activeVersion = getOrSeedTemplateVersion(templateId);
@@ -4991,6 +5018,7 @@ app.post('/api/wishes', (req, res) => {
     customData.templateId = templateId;
     customData.templateVersionId = templateVersionId;
     customData.template_version_id = templateVersionId;
+    customData.isDraft = isDraft;
 
     const newWish = {
       id: wishId,
@@ -5024,14 +5052,17 @@ app.post('/api/wishes', (req, res) => {
         amount: wishPrice
       } : null,
       customData,
+      status: wishStatus,
+      isDraft,
       createdAt: new Date().toISOString(),
+      updatedAt: new Date().toISOString(),
       views: 0
     };
 
     wishes.unshift(newWish);
     saveWishes(wishes);
 
-    res.json({
+    res.status(201).json({
       success: true,
       wishId: wishId,
       slug: generatedSlug,
@@ -5039,7 +5070,7 @@ app.post('/api/wishes', (req, res) => {
       legacyUrl: `/wish.html?id=${wishId}`,
       wish: {
         ...newWish,
-        lifecycleStatus: computeWishStatus(newWish)
+        lifecycleStatus: isDraft ? 'draft' : computeWishStatus(newWish)
       }
     });
   } catch (err) {
@@ -5048,9 +5079,13 @@ app.post('/api/wishes', (req, res) => {
   }
 });
 
-// API: Duplicate Wish (Part 8 & 10: Preserves Immutable Template Version Snapshot)
+// API: Duplicate Wish (Part 8 & 10 & 26: Preserves Immutable Template Version Snapshot)
 app.post(['/api/wishes/:id/duplicate', '/api/wishes/duplicate'], (req, res) => {
   try {
+    if (!req.user) {
+      return res.status(401).json({ success: false, error: { code: 'AUTH_REQUIRED', message: 'Authentication required to duplicate wish.' } });
+    }
+
     const wishId = req.params.id || req.body.id || req.body.wishId;
     if (!wishId) return res.status(400).json({ success: false, message: 'Wish ID is required' });
 
@@ -5058,7 +5093,8 @@ app.post(['/api/wishes/:id/duplicate', '/api/wishes/duplicate'], (req, res) => {
     const existing = wishes.find(w => w.id === wishId || w.slug === wishId);
     if (!existing) return res.status(404).json({ success: false, message: 'Wish not found' });
 
-    if (req.user && existing.userId && existing.userId !== req.user.id && req.user.role !== 'admin') {
+    const isAdmin = Boolean(req.user.role === 'admin' || req.user.isAdmin);
+    if (existing.userId && existing.userId !== req.user.id && !isAdmin) {
       return res.status(403).json({ success: false, error: { code: 'FORBIDDEN', message: 'Access denied to duplicate this wish.' } });
     }
 
@@ -5079,7 +5115,7 @@ app.post(['/api/wishes/:id/duplicate', '/api/wishes/duplicate'], (req, res) => {
       ...existing,
       id: newId,
       slug: newSlug,
-      userId: req.user ? req.user.id : existing.userId,
+      userId: req.user.id,
       orderId: 'ORD-' + Math.random().toString(36).substring(2, 7).toUpperCase() + '-' + Date.now().toString().slice(-4),
       templateId: existing.templateId,
       templateVersionId: sourceVersionId,
@@ -5090,7 +5126,9 @@ app.post(['/api/wishes/:id/duplicate', '/api/wishes/duplicate'], (req, res) => {
       recipientName: `${existing.recipientName || 'Special Person'} (Copy)`,
       customData: cd,
       status: 'draft',
+      isDraft: true,
       views: 0,
+      active_snapshot_id: null,
       createdAt: new Date().toISOString(),
       updatedAt: new Date().toISOString()
     };
@@ -5111,19 +5149,162 @@ app.post(['/api/wishes/:id/duplicate', '/api/wishes/duplicate'], (req, res) => {
   }
 });
 
+// API: Create Again (Part 26: Clones Expired Wish into New Clean Draft for Future Celebration)
+app.post(['/api/wishes/:id/create-again', '/api/wishes/create-again'], (req, res) => {
+  try {
+    if (!req.user) {
+      return res.status(401).json({ success: false, error: { code: 'AUTH_REQUIRED', message: 'Authentication required' } });
+    }
+
+    const wishId = req.params.id || req.body.id || req.body.wishId;
+    if (!wishId) return res.status(400).json({ success: false, message: 'Wish ID is required' });
+
+    const wishes = getWishes();
+    const existing = wishes.find(w => w.id === wishId || w.slug === wishId);
+    if (!existing) return res.status(404).json({ success: false, message: 'Wish not found' });
+
+    const isAdmin = Boolean(req.user.role === 'admin' || req.user.isAdmin);
+    if (existing.userId !== req.user.id && !isAdmin) {
+      return res.status(403).json({ success: false, error: { code: 'FORBIDDEN', message: 'Access denied to create again from this wish.' } });
+    }
+
+    let cd = {};
+    try { cd = typeof existing.customData === 'string' ? JSON.parse(existing.customData) : (existing.customData || {}); } catch (e) {}
+
+    // Clone configuration into clean draft without modifying existing snapshot
+    cd.isDraft = true;
+    delete cd.publishedSnapshotId;
+
+    const todayStr = new Date().toISOString().split('T')[0];
+    cd.event_date = todayStr;
+    cd.eventDate = todayStr;
+
+    const sourceVersionId = existing.templateVersionId || existing.template_version_id || cd.templateVersionId || cd.template_version_id || `tv_${existing.templateId}_v1`;
+    cd.templateVersionId = sourceVersionId;
+    cd.template_version_id = sourceVersionId;
+
+    const newId = 'wm_' + Date.now().toString(36) + '_' + Math.random().toString(36).substring(2, 6);
+    const linkSettings = getServerWishLinkSettings();
+    const newSlug = generateUniqueServerRandomWishSlug(wishes, linkSettings.random);
+
+    const newWish = {
+      ...existing,
+      id: newId,
+      slug: newSlug,
+      userId: req.user.id,
+      orderId: 'ORD-' + Math.random().toString(36).substring(2, 7).toUpperCase() + '-' + Date.now().toString().slice(-4),
+      templateId: existing.templateId,
+      templateVersionId: sourceVersionId,
+      templateName: existing.templateName,
+      tier: existing.tier,
+      price: 0,
+      isPrivate: true,
+      recipientName: existing.recipientName || 'Special Person',
+      eventDate: todayStr,
+      expiryDate: (function() {
+        const parts = todayStr.split('-').map(Number);
+        const nextDayMs = Date.UTC(parts[0], parts[1] - 1, parts[2] + 1, 0, 0, 0, 0) - (330 * 60 * 1000);
+        return new Date(nextDayMs).toISOString().split('T')[0];
+      })(),
+      customData: cd,
+      status: 'draft',
+      isDraft: true,
+      views: 0,
+      active_snapshot_id: null,
+      createdAt: new Date().toISOString(),
+      updatedAt: new Date().toISOString()
+    };
+
+    wishes.unshift(newWish);
+    saveWishes(wishes);
+
+    res.status(201).json({
+      success: true,
+      createdAgain: true,
+      wishId: newId,
+      slug: newSlug,
+      templateVersionId: sourceVersionId,
+      wish: newWish,
+      message: 'New celebration draft created from expired wish ✨'
+    });
+  } catch (err) {
+    res.status(500).json({ success: false, message: err.message });
+  }
+});
+
+// API: Publish Wish (Part 25 & 26: Transitions Draft to Published with Immutable Snapshot)
+app.post(['/api/wishes/:id/publish', '/api/wishes/publish'], (req, res) => {
+  try {
+    if (!req.user) {
+      return res.status(401).json({ success: false, error: { code: 'AUTH_REQUIRED', message: 'Authentication required to publish.' } });
+    }
+
+    const wishId = req.params.id || req.body.id || req.body.wishId;
+    const wishes = getWishes();
+    const idx = wishes.findIndex(w => w.id === wishId || w.slug === wishId);
+    if (idx === -1) return res.status(404).json({ success: false, message: 'Wish not found' });
+
+    const existing = wishes[idx];
+    const isAdmin = Boolean(req.user.role === 'admin' || req.user.isAdmin);
+    if (existing.userId !== req.user.id && !isAdmin) {
+      return res.status(403).json({ success: false, error: { code: 'FORBIDDEN', message: 'Access denied to publish this wish.' } });
+    }
+
+    let cd = {};
+    try { cd = typeof existing.customData === 'string' ? JSON.parse(existing.customData) : (existing.customData || {}); } catch (e) {}
+
+    const recipientName = String(cd.recipient_name || cd.recipientName || existing.recipientName || '').trim();
+    if (!recipientName) {
+      return res.status(400).json({ success: false, error: { code: 'VALIDATION_FAILED', message: 'Recipient name is required before publishing.' } });
+    }
+
+    cd.isDraft = false;
+    const nowIso = new Date().toISOString();
+    const snapshotId = `snp_${existing.id}_v1`;
+    cd.publishedSnapshotId = snapshotId;
+
+    wishes[idx] = {
+      ...existing,
+      status: 'published',
+      isDraft: false,
+      active_snapshot_id: snapshotId,
+      customData: cd,
+      updatedAt: nowIso
+    };
+    saveWishes(wishes);
+
+    res.json({
+      success: true,
+      published: true,
+      wishId: existing.id,
+      slug: existing.slug,
+      activeSnapshotId: snapshotId,
+      wish: wishes[idx]
+    });
+  } catch (err) {
+    res.status(500).json({ success: false, message: err.message });
+  }
+});
+
 // API: Update a wish (Ownership Verified)
 app.put('/api/wishes/:id', (req, res) => {
   try {
+    if (!req.user) {
+      return res.status(401).json({ success: false, error: { code: 'AUTH_REQUIRED', message: 'Authentication required.' } });
+    }
+
     let wishes = getWishes();
     const idx = wishes.findIndex(w => w.id === req.params.id);
     if (idx === -1) {
       return res.status(404).json({ success: false, message: 'Wish not found' });
     }
     const current = wishes[idx];
-    if (req.user && current.userId && current.userId !== req.user.id && req.user.role !== 'admin') {
+    const isAdmin = Boolean(req.user.role === 'admin' || req.user.isAdmin);
+    if (current.userId && current.userId !== req.user.id && !isAdmin) {
       return res.status(403).json({ success: false, error: { code: 'FORBIDDEN', message: 'Forbidden: Cannot edit another user\'s wish' } });
     }
-    const { customData, recipientName, buyerName, eventDate, slug, customSlug } = req.body || {};
+
+    const { customData, recipientName, buyerName, eventDate, slug, customSlug, status, isDraft } = req.body || {};
     let targetSlug = current.slug;
     const rawRequestedSlug = String(slug || (customData && customData.slug) || customSlug || (customData && customData.customSlug) || '').toLowerCase().trim();
 
@@ -5152,13 +5333,18 @@ app.put('/api/wishes/:id', (req, res) => {
       targetSlug = norm;
     }
 
+    const updatedStatus = status !== undefined ? status : (isDraft !== undefined ? (isDraft ? 'draft' : 'published') : current.status);
+    const updatedIsDraft = isDraft !== undefined ? isDraft : (updatedStatus === 'draft');
+
     wishes[idx] = {
       ...current,
       slug: targetSlug,
       recipientName: recipientName || current.recipientName,
       buyerName: buyerName || current.buyerName,
       eventDate: eventDate || current.eventDate,
-      customData: customData ? { ...current.customData, ...customData } : current.customData,
+      status: updatedStatus,
+      isDraft: updatedIsDraft,
+      customData: customData ? { ...current.customData, ...customData, isDraft: updatedIsDraft } : current.customData,
       updatedAt: new Date().toISOString()
     };
     saveWishes(wishes);
@@ -5168,34 +5354,86 @@ app.put('/api/wishes/:id', (req, res) => {
   }
 });
 
-// API: Delete a wish (Ownership Verified)
+// API: Delete a wish (Ownership Verified + Favorites Cascade)
 app.delete('/api/wishes/:id', (req, res) => {
   try {
+    if (!req.user) {
+      return res.status(401).json({ success: false, error: { code: 'AUTH_REQUIRED', message: 'Authentication required.' } });
+    }
+
     let wishes = getWishes();
     const target = wishes.find(w => w.id === req.params.id);
     if (!target) {
       return res.status(404).json({ success: false, message: 'Wish not found' });
     }
-    if (req.user && target.userId && target.userId !== req.user.id && req.user.role !== 'admin') {
+    const isAdmin = Boolean(req.user.role === 'admin' || req.user.isAdmin);
+    if (target.userId && target.userId !== req.user.id && !isAdmin) {
       return res.status(403).json({ success: false, error: { code: 'FORBIDDEN', message: 'Forbidden: Cannot delete another user\'s wish' } });
     }
+
     wishes = wishes.filter(w => w.id !== req.params.id);
     saveWishes(wishes);
+
+    // Cascade delete any favorites referencing this wish
+    const favMap = getFavorites();
+    let favChanged = false;
+    for (const uId of Object.keys(favMap)) {
+      if (Array.isArray(favMap[uId]) && favMap[uId].includes(req.params.id)) {
+        favMap[uId] = favMap[uId].filter(id => id !== req.params.id);
+        favChanged = true;
+      }
+    }
+    if (favChanged) saveFavorites(favMap);
+
     res.json({ success: true, message: 'Wish removed successfully' });
   } catch (err) {
     res.status(500).json({ success: false, message: err.message });
   }
 });
 
-// API: Get all wishes (for admin moderation & metrics)
+// API: Get wishes (Ownership Verified & Lifecycle Annotated - Part 26)
 app.get('/api/wishes', (req, res) => {
   try {
-    const wishes = getWishes();
-    const annotated = wishes.map(w => ({
-      ...w,
-      lifecycleStatus: computeWishStatus(w)
-    }));
-    res.json({ success: true, wishes: annotated });
+    if (!req.user) {
+      return res.status(401).json({
+        success: false,
+        error: { code: 'AUTH_REQUIRED', message: 'Authentication required to access wishes.' }
+      });
+    }
+
+    const isAdmin = Boolean(req.user.role === 'admin' || req.user.isAdmin);
+    const filterAll = isAdmin && (req.query.all === 'true' || req.query.scope === 'admin');
+    const targetUserId = (isAdmin && req.query.userId) ? req.query.userId : (filterAll ? null : req.user.id);
+
+    let wishes = getWishes();
+
+    if (targetUserId) {
+      wishes = wishes.filter(w => w.userId === targetUserId);
+    } else if (!isAdmin || !filterAll) {
+      wishes = wishes.filter(w => w.userId === req.user.id);
+    }
+
+    const statusFilter = req.query.status;
+    if (statusFilter && statusFilter !== 'all') {
+      wishes = wishes.filter(w => {
+        const isDraft = Boolean(w.status === 'draft' || w.isDraft || (w.customData && w.customData.isDraft));
+        const s = isDraft ? 'draft' : computeWishStatus(w);
+        return s === statusFilter || w.status === statusFilter;
+      });
+    }
+
+    const annotated = wishes.map(w => {
+      const isDraft = Boolean(w.status === 'draft' || w.isDraft || (w.customData && w.customData.isDraft));
+      const lifecycleStatus = isDraft ? 'draft' : computeWishStatus(w);
+      return {
+        ...w,
+        status: isDraft ? 'draft' : (w.status || 'published'),
+        isDraft,
+        lifecycleStatus
+      };
+    });
+
+    res.json({ success: true, wishes: annotated, total: annotated.length });
   } catch (err) {
     res.status(500).json({ success: false, message: err.message });
   }

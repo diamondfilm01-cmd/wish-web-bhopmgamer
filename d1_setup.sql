@@ -933,4 +933,13 @@ CREATE INDEX IF NOT EXISTS idx_wishes_active_snapshot_id ON wishes(active_snapsh
 INSERT OR IGNORE INTO _migrations (id, name, applied_at) VALUES
 ('mig_0010', '0010_part25_published_wish_snapshots.sql', '2026-10-08T07:30:00.000Z');
 
+-- ----------------------------------------------------------------------------
+-- 17. PART 26: WISH LIFECYCLE MANAGEMENT & FAVORITES PERFORMANCE INDEXES
+-- ----------------------------------------------------------------------------
+CREATE INDEX IF NOT EXISTS idx_wishes_user_status ON wishes(user_id, status);
+CREATE INDEX IF NOT EXISTS idx_wishes_user_created ON wishes(user_id, created_at);
+CREATE INDEX IF NOT EXISTS idx_wishes_user_event_date ON wishes(user_id, event_date);
+CREATE INDEX IF NOT EXISTS idx_favorites_user_type ON favorites(user_id, item_type);
 
+INSERT OR IGNORE INTO _migrations (id, name, applied_at) VALUES
+('mig_0011', '0011_part26_wish_lifecycle_and_favorites.sql', '2026-10-08T08:00:00.000Z');

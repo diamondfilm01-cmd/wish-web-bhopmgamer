@@ -1,22 +1,24 @@
 // WishMagic Creator Dashboard Engine
-// Part 8: My Wishes Dashboard + Draft Management + Favorites + Real-Time Lifecycle Sync
+// Part 26: My Wishes Dashboard + Wish Lifecycle Management + Duplicate/Create Again + Favorites Integration
 // Timezone: Asia/Kolkata (IST = UTC+05:30) via WishLifecycle
 
 (function(window) {
   'use strict';
 
-  // State
+  // Dashboard Reactive State
   let allWishes = [];
-  let currentFilter = 'all'; // 'all' | 'active' | 'upcoming' | 'expired' | 'drafts' | 'favorites'
+  let currentFilter = 'all'; // 'all' | 'drafts' | 'upcoming' | 'active' | 'expired' | 'favorites'
   let currentSearch = '';
   let currentSort = 'recent'; // 'recent' | 'newest' | 'oldest' | 'date' | 'views'
   let favoriteIds = new Set();
   let selectedWishForAction = null;
+  let isLoading = false;
 
-  // Initialize
+  // Initialize Dashboard on DOM load & sync with WishAuth
   document.addEventListener('DOMContentLoaded', async () => {
     setupEventListeners();
     await handleAuthSync();
+
     if (window.WishAuth) {
       window.WishAuth.onAuthStateChange(async () => {
         await handleAuthSync();
@@ -24,6 +26,7 @@
     }
   });
 
+  // Handle Authentication Barrier & Server State Sync
   async function handleAuthSync() {
     const user = window.WishAuth ? window.WishAuth.getCurrentUser() : null;
     const barrier = document.getElementById('wishes-auth-barrier');
@@ -33,122 +36,146 @@
       if (barrier) barrier.classList.remove('hidden');
       if (authView) authView.classList.add('hidden');
       allWishes = [];
+      favoriteIds.clear();
       return;
     }
 
     if (barrier) barrier.classList.add('hidden');
     if (authView) authView.classList.remove('hidden');
 
-    loadFavorites(user.id);
+    await fetchServerFavorites(user.id);
+    await migrateLocalGuestDraftsToServer(user.id);
     await fetchWishesAndDrafts(user.id);
     renderDashboard();
   }
 
-  // Load favorites for specific user from repository
-  function loadFavorites(userId) {
+  // Helper: Build standard request headers with Authorization token
+  function getAuthHeaders() {
+    const headers = { 'Accept': 'application/json' };
+    try {
+      if (window.WishAuth) {
+        const session = window.WishAuth.getSession();
+        if (session && session.token) {
+          headers['Authorization'] = `Bearer ${session.token}`;
+        }
+      }
+    } catch (e) {}
+    return headers;
+  }
+
+  // Load User Favorites directly from Server API
+  async function fetchServerFavorites(userId) {
     if (!userId) {
       favoriteIds = new Set();
       return;
     }
-    if (window.WishRepositories) {
-      const list = WishRepositories.favoriteRepository.getByUser(userId);
-      favoriteIds = new Set(list);
-    } else {
-      try {
-        const stored = JSON.parse(localStorage.getItem(`wishmagic_favorites_${userId}`) || '[]');
-        favoriteIds = new Set(Array.isArray(stored) ? stored : []);
-      } catch (e) {
-        favoriteIds = new Set();
+    try {
+      const res = await fetch('/api/favorites', {
+        headers: getAuthHeaders(),
+        credentials: 'include'
+      });
+      const data = await res.json();
+      if (data && data.success && Array.isArray(data.favorites)) {
+        favoriteIds = new Set(data.favorites);
       }
+    } catch (e) {
+      console.warn('[my-wishes] Error loading server favorites:', e);
     }
   }
 
-  function saveFavorites(userId) {
+  // Migrate any pre-login guest drafts from localStorage to real server D1 drafts
+  async function migrateLocalGuestDraftsToServer(userId) {
     if (!userId) return;
     try {
-      localStorage.setItem(`wishmagic_favorites_${userId}`, JSON.stringify(Array.from(favoriteIds)));
+      const rawDrafts = localStorage.getItem('wishmagic_drafts');
+      if (!rawDrafts) return;
+      const drafts = JSON.parse(rawDrafts);
+      if (!Array.isArray(drafts) || drafts.length === 0) return;
+
+      for (const draft of drafts) {
+        if (!draft.userId || draft.userId === 'guest' || draft.userId === userId) {
+          try {
+            await fetch('/api/wishes', {
+              method: 'POST',
+              headers: {
+                ...getAuthHeaders(),
+                'Content-Type': 'application/json'
+              },
+              credentials: 'include',
+              body: JSON.stringify({
+                templateId: draft.templateId || 'tpl_glitter_birthday',
+                status: 'draft',
+                isDraft: true,
+                customData: {
+                  ...(draft.customData || {}),
+                  recipient_name: draft.recipientName || draft.customData?.recipient_name || 'Special Person',
+                  sender_name: draft.senderName || draft.customData?.sender_name || 'Creator',
+                  event_date: draft.eventDate || draft.customData?.event_date || new Date().toISOString().split('T')[0],
+                  isDraft: true
+                }
+              })
+            });
+          } catch (err) {
+            console.warn('[my-wishes] Guest draft migration failed for draft:', draft.id, err);
+          }
+        }
+      }
+      // Remove migrated guest drafts from localStorage so it never acts as permanent authority
+      localStorage.removeItem('wishmagic_drafts');
     } catch (e) {
-      console.warn('Error saving favorites:', e);
+      console.warn('[my-wishes] Error checking guest drafts migration:', e);
     }
   }
 
-  // Fetch wishes and drafts owned by the current user
+  // Fetch wishes and drafts from Server API (Server-Verified Identity)
   async function fetchWishesAndDrafts(userId) {
     if (!userId) {
       allWishes = [];
       return;
     }
 
-    const wishesMap = new Map();
-
-    // 1. Fetch user-scoped published wishes via repository
-    if (window.WishRepositories) {
-      try {
-        const userWishes = await WishRepositories.wishRepository.getByUser(userId);
-        userWishes.forEach(w => {
-          const status = window.WishLifecycle ? window.WishLifecycle.getWishStatus(w) : (w.lifecycleStatus || 'active');
-          wishesMap.set(w.id, {
-            ...w,
-            status: status,
-            isDraft: false,
-            favorite: favoriteIds.has(w.id)
-          });
-        });
-      } catch (e) {
-        console.warn('[my-wishes] Error loading repository wishes:', e);
-      }
-    } else {
-      // Fallback
-      try {
-        const res = await fetch('/api/wishes', { credentials: 'include' });
-        const data = await res.json();
-        if (data.success && Array.isArray(data.wishes)) {
-          data.wishes.filter(w => w.userId === userId).forEach(w => {
-            const status = window.WishLifecycle ? window.WishLifecycle.getWishStatus(w) : (w.lifecycleStatus || 'active');
-            wishesMap.set(w.id, {
-              ...w,
-              status: status,
-              isDraft: false,
-              favorite: favoriteIds.has(w.id)
-            });
-          });
-        }
-      } catch (err) {}
-    }
-
-    // 2. Fetch user-scoped drafts via repository
-    if (window.WishRepositories) {
-      const userDrafts = WishRepositories.draftRepository.getByUser(userId);
-      userDrafts.forEach(d => {
-        wishesMap.set(d.id, {
-          ...d,
-          status: 'draft',
-          isDraft: true,
-          favorite: favoriteIds.has(d.id)
-        });
+    isLoading = true;
+    try {
+      const res = await fetch('/api/wishes', {
+        headers: getAuthHeaders(),
+        credentials: 'include'
       });
-    } else {
-      try {
-        const drafts = JSON.parse(localStorage.getItem('wishmagic_drafts') || '[]');
-        if (Array.isArray(drafts)) {
-          drafts.filter(d => d.userId === userId).forEach(d => {
-            wishesMap.set(d.id, {
-              ...d,
-              status: 'draft',
-              isDraft: true,
-              favorite: favoriteIds.has(d.id)
-            });
-          });
-        }
-      } catch (e) {}
-    }
 
-    allWishes = Array.from(wishesMap.values());
+      if (res.status === 401) {
+        if (window.WishAuth) window.WishAuth.requireAuth();
+        allWishes = [];
+        return;
+      }
+
+      const data = await res.json();
+      if (data && data.success && Array.isArray(data.wishes)) {
+        allWishes = data.wishes.map(w => {
+          const isDraft = Boolean(w.status === 'draft' || w.isDraft || (w.customData && w.customData.isDraft));
+          const lifecycleStatus = isDraft
+            ? 'draft'
+            : (window.WishLifecycle ? window.WishLifecycle.getWishStatus(w) : (w.lifecycleStatus || 'active'));
+
+          return {
+            ...w,
+            status: isDraft ? 'draft' : (w.status || 'published'),
+            isDraft,
+            lifecycleStatus,
+            favorite: favoriteIds.has(w.id)
+          };
+        });
+      } else {
+        allWishes = [];
+      }
+    } catch (err) {
+      console.error('[my-wishes] Error fetching wishes from server:', err);
+      allWishes = [];
+    } finally {
+      isLoading = false;
+    }
   }
 
-  // Setup DOM Event Listeners
+  // Setup DOM Event Listeners (Search, Clear, Sort)
   function setupEventListeners() {
-    // Search input
     const searchInput = document.getElementById('search-wishes-input');
     const clearBtn = document.getElementById('search-clear-btn');
     if (searchInput) {
@@ -171,7 +198,6 @@
       });
     }
 
-    // Sort selector
     const sortSelect = document.getElementById('sort-wishes-select');
     if (sortSelect) {
       sortSelect.addEventListener('change', (e) => {
@@ -185,21 +211,21 @@
   window.setDashboardFilter = function(filterName) {
     currentFilter = filterName;
 
-    // Update active tab buttons
+    // Update active tab buttons visual styles
     document.querySelectorAll('.filter-tab-btn').forEach(btn => {
       const tab = btn.getAttribute('data-tab');
       if (tab === filterName) {
-        btn.className = 'filter-tab-btn px-4 py-2 rounded-full font-bold text-xs sm:text-sm bg-gradient-to-r from-pink-500 to-purple-600 text-white shadow-md shadow-pink-500/25 flex items-center gap-2 transition-all cursor-pointer';
+        btn.className = 'filter-tab-btn px-4 py-2 rounded-full font-bold text-xs sm:text-sm bg-gradient-to-r from-pink-500 to-purple-600 text-white shadow-md shadow-pink-500/25 flex items-center gap-2 transition-all cursor-pointer flex-shrink-0';
       } else {
-        btn.className = 'filter-tab-btn px-4 py-2 rounded-full font-semibold text-xs sm:text-sm glass-pill text-purple-900 dark:text-purple-200 hover:text-pink-600 dark:hover:text-pink-300 flex items-center gap-2 transition-all cursor-pointer';
+        btn.className = 'filter-tab-btn px-4 py-2 rounded-full font-semibold text-xs sm:text-sm glass-pill text-purple-900 dark:text-purple-200 hover:text-pink-600 dark:hover:text-pink-300 flex items-center gap-2 transition-all cursor-pointer flex-shrink-0';
       }
     });
 
     renderDashboard();
   };
 
-  // Toggle favorite for a wish or draft
-  window.toggleFavorite = function(wishId, e) {
+  // Toggle favorite for a wish or draft with Server D1 Persistence
+  window.toggleFavorite = async function(wishId, e) {
     if (e) {
       e.stopPropagation();
       e.preventDefault();
@@ -213,95 +239,144 @@
       return;
     }
 
-    let isFav = false;
-    if (window.WishRepositories) {
-      isFav = WishRepositories.favoriteRepository.toggle(user.id, wishId);
-    } else {
-      if (favoriteIds.has(wishId)) {
-        favoriteIds.delete(wishId);
-        isFav = false;
-      } else {
-        favoriteIds.add(wishId);
-        isFav = true;
-      }
-      saveFavorites(user.id);
-    }
-
-    if (isFav) {
-      favoriteIds.add(wishId);
-      showDashboardToast('Added to Favorites ❤️');
-    } else {
+    // Optimistic UI toggle
+    const currentlyFav = favoriteIds.has(wishId);
+    if (currentlyFav) {
       favoriteIds.delete(wishId);
-      showDashboardToast('Removed from Favorites 💔');
+    } else {
+      favoriteIds.add(wishId);
     }
 
-    // Update wish in array
+    // Update wish in state immediately
     const target = allWishes.find(w => w.id === wishId);
     if (target) {
-      target.favorite = isFav;
+      target.favorite = !currentlyFav;
     }
 
     renderDashboard();
+    showDashboardToast(currentlyFav ? 'Removed from Favorites 💔' : 'Added to Favorites ❤️');
+
+    // Persist to server API
+    try {
+      const res = await fetch('/api/favorites', {
+        method: 'POST',
+        headers: {
+          ...getAuthHeaders(),
+          'Content-Type': 'application/json'
+        },
+        credentials: 'include',
+        body: JSON.stringify({ itemId: wishId, itemType: 'wish' })
+      });
+      const data = await res.json();
+      if (data && data.success && typeof data.favorited === 'boolean') {
+        if (data.favorited) favoriteIds.add(wishId);
+        else favoriteIds.delete(wishId);
+        if (target) target.favorite = data.favorited;
+        renderDashboard();
+      }
+    } catch (err) {
+      console.warn('[my-wishes] Failed to sync favorite with server:', err);
+    }
   };
+
+  // Helper: Extract Relationship Display Information (label, icon, color)
+  function getRelationshipDisplay(w) {
+    const cd = w.customData || {};
+    const relId = w.relationship || w.relationshipId || w.relationship_id || cd.relationship || cd.relationshipId || cd.relationship_id || cd.relationship_label || '';
+    if (!relId) return null;
+
+    const relMap = {
+      'crush': { label: 'Crush', icon: 'favorite', bgClass: 'bg-pink-500/15 text-pink-700 dark:text-pink-300 border-pink-500/30' },
+      'partner': { label: 'Partner', icon: 'favorite', bgClass: 'bg-rose-500/15 text-rose-700 dark:text-rose-300 border-rose-500/30' },
+      'spouse': { label: 'Spouse', icon: 'favorite', bgClass: 'bg-purple-500/15 text-purple-700 dark:text-purple-300 border-purple-500/30' },
+      'best_friend': { label: 'Best Friend', icon: 'sentiment_very_satisfied', bgClass: 'bg-amber-500/15 text-amber-700 dark:text-amber-300 border-amber-500/30' },
+      'friend': { label: 'Friend', icon: 'sentiment_satisfied', bgClass: 'bg-amber-500/15 text-amber-700 dark:text-amber-300 border-amber-500/30' },
+      'parent': { label: 'Parents', icon: 'diversity_1', bgClass: 'bg-indigo-500/15 text-indigo-700 dark:text-indigo-300 border-indigo-500/30' },
+      'parents': { label: 'Parents', icon: 'diversity_1', bgClass: 'bg-indigo-500/15 text-indigo-700 dark:text-indigo-300 border-indigo-500/30' },
+      'mom': { label: 'Mom', icon: 'family_restroom', bgClass: 'bg-pink-500/15 text-pink-700 dark:text-pink-300 border-pink-500/30' },
+      'dad': { label: 'Dad', icon: 'family_restroom', bgClass: 'bg-blue-500/15 text-blue-700 dark:text-blue-300 border-blue-500/30' },
+      'sibling': { label: 'Sibling', icon: 'diversity_3', bgClass: 'bg-teal-500/15 text-teal-700 dark:text-teal-300 border-teal-500/30' },
+      'brother': { label: 'Brother', icon: 'diversity_3', bgClass: 'bg-teal-500/15 text-teal-700 dark:text-teal-300 border-teal-500/30' },
+      'sister': { label: 'Sister', icon: 'diversity_3', bgClass: 'bg-fuchsia-500/15 text-fuchsia-700 dark:text-fuchsia-300 border-fuchsia-500/30' },
+      'mentor': { label: 'Mentor', icon: 'school', bgClass: 'bg-emerald-500/15 text-emerald-700 dark:text-emerald-300 border-emerald-500/30' },
+      'colleague': { label: 'Colleague', icon: 'work', bgClass: 'bg-cyan-500/15 text-cyan-700 dark:text-cyan-300 border-cyan-500/30' },
+      'self': { label: 'Self Keepsake', icon: 'auto_awesome', bgClass: 'bg-yellow-500/15 text-yellow-700 dark:text-yellow-300 border-yellow-500/30' }
+    };
+
+    const key = String(relId).toLowerCase().replace(/[^a-z0-9_]/g, '_');
+    if (relMap[key]) return relMap[key];
+
+    const cleanLabel = String(relId).replace(/[_-]/g, ' ').replace(/\b\w/g, l => l.toUpperCase());
+    return {
+      label: cleanLabel,
+      icon: 'favorite',
+      bgClass: 'bg-purple-500/15 text-purple-700 dark:text-purple-300 border-purple-500/30'
+    };
+  }
 
   // Main Render Routine
   function renderDashboard() {
-    // 1. Recompute lifecycle statuses using Part 7 engine
+    // 1. Recompute lifecycle statuses with Asia/Kolkata boundary engine
     allWishes.forEach(w => {
-      if (w.isDraft || w.status === 'draft') {
+      const isDraft = Boolean(w.status === 'draft' || w.isDraft || (w.customData && w.customData.isDraft));
+      if (isDraft) {
         w.status = 'draft';
+        w.lifecycleStatus = 'draft';
+        w.isDraft = true;
       } else if (window.WishLifecycle) {
-        w.status = window.WishLifecycle.getWishStatus(w);
+        w.lifecycleStatus = window.WishLifecycle.getWishStatus(w);
       }
       w.favorite = favoriteIds.has(w.id);
     });
 
-    // 2. Compute metrics
-    let totalCount = allWishes.length;
-    let activeCount = allWishes.filter(w => w.status === 'active').length;
-    let upcomingCount = allWishes.filter(w => w.status === 'upcoming').length;
-    let expiredCount = allWishes.filter(w => w.status === 'expired').length;
-    let draftsCount = allWishes.filter(w => w.status === 'draft').length;
-    let favoritesCount = allWishes.filter(w => w.favorite).length;
-    let totalViews = allWishes.reduce((sum, w) => sum + (w.views || 0), 0);
+    // 2. Real server-derived counts
+    const totalCount = allWishes.length;
+    const draftsCount = allWishes.filter(w => w.lifecycleStatus === 'draft').length;
+    const upcomingCount = allWishes.filter(w => w.lifecycleStatus === 'upcoming').length;
+    const activeCount = allWishes.filter(w => w.lifecycleStatus === 'active').length;
+    const expiredCount = allWishes.filter(w => w.lifecycleStatus === 'expired').length;
+    const favoritesCount = allWishes.filter(w => w.favorite).length;
+    const totalViews = allWishes.reduce((sum, w) => sum + (w.views || 0), 0);
 
-    // Update badge counts
+    // Update badge counts on filter tabs
     updateBadge('badge-count-all', totalCount);
-    updateBadge('badge-count-active', activeCount);
-    updateBadge('badge-count-upcoming', upcomingCount);
-    updateBadge('badge-count-expired', expiredCount);
     updateBadge('badge-count-drafts', draftsCount);
+    updateBadge('badge-count-upcoming', upcomingCount);
+    updateBadge('badge-count-active', activeCount);
+    updateBadge('badge-count-expired', expiredCount);
     updateBadge('badge-count-favorites', favoritesCount);
 
-    // Update hero stats
+    // Update metrics ribbon
     updateStatText('stat-total-wishes', totalCount);
-    updateStatText('stat-active-wishes', activeCount);
-    updateStatText('stat-upcoming-wishes', upcomingCount);
-    updateStatText('stat-expired-wishes', expiredCount);
     updateStatText('stat-draft-wishes', draftsCount);
+    updateStatText('stat-upcoming-wishes', upcomingCount);
+    updateStatText('stat-active-wishes', activeCount);
+    updateStatText('stat-expired-wishes', expiredCount);
     updateStatText('stat-total-views', totalViews);
 
-    // 3. Filter wishes
+    // 3. Filter wishes by active tab and search query
     let filtered = allWishes.filter(w => {
-      // Tab filter
-      if (currentFilter === 'active' && w.status !== 'active') return false;
-      if (currentFilter === 'upcoming' && w.status !== 'upcoming') return false;
-      if (currentFilter === 'expired' && w.status !== 'expired') return false;
-      if (currentFilter === 'drafts' && w.status !== 'draft') return false;
+      if (currentFilter === 'drafts' && w.lifecycleStatus !== 'draft') return false;
+      if (currentFilter === 'upcoming' && w.lifecycleStatus !== 'upcoming') return false;
+      if (currentFilter === 'active' && w.lifecycleStatus !== 'active') return false;
+      if (currentFilter === 'expired' && w.lifecycleStatus !== 'expired') return false;
       if (currentFilter === 'favorites' && !w.favorite) return false;
 
-      // Search filter
       if (currentSearch) {
         const query = currentSearch;
+        const cd = w.customData || {};
         const searchable = [
           w.recipientName || '',
+          w.buyerName || '',
           w.senderName || '',
           w.templateName || '',
           w.category || '',
-          w.customData?.custom_message || '',
-          w.customData?.recipient_name || '',
-          w.customData?.sender_name || '',
-          w.customData?.event_title || ''
+          w.relationship || '',
+          cd.recipient_name || '',
+          cd.sender_name || '',
+          cd.custom_message || '',
+          cd.event_title || '',
+          cd.relationship || ''
         ].join(' ').toLowerCase();
 
         if (!searchable.includes(query)) return false;
@@ -327,14 +402,14 @@
       } else if (currentSort === 'views') {
         return (b.views || 0) - (a.views || 0);
       } else {
-        // default: 'recent' (updatedAt or createdAt)
+        // default: 'recent'
         const dateA = new Date(a.updatedAt || a.createdAt || 0).getTime();
         const dateB = new Date(b.updatedAt || b.createdAt || 0).getTime();
         return dateB - dateA;
       }
     });
 
-    // 5. Render Grid
+    // 5. Render Grid and handle Empty States
     const container = document.getElementById('wishes-grid-container');
     const emptyState = document.getElementById('wishes-empty-state');
     const resultCountText = document.getElementById('search-results-summary');
@@ -372,7 +447,7 @@
     if (el) el.textContent = val;
   }
 
-  // Customize empty state message according to filter
+  // Customize empty state message according to active filter
   function customizeEmptyState(filter, search) {
     const iconEl = document.getElementById('empty-state-icon');
     const titleEl = document.getElementById('empty-state-title');
@@ -382,7 +457,7 @@
     if (search) {
       if (iconEl) iconEl.textContent = 'search_off';
       if (titleEl) titleEl.textContent = 'No Matches Found';
-      if (descEl) descEl.textContent = `No wishes found matching "${search}". Try checking for typos or searching a different name.`;
+      if (descEl) descEl.textContent = `No wishes found matching "${search}". Try checking for typos or searching a different recipient name.`;
       if (ctaEl) {
         ctaEl.textContent = 'Clear Search';
         ctaEl.onclick = () => {
@@ -395,36 +470,36 @@
       return;
     }
 
-    if (filter === 'active') {
-      if (iconEl) iconEl.textContent = 'celebration';
-      if (titleEl) titleEl.textContent = 'No Active Wishes Today';
-      if (descEl) descEl.textContent = 'Wishes automatically become ACTIVE on their special calendar date (IST).';
+    if (filter === 'drafts') {
+      if (iconEl) iconEl.textContent = 'edit_note';
+      if (titleEl) titleEl.textContent = 'No Saved Drafts';
+      if (descEl) descEl.textContent = 'Start personalizing any template. Your work is safely autosaved right here.';
       if (ctaEl) {
-        ctaEl.textContent = '+ Create a Wish for Today';
+        ctaEl.textContent = '+ Start a New Draft';
         ctaEl.onclick = () => window.location.href = '/customize.html';
       }
     } else if (filter === 'upcoming') {
       if (iconEl) iconEl.textContent = 'hourglass_top';
       if (titleEl) titleEl.textContent = 'No Upcoming Wishes';
-      if (descEl) descEl.textContent = 'Schedule a celebration wish for future birthdays or anniversaries to surprise your loved ones with a live countdown!';
+      if (descEl) descEl.textContent = 'Schedule a celebration wish for upcoming birthdays or anniversaries to surprise your loved ones with a live countdown!';
       if (ctaEl) {
         ctaEl.textContent = '+ Schedule Future Wish';
+        ctaEl.onclick = () => window.location.href = '/customize.html';
+      }
+    } else if (filter === 'active') {
+      if (iconEl) iconEl.textContent = 'celebration';
+      if (titleEl) titleEl.textContent = 'No Active Wishes Today';
+      if (descEl) descEl.textContent = 'Wishes automatically become ACTIVE on their celebration day in Asia/Kolkata timezone (IST).';
+      if (ctaEl) {
+        ctaEl.textContent = '+ Create a Wish for Today';
         ctaEl.onclick = () => window.location.href = '/customize.html';
       }
     } else if (filter === 'expired') {
       if (iconEl) iconEl.textContent = 'bedtime';
       if (titleEl) titleEl.textContent = 'No Expired Wishes';
-      if (descEl) descEl.textContent = 'Wishes expire at midnight after their special date has ended to keep the moment private and special.';
+      if (descEl) descEl.textContent = 'Wishes expire at midnight IST after their special day ends to keep personal moments private and safe.';
       if (ctaEl) {
         ctaEl.textContent = '+ Create New Wish';
-        ctaEl.onclick = () => window.location.href = '/customize.html';
-      }
-    } else if (filter === 'drafts') {
-      if (iconEl) iconEl.textContent = 'edit_note';
-      if (titleEl) titleEl.textContent = 'No Saved Drafts';
-      if (descEl) descEl.textContent = 'Start personalizing any template. Your edits will be automatically autosaved right here.';
-      if (ctaEl) {
-        ctaEl.textContent = '+ Start a New Draft';
         ctaEl.onclick = () => window.location.href = '/customize.html';
       }
     } else if (filter === 'favorites') {
@@ -438,7 +513,7 @@
     } else {
       if (iconEl) iconEl.textContent = 'auto_awesome';
       if (titleEl) titleEl.textContent = 'No Wishes Created Yet';
-      if (descEl) descEl.textContent = 'Create your very first personalized 3D celebration website in under 2 minutes!';
+      if (descEl) descEl.textContent = 'Create your very first personalized celebration experience in under 2 minutes!';
       if (ctaEl) {
         ctaEl.textContent = '+ Create Your First Wish ✨';
         ctaEl.onclick = () => window.location.href = '/customize.html';
@@ -446,107 +521,97 @@
     }
   }
 
-  // Build Individual Card HTML
+  // Build Individual Card HTML (Adhering to Part 26 Card Lifecycle Rules)
   function buildWishCardHTML(w) {
-    const isDraft = w.status === 'draft';
-    const isUpcoming = w.status === 'upcoming';
-    const isActive = w.status === 'active';
-    const isExpired = w.status === 'expired';
-
+    const isDraft = w.lifecycleStatus === 'draft';
+    const isUpcoming = w.lifecycleStatus === 'upcoming';
+    const isActive = w.lifecycleStatus === 'active';
+    const isExpired = w.lifecycleStatus === 'expired';
     const isFav = w.favorite;
+
     const recipient = w.recipientName || w.customData?.recipient_name || 'Special Person';
-    const sender = w.senderName || w.customData?.sender_name || 'Anonymous';
+    const sender = w.buyerName || w.senderName || w.customData?.sender_name || 'Anonymous';
     const templateName = w.templateName || 'Magical Celebration';
-    const category = w.category || 'Special Occasion';
     const eventDate = w.eventDate || w.customData?.event_date || '';
     const formattedDate = window.WishLifecycle ? window.WishLifecycle.formatISTDate(eventDate) : (eventDate || 'Special Day');
     const isVip = (window.WishEntitlement && typeof window.WishEntitlement.getWishPlan === 'function')
       ? (window.WishEntitlement.getWishPlan(w) === 'premium')
       : (w.tier === 'vip' || w.tier === 'premium' || (w.price && w.price > 0));
-    const coverPhoto = w.coverPhoto || w.customData?.cover_photo || w.customData?.photos?.[0]?.src || 'https://images.unsplash.com/photo-1513151233558-d860c5398176?w=600&auto=format&fit=crop&q=80';
+
+    const coverPhoto = w.coverPhoto || w.customData?.cover_photo || w.customData?.photos?.[0]?.src || w.customData?.photos?.[0]?.url || 'https://images.unsplash.com/photo-1513151233558-d860c5398176?w=600&auto=format&fit=crop&q=80';
     const relativeTime = getRelativeTime(w.updatedAt || w.createdAt);
     const views = w.views || 0;
+    const relInfo = getRelationshipDisplay(w);
 
-    // Status Badge Configuration
+    // Lifecycle Status Badge
     let statusBadgeHTML = '';
-    if (isActive) {
+    if (isDraft) {
       statusBadgeHTML = `
-        <span class="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-[11px] font-extrabold bg-emerald-500/20 text-emerald-800 dark:text-emerald-200 border border-emerald-500/40 shadow-sm">
+        <span class="inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-[10px] font-extrabold bg-amber-500/20 text-amber-800 dark:text-amber-200 border border-amber-500/40 shadow-sm backdrop-blur-md">
+          <span class="material-symbols-outlined text-[13px]">edit_document</span>
+          <span>DRAFT</span>
+        </span>
+      `;
+    } else if (isActive) {
+      statusBadgeHTML = `
+        <span class="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-[10px] font-black bg-emerald-500/25 text-emerald-800 dark:text-emerald-200 border border-emerald-500/50 shadow-sm backdrop-blur-md">
           <span class="w-2 h-2 rounded-full bg-emerald-500 animate-ping"></span>
           <span>● ACTIVE NOW</span>
         </span>
       `;
     } else if (isUpcoming) {
       statusBadgeHTML = `
-        <span class="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-[11px] font-extrabold bg-indigo-500/20 text-indigo-900 dark:text-indigo-200 border border-indigo-500/40 shadow-sm">
+        <span class="inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-[10px] font-extrabold bg-indigo-500/25 text-indigo-900 dark:text-indigo-200 border border-indigo-500/45 shadow-sm backdrop-blur-md">
           <span class="material-symbols-outlined text-[13px]">schedule</span>
           <span>UPCOMING</span>
         </span>
       `;
-    } else if (isExpired) {
+    } else {
+      // Expired
       statusBadgeHTML = `
-        <span class="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-[11px] font-extrabold bg-slate-500/20 text-slate-700 dark:text-slate-300 border border-slate-500/30 shadow-sm">
+        <span class="inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-[10px] font-extrabold bg-slate-600/30 text-slate-700 dark:text-slate-300 border border-slate-500/40 shadow-sm backdrop-blur-md">
           <span class="material-symbols-outlined text-[13px]">bedtime</span>
           <span>EXPIRED</span>
-        </span>
-      `;
-    } else {
-      // Draft
-      statusBadgeHTML = `
-        <span class="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-[11px] font-extrabold bg-amber-500/20 text-amber-800 dark:text-amber-200 border border-amber-500/40 shadow-sm">
-          <span class="material-symbols-outlined text-[13px]">edit_document</span>
-          <span>DRAFT</span>
         </span>
       `;
     }
 
     // Tier badge
     const tierBadgeHTML = isVip
-      ? `<span class="px-2 py-0.5 rounded-full text-[10px] font-black bg-amber-500/20 text-amber-800 dark:text-amber-300 border border-amber-500/40">👑 VIP PASS</span>`
-      : `<span class="px-2 py-0.5 rounded-full text-[10px] font-bold bg-purple-500/10 text-purple-700 dark:text-purple-300 border border-purple-500/20">FREE TIER</span>`;
+      ? `<span class="px-2 py-0.5 rounded-full text-[9px] font-black bg-amber-500/20 text-amber-800 dark:text-amber-300 border border-amber-500/40 backdrop-blur-md">👑 VIP PASS</span>`
+      : `<span class="px-2 py-0.5 rounded-full text-[9px] font-bold bg-purple-500/15 text-purple-700 dark:text-purple-300 border border-purple-500/20 backdrop-blur-md">FREE TIER</span>`;
 
-    // Action Buttons based on status
+    // Relationship Badge
+    const relationshipBadgeHTML = relInfo
+      ? `
+        <div class="inline-flex items-center gap-1 px-2 py-0.5 rounded-md border text-[10px] font-extrabold ${relInfo.bgClass}">
+          <span class="material-symbols-outlined text-[12px] font-fill">${relInfo.icon}</span>
+          <span>${relInfo.label}</span>
+        </div>
+      `
+      : '';
+
+    // Action Buttons Matrix (Strictly lifecycle state-dependent per Part 26 Rules)
     let actionButtonsHTML = '';
+
     if (isDraft) {
+      // Draft: Continue Editing + Preview + Duplicate + Delete (NO Public Share)
       actionButtonsHTML = `
         <div class="grid grid-cols-2 gap-2 pt-3 border-t border-purple-200/50 dark:border-purple-800/40">
-          <a href="/customize.html?draft=${encodeURIComponent(w.id)}&template=${encodeURIComponent(w.templateId || '')}" class="col-span-2 py-2.5 px-3 rounded-xl bg-gradient-to-r from-pink-500 to-purple-600 hover:brightness-110 text-white font-bold text-xs shadow-md shadow-pink-500/20 flex items-center justify-center gap-1.5 transition active:scale-95">
+          <a href="/customize.html?draft=${encodeURIComponent(w.id)}&template=${encodeURIComponent(w.templateId || '')}" class="col-span-2 py-2.5 px-3 rounded-xl bg-gradient-to-r from-pink-500 to-purple-600 hover:brightness-110 text-white font-bold text-xs shadow-md shadow-pink-500/20 flex items-center justify-center gap-1.5 transition active:scale-95 cursor-pointer">
             <span class="material-symbols-outlined text-[16px]">edit</span>
             <span>Continue Editing</span>
           </a>
-          <button onclick="previewWishModal('${w.id}')" class="py-2 px-2.5 rounded-xl glass-pill hover:border-purple-400 text-purple-900 dark:text-purple-200 font-semibold text-xs flex items-center justify-center gap-1 transition">
+          <button onclick="previewWishModal('${w.id}')" class="py-2 px-2.5 rounded-xl glass-pill hover:border-purple-400 text-purple-900 dark:text-purple-200 font-semibold text-xs flex items-center justify-center gap-1 transition cursor-pointer">
             <span class="material-symbols-outlined text-[15px]">visibility</span>
             <span>Preview</span>
           </button>
-          <button onclick="deleteWishPrompt('${w.id}')" class="py-2 px-2.5 rounded-xl bg-rose-500/10 hover:bg-rose-500/20 text-rose-600 dark:text-rose-400 border border-rose-500/20 font-semibold text-xs flex items-center justify-center gap-1 transition">
-            <span class="material-symbols-outlined text-[15px]">delete</span>
-            <span>Delete</span>
-          </button>
-        </div>
-      `;
-    } else if (isActive) {
-      actionButtonsHTML = `
-        <div class="flex flex-col gap-2 pt-3 border-t border-purple-200/50 dark:border-purple-800/40">
-          <div class="grid grid-cols-2 gap-2">
-            <a href="/w/${encodeURIComponent(w.id)}" target="_blank" class="py-2.5 px-3 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white font-bold text-xs shadow-md shadow-emerald-600/20 flex items-center justify-center gap-1.5 transition active:scale-95">
-              <span class="material-symbols-outlined text-[16px]">open_in_new</span>
-              <span>Open Live</span>
-            </a>
-            <button onclick="openShareModal('${w.id}')" class="py-2.5 px-3 rounded-xl bg-gradient-to-r from-pink-500 to-purple-600 hover:brightness-110 text-white font-bold text-xs shadow-md shadow-pink-500/20 flex items-center justify-center gap-1.5 transition active:scale-95">
-              <span class="material-symbols-outlined text-[16px]">share</span>
-              <span>Share Link</span>
-            </button>
-          </div>
-          <div class="grid grid-cols-3 gap-1.5">
-            <a href="/customize.html?edit=${encodeURIComponent(w.id)}" class="py-1.5 px-2 rounded-xl glass-pill hover:border-purple-400 text-purple-900 dark:text-purple-200 font-semibold text-[11px] flex items-center justify-center gap-1 transition">
-              <span class="material-symbols-outlined text-[14px]">edit</span>
-              <span>Edit</span>
-            </a>
-            <button onclick="duplicateWish('${w.id}')" class="py-1.5 px-2 rounded-xl glass-pill hover:border-purple-400 text-purple-900 dark:text-purple-200 font-semibold text-[11px] flex items-center justify-center gap-1 transition">
+          <div class="grid grid-cols-2 gap-1.5">
+            <button onclick="duplicateWish('${w.id}')" class="py-2 px-1.5 rounded-xl glass-pill hover:border-purple-400 text-purple-900 dark:text-purple-200 font-semibold text-xs flex items-center justify-center gap-1 transition cursor-pointer" title="Duplicate Draft">
               <span class="material-symbols-outlined text-[14px]">content_copy</span>
               <span>Duplicate</span>
             </button>
-            <button onclick="deleteWishPrompt('${w.id}')" class="py-1.5 px-2 rounded-xl bg-rose-500/10 hover:bg-rose-500/20 text-rose-600 dark:text-rose-400 border border-rose-500/20 font-semibold text-[11px] flex items-center justify-center gap-1 transition">
+            <button onclick="deleteWishPrompt('${w.id}')" class="py-2 px-1.5 rounded-xl bg-rose-500/10 hover:bg-rose-500/20 text-rose-600 dark:text-rose-400 border border-rose-500/20 font-semibold text-xs flex items-center justify-center gap-1 transition cursor-pointer" title="Delete Draft">
               <span class="material-symbols-outlined text-[14px]">delete</span>
               <span>Delete</span>
             </button>
@@ -554,56 +619,90 @@
         </div>
       `;
     } else if (isUpcoming) {
+      // Upcoming: Countdown Link + Share + Edit + Duplicate + Delete/Archive
+      const publicLink = `/w/${encodeURIComponent(w.slug || w.id)}`;
       actionButtonsHTML = `
         <div class="flex flex-col gap-2 pt-3 border-t border-purple-200/50 dark:border-purple-800/40">
           <div class="grid grid-cols-2 gap-2">
-            <a href="/w/${encodeURIComponent(w.id)}" target="_blank" class="py-2.5 px-3 rounded-xl bg-indigo-600 hover:bg-indigo-500 text-white font-bold text-xs shadow-md shadow-indigo-600/20 flex items-center justify-center gap-1.5 transition active:scale-95">
+            <a href="${publicLink}" target="_blank" class="py-2.5 px-3 rounded-xl bg-indigo-600 hover:bg-indigo-500 text-white font-bold text-xs shadow-md shadow-indigo-600/20 flex items-center justify-center gap-1.5 transition active:scale-95 cursor-pointer">
               <span class="material-symbols-outlined text-[16px]">hourglass_bottom</span>
               <span>Countdown</span>
             </a>
-            <button onclick="openShareModal('${w.id}')" class="py-2.5 px-3 rounded-xl bg-gradient-to-r from-pink-500 to-purple-600 hover:brightness-110 text-white font-bold text-xs shadow-md shadow-pink-500/20 flex items-center justify-center gap-1.5 transition active:scale-95">
+            <button onclick="openShareModal('${w.id}')" class="py-2.5 px-3 rounded-xl bg-gradient-to-r from-pink-500 to-purple-600 hover:brightness-110 text-white font-bold text-xs shadow-md shadow-pink-500/20 flex items-center justify-center gap-1.5 transition active:scale-95 cursor-pointer">
               <span class="material-symbols-outlined text-[16px]">share</span>
               <span>Share Link</span>
             </button>
           </div>
           <div class="grid grid-cols-3 gap-1.5">
-            <a href="/customize.html?edit=${encodeURIComponent(w.id)}" class="py-1.5 px-2 rounded-xl glass-pill hover:border-purple-400 text-purple-900 dark:text-purple-200 font-semibold text-[11px] flex items-center justify-center gap-1 transition">
+            <a href="/customize.html?edit=${encodeURIComponent(w.id)}" class="py-1.5 px-2 rounded-xl glass-pill hover:border-purple-400 text-purple-900 dark:text-purple-200 font-semibold text-[11px] flex items-center justify-center gap-1 transition cursor-pointer">
               <span class="material-symbols-outlined text-[14px]">edit</span>
               <span>Edit</span>
             </a>
-            <button onclick="duplicateWish('${w.id}')" class="py-1.5 px-2 rounded-xl glass-pill hover:border-purple-400 text-purple-900 dark:text-purple-200 font-semibold text-[11px] flex items-center justify-center gap-1 transition">
+            <button onclick="duplicateWish('${w.id}')" class="py-1.5 px-2 rounded-xl glass-pill hover:border-purple-400 text-purple-900 dark:text-purple-200 font-semibold text-[11px] flex items-center justify-center gap-1 transition cursor-pointer">
               <span class="material-symbols-outlined text-[14px]">content_copy</span>
               <span>Duplicate</span>
             </button>
-            <button onclick="deleteWishPrompt('${w.id}')" class="py-1.5 px-2 rounded-xl bg-rose-500/10 hover:bg-rose-500/20 text-rose-600 dark:text-rose-400 border border-rose-500/20 font-semibold text-[11px] flex items-center justify-center gap-1 transition">
+            <button onclick="deleteWishPrompt('${w.id}')" class="py-1.5 px-2 rounded-xl bg-rose-500/10 hover:bg-rose-500/20 text-rose-600 dark:text-rose-400 border border-rose-500/20 font-semibold text-[11px] flex items-center justify-center gap-1 transition cursor-pointer">
               <span class="material-symbols-outlined text-[14px]">delete</span>
-              <span>Delete</span>
+              <span>Archive</span>
+            </button>
+          </div>
+        </div>
+      `;
+    } else if (isActive) {
+      // Active: Open Live + Share + Edit + Duplicate + Delete/Archive
+      const publicLink = `/w/${encodeURIComponent(w.slug || w.id)}`;
+      actionButtonsHTML = `
+        <div class="flex flex-col gap-2 pt-3 border-t border-purple-200/50 dark:border-purple-800/40">
+          <div class="grid grid-cols-2 gap-2">
+            <a href="${publicLink}" target="_blank" class="py-2.5 px-3 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white font-bold text-xs shadow-md shadow-emerald-600/20 flex items-center justify-center gap-1.5 transition active:scale-95 cursor-pointer">
+              <span class="material-symbols-outlined text-[16px]">open_in_new</span>
+              <span>Open Live</span>
+            </a>
+            <button onclick="openShareModal('${w.id}')" class="py-2.5 px-3 rounded-xl bg-gradient-to-r from-pink-500 to-purple-600 hover:brightness-110 text-white font-bold text-xs shadow-md shadow-pink-500/20 flex items-center justify-center gap-1.5 transition active:scale-95 cursor-pointer">
+              <span class="material-symbols-outlined text-[16px]">share</span>
+              <span>Share Link</span>
+            </button>
+          </div>
+          <div class="grid grid-cols-3 gap-1.5">
+            <a href="/customize.html?edit=${encodeURIComponent(w.id)}" class="py-1.5 px-2 rounded-xl glass-pill hover:border-purple-400 text-purple-900 dark:text-purple-200 font-semibold text-[11px] flex items-center justify-center gap-1 transition cursor-pointer">
+              <span class="material-symbols-outlined text-[14px]">edit</span>
+              <span>Edit</span>
+            </a>
+            <button onclick="duplicateWish('${w.id}')" class="py-1.5 px-2 rounded-xl glass-pill hover:border-purple-400 text-purple-900 dark:text-purple-200 font-semibold text-[11px] flex items-center justify-center gap-1 transition cursor-pointer">
+              <span class="material-symbols-outlined text-[14px]">content_copy</span>
+              <span>Duplicate</span>
+            </button>
+            <button onclick="deleteWishPrompt('${w.id}')" class="py-1.5 px-2 rounded-xl bg-rose-500/10 hover:bg-rose-500/20 text-rose-600 dark:text-rose-400 border border-rose-500/20 font-semibold text-[11px] flex items-center justify-center gap-1 transition cursor-pointer">
+              <span class="material-symbols-outlined text-[14px]">delete</span>
+              <span>Archive</span>
             </button>
           </div>
         </div>
       `;
     } else {
-      // Expired: Show "Create Again" (brand new wish identity) + Duplicate + Delete
+      // Expired: Create Again ✨ + Preview/View Keepsake + Duplicate + Archive/Delete (NO Reactivate)
+      const publicLink = `/w/${encodeURIComponent(w.slug || w.id)}`;
       actionButtonsHTML = `
         <div class="flex flex-col gap-2 pt-3 border-t border-purple-200/50 dark:border-purple-800/40">
           <div class="grid grid-cols-2 gap-2">
-            <a href="/customize.html?clone=${encodeURIComponent(w.id)}" class="py-2.5 px-3 rounded-xl bg-gradient-to-r from-amber-500 via-pink-500 to-purple-600 hover:brightness-110 text-white font-bold text-xs shadow-md shadow-pink-500/20 flex items-center justify-center gap-1.5 transition active:scale-95">
+            <button onclick="createAgainWish('${w.id}')" class="py-2.5 px-3 rounded-xl bg-gradient-to-r from-amber-500 via-pink-500 to-purple-600 hover:brightness-110 text-white font-extrabold text-xs shadow-md shadow-pink-500/20 flex items-center justify-center gap-1.5 transition active:scale-95 cursor-pointer">
               <span class="material-symbols-outlined text-[16px]">restart_alt</span>
               <span>Create Again ✨</span>
-            </a>
-            <a href="/w/${encodeURIComponent(w.id)}" target="_blank" class="py-2.5 px-3 rounded-xl glass-pill hover:border-purple-400 text-purple-900 dark:text-purple-200 font-semibold text-xs flex items-center justify-center gap-1 transition">
+            </button>
+            <a href="${publicLink}" target="_blank" class="py-2.5 px-3 rounded-xl glass-pill hover:border-purple-400 text-purple-900 dark:text-purple-200 font-semibold text-xs flex items-center justify-center gap-1 transition cursor-pointer">
               <span class="material-symbols-outlined text-[16px]">visibility</span>
-              <span>View Expiry</span>
+              <span>View Keepsake</span>
             </a>
           </div>
           <div class="grid grid-cols-2 gap-2">
-            <button onclick="duplicateWish('${w.id}')" class="py-1.5 px-2 rounded-xl glass-pill hover:border-purple-400 text-purple-900 dark:text-purple-200 font-semibold text-[11px] flex items-center justify-center gap-1 transition">
+            <button onclick="duplicateWish('${w.id}')" class="py-1.5 px-2 rounded-xl glass-pill hover:border-purple-400 text-purple-900 dark:text-purple-200 font-semibold text-[11px] flex items-center justify-center gap-1 transition cursor-pointer">
               <span class="material-symbols-outlined text-[14px]">content_copy</span>
               <span>Duplicate</span>
             </button>
-            <button onclick="deleteWishPrompt('${w.id}')" class="py-1.5 px-2 rounded-xl bg-rose-500/10 hover:bg-rose-500/20 text-rose-600 dark:text-rose-400 border border-rose-500/20 font-semibold text-[11px] flex items-center justify-center gap-1 transition">
+            <button onclick="deleteWishPrompt('${w.id}')" class="py-1.5 px-2 rounded-xl bg-rose-500/10 hover:bg-rose-500/20 text-rose-600 dark:text-rose-400 border border-rose-500/20 font-semibold text-[11px] flex items-center justify-center gap-1 transition cursor-pointer">
               <span class="material-symbols-outlined text-[14px]">delete</span>
-              <span>Delete</span>
+              <span>Archive</span>
             </button>
           </div>
         </div>
@@ -611,11 +710,11 @@
     }
 
     return `
-      <div class="glass-card rounded-3xl overflow-hidden border border-purple-200/70 dark:border-purple-800/60 shadow-lg hover:shadow-2xl hover:border-pink-500/50 transition-all duration-300 flex flex-col group relative" data-wish-id="${w.id}">
+      <div class="glass-card rounded-3xl overflow-hidden border ${isDraft ? 'border-amber-500/40' : (isActive ? 'border-emerald-500/50' : 'border-purple-200/70 dark:border-purple-800/60')} shadow-lg hover:shadow-2xl hover:border-pink-500/50 transition-all duration-300 flex flex-col group relative" data-wish-id="${w.id}">
         <!-- Top Cover Thumbnail Banner -->
         <div class="relative h-44 w-full overflow-hidden bg-purple-950/20">
           <img src="${coverPhoto}" alt="${recipient}" class="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500" loading="lazy" onerror="this.src='https://images.unsplash.com/photo-1513151233558-d860c5398176?w=600&auto=format&fit=crop&q=80'"/>
-          <div class="absolute inset-0 bg-gradient-to-t from-black/80 via-black/20 to-transparent"></div>
+          <div class="absolute inset-0 bg-gradient-to-t from-black/85 via-black/30 to-transparent"></div>
 
           <!-- Top-Left Badges: Status + Tier -->
           <div class="absolute top-3 left-3 flex items-center gap-1.5 flex-wrap z-10">
@@ -630,12 +729,14 @@
             </span>
           </button>
 
-          <!-- Bottom Image Overlay: Recipient Highlight -->
+          <!-- Bottom Image Overlay: Recipient Highlight & Relationship -->
           <div class="absolute bottom-3 left-3 right-3 flex items-end justify-between text-white z-10">
             <div>
-              <div class="text-[11px] font-semibold text-purple-200 uppercase tracking-wider">Celebration For</div>
+              <div class="flex items-center gap-1.5 mb-0.5">
+                ${relationshipBadgeHTML}
+              </div>
               <h3 class="font-display font-extrabold text-lg sm:text-xl text-white truncate max-w-[200px] sm:max-w-[240px] drop-shadow-md">
-                ${recipient}
+                ✨ For ${recipient}
               </h3>
             </div>
             ${!isDraft ? `
@@ -653,12 +754,7 @@
             <!-- Sender & Template Meta -->
             <div class="flex items-center justify-between text-xs text-purple-800 dark:text-purple-300 font-semibold">
               <span class="truncate">From: <strong class="text-purple-950 dark:text-purple-100">${sender}</strong></span>
-              <span class="text-[11px] px-2 py-0.5 rounded-md bg-purple-100 dark:bg-purple-900/40 text-purple-900 dark:text-purple-300">${category}</span>
-            </div>
-
-            <!-- Template Name -->
-            <div class="text-xs text-purple-900/80 dark:text-purple-300/80 truncate">
-              Template: <span class="font-bold text-purple-950 dark:text-white">${templateName}</span>
+              <span class="text-[11px] px-2 py-0.5 rounded-md bg-purple-100 dark:bg-purple-900/40 text-purple-900 dark:text-purple-300 truncate max-w-[120px]">${templateName}</span>
             </div>
 
             <!-- Special Date Box -->
@@ -671,7 +767,7 @@
                 </div>
               </div>
               <div class="text-[10px] text-right text-purple-600 dark:text-purple-400">
-                ${relativeTime}
+                Updated ${relativeTime}
               </div>
             </div>
           </div>
@@ -685,12 +781,12 @@
 
   // Relative Time Formatter
   function getRelativeTime(dateStr) {
-    if (!dateStr) return '';
+    if (!dateStr) return 'recently';
     try {
       const then = new Date(dateStr).getTime();
       const now = Date.now();
       const diffSec = Math.floor((now - then) / 1000);
-      if (diffSec < 60) return 'Just now';
+      if (diffSec < 60) return 'just now';
       const diffMin = Math.floor(diffSec / 60);
       if (diffMin < 60) return `${diffMin}m ago`;
       const diffHours = Math.floor(diffMin / 60);
@@ -699,18 +795,197 @@
       if (diffDays < 30) return `${diffDays}d ago`;
       return `${Math.floor(diffDays / 30)}mo ago`;
     } catch (e) {
-      return '';
+      return 'recently';
     }
   }
 
-  // Modal: Share Dialog
-  window.openShareModal = function(wishId) {
+  // Duplicate a Wish or Draft into a new customizer draft on the server
+  window.duplicateWish = async function(wishId) {
+    const user = window.WishAuth ? window.WishAuth.getCurrentUser() : null;
+    if (!user) {
+      if (window.WishAuth) window.WishAuth.requireAuth();
+      return;
+    }
+
+    try {
+      showDashboardToast('Duplicating celebration... ⏳');
+      const res = await fetch(`/api/wishes/${encodeURIComponent(wishId)}/duplicate`, {
+        method: 'POST',
+        headers: getAuthHeaders(),
+        credentials: 'include'
+      });
+      const data = await res.json();
+      if (data && data.success) {
+        showDashboardToast('Duplicated as new Draft! 📋');
+        await fetchWishesAndDrafts(user.id);
+        renderDashboard();
+      } else {
+        showDashboardToast(data.message || 'Could not duplicate wish.');
+      }
+    } catch (err) {
+      console.warn('[my-wishes] Duplication error:', err);
+      // Fallback: navigate to customizer clone
+      window.location.href = `/customize.html?clone=${encodeURIComponent(wishId)}`;
+    }
+  };
+
+  // Create Again (Part 26): Instantiates a brand new draft from an expired celebration
+  window.createAgainWish = async function(wishId) {
+    const user = window.WishAuth ? window.WishAuth.getCurrentUser() : null;
+    if (!user) {
+      if (window.WishAuth) window.WishAuth.requireAuth();
+      return;
+    }
+
+    try {
+      showDashboardToast('Creating new celebration draft... ✨');
+      const res = await fetch(`/api/wishes/${encodeURIComponent(wishId)}/create-again`, {
+        method: 'POST',
+        headers: getAuthHeaders(),
+        credentials: 'include'
+      });
+      const data = await res.json();
+      if (data && data.success && data.wishId) {
+        showDashboardToast('New celebration draft ready! 📝');
+        const targetWish = allWishes.find(w => w.id === wishId);
+        const tplId = (targetWish && targetWish.templateId) || 'tpl_glitter_birthday';
+        window.location.href = `/customize.html?draft=${encodeURIComponent(data.wishId)}&template=${encodeURIComponent(tplId)}`;
+      } else {
+        // Fallback: customizer clone URL
+        window.location.href = `/customize.html?clone=${encodeURIComponent(wishId)}`;
+      }
+    } catch (err) {
+      console.warn('[my-wishes] Create Again API error:', err);
+      window.location.href = `/customize.html?clone=${encodeURIComponent(wishId)}`;
+    }
+  };
+
+  // Delete Confirmation Prompt Modal
+  window.deleteWishPrompt = function(wishId) {
     const wish = allWishes.find(w => w.id === wishId);
     if (!wish) return;
 
     selectedWishForAction = wish;
+    const isDraft = wish.lifecycleStatus === 'draft';
+    const recipient = wish.recipientName || 'this celebration';
 
-    // Part 15: Use Centralized WishShareSystem with rich social preview and printable QR
+    let modal = document.getElementById('dashboard-delete-modal');
+    if (!modal) {
+      modal = document.createElement('div');
+      modal.id = 'dashboard-delete-modal';
+      modal.className = 'fixed inset-0 z-50 bg-black/85 backdrop-blur-xl flex items-center justify-center p-4 transition-all duration-300';
+      document.body.appendChild(modal);
+    }
+
+    modal.innerHTML = `
+      <div class="w-full max-w-md bg-white dark:bg-purple-950 rounded-3xl border border-rose-200 dark:border-rose-900/50 shadow-2xl p-6 flex flex-col gap-4 text-center">
+        <div class="w-14 h-14 rounded-full bg-rose-500/15 text-rose-500 mx-auto flex items-center justify-center text-3xl">
+          <span class="material-symbols-outlined text-[32px]">delete_forever</span>
+        </div>
+
+        <div>
+          <h3 class="font-display text-xl font-extrabold text-purple-950 dark:text-white">
+            Delete ${isDraft ? 'Draft' : 'Keepsake'}?
+          </h3>
+          <p class="text-xs text-purple-700 dark:text-purple-300 mt-1">
+            Are you sure you want to permanently remove the celebration for <strong class="text-purple-950 dark:text-white">${recipient}</strong>? This cannot be undone.
+          </p>
+        </div>
+
+        <div class="grid grid-cols-2 gap-2 pt-2">
+          <button onclick="document.getElementById('dashboard-delete-modal').classList.add('hidden')" class="py-2.5 px-4 rounded-xl glass-pill text-purple-900 dark:text-purple-200 font-bold text-xs hover:border-purple-400 transition cursor-pointer">
+            Cancel
+          </button>
+          <button onclick="confirmDeleteWish('${wish.id}')" class="py-2.5 px-4 rounded-xl bg-rose-600 hover:bg-rose-500 text-white font-bold text-xs shadow-md shadow-rose-600/25 transition cursor-pointer">
+            Yes, Delete
+          </button>
+        </div>
+      </div>
+    `;
+
+    modal.classList.remove('hidden');
+  };
+
+  // Confirm delete handler with server cascade
+  window.confirmDeleteWish = async function(wishId) {
+    const modal = document.getElementById('dashboard-delete-modal');
+    if (modal) modal.classList.add('hidden');
+
+    const user = window.WishAuth ? window.WishAuth.getCurrentUser() : null;
+
+    try {
+      await fetch(`/api/wishes/${encodeURIComponent(wishId)}`, {
+        method: 'DELETE',
+        headers: getAuthHeaders(),
+        credentials: 'include'
+      });
+    } catch (e) {
+      console.warn('[my-wishes] Server delete call failed:', e);
+    }
+
+    favoriteIds.delete(wishId);
+    allWishes = allWishes.filter(w => w.id !== wishId);
+    showDashboardToast('Celebration removed successfully 🗑️');
+    renderDashboard();
+  };
+
+  // Preview Modal for Fast Creator Inspection
+  window.previewWishModal = function(wishId) {
+    const wish = allWishes.find(w => w.id === wishId);
+    if (!wish) return;
+
+    let modal = document.getElementById('dashboard-preview-modal');
+    if (!modal) {
+      modal = document.createElement('div');
+      modal.id = 'dashboard-preview-modal';
+      modal.className = 'fixed inset-0 z-50 bg-black/90 backdrop-blur-md flex items-center justify-center p-2 sm:p-4 transition-all duration-300';
+      document.body.appendChild(modal);
+    }
+
+    const previewSrc = wish.isDraft
+      ? `/template-preview.html?template=${encodeURIComponent(wish.templateId || 'tpl_glitter_birthday')}&creatorPreview=1`
+      : `/w/${encodeURIComponent(wish.slug || wish.id)}?creatorPreview=1`;
+
+    modal.innerHTML = `
+      <div class="w-full max-w-4xl h-[90vh] bg-surface-container-lowest dark:bg-purple-950 rounded-3xl border border-purple-200 dark:border-purple-800 shadow-2xl flex flex-col overflow-hidden relative">
+        <div class="px-5 py-3.5 bg-white dark:bg-purple-900/60 border-b border-purple-200 dark:border-purple-800 flex items-center justify-between">
+          <div class="flex items-center gap-2.5">
+            <span class="w-3 h-3 rounded-full bg-pink-500 animate-pulse"></span>
+            <span class="font-display font-bold text-sm text-purple-950 dark:text-white">Creator Live Preview</span>
+            <span class="text-xs text-purple-600 dark:text-purple-400">(${wish.recipientName || 'Celebration'})</span>
+          </div>
+          <div class="flex items-center gap-2">
+            <a href="${previewSrc}" target="_blank" class="px-3 py-1.5 rounded-xl glass-pill text-xs font-bold text-purple-900 dark:text-purple-200 hover:border-purple-400 flex items-center gap-1 transition">
+              <span class="material-symbols-outlined text-[14px]">open_in_new</span>
+              <span>Full Screen</span>
+            </a>
+            <button onclick="document.getElementById('dashboard-preview-modal').classList.add('hidden')" class="p-1.5 text-purple-400 hover:text-purple-600 dark:hover:text-white rounded-full hover:bg-purple-100 dark:hover:bg-purple-800 transition cursor-pointer">
+              <span class="material-symbols-outlined text-[20px]">close</span>
+            </button>
+          </div>
+        </div>
+        <div class="flex-1 w-full bg-black">
+          <iframe src="${previewSrc}" class="w-full h-full border-none" title="Wish Preview"></iframe>
+        </div>
+      </div>
+    `;
+
+    modal.classList.remove('hidden');
+  };
+
+  // Share Modal (Part 15 & 26: Only for Published Upcoming / Active Wishes)
+  window.openShareModal = function(wishId) {
+    const wish = allWishes.find(w => w.id === wishId);
+    if (!wish) return;
+
+    if (wish.isDraft || wish.lifecycleStatus === 'draft') {
+      showDashboardToast('Draft must be published before sharing a public link.');
+      return;
+    }
+
+    selectedWishForAction = wish;
+
+    // Use Centralized WishShareSystem if present
     if (window.WishShareSystem) {
       window.WishShareSystem.openShareModal(wish);
       return;
@@ -728,10 +1003,6 @@
       document.body.appendChild(modal);
     }
 
-    const qrSVG = (window.WishQRCodeService && typeof window.WishQRCodeService.generateQRCodeSVG === 'function')
-      ? window.WishQRCodeService.generateQRCodeSVG(fullLink, { size: 100, margin: 4 })
-      : `<div class="w-24 h-24 bg-purple-100 flex items-center justify-center text-xs text-purple-900 font-bold">QR Ready</div>`;
-
     modal.innerHTML = `
       <div class="w-full max-w-md bg-white dark:bg-purple-950 rounded-3xl border border-purple-200 dark:border-purple-800 shadow-2xl p-6 sm:p-7 flex flex-col gap-4 relative animate-scaleUp">
         <button onclick="document.getElementById('dashboard-share-modal').classList.add('hidden')" class="absolute top-4 right-4 p-2 text-purple-400 hover:text-purple-600 dark:hover:text-white rounded-full hover:bg-purple-100 dark:hover:bg-purple-900/60 transition cursor-pointer">
@@ -748,20 +1019,9 @@
           </div>
         </div>
 
-        <!-- QR Code & Quick Scan -->
-        <div class="flex flex-col sm:flex-row items-center gap-4 p-4 rounded-2xl bg-purple-50 dark:bg-purple-900/30 border border-purple-200 dark:border-purple-800">
-          <div class="p-2 bg-white rounded-xl shadow-md border border-purple-200 flex-shrink-0 flex items-center justify-center">
-            ${qrSVG}
-          </div>
-          <div class="text-center sm:text-left flex-1">
-            <div class="text-xs font-bold text-purple-950 dark:text-white">Instant QR Code</div>
-            <p class="text-[11px] text-purple-700 dark:text-purple-300 mt-1">Scan directly from mobile camera or share in cards!</p>
-          </div>
-        </div>
-
         <!-- Direct Link Box -->
         <div class="flex flex-col gap-1.5">
-          <label class="text-xs font-bold text-purple-900 dark:text-purple-200">Public Short URL</label>
+          <label class="text-xs font-bold text-purple-900 dark:text-purple-200">Public Keepsake Link</label>
           <div class="flex items-center justify-between gap-2 p-1.5 pl-3.5 rounded-2xl bg-purple-100 dark:bg-purple-900/50 border border-purple-300 dark:border-purple-700">
             <input id="share-link-input-modal" type="text" readonly value="${fullLink}" class="w-full bg-transparent text-xs font-mono text-purple-950 dark:text-purple-200 focus:outline-none select-all truncate"/>
             <button onclick="copyShareModalLink()" id="btn-copy-share-modal" class="px-3.5 py-2 rounded-xl bg-purple-700 hover:bg-purple-600 text-white text-xs font-bold shadow flex items-center gap-1 flex-shrink-0 transition cursor-pointer">
@@ -802,153 +1062,7 @@
     }
   };
 
-  // Duplicate a Wish or Draft into a new customizer draft
-  window.duplicateWish = function(wishId) {
-    const wish = allWishes.find(w => w.id === wishId);
-    if (!wish) return;
-    window.location.href = `/customize.html?clone=${encodeURIComponent(wish.id)}`;
-  };
-
-  // Delete Confirmation Prompt
-  window.deleteWishPrompt = function(wishId) {
-    const wish = allWishes.find(w => w.id === wishId);
-    if (!wish) return;
-
-    selectedWishForAction = wish;
-    const isDraft = wish.status === 'draft';
-    const recipient = wish.recipientName || 'this recipient';
-
-    let modal = document.getElementById('dashboard-delete-modal');
-    if (!modal) {
-      modal = document.createElement('div');
-      modal.id = 'dashboard-delete-modal';
-      modal.className = 'fixed inset-0 z-50 bg-black/85 backdrop-blur-xl flex items-center justify-center p-4 transition-all duration-300';
-      document.body.appendChild(modal);
-    }
-
-    modal.innerHTML = `
-      <div class="w-full max-w-md bg-white dark:bg-purple-950 rounded-3xl border border-rose-200 dark:border-rose-900/50 shadow-2xl p-6 flex flex-col gap-4 text-center">
-        <div class="w-14 h-14 rounded-full bg-rose-500/15 text-rose-500 mx-auto flex items-center justify-center text-3xl">
-          <span class="material-symbols-outlined text-[32px]">delete_forever</span>
-        </div>
-
-        <div>
-          <h3 class="font-display text-xl font-extrabold text-purple-950 dark:text-white">
-            Delete ${isDraft ? 'Draft' : 'Wish'}?
-          </h3>
-          <p class="text-xs text-purple-700 dark:text-purple-300 mt-1">
-            Are you sure you want to permanently delete the celebration for <strong class="text-purple-950 dark:text-white">${recipient}</strong>? This cannot be undone.
-          </p>
-        </div>
-
-        <div class="grid grid-cols-2 gap-2 pt-2">
-          <button onclick="document.getElementById('dashboard-delete-modal').classList.add('hidden')" class="py-2.5 px-4 rounded-xl glass-pill text-purple-900 dark:text-purple-200 font-bold text-xs hover:border-purple-400 transition">
-            Cancel
-          </button>
-          <button onclick="confirmDeleteWish('${wish.id}')" class="py-2.5 px-4 rounded-xl bg-rose-600 hover:bg-rose-500 text-white font-bold text-xs shadow-md shadow-rose-600/25 transition">
-            Yes, Delete
-          </button>
-        </div>
-      </div>
-    `;
-
-    modal.classList.remove('hidden');
-  };
-
-  // Confirm delete handler
-  window.confirmDeleteWish = async function(wishId) {
-    const modal = document.getElementById('dashboard-delete-modal');
-    if (modal) modal.classList.add('hidden');
-
-    const wish = allWishes.find(w => w.id === wishId);
-    if (!wish) return;
-    const user = window.WishAuth ? window.WishAuth.getCurrentUser() : null;
-    const currentUserId = user ? user.id : null;
-
-    if (wish.isDraft || wish.status === 'draft') {
-      if (window.WishRepositories) {
-        WishRepositories.draftRepository.delete(wishId, currentUserId);
-      } else {
-        try {
-          let drafts = JSON.parse(localStorage.getItem('wishmagic_drafts') || '[]');
-          drafts = drafts.filter(d => d.id !== wishId);
-          localStorage.setItem('wishmagic_drafts', JSON.stringify(drafts));
-        } catch (e) {}
-      }
-      if (wish.templateId) {
-        localStorage.removeItem(`wishmagic_draft_${wish.templateId}`);
-      }
-    } else {
-      if (window.WishRepositories) {
-        await WishRepositories.wishRepository.delete(wishId, currentUserId);
-      } else {
-        try {
-          await fetch(`/api/wishes/${encodeURIComponent(wishId)}`, { method: 'DELETE', credentials: 'include' });
-        } catch (e) {}
-        try {
-          let localUserWishes = JSON.parse(localStorage.getItem('wishmagic_user_wishes') || '[]');
-          localUserWishes = localUserWishes.filter(w => (typeof w === 'string' ? w !== wishId : w.id !== wishId));
-          localStorage.setItem('wishmagic_user_wishes', JSON.stringify(localUserWishes));
-        } catch (e) {}
-      }
-    }
-
-    if (window.WishRepositories) {
-      WishRepositories.favoriteRepository.remove(currentUserId, wishId);
-    }
-    favoriteIds.delete(wishId);
-    saveFavorites(currentUserId);
-
-    allWishes = allWishes.filter(w => w.id !== wishId);
-    showDashboardToast('Wish removed successfully 🗑️');
-    renderDashboard();
-  };
-
-  // Preview Modal for fast creator inspection
-  window.previewWishModal = function(wishId) {
-    const wish = allWishes.find(w => w.id === wishId);
-    if (!wish) return;
-
-    let modal = document.getElementById('dashboard-preview-modal');
-    if (!modal) {
-      modal = document.createElement('div');
-      modal.id = 'dashboard-preview-modal';
-      modal.className = 'fixed inset-0 z-50 bg-black/90 backdrop-blur-md flex items-center justify-center p-2 sm:p-4 transition-all duration-300';
-      document.body.appendChild(modal);
-    }
-
-    const previewSrc = wish.isDraft
-      ? `/template-preview.html?template=${encodeURIComponent(wish.templateId || 'tpl_glitter_birthday')}&creatorPreview=1`
-      : `/w/${encodeURIComponent(wish.id)}?creatorPreview=1`;
-
-    modal.innerHTML = `
-      <div class="w-full max-w-4xl h-[90vh] bg-surface-container-lowest dark:bg-purple-950 rounded-3xl border border-purple-200 dark:border-purple-800 shadow-2xl flex flex-col overflow-hidden relative">
-        <div class="px-5 py-3.5 bg-white dark:bg-purple-900/60 border-b border-purple-200 dark:border-purple-800 flex items-center justify-between">
-          <div class="flex items-center gap-2.5">
-            <span class="w-3 h-3 rounded-full bg-pink-500 animate-pulse"></span>
-            <span class="font-display font-bold text-sm text-purple-950 dark:text-white">Creator Live Preview</span>
-            <span class="text-xs text-purple-600 dark:text-purple-400">(${wish.recipientName || 'Celebration'})</span>
-          </div>
-          <div class="flex items-center gap-2">
-            <a href="${previewSrc}" target="_blank" class="px-3 py-1.5 rounded-xl glass-pill text-xs font-bold text-purple-900 dark:text-purple-200 hover:border-purple-400 flex items-center gap-1 transition">
-              <span class="material-symbols-outlined text-[14px]">open_in_new</span>
-              <span>Full Screen</span>
-            </a>
-            <button onclick="document.getElementById('dashboard-preview-modal').classList.add('hidden')" class="p-1.5 text-purple-400 hover:text-purple-600 dark:hover:text-white rounded-full hover:bg-purple-100 dark:hover:bg-purple-800 transition cursor-pointer">
-              <span class="material-symbols-outlined text-[20px]">close</span>
-            </button>
-          </div>
-        </div>
-        <div class="flex-1 w-full bg-black">
-          <iframe src="${previewSrc}" class="w-full h-full border-none" title="Wish Preview"></iframe>
-        </div>
-      </div>
-    `;
-
-    modal.classList.remove('hidden');
-  };
-
-  // Toast Helper
+  // Toast Notification System
   function showDashboardToast(msg) {
     let toast = document.getElementById('dashboard-toast');
     if (!toast) {

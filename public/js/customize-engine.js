@@ -270,9 +270,25 @@ document.addEventListener('DOMContentLoaded', async () => {
     }
   } else if (draftId) {
     try {
-      const rawDrafts = localStorage.getItem('wishmagic_drafts');
-      const drafts = window.WishSecurity ? window.WishSecurity.safeJSONParse(rawDrafts, []) : JSON.parse(rawDrafts || '[]');
-      const targetDraft = Array.isArray(drafts) ? drafts.find(d => d.id === draftId) : null;
+      currentEditingWishId = draftId;
+      let targetDraft = null;
+
+      // 1. First attempt to load real server draft
+      try {
+        const dRes = await fetch(`/api/wishes/${encodeURIComponent(draftId)}`, { credentials: 'include' });
+        const dJson = await dRes.json();
+        if (dJson && dJson.success && dJson.wish) {
+          targetDraft = dJson.wish;
+        }
+      } catch (err) {}
+
+      // 2. Fallback to local storage if offline or guest
+      if (!targetDraft) {
+        const rawDrafts = localStorage.getItem('wishmagic_drafts');
+        const drafts = window.WishSecurity ? window.WishSecurity.safeJSONParse(rawDrafts, []) : JSON.parse(rawDrafts || '[]');
+        targetDraft = Array.isArray(drafts) ? drafts.find(d => d.id === draftId) : null;
+      }
+
       if (targetDraft) {
         templateId = targetDraft.templateId || templateId;
         await loadTemplateData(templateId);
@@ -3946,9 +3962,65 @@ window.saveDraftLocally = function() {
     }
     localStorage.setItem('wishmagic_drafts', JSON.stringify(drafts));
 
+    // Also persist draft to Server D1 when authenticated (Part 26)
+    const authUser = window.WishAuth && window.WishAuth.getCurrentUser();
+    if (authUser && authUser.id && authUser.id !== 'guest') {
+      const headers = {
+        'Content-Type': 'application/json',
+        'Accept': 'application/json'
+      };
+      const session = window.WishAuth.getSession();
+      if (session && session.token) {
+        headers['Authorization'] = `Bearer ${session.token}`;
+      }
+
+      if (currentEditingWishId) {
+        fetch(`/api/wishes/${encodeURIComponent(currentEditingWishId)}`, {
+          method: 'PUT',
+          headers,
+          credentials: 'include',
+          body: JSON.stringify({
+            status: 'draft',
+            isDraft: true,
+            recipientName: currentCustomData.recipient_name || 'Special Person',
+            eventDate: currentCustomData.event_date || new Date().toISOString().split('T')[0],
+            customData: currentCustomData
+          })
+        }).then(() => {
+          const indicator = document.getElementById('autosave-indicator');
+          if (indicator) {
+            indicator.innerHTML = `<span class="w-2 h-2 rounded-full bg-emerald-500"></span><span>Draft saved to cloud ✨</span>`;
+          }
+        }).catch(() => {});
+      } else {
+        fetch('/api/wishes', {
+          method: 'POST',
+          headers,
+          credentials: 'include',
+          body: JSON.stringify({
+            templateId: activeTemplate.id,
+            status: 'draft',
+            isDraft: true,
+            customData: {
+              ...currentCustomData,
+              isDraft: true
+            }
+          })
+        }).then(r => r.json()).then(data => {
+          if (data && data.success && data.wishId) {
+            currentEditingWishId = data.wishId;
+            const indicator = document.getElementById('autosave-indicator');
+            if (indicator) {
+              indicator.innerHTML = `<span class="w-2 h-2 rounded-full bg-emerald-500"></span><span>Draft saved to cloud ✨</span>`;
+            }
+          }
+        }).catch(() => {});
+      }
+    }
+
     const indicator = document.getElementById('autosave-indicator');
     if (indicator) {
-      indicator.innerHTML = `<span class="w-2 h-2 rounded-full bg-emerald-500"></span><span>Draft saved locally</span>`;
+      indicator.innerHTML = `<span class="w-2 h-2 rounded-full bg-emerald-500"></span><span>Draft saved</span>`;
     }
   } catch (e) {
     console.warn('Error saving local draft:', e);
