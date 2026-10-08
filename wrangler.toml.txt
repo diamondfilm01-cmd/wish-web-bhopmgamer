@@ -1,0 +1,22 @@
+name = "wishmagic"
+compatibility_date = "2024-09-23"
+pages_build_output_dir = "public"
+
+# Environment Variables
+[vars]
+PUBLIC_APP_URL = "https://wishmagic.pages.dev"
+ENVIRONMENT = "production"
+ENABLE_RATE_LIMITING = "true"
+ALLOWED_ORIGIN = "https://wishmagic.live"
+
+# Cloudflare D1 Database Binding
+[[d1_databases]]
+binding = "DB"
+database_name = "wishmagic-db"
+database_id = "c08b683b-eb07-4639-ab33-fb1139bfb295"
+migrations_dir = "migrations"
+
+# Optional Cloudflare R2 Media Storage Bucket (Uncomment once 'wishmagic-media' is created in Cloudflare Dashboard)
+# [[r2_buckets]]
+# binding = "BUCKET"
+# bucket_name = "wishmagic-media"
