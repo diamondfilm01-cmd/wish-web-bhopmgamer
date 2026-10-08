@@ -863,3 +863,74 @@ CREATE INDEX IF NOT EXISTS idx_template_versions_provider ON template_versions(s
 INSERT OR IGNORE INTO _migrations (id, name, applied_at) VALUES
 ('mig_0008', '0008_part20_b2_template_storage.sql', '2026-10-08T05:00:00.000Z');
 
+-- ----------------------------------------------------------------------------
+-- 15. PART 21: IMGBB IMAGE STORAGE & TEMPLATE IMAGE EXTENSIONS
+-- ----------------------------------------------------------------------------
+ALTER TABLE template_images ADD COLUMN template_id TEXT;
+ALTER TABLE template_images ADD COLUMN delete_url TEXT;
+
+CREATE INDEX IF NOT EXISTS idx_template_images_template_id ON template_images(template_id);
+CREATE INDEX IF NOT EXISTS idx_template_images_provider_asset ON template_images(provider_asset_id);
+
+ALTER TABLE wish_media ADD COLUMN storage_provider TEXT DEFAULT 'imgbb';
+ALTER TABLE wish_media ADD COLUMN provider_asset_id TEXT;
+ALTER TABLE wish_media ADD COLUMN display_url TEXT;
+ALTER TABLE wish_media ADD COLUMN thumbnail_url TEXT;
+ALTER TABLE wish_media ADD COLUMN delete_url TEXT;
+ALTER TABLE wish_media ADD COLUMN sha256 TEXT;
+ALTER TABLE wish_media ADD COLUMN width INTEGER;
+ALTER TABLE wish_media ADD COLUMN height INTEGER;
+ALTER TABLE wish_media ADD COLUMN status TEXT DEFAULT 'active';
+ALTER TABLE wish_media ADD COLUMN updated_at TEXT;
+
+CREATE INDEX IF NOT EXISTS idx_wish_media_provider_asset ON wish_media(provider_asset_id);
+CREATE INDEX IF NOT EXISTS idx_wish_media_status ON wish_media(status);
+CREATE INDEX IF NOT EXISTS idx_wish_media_provider ON wish_media(storage_provider);
+
+INSERT OR IGNORE INTO _migrations (id, name, applied_at) VALUES
+('mig_0009', '0009_part21_imgbb_image_storage.sql', '2026-10-08T06:00:00.000Z');
+
+-- ----------------------------------------------------------------------------
+-- 16. PART 25: PUBLISHED WISH SNAPSHOTS & IMMUTABLE RENDERER ARCHITECTURE
+-- ----------------------------------------------------------------------------
+CREATE TABLE IF NOT EXISTS wish_publication_snapshots (
+  id TEXT PRIMARY KEY,
+  wish_id TEXT NOT NULL,
+  slug TEXT UNIQUE NOT NULL,
+  snapshot_version INTEGER NOT NULL DEFAULT 1,
+  template_family_id TEXT,
+  template_id TEXT NOT NULL,
+  template_version_id TEXT NOT NULL,
+  relationship_id TEXT,
+  relationship_variant_id TEXT,
+  recipient_name TEXT NOT NULL,
+  sender_name TEXT NOT NULL,
+  event_date TEXT NOT NULL,
+  expiry_date TEXT NOT NULL,
+  timezone TEXT NOT NULL DEFAULT 'Asia/Kolkata',
+  theme_config_json TEXT NOT NULL DEFAULT '{}',
+  content_json TEXT NOT NULL DEFAULT '{}',
+  sections_json TEXT NOT NULL DEFAULT '[]',
+  media_manifest_json TEXT NOT NULL DEFAULT '{}',
+  music_manifest_json TEXT NOT NULL DEFAULT '{}',
+  effects_config_json TEXT NOT NULL DEFAULT '{}',
+  capabilities_json TEXT NOT NULL DEFAULT '{}',
+  tier TEXT NOT NULL DEFAULT 'free',
+  is_private INTEGER NOT NULL DEFAULT 0,
+  published_at TEXT NOT NULL,
+  created_at TEXT NOT NULL,
+  FOREIGN KEY (wish_id) REFERENCES wishes(id) ON DELETE CASCADE
+);
+
+CREATE INDEX IF NOT EXISTS idx_wish_pub_snapshots_wish_id ON wish_publication_snapshots(wish_id);
+CREATE UNIQUE INDEX IF NOT EXISTS idx_wish_pub_snapshots_slug ON wish_publication_snapshots(slug);
+CREATE INDEX IF NOT EXISTS idx_wish_pub_snapshots_template_version ON wish_publication_snapshots(template_version_id);
+CREATE INDEX IF NOT EXISTS idx_wish_pub_snapshots_event_date ON wish_publication_snapshots(event_date);
+
+ALTER TABLE wishes ADD COLUMN active_snapshot_id TEXT;
+CREATE INDEX IF NOT EXISTS idx_wishes_active_snapshot_id ON wishes(active_snapshot_id);
+
+INSERT OR IGNORE INTO _migrations (id, name, applied_at) VALUES
+('mig_0010', '0010_part25_published_wish_snapshots.sql', '2026-10-08T07:30:00.000Z');
+
+

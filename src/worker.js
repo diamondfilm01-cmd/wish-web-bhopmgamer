@@ -1322,6 +1322,46 @@ async function verifyAndEnsureAuthSchema(db) {
       await db.prepare("ALTER TABLE wish_media ADD COLUMN status TEXT DEFAULT 'active'").run().catch(() => {});
       await db.prepare('ALTER TABLE wish_media ADD COLUMN updated_at TEXT').run().catch(() => {});
 
+      // 28. Part 25: Immutable Published Wish Snapshots (Server-Authoritative Publication Engine)
+      if (!tableNames.has('wish_publication_snapshots')) {
+        await db.prepare(`
+          CREATE TABLE IF NOT EXISTS wish_publication_snapshots (
+            id TEXT PRIMARY KEY,
+            wish_id TEXT NOT NULL,
+            slug TEXT UNIQUE NOT NULL,
+            snapshot_version INTEGER NOT NULL DEFAULT 1,
+            template_family_id TEXT,
+            template_id TEXT NOT NULL,
+            template_version_id TEXT NOT NULL,
+            relationship_id TEXT,
+            relationship_variant_id TEXT,
+            recipient_name TEXT NOT NULL,
+            sender_name TEXT NOT NULL,
+            event_date TEXT NOT NULL,
+            expiry_date TEXT NOT NULL,
+            timezone TEXT NOT NULL DEFAULT 'Asia/Kolkata',
+            theme_config_json TEXT NOT NULL DEFAULT '{}',
+            content_json TEXT NOT NULL DEFAULT '{}',
+            sections_json TEXT NOT NULL DEFAULT '[]',
+            media_manifest_json TEXT NOT NULL DEFAULT '{}',
+            music_manifest_json TEXT NOT NULL DEFAULT '{}',
+            effects_config_json TEXT NOT NULL DEFAULT '{}',
+            capabilities_json TEXT NOT NULL DEFAULT '{}',
+            tier TEXT NOT NULL DEFAULT 'free',
+            is_private INTEGER NOT NULL DEFAULT 0,
+            published_at TEXT NOT NULL,
+            created_at TEXT NOT NULL,
+            FOREIGN KEY (wish_id) REFERENCES wishes(id) ON DELETE CASCADE
+          )
+        `).run().catch(() => {});
+        await db.prepare('CREATE INDEX IF NOT EXISTS idx_wish_pub_snapshots_wish_id ON wish_publication_snapshots(wish_id)').run().catch(() => {});
+        await db.prepare('CREATE UNIQUE INDEX IF NOT EXISTS idx_wish_pub_snapshots_slug ON wish_publication_snapshots(slug)').run().catch(() => {});
+        await db.prepare('CREATE INDEX IF NOT EXISTS idx_wish_pub_snapshots_template_version ON wish_publication_snapshots(template_version_id)').run().catch(() => {});
+        await db.prepare('CREATE INDEX IF NOT EXISTS idx_wish_pub_snapshots_event_date ON wish_publication_snapshots(event_date)').run().catch(() => {});
+      }
+      await db.prepare('ALTER TABLE wishes ADD COLUMN active_snapshot_id TEXT').run().catch(() => {});
+      await db.prepare('CREATE INDEX IF NOT EXISTS idx_wishes_active_snapshot_id ON wishes(active_snapshot_id)').run().catch(() => {});
+
       authSchemaVerified = true;
       schemaInitialized = true;
       return { ok: true };
@@ -1644,6 +1684,323 @@ function computeLifecycle(wish) {
   if (nowMs < startOfDayUtcMs) return 'upcoming';
   if (nowMs >= startOfDayUtcMs && nowMs <= endOfDayUtcMs) return 'active';
   return 'expired';
+}
+
+// ============================================================================
+// PART 25: IMMUTABLE PUBLISHED WISH SNAPSHOT & RENDER MODEL ENGINE
+// ============================================================================
+
+/**
+ * Builds an immutable publish snapshot from live wish record, resolved assets & template version.
+ */
+async function buildWishPublicationSnapshot(env, wishRow, customData = {}, options = {}) {
+  const wishId = wishRow.id;
+  const slug = wishRow.slug;
+  const templateId = wishRow.template_id;
+  const templateVersionId = wishRow.template_version_id || customData.template_version_id || customData.templateVersionId || `tv_${templateId}_v1`;
+
+  // 1. Fetch exact immutable template version snapshot
+  const templateVersion = await getTemplateVersionById(env, templateVersionId, templateId);
+  const templateFamilyId = (templateVersion && (templateVersion.templateFamilyId || templateVersion.template_family_id)) || `fam_${templateId}`;
+
+  // 2. Resolve relationship variant reference
+  const relationshipId = customData.relationship || 'general';
+  let relationshipVariantId = customData.relationship_variant_id || customData.relationshipVariantId || null;
+  if (!relationshipVariantId && env && env.DB && typeof env.DB.prepare === 'function') {
+    try {
+      const varRow = await env.DB.prepare(
+        'SELECT id FROM template_relationship_variants WHERE template_version_id = ? AND relationship_id = ? LIMIT 1'
+      ).bind(templateVersionId, relationshipId).first();
+      if (varRow) relationshipVariantId = varRow.id;
+    } catch (e) {}
+  }
+
+  // 3. Resolve and freeze all wish media mappings and assets
+  let userMappings = [];
+  if (env && env.DB && typeof env.DB.prepare === 'function') {
+    try {
+      const mapRows = await env.DB.prepare(`
+        SELECT wmm.field_key, wmm.media_id, wmm.section_key, wmm.sort_order,
+               wm.url, wm.display_url, wm.thumbnail_url, wm.storage_provider, wm.mime_type, wm.width, wm.height, wm.sha256
+        FROM wish_media_mappings wmm
+        JOIN wish_media wm ON wmm.media_id = wm.id
+        WHERE wmm.wish_id = ? AND wm.status = 'active'
+        ORDER BY wmm.sort_order ASC
+      `).bind(wishId).all();
+      userMappings = mapRows.results || [];
+    } catch (e) {}
+  }
+
+  // Also query template images registered for this template version
+  let templateImages = [];
+  if (env && env.DB && typeof env.DB.prepare === 'function') {
+    try {
+      const imgRows = await env.DB.prepare(
+        'SELECT * FROM template_images WHERE (template_version_id = ? OR template_id = ?) AND status = "active"'
+      ).bind(templateVersionId, templateId).all();
+      templateImages = imgRows.results || [];
+    } catch (e) {}
+  }
+
+  // Build resolved media manifest
+  const mediaManifest = {
+    coverPhoto: null,
+    photos: [],
+    slots: {}
+  };
+
+  // Resolve cover photo
+  const userCover = userMappings.find(m => m.field_key === 'cover_photo' || m.field_key === 'photo_1' || m.field_key === 'hero_photo');
+  if (userCover) {
+    mediaManifest.coverPhoto = userCover.display_url || userCover.url;
+  } else if (customData.cover_photo || customData.photo_1) {
+    mediaManifest.coverPhoto = customData.cover_photo || customData.photo_1;
+  } else if (templateImages.length > 0) {
+    const defaultCover = templateImages.find(ti => ti.asset_key === 'hero_photo' || ti.asset_key === 'cover_photo') || templateImages[0];
+    mediaManifest.coverPhoto = defaultCover ? (defaultCover.display_url || defaultCover.url) : null;
+  }
+
+  // Resolve gallery photos
+  if (Array.isArray(customData.photos) && customData.photos.length > 0) {
+    mediaManifest.photos = customData.photos.map((p, idx) => ({
+      id: p.id || `photo_${idx + 1}`,
+      url: p.url || p.src || '',
+      caption: p.caption || '',
+      name: p.name || `Photo ${idx + 1}`
+    }));
+  } else if (userMappings.length > 0) {
+    mediaManifest.photos = userMappings.filter(m => m.field_key.startsWith('photo_') || m.field_key === 'gallery').map((m, idx) => ({
+      id: m.media_id || `photo_${idx + 1}`,
+      url: m.display_url || m.url,
+      caption: '',
+      name: `Photo ${idx + 1}`
+    }));
+  }
+
+  // Populate slot resolutions
+  userMappings.forEach(m => {
+    mediaManifest.slots[m.field_key] = {
+      mediaId: m.media_id,
+      url: m.display_url || m.url,
+      thumbnailUrl: m.thumbnail_url || m.url,
+      width: m.width,
+      height: m.height,
+      provider: m.storage_provider || 'imgbb'
+    };
+  });
+
+  // 4. Resolve exact music manifest
+  const rawMusic = customData.music || {};
+  let musicManifest = {
+    enabled: rawMusic.enabled !== false,
+    trackId: rawMusic.trackId || rawMusic.id || 'mus_celebration_strings',
+    title: rawMusic.name || rawMusic.title || 'Celebration Acoustic Strings',
+    artist: rawMusic.artist || 'WishMagic Ensemble',
+    playbackUrl: rawMusic.playbackUrl || rawMusic.url || 'https://assets.wishmagic.live/music/celebration-strings.mp3',
+    storageProvider: 'b2',
+    durationSeconds: rawMusic.durationSeconds || 160
+  };
+
+  if (musicManifest.trackId && env && env.DB && typeof env.DB.prepare === 'function') {
+    try {
+      const musicRow = await env.DB.prepare(
+        'SELECT * FROM music_library WHERE id = ? OR storage_key = ? LIMIT 1'
+      ).bind(musicManifest.trackId, musicManifest.trackId).first();
+      if (musicRow) {
+        musicManifest = {
+          enabled: true,
+          trackId: musicRow.id,
+          title: musicRow.title,
+          artist: musicRow.artist || 'WishMagic Studio',
+          playbackUrl: musicRow.playback_url,
+          storageProvider: musicRow.storage_provider || 'b2',
+          durationSeconds: musicRow.duration_seconds || 160
+        };
+      }
+    } catch (e) {}
+  }
+
+  // 5. Freeze content, sections, visual theme, effects
+  const recipientName = sanitizeString(customData.recipient_name || customData.recipientName || wishRow.recipient_name || 'Someone Special', 80);
+  const senderName = sanitizeString(customData.sender_name || customData.senderName || wishRow.buyer_name || 'A Loved One', 80);
+  const eventDate = sanitizeString(wishRow.event_date || customData.event_date || customData.eventDate || new Date().toISOString().split('T')[0], 10);
+
+  const cleanEventDate = eventDate.includes('T') ? eventDate.split('T')[0] : eventDate.trim();
+  const dateParts = cleanEventDate.split('-').map(Number);
+  let expiryDate = cleanEventDate;
+  if (dateParts.length === 3 && !isNaN(dateParts[0]) && !isNaN(dateParts[1]) && !isNaN(dateParts[2])) {
+    const nextDayMs = Date.UTC(dateParts[0], dateParts[1] - 1, dateParts[2] + 1, 0, 0, 0, 0) - IST_OFFSET_MS;
+    expiryDate = new Date(nextDayMs).toISOString().split('T')[0];
+  }
+
+  const content = {
+    recipient_name: recipientName,
+    recipientName: recipientName,
+    sender_name: senderName,
+    senderName: senderName,
+    custom_message: customData.custom_message || customData.customMessage || customData.message || '',
+    customMessage: customData.custom_message || customData.customMessage || customData.message || '',
+    event_date: cleanEventDate,
+    eventDate: cleanEventDate,
+    occasion: customData.occasion || (templateVersion && templateVersion.category) || 'Celebration',
+    relationship: relationshipId,
+    secret_message: customData.secret_message || customData.secretMessage || null,
+    final_surprise: customData.final_surprise || customData.finalSurprise || null,
+    countdown_target: cleanEventDate
+  };
+
+  const sections = Array.isArray(customData.sections) && customData.sections.length > 0
+    ? customData.sections
+    : (templateVersion && Array.isArray(templateVersion.sections) ? templateVersion.sections : DEFAULT_TEMPLATE_SECTIONS);
+
+  const themeConfig = customData.themeConfig || {
+    preset: customData.theme || 'magical',
+    colors: customData.colors || (templateVersion && templateVersion.theme && templateVersion.theme.colors) || {},
+    typography: customData.typography || {},
+    surfaces: customData.surfaces || {},
+    buttons: customData.buttons || {}
+  };
+
+  const effectsConfig = {
+    master: true,
+    particles: customData.effects?.particles !== false,
+    particleType: customData.effects?.particleType || 'sparkles',
+    intensity: customData.effects?.intensity || 'soft',
+    confetti: customData.effects?.confetti !== false,
+    interactiveBursts: customData.interactiveBursts !== false
+  };
+
+  const capabilities = templateVersion && templateVersion.capabilities ? templateVersion.capabilities : {};
+  const snapshotId = `snp_${wishId}_${Date.now().toString(36)}`;
+  const nowIso = new Date().toISOString();
+
+  return {
+    id: snapshotId,
+    wish_id: wishId,
+    slug: slug,
+    snapshot_version: options.snapshotVersion || 1,
+    template_family_id: templateFamilyId,
+    template_id: templateId,
+    template_version_id: templateVersionId,
+    relationship_id: relationshipId,
+    relationship_variant_id: relationshipVariantId,
+    recipient_name: recipientName,
+    sender_name: senderName,
+    event_date: cleanEventDate,
+    expiry_date: expiryDate,
+    timezone: 'Asia/Kolkata',
+    theme_config_json: JSON.stringify(themeConfig),
+    content_json: JSON.stringify(content),
+    sections_json: JSON.stringify(sections),
+    media_manifest_json: JSON.stringify(mediaManifest),
+    music_manifest_json: JSON.stringify(musicManifest),
+    effects_config_json: JSON.stringify(effectsConfig),
+    capabilities_json: JSON.stringify(capabilities),
+    tier: wishRow.tier || 'free',
+    is_private: wishRow.is_private ? 1 : 0,
+    published_at: nowIso,
+    created_at: nowIso
+  };
+}
+
+/**
+ * Normalizes an immutable snapshot record into a clean PublishedWishRenderModel for the public viewer.
+ */
+function buildPublishedWishRenderModel(snapshotRecord, lifecycleState = 'active') {
+  if (!snapshotRecord) return null;
+
+  let theme = {};
+  let content = {};
+  let sections = [];
+  let media = {};
+  let music = {};
+  let effects = {};
+  let capabilities = {};
+
+  try { theme = JSON.parse(snapshotRecord.theme_config_json || '{}'); } catch (e) {}
+  try { content = JSON.parse(snapshotRecord.content_json || '{}'); } catch (e) {}
+  try { sections = JSON.parse(snapshotRecord.sections_json || '[]'); } catch (e) {}
+  try { media = JSON.parse(snapshotRecord.media_manifest_json || '{}'); } catch (e) {}
+  try { music = JSON.parse(snapshotRecord.music_manifest_json || '{}'); } catch (e) {}
+  try { effects = JSON.parse(snapshotRecord.effects_config_json || '{}'); } catch (e) {}
+  try { capabilities = JSON.parse(snapshotRecord.capabilities_json || '{}'); } catch (e) {}
+
+  const recipientName = sanitizeString(snapshotRecord.recipient_name || content.recipient_name || 'Someone Special', 80);
+  const senderName = sanitizeString(snapshotRecord.sender_name || content.sender_name || 'A Loved One', 80);
+
+  // If upcoming: redact private messages & surprise details
+  if (lifecycleState === 'upcoming') {
+    return {
+      slug: snapshotRecord.slug,
+      state: 'UPCOMING',
+      lifecycleStatus: 'upcoming',
+      recipientName,
+      senderName,
+      eventDate: snapshotRecord.event_date,
+      timezone: snapshotRecord.timezone || 'Asia/Kolkata',
+      templateId: snapshotRecord.template_id,
+      templateVersionId: snapshotRecord.template_version_id,
+      theme,
+      isLocked: true,
+      lockMessage: 'This magical surprise will automatically unlock when the clock strikes midnight on the celebration day! ✨',
+      countdownTarget: snapshotRecord.event_date,
+      tier: snapshotRecord.tier || 'free',
+      isPrivate: Boolean(snapshotRecord.is_private),
+      publishedAt: snapshotRecord.published_at
+    };
+  }
+
+  // If expired: redact full active story content, keep respectful conclusion
+  if (lifecycleState === 'expired') {
+    return {
+      slug: snapshotRecord.slug,
+      state: 'EXPIRED',
+      lifecycleStatus: 'expired',
+      recipientName,
+      senderName,
+      eventDate: snapshotRecord.event_date,
+      timezone: snapshotRecord.timezone || 'Asia/Kolkata',
+      templateId: snapshotRecord.template_id,
+      templateVersionId: snapshotRecord.template_version_id,
+      isExpired: true,
+      expiredMessage: 'This celebration keepsake has completed its active celebration cycle.',
+      tier: snapshotRecord.tier || 'free',
+      isPrivate: Boolean(snapshotRecord.is_private),
+      publishedAt: snapshotRecord.published_at
+    };
+  }
+
+  // ACTIVE state: Return full frozen render model
+  return {
+    slug: snapshotRecord.slug,
+    state: 'ACTIVE',
+    lifecycleStatus: 'active',
+    recipientName,
+    senderName,
+    eventDate: snapshotRecord.event_date,
+    expiryDate: snapshotRecord.expiry_date,
+    timezone: snapshotRecord.timezone || 'Asia/Kolkata',
+    template: {
+      id: snapshotRecord.template_id,
+      versionId: snapshotRecord.template_version_id,
+      familyId: snapshotRecord.template_family_id,
+      capabilities
+    },
+    relationship: {
+      id: snapshotRecord.relationship_id,
+      variantId: snapshotRecord.relationship_variant_id
+    },
+    theme,
+    content,
+    sections,
+    media,
+    music,
+    effects,
+    tier: snapshotRecord.tier || 'free',
+    isPrivate: Boolean(snapshotRecord.is_private),
+    publishedAt: snapshotRecord.published_at,
+    snapshotVersion: snapshotRecord.snapshot_version || 1
+  };
 }
 
 // ============================================================================
@@ -3709,12 +4066,54 @@ export default {
             }
           }
 
+          // If wish is created with published status, generate immutable publication snapshot atomically
+          let initialSnapshot = null;
+          if (status === 'published' && env.DB && typeof env.DB.prepare === 'function') {
+            try {
+              const snapshotData = await buildWishPublicationSnapshot(env, {
+                id: newWish.id,
+                slug: newWish.slug,
+                template_id: newWish.templateId,
+                template_version_id: templateVersionId,
+                recipient_name: newWish.recipientName,
+                buyer_name: newWish.buyerName,
+                event_date: newWish.eventDate,
+                tier: newWish.tier,
+                is_private: newWish.isPrivate
+              }, customData, { snapshotVersion: 1 });
+
+              await env.DB.prepare(`
+                INSERT INTO wish_publication_snapshots (
+                  id, wish_id, slug, snapshot_version, template_family_id, template_id, template_version_id,
+                  relationship_id, relationship_variant_id, recipient_name, sender_name, event_date, expiry_date,
+                  timezone, theme_config_json, content_json, sections_json, media_manifest_json, music_manifest_json,
+                  effects_config_json, capabilities_json, tier, is_private, published_at, created_at
+                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+              `).bind(
+                snapshotData.id, snapshotData.wish_id, snapshotData.slug, snapshotData.snapshot_version,
+                snapshotData.template_family_id, snapshotData.template_id, snapshotData.template_version_id,
+                snapshotData.relationship_id, snapshotData.relationship_variant_id, snapshotData.recipient_name,
+                snapshotData.sender_name, snapshotData.event_date, snapshotData.expiry_date, snapshotData.timezone,
+                snapshotData.theme_config_json, snapshotData.content_json, snapshotData.sections_json,
+                snapshotData.media_manifest_json, snapshotData.music_manifest_json, snapshotData.effects_config_json,
+                snapshotData.capabilities_json, snapshotData.tier, snapshotData.is_private, snapshotData.published_at,
+                snapshotData.created_at
+              ).run();
+
+              await env.DB.prepare('UPDATE wishes SET active_snapshot_id = ? WHERE id = ?').bind(snapshotData.id, newWish.id).run();
+              initialSnapshot = snapshotData;
+            } catch (snapErr) {
+              console.warn('[Initial Wish Publication Snapshot Notice]', snapErr);
+            }
+          }
+
           response = jsonSuccess({
             wishId: newWish.id,
             slug: newWish.slug,
             wish: newWish,
             templateVersion: activeVersion,
-            templateVersionId: newWish.templateVersionId
+            templateVersionId: newWish.templateVersionId,
+            snapshot: initialSnapshot
           }, 201, {}, requestId);
         }
       }
@@ -3778,7 +4177,7 @@ export default {
 
       else if (pathname.match(/^\/api\/wishes\/([^\/]+)\/publish$/) && method === 'POST') {
         const user = await getAuthenticatedUser(request, env);
-        if (!user) return applySecurityHeaders(jsonError('AUTH_REQUIRED', 'Authentication required', 401), request, env);
+        if (!user) return applySecurityHeaders(jsonError('AUTH_REQUIRED', 'Authentication required to publish.', 401), request, env);
         if (!env.DB || typeof env.DB.prepare !== 'function') {
           return applySecurityHeaders(jsonError('DATABASE_UNAVAILABLE', 'Database service is currently unavailable.', 503), request, env);
         }
@@ -3794,13 +4193,60 @@ export default {
 
         let cd = {};
         try { cd = typeof existing.custom_data === 'string' ? JSON.parse(existing.custom_data) : (existing.custom_data || {}); } catch (e) {}
+
+        // --- Part 25: Server-Authoritative Publish Readiness Validation ---
+        const recipientName = sanitizeString(cd.recipient_name || cd.recipientName || existing.recipient_name || '', 80);
+        if (!recipientName) {
+          return applySecurityHeaders(jsonError('VALIDATION_FAILED', 'Recipient name is required before publishing.', 400), request, env);
+        }
+
+        const templateVersionId = existing.template_version_id || cd.template_version_id || cd.templateVersionId || `tv_${existing.template_id}_v1`;
+        const templateVersion = await getTemplateVersionById(env, templateVersionId, existing.template_id);
+        if (!templateVersion) {
+          return applySecurityHeaders(jsonError('TEMPLATE_VERSION_UNAVAILABLE', 'The specified template version is unavailable or archived.', 422), request, env);
+        }
+
+        // Check if publication snapshot already exists for this wish
+        const existingSnapshots = await env.DB.prepare(
+          'SELECT COUNT(*) as count FROM wish_publication_snapshots WHERE wish_id = ?'
+        ).bind(existing.id).first();
+        const nextVersionNum = (existingSnapshots ? Number(existingSnapshots.count) : 0) + 1;
+
+        // Atomically generate immutable snapshot
+        const snapshotData = await buildWishPublicationSnapshot(env, existing, cd, { snapshotVersion: nextVersionNum });
+
+        await env.DB.prepare(`
+          INSERT INTO wish_publication_snapshots (
+            id, wish_id, slug, snapshot_version, template_family_id, template_id, template_version_id,
+            relationship_id, relationship_variant_id, recipient_name, sender_name, event_date, expiry_date,
+            timezone, theme_config_json, content_json, sections_json, media_manifest_json, music_manifest_json,
+            effects_config_json, capabilities_json, tier, is_private, published_at, created_at
+          ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+        `).bind(
+          snapshotData.id, snapshotData.wish_id, snapshotData.slug, snapshotData.snapshot_version,
+          snapshotData.template_family_id, snapshotData.template_id, snapshotData.template_version_id,
+          snapshotData.relationship_id, snapshotData.relationship_variant_id, snapshotData.recipient_name,
+          snapshotData.sender_name, snapshotData.event_date, snapshotData.expiry_date, snapshotData.timezone,
+          snapshotData.theme_config_json, snapshotData.content_json, snapshotData.sections_json,
+          snapshotData.media_manifest_json, snapshotData.music_manifest_json, snapshotData.effects_config_json,
+          snapshotData.capabilities_json, snapshotData.tier, snapshotData.is_private, snapshotData.published_at,
+          snapshotData.created_at
+        ).run();
+
         cd.isDraft = false;
-
+        cd.publishedSnapshotId = snapshotData.id;
         const nowIso = new Date().toISOString();
-        await env.DB.prepare('UPDATE wishes SET status = ?, custom_data = ?, updated_at = ? WHERE id = ?')
-          .bind('published', JSON.stringify(cd), nowIso, existing.id).run();
 
-        response = jsonSuccess({ published: true, wishId: existing.id, slug: existing.slug }, 200, {}, requestId);
+        await env.DB.prepare('UPDATE wishes SET status = ?, active_snapshot_id = ?, custom_data = ?, updated_at = ? WHERE id = ?')
+          .bind('published', snapshotData.id, JSON.stringify(cd), nowIso, existing.id).run();
+
+        response = jsonSuccess({
+          published: true,
+          wishId: existing.id,
+          slug: existing.slug,
+          activeSnapshotId: snapshotData.id,
+          snapshotVersion: snapshotData.snapshot_version
+        }, 200, {}, requestId);
       }
 
       else if (pathname.match(/^\/api\/wishes\/([^\/]+)\/unpublish$/) && method === 'POST') {
