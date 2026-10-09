@@ -125,7 +125,7 @@ export function getB2Config(env = {}) {
  */
 export function buildTemplateStorageKeys(templateFamilyId, versionId) {
   const cleanFamilyId = String(templateFamilyId || 'default').replace(/[^a-zA-Z0-9_-]/g, '_');
-  const cleanVersionId = String(versionId || 'v1').replace(/[^a-zA-Z0-9_-]/g, '_');
+  const cleanVersionId = String(versionId || 'v1').replace(/[^a-zA-Z0-9_.-]/g, '_');
   const base = `templates/${cleanFamilyId}/versions/${cleanVersionId}`;
 
   return {

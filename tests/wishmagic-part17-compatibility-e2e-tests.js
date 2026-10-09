@@ -1023,7 +1023,7 @@ describe('PART 17 — WISHMAGIC COMPLETE TEMPLATE COMPATIBILITY + END-TO-END TES
 
     assert.ok(Renderer, 'Final Renderer loaded');
 
-    const todayStr = new Date().toISOString().split('T')[0];
+    const todayStr = new Intl.DateTimeFormat('en-CA', { timeZone: 'Asia/Kolkata' }).format(new Date());
 
     // Case 1: Upcoming Wish -> Waiting Page with Protected Secrets
     const upcomingSnapshot = SnapshotMgr.createPublishSnapshot({

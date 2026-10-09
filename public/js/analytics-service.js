@@ -48,18 +48,30 @@
         (window.WishAuth && window.WishAuth.getCurrentUser()?.id) || 
         'guest';
 
+      // Safe metadata filter (zero PII, zero private message text or audio blobs)
+      const safeMetadata = {};
+      if (payload.metadata && typeof payload.metadata === 'object') {
+        ['planId', 'productId', 'price', 'currency', 'step', 'referrer', 'deviceType', 'browser', 'source'].forEach(k => {
+          if (payload.metadata[k] !== undefined) safeMetadata[k] = payload.metadata[k];
+        });
+      }
+
       const event = {
         id: 'evt_' + Date.now().toString(36) + '_' + Math.random().toString(36).substr(2, 5),
         eventName: String(eventName).trim(),
         timestamp: new Date().toISOString(),
         userId: currentUserId,
+        sessionId: payload.sessionId || null,
         wishId: payload.wishId || null,
         slug: payload.slug || null,
         templateId: payload.templateId || null,
         templateName: payload.templateName || null,
+        templateFamilyId: payload.templateFamilyId || null,
         category: payload.category || null,
         recipientName: payload.recipientName || null,
-        metadata: payload.metadata || {}
+        orderId: payload.orderId || null,
+        source: payload.source || 'direct',
+        metadata: safeMetadata
       };
 
       // 1. Save to local storage

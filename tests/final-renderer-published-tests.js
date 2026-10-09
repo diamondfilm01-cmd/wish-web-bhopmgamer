@@ -186,7 +186,7 @@ describe('Part 16 — WishMagic Final Wish Renderer & Published Experience Integ
     const env = setupEnvironment();
     const Renderer = env.WishMagicFinalRenderer;
 
-    const todayStr = new Date().toISOString().split('T')[0];
+    const todayStr = new Intl.DateTimeFormat('en-CA', { timeZone: 'Asia/Kolkata' }).format(new Date());
     
     // Future date
     const futureDateStr = '2099-12-31';
@@ -255,7 +255,7 @@ describe('Part 16 — WishMagic Final Wish Renderer & Published Experience Integ
     const Renderer = env.WishMagicFinalRenderer;
     const SnapshotMgr = env.WishMagicSnapshotManager;
 
-    const todayStr = new Date().toISOString().split('T')[0];
+    const todayStr = new Intl.DateTimeFormat('en-CA', { timeZone: 'Asia/Kolkata' }).format(new Date());
     const activeWish = SnapshotMgr.createPublishSnapshot({
       id: 'wm_active',
       recipient_name: 'Kavya',

@@ -2356,7 +2356,7 @@ async function runTests() {
   // TEST 19: Verify existing Wish expiration/lifecycle behavior remains unchanged
   console.log('• TEST 19: Verify existing Wish expiration/lifecycle behavior remains unchanged');
   {
-    const todayIso = new Date().toISOString().split('T')[0];
+    const todayIso = new Intl.DateTimeFormat('en-CA', { timeZone: 'Asia/Kolkata' }).format(new Date());
     const lifecycleResult = WishLifecycle.getWishStatus({ eventDate: todayIso });
     assert(lifecycleResult === 'active', 'Lifecycle engine computes active status correctly for today');
     assert(WishLifecycle.getWishStatus({ eventDate: '2035-01-01' }) === 'upcoming', 'Future date is upcoming');

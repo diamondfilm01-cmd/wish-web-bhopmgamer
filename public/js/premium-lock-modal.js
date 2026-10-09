@@ -105,22 +105,23 @@
             </ul>
           </div>
 
-          <!-- Development Sandbox Notice (Section 1, 17, 23) -->
+          <!-- Payment Gateway Notice -->
           <div class="p-3 rounded-xl bg-purple-950/80 border border-purple-500/40 text-[11px] text-purple-300 flex items-start gap-2">
-            <span class="text-sm">🧪</span>
+            <span class="text-sm">🔒</span>
             <div>
-              <span class="font-bold text-white block uppercase tracking-wider text-[10px]">Development Sandbox Mode</span>
-              <span>Production payment gateways (Razorpay/Stripe) will be integrated in subsequent parts. You can simulate unlocking the VIP Pass immediately below for testing.</span>
+              <span class="font-bold text-white block uppercase tracking-wider text-[10px]">Secure Payment Gateway</span>
+              <span>Transactions are processed securely via authorized payment infrastructure with instant server-side verification.</span>
             </div>
           </div>
 
           <!-- Actions -->
           <div class="flex flex-col sm:flex-row items-center gap-2.5 pt-1">
-            <button onclick="WishPremiumLock.unlockDevelopment()" class="w-full sm:flex-1 py-3 px-5 rounded-2xl bg-gradient-to-r from-amber-400 via-pink-500 to-purple-600 hover:brightness-110 active:scale-95 text-purple-950 font-extrabold text-xs sm:text-sm shadow-xl shadow-pink-500/25 flex items-center justify-center gap-2 transition-all cursor-pointer">
-              <span>✨ Unlock VIP Pass (Dev Mode)</span>
+            <button id="wm-lock-pay-btn" onclick="WishPremiumLock.initiateCheckout()" class="w-full sm:flex-1 py-3 px-5 rounded-2xl bg-gradient-to-r from-amber-400 via-pink-500 to-purple-600 hover:brightness-110 active:scale-95 text-purple-950 font-extrabold text-xs sm:text-sm shadow-xl shadow-pink-500/25 flex items-center justify-center gap-2 transition-all cursor-pointer">
+              <span class="material-symbols-outlined text-[18px]">lock_open</span>
+              <span id="wm-lock-pay-btn-text">Unlock VIP Pass • ₹49</span>
             </button>
-            <a href="/premium" class="w-full sm:w-auto py-3 px-4 rounded-2xl bg-white/10 hover:bg-white/20 text-white font-bold text-xs text-center transition cursor-pointer">
-              Compare Plans
+            <a href="/checkout.html" class="w-full sm:w-auto py-3 px-4 rounded-2xl bg-white/10 hover:bg-white/20 text-white font-bold text-xs text-center transition cursor-pointer">
+              Checkout Details
             </a>
             <button onclick="WishPremiumLock.close()" class="w-full sm:w-auto py-3 px-4 rounded-2xl text-purple-300/80 hover:text-white font-medium text-xs text-center transition cursor-pointer">
               Continue Exploring
@@ -146,24 +147,32 @@
       activeCallback = null;
     },
 
-    async unlockDevelopment() {
-      if (window.WishPaymentService && typeof window.WishPaymentService.completeDevelopmentUnlock === 'function') {
-        await window.WishPaymentService.completeDevelopmentUnlock();
-      } else if (window.WishEntitlement) {
-        window.WishEntitlement.setDevelopmentPlan('premium');
-      }
+    async initiateCheckout() {
+      const btn = document.getElementById('wm-lock-pay-btn');
+      const btnText = document.getElementById('wm-lock-pay-btn-text');
+      if (btn) btn.disabled = true;
+      if (btnText) btnText.textContent = 'Connecting Gateway...';
 
-      this.close();
-
-      // Show toast if available
-      if (typeof window.showToast === 'function') {
-        window.showToast('👑 VIP Magic Pass unlocked in Development Mode!');
-      } else {
-        alert('👑 VIP Magic Pass unlocked in Development Mode! All premium features and templates are now active.');
-      }
-
-      if (typeof activeCallback === 'function') {
-        activeCallback();
+      try {
+        if (!window.WishPaymentService) {
+          throw new Error('Payment service not loaded');
+        }
+        const result = await window.WishPaymentService.createCheckout('vip_pass');
+        if (result && result.verified) {
+          this.close();
+          if (typeof activeCallback === 'function') {
+            activeCallback();
+          }
+        } else if (result && result.status === 'provider_not_configured') {
+          if (btnText) btnText.textContent = 'Gateway Unavailable';
+        }
+      } catch (err) {
+        alert('Could not start checkout: ' + err.message);
+      } finally {
+        if (btn) btn.disabled = false;
+        if (btnText && btnText.textContent === 'Connecting Gateway...') {
+          btnText.textContent = 'Unlock VIP Pass • ₹49';
+        }
       }
     }
   };

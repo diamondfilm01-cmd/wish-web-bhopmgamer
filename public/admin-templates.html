@@ -63,6 +63,11 @@
           <span class="material-symbols-outlined text-[20px] transition-transform group-hover:scale-110">style</span>
           <span class="font-body-md text-body-md">Templates Manager</span>
         </a>
+        <a class="group flex items-center gap-space-sm px-space-md py-2.5 rounded-lg text-on-surface-variant hover:bg-surface-container-high hover:text-on-surface transition-all duration-200" href="/admin/anktech/anktech/admin/templates#variants" onclick="if (window.openFirstTemplateStudio) window.openFirstTemplateStudio();">
+          <span class="material-symbols-outlined text-[20px] transition-transform group-hover:scale-110">hub</span>
+          <span class="font-body-md text-body-md flex-1">Relationship Variants</span>
+          <span class="px-2 py-0.5 rounded-full bg-purple-500/20 text-purple-300 font-bold text-[10px]">Part 27</span>
+        </a>
         <a class="group flex items-center gap-space-sm px-space-md py-2.5 rounded-lg text-on-surface-variant hover:bg-surface-container-high hover:text-on-surface transition-all duration-200" href="/admin/anktech/anktech/admin/occasions">
           <span class="material-symbols-outlined text-[20px] transition-transform group-hover:scale-110">loyalty</span>
           <span class="font-body-md text-body-md">Occasions &amp; Tags</span>
@@ -882,6 +887,620 @@
       <button id="btn-save-tpl-edits" onclick="saveTemplateEdits()" class="px-6 py-2 rounded-xl bg-gradient-to-r from-primary to-secondary text-white font-bold text-xs shadow-lg hover:brightness-110 active:scale-95 transition cursor-pointer">
         Save Changes
       </button>
+    </div>
+  </div>
+</div>
+
+<!-- Part 27: Template Family & Relationship Variants Manager Modal -->
+<div class="fixed inset-0 z-50 hidden bg-black/85 backdrop-blur-xl flex items-center justify-center p-2 sm:p-4 md:p-6 transition-opacity overflow-y-auto" id="template-variants-modal">
+  <div class="bg-surface-container-low border border-purple-500/30 w-full max-w-6xl max-h-[94vh] rounded-2xl sm:rounded-3xl shadow-2xl flex flex-col overflow-hidden relative text-on-surface animate-in fade-in zoom-in-95 duration-200">
+    
+    <!-- Modal Header -->
+    <div class="p-4 sm:p-5 border-b border-purple-500/20 bg-surface-container flex items-center justify-between shrink-0">
+      <div class="flex items-center gap-3">
+        <div class="w-10 h-10 rounded-xl bg-purple-500/20 text-primary flex items-center justify-center">
+          <span class="material-symbols-outlined text-[24px]">family_restroom</span>
+        </div>
+        <div class="flex flex-col">
+          <div class="flex items-center gap-2">
+            <h3 id="var-modal-title" class="font-bold text-base sm:text-lg text-on-surface">Relationship Variants Manager</h3>
+            <span id="var-modal-ver-badge" class="px-2 py-0.5 rounded-full bg-purple-500/20 text-purple-300 font-mono text-[10px] font-bold">V1 Active</span>
+          </div>
+          <span id="var-modal-subtitle" class="text-xs text-on-surface-variant">Customize tailored messages, themes, music and atmospheres per relationship</span>
+        </div>
+      </div>
+      <div class="flex items-center gap-2">
+        <button type="button" onclick="openResolverLivePreview()" class="px-3 py-1.5 rounded-xl bg-purple-500/15 hover:bg-purple-500/25 text-purple-300 font-semibold text-xs transition flex items-center gap-1 cursor-pointer">
+          <span class="material-symbols-outlined text-[16px]">visibility</span>
+          <span class="hidden sm:inline">Preview Live Variant</span>
+        </button>
+        <button type="button" class="p-2 rounded-lg text-outline hover:text-on-surface hover:bg-surface-container-high transition cursor-pointer" onclick="closeTemplateVariantsModal()">
+          <span class="material-symbols-outlined text-[22px]">close</span>
+        </button>
+      </div>
+    </div>
+
+    <!-- Modal Content: Two-Column Workspace -->
+    <div class="grid grid-cols-1 md:grid-cols-12 flex-1 overflow-hidden min-h-0 bg-surface-container-lowest/50">
+      
+      <!-- Left Sidebar: Supported Relationships List & Toggle (4 cols) -->
+      <div class="md:col-span-4 border-r border-purple-500/20 p-4 overflow-y-auto flex flex-col gap-3 bg-surface-container-low/40">
+        <div class="flex items-center justify-between">
+          <span class="text-xs font-bold text-on-surface-variant uppercase tracking-wider">Relationships</span>
+          <span id="var-supported-count" class="text-[11px] font-mono text-primary font-bold">0 Active</span>
+        </div>
+
+        <p class="text-[11px] text-outline">
+          Select a relationship to configure tailored messages, styling and audio. Check the box to activate it for customer selection.
+        </p>
+
+        <!-- Relationship Cards List -->
+        <div id="var-relationships-list" class="flex flex-col gap-2 mt-1">
+          <!-- Injected dynamically by JS -->
+          <div class="p-4 text-center text-outline text-xs animate-pulse">Loading relationships...</div>
+        </div>
+
+        <!-- Add/Enable More Relationships Dropdown -->
+        <div class="mt-auto pt-3 border-t border-purple-500/10 flex flex-col gap-2">
+          <label class="text-[11px] text-on-surface-variant font-medium">Add Supported Relationship:</label>
+          <div class="flex gap-1.5">
+            <select id="var-add-rel-select" class="flex-1 bg-surface-container-high border border-purple-500/20 rounded-xl px-2.5 py-1.5 text-xs text-on-surface focus:ring-1 focus:ring-primary">
+              <option value="">Select relationship...</option>
+            </select>
+            <button type="button" onclick="addSelectedRelationshipSupport()" class="px-3 py-1.5 bg-primary text-white rounded-xl text-xs font-bold hover:brightness-110 active:scale-95 transition cursor-pointer">
+              Add
+            </button>
+          </div>
+        </div>
+      </div>
+
+      <!-- Right Main Workspace: Variant Editor (8 cols) -->
+      <div class="md:col-span-8 p-4 sm:p-6 overflow-y-auto flex flex-col gap-5">
+        
+        <!-- Active Relationship Title Banner -->
+        <div class="flex flex-wrap items-center justify-between gap-3 p-3.5 rounded-2xl bg-surface-container border border-purple-500/20">
+          <div class="flex items-center gap-3">
+            <span id="var-active-rel-icon" class="text-2xl">❤️</span>
+            <div>
+              <div class="flex items-center gap-2">
+                <h4 id="var-active-rel-title" class="font-bold text-sm sm:text-base text-on-surface">Girlfriend Edition</h4>
+                <span id="var-active-status-badge" class="px-2 py-0.5 rounded-full bg-amber-500/20 text-amber-300 font-bold text-[10px]">Draft</span>
+                <span id="var-active-lock-version" class="text-[10px] font-mono text-outline">Lock V1</span>
+              </div>
+              <span id="var-active-rel-category" class="text-xs text-outline capitalize">Romantic Category</span>
+            </div>
+          </div>
+
+          <!-- Quick Actions: Clone & Archive -->
+          <div class="flex items-center gap-2">
+            <button type="button" onclick="showCloneVariantDropdown()" class="px-2.5 py-1 rounded-lg bg-surface-container-high hover:bg-surface-container-highest text-secondary text-xs font-semibold flex items-center gap-1 transition cursor-pointer" title="Clone from another relationship">
+              <span class="material-symbols-outlined text-[15px]">content_copy</span>
+              <span>Clone From...</span>
+            </button>
+            <button type="button" id="btn-archive-variant" onclick="archiveCurrentVariant()" class="px-2.5 py-1 rounded-lg bg-rose-500/10 hover:bg-rose-500/20 text-rose-400 text-xs font-semibold flex items-center gap-1 transition cursor-pointer" title="Archive this variant safely">
+              <span class="material-symbols-outlined text-[15px]">archive</span>
+              <span>Archive</span>
+            </button>
+          </div>
+        </div>
+
+        <!-- Clone Dropdown Container (Hidden by default) -->
+        <div id="var-clone-container" class="hidden p-3 rounded-xl bg-surface-container-high border border-secondary/30 flex flex-wrap items-center gap-2 text-xs">
+          <span class="font-semibold text-secondary">Copy settings from:</span>
+          <select id="var-clone-source-select" class="bg-surface-container-lowest border border-purple-500/20 rounded-lg px-2.5 py-1 text-xs text-on-surface"></select>
+          <button type="button" onclick="executeCloneVariant()" class="px-3 py-1 bg-secondary text-white rounded-lg font-bold hover:brightness-110 cursor-pointer">Apply Copy</button>
+          <button type="button" onclick="document.getElementById('var-clone-container').classList.add('hidden')" class="px-2 py-1 text-outline hover:text-on-surface cursor-pointer">Cancel</button>
+        </div>
+
+        <!-- Variant Configuration Tabs -->
+        <div class="border-b border-purple-500/20 flex gap-4 text-xs font-semibold">
+          <button type="button" onclick="switchVariantTab('messages')" id="var-tab-btn-messages" class="pb-2 border-b-2 border-primary text-primary flex items-center gap-1.5 cursor-pointer">
+            <span class="material-symbols-outlined text-[16px]">edit_note</span>
+            <span>Messages & Copy</span>
+          </button>
+          <button type="button" onclick="switchVariantTab('style')" id="var-tab-btn-style" class="pb-2 border-b-2 border-transparent text-outline hover:text-on-surface flex items-center gap-1.5 cursor-pointer">
+            <span class="material-symbols-outlined text-[16px]">palette</span>
+            <span>Visual Theme & Effects</span>
+          </button>
+          <button type="button" onclick="switchVariantTab('music')" id="var-tab-btn-music" class="pb-2 border-b-2 border-transparent text-outline hover:text-on-surface flex items-center gap-1.5 cursor-pointer">
+            <span class="material-symbols-outlined text-[16px]">music_note</span>
+            <span>Music BGM</span>
+          </button>
+          <button type="button" onclick="switchVariantTab('validation')" id="var-tab-btn-validation" class="pb-2 border-b-2 border-transparent text-outline hover:text-on-surface flex items-center gap-1.5 cursor-pointer">
+            <span class="material-symbols-outlined text-[16px]">verified</span>
+            <span>Validation & Health</span>
+          </button>
+        </div>
+
+        <!-- TAB 1: Messages & Copy -->
+        <div id="var-tab-messages" class="flex flex-col gap-4">
+          <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
+            <div class="flex flex-col gap-1.5">
+              <label class="text-xs font-bold text-on-surface-variant">Variant Display Name</label>
+              <input type="text" id="var-field-displayName" placeholder="e.g. Dearest Girlfriend Edition" class="bg-surface-container-high border border-purple-500/20 rounded-xl px-3 py-2 text-xs text-on-surface focus:ring-1 focus:ring-primary"/>
+            </div>
+            <div class="flex flex-col gap-1.5">
+              <label class="text-xs font-bold text-on-surface-variant">Emotional Atmosphere</label>
+              <input type="text" id="var-field-atmosphere" placeholder="e.g. Soft, Dreamy & Romantic" class="bg-surface-container-high border border-purple-500/20 rounded-xl px-3 py-2 text-xs text-on-surface focus:ring-1 focus:ring-primary"/>
+            </div>
+          </div>
+
+          <div class="flex flex-col gap-1.5">
+            <label class="text-xs font-bold text-on-surface-variant">Hero Unboxing Title <span class="text-rose-400">*</span></label>
+            <input type="text" id="var-field-hero_title" placeholder="e.g. Happy Celebration, My Love! ✨" class="bg-surface-container-high border border-purple-500/20 rounded-xl px-3 py-2 text-xs text-on-surface focus:ring-1 focus:ring-primary"/>
+          </div>
+
+          <div class="flex flex-col gap-1.5">
+            <label class="text-xs font-bold text-on-surface-variant">Subtitle / Tagline</label>
+            <input type="text" id="var-field-subtitle" placeholder="e.g. A magical gift crafted especially for you" class="bg-surface-container-high border border-purple-500/20 rounded-xl px-3 py-2 text-xs text-on-surface focus:ring-1 focus:ring-primary"/>
+          </div>
+
+          <div class="flex flex-col gap-1.5">
+            <label class="text-xs font-bold text-on-surface-variant">Main Dedication Letter / Message <span class="text-rose-400">*</span></label>
+            <textarea id="var-field-main_message" rows="3" placeholder="Heartfelt celebration letter..." class="bg-surface-container-high border border-purple-500/20 rounded-xl p-3 text-xs text-on-surface focus:ring-1 focus:ring-primary"></textarea>
+          </div>
+
+          <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
+            <div class="flex flex-col gap-1.5">
+              <label class="text-xs font-bold text-on-surface-variant">Gallery Section Heading</label>
+              <input type="text" id="var-field-gallery_heading" placeholder="e.g. Treasured Moments Together" class="bg-surface-container-high border border-purple-500/20 rounded-xl px-3 py-2 text-xs text-on-surface focus:ring-1 focus:ring-primary"/>
+            </div>
+            <div class="flex flex-col gap-1.5">
+              <label class="text-xs font-bold text-on-surface-variant">Final Surprise CTA Text</label>
+              <input type="text" id="var-field-surprise_text" placeholder="e.g. Tap to unbox your grand surprise 🎁" class="bg-surface-container-high border border-purple-500/20 rounded-xl px-3 py-2 text-xs text-on-surface focus:ring-1 focus:ring-primary"/>
+            </div>
+          </div>
+        </div>
+
+        <!-- TAB 2: Visual Theme & Effects -->
+        <div id="var-tab-style" class="hidden flex flex-col gap-4">
+          <div class="grid grid-cols-1 sm:grid-cols-3 gap-4">
+            <div class="flex flex-col gap-1.5">
+              <label class="text-xs font-bold text-on-surface-variant">Accent Color</label>
+              <div class="flex items-center gap-2">
+                <input type="color" id="var-theme-color" class="w-9 h-9 rounded-lg bg-transparent cursor-pointer border border-purple-500/20 p-0.5" value="#ec4899"/>
+                <input type="text" id="var-theme-color-hex" class="flex-1 bg-surface-container-high border border-purple-500/20 rounded-xl px-2.5 py-1.5 text-xs font-mono" value="#ec4899"/>
+              </div>
+            </div>
+            <div class="flex flex-col gap-1.5">
+              <label class="text-xs font-bold text-on-surface-variant">Particle Animation Effect</label>
+              <select id="var-effects-particles" class="bg-surface-container-high border border-purple-500/20 rounded-xl px-2.5 py-2 text-xs text-on-surface">
+                <option value="floating-hearts">Floating Hearts & Magic Sparkles</option>
+                <option value="confetti-and-stars">Confetti Bursts & Golden Stars</option>
+                <option value="romantic-rose-petals">Rose Petals Drift</option>
+                <option value="golden-stardust">Golden Stardust Shimmer</option>
+                <option value="balloons-float">Party Balloons Float</option>
+              </select>
+            </div>
+            <div class="flex flex-col gap-1.5">
+              <label class="text-xs font-bold text-on-surface-variant">Card Glass Style</label>
+              <select id="var-theme-cardStyle" class="bg-surface-container-high border border-purple-500/20 rounded-xl px-2.5 py-2 text-xs text-on-surface">
+                <option value="glass-glow">Glass Glow (Frosted Ambient)</option>
+                <option value="romantic-rose">Romantic Rose Tint</option>
+                <option value="midnight-solid">Midnight Velvet</option>
+                <option value="minimal-clean">Clean White Glass</option>
+              </select>
+            </div>
+          </div>
+
+          <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
+            <div class="flex flex-col gap-1.5">
+              <label class="text-xs font-bold text-on-surface-variant">Theme Mood Label</label>
+              <input type="text" id="var-theme-mood" placeholder="e.g. Soft Romance & Starlight" class="bg-surface-container-high border border-purple-500/20 rounded-xl px-3 py-2 text-xs text-on-surface"/>
+            </div>
+            <div class="flex flex-col gap-1.5">
+              <label class="text-xs font-bold text-on-surface-variant">Animation Intensity</label>
+              <select id="var-anim-intensity" class="bg-surface-container-high border border-purple-500/20 rounded-xl px-2.5 py-2 text-xs text-on-surface">
+                <option value="smooth">Smooth & Cinematic (Default)</option>
+                <option value="energetic">Energetic & Playful</option>
+                <option value="subtle">Subtle & Elegant</option>
+              </select>
+            </div>
+          </div>
+        </div>
+
+        <!-- TAB 3: Music BGM Assignment -->
+        <div id="var-tab-music" class="hidden flex flex-col gap-4">
+          <div class="p-3 rounded-xl bg-surface-container-high/50 border border-purple-500/15 flex items-center justify-between">
+            <div>
+              <span class="text-xs font-bold text-on-surface">Assigned Background Track</span>
+              <p class="text-[11px] text-on-surface-variant">Plays automatically when celebration opens for this relationship</p>
+            </div>
+            <span id="var-music-assigned-badge" class="px-2 py-0.5 rounded-full bg-emerald-500/20 text-emerald-300 font-bold text-[10px]">Ready</span>
+          </div>
+
+          <div class="flex flex-col gap-1.5">
+            <label class="text-xs font-bold text-on-surface-variant">Select Music from Central Library:</label>
+            <select id="var-music-select" class="bg-surface-container-high border border-purple-500/20 rounded-xl px-3 py-2 text-xs text-on-surface">
+              <option value="">Loading library...</option>
+            </select>
+          </div>
+
+          <div id="var-music-player-preview" class="p-3 rounded-xl bg-surface-container flex items-center justify-between border border-purple-500/20 hidden">
+            <div class="flex items-center gap-2.5">
+              <span class="material-symbols-outlined text-primary text-xl">audiotrack</span>
+              <div>
+                <span id="var-preview-music-title" class="text-xs font-bold text-on-surface">Track Title</span>
+                <span id="var-preview-music-artist" class="text-[10px] text-outline block">Artist</span>
+              </div>
+            </div>
+            <audio id="var-audio-element" controls class="h-8 max-w-[200px]"></audio>
+          </div>
+        </div>
+
+        <!-- TAB 4: Validation & Health -->
+        <div id="var-tab-validation" class="hidden flex flex-col gap-4">
+          <div class="flex items-center justify-between">
+            <div>
+              <h5 class="text-xs font-bold text-on-surface">Configuration Integrity & Health Check</h5>
+              <p class="text-[11px] text-on-surface-variant">Rules enforced before publishing to guarantee glitch-free customer experience</p>
+            </div>
+            <button type="button" onclick="runVariantValidation()" class="px-3 py-1.5 rounded-xl bg-primary text-white text-xs font-bold hover:brightness-110 active:scale-95 transition cursor-pointer">
+              Run Health Check
+            </button>
+          </div>
+
+          <div id="var-validation-results" class="flex flex-col gap-2 p-3 rounded-xl bg-surface-container border border-purple-500/20">
+            <span class="text-xs text-outline italic">Click "Run Health Check" to inspect all message keys and assets.</span>
+          </div>
+        </div>
+
+        <!-- Bottom Action Bar -->
+        <div class="pt-4 border-t border-purple-500/20 flex flex-wrap items-center justify-between gap-3 bg-surface-container-low p-3 rounded-2xl">
+          <div class="flex items-center gap-2">
+            <button type="button" onclick="saveVariantDraft()" class="px-4 py-2 rounded-xl bg-surface-container-high hover:bg-surface-container-highest text-on-surface font-bold text-xs transition cursor-pointer">
+              Save Draft
+            </button>
+            <span id="var-save-status-msg" class="text-xs text-outline font-medium"></span>
+          </div>
+
+          <div class="flex items-center gap-2">
+            <button type="button" onclick="publishCurrentVariant()" class="px-6 py-2 rounded-xl bg-gradient-to-r from-primary to-purple-600 text-white font-bold text-xs shadow-md hover:brightness-110 active:scale-95 transition flex items-center gap-1.5 cursor-pointer">
+              <span class="material-symbols-outlined text-[16px]">publish</span>
+              <span>Publish Variant</span>
+            </button>
+          </div>
+        </div>
+
+      </div>
+    </div>
+
+  </div>
+</div>
+
+<!-- Resolver Live Sandbox Preview Modal -->
+<div class="fixed inset-0 z-50 hidden bg-black/90 backdrop-blur-xl flex flex-col items-center justify-center p-3 sm:p-6 transition-opacity" id="resolver-preview-modal">
+  <div class="w-full max-w-5xl h-[92vh] bg-surface-container-low border border-purple-500/30 rounded-2xl sm:rounded-3xl shadow-2xl flex flex-col overflow-hidden">
+    <div class="p-3 sm:p-4 bg-surface-container border-b border-purple-500/20 flex items-center justify-between">
+      <div class="flex items-center gap-2">
+        <span class="material-symbols-outlined text-primary text-xl">devices</span>
+        <span id="resolver-preview-title" class="text-xs sm:text-sm font-bold text-on-surface">Live Variant Sandbox Preview</span>
+      </div>
+      <button type="button" onclick="document.getElementById('resolver-preview-modal').classList.add('hidden')" class="p-1.5 rounded-lg text-outline hover:text-on-surface hover:bg-surface-container-high cursor-pointer">
+        <span class="material-symbols-outlined text-[20px]">close</span>
+      </button>
+    </div>
+    <div class="flex-1 bg-black relative">
+      <iframe id="resolver-preview-iframe" class="w-full h-full border-0" sandbox="allow-scripts allow-same-origin"></iframe>
+    </div>
+  </div>
+</div>
+
+<!-- ============================================================================ -->
+<!-- PART 28: TEMPLATE VERSION CONTROL & RELEASE PIPELINE MODALS                   -->
+<!-- ============================================================================ -->
+
+<!-- 1. Master Template Versions Modal -->
+<div class="fixed inset-0 z-50 hidden bg-black/85 backdrop-blur-xl flex items-center justify-center p-2 sm:p-4 md:p-6 transition-opacity overflow-y-auto" id="template-versions-modal">
+  <div class="w-full max-w-6xl max-h-[92vh] bg-surface-container-low border border-purple-500/30 rounded-2xl sm:rounded-3xl shadow-2xl flex flex-col overflow-hidden my-auto">
+    <!-- Header -->
+    <div class="p-4 sm:p-5 bg-surface-container flex items-center justify-between border-b border-purple-500/20">
+      <div class="flex items-center gap-3">
+        <div class="w-10 h-10 rounded-xl bg-indigo-500/20 text-indigo-300 flex items-center justify-center shadow-inner">
+          <span class="material-symbols-outlined text-[24px]">account_tree</span>
+        </div>
+        <div class="flex flex-col">
+          <div class="flex items-center gap-2">
+            <h3 id="versions-modal-title" class="font-headline-sm text-headline-sm font-bold text-on-surface">Template Versions</h3>
+            <span id="versions-current-badge" class="px-2.5 py-0.5 rounded-full bg-emerald-500/20 text-emerald-300 text-xs font-bold border border-emerald-500/30">Current: Loading</span>
+          </div>
+          <span id="versions-modal-subtitle" class="font-label-sm text-label-sm text-outline">Manage immutable versions, validation pipeline, safe release and rollback</span>
+        </div>
+      </div>
+      <div class="flex items-center gap-2">
+        <button type="button" onclick="openCreateVersionModal()" class="px-3.5 py-2 rounded-xl bg-primary hover:bg-primary-hover text-on-primary font-bold text-xs shadow-md transition flex items-center gap-1.5 cursor-pointer">
+          <span class="material-symbols-outlined text-[16px]">add</span>
+          <span>New Version</span>
+        </button>
+        <button type="button" onclick="openVersionCompareModal()" class="px-3.5 py-2 rounded-xl bg-surface-container-high hover:bg-surface-container-highest text-on-surface font-semibold text-xs border border-purple-500/20 transition flex items-center gap-1.5 cursor-pointer" title="Compare two versions">
+          <span class="material-symbols-outlined text-[16px] text-secondary">compare_arrows</span>
+          <span>Compare</span>
+        </button>
+        <button type="button" onclick="closeTemplateVersionsModal()" class="p-2 rounded-lg text-outline hover:text-on-surface hover:bg-surface-container-high transition">
+          <span class="material-symbols-outlined text-[22px]">close</span>
+        </button>
+      </div>
+    </div>
+
+    <!-- Versions Table Container -->
+    <div class="p-4 sm:p-6 overflow-y-auto flex flex-col gap-4">
+      <div class="flex flex-wrap items-center justify-between gap-2 text-xs text-outline px-1">
+        <span id="versions-count-summary" class="font-semibold text-on-surface-variant">Showing versions</span>
+        <span class="text-[11px] text-purple-300 flex items-center gap-1">
+          <span class="material-symbols-outlined text-[14px]">lock</span>
+          <span>Immutable: Published versions cannot be overwritten. Create a new version for changes.</span>
+        </span>
+      </div>
+
+      <div class="border border-purple-500/20 rounded-2xl overflow-hidden bg-surface-container-lowest/50 shadow-inner">
+        <div class="overflow-x-auto">
+          <table class="w-full text-left text-xs">
+            <thead class="bg-surface-container/70 border-b border-purple-500/20 text-on-surface-variant uppercase font-bold text-[10px] tracking-wider">
+              <tr>
+                <th class="py-3 px-4">Version</th>
+                <th class="py-3 px-3">Status</th>
+                <th class="py-3 px-3">Files / Size</th>
+                <th class="py-3 px-3">Integrity</th>
+                <th class="py-3 px-3">Release Notes</th>
+                <th class="py-3 px-3">Published / Date</th>
+                <th class="py-3 px-4 text-right">Actions</th>
+              </tr>
+            </thead>
+            <tbody id="versions-table-body" class="divide-y divide-purple-900/20">
+              <!-- Dynamically injected -->
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- 2. Create New Version Modal -->
+<div class="fixed inset-0 z-50 hidden bg-black/85 backdrop-blur-xl flex items-center justify-center p-3 sm:p-6 transition-opacity overflow-y-auto" id="create-version-modal">
+  <div class="w-full max-w-lg bg-surface-container-low border border-purple-500/30 rounded-2xl sm:rounded-3xl shadow-2xl flex flex-col overflow-hidden my-auto">
+    <div class="p-4 bg-surface-container flex items-center justify-between border-b border-purple-500/20">
+      <div class="flex items-center gap-2.5">
+        <span class="material-symbols-outlined text-primary text-[22px]">add_circle</span>
+        <h4 class="font-bold text-sm sm:text-base text-on-surface">Create New Template Version</h4>
+      </div>
+      <button type="button" onclick="closeCreateVersionModal()" class="p-1.5 rounded-lg text-outline hover:text-on-surface hover:bg-surface-container-high transition">
+        <span class="material-symbols-outlined text-[20px]">close</span>
+      </button>
+    </div>
+
+    <form onsubmit="submitCreateVersion(event)" class="p-5 flex flex-col gap-4 text-xs">
+      <!-- Semantic Bump Type Selection -->
+      <div class="flex flex-col gap-1.5">
+        <label class="font-bold text-on-surface-variant uppercase tracking-wider text-[11px]">Version Increment</label>
+        <div class="grid grid-cols-3 gap-2">
+          <label class="flex flex-col items-center p-2.5 rounded-xl border border-purple-500/30 bg-surface-container cursor-pointer hover:bg-surface-container-high has-[:checked]:border-primary has-[:checked]:bg-primary/10">
+            <input type="radio" name="bumpType" value="minor" checked class="hidden" onchange="updateVersionLabelPreview()"/>
+            <span class="font-bold text-xs text-on-surface">Minor</span>
+            <span class="text-[10px] text-outline">New Features</span>
+          </label>
+          <label class="flex flex-col items-center p-2.5 rounded-xl border border-purple-500/30 bg-surface-container cursor-pointer hover:bg-surface-container-high has-[:checked]:border-primary has-[:checked]:bg-primary/10">
+            <input type="radio" name="bumpType" value="patch" class="hidden" onchange="updateVersionLabelPreview()"/>
+            <span class="font-bold text-xs text-on-surface">Patch</span>
+            <span class="text-[10px] text-outline">Bug Fixes</span>
+          </label>
+          <label class="flex flex-col items-center p-2.5 rounded-xl border border-purple-500/30 bg-surface-container cursor-pointer hover:bg-surface-container-high has-[:checked]:border-primary has-[:checked]:bg-primary/10">
+            <input type="radio" name="bumpType" value="major" class="hidden" onchange="updateVersionLabelPreview()"/>
+            <span class="font-bold text-xs text-on-surface">Major</span>
+            <span class="text-[10px] text-outline">Breaking Changes</span>
+          </label>
+        </div>
+      </div>
+
+      <!-- Version Label Input -->
+      <div class="flex flex-col gap-1.5">
+        <label class="font-bold text-on-surface-variant uppercase tracking-wider text-[11px]">Semantic Version Label</label>
+        <input type="text" id="new-version-label-input" required pattern="^v?\d+\.\d+\.\d+(-[a-zA-Z0-9.]+)?$" placeholder="e.g. v2.1.0" class="px-3.5 py-2.5 rounded-xl bg-surface-container border border-purple-500/30 text-on-surface font-mono text-sm focus:border-primary focus:outline-none"/>
+        <span class="text-[10px] text-outline">Must follow semantic format like v1.0.0, v2.1.0</span>
+      </div>
+
+      <!-- Source Version to Duplicate From -->
+      <div class="flex flex-col gap-1.5">
+        <label class="font-bold text-on-surface-variant uppercase tracking-wider text-[11px]">Branch / Duplicate From</label>
+        <select id="create-version-source-select" class="px-3.5 py-2.5 rounded-xl bg-surface-container border border-purple-500/30 text-on-surface focus:border-primary focus:outline-none">
+          <!-- Dynamically populated -->
+        </select>
+        <span class="text-[10px] text-outline">Copies runtime file references, layout, themes and default customization slots into a new draft.</span>
+      </div>
+
+      <!-- Release Notes -->
+      <div class="flex flex-col gap-1.5">
+        <label class="font-bold text-on-surface-variant uppercase tracking-wider text-[11px]">Release Notes</label>
+        <textarea id="new-version-release-notes" rows="3" placeholder="Describe the updates, enhancements or fixes included in this version..." class="px-3.5 py-2.5 rounded-xl bg-surface-container border border-purple-500/30 text-on-surface focus:border-primary focus:outline-none"></textarea>
+      </div>
+
+      <!-- Actions -->
+      <div class="flex items-center justify-end gap-2 pt-2 border-t border-purple-500/20">
+        <button type="button" onclick="closeCreateVersionModal()" class="px-4 py-2 rounded-xl bg-surface-container-high hover:bg-surface-container-highest text-on-surface font-semibold">Cancel</button>
+        <button type="submit" class="px-5 py-2 rounded-xl bg-primary hover:bg-primary-hover text-on-primary font-bold shadow-md flex items-center gap-1.5">
+          <span class="material-symbols-outlined text-[16px]">save</span>
+          <span>Create Draft Version</span>
+        </button>
+      </div>
+    </form>
+  </div>
+</div>
+
+<!-- 3. Version Detail & File Inventory Modal -->
+<div class="fixed inset-0 z-50 hidden bg-black/85 backdrop-blur-xl flex items-center justify-center p-2 sm:p-4 md:p-6 transition-opacity overflow-y-auto" id="version-detail-modal">
+  <div class="w-full max-w-5xl max-h-[92vh] bg-surface-container-low border border-purple-500/30 rounded-2xl sm:rounded-3xl shadow-2xl flex flex-col overflow-hidden my-auto">
+    <!-- Header -->
+    <div class="p-4 sm:p-5 bg-surface-container flex items-center justify-between border-b border-purple-500/20">
+      <div class="flex items-center gap-3">
+        <div class="w-10 h-10 rounded-xl bg-purple-500/20 text-purple-300 flex items-center justify-center">
+          <span class="material-symbols-outlined text-[24px]">description</span>
+        </div>
+        <div class="flex flex-col">
+          <div class="flex items-center gap-2">
+            <h3 id="version-detail-title" class="font-headline-sm text-headline-sm font-bold text-on-surface">Version Details</h3>
+            <span id="version-detail-status-badge" class="px-2.5 py-0.5 rounded-full text-xs font-bold">Status</span>
+          </div>
+          <span id="version-detail-id-text" class="font-mono text-[11px] text-primary">tv_id</span>
+        </div>
+      </div>
+      <button type="button" onclick="closeVersionDetailModal()" class="p-2 rounded-lg text-outline hover:text-on-surface hover:bg-surface-container-high transition">
+        <span class="material-symbols-outlined text-[22px]">close</span>
+      </button>
+    </div>
+
+    <!-- Body -->
+    <div class="p-4 sm:p-6 overflow-y-auto flex flex-col gap-6">
+      <!-- Quick Specs Grid -->
+      <div class="grid grid-cols-2 sm:grid-cols-4 gap-3">
+        <div class="p-3 rounded-xl bg-surface-container border border-purple-500/20 flex flex-col">
+          <span class="text-[10px] text-outline uppercase font-bold">Files Count</span>
+          <span id="detail-file-count" class="text-base font-bold text-on-surface mt-0.5">0 files</span>
+        </div>
+        <div class="p-3 rounded-xl bg-surface-container border border-purple-500/20 flex flex-col">
+          <span class="text-[10px] text-outline uppercase font-bold">Storage Size</span>
+          <span id="detail-total-size" class="text-base font-bold text-on-surface mt-0.5">0 KB</span>
+        </div>
+        <div class="p-3 rounded-xl bg-surface-container border border-purple-500/20 flex flex-col">
+          <span class="text-[10px] text-outline uppercase font-bold">Entry Point</span>
+          <span id="detail-entry-point" class="text-base font-bold text-primary font-mono mt-0.5">index.html</span>
+        </div>
+        <div class="p-3 rounded-xl bg-surface-container border border-purple-500/20 flex flex-col">
+          <span class="text-[10px] text-outline uppercase font-bold">Integrity Status</span>
+          <span id="detail-integrity" class="text-base font-bold text-emerald-400 mt-0.5">Verified</span>
+        </div>
+      </div>
+
+      <!-- Release Notes Editor -->
+      <div class="p-4 rounded-xl bg-surface-container border border-purple-500/20 flex flex-col gap-2">
+        <div class="flex items-center justify-between">
+          <span class="font-bold text-on-surface text-xs uppercase tracking-wider">Release Notes</span>
+          <button type="button" onclick="saveVersionReleaseNotes()" class="px-3 py-1 rounded-lg bg-surface-container-high hover:bg-surface-container-highest text-primary font-bold text-xs border border-purple-500/30 flex items-center gap-1">
+            <span class="material-symbols-outlined text-[14px]">save</span>
+            <span>Save Notes</span>
+          </button>
+        </div>
+        <textarea id="detail-release-notes" rows="2" class="w-full px-3 py-2 rounded-lg bg-surface-container-lowest border border-purple-500/30 text-xs text-on-surface focus:outline-none focus:border-primary font-sans"></textarea>
+      </div>
+
+      <!-- File Inventory Table -->
+      <div class="flex flex-col gap-2">
+        <div class="flex items-center justify-between">
+          <span class="font-bold text-on-surface text-xs uppercase tracking-wider">Verified File Inventory</span>
+          <span id="detail-files-subtotal" class="text-xs text-outline font-semibold">0 files listed</span>
+        </div>
+        <div class="border border-purple-500/20 rounded-xl overflow-hidden bg-surface-container-lowest/50">
+          <div class="max-h-60 overflow-y-auto">
+            <table class="w-full text-left text-xs">
+              <thead class="bg-surface-container/70 border-b border-purple-500/20 text-on-surface-variant uppercase font-bold text-[10px] sticky top-0">
+                <tr>
+                  <th class="py-2.5 px-3">Path</th>
+                  <th class="py-2.5 px-3">MIME Type</th>
+                  <th class="py-2.5 px-3">Size</th>
+                  <th class="py-2.5 px-3 font-mono">SHA-256 Checksum</th>
+                </tr>
+              </thead>
+              <tbody id="detail-files-tbody" class="divide-y divide-purple-900/20">
+                <!-- Injected files -->
+              </tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+
+      <!-- Manifest JSON Inspector -->
+      <div class="flex flex-col gap-2">
+        <div class="flex items-center justify-between">
+          <span class="font-bold text-on-surface text-xs uppercase tracking-wider">Version Manifest & Capabilities</span>
+          <span class="text-[11px] text-outline font-mono">read-only</span>
+        </div>
+        <pre id="detail-manifest-json" class="p-4 rounded-xl bg-black/60 border border-purple-500/20 font-mono text-[11px] text-emerald-300 overflow-x-auto max-h-48"></pre>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- 4. Version Release Checklist & Publish Modal -->
+<div class="fixed inset-0 z-50 hidden bg-black/90 backdrop-blur-xl flex items-center justify-center p-3 sm:p-6 transition-opacity overflow-y-auto" id="version-checklist-modal">
+  <div class="w-full max-w-2xl bg-surface-container-low border border-purple-500/30 rounded-2xl sm:rounded-3xl shadow-2xl flex flex-col overflow-hidden my-auto">
+    <div class="p-4 sm:p-5 bg-surface-container flex items-center justify-between border-b border-purple-500/20">
+      <div class="flex items-center gap-2.5">
+        <div class="w-9 h-9 rounded-xl bg-emerald-500/20 text-emerald-300 flex items-center justify-center">
+          <span class="material-symbols-outlined text-[22px]">checklist</span>
+        </div>
+        <div class="flex flex-col">
+          <h4 id="checklist-modal-title" class="font-bold text-sm sm:text-base text-on-surface">Server Release Checklist</h4>
+          <span class="text-[11px] text-outline">17-Point Production Release Validation</span>
+        </div>
+      </div>
+      <button type="button" onclick="closeVersionChecklistModal()" class="p-1.5 rounded-lg text-outline hover:text-on-surface hover:bg-surface-container-high transition">
+        <span class="material-symbols-outlined text-[20px]">close</span>
+      </button>
+    </div>
+
+    <div class="p-5 flex flex-col gap-4 text-xs overflow-y-auto max-h-[75vh]">
+      <div id="checklist-summary-banner" class="p-3 rounded-xl bg-purple-500/10 border border-purple-500/20 text-purple-200 text-xs">
+        Validating version files, schema, assets and security boundaries against production rules...
+      </div>
+
+      <!-- Checklist Items Container -->
+      <div id="checklist-items-container" class="flex flex-col gap-2">
+        <!-- Dynamically injected items -->
+      </div>
+
+      <!-- Confirmation Checkbox -->
+      <div class="p-3 rounded-xl bg-surface-container border border-purple-500/20 flex items-start gap-2.5 mt-2">
+        <input type="checkbox" id="publish-confirm-checkbox" onchange="togglePublishButtonState()" class="mt-0.5 accent-primary cursor-pointer"/>
+        <label for="publish-confirm-checkbox" class="text-xs text-on-surface-variant cursor-pointer">
+          I confirm this version is fully validated and should immediately become the <strong>CURRENT active version</strong> for all new celebration wishes. Existing published wishes will remain permanently locked to their original versions.
+        </label>
+      </div>
+
+      <!-- Publish Actions -->
+      <div class="flex items-center justify-end gap-2 pt-2 border-t border-purple-500/20">
+        <button type="button" onclick="closeVersionChecklistModal()" class="px-4 py-2 rounded-xl bg-surface-container-high hover:bg-surface-container-highest text-on-surface font-semibold">Cancel</button>
+        <button type="button" id="publish-confirm-button" disabled onclick="executeConfirmedPublish()" class="px-5 py-2 rounded-xl bg-emerald-600 hover:bg-emerald-500 disabled:opacity-40 disabled:cursor-not-allowed text-white font-bold shadow-md flex items-center gap-1.5 transition">
+          <span class="material-symbols-outlined text-[16px]">rocket_launch</span>
+          <span>Publish Version & Make Current</span>
+        </button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- 5. Version Comparison Modal -->
+<div class="fixed inset-0 z-50 hidden bg-black/85 backdrop-blur-xl flex items-center justify-center p-2 sm:p-4 md:p-6 transition-opacity overflow-y-auto" id="version-compare-modal">
+  <div class="w-full max-w-4xl max-h-[92vh] bg-surface-container-low border border-purple-500/30 rounded-2xl sm:rounded-3xl shadow-2xl flex flex-col overflow-hidden my-auto">
+    <div class="p-4 sm:p-5 bg-surface-container flex items-center justify-between border-b border-purple-500/20">
+      <div class="flex items-center gap-2.5">
+        <span class="material-symbols-outlined text-secondary text-[24px]">compare_arrows</span>
+        <h4 class="font-bold text-sm sm:text-base text-on-surface">Compare Template Versions</h4>
+      </div>
+      <button type="button" onclick="closeVersionCompareModal()" class="p-1.5 rounded-lg text-outline hover:text-on-surface hover:bg-surface-container-high transition">
+        <span class="material-symbols-outlined text-[20px]">close</span>
+      </button>
+    </div>
+
+    <div class="p-5 flex flex-col gap-4 text-xs overflow-y-auto">
+      <!-- Selectors Row -->
+      <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
+        <div class="flex flex-col gap-1.5">
+          <label class="font-bold text-on-surface-variant uppercase tracking-wider text-[11px]">Version A (Base)</label>
+          <select id="compare-v1-select" onchange="runVersionComparison()" class="px-3.5 py-2.5 rounded-xl bg-surface-container border border-purple-500/30 text-on-surface focus:outline-none">
+            <!-- Dynamically populated -->
+          </select>
+        </div>
+        <div class="flex flex-col gap-1.5">
+          <label class="font-bold text-on-surface-variant uppercase tracking-wider text-[11px]">Version B (Target / New)</label>
+          <select id="compare-v2-select" onchange="runVersionComparison()" class="px-3.5 py-2.5 rounded-xl bg-surface-container border border-purple-500/30 text-on-surface focus:outline-none">
+            <!-- Dynamically populated -->
+          </select>
+        </div>
+      </div>
+
+      <!-- Diff Results Container -->
+      <div id="compare-results-container" class="flex flex-col gap-4">
+        <!-- Injected comparison summary -->
+      </div>
     </div>
   </div>
 </div>

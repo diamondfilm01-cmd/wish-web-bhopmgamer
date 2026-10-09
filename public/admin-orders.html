@@ -806,6 +806,48 @@
       }).join('');
     }
 
+    async function refundOrder(orderId) {
+      const reason = prompt('Enter reason for refund:', 'Customer Satisfaction Request');
+      if (!reason) return;
+      try {
+        const res = await fetch(`/api/admin/commerce/orders/${encodeURIComponent(orderId)}/refund`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          credentials: 'include',
+          body: JSON.stringify({ reason })
+        });
+        const data = await res.json();
+        if (data.success) {
+          alert('Refund processed successfully!');
+          loadOrdersData();
+        } else {
+          alert('Refund error: ' + (data.error?.message || data.message || 'Unknown error'));
+        }
+      } catch (err) {
+        alert('Network error: ' + err.message);
+      }
+    }
+
+    async function triggerReconcile() {
+      if (!confirm('Reconcile unresolved gateway payments now?')) return;
+      try {
+        const res = await fetch('/api/admin/commerce/reconcile', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          credentials: 'include'
+        });
+        const data = await res.json();
+        if (data.success) {
+          alert(`Reconciliation complete. Scanned: ${data.reconciliation.scanned}, Repaired: ${data.reconciliation.repaired}`);
+          loadOrdersData();
+        } else {
+          alert('Reconciliation error: ' + (data.error?.message || 'Failed'));
+        }
+      } catch (err) {
+        alert('Network error: ' + err.message);
+      }
+    }
+
     async function deleteWishRecord(wishId) {
       if (!confirm('Are you sure you want to remove this wish record?')) return;
       try {
@@ -824,12 +866,51 @@
 
     async function loadOrdersData() {
       try {
-        const [wishesRes, metricsRes] = await Promise.all([
-          fetch('/api/wishes'),
-          fetch('/api/admin/metrics')
+        const [commerceRes, wishesRes, metricsRes] = await Promise.all([
+          fetch('/api/admin/commerce/orders', { credentials: 'include' }).catch(() => null),
+          fetch('/api/wishes').catch(() => null),
+          fetch('/api/admin/metrics').catch(() => null)
         ]);
-        const wishesData = await wishesRes.json();
-        const metricsData = await metricsRes.json();
+        const commerceData = commerceRes ? await commerceRes.json().catch(() => ({})) : {};
+        const wishesData = wishesRes ? await wishesRes.json().catch(() => ({})) : {};
+        const metricsData = metricsRes ? await metricsRes.json().catch(() => ({})) : {};
+
+        if (commerceData.success && Array.isArray(commerceData.orders) && commerceData.orders.length > 0) {
+          // Map real commerce orders to table format
+          cachedWishes = commerceData.orders.map(o => ({
+            id: o.id,
+            orderId: o.id,
+            buyerName: o.customerName || 'Customer',
+            buyerContact: o.customerEmail || '',
+            recipientName: 'VIP Pass Holder',
+            templateName: o.productName || 'VIP Creator Pass',
+            tier: o.status === 'PAID' ? 'vip' : 'free',
+            price: o.amountRupees || 49,
+            createdAt: o.createdAt,
+            views: 1,
+            lifecycleStatus: o.status === 'PAID' ? 'active' : 'upcoming',
+            payment: {
+              status: o.status,
+              method: o.provider || 'Razorpay',
+              transactionId: o.transactionId,
+              refundStatus: o.refundStatus
+            }
+          }));
+
+          const m = commerceData.metrics || {};
+          const vipRev = document.getElementById('stat-vip-revenue');
+          const vipOrdersCount = document.getElementById('stat-vip-orders-count');
+          const tabVip = document.getElementById('tab-vip-count');
+          const tabAll = document.getElementById('tab-all-count');
+
+          if (vipRev) vipRev.textContent = '₹' + (m.totalRevenueRupees || 0).toLocaleString('en-IN');
+          if (vipOrdersCount) vipOrdersCount.textContent = `${m.paidOrders || 0} Paid`;
+          if (tabVip) tabVip.textContent = m.paidOrders || 0;
+          if (tabAll) tabAll.textContent = m.totalOrders || cachedWishes.length;
+
+          applyOrderFilters();
+          return;
+        }
 
         if (metricsData.success && metricsData.metrics) {
           const m = metricsData.metrics;
@@ -868,53 +949,6 @@
           if (tabLive) tabLive.textContent = m.liveLinks || 0;
           if (tabFuture) tabFuture.textContent = m.futureLinks || 0;
           if (tabExpired) tabExpired.textContent = m.expiredLinks || 0;
-
-          // Target Goal
-          const goalPct = document.getElementById('vip-goal-pct');
-          const goalBar = document.getElementById('vip-goal-bar');
-          const goalText = document.getElementById('vip-goal-text');
-          if (goalPct && goalBar && goalText) {
-            const currentRev = m.totalRevenue || 0;
-            goalPct.textContent = `₹${currentRev.toLocaleString('en-IN')}`;
-            const target = 10000;
-            const pct = Math.min(100, Math.max(4, Math.round((currentRev / target) * 100)));
-            goalBar.style.width = `${pct}%`;
-            goalText.textContent = `${m.vipWishes || 0} customers paid for ₹49 VIP passes. Total collection ₹${currentRev}.`;
-          }
-
-          // Live Activity Stream
-          const streamEl = document.getElementById('orders-live-stream');
-          if (streamEl) {
-            const recent = m.recentWishes || [];
-            if (recent.length === 0) {
-              streamEl.innerHTML = `
-                <div class="p-4 text-center text-on-surface-variant text-xs">
-                  <span class="material-symbols-outlined text-2xl text-outline mb-1 block">stream</span>
-                  <span>No recent wishes created yet</span>
-                </div>
-              `;
-            } else {
-              streamEl.innerHTML = recent.slice(0, 5).map(w => {
-                const isVip = w.tier === 'vip' || (w.price && w.price > 0);
-                const sender = (w.customData && (w.customData.sender_name || w.customData.senderName)) || 'User';
-                const recipient = (w.customData && (w.customData.recipient_name || w.customData.recipientName)) || 'Friend';
-                return `
-                  <div class="flex items-start gap-2.5 p-2.5 rounded-lg bg-surface-container-lowest/60 hover:bg-surface-container-lowest transition-all">
-                    <div class="w-8 h-8 rounded-lg ${isVip ? 'bg-amber-400/20 text-amber-300' : 'bg-primary-container/20 text-primary'} flex items-center justify-center shrink-0 mt-0.5">
-                      <span class="material-symbols-outlined text-[18px]">${isVip ? 'stars' : 'auto_awesome'}</span>
-                    </div>
-                    <div class="flex flex-col min-w-0">
-                      <div class="text-on-surface font-medium leading-snug text-xs">
-                        <strong class="${isVip ? 'text-amber-300' : 'text-primary'} font-semibold">${sender}</strong> created wish for <strong class="text-secondary">${recipient}</strong>
-                      </div>
-                      <span class="text-on-surface-variant text-[10px] truncate">${w.templateName || 'Custom Template'}</span>
-                      <span class="font-label-sm text-label-sm text-outline text-[10px] mt-0.5">${isVip ? '👑 VIP ₹49 Paid' : '🎁 Free Tier'} • ${w.views || 0} views</span>
-                    </div>
-                  </div>
-                `;
-              }).join('');
-            }
-          }
         }
 
         if (wishesData.success && wishesData.wishes) {

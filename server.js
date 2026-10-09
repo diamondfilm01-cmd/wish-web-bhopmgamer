@@ -29,6 +29,123 @@ import {
   checkImageDeletionSafety,
   IMAGE_LIMITS
 } from './src/imgbb-provider.js';
+import {
+  validateVariantConfiguration,
+  resolveVariantHierarchy,
+  cloneVariant,
+  VARIANT_STATUS,
+  STANDARD_IMAGE_SLOTS,
+  STANDARD_MESSAGE_FIELDS
+} from './src/template-variant-engine.js';
+import {
+  VERSION_LIFECYCLE_STATUS,
+  generateNextVersion,
+  validateTemplateVersionForRelease,
+  executeVersionPublish,
+  executeVersionRollback,
+  compareTemplateVersions,
+  verifyVersionIntegrity,
+  isValidVersionLabel
+} from './src/template-version-engine.js';
+import {
+  STORAGE_HEALTH_STATUS,
+  ASSET_TYPES,
+  evaluateAssetProtection,
+  verifyB2ObjectHealth,
+  verifyImgBBImageHealth,
+  auditTemplateVersionsIntegrity,
+  auditMusicAssetsIntegrity,
+  auditImageAssetsHealth,
+  detectStorageOrphans,
+  executeSafeCleanup,
+  restoreQuarantinedAsset,
+  generateComprehensiveStorageHealthReport
+} from './src/storage-health-engine.js';
+import {
+  PRIMARY_ADMIN_EMAIL,
+  USER_STATUS,
+  WISH_MODERATION_STATUS,
+  TICKET_STATUS,
+  TICKET_PRIORITY,
+  ADMIN_PERMISSIONS,
+  isAuthoritativeAdmin,
+  hasAdminPermission,
+  createAuditLogEntry,
+  listUsersEnriched,
+  updateUserStatus,
+  updateUserRole,
+  revokeUserSessions,
+  safeDeleteOrArchiveUser,
+  listAdminWishesEnriched,
+  diagnoseWishDeepHealth,
+  moderateWish,
+  extendWishExpiry,
+  transferWishOwnership,
+  safeDeleteWish,
+  createModerationReport,
+  resolveModerationReport,
+  universalLookup,
+  createSupportTicket,
+  updateSupportTicket,
+  filterAuditLogs,
+  exportAuditLogsCsv
+} from './src/admin-operations-engine.js';
+import {
+  NOTIFICATION_CHANNELS,
+  NOTIFICATION_TYPES,
+  JOB_STATUS,
+  ANNOUNCEMENT_STATUS,
+  ANNOUNCEMENT_AUDIENCE,
+  DEFAULT_NOTIFICATION_PREFERENCES,
+  ERROR_CODES as NOTIF_ERROR_CODES,
+  sanitizeNotificationPreferences,
+  evaluateNotificationEligibility,
+  createInAppNotification,
+  markNotificationAsRead,
+  markAllNotificationsAsRead,
+  calculateUnreadCount,
+  createDeliveryJob,
+  claimEligibleJobs,
+  recoverStaleClaimedJobs,
+  executeDeliveryJob,
+  handleWishPublishedEvent,
+  evaluateScheduledRemindersForWish,
+  createAnnouncementDraft,
+  publishAnnouncement,
+  resolveEmailProvider,
+  MockEmailProvider
+} from './src/notification-engine.js';
+import {
+  ORDER_STATUS,
+  PAYMENT_STATUS,
+  REFUND_STATUS,
+  PRODUCT_TYPES,
+  PAYMENT_PROVIDERS,
+  ERROR_CODES as COMMERCE_ERROR_CODES,
+  RazorpayAdapter,
+  resolveAuthoritativeProduct,
+  evaluateUserEntitlement,
+  createCheckoutSession,
+  verifyAndFinalizePayment,
+  processRazorpayWebhook,
+  processAdminRefund,
+  reconcileUnresolvedOrders
+} from './src/commerce-engine.js';
+import {
+  REPORTING_TIMEZONE,
+  ANALYTICS_EVENT_TYPES,
+  DATE_RANGE_PRESETS,
+  ERROR_CODES as BI_ERROR_CODES,
+  getDateRangeBounds,
+  calculateComparison,
+  calculateExecutiveOverview,
+  calculateUserAnalytics,
+  calculateWishFunnel,
+  calculateTemplatePerformance,
+  calculateRevenueAnalytics,
+  generateSafeCsv,
+  validateAndSanitizeAnalyticsEvent
+} from './src/analytics-bi-engine.js';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -37,8 +154,13 @@ const app = express();
 const PORT = process.env.PORT || 3000;
 const HOST = '0.0.0.0';
 
-// High limits for ZIP and folder uploads (HTML, CSS, JS, images, audio)
-app.use(express.json({ limit: '50mb' }));
+// High limits for ZIP and folder uploads, plus rawBody capturing for HMAC webhook signatures
+app.use(express.json({
+  limit: '50mb',
+  verify: (req, res, buf) => {
+    req.rawBody = buf.toString();
+  }
+}));
 app.use(express.urlencoded({ limit: '50mb', extended: true }));
 
 const DATA_DIR = path.join(__dirname, 'data');
@@ -55,12 +177,264 @@ const USERS_FILE = path.join(DATA_DIR, 'users.json');
 const SESSIONS_FILE = path.join(DATA_DIR, 'sessions.json');
 const FAVORITES_FILE = path.join(DATA_DIR, 'favorites.json');
 const ORDERS_FILE = path.join(DATA_DIR, 'orders.json');
+const ORDER_ITEMS_FILE = path.join(DATA_DIR, 'order_items.json');
+const PAYMENT_ATTEMPTS_FILE = path.join(DATA_DIR, 'payment_attempts.json');
+const PAYMENT_WEBHOOKS_FILE = path.join(DATA_DIR, 'payment_webhooks.json');
+const REFUNDS_FILE = path.join(DATA_DIR, 'refunds.json');
+const ENTITLEMENTS_FILE = path.join(DATA_DIR, 'entitlements.json');
 const RELATIONSHIPS_FILE = path.join(DATA_DIR, 'relationships.json');
 const MUSIC_FILE = path.join(DATA_DIR, 'music.json');
 const WISH_MEDIA_MAPPINGS_FILE = path.join(DATA_DIR, 'wish_media_mappings.json');
 const TEMPLATE_IMAGES_FILE = path.join(DATA_DIR, 'template_images.json');
+const TEMPLATE_FAMILIES_FILE = path.join(DATA_DIR, 'template_families.json');
+const TEMPLATE_RELATIONSHIPS_FILE = path.join(DATA_DIR, 'template_relationships.json');
+const TEMPLATE_RELATIONSHIP_VARIANTS_FILE = path.join(DATA_DIR, 'template_relationship_variants.json');
+const TEMPLATE_FIELDS_FILE = path.join(DATA_DIR, 'template_fields.json');
+const TEMPLATE_MUSIC_FILE = path.join(DATA_DIR, 'template_music.json');
+const TEMPLATE_FILES_FILE = path.join(DATA_DIR, 'template_files.json');
+const ADMIN_AUDIT_LOGS_FILE = path.join(DATA_DIR, 'admin_audit_logs.json');
+const STORAGE_QUARANTINE_FILE = path.join(DATA_DIR, 'storage_quarantine.json');
+const STORAGE_CLEANUP_JOBS_FILE = path.join(DATA_DIR, 'storage_cleanup_jobs.json');
+const STORAGE_HEALTH_AUDITS_FILE = path.join(DATA_DIR, 'storage_health_audits.json');
+const MODERATION_REPORTS_FILE = path.join(DATA_DIR, 'moderation_reports.json');
+const SUPPORT_TICKETS_FILE = path.join(DATA_DIR, 'support_tickets.json');
+const NOTIFICATION_JOBS_FILE = path.join(DATA_DIR, 'notification_jobs.json');
+const NOTIFICATION_ATTEMPTS_FILE = path.join(DATA_DIR, 'notification_attempts.json');
+const NOTIFICATION_REMINDERS_FILE = path.join(DATA_DIR, 'notification_reminders.json');
+const ENTERPRISE_ANNOUNCEMENTS_FILE = path.join(DATA_DIR, 'enterprise_announcements.json');
+const ANALYTICS_EVENTS_FILE = path.join(DATA_DIR, 'analytics_events.json');
+const ANALYTICS_AGGREGATES_FILE = path.join(DATA_DIR, 'analytics_daily_aggregates.json');
 const STORE_DIR = path.join(__dirname, 'public', 'templates-store');
 const MEDIA_DIR = path.join(__dirname, 'public', 'media');
+
+function getAnalyticsEvents() {
+  try {
+    if (fs.existsSync(ANALYTICS_EVENTS_FILE)) {
+      const data = fs.readFileSync(ANALYTICS_EVENTS_FILE, 'utf8');
+      const parsed = JSON.parse(data || '[]');
+      if (Array.isArray(parsed)) return parsed;
+    }
+  } catch (e) {}
+  return [];
+}
+
+function saveAnalyticsEvents(events) {
+  try {
+    fs.writeFileSync(ANALYTICS_EVENTS_FILE, JSON.stringify(events.slice(0, 10000), null, 2), 'utf8');
+  } catch (e) {}
+}
+
+function getNotificationJobs() {
+  try {
+    if (fs.existsSync(NOTIFICATION_JOBS_FILE)) {
+      const data = fs.readFileSync(NOTIFICATION_JOBS_FILE, 'utf8');
+      const parsed = JSON.parse(data || '[]');
+      if (Array.isArray(parsed)) return parsed;
+    }
+  } catch (e) {}
+  return [];
+}
+
+function saveNotificationJobs(jobs) {
+  try {
+    fs.writeFileSync(NOTIFICATION_JOBS_FILE, JSON.stringify(jobs.slice(0, 5000), null, 2), 'utf8');
+  } catch (e) {}
+}
+
+function getNotificationAttempts() {
+  try {
+    if (fs.existsSync(NOTIFICATION_ATTEMPTS_FILE)) {
+      const data = fs.readFileSync(NOTIFICATION_ATTEMPTS_FILE, 'utf8');
+      const parsed = JSON.parse(data || '[]');
+      if (Array.isArray(parsed)) return parsed;
+    }
+  } catch (e) {}
+  return [];
+}
+
+function saveNotificationAttempts(attempts) {
+  try {
+    fs.writeFileSync(NOTIFICATION_ATTEMPTS_FILE, JSON.stringify(attempts.slice(0, 5000), null, 2), 'utf8');
+  } catch (e) {}
+}
+
+function getNotificationReminders() {
+  try {
+    if (fs.existsSync(NOTIFICATION_REMINDERS_FILE)) {
+      const data = fs.readFileSync(NOTIFICATION_REMINDERS_FILE, 'utf8');
+      const parsed = JSON.parse(data || '[]');
+      if (Array.isArray(parsed)) return parsed;
+    }
+  } catch (e) {}
+  return [];
+}
+
+function saveNotificationReminders(reminders) {
+  try {
+    fs.writeFileSync(NOTIFICATION_REMINDERS_FILE, JSON.stringify(reminders.slice(0, 5000), null, 2), 'utf8');
+  } catch (e) {}
+}
+
+function getEnterpriseAnnouncements() {
+  try {
+    if (fs.existsSync(ENTERPRISE_ANNOUNCEMENTS_FILE)) {
+      const data = fs.readFileSync(ENTERPRISE_ANNOUNCEMENTS_FILE, 'utf8');
+      const parsed = JSON.parse(data || '[]');
+      if (Array.isArray(parsed)) return parsed;
+    }
+  } catch (e) {}
+  return [];
+}
+
+function saveEnterpriseAnnouncements(announcements) {
+  try {
+    fs.writeFileSync(ENTERPRISE_ANNOUNCEMENTS_FILE, JSON.stringify(announcements.slice(0, 500), null, 2), 'utf8');
+  } catch (e) {}
+}
+
+function getModerationReports() {
+  try {
+    if (fs.existsSync(MODERATION_REPORTS_FILE)) {
+      const data = fs.readFileSync(MODERATION_REPORTS_FILE, 'utf8');
+      const parsed = JSON.parse(data || '[]');
+      if (Array.isArray(parsed)) return parsed;
+    }
+  } catch (e) {}
+  return [];
+}
+
+function saveModerationReports(reports) {
+  try {
+    fs.writeFileSync(MODERATION_REPORTS_FILE, JSON.stringify(reports, null, 2), 'utf8');
+  } catch (e) {}
+}
+
+function getSupportTickets() {
+  try {
+    if (fs.existsSync(SUPPORT_TICKETS_FILE)) {
+      const data = fs.readFileSync(SUPPORT_TICKETS_FILE, 'utf8');
+      const parsed = JSON.parse(data || '[]');
+      if (Array.isArray(parsed)) return parsed;
+    }
+  } catch (e) {}
+  return [];
+}
+
+function saveSupportTickets(tickets) {
+  try {
+    fs.writeFileSync(SUPPORT_TICKETS_FILE, JSON.stringify(tickets, null, 2), 'utf8');
+  } catch (e) {}
+}
+
+function getOrders() {
+  try {
+    if (fs.existsSync(ORDERS_FILE)) {
+      const data = fs.readFileSync(ORDERS_FILE, 'utf8');
+      const parsed = JSON.parse(data || '[]');
+      if (Array.isArray(parsed)) return parsed;
+    }
+  } catch (e) {}
+  return [];
+}
+
+function saveOrders(orders) {
+  try {
+    fs.writeFileSync(ORDERS_FILE, JSON.stringify(orders.slice(0, 10000), null, 2), 'utf8');
+  } catch (e) {}
+}
+
+function getOrderItems() {
+  try {
+    if (fs.existsSync(ORDER_ITEMS_FILE)) {
+      const data = fs.readFileSync(ORDER_ITEMS_FILE, 'utf8');
+      const parsed = JSON.parse(data || '[]');
+      if (Array.isArray(parsed)) return parsed;
+    }
+  } catch (e) {}
+  return [];
+}
+
+function saveOrderItems(items) {
+  try {
+    fs.writeFileSync(ORDER_ITEMS_FILE, JSON.stringify(items.slice(0, 10000), null, 2), 'utf8');
+  } catch (e) {}
+}
+
+function getPaymentAttempts() {
+  try {
+    if (fs.existsSync(PAYMENT_ATTEMPTS_FILE)) {
+      const data = fs.readFileSync(PAYMENT_ATTEMPTS_FILE, 'utf8');
+      const parsed = JSON.parse(data || '[]');
+      if (Array.isArray(parsed)) return parsed;
+    }
+  } catch (e) {}
+  return [];
+}
+
+function savePaymentAttempts(attempts) {
+  try {
+    fs.writeFileSync(PAYMENT_ATTEMPTS_FILE, JSON.stringify(attempts.slice(0, 10000), null, 2), 'utf8');
+  } catch (e) {}
+}
+
+function getPaymentWebhooks() {
+  try {
+    if (fs.existsSync(PAYMENT_WEBHOOKS_FILE)) {
+      const data = fs.readFileSync(PAYMENT_WEBHOOKS_FILE, 'utf8');
+      const parsed = JSON.parse(data || '[]');
+      if (Array.isArray(parsed)) return parsed;
+    }
+  } catch (e) {}
+  return [];
+}
+
+function savePaymentWebhooks(webhooks) {
+  try {
+    fs.writeFileSync(PAYMENT_WEBHOOKS_FILE, JSON.stringify(webhooks.slice(0, 5000), null, 2), 'utf8');
+  } catch (e) {}
+}
+
+function getRefunds() {
+  try {
+    if (fs.existsSync(REFUNDS_FILE)) {
+      const data = fs.readFileSync(REFUNDS_FILE, 'utf8');
+      const parsed = JSON.parse(data || '[]');
+      if (Array.isArray(parsed)) return parsed;
+    }
+  } catch (e) {}
+  return [];
+}
+
+function saveRefunds(refunds) {
+  try {
+    fs.writeFileSync(REFUNDS_FILE, JSON.stringify(refunds.slice(0, 5000), null, 2), 'utf8');
+  } catch (e) {}
+}
+
+function getEntitlements() {
+  try {
+    if (fs.existsSync(ENTITLEMENTS_FILE)) {
+      const data = fs.readFileSync(ENTITLEMENTS_FILE, 'utf8');
+      const parsed = JSON.parse(data || '[]');
+      if (Array.isArray(parsed)) return parsed;
+    }
+  } catch (e) {}
+  return [];
+}
+
+function saveEntitlements(entitlements) {
+  try {
+    fs.writeFileSync(ENTITLEMENTS_FILE, JSON.stringify(entitlements.slice(0, 10000), null, 2), 'utf8');
+  } catch (e) {}
+}
+
+function getRazorpayAdapter() {
+  const keyId = process.env.RAZORPAY_KEY_ID || null;
+  const keySecret = process.env.RAZORPAY_KEY_SECRET || null;
+  const webhookSecret = process.env.RAZORPAY_WEBHOOK_SECRET || null;
+  const isTestMode = process.env.NODE_ENV !== 'production' || Boolean(keyId && keyId.startsWith('rzp_test_'));
+  return new RazorpayAdapter({ keyId, keySecret, webhookSecret, isTestMode });
+}
 
 // Ensure base directories exist
 if (!fs.existsSync(DATA_DIR)) fs.mkdirSync(DATA_DIR, { recursive: true });
@@ -329,6 +703,183 @@ function saveTemplateImages(images) {
   fs.writeFileSync(TEMPLATE_IMAGES_FILE, JSON.stringify(images, null, 2), 'utf8');
 }
 
+function getTemplateFamilies() {
+  try {
+    if (fs.existsSync(TEMPLATE_FAMILIES_FILE)) {
+      const data = fs.readFileSync(TEMPLATE_FAMILIES_FILE, 'utf8');
+      const parsed = JSON.parse(data || '[]');
+      if (Array.isArray(parsed) && parsed.length > 0) return parsed;
+    }
+  } catch (e) {}
+  return [];
+}
+
+function saveTemplateFamilies(families) {
+  fs.writeFileSync(TEMPLATE_FAMILIES_FILE, JSON.stringify(families, null, 2), 'utf8');
+}
+
+function getTemplateRelationships() {
+  try {
+    if (fs.existsSync(TEMPLATE_RELATIONSHIPS_FILE)) {
+      const data = fs.readFileSync(TEMPLATE_RELATIONSHIPS_FILE, 'utf8');
+      const parsed = JSON.parse(data || '[]');
+      if (Array.isArray(parsed) && parsed.length > 0) return parsed;
+    }
+  } catch (e) {}
+  return [];
+}
+
+function saveTemplateRelationships(rels) {
+  fs.writeFileSync(TEMPLATE_RELATIONSHIPS_FILE, JSON.stringify(rels, null, 2), 'utf8');
+}
+
+function getTemplateRelationshipVariants() {
+  try {
+    if (fs.existsSync(TEMPLATE_RELATIONSHIP_VARIANTS_FILE)) {
+      const data = fs.readFileSync(TEMPLATE_RELATIONSHIP_VARIANTS_FILE, 'utf8');
+      const parsed = JSON.parse(data || '[]');
+      if (Array.isArray(parsed) && parsed.length > 0) return parsed;
+    }
+  } catch (e) {}
+  return [];
+}
+
+function saveTemplateRelationshipVariants(variants) {
+  fs.writeFileSync(TEMPLATE_RELATIONSHIP_VARIANTS_FILE, JSON.stringify(variants, null, 2), 'utf8');
+}
+
+function getTemplateFields() {
+  try {
+    if (fs.existsSync(TEMPLATE_FIELDS_FILE)) {
+      const data = fs.readFileSync(TEMPLATE_FIELDS_FILE, 'utf8');
+      const parsed = JSON.parse(data || '[]');
+      if (Array.isArray(parsed) && parsed.length > 0) return parsed;
+    }
+  } catch (e) {}
+  return [];
+}
+
+function saveTemplateFields(fields) {
+  fs.writeFileSync(TEMPLATE_FIELDS_FILE, JSON.stringify(fields, null, 2), 'utf8');
+}
+
+function getTemplateMusic() {
+  try {
+    if (fs.existsSync(TEMPLATE_MUSIC_FILE)) {
+      const data = fs.readFileSync(TEMPLATE_MUSIC_FILE, 'utf8');
+      const parsed = JSON.parse(data || '[]');
+      if (Array.isArray(parsed) && parsed.length > 0) return parsed;
+    }
+  } catch (e) {}
+  return [];
+}
+
+function saveTemplateMusic(music) {
+  fs.writeFileSync(TEMPLATE_MUSIC_FILE, JSON.stringify(music, null, 2), 'utf8');
+}
+
+function getTemplateFiles() {
+  try {
+    if (fs.existsSync(TEMPLATE_FILES_FILE)) {
+      const data = fs.readFileSync(TEMPLATE_FILES_FILE, 'utf8');
+      const parsed = JSON.parse(data || '[]');
+      if (Array.isArray(parsed)) return parsed;
+    }
+  } catch (e) {}
+  return [];
+}
+
+function saveTemplateFiles(files) {
+  fs.writeFileSync(TEMPLATE_FILES_FILE, JSON.stringify(files, null, 2), 'utf8');
+}
+
+function getAdminAuditLogs() {
+  try {
+    if (fs.existsSync(ADMIN_AUDIT_LOGS_FILE)) {
+      const data = fs.readFileSync(ADMIN_AUDIT_LOGS_FILE, 'utf8');
+      const parsed = JSON.parse(data || '[]');
+      if (Array.isArray(parsed)) return parsed;
+    }
+  } catch (e) {}
+  return [];
+}
+
+function saveAdminAuditLogs(logs) {
+  fs.writeFileSync(ADMIN_AUDIT_LOGS_FILE, JSON.stringify(logs.slice(-2000), null, 2), 'utf8');
+}
+
+function getStorageQuarantine() {
+  try {
+    if (fs.existsSync(STORAGE_QUARANTINE_FILE)) {
+      const data = fs.readFileSync(STORAGE_QUARANTINE_FILE, 'utf8');
+      const parsed = JSON.parse(data || '[]');
+      if (Array.isArray(parsed)) return parsed;
+    }
+  } catch (e) {}
+  return [];
+}
+
+function saveStorageQuarantine(items) {
+  try {
+    fs.writeFileSync(STORAGE_QUARANTINE_FILE, JSON.stringify(items, null, 2), 'utf8');
+  } catch (e) {}
+}
+
+function getStorageCleanupJobs() {
+  try {
+    if (fs.existsSync(STORAGE_CLEANUP_JOBS_FILE)) {
+      const data = fs.readFileSync(STORAGE_CLEANUP_JOBS_FILE, 'utf8');
+      const parsed = JSON.parse(data || '[]');
+      if (Array.isArray(parsed)) return parsed;
+    }
+  } catch (e) {}
+  return [];
+}
+
+function saveStorageCleanupJobs(jobs) {
+  try {
+    fs.writeFileSync(STORAGE_CLEANUP_JOBS_FILE, JSON.stringify(jobs, null, 2), 'utf8');
+  } catch (e) {}
+}
+
+function getStorageHealthAudits() {
+  try {
+    if (fs.existsSync(STORAGE_HEALTH_AUDITS_FILE)) {
+      const data = fs.readFileSync(STORAGE_HEALTH_AUDITS_FILE, 'utf8');
+      const parsed = JSON.parse(data || '[]');
+      if (Array.isArray(parsed)) return parsed;
+    }
+  } catch (e) {}
+  return [];
+}
+
+function saveStorageHealthAudits(audits) {
+  try {
+    fs.writeFileSync(STORAGE_HEALTH_AUDITS_FILE, JSON.stringify(audits, null, 2), 'utf8');
+  } catch (e) {}
+}
+
+function logServerAdminAudit(actor, action, targetType, targetId, details = {}, req = null) {
+  try {
+    const logs = getAdminAuditLogs();
+    const id = `audit_${Date.now().toString(36)}_${Math.random().toString(36).substring(2, 8)}`;
+    const ip = req ? (req.headers['x-forwarded-for'] || req.socket?.remoteAddress || '127.0.0.1') : '127.0.0.1';
+    logs.unshift({
+      id,
+      actor_id: actor?.id || 'system',
+      actor_name: actor?.displayName || actor?.name || 'System Admin',
+      actor_role: actor?.role || 'admin',
+      action,
+      target_type: targetType,
+      target_id: targetId,
+      details,
+      ip_address: ip,
+      created_at: new Date().toISOString()
+    });
+    saveAdminAuditLogs(logs);
+  } catch (e) {}
+}
+
 function getTemplates() {
   try {
     if (fs.existsSync(TEMPLATES_FILE)) {
@@ -408,7 +959,12 @@ function buildCanonicalTemplateSnapshot(template, versionNumber = 1) {
     id: versionId,
     versionId,
     templateId: template.id,
+    template_id: template.id,
+    template_family_id: `fam_${template.id}`,
     versionNumber,
+    version_number: versionNumber,
+    versionLabel: `v${versionNumber}.0.0`,
+    version_label: `v${versionNumber}.0.0`,
     name: template.name || 'Magical Celebration Experience',
     description: template.description || 'A personalized celebration website with music and memories.',
     category: template.category || 'Birthday',
@@ -438,15 +994,23 @@ function buildCanonicalTemplateSnapshot(template, versionNumber = 1) {
     layout: template.layout || 'centered-immersive',
     animations: template.animations || 'Canvas Confetti + Sound + 3D Effects',
     defaultConfig: template.defaultConfig || template.detectedFields || {},
-    status: 'active',
-    createdAt: template.createdAt || new Date().toISOString()
+    status: 'published',
+    is_current: 1,
+    lock_version: 1,
+    file_count: 5,
+    entry_point: 'index.html',
+    integrity_status: 'verified',
+    published_at: new Date().toISOString(),
+    created_at: template.createdAt || new Date().toISOString()
   };
 }
 
 function getOrSeedTemplateVersion(templateId) {
   if (!templateId) return null;
   const versions = getTemplateVersions();
-  const found = versions.find(v => v.templateId === templateId && v.status === 'active');
+  const found = versions.find(v => (v.templateId === templateId || v.template_id === templateId) && v.is_current === 1) ||
+                versions.find(v => (v.templateId === templateId || v.template_id === templateId) && v.status === 'published') ||
+                versions.find(v => (v.templateId === templateId || v.template_id === templateId) && v.status === 'active');
   if (found) return found;
 
   const templates = getTemplates();
@@ -1676,46 +2240,876 @@ app.delete('/api/favorites/:itemId', (req, res) => {
   res.json({ success: true, removed: true, itemId });
 });
 
-// API: Entitlements & Production Payment Provider Abstraction
-app.get('/api/entitlements/status', (req, res) => {
-  const isPremium = Boolean(req.user && (req.user.isPremium || req.user.plan === 'VIP'));
+// ============================================================================
+// PART 32 — COMPLETE PRODUCTION PAYMENT & PREMIUM COMMERCE API ENDPOINTS
+// ============================================================================
+
+// API: Authoritative User Entitlements Evaluation
+app.get(['/api/entitlements/status', '/api/commerce/entitlements'], (req, res) => {
+  const user = req.user || null;
+  const templates = getTemplates();
+  const entitlements = getEntitlements();
+  const templateId = String(req.query.templateId || '').trim() || null;
+  const productId = String(req.query.productId || '').trim() || null;
+
+  const evaluation = evaluateUserEntitlement({
+    user,
+    productId,
+    templateId,
+    entitlements,
+    templates
+  });
+
+  const isVip = Boolean(evaluation.allowed && (evaluation.reason === 'VIP_PASS_ENTITLEMENT' || evaluation.reason === 'USER_VIP_PLAN' || evaluation.reason === 'ADMIN_PRIVILEGE'));
+
   res.json({
     success: true,
-    isPremium,
-    plan: isPremium ? 'VIP' : 'Free',
+    isPremium: isVip,
+    plan: isVip ? 'VIP' : (user ? 'Free' : 'Guest'),
+    evaluation,
     features: {
-      watermarkRemoval: isPremium,
-      unlimitedVIPWishes: isPremium,
-      customAudioUpload: isPremium,
-      prioritySupport: isPremium
+      watermarkRemoval: isVip,
+      unlimitedVIPWishes: isVip,
+      customAudioUpload: isVip,
+      prioritySupport: isVip,
+      permanentKeepsake: isVip
     }
   });
 });
 
-app.post('/api/entitlements/checkout', (req, res) => {
-  const providerConfigured = Boolean(process.env.RAZORPAY_KEY_ID || process.env.STRIPE_SECRET_KEY);
-  if (!providerConfigured) {
-    // Explicit truthful status
-    return res.json({
+// API: Create Commercial Checkout Session (Razorpay Integration)
+app.post(['/api/commerce/checkout', '/api/entitlements/checkout'], async (req, res) => {
+  try {
+    if (!req.user) {
+      return res.status(401).json({
+        success: false,
+        error: { code: COMMERCE_ERROR_CODES.UNAUTHORIZED, message: 'Authentication required to create a checkout session' }
+      });
+    }
+
+    const body = req.body || {};
+    const productId = body.productId || body.planId || (body.options && body.options.planId) || 'vip_pass';
+    const templateId = body.templateId || (body.options && body.options.templateId) || null;
+    const idempotencyKey = req.headers['idempotency-key'] || body.idempotencyKey || null;
+    const adapter = getRazorpayAdapter();
+
+    const orders = getOrders();
+    const orderItems = getOrderItems();
+    const paymentAttempts = getPaymentAttempts();
+    const entitlements = getEntitlements();
+    const templates = getTemplates();
+    const families = getTemplateFamilies();
+    const siteSettings = getServerWishLinkSettings();
+
+    // Check gateway configuration
+    if (!adapter.isConfigured()) {
+      const product = resolveAuthoritativeProduct({
+        productId,
+        templateId,
+        options: body.options || {},
+        templates,
+        families,
+        siteSettings
+      });
+
+      return res.status(200).json({
+        success: false,
+        status: 'provider_not_configured',
+        configured: false,
+        amount: product ? product.price : 0,
+        amountPaise: product ? product.amountPaise : 0,
+        currency: product ? product.currency : 'INR',
+        error: {
+          code: COMMERCE_ERROR_CODES.PAYMENT_PROVIDER_NOT_CONFIGURED,
+          message: 'Payment gateway (Razorpay) is not configured in server environment variables. Live checkout unavailable.'
+        },
+        product: product ? {
+          productId: product.productId,
+          productName: product.productName,
+          amountPaise: product.amountPaise,
+          priceDisplay: product.priceDisplay,
+          currency: product.currency
+        } : null
+      });
+    }
+
+    const session = await createCheckoutSession({
+      user: req.user,
+      productId,
+      templateId,
+      options: body.options || {},
+      idempotencyKey,
+      adapter,
+      stores: {
+        orders,
+        orderItems,
+        paymentAttempts,
+        entitlements,
+        templates,
+        families,
+        siteSettings
+      }
+    });
+
+    // Save changes
+    saveOrders(orders);
+    saveOrderItems(orderItems);
+    savePaymentAttempts(paymentAttempts);
+
+    res.status(session.isIdempotentReplay ? 200 : 201).json({
       success: true,
-      status: 'provider_not_configured',
-      message: 'Real payment gateway is not configured in environment variables. Sandbox checkout initialized.',
-      mode: 'sandbox',
-      checkoutUrl: null
+      status: 'checkout_created',
+      configured: true,
+      orderId: session.order.id,
+      providerOrderId: session.attempt?.providerOrderId || session.order.providerOrderId,
+      amountPaise: session.order.amount,
+      amountRupees: Math.round(session.order.amount / 100),
+      currency: session.order.currency,
+      keyId: session.keyId,
+      productName: session.item?.productName,
+      productType: session.item?.productType,
+      isIdempotentReplay: session.isIdempotentReplay
+    });
+  } catch (err) {
+    const status = err.status || 400;
+    res.status(status).json({
+      success: false,
+      error: {
+        code: err.code || 'CHECKOUT_ERROR',
+        message: err.message
+      }
+    });
+  }
+});
+
+// API: Secure Cryptographic Payment Verification & Order Finalization
+app.post('/api/commerce/verify', async (req, res) => {
+  try {
+    const body = req.body || {};
+    const { orderId, razorpayOrderId, razorpayPaymentId, razorpaySignature } = body;
+
+    if (!orderId && !razorpayOrderId) {
+      return res.status(400).json({
+        success: false,
+        error: { code: 'INVALID_INPUT', message: 'orderId or razorpayOrderId is required' }
+      });
+    }
+    if (!razorpayPaymentId || !razorpaySignature) {
+      return res.status(400).json({
+        success: false,
+        error: { code: 'INVALID_INPUT', message: 'razorpayPaymentId and razorpaySignature are required' }
+      });
+    }
+
+    const adapter = getRazorpayAdapter();
+    const orders = getOrders();
+    const orderItems = getOrderItems();
+    const paymentAttempts = getPaymentAttempts();
+    const entitlements = getEntitlements();
+    const auditLogs = getAdminAuditLogs();
+    const notifications = getNotifications();
+
+    const result = await verifyAndFinalizePayment({
+      orderId,
+      razorpayOrderId,
+      razorpayPaymentId,
+      razorpaySignature,
+      user: req.user,
+      adapter,
+      stores: {
+        orders,
+        orderItems,
+        paymentAttempts,
+        entitlements,
+        auditLogs,
+        notifications
+      }
+    });
+
+    saveOrders(orders);
+    savePaymentAttempts(paymentAttempts);
+    saveEntitlements(entitlements);
+    saveAdminAuditLogs(auditLogs);
+    saveNotifications(notifications);
+
+    res.json({
+      success: true,
+      status: 'PAID',
+      alreadyFinalized: result.alreadyFinalized,
+      order: {
+        id: result.order.id,
+        status: result.order.status,
+        amount: result.order.amount,
+        currency: result.order.currency,
+        plan: result.order.plan,
+        transactionId: result.order.transactionId,
+        verifiedAt: result.order.verifiedAt
+      },
+      entitlement: result.entitlement ? {
+        id: result.entitlement.id,
+        plan: result.entitlement.plan,
+        productId: result.entitlement.productId,
+        status: result.entitlement.status
+      } : null
+    });
+  } catch (err) {
+    res.status(err.status || 400).json({
+      success: false,
+      error: {
+        code: err.code || COMMERCE_ERROR_CODES.PAYMENT_VERIFICATION_FAILED,
+        message: err.message
+      }
+    });
+  }
+});
+
+// API: Gateway Webhook Processing (Raw HMAC verification & Idempotency)
+app.post('/api/commerce/webhook', async (req, res) => {
+  try {
+    const signature = req.headers['x-razorpay-signature'] || '';
+    const rawBody = req.rawBody || JSON.stringify(req.body || {});
+    const adapter = getRazorpayAdapter();
+
+    const orders = getOrders();
+    const orderItems = getOrderItems();
+    const paymentAttempts = getPaymentAttempts();
+    const paymentWebhooks = getPaymentWebhooks();
+    const entitlements = getEntitlements();
+    const auditLogs = getAdminAuditLogs();
+    const notifications = getNotifications();
+
+    const result = await processRazorpayWebhook({
+      rawBody,
+      signature,
+      adapter,
+      stores: {
+        orders,
+        orderItems,
+        paymentAttempts,
+        paymentWebhooks,
+        entitlements,
+        auditLogs,
+        notifications
+      }
+    });
+
+    saveOrders(orders);
+    savePaymentAttempts(paymentAttempts);
+    savePaymentWebhooks(paymentWebhooks);
+    saveEntitlements(entitlements);
+    saveAdminAuditLogs(auditLogs);
+    saveNotifications(notifications);
+
+    res.json({ success: true, ...result });
+  } catch (err) {
+    res.status(err.status || 400).json({
+      success: false,
+      error: { code: err.code || 'WEBHOOK_ERROR', message: err.message }
+    });
+  }
+});
+
+// API: User Order History (Authenticated Customer Orders)
+app.get('/api/commerce/orders', (req, res) => {
+  if (!req.user) {
+    return res.status(401).json({
+      success: false,
+      error: { code: COMMERCE_ERROR_CODES.UNAUTHORIZED, message: 'Authentication required' }
     });
   }
 
-  const orderId = 'ORD_' + Date.now().toString(36).toUpperCase();
+  const orders = getOrders();
+  const orderItems = getOrderItems();
+  const userOrders = orders.filter(o => o.userId === req.user.id || o.user_id === req.user.id);
+
+  // Pagination
+  const page = Math.max(1, parseInt(req.query.page) || 1);
+  const limit = Math.min(50, Math.max(1, parseInt(req.query.limit) || 10));
+  const offset = (page - 1) * limit;
+
+  // Enrich with item snapshot
+  const enriched = userOrders.map(o => {
+    const item = orderItems.find(i => i.orderId === o.id || i.order_id === o.id);
+    return {
+      id: o.id,
+      plan: o.plan,
+      productName: item?.productName || o.plan,
+      amountPaise: o.amount,
+      amountRupees: Math.round(o.amount / 100),
+      currency: o.currency,
+      status: o.status,
+      provider: o.provider,
+      transactionId: o.transactionId || o.transaction_id || null,
+      refundStatus: o.refundStatus || o.refund_status || 'NONE',
+      totalRefunded: o.totalRefunded || o.total_refunded || 0,
+      createdAt: o.createdAt || o.created_at,
+      verifiedAt: o.verifiedAt || o.verified_at
+    };
+  });
+
+  enriched.sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
+  const paginated = enriched.slice(offset, offset + limit);
+
   res.json({
     success: true,
-    status: 'ready',
-    orderId,
-    amount: 49,
-    currency: 'INR'
+    orders: paginated,
+    pagination: {
+      page,
+      limit,
+      totalCount: userOrders.length,
+      totalPages: Math.ceil(userOrders.length / limit)
+    }
   });
 });
 
-// API: Public Wish View (Strict Lifecycle & Privacy Enforcement)
+// API: User Single Order Details (IDOR Protected)
+app.get('/api/commerce/orders/:id', (req, res) => {
+  if (!req.user) {
+    return res.status(401).json({
+      success: false,
+      error: { code: COMMERCE_ERROR_CODES.UNAUTHORIZED, message: 'Authentication required' }
+    });
+  }
+
+  const orderId = req.params.id;
+  const orders = getOrders();
+  const order = orders.find(o => o.id === orderId);
+
+  if (!order) {
+    return res.status(404).json({
+      success: false,
+      error: { code: COMMERCE_ERROR_CODES.ORDER_NOT_FOUND, message: 'Order not found' }
+    });
+  }
+
+  // IDOR Protection
+  if (!isAuthoritativeAdmin(req.user) && order.userId !== req.user.id && order.user_id !== req.user.id) {
+    return res.status(403).json({
+      success: false,
+      error: { code: COMMERCE_ERROR_CODES.FORBIDDEN, message: 'Access denied to this order' }
+    });
+  }
+
+  const orderItems = getOrderItems();
+  const item = orderItems.find(i => i.orderId === order.id || i.order_id === order.id);
+  const paymentAttempts = getPaymentAttempts();
+  const attempts = paymentAttempts.filter(p => p.orderId === order.id || p.order_id === order.id);
+
+  res.json({
+    success: true,
+    order: {
+      id: order.id,
+      userId: order.userId || order.user_id,
+      plan: order.plan,
+      amountPaise: order.amount,
+      amountRupees: Math.round(order.amount / 100),
+      currency: order.currency,
+      status: order.status,
+      provider: order.provider,
+      providerOrderId: order.providerOrderId || order.provider_order_id,
+      transactionId: order.transactionId || order.transaction_id,
+      refundStatus: order.refundStatus || order.refund_status || 'NONE',
+      totalRefunded: order.totalRefunded || order.total_refunded || 0,
+      createdAt: order.createdAt || order.created_at,
+      verifiedAt: order.verifiedAt || order.verified_at,
+      item: item ? {
+        id: item.id,
+        productId: item.productId || item.product_id,
+        productName: item.productName || item.product_name,
+        productType: item.productType || item.product_type,
+        quantity: item.quantity,
+        unitPrice: item.unitPrice || item.unit_price
+      } : null,
+      paymentAttempts: attempts.map(a => ({
+        id: a.id,
+        status: a.status,
+        providerOrderId: a.providerOrderId || a.provider_order_id,
+        providerPaymentId: a.providerPaymentId || a.provider_payment_id,
+        signatureVerified: Boolean(a.signatureVerified || a.signature_verified),
+        createdAt: a.createdAt || a.created_at,
+        verifiedAt: a.verifiedAt || a.verified_at
+      }))
+    }
+  });
+});
+
+// API: Admin Orders Management (Filtered, Paginated, Real D1/JSON data)
+app.get('/api/admin/commerce/orders', (req, res) => {
+  if (!isAuthoritativeAdmin(req.user)) {
+    return res.status(403).json({
+      success: false,
+      error: { code: COMMERCE_ERROR_CODES.FORBIDDEN, message: 'Administrative rights required' }
+    });
+  }
+
+  const orders = getOrders();
+  const orderItems = getOrderItems();
+  const users = getUsers();
+
+  const statusFilter = String(req.query.status || '').trim().toUpperCase();
+  const searchQuery = String(req.query.q || '').trim().toLowerCase();
+
+  let filtered = orders.filter(o => {
+    if (statusFilter && o.status !== statusFilter) return false;
+    if (searchQuery) {
+      const matchId = (o.id || '').toLowerCase().includes(searchQuery);
+      const matchProv = (o.providerOrderId || o.provider_order_id || '').toLowerCase().includes(searchQuery);
+      const matchTx = (o.transactionId || o.transaction_id || '').toLowerCase().includes(searchQuery);
+      const matchUser = (o.userId || o.user_id || '').toLowerCase().includes(searchQuery);
+      if (!matchId && !matchProv && !matchTx && !matchUser) return false;
+    }
+    return true;
+  });
+
+  filtered.sort((a, b) => new Date(b.createdAt || b.created_at).getTime() - new Date(a.createdAt || a.created_at).getTime());
+
+  // Metrics
+  const totalRevenuePaise = orders
+    .filter(o => o.status === ORDER_STATUS.PAID)
+    .reduce((sum, o) => sum + (o.amount || 0), 0);
+  const totalRefundedPaise = orders
+    .reduce((sum, o) => sum + (o.totalRefunded || o.total_refunded || 0), 0);
+
+  const page = Math.max(1, parseInt(req.query.page) || 1);
+  const limit = Math.min(100, Math.max(1, parseInt(req.query.limit) || 15));
+  const offset = (page - 1) * limit;
+
+  const paginated = filtered.slice(offset, offset + limit).map(o => {
+    const item = orderItems.find(i => i.orderId === o.id || i.order_id === o.id);
+    const customer = users.find(u => u.id === (o.userId || o.user_id));
+    return {
+      id: o.id,
+      userId: o.userId || o.user_id,
+      customerEmail: customer?.email || 'customer@wishmagic.live',
+      customerName: customer?.displayName || customer?.display_name || 'Customer',
+      plan: o.plan,
+      productName: item?.productName || o.plan,
+      amountPaise: o.amount,
+      amountRupees: Math.round(o.amount / 100),
+      currency: o.currency,
+      status: o.status,
+      provider: o.provider,
+      providerOrderId: o.providerOrderId || o.provider_order_id,
+      transactionId: o.transactionId || o.transaction_id,
+      refundStatus: o.refundStatus || o.refund_status || 'NONE',
+      totalRefunded: o.totalRefunded || o.total_refunded || 0,
+      createdAt: o.createdAt || o.created_at,
+      verifiedAt: o.verifiedAt || o.verified_at
+    };
+  });
+
+  res.json({
+    success: true,
+    orders: paginated,
+    metrics: {
+      totalOrders: orders.length,
+      paidOrders: orders.filter(o => o.status === ORDER_STATUS.PAID).length,
+      pendingOrders: orders.filter(o => o.status === ORDER_STATUS.PENDING).length,
+      refundedOrders: orders.filter(o => o.status === ORDER_STATUS.REFUNDED || o.status === ORDER_STATUS.PARTIALLY_REFUNDED).length,
+      totalRevenueRupees: Math.round(totalRevenuePaise / 100),
+      totalRefundedRupees: Math.round(totalRefundedPaise / 100),
+      netRevenueRupees: Math.round((totalRevenuePaise - totalRefundedPaise) / 100)
+    },
+    pagination: {
+      page,
+      limit,
+      totalCount: filtered.length,
+      totalPages: Math.ceil(filtered.length / limit)
+    }
+  });
+});
+
+// API: Admin Order Detail with Full Timeline & Payment Attempts
+app.get('/api/admin/commerce/orders/:id', (req, res) => {
+  if (!isAuthoritativeAdmin(req.user)) {
+    return res.status(403).json({
+      success: false,
+      error: { code: COMMERCE_ERROR_CODES.FORBIDDEN, message: 'Administrative rights required' }
+    });
+  }
+
+  const orderId = req.params.id;
+  const orders = getOrders();
+  const order = orders.find(o => o.id === orderId);
+
+  if (!order) {
+    return res.status(404).json({
+      success: false,
+      error: { code: COMMERCE_ERROR_CODES.ORDER_NOT_FOUND, message: 'Order not found' }
+    });
+  }
+
+  const orderItems = getOrderItems();
+  const item = orderItems.find(i => i.orderId === order.id || i.order_id === order.id);
+  const paymentAttempts = getPaymentAttempts();
+  const attempts = paymentAttempts.filter(p => p.orderId === order.id || p.order_id === order.id);
+  const refunds = getRefunds();
+  const orderRefunds = refunds.filter(r => r.orderId === order.id || r.order_id === order.id);
+  const entitlements = getEntitlements();
+  const activeEnt = entitlements.find(e => (e.orderId === order.id || e.order_id === order.id) && e.status === 'active');
+  const users = getUsers();
+  const customer = users.find(u => u.id === (order.userId || order.user_id));
+
+  res.json({
+    success: true,
+    order: {
+      ...order,
+      amountRupees: Math.round(order.amount / 100),
+      customer: customer ? {
+        id: customer.id,
+        email: customer.email,
+        displayName: customer.displayName || customer.display_name
+      } : null,
+      item,
+      attempts,
+      refunds: orderRefunds,
+      entitlement: activeEnt
+    }
+  });
+});
+
+// API: Admin Refund Execution
+app.post('/api/admin/commerce/orders/:id/refund', async (req, res) => {
+  try {
+    if (!isAuthoritativeAdmin(req.user)) {
+      return res.status(403).json({
+        success: false,
+        error: { code: COMMERCE_ERROR_CODES.FORBIDDEN, message: 'Administrative rights required' }
+      });
+    }
+
+    const orderId = req.params.id;
+    const { amountPaise, reason } = req.body || {};
+    const adapter = getRazorpayAdapter();
+
+    const orders = getOrders();
+    const paymentAttempts = getPaymentAttempts();
+    const refunds = getRefunds();
+    const entitlements = getEntitlements();
+    const auditLogs = getAdminAuditLogs();
+
+    const result = await processAdminRefund({
+      orderId,
+      amountPaise,
+      reason: reason || 'Customer Refund Request',
+      actor: req.user,
+      adapter,
+      stores: {
+        orders,
+        paymentAttempts,
+        refunds,
+        entitlements,
+        auditLogs
+      }
+    });
+
+    saveOrders(orders);
+    saveRefunds(refunds);
+    saveEntitlements(entitlements);
+    saveAdminAuditLogs(auditLogs);
+
+    res.json({
+      success: true,
+      message: result.isFullRefund ? 'Order fully refunded and entitlement revoked' : 'Order partially refunded',
+      refund: result.refund,
+      order: {
+        id: result.order.id,
+        status: result.order.status,
+        totalRefunded: result.order.totalRefunded
+      }
+    });
+  } catch (err) {
+    res.status(err.status || 400).json({
+      success: false,
+      error: { code: err.code || 'REFUND_FAILED', message: err.message }
+    });
+  }
+});
+
+// API: Admin Trigger Bounded Reconciliation
+app.post('/api/admin/commerce/reconcile', async (req, res) => {
+  try {
+    if (!isAuthoritativeAdmin(req.user)) {
+      return res.status(403).json({
+        success: false,
+        error: { code: COMMERCE_ERROR_CODES.FORBIDDEN, message: 'Administrative rights required' }
+      });
+    }
+
+    const adapter = getRazorpayAdapter();
+    const orders = getOrders();
+    const orderItems = getOrderItems();
+    const paymentAttempts = getPaymentAttempts();
+    const entitlements = getEntitlements();
+    const auditLogs = getAdminAuditLogs();
+    const notifications = getNotifications();
+
+    const result = await reconcileUnresolvedOrders({
+      adapter,
+      batchSize: 20,
+      stores: {
+        orders,
+        orderItems,
+        paymentAttempts,
+        entitlements,
+        auditLogs,
+        notifications
+      }
+    });
+
+    saveOrders(orders);
+    savePaymentAttempts(paymentAttempts);
+    saveEntitlements(entitlements);
+
+    res.json({ success: true, reconciliation: result });
+  } catch (err) {
+    res.status(500).json({ success: false, error: { code: 'RECONCILIATION_ERROR', message: err.message } });
+  }
+});
+
+// API: Admin Payment Provider Health Diagnostic
+app.get('/api/admin/commerce/health', (req, res) => {
+  if (!isAuthoritativeAdmin(req.user)) {
+    return res.status(403).json({
+      success: false,
+      error: { code: COMMERCE_ERROR_CODES.FORBIDDEN, message: 'Administrative rights required' }
+    });
+  }
+
+  const adapter = getRazorpayAdapter();
+  res.json({
+    success: true,
+    provider: PAYMENT_PROVIDERS.RAZORPAY,
+    isConfigured: adapter.isConfigured(),
+    keyIdSet: Boolean(adapter.keyId),
+    keySecretSet: Boolean(adapter.keySecret),
+    webhookSecretSet: Boolean(adapter.webhookSecret),
+    isTestMode: adapter.isTestMode,
+    currency: 'INR',
+    message: adapter.isConfigured()
+      ? 'Razorpay payment gateway configured and ready for production transactions.'
+      : 'Payment gateway not configured. Set RAZORPAY_KEY_ID & RAZORPAY_KEY_SECRET in environment.'
+  });
+});
+
+// ============================================================================
+// PART 33: COMPLETE PRODUCTION ANALYTICS & BUSINESS INTELLIGENCE API
+// ============================================================================
+
+function getBiDatasets() {
+  const users = getUsers();
+  const wishes = getWishes();
+  const orders = getOrders();
+  const orderItems = getOrderItems();
+  const refunds = getRefunds();
+  const templates = getTemplates();
+  const families = getTemplateFamilies();
+  const variants = getTemplateRelationshipVariants();
+  const events = [...getEvents(), ...getAnalyticsEvents()];
+  return { users, wishes, orders, orderItems, refunds, templates, families, variants, events };
+}
+
+// 1. Executive Overview KPI API
+app.get('/api/admin/analytics/overview', (req, res) => {
+  if (!isAuthoritativeAdmin(req.user)) {
+    return res.status(403).json({ success: false, error: { code: 'FORBIDDEN', message: 'Administrative access required' } });
+  }
+
+  try {
+    const range = req.query.range || '30d';
+    const customStart = req.query.start || null;
+    const customEnd = req.query.end || null;
+    const dateBounds = getDateRangeBounds(range, customStart, customEnd);
+    const datasets = getBiDatasets();
+
+    const overview = calculateExecutiveOverview({
+      users: datasets.users,
+      wishes: datasets.wishes,
+      orders: datasets.orders,
+      refunds: datasets.refunds,
+      events: datasets.events,
+      dateBounds
+    });
+
+    res.json({ success: true, ...overview });
+  } catch (err) {
+    res.status(err.code === 'INVALID_DATE_RANGE' || err.code === 'RANGE_EXCEEDED' ? 400 : 500).json({
+      success: false,
+      error: { code: err.code || 'ANALYTICS_ERROR', message: err.message }
+    });
+  }
+});
+
+// 2. User Growth Analytics API
+app.get('/api/admin/analytics/users', (req, res) => {
+  if (!isAuthoritativeAdmin(req.user)) {
+    return res.status(403).json({ success: false, error: { code: 'FORBIDDEN', message: 'Administrative access required' } });
+  }
+
+  try {
+    const range = req.query.range || '30d';
+    const customStart = req.query.start || null;
+    const customEnd = req.query.end || null;
+    const dateBounds = getDateRangeBounds(range, customStart, customEnd);
+    const users = getUsers();
+
+    const result = calculateUserAnalytics({ users, dateBounds });
+    res.json({ success: true, dateRange: dateBounds, ...result });
+  } catch (err) {
+    res.status(400).json({ success: false, error: { code: err.code || 'ANALYTICS_ERROR', message: err.message } });
+  }
+});
+
+// 3. Wish Funnel & Lifecycle Analytics API
+app.get('/api/admin/analytics/funnel', (req, res) => {
+  if (!isAuthoritativeAdmin(req.user)) {
+    return res.status(403).json({ success: false, error: { code: 'FORBIDDEN', message: 'Administrative access required' } });
+  }
+
+  try {
+    const range = req.query.range || '30d';
+    const customStart = req.query.start || null;
+    const customEnd = req.query.end || null;
+    const dateBounds = getDateRangeBounds(range, customStart, customEnd);
+    const datasets = getBiDatasets();
+
+    const result = calculateWishFunnel({
+      events: datasets.events,
+      wishes: datasets.wishes,
+      dateBounds
+    });
+    res.json({ success: true, dateRange: dateBounds, ...result });
+  } catch (err) {
+    res.status(400).json({ success: false, error: { code: err.code || 'ANALYTICS_ERROR', message: err.message } });
+  }
+});
+
+// 4. Template Marketplace Performance API
+app.get('/api/admin/analytics/templates', (req, res) => {
+  if (!isAuthoritativeAdmin(req.user)) {
+    return res.status(403).json({ success: false, error: { code: 'FORBIDDEN', message: 'Administrative access required' } });
+  }
+
+  try {
+    const range = req.query.range || '30d';
+    const customStart = req.query.start || null;
+    const customEnd = req.query.end || null;
+    const dateBounds = getDateRangeBounds(range, customStart, customEnd);
+    const datasets = getBiDatasets();
+
+    const result = calculateTemplatePerformance({
+      templates: datasets.templates,
+      families: datasets.families,
+      variants: datasets.variants,
+      wishes: datasets.wishes,
+      orders: datasets.orders,
+      orderItems: datasets.orderItems,
+      events: datasets.events,
+      dateBounds
+    });
+    res.json({ success: true, dateRange: dateBounds, ...result });
+  } catch (err) {
+    res.status(400).json({ success: false, error: { code: err.code || 'ANALYTICS_ERROR', message: err.message } });
+  }
+});
+
+// 5. Payment & Revenue Analytics API
+app.get('/api/admin/analytics/revenue', (req, res) => {
+  if (!isAuthoritativeAdmin(req.user)) {
+    return res.status(403).json({ success: false, error: { code: 'FORBIDDEN', message: 'Administrative access required' } });
+  }
+
+  try {
+    const range = req.query.range || '30d';
+    const customStart = req.query.start || null;
+    const customEnd = req.query.end || null;
+    const dateBounds = getDateRangeBounds(range, customStart, customEnd);
+    const datasets = getBiDatasets();
+
+    const result = calculateRevenueAnalytics({
+      orders: datasets.orders,
+      orderItems: datasets.orderItems,
+      refunds: datasets.refunds,
+      dateBounds
+    });
+    res.json({ success: true, dateRange: dateBounds, ...result });
+  } catch (err) {
+    res.status(400).json({ success: false, error: { code: err.code || 'ANALYTICS_ERROR', message: err.message } });
+  }
+});
+
+// 6. Safe CSV Export API
+app.get('/api/admin/analytics/export', (req, res) => {
+  if (!isAuthoritativeAdmin(req.user)) {
+    return res.status(403).json({ success: false, error: { code: 'FORBIDDEN', message: 'Administrative access required' } });
+  }
+
+  try {
+    const reportType = String(req.query.type || 'wishes').toLowerCase();
+    const range = req.query.range || '30d';
+    const customStart = req.query.start || null;
+    const customEnd = req.query.end || null;
+    const dateBounds = getDateRangeBounds(range, customStart, customEnd);
+    const datasets = getBiDatasets();
+
+    let exportData = [];
+    if (reportType === 'wishes') {
+      exportData = datasets.wishes.filter(w => {
+        const t = new Date(w.created_at || w.createdAt || 0).getTime();
+        return t >= dateBounds.startMs && t <= dateBounds.endMs;
+      });
+    } else if (reportType === 'revenue') {
+      const rev = calculateRevenueAnalytics({
+        orders: datasets.orders,
+        orderItems: datasets.orderItems,
+        refunds: datasets.refunds,
+        dateBounds
+      });
+      exportData = rev.timeSeries;
+    } else if (reportType === 'templates') {
+      const tpl = calculateTemplatePerformance({
+        templates: datasets.templates,
+        families: datasets.families,
+        variants: datasets.variants,
+        wishes: datasets.wishes,
+        orders: datasets.orders,
+        orderItems: datasets.orderItems,
+        events: datasets.events,
+        dateBounds
+      });
+      exportData = tpl.rankingTable;
+    } else if (reportType === 'users') {
+      exportData = datasets.users.filter(u => {
+        const t = new Date(u.created_at || u.createdAt || 0).getTime();
+        return t >= dateBounds.startMs && t <= dateBounds.endMs;
+      });
+    } else if (reportType === 'funnel') {
+      const fun = calculateWishFunnel({
+        events: datasets.events,
+        wishes: datasets.wishes,
+        dateBounds
+      });
+      exportData = fun.stages;
+    }
+
+    const csvContent = generateSafeCsv({ reportType, data: exportData });
+
+    // Audit log entry
+    createAuditLogEntry({
+      action: 'EXPORT_ANALYTICS_REPORT',
+      actor: req.user,
+      targetType: 'ANALYTICS_REPORT',
+      targetId: reportType,
+      details: { range, rowCount: exportData.length }
+    });
+
+    res.setHeader('Content-Type', 'text/csv; charset=utf-8');
+    res.setHeader('Content-Disposition', `attachment; filename="wishmagic-${reportType}-${range}-${Date.now()}.csv"`);
+    res.send(csvContent);
+  } catch (err) {
+    res.status(400).json({ success: false, error: { code: err.code || 'EXPORT_ERROR', message: err.message } });
+  }
+});
 app.get('/api/public/wishes/:slug', (req, res) => {
   const query = (req.params.slug || '').trim();
   const wishes = getWishes();
@@ -1804,6 +3198,26 @@ app.get('/api/templates', (req, res) => {
       const matchCat = (t.category || '').toLowerCase() === catLower;
       const matchRel = Array.isArray(t.relationships) && t.relationships.some(r => r.toLowerCase() === catLower);
       return matchCat || matchRel;
+    });
+  }
+
+  // Part 27: Filter by Supported Relationship (D1 template_relationships mapping)
+  const relFilter = (req.query.relationship || '').toLowerCase().trim();
+  if (relFilter && relFilter !== 'all') {
+    const allRels = getRelationships();
+    const targetRel = allRels.find(r => r.slug.toLowerCase() === relFilter || r.id.toLowerCase() === relFilter || r.name.toLowerCase() === relFilter);
+    const targetRelId = targetRel ? targetRel.id : relFilter;
+    const targetRelSlug = targetRel ? targetRel.slug.toLowerCase() : relFilter;
+    const tRels = getTemplateRelationships();
+    const enabledTplIds = new Set(
+      tRels.filter(tr => tr.enabled && (tr.relationship_id === targetRelId || (targetRel && tr.relationship_id === targetRel.id))).map(tr => tr.template_id)
+    );
+    templates = templates.filter(t => {
+      if (enabledTplIds.has(t.id)) return true;
+      if (Array.isArray(t.relationships)) {
+        return t.relationships.some(r => r.toLowerCase().includes(targetRelSlug) || (targetRel && r.toLowerCase().includes(targetRel.name.toLowerCase())));
+      }
+      return false;
     });
   }
 
@@ -2068,59 +3482,606 @@ app.get('/api/templates/:id/versions/:versionId/preview/*', async (req, res) => 
   }
 });
 
-// Part 20: Template Version Publish Route
-app.post('/api/templates/:id/versions/:versionId/publish', (req, res) => {
+// ============================================================================
+// PART 28: TEMPLATE VERSION CONTROL, RELEASE PIPELINE & ROLLBACK APIS
+// ============================================================================
+
+// 1. Version Comparison API (must be defined before :versionId to prevent route collision)
+app.get('/api/templates/:id/versions/compare', (req, res) => {
   try {
-    const { id, versionId } = req.params;
-    const nowIso = new Date().toISOString();
+    const { id } = req.params;
+    const { v1, v2 } = req.query;
+    if (!v1 || !v2) {
+      return res.status(400).json({ success: false, message: 'Both v1 and v2 version IDs are required for comparison.' });
+    }
+
     const versions = getTemplateVersions();
-    const targetVer = versions.find(v => v.id === versionId);
-    if (!targetVer) {
-      return res.status(404).json({ success: false, message: 'Version not found' });
+    const verA = versions.find(v => (v.id === v1 || v.versionId === v1) && (v.templateId === id || v.template_id === id));
+    const verB = versions.find(v => (v.id === v2 || v.versionId === v2) && (v.templateId === id || v.template_id === id));
+
+    if (!verA || !verB) {
+      return res.status(404).json({ success: false, message: 'One or both versions not found for template.' });
     }
 
-    // Archive old published versions
-    versions.forEach(v => {
-      if (v.templateId === id && v.status === 'published') {
-        v.status = 'archived';
-        v.archivedAt = nowIso;
-      }
-    });
+    const allFiles = getTemplateFiles();
+    const filesA = allFiles.filter(f => f.template_version_id === verA.id);
+    const filesB = allFiles.filter(f => f.template_version_id === verB.id);
 
-    targetVer.status = 'published';
-    targetVer.publishedAt = nowIso;
-    saveTemplateVersions(versions);
+    const comparison = compareTemplateVersions(verA, verB, { filesA, filesB });
+    res.json({ success: true, templateId: id, comparison });
+  } catch (err) {
+    res.status(500).json({ success: false, message: err.message });
+  }
+});
 
-    // Update template
+// 2. List Template Versions
+app.get('/api/templates/:id/versions', (req, res) => {
+  try {
+    const { id } = req.params;
+    const versions = getTemplateVersions().filter(v => v.templateId === id || v.template_id === id);
+    
+    // Sort versions by version_number DESC
+    const sorted = versions.sort((a, b) => (Number(b.version_number || b.versionNumber) || 0) - (Number(a.version_number || a.versionNumber) || 0));
+
+    // Normalize version objects for client
+    const normalized = sorted.map(v => ({
+      id: v.id,
+      template_id: v.templateId || v.template_id,
+      template_family_id: v.template_family_id || `fam_${id}`,
+      version_number: v.version_number || v.versionNumber || 1,
+      version_label: v.version_label || v.versionLabel || `v${v.version_number || v.versionNumber || 1}.0.0`,
+      name: v.name,
+      status: v.status || (v.is_current ? 'published' : 'archived'),
+      is_current: v.is_current !== undefined ? v.is_current : (v.status === 'published' ? 1 : 0),
+      file_count: v.file_count || 5,
+      total_size_bytes: v.total_size_bytes || 0,
+      entry_point: v.entry_point || 'index.html',
+      integrity_status: v.integrity_status || 'verified',
+      release_notes: v.release_notes || '',
+      lock_version: v.lock_version || 1,
+      published_at: v.published_at || v.publishedAt || null,
+      created_at: v.created_at || v.createdAt
+    }));
+
+    res.json({ success: true, templateId: id, versions: normalized, total: normalized.length });
+  } catch (err) {
+    res.status(500).json({ success: false, message: err.message, versions: [] });
+  }
+});
+
+// 3. Create New Version (Branch from Existing or New Draft)
+app.post('/api/templates/:id/versions', (req, res) => {
+  try {
+    const isAdmin = Boolean(req.user && (req.user.role === 'admin' || req.user.isAdmin));
+    if (!isAdmin) {
+      return res.status(403).json({ success: false, error: { code: 'FORBIDDEN', message: 'Admin role required.' } });
+    }
+
+    const { id: templateId } = req.params;
     const templates = getTemplates();
-    const t = templates.find(item => item.id === id);
-    if (t) {
-      t.status = 'published';
-      t.isPublished = true;
-      t.currentVersionId = versionId;
-      t.updatedAt = nowIso;
-      saveTemplates(templates);
+    const template = templates.find(t => t.id === templateId || t.slug === templateId);
+    if (!template) return res.status(404).json({ success: false, message: 'Template not found' });
+
+    const body = req.body || {};
+    const existingVersions = getTemplateVersions().filter(v => v.templateId === template.id || v.template_id === template.id);
+    const nextVer = generateNextVersion(existingVersions, body.bumpType || 'minor');
+
+    const newVersionNumber = nextVer.versionNumber;
+    const newVersionLabel = body.versionLabel && isValidVersionLabel(body.versionLabel) ? body.versionLabel.trim() : nextVer.versionLabel;
+    const newVersionId = `tv_${template.id}_v${newVersionNumber}`;
+    const nowIso = new Date().toISOString();
+
+    // Source version to duplicate from (if specified or default to active)
+    const sourceVerId = body.sourceVersionId || body.duplicateFromVersionId;
+    const sourceVer = sourceVerId ? existingVersions.find(v => v.id === sourceVerId) : (existingVersions.find(v => v.is_current === 1) || existingVersions[0]);
+
+    const newVersion = {
+      id: newVersionId,
+      versionId: newVersionId,
+      templateId: template.id,
+      template_id: template.id,
+      template_family_id: `fam_${template.id}`,
+      versionNumber: newVersionNumber,
+      version_number: newVersionNumber,
+      versionLabel: newVersionLabel,
+      version_label: newVersionLabel,
+      name: body.name || (sourceVer ? `${sourceVer.name} (${newVersionLabel})` : template.name),
+      description: body.description || (sourceVer ? sourceVer.description : template.description),
+      category: template.category,
+      tier: template.tier,
+      price: template.price,
+      isPremium: template.isPremium,
+      thumbnail: template.thumbnail || template.previewImage,
+      theme: sourceVer?.theme || template.theme,
+      sections: sourceVer?.sections || template.sections,
+      capabilities: sourceVer?.capabilities || template.capabilities,
+      layout: sourceVer?.layout || template.layout,
+      animations: sourceVer?.animations || template.animations,
+      defaultConfig: sourceVer?.defaultConfig || template.detectedFields || [],
+      status: VERSION_LIFECYCLE_STATUS.DRAFT,
+      is_current: 0,
+      lock_version: 1,
+      file_count: sourceVer?.file_count || 5,
+      total_size_bytes: sourceVer?.total_size_bytes || 0,
+      entry_point: sourceVer?.entry_point || 'index.html',
+      integrity_status: 'unverified',
+      release_notes: body.releaseNotes || body.release_notes || `Draft version ${newVersionLabel}`,
+      created_by: req.user?.displayName || req.user?.name || 'admin',
+      created_at: nowIso,
+      updated_at: nowIso
+    };
+
+    const allVersions = getTemplateVersions();
+    allVersions.push(newVersion);
+    saveTemplateVersions(allVersions);
+
+    // Copy template_files inventory to new version if branching
+    if (sourceVer) {
+      const allFiles = getTemplateFiles();
+      const sourceFiles = allFiles.filter(f => f.template_version_id === sourceVer.id);
+      sourceFiles.forEach(f => {
+        allFiles.push({
+          ...f,
+          id: `tf_${newVersionId}_${Date.now().toString(36)}_${Math.random().toString(36).substring(2, 6)}`,
+          template_version_id: newVersionId,
+          created_at: nowIso
+        });
+      });
+      saveTemplateFiles(allFiles);
     }
 
-    res.json({
+    logServerAdminAudit(req.user, 'VERSION_CREATED', 'template_version', newVersion.id, { templateId: template.id, versionLabel: newVersionLabel }, req);
+
+    res.status(201).json({
       success: true,
-      published: true,
-      templateId: id,
-      versionId,
-      publishedAt: nowIso,
-      message: `Version ${versionId} is now published and active.`
+      message: `Version ${newVersionLabel} (${newVersion.id}) created as Draft.`,
+      version: newVersion
     });
   } catch (err) {
     res.status(500).json({ success: false, message: err.message });
   }
 });
 
-// Part 20: List Template Versions Route
-app.get('/api/templates/:id/versions', (req, res) => {
+// 4. Get Version Detail
+app.get('/api/templates/:id/versions/:versionId', (req, res) => {
   try {
-    const { id } = req.params;
-    const versions = getTemplateVersions().filter(v => v.templateId === id || v.template_id === id);
-    res.json({ success: true, templateId: id, versions });
+    const { id, versionId } = req.params;
+    const versions = getTemplateVersions();
+    const version = versions.find(v => (v.id === versionId || v.versionId === versionId) && (v.templateId === id || v.template_id === id));
+    if (!version) return res.status(404).json({ success: false, message: 'Version not found' });
+
+    const allFiles = getTemplateFiles();
+    const files = allFiles.filter(f => f.template_version_id === version.id);
+    const images = getTemplateImages().filter(img => img.template_version_id === version.id && img.status !== 'archived');
+    const music = getTemplateMusic().filter(m => m.template_version_id === version.id);
+    const variants = getTemplateRelationshipVariants().filter(v => v.template_version_id === version.id);
+    const relationships = getTemplateRelationships().filter(r => r.template_id === id);
+
+    let validationReport = {};
+    try { validationReport = JSON.parse(version.validation_report_json || '{}'); } catch (e) {}
+
+    res.json({
+      success: true,
+      templateId: id,
+      version: {
+        ...version,
+        validation_report: validationReport
+      },
+      files,
+      images,
+      music,
+      variants,
+      relationships
+    });
+  } catch (err) {
+    res.status(500).json({ success: false, message: err.message });
+  }
+});
+
+// 5. Get Version Verified Files Inventory
+app.get('/api/templates/:id/versions/:versionId/files', (req, res) => {
+  try {
+    const { id, versionId } = req.params;
+    const allFiles = getTemplateFiles();
+    const files = allFiles.filter(f => f.template_version_id === versionId);
+    res.json({ success: true, templateId: id, versionId, files, total: files.length });
+  } catch (err) {
+    res.status(500).json({ success: false, message: err.message, files: [] });
+  }
+});
+
+// 6. Version Specific Relationship Resolver (Preview exact version + relationship)
+app.get('/api/templates/:id/versions/:versionId/resolver', (req, res) => {
+  try {
+    const { id, versionId } = req.params;
+    const templates = getTemplates();
+    const template = templates.find(t => t.id === id || t.slug === id);
+    if (!template) return res.status(404).json({ success: false, message: 'Template not found' });
+
+    const versions = getTemplateVersions();
+    const targetVersion = versions.find(v => (v.id === versionId || v.versionId === versionId) && (v.templateId === id || v.template_id === id));
+    if (!targetVersion) return res.status(404).json({ success: false, message: 'Version not found' });
+
+    const relQuery = req.query.relationship || req.query.relationshipId || req.query.rel || 'general';
+    const rels = getRelationships();
+    const targetRel = rels.find(r => r.slug.toLowerCase() === relQuery.toLowerCase() || r.id === relQuery) || rels[0];
+
+    const allVariants = getTemplateRelationshipVariants();
+    const variant = allVariants.find(v => (v.template_version_id === targetVersion.id || v.template_id === template.id) && (v.relationship_id === targetRel.id || v.relationship_slug === targetRel.slug) && v.is_latest !== 0) || null;
+
+    const templateImages = getTemplateImages().filter(img => img.template_version_id === targetVersion.id || img.template_id === template.id);
+    const musicLibrary = getMusicLibrary();
+
+    const resolved = resolveVariantHierarchy({
+      template,
+      templateVersion: targetVersion,
+      variant,
+      relationships: rels,
+      templateImages,
+      musicLibrary
+    });
+
+    res.json({ success: true, resolved, versionId: targetVersion.id });
+  } catch (err) {
+    res.status(500).json({ success: false, message: err.message });
+  }
+});
+
+// 7. Validate Version for Release (17-point server-side check)
+app.post('/api/templates/:id/versions/:versionId/validate', (req, res) => {
+  try {
+    const isAdmin = Boolean(req.user && (req.user.role === 'admin' || req.user.isAdmin));
+    if (!isAdmin) {
+      return res.status(403).json({ success: false, error: { code: 'FORBIDDEN', message: 'Admin role required.' } });
+    }
+
+    const { id, versionId } = req.params;
+    const versions = getTemplateVersions();
+    const targetVer = versions.find(v => (v.id === versionId || v.versionId === versionId) && (v.templateId === id || v.template_id === id));
+    if (!targetVer) return res.status(404).json({ success: false, message: 'Version not found' });
+
+    const allFiles = getTemplateFiles();
+    const files = allFiles.filter(f => f.template_version_id === targetVer.id);
+    const relationships = getTemplateRelationships().filter(r => r.template_id === id);
+    const variants = getTemplateRelationshipVariants().filter(v => v.template_version_id === targetVer.id);
+    const images = getTemplateImages().filter(img => img.template_version_id === targetVer.id && img.status !== 'archived');
+    const musicLibrary = getMusicLibrary();
+    const templates = getTemplates();
+    const template = templates.find(t => t.id === id);
+
+    let manifest = null;
+    try { manifest = JSON.parse(targetVer.manifest_json || '{}'); } catch (e) {}
+    if (!manifest || Object.keys(manifest).length === 0) {
+      manifest = { entryPoint: targetVer.entry_point || 'index.html', capabilities: targetVer.capabilities, files };
+    }
+
+    const validation = validateTemplateVersionForRelease(targetVer, {
+      files,
+      manifest,
+      relationships,
+      variants,
+      images,
+      musicLibrary,
+      template
+    });
+
+    targetVer.status = validation.valid ? VERSION_LIFECYCLE_STATUS.READY : VERSION_LIFECYCLE_STATUS.FAILED;
+    targetVer.validation_report_json = JSON.stringify(validation);
+    saveTemplateVersions(versions);
+
+    logServerAdminAudit(req.user, 'VERSION_VALIDATED', 'template_version', targetVer.id, { valid: validation.valid, errorsCount: validation.errors.length }, req);
+
+    res.json({
+      success: true,
+      valid: validation.valid,
+      status: targetVer.status,
+      checklist: validation.checklist,
+      errors: validation.errors,
+      warnings: validation.warnings
+    });
+  } catch (err) {
+    res.status(500).json({ success: false, message: err.message });
+  }
+});
+
+// 8. Publish Version (Atomic Release with Re-validation & Idempotency)
+app.post('/api/templates/:id/versions/:versionId/publish', (req, res) => {
+  try {
+    const isAdmin = Boolean(req.user && (req.user.role === 'admin' || req.user.isAdmin));
+    if (!isAdmin) {
+      return res.status(403).json({ success: false, error: { code: 'FORBIDDEN', message: 'Admin role required.' } });
+    }
+
+    const { id, versionId } = req.params;
+    const body = req.body || {};
+    const lockVersion = body.lockVersion !== undefined ? Number(body.lockVersion) : null;
+
+    const versions = getTemplateVersions();
+    const templates = getTemplates();
+    const template = templates.find(t => t.id === id);
+    const families = getTemplateFamilies();
+    const templateFamily = families.find(f => f.id === `fam_${id}` || f.slug === template?.slug);
+
+    const allFiles = getTemplateFiles();
+    const files = allFiles.filter(f => f.template_version_id === versionId);
+    const relationships = getTemplateRelationships().filter(r => r.template_id === id);
+    const variants = getTemplateRelationshipVariants().filter(v => v.template_version_id === versionId);
+    const images = getTemplateImages().filter(img => img.template_version_id === versionId && img.status !== 'archived');
+    const musicLibrary = getMusicLibrary();
+
+    const targetVer = versions.find(v => (v.id === versionId || v.versionId === versionId) && (v.templateId === id || v.template_id === id));
+    if (!targetVer) return res.status(404).json({ success: false, message: 'Version not found' });
+
+    let manifest = null;
+    try { manifest = JSON.parse(targetVer.manifest_json || '{}'); } catch (e) {}
+    if (!manifest || Object.keys(manifest).length === 0) {
+      manifest = { entryPoint: targetVer.entry_point || 'index.html', capabilities: targetVer.capabilities, files };
+    }
+
+    const validationContext = {
+      files,
+      manifest,
+      relationships,
+      variants,
+      images,
+      musicLibrary,
+      template
+    };
+
+    let publishResult;
+    try {
+      publishResult = executeVersionPublish({
+        templateId: id,
+        versionId,
+        allVersions: versions,
+        template,
+        templateFamily,
+        actor: req.user,
+        lockVersion,
+        validationContext
+      });
+    } catch (pubErr) {
+      if (pubErr.code === 'VERSION_CONFLICT') {
+        return res.status(409).json({
+          success: false,
+          code: 'VERSION_CONFLICT',
+          message: pubErr.message,
+          currentLockVersion: pubErr.currentLockVersion,
+          submittedLockVersion: pubErr.submittedLockVersion
+        });
+      }
+      if (pubErr.code === 'RELEASE_VALIDATION_FAILED') {
+        return res.status(400).json({
+          success: false,
+          code: 'RELEASE_VALIDATION_FAILED',
+          message: pubErr.message,
+          errors: pubErr.errors,
+          checklist: pubErr.checklist
+        });
+      }
+      throw pubErr;
+    }
+
+    // Persist atomic state changes
+    if (publishResult.versions) saveTemplateVersions(publishResult.versions);
+    if (publishResult.template) {
+      const tIdx = templates.findIndex(t => t.id === id);
+      if (tIdx >= 0) {
+        templates[tIdx] = { ...templates[tIdx], ...publishResult.template };
+        saveTemplates(templates);
+      }
+    }
+    if (publishResult.templateFamily) {
+      const fIdx = families.findIndex(f => f.id === `fam_${id}`);
+      if (fIdx >= 0) {
+        families[fIdx] = { ...families[fIdx], ...publishResult.templateFamily };
+        saveTemplateFamilies(families);
+      }
+    }
+
+    logServerAdminAudit(req.user, 'VERSION_PUBLISHED', 'template_version', versionId, { templateId: id, previousCurrent: publishResult.previousCurrentVersionId }, req);
+    logServerAdminAudit(req.user, 'CURRENT_VERSION_CHANGED', 'template', id, { newCurrentVersion: versionId }, req);
+
+    res.json({
+      success: true,
+      message: `Version ${versionId} successfully published and is now the current live version.`,
+      versionId,
+      version: publishResult.version,
+      previousCurrentVersionId: publishResult.previousCurrentVersionId,
+      publishedAt: publishResult.publishedAt
+    });
+  } catch (err) {
+    res.status(500).json({ success: false, message: err.message });
+  }
+});
+
+// 9. Safe Version Rollback
+app.post('/api/templates/:id/versions/:versionId/rollback', (req, res) => {
+  try {
+    const isAdmin = Boolean(req.user && (req.user.role === 'admin' || req.user.isAdmin));
+    if (!isAdmin) {
+      return res.status(403).json({ success: false, error: { code: 'FORBIDDEN', message: 'Admin role required.' } });
+    }
+
+    const { id, versionId } = req.params;
+    const versions = getTemplateVersions();
+    const templates = getTemplates();
+    const template = templates.find(t => t.id === id);
+    const families = getTemplateFamilies();
+    const templateFamily = families.find(f => f.id === `fam_${id}`);
+
+    const allFiles = getTemplateFiles();
+    const files = allFiles.filter(f => f.template_version_id === versionId);
+    const relationships = getTemplateRelationships().filter(r => r.template_id === id);
+    const variants = getTemplateRelationshipVariants().filter(v => v.template_version_id === versionId);
+    const images = getTemplateImages().filter(img => img.template_version_id === versionId && img.status !== 'archived');
+    const musicLibrary = getMusicLibrary();
+
+    const targetVer = versions.find(v => (v.id === versionId || v.versionId === versionId) && (v.templateId === id || v.template_id === id));
+    if (!targetVer) return res.status(404).json({ success: false, message: 'Target rollback version not found.' });
+
+    let manifest = null;
+    try { manifest = JSON.parse(targetVer.manifest_json || '{}'); } catch (e) {}
+    if (!manifest || Object.keys(manifest).length === 0) {
+      manifest = { entryPoint: targetVer.entry_point || 'index.html', capabilities: targetVer.capabilities, files };
+    }
+
+    const validationContext = {
+      files,
+      manifest,
+      relationships,
+      variants,
+      images,
+      musicLibrary,
+      template
+    };
+
+    let rollbackResult;
+    try {
+      rollbackResult = executeVersionRollback({
+        templateId: id,
+        targetVersionId: versionId,
+        allVersions: versions,
+        template,
+        templateFamily,
+        actor: req.user,
+        validationContext
+      });
+    } catch (rbErr) {
+      return res.status(rbErr.status || 400).json({
+        success: false,
+        code: rbErr.code || 'ROLLBACK_FAILED',
+        message: rbErr.message,
+        errors: rbErr.errors
+      });
+    }
+
+    // Persist changes
+    if (rollbackResult.versions) saveTemplateVersions(rollbackResult.versions);
+    if (rollbackResult.template) {
+      const tIdx = templates.findIndex(t => t.id === id);
+      if (tIdx >= 0) {
+        templates[tIdx] = { ...templates[tIdx], ...rollbackResult.template };
+        saveTemplates(templates);
+      }
+    }
+    if (rollbackResult.templateFamily) {
+      const fIdx = families.findIndex(f => f.id === `fam_${id}`);
+      if (fIdx >= 0) {
+        families[fIdx] = { ...families[fIdx], ...rollbackResult.templateFamily };
+        saveTemplateFamilies(families);
+      }
+    }
+
+    logServerAdminAudit(req.user, 'VERSION_ROLLED_BACK', 'template_version', versionId, { templateId: id, fromVersion: rollbackResult.rolledBackFromVersionId }, req);
+    logServerAdminAudit(req.user, 'CURRENT_VERSION_CHANGED', 'template', id, { newCurrentVersion: versionId, reason: 'ROLLBACK' }, req);
+
+    res.json({
+      success: true,
+      message: `Successfully rolled back active version to ${versionId}. Historical wishes remain protected and unmodified.`,
+      targetVersionId: versionId,
+      rolledBackFromVersionId: rollbackResult.rolledBackFromVersionId,
+      rolledBackAt: rollbackResult.rolledBackAt
+    });
+  } catch (err) {
+    res.status(500).json({ success: false, message: err.message });
+  }
+});
+
+// 10. Verify Version Integrity (Files and Hashes)
+app.post('/api/templates/:id/versions/:versionId/verify', async (req, res) => {
+  try {
+    const isAdmin = Boolean(req.user && (req.user.role === 'admin' || req.user.isAdmin));
+    if (!isAdmin) {
+      return res.status(403).json({ success: false, error: { code: 'FORBIDDEN', message: 'Admin role required.' } });
+    }
+
+    const { id, versionId } = req.params;
+    const versions = getTemplateVersions();
+    const targetVer = versions.find(v => (v.id === versionId || v.versionId === versionId) && (v.templateId === id || v.template_id === id));
+    if (!targetVer) return res.status(404).json({ success: false, message: 'Version not found' });
+
+    const allFiles = getTemplateFiles();
+    const files = allFiles.filter(f => f.template_version_id === targetVer.id);
+
+    let manifest = null;
+    try { manifest = JSON.parse(targetVer.manifest_json || '{}'); } catch (e) {}
+
+    const result = await verifyVersionIntegrity(targetVer, files, manifest);
+
+    targetVer.integrity_status = result.status;
+    targetVer.integrity_checked_at = result.checkedAt;
+    saveTemplateVersions(versions);
+
+    if (result.status === 'INTEGRITY_FAILED') {
+      logServerAdminAudit(req.user, 'VERSION_INTEGRITY_FAILED', 'template_version', targetVer.id, { mismatches: result.mismatches }, req);
+    }
+
+    res.json({
+      success: true,
+      status: result.status,
+      verifiedFilesCount: result.verifiedFilesCount,
+      mismatchesCount: result.mismatchesCount,
+      mismatches: result.mismatches,
+      checkedAt: result.checkedAt
+    });
+  } catch (err) {
+    res.status(500).json({ success: false, message: err.message });
+  }
+});
+
+// 11. Archive Version
+app.post('/api/templates/:id/versions/:versionId/archive', (req, res) => {
+  try {
+    const isAdmin = Boolean(req.user && (req.user.role === 'admin' || req.user.isAdmin));
+    if (!isAdmin) {
+      return res.status(403).json({ success: false, error: { code: 'FORBIDDEN', message: 'Admin role required.' } });
+    }
+
+    const { id, versionId } = req.params;
+    const versions = getTemplateVersions();
+    const targetVer = versions.find(v => (v.id === versionId || v.versionId === versionId) && (v.templateId === id || v.template_id === id));
+    if (!targetVer) return res.status(404).json({ success: false, message: 'Version not found' });
+
+    if (targetVer.is_current === 1) {
+      return res.status(409).json({
+        success: false,
+        code: 'CANNOT_ARCHIVE_CURRENT',
+        message: 'Cannot archive the currently active version. Please publish or switch to another version first.'
+      });
+    }
+
+    const nowIso = new Date().toISOString();
+    targetVer.status = VERSION_LIFECYCLE_STATUS.ARCHIVED;
+    targetVer.archived_at = nowIso;
+    saveTemplateVersions(versions);
+
+    logServerAdminAudit(req.user, 'VERSION_ARCHIVED', 'template_version', targetVer.id, { templateId: id }, req);
+
+    res.json({ success: true, message: `Version ${versionId} archived safely.` });
+  } catch (err) {
+    res.status(500).json({ success: false, message: err.message });
+  }
+});
+
+// 12. Update Version Release Notes
+app.put('/api/templates/:id/versions/:versionId/release-notes', (req, res) => {
+  try {
+    const isAdmin = Boolean(req.user && (req.user.role === 'admin' || req.user.isAdmin));
+    if (!isAdmin) {
+      return res.status(403).json({ success: false, error: { code: 'FORBIDDEN', message: 'Admin role required.' } });
+    }
+
+    const { id, versionId } = req.params;
+    const { releaseNotes } = req.body || {};
+    const versions = getTemplateVersions();
+    const targetVer = versions.find(v => (v.id === versionId || v.versionId === versionId) && (v.templateId === id || v.template_id === id));
+    if (!targetVer) return res.status(404).json({ success: false, message: 'Version not found' });
+
+    targetVer.release_notes = releaseNotes !== undefined ? String(releaseNotes) : targetVer.release_notes;
+    saveTemplateVersions(versions);
+
+    res.json({ success: true, message: 'Release notes updated successfully.', releaseNotes: targetVer.release_notes });
   } catch (err) {
     res.status(500).json({ success: false, message: err.message });
   }
@@ -2875,23 +4836,868 @@ app.get('/api/template-families', (req, res) => {
   }
 });
 
-// --- Part 19: Template Relationship Variants & Details API ---
+// --- Part 27: Template Family & Relationship Variant Management Endpoints ---
+
+// 1. Get Template Family Overview & Multi-Relationship Details
+app.get('/api/templates/:id/family', (req, res) => {
+  try {
+    const templateId = req.params.id;
+    const templates = getTemplates();
+    const template = templates.find(t => t.id === templateId || t.slug === templateId);
+    if (!template) {
+      return res.status(404).json({ success: false, message: 'Template not found' });
+    }
+
+    const tId = template.id;
+    const families = getTemplateFamilies();
+    let family = families.find(f => f.id === `fam_${tId}` || f.slug === template.slug) || {
+      id: `fam_${tId}`,
+      slug: template.slug,
+      name: template.name,
+      description: template.description,
+      thumbnail: template.thumbnail || template.previewImage,
+      category: template.category,
+      tier: template.tier,
+      price: template.price,
+      isFeatured: template.featured ? 1 : 0,
+      isPremium: template.isPremium ? 1 : 0,
+      status: template.status || 'published',
+      visibility: 'public'
+    };
+
+    const versions = getTemplateVersions().filter(v => v.templateId === tId);
+    const activeVersion = getOrSeedTemplateVersion(tId);
+    const versionId = activeVersion ? activeVersion.id : `tv_${tId}_v1`;
+
+    const allRels = getRelationships();
+    const templateRels = getTemplateRelationships().filter(tr => tr.template_id === tId);
+    const enabledRelMap = new Map(templateRels.map(tr => [tr.relationship_id, tr]));
+
+    // Reconcile relationships with template's existing tags/array if not yet mapped
+    const relationships = allRels.map(r => {
+      const binding = enabledRelMap.get(r.id);
+      let isSupported = false;
+      if (binding) {
+        isSupported = Boolean(binding.enabled);
+      } else if (Array.isArray(template.relationships)) {
+        isSupported = template.relationships.some(tag => tag.toLowerCase().includes(r.slug.toLowerCase()) || tag.toLowerCase().includes(r.name.toLowerCase()));
+      }
+      return {
+        ...r,
+        isSupported,
+        sortOrder: binding ? (binding.sort_order || 1) : r.sortOrder
+      };
+    });
+
+    const allVariants = getTemplateRelationshipVariants().filter(v => (v.template_id === tId || v.template_version_id === versionId) && v.is_latest !== 0);
+    const fields = getTemplateFields().filter(f => f.template_version_id === versionId);
+    const images = getTemplateImages().filter(img => img.template_id === tId || img.template_version_id === versionId);
+    const musicAssignments = getTemplateMusic().filter(m => m.template_version_id === versionId);
+    const allMusic = getMusicLibrary();
+
+    const wishes = getWishes().filter(w => w.templateId === tId || w.template_id === tId);
+    const publishedWishesCount = wishes.filter(w => w.status === 'published' || w.active_snapshot_id).length;
+    const draftWishesCount = wishes.filter(w => w.status === 'draft' || w.isDraft).length;
+
+    res.json({
+      success: true,
+      template,
+      family,
+      activeVersion,
+      versions,
+      relationships,
+      variants: allVariants,
+      fields,
+      sections: activeVersion.sections || template.sections || [],
+      images,
+      music: musicAssignments,
+      allMusic,
+      usage: {
+        publishedWishesCount,
+        draftWishesCount,
+        totalWishesCount: wishes.length
+      }
+    });
+  } catch (err) {
+    res.status(500).json({ success: false, message: err.message });
+  }
+});
+
+// 2. Get Supported Relationships for Template
+app.get('/api/templates/:id/relationships', (req, res) => {
+  try {
+    const templateId = req.params.id;
+    const templates = getTemplates();
+    const template = templates.find(t => t.id === templateId || t.slug === templateId);
+    if (!template) return res.status(404).json({ success: false, message: 'Template not found' });
+
+    const allRels = getRelationships();
+    const tRels = getTemplateRelationships().filter(tr => tr.template_id === template.id);
+    const enabledMap = new Map(tRels.map(tr => [tr.relationship_id, tr]));
+
+    const result = allRels.map(r => {
+      const binding = enabledMap.get(r.id);
+      let isSupported = false;
+      if (binding) {
+        isSupported = Boolean(binding.enabled);
+      } else if (Array.isArray(template.relationships)) {
+        isSupported = template.relationships.some(tag => tag.toLowerCase().includes(r.slug.toLowerCase()) || tag.toLowerCase().includes(r.name.toLowerCase()));
+      }
+      return {
+        ...r,
+        isSupported,
+        sortOrder: binding ? binding.sort_order : r.sortOrder
+      };
+    });
+
+    res.json({ success: true, templateId: template.id, relationships: result });
+  } catch (err) {
+    res.status(500).json({ success: false, message: err.message });
+  }
+});
+
+// 3. Assign or Toggle Supported Relationships (Admin Protected with Dependency Safety)
+app.post('/api/templates/:id/relationships', (req, res) => {
+  try {
+    const isAdmin = Boolean(req.user && (req.user.role === 'admin' || req.user.isAdmin));
+    if (!isAdmin) {
+      return res.status(403).json({ success: false, error: { code: 'FORBIDDEN', message: 'Admin role required.' } });
+    }
+
+    const templateId = req.params.id;
+    const templates = getTemplates();
+    const template = templates.find(t => t.id === templateId || t.slug === templateId);
+    if (!template) return res.status(404).json({ success: false, message: 'Template not found' });
+
+    const body = req.body || {};
+    const tRels = getTemplateRelationships();
+    const relsCatalog = getRelationships();
+
+    if (body.relationshipId) {
+      const targetRel = relsCatalog.find(r => r.id === body.relationshipId || r.slug === body.relationshipId);
+      if (!targetRel) return res.status(400).json({ success: false, message: 'Invalid relationship ID' });
+
+      const enabled = body.enabled !== false;
+      const sortOrder = Number(body.sortOrder) || 1;
+
+      // Dependency Safety Check on Disabling
+      if (!enabled && body.force !== true) {
+        const wishes = getWishes();
+        const publishedDep = wishes.filter(w => (w.templateId === template.id || w.template_id === template.id) && (w.status === 'published' || w.active_snapshot_id) && ((w.customData?.relationship === targetRel.slug) || (w.customData?.relationship_id === targetRel.id)));
+        const draftDep = wishes.filter(w => (w.templateId === template.id || w.template_id === template.id) && (w.status === 'draft' || w.isDraft) && ((w.customData?.relationship === targetRel.slug) || (w.customData?.relationship_id === targetRel.id)));
+
+        if (publishedDep.length > 0) {
+          return res.status(409).json({
+            success: false,
+            code: 'DEPENDENCY_PROTECTED',
+            message: `Cannot disable relationship "${targetRel.name}". It is referenced by ${publishedDep.length} published wishes. Use force=true to override.`,
+            publishedWishesCount: publishedDep.length,
+            draftWishesCount: draftDep.length
+          });
+        }
+      }
+
+      const existingIdx = tRels.findIndex(tr => tr.template_id === template.id && tr.relationship_id === targetRel.id);
+      if (existingIdx >= 0) {
+        tRels[existingIdx].enabled = enabled ? 1 : 0;
+        tRels[existingIdx].sort_order = sortOrder;
+      } else {
+        tRels.push({
+          id: `trel_${template.id}_${targetRel.slug}_${Date.now().toString(36)}`,
+          template_id: template.id,
+          relationship_id: targetRel.id,
+          template_family_id: `fam_${template.id}`,
+          enabled: enabled ? 1 : 0,
+          sort_order: sortOrder,
+          created_at: new Date().toISOString()
+        });
+      }
+
+      saveTemplateRelationships(tRels);
+      logServerAdminAudit(req.user, enabled ? 'RELATIONSHIP_ASSIGNED' : 'RELATIONSHIP_REMOVED', 'template_relationship', targetRel.id, { templateId: template.id, relationshipId: targetRel.id }, req);
+    } else if (Array.isArray(body.relationshipIds)) {
+      // Set all supported relationships
+      const incomingSet = new Set(body.relationshipIds);
+      relsCatalog.forEach((r, idx) => {
+        const isSelected = incomingSet.has(r.id) || incomingSet.has(r.slug);
+        const existingIdx = tRels.findIndex(tr => tr.template_id === template.id && tr.relationship_id === r.id);
+        if (existingIdx >= 0) {
+          tRels[existingIdx].enabled = isSelected ? 1 : 0;
+        } else if (isSelected) {
+          tRels.push({
+            id: `trel_${template.id}_${r.slug}_${Date.now().toString(36)}`,
+            template_id: template.id,
+            relationship_id: r.id,
+            template_family_id: `fam_${template.id}`,
+            enabled: 1,
+            sort_order: idx + 1,
+            created_at: new Date().toISOString()
+          });
+        }
+      });
+      saveTemplateRelationships(tRels);
+      logServerAdminAudit(req.user, 'RELATIONSHIPS_SYNCED', 'template', template.id, { supportedCount: incomingSet.size }, req);
+    }
+
+    res.json({ success: true, message: 'Relationships updated successfully' });
+  } catch (err) {
+    res.status(500).json({ success: false, message: err.message });
+  }
+});
+
+// 4. Remove Relationship Support (with Safety Check)
+app.delete('/api/templates/:id/relationships/:relId', (req, res) => {
+  try {
+    const isAdmin = Boolean(req.user && (req.user.role === 'admin' || req.user.isAdmin));
+    if (!isAdmin) {
+      return res.status(403).json({ success: false, error: { code: 'FORBIDDEN', message: 'Admin role required.' } });
+    }
+
+    const { id: templateId, relId } = req.params;
+    const force = req.query.force === 'true' || req.query.force === '1';
+    const templates = getTemplates();
+    const template = templates.find(t => t.id === templateId || t.slug === templateId);
+    if (!template) return res.status(404).json({ success: false, message: 'Template not found' });
+
+    const relsCatalog = getRelationships();
+    const targetRel = relsCatalog.find(r => r.id === relId || r.slug === relId);
+    if (!targetRel) return res.status(400).json({ success: false, message: 'Relationship not found' });
+
+    // Dependency check
+    const wishes = getWishes();
+    const publishedDep = wishes.filter(w => (w.templateId === template.id || w.template_id === template.id) && (w.status === 'published' || w.active_snapshot_id) && ((w.customData?.relationship === targetRel.slug) || (w.customData?.relationship_id === targetRel.id)));
+    const draftDep = wishes.filter(w => (w.templateId === template.id || w.template_id === template.id) && (w.status === 'draft' || w.isDraft) && ((w.customData?.relationship === targetRel.slug) || (w.customData?.relationship_id === targetRel.id)));
+
+    if (!force && publishedDep.length > 0) {
+      return res.status(409).json({
+        success: false,
+        code: 'DEPENDENCY_PROTECTED',
+        message: `Cannot remove relationship support. It is referenced by ${publishedDep.length} published wishes and ${draftDep.length} drafts. Use ?force=true to archive mapping safely.`,
+        publishedWishesCount: publishedDep.length,
+        draftWishesCount: draftDep.length
+      });
+    }
+
+    let tRels = getTemplateRelationships();
+    tRels = tRels.filter(tr => !(tr.template_id === template.id && tr.relationship_id === targetRel.id));
+    saveTemplateRelationships(tRels);
+
+    logServerAdminAudit(req.user, 'RELATIONSHIP_REMOVED', 'template_relationship', targetRel.id, { templateId: template.id, relationshipId: targetRel.id }, req);
+    res.json({ success: true, message: `Relationship "${targetRel.name}" removed from template.` });
+  } catch (err) {
+    res.status(500).json({ success: false, message: err.message });
+  }
+});
+
+// 5. List Relationship Variants for Template
 app.get('/api/templates/:id/variants', (req, res) => {
   try {
     const templateId = req.params.id;
+    const activeVersion = getOrSeedTemplateVersion(templateId);
+    const versionId = activeVersion ? activeVersion.id : `tv_${templateId}_v1`;
+
+    const allVariants = getTemplateRelationshipVariants();
+    let variants = allVariants.filter(v => (v.template_id === templateId || v.template_version_id === versionId) && v.is_latest !== 0);
+
     const rels = getRelationships();
-    const variants = rels.map(r => ({
-      id: `trv_${templateId}_${r.slug}`,
-      template_id: templateId,
-      relationship_id: r.id,
-      relationship_slug: r.slug,
-      relationship_name: r.name,
-      relationship_display_name: r.displayName,
-      status: 'active'
-    }));
-    res.json({ success: true, templateId, variants, total: variants.length });
+    const relMap = new Map(rels.map(r => [r.id, r]));
+
+    // Normalize variant payload with relationship labels
+    const formatted = variants.map(v => {
+      const rel = relMap.get(v.relationship_id) || rels.find(r => r.slug === v.relationship_slug) || {};
+      let config = {};
+      try { config = typeof v.configuration_json === 'string' ? JSON.parse(v.configuration_json) : (v.configuration_json || {}); } catch (e) {}
+      return {
+        ...v,
+        relationship_name: rel.name || v.name,
+        relationship_slug: rel.slug || v.relationship_slug,
+        relationship_display_name: rel.displayName || rel.name,
+        relationship_icon: rel.icon || '❤️',
+        configuration: config
+      };
+    });
+
+    res.json({ success: true, templateId, variants: formatted, total: formatted.length });
   } catch (err) {
     res.status(500).json({ success: false, message: err.message, variants: [] });
+  }
+});
+
+// 6. Get Specific Relationship Variant Configuration
+app.get('/api/templates/:id/variants/:relId', (req, res) => {
+  try {
+    const { id: templateId, relId } = req.params;
+    const activeVersion = getOrSeedTemplateVersion(templateId);
+    const versionId = activeVersion ? activeVersion.id : `tv_${templateId}_v1`;
+
+    const rels = getRelationships();
+    const targetRel = rels.find(r => r.id === relId || r.slug === relId);
+    if (!targetRel) return res.status(404).json({ success: false, message: 'Relationship not found' });
+
+    const allVariants = getTemplateRelationshipVariants();
+    let variant = allVariants.find(v => (v.template_id === templateId || v.template_version_id === versionId) && (v.relationship_id === targetRel.id || v.relationship_slug === targetRel.slug) && v.is_latest !== 0);
+
+    if (!variant) {
+      // Build clean default draft variant if not yet configured
+      const newId = `trv_${templateId}_${targetRel.slug}`;
+      const initialConfig = {
+        displayName: `${targetRel.displayName || targetRel.name} Edition`,
+        atmosphere: targetRel.category === 'romantic' ? 'Soft, Dreamy & Romantic' : 'Joyful & Celebratory',
+        messages: {
+          hero_title: `Happy Celebration, ${targetRel.name}! ✨`,
+          subtitle: 'A magical gift created especially for you',
+          main_message: `Wishing you a day filled with laughter, love, and extraordinary moments.`,
+          gallery_heading: 'Treasured Memories',
+          memory_heading: 'Special Moments',
+          final_message: 'Always in our hearts 💕',
+          surprise_text: 'Tap to unbox your surprise 🎁'
+        },
+        theme: {
+          mood: targetRel.category === 'romantic' ? 'Soft Romance' : 'Vibrant Celebration',
+          accentColor: targetRel.category === 'romantic' ? '#ec4899' : '#a855f7',
+          backgroundStyle: 'cosmic-purple',
+          cardStyle: 'glass-glow'
+        },
+        images: {
+          hero_photo: null,
+          hero_photo_fallback: 'template_default'
+        },
+        music: {
+          defaultMusicId: targetRel.category === 'romantic' ? 'mus_romantic_piano' : 'mus_celebration_strings'
+        },
+        sections: [
+          { id: 'sec_1', type: 'hero', name: 'Hero Unboxing', isEnabled: true, sortOrder: 1 },
+          { id: 'sec_2', type: 'letter', name: 'Dedication Note', isEnabled: true, sortOrder: 2 },
+          { id: 'sec_3', type: 'photos', name: 'Photo Highlights', isEnabled: true, sortOrder: 3 },
+          { id: 'sec_4', type: 'surprise', name: 'Finale Celebration', isEnabled: true, sortOrder: 4 }
+        ],
+        effects: {
+          particles: targetRel.category === 'romantic' ? 'floating-hearts' : 'confetti-and-stars'
+        },
+        animations: {
+          intensity: 'smooth',
+          duration: 1.2
+        }
+      };
+
+      variant = {
+        id: newId,
+        template_id: templateId,
+        template_version_id: versionId,
+        template_family_id: `fam_${templateId}`,
+        relationship_id: targetRel.id,
+        relationship_slug: targetRel.slug,
+        name: `${targetRel.name} Variant`,
+        status: 'draft',
+        version_number: 1,
+        lock_version: 1,
+        is_latest: 1,
+        configuration_json: JSON.stringify(initialConfig),
+        created_at: new Date().toISOString(),
+        updated_at: new Date().toISOString()
+      };
+    }
+
+    let parsedConfig = {};
+    try { parsedConfig = typeof variant.configuration_json === 'string' ? JSON.parse(variant.configuration_json) : (variant.configuration_json || {}); } catch (e) {}
+
+    res.json({
+      success: true,
+      templateId,
+      relationship: targetRel,
+      variant: {
+        ...variant,
+        configuration: parsedConfig
+      }
+    });
+  } catch (err) {
+    res.status(500).json({ success: false, message: err.message });
+  }
+});
+
+// 7. Save Draft / Update Relationship Variant (with Concurrency Conflict Protection)
+app.post('/api/templates/:id/variants/:relId', (req, res) => {
+  try {
+    const isAdmin = Boolean(req.user && (req.user.role === 'admin' || req.user.isAdmin));
+    if (!isAdmin) {
+      return res.status(403).json({ success: false, error: { code: 'FORBIDDEN', message: 'Admin role required.' } });
+    }
+
+    const { id: templateId, relId } = req.params;
+    const rels = getRelationships();
+    const targetRel = rels.find(r => r.id === relId || r.slug === relId);
+    if (!targetRel) return res.status(404).json({ success: false, message: 'Relationship not found' });
+
+    const activeVersion = getOrSeedTemplateVersion(templateId);
+    const versionId = activeVersion ? activeVersion.id : `tv_${templateId}_v1`;
+
+    const body = req.body || {};
+    const submittedLock = body.lockVersion !== undefined ? Number(body.lockVersion) : null;
+    const submittedStatus = body.status || 'draft';
+
+    const allVariants = getTemplateRelationshipVariants();
+    let existingIdx = allVariants.findIndex(v => (v.template_id === templateId || v.template_version_id === versionId) && (v.relationship_id === targetRel.id || v.relationship_slug === targetRel.slug) && v.is_latest !== 0);
+
+    const nowIso = new Date().toISOString();
+    let variantToSave;
+
+    if (existingIdx >= 0) {
+      const existing = allVariants[existingIdx];
+
+      // Optimistic concurrency check: avoid silent overwrite by multiple admins
+      if (submittedLock !== null && existing.lock_version !== undefined && submittedLock !== existing.lock_version) {
+        return res.status(409).json({
+          success: false,
+          code: 'VARIANT_VERSION_CONFLICT',
+          message: 'This variant was modified by another administrator since you loaded it. Please reload the latest configuration before saving.',
+          currentLockVersion: existing.lock_version,
+          submittedLockVersion: submittedLock
+        });
+      }
+
+      const nextLock = (Number(existing.lock_version) || 1) + 1;
+      const configJson = typeof body.configuration === 'object'
+        ? JSON.stringify(body.configuration)
+        : (body.configuration_json || existing.configuration_json);
+
+      variantToSave = {
+        ...existing,
+        name: body.name || existing.name || `${targetRel.name} Variant`,
+        configuration_json: configJson,
+        status: submittedStatus,
+        lock_version: nextLock,
+        updated_at: nowIso
+      };
+
+      allVariants[existingIdx] = variantToSave;
+    } else {
+      const variantId = `trv_${templateId}_${targetRel.slug}`;
+      const configJson = typeof body.configuration === 'object'
+        ? JSON.stringify(body.configuration)
+        : (body.configuration_json || '{}');
+
+      variantToSave = {
+        id: variantId,
+        template_id: templateId,
+        template_version_id: versionId,
+        template_family_id: `fam_${templateId}`,
+        relationship_id: targetRel.id,
+        relationship_slug: targetRel.slug,
+        name: body.name || `${targetRel.name} Variant`,
+        status: submittedStatus,
+        version_number: 1,
+        lock_version: 1,
+        is_latest: 1,
+        parent_variant_id: null,
+        configuration_json: configJson,
+        created_at: nowIso,
+        updated_at: nowIso
+      };
+      allVariants.push(variantToSave);
+    }
+
+    saveTemplateRelationshipVariants(allVariants);
+    logServerAdminAudit(req.user, existingIdx >= 0 ? 'VARIANT_UPDATED' : 'VARIANT_CREATED', 'template_variant', variantToSave.id, { templateId, relationshipId: targetRel.id, status: variantToSave.status }, req);
+
+    let parsed = {};
+    try { parsed = JSON.parse(variantToSave.configuration_json); } catch (e) {}
+
+    res.json({
+      success: true,
+      message: 'Variant saved successfully',
+      variant: {
+        ...variantToSave,
+        configuration: parsed
+      }
+    });
+  } catch (err) {
+    res.status(500).json({ success: false, message: err.message });
+  }
+});
+
+// 8. Validate Relationship Variant Configuration
+app.post('/api/templates/:id/variants/:relId/validate', (req, res) => {
+  try {
+    const { id: templateId, relId } = req.params;
+    const templates = getTemplates();
+    const template = templates.find(t => t.id === templateId || t.slug === templateId);
+    if (!template) return res.status(404).json({ success: false, message: 'Template not found' });
+
+    const activeVersion = getOrSeedTemplateVersion(templateId);
+    const musicLibrary = getMusicLibrary();
+    const templateImages = getTemplateImages().filter(img => img.template_id === template.id);
+
+    const rels = getRelationships();
+    const targetRel = rels.find(r => r.id === relId || r.slug === relId);
+
+    const body = req.body || {};
+    const validation = validateVariantConfiguration(body, {
+      template,
+      templateVersion: activeVersion,
+      musicLibrary,
+      templateImages
+    });
+
+    res.json({
+      success: true,
+      valid: validation.valid,
+      errors: validation.errors,
+      warnings: validation.warnings
+    });
+  } catch (err) {
+    res.status(500).json({ success: false, message: err.message });
+  }
+});
+
+// 9. Publish Variant (Enforces Validation & Performs Immutable Version Bump if Wishes Exist)
+app.post('/api/templates/:id/variants/:relId/publish', (req, res) => {
+  try {
+    const isAdmin = Boolean(req.user && (req.user.role === 'admin' || req.user.isAdmin));
+    if (!isAdmin) {
+      return res.status(403).json({ success: false, error: { code: 'FORBIDDEN', message: 'Admin role required.' } });
+    }
+
+    const { id: templateId, relId } = req.params;
+    const templates = getTemplates();
+    const template = templates.find(t => t.id === templateId || t.slug === templateId);
+    if (!template) return res.status(404).json({ success: false, message: 'Template not found' });
+
+    const activeVersion = getOrSeedTemplateVersion(template.id);
+    const versionId = activeVersion ? activeVersion.id : `tv_${template.id}_v1`;
+
+    const rels = getRelationships();
+    const targetRel = rels.find(r => r.id === relId || r.slug === relId);
+    if (!targetRel) return res.status(404).json({ success: false, message: 'Relationship not found' });
+
+    const body = req.body || {};
+    const musicLibrary = getMusicLibrary();
+    const templateImages = getTemplateImages().filter(img => img.template_id === template.id);
+
+    // 1. Run strict validation
+    const validation = validateVariantConfiguration(body, {
+      template,
+      templateVersion: activeVersion,
+      musicLibrary,
+      templateImages
+    });
+
+    if (!validation.valid) {
+      return res.status(400).json({
+        success: false,
+        code: 'VALIDATION_FAILED',
+        message: 'Cannot publish variant with validation errors.',
+        errors: validation.errors,
+        warnings: validation.warnings
+      });
+    }
+
+    const allVariants = getTemplateRelationshipVariants();
+    let existing = allVariants.find(v => (v.template_id === template.id || v.template_version_id === versionId) && (v.relationship_id === targetRel.id || v.relationship_slug === targetRel.slug) && v.is_latest !== 0);
+
+    const wishes = getWishes();
+    const publishedUsingOldVariant = existing
+      ? wishes.filter(w => (w.templateId === template.id || w.template_id === template.id) && (w.status === 'published' || w.active_snapshot_id) && ((w.customData?.relationship_variant_id === existing.id) || (w.customData?.relationshipVariantId === existing.id)))
+      : [];
+
+    const nowIso = new Date().toISOString();
+    let publishedVariant;
+
+    // 2. Immutable Versioning Guard:
+    // If existing variant is already referenced by published wishes/snapshots, DO NOT mutate in place!
+    // Create new immutable version record (V2), preserving V1 intact for old wishes!
+    if (existing && publishedUsingOldVariant.length > 0) {
+      const nextVerNum = (Number(existing.version_number) || 1) + 1;
+      const newVariantId = `trv_${template.id}_${targetRel.slug}_v${nextVerNum}`;
+
+      // Retire existing from latest
+      existing.is_latest = 0;
+
+      const configJson = typeof body.configuration === 'object'
+        ? JSON.stringify(body.configuration)
+        : (body.configuration_json || existing.configuration_json);
+
+      publishedVariant = {
+        id: newVariantId,
+        template_id: template.id,
+        template_version_id: versionId,
+        template_family_id: `fam_${template.id}`,
+        relationship_id: targetRel.id,
+        relationship_slug: targetRel.slug,
+        name: body.name || existing.name || `${targetRel.name} Variant V${nextVerNum}`,
+        status: 'published',
+        version_number: nextVerNum,
+        parent_variant_id: existing.id,
+        is_latest: 1,
+        lock_version: 1,
+        configuration_json: configJson,
+        created_at: nowIso,
+        updated_at: nowIso,
+        published_at: nowIso
+      };
+
+      allVariants.push(publishedVariant);
+    } else if (existing) {
+      // Safe to update in-place since no published wishes depend on this ID
+      const configJson = typeof body.configuration === 'object'
+        ? JSON.stringify(body.configuration)
+        : (body.configuration_json || existing.configuration_json);
+
+      existing.configuration_json = configJson;
+      existing.status = 'published';
+      existing.published_at = nowIso;
+      existing.updated_at = nowIso;
+      existing.lock_version = (Number(existing.lock_version) || 1) + 1;
+      publishedVariant = existing;
+    } else {
+      const variantId = `trv_${template.id}_${targetRel.slug}`;
+      const configJson = typeof body.configuration === 'object'
+        ? JSON.stringify(body.configuration)
+        : (body.configuration_json || '{}');
+
+      publishedVariant = {
+        id: variantId,
+        template_id: template.id,
+        template_version_id: versionId,
+        template_family_id: `fam_${template.id}`,
+        relationship_id: targetRel.id,
+        relationship_slug: targetRel.slug,
+        name: body.name || `${targetRel.name} Variant`,
+        status: 'published',
+        version_number: 1,
+        parent_variant_id: null,
+        is_latest: 1,
+        lock_version: 1,
+        configuration_json: configJson,
+        created_at: nowIso,
+        updated_at: nowIso,
+        published_at: nowIso
+      };
+      allVariants.push(publishedVariant);
+    }
+
+    saveTemplateRelationshipVariants(allVariants);
+    logServerAdminAudit(req.user, 'VARIANT_PUBLISHED', 'template_variant', publishedVariant.id, {
+      templateId: template.id,
+      relationshipId: targetRel.id,
+      versionNumber: publishedVariant.version_number
+    }, req);
+
+    let parsed = {};
+    try { parsed = JSON.parse(publishedVariant.configuration_json); } catch (e) {}
+
+    res.json({
+      success: true,
+      message: `Variant "${publishedVariant.name}" successfully published and live!`,
+      versionNumber: publishedVariant.version_number,
+      variant: {
+        ...publishedVariant,
+        configuration: parsed
+      }
+    });
+  } catch (err) {
+    res.status(500).json({ success: false, message: err.message });
+  }
+});
+
+// 10. Clone Variant to another Relationship
+app.post('/api/templates/:id/variants/:relId/clone', (req, res) => {
+  try {
+    const isAdmin = Boolean(req.user && (req.user.role === 'admin' || req.user.isAdmin));
+    if (!isAdmin) {
+      return res.status(403).json({ success: false, error: { code: 'FORBIDDEN', message: 'Admin role required.' } });
+    }
+
+    const { id: templateId, relId: sourceRelId } = req.params;
+    const targetRelId = req.body.targetRelationshipId;
+    if (!targetRelId) return res.status(400).json({ success: false, message: 'targetRelationshipId is required' });
+
+    const rels = getRelationships();
+    const sourceRel = rels.find(r => r.id === sourceRelId || r.slug === sourceRelId);
+    const targetRel = rels.find(r => r.id === targetRelId || r.slug === targetRelId);
+    if (!sourceRel || !targetRel) return res.status(404).json({ success: false, message: 'Source or target relationship not found' });
+
+    const allVariants = getTemplateRelationshipVariants();
+    const sourceVariant = allVariants.find(v => (v.template_id === templateId) && (v.relationship_id === sourceRel.id || v.relationship_slug === sourceRel.slug) && v.is_latest !== 0);
+    if (!sourceVariant) return res.status(404).json({ success: false, message: 'Source variant not found to clone' });
+
+    const cloned = cloneVariant(sourceVariant, targetRel);
+    cloned.template_id = templateId;
+
+    // Check if target already exists; if so, retire previous latest
+    const targetExistingIdx = allVariants.findIndex(v => v.template_id === templateId && (v.relationship_id === targetRel.id || v.relationship_slug === targetRel.slug) && v.is_latest !== 0);
+    if (targetExistingIdx >= 0) {
+      allVariants[targetExistingIdx].is_latest = 0;
+    }
+
+    allVariants.push(cloned);
+    saveTemplateRelationshipVariants(allVariants);
+
+    logServerAdminAudit(req.user, 'VARIANT_CLONED', 'template_variant', cloned.id, { sourceRelationship: sourceRel.id, targetRelationship: targetRel.id }, req);
+
+    res.status(201).json({
+      success: true,
+      message: `Cloned variant for ${targetRel.name} created successfully as draft.`,
+      variant: cloned
+    });
+  } catch (err) {
+    res.status(500).json({ success: false, message: err.message });
+  }
+});
+
+// 11. Archive Variant (Preserves Historical Snapshots)
+app.post('/api/templates/:id/variants/:relId/archive', (req, res) => {
+  try {
+    const isAdmin = Boolean(req.user && (req.user.role === 'admin' || req.user.isAdmin));
+    if (!isAdmin) {
+      return res.status(403).json({ success: false, error: { code: 'FORBIDDEN', message: 'Admin role required.' } });
+    }
+
+    const { id: templateId, relId } = req.params;
+    const rels = getRelationships();
+    const targetRel = rels.find(r => r.id === relId || r.slug === relId);
+    if (!targetRel) return res.status(404).json({ success: false, message: 'Relationship not found' });
+
+    const allVariants = getTemplateRelationshipVariants();
+    const variant = allVariants.find(v => (v.template_id === templateId) && (v.relationship_id === targetRel.id || v.relationship_slug === targetRel.slug) && v.is_latest !== 0);
+    if (!variant) return res.status(404).json({ success: false, message: 'Variant not found' });
+
+    variant.status = 'archived';
+    variant.updated_at = new Date().toISOString();
+    saveTemplateRelationshipVariants(allVariants);
+
+    logServerAdminAudit(req.user, 'VARIANT_ARCHIVED', 'template_variant', variant.id, { templateId, relationshipId: targetRel.id }, req);
+    res.json({ success: true, message: `Variant for ${targetRel.name} archived safely.` });
+  } catch (err) {
+    res.status(500).json({ success: false, message: err.message });
+  }
+});
+
+// 12. Real-time Live Resolver for Marketplace, Preview & Customizer
+app.get('/api/templates/:id/resolver', (req, res) => {
+  try {
+    const templateId = req.params.id;
+    const templates = getTemplates();
+    const template = templates.find(t => t.id === templateId || t.slug === templateId);
+    if (!template) return res.status(404).json({ success: false, message: 'Template not found' });
+
+    const activeVersion = getOrSeedTemplateVersion(template.id);
+    const versionId = activeVersion ? activeVersion.id : `tv_${template.id}_v1`;
+
+    const relQuery = req.query.relationship || req.query.relationshipId || req.query.rel || 'general';
+    const rels = getRelationships();
+    const targetRel = rels.find(r => r.slug.toLowerCase() === relQuery.toLowerCase() || r.id === relQuery) || rels[0];
+
+    const allVariants = getTemplateRelationshipVariants();
+    const variant = allVariants.find(v => (v.template_id === template.id || v.template_version_id === versionId) && (v.relationship_id === targetRel.id || v.relationship_slug === targetRel.slug) && v.is_latest !== 0) || null;
+
+    const templateImages = getTemplateImages().filter(img => img.template_id === template.id || img.template_version_id === versionId);
+    const musicLibrary = getMusicLibrary();
+
+    const resolved = resolveVariantHierarchy({
+      template,
+      templateVersion: activeVersion,
+      variant,
+      relationships: rels,
+      templateImages,
+      musicLibrary
+    });
+
+    res.json({ success: true, resolved });
+  } catch (err) {
+    res.status(500).json({ success: false, message: err.message });
+  }
+});
+
+// 13. Template Fields Registry API
+app.get('/api/templates/:id/fields', (req, res) => {
+  try {
+    const templateId = req.params.id;
+    const activeVersion = getOrSeedTemplateVersion(templateId);
+    const versionId = activeVersion ? activeVersion.id : `tv_${templateId}_v1`;
+
+    const allFields = getTemplateFields();
+    let fields = allFields.filter(f => f.template_version_id === versionId);
+
+    if (fields.length === 0) {
+      const templates = getTemplates();
+      const t = templates.find(item => item.id === templateId);
+      fields = (t && t.detectedFields) || [];
+    }
+
+    res.json({ success: true, templateId, fields, total: fields.length });
+  } catch (err) {
+    res.status(500).json({ success: false, message: err.message, fields: [] });
+  }
+});
+
+// 14. Template Music Assignments API
+app.get('/api/templates/:id/music', (req, res) => {
+  try {
+    const templateId = req.params.id;
+    const activeVersion = getOrSeedTemplateVersion(templateId);
+    const versionId = activeVersion ? activeVersion.id : `tv_${templateId}_v1`;
+
+    const allMusic = getMusicLibrary();
+    const tMusic = getTemplateMusic().filter(m => m.template_version_id === versionId);
+
+    const relQuery = req.query.relationshipId || req.query.relationship_id || null;
+    let filtered = tMusic;
+    if (relQuery) {
+      filtered = tMusic.filter(m => m.relationship_id === relQuery || !m.relationship_id);
+    }
+
+    const musicMap = new Map(allMusic.map(m => [m.id, m]));
+    const result = filtered.map(item => ({
+      ...item,
+      song: musicMap.get(item.music_id) || null
+    }));
+
+    res.json({ success: true, templateId, versionId, music: result, allMusic });
+  } catch (err) {
+    res.status(500).json({ success: false, message: err.message, music: [] });
+  }
+});
+
+app.post('/api/templates/:id/music', (req, res) => {
+  try {
+    const isAdmin = Boolean(req.user && (req.user.role === 'admin' || req.user.isAdmin));
+    if (!isAdmin) {
+      return res.status(403).json({ success: false, error: { code: 'FORBIDDEN', message: 'Admin role required.' } });
+    }
+
+    const templateId = req.params.id;
+    const activeVersion = getOrSeedTemplateVersion(templateId);
+    const versionId = activeVersion ? activeVersion.id : `tv_${templateId}_v1`;
+
+    const { musicId, relationshipId, isDefault } = req.body;
+    if (!musicId) return res.status(400).json({ success: false, message: 'musicId is required' });
+
+    const allMusic = getMusicLibrary();
+    const song = allMusic.find(m => m.id === musicId);
+    if (!song) return res.status(404).json({ success: false, message: 'Song not found in music library' });
+    if (song.status !== 'active' && song.status !== 'READY') {
+      return res.status(400).json({ success: false, message: `Cannot assign song with status "${song.status}". Song must be in READY status.` });
+    }
+
+    const tMusic = getTemplateMusic();
+    const newMapping = {
+      id: `tmus_${templateId}_${musicId}_${Date.now().toString(36)}`,
+      template_version_id: versionId,
+      music_id: musicId,
+      relationship_id: relationshipId || null,
+      is_default: isDefault ? 1 : 0,
+      enabled: 1,
+      sort_order: 1,
+      created_at: new Date().toISOString()
+    };
+
+    tMusic.push(newMapping);
+    saveTemplateMusic(tMusic);
+
+    logServerAdminAudit(req.user, 'MUSIC_ASSIGNED', 'template_music', newMapping.id, { templateId, musicId, relationshipId }, req);
+    res.status(201).json({ success: true, mapping: newMapping });
+  } catch (err) {
+    res.status(500).json({ success: false, message: err.message });
   }
 });
 
@@ -3218,6 +6024,260 @@ app.post('/api/admin/storage/audit-lifecycle', (req, res) => {
     });
   } catch (err) {
     res.status(500).json({ success: false, message: err.message });
+  }
+});
+
+// ============================================================================
+// --- Part 29: Admin Storage Health + Orphan Detection + Safe Cleanup + Recovery ---
+// ============================================================================
+
+// 1. Storage Health Dashboard Metrics API
+app.get('/api/admin/storage/health', async (req, res) => {
+  try {
+    let b2Provider = null;
+    try {
+      if (B2StorageProvider.isConfigured(process.env)) {
+        b2Provider = B2StorageProvider.fromEnv(process.env);
+      }
+    } catch (_) {}
+
+    const report = await generateComprehensiveStorageHealthReport({
+      b2Provider,
+      templates: getTemplates(),
+      templateVersions: getTemplateVersions(),
+      musicList: getMusicLibrary(),
+      templateImages: getTemplateImages(),
+      wishMediaList: getMedia(),
+      wishMediaMappings: getWishMediaMappings(),
+      wishes: getWishes(),
+      quarantineList: getStorageQuarantine(),
+      cleanupJobs: getStorageCleanupJobs(),
+      fetchFn: globalThis.fetch
+    });
+
+    res.json(report);
+  } catch (err) {
+    res.status(500).json({ success: false, message: err.message });
+  }
+});
+
+// 2. Active Verification Audit Trigger
+app.post('/api/admin/storage/verify', async (req, res) => {
+  try {
+    const { auditType = 'full' } = req.body || {};
+    let b2Provider = null;
+    try {
+      if (B2StorageProvider.isConfigured(process.env)) {
+        b2Provider = B2StorageProvider.fromEnv(process.env);
+      }
+    } catch (_) {}
+
+    const report = await generateComprehensiveStorageHealthReport({
+      b2Provider,
+      templates: getTemplates(),
+      templateVersions: getTemplateVersions(),
+      musicList: getMusicLibrary(),
+      templateImages: getTemplateImages(),
+      wishMediaList: getMedia(),
+      wishMediaMappings: getWishMediaMappings(),
+      wishes: getWishes(),
+      quarantineList: getStorageQuarantine(),
+      cleanupJobs: getStorageCleanupJobs(),
+      fetchFn: globalThis.fetch
+    });
+
+    const audits = getStorageHealthAudits();
+    const auditRecord = {
+      id: `audit_${Date.now().toString(36)}_${Math.random().toString(36).substring(2, 6)}`,
+      audit_type: auditType,
+      status: 'completed',
+      b2_status: report.summary.b2.status,
+      imgbb_status: report.summary.imgbb.status,
+      d1_status: report.summary.d1.status,
+      summary: report.summary,
+      orphans_count: report.summary.orphans.totalDetected,
+      broken_refs_count: report.summary.imgbb.brokenReferences,
+      started_at: new Date(Date.now() - (report.durationMs || 100)).toISOString(),
+      completed_at: report.timestamp,
+      duration_ms: report.durationMs,
+      initiated_by: req.headers['x-admin-user'] || 'admin'
+    };
+    audits.unshift(auditRecord);
+    saveStorageHealthAudits(audits);
+
+    res.json({
+      success: true,
+      auditId: auditRecord.id,
+      report
+    });
+  } catch (err) {
+    res.status(500).json({ success: false, message: err.message });
+  }
+});
+
+// 3. Orphan Detection API
+app.get('/api/admin/storage/orphans', async (req, res) => {
+  try {
+    let b2Provider = null;
+    try {
+      if (B2StorageProvider.isConfigured(process.env)) {
+        b2Provider = B2StorageProvider.fromEnv(process.env);
+      }
+    } catch (_) {}
+
+    const orphanData = await detectStorageOrphans({
+      templates: getTemplates(),
+      templateVersions: getTemplateVersions(),
+      musicList: getMusicLibrary(),
+      templateImages: getTemplateImages(),
+      wishMediaList: getMedia(),
+      wishMediaMappings: getWishMediaMappings(),
+      wishes: getWishes(),
+      b2Provider
+    });
+
+    res.json({
+      success: true,
+      ...orphanData
+    });
+  } catch (err) {
+    res.status(500).json({ success: false, message: err.message });
+  }
+});
+
+// 4. Safe Storage Cleanup API (Dry Run & Execution)
+app.post('/api/admin/storage/cleanup', async (req, res) => {
+  try {
+    const { targetIds = null, targetProvider = 'all', dryRun = true } = req.body || {};
+    let b2Provider = null;
+    try {
+      if (B2StorageProvider.isConfigured(process.env)) {
+        b2Provider = B2StorageProvider.fromEnv(process.env);
+      }
+    } catch (_) {}
+
+    // Check if any explicitly requested targetId is protected
+    if (Array.isArray(targetIds) && targetIds.length > 0) {
+      const wishes = getWishes();
+      const templates = getTemplates();
+      const templateVersions = getTemplateVersions();
+      const wishMediaMappings = getWishMediaMappings();
+      const templateImages = getTemplateImages();
+      const musicList = getMusicLibrary();
+
+      for (const id of targetIds) {
+        const protection = evaluateAssetProtection({
+          assetId: id,
+          wishes,
+          templates,
+          templateVersions,
+          wishMediaMappings,
+          templateImages,
+          musicList
+        });
+
+        if (protection.isProtected && !dryRun) {
+          return res.status(409).json({
+            success: false,
+            code: 'ASSET_PROTECTED',
+            isSafeToDelete: false,
+            assetId: id,
+            reason: `Asset "${id}" is protected and cannot be deleted or quarantined: ${protection.reasons.join(', ')}`,
+            dependencies: protection.dependencies
+          });
+        }
+      }
+    }
+
+    const result = await executeSafeCleanup({
+      targetIds,
+      targetProvider,
+      dryRun: Boolean(dryRun),
+      initiatedBy: req.headers['x-admin-user'] || 'admin',
+      context: {
+        wishes: getWishes(),
+        templates: getTemplates(),
+        templateVersions: getTemplateVersions(),
+        musicList: getMusicLibrary(),
+        templateImages: getTemplateImages(),
+        wishMediaList: getMedia(),
+        wishMediaMappings: getWishMediaMappings(),
+        quarantineList: getStorageQuarantine(),
+        b2Provider,
+        saveMedia,
+        saveTemplateImages,
+        saveQuarantine: saveStorageQuarantine,
+        saveCleanupJobs: saveStorageCleanupJobs,
+        cleanupJobs: getStorageCleanupJobs()
+      }
+    });
+
+    res.json(result);
+  } catch (err) {
+    res.status(500).json({ success: false, message: err.message });
+  }
+});
+
+// 5. Quarantine List API
+app.get('/api/admin/storage/quarantine', (req, res) => {
+  try {
+    const list = getStorageQuarantine();
+    res.json({
+      success: true,
+      quarantine: list,
+      total: list.length,
+      activeQuarantineCount: list.filter(q => q.status === 'quarantined').length,
+      restoredCount: list.filter(q => q.status === 'restored').length
+    });
+  } catch (err) {
+    res.status(500).json({ success: false, message: err.message, quarantine: [] });
+  }
+});
+
+// 6. Quarantine Asset Restore API
+app.post('/api/admin/storage/restore', async (req, res) => {
+  try {
+    const { quarantineId, assetId } = req.body || {};
+    const targetId = quarantineId || assetId;
+    if (!targetId) {
+      return res.status(400).json({ success: false, message: 'quarantineId or assetId is required' });
+    }
+
+    const result = await restoreQuarantinedAsset({
+      quarantineId: targetId,
+      context: {
+        quarantineList: getStorageQuarantine(),
+        wishMediaList: getMedia(),
+        templateImages: getTemplateImages(),
+        saveQuarantine: saveStorageQuarantine,
+        saveMedia,
+        saveTemplateImages
+      }
+    });
+
+    res.json(result);
+  } catch (err) {
+    res.status(err.status || 500).json({ success: false, code: err.code || 'RESTORE_ERROR', message: err.message });
+  }
+});
+
+// 7. Cleanup Jobs History API
+app.get('/api/admin/storage/cleanup-jobs', (req, res) => {
+  try {
+    const jobs = getStorageCleanupJobs();
+    res.json({ success: true, jobs, total: jobs.length });
+  } catch (err) {
+    res.status(500).json({ success: false, message: err.message, jobs: [] });
+  }
+});
+
+// 8. Health Audits History API
+app.get('/api/admin/storage/health-audits', (req, res) => {
+  try {
+    const audits = getStorageHealthAudits();
+    res.json({ success: true, audits, total: audits.length });
+  } catch (err) {
+    res.status(500).json({ success: false, message: err.message, audits: [] });
   }
 });
 
@@ -3951,35 +7011,43 @@ app.post('/api/analytics/leave', (req, res) => {
   }
 });
 
-// API: Record Analytics Event
+// API: Record Analytics Event (Part 33 Enhanced with Privacy & Schema Validation)
 app.post('/api/analytics/events', (req, res) => {
   try {
-    const event = req.body;
-    if (!event || !event.eventName) {
+    const rawEvent = req.body;
+    if (!rawEvent || (!rawEvent.eventName && !rawEvent.event_name && !rawEvent.event)) {
       return res.status(400).json({ success: false, message: 'eventName is required' });
     }
 
-    const newEvent = {
-      id: event.id || ('evt_' + Date.now().toString(36) + '_' + Math.random().toString(36).substr(2, 4)),
-      eventName: String(event.eventName).trim(),
-      timestamp: event.timestamp || new Date().toISOString(),
-      userId: event.userId || 'guest',
-      wishId: event.wishId || null,
-      slug: event.slug || null,
-      templateId: event.templateId || null,
-      templateName: event.templateName || null,
-      category: event.category || null,
-      recipientName: event.recipientName || null,
-      metadata: event.metadata || {}
-    };
+    const sanitized = validateAndSanitizeAnalyticsEvent(rawEvent, req.user);
 
-    const events = getEvents();
-    events.unshift(newEvent);
-    saveEvents(events);
+    const analyticsEvents = getAnalyticsEvents();
+    analyticsEvents.unshift(sanitized);
+    saveAnalyticsEvents(analyticsEvents);
 
-    res.json({ success: true, event: newEvent });
+    // Also maintain backwards compatibility with legacy events list
+    const legacyEvents = getEvents();
+    legacyEvents.unshift({
+      id: sanitized.id,
+      eventName: sanitized.event_name,
+      timestamp: sanitized.timestamp,
+      userId: sanitized.user_id,
+      wishId: sanitized.wish_id,
+      slug: sanitized.slug,
+      templateId: sanitized.template_id,
+      templateName: sanitized.template_name,
+      category: sanitized.category,
+      recipientName: sanitized.recipient_name,
+      metadata: JSON.parse(sanitized.metadata || '{}')
+    });
+    saveEvents(legacyEvents);
+
+    res.json({ success: true, event: sanitized });
   } catch (err) {
-    res.status(500).json({ success: false, message: err.message });
+    res.status(err.code === 'EVENT_VALIDATION_ERROR' ? 400 : 500).json({
+      success: false,
+      error: { code: err.code || 'EVENT_ERROR', message: err.message }
+    });
   }
 });
 
@@ -4021,108 +7089,881 @@ app.post('/api/analytics/events/reset', (req, res) => {
   }
 });
 
-// Server-Side RBAC Admin Protection Middleware
+// Server-Side RBAC Admin Protection Middleware (Part 30 Enhanced)
 app.use('/api/admin', (req, res, next) => {
   if (req.path === '/validation' || req.path === '/diagnostic') return next();
   if (!req.user) {
     return res.status(401).json({ success: false, error: { code: 'UNAUTHORIZED', message: 'Authentication required for administrative operations' } });
   }
-  if (req.user.role !== 'admin' && !req.user.isAdmin && req.user.id !== 'usr_admin_999') {
+  const isAuthorized = isAuthoritativeAdmin(req.user) ||
+    req.user.role === 'admin' ||
+    req.user.isAdmin ||
+    req.user.id === 'usr_admin_999' ||
+    req.user.id === 'usr_master_ankit_babu' ||
+    (req.user.email && req.user.email.toLowerCase() === PRIMARY_ADMIN_EMAIL.toLowerCase());
+
+  if (!isAuthorized) {
     return res.status(403).json({ success: false, error: { code: 'FORBIDDEN', message: 'Forbidden: Platform administrator role required' } });
   }
   next();
 });
 
-// API: Admin Users List with enriched counts
+// ============================================================================
+// PART 30 — ADVANCED USER MANAGEMENT API ENDPOINTS
+// ============================================================================
+
+// API: Admin Users List with enriched metrics & filters (Part 30)
 app.get('/api/admin/users', (req, res) => {
   try {
+    const users = getUsers();
     const wishes = getWishes();
+    const result = listUsersEnriched(users, wishes, req.query);
+    res.json({ success: true, ...result });
+  } catch (err) {
+    res.status(500).json({ success: false, users: [], total: 0, message: err.message });
+  }
+});
 
-    // Default normalized dev accounts
-    const baseUsers = [
-      {
-        id: 'usr_ankit_101',
-        name: 'Ankit Verma',
-        displayName: 'Ankit Verma',
-        email: 'ankit@example.com',
-        role: 'creator',
-        plan: 'VIP',
-        isPremium: true,
-        createdAt: '2026-01-15T10:00:00.000Z'
+// API: Get single user deep profile (Part 30)
+app.get('/api/admin/users/:userId', (req, res) => {
+  try {
+    const { userId } = req.params;
+    const users = getUsers();
+    const user = users.find(u => u.id === userId || (u.email && u.email.toLowerCase() === userId.toLowerCase()));
+    if (!user) {
+      return res.status(404).json({ success: false, error: { code: 'NOT_FOUND', message: 'User not found' } });
+    }
+
+    const wishes = getWishes().filter(w => w.userId === user.id || w.user_id === user.id);
+    const sessions = getSessions().filter(s => s.userId === user.id || s.user_id === user.id);
+    const tickets = getSupportTickets().filter(t => t.userId === user.id || t.user_id === user.id || t.userEmail === user.email);
+    const auditLogs = getAdminAuditLogs().filter(a => a.targetId === user.id);
+
+    const isVIP = user.isPremium || user.is_premium || user.plan === 'VIP';
+    res.json({
+      success: true,
+      user: {
+        id: user.id,
+        email: user.email,
+        displayName: user.displayName || user.name || 'Anonymous',
+        avatarUrl: user.avatarUrl || user.avatar_url,
+        role: user.role || 'creator',
+        plan: isVIP ? 'VIP' : 'Free',
+        isPremium: Boolean(isVIP),
+        status: user.status || 'active',
+        suspensionReason: user.suspensionReason || user.suspension_reason || null,
+        adminNotes: user.adminNotes || user.admin_notes || null,
+        lastLoginAt: user.lastLoginAt || user.last_login_at || null,
+        createdAt: user.createdAt || user.created_at,
+        updatedAt: user.updatedAt || user.updated_at
       },
-      {
-        id: 'usr_priya_202',
-        name: 'Priya Sharma',
-        displayName: 'Priya Sharma',
-        email: 'priya@example.com',
-        role: 'creator',
-        plan: 'Free',
-        isPremium: false,
-        createdAt: '2026-02-20T14:30:00.000Z'
+      stats: {
+        totalWishes: wishes.length,
+        publishedWishes: wishes.filter(w => (w.status === 'published' || !w.status) && w.lifecycleStatus !== 'draft').length,
+        activeSessions: sessions.length,
+        supportTickets: tickets.length
       },
-      {
-        id: 'usr_admin_999',
-        name: 'Development Admin',
-        displayName: 'Development Admin',
-        email: 'admin@wishmagic.internal',
-        role: 'admin',
-        plan: 'VIP',
-        isPremium: true,
-        createdAt: '2026-01-01T00:00:00.000Z'
-      }
-    ];
+      wishes,
+      sessions,
+      tickets,
+      auditLogs
+    });
+  } catch (err) {
+    res.status(500).json({ success: false, message: err.message });
+  }
+});
 
-    // Compute metrics for each user from real wishes
-    const enrichedUsers = baseUsers.map(u => {
-      const userWishes = wishes.filter(w => w.userId === u.id);
-      const vipWishes = userWishes.filter(w => w.tier === 'vip' || w.price > 0);
-      const totalViews = userWishes.reduce((sum, w) => sum + (w.views || 0), 0);
+// API: Update user account status (active, suspended, banned, deactivated) (Part 30)
+app.patch('/api/admin/users/:userId/status', (req, res) => {
+  try {
+    const { userId } = req.params;
+    const { status, reason, adminNotes } = req.body || {};
+    const users = getUsers();
+    const user = users.find(u => u.id === userId);
+    if (!user) {
+      return res.status(404).json({ success: false, error: { code: 'NOT_FOUND', message: 'User not found' } });
+    }
 
-      return {
-        ...u,
-        wishesCount: userWishes.length,
-        vipWishesCount: vipWishes.length,
-        totalViews,
-        lastActiveAt: userWishes.length > 0 ? userWishes[0].createdAt : u.createdAt
-      };
+    const { user: updatedUser, auditLog } = updateUserStatus({
+      user,
+      newStatus: status,
+      reason,
+      adminNotes,
+      actor: req.user
     });
 
-    res.json({ success: true, count: enrichedUsers.length, users: enrichedUsers });
+    saveUsers(users);
+
+    // If suspended or banned, invalidate sessions immediately
+    if (status === USER_STATUS.SUSPENDED || status === USER_STATUS.BANNED) {
+      const allSessions = getSessions();
+      const remaining = allSessions.filter(s => s.userId !== user.id && s.user_id !== user.id);
+      saveSessions(remaining);
+    }
+
+    // Record audit
+    const logs = getAdminAuditLogs();
+    logs.push(auditLog);
+    saveAdminAuditLogs(logs);
+
+    res.json({ success: true, user: updatedUser, message: `User status updated to ${status}` });
   } catch (err) {
-    res.status(500).json({ success: false, count: 0, users: [] });
+    res.status(400).json({ success: false, error: { code: 'BAD_REQUEST', message: err.message } });
+  }
+});
+
+// API: Update user role (Part 30)
+app.patch('/api/admin/users/:userId/role', (req, res) => {
+  try {
+    const { userId } = req.params;
+    const { role } = req.body || {};
+    const users = getUsers();
+    const user = users.find(u => u.id === userId);
+    if (!user) {
+      return res.status(404).json({ success: false, error: { code: 'NOT_FOUND', message: 'User not found' } });
+    }
+
+    const { user: updatedUser, auditLog } = updateUserRole({
+      user,
+      newRole: role,
+      allUsers: users,
+      actor: req.user
+    });
+
+    saveUsers(users);
+
+    const logs = getAdminAuditLogs();
+    logs.push(auditLog);
+    saveAdminAuditLogs(logs);
+
+    res.json({ success: true, user: updatedUser, message: `User role updated to ${role}` });
+  } catch (err) {
+    res.status(400).json({ success: false, error: { code: 'BAD_REQUEST', message: err.message } });
+  }
+});
+
+// API: Update user tier / VIP pass (Part 30)
+app.patch('/api/admin/users/:userId/tier', (req, res) => {
+  try {
+    const { userId } = req.params;
+    const { plan, isPremium } = req.body || {};
+    const users = getUsers();
+    const user = users.find(u => u.id === userId);
+    if (!user) {
+      return res.status(404).json({ success: false, error: { code: 'NOT_FOUND', message: 'User not found' } });
+    }
+
+    const isVIP = plan === 'VIP' || Boolean(isPremium);
+    user.plan = isVIP ? 'VIP' : 'Free';
+    user.isPremium = isVIP;
+    user.is_premium = isVIP ? 1 : 0;
+    user.updatedAt = new Date().toISOString();
+    saveUsers(users);
+
+    const auditLog = createAuditLogEntry({
+      actorId: req.user.id,
+      actorName: req.user.displayName || req.user.name || 'Admin',
+      actorRole: req.user.role || 'admin',
+      action: 'USER_TIER_UPDATED',
+      targetType: 'user',
+      targetId: user.id,
+      details: { plan: user.plan, isPremium: isVIP }
+    });
+    const logs = getAdminAuditLogs();
+    logs.push(auditLog);
+    saveAdminAuditLogs(logs);
+
+    res.json({ success: true, user, message: `User plan updated to ${user.plan}` });
+  } catch (err) {
+    res.status(400).json({ success: false, message: err.message });
+  }
+});
+
+// API: Force logout / revoke sessions (Part 30)
+app.post('/api/admin/users/:userId/revoke-sessions', (req, res) => {
+  try {
+    const { userId } = req.params;
+    const { reason } = req.body || {};
+    const sessions = getSessions();
+    const { remainingSessions, revokedCount, auditLog } = revokeUserSessions({
+      userId,
+      sessions,
+      actor: req.user,
+      reason: reason || 'Administrative session revocation'
+    });
+
+    saveSessions(remainingSessions);
+
+    const logs = getAdminAuditLogs();
+    logs.push(auditLog);
+    saveAdminAuditLogs(logs);
+
+    res.json({ success: true, revokedCount, message: `Revoked ${revokedCount} active sessions.` });
+  } catch (err) {
+    res.status(500).json({ success: false, message: err.message });
+  }
+});
+
+// API: Update user internal admin notes (Part 30)
+app.patch('/api/admin/users/:userId/notes', (req, res) => {
+  try {
+    const { userId } = req.params;
+    const { adminNotes } = req.body || {};
+    const users = getUsers();
+    const user = users.find(u => u.id === userId);
+    if (!user) {
+      return res.status(404).json({ success: false, message: 'User not found' });
+    }
+
+    user.adminNotes = adminNotes || '';
+    user.admin_notes = user.adminNotes;
+    user.updatedAt = new Date().toISOString();
+    saveUsers(users);
+
+    res.json({ success: true, user, message: 'Admin notes updated' });
+  } catch (err) {
+    res.status(500).json({ success: false, message: err.message });
+  }
+});
+
+// API: Safe delete or archive user with dependency protection (Part 30)
+app.delete('/api/admin/users/:userId', (req, res) => {
+  try {
+    const { userId } = req.params;
+    const action = req.query.action === 'delete' ? 'delete' : 'archive';
+    const reason = req.query.reason || '';
+
+    const users = getUsers();
+    const userIdx = users.findIndex(u => u.id === userId);
+    if (userIdx === -1) {
+      return res.status(404).json({ success: false, message: 'User not found' });
+    }
+
+    const user = users[userIdx];
+    const wishes = getWishes();
+
+    const { action: resolvedAction, user: modifiedUser, auditLog } = safeDeleteOrArchiveUser({
+      user,
+      wishes,
+      action,
+      actor: req.user,
+      reason
+    });
+
+    if (resolvedAction === 'delete') {
+      users.splice(userIdx, 1);
+    } else {
+      users[userIdx] = modifiedUser;
+    }
+    saveUsers(users);
+
+    const logs = getAdminAuditLogs();
+    logs.push(auditLog);
+    saveAdminAuditLogs(logs);
+
+    res.json({ success: true, action: resolvedAction, message: `User account successfully ${resolvedAction}d.` });
+  } catch (err) {
+    res.status(400).json({ success: false, error: { code: 'PROTECTION_SAFEGUARD', message: err.message } });
   }
 });
 
 // ============================================================================
-// PART 17 — NOTIFICATION & COMMUNICATION ARCHITECTURE API ENDPOINTS
+// PART 30 — COMPLETE WISH MANAGEMENT & MODERATION API ENDPOINTS
 // ============================================================================
 
-// API: Get Notifications with user isolation & filters
+// API: List celebration wishes with full moderation, lifecycle & creator details (Part 30)
+app.get('/api/admin/wishes', (req, res) => {
+  try {
+    const wishes = getWishes();
+    const users = getUsers();
+    const result = listAdminWishesEnriched(wishes, users, req.query);
+    res.json({ success: true, ...result });
+  } catch (err) {
+    res.status(500).json({ success: false, wishes: [], total: 0, message: err.message });
+  }
+});
+
+// API: Deep inspection of single celebration wish + asset integrity check (Part 30)
+app.get('/api/admin/wishes/:wishId', async (req, res) => {
+  try {
+    const { wishId } = req.params;
+    const wishes = getWishes();
+    const wish = wishes.find(w => w.id === wishId || w.slug === wishId);
+    if (!wish) {
+      return res.status(404).json({ success: false, message: 'Wish not found' });
+    }
+
+    const users = getUsers();
+    const creator = users.find(u => u.id === (wish.userId || wish.user_id)) || null;
+
+    // Run deep asset integrity diagnosis
+    let healthReport = null;
+    try {
+      const b2 = new B2StorageProvider(getB2Config());
+      const imgbb = new ImgBBProvider(getImgBBConfig());
+      healthReport = await diagnoseWishDeepHealth(wish, { b2Provider: b2, imgbbProvider: imgbb });
+    } catch (e) {
+      healthReport = { overallIntegrity: 'UNKNOWN', issues: [e.message] };
+    }
+
+    const auditLogs = getAdminAuditLogs().filter(a => a.targetId === wish.id);
+
+    res.json({
+      success: true,
+      wish,
+      creator,
+      healthReport,
+      auditLogs
+    });
+  } catch (err) {
+    res.status(500).json({ success: false, message: err.message });
+  }
+});
+
+// API: Moderate wish (Approve, Flag, Suspend, Reject) (Part 30)
+app.post('/api/admin/wishes/:wishId/moderate', (req, res) => {
+  try {
+    const { wishId } = req.params;
+    const { action, reason, adminNotes } = req.body || {};
+    const wishes = getWishes();
+    const wish = wishes.find(w => w.id === wishId || w.slug === wishId);
+    if (!wish) {
+      return res.status(404).json({ success: false, message: 'Wish not found' });
+    }
+
+    const { wish: updatedWish, auditLog } = moderateWish({
+      wish,
+      action,
+      reason,
+      adminNotes,
+      actor: req.user
+    });
+
+    saveWishes(wishes);
+
+    const logs = getAdminAuditLogs();
+    logs.push(auditLog);
+    saveAdminAuditLogs(logs);
+
+    res.json({ success: true, wish: updatedWish, message: `Wish moderation updated to ${updatedWish.moderationStatus}` });
+  } catch (err) {
+    res.status(400).json({ success: false, message: err.message });
+  }
+});
+
+// API: Extend wish expiry date or upgrade to permanent VIP (Part 30)
+app.post('/api/admin/wishes/:wishId/extend-expiry', (req, res) => {
+  try {
+    const { wishId } = req.params;
+    const { days, permanentVip, targetDate, reason } = req.body || {};
+    const wishes = getWishes();
+    const wish = wishes.find(w => w.id === wishId || w.slug === wishId);
+    if (!wish) {
+      return res.status(404).json({ success: false, message: 'Wish not found' });
+    }
+
+    const { wish: updatedWish, auditLog } = extendWishExpiry({
+      wish,
+      days: days || 7,
+      permanentVip: Boolean(permanentVip),
+      customTargetDate: targetDate,
+      reason,
+      actor: req.user
+    });
+
+    saveWishes(wishes);
+
+    const logs = getAdminAuditLogs();
+    logs.push(auditLog);
+    saveAdminAuditLogs(logs);
+
+    res.json({ success: true, wish: updatedWish, message: `Wish expiry extended to ${updatedWish.expiryDate}` });
+  } catch (err) {
+    res.status(400).json({ success: false, message: err.message });
+  }
+});
+
+// API: Transfer wish ownership (Part 30)
+app.post('/api/admin/wishes/:wishId/transfer', (req, res) => {
+  try {
+    const { wishId } = req.params;
+    const { targetEmailOrId, reason } = req.body || {};
+    if (!targetEmailOrId) {
+      return res.status(400).json({ success: false, message: 'Target user email or ID required' });
+    }
+
+    const wishes = getWishes();
+    const wish = wishes.find(w => w.id === wishId || w.slug === wishId);
+    if (!wish) {
+      return res.status(404).json({ success: false, message: 'Wish not found' });
+    }
+
+    const users = getUsers();
+    const targetUser = users.find(u => u.id === targetEmailOrId || (u.email && u.email.toLowerCase() === targetEmailOrId.toLowerCase()));
+    if (!targetUser) {
+      return res.status(404).json({ success: false, message: 'Target user account not found' });
+    }
+
+    const { wish: updatedWish, auditLog } = transferWishOwnership({
+      wish,
+      targetUser,
+      reason,
+      actor: req.user
+    });
+
+    saveWishes(wishes);
+
+    const logs = getAdminAuditLogs();
+    logs.push(auditLog);
+    saveAdminAuditLogs(logs);
+
+    res.json({ success: true, wish: updatedWish, message: `Wish ownership transferred to ${targetUser.email}` });
+  } catch (err) {
+    res.status(400).json({ success: false, message: err.message });
+  }
+});
+
+// API: Update wish status (published, draft, archived) (Part 30)
+app.patch('/api/admin/wishes/:wishId/status', (req, res) => {
+  try {
+    const { wishId } = req.params;
+    const { status } = req.body || {};
+    const wishes = getWishes();
+    const wish = wishes.find(w => w.id === wishId || w.slug === wishId);
+    if (!wish) {
+      return res.status(404).json({ success: false, message: 'Wish not found' });
+    }
+
+    const previousStatus = wish.status;
+    wish.status = status;
+    wish.updatedAt = new Date().toISOString();
+    saveWishes(wishes);
+
+    const auditLog = createAuditLogEntry({
+      actorId: req.user.id,
+      actorName: req.user.displayName || req.user.name || 'Admin',
+      actorRole: req.user.role || 'admin',
+      action: 'WISH_STATUS_UPDATED',
+      targetType: 'wish',
+      targetId: wish.id,
+      details: { previousStatus, newStatus: status }
+    });
+    const logs = getAdminAuditLogs();
+    logs.push(auditLog);
+    saveAdminAuditLogs(logs);
+
+    res.json({ success: true, wish, message: `Wish status updated to ${status}` });
+  } catch (err) {
+    res.status(400).json({ success: false, message: err.message });
+  }
+});
+
+// API: Safe deletion of celebration wish (Part 30)
+app.delete('/api/admin/wishes/:wishId', (req, res) => {
+  try {
+    const { wishId } = req.params;
+    const { reason } = req.query || {};
+    const wishes = getWishes();
+    const idx = wishes.findIndex(w => w.id === wishId || w.slug === wishId);
+    if (idx === -1) {
+      return res.status(404).json({ success: false, message: 'Wish not found' });
+    }
+
+    const wish = wishes[idx];
+    const { auditLog } = safeDeleteWish({ wish, actor: req.user, reason });
+
+    wishes.splice(idx, 1);
+    saveWishes(wishes);
+
+    // Clean up mappings
+    const mappings = getWishMediaMappings().filter(m => m.wishId !== wish.id);
+    saveWishMediaMappings(mappings);
+
+    const logs = getAdminAuditLogs();
+    logs.push(auditLog);
+    saveAdminAuditLogs(logs);
+
+    res.json({ success: true, message: `Celebration wish "${wish.recipientName || wish.id}" safely deleted.` });
+  } catch (err) {
+    res.status(500).json({ success: false, message: err.message });
+  }
+});
+
+// ============================================================================
+// PART 30 — CONTENT MODERATION QUEUE API ENDPOINTS
+// ============================================================================
+
+// API: Moderation Queue (Part 30)
+app.get('/api/admin/moderation/queue', (req, res) => {
+  try {
+    const reports = getModerationReports();
+    const wishes = getWishes();
+    const flaggedWishes = wishes.filter(w => w.isFlagged || w.moderationStatus === 'flagged' || w.moderationStatus === 'suspended');
+
+    const statusFilter = req.query.status || 'all';
+    let filteredReports = [...reports];
+    if (statusFilter !== 'all') {
+      filteredReports = filteredReports.filter(r => r.status === statusFilter);
+    }
+
+    res.json({
+      success: true,
+      pendingCount: reports.filter(r => r.status === 'pending').length,
+      flaggedWishesCount: flaggedWishes.length,
+      reports: filteredReports,
+      flaggedWishes
+    });
+  } catch (err) {
+    res.status(500).json({ success: false, message: err.message });
+  }
+});
+
+// API: Resolve Moderation Report (Part 30)
+app.post('/api/admin/moderation/resolve', (req, res) => {
+  try {
+    const { reportId, action, notes } = req.body || {};
+    const reports = getModerationReports();
+    const report = reports.find(r => r.id === reportId);
+    if (!report) {
+      return res.status(404).json({ success: false, message: 'Moderation report not found' });
+    }
+
+    const wishes = getWishes();
+    const targetWish = report.targetType === 'wish' ? wishes.find(w => w.id === report.targetId || w.slug === report.targetId) : null;
+
+    const { report: updatedReport, auditLog, wishAudit } = resolveModerationReport({
+      report,
+      action,
+      notes,
+      actor: req.user,
+      targetWish
+    });
+
+    saveModerationReports(reports);
+    if (targetWish) saveWishes(wishes);
+
+    const logs = getAdminAuditLogs();
+    logs.push(auditLog);
+    if (wishAudit) logs.push(wishAudit);
+    saveAdminAuditLogs(logs);
+
+    res.json({ success: true, report: updatedReport, message: `Report resolved with action: ${action}` });
+  } catch (err) {
+    res.status(400).json({ success: false, message: err.message });
+  }
+});
+
+// Public / User API: Submit Moderation Report
+app.post('/api/moderation/report', (req, res) => {
+  try {
+    const { targetType, targetId, reportReason, details, reporterEmail } = req.body || {};
+    if (!targetId || !reportReason) {
+      return res.status(400).json({ success: false, message: 'Target ID and report reason are required' });
+    }
+
+    const report = createModerationReport({
+      targetType: targetType || 'wish',
+      targetId,
+      reporterId: req.user ? req.user.id : 'guest',
+      reporterEmail: reporterEmail || (req.user ? req.user.email : 'guest@wishmagic.live'),
+      reportReason,
+      details: details || ''
+    });
+
+    const reports = getModerationReports();
+    reports.push(report);
+    saveModerationReports(reports);
+
+    // Automatically flag target wish if reported
+    if (targetType === 'wish' || !targetType) {
+      const wishes = getWishes();
+      const w = wishes.find(item => item.id === targetId || item.slug === targetId);
+      if (w) {
+        w.isFlagged = true;
+        w.is_flagged = 1;
+        saveWishes(wishes);
+      }
+    }
+
+    res.json({ success: true, reportId: report.id, message: 'Report submitted successfully. Our team will review it.' });
+  } catch (err) {
+    res.status(400).json({ success: false, message: err.message });
+  }
+});
+
+// ============================================================================
+// PART 30 — SUPPORT CONSOLE & UNIVERSAL LOOKUP API ENDPOINTS
+// ============================================================================
+
+// API: Universal Lookup (Part 30)
+app.get('/api/admin/support/lookup', (req, res) => {
+  try {
+    const query = req.query.q || req.query.query || '';
+    const users = getUsers();
+    const wishes = getWishes();
+    const tickets = getSupportTickets();
+    const orders = getOrders();
+
+    const result = universalLookup({
+      query,
+      users,
+      wishes,
+      tickets,
+      orders
+    });
+
+    res.json({ success: true, ...result });
+  } catch (err) {
+    res.status(500).json({ success: false, message: err.message });
+  }
+});
+
+// API: Celebration Link Health Diagnostic (Part 30)
+app.get('/api/admin/support/diagnose/:wishId', async (req, res) => {
+  try {
+    const { wishId } = req.params;
+    const wishes = getWishes();
+    const wish = wishes.find(w => w.id === wishId || w.slug === wishId);
+    if (!wish) {
+      return res.status(404).json({ success: false, message: 'Wish not found' });
+    }
+
+    const b2 = new B2StorageProvider(getB2Config());
+    const imgbb = new ImgBBProvider(getImgBBConfig());
+    const diagnosis = await diagnoseWishDeepHealth(wish, { b2Provider: b2, imgbbProvider: imgbb });
+
+    res.json({ success: true, diagnosis });
+  } catch (err) {
+    res.status(500).json({ success: false, message: err.message });
+  }
+});
+
+// API: One-click Auto Repair celebration link (Part 30)
+app.post('/api/admin/support/repair/:wishId', (req, res) => {
+  try {
+    const { wishId } = req.params;
+    const { extendDays = 7 } = req.body || {};
+    const wishes = getWishes();
+    const wish = wishes.find(w => w.id === wishId || w.slug === wishId);
+    if (!wish) {
+      return res.status(404).json({ success: false, message: 'Wish not found' });
+    }
+
+    // Auto-repair logic: Ensure slug is valid, reset moderation if mistakenly flagged, renew expiry
+    if (!wish.slug) {
+      wish.slug = generateUniqueWishSlug(wish.customData || {}, null, wishes.filter(w => w !== wish));
+    }
+    wish.lifecycleStatus = 'active';
+    wish.lifecycle_status = 'active';
+
+    const now = new Date();
+    const exp = new Date(now.getTime() + Number(extendDays) * 24 * 60 * 60 * 1000);
+    wish.expiryDate = exp.toISOString().split('T')[0];
+    wish.expiry_date = wish.expiryDate;
+    wish.updatedAt = new Date().toISOString();
+    saveWishes(wishes);
+
+    const auditLog = createAuditLogEntry({
+      actorId: req.user.id,
+      actorName: req.user.displayName || req.user.name || 'Support Desk',
+      actorRole: req.user.role || 'admin',
+      action: 'WISH_LINK_REPAIRED',
+      targetType: 'wish',
+      targetId: wish.id,
+      details: { newSlug: wish.slug, newExpiry: wish.expiryDate }
+    });
+    const logs = getAdminAuditLogs();
+    logs.push(auditLog);
+    saveAdminAuditLogs(logs);
+
+    res.json({ success: true, wish, message: 'Celebration link repaired and renewed.' });
+  } catch (err) {
+    res.status(500).json({ success: false, message: err.message });
+  }
+});
+
+// API: List Support Tickets (Part 30)
+app.get('/api/admin/support/tickets', (req, res) => {
+  try {
+    const tickets = getSupportTickets();
+    const statusFilter = req.query.status || 'all';
+    const categoryFilter = req.query.category || 'all';
+
+    let filtered = [...tickets];
+    if (statusFilter !== 'all') {
+      filtered = filtered.filter(t => t.status === statusFilter);
+    }
+    if (categoryFilter !== 'all') {
+      filtered = filtered.filter(t => t.category === categoryFilter);
+    }
+
+    filtered.sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt));
+
+    res.json({
+      success: true,
+      total: tickets.length,
+      openCount: tickets.filter(t => t.status === 'open').length,
+      tickets: filtered
+    });
+  } catch (err) {
+    res.status(500).json({ success: false, tickets: [], message: err.message });
+  }
+});
+
+// API: Create Support Ticket (Part 30)
+app.post('/api/admin/support/tickets', (req, res) => {
+  try {
+    const { userId, userEmail, wishId, category, subject, description, priority, assignedTo } = req.body || {};
+    const { ticket, auditLog } = createSupportTicket({
+      userId,
+      userEmail,
+      wishId,
+      category,
+      subject,
+      description,
+      priority,
+      assignedTo,
+      actor: req.user
+    });
+
+    const tickets = getSupportTickets();
+    tickets.unshift(ticket);
+    saveSupportTickets(tickets);
+
+    const logs = getAdminAuditLogs();
+    logs.push(auditLog);
+    saveAdminAuditLogs(logs);
+
+    res.json({ success: true, ticket });
+  } catch (err) {
+    res.status(400).json({ success: false, message: err.message });
+  }
+});
+
+// API: Update Support Ticket (Part 30)
+app.patch('/api/admin/support/tickets/:ticketId', (req, res) => {
+  try {
+    const { ticketId } = req.params;
+    const { status, priority, adminNotes, resolutionSummary, assignedTo } = req.body || {};
+    const tickets = getSupportTickets();
+    const ticket = tickets.find(t => t.id === ticketId || t.ticketNumber === ticketId);
+    if (!ticket) {
+      return res.status(404).json({ success: false, message: 'Support ticket not found' });
+    }
+
+    const { ticket: updatedTicket, auditLog } = updateSupportTicket({
+      ticket,
+      status,
+      priority,
+      adminNotes,
+      resolutionSummary,
+      assignedTo,
+      actor: req.user
+    });
+
+    saveSupportTickets(tickets);
+
+    const logs = getAdminAuditLogs();
+    logs.push(auditLog);
+    saveAdminAuditLogs(logs);
+
+    res.json({ success: true, ticket: updatedTicket });
+  } catch (err) {
+    res.status(400).json({ success: false, message: err.message });
+  }
+});
+
+// ============================================================================
+// PART 30 — AUDIT TRAIL API ENDPOINTS
+// ============================================================================
+
+// API: Query Audit Logs (Part 30)
+app.get('/api/admin/audit-logs', (req, res) => {
+  try {
+    const logs = getAdminAuditLogs();
+    const result = filterAuditLogs(logs, req.query);
+    res.json({ success: true, ...result });
+  } catch (err) {
+    res.status(500).json({ success: false, logs: [], total: 0, message: err.message });
+  }
+});
+
+// API: Export Audit Logs to CSV (Part 30)
+app.get('/api/admin/audit-logs/export', (req, res) => {
+  try {
+    const logs = getAdminAuditLogs();
+    const csv = exportAuditLogsCsv(logs);
+    res.setHeader('Content-Type', 'text/csv');
+    res.setHeader('Content-Disposition', `attachment; filename="wishmagic_audit_logs_${Date.now()}.csv"`);
+    res.send(csv);
+  } catch (err) {
+    res.status(500).send('Error exporting audit logs');
+  }
+});
+
+// ============================================================================
+// ============================================================================
+// PART 31 — ENTERPRISE NOTIFICATION & COMMUNICATION ARCHITECTURE API ENDPOINTS
+// ============================================================================
+
+// API: Get Notifications with user isolation, unread filter, and pagination (Part 31)
 app.get('/api/notifications', (req, res) => {
   try {
-    const { userId, type, unreadOnly } = req.query;
+    const targetUserId = req.query.userId || (req.user ? req.user.id : null);
+    const { type, unreadOnly, page = 1, limit = 50 } = req.query;
     let list = getNotifications();
 
-    if (userId) {
-      list = list.filter(n => n.userId === userId || n.userId === 'all');
+    if (targetUserId) {
+      list = list.filter(n => (n.userId === targetUserId || n.user_id === targetUserId || n.userId === 'all' || n.user_id === 'all'));
     }
 
     if (unreadOnly === 'true') {
-      list = list.filter(n => !n.readAt);
+      list = list.filter(n => !n.readAt && !n.read_at);
     }
 
     if (type && type !== 'all') {
       list = list.filter(n => n.type === type);
     }
 
-    list.sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt));
-    res.json({ success: true, count: list.length, notifications: list });
+    list.sort((a, b) => new Date(b.createdAt || b.created_at) - new Date(a.createdAt || a.created_at));
+
+    const totalCount = list.length;
+    const pageNum = Math.max(1, Number(page) || 1);
+    const limitNum = Math.min(100, Math.max(1, Number(limit) || 50));
+    const startIndex = (pageNum - 1) * limitNum;
+    const paginated = list.slice(startIndex, startIndex + limitNum);
+
+    const unreadCount = calculateUnreadCount({ notifications: getNotifications(), userId: targetUserId });
+
+    res.json({
+      success: true,
+      total: totalCount,
+      count: paginated.length,
+      unreadCount,
+      page: pageNum,
+      limit: limitNum,
+      notifications: paginated
+    });
   } catch (err) {
     res.status(500).json({ success: false, count: 0, notifications: [], message: err.message });
   }
 });
 
-// API: Create new notification
+// API: Unread notification count for authenticated user (Part 31)
+app.get('/api/notifications/unread-count', (req, res) => {
+  try {
+    const targetUserId = req.query.userId || (req.user ? req.user.id : null);
+    if (!targetUserId) {
+      return res.json({ success: true, count: 0 });
+    }
+    const count = calculateUnreadCount({ notifications: getNotifications(), userId: targetUserId });
+    res.json({ success: true, count });
+  } catch (err) {
+    res.status(500).json({ success: false, count: 0, message: err.message });
+  }
+});
+
+// API: Create new notification (Part 31)
 app.post('/api/notifications', (req, res) => {
   try {
     const payload = req.body || {};
@@ -4130,23 +7971,19 @@ app.post('/api/notifications', (req, res) => {
       return res.status(400).json({ success: false, message: 'Notification title or message required' });
     }
 
-    const item = {
-      id: payload.id || ('ntf_' + Date.now().toString(36) + '_' + Math.random().toString(36).substr(2, 5)),
-      userId: payload.userId || 'guest',
-      type: payload.type || 'SYSTEM_NOTICE',
+    const item = createInAppNotification({
+      id: payload.id,
+      userId: payload.userId || (req.user ? req.user.id : 'guest'),
+      type: payload.type || NOTIFICATION_TYPES.SYSTEM_NOTICE,
       title: payload.title || 'Notification',
       message: payload.message || '',
-      createdAt: payload.createdAt || new Date().toISOString(),
-      readAt: payload.readAt || null,
       relatedType: payload.relatedType || null,
       relatedId: payload.relatedId || null,
       actionUrl: payload.actionUrl || null,
       icon: payload.icon || 'notifications',
       severity: payload.severity || 'info',
-      isGrouped: Boolean(payload.isGrouped),
-      groupCount: Number(payload.groupCount) || 1,
       metadata: payload.metadata || {}
-    };
+    });
 
     const list = getNotifications();
     list.unshift(item);
@@ -4158,55 +7995,69 @@ app.post('/api/notifications', (req, res) => {
   }
 });
 
-// API: Mark notification as read
-app.put('/api/notifications/:id/read', (req, res) => {
+// API: Mark notification as read (with strict user ownership enforcement) (Part 31)
+app.all(['/api/notifications/:id/read'], (req, res) => {
   try {
     const id = req.params.id;
-    const { userId } = req.body || {};
+    const actorId = (req.user ? req.user.id : null) || req.body?.userId || req.query?.userId;
     const list = getNotifications();
-    const target = list.find(n => n.id === id && (!userId || n.userId === userId || n.userId === 'all'));
+    const target = list.find(n => n.id === id);
 
-    if (target) {
-      target.readAt = new Date().toISOString();
-      saveNotifications(list);
-      return res.json({ success: true, notification: target });
+    if (!target) {
+      return res.status(404).json({ success: false, message: 'Notification not found' });
     }
 
-    res.status(404).json({ success: false, message: 'Notification not found' });
+    // Enforce ownership if actor is known and notification is targeted
+    const ownerId = target.userId || target.user_id;
+    if (actorId && ownerId !== 'all' && ownerId !== actorId) {
+      return res.status(403).json({ success: false, error: { code: NOTIF_ERROR_CODES.FORBIDDEN, message: 'Cannot modify another user notification' } });
+    }
+
+    const now = new Date().toISOString();
+    target.readAt = now;
+    target.read_at = now;
+    saveNotifications(list);
+
+    res.json({ success: true, notification: target });
   } catch (err) {
     res.status(500).json({ success: false, message: err.message });
   }
 });
 
-// API: Mark all notifications as read for user
+// API: Mark all notifications as read for user (Part 31)
 app.post('/api/notifications/mark-all-read', (req, res) => {
   try {
-    const { userId } = req.body || {};
+    const userId = req.body?.userId || (req.user ? req.user.id : null);
+    if (!userId) {
+      return res.status(400).json({ success: false, message: 'userId required' });
+    }
+
     const list = getNotifications();
-    const now = new Date().toISOString();
-    let updated = 0;
-
-    list.forEach(n => {
-      if ((!userId || n.userId === userId || n.userId === 'all') && !n.readAt) {
-        n.readAt = now;
-        updated++;
-      }
-    });
-
+    const updatedCount = markAllNotificationsAsRead({ notifications: list, userId });
     saveNotifications(list);
-    res.json({ success: true, updatedCount: updated });
+
+    res.json({ success: true, updatedCount });
   } catch (err) {
     res.status(500).json({ success: false, message: err.message });
   }
 });
 
-// API: Delete single notification
+// API: Delete single notification (Part 31)
 app.delete('/api/notifications/:id', (req, res) => {
   try {
     const id = req.params.id;
-    const { userId } = req.body || {};
+    const actorId = (req.user ? req.user.id : null) || req.body?.userId || req.query?.userId;
     let list = getNotifications();
-    list = list.filter(n => !(n.id === id && (!userId || n.userId === userId || n.userId === 'all')));
+    const target = list.find(n => n.id === id);
+
+    if (target && actorId) {
+      const ownerId = target.userId || target.user_id;
+      if (ownerId !== 'all' && ownerId !== actorId) {
+        return res.status(403).json({ success: false, error: { code: NOTIF_ERROR_CODES.FORBIDDEN, message: 'Cannot delete another user notification' } });
+      }
+    }
+
+    list = list.filter(n => n.id !== id);
     saveNotifications(list);
     res.json({ success: true, message: 'Notification deleted' });
   } catch (err) {
@@ -4214,15 +8065,15 @@ app.delete('/api/notifications/:id', (req, res) => {
   }
 });
 
-// API: Clear all notifications for user
+// API: Clear all notifications for user (Part 31)
 app.delete('/api/notifications', (req, res) => {
   try {
-    const { userId } = req.query;
+    const userId = req.query.userId || (req.user ? req.user.id : null);
     if (!userId) {
       return res.status(400).json({ success: false, message: 'userId query parameter required' });
     }
     let list = getNotifications();
-    list = list.filter(n => n.userId !== userId && n.userId !== 'all');
+    list = list.filter(n => (n.userId !== userId && n.user_id !== userId));
     saveNotifications(list);
     res.json({ success: true, message: 'Notifications cleared' });
   } catch (err) {
@@ -4230,21 +8081,12 @@ app.delete('/api/notifications', (req, res) => {
   }
 });
 
-// API: Get & Update User Notification Preferences
+// API: Get & Update User Notification Preferences (Part 31)
 app.get('/api/notifications/preferences', (req, res) => {
   try {
-    const { userId } = req.query;
+    const userId = req.query.userId || (req.user ? req.user.id : 'guest');
     const allPrefs = getPreferences();
-    const userPrefs = (userId && allPrefs[userId]) ? allPrefs[userId] : {
-      inApp: true,
-      email: true,
-      whatsapp: false,
-      marketing: false,
-      wishReminders: true,
-      draftReminders: true,
-      expiryReminders: true,
-      productUpdates: true
-    };
+    const userPrefs = allPrefs[userId] ? sanitizeNotificationPreferences(allPrefs[userId]) : DEFAULT_NOTIFICATION_PREFERENCES;
     res.json({ success: true, preferences: userPrefs });
   } catch (err) {
     res.status(500).json({ success: false, message: err.message });
@@ -4253,29 +8095,24 @@ app.get('/api/notifications/preferences', (req, res) => {
 
 app.post('/api/notifications/preferences', (req, res) => {
   try {
-    const { userId, preferences } = req.body || {};
-    if (!userId || !preferences) {
-      return res.status(400).json({ success: false, message: 'userId and preferences object required' });
+    const userId = req.body?.userId || (req.user ? req.user.id : null);
+    const preferences = req.body?.preferences || req.body || {};
+    if (!userId) {
+      return res.status(400).json({ success: false, message: 'userId required' });
     }
+
+    const sanitized = sanitizeNotificationPreferences(preferences);
     const allPrefs = getPreferences();
-    allPrefs[userId] = {
-      inApp: preferences.inApp !== false,
-      email: preferences.email !== false,
-      whatsapp: Boolean(preferences.whatsapp),
-      marketing: Boolean(preferences.marketing),
-      wishReminders: preferences.wishReminders !== false,
-      draftReminders: preferences.draftReminders !== false,
-      expiryReminders: preferences.expiryReminders !== false,
-      productUpdates: preferences.productUpdates !== false
-    };
+    allPrefs[userId] = sanitized;
     savePreferences(allPrefs);
-    res.json({ success: true, preferences: allPrefs[userId], message: 'Preferences saved' });
+
+    res.json({ success: true, preferences: sanitized, message: 'Notification preferences updated successfully' });
   } catch (err) {
     res.status(500).json({ success: false, message: err.message });
   }
 });
 
-// API: System Announcements
+// API: System Announcements (Public/Active) (Part 31)
 app.get('/api/announcements', (req, res) => {
   try {
     const announcements = getAnnouncements();
@@ -4305,6 +8142,376 @@ app.post('/api/announcements', (req, res) => {
     list.unshift(newAnnouncement);
     saveAnnouncements(list);
     res.json({ success: true, announcement: newAnnouncement, message: 'Announcement created' });
+  } catch (err) {
+    res.status(500).json({ success: false, message: err.message });
+  }
+});
+
+// ============================================================================
+// PART 31 — ENTERPRISE ANNOUNCEMENTS & DELIVERY QUEUE ADMIN ENDPOINTS
+// ============================================================================
+
+// API: List Enterprise Announcements (Part 31)
+app.get('/api/admin/announcements', (req, res) => {
+  try {
+    const announcements = getEnterpriseAnnouncements();
+    const statusFilter = req.query.status || 'all';
+    let filtered = [...announcements];
+
+    if (statusFilter !== 'all') {
+      filtered = filtered.filter(a => a.status === statusFilter);
+    }
+
+    filtered.sort((a, b) => new Date(b.createdAt || b.created_at) - new Date(a.createdAt || a.created_at));
+    res.json({ success: true, total: announcements.length, announcements: filtered });
+  } catch (err) {
+    res.status(500).json({ success: false, announcements: [], message: err.message });
+  }
+});
+
+// API: Create Enterprise Announcement Draft (Part 31)
+app.post('/api/admin/announcements', (req, res) => {
+  try {
+    const { internalTitle, title, message, channels, targetAudience } = req.body || {};
+    const draft = createAnnouncementDraft({
+      internalTitle,
+      title,
+      message,
+      channels,
+      targetAudience,
+      creatorUser: req.user
+    });
+
+    const list = getEnterpriseAnnouncements();
+    list.unshift(draft);
+    saveEnterpriseAnnouncements(list);
+
+    res.json({ success: true, announcement: draft, message: 'Announcement draft created' });
+  } catch (err) {
+    res.status(400).json({ success: false, message: err.message });
+  }
+});
+
+// API: Update Announcement Draft (Part 31)
+app.put('/api/admin/announcements/:id', (req, res) => {
+  try {
+    const id = req.params.id;
+    const list = getEnterpriseAnnouncements();
+    const item = list.find(a => a.id === id);
+    if (!item) {
+      return res.status(404).json({ success: false, message: 'Announcement not found' });
+    }
+    if (item.status === ANNOUNCEMENT_STATUS.PUBLISHED || item.status === ANNOUNCEMENT_STATUS.ARCHIVED) {
+      return res.status(400).json({ success: false, message: 'Cannot edit published or archived announcements' });
+    }
+
+    const { internalTitle, title, message, channels, targetAudience } = req.body || {};
+    if (internalTitle) item.internalTitle = internalTitle.trim();
+    if (title) item.title = title.trim();
+    if (message) item.message = message.trim();
+    if (channels) item.channels = Array.isArray(channels) ? channels : [channels];
+    if (targetAudience) item.targetAudience = targetAudience;
+    item.updatedAt = new Date().toISOString();
+
+    saveEnterpriseAnnouncements(list);
+    res.json({ success: true, announcement: item, message: 'Announcement updated' });
+  } catch (err) {
+    res.status(400).json({ success: false, message: err.message });
+  }
+});
+
+// API: Publish Announcement (fanout to In-App & Email Delivery Jobs) (Part 31)
+app.post('/api/admin/announcements/:id/publish', (req, res) => {
+  try {
+    const id = req.params.id;
+    const list = getEnterpriseAnnouncements();
+    const item = list.find(a => a.id === id);
+    if (!item) {
+      return res.status(404).json({ success: false, message: 'Announcement not found' });
+    }
+
+    const allUsers = getUsers();
+    const preferencesMap = getPreferences();
+
+    const { announcement, generatedInApp, generatedJobs, auditLog } = publishAnnouncement({
+      announcement: item,
+      allUsers,
+      preferencesMap,
+      actorUser: req.user
+    });
+
+    saveEnterpriseAnnouncements(list);
+
+    // Save in-app notifications
+    if (generatedInApp.length > 0) {
+      const allNotifs = getNotifications();
+      allNotifs.unshift(...generatedInApp);
+      saveNotifications(allNotifs);
+    }
+
+    // Enqueue email delivery jobs
+    if (generatedJobs.length > 0) {
+      const allJobs = getNotificationJobs();
+      allJobs.unshift(...generatedJobs);
+      saveNotificationJobs(allJobs);
+    }
+
+    // Save audit log
+    const auditLogs = getAdminAuditLogs();
+    auditLogs.push(auditLog);
+    saveAdminAuditLogs(auditLogs);
+
+    res.json({
+      success: true,
+      announcement,
+      recipientsCount: announcement.totalRecipients,
+      inAppGenerated: generatedInApp.length,
+      emailJobsEnqueued: generatedJobs.length,
+      message: `Announcement published to ${announcement.totalRecipients} recipients.`
+    });
+  } catch (err) {
+    res.status(400).json({ success: false, message: err.message });
+  }
+});
+
+// API: Archive Announcement (Part 31)
+app.post('/api/admin/announcements/:id/archive', (req, res) => {
+  try {
+    const id = req.params.id;
+    const list = getEnterpriseAnnouncements();
+    const item = list.find(a => a.id === id);
+    if (!item) {
+      return res.status(404).json({ success: false, message: 'Announcement not found' });
+    }
+
+    item.status = ANNOUNCEMENT_STATUS.ARCHIVED;
+    item.archivedAt = new Date().toISOString();
+    item.updatedAt = new Date().toISOString();
+    saveEnterpriseAnnouncements(list);
+
+    res.json({ success: true, announcement: item, message: 'Announcement archived' });
+  } catch (err) {
+    res.status(400).json({ success: false, message: err.message });
+  }
+});
+
+// API: Delivery Queue Operations & Inspection (Part 31)
+app.get('/api/admin/notifications/jobs', (req, res) => {
+  try {
+    const jobs = getNotificationJobs();
+    const { status, channel, limit = 50 } = req.query;
+
+    let filtered = [...jobs];
+    if (status && status !== 'all') {
+      filtered = filtered.filter(j => j.status === status);
+    }
+    if (channel && channel !== 'all') {
+      filtered = filtered.filter(j => j.channel === channel);
+    }
+
+    filtered.sort((a, b) => new Date(b.createdAt || b.created_at) - new Date(a.createdAt || a.created_at));
+
+    const counts = {
+      pending: jobs.filter(j => j.status === JOB_STATUS.PENDING).length,
+      claimed: jobs.filter(j => j.status === JOB_STATUS.CLAIMED).length,
+      sent: jobs.filter(j => j.status === JOB_STATUS.SENT).length,
+      delivered: jobs.filter(j => j.status === JOB_STATUS.DELIVERED).length,
+      retryPending: jobs.filter(j => j.status === JOB_STATUS.RETRY_PENDING).length,
+      failed: jobs.filter(j => j.status === JOB_STATUS.FAILED).length
+    };
+
+    res.json({
+      success: true,
+      total: jobs.length,
+      counts,
+      jobs: filtered.slice(0, Number(limit) || 50)
+    });
+  } catch (err) {
+    res.status(500).json({ success: false, jobs: [], message: err.message });
+  }
+});
+
+// API: Retry Failed Delivery Job (Part 31)
+app.post('/api/admin/notifications/jobs/:id/retry', (req, res) => {
+  try {
+    const id = req.params.id;
+    const jobs = getNotificationJobs();
+    const job = jobs.find(j => j.id === id);
+    if (!job) {
+      return res.status(404).json({ success: false, message: 'Delivery job not found' });
+    }
+
+    if (job.status !== JOB_STATUS.FAILED && job.status !== JOB_STATUS.RETRY_PENDING) {
+      return res.status(400).json({ success: false, message: 'Only failed or retry-pending jobs can be retried' });
+    }
+
+    job.status = JOB_STATUS.PENDING;
+    job.attemptCount = 0;
+    job.nextEligibleRetryAt = new Date().toISOString();
+    job.claimedBy = null;
+    job.claimExpiresAt = null;
+    job.updatedAt = new Date().toISOString();
+    saveNotificationJobs(jobs);
+
+    res.json({ success: true, job, message: 'Job reset to PENDING for immediate processing' });
+  } catch (err) {
+    res.status(400).json({ success: false, message: err.message });
+  }
+});
+
+// API: Email Provider Health & Diagnostics (Part 31)
+app.get('/api/admin/notifications/health', async (req, res) => {
+  try {
+    const emailProvider = resolveEmailProvider(process.env);
+    const health = await emailProvider.getHealthStatus();
+    const jobs = getNotificationJobs();
+
+    res.json({
+      success: true,
+      providerHealth: health,
+      queueSummary: {
+        totalJobs: jobs.length,
+        pending: jobs.filter(j => j.status === JOB_STATUS.PENDING).length,
+        failed: jobs.filter(j => j.status === JOB_STATUS.FAILED).length,
+        deliveredOrSent: jobs.filter(j => j.status === JOB_STATUS.SENT || j.status === JOB_STATUS.DELIVERED).length
+      }
+    });
+  } catch (err) {
+    res.status(500).json({ success: false, message: err.message });
+  }
+});
+
+// API: Process Bounded Delivery Queue Batch (Part 31)
+app.post('/api/notifications/process-queue', async (req, res) => {
+  try {
+    const jobs = getNotificationJobs();
+    const attempts = getNotificationAttempts();
+    const limit = Math.min(25, Number(req.body?.limit) || 10);
+    const workerId = `worker_${Date.now().toString(36)}`;
+
+    // 1. Recover stale leases
+    const recoveredCount = recoverStaleClaimedJobs({ jobs });
+
+    // 2. Claim eligible batch
+    const claimed = claimEligibleJobs({ jobs, limit, workerId });
+
+    if (claimed.length === 0) {
+      saveNotificationJobs(jobs);
+      return res.json({ success: true, processedCount: 0, recoveredCount, message: 'No eligible jobs to process' });
+    }
+
+    const emailProvider = resolveEmailProvider(process.env);
+    const executedAttempts = [];
+
+    for (const job of claimed) {
+      const { attempt } = await executeDeliveryJob({ job, emailProvider });
+      if (attempt) executedAttempts.push(attempt);
+    }
+
+    saveNotificationJobs(jobs);
+    attempts.unshift(...executedAttempts);
+    saveNotificationAttempts(attempts);
+
+    res.json({
+      success: true,
+      processedCount: claimed.length,
+      recoveredCount,
+      attempts: executedAttempts
+    });
+  } catch (err) {
+    res.status(500).json({ success: false, message: err.message });
+  }
+});
+
+// API: Process Scheduled Reminders (Part 31)
+app.post('/api/notifications/process-reminders', (req, res) => {
+  try {
+    const wishes = getWishes();
+    const users = getUsers();
+    const preferencesMap = getPreferences();
+    const existingReminders = getNotificationReminders();
+    const existingKeys = new Set(existingReminders.map(r => r.dedupKey || r.dedup_key));
+
+    const generatedReminders = [];
+    const generatedInApp = [];
+    const generatedJobs = [];
+
+    for (const wish of wishes) {
+      const owner = users.find(u => u.id === (wish.userId || wish.user_id));
+      if (!owner) continue;
+
+      const userPrefs = preferencesMap[owner.id] || DEFAULT_NOTIFICATION_PREFERENCES;
+      const candidates = evaluateScheduledRemindersForWish({
+        wish,
+        ownerUser: owner,
+        preferences: userPrefs,
+        existingReminderKeys: existingKeys
+      });
+
+      for (const cand of candidates) {
+        generatedReminders.push({
+          id: `rem_${Date.now().toString(36)}_${Math.random().toString(36).substr(2, 5)}`,
+          wishId: cand.wishId,
+          recipientUserId: cand.recipientUserId,
+          reminderType: cand.type,
+          scheduledFor: cand.scheduledFor,
+          dedupKey: cand.dedupKey,
+          status: 'PROCESSED',
+          processedAt: new Date().toISOString(),
+          createdAt: new Date().toISOString()
+        });
+        existingKeys.add(cand.dedupKey);
+
+        if (cand.inApp) {
+          generatedInApp.push(createInAppNotification({
+            userId: cand.recipientUserId,
+            type: cand.type,
+            title: cand.title,
+            message: cand.message,
+            relatedType: 'wish',
+            relatedId: cand.wishId,
+            actionUrl: `/w/${wish.slug || wish.id}`,
+            icon: cand.type.includes('EXPIRING') ? 'hourglass_bottom' : 'event',
+            severity: cand.type.includes('EXPIRING') ? 'warning' : 'info'
+          }));
+        }
+
+        if (cand.email && cand.recipientEmail) {
+          generatedJobs.push(createDeliveryJob({
+            notificationId: null,
+            channel: NOTIFICATION_CHANNELS.EMAIL,
+            recipientUserId: cand.recipientUserId,
+            recipientEmail: cand.recipientEmail,
+            notificationType: cand.type,
+            subject: cand.title,
+            idempotencyKey: cand.dedupKey,
+            metadata: { wishId: cand.wishId }
+          }));
+        }
+      }
+    }
+
+    if (generatedReminders.length > 0) {
+      existingReminders.unshift(...generatedReminders);
+      saveNotificationReminders(existingReminders);
+    }
+    if (generatedInApp.length > 0) {
+      const notifs = getNotifications();
+      notifs.unshift(...generatedInApp);
+      saveNotifications(notifs);
+    }
+    if (generatedJobs.length > 0) {
+      const jobs = getNotificationJobs();
+      jobs.unshift(...generatedJobs);
+      saveNotificationJobs(jobs);
+    }
+
+    res.json({
+      success: true,
+      remindersGenerated: generatedReminders.length,
+      inAppGenerated: generatedInApp.length,
+      emailJobsEnqueued: generatedJobs.length
+    });
   } catch (err) {
     res.status(500).json({ success: false, message: err.message });
   }
@@ -4799,39 +9006,6 @@ app.all(['/api/admin/settings/wish-links'], (req, res, next) => {
   });
 });
 
-// Entitlements Checkout Endpoint (Authoritative Dynamic Pricing & NOT_CONFIGURED state)
-app.post('/api/entitlements/checkout', (req, res) => {
-  const settings = getServerWishLinkSettings();
-  const body = req.body || {};
-  const isPersonalized = body.planId === 'personalized_link' || (body.options && body.options.planId === 'personalized_link');
-
-  const amount = isPersonalized ? settings.personalized.price : 49;
-  const currency = isPersonalized ? settings.personalized.currency : 'INR';
-
-  const providerConfigured = Boolean(process.env.RAZORPAY_KEY_ID || process.env.STRIPE_SECRET_KEY);
-  if (!providerConfigured) {
-    return res.json({
-      success: true,
-      status: 'provider_not_configured',
-      configured: false,
-      message: 'Payment currently unavailable / NOT_CONFIGURED. Gateway is not configured in environment variables.',
-      mode: 'sandbox',
-      amount,
-      currency,
-      checkoutUrl: null
-    });
-  }
-
-  res.json({
-    success: true,
-    status: 'checkout_created',
-    configured: true,
-    amount,
-    currency,
-    checkoutUrl: `/checkout.html?order=ORD_${Date.now()}`
-  });
-});
-
 // API: Check wish slug availability
 app.get('/api/wishes/slug-availability', (req, res) => {
   try {
@@ -5061,6 +9235,33 @@ app.post('/api/wishes', (req, res) => {
 
     wishes.unshift(newWish);
     saveWishes(wishes);
+
+    // Part 31 Enterprise Event Integration: Wish Published Notification & Delivery Job
+    if (wishStatus === 'published') {
+      try {
+        const userPrefs = getPreferences()[req.user.id] || DEFAULT_NOTIFICATION_PREFERENCES;
+        const { inAppNotification, emailJob } = handleWishPublishedEvent({
+          wish: newWish,
+          ownerUser: req.user,
+          preferences: userPrefs,
+          appUrl: process.env.PUBLIC_APP_URL || 'https://wishmagic.live'
+        });
+
+        if (inAppNotification) {
+          const notifs = getNotifications();
+          notifs.unshift(inAppNotification);
+          saveNotifications(notifs);
+        }
+
+        if (emailJob) {
+          const jobs = getNotificationJobs();
+          jobs.unshift(emailJob);
+          saveNotificationJobs(jobs);
+        }
+      } catch (notifErr) {
+        console.error('Non-blocking notification error on wish publication:', notifErr.message);
+      }
+    }
 
     res.status(201).json({
       success: true,
@@ -5553,6 +9754,10 @@ app.get('/api/wishes/:id', (req, res) => {
     return res.status(404).json({ success: false, message: 'Wish not found or has expired' });
   }
 
+  if (wish.moderationStatus === 'suspended' || wish.moderation_status === 'suspended') {
+    return res.status(403).json({ success: false, error: { code: 'WISH_SUSPENDED', message: 'This celebration wish has been suspended due to content moderation.' } });
+  }
+
   // Increment views
   wish.views = (wish.views || 0) + 1;
   saveWishes(wishes);
@@ -5735,11 +9940,16 @@ app.get([
   ADMIN_BASE,
   `${ADMIN_BASE}/`,
   `${ADMIN_BASE}/overview`,
-  `${ADMIN_BASE}/overview.html`,
+  `${ADMIN_BASE}/overview.html`
+], (req, res) => {
+  sendAdminPage('admin-overview.html', req, res);
+});
+
+app.get([
   `${ADMIN_BASE}/analytics`,
   `${ADMIN_BASE}/analytics.html`
 ], (req, res) => {
-  sendAdminPage('admin-overview.html', req, res);
+  sendAdminPage('admin-analytics.html', req, res);
 });
 
 app.get([
@@ -5787,6 +9997,15 @@ app.get([
 });
 
 app.get([
+  `${ADMIN_BASE}/storage-health`,
+  `${ADMIN_BASE}/storage-health.html`,
+  `${ADMIN_BASE}/storage`,
+  `${ADMIN_BASE}/storage.html`
+], (req, res) => {
+  sendAdminPage('admin-storage-health.html', req, res);
+});
+
+app.get([
   `${ADMIN_BASE}/pricing`,
   `${ADMIN_BASE}/pricing.html`
 ], (req, res) => {
@@ -5816,6 +10035,43 @@ app.get([
   `${ADMIN_BASE}/staff.html`
 ], (req, res) => {
   sendAdminPage('admin-staff.html', req, res);
+});
+
+app.get([
+  `${ADMIN_BASE}/moderation`,
+  `${ADMIN_BASE}/moderation.html`
+], (req, res) => {
+  sendAdminPage('admin-moderation.html', req, res);
+});
+
+app.get([
+  `${ADMIN_BASE}/support`,
+  `${ADMIN_BASE}/support.html`
+], (req, res) => {
+  sendAdminPage('admin-support.html', req, res);
+});
+
+app.get([
+  `${ADMIN_BASE}/audit-logs`,
+  `${ADMIN_BASE}/audit-logs.html`,
+  `${ADMIN_BASE}/audit`,
+  `${ADMIN_BASE}/audit.html`
+], (req, res) => {
+  sendAdminPage('admin-audit-logs.html', req, res);
+});
+
+app.get([
+  `${ADMIN_BASE}/announcements`,
+  `${ADMIN_BASE}/announcements.html`
+], (req, res) => {
+  sendAdminPage('admin-announcements.html', req, res);
+});
+
+app.get([
+  `${ADMIN_BASE}/notifications`,
+  `${ADMIN_BASE}/notifications.html`
+], (req, res) => {
+  sendAdminPage('admin-notifications.html', req, res);
 });
 
 // Any unmatched route fallback

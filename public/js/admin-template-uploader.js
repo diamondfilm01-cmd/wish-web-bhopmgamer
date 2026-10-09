@@ -828,6 +828,14 @@ function renderTemplatesGrid(templates) {
           <span class="material-symbols-outlined text-[15px] text-primary">edit</span>
           <span>Edit</span>
         </button>
+        <button onclick="openTemplateVariantsModal('${tpl.id}')" class="py-1.5 px-2 rounded-lg bg-purple-500/15 hover:bg-purple-500/25 text-purple-300 font-semibold text-xs transition flex items-center justify-center gap-1 cursor-pointer" title="Manage Relationship Variants">
+          <span class="material-symbols-outlined text-[15px]">family_restroom</span>
+          <span>Variants</span>
+        </button>
+        <button onclick="openTemplateVersionsModal('${tpl.id}')" class="py-1.5 px-2 rounded-lg bg-indigo-500/15 hover:bg-indigo-500/25 text-indigo-300 font-semibold text-xs transition flex items-center justify-center gap-1 cursor-pointer" title="Version Control & Release Pipeline">
+          <span class="material-symbols-outlined text-[15px]">account_tree</span>
+          <span>Versions</span>
+        </button>
         <button onclick="duplicateTemplate('${tpl.id}')" class="py-1.5 px-2 rounded-lg bg-surface-container-high hover:bg-surface-container-highest text-on-surface font-semibold text-xs transition flex items-center justify-center gap-1 cursor-pointer" title="Duplicate as Draft">
           <span class="material-symbols-outlined text-[15px] text-secondary">content_copy</span>
           <span class="hidden sm:inline">Clone</span>
@@ -903,6 +911,12 @@ function renderTemplatesTable(templates) {
             </a>
             <button onclick="openEditTemplateModal('${tpl.id}')" class="p-1.5 rounded-lg bg-surface-container-high hover:bg-surface-container-highest text-primary" title="Edit">
               <span class="material-symbols-outlined text-[15px]">edit</span>
+            </button>
+            <button onclick="openTemplateVariantsModal('${tpl.id}')" class="p-1.5 rounded-lg bg-surface-container-high hover:bg-surface-container-highest text-purple-400" title="Relationship Variants">
+              <span class="material-symbols-outlined text-[15px]">family_restroom</span>
+            </button>
+            <button onclick="openTemplateVersionsModal('${tpl.id}')" class="p-1.5 rounded-lg bg-surface-container-high hover:bg-surface-container-highest text-indigo-400" title="Version Control & Release Pipeline">
+              <span class="material-symbols-outlined text-[15px]">account_tree</span>
             </button>
             <button onclick="duplicateTemplate('${tpl.id}')" class="p-1.5 rounded-lg bg-surface-container-high hover:bg-surface-container-highest text-secondary" title="Duplicate">
               <span class="material-symbols-outlined text-[15px]">content_copy</span>
@@ -1286,3 +1300,1215 @@ function escapeRegex(string) {
 function escapeQuotes(str) {
   return (str || '').replace(/'/g, "\\'");
 }
+
+// ============================================================================
+// PART 27: Template Family & Relationship Variants Manager Logic
+// ============================================================================
+
+let currentVariantsTemplateId = null;
+let currentFamilyData = null;
+let currentActiveRelId = null;
+let currentVariantConfig = null;
+let currentLockVersion = 1;
+let currentValidationState = { valid: true, errors: [], warnings: [] };
+
+async function openTemplateVariantsModal(templateId) {
+  currentVariantsTemplateId = templateId;
+  const modal = document.getElementById('template-variants-modal');
+  if (modal) modal.classList.remove('hidden');
+
+  try {
+    showToast('Loading template family & variants...');
+    const res = await fetch(`/api/templates/${templateId}/family`);
+    const data = await res.json();
+    if (!data.success) {
+      alert('Failed to load variants: ' + (data.message || 'Unknown error'));
+      return;
+    }
+
+    currentFamilyData = data;
+    document.getElementById('var-modal-title').textContent = `${data.template.name} — Relationship Variants`;
+    document.getElementById('var-modal-ver-badge').textContent = `${data.activeVersion?.id || 'V1'} Active`;
+
+    renderVariantsRelationshipsList(data.relationships, data.variants);
+    populateAddRelationshipDropdown(data.relationships);
+    populateMusicDropdown(data.allMusic || []);
+
+    // Select first supported relationship
+    const firstSupported = data.relationships.find(r => r.isSupported) || data.relationships[0];
+    if (firstSupported) {
+      await selectRelationshipVariant(firstSupported.id);
+    }
+  } catch (err) {
+    alert('Error loading template variants: ' + err.message);
+  }
+}
+
+function closeTemplateVariantsModal() {
+  const modal = document.getElementById('template-variants-modal');
+  if (modal) modal.classList.add('hidden');
+  currentVariantsTemplateId = null;
+  currentActiveRelId = null;
+}
+
+function renderVariantsRelationshipsList(relationships, variants) {
+  const listContainer = document.getElementById('var-relationships-list');
+  const countBadge = document.getElementById('var-supported-count');
+  if (!listContainer) return;
+
+  const supportedCount = relationships.filter(r => r.isSupported).length;
+  if (countBadge) countBadge.textContent = `${supportedCount} Active`;
+
+  const varMap = new Map((variants || []).map(v => [v.relationship_id, v]));
+
+  listContainer.innerHTML = relationships.map(r => {
+    const isSelected = r.id === currentActiveRelId;
+    const v = varMap.get(r.id);
+    let statusLabel = 'Unconfigured';
+    let statusClass = 'bg-surface-container-high text-outline';
+    if (v) {
+      if (v.status === 'published') {
+        statusLabel = `Published (V${v.version_number || 1})`;
+        statusClass = 'bg-emerald-500/20 text-emerald-400';
+      } else {
+        statusLabel = 'Draft';
+        statusClass = 'bg-amber-500/20 text-amber-300';
+      }
+    }
+
+    return `
+      <div onclick="selectRelationshipVariant('${r.id}')" class="p-3 rounded-xl border ${isSelected ? 'border-primary bg-primary/10 shadow-md' : 'border-purple-500/15 bg-surface-container hover:bg-surface-container-high'} flex items-center justify-between gap-2 cursor-pointer transition">
+        <div class="flex items-center gap-2.5">
+          <input type="checkbox" ${r.isSupported ? 'checked' : ''} onclick="event.stopPropagation(); toggleRelationshipSupport('${r.id}', this.checked)" class="rounded text-primary w-4 h-4 cursor-pointer" title="Enable/disable support for this relationship"/>
+          <span class="text-xl">${r.icon || '❤️'}</span>
+          <div class="flex flex-col">
+            <span class="text-xs font-bold text-on-surface">${r.displayName || r.name}</span>
+            <span class="text-[10px] text-outline capitalize">${r.category || 'celebration'}</span>
+          </div>
+        </div>
+        <span class="px-2 py-0.5 rounded-full text-[10px] font-bold ${statusClass}">
+          ${statusLabel}
+        </span>
+      </div>
+    `;
+  }).join('');
+}
+
+function populateAddRelationshipDropdown(relationships) {
+  const select = document.getElementById('var-add-rel-select');
+  if (!select) return;
+  const unsupported = relationships.filter(r => !r.isSupported);
+  select.innerHTML = '<option value="">Select relationship to activate...</option>' + unsupported.map(r => `
+    <option value="${r.id}">${r.icon || '❤️'} ${r.name} (${r.category})</option>
+  `).join('');
+}
+
+function populateMusicDropdown(musicList) {
+  const select = document.getElementById('var-music-select');
+  if (!select) return;
+  select.innerHTML = '<option value="">Default Celebration Strings</option>' + musicList.map(m => `
+    <option value="${m.id}">${m.title} — ${m.artist} [${m.category}]</option>
+  `).join('');
+
+  select.onchange = () => {
+    const mId = select.value;
+    const song = musicList.find(item => item.id === mId);
+    const player = document.getElementById('var-music-player-preview');
+    const audioElem = document.getElementById('var-audio-element');
+    if (song && song.playbackUrl) {
+      document.getElementById('var-preview-music-title').textContent = song.title;
+      document.getElementById('var-preview-music-artist').textContent = song.artist || '';
+      audioElem.src = song.playbackUrl;
+      player.classList.remove('hidden');
+    } else {
+      player.classList.add('hidden');
+    }
+  };
+}
+
+async function selectRelationshipVariant(relId) {
+  currentActiveRelId = relId;
+  const rel = (currentFamilyData?.relationships || []).find(r => r.id === relId);
+  if (!rel) return;
+
+  // Highlight selected card
+  renderVariantsRelationshipsList(currentFamilyData.relationships, currentFamilyData.variants);
+
+  document.getElementById('var-active-rel-icon').textContent = rel.icon || '❤️';
+  document.getElementById('var-active-rel-title').textContent = `${rel.displayName || rel.name} Edition`;
+  document.getElementById('var-active-rel-category').textContent = `${rel.category || 'General'} Relationship Category`;
+
+  try {
+    const res = await fetch(`/api/templates/${currentVariantsTemplateId}/variants/${relId}`);
+    const data = await res.json();
+    if (!data.success) {
+      alert('Error fetching variant: ' + data.message);
+      return;
+    }
+
+    const variant = data.variant;
+    currentVariantConfig = variant.configuration || {};
+    currentLockVersion = variant.lock_version || 1;
+
+    document.getElementById('var-active-status-badge').textContent = (variant.status === 'published' ? 'Published' : 'Draft');
+    document.getElementById('var-active-status-badge').className = `px-2 py-0.5 rounded-full font-bold text-[10px] ${variant.status === 'published' ? 'bg-emerald-500/20 text-emerald-300' : 'bg-amber-500/20 text-amber-300'}`;
+    document.getElementById('var-active-lock-version').textContent = `Lock V${currentLockVersion}`;
+
+    // Fill form fields
+    const msgs = currentVariantConfig.messages || {};
+    const theme = currentVariantConfig.theme || {};
+    const effects = currentVariantConfig.effects || {};
+    const anim = currentVariantConfig.animations || {};
+    const music = currentVariantConfig.music || {};
+
+    document.getElementById('var-field-displayName').value = currentVariantConfig.displayName || `${rel.displayName || rel.name} Edition`;
+    document.getElementById('var-field-atmosphere').value = currentVariantConfig.atmosphere || '';
+    document.getElementById('var-field-hero_title').value = msgs.hero_title || `Happy Celebration, ${rel.name}! ✨`;
+    document.getElementById('var-field-subtitle').value = msgs.subtitle || '';
+    document.getElementById('var-field-main_message').value = msgs.main_message || '';
+    document.getElementById('var-field-gallery_heading').value = msgs.gallery_heading || '';
+    document.getElementById('var-field-surprise_text').value = msgs.surprise_text || '';
+
+    // Style
+    const accentColor = theme.accentColor || '#ec4899';
+    document.getElementById('var-theme-color').value = accentColor;
+    document.getElementById('var-theme-color-hex').value = accentColor;
+    document.getElementById('var-theme-cardStyle').value = theme.cardStyle || 'glass-glow';
+    document.getElementById('var-theme-mood').value = theme.mood || '';
+    document.getElementById('var-effects-particles').value = effects.particles || 'floating-hearts';
+    document.getElementById('var-anim-intensity').value = anim.intensity || 'smooth';
+
+    // Music
+    const musicSelect = document.getElementById('var-music-select');
+    if (musicSelect && music.defaultMusicId) {
+      musicSelect.value = music.defaultMusicId;
+      musicSelect.dispatchEvent(new Event('change'));
+    }
+
+    // Reset validation UI
+    document.getElementById('var-validation-results').innerHTML = '<span class="text-xs text-outline italic">Click "Run Health Check" to inspect all message keys and assets.</span>';
+    document.getElementById('var-save-status-msg').textContent = '';
+
+  } catch (err) {
+    alert('Error loading relationship variant: ' + err.message);
+  }
+}
+
+function switchVariantTab(tabKey) {
+  const tabs = ['messages', 'style', 'music', 'validation'];
+  tabs.forEach(t => {
+    const pane = document.getElementById(`var-tab-${t}`);
+    const btn = document.getElementById(`var-tab-btn-${t}`);
+    if (pane) pane.classList.toggle('hidden', t !== tabKey);
+    if (btn) {
+      if (t === tabKey) {
+        btn.className = 'pb-2 border-b-2 border-primary text-primary flex items-center gap-1.5 cursor-pointer';
+      } else {
+        btn.className = 'pb-2 border-b-2 border-transparent text-outline hover:text-on-surface flex items-center gap-1.5 cursor-pointer';
+      }
+    }
+  });
+}
+
+function collectVariantConfigFromForm() {
+  const color = document.getElementById('var-theme-color').value;
+  return {
+    displayName: document.getElementById('var-field-displayName').value.trim(),
+    atmosphere: document.getElementById('var-field-atmosphere').value.trim(),
+    messages: {
+      hero_title: document.getElementById('var-field-hero_title').value.trim(),
+      subtitle: document.getElementById('var-field-subtitle').value.trim(),
+      main_message: document.getElementById('var-field-main_message').value.trim(),
+      gallery_heading: document.getElementById('var-field-gallery_heading').value.trim(),
+      surprise_text: document.getElementById('var-field-surprise_text').value.trim()
+    },
+    theme: {
+      accentColor: color,
+      cardStyle: document.getElementById('var-theme-cardStyle').value,
+      mood: document.getElementById('var-theme-mood').value.trim()
+    },
+    effects: {
+      particles: document.getElementById('var-effects-particles').value
+    },
+    animations: {
+      intensity: document.getElementById('var-anim-intensity').value
+    },
+    music: {
+      defaultMusicId: document.getElementById('var-music-select').value || null
+    }
+  };
+}
+
+async function saveVariantDraft() {
+  if (!currentVariantsTemplateId || !currentActiveRelId) return;
+  const statusMsg = document.getElementById('var-save-status-msg');
+  if (statusMsg) statusMsg.textContent = 'Saving draft...';
+
+  const config = collectVariantConfigFromForm();
+  try {
+    const res = await fetch(`/api/templates/${currentVariantsTemplateId}/variants/${currentActiveRelId}`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        status: 'draft',
+        lockVersion: currentLockVersion,
+        configuration: config
+      })
+    });
+
+    const data = await res.json();
+    if (res.status === 409) {
+      alert(`⚠️ CONCURRENCY CONFLICT: ${data.message}`);
+      await selectRelationshipVariant(currentActiveRelId);
+      return;
+    }
+    if (!data.success) {
+      alert('Save failed: ' + data.message);
+      return;
+    }
+
+    currentLockVersion = data.variant.lock_version;
+    document.getElementById('var-active-lock-version').textContent = `Lock V${currentLockVersion}`;
+    if (statusMsg) statusMsg.textContent = '✅ Draft saved';
+    showToast('Variant draft saved successfully!');
+
+    // Update in family data list
+    const vIdx = currentFamilyData.variants.findIndex(v => v.relationship_id === currentActiveRelId);
+    if (vIdx >= 0) currentFamilyData.variants[vIdx] = data.variant;
+    else currentFamilyData.variants.push(data.variant);
+    renderVariantsRelationshipsList(currentFamilyData.relationships, currentFamilyData.variants);
+  } catch (err) {
+    alert('Error saving draft: ' + err.message);
+  }
+}
+
+async function publishCurrentVariant() {
+  if (!currentVariantsTemplateId || !currentActiveRelId) return;
+
+  const config = collectVariantConfigFromForm();
+  try {
+    showToast('Publishing variant...');
+    const res = await fetch(`/api/templates/${currentVariantsTemplateId}/variants/${currentActiveRelId}/publish`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        configuration: config
+      })
+    });
+
+    const data = await res.json();
+    if (res.status === 400 && data.errors) {
+      switchVariantTab('validation');
+      renderValidationResults(data);
+      alert('Cannot publish variant: Validation errors detected. Check the Validation tab.');
+      return;
+    }
+    if (!data.success) {
+      alert('Publish failed: ' + data.message);
+      return;
+    }
+
+    currentLockVersion = data.variant.lock_version;
+    document.getElementById('var-active-lock-version').textContent = `Lock V${currentLockVersion}`;
+    document.getElementById('var-active-status-badge').textContent = 'Published';
+    document.getElementById('var-active-status-badge').className = 'px-2 py-0.5 rounded-full font-bold text-[10px] bg-emerald-500/20 text-emerald-300';
+
+    showToast(`🎉 Published V${data.versionNumber} successfully!`);
+
+    // Refresh list
+    const vIdx = currentFamilyData.variants.findIndex(v => v.relationship_id === currentActiveRelId);
+    if (vIdx >= 0) currentFamilyData.variants[vIdx] = data.variant;
+    else currentFamilyData.variants.push(data.variant);
+    renderVariantsRelationshipsList(currentFamilyData.relationships, currentFamilyData.variants);
+  } catch (err) {
+    alert('Error publishing variant: ' + err.message);
+  }
+}
+
+async function runVariantValidation() {
+  if (!currentVariantsTemplateId || !currentActiveRelId) return;
+  const config = collectVariantConfigFromForm();
+
+  try {
+    const res = await fetch(`/api/templates/${currentVariantsTemplateId}/variants/${currentActiveRelId}/validate`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        configuration: config
+      })
+    });
+    const data = await res.json();
+    renderValidationResults(data);
+  } catch (err) {
+    alert('Validation call failed: ' + err.message);
+  }
+}
+
+function renderValidationResults(data) {
+  const container = document.getElementById('var-validation-results');
+  if (!container) return;
+
+  if (data.valid) {
+    container.innerHTML = `
+      <div class="p-3 rounded-lg bg-emerald-500/15 border border-emerald-500/30 text-emerald-300 text-xs flex items-center gap-2">
+        <span class="material-symbols-outlined text-lg">check_circle</span>
+        <span class="font-bold">Configuration is 100% Valid & Ready for Production!</span>
+      </div>
+      ${(data.warnings || []).map(w => `
+        <div class="p-2 rounded bg-amber-500/10 border border-amber-500/20 text-amber-300 text-[11px] flex items-center gap-1.5">
+          <span class="material-symbols-outlined text-sm">warning</span>
+          <span>${w}</span>
+        </div>
+      `).join('')}
+    `;
+  } else {
+    container.innerHTML = `
+      <div class="p-3 rounded-lg bg-rose-500/15 border border-rose-500/30 text-rose-300 text-xs flex items-center gap-2">
+        <span class="material-symbols-outlined text-lg">error</span>
+        <span class="font-bold">Validation Failed (${data.errors.length} Errors Found)</span>
+      </div>
+      <div class="flex flex-col gap-1 mt-1">
+        ${(data.errors || []).map(e => `
+          <div class="p-2 rounded bg-rose-500/10 border border-rose-500/20 text-rose-300 text-[11px] flex items-center gap-1.5">
+            <span class="material-symbols-outlined text-sm">close</span>
+            <span>${e}</span>
+          </div>
+        `).join('')}
+      </div>
+    `;
+  }
+}
+
+async function toggleRelationshipSupport(relId, enabled) {
+  if (!currentVariantsTemplateId) return;
+
+  try {
+    const res = await fetch(`/api/templates/${currentVariantsTemplateId}/relationships`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        relationshipId: relId,
+        enabled
+      })
+    });
+
+    const data = await res.json();
+    if (res.status === 409 && data.code === 'DEPENDENCY_PROTECTED') {
+      const confirmForce = confirm(`⚠️ DEPENDENCY PROTECTION:\n\n${data.message}\n\nDo you want to override and force disable?`);
+      if (confirmForce) {
+        await fetch(`/api/templates/${currentVariantsTemplateId}/relationships`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ relationshipId: relId, enabled: false, force: true })
+        });
+      } else {
+        // Re-check box
+        renderVariantsRelationshipsList(currentFamilyData.relationships, currentFamilyData.variants);
+        return;
+      }
+    }
+
+    showToast(enabled ? 'Relationship support activated' : 'Relationship support deactivated');
+    // Refresh
+    const relObj = currentFamilyData.relationships.find(r => r.id === relId);
+    if (relObj) relObj.isSupported = enabled;
+    renderVariantsRelationshipsList(currentFamilyData.relationships, currentFamilyData.variants);
+    populateAddRelationshipDropdown(currentFamilyData.relationships);
+  } catch (err) {
+    alert('Failed to update relationship: ' + err.message);
+  }
+}
+
+async function addSelectedRelationshipSupport() {
+  const select = document.getElementById('var-add-rel-select');
+  const relId = select.value;
+  if (!relId) return;
+  await toggleRelationshipSupport(relId, true);
+  await selectRelationshipVariant(relId);
+}
+
+function showCloneVariantDropdown() {
+  const container = document.getElementById('var-clone-container');
+  const select = document.getElementById('var-clone-source-select');
+  if (!container || !select) return;
+
+  const others = (currentFamilyData?.relationships || []).filter(r => r.id !== currentActiveRelId);
+  select.innerHTML = others.map(r => `
+    <option value="${r.id}">${r.icon || '❤️'} ${r.name}</option>
+  `).join('');
+
+  container.classList.remove('hidden');
+}
+
+async function executeCloneVariant() {
+  const sourceRelId = document.getElementById('var-clone-source-select').value;
+  if (!sourceRelId || !currentActiveRelId) return;
+
+  try {
+    showToast('Cloning variant...');
+    const res = await fetch(`/api/templates/${currentVariantsTemplateId}/variants/${sourceRelId}/clone`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        targetRelationshipId: currentActiveRelId
+      })
+    });
+
+    const data = await res.json();
+    if (!data.success) {
+      alert('Cloning failed: ' + data.message);
+      return;
+    }
+
+    document.getElementById('var-clone-container').classList.add('hidden');
+    showToast('🎉 Variant cloned into current relationship draft!');
+    await selectRelationshipVariant(currentActiveRelId);
+  } catch (err) {
+    alert('Error cloning variant: ' + err.message);
+  }
+}
+
+async function archiveCurrentVariant() {
+  if (!currentVariantsTemplateId || !currentActiveRelId) return;
+  const ok = confirm('Are you sure you want to archive this variant? It will safely preserve all existing wishes.');
+  if (!ok) return;
+
+  try {
+    const res = await fetch(`/api/templates/${currentVariantsTemplateId}/variants/${currentActiveRelId}/archive`, {
+      method: 'POST'
+    });
+    const data = await res.json();
+    if (!data.success) {
+      alert('Archive failed: ' + data.message);
+      return;
+    }
+    showToast('Variant safely archived.');
+    await selectRelationshipVariant(currentActiveRelId);
+  } catch (err) {
+    alert('Error archiving variant: ' + err.message);
+  }
+}
+
+function openResolverLivePreview() {
+  if (!currentVariantsTemplateId) return;
+  const modal = document.getElementById('resolver-preview-modal');
+  const iframe = document.getElementById('resolver-preview-iframe');
+  const title = document.getElementById('resolver-preview-title');
+
+  const rel = (currentFamilyData?.relationships || []).find(r => r.id === currentActiveRelId);
+  const relSlug = rel?.slug || 'friend';
+
+  if (title) title.textContent = `Live Resolver Sandbox — ${currentFamilyData?.template?.name || 'Template'} (${rel?.name || 'Variant'})`;
+  if (iframe) iframe.src = `/template-preview.html?template=${currentVariantsTemplateId}&rel=${relSlug}&preview=true`;
+  if (modal) modal.classList.remove('hidden');
+}
+
+// ============================================================================
+// PART 28: TEMPLATE VERSION CONTROL & RELEASE PIPELINE CONTROLLER
+// ============================================================================
+
+let currentVersionsTemplateId = null;
+let currentVersionsList = [];
+let currentDetailedVersion = null;
+let currentPublishCandidateVersionId = null;
+
+async function openTemplateVersionsModal(templateId) {
+  currentVersionsTemplateId = templateId;
+  const modal = document.getElementById('template-versions-modal');
+  if (modal) modal.classList.remove('hidden');
+  await loadTemplateVersions(templateId);
+}
+
+function closeTemplateVersionsModal() {
+  const modal = document.getElementById('template-versions-modal');
+  if (modal) modal.classList.add('hidden');
+  currentVersionsTemplateId = null;
+  currentVersionsList = [];
+}
+
+async function loadTemplateVersions(templateId) {
+  try {
+    const titleEl = document.getElementById('versions-modal-title');
+    const subtitleEl = document.getElementById('versions-modal-subtitle');
+    const badgeEl = document.getElementById('versions-current-badge');
+    const tbody = document.getElementById('versions-table-body');
+    const countEl = document.getElementById('versions-count-summary');
+
+    if (tbody) {
+      tbody.innerHTML = `
+        <tr>
+          <td colspan="7" class="py-8 text-center text-outline">
+            <span class="material-symbols-outlined text-[24px] animate-spin mb-1">sync</span>
+            <p>Loading template versions and verification status...</p>
+          </td>
+        </tr>
+      `;
+    }
+
+    const tpl = (window.allTemplatesCache || []).find(t => t.id === templateId) || { id: templateId, name: 'Template' };
+    if (titleEl) titleEl.textContent = `${tpl.name} — Version Control`;
+    if (subtitleEl) subtitleEl.textContent = `Template Family: fam_${templateId} • Storage: Backblaze B2 / Cloudflare`;
+
+    const res = await fetch(`/api/templates/${templateId}/versions`);
+    const data = await res.json();
+    currentVersionsList = data.versions || [];
+
+    const currentVer = currentVersionsList.find(v => v.is_current === 1) || currentVersionsList[0];
+    if (badgeEl) {
+      if (currentVer) {
+        badgeEl.textContent = `Current Live: ${currentVer.version_label || currentVer.id}`;
+        badgeEl.className = 'px-2.5 py-0.5 rounded-full bg-emerald-500/20 text-emerald-300 text-xs font-bold border border-emerald-500/30';
+      } else {
+        badgeEl.textContent = 'No Published Version';
+        badgeEl.className = 'px-2.5 py-0.5 rounded-full bg-amber-500/20 text-amber-300 text-xs font-bold border border-amber-500/30';
+      }
+    }
+
+    if (countEl) countEl.textContent = `Showing ${currentVersionsList.length} immutable version(s)`;
+    renderVersionsTable(currentVersionsList, tpl);
+  } catch (err) {
+    console.error('Error loading template versions:', err);
+    showToast('Failed to load versions: ' + err.message);
+  }
+}
+
+function renderVersionsTable(versions, template) {
+  const tbody = document.getElementById('versions-table-body');
+  if (!tbody) return;
+
+  if (versions.length === 0) {
+    tbody.innerHTML = `
+      <tr>
+        <td colspan="7" class="py-10 text-center text-outline">
+          <span class="material-symbols-outlined text-[28px] mb-1">history</span>
+          <p>No versions recorded yet for this template family.</p>
+          <button onclick="openCreateVersionModal()" class="mt-3 px-3.5 py-1.5 rounded-xl bg-primary text-on-primary font-bold text-xs inline-flex items-center gap-1">
+            <span class="material-symbols-outlined text-[15px]">add</span>
+            <span>Create V1.0.0</span>
+          </button>
+        </td>
+      </tr>
+    `;
+    return;
+  }
+
+  tbody.innerHTML = versions.map(v => {
+    const isCurrent = v.is_current === 1;
+    const status = (v.status || 'draft').toLowerCase();
+
+    let statusPill = '';
+    if (isCurrent) {
+      statusPill = `<span class="px-2 py-0.5 rounded-full bg-emerald-500/20 text-emerald-300 border border-emerald-500/40 font-bold flex items-center gap-1 w-fit"><span class="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse"></span>CURRENT</span>`;
+    } else if (status === 'published') {
+      statusPill = `<span class="px-2 py-0.5 rounded-full bg-purple-500/20 text-purple-300 font-bold w-fit">PUBLISHED</span>`;
+    } else if (status === 'ready') {
+      statusPill = `<span class="px-2 py-0.5 rounded-full bg-blue-500/20 text-blue-300 font-bold w-fit">READY</span>`;
+    } else if (status === 'rollback_candidate') {
+      statusPill = `<span class="px-2 py-0.5 rounded-full bg-amber-500/20 text-amber-300 font-bold w-fit">ROLLBACK CANDIDATE</span>`;
+    } else if (status === 'failed') {
+      statusPill = `<span class="px-2 py-0.5 rounded-full bg-rose-500/20 text-rose-300 font-bold w-fit">FAILED</span>`;
+    } else if (status === 'archived') {
+      statusPill = `<span class="px-2 py-0.5 rounded-full bg-surface-container-high text-outline font-medium w-fit">ARCHIVED</span>`;
+    } else {
+      statusPill = `<span class="px-2 py-0.5 rounded-full bg-amber-500/10 text-amber-300 font-semibold w-fit">DRAFT</span>`;
+    }
+
+    const sizeKb = Math.round((v.total_size_bytes || 0) / 1024);
+    const dateFormatted = v.published_at ? formatDate(v.published_at) : (v.created_at ? formatDate(v.created_at) : '—');
+    const integrityBadge = v.integrity_status === 'INTEGRITY_OK' || v.integrity_status === 'verified'
+      ? `<span class="text-emerald-400 font-semibold flex items-center gap-1"><span class="material-symbols-outlined text-[14px]">check_circle</span>OK</span>`
+      : `<span class="text-amber-400 flex items-center gap-1"><span class="material-symbols-outlined text-[14px]">help</span>Unverified</span>`;
+
+    return `
+      <tr class="hover:bg-surface-container transition border-b border-purple-900/20">
+        <td class="py-3 px-4">
+          <div class="flex items-center gap-2">
+            <span class="font-mono font-bold text-on-surface text-sm">${v.version_label || `v${v.version_number}.0.0`}</span>
+            <span class="text-[10px] text-outline font-mono">(${v.id})</span>
+          </div>
+        </td>
+        <td class="py-3 px-3">${statusPill}</td>
+        <td class="py-3 px-3 text-on-surface-variant font-mono text-[11px]">
+          ${v.file_count || 5} files • ${sizeKb > 0 ? sizeKb + ' KB' : '—'}
+        </td>
+        <td class="py-3 px-3 text-xs">${integrityBadge}</td>
+        <td class="py-3 px-3 text-on-surface-variant max-w-xs truncate" title="${escapeQuotes(v.release_notes || 'No release notes')}">
+          ${v.release_notes || '<span class="text-outline italic">No release notes</span>'}
+        </td>
+        <td class="py-3 px-3 text-on-surface-variant font-mono text-[11px]">${dateFormatted}</td>
+        <td class="py-3 px-4 text-right">
+          <div class="flex items-center justify-end gap-1.5">
+            <!-- View Details / File Inventory -->
+            <button onclick="viewVersionDetailsModal('${v.id}')" class="p-1.5 rounded-lg bg-surface-container-high hover:bg-surface-container-highest text-on-surface transition" title="Inspect Files & Manifest">
+              <span class="material-symbols-outlined text-[15px]">inventory_2</span>
+            </button>
+            <!-- Preview Exact Version Sandbox -->
+            <button onclick="previewVersionSandbox('${v.id}')" class="p-1.5 rounded-lg bg-surface-container-high hover:bg-surface-container-highest text-primary transition" title="Preview Exact Version">
+              <span class="material-symbols-outlined text-[15px]">visibility</span>
+            </button>
+            <!-- Run Validation Pipeline -->
+            <button onclick="validateVersionForRelease('${v.id}')" class="p-1.5 rounded-lg bg-blue-500/15 hover:bg-blue-500/25 text-blue-300 transition" title="Run 17-Point Server Validation">
+              <span class="material-symbols-outlined text-[15px]">rule</span>
+            </button>
+            <!-- Publish / Make Current -->
+            ${!isCurrent ? `
+              <button onclick="promptPublishVersion('${v.id}')" class="px-2 py-1 rounded-lg bg-emerald-500/20 hover:bg-emerald-500/30 text-emerald-300 font-bold transition flex items-center gap-1" title="Publish & Set as Current Live Version">
+                <span class="material-symbols-outlined text-[14px]">rocket_launch</span>
+                <span>Publish</span>
+              </button>
+            ` : ''}
+            <!-- Safe Rollback (if previously published and not currently active) -->
+            ${!isCurrent && (status === 'published' || status === 'rollback_candidate' || status === 'ready') ? `
+              <button onclick="promptRollbackVersion('${v.id}')" class="px-2 py-1 rounded-lg bg-amber-500/15 hover:bg-amber-500/25 text-amber-300 font-bold transition flex items-center gap-1" title="Rollback Current Live to this Version">
+                <span class="material-symbols-outlined text-[14px]">history</span>
+                <span>Rollback</span>
+              </button>
+            ` : ''}
+            <!-- Verify File Integrity Checksum -->
+            <button onclick="verifyVersionFiles('${v.id}')" class="p-1.5 rounded-lg bg-surface-container-high hover:bg-surface-container-highest text-outline hover:text-on-surface transition" title="Verify File Checksums">
+              <span class="material-symbols-outlined text-[15px]">verified</span>
+            </button>
+            <!-- Archive (if not current) -->
+            ${!isCurrent && status !== 'archived' ? `
+              <button onclick="archiveVersion('${v.id}')" class="p-1.5 rounded-lg bg-surface-container-high hover:bg-surface-container-highest text-outline hover:text-rose-400 transition" title="Archive Version">
+                <span class="material-symbols-outlined text-[15px]">archive</span>
+              </button>
+            ` : ''}
+          </div>
+        </td>
+      </tr>
+    `;
+  }).join('');
+}
+
+// Open Create Version Modal
+function openCreateVersionModal() {
+  if (!currentVersionsTemplateId) return;
+  const modal = document.getElementById('create-version-modal');
+  const sourceSelect = document.getElementById('create-version-source-select');
+
+  if (sourceSelect) {
+    sourceSelect.innerHTML = currentVersionsList.map(v => `
+      <option value="${v.id}" ${v.is_current ? 'selected' : ''}>
+        ${v.version_label || v.id} (${v.status}${v.is_current ? ' - Current' : ''})
+      </option>
+    `).join('');
+  }
+
+  updateVersionLabelPreview();
+  if (modal) modal.classList.remove('hidden');
+}
+
+function closeCreateVersionModal() {
+  const modal = document.getElementById('create-version-modal');
+  if (modal) modal.classList.add('hidden');
+}
+
+function updateVersionLabelPreview() {
+  const bumpRadio = document.querySelector('input[name="bumpType"]:checked');
+  const bumpType = bumpRadio ? bumpRadio.value : 'minor';
+  const labelInput = document.getElementById('new-version-label-input');
+  if (!labelInput) return;
+
+  let maxMajor = 1, maxMinor = 0, maxPatch = 0;
+  currentVersionsList.forEach(v => {
+    const label = v.version_label || '';
+    const m = label.replace(/^v/, '').match(/^(\d+)\.(\d+)\.(\d+)/);
+    if (m) {
+      const maj = parseInt(m[1], 10), min = parseInt(m[2], 10), pat = parseInt(m[3], 10);
+      if (maj > maxMajor || (maj === maxMajor && min > maxMinor) || (maj === maxMajor && min === maxMinor && pat > maxPatch)) {
+        maxMajor = maj; maxMinor = min; maxPatch = pat;
+      }
+    }
+  });
+
+  let nextMajor = maxMajor, nextMinor = maxMinor, nextPatch = maxPatch;
+  if (bumpType === 'major') {
+    nextMajor = maxMajor + 1; nextMinor = 0; nextPatch = 0;
+  } else if (bumpType === 'patch') {
+    nextPatch = maxPatch + 1;
+  } else {
+    nextMinor = maxMinor + 1; nextPatch = 0;
+  }
+
+  labelInput.value = `v${nextMajor}.${nextMinor}.${nextPatch}`;
+}
+
+async function submitCreateVersion(e) {
+  e.preventDefault();
+  if (!currentVersionsTemplateId) return;
+
+  const bumpRadio = document.querySelector('input[name="bumpType"]:checked');
+  const bumpType = bumpRadio ? bumpRadio.value : 'minor';
+  const versionLabel = document.getElementById('new-version-label-input').value.trim();
+  const sourceVerSelect = document.getElementById('create-version-source-select');
+  const sourceVersionId = sourceVerSelect ? sourceVerSelect.value : null;
+  const releaseNotes = document.getElementById('new-version-release-notes').value.trim();
+
+  try {
+    showToast('Creating new version draft...');
+    const res = await fetch(`/api/templates/${currentVersionsTemplateId}/versions`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        bumpType,
+        versionLabel,
+        sourceVersionId,
+        releaseNotes
+      })
+    });
+
+    const data = await res.json();
+    if (!data.success) {
+      alert('Error creating version: ' + data.message);
+      return;
+    }
+
+    showToast(`🎉 Version ${versionLabel} created successfully!`);
+    closeCreateVersionModal();
+    await loadTemplateVersions(currentVersionsTemplateId);
+  } catch (err) {
+    alert('Failed to create version: ' + err.message);
+  }
+}
+
+// Version Detail View
+async function viewVersionDetailsModal(versionId) {
+  if (!currentVersionsTemplateId) return;
+  const modal = document.getElementById('version-detail-modal');
+  if (modal) modal.classList.remove('hidden');
+
+  try {
+    const res = await fetch(`/api/templates/${currentVersionsTemplateId}/versions/${versionId}`);
+    const data = await res.json();
+    if (!data.success) throw new Error(data.message);
+
+    currentDetailedVersion = data.version;
+    const files = data.files || [];
+
+    const titleEl = document.getElementById('version-detail-title');
+    const badgeEl = document.getElementById('version-detail-status-badge');
+    const idEl = document.getElementById('version-detail-id-text');
+    const fileCountEl = document.getElementById('detail-file-count');
+    const totalSizeEl = document.getElementById('detail-total-size');
+    const entryEl = document.getElementById('detail-entry-point');
+    const integrityEl = document.getElementById('detail-integrity');
+    const notesEl = document.getElementById('detail-release-notes');
+    const filesSubtotalEl = document.getElementById('detail-files-subtotal');
+    const filesTbody = document.getElementById('detail-files-tbody');
+    const manifestEl = document.getElementById('detail-manifest-json');
+
+    if (titleEl) titleEl.textContent = `Version Details: ${data.version.version_label || data.version.id}`;
+    if (idEl) idEl.textContent = `${data.version.id} • Lock: v${data.version.lock_version || 1}`;
+
+    const isCurrent = data.version.is_current === 1;
+    if (badgeEl) {
+      badgeEl.textContent = isCurrent ? 'CURRENT LIVE' : (data.version.status || 'draft').toUpperCase();
+      badgeEl.className = isCurrent
+        ? 'px-2.5 py-0.5 rounded-full bg-emerald-500/20 text-emerald-300 font-bold border border-emerald-500/40'
+        : 'px-2.5 py-0.5 rounded-full bg-purple-500/20 text-purple-300 font-bold';
+    }
+
+    if (fileCountEl) fileCountEl.textContent = `${files.length || data.version.file_count || 0} files`;
+    const kb = Math.round((data.version.total_size_bytes || 0) / 1024);
+    if (totalSizeEl) totalSizeEl.textContent = `${kb} KB`;
+    if (entryEl) entryEl.textContent = data.version.entry_point || 'index.html';
+    if (integrityEl) integrityEl.textContent = data.version.integrity_status || 'Verified';
+    if (notesEl) notesEl.value = data.version.release_notes || '';
+    if (filesSubtotalEl) filesSubtotalEl.textContent = `${files.length} verified runtime files`;
+
+    if (filesTbody) {
+      if (files.length === 0) {
+        filesTbody.innerHTML = `
+          <tr>
+            <td colspan="4" class="py-4 text-center text-outline text-xs">
+              No individual file rows registered. Runtime uses B2 storage bundle.
+            </td>
+          </tr>
+        `;
+      } else {
+        filesTbody.innerHTML = files.map(f => `
+          <tr class="hover:bg-surface-container font-mono text-[11px]">
+            <td class="py-2 px-3 text-on-surface font-semibold">${f.relative_path || f.path || f.fileName}</td>
+            <td class="py-2 px-3 text-outline">${f.mime_type || 'application/octet-stream'}</td>
+            <td class="py-2 px-3 text-on-surface-variant">${f.size_bytes ? Math.round(f.size_bytes / 1024) + ' KB' : '—'}</td>
+            <td class="py-2 px-3 text-purple-300 truncate max-w-xs" title="${f.sha256 || ''}">${(f.sha256 || '—').substring(0, 20)}...</td>
+          </tr>
+        `).join('');
+      }
+    }
+
+    if (manifestEl) {
+      let manifestObj = {};
+      try { manifestObj = JSON.parse(data.version.manifest_json || '{}'); } catch (e) {}
+      if (Object.keys(manifestObj).length === 0) {
+        manifestObj = {
+          versionId: data.version.id,
+          versionLabel: data.version.version_label,
+          entryPoint: data.version.entry_point || 'index.html',
+          capabilities: data.version.capabilities,
+          sections: data.version.sections,
+          theme: data.version.theme,
+          filesCount: files.length
+        };
+      }
+      manifestEl.textContent = JSON.stringify(manifestObj, null, 2);
+    }
+  } catch (err) {
+    alert('Error loading version details: ' + err.message);
+  }
+}
+
+function closeVersionDetailModal() {
+  const modal = document.getElementById('version-detail-modal');
+  if (modal) modal.classList.add('hidden');
+  currentDetailedVersion = null;
+}
+
+async function saveVersionReleaseNotes() {
+  if (!currentVersionsTemplateId || !currentDetailedVersion) return;
+  const notes = document.getElementById('detail-release-notes').value;
+
+  try {
+    const res = await fetch(`/api/templates/${currentVersionsTemplateId}/versions/${currentDetailedVersion.id}/release-notes`, {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ releaseNotes: notes })
+    });
+    const data = await res.json();
+    if (!data.success) throw new Error(data.message);
+    showToast('Release notes saved successfully!');
+    currentDetailedVersion.release_notes = notes;
+    await loadTemplateVersions(currentVersionsTemplateId);
+  } catch (err) {
+    alert('Failed to save release notes: ' + err.message);
+  }
+}
+
+// 17-Point Server Validation Pipeline
+async function validateVersionForRelease(versionId) {
+  if (!currentVersionsTemplateId) return;
+  showToast('Running 17-point server release validation...');
+
+  try {
+    const res = await fetch(`/api/templates/${currentVersionsTemplateId}/versions/${versionId}/validate`, {
+      method: 'POST'
+    });
+    const data = await res.json();
+    if (!data.success) throw new Error(data.message);
+
+    openVersionChecklistModal(versionId, data);
+    await loadTemplateVersions(currentVersionsTemplateId);
+  } catch (err) {
+    alert('Validation error: ' + err.message);
+  }
+}
+
+function openVersionChecklistModal(versionId, validationData) {
+  currentPublishCandidateVersionId = versionId;
+  const modal = document.getElementById('version-checklist-modal');
+  const titleEl = document.getElementById('checklist-modal-title');
+  const bannerEl = document.getElementById('checklist-summary-banner');
+  const container = document.getElementById('checklist-items-container');
+  const confirmBox = document.getElementById('publish-confirm-checkbox');
+  const pubBtn = document.getElementById('publish-confirm-button');
+
+  if (titleEl) titleEl.textContent = `Release Checklist: ${versionId}`;
+  if (confirmBox) confirmBox.checked = false;
+  if (pubBtn) pubBtn.disabled = true;
+
+  if (bannerEl) {
+    if (validationData.valid) {
+      bannerEl.className = 'p-3 rounded-xl bg-emerald-500/15 border border-emerald-500/30 text-emerald-300 text-xs font-semibold';
+      bannerEl.textContent = '✅ All 17 verification checks PASSED! Version is verified and ready for production release.';
+    } else {
+      bannerEl.className = 'p-3 rounded-xl bg-rose-500/15 border border-rose-500/30 text-rose-300 text-xs font-semibold';
+      bannerEl.textContent = `❌ Validation Failed with ${validationData.errors?.length || 1} error(s). Review issues below before releasing.`;
+    }
+  }
+
+  if (container) {
+    const checklist = validationData.checklist || [];
+    container.innerHTML = checklist.map(item => `
+      <div class="p-2.5 rounded-xl ${item.passed ? 'bg-surface-container' : 'bg-rose-500/10 border border-rose-500/30'} flex items-start justify-between gap-3">
+        <div class="flex items-start gap-2">
+          <span class="material-symbols-outlined text-[18px] ${item.passed ? 'text-emerald-400' : 'text-rose-400'} mt-0.5">
+            ${item.passed ? 'check_circle' : 'cancel'}
+          </span>
+          <div class="flex flex-col">
+            <span class="font-bold text-on-surface text-xs">${item.name}</span>
+            <span class="text-[11px] text-on-surface-variant">${item.description}</span>
+            ${item.error ? `<span class="text-[10px] text-rose-400 mt-0.5 font-mono">${item.error}</span>` : ''}
+          </div>
+        </div>
+        <span class="text-[10px] font-bold uppercase px-2 py-0.5 rounded-full ${item.passed ? 'bg-emerald-500/20 text-emerald-300' : 'bg-rose-500/20 text-rose-300'}">
+          ${item.passed ? 'PASS' : 'FAIL'}
+        </span>
+      </div>
+    `).join('');
+  }
+
+  if (modal) modal.classList.remove('hidden');
+}
+
+function closeVersionChecklistModal() {
+  const modal = document.getElementById('version-checklist-modal');
+  if (modal) modal.classList.add('hidden');
+  currentPublishCandidateVersionId = null;
+}
+
+function togglePublishButtonState() {
+  const confirmBox = document.getElementById('publish-confirm-checkbox');
+  const pubBtn = document.getElementById('publish-confirm-button');
+  if (pubBtn) {
+    pubBtn.disabled = !confirmBox?.checked;
+  }
+}
+
+function promptPublishVersion(versionId) {
+  validateVersionForRelease(versionId);
+}
+
+async function executeConfirmedPublish() {
+  if (!currentVersionsTemplateId || !currentPublishCandidateVersionId) return;
+
+  try {
+    showToast('Executing server-side atomic release...');
+    const res = await fetch(`/api/templates/${currentVersionsTemplateId}/versions/${currentPublishCandidateVersionId}/publish`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' }
+    });
+
+    const data = await res.json();
+    if (!data.success) {
+      alert('Publish rejected: ' + data.message + (data.errors ? '\n' + data.errors.join('\n') : ''));
+      return;
+    }
+
+    showToast(`🚀 Version ${currentPublishCandidateVersionId} is now LIVE and set as current default!`);
+    closeVersionChecklistModal();
+    await loadTemplateVersions(currentVersionsTemplateId);
+    if (typeof loadDynamicTemplates === 'function') {
+      loadDynamicTemplates();
+    }
+  } catch (err) {
+    alert('Publishing error: ' + err.message);
+  }
+}
+
+// Safe Version Rollback
+async function promptRollbackVersion(versionId) {
+  if (!currentVersionsTemplateId) return;
+
+  const ok = confirm(`⚠️ Are you sure you want to rollback to ${versionId}?\n\nThis will safely make ${versionId} the active default for NEW wishes.\nAll previously published wishes will remain permanently unchanged and locked to their historical versions.`);
+  if (!ok) return;
+
+  try {
+    showToast('Validating target version & executing safe rollback...');
+    const res = await fetch(`/api/templates/${currentVersionsTemplateId}/versions/${versionId}/rollback`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' }
+    });
+
+    const data = await res.json();
+    if (!data.success) {
+      alert('Rollback failed: ' + data.message);
+      return;
+    }
+
+    showToast(`✅ Successfully rolled back active version to ${versionId}!`);
+    await loadTemplateVersions(currentVersionsTemplateId);
+    if (typeof loadDynamicTemplates === 'function') {
+      loadDynamicTemplates();
+    }
+  } catch (err) {
+    alert('Rollback error: ' + err.message);
+  }
+}
+
+// Verify Version File Integrity Checksums
+async function verifyVersionFiles(versionId) {
+  if (!currentVersionsTemplateId) return;
+  showToast('Verifying SHA-256 checksums across storage objects...');
+
+  try {
+    const res = await fetch(`/api/templates/${currentVersionsTemplateId}/versions/${versionId}/verify`, {
+      method: 'POST'
+    });
+    const data = await res.json();
+    if (!data.success) throw new Error(data.message);
+
+    if (data.status === 'INTEGRITY_OK') {
+      showToast(`✅ Integrity Verified: All ${data.verifiedFilesCount} files match their cryptographic SHA-256 checksums.`);
+    } else {
+      alert(`⚠️ Integrity Warning: Found ${data.mismatchesCount} file checksum mismatch(es)!`);
+    }
+    await loadTemplateVersions(currentVersionsTemplateId);
+  } catch (err) {
+    alert('Integrity check error: ' + err.message);
+  }
+}
+
+// Archive Version
+async function archiveVersion(versionId) {
+  if (!currentVersionsTemplateId) return;
+  const ok = confirm(`Archive version ${versionId}? It will no longer appear as a release candidate.`);
+  if (!ok) return;
+
+  try {
+    const res = await fetch(`/api/templates/${currentVersionsTemplateId}/versions/${versionId}/archive`, {
+      method: 'POST'
+    });
+    const data = await res.json();
+    if (!data.success) throw new Error(data.message);
+    showToast(`Version ${versionId} archived safely.`);
+    await loadTemplateVersions(currentVersionsTemplateId);
+  } catch (err) {
+    alert('Archive error: ' + err.message);
+  }
+}
+
+// Preview Exact Version Sandbox
+function previewVersionSandbox(versionId) {
+  if (!currentVersionsTemplateId) return;
+  const modal = document.getElementById('resolver-preview-modal');
+  const iframe = document.getElementById('resolver-preview-iframe');
+  const title = document.getElementById('resolver-preview-title');
+
+  if (title) title.textContent = `Exact Version Sandbox — ${currentVersionsTemplateId} (${versionId})`;
+  if (iframe) iframe.src = `/api/templates/${currentVersionsTemplateId}/versions/${versionId}/preview/index.html`;
+  if (modal) modal.classList.remove('hidden');
+}
+
+// Version Comparison Tool
+function openVersionCompareModal() {
+  if (!currentVersionsTemplateId || currentVersionsList.length < 2) {
+    alert('At least two versions are needed to perform a comparison.');
+    return;
+  }
+
+  const modal = document.getElementById('version-compare-modal');
+  const v1Select = document.getElementById('compare-v1-select');
+  const v2Select = document.getElementById('compare-v2-select');
+
+  if (v1Select && v2Select) {
+    const options = currentVersionsList.map(v => `
+      <option value="${v.id}">${v.version_label || v.id} (${v.status}${v.is_current ? ' - Current' : ''})</option>
+    `).join('');
+
+    v1Select.innerHTML = options;
+    v2Select.innerHTML = options;
+
+    if (currentVersionsList.length >= 2) {
+      v1Select.selectedIndex = 1;
+      v2Select.selectedIndex = 0;
+    }
+  }
+
+  if (modal) modal.classList.remove('hidden');
+  runVersionComparison();
+}
+
+function closeVersionCompareModal() {
+  const modal = document.getElementById('version-compare-modal');
+  if (modal) modal.classList.add('hidden');
+}
+
+async function runVersionComparison() {
+  if (!currentVersionsTemplateId) return;
+  const v1 = document.getElementById('compare-v1-select').value;
+  const v2 = document.getElementById('compare-v2-select').value;
+  const container = document.getElementById('compare-results-container');
+
+  if (v1 === v2) {
+    if (container) {
+      container.innerHTML = `
+        <div class="p-6 text-center text-outline bg-surface-container rounded-2xl">
+          <p>Select two different versions to compute structural diff.</p>
+        </div>
+      `;
+    }
+    return;
+  }
+
+  try {
+    if (container) {
+      container.innerHTML = `<div class="p-4 text-center text-outline">Computing structural difference...</div>`;
+    }
+
+    const res = await fetch(`/api/templates/${currentVersionsTemplateId}/versions/compare?v1=${v1}&v2=${v2}`);
+    const data = await res.json();
+    if (!data.success) throw new Error(data.message);
+
+    const comp = data.comparison;
+    container.innerHTML = `
+      <!-- Files Summary Grid -->
+      <div class="grid grid-cols-2 sm:grid-cols-4 gap-3">
+        <div class="p-3 rounded-xl bg-surface-container border border-purple-500/20 flex flex-col">
+          <span class="text-[10px] text-emerald-400 font-bold uppercase">Files Added</span>
+          <span class="text-lg font-bold text-on-surface">${comp.filesSummary.addedCount}</span>
+        </div>
+        <div class="p-3 rounded-xl bg-surface-container border border-purple-500/20 flex flex-col">
+          <span class="text-[10px] text-rose-400 font-bold uppercase">Files Removed</span>
+          <span class="text-lg font-bold text-on-surface">${comp.filesSummary.removedCount}</span>
+        </div>
+        <div class="p-3 rounded-xl bg-surface-container border border-purple-500/20 flex flex-col">
+          <span class="text-[10px] text-amber-400 font-bold uppercase">Files Modified</span>
+          <span class="text-lg font-bold text-on-surface">${comp.filesSummary.modifiedCount}</span>
+        </div>
+        <div class="p-3 rounded-xl bg-surface-container border border-purple-500/20 flex flex-col">
+          <span class="text-[10px] text-outline font-bold uppercase">Unchanged</span>
+          <span class="text-lg font-bold text-on-surface">${comp.filesSummary.unchangedCount}</span>
+        </div>
+      </div>
+
+      <!-- Modified / Added Files Breakdown -->
+      ${comp.filesAdded.length > 0 ? `
+        <div class="flex flex-col gap-1.5">
+          <span class="font-bold text-emerald-400 text-xs">Added Files:</span>
+          <div class="flex flex-wrap gap-1.5">
+            ${comp.filesAdded.map(f => `<span class="px-2 py-0.5 rounded-lg bg-emerald-500/10 text-emerald-300 font-mono text-[11px]">${f.path}</span>`).join('')}
+          </div>
+        </div>
+      ` : ''}
+
+      ${comp.filesModified.length > 0 ? `
+        <div class="flex flex-col gap-1.5">
+          <span class="font-bold text-amber-400 text-xs">Modified Files (Checksum Changed):</span>
+          <div class="flex flex-wrap gap-1.5">
+            ${comp.filesModified.map(f => `<span class="px-2 py-0.5 rounded-lg bg-amber-500/10 text-amber-300 font-mono text-[11px]">${f.path}</span>`).join('')}
+          </div>
+        </div>
+      ` : ''}
+
+      ${comp.filesRemoved.length > 0 ? `
+        <div class="flex flex-col gap-1.5">
+          <span class="font-bold text-rose-400 text-xs">Removed Files:</span>
+          <div class="flex flex-wrap gap-1.5">
+            ${comp.filesRemoved.map(f => `<span class="px-2 py-0.5 rounded-lg bg-rose-500/10 text-rose-300 font-mono text-[11px]">${f.path}</span>`).join('')}
+          </div>
+        </div>
+      ` : ''}
+
+      <!-- Capabilities Diff -->
+      <div class="p-3 rounded-xl bg-surface-container border border-purple-500/20 flex flex-col gap-2">
+        <span class="font-bold text-on-surface text-xs uppercase tracking-wider">Capabilities Difference</span>
+        ${Object.keys(comp.capabilitiesDiff || {}).length === 0 ? `
+          <span class="text-xs text-outline italic">No capability configuration changes between these versions.</span>
+        ` : `
+          <div class="flex flex-col gap-1">
+            ${Object.entries(comp.capabilitiesDiff).map(([k, d]) => `
+              <div class="flex items-center justify-between text-xs py-1 border-b border-purple-900/20">
+                <span class="font-mono text-primary">${k}</span>
+                <span class="text-on-surface-variant font-mono">${String(d.oldVal)} → <strong class="text-emerald-400">${String(d.newVal)}</strong></span>
+              </div>
+            `).join('')}
+          </div>
+        `}
+      </div>
+    `;
+  } catch (err) {
+    container.innerHTML = `<div class="p-4 text-center text-rose-400 text-xs">Failed to compare versions: ${err.message}</div>`;
+  }
+}
+

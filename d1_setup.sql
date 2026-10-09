@@ -943,3 +943,56 @@ CREATE INDEX IF NOT EXISTS idx_favorites_user_type ON favorites(user_id, item_ty
 
 INSERT OR IGNORE INTO _migrations (id, name, applied_at) VALUES
 ('mig_0011', '0011_part26_wish_lifecycle_and_favorites.sql', '2026-10-08T08:00:00.000Z');
+
+-- ----------------------------------------------------------------------------
+-- 18. PART 27: TEMPLATE FAMILY & RELATIONSHIP VARIANT MANAGEMENT ARCHITECTURE
+-- ----------------------------------------------------------------------------
+ALTER TABLE template_relationship_variants ADD COLUMN version_number INTEGER NOT NULL DEFAULT 1;
+ALTER TABLE template_relationship_variants ADD COLUMN parent_variant_id TEXT;
+ALTER TABLE template_relationship_variants ADD COLUMN is_latest INTEGER NOT NULL DEFAULT 1;
+ALTER TABLE template_relationship_variants ADD COLUMN lock_version INTEGER NOT NULL DEFAULT 1;
+ALTER TABLE template_relationship_variants ADD COLUMN template_id TEXT;
+ALTER TABLE template_relationship_variants ADD COLUMN template_family_id TEXT;
+ALTER TABLE template_relationship_variants ADD COLUMN published_at TEXT;
+
+ALTER TABLE template_versions ADD COLUMN fields_json TEXT DEFAULT '[]';
+ALTER TABLE template_versions ADD COLUMN theme_defaults_json TEXT DEFAULT '{}';
+ALTER TABLE template_versions ADD COLUMN effects_defaults_json TEXT DEFAULT '{}';
+
+ALTER TABLE template_music ADD COLUMN relationship_id TEXT;
+
+CREATE INDEX IF NOT EXISTS idx_trv_version_number ON template_relationship_variants(template_version_id, version_number);
+CREATE INDEX IF NOT EXISTS idx_trv_template_status ON template_relationship_variants(template_id, status);
+CREATE INDEX IF NOT EXISTS idx_trv_is_latest ON template_relationship_variants(is_latest);
+CREATE INDEX IF NOT EXISTS idx_template_music_rel ON template_music(relationship_id);
+
+INSERT OR IGNORE INTO _migrations (id, name, applied_at) VALUES
+('mig_0012', '0012_part27_template_family_variants.sql', '2026-10-08T09:30:00.000Z');
+
+-- ----------------------------------------------------------------------------
+-- 19. PART 28: TEMPLATE VERSION CONTROL, RELEASE PIPELINE & ROLLBACK ARCHITECTURE
+-- ----------------------------------------------------------------------------
+ALTER TABLE template_versions ADD COLUMN release_notes TEXT DEFAULT '';
+ALTER TABLE template_versions ADD COLUMN published_by TEXT;
+ALTER TABLE template_versions ADD COLUMN manifest_json TEXT DEFAULT '{}';
+ALTER TABLE template_versions ADD COLUMN file_count INTEGER DEFAULT 0;
+ALTER TABLE template_versions ADD COLUMN total_size_bytes INTEGER DEFAULT 0;
+ALTER TABLE template_versions ADD COLUMN entry_point TEXT DEFAULT 'index.html';
+ALTER TABLE template_versions ADD COLUMN integrity_status TEXT DEFAULT 'unverified';
+ALTER TABLE template_versions ADD COLUMN integrity_checked_at TEXT;
+ALTER TABLE template_versions ADD COLUMN validation_report_json TEXT DEFAULT '{}';
+ALTER TABLE template_versions ADD COLUMN lock_version INTEGER NOT NULL DEFAULT 1;
+ALTER TABLE template_versions ADD COLUMN is_current INTEGER NOT NULL DEFAULT 0;
+
+ALTER TABLE template_families ADD COLUMN current_version_id TEXT;
+ALTER TABLE template_families ADD COLUMN rollback_version_id TEXT;
+
+ALTER TABLE templates ADD COLUMN current_version_id TEXT;
+
+CREATE INDEX IF NOT EXISTS idx_tv_is_current ON template_versions(template_id, is_current);
+CREATE INDEX IF NOT EXISTS idx_tv_template_status ON template_versions(template_id, status);
+CREATE INDEX IF NOT EXISTS idx_template_families_current_ver ON template_families(current_version_id);
+
+INSERT OR IGNORE INTO _migrations (id, name, applied_at) VALUES
+('mig_0013', '0013_part28_template_version_management.sql', '2026-10-08T10:00:00.000Z');
+

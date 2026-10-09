@@ -16,6 +16,8 @@ const ADMIN_ROUTES_MAP = {
   '/admin/anktech/anktech/admin/wishes': '/admin-wishes.html',
   '/admin/anktech/anktech/admin/orders': '/admin-orders.html',
   '/admin/anktech/anktech/admin/media': '/admin-media.html',
+  '/admin/anktech/anktech/admin/storage-health': '/admin-storage-health.html',
+  '/admin/anktech/anktech/admin/storage': '/admin-storage-health.html',
   '/admin/anktech/anktech/admin/pricing': '/admin-pricing.html',
   '/admin/anktech/anktech/admin/settings': '/admin-settings.html',
   '/admin/anktech/anktech/admin/user-creations': '/admin-user-creations.html',

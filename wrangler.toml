@@ -20,3 +20,8 @@ migrations_dir = "migrations"
 # [[r2_buckets]]
 # binding = "BUCKET"
 # bucket_name = "wishmagic-media"
+
+# Scheduled Reminder & Delivery Queue Cron Triggers (Part 31 Enterprise Notifications)
+[triggers]
+crons = ["*/15 * * * *"]
+

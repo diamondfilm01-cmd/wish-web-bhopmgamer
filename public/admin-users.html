@@ -5,7 +5,7 @@
   <base href="/"/>
   <meta content="width=device-width, initial-scale=1.0" name="viewport"/>
   <meta content="web_dashboard" name="shell-type"/>
-  <title>WishMagic | Users & Creators Management</title>
+  <title>WishMagic | Advanced User Management &amp; Creators Console</title>
   <link rel="preconnect" href="https://fonts.googleapis.com"/>
   <link crossorigin="" href="https://fonts.gstatic.com" rel="preconnect"/>
   <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;600;700&family=Plus+Jakarta+Sans:wght@400;500;600;700;800&family=Outfit:wght@500;600;700;800&display=swap" rel="stylesheet"/>
@@ -26,7 +26,7 @@
   <script src="js/repositories.js"></script>
   <script src="js/analytics-service.js"></script>
 </head>
-<body class="bg-background text-on-surface font-body-md min-h-screen antialiased">
+<body class="bg-background text-on-surface font-body-md min-h-screen antialiased selection:bg-primary selection:text-white">
 
 <!-- Mobile Sidebar Backdrop -->
 <div id="sidebar-backdrop" class="fixed inset-0 bg-black/75 backdrop-blur-sm z-40 hidden md:hidden" onclick="toggleSidebar()"></div>
@@ -51,50 +51,54 @@
       </div>
     </div>
     <div class="px-space-md mt-space-sm flex-1 overflow-y-auto custom-scrollbar pb-4">
-      <div class="px-space-sm pb-space-xs font-label-sm text-label-sm uppercase tracking-wider text-outline sticky top-0 bg-surface-container-lowest/95 backdrop-blur-xs z-10">Core Navigation</div>
+      <div class="px-space-sm pb-space-xs font-label-sm text-label-sm uppercase tracking-wider text-outline sticky top-0 bg-surface-container-lowest/95 backdrop-blur-xs z-10">Operations Center</div>
       <nav class="flex flex-col gap-1 px-space-xs mt-space-xs">
         <a class="group flex items-center gap-space-sm px-space-md py-2.5 rounded-lg text-on-surface-variant hover:bg-surface-container-high hover:text-on-surface transition-all duration-200" href="/admin/anktech/anktech/admin/overview">
           <span class="material-symbols-outlined text-[20px] transition-transform group-hover:scale-110">dashboard</span>
           <span class="font-body-md text-body-md">Overview &amp; Analytics</span>
         </a>
-        <a class="group flex items-center gap-space-sm px-space-md py-2.5 rounded-lg text-on-surface-variant hover:bg-surface-container-high hover:text-on-surface transition-all duration-200" href="/admin/anktech/anktech/admin/user-creations">
-          <span class="material-symbols-outlined text-[20px] transition-transform group-hover:scale-110">folder_shared</span>
-          <span class="font-body-md text-body-md flex-1">User Creations &amp; Files</span>
-          <span class="px-2 py-0.5 rounded-full bg-pink-500 text-white font-bold text-[10px]">NEW</span>
-        </a>
-        <a class="group flex items-center gap-space-sm px-space-md py-2.5 rounded-lg text-on-surface-variant hover:bg-surface-container-high hover:text-on-surface transition-all duration-200" href="/admin/anktech/anktech/admin/templates">
-          <span class="material-symbols-outlined text-[20px] transition-transform group-hover:scale-110">style</span>
-          <span class="font-body-md text-body-md">Templates Manager</span>
-        </a>
-        <a class="group flex items-center gap-space-sm px-space-md py-2.5 rounded-lg text-on-surface-variant hover:bg-surface-container-high hover:text-on-surface transition-all duration-200" href="/admin/anktech/anktech/admin/occasions">
-          <span class="material-symbols-outlined text-[20px] transition-transform group-hover:scale-110">loyalty</span>
-          <span class="font-body-md text-body-md">Occasions &amp; Tags</span>
-        </a>
         <a class="group flex items-center gap-space-sm px-space-md py-2.5 rounded-lg text-on-surface-variant hover:bg-surface-container-high hover:text-on-surface transition-all duration-200" href="/admin/anktech/anktech/admin/wishes">
           <span class="material-symbols-outlined text-[20px] transition-transform group-hover:scale-110">card_giftcard</span>
-          <span class="font-body-md text-body-md flex-1">Wishes &amp; Celebrations</span>
+          <span class="font-body-md text-body-md flex-1">Wishes &amp; Registry</span>
           <span class="px-2 py-0.5 rounded-full bg-emerald-500/20 text-emerald-400 font-bold text-[10px]">Live</span>
         </a>
         <a class="group flex items-center gap-space-sm px-space-md py-2.5 rounded-lg bg-primary-container text-white font-semibold shadow-[0_0_24px_rgba(124,58,237,0.35)] transition-all duration-200" href="/admin/anktech/anktech/admin/users">
           <span class="material-symbols-outlined text-[20px] transition-transform group-hover:scale-110">group</span>
           <span class="font-body-md text-body-md">Users &amp; Creators</span>
         </a>
+        <a class="group flex items-center gap-space-sm px-space-md py-2.5 rounded-lg text-on-surface-variant hover:bg-surface-container-high hover:text-on-surface transition-all duration-200" href="/admin/anktech/anktech/admin/moderation">
+          <span class="material-symbols-outlined text-[20px] transition-transform group-hover:scale-110">gavel</span>
+          <span class="font-body-md text-body-md flex-1">Moderation Queue</span>
+          <span id="sidebar-mod-badge" class="px-2 py-0.5 rounded-full bg-amber-500/20 text-amber-300 font-bold text-[10px] hidden">0</span>
+        </a>
+        <a class="group flex items-center gap-space-sm px-space-md py-2.5 rounded-lg text-on-surface-variant hover:bg-surface-container-high hover:text-on-surface transition-all duration-200" href="/admin/anktech/anktech/admin/support">
+          <span class="material-symbols-outlined text-[20px] transition-transform group-hover:scale-110">support_agent</span>
+          <span class="font-body-md text-body-md flex-1">Support Console</span>
+          <span class="px-2 py-0.5 rounded-full bg-cyan-500/20 text-cyan-300 font-bold text-[10px]">Desk</span>
+        </a>
+        <a class="group flex items-center gap-space-sm px-space-md py-2.5 rounded-lg text-on-surface-variant hover:bg-surface-container-high hover:text-on-surface transition-all duration-200" href="/admin/anktech/anktech/admin/audit-logs">
+          <span class="material-symbols-outlined text-[20px] transition-transform group-hover:scale-110">history_toggle_off</span>
+          <span class="font-body-md text-body-md">Audit Trail</span>
+        </a>
+        <a class="group flex items-center gap-space-sm px-space-md py-2.5 rounded-lg text-on-surface-variant hover:bg-surface-container-high hover:text-on-surface transition-all duration-200" href="/admin/anktech/anktech/admin/storage-health">
+          <span class="material-symbols-outlined text-[20px] transition-transform group-hover:scale-110">health_and_safety</span>
+          <span class="font-body-md text-body-md">Storage Health</span>
+        </a>
+        <a class="group flex items-center gap-space-sm px-space-md py-2.5 rounded-lg text-on-surface-variant hover:bg-surface-container-high hover:text-on-surface transition-all duration-200" href="/admin/anktech/anktech/admin/templates">
+          <span class="material-symbols-outlined text-[20px] transition-transform group-hover:scale-110">style</span>
+          <span class="font-body-md text-body-md">Templates Manager</span>
+        </a>
+        <a class="group flex items-center gap-space-sm px-space-md py-2.5 rounded-lg text-on-surface-variant hover:bg-surface-container-high hover:text-on-surface transition-all duration-200" href="/admin/anktech/anktech/admin/user-creations">
+          <span class="material-symbols-outlined text-[20px] transition-transform group-hover:scale-110">folder_shared</span>
+          <span class="font-body-md text-body-md">User Creations</span>
+        </a>
         <a class="group flex items-center gap-space-sm px-space-md py-2.5 rounded-lg text-on-surface-variant hover:bg-surface-container-high hover:text-on-surface transition-all duration-200" href="/admin/anktech/anktech/admin/media">
           <span class="material-symbols-outlined text-[20px] transition-transform group-hover:scale-110">perm_media</span>
-          <span class="font-body-md text-body-md">Media &amp; Audio Library</span>
+          <span class="font-body-md text-body-md">Media Library</span>
         </a>
         <a class="group flex items-center gap-space-sm px-space-md py-2.5 rounded-lg text-on-surface-variant hover:bg-surface-container-high hover:text-on-surface transition-all duration-200" href="/admin/anktech/anktech/admin/orders">
           <span class="material-symbols-outlined text-[20px] transition-transform group-hover:scale-110">receipt_long</span>
-          <span class="font-body-md text-body-md flex-1">Orders &amp; Billing</span>
-          <span class="px-2 py-0.5 rounded-full bg-purple-500/20 text-purple-300 font-bold text-[10px]">Simulated</span>
-        </a>
-        <a class="group flex items-center gap-space-sm px-space-md py-2.5 rounded-lg text-on-surface-variant hover:bg-surface-container-high hover:text-on-surface transition-all duration-200" href="/admin/anktech/anktech/admin/pricing">
-          <span class="material-symbols-outlined text-[20px] transition-transform group-hover:scale-110">payments</span>
-          <span class="font-body-md text-body-md">Pricing &amp; Plans</span>
-        </a>
-        <a class="group flex items-center gap-space-sm px-space-md py-2.5 rounded-lg text-on-surface-variant hover:bg-surface-container-high hover:text-on-surface transition-all duration-200" href="/admin/anktech/anktech/admin/staff">
-          <span class="material-symbols-outlined text-[20px] transition-transform group-hover:scale-110">badge</span>
-          <span class="font-body-md text-body-md">Staff &amp; Team</span>
+          <span class="font-body-md text-body-md">Orders &amp; Billing</span>
         </a>
         <a class="group flex items-center gap-space-sm px-space-md py-2.5 rounded-lg text-on-surface-variant hover:bg-surface-container-high hover:text-on-surface transition-all duration-200" href="/admin/anktech/anktech/admin/settings">
           <span class="material-symbols-outlined text-[20px] transition-transform group-hover:scale-110">admin_panel_settings</span>
@@ -105,8 +109,8 @@
   </div>
   <div class="p-space-md flex flex-col gap-space-xs bg-surface-container-lowest border-t border-purple-900/30 flex-shrink-0">
     <div class="flex items-center justify-between text-on-surface-variant text-xs">
-      <span>WishMagic Engine</span>
-      <span class="px-2 py-0.5 rounded-full bg-surface-container-high text-primary font-mono font-bold">v4.16</span>
+      <span>WishMagic Admin Engine</span>
+      <span class="px-2 py-0.5 rounded-full bg-surface-container-high text-primary font-mono font-bold">v5.0-P30</span>
     </div>
   </div>
 </aside>
@@ -122,7 +126,7 @@
         </button>
         <div class="relative flex items-center w-full">
           <span class="material-symbols-outlined absolute left-3 text-outline text-[18px]">search</span>
-          <input id="user-search-input" oninput="handleUserSearch(this.value)" class="w-full bg-surface-container-low pl-9 pr-space-md py-space-xs rounded-lg font-body-sm text-body-sm text-on-surface placeholder:text-outline focus:outline-none focus:ring-1 focus:ring-secondary" placeholder="Search user by name, email, or ID..." type="text"/>
+          <input id="user-search-input" oninput="handleUserSearch(this.value)" class="w-full bg-surface-container-low pl-9 pr-space-md py-space-xs rounded-lg font-body-sm text-body-sm text-on-surface placeholder:text-outline focus:outline-none focus:ring-1 focus:ring-secondary" placeholder="Search user by name, email, or user ID..." type="text"/>
         </div>
       </div>
       <div class="flex items-center gap-2 md:gap-space-md flex-shrink-0">
@@ -146,10 +150,10 @@
         <div class="flex items-center gap-2 mb-1">
           <span class="px-2 py-0.5 rounded bg-primary-container/20 text-primary font-label-sm text-label-sm font-bold uppercase tracking-wider">User Directory</span>
           <span class="text-outline">•</span>
-          <span class="text-on-surface-variant text-xs font-mono">CREATOR ACCOUNTS</span>
+          <span class="text-on-surface-variant text-xs font-mono">ACCOUNT GOVERNANCE</span>
         </div>
-        <h1 class="font-display text-2xl sm:text-3xl font-extrabold text-on-surface">Creator &amp; User Accounts</h1>
-        <p class="text-sm text-on-surface-variant mt-1">Manage platform accounts, subscription tiers, created wishes, and creator entitlements.</p>
+        <h1 class="font-display text-2xl sm:text-3xl font-extrabold text-on-surface">Users &amp; Creators Directory</h1>
+        <p class="text-sm text-on-surface-variant mt-1">Audit creator accounts, modify status (Active, Suspended, Banned), manage VIP tiers, and inspect activity.</p>
       </div>
 
       <div class="flex items-center gap-2">
@@ -159,53 +163,71 @@
         </button>
         <button onclick="openCreateTestUserModal()" class="px-4 py-2.5 rounded-xl bg-primary-container hover:brightness-110 text-white text-xs font-bold transition flex items-center gap-2 cursor-pointer shadow-lg shadow-purple-600/30">
           <span class="material-symbols-outlined text-[18px]">person_add</span>
-          <span>Add Dev Creator</span>
+          <span>Add User Account</span>
         </button>
       </div>
     </div>
 
     <!-- User KPI Cards -->
-    <div class="grid grid-cols-2 sm:grid-cols-4 gap-4">
-      <div class="p-4 rounded-2xl bg-surface-container border border-purple-900/30 shadow-md">
-        <span class="text-xs font-bold uppercase tracking-wider text-outline">Total Accounts</span>
-        <div id="stat-total-users" class="font-display text-2xl sm:text-3xl font-black text-on-surface mt-1">0</div>
-        <span class="text-[11px] text-on-surface-variant">Registered creators</span>
+    <div class="grid grid-cols-2 sm:grid-cols-5 gap-3">
+      <div class="p-3.5 rounded-2xl bg-surface-container border border-purple-900/30 shadow-md">
+        <span class="text-[10px] font-bold uppercase tracking-wider text-outline">Total Accounts</span>
+        <div id="stat-total-users" class="font-display text-2xl font-black text-on-surface mt-1">0</div>
+        <span class="text-[10px] text-on-surface-variant">Registered users</span>
       </div>
-      <div class="p-4 rounded-2xl bg-amber-500/10 border border-amber-500/30 shadow-md">
-        <span class="text-xs font-bold uppercase tracking-wider text-amber-400">VIP Members</span>
-        <div id="stat-vip-users" class="font-display text-2xl sm:text-3xl font-black text-amber-400 mt-1">0</div>
-        <span class="text-[11px] text-amber-300/80">Active premium passes</span>
+      <div class="p-3.5 rounded-2xl bg-emerald-500/10 border border-emerald-500/30 shadow-md">
+        <span class="text-[10px] font-bold uppercase tracking-wider text-emerald-400">🟢 Active</span>
+        <div id="stat-active-users" class="font-display text-2xl font-black text-emerald-400 mt-1">0</div>
+        <span class="text-[10px] text-emerald-300/80">Good standing</span>
       </div>
-      <div class="p-4 rounded-2xl bg-purple-500/10 border border-purple-500/30 shadow-md">
-        <span class="text-xs font-bold uppercase tracking-wider text-purple-300">Free Accounts</span>
-        <div id="stat-free-users" class="font-display text-2xl sm:text-3xl font-black text-purple-300 mt-1">0</div>
-        <span class="text-[11px] text-purple-300/70">Standard tier</span>
+      <div class="p-3.5 rounded-2xl bg-amber-500/10 border border-amber-500/30 shadow-md">
+        <span class="text-[10px] font-bold uppercase tracking-wider text-amber-400">👑 VIP Members</span>
+        <div id="stat-vip-users" class="font-display text-2xl font-black text-amber-400 mt-1">0</div>
+        <span class="text-[10px] text-amber-300/80">Premium passes</span>
       </div>
-      <div class="p-4 rounded-2xl bg-emerald-500/10 border border-emerald-500/30 shadow-md">
-        <span class="text-xs font-bold uppercase tracking-wider text-emerald-400">Active Creators</span>
-        <div id="stat-active-creators" class="font-display text-2xl sm:text-3xl font-black text-emerald-400 mt-1">0</div>
-        <span class="text-[11px] text-emerald-300/80">With published wishes</span>
+      <div class="p-3.5 rounded-2xl bg-orange-500/10 border border-orange-500/30 shadow-md">
+        <span class="text-[10px] font-bold uppercase tracking-wider text-orange-400">🟠 Suspended</span>
+        <div id="stat-suspended-users" class="font-display text-2xl font-black text-orange-400 mt-1">0</div>
+        <span class="text-[10px] text-orange-300/80">Under review</span>
+      </div>
+      <div class="p-3.5 rounded-2xl bg-rose-500/10 border border-rose-500/30 shadow-md">
+        <span class="text-[10px] font-bold uppercase tracking-wider text-rose-400">🔴 Banned</span>
+        <div id="stat-banned-users" class="font-display text-2xl font-black text-rose-400 mt-1">0</div>
+        <span class="text-[10px] text-rose-300/80">Restricted access</span>
       </div>
     </div>
 
     <!-- Filters & Search Toolbar -->
     <div class="bg-surface-container rounded-2xl p-4 border border-purple-900/30 shadow-md flex flex-wrap items-center justify-between gap-3">
-      <div class="flex items-center gap-2">
-        <span class="text-xs font-bold text-on-surface-variant">Plan Filter:</span>
-        <div class="flex items-center bg-surface-container-low rounded-xl p-1 border border-purple-900/20">
-          <button onclick="filterUsers('all')" id="tab-plan-all" class="px-3 py-1 rounded-lg text-xs font-bold bg-primary text-white cursor-pointer transition">All</button>
-          <button onclick="filterUsers('vip')" id="tab-plan-vip" class="px-3 py-1 rounded-lg text-xs font-semibold text-on-surface-variant hover:text-on-surface cursor-pointer transition">VIP</button>
-          <button onclick="filterUsers('free')" id="tab-plan-free" class="px-3 py-1 rounded-lg text-xs font-semibold text-on-surface-variant hover:text-on-surface cursor-pointer transition">Free</button>
-        </div>
+      <!-- Status Tabs -->
+      <div class="flex items-center gap-1.5 flex-wrap">
+        <span class="text-xs font-bold text-on-surface-variant mr-1">Status:</span>
+        <button onclick="filterStatus('all')" id="tab-status-all" class="px-3 py-1 rounded-xl text-xs font-bold bg-primary text-white cursor-pointer transition">All Accounts</button>
+        <button onclick="filterStatus('active')" id="tab-status-active" class="px-3 py-1 rounded-xl text-xs font-semibold text-on-surface-variant hover:text-on-surface cursor-pointer transition">🟢 Active</button>
+        <button onclick="filterStatus('suspended')" id="tab-status-suspended" class="px-3 py-1 rounded-xl text-xs font-semibold text-on-surface-variant hover:text-on-surface cursor-pointer transition">🟠 Suspended</button>
+        <button onclick="filterStatus('banned')" id="tab-status-banned" class="px-3 py-1 rounded-xl text-xs font-semibold text-on-surface-variant hover:text-on-surface cursor-pointer transition">🔴 Banned</button>
       </div>
 
-      <div class="flex items-center gap-2">
-        <span class="text-xs font-bold text-on-surface-variant">Sort By:</span>
-        <select id="user-sort-select" onchange="sortUsers(this.value)" class="bg-surface-container-low text-on-surface text-xs font-semibold rounded-xl px-3 py-1.5 border border-purple-900/30 focus:outline-none">
-          <option value="wishes">Most Wishes Created</option>
-          <option value="newest">Newest Joined</option>
-          <option value="name">Name (A-Z)</option>
-        </select>
+      <!-- Plan Filter & Sorting -->
+      <div class="flex items-center gap-3">
+        <div class="flex items-center gap-2">
+          <span class="text-xs font-bold text-on-surface-variant">Plan:</span>
+          <select id="user-plan-select" onchange="filterPlan(this.value)" class="bg-surface-container-low text-on-surface text-xs font-semibold rounded-xl px-3 py-1.5 border border-purple-900/30 focus:outline-none">
+            <option value="all">All Plans</option>
+            <option value="vip">👑 VIP Pass</option>
+            <option value="free">Standard Free</option>
+          </select>
+        </div>
+
+        <div class="flex items-center gap-2">
+          <span class="text-xs font-bold text-on-surface-variant">Sort:</span>
+          <select id="user-sort-select" onchange="sortUsers(this.value)" class="bg-surface-container-low text-on-surface text-xs font-semibold rounded-xl px-3 py-1.5 border border-purple-900/30 focus:outline-none">
+            <option value="wishes">Most Wishes Created</option>
+            <option value="views">Most Views</option>
+            <option value="newest">Newest Joined</option>
+            <option value="name">Name (A-Z)</option>
+          </select>
+        </div>
       </div>
     </div>
 
@@ -215,13 +237,14 @@
         <table class="w-full text-left border-collapse text-xs">
           <thead>
             <tr class="border-b border-purple-900/30 bg-surface-container-high/50 text-outline uppercase font-bold text-[10px] tracking-wider">
-              <th class="py-3.5 px-4">Creator / User</th>
+              <th class="py-3.5 px-4">User / Creator</th>
+              <th class="py-3.5 px-4">Account Status</th>
               <th class="py-3.5 px-4">Plan / Tier</th>
               <th class="py-3.5 px-4">Role</th>
               <th class="py-3.5 px-4 text-center">Wishes Created</th>
               <th class="py-3.5 px-4 text-center">Total Views</th>
               <th class="py-3.5 px-4">Joined Date</th>
-              <th class="py-3.5 px-4 text-right">Actions</th>
+              <th class="py-3.5 px-4 text-right">Administrative Actions</th>
             </tr>
           </thead>
           <tbody id="users-table-body" class="divide-y divide-purple-900/20 font-medium text-on-surface">
@@ -234,16 +257,16 @@
       <div id="users-empty-state" class="hidden p-12 text-center flex flex-col items-center justify-center gap-2">
         <span class="material-symbols-outlined text-4xl text-outline">group_off</span>
         <h4 class="font-bold text-base text-on-surface">No users match criteria</h4>
-        <p class="text-xs text-on-surface-variant">Try adjusting your search query or filter tags.</p>
+        <p class="text-xs text-on-surface-variant">Try adjusting your search query, status tabs, or plan filter.</p>
       </div>
     </div>
 
   </main>
 </div>
 
-<!-- User Details Modal / Drawer -->
+<!-- User Details & Administrative Governance Modal -->
 <div id="user-details-modal" class="fixed inset-0 z-50 bg-black/85 backdrop-blur-md hidden flex items-center justify-center p-4">
-  <div class="w-full max-w-2xl bg-surface-container rounded-3xl border border-purple-500/30 shadow-2xl p-6 sm:p-7 flex flex-col gap-5 max-h-[90vh] overflow-y-auto custom-scrollbar relative">
+  <div class="w-full max-w-3xl bg-surface-container rounded-3xl border border-purple-500/30 shadow-2xl p-6 sm:p-7 flex flex-col gap-5 max-h-[92vh] overflow-y-auto custom-scrollbar relative">
     <button onclick="closeUserDetailsModal()" class="absolute top-4 right-4 p-2 text-on-surface-variant hover:text-on-surface rounded-full hover:bg-surface-container-high transition cursor-pointer">
       <span class="material-symbols-outlined text-[20px]">close</span>
     </button>
@@ -255,31 +278,49 @@
 
 <script>
   let allUsers = [];
-  let currentFilter = 'all';
+  let currentStatusFilter = 'all';
+  let currentPlanFilter = 'all';
   let currentSearch = '';
   let currentSort = 'wishes';
+  let activeSelectedUser = null;
 
   document.addEventListener('DOMContentLoaded', async () => {
     await loadUsers();
+    checkModerationBadge();
   });
+
+  async function checkModerationBadge() {
+    try {
+      const res = await fetch('/api/admin/moderation/queue');
+      const data = await res.json();
+      if (data.success && data.pendingCount > 0) {
+        const badge = document.getElementById('sidebar-mod-badge');
+        if (badge) {
+          badge.textContent = data.pendingCount;
+          badge.classList.remove('hidden');
+        }
+      }
+    } catch (e) {}
+  }
 
   async function loadUsers() {
     try {
       const res = await fetch('/api/admin/users');
       const data = await res.json();
       allUsers = data.users || [];
-      updateKPIs();
+      updateKPIs(data.counts);
       renderUsersTable();
     } catch (e) {
       console.warn('Error loading users:', e);
     }
   }
 
-  function updateKPIs() {
-    document.getElementById('stat-total-users').textContent = allUsers.length;
-    document.getElementById('stat-vip-users').textContent = allUsers.filter(u => u.isPremium || u.plan === 'VIP').length;
-    document.getElementById('stat-free-users').textContent = allUsers.filter(u => !u.isPremium && u.plan !== 'VIP').length;
-    document.getElementById('stat-active-creators').textContent = allUsers.filter(u => u.wishesCount > 0).length;
+  function updateKPIs(counts = {}) {
+    document.getElementById('stat-total-users').textContent = counts.total !== undefined ? counts.total : allUsers.length;
+    document.getElementById('stat-active-users').textContent = counts.active !== undefined ? counts.active : allUsers.filter(u => (u.status || 'active') === 'active').length;
+    document.getElementById('stat-vip-users').textContent = counts.vip !== undefined ? counts.vip : allUsers.filter(u => u.isPremium || u.plan === 'VIP').length;
+    document.getElementById('stat-suspended-users').textContent = counts.suspended !== undefined ? counts.suspended : allUsers.filter(u => u.status === 'suspended').length;
+    document.getElementById('stat-banned-users').textContent = counts.banned !== undefined ? counts.banned : allUsers.filter(u => u.status === 'banned').length;
   }
 
   function renderUsersTable() {
@@ -289,12 +330,21 @@
 
     let filtered = [...allUsers];
 
-    if (currentFilter === 'vip') {
-      filtered = filtered.filter(u => u.isPremium || u.plan === 'VIP');
-    } else if (currentFilter === 'free') {
-      filtered = filtered.filter(u => !u.isPremium && u.plan !== 'VIP');
+    // Status Filter
+    if (currentStatusFilter !== 'all') {
+      filtered = filtered.filter(u => (u.status || 'active') === currentStatusFilter);
     }
 
+    // Plan Filter
+    if (currentPlanFilter !== 'all') {
+      if (currentPlanFilter === 'vip') {
+        filtered = filtered.filter(u => u.isPremium || u.plan === 'VIP');
+      } else if (currentPlanFilter === 'free') {
+        filtered = filtered.filter(u => !u.isPremium && u.plan !== 'VIP');
+      }
+    }
+
+    // Search Query
     if (currentSearch) {
       const q = currentSearch.toLowerCase();
       filtered = filtered.filter(u => 
@@ -304,8 +354,11 @@
       );
     }
 
+    // Sorting
     if (currentSort === 'wishes') {
       filtered.sort((a, b) => (b.wishesCount || 0) - (a.wishesCount || 0));
+    } else if (currentSort === 'views') {
+      filtered.sort((a, b) => (b.totalViews || 0) - (a.totalViews || 0));
     } else if (currentSort === 'newest') {
       filtered.sort((a, b) => new Date(b.createdAt || 0) - new Date(a.createdAt || 0));
     } else if (currentSort === 'name') {
@@ -321,36 +374,49 @@
     empty.classList.add('hidden');
     tbody.innerHTML = filtered.map(u => {
       const isVIP = u.isPremium || u.plan === 'VIP';
-      const avatar = u.avatarUrl || `https://api.dicebear.com/7.x/bottts/svg?seed=${encodeURIComponent(u.displayName || u.id)}`;
+      const status = u.status || 'active';
+      const avatar = u.avatarUrl || `https://api.dicebear.com/7.x/bottts/svg?seed=${encodeURIComponent(u.email || u.id)}`;
       const dateFormatted = u.createdAt ? new Date(u.createdAt).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' }) : 'Unknown';
+
+      let statusBadge = `<span class="px-2.5 py-0.5 rounded-full text-[10px] font-black uppercase tracking-wider bg-emerald-500/20 text-emerald-300 border border-emerald-500/30 flex items-center gap-1 w-fit"><span class="w-1.5 h-1.5 rounded-full bg-emerald-400"></span> Active</span>`;
+      if (status === 'suspended') {
+        statusBadge = `<span class="px-2.5 py-0.5 rounded-full text-[10px] font-black uppercase tracking-wider bg-orange-500/20 text-orange-300 border border-orange-500/30 flex items-center gap-1 w-fit"><span class="w-1.5 h-1.5 rounded-full bg-orange-400"></span> Suspended</span>`;
+      } else if (status === 'banned') {
+        statusBadge = `<span class="px-2.5 py-0.5 rounded-full text-[10px] font-black uppercase tracking-wider bg-rose-500/20 text-rose-300 border border-rose-500/30 flex items-center gap-1 w-fit"><span class="w-1.5 h-1.5 rounded-full bg-rose-400"></span> Banned</span>`;
+      } else if (status === 'deactivated') {
+        statusBadge = `<span class="px-2.5 py-0.5 rounded-full text-[10px] font-black uppercase tracking-wider bg-surface-container-high text-on-surface-variant flex items-center gap-1 w-fit">Archived</span>`;
+      }
 
       return `
         <tr class="hover:bg-surface-container-high/40 transition">
           <td class="py-3 px-4 flex items-center gap-3">
-            <img src="${avatar}" class="w-8 h-8 rounded-full bg-purple-900/40 object-cover border border-purple-500/20" alt="Avatar"/>
+            <img src="${avatar}" class="w-9 h-9 rounded-full bg-purple-900/40 object-cover border border-purple-500/20" alt="Avatar"/>
             <div>
               <div class="font-bold text-on-surface flex items-center gap-1.5">
                 <span>${u.displayName || u.name || 'Anonymous User'}</span>
-                ${u.role === 'admin' ? '<span class="px-1.5 py-0.2 rounded bg-purple-500/20 text-purple-300 font-extrabold text-[9px] uppercase">Admin</span>' : ''}
+                ${u.role === 'admin' ? '<span class="px-1.5 py-0.2 rounded bg-purple-500/20 text-purple-300 font-extrabold text-[9px] uppercase border border-purple-500/30">ADMIN</span>' : ''}
               </div>
               <div class="text-[11px] text-outline font-mono">${u.email}</div>
             </div>
           </td>
           <td class="py-3 px-4">
+            ${statusBadge}
+          </td>
+          <td class="py-3 px-4">
             ${isVIP 
               ? '<span class="px-2.5 py-1 rounded-full text-[10px] font-black uppercase tracking-wider bg-amber-500/20 text-amber-300 border border-amber-500/30">👑 VIP PASS</span>'
-              : '<span class="px-2.5 py-1 rounded-full text-[10px] font-black uppercase tracking-wider bg-surface-container-high text-on-surface-variant">FREE TIER</span>'
+              : '<span class="px-2.5 py-1 rounded-full text-[10px] font-black uppercase tracking-wider bg-surface-container-high text-on-surface-variant">FREE</span>'
             }
           </td>
-          <td class="py-3 px-4 text-on-surface-variant capitalize">${u.role || 'creator'}</td>
+          <td class="py-3 px-4 text-on-surface-variant capitalize font-mono text-[11px]">${u.role || 'creator'}</td>
           <td class="py-3 px-4 text-center font-bold text-on-surface">${u.wishesCount || 0}</td>
           <td class="py-3 px-4 text-center font-mono text-purple-300">${u.totalViews || 0}</td>
           <td class="py-3 px-4 text-on-surface-variant font-mono text-[11px]">${dateFormatted}</td>
           <td class="py-3 px-4 text-right">
             <div class="flex items-center justify-end gap-1.5">
-              <button onclick="viewUserDetails('${u.id}')" class="px-2.5 py-1 rounded-lg bg-surface-container-high hover:bg-surface-container-highest text-on-surface text-xs font-bold transition flex items-center gap-1 cursor-pointer" title="View details">
-                <span class="material-symbols-outlined text-[14px]">visibility</span>
-                <span>Details</span>
+              <button onclick="viewUserDetails('${u.id}')" class="px-2.5 py-1 rounded-lg bg-surface-container-high hover:bg-surface-container-highest text-on-surface text-xs font-bold transition flex items-center gap-1 cursor-pointer" title="Manage Account & Details">
+                <span class="material-symbols-outlined text-[15px]">manage_accounts</span>
+                <span>Manage</span>
               </button>
             </div>
           </td>
@@ -364,18 +430,23 @@
     renderUsersTable();
   }
 
-  function filterUsers(plan) {
-    currentFilter = plan;
-    ['all', 'vip', 'free'].forEach(p => {
-      const btn = document.getElementById(`tab-plan-${p}`);
+  function filterStatus(status) {
+    currentStatusFilter = status;
+    ['all', 'active', 'suspended', 'banned'].forEach(s => {
+      const btn = document.getElementById(`tab-status-${s}`);
       if (btn) {
-        if (p === plan) {
-          btn.className = 'px-3 py-1 rounded-lg text-xs font-bold bg-primary text-white cursor-pointer transition';
+        if (s === status) {
+          btn.className = 'px-3 py-1 rounded-xl text-xs font-bold bg-primary text-white cursor-pointer transition';
         } else {
-          btn.className = 'px-3 py-1 rounded-lg text-xs font-semibold text-on-surface-variant hover:text-on-surface cursor-pointer transition';
+          btn.className = 'px-3 py-1 rounded-xl text-xs font-semibold text-on-surface-variant hover:text-on-surface cursor-pointer transition';
         }
       }
     });
+    renderUsersTable();
+  }
+
+  function filterPlan(plan) {
+    currentPlanFilter = plan;
     renderUsersTable();
   }
 
@@ -385,77 +456,288 @@
   }
 
   async function viewUserDetails(userId) {
-    const user = allUsers.find(u => u.id === userId);
-    if (!user) return;
-
-    let userWishes = [];
-    try {
-      const res = await fetch(`/api/wishes?userId=${encodeURIComponent(userId)}`, { credentials: 'include' });
-      const data = await res.json();
-      if (data.success && Array.isArray(data.wishes)) {
-        userWishes = data.wishes.filter(w => w.userId === userId);
-      }
-    } catch (e) {}
-
     const modal = document.getElementById('user-details-modal');
     const content = document.getElementById('user-details-content');
-    const isVIP = user.isPremium || user.plan === 'VIP';
-
-    content.innerHTML = `
-      <div class="flex items-center gap-4 pb-4 border-b border-purple-900/30">
-        <img src="${user.avatarUrl || 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=150'}" class="w-14 h-14 rounded-2xl bg-purple-900/40 object-cover border border-purple-500/30" alt="Avatar"/>
-        <div>
-          <h3 class="font-display text-xl font-extrabold text-on-surface flex items-center gap-2">
-            <span>${user.displayName || user.name}</span>
-            ${isVIP ? '<span class="px-2 py-0.5 rounded-full text-[9px] font-black bg-amber-400 text-purple-950 uppercase">VIP</span>' : ''}
-          </h3>
-          <p class="text-xs text-on-surface-variant font-mono">${user.email} • ID: ${user.id}</p>
-        </div>
-      </div>
-
-      <div class="grid grid-cols-3 gap-3 text-center">
-        <div class="p-3 rounded-xl bg-surface-container-low border border-purple-900/20">
-          <div class="text-xs text-outline">Created Wishes</div>
-          <div class="font-bold text-lg text-on-surface mt-0.5">${userWishes.length}</div>
-        </div>
-        <div class="p-3 rounded-xl bg-surface-container-low border border-purple-900/20">
-          <div class="text-xs text-outline">Plan Status</div>
-          <div class="font-bold text-lg text-amber-400 mt-0.5">${isVIP ? 'VIP Member' : 'Free'}</div>
-        </div>
-        <div class="p-3 rounded-xl bg-surface-container-low border border-purple-900/20">
-          <div class="text-xs text-outline">Joined</div>
-          <div class="font-bold text-xs text-on-surface mt-1">${user.createdAt ? new Date(user.createdAt).toLocaleDateString() : 'N/A'}</div>
-        </div>
-      </div>
-
-      <div class="space-y-3">
-        <h4 class="font-bold text-sm text-on-surface">Wishes Created by this User (${userWishes.length})</h4>
-        <div class="max-h-56 overflow-y-auto space-y-2 custom-scrollbar">
-          ${userWishes.length > 0 ? userWishes.map(w => `
-            <div class="p-3 rounded-xl bg-surface-container-low border border-purple-900/20 flex items-center justify-between gap-2 text-xs">
-              <div>
-                <div class="font-bold text-on-surface">To: ${w.recipientName || 'Special Person'}</div>
-                <div class="text-[11px] text-on-surface-variant font-mono">Template: ${w.templateName || w.templateId} • Date: ${w.eventDate || 'N/A'}</div>
-              </div>
-              <a href="/w/${w.slug || w.id}" target="_blank" class="px-2.5 py-1 rounded-lg bg-primary-container text-white font-bold text-[11px] flex items-center gap-1">
-                <span>View</span>
-                <span class="material-symbols-outlined text-[13px]">open_in_new</span>
-              </a>
-            </div>
-          `).join('') : '<p class="text-xs text-outline py-2">No wishes created yet by this user.</p>'}
-        </div>
-      </div>
-    `;
-
+    content.innerHTML = `<div class="p-8 text-center text-outline">Loading deep account details...</div>`;
     modal.classList.remove('hidden');
+
+    try {
+      const res = await fetch(`/api/admin/users/${encodeURIComponent(userId)}`);
+      const data = await res.json();
+      if (!data.success) {
+        content.innerHTML = `<div class="p-8 text-center text-rose-400 font-bold">${data.message || 'Failed to load user'}</div>`;
+        return;
+      }
+
+      const user = data.user;
+      activeSelectedUser = user;
+      const wishes = data.wishes || [];
+      const stats = data.stats || {};
+      const auditLogs = data.auditLogs || [];
+      const isVIP = user.isPremium || user.plan === 'VIP';
+
+      content.innerHTML = `
+        <div class="flex items-start justify-between gap-4 pb-4 border-b border-purple-900/30">
+          <div class="flex items-center gap-4">
+            <img src="${user.avatarUrl || 'https://api.dicebear.com/7.x/bottts/svg?seed=' + user.email}" class="w-16 h-16 rounded-2xl bg-purple-900/40 object-cover border border-purple-500/30" alt="Avatar"/>
+            <div>
+              <h3 class="font-display text-xl font-extrabold text-on-surface flex items-center gap-2">
+                <span>${user.displayName}</span>
+                ${isVIP ? '<span class="px-2 py-0.5 rounded-full text-[9px] font-black bg-amber-400 text-purple-950 uppercase">VIP PASS</span>' : ''}
+              </h3>
+              <p class="text-xs text-on-surface-variant font-mono mt-0.5">${user.email} • ID: ${user.id}</p>
+              <div class="text-[11px] text-outline mt-1 font-mono">Joined: ${new Date(user.createdAt).toLocaleDateString()}</div>
+            </div>
+          </div>
+          <div class="flex flex-col items-end gap-1">
+            <span class="text-[10px] font-bold uppercase text-outline">Account Status</span>
+            <span class="px-3 py-1 rounded-full text-xs font-bold uppercase tracking-wider ${
+              user.status === 'active' ? 'bg-emerald-500/20 text-emerald-300 border border-emerald-500/30' :
+              user.status === 'suspended' ? 'bg-orange-500/20 text-orange-300 border border-orange-500/30' :
+              'bg-rose-500/20 text-rose-300 border border-rose-500/30'
+            }">${user.status.toUpperCase()}</span>
+          </div>
+        </div>
+
+        <!-- Quick Metrics -->
+        <div class="grid grid-cols-4 gap-3 text-center">
+          <div class="p-3 rounded-xl bg-surface-container-low border border-purple-900/20">
+            <div class="text-[10px] font-bold text-outline uppercase">Total Wishes</div>
+            <div class="font-bold text-lg text-on-surface mt-0.5">${stats.totalWishes || 0}</div>
+          </div>
+          <div class="p-3 rounded-xl bg-surface-container-low border border-purple-900/20">
+            <div class="text-[10px] font-bold text-outline uppercase">Published</div>
+            <div class="font-bold text-lg text-emerald-400 mt-0.5">${stats.publishedWishes || 0}</div>
+          </div>
+          <div class="p-3 rounded-xl bg-surface-container-low border border-purple-900/20">
+            <div class="text-[10px] font-bold text-outline uppercase">Active Sessions</div>
+            <div class="font-bold text-lg text-purple-300 mt-0.5">${stats.activeSessions || 0}</div>
+          </div>
+          <div class="p-3 rounded-xl bg-surface-container-low border border-purple-900/20">
+            <div class="text-[10px] font-bold text-outline uppercase">Support Tickets</div>
+            <div class="font-bold text-lg text-amber-400 mt-0.5">${stats.supportTickets || 0}</div>
+          </div>
+        </div>
+
+        <!-- Administrative Controls Panel -->
+        <div class="p-4 rounded-2xl bg-surface-container-low border border-purple-500/20 space-y-4">
+          <h4 class="font-bold text-xs uppercase tracking-wider text-primary flex items-center gap-1.5">
+            <span class="material-symbols-outlined text-[16px]">admin_panel_settings</span>
+            <span>Administrative Controls</span>
+          </h4>
+
+          <div class="grid grid-cols-1 sm:grid-cols-3 gap-3">
+            <div>
+              <label class="block text-[11px] font-bold text-on-surface-variant mb-1">Status Transition</label>
+              <select id="edit-user-status" class="w-full bg-surface-container text-on-surface text-xs rounded-xl px-3 py-2 border border-purple-900/30 focus:outline-none">
+                <option value="active" ${user.status === 'active' ? 'selected' : ''}>🟢 Active</option>
+                <option value="suspended" ${user.status === 'suspended' ? 'selected' : ''}>🟠 Suspended</option>
+                <option value="banned" ${user.status === 'banned' ? 'selected' : ''}>🔴 Banned</option>
+                <option value="deactivated" ${user.status === 'deactivated' ? 'selected' : ''}>Archived</option>
+              </select>
+            </div>
+
+            <div>
+              <label class="block text-[11px] font-bold text-on-surface-variant mb-1">Account Role</label>
+              <select id="edit-user-role" class="w-full bg-surface-container text-on-surface text-xs rounded-xl px-3 py-2 border border-purple-900/30 focus:outline-none">
+                <option value="creator" ${user.role === 'creator' ? 'selected' : ''}>Creator</option>
+                <option value="moderator" ${user.role === 'moderator' ? 'selected' : ''}>Moderator</option>
+                <option value="editor" ${user.role === 'editor' ? 'selected' : ''}>Editor</option>
+                <option value="admin" ${user.role === 'admin' ? 'selected' : ''}>Administrator</option>
+              </select>
+            </div>
+
+            <div>
+              <label class="block text-[11px] font-bold text-on-surface-variant mb-1">Membership Plan</label>
+              <select id="edit-user-plan" class="w-full bg-surface-container text-on-surface text-xs rounded-xl px-3 py-2 border border-purple-900/30 focus:outline-none">
+                <option value="Free" ${!isVIP ? 'selected' : ''}>Standard Free</option>
+                <option value="VIP" ${isVIP ? 'selected' : ''}>👑 VIP Pass</option>
+              </select>
+            </div>
+          </div>
+
+          <div>
+            <label class="block text-[11px] font-bold text-on-surface-variant mb-1">Reason for Status / Role Modification</label>
+            <input id="edit-user-reason" type="text" placeholder="State reason for audit trail (e.g. Terms violation, VIP promotion)..." class="w-full bg-surface-container text-on-surface text-xs rounded-xl px-3 py-2 border border-purple-900/30 focus:outline-none"/>
+          </div>
+
+          <div class="flex items-center justify-between pt-2">
+            <div class="flex items-center gap-2">
+              <button onclick="applyUserChanges('${user.id}')" class="px-4 py-2 rounded-xl bg-primary hover:brightness-110 text-white font-bold text-xs transition cursor-pointer flex items-center gap-1.5 shadow-md shadow-purple-600/30">
+                <span class="material-symbols-outlined text-[16px]">save</span>
+                <span>Save Governance Settings</span>
+              </button>
+              <button onclick="forceRevokeSessions('${user.id}')" class="px-3.5 py-2 rounded-xl bg-orange-500/20 hover:bg-orange-500 text-orange-300 hover:text-white font-bold text-xs transition cursor-pointer flex items-center gap-1.5" title="Terminate all active user sessions">
+                <span class="material-symbols-outlined text-[16px]">logout</span>
+                <span>Force Logout</span>
+              </button>
+            </div>
+
+            <button onclick="promptSafeDeleteOrArchive('${user.id}', '${user.displayName.replace(/'/g, "\\'")}', ${wishes.length})" class="px-3 py-2 rounded-xl bg-rose-500/10 hover:bg-rose-500 text-rose-400 hover:text-white font-bold text-xs transition cursor-pointer flex items-center gap-1.5" title="Safely archive or delete user">
+              <span class="material-symbols-outlined text-[16px]">delete_forever</span>
+              <span>Archive / Delete</span>
+            </button>
+          </div>
+        </div>
+
+        <!-- Internal Admin Notes -->
+        <div class="space-y-2">
+          <div class="flex items-center justify-between">
+            <label class="text-xs font-bold text-on-surface flex items-center gap-1">
+              <span class="material-symbols-outlined text-[16px] text-outline">note_alt</span>
+              <span>Internal Admin Notes (Private)</span>
+            </label>
+            <button onclick="saveAdminNotes('${user.id}')" class="text-xs font-bold text-primary hover:underline cursor-pointer">Save Notes</button>
+          </div>
+          <textarea id="user-admin-notes" rows="2" class="w-full bg-surface-container-low text-on-surface text-xs rounded-xl p-3 border border-purple-900/30 focus:outline-none" placeholder="Add private staff notes about this user, fraud alerts, or special requests...">${user.adminNotes || ''}</textarea>
+        </div>
+
+        <!-- Wishes Portfolio -->
+        <div class="space-y-2.5">
+          <div class="flex items-center justify-between">
+            <h4 class="font-bold text-xs uppercase tracking-wider text-outline">Wishes Created by this User (${wishes.length})</h4>
+          </div>
+          <div class="max-h-48 overflow-y-auto space-y-2 custom-scrollbar">
+            ${wishes.length > 0 ? wishes.map(w => `
+              <div class="p-3 rounded-xl bg-surface-container-low border border-purple-900/20 flex items-center justify-between gap-3 text-xs">
+                <div>
+                  <div class="font-bold text-on-surface flex items-center gap-1.5">
+                    <span>To: ${w.recipient_name || w.recipientName || 'Loved One'}</span>
+                    <span class="text-[10px] font-mono text-outline">(${w.slug || w.id})</span>
+                  </div>
+                  <div class="text-[11px] text-on-surface-variant font-mono">Template: ${w.template_name || w.templateName || w.template_id} • Date: ${w.event_date || 'N/A'} • Views: ${w.views || 0}</div>
+                </div>
+                <div class="flex items-center gap-2">
+                  <a href="/w/${w.slug || w.id}" target="_blank" class="px-2.5 py-1 rounded-lg bg-primary-container text-white font-bold text-[11px] flex items-center gap-1">
+                    <span>Preview</span>
+                    <span class="material-symbols-outlined text-[13px]">open_in_new</span>
+                  </a>
+                </div>
+              </div>
+            `).join('') : '<p class="text-xs text-outline py-2">No wishes created yet by this user account.</p>'}
+          </div>
+        </div>
+      `;
+    } catch (e) {
+      content.innerHTML = `<div class="p-8 text-center text-rose-400 font-bold">Network error loading user details</div>`;
+    }
   }
 
   function closeUserDetailsModal() {
     document.getElementById('user-details-modal').classList.add('hidden');
+    activeSelectedUser = null;
+  }
+
+  async function applyUserChanges(userId) {
+    const status = document.getElementById('edit-user-status').value;
+    const role = document.getElementById('edit-user-role').value;
+    const plan = document.getElementById('edit-user-plan').value;
+    const reason = document.getElementById('edit-user-reason').value;
+
+    try {
+      // 1. Status update
+      const res1 = await fetch(`/api/admin/users/${encodeURIComponent(userId)}/status`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ status, reason })
+      });
+      const d1 = await res1.json();
+      if (!d1.success) throw new Error(d1.error?.message || d1.message || 'Status update failed');
+
+      // 2. Role update
+      const res2 = await fetch(`/api/admin/users/${encodeURIComponent(userId)}/role`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ role })
+      });
+      const d2 = await res2.json();
+      if (!d2.success) throw new Error(d2.error?.message || d2.message || 'Role update failed');
+
+      // 3. Plan update
+      const res3 = await fetch(`/api/admin/users/${encodeURIComponent(userId)}/tier`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ plan })
+      });
+      const d3 = await res3.json();
+      if (!d3.success) throw new Error(d3.message || 'Plan update failed');
+
+      alert('Administrative changes saved successfully!');
+      await loadUsers();
+      await viewUserDetails(userId);
+    } catch (err) {
+      alert('Error updating user: ' + err.message);
+    }
+  }
+
+  async function forceRevokeSessions(userId) {
+    if (!confirm('Force logout this user from all active sessions?')) return;
+    try {
+      const res = await fetch(`/api/admin/users/${encodeURIComponent(userId)}/revoke-sessions`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ reason: 'Admin force logout' })
+      });
+      const data = await res.json();
+      if (data.success) {
+        alert(data.message || 'Active sessions successfully revoked.');
+        await viewUserDetails(userId);
+      } else {
+        alert('Failed to revoke sessions: ' + data.message);
+      }
+    } catch (e) {
+      alert('Network error revoking sessions');
+    }
+  }
+
+  async function saveAdminNotes(userId) {
+    const adminNotes = document.getElementById('user-admin-notes').value;
+    try {
+      const res = await fetch(`/api/admin/users/${encodeURIComponent(userId)}/notes`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ adminNotes })
+      });
+      const data = await res.json();
+      if (data.success) {
+        alert('Internal staff notes saved.');
+      } else {
+        alert('Failed to save notes: ' + data.message);
+      }
+    } catch (e) {
+      alert('Network error saving notes');
+    }
+  }
+
+  async function promptSafeDeleteOrArchive(userId, userName, wishesCount) {
+    const isHardDelete = wishesCount === 0;
+    const promptMsg = isHardDelete 
+      ? `User "${userName}" has 0 wishes. Would you like to Archive or permanently Delete this user?\nType "delete" to permanently delete, or "archive" to deactivate.`
+      : `User "${userName}" owns ${wishesCount} celebration wishes!\nPer production safety invariants, published wishes cannot be orphaned. This account will be ARCHIVED to preserve recipient links.\nType "archive" to confirm.`;
+
+    const choice = prompt(promptMsg, 'archive');
+    if (!choice) return;
+
+    const action = choice.trim().toLowerCase() === 'delete' ? 'delete' : 'archive';
+    try {
+      const res = await fetch(`/api/admin/users/${encodeURIComponent(userId)}?action=${action}&reason=Admin+Manual+Action`, {
+        method: 'DELETE'
+      });
+      const data = await res.json();
+      if (data.success) {
+        alert(data.message);
+        closeUserDetailsModal();
+        await loadUsers();
+      } else {
+        alert('Protection Safeguard: ' + (data.error?.message || data.message));
+      }
+    } catch (e) {
+      alert('Network error during account operation');
+    }
   }
 
   function openCreateTestUserModal() {
-    const name = prompt('Enter new creator name:', 'Sarah Jenkins');
+    const name = prompt('Enter creator name:', 'Sarah Jenkins');
     if (!name) return;
     const email = prompt('Enter creator email:', `${name.toLowerCase().replace(/\s+/g, '.')}@example.com`);
     if (!email) return;
@@ -463,7 +745,7 @@
     if (window.WishAuth) {
       window.WishAuth.signInWithCustomDevAccount(name, email);
       loadUsers();
-      alert(`Created creator account: ${name} (${email})!`);
+      alert(`Created user account: ${name} (${email})!`);
     }
   }
 

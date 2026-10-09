@@ -160,22 +160,36 @@
     },
 
     /**
-     * Development-Only Entitlement Switcher (Section 17)
-     * Clearly isolated mock development adapter
-     * @param {'free' | 'premium'} targetPlanId
+     * Refresh authoritative entitlement state from the server
+     */
+    async refresh() {
+      const userId = getActiveUserId();
+      try {
+        const res = await fetch('/api/entitlements/status', { credentials: 'include' });
+        const data = await res.json();
+        if (data.success) {
+          const isPremium = Boolean(data.isPremium);
+          const planId = isPremium ? 'premium' : 'free';
+          const record = createDefaultEntitlement(userId, planId, 'server_authoritative');
+          record.isPremium = isPremium;
+          saveEntitlementForUser(userId, record);
+          cachedEntitlement = record;
+          cachedUserId = userId;
+          notifyEntitlementChange();
+          return record;
+        }
+      } catch (err) {
+        console.warn('[WishEntitlement] Could not sync with server:', err);
+      }
+      return this.getCurrentEntitlement();
+    },
+
+    /**
+     * Safe Entitlement State Synchronization
      */
     setDevelopmentPlan(targetPlanId = 'premium') {
-      const userId = getActiveUserId();
-      const normalizedPlan = (targetPlanId === 'premium') ? 'premium' : 'free';
-      const record = createDefaultEntitlement(userId, normalizedPlan, 'dev_adapter');
-
-      saveEntitlementForUser(userId, record);
-      cachedEntitlement = record;
-      cachedUserId = userId;
-
-      console.info(`[WishEntitlement] Development entitlement switched to: ${normalizedPlan.toUpperCase()}`);
-      notifyEntitlementChange();
-      return { ...record };
+      console.warn('[WishEntitlement] Client-side entitlement elevation is disabled. Entitlements are strictly server-authoritative.');
+      return this.refresh();
     },
 
     /**

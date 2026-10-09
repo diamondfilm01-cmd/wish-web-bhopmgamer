@@ -1,0 +1,352 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8"/>
+  <base href="/"/>
+  <meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+  <meta content="web_dashboard" name="shell-type"/>
+  <title>WishMagic | Admin Delivery Queue &amp; Email Operations</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com"/>
+  <link crossorigin="" href="https://fonts.gstatic.com" rel="preconnect"/>
+  <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;600;700&family=Plus+Jakarta+Sans:wght@400;500;600;700;800&family=Outfit:wght@500;600;700;800&display=swap" rel="stylesheet"/>
+  <link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:opsz,wght,FILL,GRAD@20..48,100..700,0..1,-50..200&display=swap" rel="stylesheet"/>
+  <script src="js/tailwind-config.js"></script>
+  <script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+  <script>
+    if (typeof tailwind !== 'undefined' && typeof sharedTailwindConfig !== 'undefined') {
+      tailwind.config = sharedTailwindConfig;
+    }
+  </script>
+  <link rel="stylesheet" href="css/admin-theme.css"/>
+  <script src="js/api-client.js"></script>
+  <script src="js/auth-service.js"></script>
+  <script src="js/WishMagicCore.js"></script>
+  <script src="js/admin-theme.js"></script>
+</head>
+<body class="bg-background text-on-surface font-body-md min-h-screen antialiased selection:bg-primary selection:text-white">
+
+<!-- Mobile Sidebar Backdrop -->
+<div id="sidebar-backdrop" class="fixed inset-0 bg-black/75 backdrop-blur-sm z-40 hidden md:hidden" onclick="toggleSidebar()"></div>
+
+<!-- Responsive Sidebar Drawer -->
+<aside id="admin-sidebar" class="fixed left-0 top-0 h-screen w-72 bg-surface-container-lowest border-r border-outline-variant/30 z-50 flex flex-col justify-between shadow-2xl -translate-x-full md:translate-x-0 transition-transform duration-300 ease-in-out">
+  <div class="flex flex-col min-h-0 flex-1">
+    <div class="px-space-lg pt-space-lg pb-space-md flex-shrink-0">
+      <div class="flex items-center justify-between">
+        <div class="flex items-center gap-space-sm">
+          <div class="w-9 h-9 rounded-xl bg-gradient-to-tr from-primary-container to-secondary flex items-center justify-center shadow-[0_0_20px_rgba(124,58,237,0.45)] flex-shrink-0">
+            <span class="material-symbols-outlined text-white text-[20px]">auto_fix_high</span>
+          </div>
+          <div class="flex flex-col">
+            <span class="font-headline-sm text-headline-sm text-on-surface font-bold tracking-tight">WishMagic</span>
+            <span class="font-label-sm text-label-sm text-primary tracking-widest uppercase">Admin Studio</span>
+          </div>
+        </div>
+        <button class="md:hidden p-1.5 rounded-lg bg-surface-container-high hover:bg-surface-container-highest text-on-surface transition-colors" onclick="toggleSidebar()" aria-label="Close Sidebar">
+          <span class="material-symbols-outlined text-[20px]">close</span>
+        </button>
+      </div>
+    </div>
+    <div class="px-space-md mt-space-sm flex-1 overflow-y-auto custom-scrollbar pb-4">
+      <div class="px-space-sm pb-space-xs font-label-sm text-label-sm uppercase tracking-wider text-outline sticky top-0 bg-surface-container-lowest/95 backdrop-blur-xs z-10">Operations Center</div>
+      <nav class="flex flex-col gap-1 px-space-xs mt-space-xs">
+        <a class="group flex items-center gap-space-sm px-space-md py-2.5 rounded-lg text-on-surface-variant hover:bg-surface-container-high hover:text-on-surface transition-all duration-200" href="/admin/anktech/anktech/admin/overview">
+          <span class="material-symbols-outlined text-[20px] transition-transform group-hover:scale-110">dashboard</span>
+          <span class="font-body-md text-body-md">Overview &amp; Analytics</span>
+        </a>
+        <a class="group flex items-center gap-space-sm px-space-md py-2.5 rounded-lg text-on-surface-variant hover:bg-surface-container-high hover:text-on-surface transition-all duration-200" href="/admin/anktech/anktech/admin/wishes">
+          <span class="material-symbols-outlined text-[20px] transition-transform group-hover:scale-110">card_giftcard</span>
+          <span class="font-body-md text-body-md flex-1">Wishes &amp; Registry</span>
+        </a>
+        <a class="group flex items-center gap-space-sm px-space-md py-2.5 rounded-lg text-on-surface-variant hover:bg-surface-container-high hover:text-on-surface transition-all duration-200" href="/admin/anktech/anktech/admin/users">
+          <span class="material-symbols-outlined text-[20px] transition-transform group-hover:scale-110">group</span>
+          <span class="font-body-md text-body-md">Users &amp; Creators</span>
+        </a>
+        <a class="group flex items-center gap-space-sm px-space-md py-2.5 rounded-lg text-on-surface-variant hover:bg-surface-container-high hover:text-on-surface transition-all duration-200" href="/admin/anktech/anktech/admin/moderation">
+          <span class="material-symbols-outlined text-[20px] transition-transform group-hover:scale-110">gavel</span>
+          <span class="font-body-md text-body-md flex-1">Moderation Queue</span>
+        </a>
+        <a class="group flex items-center gap-space-sm px-space-md py-2.5 rounded-lg text-on-surface-variant hover:bg-surface-container-high hover:text-on-surface transition-all duration-200" href="/admin/anktech/anktech/admin/support">
+          <span class="material-symbols-outlined text-[20px] transition-transform group-hover:scale-110">support_agent</span>
+          <span class="font-body-md text-body-md flex-1">Support Console</span>
+        </a>
+        <a class="group flex items-center gap-space-sm px-space-md py-2.5 rounded-lg text-on-surface-variant hover:bg-surface-container-high hover:text-on-surface transition-all duration-200" href="/admin/anktech/anktech/admin/announcements">
+          <span class="material-symbols-outlined text-[20px] transition-transform group-hover:scale-110">campaign</span>
+          <span class="font-body-md text-body-md">Announcements</span>
+        </a>
+        <a class="group flex items-center gap-space-sm px-space-md py-2.5 rounded-lg bg-primary-container text-white font-semibold shadow-[0_0_24px_rgba(124,58,237,0.35)] transition-all duration-200" href="/admin/anktech/anktech/admin/notifications">
+          <span class="material-symbols-outlined text-[20px] transition-transform group-hover:scale-110">mark_email_unread</span>
+          <span class="font-body-md text-body-md flex-1">Delivery Queue</span>
+        </a>
+        <a class="group flex items-center gap-space-sm px-space-md py-2.5 rounded-lg text-on-surface-variant hover:bg-surface-container-high hover:text-on-surface transition-all duration-200" href="/admin/anktech/anktech/admin/audit-logs">
+          <span class="material-symbols-outlined text-[20px] transition-transform group-hover:scale-110">history_toggle_off</span>
+          <span class="font-body-md text-body-md">Audit Trail</span>
+        </a>
+        <a class="group flex items-center gap-space-sm px-space-md py-2.5 rounded-lg text-on-surface-variant hover:bg-surface-container-high hover:text-on-surface transition-all duration-200" href="/admin/anktech/anktech/admin/storage-health">
+          <span class="material-symbols-outlined text-[20px] transition-transform group-hover:scale-110">health_and_safety</span>
+          <span class="font-body-md text-body-md">Storage Health</span>
+        </a>
+      </nav>
+    </div>
+  </div>
+</aside>
+
+<!-- Main Shell -->
+<div class="md:pl-72 flex flex-col min-h-screen">
+  <!-- Topbar -->
+  <header class="h-16 border-b border-outline-variant/30 bg-surface-container-lowest/80 backdrop-blur-md sticky top-0 z-30 px-6 flex items-center justify-between">
+    <div class="flex items-center gap-3">
+      <button class="md:hidden p-2 rounded-lg bg-surface-container text-on-surface" onclick="toggleSidebar()">
+        <span class="material-symbols-outlined">menu</span>
+      </button>
+      <div class="flex items-center gap-2 text-sm text-outline">
+        <a href="/admin/anktech/anktech/admin/overview" class="hover:text-on-surface transition-colors">Admin</a>
+        <span>/</span>
+        <span class="text-on-surface font-semibold">Delivery Queue &amp; Communications</span>
+      </div>
+    </div>
+    <div class="flex items-center gap-3">
+      <button onclick="triggerProcessQueue()" id="btn-process-queue" class="px-3.5 py-1.5 bg-primary/20 hover:bg-primary/30 text-primary-light rounded-xl text-xs font-semibold flex items-center gap-1.5 transition-colors">
+        <span class="material-symbols-outlined text-[16px]">play_arrow</span> Process Queue Batch
+      </button>
+      <button onclick="triggerProcessReminders()" class="px-3.5 py-1.5 bg-surface-container hover:bg-surface-container-high text-on-surface rounded-xl text-xs font-semibold flex items-center gap-1.5 transition-colors border border-outline-variant/30">
+        <span class="material-symbols-outlined text-[16px]">schedule</span> Evaluate Reminders
+      </button>
+    </div>
+  </header>
+
+  <!-- Page Body -->
+  <main class="flex-1 p-6 max-w-7xl w-full mx-auto space-y-6">
+    <!-- Header Card -->
+    <div class="flex flex-col md:flex-row md:items-center justify-between gap-4 p-6 rounded-2xl bg-surface-container-lowest border border-outline-variant/30">
+      <div>
+        <h1 class="text-2xl font-bold font-headline-sm text-on-surface">Notification Delivery Operations</h1>
+        <p class="text-sm text-outline mt-1">Multi-channel queue monitoring, retry backoff state machine, and transactional email provider health diagnostics.</p>
+      </div>
+      <button onclick="loadQueueData()" class="p-2.5 rounded-xl border border-outline-variant/40 hover:bg-surface-container transition-colors text-on-surface-variant" title="Refresh">
+        <span class="material-symbols-outlined text-[20px]">refresh</span>
+      </button>
+    </div>
+
+    <!-- Provider Health & Queue Metrics Grid -->
+    <div class="grid grid-cols-1 md:grid-cols-3 gap-6">
+      <!-- Provider Card -->
+      <div class="p-6 rounded-2xl bg-surface-container-lowest border border-outline-variant/30 space-y-3">
+        <div class="flex items-center justify-between">
+          <span class="text-xs text-outline font-semibold uppercase tracking-wider">Email Provider</span>
+          <span id="provider-badge" class="px-2 py-0.5 rounded text-[11px] font-bold bg-amber-500/20 text-amber-300">Checking...</span>
+        </div>
+        <div class="space-y-1">
+          <div class="text-lg font-bold text-on-surface" id="provider-name">-</div>
+          <div class="text-xs text-outline" id="provider-from">-</div>
+        </div>
+      </div>
+
+      <!-- Queue Status Highlights -->
+      <div class="p-6 rounded-2xl bg-surface-container-lowest border border-outline-variant/30 col-span-2 grid grid-cols-2 sm:grid-cols-4 gap-4">
+        <div>
+          <div class="text-xs text-outline uppercase">Pending</div>
+          <div id="stat-pending" class="text-2xl font-bold text-amber-300 mt-1">0</div>
+        </div>
+        <div>
+          <div class="text-xs text-outline uppercase">Sent / Accepted</div>
+          <div id="stat-sent" class="text-2xl font-bold text-emerald-400 mt-1">0</div>
+        </div>
+        <div>
+          <div class="text-xs text-outline uppercase">Retry Pending</div>
+          <div id="stat-retry" class="text-2xl font-bold text-cyan-400 mt-1">0</div>
+        </div>
+        <div>
+          <div class="text-xs text-outline uppercase">Failed</div>
+          <div id="stat-failed" class="text-2xl font-bold text-rose-400 mt-1">0</div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Delivery Queue Jobs Table -->
+    <div class="rounded-2xl bg-surface-container-lowest border border-outline-variant/30 overflow-hidden">
+      <div class="p-4 border-b border-outline-variant/30 flex items-center justify-between">
+        <div class="text-sm font-semibold text-on-surface">Delivery Queue Jobs</div>
+        <div class="flex items-center gap-3">
+          <select id="job-status-filter" onchange="loadQueueData()" class="bg-surface-container border border-outline-variant/30 rounded-lg px-3 py-1.5 text-xs text-on-surface">
+            <option value="all">All States</option>
+            <option value="PENDING">Pending</option>
+            <option value="CLAIMED">Claimed</option>
+            <option value="SENT">Sent (Accepted)</option>
+            <option value="RETRY_PENDING">Retry Pending</option>
+            <option value="FAILED">Failed</option>
+          </select>
+        </div>
+      </div>
+
+      <div class="overflow-x-auto">
+        <table class="w-full text-left text-sm">
+          <thead class="bg-surface-container/50 text-xs text-outline uppercase border-b border-outline-variant/20">
+            <tr>
+              <th class="px-6 py-3 font-semibold">Job ID &amp; Type</th>
+              <th class="px-6 py-3 font-semibold">Recipient</th>
+              <th class="px-6 py-3 font-semibold">Channel</th>
+              <th class="px-6 py-3 font-semibold">Status</th>
+              <th class="px-6 py-3 font-semibold">Attempts</th>
+              <th class="px-6 py-3 font-semibold">Error / Details</th>
+              <th class="px-6 py-3 font-semibold text-right">Action</th>
+            </tr>
+          </thead>
+          <tbody id="jobs-tbody" class="divide-y divide-outline-variant/20">
+            <tr>
+              <td colspan="7" class="px-6 py-12 text-center text-outline">Loading delivery queue...</td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+  </main>
+</div>
+
+<script>
+function toggleSidebar() {
+  const sidebar = document.getElementById('admin-sidebar');
+  const backdrop = document.getElementById('sidebar-backdrop');
+  sidebar.classList.toggle('-translate-x-full');
+  backdrop.classList.toggle('hidden');
+}
+
+async function loadQueueData() {
+  const statusFilter = document.getElementById('job-status-filter').value;
+  const tbody = document.getElementById('jobs-tbody');
+
+  try {
+    // 1. Health check
+    const healthRes = await fetch('/api/admin/notifications/health');
+    const healthData = await healthRes.json();
+    if (healthData.success && healthData.providerHealth) {
+      const ph = healthData.providerHealth;
+      document.getElementById('provider-name').innerText = ph.providerName || 'Default';
+      document.getElementById('provider-from').innerText = ph.fromAddress ? `From: ${ph.fromAddress}` : 'No from address configured';
+      const badge = document.getElementById('provider-badge');
+      if (ph.configured) {
+        badge.className = 'px-2 py-0.5 rounded text-[11px] font-bold bg-emerald-500/20 text-emerald-300';
+        badge.innerText = 'Configured';
+      } else {
+        badge.className = 'px-2 py-0.5 rounded text-[11px] font-bold bg-amber-500/20 text-amber-300';
+        badge.innerText = 'Unconfigured';
+      }
+    }
+
+    // 2. Queue jobs
+    const jobsRes = await fetch(`/api/admin/notifications/jobs?status=${statusFilter}`);
+    const jobsData = await jobsRes.json();
+    if (!jobsData.success) throw new Error(jobsData.message || 'Failed to load jobs');
+
+    if (jobsData.counts) {
+      document.getElementById('stat-pending').innerText = jobsData.counts.pending || 0;
+      document.getElementById('stat-sent').innerText = (jobsData.counts.sent || 0) + (jobsData.counts.delivered || 0);
+      document.getElementById('stat-retry').innerText = jobsData.counts.retryPending || 0;
+      document.getElementById('stat-failed').innerText = jobsData.counts.failed || 0;
+    }
+
+    const jobs = jobsData.jobs || [];
+    if (jobs.length === 0) {
+      tbody.innerHTML = `<tr><td colspan="7" class="px-6 py-12 text-center text-outline">No jobs found in queue for selected status.</td></tr>`;
+      return;
+    }
+
+    tbody.innerHTML = jobs.map(j => {
+      let statusClass = 'text-amber-400';
+      if (j.status === 'SENT' || j.status === 'DELIVERED') statusClass = 'text-emerald-400 font-semibold';
+      else if (j.status === 'FAILED') statusClass = 'text-rose-400 font-semibold';
+      else if (j.status === 'RETRY_PENDING') statusClass = 'text-cyan-400 font-semibold';
+
+      const isFailedOrRetry = j.status === 'FAILED' || j.status === 'RETRY_PENDING';
+
+      return `
+        <tr class="hover:bg-surface-container/30 transition-colors">
+          <td class="px-6 py-3.5">
+            <div class="font-mono text-xs text-on-surface">${escapeHtml(j.id)}</div>
+            <div class="text-[11px] text-outline mt-0.5">${escapeHtml(j.notificationType || j.notification_type || '-')}</div>
+          </td>
+          <td class="px-6 py-3.5 text-xs text-on-surface-variant font-mono">
+            ${escapeHtml(j.recipientEmail || j.recipient_email || j.recipientUserId || j.recipient_user_id || '-')}
+          </td>
+          <td class="px-6 py-3.5 text-xs text-on-surface uppercase">
+            ${escapeHtml(j.channel)}
+          </td>
+          <td class="px-6 py-3.5 text-xs ${statusClass}">
+            ${escapeHtml(j.status)}
+          </td>
+          <td class="px-6 py-3.5 text-xs text-outline font-mono">
+            ${j.attemptCount || j.attempt_count || 0} / ${j.maxAttempts || j.max_attempts || 3}
+          </td>
+          <td class="px-6 py-3.5 text-xs text-outline max-w-[200px] truncate" title="${escapeHtml(j.lastErrorMessage || j.last_error_message || '')}">
+            ${escapeHtml(j.lastErrorCode || j.last_error_code || 'None')}
+          </td>
+          <td class="px-6 py-3.5 text-right">
+            ${isFailedOrRetry ? `
+              <button onclick="retryJob('${j.id}')" class="px-2.5 py-1 bg-surface-container hover:bg-surface-container-high border border-outline-variant/30 text-xs text-on-surface rounded-lg transition-colors">
+                Retry
+              </button>
+            ` : '-'}
+          </td>
+        </tr>
+      `;
+    }).join('');
+  } catch (err) {
+    tbody.innerHTML = `<tr><td colspan="7" class="px-6 py-12 text-center text-rose-400">Error: ${escapeHtml(err.message)}</td></tr>`;
+  }
+}
+
+async function retryJob(jobId) {
+  try {
+    const res = await fetch(`/api/admin/notifications/jobs/${jobId}/retry`, { method: 'POST' });
+    const data = await res.json();
+    if (!data.success) throw new Error(data.message || 'Retry failed');
+    loadQueueData();
+  } catch (err) {
+    alert(err.message);
+  }
+}
+
+async function triggerProcessQueue() {
+  const btn = document.getElementById('btn-process-queue');
+  btn.disabled = true;
+  btn.innerText = 'Processing...';
+
+  try {
+    const res = await fetch('/api/notifications/process-queue', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ limit: 10 })
+    });
+    const data = await res.json();
+    if (!data.success) throw new Error(data.message || 'Processing failed');
+    alert(`Processed ${data.processedCount} jobs. Recovered ${data.recoveredCount || 0} stale leases.`);
+    loadQueueData();
+  } catch (err) {
+    alert(err.message);
+  } finally {
+    btn.disabled = false;
+    btn.innerHTML = '<span class="material-symbols-outlined text-[16px]">play_arrow</span> Process Queue Batch';
+  }
+}
+
+async function triggerProcessReminders() {
+  try {
+    const res = await fetch('/api/notifications/process-reminders', { method: 'POST' });
+    const data = await res.json();
+    if (!data.success) throw new Error(data.message || 'Reminder scan failed');
+    alert(`Reminder evaluation complete: ${data.remindersGenerated} reminders generated, ${data.inAppGenerated} in-app notifications created, ${data.emailJobsEnqueued} email jobs queued.`);
+    loadQueueData();
+  } catch (err) {
+    alert(err.message);
+  }
+}
+
+function escapeHtml(str) {
+  if (!str) return '';
+  return String(str).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
+}
+
+document.addEventListener('DOMContentLoaded', loadQueueData);
+</script>
+</body>
+</html>

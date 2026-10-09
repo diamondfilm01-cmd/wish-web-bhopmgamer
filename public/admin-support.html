@@ -1,0 +1,474 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8"/>
+  <base href="/"/>
+  <meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+  <meta content="web_dashboard" name="shell-type"/>
+  <title>WishMagic | Support Console &amp; Universal Diagnostics</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com"/>
+  <link crossorigin="" href="https://fonts.gstatic.com" rel="preconnect"/>
+  <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;600;700&family=Plus+Jakarta+Sans:wght@400;500;600;700;800&family=Outfit:wght@500;600;700;800&display=swap" rel="stylesheet"/>
+  <link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:opsz,wght,FILL,GRAD@20..48,100..700,0..1,-50..200&display=swap" rel="stylesheet"/>
+  <script src="js/tailwind-config.js"></script>
+  <script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+  <script>
+    if (typeof tailwind !== 'undefined' && typeof sharedTailwindConfig !== 'undefined') {
+      tailwind.config = sharedTailwindConfig;
+    }
+  </script>
+  <link rel="stylesheet" href="css/admin-theme.css"/>
+  <script src="js/api-client.js"></script>
+  <script src="js/auth-service.js"></script>
+  <script src="js/WishMagicCore.js"></script>
+  <script src="js/admin-theme.js"></script>
+</head>
+<body class="bg-background text-on-surface font-body-md min-h-screen antialiased selection:bg-primary selection:text-white">
+
+<!-- Mobile Sidebar Backdrop -->
+<div id="sidebar-backdrop" class="fixed inset-0 bg-black/75 backdrop-blur-sm z-40 hidden md:hidden" onclick="toggleSidebar()"></div>
+
+<!-- Responsive Sidebar Drawer -->
+<aside id="admin-sidebar" class="fixed left-0 top-0 h-screen w-72 bg-surface-container-lowest border-r border-outline-variant/30 z-50 flex flex-col justify-between shadow-2xl -translate-x-full md:translate-x-0 transition-transform duration-300 ease-in-out">
+  <div class="flex flex-col min-h-0 flex-1">
+    <div class="px-space-lg pt-space-lg pb-space-md flex-shrink-0">
+      <div class="flex items-center justify-between">
+        <div class="flex items-center gap-space-sm">
+          <div class="w-9 h-9 rounded-xl bg-gradient-to-tr from-primary-container to-secondary flex items-center justify-center shadow-[0_0_20px_rgba(124,58,237,0.45)] flex-shrink-0">
+            <span class="material-symbols-outlined text-white text-[20px]">auto_fix_high</span>
+          </div>
+          <div class="flex flex-col">
+            <span class="font-headline-sm text-headline-sm text-on-surface font-bold tracking-tight">WishMagic</span>
+            <span class="font-label-sm text-label-sm text-primary tracking-widest uppercase">Admin Studio</span>
+          </div>
+        </div>
+        <button class="md:hidden p-1.5 rounded-lg bg-surface-container-high hover:bg-surface-container-highest text-on-surface transition-colors" onclick="toggleSidebar()" aria-label="Close Sidebar">
+          <span class="material-symbols-outlined text-[20px]">close</span>
+        </button>
+      </div>
+    </div>
+    <div class="px-space-md mt-space-sm flex-1 overflow-y-auto custom-scrollbar pb-4">
+      <div class="px-space-sm pb-space-xs font-label-sm text-label-sm uppercase tracking-wider text-outline sticky top-0 bg-surface-container-lowest/95 backdrop-blur-xs z-10">Operations Center</div>
+      <nav class="flex flex-col gap-1 px-space-xs mt-space-xs">
+        <a class="group flex items-center gap-space-sm px-space-md py-2.5 rounded-lg text-on-surface-variant hover:bg-surface-container-high hover:text-on-surface transition-all duration-200" href="/admin/anktech/anktech/admin/overview">
+          <span class="material-symbols-outlined text-[20px] transition-transform group-hover:scale-110">dashboard</span>
+          <span class="font-body-md text-body-md">Overview &amp; Analytics</span>
+        </a>
+        <a class="group flex items-center gap-space-sm px-space-md py-2.5 rounded-lg text-on-surface-variant hover:bg-surface-container-high hover:text-on-surface transition-all duration-200" href="/admin/anktech/anktech/admin/wishes">
+          <span class="material-symbols-outlined text-[20px] transition-transform group-hover:scale-110">card_giftcard</span>
+          <span class="font-body-md text-body-md flex-1">Wishes &amp; Registry</span>
+          <span class="px-2 py-0.5 rounded-full bg-emerald-500/20 text-emerald-400 font-bold text-[10px]">Live</span>
+        </a>
+        <a class="group flex items-center gap-space-sm px-space-md py-2.5 rounded-lg text-on-surface-variant hover:bg-surface-container-high hover:text-on-surface transition-all duration-200" href="/admin/anktech/anktech/admin/users">
+          <span class="material-symbols-outlined text-[20px] transition-transform group-hover:scale-110">group</span>
+          <span class="font-body-md text-body-md">Users &amp; Creators</span>
+        </a>
+        <a class="group flex items-center gap-space-sm px-space-md py-2.5 rounded-lg text-on-surface-variant hover:bg-surface-container-high hover:text-on-surface transition-all duration-200" href="/admin/anktech/anktech/admin/moderation">
+          <span class="material-symbols-outlined text-[20px] transition-transform group-hover:scale-110">gavel</span>
+          <span class="font-body-md text-body-md flex-1">Moderation Queue</span>
+        </a>
+        <a class="group flex items-center gap-space-sm px-space-md py-2.5 rounded-lg bg-primary-container text-white font-semibold shadow-[0_0_24px_rgba(124,58,237,0.35)] transition-all duration-200" href="/admin/anktech/anktech/admin/support">
+          <span class="material-symbols-outlined text-[20px] transition-transform group-hover:scale-110">support_agent</span>
+          <span class="font-body-md text-body-md flex-1">Support Console</span>
+          <span class="px-2 py-0.5 rounded-full bg-cyan-400/20 text-cyan-200 font-bold text-[10px]">Desk</span>
+        </a>
+        <a class="group flex items-center gap-space-sm px-space-md py-2.5 rounded-lg text-on-surface-variant hover:bg-surface-container-high hover:text-on-surface transition-all duration-200" href="/admin/anktech/anktech/admin/audit-logs">
+          <span class="material-symbols-outlined text-[20px] transition-transform group-hover:scale-110">history_toggle_off</span>
+          <span class="font-body-md text-body-md">Audit Trail</span>
+        </a>
+        <a class="group flex items-center gap-space-sm px-space-md py-2.5 rounded-lg text-on-surface-variant hover:bg-surface-container-high hover:text-on-surface transition-all duration-200" href="/admin/anktech/anktech/admin/storage-health">
+          <span class="material-symbols-outlined text-[20px] transition-transform group-hover:scale-110">health_and_safety</span>
+          <span class="font-body-md text-body-md">Storage Health</span>
+        </a>
+      </nav>
+    </div>
+  </div>
+  <div class="p-space-md flex flex-col gap-space-xs bg-surface-container-lowest border-t border-purple-900/30 flex-shrink-0">
+    <div class="flex items-center justify-between text-on-surface-variant text-xs">
+      <span>WishMagic Admin Engine</span>
+      <span class="px-2 py-0.5 rounded-full bg-surface-container-high text-primary font-mono font-bold">v5.0-P30</span>
+    </div>
+  </div>
+</aside>
+
+<!-- Main Wrapper -->
+<div class="w-full md:pl-72 min-h-screen flex flex-col">
+  <!-- Universal Header -->
+  <header class="fixed top-0 left-0 md:left-72 right-0 h-16 bg-surface/90 backdrop-blur-xl z-30 shadow-[0_1px_8px_rgba(0,0,0,0.04)] border-b border-outline-variant/30">
+    <div class="w-full h-full px-3 md:px-space-lg flex items-center justify-between gap-2 md:gap-space-lg">
+      <div class="flex items-center gap-2 flex-1 max-w-md">
+        <button class="md:hidden p-2 rounded-lg bg-surface-container hover:bg-surface-container-high text-on-surface flex items-center justify-center flex-shrink-0" onclick="toggleSidebar()">
+          <span class="material-symbols-outlined text-[22px]">menu</span>
+        </button>
+        <div class="text-sm font-bold text-on-surface flex items-center gap-2">
+          <span class="material-symbols-outlined text-primary text-[20px]">support_agent</span>
+          <span>Customer Support Desk &amp; Link Diagnostics</span>
+        </div>
+      </div>
+      <div class="flex items-center gap-2 md:gap-space-md flex-shrink-0">
+        <button class="p-2 rounded-lg bg-surface-container hover:bg-surface-container-high text-on-surface transition-all flex items-center justify-center cursor-pointer" onclick="toggleAdminTheme()" title="Toggle Dark / Light Theme">
+          <span class="material-symbols-outlined text-[20px] theme-toggle-icon">light_mode</span>
+        </button>
+      </div>
+    </div>
+  </header>
+
+  <!-- Main Content -->
+  <main class="w-full pt-20 px-4 sm:px-6 lg:px-8 pb-16 max-w-7xl mx-auto flex flex-col gap-6">
+    
+    <div>
+      <div class="flex items-center gap-2 mb-1">
+        <span class="px-2 py-0.5 rounded bg-primary-container/20 text-primary font-label-sm text-label-sm font-bold uppercase tracking-wider">Customer Support</span>
+        <span class="text-outline">•</span>
+        <span class="text-on-surface-variant text-xs font-mono">LINK DIAGNOSTICS &amp; TICKETS</span>
+      </div>
+      <h1 class="font-display text-2xl sm:text-3xl font-extrabold text-on-surface">Support Console &amp; Diagnostics</h1>
+      <p class="text-sm text-on-surface-variant mt-1">Universal entity lookup, celebration link auto-repair, and customer support ticket tracking.</p>
+    </div>
+
+    <!-- Section 1: Universal Lookup Box -->
+    <div class="p-5 rounded-2xl bg-surface-container border border-purple-900/30 shadow-xl flex flex-col gap-4">
+      <div class="flex items-center gap-2">
+        <span class="material-symbols-outlined text-primary text-[22px]">search</span>
+        <h3 class="font-display text-base font-bold text-on-surface">Universal Entity Lookup</h3>
+      </div>
+      <p class="text-xs text-on-surface-variant">Find user accounts, celebration wishes by slug or ID, or tickets across the platform.</p>
+
+      <div class="flex items-center gap-2">
+        <input id="support-lookup-query" type="text" placeholder="Enter user email, wish slug, recipient name, or ticket number..." class="flex-1 bg-surface-container-low text-on-surface text-xs rounded-xl px-4 py-2.5 border border-purple-900/30 focus:outline-none"/>
+        <button onclick="executeLookup()" class="px-5 py-2.5 rounded-xl bg-primary hover:brightness-110 text-white font-bold text-xs transition cursor-pointer shadow-md shadow-purple-600/30 flex items-center gap-1.5">
+          <span class="material-symbols-outlined text-[16px]">travel_explore</span>
+          <span>Search</span>
+        </button>
+      </div>
+
+      <!-- Lookup Results Container -->
+      <div id="lookup-results-container" class="hidden pt-2 border-t border-purple-900/20 space-y-3">
+        <!-- Rendered results -->
+      </div>
+    </div>
+
+    <!-- Section 2: Celebration Link Diagnostics & One-Click Auto Repair -->
+    <div class="p-5 rounded-2xl bg-surface-container border border-purple-900/30 shadow-xl flex flex-col gap-4">
+      <div class="flex items-center justify-between">
+        <div class="flex items-center gap-2">
+          <span class="material-symbols-outlined text-amber-400 text-[22px]">troubleshoot</span>
+          <h3 class="font-display text-base font-bold text-on-surface">Celebration Link Diagnostic &amp; Auto-Repair</h3>
+        </div>
+      </div>
+      <p class="text-xs text-on-surface-variant">Diagnose link validity, check B2/ImgBB assets, and auto-renew expired customer links.</p>
+
+      <div class="flex items-center gap-2">
+        <input id="diagnostic-wish-input" type="text" placeholder="Enter wish slug or ID (e.g. wm_birthday_alex or alex-birthday-2026)..." class="flex-1 bg-surface-container-low text-on-surface text-xs rounded-xl px-4 py-2.5 border border-purple-900/30 focus:outline-none"/>
+        <button onclick="runLinkDiagnostic()" class="px-4 py-2.5 rounded-xl bg-surface-container-high hover:bg-surface-container-highest text-on-surface font-bold text-xs transition cursor-pointer flex items-center gap-1.5">
+          <span class="material-symbols-outlined text-[16px]">biotech</span>
+          <span>Run Diagnosis</span>
+        </button>
+      </div>
+
+      <div id="diagnostic-output" class="hidden p-4 rounded-xl bg-surface-container-low border border-purple-900/20 text-xs">
+        <!-- Injected diagnosis report -->
+      </div>
+    </div>
+
+    <!-- Section 3: Support Tickets Desk -->
+    <div class="bg-surface-container rounded-2xl border border-purple-900/30 shadow-xl overflow-hidden p-5 flex flex-col gap-4">
+      <div class="flex items-center justify-between">
+        <div class="flex items-center gap-2">
+          <span class="material-symbols-outlined text-cyan-400 text-[22px]">confirmation_number</span>
+          <h3 class="font-display text-base font-bold text-on-surface">Support Tickets Desk</h3>
+        </div>
+        <button onclick="openCreateTicketModal()" class="px-3.5 py-1.5 rounded-xl bg-primary text-white text-xs font-bold transition flex items-center gap-1.5 cursor-pointer shadow-md shadow-purple-600/30">
+          <span class="material-symbols-outlined text-[16px]">add</span>
+          <span>Create Ticket</span>
+        </button>
+      </div>
+
+      <div class="overflow-x-auto custom-scrollbar">
+        <table class="w-full text-left border-collapse text-xs">
+          <thead>
+            <tr class="border-b border-purple-900/30 bg-surface-container-high/50 text-outline uppercase font-bold text-[10px] tracking-wider">
+              <th class="py-3 px-3">Ticket #</th>
+              <th class="py-3 px-3">Category</th>
+              <th class="py-3 px-3">Subject &amp; Details</th>
+              <th class="py-3 px-3">Customer Email</th>
+              <th class="py-3 px-3">Priority</th>
+              <th class="py-3 px-3">Status</th>
+              <th class="py-3 px-3 text-right">Actions</th>
+            </tr>
+          </thead>
+          <tbody id="tickets-table-body" class="divide-y divide-purple-900/20 font-medium text-on-surface">
+            <!-- Dynamic rows -->
+          </tbody>
+        </table>
+      </div>
+
+      <div id="tickets-empty" class="hidden p-8 text-center text-outline">
+        No active support tickets found.
+      </div>
+    </div>
+
+  </main>
+</div>
+
+<script>
+  document.addEventListener('DOMContentLoaded', loadTickets);
+
+  async function executeLookup() {
+    const q = document.getElementById('support-lookup-query').value.trim();
+    if (!q) return;
+
+    const container = document.getElementById('lookup-results-container');
+    container.innerHTML = `<div class="p-3 text-outline text-xs">Searching platform entities...</div>`;
+    container.classList.remove('hidden');
+
+    try {
+      const res = await fetch(`/api/admin/support/lookup?q=${encodeURIComponent(q)}`);
+      const data = await res.json();
+      if (!data.success) {
+        container.innerHTML = `<div class="text-rose-400 text-xs">${data.message || 'Error executing lookup'}</div>`;
+        return;
+      }
+
+      if (data.totalMatches === 0) {
+        container.innerHTML = `<div class="text-outline text-xs py-2">No matching users, celebration wishes, or tickets found for "${q}".</div>`;
+        return;
+      }
+
+      container.innerHTML = `
+        <div class="space-y-3">
+          ${data.users.length > 0 ? `
+            <div>
+              <h5 class="font-bold text-[11px] uppercase tracking-wider text-outline mb-1">Matched Users (${data.users.length})</h5>
+              <div class="space-y-1">
+                ${data.users.map(u => `
+                  <div class="p-2.5 rounded-lg bg-surface-container-low border border-purple-900/20 flex items-center justify-between text-xs">
+                    <div>
+                      <span class="font-bold text-on-surface">${u.displayName || u.name}</span>
+                      <span class="text-outline font-mono text-[11px] ml-1">(${u.email})</span>
+                      <span class="px-1.5 py-0.2 rounded text-[9px] font-bold uppercase ml-2 ${u.plan === 'VIP' ? 'bg-amber-500/20 text-amber-300' : 'bg-surface-container text-outline'}">${u.plan}</span>
+                    </div>
+                    <a href="/admin/anktech/anktech/admin/users" class="text-primary hover:underline font-bold text-[11px]">Manage User</a>
+                  </div>
+                `).join('')}
+              </div>
+            </div>
+          ` : ''}
+
+          ${data.wishes.length > 0 ? `
+            <div>
+              <h5 class="font-bold text-[11px] uppercase tracking-wider text-outline mb-1">Matched Wishes (${data.wishes.length})</h5>
+              <div class="space-y-1">
+                ${data.wishes.map(w => `
+                  <div class="p-2.5 rounded-lg bg-surface-container-low border border-purple-900/20 flex items-center justify-between text-xs">
+                    <div>
+                      <span class="font-bold text-on-surface">To: ${w.recipient_name || w.recipientName || 'Loved One'}</span>
+                      <span class="text-pink-400 font-mono text-[11px] ml-1">(/w/${w.slug || w.id})</span>
+                    </div>
+                    <div class="flex items-center gap-2">
+                      <button onclick="diagnoseSpecificWish('${w.slug || w.id}')" class="px-2 py-0.5 rounded bg-surface-container-high hover:bg-surface-container-highest text-on-surface text-[11px] font-bold">Diagnose</button>
+                      <a href="/w/${w.slug || w.id}" target="_blank" class="text-primary hover:underline font-bold text-[11px]">View</a>
+                    </div>
+                  </div>
+                `).join('')}
+              </div>
+            </div>
+          ` : ''}
+        </div>
+      `;
+    } catch (e) {
+      container.innerHTML = `<div class="text-rose-400 text-xs">Network error</div>`;
+    }
+  }
+
+  function diagnoseSpecificWish(slug) {
+    document.getElementById('diagnostic-wish-input').value = slug;
+    runLinkDiagnostic();
+  }
+
+  async function runLinkDiagnostic() {
+    const wishId = document.getElementById('diagnostic-wish-input').value.trim();
+    if (!wishId) return;
+
+    const out = document.getElementById('diagnostic-output');
+    out.innerHTML = `<div class="text-outline">Running comprehensive diagnostic on celebration link...</div>`;
+    out.classList.remove('hidden');
+
+    try {
+      const res = await fetch(`/api/admin/support/diagnose/${encodeURIComponent(wishId)}`);
+      const data = await res.json();
+      if (!data.success) {
+        out.innerHTML = `<div class="text-rose-400 font-bold">${data.message || 'Diagnostic failed'}</div>`;
+        return;
+      }
+
+      const diag = data.diagnosis;
+      out.innerHTML = `
+        <div class="space-y-3">
+          <div class="flex items-center justify-between pb-2 border-b border-purple-900/20">
+            <div>
+              <span class="font-bold text-on-surface text-sm">Target Link: /w/${diag.slug}</span>
+              <div class="text-[11px] text-outline font-mono">Status: ${diag.lifecycleStatus.toUpperCase()} • Moderation: ${diag.moderationStatus.toUpperCase()}</div>
+            </div>
+            <span class="px-2.5 py-1 rounded-full text-xs font-black uppercase ${diag.overallIntegrity === 'HEALTHY' ? 'bg-emerald-500/20 text-emerald-300' : 'bg-rose-500/20 text-rose-300'}">
+              ${diag.overallIntegrity}
+            </span>
+          </div>
+
+          <div class="grid grid-cols-2 sm:grid-cols-4 gap-2 text-center text-[11px]">
+            <div class="p-2 rounded-lg bg-surface-container">
+              <div class="text-outline">B2 Package</div>
+              <div class="font-bold text-emerald-400">${diag.checks.b2TemplatePackage}</div>
+            </div>
+            <div class="p-2 rounded-lg bg-surface-container">
+              <div class="text-outline">ImgBB Photos</div>
+              <div class="font-bold ${diag.checks.imgbbUserPhotos === 'HEALTHY' ? 'text-emerald-400' : 'text-rose-400'}">${diag.checks.imgbbUserPhotos}</div>
+            </div>
+            <div class="p-2 rounded-lg bg-surface-container">
+              <div class="text-outline">Audio Track</div>
+              <div class="font-bold text-emerald-400">${diag.checks.audioAssigned}</div>
+            </div>
+            <div class="p-2 rounded-lg bg-surface-container">
+              <div class="text-outline">Expiry Valid</div>
+              <div class="font-bold ${diag.checks.expiryValid ? 'text-emerald-400' : 'text-rose-400'}">${diag.checks.expiryValid ? 'YES' : 'EXPIRED'}</div>
+            </div>
+          </div>
+
+          ${diag.issues.length > 0 ? `
+            <div class="p-2.5 rounded-lg bg-rose-500/10 border border-rose-500/20 text-rose-300 text-xs">
+              <div class="font-bold mb-1">Detected Issues:</div>
+              <ul class="list-disc pl-4 space-y-0.5">
+                ${diag.issues.map(iss => `<li>${iss}</li>`).join('')}
+              </ul>
+            </div>
+          ` : '<div class="text-emerald-400 text-xs font-bold">✨ All celebration assets and link parameters are pristine!</div>'}
+
+          <div class="pt-2 flex items-center justify-end gap-2">
+            <button onclick="executeAutoRepair('${diag.wishId}')" class="px-3.5 py-1.5 rounded-xl bg-primary hover:brightness-110 text-white font-bold text-xs transition cursor-pointer flex items-center gap-1 shadow-md shadow-purple-600/30">
+              <span class="material-symbols-outlined text-[15px]">build</span>
+              <span>One-Click Auto-Repair Link (+7 Days)</span>
+            </button>
+          </div>
+        </div>
+      `;
+    } catch (e) {
+      out.innerHTML = `<div class="text-rose-400">Network error</div>`;
+    }
+  }
+
+  async function executeAutoRepair(wishId) {
+    if (!confirm('Auto-repair and renew this celebration link for 7 days?')) return;
+    try {
+      const res = await fetch(`/api/admin/support/repair/${encodeURIComponent(wishId)}`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ extendDays: 7 })
+      });
+      const data = await res.json();
+      if (data.success) {
+        alert('Celebration link repaired and renewed successfully!');
+        runLinkDiagnostic();
+      } else {
+        alert('Failed: ' + data.message);
+      }
+    } catch (e) {
+      alert('Network error');
+    }
+  }
+
+  async function loadTickets() {
+    try {
+      const res = await fetch('/api/admin/support/tickets');
+      const data = await res.json();
+      if (data.success) {
+        renderTickets(data.tickets || []);
+      }
+    } catch (e) {}
+  }
+
+  function renderTickets(tickets) {
+    const tbody = document.getElementById('tickets-table-body');
+    const empty = document.getElementById('tickets-empty');
+    if (!tbody) return;
+
+    if (tickets.length === 0) {
+      tbody.innerHTML = '';
+      empty.classList.remove('hidden');
+      return;
+    }
+
+    empty.classList.add('hidden');
+    tbody.innerHTML = tickets.map(t => `
+      <tr class="hover:bg-surface-container-high/40 transition">
+        <td class="py-3 px-3 font-mono text-outline text-[11px]">${t.ticketNumber || t.ticket_number}</td>
+        <td class="py-3 px-3 capitalize font-bold text-on-surface-variant">${(t.category || 'general').replace(/_/g, ' ')}</td>
+        <td class="py-3 px-3">
+          <div class="font-bold text-on-surface">${t.subject}</div>
+          <div class="text-[10px] text-outline truncate max-w-xs">${t.description}</div>
+        </td>
+        <td class="py-3 px-3 font-mono text-[11px] text-on-surface">${t.userEmail || t.user_email || 'guest'}</td>
+        <td class="py-3 px-3">
+          <span class="px-2 py-0.5 rounded text-[10px] font-black uppercase ${
+            t.priority === 'urgent' ? 'bg-rose-500/20 text-rose-300' :
+            t.priority === 'high' ? 'bg-orange-500/20 text-orange-300' : 'bg-surface-container-high text-outline'
+          }">${t.priority}</span>
+        </td>
+        <td class="py-3 px-3">
+          <span class="px-2 py-0.5 rounded text-[10px] font-bold uppercase ${
+            t.status === 'open' ? 'bg-amber-500/20 text-amber-300' :
+            t.status === 'resolved' ? 'bg-emerald-500/20 text-emerald-300' : 'bg-surface-container text-outline'
+          }">${t.status}</span>
+        </td>
+        <td class="py-3 px-3 text-right">
+          ${t.status === 'open' ? `
+            <button onclick="resolveTicket('${t.id}')" class="px-2.5 py-1 rounded-lg bg-emerald-500/20 hover:bg-emerald-500 text-emerald-300 hover:text-white font-bold text-xs transition cursor-pointer">
+              Mark Resolved
+            </button>
+          ` : '<span class="text-[11px] text-outline">Closed</span>'}
+        </td>
+      </tr>
+    `).join('');
+  }
+
+  function openCreateTicketModal() {
+    const subject = prompt('Enter ticket subject (e.g. Broken link reported by user):');
+    if (!subject) return;
+    const description = prompt('Enter ticket details:');
+    if (!description) return;
+    const userEmail = prompt('Enter customer email:', 'customer@example.com');
+
+    fetch('/api/admin/support/tickets', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ subject, description, userEmail, priority: 'medium', category: 'link_issue' })
+    }).then(res => res.json()).then(data => {
+      if (data.success) {
+        alert('Support ticket created successfully!');
+        loadTickets();
+      }
+    });
+  }
+
+  async function resolveTicket(ticketId) {
+    const resolutionSummary = prompt('Enter resolution summary:', 'Link verified and regenerated.');
+    if (resolutionSummary === null) return;
+
+    try {
+      const res = await fetch(`/api/admin/support/tickets/${encodeURIComponent(ticketId)}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ status: 'resolved', resolutionSummary })
+      });
+      const data = await res.json();
+      if (data.success) {
+        alert('Ticket resolved successfully!');
+        loadTickets();
+      }
+    } catch (e) {
+      alert('Error updating ticket');
+    }
+  }
+</script>
+
+</body>
+</html>
