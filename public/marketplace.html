@@ -26,6 +26,7 @@
 <script src="js/payment-service.js"></script>
 <script src="js/premium-lock-modal.js"></script>
 <script src="js/template-section-system.js"></script>
+<script src="/js/search-manager.js"></script>
 <style>
     /* CRITICAL: Strictly 100% Solid Opaque Profile Dropdown Menu */
     #account-dropdown-menu {
@@ -476,6 +477,31 @@
       if (countEl) countEl.textContent = allLoadedTemplates.length;
 
       renderMarketplaceCards(allLoadedTemplates);
+
+      // Part 39: Parse URL query parameters (?q=... & category=... & relationship=...)
+      const urlParams = new URLSearchParams(window.location.search);
+      const queryParam = urlParams.get('q') || urlParams.get('search');
+      const catParam = urlParams.get('category');
+      const relParam = urlParams.get('relationship');
+      const tierParam = urlParams.get('tier');
+      const featParam = urlParams.get('feature');
+
+      if (queryParam) {
+        const input = document.getElementById('template-search-input');
+        if (input) input.value = queryParam;
+      }
+      if (catParam) {
+        activeOccasionFilter = catParam.toLowerCase().trim();
+      } else if (relParam) {
+        activeOccasionFilter = relParam.toLowerCase().trim();
+      }
+      if (tierParam) {
+        activeFeatureFilter = tierParam.toLowerCase().trim();
+      } else if (featParam) {
+        activeFeatureFilter = featParam.toLowerCase().trim();
+      }
+
+      filterCatalog();
     } catch (err) {
       console.error("Error loading templates:", err);
     }
@@ -525,12 +551,23 @@
       const rels = ((t.relationships || []).join(" ")).toLowerCase();
       const relChips = (t.relationships || []).slice(0, 3).map(r => `<span class="px-2 py-0.5 rounded-full bg-surface-container text-on-surface-variant text-[10px] font-semibold">#${r}</span>`).join(" ");
 
+      // Derive feature keywords
+      const tFeats = [];
+      if (t.id.includes('glitter') || t.id.includes('3d') || (t.name || '').includes('3d')) tFeats.push('3d');
+      if (t.capabilities?.music !== false) tFeats.push('audio');
+      if (t.capabilities?.gallery !== false || (t.description || '').toLowerCase().includes('polaroid')) tFeats.push('polaroid');
+      if (t.id.includes('romantic') || (t.description || '').toLowerCase().includes('wax')) { tFeats.push('wax'); tFeats.push('secret'); }
+      if (t.capabilities?.countdown || t.id.includes('countdown')) tFeats.push('countdown');
+      if (t.capabilities?.timeline || t.id.includes('chronicles') || t.id.includes('tribute')) tFeats.push('timeline');
+      const featStr = tFeats.join(' ');
+
       return `
         <div class="catalog-template-card group bg-surface-container/85 backdrop-blur-xl rounded-2xl overflow-hidden shadow-xl hover:shadow-2xl hover:-translate-y-1 transition-all duration-300 flex flex-col justify-between border border-purple-500/20" 
              data-id="${t.id}"
              data-category="${(t.category || "general").toLowerCase()}" 
              data-relationships="${rels}"
              data-tier="${isVip ? "vip" : "free"}"
+             data-features="${featStr}"
              data-name="${(t.name || "").toLowerCase()}"
              data-description="${(t.description || "").toLowerCase()}">
           
@@ -649,6 +686,9 @@
         matchesFeature = tier === 'free';
       } else if (activeFeatureFilter === 'vip') {
         matchesFeature = tier === 'vip';
+      } else if (activeFeatureFilter !== 'all') {
+        const feats = (card.getAttribute('data-features') || '').toLowerCase();
+        matchesFeature = feats.includes(activeFeatureFilter) || desc.includes(activeFeatureFilter) || name.includes(activeFeatureFilter);
       }
 
       if (matchesSearch && matchesOccasion && matchesFeature) {

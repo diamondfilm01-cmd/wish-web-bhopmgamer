@@ -1,0 +1,586 @@
+<!DOCTYPE html>
+<html lang="en" class="h-full">
+<head>
+  <meta charset="UTF-8"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>Search & Discovery Diagnostics | WishMagic Admin Studio</title>
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:opsz,wght,FILL,GRAD@20..48,100..700,0..1,-50..200" />
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script>
+    tailwind.config = {
+      darkMode: 'class',
+      theme: {
+        extend: {
+          colors: {
+            primary: '#a855f7',
+            'on-primary': '#ffffff',
+            'primary-container': '#4a154b',
+            secondary: '#ec4899',
+            'secondary-container': '#701a75',
+            surface: '#0f0716',
+            'surface-container-lowest': '#09040e',
+            'surface-container-low': '#150a21',
+            'surface-container': '#1c0f2b',
+            'surface-container-high': '#251538',
+            'surface-container-highest': '#2f1b46',
+            'on-surface': '#f3e8ff',
+            'on-surface-variant': '#d8b4fe',
+            outline: '#7e22ce'
+          }
+        }
+      }
+    };
+  </script>
+</head>
+<body class="bg-surface text-on-surface h-full flex flex-col font-sans selection:bg-primary selection:text-white">
+
+  <!-- Desktop App Shell Layout -->
+  <div class="flex h-full overflow-hidden">
+    <!-- Sidebar Navigation -->
+    <aside class="w-64 bg-surface-container-low border-r border-purple-900/30 flex flex-col flex-shrink-0 z-30">
+      <div class="p-4 flex items-center justify-between border-b border-purple-900/30">
+        <a href="/admin/anktech/anktech/admin/overview" class="flex items-center gap-2.5">
+          <div class="w-8 h-8 rounded-xl bg-gradient-to-tr from-primary to-secondary flex items-center justify-center text-white shadow-lg shadow-purple-500/20">
+            <span class="material-symbols-outlined text-[20px]">auto_awesome</span>
+          </div>
+          <div>
+            <div class="text-sm font-bold tracking-tight text-white">WishMagic</div>
+            <div class="text-[10px] text-on-surface-variant font-mono">ADMIN STUDIO</div>
+          </div>
+        </a>
+      </div>
+
+      <nav class="flex-1 overflow-y-auto p-3 space-y-1 text-xs font-semibold">
+        <a class="flex items-center gap-2.5 px-3 py-2 rounded-xl text-on-surface-variant hover:bg-surface-container-high transition" href="/admin/anktech/anktech/admin/overview">
+          <span class="material-symbols-outlined text-base">dashboard</span>
+          <span>Overview</span>
+        </a>
+        <a class="flex items-center gap-2.5 px-3 py-2 rounded-xl bg-primary/20 text-primary font-bold transition" href="/admin/anktech/anktech/admin/search">
+          <span class="material-symbols-outlined text-base">manage_search</span>
+          <span class="flex-1">Search & Discovery</span>
+          <span class="px-1.5 py-0.5 rounded-full bg-primary text-white text-[9px] font-black">Part 39</span>
+        </a>
+        <a class="flex items-center gap-2.5 px-3 py-2 rounded-xl text-on-surface-variant hover:bg-surface-container-high transition" href="/admin/anktech/anktech/admin/templates">
+          <span class="material-symbols-outlined text-base">style</span>
+          <span>Templates Manager</span>
+        </a>
+        <a class="flex items-center gap-2.5 px-3 py-2 rounded-xl text-on-surface-variant hover:bg-surface-container-high transition" href="/admin/anktech/anktech/admin/analytics">
+          <span class="material-symbols-outlined text-base">insights</span>
+          <span>Analytics & BI</span>
+        </a>
+        <a class="flex items-center gap-2.5 px-3 py-2 rounded-xl text-on-surface-variant hover:bg-surface-container-high transition" href="/admin/anktech/anktech/admin/legal">
+          <span class="material-symbols-outlined text-base">gavel</span>
+          <span>Legal & Compliance</span>
+        </a>
+        <a class="flex items-center gap-2.5 px-3 py-2 rounded-xl text-on-surface-variant hover:bg-surface-container-high transition" href="/admin/anktech/anktech/admin/referrals">
+          <span class="material-symbols-outlined text-base">loyalty</span>
+          <span>Referrals & Rewards</span>
+        </a>
+        <a class="flex items-center gap-2.5 px-3 py-2 rounded-xl text-on-surface-variant hover:bg-surface-container-high transition" href="/admin/anktech/anktech/admin/support">
+          <span class="material-symbols-outlined text-base">support_agent</span>
+          <span>Support Desk</span>
+        </a>
+        <a class="flex items-center gap-2.5 px-3 py-2 rounded-xl text-on-surface-variant hover:bg-surface-container-high transition" href="/admin/anktech/anktech/admin/settings">
+          <span class="material-symbols-outlined text-base">settings</span>
+          <span>Settings</span>
+        </a>
+      </nav>
+
+      <div class="p-3 border-t border-purple-900/30 flex items-center justify-between text-[11px] text-on-surface-variant">
+        <span>WishMagic Search Engine</span>
+        <span class="px-2 py-0.5 rounded-full bg-purple-900/40 font-mono text-purple-300">v1.39</span>
+      </div>
+    </aside>
+
+    <!-- Main Content Area -->
+    <main class="flex-1 flex flex-col h-full overflow-hidden bg-surface">
+      <!-- Top Bar -->
+      <header class="h-14 border-b border-purple-900/30 bg-surface-container-low px-6 flex items-center justify-between flex-shrink-0">
+        <div class="flex items-center gap-3">
+          <h1 class="text-base font-bold text-white flex items-center gap-2">
+            <span class="material-symbols-outlined text-primary text-xl">manage_search</span>
+            Search & Discovery Engine Diagnostics
+          </h1>
+          <span class="px-2.5 py-0.5 rounded-full bg-emerald-500/10 text-emerald-400 border border-emerald-500/20 text-[10px] font-bold">LIVE TELEMETRY</span>
+        </div>
+
+        <div class="flex items-center gap-3">
+          <button onclick="triggerReindex()" id="reindex-btn" class="px-3 py-1.5 rounded-xl bg-surface-container-high hover:bg-surface-container-highest text-xs font-semibold text-on-surface border border-purple-500/20 flex items-center gap-1.5 transition">
+            <span class="material-symbols-outlined text-sm">cached</span>
+            <span>Rebuild Index</span>
+          </button>
+          <a href="/marketplace.html" target="_blank" class="px-3 py-1.5 rounded-xl bg-primary hover:bg-purple-600 text-xs font-bold text-white flex items-center gap-1.5 transition shadow-lg shadow-purple-500/20">
+            <span class="material-symbols-outlined text-sm">open_in_new</span>
+            <span>Live Marketplace</span>
+          </a>
+        </div>
+      </header>
+
+      <!-- Scrollable Dashboard Content -->
+      <div class="flex-1 overflow-y-auto p-6 space-y-6">
+        <!-- 1. Stats Overview Cards -->
+        <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+          <div class="bg-surface-container rounded-2xl p-4 border border-purple-900/30">
+            <div class="flex items-center justify-between text-on-surface-variant text-xs mb-2">
+              <span>Total Searches (30d)</span>
+              <span class="material-symbols-outlined text-primary text-base">search</span>
+            </div>
+            <div class="text-2xl font-black text-white" id="stat-total-searches">--</div>
+            <div class="text-[11px] text-on-surface-variant mt-1">Platform-wide query volume</div>
+          </div>
+
+          <div class="bg-surface-container rounded-2xl p-4 border border-purple-900/30">
+            <div class="flex items-center justify-between text-on-surface-variant text-xs mb-2">
+              <span>Zero-Result Queries</span>
+              <span class="material-symbols-outlined text-amber-400 text-base">search_off</span>
+            </div>
+            <div class="text-2xl font-black text-amber-300" id="stat-zero-results">--</div>
+            <div class="text-[11px] text-on-surface-variant mt-1" id="stat-zero-rate">--% of total searches</div>
+          </div>
+
+          <div class="bg-surface-container rounded-2xl p-4 border border-purple-900/30">
+            <div class="flex items-center justify-between text-on-surface-variant text-xs mb-2">
+              <span>Click-Through Rate</span>
+              <span class="material-symbols-outlined text-emerald-400 text-base">ads_click</span>
+            </div>
+            <div class="text-2xl font-black text-emerald-300" id="stat-ctr">--%</div>
+            <div class="text-[11px] text-on-surface-variant mt-1">Users selecting a result</div>
+          </div>
+
+          <div class="bg-surface-container rounded-2xl p-4 border border-purple-900/30">
+            <div class="flex items-center justify-between text-on-surface-variant text-xs mb-2">
+              <span>Indexed Entities</span>
+              <span class="material-symbols-outlined text-secondary text-base">data_object</span>
+            </div>
+            <div class="text-2xl font-black text-white" id="stat-indexed-count">--</div>
+            <div class="text-[11px] text-on-surface-variant mt-1">Templates, Audio, Articles</div>
+          </div>
+        </div>
+
+        <!-- 2. Interactive Search Simulator / Diagnostic Tester -->
+        <div class="bg-surface-container rounded-2xl p-5 border border-purple-900/30">
+          <div class="flex items-center justify-between mb-3">
+            <div>
+              <h2 class="text-sm font-bold text-white flex items-center gap-2">
+                <span class="material-symbols-outlined text-primary text-lg">science</span>
+                Live Query Relevance Simulator
+              </h2>
+              <p class="text-xs text-on-surface-variant">Type any term or synonym to inspect scoring breakdown, matched tokens, and ranking weights.</p>
+            </div>
+          </div>
+
+          <div class="flex gap-2 mb-4">
+            <div class="relative flex-1">
+              <span class="material-symbols-outlined absolute left-3.5 top-2.5 text-on-surface-variant text-base">search</span>
+              <input type="text" id="sim-query-input" placeholder="Try 'girlfriend', 'bday 3d', 'countdown', 'photo polaroid'..."
+                     class="w-full bg-surface-container-high border border-purple-900/40 rounded-xl pl-10 pr-4 py-2 text-xs text-white placeholder-on-surface-variant/50 focus:outline-none focus:border-primary"
+                     onkeydown="if(event.key==='Enter') runSearchSimulator()"/>
+            </div>
+            <button onclick="runSearchSimulator()" class="px-4 py-2 bg-primary hover:bg-purple-600 text-white rounded-xl text-xs font-bold transition flex items-center gap-1.5">
+              <span>Simulate</span>
+              <span class="material-symbols-outlined text-sm">play_arrow</span>
+            </button>
+          </div>
+
+          <!-- Simulator Results Container -->
+          <div id="sim-results" class="hidden space-y-3 pt-3 border-t border-purple-900/30">
+            <div class="flex flex-wrap items-center gap-2 text-xs" id="sim-meta-tags"></div>
+            <div id="sim-items-list" class="space-y-2"></div>
+          </div>
+        </div>
+
+        <!-- 3. Tables Grid: Zero-Results & Top Searches -->
+        <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
+          <!-- Zero-Result Queries: Actionable Creator Insights -->
+          <div class="bg-surface-container rounded-2xl p-5 border border-purple-900/30 flex flex-col">
+            <div class="flex items-center justify-between mb-3">
+              <div>
+                <h2 class="text-sm font-bold text-white flex items-center gap-2">
+                  <span class="material-symbols-outlined text-amber-400 text-base">report_problem</span>
+                  Zero-Result Queries
+                </h2>
+                <p class="text-[11px] text-on-surface-variant">Searches that found no templates. Use this to discover high-demand occasions.</p>
+              </div>
+            </div>
+
+            <div class="flex-1 overflow-x-auto">
+              <table class="w-full text-left text-xs">
+                <thead>
+                  <tr class="border-b border-purple-900/30 text-[10px] text-on-surface-variant uppercase tracking-wider">
+                    <th class="py-2 px-3">Search Query</th>
+                    <th class="py-2 px-3 text-right">Attempts</th>
+                    <th class="py-2 px-3 text-right">Actions</th>
+                  </tr>
+                </thead>
+                <tbody id="zero-results-tbody" class="divide-y divide-purple-900/20">
+                  <tr>
+                    <td colspan="3" class="py-6 text-center text-on-surface-variant">Loading zero-result telemetry...</td>
+                  </tr>
+                </tbody>
+              </table>
+            </div>
+          </div>
+
+          <!-- Top Trending Searches -->
+          <div class="bg-surface-container rounded-2xl p-5 border border-purple-900/30 flex flex-col">
+            <div class="flex items-center justify-between mb-3">
+              <div>
+                <h2 class="text-sm font-bold text-white flex items-center gap-2">
+                  <span class="material-symbols-outlined text-primary text-base">trending_up</span>
+                  Top Search Terms
+                </h2>
+                <p class="text-[11px] text-on-surface-variant">Most frequently queried terms across mobile and desktop visitors.</p>
+              </div>
+            </div>
+
+            <div class="flex-1 overflow-x-auto">
+              <table class="w-full text-left text-xs">
+                <thead>
+                  <tr class="border-b border-purple-900/30 text-[10px] text-on-surface-variant uppercase tracking-wider">
+                    <th class="py-2 px-3">Term</th>
+                    <th class="py-2 px-3 text-right">Searches</th>
+                    <th class="py-2 px-3 text-right">Intent</th>
+                  </tr>
+                </thead>
+                <tbody id="top-searches-tbody" class="divide-y divide-purple-900/20">
+                  <tr>
+                    <td colspan="3" class="py-6 text-center text-on-surface-variant">Loading search analytics...</td>
+                  </tr>
+                </tbody>
+              </table>
+            </div>
+          </div>
+        </div>
+
+        <!-- 4. Synonyms, Aliases & Keyword Boosts Manager -->
+        <div class="bg-surface-container rounded-2xl p-5 border border-purple-900/30">
+          <div class="flex items-center justify-between mb-4">
+            <div>
+              <h2 class="text-sm font-bold text-white flex items-center gap-2">
+                <span class="material-symbols-outlined text-secondary text-base">shuffle</span>
+                Synonyms & Query Expansion Rules
+              </h2>
+              <p class="text-xs text-on-surface-variant">Map regional slang and colloquial terms (e.g., 'bday', 'janamdin', 'salgirah') to canonical templates.</p>
+            </div>
+            <button onclick="openAddSynonymModal()" class="px-3 py-1.5 bg-secondary hover:bg-pink-600 text-white rounded-xl text-xs font-bold flex items-center gap-1.5 transition">
+              <span class="material-symbols-outlined text-sm">add</span>
+              <span>Add Synonym Rule</span>
+            </button>
+          </div>
+
+          <div class="overflow-x-auto">
+            <table class="w-full text-left text-xs">
+              <thead>
+                <tr class="border-b border-purple-900/30 text-[10px] text-on-surface-variant uppercase tracking-wider">
+                  <th class="py-2.5 px-3">Keyword</th>
+                  <th class="py-2.5 px-3">Expanded Synonyms</th>
+                  <th class="py-2.5 px-3">Boost Weight</th>
+                  <th class="py-2.5 px-3">Status</th>
+                  <th class="py-2.5 px-3 text-right">Actions</th>
+                </tr>
+              </thead>
+              <tbody id="synonyms-tbody" class="divide-y divide-purple-900/20">
+                <tr>
+                  <td colspan="5" class="py-4 text-center text-on-surface-variant">Loading synonym rules...</td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+        </div>
+
+      </div>
+    </main>
+  </div>
+
+  <!-- Add Synonym Modal -->
+  <div id="synonym-modal" class="fixed inset-0 z-50 bg-black/70 backdrop-blur-sm hidden items-center justify-center p-4">
+    <div class="bg-surface-container rounded-2xl border border-purple-500/30 p-6 max-w-md w-full shadow-2xl">
+      <h3 class="text-sm font-bold text-white mb-2 flex items-center gap-2">
+        <span class="material-symbols-outlined text-secondary">add_circle</span>
+        Add Synonym & Boost Rule
+      </h3>
+      <p class="text-xs text-on-surface-variant mb-4">Users searching for any synonym will discover results matching the target keyword.</p>
+
+      <form id="synonym-form" onsubmit="handleSaveSynonym(event)" class="space-y-3">
+        <div>
+          <label class="block text-[11px] font-bold text-on-surface-variant mb-1">Target Keyword / Canonical Concept</label>
+          <input type="text" id="syn-keyword" required placeholder="e.g. birthday" class="w-full bg-surface-container-high border border-purple-900/50 rounded-xl px-3 py-2 text-xs text-white focus:outline-none focus:border-primary"/>
+        </div>
+
+        <div>
+          <label class="block text-[11px] font-bold text-on-surface-variant mb-1">Synonyms (Comma-separated)</label>
+          <input type="text" id="syn-list" required placeholder="e.g. bday, janamdin, birthday bash, salgirah" class="w-full bg-surface-container-high border border-purple-900/50 rounded-xl px-3 py-2 text-xs text-white focus:outline-none focus:border-primary"/>
+        </div>
+
+        <div>
+          <label class="block text-[11px] font-bold text-on-surface-variant mb-1">Relevance Boost Weight</label>
+          <select id="syn-boost" class="w-full bg-surface-container-high border border-purple-900/50 rounded-xl px-3 py-2 text-xs text-white focus:outline-none focus:border-primary">
+            <option value="1.2">1.2x (Subtle)</option>
+            <option value="1.5" selected>1.5x (Recommended Standard)</option>
+            <option value="2.0">2.0x (High Priority)</option>
+            <option value="3.0">3.0x (Maximum Promoted Boost)</option>
+          </select>
+        </div>
+
+        <div class="pt-3 flex items-center justify-end gap-2">
+          <button type="button" onclick="closeAddSynonymModal()" class="px-4 py-2 rounded-xl bg-surface-container-high text-xs font-semibold text-on-surface hover:bg-surface-container-highest transition">Cancel</button>
+          <button type="submit" class="px-4 py-2 rounded-xl bg-secondary hover:bg-pink-600 text-xs font-bold text-white transition">Save Rule</button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <script>
+    // Initialize Dashboard
+    document.addEventListener('DOMContentLoaded', () => {
+      loadSearchDiagnostics();
+      loadSynonymsList();
+    });
+
+    async function loadSearchDiagnostics() {
+      try {
+        const res = await fetch('/api/admin/search/analytics');
+        const data = await res.json();
+        if (!data.success) return;
+
+        const diag = data.diagnostics || {};
+
+        document.getElementById('stat-total-searches').textContent = (diag.totalSearches || 0).toLocaleString();
+        document.getElementById('stat-zero-results').textContent = (diag.zeroResultCount || 0).toLocaleString();
+        document.getElementById('stat-zero-rate').textContent = `${diag.zeroResultRate || 0}% zero-match rate`;
+        document.getElementById('stat-ctr').textContent = `${diag.clickThroughRate || 0}%`;
+        document.getElementById('stat-indexed-count').textContent = data.totalIndexed || 12;
+
+        renderZeroResults(diag.topZeroResultQueries || []);
+        renderTopSearches(diag.topSearches || []);
+      } catch (err) {
+        console.error('Error loading search diagnostics:', err);
+      }
+    }
+
+    function renderZeroResults(queries) {
+      const tbody = document.getElementById('zero-results-tbody');
+      if (!tbody) return;
+
+      if (queries.length === 0) {
+        tbody.innerHTML = `
+          <tr>
+            <td colspan="3" class="py-6 text-center text-emerald-400 text-xs">
+              <span class="material-symbols-outlined text-base align-middle mr-1">check_circle</span>
+              All recent customer queries returned matching celebration blueprints!
+            </td>
+          </tr>
+        `;
+        return;
+      }
+
+      tbody.innerHTML = queries.map(q => `
+        <tr class="hover:bg-surface-container-high/40 transition">
+          <td class="py-2.5 px-3 font-semibold text-amber-200">"${escapeHtml(q.query)}"</td>
+          <td class="py-2.5 px-3 text-right font-mono font-bold">${q.count}</td>
+          <td class="py-2.5 px-3 text-right">
+            <button onclick="quickAddSynonym('${escapeHtml(q.query)}')" class="px-2 py-1 rounded-lg bg-primary/20 text-primary hover:bg-primary/30 text-[10px] font-bold transition">
+              Map Synonym
+            </button>
+          </td>
+        </tr>
+      `).join('');
+    }
+
+    function renderTopSearches(searches) {
+      const tbody = document.getElementById('top-searches-tbody');
+      if (!tbody) return;
+
+      if (searches.length === 0) {
+        tbody.innerHTML = `
+          <tr>
+            <td colspan="3" class="py-6 text-center text-on-surface-variant text-xs">No query activity recorded yet.</td>
+          </tr>
+        `;
+        return;
+      }
+
+      tbody.innerHTML = searches.map(s => `
+        <tr class="hover:bg-surface-container-high/40 transition">
+          <td class="py-2.5 px-3 font-medium text-white">${escapeHtml(s.query)}</td>
+          <td class="py-2.5 px-3 text-right font-mono font-bold text-primary">${s.count}</td>
+          <td class="py-2.5 px-3 text-right">
+            <span class="px-2 py-0.5 rounded-full bg-purple-500/15 text-purple-300 text-[10px] font-semibold">High Intent</span>
+          </td>
+        </tr>
+      `).join('');
+    }
+
+    async function loadSynonymsList() {
+      try {
+        const res = await fetch('/api/admin/search/synonyms');
+        const data = await res.json();
+        const tbody = document.getElementById('synonyms-tbody');
+        if (!tbody) return;
+
+        if (!data.success || !data.synonyms || data.synonyms.length === 0) {
+          tbody.innerHTML = `
+            <tr>
+              <td colspan="5" class="py-4 text-center text-on-surface-variant">Default built-in synonyms active (bday, gf, bf, dost, audio, etc.).</td>
+            </tr>
+          `;
+          return;
+        }
+
+        tbody.innerHTML = data.synonyms.map(syn => {
+          const words = Array.isArray(syn.synonyms) ? syn.synonyms : [];
+          return `
+            <tr class="hover:bg-surface-container-high/40 transition">
+              <td class="py-2.5 px-3 font-bold text-primary">${escapeHtml(syn.keyword)}</td>
+              <td class="py-2.5 px-3 text-on-surface-variant font-mono text-[11px]">${words.map(w => `<span class="bg-surface-container-high px-1.5 py-0.5 rounded mr-1">${escapeHtml(w)}</span>`).join('')}</td>
+              <td class="py-2.5 px-3 font-mono font-bold">${syn.boostWeight || 1.5}x</td>
+              <td class="py-2.5 px-3">
+                <span class="px-2 py-0.5 rounded-full text-[10px] font-bold bg-emerald-500/20 text-emerald-400">ACTIVE</span>
+              </td>
+              <td class="py-2.5 px-3 text-right">
+                <button onclick="deleteSynonym('${syn.id}')" class="text-rose-400 hover:text-rose-300 text-xs font-bold transition">Delete</button>
+              </td>
+            </tr>
+          `;
+        }).join('');
+      } catch (err) {
+        console.error('Error loading synonyms:', err);
+      }
+    }
+
+    async function runSearchSimulator() {
+      const q = document.getElementById('sim-query-input').value.trim();
+      if (!q) return;
+
+      const container = document.getElementById('sim-results');
+      const tagsEl = document.getElementById('sim-meta-tags');
+      const listEl = document.getElementById('sim-items-list');
+
+      container.classList.remove('hidden');
+      listEl.innerHTML = '<div class="p-3 text-center text-xs text-on-surface-variant">Running relevance calculation...</div>';
+
+      try {
+        const res = await fetch(`/api/search?q=${encodeURIComponent(q)}&sort=trending&limit=5`);
+        const data = await res.json();
+
+        tagsEl.innerHTML = `
+          <span class="px-2.5 py-1 rounded-lg bg-primary/20 text-primary font-bold">Query: "${escapeHtml(data.query)}"</span>
+          <span class="px-2.5 py-1 rounded-lg bg-surface-container-high text-on-surface font-mono">Matched: ${data.total} results</span>
+          <span class="px-2.5 py-1 rounded-lg bg-surface-container-high text-on-surface font-mono">Type: ${data.type}</span>
+        `;
+
+        if (!data.templates || data.templates.items.length === 0) {
+          listEl.innerHTML = `
+            <div class="p-4 rounded-xl bg-amber-500/10 border border-amber-500/20 text-amber-300 text-xs">
+              Zero exact blueprint matches for "${escapeHtml(q)}". Alternative recommendations were triggered.
+            </div>
+          `;
+          return;
+        }
+
+        listEl.innerHTML = data.templates.items.map((t, idx) => `
+          <div class="p-3 rounded-xl bg-surface-container-high flex items-center justify-between border border-purple-900/30 text-xs">
+            <div class="flex items-center gap-3">
+              <span class="w-6 h-6 rounded-full bg-purple-500/20 text-purple-300 flex items-center justify-center font-mono font-bold text-[11px]">#${idx+1}</span>
+              <div>
+                <div class="font-bold text-white flex items-center gap-2">
+                  <span>${t.name}</span>
+                  <span class="px-2 py-0.2 rounded text-[10px] font-bold ${t.isPremium ? 'bg-amber-400 text-purple-950' : 'bg-emerald-500 text-white'}">${t.isPremium ? 'VIP' : 'FREE'}</span>
+                </div>
+                <div class="text-[11px] text-on-surface-variant mt-0.5">Category: ${t.category} • Relationships: ${(t.relationships || []).slice(0,3).join(', ')}</div>
+              </div>
+            </div>
+            <div class="text-right">
+              <span class="px-2 py-1 rounded-lg bg-purple-900/40 text-purple-300 font-mono text-[10px] font-bold">Relevance Score: ${Math.round(t.relevanceScore || 100)}</span>
+            </div>
+          </div>
+        `).join('');
+      } catch (err) {
+        listEl.innerHTML = `<div class="p-3 text-rose-400 text-xs">Error running simulation: ${err.message}</div>`;
+      }
+    }
+
+    async function triggerReindex() {
+      const btn = document.getElementById('reindex-btn');
+      btn.disabled = true;
+      btn.innerHTML = `<span class="material-symbols-outlined text-sm animate-spin">progress_activity</span><span>Reindexing...</span>`;
+
+      try {
+        const res = await fetch('/api/admin/search/reindex', { method: 'POST' });
+        const data = await res.json();
+        if (data.success) {
+          alert(`Search index rebuilt successfully! Total entities: ${data.totalIndexed}`);
+          loadSearchDiagnostics();
+        } else {
+          alert('Failed: ' + data.message);
+        }
+      } catch (e) {
+        alert('Network error during reindex');
+      } finally {
+        btn.disabled = false;
+        btn.innerHTML = `<span class="material-symbols-outlined text-sm">cached</span><span>Rebuild Index</span>`;
+      }
+    }
+
+    function openAddSynonymModal() {
+      document.getElementById('synonym-modal').classList.remove('hidden');
+      document.getElementById('synonym-modal').classList.add('flex');
+    }
+
+    function closeAddSynonymModal() {
+      document.getElementById('synonym-modal').classList.add('hidden');
+      document.getElementById('synonym-modal').classList.remove('flex');
+    }
+
+    function quickAddSynonym(term) {
+      document.getElementById('syn-list').value = term;
+      document.getElementById('syn-keyword').value = '';
+      openAddSynonymModal();
+    }
+
+    async function handleSaveSynonym(e) {
+      e.preventDefault();
+      const keyword = document.getElementById('syn-keyword').value.trim();
+      const listStr = document.getElementById('syn-list').value.trim();
+      const boost = parseFloat(document.getElementById('syn-boost').value) || 1.5;
+
+      const synonyms = listStr.split(',').map(s => s.trim()).filter(Boolean);
+
+      try {
+        const res = await fetch('/api/admin/search/synonyms', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ keyword, synonyms, boostWeight: boost })
+        });
+        const data = await res.json();
+        if (data.success) {
+          closeAddSynonymModal();
+          loadSynonymsList();
+        } else {
+          alert(data.message || 'Error saving rule');
+        }
+      } catch (err) {
+        alert('Failed to save synonym');
+      }
+    }
+
+    async function deleteSynonym(id) {
+      if (!confirm('Are you sure you want to delete this synonym rule?')) return;
+      try {
+        const res = await fetch(`/api/admin/search/synonyms/${encodeURIComponent(id)}`, { method: 'DELETE' });
+        const data = await res.json();
+        if (data.success) {
+          loadSynonymsList();
+        }
+      } catch (err) {
+        alert('Failed to delete');
+      }
+    }
+
+    function escapeHtml(str) {
+      if (!str) return '';
+      return String(str).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
+    }
+  </script>
+</body>
+</html>

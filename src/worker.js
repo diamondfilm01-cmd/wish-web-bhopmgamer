@@ -198,6 +198,32 @@ import {
   getProgramConfig as getReferralProgramConfig,
   validateCustomReferralSlug
 } from './referral-engine.js';
+import {
+  SEARCH_ENTITY_TYPES,
+  SORT_OPTIONS,
+  TIER_FILTERS,
+  SUPPORTED_FEATURES,
+  DEFAULT_SYNONYMS,
+  normalizeQuery,
+  tokenizeQuery,
+  expandQueryTokens,
+  extractTemplateFeatures,
+  createTemplateSearchDocument,
+  createMusicSearchDocument,
+  createArticleSearchDocument,
+  calculateRelevanceScore,
+  escapeHtml,
+  generateSafeHighlights,
+  filterAndSortTemplates,
+  computeFacets,
+  executeGlobalSearch,
+  generateSearchSuggestions,
+  findRelatedTemplates,
+  findAlternativeSuggestions,
+  hashClientIp as hashSearchClientIp,
+  createSearchAnalyticsRecord,
+  computeSearchDiagnostics
+} from './search-discovery-engine.js';
 
 
 // Timezone Constant: Strictly Asia/Kolkata (IST = UTC+05:30)
@@ -366,6 +392,8 @@ const PRETTY_ROUTES = {
   '/admin/anktech/anktech/admin/legal/': '/admin-legal.html',
   '/admin/anktech/anktech/admin/compliance': '/admin-legal.html',
   '/admin/anktech/anktech/admin/compliance/': '/admin-legal.html',
+  '/admin/anktech/anktech/admin/search': '/admin-search.html',
+  '/admin/anktech/anktech/admin/search/': '/admin-search.html',
   '/legal': '/legal.html',
   '/legal/': '/legal.html',
   '/terms': '/legal.html',
@@ -12166,6 +12194,318 @@ export default {
         };
 
         response = jsonSuccess({ diagnostic }, 200, {}, requestId);
+      }
+
+      // ============================================================================
+      // PART 39: GLOBAL SEARCH, TEMPLATE DISCOVERY & SEARCH ANALYTICS (WORKER / D1)
+      // ============================================================================
+
+      // 1. Unified Global Search
+      else if (pathname === '/api/search' && method === 'GET') {
+        const startTime = Date.now();
+        const q = url.searchParams.get('q') || '';
+        const type = url.searchParams.get('type') || SEARCH_ENTITY_TYPES.ALL;
+        const category = url.searchParams.get('category') || 'all';
+        const relationship = url.searchParams.get('relationship') || 'all';
+        const tier = url.searchParams.get('tier') || 'all';
+        const featParam = url.searchParams.get('features');
+        const features = featParam ? featParam.split(',') : [];
+        const sort = url.searchParams.get('sort') || SORT_OPTIONS.TRENDING;
+        const page = parseInt(url.searchParams.get('page') || '1', 10);
+        const limit = parseInt(url.searchParams.get('limit') || '20', 10);
+
+        let templates = SEED_TEMPLATES;
+        if (env.DB && typeof env.DB.prepare === 'function') {
+          try {
+            const rows = await env.DB.prepare('SELECT * FROM templates WHERE is_published = 1').all();
+            if (rows.results && rows.results.length > 0) {
+              templates = rows.results.map(r => ({
+                id: r.id,
+                slug: r.slug,
+                name: r.name,
+                category: r.category,
+                tier: r.tier,
+                price: r.price,
+                isPremium: Boolean(r.is_premium),
+                isPublished: Boolean(r.is_published),
+                status: r.status,
+                featured: Boolean(r.featured),
+                thumbnail: r.thumbnail,
+                description: r.description,
+                folder: r.folder,
+                entryFile: r.entry_file
+              }));
+            }
+          } catch (e) {}
+        }
+
+        const musicLibrary = [
+          { id: 'mus_celebration_strings', title: 'Celebration Acoustic Strings', artist: 'WishMagic Ensemble', category: 'celebration', storageProvider: 'b2', playbackUrl: 'https://assets.wishmagic.live/music/celebration-strings.mp3', status: 'active', isFeatured: 1 },
+          { id: 'mus_romantic_piano', title: 'Romantic Midnight Piano', artist: 'WishMagic Serenades', category: 'romantic', storageProvider: 'b2', playbackUrl: 'https://assets.wishmagic.live/music/romantic-piano.mp3', status: 'active', isFeatured: 1 },
+          { id: 'mus_golden_elegance', title: 'Golden Nostalgia & Acoustic Cello', artist: 'WishMagic Classical', category: 'peaceful', storageProvider: 'b2', playbackUrl: 'https://assets.wishmagic.live/music/golden-nostalgia.mp3', status: 'active', isFeatured: 1 }
+        ];
+
+        const helpArticles = DEFAULT_HELP_ARTICLES || [];
+
+        // Fetch custom synonyms from D1 if available
+        let customSynonyms = {};
+        if (env.DB && typeof env.DB.prepare === 'function') {
+          try {
+            const synRows = await env.DB.prepare('SELECT keyword, synonyms_json FROM search_synonyms_keywords WHERE is_active = 1').all();
+            if (synRows.results) {
+              synRows.results.forEach(sr => {
+                try { customSynonyms[sr.keyword.toLowerCase()] = JSON.parse(sr.synonyms_json); } catch (e) {}
+              });
+            }
+          } catch (e) {}
+        }
+
+        const searchResult = executeGlobalSearch({
+          query: q,
+          type,
+          category,
+          relationship,
+          tier,
+          features,
+          sort,
+          page,
+          limit,
+          templates,
+          musicLibrary,
+          helpArticles,
+          customSynonyms
+        });
+
+        const executionTimeMs = Date.now() - startTime;
+
+        // Telemetry logging in D1
+        if (q && q.trim() && env.DB && typeof env.DB.prepare === 'function') {
+          try {
+            const user = await getAuthenticatedUser(request, env).catch(() => null);
+            const clientIp = request.headers.get('cf-connecting-ip') || '';
+            const userAgent = request.headers.get('user-agent') || '';
+            const logRec = createSearchAnalyticsRecord({
+              query: q.trim(),
+              searchType: type,
+              filters: { category, relationship, tier, features, sort },
+              resultCount: searchResult.total,
+              userId: user ? user.id : null,
+              sessionId: request.headers.get('x-session-id') || null,
+              ip: clientIp,
+              userAgent,
+              executionTimeMs
+            });
+
+            await env.DB.prepare(`
+              INSERT INTO search_analytics (id, query, normalized_query, search_type, filters_json, result_count, has_results, user_id, anonymous_session_id, ip_hash, user_agent, execution_time_ms, created_at)
+              VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+            `).bind(
+              logRec.id, logRec.query, logRec.normalized_query, logRec.search_type, logRec.filters_json,
+              logRec.result_count, logRec.has_results, logRec.user_id, logRec.anonymous_session_id,
+              logRec.ip_hash, logRec.user_agent, logRec.execution_time_ms, logRec.created_at
+            ).run().catch(() => {});
+          } catch (e) {}
+        }
+
+        response = jsonSuccess(searchResult, 200, {}, requestId);
+      }
+
+      // 2. Search Suggestions Auto-complete
+      else if (pathname === '/api/search/suggestions' && method === 'GET') {
+        const q = url.searchParams.get('q') || '';
+        let templates = SEED_TEMPLATES;
+        if (env.DB && typeof env.DB.prepare === 'function') {
+          try {
+            const rows = await env.DB.prepare('SELECT * FROM templates WHERE is_published = 1 LIMIT 50').all();
+            if (rows.results && rows.results.length > 0) templates = rows.results;
+          } catch (e) {}
+        }
+
+        const musicLibrary = [
+          { id: 'mus_celebration_strings', title: 'Celebration Acoustic Strings', artist: 'WishMagic Ensemble' },
+          { id: 'mus_romantic_piano', title: 'Romantic Midnight Piano', artist: 'WishMagic Serenades' }
+        ];
+
+        const suggestions = generateSearchSuggestions({
+          query: q,
+          templates,
+          musicLibrary,
+          helpArticles: DEFAULT_HELP_ARTICLES || [],
+          limit: 8
+        });
+
+        response = jsonSuccess(suggestions, 200, {}, requestId);
+      }
+
+      // 3. Search Result Click Telemetry
+      else if (pathname === '/api/search/analytics/click' && method === 'POST') {
+        const body = await request.json().catch(() => ({}));
+        const { entityId, entityType, query } = body;
+        if (entityId && env.DB && typeof env.DB.prepare === 'function') {
+          try {
+            const user = await getAuthenticatedUser(request, env).catch(() => null);
+            const clientIp = request.headers.get('cf-connecting-ip') || '';
+            const logRec = createSearchAnalyticsRecord({
+              query: query || '',
+              searchType: entityType || 'click',
+              selectedEntityId: entityId,
+              selectedEntityType: entityType || 'template',
+              resultCount: 1,
+              userId: user ? user.id : null,
+              ip: clientIp,
+              userAgent: request.headers.get('user-agent') || ''
+            });
+
+            await env.DB.prepare(`
+              INSERT INTO search_analytics (id, query, normalized_query, search_type, filters_json, result_count, has_results, selected_entity_id, selected_entity_type, user_id, ip_hash, user_agent, created_at)
+              VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+            `).bind(
+              logRec.id, logRec.query, logRec.normalized_query, logRec.search_type, logRec.filters_json,
+              1, 1, logRec.selected_entity_id, logRec.selected_entity_type, logRec.user_id, logRec.ip_hash,
+              logRec.user_agent, logRec.created_at
+            ).run().catch(() => {});
+          } catch (e) {}
+        }
+        response = jsonSuccess({ recorded: true }, 200, {}, requestId);
+      }
+
+      // 4. Related & Alternative Templates
+      else if (pathname === '/api/search/related' && method === 'GET') {
+        const templateId = url.searchParams.get('templateId');
+        const limit = parseInt(url.searchParams.get('limit') || '4', 10);
+        let templates = SEED_TEMPLATES;
+        if (env.DB && typeof env.DB.prepare === 'function') {
+          try {
+            const rows = await env.DB.prepare('SELECT * FROM templates WHERE is_published = 1').all();
+            if (rows.results && rows.results.length > 0) templates = rows.results;
+          } catch (e) {}
+        }
+
+        const target = templates.find(t => t.id === templateId || t.slug === templateId);
+        if (!target) {
+          response = jsonError('NOT_FOUND', 'Template not found', 404, {}, null, requestId);
+        } else {
+          const related = findRelatedTemplates(target, templates, { limit });
+          response = jsonSuccess({ templateId: target.id, related }, 200, {}, requestId);
+        }
+      }
+
+      // 5. Admin Search Analytics
+      else if (pathname === '/api/admin/search/analytics' && method === 'GET') {
+        const user = await getAuthenticatedUser(request, env);
+        if (!user) return applySecurityHeaders(jsonError('AUTH_REQUIRED', 'Authentication required', 401), request, env);
+        const isAdmin = await verifyAdminRole(user, env);
+        if (!isAdmin) return applySecurityHeaders(jsonError('FORBIDDEN', 'Admin role required', 403), request, env);
+
+        const days = parseInt(url.searchParams.get('days') || '30', 10);
+        let logs = [];
+        if (env.DB && typeof env.DB.prepare === 'function') {
+          try {
+            const rows = await env.DB.prepare('SELECT * FROM search_analytics ORDER BY created_at DESC LIMIT 500').all();
+            if (rows.results) logs = rows.results;
+          } catch (e) {}
+        }
+
+        const diagnostics = computeSearchDiagnostics(logs, days);
+        response = jsonSuccess({ diagnostics, totalIndexed: SEED_TEMPLATES.length + 3 + (DEFAULT_HELP_ARTICLES || []).length, timeframeDays: days }, 200, {}, requestId);
+      }
+
+      // 6. Admin Search Synonyms List
+      else if (pathname === '/api/admin/search/synonyms' && method === 'GET') {
+        const user = await getAuthenticatedUser(request, env);
+        if (!user) return applySecurityHeaders(jsonError('AUTH_REQUIRED', 'Authentication required', 401), request, env);
+        const isAdmin = await verifyAdminRole(user, env);
+        if (!isAdmin) return applySecurityHeaders(jsonError('FORBIDDEN', 'Admin role required', 403), request, env);
+
+        let synonyms = [];
+        if (env.DB && typeof env.DB.prepare === 'function') {
+          try {
+            const rows = await env.DB.prepare('SELECT * FROM search_synonyms_keywords ORDER BY created_at DESC').all();
+            if (rows.results) {
+              synonyms = rows.results.map(r => ({
+                id: r.id,
+                keyword: r.keyword,
+                synonyms: JSON.parse(r.synonyms_json || '[]'),
+                boostWeight: r.boost_weight,
+                isActive: r.is_active,
+                notes: r.notes
+              }));
+            }
+          } catch (e) {}
+        }
+        if (synonyms.length === 0) {
+          synonyms = Object.entries(DEFAULT_SYNONYMS).map(([k, s], i) => ({
+            id: `syn_${i + 1}`,
+            keyword: k,
+            synonyms: Array.isArray(s) ? s : [s],
+            boostWeight: 1.5,
+            isActive: 1
+          }));
+        }
+
+        response = jsonSuccess({ synonyms, count: synonyms.length }, 200, {}, requestId);
+      }
+
+      // 7. Admin Add / Update Synonym
+      else if (pathname === '/api/admin/search/synonyms' && method === 'POST') {
+        const user = await getAuthenticatedUser(request, env);
+        if (!user) return applySecurityHeaders(jsonError('AUTH_REQUIRED', 'Authentication required', 401), request, env);
+        const isAdmin = await verifyAdminRole(user, env);
+        if (!isAdmin) return applySecurityHeaders(jsonError('FORBIDDEN', 'Admin role required', 403), request, env);
+
+        const body = await request.json().catch(() => ({}));
+        const { keyword, synonyms, boostWeight = 1.5, notes = '' } = body;
+        if (!keyword || !synonyms) {
+          return applySecurityHeaders(jsonError('VALIDATION_ERROR', 'keyword and synonyms required', 400), request, env);
+        }
+
+        const id = `syn_${Date.now()}_${Math.random().toString(36).substring(2, 6)}`;
+        const cleanKw = keyword.toLowerCase().trim();
+        const synJson = JSON.stringify(Array.isArray(synonyms) ? synonyms : [synonyms]);
+        const nowIso = new Date().toISOString();
+
+        if (env.DB && typeof env.DB.prepare === 'function') {
+          try {
+            await env.DB.prepare(`
+              INSERT INTO search_synonyms_keywords (id, keyword, synonyms_json, boost_weight, is_active, notes, created_at, updated_at)
+              VALUES (?, ?, ?, ?, 1, ?, ?, ?)
+              ON CONFLICT(keyword) DO UPDATE SET synonyms_json = excluded.synonyms_json, boost_weight = excluded.boost_weight, updated_at = excluded.updated_at
+            `).bind(id, cleanKw, synJson, boostWeight, notes, nowIso, nowIso).run();
+          } catch (e) {}
+        }
+
+        response = jsonSuccess({ success: true, keyword: cleanKw }, 200, {}, requestId);
+      }
+
+      // 8. Admin Delete Synonym
+      else if (pathname.startsWith('/api/admin/search/synonyms/') && method === 'DELETE') {
+        const user = await getAuthenticatedUser(request, env);
+        if (!user) return applySecurityHeaders(jsonError('AUTH_REQUIRED', 'Authentication required', 401), request, env);
+        const isAdmin = await verifyAdminRole(user, env);
+        if (!isAdmin) return applySecurityHeaders(jsonError('FORBIDDEN', 'Admin role required', 403), request, env);
+
+        const id = pathname.replace('/api/admin/search/synonyms/', '').trim();
+        if (env.DB && typeof env.DB.prepare === 'function') {
+          try {
+            await env.DB.prepare('DELETE FROM search_synonyms_keywords WHERE id = ?').bind(id).run();
+          } catch (e) {}
+        }
+
+        response = jsonSuccess({ deleted: true, id }, 200, {}, requestId);
+      }
+
+      // 9. Admin Reindex Trigger
+      else if (pathname === '/api/admin/search/reindex' && method === 'POST') {
+        const user = await getAuthenticatedUser(request, env);
+        if (!user) return applySecurityHeaders(jsonError('AUTH_REQUIRED', 'Authentication required', 401), request, env);
+        const isAdmin = await verifyAdminRole(user, env);
+        if (!isAdmin) return applySecurityHeaders(jsonError('FORBIDDEN', 'Admin role required', 403), request, env);
+
+        response = jsonSuccess({
+          success: true,
+          message: 'D1 search index reindexed',
+          totalIndexed: SEED_TEMPLATES.length + 3 + (DEFAULT_HELP_ARTICLES || []).length
+        }, 200, {}, requestId);
       }
 
       // --- 4. Server-Side Maintenance Mode Enforcement for Public Storefront ---

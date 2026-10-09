@@ -1,0 +1,19 @@
+[
+  {
+    "id": "srch_log_1791522864917_31527h",
+    "query": "birthday",
+    "normalized_query": "birthday",
+    "search_type": "all",
+    "filters_json": "{\"category\":\"all\",\"relationship\":\"all\",\"tier\":\"all\",\"sort\":\"trending\"}",
+    "result_count": 4,
+    "has_results": 1,
+    "selected_entity_id": null,
+    "selected_entity_type": null,
+    "user_id": null,
+    "anonymous_session_id": null,
+    "ip_hash": "c675d4efbdd5eb83",
+    "user_agent": "curl/7.88.1",
+    "execution_time_ms": 6,
+    "created_at": "2026-10-09T05:14:24.917Z"
+  }
+]

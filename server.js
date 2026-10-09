@@ -228,6 +228,32 @@ import {
   generatePolicyDiff,
   buildDefaultLegalPolicies
 } from './src/legal-compliance-engine.js';
+import {
+  SEARCH_ENTITY_TYPES,
+  SORT_OPTIONS,
+  TIER_FILTERS,
+  SUPPORTED_FEATURES,
+  DEFAULT_SYNONYMS,
+  normalizeQuery,
+  tokenizeQuery,
+  expandQueryTokens,
+  extractTemplateFeatures,
+  createTemplateSearchDocument,
+  createMusicSearchDocument,
+  createArticleSearchDocument,
+  calculateRelevanceScore,
+  escapeHtml,
+  generateSafeHighlights,
+  filterAndSortTemplates,
+  computeFacets,
+  executeGlobalSearch,
+  generateSearchSuggestions,
+  findRelatedTemplates,
+  findAlternativeSuggestions,
+  hashClientIp as hashSearchClientIp,
+  createSearchAnalyticsRecord,
+  computeSearchDiagnostics
+} from './src/search-discovery-engine.js';
 
 
 const __filename = fileURLToPath(import.meta.url);
@@ -304,8 +330,65 @@ const LEGAL_POLICIES_FILE = path.join(DATA_DIR, 'legal_policies.json');
 const LEGAL_ACTIVE_POLICIES_FILE = path.join(DATA_DIR, 'legal_active_policies.json');
 const POLICY_ACCEPTANCES_FILE = path.join(DATA_DIR, 'policy_acceptances.json');
 const USER_COOKIE_CONSENTS_FILE = path.join(DATA_DIR, 'user_cookie_consents.json');
+const SEARCH_ANALYTICS_FILE = path.join(DATA_DIR, 'search_analytics.json');
+const SEARCH_SYNONYMS_FILE = path.join(DATA_DIR, 'search_synonyms.json');
 const STORE_DIR = path.join(__dirname, 'public', 'templates-store');
 const MEDIA_DIR = path.join(__dirname, 'public', 'media');
+
+function getSearchAnalyticsList() {
+  try {
+    if (fs.existsSync(SEARCH_ANALYTICS_FILE)) {
+      const data = fs.readFileSync(SEARCH_ANALYTICS_FILE, 'utf8');
+      const parsed = JSON.parse(data || '[]');
+      if (Array.isArray(parsed)) return parsed;
+    }
+  } catch (e) {}
+  return [];
+}
+
+function saveSearchAnalyticsRecord(rec) {
+  try {
+    const list = getSearchAnalyticsList();
+    list.push(rec);
+    fs.writeFileSync(SEARCH_ANALYTICS_FILE, JSON.stringify(list.slice(-10000), null, 2), 'utf8');
+  } catch (e) {}
+}
+
+function getSearchSynonymsList() {
+  try {
+    if (fs.existsSync(SEARCH_SYNONYMS_FILE)) {
+      const data = fs.readFileSync(SEARCH_SYNONYMS_FILE, 'utf8');
+      const parsed = JSON.parse(data || '[]');
+      if (Array.isArray(parsed) && parsed.length > 0) return parsed;
+    }
+  } catch (e) {}
+  const seeds = Object.entries(DEFAULT_SYNONYMS).map(([kw, syns], idx) => ({
+    id: `syn_${idx + 1}`,
+    keyword: kw,
+    synonyms: Array.isArray(syns) ? syns : [syns],
+    boostWeight: 1.5,
+    isActive: 1,
+    createdAt: new Date().toISOString(),
+    updatedAt: new Date().toISOString()
+  }));
+  saveSearchSynonymsList(seeds);
+  return seeds;
+}
+
+function saveSearchSynonymsList(list) {
+  try {
+    fs.writeFileSync(SEARCH_SYNONYMS_FILE, JSON.stringify(list, null, 2), 'utf8');
+  } catch (e) {}
+}
+
+function getSearchSynonymsMap() {
+  const list = getSearchSynonymsList();
+  const map = {};
+  list.filter(s => s.isActive !== 0).forEach(s => {
+    map[s.keyword.toLowerCase()] = s.synonyms;
+  });
+  return map;
+}
 
 function getLegalPoliciesList() {
   try {
@@ -12930,6 +13013,312 @@ app.get('/api/admin/legal/stats', (req, res) => {
   }
 });
 
+// ============================================================================
+// PART 39: GLOBAL SEARCH, TEMPLATE DISCOVERY & SEARCH ANALYTICS APIS
+// ============================================================================
+
+// 1. Unified Global Search (Templates, Music, Help Center)
+app.get('/api/search', (req, res) => {
+  const startTime = Date.now();
+  try {
+    const {
+      q,
+      type = SEARCH_ENTITY_TYPES.ALL,
+      category = 'all',
+      relationship = 'all',
+      tier = 'all',
+      features,
+      sort = SORT_OPTIONS.TRENDING,
+      page = 1,
+      limit = 20
+    } = req.query;
+
+    const templates = getTemplates();
+    const musicLibrary = getMusicLibrary();
+    const helpArticles = DEFAULT_HELP_ARTICLES || [];
+    const synonymsMap = getSearchSynonymsMap();
+
+    const result = executeGlobalSearch({
+      query: q || '',
+      type,
+      category,
+      relationship,
+      tier,
+      features: features ? (Array.isArray(features) ? features : String(features).split(',')) : [],
+      sort,
+      page: parseInt(page, 10) || 1,
+      limit: parseInt(limit, 10) || 20,
+      templates,
+      musicLibrary,
+      helpArticles,
+      customSynonyms: synonymsMap
+    });
+
+    const executionTimeMs = Date.now() - startTime;
+
+    // Log query analytics asynchronously
+    if (q && q.trim()) {
+      const logRecord = createSearchAnalyticsRecord({
+        query: q.trim(),
+        searchType: type,
+        filters: { category, relationship, tier, features, sort },
+        resultCount: result.total,
+        userId: req.user ? req.user.id : null,
+        sessionId: req.headers['x-session-id'] || null,
+        ip: req.ip || req.connection?.remoteAddress || '',
+        userAgent: req.get('user-agent') || '',
+        executionTimeMs
+      });
+      saveSearchAnalyticsRecord(logRecord);
+    }
+
+    res.json(result);
+  } catch (err) {
+    res.status(500).json({ success: false, message: err.message, total: 0, items: [] });
+  }
+});
+
+// 2. Search Suggestions & Auto-Complete
+app.get('/api/search/suggestions', (req, res) => {
+  try {
+    const q = req.query.q || '';
+    const templates = getTemplates();
+    const musicLibrary = getMusicLibrary();
+    const helpArticles = DEFAULT_HELP_ARTICLES || [];
+
+    // Extract recent searches from query telemetry
+    const analytics = getSearchAnalyticsList();
+    const recentQueries = Array.from(new Set(analytics.slice(-30).reverse().map(a => a.query))).filter(Boolean);
+
+    const suggestions = generateSearchSuggestions({
+      query: q,
+      templates,
+      musicLibrary,
+      helpArticles,
+      recentQueries,
+      limit: 8
+    });
+
+    res.json({ success: true, ...suggestions });
+  } catch (err) {
+    res.status(500).json({ success: false, message: err.message, suggestions: [] });
+  }
+});
+
+// 3. Search Result Click Telemetry
+app.post('/api/search/analytics/click', (req, res) => {
+  try {
+    const { entityId, entityType, query } = req.body || {};
+    if (entityId) {
+      const clickLog = createSearchAnalyticsRecord({
+        query: query || '',
+        searchType: entityType || 'click',
+        selectedEntityId: entityId,
+        selectedEntityType: entityType || 'template',
+        resultCount: 1,
+        userId: req.user ? req.user.id : null,
+        ip: req.ip || '',
+        userAgent: req.get('user-agent') || ''
+      });
+      saveSearchAnalyticsRecord(clickLog);
+    }
+    res.json({ success: true });
+  } catch (err) {
+    res.status(500).json({ success: false, message: err.message });
+  }
+});
+
+// 4. Related & Alternative Template Discovery
+app.get('/api/search/related', (req, res) => {
+  try {
+    const { templateId, limit = 4 } = req.query;
+    const templates = getTemplates();
+
+    if (!templateId) {
+      return res.status(400).json({ success: false, message: 'templateId parameter is required' });
+    }
+
+    const target = templates.find(t => t.id === templateId || t.slug === templateId);
+    if (!target) {
+      return res.status(404).json({ success: false, message: 'Template not found' });
+    }
+
+    const related = findRelatedTemplates(target, templates, { limit: parseInt(limit, 10) || 4 });
+    res.json({ success: true, templateId: target.id, related });
+  } catch (err) {
+    res.status(500).json({ success: false, message: err.message, related: [] });
+  }
+});
+
+// 5. Admin Search Diagnostics & Analytics
+app.get('/api/admin/search/analytics', (req, res) => {
+  try {
+    if (!req.user || !isAuthoritativeAdmin(req.user)) {
+      return res.status(403).json({ success: false, message: 'Admin role required' });
+    }
+
+    const days = parseInt(req.query.days, 10) || 30;
+    const analytics = getSearchAnalyticsList();
+    const diagnostics = computeSearchDiagnostics(analytics, days);
+
+    const templates = getTemplates();
+    const music = getMusicLibrary();
+    const articles = DEFAULT_HELP_ARTICLES || [];
+
+    res.json({
+      success: true,
+      diagnostics,
+      totalIndexed: templates.length + music.length + articles.length,
+      timeframeDays: days
+    });
+  } catch (err) {
+    res.status(500).json({ success: false, message: err.message });
+  }
+});
+
+// 6. Admin Search Synonyms & Query Rewrites List
+app.get('/api/admin/search/synonyms', (req, res) => {
+  try {
+    if (!req.user || !isAuthoritativeAdmin(req.user)) {
+      return res.status(403).json({ success: false, message: 'Admin role required' });
+    }
+
+    const synonyms = getSearchSynonymsList();
+    res.json({ success: true, count: synonyms.length, synonyms });
+  } catch (err) {
+    res.status(500).json({ success: false, message: err.message });
+  }
+});
+
+// 7. Admin Add / Update Synonym Rule
+app.post('/api/admin/search/synonyms', (req, res) => {
+  try {
+    if (!req.user || !isAuthoritativeAdmin(req.user)) {
+      return res.status(403).json({ success: false, message: 'Admin role required' });
+    }
+
+    const { keyword, synonyms, boostWeight = 1.5, notes = '' } = req.body || {};
+    if (!keyword || !synonyms) {
+      return res.status(400).json({ success: false, message: 'keyword and synonyms array are required' });
+    }
+
+    const synList = getSearchSynonymsList();
+    const cleanKw = keyword.toLowerCase().trim();
+    const cleanSyns = Array.isArray(synonyms) ? synonyms.map(s => s.toLowerCase().trim()).filter(Boolean) : [String(synonyms).toLowerCase().trim()];
+
+    const existingIndex = synList.findIndex(s => s.keyword.toLowerCase() === cleanKw);
+    let record;
+
+    if (existingIndex >= 0) {
+      synList[existingIndex].synonyms = cleanSyns;
+      synList[existingIndex].boostWeight = Number(boostWeight) || 1.5;
+      synList[existingIndex].notes = notes;
+      synList[existingIndex].updatedAt = new Date().toISOString();
+      record = synList[existingIndex];
+    } else {
+      record = {
+        id: `syn_${Date.now()}_${Math.random().toString(36).substring(2, 6)}`,
+        keyword: cleanKw,
+        synonyms: cleanSyns,
+        boostWeight: Number(boostWeight) || 1.5,
+        isActive: 1,
+        notes,
+        createdAt: new Date().toISOString(),
+        updatedAt: new Date().toISOString()
+      };
+      synList.push(record);
+    }
+
+    saveSearchSynonymsList(synList);
+
+    createAuditLogEntry({
+      actorId: req.user.id,
+      actorEmail: req.user.email,
+      actorRole: req.user.role || 'super_admin',
+      action: 'search_synonym_saved',
+      targetType: 'search_synonym',
+      targetId: record.id,
+      details: { keyword: cleanKw, synonyms: cleanSyns, boostWeight }
+    });
+
+    res.json({ success: true, synonym: record });
+  } catch (err) {
+    res.status(500).json({ success: false, message: err.message });
+  }
+});
+
+// 8. Admin Delete Synonym Rule
+app.delete('/api/admin/search/synonyms/:id', (req, res) => {
+  try {
+    if (!req.user || !isAuthoritativeAdmin(req.user)) {
+      return res.status(403).json({ success: false, message: 'Admin role required' });
+    }
+
+    const id = req.params.id;
+    let synList = getSearchSynonymsList();
+    const found = synList.find(s => s.id === id);
+
+    if (!found) {
+      return res.status(404).json({ success: false, message: 'Synonym rule not found' });
+    }
+
+    synList = synList.filter(s => s.id !== id);
+    saveSearchSynonymsList(synList);
+
+    createAuditLogEntry({
+      actorId: req.user.id,
+      actorEmail: req.user.email,
+      actorRole: req.user.role || 'super_admin',
+      action: 'search_synonym_deleted',
+      targetType: 'search_synonym',
+      targetId: id,
+      details: { keyword: found.keyword }
+    });
+
+    res.json({ success: true, message: 'Synonym rule deleted' });
+  } catch (err) {
+    res.status(500).json({ success: false, message: err.message });
+  }
+});
+
+// 9. Admin Search Re-index Trigger
+app.post('/api/admin/search/reindex', (req, res) => {
+  try {
+    if (!req.user || !isAuthoritativeAdmin(req.user)) {
+      return res.status(403).json({ success: false, message: 'Admin role required' });
+    }
+
+    const templates = getTemplates();
+    const music = getMusicLibrary();
+    const articles = DEFAULT_HELP_ARTICLES || [];
+
+    const totalIndexed = templates.length + music.length + articles.length;
+
+    createAuditLogEntry({
+      actorId: req.user.id,
+      actorEmail: req.user.email,
+      actorRole: req.user.role || 'super_admin',
+      action: 'search_index_rebuilt',
+      targetType: 'search_index',
+      targetId: 'global',
+      details: { totalIndexed, templatesCount: templates.length, musicCount: music.length, articlesCount: articles.length }
+    });
+
+    res.json({
+      success: true,
+      message: 'Search index rebuilt successfully',
+      totalIndexed,
+      breakdown: {
+        templates: templates.length,
+        music: music.length,
+        articles: articles.length
+      }
+    });
+  } catch (err) {
+    res.status(500).json({ success: false, message: err.message });
+  }
+});
+
 // Secret Admin Entry Routes: /admin/anktech/anktech/admin
 const ADMIN_BASE = '/admin/anktech/anktech/admin';
 
@@ -13145,6 +13534,15 @@ app.get([
   `${ADMIN_BASE}/compliance.html`
 ], (req, res) => {
   sendAdminPage('admin-legal.html', req, res);
+});
+
+app.get([
+  `${ADMIN_BASE}/search`,
+  `${ADMIN_BASE}/search.html`,
+  `${ADMIN_BASE}/discovery`,
+  `${ADMIN_BASE}/discovery.html`
+], (req, res) => {
+  sendAdminPage('admin-search.html', req, res);
 });
 
 // Any unmatched route fallback

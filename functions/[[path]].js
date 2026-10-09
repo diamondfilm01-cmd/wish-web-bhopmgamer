@@ -28,7 +28,9 @@ const ADMIN_ROUTES_MAP = {
   '/admin/anktech/anktech/admin/legal': '/admin-legal.html',
   '/admin/anktech/anktech/admin/legal/': '/admin-legal.html',
   '/admin/anktech/anktech/admin/compliance': '/admin-legal.html',
-  '/admin/anktech/anktech/admin/compliance/': '/admin-legal.html'
+  '/admin/anktech/anktech/admin/compliance/': '/admin-legal.html',
+  '/admin/anktech/anktech/admin/search': '/admin-search.html',
+  '/admin/anktech/anktech/admin/search/': '/admin-search.html'
 };
 
 const PUBLIC_PAGES_MAP = {
