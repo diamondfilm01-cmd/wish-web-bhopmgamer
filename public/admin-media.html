@@ -1156,6 +1156,11 @@
         return;
       }
     } else {
+      const allowedImages = ['jpg', 'jpeg', 'png', 'webp', 'gif', 'svg'];
+      if (ext && !allowedImages.includes(ext)) {
+        showUploadError(`Invalid image format ".${ext}". Supported formats: JPEG, PNG, WEBP, GIF.`);
+        return;
+      }
       if (file.size > 32 * 1024 * 1024) {
         showUploadError(`Image file size (${(file.size / (1024 * 1024)).toFixed(2)} MB) exceeds ImgBB limit of 32 MB.`);
         return;
@@ -1169,62 +1174,93 @@
     const targetCloudName = selectedType === 'image' ? 'ImgBB' : 'Backblaze B2';
     btnSubmit.innerHTML = `<span class="material-symbols-outlined text-sm animate-spin">progress_activity</span><span>Uploading to ${targetCloudName}...</span>`;
 
-    const reader = new FileReader();
-    reader.onerror = () => {
-      btnSubmit.disabled = false;
-      if (btnCancel) btnCancel.disabled = false;
-      btnSubmit.innerHTML = `<span class="material-symbols-outlined text-sm">cloud_upload</span><span>Upload &amp; Save</span>`;
-      showUploadError('Failed to read file from disk. Please reselect the file.');
-    };
+    try {
+      // Preferred design: Use FormData with raw file directly to eliminate FileReader disk/memory issues
+      let res;
+      if (typeof FormData !== 'undefined') {
+        const formData = new FormData();
+        formData.append('title', title);
+        formData.append('type', selectedType);
+        formData.append('category', categoryInput.value.trim() || (selectedType === 'audio' ? 'celebration' : 'Custom Upload'));
+        if (artistInput) formData.append('artist', artistInput.value.trim());
+        formData.append('filename', file.name);
+        formData.append('file', file);
+        if (selectedType === 'image' && heroCheck && heroCheck.checked) {
+          formData.append('setAsHeroImage', 'true');
+        }
 
-    reader.onload = async (e) => {
-      try {
+        // Do NOT manually set Content-Type; browser sets multipart/form-data with boundary
+        res = await fetch('/api/admin/media/upload', {
+          method: 'POST',
+          credentials: 'include',
+          body: formData
+        });
+      } else {
+        // Fallback for environments lacking FormData: use arrayBuffer
+        const buffer = await (file.arrayBuffer ? file.arrayBuffer() : new Promise((resolve, reject) => {
+          const r = new FileReader();
+          r.onload = () => resolve(r.result);
+          r.onerror = () => reject(new Error('Failed to read file from disk. Please reselect the file.'));
+          r.readAsArrayBuffer(file);
+        }));
+
+        let binaryStr = '';
+        const bytes = new Uint8Array(buffer);
+        const len = bytes.byteLength;
+        for (let i = 0; i < len; i++) {
+          binaryStr += String.fromCharCode(bytes[i]);
+        }
+        const base64Data = btoa(binaryStr);
+
         const payload = {
           title,
           type: selectedType,
           category: categoryInput.value.trim() || (selectedType === 'audio' ? 'celebration' : 'Custom Upload'),
           artist: artistInput ? artistInput.value.trim() : 'WishMagic Studio',
           filename: file.name,
-          fileData: e.target.result,
+          fileData: base64Data,
           setAsHeroImage: selectedType === 'image' && heroCheck && heroCheck.checked
         };
 
-        const res = await fetch('/api/admin/media/upload', {
+        res = await fetch('/api/admin/media/upload', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           credentials: 'include',
           body: JSON.stringify(payload)
         });
-
-        const data = await res.json();
-        if (res.ok && data.success) {
-          toggleModal('upload-media-modal');
-          // Reset form fields on successful upload
-          titleInput.value = '';
-          fileInput.value = '';
-          if (artistInput) artistInput.value = 'WishMagic Studio';
-          if (statusBanner) statusBanner.classList.add('hidden');
-
-          const successMsg = selectedType === 'audio'
-            ? `🎵 Music track "${title}" uploaded to Backblaze B2 & added to library!`
-            : (selectedType === 'video'
-                ? `🎬 Video "${title}" uploaded to Backblaze B2!`
-                : `📸 Photo "${title}" uploaded to ImgBB!`);
-          showToast(successMsg);
-          loadAllMedia();
-        } else {
-          const errDetail = data.message || (typeof data.error === 'object' && data.error ? (data.error.message || data.error.code) : data.error) || 'Server rejected upload request';
-          showUploadError(`Upload failed (${res.status}): ${errDetail}`);
-        }
-      } catch (err) {
-        showUploadError(`Network error during upload: ${err.message}. Please check connection and try again.`);
-      } finally {
-        btnSubmit.disabled = false;
-        if (btnCancel) btnCancel.disabled = false;
-        btnSubmit.innerHTML = `<span class="material-symbols-outlined text-sm">cloud_upload</span><span>Upload &amp; Save</span>`;
       }
-    };
-    reader.readAsDataURL(file);
+
+      const data = await res.json().catch(() => ({}));
+      if (res.ok && data.success) {
+        toggleModal('upload-media-modal');
+        // Reset form fields on successful upload
+        titleInput.value = '';
+        fileInput.value = '';
+        if (artistInput) artistInput.value = 'WishMagic Studio';
+        if (statusBanner) statusBanner.classList.add('hidden');
+
+        const successMsg = selectedType === 'audio'
+          ? `🎵 Music track "${title}" uploaded to Backblaze B2 & added to library!`
+          : (selectedType === 'video'
+              ? `🎬 Video "${title}" uploaded to Backblaze B2!`
+              : `📸 Photo "${title}" uploaded to ImgBB!`);
+        showToast(successMsg);
+        loadAllMedia();
+      } else {
+        const errCode = data.code || (data.error && data.error.code) || 'UPLOAD_FAILED';
+        const errMsg = data.message || (data.error && data.error.message) || (typeof data.error === 'string' ? data.error : 'Server rejected upload request');
+        const reqId = data.requestId ? ` (Request ID: ${data.requestId})` : '';
+        showUploadError(`Upload failed [${errCode}]${reqId}: ${errMsg}`);
+        // Selected file and form values are preserved so user can retry without re-picking file
+      }
+    } catch (err) {
+      showUploadError(`Upload error: ${err.message}. Please check connection and retry.`);
+      // Form preserved for retry
+    } finally {
+      btnSubmit.disabled = false;
+      if (btnCancel) btnCancel.disabled = false;
+      btnSubmit.innerHTML = `<span class="material-symbols-outlined text-sm">cloud_upload</span><span>Upload &amp; Save</span>`;
+    }
   }
 
   function showUploadError(msg) {

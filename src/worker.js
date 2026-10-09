@@ -26,7 +26,8 @@ import {
   parseImageDimensions,
   resolveSlotImage,
   checkImageDeletionSafety,
-  IMAGE_LIMITS
+  IMAGE_LIMITS,
+  uint8ArrayToBase64
 } from './imgbb-provider.js';
 import {
   validateVariantConfiguration,
@@ -9657,18 +9658,53 @@ export default {
           return applySecurityHeaders(jsonError('FORBIDDEN', 'Cross-origin mutation rejected', 403), request, env);
         }
 
-        const body = await request.json().catch(() => ({}));
-        const fileData = body.fileData || body.data;
-        const filename = sanitizeString(body.filename || 'media-upload', 100);
-        const title = sanitizeString(body.title || filename, 100);
-        const setAsHero = Boolean(body.setAsHeroImage);
+        let body = {};
+        let fileData = null;
+        let filename = 'media-upload';
+        let title = '';
+        let setAsHero = false;
+        let rawType = '';
+        let artist = 'WishMagic Studio';
+        let category = '';
+
+        const contentType = request.headers.get('content-type') || '';
+        if (contentType.includes('multipart/form-data')) {
+          const formData = await request.formData().catch(() => null);
+          if (formData) {
+            const fileField = formData.get('file');
+            title = sanitizeString(formData.get('title') || '', 100);
+            rawType = (formData.get('type') || '').toLowerCase().trim();
+            category = sanitizeString(formData.get('category') || '', 40);
+            artist = sanitizeString(formData.get('artist') || 'WishMagic Studio', 80);
+            setAsHero = formData.get('setAsHeroImage') === 'true' || formData.get('setAsHeroImage') === true;
+
+            if (fileField && typeof fileField.arrayBuffer === 'function') {
+              filename = sanitizeString(fileField.name || 'media-upload', 100);
+              fileData = await fileField.arrayBuffer();
+            } else if (typeof fileField === 'string' && fileField) {
+              fileData = fileField;
+            }
+          }
+        } else {
+          body = await request.json().catch(() => ({}));
+          fileData = body.fileData || body.data;
+          filename = sanitizeString(body.filename || 'media-upload', 100);
+          title = sanitizeString(body.title || filename, 100);
+          rawType = (body.type || '').toLowerCase().trim();
+          category = sanitizeString(body.category || '', 40);
+          artist = sanitizeString(body.artist || 'WishMagic Studio', 80);
+          setAsHero = Boolean(body.setAsHeroImage);
+        }
+
+        if (!title && filename) {
+          title = filename;
+        }
 
         if (!fileData) {
           return applySecurityHeaders(jsonError('VALIDATION_ERROR', 'File payload is required', 400), request, env);
         }
 
         const ext = (filename.split('.').pop() || '').toLowerCase();
-        const rawType = (body.type || '').toLowerCase().trim();
         const isExplicitMusicEndpoint = pathname.includes('/music/upload');
 
         const isAudio = isExplicitMusicEndpoint || rawType === 'audio' || AUDIO_LIMITS.ALLOWED_EXTENSIONS.includes(ext) || ['mp3', 'wav', 'ogg', 'm4a', 'aac', 'flac'].includes(ext);
@@ -9713,7 +9749,7 @@ export default {
 
           let b2UploadResult = null;
           let playbackUrl = '';
-          let storageProvider = 'b2';
+          const storageProvider = 'b2';
           try {
             b2UploadResult = await b2Provider.putObject({
               key: storageKey,
@@ -9727,21 +9763,17 @@ export default {
             });
             playbackUrl = b2UploadResult.playbackUrl || b2UploadResult.downloadUrl;
           } catch (uploadErr) {
-            if (env.ENVIRONMENT === 'test' && !env.ENABLE_STORAGE_FALLBACK) {
-              return applySecurityHeaders(jsonError(
-                uploadErr.code || 'B2_UPLOAD_FAILED',
-                `Failed to upload audio file to Backblaze B2: ${uploadErr.message}`,
-                502
-              ), request, env);
-            }
-            console.warn('[B2 Audio Upload Warning, using fallback]:', uploadErr.message);
-            const base64Str = uint8ArrayToBase64(audioValidation.bytes);
-            playbackUrl = `data:${audioValidation.mimeType};base64,${base64Str}`;
-            storageProvider = 'inline';
+            const safeMsg = String(uploadErr.message || 'B2 upload failed').replace(/Basic\s+[A-Za-z0-9+/=]+/gi, '[REDACTED]');
+            console.error('[B2 Audio Upload Error]:', safeMsg);
+            return applySecurityHeaders(jsonError(
+              uploadErr.code || 'B2_UPLOAD_FAILED',
+              `Failed to upload audio file to Backblaze B2: ${uploadErr.message}`,
+              502
+            ), request, env);
           }
 
-          const artist = sanitizeString(body.artist || 'WishMagic Studio', 80);
-          const category = sanitizeString(body.category || 'celebration', 40);
+          const finalArtist = sanitizeString(artist || body.artist || 'WishMagic Studio', 80);
+          const finalCategory = sanitizeString(category || body.category || 'celebration', 40);
           const description = sanitizeString(body.description || title, 200);
           const durationSeconds = Number(body.durationSeconds) || 160;
 
@@ -9756,7 +9788,7 @@ export default {
                   size_bytes, status, is_featured, created_by, created_at, updated_at
                 ) VALUES (?, ?, ?, ?, ?, '[]', 'b2', ?, ?, ?, ?, ?, 'active', 0, ?, ?, ?)
               `).bind(
-                trackId, title, artist, description, category,
+                trackId, title, finalArtist, description, finalCategory,
                 storageKey, playbackUrl, audioValidation.mimeType, durationSeconds,
                 audioValidation.sizeBytes, user.id, nowIso, nowIso
               ).run();
@@ -9786,7 +9818,7 @@ export default {
                   `b2_${trackId}`, b2UploadResult.bucketId || null, b2Config.bucketName || 'wishmagic-assets', storageKey,
                   b2UploadResult.fileId || null, audioValidation.mimeType, audioValidation.sizeBytes,
                   audioValidation.sha256, playbackUrl, trackId, user.id,
-                  JSON.stringify({ title, artist, category }), nowIso, nowIso
+                  JSON.stringify({ title, artist: finalArtist, category: finalCategory }), nowIso, nowIso
                 ).run().catch(e => console.warn('[D1] b2_storage_objects track log warning:', e.message));
               }
 
@@ -9811,8 +9843,8 @@ export default {
           const newAudioTrack = {
             id: trackId,
             title,
-            artist,
-            category,
+            artist: finalArtist,
+            category: finalCategory,
             type: 'audio',
             format: audioValidation.extension.toUpperCase(),
             url: playbackUrl,
@@ -9865,7 +9897,7 @@ export default {
 
           let b2UploadResult = null;
           let playbackUrl = '';
-          let storageProvider = 'b2';
+          const storageProvider = 'b2';
           try {
             b2UploadResult = await b2Provider.putObject({
               key: storageKey,
@@ -9875,17 +9907,13 @@ export default {
             });
             playbackUrl = b2UploadResult.playbackUrl || b2UploadResult.downloadUrl;
           } catch (uploadErr) {
-            if (env.ENVIRONMENT === 'test' && !env.ENABLE_STORAGE_FALLBACK) {
-              return applySecurityHeaders(jsonError(
-                uploadErr.code || 'B2_UPLOAD_FAILED',
-                `Failed to upload video to Backblaze B2: ${uploadErr.message}`,
-                502
-              ), request, env);
-            }
-            console.warn('[B2 Video Upload Warning, using fallback]:', uploadErr.message);
-            const base64Str = uint8ArrayToBase64(videoValidation.bytes);
-            playbackUrl = `data:${videoValidation.mimeType};base64,${base64Str}`;
-            storageProvider = 'inline';
+            const safeMsg = String(uploadErr.message || 'B2 video upload failed').replace(/Basic\s+[A-Za-z0-9+/=]+/gi, '[REDACTED]');
+            console.error('[B2 Video Upload Error]:', safeMsg);
+            return applySecurityHeaders(jsonError(
+              uploadErr.code || 'B2_UPLOAD_FAILED',
+              `Failed to upload video to Backblaze B2: ${uploadErr.message}`,
+              502
+            ), request, env);
           }
 
           if (env.DB && typeof env.DB.prepare === 'function') {
@@ -9914,7 +9942,7 @@ export default {
             title,
             type: 'video',
             format: videoValidation.extension.toUpperCase(),
-            category: body.category || 'Video Reel',
+            category: category || body.category || 'Video Reel',
             url: playbackUrl,
             playbackUrl,
             storageKey,
@@ -9945,35 +9973,34 @@ export default {
           }
 
           const imgbbConfig = getImgBBConfig(env);
-          let publicUrl = '';
-          let providerAssetId = null;
-          let imgResult = null;
-          let storageProvider = 'imgbb';
-
-          if (imgbbConfig.isConfigured) {
-            try {
-              const provider = ImgBBProvider.fromEnv(env);
-              imgResult = await provider.uploadImage({
-                data: validation.bytes,
-                filename,
-                name: `admin_${Date.now()}`
-              });
-              publicUrl = imgResult.displayUrl;
-              providerAssetId = imgResult.providerAssetId;
-              storageProvider = 'imgbb';
-            } catch (uploadErr) {
-              console.warn('[ImgBB Upload Warning, using inline fallback]:', uploadErr.message);
-              const base64Data = uint8ArrayToBase64(validation.bytes);
-              publicUrl = `data:${validation.mimeType};base64,${base64Data}`;
-              providerAssetId = `inline_${Date.now()}`;
-              storageProvider = 'inline';
-            }
-          } else {
-            const base64Data = uint8ArrayToBase64(validation.bytes);
-            publicUrl = `data:${validation.mimeType};base64,${base64Data}`;
-            providerAssetId = `inline_${Date.now()}`;
-            storageProvider = 'inline';
+          if (!imgbbConfig.isConfigured) {
+            return applySecurityHeaders(jsonError(
+              'MISSING_STORAGE_CONFIG',
+              'ImgBB storage API key is not configured in environment secrets (IMGBB_API_KEY).',
+              503
+            ), request, env);
           }
+
+          let imgResult = null;
+          try {
+            const provider = ImgBBProvider.fromEnv(env);
+            imgResult = await provider.uploadImage({
+              data: validation.bytes,
+              filename,
+              name: `admin_${Date.now()}`
+            });
+          } catch (uploadErr) {
+            console.error('[ImgBB Image Upload Failed]:', uploadErr.message);
+            return applySecurityHeaders(jsonError(
+              uploadErr.code || 'IMGBB_UPLOAD_FAILED',
+              `Failed to upload image to ImgBB: ${uploadErr.message || 'Provider rejected image upload.'}`,
+              502
+            ), request, env);
+          }
+
+          const publicUrl = imgResult.displayUrl;
+          const providerAssetId = imgResult.providerAssetId;
+          const storageProvider = 'imgbb';
 
           const mediaId = `med_${Date.now().toString(36)}_${Math.random().toString(36).substring(2, 6)}`;
 
@@ -10003,7 +10030,7 @@ export default {
             id: mediaId,
             title,
             type: 'image',
-            category: body.category || 'Visual Artwork',
+            category: category || body.category || 'Visual Artwork',
             url: publicUrl,
             displayUrl: publicUrl,
             thumbnailUrl: imgResult ? imgResult.thumbnailUrl : publicUrl,

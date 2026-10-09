@@ -98,15 +98,21 @@ function sanitizeB2Secret(val) {
 }
 
 /**
- * Extracts and validates B2 Configuration from environment secrets
+ * Extracts and validates B2 Configuration from environment secrets.
+ *
+ * Deterministic Credential Precedence Order:
+ * 1. Primary Cloudflare Secret: B2_KEY_ID
+ * 2. Legacy / Alias Fallback: B2_APPLICATION_KEY_ID, BACKBLAZE_KEY_ID, BACKBLAZE_APPLICATION_KEY_ID
+ * 3. Process Environment Fallback: process.env.B2_KEY_ID, process.env.B2_APPLICATION_KEY_ID
  */
 export function getB2Config(env = {}) {
   const procEnv = (typeof process !== 'undefined' && process.env) ? process.env : {};
 
+  // Deterministic priority: B2_KEY_ID takes precedence over legacy aliases
   const applicationKeyId = sanitizeB2Secret(
-    env.B2_APPLICATION_KEY_ID || env.B2_KEY_ID || env.BACKBLAZE_APPLICATION_KEY_ID || env.BACKBLAZE_KEY_ID ||
+    env.B2_KEY_ID || env.B2_APPLICATION_KEY_ID || env.BACKBLAZE_KEY_ID || env.BACKBLAZE_APPLICATION_KEY_ID ||
     env.B2_KEYID || env.KEY_ID || env.B2_APP_KEY_ID ||
-    procEnv.B2_APPLICATION_KEY_ID || procEnv.B2_KEY_ID
+    procEnv.B2_KEY_ID || procEnv.B2_APPLICATION_KEY_ID
   );
   const applicationKey = sanitizeB2Secret(
     env.B2_APPLICATION_KEY || env.B2_APP_KEY || env.BACKBLAZE_APPLICATION_KEY || env.BACKBLAZE_APP_KEY ||
@@ -141,7 +147,10 @@ export function getB2Config(env = {}) {
   const bucketName = explicitBucketName || (applicationKeyId && applicationKey ? 'wishmagic-assets' : null);
 
   const missingKeys = [];
-  if (!applicationKeyId) missingKeys.push('B2_APPLICATION_KEY_ID');
+  if (!applicationKeyId) {
+    missingKeys.push('B2_KEY_ID');
+    missingKeys.push('B2_APPLICATION_KEY_ID');
+  }
   if (!applicationKey) missingKeys.push('B2_APPLICATION_KEY');
   if (!bucketName && !bucketId) missingKeys.push('B2_BUCKET_NAME (or B2_BUCKET_ID)');
 
