@@ -177,6 +177,10 @@
         <p class="text-sm text-on-surface-variant mt-1">Manage all photos, videos, and music tracks across the site. See exactly where every file is being used in templates, hero section, or user creations.</p>
       </div>
       <div class="flex items-center gap-3">
+        <button class="px-3.5 py-2.5 rounded-xl bg-amber-900/40 hover:bg-amber-800 text-amber-200 text-xs sm:text-sm font-bold flex items-center gap-1.5 border border-amber-500/40 transition cursor-pointer" onclick="healD1Schema()" title="Sync Cloudflare D1 tables (music_library, wish_media, b2_storage_objects)">
+          <span class="material-symbols-outlined text-sm">build_circle</span>
+          <span>Sync D1 Schema</span>
+        </button>
         <button class="px-4 py-2.5 rounded-xl bg-surface-container hover:bg-surface-container-high text-on-surface text-xs sm:text-sm font-bold flex items-center gap-2 border border-purple-900/30 transition cursor-pointer" onclick="loadAllMedia()">
           <span class="material-symbols-outlined text-sm">refresh</span>
           <span>Refresh</span>
@@ -305,24 +309,39 @@
     <!-- Filter Pills & Search Section -->
     <div class="flex flex-wrap items-center justify-between gap-4 bg-surface-container rounded-2xl p-4 border border-purple-900/30">
       <div class="flex flex-wrap items-center gap-2">
-        <span class="text-xs font-bold text-outline uppercase tracking-wider mr-1">Filter Media:</span>
+        <span class="text-xs font-bold text-outline uppercase tracking-wider mr-1">Type:</span>
         <button onclick="setMediaFilter('all')" id="tab-all" class="px-3.5 py-1.5 rounded-xl bg-primary text-white text-xs font-bold transition shadow-sm cursor-pointer">
-          All Assets
+          All
         </button>
         <button onclick="setMediaFilter('image')" id="tab-image" class="px-3.5 py-1.5 rounded-xl bg-surface-container-high text-on-surface-variant hover:text-white text-xs font-bold transition cursor-pointer">
-          📸 Photos &amp; Graphics
+          📸 Photos
         </button>
         <button onclick="setMediaFilter('template')" id="tab-template" class="px-3.5 py-1.5 rounded-xl bg-surface-container-high text-on-surface-variant hover:text-white text-xs font-bold transition cursor-pointer">
-          🖼️ Template Images (ImgBB)
+          🖼️ Templates
         </button>
         <button onclick="setMediaFilter('video')" id="tab-video" class="px-3.5 py-1.5 rounded-xl bg-surface-container-high text-on-surface-variant hover:text-white text-xs font-bold transition cursor-pointer">
-          🎬 Videos &amp; Reels
+          🎬 Videos
         </button>
         <button onclick="setMediaFilter('audio')" id="tab-audio" class="px-3.5 py-1.5 rounded-xl bg-surface-container-high text-on-surface-variant hover:text-white text-xs font-bold transition cursor-pointer">
-          🎵 Audio &amp; Soundtracks
+          🎵 Audios
         </button>
         <button onclick="setMediaFilter('inuse')" id="tab-inuse" class="px-3.5 py-1.5 rounded-xl bg-surface-container-high text-on-surface-variant hover:text-white text-xs font-bold transition cursor-pointer">
-          🌟 Active In-Use Only
+          🌟 In-Use
+        </button>
+
+        <span class="text-outline mx-1">•</span>
+        <span class="text-xs font-bold text-outline uppercase tracking-wider mr-1">Storage:</span>
+        <button onclick="setProviderFilter('all')" id="prov-all" class="px-3 py-1.5 rounded-xl bg-purple-900/60 text-purple-200 text-xs font-bold transition cursor-pointer">
+          All Sources
+        </button>
+        <button onclick="setProviderFilter('b2')" id="prov-b2" class="px-3 py-1.5 rounded-xl bg-surface-container-high text-on-surface-variant hover:text-white text-xs font-bold transition cursor-pointer">
+          ☁️ Backblaze B2
+        </button>
+        <button onclick="setProviderFilter('imgbb')" id="prov-imgbb" class="px-3 py-1.5 rounded-xl bg-surface-container-high text-on-surface-variant hover:text-white text-xs font-bold transition cursor-pointer">
+          🖼️ ImgBB
+        </button>
+        <button onclick="setProviderFilter('d1')" id="prov-d1" class="px-3 py-1.5 rounded-xl bg-surface-container-high text-on-surface-variant hover:text-white text-xs font-bold transition cursor-pointer">
+          🗄️ D1 DB Records
         </button>
       </div>
 
@@ -648,6 +667,36 @@
   </div>
 </div>
 
+<!-- Floating Dedicated Audio Player Bar -->
+<div id="floating-audio-bar" class="fixed bottom-4 left-4 right-4 sm:left-auto sm:right-6 sm:w-96 bg-surface-container/95 backdrop-blur-xl border border-primary/50 rounded-2xl p-4 shadow-2xl z-40 hidden flex flex-col gap-2 transition-all duration-300">
+  <div class="flex items-center justify-between gap-3">
+    <div class="flex items-center gap-3 min-w-0">
+      <div id="player-status-icon" class="w-10 h-10 rounded-xl bg-primary/20 text-primary flex items-center justify-center flex-shrink-0 animate-pulse">
+        <span class="material-symbols-outlined text-xl">music_note</span>
+      </div>
+      <div class="min-w-0">
+        <h4 id="player-track-title" class="text-xs font-bold text-on-surface truncate">Track Title</h4>
+        <div class="flex items-center gap-2 text-[10px] text-on-surface-variant font-mono">
+          <span id="player-provider-badge" class="px-1.5 py-0.2 rounded bg-amber-950 text-amber-300 border border-amber-800">Backblaze B2</span>
+          <span id="player-time-display">0:00 / 0:00</span>
+        </div>
+      </div>
+    </div>
+    <div class="flex items-center gap-2">
+      <button id="player-toggle-btn" onclick="toggleAudioPlayback()" class="w-9 h-9 rounded-full bg-primary text-white flex items-center justify-center hover:brightness-110 active:scale-95 transition cursor-pointer shadow-md">
+        <span id="player-toggle-icon" class="material-symbols-outlined text-lg">pause</span>
+      </button>
+      <button onclick="stopAndCloseAudioPlayer()" class="text-on-surface-variant hover:text-white cursor-pointer" title="Close Player">
+        <span class="material-symbols-outlined text-lg">close</span>
+      </button>
+    </div>
+  </div>
+  <div class="w-full flex items-center gap-2">
+    <input id="player-seek-bar" type="range" min="0" max="100" value="0" class="w-full h-1 bg-purple-950 rounded-lg appearance-none cursor-pointer accent-primary" oninput="seekAudio(this.value)"/>
+  </div>
+  <div id="player-error-msg" class="text-[10px] text-rose-400 font-medium hidden"></div>
+</div>
+
 <script>
   let allMediaAssets = [];
   let currentFilter = 'all';
@@ -754,6 +803,23 @@
   }
 
   // --- Filter Media Catalog ---
+  let currentProviderFilter = 'all';
+
+  function setProviderFilter(prov) {
+    currentProviderFilter = prov;
+    ['all', 'b2', 'imgbb', 'd1'].forEach(p => {
+      const btn = document.getElementById(`prov-${p}`);
+      if (btn) {
+        if (p === prov) {
+          btn.className = 'px-3 py-1.5 rounded-xl bg-purple-600 text-white text-xs font-bold transition shadow-sm cursor-pointer';
+        } else {
+          btn.className = 'px-3 py-1.5 rounded-xl bg-surface-container-high text-on-surface-variant hover:text-white text-xs font-bold transition cursor-pointer';
+        }
+      }
+    });
+    renderMediaGrid();
+  }
+
   function setMediaFilter(filter) {
     currentFilter = filter;
     ['all', 'image', 'template', 'video', 'audio', 'inuse'].forEach(f => {
@@ -786,6 +852,11 @@
       if (currentFilter === 'audio' && asset.type !== 'audio') return false;
       if (currentFilter === 'inuse' && !asset.isInUse) return false;
 
+      // Storage Provider Filter
+      if (currentProviderFilter === 'b2' && asset.storageProvider !== 'b2') return false;
+      if (currentProviderFilter === 'imgbb' && asset.storageProvider !== 'imgbb') return false;
+      if (currentProviderFilter === 'd1' && (asset.storageProvider !== 'd1' && asset.storageProvider !== 'inline')) return false;
+
       // Search Query
       if (query) {
         const usageText = (asset.usedIn || []).map(u => `${u.label} ${u.location}`).join(' ');
@@ -815,6 +886,7 @@
       const isImage = a.type === 'image';
       const isTpl = Boolean(a.isTemplateImage);
       const usedInList = a.usedIn || [];
+      const isCurrentlyPlaying = activeTrackId === a.id && activeAudio && !activeAudio.paused;
 
       return `
         <div class="media-card-hover bg-surface-container rounded-2xl p-4 sm:p-5 border ${isHero ? 'border-pink-500 shadow-lg shadow-pink-500/10' : (isTpl ? 'border-purple-500/50 shadow-md' : 'border-purple-900/30')} flex flex-col justify-between gap-4">
@@ -828,13 +900,13 @@
                 <video src="${a.url}" class="w-full h-full object-cover cursor-pointer" controls preload="metadata"></video>
               ` : `
                 <div class="flex flex-col items-center justify-center gap-2 p-4 text-center">
-                  <div class="w-14 h-14 rounded-full bg-primary/20 text-primary flex items-center justify-center shadow-inner">
-                    <span class="material-symbols-outlined text-3xl">music_note</span>
+                  <div class="w-14 h-14 rounded-full ${isCurrentlyPlaying ? 'bg-emerald-500/30 text-emerald-400 animate-pulse' : 'bg-primary/20 text-primary'} flex items-center justify-center shadow-inner">
+                    <span class="material-symbols-outlined text-3xl">${isCurrentlyPlaying ? 'graphic_eq' : 'music_note'}</span>
                   </div>
                   <span class="font-mono text-xs text-purple-200 font-semibold truncate max-w-[200px]">${escapeHtml(a.title)}</span>
-                  <button onclick="playAudioItem('${a.id}', '${a.url}', '${escapeHtml(a.title)}')" class="mt-1 px-3 py-1 rounded-full bg-primary text-white text-[11px] font-bold flex items-center gap-1 hover:brightness-110 active:scale-95 transition cursor-pointer">
-                    <span class="material-symbols-outlined text-sm">play_arrow</span>
-                    <span>Play Audio Track</span>
+                  <button onclick="playAudioItem('${a.id}', '${a.streamUrl || a.playbackUrl || a.url}', '${escapeHtml(a.title).replace(/'/g, "\\'")}', '${a.storageProvider || 'b2'}')" class="mt-1 px-3 py-1 rounded-full ${isCurrentlyPlaying ? 'bg-emerald-500 text-white shadow-lg shadow-emerald-500/30' : 'bg-primary text-white'} text-[11px] font-bold flex items-center gap-1 hover:brightness-110 active:scale-95 transition cursor-pointer">
+                    <span class="material-symbols-outlined text-sm">${isCurrentlyPlaying ? 'pause' : 'play_arrow'}</span>
+                    <span>${isCurrentlyPlaying ? 'Pause Audio' : 'Play Audio Track'}</span>
                   </button>
                 </div>
               `}
@@ -1250,7 +1322,11 @@
         const errCode = data.code || (data.error && data.error.code) || 'UPLOAD_FAILED';
         const errMsg = data.message || (data.error && data.error.message) || (typeof data.error === 'string' ? data.error : 'Server rejected upload request');
         const reqId = data.requestId ? ` (Request ID: ${data.requestId})` : '';
-        showUploadError(`Upload failed [${errCode}]${reqId}: ${errMsg}`);
+        if (errCode === 'D1_WRITE_FAILED') {
+          showUploadError(`Database sync issue: ${errMsg}`, true);
+        } else {
+          showUploadError(`Upload failed [${errCode}]${reqId}: ${errMsg}`);
+        }
         // Selected file and form values are preserved so user can retry without re-picking file
       }
     } catch (err) {
@@ -1263,11 +1339,15 @@
     }
   }
 
-  function showUploadError(msg) {
+  function showUploadError(msg, isD1Error = false) {
     const banner = document.getElementById('upload-status-banner');
     if (banner) {
-      banner.className = 'p-3 rounded-xl text-xs font-semibold bg-rose-500/20 text-rose-300 border border-rose-500/40 flex items-center gap-2';
-      banner.innerHTML = `<span class="material-symbols-outlined text-base text-rose-400">error</span><span>${escapeHtml(msg)}</span>`;
+      banner.className = 'p-3 rounded-xl text-xs font-semibold bg-rose-500/20 text-rose-300 border border-rose-500/40 flex flex-col gap-2';
+      let html = `<div class="flex items-center gap-2"><span class="material-symbols-outlined text-base text-rose-400">error</span><span>${escapeHtml(msg)}</span></div>`;
+      if (isD1Error) {
+        html += `<div class="pt-1 flex items-center gap-2"><button type="button" onclick="healD1Schema().then(() => submitMediaUpload())" class="px-3 py-1 rounded-lg bg-amber-500 text-black font-bold text-xs hover:bg-amber-400 transition cursor-pointer flex items-center gap-1"><span class="material-symbols-outlined text-sm">build</span><span>Heal D1 Tables &amp; Retry Upload</span></button></div>`;
+      }
+      banner.innerHTML = html;
       banner.classList.remove('hidden');
     } else {
       alert(msg);
@@ -1379,32 +1459,173 @@
     } catch (e) {}
   }
 
-  let activeAudioTrack = null;
-  function playAudioItem(id, url, title) {
-    if (url.startsWith('web-audio://')) {
-      playMagicSound('chime');
+  // --- Authoritative Audio Streaming Player ---
+  let activeAudio = null;
+  let activeTrackId = null;
+
+  function stopAndCloseAudioPlayer() {
+    if (activeAudio) {
+      activeAudio.pause();
+      activeAudio.src = '';
+      activeAudio.load();
+      activeAudio = null;
+    }
+    activeTrackId = null;
+    const bar = document.getElementById('floating-audio-bar');
+    if (bar) bar.classList.add('hidden');
+    renderMediaGrid();
+  }
+
+  function toggleAudioPlayback() {
+    if (!activeAudio) return;
+    const icon = document.getElementById('player-toggle-icon');
+    if (activeAudio.paused) {
+      activeAudio.play().then(() => {
+        if (icon) icon.innerText = 'pause';
+      }).catch(err => {
+        showPlayerError(`Playback error: ${err.message}`);
+      });
+    } else {
+      activeAudio.pause();
+      if (icon) icon.innerText = 'play_arrow';
+    }
+    renderMediaGrid();
+  }
+
+  function seekAudio(percent) {
+    if (activeAudio && activeAudio.duration) {
+      activeAudio.currentTime = (percent / 100) * activeAudio.duration;
+    }
+  }
+
+  function showPlayerError(msg) {
+    const errEl = document.getElementById('player-error-msg');
+    if (errEl) {
+      errEl.innerText = msg;
+      errEl.classList.remove('hidden');
+    }
+    showToast(`⚠️ ${msg}`);
+  }
+
+  function playAudioItem(id, rawUrl, title, provider = 'b2') {
+    // 1. If clicking the already playing track, toggle pause/play
+    if (activeTrackId === id && activeAudio) {
+      toggleAudioPlayback();
       return;
     }
-    if (activeAudioTrack) {
-      activeAudioTrack.pause();
-      activeAudioTrack = null;
+
+    // 2. Clean up any previous audio stream
+    if (activeAudio) {
+      activeAudio.pause();
+      activeAudio.src = '';
+      activeAudio.load();
+      activeAudio = null;
     }
-    try {
-      activeAudioTrack = new Audio(url);
-      activeAudioTrack.play().then(() => {
-        showToast(`▶ Playing: "${title}"`);
-      }).catch(() => {
-        // Fallback to authenticated stream proxy
-        const streamUrl = `/api/media/stream?id=${encodeURIComponent(id)}`;
-        activeAudioTrack = new Audio(streamUrl);
-        activeAudioTrack.play().then(() => {
-          showToast(`▶ Playing: "${title}"`);
-        }).catch(() => {
-          playMagicSound('chime');
+
+    activeTrackId = id;
+    const bar = document.getElementById('floating-audio-bar');
+    const titleEl = document.getElementById('player-track-title');
+    const timeEl = document.getElementById('player-time-display');
+    const badgeEl = document.getElementById('player-provider-badge');
+    const iconEl = document.getElementById('player-toggle-icon');
+    const seekEl = document.getElementById('player-seek-bar');
+    const errEl = document.getElementById('player-error-msg');
+
+    if (titleEl) titleEl.innerText = title || 'Audio Track';
+    if (badgeEl) badgeEl.innerText = provider === 'b2' ? 'Backblaze B2' : 'Audio Vault';
+    if (timeEl) timeEl.innerText = 'Streaming...';
+    if (errEl) errEl.classList.add('hidden');
+    if (iconEl) iconEl.innerText = 'play_arrow';
+    if (seekEl) seekEl.value = '0';
+    if (bar) bar.classList.remove('hidden');
+
+    // Authoritative Playback URL: Use streaming proxy endpoint for stable authenticated range streaming
+    const streamUrl = `/api/media/stream?id=${encodeURIComponent(id)}`;
+    const playableSrc = (rawUrl && rawUrl.startsWith('http') && !rawUrl.includes('backblazeb2.com')) ? rawUrl : streamUrl;
+
+    const audio = new Audio();
+    activeAudio = audio;
+    audio.src = playableSrc;
+    audio.preload = 'metadata';
+
+    audio.addEventListener('timeupdate', () => {
+      if (!audio.duration || isNaN(audio.duration)) return;
+      const cur = Math.floor(audio.currentTime);
+      const dur = Math.floor(audio.duration);
+      const curFmt = `${Math.floor(cur / 60)}:${String(cur % 60).padStart(2, '0')}`;
+      const durFmt = `${Math.floor(dur / 60)}:${String(dur % 60).padStart(2, '0')}`;
+      if (timeEl) timeEl.innerText = `${curFmt} / ${durFmt}`;
+      if (seekEl) seekEl.value = String((audio.currentTime / audio.duration) * 100);
+    });
+
+    audio.addEventListener('play', () => {
+      if (iconEl) iconEl.innerText = 'pause';
+      renderMediaGrid();
+    });
+
+    audio.addEventListener('pause', () => {
+      if (iconEl) iconEl.innerText = 'play_arrow';
+      renderMediaGrid();
+    });
+
+    audio.addEventListener('ended', () => {
+      if (iconEl) iconEl.innerText = 'play_arrow';
+      if (seekEl) seekEl.value = '0';
+      renderMediaGrid();
+    });
+
+    audio.addEventListener('error', () => {
+      // If direct URL failed, attempt streaming proxy URL
+      if (audio.src !== streamUrl) {
+        audio.src = streamUrl;
+        audio.play().catch(() => {
+          showPlayerError(`Cannot stream track "${title}". Verify B2 configuration.`);
         });
+      } else {
+        showPlayerError(`Audio track "${title}" could not be retrieved from storage.`);
+      }
+    });
+
+    audio.play().then(() => {
+      if (iconEl) iconEl.innerText = 'pause';
+      showToast(`▶ Playing: "${title}"`);
+      renderMediaGrid();
+    }).catch(err => {
+      if (err.name === 'NotAllowedError') {
+        if (timeEl) timeEl.innerText = 'Click Play button to start';
+      } else {
+        // Fallback retry with stream proxy
+        audio.src = streamUrl;
+        audio.play().then(() => {
+          if (iconEl) iconEl.innerText = 'pause';
+          renderMediaGrid();
+        }).catch(streamErr => {
+          showPlayerError(`Playback error: ${streamErr.message}`);
+        });
+      }
+    });
+
+    renderMediaGrid();
+  }
+
+  // --- D1 Database Schema Verification & Healing ---
+  async function healD1Schema() {
+    showToast('🔧 Verifying and healing Cloudflare D1 tables...');
+    try {
+      const res = await fetch('/api/admin/media/schema-heal', {
+        method: 'POST',
+        credentials: 'include'
       });
+      const data = await res.json();
+      if (data.success) {
+        const mlCols = data.tables?.music_library?.columnCount || 0;
+        showToast(`✅ D1 Schema synced! music_library (${mlCols} cols) verified.`);
+        loadAllMedia();
+      } else {
+        alert('D1 sync warning: ' + (data.message || 'Error'));
+      }
     } catch (e) {
-      playMagicSound('chime');
+      alert('Error triggering D1 sync: ' + e.message);
     }
   }
 

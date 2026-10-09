@@ -1802,8 +1802,12 @@ async function ensureCoreSchema(db) {
 let musicSchemaInitialized = false;
 let musicSchemaPromise = null;
 
-export async function ensureMusicStorageSchema(db) {
+export async function ensureMusicStorageSchema(db, force = false) {
   if (!db || typeof db.prepare !== 'function') return false;
+  if (force) {
+    musicSchemaInitialized = false;
+    musicSchemaPromise = null;
+  }
   if (musicSchemaInitialized) return true;
   if (musicSchemaPromise) return musicSchemaPromise;
 
@@ -1887,6 +1891,8 @@ export async function ensureMusicStorageSchema(db) {
           { name: 'updated_at', def: "TEXT DEFAULT ''" },
           { name: 'sha256', def: "TEXT" },
           { name: 'provider_file_id', def: "TEXT" },
+          { name: 'original_filename', def: "TEXT" },
+          { name: 'metadata_status', def: "TEXT DEFAULT 'verified'" },
           { name: 'health_status', def: "TEXT DEFAULT 'HEALTHY'" },
           { name: 'last_health_check_at', def: "TEXT" },
           { name: 'health_issues', def: "TEXT" }
@@ -1942,6 +1948,8 @@ export async function ensureMusicStorageSchema(db) {
           { name: 'height', def: "INTEGER" },
           { name: 'storage_provider', def: "TEXT DEFAULT 'b2'" },
           { name: 'status', def: "TEXT DEFAULT 'active'" },
+          { name: 'original_filename', def: "TEXT" },
+          { name: 'metadata_status', def: "TEXT DEFAULT 'verified'" },
           { name: 'updated_at', def: "TEXT DEFAULT ''" }
         ];
         for (const col of neededWm) {
@@ -1989,6 +1997,158 @@ export async function ensureMusicStorageSchema(db) {
   })();
 
   return musicSchemaPromise;
+}
+
+/**
+ * Resilient D1 Music Persistence Helper
+ * Automatically heals schema and gracefully retries if tables or columns differ
+ */
+export async function persistMusicTrackToD1(db, {
+  trackId,
+  title,
+  artist,
+  description,
+  category,
+  storageKey,
+  playbackUrl,
+  mimeType,
+  durationSeconds,
+  sizeBytes,
+  sha256,
+  providerFileId,
+  userId,
+  filename,
+  storageProvider = 'b2',
+  b2UploadResult = null,
+  b2Config = null,
+  nowIso = new Date().toISOString()
+}) {
+  if (!db || typeof db.prepare !== 'function') return false;
+
+  await ensureMusicStorageSchema(db);
+
+  // 1. Primary INSERT into music_library
+  try {
+    await db.prepare(`
+      INSERT INTO music_library (
+        id, title, artist, description, category, relationship_suitability,
+        storage_provider, storage_key, playback_url, mime_type, duration_seconds,
+        size_bytes, status, is_featured, created_by, created_at, updated_at
+      ) VALUES (?, ?, ?, ?, ?, '[]', 'b2', ?, ?, ?, ?, ?, 'active', 0, ?, ?, ?)
+    `).bind(
+      trackId, title, artist, description, category,
+      storageKey, playbackUrl, mimeType, durationSeconds,
+      sizeBytes, userId || 'system', nowIso, nowIso
+    ).run();
+  } catch (err1) {
+    console.warn('[Music D1] Primary insert failed, triggering schema repair & retry:', err1.message);
+    // Force schema heal
+    await ensureMusicStorageSchema(db, true);
+
+    // Attempt 2: Retry full insert after forced heal
+    try {
+      await db.prepare(`
+        INSERT INTO music_library (
+          id, title, artist, description, category, relationship_suitability,
+          storage_provider, storage_key, playback_url, mime_type, duration_seconds,
+          size_bytes, status, is_featured, created_by, created_at, updated_at
+        ) VALUES (?, ?, ?, ?, ?, '[]', 'b2', ?, ?, ?, ?, ?, 'active', 0, ?, ?, ?)
+      `).bind(
+        trackId, title, artist, description, category,
+        storageKey, playbackUrl, mimeType, durationSeconds,
+        sizeBytes, userId || 'system', nowIso, nowIso
+      ).run();
+    } catch (err2) {
+      console.warn('[Music D1] Retry full insert failed, attempting dynamic column fallback:', err2.message);
+
+      // Attempt 3: Dynamic fallback based on PRAGMA table_info
+      try {
+        const info = await db.prepare("PRAGMA table_info(music_library)").all().catch(() => null);
+        const colSet = new Set((info?.results || []).map(c => c.name));
+
+        const potentialFields = [
+          { col: 'id', val: trackId },
+          { col: 'title', val: title },
+          { col: 'artist', val: artist },
+          { col: 'description', val: description },
+          { col: 'category', val: category },
+          { col: 'relationship_suitability', val: '[]' },
+          { col: 'storage_provider', val: storageProvider },
+          { col: 'storage_key', val: storageKey },
+          { col: 'playback_url', val: playbackUrl },
+          { col: 'mime_type', val: mimeType },
+          { col: 'duration_seconds', val: durationSeconds },
+          { col: 'size_bytes', val: sizeBytes },
+          { col: 'status', val: 'active' },
+          { col: 'is_featured', val: 0 },
+          { col: 'created_by', val: userId || 'system' },
+          { col: 'sha256', val: sha256 },
+          { col: 'provider_file_id', val: providerFileId },
+          { col: 'original_filename', val: filename || title },
+          { col: 'metadata_status', val: 'verified' },
+          { col: 'created_at', val: nowIso },
+          { col: 'updated_at', val: nowIso }
+        ];
+
+        const activeFields = colSet.size > 0
+          ? potentialFields.filter(f => colSet.has(f.col))
+          : potentialFields.filter(f => ['id', 'title', 'storage_key', 'playback_url', 'created_at', 'updated_at'].includes(f.col));
+
+        if (activeFields.length > 0) {
+          const colsSql = activeFields.map(f => f.col).join(', ');
+          const placeholders = activeFields.map(() => '?').join(', ');
+          const vals = activeFields.map(f => f.val);
+
+          await db.prepare(`INSERT INTO music_library (${colsSql}) VALUES (${placeholders})`)
+            .bind(...vals)
+            .run();
+        } else {
+          throw err2;
+        }
+      } catch (err3) {
+        throw new Error(`D1 music_library insert failed after schema healing: ${err3.message || err2.message || err1.message}`);
+      }
+    }
+  }
+
+  // 2. Also record in wish_media safely
+  try {
+    await db.prepare(`
+      INSERT INTO wish_media (
+        id, wish_id, user_id, object_key, filename, media_type, mime_type,
+        size_bytes, url, display_url, thumbnail_url, delete_url, sha256,
+        width, height, storage_provider, status, is_public, created_at, updated_at
+      ) VALUES (?, NULL, ?, ?, ?, 'audio', ?, ?, ?, ?, NULL, NULL, ?, NULL, NULL, ?, 'active', 1, ?, ?)
+    `).bind(
+      trackId, userId || 'system', storageKey, title || filename,
+      mimeType, sizeBytes, playbackUrl, playbackUrl,
+      sha256, storageProvider, nowIso, nowIso
+    ).run().catch(e => console.warn('[D1] wish_media track log warning:', e.message));
+  } catch (e) {
+    console.warn('[D1] wish_media non-fatal:', e.message);
+  }
+
+  // 3. Register in b2_storage_objects tracking table if uploaded to B2
+  if (b2UploadResult) {
+    try {
+      await db.prepare(`
+        INSERT OR REPLACE INTO b2_storage_objects (
+          id, bucket_id, bucket_name, object_key, file_id, content_type,
+          content_length, sha256, public_url, entity_type, entity_id,
+          uploader_id, upload_status, metadata_json, created_at, updated_at
+        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, 'music', ?, ?, 'completed', ?, ?, ?)
+      `).bind(
+        `b2_${trackId}`, b2UploadResult.bucketId || null, (b2Config && b2Config.bucketName) || 'wishmagic-assets', storageKey,
+        b2UploadResult.fileId || null, mimeType, sizeBytes,
+        sha256, playbackUrl, trackId, userId || 'system',
+        JSON.stringify({ title, artist, category }), nowIso, nowIso
+      ).run().catch(e => console.warn('[D1] b2_storage_objects track log warning:', e.message));
+    } catch (e) {
+      console.warn('[D1] b2_storage_objects non-fatal:', e.message);
+    }
+  }
+
+  return true;
 }
 
 
@@ -8209,7 +8369,7 @@ export default {
         response = jsonSuccess({ deleted: true, mediaId }, 200, {}, requestId);
       }
 
-      // --- Audio & Media Streaming Proxy for B2 (supports Private & Public Buckets) ---
+      // --- Audio & Media Streaming Proxy for B2 (supports Private & Public Buckets + HTTP Range Requests) ---
       else if ((pathname === '/api/media/stream' || pathname.startsWith('/api/media/stream/')) && method === 'GET') {
         const urlObj = new URL(request.url);
         let key = urlObj.searchParams.get('key') || urlObj.searchParams.get('storageKey') || urlObj.searchParams.get('path');
@@ -8217,33 +8377,409 @@ export default {
 
         if (!key && trackId && env.DB && typeof env.DB.prepare === 'function') {
           try {
-            const trackRow = await env.DB.prepare('SELECT storage_key, playback_url FROM music_library WHERE id = ? LIMIT 1').bind(trackId).first();
-            if (trackRow) {
-              key = trackRow.storage_key;
+            let row = await env.DB.prepare('SELECT storage_key FROM music_library WHERE id = ? LIMIT 1').bind(trackId).first().catch(() => null);
+            if (!row) {
+              row = await env.DB.prepare('SELECT object_key as storage_key FROM wish_media WHERE id = ? LIMIT 1').bind(trackId).first().catch(() => null);
+            }
+            if (!row) {
+              row = await env.DB.prepare('SELECT object_key as storage_key FROM b2_storage_objects WHERE id = ? OR entity_id = ? LIMIT 1').bind(trackId, trackId).first().catch(() => null);
+            }
+            if (row && row.storage_key) {
+              key = row.storage_key;
             }
           } catch (_) {}
         }
 
         if (!key) {
-          return applySecurityHeaders(new Response('Audio storage key or id is required', { status: 400 }), request, env);
+          return applySecurityHeaders(new Response(JSON.stringify({ error: 'MISSING_KEY', message: 'Audio storage key or id is required' }), {
+            status: 400,
+            headers: { 'Content-Type': 'application/json' }
+          }), request, env);
+        }
+
+        // Sanitize key against directory traversal
+        key = String(key).replace(/^\/+/, '');
+        if (key.includes('..')) {
+          return applySecurityHeaders(new Response(JSON.stringify({ error: 'INVALID_KEY', message: 'Path traversal is not allowed' }), {
+            status: 400,
+            headers: { 'Content-Type': 'application/json' }
+          }), request, env);
         }
 
         if (B2StorageProvider.isConfigured(env)) {
           try {
             const b2 = B2StorageProvider.fromEnv(env);
-            const obj = await b2.getObject({ key });
+            const clientRange = request.headers.get('range');
+            const obj = await b2.getObject({ key, range: clientRange });
             const headers = new Headers();
-            headers.set('Content-Type', obj.contentType || 'audio/mpeg');
-            headers.set('Content-Length', String(obj.contentLength || obj.body.byteLength));
+            headers.set('Content-Type', obj.contentType || getMimeType(key));
+            headers.set('Content-Length', String(obj.contentLength || (obj.body ? obj.body.byteLength : 0)));
             headers.set('Accept-Ranges', 'bytes');
-            headers.set('Cache-Control', 'public, max-age=604800, immutable');
-            return applySecurityHeaders(new Response(obj.body, { status: 200, headers }), request, env);
+            if (obj.contentRange) {
+              headers.set('Content-Range', obj.contentRange);
+            }
+            headers.set('Cache-Control', 'public, max-age=86400, no-transform');
+            const filename = key.split('/').pop() || 'audio-track.mp3';
+            headers.set('Content-Disposition', `inline; filename="${encodeURIComponent(filename)}"`);
+
+            const status = (clientRange && obj.status === 206) ? 206 : 200;
+            return applySecurityHeaders(new Response(obj.body, { status, headers }), request, env);
           } catch (streamErr) {
             console.warn('[B2 Media Stream Warning]', streamErr.message);
+            const status = streamErr.status === 404 ? 404 : 502;
+            return applySecurityHeaders(new Response(JSON.stringify({
+              error: streamErr.code || 'STORAGE_STREAM_FAILED',
+              message: `Audio file could not be retrieved from Backblaze B2: ${streamErr.message}`
+            }), {
+              status,
+              headers: { 'Content-Type': 'application/json' }
+            }), request, env);
           }
         }
 
-        return applySecurityHeaders(new Response('Audio stream not available or storage not configured', { status: 404 }), request, env);
+        return applySecurityHeaders(new Response(JSON.stringify({
+          error: 'STORAGE_NOT_CONFIGURED',
+          message: 'Backblaze B2 storage credentials are not configured in environment.'
+        }), {
+          status: 503,
+          headers: { 'Content-Type': 'application/json' }
+        }), request, env);
+      }
+
+      // --- Part 42: Admin Storage Inventory & Reconciliation APIs ---
+      // 1. Live Backblaze B2 Bucket Inventory (supports native pagination & metadata enrichment)
+      else if (pathname === '/api/admin/storage/b2/inventory' && method === 'GET') {
+        const user = await getAuthenticatedUser(request, env);
+        if (!user) return applySecurityHeaders(jsonError('AUTH_REQUIRED', 'Admin authentication required', 401), request, env);
+        const isAdmin = await verifyAdminRole(user, env);
+        if (!isAdmin) return applySecurityHeaders(jsonError('FORBIDDEN', 'Admin privileges required', 403), request, env);
+
+        if (!B2StorageProvider.isConfigured(env)) {
+          return applySecurityHeaders(jsonError('B2_NOT_CONFIGURED', 'Backblaze B2 is not configured in environment secrets.', 503), request, env);
+        }
+
+        try {
+          const urlObj = new URL(request.url);
+          const prefix = urlObj.searchParams.get('prefix') || '';
+          const maxKeys = Math.min(Math.max(parseInt(urlObj.searchParams.get('maxKeys') || '100', 10), 1), 1000);
+          const startFileName = urlObj.searchParams.get('startFileName') || null;
+
+          const b2 = B2StorageProvider.fromEnv(env);
+          const listResult = await b2.listObjects({ prefix, maxKeys, startFileName });
+
+          // Cross-reference with D1 metadata
+          const d1Map = new Map();
+          if (env.DB && typeof env.DB.prepare === 'function') {
+            try {
+              const mlRows = await env.DB.prepare('SELECT id, title, artist, category, storage_key, playback_url FROM music_library LIMIT 500').all();
+              (mlRows.results || []).forEach(r => { if (r.storage_key) d1Map.set(r.storage_key, { ...r, sourceTable: 'music_library' }); });
+              const wmRows = await env.DB.prepare('SELECT id, filename, object_key, media_type, url FROM wish_media WHERE object_key LIKE "music/%" OR object_key LIKE "video/%" LIMIT 500').all();
+              (wmRows.results || []).forEach(r => { if (r.object_key && !d1Map.has(r.object_key)) d1Map.set(r.object_key, { ...r, sourceTable: 'wish_media' }); });
+            } catch (_) {}
+          }
+
+          const enrichedFiles = listResult.files.map(f => {
+            const matchedD1 = d1Map.get(f.key);
+            return {
+              ...f,
+              hasD1Record: Boolean(matchedD1),
+              d1Id: matchedD1?.id || null,
+              displayTitle: matchedD1?.title || matchedD1?.filename || f.filename,
+              artist: matchedD1?.artist || null,
+              category: matchedD1?.category || null,
+              verificationStatus: 'verified'
+            };
+          });
+
+          return applySecurityHeaders(jsonSuccess({
+            bucketName: listResult.bucketName,
+            files: enrichedFiles,
+            nextFileName: listResult.nextFileName,
+            hasMore: listResult.hasMore,
+            totalListed: enrichedFiles.length
+          }, 200, {}, requestId), request, env);
+        } catch (b2Err) {
+          return applySecurityHeaders(jsonError('B2_INVENTORY_FAILED', `Failed to list B2 storage objects: ${b2Err.message}`, 502), request, env);
+        }
+      }
+
+      // 2. Application-Managed ImgBB Inventory
+      else if (pathname === '/api/admin/storage/imgbb/inventory' && method === 'GET') {
+        const user = await getAuthenticatedUser(request, env);
+        if (!user) return applySecurityHeaders(jsonError('AUTH_REQUIRED', 'Admin authentication required', 401), request, env);
+        const isAdmin = await verifyAdminRole(user, env);
+        if (!isAdmin) return applySecurityHeaders(jsonError('FORBIDDEN', 'Admin privileges required', 403), request, env);
+
+        const imgbbAssets = [];
+        if (env.DB && typeof env.DB.prepare === 'function') {
+          try {
+            const tiRows = await env.DB.prepare('SELECT id, asset_key, original_url, display_url, thumbnail_url, provider_asset_id, size_bytes, width, height, created_at FROM template_images WHERE storage_provider = "imgbb" OR original_url LIKE "%ibb.co%" ORDER BY created_at DESC LIMIT 200').all();
+            (tiRows.results || []).forEach(ti => {
+              imgbbAssets.push({
+                id: ti.id,
+                title: `Template Slot: ${ti.asset_key || 'Asset'}`,
+                source: 'template_images',
+                providerAssetId: ti.provider_asset_id,
+                url: ti.display_url || ti.original_url,
+                thumbnailUrl: ti.thumbnail_url || ti.display_url || ti.original_url,
+                sizeBytes: ti.size_bytes,
+                dimensions: ti.width && ti.height ? `${ti.width}x${ti.height}` : null,
+                verificationStatus: 'known_to_application',
+                createdAt: ti.created_at
+              });
+            });
+
+            const wmRows = await env.DB.prepare('SELECT id, filename, object_key, url, display_url, thumbnail_url, size_bytes, width, height, created_at FROM wish_media WHERE storage_provider = "imgbb" OR url LIKE "%ibb.co%" ORDER BY created_at DESC LIMIT 200').all();
+            (wmRows.results || []).forEach(wm => {
+              imgbbAssets.push({
+                id: wm.id,
+                title: wm.filename || 'Wish Image',
+                source: 'wish_media',
+                providerAssetId: wm.object_key,
+                url: wm.display_url || wm.url,
+                thumbnailUrl: wm.thumbnail_url || wm.display_url || wm.url,
+                sizeBytes: wm.size_bytes,
+                dimensions: wm.width && wm.height ? `${wm.width}x${wm.height}` : null,
+                verificationStatus: 'known_to_application',
+                createdAt: wm.created_at
+              });
+            });
+          } catch (_) {}
+        }
+
+        return applySecurityHeaders(jsonSuccess({
+          provider: 'imgbb',
+          note: 'ImgBB inventory lists all application-managed images registered in D1 database.',
+          total: imgbbAssets.length,
+          assets: imgbbAssets
+        }, 200, {}, requestId), request, env);
+      }
+
+      // 3. Verify Public Media URL Accessibility
+      else if (pathname === '/api/admin/storage/verify-url' && method === 'POST') {
+        const user = await getAuthenticatedUser(request, env);
+        if (!user) return applySecurityHeaders(jsonError('AUTH_REQUIRED', 'Admin authentication required', 401), request, env);
+        const isAdmin = await verifyAdminRole(user, env);
+        if (!isAdmin) return applySecurityHeaders(jsonError('FORBIDDEN', 'Admin privileges required', 403), request, env);
+
+        const body = await request.json().catch(() => ({}));
+        const targetUrl = String(body.url || '').trim();
+        if (!targetUrl || (!targetUrl.startsWith('http://') && !targetUrl.startsWith('https://'))) {
+          return applySecurityHeaders(jsonError('INVALID_URL', 'Valid HTTP/HTTPS target URL is required', 400), request, env);
+        }
+
+        try {
+          const headRes = await fetch(targetUrl, {
+            method: 'HEAD',
+            headers: { 'User-Agent': 'WishMagic-Media-Verifier/1.0' }
+          });
+          const accessible = headRes.ok || headRes.status === 206 || headRes.status === 304;
+          return applySecurityHeaders(jsonSuccess({
+            url: targetUrl,
+            accessible,
+            status: headRes.status,
+            contentType: headRes.headers.get('content-type') || null,
+            contentLength: parseInt(headRes.headers.get('content-length') || '0', 10) || null
+          }, 200, {}, requestId), request, env);
+        } catch (netErr) {
+          return applySecurityHeaders(jsonSuccess({
+            url: targetUrl,
+            accessible: false,
+            error: netErr.message
+          }, 200, {}, requestId), request, env);
+        }
+      }
+
+      // 4. Safe Storage Reconciliation (Dry-run comparison between B2 bucket & D1)
+      else if (pathname === '/api/admin/storage/reconcile' && method === 'GET') {
+        const user = await getAuthenticatedUser(request, env);
+        if (!user) return applySecurityHeaders(jsonError('AUTH_REQUIRED', 'Admin authentication required', 401), request, env);
+        const isAdmin = await verifyAdminRole(user, env);
+        if (!isAdmin) return applySecurityHeaders(jsonError('FORBIDDEN', 'Admin privileges required', 403), request, env);
+
+        if (!B2StorageProvider.isConfigured(env)) {
+          return applySecurityHeaders(jsonError('B2_NOT_CONFIGURED', 'Backblaze B2 is not configured in environment.', 503), request, env);
+        }
+
+        try {
+          const b2 = B2StorageProvider.fromEnv(env);
+          const b2List = await b2.listObjects({ maxKeys: 1000 });
+          const cloudObjects = b2List.files || [];
+          const cloudKeyMap = new Map();
+          cloudObjects.forEach(o => cloudKeyMap.set(o.key, o));
+
+          // Fetch D1 records
+          let d1Music = [];
+          if (env.DB && typeof env.DB.prepare === 'function') {
+            const mlRes = await env.DB.prepare('SELECT id, title, artist, storage_key, playback_url, size_bytes, mime_type, created_at FROM music_library WHERE storage_provider = "b2"').all().catch(() => ({ results: [] }));
+            d1Music = mlRes.results || [];
+          }
+
+          const matched = [];
+          const cloudOnly = [];
+          const d1Unverified = [];
+          const keyCounts = new Map();
+
+          d1Music.forEach(m => {
+            const key = m.storage_key;
+            keyCounts.set(key, (keyCounts.get(key) || 0) + 1);
+            if (cloudKeyMap.has(key)) {
+              matched.push({ d1Record: m, cloudObject: cloudKeyMap.get(key) });
+            } else {
+              d1Unverified.push(m);
+            }
+          });
+
+          cloudObjects.forEach(c => {
+            const foundInD1 = d1Music.some(m => m.storage_key === c.key);
+            if (!foundInD1) {
+              cloudOnly.push(c);
+            }
+          });
+
+          const duplicates = [];
+          for (const [key, count] of keyCounts.entries()) {
+            if (count > 1) {
+              duplicates.push({ storageKey: key, count, records: d1Music.filter(m => m.storage_key === key) });
+            }
+          }
+
+          return applySecurityHeaders(jsonSuccess({
+            reconciliationReport: {
+              timestamp: new Date().toISOString(),
+              bucketName: b2.bucketName,
+              summary: {
+                totalCloudObjects: cloudObjects.length,
+                totalD1MusicRecords: d1Music.length,
+                matchedCount: matched.length,
+                cloudOnlyCount: cloudOnly.length,
+                d1UnverifiedCount: d1Unverified.length,
+                duplicatesCount: duplicates.length
+              },
+              matched: matched.slice(0, 50),
+              cloudOnly: cloudOnly.slice(0, 50),
+              d1Unverified: d1Unverified.slice(0, 50),
+              duplicates
+            }
+          }, 200, {}, requestId), request, env);
+        } catch (recErr) {
+          return applySecurityHeaders(jsonError('RECONCILE_FAILED', `Reconciliation failed: ${recErr.message}`, 502), request, env);
+        }
+      }
+
+      // 5. Import Uncatalogued B2 Object into D1 (Explicit Admin Action)
+      else if (pathname === '/api/admin/storage/import-b2-object' && method === 'POST') {
+        const user = await getAuthenticatedUser(request, env);
+        if (!user) return applySecurityHeaders(jsonError('AUTH_REQUIRED', 'Admin authentication required', 401), request, env);
+        const isAdmin = await verifyAdminRole(user, env);
+        if (!isAdmin) return applySecurityHeaders(jsonError('FORBIDDEN', 'Admin privileges required', 403), request, env);
+
+        const body = await request.json().catch(() => ({}));
+        const key = sanitizeString(body.key || '', 255);
+        if (!key) return applySecurityHeaders(jsonError('VALIDATION_ERROR', 'Storage key is required for import', 400), request, env);
+
+        if (!B2StorageProvider.isConfigured(env)) {
+          return applySecurityHeaders(jsonError('B2_NOT_CONFIGURED', 'Backblaze B2 is not configured.', 503), request, env);
+        }
+
+        try {
+          const b2 = B2StorageProvider.fromEnv(env);
+          const head = await b2.headObject({ key });
+          if (!head.exists) {
+            return applySecurityHeaders(jsonError('OBJECT_NOT_FOUND', `Object ${key} does not exist in Backblaze B2 bucket`, 404), request, env);
+          }
+
+          await ensureMusicStorageSchema(env.DB);
+          const trackId = `mus_${Date.now().toString(36)}_${Math.random().toString(36).substring(2, 6)}`;
+          const filename = key.split('/').pop() || 'imported-track.mp3';
+          const title = sanitizeString(body.title || filename.replace(/\.[^/.]+$/, ''), 100);
+          const artist = sanitizeString(body.artist || 'WishMagic Studio', 80);
+          const category = sanitizeString(body.category || 'celebration', 40);
+          const mimeType = head.contentType || getMimeType(key);
+          const sizeBytes = head.contentLength || 0;
+          const streamUrl = `/api/media/stream?id=${trackId}&key=${encodeURIComponent(key)}`;
+          const nowIso = new Date().toISOString();
+
+          await env.DB.prepare(`
+            INSERT INTO music_library (
+              id, title, artist, description, category, relationship_suitability,
+              storage_provider, storage_key, playback_url, mime_type, duration_seconds,
+              size_bytes, status, is_featured, created_by, original_filename, sha256, provider_file_id, created_at, updated_at
+            ) VALUES (?, ?, ?, ?, ?, '[]', 'b2', ?, ?, ?, NULL, ?, 'active', 0, ?, ?, ?, ?, ?, ?)
+          `).bind(
+            trackId, title, artist, `Imported from B2 (${key})`, category,
+            key, streamUrl, mimeType, sizeBytes, user.id || 'system',
+            filename, head.sha1 || null, head.fileId || null, nowIso, nowIso
+          ).run();
+
+          await env.DB.prepare(`
+            INSERT OR REPLACE INTO b2_storage_objects (
+              id, bucket_id, bucket_name, object_key, file_id, content_type,
+              content_length, sha256, public_url, entity_type, entity_id,
+              uploader_id, upload_status, metadata_json, created_at, updated_at
+            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, 'music', ?, ?, 'completed', ?, ?, ?)
+          `).bind(
+            `b2_${trackId}`, b2.bucketId || null, b2.bucketName, key,
+            head.fileId || null, mimeType, sizeBytes, head.sha1 || null,
+            streamUrl, trackId, user.id || 'system',
+            JSON.stringify({ title, artist, imported: true }), nowIso, nowIso
+          ).run().catch(() => {});
+
+          return applySecurityHeaders(jsonSuccess({
+            imported: true,
+            track: { id: trackId, title, artist, category, storageKey: key, playbackUrl: streamUrl, sizeBytes }
+          }, 201, {}, requestId), request, env);
+        } catch (impErr) {
+          return applySecurityHeaders(jsonError('IMPORT_FAILED', `Failed to import B2 object: ${impErr.message}`, 500), request, env);
+        }
+      }
+
+      // 6. Explicit 1-Click D1 Database Schema Verification & Self-Healing
+      else if ((pathname === '/api/admin/media/schema-heal' || pathname === '/api/admin/system/d1-sync') && method === 'POST') {
+        const user = await getAuthenticatedUser(request, env);
+        if (!user) return applySecurityHeaders(jsonError('AUTH_REQUIRED', 'Admin authentication required', 401), request, env);
+        const isAdmin = await verifyAdminRole(user, env);
+        if (!isAdmin) return applySecurityHeaders(jsonError('FORBIDDEN', 'Admin privileges required', 403), request, env);
+
+        if (!env.DB || typeof env.DB.prepare !== 'function') {
+          return applySecurityHeaders(jsonError('D1_UNAVAILABLE', 'Cloudflare D1 database binding env.DB is not configured', 503), request, env);
+        }
+
+        try {
+          const healSuccess = await ensureMusicStorageSchema(env.DB, true);
+          const [mlCols, wmCols, b2Cols] = await Promise.all([
+            env.DB.prepare("PRAGMA table_info(music_library)").all().catch(() => ({ results: [] })),
+            env.DB.prepare("PRAGMA table_info(wish_media)").all().catch(() => ({ results: [] })),
+            env.DB.prepare("PRAGMA table_info(b2_storage_objects)").all().catch(() => ({ results: [] }))
+          ]);
+
+          const summary = {
+            music_library: {
+              exists: (mlCols.results || []).length > 0,
+              columnCount: (mlCols.results || []).length,
+              columns: (mlCols.results || []).map(c => c.name)
+            },
+            wish_media: {
+              exists: (wmCols.results || []).length > 0,
+              columnCount: (wmCols.results || []).length,
+              columns: (wmCols.results || []).map(c => c.name)
+            },
+            b2_storage_objects: {
+              exists: (b2Cols.results || []).length > 0,
+              columnCount: (b2Cols.results || []).length,
+              columns: (b2Cols.results || []).map(c => c.name)
+            }
+          };
+
+          return applySecurityHeaders(jsonSuccess({
+            healed: Boolean(healSuccess),
+            databaseId: 'c08b683b-eb07-4639-ab33-fb1139bfb295',
+            tables: summary,
+            message: 'Cloudflare D1 media storage schema verified and healed successfully!'
+          }, 200, {}, requestId), request, env);
+        } catch (healErr) {
+          return applySecurityHeaders(jsonError('SCHEMA_HEAL_FAILED', `Schema healing error: ${healErr.message}`, 500), request, env);
+        }
       }
 
       // --- Analytics Events Ingestion & Reporting (Part 33 Enhanced) ---
@@ -9661,6 +10197,8 @@ export default {
             url: '/assets/file_ab2082.png',
             fileSizeFormatted: '1.54 MB',
             category: 'Hero & Showcase',
+            storageProvider: 'static',
+            isDemo: true,
             createdAt: '2026-01-01T00:00:00.000Z'
           },
           {
@@ -9671,6 +10209,8 @@ export default {
             url: '/assets/file_f63881.png',
             fileSizeFormatted: '1.98 MB',
             category: 'Template Artwork',
+            storageProvider: 'static',
+            isDemo: true,
             createdAt: '2026-01-01T00:00:00.000Z'
           },
           {
@@ -9682,17 +10222,9 @@ export default {
             fileSizeFormatted: '4.20 MB',
             duration: '0:15',
             category: 'Video Reels & FX',
+            storageProvider: 'static',
+            isDemo: true,
             createdAt: '2026-03-01T00:00:00.000Z'
-          },
-          {
-            id: 'trk_bgm_strings',
-            title: 'Celebration Acoustic Strings',
-            type: 'audio',
-            format: 'MP3',
-            url: 'web-audio://strings',
-            duration: '2:40',
-            category: 'Celebration BGM',
-            createdAt: '2026-01-01T00:00:00.000Z'
           }
         ];
 
@@ -9715,10 +10247,12 @@ export default {
                   url,
                   displayUrl: url,
                   playbackUrl: url,
+                  streamUrl: detectedType === 'audio' ? `/api/media/stream?id=${encodeURIComponent(m.id)}` : url,
                   thumbnailUrl: m.thumbnail_url || url,
                   fileSizeFormatted: m.size_bytes ? `${(m.size_bytes / 1024).toFixed(1)} KB` : 'Media Asset',
                   category: m.wish_id ? 'User Wish Upload' : (detectedType === 'audio' ? 'Celebration Music' : 'Storefront Asset'),
-                  storageProvider: m.storage_provider || (url.includes('ibb.co') ? 'imgbb' : (url.includes('backblazeb2') ? 'b2' : 'inline')),
+                  storageProvider: m.storage_provider || (url.includes('ibb.co') ? 'imgbb' : (url.includes('backblazeb2') ? 'b2' : 'd1')),
+                  storageKey: m.object_key,
                   createdAt: m.created_at
                 });
               }
@@ -9786,6 +10320,7 @@ export default {
                   format: (m.mime_type || 'audio/mpeg').split('/').pop().toUpperCase(),
                   url,
                   playbackUrl: url,
+                  streamUrl: `/api/media/stream?id=${encodeURIComponent(m.id)}`,
                   fileSizeFormatted: m.size_bytes ? `${(m.size_bytes / (1024 * 1024)).toFixed(2)} MB` : 'B2 Audio',
                   duration: durationFormatted,
                   category: m.category ? `Music: ${m.category}` : 'Celebration BGM',
@@ -9974,51 +10509,26 @@ export default {
           // Persist metadata to D1 (both music_library and wish_media)
           if (env.DB && typeof env.DB.prepare === 'function') {
             try {
-              // Ensure tables and columns exist before inserting
-              await ensureMusicStorageSchema(env.DB);
-
-              // 1. Insert into music_library for central templates & customizers
-              await env.DB.prepare(`
-                INSERT INTO music_library (
-                  id, title, artist, description, category, relationship_suitability,
-                  storage_provider, storage_key, playback_url, mime_type, duration_seconds,
-                  size_bytes, status, is_featured, created_by, created_at, updated_at
-                ) VALUES (?, ?, ?, ?, ?, '[]', 'b2', ?, ?, ?, ?, ?, 'active', 0, ?, ?, ?)
-              `).bind(
-                trackId, title, finalArtist, description, finalCategory,
-                storageKey, playbackUrl, audioValidation.mimeType, durationSeconds,
-                audioValidation.sizeBytes, user.id || 'system', nowIso, nowIso
-              ).run();
-
-              // 2. Also register in wish_media so universal media vault indexes it
-              await env.DB.prepare(`
-                INSERT INTO wish_media (
-                  id, wish_id, user_id, object_key, filename, media_type, mime_type,
-                  size_bytes, url, display_url, thumbnail_url, delete_url, sha256,
-                  width, height, storage_provider, status, is_public, created_at, updated_at
-                ) VALUES (?, NULL, ?, ?, ?, 'audio', ?, ?, ?, ?, NULL, NULL, ?, NULL, NULL, ?, 'active', 1, ?, ?)
-              `).bind(
-                trackId, user.id || 'system', storageKey, title || filename,
-                audioValidation.mimeType, audioValidation.sizeBytes, playbackUrl, playbackUrl,
-                audioValidation.sha256, storageProvider, nowIso, nowIso
-              ).run().catch(e => console.warn('[D1] wish_media track log warning:', e.message));
-
-              // 3. Register in b2_storage_objects tracking table if uploaded to B2
-              if (b2UploadResult) {
-                await env.DB.prepare(`
-                  INSERT OR REPLACE INTO b2_storage_objects (
-                    id, bucket_id, bucket_name, object_key, file_id, content_type,
-                    content_length, sha256, public_url, entity_type, entity_id,
-                    uploader_id, upload_status, metadata_json, created_at, updated_at
-                  ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, 'music', ?, ?, 'completed', ?, ?, ?)
-                `).bind(
-                  `b2_${trackId}`, b2UploadResult.bucketId || null, b2Config.bucketName || 'wishmagic-assets', storageKey,
-                  b2UploadResult.fileId || null, audioValidation.mimeType, audioValidation.sizeBytes,
-                  audioValidation.sha256, playbackUrl, trackId, user.id || 'system',
-                  JSON.stringify({ title, artist: finalArtist, category: finalCategory }), nowIso, nowIso
-                ).run().catch(e => console.warn('[D1] b2_storage_objects track log warning:', e.message));
-              }
-
+              await persistMusicTrackToD1(env.DB, {
+                trackId,
+                title,
+                artist: finalArtist,
+                description,
+                category: finalCategory,
+                storageKey,
+                playbackUrl,
+                mimeType: audioValidation.mimeType,
+                durationSeconds,
+                sizeBytes: audioValidation.sizeBytes,
+                sha256: audioValidation.sha256,
+                providerFileId: b2UploadResult?.fileId || null,
+                userId: user.id || 'system',
+                filename,
+                storageProvider,
+                b2UploadResult,
+                b2Config,
+                nowIso
+              });
             } catch (dbErr) {
               console.error('[Music Upload] D1 persistence failed, rolling back B2 object:', dbErr.message);
               // Safe cleanup: delete orphaned object from B2 if was uploaded
@@ -10038,6 +10548,9 @@ export default {
             }
           }
 
+          const streamProxyUrl = `/api/media/stream?id=${encodeURIComponent(trackId)}`;
+          const playableUrl = playbackUrl || streamProxyUrl;
+
           const newAudioTrack = {
             id: trackId,
             title,
@@ -10045,8 +10558,9 @@ export default {
             category: finalCategory,
             type: 'audio',
             format: audioValidation.extension.toUpperCase(),
-            url: playbackUrl,
-            playbackUrl,
+            url: playableUrl,
+            playbackUrl: playableUrl,
+            streamUrl: streamProxyUrl,
             storageKey,
             storageProvider,
             fileSize: audioValidation.sizeBytes,

@@ -1535,4 +1535,5 @@ CREATE INDEX IF NOT EXISTS idx_b2_storage_objects_entity ON b2_storage_objects(e
 CREATE INDEX IF NOT EXISTS idx_b2_storage_objects_status ON b2_storage_objects(upload_status);
 
 INSERT OR IGNORE INTO _migrations (id, name, applied_at) VALUES
-('mig_0025', '0025_part41_b2_music_and_audio_storage.sql', '2026-10-09T08:00:00.000Z');
+('mig_0025', '0025_part41_b2_music_and_audio_storage.sql', '2026-10-09T08:00:00.000Z'),
+('mig_0026', '0026_part42_media_storage_inventory_reconciliation.sql', '2026-10-09T12:00:00.000Z');

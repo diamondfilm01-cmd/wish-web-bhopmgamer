@@ -658,8 +658,9 @@ export class B2StorageProvider extends StorageProvider {
 
   /**
    * Retrieves an object from Backblaze B2 (b2_download_file_by_name)
+   * Supports HTTP Range requests for seeking and partial streaming
    */
-  async getObject({ key }) {
+  async getObject({ key, range = null }) {
     if (!key) throw new Error('Object storage key is required');
     const auth = await this.authorizeAccount();
     const downloadBase = auth.downloadUrl || this.customDownloadUrl;
@@ -669,13 +670,16 @@ export class B2StorageProvider extends StorageProvider {
     if (auth.authorizationToken) {
       headers['Authorization'] = auth.authorizationToken;
     }
+    if (range) {
+      headers['Range'] = range;
+    }
 
     const response = await this.fetchFn(url, {
       method: 'GET',
       headers
     });
 
-    if (!response.ok) {
+    if (!response.ok && response.status !== 206) {
       const err = new Error(`B2 getObject failed for ${key} (${response.status})`);
       err.status = response.status;
       err.code = response.status === 404 ? 'NOT_FOUND' : 'B2_DOWNLOAD_FAILED';
@@ -684,6 +688,7 @@ export class B2StorageProvider extends StorageProvider {
 
     const contentType = response.headers.get('content-type') || getMimeType(key);
     const contentLength = Number(response.headers.get('content-length') || 0);
+    const contentRange = response.headers.get('content-range') || null;
     const fileId = response.headers.get('x-bz-file-id') || null;
     const sha1 = response.headers.get('x-bz-content-sha1') || null;
     const buffer = await response.arrayBuffer();
@@ -693,8 +698,10 @@ export class B2StorageProvider extends StorageProvider {
       key,
       fileId,
       sha1,
+      status: response.status,
       contentType,
       contentLength,
+      contentRange,
       body: new Uint8Array(buffer)
     };
   }
@@ -771,39 +778,75 @@ export class B2StorageProvider extends StorageProvider {
   }
 
   /**
-   * Lists object keys with prefix in target bucket (b2_list_file_names)
+   * Lists object keys with prefix in target bucket with pagination (b2_list_file_names)
    */
-  async listObjects({ prefix = '', maxKeys = 100 }) {
+  async listObjects({ prefix = '', maxKeys = 100, startFileName = null }) {
     const auth = await this.authorizeAccount();
+    let targetBucketId = this.bucketId;
+    if (!targetBucketId) {
+      targetBucketId = await this.resolveBucketId();
+    }
+    if (!targetBucketId) {
+      throw new Error(`Unable to resolve bucketId for bucket: ${this.bucketName}`);
+    }
+
     const apiUrl = auth.apiUrl || this.endpoint || 'https://api.backblazeb2.com';
+    const payload = {
+      bucketId: targetBucketId,
+      maxFileCount: Math.min(Math.max(Number(maxKeys) || 100, 1), 1000)
+    };
+    if (prefix) payload.prefix = prefix;
+    if (startFileName) payload.startFileName = startFileName;
+
     const response = await this.fetchFn(`${apiUrl}/b2api/v3/b2_list_file_names`, {
       method: 'POST',
       headers: {
         'Authorization': auth.authorizationToken,
         'Content-Type': 'application/json'
       },
-      body: JSON.stringify({
-        bucketId: this.bucketId,
-        prefix,
-        maxFileCount: maxKeys
-      })
+      body: JSON.stringify(payload)
     });
 
     if (!response.ok) {
       const errText = await response.text();
-      throw new Error(`Failed to list B2 objects (${response.status}): ${errText}`);
+      let errJson = {};
+      try { errJson = JSON.parse(errText); } catch (_) {}
+      const err = new Error(`Failed to list B2 objects (${response.status}): ${errJson.message || errText}`);
+      err.code = errJson.code || 'B2_LIST_FAILED';
+      err.status = response.status;
+      throw err;
     }
 
     const data = await response.json();
     return {
-      files: (data.files || []).map(f => ({
-        key: f.fileName,
-        fileId: f.fileId,
-        contentLength: f.contentLength,
-        contentType: f.contentType,
-        uploadTimestamp: f.uploadTimestamp
-      })),
-      nextFileName: data.nextFileName || null
+      bucketName: this.bucketName,
+      bucketId: targetBucketId,
+      files: (data.files || []).map(f => {
+        const rawKey = f.fileName || '';
+        const cleanName = rawKey.split('/').pop() || rawKey;
+        const ext = (cleanName.split('.').pop() || '').toLowerCase();
+        const isAudio = f.contentType?.startsWith('audio/') || ['mp3', 'wav', 'ogg', 'm4a', 'aac', 'flac'].includes(ext);
+        const isVideo = f.contentType?.startsWith('video/') || ['mp4', 'webm', 'mov'].includes(ext);
+        const isImage = f.contentType?.startsWith('image/') || ['png', 'jpg', 'jpeg', 'webp', 'gif', 'svg'].includes(ext);
+
+        return {
+          key: rawKey,
+          filename: cleanName,
+          fileId: f.fileId,
+          contentLength: f.contentLength,
+          sizeBytes: f.contentLength,
+          contentType: f.contentType || 'application/octet-stream',
+          mimeType: f.contentType || 'application/octet-stream',
+          uploadTimestamp: f.uploadTimestamp,
+          uploadedAt: f.uploadTimestamp ? new Date(f.uploadTimestamp).toISOString() : null,
+          mediaType: isAudio ? 'audio' : (isVideo ? 'video' : (isImage ? 'image' : 'file')),
+          storageProvider: 'b2',
+          verificationStatus: 'verified',
+          streamUrl: `/api/media/stream?key=${encodeURIComponent(rawKey)}`
+        };
+      }),
+      nextFileName: data.nextFileName || null,
+      hasMore: Boolean(data.nextFileName)
     };
   }
 }
@@ -884,6 +927,134 @@ export function normalizeBinaryInput(input) {
   const err = new Error('Unsupported binary payload format');
   err.code = 'AUDIO_INVALID';
   throw err;
+}
+
+/**
+ * Extracts available real audio metadata (title, artist, album, durationSeconds)
+ * from MP3 (ID3v2, ID3v1) and WAV files without fabricating unknown values.
+ */
+export function parseAudioMetadata(inputBytes, mimeType = '') {
+  const result = {
+    title: null,
+    artist: null,
+    album: null,
+    durationSeconds: null,
+    hasMetadata: false
+  };
+
+  if (!inputBytes || inputBytes.byteLength < 12) return result;
+  const len = inputBytes.byteLength;
+
+  // 1. MP3 ID3v2 Parsing
+  if (len >= 10 && inputBytes[0] === 0x49 && inputBytes[1] === 0x44 && inputBytes[2] === 0x33) {
+    result.hasMetadata = true;
+    const version = inputBytes[3];
+    // ID3v2 tag size is 4 synchsafe bytes (7 bits each)
+    const tagSize = ((inputBytes[6] & 0x7F) << 21) |
+                    ((inputBytes[7] & 0x7F) << 14) |
+                    ((inputBytes[8] & 0x7F) << 7) |
+                    (inputBytes[9] & 0x7F);
+
+    let offset = 10;
+    const maxOffset = Math.min(len, 10 + tagSize);
+
+    while (offset + 10 < maxOffset) {
+      // Frame ID (4 ASCII chars)
+      const frameId = String.fromCharCode(
+        inputBytes[offset],
+        inputBytes[offset + 1],
+        inputBytes[offset + 2],
+        inputBytes[offset + 3]
+      );
+
+      if (!/^[A-Z0-9]{4}$/.test(frameId)) break;
+
+      let frameSize = 0;
+      if (version === 4) {
+        frameSize = ((inputBytes[offset + 4] & 0x7F) << 21) |
+                    ((inputBytes[offset + 5] & 0x7F) << 14) |
+                    ((inputBytes[offset + 6] & 0x7F) << 7) |
+                    (inputBytes[offset + 7] & 0x7F);
+      } else {
+        frameSize = (inputBytes[offset + 4] << 24) |
+                    (inputBytes[offset + 5] << 16) |
+                    (inputBytes[offset + 6] << 8) |
+                    inputBytes[offset + 7];
+      }
+
+      if (frameSize <= 0 || offset + 10 + frameSize > len) break;
+
+      const frameDataOffset = offset + 10;
+      const encoding = inputBytes[frameDataOffset];
+      let frameContent = '';
+      try {
+        const textBytes = inputBytes.subarray(frameDataOffset + 1, frameDataOffset + frameSize);
+        if (encoding === 1 || encoding === 2) {
+          frameContent = new TextDecoder('utf-16').decode(textBytes);
+        } else {
+          frameContent = new TextDecoder('utf-8', { fatal: false }).decode(textBytes);
+        }
+        frameContent = frameContent.replace(/\0/g, '').trim();
+      } catch (_) {}
+
+      if (frameContent) {
+        if (frameId === 'TIT2') result.title = frameContent;
+        else if (frameId === 'TPE1' || frameId === 'TPE2') result.artist = frameContent;
+        else if (frameId === 'TALB') result.album = frameContent;
+        else if (frameId === 'TLEN') {
+          const ms = parseInt(frameContent, 10);
+          if (!isNaN(ms) && ms > 0) result.durationSeconds = Math.round(ms / 1000);
+        }
+      }
+
+      offset += 10 + frameSize;
+    }
+  }
+
+  // ID3v1 fallback at EOF (last 128 bytes starting with "TAG")
+  if (len >= 128 && inputBytes[len - 128] === 0x54 && inputBytes[len - 127] === 0x41 && inputBytes[len - 126] === 0x47) {
+    result.hasMetadata = true;
+    const v1Title = new TextDecoder('utf-8', { fatal: false }).decode(inputBytes.subarray(len - 125, len - 95)).replace(/\0/g, '').trim();
+    const v1Artist = new TextDecoder('utf-8', { fatal: false }).decode(inputBytes.subarray(len - 95, len - 65)).replace(/\0/g, '').trim();
+    const v1Album = new TextDecoder('utf-8', { fatal: false }).decode(inputBytes.subarray(len - 65, len - 35)).replace(/\0/g, '').trim();
+
+    if (!result.title && v1Title) result.title = v1Title;
+    if (!result.artist && v1Artist) result.artist = v1Artist;
+    if (!result.album && v1Album) result.album = v1Album;
+  }
+
+  // 2. WAV Duration Calculation ("RIFF" ... "fmt " ... "data")
+  if (len >= 44 && inputBytes[0] === 0x52 && inputBytes[1] === 0x49 && inputBytes[2] === 0x46 && inputBytes[3] === 0x46 &&
+      inputBytes[8] === 0x57 && inputBytes[9] === 0x41 && inputBytes[10] === 0x56 && inputBytes[11] === 0x45) {
+    let offset = 12;
+    let byteRate = 0;
+    let dataSize = 0;
+
+    while (offset + 8 < len) {
+      const chunkId = String.fromCharCode(inputBytes[offset], inputBytes[offset + 1], inputBytes[offset + 2], inputBytes[offset + 3]);
+      const chunkSize = (inputBytes[offset + 4]) |
+                        (inputBytes[offset + 5] << 8) |
+                        (inputBytes[offset + 6] << 16) |
+                        (inputBytes[offset + 7] << 24);
+
+      if (chunkId === 'fmt ' && offset + 20 <= len) {
+        byteRate = (inputBytes[offset + 16]) |
+                   (inputBytes[offset + 17] << 8) |
+                   (inputBytes[offset + 18] << 16) |
+                   (inputBytes[offset + 19] << 24);
+      } else if (chunkId === 'data') {
+        dataSize = chunkSize;
+        break;
+      }
+      offset += 8 + chunkSize;
+    }
+
+    if (byteRate > 0 && dataSize > 0) {
+      result.durationSeconds = Math.round(dataSize / byteRate);
+    }
+  }
+
+  return result;
 }
 
 /**
@@ -993,6 +1164,7 @@ export async function validateAudioBuffer(input, options = {}) {
   }
 
   const sha256 = await computeSha256Hex(bytes);
+  const metadata = parseAudioMetadata(bytes, detectedMime);
 
   return {
     valid: true,
@@ -1000,7 +1172,8 @@ export async function validateAudioBuffer(input, options = {}) {
     sizeBytes,
     mimeType: detectedMime,
     extension: detectedExt,
-    sha256
+    sha256,
+    metadata
   };
 }
 
