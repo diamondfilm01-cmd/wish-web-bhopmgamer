@@ -1287,4 +1287,61 @@ CREATE INDEX IF NOT EXISTS idx_fraud_created ON referral_fraud_logs(created_at);
 INSERT OR IGNORE INTO _migrations (id, name, applied_at) VALUES
 ('mig_0021', '0021_part36_referral_rewards_and_fraud_prevention.sql', '2026-10-09T05:00:00.000Z');
 
+-- ============================================================================
+-- WishMagic Cloudflare D1 Architecture Migration (Part 37)
+-- 0022_part37_account_lifecycle_and_retention.sql
+-- ============================================================================
+
+CREATE TABLE IF NOT EXISTS account_lifecycle_jobs (
+  id TEXT PRIMARY KEY,
+  user_id TEXT NOT NULL,
+  job_type TEXT NOT NULL,
+  status TEXT NOT NULL DEFAULT 'QUEUED',
+  attempt_count INTEGER NOT NULL DEFAULT 0,
+  max_attempts INTEGER NOT NULL DEFAULT 5,
+  next_eligible_retry_at TEXT,
+  claimed_by TEXT,
+  claim_expires_at TEXT,
+  progress_step TEXT,
+  details_json TEXT DEFAULT '{}',
+  error_code TEXT,
+  error_message TEXT,
+  created_at TEXT NOT NULL,
+  updated_at TEXT NOT NULL,
+  completed_at TEXT,
+  FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
+);
+
+CREATE INDEX IF NOT EXISTS idx_lifecycle_jobs_user ON account_lifecycle_jobs(user_id);
+CREATE INDEX IF NOT EXISTS idx_lifecycle_jobs_status ON account_lifecycle_jobs(status);
+CREATE INDEX IF NOT EXISTS idx_lifecycle_jobs_retry ON account_lifecycle_jobs(next_eligible_retry_at);
+
+CREATE TABLE IF NOT EXISTS account_cleanup_items (
+  id TEXT PRIMARY KEY,
+  job_id TEXT,
+  user_id TEXT NOT NULL,
+  resource_type TEXT NOT NULL,
+  resource_id TEXT NOT NULL,
+  storage_key TEXT,
+  provider TEXT NOT NULL,
+  status TEXT NOT NULL DEFAULT 'PENDING',
+  is_shared_template_asset INTEGER NOT NULL DEFAULT 0,
+  retained_reason TEXT,
+  retry_count INTEGER NOT NULL DEFAULT 0,
+  created_at TEXT NOT NULL,
+  updated_at TEXT NOT NULL,
+  FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
+);
+
+CREATE INDEX IF NOT EXISTS idx_cleanup_items_user ON account_cleanup_items(user_id);
+CREATE INDEX IF NOT EXISTS idx_cleanup_items_job ON account_cleanup_items(job_id);
+CREATE INDEX IF NOT EXISTS idx_cleanup_items_status ON account_cleanup_items(status);
+
+ALTER TABLE user_privacy_settings ADD COLUMN preferred_language TEXT DEFAULT 'en';
+ALTER TABLE user_privacy_settings ADD COLUMN timezone TEXT DEFAULT 'Asia/Kolkata';
+
+INSERT OR IGNORE INTO _migrations (id, name, applied_at) VALUES
+('mig_0022', '0022_part37_account_lifecycle_and_retention.sql', '2026-10-09T06:00:00.000Z');
+
+
 

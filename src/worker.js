@@ -159,6 +159,9 @@ import {
   EXPORT_STATUS,
   DELETION_STATUS,
   DELETION_CONFIRMATION_PHRASE,
+  ACCOUNT_LIFECYCLE_STATE,
+  LIFECYCLE_JOB_TYPES,
+  LIFECYCLE_JOB_STATUSES,
   parseUserAgent,
   maskIpAddress,
   validateProfileUpdate,
@@ -167,7 +170,12 @@ import {
   createSecurityEventRecord,
   compileUserDataExport,
   processAccountDeletionRequest,
-  restoreDeactivatedAccount
+  restoreDeactivatedAccount,
+  computeAccountOverviewStats,
+  evaluateUserStorageDependencies,
+  getAccountDeletionConsequences,
+  createLifecycleJobRecord,
+  processLifecycleJobsQueue
 } from './account-privacy-engine.js';
 import {
   QUALIFYING_EVENTS as REF_QUALIFYING_EVENTS,
@@ -354,6 +362,26 @@ const PRETTY_ROUTES = {
   '/rewards/': '/referrals.html',
   '/admin/anktech/anktech/admin/referrals': '/admin-referrals.html',
   '/admin/anktech/anktech/admin/referrals/': '/admin-referrals.html',
+  '/admin/anktech/anktech/admin/legal': '/admin-legal.html',
+  '/admin/anktech/anktech/admin/legal/': '/admin-legal.html',
+  '/admin/anktech/anktech/admin/compliance': '/admin-legal.html',
+  '/admin/anktech/anktech/admin/compliance/': '/admin-legal.html',
+  '/legal': '/legal.html',
+  '/legal/': '/legal.html',
+  '/terms': '/legal.html',
+  '/terms/': '/legal.html',
+  '/terms-of-service': '/legal.html',
+  '/terms-of-service/': '/legal.html',
+  '/privacy': '/legal.html',
+  '/privacy/': '/legal.html',
+  '/privacy-policy': '/legal.html',
+  '/privacy-policy/': '/legal.html',
+  '/cookies': '/legal.html',
+  '/cookies/': '/legal.html',
+  '/cookie-policy': '/legal.html',
+  '/cookie-policy/': '/legal.html',
+  '/compliance': '/legal.html',
+  '/compliance/': '/legal.html',
   '/admin-login': '/admin-login.html'
 };
 
@@ -10905,8 +10933,80 @@ export default {
       }
 
       // =====================================================================
-      // --- PART 35: USER ACCOUNT CENTER, PRIVACY CONTROLS & SESSIONS ---
+      // --- PART 35 & 37: USER ACCOUNT CENTER, PRIVACY CONTROLS & LIFECYCLE ---
       // =====================================================================
+      else if ((pathname === '/api/account/settings' || pathname === '/api/account/overview') && method === 'GET') {
+        const user = await getAuthenticatedUser(request, env);
+        if (!user) return applySecurityHeaders(jsonError('AUTH_REQUIRED', 'Sign-in required to view account settings', 401), request, env);
+
+        let privacy = DEFAULT_PRIVACY_SETTINGS;
+        let sessionsCount = 1;
+        let securityEventsCount = 0;
+        let notifPrefs = null;
+        let activeDeletion = null;
+        let wishes = [];
+        let orders = [];
+        let favorites = [];
+        let tickets = [];
+
+        if (env.DB && typeof env.DB.prepare === 'function') {
+          try {
+            const privRow = await env.DB.prepare('SELECT * FROM user_privacy_settings WHERE user_id = ? LIMIT 1').bind(user.id).first();
+            if (privRow) {
+              privacy = {
+                profileVisibility: privRow.profile_visibility || 'public',
+                searchEngineIndexing: Boolean(privRow.search_engine_indexing),
+                analyticsTracking: Boolean(privRow.analytics_tracking),
+                marketingEmails: Boolean(privRow.marketing_emails),
+                activityTelemetry: Boolean(privRow.activity_telemetry),
+                preferredLanguage: privRow.preferred_language || 'en',
+                timezone: privRow.timezone || 'Asia/Kolkata'
+              };
+            }
+            const sessCountRow = await env.DB.prepare('SELECT COUNT(*) as count FROM sessions WHERE user_id = ? AND expires_at > ?').bind(user.id, Date.now()).first();
+            if (sessCountRow) sessionsCount = sessCountRow.count || 1;
+
+            const secCountRow = await env.DB.prepare('SELECT COUNT(*) as count FROM user_security_events WHERE user_id = ?').bind(user.id).first();
+            if (secCountRow) securityEventsCount = secCountRow.count || 0;
+
+            notifPrefs = await env.DB.prepare('SELECT * FROM user_notification_preferences WHERE user_id = ? LIMIT 1').bind(user.id).first().catch(() => null);
+            activeDeletion = await env.DB.prepare("SELECT * FROM account_deletion_requests WHERE user_id = ? AND status IN ('DEACTIVATED', 'PENDING') ORDER BY requested_at DESC LIMIT 1").bind(user.id).first().catch(() => null);
+
+            const wRows = await env.DB.prepare('SELECT id, user_id, status, is_draft, event_date, expiry_date FROM wishes WHERE user_id = ?').bind(user.id).all().catch(() => ({ results: [] }));
+            wishes = wRows.results || [];
+
+            const oRows = await env.DB.prepare('SELECT id, user_id, status FROM orders WHERE user_id = ?').bind(user.id).all().catch(() => ({ results: [] }));
+            orders = oRows.results || [];
+
+            const fRows = await env.DB.prepare('SELECT id FROM wish_favorites WHERE user_id = ?').bind(user.id).all().catch(() => ({ results: [] }));
+            favorites = fRows.results || [];
+
+            const tRows = await env.DB.prepare('SELECT id FROM support_tickets WHERE user_id = ?').bind(user.id).all().catch(() => ({ results: [] }));
+            tickets = tRows.results || [];
+          } catch (e) {}
+        }
+
+        const overview = computeAccountOverviewStats({
+          user,
+          wishes,
+          orders,
+          favorites,
+          tickets,
+          deletionRequest: activeDeletion
+        });
+
+        response = jsonSuccess({
+          user,
+          overview,
+          privacy,
+          notificationPreferences: notifPrefs || {},
+          activeSessionsCount: sessionsCount,
+          securityEventsCount,
+          isPendingDeletion: Boolean(activeDeletion),
+          deletionRequest: activeDeletion
+        }, 200, {}, requestId);
+      }
+
       else if (pathname === '/api/account/profile' && method === 'GET') {
         const user = await getAuthenticatedUser(request, env);
         if (!user) return applySecurityHeaders(jsonError('AUTH_REQUIRED', 'Sign-in required to view account profile', 401), request, env);
@@ -10924,7 +11024,9 @@ export default {
                 searchEngineIndexing: Boolean(privRow.search_engine_indexing),
                 analyticsTracking: Boolean(privRow.analytics_tracking),
                 marketingEmails: Boolean(privRow.marketing_emails),
-                activityTelemetry: Boolean(privRow.activity_telemetry)
+                activityTelemetry: Boolean(privRow.activity_telemetry),
+                preferredLanguage: privRow.preferred_language || 'en',
+                timezone: privRow.timezone || 'Asia/Kolkata'
               };
             }
             const sessCountRow = await env.DB.prepare('SELECT COUNT(*) as count FROM sessions WHERE user_id = ? AND expires_at > ?').bind(user.id, Date.now()).first();
@@ -10943,7 +11045,7 @@ export default {
         }, 200, {}, requestId);
       }
 
-      else if (pathname === '/api/account/profile' && method === 'PUT') {
+      else if (pathname === '/api/account/profile' && (method === 'PUT' || method === 'PATCH')) {
         const user = await getAuthenticatedUser(request, env);
         if (!user) return applySecurityHeaders(jsonError('AUTH_REQUIRED', 'Sign-in required to update profile', 401), request, env);
 
@@ -10962,6 +11064,16 @@ export default {
           try {
             await env.DB.prepare('UPDATE users SET display_name = ?, avatar_url = ?, updated_at = ? WHERE id = ?')
               .bind(updatedName, updatedAvatar, now, user.id).run();
+
+            if (validation.cleaned.preferredLanguage !== undefined || validation.cleaned.timezone !== undefined) {
+              await env.DB.prepare(`
+                UPDATE user_privacy_settings
+                SET preferred_language = COALESCE(?, preferred_language),
+                    timezone = COALESCE(?, timezone),
+                    updated_at = ?
+                WHERE user_id = ?
+              `).bind(validation.cleaned.preferredLanguage || null, validation.cleaned.timezone || null, now, user.id).run().catch(() => {});
+            }
 
             const ip = request.headers.get('cf-connecting-ip') || '127.0.0.1';
             const ua = request.headers.get('user-agent') || '';
@@ -10999,7 +11111,9 @@ export default {
                 searchEngineIndexing: Boolean(row.search_engine_indexing),
                 analyticsTracking: Boolean(row.analytics_tracking),
                 marketingEmails: Boolean(row.marketing_emails),
-                activityTelemetry: Boolean(row.activity_telemetry)
+                activityTelemetry: Boolean(row.activity_telemetry),
+                preferredLanguage: row.preferred_language || 'en',
+                timezone: row.timezone || 'Asia/Kolkata'
               };
             }
           } catch (e) {}
@@ -11007,7 +11121,7 @@ export default {
         response = jsonSuccess({ settings }, 200, {}, requestId);
       }
 
-      else if (pathname === '/api/account/privacy' && method === 'PUT') {
+      else if (pathname === '/api/account/privacy' && (method === 'PUT' || method === 'PATCH')) {
         const user = await getAuthenticatedUser(request, env);
         if (!user) return applySecurityHeaders(jsonError('AUTH_REQUIRED', 'Sign-in required to update privacy settings', 401), request, env);
 
@@ -11184,7 +11298,7 @@ export default {
         response = jsonSuccess({ events, total: events.length }, 200, {}, requestId);
       }
 
-      else if (pathname === '/api/account/export' && method === 'POST') {
+      else if ((pathname === '/api/account/exports' || pathname === '/api/account/export') && method === 'POST') {
         const user = await getAuthenticatedUser(request, env);
         if (!user) return applySecurityHeaders(jsonError('AUTH_REQUIRED', 'Sign-in required to request data export', 401), request, env);
 
@@ -11269,9 +11383,34 @@ export default {
           exportId: exportResult.exportId,
           summary: exportResult.summary,
           fileSizeBytes: exportResult.fileSizeBytes,
-          downloadUrl: `/api/account/export/${exportResult.exportId}`,
+          downloadUrl: `/api/account/exports/${exportResult.exportId}/download`,
           payload: exportResult.payload
         }, 201, {}, requestId);
+      }
+
+      else if (pathname === '/api/account/exports' && method === 'GET') {
+        const user = await getAuthenticatedUser(request, env);
+        if (!user) return applySecurityHeaders(jsonError('AUTH_REQUIRED', 'Sign-in required', 401), request, env);
+
+        let userExports = [];
+        if (env.DB && typeof env.DB.prepare === 'function') {
+          try {
+            const rows = await env.DB.prepare('SELECT id, status, format, summary_json, file_size_bytes, requested_at, completed_at, expires_at FROM user_data_exports WHERE user_id = ? ORDER BY requested_at DESC LIMIT 50').bind(user.id).all();
+            userExports = (rows.results || []).map(r => ({
+              id: r.id,
+              status: r.status,
+              format: r.format || 'json',
+              fileSizeBytes: r.file_size_bytes || 0,
+              summary: typeof r.summary_json === 'string' ? JSON.parse(r.summary_json || '{}') : (r.summary_json || {}),
+              requestedAt: r.requested_at,
+              completedAt: r.completed_at,
+              expiresAt: r.expires_at,
+              downloadUrl: `/api/account/exports/${r.id}/download`
+            }));
+          } catch (e) {}
+        }
+
+        response = jsonSuccess({ exports: userExports, total: userExports.length }, 200, {}, requestId);
       }
 
       else if (pathname === '/api/account/export/latest' && method === 'GET') {
@@ -11288,10 +11427,13 @@ export default {
         response = jsonSuccess({ export: latestExport }, 200, {}, requestId);
       }
 
-      else if (pathname.startsWith('/api/account/export/') && method === 'GET') {
-        const exportId = pathname.replace('/api/account/export/', '').trim();
+      else if ((pathname.startsWith('/api/account/exports/') || pathname.startsWith('/api/account/export/')) && (method === 'GET' || method === 'POST')) {
+        let exportId = pathname.replace('/api/account/exports/', '').replace('/api/account/export/', '').trim();
+        const isDownload = exportId.endsWith('/download');
+        if (isDownload) exportId = exportId.replace('/download', '').trim();
+
         const user = await getAuthenticatedUser(request, env);
-        if (!user) return applySecurityHeaders(jsonError('AUTH_REQUIRED', 'Sign-in required to download export', 401), request, env);
+        if (!user) return applySecurityHeaders(jsonError('AUTH_REQUIRED', 'Sign-in required', 401), request, env);
 
         let exportRow = null;
         if (env.DB && typeof env.DB.prepare === 'function') {
@@ -11305,24 +11447,74 @@ export default {
           return applySecurityHeaders(jsonError('FORBIDDEN', 'Access denied to this export archive', 403), request, env);
         }
 
+        // Check if just asking for metadata (GET /api/account/exports/:id without /download)
+        if (!isDownload && method === 'GET' && !pathname.includes('/export/')) {
+          response = jsonSuccess({
+            export: {
+              id: exportRow.id,
+              status: exportRow.status,
+              format: exportRow.format || 'json',
+              fileSizeBytes: exportRow.file_size_bytes || 0,
+              summary: typeof exportRow.summary_json === 'string' ? JSON.parse(exportRow.summary_json || '{}') : (exportRow.summary_json || {}),
+              requestedAt: exportRow.requested_at,
+              expiresAt: exportRow.expires_at,
+              downloadUrl: `/api/account/exports/${exportRow.id}/download`
+            }
+          }, 200, {}, requestId);
+        } else {
+          // Download request
+          if (env.DB && typeof env.DB.prepare === 'function') {
+            try {
+              await env.DB.prepare('UPDATE user_data_exports SET status = ?, downloaded_at = ? WHERE id = ?')
+                .bind(EXPORT_STATUS.DOWNLOADED, new Date().toISOString(), exportRow.id).run();
+            } catch (e) {}
+          }
+
+          return new Response(exportRow.payload_json, {
+            status: 200,
+            headers: {
+              'Content-Type': 'application/json; charset=utf-8',
+              'Content-Disposition': `attachment; filename="wishmagic_export_${user.id}_${Date.now()}.json"`,
+              'Cache-Control': 'no-store, no-cache, must-revalidate'
+            }
+          });
+        }
+      }
+
+      else if ((pathname === '/api/account/deletion' || pathname === '/api/account/deletion-status') && method === 'GET') {
+        const user = await getAuthenticatedUser(request, env);
+        if (!user) return applySecurityHeaders(jsonError('AUTH_REQUIRED', 'Sign-in required', 401), request, env);
+
+        let activeRequest = null;
+        let wishes = [];
+        let orders = [];
+
         if (env.DB && typeof env.DB.prepare === 'function') {
           try {
-            await env.DB.prepare('UPDATE user_data_exports SET status = ?, downloaded_at = ? WHERE id = ?')
-              .bind(EXPORT_STATUS.DOWNLOADED, new Date().toISOString(), exportRow.id).run();
+            activeRequest = await env.DB.prepare("SELECT * FROM account_deletion_requests WHERE user_id = ? AND status IN ('DEACTIVATED', 'PENDING') ORDER BY requested_at DESC LIMIT 1").bind(user.id).first();
+            const wRes = await env.DB.prepare('SELECT id, user_id, status, is_draft FROM wishes WHERE user_id = ?').bind(user.id).all().catch(() => ({ results: [] }));
+            wishes = wRes.results || [];
+            const oRes = await env.DB.prepare('SELECT id, user_id, status FROM orders WHERE user_id = ?').bind(user.id).all().catch(() => ({ results: [] }));
+            orders = oRes.results || [];
           } catch (e) {}
         }
 
-        return new Response(exportRow.payload_json, {
-          status: 200,
-          headers: {
-            'Content-Type': 'application/json; charset=utf-8',
-            'Content-Disposition': `attachment; filename="wishmagic_export_${user.id}_${Date.now()}.json"`,
-            'Cache-Control': 'no-store, no-cache, must-revalidate'
-          }
+        const consequences = getAccountDeletionConsequences({
+          user,
+          wishes,
+          mediaList: [],
+          orders,
+          templates: []
         });
+
+        response = jsonSuccess({
+          isPendingDeletion: Boolean(activeRequest),
+          deletionRequest: activeRequest,
+          consequences
+        }, 200, {}, requestId);
       }
 
-      else if (pathname === '/api/account/delete' && method === 'POST') {
+      else if ((pathname === '/api/account/deletion' || pathname === '/api/account/delete') && method === 'POST') {
         const user = await getAuthenticatedUser(request, env);
         if (!user) return applySecurityHeaders(jsonError('AUTH_REQUIRED', 'Sign-in required for account deletion', 401), request, env);
 
@@ -11358,6 +11550,22 @@ export default {
               deletionRecord.financialRecordsRetained, deletionRecord.requestedAt,
               deletionRecord.gracePeriodEndsAt, deletionRecord.adminNotes
             ).run();
+
+            const lifeJob = createLifecycleJobRecord({
+              userId: user.id,
+              jobType: LIFECYCLE_JOB_TYPES.ACCOUNT_DELETION_PURGE,
+              progressStep: 'GRACE_PERIOD_ACTIVE',
+              details: {
+                deletionRequestId: deletionRecord.id,
+                wishesHandling,
+                gracePeriodEndsAt: deletionRecord.gracePeriodEndsAt
+              }
+            });
+
+            await env.DB.prepare(`
+              INSERT INTO account_lifecycle_jobs (id, user_id, job_type, status, attempt_count, progress_step, details_json, created_at, updated_at)
+              VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+            `).bind(lifeJob.id, lifeJob.userId, lifeJob.jobType, lifeJob.status, lifeJob.attemptCount, lifeJob.progressStep, lifeJob.detailsJson, lifeJob.createdAt, lifeJob.updatedAt).run().catch(() => {});
 
             await env.DB.prepare(`
               UPDATE users SET status = 'deactivated', display_name = ?, avatar_url = ?, updated_at = ?
@@ -11395,14 +11603,14 @@ export default {
         }, 200, headers, requestId);
       }
 
-      else if (pathname === '/api/account/cancel-deletion' && method === 'POST') {
+      else if ((pathname === '/api/account/deletion/cancel' || pathname === '/api/account/cancel-deletion') && method === 'POST') {
         const user = await getAuthenticatedUser(request, env);
         if (!user) return applySecurityHeaders(jsonError('AUTH_REQUIRED', 'Sign-in required', 401), request, env);
 
         let deletionRequest = null;
         if (env.DB && typeof env.DB.prepare === 'function') {
           try {
-            deletionRequest = await env.DB.prepare("SELECT * FROM account_deletion_requests WHERE user_id = ? AND status = 'DEACTIVATED' ORDER BY requested_at DESC LIMIT 1").bind(user.id).first();
+            deletionRequest = await env.DB.prepare("SELECT * FROM account_deletion_requests WHERE user_id = ? AND status IN ('DEACTIVATED', 'PENDING') ORDER BY requested_at DESC LIMIT 1").bind(user.id).first();
             if (deletionRequest) {
               const now = new Date().toISOString();
               await env.DB.prepare("UPDATE account_deletion_requests SET status = 'CANCELLED', cancelled_at = ? WHERE id = ?")
@@ -11410,6 +11618,9 @@ export default {
 
               await env.DB.prepare("UPDATE users SET status = 'active', display_name = 'Creator', updated_at = ? WHERE id = ?")
                 .bind(now, user.id).run();
+
+              await env.DB.prepare("UPDATE account_lifecycle_jobs SET status = 'CANCELLED', updated_at = ? WHERE user_id = ? AND status IN ('QUEUED', 'PROCESSING')")
+                .bind(now, user.id).run().catch(() => {});
 
               const ip = request.headers.get('cf-connecting-ip') || '127.0.0.1';
               const ua = request.headers.get('user-agent') || '';
@@ -11431,20 +11642,27 @@ export default {
         response = jsonSuccess({ success: true, message: 'Account deactivation cancelled. Welcome back!' }, 200, {}, requestId);
       }
 
-      else if (pathname === '/api/account/deletion-status' && method === 'GET') {
+      else if (pathname === '/api/admin/account-lifecycle' && method === 'GET') {
         const user = await getAuthenticatedUser(request, env);
-        if (!user) return applySecurityHeaders(jsonError('AUTH_REQUIRED', 'Sign-in required', 401), request, env);
+        const isAdmin = user && (user.role === 'admin' || user.isAdmin || isAuthoritativeAdmin(user));
+        if (!isAdmin) return applySecurityHeaders(jsonError('FORBIDDEN', 'Admin role required', 403), request, env);
 
-        let activeRequest = null;
+        let deletionRequests = [];
+        let lifecycleJobs = [];
         if (env.DB && typeof env.DB.prepare === 'function') {
           try {
-            activeRequest = await env.DB.prepare("SELECT * FROM account_deletion_requests WHERE user_id = ? AND status = 'DEACTIVATED' ORDER BY requested_at DESC LIMIT 1").bind(user.id).first();
+            const delRows = await env.DB.prepare('SELECT * FROM account_deletion_requests ORDER BY requested_at DESC LIMIT 50').all();
+            deletionRequests = delRows.results || [];
+            const jobRows = await env.DB.prepare('SELECT * FROM account_lifecycle_jobs ORDER BY created_at DESC LIMIT 50').all();
+            lifecycleJobs = jobRows.results || [];
           } catch (e) {}
         }
 
         response = jsonSuccess({
-          isPendingDeletion: Boolean(activeRequest),
-          deletionRequest: activeRequest
+          success: true,
+          deletionRequests,
+          lifecycleJobs,
+          total: deletionRequests.length
         }, 200, {}, requestId);
       }
 

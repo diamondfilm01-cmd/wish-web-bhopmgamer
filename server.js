@@ -167,6 +167,13 @@ import {
   EXPORT_STATUS,
   DELETION_STATUS,
   DELETION_CONFIRMATION_PHRASE,
+  ACCOUNT_LIFECYCLE_STATE,
+  LIFECYCLE_JOB_TYPES,
+  LIFECYCLE_JOB_STATUSES,
+  CLEANUP_RESOURCE_TYPES,
+  SUPPORTED_LANGUAGES,
+  SUPPORTED_TIMEZONES,
+  DATA_RETENTION_POLICIES,
   parseUserAgent,
   maskIpAddress,
   validateProfileUpdate,
@@ -175,7 +182,12 @@ import {
   createSecurityEventRecord,
   compileUserDataExport,
   processAccountDeletionRequest,
-  restoreDeactivatedAccount
+  restoreDeactivatedAccount,
+  computeAccountOverviewStats,
+  evaluateUserStorageDependencies,
+  getAccountDeletionConsequences,
+  createLifecycleJobRecord,
+  processLifecycleJobsQueue
 } from './src/account-privacy-engine.js';
 import {
   QUALIFYING_EVENTS as REF_QUALIFYING_EVENTS,
@@ -190,6 +202,32 @@ import {
   validateCustomReferralSlug,
   calculateRiskScore
 } from './src/referral-engine.js';
+import {
+  POLICY_TYPES,
+  POLICY_STATUS,
+  REVIEW_STATUS,
+  ACCEPTANCE_METHODS,
+  CONSENT_CATEGORIES,
+  POLICY_METADATA,
+  COMPLIANCE_CONTACT_INFO,
+  computeContentChecksum,
+  hashClientIp,
+  compareSemver,
+  isValidSemver,
+  renderPolicyMarkdown,
+  extractTableOfContents,
+  validatePolicyForPublishing,
+  createPolicyDraft,
+  updatePolicyDraft,
+  publishPolicyVersion,
+  retirePolicyVersion,
+  checkUserReconsentRequirements,
+  recordUserAcceptance,
+  normalizeConsentPreferences,
+  recordCookieConsent,
+  generatePolicyDiff,
+  buildDefaultLegalPolicies
+} from './src/legal-compliance-engine.js';
 
 
 const __filename = fileURLToPath(import.meta.url);
@@ -255,13 +293,91 @@ const USER_PRIVACY_FILE = path.join(DATA_DIR, 'user_privacy_settings.json');
 const USER_SECURITY_EVENTS_FILE = path.join(DATA_DIR, 'user_security_events.json');
 const USER_DATA_EXPORTS_FILE = path.join(DATA_DIR, 'user_data_exports.json');
 const ACCOUNT_DELETION_REQUESTS_FILE = path.join(DATA_DIR, 'account_deletion_requests.json');
+const ACCOUNT_LIFECYCLE_JOBS_FILE = path.join(DATA_DIR, 'account_lifecycle_jobs.json');
+const ACCOUNT_CLEANUP_ITEMS_FILE = path.join(DATA_DIR, 'account_cleanup_items.json');
 const REFERRAL_PROGRAMS_FILE = path.join(DATA_DIR, 'referral_programs.json');
 const USER_REFERRAL_CODES_FILE = path.join(DATA_DIR, 'user_referral_codes.json');
 const REFERRAL_ATTRIBUTIONS_FILE = path.join(DATA_DIR, 'referral_attributions.json');
 const REFERRAL_REWARDS_LEDGER_FILE = path.join(DATA_DIR, 'referral_rewards_ledger.json');
 const REFERRAL_FRAUD_LOGS_FILE = path.join(DATA_DIR, 'referral_fraud_logs.json');
+const LEGAL_POLICIES_FILE = path.join(DATA_DIR, 'legal_policies.json');
+const LEGAL_ACTIVE_POLICIES_FILE = path.join(DATA_DIR, 'legal_active_policies.json');
+const POLICY_ACCEPTANCES_FILE = path.join(DATA_DIR, 'policy_acceptances.json');
+const USER_COOKIE_CONSENTS_FILE = path.join(DATA_DIR, 'user_cookie_consents.json');
 const STORE_DIR = path.join(__dirname, 'public', 'templates-store');
 const MEDIA_DIR = path.join(__dirname, 'public', 'media');
+
+function getLegalPoliciesList() {
+  try {
+    if (fs.existsSync(LEGAL_POLICIES_FILE)) {
+      const data = fs.readFileSync(LEGAL_POLICIES_FILE, 'utf8');
+      const parsed = JSON.parse(data || '[]');
+      if (Array.isArray(parsed) && parsed.length > 0) return parsed;
+    }
+  } catch (e) {}
+  const defaults = buildDefaultLegalPolicies();
+  saveLegalPoliciesList(defaults.policies);
+  return defaults.policies;
+}
+
+function saveLegalPoliciesList(policies) {
+  try {
+    fs.writeFileSync(LEGAL_POLICIES_FILE, JSON.stringify(policies, null, 2), 'utf8');
+  } catch (e) {}
+}
+
+function getLegalActivePoliciesMap() {
+  try {
+    if (fs.existsSync(LEGAL_ACTIVE_POLICIES_FILE)) {
+      const data = fs.readFileSync(LEGAL_ACTIVE_POLICIES_FILE, 'utf8');
+      const parsed = JSON.parse(data || '{}');
+      if (parsed && typeof parsed === 'object' && Object.keys(parsed).length > 0) return parsed;
+    }
+  } catch (e) {}
+  const defaults = buildDefaultLegalPolicies();
+  saveLegalActivePoliciesMap(defaults.activePointers);
+  return defaults.activePointers;
+}
+
+function saveLegalActivePoliciesMap(pointers) {
+  try {
+    fs.writeFileSync(LEGAL_ACTIVE_POLICIES_FILE, JSON.stringify(pointers, null, 2), 'utf8');
+  } catch (e) {}
+}
+
+function getPolicyAcceptancesList() {
+  try {
+    if (fs.existsSync(POLICY_ACCEPTANCES_FILE)) {
+      const data = fs.readFileSync(POLICY_ACCEPTANCES_FILE, 'utf8');
+      const parsed = JSON.parse(data || '[]');
+      if (Array.isArray(parsed)) return parsed;
+    }
+  } catch (e) {}
+  return [];
+}
+
+function savePolicyAcceptancesList(list) {
+  try {
+    fs.writeFileSync(POLICY_ACCEPTANCES_FILE, JSON.stringify(list.slice(-5000), null, 2), 'utf8');
+  } catch (e) {}
+}
+
+function getUserCookieConsentsList() {
+  try {
+    if (fs.existsSync(USER_COOKIE_CONSENTS_FILE)) {
+      const data = fs.readFileSync(USER_COOKIE_CONSENTS_FILE, 'utf8');
+      const parsed = JSON.parse(data || '[]');
+      if (Array.isArray(parsed)) return parsed;
+    }
+  } catch (e) {}
+  return [];
+}
+
+function saveUserCookieConsentsList(list) {
+  try {
+    fs.writeFileSync(USER_COOKIE_CONSENTS_FILE, JSON.stringify(list.slice(-5000), null, 2), 'utf8');
+  } catch (e) {}
+}
 
 function getReferralProgramsList() {
   try {
@@ -414,6 +530,40 @@ function getAccountDeletionRequestsList() {
 function saveAccountDeletionRequestsList(requests) {
   try {
     fs.writeFileSync(ACCOUNT_DELETION_REQUESTS_FILE, JSON.stringify(requests.slice(0, 1000), null, 2), 'utf8');
+  } catch (e) {}
+}
+
+function getAccountLifecycleJobsList() {
+  try {
+    if (fs.existsSync(ACCOUNT_LIFECYCLE_JOBS_FILE)) {
+      const data = fs.readFileSync(ACCOUNT_LIFECYCLE_JOBS_FILE, 'utf8');
+      const parsed = JSON.parse(data || '[]');
+      if (Array.isArray(parsed)) return parsed;
+    }
+  } catch (e) {}
+  return [];
+}
+
+function saveAccountLifecycleJobsList(jobs) {
+  try {
+    fs.writeFileSync(ACCOUNT_LIFECYCLE_JOBS_FILE, JSON.stringify(jobs.slice(0, 1000), null, 2), 'utf8');
+  } catch (e) {}
+}
+
+function getAccountCleanupItemsList() {
+  try {
+    if (fs.existsSync(ACCOUNT_CLEANUP_ITEMS_FILE)) {
+      const data = fs.readFileSync(ACCOUNT_CLEANUP_ITEMS_FILE, 'utf8');
+      const parsed = JSON.parse(data || '[]');
+      if (Array.isArray(parsed)) return parsed;
+    }
+  } catch (e) {}
+  return [];
+}
+
+function saveAccountCleanupItemsList(items) {
+  try {
+    fs.writeFileSync(ACCOUNT_CLEANUP_ITEMS_FILE, JSON.stringify(items.slice(0, 2000), null, 2), 'utf8');
   } catch (e) {}
 }
 
@@ -8525,8 +8675,60 @@ app.patch('/api/admin/support/tickets/:ticketId', (req, res) => {
 });
 
 // ============================================================================
-// PART 35 — USER ACCOUNT CENTER, PRIVACY CONTROLS & SESSION SECURITY
+// PART 35 & 37 — USER ACCOUNT CENTER, PRIVACY CONTROLS & LIFECYCLE MANAGEMENT
 // ============================================================================
+
+// API: Get Complete User Account Settings (Part 37 API Contract)
+app.get(['/api/account/settings', '/api/account/overview'], (req, res) => {
+  try {
+    if (!req.user) {
+      return res.status(401).json({ success: false, error: { code: 'AUTH_REQUIRED', message: 'Sign-in required to view account settings' } });
+    }
+
+    const privacyMap = getUserPrivacySettingsMap();
+    const privacy = privacyMap[req.user.id] || DEFAULT_PRIVACY_SETTINGS;
+
+    const wishes = getWishes();
+    const orders = getOrders();
+    const favorites = (getFavorites()[req.user.id] || []);
+    const tickets = getSupportTickets();
+    const requests = getAccountDeletionRequestsList();
+    const activeDeletion = requests.find(r => (r.userId === req.user.id || r.user_id === req.user.id) && (r.status === DELETION_STATUS.DEACTIVATED || r.status === DELETION_STATUS.PENDING)) || null;
+
+    const overview = computeAccountOverviewStats({
+      user: req.user,
+      wishes,
+      orders,
+      favorites,
+      tickets,
+      deletionRequest: activeDeletion
+    });
+
+    const sessions = getSessions();
+    const now = Date.now();
+    const activeSessions = sessions.filter(s => s.userId === req.user.id && s.expiresAt > now);
+
+    const secEvents = getUserSecurityEventsList();
+    const userEvents = secEvents.filter(e => e.userId === req.user.id || e.user_id === req.user.id);
+
+    const preferencesMap = getPreferences();
+    const notificationPreferences = preferencesMap[req.user.id] || DEFAULT_NOTIFICATION_PREFERENCES;
+
+    res.json({
+      success: true,
+      user: req.user,
+      overview,
+      privacy,
+      notificationPreferences,
+      activeSessionsCount: activeSessions.length || 1,
+      securityEventsCount: userEvents.length,
+      isPendingDeletion: Boolean(activeDeletion),
+      deletionRequest: activeDeletion
+    });
+  } catch (err) {
+    res.status(500).json({ success: false, message: err.message });
+  }
+});
 
 // API: Get Complete User Profile with Security & Privacy Overview
 app.get('/api/account/profile', (req, res) => {
@@ -8557,8 +8759,9 @@ app.get('/api/account/profile', (req, res) => {
   }
 });
 
-// API: Update User Profile Details
-app.put('/api/account/profile', (req, res) => {
+// API: Update User Profile Details (Supports PUT and PATCH)
+app.all(['/api/account/profile'], (req, res, next) => {
+  if (req.method !== 'PUT' && req.method !== 'PATCH') return next();
   try {
     if (!req.user) {
       return res.status(401).json({ success: false, error: { code: 'AUTH_REQUIRED', message: 'Sign-in required to update profile' } });
@@ -8577,9 +8780,23 @@ app.put('/api/account/profile', (req, res) => {
     if (idx >= 0) {
       if (validation.cleaned.displayName !== undefined) users[idx].displayName = validation.cleaned.displayName;
       if (validation.cleaned.avatarUrl !== undefined) users[idx].avatarUrl = validation.cleaned.avatarUrl;
+      if (validation.cleaned.bio !== undefined) users[idx].bio = validation.cleaned.bio;
+      if (validation.cleaned.phone !== undefined) users[idx].phone = validation.cleaned.phone;
+      if (validation.cleaned.preferredLanguage !== undefined) users[idx].preferredLanguage = validation.cleaned.preferredLanguage;
+      if (validation.cleaned.timezone !== undefined) users[idx].timezone = validation.cleaned.timezone;
       users[idx].updatedAt = now;
       saveUsers(users);
       req.user = users[idx];
+    }
+
+    // Sync preferred language and timezone with user_privacy_settings
+    if (validation.cleaned.preferredLanguage !== undefined || validation.cleaned.timezone !== undefined) {
+      const privacyMap = getUserPrivacySettingsMap();
+      const currentPrivacy = privacyMap[req.user.id] || { ...DEFAULT_PRIVACY_SETTINGS };
+      if (validation.cleaned.preferredLanguage !== undefined) currentPrivacy.preferredLanguage = validation.cleaned.preferredLanguage;
+      if (validation.cleaned.timezone !== undefined) currentPrivacy.timezone = validation.cleaned.timezone;
+      privacyMap[req.user.id] = currentPrivacy;
+      saveUserPrivacySettingsMap(privacyMap);
     }
 
     // Log security event
@@ -8617,8 +8834,9 @@ app.get('/api/account/privacy', (req, res) => {
   }
 });
 
-// API: Save Privacy Settings
-app.put('/api/account/privacy', (req, res) => {
+// API: Save Privacy Settings (Supports PUT and PATCH)
+app.all(['/api/account/privacy'], (req, res, next) => {
+  if (req.method !== 'PUT' && req.method !== 'PATCH') return next();
   try {
     if (!req.user) {
       return res.status(401).json({ success: false, error: { code: 'AUTH_REQUIRED', message: 'Sign-in required to update privacy settings' } });
@@ -8783,8 +9001,8 @@ app.get('/api/account/security-log', (req, res) => {
   }
 });
 
-// API: Request Complete Personal Data Export (GDPR / DPDP Portability)
-app.post('/api/account/export', (req, res) => {
+// API: Request Complete Personal Data Export (GDPR / DPDP Portability - Supports POST /api/account/exports & /api/account/export)
+app.post(['/api/account/exports', '/api/account/export'], (req, res) => {
   try {
     if (!req.user) {
       return res.status(401).json({ success: false, error: { code: 'AUTH_REQUIRED', message: 'Sign-in required to request data export' } });
@@ -8794,7 +9012,7 @@ app.post('/api/account/export', (req, res) => {
     const privacy = privacyMap[req.user.id] || DEFAULT_PRIVACY_SETTINGS;
 
     const wishes = getWishes().filter(w => w.userId === req.user.id || w.user_id === req.user.id);
-    const drafts = [];
+    const drafts = wishes.filter(w => w.status === 'draft' || w.isDraft);
     const favorites = (getFavorites()[req.user.id] || []);
     const orders = getOrders().filter(o => o.userId === req.user.id || o.user_id === req.user.id);
     const entitlements = getEntitlements().filter(e => e.userId === req.user.id || e.user_id === req.user.id);
@@ -8853,9 +9071,37 @@ app.post('/api/account/export', (req, res) => {
       exportId: exportResult.exportId,
       summary: exportResult.summary,
       fileSizeBytes: exportResult.fileSizeBytes,
-      downloadUrl: `/api/account/export/${exportResult.exportId}`,
+      downloadUrl: `/api/account/exports/${exportResult.exportId}/download`,
       payload: exportResult.payload
     });
+  } catch (err) {
+    res.status(500).json({ success: false, message: err.message });
+  }
+});
+
+// API: List User's Data Export History (Part 37 API Contract)
+app.get('/api/account/exports', (req, res) => {
+  try {
+    if (!req.user) {
+      return res.status(401).json({ success: false, error: { code: 'AUTH_REQUIRED', message: 'Sign-in required to list data exports' } });
+    }
+
+    const exportsList = getUserDataExportsList();
+    const userExports = exportsList
+      .filter(e => e.userId === req.user.id || e.user_id === req.user.id)
+      .map(e => ({
+        id: e.id,
+        status: e.status,
+        format: e.format || 'json',
+        fileSizeBytes: e.fileSizeBytes || e.file_size_bytes || 0,
+        summary: typeof e.summary === 'object' ? e.summary : (typeof e.summary_json === 'string' ? JSON.parse(e.summary_json || '{}') : {}),
+        requestedAt: e.requestedAt || e.requested_at,
+        completedAt: e.completedAt || e.completed_at,
+        expiresAt: e.expiresAt || e.expires_at,
+        downloadUrl: `/api/account/exports/${e.id}/download`
+      }));
+
+    res.json({ success: true, exports: userExports, total: userExports.length });
   } catch (err) {
     res.status(500).json({ success: false, message: err.message });
   }
@@ -8876,8 +9122,47 @@ app.get('/api/account/export/latest', (req, res) => {
   }
 });
 
-// API: Download Data Export JSON Archive
-app.get('/api/account/export/:exportId', (req, res) => {
+// API: Get Specific Data Export Metadata (Part 37 API Contract)
+app.get('/api/account/exports/:exportId', (req, res) => {
+  try {
+    if (!req.user) {
+      return res.status(401).json({ success: false, error: { code: 'AUTH_REQUIRED', message: 'Sign-in required' } });
+    }
+
+    const { exportId } = req.params;
+    const exportsList = getUserDataExportsList();
+    const item = exportsList.find(e => e.id === exportId);
+
+    if (!item) {
+      return res.status(404).json({ success: false, message: 'Export archive not found' });
+    }
+
+    // IDOR Protection
+    const isOwner = item.userId === req.user.id || item.user_id === req.user.id;
+    if (!isOwner && !isAuthoritativeAdmin(req.user)) {
+      return res.status(403).json({ success: false, message: 'Access denied to this export archive' });
+    }
+
+    res.json({
+      success: true,
+      export: {
+        id: item.id,
+        status: item.status,
+        format: item.format || 'json',
+        fileSizeBytes: item.fileSizeBytes || item.file_size_bytes || 0,
+        summary: typeof item.summary === 'object' ? item.summary : (typeof item.summary_json === 'string' ? JSON.parse(item.summary_json || '{}') : {}),
+        requestedAt: item.requestedAt || item.requested_at,
+        expiresAt: item.expiresAt || item.expires_at,
+        downloadUrl: `/api/account/exports/${item.id}/download`
+      }
+    });
+  } catch (err) {
+    res.status(500).json({ success: false, message: err.message });
+  }
+});
+
+// API: Download Data Export JSON Archive (Supports GET & POST /api/account/exports/:id/download & /api/account/export/:id)
+app.all(['/api/account/exports/:exportId/download', '/api/account/export/:exportId', '/api/account/export/:exportId/download'], (req, res) => {
   try {
     if (!req.user) {
       return res.status(401).json({ success: false, error: { code: 'AUTH_REQUIRED', message: 'Sign-in required to download export' } });
@@ -8897,20 +9182,75 @@ app.get('/api/account/export/:exportId', (req, res) => {
       return res.status(403).json({ success: false, message: 'Access denied to this export archive' });
     }
 
+    // Check expiry
+    if (item.expiresAt && new Date(item.expiresAt) < new Date()) {
+      item.status = EXPORT_STATUS.EXPIRED;
+      saveUserDataExportsList(exportsList);
+      return res.status(410).json({ success: false, message: 'This export archive has expired. Please request a new data export.' });
+    }
+
     item.status = EXPORT_STATUS.DOWNLOADED;
     item.downloadedAt = new Date().toISOString();
     saveUserDataExportsList(exportsList);
 
+    const ip = req.headers['x-forwarded-for'] || req.socket.remoteAddress || '127.0.0.1';
+    const ua = req.headers['user-agent'] || '';
+    const secEvt = createSecurityEventRecord({
+      userId: req.user.id,
+      eventType: SECURITY_EVENT_TYPES.DATA_EXPORT_DOWNLOADED,
+      ipAddress: String(ip),
+      userAgent: ua,
+      details: { exportId: item.id }
+    });
+    const allSec = getUserSecurityEventsList();
+    allSec.unshift(secEvt);
+    saveUserSecurityEventsList(allSec);
+
     res.setHeader('Content-Type', 'application/json; charset=utf-8');
     res.setHeader('Content-Disposition', `attachment; filename="wishmagic_export_${req.user.id}_${Date.now()}.json"`);
+    res.setHeader('Cache-Control', 'private, no-cache, no-store, must-revalidate');
     res.send(item.payloadString || item.payload_json);
   } catch (err) {
     res.status(500).json({ success: false, message: err.message });
   }
 });
 
-// API: Account Deletion / Deactivation Workflow
-app.post('/api/account/delete', (req, res) => {
+// API: Get Account Deletion Status & Consequences Summary (Part 37 API Contract)
+app.get(['/api/account/deletion', '/api/account/deletion-status'], (req, res) => {
+  try {
+    if (!req.user) {
+      return res.status(401).json({ success: false, error: { code: 'AUTH_REQUIRED', message: 'Sign-in required' } });
+    }
+
+    const requests = getAccountDeletionRequestsList();
+    const active = requests.find(r => (r.userId === req.user.id || r.user_id === req.user.id) && (r.status === DELETION_STATUS.DEACTIVATED || r.status === DELETION_STATUS.PENDING)) || null;
+
+    const wishes = getWishes();
+    const mediaList = getMedia();
+    const orders = getOrders();
+    const templates = getTemplates();
+
+    const consequences = getAccountDeletionConsequences({
+      user: req.user,
+      wishes,
+      mediaList,
+      orders,
+      templates
+    });
+
+    res.json({
+      success: true,
+      isPendingDeletion: Boolean(active),
+      deletionRequest: active,
+      consequences
+    });
+  } catch (err) {
+    res.status(500).json({ success: false, message: err.message });
+  }
+});
+
+// API: Account Deletion / Deactivation Workflow (Supports POST /api/account/deletion & /api/account/delete)
+app.post(['/api/account/deletion', '/api/account/delete'], (req, res) => {
   try {
     if (!req.user) {
       return res.status(401).json({ success: false, error: { code: 'AUTH_REQUIRED', message: 'Sign-in required for account deletion' } });
@@ -8954,12 +9294,27 @@ app.post('/api/account/delete', (req, res) => {
       if (updatedWishes) saveWishes(wishes);
     }
 
-    // 4. Terminate all active sessions for this user
+    // 4. Create background lifecycle purge job
+    const lifecycleJobs = getAccountLifecycleJobsList();
+    const newLifeJob = createLifecycleJobRecord({
+      userId: req.user.id,
+      jobType: LIFECYCLE_JOB_TYPES.ACCOUNT_DELETION_PURGE,
+      progressStep: 'GRACE_PERIOD_ACTIVE',
+      details: {
+        deletionRequestId: deletionRecord.id,
+        wishesHandling,
+        gracePeriodEndsAt: deletionRecord.gracePeriodEndsAt
+      }
+    });
+    lifecycleJobs.unshift(newLifeJob);
+    saveAccountLifecycleJobsList(lifecycleJobs);
+
+    // 5. Terminate all active sessions for this user
     let sessions = getSessions();
     sessions = sessions.filter(s => s.userId !== req.user.id);
     saveSessions(sessions);
 
-    // 5. Audit log
+    // 6. Audit log
     const logs = getAdminAuditLogs();
     logs.push(auditLog);
     saveAdminAuditLogs(logs);
@@ -8977,15 +9332,15 @@ app.post('/api/account/delete', (req, res) => {
   }
 });
 
-// API: Cancel Account Deletion / Reactivate Account
-app.post('/api/account/cancel-deletion', (req, res) => {
+// API: Cancel Account Deletion / Reactivate Account (Supports POST /api/account/deletion/cancel & /api/account/cancel-deletion)
+app.post(['/api/account/deletion/cancel', '/api/account/cancel-deletion'], (req, res) => {
   try {
     if (!req.user) {
       return res.status(401).json({ success: false, error: { code: 'AUTH_REQUIRED', message: 'Sign-in required' } });
     }
 
     const requests = getAccountDeletionRequestsList();
-    const target = requests.find(r => (r.userId === req.user.id || r.user_id === req.user.id) && r.status === DELETION_STATUS.DEACTIVATED);
+    const target = requests.find(r => (r.userId === req.user.id || r.user_id === req.user.id) && (r.status === DELETION_STATUS.DEACTIVATED || r.status === DELETION_STATUS.PENDING));
 
     if (target) {
       const now = new Date().toISOString();
@@ -9000,6 +9355,30 @@ app.post('/api/account/cancel-deletion', (req, res) => {
         users[uIdx].displayName = 'Creator';
         saveUsers(users);
       }
+
+      // Cancel any pending lifecycle jobs
+      const lifecycleJobs = getAccountLifecycleJobsList();
+      lifecycleJobs.forEach(j => {
+        if (j.userId === req.user.id && (j.status === LIFECYCLE_JOB_STATUSES.QUEUED || j.status === LIFECYCLE_JOB_STATUSES.PROCESSING)) {
+          j.status = LIFECYCLE_JOB_STATUSES.CANCELLED;
+          j.updatedAt = now;
+        }
+      });
+      saveAccountLifecycleJobsList(lifecycleJobs);
+
+      // Log security event
+      const ip = req.headers['x-forwarded-for'] || req.socket.remoteAddress || '127.0.0.1';
+      const ua = req.headers['user-agent'] || '';
+      const secEvt = createSecurityEventRecord({
+        userId: req.user.id,
+        eventType: SECURITY_EVENT_TYPES.ACCOUNT_DELETION_CANCELLED,
+        ipAddress: String(ip),
+        userAgent: ua,
+        details: { requestId: target.id }
+      });
+      const allSec = getUserSecurityEventsList();
+      allSec.unshift(secEvt);
+      saveUserSecurityEventsList(allSec);
     }
 
     res.json({ success: true, message: 'Account deactivation cancelled. Welcome back!' });
@@ -9008,20 +9387,59 @@ app.post('/api/account/cancel-deletion', (req, res) => {
   }
 });
 
-// API: Get Deletion Status
-app.get('/api/account/deletion-status', (req, res) => {
+// Admin: Inspect Account Lifecycle & Deletion Requests (Part 37 Admin Ops)
+app.get('/api/admin/account-lifecycle', (req, res) => {
   try {
-    if (!req.user) {
-      return res.status(401).json({ success: false, error: { code: 'AUTH_REQUIRED', message: 'Sign-in required' } });
+    if (!req.user || !isAuthoritativeAdmin(req.user)) {
+      return res.status(403).json({ success: false, message: 'Admin role required' });
     }
 
-    const requests = getAccountDeletionRequestsList();
-    const active = requests.find(r => (r.userId === req.user.id || r.user_id === req.user.id) && r.status === DELETION_STATUS.DEACTIVATED) || null;
+    const deletionRequests = getAccountDeletionRequestsList();
+    const lifecycleJobs = getAccountLifecycleJobsList();
+    const cleanupItems = getAccountCleanupItemsList();
+
+    const pendingDeletions = deletionRequests.filter(r => r.status === DELETION_STATUS.DEACTIVATED || r.status === DELETION_STATUS.PENDING);
+    const activeJobs = lifecycleJobs.filter(j => j.status === LIFECYCLE_JOB_STATUSES.QUEUED || j.status === LIFECYCLE_JOB_STATUSES.PROCESSING);
 
     res.json({
       success: true,
-      isPendingDeletion: Boolean(active),
-      deletionRequest: active
+      metrics: {
+        totalDeletionRequests: deletionRequests.length,
+        pendingDeletionsCount: pendingDeletions.length,
+        activeLifecycleJobsCount: activeJobs.length,
+        totalCleanupItemsTracked: cleanupItems.length
+      },
+      deletionRequests: deletionRequests.slice(0, 50),
+      lifecycleJobs: lifecycleJobs.slice(0, 50),
+      cleanupItems: cleanupItems.slice(0, 50)
+    });
+  } catch (err) {
+    res.status(500).json({ success: false, message: err.message });
+  }
+});
+
+// Admin: Process Bounded Lifecycle Queue Batch (Part 37 Admin Ops)
+app.post('/api/admin/account-lifecycle/jobs/process', (req, res) => {
+  try {
+    if (!req.user || !isAuthoritativeAdmin(req.user)) {
+      return res.status(403).json({ success: false, message: 'Admin role required' });
+    }
+
+    const limit = Math.min(25, Number(req.body?.limit) || 10);
+    const lifecycleJobs = getAccountLifecycleJobsList();
+    const result = processLifecycleJobsQueue({
+      jobs: lifecycleJobs,
+      workerId: `admin_${req.user.id}`,
+      limit
+    });
+
+    saveAccountLifecycleJobsList(lifecycleJobs);
+
+    res.json({
+      success: true,
+      processedCount: result.claimedCount,
+      claimedJobs: result.claimedJobs,
+      message: `Successfully claimed ${result.claimedCount} lifecycle jobs for execution.`
     });
   } catch (err) {
     res.status(500).json({ success: false, message: err.message });
@@ -11690,6 +12108,10 @@ app.get('/w/:id', (req, res) => {
   let htmlContent = fs.readFileSync(htmlPath, 'utf8');
 
   if (wish) {
+    if (wish.status === 'archived' || wish.status === 'deleted') {
+      return res.status(404).send('<!DOCTYPE html><html><body style="font-family:system-ui,sans-serif;text-align:center;padding:60px 20px;background:#0d0614;color:#f3e8ff;"><h2>Celebration Link Inactive</h2><p style="opacity:0.8;">This celebration experience is no longer active or has been unpublished by the creator.</p><a href="/" style="display:inline-block;margin-top:16px;padding:10px 20px;background:#ec4899;color:white;text-decoration:none;border-radius:12px;font-weight:bold;">Return to WishMagic</a></body></html>');
+    }
+
     const versionId = wish.templateVersionId || wish.template_version_id || (wish.customData && (wish.customData.templateVersionId || wish.customData.template_version_id));
     const template = getTemplateVersionById(versionId, wish.templateId);
     const customData = wish.customData || {};
@@ -11714,7 +12136,12 @@ app.get('/w/:id', (req, res) => {
       coverPhoto = `${baseUrl}${coverPhoto.startsWith('/') ? '' : '/'}${coverPhoto}`;
     }
 
-    const isPrivate = Boolean(wish.isPrivate || customData.isPrivate || customData.unlisted);
+    // Owner searchEngineIndexing privacy preference check
+    const privacyMap = getUserPrivacySettingsMap();
+    const ownerPrivacy = (wish.userId || wish.user_id) ? privacyMap[wish.userId || wish.user_id] : null;
+    const allowIndexing = ownerPrivacy ? Boolean(ownerPrivacy.searchEngineIndexing) : true;
+
+    const isPrivate = Boolean(wish.isPrivate || customData.isPrivate || customData.unlisted || !allowIndexing);
     const robotsContent = isPrivate ? 'noindex, nofollow' : 'index, follow';
 
     const seoMetas = `
@@ -11771,6 +12198,736 @@ app.get('/w/:id', (req, res) => {
 
   res.setHeader('Content-Type', 'text/html; charset=utf-8');
   res.send(htmlContent);
+});
+
+// ============================================================================
+// PART 38 — WISHMAGIC LEGAL & COMPLIANCE CENTER, TERMS, PRIVACY & CONSENT
+// ============================================================================
+
+// Helper to resolve policy type from type key or URL slug
+function resolvePolicyType(keyOrSlug) {
+  if (!keyOrSlug) return null;
+  const raw = String(keyOrSlug).toLowerCase().trim();
+  const directMatch = Object.values(POLICY_TYPES).find(t => t.toLowerCase() === raw);
+  if (directMatch) return directMatch;
+  for (const [typeKey, meta] of Object.entries(POLICY_METADATA)) {
+    if (meta.slug && meta.slug.toLowerCase() === raw) return typeKey;
+  }
+  return null;
+}
+
+// 1. Public: Get All Published Active Policies (Overview)
+app.get('/api/legal/policies', (req, res) => {
+  try {
+    const activeMap = getLegalActivePoliciesMap();
+    const allPolicies = getLegalPoliciesList();
+
+    const result = Object.values(POLICY_TYPES).map(typeKey => {
+      const meta = POLICY_METADATA[typeKey] || { name: typeKey, slug: typeKey, isMandatory: false };
+      const activePointer = activeMap[typeKey];
+      const activeDoc = activePointer ? allPolicies.find(p => p.id === activePointer.current_policy_id || (p.policy_type === typeKey && p.version === activePointer.current_version && p.status === POLICY_STATUS.PUBLISHED)) : null;
+
+      return {
+        policyType: typeKey,
+        title: activeDoc?.title || meta.name,
+        name: meta.name,
+        slug: meta.slug,
+        shortTitle: meta.shortTitle,
+        icon: meta.icon,
+        description: meta.description,
+        isMandatory: meta.isMandatory,
+        requiresReconsentOnMaterialChange: meta.requiresReconsentOnMaterialChange,
+        activeVersion: activePointer?.current_version || activeDoc?.version || '1.0.0',
+        activePolicyId: activePointer?.current_policy_id || activeDoc?.id || null,
+        effectiveAt: activePointer?.effective_at || activeDoc?.effective_at || null,
+        publishedAt: activeDoc?.published_at || null,
+        contentChecksum: activeDoc?.content_checksum || null,
+        hasActivePolicy: Boolean(activeDoc)
+      };
+    });
+
+    res.json({
+      success: true,
+      count: result.length,
+      policies: result,
+      contactInfo: COMPLIANCE_CONTACT_INFO
+    });
+  } catch (err) {
+    res.status(500).json({ success: false, message: err.message });
+  }
+});
+
+// 2. Public: Get Current Active Policy Document with Rendered Content
+app.get('/api/legal/policies/:typeOrSlug', (req, res) => {
+  try {
+    const resolvedType = resolvePolicyType(req.params.typeOrSlug);
+    if (!resolvedType) {
+      return res.status(404).json({ success: false, message: `Unknown policy type: '${req.params.typeOrSlug}'` });
+    }
+
+    const activeMap = getLegalActivePoliciesMap();
+    const allPolicies = getLegalPoliciesList();
+    const activePointer = activeMap[resolvedType];
+
+    let currentDoc = null;
+    if (activePointer && activePointer.current_policy_id) {
+      currentDoc = allPolicies.find(p => p.id === activePointer.current_policy_id);
+    }
+    if (!currentDoc) {
+      currentDoc = allPolicies.find(p => p.policy_type === resolvedType && p.status === POLICY_STATUS.PUBLISHED);
+    }
+
+    if (!currentDoc) {
+      return res.status(404).json({ success: false, message: `No published version found for policy: ${resolvedType}` });
+    }
+
+    // Historical versions list for this policy type
+    const versions = allPolicies
+      .filter(p => p.policy_type === resolvedType && p.status === POLICY_STATUS.PUBLISHED)
+      .sort((a, b) => compareSemver(b.version, a.version))
+      .map(p => ({
+        id: p.id,
+        version: p.version,
+        publishedAt: p.published_at,
+        effectiveAt: p.effective_at,
+        changeSummary: p.change_summary,
+        isMaterialChange: Boolean(p.is_material_change),
+        contentChecksum: p.content_checksum
+      }));
+
+    const htmlContent = renderPolicyMarkdown(currentDoc.content);
+    const tableOfContents = extractTableOfContents(currentDoc.content);
+    const meta = POLICY_METADATA[resolvedType] || {};
+
+    res.json({
+      success: true,
+      policy: {
+        id: currentDoc.id,
+        policyType: currentDoc.policy_type,
+        version: currentDoc.version,
+        title: currentDoc.title,
+        contentFormat: currentDoc.content_format,
+        content: currentDoc.content,
+        contentChecksum: currentDoc.content_checksum,
+        status: currentDoc.status,
+        effectiveAt: currentDoc.effective_at,
+        publishedAt: currentDoc.published_at,
+        isMaterialChange: Boolean(currentDoc.is_material_change),
+        changeSummary: currentDoc.change_summary
+      },
+      htmlContent,
+      tableOfContents,
+      versions,
+      metadata: meta,
+      contactInfo: COMPLIANCE_CONTACT_INFO
+    });
+  } catch (err) {
+    res.status(500).json({ success: false, message: err.message });
+  }
+});
+
+// 3. Public: Get Specific Historical Version of a Policy
+app.get('/api/legal/policies/:typeOrSlug/versions/:version', (req, res) => {
+  try {
+    const resolvedType = resolvePolicyType(req.params.typeOrSlug);
+    if (!resolvedType) {
+      return res.status(404).json({ success: false, message: `Unknown policy type: '${req.params.typeOrSlug}'` });
+    }
+
+    const targetVersion = req.params.version.trim().replace(/^v/i, '');
+    const allPolicies = getLegalPoliciesList();
+    const doc = allPolicies.find(p => p.policy_type === resolvedType && p.version && p.version.replace(/^v/i, '') === targetVersion);
+
+    if (!doc) {
+      return res.status(404).json({ success: false, message: `Version '${targetVersion}' not found for policy '${resolvedType}'` });
+    }
+
+    const htmlContent = renderPolicyMarkdown(doc.content);
+    const tableOfContents = extractTableOfContents(doc.content);
+
+    res.json({
+      success: true,
+      policy: doc,
+      htmlContent,
+      tableOfContents,
+      isHistorical: doc.status !== POLICY_STATUS.PUBLISHED || false
+    });
+  } catch (err) {
+    res.status(500).json({ success: false, message: err.message });
+  }
+});
+
+// 4. Public: Compare Two Versions (Diff Engine)
+app.get('/api/legal/policies/:typeOrSlug/compare', (req, res) => {
+  try {
+    const resolvedType = resolvePolicyType(req.params.typeOrSlug);
+    if (!resolvedType) {
+      return res.status(404).json({ success: false, message: `Unknown policy type: '${req.params.typeOrSlug}'` });
+    }
+
+    const { v1, v2 } = req.query;
+    if (!v1 || !v2) {
+      return res.status(400).json({ success: false, message: 'Query parameters v1 and v2 are required for version comparison' });
+    }
+
+    const allPolicies = getLegalPoliciesList();
+    const doc1 = allPolicies.find(p => p.policy_type === resolvedType && p.version === v1.trim().replace(/^v/i, ''));
+    const doc2 = allPolicies.find(p => p.policy_type === resolvedType && p.version === v2.trim().replace(/^v/i, ''));
+
+    if (!doc1 || !doc2) {
+      return res.status(404).json({ success: false, message: 'One or both specified policy versions could not be found' });
+    }
+
+    const diffResult = generatePolicyDiff(doc1.content, doc2.content);
+
+    res.json({
+      success: true,
+      policyType: resolvedType,
+      v1: { version: doc1.version, id: doc1.id, effectiveAt: doc1.effective_at, checksum: doc1.content_checksum },
+      v2: { version: doc2.version, id: doc2.id, effectiveAt: doc2.effective_at, checksum: doc2.content_checksum },
+      ...diffResult
+    });
+  } catch (err) {
+    res.status(500).json({ success: false, message: err.message });
+  }
+});
+
+// 5. Authenticated User: Check Acceptance & Re-Consent Status
+app.get('/api/legal/acceptance/status', (req, res) => {
+  try {
+    if (!req.user) {
+      return res.json({
+        success: true,
+        authenticated: false,
+        reconsentRequired: false,
+        pendingPolicies: []
+      });
+    }
+
+    const acceptances = getPolicyAcceptancesList();
+    const activeMap = getLegalActivePoliciesMap();
+    const allPolicies = getLegalPoliciesList();
+
+    const status = checkUserReconsentRequirements({
+      userId: req.user.id,
+      userAcceptances: acceptances,
+      activePolicies: activeMap,
+      policiesList: allPolicies
+    });
+
+    res.json({
+      success: true,
+      authenticated: true,
+      ...status
+    });
+  } catch (err) {
+    res.status(500).json({ success: false, message: err.message });
+  }
+});
+
+// 6. Authenticated User: Record Policy Acceptance (Single or Batch)
+app.post('/api/legal/acceptance', (req, res) => {
+  try {
+    if (!req.user) {
+      return res.status(401).json({ success: false, message: 'Authentication required to record policy acceptance' });
+    }
+
+    const body = req.body || {};
+    const method = body.acceptanceMethod || ACCEPTANCE_METHODS.EXPLICIT_ACCEPT;
+    const clientIp = req.headers['x-forwarded-for'] || req.socket.remoteAddress || '';
+    const userAgent = req.headers['user-agent'] || '';
+
+    // Accept either array of policies or single policy
+    const policyItems = Array.isArray(body.policies) ? body.policies : [body];
+    if (policyItems.length === 0 || !policyItems[0].policyType) {
+      return res.status(400).json({ success: false, message: 'At least one policyType is required for acceptance' });
+    }
+
+    const allPolicies = getLegalPoliciesList();
+    const activeMap = getLegalActivePoliciesMap();
+    const acceptances = getPolicyAcceptancesList();
+    const recorded = [];
+
+    for (const item of policyItems) {
+      const typeKey = resolvePolicyType(item.policyType);
+      if (!typeKey) continue;
+
+      const activePointer = activeMap[typeKey];
+      const targetVersion = item.policyVersion || activePointer?.current_version || '1.0.0';
+      const targetDoc = allPolicies.find(p => p.policy_type === typeKey && p.version === targetVersion) ||
+                        allPolicies.find(p => p.id === activePointer?.current_policy_id);
+
+      const checksum = item.contentChecksum || targetDoc?.content_checksum || computeContentChecksum(targetDoc?.content || '');
+
+      const record = recordUserAcceptance({
+        userId: req.user.id,
+        policyType: typeKey,
+        policyVersion: targetVersion,
+        policyId: targetDoc?.id || activePointer?.current_policy_id || `pol_${typeKey}`,
+        contentChecksum: checksum,
+        acceptanceMethod: method,
+        clientIp,
+        userAgent
+      });
+
+      acceptances.push(record);
+      recorded.push(record);
+    }
+
+    savePolicyAcceptancesList(acceptances);
+
+    res.json({
+      success: true,
+      message: `Successfully recorded ${recorded.length} policy acceptance(s)`,
+      recordedCount: recorded.length,
+      acceptances: recorded
+    });
+  } catch (err) {
+    res.status(500).json({ success: false, message: err.message });
+  }
+});
+
+// 7. Authenticated User: Get Acceptance Audit History
+app.get('/api/legal/acceptance/history', (req, res) => {
+  try {
+    if (!req.user) {
+      return res.status(401).json({ success: false, message: 'Authentication required' });
+    }
+
+    const allAccs = getPolicyAcceptancesList();
+    const userAccs = allAccs
+      .filter(a => a.user_id === req.user.id || a.userId === req.user.id)
+      .sort((a, b) => new Date(b.accepted_at || b.acceptedAt).getTime() - new Date(a.accepted_at || a.acceptedAt).getTime());
+
+    res.json({
+      success: true,
+      userId: req.user.id,
+      totalCount: userAccs.length,
+      acceptances: userAccs
+    });
+  } catch (err) {
+    res.status(500).json({ success: false, message: err.message });
+  }
+});
+
+// 8. Public & Authenticated: Record Cookie Consent
+app.post('/api/legal/consent', (req, res) => {
+  try {
+    const clientIp = req.headers['x-forwarded-for'] || req.socket.remoteAddress || '';
+    const userAgent = req.headers['user-agent'] || '';
+    const body = req.body || {};
+
+    const record = recordCookieConsent({
+      userId: req.user?.id || null,
+      anonymousToken: body.anonymousToken || null,
+      preferences: {
+        functional: body.functional,
+        analytics: body.analytics,
+        marketing: body.marketing,
+        consentVersion: body.consentVersion
+      },
+      clientIp,
+      userAgent
+    });
+
+    const consents = getUserCookieConsentsList();
+    consents.push(record);
+    saveUserCookieConsentsList(consents);
+
+    res.json({
+      success: true,
+      message: 'Cookie preferences saved successfully',
+      consent: record
+    });
+  } catch (err) {
+    res.status(500).json({ success: false, message: err.message });
+  }
+});
+
+// 9. Public & Authenticated: Retrieve Current Cookie Consent
+app.get('/api/legal/consent', (req, res) => {
+  try {
+    const consents = getUserCookieConsentsList();
+    const token = req.query.anonymousToken;
+    const userId = req.user?.id;
+
+    let match = null;
+    if (userId) {
+      match = consents.filter(c => c.user_id === userId || c.userId === userId).slice(-1)[0];
+    }
+    if (!match && token) {
+      match = consents.filter(c => c.anonymous_token === token || c.anonymousToken === token).slice(-1)[0];
+    }
+
+    res.json({
+      success: true,
+      hasConsent: Boolean(match),
+      consent: match || {
+        essential: 1,
+        functional: 1,
+        analytics: 0,
+        marketing: 0,
+        consentVersion: '1.0.0'
+      }
+    });
+  } catch (err) {
+    res.status(500).json({ success: false, message: err.message });
+  }
+});
+
+// --- ADMIN LEGAL & COMPLIANCE MANAGEMENT APIS ---
+
+// 10. Admin: List All Policies with Metadata and Active Pointers
+app.get('/api/admin/legal/policies', (req, res) => {
+  try {
+    if (!req.user || !isAuthoritativeAdmin(req.user)) {
+      return res.status(403).json({ success: false, message: 'Admin role required' });
+    }
+
+    const allPolicies = getLegalPoliciesList();
+    const activeMap = getLegalActivePoliciesMap();
+    const acceptances = getPolicyAcceptancesList();
+
+    const grouped = {};
+    for (const typeKey of Object.values(POLICY_TYPES)) {
+      const typePolicies = allPolicies.filter(p => p.policy_type === typeKey);
+      const activePointer = activeMap[typeKey];
+      const activeDoc = typePolicies.find(p => p.id === activePointer?.current_policy_id) || null;
+      const draftDoc = typePolicies.find(p => p.status === POLICY_STATUS.DRAFT) || null;
+      const typeAcceptances = acceptances.filter(a => a.policy_type === typeKey || a.policyType === typeKey);
+
+      grouped[typeKey] = {
+        metadata: POLICY_METADATA[typeKey],
+        activePointer,
+        activeDoc,
+        draftDoc,
+        versionsCount: typePolicies.length,
+        acceptancesCount: typeAcceptances.length,
+        versions: typePolicies.sort((a, b) => compareSemver(b.version, a.version))
+      };
+    }
+
+    res.json({
+      success: true,
+      policies: allPolicies,
+      grouped,
+      activeMap,
+      totalPoliciesCount: allPolicies.length,
+      contactInfo: COMPLIANCE_CONTACT_INFO
+    });
+  } catch (err) {
+    res.status(500).json({ success: false, message: err.message });
+  }
+});
+
+// 11. Admin: Get Single Policy Details
+app.get('/api/admin/legal/policies/:id', (req, res) => {
+  try {
+    if (!req.user || !isAuthoritativeAdmin(req.user)) {
+      return res.status(403).json({ success: false, message: 'Admin role required' });
+    }
+
+    const allPolicies = getLegalPoliciesList();
+    const policy = allPolicies.find(p => p.id === req.params.id);
+    if (!policy) {
+      return res.status(404).json({ success: false, message: 'Policy document not found' });
+    }
+
+    const activeMap = getLegalActivePoliciesMap();
+    const activePointer = activeMap[policy.policy_type];
+    const activeDoc = allPolicies.find(p => p.id === activePointer?.current_policy_id);
+
+    let diffWithActive = null;
+    if (activeDoc && activeDoc.id !== policy.id) {
+      diffWithActive = generatePolicyDiff(activeDoc.content, policy.content);
+    }
+
+    res.json({
+      success: true,
+      policy,
+      activeDoc,
+      diffWithActive,
+      htmlContent: renderPolicyMarkdown(policy.content),
+      tableOfContents: extractTableOfContents(policy.content)
+    });
+  } catch (err) {
+    res.status(500).json({ success: false, message: err.message });
+  }
+});
+
+// 12. Admin: Create Policy Draft
+app.post('/api/admin/legal/policies/draft', (req, res) => {
+  try {
+    if (!req.user || !isAuthoritativeAdmin(req.user)) {
+      return res.status(403).json({ success: false, message: 'Admin role required' });
+    }
+
+    const body = req.body || {};
+    const policyType = resolvePolicyType(body.policyType);
+    if (!policyType) {
+      return res.status(400).json({ success: false, message: 'Valid policyType is required' });
+    }
+
+    const allPolicies = getLegalPoliciesList();
+    const forkFromDoc = body.forkFromId ? allPolicies.find(p => p.id === body.forkFromId) :
+                        allPolicies.find(p => p.policy_type === policyType && p.status === POLICY_STATUS.PUBLISHED);
+
+    const draft = createPolicyDraft({
+      policyType,
+      title: body.title,
+      version: body.version,
+      content: body.content,
+      contentFormat: body.contentFormat || 'markdown',
+      isMaterialChange: body.isMaterialChange,
+      changeSummary: body.changeSummary,
+      createdBy: req.user.displayName || req.user.email || 'Admin',
+      forkFromPolicy: forkFromDoc
+    });
+
+    allPolicies.push(draft);
+    saveLegalPoliciesList(allPolicies);
+
+    const auditLog = createAuditLogEntry({
+      actorId: req.user.id,
+      actorName: req.user.displayName || 'Admin',
+      actorRole: req.user.role || 'admin',
+      action: 'ADMIN_CREATE_POLICY_DRAFT',
+      targetType: 'legal_policy',
+      targetId: draft.id,
+      details: { policyType, version: draft.version, isMaterialChange: draft.is_material_change }
+    });
+    const logs = getAdminAuditLogs();
+    logs.push(auditLog);
+    saveAdminAuditLogs(logs);
+
+    res.json({
+      success: true,
+      message: `Draft created successfully for ${draft.title} (v${draft.version})`,
+      draft
+    });
+  } catch (err) {
+    res.status(500).json({ success: false, message: err.message });
+  }
+});
+
+// 13. Admin: Update Policy Draft
+app.put('/api/admin/legal/policies/:id', (req, res) => {
+  try {
+    if (!req.user || !isAuthoritativeAdmin(req.user)) {
+      return res.status(403).json({ success: false, message: 'Admin role required' });
+    }
+
+    const allPolicies = getLegalPoliciesList();
+    const index = allPolicies.findIndex(p => p.id === req.params.id);
+    if (index === -1) {
+      return res.status(404).json({ success: false, message: 'Policy not found' });
+    }
+
+    const existingDraft = allPolicies[index];
+    const updatedDraft = updatePolicyDraft(existingDraft, req.body || {});
+
+    allPolicies[index] = updatedDraft;
+    saveLegalPoliciesList(allPolicies);
+
+    res.json({
+      success: true,
+      message: 'Draft updated successfully',
+      draft: updatedDraft
+    });
+  } catch (err) {
+    res.status(400).json({ success: false, message: err.message });
+  }
+});
+
+// 14. Admin: Publish Draft Policy (Immutable Transition & Active Pointer Update)
+app.post('/api/admin/legal/policies/:id/publish', (req, res) => {
+  try {
+    if (!req.user || !isAuthoritativeAdmin(req.user)) {
+      return res.status(403).json({ success: false, message: 'Admin role required' });
+    }
+
+    const allPolicies = getLegalPoliciesList();
+    const index = allPolicies.findIndex(p => p.id === req.params.id);
+    if (index === -1) {
+      return res.status(404).json({ success: false, message: 'Policy not found' });
+    }
+
+    const draft = allPolicies[index];
+    const { publishedPolicy, activePointer, checksum } = publishPolicyVersion({
+      draft,
+      existingVersions: allPolicies,
+      publishedBy: req.user.displayName || req.user.email || 'Admin',
+      effectiveAt: req.body?.effectiveAt || null
+    });
+
+    allPolicies[index] = publishedPolicy;
+    saveLegalPoliciesList(allPolicies);
+
+    const activeMap = getLegalActivePoliciesMap();
+    activeMap[publishedPolicy.policy_type] = activePointer;
+    saveLegalActivePoliciesMap(activeMap);
+
+    const auditLog = createAuditLogEntry({
+      actorId: req.user.id,
+      actorName: req.user.displayName || 'Admin',
+      actorRole: req.user.role || 'admin',
+      action: 'ADMIN_PUBLISH_LEGAL_POLICY',
+      targetType: 'legal_policy',
+      targetId: publishedPolicy.id,
+      details: {
+        policyType: publishedPolicy.policy_type,
+        version: publishedPolicy.version,
+        checksum,
+        isMaterialChange: publishedPolicy.is_material_change,
+        effectiveAt: publishedPolicy.effective_at
+      }
+    });
+    const logs = getAdminAuditLogs();
+    logs.push(auditLog);
+    saveAdminAuditLogs(logs);
+
+    res.json({
+      success: true,
+      message: `Successfully published ${publishedPolicy.title} (v${publishedPolicy.version}) with immutable checksum ${checksum.slice(0, 8)}...`,
+      publishedPolicy,
+      activePointer,
+      checksum
+    });
+  } catch (err) {
+    res.status(400).json({ success: false, message: err.message, validationErrors: err.validationErrors });
+  }
+});
+
+// 15. Admin: Retire Policy Version
+app.post('/api/admin/legal/policies/:id/retire', (req, res) => {
+  try {
+    if (!req.user || !isAuthoritativeAdmin(req.user)) {
+      return res.status(403).json({ success: false, message: 'Admin role required' });
+    }
+
+    const allPolicies = getLegalPoliciesList();
+    const index = allPolicies.findIndex(p => p.id === req.params.id);
+    if (index === -1) {
+      return res.status(404).json({ success: false, message: 'Policy not found' });
+    }
+
+    const retired = retirePolicyVersion(allPolicies[index], req.user.email || 'Admin');
+    allPolicies[index] = retired;
+    saveLegalPoliciesList(allPolicies);
+
+    const auditLog = createAuditLogEntry({
+      actorId: req.user.id,
+      actorName: req.user.displayName || 'Admin',
+      actorRole: req.user.role || 'admin',
+      action: 'ADMIN_RETIRE_LEGAL_POLICY',
+      targetType: 'legal_policy',
+      targetId: retired.id,
+      details: { policyType: retired.policy_type, version: retired.version }
+    });
+    const logs = getAdminAuditLogs();
+    logs.push(auditLog);
+    saveAdminAuditLogs(logs);
+
+    res.json({
+      success: true,
+      message: `Policy v${retired.version} retired successfully`,
+      retired
+    });
+  } catch (err) {
+    res.status(500).json({ success: false, message: err.message });
+  }
+});
+
+// 16. Admin: Query User Acceptance Audit Records
+app.get('/api/admin/legal/acceptances', (req, res) => {
+  try {
+    if (!req.user || !isAuthoritativeAdmin(req.user)) {
+      return res.status(403).json({ success: false, message: 'Admin role required' });
+    }
+
+    const { userId, policyType, method, search, limit = 100, page = 1 } = req.query;
+    let list = getPolicyAcceptancesList();
+
+    if (userId) {
+      list = list.filter(a => (a.user_id === userId || a.userId === userId));
+    }
+    if (policyType) {
+      list = list.filter(a => (a.policy_type === policyType || a.policyType === policyType));
+    }
+    if (method) {
+      list = list.filter(a => (a.acceptance_method === method || a.acceptanceMethod === method));
+    }
+    if (search) {
+      const q = String(search).toLowerCase();
+      list = list.filter(a =>
+        String(a.user_id || a.userId).toLowerCase().includes(q) ||
+        String(a.policy_type || a.policyType).toLowerCase().includes(q) ||
+        String(a.content_checksum || a.contentChecksum).toLowerCase().includes(q)
+      );
+    }
+
+    list.sort((a, b) => new Date(b.accepted_at || b.acceptedAt).getTime() - new Date(a.accepted_at || a.acceptedAt).getTime());
+
+    const numLimit = Math.min(200, parseInt(limit, 10) || 50);
+    const numPage = Math.max(1, parseInt(page, 10) || 1);
+    const total = list.length;
+    const paginated = list.slice((numPage - 1) * numLimit, numPage * numLimit);
+
+    res.json({
+      success: true,
+      total,
+      page: numPage,
+      limit: numLimit,
+      acceptances: paginated
+    });
+  } catch (err) {
+    res.status(500).json({ success: false, message: err.message });
+  }
+});
+
+// 17. Admin: Legal & Compliance Statistics
+app.get('/api/admin/legal/stats', (req, res) => {
+  try {
+    if (!req.user || !isAuthoritativeAdmin(req.user)) {
+      return res.status(403).json({ success: false, message: 'Admin role required' });
+    }
+
+    const allPolicies = getLegalPoliciesList();
+    const activeMap = getLegalActivePoliciesMap();
+    const acceptances = getPolicyAcceptancesList();
+    const cookieConsents = getUserCookieConsentsList();
+
+    const publishedCount = allPolicies.filter(p => p.status === POLICY_STATUS.PUBLISHED).length;
+    const draftCount = allPolicies.filter(p => p.status === POLICY_STATUS.DRAFT).length;
+    const retiredCount = allPolicies.filter(p => p.status === POLICY_STATUS.RETIRED).length;
+
+    // Cookie analytics breakdown
+    const totalCookieRecords = cookieConsents.length;
+    const analyticsOptInCount = cookieConsents.filter(c => c.analytics === 1).length;
+    const marketingOptInCount = cookieConsents.filter(c => c.marketing === 1).length;
+
+    res.json({
+      success: true,
+      stats: {
+        totalPolicies: allPolicies.length,
+        publishedCount,
+        draftCount,
+        retiredCount,
+        activePoliciesCount: Object.keys(activeMap).length,
+        totalAcceptances: acceptances.length,
+        uniqueUsersAccepted: new Set(acceptances.map(a => a.user_id || a.userId)).size,
+        cookieConsents: {
+          totalRecords: totalCookieRecords,
+          analyticsOptInCount,
+          marketingOptInCount,
+          analyticsOptInRate: totalCookieRecords ? Math.round((analyticsOptInCount / totalCookieRecords) * 100) : 0,
+          marketingOptInRate: totalCookieRecords ? Math.round((marketingOptInCount / totalCookieRecords) * 100) : 0
+        }
+      }
+    });
+  } catch (err) {
+    res.status(500).json({ success: false, message: err.message });
+  }
 });
 
 // Secret Admin Entry Routes: /admin/anktech/anktech/admin
@@ -11958,6 +13115,36 @@ app.get([
   `${ADMIN_BASE}/referrals.html`
 ], (req, res) => {
   sendAdminPage('admin-referrals.html', req, res);
+});
+
+app.get([
+  '/legal',
+  '/legal.html',
+  '/terms',
+  '/terms.html',
+  '/terms-of-service',
+  '/terms-of-service.html',
+  '/privacy',
+  '/privacy.html',
+  '/privacy-policy',
+  '/privacy-policy.html',
+  '/cookies',
+  '/cookies.html',
+  '/cookie-policy',
+  '/cookie-policy.html',
+  '/compliance',
+  '/compliance.html'
+], (req, res) => {
+  res.sendFile(path.join(__dirname, 'public', 'legal.html'));
+});
+
+app.get([
+  `${ADMIN_BASE}/legal`,
+  `${ADMIN_BASE}/legal.html`,
+  `${ADMIN_BASE}/compliance`,
+  `${ADMIN_BASE}/compliance.html`
+], (req, res) => {
+  sendAdminPage('admin-legal.html', req, res);
 });
 
 // Any unmatched route fallback
