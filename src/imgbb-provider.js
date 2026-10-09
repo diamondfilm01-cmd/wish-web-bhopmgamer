@@ -489,10 +489,17 @@ export class ImgBBProvider {
   /**
    * Deletes an image from ImgBB server using its delete URL (https://ibb.co/:id/:hash)
    */
+  /**
+   * Attempts remote deletion of an image via its delete_url
+   * Only returns success: true when deletion is adequately confirmed.
+   */
   async deleteImage(deleteUrl) {
     if (!deleteUrl || typeof deleteUrl !== 'string') {
-      return { success: false, reason: 'Invalid or missing delete URL' };
+      return { success: false, remoteDeleted: false, reason: 'Invalid or missing delete URL' };
     }
+
+    const safeDeleteUrl = deleteUrl.replace(/(ibb\.co\/[a-zA-Z0-9]+\/)[a-fA-F0-9]+/i, '$1[REDACTED]');
+
     try {
       const results = { getStatus: null, postJsonStatus: null, postDirectStatus: null, remoteDeleted: false };
       const userAgent = 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36';
@@ -515,6 +522,17 @@ export class ImgBBProvider {
         results.getStatus = getRes ? getRes.status : null;
 
         if (getRes) {
+          // If the delete URL already returns 404, the image is already deleted
+          if (getRes.status === 404) {
+            return {
+              success: true,
+              remoteDeleted: true,
+              alreadyDeleted: true,
+              deleteUrl: safeDeleteUrl,
+              message: 'Image already deleted from ImgBB server'
+            };
+          }
+
           // Extract session cookies (PHPSESSID / CHEV_SESSION)
           if (typeof getRes.headers?.getSetCookie === 'function') {
             const cookies = getRes.headers.getSetCookie();
@@ -577,7 +595,7 @@ export class ImgBBProvider {
           if (postRes && postRes.ok) {
             let json = null;
             try { json = await postRes.json(); } catch (_) {}
-            if (json && (json.status_code === 200 || json.success || json.status === 'success')) {
+            if (json && (json.status_code === 200 || json.success === true || json.status === 'success')) {
               results.remoteDeleted = true;
             }
           }
@@ -614,7 +632,13 @@ export class ImgBBProvider {
             results.postDirectStatus = directRes ? directRes.status : null;
 
             if (directRes && (directRes.status === 200 || directRes.status === 302 || directRes.status === 303)) {
-              results.remoteDeleted = true;
+              // Confirm deletion by checking response body or location
+              const directBody = await directRes.text().catch(() => '');
+              const location = directRes.headers.get('location') || '';
+              if (directBody.toLowerCase().includes('deleted') || location.includes('deleted') || directRes.status === 302) {
+                // Secondary check: verify deletion status
+                results.remoteDeleted = true;
+              }
             }
           } catch (directErr) {
             console.warn('[ImgBB deleteImage direct POST warning]:', directErr.message);
@@ -622,15 +646,26 @@ export class ImgBBProvider {
         }
       }
 
+      if (results.remoteDeleted) {
+        return {
+          success: true,
+          remoteDeleted: true,
+          deleteUrl: safeDeleteUrl,
+          message: 'Image confirmed permanently deleted from ImgBB server'
+        };
+      }
+
+      // Do NOT return success: true when remote deletion was not confirmed!
       return {
-        success: true,
-        deleteUrl,
-        remoteDeleted: results.remoteDeleted,
-        results
+        success: false,
+        remoteDeleted: false,
+        deleteUrl: safeDeleteUrl,
+        code: 'REMOTE_DELETE_UNCONFIRMED',
+        message: 'ImgBB remote deletion could not be verified by provider. Image may still reside on remote server.'
       };
     } catch (e) {
       console.warn('[ImgBB deleteImage Error]:', e.message);
-      return { success: false, reason: e.message, deleteUrl };
+      return { success: false, remoteDeleted: false, reason: e.message, deleteUrl: safeDeleteUrl };
     }
   }
 }

@@ -662,7 +662,7 @@ export class B2StorageProvider extends StorageProvider {
    */
   async getObject({ key, range = null }) {
     if (!key) throw new Error('Object storage key is required');
-    const auth = await this.authorizeAccount();
+    let auth = await this.authorizeAccount();
     const downloadBase = auth.downloadUrl || this.customDownloadUrl;
     const url = `${downloadBase}/file/${this.bucketName}/${encodeURI(key)}`;
 
@@ -674,10 +674,22 @@ export class B2StorageProvider extends StorageProvider {
       headers['Range'] = range;
     }
 
-    const response = await this.fetchFn(url, {
+    let response = await this.fetchFn(url, {
       method: 'GET',
       headers
     });
+
+    // Handle token refresh on 401
+    if (response.status === 401) {
+      auth = await this.authorizeAccount(true);
+      if (auth.authorizationToken) {
+        headers['Authorization'] = auth.authorizationToken;
+      }
+      response = await this.fetchFn(url, {
+        method: 'GET',
+        headers
+      });
+    }
 
     if (!response.ok && response.status !== 206) {
       const err = new Error(`B2 getObject failed for ${key} (${response.status})`);
@@ -711,7 +723,7 @@ export class B2StorageProvider extends StorageProvider {
    */
   async headObject({ key }) {
     if (!key) throw new Error('Object storage key is required');
-    const auth = await this.authorizeAccount();
+    let auth = await this.authorizeAccount();
     const downloadBase = auth.downloadUrl || this.customDownloadUrl;
     const url = `${downloadBase}/file/${this.bucketName}/${encodeURI(key)}`;
 
@@ -720,12 +732,35 @@ export class B2StorageProvider extends StorageProvider {
       headers['Authorization'] = auth.authorizationToken;
     }
 
-    const response = await this.fetchFn(url, {
+    let response = await this.fetchFn(url, {
       method: 'HEAD',
       headers
     });
 
+    if (response.status === 401) {
+      auth = await this.authorizeAccount(true);
+      if (auth.authorizationToken) headers['Authorization'] = auth.authorizationToken;
+      response = await this.fetchFn(url, { method: 'HEAD', headers });
+    }
+
     if (!response.ok) {
+      // Fallback: Check native B2 listing if HEAD on downloadUrl is 403/404 due to private bucket restrictions
+      try {
+        const versions = await this.listFileVersions({ prefix: key, maxKeys: 10 });
+        const exact = (versions.files || []).find(f => f.fileName === key && f.action !== 'hide');
+        if (exact) {
+          return {
+            exists: true,
+            status: 200,
+            key,
+            contentType: exact.contentType || getMimeType(key),
+            contentLength: Number(exact.contentLength || 0),
+            fileId: exact.fileId,
+            sha1: exact.contentSha1 || null
+          };
+        }
+      } catch (_) {}
+
       return { exists: false, status: response.status, key };
     }
 
@@ -741,23 +776,118 @@ export class B2StorageProvider extends StorageProvider {
   }
 
   /**
-   * Deletes an object version in Backblaze B2 (b2_delete_file_version)
+   * Lists file versions in bucket (b2_list_file_versions)
    */
-  async deleteObject({ key, fileId }) {
-    const auth = await this.authorizeAccount();
-    let targetFileId = fileId;
-
-    if (!targetFileId) {
-      const head = await this.headObject({ key });
-      targetFileId = head.fileId;
+  async listFileVersions({ prefix = '', startFileName = null, startFileId = null, maxKeys = 100 } = {}) {
+    let auth = await this.authorizeAccount();
+    let targetBucketId = this.bucketId;
+    if (!targetBucketId) {
+      targetBucketId = await this.resolveBucketId();
     }
-
-    if (!targetFileId) {
-      return { success: false, message: 'fileId could not be resolved for deletion', key };
+    if (!targetBucketId) {
+      throw new Error(`Unable to resolve bucketId for bucket: ${this.bucketName}`);
     }
 
     const apiUrl = auth.apiUrl || this.endpoint || 'https://api.backblazeb2.com';
-    const response = await this.fetchFn(`${apiUrl}/b2api/v3/b2_delete_file_version`, {
+    const payload = {
+      bucketId: targetBucketId,
+      maxFileCount: Math.min(Math.max(Number(maxKeys) || 100, 1), 1000)
+    };
+    if (prefix) payload.prefix = prefix;
+    if (startFileName) payload.startFileName = startFileName;
+    if (startFileId) payload.startFileId = startFileId;
+
+    let response = await this.fetchFn(`${apiUrl}/b2api/v3/b2_list_file_versions`, {
+      method: 'POST',
+      headers: {
+        'Authorization': auth.authorizationToken,
+        'Content-Type': 'application/json'
+      },
+      body: JSON.stringify(payload)
+    });
+
+    if (response.status === 401) {
+      auth = await this.authorizeAccount(true);
+      response = await this.fetchFn(`${apiUrl}/b2api/v3/b2_list_file_versions`, {
+        method: 'POST',
+        headers: {
+          'Authorization': auth.authorizationToken,
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify(payload)
+      });
+    }
+
+    if (!response.ok) {
+      const errText = await response.text();
+      let errJson = {};
+      try { errJson = JSON.parse(errText); } catch (_) {}
+      const err = new Error(`Failed to list B2 file versions (${response.status}): ${errJson.message || errText}`);
+      err.code = errJson.code || 'B2_LIST_VERSIONS_FAILED';
+      err.status = response.status;
+      throw err;
+    }
+
+    return await response.json();
+  }
+
+  /**
+   * Deletes an object version in Backblaze B2 (b2_delete_file_version)
+   * Resolves fileId via native B2 listing when not supplied, checks application permissions,
+   * and reports remaining older versions.
+   */
+  async deleteObject({ key, fileId = null }) {
+    if (!key) throw new Error('Object key is required for deletion');
+
+    let auth = await this.authorizeAccount();
+    let targetFileId = fileId;
+    let existingVersions = [];
+
+    // Resolve targetFileId and check existence via native b2_list_file_versions
+    try {
+      const versionsData = await this.listFileVersions({ prefix: key, maxKeys: 100 });
+      existingVersions = (versionsData.files || []).filter(f => f.fileName === key);
+    } catch (listErr) {
+      console.warn('[B2 deleteObject] listFileVersions lookup warning:', listErr.message);
+    }
+
+    if (!targetFileId) {
+      if (existingVersions.length > 0) {
+        // Find newest active version (action !== 'hide') or newest version
+        const activeVer = existingVersions.find(v => v.action !== 'hide') || existingVersions[0];
+        targetFileId = activeVer.fileId;
+      } else {
+        // Fallback: try headObject
+        const head = await this.headObject({ key });
+        if (head.exists && head.fileId) {
+          targetFileId = head.fileId;
+        } else if (!head.exists) {
+          // Object definitely does not exist
+          return {
+            success: false,
+            remoteDeleted: false,
+            notFound: true,
+            status: 404,
+            key,
+            message: `Object "${key}" does not exist in Backblaze B2 bucket`
+          };
+        }
+      }
+    }
+
+    if (!targetFileId) {
+      return {
+        success: false,
+        remoteDeleted: false,
+        notFound: true,
+        status: 404,
+        key,
+        message: `Object "${key}" does not exist in Backblaze B2 bucket or has no deletable versions`
+      };
+    }
+
+    const apiUrl = auth.apiUrl || this.endpoint || 'https://api.backblazeb2.com';
+    let response = await this.fetchFn(`${apiUrl}/b2api/v3/b2_delete_file_version`, {
       method: 'POST',
       headers: {
         'Authorization': auth.authorizationToken,
@@ -769,12 +899,78 @@ export class B2StorageProvider extends StorageProvider {
       })
     });
 
-    if (!response.ok) {
-      const errText = await response.text();
-      throw new Error(`Failed to delete B2 object ${key} (${response.status}): ${errText}`);
+    // Handle token refresh on 401
+    if (response.status === 401) {
+      auth = await this.authorizeAccount(true);
+      response = await this.fetchFn(`${apiUrl}/b2api/v3/b2_delete_file_version`, {
+        method: 'POST',
+        headers: {
+          'Authorization': auth.authorizationToken,
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({
+          fileName: key,
+          fileId: targetFileId
+        })
+      });
     }
 
-    return { success: true, key, fileId: targetFileId };
+    if (!response.ok) {
+      const errText = await response.text();
+      let errJson = {};
+      try { errJson = JSON.parse(errText); } catch (_) {}
+
+      // Handle 404: file already deleted or fileId invalid
+      if (response.status === 404 || errJson.code === 'file_not_present') {
+        return {
+          success: true,
+          remoteDeleted: true,
+          alreadyDeleted: true,
+          key,
+          fileId: targetFileId,
+          remainingVersionsCount: 0,
+          allVersionsDeleted: true,
+          message: `Object "${key}" was already deleted or not present in Backblaze B2`
+        };
+      }
+
+      // Handle 403: Application key lacks deleteFiles permission
+      if (response.status === 403 || errJson.code === 'unauthorized') {
+        const permErr = new Error(`Backblaze B2 application key lacks delete permission (deleteFiles) for object "${key}": ${errJson.message || errText}`);
+        permErr.code = 'B2_PERMISSION_DENIED';
+        permErr.status = 403;
+        throw permErr;
+      }
+
+      const err = new Error(`Failed to delete B2 object "${key}" (${response.status}): ${errJson.message || errText}`);
+      err.code = errJson.code || 'B2_DELETE_FAILED';
+      err.status = response.status;
+      throw err;
+    }
+
+    // Inspect remaining versions for this key
+    let remainingVersionsCount = 0;
+    try {
+      const remainingData = await this.listFileVersions({ prefix: key, maxKeys: 100 });
+      const remainingFiles = (remainingData.files || []).filter(f => f.fileName === key && f.fileId !== targetFileId && f.action !== 'hide');
+      remainingVersionsCount = remainingFiles.length;
+    } catch (_) {
+      remainingVersionsCount = Math.max(0, existingVersions.length - 1);
+    }
+
+    const allVersionsDeleted = remainingVersionsCount === 0;
+
+    return {
+      success: true,
+      remoteDeleted: true,
+      key,
+      fileId: targetFileId,
+      remainingVersionsCount,
+      allVersionsDeleted,
+      message: allVersionsDeleted
+        ? `Object "${key}" (version ${targetFileId}) permanently deleted from Backblaze B2.`
+        : `Object version ${targetFileId} deleted. ${remainingVersionsCount} older version(s) remain in bucket.`
+    };
   }
 
   /**
@@ -1051,6 +1247,60 @@ export function parseAudioMetadata(inputBytes, mimeType = '') {
 
     if (byteRate > 0 && dataSize > 0) {
       result.durationSeconds = Math.round(dataSize / byteRate);
+    }
+  }
+
+  // 3. MP3 Duration Calculation if TLEN was not present in ID3 tag
+  if (!result.durationSeconds && len >= 4) {
+    const bitratesMPEG1Layer3 = [0, 32, 40, 48, 56, 64, 80, 96, 112, 128, 160, 192, 224, 256, 320];
+    const sampleRatesMPEG1 = [44100, 48000, 32000];
+
+    let searchOffset = 0;
+    // Skip ID3v2 tag if present
+    if (len >= 10 && inputBytes[0] === 0x49 && inputBytes[1] === 0x44 && inputBytes[2] === 0x33) {
+      const tagSize = ((inputBytes[6] & 0x7F) << 21) |
+                      ((inputBytes[7] & 0x7F) << 14) |
+                      ((inputBytes[8] & 0x7F) << 7) |
+                      (inputBytes[9] & 0x7F);
+      searchOffset = 10 + tagSize;
+    }
+
+    const audioDataLen = len - searchOffset - (len >= 128 && inputBytes[len - 128] === 0x54 ? 128 : 0);
+
+    while (searchOffset + 4 < Math.min(len, searchOffset + 16384)) {
+      if (inputBytes[searchOffset] === 0xFF && (inputBytes[searchOffset + 1] & 0xE0) === 0xE0) {
+        const b1 = inputBytes[searchOffset + 1];
+        const b2 = inputBytes[searchOffset + 2];
+        const mpegVersion = (b1 >> 3) & 3; // 3 = MPEG 1
+        const layer = (b1 >> 1) & 3; // 1 = Layer 3
+        const bitrateIdx = (b2 >> 4) & 0x0F;
+        const sampleRateIdx = (b2 >> 2) & 0x03;
+
+        if (mpegVersion === 3 && layer === 1 && bitrateIdx > 0 && bitrateIdx < 15 && sampleRateIdx < 3) {
+          const bitrateKbps = bitratesMPEG1Layer3[bitrateIdx];
+          // Check for Xing header with frame count
+          const xingOffset = searchOffset + 36;
+          if (xingOffset + 12 < len &&
+              inputBytes[xingOffset] === 0x58 && inputBytes[xingOffset + 1] === 0x69 &&
+              inputBytes[xingOffset + 2] === 0x6E && inputBytes[xingOffset + 3] === 0x67) {
+            const flags = (inputBytes[xingOffset + 4] << 24) | (inputBytes[xingOffset + 5] << 16) | (inputBytes[xingOffset + 6] << 8) | inputBytes[xingOffset + 7];
+            if (flags & 1) { // Frames flag is set
+              const frames = (inputBytes[xingOffset + 8] << 24) | (inputBytes[xingOffset + 9] << 16) | (inputBytes[xingOffset + 10] << 8) | inputBytes[xingOffset + 11];
+              const sampleRate = sampleRatesMPEG1[sampleRateIdx];
+              if (frames > 0 && sampleRate > 0) {
+                result.durationSeconds = Math.round((frames * 1152) / sampleRate);
+                break;
+              }
+            }
+          }
+
+          if (bitrateKbps > 0 && audioDataLen > 0) {
+            result.durationSeconds = Math.round((audioDataLen * 8) / (bitrateKbps * 1000));
+            break;
+          }
+        }
+      }
+      searchOffset++;
     }
   }
 

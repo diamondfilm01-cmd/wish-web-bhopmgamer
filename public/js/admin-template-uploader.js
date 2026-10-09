@@ -424,16 +424,30 @@ async function deployUploadedTemplate() {
 
   if (currentZipRawFile) {
     try {
-      const arrayBuffer = await currentZipRawFile.arrayBuffer();
-      const bytes = new Uint8Array(arrayBuffer);
-      let binary = '';
-      const len = bytes.byteLength;
-      for (let i = 0; i < len; i++) {
-        binary += String.fromCharCode(bytes[i]);
-      }
-      payload.zipBase64 = btoa(binary);
+      const base64Promise = new Promise((resolve, reject) => {
+        const reader = new FileReader();
+        reader.onload = () => {
+          const res = reader.result;
+          resolve(typeof res === 'string' ? res.split(',')[1] : null);
+        };
+        reader.onerror = reject;
+        reader.readAsDataURL(currentZipRawFile);
+      });
+      payload.zipBase64 = await base64Promise;
     } catch (e) {
-      console.warn('Could not encode raw ZIP file, falling back to extracted files bundle:', e);
+      console.warn('FileReader encoding failed, attempting chunked array buffer encoding:', e);
+      try {
+        const arrayBuffer = await currentZipRawFile.arrayBuffer();
+        const bytes = new Uint8Array(arrayBuffer);
+        let binary = '';
+        const chunkSize = 8192;
+        for (let i = 0; i < bytes.length; i += chunkSize) {
+          binary += String.fromCharCode.apply(null, bytes.subarray(i, i + chunkSize));
+        }
+        payload.zipBase64 = btoa(binary);
+      } catch (err2) {
+        console.warn('Could not encode raw ZIP file, falling back to extracted files bundle:', err2);
+      }
     }
   }
 

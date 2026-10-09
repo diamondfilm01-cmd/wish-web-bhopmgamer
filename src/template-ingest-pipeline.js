@@ -34,6 +34,21 @@ export const ZIP_LIMITS = {
 export const DANGEROUS_EXTENSIONS = /\.(exe|sh|bat|cmd|com|vbs|php|py|pl|cgi|jar|war|scr|msi|dll|so)$/i;
 
 /**
+ * Creates a valid ZIP Uint8Array archive from an array of files ({ path/name, content })
+ */
+export async function createZipFromFiles(files = []) {
+  const zip = new JSZip();
+  for (const f of files) {
+    const filePath = f.path || f.name || f.filename;
+    if (!filePath) continue;
+    const cleanPath = filePath.replace(/^[/\\]+/, '');
+    const content = f.content || f.data || '';
+    zip.file(cleanPath, content);
+  }
+  return await zip.generateAsync({ type: 'uint8array', compression: 'DEFLATE' });
+}
+
+/**
  * Validates ZIP Magic Bytes (PK signature)
  */
 export function validateZipMagicBytes(buffer) {
@@ -546,6 +561,51 @@ export async function executeB2TemplateIngestPipeline(params) {
         nowIso
       ).run().catch(e => console.warn('template_family insert warning:', e.message));
 
+      // Ensure templates record exists / upserted for immediate store/admin visibility
+      await db.prepare(`
+        INSERT INTO templates (
+          id, name, slug, description, category, relationships, tags,
+          type, tier, price, is_premium, is_published, status, featured,
+          placement, thumbnail, preview_images, capabilities, detected_fields,
+          sections, features, theme, folder, entry_file, created_at, updated_at
+        ) VALUES (
+          ?, ?, ?, ?, ?, '[]', '[]',
+          '3D Interactive', ?, ?, ?, 1, 'published', ?,
+          99, ?, '[]', ?, ?,
+          '[]', '[]', '{}', ?, ?, ?, ?
+        )
+        ON CONFLICT(id) DO UPDATE SET
+          name = excluded.name,
+          slug = excluded.slug,
+          description = excluded.description,
+          category = excluded.category,
+          tier = excluded.tier,
+          price = excluded.price,
+          is_premium = excluded.is_premium,
+          thumbnail = excluded.thumbnail,
+          capabilities = excluded.capabilities,
+          detected_fields = excluded.detected_fields,
+          entry_file = excluded.entry_file,
+          updated_at = excluded.updated_at
+      `).bind(
+        templateId,
+        templateMetadata.name || analyzed.title,
+        familySlug,
+        templateMetadata.description || 'Custom web celebration template',
+        templateMetadata.category || 'celebration',
+        templateMetadata.tier || 'free',
+        Number(templateMetadata.price || 0),
+        templateMetadata.tier === 'vip' || templateMetadata.isPremium ? 1 : 0,
+        templateMetadata.featured ? 1 : 0,
+        templateMetadata.thumbnail || '',
+        JSON.stringify(templateMetadata.capabilities || {}),
+        JSON.stringify(analyzed.detectedFields || []),
+        familySlug,
+        extracted.entryFile,
+        nowIso,
+        nowIso
+      ).run().catch(e => console.warn('templates table upsert warning:', e.message));
+
       // Insert template_versions record
       await db.prepare(`
         INSERT INTO template_versions (
@@ -663,6 +723,20 @@ export async function executeB2TemplateIngestPipeline(params) {
     };
 
   } catch (error) {
+    console.error(`[Template Ingest Pipeline Error]: ${error.message}. Initiating rollback of ${uploadedB2Objects.length} B2 objects...`);
+
+    // Clean up all B2 objects uploaded during this failed run to prevent untracked orphans
+    const rollbackErrors = [];
+    for (const obj of uploadedB2Objects) {
+      try {
+        if (b2Provider && typeof b2Provider.deleteObject === 'function') {
+          await b2Provider.deleteObject({ key: obj.key, fileId: obj.fileId || null });
+        }
+      } catch (delErr) {
+        rollbackErrors.push({ key: obj.key, error: delErr.message });
+      }
+    }
+
     // Failure Recovery: mark version as failed in DB if created, return structured error
     if (db && typeof db.prepare === 'function') {
       try {
@@ -680,7 +754,9 @@ export async function executeB2TemplateIngestPipeline(params) {
       code: error.code || 'B2_INGEST_FAILED',
       message: `Template ingestion failed: ${error.message}`,
       versionId,
-      uploadedCount: uploadedB2Objects.length
+      uploadedCount: uploadedB2Objects.length,
+      rolledBackCount: uploadedB2Objects.length - rollbackErrors.length,
+      rollbackErrors: rollbackErrors.length > 0 ? rollbackErrors : undefined
     };
     return errRes;
   }

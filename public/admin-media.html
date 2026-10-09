@@ -1071,7 +1071,7 @@
               ${isImage ? `
                 <img src="${a.url}" alt="${escapeHtml(a.title)}" class="w-full h-full object-cover cursor-pointer hover:scale-105 transition duration-300" onclick="openLightboxImage('${a.url}', '${escapeHtml(a.title)}')" onerror="this.onerror=null;this.src='/assets/file_ab2082.png';"/>
               ` : isVideo ? `
-                <video src="${a.url}" class="w-full h-full object-cover cursor-pointer" controls preload="metadata"></video>
+                <video src="${a.streamUrl || a.url}" class="w-full h-full object-cover cursor-pointer" controls preload="metadata" onclick="openLightboxVideo('${a.url}', '${escapeHtml(a.title)}', '${a.streamUrl || ''}')" onerror="if(this.src!=='${a.playbackUrl||a.url}')this.src='${a.playbackUrl||a.url}';"></video>
               ` : `
                 <div class="flex flex-col items-center justify-center gap-2 p-4 text-center">
                   <div class="w-14 h-14 rounded-full ${isCurrentlyPlaying ? 'bg-emerald-500/30 text-emerald-400 animate-pulse' : 'bg-primary/20 text-primary'} flex items-center justify-center shadow-inner">
@@ -1512,7 +1512,24 @@
     img.src = url;
     img.classList.remove('hidden');
     vid.classList.add('hidden');
+    vid.src = '';
     cap.innerText = caption || 'Photo Preview';
+
+    modal.classList.remove('hidden');
+  }
+
+  function openLightboxVideo(url, caption, streamUrl) {
+    const modal = document.getElementById('media-lightbox-modal');
+    const img = document.getElementById('lightbox-img');
+    const vid = document.getElementById('lightbox-video');
+    const cap = document.getElementById('lightbox-caption');
+
+    img.classList.add('hidden');
+    img.src = '';
+    vid.classList.remove('hidden');
+    vid.src = streamUrl || url;
+    vid.onerror = () => { if (vid.src !== url && url) vid.src = url; };
+    cap.innerText = caption || 'Video Reel Preview';
 
     modal.classList.remove('hidden');
   }
@@ -1700,7 +1717,7 @@
     if (bar) bar.classList.remove('hidden');
 
     // 4. Resolve playable source priority list (strictly for THIS track only, NO unrelated hardcoded song)
-    const streamProxyUrl = `/api/media/stream?id=${encodeURIComponent(id)}`;
+    const streamProxyUrl = `/api/media/stream?id=${encodeURIComponent(id)}${asset?.storageKey ? `&key=${encodeURIComponent(asset.storageKey)}` : ''}`;
     const candidateUrl = (asset && (asset.playbackUrl || asset.url)) || rawUrl || '';
 
     const sourcesToTry = [];
@@ -2071,24 +2088,29 @@
     return deleteMediaAsset(assetId, title, 'imgbb', '', false);
   }
 
+  // --- Track active in-flight deletion operations to prevent duplicate requests ---
+  const activeDeletingIds = new Set();
+
   // --- Universal Media Asset Deletion (Audio, Video, Photo, B2, ImgBB) ---
   async function deleteMediaAsset(assetId, fallbackTitle, fallbackProvider, fallbackStorageKey, fallbackIsInUse) {
+    if (activeDeletingIds.has(assetId)) return;
+
     const a = allMediaAssets.find(m => String(m.id) === String(assetId)) || null;
     const title = (a && a.title) || fallbackTitle || assetId;
     const provider = (a && a.storageProvider) || fallbackProvider || 'local';
     const storageKey = (a && a.storageKey) || fallbackStorageKey || '';
     const isInUse = a ? Boolean(a.isInUse) : Boolean(fallbackIsInUse);
     const url = (a && a.url) || '';
-
     const deleteUrl = (a && (a.deleteUrl || a.delete_url)) || '';
 
-    let warning = `Kya aap "${title}" ko library aur cloud storage se permanently delete karna chahte hain?`;
+    let warning = `Kya aap "${title}" ko library aur cloud storage (${provider.toUpperCase()}) se permanently delete karna chahte hain?`;
     if (isInUse) {
-      warning += `\n\n⚠️ Dhyaan de: Yeh asset kisi wish ya template me use ho raha hai! Use delete karne se unka media remove ho jayega.`;
+      warning += `\n\n⚠️ Dhyaan de: Yeh asset kisi wish ya template me use ho raha hai! Use delete karne se unka media break ho sakta hai.`;
     }
     if (!confirm(warning)) return;
 
-    showToast(`🗑️ Deleting "${title}" from server & cloud storage...`);
+    activeDeletingIds.add(assetId);
+    showToast(`🗑️ Deleting "${title}" from ${provider.toUpperCase()} & catalog...`);
 
     try {
       const res = await fetch(`/api/admin/media/${encodeURIComponent(assetId)}`, {
@@ -2100,30 +2122,65 @@
       const data = await res.json().catch(() => ({}));
 
       if (res.ok && data.success) {
-        if (data.imgbbRemoteDeleted) {
-          showToast(`✅ "${title}" library aur ImgBB server dono se permanently delete ho gaya!`);
-        } else if (deleteUrl) {
-          showToast(`✅ "${title}" library se delete ho gaya! (ImgBB delete link dispatched)`);
+        if (data.b2Deleted) {
+          if (data.cloudOutcome?.allVersionsDeleted) {
+            showToast(`✅ "${title}" Backblaze B2 bucket aur catalog dono se permanently delete ho gaya!`);
+          } else {
+            showToast(`✅ "${title}" B2 version delete ho gaya (${data.cloudOutcome?.remainingVersionsCount || 0} older version(s) remain).`);
+          }
+        } else if (data.imgbbRemoteDeleted) {
+          showToast(`✅ "${title}" ImgBB server aur catalog dono se permanently delete ho gaya!`);
+        } else if (data.databaseOutcome?.catalogOnly) {
+          showToast(`ℹ️ "${title}" catalog se remove ho gaya (remote cloud file retain ki gayi).`);
         } else {
-          showToast(`✅ "${title}" successfully delete kar diya gaya!`);
+          showToast(`✅ "${title}" successfully delete ho gaya!`);
         }
+
         if (activeTrackId === assetId) {
           stopAndCloseAudioPlayer();
         }
         loadAllMedia();
+        if (currentInventoryTab === 'b2') loadB2Inventory();
+        if (currentInventoryTab === 'imgbb') loadImgbbInventory();
       } else {
-        alert('Delete failed: ' + (data.message || 'Server error'));
+        // Cloud deletion failed or unconfirmed - keep asset visible and offer safe choices
+        const errMsg = data.message || 'Remote cloud deletion could not be completed';
+        if (data.canRemoveCatalogOnly) {
+          if (confirm(`⚠️ Remote Cloud Deletion Issue:\n${errMsg}\n\nKya aap ise remote cloud se delete kiye bina sirf "Catalog se remove" karna chahte hain?`)) {
+            // Attempt catalog-only removal
+            const catRes = await fetch(`/api/admin/media/${encodeURIComponent(assetId)}`, {
+              method: 'DELETE',
+              headers: { 'Content-Type': 'application/json' },
+              credentials: 'include',
+              body: JSON.stringify({ id: assetId, storageKey, provider, url, deleteUrl, catalogOnly: true })
+            });
+            const catData = await catRes.json().catch(() => ({}));
+            if (catRes.ok && catData.success) {
+              showToast(`ℹ️ "${title}" catalog se remove kar diya gaya.`);
+              loadAllMedia();
+            } else {
+              alert('Catalog removal error: ' + (catData.message || 'Failed'));
+            }
+          }
+        } else {
+          alert(`❌ Deletion Failed:\n${errMsg}\n\nAsset catalog me retain kiya gaya hai taaki aap baad me retry kar sakein.`);
+        }
       }
     } catch (e) {
-      alert('Delete error: ' + e.message);
+      alert('Delete network error: ' + e.message);
+    } finally {
+      activeDeletingIds.delete(assetId);
     }
   }
 
   // --- Backblaze B2 Direct Object Deletion ---
   async function deleteB2InventoryObject(key, fileId, name) {
+    if (activeDeletingIds.has(key)) return;
     if (!confirm(`Kya aap "${name}" ko Backblaze B2 bucket se permanently delete karna chahte hain? Yeh operation undo nahi ho sakta.`)) return;
 
+    activeDeletingIds.add(key);
     showToast(`🗑️ Deleting B2 object: ${name}...`);
+
     try {
       const res = await fetch('/api/admin/storage/b2/delete', {
         method: 'POST',
@@ -2134,21 +2191,29 @@
       const data = await res.json().catch(() => ({}));
 
       if (res.ok && data.success) {
-        showToast(`✅ B2 object "${name}" permanently delete ho gaya!`);
+        if (data.allVersionsDeleted) {
+          showToast(`✅ B2 object "${name}" permanently delete ho gaya (koi version baaki nahi)!`);
+        } else {
+          showToast(`✅ B2 version delete ho gaya (${data.remainingVersionsCount} older version(s) remain).`);
+        }
         loadB2Inventory();
         loadAllMedia();
       } else {
-        alert('B2 delete failed: ' + (data.message || 'Server error'));
+        alert('B2 delete failed: ' + (data.message || 'Storage error'));
       }
     } catch (e) {
       alert('B2 delete error: ' + e.message);
+    } finally {
+      activeDeletingIds.delete(key);
     }
   }
 
   // --- ImgBB Catalog Asset Deletion ---
   async function deleteImgbbInventoryAsset(id, url, name, deleteUrl) {
+    if (activeDeletingIds.has(id || url)) return;
     if (!confirm(`Kya aap "${name}" ko ImgBB server aur catalog se permanently delete karna chahte hain?`)) return;
 
+    activeDeletingIds.add(id || url);
     showToast(`🗑️ Deleting ImgBB asset: ${name} from ImgBB server...`);
 
     try {
@@ -2164,15 +2229,32 @@
         if (data.imgbbRemoteDeleted) {
           showToast(`✅ ImgBB asset "${name}" ImgBB server aur database dono se permanently delete ho gaya!`);
         } else {
-          showToast(`✅ ImgBB asset "${name}" database se remove kar diya gaya!`);
+          showToast(`ℹ️ ImgBB asset "${name}" database catalog se remove kiya gaya (remote image retained).`);
         }
         loadImgbbInventory();
         loadAllMedia();
+      } else if (data.canRemoveCatalogOnly) {
+        if (confirm(`⚠️ Remote ImgBB verification incomplete:\n${data.message || ''}\n\nKya aap ise database catalog se remove karna chahte hain?`)) {
+          const catRes = await fetch('/api/admin/storage/imgbb/delete', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            credentials: 'include',
+            body: JSON.stringify({ id, url, deleteUrl, catalogOnly: true })
+          });
+          const catData = await catRes.json().catch(() => ({}));
+          if (catRes.ok && catData.success) {
+            showToast(`ℹ️ ImgBB asset "${name}" catalog se remove kar diya gaya.`);
+            loadImgbbInventory();
+            loadAllMedia();
+          }
+        }
       } else {
         alert('ImgBB delete failed: ' + (data.message || 'Server error'));
       }
     } catch (e) {
       alert('ImgBB delete error: ' + e.message);
+    } finally {
+      activeDeletingIds.delete(id || url);
     }
   }
 
