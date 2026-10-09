@@ -7403,7 +7403,7 @@ export default {
           wishes,
           quarantineList,
           cleanupJobs,
-          fetchFn: env.fetch || globalThis.fetch
+          fetchFn: (url, init) => globalThis.fetch.call(globalThis, url, init)
         });
 
         response = jsonSuccess(report, 200, {}, requestId);
@@ -7422,7 +7422,7 @@ export default {
         let b2Provider = null;
         try {
           if (B2StorageProvider.isConfigured(env)) {
-            b2Provider = B2StorageProvider.fromEnv(env, env.fetch || globalThis.fetch);
+            b2Provider = B2StorageProvider.fromEnv(env, (url, init) => globalThis.fetch.call(globalThis, url, init));
           }
         } catch (_) {}
 
@@ -7450,7 +7450,7 @@ export default {
           wishes,
           quarantineList,
           cleanupJobs,
-          fetchFn: env.fetch || globalThis.fetch
+          fetchFn: (url, init) => globalThis.fetch.call(globalThis, url, init)
         });
 
         const auditId = `audit_${Date.now().toString(36)}_${Math.random().toString(36).substring(2, 6)}`;

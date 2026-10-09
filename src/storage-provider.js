@@ -219,9 +219,16 @@ export class B2StorageProvider extends StorageProvider {
     // Cloudflare Workers V8 fix: wrap fetch to prevent Illegal invocation error
     this.fetchFn = (url, init) => {
       if (typeof config.fetchFn === 'function') {
-        return config.fetchFn(url, init);
+        try {
+          return config.fetchFn(url, init);
+        } catch (err) {
+          if (err && (err.name === 'TypeError' || String(err.message || '').includes('Illegal invocation'))) {
+            return globalThis.fetch.call(globalThis, url, init);
+          }
+          throw err;
+        }
       }
-      return globalThis.fetch(url, init);
+      return globalThis.fetch.call(globalThis, url, init);
     };
 
     this.authData = null;
@@ -237,9 +244,20 @@ export class B2StorageProvider extends StorageProvider {
       error.missingKeys = config.missingKeys;
       throw error;
     }
+    const resolvedFetch = customFetch || (typeof env.fetch === 'function' ? (url, init) => {
+      try {
+        return env.fetch(url, init);
+      } catch (err) {
+        if (err && (err.name === 'TypeError' || String(err.message || '').includes('Illegal invocation'))) {
+          return globalThis.fetch.call(globalThis, url, init);
+        }
+        throw err;
+      }
+    } : null);
+
     return new B2StorageProvider({
       ...config,
-      fetchFn: customFetch || (typeof env.fetch === 'function' ? env.fetch : null)
+      fetchFn: resolvedFetch
     });
   }
 

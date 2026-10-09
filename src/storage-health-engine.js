@@ -235,7 +235,7 @@ export async function verifyB2ObjectHealth({ b2Provider, key, expectedSize = nul
  * Verifies an ImgBB Image via HTTP probe.
  * Checks availability without assuming healthy just from D1.
  */
-export async function verifyImgBBImageHealth({ url, providerAssetId = null, fetchFn = globalThis.fetch }) {
+export async function verifyImgBBImageHealth({ url, providerAssetId = null, fetchFn = null }) {
   if (!url || typeof url !== 'string' || !url.trim()) {
     return {
       healthy: false,
@@ -261,7 +261,20 @@ export async function verifyImgBBImageHealth({ url, providerAssetId = null, fetc
     const controller = typeof AbortController !== 'undefined' ? new AbortController() : null;
     const timeoutId = controller ? setTimeout(() => controller.abort(), 6000) : null;
 
-    const res = await fetchFn(url, {
+    const safeFetch = (typeof fetchFn === 'function')
+      ? ((u, i) => {
+          try {
+            return fetchFn(u, i);
+          } catch (e) {
+            if (e && (e.name === 'TypeError' || String(e.message || '').includes('Illegal invocation'))) {
+              return globalThis.fetch.call(globalThis, u, i);
+            }
+            throw e;
+          }
+        })
+      : ((u, i) => globalThis.fetch.call(globalThis, u, i));
+
+    const res = await safeFetch(url, {
       method: 'HEAD',
       signal: controller ? controller.signal : undefined
     });

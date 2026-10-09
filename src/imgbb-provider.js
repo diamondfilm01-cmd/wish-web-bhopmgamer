@@ -301,9 +301,16 @@ export class ImgBBProvider {
     this.expiration = Number(config.expiration) || 0;
     this.fetchFn = (url, init) => {
       if (typeof config.fetchFn === 'function') {
-        return config.fetchFn(url, init);
+        try {
+          return config.fetchFn(url, init);
+        } catch (err) {
+          if (err && (err.name === 'TypeError' || String(err.message || '').includes('Illegal invocation'))) {
+            return globalThis.fetch.call(globalThis, url, init);
+          }
+          throw err;
+        }
       }
-      return globalThis.fetch(url, init);
+      return globalThis.fetch.call(globalThis, url, init);
     };
 
     if (!this.apiKey) {
@@ -327,9 +334,20 @@ export class ImgBBProvider {
       err.status = 503;
       throw err;
     }
+    const resolvedFetch = customFetch || (typeof env.fetch === 'function' ? (url, init) => {
+      try {
+        return env.fetch(url, init);
+      } catch (err) {
+        if (err && (err.name === 'TypeError' || String(err.message || '').includes('Illegal invocation'))) {
+          return globalThis.fetch.call(globalThis, url, init);
+        }
+        throw err;
+      }
+    } : null);
+
     return new ImgBBProvider({
       ...config,
-      fetchFn: customFetch || (typeof env.fetch === 'function' ? env.fetch : globalThis.fetch)
+      fetchFn: resolvedFetch
     });
   }
 
@@ -382,16 +400,31 @@ export class ImgBBProvider {
       uploadUrl.searchParams.set('expiration', String(targetExpiration));
     }
 
-    // Try FormData first
+    // Try FormData first, fallback to URL-encoded parameters if needed
     if (typeof FormData !== 'undefined') {
-      const formData = new FormData();
-      formData.append('image', base64Data);
-      formData.append('name', targetName);
+      try {
+        const formData = new FormData();
+        formData.append('image', base64Data);
+        formData.append('name', targetName);
 
-      response = await this.fetchFn(uploadUrl.toString(), {
-        method: 'POST',
-        body: formData
-      });
+        response = await this.fetchFn(uploadUrl.toString(), {
+          method: 'POST',
+          body: formData
+        });
+      } catch (formErr) {
+        // If FormData encounters a runtime serialization error, fallback to URLSearchParams
+        const bodyParams = new URLSearchParams();
+        bodyParams.set('image', base64Data);
+        bodyParams.set('name', targetName);
+
+        response = await this.fetchFn(uploadUrl.toString(), {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/x-www-form-urlencoded'
+          },
+          body: bodyParams.toString()
+        });
+      }
     } else {
       // URL-encoded fallback
       const bodyParams = new URLSearchParams();
