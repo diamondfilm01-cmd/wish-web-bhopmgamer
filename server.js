@@ -7266,38 +7266,7 @@ app.get(['/api/media/stream', '/api/media/stream/:id'], async (req, res) => {
     const key = req.query.key || req.query.storageKey || req.params.id;
     const trackId = req.query.id || req.params.id;
 
-    // 1. Check built-in static audio library tracks (in public/audio/)
-    const staticAudioFiles = {
-      'mus_celebration_strings': 'celebration-strings.mp3',
-      'trk_bgm_strings': 'celebration-strings.mp3',
-      'celebration-strings': 'celebration-strings.mp3',
-      'music/celebration-acoustic-strings.mp3': 'celebration-strings.mp3',
-      'celebration-acoustic-strings.mp3': 'celebration-strings.mp3',
-      'acoustic-harmony': 'celebration-strings.mp3',
-      'upbeat-ukulele': 'celebration-strings.mp3',
-      'mus_romantic_piano': 'romantic-piano.mp3',
-      'trk_bgm_celebration': 'romantic-piano.mp3',
-      'romantic-piano': 'romantic-piano.mp3',
-      'celestial-waltz': 'romantic-piano.mp3',
-      'music/romantic-midnight-piano.mp3': 'romantic-piano.mp3',
-      'romantic-midnight-piano.mp3': 'romantic-piano.mp3',
-      'mus_golden_elegance': 'golden-nostalgia.mp3',
-      'trk_bgm_ambient': 'golden-nostalgia.mp3',
-      'golden-nostalgia': 'golden-nostalgia.mp3',
-      'midnight-stardust': 'golden-nostalgia.mp3',
-      'peaceful-piano': 'golden-nostalgia.mp3',
-      'music/golden-nostalgia-cello.mp3': 'golden-nostalgia.mp3',
-      'golden-nostalgia-cello.mp3': 'golden-nostalgia.mp3'
-    };
-
-    const staticMatched = (trackId && staticAudioFiles[trackId]) || (key && staticAudioFiles[key]);
-    if (staticMatched) {
-      const staticPath = path.join(__dirname, 'public', 'audio', staticMatched);
-      if (fs.existsSync(staticPath)) {
-        return res.sendFile(staticPath, { acceptRanges: true });
-      }
-    }
-
+    // First check custom uploaded media catalog
     const media = getMedia();
     let track = media.find(t => t.id === trackId || t.storageKey === key || t.filename === key || t.diskFilename === key || (key && t.url && t.url.includes(key)));
 
@@ -7327,7 +7296,24 @@ app.get(['/api/media/stream', '/api/media/stream/:id'], async (req, res) => {
       }
     }
 
-    // 2. Stream from Backblaze B2 if configured
+    // Built-in static audio tracks ONLY if no custom DB/media record was resolved
+    const staticAudioFiles = {
+      'mus_celebration_strings': 'celebration-strings.mp3',
+      'trk_bgm_strings': 'celebration-strings.mp3',
+      'mus_romantic_piano': 'romantic-piano.mp3',
+      'trk_bgm_celebration': 'romantic-piano.mp3',
+      'mus_golden_elegance': 'golden-nostalgia.mp3',
+      'trk_bgm_ambient': 'golden-nostalgia.mp3'
+    };
+
+    if (!track && !key && trackId && staticAudioFiles[trackId]) {
+      const staticPath = path.join(__dirname, 'public', 'audio', staticAudioFiles[trackId]);
+      if (fs.existsSync(staticPath)) {
+        return res.sendFile(staticPath, { acceptRanges: true });
+      }
+    }
+
+    // Stream from Backblaze B2 if configured
     if (B2StorageProvider.isConfigured(process.env)) {
       try {
         const b2 = B2StorageProvider.fromEnv(process.env);
@@ -7335,18 +7321,63 @@ app.get(['/api/media/stream', '/api/media/stream/:id'], async (req, res) => {
         if (storageKey) {
           const clientRange = req.headers.range || null;
           const obj = await b2.getObject({ key: storageKey, range: clientRange });
-          res.setHeader('Content-Type', obj.contentType || 'audio/mpeg');
-          res.setHeader('Content-Length', obj.contentLength || obj.body.length);
+          let responseBody = obj.body;
+          let statusCode = (clientRange && obj.status === 206) ? 206 : 200;
+          let contentRangeHeader = obj.contentRange;
+          let contentLength = obj.contentLength || (obj.body ? obj.body.length : 0);
+
+          // Handle Range slicing if upstream returned full 200 body
+          if (clientRange && statusCode === 200 && responseBody && responseBody.length > 0) {
+            const totalSize = responseBody.length;
+            const rangeMatch = /bytes=(\d*)-(\d*)/.exec(clientRange);
+            if (rangeMatch) {
+              const rawStart = rangeMatch[1];
+              const rawEnd = rangeMatch[2];
+              let start = rawStart ? parseInt(rawStart, 10) : NaN;
+              let end = rawEnd ? parseInt(rawEnd, 10) : NaN;
+
+              if (isNaN(start) && !isNaN(end)) {
+                start = Math.max(0, totalSize - end);
+                end = totalSize - 1;
+              } else if (!isNaN(start) && isNaN(end)) {
+                end = totalSize - 1;
+              }
+
+              if (!isNaN(start) && !isNaN(end) && start <= end && start < totalSize) {
+                end = Math.min(end, totalSize - 1);
+                responseBody = responseBody.subarray(start, end + 1);
+                statusCode = 206;
+                contentLength = responseBody.length;
+                contentRangeHeader = `bytes ${start}-${end}/${totalSize}`;
+              } else {
+                res.setHeader('Content-Range', `bytes */${totalSize}`);
+                res.setHeader('Accept-Ranges', 'bytes');
+                return res.status(416).send('Range Not Satisfiable');
+              }
+            }
+          }
+
+          const mime = obj.contentType || (track && track.mimeType) || getMimeType(storageKey);
+          res.setHeader('Content-Type', mime);
+          res.setHeader('Content-Length', contentLength);
           res.setHeader('Accept-Ranges', 'bytes');
-          if (obj.contentRange) {
-            res.setHeader('Content-Range', obj.contentRange);
+          res.setHeader('Access-Control-Allow-Origin', '*');
+          res.setHeader('Access-Control-Allow-Methods', 'GET, HEAD, OPTIONS');
+          res.setHeader('Access-Control-Allow-Headers', 'Range, Content-Type, Accept');
+          res.setHeader('Access-Control-Expose-Headers', 'Content-Range, Content-Length, Accept-Ranges');
+          if (contentRangeHeader) {
+            res.setHeader('Content-Range', contentRangeHeader);
           }
           res.setHeader('Cache-Control', 'public, max-age=604800');
-          const statusCode = (clientRange && obj.status === 206) ? 206 : 200;
-          return res.status(statusCode).send(Buffer.from(obj.body));
+          return res.status(statusCode).send(Buffer.from(responseBody));
         }
       } catch (e) {
         console.warn('[B2 Local Stream Fallback]', e.message);
+        if (e.status === 416 || e.code === 'RANGE_NOT_SATISFIABLE') {
+          res.setHeader('Accept-Ranges', 'bytes');
+          if (e.contentRange) res.setHeader('Content-Range', e.contentRange);
+          return res.status(416).send('Range Not Satisfiable');
+        }
       }
     }
 
@@ -8015,7 +8046,7 @@ app.post(['/api/admin/media/upload', '/api/admin/music/upload', '/api/music/uplo
       const newAsset = {
         id: trackId,
         title: (title || safeFilename || 'Celebration Track').trim(),
-        artist: (artist || 'WishMagic Studio').trim(),
+        artist: (artist || '').trim() || null,
         type: 'audio',
         format: validation.extension.toUpperCase(),
         category: category || 'celebration',
@@ -8026,6 +8057,7 @@ app.post(['/api/admin/media/upload', '/api/admin/music/upload', '/api/music/uplo
         url: publicUrl,
         playbackUrl: publicUrl,
         streamUrl: `/api/media/stream?id=${encodeURIComponent(trackId)}`,
+        duration: null,
         fileSize: validation.sizeBytes,
         fileSizeFormatted: (validation.sizeBytes / (1024 * 1024)).toFixed(2) + ' MB',
         mimeType: validation.mimeType,
@@ -8105,6 +8137,8 @@ app.post(['/api/admin/media/upload', '/api/admin/music/upload', '/api/music/uplo
         storageProvider,
         url: publicUrl,
         playbackUrl: publicUrl,
+        streamUrl: `/api/media/stream?id=${encodeURIComponent(videoId)}`,
+        duration: null,
         fileSize: validation.sizeBytes,
         fileSizeFormatted: (validation.sizeBytes / (1024 * 1024)).toFixed(2) + ' MB',
         mimeType: validation.mimeType,

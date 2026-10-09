@@ -3753,17 +3753,21 @@ export default {
 
     // 2. CORS Preflight Handling
     if (method === 'OPTIONS') {
+      const isMediaStream = pathname.startsWith('/api/media/stream');
       const origin = getValidatedOrigin(request, env);
       return new Response(null, {
         status: 204,
         headers: {
-          ...(origin ? {
+          ...(isMediaStream ? {
+            'Access-Control-Allow-Origin': '*'
+          } : (origin ? {
             'Access-Control-Allow-Origin': origin,
             'Access-Control-Allow-Credentials': 'true',
             'Vary': 'Origin'
-          } : {}),
-          'Access-Control-Allow-Methods': 'GET, POST, PUT, PATCH, DELETE, OPTIONS',
-          'Access-Control-Allow-Headers': 'Content-Type, Authorization, X-Requested-With, If-None-Match, X-Request-ID, X-CSRF-Token',
+          } : {})),
+          'Access-Control-Allow-Methods': 'GET, HEAD, POST, PUT, PATCH, DELETE, OPTIONS',
+          'Access-Control-Allow-Headers': 'Content-Type, Authorization, X-Requested-With, If-None-Match, X-Request-ID, X-CSRF-Token, Range, Accept',
+          'Access-Control-Expose-Headers': 'Content-Range, Content-Length, Accept-Ranges',
           'Access-Control-Max-Age': '86400',
           'X-Request-ID': requestId
         }
@@ -8297,11 +8301,11 @@ export default {
                   id, title, artist, description, category, relationship_suitability,
                   storage_provider, storage_key, playback_url, mime_type, duration_seconds,
                   size_bytes, status, is_featured, created_by, created_at, updated_at
-                ) VALUES (?, ?, ?, ?, 'celebration', '[]', 'b2', ?, ?, ?, 160, ?, 'active', 0, ?, ?, ?)
+                ) VALUES (?, ?, ?, ?, 'celebration', '[]', 'b2', ?, ?, ?, ?, ?, 'active', 0, ?, ?, ?)
               `).bind(
-                trackId, sanitizeString(body.title || filename, 80), 'WishMagic Studio',
+                trackId, sanitizeString(body.title || filename, 80), body.artist ? sanitizeString(body.artist, 80) : null,
                 sanitizeString(body.title || filename, 80), storageKey, playbackUrl,
-                mimeType, bytes.byteLength, user.id || 'system', nowIso, nowIso
+                mimeType, Number(body.durationSeconds) || null, bytes.byteLength, user.id || 'system', nowIso, nowIso
               ).run().catch(() => {});
 
               await env.DB.prepare(`
@@ -8385,6 +8389,7 @@ export default {
           optHeaders.set('Access-Control-Allow-Origin', '*');
           optHeaders.set('Access-Control-Allow-Methods', 'GET, HEAD, OPTIONS');
           optHeaders.set('Access-Control-Allow-Headers', 'Range, Content-Type, Accept');
+          optHeaders.set('Access-Control-Expose-Headers', 'Content-Range, Content-Length, Accept-Ranges');
           optHeaders.set('Access-Control-Max-Age', '86400');
           return new Response(null, { status: 204, headers: optHeaders });
         }
@@ -8393,48 +8398,33 @@ export default {
         let key = urlObj.searchParams.get('key') || urlObj.searchParams.get('storageKey') || urlObj.searchParams.get('path');
         const trackId = urlObj.searchParams.get('id') || pathname.replace('/api/media/stream/', '').trim();
 
-        // 1. Check built-in static audio library tracks (in /audio/)
-        const staticAudioMap = {
-          'mus_celebration_strings': '/audio/celebration-strings.mp3',
-          'trk_bgm_strings': '/audio/celebration-strings.mp3',
-          'celebration-strings': '/audio/celebration-strings.mp3',
-          'music/celebration-acoustic-strings.mp3': '/audio/celebration-strings.mp3',
-          'celebration-acoustic-strings.mp3': '/audio/celebration-strings.mp3',
-          'acoustic-harmony': '/audio/celebration-strings.mp3',
-          'upbeat-ukulele': '/audio/celebration-strings.mp3',
-          'mus_romantic_piano': '/audio/romantic-piano.mp3',
-          'trk_bgm_celebration': '/audio/romantic-piano.mp3',
-          'romantic-piano': '/audio/romantic-piano.mp3',
-          'celestial-waltz': '/audio/romantic-piano.mp3',
-          'music/romantic-midnight-piano.mp3': '/audio/romantic-piano.mp3',
-          'romantic-midnight-piano.mp3': '/audio/romantic-piano.mp3',
-          'mus_golden_elegance': '/audio/golden-nostalgia.mp3',
-          'trk_bgm_ambient': '/audio/golden-nostalgia.mp3',
-          'golden-nostalgia': '/audio/golden-nostalgia.mp3',
-          'midnight-stardust': '/audio/golden-nostalgia.mp3',
-          'peaceful-piano': '/audio/golden-nostalgia.mp3',
-          'music/golden-nostalgia-cello.mp3': '/audio/golden-nostalgia.mp3',
-          'golden-nostalgia-cello.mp3': '/audio/golden-nostalgia.mp3'
-        };
-
-        const staticTarget = (trackId && staticAudioMap[trackId]) || (key && staticAudioMap[key]);
-        if (staticTarget) {
-          if (env.ASSETS && typeof env.ASSETS.fetch === 'function') {
-            const assetUrl = new URL(staticTarget, request.url);
-            return env.ASSETS.fetch(new Request(assetUrl, request));
+        // Sanitize key against directory traversal
+        if (key) {
+          key = String(key).replace(/^\/+/, '');
+          if (key.includes('..')) {
+            return applySecurityHeaders(jsonError('INVALID_KEY', 'Path traversal is not allowed', 400), request, env);
           }
-          return Response.redirect(new URL(staticTarget, request.url).toString(), 302);
         }
 
         let dbRow = null;
-        if (trackId && env.DB && typeof env.DB.prepare === 'function') {
+        if (env.DB && typeof env.DB.prepare === 'function') {
           try {
-            dbRow = await env.DB.prepare('SELECT storage_key, playback_url, mime_type, title FROM music_library WHERE id = ? LIMIT 1').bind(trackId).first().catch(() => null);
-            if (!dbRow) {
-              dbRow = await env.DB.prepare('SELECT object_key as storage_key, url as playback_url, mime_type, filename as title FROM wish_media WHERE id = ? LIMIT 1').bind(trackId).first().catch(() => null);
-            }
-            if (!dbRow) {
-              dbRow = await env.DB.prepare('SELECT object_key as storage_key, public_url as playback_url, content_type as mime_type FROM b2_storage_objects WHERE id = ? OR entity_id = ? LIMIT 1').bind(trackId, trackId).first().catch(() => null);
+            if (trackId) {
+              dbRow = await env.DB.prepare('SELECT id, title, artist, storage_key, playback_url, mime_type, size_bytes FROM music_library WHERE id = ? LIMIT 1').bind(trackId).first().catch(() => null);
+              if (!dbRow) {
+                dbRow = await env.DB.prepare('SELECT id, filename as title, NULL as artist, object_key as storage_key, url as playback_url, mime_type, size_bytes FROM wish_media WHERE id = ? LIMIT 1').bind(trackId).first().catch(() => null);
+              }
+              if (!dbRow) {
+                dbRow = await env.DB.prepare('SELECT entity_id as id, object_key as title, NULL as artist, object_key as storage_key, public_url as playback_url, content_type as mime_type, content_length as size_bytes FROM b2_storage_objects WHERE id = ? OR entity_id = ? LIMIT 1').bind(trackId, trackId).first().catch(() => null);
+              }
+            } else if (key) {
+              dbRow = await env.DB.prepare('SELECT id, title, artist, storage_key, playback_url, mime_type, size_bytes FROM music_library WHERE storage_key = ? LIMIT 1').bind(key).first().catch(() => null);
+              if (!dbRow) {
+                dbRow = await env.DB.prepare('SELECT id, filename as title, NULL as artist, object_key as storage_key, url as playback_url, mime_type, size_bytes FROM wish_media WHERE object_key = ? LIMIT 1').bind(key).first().catch(() => null);
+              }
+              if (!dbRow) {
+                dbRow = await env.DB.prepare('SELECT entity_id as id, object_key as title, NULL as artist, object_key as storage_key, public_url as playback_url, content_type as mime_type, content_length as size_bytes FROM b2_storage_objects WHERE object_key = ? LIMIT 1').bind(key).first().catch(() => null);
+              }
             }
             if (dbRow && dbRow.storage_key) {
               key = dbRow.storage_key;
@@ -8442,84 +8432,189 @@ export default {
           } catch (_) {}
         }
 
-        if (!key && dbRow && dbRow.playback_url) {
-          return Response.redirect(dbRow.playback_url, 302);
+        // Built-in static audio library tracks (in /audio/) - only match known static IDs if not custom DB record
+        const staticAudioMap = {
+          'mus_celebration_strings': '/audio/celebration-strings.mp3',
+          'trk_bgm_strings': '/audio/celebration-strings.mp3',
+          'mus_romantic_piano': '/audio/romantic-piano.mp3',
+          'trk_bgm_celebration': '/audio/romantic-piano.mp3',
+          'mus_golden_elegance': '/audio/golden-nostalgia.mp3',
+          'trk_bgm_ambient': '/audio/golden-nostalgia.mp3'
+        };
+
+        const staticTarget = (!key && trackId && staticAudioMap[trackId]) || (trackId && staticAudioMap[trackId] && !dbRow?.storage_key ? staticAudioMap[trackId] : null);
+        if (staticTarget) {
+          if (env.ASSETS && typeof env.ASSETS.fetch === 'function') {
+            const assetUrl = new URL(staticTarget, request.url);
+            return env.ASSETS.fetch(new Request(assetUrl, request));
+          }
+          try {
+            const staticRes = await fetch(new URL(staticTarget, request.url).toString(), {
+              headers: request.headers
+            });
+            if (staticRes.ok || staticRes.status === 206) {
+              return staticRes;
+            }
+          } catch (_) {}
         }
 
-        if (!key) {
-          return applySecurityHeaders(new Response(JSON.stringify({ error: 'MISSING_KEY', message: 'Audio storage key or id is required' }), {
-            status: 400,
-            headers: { 'Content-Type': 'application/json' }
-          }), request, env);
+        if (!trackId && !key) {
+          return applySecurityHeaders(jsonError('MISSING_KEY', 'Audio storage key or id is required', 400), request, env);
         }
 
-        // Sanitize key against directory traversal
-        key = String(key).replace(/^\/+/, '');
-        if (key.includes('..')) {
-          return applySecurityHeaders(new Response(JSON.stringify({ error: 'INVALID_KEY', message: 'Path traversal is not allowed' }), {
-            status: 400,
-            headers: { 'Content-Type': 'application/json' }
-          }), request, env);
+        if (!key && !dbRow) {
+          return applySecurityHeaders(jsonError('TRACK_NOT_FOUND', 'Requested audio media track not found', 404), request, env);
         }
 
-        if (B2StorageProvider.isConfigured(env)) {
+        if (B2StorageProvider.isConfigured(env) && key) {
           try {
             const b2 = B2StorageProvider.fromEnv(env);
             const clientRange = request.headers.get('range');
             const obj = await b2.getObject({ key, range: clientRange });
+
+            let responseBody = obj.body;
+            let responseStatus = (clientRange && obj.status === 206) ? 206 : 200;
+            let contentRangeHeader = obj.contentRange;
+            let contentLength = obj.contentLength || (obj.body ? obj.body.byteLength : 0);
+
+            // If client requested a Range but upstream returned full 200 body, handle Range slicing deterministically
+            if (clientRange && responseStatus === 200 && responseBody && responseBody.byteLength > 0) {
+              const totalSize = responseBody.byteLength;
+              const rangeMatch = /bytes=(\d*)-(\d*)/.exec(clientRange);
+              if (rangeMatch) {
+                const rawStart = rangeMatch[1];
+                const rawEnd = rangeMatch[2];
+                let start = rawStart ? parseInt(rawStart, 10) : NaN;
+                let end = rawEnd ? parseInt(rawEnd, 10) : NaN;
+
+                if (isNaN(start) && !isNaN(end)) {
+                  start = Math.max(0, totalSize - end);
+                  end = totalSize - 1;
+                } else if (!isNaN(start) && isNaN(end)) {
+                  end = totalSize - 1;
+                }
+
+                if (!isNaN(start) && !isNaN(end) && start <= end && start < totalSize) {
+                  end = Math.min(end, totalSize - 1);
+                  responseBody = responseBody.subarray(start, end + 1);
+                  responseStatus = 206;
+                  contentLength = responseBody.byteLength;
+                  contentRangeHeader = `bytes ${start}-${end}/${totalSize}`;
+                } else {
+                  const errHeaders = new Headers();
+                  errHeaders.set('Content-Range', `bytes */${totalSize}`);
+                  errHeaders.set('Accept-Ranges', 'bytes');
+                  errHeaders.set('Access-Control-Allow-Origin', '*');
+                  return applySecurityHeaders(new Response('Range Not Satisfiable', { status: 416, headers: errHeaders }), request, env);
+                }
+              }
+            }
+
             const headers = new Headers();
-            headers.set('Content-Type', obj.contentType || getMimeType(key));
-            headers.set('Content-Length', String(obj.contentLength || (obj.body ? obj.body.byteLength : 0)));
+            const mime = obj.contentType || (dbRow && dbRow.mime_type) || getMimeType(key);
+            headers.set('Content-Type', mime);
+            headers.set('Content-Length', String(contentLength));
             headers.set('Accept-Ranges', 'bytes');
             headers.set('Access-Control-Allow-Origin', '*');
             headers.set('Access-Control-Allow-Methods', 'GET, HEAD, OPTIONS');
-            headers.set('Access-Control-Allow-Headers', 'Range, Content-Type');
+            headers.set('Access-Control-Allow-Headers', 'Range, Content-Type, Accept');
             headers.set('Access-Control-Expose-Headers', 'Content-Range, Content-Length, Accept-Ranges');
-            if (obj.contentRange) {
-              headers.set('Content-Range', obj.contentRange);
+            if (contentRangeHeader) {
+              headers.set('Content-Range', contentRangeHeader);
             }
             headers.set('Cache-Control', 'public, max-age=86400, no-transform');
             const filename = (dbRow && dbRow.title) || key.split('/').pop() || 'media-track.mp3';
             headers.set('Content-Disposition', `inline; filename="${encodeURIComponent(filename)}"`);
 
-            const status = (clientRange && obj.status === 206) ? 206 : 200;
             if (method === 'HEAD') {
-              return applySecurityHeaders(new Response(null, { status, headers }), request, env);
+              return applySecurityHeaders(new Response(null, { status: responseStatus, headers }), request, env);
             }
-            return applySecurityHeaders(new Response(obj.body, { status, headers }), request, env);
+            return applySecurityHeaders(new Response(responseBody, { status: responseStatus, headers }), request, env);
           } catch (streamErr) {
             console.warn('[B2 Media Stream Warning]', streamErr.message);
-            // Fallback: Direct proxy stream from playback_url if available
-            if (dbRow && dbRow.playback_url && dbRow.playback_url.startsWith('http')) {
+            if (streamErr.status === 416 || streamErr.code === 'RANGE_NOT_SATISFIABLE') {
+              const errHeaders = new Headers();
+              errHeaders.set('Accept-Ranges', 'bytes');
+              errHeaders.set('Access-Control-Allow-Origin', '*');
+              if (streamErr.contentRange) errHeaders.set('Content-Range', streamErr.contentRange);
+              return applySecurityHeaders(new Response('Range Not Satisfiable', { status: 416, headers: errHeaders }), request, env);
+            }
+            if (streamErr.status === 404 || streamErr.code === 'NOT_FOUND') {
+              return applySecurityHeaders(jsonError('TRACK_NOT_FOUND', 'Media asset not found in storage: ' + key, 404), request, env);
+            }
+            if (streamErr.status === 403) {
+              return applySecurityHeaders(jsonError('STORAGE_FORBIDDEN', 'Access denied to storage asset', 403), request, env);
+            }
+            // If upstream storage error and playback_url fallback exists, attempt streaming from playback_url
+            if (dbRow && dbRow.playback_url && (dbRow.playback_url.startsWith('http://') || dbRow.playback_url.startsWith('https://'))) {
               try {
                 const proxyHeaders = new Headers();
                 const rangeHeader = request.headers.get('range');
                 if (rangeHeader) proxyHeaders.set('Range', rangeHeader);
                 const upstream = await fetch(dbRow.playback_url, { headers: proxyHeaders });
-                if (upstream.ok || upstream.status === 206) {
-                  return applySecurityHeaders(new Response(upstream.body, {
-                    status: upstream.status,
-                    headers: upstream.headers
-                  }), request, env);
+                if (upstream.ok || upstream.status === 206 || upstream.status === 416) {
+                  const outHeaders = new Headers();
+                  outHeaders.set('Content-Type', upstream.headers.get('content-type') || (dbRow.mime_type || getMimeType(key || 'media.mp3')));
+                  outHeaders.set('Accept-Ranges', 'bytes');
+                  outHeaders.set('Access-Control-Allow-Origin', '*');
+                  outHeaders.set('Access-Control-Allow-Methods', 'GET, HEAD, OPTIONS');
+                  outHeaders.set('Access-Control-Allow-Headers', 'Range, Content-Type, Accept');
+                  outHeaders.set('Access-Control-Expose-Headers', 'Content-Range, Content-Length, Accept-Ranges');
+                  const cl = upstream.headers.get('content-length');
+                  if (cl) outHeaders.set('Content-Length', cl);
+                  const cr = upstream.headers.get('content-range');
+                  if (cr) outHeaders.set('Content-Range', cr);
+                  if (method === 'HEAD') {
+                    return applySecurityHeaders(new Response(null, { status: upstream.status, headers: outHeaders }), request, env);
+                  }
+                  const bytes = await upstream.arrayBuffer();
+                  return applySecurityHeaders(new Response(bytes, { status: upstream.status, headers: outHeaders }), request, env);
                 }
               } catch (_) {}
             }
-            return applySecurityHeaders(jsonError('UPSTREAM_STORAGE_ERROR', 'Audio track could not be loaded from storage: ' + (streamErr.message || 'Storage error'), 502), request, env);
+            return applySecurityHeaders(jsonError('UPSTREAM_STORAGE_ERROR', 'Audio/video track could not be loaded from storage: ' + (streamErr.message || 'Storage error'), 502), request, env);
           }
         }
 
         // If B2 not configured, stream from playback_url if available
-        if (dbRow && dbRow.playback_url && dbRow.playback_url.startsWith('http')) {
+        if (dbRow && dbRow.playback_url && (dbRow.playback_url.startsWith('http://') || dbRow.playback_url.startsWith('https://'))) {
           try {
             const proxyHeaders = new Headers();
             const rangeHeader = request.headers.get('range');
             if (rangeHeader) proxyHeaders.set('Range', rangeHeader);
             const upstream = await fetch(dbRow.playback_url, { headers: proxyHeaders });
-            if (upstream.ok || upstream.status === 206) {
-              return applySecurityHeaders(new Response(upstream.body, {
-                status: upstream.status,
-                headers: upstream.headers
-              }), request, env);
+            if (upstream.ok || upstream.status === 206 || upstream.status === 416) {
+              const outHeaders = new Headers();
+              outHeaders.set('Content-Type', upstream.headers.get('content-type') || (dbRow.mime_type || getMimeType(key || 'media.mp3')));
+              outHeaders.set('Accept-Ranges', 'bytes');
+              outHeaders.set('Access-Control-Allow-Origin', '*');
+              outHeaders.set('Access-Control-Allow-Methods', 'GET, HEAD, OPTIONS');
+              outHeaders.set('Access-Control-Allow-Headers', 'Range, Content-Type, Accept');
+              outHeaders.set('Access-Control-Expose-Headers', 'Content-Range, Content-Length, Accept-Ranges');
+              const cl = upstream.headers.get('content-length');
+              if (cl) outHeaders.set('Content-Length', cl);
+              const cr = upstream.headers.get('content-range');
+              if (cr) outHeaders.set('Content-Range', cr);
+              if (method === 'HEAD') {
+                return applySecurityHeaders(new Response(null, { status: upstream.status, headers: outHeaders }), request, env);
+              }
+              const bytes = await upstream.arrayBuffer();
+              return applySecurityHeaders(new Response(bytes, { status: upstream.status, headers: outHeaders }), request, env);
+            }
+          } catch (_) {}
+        }
+
+        if (dbRow && dbRow.playback_url && dbRow.playback_url.startsWith('/')) {
+          if (env.ASSETS && typeof env.ASSETS.fetch === 'function') {
+            const assetUrl = new URL(dbRow.playback_url, request.url);
+            return env.ASSETS.fetch(new Request(assetUrl, request));
+          }
+          try {
+            const localRes = await fetch(new URL(dbRow.playback_url, request.url).toString(), {
+              headers: request.headers
+            });
+            if (localRes.ok || localRes.status === 206) {
+              return localRes;
             }
           } catch (_) {}
         }
@@ -10464,7 +10559,7 @@ export default {
                 allAssetsMap.set(m.id, {
                   id: m.id,
                   title: m.title || 'Music Track',
-                  artist: m.artist || 'WishMagic Studio',
+                  artist: m.artist || null,
                   type: 'audio',
                   format: (m.mime_type || 'audio/mpeg').split('/').pop().toUpperCase(),
                   url,
@@ -10702,10 +10797,12 @@ export default {
 
           const cleanBaseFilename = filename.replace(/\.[^/.]+$/, '').replace(/[-_]+/g, ' ');
           const finalTitle = sanitizeString(body.title || audioValidation.metadata?.title || (title && title !== 'media-upload' ? title : cleanBaseFilename), 100);
-          const finalArtist = sanitizeString(body.artist || audioValidation.metadata?.artist || (artist && artist !== 'WishMagic Studio' ? artist : 'WishMagic Studio'), 80);
+          const finalArtist = body.artist ? sanitizeString(body.artist, 80) : (audioValidation.metadata?.artist ? sanitizeString(audioValidation.metadata.artist, 80) : null);
           const finalCategory = sanitizeString(category || body.category || 'celebration', 40);
           const description = sanitizeString(body.description || finalTitle, 200);
-          const durationSeconds = Number(body.durationSeconds) || audioValidation.metadata?.durationSeconds || 160;
+          const durationSeconds = (body.durationSeconds !== undefined && body.durationSeconds !== null && !isNaN(Number(body.durationSeconds)))
+            ? Number(body.durationSeconds)
+            : (audioValidation.metadata?.durationSeconds || null);
 
           // Persist metadata to D1 (both music_library and wish_media)
           if (env.DB && typeof env.DB.prepare === 'function') {

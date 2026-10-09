@@ -662,9 +662,10 @@ export class B2StorageProvider extends StorageProvider {
    */
   async getObject({ key, range = null }) {
     if (!key) throw new Error('Object storage key is required');
+    const cleanKey = String(key).replace(/^\/+/, '');
     let auth = await this.authorizeAccount();
     const downloadBase = auth.downloadUrl || this.customDownloadUrl;
-    const url = `${downloadBase}/file/${this.bucketName}/${encodeURI(key)}`;
+    const url = `${downloadBase}/file/${this.bucketName}/${encodeURI(cleanKey)}`;
 
     const headers = {};
     if (auth.authorizationToken) {
@@ -692,13 +693,14 @@ export class B2StorageProvider extends StorageProvider {
     }
 
     if (!response.ok && response.status !== 206) {
-      const err = new Error(`B2 getObject failed for ${key} (${response.status})`);
+      const err = new Error(`B2 getObject failed for ${cleanKey} (${response.status})`);
       err.status = response.status;
-      err.code = response.status === 404 ? 'NOT_FOUND' : 'B2_DOWNLOAD_FAILED';
+      err.code = response.status === 404 ? 'NOT_FOUND' : (response.status === 416 ? 'RANGE_NOT_SATISFIABLE' : 'B2_DOWNLOAD_FAILED');
+      err.contentRange = response.headers.get('content-range');
       throw err;
     }
 
-    const contentType = response.headers.get('content-type') || getMimeType(key);
+    const contentType = response.headers.get('content-type') || getMimeType(cleanKey);
     const contentLength = Number(response.headers.get('content-length') || 0);
     const contentRange = response.headers.get('content-range') || null;
     const fileId = response.headers.get('x-bz-file-id') || null;

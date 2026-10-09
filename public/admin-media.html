@@ -843,6 +843,7 @@
 
 <!-- Floating Dedicated Audio Player Bar -->
 <div id="floating-audio-bar" class="fixed bottom-4 left-4 right-4 sm:left-auto sm:right-6 sm:w-96 bg-surface-container/95 backdrop-blur-xl border border-primary/50 rounded-2xl p-4 shadow-2xl z-40 hidden flex flex-col gap-2 transition-all duration-300">
+  <audio id="admin-media-player" class="hidden" preload="auto"></audio>
   <div class="flex items-center justify-between gap-3">
     <div class="flex items-center gap-3 min-w-0">
       <div id="player-status-icon" class="w-10 h-10 rounded-xl bg-primary/20 text-primary flex items-center justify-center flex-shrink-0 animate-pulse">
@@ -962,7 +963,36 @@
       document.getElementById('stat-audios-count').innerText = s.audioCount || allMediaAssets.filter(a => a.type === 'audio').length;
 
       renderMediaGrid();
-    } catch (err) {
+
+      // Browser Refresh State Restoration: restore previously selected track in ready state
+      try {
+        const savedTrackId = sessionStorage.getItem('wm_last_audio_track_id');
+        if (savedTrackId && !activeTrackId) {
+          const savedAsset = allMediaAssets.find(a => String(a.id) === String(savedTrackId));
+          if (savedAsset) {
+            activeTrackId = savedAsset.id;
+            const bar = document.getElementById('floating-audio-bar');
+            const titleEl = document.getElementById('player-track-title');
+            const timeEl = document.getElementById('player-time-display');
+            const badgeEl = document.getElementById('player-provider-badge');
+            const iconEl = document.getElementById('player-toggle-icon');
+            const seekEl = document.getElementById('player-seek-bar');
+            if (titleEl) {
+              const artistSpan = savedAsset.artist ? ` <span class="text-[10px] text-purple-300 font-normal truncate">(${escapeHtml(savedAsset.artist)})</span>` : '';
+              titleEl.innerHTML = `<span class="font-bold text-on-surface truncate">${escapeHtml(savedAsset.title)}</span>${artistSpan}`;
+            }
+            if (badgeEl) badgeEl.innerText = savedAsset.storageProvider === 'b2' ? 'Backblaze B2' : 'Audio Vault';
+            if (timeEl) timeEl.innerText = savedAsset.duration ? `0:00 / ${savedAsset.duration}` : 'Ready to Play';
+            if (iconEl) iconEl.innerText = 'play_arrow';
+            if (seekEl) seekEl.value = '0';
+            const audio = getAudioElement();
+            activeAudio = audio;
+            audio.src = savedAsset.streamUrl || `/api/media/stream?id=${encodeURIComponent(savedAsset.id)}`;
+            audio.preload = 'metadata';
+            if (bar) bar.classList.remove('hidden');
+          }
+        }
+      } catch (_) {}
       grid.innerHTML = `<div class="col-span-full p-6 bg-rose-500/10 border border-rose-500/30 rounded-2xl text-rose-300 text-sm">Network error retrieving media assets.</div>`;
     }
   }
@@ -1527,8 +1557,16 @@
     img.classList.add('hidden');
     img.src = '';
     vid.classList.remove('hidden');
-    vid.src = streamUrl || url;
-    vid.onerror = () => { if (vid.src !== url && url) vid.src = url; };
+    const videoSource = streamUrl || url;
+    vid.src = videoSource;
+    vid.load();
+    vid.play().catch(() => {});
+    vid.onerror = () => {
+      if (vid.src !== url && url) {
+        vid.src = url;
+        vid.load();
+      }
+    };
     cap.innerText = caption || 'Video Reel Preview';
 
     modal.classList.remove('hidden');
@@ -1539,7 +1577,11 @@
     const img = document.getElementById('lightbox-img');
     const vid = document.getElementById('lightbox-video');
     img.src = '';
-    vid.src = '';
+    if (vid) {
+      vid.pause();
+      vid.src = '';
+      vid.load();
+    }
     modal.classList.add('hidden');
   }
 
@@ -1628,14 +1670,27 @@
   let activeAudio = null;
   let activeTrackId = null;
 
+  function getAudioElement() {
+    let el = document.getElementById('admin-media-player');
+    if (!el) {
+      el = document.createElement('audio');
+      el.id = 'admin-media-player';
+      el.className = 'hidden';
+      el.preload = 'auto';
+      document.body.appendChild(el);
+    }
+    return el;
+  }
+
   function stopAndCloseAudioPlayer() {
     if (activeAudio) {
       activeAudio.pause();
-      activeAudio.src = '';
+      activeAudio.removeAttribute('src');
       activeAudio.load();
       activeAudio = null;
     }
     activeTrackId = null;
+    try { sessionStorage.removeItem('wm_last_audio_track_id'); } catch (_) {}
     const bar = document.getElementById('floating-audio-bar');
     if (bar) bar.classList.add('hidden');
     renderMediaGrid();
@@ -1658,17 +1713,30 @@
   }
 
   function seekAudio(percent) {
-    if (activeAudio && activeAudio.duration) {
-      activeAudio.currentTime = (percent / 100) * activeAudio.duration;
+    if (activeAudio && isFinite(activeAudio.duration) && activeAudio.duration > 0) {
+      activeAudio.currentTime = (Number(percent) / 100) * activeAudio.duration;
+      const cur = Math.floor(activeAudio.currentTime);
+      const dur = Math.floor(activeAudio.duration);
+      const curFmt = `${Math.floor(cur / 60)}:${String(cur % 60).padStart(2, '0')}`;
+      const durFmt = `${Math.floor(dur / 60)}:${String(dur % 60).padStart(2, '0')}`;
+      const timeEl = document.getElementById('player-time-display');
+      if (timeEl) timeEl.innerText = `${curFmt} / ${durFmt}`;
     }
   }
 
   function showPlayerError(msg) {
     const errEl = document.getElementById('player-error-msg');
+    const statusIcon = document.getElementById('player-status-icon');
+    const toggleIcon = document.getElementById('player-toggle-icon');
     if (errEl) {
       errEl.innerText = msg;
       errEl.classList.remove('hidden');
     }
+    if (statusIcon) {
+      statusIcon.innerHTML = '<span class="material-symbols-outlined text-xl text-rose-400">error</span>';
+      statusIcon.classList.remove('animate-pulse');
+    }
+    if (toggleIcon) toggleIcon.innerText = 'play_arrow';
     showToast(`⚠️ ${msg}`);
   }
 
@@ -1677,91 +1745,142 @@
     const asset = allMediaAssets.find(a => String(a.id) === String(id)) || null;
 
     const title = (asset && asset.title) || rawTitle || 'Audio Track';
-    const artist = (asset && asset.artist) || 'WishMagic Studio';
+    const artist = (asset && asset.artist) || '';
     const provider = (asset && asset.storageProvider) || rawProvider || 'b2';
     const duration = (asset && asset.duration) || '';
 
     // 2. If clicking the already playing track, toggle pause/play
-    if (activeTrackId === id && activeAudio) {
+    if (activeTrackId === id && activeAudio && activeAudio.src) {
       toggleAudioPlayback();
       return;
     }
 
-    // 3. Clean up any previous audio stream completely
+    // 3. Clean up previous playback
     if (activeAudio) {
       activeAudio.pause();
-      activeAudio.src = '';
+      activeAudio.removeAttribute('src');
       activeAudio.load();
-      activeAudio = null;
     }
 
     activeTrackId = id;
+    try { sessionStorage.setItem('wm_last_audio_track_id', String(id)); } catch (_) {}
+
     const bar = document.getElementById('floating-audio-bar');
     const titleEl = document.getElementById('player-track-title');
     const timeEl = document.getElementById('player-time-display');
     const badgeEl = document.getElementById('player-provider-badge');
     const iconEl = document.getElementById('player-toggle-icon');
+    const statusIcon = document.getElementById('player-status-icon');
     const seekEl = document.getElementById('player-seek-bar');
     const errEl = document.getElementById('player-error-msg');
 
     if (titleEl) {
-      titleEl.innerHTML = `<span class="font-bold text-on-surface truncate">${escapeHtml(title)}</span> <span class="text-[10px] text-purple-300 font-normal truncate">(${escapeHtml(artist)})</span>`;
+      const artistSpan = artist ? ` <span class="text-[10px] text-purple-300 font-normal truncate">(${escapeHtml(artist)})</span>` : '';
+      titleEl.innerHTML = `<span class="font-bold text-on-surface truncate">${escapeHtml(title)}</span>${artistSpan}`;
     }
     if (badgeEl) {
       badgeEl.innerText = provider === 'b2' ? 'Backblaze B2' : (provider === 'imgbb' ? 'ImgBB' : 'Audio Vault');
     }
-    if (timeEl) timeEl.innerText = duration ? `0:00 / ${duration}` : 'Streaming...';
+    if (timeEl) timeEl.innerText = duration ? `0:00 / ${duration}` : 'Connecting...';
     if (errEl) errEl.classList.add('hidden');
     if (iconEl) iconEl.innerText = 'play_arrow';
+    if (statusIcon) {
+      statusIcon.innerHTML = '<span class="material-symbols-outlined text-xl">music_note</span>';
+      statusIcon.classList.add('animate-pulse');
+    }
     if (seekEl) seekEl.value = '0';
     if (bar) bar.classList.remove('hidden');
 
-    // 4. Resolve playable source priority list (strictly for THIS track only, NO unrelated hardcoded song)
+    // 4. Resolve playable source priority list (strictly for THIS track only, NO unrelated fallback song)
     const streamProxyUrl = `/api/media/stream?id=${encodeURIComponent(id)}${asset?.storageKey ? `&key=${encodeURIComponent(asset.storageKey)}` : ''}`;
     const candidateUrl = (asset && (asset.playbackUrl || asset.url)) || rawUrl || '';
 
     const sourcesToTry = [];
-    // Priority 1: Direct local assets
-    if (candidateUrl && (candidateUrl.startsWith('/audio/') || candidateUrl.startsWith('/media/'))) {
+    // Priority 1: Streaming proxy (same-origin, handles B2 auth & Range requests, no CORS issue)
+    sourcesToTry.push(streamProxyUrl);
+    // Priority 2: Direct local assets (if local /audio/ or /media/)
+    if (candidateUrl && (candidateUrl.startsWith('/audio/') || candidateUrl.startsWith('/media/')) && !sourcesToTry.includes(candidateUrl)) {
       sourcesToTry.push(candidateUrl);
     }
-    // Priority 2: Streaming proxy (same-origin, Range requests, no CORS)
-    sourcesToTry.push(streamProxyUrl);
-    // Priority 3: Direct external URL if distinct from local
+    // Priority 3: Direct external URL if different
     if (candidateUrl && candidateUrl.startsWith('http') && !candidateUrl.includes('assets.wishmagic.live') && !sourcesToTry.includes(candidateUrl)) {
       sourcesToTry.push(candidateUrl);
     }
 
     let sourceIndex = 0;
     let isAdvancingSource = false;
-    const audio = new Audio();
+    const audio = getAudioElement();
     activeAudio = audio;
     audio.preload = 'auto';
-    audio.src = sourcesToTry[sourceIndex];
 
-    audio.addEventListener('timeupdate', () => {
-      if (!audio.duration || isNaN(audio.duration)) return;
-      const cur = Math.floor(audio.currentTime);
-      const dur = Math.floor(audio.duration);
-      const curFmt = `${Math.floor(cur / 60)}:${String(cur % 60).padStart(2, '0')}`;
-      const durFmt = `${Math.floor(dur / 60)}:${String(dur % 60).padStart(2, '0')}`;
-      if (timeEl) timeEl.innerText = `${curFmt} / ${durFmt}`;
-      if (seekEl) seekEl.value = String((audio.currentTime / audio.duration) * 100);
+    // Remove existing event listeners by replacing node
+    const newAudio = audio.cloneNode(false);
+    audio.parentNode.replaceChild(newAudio, audio);
+    activeAudio = newAudio;
+
+    newAudio.addEventListener('loadstart', () => {
+      if (timeEl && (!newAudio.duration || isNaN(newAudio.duration))) {
+        timeEl.innerText = 'Buffering...';
+      }
     });
 
-    audio.addEventListener('play', () => {
+    newAudio.addEventListener('waiting', () => {
+      if (statusIcon) statusIcon.classList.add('animate-spin');
+    });
+
+    newAudio.addEventListener('playing', () => {
+      if (statusIcon) {
+        statusIcon.classList.remove('animate-spin');
+        statusIcon.classList.add('animate-pulse');
+        statusIcon.innerHTML = '<span class="material-symbols-outlined text-xl">graphic_eq</span>';
+      }
       if (iconEl) iconEl.innerText = 'pause';
       renderMediaGrid();
     });
 
-    audio.addEventListener('pause', () => {
-      if (iconEl) iconEl.innerText = 'play_arrow';
+    newAudio.addEventListener('loadedmetadata', () => {
+      if (isFinite(newAudio.duration) && newAudio.duration > 0) {
+        const cur = Math.floor(newAudio.currentTime || 0);
+        const dur = Math.floor(newAudio.duration);
+        const curFmt = `${Math.floor(cur / 60)}:${String(cur % 60).padStart(2, '0')}`;
+        const durFmt = `${Math.floor(dur / 60)}:${String(dur % 60).padStart(2, '0')}`;
+        if (timeEl) timeEl.innerText = `${curFmt} / ${durFmt}`;
+      }
+    });
+
+    newAudio.addEventListener('timeupdate', () => {
+      if (!newAudio.duration || isNaN(newAudio.duration) || !isFinite(newAudio.duration)) return;
+      const cur = Math.floor(newAudio.currentTime);
+      const dur = Math.floor(newAudio.duration);
+      const curFmt = `${Math.floor(cur / 60)}:${String(cur % 60).padStart(2, '0')}`;
+      const durFmt = `${Math.floor(dur / 60)}:${String(dur % 60).padStart(2, '0')}`;
+      if (timeEl) timeEl.innerText = `${curFmt} / ${durFmt}`;
+      if (seekEl) seekEl.value = String((newAudio.currentTime / newAudio.duration) * 100);
+    });
+
+    newAudio.addEventListener('play', () => {
+      if (iconEl) iconEl.innerText = 'pause';
       renderMediaGrid();
     });
 
-    audio.addEventListener('ended', () => {
+    newAudio.addEventListener('pause', () => {
+      if (iconEl) iconEl.innerText = 'play_arrow';
+      if (statusIcon) {
+        statusIcon.classList.remove('animate-spin');
+        statusIcon.classList.remove('animate-pulse');
+        statusIcon.innerHTML = '<span class="material-symbols-outlined text-xl">music_note</span>';
+      }
+      renderMediaGrid();
+    });
+
+    newAudio.addEventListener('ended', () => {
       if (iconEl) iconEl.innerText = 'play_arrow';
       if (seekEl) seekEl.value = '0';
+      if (statusIcon) {
+        statusIcon.classList.remove('animate-spin');
+        statusIcon.classList.remove('animate-pulse');
+        statusIcon.innerHTML = '<span class="material-symbols-outlined text-xl">music_note</span>';
+      }
       renderMediaGrid();
     });
 
@@ -1771,9 +1890,9 @@
       sourceIndex++;
       if (sourceIndex < sourcesToTry.length) {
         console.warn(`[Audio Player] Trying next audio source [${sourceIndex}]:`, sourcesToTry[sourceIndex]);
-        audio.src = sourcesToTry[sourceIndex];
-        audio.load();
-        audio.play().then(() => {
+        newAudio.src = sourcesToTry[sourceIndex];
+        newAudio.load();
+        newAudio.play().then(() => {
           isAdvancingSource = false;
           if (iconEl) iconEl.innerText = 'pause';
           renderMediaGrid();
@@ -1795,13 +1914,14 @@
       }
     }
 
-    audio.addEventListener('error', () => {
-      const err = audio.error;
+    newAudio.addEventListener('error', () => {
+      const err = newAudio.error;
       const msg = err ? (err.code === 4 ? 'Audio source format not supported or file not found' : `Error code ${err.code}`) : 'Failed to load audio';
       tryNextAudioSource(msg);
     });
 
-    audio.play().then(() => {
+    newAudio.src = sourcesToTry[sourceIndex];
+    newAudio.play().then(() => {
       if (iconEl) iconEl.innerText = 'pause';
       showToast(`▶ Playing: "${title}"`);
       renderMediaGrid();

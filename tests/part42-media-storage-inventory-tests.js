@@ -91,9 +91,9 @@ function createMockEnv(overrides = {}) {
               is_admin: 1
             };
           }
-          if (sql.includes('SELECT storage_key FROM music_library') || sql.includes('SELECT object_key')) {
+          if (sql.includes('FROM music_library WHERE id = ?') || sql.includes('FROM music_library') || sql.includes('SELECT storage_key FROM music_library') || sql.includes('SELECT object_key')) {
             const found = d1Tables.music_library.find(t => t.id === boundArgs[0]);
-            return found ? { storage_key: found.storage_key } : null;
+            return found ? { ...found } : null;
           }
           return null;
         },
@@ -243,6 +243,6 @@ test('WishMagic Part 42: Media Storage Inventory & Audio Playback Repair', async
 
     assert.equal(res.status, 400);
     const data = await res.json();
-    assert.equal(data.error, 'INVALID_KEY');
+    assert.equal(data.error?.code || data.error || data.code, 'INVALID_KEY');
   });
 });
