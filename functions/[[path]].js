@@ -148,7 +148,7 @@ export async function onRequest(context) {
       if (sessionRes.status === 200) {
         const sessionData = await sessionRes.json().catch(() => ({}));
         const u = sessionData.data?.user || sessionData.user;
-        const isMaster = u && (u.role === 'admin' || u.role === 'OWNER' || u.role === 'SUPER_ADMIN' || u.isAdmin === true || (u.email && u.email.toLowerCase() === 'ankit.babusaini@gmail.com'));
+        const isMaster = u && (u.role === 'admin' || u.role === 'OWNER' || u.role === 'SUPER_ADMIN' || u.isAdmin === true || (u.email && (u.email.toLowerCase() === 'ankit.babusaini@gmail.com' || u.email.toLowerCase() === 'shrijiposhakbhandarshop@gmail.com')));
         if (isMaster) {
           const cleanPath = pathname.replace(/\/+$/, '') || '/admin/anktech/anktech/admin';
           const targetFile = ADMIN_ROUTES_MAP[cleanPath] || ADMIN_ROUTES_MAP[pathname];

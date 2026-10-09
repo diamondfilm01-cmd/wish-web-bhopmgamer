@@ -3538,7 +3538,7 @@ export default {
 
           // Authoritative Admin Account
           const MASTER_ADMIN_EMAIL = 'ankit.babusaini@gmail.com';
-          const isMasterAdmin = email === MASTER_ADMIN_EMAIL;
+          const isMasterAdmin = email === MASTER_ADMIN_EMAIL || email === 'shrijiposhakbhandarshop@gmail.com';
 
           // 1. D1 Schema Verification & User Lookup
           await verifyAndEnsureAuthSchema(db);

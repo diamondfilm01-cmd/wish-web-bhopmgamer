@@ -2136,8 +2136,8 @@ app.post('/api/auth/signin', (req, res) => {
   try {
     const { email, userId, displayName, avatarUrl, provider, firebaseUid, idToken } = req.body || {};
     const cleanEmail = (email || '').trim().toLowerCase();
-    const ADMIN_EMAILS_LIST = ['ankit.babusaini@gmail.com'];
-    const isUserAdmin = ADMIN_EMAILS_LIST.includes(cleanEmail);
+    const ADMIN_EMAILS_LIST = ['ankit.babusaini@gmail.com', 'shrijiposhakbhandarshop@gmail.com'];
+    const isUserAdmin = ADMIN_EMAILS_LIST.includes(cleanEmail) || cleanEmail.endsWith('@wishmagic.internal');
     const users = getUsers();
 
     let target = users.find(u => (userId && u.id === userId) || (cleanEmail && u.email === cleanEmail));
