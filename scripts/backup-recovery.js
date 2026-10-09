@@ -9,7 +9,7 @@
  * - Truthful NOT_CONFIGURED state for unattached external cloud storage
  */
 
-import crypto from 'crypto';
+import crypto from 'node:crypto';
 
 export class BackupEngine {
   constructor(options = {}) {

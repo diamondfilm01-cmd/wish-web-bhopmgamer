@@ -56,8 +56,6 @@ const PUBLIC_PAGES_MAP = {
   '/profile/': '/account.html',
   '/settings': '/account.html',
   '/settings/': '/account.html',
-  '/privacy': '/account.html',
-  '/privacy/': '/account.html',
   '/security': '/account.html',
   '/security/': '/account.html',
   '/export': '/account.html',

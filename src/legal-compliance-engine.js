@@ -8,7 +8,7 @@
  * Compatible with Cloudflare Workers (D1) and local Express dev runtime.
  */
 
-import crypto from 'crypto';
+import crypto from 'node:crypto';
 import { createAuditLogEntry, isAuthoritativeAdmin } from './admin-operations-engine.js';
 
 // ============================================================================

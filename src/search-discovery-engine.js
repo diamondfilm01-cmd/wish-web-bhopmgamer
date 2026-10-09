@@ -8,7 +8,7 @@
  * Compatible with Node.js Express dev runtime and Cloudflare Workers (D1).
  */
 
-import crypto from 'crypto';
+import crypto from 'node:crypto';
 
 // ============================================================================
 // 1. CONSTANTS, ENUMS & DICTIONARIES
@@ -1066,7 +1066,21 @@ export function findAlternativeSuggestions(query, allTemplates, { limit = 4 } = 
  */
 export function hashClientIp(ip) {
   if (!ip || typeof ip !== 'string') return '0000000000000000';
-  return crypto.createHash('sha256').update(ip + 'wm_search_salt').digest('hex').substring(0, 16);
+  try {
+    if (crypto && typeof crypto.createHash === 'function') {
+      return crypto.createHash('sha256').update(ip + 'wm_search_salt').digest('hex').substring(0, 16);
+    }
+  } catch (_) {}
+  let h1 = 0xdeadbeef, h2 = 0x41c6ce57;
+  const str = ip + 'wm_search_salt';
+  for (let i = 0; i < str.length; i++) {
+    const ch = str.charCodeAt(i);
+    h1 = Math.imul(h1 ^ ch, 2654435761);
+    h2 = Math.imul(h2 ^ ch, 1597334677);
+  }
+  const hex1 = (h1 >>> 0).toString(16).padStart(8, '0');
+  const hex2 = (h2 >>> 0).toString(16).padStart(8, '0');
+  return (hex1 + hex2).substring(0, 16);
 }
 
 /**
