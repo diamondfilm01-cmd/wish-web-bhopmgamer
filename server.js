@@ -6772,6 +6772,44 @@ app.get('/api/media', (req, res) => {
   }
 });
 
+// API: Stream Audio / Media (Backblaze B2 & local fallback)
+app.get(['/api/media/stream', '/api/media/stream/:id'], async (req, res) => {
+  try {
+    const key = req.query.key || req.query.storageKey || req.params.id;
+    const trackId = req.query.id || req.params.id;
+    const media = getMedia();
+    const track = media.find(t => t.id === trackId || t.storageKey === key || t.filename === key);
+
+    if (B2StorageProvider.isConfigured(process.env)) {
+      try {
+        const b2 = B2StorageProvider.fromEnv(process.env);
+        const storageKey = key || (track ? track.storageKey : null);
+        if (storageKey) {
+          const obj = await b2.getObject({ key: storageKey });
+          res.setHeader('Content-Type', obj.contentType || 'audio/mpeg');
+          res.setHeader('Content-Length', obj.contentLength || obj.body.length);
+          res.setHeader('Accept-Ranges', 'bytes');
+          res.setHeader('Cache-Control', 'public, max-age=604800');
+          return res.send(Buffer.from(obj.body));
+        }
+      } catch (e) {
+        console.warn('[B2 Local Stream Fallback]', e.message);
+      }
+    }
+
+    if (track && track.filename) {
+      const filePath = path.join(MEDIA_DIR, track.filename);
+      if (fs.existsSync(filePath)) {
+        return res.sendFile(filePath);
+      }
+    }
+
+    res.status(404).send('Audio media track not found');
+  } catch (err) {
+    res.status(500).send('Stream error: ' + err.message);
+  }
+});
+
 // API: Upload a new audio track or image asset
 app.post('/api/media/upload', async (req, res) => {
   try {

@@ -299,7 +299,12 @@ export class ImgBBProvider {
     this.apiKey = config.apiKey;
     this.apiUrl = config.apiUrl || 'https://api.imgbb.com/1/upload';
     this.expiration = Number(config.expiration) || 0;
-    this.fetchFn = config.fetchFn || globalThis.fetch;
+    this.fetchFn = (url, init) => {
+      if (typeof config.fetchFn === 'function') {
+        return config.fetchFn(url, init);
+      }
+      return globalThis.fetch(url, init);
+    };
 
     if (!this.apiKey) {
       const err = new Error('ImgBB is not configured. Missing IMGBB_API_KEY.');

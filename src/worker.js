@@ -8011,6 +8011,43 @@ export default {
         response = jsonSuccess({ deleted: true, mediaId }, 200, {}, requestId);
       }
 
+      // --- Audio & Media Streaming Proxy for B2 (supports Private & Public Buckets) ---
+      else if ((pathname === '/api/media/stream' || pathname.startsWith('/api/media/stream/')) && method === 'GET') {
+        const urlObj = new URL(request.url);
+        let key = urlObj.searchParams.get('key') || urlObj.searchParams.get('storageKey') || urlObj.searchParams.get('path');
+        const trackId = urlObj.searchParams.get('id') || pathname.replace('/api/media/stream/', '').trim();
+
+        if (!key && trackId && env.DB && typeof env.DB.prepare === 'function') {
+          try {
+            const trackRow = await env.DB.prepare('SELECT storage_key, playback_url FROM music_library WHERE id = ? LIMIT 1').bind(trackId).first();
+            if (trackRow) {
+              key = trackRow.storage_key;
+            }
+          } catch (_) {}
+        }
+
+        if (!key) {
+          return applySecurityHeaders(new Response('Audio storage key or id is required', { status: 400 }), request, env);
+        }
+
+        if (B2StorageProvider.isConfigured(env)) {
+          try {
+            const b2 = B2StorageProvider.fromEnv(env);
+            const obj = await b2.getObject({ key });
+            const headers = new Headers();
+            headers.set('Content-Type', obj.contentType || 'audio/mpeg');
+            headers.set('Content-Length', String(obj.contentLength || obj.body.byteLength));
+            headers.set('Accept-Ranges', 'bytes');
+            headers.set('Cache-Control', 'public, max-age=604800, immutable');
+            return applySecurityHeaders(new Response(obj.body, { status: 200, headers }), request, env);
+          } catch (streamErr) {
+            console.warn('[B2 Media Stream Warning]', streamErr.message);
+          }
+        }
+
+        return applySecurityHeaders(new Response('Audio stream not available or storage not configured', { status: 404 }), request, env);
+      }
+
       // --- Analytics Events Ingestion & Reporting (Part 33 Enhanced) ---
       else if (pathname === '/api/analytics/events' && method === 'POST') {
         const body = await request.json().catch(() => ({}));
@@ -9721,6 +9758,20 @@ export default {
                 audioValidation.mimeType, audioValidation.sizeBytes, playbackUrl, playbackUrl,
                 audioValidation.sha256, nowIso, nowIso
               ).run().catch(e => console.warn('[D1] wish_media track log warning:', e.message));
+
+              // 3. Register in b2_storage_objects tracking table
+              await env.DB.prepare(`
+                INSERT OR REPLACE INTO b2_storage_objects (
+                  id, bucket_id, bucket_name, object_key, file_id, content_type,
+                  content_length, sha256, public_url, entity_type, entity_id,
+                  uploader_id, upload_status, metadata_json, created_at, updated_at
+                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, 'music', ?, ?, 'completed', ?, ?, ?)
+              `).bind(
+                `b2_${trackId}`, b2UploadResult.bucketId || null, b2Config.bucketName || 'wishmagic-assets', storageKey,
+                b2UploadResult.fileId || null, audioValidation.mimeType, audioValidation.sizeBytes,
+                audioValidation.sha256, playbackUrl, trackId, user.id,
+                JSON.stringify({ title, artist, category }), nowIso, nowIso
+              ).run().catch(e => console.warn('[D1] b2_storage_objects track log warning:', e.message));
 
             } catch (dbErr) {
               console.error('[Music Upload] D1 persistence failed, rolling back B2 object:', dbErr.message);

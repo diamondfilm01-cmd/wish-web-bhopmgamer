@@ -138,7 +138,7 @@ export function getB2Config(env = {}) {
     isConfigured,
     applicationKeyId,
     applicationKey,
-    bucketName: bucketName || 'wishmagic-templates',
+    bucketName: bucketName || 'wishmagic-assets',
     bucketId: bucketId || '',
     endpoint: endpoint.replace(/\/+$/, ''),
     downloadUrl: downloadUrl ? downloadUrl.replace(/\/+$/, '') : null,
@@ -198,11 +198,18 @@ export class B2StorageProvider extends StorageProvider {
     super();
     this.applicationKeyId = config.applicationKeyId;
     this.applicationKey = config.applicationKey;
-    this.bucketName = config.bucketName;
-    this.bucketId = config.bucketId;
+    this.bucketName = config.bucketName || 'wishmagic-assets';
+    this.bucketId = config.bucketId || '';
     this.endpoint = config.endpoint || 'https://api.backblazeb2.com';
     this.customDownloadUrl = config.downloadUrl || null;
-    this.fetchFn = config.fetchFn || globalThis.fetch;
+    
+    // Cloudflare Workers V8 fix: wrap fetch to prevent Illegal invocation error
+    this.fetchFn = (url, init) => {
+      if (typeof config.fetchFn === 'function') {
+        return config.fetchFn(url, init);
+      }
+      return globalThis.fetch(url, init);
+    };
 
     this.authData = null;
     this.authExpiresAt = 0;
@@ -219,7 +226,7 @@ export class B2StorageProvider extends StorageProvider {
     }
     return new B2StorageProvider({
       ...config,
-      fetchFn: customFetch || (typeof env.fetch === 'function' ? env.fetch : globalThis.fetch)
+      fetchFn: customFetch || (typeof env.fetch === 'function' ? env.fetch : null)
     });
   }
 
@@ -514,6 +521,16 @@ export class B2StorageProvider extends StorageProvider {
     const publicDownloadBase = this.authData?.downloadUrl || this.customDownloadUrl || 'https://f000.backblazeb2.com';
     const downloadUrl = `${publicDownloadBase}/file/${this.bucketName}/${encodeURI(key)}`;
 
+    // Support Private Buckets: obtain download authorization token if available
+    let playbackUrl = downloadUrl;
+    let downloadToken = null;
+    try {
+      downloadToken = await this.getDownloadAuthorization({ fileNamePrefix: key, validDurationInSeconds: 604800 });
+      if (downloadToken) {
+        playbackUrl = `${downloadUrl}?b2-download-token=${downloadToken}`;
+      }
+    } catch (_) {}
+
     return {
       success: true,
       storageProvider: 'b2',
@@ -525,9 +542,45 @@ export class B2StorageProvider extends StorageProvider {
       contentType: resData.contentType,
       uploadTimestamp: resData.uploadTimestamp,
       downloadUrl,
-      playbackUrl: downloadUrl,
-      url: downloadUrl
+      playbackUrl,
+      downloadToken,
+      url: playbackUrl
     };
+  }
+
+  /**
+   * Generates a temporary download authorization token for private buckets
+   * (b2_get_download_authorization)
+   */
+  async getDownloadAuthorization({ bucketId = null, fileNamePrefix = '', validDurationInSeconds = 604800 } = {}) {
+    const auth = await this.authorizeAccount();
+    const targetBucketId = bucketId || this.bucketId || (await this.resolveBucketId());
+
+    if (!targetBucketId) return null;
+
+    try {
+      const res = await this.fetchFn(`${auth.apiUrl}/b2api/v3/b2_get_download_authorization`, {
+        method: 'POST',
+        headers: {
+          'Authorization': auth.authorizationToken,
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({
+          bucketId: targetBucketId,
+          fileNamePrefix: fileNamePrefix || '',
+          validDurationInSeconds: Math.min(validDurationInSeconds, 604800)
+        })
+      });
+
+      if (res.ok) {
+        const data = await res.json();
+        return data.authorizationToken || null;
+      }
+    } catch (e) {
+      console.warn('[B2] getDownloadAuthorization warning:', e.message);
+    }
+
+    return null;
   }
 
   /**

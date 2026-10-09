@@ -9,6 +9,9 @@ PUBLIC_APP_URL = "https://wishmagic.pages.dev"
 ENVIRONMENT = "production"
 ENABLE_RATE_LIMITING = "true"
 ALLOWED_ORIGIN = "https://wishmagic.live"
+IMGBB_API_KEY = "75e222f33f8ccf82566ebeeac2dc70be"
+B2_BUCKET_NAME = "wishmagic-assets"
+B2_ENDPOINT = "https://api.backblazeb2.com"
 
 # Cloudflare D1 Database Binding
 [[d1_databases]]

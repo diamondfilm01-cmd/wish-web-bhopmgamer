@@ -417,9 +417,9 @@
     <div id="storage-target-badge" class="p-2.5 rounded-xl bg-purple-950/60 border border-purple-500/30 flex items-center justify-between text-xs">
       <div class="flex items-center gap-2 text-purple-200">
         <span class="material-symbols-outlined text-amber-400 text-sm">cloud</span>
-        <span id="storage-target-text" class="font-medium">Cloud Target: <strong class="text-amber-300">ImgBB Storage</strong> (Images)</span>
+        <span id="storage-target-text" class="font-medium">Cloud Target: <strong class="text-amber-300">Backblaze B2 Audio Vault</strong> (Music &amp; SFX)</span>
       </div>
-      <span id="storage-target-limits" class="text-[10px] font-mono text-outline">Max 32 MB</span>
+      <span id="storage-target-limits" class="text-[10px] font-mono text-outline">Max 50 MB</span>
     </div>
 
     <!-- Error / Status Alert Banner -->
@@ -658,6 +658,9 @@
     if (!el) return;
     el.classList.toggle('hidden');
     el.classList.toggle('flex');
+    if (id === 'upload-media-modal' && el.classList.contains('flex')) {
+      handleMediaTypeChange();
+    }
   }
 
   function handleMediaTypeChange() {
@@ -1210,7 +1213,7 @@
           showToast(successMsg);
           loadAllMedia();
         } else {
-          const errDetail = data.message || data.error || 'Server rejected upload request';
+          const errDetail = data.message || (typeof data.error === 'object' && data.error ? (data.error.message || data.error.code) : data.error) || 'Server rejected upload request';
           showUploadError(`Upload failed (${res.status}): ${errDetail}`);
         }
       } catch (err) {
@@ -1355,7 +1358,14 @@
       activeAudioTrack.play().then(() => {
         showToast(`▶ Playing: "${title}"`);
       }).catch(() => {
-        playMagicSound('chime');
+        // Fallback to authenticated stream proxy
+        const streamUrl = `/api/media/stream?id=${encodeURIComponent(id)}`;
+        activeAudioTrack = new Audio(streamUrl);
+        activeAudioTrack.play().then(() => {
+          showToast(`▶ Playing: "${title}"`);
+        }).catch(() => {
+          playMagicSound('chime');
+        });
       });
     } catch (e) {
       playMagicSound('chime');
