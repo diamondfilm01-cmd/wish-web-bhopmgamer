@@ -1343,5 +1343,170 @@ ALTER TABLE user_privacy_settings ADD COLUMN timezone TEXT DEFAULT 'Asia/Kolkata
 INSERT OR IGNORE INTO _migrations (id, name, applied_at) VALUES
 ('mig_0022', '0022_part37_account_lifecycle_and_retention.sql', '2026-10-09T06:00:00.000Z');
 
+-- ============================================================================
+-- Part 38: Legal & Compliance Center
+-- ============================================================================
+CREATE TABLE IF NOT EXISTS legal_policies (
+  id TEXT PRIMARY KEY,
+  policy_type TEXT NOT NULL,
+  version TEXT NOT NULL,
+  title TEXT NOT NULL,
+  content_format TEXT NOT NULL DEFAULT 'markdown',
+  content TEXT NOT NULL,
+  content_checksum TEXT NOT NULL,
+  status TEXT NOT NULL DEFAULT 'draft',
+  is_material_change INTEGER NOT NULL DEFAULT 0,
+  change_summary TEXT,
+  review_status TEXT NOT NULL DEFAULT 'approved',
+  created_by TEXT NOT NULL DEFAULT 'system',
+  reviewer_id TEXT,
+  reviewed_at TEXT,
+  published_at TEXT,
+  effective_at TEXT,
+  retired_at TEXT,
+  created_at TEXT NOT NULL,
+  updated_at TEXT NOT NULL
+);
+
+CREATE INDEX IF NOT EXISTS idx_legal_policies_type ON legal_policies(policy_type);
+CREATE INDEX IF NOT EXISTS idx_legal_policies_status ON legal_policies(status);
+CREATE INDEX IF NOT EXISTS idx_legal_policies_version ON legal_policies(policy_type, version);
+
+CREATE TABLE IF NOT EXISTS legal_active_policies (
+  policy_type TEXT PRIMARY KEY,
+  current_policy_id TEXT NOT NULL,
+  current_version TEXT NOT NULL,
+  effective_at TEXT NOT NULL,
+  updated_at TEXT NOT NULL,
+  FOREIGN KEY (current_policy_id) REFERENCES legal_policies(id)
+);
+
+CREATE TABLE IF NOT EXISTS policy_acceptances (
+  id TEXT PRIMARY KEY,
+  user_id TEXT NOT NULL,
+  policy_type TEXT NOT NULL,
+  policy_version TEXT NOT NULL,
+  policy_id TEXT NOT NULL,
+  content_checksum TEXT NOT NULL,
+  acceptance_method TEXT NOT NULL DEFAULT 'REGISTRATION',
+  ip_hash TEXT,
+  user_agent TEXT,
+  accepted_at TEXT NOT NULL,
+  created_at TEXT NOT NULL,
+  FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
+);
+
+CREATE INDEX IF NOT EXISTS idx_policy_acc_user ON policy_acceptances(user_id);
+CREATE INDEX IF NOT EXISTS idx_policy_acc_type ON policy_acceptances(policy_type);
+CREATE INDEX IF NOT EXISTS idx_policy_acc_user_type ON policy_acceptances(user_id, policy_type);
+
+CREATE TABLE IF NOT EXISTS user_cookie_consents (
+  id TEXT PRIMARY KEY,
+  user_id TEXT,
+  anonymous_token TEXT,
+  essential INTEGER NOT NULL DEFAULT 1,
+  functional INTEGER NOT NULL DEFAULT 1,
+  analytics INTEGER NOT NULL DEFAULT 0,
+  marketing INTEGER NOT NULL DEFAULT 0,
+  consent_version TEXT NOT NULL DEFAULT '1.0.0',
+  ip_hash TEXT,
+  user_agent TEXT,
+  updated_at TEXT NOT NULL,
+  created_at TEXT NOT NULL
+);
+
+CREATE INDEX IF NOT EXISTS idx_cookie_consent_user ON user_cookie_consents(user_id);
+CREATE INDEX IF NOT EXISTS idx_cookie_consent_anon ON user_cookie_consents(anonymous_token);
+
+INSERT OR IGNORE INTO _migrations (id, name, applied_at) VALUES
+('mig_0023', '0023_part38_legal_and_compliance_center.sql', '2026-10-09T06:30:00.000Z');
+
+-- ============================================================================
+-- Part 39: Platform-Wide Search, Discovery & Analytics
+-- ============================================================================
+CREATE TABLE IF NOT EXISTS search_index (
+  id TEXT PRIMARY KEY,
+  entity_type TEXT NOT NULL,
+  entity_id TEXT NOT NULL,
+  title TEXT NOT NULL,
+  slug TEXT,
+  description TEXT,
+  category TEXT,
+  subcategory TEXT,
+  relationships_json TEXT,
+  features_json TEXT,
+  tags_json TEXT,
+  tier TEXT DEFAULT 'free',
+  is_premium INTEGER DEFAULT 0,
+  price INTEGER DEFAULT 0,
+  popularity_score REAL DEFAULT 100.0,
+  rating REAL DEFAULT 4.9,
+  thumbnail TEXT,
+  search_vector_text TEXT NOT NULL,
+  is_published INTEGER DEFAULT 1,
+  metadata_json TEXT,
+  created_at TEXT NOT NULL,
+  updated_at TEXT NOT NULL
+);
+
+CREATE INDEX IF NOT EXISTS idx_search_index_entity ON search_index(entity_type, is_published);
+CREATE INDEX IF NOT EXISTS idx_search_index_cat ON search_index(category);
+CREATE INDEX IF NOT EXISTS idx_search_index_tier ON search_index(tier, is_premium);
+CREATE INDEX IF NOT EXISTS idx_search_index_pop ON search_index(popularity_score DESC);
+CREATE INDEX IF NOT EXISTS idx_search_index_entity_id ON search_index(entity_id);
+
+CREATE TABLE IF NOT EXISTS search_analytics (
+  id TEXT PRIMARY KEY,
+  query TEXT NOT NULL,
+  normalized_query TEXT NOT NULL,
+  search_type TEXT DEFAULT 'all',
+  filters_json TEXT,
+  result_count INTEGER NOT NULL DEFAULT 0,
+  has_results INTEGER NOT NULL DEFAULT 1,
+  selected_entity_id TEXT,
+  selected_entity_type TEXT,
+  user_id TEXT,
+  anonymous_session_id TEXT,
+  ip_hash TEXT,
+  user_agent TEXT,
+  execution_time_ms REAL DEFAULT 0,
+  created_at TEXT NOT NULL
+);
+
+CREATE INDEX IF NOT EXISTS idx_search_analytics_created ON search_analytics(created_at DESC);
+CREATE INDEX IF NOT EXISTS idx_search_analytics_query ON search_analytics(normalized_query);
+CREATE INDEX IF NOT EXISTS idx_search_analytics_no_results ON search_analytics(has_results, created_at DESC);
+CREATE INDEX IF NOT EXISTS idx_search_analytics_user ON search_analytics(user_id);
+
+CREATE TABLE IF NOT EXISTS search_synonyms_keywords (
+  id TEXT PRIMARY KEY,
+  keyword TEXT NOT NULL UNIQUE,
+  synonyms_json TEXT NOT NULL,
+  boost_weight REAL DEFAULT 1.5,
+  promoted_entity_id TEXT,
+  is_active INTEGER DEFAULT 1,
+  notes TEXT,
+  created_at TEXT NOT NULL,
+  updated_at TEXT NOT NULL
+);
+
+CREATE INDEX IF NOT EXISTS idx_search_synonyms_keyword ON search_synonyms_keywords(keyword);
+CREATE INDEX IF NOT EXISTS idx_search_synonyms_active ON search_synonyms_keywords(is_active);
+
+CREATE TABLE IF NOT EXISTS search_recent_queries (
+  id TEXT PRIMARY KEY,
+  user_id TEXT,
+  session_id TEXT,
+  query TEXT NOT NULL,
+  created_at TEXT NOT NULL
+);
+
+CREATE INDEX IF NOT EXISTS idx_search_recent_user ON search_recent_queries(user_id, created_at DESC);
+CREATE INDEX IF NOT EXISTS idx_search_recent_session ON search_recent_queries(session_id, created_at DESC);
+
+INSERT OR IGNORE INTO _migrations (id, name, applied_at) VALUES
+('mig_0024', '0024_part39_global_search_and_discovery_analytics.sql', '2026-10-09T07:00:00.000Z');
+
+
 
 

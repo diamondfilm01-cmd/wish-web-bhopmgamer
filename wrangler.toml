@@ -21,7 +21,8 @@ migrations_dir = "migrations"
 # binding = "BUCKET"
 # bucket_name = "wishmagic-media"
 
-# Scheduled Reminder & Delivery Queue Cron Triggers (Part 31 Enterprise Notifications)
-[triggers]
-crons = ["*/15 * * * *"]
+# Note: Cloudflare Pages projects do not support triggers/crons directly in wrangler.toml.
+# Scheduled tasks are executed via Cloudflare Workers Cron Triggers or external webhook / scheduler.
+# [triggers]
+# crons = ["*/15 * * * *"]
 
