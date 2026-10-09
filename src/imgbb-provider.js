@@ -487,25 +487,55 @@ export class ImgBBProvider {
   }
 
   /**
-   * Deletes an image from ImgBB server using its delete URL
+   * Deletes an image from ImgBB server using its delete URL (https://ibb.co/:id/:hash)
    */
   async deleteImage(deleteUrl) {
     if (!deleteUrl || typeof deleteUrl !== 'string') {
       return { success: false, reason: 'Invalid or missing delete URL' };
     }
     try {
-      const results = { getStatus: null, postJsonStatus: null, postDirectStatus: null };
+      const results = { getStatus: null, postJsonStatus: null, postDirectStatus: null, remoteDeleted: false };
+      const userAgent = 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36';
 
-      // 1. First trigger GET on the deleteUrl to activate the delete session
+      // 1. Trigger GET on the deleteUrl to establish session and obtain CSRF auth_token
+      let cookieStr = '';
+      let authToken = null;
+      let htmlText = '';
+
       try {
         const getRes = await this.fetchFn(deleteUrl, {
           method: 'GET',
           headers: {
-            'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
-            'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,image/webp,*/*;q=0.8'
+            'User-Agent': userAgent,
+            'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,*/*;q=0.8',
+            'Accept-Language': 'en-US,en;q=0.9',
+            'Cache-Control': 'no-cache'
           }
         });
         results.getStatus = getRes ? getRes.status : null;
+
+        if (getRes) {
+          // Extract session cookies (PHPSESSID / CHEV_SESSION)
+          if (typeof getRes.headers?.getSetCookie === 'function') {
+            const cookies = getRes.headers.getSetCookie();
+            if (Array.isArray(cookies) && cookies.length > 0) {
+              cookieStr = cookies.map(c => c.split(';')[0]).join('; ');
+            }
+          }
+          if (!cookieStr && getRes.headers?.get) {
+            const single = getRes.headers.get('set-cookie');
+            if (single) cookieStr = single.split(';')[0];
+          }
+
+          htmlText = await getRes.text().catch(() => '');
+
+          // Extract Chevereto CSRF auth_token from page HTML
+          const m1 = htmlText.match(/PF\.obj\.config\.auth_token\s*=\s*["']([^"']+)["']/i);
+          const m2 = htmlText.match(/auth_token\s*[:=]\s*["']([^"']+)["']/i);
+          const m3 = htmlText.match(/<input[^>]+name=["']auth_token["'][^>]+value=["']([^"']+)["']/i);
+          const m4 = htmlText.match(/data-token=["']([^"']+)["']/i);
+          authToken = (m1 && m1[1]) || (m2 && m2[1]) || (m3 && m3[1]) || (m4 && m4[1]) || null;
+        }
       } catch (getErr) {
         console.warn('[ImgBB deleteImage GET warning]:', getErr.message);
       }
@@ -516,56 +546,91 @@ export class ImgBBProvider {
         const imageId = match[1];
         const imageHash = match[2];
 
-        // 3. POST to https://ibb.co/json with delete action
+        // 3. POST to https://ibb.co/json with delete action and session credentials
         try {
           const bodyParams = new URLSearchParams();
           bodyParams.set('action', 'delete');
           bodyParams.set('delete', 'image');
+          if (authToken) bodyParams.set('auth_token', authToken);
           bodyParams.set('deleting[id]', imageId);
           bodyParams.set('deleting[hash]', imageHash);
 
+          const postHeaders = {
+            'Content-Type': 'application/x-www-form-urlencoded; charset=UTF-8',
+            'X-Requested-With': 'XMLHttpRequest',
+            'Referer': deleteUrl,
+            'Origin': 'https://ibb.co',
+            'User-Agent': userAgent,
+            'Accept': 'application/json, text/javascript, */*; q=0.01'
+          };
+          if (cookieStr) {
+            postHeaders['Cookie'] = cookieStr;
+          }
+
           const postRes = await this.fetchFn('https://ibb.co/json', {
             method: 'POST',
-            headers: {
-              'Content-Type': 'application/x-www-form-urlencoded; charset=UTF-8',
-              'X-Requested-With': 'XMLHttpRequest',
-              'Referer': deleteUrl,
-              'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36'
-            },
+            headers: postHeaders,
             body: bodyParams.toString()
           });
           results.postJsonStatus = postRes ? postRes.status : null;
+
+          if (postRes && postRes.ok) {
+            let json = null;
+            try { json = await postRes.json(); } catch (_) {}
+            if (json && (json.status_code === 200 || json.success || json.status === 'success')) {
+              results.remoteDeleted = true;
+            }
+          }
         } catch (postJsonErr) {
           console.warn('[ImgBB deleteImage POST /json warning]:', postJsonErr.message);
         }
 
-        // 4. POST directly to deleteUrl form endpoint
-        try {
-          const directParams = new URLSearchParams();
-          directParams.set('action', 'delete');
-          directParams.set('delete', 'image');
-          directParams.set('deleting[id]', imageId);
-          directParams.set('deleting[hash]', imageHash);
+        // 4. POST directly to deleteUrl form endpoint if json was not accepted
+        if (!results.remoteDeleted) {
+          try {
+            const directParams = new URLSearchParams();
+            directParams.set('action', 'delete');
+            directParams.set('delete', 'image');
+            if (authToken) directParams.set('auth_token', authToken);
+            directParams.set('deleting[id]', imageId);
+            directParams.set('deleting[hash]', imageHash);
 
-          const directRes = await this.fetchFn(deleteUrl, {
-            method: 'POST',
-            headers: {
+            const directHeaders = {
               'Content-Type': 'application/x-www-form-urlencoded',
               'Referer': deleteUrl,
-              'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36'
-            },
-            body: directParams.toString()
-          });
-          results.postDirectStatus = directRes ? directRes.status : null;
-        } catch (directErr) {
-          console.warn('[ImgBB deleteImage direct POST warning]:', directErr.message);
+              'Origin': 'https://ibb.co',
+              'User-Agent': userAgent
+            };
+            if (cookieStr) {
+              directHeaders['Cookie'] = cookieStr;
+            }
+
+            const directRes = await this.fetchFn(deleteUrl, {
+              method: 'POST',
+              headers: directHeaders,
+              body: directParams.toString(),
+              redirect: 'manual'
+            });
+            results.postDirectStatus = directRes ? directRes.status : null;
+
+            if (directRes && (directRes.status === 200 || directRes.status === 302 || directRes.status === 303)) {
+              results.remoteDeleted = true;
+            }
+          } catch (directErr) {
+            console.warn('[ImgBB deleteImage direct POST warning]:', directErr.message);
+          }
         }
       }
 
-      return { success: true, deleteUrl, results };
+      return {
+        success: true,
+        deleteUrl,
+        remoteDeleted: results.remoteDeleted,
+        results
+      };
     } catch (e) {
       console.warn('[ImgBB deleteImage Error]:', e.message);
-      return { success: false, reason: e.message };
+      return { success: false, reason: e.message, deleteUrl };
     }
   }
 }

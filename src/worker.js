@@ -8464,30 +8464,42 @@ export default {
             return applySecurityHeaders(new Response(obj.body, { status, headers }), request, env);
           } catch (streamErr) {
             console.warn('[B2 Media Stream Warning]', streamErr.message);
-            // Fallback 1: Direct playback_url redirect if available
-            if (dbRow && dbRow.playback_url && (dbRow.playback_url.startsWith('http') || dbRow.playback_url.startsWith('/'))) {
-              return Response.redirect(dbRow.playback_url, 302);
+            // Fallback: Direct proxy stream from playback_url if available
+            if (dbRow && dbRow.playback_url && dbRow.playback_url.startsWith('http')) {
+              try {
+                const proxyHeaders = new Headers();
+                const rangeHeader = request.headers.get('range');
+                if (rangeHeader) proxyHeaders.set('Range', rangeHeader);
+                const upstream = await fetch(dbRow.playback_url, { headers: proxyHeaders });
+                if (upstream.ok || upstream.status === 206) {
+                  return applySecurityHeaders(new Response(upstream.body, {
+                    status: upstream.status,
+                    headers: upstream.headers
+                  }), request, env);
+                }
+              } catch (_) {}
             }
-            // Fallback 2: Stream static built-in celebration soundtrack to prevent browser decoding crash
-            if (env.ASSETS && typeof env.ASSETS.fetch === 'function') {
-              const fallbackUrl = new URL('/audio/celebration-strings.mp3', request.url);
-              return env.ASSETS.fetch(new Request(fallbackUrl, request));
-            }
-            return Response.redirect(new URL('/audio/celebration-strings.mp3', request.url).toString(), 302);
+            return applySecurityHeaders(jsonError('TRACK_NOT_FOUND', 'Audio track could not be loaded from storage', 404), request, env);
           }
         }
 
-        // If B2 not configured, check if direct playback_url is available
-        if (dbRow && dbRow.playback_url && (dbRow.playback_url.startsWith('http') || dbRow.playback_url.startsWith('/'))) {
-          return Response.redirect(dbRow.playback_url, 302);
+        // If B2 not configured, stream from playback_url if available
+        if (dbRow && dbRow.playback_url && dbRow.playback_url.startsWith('http')) {
+          try {
+            const proxyHeaders = new Headers();
+            const rangeHeader = request.headers.get('range');
+            if (rangeHeader) proxyHeaders.set('Range', rangeHeader);
+            const upstream = await fetch(dbRow.playback_url, { headers: proxyHeaders });
+            if (upstream.ok || upstream.status === 206) {
+              return applySecurityHeaders(new Response(upstream.body, {
+                status: upstream.status,
+                headers: upstream.headers
+              }), request, env);
+            }
+          } catch (_) {}
         }
 
-        // Fallback to static celebration track if B2 credentials are not configured
-        if (env.ASSETS && typeof env.ASSETS.fetch === 'function') {
-          const fallbackUrl = new URL('/audio/celebration-strings.mp3', request.url);
-          return env.ASSETS.fetch(new Request(fallbackUrl, request));
-        }
-        return Response.redirect(new URL('/audio/celebration-strings.mp3', request.url).toString(), 302);
+        return applySecurityHeaders(jsonError('TRACK_NOT_FOUND', 'Requested audio media track not found', 404), request, env);
       }
 
       // --- Part 42: Admin Storage Inventory & Reconciliation APIs ---
@@ -10912,11 +10924,13 @@ export default {
 
         // Delete from ImgBB server
         let imgbbDeleted = false;
+        let imgbbRemoteDeleted = false;
         if (targetDeleteUrl) {
           try {
             const imgbbProvider = ImgBBProvider.fromEnv(env);
             const delResult = await imgbbProvider.deleteImage(targetDeleteUrl);
             imgbbDeleted = Boolean(delResult && delResult.success);
+            imgbbRemoteDeleted = Boolean(delResult && delResult.remoteDeleted);
             console.log(`[Worker ImgBB Delete] Result for ${targetDeleteUrl}:`, delResult);
           } catch (imgbbErr) {
             console.warn('[Worker ImgBB Delete warning]:', imgbbErr.message);
@@ -10948,6 +10962,7 @@ export default {
           id: targetId,
           b2Deleted,
           imgbbDeleted,
+          imgbbRemoteDeleted,
           deleteUrl: targetDeleteUrl,
           message: 'Media asset deleted successfully from storage & catalog'
         }, 200, {}, requestId);

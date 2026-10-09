@@ -7367,11 +7367,33 @@ app.get(['/api/media/stream', '/api/media/stream/:id'], async (req, res) => {
         }
       }
 
-      if (track.playbackUrl && track.playbackUrl.startsWith('http') && !track.playbackUrl.includes('web-audio:')) {
-        return res.redirect(track.playbackUrl);
-      }
-      if (track.url && track.url.startsWith('http') && !track.url.includes('web-audio:')) {
-        return res.redirect(track.url);
+      // Stream remote audio directly to client with Range support (avoids cross-origin redirect CORS failures)
+      const remoteUrl = (track.playbackUrl && track.playbackUrl.startsWith('http') && !track.playbackUrl.includes('web-audio:'))
+        ? track.playbackUrl
+        : ((track.url && track.url.startsWith('http') && !track.url.includes('web-audio:')) ? track.url : null);
+
+      if (remoteUrl) {
+        try {
+          const fetchHeaders = {};
+          if (req.headers.range) {
+            fetchHeaders['Range'] = req.headers.range;
+          }
+          const upstreamRes = await fetch(remoteUrl, { headers: fetchHeaders });
+          if (upstreamRes.ok || upstreamRes.status === 206) {
+            const contentType = upstreamRes.headers.get('content-type') || 'audio/mpeg';
+            res.setHeader('Content-Type', contentType);
+            res.setHeader('Accept-Ranges', 'bytes');
+            const cl = upstreamRes.headers.get('content-length');
+            if (cl) res.setHeader('Content-Length', cl);
+            const cr = upstreamRes.headers.get('content-range');
+            if (cr) res.setHeader('Content-Range', cr);
+            res.status(upstreamRes.status);
+            const arrayBuffer = await upstreamRes.arrayBuffer();
+            return res.send(Buffer.from(arrayBuffer));
+          }
+        } catch (proxyErr) {
+          console.warn('[Audio Stream Proxy Warning]:', proxyErr.message);
+        }
       }
     }
 
@@ -7400,12 +7422,8 @@ app.get(['/api/media/stream', '/api/media/stream/:id'], async (req, res) => {
       } catch (_) {}
     }
 
-    const sampleTonePath = path.join(__dirname, 'public', 'audio', 'celebration-strings.mp3');
-    if (fs.existsSync(sampleTonePath)) {
-      return res.sendFile(sampleTonePath, { acceptRanges: true });
-    }
-
-    res.status(404).json({ error: 'TRACK_NOT_FOUND', message: 'Audio media track not found' });
+    // Return 404 if the requested track cannot be found - NEVER play an unrelated hardcoded fallback song
+    return res.status(404).json({ error: 'TRACK_NOT_FOUND', message: 'Requested audio media track was not found' });
   } catch (err) {
     res.status(500).json({ error: 'STREAM_ERROR', message: 'Stream error: ' + err.message });
   }
@@ -7960,7 +7978,12 @@ app.post(['/api/admin/media/upload', '/api/admin/music/upload', '/api/music/uplo
       const cleanFileName = safeFilename.replace(/[^a-zA-Z0-9._-]/g, '_');
       const storageKey = `music/${Date.now()}_${trackId}_${cleanFileName}`;
 
-      let publicUrl = `/media/${trackId}.${validation.extension}`;
+      // Always persist audio file to local MEDIA_DIR so local stream playback is 100% reliable
+      const diskFilename = `${trackId}.${validation.extension}`;
+      const localFilePath = path.join(MEDIA_DIR, diskFilename);
+      fs.writeFileSync(localFilePath, Buffer.from(validation.bytes));
+
+      let publicUrl = `/media/${diskFilename}`;
       let storageProvider = 'local';
       let b2UploadData = null;
 
@@ -7985,18 +8008,8 @@ app.post(['/api/admin/media/upload', '/api/admin/music/upload', '/api/music/uplo
               message: `Failed to upload audio to Backblaze B2: ${b2Err.message}`
             });
           }
-          const diskFilename = `${trackId}.${validation.extension}`;
-          const filePath = path.join(MEDIA_DIR, diskFilename);
-          fs.writeFileSync(filePath, Buffer.from(validation.bytes));
-          publicUrl = `/media/${diskFilename}`;
           storageProvider = 'local';
         }
-      } else {
-        // Local disk fallback for dev environment without secrets
-        const diskFilename = `${trackId}.${validation.extension}`;
-        const filePath = path.join(MEDIA_DIR, diskFilename);
-        fs.writeFileSync(filePath, Buffer.from(validation.bytes));
-        publicUrl = `/media/${diskFilename}`;
       }
 
       const newAsset = {
@@ -8328,7 +8341,7 @@ async function handleAdminMediaDelete(req, res, targetId) {
           ? ImgBBProvider.fromEnv(process.env)
           : new ImgBBProvider({ apiKey: process.env.IMGBB_API_KEY || 'default' });
         const delResult = await provider.deleteImage(targetDeleteUrl);
-        imgbbRemoteDeleted = Boolean(delResult && delResult.success);
+        imgbbRemoteDeleted = Boolean(delResult && (delResult.remoteDeleted || delResult.success));
         console.log(`[server.js ImgBB Remote Delete] Result for ${targetDeleteUrl}:`, delResult);
       } catch (delErr) {
         console.warn('[server.js ImgBB Remote Delete Warning]:', delErr.message);

@@ -1201,6 +1201,11 @@
               <button onclick="copyLink('${a.url.startsWith('http') ? a.url : window.location.origin + a.url}')" class="p-1.5 rounded-lg bg-surface-container-high hover:bg-surface-container-highest text-outline hover:text-white transition cursor-pointer" title="Copy Asset URL">
                 <span class="material-symbols-outlined text-sm">content_copy</span>
               </button>
+              ${(a.deleteUrl || a.delete_url) ? `
+                <a href="${escapeHtml(a.deleteUrl || a.delete_url)}" target="_blank" rel="noopener noreferrer" class="p-1.5 rounded-lg bg-surface-container-high hover:bg-rose-950/60 text-outline hover:text-rose-300 border border-transparent hover:border-rose-700/50 transition cursor-pointer" title="ImgBB Server Delete Page (Direct Link)">
+                  <span class="material-symbols-outlined text-sm">link_off</span>
+                </a>
+              ` : ''}
               ${isImage ? `
                 <button onclick="openLightboxImage('${a.url}', '${escapeHtml(a.title)}')" class="p-1.5 rounded-lg bg-surface-container-high hover:bg-surface-container-highest text-outline hover:text-white transition cursor-pointer" title="Zoom Preview">
                   <span class="material-symbols-outlined text-sm">zoom_in</span>
@@ -1694,30 +1699,27 @@
     if (seekEl) seekEl.value = '0';
     if (bar) bar.classList.remove('hidden');
 
-    // 4. Resolve playable source priority list (multi-tier resilient fallback)
+    // 4. Resolve playable source priority list (strictly for THIS track only, NO unrelated hardcoded song)
     const streamProxyUrl = `/api/media/stream?id=${encodeURIComponent(id)}`;
     const candidateUrl = (asset && (asset.playbackUrl || asset.url)) || rawUrl || '';
-    const staticSampleUrl = '/audio/celebration-strings.mp3';
 
     const sourcesToTry = [];
     // Priority 1: Direct local assets
     if (candidateUrl && (candidateUrl.startsWith('/audio/') || candidateUrl.startsWith('/media/'))) {
       sourcesToTry.push(candidateUrl);
     }
-    // Priority 2: Streaming proxy (same-origin, no CORS, range requests supported)
+    // Priority 2: Streaming proxy (same-origin, Range requests, no CORS)
     sourcesToTry.push(streamProxyUrl);
     // Priority 3: Direct external URL if distinct from local
-    if (candidateUrl && candidateUrl.startsWith('http') && !candidateUrl.includes('assets.wishmagic.live')) {
+    if (candidateUrl && candidateUrl.startsWith('http') && !candidateUrl.includes('assets.wishmagic.live') && !sourcesToTry.includes(candidateUrl)) {
       sourcesToTry.push(candidateUrl);
     }
-    // Priority 4: Built-in celebration soundtrack fallback to prevent playback crash
-    sourcesToTry.push(staticSampleUrl);
 
     let sourceIndex = 0;
+    let isAdvancingSource = false;
     const audio = new Audio();
     activeAudio = audio;
     audio.preload = 'auto';
-    // Do NOT set audio.crossOrigin = 'anonymous' - audio tags do not require CORS and setting it causes B2 / external audio playback to fail
     audio.src = sourcesToTry[sourceIndex];
 
     audio.addEventListener('timeupdate', () => {
@@ -1747,17 +1749,19 @@
     });
 
     function tryNextAudioSource(errMsg) {
+      if (isAdvancingSource) return;
+      isAdvancingSource = true;
       sourceIndex++;
       if (sourceIndex < sourcesToTry.length) {
         console.warn(`[Audio Player] Trying next audio source [${sourceIndex}]:`, sourcesToTry[sourceIndex]);
         audio.src = sourcesToTry[sourceIndex];
+        audio.load();
         audio.play().then(() => {
+          isAdvancingSource = false;
           if (iconEl) iconEl.innerText = 'pause';
-          if (sourceIndex === sourcesToTry.length - 1) {
-            showToast(`▶ Playing library preview for: "${title}"`);
-          }
           renderMediaGrid();
         }).catch(nextErr => {
+          isAdvancingSource = false;
           if (nextErr.name === 'NotAllowedError') {
             if (timeEl) timeEl.innerText = 'Click Play ▶ to start';
             if (iconEl) iconEl.innerText = 'play_arrow';
@@ -1767,12 +1771,17 @@
           }
         });
       } else {
+        isAdvancingSource = false;
+        if (iconEl) iconEl.innerText = 'play_arrow';
         showPlayerError(errMsg || `Audio track "${title}" could not be retrieved from storage.`);
+        renderMediaGrid();
       }
     }
 
     audio.addEventListener('error', () => {
-      tryNextAudioSource();
+      const err = audio.error;
+      const msg = err ? (err.code === 4 ? 'Audio source format not supported or file not found' : `Error code ${err.code}`) : 'Failed to load audio';
+      tryNextAudioSource(msg);
     });
 
     audio.play().then(() => {
@@ -2080,9 +2089,6 @@
     if (!confirm(warning)) return;
 
     showToast(`🗑️ Deleting "${title}" from server & cloud storage...`);
-    if (deleteUrl && deleteUrl.includes('ibb.co')) {
-      try { fetch(deleteUrl, { method: 'GET', mode: 'no-cors' }).catch(() => {}); } catch (_) {}
-    }
 
     try {
       const res = await fetch(`/api/admin/media/${encodeURIComponent(assetId)}`, {
@@ -2094,10 +2100,13 @@
       const data = await res.json().catch(() => ({}));
 
       if (res.ok && data.success) {
-        if (data.deleteUrl && data.deleteUrl.includes('ibb.co')) {
-          try { fetch(data.deleteUrl, { method: 'GET', mode: 'no-cors' }).catch(() => {}); } catch (_) {}
+        if (data.imgbbRemoteDeleted) {
+          showToast(`✅ "${title}" library aur ImgBB server dono se permanently delete ho gaya!`);
+        } else if (deleteUrl) {
+          showToast(`✅ "${title}" library se delete ho gaya! (ImgBB delete link dispatched)`);
+        } else {
+          showToast(`✅ "${title}" successfully delete kar diya gaya!`);
         }
-        showToast(`✅ "${title}" successfully delete kar diya gaya (ImgBB / Cloud Storage se bhi remove)!`);
         if (activeTrackId === assetId) {
           stopAndCloseAudioPlayer();
         }
@@ -2141,9 +2150,6 @@
     if (!confirm(`Kya aap "${name}" ko ImgBB server aur catalog se permanently delete karna chahte hain?`)) return;
 
     showToast(`🗑️ Deleting ImgBB asset: ${name} from ImgBB server...`);
-    if (deleteUrl && deleteUrl.includes('ibb.co')) {
-      try { fetch(deleteUrl, { method: 'GET', mode: 'no-cors' }).catch(() => {}); } catch (_) {}
-    }
 
     try {
       const res = await fetch('/api/admin/storage/imgbb/delete', {
@@ -2155,10 +2161,11 @@
       const data = await res.json().catch(() => ({}));
 
       if (res.ok && data.success) {
-        if (data.deleteUrl && data.deleteUrl.includes('ibb.co')) {
-          try { fetch(data.deleteUrl, { method: 'GET', mode: 'no-cors' }).catch(() => {}); } catch (_) {}
+        if (data.imgbbRemoteDeleted) {
+          showToast(`✅ ImgBB asset "${name}" ImgBB server aur database dono se permanently delete ho gaya!`);
+        } else {
+          showToast(`✅ ImgBB asset "${name}" database se remove kar diya gaya!`);
         }
-        showToast(`✅ ImgBB asset "${name}" ImgBB server aur database se permanently delete ho gaya!`);
         loadImgbbInventory();
         loadAllMedia();
       } else {
