@@ -21,7 +21,8 @@ const ADMIN_ROUTES_MAP = {
   '/admin/anktech/anktech/admin/pricing': '/admin-pricing.html',
   '/admin/anktech/anktech/admin/settings': '/admin-settings.html',
   '/admin/anktech/anktech/admin/user-creations': '/admin-user-creations.html',
-  '/admin/anktech/anktech/admin/staff': '/admin-staff.html'
+  '/admin/anktech/anktech/admin/staff': '/admin-staff.html',
+  '/admin/anktech/anktech/admin/support': '/admin-support.html'
 };
 
 const PUBLIC_PAGES_MAP = {
@@ -31,6 +32,10 @@ const PUBLIC_PAGES_MAP = {
   '/profile/': '/account.html',
   '/settings': '/account.html',
   '/settings/': '/account.html',
+  '/privacy': '/account.html',
+  '/privacy/': '/account.html',
+  '/security': '/account.html',
+  '/security/': '/account.html',
   '/my-wishes': '/my-wishes.html',
   '/my-wishes/': '/my-wishes.html',
   '/favorites': '/favorites.html',
@@ -44,7 +49,17 @@ const PUBLIC_PAGES_MAP = {
   '/customize': '/customize.html',
   '/customize/': '/customize.html',
   '/create': '/create.html',
-  '/create/': '/create.html'
+  '/create/': '/create.html',
+  '/help': '/help.html',
+  '/help/': '/help.html',
+  '/help/contact': '/contact.html',
+  '/help/contact/': '/contact.html',
+  '/contact': '/contact.html',
+  '/contact/': '/contact.html',
+  '/support': '/help.html',
+  '/support/': '/help.html',
+  '/support/tickets': '/support-tickets.html',
+  '/support/tickets/': '/support-tickets.html'
 };
 
 export async function onRequest(context) {

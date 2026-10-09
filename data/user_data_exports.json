@@ -1,0 +1,29 @@
+[
+  {
+    "id": "wm_export_mv0dmwfv_8fa3q",
+    "userId": "usr_priya_202",
+    "user_id": "usr_priya_202",
+    "status": "READY",
+    "format": "json",
+    "summary": {
+      "exportId": "wm_export_mv0dmwfv_8fa3q",
+      "generatedAt": "2026-10-09T02:59:26.011Z",
+      "userId": "usr_priya_202",
+      "wishesCount": 1,
+      "draftsCount": 0,
+      "favoritesCount": 1,
+      "ordersCount": 0,
+      "entitlementsCount": 0,
+      "supportTicketsCount": 0,
+      "securityEventsCount": 0
+    },
+    "summary_json": "{\"exportId\":\"wm_export_mv0dmwfv_8fa3q\",\"generatedAt\":\"2026-10-09T02:59:26.011Z\",\"userId\":\"usr_priya_202\",\"wishesCount\":1,\"draftsCount\":0,\"favoritesCount\":1,\"ordersCount\":0,\"entitlementsCount\":0,\"supportTicketsCount\":0,\"securityEventsCount\":0}",
+    "payloadString": "{\n  \"_exportMetadata\": {\n    \"application\": \"WishMagic Celebration Platform\",\n    \"version\": \"1.0.0\",\n    \"exportId\": \"wm_export_mv0dmwfv_8fa3q\",\n    \"generatedAt\": \"2026-10-09T02:59:26.011Z\",\n    \"complianceNotice\": \"This personal data archive contains your complete account records in accordance with GDPR Article 20 and Digital Personal Data Protection (DPDP) Act standards.\",\n    \"license\": \"Personal Non-Commercial Export Archive\"\n  },\n  \"userProfile\": {\n    \"id\": \"usr_priya_202\",\n    \"email\": \"priya@example.com\",\n    \"displayName\": \"Priya Sharma\",\n    \"avatarUrl\": \"https://images.unsplash.com/photo-1494790108377-be9c29b29330?w=150&auto=format&fit=crop&q=80\",\n    \"role\": \"creator\",\n    \"plan\": \"Free\",\n    \"isPremium\": false,\n    \"status\": \"active\",\n    \"createdAt\": \"2026-02-20T14:30:00.000Z\",\n    \"updatedAt\": \"2026-10-02T09:15:00.000Z\"\n  },\n  \"privacySettings\": {\n    \"profileVisibility\": \"public\",\n    \"searchEngineIndexing\": true,\n    \"analyticsTracking\": true,\n    \"marketingEmails\": false,\n    \"activityTelemetry\": true\n  },\n  \"notificationPreferences\": {},\n  \"celebrationWishes\": [\n    {\n      \"id\": \"wm_mutenf4k_os79if\",\n      \"slug\": \"priya-to-aarav-z8b34\",\n      \"recipientName\": \"Aarav\",\n      \"shareUrl\": \"https://wishmagic.live/w/priya-to-aarav-z8b34\",\n      \"createdAt\": \"2026-10-04T05:53:26.612Z\"\n    }\n  ],\n  \"savedDrafts\": [],\n  \"favorites\": [\n    {}\n  ],\n  \"ordersAndReceipts\": [],\n  \"entitlements\": [],\n  \"supportTickets\": [],\n  \"securityAuditLog\": []\n}",
+    "payload_json": "{\n  \"_exportMetadata\": {\n    \"application\": \"WishMagic Celebration Platform\",\n    \"version\": \"1.0.0\",\n    \"exportId\": \"wm_export_mv0dmwfv_8fa3q\",\n    \"generatedAt\": \"2026-10-09T02:59:26.011Z\",\n    \"complianceNotice\": \"This personal data archive contains your complete account records in accordance with GDPR Article 20 and Digital Personal Data Protection (DPDP) Act standards.\",\n    \"license\": \"Personal Non-Commercial Export Archive\"\n  },\n  \"userProfile\": {\n    \"id\": \"usr_priya_202\",\n    \"email\": \"priya@example.com\",\n    \"displayName\": \"Priya Sharma\",\n    \"avatarUrl\": \"https://images.unsplash.com/photo-1494790108377-be9c29b29330?w=150&auto=format&fit=crop&q=80\",\n    \"role\": \"creator\",\n    \"plan\": \"Free\",\n    \"isPremium\": false,\n    \"status\": \"active\",\n    \"createdAt\": \"2026-02-20T14:30:00.000Z\",\n    \"updatedAt\": \"2026-10-02T09:15:00.000Z\"\n  },\n  \"privacySettings\": {\n    \"profileVisibility\": \"public\",\n    \"searchEngineIndexing\": true,\n    \"analyticsTracking\": true,\n    \"marketingEmails\": false,\n    \"activityTelemetry\": true\n  },\n  \"notificationPreferences\": {},\n  \"celebrationWishes\": [\n    {\n      \"id\": \"wm_mutenf4k_os79if\",\n      \"slug\": \"priya-to-aarav-z8b34\",\n      \"recipientName\": \"Aarav\",\n      \"shareUrl\": \"https://wishmagic.live/w/priya-to-aarav-z8b34\",\n      \"createdAt\": \"2026-10-04T05:53:26.612Z\"\n    }\n  ],\n  \"savedDrafts\": [],\n  \"favorites\": [\n    {}\n  ],\n  \"ordersAndReceipts\": [],\n  \"entitlements\": [],\n  \"supportTickets\": [],\n  \"securityAuditLog\": []\n}",
+    "fileSizeBytes": 1483,
+    "file_size_bytes": 1483,
+    "requestedAt": "2026-10-09T02:59:26.011Z",
+    "completedAt": "2026-10-09T02:59:26.011Z",
+    "expiresAt": "2026-10-16T02:59:26.012Z"
+  }
+]

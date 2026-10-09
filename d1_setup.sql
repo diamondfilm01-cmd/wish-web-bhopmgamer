@@ -996,3 +996,295 @@ CREATE INDEX IF NOT EXISTS idx_template_families_current_ver ON template_familie
 INSERT OR IGNORE INTO _migrations (id, name, applied_at) VALUES
 ('mig_0013', '0013_part28_template_version_management.sql', '2026-10-08T10:00:00.000Z');
 
+-- ----------------------------------------------------------------------------
+-- 20. PART 34: CUSTOMER SUPPORT, HELP CENTER & TICKET MANAGEMENT
+-- ----------------------------------------------------------------------------
+ALTER TABLE support_tickets ADD COLUMN order_id TEXT;
+ALTER TABLE support_tickets ADD COLUMN user_name TEXT;
+ALTER TABLE support_tickets ADD COLUMN last_customer_message_at TEXT;
+ALTER TABLE support_tickets ADD COLUMN last_agent_response_at TEXT;
+ALTER TABLE support_tickets ADD COLUMN resolved_at TEXT;
+ALTER TABLE support_tickets ADD COLUMN closed_at TEXT;
+ALTER TABLE support_tickets ADD COLUMN reopen_count INTEGER NOT NULL DEFAULT 0;
+ALTER TABLE support_tickets ADD COLUMN satisfaction_rating INTEGER;
+ALTER TABLE support_tickets ADD COLUMN satisfaction_feedback TEXT;
+ALTER TABLE support_tickets ADD COLUMN contact_preference TEXT DEFAULT 'in_app';
+
+CREATE INDEX IF NOT EXISTS idx_support_tickets_order ON support_tickets(order_id);
+CREATE INDEX IF NOT EXISTS idx_support_tickets_user_status ON support_tickets(user_id, status);
+CREATE INDEX IF NOT EXISTS idx_support_tickets_created_at ON support_tickets(created_at);
+
+CREATE TABLE IF NOT EXISTS support_ticket_messages (
+  id TEXT PRIMARY KEY,
+  ticket_id TEXT NOT NULL,
+  sender_type TEXT NOT NULL, -- 'user', 'admin', 'system'
+  sender_id TEXT NOT NULL,
+  sender_name TEXT,
+  message TEXT NOT NULL,
+  is_internal_note INTEGER NOT NULL DEFAULT 0,
+  attachments_json TEXT DEFAULT '[]',
+  created_at TEXT NOT NULL,
+  FOREIGN KEY (ticket_id) REFERENCES support_tickets(id) ON DELETE CASCADE
+);
+
+CREATE INDEX IF NOT EXISTS idx_ticket_messages_ticket ON support_ticket_messages(ticket_id);
+CREATE INDEX IF NOT EXISTS idx_ticket_messages_created ON support_ticket_messages(ticket_id, created_at);
+
+CREATE TABLE IF NOT EXISTS support_attachments (
+  id TEXT PRIMARY KEY,
+  ticket_id TEXT NOT NULL,
+  message_id TEXT,
+  user_id TEXT NOT NULL,
+  file_name TEXT NOT NULL,
+  file_size INTEGER NOT NULL,
+  mime_type TEXT NOT NULL,
+  url TEXT NOT NULL,
+  storage_provider TEXT DEFAULT 'imgbb',
+  created_at TEXT NOT NULL,
+  FOREIGN KEY (ticket_id) REFERENCES support_tickets(id) ON DELETE CASCADE
+);
+
+CREATE INDEX IF NOT EXISTS idx_support_attachments_ticket ON support_attachments(ticket_id);
+CREATE INDEX IF NOT EXISTS idx_support_attachments_user ON support_attachments(user_id);
+
+CREATE TABLE IF NOT EXISTS help_articles (
+  id TEXT PRIMARY KEY,
+  slug TEXT UNIQUE NOT NULL,
+  category_id TEXT NOT NULL,
+  category_name TEXT NOT NULL,
+  title TEXT NOT NULL,
+  excerpt TEXT NOT NULL,
+  content_markdown TEXT NOT NULL,
+  icon TEXT DEFAULT 'help_outline',
+  sort_order INTEGER NOT NULL DEFAULT 0,
+  is_published INTEGER NOT NULL DEFAULT 1,
+  view_count INTEGER NOT NULL DEFAULT 0,
+  helpful_count INTEGER NOT NULL DEFAULT 0,
+  not_helpful_count INTEGER NOT NULL DEFAULT 0,
+  created_at TEXT NOT NULL,
+  updated_at TEXT NOT NULL
+);
+
+CREATE INDEX IF NOT EXISTS idx_help_articles_category ON help_articles(category_id, is_published);
+CREATE INDEX IF NOT EXISTS idx_help_articles_slug ON help_articles(slug);
+CREATE INDEX IF NOT EXISTS idx_help_articles_sort ON help_articles(sort_order);
+
+INSERT OR IGNORE INTO _migrations (id, name, applied_at) VALUES
+('mig_0019', '0019_part34_customer_support_and_help_center.sql', '2026-10-09T03:00:00.000Z');
+
+-- ----------------------------------------------------------------------------
+-- 21. PART 35: USER ACCOUNT CENTER, PRIVACY CONTROLS & SESSION SECURITY
+-- ----------------------------------------------------------------------------
+
+CREATE TABLE IF NOT EXISTS user_privacy_settings (
+  user_id TEXT PRIMARY KEY,
+  profile_visibility TEXT NOT NULL DEFAULT 'public',
+  search_engine_indexing INTEGER NOT NULL DEFAULT 1,
+  analytics_tracking INTEGER NOT NULL DEFAULT 1,
+  marketing_emails INTEGER NOT NULL DEFAULT 0,
+  activity_telemetry INTEGER NOT NULL DEFAULT 1,
+  created_at TEXT NOT NULL,
+  updated_at TEXT NOT NULL,
+  FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
+);
+
+CREATE INDEX IF NOT EXISTS idx_privacy_user_id ON user_privacy_settings(user_id);
+
+CREATE TABLE IF NOT EXISTS user_security_events (
+  id TEXT PRIMARY KEY,
+  user_id TEXT NOT NULL,
+  event_type TEXT NOT NULL,
+  ip_address TEXT,
+  user_agent TEXT,
+  device_info TEXT,
+  details_json TEXT DEFAULT '{}',
+  created_at TEXT NOT NULL,
+  FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
+);
+
+CREATE INDEX IF NOT EXISTS idx_security_events_user ON user_security_events(user_id);
+CREATE INDEX IF NOT EXISTS idx_security_events_type ON user_security_events(event_type);
+CREATE INDEX IF NOT EXISTS idx_security_events_created ON user_security_events(created_at);
+
+CREATE TABLE IF NOT EXISTS user_data_exports (
+  id TEXT PRIMARY KEY,
+  user_id TEXT NOT NULL,
+  status TEXT NOT NULL DEFAULT 'READY',
+  format TEXT NOT NULL DEFAULT 'json',
+  summary_json TEXT DEFAULT '{}',
+  payload_json TEXT NOT NULL,
+  file_size_bytes INTEGER NOT NULL DEFAULT 0,
+  requested_at TEXT NOT NULL,
+  completed_at TEXT,
+  downloaded_at TEXT,
+  expires_at TEXT NOT NULL,
+  FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
+);
+
+CREATE INDEX IF NOT EXISTS idx_data_exports_user ON user_data_exports(user_id);
+CREATE INDEX IF NOT EXISTS idx_data_exports_status ON user_data_exports(status);
+CREATE INDEX IF NOT EXISTS idx_data_exports_expires ON user_data_exports(expires_at);
+
+CREATE TABLE IF NOT EXISTS account_deletion_requests (
+  id TEXT PRIMARY KEY,
+  user_id TEXT NOT NULL,
+  status TEXT NOT NULL DEFAULT 'PENDING',
+  reason TEXT,
+  feedback TEXT,
+  wishes_handling TEXT NOT NULL DEFAULT 'retain_grace',
+  financial_records_retained INTEGER NOT NULL DEFAULT 1,
+  requested_at TEXT NOT NULL,
+  grace_period_ends_at TEXT NOT NULL,
+  cancelled_at TEXT,
+  completed_at TEXT,
+  admin_notes TEXT,
+  FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
+);
+
+CREATE INDEX IF NOT EXISTS idx_deletion_requests_user ON account_deletion_requests(user_id);
+CREATE INDEX IF NOT EXISTS idx_deletion_requests_status ON account_deletion_requests(status);
+CREATE INDEX IF NOT EXISTS idx_deletion_requests_grace ON account_deletion_requests(grace_period_ends_at);
+
+INSERT OR IGNORE INTO _migrations (id, name, applied_at) VALUES
+('mig_0020', '0020_part35_account_privacy_security_management.sql', '2026-10-09T04:00:00.000Z');
+
+-- ----------------------------------------------------------------------------
+-- 22. PART 36: REFERRAL PROGRAM, REWARD LEDGER & FRAUD PREVENTION
+-- ----------------------------------------------------------------------------
+
+CREATE TABLE IF NOT EXISTS referral_programs (
+  id TEXT PRIMARY KEY,
+  name TEXT NOT NULL,
+  is_active INTEGER NOT NULL DEFAULT 1,
+  qualifying_event TEXT NOT NULL DEFAULT 'FIRST_WISH',
+  referrer_reward_type TEXT NOT NULL DEFAULT 'PREMIUM_DAYS',
+  referrer_reward_amount INTEGER NOT NULL DEFAULT 7,
+  referee_reward_type TEXT NOT NULL DEFAULT 'PREMIUM_DAYS',
+  referee_reward_amount INTEGER NOT NULL DEFAULT 3,
+  max_referrals_per_user INTEGER NOT NULL DEFAULT 50,
+  attribution_window_days INTEGER NOT NULL DEFAULT 30,
+  require_admin_approval INTEGER NOT NULL DEFAULT 0,
+  fraud_strictness TEXT NOT NULL DEFAULT 'standard',
+  terms_summary TEXT DEFAULT 'Invite friends to WishMagic. When they create their first celebration wish, both of you earn exclusive VIP access.',
+  created_at TEXT NOT NULL,
+  updated_at TEXT NOT NULL
+);
+
+INSERT OR IGNORE INTO referral_programs (
+  id, name, is_active, qualifying_event,
+  referrer_reward_type, referrer_reward_amount,
+  referee_reward_type, referee_reward_amount,
+  max_referrals_per_user, attribution_window_days,
+  require_admin_approval, fraud_strictness,
+  terms_summary, created_at, updated_at
+) VALUES (
+  'default_program',
+  'WishMagic Friends & Family Rewards',
+  1,
+  'FIRST_WISH',
+  'PREMIUM_DAYS',
+  7,
+  'PREMIUM_DAYS',
+  3,
+  50,
+  30,
+  0,
+  'standard',
+  'Invite friends to WishMagic. When they create and publish their first celebration wish, you get 7 days of VIP access and your friend gets 3 days!',
+  '2026-10-09T00:00:00.000Z',
+  '2026-10-09T00:00:00.000Z'
+);
+
+CREATE TABLE IF NOT EXISTS user_referral_codes (
+  id TEXT PRIMARY KEY,
+  user_id TEXT NOT NULL UNIQUE,
+  referral_code TEXT NOT NULL UNIQUE,
+  custom_slug TEXT UNIQUE,
+  total_clicks INTEGER NOT NULL DEFAULT 0,
+  total_signups INTEGER NOT NULL DEFAULT 0,
+  total_qualified INTEGER NOT NULL DEFAULT 0,
+  total_rewards_earned INTEGER NOT NULL DEFAULT 0,
+  is_active INTEGER NOT NULL DEFAULT 1,
+  created_at TEXT NOT NULL,
+  updated_at TEXT NOT NULL,
+  FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
+);
+
+CREATE INDEX IF NOT EXISTS idx_referral_codes_code ON user_referral_codes(referral_code);
+CREATE INDEX IF NOT EXISTS idx_referral_codes_user ON user_referral_codes(user_id);
+CREATE INDEX IF NOT EXISTS idx_referral_codes_slug ON user_referral_codes(custom_slug);
+
+CREATE TABLE IF NOT EXISTS referral_attributions (
+  id TEXT PRIMARY KEY,
+  referral_code TEXT NOT NULL,
+  referrer_user_id TEXT NOT NULL,
+  referee_user_id TEXT,
+  visitor_token TEXT NOT NULL,
+  landing_page TEXT DEFAULT '/',
+  ip_hash TEXT,
+  user_agent_hash TEXT,
+  device_fingerprint TEXT,
+  status TEXT NOT NULL DEFAULT 'PENDING',
+  qualifying_event TEXT,
+  attributed_at TEXT NOT NULL,
+  qualified_at TEXT,
+  expires_at TEXT NOT NULL,
+  FOREIGN KEY (referrer_user_id) REFERENCES users(id) ON DELETE CASCADE,
+  FOREIGN KEY (referee_user_id) REFERENCES users(id) ON DELETE SET NULL
+);
+
+CREATE INDEX IF NOT EXISTS idx_attributions_code ON referral_attributions(referral_code);
+CREATE INDEX IF NOT EXISTS idx_attributions_referrer ON referral_attributions(referrer_user_id);
+CREATE INDEX IF NOT EXISTS idx_attributions_referee ON referral_attributions(referee_user_id);
+CREATE INDEX IF NOT EXISTS idx_attributions_status ON referral_attributions(status);
+CREATE INDEX IF NOT EXISTS idx_attributions_token ON referral_attributions(visitor_token);
+
+CREATE TABLE IF NOT EXISTS referral_rewards_ledger (
+  id TEXT PRIMARY KEY,
+  attribution_id TEXT NOT NULL,
+  user_id TEXT NOT NULL,
+  counterpart_user_id TEXT,
+  role TEXT NOT NULL,
+  reward_type TEXT NOT NULL,
+  reward_amount INTEGER NOT NULL DEFAULT 1,
+  status TEXT NOT NULL DEFAULT 'PENDING',
+  idempotency_key TEXT NOT NULL UNIQUE,
+  granted_at TEXT,
+  claimed_at TEXT,
+  revoked_at TEXT,
+  admin_notes TEXT,
+  details_json TEXT DEFAULT '{}',
+  created_at TEXT NOT NULL,
+  updated_at TEXT NOT NULL,
+  FOREIGN KEY (attribution_id) REFERENCES referral_attributions(id) ON DELETE CASCADE,
+  FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
+);
+
+CREATE INDEX IF NOT EXISTS idx_reward_ledger_user ON referral_rewards_ledger(user_id);
+CREATE INDEX IF NOT EXISTS idx_reward_ledger_status ON referral_rewards_ledger(status);
+CREATE INDEX IF NOT EXISTS idx_reward_ledger_idempotency ON referral_rewards_ledger(idempotency_key);
+CREATE INDEX IF NOT EXISTS idx_reward_ledger_attribution ON referral_rewards_ledger(attribution_id);
+
+CREATE TABLE IF NOT EXISTS referral_fraud_logs (
+  id TEXT PRIMARY KEY,
+  referrer_user_id TEXT,
+  referee_user_id TEXT,
+  referral_code TEXT,
+  risk_score INTEGER NOT NULL DEFAULT 0,
+  flag_reasons TEXT NOT NULL DEFAULT '[]',
+  ip_address TEXT,
+  device_info TEXT,
+  action_taken TEXT NOT NULL DEFAULT 'FLAGGED',
+  reviewed_by TEXT,
+  reviewed_at TEXT,
+  created_at TEXT NOT NULL
+);
+
+CREATE INDEX IF NOT EXISTS idx_fraud_referrer ON referral_fraud_logs(referrer_user_id);
+CREATE INDEX IF NOT EXISTS idx_fraud_risk ON referral_fraud_logs(risk_score);
+CREATE INDEX IF NOT EXISTS idx_fraud_created ON referral_fraud_logs(created_at);
+
+INSERT OR IGNORE INTO _migrations (id, name, applied_at) VALUES
+('mig_0021', '0021_part36_referral_rewards_and_fraud_prevention.sql', '2026-10-09T05:00:00.000Z');
+
+

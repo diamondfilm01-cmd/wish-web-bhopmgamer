@@ -1,0 +1,36 @@
+[
+  {
+    "id": "secevt_mv0dmzlw_nwaye",
+    "userId": "usr_priya_202",
+    "user_id": "usr_priya_202",
+    "eventType": "PRIVACY_UPDATED",
+    "event_type": "PRIVACY_UPDATED",
+    "ipAddress": "127.0.0.1",
+    "ip_address": "127.0.0.1",
+    "userAgent": "curl/7.88.1",
+    "user_agent": "curl/7.88.1",
+    "deviceInfo": "API Client on Unknown OS",
+    "device_info": "API Client on Unknown OS",
+    "detailsJson": "{\"settings\":{\"profileVisibility\":\"unlisted\",\"searchEngineIndexing\":false,\"analyticsTracking\":true,\"marketingEmails\":false,\"activityTelemetry\":true}}",
+    "details_json": "{\"settings\":{\"profileVisibility\":\"unlisted\",\"searchEngineIndexing\":false,\"analyticsTracking\":true,\"marketingEmails\":false,\"activityTelemetry\":true}}",
+    "createdAt": "2026-10-09T02:59:30.116Z",
+    "created_at": "2026-10-09T02:59:30.116Z"
+  },
+  {
+    "id": "secevt_mv0dmwfw_z2ovp",
+    "userId": "usr_priya_202",
+    "user_id": "usr_priya_202",
+    "eventType": "DATA_EXPORT_REQUESTED",
+    "event_type": "DATA_EXPORT_REQUESTED",
+    "ipAddress": "127.0.0.1",
+    "ip_address": "127.0.0.1",
+    "userAgent": "curl/7.88.1",
+    "user_agent": "curl/7.88.1",
+    "deviceInfo": "API Client on Unknown OS",
+    "device_info": "API Client on Unknown OS",
+    "detailsJson": "{\"exportId\":\"wm_export_mv0dmwfv_8fa3q\",\"fileSizeBytes\":1483}",
+    "details_json": "{\"exportId\":\"wm_export_mv0dmwfv_8fa3q\",\"fileSizeBytes\":1483}",
+    "createdAt": "2026-10-09T02:59:26.012Z",
+    "created_at": "2026-10-09T02:59:26.012Z"
+  }
+]

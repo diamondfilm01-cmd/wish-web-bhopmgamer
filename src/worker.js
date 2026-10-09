@@ -138,6 +138,59 @@ import {
   generateSafeCsv as biGenerateSafeCsv,
   validateAndSanitizeAnalyticsEvent as biValidateEvent
 } from './analytics-bi-engine.js';
+import {
+  TICKET_CATEGORIES,
+  DEFAULT_HELP_ARTICLES,
+  getHelpCategories,
+  listHelpArticles,
+  getHelpArticleBySlug,
+  generateTicketNumber,
+  validateTicketInput,
+  createSupportTicketRecord,
+  addTicketMessage,
+  updateTicketStatus as updateTicketStatusP34,
+  rateTicketSatisfaction,
+  sanitizeTicketForUser
+} from './support-desk-engine.js';
+import {
+  PRIVACY_VISIBILITY,
+  DEFAULT_PRIVACY_SETTINGS,
+  SECURITY_EVENT_TYPES,
+  EXPORT_STATUS,
+  DELETION_STATUS,
+  DELETION_CONFIRMATION_PHRASE,
+  parseUserAgent,
+  maskIpAddress,
+  validateProfileUpdate,
+  validatePrivacySettings,
+  formatSessionForUser,
+  createSecurityEventRecord,
+  compileUserDataExport,
+  processAccountDeletionRequest,
+  restoreDeactivatedAccount
+} from './account-privacy-engine.js';
+import {
+  QUALIFYING_EVENTS as REF_QUALIFYING_EVENTS,
+  REWARD_TYPES as REF_REWARD_TYPES,
+  LEDGER_STATUS as REF_LEDGER_STATUS,
+  ATTRIBUTION_STATUS as REF_ATTRIBUTION_STATUS,
+  ensureUserReferralCode,
+  trackReferralClick,
+  linkRefereeSignup,
+  evaluateQualifyingEvent as evaluateReferralQualification,
+  claimUserReward as claimReferralReward,
+  getUserReferralDashboard,
+  getAdminReferralOverview,
+  listAdminReferrals,
+  listAdminRewardLedger,
+  adminApproveReferral,
+  adminRejectReferral,
+  updateProgramConfig as updateReferralProgramConfig,
+  getAdminFraudLogs,
+  getProgramConfig as getReferralProgramConfig,
+  validateCustomReferralSlug
+} from './referral-engine.js';
+
 
 // Timezone Constant: Strictly Asia/Kolkata (IST = UTC+05:30)
 const IST_OFFSET_MS = 5.5 * 60 * 60 * 1000;
@@ -293,6 +346,14 @@ const PRETTY_ROUTES = {
   '/admin/anktech/anktech/admin/announcements': '/admin-announcements.html',
   '/admin/anktech/anktech/admin/notifications': '/admin-notifications.html',
   '/notifications': '/notifications.html',
+  '/referrals': '/referrals.html',
+  '/referrals/': '/referrals.html',
+  '/invite': '/referrals.html',
+  '/invite/': '/referrals.html',
+  '/rewards': '/referrals.html',
+  '/rewards/': '/referrals.html',
+  '/admin/anktech/anktech/admin/referrals': '/admin-referrals.html',
+  '/admin/anktech/anktech/admin/referrals/': '/admin-referrals.html',
   '/admin-login': '/admin-login.html'
 };
 
@@ -1497,6 +1558,127 @@ async function verifyAndEnsureAuthSchema(db) {
       }
       await db.prepare('ALTER TABLE wishes ADD COLUMN active_snapshot_id TEXT').run().catch(() => {});
       await db.prepare('CREATE INDEX IF NOT EXISTS idx_wishes_active_snapshot_id ON wishes(active_snapshot_id)').run().catch(() => {});
+
+      // 29. Part 36: Referral Program, Referral Codes, Attributions, Rewards Ledger & Fraud Logs
+      if (!tableNames.has('referral_programs')) {
+        await db.prepare(`
+          CREATE TABLE IF NOT EXISTS referral_programs (
+            id TEXT PRIMARY KEY,
+            name TEXT NOT NULL,
+            is_active INTEGER NOT NULL DEFAULT 1,
+            qualifying_event TEXT NOT NULL DEFAULT 'FIRST_WISH',
+            referrer_reward_type TEXT NOT NULL DEFAULT 'PREMIUM_DAYS',
+            referrer_reward_amount INTEGER NOT NULL DEFAULT 7,
+            referee_reward_type TEXT NOT NULL DEFAULT 'PREMIUM_DAYS',
+            referee_reward_amount INTEGER NOT NULL DEFAULT 3,
+            max_referrals_per_user INTEGER NOT NULL DEFAULT 50,
+            attribution_window_days INTEGER NOT NULL DEFAULT 30,
+            require_admin_approval INTEGER NOT NULL DEFAULT 0,
+            fraud_strictness TEXT NOT NULL DEFAULT 'standard',
+            terms_summary TEXT DEFAULT 'Invite friends to WishMagic. When they create their first celebration wish, both of you earn exclusive VIP access.',
+            created_at TEXT NOT NULL,
+            updated_at TEXT NOT NULL
+          )
+        `).run().catch(() => {});
+        await db.prepare(`
+          INSERT OR IGNORE INTO referral_programs (
+            id, name, is_active, qualifying_event, referrer_reward_type, referrer_reward_amount,
+            referee_reward_type, referee_reward_amount, max_referrals_per_user, attribution_window_days,
+            require_admin_approval, fraud_strictness, terms_summary, created_at, updated_at
+          ) VALUES (
+            'default_program', 'WishMagic Friends & Family Rewards', 1, 'FIRST_WISH',
+            'PREMIUM_DAYS', 7, 'PREMIUM_DAYS', 3, 50, 30, 0, 'standard',
+            'Invite friends to WishMagic. When they create and publish their first celebration wish, you get 7 days of VIP access and your friend gets 3 days!',
+            '2026-10-09T00:00:00.000Z', '2026-10-09T00:00:00.000Z'
+          )
+        `).run().catch(() => {});
+      }
+
+      if (!tableNames.has('user_referral_codes')) {
+        await db.prepare(`
+          CREATE TABLE IF NOT EXISTS user_referral_codes (
+            id TEXT PRIMARY KEY,
+            user_id TEXT NOT NULL UNIQUE,
+            referral_code TEXT NOT NULL UNIQUE,
+            custom_slug TEXT UNIQUE,
+            total_clicks INTEGER NOT NULL DEFAULT 0,
+            total_signups INTEGER NOT NULL DEFAULT 0,
+            total_qualified INTEGER NOT NULL DEFAULT 0,
+            total_rewards_earned INTEGER NOT NULL DEFAULT 0,
+            is_active INTEGER NOT NULL DEFAULT 1,
+            created_at TEXT NOT NULL,
+            updated_at TEXT NOT NULL,
+            FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
+          )
+        `).run().catch(() => {});
+      }
+
+      if (!tableNames.has('referral_attributions')) {
+        await db.prepare(`
+          CREATE TABLE IF NOT EXISTS referral_attributions (
+            id TEXT PRIMARY KEY,
+            referral_code TEXT NOT NULL,
+            referrer_user_id TEXT NOT NULL,
+            referee_user_id TEXT,
+            visitor_token TEXT NOT NULL,
+            landing_page TEXT DEFAULT '/',
+            ip_hash TEXT,
+            user_agent_hash TEXT,
+            device_fingerprint TEXT,
+            status TEXT NOT NULL DEFAULT 'PENDING',
+            qualifying_event TEXT,
+            attributed_at TEXT NOT NULL,
+            qualified_at TEXT,
+            expires_at TEXT NOT NULL,
+            FOREIGN KEY (referrer_user_id) REFERENCES users(id) ON DELETE CASCADE,
+            FOREIGN KEY (referee_user_id) REFERENCES users(id) ON DELETE SET NULL
+          )
+        `).run().catch(() => {});
+      }
+
+      if (!tableNames.has('referral_rewards_ledger')) {
+        await db.prepare(`
+          CREATE TABLE IF NOT EXISTS referral_rewards_ledger (
+            id TEXT PRIMARY KEY,
+            attribution_id TEXT NOT NULL,
+            user_id TEXT NOT NULL,
+            counterpart_user_id TEXT,
+            role TEXT NOT NULL,
+            reward_type TEXT NOT NULL,
+            reward_amount INTEGER NOT NULL DEFAULT 1,
+            status TEXT NOT NULL DEFAULT 'PENDING',
+            idempotency_key TEXT NOT NULL UNIQUE,
+            granted_at TEXT,
+            claimed_at TEXT,
+            revoked_at TEXT,
+            admin_notes TEXT,
+            details_json TEXT DEFAULT '{}',
+            created_at TEXT NOT NULL,
+            updated_at TEXT NOT NULL,
+            FOREIGN KEY (attribution_id) REFERENCES referral_attributions(id) ON DELETE CASCADE,
+            FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
+          )
+        `).run().catch(() => {});
+      }
+
+      if (!tableNames.has('referral_fraud_logs')) {
+        await db.prepare(`
+          CREATE TABLE IF NOT EXISTS referral_fraud_logs (
+            id TEXT PRIMARY KEY,
+            referrer_user_id TEXT,
+            referee_user_id TEXT,
+            referral_code TEXT,
+            risk_score INTEGER NOT NULL DEFAULT 0,
+            flag_reasons TEXT NOT NULL DEFAULT '[]',
+            ip_address TEXT,
+            device_info TEXT,
+            action_taken TEXT NOT NULL DEFAULT 'FLAGGED',
+            reviewed_by TEXT,
+            reviewed_at TEXT,
+            created_at TEXT NOT NULL
+          )
+        `).run().catch(() => {});
+      }
 
       authSchemaVerified = true;
       schemaInitialized = true;
@@ -3408,6 +3590,26 @@ export default {
                 status: 'active'
               };
             }
+
+            // Part 36: Automatically provision personal referral code & link referral attribution
+            try {
+              ensureUserReferralCode(newUserId, db).catch(() => {});
+              const incomingRef = body.referralCode || body.inviteCode || getCookie(request, 'wm_ref') || url.searchParams.get('ref');
+              if (incomingRef) {
+                const userAgent = request.headers.get('User-Agent') || '';
+                const visitorToken = body.visitorToken || getCookie(request, 'wm_vtok') || null;
+                linkRefereeSignup({
+                  referralCode: incomingRef,
+                  refereeUserId: newUserId,
+                  refereeEmail: normalizedEmail,
+                  clientIp,
+                  userAgent,
+                  visitorToken
+                }, db, env).catch(e => console.warn('[Referral Auto-Link Notice]', e));
+              }
+            } catch (refAutoErr) {
+              console.warn('[Referral Init Notice]', refAutoErr);
+            }
           } else {
             // Existing user: Synchronize role and plan if admin
             let needsUpdate = false;
@@ -4241,6 +4443,9 @@ export default {
 
               await env.DB.prepare('UPDATE wishes SET active_snapshot_id = ? WHERE id = ?').bind(snapshotData.id, newWish.id).run();
               initialSnapshot = snapshotData;
+
+              // Part 36: Evaluate Referral Qualification on First Published Wish
+              evaluateReferralQualification(newWish.userId, REF_QUALIFYING_EVENTS.FIRST_WISH, { wishId: newWish.id }, env.DB, env).catch(() => {});
             } catch (snapErr) {
               console.warn('[Initial Wish Publication Snapshot Notice]', snapErr);
             }
@@ -4435,6 +4640,9 @@ export default {
 
         await env.DB.prepare('UPDATE wishes SET status = ?, active_snapshot_id = ?, custom_data = ?, updated_at = ? WHERE id = ?')
           .bind('published', snapshotData.id, JSON.stringify(cd), nowIso, existing.id).run();
+
+        // Part 36: Evaluate Referral Qualification on First Published Wish
+        evaluateReferralQualification(existing.user_id, REF_QUALIFYING_EVENTS.FIRST_WISH, { wishId: existing.id }, env.DB, env).catch(() => {});
 
         response = jsonSuccess({
           published: true,
@@ -8336,6 +8544,9 @@ export default {
               `INSERT OR REPLACE INTO entitlements (id, user_id, plan, status, source, starts_at, created_at, updated_at)
                VALUES (?, ?, 'VIP', 'active', 'purchase', ?, ?, ?)`
             ).bind(entId, userId, now, now, now).run();
+
+            // Part 36: Evaluate Referral Qualification on First Purchase
+            evaluateReferralQualification(userId, REF_QUALIFYING_EVENTS.FIRST_PURCHASE, { orderId: orderId || razorpayOrderId, paymentId: razorpayPaymentId }, env.DB, env).catch(() => {});
           } catch (dbErr) {
             console.warn('[D1 Verification DB Warning]', dbErr);
           }
@@ -10053,7 +10264,343 @@ export default {
         response = jsonSuccess({ reportId: report.id, message: 'Report submitted successfully' }, 200, {}, requestId);
       }
 
-      // --- Support Console APIs ---
+      // =====================================================================
+      // --- PART 34: PUBLIC HELP CENTER & KNOWLEDGE BASE APIS ---
+      // =====================================================================
+      else if (pathname === '/api/help/categories' && method === 'GET') {
+        const categories = getHelpCategories();
+        response = jsonSuccess({ categories }, 200, {}, requestId);
+      }
+
+      else if (pathname === '/api/help/articles' && method === 'GET') {
+        const category = url.searchParams.get('category');
+        const q = url.searchParams.get('q') || url.searchParams.get('query') || '';
+        const limit = Math.min(parseInt(url.searchParams.get('limit') || '50', 10), 100);
+        const offset = Math.max(parseInt(url.searchParams.get('offset') || '0', 10), 0);
+
+        const result = listHelpArticles({ category, query: q, limit, offset });
+        response = jsonSuccess(result, 200, {}, requestId);
+      }
+
+      else if (pathname.startsWith('/api/help/articles/') && !pathname.endsWith('/feedback') && method === 'GET') {
+        const slug = pathname.replace('/api/help/articles/', '').trim();
+        const article = getHelpArticleBySlug(slug);
+        if (!article) {
+          return applySecurityHeaders(jsonError('NOT_FOUND', 'Help article not found', 404), request, env);
+        }
+        response = jsonSuccess({ article }, 200, {}, requestId);
+      }
+
+      else if (pathname.startsWith('/api/help/articles/') && pathname.endsWith('/feedback') && method === 'POST') {
+        const slug = pathname.replace('/api/help/articles/', '').replace('/feedback', '').trim();
+        const article = getHelpArticleBySlug(slug);
+        if (!article) {
+          return applySecurityHeaders(jsonError('NOT_FOUND', 'Help article not found', 404), request, env);
+        }
+        const body = await parseJsonBody(request);
+        const { isHelpful } = body || {};
+        if (isHelpful) article.helpfulCount = (article.helpfulCount || 0) + 1;
+        else article.notHelpfulCount = (article.notHelpfulCount || 0) + 1;
+        response = jsonSuccess({ success: true, message: 'Feedback recorded' }, 200, {}, requestId);
+      }
+
+      // =====================================================================
+      // --- PART 34: END-USER SUPPORT TICKET MANAGEMENT APIS ---
+      // =====================================================================
+      else if (pathname === '/api/support/tickets' && method === 'GET') {
+        const user = await getAuthenticatedUser(request, env);
+        if (!user) return applySecurityHeaders(jsonError('AUTH_REQUIRED', 'Sign-in required to view your support tickets', 401), request, env);
+
+        let userTickets = [];
+        if (env.DB && typeof env.DB.prepare === 'function') {
+          try {
+            const rows = await env.DB.prepare('SELECT * FROM support_tickets WHERE user_id = ? OR user_email = ? ORDER BY created_at DESC LIMIT 50').bind(user.id, user.email).all();
+            userTickets = rows.results || [];
+          } catch (e) {}
+        }
+
+        const sanitized = userTickets.map(t => sanitizeTicketForUser(t, [], user));
+        response = jsonSuccess({ tickets: sanitized, total: sanitized.length }, 200, {}, requestId);
+      }
+
+      else if (pathname === '/api/support/tickets' && method === 'POST') {
+        const user = await getAuthenticatedUser(request, env);
+        if (!user) return applySecurityHeaders(jsonError('AUTH_REQUIRED', 'Sign-in required to submit a support ticket', 401), request, env);
+
+        const body = await parseJsonBody(request);
+        const { category, subject, description, orderId, wishId, attachments, contactPreference } = body || {};
+
+        // Security check: If wishId provided, verify it belongs to current user
+        if (wishId && env.DB && typeof env.DB.prepare === 'function') {
+          try {
+            const wishRow = await env.DB.prepare('SELECT user_id FROM wishes WHERE id = ? OR slug = ? LIMIT 1').bind(wishId, wishId).first();
+            if (wishRow && wishRow.user_id !== user.id && !isAuthoritativeAdmin(user)) {
+              return applySecurityHeaders(jsonError('FORBIDDEN', 'Related celebration wish does not belong to your account', 403), request, env);
+            }
+          } catch (e) {}
+        }
+
+        // Security check: If orderId provided, verify it belongs to current user
+        if (orderId && env.DB && typeof env.DB.prepare === 'function') {
+          try {
+            const orderRow = await env.DB.prepare('SELECT user_id FROM orders WHERE id = ? LIMIT 1').bind(orderId).first();
+            if (orderRow && orderRow.user_id !== user.id && !isAuthoritativeAdmin(user)) {
+              return applySecurityHeaders(jsonError('FORBIDDEN', 'Related order does not belong to your account', 403), request, env);
+            }
+          } catch (e) {}
+        }
+
+        let createdResult;
+        try {
+          createdResult = createSupportTicketRecord({
+            userId: user.id,
+            userEmail: user.email,
+            userName: user.displayName || user.name || 'User',
+            category,
+            subject,
+            description,
+            orderId,
+            wishId,
+            attachments,
+            contactPreference,
+            actor: user
+          });
+        } catch (valErr) {
+          return applySecurityHeaders(jsonError('VALIDATION_ERROR', valErr.message, 400), request, env);
+        }
+
+        const { ticket, initialMessage, auditLog } = createdResult;
+
+        // Persist to D1
+        if (env.DB && typeof env.DB.prepare === 'function') {
+          try {
+            await env.DB.prepare(`
+              INSERT INTO support_tickets (
+                id, ticket_number, user_id, user_email, user_name, wish_id, order_id,
+                category, subject, description, status, priority, contact_preference,
+                created_at, updated_at
+              ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+            `).bind(
+              ticket.id, ticket.ticketNumber, ticket.userId, ticket.userEmail, ticket.userName,
+              ticket.wishId, ticket.orderId, ticket.category, ticket.subject, ticket.description,
+              ticket.status, ticket.priority, ticket.contactPreference, ticket.createdAt, ticket.updatedAt
+            ).run();
+
+            await env.DB.prepare(`
+              INSERT INTO support_ticket_messages (
+                id, ticket_id, sender_type, sender_id, sender_name, message, is_internal_note, attachments_json, created_at
+              ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+            `).bind(
+              initialMessage.id, initialMessage.ticketId, initialMessage.senderType,
+              initialMessage.senderId, initialMessage.senderName, initialMessage.message,
+              initialMessage.isInternalNote, initialMessage.attachmentsJson, initialMessage.createdAt
+            ).run();
+
+            // Store attachment records
+            if (Array.isArray(attachments)) {
+              for (const att of attachments) {
+                const attId = `att_${Date.now().toString(36)}_${Math.random().toString(36).slice(2, 6)}`;
+                await env.DB.prepare(`
+                  INSERT INTO support_attachments (id, ticket_id, message_id, user_id, file_name, file_size, mime_type, url, storage_provider, created_at)
+                  VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                `).bind(attId, ticket.id, initialMessage.id, user.id, att.fileName || 'Attachment', att.fileSize || 0, att.mimeType || 'image/png', att.url || '', att.storageProvider || 'imgbb', ticket.createdAt).run();
+              }
+            }
+          } catch (e) {
+            console.error('[Support Desk DB Error]', e);
+          }
+        }
+
+        // Send confirmation in-app notification to the user
+        try {
+          const notif = createInAppNotification({
+            userId: user.id,
+            type: NOTIFICATION_TYPES.SUPPORT_TICKET,
+            title: `Support Ticket Created (#${ticket.ticketNumber})`,
+            message: `We've received your request regarding "${ticket.subject}". Our support team will respond shortly.`,
+            actionUrl: `/support/tickets?id=${ticket.id}`
+          });
+          if (env.DB && typeof env.DB.prepare === 'function') {
+            await env.DB.prepare(`
+              INSERT INTO in_app_notifications (id, user_id, type, title, message, action_url, is_read, created_at)
+              VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+            `).bind(notif.id, notif.userId, notif.type, notif.title, notif.message, notif.actionUrl, 0, notif.createdAt).run();
+          }
+        } catch (e) {}
+
+        response = jsonSuccess({
+          ticket: sanitizeTicketForUser(ticket, [initialMessage], user),
+          message: 'Support ticket submitted successfully'
+        }, 201, {}, requestId);
+      }
+
+      else if (pathname.startsWith('/api/support/tickets/') && !pathname.includes('/messages') && !pathname.includes('/close') && !pathname.includes('/rate') && method === 'GET') {
+        const ticketId = pathname.replace('/api/support/tickets/', '').trim();
+        const user = await getAuthenticatedUser(request, env);
+        if (!user) return applySecurityHeaders(jsonError('AUTH_REQUIRED', 'Authentication required', 401), request, env);
+        const isAdmin = await verifyAdminRole(user, env);
+
+        let ticket = null;
+        let messages = [];
+
+        if (env.DB && typeof env.DB.prepare === 'function') {
+          try {
+            ticket = await env.DB.prepare('SELECT * FROM support_tickets WHERE id = ? OR ticket_number = ? LIMIT 1').bind(ticketId, ticketId).first();
+            if (ticket) {
+              const msgRows = await env.DB.prepare('SELECT * FROM support_ticket_messages WHERE ticket_id = ? ORDER BY created_at ASC').bind(ticket.id).all();
+              messages = msgRows.results || [];
+            }
+          } catch (e) {}
+        }
+
+        if (!ticket) {
+          return applySecurityHeaders(jsonError('NOT_FOUND', 'Support ticket not found', 404), request, env);
+        }
+
+        // IDOR ownership protection: Must belong to user unless admin
+        if (!isAdmin && ticket.user_id !== user.id && ticket.user_email !== user.email) {
+          return applySecurityHeaders(jsonError('FORBIDDEN', 'Access denied to this ticket', 403), request, env);
+        }
+
+        const sanitized = sanitizeTicketForUser(ticket, messages, user);
+        response = jsonSuccess({ ticket: sanitized }, 200, {}, requestId);
+      }
+
+      else if (pathname.startsWith('/api/support/tickets/') && pathname.endsWith('/messages') && method === 'POST') {
+        const ticketId = pathname.replace('/api/support/tickets/', '').replace('/messages', '').trim();
+        const user = await getAuthenticatedUser(request, env);
+        if (!user) return applySecurityHeaders(jsonError('AUTH_REQUIRED', 'Authentication required', 401), request, env);
+        const isAdmin = await verifyAdminRole(user, env);
+
+        const body = await parseJsonBody(request);
+        const { message, isInternalNote, attachments } = body || {};
+
+        let ticket = null;
+        if (env.DB && typeof env.DB.prepare === 'function') {
+          try {
+            ticket = await env.DB.prepare('SELECT * FROM support_tickets WHERE id = ? OR ticket_number = ? LIMIT 1').bind(ticketId, ticketId).first();
+          } catch (e) {}
+        }
+
+        if (!ticket) return applySecurityHeaders(jsonError('NOT_FOUND', 'Support ticket not found', 404), request, env);
+
+        if (!isAdmin && ticket.user_id !== user.id && ticket.user_email !== user.email) {
+          return applySecurityHeaders(jsonError('FORBIDDEN', 'Access denied to this ticket', 403), request, env);
+        }
+
+        let addedResult;
+        try {
+          addedResult = addTicketMessage({
+            ticket,
+            senderType: isAdmin ? MESSAGE_SENDER_TYPE.ADMIN : MESSAGE_SENDER_TYPE.USER,
+            senderId: user.id,
+            senderName: isAdmin ? 'Support Team' : (user.displayName || user.name || 'User'),
+            message,
+            isInternalNote: isAdmin ? Boolean(isInternalNote) : false,
+            attachments,
+            actor: user
+          });
+        } catch (msgErr) {
+          return applySecurityHeaders(jsonError('VALIDATION_ERROR', msgErr.message, 400), request, env);
+        }
+
+        const { message: newMsg, auditLog } = addedResult;
+
+        if (env.DB && typeof env.DB.prepare === 'function') {
+          try {
+            await env.DB.prepare(`
+              INSERT INTO support_ticket_messages (id, ticket_id, sender_type, sender_id, sender_name, message, is_internal_note, attachments_json, created_at)
+              VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+            `).bind(newMsg.id, ticket.id, newMsg.senderType, newMsg.senderId, newMsg.senderName, newMsg.message, newMsg.isInternalNote, newMsg.attachmentsJson, newMsg.createdAt).run();
+
+            await env.DB.prepare(`
+              UPDATE support_tickets SET status = ?, last_customer_message_at = ?, last_agent_response_at = ?, reopen_count = ?, updated_at = ?
+              WHERE id = ?
+            `).bind(ticket.status, ticket.last_customer_message_at || ticket.updatedAt, ticket.last_agent_response_at || null, ticket.reopen_count || 0, ticket.updatedAt, ticket.id).run();
+          } catch (e) {}
+        }
+
+        // Notification if admin replied to user
+        if (isAdmin && !isInternalNote && ticket.user_id) {
+          try {
+            const notif = createInAppNotification({
+              userId: ticket.user_id,
+              type: NOTIFICATION_TYPES.SUPPORT_TICKET,
+              title: `New Reply on Ticket #${ticket.ticket_number || ticket.ticketNumber}`,
+              message: `Our support team replied: "${message.slice(0, 100)}..."`,
+              actionUrl: `/support/tickets?id=${ticket.id}`
+            });
+            if (env.DB && typeof env.DB.prepare === 'function') {
+              await env.DB.prepare(`
+                INSERT INTO in_app_notifications (id, user_id, type, title, message, action_url, is_read, created_at)
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+              `).bind(notif.id, notif.userId, notif.type, notif.title, notif.message, notif.actionUrl, 0, notif.createdAt).run();
+            }
+          } catch (e) {}
+        }
+
+        response = jsonSuccess({ message: newMsg, ticketStatus: ticket.status }, 201, {}, requestId);
+      }
+
+      else if (pathname.startsWith('/api/support/tickets/') && pathname.endsWith('/close') && method === 'POST') {
+        const ticketId = pathname.replace('/api/support/tickets/', '').replace('/close', '').trim();
+        const user = await getAuthenticatedUser(request, env);
+        if (!user) return applySecurityHeaders(jsonError('AUTH_REQUIRED', 'Authentication required', 401), request, env);
+        const isAdmin = await verifyAdminRole(user, env);
+
+        let ticket = null;
+        if (env.DB && typeof env.DB.prepare === 'function') {
+          ticket = await env.DB.prepare('SELECT * FROM support_tickets WHERE id = ? OR ticket_number = ? LIMIT 1').bind(ticketId, ticketId).first().catch(() => null);
+        }
+        if (!ticket) return applySecurityHeaders(jsonError('NOT_FOUND', 'Ticket not found', 404), request, env);
+
+        if (!isAdmin && ticket.user_id !== user.id) {
+          return applySecurityHeaders(jsonError('FORBIDDEN', 'Access denied to this ticket', 403), request, env);
+        }
+
+        const now = new Date().toISOString();
+        if (env.DB && typeof env.DB.prepare === 'function') {
+          await env.DB.prepare('UPDATE support_tickets SET status = ?, closed_at = ?, updated_at = ? WHERE id = ?')
+            .bind(TICKET_STATUS.CLOSED, now, now, ticket.id).run().catch(() => {});
+        }
+
+        response = jsonSuccess({ success: true, message: 'Ticket closed successfully' }, 200, {}, requestId);
+      }
+
+      else if (pathname.startsWith('/api/support/tickets/') && pathname.endsWith('/rate') && method === 'POST') {
+        const ticketId = pathname.replace('/api/support/tickets/', '').replace('/rate', '').trim();
+        const user = await getAuthenticatedUser(request, env);
+        if (!user) return applySecurityHeaders(jsonError('AUTH_REQUIRED', 'Authentication required', 401), request, env);
+
+        const body = await parseJsonBody(request);
+        const { rating, feedback } = body || {};
+
+        let ticket = null;
+        if (env.DB && typeof env.DB.prepare === 'function') {
+          ticket = await env.DB.prepare('SELECT * FROM support_tickets WHERE id = ? OR ticket_number = ? LIMIT 1').bind(ticketId, ticketId).first().catch(() => null);
+        }
+        if (!ticket) return applySecurityHeaders(jsonError('NOT_FOUND', 'Ticket not found', 404), request, env);
+        if (ticket.user_id !== user.id) {
+          return applySecurityHeaders(jsonError('FORBIDDEN', 'Can only rate your own tickets', 403), request, env);
+        }
+
+        try {
+          rateTicketSatisfaction({ ticket, userId: user.id, rating, feedback });
+        } catch (e) {
+          return applySecurityHeaders(jsonError('VALIDATION_ERROR', e.message, 400), request, env);
+        }
+
+        if (env.DB && typeof env.DB.prepare === 'function') {
+          await env.DB.prepare('UPDATE support_tickets SET satisfaction_rating = ?, satisfaction_feedback = ?, updated_at = ? WHERE id = ?')
+            .bind(ticket.satisfaction_rating, ticket.satisfaction_feedback, ticket.updated_at, ticket.id).run().catch(() => {});
+        }
+
+        response = jsonSuccess({ success: true, message: 'Thank you for your feedback!' }, 200, {}, requestId);
+      }
+
+      // =====================================================================
+      // --- PART 34: ADMIN SUPPORT DESK & DIAGNOSTIC APIS ---
+      // =====================================================================
       else if (pathname === '/api/admin/support/lookup' && method === 'GET') {
         const user = await getAuthenticatedUser(request, env);
         if (!user) return applySecurityHeaders(jsonError('AUTH_REQUIRED', 'Authentication required', 401), request, env);
@@ -10064,6 +10611,7 @@ export default {
         let matchedUsers = [];
         let matchedWishes = [];
         let matchedTickets = [];
+        let matchedOrders = [];
 
         if (q && env.DB && typeof env.DB.prepare === 'function') {
           const pattern = `%${q}%`;
@@ -10076,16 +10624,19 @@ export default {
 
             const tRows = await env.DB.prepare('SELECT * FROM support_tickets WHERE ticket_number LIKE ? OR subject LIKE ? OR user_email LIKE ? LIMIT 10').bind(pattern, pattern, pattern).all().catch(() => ({ results: [] }));
             matchedTickets = tRows.results || [];
+
+            const oRows = await env.DB.prepare('SELECT id, order_number, user_id, user_email, amount_paise, status FROM orders WHERE id LIKE ? OR order_number LIKE ? OR user_email LIKE ? LIMIT 10').bind(pattern, pattern, pattern).all().catch(() => ({ results: [] }));
+            matchedOrders = oRows.results || [];
           } catch (e) {}
         }
 
         response = jsonSuccess({
           query: q,
-          totalMatches: matchedUsers.length + matchedWishes.length + matchedTickets.length,
+          totalMatches: matchedUsers.length + matchedWishes.length + matchedTickets.length + matchedOrders.length,
           users: matchedUsers,
           wishes: matchedWishes,
           tickets: matchedTickets,
-          orders: []
+          orders: matchedOrders
         }, 200, {}, requestId);
       }
 
@@ -10095,10 +10646,37 @@ export default {
         const isAdmin = await verifyAdminRole(user, env);
         if (!isAdmin) return applySecurityHeaders(jsonError('FORBIDDEN', 'Admin role required', 403), request, env);
 
+        const statusFilter = url.searchParams.get('status');
+        const priorityFilter = url.searchParams.get('priority');
+        const categoryFilter = url.searchParams.get('category');
+        const q = url.searchParams.get('q') || '';
+
         let tickets = [];
         if (env.DB && typeof env.DB.prepare === 'function') {
           try {
-            const rows = await env.DB.prepare('SELECT * FROM support_tickets ORDER BY created_at DESC LIMIT 100').all();
+            let sql = 'SELECT * FROM support_tickets WHERE 1=1';
+            const params = [];
+
+            if (statusFilter && statusFilter !== 'all') {
+              sql += ' AND status = ?';
+              params.push(statusFilter);
+            }
+            if (priorityFilter && priorityFilter !== 'all') {
+              sql += ' AND priority = ?';
+              params.push(priorityFilter);
+            }
+            if (categoryFilter && categoryFilter !== 'all') {
+              sql += ' AND category = ?';
+              params.push(categoryFilter);
+            }
+            if (q) {
+              sql += ' AND (ticket_number LIKE ? OR subject LIKE ? OR user_email LIKE ?)';
+              const p = `%${q}%`;
+              params.push(p, p, p);
+            }
+
+            sql += ' ORDER BY created_at DESC LIMIT 100';
+            const rows = await env.DB.prepare(sql).bind(...params).all();
             tickets = rows.results || [];
           } catch (e) {}
         }
@@ -10106,36 +10684,169 @@ export default {
         response = jsonSuccess({
           total: tickets.length,
           openCount: tickets.filter(t => t.status === 'open').length,
+          inProgressCount: tickets.filter(t => t.status === 'in_progress').length,
+          resolvedCount: tickets.filter(t => t.status === 'resolved').length,
           tickets
         }, 200, {}, requestId);
       }
 
-      else if (pathname === '/api/admin/support/tickets' && method === 'POST') {
+      else if (pathname.startsWith('/api/admin/support/tickets/') && !pathname.includes('/messages') && method === 'GET') {
+        const ticketId = pathname.replace('/api/admin/support/tickets/', '').trim();
         const user = await getAuthenticatedUser(request, env);
         if (!user) return applySecurityHeaders(jsonError('AUTH_REQUIRED', 'Authentication required', 401), request, env);
-        const body = await parseJsonBody(request);
-        const { userId, userEmail, wishId, category, subject, description, priority, assignedTo } = body || {};
+        const isAdmin = await verifyAdminRole(user, env);
+        if (!isAdmin) return applySecurityHeaders(jsonError('FORBIDDEN', 'Admin role required', 403), request, env);
 
-        const { ticket, auditLog } = createSupportTicket({
-          userId: userId || user.id,
-          userEmail: userEmail || user.email,
-          wishId,
-          category,
-          subject,
-          description,
+        let ticket = null;
+        let messages = [];
+        let relatedWish = null;
+        let relatedOrder = null;
+
+        if (env.DB && typeof env.DB.prepare === 'function') {
+          try {
+            ticket = await env.DB.prepare('SELECT * FROM support_tickets WHERE id = ? OR ticket_number = ? LIMIT 1').bind(ticketId, ticketId).first();
+            if (ticket) {
+              const msgRows = await env.DB.prepare('SELECT * FROM support_ticket_messages WHERE ticket_id = ? ORDER BY created_at ASC').bind(ticket.id).all();
+              messages = msgRows.results || [];
+
+              if (ticket.wish_id) {
+                relatedWish = await env.DB.prepare('SELECT id, slug, recipient_name, status, event_date, expiry_date, tier FROM wishes WHERE id = ? OR slug = ? LIMIT 1').bind(ticket.wish_id, ticket.wish_id).first().catch(() => null);
+              }
+              if (ticket.order_id) {
+                relatedOrder = await env.DB.prepare('SELECT id, order_number, amount_paise, status, payment_status, created_at FROM orders WHERE id = ? LIMIT 1').bind(ticket.order_id).first().catch(() => null);
+              }
+            }
+          } catch (e) {}
+        }
+
+        if (!ticket) return applySecurityHeaders(jsonError('NOT_FOUND', 'Ticket not found', 404), request, env);
+
+        response = jsonSuccess({
+          ticket: sanitizeTicketForUser(ticket, messages, user),
+          relatedWish,
+          relatedOrder
+        }, 200, {}, requestId);
+      }
+
+      else if (pathname.startsWith('/api/admin/support/tickets/') && method === 'PATCH') {
+        const ticketId = pathname.replace('/api/admin/support/tickets/', '').trim();
+        const user = await getAuthenticatedUser(request, env);
+        if (!user) return applySecurityHeaders(jsonError('AUTH_REQUIRED', 'Authentication required', 401), request, env);
+        const isAdmin = await verifyAdminRole(user, env);
+        if (!isAdmin) return applySecurityHeaders(jsonError('FORBIDDEN', 'Admin role required', 403), request, env);
+
+        const body = await parseJsonBody(request);
+        const { status, priority, adminNotes, resolutionSummary, assignedTo } = body || {};
+
+        let ticket = null;
+        if (env.DB && typeof env.DB.prepare === 'function') {
+          ticket = await env.DB.prepare('SELECT * FROM support_tickets WHERE id = ? OR ticket_number = ? LIMIT 1').bind(ticketId, ticketId).first().catch(() => null);
+        }
+        if (!ticket) return applySecurityHeaders(jsonError('NOT_FOUND', 'Ticket not found', 404), request, env);
+
+        const updateRes = updateTicketStatusP34({
+          ticket,
+          status,
           priority,
+          adminNotes,
+          resolutionSummary,
           assignedTo,
           actor: user
         });
 
         if (env.DB && typeof env.DB.prepare === 'function') {
           try {
-            await env.DB.prepare('INSERT INTO support_tickets (id, ticket_number, user_id, user_email, wish_id, category, subject, description, status, priority, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)')
-              .bind(ticket.id, ticket.ticketNumber, ticket.userId, ticket.userEmail, ticket.wishId, ticket.category, ticket.subject, ticket.description, ticket.status, ticket.priority, ticket.createdAt, ticket.updatedAt).run();
+            await env.DB.prepare(`
+              UPDATE support_tickets SET
+                status = ?, priority = ?, admin_notes = ?, resolution_summary = ?,
+                assigned_to = ?, resolved_at = ?, closed_at = ?, updated_at = ?
+              WHERE id = ?
+            `).bind(
+              ticket.status, ticket.priority, ticket.adminNotes || ticket.admin_notes || null,
+              ticket.resolutionSummary || ticket.resolution_summary || null,
+              ticket.assignedTo || ticket.assigned_to || null,
+              ticket.resolvedAt || ticket.resolved_at || null,
+              ticket.closedAt || ticket.closed_at || null,
+              ticket.updatedAt, ticket.id
+            ).run();
+
+            // Store Audit Log
+            await env.DB.prepare(`
+              INSERT INTO admin_audit_logs (id, actor_id, actor_name, actor_role, action, target_type, target_id, details, ip_address, created_at)
+              VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+            `).bind(
+              updateRes.auditLog.id, updateRes.auditLog.actorId, updateRes.auditLog.actorName,
+              updateRes.auditLog.actorRole, updateRes.auditLog.action, updateRes.auditLog.targetType,
+              updateRes.auditLog.targetId, updateRes.auditLog.details, '127.0.0.1', updateRes.auditLog.createdAt
+            ).run();
           } catch (e) {}
         }
 
-        response = jsonSuccess({ ticket }, 200, {}, requestId);
+        // Notification if resolved
+        if (status === 'resolved' && ticket.user_id) {
+          try {
+            const notif = createInAppNotification({
+              userId: ticket.user_id,
+              type: NOTIFICATION_TYPES.SUPPORT_TICKET,
+              title: `Support Ticket Resolved (#${ticket.ticket_number || ticket.ticketNumber})`,
+              message: resolutionSummary || 'Your issue has been resolved by our support team.',
+              actionUrl: `/support/tickets?id=${ticket.id}`
+            });
+            if (env.DB && typeof env.DB.prepare === 'function') {
+              await env.DB.prepare(`
+                INSERT INTO in_app_notifications (id, user_id, type, title, message, action_url, is_read, created_at)
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+              `).bind(notif.id, notif.userId, notif.type, notif.title, notif.message, notif.actionUrl, 0, notif.createdAt).run();
+            }
+          } catch (e) {}
+        }
+
+        response = jsonSuccess({ ticket, message: 'Ticket updated successfully' }, 200, {}, requestId);
+      }
+
+      else if (pathname.startsWith('/api/admin/support/diagnose/') && method === 'GET') {
+        const user = await getAuthenticatedUser(request, env);
+        if (!user) return applySecurityHeaders(jsonError('AUTH_REQUIRED', 'Authentication required', 401), request, env);
+        const isAdmin = await verifyAdminRole(user, env);
+        if (!isAdmin) return applySecurityHeaders(jsonError('FORBIDDEN', 'Admin role required', 403), request, env);
+
+        const wishId = pathname.replace('/api/admin/support/diagnose/', '').trim();
+        let wish = null;
+        if (env.DB && typeof env.DB.prepare === 'function') {
+          wish = await env.DB.prepare('SELECT * FROM wishes WHERE id = ? OR slug = ? LIMIT 1').bind(wishId, wishId).first().catch(() => null);
+        }
+        if (!wish) return applySecurityHeaders(jsonError('NOT_FOUND', 'Wish not found', 404), request, env);
+
+        const diagnosis = await diagnoseWishDeepHealth(wish, {});
+        response = jsonSuccess({ diagnosis }, 200, {}, requestId);
+      }
+
+      else if (pathname.startsWith('/api/admin/support/repair/') && method === 'POST') {
+        const user = await getAuthenticatedUser(request, env);
+        if (!user) return applySecurityHeaders(jsonError('AUTH_REQUIRED', 'Authentication required', 401), request, env);
+        const isAdmin = await verifyAdminRole(user, env);
+        if (!isAdmin) return applySecurityHeaders(jsonError('FORBIDDEN', 'Admin role required', 403), request, env);
+
+        const wishId = pathname.replace('/api/admin/support/repair/', '').trim();
+        const body = await parseJsonBody(request);
+        const { extendDays = 7 } = body || {};
+
+        let wish = null;
+        if (env.DB && typeof env.DB.prepare === 'function') {
+          wish = await env.DB.prepare('SELECT * FROM wishes WHERE id = ? OR slug = ? LIMIT 1').bind(wishId, wishId).first().catch(() => null);
+        }
+        if (!wish) return applySecurityHeaders(jsonError('NOT_FOUND', 'Wish not found', 404), request, env);
+
+        const now = new Date();
+        const exp = new Date(now.getTime() + Number(extendDays) * 24 * 60 * 60 * 1000);
+        const newExpiryDate = exp.toISOString().split('T')[0];
+
+        if (env.DB && typeof env.DB.prepare === 'function') {
+          await env.DB.prepare('UPDATE wishes SET status = ?, expiry_date = ?, moderation_status = ?, updated_at = ? WHERE id = ?')
+            .bind('published', newExpiryDate, 'approved', now.toISOString(), wish.id).run().catch(() => {});
+        }
+
+        response = jsonSuccess({ success: true, message: 'Link repaired and renewed', newExpiryDate }, 200, {}, requestId);
       }
 
       // --- Audit Trail APIs ---
@@ -10192,6 +10903,893 @@ export default {
           }
         });
       }
+
+      // =====================================================================
+      // --- PART 35: USER ACCOUNT CENTER, PRIVACY CONTROLS & SESSIONS ---
+      // =====================================================================
+      else if (pathname === '/api/account/profile' && method === 'GET') {
+        const user = await getAuthenticatedUser(request, env);
+        if (!user) return applySecurityHeaders(jsonError('AUTH_REQUIRED', 'Sign-in required to view account profile', 401), request, env);
+
+        let privacy = DEFAULT_PRIVACY_SETTINGS;
+        let sessionsCount = 1;
+        let securityEventsCount = 0;
+
+        if (env.DB && typeof env.DB.prepare === 'function') {
+          try {
+            const privRow = await env.DB.prepare('SELECT * FROM user_privacy_settings WHERE user_id = ? LIMIT 1').bind(user.id).first();
+            if (privRow) {
+              privacy = {
+                profileVisibility: privRow.profile_visibility || 'public',
+                searchEngineIndexing: Boolean(privRow.search_engine_indexing),
+                analyticsTracking: Boolean(privRow.analytics_tracking),
+                marketingEmails: Boolean(privRow.marketing_emails),
+                activityTelemetry: Boolean(privRow.activity_telemetry)
+              };
+            }
+            const sessCountRow = await env.DB.prepare('SELECT COUNT(*) as count FROM sessions WHERE user_id = ? AND expires_at > ?').bind(user.id, Date.now()).first();
+            if (sessCountRow) sessionsCount = sessCountRow.count || 1;
+
+            const secCountRow = await env.DB.prepare('SELECT COUNT(*) as count FROM user_security_events WHERE user_id = ?').bind(user.id).first();
+            if (secCountRow) securityEventsCount = secCountRow.count || 0;
+          } catch (e) {}
+        }
+
+        response = jsonSuccess({
+          user,
+          privacy,
+          activeSessionsCount: sessionsCount,
+          securityEventsCount
+        }, 200, {}, requestId);
+      }
+
+      else if (pathname === '/api/account/profile' && method === 'PUT') {
+        const user = await getAuthenticatedUser(request, env);
+        if (!user) return applySecurityHeaders(jsonError('AUTH_REQUIRED', 'Sign-in required to update profile', 401), request, env);
+
+        const body = await parseJsonBody(request);
+        const validation = validateProfileUpdate(body || {});
+        if (!validation.valid) {
+          const firstErr = Object.values(validation.errors)[0];
+          return applySecurityHeaders(jsonError('VALIDATION_ERROR', firstErr, 400), request, env);
+        }
+
+        const now = new Date().toISOString();
+        const updatedName = validation.cleaned.displayName !== undefined ? validation.cleaned.displayName : user.displayName;
+        const updatedAvatar = validation.cleaned.avatarUrl !== undefined ? validation.cleaned.avatarUrl : user.avatarUrl;
+
+        if (env.DB && typeof env.DB.prepare === 'function') {
+          try {
+            await env.DB.prepare('UPDATE users SET display_name = ?, avatar_url = ?, updated_at = ? WHERE id = ?')
+              .bind(updatedName, updatedAvatar, now, user.id).run();
+
+            const ip = request.headers.get('cf-connecting-ip') || '127.0.0.1';
+            const ua = request.headers.get('user-agent') || '';
+            const secEvt = createSecurityEventRecord({
+              userId: user.id,
+              eventType: SECURITY_EVENT_TYPES.PROFILE_UPDATED,
+              ipAddress: ip,
+              userAgent: ua,
+              details: { updatedFields: Object.keys(validation.cleaned) }
+            });
+
+            await env.DB.prepare(`
+              INSERT INTO user_security_events (id, user_id, event_type, ip_address, user_agent, device_info, details_json, created_at)
+              VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+            `).bind(secEvt.id, secEvt.userId, secEvt.eventType, secEvt.ipAddress, secEvt.userAgent, secEvt.deviceInfo, secEvt.detailsJson, secEvt.createdAt).run();
+          } catch (e) {}
+        }
+
+        user.displayName = updatedName;
+        user.avatarUrl = updatedAvatar;
+        response = jsonSuccess({ user, message: 'Profile updated successfully' }, 200, {}, requestId);
+      }
+
+      else if (pathname === '/api/account/privacy' && method === 'GET') {
+        const user = await getAuthenticatedUser(request, env);
+        if (!user) return applySecurityHeaders(jsonError('AUTH_REQUIRED', 'Sign-in required to access privacy settings', 401), request, env);
+
+        let settings = DEFAULT_PRIVACY_SETTINGS;
+        if (env.DB && typeof env.DB.prepare === 'function') {
+          try {
+            const row = await env.DB.prepare('SELECT * FROM user_privacy_settings WHERE user_id = ? LIMIT 1').bind(user.id).first();
+            if (row) {
+              settings = {
+                profileVisibility: row.profile_visibility || 'public',
+                searchEngineIndexing: Boolean(row.search_engine_indexing),
+                analyticsTracking: Boolean(row.analytics_tracking),
+                marketingEmails: Boolean(row.marketing_emails),
+                activityTelemetry: Boolean(row.activity_telemetry)
+              };
+            }
+          } catch (e) {}
+        }
+        response = jsonSuccess({ settings }, 200, {}, requestId);
+      }
+
+      else if (pathname === '/api/account/privacy' && method === 'PUT') {
+        const user = await getAuthenticatedUser(request, env);
+        if (!user) return applySecurityHeaders(jsonError('AUTH_REQUIRED', 'Sign-in required to update privacy settings', 401), request, env);
+
+        const body = await parseJsonBody(request);
+        const validated = validatePrivacySettings(body || {});
+        const now = new Date().toISOString();
+
+        if (env.DB && typeof env.DB.prepare === 'function') {
+          try {
+            await env.DB.prepare(`
+              INSERT INTO user_privacy_settings (
+                user_id, profile_visibility, search_engine_indexing, analytics_tracking,
+                marketing_emails, activity_telemetry, created_at, updated_at
+              ) VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+              ON CONFLICT(user_id) DO UPDATE SET
+                profile_visibility = excluded.profile_visibility,
+                search_engine_indexing = excluded.search_engine_indexing,
+                analytics_tracking = excluded.analytics_tracking,
+                marketing_emails = excluded.marketing_emails,
+                activity_telemetry = excluded.activity_telemetry,
+                updated_at = excluded.updated_at
+            `).bind(
+              user.id,
+              validated.profileVisibility,
+              validated.searchEngineIndexing ? 1 : 0,
+              validated.analyticsTracking ? 1 : 0,
+              validated.marketingEmails ? 1 : 0,
+              validated.activityTelemetry ? 1 : 0,
+              now,
+              now
+            ).run();
+
+            const ip = request.headers.get('cf-connecting-ip') || '127.0.0.1';
+            const ua = request.headers.get('user-agent') || '';
+            const secEvt = createSecurityEventRecord({
+              userId: user.id,
+              eventType: SECURITY_EVENT_TYPES.PRIVACY_UPDATED,
+              ipAddress: ip,
+              userAgent: ua,
+              details: { settings: validated }
+            });
+            await env.DB.prepare(`
+              INSERT INTO user_security_events (id, user_id, event_type, ip_address, user_agent, device_info, details_json, created_at)
+              VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+            `).bind(secEvt.id, secEvt.userId, secEvt.eventType, secEvt.ipAddress, secEvt.userAgent, secEvt.deviceInfo, secEvt.detailsJson, secEvt.createdAt).run();
+          } catch (e) {}
+        }
+
+        response = jsonSuccess({ settings: validated, message: 'Privacy preferences saved successfully' }, 200, {}, requestId);
+      }
+
+      else if (pathname === '/api/account/sessions' && method === 'GET') {
+        const user = await getAuthenticatedUser(request, env);
+        if (!user) return applySecurityHeaders(jsonError('AUTH_REQUIRED', 'Sign-in required to inspect sessions', 401), request, env);
+
+        const currentToken = getCookie(request, 'wm_session') || (request.headers.get('Authorization') || '').replace(/^Bearer\s+/i, '').trim();
+        let formattedSessions = [];
+
+        if (env.DB && typeof env.DB.prepare === 'function') {
+          try {
+            const now = Date.now();
+            const rows = await env.DB.prepare('SELECT * FROM sessions WHERE user_id = ? AND expires_at > ? ORDER BY created_at DESC LIMIT 30').bind(user.id, now).all();
+            formattedSessions = (rows.results || []).map(s => formatSessionForUser(s, currentToken));
+          } catch (e) {}
+        }
+
+        if (formattedSessions.length === 0) {
+          const ua = request.headers.get('user-agent') || '';
+          const ip = request.headers.get('cf-connecting-ip') || '127.0.0.1';
+          formattedSessions.push(formatSessionForUser({
+            id: 'sess_current_active',
+            token: currentToken || 'active',
+            user_id: user.id,
+            user_agent: ua,
+            ip_address: ip,
+            created_at: new Date().toISOString(),
+            expires_at: Date.now() + 30 * 24 * 60 * 60 * 1000
+          }, currentToken || 'active'));
+        }
+
+        response = jsonSuccess({ sessions: formattedSessions, total: formattedSessions.length }, 200, {}, requestId);
+      }
+
+      else if (pathname.startsWith('/api/account/sessions/') && method === 'DELETE') {
+        const sessionId = pathname.replace('/api/account/sessions/', '').trim();
+        const user = await getAuthenticatedUser(request, env);
+        if (!user) return applySecurityHeaders(jsonError('AUTH_REQUIRED', 'Sign-in required', 401), request, env);
+
+        const currentToken = getCookie(request, 'wm_session') || '';
+        let targetSession = null;
+
+        if (env.DB && typeof env.DB.prepare === 'function') {
+          try {
+            targetSession = await env.DB.prepare('SELECT * FROM sessions WHERE id = ? AND user_id = ? LIMIT 1').bind(sessionId, user.id).first();
+            if (targetSession) {
+              await env.DB.prepare('DELETE FROM sessions WHERE id = ? AND user_id = ?').bind(sessionId, user.id).run();
+
+              const ip = request.headers.get('cf-connecting-ip') || '127.0.0.1';
+              const ua = request.headers.get('user-agent') || '';
+              const secEvt = createSecurityEventRecord({
+                userId: user.id,
+                eventType: SECURITY_EVENT_TYPES.SESSION_REVOKED,
+                ipAddress: ip,
+                userAgent: ua,
+                details: { sessionId, revokedDevice: parseUserAgent(targetSession.user_agent).label }
+              });
+              await env.DB.prepare(`
+                INSERT INTO user_security_events (id, user_id, event_type, ip_address, user_agent, device_info, details_json, created_at)
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+              `).bind(secEvt.id, secEvt.userId, secEvt.eventType, secEvt.ipAddress, secEvt.userAgent, secEvt.deviceInfo, secEvt.detailsJson, secEvt.createdAt).run();
+            }
+          } catch (e) {}
+        }
+
+        const isRevokingCurrent = Boolean(targetSession && targetSession.token === currentToken);
+        const headers = {};
+        if (isRevokingCurrent) {
+          headers['Set-Cookie'] = 'wm_session=; Path=/; Max-Age=0; HttpOnly; SameSite=Lax';
+        }
+
+        response = jsonSuccess({ success: true, message: 'Session revoked successfully', isCurrentSession: isRevokingCurrent }, 200, headers, requestId);
+      }
+
+      else if (pathname === '/api/account/sessions/revoke-others' && method === 'POST') {
+        const user = await getAuthenticatedUser(request, env);
+        if (!user) return applySecurityHeaders(jsonError('AUTH_REQUIRED', 'Sign-in required', 401), request, env);
+
+        const currentToken = getCookie(request, 'wm_session') || (request.headers.get('Authorization') || '').replace(/^Bearer\s+/i, '').trim();
+        let revokedCount = 0;
+
+        if (env.DB && typeof env.DB.prepare === 'function') {
+          try {
+            const delRes = await env.DB.prepare('DELETE FROM sessions WHERE user_id = ? AND token != ?').bind(user.id, currentToken || '__none__').run();
+            revokedCount = delRes.changes || 0;
+
+            const ip = request.headers.get('cf-connecting-ip') || '127.0.0.1';
+            const ua = request.headers.get('user-agent') || '';
+            const secEvt = createSecurityEventRecord({
+              userId: user.id,
+              eventType: SECURITY_EVENT_TYPES.ALL_SESSIONS_REVOKED,
+              ipAddress: ip,
+              userAgent: ua,
+              details: { revokedCount }
+            });
+            await env.DB.prepare(`
+              INSERT INTO user_security_events (id, user_id, event_type, ip_address, user_agent, device_info, details_json, created_at)
+              VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+            `).bind(secEvt.id, secEvt.userId, secEvt.eventType, secEvt.ipAddress, secEvt.userAgent, secEvt.deviceInfo, secEvt.detailsJson, secEvt.createdAt).run();
+          } catch (e) {}
+        }
+
+        response = jsonSuccess({ success: true, message: 'All other active sessions have been terminated.', revokedCount }, 200, {}, requestId);
+      }
+
+      else if (pathname === '/api/account/security-log' && method === 'GET') {
+        const user = await getAuthenticatedUser(request, env);
+        if (!user) return applySecurityHeaders(jsonError('AUTH_REQUIRED', 'Sign-in required', 401), request, env);
+
+        let events = [];
+        if (env.DB && typeof env.DB.prepare === 'function') {
+          try {
+            const rows = await env.DB.prepare('SELECT * FROM user_security_events WHERE user_id = ? ORDER BY created_at DESC LIMIT 50').bind(user.id).all();
+            events = (rows.results || []).map(r => ({
+              id: r.id,
+              eventType: r.event_type,
+              deviceInfo: r.device_info,
+              ipAddress: maskIpAddress(r.ip_address),
+              createdAt: r.created_at,
+              details: typeof r.details_json === 'string' ? JSON.parse(r.details_json || '{}') : (r.details_json || {})
+            }));
+          } catch (e) {}
+        }
+
+        response = jsonSuccess({ events, total: events.length }, 200, {}, requestId);
+      }
+
+      else if (pathname === '/api/account/export' && method === 'POST') {
+        const user = await getAuthenticatedUser(request, env);
+        if (!user) return applySecurityHeaders(jsonError('AUTH_REQUIRED', 'Sign-in required to request data export', 401), request, env);
+
+        let wishes = [], drafts = [], favs = [], orders = [], entitlements = [], tickets = [], secEvents = [], privacy = null, notifPrefs = null;
+
+        if (env.DB && typeof env.DB.prepare === 'function') {
+          try {
+            const wRes = await env.DB.prepare('SELECT * FROM wishes WHERE user_id = ?').bind(user.id).all().catch(() => ({ results: [] }));
+            wishes = wRes.results || [];
+
+            const dRes = await env.DB.prepare('SELECT * FROM saved_drafts WHERE user_id = ?').bind(user.id).all().catch(() => ({ results: [] }));
+            drafts = dRes.results || [];
+
+            const fRes = await env.DB.prepare('SELECT * FROM wish_favorites WHERE user_id = ?').bind(user.id).all().catch(() => ({ results: [] }));
+            favs = fRes.results || [];
+
+            const oRes = await env.DB.prepare('SELECT * FROM orders WHERE user_id = ?').bind(user.id).all().catch(() => ({ results: [] }));
+            orders = oRes.results || [];
+
+            const eRes = await env.DB.prepare('SELECT * FROM user_entitlements WHERE user_id = ?').bind(user.id).all().catch(() => ({ results: [] }));
+            entitlements = eRes.results || [];
+
+            const tRes = await env.DB.prepare('SELECT * FROM support_tickets WHERE user_id = ?').bind(user.id).all().catch(() => ({ results: [] }));
+            tickets = tRes.results || [];
+
+            const sRes = await env.DB.prepare('SELECT * FROM user_security_events WHERE user_id = ? LIMIT 50').bind(user.id).all().catch(() => ({ results: [] }));
+            secEvents = sRes.results || [];
+
+            privacy = await env.DB.prepare('SELECT * FROM user_privacy_settings WHERE user_id = ? LIMIT 1').bind(user.id).first().catch(() => null);
+            notifPrefs = await env.DB.prepare('SELECT * FROM user_notification_preferences WHERE user_id = ? LIMIT 1').bind(user.id).first().catch(() => null);
+          } catch (e) {}
+        }
+
+        const exportResult = compileUserDataExport({
+          user,
+          privacySettings: privacy,
+          wishes,
+          drafts,
+          favorites: favs,
+          orders,
+          entitlements,
+          supportTickets: tickets,
+          notificationPreferences: notifPrefs,
+          securityEvents: secEvents
+        });
+
+        if (env.DB && typeof env.DB.prepare === 'function') {
+          try {
+            await env.DB.prepare(`
+              INSERT INTO user_data_exports (id, user_id, status, format, summary_json, payload_json, file_size_bytes, requested_at, completed_at, expires_at)
+              VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+            `).bind(
+              exportResult.exportId,
+              user.id,
+              EXPORT_STATUS.READY,
+              'json',
+              JSON.stringify(exportResult.summary),
+              exportResult.payloadString,
+              exportResult.fileSizeBytes,
+              exportResult.summary.generatedAt,
+              exportResult.summary.generatedAt,
+              exportResult.expiresAt
+            ).run();
+
+            const ip = request.headers.get('cf-connecting-ip') || '127.0.0.1';
+            const ua = request.headers.get('user-agent') || '';
+            const secEvt = createSecurityEventRecord({
+              userId: user.id,
+              eventType: SECURITY_EVENT_TYPES.DATA_EXPORT_REQUESTED,
+              ipAddress: ip,
+              userAgent: ua,
+              details: { exportId: exportResult.exportId, fileSizeBytes: exportResult.fileSizeBytes }
+            });
+            await env.DB.prepare(`
+              INSERT INTO user_security_events (id, user_id, event_type, ip_address, user_agent, device_info, details_json, created_at)
+              VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+            `).bind(secEvt.id, secEvt.userId, secEvt.eventType, secEvt.ipAddress, secEvt.userAgent, secEvt.deviceInfo, secEvt.detailsJson, secEvt.createdAt).run();
+          } catch (e) {}
+        }
+
+        response = jsonSuccess({
+          exportId: exportResult.exportId,
+          summary: exportResult.summary,
+          fileSizeBytes: exportResult.fileSizeBytes,
+          downloadUrl: `/api/account/export/${exportResult.exportId}`,
+          payload: exportResult.payload
+        }, 201, {}, requestId);
+      }
+
+      else if (pathname === '/api/account/export/latest' && method === 'GET') {
+        const user = await getAuthenticatedUser(request, env);
+        if (!user) return applySecurityHeaders(jsonError('AUTH_REQUIRED', 'Sign-in required', 401), request, env);
+
+        let latestExport = null;
+        if (env.DB && typeof env.DB.prepare === 'function') {
+          try {
+            latestExport = await env.DB.prepare('SELECT id, status, format, summary_json, file_size_bytes, requested_at, expires_at FROM user_data_exports WHERE user_id = ? ORDER BY requested_at DESC LIMIT 1').bind(user.id).first();
+          } catch (e) {}
+        }
+
+        response = jsonSuccess({ export: latestExport }, 200, {}, requestId);
+      }
+
+      else if (pathname.startsWith('/api/account/export/') && method === 'GET') {
+        const exportId = pathname.replace('/api/account/export/', '').trim();
+        const user = await getAuthenticatedUser(request, env);
+        if (!user) return applySecurityHeaders(jsonError('AUTH_REQUIRED', 'Sign-in required to download export', 401), request, env);
+
+        let exportRow = null;
+        if (env.DB && typeof env.DB.prepare === 'function') {
+          try {
+            exportRow = await env.DB.prepare('SELECT * FROM user_data_exports WHERE id = ? LIMIT 1').bind(exportId).first();
+          } catch (e) {}
+        }
+
+        if (!exportRow) return applySecurityHeaders(jsonError('NOT_FOUND', 'Data export not found', 404), request, env);
+        if (exportRow.user_id !== user.id && !isAuthoritativeAdmin(user)) {
+          return applySecurityHeaders(jsonError('FORBIDDEN', 'Access denied to this export archive', 403), request, env);
+        }
+
+        if (env.DB && typeof env.DB.prepare === 'function') {
+          try {
+            await env.DB.prepare('UPDATE user_data_exports SET status = ?, downloaded_at = ? WHERE id = ?')
+              .bind(EXPORT_STATUS.DOWNLOADED, new Date().toISOString(), exportRow.id).run();
+          } catch (e) {}
+        }
+
+        return new Response(exportRow.payload_json, {
+          status: 200,
+          headers: {
+            'Content-Type': 'application/json; charset=utf-8',
+            'Content-Disposition': `attachment; filename="wishmagic_export_${user.id}_${Date.now()}.json"`,
+            'Cache-Control': 'no-store, no-cache, must-revalidate'
+          }
+        });
+      }
+
+      else if (pathname === '/api/account/delete' && method === 'POST') {
+        const user = await getAuthenticatedUser(request, env);
+        if (!user) return applySecurityHeaders(jsonError('AUTH_REQUIRED', 'Sign-in required for account deletion', 401), request, env);
+
+        const body = await parseJsonBody(request);
+        const { confirmationText, reason, feedback, wishesHandling } = body || {};
+
+        let deletionRes;
+        try {
+          deletionRes = processAccountDeletionRequest({
+            user,
+            confirmationText,
+            reason,
+            feedback,
+            wishesHandling,
+            actor: user
+          });
+        } catch (delErr) {
+          return applySecurityHeaders(jsonError('VALIDATION_ERROR', delErr.message, 400), request, env);
+        }
+
+        const { deletionRecord, deactivatedUser, auditLog, message } = deletionRes;
+
+        if (env.DB && typeof env.DB.prepare === 'function') {
+          try {
+            await env.DB.prepare(`
+              INSERT INTO account_deletion_requests (
+                id, user_id, status, reason, feedback, wishes_handling,
+                financial_records_retained, requested_at, grace_period_ends_at, admin_notes
+              ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+            `).bind(
+              deletionRecord.id, deletionRecord.userId, deletionRecord.status,
+              deletionRecord.reason, deletionRecord.feedback, deletionRecord.wishesHandling,
+              deletionRecord.financialRecordsRetained, deletionRecord.requestedAt,
+              deletionRecord.gracePeriodEndsAt, deletionRecord.adminNotes
+            ).run();
+
+            await env.DB.prepare(`
+              UPDATE users SET status = 'deactivated', display_name = ?, avatar_url = ?, updated_at = ?
+              WHERE id = ?
+            `).bind(deactivatedUser.displayName, deactivatedUser.avatarUrl, deactivatedUser.updatedAt, user.id).run();
+
+            if (wishesHandling === 'unpublish_immediately') {
+              await env.DB.prepare("UPDATE wishes SET status = 'archived', updated_at = ? WHERE user_id = ?")
+                .bind(new Date().toISOString(), user.id).run();
+            }
+
+            await env.DB.prepare('DELETE FROM sessions WHERE user_id = ?').bind(user.id).run();
+
+            await env.DB.prepare(`
+              INSERT INTO admin_audit_logs (id, actor_id, actor_name, actor_role, action, target_type, target_id, details, ip_address, created_at)
+              VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+            `).bind(
+              auditLog.id, auditLog.actorId, auditLog.actorName, auditLog.actorRole,
+              auditLog.action, auditLog.targetType, auditLog.targetId,
+              auditLog.details, '127.0.0.1', auditLog.createdAt
+            ).run();
+          } catch (e) {}
+        }
+
+        const headers = {
+          'Set-Cookie': 'wm_session=; Path=/; Max-Age=0; HttpOnly; SameSite=Lax'
+        };
+
+        response = jsonSuccess({
+          success: true,
+          message,
+          requestId: deletionRecord.id,
+          gracePeriodEndsAt: deletionRecord.gracePeriodEndsAt,
+          status: 'deactivated'
+        }, 200, headers, requestId);
+      }
+
+      else if (pathname === '/api/account/cancel-deletion' && method === 'POST') {
+        const user = await getAuthenticatedUser(request, env);
+        if (!user) return applySecurityHeaders(jsonError('AUTH_REQUIRED', 'Sign-in required', 401), request, env);
+
+        let deletionRequest = null;
+        if (env.DB && typeof env.DB.prepare === 'function') {
+          try {
+            deletionRequest = await env.DB.prepare("SELECT * FROM account_deletion_requests WHERE user_id = ? AND status = 'DEACTIVATED' ORDER BY requested_at DESC LIMIT 1").bind(user.id).first();
+            if (deletionRequest) {
+              const now = new Date().toISOString();
+              await env.DB.prepare("UPDATE account_deletion_requests SET status = 'CANCELLED', cancelled_at = ? WHERE id = ?")
+                .bind(now, deletionRequest.id).run();
+
+              await env.DB.prepare("UPDATE users SET status = 'active', display_name = 'Creator', updated_at = ? WHERE id = ?")
+                .bind(now, user.id).run();
+
+              const ip = request.headers.get('cf-connecting-ip') || '127.0.0.1';
+              const ua = request.headers.get('user-agent') || '';
+              const secEvt = createSecurityEventRecord({
+                userId: user.id,
+                eventType: SECURITY_EVENT_TYPES.ACCOUNT_DELETION_CANCELLED,
+                ipAddress: ip,
+                userAgent: ua,
+                details: { requestId: deletionRequest.id }
+              });
+              await env.DB.prepare(`
+                INSERT INTO user_security_events (id, user_id, event_type, ip_address, user_agent, device_info, details_json, created_at)
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+              `).bind(secEvt.id, secEvt.userId, secEvt.eventType, secEvt.ipAddress, secEvt.userAgent, secEvt.deviceInfo, secEvt.detailsJson, secEvt.createdAt).run();
+            }
+          } catch (e) {}
+        }
+
+        response = jsonSuccess({ success: true, message: 'Account deactivation cancelled. Welcome back!' }, 200, {}, requestId);
+      }
+
+      else if (pathname === '/api/account/deletion-status' && method === 'GET') {
+        const user = await getAuthenticatedUser(request, env);
+        if (!user) return applySecurityHeaders(jsonError('AUTH_REQUIRED', 'Sign-in required', 401), request, env);
+
+        let activeRequest = null;
+        if (env.DB && typeof env.DB.prepare === 'function') {
+          try {
+            activeRequest = await env.DB.prepare("SELECT * FROM account_deletion_requests WHERE user_id = ? AND status = 'DEACTIVATED' ORDER BY requested_at DESC LIMIT 1").bind(user.id).first();
+          } catch (e) {}
+        }
+
+        response = jsonSuccess({
+          isPendingDeletion: Boolean(activeRequest),
+          deletionRequest: activeRequest
+        }, 200, {}, requestId);
+      }
+
+      // --- Admin Security & Deletion Oversight ---
+      else if (pathname.startsWith('/api/admin/users/') && pathname.endsWith('/security') && method === 'GET') {
+        const user = await getAuthenticatedUser(request, env);
+        if (!user) return applySecurityHeaders(jsonError('AUTH_REQUIRED', 'Authentication required', 401), request, env);
+        const isAdmin = await verifyAdminRole(user, env);
+        if (!isAdmin) return applySecurityHeaders(jsonError('FORBIDDEN', 'Admin role required', 403), request, env);
+
+        const targetUserId = pathname.replace('/api/admin/users/', '').replace('/security', '').trim();
+        let targetSessions = [];
+        let targetEvents = [];
+        let targetPrivacy = null;
+        let targetDeletion = null;
+
+        if (env.DB && typeof env.DB.prepare === 'function') {
+          try {
+            const sRows = await env.DB.prepare('SELECT * FROM sessions WHERE user_id = ? ORDER BY created_at DESC LIMIT 20').bind(targetUserId).all();
+            targetSessions = (sRows.results || []).map(s => formatSessionForUser(s, null));
+
+            const eRows = await env.DB.prepare('SELECT * FROM user_security_events WHERE user_id = ? ORDER BY created_at DESC LIMIT 30').bind(targetUserId).all();
+            targetEvents = eRows.results || [];
+
+            targetPrivacy = await env.DB.prepare('SELECT * FROM user_privacy_settings WHERE user_id = ? LIMIT 1').bind(targetUserId).first().catch(() => null);
+            targetDeletion = await env.DB.prepare('SELECT * FROM account_deletion_requests WHERE user_id = ? ORDER BY requested_at DESC LIMIT 1').bind(targetUserId).first().catch(() => null);
+          } catch (e) {}
+        }
+
+        response = jsonSuccess({
+          userId: targetUserId,
+          activeSessions: targetSessions,
+          securityEvents: targetEvents,
+          privacySettings: targetPrivacy,
+          deletionRequest: targetDeletion
+        }, 200, {}, requestId);
+      }
+
+      else if (pathname.startsWith('/api/admin/users/') && pathname.endsWith('/terminate-sessions') && method === 'POST') {
+        const user = await getAuthenticatedUser(request, env);
+        if (!user) return applySecurityHeaders(jsonError('AUTH_REQUIRED', 'Authentication required', 401), request, env);
+        const isAdmin = await verifyAdminRole(user, env);
+        if (!isAdmin) return applySecurityHeaders(jsonError('FORBIDDEN', 'Admin role required', 403), request, env);
+
+        const targetUserId = pathname.replace('/api/admin/users/', '').replace('/terminate-sessions', '').trim();
+        let terminatedCount = 0;
+
+        if (env.DB && typeof env.DB.prepare === 'function') {
+          try {
+            const delRes = await env.DB.prepare('DELETE FROM sessions WHERE user_id = ?').bind(targetUserId).run();
+            terminatedCount = delRes.changes || 0;
+
+            const auditLog = createAuditLogEntry({
+              actorId: user.id,
+              actorName: user.displayName || 'Admin',
+              actorRole: user.role || 'admin',
+              action: 'ADMIN_TERMINATE_USER_SESSIONS',
+              targetType: 'user_account',
+              targetId: targetUserId,
+              details: { terminatedCount }
+            });
+            await env.DB.prepare(`
+              INSERT INTO admin_audit_logs (id, actor_id, actor_name, actor_role, action, target_type, target_id, details, ip_address, created_at)
+              VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+            `).bind(
+              auditLog.id, auditLog.actorId, auditLog.actorName, auditLog.actorRole,
+              auditLog.action, auditLog.targetType, auditLog.targetId,
+              auditLog.details, '127.0.0.1', auditLog.createdAt
+            ).run();
+          } catch (e) {}
+        }
+
+        response = jsonSuccess({ success: true, message: `Terminated ${terminatedCount} active sessions for user ${targetUserId}`, terminatedCount }, 200, {}, requestId);
+      }
+
+      else if (pathname === '/api/admin/deletions' && method === 'GET') {
+        const user = await getAuthenticatedUser(request, env);
+        if (!user) return applySecurityHeaders(jsonError('AUTH_REQUIRED', 'Authentication required', 401), request, env);
+        const isAdmin = await verifyAdminRole(user, env);
+        if (!isAdmin) return applySecurityHeaders(jsonError('FORBIDDEN', 'Admin role required', 403), request, env);
+
+        let deletionRequests = [];
+        if (env.DB && typeof env.DB.prepare === 'function') {
+          try {
+            const rows = await env.DB.prepare('SELECT * FROM account_deletion_requests ORDER BY requested_at DESC LIMIT 100').all();
+            deletionRequests = rows.results || [];
+          } catch (e) {}
+        }
+
+        response = jsonSuccess({ deletionRequests, total: deletionRequests.length }, 200, {}, requestId);
+      }
+
+      // =====================================================================
+      // --- PART 36: REFERRAL PROGRAM, REWARD LEDGER & FRAUD PREVENTION ---
+      // =====================================================================
+
+      // 1. User Referral Code & Sharing Info
+      else if (pathname === '/api/referrals/my-code' && method === 'GET') {
+        const user = await getAuthenticatedUser(request, env);
+        if (!user) return applySecurityHeaders(jsonError('AUTH_REQUIRED', 'Sign-in required to access referral code', 401), request, env);
+
+        const codeRecord = await ensureUserReferralCode(user.id, env.DB);
+        const program = await getReferralProgramConfig(env.DB);
+        const baseUrl = env.PUBLIC_APP_URL || new URL(request.url).origin;
+        const referralLink = `${baseUrl}/?ref=${codeRecord.referralCode}`;
+
+        response = jsonSuccess({
+          referralCode: codeRecord.referralCode,
+          customSlug: codeRecord.customSlug,
+          referralLink,
+          program: {
+            name: program.name,
+            isActive: program.isActive,
+            referrerRewardAmount: program.referrerRewardAmount,
+            referrerRewardType: program.referrerRewardType,
+            refereeRewardAmount: program.refereeRewardAmount,
+            refereeRewardType: program.refereeRewardType,
+            termsSummary: program.termsSummary
+          },
+          metrics: {
+            totalClicks: codeRecord.totalClicks,
+            totalSignups: codeRecord.totalSignups,
+            totalQualified: codeRecord.totalQualified,
+            totalRewardsEarned: codeRecord.totalRewardsEarned
+          }
+        }, 200, {}, requestId);
+      }
+
+      // 2. User Referral Dashboard (Complete Stats, Masked Friends, Ledger)
+      else if (pathname === '/api/referrals/dashboard' && method === 'GET') {
+        const user = await getAuthenticatedUser(request, env);
+        if (!user) return applySecurityHeaders(jsonError('AUTH_REQUIRED', 'Sign-in required to access referral dashboard', 401), request, env);
+
+        const baseUrl = env.PUBLIC_APP_URL || new URL(request.url).origin;
+        const dashboard = await getUserReferralDashboard(user.id, env.DB, baseUrl);
+        response = jsonSuccess(dashboard, 200, {}, requestId);
+      }
+
+      // 3. Public: Track Referral Link Click
+      else if (pathname === '/api/referrals/track-click' && method === 'POST') {
+        const body = await request.json().catch(() => ({}));
+        const referralCode = body.referralCode || url.searchParams.get('ref') || '';
+        const visitorToken = body.visitorToken || getCookie(request, 'wm_vtok');
+        const landingPage = body.landingPage || '/';
+        const clientIp = request.headers.get('cf-connecting-ip') || '127.0.0.1';
+        const userAgent = request.headers.get('user-agent') || '';
+
+        const result = await trackReferralClick({
+          referralCode,
+          visitorToken,
+          ip: clientIp,
+          userAgent,
+          landingPage
+        }, env.DB);
+
+        if (!result.success) {
+          return applySecurityHeaders(jsonError(result.reason || 'TRACKING_FAILED', 'Failed to track referral click', 400), request, env);
+        }
+
+        const headers = {};
+        if (result.visitorToken) {
+          headers['Set-Cookie'] = `wm_vtok=${encodeURIComponent(result.visitorToken)}; Path=/; Max-Age=${30 * 24 * 60 * 60}; SameSite=Lax`;
+        }
+
+        response = jsonSuccess(result, 200, headers, requestId);
+      }
+
+      // 4. Public: Validate Referral Code
+      else if (pathname === '/api/referrals/validate-code' && method === 'POST') {
+        const body = await request.json().catch(() => ({}));
+        const code = (body.code || '').trim().toUpperCase();
+        if (!code) return applySecurityHeaders(jsonError('MISSING_CODE', 'Referral code is required', 400), request, env);
+
+        const row = await env.DB.prepare('SELECT id, is_active FROM user_referral_codes WHERE referral_code = ? OR custom_slug = ? LIMIT 1').bind(code, code).first().catch(() => null);
+        if (!row || !row.is_active) {
+          return applySecurityHeaders(jsonError('INVALID_CODE', 'Invite code is not valid or expired', 404), request, env);
+        }
+
+        const program = await getReferralProgramConfig(env.DB);
+        response = jsonSuccess({
+          valid: true,
+          code,
+          refereeBenefit: `${program.refereeRewardAmount} ${program.refereeRewardType === 'PREMIUM_DAYS' ? 'Days VIP Access' : 'Credits'}`
+        }, 200, {}, requestId);
+      }
+
+      // 5. User: Link Current User to Referral Attribution
+      else if (pathname === '/api/referrals/link-signup' && method === 'POST') {
+        const user = await getAuthenticatedUser(request, env);
+        if (!user) return applySecurityHeaders(jsonError('AUTH_REQUIRED', 'Sign-in required to link referral', 401), request, env);
+
+        const body = await request.json().catch(() => ({}));
+        const referralCode = body.referralCode || getCookie(request, 'wm_ref');
+        const visitorToken = body.visitorToken || getCookie(request, 'wm_vtok');
+        const clientIp = request.headers.get('cf-connecting-ip') || '127.0.0.1';
+        const userAgent = request.headers.get('user-agent') || '';
+
+        const linkResult = await linkRefereeSignup({
+          refereeUserId: user.id,
+          referralCode,
+          visitorToken,
+          clientIp,
+          userAgent
+        }, env.DB, env);
+
+        if (!linkResult.success) {
+          return applySecurityHeaders(jsonError(linkResult.reason || 'LINK_FAILED', 'Could not link referral', 400, { flags: linkResult.flags }), request, env);
+        }
+
+        response = jsonSuccess(linkResult, 200, {}, requestId);
+      }
+
+      // 6. User: Claim / Redeem an Earned Reward
+      else if (pathname === '/api/referrals/claim-reward' && method === 'POST') {
+        const user = await getAuthenticatedUser(request, env);
+        if (!user) return applySecurityHeaders(jsonError('AUTH_REQUIRED', 'Sign-in required to claim reward', 401), request, env);
+
+        const body = await request.json().catch(() => ({}));
+        const { ledgerId } = body;
+        if (!ledgerId) return applySecurityHeaders(jsonError('MISSING_LEDGER_ID', 'Reward ID is required', 400), request, env);
+
+        try {
+          const claimResult = await claimReferralReward(user.id, ledgerId, env.DB, env);
+          response = jsonSuccess(claimResult, 200, {}, requestId);
+        } catch (claimErr) {
+          return applySecurityHeaders(jsonError('CLAIM_FAILED', claimErr.message || 'Reward could not be claimed', 400), request, env);
+        }
+      }
+
+      // 7. Public: Get Referral Program Rules
+      else if (pathname === '/api/referrals/program' && method === 'GET') {
+        const program = await getReferralProgramConfig(env.DB);
+        response = jsonSuccess({ program }, 200, {}, requestId);
+      }
+
+      // --- Admin Referral Management Endpoints ---
+
+      // 8. Admin: Overview & KPIs
+      else if (pathname === '/api/admin/referrals/overview' && method === 'GET') {
+        const user = await getAuthenticatedUser(request, env);
+        if (!user) return applySecurityHeaders(jsonError('AUTH_REQUIRED', 'Authentication required', 401), request, env);
+        const isAdmin = await verifyAdminRole(user, env);
+        if (!isAdmin) return applySecurityHeaders(jsonError('FORBIDDEN', 'Admin role required', 403), request, env);
+
+        const overview = await getAdminReferralOverview(env.DB);
+        response = jsonSuccess(overview, 200, {}, requestId);
+      }
+
+      // 9. Admin: List Attributions
+      else if (pathname === '/api/admin/referrals/list' && method === 'GET') {
+        const user = await getAuthenticatedUser(request, env);
+        if (!user) return applySecurityHeaders(jsonError('AUTH_REQUIRED', 'Authentication required', 401), request, env);
+        const isAdmin = await verifyAdminRole(user, env);
+        if (!isAdmin) return applySecurityHeaders(jsonError('FORBIDDEN', 'Admin role required', 403), request, env);
+
+        const status = url.searchParams.get('status') || null;
+        const limit = Math.min(100, parseInt(url.searchParams.get('limit') || '50', 10));
+        const offset = parseInt(url.searchParams.get('offset') || '0', 10);
+
+        const result = await listAdminReferrals({ status, limit, offset }, env.DB);
+        response = jsonSuccess(result, 200, {}, requestId);
+      }
+
+      // 10. Admin: List Rewards Ledger
+      else if (pathname === '/api/admin/referrals/ledger' && method === 'GET') {
+        const user = await getAuthenticatedUser(request, env);
+        if (!user) return applySecurityHeaders(jsonError('AUTH_REQUIRED', 'Authentication required', 401), request, env);
+        const isAdmin = await verifyAdminRole(user, env);
+        if (!isAdmin) return applySecurityHeaders(jsonError('FORBIDDEN', 'Admin role required', 403), request, env);
+
+        const status = url.searchParams.get('status') || null;
+        const limit = Math.min(100, parseInt(url.searchParams.get('limit') || '50', 10));
+        const offset = parseInt(url.searchParams.get('offset') || '0', 10);
+
+        const result = await listAdminRewardLedger({ status, limit, offset }, env.DB);
+        response = jsonSuccess(result, 200, {}, requestId);
+      }
+
+      // 11. Admin: List Fraud & Risk Logs
+      else if (pathname === '/api/admin/referrals/fraud-logs' && method === 'GET') {
+        const user = await getAuthenticatedUser(request, env);
+        if (!user) return applySecurityHeaders(jsonError('AUTH_REQUIRED', 'Authentication required', 401), request, env);
+        const isAdmin = await verifyAdminRole(user, env);
+        if (!isAdmin) return applySecurityHeaders(jsonError('FORBIDDEN', 'Admin role required', 403), request, env);
+
+        const limit = Math.min(100, parseInt(url.searchParams.get('limit') || '50', 10));
+        const offset = parseInt(url.searchParams.get('offset') || '0', 10);
+
+        const result = await getAdminFraudLogs({ limit, offset }, env.DB);
+        response = jsonSuccess(result, 200, {}, requestId);
+      }
+
+      // 12. Admin: Get Program Config
+      else if (pathname === '/api/admin/referrals/config' && method === 'GET') {
+        const user = await getAuthenticatedUser(request, env);
+        if (!user) return applySecurityHeaders(jsonError('AUTH_REQUIRED', 'Authentication required', 401), request, env);
+        const isAdmin = await verifyAdminRole(user, env);
+        if (!isAdmin) return applySecurityHeaders(jsonError('FORBIDDEN', 'Admin role required', 403), request, env);
+
+        const config = await getReferralProgramConfig(env.DB);
+        response = jsonSuccess({ config }, 200, {}, requestId);
+      }
+
+      // 13. Admin: Update Program Config
+      else if (pathname === '/api/admin/referrals/config' && method === 'PUT') {
+        const user = await getAuthenticatedUser(request, env);
+        if (!user) return applySecurityHeaders(jsonError('AUTH_REQUIRED', 'Authentication required', 401), request, env);
+        const isAdmin = await verifyAdminRole(user, env);
+        if (!isAdmin) return applySecurityHeaders(jsonError('FORBIDDEN', 'Admin role required', 403), request, env);
+
+        const body = await request.json().catch(() => ({}));
+        const updateResult = await updateReferralProgramConfig(body, user, env.DB);
+        response = jsonSuccess(updateResult, 200, {}, requestId);
+      }
+
+      // 14. Admin: Approve Referral
+      else if (pathname === '/api/admin/referrals/actions/approve' && method === 'POST') {
+        const user = await getAuthenticatedUser(request, env);
+        if (!user) return applySecurityHeaders(jsonError('AUTH_REQUIRED', 'Authentication required', 401), request, env);
+        const isAdmin = await verifyAdminRole(user, env);
+        if (!isAdmin) return applySecurityHeaders(jsonError('FORBIDDEN', 'Admin role required', 403), request, env);
+
+        const body = await request.json().catch(() => ({}));
+        const { attributionId } = body;
+        if (!attributionId) return applySecurityHeaders(jsonError('MISSING_ID', 'attributionId is required', 400), request, env);
+
+        const approveResult = await adminApproveReferral(attributionId, user, env.DB, env);
+        response = jsonSuccess(approveResult, 200, {}, requestId);
+      }
+
+      // 15. Admin: Reject Referral
+      else if (pathname === '/api/admin/referrals/actions/reject' && method === 'POST') {
+        const user = await getAuthenticatedUser(request, env);
+        if (!user) return applySecurityHeaders(jsonError('AUTH_REQUIRED', 'Authentication required', 401), request, env);
+        const isAdmin = await verifyAdminRole(user, env);
+        if (!isAdmin) return applySecurityHeaders(jsonError('FORBIDDEN', 'Admin role required', 403), request, env);
+
+        const body = await request.json().catch(() => ({}));
+        const { attributionId, reason } = body;
+        if (!attributionId) return applySecurityHeaders(jsonError('MISSING_ID', 'attributionId is required', 400), request, env);
+
+        const rejectResult = await adminRejectReferral(attributionId, reason || 'Rejected by administrator', user, env.DB);
+        response = jsonSuccess(rejectResult, 200, {}, requestId);
+      }
+
 
       else if (pathname === '/api/admin/user-creations' && method === 'GET') {
         const user = await getAuthenticatedUser(request, env);

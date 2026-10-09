@@ -1,0 +1,636 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8"/>
+  <base href="/"/>
+  <meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+  <meta content="web_dashboard" name="shell-type"/>
+  <title>WishMagic | Referral Program &amp; Fraud Prevention Console</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com"/>
+  <link crossorigin="" href="https://fonts.gstatic.com" rel="preconnect"/>
+  <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;600;700&family=Plus+Jakarta+Sans:wght@400;500;600;700;800&family=Outfit:wght@500;600;700;800&display=swap" rel="stylesheet"/>
+  <link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:opsz,wght,FILL,GRAD@20..48,100..700,0..1,-50..200&display=swap" rel="stylesheet"/>
+  <script src="js/tailwind-config.js"></script>
+  <script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+  <script>
+    if (typeof tailwind !== 'undefined' && typeof sharedTailwindConfig !== 'undefined') {
+      tailwind.config = sharedTailwindConfig;
+    }
+  </script>
+  <link rel="stylesheet" href="css/admin-theme.css"/>
+  <script src="js/api-client.js"></script>
+  <script src="js/auth-service.js"></script>
+  <script src="js/WishMagicCore.js"></script>
+  <script src="js/admin-theme.js"></script>
+</head>
+<body class="bg-background text-on-surface font-body-md min-h-screen antialiased selection:bg-primary selection:text-white">
+
+<!-- Mobile Sidebar Backdrop -->
+<div id="sidebar-backdrop" class="fixed inset-0 bg-black/75 backdrop-blur-sm z-40 hidden md:hidden" onclick="toggleSidebar()"></div>
+
+<!-- Responsive Sidebar Drawer -->
+<aside id="admin-sidebar" class="fixed left-0 top-0 h-screen w-72 bg-surface-container-lowest border-r border-outline-variant/30 z-50 flex flex-col justify-between shadow-2xl -translate-x-full md:translate-x-0 transition-transform duration-300 ease-in-out">
+  <div class="flex flex-col min-h-0 flex-1">
+    <div class="px-space-lg pt-space-lg pb-space-md flex-shrink-0">
+      <div class="flex items-center justify-between">
+        <div class="flex items-center gap-space-sm">
+          <div class="w-9 h-9 rounded-xl bg-gradient-to-tr from-primary-container to-secondary flex items-center justify-center shadow-[0_0_20px_rgba(124,58,237,0.45)] flex-shrink-0">
+            <span class="material-symbols-outlined text-white text-[20px]">auto_fix_high</span>
+          </div>
+          <div class="flex flex-col">
+            <span class="font-headline-sm text-headline-sm text-on-surface font-bold tracking-tight">WishMagic</span>
+            <span class="font-label-sm text-label-sm text-primary tracking-widest uppercase">Admin Studio</span>
+          </div>
+        </div>
+        <button class="md:hidden p-1.5 rounded-lg bg-surface-container-high hover:bg-surface-container-highest text-on-surface transition-colors" onclick="toggleSidebar()" aria-label="Close Sidebar">
+          <span class="material-symbols-outlined text-[20px]">close</span>
+        </button>
+      </div>
+    </div>
+    <div class="px-space-md mt-space-sm flex-1 overflow-y-auto custom-scrollbar pb-4">
+      <div class="px-space-sm pb-space-xs font-label-sm text-label-sm uppercase tracking-wider text-outline sticky top-0 bg-surface-container-lowest/95 backdrop-blur-xs z-10">Operations Center</div>
+      <nav class="flex flex-col gap-1 px-space-xs mt-space-xs">
+        <a class="group flex items-center gap-space-sm px-space-md py-2.5 rounded-lg text-on-surface-variant hover:bg-surface-container-high hover:text-on-surface transition-all duration-200" href="/admin/anktech/anktech/admin/overview">
+          <span class="material-symbols-outlined text-[20px] transition-transform group-hover:scale-110">dashboard</span>
+          <span class="font-body-md text-body-md">Overview &amp; Analytics</span>
+        </a>
+        <a class="group flex items-center gap-space-sm px-space-md py-2.5 rounded-lg text-on-surface-variant hover:bg-surface-container-high hover:text-on-surface transition-all duration-200" href="/admin/anktech/anktech/admin/wishes">
+          <span class="material-symbols-outlined text-[20px] transition-transform group-hover:scale-110">card_giftcard</span>
+          <span class="font-body-md text-body-md flex-1">Wishes &amp; Registry</span>
+          <span class="px-2 py-0.5 rounded-full bg-emerald-500/20 text-emerald-400 font-bold text-[10px]">Live</span>
+        </a>
+        <a class="group flex items-center gap-space-sm px-space-md py-2.5 rounded-lg text-on-surface-variant hover:bg-surface-container-high hover:text-on-surface transition-all duration-200" href="/admin/anktech/anktech/admin/users">
+          <span class="material-symbols-outlined text-[20px] transition-transform group-hover:scale-110">group</span>
+          <span class="font-body-md text-body-md">Users &amp; Creators</span>
+        </a>
+        <a class="group flex items-center gap-space-sm px-space-md py-2.5 rounded-lg bg-primary-container text-white font-semibold shadow-[0_0_24px_rgba(124,58,237,0.35)] transition-all duration-200" href="/admin/anktech/anktech/admin/referrals">
+          <span class="material-symbols-outlined text-[20px] transition-transform group-hover:scale-110">loyalty</span>
+          <span class="font-body-md text-body-md flex-1">Referrals &amp; Rewards</span>
+          <span class="px-2 py-0.5 rounded-full bg-pink-400/20 text-pink-200 font-bold text-[10px]">Part 36</span>
+        </a>
+        <a class="group flex items-center gap-space-sm px-space-md py-2.5 rounded-lg text-on-surface-variant hover:bg-surface-container-high hover:text-on-surface transition-all duration-200" href="/admin/anktech/anktech/admin/moderation">
+          <span class="material-symbols-outlined text-[20px] transition-transform group-hover:scale-110">gavel</span>
+          <span class="font-body-md text-body-md flex-1">Moderation Queue</span>
+        </a>
+        <a class="group flex items-center gap-space-sm px-space-md py-2.5 rounded-lg text-on-surface-variant hover:bg-surface-container-high hover:text-on-surface transition-all duration-200" href="/admin/anktech/anktech/admin/support">
+          <span class="material-symbols-outlined text-[20px] transition-transform group-hover:scale-110">support_agent</span>
+          <span class="font-body-md text-body-md flex-1">Support Console</span>
+        </a>
+        <a class="group flex items-center gap-space-sm px-space-md py-2.5 rounded-lg text-on-surface-variant hover:bg-surface-container-high hover:text-on-surface transition-all duration-200" href="/admin/anktech/anktech/admin/audit-logs">
+          <span class="material-symbols-outlined text-[20px] transition-transform group-hover:scale-110">history_toggle_off</span>
+          <span class="font-body-md text-body-md">Audit Trail</span>
+        </a>
+        <a class="group flex items-center gap-space-sm px-space-md py-2.5 rounded-lg text-on-surface-variant hover:bg-surface-container-high hover:text-on-surface transition-all duration-200" href="/admin/anktech/anktech/admin/storage-health">
+          <span class="material-symbols-outlined text-[20px] transition-transform group-hover:scale-110">health_and_safety</span>
+          <span class="font-body-md text-body-md">Storage Health</span>
+        </a>
+        <a class="group flex items-center gap-space-sm px-space-md py-2.5 rounded-lg text-on-surface-variant hover:bg-surface-container-high hover:text-on-surface transition-all duration-200" href="/admin/anktech/anktech/admin/orders">
+          <span class="material-symbols-outlined text-[20px] transition-transform group-hover:scale-110">receipt_long</span>
+          <span class="font-body-md text-body-md">Orders &amp; Billing</span>
+        </a>
+        <a class="group flex items-center gap-space-sm px-space-md py-2.5 rounded-lg text-on-surface-variant hover:bg-surface-container-high hover:text-on-surface transition-all duration-200" href="/admin/anktech/anktech/admin/settings">
+          <span class="material-symbols-outlined text-[20px] transition-transform group-hover:scale-110">admin_panel_settings</span>
+          <span class="font-body-md text-body-md">Settings &amp; Diagnostics</span>
+        </a>
+      </nav>
+    </div>
+  </div>
+  <div class="p-space-md flex flex-col gap-space-xs bg-surface-container-lowest border-t border-purple-900/30 flex-shrink-0">
+    <div class="flex items-center justify-between text-on-surface-variant text-xs">
+      <span>WishMagic Admin Engine</span>
+      <span class="px-2 py-0.5 rounded-full bg-surface-container-high text-primary font-mono font-bold">v5.0-P36</span>
+    </div>
+  </div>
+</aside>
+
+<!-- Main Wrapper -->
+<div class="w-full md:pl-72 min-h-screen flex flex-col">
+  <!-- Universal Header -->
+  <header class="fixed top-0 left-0 md:left-72 right-0 h-16 bg-surface/90 backdrop-blur-xl z-30 shadow-[0_1px_8px_rgba(0,0,0,0.04)] border-b border-outline-variant/30">
+    <div class="w-full h-full px-4 md:px-space-lg flex items-center justify-between gap-4">
+      <div class="flex items-center gap-3">
+        <button class="md:hidden p-2 rounded-lg bg-surface-container hover:bg-surface-container-high text-on-surface" onclick="toggleSidebar()">
+          <span class="material-symbols-outlined text-[20px]">menu</span>
+        </button>
+        <div>
+          <h1 class="font-headline-sm text-base md:text-lg font-bold text-on-surface">Referral Program &amp; Fraud Prevention</h1>
+          <p class="text-xs text-on-surface-variant hidden sm:block">Manage invite campaigns, inspect reward ledgers, and audit fraud scores.</p>
+        </div>
+      </div>
+
+      <div class="flex items-center gap-3">
+        <button onclick="loadAdminReferralData()" class="p-2 rounded-lg bg-surface-container hover:bg-surface-container-high text-on-surface-variant hover:text-on-surface transition" title="Refresh Data">
+          <span class="material-symbols-outlined text-[18px]">refresh</span>
+        </button>
+        <a href="/" target="_blank" class="px-3 py-1.5 rounded-lg border border-outline-variant/40 hover:bg-surface-container-high text-xs font-semibold text-on-surface flex items-center gap-1.5 transition">
+          <span class="material-symbols-outlined text-[16px]">open_in_new</span>
+          <span class="hidden sm:inline">Storefront</span>
+        </a>
+      </div>
+    </div>
+  </header>
+
+  <!-- Page Body -->
+  <main class="flex-1 mt-16 p-4 md:p-space-lg max-w-7xl w-full mx-auto flex flex-col gap-6">
+
+    <!-- KPI Metric Summary Cards -->
+    <div class="grid grid-cols-2 lg:grid-cols-6 gap-3.5">
+      <div class="p-4 rounded-xl bg-surface-container border border-outline-variant/30 flex flex-col gap-1">
+        <span class="text-xs text-on-surface-variant font-medium">Active Codes</span>
+        <span id="kpi-codes" class="font-display font-extrabold text-2xl text-on-surface mt-1">0</span>
+        <span class="text-[10px] text-outline">Creator Links</span>
+      </div>
+
+      <div class="p-4 rounded-xl bg-surface-container border border-outline-variant/30 flex flex-col gap-1">
+        <span class="text-xs text-on-surface-variant font-medium">Total Clicks</span>
+        <span id="kpi-clicks" class="font-display font-extrabold text-2xl text-primary mt-1">0</span>
+        <span class="text-[10px] text-outline">Attribution Visits</span>
+      </div>
+
+      <div class="p-4 rounded-xl bg-surface-container border border-outline-variant/30 flex flex-col gap-1">
+        <span class="text-xs text-on-surface-variant font-medium">Referred Signups</span>
+        <span id="kpi-signups" class="font-display font-extrabold text-2xl text-blue-400 mt-1">0</span>
+        <span class="text-[10px] text-outline">New Accounts</span>
+      </div>
+
+      <div class="p-4 rounded-xl bg-surface-container border border-outline-variant/30 flex flex-col gap-1">
+        <span class="text-xs text-on-surface-variant font-medium">Qualified Conversions</span>
+        <span id="kpi-qualified" class="font-display font-extrabold text-2xl text-emerald-400 mt-1">0</span>
+        <span id="kpi-cvr" class="text-[10px] text-emerald-300 font-bold">0% CVR</span>
+      </div>
+
+      <div class="p-4 rounded-xl bg-surface-container border border-outline-variant/30 flex flex-col gap-1">
+        <span class="text-xs text-on-surface-variant font-medium">Pending Review</span>
+        <span id="kpi-pending" class="font-display font-extrabold text-2xl text-amber-400 mt-1">0</span>
+        <span class="text-[10px] text-outline">Awaiting Approval</span>
+      </div>
+
+      <div class="p-4 rounded-xl bg-surface-container border border-outline-variant/30 flex flex-col gap-1">
+        <span class="text-xs text-on-surface-variant font-medium">Fraud Flagged</span>
+        <span id="kpi-fraud" class="font-display font-extrabold text-2xl text-red-400 mt-1">0</span>
+        <span class="text-[10px] text-red-300">Suspicious Events</span>
+      </div>
+    </div>
+
+    <!-- Navigation Tabs -->
+    <div class="flex items-center gap-2 border-b border-outline-variant/30 pb-2">
+      <button onclick="switchTab('referrals')" id="tab-btn-referrals" class="px-4 py-2 rounded-lg bg-primary-container text-white font-bold text-xs shadow-sm transition">
+        Referrals &amp; Attributions
+      </button>
+      <button onclick="switchTab('ledger')" id="tab-btn-ledger" class="px-4 py-2 rounded-lg bg-surface-container hover:bg-surface-container-high text-on-surface-variant font-semibold text-xs transition">
+        Rewards Ledger
+      </button>
+      <button onclick="switchTab('fraud')" id="tab-btn-fraud" class="px-4 py-2 rounded-lg bg-surface-container hover:bg-surface-container-high text-on-surface-variant font-semibold text-xs transition">
+        Fraud &amp; Abuse Logs
+      </button>
+      <button onclick="switchTab('config')" id="tab-btn-config" class="px-4 py-2 rounded-lg bg-surface-container hover:bg-surface-container-high text-on-surface-variant font-semibold text-xs transition">
+        Program Settings
+      </button>
+    </div>
+
+    <!-- Tab 1: Referrals Table -->
+    <section id="sec-tab-referrals" class="space-y-4">
+      <div class="p-4 rounded-xl bg-surface-container-low border border-outline-variant/30 flex flex-col sm:flex-row items-center justify-between gap-3">
+        <div class="flex items-center gap-2 w-full sm:w-auto">
+          <input type="text" id="filter-referral-search" placeholder="Search referrer or referee..." class="px-3 py-1.5 rounded-lg bg-surface-container border border-outline-variant/30 text-xs text-on-surface focus:outline-none focus:border-primary w-full sm:w-64"/>
+          <select id="filter-referral-status" onchange="loadReferralsList()" class="px-3 py-1.5 rounded-lg bg-surface-container border border-outline-variant/30 text-xs text-on-surface focus:outline-none">
+            <option value="">All Statuses</option>
+            <option value="VISITED">Visited</option>
+            <option value="PENDING">Pending</option>
+            <option value="QUALIFIED">Qualified</option>
+            <option value="REWARDED">Rewarded</option>
+            <option value="REJECTED">Rejected</option>
+          </select>
+        </div>
+        <span id="referrals-count-label" class="text-xs text-on-surface-variant">Showing 0 records</span>
+      </div>
+
+      <div class="overflow-x-auto rounded-xl border border-outline-variant/30 bg-surface-container-low">
+        <table class="w-full text-left text-xs text-on-surface">
+          <thead class="bg-surface-container border-b border-outline-variant/30 text-on-surface-variant uppercase tracking-wider font-semibold">
+            <tr>
+              <th class="p-3.5">Referrer</th>
+              <th class="p-3.5">Referee</th>
+              <th class="p-3.5">Code</th>
+              <th class="p-3.5">Attributed</th>
+              <th class="p-3.5">Status</th>
+              <th class="p-3.5 text-right">Actions</th>
+            </tr>
+          </thead>
+          <tbody id="referrals-table-body" class="divide-y divide-outline-variant/20">
+            <tr>
+              <td colspan="6" class="p-6 text-center text-on-surface-variant">Loading referrals...</td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+    </section>
+
+    <!-- Tab 2: Rewards Ledger Table -->
+    <section id="sec-tab-ledger" class="space-y-4 hidden">
+      <div class="overflow-x-auto rounded-xl border border-outline-variant/30 bg-surface-container-low">
+        <table class="w-full text-left text-xs text-on-surface">
+          <thead class="bg-surface-container border-b border-outline-variant/30 text-on-surface-variant uppercase tracking-wider font-semibold">
+            <tr>
+              <th class="p-3.5">Recipient</th>
+              <th class="p-3.5">Role</th>
+              <th class="p-3.5">Reward</th>
+              <th class="p-3.5">Status</th>
+              <th class="p-3.5">Idempotency Key</th>
+              <th class="p-3.5 text-right">Created Date</th>
+            </tr>
+          </thead>
+          <tbody id="ledger-table-body" class="divide-y divide-outline-variant/20">
+            <tr>
+              <td colspan="6" class="p-6 text-center text-on-surface-variant">Loading ledger entries...</td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+    </section>
+
+    <!-- Tab 3: Fraud & Risk Logs -->
+    <section id="sec-tab-fraud" class="space-y-4 hidden">
+      <div class="overflow-x-auto rounded-xl border border-outline-variant/30 bg-surface-container-low">
+        <table class="w-full text-left text-xs text-on-surface">
+          <thead class="bg-surface-container border-b border-outline-variant/30 text-on-surface-variant uppercase tracking-wider font-semibold">
+            <tr>
+              <th class="p-3.5">Risk Score</th>
+              <th class="p-3.5">Action Taken</th>
+              <th class="p-3.5">Detected Flags</th>
+              <th class="p-3.5">IP Address</th>
+              <th class="p-3.5">Device Summary</th>
+              <th class="p-3.5 text-right">Timestamp</th>
+            </tr>
+          </thead>
+          <tbody id="fraud-table-body" class="divide-y divide-outline-variant/20">
+            <tr>
+              <td colspan="6" class="p-6 text-center text-on-surface-variant">Loading fraud audit logs...</td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+    </section>
+
+    <!-- Tab 4: Program Configuration Form -->
+    <section id="sec-tab-config" class="space-y-6 hidden">
+      <div class="p-6 rounded-2xl bg-surface-container-low border border-outline-variant/30 max-w-2xl">
+        <h3 class="font-display font-bold text-base text-on-surface mb-4">Referral Campaign Configuration</h3>
+
+        <form onsubmit="handleSaveConfig(event)" class="space-y-4 text-xs">
+          <div>
+            <label class="block font-bold text-on-surface mb-1">Campaign Name</label>
+            <input type="text" id="cfg-name" required class="w-full p-2.5 rounded-lg bg-surface-container border border-outline-variant/30 text-on-surface"/>
+          </div>
+
+          <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
+            <div>
+              <label class="block font-bold text-on-surface mb-1">Program Status</label>
+              <select id="cfg-active" class="w-full p-2.5 rounded-lg bg-surface-container border border-outline-variant/30 text-on-surface">
+                <option value="1">Active (Allow Invites &amp; Rewards)</option>
+                <option value="0">Paused (Disable New Attributions)</option>
+              </select>
+            </div>
+
+            <div>
+              <label class="block font-bold text-on-surface mb-1">Qualifying Trigger Event</label>
+              <select id="cfg-trigger" class="w-full p-2.5 rounded-lg bg-surface-container border border-outline-variant/30 text-on-surface">
+                <option value="FIRST_WISH">First Published Wish</option>
+                <option value="SIGNUP">Account Signup</option>
+                <option value="FIRST_PURCHASE">First Order Purchase</option>
+              </select>
+            </div>
+          </div>
+
+          <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
+            <div>
+              <label class="block font-bold text-on-surface mb-1">Referrer Reward (Inviter)</label>
+              <div class="flex gap-2">
+                <input type="number" id="cfg-referrer-amount" min="1" max="365" class="w-20 p-2.5 rounded-lg bg-surface-container border border-outline-variant/30 text-on-surface" value="7"/>
+                <select id="cfg-referrer-type" class="flex-1 p-2.5 rounded-lg bg-surface-container border border-outline-variant/30 text-on-surface">
+                  <option value="PREMIUM_DAYS">Days VIP Access</option>
+                  <option value="FREE_WISH_CREDIT">Wish Credits</option>
+                </select>
+              </div>
+            </div>
+
+            <div>
+              <label class="block font-bold text-on-surface mb-1">Referee Reward (Invited Friend)</label>
+              <div class="flex gap-2">
+                <input type="number" id="cfg-referee-amount" min="1" max="365" class="w-20 p-2.5 rounded-lg bg-surface-container border border-outline-variant/30 text-on-surface" value="3"/>
+                <select id="cfg-referee-type" class="flex-1 p-2.5 rounded-lg bg-surface-container border border-outline-variant/30 text-on-surface">
+                  <option value="PREMIUM_DAYS">Days VIP Access</option>
+                  <option value="FREE_WISH_CREDIT">Wish Credits</option>
+                </select>
+              </div>
+            </div>
+          </div>
+
+          <div class="grid grid-cols-1 sm:grid-cols-3 gap-4">
+            <div>
+              <label class="block font-bold text-on-surface mb-1">Max Invites Per User</label>
+              <input type="number" id="cfg-max-user" min="1" max="1000" class="w-full p-2.5 rounded-lg bg-surface-container border border-outline-variant/30 text-on-surface" value="50"/>
+            </div>
+            <div>
+              <label class="block font-bold text-on-surface mb-1">Attribution Window (Days)</label>
+              <input type="number" id="cfg-window" min="1" max="180" class="w-full p-2.5 rounded-lg bg-surface-container border border-outline-variant/30 text-on-surface" value="30"/>
+            </div>
+            <div>
+              <label class="block font-bold text-on-surface mb-1">Fraud Strictness</label>
+              <select id="cfg-strictness" class="w-full p-2.5 rounded-lg bg-surface-container border border-outline-variant/30 text-on-surface">
+                <option value="standard">Standard</option>
+                <option value="strict">Strict (High Sensitivity)</option>
+                <option value="lenient">Lenient</option>
+              </select>
+            </div>
+          </div>
+
+          <div>
+            <label class="block font-bold text-on-surface mb-1">Terms Summary / Description</label>
+            <textarea id="cfg-terms" rows="2" class="w-full p-2.5 rounded-lg bg-surface-container border border-outline-variant/30 text-on-surface"></textarea>
+          </div>
+
+          <div class="pt-2">
+            <button type="submit" class="px-5 py-2.5 rounded-lg bg-primary hover:bg-primary-hover text-white font-bold transition">
+              Save Campaign Settings
+            </button>
+          </div>
+        </form>
+      </div>
+    </section>
+
+  </main>
+</div>
+
+<!-- Modal: Approve / Reject Referral -->
+<div id="action-modal" class="fixed inset-0 bg-black/75 backdrop-blur-sm z-50 flex items-center justify-center p-4 hidden">
+  <div class="p-6 rounded-2xl bg-surface-container-low border border-outline-variant/30 max-w-sm w-full space-y-4">
+    <h3 id="modal-title" class="font-display font-bold text-base text-on-surface">Confirm Action</h3>
+    <p id="modal-desc" class="text-xs text-on-surface-variant">Are you sure you want to proceed?</p>
+    <div id="modal-reason-box" class="hidden">
+      <label class="block text-[11px] font-bold text-on-surface mb-1">Rejection Reason</label>
+      <input type="text" id="modal-reason-input" class="w-full p-2 rounded-lg bg-surface-container border border-outline-variant/30 text-xs text-on-surface" placeholder="e.g. Duplicate device abuse"/>
+    </div>
+    <div class="flex justify-end gap-2 pt-2">
+      <button onclick="closeModal()" class="px-4 py-2 rounded-lg bg-surface-container hover:bg-surface-container-high text-xs font-semibold text-on-surface">Cancel</button>
+      <button id="modal-btn-confirm" class="px-4 py-2 rounded-lg bg-primary hover:bg-primary-hover text-xs font-bold text-white">Confirm</button>
+    </div>
+  </div>
+</div>
+
+<script>
+  let activeTab = 'referrals';
+  let cachedReferrals = [];
+
+  function switchTab(tabId) {
+    activeTab = tabId;
+    ['referrals', 'ledger', 'fraud', 'config'].forEach(t => {
+      const sec = document.getElementById(`sec-tab-${t}`);
+      const btn = document.getElementById(`tab-btn-${t}`);
+      if (t === tabId) {
+        sec.classList.remove('hidden');
+        btn.classList.add('bg-primary-container', 'text-white', 'font-bold');
+        btn.classList.remove('bg-surface-container', 'text-on-surface-variant');
+      } else {
+        sec.classList.add('hidden');
+        btn.classList.remove('bg-primary-container', 'text-white', 'font-bold');
+        btn.classList.add('bg-surface-container', 'text-on-surface-variant');
+      }
+    });
+
+    if (tabId === 'ledger') loadLedgerList();
+    if (tabId === 'fraud') loadFraudLogs();
+    if (tabId === 'config') loadConfig();
+  }
+
+  async function loadAdminReferralData() {
+    try {
+      const res = await fetch('/api/admin/referrals/overview', { credentials: 'include' });
+      const data = await res.json();
+      if (data.success) {
+        document.getElementById('kpi-codes').innerText = data.totalCodes ?? 0;
+        document.getElementById('kpi-clicks').innerText = data.totalClicks ?? 0;
+        document.getElementById('kpi-signups').innerText = data.totalSignups ?? 0;
+        document.getElementById('kpi-qualified').innerText = data.totalQualified ?? 0;
+        document.getElementById('kpi-cvr').innerText = `${data.conversionRate ?? 0}% CVR`;
+        document.getElementById('kpi-pending').innerText = data.pendingApprovals ?? 0;
+        document.getElementById('kpi-fraud').innerText = data.flaggedFraudCount ?? 0;
+      }
+    } catch (e) {}
+
+    loadReferralsList();
+  }
+
+  async function loadReferralsList() {
+    const tbody = document.getElementById('referrals-table-body');
+    const status = document.getElementById('filter-referral-status').value;
+    try {
+      const url = status ? `/api/admin/referrals/list?status=${encodeURIComponent(status)}` : '/api/admin/referrals/list';
+      const res = await fetch(url, { credentials: 'include' });
+      const data = await res.json();
+      if (data.success) {
+        cachedReferrals = data.items || [];
+        document.getElementById('referrals-count-label').innerText = `Showing ${cachedReferrals.length} records`;
+
+        if (cachedReferrals.length === 0) {
+          tbody.innerHTML = '<tr><td colspan="6" class="p-6 text-center text-on-surface-variant">No referrals found</td></tr>';
+          return;
+        }
+
+        tbody.innerHTML = cachedReferrals.map(r => {
+          const statusClass = r.status === 'REWARDED' || r.status === 'QUALIFIED' ? 'bg-emerald-500/20 text-emerald-400' :
+                             (r.status === 'REJECTED' ? 'bg-red-500/20 text-red-400' : 'bg-amber-500/20 text-amber-400');
+          const isPending = r.status === 'PENDING' || r.status === 'QUALIFIED';
+
+          return `
+            <tr class="hover:bg-surface-container transition">
+              <td class="p-3.5">
+                <div class="font-semibold">${r.referrerEmail || 'unknown'}</div>
+                <div class="text-[10px] text-on-surface-variant">${r.referrerName || ''}</div>
+              </td>
+              <td class="p-3.5">
+                <div class="font-semibold">${r.refereeEmail || 'Pending Signup'}</div>
+                <div class="text-[10px] text-on-surface-variant">${r.refereeName || ''}</div>
+              </td>
+              <td class="p-3.5 font-mono text-primary font-bold">${r.referral_code || r.referralCode}</td>
+              <td class="p-3.5 text-on-surface-variant">${r.attributed_at ? new Date(r.attributed_at).toLocaleDateString() : 'N/A'}</td>
+              <td class="p-3.5">
+                <span class="px-2 py-0.5 rounded-full text-[10px] font-bold ${statusClass}">
+                  ${r.status}
+                </span>
+              </td>
+              <td class="p-3.5 text-right space-x-1">
+                ${isPending ? `
+                  <button onclick="promptAction('approve', '${r.id}')" class="px-2.5 py-1 rounded bg-emerald-500/20 hover:bg-emerald-500/30 text-emerald-300 font-bold text-[11px] transition">Approve</button>
+                  <button onclick="promptAction('reject', '${r.id}')" class="px-2.5 py-1 rounded bg-red-500/20 hover:bg-red-500/30 text-red-300 font-bold text-[11px] transition">Reject</button>
+                ` : `<span class="text-[11px] text-outline">Resolved</span>`}
+              </td>
+            </tr>
+          `;
+        }).join('');
+      }
+    } catch (e) {
+      tbody.innerHTML = '<tr><td colspan="6" class="p-6 text-center text-red-400">Error loading referrals</td></tr>';
+    }
+  }
+
+  async function loadLedgerList() {
+    const tbody = document.getElementById('ledger-table-body');
+    try {
+      const res = await fetch('/api/admin/referrals/ledger', { credentials: 'include' });
+      const data = await res.json();
+      if (data.success && data.items) {
+        if (data.items.length === 0) {
+          tbody.innerHTML = '<tr><td colspan="6" class="p-6 text-center text-on-surface-variant">Ledger is empty</td></tr>';
+          return;
+        }
+        tbody.innerHTML = data.items.map(l => `
+          <tr class="hover:bg-surface-container transition">
+            <td class="p-3.5 font-semibold">${l.userEmail || l.user_id || l.userId}</td>
+            <td class="p-3.5 font-bold">${l.role}</td>
+            <td class="p-3.5 text-primary font-bold">${l.reward_amount || l.rewardAmount} Days VIP</td>
+            <td class="p-3.5"><span class="px-2 py-0.5 rounded-full text-[10px] font-bold bg-purple-500/20 text-purple-300">${l.status}</span></td>
+            <td class="p-3.5 font-mono text-[10px] text-outline">${l.idempotency_key || l.idempotencyKey || l.id}</td>
+            <td class="p-3.5 text-right text-on-surface-variant">${l.created_at ? new Date(l.created_at).toLocaleDateString() : 'Recent'}</td>
+          </tr>
+        `).join('');
+      }
+    } catch (e) {}
+  }
+
+  async function loadFraudLogs() {
+    const tbody = document.getElementById('fraud-table-body');
+    try {
+      const res = await fetch('/api/admin/referrals/fraud-logs', { credentials: 'include' });
+      const data = await res.json();
+      if (data.success && data.items) {
+        if (data.items.length === 0) {
+          tbody.innerHTML = '<tr><td colspan="6" class="p-6 text-center text-on-surface-variant">No suspicious activity detected. All clear!</td></tr>';
+          return;
+        }
+        tbody.innerHTML = data.items.map(f => {
+          let reasons = [];
+          try { reasons = JSON.parse(f.flag_reasons || '[]'); } catch (e) {}
+          return `
+            <tr class="hover:bg-surface-container transition">
+              <td class="p-3.5 font-bold text-red-400">${f.risk_score}/100</td>
+              <td class="p-3.5 font-bold text-amber-300">${f.action_taken}</td>
+              <td class="p-3.5"><div class="flex flex-wrap gap-1">${reasons.map(r => `<span class="px-1.5 py-0.5 rounded bg-red-500/20 text-red-300 text-[10px]">${r}</span>`).join('')}</div></td>
+              <td class="p-3.5 font-mono text-outline">${f.ip_address || 'Protected'}</td>
+              <td class="p-3.5 text-on-surface-variant">${f.device_info || 'Browser'}</td>
+              <td class="p-3.5 text-right text-on-surface-variant">${f.created_at ? new Date(f.created_at).toLocaleString() : ''}</td>
+            </tr>
+          `;
+        }).join('');
+      }
+    } catch (e) {}
+  }
+
+  async function loadConfig() {
+    try {
+      const res = await fetch('/api/admin/referrals/config', { credentials: 'include' });
+      const data = await res.json();
+      if (data.success && data.config) {
+        const c = data.config;
+        document.getElementById('cfg-name').value = c.name || '';
+        document.getElementById('cfg-active').value = (c.is_active || c.isActive) ? '1' : '0';
+        document.getElementById('cfg-trigger').value = c.qualifying_event || c.qualifyingEvent || 'FIRST_WISH';
+        document.getElementById('cfg-referrer-amount').value = c.referrer_reward_amount || c.referrerRewardAmount || 7;
+        document.getElementById('cfg-referrer-type').value = c.referrer_reward_type || c.referrerRewardType || 'PREMIUM_DAYS';
+        document.getElementById('cfg-referee-amount').value = c.referee_reward_amount || c.refereeRewardAmount || 3;
+        document.getElementById('cfg-referee-type').value = c.referee_reward_type || c.refereeRewardType || 'PREMIUM_DAYS';
+        document.getElementById('cfg-max-user').value = c.max_referrals_per_user || c.maxReferralsPerUser || 50;
+        document.getElementById('cfg-window').value = c.attribution_window_days || c.attributionWindowDays || 30;
+        document.getElementById('cfg-strictness').value = c.fraud_strictness || c.fraudStrictness || 'standard';
+        document.getElementById('cfg-terms').value = c.terms_summary || c.termsSummary || '';
+      }
+    } catch (e) {}
+  }
+
+  async function handleSaveConfig(e) {
+    e.preventDefault();
+    const payload = {
+      name: document.getElementById('cfg-name').value,
+      isActive: document.getElementById('cfg-active').value === '1',
+      qualifyingEvent: document.getElementById('cfg-trigger').value,
+      referrerRewardAmount: Number(document.getElementById('cfg-referrer-amount').value),
+      referrerRewardType: document.getElementById('cfg-referrer-type').value,
+      refereeRewardAmount: Number(document.getElementById('cfg-referee-amount').value),
+      refereeRewardType: document.getElementById('cfg-referee-type').value,
+      maxReferralsPerUser: Number(document.getElementById('cfg-max-user').value),
+      attributionWindowDays: Number(document.getElementById('cfg-window').value),
+      fraudStrictness: document.getElementById('cfg-strictness').value,
+      termsSummary: document.getElementById('cfg-terms').value
+    };
+
+    try {
+      const res = await fetch('/api/admin/referrals/config', {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        credentials: 'include',
+        body: JSON.stringify(payload)
+      });
+      const data = await res.json();
+      if (data.success) {
+        alert('Referral campaign configuration updated successfully!');
+      } else {
+        alert('Failed to update config: ' + (data.message || 'Error'));
+      }
+    } catch (e) {
+      alert('Error saving configuration');
+    }
+  }
+
+  let pendingAction = null;
+  function promptAction(type, attributionId) {
+    pendingAction = { type, attributionId };
+    const modal = document.getElementById('action-modal');
+    const title = document.getElementById('modal-title');
+    const desc = document.getElementById('modal-desc');
+    const reasonBox = document.getElementById('modal-reason-box');
+    const btn = document.getElementById('modal-btn-confirm');
+
+    modal.classList.remove('hidden');
+    if (type === 'approve') {
+      title.innerText = 'Approve Referral';
+      desc.innerText = 'This will immediately disburse rewards to both the referrer and referee.';
+      reasonBox.classList.add('hidden');
+      btn.innerText = 'Approve & Grant';
+      btn.className = 'px-4 py-2 rounded-lg bg-emerald-500 hover:bg-emerald-600 text-xs font-bold text-white';
+    } else {
+      title.innerText = 'Reject Referral';
+      desc.innerText = 'This will mark the attribution and rewards as rejected.';
+      reasonBox.classList.remove('hidden');
+      btn.innerText = 'Reject Referral';
+      btn.className = 'px-4 py-2 rounded-lg bg-red-500 hover:bg-red-600 text-xs font-bold text-white';
+    }
+
+    btn.onclick = async () => {
+      const reason = document.getElementById('modal-reason-input').value;
+      const endpoint = type === 'approve' ? '/api/admin/referrals/actions/approve' : '/api/admin/referrals/actions/reject';
+      try {
+        await fetch(endpoint, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          credentials: 'include',
+          body: JSON.stringify({ attributionId, reason })
+        });
+        closeModal();
+        loadAdminReferralData();
+      } catch (e) {
+        alert('Action failed');
+      }
+    };
+  }
+
+  function closeModal() {
+    document.getElementById('action-modal').classList.add('hidden');
+    pendingAction = null;
+  }
+
+  document.addEventListener('DOMContentLoaded', () => {
+    loadAdminReferralData();
+  });
+</script>
+</body>
+</html>

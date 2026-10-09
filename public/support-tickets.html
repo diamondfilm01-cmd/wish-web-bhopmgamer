@@ -1,0 +1,549 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8"/>
+  <base href="/"/>
+  <meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+  <meta name="description" content="My Support Tickets — Track customer service requests, conversation threads, and resolutions on WishMagic."/>
+  <title>My Support Tickets | WishMagic</title>
+  
+  <link rel="preconnect" href="https://fonts.googleapis.com"/>
+  <link crossorigin="" href="https://fonts.gstatic.com" rel="preconnect"/>
+  <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&family=Outfit:wght@500;600;700;800;900&family=JetBrains+Mono:wght@400;500;700&display=swap" rel="stylesheet"/>
+  <link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:opsz,wght,FILL,GRAD@20..48,100..700,0..1,-50..200&display=swap" rel="stylesheet"/>
+  
+  <script src="js/tailwind-config.js"></script>
+  <script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+  <script>
+    if (typeof tailwind !== 'undefined' && typeof sharedTailwindConfig !== 'undefined') {
+      tailwind.config = sharedTailwindConfig;
+    }
+  </script>
+  <link rel="stylesheet" href="css/admin-theme.css"/>
+  <script src="js/api-client.js"></script>
+  <script src="js/auth-service.js"></script>
+  <script src="js/WishMagicCore.js"></script>
+  <script src="js/admin-theme.js"></script>
+</head>
+<body class="bg-background text-on-surface font-body-md min-h-screen antialiased selection:bg-primary selection:text-white flex flex-col">
+
+  <!-- Header Navigation -->
+  <header class="sticky top-0 z-40 bg-surface/85 backdrop-blur-xl border-b border-purple-900/20">
+    <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 h-16 flex items-center justify-between gap-4">
+      <a href="/" class="flex items-center gap-2.5 group">
+        <div class="w-9 h-9 rounded-xl bg-gradient-to-tr from-purple-600 to-pink-500 flex items-center justify-center shadow-lg shadow-purple-500/25 transition-transform group-hover:scale-105">
+          <span class="material-symbols-outlined text-white text-[20px]">auto_fix_high</span>
+        </div>
+        <div class="flex flex-col">
+          <span class="font-display font-extrabold text-lg text-on-surface tracking-tight leading-none">WishMagic</span>
+          <span class="text-[10px] font-bold text-pink-500 uppercase tracking-widest leading-none mt-0.5">Tickets Portal</span>
+        </div>
+      </a>
+
+      <div class="flex items-center gap-3">
+        <a href="/help" class="px-3.5 py-1.5 rounded-xl bg-surface-container-high hover:bg-surface-container-highest text-on-surface text-xs font-bold transition flex items-center gap-1.5">
+          <span class="material-symbols-outlined text-[16px]">help_center</span>
+          <span class="hidden sm:inline">Help Center</span>
+        </a>
+        <a href="/help/contact" class="px-4 py-2 rounded-xl bg-gradient-to-r from-purple-600 to-pink-500 hover:brightness-110 text-white text-xs font-extrabold shadow-md shadow-purple-600/25 transition flex items-center gap-1.5 cursor-pointer">
+          <span class="material-symbols-outlined text-[16px]">add</span>
+          <span>New Ticket</span>
+        </a>
+        <button onclick="toggleAdminTheme()" class="p-2 rounded-xl bg-surface-container hover:bg-surface-container-high text-on-surface transition cursor-pointer">
+          <span class="material-symbols-outlined text-[18px] theme-toggle-icon">light_mode</span>
+        </button>
+      </div>
+    </div>
+  </header>
+
+  <!-- Main Layout -->
+  <main class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8 flex-1 w-full flex flex-col gap-6">
+
+    <!-- Top Title Banner -->
+    <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-4 pb-2 border-b border-purple-900/20">
+      <div>
+        <h1 class="font-display font-black text-2xl sm:text-3xl text-on-surface">My Support Tickets</h1>
+        <p class="text-xs text-on-surface-variant mt-1">Track issues, communicate with support agents, and view resolution history.</p>
+      </div>
+      <div class="flex items-center gap-2">
+        <button onclick="loadUserTickets()" class="px-3 py-1.5 rounded-xl bg-surface-container-high hover:bg-surface-container-highest text-on-surface text-xs font-bold transition flex items-center gap-1.5 cursor-pointer">
+          <span class="material-symbols-outlined text-[16px]">refresh</span>
+          <span>Refresh</span>
+        </button>
+      </div>
+    </div>
+
+    <!-- Master-Detail Grid -->
+    <div class="grid grid-cols-1 lg:grid-cols-12 gap-6 items-start flex-1 min-h-[600px]">
+      
+      <!-- Left Column: Tickets List (4 cols on lg) -->
+      <div class="lg:col-span-5 flex flex-col gap-3.5">
+        
+        <!-- Status Filter Tabs -->
+        <div class="flex items-center gap-1.5 p-1 rounded-xl bg-surface-container border border-purple-900/30 overflow-x-auto text-xs font-bold custom-scrollbar">
+          <button onclick="filterTicketsByStatus('all')" id="tab-all" class="px-3 py-1.5 rounded-lg bg-pink-500 text-white transition flex-shrink-0 cursor-pointer">
+            All
+          </button>
+          <button onclick="filterTicketsByStatus('open')" id="tab-open" class="px-3 py-1.5 rounded-lg text-outline hover:text-white transition flex-shrink-0 cursor-pointer">
+            Open
+          </button>
+          <button onclick="filterTicketsByStatus('in_progress')" id="tab-in_progress" class="px-3 py-1.5 rounded-lg text-outline hover:text-white transition flex-shrink-0 cursor-pointer">
+            In Progress
+          </button>
+          <button onclick="filterTicketsByStatus('resolved')" id="tab-resolved" class="px-3 py-1.5 rounded-lg text-outline hover:text-white transition flex-shrink-0 cursor-pointer">
+            Resolved
+          </button>
+        </div>
+
+        <!-- Search Filter -->
+        <div class="relative">
+          <span class="material-symbols-outlined absolute left-3 top-2.5 text-outline text-[18px]">search</span>
+          <input 
+            id="ticket-search-box"
+            type="text" 
+            placeholder="Search tickets by number or subject..." 
+            class="w-full pl-9 pr-3 py-2 rounded-xl bg-surface-container border border-purple-900/30 text-xs text-on-surface focus:outline-none focus:border-pink-500"
+            oninput="applyFilter()"
+          />
+        </div>
+
+        <!-- Tickets Cards Scroll Area -->
+        <div id="tickets-list-container" class="space-y-2.5 max-h-[620px] overflow-y-auto custom-scrollbar pr-1">
+          <div class="p-8 text-center text-xs text-outline">Loading your tickets...</div>
+        </div>
+
+        <!-- Empty State -->
+        <div id="tickets-list-empty" class="hidden p-8 rounded-2xl bg-surface-container/50 border border-purple-900/20 text-center flex flex-col items-center gap-3">
+          <span class="material-symbols-outlined text-4xl text-outline">receipt</span>
+          <div class="text-xs font-bold text-on-surface">No tickets found</div>
+          <p class="text-[11px] text-outline max-w-xs">You don't have any tickets matching this filter. Have a question or facing an issue?</p>
+          <a href="/help/contact" class="px-4 py-2 rounded-xl bg-primary text-white text-xs font-bold shadow-md">
+            Open a Support Ticket
+          </a>
+        </div>
+
+      </div>
+
+      <!-- Right Column: Ticket Conversation Detail (7 cols on lg) -->
+      <div class="lg:col-span-7 bg-surface-container border border-purple-900/30 rounded-3xl p-5 sm:p-7 shadow-xl flex flex-col min-h-[600px] justify-between" id="ticket-detail-panel">
+        
+        <!-- Placeholder when nothing selected -->
+        <div id="detail-empty-placeholder" class="m-auto text-center p-8 flex flex-col items-center gap-3 text-outline">
+          <span class="material-symbols-outlined text-5xl text-purple-400/50">chat</span>
+          <div class="font-display font-bold text-base text-on-surface">Select a Ticket</div>
+          <p class="text-xs max-w-xs">Click on any ticket in the list to view the full discussion thread, diagnosis, and support updates.</p>
+        </div>
+
+        <!-- Active Ticket Container -->
+        <div id="detail-active-container" class="hidden flex-1 flex flex-col justify-between gap-5">
+          
+          <!-- Detail Header -->
+          <div class="pb-4 border-b border-purple-900/30 flex flex-col gap-3">
+            <div class="flex flex-wrap items-center justify-between gap-2">
+              <div class="flex items-center gap-2">
+                <span id="detail-ticket-number" class="font-mono text-xs font-black text-pink-400 bg-pink-500/10 px-2 py-0.5 rounded-md"></span>
+                <span id="detail-ticket-status" class="px-2 py-0.5 rounded-full text-[10px] font-bold uppercase"></span>
+                <span id="detail-ticket-category" class="px-2 py-0.5 rounded-full bg-surface-container-high text-outline text-[10px] font-bold uppercase"></span>
+              </div>
+              <div class="flex items-center gap-2" id="detail-action-buttons">
+                <!-- Close Button if not closed -->
+                <button id="btn-close-ticket" onclick="closeActiveTicket()" class="px-3 py-1 rounded-xl bg-surface-container-high hover:bg-surface-container-highest text-on-surface text-xs font-bold transition flex items-center gap-1 cursor-pointer">
+                  <span class="material-symbols-outlined text-[15px] text-emerald-400">check_circle</span>
+                  <span>Mark as Resolved</span>
+                </button>
+              </div>
+            </div>
+
+            <div>
+              <h2 id="detail-ticket-subject" class="font-display font-bold text-lg sm:text-xl text-on-surface leading-tight"></h2>
+              <div class="flex flex-wrap items-center gap-3 text-[11px] text-outline mt-1 font-mono">
+                <span>Created: <span id="detail-created-time" class="text-on-surface-variant font-sans"></span></span>
+                <span>•</span>
+                <span id="detail-context-badges" class="flex items-center gap-2"></span>
+              </div>
+            </div>
+          </div>
+
+          <!-- Messages Thread (Scrollable) -->
+          <div id="detail-messages-thread" class="flex-1 space-y-4 max-h-[420px] overflow-y-auto custom-scrollbar pr-2 py-2">
+            <!-- Messages rendered dynamically -->
+          </div>
+
+          <!-- Customer Satisfaction Rating Card (shown when resolved) -->
+          <div id="satisfaction-rating-card" class="hidden p-4 rounded-2xl bg-amber-500/10 border border-amber-500/30 flex flex-col gap-2.5">
+            <div class="flex items-center justify-between">
+              <div class="flex items-center gap-2">
+                <span class="material-symbols-outlined text-amber-400 text-[20px]">stars</span>
+                <span class="font-display font-bold text-xs text-on-surface">How would you rate our support resolution?</span>
+              </div>
+              <span id="rating-done-badge" class="hidden px-2 py-0.5 rounded bg-emerald-500/20 text-emerald-300 font-bold text-[10px]">Rated</span>
+            </div>
+            <div class="flex items-center gap-2" id="star-rating-buttons">
+              <button onclick="setSatisfactionRating(1)" class="star-btn p-1 text-2xl text-outline hover:text-amber-400 transition cursor-pointer" data-star="1">★</button>
+              <button onclick="setSatisfactionRating(2)" class="star-btn p-1 text-2xl text-outline hover:text-amber-400 transition cursor-pointer" data-star="2">★</button>
+              <button onclick="setSatisfactionRating(3)" class="star-btn p-1 text-2xl text-outline hover:text-amber-400 transition cursor-pointer" data-star="3">★</button>
+              <button onclick="setSatisfactionRating(4)" class="star-btn p-1 text-2xl text-outline hover:text-amber-400 transition cursor-pointer" data-star="4">★</button>
+              <button onclick="setSatisfactionRating(5)" class="star-btn p-1 text-2xl text-outline hover:text-amber-400 transition cursor-pointer" data-star="5">★</button>
+            </div>
+            <div id="rating-feedback-form" class="hidden space-y-2 mt-1">
+              <input id="rating-feedback-input" type="text" placeholder="Optional comments on how we can improve..." class="w-full bg-surface-container-low text-xs text-on-surface px-3 py-2 rounded-xl border border-purple-900/30 focus:outline-none focus:border-amber-400"/>
+              <button onclick="submitSatisfactionRating()" class="px-3.5 py-1.5 rounded-xl bg-amber-500 hover:bg-amber-600 text-purple-950 font-bold text-xs transition cursor-pointer">
+                Submit Rating
+              </button>
+            </div>
+          </div>
+
+          <!-- Reply Box Section -->
+          <div class="pt-3 border-t border-purple-900/30 flex flex-col gap-2">
+            <div id="reopen-notice" class="hidden text-[11px] text-amber-300 flex items-center gap-1 font-semibold">
+              <span class="material-symbols-outlined text-[14px]">info</span>
+              <span>Sending a reply to this ticket will automatically reopen it for our support staff.</span>
+            </div>
+            <div class="flex items-end gap-2">
+              <textarea 
+                id="reply-message-input" 
+                rows="2" 
+                placeholder="Type your reply or follow-up question here..."
+                class="flex-1 bg-surface-container-low text-on-surface text-xs rounded-xl px-3.5 py-2.5 border border-purple-900/30 focus:outline-none focus:border-pink-500 transition resize-none"
+              ></textarea>
+              <button 
+                onclick="sendTicketReply()"
+                id="btn-send-reply" 
+                class="px-4 py-2.5 rounded-xl bg-gradient-to-r from-purple-600 to-pink-500 hover:brightness-110 active:scale-95 text-white font-bold text-xs shadow-md transition flex items-center gap-1.5 cursor-pointer h-10 flex-shrink-0"
+              >
+                <span class="material-symbols-outlined text-[16px]">send</span>
+                <span>Reply</span>
+              </button>
+            </div>
+          </div>
+
+        </div>
+
+      </div>
+
+    </div>
+
+  </main>
+
+  <script>
+    let userTickets = [];
+    let activeTicket = null;
+    let currentFilterStatus = 'all';
+    let chosenRating = null;
+
+    document.addEventListener('DOMContentLoaded', () => {
+      loadUserTickets();
+    });
+
+    async function loadUserTickets() {
+      try {
+        const res = await fetch('/api/support/tickets');
+        const data = await res.json();
+        if (data.success && data.tickets) {
+          userTickets = data.tickets;
+          applyFilter();
+
+          // Check if specific ticket ID in URL
+          const params = new URLSearchParams(window.location.search);
+          const urlTicketId = params.get('id');
+          if (urlTicketId) {
+            selectTicketById(urlTicketId);
+          } else if (userTickets.length > 0 && window.innerWidth >= 1024) {
+            // Select first ticket on desktop
+            selectTicketById(userTickets[0].id);
+          }
+        }
+      } catch (e) {
+        console.error('Error loading tickets', e);
+      }
+    }
+
+    function filterTicketsByStatus(status) {
+      currentFilterStatus = status;
+      ['all', 'open', 'in_progress', 'resolved'].forEach(s => {
+        const btn = document.getElementById(`tab-${s}`);
+        if (btn) {
+          if (s === status) {
+            btn.classList.add('bg-pink-500', 'text-white');
+            btn.classList.remove('text-outline');
+          } else {
+            btn.classList.remove('bg-pink-500', 'text-white');
+            btn.classList.add('text-outline');
+          }
+        }
+      });
+      applyFilter();
+    }
+
+    function applyFilter() {
+      const q = (document.getElementById('ticket-search-box')?.value || '').toLowerCase().trim();
+      let filtered = [...userTickets];
+
+      if (currentFilterStatus !== 'all') {
+        filtered = filtered.filter(t => t.status === currentFilterStatus);
+      }
+
+      if (q) {
+        filtered = filtered.filter(t => 
+          (t.ticketNumber || '').toLowerCase().includes(q) ||
+          (t.subject || '').toLowerCase().includes(q) ||
+          (t.category || '').toLowerCase().includes(q)
+        );
+      }
+
+      renderTicketsList(filtered);
+    }
+
+    function renderTicketsList(tickets) {
+      const container = document.getElementById('tickets-list-container');
+      const empty = document.getElementById('tickets-list-empty');
+      if (!container) return;
+
+      if (tickets.length === 0) {
+        container.innerHTML = '';
+        empty.classList.remove('hidden');
+        return;
+      }
+
+      empty.classList.add('hidden');
+      container.innerHTML = tickets.map(t => {
+        const isSelected = activeTicket && activeTicket.id === t.id;
+        const statusColors = {
+          open: 'bg-amber-500/20 text-amber-300',
+          in_progress: 'bg-cyan-500/20 text-cyan-300',
+          resolved: 'bg-emerald-500/20 text-emerald-300',
+          closed: 'bg-surface-container-high text-outline'
+        };
+
+        return `
+          <div 
+            onclick="selectTicketById('${t.id}')"
+            class="p-4 rounded-2xl bg-surface-container border transition cursor-pointer flex flex-col gap-2 hover:border-pink-500/40 ${
+              isSelected ? 'border-pink-500 bg-pink-500/5 shadow-md shadow-pink-500/10' : 'border-purple-900/30'
+            }"
+          >
+            <div class="flex items-center justify-between">
+              <span class="font-mono text-[11px] font-bold text-pink-400">${t.ticketNumber || t.ticket_number}</span>
+              <span class="px-2 py-0.5 rounded-full text-[9px] font-bold uppercase ${statusColors[t.status] || 'bg-surface-container text-outline'}">
+                ${(t.status || 'open').replace(/_/g, ' ')}
+              </span>
+            </div>
+            <div>
+              <h4 class="font-display font-bold text-xs sm:text-sm text-on-surface line-clamp-1">${t.subject}</h4>
+              <p class="text-[11px] text-on-surface-variant line-clamp-1 mt-0.5">${t.description}</p>
+            </div>
+            <div class="flex items-center justify-between text-[10px] text-outline pt-1 border-t border-purple-900/20">
+              <span class="capitalize">${(t.category || 'general').replace(/_/g, ' ')}</span>
+              <span>${new Date(t.createdAt || t.created_at).toLocaleDateString()}</span>
+            </div>
+          </div>
+        `;
+      }).join('');
+    }
+
+    async function selectTicketById(ticketId) {
+      try {
+        const res = await fetch(`/api/support/tickets/${encodeURIComponent(ticketId)}`);
+        const data = await res.json();
+        if (data.success && data.ticket) {
+          activeTicket = data.ticket;
+          renderActiveTicketDetail();
+          applyFilter(); // re-highlight selected
+        }
+      } catch (e) {
+        console.error('Failed to load ticket details', e);
+      }
+    }
+
+    function renderActiveTicketDetail() {
+      const t = activeTicket;
+      if (!t) return;
+
+      document.getElementById('detail-empty-placeholder').classList.add('hidden');
+      document.getElementById('detail-active-container').classList.remove('hidden');
+
+      document.getElementById('detail-ticket-number').textContent = t.ticketNumber || t.ticket_number;
+      document.getElementById('detail-ticket-subject').textContent = t.subject;
+      document.getElementById('detail-ticket-category').textContent = (t.category || 'general').replace(/_/g, ' ');
+      document.getElementById('detail-created-time').textContent = new Date(t.createdAt || t.created_at).toLocaleString();
+
+      // Status badge
+      const statusBadge = document.getElementById('detail-ticket-status');
+      statusBadge.textContent = (t.status || 'open').replace(/_/g, ' ');
+      statusBadge.className = 'px-2 py-0.5 rounded-full text-[10px] font-bold uppercase ' + (
+        t.status === 'open' ? 'bg-amber-500/20 text-amber-300' :
+        t.status === 'in_progress' ? 'bg-cyan-500/20 text-cyan-300' :
+        t.status === 'resolved' ? 'bg-emerald-500/20 text-emerald-300' : 'bg-surface-container-high text-outline'
+      );
+
+      // Context badges (Wish or Order)
+      const contextBadges = document.getElementById('detail-context-badges');
+      let badgesHtml = '';
+      if (t.wishId) {
+        badgesHtml += `<a href="/w/${t.wishId}" target="_blank" class="px-2 py-0.5 rounded bg-purple-500/20 text-purple-300 hover:underline">Wish #${t.wishId.slice(0, 8)}</a>`;
+      }
+      if (t.orderId) {
+        badgesHtml += `<span class="px-2 py-0.5 rounded bg-amber-500/20 text-amber-300">Order #${t.orderId.slice(0, 8)}</span>`;
+      }
+      contextBadges.innerHTML = badgesHtml;
+
+      // Close button visibility
+      const closeBtn = document.getElementById('btn-close-ticket');
+      if (t.status === 'closed' || t.status === 'resolved') {
+        closeBtn.classList.add('hidden');
+      } else {
+        closeBtn.classList.remove('hidden');
+      }
+
+      // Reopen notice if resolved
+      const reopenNotice = document.getElementById('reopen-notice');
+      if (t.status === 'resolved' || t.status === 'closed') {
+        reopenNotice.classList.remove('hidden');
+      } else {
+        reopenNotice.classList.add('hidden');
+      }
+
+      // Satisfaction Rating Card
+      const ratingCard = document.getElementById('satisfaction-rating-card');
+      if (t.status === 'resolved' || t.status === 'closed') {
+        ratingCard.classList.remove('hidden');
+        if (t.satisfactionRating) {
+          highlightStars(t.satisfactionRating);
+          document.getElementById('rating-done-badge').classList.remove('hidden');
+          document.getElementById('rating-feedback-form').classList.add('hidden');
+        } else {
+          document.getElementById('rating-done-badge').classList.add('hidden');
+        }
+      } else {
+        ratingCard.classList.add('hidden');
+      }
+
+      // Render Messages Thread
+      renderMessagesThread(t.messages || []);
+    }
+
+    function renderMessagesThread(messages) {
+      const thread = document.getElementById('detail-messages-thread');
+      if (!thread) return;
+
+      thread.innerHTML = messages.map(m => {
+        const isUser = m.senderType === 'user';
+        return `
+          <div class="flex flex-col ${isUser ? 'items-end' : 'items-start'}">
+            <div class="flex items-center gap-1.5 mb-1 px-1">
+              <span class="text-[10px] font-bold text-outline">${m.senderName || (isUser ? 'You' : 'Support Specialist')}</span>
+              <span class="text-[9px] text-outline">• ${new Date(m.createdAt || m.created_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</span>
+            </div>
+            <div class="p-4 rounded-2xl max-w-lg text-xs leading-relaxed ${
+              isUser 
+                ? 'bg-gradient-to-r from-purple-700 to-pink-600 text-white rounded-tr-none shadow-md' 
+                : 'bg-surface-container-high border border-purple-900/30 text-on-surface rounded-tl-none shadow-sm'
+            }">
+              <div class="whitespace-pre-line">${m.message}</div>
+              ${m.attachments && m.attachments.length > 0 ? `
+                <div class="mt-2.5 pt-2 border-t ${isUser ? 'border-white/20' : 'border-purple-900/20'} space-y-1">
+                  ${m.attachments.map(att => `
+                    <a href="${att.url}" target="_blank" class="inline-flex items-center gap-1.5 text-[11px] underline opacity-90 hover:opacity-100">
+                      <span class="material-symbols-outlined text-[14px]">attachment</span>
+                      <span>${att.fileName || 'View attachment'}</span>
+                    </a>
+                  `).join('')}
+                </div>
+              ` : ''}
+            </div>
+          </div>
+        `;
+      }).join('');
+
+      // Auto scroll to bottom
+      thread.scrollTop = thread.scrollHeight;
+    }
+
+    async function sendTicketReply() {
+      if (!activeTicket) return;
+      const input = document.getElementById('reply-message-input');
+      const text = input.value.trim();
+      if (!text) return;
+
+      const btn = document.getElementById('btn-send-reply');
+      btn.disabled = true;
+
+      try {
+        const res = await fetch(`/api/support/tickets/${encodeURIComponent(activeTicket.id)}/messages`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ message: text })
+        });
+        const data = await res.json();
+        if (data.success) {
+          input.value = '';
+          // Reload ticket details
+          selectTicketById(activeTicket.id);
+          loadUserTickets();
+        } else {
+          alert('Failed to send reply: ' + (data.message || 'Error'));
+        }
+      } catch (e) {
+        alert('Network error');
+      } finally {
+        btn.disabled = false;
+      }
+    }
+
+    async function closeActiveTicket() {
+      if (!activeTicket) return;
+      if (!confirm('Mark this support ticket as resolved and close it?')) return;
+
+      try {
+        const res = await fetch(`/api/support/tickets/${encodeURIComponent(activeTicket.id)}/close`, {
+          method: 'POST'
+        });
+        const data = await res.json();
+        if (data.success) {
+          selectTicketById(activeTicket.id);
+          loadUserTickets();
+        }
+      } catch (e) {}
+    }
+
+    function setSatisfactionRating(star) {
+      chosenRating = star;
+      highlightStars(star);
+      document.getElementById('rating-feedback-form').classList.remove('hidden');
+    }
+
+    function highlightStars(count) {
+      document.querySelectorAll('.star-btn').forEach(btn => {
+        const s = parseInt(btn.getAttribute('data-star'), 10);
+        if (s <= count) {
+          btn.classList.add('text-amber-400');
+          btn.classList.remove('text-outline');
+        } else {
+          btn.classList.remove('text-amber-400');
+          btn.classList.add('text-outline');
+        }
+      });
+    }
+
+    async function submitSatisfactionRating() {
+      if (!activeTicket || !chosenRating) return;
+      const feedback = document.getElementById('rating-feedback-input').value.trim();
+
+      try {
+        const res = await fetch(`/api/support/tickets/${encodeURIComponent(activeTicket.id)}/rate`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ rating: chosenRating, feedback })
+        });
+        const data = await res.json();
+        if (data.success) {
+          document.getElementById('rating-done-badge').classList.remove('hidden');
+          document.getElementById('rating-feedback-form').classList.add('hidden');
+          alert('Thank you for rating our support service!');
+        }
+      } catch (e) {}
+    }
+  </script>
+
+</body>
+</html>

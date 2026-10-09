@@ -146,6 +146,51 @@ import {
   generateSafeCsv,
   validateAndSanitizeAnalyticsEvent
 } from './src/analytics-bi-engine.js';
+import {
+  TICKET_CATEGORIES,
+  DEFAULT_HELP_ARTICLES,
+  getHelpCategories,
+  listHelpArticles,
+  getHelpArticleBySlug,
+  generateTicketNumber,
+  validateTicketInput,
+  createSupportTicketRecord,
+  addTicketMessage,
+  updateTicketStatus as updateTicketStatusP34,
+  rateTicketSatisfaction,
+  sanitizeTicketForUser
+} from './src/support-desk-engine.js';
+import {
+  PRIVACY_VISIBILITY,
+  DEFAULT_PRIVACY_SETTINGS,
+  SECURITY_EVENT_TYPES,
+  EXPORT_STATUS,
+  DELETION_STATUS,
+  DELETION_CONFIRMATION_PHRASE,
+  parseUserAgent,
+  maskIpAddress,
+  validateProfileUpdate,
+  validatePrivacySettings,
+  formatSessionForUser,
+  createSecurityEventRecord,
+  compileUserDataExport,
+  processAccountDeletionRequest,
+  restoreDeactivatedAccount
+} from './src/account-privacy-engine.js';
+import {
+  QUALIFYING_EVENTS as REF_QUALIFYING_EVENTS,
+  REWARD_TYPES as REF_REWARD_TYPES,
+  LEDGER_STATUS as REF_LEDGER_STATUS,
+  ATTRIBUTION_STATUS as REF_ATTRIBUTION_STATUS,
+  DEFAULT_PROGRAM as DEFAULT_REF_PROGRAM,
+  maskEmail as maskReferralEmail,
+  maskIp as maskReferralIp,
+  hashSignature as hashReferralSignature,
+  generateReferralCode,
+  validateCustomReferralSlug,
+  calculateRiskScore
+} from './src/referral-engine.js';
+
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -198,14 +243,179 @@ const STORAGE_CLEANUP_JOBS_FILE = path.join(DATA_DIR, 'storage_cleanup_jobs.json
 const STORAGE_HEALTH_AUDITS_FILE = path.join(DATA_DIR, 'storage_health_audits.json');
 const MODERATION_REPORTS_FILE = path.join(DATA_DIR, 'moderation_reports.json');
 const SUPPORT_TICKETS_FILE = path.join(DATA_DIR, 'support_tickets.json');
+const SUPPORT_MESSAGES_FILE = path.join(DATA_DIR, 'support_ticket_messages.json');
+const SUPPORT_ATTACHMENTS_FILE = path.join(DATA_DIR, 'support_attachments.json');
 const NOTIFICATION_JOBS_FILE = path.join(DATA_DIR, 'notification_jobs.json');
 const NOTIFICATION_ATTEMPTS_FILE = path.join(DATA_DIR, 'notification_attempts.json');
 const NOTIFICATION_REMINDERS_FILE = path.join(DATA_DIR, 'notification_reminders.json');
 const ENTERPRISE_ANNOUNCEMENTS_FILE = path.join(DATA_DIR, 'enterprise_announcements.json');
 const ANALYTICS_EVENTS_FILE = path.join(DATA_DIR, 'analytics_events.json');
 const ANALYTICS_AGGREGATES_FILE = path.join(DATA_DIR, 'analytics_daily_aggregates.json');
+const USER_PRIVACY_FILE = path.join(DATA_DIR, 'user_privacy_settings.json');
+const USER_SECURITY_EVENTS_FILE = path.join(DATA_DIR, 'user_security_events.json');
+const USER_DATA_EXPORTS_FILE = path.join(DATA_DIR, 'user_data_exports.json');
+const ACCOUNT_DELETION_REQUESTS_FILE = path.join(DATA_DIR, 'account_deletion_requests.json');
+const REFERRAL_PROGRAMS_FILE = path.join(DATA_DIR, 'referral_programs.json');
+const USER_REFERRAL_CODES_FILE = path.join(DATA_DIR, 'user_referral_codes.json');
+const REFERRAL_ATTRIBUTIONS_FILE = path.join(DATA_DIR, 'referral_attributions.json');
+const REFERRAL_REWARDS_LEDGER_FILE = path.join(DATA_DIR, 'referral_rewards_ledger.json');
+const REFERRAL_FRAUD_LOGS_FILE = path.join(DATA_DIR, 'referral_fraud_logs.json');
 const STORE_DIR = path.join(__dirname, 'public', 'templates-store');
 const MEDIA_DIR = path.join(__dirname, 'public', 'media');
+
+function getReferralProgramsList() {
+  try {
+    if (fs.existsSync(REFERRAL_PROGRAMS_FILE)) {
+      const data = fs.readFileSync(REFERRAL_PROGRAMS_FILE, 'utf8');
+      const parsed = JSON.parse(data || '[]');
+      if (Array.isArray(parsed) && parsed.length > 0) return parsed;
+    }
+  } catch (e) {}
+  return [{ ...DEFAULT_REF_PROGRAM, createdAt: new Date().toISOString(), updatedAt: new Date().toISOString() }];
+}
+
+function saveReferralProgramsList(programs) {
+  try {
+    fs.writeFileSync(REFERRAL_PROGRAMS_FILE, JSON.stringify(programs, null, 2), 'utf8');
+  } catch (e) {}
+}
+
+function getUserReferralCodesList() {
+  try {
+    if (fs.existsSync(USER_REFERRAL_CODES_FILE)) {
+      const data = fs.readFileSync(USER_REFERRAL_CODES_FILE, 'utf8');
+      const parsed = JSON.parse(data || '[]');
+      if (Array.isArray(parsed)) return parsed;
+    }
+  } catch (e) {}
+  return [];
+}
+
+function saveUserReferralCodesList(codes) {
+  try {
+    fs.writeFileSync(USER_REFERRAL_CODES_FILE, JSON.stringify(codes.slice(0, 5000), null, 2), 'utf8');
+  } catch (e) {}
+}
+
+function getReferralAttributionsList() {
+  try {
+    if (fs.existsSync(REFERRAL_ATTRIBUTIONS_FILE)) {
+      const data = fs.readFileSync(REFERRAL_ATTRIBUTIONS_FILE, 'utf8');
+      const parsed = JSON.parse(data || '[]');
+      if (Array.isArray(parsed)) return parsed;
+    }
+  } catch (e) {}
+  return [];
+}
+
+function saveReferralAttributionsList(attrs) {
+  try {
+    fs.writeFileSync(REFERRAL_ATTRIBUTIONS_FILE, JSON.stringify(attrs.slice(0, 10000), null, 2), 'utf8');
+  } catch (e) {}
+}
+
+function getReferralRewardsLedgerList() {
+  try {
+    if (fs.existsSync(REFERRAL_REWARDS_LEDGER_FILE)) {
+      const data = fs.readFileSync(REFERRAL_REWARDS_LEDGER_FILE, 'utf8');
+      const parsed = JSON.parse(data || '[]');
+      if (Array.isArray(parsed)) return parsed;
+    }
+  } catch (e) {}
+  return [];
+}
+
+function saveReferralRewardsLedgerList(ledger) {
+  try {
+    fs.writeFileSync(REFERRAL_REWARDS_LEDGER_FILE, JSON.stringify(ledger.slice(0, 10000), null, 2), 'utf8');
+  } catch (e) {}
+}
+
+function getReferralFraudLogsList() {
+  try {
+    if (fs.existsSync(REFERRAL_FRAUD_LOGS_FILE)) {
+      const data = fs.readFileSync(REFERRAL_FRAUD_LOGS_FILE, 'utf8');
+      const parsed = JSON.parse(data || '[]');
+      if (Array.isArray(parsed)) return parsed;
+    }
+  } catch (e) {}
+  return [];
+}
+
+function saveReferralFraudLogsList(logs) {
+  try {
+    fs.writeFileSync(REFERRAL_FRAUD_LOGS_FILE, JSON.stringify(logs.slice(0, 5000), null, 2), 'utf8');
+  } catch (e) {}
+}
+
+
+function getUserPrivacySettingsMap() {
+  try {
+    if (fs.existsSync(USER_PRIVACY_FILE)) {
+      const data = fs.readFileSync(USER_PRIVACY_FILE, 'utf8');
+      const parsed = JSON.parse(data || '{}');
+      if (typeof parsed === 'object') return parsed;
+    }
+  } catch (e) {}
+  return {};
+}
+
+function saveUserPrivacySettingsMap(map) {
+  try {
+    fs.writeFileSync(USER_PRIVACY_FILE, JSON.stringify(map, null, 2), 'utf8');
+  } catch (e) {}
+}
+
+function getUserSecurityEventsList() {
+  try {
+    if (fs.existsSync(USER_SECURITY_EVENTS_FILE)) {
+      const data = fs.readFileSync(USER_SECURITY_EVENTS_FILE, 'utf8');
+      const parsed = JSON.parse(data || '[]');
+      if (Array.isArray(parsed)) return parsed;
+    }
+  } catch (e) {}
+  return [];
+}
+
+function saveUserSecurityEventsList(events) {
+  try {
+    fs.writeFileSync(USER_SECURITY_EVENTS_FILE, JSON.stringify(events.slice(0, 10000), null, 2), 'utf8');
+  } catch (e) {}
+}
+
+function getUserDataExportsList() {
+  try {
+    if (fs.existsSync(USER_DATA_EXPORTS_FILE)) {
+      const data = fs.readFileSync(USER_DATA_EXPORTS_FILE, 'utf8');
+      const parsed = JSON.parse(data || '[]');
+      if (Array.isArray(parsed)) return parsed;
+    }
+  } catch (e) {}
+  return [];
+}
+
+function saveUserDataExportsList(exports) {
+  try {
+    fs.writeFileSync(USER_DATA_EXPORTS_FILE, JSON.stringify(exports.slice(0, 1000), null, 2), 'utf8');
+  } catch (e) {}
+}
+
+function getAccountDeletionRequestsList() {
+  try {
+    if (fs.existsSync(ACCOUNT_DELETION_REQUESTS_FILE)) {
+      const data = fs.readFileSync(ACCOUNT_DELETION_REQUESTS_FILE, 'utf8');
+      const parsed = JSON.parse(data || '[]');
+      if (Array.isArray(parsed)) return parsed;
+    }
+  } catch (e) {}
+  return [];
+}
+
+function saveAccountDeletionRequestsList(requests) {
+  try {
+    fs.writeFileSync(ACCOUNT_DELETION_REQUESTS_FILE, JSON.stringify(requests.slice(0, 1000), null, 2), 'utf8');
+  } catch (e) {}
+}
 
 function getAnalyticsEvents() {
   try {
@@ -323,6 +533,40 @@ function getSupportTickets() {
 function saveSupportTickets(tickets) {
   try {
     fs.writeFileSync(SUPPORT_TICKETS_FILE, JSON.stringify(tickets, null, 2), 'utf8');
+  } catch (e) {}
+}
+
+function getSupportMessages() {
+  try {
+    if (fs.existsSync(SUPPORT_MESSAGES_FILE)) {
+      const data = fs.readFileSync(SUPPORT_MESSAGES_FILE, 'utf8');
+      const parsed = JSON.parse(data || '[]');
+      if (Array.isArray(parsed)) return parsed;
+    }
+  } catch (e) {}
+  return [];
+}
+
+function saveSupportMessages(messages) {
+  try {
+    fs.writeFileSync(SUPPORT_MESSAGES_FILE, JSON.stringify(messages, null, 2), 'utf8');
+  } catch (e) {}
+}
+
+function getSupportAttachments() {
+  try {
+    if (fs.existsSync(SUPPORT_ATTACHMENTS_FILE)) {
+      const data = fs.readFileSync(SUPPORT_ATTACHMENTS_FILE, 'utf8');
+      const parsed = JSON.parse(data || '[]');
+      if (Array.isArray(parsed)) return parsed;
+    }
+  } catch (e) {}
+  return [];
+}
+
+function saveSupportAttachments(attachments) {
+  try {
+    fs.writeFileSync(SUPPORT_ATTACHMENTS_FILE, JSON.stringify(attachments, null, 2), 'utf8');
   } catch (e) {}
 }
 
@@ -7782,27 +8026,379 @@ app.post('/api/admin/support/repair/:wishId', (req, res) => {
   }
 });
 
-// API: List Support Tickets (Part 30)
+// ============================================================================
+// PART 34 — PUBLIC HELP CENTER & KNOWLEDGE BASE APIS
+// ============================================================================
+
+// API: Get Help Categories
+app.get('/api/help/categories', (req, res) => {
+  try {
+    const categories = getHelpCategories();
+    res.json({ success: true, categories });
+  } catch (err) {
+    res.status(500).json({ success: false, message: err.message });
+  }
+});
+
+// API: Search and List Help Articles
+app.get('/api/help/articles', (req, res) => {
+  try {
+    const category = req.query.category || null;
+    const query = req.query.q || req.query.query || '';
+    const limit = Math.min(parseInt(req.query.limit || '50', 10), 100);
+    const offset = Math.max(parseInt(req.query.offset || '0', 10), 0);
+
+    const result = listHelpArticles({ category, query, limit, offset });
+    res.json({ success: true, ...result });
+  } catch (err) {
+    res.status(500).json({ success: false, message: err.message });
+  }
+});
+
+// API: Get Single Help Article by Slug
+app.get('/api/help/articles/:slug', (req, res) => {
+  try {
+    const article = getHelpArticleBySlug(req.params.slug);
+    if (!article) {
+      return res.status(404).json({ success: false, message: 'Help article not found' });
+    }
+    res.json({ success: true, article });
+  } catch (err) {
+    res.status(500).json({ success: false, message: err.message });
+  }
+});
+
+// API: Help Article Feedback
+app.post('/api/help/articles/:slug/feedback', (req, res) => {
+  try {
+    const article = getHelpArticleBySlug(req.params.slug);
+    if (!article) {
+      return res.status(404).json({ success: false, message: 'Help article not found' });
+    }
+    const { isHelpful } = req.body || {};
+    if (isHelpful) article.helpfulCount = (article.helpfulCount || 0) + 1;
+    else article.notHelpfulCount = (article.notHelpfulCount || 0) + 1;
+    res.json({ success: true, message: 'Feedback recorded' });
+  } catch (err) {
+    res.status(500).json({ success: false, message: err.message });
+  }
+});
+
+// ============================================================================
+// PART 34 — END-USER SUPPORT TICKET MANAGEMENT APIS
+// ============================================================================
+
+// API: List Authenticated User's Support Tickets
+app.get('/api/support/tickets', (req, res) => {
+  try {
+    if (!req.user) {
+      return res.status(401).json({ success: false, message: 'Sign-in required to view support tickets' });
+    }
+
+    const tickets = getSupportTickets();
+    const userTickets = tickets.filter(t => t.userId === req.user.id || t.user_id === req.user.id || (t.userEmail && t.userEmail.toLowerCase() === (req.user.email || '').toLowerCase()));
+    userTickets.sort((a, b) => new Date(b.createdAt || b.created_at) - new Date(a.createdAt || a.created_at));
+
+    const sanitized = userTickets.map(t => sanitizeTicketForUser(t, [], req.user));
+    res.json({ success: true, tickets: sanitized, total: sanitized.length });
+  } catch (err) {
+    res.status(500).json({ success: false, message: err.message });
+  }
+});
+
+// API: End-user Ticket Submission
+app.post('/api/support/tickets', (req, res) => {
+  try {
+    if (!req.user) {
+      return res.status(401).json({ success: false, message: 'Sign-in required to submit a support ticket' });
+    }
+
+    const { category, subject, description, orderId, wishId, attachments, contactPreference } = req.body || {};
+
+    // Validate ownership if wishId provided
+    if (wishId) {
+      const wishes = getWishes();
+      const targetWish = wishes.find(w => w.id === wishId || w.slug === wishId);
+      if (targetWish && targetWish.userId !== req.user.id && !isAuthoritativeAdmin(req.user)) {
+        return res.status(403).json({ success: false, message: 'Related celebration wish does not belong to your account' });
+      }
+    }
+
+    // Validate ownership if orderId provided
+    if (orderId) {
+      const orders = getOrders();
+      const targetOrder = orders.find(o => o.id === orderId || o.orderNumber === orderId);
+      if (targetOrder && targetOrder.userId !== req.user.id && !isAuthoritativeAdmin(req.user)) {
+        return res.status(403).json({ success: false, message: 'Related order does not belong to your account' });
+      }
+    }
+
+    const { ticket, initialMessage, auditLog } = createSupportTicketRecord({
+      userId: req.user.id,
+      userEmail: req.user.email || 'customer@wishmagic.live',
+      userName: req.user.displayName || req.user.name || 'Customer',
+      category,
+      subject,
+      description,
+      orderId,
+      wishId,
+      attachments,
+      contactPreference,
+      actor: req.user
+    });
+
+    // Save ticket
+    const tickets = getSupportTickets();
+    tickets.unshift(ticket);
+    saveSupportTickets(tickets);
+
+    // Save initial message
+    const messages = getSupportMessages();
+    messages.push(initialMessage);
+    saveSupportMessages(messages);
+
+    // Save attachments if any
+    if (Array.isArray(attachments) && attachments.length > 0) {
+      const allAtts = getSupportAttachments();
+      attachments.forEach(att => {
+        allAtts.push({
+          id: `att_${Date.now().toString(36)}_${Math.random().toString(36).slice(2, 6)}`,
+          ticketId: ticket.id,
+          messageId: initialMessage.id,
+          userId: req.user.id,
+          fileName: att.fileName || 'Attachment',
+          fileSize: att.fileSize || 0,
+          mimeType: att.mimeType || 'image/png',
+          url: att.url || '',
+          storageProvider: att.storageProvider || 'imgbb',
+          createdAt: ticket.createdAt
+        });
+      });
+      saveSupportAttachments(allAtts);
+    }
+
+    // Save audit log
+    const logs = getAdminAuditLogs();
+    logs.push(auditLog);
+    saveAdminAuditLogs(logs);
+
+    // Send In-App Notification to User
+    try {
+      const notif = createInAppNotification({
+        userId: req.user.id,
+        type: NOTIFICATION_TYPES.SUPPORT_TICKET,
+        title: `Support Ticket Created (#${ticket.ticketNumber})`,
+        message: `We've received your request regarding "${ticket.subject}". Our support team will investigate.`,
+        actionUrl: `/support/tickets?id=${ticket.id}`
+      });
+      const userNotifs = getNotifications();
+      userNotifs.push(notif);
+      saveNotifications(userNotifs);
+    } catch (e) {}
+
+    res.status(201).json({
+      success: true,
+      ticket: sanitizeTicketForUser(ticket, [initialMessage], req.user),
+      message: 'Support ticket submitted successfully'
+    });
+  } catch (err) {
+    res.status(400).json({ success: false, message: err.message });
+  }
+});
+
+// API: Get Ticket Details & Messages (User or Admin)
+app.get('/api/support/tickets/:ticketId', (req, res) => {
+  try {
+    if (!req.user) {
+      return res.status(401).json({ success: false, message: 'Authentication required' });
+    }
+
+    const { ticketId } = req.params;
+    const tickets = getSupportTickets();
+    const ticket = tickets.find(t => t.id === ticketId || t.ticketNumber === ticketId || t.ticket_number === ticketId);
+    if (!ticket) {
+      return res.status(404).json({ success: false, message: 'Support ticket not found' });
+    }
+
+    const isAdmin = isAuthoritativeAdmin(req.user);
+    if (!isAdmin && ticket.userId !== req.user.id && ticket.user_id !== req.user.id && ticket.userEmail !== req.user.email) {
+      return res.status(403).json({ success: false, message: 'Access denied to this ticket' });
+    }
+
+    const allMessages = getSupportMessages();
+    const ticketMessages = allMessages.filter(m => m.ticketId === ticket.id || m.ticket_id === ticket.id);
+    ticketMessages.sort((a, b) => new Date(a.createdAt || a.created_at) - new Date(b.createdAt || b.created_at));
+
+    const sanitized = sanitizeTicketForUser(ticket, ticketMessages, req.user);
+    res.json({ success: true, ticket: sanitized });
+  } catch (err) {
+    res.status(500).json({ success: false, message: err.message });
+  }
+});
+
+// API: Post Message / Reply to Ticket
+app.post('/api/support/tickets/:ticketId/messages', (req, res) => {
+  try {
+    if (!req.user) {
+      return res.status(401).json({ success: false, message: 'Authentication required' });
+    }
+
+    const { ticketId } = req.params;
+    const { message, isInternalNote, attachments } = req.body || {};
+
+    const tickets = getSupportTickets();
+    const ticket = tickets.find(t => t.id === ticketId || t.ticketNumber === ticketId || t.ticket_number === ticketId);
+    if (!ticket) {
+      return res.status(404).json({ success: false, message: 'Support ticket not found' });
+    }
+
+    const isAdmin = isAuthoritativeAdmin(req.user);
+    if (!isAdmin && ticket.userId !== req.user.id && ticket.user_id !== req.user.id && ticket.userEmail !== req.user.email) {
+      return res.status(403).json({ success: false, message: 'Access denied to this ticket' });
+    }
+
+    const { ticket: updatedTicket, message: newMsg, auditLog } = addTicketMessage({
+      ticket,
+      senderType: isAdmin ? 'admin' : 'user',
+      senderId: req.user.id,
+      senderName: isAdmin ? 'Support Team' : (req.user.displayName || req.user.name || 'Customer'),
+      message,
+      isInternalNote: isAdmin ? Boolean(isInternalNote) : false,
+      attachments,
+      actor: req.user
+    });
+
+    saveSupportTickets(tickets);
+
+    const allMessages = getSupportMessages();
+    allMessages.push(newMsg);
+    saveSupportMessages(allMessages);
+
+    const logs = getAdminAuditLogs();
+    logs.push(auditLog);
+    saveAdminAuditLogs(logs);
+
+    // Notification if admin replied to user
+    if (isAdmin && !isInternalNote && (ticket.userId || ticket.user_id)) {
+      try {
+        const notif = createInAppNotification({
+          userId: ticket.userId || ticket.user_id,
+          type: NOTIFICATION_TYPES.SUPPORT_TICKET,
+          title: `New Reply on Ticket #${ticket.ticketNumber || ticket.ticket_number}`,
+          message: `Support team replied: "${message.slice(0, 100)}..."`,
+          actionUrl: `/support/tickets?id=${ticket.id}`
+        });
+        const userNotifs = getNotifications();
+        userNotifs.push(notif);
+        saveNotifications(userNotifs);
+      } catch (e) {}
+    }
+
+    res.status(201).json({
+      success: true,
+      message: newMsg,
+      ticketStatus: updatedTicket.status
+    });
+  } catch (err) {
+    res.status(400).json({ success: false, message: err.message });
+  }
+});
+
+// API: Close Ticket (User or Admin)
+app.post('/api/support/tickets/:ticketId/close', (req, res) => {
+  try {
+    if (!req.user) {
+      return res.status(401).json({ success: false, message: 'Authentication required' });
+    }
+
+    const { ticketId } = req.params;
+    const tickets = getSupportTickets();
+    const ticket = tickets.find(t => t.id === ticketId || t.ticketNumber === ticketId || t.ticket_number === ticketId);
+    if (!ticket) {
+      return res.status(404).json({ success: false, message: 'Ticket not found' });
+    }
+
+    const isAdmin = isAuthoritativeAdmin(req.user);
+    if (!isAdmin && ticket.userId !== req.user.id && ticket.user_id !== req.user.id) {
+      return res.status(403).json({ success: false, message: 'Access denied' });
+    }
+
+    ticket.status = TICKET_STATUS.CLOSED;
+    ticket.closedAt = new Date().toISOString();
+    ticket.closed_at = ticket.closedAt;
+    ticket.updatedAt = ticket.closedAt;
+    saveSupportTickets(tickets);
+
+    res.json({ success: true, message: 'Ticket closed successfully' });
+  } catch (err) {
+    res.status(500).json({ success: false, message: err.message });
+  }
+});
+
+// API: Satisfaction Rating (User)
+app.post('/api/support/tickets/:ticketId/rate', (req, res) => {
+  try {
+    if (!req.user) {
+      return res.status(401).json({ success: false, message: 'Authentication required' });
+    }
+
+    const { ticketId } = req.params;
+    const { rating, feedback } = req.body || {};
+
+    const tickets = getSupportTickets();
+    const ticket = tickets.find(t => t.id === ticketId || t.ticketNumber === ticketId || t.ticket_number === ticketId);
+    if (!ticket) {
+      return res.status(404).json({ success: false, message: 'Ticket not found' });
+    }
+
+    rateTicketSatisfaction({ ticket, userId: req.user.id, rating, feedback });
+    saveSupportTickets(tickets);
+
+    res.json({ success: true, message: 'Thank you for your feedback!' });
+  } catch (err) {
+    res.status(400).json({ success: false, message: err.message });
+  }
+});
+
+// ============================================================================
+// PART 34 — ADMIN SUPPORT OPERATIONS & DESK APIS
+// ============================================================================
+
+// API: Admin Support Ticket List with Multi-filters (Part 34)
 app.get('/api/admin/support/tickets', (req, res) => {
   try {
     const tickets = getSupportTickets();
     const statusFilter = req.query.status || 'all';
+    const priorityFilter = req.query.priority || 'all';
     const categoryFilter = req.query.category || 'all';
+    const q = (req.query.q || '').toLowerCase().trim();
 
     let filtered = [...tickets];
     if (statusFilter !== 'all') {
       filtered = filtered.filter(t => t.status === statusFilter);
     }
+    if (priorityFilter !== 'all') {
+      filtered = filtered.filter(t => t.priority === priorityFilter);
+    }
     if (categoryFilter !== 'all') {
       filtered = filtered.filter(t => t.category === categoryFilter);
     }
+    if (q) {
+      filtered = filtered.filter(t =>
+        (t.ticketNumber || t.ticket_number || '').toLowerCase().includes(q) ||
+        (t.subject || '').toLowerCase().includes(q) ||
+        (t.userEmail || t.user_email || '').toLowerCase().includes(q)
+      );
+    }
 
-    filtered.sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt));
+    filtered.sort((a, b) => new Date(b.createdAt || b.created_at) - new Date(a.createdAt || a.created_at));
 
     res.json({
       success: true,
       total: tickets.length,
       openCount: tickets.filter(t => t.status === 'open').length,
+      inProgressCount: tickets.filter(t => t.status === 'in_progress').length,
+      resolvedCount: tickets.filter(t => t.status === 'resolved').length,
       tickets: filtered
     });
   } catch (err) {
@@ -7810,7 +8406,46 @@ app.get('/api/admin/support/tickets', (req, res) => {
   }
 });
 
-// API: Create Support Ticket (Part 30)
+// API: Admin Support Ticket Details with Thread (Part 34)
+app.get('/api/admin/support/tickets/:ticketId', (req, res) => {
+  try {
+    const { ticketId } = req.params;
+    const tickets = getSupportTickets();
+    const ticket = tickets.find(t => t.id === ticketId || t.ticketNumber === ticketId || t.ticket_number === ticketId);
+    if (!ticket) {
+      return res.status(404).json({ success: false, message: 'Ticket not found' });
+    }
+
+    const allMessages = getSupportMessages();
+    const ticketMessages = allMessages.filter(m => m.ticketId === ticket.id || m.ticket_id === ticket.id);
+    ticketMessages.sort((a, b) => new Date(a.createdAt || a.created_at) - new Date(b.createdAt || b.created_at));
+
+    let relatedWish = null;
+    let relatedOrder = null;
+
+    if (ticket.wishId || ticket.wish_id) {
+      const wishes = getWishes();
+      const wId = ticket.wishId || ticket.wish_id;
+      relatedWish = wishes.find(w => w.id === wId || w.slug === wId) || null;
+    }
+    if (ticket.orderId || ticket.order_id) {
+      const orders = getOrders();
+      const oId = ticket.orderId || ticket.order_id;
+      relatedOrder = orders.find(o => o.id === oId || o.orderNumber === oId) || null;
+    }
+
+    res.json({
+      success: true,
+      ticket: sanitizeTicketForUser(ticket, ticketMessages, req.user || { role: 'admin' }),
+      relatedWish,
+      relatedOrder
+    });
+  } catch (err) {
+    res.status(500).json({ success: false, message: err.message });
+  }
+});
+
+// API: Create Support Ticket Manual (Part 30/34)
 app.post('/api/admin/support/tickets', (req, res) => {
   try {
     const { userId, userEmail, wishId, category, subject, description, priority, assignedTo } = req.body || {};
@@ -7840,18 +8475,18 @@ app.post('/api/admin/support/tickets', (req, res) => {
   }
 });
 
-// API: Update Support Ticket (Part 30)
+// API: Update Support Ticket Status & Priority (Part 34)
 app.patch('/api/admin/support/tickets/:ticketId', (req, res) => {
   try {
     const { ticketId } = req.params;
     const { status, priority, adminNotes, resolutionSummary, assignedTo } = req.body || {};
     const tickets = getSupportTickets();
-    const ticket = tickets.find(t => t.id === ticketId || t.ticketNumber === ticketId);
+    const ticket = tickets.find(t => t.id === ticketId || t.ticketNumber === ticketId || t.ticket_number === ticketId);
     if (!ticket) {
       return res.status(404).json({ success: false, message: 'Support ticket not found' });
     }
 
-    const { ticket: updatedTicket, auditLog } = updateSupportTicket({
+    const { ticket: updatedTicket, auditLog } = updateTicketStatusP34({
       ticket,
       status,
       priority,
@@ -7867,11 +8502,1231 @@ app.patch('/api/admin/support/tickets/:ticketId', (req, res) => {
     logs.push(auditLog);
     saveAdminAuditLogs(logs);
 
+    // Notification if resolved
+    if (status === 'resolved' && (ticket.userId || ticket.user_id)) {
+      try {
+        const notif = createInAppNotification({
+          userId: ticket.userId || ticket.user_id,
+          type: NOTIFICATION_TYPES.SUPPORT_TICKET,
+          title: `Support Ticket Resolved (#${ticket.ticketNumber || ticket.ticket_number})`,
+          message: resolutionSummary || 'Your issue has been resolved by our support team.',
+          actionUrl: `/support/tickets?id=${ticket.id}`
+        });
+        const userNotifs = getNotifications();
+        userNotifs.push(notif);
+        saveNotifications(userNotifs);
+      } catch (e) {}
+    }
+
     res.json({ success: true, ticket: updatedTicket });
   } catch (err) {
     res.status(400).json({ success: false, message: err.message });
   }
 });
+
+// ============================================================================
+// PART 35 — USER ACCOUNT CENTER, PRIVACY CONTROLS & SESSION SECURITY
+// ============================================================================
+
+// API: Get Complete User Profile with Security & Privacy Overview
+app.get('/api/account/profile', (req, res) => {
+  try {
+    if (!req.user) {
+      return res.status(401).json({ success: false, error: { code: 'AUTH_REQUIRED', message: 'Sign-in required to view account profile' } });
+    }
+
+    const privacyMap = getUserPrivacySettingsMap();
+    const privacy = privacyMap[req.user.id] || DEFAULT_PRIVACY_SETTINGS;
+
+    const sessions = getSessions();
+    const now = Date.now();
+    const activeSessions = sessions.filter(s => s.userId === req.user.id && s.expiresAt > now);
+
+    const secEvents = getUserSecurityEventsList();
+    const userEvents = secEvents.filter(e => e.userId === req.user.id || e.user_id === req.user.id);
+
+    res.json({
+      success: true,
+      user: req.user,
+      privacy,
+      activeSessionsCount: activeSessions.length || 1,
+      securityEventsCount: userEvents.length
+    });
+  } catch (err) {
+    res.status(500).json({ success: false, message: err.message });
+  }
+});
+
+// API: Update User Profile Details
+app.put('/api/account/profile', (req, res) => {
+  try {
+    if (!req.user) {
+      return res.status(401).json({ success: false, error: { code: 'AUTH_REQUIRED', message: 'Sign-in required to update profile' } });
+    }
+
+    const validation = validateProfileUpdate(req.body || {});
+    if (!validation.valid) {
+      const firstErr = Object.values(validation.errors)[0];
+      return res.status(400).json({ success: false, error: { code: 'VALIDATION_ERROR', message: firstErr } });
+    }
+
+    const users = getUsers();
+    const idx = users.findIndex(u => u.id === req.user.id);
+    const now = new Date().toISOString();
+
+    if (idx >= 0) {
+      if (validation.cleaned.displayName !== undefined) users[idx].displayName = validation.cleaned.displayName;
+      if (validation.cleaned.avatarUrl !== undefined) users[idx].avatarUrl = validation.cleaned.avatarUrl;
+      users[idx].updatedAt = now;
+      saveUsers(users);
+      req.user = users[idx];
+    }
+
+    // Log security event
+    const ip = req.headers['x-forwarded-for'] || req.socket.remoteAddress || '127.0.0.1';
+    const ua = req.headers['user-agent'] || '';
+    const secEvt = createSecurityEventRecord({
+      userId: req.user.id,
+      eventType: SECURITY_EVENT_TYPES.PROFILE_UPDATED,
+      ipAddress: String(ip),
+      userAgent: ua,
+      details: { updatedFields: Object.keys(validation.cleaned) }
+    });
+    const secEvents = getUserSecurityEventsList();
+    secEvents.unshift(secEvt);
+    saveUserSecurityEventsList(secEvents);
+
+    res.json({ success: true, user: req.user, message: 'Profile updated successfully' });
+  } catch (err) {
+    res.status(500).json({ success: false, message: err.message });
+  }
+});
+
+// API: Get Privacy Settings
+app.get('/api/account/privacy', (req, res) => {
+  try {
+    if (!req.user) {
+      return res.status(401).json({ success: false, error: { code: 'AUTH_REQUIRED', message: 'Sign-in required to view privacy settings' } });
+    }
+
+    const privacyMap = getUserPrivacySettingsMap();
+    const settings = privacyMap[req.user.id] || DEFAULT_PRIVACY_SETTINGS;
+    res.json({ success: true, settings });
+  } catch (err) {
+    res.status(500).json({ success: false, message: err.message });
+  }
+});
+
+// API: Save Privacy Settings
+app.put('/api/account/privacy', (req, res) => {
+  try {
+    if (!req.user) {
+      return res.status(401).json({ success: false, error: { code: 'AUTH_REQUIRED', message: 'Sign-in required to update privacy settings' } });
+    }
+
+    const validated = validatePrivacySettings(req.body || {});
+    const privacyMap = getUserPrivacySettingsMap();
+    privacyMap[req.user.id] = validated;
+    saveUserPrivacySettingsMap(privacyMap);
+
+    const ip = req.headers['x-forwarded-for'] || req.socket.remoteAddress || '127.0.0.1';
+    const ua = req.headers['user-agent'] || '';
+    const secEvt = createSecurityEventRecord({
+      userId: req.user.id,
+      eventType: SECURITY_EVENT_TYPES.PRIVACY_UPDATED,
+      ipAddress: String(ip),
+      userAgent: ua,
+      details: { settings: validated }
+    });
+    const secEvents = getUserSecurityEventsList();
+    secEvents.unshift(secEvt);
+    saveUserSecurityEventsList(secEvents);
+
+    res.json({ success: true, settings: validated, message: 'Privacy preferences saved successfully' });
+  } catch (err) {
+    res.status(500).json({ success: false, message: err.message });
+  }
+});
+
+// API: List User Sessions
+app.get('/api/account/sessions', (req, res) => {
+  try {
+    if (!req.user) {
+      return res.status(401).json({ success: false, error: { code: 'AUTH_REQUIRED', message: 'Sign-in required to view active sessions' } });
+    }
+
+    const sessions = getSessions();
+    const currentToken = req.sessionToken || '';
+    const now = Date.now();
+    const userSessions = sessions.filter(s => s.userId === req.user.id && s.expiresAt > now);
+
+    let formatted = userSessions.map(s => formatSessionForUser(s, currentToken));
+
+    if (formatted.length === 0) {
+      const ua = req.headers['user-agent'] || '';
+      const ip = req.headers['x-forwarded-for'] || req.socket.remoteAddress || '127.0.0.1';
+      formatted.push(formatSessionForUser({
+        id: 'sess_current_active',
+        token: currentToken || 'active',
+        userId: req.user.id,
+        user_agent: ua,
+        ip_address: String(ip),
+        createdAt: new Date().toISOString(),
+        expiresAt: Date.now() + 30 * 24 * 60 * 60 * 1000
+      }, currentToken || 'active'));
+    }
+
+    res.json({ success: true, sessions: formatted, total: formatted.length });
+  } catch (err) {
+    res.status(500).json({ success: false, message: err.message });
+  }
+});
+
+// API: Revoke Specific Session
+app.delete('/api/account/sessions/:sessionId', (req, res) => {
+  try {
+    if (!req.user) {
+      return res.status(401).json({ success: false, error: { code: 'AUTH_REQUIRED', message: 'Sign-in required' } });
+    }
+
+    const { sessionId } = req.params;
+    const currentToken = req.sessionToken || '';
+    let sessions = getSessions();
+    const targetSession = sessions.find(s => s.id === sessionId && s.userId === req.user.id);
+
+    if (targetSession) {
+      sessions = sessions.filter(s => !(s.id === sessionId && s.userId === req.user.id));
+      saveSessions(sessions);
+
+      const ip = req.headers['x-forwarded-for'] || req.socket.remoteAddress || '127.0.0.1';
+      const ua = req.headers['user-agent'] || '';
+      const secEvt = createSecurityEventRecord({
+        userId: req.user.id,
+        eventType: SECURITY_EVENT_TYPES.SESSION_REVOKED,
+        ipAddress: String(ip),
+        userAgent: ua,
+        details: { sessionId, revokedDevice: parseUserAgent(targetSession.user_agent).label }
+      });
+      const secEvents = getUserSecurityEventsList();
+      secEvents.unshift(secEvt);
+      saveUserSecurityEventsList(secEvents);
+    }
+
+    const isCurrentSession = Boolean(targetSession && targetSession.token === currentToken);
+    if (isCurrentSession) {
+      res.setHeader('Set-Cookie', 'wm_session=; Path=/; Max-Age=0; HttpOnly; SameSite=Lax');
+    }
+
+    res.json({ success: true, message: 'Session revoked successfully', isCurrentSession });
+  } catch (err) {
+    res.status(500).json({ success: false, message: err.message });
+  }
+});
+
+// API: Revoke All Other Sessions
+app.post('/api/account/sessions/revoke-others', (req, res) => {
+  try {
+    if (!req.user) {
+      return res.status(401).json({ success: false, error: { code: 'AUTH_REQUIRED', message: 'Sign-in required' } });
+    }
+
+    const currentToken = req.sessionToken || '';
+    let sessions = getSessions();
+    const initialCount = sessions.length;
+
+    sessions = sessions.filter(s => s.userId !== req.user.id || s.token === currentToken);
+    const revokedCount = initialCount - sessions.length;
+    saveSessions(sessions);
+
+    const ip = req.headers['x-forwarded-for'] || req.socket.remoteAddress || '127.0.0.1';
+    const ua = req.headers['user-agent'] || '';
+    const secEvt = createSecurityEventRecord({
+      userId: req.user.id,
+      eventType: SECURITY_EVENT_TYPES.ALL_SESSIONS_REVOKED,
+      ipAddress: String(ip),
+      userAgent: ua,
+      details: { revokedCount }
+    });
+    const secEvents = getUserSecurityEventsList();
+    secEvents.unshift(secEvt);
+    saveUserSecurityEventsList(secEvents);
+
+    res.json({ success: true, message: 'All other active sessions have been terminated.', revokedCount });
+  } catch (err) {
+    res.status(500).json({ success: false, message: err.message });
+  }
+});
+
+// API: User Security Audit Log
+app.get('/api/account/security-log', (req, res) => {
+  try {
+    if (!req.user) {
+      return res.status(401).json({ success: false, error: { code: 'AUTH_REQUIRED', message: 'Sign-in required to view security log' } });
+    }
+
+    const secEvents = getUserSecurityEventsList();
+    const userEvents = secEvents
+      .filter(e => e.userId === req.user.id || e.user_id === req.user.id)
+      .slice(0, 50)
+      .map(r => ({
+        id: r.id,
+        eventType: r.eventType || r.event_type,
+        deviceInfo: r.deviceInfo || r.device_info,
+        ipAddress: maskIpAddress(r.ipAddress || r.ip_address),
+        createdAt: r.createdAt || r.created_at,
+        details: typeof r.details_json === 'string' ? JSON.parse(r.details_json || '{}') : (r.details || {})
+      }));
+
+    res.json({ success: true, events: userEvents, total: userEvents.length });
+  } catch (err) {
+    res.status(500).json({ success: false, message: err.message });
+  }
+});
+
+// API: Request Complete Personal Data Export (GDPR / DPDP Portability)
+app.post('/api/account/export', (req, res) => {
+  try {
+    if (!req.user) {
+      return res.status(401).json({ success: false, error: { code: 'AUTH_REQUIRED', message: 'Sign-in required to request data export' } });
+    }
+
+    const privacyMap = getUserPrivacySettingsMap();
+    const privacy = privacyMap[req.user.id] || DEFAULT_PRIVACY_SETTINGS;
+
+    const wishes = getWishes().filter(w => w.userId === req.user.id || w.user_id === req.user.id);
+    const drafts = [];
+    const favorites = (getFavorites()[req.user.id] || []);
+    const orders = getOrders().filter(o => o.userId === req.user.id || o.user_id === req.user.id);
+    const entitlements = getEntitlements().filter(e => e.userId === req.user.id || e.user_id === req.user.id);
+    const tickets = getSupportTickets().filter(t => t.userId === req.user.id || t.user_id === req.user.id);
+    const secEvents = getUserSecurityEventsList().filter(s => s.userId === req.user.id || s.user_id === req.user.id).slice(0, 50);
+
+    const exportResult = compileUserDataExport({
+      user: req.user,
+      privacySettings: privacy,
+      wishes,
+      drafts,
+      favorites,
+      orders,
+      entitlements,
+      supportTickets: tickets,
+      notificationPreferences: null,
+      securityEvents: secEvents
+    });
+
+    const exportRecord = {
+      id: exportResult.exportId,
+      userId: req.user.id,
+      user_id: req.user.id,
+      status: EXPORT_STATUS.READY,
+      format: 'json',
+      summary: exportResult.summary,
+      summary_json: JSON.stringify(exportResult.summary),
+      payloadString: exportResult.payloadString,
+      payload_json: exportResult.payloadString,
+      fileSizeBytes: exportResult.fileSizeBytes,
+      file_size_bytes: exportResult.fileSizeBytes,
+      requestedAt: exportResult.summary.generatedAt,
+      completedAt: exportResult.summary.generatedAt,
+      expiresAt: exportResult.expiresAt
+    };
+
+    const exportsList = getUserDataExportsList();
+    exportsList.unshift(exportRecord);
+    saveUserDataExportsList(exportsList);
+
+    const ip = req.headers['x-forwarded-for'] || req.socket.remoteAddress || '127.0.0.1';
+    const ua = req.headers['user-agent'] || '';
+    const secEvt = createSecurityEventRecord({
+      userId: req.user.id,
+      eventType: SECURITY_EVENT_TYPES.DATA_EXPORT_REQUESTED,
+      ipAddress: String(ip),
+      userAgent: ua,
+      details: { exportId: exportResult.exportId, fileSizeBytes: exportResult.fileSizeBytes }
+    });
+    const allSec = getUserSecurityEventsList();
+    allSec.unshift(secEvt);
+    saveUserSecurityEventsList(allSec);
+
+    res.status(201).json({
+      success: true,
+      exportId: exportResult.exportId,
+      summary: exportResult.summary,
+      fileSizeBytes: exportResult.fileSizeBytes,
+      downloadUrl: `/api/account/export/${exportResult.exportId}`,
+      payload: exportResult.payload
+    });
+  } catch (err) {
+    res.status(500).json({ success: false, message: err.message });
+  }
+});
+
+// API: Get Latest Data Export Status
+app.get('/api/account/export/latest', (req, res) => {
+  try {
+    if (!req.user) {
+      return res.status(401).json({ success: false, error: { code: 'AUTH_REQUIRED', message: 'Sign-in required' } });
+    }
+
+    const exportsList = getUserDataExportsList();
+    const latest = exportsList.find(e => e.userId === req.user.id || e.user_id === req.user.id) || null;
+    res.json({ success: true, export: latest });
+  } catch (err) {
+    res.status(500).json({ success: false, message: err.message });
+  }
+});
+
+// API: Download Data Export JSON Archive
+app.get('/api/account/export/:exportId', (req, res) => {
+  try {
+    if (!req.user) {
+      return res.status(401).json({ success: false, error: { code: 'AUTH_REQUIRED', message: 'Sign-in required to download export' } });
+    }
+
+    const { exportId } = req.params;
+    const exportsList = getUserDataExportsList();
+    const item = exportsList.find(e => e.id === exportId);
+
+    if (!item) {
+      return res.status(404).json({ success: false, message: 'Export archive not found' });
+    }
+
+    // IDOR Protection
+    const isOwner = item.userId === req.user.id || item.user_id === req.user.id;
+    if (!isOwner && !isAuthoritativeAdmin(req.user)) {
+      return res.status(403).json({ success: false, message: 'Access denied to this export archive' });
+    }
+
+    item.status = EXPORT_STATUS.DOWNLOADED;
+    item.downloadedAt = new Date().toISOString();
+    saveUserDataExportsList(exportsList);
+
+    res.setHeader('Content-Type', 'application/json; charset=utf-8');
+    res.setHeader('Content-Disposition', `attachment; filename="wishmagic_export_${req.user.id}_${Date.now()}.json"`);
+    res.send(item.payloadString || item.payload_json);
+  } catch (err) {
+    res.status(500).json({ success: false, message: err.message });
+  }
+});
+
+// API: Account Deletion / Deactivation Workflow
+app.post('/api/account/delete', (req, res) => {
+  try {
+    if (!req.user) {
+      return res.status(401).json({ success: false, error: { code: 'AUTH_REQUIRED', message: 'Sign-in required for account deletion' } });
+    }
+
+    const { confirmationText, reason, feedback, wishesHandling } = req.body || {};
+    const deletionRes = processAccountDeletionRequest({
+      user: req.user,
+      confirmationText,
+      reason,
+      feedback,
+      wishesHandling,
+      actor: req.user
+    });
+
+    const { deletionRecord, deactivatedUser, auditLog, message } = deletionRes;
+
+    // 1. Record deletion request
+    const requests = getAccountDeletionRequestsList();
+    requests.unshift(deletionRecord);
+    saveAccountDeletionRequestsList(requests);
+
+    // 2. Anonymize user record & set status to deactivated
+    const users = getUsers();
+    const uIdx = users.findIndex(u => u.id === req.user.id);
+    if (uIdx >= 0) {
+      users[uIdx] = { ...users[uIdx], ...deactivatedUser };
+      saveUsers(users);
+    }
+
+    // 3. Handle wishes if requested to unpublish immediately
+    if (wishesHandling === 'unpublish_immediately') {
+      const wishes = getWishes();
+      let updatedWishes = false;
+      wishes.forEach(w => {
+        if (w.userId === req.user.id || w.user_id === req.user.id) {
+          w.status = 'archived';
+          updatedWishes = true;
+        }
+      });
+      if (updatedWishes) saveWishes(wishes);
+    }
+
+    // 4. Terminate all active sessions for this user
+    let sessions = getSessions();
+    sessions = sessions.filter(s => s.userId !== req.user.id);
+    saveSessions(sessions);
+
+    // 5. Audit log
+    const logs = getAdminAuditLogs();
+    logs.push(auditLog);
+    saveAdminAuditLogs(logs);
+
+    res.setHeader('Set-Cookie', 'wm_session=; Path=/; Max-Age=0; HttpOnly; SameSite=Lax');
+    res.json({
+      success: true,
+      message,
+      requestId: deletionRecord.id,
+      gracePeriodEndsAt: deletionRecord.gracePeriodEndsAt,
+      status: 'deactivated'
+    });
+  } catch (err) {
+    res.status(400).json({ success: false, message: err.message });
+  }
+});
+
+// API: Cancel Account Deletion / Reactivate Account
+app.post('/api/account/cancel-deletion', (req, res) => {
+  try {
+    if (!req.user) {
+      return res.status(401).json({ success: false, error: { code: 'AUTH_REQUIRED', message: 'Sign-in required' } });
+    }
+
+    const requests = getAccountDeletionRequestsList();
+    const target = requests.find(r => (r.userId === req.user.id || r.user_id === req.user.id) && r.status === DELETION_STATUS.DEACTIVATED);
+
+    if (target) {
+      const now = new Date().toISOString();
+      target.status = DELETION_STATUS.CANCELLED;
+      target.cancelledAt = now;
+      saveAccountDeletionRequestsList(requests);
+
+      const users = getUsers();
+      const uIdx = users.findIndex(u => u.id === req.user.id);
+      if (uIdx >= 0) {
+        users[uIdx].status = 'active';
+        users[uIdx].displayName = 'Creator';
+        saveUsers(users);
+      }
+    }
+
+    res.json({ success: true, message: 'Account deactivation cancelled. Welcome back!' });
+  } catch (err) {
+    res.status(500).json({ success: false, message: err.message });
+  }
+});
+
+// API: Get Deletion Status
+app.get('/api/account/deletion-status', (req, res) => {
+  try {
+    if (!req.user) {
+      return res.status(401).json({ success: false, error: { code: 'AUTH_REQUIRED', message: 'Sign-in required' } });
+    }
+
+    const requests = getAccountDeletionRequestsList();
+    const active = requests.find(r => (r.userId === req.user.id || r.user_id === req.user.id) && r.status === DELETION_STATUS.DEACTIVATED) || null;
+
+    res.json({
+      success: true,
+      isPendingDeletion: Boolean(active),
+      deletionRequest: active
+    });
+  } catch (err) {
+    res.status(500).json({ success: false, message: err.message });
+  }
+});
+
+// Admin: Inspect User Security Center
+app.get('/api/admin/users/:userId/security', (req, res) => {
+  try {
+    if (!req.user || !isAuthoritativeAdmin(req.user)) {
+      return res.status(403).json({ success: false, message: 'Admin role required' });
+    }
+
+    const { userId } = req.params;
+    const sessions = getSessions();
+    const userSessions = sessions.filter(s => s.userId === userId).map(s => formatSessionForUser(s, null));
+
+    const secEvents = getUserSecurityEventsList().filter(s => s.userId === userId || s.user_id === userId);
+    const privacyMap = getUserPrivacySettingsMap();
+    const privacy = privacyMap[userId] || null;
+
+    const deletionRequests = getAccountDeletionRequestsList();
+    const userDeletion = deletionRequests.find(r => r.userId === userId || r.user_id === userId) || null;
+
+    res.json({
+      success: true,
+      userId,
+      activeSessions: userSessions,
+      securityEvents: secEvents,
+      privacySettings: privacy,
+      deletionRequest: userDeletion
+    });
+  } catch (err) {
+    res.status(500).json({ success: false, message: err.message });
+  }
+});
+
+// Admin: Force-terminate all user sessions (Emergency Killswitch)
+app.post('/api/admin/users/:userId/terminate-sessions', (req, res) => {
+  try {
+    if (!req.user || !isAuthoritativeAdmin(req.user)) {
+      return res.status(403).json({ success: false, message: 'Admin role required' });
+    }
+
+    const { userId } = req.params;
+    let sessions = getSessions();
+    const beforeCount = sessions.length;
+    sessions = sessions.filter(s => s.userId !== userId);
+    const terminatedCount = beforeCount - sessions.length;
+    saveSessions(sessions);
+
+    const auditLog = createAuditLogEntry({
+      actorId: req.user.id,
+      actorName: req.user.displayName || 'Admin',
+      actorRole: req.user.role || 'admin',
+      action: 'ADMIN_TERMINATE_USER_SESSIONS',
+      targetType: 'user_account',
+      targetId: userId,
+      details: { terminatedCount }
+    });
+    const logs = getAdminAuditLogs();
+    logs.push(auditLog);
+    saveAdminAuditLogs(logs);
+
+    res.json({ success: true, message: `Terminated ${terminatedCount} active sessions for user ${userId}`, terminatedCount });
+  } catch (err) {
+    res.status(500).json({ success: false, message: err.message });
+  }
+});
+
+// Admin: Query All Deletion Requests
+app.get('/api/admin/deletions', (req, res) => {
+  try {
+    if (!req.user || !isAuthoritativeAdmin(req.user)) {
+      return res.status(403).json({ success: false, message: 'Admin role required' });
+    }
+
+    const requests = getAccountDeletionRequestsList();
+    res.json({ success: true, deletionRequests: requests, total: requests.length });
+  } catch (err) {
+    res.status(500).json({ success: false, message: err.message });
+  }
+});
+
+// ============================================================================
+// PART 36 — REFERRAL PROGRAM, REWARD LEDGER & FRAUD PREVENTION
+// ============================================================================
+
+// Helper to ensure user referral code in server.js
+function ensureServerUserReferralCode(userId) {
+  let codes = getUserReferralCodesList();
+  let found = codes.find(c => c.user_id === userId || c.userId === userId);
+  const now = new Date().toISOString();
+  if (found) return found;
+
+  const newCode = generateReferralCode(userId);
+  const newRec = {
+    id: `refc_${Date.now().toString(36)}_${Math.random().toString(36).slice(2, 6)}`,
+    user_id: userId,
+    userId: userId,
+    referral_code: newCode,
+    referralCode: newCode,
+    custom_slug: null,
+    customSlug: null,
+    total_clicks: 0,
+    totalClicks: 0,
+    total_signups: 0,
+    totalSignups: 0,
+    total_qualified: 0,
+    totalQualified: 0,
+    total_rewards_earned: 0,
+    totalRewardsEarned: 0,
+    is_active: 1,
+    isActive: true,
+    created_at: now,
+    updated_at: now
+  };
+  codes.push(newRec);
+  saveUserReferralCodesList(codes);
+  return newRec;
+}
+
+// User API: Get My Referral Code & Links
+app.get('/api/referrals/my-code', (req, res) => {
+  try {
+    if (!req.user) {
+      return res.status(401).json({ success: false, error: { code: 'AUTH_REQUIRED', message: 'Sign-in required' } });
+    }
+
+    const codeRecord = ensureServerUserReferralCode(req.user.id);
+    const programs = getReferralProgramsList();
+    const program = programs[0] || DEFAULT_REF_PROGRAM;
+    const baseUrl = `${req.protocol}://${req.get('host')}`;
+    const referralLink = `${baseUrl}/?ref=${codeRecord.referral_code || codeRecord.referralCode}`;
+
+    res.json({
+      success: true,
+      referralCode: codeRecord.referral_code || codeRecord.referralCode,
+      customSlug: codeRecord.custom_slug || codeRecord.customSlug,
+      referralLink,
+      program: {
+        name: program.name,
+        isActive: Boolean(program.is_active ?? program.isActive),
+        referrerRewardAmount: program.referrer_reward_amount ?? program.referrerRewardAmount,
+        referrerRewardType: program.referrer_reward_type ?? program.referrerRewardType,
+        refereeRewardAmount: program.referee_reward_amount ?? program.refereeRewardAmount,
+        refereeRewardType: program.referee_reward_type ?? program.refereeRewardType,
+        termsSummary: program.terms_summary ?? program.termsSummary
+      },
+      metrics: {
+        totalClicks: codeRecord.total_clicks ?? codeRecord.totalClicks ?? 0,
+        totalSignups: codeRecord.total_signups ?? codeRecord.totalSignups ?? 0,
+        totalQualified: codeRecord.total_qualified ?? codeRecord.totalQualified ?? 0,
+        totalRewardsEarned: codeRecord.total_rewards_earned ?? codeRecord.totalRewardsEarned ?? 0
+      }
+    });
+  } catch (err) {
+    res.status(500).json({ success: false, message: err.message });
+  }
+});
+
+// User API: Referral Dashboard
+app.get('/api/referrals/dashboard', (req, res) => {
+  try {
+    if (!req.user) {
+      return res.status(401).json({ success: false, error: { code: 'AUTH_REQUIRED', message: 'Sign-in required' } });
+    }
+
+    const codeRecord = ensureServerUserReferralCode(req.user.id);
+    const programs = getReferralProgramsList();
+    const program = programs[0] || DEFAULT_REF_PROGRAM;
+    const baseUrl = `${req.protocol}://${req.get('host')}`;
+    const referralCode = codeRecord.referral_code || codeRecord.referralCode;
+    const referralLink = `${baseUrl}/?ref=${referralCode}`;
+
+    // Attributions where user is referrer
+    const attrs = getReferralAttributionsList();
+    const myAttrs = attrs.filter(a => a.referrer_user_id === req.user.id || a.referrerUserId === req.user.id);
+    const users = getUsers();
+
+    const invitedFriends = myAttrs.map(a => {
+      const refereeId = a.referee_user_id || a.refereeUserId;
+      const refUser = refereeId ? users.find(u => u.id === refereeId) : null;
+      return {
+        id: a.id,
+        maskedName: refUser?.displayName ? refUser.displayName.substring(0, 1) + '***' : 'Friend',
+        maskedEmail: maskReferralEmail(refUser?.email || 'user@example.com'),
+        status: a.status,
+        qualifyingEvent: a.qualifying_event || a.qualifyingEvent,
+        attributedAt: a.attributed_at || a.attributedAt,
+        qualifiedAt: a.qualified_at || a.qualifiedAt
+      };
+    });
+
+    // Ledger entries where user is recipient
+    const ledger = getReferralRewardsLedgerList();
+    const myLedger = ledger.filter(l => l.user_id === req.user.id || l.userId === req.user.id);
+
+    let claimableCount = 0;
+    let pendingCount = 0;
+    const formattedLedger = myLedger.map(l => {
+      if (l.status === 'GRANTED') claimableCount++;
+      if (l.status === 'PENDING') pendingCount++;
+      return {
+        id: l.id,
+        role: l.role,
+        rewardType: l.reward_type || l.rewardType,
+        rewardAmount: l.reward_amount || l.rewardAmount,
+        status: l.status,
+        grantedAt: l.granted_at || l.grantedAt,
+        claimedAt: l.claimed_at || l.claimedAt,
+        createdAt: l.created_at || l.createdAt
+      };
+    });
+
+    const shareText = `Send personalized wishes with music & magic on WishMagic! Join via my link and get free VIP perks: ${referralLink}`;
+
+    res.json({
+      success: true,
+      referralCode,
+      referralLink,
+      shareUrls: {
+        direct: referralLink,
+        whatsapp: `https://api.whatsapp.com/send?text=${encodeURIComponent(shareText)}`,
+        telegram: `https://t.me/share/url?url=${encodeURIComponent(referralLink)}&text=${encodeURIComponent('Create magical celebration wishes with VIP perks on WishMagic!')}`,
+        twitter: `https://twitter.com/intent/tweet?text=${encodeURIComponent(shareText)}`,
+        email: `mailto:?subject=${encodeURIComponent('VIP perks on WishMagic')}&body=${encodeURIComponent(shareText)}`
+      },
+      metrics: {
+        totalClicks: codeRecord.total_clicks ?? codeRecord.totalClicks ?? 0,
+        totalSignups: codeRecord.total_signups ?? codeRecord.totalSignups ?? 0,
+        totalQualified: codeRecord.total_qualified ?? codeRecord.totalQualified ?? 0,
+        totalRewardsEarned: codeRecord.total_rewards_earned ?? codeRecord.totalRewardsEarned ?? 0,
+        claimableRewardsCount: claimableCount,
+        pendingRewardsCount: pendingCount
+      },
+      program: {
+        name: program.name,
+        isActive: Boolean(program.is_active ?? program.isActive),
+        qualifyingEvent: program.qualifying_event ?? program.qualifyingEvent,
+        referrerReward: `${program.referrer_reward_amount ?? program.referrerRewardAmount} ${(program.referrer_reward_type || program.referrerRewardType) === 'PREMIUM_DAYS' ? 'Days VIP' : 'Credits'}`,
+        refereeReward: `${program.referee_reward_amount ?? program.refereeRewardAmount} ${(program.referee_reward_type || program.refereeRewardType) === 'PREMIUM_DAYS' ? 'Days VIP' : 'Credits'}`,
+        termsSummary: program.terms_summary ?? program.termsSummary
+      },
+      invitedFriends,
+      rewardsLedger: formattedLedger
+    });
+  } catch (err) {
+    res.status(500).json({ success: false, message: err.message });
+  }
+});
+
+// Public API: Track Referral Click
+app.post('/api/referrals/track-click', (req, res) => {
+  try {
+    const { referralCode, visitorToken, landingPage } = req.body || {};
+    const code = (referralCode || req.query.ref || '').trim().toUpperCase();
+    if (!code) {
+      return res.status(400).json({ success: false, reason: 'MISSING_CODE' });
+    }
+
+    const codes = getUserReferralCodesList();
+    const codeRec = codes.find(c => (c.referral_code === code || c.referralCode === code || c.custom_slug === code || c.customSlug === code));
+    if (!codeRec || (!codeRec.is_active && !codeRec.isActive)) {
+      return res.status(404).json({ success: false, reason: 'INVALID_OR_INACTIVE_CODE' });
+    }
+
+    // Increment clicks
+    codeRec.total_clicks = (codeRec.total_clicks || codeRec.totalClicks || 0) + 1;
+    codeRec.totalClicks = codeRec.total_clicks;
+    saveUserReferralCodesList(codes);
+
+    const tok = visitorToken || `vtok_${Date.now().toString(36)}_${Math.random().toString(36).slice(2, 8)}`;
+    const now = new Date();
+    const expiresAt = new Date(now.getTime() + (30 * 24 * 60 * 60 * 1000)).toISOString();
+
+    const attrs = getReferralAttributionsList();
+    let existing = attrs.find(a => (a.visitor_token === tok || a.visitorToken === tok) && (a.referral_code === code || a.referralCode === code));
+
+    if (existing) {
+      existing.expires_at = expiresAt;
+      existing.landing_page = landingPage || '/';
+    } else {
+      existing = {
+        id: `attr_${Date.now().toString(36)}_${Math.random().toString(36).slice(2, 7)}`,
+        referral_code: code,
+        referralCode: code,
+        referrer_user_id: codeRec.user_id || codeRec.userId,
+        referrerUserId: codeRec.user_id || codeRec.userId,
+        referee_user_id: null,
+        refereeUserId: null,
+        visitor_token: tok,
+        visitorToken: tok,
+        landing_page: landingPage || '/',
+        status: 'VISITED',
+        attributed_at: now.toISOString(),
+        expires_at: expiresAt
+      };
+      attrs.push(existing);
+    }
+    saveReferralAttributionsList(attrs);
+
+    res.cookie('wm_vtok', tok, { maxAge: 30 * 24 * 60 * 60 * 1000, httpOnly: false, sameSite: 'lax' });
+    res.json({
+      success: true,
+      attributionId: existing.id,
+      visitorToken: tok,
+      referralCode: code,
+      expiresAt
+    });
+  } catch (err) {
+    res.status(500).json({ success: false, message: err.message });
+  }
+});
+
+// Public API: Validate Referral Code
+app.post('/api/referrals/validate-code', (req, res) => {
+  try {
+    const { code } = req.body || {};
+    const cleanCode = (code || '').trim().toUpperCase();
+    if (!cleanCode) {
+      return res.status(400).json({ success: false, error: { message: 'Code is required' } });
+    }
+
+    const codes = getUserReferralCodesList();
+    const rec = codes.find(c => (c.referral_code === cleanCode || c.referralCode === cleanCode || c.custom_slug === cleanCode || c.customSlug === cleanCode));
+    if (!rec || (!rec.is_active && !rec.isActive)) {
+      return res.status(404).json({ success: false, error: { message: 'Invite code is invalid or expired' } });
+    }
+
+    const programs = getReferralProgramsList();
+    const program = programs[0] || DEFAULT_REF_PROGRAM;
+
+    res.json({
+      success: true,
+      valid: true,
+      code: cleanCode,
+      refereeBenefit: `${program.referee_reward_amount || program.refereeRewardAmount} ${(program.referee_reward_type || program.refereeRewardType) === 'PREMIUM_DAYS' ? 'Days VIP Access' : 'Credits'}`
+    });
+  } catch (err) {
+    res.status(500).json({ success: false, message: err.message });
+  }
+});
+
+// User API: Link Referral
+app.post('/api/referrals/link-signup', (req, res) => {
+  try {
+    if (!req.user) {
+      return res.status(401).json({ success: false, error: { code: 'AUTH_REQUIRED', message: 'Sign-in required' } });
+    }
+
+    const { referralCode, visitorToken } = req.body || {};
+    const code = (referralCode || req.cookies?.wm_ref || '').trim().toUpperCase();
+    const tok = visitorToken || req.cookies?.wm_vtok;
+
+    const attrs = getReferralAttributionsList();
+    const existingRef = attrs.find(a => (a.referee_user_id === req.user.id || a.refereeUserId === req.user.id));
+    if (existingRef) {
+      return res.status(400).json({ success: false, reason: 'ALREADY_ATTRIBUTED' });
+    }
+
+    let targetAttr = null;
+    if (tok) targetAttr = attrs.find(a => (a.visitor_token === tok || a.visitorToken === tok) && a.status === 'VISITED');
+    if (!targetAttr && code) {
+      const codes = getUserReferralCodesList();
+      const codeRec = codes.find(c => c.referral_code === code || c.referralCode === code);
+      if (codeRec) {
+        targetAttr = {
+          id: `attr_${Date.now().toString(36)}_${Math.random().toString(36).slice(2, 7)}`,
+          referral_code: code,
+          referralCode: code,
+          referrer_user_id: codeRec.user_id || codeRec.userId,
+          referrerUserId: codeRec.user_id || codeRec.userId,
+          referee_user_id: null,
+          refereeUserId: null,
+          visitor_token: tok || `vtok_${Date.now()}`,
+          status: 'VISITED',
+          attributed_at: new Date().toISOString(),
+          expires_at: new Date(Date.now() + 30 * 86400000).toISOString()
+        };
+        attrs.push(targetAttr);
+      }
+    }
+
+    if (!targetAttr) {
+      return res.status(404).json({ success: false, reason: 'NO_ATTRIBUTION_FOUND' });
+    }
+
+    const referrerId = targetAttr.referrer_user_id || targetAttr.referrerUserId;
+    if (referrerId === req.user.id) {
+      return res.status(400).json({ success: false, reason: 'FRAUD_CHECK_FAILED', flags: ['SELF_REFERRAL_SAME_USER_ID'] });
+    }
+
+    targetAttr.referee_user_id = req.user.id;
+    targetAttr.refereeUserId = req.user.id;
+    targetAttr.status = 'PENDING';
+    saveReferralAttributionsList(attrs);
+
+    // Increment referrer total_signups
+    const codes = getUserReferralCodesList();
+    const refCodeRec = codes.find(c => c.user_id === referrerId || c.userId === referrerId);
+    if (refCodeRec) {
+      refCodeRec.total_signups = (refCodeRec.total_signups || refCodeRec.totalSignups || 0) + 1;
+      refCodeRec.totalSignups = refCodeRec.total_signups;
+      saveUserReferralCodesList(codes);
+    }
+
+    res.json({
+      success: true,
+      attributionId: targetAttr.id,
+      referrerUserId: referrerId,
+      refereeUserId: req.user.id
+    });
+  } catch (err) {
+    res.status(500).json({ success: false, message: err.message });
+  }
+});
+
+// User API: Claim Reward
+app.post('/api/referrals/claim-reward', (req, res) => {
+  try {
+    if (!req.user) {
+      return res.status(401).json({ success: false, error: { code: 'AUTH_REQUIRED', message: 'Sign-in required' } });
+    }
+
+    const { ledgerId } = req.body || {};
+    if (!ledgerId) {
+      return res.status(400).json({ success: false, error: { message: 'ledgerId is required' } });
+    }
+
+    const ledger = getReferralRewardsLedgerList();
+    const item = ledger.find(l => l.id === ledgerId && (l.user_id === req.user.id || l.userId === req.user.id));
+    if (!item) {
+      return res.status(404).json({ success: false, error: { message: 'Reward record not found' } });
+    }
+
+    if (item.status === 'CLAIMED') {
+      return res.status(400).json({ success: false, error: { message: 'Reward already claimed' } });
+    }
+
+    if (item.status !== 'GRANTED' && item.status !== 'APPROVED') {
+      return res.status(400).json({ success: false, error: { message: 'Reward is not in claimable status' } });
+    }
+
+    // Grant entitlement
+    const now = new Date();
+    const days = Number(item.reward_amount || item.rewardAmount || 7);
+    const msToAdd = days * 24 * 60 * 60 * 1000;
+    const entitlements = getEntitlements();
+    const existingEnt = entitlements.find(e => e.userId === req.user.id && (new Date(e.expiresAt || e.expires_at) > now));
+
+    if (existingEnt) {
+      const curExp = new Date(existingEnt.expiresAt || existingEnt.expires_at || now);
+      existingEnt.expiresAt = new Date(curExp.getTime() + msToAdd).toISOString();
+      existingEnt.expires_at = existingEnt.expiresAt;
+    } else {
+      entitlements.push({
+        id: `ent_ref_${Date.now().toString(36)}`,
+        userId: req.user.id,
+        user_id: req.user.id,
+        plan: 'VIP',
+        status: 'active',
+        source: 'referral',
+        startsAt: now.toISOString(),
+        expiresAt: new Date(now.getTime() + msToAdd).toISOString(),
+        createdAt: now.toISOString()
+      });
+    }
+    saveEntitlements(entitlements);
+
+    item.status = 'CLAIMED';
+    item.claimed_at = now.toISOString();
+    item.claimedAt = item.claimed_at;
+    saveReferralRewardsLedgerList(ledger);
+
+    res.json({
+      success: true,
+      ledgerId,
+      claimedAt: item.claimed_at,
+      rewardType: item.reward_type || item.rewardType,
+      rewardAmount: days
+    });
+  } catch (err) {
+    res.status(500).json({ success: false, message: err.message });
+  }
+});
+
+// Public API: Program Rules
+app.get('/api/referrals/program', (req, res) => {
+  try {
+    const programs = getReferralProgramsList();
+    res.json({ success: true, program: programs[0] || DEFAULT_REF_PROGRAM });
+  } catch (err) {
+    res.status(500).json({ success: false, message: err.message });
+  }
+});
+
+// Admin API: Referral Overview
+app.get('/api/admin/referrals/overview', (req, res) => {
+  try {
+    if (!req.user || !isAuthoritativeAdmin(req.user)) {
+      return res.status(403).json({ success: false, message: 'Admin role required' });
+    }
+
+    const codes = getUserReferralCodesList();
+    const attrs = getReferralAttributionsList();
+    const ledger = getReferralRewardsLedgerList();
+    const fraudLogs = getReferralFraudLogsList();
+    const programs = getReferralProgramsList();
+
+    const totalClicks = codes.reduce((acc, c) => acc + (c.total_clicks || c.totalClicks || 0), 0);
+    const totalSignups = codes.reduce((acc, c) => acc + (c.total_signups || c.totalSignups || 0), 0);
+    const totalQualified = codes.reduce((acc, c) => acc + (c.total_qualified || c.totalQualified || 0), 0);
+    const pendingApprovals = ledger.filter(l => l.status === 'PENDING').length;
+    const conversionRate = totalClicks > 0 ? Number(((totalQualified / totalClicks) * 100).toFixed(1)) : 0;
+
+    res.json({
+      success: true,
+      totalCodes: codes.length,
+      totalClicks,
+      totalSignups,
+      totalQualified,
+      conversionRate,
+      pendingApprovals,
+      flaggedFraudCount: fraudLogs.length,
+      program: programs[0] || DEFAULT_REF_PROGRAM
+    });
+  } catch (err) {
+    res.status(500).json({ success: false, message: err.message });
+  }
+});
+
+// Admin API: List Referrals
+app.get('/api/admin/referrals/list', (req, res) => {
+  try {
+    if (!req.user || !isAuthoritativeAdmin(req.user)) {
+      return res.status(403).json({ success: false, message: 'Admin role required' });
+    }
+
+    const attrs = getReferralAttributionsList();
+    const users = getUsers();
+    const status = req.query.status;
+
+    let filtered = attrs;
+    if (status) filtered = filtered.filter(a => a.status === status);
+
+    const enriched = filtered.map(a => {
+      const rUser = users.find(u => u.id === (a.referrer_user_id || a.referrerUserId));
+      const eUser = users.find(u => u.id === (a.referee_user_id || a.refereeUserId));
+      return {
+        ...a,
+        referrerEmail: rUser?.email || 'unknown',
+        referrerName: rUser?.displayName || 'Creator',
+        refereeEmail: eUser?.email || 'pending',
+        refereeName: eUser?.displayName || 'Pending'
+      };
+    });
+
+    res.json({ success: true, items: enriched, total: enriched.length });
+  } catch (err) {
+    res.status(500).json({ success: false, message: err.message });
+  }
+});
+
+// Admin API: List Rewards Ledger
+app.get('/api/admin/referrals/ledger', (req, res) => {
+  try {
+    if (!req.user || !isAuthoritativeAdmin(req.user)) {
+      return res.status(403).json({ success: false, message: 'Admin role required' });
+    }
+
+    const ledger = getReferralRewardsLedgerList();
+    const users = getUsers();
+    const enriched = ledger.map(l => {
+      const u = users.find(usr => usr.id === (l.user_id || l.userId));
+      return {
+        ...l,
+        userEmail: u?.email || 'unknown',
+        userName: u?.displayName || 'User'
+      };
+    });
+
+    res.json({ success: true, items: enriched, total: enriched.length });
+  } catch (err) {
+    res.status(500).json({ success: false, message: err.message });
+  }
+});
+
+// Admin API: List Fraud Logs
+app.get('/api/admin/referrals/fraud-logs', (req, res) => {
+  try {
+    if (!req.user || !isAuthoritativeAdmin(req.user)) {
+      return res.status(403).json({ success: false, message: 'Admin role required' });
+    }
+
+    const logs = getReferralFraudLogsList();
+    res.json({ success: true, items: logs, total: logs.length });
+  } catch (err) {
+    res.status(500).json({ success: false, message: err.message });
+  }
+});
+
+// Admin API: Get Program Config
+app.get('/api/admin/referrals/config', (req, res) => {
+  try {
+    if (!req.user || !isAuthoritativeAdmin(req.user)) {
+      return res.status(403).json({ success: false, message: 'Admin role required' });
+    }
+
+    const programs = getReferralProgramsList();
+    res.json({ success: true, config: programs[0] || DEFAULT_REF_PROGRAM });
+  } catch (err) {
+    res.status(500).json({ success: false, message: err.message });
+  }
+});
+
+// Admin API: Update Program Config
+app.put('/api/admin/referrals/config', (req, res) => {
+  try {
+    if (!req.user || !isAuthoritativeAdmin(req.user)) {
+      return res.status(403).json({ success: false, message: 'Admin role required' });
+    }
+
+    const programs = getReferralProgramsList();
+    const current = programs[0] || DEFAULT_REF_PROGRAM;
+    const updated = {
+      ...current,
+      ...req.body,
+      updated_at: new Date().toISOString()
+    };
+    programs[0] = updated;
+    saveReferralProgramsList(programs);
+
+    res.json({ success: true, config: updated });
+  } catch (err) {
+    res.status(500).json({ success: false, message: err.message });
+  }
+});
+
+// Admin API: Approve Referral
+app.post('/api/admin/referrals/actions/approve', (req, res) => {
+  try {
+    if (!req.user || !isAuthoritativeAdmin(req.user)) {
+      return res.status(403).json({ success: false, message: 'Admin role required' });
+    }
+
+    const { attributionId } = req.body || {};
+    if (!attributionId) return res.status(400).json({ success: false, message: 'attributionId required' });
+
+    const attrs = getReferralAttributionsList();
+    const attr = attrs.find(a => a.id === attributionId);
+    if (!attr) return res.status(404).json({ success: false, message: 'Attribution not found' });
+
+    const ledger = getReferralRewardsLedgerList();
+    const now = new Date().toISOString();
+    for (const l of ledger) {
+      if ((l.attribution_id === attributionId || l.attributionId === attributionId) && l.status === 'PENDING') {
+        l.status = 'GRANTED';
+        l.granted_at = now;
+        l.grantedAt = now;
+      }
+    }
+    saveReferralRewardsLedgerList(ledger);
+
+    attr.status = 'REWARDED';
+    saveReferralAttributionsList(attrs);
+
+    res.json({ success: true, attributionId, status: 'REWARDED' });
+  } catch (err) {
+    res.status(500).json({ success: false, message: err.message });
+  }
+});
+
+// Admin API: Reject Referral
+app.post('/api/admin/referrals/actions/reject', (req, res) => {
+  try {
+    if (!req.user || !isAuthoritativeAdmin(req.user)) {
+      return res.status(403).json({ success: false, message: 'Admin role required' });
+    }
+
+    const { attributionId, reason } = req.body || {};
+    if (!attributionId) return res.status(400).json({ success: false, message: 'attributionId required' });
+
+    const attrs = getReferralAttributionsList();
+    const attr = attrs.find(a => a.id === attributionId);
+    if (!attr) return res.status(404).json({ success: false, message: 'Attribution not found' });
+
+    attr.status = 'REJECTED';
+    saveReferralAttributionsList(attrs);
+
+    const ledger = getReferralRewardsLedgerList();
+    for (const l of ledger) {
+      if (l.attribution_id === attributionId || l.attributionId === attributionId) {
+        l.status = 'REJECTED';
+        l.admin_notes = reason || 'Rejected by admin';
+      }
+    }
+    saveReferralRewardsLedgerList(ledger);
+
+    res.json({ success: true, attributionId, status: 'REJECTED' });
+  } catch (err) {
+    res.status(500).json({ success: false, message: err.message });
+  }
+});
+
 
 // ============================================================================
 // PART 30 — AUDIT TRAIL API ENDPOINTS
@@ -9808,6 +11663,19 @@ app.get(['/template', '/template/', '/template/:templateId', '/template/:templat
   res.sendFile(path.join(__dirname, 'public', 'template-preview.html'));
 });
 
+// Help Center & Support Routes (Part 34)
+app.get(['/help', '/help/', '/help.html', '/support', '/support/'], (req, res) => {
+  res.sendFile(path.join(__dirname, 'public', 'help.html'));
+});
+
+app.get(['/help/contact', '/help/contact/', '/contact', '/contact/', '/contact.html'], (req, res) => {
+  res.sendFile(path.join(__dirname, 'public', 'contact.html'));
+});
+
+app.get(['/support/tickets', '/support/tickets/', '/support-tickets', '/support-tickets.html'], (req, res) => {
+  res.sendFile(path.join(__dirname, 'public', 'support-tickets.html'));
+});
+
 // Public Clean URL Route: /w/:id and /w/:slug with Dynamic Server-Side SEO & Social Preview Meta Injection
 app.get('/w/:id', (req, res) => {
   const wishParam = (req.params.id || '').trim();
@@ -10072,6 +11940,24 @@ app.get([
   `${ADMIN_BASE}/notifications.html`
 ], (req, res) => {
   sendAdminPage('admin-notifications.html', req, res);
+});
+
+app.get([
+  '/referrals',
+  '/referrals.html',
+  '/invite',
+  '/invite.html',
+  '/rewards',
+  '/rewards.html'
+], (req, res) => {
+  res.sendFile(path.join(__dirname, 'public', 'referrals.html'));
+});
+
+app.get([
+  `${ADMIN_BASE}/referrals`,
+  `${ADMIN_BASE}/referrals.html`
+], (req, res) => {
+  sendAdminPage('admin-referrals.html', req, res);
 });
 
 // Any unmatched route fallback
