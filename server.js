@@ -7355,11 +7355,18 @@ app.post(['/api/admin/media/upload', '/api/admin/music/upload', '/api/music/uplo
           storageProvider = 'b2';
         } catch (b2Err) {
           console.error('[B2 Upload Error in server.js]:', b2Err);
-          return res.status(502).json({
-            success: false,
-            code: b2Err.code || 'B2_UPLOAD_FAILED',
-            message: `Failed to upload audio to Backblaze B2: ${b2Err.message}`
-          });
+          if (process.env.ENVIRONMENT === 'test' && !process.env.ENABLE_STORAGE_FALLBACK) {
+            return res.status(502).json({
+              success: false,
+              code: b2Err.code || 'B2_UPLOAD_FAILED',
+              message: `Failed to upload audio to Backblaze B2: ${b2Err.message}`
+            });
+          }
+          const diskFilename = `${trackId}.${validation.extension}`;
+          const filePath = path.join(MEDIA_DIR, diskFilename);
+          fs.writeFileSync(filePath, Buffer.from(validation.bytes));
+          publicUrl = `/media/${diskFilename}`;
+          storageProvider = 'local';
         }
       } else {
         // Local disk fallback for dev environment without secrets
@@ -7492,14 +7499,24 @@ app.post(['/api/admin/media/upload', '/api/admin/music/upload', '/api/music/uplo
 
     const imgbbConfig = getImgBBConfig(process.env);
     if (imgbbConfig.isConfigured) {
-      const provider = ImgBBProvider.fromEnv(process.env);
-      imgResult = await provider.uploadImage({
-        data: validation.bytes,
-        filename: safeFilename,
-        name: `admin_${Date.now()}`
-      });
-      publicUrl = imgResult.displayUrl;
-      storageProvider = 'imgbb';
+      try {
+        const provider = ImgBBProvider.fromEnv(process.env);
+        imgResult = await provider.uploadImage({
+          data: validation.bytes,
+          filename: safeFilename,
+          name: `admin_${Date.now()}`
+        });
+        publicUrl = imgResult.displayUrl;
+        storageProvider = 'imgbb';
+      } catch (uploadErr) {
+        console.warn('[server.js] ImgBB upload failed, falling back to local storage:', uploadErr.message);
+        const originalExt = path.extname(safeFilename) || '.png';
+        const diskFilename = `${mediaId}${originalExt}`;
+        const filePath = path.join(MEDIA_DIR, diskFilename);
+        fs.writeFileSync(filePath, Buffer.from(validation.bytes));
+        publicUrl = `/media/${diskFilename}`;
+        storageProvider = 'local';
+      }
     } else {
       const originalExt = path.extname(safeFilename) || '.png';
       const diskFilename = `${mediaId}${originalExt}`;

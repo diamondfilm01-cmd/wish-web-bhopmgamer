@@ -9502,7 +9502,7 @@ export default {
         ];
 
         const allAssetsMap = new Map();
-        defaultAssets.forEach(a => allAssetsMap.set(a.url, { ...a }));
+        defaultAssets.forEach(a => allAssetsMap.set(a.id, { ...a }));
 
         // Index wish_media from D1
         if (env.DB && typeof env.DB.prepare === 'function') {
@@ -9511,15 +9511,19 @@ export default {
             (wmRows.results || []).forEach(m => {
               const url = m.display_url || m.url;
               if (url) {
-                allAssetsMap.set(url, {
+                const detectedType = m.media_type || (url.startsWith('data:audio') || url.endsWith('.mp3') || url.endsWith('.wav') ? 'audio' : 'image');
+                allAssetsMap.set(m.id, {
                   id: m.id,
-                  title: m.filename || 'Wish Media Asset',
-                  type: m.media_type || 'image',
-                  format: (m.mime_type || 'image/jpeg').split('/').pop().toUpperCase(),
+                  title: m.filename || (detectedType === 'audio' ? 'Music Track' : 'Visual Artwork'),
+                  type: detectedType,
+                  format: (m.mime_type || (detectedType === 'audio' ? 'audio/mpeg' : 'image/jpeg')).split('/').pop().toUpperCase(),
                   url,
+                  displayUrl: url,
+                  playbackUrl: url,
+                  thumbnailUrl: m.thumbnail_url || url,
                   fileSizeFormatted: m.size_bytes ? `${(m.size_bytes / 1024).toFixed(1)} KB` : 'Media Asset',
-                  category: 'User Wish Upload',
-                  storageProvider: m.storage_provider || 'imgbb',
+                  category: m.wish_id ? 'User Wish Upload' : (detectedType === 'audio' ? 'Celebration Music' : 'Storefront Asset'),
+                  storageProvider: m.storage_provider || (url.includes('ibb.co') ? 'imgbb' : (url.includes('backblazeb2') ? 'b2' : 'inline')),
                   createdAt: m.created_at
                 });
               }
@@ -9763,34 +9767,38 @@ export default {
                   id, wish_id, user_id, object_key, filename, media_type, mime_type,
                   size_bytes, url, display_url, thumbnail_url, delete_url, sha256,
                   width, height, storage_provider, status, is_public, created_at, updated_at
-                ) VALUES (?, NULL, ?, ?, ?, 'audio', ?, ?, ?, ?, NULL, NULL, ?, NULL, NULL, 'b2', 'active', 1, ?, ?)
+                ) VALUES (?, NULL, ?, ?, ?, 'audio', ?, ?, ?, ?, NULL, NULL, ?, NULL, NULL, ?, 'active', 1, ?, ?)
               `).bind(
-                trackId, user.id, storageKey, filename,
+                trackId, user.id, storageKey, title || filename,
                 audioValidation.mimeType, audioValidation.sizeBytes, playbackUrl, playbackUrl,
-                audioValidation.sha256, nowIso, nowIso
+                audioValidation.sha256, storageProvider, nowIso, nowIso
               ).run().catch(e => console.warn('[D1] wish_media track log warning:', e.message));
 
-              // 3. Register in b2_storage_objects tracking table
-              await env.DB.prepare(`
-                INSERT OR REPLACE INTO b2_storage_objects (
-                  id, bucket_id, bucket_name, object_key, file_id, content_type,
-                  content_length, sha256, public_url, entity_type, entity_id,
-                  uploader_id, upload_status, metadata_json, created_at, updated_at
-                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, 'music', ?, ?, 'completed', ?, ?, ?)
-              `).bind(
-                `b2_${trackId}`, b2UploadResult.bucketId || null, b2Config.bucketName || 'wishmagic-assets', storageKey,
-                b2UploadResult.fileId || null, audioValidation.mimeType, audioValidation.sizeBytes,
-                audioValidation.sha256, playbackUrl, trackId, user.id,
-                JSON.stringify({ title, artist, category }), nowIso, nowIso
-              ).run().catch(e => console.warn('[D1] b2_storage_objects track log warning:', e.message));
+              // 3. Register in b2_storage_objects tracking table if uploaded to B2
+              if (b2UploadResult) {
+                await env.DB.prepare(`
+                  INSERT OR REPLACE INTO b2_storage_objects (
+                    id, bucket_id, bucket_name, object_key, file_id, content_type,
+                    content_length, sha256, public_url, entity_type, entity_id,
+                    uploader_id, upload_status, metadata_json, created_at, updated_at
+                  ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, 'music', ?, ?, 'completed', ?, ?, ?)
+                `).bind(
+                  `b2_${trackId}`, b2UploadResult.bucketId || null, b2Config.bucketName || 'wishmagic-assets', storageKey,
+                  b2UploadResult.fileId || null, audioValidation.mimeType, audioValidation.sizeBytes,
+                  audioValidation.sha256, playbackUrl, trackId, user.id,
+                  JSON.stringify({ title, artist, category }), nowIso, nowIso
+                ).run().catch(e => console.warn('[D1] b2_storage_objects track log warning:', e.message));
+              }
 
             } catch (dbErr) {
               console.error('[Music Upload] D1 persistence failed, rolling back B2 object:', dbErr.message);
-              // Safe cleanup: delete orphaned object from B2
-              await b2Provider.deleteObject({
-                key: storageKey,
-                fileId: b2UploadResult.fileId
-              }).catch(delErr => console.warn('[Music Upload] B2 rollback deletion warning:', delErr.message));
+              // Safe cleanup: delete orphaned object from B2 if was uploaded
+              if (b2UploadResult && b2UploadResult.fileId) {
+                await b2Provider.deleteObject({
+                  key: storageKey,
+                  fileId: b2UploadResult.fileId
+                }).catch(delErr => console.warn('[Music Upload] B2 rollback deletion warning:', delErr.message));
+              }
 
               return applySecurityHeaders(jsonError(
                 'D1_WRITE_FAILED',
@@ -9810,7 +9818,7 @@ export default {
             url: playbackUrl,
             playbackUrl,
             storageKey,
-            storageProvider: 'b2',
+            storageProvider,
             fileSize: audioValidation.sizeBytes,
             fileSizeFormatted: `${(audioValidation.sizeBytes / (1024 * 1024)).toFixed(2)} MB`,
             mimeType: audioValidation.mimeType,
@@ -9889,12 +9897,14 @@ export default {
                   width, height, storage_provider, status, is_public, created_at, updated_at
                 ) VALUES (?, NULL, ?, ?, ?, 'video', ?, ?, ?, ?, NULL, NULL, ?, NULL, NULL, ?, 'active', 1, ?, ?)
               `).bind(
-                videoId, user.id, storageKey, filename,
+                videoId, user.id, storageKey, title || filename,
                 videoValidation.mimeType, videoValidation.sizeBytes, playbackUrl, playbackUrl,
-                videoValidation.sha256, nowIso, nowIso
+                videoValidation.sha256, storageProvider, nowIso, nowIso
               ).run();
             } catch (dbErr) {
-              await b2Provider.deleteObject({ key: storageKey, fileId: b2UploadResult.fileId }).catch(() => {});
+              if (b2UploadResult && b2UploadResult.fileId) {
+                await b2Provider.deleteObject({ key: storageKey, fileId: b2UploadResult.fileId }).catch(() => {});
+              }
               return applySecurityHeaders(jsonError('D1_WRITE_FAILED', 'Database metadata write failed. Video upload rolled back.', 500), request, env);
             }
           }
@@ -9908,7 +9918,7 @@ export default {
             url: playbackUrl,
             playbackUrl,
             storageKey,
-            storageProvider: 'b2',
+            storageProvider,
             fileSize: videoValidation.sizeBytes,
             fileSizeFormatted: `${(videoValidation.sizeBytes / (1024 * 1024)).toFixed(2)} MB`,
             mimeType: videoValidation.mimeType,
@@ -9941,8 +9951,8 @@ export default {
           let storageProvider = 'imgbb';
 
           if (imgbbConfig.isConfigured) {
-            const provider = ImgBBProvider.fromEnv(env);
             try {
+              const provider = ImgBBProvider.fromEnv(env);
               imgResult = await provider.uploadImage({
                 data: validation.bytes,
                 filename,
@@ -9950,6 +9960,7 @@ export default {
               });
               publicUrl = imgResult.displayUrl;
               providerAssetId = imgResult.providerAssetId;
+              storageProvider = 'imgbb';
             } catch (uploadErr) {
               console.warn('[ImgBB Upload Warning, using inline fallback]:', uploadErr.message);
               const base64Data = uint8ArrayToBase64(validation.bytes);
@@ -9974,7 +9985,7 @@ export default {
                 width, height, storage_provider, status, is_public, created_at, updated_at
               ) VALUES (?, NULL, ?, ?, ?, 'image', ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'active', 1, ?, ?)
             `).bind(
-              mediaId, user.id, providerAssetId, filename,
+              mediaId, user.id, providerAssetId, title || filename,
               validation.mimeType, imgResult ? imgResult.sizeBytes : validation.sizeBytes, publicUrl, publicUrl,
               imgResult ? imgResult.thumbnailUrl : publicUrl, imgResult ? imgResult.deleteUrl : null,
               imgResult ? imgResult.sha256 : validation.sha256, imgResult ? imgResult.width : validation.width,
@@ -9996,7 +10007,7 @@ export default {
             url: publicUrl,
             displayUrl: publicUrl,
             thumbnailUrl: imgResult ? imgResult.thumbnailUrl : publicUrl,
-            storageProvider: 'imgbb',
+            storageProvider,
             createdAt: nowIso
           };
 

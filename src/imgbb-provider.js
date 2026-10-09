@@ -299,9 +299,15 @@ export class ImgBBProvider {
     this.apiKey = config.apiKey;
     this.apiUrl = config.apiUrl || 'https://api.imgbb.com/1/upload';
     this.expiration = Number(config.expiration) || 0;
-    // Cloudflare Workers V8 fix:
-    // Calling native fetch directly prevents "TypeError: Illegal invocation".
-    // Wrapping customFetch in async/await ensures asynchronous Promise rejections are properly caught.
+    // Cloudflare Workers V8 & Native WebIDL fix:
+    // Calling globalThis.fetch via call/bind ensures that V8 never throws "TypeError: Illegal invocation".
+    const invokeNativeFetch = (url, init) => {
+      if (typeof globalThis !== 'undefined' && typeof globalThis.fetch === 'function') {
+        return globalThis.fetch.call(globalThis, url, init);
+      }
+      return fetch(url, init);
+    };
+
     const customUserFetch = typeof config.fetchFn === 'function' ? config.fetchFn : null;
     this.fetchFn = async (url, init) => {
       if (customUserFetch) {
@@ -309,12 +315,12 @@ export class ImgBBProvider {
           return await customUserFetch(url, init);
         } catch (err) {
           if (err && (err.name === 'TypeError' || String(err.message || '').includes('Illegal invocation'))) {
-            return await fetch(url, init);
+            return await invokeNativeFetch(url, init);
           }
           throw err;
         }
       }
-      return await fetch(url, init);
+      return await invokeNativeFetch(url, init);
     };
 
     if (!this.apiKey) {
@@ -338,16 +344,28 @@ export class ImgBBProvider {
       err.status = 503;
       throw err;
     }
-    const resolvedFetch = customFetch || (typeof env.fetch === 'function' ? async (url, init) => {
-      try {
-        return await env.fetch(url, init);
-      } catch (err) {
-        if (err && (err.name === 'TypeError' || String(err.message || '').includes('Illegal invocation'))) {
-          return await fetch(url, init);
-        }
-        throw err;
+
+    const invokeNativeFetch = (url, init) => {
+      if (typeof globalThis !== 'undefined' && typeof globalThis.fetch === 'function') {
+        return globalThis.fetch.call(globalThis, url, init);
       }
-    } : (url, init) => fetch(url, init));
+      return fetch(url, init);
+    };
+
+    const resolvedFetch = typeof customFetch === 'function'
+      ? customFetch
+      : (typeof env.fetch === 'function'
+          ? async (url, init) => {
+              try {
+                return await env.fetch(url, init);
+              } catch (err) {
+                if (err && (err.name === 'TypeError' || String(err.message || '').includes('Illegal invocation'))) {
+                  return await invokeNativeFetch(url, init);
+                }
+                throw err;
+              }
+            }
+          : (url, init) => invokeNativeFetch(url, init));
 
     return new ImgBBProvider({
       ...config,
@@ -396,7 +414,6 @@ export class ImgBBProvider {
     const targetName = name || cleanFilename.replace(/\.[^/.]+$/, '');
     const targetExpiration = expiration !== null ? expiration : this.expiration;
 
-    // Send via standard FormData or URL-encoded form
     let response;
     const uploadUrl = new URL(this.apiUrl);
     uploadUrl.searchParams.set('key', this.apiKey);
@@ -404,33 +421,8 @@ export class ImgBBProvider {
       uploadUrl.searchParams.set('expiration', String(targetExpiration));
     }
 
-    // Try FormData first, fallback to URL-encoded parameters if needed
-    if (typeof FormData !== 'undefined') {
-      try {
-        const formData = new FormData();
-        formData.append('image', base64Data);
-        formData.append('name', targetName);
-
-        response = await this.fetchFn(uploadUrl.toString(), {
-          method: 'POST',
-          body: formData
-        });
-      } catch (formErr) {
-        // If FormData encounters a runtime serialization error, fallback to URLSearchParams
-        const bodyParams = new URLSearchParams();
-        bodyParams.set('image', base64Data);
-        bodyParams.set('name', targetName);
-
-        response = await this.fetchFn(uploadUrl.toString(), {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/x-www-form-urlencoded'
-          },
-          body: bodyParams.toString()
-        });
-      }
-    } else {
-      // URL-encoded fallback
+    // Attempt 1: Standard URL-encoded parameters (100% compatible across V8, Node.js and Cloudflare Workers)
+    try {
       const bodyParams = new URLSearchParams();
       bodyParams.set('image', base64Data);
       bodyParams.set('name', targetName);
@@ -442,6 +434,24 @@ export class ImgBBProvider {
         },
         body: bodyParams.toString()
       });
+    } catch (urlParamsErr) {
+      // Attempt 2: Fallback to FormData if URLSearchParams was rejected
+      if (typeof FormData !== 'undefined') {
+        try {
+          const formData = new FormData();
+          formData.append('image', base64Data);
+          formData.append('name', targetName);
+
+          response = await this.fetchFn(uploadUrl.toString(), {
+            method: 'POST',
+            body: formData
+          });
+        } catch (formDataErr) {
+          throw formDataErr;
+        }
+      } else {
+        throw urlParamsErr;
+      }
     }
 
     if (!response.ok) {

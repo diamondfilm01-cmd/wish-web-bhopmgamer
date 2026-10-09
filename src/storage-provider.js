@@ -216,7 +216,14 @@ export class B2StorageProvider extends StorageProvider {
     this.endpoint = config.endpoint || 'https://api.backblazeb2.com';
     this.customDownloadUrl = config.downloadUrl || null;
     
-    // Cloudflare Workers V8 fix: wrap fetch to prevent Illegal invocation error
+    // Cloudflare Workers V8 & Native WebIDL fix: wrap fetch to prevent Illegal invocation error
+    const invokeNativeFetch = (url, init) => {
+      if (typeof globalThis !== 'undefined' && typeof globalThis.fetch === 'function') {
+        return globalThis.fetch.call(globalThis, url, init);
+      }
+      return fetch(url, init);
+    };
+
     const customUserFetch = typeof config.fetchFn === 'function' ? config.fetchFn : null;
     this.fetchFn = async (url, init) => {
       if (customUserFetch) {
@@ -224,12 +231,12 @@ export class B2StorageProvider extends StorageProvider {
           return await customUserFetch(url, init);
         } catch (err) {
           if (err && (err.name === 'TypeError' || String(err.message || '').includes('Illegal invocation'))) {
-            return await fetch(url, init);
+            return await invokeNativeFetch(url, init);
           }
           throw err;
         }
       }
-      return await fetch(url, init);
+      return await invokeNativeFetch(url, init);
     };
 
     this.authData = null;
@@ -245,16 +252,28 @@ export class B2StorageProvider extends StorageProvider {
       error.missingKeys = config.missingKeys;
       throw error;
     }
-    const resolvedFetch = customFetch || (typeof env.fetch === 'function' ? async (url, init) => {
-      try {
-        return await env.fetch(url, init);
-      } catch (err) {
-        if (err && (err.name === 'TypeError' || String(err.message || '').includes('Illegal invocation'))) {
-          return await fetch(url, init);
-        }
-        throw err;
+
+    const invokeNativeFetch = (url, init) => {
+      if (typeof globalThis !== 'undefined' && typeof globalThis.fetch === 'function') {
+        return globalThis.fetch.call(globalThis, url, init);
       }
-    } : (url, init) => fetch(url, init));
+      return fetch(url, init);
+    };
+
+    const resolvedFetch = typeof customFetch === 'function'
+      ? customFetch
+      : (typeof env.fetch === 'function'
+          ? async (url, init) => {
+              try {
+                return await env.fetch(url, init);
+              } catch (err) {
+                if (err && (err.name === 'TypeError' || String(err.message || '').includes('Illegal invocation'))) {
+                  return await invokeNativeFetch(url, init);
+                }
+                throw err;
+              }
+            }
+          : (url, init) => invokeNativeFetch(url, init));
 
     return new B2StorageProvider({
       ...config,
