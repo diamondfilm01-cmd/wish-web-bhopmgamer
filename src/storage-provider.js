@@ -88,18 +88,44 @@ export function getMimeType(filePath) {
   return mimeMap[ext] || 'application/octet-stream';
 }
 
+function sanitizeB2Secret(val) {
+  if (val === undefined || val === null) return null;
+  let str = String(val).trim();
+  if ((str.startsWith('"') && str.endsWith('"')) || (str.startsWith("'") && str.endsWith("'"))) {
+    str = str.slice(1, -1).trim();
+  }
+  return str || null;
+}
+
 /**
  * Extracts and validates B2 Configuration from environment secrets
  */
 export function getB2Config(env = {}) {
   const procEnv = (typeof process !== 'undefined' && process.env) ? process.env : {};
 
-  const applicationKeyId = env.B2_APPLICATION_KEY_ID || env.B2_KEY_ID || procEnv.B2_APPLICATION_KEY_ID || procEnv.B2_KEY_ID || null;
-  const applicationKey = env.B2_APPLICATION_KEY || env.B2_APP_KEY || procEnv.B2_APPLICATION_KEY || procEnv.B2_APP_KEY || null;
-  const bucketName = env.B2_BUCKET_NAME || procEnv.B2_BUCKET_NAME || null;
-  const bucketId = env.B2_BUCKET_ID || procEnv.B2_BUCKET_ID || null;
-  const endpoint = env.B2_ENDPOINT || env.B2_API_URL || procEnv.B2_ENDPOINT || procEnv.B2_API_URL || 'https://api.backblazeb2.com';
-  const downloadUrl = env.B2_DOWNLOAD_URL || procEnv.B2_DOWNLOAD_URL || null;
+  const applicationKeyId = sanitizeB2Secret(
+    env.B2_APPLICATION_KEY_ID || env.B2_KEY_ID || env.BACKBLAZE_APPLICATION_KEY_ID || env.BACKBLAZE_KEY_ID || procEnv.B2_APPLICATION_KEY_ID || procEnv.B2_KEY_ID
+  );
+  const applicationKey = sanitizeB2Secret(
+    env.B2_APPLICATION_KEY || env.B2_APP_KEY || env.BACKBLAZE_APPLICATION_KEY || env.BACKBLAZE_APP_KEY || procEnv.B2_APPLICATION_KEY || procEnv.B2_APP_KEY
+  );
+  const bucketName = sanitizeB2Secret(
+    env.B2_BUCKET_NAME || env.BACKBLAZE_BUCKET_NAME || env.B2_BUCKET || env.BACKBLAZE_BUCKET || procEnv.B2_BUCKET_NAME || procEnv.BACKBLAZE_BUCKET_NAME
+  );
+  const bucketId = sanitizeB2Secret(
+    env.B2_BUCKET_ID || env.BACKBLAZE_BUCKET_ID || procEnv.B2_BUCKET_ID || procEnv.BACKBLAZE_BUCKET_ID
+  );
+  const rawEndpoint = sanitizeB2Secret(
+    env.B2_ENDPOINT || env.B2_API_URL || env.B2_API_ENDPOINT || env.BACKBLAZE_ENDPOINT || env.BACKBLAZE_API_URL || procEnv.B2_ENDPOINT || procEnv.B2_API_URL || 'https://api.backblazeb2.com'
+  );
+  const downloadUrl = sanitizeB2Secret(
+    env.B2_DOWNLOAD_URL || env.BACKBLAZE_DOWNLOAD_URL || procEnv.B2_DOWNLOAD_URL
+  );
+
+  let endpoint = rawEndpoint || 'https://api.backblazeb2.com';
+  if (!endpoint.startsWith('http://') && !endpoint.startsWith('https://')) {
+    endpoint = `https://${endpoint}`;
+  }
 
   const missingKeys = [];
   if (!applicationKeyId) missingKeys.push('B2_APPLICATION_KEY_ID');
@@ -222,13 +248,40 @@ export class B2StorageProvider extends StorageProvider {
       ? btoa(credentials)
       : Buffer.from(credentials).toString('base64');
 
-    const authUrl = `${this.endpoint}/b2api/v3/b2_authorize_account`;
-    const response = await this.fetchFn(authUrl, {
+    // Determine native B2 API authorization endpoint
+    let authBase = 'https://api.backblazeb2.com';
+    if (this.endpoint) {
+      let cleanEndpoint = String(this.endpoint).trim().replace(/\/+$/, '');
+      if (!cleanEndpoint.startsWith('http://') && !cleanEndpoint.startsWith('https://')) {
+        cleanEndpoint = `https://${cleanEndpoint}`;
+      }
+      if (!cleanEndpoint.includes('s3.') && (cleanEndpoint.includes('backblazeb2.com') || cleanEndpoint.includes('localhost') || cleanEndpoint.includes('127.0.0.1') || cleanEndpoint.includes('mock'))) {
+        authBase = cleanEndpoint;
+      }
+    }
+
+    const authUrl = `${authBase}/b2api/v3/b2_authorize_account`;
+    let response = await this.fetchFn(authUrl, {
       method: 'GET',
       headers: {
         'Authorization': `Basic ${basicAuth}`
       }
     });
+
+    // If custom endpoint failed, fallback to global native B2 API endpoint
+    if (!response.ok && authBase !== 'https://api.backblazeb2.com') {
+      try {
+        const fallbackRes = await this.fetchFn('https://api.backblazeb2.com/b2api/v3/b2_authorize_account', {
+          method: 'GET',
+          headers: {
+            'Authorization': `Basic ${basicAuth}`
+          }
+        });
+        if (fallbackRes.ok) {
+          response = fallbackRes;
+        }
+      } catch (_) {}
+    }
 
     if (!response.ok) {
       const errorText = await response.text();
@@ -264,14 +317,82 @@ export class B2StorageProvider extends StorageProvider {
   }
 
   /**
+   * Automatically resolves bucketId from bucketName via native B2 b2_list_buckets
+   */
+  async resolveBucketId(forceRefresh = false) {
+    if (this.bucketId && !forceRefresh) return this.bucketId;
+    const auth = await this.authorizeAccount(forceRefresh);
+    if (auth.allowed?.bucketId) {
+      this.bucketId = auth.allowed.bucketId;
+      return this.bucketId;
+    }
+
+    if (!this.bucketName) return null;
+
+    try {
+      const listUrl = `${auth.apiUrl}/b2api/v3/b2_list_buckets`;
+      let res = await this.fetchFn(listUrl, {
+        method: 'POST',
+        headers: {
+          'Authorization': auth.authorizationToken,
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({
+          accountId: auth.accountId,
+          bucketName: this.bucketName
+        })
+      });
+
+      if (res.ok) {
+        const listData = await res.json();
+        const buckets = listData.buckets || [];
+        const match = buckets.find(b => b.bucketName === this.bucketName || b.bucketName?.toLowerCase() === this.bucketName?.toLowerCase()) || buckets[0];
+        if (match && match.bucketId) {
+          this.bucketId = match.bucketId;
+          return this.bucketId;
+        }
+      } else {
+        // Fallback: list buckets without bucketName filter
+        const fallbackRes = await this.fetchFn(listUrl, {
+          method: 'POST',
+          headers: {
+            'Authorization': auth.authorizationToken,
+            'Content-Type': 'application/json'
+          },
+          body: JSON.stringify({
+            accountId: auth.accountId
+          })
+        });
+        if (fallbackRes.ok) {
+          const listData = await fallbackRes.json();
+          const buckets = listData.buckets || [];
+          const match = buckets.find(b => b.bucketName === this.bucketName || b.bucketName?.toLowerCase() === this.bucketName?.toLowerCase()) || buckets[0];
+          if (match && match.bucketId) {
+            this.bucketId = match.bucketId;
+            return this.bucketId;
+          }
+        }
+      }
+    } catch (listErr) {
+      console.warn('[B2] Auto-resolve bucketId warning:', listErr.message);
+    }
+
+    return this.bucketId;
+  }
+
+  /**
    * Retrieves an upload URL for the target bucket (b2_get_upload_url)
    */
   async getUploadUrl(bucketId = null, forceRefresh = false) {
-    const auth = await this.authorizeAccount();
-    const targetBucketId = bucketId || this.bucketId;
+    const auth = await this.authorizeAccount(forceRefresh);
+    let targetBucketId = bucketId || this.bucketId;
 
     if (!targetBucketId) {
-      throw new Error('B2 Bucket ID is required to get an upload URL.');
+      targetBucketId = await this.resolveBucketId(forceRefresh);
+    }
+
+    if (!targetBucketId) {
+      throw new Error(`B2 Bucket ID could not be resolved for bucket "${this.bucketName || 'unknown'}". Please ensure B2_BUCKET_NAME exists in Backblaze or provide B2_BUCKET_ID.`);
     }
 
     const cached = this.uploadUrlCache.get(targetBucketId);
@@ -295,7 +416,11 @@ export class B2StorageProvider extends StorageProvider {
         return this.getUploadUrl(targetBucketId, true);
       }
       const errorText = await response.text();
-      throw new Error(`Failed to get B2 upload URL (${response.status}): ${errorText}`);
+      let errorJson = {};
+      try { errorJson = JSON.parse(errorText); } catch (_) {}
+      const err = new Error(`Failed to get B2 upload URL (${response.status}): ${errorJson.message || errorText}`);
+      err.code = errorJson.code || 'B2_UPLOAD_URL_FAILED';
+      throw err;
     }
 
     const data = await response.json();
@@ -400,6 +525,7 @@ export class B2StorageProvider extends StorageProvider {
       contentType: resData.contentType,
       uploadTimestamp: resData.uploadTimestamp,
       downloadUrl,
+      playbackUrl: downloadUrl,
       url: downloadUrl
     };
   }
@@ -552,4 +678,259 @@ export class B2StorageProvider extends StorageProvider {
       nextFileName: data.nextFileName || null
     };
   }
+}
+
+// ============================================================================
+// AUDIO & VIDEO VALIDATION CONSTRAINTS AND ENGINES (Part 41 / Backblaze B2)
+// ============================================================================
+
+export const AUDIO_LIMITS = {
+  MAX_AUDIO_BYTES: 50 * 1024 * 1024, // 50 MB max per audio track
+  DEFAULT_MAX_BYTES: 50 * 1024 * 1024,
+  ALLOWED_MIME_TYPES: [
+    'audio/mpeg',
+    'audio/mp3',
+    'audio/wav',
+    'audio/wave',
+    'audio/x-wav',
+    'audio/ogg',
+    'audio/opus',
+    'audio/mp4',
+    'audio/x-m4a',
+    'audio/aac',
+    'audio/flac',
+    'audio/webm'
+  ],
+  ALLOWED_EXTENSIONS: ['mp3', 'wav', 'ogg', 'm4a', 'aac', 'flac', 'weba', 'opus']
+};
+
+export const VIDEO_LIMITS = {
+  MAX_VIDEO_BYTES: 100 * 1024 * 1024, // 100 MB max for celebration video reels
+  DEFAULT_MAX_BYTES: 100 * 1024 * 1024,
+  ALLOWED_MIME_TYPES: ['video/mp4', 'video/webm', 'video/quicktime', 'video/x-matroska'],
+  ALLOWED_EXTENSIONS: ['mp4', 'webm', 'mov', 'mkv']
+};
+
+/**
+ * Normalizes base64 string, Data URL, Buffer, or ArrayBuffer into Uint8Array
+ */
+export function normalizeBinaryInput(input) {
+  if (!input) {
+    const err = new Error('Audio payload is missing or empty');
+    err.code = 'AUDIO_EMPTY';
+    throw err;
+  }
+
+  if (input instanceof Uint8Array) {
+    return input;
+  }
+
+  if (typeof Buffer !== 'undefined' && Buffer.isBuffer(input)) {
+    return new Uint8Array(input);
+  }
+
+  if (input instanceof ArrayBuffer) {
+    return new Uint8Array(input);
+  }
+
+  if (typeof input === 'string') {
+    let cleanBase64 = input;
+    if (input.includes(',')) {
+      cleanBase64 = input.split(',')[1];
+    }
+    cleanBase64 = cleanBase64.replace(/\s/g, '');
+
+    if (typeof Buffer !== 'undefined') {
+      return new Uint8Array(Buffer.from(cleanBase64, 'base64'));
+    }
+
+    const binaryStr = atob(cleanBase64);
+    const len = binaryStr.length;
+    const bytes = new Uint8Array(len);
+    for (let i = 0; i < len; i++) {
+      bytes[i] = binaryStr.charCodeAt(i);
+    }
+    return bytes;
+  }
+
+  const err = new Error('Unsupported binary payload format');
+  err.code = 'AUDIO_INVALID';
+  throw err;
+}
+
+/**
+ * Validates audio bytes, MIME type, size limits, and magic signatures
+ */
+export async function validateAudioBuffer(input, options = {}) {
+  const maxBytes = options.maxSizeBytes || AUDIO_LIMITS.MAX_AUDIO_BYTES;
+  const filename = String(options.filename || 'track.mp3').toLowerCase();
+  const fileExt = filename.split('.').pop() || 'mp3';
+
+  const bytes = normalizeBinaryInput(input);
+  const sizeBytes = bytes.byteLength;
+
+  if (sizeBytes === 0) {
+    const err = new Error('Audio file is empty (0 bytes)');
+    err.code = 'AUDIO_EMPTY';
+    throw err;
+  }
+
+  if (sizeBytes > maxBytes) {
+    const err = new Error(`Audio file exceeds maximum allowed size of ${(maxBytes / (1024 * 1024)).toFixed(0)} MB (Received ${(sizeBytes / (1024 * 1024)).toFixed(2)} MB)`);
+    err.code = 'AUDIO_TOO_LARGE';
+    err.sizeBytes = sizeBytes;
+    err.maxBytes = maxBytes;
+    throw err;
+  }
+
+  // Security check: reject executable or HTML scripts disguised as audio
+  if (sizeBytes >= 4) {
+    // Windows executable MZ
+    if (bytes[0] === 0x4D && bytes[1] === 0x5A) {
+      const err = new Error('Executable files (.exe, MZ) are strictly rejected');
+      err.code = 'FILE_SECURITY_REJECTED';
+      throw err;
+    }
+    // ELF executable \x7FELF
+    if (bytes[0] === 0x7F && bytes[1] === 0x45 && bytes[2] === 0x4C && bytes[3] === 0x46) {
+      const err = new Error('Executable binary files are strictly rejected');
+      err.code = 'FILE_SECURITY_REJECTED';
+      throw err;
+    }
+    // HTML / Script check (<html, <!DOCTYPE, <?php, <script)
+    const previewStr = new TextDecoder('utf-8', { fatal: false }).decode(bytes.subarray(0, Math.min(sizeBytes, 64))).toLowerCase();
+    if (previewStr.includes('<!doctype') || previewStr.includes('<html') || previewStr.includes('<?php') || previewStr.includes('<script')) {
+      const err = new Error('Script or HTML documents are rejected as audio files');
+      err.code = 'FILE_SECURITY_REJECTED';
+      throw err;
+    }
+  }
+
+  // Detect signature / audio format
+  let detectedMime = null;
+  let detectedExt = null;
+
+  // 1. MP3 with ID3v2 tag (bytes: "ID3" = 0x49, 0x44, 0x33)
+  if (sizeBytes >= 3 && bytes[0] === 0x49 && bytes[1] === 0x44 && bytes[2] === 0x33) {
+    detectedMime = 'audio/mpeg';
+    detectedExt = 'mp3';
+  }
+  // 2. MP3 raw MPEG audio frame sync: 0xFF followed by 0xE0..0xFF (e.g. 0xFB, 0xF3, 0xF2)
+  else if (sizeBytes >= 2 && bytes[0] === 0xFF && (bytes[1] & 0xE0) === 0xE0 && (bytes[1] & 0x18) !== 0x08) {
+    detectedMime = 'audio/mpeg';
+    detectedExt = 'mp3';
+  }
+  // 3. WAV: "RIFF" (0x52, 0x49, 0x46, 0x46) and offset 8 "WAVE" (0x57, 0x41, 0x56, 0x45)
+  else if (sizeBytes >= 12 &&
+      bytes[0] === 0x52 && bytes[1] === 0x49 && bytes[2] === 0x46 && bytes[3] === 0x46 &&
+      bytes[8] === 0x57 && bytes[9] === 0x41 && bytes[10] === 0x56 && bytes[11] === 0x45) {
+    detectedMime = 'audio/wav';
+    detectedExt = 'wav';
+  }
+  // 4. OGG: "OggS" (0x4F, 0x67, 0x67, 0x53)
+  else if (sizeBytes >= 4 && bytes[0] === 0x4F && bytes[1] === 0x67 && bytes[2] === 0x67 && bytes[3] === 0x53) {
+    detectedMime = 'audio/ogg';
+    detectedExt = 'ogg';
+  }
+  // 5. FLAC: "fLaC" (0x66, 0x4C, 0x61, 0x43)
+  else if (sizeBytes >= 4 && bytes[0] === 0x66 && bytes[1] === 0x4C && bytes[2] === 0x61 && bytes[3] === 0x43) {
+    detectedMime = 'audio/flac';
+    detectedExt = 'flac';
+  }
+  // 6. M4A / AAC (MP4 container with 'ftyp'): offset 4..7 is "ftyp"
+  else if (sizeBytes >= 8 && bytes[4] === 0x66 && bytes[5] === 0x74 && bytes[6] === 0x79 && bytes[7] === 0x70) {
+    detectedMime = 'audio/mp4';
+    detectedExt = 'm4a';
+  }
+  // 7. WEBM / Matroska EBML: 0x1A, 0x45, 0xDF, 0xA3
+  else if (sizeBytes >= 4 && bytes[0] === 0x1A && bytes[1] === 0x45 && bytes[2] === 0xDF && bytes[3] === 0xA3) {
+    detectedMime = 'audio/webm';
+    detectedExt = 'weba';
+  }
+  // 8. ADTS AAC: 0xFF followed by 0xF0 or 0xF1..0xF9
+  else if (sizeBytes >= 2 && bytes[0] === 0xFF && (bytes[1] & 0xF6) === 0xF0) {
+    detectedMime = 'audio/aac';
+    detectedExt = 'aac';
+  }
+  // Fallback to extension validation if valid audio extension
+  else if (AUDIO_LIMITS.ALLOWED_EXTENSIONS.includes(fileExt)) {
+    detectedExt = fileExt;
+    detectedMime = getMimeType(`track.${fileExt}`);
+  }
+
+  if (!detectedMime || !detectedExt) {
+    const err = new Error(`Invalid or unsupported audio file format (.${fileExt}). Please upload MP3, WAV, OGG, M4A, AAC, or FLAC.`);
+    err.code = 'AUDIO_INVALID';
+    throw err;
+  }
+
+  const sha256 = await computeSha256Hex(bytes);
+
+  return {
+    valid: true,
+    bytes,
+    sizeBytes,
+    mimeType: detectedMime,
+    extension: detectedExt,
+    sha256
+  };
+}
+
+/**
+ * Validates video bytes and constraints for celebration reels
+ */
+export async function validateVideoBuffer(input, options = {}) {
+  const maxBytes = options.maxSizeBytes || VIDEO_LIMITS.MAX_VIDEO_BYTES;
+  const filename = String(options.filename || 'video.mp4').toLowerCase();
+  const fileExt = filename.split('.').pop() || 'mp4';
+
+  const bytes = normalizeBinaryInput(input);
+  const sizeBytes = bytes.byteLength;
+
+  if (sizeBytes === 0) {
+    const err = new Error('Video file is empty (0 bytes)');
+    err.code = 'VIDEO_EMPTY';
+    throw err;
+  }
+
+  if (sizeBytes > maxBytes) {
+    const err = new Error(`Video file exceeds maximum allowed size of ${(maxBytes / (1024 * 1024)).toFixed(0)} MB`);
+    err.code = 'VIDEO_TOO_LARGE';
+    throw err;
+  }
+
+  let detectedMime = null;
+  let detectedExt = null;
+
+  // MP4/MOV container: offset 4 'ftyp'
+  if (sizeBytes >= 8 && bytes[4] === 0x66 && bytes[5] === 0x74 && bytes[6] === 0x79 && bytes[7] === 0x70) {
+    detectedMime = 'video/mp4';
+    detectedExt = 'mp4';
+  }
+  // WebM / Matroska EBML: 0x1A, 0x45, 0xDF, 0xA3
+  else if (sizeBytes >= 4 && bytes[0] === 0x1A && bytes[1] === 0x45 && bytes[2] === 0xDF && bytes[3] === 0xA3) {
+    detectedMime = 'video/webm';
+    detectedExt = 'webm';
+  }
+  else if (VIDEO_LIMITS.ALLOWED_EXTENSIONS.includes(fileExt)) {
+    detectedExt = fileExt;
+    detectedMime = fileExt === 'webm' ? 'video/webm' : 'video/mp4';
+  }
+
+  if (!detectedMime) {
+    const err = new Error(`Invalid or unsupported video file format (.${fileExt}). Please upload MP4 or WebM.`);
+    err.code = 'VIDEO_INVALID';
+    throw err;
+  }
+
+  const sha256 = await computeSha256Hex(bytes);
+
+  return {
+    valid: true,
+    bytes,
+    sizeBytes,
+    mimeType: detectedMime,
+    extension: detectedExt,
+    sha256
+  };
 }

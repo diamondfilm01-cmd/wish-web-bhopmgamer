@@ -18,7 +18,11 @@ import {
   B2StorageProvider,
   getB2Config,
   buildTemplateStorageKeys,
-  getMimeType
+  getMimeType,
+  AUDIO_LIMITS,
+  validateAudioBuffer,
+  VIDEO_LIMITS,
+  validateVideoBuffer
 } from './src/storage-provider.js';
 import {
   ImgBBProvider,
@@ -7111,12 +7115,15 @@ app.get('/api/admin/media/all', (req, res) => {
       allAssetsMap.set(m.url, {
         id: m.id,
         title: m.title || m.filename,
+        artist: m.artist || 'WishMagic Studio',
         type: m.type || detectedType,
         format: ext.toUpperCase() || 'MEDIA',
         url: m.url,
+        playbackUrl: m.playbackUrl || m.url,
         fileSizeFormatted: m.fileSizeFormatted || '1.20 MB',
         duration: m.duration || null,
         category: m.category || (detectedType === 'image' ? 'Visual Artwork' : (detectedType === 'video' ? 'Video Reel' : 'Soundtrack')),
+        storageProvider: m.storageProvider || (m.url.includes('backblazeb2') ? 'b2' : (m.url.includes('ibb.co') ? 'imgbb' : 'local')),
         createdAt: m.createdAt || new Date().toISOString()
       });
     });
@@ -7249,66 +7256,251 @@ app.get('/api/admin/media/all', (req, res) => {
   }
 });
 
-// Admin API: Universal Media Uploader (Images, Videos, Audios)
-app.post('/api/admin/media/upload', (req, res) => {
+// Admin API: Universal Media Uploader (Backblaze B2 for Audio/Video, ImgBB for Images)
+app.post(['/api/admin/media/upload', '/api/admin/music/upload', '/api/music/upload'], async (req, res) => {
   try {
-    const { title, type, category, fileData, filename, setAsHeroImage } = req.body || {};
+    const { title, type, category, fileData, filename, artist, setAsHeroImage } = req.body || {};
     if (!fileData) {
       return res.status(400).json({ success: false, message: 'File payload is required' });
     }
 
+    const safeFilename = sanitizeFilename(filename || 'media-asset.mp3');
+    const ext = path.extname(safeFilename).replace('.', '').toLowerCase();
+    const rawType = String(type || '').toLowerCase().trim();
+    const isExplicitMusic = req.path.includes('/music/upload');
+
+    const isAudio = isExplicitMusic || rawType === 'audio' || AUDIO_LIMITS.ALLOWED_EXTENSIONS.includes(ext) || ['mp3', 'wav', 'ogg', 'm4a', 'aac', 'flac'].includes(ext);
+    const isVideo = !isAudio && (rawType === 'video' || VIDEO_LIMITS.ALLOWED_EXTENSIONS.includes(ext) || ['mp4', 'webm', 'mov'].includes(ext));
+    const isImage = !isAudio && !isVideo;
+
+    const nowIso = new Date().toISOString();
+
+    // CASE A: Audio / Music Upload
+    if (isAudio) {
+      let validation;
+      try {
+        validation = await validateAudioBuffer(fileData, {
+          maxSizeBytes: AUDIO_LIMITS.MAX_AUDIO_BYTES,
+          filename: safeFilename
+        });
+      } catch (valErr) {
+        return res.status(400).json({
+          success: false,
+          code: valErr.code || 'AUDIO_INVALID',
+          message: valErr.message
+        });
+      }
+
+      const trackId = 'mus_' + Date.now().toString(36) + '_' + Math.random().toString(36).substr(2, 4);
+      const cleanFileName = safeFilename.replace(/[^a-zA-Z0-9._-]/g, '_');
+      const storageKey = `music/${Date.now()}_${trackId}_${cleanFileName}`;
+
+      let publicUrl = `/media/${trackId}.${validation.extension}`;
+      let storageProvider = 'local';
+      let b2UploadData = null;
+
+      // Real Backblaze B2 Upload if configured
+      if (B2StorageProvider.isConfigured(process.env)) {
+        try {
+          const b2 = B2StorageProvider.fromEnv(process.env);
+          b2UploadData = await b2.putObject({
+            key: storageKey,
+            body: validation.bytes,
+            contentType: validation.mimeType,
+            metadata: { title: title || safeFilename, trackId }
+          });
+          publicUrl = b2UploadData.playbackUrl || b2UploadData.downloadUrl;
+          storageProvider = 'b2';
+        } catch (b2Err) {
+          console.error('[B2 Upload Error in server.js]:', b2Err);
+          return res.status(502).json({
+            success: false,
+            code: b2Err.code || 'B2_UPLOAD_FAILED',
+            message: `Failed to upload audio to Backblaze B2: ${b2Err.message}`
+          });
+        }
+      } else {
+        // Local disk fallback for dev environment without secrets
+        const diskFilename = `${trackId}.${validation.extension}`;
+        const filePath = path.join(MEDIA_DIR, diskFilename);
+        fs.writeFileSync(filePath, Buffer.from(validation.bytes));
+        publicUrl = `/media/${diskFilename}`;
+      }
+
+      const newAsset = {
+        id: trackId,
+        title: (title || safeFilename || 'Celebration Track').trim(),
+        artist: (artist || 'WishMagic Studio').trim(),
+        type: 'audio',
+        format: validation.extension.toUpperCase(),
+        category: category || 'celebration',
+        filename: safeFilename,
+        storageKey,
+        storageProvider,
+        url: publicUrl,
+        playbackUrl: publicUrl,
+        fileSize: validation.sizeBytes,
+        fileSizeFormatted: (validation.sizeBytes / (1024 * 1024)).toFixed(2) + ' MB',
+        mimeType: validation.mimeType,
+        createdAt: nowIso
+      };
+
+      const media = getMedia();
+      media.unshift(newAsset);
+      saveMedia(media);
+
+      return res.status(201).json({
+        success: true,
+        asset: newAsset,
+        track: newAsset,
+        message: storageProvider === 'b2'
+          ? `Music track "${newAsset.title}" uploaded to Backblaze B2 and added to library!`
+          : `Music track "${newAsset.title}" saved locally (B2 secrets not configured).`
+      });
+    }
+
+    // CASE B: Video Reel Upload
+    if (isVideo) {
+      let validation;
+      try {
+        validation = await validateVideoBuffer(fileData, {
+          maxSizeBytes: VIDEO_LIMITS.MAX_VIDEO_BYTES,
+          filename: safeFilename
+        });
+      } catch (valErr) {
+        return res.status(400).json({
+          success: false,
+          code: valErr.code || 'VIDEO_INVALID',
+          message: valErr.message
+        });
+      }
+
+      const videoId = 'vid_' + Date.now().toString(36) + '_' + Math.random().toString(36).substr(2, 4);
+      const cleanFileName = safeFilename.replace(/[^a-zA-Z0-9._-]/g, '_');
+      const storageKey = `videos/${Date.now()}_${videoId}_${cleanFileName}`;
+
+      let publicUrl = `/media/${videoId}.${validation.extension}`;
+      let storageProvider = 'local';
+
+      if (B2StorageProvider.isConfigured(process.env)) {
+        try {
+          const b2 = B2StorageProvider.fromEnv(process.env);
+          const b2Res = await b2.putObject({
+            key: storageKey,
+            body: validation.bytes,
+            contentType: validation.mimeType,
+            metadata: { title: title || safeFilename, videoId }
+          });
+          publicUrl = b2Res.playbackUrl || b2Res.downloadUrl;
+          storageProvider = 'b2';
+        } catch (b2Err) {
+          return res.status(502).json({
+            success: false,
+            code: b2Err.code || 'B2_UPLOAD_FAILED',
+            message: `Failed to upload video to Backblaze B2: ${b2Err.message}`
+          });
+        }
+      } else {
+        const diskFilename = `${videoId}.${validation.extension}`;
+        const filePath = path.join(MEDIA_DIR, diskFilename);
+        fs.writeFileSync(filePath, Buffer.from(validation.bytes));
+        publicUrl = `/media/${diskFilename}`;
+      }
+
+      const newAsset = {
+        id: videoId,
+        title: (title || safeFilename || 'Celebration Reel').trim(),
+        type: 'video',
+        format: validation.extension.toUpperCase(),
+        category: category || 'Video Reel',
+        filename: safeFilename,
+        storageKey,
+        storageProvider,
+        url: publicUrl,
+        playbackUrl: publicUrl,
+        fileSize: validation.sizeBytes,
+        fileSizeFormatted: (validation.sizeBytes / (1024 * 1024)).toFixed(2) + ' MB',
+        mimeType: validation.mimeType,
+        createdAt: nowIso
+      };
+
+      const media = getMedia();
+      media.unshift(newAsset);
+      saveMedia(media);
+
+      return res.status(201).json({
+        success: true,
+        asset: newAsset,
+        message: `Video "${newAsset.title}" uploaded successfully!`
+      });
+    }
+
+    // CASE C: Image Upload (ImgBB)
     const mediaId = 'med_' + Date.now().toString(36) + '_' + Math.random().toString(36).substr(2, 4);
-    const originalExt = path.extname(filename || 'asset.png') || '.png';
-    const diskFilename = `${mediaId}${originalExt}`;
-    const filePath = path.join(MEDIA_DIR, diskFilename);
+    let publicUrl = '';
+    let storageProvider = 'local';
+    let imgResult = null;
 
-    let base64Content = fileData;
-    if (fileData.includes(',')) {
-      base64Content = fileData.split(',')[1];
-    }
-    const buffer = Buffer.from(base64Content, 'base64');
-    fs.writeFileSync(filePath, buffer);
-
-    const extClean = originalExt.replace('.', '').toLowerCase();
-    let detectedType = type || 'image';
-    if (!type) {
-      if (['mp3', 'wav', 'ogg', 'm4a'].includes(extClean)) detectedType = 'audio';
-      else if (['mp4', 'webm', 'mov'].includes(extClean)) detectedType = 'video';
+    let validation;
+    try {
+      validation = await validateImageBuffer(fileData, { maxSizeBytes: IMAGE_LIMITS.MAX_IMAGE_BYTES });
+    } catch (valErr) {
+      return res.status(400).json({ success: false, code: valErr.code || 'IMAGE_INVALID', message: valErr.message });
     }
 
-    const publicUrl = `/media/${diskFilename}`;
+    const imgbbConfig = getImgBBConfig(process.env);
+    if (imgbbConfig.isConfigured) {
+      const provider = ImgBBProvider.fromEnv(process.env);
+      imgResult = await provider.uploadImage({
+        data: validation.bytes,
+        filename: safeFilename,
+        name: `admin_${Date.now()}`
+      });
+      publicUrl = imgResult.displayUrl;
+      storageProvider = 'imgbb';
+    } else {
+      const originalExt = path.extname(safeFilename) || '.png';
+      const diskFilename = `${mediaId}${originalExt}`;
+      const filePath = path.join(MEDIA_DIR, diskFilename);
+      fs.writeFileSync(filePath, Buffer.from(validation.bytes));
+      publicUrl = `/media/${diskFilename}`;
+    }
+
     const newAsset = {
       id: mediaId,
-      title: (title || filename || 'Media Asset').trim(),
-      type: detectedType,
-      category: category || (detectedType === 'image' ? 'Visual Artwork' : (detectedType === 'video' ? 'Video Reel' : 'Celebration Audio')),
-      filename: diskFilename,
+      title: (title || safeFilename || 'Media Asset').trim(),
+      type: 'image',
+      format: (validation.mimeType || 'image/jpeg').split('/').pop().toUpperCase(),
+      category: category || 'Visual Artwork',
+      filename: safeFilename,
       url: publicUrl,
-      fileSize: buffer.length,
-      fileSizeFormatted: (buffer.length / (1024 * 1024)).toFixed(2) + ' MB',
-      createdAt: new Date().toISOString()
+      displayUrl: publicUrl,
+      thumbnailUrl: imgResult ? imgResult.thumbnailUrl : publicUrl,
+      fileSize: validation.sizeBytes,
+      fileSizeFormatted: (validation.sizeBytes / (1024 * 1024)).toFixed(2) + ' MB',
+      storageProvider,
+      createdAt: nowIso
     };
 
     const media = getMedia();
     media.unshift(newAsset);
     saveMedia(media);
 
-    // If requested, immediately assign as storefront hero image!
-    if (setAsHeroImage && detectedType === 'image') {
+    if (setAsHeroImage) {
       const settings = getServerSiteSettings();
       settings.heroImageUrl = publicUrl;
       saveServerSiteSettings(settings, req.user || { id: 'admin' });
       console.log(`[Admin Media] Uploaded image ${publicUrl} set as storefront Hero Banner`);
     }
 
-    res.json({
+    return res.status(201).json({
       success: true,
       asset: newAsset,
       isHeroImage: Boolean(setAsHeroImage),
-      message: 'Media asset uploaded successfully!'
+      message: 'Image asset uploaded successfully!'
     });
   } catch (err) {
-    console.error('Error uploading media:', err);
+    console.error('Error uploading media in server.js:', err);
     res.status(500).json({ success: false, message: err.message });
   }
 });
