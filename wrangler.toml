@@ -3,15 +3,15 @@ compatibility_date = "2024-09-23"
 compatibility_flags = ["nodejs_compat"]
 pages_build_output_dir = "public"
 
-# Environment Variables
+# Environment Variables (Non-conflicting global Pages configuration)
+# Note: Sensitive secrets and storage bucket bindings (B2_BUCKET_NAME, B2_APPLICATION_KEY,
+# B2_APPLICATION_KEY_ID, IMGBB_API_KEY) are managed in Cloudflare Dashboard to avoid duplicate binding collisions.
 [vars]
 PUBLIC_APP_URL = "https://wishmagic.pages.dev"
 ENVIRONMENT = "production"
 ENABLE_RATE_LIMITING = "true"
 ALLOWED_ORIGIN = "https://wishmagic.live"
-IMGBB_API_KEY = "75e222f33f8ccf82566ebeeac2dc70be"
-B2_BUCKET_NAME = "wishmagic-assets"
-B2_ENDPOINT = "https://api.backblazeb2.com"
+
 
 # Cloudflare D1 Database Binding
 [[d1_databases]]

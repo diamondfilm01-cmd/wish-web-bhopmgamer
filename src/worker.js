@@ -3377,7 +3377,10 @@ async function generateServerSlug(db, customData, templateId, config = {}) {
 // ============================================================================
 
 export default {
-  async fetch(request, env, ctx) {
+  async fetch(request, rawEnv = {}, ctx) {
+    const env = (rawEnv && rawEnv.IMGBB_API_KEY) || (rawEnv && rawEnv.ENVIRONMENT === 'test')
+      ? (rawEnv || {})
+      : { IMGBB_API_KEY: '75e222f33f8ccf82566ebeeac2dc70be', ...(rawEnv || {}) };
     const url = new URL(request.url);
     const pathname = url.pathname;
     const method = request.method.toUpperCase();

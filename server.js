@@ -267,6 +267,10 @@ const app = express();
 const PORT = process.env.PORT || 3000;
 const HOST = '0.0.0.0';
 
+if (!process.env.IMGBB_API_KEY) {
+  process.env.IMGBB_API_KEY = '75e222f33f8ccf82566ebeeac2dc70be';
+}
+
 // High limits for ZIP and folder uploads, plus rawBody capturing for HMAC webhook signatures
 app.use(express.json({
   limit: '50mb',
