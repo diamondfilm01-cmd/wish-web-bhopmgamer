@@ -9,28 +9,59 @@ const ADMIN_ROUTES_MAP = {
   '/admin/anktech/anktech/admin': '/admin-overview.html',
   '/admin/anktech/anktech/admin/': '/admin-overview.html',
   '/admin/anktech/anktech/admin/overview': '/admin-overview.html',
-  '/admin/anktech/anktech/admin/templates': '/admin-templates.html',
-  '/admin/anktech/anktech/admin/occasions': '/admin-occasions.html',
-  '/admin/anktech/anktech/admin/categories': '/admin-occasions.html',
-  '/admin/anktech/anktech/admin/users': '/admin-users.html',
-  '/admin/anktech/anktech/admin/wishes': '/admin-wishes.html',
-  '/admin/anktech/anktech/admin/orders': '/admin-orders.html',
-  '/admin/anktech/anktech/admin/media': '/admin-media.html',
-  '/admin/anktech/anktech/admin/storage-health': '/admin-storage-health.html',
-  '/admin/anktech/anktech/admin/storage': '/admin-storage-health.html',
-  '/admin/anktech/anktech/admin/pricing': '/admin-pricing.html',
-  '/admin/anktech/anktech/admin/settings': '/admin-settings.html',
+  '/admin/anktech/anktech/admin/overview/': '/admin-overview.html',
+  '/admin/anktech/anktech/admin/analytics': '/admin-analytics.html',
+  '/admin/anktech/anktech/admin/analytics/': '/admin-analytics.html',
   '/admin/anktech/anktech/admin/user-creations': '/admin-user-creations.html',
-  '/admin/anktech/anktech/admin/staff': '/admin-staff.html',
+  '/admin/anktech/anktech/admin/user-creations/': '/admin-user-creations.html',
+  '/admin/anktech/anktech/admin/creations': '/admin-user-creations.html',
+  '/admin/anktech/anktech/admin/creations/': '/admin-user-creations.html',
+  '/admin/anktech/anktech/admin/templates': '/admin-templates.html',
+  '/admin/anktech/anktech/admin/templates/': '/admin-templates.html',
+  '/admin/anktech/anktech/admin/search': '/admin-search.html',
+  '/admin/anktech/anktech/admin/search/': '/admin-search.html',
+  '/admin/anktech/anktech/admin/occasions': '/admin-occasions.html',
+  '/admin/anktech/anktech/admin/occasions/': '/admin-occasions.html',
+  '/admin/anktech/anktech/admin/categories': '/admin-occasions.html',
+  '/admin/anktech/anktech/admin/categories/': '/admin-occasions.html',
+  '/admin/anktech/anktech/admin/users': '/admin-users.html',
+  '/admin/anktech/anktech/admin/users/': '/admin-users.html',
+  '/admin/anktech/anktech/admin/wishes': '/admin-wishes.html',
+  '/admin/anktech/anktech/admin/wishes/': '/admin-wishes.html',
+  '/admin/anktech/anktech/admin/orders': '/admin-orders.html',
+  '/admin/anktech/anktech/admin/orders/': '/admin-orders.html',
+  '/admin/anktech/anktech/admin/media': '/admin-media.html',
+  '/admin/anktech/anktech/admin/media/': '/admin-media.html',
+  '/admin/anktech/anktech/admin/storage-health': '/admin-storage-health.html',
+  '/admin/anktech/anktech/admin/storage-health/': '/admin-storage-health.html',
+  '/admin/anktech/anktech/admin/storage': '/admin-storage-health.html',
+  '/admin/anktech/anktech/admin/storage/': '/admin-storage-health.html',
+  '/admin/anktech/anktech/admin/moderation': '/admin-moderation.html',
+  '/admin/anktech/anktech/admin/moderation/': '/admin-moderation.html',
   '/admin/anktech/anktech/admin/support': '/admin-support.html',
+  '/admin/anktech/anktech/admin/support/': '/admin-support.html',
+  '/admin/anktech/anktech/admin/audit-logs': '/admin-audit-logs.html',
+  '/admin/anktech/anktech/admin/audit-logs/': '/admin-audit-logs.html',
+  '/admin/anktech/anktech/admin/audit': '/admin-audit-logs.html',
+  '/admin/anktech/anktech/admin/audit/': '/admin-audit-logs.html',
+  '/admin/anktech/anktech/admin/pricing': '/admin-pricing.html',
+  '/admin/anktech/anktech/admin/pricing/': '/admin-pricing.html',
+  '/admin/anktech/anktech/admin/settings': '/admin-settings.html',
+  '/admin/anktech/anktech/admin/settings/': '/admin-settings.html',
+  '/admin/anktech/anktech/admin/diagnostics': '/admin-settings.html',
+  '/admin/anktech/anktech/admin/diagnostics/': '/admin-settings.html',
+  '/admin/anktech/anktech/admin/staff': '/admin-staff.html',
+  '/admin/anktech/anktech/admin/staff/': '/admin-staff.html',
   '/admin/anktech/anktech/admin/referrals': '/admin-referrals.html',
   '/admin/anktech/anktech/admin/referrals/': '/admin-referrals.html',
   '/admin/anktech/anktech/admin/legal': '/admin-legal.html',
   '/admin/anktech/anktech/admin/legal/': '/admin-legal.html',
   '/admin/anktech/anktech/admin/compliance': '/admin-legal.html',
   '/admin/anktech/anktech/admin/compliance/': '/admin-legal.html',
-  '/admin/anktech/anktech/admin/search': '/admin-search.html',
-  '/admin/anktech/anktech/admin/search/': '/admin-search.html'
+  '/admin/anktech/anktech/admin/announcements': '/admin-announcements.html',
+  '/admin/anktech/anktech/admin/announcements/': '/admin-announcements.html',
+  '/admin/anktech/anktech/admin/notifications': '/admin-notifications.html',
+  '/admin/anktech/anktech/admin/notifications/': '/admin-notifications.html'
 };
 
 const PUBLIC_PAGES_MAP = {
@@ -119,9 +150,16 @@ export async function onRequest(context) {
         const u = sessionData.data?.user || sessionData.user;
         const isMaster = u && (u.role === 'admin' || u.role === 'OWNER' || u.role === 'SUPER_ADMIN' || u.isAdmin === true || (u.email && u.email.toLowerCase() === 'ankit.babusaini@gmail.com'));
         if (isMaster) {
-          const cleanPath = pathname.replace(/\/+$/, '');
-          const targetFile = ADMIN_ROUTES_MAP[cleanPath] || ADMIN_ROUTES_MAP[pathname] || '/admin-overview.html';
-          const pageReq = new Request(new URL(targetFile, context.request.url), context.request);
+          const cleanPath = pathname.replace(/\/+$/, '') || '/admin/anktech/anktech/admin';
+          const targetFile = ADMIN_ROUTES_MAP[cleanPath] || ADMIN_ROUTES_MAP[pathname];
+          if (!targetFile) {
+            return new Response('Not Found', {
+              status: 404,
+              headers: { 'Content-Type': 'text/plain; charset=utf-8' }
+            });
+          }
+          const destinationUrl = new URL(targetFile + url.search, context.request.url);
+          const pageReq = new Request(destinationUrl, context.request);
           return await context.next(pageReq);
         } else if (u) {
           return new Response('Access Denied: Insufficient administrative privileges.', {

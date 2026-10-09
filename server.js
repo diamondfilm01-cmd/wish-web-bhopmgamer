@@ -13545,6 +13545,11 @@ app.get([
   sendAdminPage('admin-search.html', req, res);
 });
 
+// Unknown admin route handler - 404
+app.get([`${ADMIN_BASE}/*`, '/admin/*'], (req, res) => {
+  res.status(404).send('Not Found');
+});
+
 // Any unmatched route fallback
 app.get('*', (req, res) => {
   res.sendFile(path.join(__dirname, 'public', 'index.html'));

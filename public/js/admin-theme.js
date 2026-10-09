@@ -281,25 +281,45 @@ window.AdminAuthController = AdminAuthController;
 function rewriteAdminSidebarLinks() {
   const sectionMap = {
     'user-creations': 'user-creations',
-    'overview': 'overview',
-    'media': 'media',
+    'creations': 'user-creations',
+    'storage-health': 'storage-health',
+    'audit-logs': 'audit-logs',
+    'analytics': 'analytics',
     'templates': 'templates',
-    'wishes': 'wishes',
-    'users': 'users',
     'occasions': 'occasions',
     'categories': 'occasions',
-    'orders': 'orders',
+    'moderation': 'moderation',
+    'referrals': 'referrals',
+    'rewards': 'referrals',
+    'compliance': 'legal',
+    'announcements': 'announcements',
+    'notifications': 'notifications',
+    'diagnostics': 'settings',
     'settings': 'settings',
+    'support': 'support',
+    'storage': 'storage-health',
+    'orders': 'orders',
+    'billing': 'orders',
     'pricing': 'pricing',
+    'search': 'search',
+    'wishes': 'wishes',
+    'media': 'media',
+    'users': 'users',
     'staff': 'staff',
+    'legal': 'legal',
+    'audit': 'audit-logs',
+    'overview': 'overview',
     'login': 'login'
   };
 
   const currentPath = window.location.pathname.toLowerCase();
   let currentSection = 'overview';
-  for (const [key, val] of Object.entries(sectionMap)) {
+
+  // Sort keys by descending length so multi-word keys (e.g., 'user-creations', 'audit-logs', 'storage-health') take priority
+  const sortedKeys = Object.keys(sectionMap).sort((a, b) => b.length - a.length);
+  for (const key of sortedKeys) {
     if (currentPath.includes(key)) {
-      currentSection = val;
+      currentSection = sectionMap[key];
       break;
     }
   }
@@ -310,39 +330,51 @@ function rewriteAdminSidebarLinks() {
     if (!href || href.startsWith('#') || href.startsWith('javascript:')) return;
 
     // Detect target section
-    let matchedSection = 'overview';
-    for (const [key, val] of Object.entries(sectionMap)) {
+    let matchedSection = null;
+    for (const key of sortedKeys) {
       if (href.toLowerCase().includes(key)) {
-        matchedSection = val;
+        matchedSection = sectionMap[key];
         break;
       }
     }
 
-    // Strictly enforce /admin/anktech/anktech/admin/<section> without query string tokens
-    const newHref = `${SECRET_ADMIN_PREFIX}/${matchedSection}`;
-    a.setAttribute('href', newHref);
+    if (matchedSection) {
+      // Strictly enforce /admin/anktech/anktech/admin/<section> without query string tokens
+      a.setAttribute('href', `${SECRET_ADMIN_PREFIX}/${matchedSection}`);
+    } else if (href.toLowerCase().endsWith('/admin') || href.toLowerCase().endsWith('/admin/') || href.toLowerCase().endsWith('admin.html') || href.toLowerCase().endsWith('admin-overview.html')) {
+      a.setAttribute('href', `${SECRET_ADMIN_PREFIX}/overview`);
+    }
   });
 
   // Highlight active link in sidebar and ensure uniform heights & states across all pages
-  const sidebarNav = document.querySelector('#admin-sidebar nav');
+  const sidebarNav = document.querySelector('#admin-sidebar nav, aside nav');
   if (sidebarNav) {
     const navLinks = sidebarNav.querySelectorAll('a');
     navLinks.forEach(a => {
       const href = (a.getAttribute('href') || '').toLowerCase();
       const isTarget = href.endsWith('/' + currentSection) || 
-                       (currentSection === 'overview' && (href.endsWith('/overview') || href.endsWith('/admin') || href.endsWith('admin.html')));
+                       href.endsWith('/' + currentSection + '/') ||
+                       href.includes('/admin-' + currentSection + '.html') ||
+                       (currentSection === 'overview' && (
+                         href.endsWith('/overview') ||
+                         href.endsWith('/overview/') ||
+                         href.endsWith('/admin') ||
+                         href.endsWith('/admin/') ||
+                         href.endsWith('admin.html') ||
+                         href.endsWith('admin-overview.html')
+                       ));
       
       const icon = a.querySelector('.material-symbols-outlined');
 
       if (isTarget) {
-        a.className = 'flex items-center gap-3 px-4 py-3 rounded-2xl bg-gradient-to-r from-primary/15 to-primary/5 text-primary font-bold border-l-2 border-primary transition-all duration-200 shadow-sm';
+        a.className = 'group flex items-center gap-space-sm px-space-md py-2.5 rounded-lg bg-primary-container text-white font-semibold shadow-[0_0_24px_rgba(124,58,237,0.35)] transition-all duration-200';
         if (icon) {
-          icon.className = 'material-symbols-outlined text-primary text-xl';
+          icon.className = 'material-symbols-outlined text-[20px] transition-transform group-hover:scale-110 text-white';
         }
       } else {
-        a.className = 'flex items-center gap-3 px-4 py-3 rounded-2xl text-on-surface-variant hover:text-on-surface hover:bg-surface-container-high/40 transition-all duration-200 font-medium group';
+        a.className = 'group flex items-center gap-space-sm px-space-md py-2.5 rounded-lg text-on-surface-variant hover:bg-surface-container-high hover:text-on-surface transition-all duration-200';
         if (icon) {
-          icon.className = 'material-symbols-outlined text-on-surface-variant group-hover:text-primary transition-colors text-xl';
+          icon.className = 'material-symbols-outlined text-[20px] transition-transform group-hover:scale-110 text-on-surface-variant group-hover:text-on-surface';
         }
       }
     });
