@@ -957,10 +957,11 @@
       }
 
       // Update KPI Bento Cards
-      document.getElementById('stat-total-assets').innerText = s.totalAssets || allMediaAssets.length;
-      document.getElementById('stat-photos-count').innerText = s.photosCount || allMediaAssets.filter(a => a.type === 'image').length;
-      document.getElementById('stat-videos-count').innerText = s.videosCount || allMediaAssets.filter(a => a.type === 'video').length;
-      document.getElementById('stat-audios-count').innerText = s.audioCount || allMediaAssets.filter(a => a.type === 'audio').length;
+      const setElText = (id, val) => { const el = document.getElementById(id); if (el) el.innerText = val; };
+      setElText('stat-total-assets', s.totalAssets || allMediaAssets.length);
+      setElText('stat-photos-count', s.photosCount || allMediaAssets.filter(a => a.type === 'image').length);
+      setElText('stat-videos-count', s.videosCount || allMediaAssets.filter(a => a.type === 'video').length);
+      setElText('stat-audios-count', s.audioCount || allMediaAssets.filter(a => a.type === 'audio').length);
 
       renderMediaGrid();
 
@@ -993,7 +994,8 @@
           }
         }
       } catch (_) {}
-      grid.innerHTML = `<div class="col-span-full p-6 bg-rose-500/10 border border-rose-500/30 rounded-2xl text-rose-300 text-sm">Network error retrieving media assets.</div>`;
+    } catch (err) {
+      grid.innerHTML = `<div class="col-span-full p-6 bg-rose-500/10 border border-rose-500/30 rounded-2xl text-rose-300 text-sm">Network error retrieving media assets: ${escapeHtml(err.message || 'Unknown error')}</div>`;
     }
   }
 
@@ -1070,7 +1072,10 @@
       return true;
     });
 
-    document.getElementById('results-count-text').innerText = `Showing ${filtered.length} of ${allMediaAssets.length} media assets`;
+    const resultsCountEl = document.getElementById('results-count-text');
+    if (resultsCountEl) {
+      resultsCountEl.innerText = `Showing ${filtered.length} of ${allMediaAssets.length} media assets`;
+    }
 
     if (filtered.length === 0) {
       grid.innerHTML = `
