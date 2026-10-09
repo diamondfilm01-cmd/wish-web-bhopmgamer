@@ -138,7 +138,11 @@ export function getB2Config(env = {}) {
   );
 
   let endpoint = rawEndpoint || 'https://api.backblazeb2.com';
-  if (!endpoint.startsWith('http://') && !endpoint.startsWith('https://')) {
+  if (endpoint.includes('s3.') && endpoint.includes('backblazeb2.com')) {
+    // If user provides S3-compatible regional endpoint (e.g. s3.eu-central-003.backblazeb2.com),
+    // normalize to native B2 authorization base. B2 authorizeAccount will dynamically resolve the regional cluster.
+    endpoint = 'https://api.backblazeb2.com';
+  } else if (!endpoint.startsWith('http://') && !endpoint.startsWith('https://')) {
     endpoint = `https://${endpoint}`;
   }
 
@@ -361,21 +365,25 @@ export class B2StorageProvider extends StorageProvider {
     }
 
     const data = await response.json();
+    const resolvedApiUrl = data.apiUrl || data.apiInfo?.storageApi?.apiUrl || this.endpoint || 'https://api.backblazeb2.com';
+    const resolvedDownloadUrl = this.customDownloadUrl || data.downloadUrl || data.apiInfo?.storageApi?.downloadUrl || 'https://f000.backblazeb2.com';
+    const allowed = data.allowed || data.apiInfo?.storageApi || {};
+
     this.authData = {
       accountId: data.accountId,
       authorizationToken: data.authorizationToken,
-      apiUrl: data.apiUrl,
-      downloadUrl: this.customDownloadUrl || data.downloadUrl,
-      recommendedPartSize: data.recommendedPartSize,
-      allowed: data.allowed || {}
+      apiUrl: String(resolvedApiUrl).replace(/\/+$/, ''),
+      downloadUrl: String(resolvedDownloadUrl).replace(/\/+$/, ''),
+      recommendedPartSize: data.recommendedPartSize || data.apiInfo?.storageApi?.recommendedPartSize || 100000000,
+      allowed
     };
 
     // If bucketId wasn't provided, try using allowed bucket
-    if (!this.bucketId && data.allowed?.bucketId) {
-      this.bucketId = data.allowed.bucketId;
+    if (!this.bucketId && allowed?.bucketId) {
+      this.bucketId = allowed.bucketId;
     }
-    if (!this.bucketName && data.allowed?.bucketName) {
-      this.bucketName = data.allowed.bucketName;
+    if (!this.bucketName && allowed?.bucketName) {
+      this.bucketName = allowed.bucketName;
     }
 
     // Tokens typically last 24h; expire locally in 23h
@@ -397,7 +405,8 @@ export class B2StorageProvider extends StorageProvider {
     if (!this.bucketName) return null;
 
     try {
-      const listUrl = `${auth.apiUrl}/b2api/v3/b2_list_buckets`;
+      const apiUrl = auth.apiUrl || this.endpoint || 'https://api.backblazeb2.com';
+      const listUrl = `${apiUrl}/b2api/v3/b2_list_buckets`;
       let res = await this.fetchFn(listUrl, {
         method: 'POST',
         headers: {
@@ -469,7 +478,8 @@ export class B2StorageProvider extends StorageProvider {
       return cached;
     }
 
-    const response = await this.fetchFn(`${auth.apiUrl}/b2api/v3/b2_get_upload_url`, {
+    const apiUrl = auth.apiUrl || this.endpoint || 'https://api.backblazeb2.com';
+    const response = await this.fetchFn(`${apiUrl}/b2api/v3/b2_get_upload_url`, {
       method: 'POST',
       headers: {
         'Authorization': auth.authorizationToken,
@@ -621,7 +631,8 @@ export class B2StorageProvider extends StorageProvider {
     if (!targetBucketId) return null;
 
     try {
-      const res = await this.fetchFn(`${auth.apiUrl}/b2api/v3/b2_get_download_authorization`, {
+      const apiUrl = auth.apiUrl || this.endpoint || 'https://api.backblazeb2.com';
+      const res = await this.fetchFn(`${apiUrl}/b2api/v3/b2_get_download_authorization`, {
         method: 'POST',
         headers: {
           'Authorization': auth.authorizationToken,
@@ -738,7 +749,8 @@ export class B2StorageProvider extends StorageProvider {
       return { success: false, message: 'fileId could not be resolved for deletion', key };
     }
 
-    const response = await this.fetchFn(`${auth.apiUrl}/b2api/v3/b2_delete_file_version`, {
+    const apiUrl = auth.apiUrl || this.endpoint || 'https://api.backblazeb2.com';
+    const response = await this.fetchFn(`${apiUrl}/b2api/v3/b2_delete_file_version`, {
       method: 'POST',
       headers: {
         'Authorization': auth.authorizationToken,
@@ -763,7 +775,8 @@ export class B2StorageProvider extends StorageProvider {
    */
   async listObjects({ prefix = '', maxKeys = 100 }) {
     const auth = await this.authorizeAccount();
-    const response = await this.fetchFn(`${auth.apiUrl}/b2api/v3/b2_list_file_names`, {
+    const apiUrl = auth.apiUrl || this.endpoint || 'https://api.backblazeb2.com';
+    const response = await this.fetchFn(`${apiUrl}/b2api/v3/b2_list_file_names`, {
       method: 'POST',
       headers: {
         'Authorization': auth.authorizationToken,
