@@ -1507,6 +1507,32 @@ CREATE INDEX IF NOT EXISTS idx_search_recent_session ON search_recent_queries(se
 INSERT OR IGNORE INTO _migrations (id, name, applied_at) VALUES
 ('mig_0024', '0024_part39_global_search_and_discovery_analytics.sql', '2026-10-09T07:00:00.000Z');
 
+-- ============================================================================
+-- Part 41: Backblaze B2 Audio & Music Storage Objects
+-- ============================================================================
+CREATE TABLE IF NOT EXISTS b2_storage_objects (
+  id TEXT PRIMARY KEY,
+  bucket_id TEXT,
+  bucket_name TEXT,
+  object_key TEXT NOT NULL,
+  file_id TEXT,
+  content_type TEXT,
+  content_length INTEGER,
+  sha256 TEXT,
+  public_url TEXT,
+  entity_type TEXT DEFAULT 'music',
+  entity_id TEXT,
+  uploader_id TEXT,
+  upload_status TEXT DEFAULT 'completed',
+  metadata_json TEXT DEFAULT '{}',
+  created_at TEXT NOT NULL,
+  updated_at TEXT NOT NULL
+);
 
+CREATE INDEX IF NOT EXISTS idx_b2_storage_objects_key ON b2_storage_objects(object_key);
+CREATE INDEX IF NOT EXISTS idx_b2_storage_objects_file_id ON b2_storage_objects(file_id);
+CREATE INDEX IF NOT EXISTS idx_b2_storage_objects_entity ON b2_storage_objects(entity_type, entity_id);
+CREATE INDEX IF NOT EXISTS idx_b2_storage_objects_status ON b2_storage_objects(upload_status);
 
-
+INSERT OR IGNORE INTO _migrations (id, name, applied_at) VALUES
+('mig_0025', '0025_part41_b2_music_and_audio_storage.sql', '2026-10-09T08:00:00.000Z');

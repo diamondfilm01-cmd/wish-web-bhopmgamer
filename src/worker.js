@@ -1799,6 +1799,199 @@ async function ensureCoreSchema(db) {
   return (await verifyAndEnsureAuthSchema(db)).ok;
 }
 
+let musicSchemaInitialized = false;
+let musicSchemaPromise = null;
+
+export async function ensureMusicStorageSchema(db) {
+  if (!db || typeof db.prepare !== 'function') return false;
+  if (musicSchemaInitialized) return true;
+  if (musicSchemaPromise) return musicSchemaPromise;
+
+  musicSchemaPromise = (async () => {
+    try {
+      async function execSql(sql) {
+        try {
+          const stmt = db.prepare(sql);
+          if (stmt && typeof stmt.run === 'function') {
+            return await stmt.run().catch(() => {});
+          }
+          if (stmt && typeof stmt.bind === 'function') {
+            const bound = stmt.bind();
+            if (bound && typeof bound.run === 'function') {
+              return await bound.run().catch(() => {});
+            }
+          }
+        } catch (_) {}
+      }
+
+      async function queryInfo(sql) {
+        try {
+          const stmt = db.prepare(sql);
+          if (stmt && typeof stmt.all === 'function') {
+            return await stmt.all().catch(() => null);
+          }
+          if (stmt && typeof stmt.bind === 'function') {
+            const bound = stmt.bind();
+            if (bound && typeof bound.all === 'function') {
+              return await bound.all().catch(() => null);
+            }
+          }
+        } catch (_) {
+          return null;
+        }
+      }
+
+      // 1. Ensure music_library table exists
+      await execSql(`
+        CREATE TABLE IF NOT EXISTS music_library (
+          id TEXT PRIMARY KEY,
+          title TEXT NOT NULL,
+          artist TEXT DEFAULT 'WishMagic Studio',
+          description TEXT,
+          category TEXT NOT NULL DEFAULT 'celebration',
+          relationship_suitability TEXT DEFAULT '[]',
+          storage_provider TEXT NOT NULL DEFAULT 'b2',
+          storage_key TEXT NOT NULL,
+          playback_url TEXT NOT NULL,
+          mime_type TEXT NOT NULL DEFAULT 'audio/mpeg',
+          duration_seconds INTEGER DEFAULT 0,
+          size_bytes INTEGER NOT NULL DEFAULT 0,
+          status TEXT NOT NULL DEFAULT 'active',
+          is_featured INTEGER NOT NULL DEFAULT 0,
+          created_by TEXT DEFAULT 'system',
+          created_at TEXT NOT NULL,
+          updated_at TEXT NOT NULL
+        )
+      `);
+
+      // Additive columns for music_library if created with an earlier schema
+      try {
+        const info = await queryInfo("PRAGMA table_info(music_library)");
+        const existing = new Set((info?.results || []).map(c => c.name));
+        const needed = [
+          { name: 'title', def: "TEXT DEFAULT 'Untitled Track'" },
+          { name: 'artist', def: "TEXT DEFAULT 'WishMagic Studio'" },
+          { name: 'description', def: "TEXT" },
+          { name: 'category', def: "TEXT DEFAULT 'celebration'" },
+          { name: 'relationship_suitability', def: "TEXT DEFAULT '[]'" },
+          { name: 'storage_provider', def: "TEXT DEFAULT 'b2'" },
+          { name: 'storage_key', def: "TEXT DEFAULT ''" },
+          { name: 'playback_url', def: "TEXT DEFAULT ''" },
+          { name: 'mime_type', def: "TEXT DEFAULT 'audio/mpeg'" },
+          { name: 'duration_seconds', def: "INTEGER DEFAULT 0" },
+          { name: 'size_bytes', def: "INTEGER DEFAULT 0" },
+          { name: 'status', def: "TEXT DEFAULT 'active'" },
+          { name: 'is_featured', def: "INTEGER DEFAULT 0" },
+          { name: 'created_by', def: "TEXT DEFAULT 'system'" },
+          { name: 'created_at', def: "TEXT DEFAULT ''" },
+          { name: 'updated_at', def: "TEXT DEFAULT ''" },
+          { name: 'sha256', def: "TEXT" },
+          { name: 'provider_file_id', def: "TEXT" },
+          { name: 'health_status', def: "TEXT DEFAULT 'HEALTHY'" },
+          { name: 'last_health_check_at', def: "TEXT" },
+          { name: 'health_issues', def: "TEXT" }
+        ];
+        for (const col of needed) {
+          if (!existing.has(col.name)) {
+            await execSql(`ALTER TABLE music_library ADD COLUMN ${col.name} ${col.def}`);
+          }
+        }
+      } catch (_) {}
+
+      // Indexes for music_library
+      await execSql(`CREATE INDEX IF NOT EXISTS idx_music_library_category ON music_library(category)`);
+      await execSql(`CREATE INDEX IF NOT EXISTS idx_music_library_status ON music_library(status)`);
+      await execSql(`CREATE INDEX IF NOT EXISTS idx_music_library_featured ON music_library(is_featured)`);
+
+      // 2. Ensure wish_media table exists
+      await execSql(`
+        CREATE TABLE IF NOT EXISTS wish_media (
+          id TEXT PRIMARY KEY,
+          wish_id TEXT,
+          user_id TEXT,
+          object_key TEXT,
+          filename TEXT NOT NULL,
+          media_type TEXT NOT NULL,
+          mime_type TEXT NOT NULL,
+          size_bytes INTEGER NOT NULL,
+          url TEXT NOT NULL,
+          display_url TEXT,
+          thumbnail_url TEXT,
+          delete_url TEXT,
+          sha256 TEXT,
+          width INTEGER,
+          height INTEGER,
+          storage_provider TEXT NOT NULL DEFAULT 'b2',
+          status TEXT NOT NULL DEFAULT 'active',
+          is_public INTEGER NOT NULL DEFAULT 1,
+          created_at TEXT NOT NULL,
+          updated_at TEXT NOT NULL
+        )
+      `);
+
+      // Additive columns for wish_media if created with an earlier schema
+      try {
+        const wmInfo = await queryInfo("PRAGMA table_info(wish_media)");
+        const wmExisting = new Set((wmInfo?.results || []).map(c => c.name));
+        const neededWm = [
+          { name: 'display_url', def: "TEXT" },
+          { name: 'thumbnail_url', def: "TEXT" },
+          { name: 'delete_url', def: "TEXT" },
+          { name: 'sha256', def: "TEXT" },
+          { name: 'width', def: "INTEGER" },
+          { name: 'height', def: "INTEGER" },
+          { name: 'storage_provider', def: "TEXT DEFAULT 'b2'" },
+          { name: 'status', def: "TEXT DEFAULT 'active'" },
+          { name: 'updated_at', def: "TEXT DEFAULT ''" }
+        ];
+        for (const col of neededWm) {
+          if (!wmExisting.has(col.name)) {
+            await execSql(`ALTER TABLE wish_media ADD COLUMN ${col.name} ${col.def}`);
+          }
+        }
+      } catch (_) {}
+
+      // 3. Ensure b2_storage_objects tracking table exists
+      await execSql(`
+        CREATE TABLE IF NOT EXISTS b2_storage_objects (
+          id TEXT PRIMARY KEY,
+          bucket_id TEXT,
+          bucket_name TEXT,
+          object_key TEXT NOT NULL,
+          file_id TEXT,
+          content_type TEXT,
+          content_length INTEGER,
+          sha256 TEXT,
+          public_url TEXT,
+          entity_type TEXT DEFAULT 'music',
+          entity_id TEXT,
+          uploader_id TEXT,
+          upload_status TEXT DEFAULT 'completed',
+          metadata_json TEXT DEFAULT '{}',
+          created_at TEXT NOT NULL,
+          updated_at TEXT NOT NULL
+        )
+      `);
+
+      await execSql(`CREATE INDEX IF NOT EXISTS idx_b2_storage_objects_key ON b2_storage_objects(object_key)`);
+      await execSql(`CREATE INDEX IF NOT EXISTS idx_b2_storage_objects_file_id ON b2_storage_objects(file_id)`);
+      await execSql(`CREATE INDEX IF NOT EXISTS idx_b2_storage_objects_entity ON b2_storage_objects(entity_type, entity_id)`);
+      await execSql(`CREATE INDEX IF NOT EXISTS idx_b2_storage_objects_status ON b2_storage_objects(upload_status)`);
+
+      musicSchemaInitialized = true;
+      return true;
+    } catch (err) {
+      console.warn('[Music Storage Schema Healing Warning]:', err?.message);
+      return false;
+    } finally {
+      musicSchemaPromise = null;
+    }
+  })();
+
+  return musicSchemaPromise;
+}
+
+
 // ============================================================================
 // AUTHENTICATION & AUTHORIZATION BOUNDARY
 // ============================================================================
@@ -7929,6 +8122,7 @@ export default {
             const nowIso = new Date().toISOString();
 
             if (env.DB && typeof env.DB.prepare === 'function') {
+              await ensureMusicStorageSchema(env.DB);
               await env.DB.prepare(`
                 INSERT INTO music_library (
                   id, title, artist, description, category, relationship_suitability,
@@ -7938,7 +8132,7 @@ export default {
               `).bind(
                 trackId, sanitizeString(body.title || filename, 80), 'WishMagic Studio',
                 sanitizeString(body.title || filename, 80), storageKey, playbackUrl,
-                mimeType, bytes.byteLength, user.id, nowIso, nowIso
+                mimeType, bytes.byteLength, user.id || 'system', nowIso, nowIso
               ).run().catch(() => {});
 
               await env.DB.prepare(`
@@ -9780,6 +9974,9 @@ export default {
           // Persist metadata to D1 (both music_library and wish_media)
           if (env.DB && typeof env.DB.prepare === 'function') {
             try {
+              // Ensure tables and columns exist before inserting
+              await ensureMusicStorageSchema(env.DB);
+
               // 1. Insert into music_library for central templates & customizers
               await env.DB.prepare(`
                 INSERT INTO music_library (
@@ -9790,7 +9987,7 @@ export default {
               `).bind(
                 trackId, title, finalArtist, description, finalCategory,
                 storageKey, playbackUrl, audioValidation.mimeType, durationSeconds,
-                audioValidation.sizeBytes, user.id, nowIso, nowIso
+                audioValidation.sizeBytes, user.id || 'system', nowIso, nowIso
               ).run();
 
               // 2. Also register in wish_media so universal media vault indexes it
@@ -9801,7 +9998,7 @@ export default {
                   width, height, storage_provider, status, is_public, created_at, updated_at
                 ) VALUES (?, NULL, ?, ?, ?, 'audio', ?, ?, ?, ?, NULL, NULL, ?, NULL, NULL, ?, 'active', 1, ?, ?)
               `).bind(
-                trackId, user.id, storageKey, title || filename,
+                trackId, user.id || 'system', storageKey, title || filename,
                 audioValidation.mimeType, audioValidation.sizeBytes, playbackUrl, playbackUrl,
                 audioValidation.sha256, storageProvider, nowIso, nowIso
               ).run().catch(e => console.warn('[D1] wish_media track log warning:', e.message));
@@ -9817,7 +10014,7 @@ export default {
                 `).bind(
                   `b2_${trackId}`, b2UploadResult.bucketId || null, b2Config.bucketName || 'wishmagic-assets', storageKey,
                   b2UploadResult.fileId || null, audioValidation.mimeType, audioValidation.sizeBytes,
-                  audioValidation.sha256, playbackUrl, trackId, user.id,
+                  audioValidation.sha256, playbackUrl, trackId, user.id || 'system',
                   JSON.stringify({ title, artist: finalArtist, category: finalCategory }), nowIso, nowIso
                 ).run().catch(e => console.warn('[D1] b2_storage_objects track log warning:', e.message));
               }
@@ -9832,9 +10029,10 @@ export default {
                 }).catch(delErr => console.warn('[Music Upload] B2 rollback deletion warning:', delErr.message));
               }
 
+              const diagMsg = dbErr.message ? ` (${dbErr.message})` : '';
               return applySecurityHeaders(jsonError(
                 'D1_WRITE_FAILED',
-                'Database metadata write failed. Storage upload was safely rolled back.',
+                `Database metadata write failed. Storage upload was safely rolled back.${diagMsg}`,
                 500
               ), request, env);
             }
@@ -9918,6 +10116,7 @@ export default {
 
           if (env.DB && typeof env.DB.prepare === 'function') {
             try {
+              await ensureMusicStorageSchema(env.DB);
               await env.DB.prepare(`
                 INSERT INTO wish_media (
                   id, wish_id, user_id, object_key, filename, media_type, mime_type,
@@ -9925,7 +10124,7 @@ export default {
                   width, height, storage_provider, status, is_public, created_at, updated_at
                 ) VALUES (?, NULL, ?, ?, ?, 'video', ?, ?, ?, ?, NULL, NULL, ?, NULL, NULL, ?, 'active', 1, ?, ?)
               `).bind(
-                videoId, user.id, storageKey, title || filename,
+                videoId, user.id || 'system', storageKey, title || filename,
                 videoValidation.mimeType, videoValidation.sizeBytes, playbackUrl, playbackUrl,
                 videoValidation.sha256, storageProvider, nowIso, nowIso
               ).run();
@@ -9933,7 +10132,8 @@ export default {
               if (b2UploadResult && b2UploadResult.fileId) {
                 await b2Provider.deleteObject({ key: storageKey, fileId: b2UploadResult.fileId }).catch(() => {});
               }
-              return applySecurityHeaders(jsonError('D1_WRITE_FAILED', 'Database metadata write failed. Video upload rolled back.', 500), request, env);
+              const diagMsg = dbErr.message ? ` (${dbErr.message})` : '';
+              return applySecurityHeaders(jsonError('D1_WRITE_FAILED', `Database metadata write failed. Video upload rolled back.${diagMsg}`, 500), request, env);
             }
           }
 
