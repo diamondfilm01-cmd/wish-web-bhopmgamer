@@ -217,18 +217,19 @@ export class B2StorageProvider extends StorageProvider {
     this.customDownloadUrl = config.downloadUrl || null;
     
     // Cloudflare Workers V8 fix: wrap fetch to prevent Illegal invocation error
-    this.fetchFn = (url, init) => {
-      if (typeof config.fetchFn === 'function') {
+    const customUserFetch = typeof config.fetchFn === 'function' ? config.fetchFn : null;
+    this.fetchFn = async (url, init) => {
+      if (customUserFetch) {
         try {
-          return config.fetchFn(url, init);
+          return await customUserFetch(url, init);
         } catch (err) {
           if (err && (err.name === 'TypeError' || String(err.message || '').includes('Illegal invocation'))) {
-            return globalThis.fetch.call(globalThis, url, init);
+            return await fetch(url, init);
           }
           throw err;
         }
       }
-      return globalThis.fetch.call(globalThis, url, init);
+      return await fetch(url, init);
     };
 
     this.authData = null;
@@ -244,16 +245,16 @@ export class B2StorageProvider extends StorageProvider {
       error.missingKeys = config.missingKeys;
       throw error;
     }
-    const resolvedFetch = customFetch || (typeof env.fetch === 'function' ? (url, init) => {
+    const resolvedFetch = customFetch || (typeof env.fetch === 'function' ? async (url, init) => {
       try {
-        return env.fetch(url, init);
+        return await env.fetch(url, init);
       } catch (err) {
         if (err && (err.name === 'TypeError' || String(err.message || '').includes('Illegal invocation'))) {
-          return globalThis.fetch.call(globalThis, url, init);
+          return await fetch(url, init);
         }
         throw err;
       }
-    } : null);
+    } : (url, init) => fetch(url, init));
 
     return new B2StorageProvider({
       ...config,

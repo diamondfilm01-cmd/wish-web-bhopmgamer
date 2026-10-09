@@ -6537,7 +6537,7 @@ app.get('/api/admin/storage/health', async (req, res) => {
       wishes: getWishes(),
       quarantineList: getStorageQuarantine(),
       cleanupJobs: getStorageCleanupJobs(),
-      fetchFn: globalThis.fetch
+      fetchFn: (u, i) => fetch(u, i)
     });
 
     res.json(report);
@@ -6568,7 +6568,7 @@ app.post('/api/admin/storage/verify', async (req, res) => {
       wishes: getWishes(),
       quarantineList: getStorageQuarantine(),
       cleanupJobs: getStorageCleanupJobs(),
-      fetchFn: globalThis.fetch
+      fetchFn: (u, i) => fetch(u, i)
     });
 
     const audits = getStorageHealthAudits();

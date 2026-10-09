@@ -299,18 +299,22 @@ export class ImgBBProvider {
     this.apiKey = config.apiKey;
     this.apiUrl = config.apiUrl || 'https://api.imgbb.com/1/upload';
     this.expiration = Number(config.expiration) || 0;
-    this.fetchFn = (url, init) => {
-      if (typeof config.fetchFn === 'function') {
+    // Cloudflare Workers V8 fix:
+    // Calling native fetch directly prevents "TypeError: Illegal invocation".
+    // Wrapping customFetch in async/await ensures asynchronous Promise rejections are properly caught.
+    const customUserFetch = typeof config.fetchFn === 'function' ? config.fetchFn : null;
+    this.fetchFn = async (url, init) => {
+      if (customUserFetch) {
         try {
-          return config.fetchFn(url, init);
+          return await customUserFetch(url, init);
         } catch (err) {
           if (err && (err.name === 'TypeError' || String(err.message || '').includes('Illegal invocation'))) {
-            return globalThis.fetch.call(globalThis, url, init);
+            return await fetch(url, init);
           }
           throw err;
         }
       }
-      return globalThis.fetch.call(globalThis, url, init);
+      return await fetch(url, init);
     };
 
     if (!this.apiKey) {
@@ -334,16 +338,16 @@ export class ImgBBProvider {
       err.status = 503;
       throw err;
     }
-    const resolvedFetch = customFetch || (typeof env.fetch === 'function' ? (url, init) => {
+    const resolvedFetch = customFetch || (typeof env.fetch === 'function' ? async (url, init) => {
       try {
-        return env.fetch(url, init);
+        return await env.fetch(url, init);
       } catch (err) {
         if (err && (err.name === 'TypeError' || String(err.message || '').includes('Illegal invocation'))) {
-          return globalThis.fetch.call(globalThis, url, init);
+          return await fetch(url, init);
         }
         throw err;
       }
-    } : null);
+    } : (url, init) => fetch(url, init));
 
     return new ImgBBProvider({
       ...config,

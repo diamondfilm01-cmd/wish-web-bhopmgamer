@@ -262,17 +262,17 @@ export async function verifyImgBBImageHealth({ url, providerAssetId = null, fetc
     const timeoutId = controller ? setTimeout(() => controller.abort(), 6000) : null;
 
     const safeFetch = (typeof fetchFn === 'function')
-      ? ((u, i) => {
+      ? (async (u, i) => {
           try {
-            return fetchFn(u, i);
+            return await fetchFn(u, i);
           } catch (e) {
             if (e && (e.name === 'TypeError' || String(e.message || '').includes('Illegal invocation'))) {
-              return globalThis.fetch.call(globalThis, u, i);
+              return await fetch(u, i);
             }
             throw e;
           }
         })
-      : ((u, i) => globalThis.fetch.call(globalThis, u, i));
+      : ((u, i) => fetch(u, i));
 
     const res = await safeFetch(url, {
       method: 'HEAD',
@@ -490,7 +490,7 @@ export async function auditImageAssetsHealth({
   wishMediaMappings = [],
   templates = [],
   templateVersions = [],
-  fetchFn = globalThis.fetch
+  fetchFn = (u, i) => fetch(u, i)
 }) {
   const templateImageAudits = [];
   const wishMediaAudits = [];
@@ -1000,7 +1000,7 @@ export async function generateComprehensiveStorageHealthReport({
   wishes = [],
   quarantineList = [],
   cleanupJobs = [],
-  fetchFn = globalThis.fetch
+  fetchFn = (u, i) => fetch(u, i)
 }) {
   const startTime = Date.now();
 
