@@ -104,19 +104,28 @@ export function getB2Config(env = {}) {
   const procEnv = (typeof process !== 'undefined' && process.env) ? process.env : {};
 
   const applicationKeyId = sanitizeB2Secret(
-    env.B2_APPLICATION_KEY_ID || env.B2_KEY_ID || env.BACKBLAZE_APPLICATION_KEY_ID || env.BACKBLAZE_KEY_ID || procEnv.B2_APPLICATION_KEY_ID || procEnv.B2_KEY_ID
+    env.B2_APPLICATION_KEY_ID || env.B2_KEY_ID || env.BACKBLAZE_APPLICATION_KEY_ID || env.BACKBLAZE_KEY_ID ||
+    env.B2_KEYID || env.KEY_ID || env.B2_APP_KEY_ID ||
+    procEnv.B2_APPLICATION_KEY_ID || procEnv.B2_KEY_ID
   );
   const applicationKey = sanitizeB2Secret(
-    env.B2_APPLICATION_KEY || env.B2_APP_KEY || env.BACKBLAZE_APPLICATION_KEY || env.BACKBLAZE_APP_KEY || procEnv.B2_APPLICATION_KEY || procEnv.B2_APP_KEY
+    env.B2_APPLICATION_KEY || env.B2_APP_KEY || env.BACKBLAZE_APPLICATION_KEY || env.BACKBLAZE_APP_KEY ||
+    env.APPLICATION_KEY || env.APP_KEY || env.B2_SECRET_KEY || env.B2_SECRET ||
+    procEnv.B2_APPLICATION_KEY || procEnv.B2_APP_KEY
   );
-  const bucketName = sanitizeB2Secret(
-    env.B2_BUCKET_NAME || env.BACKBLAZE_BUCKET_NAME || env.B2_BUCKET || env.BACKBLAZE_BUCKET || procEnv.B2_BUCKET_NAME || procEnv.BACKBLAZE_BUCKET_NAME
+  const explicitBucketName = sanitizeB2Secret(
+    env.B2_BUCKET_NAME || env.BACKBLAZE_BUCKET_NAME || env.B2_BUCKET || env.BACKBLAZE_BUCKET ||
+    env.BUCKET_NAME || env.BUCKET || env.B2_BUCKET_NAME_ID || env.B2_STORAGE_BUCKET ||
+    env.STORAGE_BUCKET || env.B2_MUSIC_BUCKET || env.B2_AUDIO_BUCKET ||
+    procEnv.B2_BUCKET_NAME || procEnv.BACKBLAZE_BUCKET_NAME || procEnv.B2_BUCKET || procEnv.BUCKET_NAME
   );
   const bucketId = sanitizeB2Secret(
-    env.B2_BUCKET_ID || env.BACKBLAZE_BUCKET_ID || procEnv.B2_BUCKET_ID || procEnv.BACKBLAZE_BUCKET_ID
+    env.B2_BUCKET_ID || env.BACKBLAZE_BUCKET_ID || env.BUCKET_ID || env.B2_BUCKETID ||
+    procEnv.B2_BUCKET_ID || procEnv.BACKBLAZE_BUCKET_ID
   );
   const rawEndpoint = sanitizeB2Secret(
-    env.B2_ENDPOINT || env.B2_API_URL || env.B2_API_ENDPOINT || env.BACKBLAZE_ENDPOINT || env.BACKBLAZE_API_URL || procEnv.B2_ENDPOINT || procEnv.B2_API_URL || 'https://api.backblazeb2.com'
+    env.B2_ENDPOINT || env.B2_API_URL || env.B2_API_ENDPOINT || env.BACKBLAZE_ENDPOINT || env.BACKBLAZE_API_URL ||
+    procEnv.B2_ENDPOINT || procEnv.B2_API_URL || 'https://api.backblazeb2.com'
   );
   const downloadUrl = sanitizeB2Secret(
     env.B2_DOWNLOAD_URL || env.BACKBLAZE_DOWNLOAD_URL || procEnv.B2_DOWNLOAD_URL
@@ -126,6 +135,10 @@ export function getB2Config(env = {}) {
   if (!endpoint.startsWith('http://') && !endpoint.startsWith('https://')) {
     endpoint = `https://${endpoint}`;
   }
+
+  // If application credentials are configured, bucket name can safely default to 'wishmagic-assets'
+  // and will auto-resolve the bucket ID or first account bucket via native b2_list_buckets
+  const bucketName = explicitBucketName || (applicationKeyId && applicationKey ? 'wishmagic-assets' : null);
 
   const missingKeys = [];
   if (!applicationKeyId) missingKeys.push('B2_APPLICATION_KEY_ID');
@@ -356,6 +369,7 @@ export class B2StorageProvider extends StorageProvider {
         const match = buckets.find(b => b.bucketName === this.bucketName || b.bucketName?.toLowerCase() === this.bucketName?.toLowerCase()) || buckets[0];
         if (match && match.bucketId) {
           this.bucketId = match.bucketId;
+          if (match.bucketName) this.bucketName = match.bucketName;
           return this.bucketId;
         }
       } else {
@@ -376,6 +390,7 @@ export class B2StorageProvider extends StorageProvider {
           const match = buckets.find(b => b.bucketName === this.bucketName || b.bucketName?.toLowerCase() === this.bucketName?.toLowerCase()) || buckets[0];
           if (match && match.bucketId) {
             this.bucketId = match.bucketId;
+            if (match.bucketName) this.bucketName = match.bucketName;
             return this.bucketId;
           }
         }
