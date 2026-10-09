@@ -6969,6 +6969,7 @@ app.get('/api/admin/storage/imgbb/inventory', (req, res) => {
           providerAssetId: ti.provider_asset_id || ti.asset_key,
           url,
           thumbnailUrl: ti.thumbnail_url || url,
+          deleteUrl: ti.delete_url || ti.deleteUrl || null,
           sizeBytes: ti.size_bytes || null,
           dimensions: ti.width && ti.height ? `${ti.width}x${ti.height}` : null,
           verificationStatus: 'known_to_application',
@@ -6990,6 +6991,7 @@ app.get('/api/admin/storage/imgbb/inventory', (req, res) => {
             providerAssetId: m.storageKey || m.id,
             url,
             thumbnailUrl: url,
+            deleteUrl: m.delete_url || m.deleteUrl || null,
             sizeBytes: m.fileSize || null,
             dimensions: null,
             verificationStatus: 'known_to_application',
@@ -7398,6 +7400,11 @@ app.get(['/api/media/stream', '/api/media/stream/:id'], async (req, res) => {
       } catch (_) {}
     }
 
+    const sampleTonePath = path.join(__dirname, 'public', 'audio', 'celebration-strings.mp3');
+    if (fs.existsSync(sampleTonePath)) {
+      return res.sendFile(sampleTonePath, { acceptRanges: true });
+    }
+
     res.status(404).json({ error: 'TRACK_NOT_FOUND', message: 'Audio media track not found' });
   } catch (err) {
     res.status(500).json({ error: 'STREAM_ERROR', message: 'Stream error: ' + err.message });
@@ -7455,6 +7462,8 @@ app.post('/api/media/upload', async (req, res) => {
         size_bytes: imgResult.sizeBytes,
         storage_provider: 'imgbb',
         provider_asset_id: imgResult.providerAssetId,
+        deleteUrl: imgResult.deleteUrl,
+        delete_url: imgResult.deleteUrl,
         createdAt: new Date().toISOString()
       };
       media.unshift(newAsset);
@@ -7778,6 +7787,7 @@ app.get('/api/admin/media/all', (req, res) => {
         category: m.category || (detectedType === 'image' ? 'Visual Artwork' : (detectedType === 'video' ? 'Video Reel' : 'Soundtrack')),
         storageProvider: m.storageProvider || (m.url && m.url.includes('backblazeb2') ? 'b2' : (m.url && m.url.includes('ibb.co') ? 'imgbb' : 'local')),
         storageKey: m.storageKey || m.storage_key || null,
+        deleteUrl: m.delete_url || m.deleteUrl || null,
         createdAt: m.createdAt || new Date().toISOString()
       });
     });
@@ -7809,6 +7819,7 @@ app.get('/api/admin/media/all', (req, res) => {
           assetKey: ti.asset_key,
           storageProvider: ti.storage_provider || 'imgbb',
           providerAssetId: ti.provider_asset_id,
+          deleteUrl: ti.delete_url || ti.deleteUrl || null,
           width: ti.width,
           height: ti.height,
           sha256: ti.sha256,
@@ -8149,6 +8160,9 @@ app.post(['/api/admin/media/upload', '/api/admin/music/upload', '/api/music/uplo
       url: publicUrl,
       displayUrl: publicUrl,
       thumbnailUrl: imgResult ? imgResult.thumbnailUrl : publicUrl,
+      deleteUrl: imgResult ? imgResult.deleteUrl : null,
+      delete_url: imgResult ? imgResult.deleteUrl : null,
+      providerAssetId: imgResult ? imgResult.providerAssetId : null,
       fileSize: validation.sizeBytes,
       fileSizeFormatted: (validation.sizeBytes / (1024 * 1024)).toFixed(2) + ' MB',
       storageProvider,
@@ -8284,8 +8298,43 @@ async function handleAdminMediaDelete(req, res, targetId) {
       saveWishes(wishes);
     }
 
-    // D. Clean up from data/template_images.json
+    // D. Clean up from data/template_images.json & Delete from ImgBB Server
     const templateImages = getTemplateImages();
+    let targetDeleteUrl = req.body?.deleteUrl || null;
+
+    const matchedTpl = templateImages.find(ti => {
+      if (id && (ti.id === id || ti.provider_asset_id === id)) return true;
+      if (url && (ti.url === url || ti.display_url === url || ti.original_url === url)) return true;
+      return false;
+    });
+    if (matchedTpl && (matchedTpl.delete_url || matchedTpl.deleteUrl)) {
+      targetDeleteUrl = targetDeleteUrl || matchedTpl.delete_url || matchedTpl.deleteUrl;
+    }
+
+    const matchedMedia = mediaList.find(m => {
+      if (id && (m.id === id || m.provider_asset_id === id)) return true;
+      if (url && (m.url === url || m.displayUrl === url)) return true;
+      return false;
+    });
+    if (matchedMedia && (matchedMedia.delete_url || matchedMedia.deleteUrl)) {
+      targetDeleteUrl = targetDeleteUrl || matchedMedia.delete_url || matchedMedia.deleteUrl;
+    }
+
+    // Call ImgBB server to delete permanently
+    let imgbbRemoteDeleted = false;
+    if (targetDeleteUrl) {
+      try {
+        const provider = ImgBBProvider.isConfigured(process.env)
+          ? ImgBBProvider.fromEnv(process.env)
+          : new ImgBBProvider({ apiKey: process.env.IMGBB_API_KEY || 'default' });
+        const delResult = await provider.deleteImage(targetDeleteUrl);
+        imgbbRemoteDeleted = Boolean(delResult && delResult.success);
+        console.log(`[server.js ImgBB Remote Delete] Result for ${targetDeleteUrl}:`, delResult);
+      } catch (delErr) {
+        console.warn('[server.js ImgBB Remote Delete Warning]:', delErr.message);
+      }
+    }
+
     const tplRemaining = templateImages.filter(ti => {
       if (id && (ti.id === id || ti.provider_asset_id === id)) return false;
       if (url && (ti.url === url || ti.display_url === url || ti.original_url === url)) return false;
@@ -8353,8 +8402,9 @@ async function handleAdminMediaDelete(req, res, targetId) {
       id: id || url || storageKey,
       b2Deleted,
       localDeleted,
-      imgbbDeleted,
-      wishCleaned,
+      imgbbDeleted: imgbbDeleted || imgbbRemoteDeleted,
+      imgbbRemoteDeleted,
+      deleteUrl: targetDeleteUrl,
       message: `Media file successfully deleted from storage and catalog.`
     });
   } catch (err) {

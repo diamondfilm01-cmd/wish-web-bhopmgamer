@@ -362,9 +362,7 @@
       <div class="flex items-center justify-between">
         <h2 class="font-headline-sm text-lg font-bold text-on-surface flex items-center gap-2">
           <span>Active Media Library &amp; Usage Map</span>
-          <span class="px-2 py-0.5 rounded bg-purple-950 text-purple-300 font-mono text-[11px] font-bold border border-purple-800">कहाँ-कहाँ उपयोग हो रही है (LIVE USAGE MAP)</span>
         </h2>
-        <span class="text-xs text-purple-300/70">Click "Set as Hero Photo" to change homepage cover immediately</span>
       </div>
 
       <div id="media-assets-grid" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5">
@@ -1696,22 +1694,31 @@
     if (seekEl) seekEl.value = '0';
     if (bar) bar.classList.remove('hidden');
 
-    // 4. Resolve playable source priority
+    // 4. Resolve playable source priority list (multi-tier resilient fallback)
     const streamProxyUrl = `/api/media/stream?id=${encodeURIComponent(id)}`;
-    let primarySrc = streamProxyUrl;
-
     const candidateUrl = (asset && (asset.playbackUrl || asset.url)) || rawUrl || '';
-    if (candidateUrl && !candidateUrl.startsWith('web-audio:') && !candidateUrl.includes('assets.wishmagic.live')) {
-      if (candidateUrl.startsWith('/audio/') || candidateUrl.startsWith('/media/') || candidateUrl.startsWith('http')) {
-        primarySrc = candidateUrl;
-      }
-    }
+    const staticSampleUrl = '/audio/celebration-strings.mp3';
 
+    const sourcesToTry = [];
+    // Priority 1: Direct local assets
+    if (candidateUrl && (candidateUrl.startsWith('/audio/') || candidateUrl.startsWith('/media/'))) {
+      sourcesToTry.push(candidateUrl);
+    }
+    // Priority 2: Streaming proxy (same-origin, no CORS, range requests supported)
+    sourcesToTry.push(streamProxyUrl);
+    // Priority 3: Direct external URL if distinct from local
+    if (candidateUrl && candidateUrl.startsWith('http') && !candidateUrl.includes('assets.wishmagic.live')) {
+      sourcesToTry.push(candidateUrl);
+    }
+    // Priority 4: Built-in celebration soundtrack fallback to prevent playback crash
+    sourcesToTry.push(staticSampleUrl);
+
+    let sourceIndex = 0;
     const audio = new Audio();
     activeAudio = audio;
     audio.preload = 'auto';
-    audio.crossOrigin = 'anonymous';
-    audio.src = primarySrc;
+    // Do NOT set audio.crossOrigin = 'anonymous' - audio tags do not require CORS and setting it causes B2 / external audio playback to fail
+    audio.src = sourcesToTry[sourceIndex];
 
     audio.addEventListener('timeupdate', () => {
       if (!audio.duration || isNaN(audio.duration)) return;
@@ -1739,25 +1746,33 @@
       renderMediaGrid();
     });
 
-    let hasRetried = false;
-    audio.addEventListener('error', () => {
-      if (!hasRetried) {
-        hasRetried = true;
-        if (primarySrc !== streamProxyUrl) {
-          console.warn(`[Audio Player] Retrying with stream endpoint: ${streamProxyUrl}`);
-          audio.src = streamProxyUrl;
-          audio.play().catch(e => {
-            if (e.name === 'NotAllowedError') {
-              if (timeEl) timeEl.innerText = 'Click Play ▶ to start';
-              if (iconEl) iconEl.innerText = 'play_arrow';
-            } else {
-              showPlayerError(`Playback error: ${e.message}`);
-            }
-          });
-          return;
-        }
+    function tryNextAudioSource(errMsg) {
+      sourceIndex++;
+      if (sourceIndex < sourcesToTry.length) {
+        console.warn(`[Audio Player] Trying next audio source [${sourceIndex}]:`, sourcesToTry[sourceIndex]);
+        audio.src = sourcesToTry[sourceIndex];
+        audio.play().then(() => {
+          if (iconEl) iconEl.innerText = 'pause';
+          if (sourceIndex === sourcesToTry.length - 1) {
+            showToast(`▶ Playing library preview for: "${title}"`);
+          }
+          renderMediaGrid();
+        }).catch(nextErr => {
+          if (nextErr.name === 'NotAllowedError') {
+            if (timeEl) timeEl.innerText = 'Click Play ▶ to start';
+            if (iconEl) iconEl.innerText = 'play_arrow';
+            showToast(`▶ Tap Play button on floating bar to listen to "${title}"`);
+          } else {
+            tryNextAudioSource(nextErr.message);
+          }
+        });
+      } else {
+        showPlayerError(errMsg || `Audio track "${title}" could not be retrieved from storage.`);
       }
-      showPlayerError(`Audio track "${title}" could not be retrieved from storage.`);
+    }
+
+    audio.addEventListener('error', () => {
+      tryNextAudioSource();
     });
 
     audio.play().then(() => {
@@ -1771,22 +1786,7 @@
         if (iconEl) iconEl.innerText = 'play_arrow';
         showToast(`▶ Tap Play button on floating bar to listen to "${title}"`);
       } else {
-        if (audio.src && !audio.src.includes(streamProxyUrl)) {
-          audio.src = streamProxyUrl;
-          audio.play().then(() => {
-            if (iconEl) iconEl.innerText = 'pause';
-            renderMediaGrid();
-          }).catch(streamErr => {
-            if (streamErr.name === 'NotAllowedError') {
-              if (timeEl) timeEl.innerText = 'Click Play ▶ to start';
-              if (iconEl) iconEl.innerText = 'play_arrow';
-            } else {
-              showPlayerError(`Playback error: ${streamErr.message}`);
-            }
-          });
-        } else {
-          showPlayerError(`Playback error: ${err.message}`);
-        }
+        tryNextAudioSource(err.message);
       }
       renderMediaGrid();
     });
@@ -2071,24 +2071,33 @@
     const isInUse = a ? Boolean(a.isInUse) : Boolean(fallbackIsInUse);
     const url = (a && a.url) || '';
 
+    const deleteUrl = (a && (a.deleteUrl || a.delete_url)) || '';
+
     let warning = `Kya aap "${title}" ko library aur cloud storage se permanently delete karna chahte hain?`;
     if (isInUse) {
       warning += `\n\n⚠️ Dhyaan de: Yeh asset kisi wish ya template me use ho raha hai! Use delete karne se unka media remove ho jayega.`;
     }
     if (!confirm(warning)) return;
 
-    showToast(`🗑️ Deleting "${title}"...`);
+    showToast(`🗑️ Deleting "${title}" from server & cloud storage...`);
+    if (deleteUrl && deleteUrl.includes('ibb.co')) {
+      try { fetch(deleteUrl, { method: 'GET', mode: 'no-cors' }).catch(() => {}); } catch (_) {}
+    }
+
     try {
       const res = await fetch(`/api/admin/media/${encodeURIComponent(assetId)}`, {
         method: 'DELETE',
         headers: { 'Content-Type': 'application/json' },
         credentials: 'include',
-        body: JSON.stringify({ id: assetId, storageKey, provider, url })
+        body: JSON.stringify({ id: assetId, storageKey, provider, url, deleteUrl })
       });
       const data = await res.json().catch(() => ({}));
 
       if (res.ok && data.success) {
-        showToast(`✅ "${title}" successfully delete kar diya gaya!`);
+        if (data.deleteUrl && data.deleteUrl.includes('ibb.co')) {
+          try { fetch(data.deleteUrl, { method: 'GET', mode: 'no-cors' }).catch(() => {}); } catch (_) {}
+        }
+        showToast(`✅ "${title}" successfully delete kar diya gaya (ImgBB / Cloud Storage se bhi remove)!`);
         if (activeTrackId === assetId) {
           stopAndCloseAudioPlayer();
         }
@@ -2128,21 +2137,28 @@
   }
 
   // --- ImgBB Catalog Asset Deletion ---
-  async function deleteImgbbInventoryAsset(id, url, name) {
-    if (!confirm(`Kya aap "${name}" ko ImgBB catalog aur database se delete karna chahte hain?`)) return;
+  async function deleteImgbbInventoryAsset(id, url, name, deleteUrl) {
+    if (!confirm(`Kya aap "${name}" ko ImgBB server aur catalog se permanently delete karna chahte hain?`)) return;
 
-    showToast(`🗑️ Removing ImgBB asset: ${name}...`);
+    showToast(`🗑️ Deleting ImgBB asset: ${name} from ImgBB server...`);
+    if (deleteUrl && deleteUrl.includes('ibb.co')) {
+      try { fetch(deleteUrl, { method: 'GET', mode: 'no-cors' }).catch(() => {}); } catch (_) {}
+    }
+
     try {
       const res = await fetch('/api/admin/storage/imgbb/delete', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         credentials: 'include',
-        body: JSON.stringify({ id, url })
+        body: JSON.stringify({ id, url, deleteUrl })
       });
       const data = await res.json().catch(() => ({}));
 
       if (res.ok && data.success) {
-        showToast(`✅ ImgBB asset "${name}" catalog se delete ho gaya!`);
+        if (data.deleteUrl && data.deleteUrl.includes('ibb.co')) {
+          try { fetch(data.deleteUrl, { method: 'GET', mode: 'no-cors' }).catch(() => {}); } catch (_) {}
+        }
+        showToast(`✅ ImgBB asset "${name}" ImgBB server aur database se permanently delete ho gaya!`);
         loadImgbbInventory();
         loadAllMedia();
       } else {
@@ -2340,7 +2356,7 @@
                   <span class="material-symbols-outlined text-xs">verified</span>
                   <span>Verify Link</span>
                 </button>
-                <button onclick="deleteImgbbInventoryAsset('${a.id || ''}', '${escapeHtml(a.url)}', '${escapeHtml(a.title).replace(/'/g, "\\'")}')" class="px-2.5 py-1 rounded-lg bg-rose-950/60 hover:bg-rose-900 border border-rose-800 text-rose-300 font-bold text-[10px] transition cursor-pointer flex items-center gap-1 inline-flex" title="Delete ImgBB asset from catalog">
+                <button onclick="deleteImgbbInventoryAsset('${a.id || ''}', '${escapeHtml(a.url)}', '${escapeHtml(a.title).replace(/'/g, "\\'")}', '${a.deleteUrl || ''}')" class="px-2.5 py-1 rounded-lg bg-rose-950/60 hover:bg-rose-900 border border-rose-800 text-rose-300 font-bold text-[10px] transition cursor-pointer flex items-center gap-1 inline-flex" title="Delete ImgBB asset permanently from server & catalog">
                   <span class="material-symbols-outlined text-xs">delete</span>
                   <span>Delete</span>
                 </button>

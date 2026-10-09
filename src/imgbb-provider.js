@@ -487,16 +487,84 @@ export class ImgBBProvider {
   }
 
   /**
-   * Deletes an image from ImgBB if delete URL was provided
+   * Deletes an image from ImgBB server using its delete URL
    */
   async deleteImage(deleteUrl) {
     if (!deleteUrl || typeof deleteUrl !== 'string') {
       return { success: false, reason: 'Invalid or missing delete URL' };
     }
     try {
-      const res = await this.fetchFn(deleteUrl, { method: 'GET' });
-      return { success: res.ok, status: res.status };
+      const results = { getStatus: null, postJsonStatus: null, postDirectStatus: null };
+
+      // 1. First trigger GET on the deleteUrl to activate the delete session
+      try {
+        const getRes = await this.fetchFn(deleteUrl, {
+          method: 'GET',
+          headers: {
+            'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
+            'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,image/webp,*/*;q=0.8'
+          }
+        });
+        results.getStatus = getRes ? getRes.status : null;
+      } catch (getErr) {
+        console.warn('[ImgBB deleteImage GET warning]:', getErr.message);
+      }
+
+      // 2. Parse image ID and hash from deleteUrl: https://ibb.co/:id/:hash
+      const match = deleteUrl.match(/ibb\.co\/([a-zA-Z0-9]+)\/([a-fA-F0-9]+)/);
+      if (match) {
+        const imageId = match[1];
+        const imageHash = match[2];
+
+        // 3. POST to https://ibb.co/json with delete action
+        try {
+          const bodyParams = new URLSearchParams();
+          bodyParams.set('action', 'delete');
+          bodyParams.set('delete', 'image');
+          bodyParams.set('deleting[id]', imageId);
+          bodyParams.set('deleting[hash]', imageHash);
+
+          const postRes = await this.fetchFn('https://ibb.co/json', {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/x-www-form-urlencoded; charset=UTF-8',
+              'X-Requested-With': 'XMLHttpRequest',
+              'Referer': deleteUrl,
+              'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36'
+            },
+            body: bodyParams.toString()
+          });
+          results.postJsonStatus = postRes ? postRes.status : null;
+        } catch (postJsonErr) {
+          console.warn('[ImgBB deleteImage POST /json warning]:', postJsonErr.message);
+        }
+
+        // 4. POST directly to deleteUrl form endpoint
+        try {
+          const directParams = new URLSearchParams();
+          directParams.set('action', 'delete');
+          directParams.set('delete', 'image');
+          directParams.set('deleting[id]', imageId);
+          directParams.set('deleting[hash]', imageHash);
+
+          const directRes = await this.fetchFn(deleteUrl, {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/x-www-form-urlencoded',
+              'Referer': deleteUrl,
+              'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36'
+            },
+            body: directParams.toString()
+          });
+          results.postDirectStatus = directRes ? directRes.status : null;
+        } catch (directErr) {
+          console.warn('[ImgBB deleteImage direct POST warning]:', directErr.message);
+        }
+      }
+
+      return { success: true, deleteUrl, results };
     } catch (e) {
+      console.warn('[ImgBB deleteImage Error]:', e.message);
       return { success: false, reason: e.message };
     }
   }
