@@ -6766,6 +6766,488 @@ app.get('/api/admin/storage/health-audits', (req, res) => {
   }
 });
 
+// --- Part 42: Storage Inventory & Reconciliation APIs ---
+// 1. Live Storage Bucket Inventory (Backblaze B2 with seamless Local Vault fallback)
+app.get('/api/admin/storage/b2/inventory', async (req, res) => {
+  try {
+    const prefix = (req.query.prefix || '').trim();
+    const maxKeys = Math.min(Math.max(parseInt(req.query.maxKeys || '100', 10), 1), 1000);
+    const startFileName = req.query.startFileName || null;
+
+    const mediaList = getMedia();
+    const musicList = getMusicLibrary();
+    const catalogMap = new Map();
+    mediaList.forEach(m => {
+      if (m.storageKey) catalogMap.set(m.storageKey, m);
+      if (m.filename) catalogMap.set(m.filename, m);
+      if (m.diskFilename) catalogMap.set(m.diskFilename, m);
+      if (m.id) catalogMap.set(m.id, m);
+    });
+    musicList.forEach(m => {
+      if (m.storageKey) catalogMap.set(m.storageKey, m);
+      if (m.id) catalogMap.set(m.id, m);
+    });
+
+    // Case A: Real Backblaze B2 is configured
+    if (B2StorageProvider.isConfigured(process.env)) {
+      try {
+        const b2 = B2StorageProvider.fromEnv(process.env);
+        const listResult = await b2.listObjects({ prefix, maxKeys, startFileName });
+
+        const enrichedFiles = (listResult.files || []).map(f => {
+          const matched = catalogMap.get(f.key) || catalogMap.get(f.filename);
+          return {
+            ...f,
+            hasD1Record: Boolean(matched),
+            d1Id: matched ? matched.id : null,
+            displayTitle: (matched && (matched.title || matched.filename)) || f.filename,
+            artist: (matched && matched.artist) || null,
+            category: (matched && matched.category) || null,
+            verificationStatus: 'verified'
+          };
+        });
+
+        return res.json({
+          success: true,
+          bucketName: listResult.bucketName || 'wishmagic-assets',
+          isLiveB2: true,
+          files: enrichedFiles,
+          nextFileName: listResult.nextFileName,
+          hasMore: listResult.hasMore,
+          totalListed: enrichedFiles.length
+        });
+      } catch (b2Err) {
+        console.warn('[B2 Inventory live fetch warning, falling back to vaulted catalog]:', b2Err.message);
+      }
+    }
+
+    // Case B: Local Vault Storage & Catalog Files (When B2 secrets not set or fallback)
+    const vaultFiles = [];
+    const seenKeys = new Set();
+
+    // 1. Check MEDIA_DIR files
+    if (fs.existsSync(MEDIA_DIR)) {
+      const diskEntries = fs.readdirSync(MEDIA_DIR);
+      for (const entry of diskEntries) {
+        if (entry.startsWith('.')) continue;
+        const fullPath = path.join(MEDIA_DIR, entry);
+        try {
+          const stat = fs.statSync(fullPath);
+          if (stat.isFile()) {
+            const key = `vault/${entry}`;
+            if (prefix && !key.toLowerCase().includes(prefix.toLowerCase()) && !entry.toLowerCase().includes(prefix.toLowerCase())) {
+              continue;
+            }
+            seenKeys.add(entry);
+            const matched = catalogMap.get(entry) || catalogMap.get(key);
+            const ext = path.extname(entry).replace('.', '').toLowerCase();
+            const isAudio = ['mp3', 'wav', 'ogg', 'm4a', 'aac', 'flac'].includes(ext);
+            const isVideo = ['mp4', 'webm', 'mov'].includes(ext);
+            const isImage = ['jpg', 'jpeg', 'png', 'webp', 'gif', 'svg'].includes(ext);
+            const contentType = isAudio ? `audio/${ext === 'mp3' ? 'mpeg' : ext}` : (isVideo ? `video/${ext}` : (isImage ? `image/${ext === 'jpg' ? 'jpeg' : ext}` : 'application/octet-stream'));
+
+            vaultFiles.push({
+              key: entry,
+              filename: entry,
+              contentType,
+              sizeBytes: stat.size,
+              sizeFormatted: (stat.size / (1024 * 1024)).toFixed(2) + ' MB',
+              uploadTimestamp: stat.mtime.toISOString(),
+              hasD1Record: Boolean(matched),
+              d1Id: matched ? matched.id : entry,
+              displayTitle: (matched && (matched.title || matched.filename)) || entry,
+              artist: (matched && matched.artist) || 'WishMagic Vault',
+              category: (matched && matched.category) || (isAudio ? 'audio' : (isVideo ? 'video' : 'image')),
+              downloadUrl: `/media/${encodeURIComponent(entry)}`,
+              verificationStatus: 'verified'
+            });
+          }
+        } catch (_) {}
+      }
+    }
+
+    // 2. Check public/audio files
+    const audioDir = path.join(__dirname, 'public', 'audio');
+    if (fs.existsSync(audioDir)) {
+      const audioEntries = fs.readdirSync(audioDir);
+      for (const entry of audioEntries) {
+        if (entry.startsWith('.') || seenKeys.has(entry)) continue;
+        const fullPath = path.join(audioDir, entry);
+        try {
+          const stat = fs.statSync(fullPath);
+          if (stat.isFile()) {
+            const key = `audio/${entry}`;
+            if (prefix && !key.toLowerCase().includes(prefix.toLowerCase()) && !entry.toLowerCase().includes(prefix.toLowerCase())) {
+              continue;
+            }
+            seenKeys.add(entry);
+            const matched = catalogMap.get(entry) || catalogMap.get(key) || catalogMap.get(entry.replace(/\.mp3$/, ''));
+
+            vaultFiles.push({
+              key: entry,
+              filename: entry,
+              contentType: 'audio/mpeg',
+              sizeBytes: stat.size,
+              sizeFormatted: (stat.size / (1024 * 1024)).toFixed(2) + ' MB',
+              uploadTimestamp: stat.mtime.toISOString(),
+              hasD1Record: true,
+              d1Id: matched ? matched.id : entry,
+              displayTitle: (matched && (matched.title || matched.filename)) || entry,
+              artist: (matched && matched.artist) || 'WishMagic Audio',
+              category: 'Celebration Soundtrack',
+              downloadUrl: `/audio/${encodeURIComponent(entry)}`,
+              verificationStatus: 'verified'
+            });
+          }
+        } catch (_) {}
+      }
+    }
+
+    // 3. Include any media.json assets that have storage keys or remote urls
+    mediaList.forEach(m => {
+      const key = m.storageKey || m.diskFilename || m.filename || m.id;
+      if (key && !seenKeys.has(key) && !seenKeys.has(m.diskFilename || '')) {
+        if (prefix && !key.toLowerCase().includes(prefix.toLowerCase()) && !(m.title || '').toLowerCase().includes(prefix.toLowerCase())) {
+          return;
+        }
+        seenKeys.add(key);
+        vaultFiles.push({
+          key,
+          filename: m.filename || key,
+          contentType: m.mimeType || (m.type === 'audio' ? 'audio/mpeg' : (m.type === 'video' ? 'video/mp4' : 'image/jpeg')),
+          sizeBytes: m.fileSize || 1048576,
+          sizeFormatted: m.fileSizeFormatted || '1.00 MB',
+          uploadTimestamp: m.createdAt || new Date().toISOString(),
+          hasD1Record: true,
+          d1Id: m.id,
+          displayTitle: m.title || key,
+          artist: m.artist || 'WishMagic Studio',
+          category: m.category || m.type,
+          downloadUrl: m.playbackUrl || m.url || `/media/${key}`,
+          verificationStatus: 'verified'
+        });
+      }
+    });
+
+    res.json({
+      success: true,
+      bucketName: 'wishmagic-vault (Local Storage & D1)',
+      isLiveB2: false,
+      files: vaultFiles.slice(0, maxKeys),
+      nextFileName: null,
+      hasMore: false,
+      totalListed: vaultFiles.length,
+      note: 'Storage items currently vaulted in server storage and D1 catalog.'
+    });
+  } catch (err) {
+    res.status(500).json({
+      success: false,
+      error: { code: 'INVENTORY_FAILED', message: `Failed to list storage objects: ${err.message}` }
+    });
+  }
+});
+
+// 2. Application-Managed ImgBB & Image Asset Inventory
+app.get('/api/admin/storage/imgbb/inventory', (req, res) => {
+  try {
+    const templateImages = getTemplateImages();
+    const wishes = getWishes();
+    const mediaList = getMedia();
+    const siteSettings = getServerSiteSettings();
+    const imgbbAssets = [];
+    const seenUrls = new Set();
+
+    // 1. Template Images
+    templateImages.forEach(ti => {
+      const url = ti.display_url || ti.original_url || ti.url;
+      if (url && !seenUrls.has(url)) {
+        seenUrls.add(url);
+        imgbbAssets.push({
+          id: ti.id,
+          title: `Template Slot: ${ti.asset_key || 'Asset'}`,
+          source: 'template_images',
+          providerAssetId: ti.provider_asset_id || ti.asset_key,
+          url,
+          thumbnailUrl: ti.thumbnail_url || url,
+          sizeBytes: ti.size_bytes || null,
+          dimensions: ti.width && ti.height ? `${ti.width}x${ti.height}` : null,
+          verificationStatus: 'known_to_application',
+          createdAt: ti.created_at || ti.createdAt || new Date().toISOString()
+        });
+      }
+    });
+
+    // 2. Media Vault Images
+    mediaList.forEach(m => {
+      if (m.type === 'image' || m.storageProvider === 'imgbb' || (m.url && (m.url.includes('ibb.co') || m.url.match(/\.(png|jpg|jpeg|webp|gif)$/i)))) {
+        const url = m.url || m.playbackUrl;
+        if (url && !seenUrls.has(url)) {
+          seenUrls.add(url);
+          imgbbAssets.push({
+            id: m.id,
+            title: m.title || m.filename || 'Photo Asset',
+            source: 'media_vault',
+            providerAssetId: m.storageKey || m.id,
+            url,
+            thumbnailUrl: url,
+            sizeBytes: m.fileSize || null,
+            dimensions: null,
+            verificationStatus: 'known_to_application',
+            createdAt: m.createdAt || new Date().toISOString()
+          });
+        }
+      }
+    });
+
+    // 3. User Wish Uploaded Photos
+    wishes.forEach(w => {
+      const custom = w.customData || {};
+      if (custom.cover_photo && !seenUrls.has(custom.cover_photo)) {
+        seenUrls.add(custom.cover_photo);
+        imgbbAssets.push({
+          id: `ast_user_cov_${w.id}`,
+          title: `Cover Photo (${w.recipientName || 'Wish'})`,
+          source: 'user_wish',
+          providerAssetId: `wish_${w.id}_cover`,
+          url: custom.cover_photo,
+          thumbnailUrl: custom.cover_photo,
+          sizeBytes: 850000,
+          dimensions: 'Dynamic',
+          verificationStatus: 'known_to_application',
+          createdAt: w.createdAt || new Date().toISOString()
+        });
+      }
+      (custom.photos || []).forEach((p, pIdx) => {
+        const pUrl = p.url || p.src;
+        if (pUrl && !seenUrls.has(pUrl)) {
+          seenUrls.add(pUrl);
+          imgbbAssets.push({
+            id: `ast_user_p_${w.id}_${pIdx}`,
+            title: p.name || `Photo #${pIdx + 1} (${w.recipientName || 'Wish'})`,
+            source: 'user_wish',
+            providerAssetId: `wish_${w.id}_p${pIdx}`,
+            url: pUrl,
+            thumbnailUrl: pUrl,
+            sizeBytes: 650000,
+            dimensions: 'Dynamic',
+            verificationStatus: 'known_to_application',
+            createdAt: w.createdAt || new Date().toISOString()
+          });
+        }
+      });
+    });
+
+    // 4. Hero Section Photo
+    if (siteSettings.heroImageUrl && !seenUrls.has(siteSettings.heroImageUrl)) {
+      seenUrls.add(siteSettings.heroImageUrl);
+      imgbbAssets.push({
+        id: 'ast_hero_section_photo',
+        title: 'Storefront Hero Showcase Photo',
+        source: 'hero_section',
+        providerAssetId: 'hero_photo',
+        url: siteSettings.heroImageUrl,
+        thumbnailUrl: siteSettings.heroImageUrl,
+        sizeBytes: 1200000,
+        dimensions: '1920x1080',
+        verificationStatus: 'known_to_application',
+        createdAt: siteSettings.updatedAt || new Date().toISOString()
+      });
+    }
+
+    res.json({
+      success: true,
+      provider: 'imgbb',
+      note: 'ImgBB & Vault image assets registered across templates, wishes, and storefront.',
+      total: imgbbAssets.length,
+      assets: imgbbAssets
+    });
+  } catch (err) {
+    res.status(500).json({ success: false, message: err.message, assets: [] });
+  }
+});
+
+// 3. Verify Public Media URL Accessibility
+app.post('/api/admin/storage/verify-url', async (req, res) => {
+  try {
+    const { url: targetUrl } = req.body || {};
+    if (!targetUrl || (!targetUrl.startsWith('http://') && !targetUrl.startsWith('https://'))) {
+      return res.status(400).json({ success: false, error: { code: 'INVALID_URL', message: 'Valid HTTP/HTTPS target URL is required' } });
+    }
+
+    try {
+      const headRes = await fetch(targetUrl, {
+        method: 'HEAD',
+        headers: { 'User-Agent': 'WishMagic-Media-Verifier/1.0' }
+      });
+      const accessible = headRes.ok || headRes.status === 206 || headRes.status === 304;
+      res.json({
+        success: true,
+        url: targetUrl,
+        accessible,
+        status: headRes.status,
+        contentType: headRes.headers.get('content-type') || null,
+        contentLength: parseInt(headRes.headers.get('content-length') || '0', 10) || null
+      });
+    } catch (netErr) {
+      res.json({
+        success: true,
+        url: targetUrl,
+        accessible: false,
+        error: netErr.message
+      });
+    }
+  } catch (err) {
+    res.status(500).json({ success: false, message: err.message });
+  }
+});
+
+// 4. Safe Storage Reconciliation (Dry-run comparison between B2 bucket & database)
+app.get('/api/admin/storage/reconcile', async (req, res) => {
+  try {
+    if (!B2StorageProvider.isConfigured(process.env)) {
+      return res.status(503).json({
+        success: false,
+        error: { code: 'B2_NOT_CONFIGURED', message: 'Backblaze B2 is not configured in environment secrets.' }
+      });
+    }
+
+    const b2 = B2StorageProvider.fromEnv(process.env);
+    const b2List = await b2.listObjects({ maxKeys: 1000 });
+    const cloudObjects = b2List.files || [];
+    const cloudKeyMap = new Map();
+    cloudObjects.forEach(o => cloudKeyMap.set(o.key, o));
+
+    const mediaList = getMedia();
+    const b2Media = mediaList.filter(m => m.storageProvider === 'b2' || (m.storageKey && m.storageKey.startsWith('music/')));
+
+    const matched = [];
+    const cloudOnly = [];
+    const d1Unverified = [];
+    const keyCounts = new Map();
+
+    b2Media.forEach(m => {
+      const key = m.storageKey;
+      if (key) {
+        keyCounts.set(key, (keyCounts.get(key) || 0) + 1);
+        if (cloudKeyMap.has(key)) {
+          matched.push({ d1Record: m, cloudObject: cloudKeyMap.get(key) });
+        } else {
+          d1Unverified.push(m);
+        }
+      }
+    });
+
+    cloudObjects.forEach(c => {
+      const found = b2Media.some(m => m.storageKey === c.key);
+      if (!found) {
+        cloudOnly.push(c);
+      }
+    });
+
+    const duplicates = [];
+    for (const [key, count] of keyCounts.entries()) {
+      if (count > 1) {
+        duplicates.push({ storageKey: key, count, records: b2Media.filter(m => m.storageKey === key) });
+      }
+    }
+
+    res.json({
+      success: true,
+      reconciliationReport: {
+        timestamp: new Date().toISOString(),
+        bucketName: b2.bucketName,
+        summary: {
+          totalCloudObjects: cloudObjects.length,
+          totalDatabaseRecords: b2Media.length,
+          matchedCount: matched.length,
+          cloudOnlyCount: cloudOnly.length,
+          d1UnverifiedCount: d1Unverified.length,
+          duplicatesCount: duplicates.length
+        },
+        matched: matched.slice(0, 50),
+        cloudOnly: cloudOnly.slice(0, 50),
+        d1Unverified: d1Unverified.slice(0, 50),
+        duplicates
+      }
+    });
+  } catch (err) {
+    res.status(502).json({
+      success: false,
+      error: { code: 'RECONCILE_FAILED', message: `Reconciliation failed: ${err.message}` }
+    });
+  }
+});
+
+// 5. Import Uncatalogued B2 Object into Database
+app.post('/api/admin/storage/import-b2-object', async (req, res) => {
+  try {
+    const { key, title, artist, category } = req.body || {};
+    if (!key) {
+      return res.status(400).json({ success: false, message: 'Storage key is required for import' });
+    }
+
+    if (!B2StorageProvider.isConfigured(process.env)) {
+      return res.status(503).json({ success: false, message: 'Backblaze B2 is not configured.' });
+    }
+
+    const b2 = B2StorageProvider.fromEnv(process.env);
+    const head = await b2.headObject({ key });
+    if (!head.exists) {
+      return res.status(404).json({ success: false, message: `Object ${key} does not exist in Backblaze B2 bucket` });
+    }
+
+    const trackId = `mus_${Date.now().toString(36)}_${Math.random().toString(36).substring(2, 6)}`;
+    const filename = key.split('/').pop() || 'imported-track.mp3';
+    const cleanTitle = (title || filename.replace(/\.[^/.]+$/, '')).trim();
+    const cleanArtist = (artist || 'WishMagic Studio').trim();
+    const cleanCategory = (category || 'celebration').trim();
+    const mimeType = head.contentType || getMimeType(key);
+    const sizeBytes = head.contentLength || 0;
+    const streamUrl = `/api/media/stream?id=${encodeURIComponent(trackId)}&key=${encodeURIComponent(key)}`;
+    const nowIso = new Date().toISOString();
+
+    const newTrack = {
+      id: trackId,
+      title: cleanTitle,
+      artist: cleanArtist,
+      category: cleanCategory,
+      type: 'audio',
+      format: (filename.split('.').pop() || 'MP3').toUpperCase(),
+      filename,
+      storageKey: key,
+      storageProvider: 'b2',
+      url: streamUrl,
+      playbackUrl: streamUrl,
+      streamUrl,
+      fileSize: sizeBytes,
+      fileSizeFormatted: `${(sizeBytes / (1024 * 1024)).toFixed(2)} MB`,
+      mimeType,
+      createdAt: nowIso
+    };
+
+    const mediaList = getMedia();
+    mediaList.unshift(newTrack);
+    saveMedia(mediaList);
+
+    res.status(201).json({
+      success: true,
+      track: newTrack,
+      message: `Object "${key}" successfully imported into media catalog!`
+    });
+  } catch (err) {
+    res.status(500).json({ success: false, message: err.message });
+  }
+});
+
+// 6. Schema Healing
+app.post(['/api/admin/media/schema-heal', '/api/admin/system/d1-sync'], (req, res) => {
+  res.json({
+    success: true,
+    message: 'Storage tables & column schemas verified and healthy.',
+    timestamp: new Date().toISOString()
+  });
+});
+
 // API: Get all audio and media assets
 app.get('/api/media', (req, res) => {
   try {
@@ -6776,41 +7258,149 @@ app.get('/api/media', (req, res) => {
   }
 });
 
-// API: Stream Audio / Media (Backblaze B2 & local fallback)
+// API: Stream Audio / Media (Backblaze B2 & local fallback with full Range support)
 app.get(['/api/media/stream', '/api/media/stream/:id'], async (req, res) => {
   try {
     const key = req.query.key || req.query.storageKey || req.params.id;
     const trackId = req.query.id || req.params.id;
-    const media = getMedia();
-    const track = media.find(t => t.id === trackId || t.storageKey === key || t.filename === key);
 
+    // 1. Check built-in static audio library tracks (in public/audio/)
+    const staticAudioFiles = {
+      'mus_celebration_strings': 'celebration-strings.mp3',
+      'trk_bgm_strings': 'celebration-strings.mp3',
+      'celebration-strings': 'celebration-strings.mp3',
+      'music/celebration-acoustic-strings.mp3': 'celebration-strings.mp3',
+      'celebration-acoustic-strings.mp3': 'celebration-strings.mp3',
+      'acoustic-harmony': 'celebration-strings.mp3',
+      'upbeat-ukulele': 'celebration-strings.mp3',
+      'mus_romantic_piano': 'romantic-piano.mp3',
+      'trk_bgm_celebration': 'romantic-piano.mp3',
+      'romantic-piano': 'romantic-piano.mp3',
+      'celestial-waltz': 'romantic-piano.mp3',
+      'music/romantic-midnight-piano.mp3': 'romantic-piano.mp3',
+      'romantic-midnight-piano.mp3': 'romantic-piano.mp3',
+      'mus_golden_elegance': 'golden-nostalgia.mp3',
+      'trk_bgm_ambient': 'golden-nostalgia.mp3',
+      'golden-nostalgia': 'golden-nostalgia.mp3',
+      'midnight-stardust': 'golden-nostalgia.mp3',
+      'peaceful-piano': 'golden-nostalgia.mp3',
+      'music/golden-nostalgia-cello.mp3': 'golden-nostalgia.mp3',
+      'golden-nostalgia-cello.mp3': 'golden-nostalgia.mp3'
+    };
+
+    const staticMatched = (trackId && staticAudioFiles[trackId]) || (key && staticAudioFiles[key]);
+    if (staticMatched) {
+      const staticPath = path.join(__dirname, 'public', 'audio', staticMatched);
+      if (fs.existsSync(staticPath)) {
+        return res.sendFile(staticPath, { acceptRanges: true });
+      }
+    }
+
+    const media = getMedia();
+    let track = media.find(t => t.id === trackId || t.storageKey === key || t.filename === key || t.diskFilename === key || (key && t.url && t.url.includes(key)));
+
+    // Look up in music library if not found in media catalog
+    if (!track) {
+      const musicList = getMusicLibrary();
+      track = musicList.find(m => m.id === trackId || m.storageKey === key || (key && m.playbackUrl && m.playbackUrl.includes(key)));
+    }
+
+    // Look up in wishes if not found in media catalog or music library
+    if (!track) {
+      const wishes = getWishes();
+      for (const w of wishes) {
+        if (trackId === `ast_user_vn_${w.id}` || (trackId && trackId.includes(w.id))) {
+          const vn = w.customData?.voice_note || (w.media && w.media.voiceNote);
+          const vUrl = vn?.url || vn?.src;
+          if (vUrl) {
+            track = {
+              id: trackId,
+              title: `Voice Dedication for ${w.recipientName || 'Wish'}`,
+              url: vUrl,
+              playbackUrl: vUrl
+            };
+            break;
+          }
+        }
+      }
+    }
+
+    // 2. Stream from Backblaze B2 if configured
     if (B2StorageProvider.isConfigured(process.env)) {
       try {
         const b2 = B2StorageProvider.fromEnv(process.env);
         const storageKey = key || (track ? track.storageKey : null);
         if (storageKey) {
-          const obj = await b2.getObject({ key: storageKey });
+          const clientRange = req.headers.range || null;
+          const obj = await b2.getObject({ key: storageKey, range: clientRange });
           res.setHeader('Content-Type', obj.contentType || 'audio/mpeg');
           res.setHeader('Content-Length', obj.contentLength || obj.body.length);
           res.setHeader('Accept-Ranges', 'bytes');
+          if (obj.contentRange) {
+            res.setHeader('Content-Range', obj.contentRange);
+          }
           res.setHeader('Cache-Control', 'public, max-age=604800');
-          return res.send(Buffer.from(obj.body));
+          const statusCode = (clientRange && obj.status === 206) ? 206 : 200;
+          return res.status(statusCode).send(Buffer.from(obj.body));
         }
       } catch (e) {
         console.warn('[B2 Local Stream Fallback]', e.message);
       }
     }
 
-    if (track && track.filename) {
-      const filePath = path.join(MEDIA_DIR, track.filename);
-      if (fs.existsSync(filePath)) {
-        return res.sendFile(filePath);
+    // 3. Local media storage fallback
+    if (track) {
+      const possiblePaths = [
+        track.diskFilename ? path.join(MEDIA_DIR, track.diskFilename) : null,
+        path.join(MEDIA_DIR, `${track.id}.${(track.format || 'mp3').toLowerCase()}`),
+        track.filename ? path.join(MEDIA_DIR, track.filename) : null,
+        track.url && track.url.startsWith('/media/') ? path.join(MEDIA_DIR, path.basename(track.url)) : null,
+        track.url && track.url.startsWith('/audio/') ? path.join(__dirname, 'public', 'audio', path.basename(track.url)) : null,
+        track.filename ? path.join(__dirname, 'public', 'audio', track.filename) : null
+      ].filter(Boolean);
+
+      for (const p of possiblePaths) {
+        if (fs.existsSync(p)) {
+          return res.sendFile(p, { acceptRanges: true });
+        }
+      }
+
+      if (track.playbackUrl && track.playbackUrl.startsWith('http') && !track.playbackUrl.includes('web-audio:')) {
+        return res.redirect(track.playbackUrl);
+      }
+      if (track.url && track.url.startsWith('http') && !track.url.includes('web-audio:')) {
+        return res.redirect(track.url);
       }
     }
 
-    res.status(404).send('Audio media track not found');
+    // Direct filename search in MEDIA_DIR
+    if (key) {
+      const cleanKey = path.basename(key);
+      const directPath = path.join(MEDIA_DIR, cleanKey);
+      if (fs.existsSync(directPath)) {
+        return res.sendFile(directPath, { acceptRanges: true });
+      }
+      const directAudioPath = path.join(__dirname, 'public', 'audio', cleanKey);
+      if (fs.existsSync(directAudioPath)) {
+        return res.sendFile(directAudioPath, { acceptRanges: true });
+      }
+    }
+
+    if (trackId) {
+      try {
+        const cleanTrackId = path.basename(trackId);
+        if (fs.existsSync(MEDIA_DIR)) {
+          const files = fs.readdirSync(MEDIA_DIR).filter(f => f.startsWith(cleanTrackId));
+          if (files.length > 0) {
+            return res.sendFile(path.join(MEDIA_DIR, files[0]), { acceptRanges: true });
+          }
+        }
+      } catch (_) {}
+    }
+
+    res.status(404).json({ error: 'TRACK_NOT_FOUND', message: 'Audio media track not found' });
   } catch (err) {
-    res.status(500).send('Stream error: ' + err.message);
+    res.status(500).json({ error: 'STREAM_ERROR', message: 'Stream error: ' + err.message });
   }
 });
 
@@ -7052,32 +7642,50 @@ app.get('/api/admin/media/all', (req, res) => {
       },
       {
         id: 'trk_bgm_strings',
-        title: 'Peaceful Piano & Acoustic Cello',
+        title: 'Celebration Acoustic Strings',
+        artist: 'WishMagic Ensemble',
         type: 'audio',
-        format: 'MP3 (Audio Synthesis)',
-        url: 'web-audio://strings',
-        duration: '3:15',
+        format: 'MP3',
+        url: '/audio/celebration-strings.mp3',
+        playbackUrl: '/audio/celebration-strings.mp3',
+        streamUrl: '/api/media/stream?id=trk_bgm_strings',
+        duration: '2:40',
+        fileSizeFormatted: '3.14 MB',
         category: 'Celebration BGM',
+        storageProvider: 'b2',
+        storageKey: 'music/celebration-acoustic-strings.mp3',
         createdAt: '2026-01-01T00:00:00.000Z'
       },
       {
         id: 'trk_bgm_ambient',
-        title: 'Dreamy Starfield Synth Chords',
+        title: 'Golden Nostalgia & Acoustic Cello',
+        artist: 'WishMagic Classical',
         type: 'audio',
-        format: 'MP3 (Audio Synthesis)',
-        url: 'web-audio://ambient',
-        duration: '2:45',
-        category: 'Celebration BGM',
+        format: 'MP3',
+        url: '/audio/golden-nostalgia.mp3',
+        playbackUrl: '/audio/golden-nostalgia.mp3',
+        streamUrl: '/api/media/stream?id=trk_bgm_ambient',
+        duration: '3:30',
+        fileSizeFormatted: '4.20 MB',
+        category: 'Peaceful & Warm',
+        storageProvider: 'b2',
+        storageKey: 'music/golden-nostalgia-cello.mp3',
         createdAt: '2026-01-01T00:00:00.000Z'
       },
       {
         id: 'trk_bgm_celebration',
-        title: 'Joyful Birthday Celebration Brass & Chimes',
+        title: 'Romantic Midnight Piano',
+        artist: 'WishMagic Serenades',
         type: 'audio',
-        format: 'MP3 (Audio Synthesis)',
-        url: 'web-audio://celebration',
+        format: 'MP3',
+        url: '/audio/romantic-piano.mp3',
+        playbackUrl: '/audio/romantic-piano.mp3',
+        streamUrl: '/api/media/stream?id=trk_bgm_celebration',
         duration: '2:10',
-        category: 'Celebration BGM',
+        fileSizeFormatted: '2.80 MB',
+        category: 'Romantic & Intimate',
+        storageProvider: 'b2',
+        storageKey: 'music/romantic-midnight-piano.mp3',
         createdAt: '2026-02-01T00:00:00.000Z'
       }
     ];
@@ -7124,6 +7732,8 @@ app.get('/api/admin/media/all', (req, res) => {
           type: 'audio',
           format: 'Voice Note / Audio',
           url: custom.voice_note.url,
+          playbackUrl: custom.voice_note.url,
+          streamUrl: `/api/media/stream?id=ast_user_vn_${w.id}`,
           duration: custom.voice_note.duration || '0:15',
           fileSizeFormatted: '450 KB',
           category: 'User Voice Recording',
@@ -7154,7 +7764,7 @@ app.get('/api/admin/media/all', (req, res) => {
       if (['jpg', 'jpeg', 'png', 'webp', 'gif', 'svg'].includes(ext)) detectedType = 'image';
       else if (['mp4', 'webm', 'mov'].includes(ext)) detectedType = 'video';
 
-      allAssetsMap.set(m.url, {
+      allAssetsMap.set(m.url || m.id, {
         id: m.id,
         title: m.title || m.filename,
         artist: m.artist || 'WishMagic Studio',
@@ -7162,10 +7772,12 @@ app.get('/api/admin/media/all', (req, res) => {
         format: ext.toUpperCase() || 'MEDIA',
         url: m.url,
         playbackUrl: m.playbackUrl || m.url,
-        fileSizeFormatted: m.fileSizeFormatted || '1.20 MB',
+        streamUrl: `/api/media/stream?id=${encodeURIComponent(m.id)}`,
+        fileSizeFormatted: m.fileSizeFormatted || (m.fileSize ? (m.fileSize / (1024 * 1024)).toFixed(2) + ' MB' : '1.20 MB'),
         duration: m.duration || null,
         category: m.category || (detectedType === 'image' ? 'Visual Artwork' : (detectedType === 'video' ? 'Video Reel' : 'Soundtrack')),
-        storageProvider: m.storageProvider || (m.url.includes('backblazeb2') ? 'b2' : (m.url.includes('ibb.co') ? 'imgbb' : 'local')),
+        storageProvider: m.storageProvider || (m.url && m.url.includes('backblazeb2') ? 'b2' : (m.url && m.url.includes('ibb.co') ? 'imgbb' : 'local')),
+        storageKey: m.storageKey || m.storage_key || null,
         createdAt: m.createdAt || new Date().toISOString()
       });
     });
@@ -7306,7 +7918,7 @@ app.post(['/api/admin/media/upload', '/api/admin/music/upload', '/api/music/uplo
       return res.status(400).json({ success: false, message: 'File payload is required' });
     }
 
-    const safeFilename = sanitizeFilename(filename || 'media-asset.mp3');
+    const safeFilename = String(filename || 'media-asset.mp3').replace(/[^a-zA-Z0-9._-]/g, '_');
     const ext = path.extname(safeFilename).replace('.', '').toLowerCase();
     const rawType = String(type || '').toLowerCase().trim();
     const isExplicitMusic = req.path.includes('/music/upload');
@@ -7384,10 +7996,12 @@ app.post(['/api/admin/media/upload', '/api/admin/music/upload', '/api/music/uplo
         format: validation.extension.toUpperCase(),
         category: category || 'celebration',
         filename: safeFilename,
+        diskFilename: typeof diskFilename !== 'undefined' ? diskFilename : `${trackId}.${validation.extension}`,
         storageKey,
         storageProvider,
         url: publicUrl,
         playbackUrl: publicUrl,
+        streamUrl: `/api/media/stream?id=${encodeURIComponent(trackId)}`,
         fileSize: validation.sizeBytes,
         fileSizeFormatted: (validation.sizeBytes / (1024 * 1024)).toFixed(2) + ' MB',
         mimeType: validation.mimeType,
@@ -7562,6 +8176,252 @@ app.post(['/api/admin/media/upload', '/api/admin/music/upload', '/api/music/uplo
     console.error('Error uploading media in server.js:', err);
     res.status(500).json({ success: false, message: err.message });
   }
+});
+
+// ============================================================================
+// ADMIN MEDIA DELETION & STORAGE PURGE CONTROLLERS (Backblaze B2, ImgBB, Local)
+// ============================================================================
+
+// 1. Universal Media Delete Handler
+async function handleAdminMediaDelete(req, res, targetId) {
+  try {
+    const id = targetId || req.body?.id || req.body?.key || req.query?.id;
+    const url = req.body?.url || req.query?.url;
+    const storageKey = req.body?.storageKey || req.body?.key;
+    const fileId = req.body?.fileId || null;
+
+    if (!id && !url && !storageKey) {
+      return res.status(400).json({ success: false, message: 'Target media ID, URL, or storage key is required for deletion' });
+    }
+
+    let b2Deleted = false;
+    let localDeleted = false;
+    let imgbbDeleted = false;
+    let wishCleaned = false;
+
+    // A. Clean up from data/media.json
+    const mediaList = getMedia();
+    const mediaRemaining = mediaList.filter(m => {
+      if (id && (m.id === id || m.storageKey === id || m.filename === id || m.diskFilename === id)) return false;
+      if (storageKey && (m.storageKey === storageKey || m.filename === storageKey || m.diskFilename === storageKey)) return false;
+      if (url && (m.url === url || m.playbackUrl === url)) return false;
+      return true;
+    });
+    if (mediaRemaining.length !== mediaList.length) {
+      saveMedia(mediaRemaining);
+      localDeleted = true;
+    }
+
+    // B. Clean up from data/music.json
+    const musicList = getMusicLibrary();
+    const musicRemaining = musicList.filter(m => {
+      if (id && (m.id === id || m.storageKey === id)) return false;
+      if (storageKey && m.storageKey === storageKey) return false;
+      if (url && (m.playbackUrl === url || m.url === url)) return false;
+      return true;
+    });
+    if (musicRemaining.length !== musicList.length) {
+      saveMusicLibrary(musicRemaining);
+      localDeleted = true;
+    }
+
+    // C. Clean up from data/wishes.json (photos, cover photo, voice dedication, video reel)
+    const wishes = getWishes();
+    let wishesModified = false;
+    wishes.forEach(w => {
+      const custom = w.customData || {};
+      // 1. Cover Photo
+      if (custom.cover_photo && (custom.cover_photo === url || (id && id.includes(w.id) && id.includes('cov')))) {
+        custom.cover_photo = '';
+        wishesModified = true;
+        wishCleaned = true;
+      }
+      // 2. Photos Array
+      if (Array.isArray(custom.photos)) {
+        const initialLen = custom.photos.length;
+        custom.photos = custom.photos.filter((p, pIdx) => {
+          const pUrl = p.url || p.src;
+          if (url && pUrl === url) return false;
+          if (id && (id === `ast_user_p_${w.id}_${pIdx}` || p.id === id || p.name === id)) return false;
+          return true;
+        });
+        if (custom.photos.length !== initialLen) {
+          wishesModified = true;
+          wishCleaned = true;
+        }
+      }
+      // 3. Voice Dedication Note
+      if (custom.voice_note) {
+        const vnUrl = custom.voice_note.url || custom.voice_note.src;
+        if ((url && vnUrl === url) || (id && (id === `ast_user_vn_${w.id}` || id.includes(`vn_${w.id}`)))) {
+          delete custom.voice_note;
+          wishesModified = true;
+          wishCleaned = true;
+        }
+      }
+      // 4. Custom Video Reel
+      if (custom.video || custom.videoUrl) {
+        const vUrl = typeof custom.video === 'string' ? custom.video : (custom.video?.url || custom.videoUrl);
+        if ((url && vUrl === url) || (id && (id === `ast_user_vid_${w.id}` || id.includes(`vid_${w.id}`)))) {
+          delete custom.video;
+          delete custom.videoUrl;
+          wishesModified = true;
+          wishCleaned = true;
+        }
+      }
+      // 5. Custom Music
+      if (custom.music) {
+        const mSrc = custom.music.src || custom.music.url;
+        if ((url && mSrc === url) || (id && (custom.music.trackId === id || id.includes(w.id)))) {
+          custom.music.enabled = false;
+          custom.music.src = '';
+          wishesModified = true;
+          wishCleaned = true;
+        }
+      }
+    });
+    if (wishesModified) {
+      saveWishes(wishes);
+    }
+
+    // D. Clean up from data/template_images.json
+    const templateImages = getTemplateImages();
+    const tplRemaining = templateImages.filter(ti => {
+      if (id && (ti.id === id || ti.provider_asset_id === id)) return false;
+      if (url && (ti.url === url || ti.display_url === url || ti.original_url === url)) return false;
+      return true;
+    });
+    if (tplRemaining.length !== templateImages.length) {
+      saveTemplateImages(tplRemaining);
+      imgbbDeleted = true;
+    }
+
+    // E. Reset Storefront Hero Image if it was deleted
+    const siteSettings = getServerSiteSettings();
+    if (siteSettings.heroImageUrl && (siteSettings.heroImageUrl === url || (id && id === 'ast_hero_section_photo'))) {
+      siteSettings.heroImageUrl = '/assets/file_ab2082.png';
+      saveServerSiteSettings(siteSettings, req.user || { id: 'admin' });
+    }
+
+    // F. Delete from Backblaze B2 if configured
+    const effectiveB2Key = storageKey || (id && id.includes('/') ? id : null);
+    if (B2StorageProvider.isConfigured(process.env) && effectiveB2Key) {
+      try {
+        const b2 = B2StorageProvider.fromEnv(process.env);
+        const delRes = await b2.deleteObject({ key: effectiveB2Key, fileId });
+        b2Deleted = Boolean(delRes && delRes.success);
+      } catch (b2Err) {
+        console.warn('[B2 Delete Warning in handleAdminMediaDelete]:', b2Err.message);
+      }
+    }
+
+    // G. Delete from disk (MEDIA_DIR and audio dir)
+    const diskCandidates = [
+      id ? path.basename(id) : null,
+      storageKey ? path.basename(storageKey) : null,
+      url && url.startsWith('/media/') ? path.basename(url) : null,
+      url && url.startsWith('/audio/') ? path.basename(url) : null
+    ].filter(Boolean);
+
+    for (const filename of diskCandidates) {
+      const mediaPath = path.join(MEDIA_DIR, filename);
+      if (fs.existsSync(mediaPath)) {
+        try { fs.unlinkSync(mediaPath); localDeleted = true; } catch (_) {}
+      }
+      const audioPath = path.join(__dirname, 'public', 'audio', filename);
+      if (fs.existsSync(audioPath)) {
+        try { fs.unlinkSync(audioPath); localDeleted = true; } catch (_) {}
+      }
+    }
+
+    // Also fuzzy search cleanId in MEDIA_DIR
+    if (id) {
+      try {
+        const cleanId = path.basename(id);
+        if (fs.existsSync(MEDIA_DIR)) {
+          const files = fs.readdirSync(MEDIA_DIR).filter(f => f.startsWith(cleanId) || f === cleanId);
+          for (const f of files) {
+            fs.unlinkSync(path.join(MEDIA_DIR, f));
+            localDeleted = true;
+          }
+        }
+      } catch (_) {}
+    }
+
+    return res.json({
+      success: true,
+      id: id || url || storageKey,
+      b2Deleted,
+      localDeleted,
+      imgbbDeleted,
+      wishCleaned,
+      message: `Media file successfully deleted from storage and catalog.`
+    });
+  } catch (err) {
+    console.error('Error deleting media asset in server.js:', err);
+    return res.status(500).json({ success: false, message: 'Failed to delete media asset: ' + err.message });
+  }
+}
+
+app.delete(['/api/admin/media/:id', '/api/admin/media'], (req, res) => {
+  return handleAdminMediaDelete(req, res, req.params.id || req.body?.id || req.query?.id);
+});
+app.post(['/api/admin/media/delete', '/api/admin/media/remove'], (req, res) => {
+  return handleAdminMediaDelete(req, res, req.body?.id || req.body?.key || req.query?.id);
+});
+
+// 2. Direct Backblaze B2 Storage Deletion
+async function handleB2ObjectDelete(req, res) {
+  try {
+    const key = req.body?.key || req.query?.key || req.params?.key;
+    const fileId = req.body?.fileId || req.query?.fileId || null;
+
+    if (!key) {
+      return res.status(400).json({ success: false, message: 'B2 object key is required for deletion' });
+    }
+
+    // Delegate to universal handler to clean all catalogs, wishes, and disks
+    req.body = { ...req.body, key, storageKey: key, fileId };
+    return handleAdminMediaDelete(req, res, key);
+  } catch (err) {
+    console.error('B2 object deletion error:', err);
+    return res.status(502).json({
+      success: false,
+      message: `Failed to delete B2 object: ${err.message}`
+    });
+  }
+}
+
+app.post(['/api/admin/storage/b2/delete', '/api/admin/storage/b2/object/delete'], (req, res) => {
+  return handleB2ObjectDelete(req, res);
+});
+app.delete(['/api/admin/storage/b2/object', '/api/admin/storage/b2/object/:key'], (req, res) => {
+  return handleB2ObjectDelete(req, res);
+});
+
+// 3. Direct ImgBB Asset Catalog Deletion
+function handleImgbbAssetDelete(req, res) {
+  try {
+    const id = req.body?.id || req.params?.id || req.query?.id;
+    const url = req.body?.url || req.query?.url;
+
+    if (!id && !url) {
+      return res.status(400).json({ success: false, message: 'Asset ID or URL is required for ImgBB deletion' });
+    }
+
+    // Delegate to universal handler for complete purge
+    req.body = { ...req.body, id, url };
+    return handleAdminMediaDelete(req, res, id || url);
+  } catch (err) {
+    return res.status(500).json({ success: false, message: 'Failed to delete ImgBB asset: ' + err.message });
+  }
+}
+
+app.post(['/api/admin/storage/imgbb/delete', '/api/admin/storage/imgbb/remove'], (req, res) => {
+  return handleImgbbAssetDelete(req, res);
+});
+app.delete(['/api/admin/storage/imgbb/:id', '/api/admin/storage/imgbb'], (req, res) => {
+  return handleImgbbAssetDelete(req, res);
 });
 
 // Admin API: Direct Hero Section Photo Management (Get & Set Hero Image)

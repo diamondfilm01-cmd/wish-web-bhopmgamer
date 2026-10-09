@@ -14,13 +14,14 @@
     ACCEPTED_AUDIO_TYPES: ['audio/mpeg', 'audio/mp3', 'audio/wav', 'audio/webm', 'audio/ogg', 'audio/aac', 'audio/x-m4a', 'audio/m4a']
   };
 
-  // Curated soundscape tracks with authentic melodic synthesis
+  // Curated soundscape tracks with authentic melodic synthesis & high-quality audio files
   const CURATED_TRACKS = [
     {
       id: 'celebration-strings',
       title: 'Celebration Acoustic Strings',
       genre: 'Indie Celebration',
       duration: '2:40',
+      src: '/audio/celebration-strings.mp3',
       melody: [523.25, 659.25, 783.99, 1046.50, 783.99, 659.25, 880.00, 698.46],
       tempo: 420,
       wave: 'triangle'
@@ -30,6 +31,7 @@
       title: 'Celestial Waltz Violin & Strings',
       genre: 'Romantic Classic',
       duration: '3:15',
+      src: '/audio/romantic-piano.mp3',
       melody: [440.00, 554.37, 659.25, 880.00, 830.61, 659.25, 554.37],
       tempo: 500,
       wave: 'sine'
@@ -39,6 +41,7 @@
       title: 'Midnight Stardust Chimes',
       genre: 'Ambient Synth',
       duration: '2:10',
+      src: '/audio/golden-nostalgia.mp3',
       melody: [587.33, 739.99, 880.00, 1174.66, 880.00, 739.99],
       tempo: 360,
       wave: 'sine'
@@ -48,6 +51,7 @@
       title: 'Acoustic Harmony Guitar',
       genre: 'Warm & Timeless',
       duration: '2:50',
+      src: '/audio/celebration-strings.mp3',
       melody: [329.63, 392.00, 493.88, 587.33, 493.88, 392.00],
       tempo: 460,
       wave: 'triangle'
@@ -57,6 +61,7 @@
       title: 'Upbeat Indie Ukulele Party',
       genre: 'Playful & Cheerful',
       duration: '2:20',
+      src: '/audio/celebration-strings.mp3',
       melody: [523.25, 587.33, 659.25, 698.46, 783.99, 880.00, 1046.50],
       tempo: 280,
       wave: 'triangle'
@@ -66,6 +71,7 @@
       title: 'Peaceful Piano & Acoustic Cello',
       genre: 'Reverent & Gentle',
       duration: '2:35',
+      src: '/audio/golden-nostalgia.mp3',
       melody: [349.23, 440.00, 523.25, 698.46, 523.25, 440.00],
       tempo: 540,
       wave: 'sine'
@@ -253,6 +259,44 @@
       this.onTimeUpdateCallback = onTimeUpdate;
       this.onStateChangeCallback = onStateChange;
 
+      // Prefer high-fidelity real audio file when available
+      if (track && track.src) {
+        try {
+          this.htmlAudio = new Audio(track.src);
+          this.htmlAudio.volume = this.volume;
+          this.htmlAudio.ontimeupdate = () => {
+            if (typeof this.onTimeUpdateCallback === 'function' && this.htmlAudio) {
+              this.onTimeUpdateCallback(this.htmlAudio.currentTime, this.htmlAudio.duration || 160);
+            }
+          };
+          this.htmlAudio.onended = () => {
+            this.stopAll();
+          };
+          this.htmlAudio.onerror = () => {
+            console.warn('[AudioEngine] HTML audio error, fallback to synth');
+            this.playMelodicSynth(track);
+          };
+          const playPromise = this.htmlAudio.play();
+          if (playPromise !== undefined) {
+            playPromise.then(() => {
+              if (typeof this.onStateChangeCallback === 'function') {
+                this.onStateChangeCallback(true, track);
+              }
+            }).catch(err => {
+              console.warn('[AudioEngine] Autoplay restriction or format error, fallback to synth:', err);
+              this.playMelodicSynth(track);
+            });
+          }
+          return;
+        } catch (err) {
+          console.warn('[AudioEngine] Failed to init HTML audio, fallback to synth:', err);
+        }
+      }
+
+      this.playMelodicSynth(track);
+    }
+
+    playMelodicSynth(track) {
       try {
         const AudioCtx = window.AudioContext || window.webkitAudioContext;
         if (!AudioCtx) throw new Error('Web Audio not supported');

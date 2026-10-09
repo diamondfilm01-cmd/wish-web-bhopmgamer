@@ -176,20 +176,24 @@
         <h1 class="font-display-lg text-2xl sm:text-3xl font-extrabold text-on-surface">Media Assets, Hero Photo &amp; Soundscapes</h1>
         <p class="text-sm text-on-surface-variant mt-1">Manage all photos, videos, and music tracks across the site. See exactly where every file is being used in templates, hero section, or user creations.</p>
       </div>
-      <div class="flex items-center gap-3">
+      <div class="flex flex-wrap items-center gap-2.5">
+        <button class="px-3.5 py-2.5 rounded-xl bg-purple-900/60 hover:bg-purple-800 text-purple-200 text-xs sm:text-sm font-bold flex items-center gap-1.5 border border-purple-500/40 transition cursor-pointer" onclick="openStorageInventoryModal()" title="View live Backblaze B2 & ImgBB storage inventory, reconciliation and verification">
+          <span class="material-symbols-outlined text-sm">inventory_2</span>
+          <span>Storage Inventory</span>
+        </button>
         <button class="px-3.5 py-2.5 rounded-xl bg-amber-900/40 hover:bg-amber-800 text-amber-200 text-xs sm:text-sm font-bold flex items-center gap-1.5 border border-amber-500/40 transition cursor-pointer" onclick="healD1Schema()" title="Sync Cloudflare D1 tables (music_library, wish_media, b2_storage_objects)">
           <span class="material-symbols-outlined text-sm">build_circle</span>
           <span>Sync D1 Schema</span>
         </button>
-        <button class="px-4 py-2.5 rounded-xl bg-surface-container hover:bg-surface-container-high text-on-surface text-xs sm:text-sm font-bold flex items-center gap-2 border border-purple-900/30 transition cursor-pointer" onclick="loadAllMedia()">
+        <button class="px-3.5 py-2.5 rounded-xl bg-surface-container hover:bg-surface-container-high text-on-surface text-xs sm:text-sm font-bold flex items-center gap-1.5 border border-purple-900/30 transition cursor-pointer" onclick="loadAllMedia()">
           <span class="material-symbols-outlined text-sm">refresh</span>
           <span>Refresh</span>
         </button>
-        <button class="px-4 py-2.5 rounded-xl bg-purple-900/60 hover:bg-purple-800 text-purple-200 text-xs sm:text-sm font-bold flex items-center gap-2 border border-purple-500/40 transition cursor-pointer" onclick="openUploadTemplateImageModal()">
+        <button class="px-3.5 py-2.5 rounded-xl bg-purple-900/60 hover:bg-purple-800 text-purple-200 text-xs sm:text-sm font-bold flex items-center gap-1.5 border border-purple-500/40 transition cursor-pointer" onclick="openUploadTemplateImageModal()">
           <span class="material-symbols-outlined text-sm">photo_library</span>
           <span>+ Upload Template Image</span>
         </button>
-        <button class="px-5 py-2.5 rounded-xl bg-gradient-to-r from-primary to-secondary text-white text-xs sm:text-sm font-bold flex items-center gap-2 shadow-lg shadow-purple-600/30 hover:brightness-110 active:scale-95 transition cursor-pointer" onclick="toggleModal('upload-media-modal')">
+        <button class="px-4 py-2.5 rounded-xl bg-gradient-to-r from-primary to-secondary text-white text-xs sm:text-sm font-bold flex items-center gap-2 shadow-lg shadow-purple-600/30 hover:brightness-110 active:scale-95 transition cursor-pointer" onclick="toggleModal('upload-media-modal')">
           <span class="material-symbols-outlined text-sm">cloud_upload</span>
           <span>Upload New Asset</span>
         </button>
@@ -343,6 +347,9 @@
         <button onclick="setProviderFilter('d1')" id="prov-d1" class="px-3 py-1.5 rounded-xl bg-surface-container-high text-on-surface-variant hover:text-white text-xs font-bold transition cursor-pointer">
           🗄️ D1 DB Records
         </button>
+        <button onclick="setProviderFilter('unverified')" id="prov-unverified" class="px-3 py-1.5 rounded-xl bg-surface-container-high text-on-surface-variant hover:text-white text-xs font-bold transition cursor-pointer">
+          ⚠️ Unverified / Missing
+        </button>
       </div>
 
       <div class="text-xs text-outline font-mono" id="results-count-text">
@@ -355,7 +362,7 @@
       <div class="flex items-center justify-between">
         <h2 class="font-headline-sm text-lg font-bold text-on-surface flex items-center gap-2">
           <span>Active Media Library &amp; Usage Map</span>
-          <span class="px-2 py-0.5 rounded bg-purple-950 text-purple-300 font-mono text-[11px] font-bold border border-purple-800">KHAN KHAN USE HO RAHI HAI</span>
+          <span class="px-2 py-0.5 rounded bg-purple-950 text-purple-300 font-mono text-[11px] font-bold border border-purple-800">कहाँ-कहाँ उपयोग हो रही है (LIVE USAGE MAP)</span>
         </h2>
         <span class="text-xs text-purple-300/70">Click "Set as Hero Photo" to change homepage cover immediately</span>
       </div>
@@ -667,6 +674,175 @@
   </div>
 </div>
 
+<!-- ========================================================================= -->
+<!-- PART 42: STORAGE INVENTORY & RECONCILIATION MODAL -->
+<!-- ========================================================================= -->
+<div id="storage-inventory-modal" class="fixed inset-0 z-50 bg-black/80 backdrop-blur-md hidden items-center justify-center p-3 sm:p-5 overflow-y-auto">
+  <div class="bg-surface-container border border-purple-800/40 rounded-3xl max-w-5xl w-full p-5 sm:p-7 shadow-2xl flex flex-col gap-5 my-auto max-h-[90vh] overflow-y-auto">
+    
+    <!-- Modal Header -->
+    <div class="flex items-start justify-between gap-4 border-b border-purple-900/30 pb-4">
+      <div>
+        <div class="flex items-center gap-2 mb-1">
+          <span class="px-2.5 py-0.5 rounded-full bg-purple-950 text-purple-300 font-mono text-[10px] font-bold border border-purple-800">PART 42 INVENTORY</span>
+          <span class="text-xs text-outline font-mono">BACKBLAZE B2 · IMGBB · CLOUDFLARE D1</span>
+        </div>
+        <h3 class="font-bold text-lg sm:text-xl text-on-surface flex items-center gap-2">
+          <span>Cloud Storage Inventory &amp; Reconciliation Studio</span>
+        </h3>
+        <p class="text-xs text-on-surface-variant mt-0.5">
+          Real cloud object inspection, URL accessibility verification, and zero-data-loss reconciliation dry-runs.
+        </p>
+      </div>
+      <button onclick="toggleModal('storage-inventory-modal')" class="p-1.5 rounded-xl bg-surface-container-high text-on-surface-variant hover:text-white cursor-pointer transition">
+        <span class="material-symbols-outlined">close</span>
+      </button>
+    </div>
+
+    <!-- Navigation Tabs -->
+    <div class="flex flex-wrap items-center gap-2 bg-surface-container-low p-1.5 rounded-2xl border border-purple-900/20">
+      <button id="tab-inv-b2-btn" onclick="switchInventoryTab('b2')" class="flex-1 min-w-[140px] py-2 px-3 rounded-xl bg-purple-600 text-white font-bold text-xs transition shadow-sm cursor-pointer flex items-center justify-center gap-1.5">
+        <span class="material-symbols-outlined text-sm">cloud</span>
+        <span>Backblaze B2 Bucket</span>
+      </button>
+      <button id="tab-inv-imgbb-btn" onclick="switchInventoryTab('imgbb')" class="flex-1 min-w-[140px] py-2 px-3 rounded-xl text-purple-300 hover:text-white font-bold text-xs transition cursor-pointer flex items-center justify-center gap-1.5">
+        <span class="material-symbols-outlined text-sm">image</span>
+        <span>ImgBB Managed Images</span>
+      </button>
+      <button id="tab-inv-reconcile-btn" onclick="switchInventoryTab('reconcile')" class="flex-1 min-w-[140px] py-2 px-3 rounded-xl text-purple-300 hover:text-white font-bold text-xs transition cursor-pointer flex items-center justify-center gap-1.5">
+        <span class="material-symbols-outlined text-sm">compare_arrows</span>
+        <span>Reconciliation Dry-Run</span>
+      </button>
+    </div>
+
+    <!-- TAB 1: BACKBLAZE B2 INVENTORY -->
+    <div id="tab-inv-b2-pane" class="space-y-4">
+      <div class="flex flex-wrap items-center justify-between gap-3 bg-surface-container-low p-3.5 rounded-2xl border border-purple-900/20">
+        <div class="flex items-center gap-2">
+          <span class="text-xs font-bold text-outline uppercase font-mono">Bucket:</span>
+          <span id="inv-b2-bucket-name" class="font-mono text-xs px-2.5 py-1 rounded bg-black/60 text-amber-300 border border-amber-900/40">wishmagic-assets</span>
+          <span id="inv-b2-count-badge" class="font-mono text-xs text-purple-300 ml-1">0 objects loaded</span>
+        </div>
+        <div class="flex items-center gap-2">
+          <input id="inv-b2-prefix-input" type="text" placeholder="Filter prefix (e.g. music/)" class="px-3 py-1.5 rounded-xl bg-surface-container text-xs border border-purple-900/40 text-white font-mono placeholder:text-outline w-44 focus:outline-none focus:border-primary"/>
+          <button onclick="loadB2Inventory()" class="px-3 py-1.5 rounded-xl bg-purple-900/60 hover:bg-purple-800 text-purple-200 text-xs font-bold transition cursor-pointer flex items-center gap-1">
+            <span class="material-symbols-outlined text-sm">refresh</span>
+            <span>Refresh</span>
+          </button>
+        </div>
+      </div>
+
+      <div class="overflow-x-auto rounded-2xl border border-purple-900/30">
+        <table class="w-full text-left text-xs border-collapse">
+          <thead>
+            <tr class="bg-surface-container-high text-outline uppercase font-mono text-[11px] border-b border-purple-900/30">
+              <th class="p-3">Object Key &amp; Name</th>
+              <th class="p-3">Type / MIME</th>
+              <th class="p-3">Size</th>
+              <th class="p-3">Upload Date</th>
+              <th class="p-3">D1 Status</th>
+              <th class="p-3 text-right">Actions</th>
+            </tr>
+          </thead>
+          <tbody id="inv-b2-table-body" class="divide-y divide-purple-900/20 font-mono text-[11px]">
+            <tr>
+              <td colspan="6" class="p-8 text-center text-outline">Loading Backblaze B2 objects...</td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+
+      <div id="inv-b2-pagination" class="flex items-center justify-between pt-1 text-xs">
+        <span id="inv-b2-page-info" class="text-outline font-mono">Showing items</span>
+        <button id="inv-b2-next-btn" onclick="loadB2InventoryNextPage()" class="hidden px-4 py-1.5 rounded-xl bg-purple-900/60 hover:bg-purple-800 text-purple-200 font-bold transition cursor-pointer">
+          Next Page &rarr;
+        </button>
+      </div>
+    </div>
+
+    <!-- TAB 2: IMGBB INVENTORY -->
+    <div id="tab-inv-imgbb-pane" class="space-y-4 hidden">
+      <div class="p-4 rounded-2xl bg-pink-950/20 border border-pink-900/40 text-pink-200 text-xs flex items-start gap-3">
+        <span class="material-symbols-outlined text-pink-400 mt-0.5">info</span>
+        <div>
+          <strong class="text-white block font-semibold mb-0.5">ImgBB Architecture Note:</strong>
+          ImgBB does not provide an account-wide listing API. This view catalogs all <strong>application-managed</strong> image assets registered in the database, displays their verified URLs, and offers live accessibility checks.
+        </div>
+      </div>
+
+      <div class="overflow-x-auto rounded-2xl border border-purple-900/30">
+        <table class="w-full text-left text-xs border-collapse">
+          <thead>
+            <tr class="bg-surface-container-high text-outline uppercase font-mono text-[11px] border-b border-purple-900/30">
+              <th class="p-3">Preview</th>
+              <th class="p-3">Slot / Title</th>
+              <th class="p-3">Direct URL</th>
+              <th class="p-3">Dimensions / Size</th>
+              <th class="p-3">Verification</th>
+              <th class="p-3 text-right">Actions</th>
+            </tr>
+          </thead>
+          <tbody id="inv-imgbb-table-body" class="divide-y divide-purple-900/20 font-mono text-[11px]">
+            <tr>
+              <td colspan="6" class="p-8 text-center text-outline">Loading ImgBB assets...</td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+
+    <!-- TAB 3: RECONCILIATION DRY-RUN REPORT -->
+    <div id="tab-inv-reconcile-pane" class="space-y-4 hidden">
+      <div class="flex items-center justify-between bg-surface-container-low p-3.5 rounded-2xl border border-purple-900/20">
+        <div>
+          <h4 class="font-bold text-sm text-on-surface">Cloud vs Database Dry-Run Audit</h4>
+          <p class="text-xs text-outline">Audits parity between Backblaze B2 bucket objects and database records without applying destructive changes.</p>
+        </div>
+        <button onclick="runStorageReconciliation()" class="px-4 py-2 rounded-xl bg-gradient-to-r from-primary to-secondary text-white font-bold text-xs shadow-md transition cursor-pointer flex items-center gap-1.5">
+          <span class="material-symbols-outlined text-sm">play_arrow</span>
+          <span>Run Dry-Run Reconciliation</span>
+        </button>
+      </div>
+
+      <!-- KPI Summary Cards -->
+      <div class="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-3" id="rec-kpi-grid">
+        <div class="bg-surface-container-low p-3 rounded-xl border border-purple-900/20 text-center">
+          <span class="text-[10px] text-outline font-mono uppercase block">B2 Objects</span>
+          <span id="rec-kpi-cloud" class="text-base font-bold text-amber-300 font-mono">0</span>
+        </div>
+        <div class="bg-surface-container-low p-3 rounded-xl border border-purple-900/20 text-center">
+          <span class="text-[10px] text-outline font-mono uppercase block">DB Records</span>
+          <span id="rec-kpi-d1" class="text-base font-bold text-purple-300 font-mono">0</span>
+        </div>
+        <div class="bg-surface-container-low p-3 rounded-xl border border-purple-900/20 text-center">
+          <span class="text-[10px] text-outline font-mono uppercase block">Matched</span>
+          <span id="rec-kpi-matched" class="text-base font-bold text-emerald-400 font-mono">0</span>
+        </div>
+        <div class="bg-surface-container-low p-3 rounded-xl border border-purple-900/20 text-center">
+          <span class="text-[10px] text-outline font-mono uppercase block">Cloud Only</span>
+          <span id="rec-kpi-cloudonly" class="text-base font-bold text-cyan-300 font-mono">0</span>
+        </div>
+        <div class="bg-surface-container-low p-3 rounded-xl border border-purple-900/20 text-center">
+          <span class="text-[10px] text-outline font-mono uppercase block">DB Unverified</span>
+          <span id="rec-kpi-unverified" class="text-base font-bold text-rose-400 font-mono">0</span>
+        </div>
+        <div class="bg-surface-container-low p-3 rounded-xl border border-purple-900/20 text-center">
+          <span class="text-[10px] text-outline font-mono uppercase block">Duplicates</span>
+          <span id="rec-kpi-duplicates" class="text-base font-bold text-amber-400 font-mono">0</span>
+        </div>
+      </div>
+
+      <!-- Reconciliation Report Output Container -->
+      <div id="rec-details-container" class="space-y-4">
+        <div class="p-6 text-center text-outline text-xs bg-surface-container-low rounded-2xl border border-purple-900/20">
+          Click "Run Dry-Run Reconciliation" to compare live Backblaze B2 storage objects with database media records.
+        </div>
+      </div>
+    </div>
+
+  </div>
+</div>
+
 <!-- Floating Dedicated Audio Player Bar -->
 <div id="floating-audio-bar" class="fixed bottom-4 left-4 right-4 sm:left-auto sm:right-6 sm:w-96 bg-surface-container/95 backdrop-blur-xl border border-primary/50 rounded-2xl p-4 shadow-2xl z-40 hidden flex flex-col gap-2 transition-all duration-300">
   <div class="flex items-center justify-between gap-3">
@@ -904,7 +1080,7 @@
                     <span class="material-symbols-outlined text-3xl">${isCurrentlyPlaying ? 'graphic_eq' : 'music_note'}</span>
                   </div>
                   <span class="font-mono text-xs text-purple-200 font-semibold truncate max-w-[200px]">${escapeHtml(a.title)}</span>
-                  <button onclick="playAudioItem('${a.id}', '${a.streamUrl || a.playbackUrl || a.url}', '${escapeHtml(a.title).replace(/'/g, "\\'")}', '${a.storageProvider || 'b2'}')" class="mt-1 px-3 py-1 rounded-full ${isCurrentlyPlaying ? 'bg-emerald-500 text-white shadow-lg shadow-emerald-500/30' : 'bg-primary text-white'} text-[11px] font-bold flex items-center gap-1 hover:brightness-110 active:scale-95 transition cursor-pointer">
+                  <button onclick="playAudioItem('${a.id}')" class="mt-1 px-3.5 py-1.5 rounded-full ${isCurrentlyPlaying ? 'bg-emerald-500 text-white shadow-lg shadow-emerald-500/30' : 'bg-primary text-white'} text-xs font-bold flex items-center gap-1.5 hover:brightness-110 active:scale-95 transition cursor-pointer">
                     <span class="material-symbols-outlined text-sm">${isCurrentlyPlaying ? 'pause' : 'play_arrow'}</span>
                     <span>${isCurrentlyPlaying ? 'Pause Audio' : 'Play Audio Track'}</span>
                   </button>
@@ -1032,11 +1208,10 @@
                   <span class="material-symbols-outlined text-sm">zoom_in</span>
                 </button>
               ` : ''}
-              ${isTpl ? `
-                <button onclick="deleteOrArchiveTemplateImage('${a.id}', '${escapeHtml(a.title)}')" class="p-1.5 rounded-lg bg-surface-container-high hover:bg-rose-900/60 text-outline hover:text-rose-300 transition cursor-pointer" title="Delete or Archive Template Image">
-                  <span class="material-symbols-outlined text-sm">delete</span>
-                </button>
-              ` : ''}
+              <button onclick="deleteMediaAsset('${a.id}')" class="px-2.5 py-1.5 rounded-xl bg-rose-950/60 hover:bg-rose-900 border border-rose-800 text-rose-300 hover:text-white text-xs font-bold flex items-center gap-1 transition cursor-pointer shadow-sm" title="Delete Media Asset">
+                <span class="material-symbols-outlined text-sm">delete</span>
+                <span>Delete</span>
+              </button>
             </div>
           </div>
 
@@ -1247,60 +1422,30 @@
     btnSubmit.innerHTML = `<span class="material-symbols-outlined text-sm animate-spin">progress_activity</span><span>Uploading to ${targetCloudName}...</span>`;
 
     try {
-      // Preferred design: Use FormData with raw file directly to eliminate FileReader disk/memory issues
-      let res;
-      if (typeof FormData !== 'undefined') {
-        const formData = new FormData();
-        formData.append('title', title);
-        formData.append('type', selectedType);
-        formData.append('category', categoryInput.value.trim() || (selectedType === 'audio' ? 'celebration' : 'Custom Upload'));
-        if (artistInput) formData.append('artist', artistInput.value.trim());
-        formData.append('filename', file.name);
-        formData.append('file', file);
-        if (selectedType === 'image' && heroCheck && heroCheck.checked) {
-          formData.append('setAsHeroImage', 'true');
-        }
+      // Read file cleanly using FileReader DataURL (instant, asynchronous, robust across all servers)
+      const base64Data = await new Promise((resolve, reject) => {
+        const reader = new FileReader();
+        reader.onload = () => resolve(reader.result);
+        reader.onerror = () => reject(new Error('Failed to read file from disk. Please reselect the file.'));
+        reader.readAsDataURL(file);
+      });
 
-        // Do NOT manually set Content-Type; browser sets multipart/form-data with boundary
-        res = await fetch('/api/admin/media/upload', {
-          method: 'POST',
-          credentials: 'include',
-          body: formData
-        });
-      } else {
-        // Fallback for environments lacking FormData: use arrayBuffer
-        const buffer = await (file.arrayBuffer ? file.arrayBuffer() : new Promise((resolve, reject) => {
-          const r = new FileReader();
-          r.onload = () => resolve(r.result);
-          r.onerror = () => reject(new Error('Failed to read file from disk. Please reselect the file.'));
-          r.readAsArrayBuffer(file);
-        }));
+      const payload = {
+        title,
+        type: selectedType,
+        category: categoryInput.value.trim() || (selectedType === 'audio' ? 'celebration' : 'Custom Upload'),
+        artist: artistInput ? artistInput.value.trim() : 'WishMagic Studio',
+        filename: file.name,
+        fileData: base64Data,
+        setAsHeroImage: selectedType === 'image' && heroCheck && heroCheck.checked
+      };
 
-        let binaryStr = '';
-        const bytes = new Uint8Array(buffer);
-        const len = bytes.byteLength;
-        for (let i = 0; i < len; i++) {
-          binaryStr += String.fromCharCode(bytes[i]);
-        }
-        const base64Data = btoa(binaryStr);
-
-        const payload = {
-          title,
-          type: selectedType,
-          category: categoryInput.value.trim() || (selectedType === 'audio' ? 'celebration' : 'Custom Upload'),
-          artist: artistInput ? artistInput.value.trim() : 'WishMagic Studio',
-          filename: file.name,
-          fileData: base64Data,
-          setAsHeroImage: selectedType === 'image' && heroCheck && heroCheck.checked
-        };
-
-        res = await fetch('/api/admin/media/upload', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          credentials: 'include',
-          body: JSON.stringify(payload)
-        });
-      }
+      const res = await fetch('/api/admin/media/upload', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        credentials: 'include',
+        body: JSON.stringify(payload)
+      });
 
       const data = await res.json().catch(() => ({}));
       if (res.ok && data.success) {
@@ -1507,14 +1652,22 @@
     showToast(`⚠️ ${msg}`);
   }
 
-  function playAudioItem(id, rawUrl, title, provider = 'b2') {
-    // 1. If clicking the already playing track, toggle pause/play
+  function playAudioItem(id, rawUrl, rawTitle, rawProvider = 'b2') {
+    // 1. Resolve authoritative media asset by ID
+    const asset = allMediaAssets.find(a => String(a.id) === String(id)) || null;
+
+    const title = (asset && asset.title) || rawTitle || 'Audio Track';
+    const artist = (asset && asset.artist) || 'WishMagic Studio';
+    const provider = (asset && asset.storageProvider) || rawProvider || 'b2';
+    const duration = (asset && asset.duration) || '';
+
+    // 2. If clicking the already playing track, toggle pause/play
     if (activeTrackId === id && activeAudio) {
       toggleAudioPlayback();
       return;
     }
 
-    // 2. Clean up any previous audio stream
+    // 3. Clean up any previous audio stream completely
     if (activeAudio) {
       activeAudio.pause();
       activeAudio.src = '';
@@ -1531,22 +1684,34 @@
     const seekEl = document.getElementById('player-seek-bar');
     const errEl = document.getElementById('player-error-msg');
 
-    if (titleEl) titleEl.innerText = title || 'Audio Track';
-    if (badgeEl) badgeEl.innerText = provider === 'b2' ? 'Backblaze B2' : 'Audio Vault';
-    if (timeEl) timeEl.innerText = 'Streaming...';
+    if (titleEl) {
+      titleEl.innerHTML = `<span class="font-bold text-on-surface truncate">${escapeHtml(title)}</span> <span class="text-[10px] text-purple-300 font-normal truncate">(${escapeHtml(artist)})</span>`;
+    }
+    if (badgeEl) {
+      badgeEl.innerText = provider === 'b2' ? 'Backblaze B2' : (provider === 'imgbb' ? 'ImgBB' : 'Audio Vault');
+    }
+    if (timeEl) timeEl.innerText = duration ? `0:00 / ${duration}` : 'Streaming...';
     if (errEl) errEl.classList.add('hidden');
     if (iconEl) iconEl.innerText = 'play_arrow';
     if (seekEl) seekEl.value = '0';
     if (bar) bar.classList.remove('hidden');
 
-    // Authoritative Playback URL: Use streaming proxy endpoint for stable authenticated range streaming
-    const streamUrl = `/api/media/stream?id=${encodeURIComponent(id)}`;
-    const playableSrc = (rawUrl && rawUrl.startsWith('http') && !rawUrl.includes('backblazeb2.com')) ? rawUrl : streamUrl;
+    // 4. Resolve playable source priority
+    const streamProxyUrl = `/api/media/stream?id=${encodeURIComponent(id)}`;
+    let primarySrc = streamProxyUrl;
+
+    const candidateUrl = (asset && (asset.playbackUrl || asset.url)) || rawUrl || '';
+    if (candidateUrl && !candidateUrl.startsWith('web-audio:') && !candidateUrl.includes('assets.wishmagic.live')) {
+      if (candidateUrl.startsWith('/audio/') || candidateUrl.startsWith('/media/') || candidateUrl.startsWith('http')) {
+        primarySrc = candidateUrl;
+      }
+    }
 
     const audio = new Audio();
     activeAudio = audio;
-    audio.src = playableSrc;
-    audio.preload = 'metadata';
+    audio.preload = 'auto';
+    audio.crossOrigin = 'anonymous';
+    audio.src = primarySrc;
 
     audio.addEventListener('timeupdate', () => {
       if (!audio.duration || isNaN(audio.duration)) return;
@@ -1574,16 +1739,25 @@
       renderMediaGrid();
     });
 
+    let hasRetried = false;
     audio.addEventListener('error', () => {
-      // If direct URL failed, attempt streaming proxy URL
-      if (audio.src !== streamUrl) {
-        audio.src = streamUrl;
-        audio.play().catch(() => {
-          showPlayerError(`Cannot stream track "${title}". Verify B2 configuration.`);
-        });
-      } else {
-        showPlayerError(`Audio track "${title}" could not be retrieved from storage.`);
+      if (!hasRetried) {
+        hasRetried = true;
+        if (primarySrc !== streamProxyUrl) {
+          console.warn(`[Audio Player] Retrying with stream endpoint: ${streamProxyUrl}`);
+          audio.src = streamProxyUrl;
+          audio.play().catch(e => {
+            if (e.name === 'NotAllowedError') {
+              if (timeEl) timeEl.innerText = 'Click Play ▶ to start';
+              if (iconEl) iconEl.innerText = 'play_arrow';
+            } else {
+              showPlayerError(`Playback error: ${e.message}`);
+            }
+          });
+          return;
+        }
       }
+      showPlayerError(`Audio track "${title}" could not be retrieved from storage.`);
     });
 
     audio.play().then(() => {
@@ -1591,18 +1765,30 @@
       showToast(`▶ Playing: "${title}"`);
       renderMediaGrid();
     }).catch(err => {
+      console.warn('[Audio Play Promise Catch]:', err);
       if (err.name === 'NotAllowedError') {
-        if (timeEl) timeEl.innerText = 'Click Play button to start';
+        if (timeEl) timeEl.innerText = 'Click Play ▶ to start';
+        if (iconEl) iconEl.innerText = 'play_arrow';
+        showToast(`▶ Tap Play button on floating bar to listen to "${title}"`);
       } else {
-        // Fallback retry with stream proxy
-        audio.src = streamUrl;
-        audio.play().then(() => {
-          if (iconEl) iconEl.innerText = 'pause';
-          renderMediaGrid();
-        }).catch(streamErr => {
-          showPlayerError(`Playback error: ${streamErr.message}`);
-        });
+        if (audio.src && !audio.src.includes(streamProxyUrl)) {
+          audio.src = streamProxyUrl;
+          audio.play().then(() => {
+            if (iconEl) iconEl.innerText = 'pause';
+            renderMediaGrid();
+          }).catch(streamErr => {
+            if (streamErr.name === 'NotAllowedError') {
+              if (timeEl) timeEl.innerText = 'Click Play ▶ to start';
+              if (iconEl) iconEl.innerText = 'play_arrow';
+            } else {
+              showPlayerError(`Playback error: ${streamErr.message}`);
+            }
+          });
+        } else {
+          showPlayerError(`Playback error: ${err.message}`);
+        }
       }
+      renderMediaGrid();
     });
 
     renderMediaGrid();
@@ -1873,25 +2059,474 @@
   }
 
   async function deleteOrArchiveTemplateImage(assetId, title) {
-    if (!confirm(`Are you sure you want to remove or archive "${title}"?`)) return;
+    return deleteMediaAsset(assetId, title, 'imgbb', '', false);
+  }
 
+  // --- Universal Media Asset Deletion (Audio, Video, Photo, B2, ImgBB) ---
+  async function deleteMediaAsset(assetId, fallbackTitle, fallbackProvider, fallbackStorageKey, fallbackIsInUse) {
+    const a = allMediaAssets.find(m => String(m.id) === String(assetId)) || null;
+    const title = (a && a.title) || fallbackTitle || assetId;
+    const provider = (a && a.storageProvider) || fallbackProvider || 'local';
+    const storageKey = (a && a.storageKey) || fallbackStorageKey || '';
+    const isInUse = a ? Boolean(a.isInUse) : Boolean(fallbackIsInUse);
+    const url = (a && a.url) || '';
+
+    let warning = `Kya aap "${title}" ko library aur cloud storage se permanently delete karna chahte hain?`;
+    if (isInUse) {
+      warning += `\n\n⚠️ Dhyaan de: Yeh asset kisi wish ya template me use ho raha hai! Use delete karne se unka media remove ho jayega.`;
+    }
+    if (!confirm(warning)) return;
+
+    showToast(`🗑️ Deleting "${title}"...`);
     try {
-      const res = await fetch(`/api/admin/template-images/${encodeURIComponent(assetId)}`, {
-        method: 'PATCH',
+      const res = await fetch(`/api/admin/media/${encodeURIComponent(assetId)}`, {
+        method: 'DELETE',
         headers: { 'Content-Type': 'application/json' },
         credentials: 'include',
-        body: JSON.stringify({ status: 'archived' })
+        body: JSON.stringify({ id: assetId, storageKey, provider, url })
       });
+      const data = await res.json().catch(() => ({}));
 
-      if (res.ok) {
-        showToast('🗄️ Template image archived safely!');
+      if (res.ok && data.success) {
+        showToast(`✅ "${title}" successfully delete kar diya gaya!`);
+        if (activeTrackId === assetId) {
+          stopAndCloseAudioPlayer();
+        }
         loadAllMedia();
       } else {
-        alert('Failed to archive template image');
+        alert('Delete failed: ' + (data.message || 'Server error'));
       }
     } catch (e) {
-      alert('Error: ' + e.message);
+      alert('Delete error: ' + e.message);
     }
+  }
+
+  // --- Backblaze B2 Direct Object Deletion ---
+  async function deleteB2InventoryObject(key, fileId, name) {
+    if (!confirm(`Kya aap "${name}" ko Backblaze B2 bucket se permanently delete karna chahte hain? Yeh operation undo nahi ho sakta.`)) return;
+
+    showToast(`🗑️ Deleting B2 object: ${name}...`);
+    try {
+      const res = await fetch('/api/admin/storage/b2/delete', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        credentials: 'include',
+        body: JSON.stringify({ key, fileId })
+      });
+      const data = await res.json().catch(() => ({}));
+
+      if (res.ok && data.success) {
+        showToast(`✅ B2 object "${name}" permanently delete ho gaya!`);
+        loadB2Inventory();
+        loadAllMedia();
+      } else {
+        alert('B2 delete failed: ' + (data.message || 'Server error'));
+      }
+    } catch (e) {
+      alert('B2 delete error: ' + e.message);
+    }
+  }
+
+  // --- ImgBB Catalog Asset Deletion ---
+  async function deleteImgbbInventoryAsset(id, url, name) {
+    if (!confirm(`Kya aap "${name}" ko ImgBB catalog aur database se delete karna chahte hain?`)) return;
+
+    showToast(`🗑️ Removing ImgBB asset: ${name}...`);
+    try {
+      const res = await fetch('/api/admin/storage/imgbb/delete', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        credentials: 'include',
+        body: JSON.stringify({ id, url })
+      });
+      const data = await res.json().catch(() => ({}));
+
+      if (res.ok && data.success) {
+        showToast(`✅ ImgBB asset "${name}" catalog se delete ho gaya!`);
+        loadImgbbInventory();
+        loadAllMedia();
+      } else {
+        alert('ImgBB delete failed: ' + (data.message || 'Server error'));
+      }
+    } catch (e) {
+      alert('ImgBB delete error: ' + e.message);
+    }
+  }
+
+  // =========================================================================
+  // PART 42: STORAGE INVENTORY & RECONCILIATION CLIENT CONTROLLER
+  // =========================================================================
+  let b2NextFileName = null;
+  let currentInventoryTab = 'b2';
+
+  function openStorageInventoryModal() {
+    toggleModal('storage-inventory-modal');
+    switchInventoryTab('b2');
+  }
+
+  function switchInventoryTab(tab) {
+    currentInventoryTab = tab;
+    const b2Pane = document.getElementById('tab-inv-b2-pane');
+    const imgbbPane = document.getElementById('tab-inv-imgbb-pane');
+    const recPane = document.getElementById('tab-inv-reconcile-pane');
+
+    const b2Btn = document.getElementById('tab-inv-b2-btn');
+    const imgbbBtn = document.getElementById('tab-inv-imgbb-btn');
+    const recBtn = document.getElementById('tab-inv-reconcile-btn');
+
+    const activeClass = 'flex-1 min-w-[140px] py-2 px-3 rounded-xl bg-purple-600 text-white font-bold text-xs transition shadow-sm cursor-pointer flex items-center justify-center gap-1.5';
+    const inactiveClass = 'flex-1 min-w-[140px] py-2 px-3 rounded-xl text-purple-300 hover:text-white font-bold text-xs transition cursor-pointer flex items-center justify-center gap-1.5';
+
+    if (b2Btn) b2Btn.className = tab === 'b2' ? activeClass : inactiveClass;
+    if (imgbbBtn) imgbbBtn.className = tab === 'imgbb' ? activeClass : inactiveClass;
+    if (recBtn) recBtn.className = tab === 'reconcile' ? activeClass : inactiveClass;
+
+    if (b2Pane) b2Pane.classList.toggle('hidden', tab !== 'b2');
+    if (imgbbPane) imgbbPane.classList.toggle('hidden', tab !== 'imgbb');
+    if (recPane) recPane.classList.toggle('hidden', tab !== 'reconcile');
+
+    if (tab === 'b2') loadB2Inventory();
+    else if (tab === 'imgbb') loadImgbbInventory();
+    else if (tab === 'reconcile') runStorageReconciliation();
+  }
+
+  async function loadB2Inventory(startFileName = null) {
+    const tbody = document.getElementById('inv-b2-table-body');
+    const bucketEl = document.getElementById('inv-b2-bucket-name');
+    const countBadge = document.getElementById('inv-b2-count-badge');
+    const prefix = document.getElementById('inv-b2-prefix-input')?.value.trim() || '';
+
+    if (!startFileName && tbody) {
+      tbody.innerHTML = `<tr><td colspan="6" class="p-8 text-center text-outline animate-pulse">Scanning Backblaze B2 bucket objects...</td></tr>`;
+    }
+
+    try {
+      const url = new URL('/api/admin/storage/b2/inventory', window.location.origin);
+      if (prefix) url.searchParams.set('prefix', prefix);
+      if (startFileName) url.searchParams.set('startFileName', startFileName);
+      url.searchParams.set('maxKeys', '50');
+
+      const res = await fetch(url.toString(), { credentials: 'include' });
+      const data = await res.json();
+
+      if (!data.success) {
+        if (data.error && data.error.code === 'B2_NOT_CONFIGURED') {
+          tbody.innerHTML = `<tr><td colspan="6" class="p-8 text-center text-amber-300">⚠️ Backblaze B2 credentials are not configured in environment secrets. (B2_KEY_ID &amp; B2_APPLICATION_KEY)</td></tr>`;
+        } else {
+          tbody.innerHTML = `<tr><td colspan="6" class="p-8 text-center text-rose-400">Failed to load B2 objects: ${escapeHtml(data.message || (data.error && data.error.message) || 'Error')}</td></tr>`;
+        }
+        return;
+      }
+
+      if (bucketEl) bucketEl.innerText = data.bucketName || 'wishmagic-assets';
+      b2NextFileName = data.nextFileName || null;
+
+      const nextBtn = document.getElementById('inv-b2-next-btn');
+      const pageInfo = document.getElementById('inv-b2-page-info');
+      if (nextBtn) nextBtn.classList.toggle('hidden', !data.hasMore);
+      if (pageInfo) pageInfo.innerText = `Loaded ${data.totalListed || 0} objects from bucket`;
+      if (countBadge) countBadge.innerText = `${data.totalListed || 0} loaded`;
+
+      const files = data.files || [];
+      if (files.length === 0) {
+        tbody.innerHTML = `<tr><td colspan="6" class="p-8 text-center text-outline">No storage objects found matching prefix "${escapeHtml(prefix)}".</td></tr>`;
+        return;
+      }
+
+      tbody.innerHTML = files.map(f => {
+        const isAudio = f.contentType?.includes('audio') || f.key.endsWith('.mp3') || f.key.endsWith('.wav');
+        const formattedSize = f.sizeBytes ? `${(f.sizeBytes / (1024 * 1024)).toFixed(2)} MB` : (f.sizeFormatted || 'Unknown');
+        const uploadDate = f.uploadTimestamp ? new Date(f.uploadTimestamp).toLocaleString() : 'Unknown';
+        const d1Status = f.hasD1Record
+          ? `<span class="px-2 py-0.5 rounded bg-emerald-950 text-emerald-300 font-bold border border-emerald-800">Catalogued</span>`
+          : `<span class="px-2 py-0.5 rounded bg-amber-950 text-amber-300 font-bold border border-amber-800">Cloud Only</span>`;
+
+        return `
+          <tr class="hover:bg-purple-950/20 transition">
+            <td class="p-3">
+              <div class="font-bold text-white truncate max-w-xs" title="${escapeHtml(f.key)}">${escapeHtml(f.filename || f.key)}</div>
+              <div class="text-[10px] text-outline truncate max-w-xs flex items-center gap-1">
+                <span>${escapeHtml(f.key)}</span>
+                <button onclick="copyToClipboard('${escapeHtml(f.key)}', 'Object Key')" class="text-purple-400 hover:text-white" title="Copy Key">
+                  <span class="material-symbols-outlined text-xs">content_copy</span>
+                </button>
+              </div>
+            </td>
+            <td class="p-3 text-purple-200">${escapeHtml(f.contentType || 'binary/octet-stream')}</td>
+            <td class="p-3 text-on-surface font-semibold">${formattedSize}</td>
+            <td class="p-3 text-outline">${uploadDate}</td>
+            <td class="p-3">${d1Status}</td>
+            <td class="p-3 text-right">
+              <div class="flex items-center justify-end gap-1.5">
+                ${isAudio ? `
+                  <button onclick="playAudioItem('${f.d1Id || f.key}', '${f.downloadUrl || ''}', '${escapeHtml(f.displayTitle || f.filename)}', 'b2')" class="px-2.5 py-1 rounded-lg bg-primary hover:brightness-110 text-white font-bold text-[10px] flex items-center gap-1 cursor-pointer" title="Stream Audio Track">
+                    <span class="material-symbols-outlined text-xs">play_arrow</span>
+                    <span>Play</span>
+                  </button>
+                ` : ''}
+                ${!f.hasD1Record ? `
+                  <button onclick="importB2Object('${escapeHtml(f.key)}', '${escapeHtml(f.filename)}')" class="px-2.5 py-1 rounded-lg bg-amber-600 hover:bg-amber-500 text-black font-bold text-[10px] flex items-center gap-1 cursor-pointer" title="Import object into D1 media_library">
+                    <span class="material-symbols-outlined text-xs">add_link</span>
+                    <span>Import</span>
+                  </button>
+                ` : ''}
+                <button onclick="deleteB2InventoryObject('${escapeHtml(f.key)}', '${f.fileId || ''}', '${escapeHtml(f.displayTitle || f.filename || f.key).replace(/'/g, "\\'")}')" class="px-2.5 py-1 rounded-lg bg-rose-950/60 hover:bg-rose-900 border border-rose-800 text-rose-300 font-bold text-[10px] flex items-center gap-1 cursor-pointer transition" title="Delete file permanently from Backblaze B2">
+                  <span class="material-symbols-outlined text-xs">delete</span>
+                  <span>Delete</span>
+                </button>
+              </div>
+            </td>
+          </tr>
+        `;
+      }).join('');
+    } catch (err) {
+      if (tbody) tbody.innerHTML = `<tr><td colspan="6" class="p-8 text-center text-rose-400">Network error fetching B2 inventory: ${err.message}</td></tr>`;
+    }
+  }
+
+  function loadB2InventoryNextPage() {
+    if (b2NextFileName) {
+      loadB2Inventory(b2NextFileName);
+    }
+  }
+
+  async function loadImgbbInventory() {
+    const tbody = document.getElementById('inv-imgbb-table-body');
+    if (tbody) tbody.innerHTML = `<tr><td colspan="6" class="p-8 text-center text-outline animate-pulse">Cataloging application-managed ImgBB image assets...</td></tr>`;
+
+    try {
+      const res = await fetch('/api/admin/storage/imgbb/inventory', { credentials: 'include' });
+      const data = await res.json();
+
+      if (!data.success) {
+        tbody.innerHTML = `<tr><td colspan="6" class="p-8 text-center text-rose-400">Failed to load ImgBB assets: ${escapeHtml(data.message || 'Error')}</td></tr>`;
+        return;
+      }
+
+      const assets = data.assets || [];
+      if (assets.length === 0) {
+        tbody.innerHTML = `<tr><td colspan="6" class="p-8 text-center text-outline">No ImgBB image records recorded in database.</td></tr>`;
+        return;
+      }
+
+      tbody.innerHTML = assets.map((a, idx) => {
+        const btnId = `btn-verify-img-${idx}`;
+        const sizeFormatted = a.sizeBytes ? `${(a.sizeBytes / 1024).toFixed(1)} KB` : 'ImgBB Web';
+        const dims = a.dimensions || 'Dynamic';
+
+        return `
+          <tr class="hover:bg-purple-950/20 transition">
+            <td class="p-3">
+              <img src="${a.thumbnailUrl || a.url}" alt="" class="w-10 h-10 object-cover rounded-lg border border-purple-900/40 bg-surface-container-high cursor-pointer" onclick="openLightboxImage('${a.url}', '${escapeHtml(a.title)}')" onerror="this.onerror=null;this.src='/assets/file_ab2082.png';"/>
+            </td>
+            <td class="p-3">
+              <div class="font-bold text-white truncate max-w-xs">${escapeHtml(a.title)}</div>
+              <div class="text-[10px] text-outline font-mono">${escapeHtml(a.source)}</div>
+            </td>
+            <td class="p-3">
+              <a href="${a.url}" target="_blank" rel="noopener" class="text-purple-300 hover:text-white underline truncate block max-w-xs font-mono text-[10px]">
+                ${escapeHtml(a.url)}
+              </a>
+            </td>
+            <td class="p-3 text-outline">${dims} • ${sizeFormatted}</td>
+            <td class="p-3">
+              <span id="badge-verify-${idx}" class="px-2 py-0.5 rounded bg-cyan-950 text-cyan-300 font-bold border border-cyan-800">
+                Known to Application
+              </span>
+            </td>
+            <td class="p-3 text-right">
+              <div class="flex items-center justify-end gap-1.5">
+                <button id="${btnId}" onclick="verifyAssetUrl('${a.url}', '${btnId}', 'badge-verify-${idx}')" class="px-2.5 py-1 rounded-lg bg-surface-container-high hover:bg-surface-container-highest text-purple-200 font-bold text-[10px] transition cursor-pointer flex items-center gap-1 inline-flex">
+                  <span class="material-symbols-outlined text-xs">verified</span>
+                  <span>Verify Link</span>
+                </button>
+                <button onclick="deleteImgbbInventoryAsset('${a.id || ''}', '${escapeHtml(a.url)}', '${escapeHtml(a.title).replace(/'/g, "\\'")}')" class="px-2.5 py-1 rounded-lg bg-rose-950/60 hover:bg-rose-900 border border-rose-800 text-rose-300 font-bold text-[10px] transition cursor-pointer flex items-center gap-1 inline-flex" title="Delete ImgBB asset from catalog">
+                  <span class="material-symbols-outlined text-xs">delete</span>
+                  <span>Delete</span>
+                </button>
+              </div>
+            </td>
+          </tr>
+        `;
+      }).join('');
+    } catch (err) {
+      if (tbody) tbody.innerHTML = `<tr><td colspan="6" class="p-8 text-center text-rose-400">Network error fetching ImgBB catalog: ${err.message}</td></tr>`;
+    }
+  }
+
+  async function verifyAssetUrl(targetUrl, btnId, badgeId) {
+    const btn = document.getElementById(btnId);
+    const badge = document.getElementById(badgeId);
+    if (btn) {
+      btn.disabled = true;
+      btn.innerHTML = `<span class="material-symbols-outlined text-xs animate-spin">refresh</span><span>Verifying...</span>`;
+    }
+
+    try {
+      const res = await fetch('/api/admin/storage/verify-url', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        credentials: 'include',
+        body: JSON.stringify({ url: targetUrl })
+      });
+      const data = await res.json();
+
+      if (badge) {
+        if (data.accessible) {
+          badge.className = 'px-2 py-0.5 rounded bg-emerald-950 text-emerald-300 font-bold border border-emerald-800';
+          badge.innerText = `Verified Accessible (${data.status})`;
+          showToast('✅ Asset URL is live and accessible!');
+        } else {
+          badge.className = 'px-2 py-0.5 rounded bg-rose-950 text-rose-300 font-bold border border-rose-800';
+          badge.innerText = `Broken / Inaccessible (${data.status || 'Failed'})`;
+          showToast('⚠️ Asset URL could not be reached.');
+        }
+      }
+    } catch (e) {
+      showToast(`Verification error: ${e.message}`);
+    } finally {
+      if (btn) {
+        btn.disabled = false;
+        btn.innerHTML = `<span class="material-symbols-outlined text-xs">check</span><span>Re-verify</span>`;
+      }
+    }
+  }
+
+  async function runStorageReconciliation() {
+    const container = document.getElementById('rec-details-container');
+    if (container) {
+      container.innerHTML = `<div class="p-8 text-center text-outline animate-pulse text-xs bg-surface-container-low rounded-2xl border border-purple-900/20">Performing safe dry-run comparison between Backblaze B2 bucket and database records...</div>`;
+    }
+
+    try {
+      const res = await fetch('/api/admin/storage/reconcile', { credentials: 'include' });
+      const data = await res.json();
+
+      if (!data.success) {
+        if (data.error && data.error.code === 'B2_NOT_CONFIGURED') {
+          container.innerHTML = `<div class="p-6 bg-amber-950/30 border border-amber-900/40 rounded-2xl text-amber-200 text-xs">⚠️ Backblaze B2 is not configured in environment secrets. Reconciliation requires active B2 credentials.</div>`;
+        } else {
+          container.innerHTML = `<div class="p-6 bg-rose-950/30 border border-rose-900/40 rounded-2xl text-rose-300 text-xs">Reconciliation error: ${escapeHtml(data.message || (data.error && data.error.message) || 'Error')}</div>`;
+        }
+        return;
+      }
+
+      const report = data.reconciliationReport || {};
+      const s = report.summary || {};
+
+      document.getElementById('rec-kpi-cloud').innerText = s.totalCloudObjects ?? 0;
+      document.getElementById('rec-kpi-d1').innerText = s.totalDatabaseRecords ?? (s.totalD1MusicRecords ?? 0);
+      document.getElementById('rec-kpi-matched').innerText = s.matchedCount ?? 0;
+      document.getElementById('rec-kpi-cloudonly').innerText = s.cloudOnlyCount ?? 0;
+      document.getElementById('rec-kpi-unverified').innerText = s.d1UnverifiedCount ?? 0;
+      document.getElementById('rec-kpi-duplicates').innerText = s.duplicatesCount ?? 0;
+
+      let html = '';
+
+      // Cloud Only Objects
+      if ((report.cloudOnly || []).length > 0) {
+        html += `
+          <div class="bg-surface-container-low p-4 rounded-2xl border border-cyan-900/40 space-y-3">
+            <div class="flex items-center justify-between">
+              <h5 class="text-xs font-bold text-cyan-300 uppercase font-mono flex items-center gap-1.5">
+                <span class="material-symbols-outlined text-sm">cloud</span>
+                <span>Cloud-Only Objects (In B2 Bucket but Not in Database)</span>
+              </h5>
+              <span class="text-[10px] text-outline font-mono">${report.cloudOnly.length} items</span>
+            </div>
+            <div class="divide-y divide-purple-900/20 text-xs font-mono">
+              ${report.cloudOnly.map(c => `
+                <div class="py-2 flex items-center justify-between gap-3">
+                  <div class="truncate">
+                    <span class="text-white font-semibold truncate">${escapeHtml(c.filename || c.key)}</span>
+                    <span class="text-[10px] text-outline block">${escapeHtml(c.key)} • ${(c.sizeBytes / (1024*1024)).toFixed(2)} MB</span>
+                  </div>
+                  <button onclick="importB2Object('${escapeHtml(c.key)}', '${escapeHtml(c.filename)}')" class="px-2.5 py-1 rounded-lg bg-amber-600 hover:bg-amber-500 text-black font-bold text-[10px] flex items-center gap-1 cursor-pointer">
+                    <span class="material-symbols-outlined text-xs">add_link</span>
+                    <span>Import to DB</span>
+                  </button>
+                </div>
+              `).join('')}
+            </div>
+          </div>
+        `;
+      }
+
+      // Unverified DB Records
+      if ((report.d1Unverified || []).length > 0) {
+        html += `
+          <div class="bg-surface-container-low p-4 rounded-2xl border border-rose-900/40 space-y-3">
+            <div class="flex items-center justify-between">
+              <h5 class="text-xs font-bold text-rose-300 uppercase font-mono flex items-center gap-1.5">
+                <span class="material-symbols-outlined text-sm">warning</span>
+                <span>Unverified Records (In DB but Missing from B2 Bucket)</span>
+              </h5>
+              <span class="text-[10px] text-outline font-mono">${report.d1Unverified.length} items</span>
+            </div>
+            <div class="divide-y divide-purple-900/20 text-xs font-mono">
+              ${report.d1Unverified.map(m => `
+                <div class="py-2 flex items-center justify-between gap-3">
+                  <div class="truncate">
+                    <span class="text-white font-semibold">${escapeHtml(m.title)}</span>
+                    <span class="text-[10px] text-rose-400 block">Missing Key: ${escapeHtml(m.storage_key || m.storageKey || 'N/A')}</span>
+                  </div>
+                  <span class="px-2 py-0.5 rounded bg-rose-950 text-rose-300 text-[10px] font-bold">Needs Verification</span>
+                </div>
+              `).join('')}
+            </div>
+          </div>
+        `;
+      }
+
+      // Matched Parity Records
+      html += `
+        <div class="bg-surface-container-low p-4 rounded-2xl border border-emerald-900/40 space-y-2">
+          <div class="flex items-center justify-between">
+            <h5 class="text-xs font-bold text-emerald-300 uppercase font-mono flex items-center gap-1.5">
+              <span class="material-symbols-outlined text-sm">check_circle</span>
+              <span>Matched Parity Records (${s.matchedCount ?? 0} confirmed in sync)</span>
+            </h5>
+          </div>
+          <p class="text-[11px] text-outline">These records have confirmed exact matching objects in Backblaze B2 with verified storage keys and valid audio stream paths.</p>
+        </div>
+      `;
+
+      container.innerHTML = html;
+      showToast('⚖️ Dry-run reconciliation audit completed!');
+    } catch (err) {
+      if (container) container.innerHTML = `<div class="p-6 bg-rose-950/30 border border-rose-900/40 rounded-2xl text-rose-300 text-xs">Network error during reconciliation: ${err.message}</div>`;
+    }
+  }
+
+  async function importB2Object(key, title) {
+    if (!confirm(`Import object "${key}" into the media catalog?`)) return;
+
+    try {
+      const res = await fetch('/api/admin/storage/import-b2-object', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        credentials: 'include',
+        body: JSON.stringify({ key, title })
+      });
+      const data = await res.json();
+      if (data.success) {
+        showToast(`✅ "${key}" imported into media library!`);
+        loadB2Inventory();
+        loadAllMedia();
+      } else {
+        alert('Import failed: ' + (data.message || 'Error'));
+      }
+    } catch (e) {
+      alert('Error importing object: ' + e.message);
+    }
+  }
+
+  function copyToClipboard(text, label = 'Copied') {
+    navigator.clipboard.writeText(text).then(() => {
+      showToast(`📋 ${label} copied to clipboard!`);
+    }).catch(() => {
+      prompt('Copy manually:', text);
+    });
   }
 
   document.addEventListener('DOMContentLoaded', () => {

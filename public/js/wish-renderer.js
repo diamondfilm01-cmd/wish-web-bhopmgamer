@@ -1535,13 +1535,38 @@
     const label = document.getElementById('soundtrack-label');
     const bars = document.getElementById('soundtrack-bars');
 
-    const audioUrl = music && (music.src || music.url);
+    const defaultTrackMap = {
+      'celebration-strings': '/audio/celebration-strings.mp3',
+      'trk_bgm_strings': '/audio/celebration-strings.mp3',
+      'mus_celebration_strings': '/audio/celebration-strings.mp3',
+      'celestial-waltz': '/audio/romantic-piano.mp3',
+      'romantic-midnight-piano': '/audio/romantic-piano.mp3',
+      'trk_bgm_celebration': '/audio/romantic-piano.mp3',
+      'mus_romantic_piano': '/audio/romantic-piano.mp3',
+      'midnight-stardust': '/audio/golden-nostalgia.mp3',
+      'acoustic-harmony': '/audio/celebration-strings.mp3',
+      'upbeat-ukulele': '/audio/celebration-strings.mp3',
+      'peaceful-piano': '/audio/golden-nostalgia.mp3',
+      'golden-nostalgia': '/audio/golden-nostalgia.mp3',
+      'trk_bgm_ambient': '/audio/golden-nostalgia.mp3',
+      'mus_golden_elegance': '/audio/golden-nostalgia.mp3'
+    };
+
+    let audioUrl = music && (music.src || music.url);
+    if (!audioUrl && music && music.trackId && defaultTrackMap[music.trackId]) {
+      audioUrl = defaultTrackMap[music.trackId];
+    }
+    if (!audioUrl && music && music.enabled !== false) {
+      audioUrl = '/audio/celebration-strings.mp3';
+    }
 
     if (audioUrl) {
       if (!activeAudioElement) {
         activeAudioElement = new Audio(audioUrl);
         activeAudioElement.loop = true;
         activeAudioElement.volume = 0.5;
+      } else if (activeAudioElement.src !== audioUrl && !activeAudioElement.src.endsWith(audioUrl)) {
+        activeAudioElement.src = audioUrl;
       }
       await activeAudioElement.play();
       isSoundtrackPlaying = true;

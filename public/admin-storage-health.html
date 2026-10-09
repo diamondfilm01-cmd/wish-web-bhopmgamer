@@ -678,15 +678,19 @@
           `}
         </td>
         <td class="px-4 py-3 text-right">
-          ${o.isProtected ? `
-            <button disabled class="px-2.5 py-1 rounded-lg bg-surface-container-low text-outline text-xs cursor-not-allowed" title="Protected assets cannot be cleaned">
-              Protected
+          <div class="flex items-center justify-end gap-1.5">
+            ${o.isProtected ? `
+              <span class="px-2 py-0.5 rounded bg-surface-container-low text-outline text-[11px]" title="Protected asset">Protected</span>
+            ` : `
+              <button onclick="quarantineSingleAsset('${o.id}')" class="px-2 py-1 rounded-lg bg-purple-500/20 hover:bg-purple-500/30 text-purple-300 text-xs font-semibold cursor-pointer transition">
+                Quarantine
+              </button>
+            `}
+            <button onclick="permanentlyDeleteStorageAsset('${o.id}', '${o.provider || 'local'}', '${o.storageKey || ''}')" class="px-2 py-1 rounded-lg bg-rose-950/60 hover:bg-rose-900 border border-rose-800 text-rose-300 hover:text-white text-xs font-bold cursor-pointer transition flex items-center gap-1" title="Permanently delete from storage & database">
+              <span class="material-symbols-outlined text-xs">delete</span>
+              <span>Delete</span>
             </button>
-          ` : `
-            <button onclick="quarantineSingleAsset('${o.id}')" class="px-2.5 py-1 rounded-lg bg-purple-500/20 hover:bg-purple-500/30 text-purple-300 text-xs font-semibold cursor-pointer">
-              Quarantine
-            </button>
-          `}
+          </div>
         </td>
       </tr>
     `).join('');
@@ -718,13 +722,19 @@
           </span>
         </td>
         <td class="px-4 py-3 text-right">
-          ${q.status !== 'restored' ? `
-            <button onclick="restoreAsset('${q.id}')" class="px-2.5 py-1 rounded-lg bg-emerald-500/20 hover:bg-emerald-500/30 text-emerald-300 text-xs font-bold cursor-pointer">
-              Restore
+          <div class="flex items-center justify-end gap-1.5">
+            ${q.status !== 'restored' ? `
+              <button onclick="restoreAsset('${q.id}')" class="px-2.5 py-1 rounded-lg bg-emerald-500/20 hover:bg-emerald-500/30 text-emerald-300 text-xs font-bold cursor-pointer">
+                Restore
+              </button>
+            ` : `
+              <span class="text-outline text-xs">Restored</span>
+            `}
+            <button onclick="permanentlyDeleteStorageAsset('${q.asset_id || q.id}', '${q.provider || 'local'}', '')" class="px-2 py-1 rounded-lg bg-rose-950/60 hover:bg-rose-900 border border-rose-800 text-rose-300 hover:text-white text-xs font-bold cursor-pointer transition flex items-center gap-1" title="Permanently delete from vault">
+              <span class="material-symbols-outlined text-xs">delete</span>
+              <span>Delete</span>
             </button>
-          ` : `
-            <span class="text-outline text-xs">Restored</span>
-          `}
+          </div>
         </td>
       </tr>
     `).join('');
@@ -854,6 +864,29 @@
       await loadOrphans();
     } catch (err) {
       alert(`Restore failed: ${err.message}`);
+    }
+  }
+
+  async function permanentlyDeleteStorageAsset(assetId, provider, storageKey) {
+    if (!confirm(`Kya aap "${assetId}" ko permanently cloud storage aur database se delete karna chahte hain? Yeh action irreversible hai.`)) return;
+
+    try {
+      const res = await fetch(`/api/admin/media/${encodeURIComponent(assetId)}`, {
+        method: 'DELETE',
+        headers: { 'Content-Type': 'application/json' },
+        credentials: 'include',
+        body: JSON.stringify({ id: assetId, provider, storageKey })
+      });
+      const data = await res.json().catch(() => ({}));
+      if (res.ok && data.success) {
+        alert(`✅ Asset "${assetId}" successfully delete kar diya gaya!`);
+        await loadStorageHealth();
+        await loadOrphans();
+      } else {
+        alert('Delete failed: ' + (data.message || 'Server error'));
+      }
+    } catch (e) {
+      alert('Delete error: ' + e.message);
     }
   }
 

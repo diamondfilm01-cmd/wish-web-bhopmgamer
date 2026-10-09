@@ -1705,12 +1705,14 @@ function renderCuratedMusicLibrary() {
 window.selectCuratedTrack = function(trackId) {
   const track = window.WishMediaSystem.CURATED_TRACKS.find(t => t.id === trackId) || window.WishMediaSystem.CURATED_TRACKS[0];
 
+  const audioSrc = track.src || `/audio/${track.id}.mp3`;
   currentCustomData.media.music = {
     enabled: true,
     type: 'curated',
     name: track.title,
     trackId: track.id,
-    src: '',
+    src: audioSrc,
+    url: audioSrc,
     genre: track.genre,
     duration: track.duration
   };
@@ -1728,7 +1730,7 @@ window.selectCuratedTrack = function(trackId) {
 
 window.toggleTrackPreview = function(trackId) {
   const engine = window.WishMediaSystem.audioEngine;
-  if (engine.isPlayingSynth && engine.activeTrackId === trackId) {
+  if ((engine.isPlayingSynth || engine.htmlAudio) && engine.activeTrackId === trackId) {
     engine.stopAll();
     renderCuratedMusicLibrary();
     updateStudioPlayerUI();
