@@ -408,4 +408,62 @@ describe('WishMagic Part 28: Template Version Control & Release Pipeline Suite',
     assert.strictEqual(historicalWish.template_version_id, 'tv_tpl_glitter_birthday_v1', 'Historical wish version must be immutable');
     assert.notStrictEqual(historicalWish.template_version_id, currentTemplateVersion.id, 'New live version must NEVER mutate historical wish');
   });
+
+  // TEST 11: Publishing Database Failure Propagation & Pointer Consistency
+  it('TEST 11: Publishing Database Error Propagation (No False Success)', () => {
+    const versions = [
+      { id: 'ver_v1', templateId: 'tpl_1', is_current: 1, status: 'published', lock_version: 1 },
+      { id: 'ver_v2', templateId: 'tpl_1', is_current: 0, status: 'ready', lock_version: 1 }
+    ];
+    const template = { id: 'tpl_1', currentVersionId: 'ver_v1' };
+    const templateFamily = { id: 'fam_tpl_1', current_version_id: 'ver_v1' };
+
+    // Attempt publishing with invalid lock version (OCC conflict)
+    assert.throws(() => {
+      executeVersionPublish({
+        templateId: 'tpl_1',
+        versionId: 'ver_v2',
+        allVersions: versions,
+        template,
+        templateFamily,
+        lockVersion: 999, // mismatch!
+        validationContext: {}
+      });
+    }, (err) => {
+      return err.code === 'VERSION_CONFLICT';
+    }, 'Must reject with VERSION_CONFLICT and not publish');
+
+    // Pointer must remain unchanged
+    assert.strictEqual(template.currentVersionId, 'ver_v1', 'Template pointer must remain at ver_v1 on failure');
+    assert.strictEqual(templateFamily.current_version_id, 'ver_v1', 'Family pointer must remain at ver_v1 on failure');
+  });
+
+  // TEST 12: Rollback Target Ineligibility & Cross-Template Rollback Rejection
+  it('TEST 12: Rollback Cross-Template Rejection & Eligibility Enforcement', () => {
+    const versions = [
+      { id: 'ver_tpl_1_v1', templateId: 'tpl_1', is_current: 1, status: 'published', lock_version: 2 },
+      { id: 'ver_tpl_2_v1', templateId: 'tpl_2', is_current: 1, status: 'published', lock_version: 1 },
+      { id: 'ver_tpl_1_v0', templateId: 'tpl_1', is_current: 0, status: 'draft', lock_version: 1 } // draft ineligible
+    ];
+
+    // 1. Cross-template rollback rejection
+    assert.throws(() => {
+      executeVersionRollback({
+        templateId: 'tpl_1',
+        targetVersionId: 'ver_tpl_2_v1', // belongs to tpl_2!
+        allVersions: versions
+      });
+    }, /Cross-template rollback rejected|not found|ineligible/i);
+
+    // 2. Draft status rollback rejection
+    assert.throws(() => {
+      executeVersionRollback({
+        templateId: 'tpl_1',
+        targetVersionId: 'ver_tpl_1_v0', // draft!
+        allVersions: versions
+      });
+    }, (err) => {
+      return err.code === 'ROLLBACK_INELIGIBLE_STATUS';
+    });
+  });
 });

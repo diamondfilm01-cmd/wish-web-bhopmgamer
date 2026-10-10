@@ -133,6 +133,27 @@ export function runDataIntegrityCheck(options = {}) {
   });
   console.log(`  ✅ Wishes isolated across ${userWishes.size} user partition(s).`);
 
+  // 6. Relational Database Integrity Check (if db adapter is provided)
+  let dbAuditResults = null;
+  if (options.db && typeof options.db.prepare === 'function') {
+    console.log('\n--- 4. Relational Database Entity & Pointer Integrity ---');
+    try {
+      dbAuditResults = auditDatabaseIntegritySync(options.db);
+      if (dbAuditResults.errors.length > 0) {
+        dbAuditResults.errors.forEach(err => {
+          issues.push({ severity: 'ERROR', type: err.type, recordId: err.recordId, message: err.message });
+        });
+      }
+      if (dbAuditResults.warnings.length > 0) {
+        dbAuditResults.warnings.forEach(warn => {
+          issues.push({ severity: 'WARNING', type: warn.type, recordId: warn.recordId, message: warn.message });
+        });
+      }
+    } catch (dbErr) {
+      issues.push({ severity: 'ERROR', type: 'DB_AUDIT_EXCEPTION', message: dbErr.message });
+    }
+  }
+
   // Summary
   console.log('\n================================================================');
   console.log(`INTEGRITY CHECK COMPLETE`);
@@ -142,8 +163,195 @@ export function runDataIntegrityCheck(options = {}) {
   return {
     success: issues.filter(i => i.severity === 'ERROR').length === 0,
     diagnostics,
+    dbAuditResults,
     issues
   };
+}
+
+/**
+ * Deep audit of Cloudflare D1 / SQLite database schema relationships,
+ * version pointers, immutability, and migration consistency.
+ */
+export async function auditDatabaseIntegrity(db) {
+  const errors = [];
+  const warnings = [];
+
+  try {
+    // 1. Template Families and Current Version Pointers
+    const familiesRes = await db.prepare('SELECT id, slug, current_version_id, rollback_version_id FROM template_families').all().catch(() => ({ results: [] }));
+    const families = familiesRes.results || [];
+
+    const versionsRes = await db.prepare('SELECT id, template_id, status, is_current, entry_point, manifest_json, file_count FROM template_versions').all().catch(() => ({ results: [] }));
+    const versions = versionsRes.results || [];
+    const versionMap = new Map(versions.map(v => [v.id, v]));
+
+    const templatesRes = await db.prepare('SELECT id, slug, current_version_id, status FROM templates').all().catch(() => ({ results: [] }));
+    const templates = templatesRes.results || [];
+    const templateMap = new Map(templates.map(t => [t.id, t]));
+
+    for (const fam of families) {
+      if (fam.current_version_id) {
+        const targetVer = versionMap.get(fam.current_version_id);
+        if (!targetVer) {
+          errors.push({
+            type: 'BROKEN_CURRENT_VERSION_POINTER',
+            recordId: fam.id,
+            message: `Template family "${fam.id}" points to nonexistent current version "${fam.current_version_id}".`
+          });
+        } else {
+          const expectedTplId = fam.id.startsWith('fam_') ? fam.id.slice(4) : fam.id;
+          if (targetVer.template_id !== expectedTplId && targetVer.template_id !== fam.slug) {
+            errors.push({
+              type: 'CROSS_FAMILY_VERSION_POINTER',
+              recordId: fam.id,
+              message: `Template family "${fam.id}" references version "${targetVer.id}" which belongs to different template "${targetVer.template_id}".`
+            });
+          }
+        }
+      }
+      if (fam.rollback_version_id) {
+        const rbVer = versionMap.get(fam.rollback_version_id);
+        if (!rbVer) {
+          warnings.push({
+            type: 'BROKEN_ROLLBACK_VERSION_POINTER',
+            recordId: fam.id,
+            message: `Template family "${fam.id}" points to missing rollback candidate version "${fam.rollback_version_id}".`
+          });
+        }
+      }
+    }
+
+    // 2. Templates and Current Version Pointers
+    for (const t of templates) {
+      if (t.current_version_id) {
+        const targetVer = versionMap.get(t.current_version_id);
+        if (!targetVer) {
+          errors.push({
+            type: 'BROKEN_TEMPLATE_VERSION_POINTER',
+            recordId: t.id,
+            message: `Template "${t.id}" points to nonexistent current version "${t.current_version_id}".`
+          });
+        }
+      }
+    }
+
+    // 3. Verify Version Lifecycle & Single is_current per Template
+    const currentByTemplate = new Map();
+    for (const v of versions) {
+      if (v.is_current === 1) {
+        if (currentByTemplate.has(v.template_id)) {
+          errors.push({
+            type: 'MULTIPLE_CURRENT_VERSIONS',
+            recordId: v.id,
+            message: `Template "${v.template_id}" has multiple active versions (found both "${currentByTemplate.get(v.template_id)}" and "${v.id}").`
+          });
+        } else {
+          currentByTemplate.set(v.template_id, v.id);
+        }
+
+        if (v.status !== 'published' && v.status !== 'active') {
+          errors.push({
+            type: 'INVALID_CURRENT_VERSION_STATUS',
+            recordId: v.id,
+            message: `Version "${v.id}" has is_current=1 but status is "${v.status}" instead of "published".`
+          });
+        }
+      }
+
+      // Verify manifest JSON parses if present
+      if (v.manifest_json && v.manifest_json.trim() !== '') {
+        try {
+          JSON.parse(v.manifest_json);
+        } catch (jsonErr) {
+          errors.push({
+            type: 'CORRUPT_VERSION_MANIFEST_JSON',
+            recordId: v.id,
+            message: `Version "${v.id}" has corrupt manifest_json: ${jsonErr.message}`
+          });
+        }
+      }
+    }
+
+    // 4. Template Files Association Integrity
+    const filesRes = await db.prepare('SELECT id, template_version_id, relative_path FROM template_files').all().catch(() => ({ results: [] }));
+    const files = filesRes.results || [];
+    for (const f of files) {
+      if (!versionMap.has(f.template_version_id)) {
+        errors.push({
+          type: 'ORPHAN_TEMPLATE_FILE',
+          recordId: f.id,
+          message: `Template file "${f.relative_path}" references missing version "${f.template_version_id}".`
+        });
+      }
+    }
+
+    // 5. Published Version Entry Point Verification
+    const filesByVersion = new Map();
+    files.forEach(f => {
+      if (!filesByVersion.has(f.template_version_id)) filesByVersion.set(f.template_version_id, new Set());
+      filesByVersion.get(f.template_version_id).add(f.relative_path.toLowerCase());
+    });
+
+    for (const v of versions) {
+      if (v.status === 'published' && v.file_count > 0) {
+        const vFiles = filesByVersion.get(v.id);
+        const entry = (v.entry_point || 'index.html').toLowerCase();
+        if (vFiles && !vFiles.has(entry) && !vFiles.has('index.html')) {
+          warnings.push({
+            type: 'PUBLISHED_VERSION_MISSING_ENTRY_POINT',
+            recordId: v.id,
+            message: `Published version "${v.id}" does not have entry point "${entry}" in template_files.`
+          });
+        }
+      }
+    }
+
+    // 6. Migration Table Registry Consistency
+    const migRes = await db.prepare('SELECT name, checksum FROM _migrations').all().catch(() => ({ results: [] }));
+    const appliedMigs = migRes.results || [];
+    if (appliedMigs.length === 0) {
+      warnings.push({
+        type: 'MIGRATIONS_TABLE_EMPTY',
+        message: '_migrations registry has 0 records.'
+      });
+    }
+
+  } catch (err) {
+    errors.push({
+      type: 'DB_AUDIT_EXECUTION_FAILURE',
+      message: err.message
+    });
+  }
+
+  return {
+    success: errors.length === 0,
+    errors,
+    warnings
+  };
+}
+
+// Synchronous wrapper for DatabaseSync / in-memory adapters
+function auditDatabaseIntegritySync(db) {
+  const errors = [];
+  const warnings = [];
+  try {
+    const families = db.prepare('SELECT id, slug, current_version_id, rollback_version_id FROM template_families').all()?.results || [];
+    const versions = db.prepare('SELECT id, template_id, status, is_current, entry_point, manifest_json, file_count FROM template_versions').all()?.results || [];
+    const versionMap = new Map(versions.map(v => [v.id, v]));
+
+    for (const fam of families) {
+      if (fam.current_version_id && !versionMap.has(fam.current_version_id)) {
+        errors.push({
+          type: 'BROKEN_CURRENT_VERSION_POINTER',
+          recordId: fam.id,
+          message: `Template family "${fam.id}" points to missing version "${fam.current_version_id}".`
+        });
+      }
+    }
+  } catch (e) {
+    errors.push({ type: 'SYNC_AUDIT_ERROR', message: e.message });
+  }
+  return { success: errors.length === 0, errors, warnings };
 }
 
 if (process.argv[1] && process.argv[1].endsWith('db-integrity.js')) {

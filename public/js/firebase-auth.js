@@ -6,7 +6,7 @@
   'use strict';
 
   const firebaseConfig = {
-    apiKey: (window.__FIREBASE_CONFIG__ && window.__FIREBASE_CONFIG__.apiKey) || (window.ENV && window.ENV.FIREBASE_API_KEY) || "",
+    apiKey: (window.__FIREBASE_CONFIG__ && window.__FIREBASE_CONFIG__.apiKey) || (window.ENV && window.ENV.FIREBASE_API_KEY) || "AIzaSyBFWkh24xuRUzhVQVgVxtNdpSbR-4Abbfc",
     authDomain: (window.__FIREBASE_CONFIG__ && window.__FIREBASE_CONFIG__.authDomain) || "pacific-ember-18chg.firebaseapp.com",
     projectId: (window.__FIREBASE_CONFIG__ && window.__FIREBASE_CONFIG__.projectId) || "pacific-ember-18chg",
     storageBucket: (window.__FIREBASE_CONFIG__ && window.__FIREBASE_CONFIG__.storageBucket) || "pacific-ember-18chg.firebasestorage.app",
@@ -32,18 +32,25 @@
       if (!firebaseConfig.apiKey) {
         try {
           const res = await fetch('/api/auth/config');
-          const serverConfig = await res.json();
-          if (serverConfig && serverConfig.apiKey) {
-            firebaseConfig.apiKey = serverConfig.apiKey;
-            if (serverConfig.projectId) firebaseConfig.projectId = serverConfig.projectId;
-            if (serverConfig.authDomain) firebaseConfig.authDomain = serverConfig.authDomain;
-            if (serverConfig.storageBucket) firebaseConfig.storageBucket = serverConfig.storageBucket;
-            if (serverConfig.appId) firebaseConfig.appId = serverConfig.appId;
-            console.log('[WishFirebaseAuth] Configuration loaded from server');
+          if (res.ok) {
+            const serverConfig = await res.json();
+            if (serverConfig && serverConfig.apiKey) {
+              firebaseConfig.apiKey = serverConfig.apiKey;
+              if (serverConfig.projectId) firebaseConfig.projectId = serverConfig.projectId;
+              if (serverConfig.authDomain) firebaseConfig.authDomain = serverConfig.authDomain;
+              if (serverConfig.storageBucket) firebaseConfig.storageBucket = serverConfig.storageBucket;
+              if (serverConfig.appId) firebaseConfig.appId = serverConfig.appId;
+              console.log('[WishFirebaseAuth] Configuration loaded from server');
+            }
           }
         } catch (e) {
           console.warn('[WishFirebaseAuth] Failed to load config from server:', e);
         }
+      }
+
+      if (!firebaseConfig.apiKey) {
+        console.warn('[WishFirebaseAuth] Firebase API key not present, skipping SDK initialization');
+        return { app: null, auth: null, provider: null, sdk: null, isReady: false };
       }
 
       // 1. Check if global compat SDK is present (e.g. via script tags)
@@ -74,9 +81,9 @@
           });
 
           console.log('[WishFirebaseAuth] Initialized via global Firebase SDK');
-          return { app: fbApp, auth: fbAuth, provider: fbGoogleProvider, sdk: fbSdk };
+          return { app: fbApp, auth: fbAuth, provider: fbGoogleProvider, sdk: fbSdk, isReady: true };
         } catch (compatErr) {
-          console.warn('[WishFirebaseAuth] Global SDK init note, trying ESM:', compatErr);
+          console.warn('[WishFirebaseAuth] Global SDK init note, trying ESM:', compatErr.message || compatErr);
         }
       }
 
@@ -105,12 +112,18 @@
           app: fbApp,
           auth: fbAuth,
           provider: fbGoogleProvider,
-          sdk: authMod
+          sdk: authMod,
+          isReady: true
         };
       } catch (err) {
-        console.error('[WishFirebaseAuth] Failed to initialize Firebase SDK:', err);
-        initPromise = null; // allow retry
-        throw err;
+        console.warn('[WishFirebaseAuth] Firebase SDK initialization unavailable:', err.message || err);
+        return {
+          app: null,
+          auth: null,
+          provider: null,
+          sdk: null,
+          isReady: false
+        };
       }
     })();
     return initPromise;
@@ -164,7 +177,11 @@
 
     // Sign in with Google Popup
     async signInWithGoogle() {
-      const { auth, provider, sdk } = await getFirebase();
+      const fb = await getFirebase();
+      if (!fb || !fb.auth || !fb.sdk) {
+        throw new Error('Google Sign-In is currently unavailable. Please sign in with email and password.');
+      }
+      const { auth, provider, sdk } = fb;
       try {
         const result = await sdk.signInWithPopup(auth, provider);
         return result.user;
@@ -182,7 +199,11 @@
         throw new Error('Password must be at least 6 characters.');
       }
 
-      const { auth, sdk } = await getFirebase();
+      const fb = await getFirebase();
+      if (!fb || !fb.auth || !fb.sdk) {
+        throw new Error('Firebase Auth is currently unavailable. Please try again.');
+      }
+      const { auth, sdk } = fb;
       try {
         const result = await sdk.signInWithEmailAndPassword(auth, email.trim(), password);
         return result.user;
@@ -200,7 +221,11 @@
         throw new Error('Password must be at least 6 characters.');
       }
 
-      const { auth, sdk } = await getFirebase();
+      const fb = await getFirebase();
+      if (!fb || !fb.auth || !fb.sdk) {
+        throw new Error('Firebase Auth is currently unavailable. Please try again.');
+      }
+      const { auth, sdk } = fb;
       try {
         const result = await sdk.createUserWithEmailAndPassword(auth, email.trim(), password);
         if (displayName && displayName.trim()) {
@@ -219,7 +244,11 @@
       if (!email || !email.includes('@')) {
         throw new Error('Please enter a valid email address.');
       }
-      const { auth, sdk } = await getFirebase();
+      const fb = await getFirebase();
+      if (!fb || !fb.auth || !fb.sdk) {
+        throw new Error('Password reset is currently unavailable. Please try again later.');
+      }
+      const { auth, sdk } = fb;
       try {
         await sdk.sendPasswordResetEmail(auth, email.trim());
         return true;
@@ -231,8 +260,10 @@
     // Sign Out
     async signOut() {
       try {
-        const { auth, sdk } = await getFirebase();
-        await sdk.signOut(auth);
+        const fb = await getFirebase();
+        if (fb && fb.auth && fb.sdk) {
+          await fb.sdk.signOut(fb.auth);
+        }
       } catch (e) {
         console.warn('[WishFirebaseAuth] Sign out error:', e);
       }

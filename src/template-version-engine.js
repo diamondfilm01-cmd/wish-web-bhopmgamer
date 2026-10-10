@@ -585,6 +585,15 @@ export function executeVersionRollback({
 
   const targetVer = versions[targetIdx];
 
+  // 0. Cross-Template Ownership Verification
+  const targetTplId = targetVer.templateId || targetVer.template_id;
+  if (targetTplId && templateId && targetTplId !== templateId) {
+    const err = new Error(`Cannot rollback to version "${targetVersionId}": Version belongs to template "${targetTplId}", not "${templateId}". Cross-template rollback rejected.`);
+    err.code = 'CROSS_TEMPLATE_ROLLBACK_REJECTED';
+    err.status = 400;
+    throw err;
+  }
+
   // 1. Rollback Eligibility Verification: Must not be DRAFT or FAILED
   const eligibleStatuses = [
     VERSION_LIFECYCLE_STATUS.PUBLISHED,

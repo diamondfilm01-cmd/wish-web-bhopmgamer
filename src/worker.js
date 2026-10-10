@@ -6268,15 +6268,25 @@ export default {
           }
 
           try {
-            // Demote currently active version to rollback candidate
-            await env.DB.prepare("UPDATE template_versions SET is_current = 0, status = 'rollback_candidate', updated_at = ? WHERE template_id = ? AND is_current = 1").bind(nowIso, templateId).run();
+            // Cloudflare D1 batching executes atomically in a single transaction
+            const rollbackStatements = [
+              // Demote currently active version to rollback candidate
+              env.DB.prepare("UPDATE template_versions SET is_current = 0, status = 'rollback_candidate', updated_at = ? WHERE template_id = ? AND is_current = 1").bind(nowIso, templateId),
+              // Promote target version to active published
+              env.DB.prepare("UPDATE template_versions SET is_current = 1, status = 'published', lock_version = lock_version + 1, updated_at = ? WHERE id = ? AND template_id = ?").bind(nowIso, targetVersionId, templateId),
+              // Update templates pointer
+              env.DB.prepare("UPDATE templates SET current_version_id = ?, updated_at = ? WHERE id = ?").bind(targetVersionId, nowIso, templateId),
+              // Update template_families pointer without swallowing errors
+              env.DB.prepare("UPDATE template_families SET current_version_id = ?, rollback_version_id = ?, updated_at = ? WHERE id = ? OR id = ?").bind(targetVersionId, currentVer?.id || null, nowIso, `fam_${templateId}`, templateId)
+            ];
 
-            // Promote target version to active published
-            await env.DB.prepare("UPDATE template_versions SET is_current = 1, status = 'published', lock_version = lock_version + 1, updated_at = ? WHERE id = ? AND template_id = ?").bind(nowIso, targetVersionId, templateId).run();
-
-            // Update templates & template_families pointer
-            await env.DB.prepare("UPDATE templates SET current_version_id = ?, updated_at = ? WHERE id = ?").bind(targetVersionId, nowIso, templateId).run();
-            await env.DB.prepare("UPDATE template_families SET current_version_id = ?, rollback_version_id = ?, updated_at = ? WHERE id = ? OR id = ?").bind(targetVersionId, currentVer?.id || null, nowIso, `fam_${templateId}`, templateId).run().catch(() => {});
+            if (typeof env.DB.batch === 'function') {
+              await env.DB.batch(rollbackStatements);
+            } else {
+              for (const stmt of rollbackStatements) {
+                await stmt.run();
+              }
+            }
           } catch (dbErr) {
             return applySecurityHeaders(jsonError('DATABASE_ERROR', `Failed to execute rollback: ${dbErr.message}`, 500), request, env);
           }
@@ -6541,10 +6551,21 @@ export default {
         }
 
         try {
-          await env.DB.prepare("UPDATE template_versions SET is_current = 0, status = 'rollback_candidate', archived_at = ? WHERE template_id = ? AND is_current = 1").bind(nowIso, templateId).run();
-          await env.DB.prepare("UPDATE template_versions SET is_current = 1, status = 'published', published_at = ?, published_by = ?, lock_version = lock_version + 1, updated_at = ? WHERE id = ? AND template_id = ?").bind(nowIso, user.id || 'admin', nowIso, versionId, templateId).run();
-          await env.DB.prepare("UPDATE templates SET status = 'published', is_published = 1, current_version_id = ?, updated_at = ? WHERE id = ?").bind(versionId, nowIso, templateId).run();
-          await env.DB.prepare("UPDATE template_families SET current_version_id = ?, updated_at = ? WHERE id = ? OR id = ?").bind(versionId, nowIso, `fam_${templateId}`, templateId).run().catch(() => {});
+          // Cloudflare D1 batching executes atomically in a single transaction
+          const publishStatements = [
+            env.DB.prepare("UPDATE template_versions SET is_current = 0, status = 'rollback_candidate', archived_at = ? WHERE template_id = ? AND is_current = 1").bind(nowIso, templateId),
+            env.DB.prepare("UPDATE template_versions SET is_current = 1, status = 'published', published_at = ?, published_by = ?, lock_version = lock_version + 1, updated_at = ? WHERE id = ? AND template_id = ?").bind(nowIso, user.id || 'admin', nowIso, versionId, templateId),
+            env.DB.prepare("UPDATE templates SET status = 'published', is_published = 1, current_version_id = ?, updated_at = ? WHERE id = ?").bind(versionId, nowIso, templateId),
+            env.DB.prepare("UPDATE template_families SET current_version_id = ?, updated_at = ? WHERE id = ? OR id = ?").bind(versionId, nowIso, `fam_${templateId}`, templateId)
+          ];
+
+          if (typeof env.DB.batch === 'function') {
+            await env.DB.batch(publishStatements);
+          } else {
+            for (const stmt of publishStatements) {
+              await stmt.run();
+            }
+          }
         } catch (dbErr) {
           return applySecurityHeaders(jsonError('DATABASE_ERROR', `Failed to update publication records in D1: ${dbErr.message}`, 500), request, env);
         }

@@ -163,4 +163,116 @@ describe('Database Migration & Schema Integrity Verification', () => {
     assert.ok(tables.includes('wishes'), 'd1_setup.sql must contain wishes');
     assert.ok(tables.includes('_migrations'), 'd1_setup.sql must contain _migrations');
   });
+
+  it('6. Matrix Upgrade: Database at 0012 successfully runs 0013-0032 with clean validation_report_json', async () => {
+    const rawDb = new DatabaseSync(':memory:');
+    const d1 = createD1Adapter(rawDb);
+    const runner = new D1MigrationRunner(d1);
+
+    // Apply migrations 0001 through 0012 manually
+    const allFiles = fs.readdirSync('migrations').filter(f => f.endsWith('.sql')).sort();
+    const upTo0012 = allFiles.slice(0, 12);
+    await runner.initMigrationsTable();
+
+    for (const f of upTo0012) {
+      const sql = fs.readFileSync(path.join('migrations', f), 'utf8');
+      const stmts = runner.splitSqlStatements(sql);
+      for (const s of stmts) rawDb.exec(s);
+      const migId = 'mig_' + f.replace(/[^a-zA-Z0-9]/g, '_');
+      await d1.prepare('INSERT OR REPLACE INTO _migrations (id, name, checksum, applied_at) VALUES (?, ?, ?, ?)')
+        .bind(migId, f, runner.computeChecksum(sql), new Date().toISOString()).run();
+    }
+
+    // Now run remaining migrations
+    const res = await runner.runMigrations();
+    assert.equal(res.failedCount, 0, 'Zero migration failures migrating from 0012');
+    assert.equal(res.appliedCount, allFiles.length - 12, 'Applied all remaining migrations');
+
+    const tvCols = rawDb.prepare('PRAGMA table_info(template_versions)').all().map(c => c.name);
+    assert.ok(tvCols.includes('validation_report_json'));
+    assert.ok(tvCols.includes('protocol_version'));
+  });
+
+  it('7. Matrix Upgrade: Database at 0026 successfully runs 0027-0032 without duplicate column failure', async () => {
+    const rawDb = new DatabaseSync(':memory:');
+    const d1 = createD1Adapter(rawDb);
+    const runner = new D1MigrationRunner(d1);
+
+    // Apply migrations 0001 through 0026
+    const allFiles = fs.readdirSync('migrations').filter(f => f.endsWith('.sql')).sort();
+    const upTo0026 = allFiles.slice(0, 26);
+    await runner.initMigrationsTable();
+
+    for (const f of upTo0026) {
+      const sql = fs.readFileSync(path.join('migrations', f), 'utf8');
+      const stmts = runner.splitSqlStatements(sql);
+      for (const s of stmts) rawDb.exec(s);
+      const migId = 'mig_' + f.replace(/[^a-zA-Z0-9]/g, '_');
+      await d1.prepare('INSERT OR REPLACE INTO _migrations (id, name, checksum, applied_at) VALUES (?, ?, ?, ?)')
+        .bind(migId, f, runner.computeChecksum(sql), new Date().toISOString()).run();
+    }
+
+    // Run remaining migrations starting with 0027
+    const res = await runner.runMigrations();
+    assert.equal(res.failedCount, 0, 'Zero migration failures migrating from 0026');
+    assert.equal(res.appliedCount, allFiles.length - 26, 'Applied all remaining migrations (0027-0032)');
+
+    const tvCols = rawDb.prepare('PRAGMA table_info(template_versions)').all().map(c => c.name);
+    assert.ok(tvCols.includes('validation_report_json'));
+    assert.ok(tvCols.includes('protocol_version'));
+    assert.ok(tvCols.includes('package_fingerprint'));
+  });
+
+  it('8. Failure Propagation: Invalid migration fails with exception and is NOT recorded in _migrations', async () => {
+    const rawDb = new DatabaseSync(':memory:');
+    const d1 = createD1Adapter(rawDb);
+    const runner = new D1MigrationRunner(d1);
+
+    // Inject bad SQL file in a temporary folder
+    const tempDir = path.join('/tmp', 'test_migrations_' + Date.now());
+    fs.mkdirSync(tempDir, { recursive: true });
+    fs.writeFileSync(path.join(tempDir, '0001_good.sql'), 'CREATE TABLE test_good (id TEXT PRIMARY KEY);');
+    fs.writeFileSync(path.join(tempDir, '0002_bad.sql'), 'CREATE TABLE test_bad (syntax error near here;;');
+
+    runner.migrationsDir = tempDir;
+
+    await assert.rejects(async () => {
+      await runner.runMigrations();
+    }, /Migration 0002_bad.sql failed/, 'Must reject with error on invalid SQL');
+
+    // Verify 0001 was recorded, but 0002 was NOT recorded
+    const applied = await runner.getAppliedMigrations();
+    assert.equal(applied.length, 1);
+    assert.equal(applied[0].name, '0001_good.sql');
+
+    fs.rmSync(tempDir, { recursive: true, force: true });
+  });
+
+  it('9. Deep Relational Integrity: auditDatabaseIntegrity passes cleanly on fully migrated database', async () => {
+    const { auditDatabaseIntegrity } = await import('../scripts/db-integrity.js');
+    const rawDb = new DatabaseSync(':memory:');
+    const d1 = createD1Adapter(rawDb);
+    const runner = new D1MigrationRunner(d1);
+    await runner.runMigrations();
+
+    // Seed a valid template family, version, and template
+    const nowIso = new Date().toISOString();
+    rawDb.exec(`
+      INSERT INTO template_families (id, slug, name, current_version_id, created_at, updated_at)
+      VALUES ('fam_tpl_1', 'tpl_1', 'Birthday Delight', 'ver_tpl_1_v1', '${nowIso}', '${nowIso}');
+
+      INSERT INTO templates (id, slug, name, category, thumbnail, folder, current_version_id, status, is_published, created_at, updated_at)
+      VALUES ('tpl_1', 'tpl_1', 'Birthday Delight', 'birthday', '/thumb.jpg', 'birthday-delight', 'ver_tpl_1_v1', 'published', 1, '${nowIso}', '${nowIso}');
+
+      INSERT INTO template_versions (id, template_id, version_number, version_label, name, status, is_current, entry_point, manifest_json, created_at)
+      VALUES ('ver_tpl_1_v1', 'tpl_1', 1, 'v1.0.0', 'Birthday Delight v1', 'published', 1, 'index.html', '{"entryPoint":"index.html"}', '${nowIso}');
+
+      INSERT INTO template_files (id, template_version_id, relative_path, storage_provider, storage_key, mime_type, size_bytes, created_at)
+      VALUES ('file_1', 'ver_tpl_1_v1', 'index.html', 'b2', 'tpl_1/v1/index.html', 'text/html', 500, '${nowIso}');
+    `);
+
+    const auditRes = await auditDatabaseIntegrity(d1);
+    assert.equal(auditRes.success, true, 'Audit should pass with 0 errors');
+    assert.equal(auditRes.errors.length, 0, 'Zero relational integrity errors');
+  });
 });

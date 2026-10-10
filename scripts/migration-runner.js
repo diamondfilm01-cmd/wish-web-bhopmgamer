@@ -195,10 +195,22 @@ export class D1MigrationRunner {
           try {
             await this.db.prepare(statement).run();
           } catch (stmtErr) {
-            if (/duplicate column name|already exists/i.test(stmtErr.message)) {
-              // Idempotent column or table/index creation
-              continue;
+            // Strict verified schema exception: only allow duplicate column error if and only if
+            // the column was verified to actually exist in the target table schema.
+            const alterMatch = statement.match(/ALTER\s+TABLE\s+([a-zA-Z0-9_]+)\s+ADD\s+COLUMN\s+([a-zA-Z0-9_]+)/i);
+            if (alterMatch && /duplicate column name/i.test(stmtErr.message)) {
+              const tableName = alterMatch[1];
+              const colName = alterMatch[2];
+              try {
+                const info = await this.db.prepare(`PRAGMA table_info(${tableName})`).all();
+                const existingCols = new Set((info?.results || []).map(c => c.name.toLowerCase()));
+                if (existingCols.has(colName.toLowerCase())) {
+                  console.warn(`[Migration Notice] Verified column "${colName}" already exists on table "${tableName}" - safe verified idempotent schema state in ${file}.`);
+                  continue;
+                }
+              } catch (_) {}
             }
+            // Strict: Do NOT suppress other errors indiscriminately.
             throw stmtErr;
           }
         }
@@ -233,5 +245,56 @@ export function runMigrationCheck(db) {
 }
 
 if (process.argv[1] && process.argv[1].endsWith('migration-runner.js')) {
-  console.log('Migration runner loaded as module.');
+  (async () => {
+    try {
+      const { DatabaseSync } = await import('node:sqlite');
+      const dbFile = process.argv[2] || ':memory:';
+      console.log(`Running D1 migrations on SQLite (${dbFile})...`);
+      const rawDb = new DatabaseSync(dbFile);
+      const adapter = {
+        prepare(sql) {
+          return {
+            bind(...params) {
+              return {
+                async run() {
+                  const stmt = rawDb.prepare(sql);
+                  const info = stmt.run(...params);
+                  return { success: true, meta: { changes: info.changes } };
+                },
+                async first() {
+                  const stmt = rawDb.prepare(sql);
+                  return stmt.get(...params) || null;
+                },
+                async all() {
+                  const stmt = rawDb.prepare(sql);
+                  return { success: true, results: stmt.all(...params) };
+                }
+              };
+            },
+            async run() {
+              const stmt = rawDb.prepare(sql);
+              const info = stmt.run();
+              return { success: true, meta: { changes: info.changes } };
+            },
+            async first() {
+              const stmt = rawDb.prepare(sql);
+              return stmt.get() || null;
+            },
+            async all() {
+              const stmt = rawDb.prepare(sql);
+              return { success: true, results: stmt.all() };
+            }
+          };
+        }
+      };
+
+      const runner = new D1MigrationRunner(adapter);
+      const res = await runner.runMigrations();
+      console.log(`✅ Migrations completed successfully: ${res.appliedCount} applied, ${res.skippedCount} skipped, 0 failed.`);
+      process.exit(0);
+    } catch (err) {
+      console.error(`❌ Migration runner failed: ${err.message}`);
+      process.exit(1);
+    }
+  })();
 }

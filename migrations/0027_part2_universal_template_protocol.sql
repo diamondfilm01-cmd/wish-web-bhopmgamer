@@ -13,7 +13,9 @@
 ALTER TABLE template_versions ADD COLUMN protocol_version TEXT DEFAULT '1.0';
 ALTER TABLE template_versions ADD COLUMN schema_version TEXT DEFAULT '1.0.0';
 ALTER TABLE template_versions ADD COLUMN runtime_api_version TEXT DEFAULT '1.0';
-ALTER TABLE template_versions ADD COLUMN validation_report_json TEXT;
+-- validation_report_json was provisioned canonically in 0013_part28_template_version_management.sql with DEFAULT '{}'
+-- Retained in documentation for protocol schema compatibility:
+-- ALTER TABLE template_versions ADD COLUMN validation_report_json TEXT;
 ALTER TABLE template_versions ADD COLUMN is_publishable INTEGER NOT NULL DEFAULT 1;
 
 -- Additive columns for template_families for protocol-level relationship support
