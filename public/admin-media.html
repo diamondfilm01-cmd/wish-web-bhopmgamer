@@ -1907,12 +1907,15 @@
       renderMediaGrid();
     });
 
+    let isAdvancingSource = false;
     function tryNextAudioSource(errMsg) {
-      if (sourceIndex === attemptedSourceIndex) return;
-      attemptedSourceIndex = sourceIndex;
+      if (isAdvancingSource) return;
+      isAdvancingSource = true;
+      setTimeout(() => { isAdvancingSource = false; }, 200);
+
       sourceIndex++;
       if (sourceIndex < sourcesToTry.length) {
-        console.warn(`[Audio Player] Trying next audio source [${sourceIndex}]:`, sourcesToTry[sourceIndex]);
+        console.warn(`[Audio Player] Trying source [${sourceIndex}/${sourcesToTry.length}]:`, sourcesToTry[sourceIndex]);
         newAudio.src = sourcesToTry[sourceIndex];
         newAudio.load();
         newAudio.play().then(() => {
@@ -1929,18 +1932,19 @@
         });
       } else {
         if (iconEl) iconEl.innerText = 'play_arrow';
-        showPlayerError(errMsg || `Audio track "${title}" could not be retrieved from storage.`);
+        showPlayerError(errMsg || `Audio track "${title}" could not be played.`);
         renderMediaGrid();
       }
     }
 
-    newAudio.addEventListener('error', () => {
+    newAudio.addEventListener('error', (e) => {
       const err = newAudio.error;
-      const msg = err ? (err.code === 4 ? 'Audio source format not supported or file not found' : `Error code ${err.code}`) : 'Failed to load audio';
+      const msg = err ? (err.code === 4 ? 'Audio source format not supported or file not found' : `Audio playback error (code ${err.code})`) : 'Failed to load audio';
       tryNextAudioSource(msg);
     });
 
     newAudio.src = sourcesToTry[sourceIndex];
+    newAudio.load();
     newAudio.play().then(() => {
       if (iconEl) iconEl.innerText = 'pause';
       showToast(`▶ Playing: "${title}"`);
@@ -1951,6 +1955,8 @@
         if (timeEl) timeEl.innerText = 'Click Play ▶ to start';
         if (iconEl) iconEl.innerText = 'play_arrow';
         showToast(`▶ Tap Play button on floating bar to listen to "${title}"`);
+      } else if (err.name === 'AbortError') {
+        // Ignored if user quickly switched track or paused
       } else {
         tryNextAudioSource(err.message);
       }

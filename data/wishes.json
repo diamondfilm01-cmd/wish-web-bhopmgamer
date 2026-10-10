@@ -40,7 +40,7 @@
       "galleryLayout": "grid",
       "voice_note": {
         "enabled": false,
-        "url": "",
+        "url": "/audio/voice-dedication-sample.mp3",
         "duration": "0s",
         "fileName": "Voice Dedication"
       },
@@ -265,7 +265,7 @@
       ],
       "voice_note": {
         "enabled": true,
-        "url": "https://cdn.freesound.org/previews/560/560446_11861866-lq.mp3",
+        "url": "/audio/voice-dedication-sample.mp3",
         "duration": "18s"
       },
       "music": {

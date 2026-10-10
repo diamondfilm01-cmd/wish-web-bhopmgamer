@@ -1,1 +1,42 @@
-[]
+[
+  {
+    "id": "mus_mv1ny1jf_cetk",
+    "title": "party track final",
+    "artist": null,
+    "type": "audio",
+    "format": "MP3",
+    "category": "celebration",
+    "filename": "party_track_final.mp3",
+    "diskFilename": "party_track_final.mp3",
+    "storageKey": "music/party_track_final.mp3",
+    "storageProvider": "local",
+    "url": "/media/party_track_final.mp3",
+    "playbackUrl": "/media/party_track_final.mp3",
+    "streamUrl": "/api/media/stream?id=mus_mv1ny1jf_cetk&key=music%2Fparty_track_final.mp3",
+    "duration": null,
+    "fileSize": 50000,
+    "fileSizeFormatted": "0.05 MB",
+    "mimeType": "audio/mpeg",
+    "createdAt": "2026-10-10T00:35:48.170Z"
+  },
+  {
+    "id": "mus_mv1nxuzs_jayt",
+    "title": "Special Birthday Song",
+    "artist": null,
+    "type": "audio",
+    "format": "MP3",
+    "category": "celebration",
+    "filename": "Special Birthday Song.mp3",
+    "diskFilename": "Special Birthday Song.mp3",
+    "storageKey": "music/Special Birthday Song.mp3",
+    "storageProvider": "local",
+    "url": "/media/Special%20Birthday%20Song.mp3",
+    "playbackUrl": "/media/Special%20Birthday%20Song.mp3",
+    "streamUrl": "/api/media/stream?id=mus_mv1nxuzs_jayt&key=music%2FSpecial%20Birthday%20Song.mp3",
+    "duration": null,
+    "fileSize": 50000,
+    "fileSizeFormatted": "0.05 MB",
+    "mimeType": "audio/mpeg",
+    "createdAt": "2026-10-10T00:35:39.683Z"
+  }
+]

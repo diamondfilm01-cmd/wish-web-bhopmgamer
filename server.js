@@ -7331,8 +7331,8 @@ app.get(['/api/media/stream', '/api/media/stream/:id', '/api/media/stream/:id/:f
       {
         id: 'ast_user_vn_wm_mutfo7rv_3dbw92',
         title: 'Voice Dedication for Kritika',
-        url: 'https://cdn.freesound.org/previews/560/560446_11861866-lq.mp3',
-        playbackUrl: 'https://cdn.freesound.org/previews/560/560446_11861866-lq.mp3'
+        url: '/audio/voice-dedication-sample.mp3',
+        playbackUrl: '/audio/voice-dedication-sample.mp3'
       }
     ];
 
@@ -7766,9 +7766,11 @@ app.get('/api/admin/media/all', (req, res) => {
         title: 'Golden Sparkles & Ambient Floating Particles',
         type: 'video',
         format: 'MP4',
-        url: 'https://commondatastorage.googleapis.com/gtv-videos-bucket/sample/ForBiggerBlazes.mp4',
-        fileSizeFormatted: '4.20 MB',
-        duration: '0:15',
+        url: '/videos/sparkles-particles.mp4',
+        playbackUrl: '/videos/sparkles-particles.mp4',
+        streamUrl: '/videos/sparkles-particles.mp4',
+        fileSizeFormatted: '80 KB',
+        duration: '0:05',
         category: 'Video Reels & FX',
         createdAt: '2026-03-01T00:00:00.000Z'
       },
@@ -7777,9 +7779,11 @@ app.get('/api/admin/media/all', (req, res) => {
         title: 'Festive Celebration Confetti Cannon Reel',
         type: 'video',
         format: 'MP4',
-        url: 'https://commondatastorage.googleapis.com/gtv-videos-bucket/sample/ForBiggerEscapes.mp4',
-        fileSizeFormatted: '3.85 MB',
-        duration: '0:12',
+        url: '/videos/celebration-confetti.mp4',
+        playbackUrl: '/videos/celebration-confetti.mp4',
+        streamUrl: '/videos/celebration-confetti.mp4',
+        fileSizeFormatted: '81 KB',
+        duration: '0:05',
         category: 'Video Reels & FX',
         createdAt: '2026-03-15T00:00:00.000Z'
       },
