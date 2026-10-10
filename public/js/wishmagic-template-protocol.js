@@ -9,6 +9,8 @@
   'use strict';
 
   const PROTOCOL_VERSION = '1.0';
+  const SCHEMA_VERSION = '1.0.0';
+  const RUNTIME_API_VERSION = '1.0';
 
   /**
    * Helper to safely sanitize and set text without XSS risks
@@ -287,6 +289,8 @@
   // Public API
   global.WishMagicTemplate = {
     PROTOCOL_VERSION,
+    SCHEMA_VERSION,
+    RUNTIME_API_VERSION,
     getCapabilities,
     validate,
     applyData,

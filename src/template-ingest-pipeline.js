@@ -21,6 +21,15 @@ import {
   buildTemplateStorageKeys,
   B2StorageProvider
 } from './storage-provider.js';
+import {
+  UTP_PROTOCOL_NAME,
+  UTP_SCHEMA_VERSION,
+  UTP_RUNTIME_API_VERSION
+} from './template-protocol-schema.js';
+import {
+  validateUtpManifest,
+  normalizeManifestToUtp
+} from './template-protocol-validator.js';
 
 // Security & Resource Constraints
 export const ZIP_LIMITS = {
@@ -28,8 +37,36 @@ export const ZIP_LIMITS = {
   MAX_UNCOMPRESSED_BYTES: 150 * 1024 * 1024, // 150 MB max total uncompressed
   MAX_FILE_COUNT: 1000,                      // 1000 files max
   MAX_ENTRY_BYTES: 25 * 1024 * 1024,        // 25 MB max per file
-  MAX_COMPRESSION_RATIO: 100                 // 100:1 ratio limit
+  MAX_COMPRESSION_RATIO: 100,                // 100:1 ratio limit
+  MAX_MANIFEST_BYTES: 5 * 1024 * 1024,       // 5 MB max manifest json size
+  MAX_DIRECTORY_DEPTH: 8                     // 8 max folder nesting depth
 };
+
+export const UPLOAD_OPERATION_STATE = {
+  RECEIVED: 'received',
+  VALIDATING: 'validating',
+  VALIDATION_FAILED: 'validation_failed',
+  STAGING: 'staging',
+  STAGED: 'staged',
+  REGISTERING: 'registering',
+  PREVIEW_READY: 'preview_ready',
+  FAILED: 'failed',
+  CLEANUP_PENDING: 'cleanup_pending'
+};
+
+/**
+ * Computes deterministic package fingerprint across normalized file paths and contents
+ */
+export async function computePackageFingerprint(filesMap) {
+  const sortedPaths = Array.from(filesMap.keys()).sort();
+  const chunks = [];
+  for (const p of sortedPaths) {
+    const f = filesMap.get(p);
+    const hash = await computeSha256Hex(f.content);
+    chunks.push(`${p}:${hash}`);
+  }
+  return await computeSha256Hex(chunks.join('||'));
+}
 
 export const DANGEROUS_EXTENSIONS = /\.(exe|sh|bat|cmd|com|vbs|php|py|pl|cgi|jar|war|scr|msi|dll|so)$/i;
 
@@ -168,6 +205,13 @@ export async function extractAndVerifyZip(zipBuffer) {
     }
     normalized = normalized.replace(/^\/+/, '');
     if (!normalized) continue;
+
+    // Directory depth limit check
+    const pathParts = normalized.split('/').filter(Boolean);
+    if (pathParts.length > ZIP_LIMITS.MAX_DIRECTORY_DEPTH) {
+      warnings.push(`[Security] Skipped file exceeding maximum directory depth (${pathParts.length} > ${ZIP_LIMITS.MAX_DIRECTORY_DEPTH}): ${rawPath}`);
+      continue;
+    }
 
     // Extract entry as binary buffer
     const entryBuffer = await entry.async('uint8array');
@@ -403,16 +447,109 @@ export async function executeB2TemplateIngestPipeline(params) {
     env = {},
     db = null,
     storageProvider = null, // Can inject for custom/testing
-    authorId = 'admin_system'
+    authorId = 'admin_system',
+    idempotencyKey = null
   } = params;
+
+  const now = new Date();
+  const nowIso = now.toISOString();
+  const operationId = `top_${now.getTime().toString(36)}_${crypto.randomUUID().slice(0, 8)}`;
+
+  // Helper to persist operation state if D1 available
+  const updateOperation = async (state, progressStage, progressPercent, extra = {}) => {
+    if (db && typeof db.prepare === 'function') {
+      try {
+        await db.prepare(`
+          INSERT INTO template_upload_operations (
+            id, idempotency_key, author_id, template_family_id, template_id, version_id,
+            version_number, version_label, package_fingerprint, state, progress_stage,
+            progress_percent, is_retryable, error_code, error_message, validation_report_json,
+            inventory_json, b2_objects_json, created_at, updated_at
+          ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+          ON CONFLICT(id) DO UPDATE SET
+            state = excluded.state,
+            progress_stage = excluded.progress_stage,
+            progress_percent = excluded.progress_percent,
+            template_family_id = COALESCE(excluded.template_family_id, template_upload_operations.template_family_id),
+            template_id = COALESCE(excluded.template_id, template_upload_operations.template_id),
+            version_id = COALESCE(excluded.version_id, template_upload_operations.version_id),
+            version_number = COALESCE(excluded.version_number, template_upload_operations.version_number),
+            version_label = COALESCE(excluded.version_label, template_upload_operations.version_label),
+            package_fingerprint = COALESCE(excluded.package_fingerprint, template_upload_operations.package_fingerprint),
+            is_retryable = excluded.is_retryable,
+            error_code = excluded.error_code,
+            error_message = excluded.error_message,
+            validation_report_json = COALESCE(excluded.validation_report_json, template_upload_operations.validation_report_json),
+            inventory_json = COALESCE(excluded.inventory_json, template_upload_operations.inventory_json),
+            b2_objects_json = COALESCE(excluded.b2_objects_json, template_upload_operations.b2_objects_json),
+            updated_at = excluded.updated_at
+        `).bind(
+          operationId,
+          idempotencyKey || null,
+          authorId,
+          extra.templateFamilyId || null,
+          extra.templateId || null,
+          extra.versionId || null,
+          extra.versionNumber || null,
+          extra.versionLabel || null,
+          extra.packageFingerprint || null,
+          state,
+          progressStage,
+          progressPercent,
+          extra.isRetryable !== undefined ? (extra.isRetryable ? 1 : 0) : 1,
+          extra.errorCode || null,
+          extra.errorMessage || null,
+          typeof extra.validationReport === 'object' ? JSON.stringify(extra.validationReport) : (extra.validationReportJson || '{}'),
+          Array.isArray(extra.inventory) ? JSON.stringify(extra.inventory) : (extra.inventoryJson || '[]'),
+          Array.isArray(extra.b2Objects) ? JSON.stringify(extra.b2Objects) : (extra.b2ObjectsJson || '[]'),
+          nowIso,
+          new Date().toISOString()
+        ).run().catch(e => console.warn('[Upload Operation DB Warning]:', e.message));
+      } catch (opErr) {
+        console.warn('[Upload Operation DB Err]:', opErr.message);
+      }
+    }
+  };
+
+  // Check idempotency if key provided
+  if (idempotencyKey && db && typeof db.prepare === 'function') {
+    try {
+      const existingOp = await db.prepare(`
+        SELECT * FROM template_upload_operations WHERE idempotency_key = ? LIMIT 1
+      `).bind(idempotencyKey).first();
+      if (existingOp && existingOp.state === UPLOAD_OPERATION_STATE.PREVIEW_READY) {
+        return {
+          success: true,
+          idempotent: true,
+          operationId: existingOp.id,
+          templateFamilyId: existingOp.template_family_id,
+          templateId: existingOp.template_id,
+          versionId: existingOp.version_id,
+          versionNumber: existingOp.version_number,
+          versionLabel: existingOp.version_label,
+          status: 'ready',
+          isPublished: false,
+          message: 'Idempotent request: template version already successfully staged.'
+        };
+      }
+    } catch (_) {}
+  }
+
+  await updateOperation(UPLOAD_OPERATION_STATE.RECEIVED, 'archive_received', 10);
 
   // 1. Verify B2 Configuration
   let b2Provider = storageProvider;
   if (!b2Provider) {
     const config = getB2Config(env);
     if (!config.isConfigured) {
+      await updateOperation(UPLOAD_OPERATION_STATE.FAILED, 'b2_check_failed', 10, {
+        errorCode: 'B2_NOT_CONFIGURED',
+        errorMessage: `Backblaze B2 storage credentials are not configured: ${config.missingKeys.join(', ')}`,
+        isRetryable: true
+      });
       return {
         success: false,
+        operationId,
         error: 'B2_NOT_CONFIGURED',
         code: 'B2_NOT_CONFIGURED',
         message: `Backblaze B2 storage credentials are not configured in environment secrets. Missing: ${config.missingKeys.join(', ')}`,
@@ -422,36 +559,206 @@ export async function executeB2TemplateIngestPipeline(params) {
     b2Provider = B2StorageProvider.fromEnv(env);
   }
 
+  await updateOperation(UPLOAD_OPERATION_STATE.VALIDATING, 'validating_archive', 20);
+
   // 2. Extract and sanitize ZIP
   const extracted = await extractAndVerifyZip(zipBuffer);
+  const packageFingerprint = await computePackageFingerprint(extracted.files);
+
+  // 2b. Parse & Validate Universal Template Protocol (UTP) Manifest
+  let rawManifest = null;
+  let manifestPath = null;
+  let manifestCount = 0;
+  for (const [p, f] of extracted.files.entries()) {
+    const lower = p.toLowerCase();
+    if (lower === 'wishmagic.json' || lower === 'manifest.json' || lower.endsWith('/wishmagic.json') || lower.endsWith('/manifest.json')) {
+      manifestCount++;
+      if (!rawManifest) {
+        manifestPath = p;
+        try {
+          const text = new TextDecoder('utf-8').decode(f.content);
+          rawManifest = JSON.parse(text);
+        } catch (jsonErr) {
+          await updateOperation(UPLOAD_OPERATION_STATE.VALIDATION_FAILED, 'manifest_syntax_error', 25, {
+            errorCode: 'INVALID_MANIFEST_JSON',
+            errorMessage: `Malformed JSON in ${p}: ${jsonErr.message}`,
+            isRetryable: false
+          });
+          return {
+            success: false,
+            operationId,
+            error: 'INVALID_MANIFEST_JSON',
+            code: 'INVALID_MANIFEST_JSON',
+            message: `Malformed JSON in ${p}: ${jsonErr.message}`,
+            issues: [{
+              code: 'INVALID_MANIFEST_JSON',
+              severity: 'error',
+              message: `Malformed JSON in ${p}: ${jsonErr.message}`,
+              blocking: true
+            }]
+          };
+        }
+      }
+    }
+  }
+
+  // Reject ambiguous multiple conflicting manifests
+  if (manifestCount > 1) {
+    await updateOperation(UPLOAD_OPERATION_STATE.VALIDATION_FAILED, 'ambiguous_manifests', 25, {
+      errorCode: 'MULTIPLE_MANIFESTS_CONFLICT',
+      errorMessage: `Multiple conflicting manifest files detected in ZIP archive (${manifestCount} manifests found).`,
+      isRetryable: false
+    });
+    return {
+      success: false,
+      operationId,
+      error: 'MULTIPLE_MANIFESTS_CONFLICT',
+      code: 'MULTIPLE_MANIFESTS_CONFLICT',
+      message: `Multiple conflicting manifest files detected in ZIP archive (${manifestCount} manifests found). Provide exactly one wishmagic.json manifest.`
+    };
+  }
+
+  // Authoritative server-side UTP validation
+  const utpReport = validateUtpManifest(rawManifest || {
+    template: {
+      id: templateMetadata.slug || templateMetadata.templateId || 'custom-template',
+      name: templateMetadata.name || 'Custom Template',
+      category: templateMetadata.category || 'celebration'
+    }
+  }, {
+    filesMap: extracted.files,
+    entryFile: extracted.entryFile
+  });
+
+  if (!utpReport.valid && utpReport.issues.some(i => i.severity === 'error' && i.blocking !== false)) {
+    await updateOperation(UPLOAD_OPERATION_STATE.VALIDATION_FAILED, 'utp_validation_failed', 30, {
+      errorCode: 'UTP_VALIDATION_FAILED',
+      errorMessage: `Template package failed Universal Template Protocol validation with ${utpReport.summary.errors} error(s).`,
+      validationReport: utpReport,
+      isRetryable: false
+    });
+    return {
+      success: false,
+      operationId,
+      error: 'UTP_VALIDATION_FAILED',
+      code: 'UTP_VALIDATION_FAILED',
+      message: `Template package failed Universal Template Protocol validation with ${utpReport.summary.errors} error(s).`,
+      validationReport: utpReport,
+      issues: utpReport.issues
+    };
+  }
 
   // 3. Analyze template & compute hashes
   const analyzed = await analyzeTemplateAndBuildIntegrity(extracted, zipBuffer);
 
-  // 4. Generate deterministic identifiers
-  const familySlug = templateMetadata.slug || (analyzed.title ? analyzed.title.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-+|-+$/g, '') : 'custom-template');
+  // Merge manifest-declared fields with DOM-detected fields without duplicates
+  const finalFieldsMap = new Map();
+  for (const f of analyzed.detectedFields) {
+    finalFieldsMap.set(f.key, f);
+  }
+  if (utpReport.normalized && Array.isArray(utpReport.normalized.fields)) {
+    for (const mf of utpReport.normalized.fields) {
+      const fKey = mf.id || mf.key;
+      if (!fKey) continue;
+      if (!finalFieldsMap.has(fKey)) {
+        finalFieldsMap.set(fKey, {
+          key: fKey,
+          label: mf.label || fKey.replace(/_/g, ' ').replace(/\b\w/g, c => c.toUpperCase()),
+          type: mf.type || 'text',
+          placeholder: mf.placeholder || '',
+          defaultValue: mf.defaultValue || '',
+          isRequired: Boolean(mf.required),
+          category: mf.group || mf.category || 'personal',
+          validation: mf.constraints || mf.validation || {}
+        });
+      }
+    }
+  }
+  const mergedFields = Array.from(finalFieldsMap.values());
+
+  // 4. Generate deterministic identifiers and family/version reservation
+  const familySlug = templateMetadata.slug || (utpReport.normalized?.template?.id) || (analyzed.title ? analyzed.title.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-+|-+$/g, '') : 'custom-template');
   const templateFamilyId = templateMetadata.familyId || `fam_${familySlug}`;
   const templateId = templateMetadata.templateId || `tpl_${familySlug}`;
   
-  const now = new Date();
-  const versionNumber = Number(templateMetadata.versionNumber || 1);
+  // Concurrency-safe version number calculation from DB
+  let versionNumber = Number(templateMetadata.versionNumber || 0);
+  if (!versionNumber && db && typeof db.prepare === 'function') {
+    try {
+      const maxVerRow = await db.prepare(`
+        SELECT MAX(version_number) as maxVer FROM template_versions
+        WHERE template_id = ? OR template_family_id = ?
+      `).bind(templateId, templateFamilyId).first();
+      versionNumber = (Number(maxVerRow?.maxVer) || 0) + 1;
+    } catch (_) {
+      versionNumber = 1;
+    }
+  }
+  if (!versionNumber || versionNumber < 1) versionNumber = 1;
+
+  // Duplicate Package Detection via package_fingerprint
+  if (db && typeof db.prepare === 'function') {
+    try {
+      const duplicateVer = await db.prepare(`
+        SELECT id, version_number, version_label, status FROM template_versions
+        WHERE (template_id = ? OR template_family_id = ?) AND package_fingerprint = ? AND status != 'failed'
+        LIMIT 1
+      `).bind(templateId, templateFamilyId, packageFingerprint).first();
+      if (duplicateVer) {
+        await updateOperation(UPLOAD_OPERATION_STATE.PREVIEW_READY, 'duplicate_detected', 100, {
+          templateFamilyId,
+          templateId,
+          versionId: duplicateVer.id,
+          versionNumber: duplicateVer.version_number,
+          versionLabel: duplicateVer.version_label,
+          packageFingerprint
+        });
+        return {
+          success: true,
+          duplicateDetected: true,
+          operationId,
+          templateFamilyId,
+          templateId,
+          versionId: duplicateVer.id,
+          versionNumber: duplicateVer.version_number,
+          versionLabel: duplicateVer.version_label,
+          status: duplicateVer.status || 'ready',
+          isPublished: duplicateVer.status === 'published',
+          message: `Identical package fingerprint already exists for this template family as ${duplicateVer.version_label}.`,
+          previewUrl: `/api/templates/${templateId}/versions/${duplicateVer.id}/preview/${extracted.entryFile}`
+        };
+      }
+    } catch (_) {}
+  }
+
   const versionId = `ver_${templateId}_v${versionNumber}_${now.getTime().toString(36)}`;
   const versionLabel = templateMetadata.versionLabel || `v${versionNumber}.0.0`;
 
   // Deterministic storage keys
   const keys = buildTemplateStorageKeys(templateFamilyId, versionId);
 
-  // Build manifest payloads
-  const manifestPayload = {
+  await updateOperation(UPLOAD_OPERATION_STATE.STAGING, 'staging_to_b2', 40, {
     templateFamilyId,
     templateId,
     versionId,
     versionNumber,
     versionLabel,
-    name: templateMetadata.name || analyzed.title,
-    category: templateMetadata.category || 'celebration',
-    tier: templateMetadata.tier || 'free',
-    price: Number(templateMetadata.price || 0),
+    packageFingerprint
+  });
+
+  // Build manifest payloads
+  const manifestPayload = {
+    protocol: UTP_PROTOCOL_NAME,
+    schemaVersion: UTP_SCHEMA_VERSION,
+    templateFamilyId,
+    templateId,
+    versionId,
+    versionNumber,
+    versionLabel,
+    name: templateMetadata.name || utpReport.normalized?.template?.name || analyzed.title,
+    category: templateMetadata.category || utpReport.normalized?.template?.category || 'celebration',
+    tier: templateMetadata.tier || utpReport.normalized?.template?.tier || 'free',
+    price: Number(templateMetadata.price ?? utpReport.normalized?.template?.price ?? 0),
     entryFile: extracted.entryFile,
     fileCount: analyzed.fileRecords.length,
     totalBytes: extracted.totalUncompressedBytes,
@@ -459,8 +766,13 @@ export async function executeB2TemplateIngestPipeline(params) {
     sourceZipSha256: analyzed.sourceZipSha256,
     runtimeHash: analyzed.runtimeHash,
     schemaHash: analyzed.schemaHash,
-    fields: analyzed.detectedFields,
+    packageFingerprint,
+    fields: mergedFields,
+    capabilities: utpReport.normalized?.capabilities || templateMetadata.capabilities || {},
+    sections: utpReport.normalized?.sections || templateMetadata.sections || [],
+    relationships: utpReport.normalized?.relationships || [],
     storageKeys: keys,
+    validationReport: utpReport,
     createdAt: now.toISOString()
   };
 
@@ -536,9 +848,13 @@ export async function executeB2TemplateIngestPipeline(params) {
     });
     uploadedB2Objects.push({ key: keys.hashes });
 
+    await updateOperation(UPLOAD_OPERATION_STATE.STAGED, 'b2_upload_complete', 70, {
+      b2Objects: uploadedB2Objects
+    });
+
     // 8. Commit Records into D1 Database (if DB binding provided)
     if (db && typeof db.prepare === 'function') {
-      const nowIso = now.toISOString();
+      await updateOperation(UPLOAD_OPERATION_STATE.REGISTERING, 'registering_d1', 80);
 
       // Ensure template_family exists
       await db.prepare(`
@@ -570,7 +886,7 @@ export async function executeB2TemplateIngestPipeline(params) {
           sections, features, theme, folder, entry_file, created_at, updated_at
         ) VALUES (
           ?, ?, ?, ?, ?, '[]', '[]',
-          '3D Interactive', ?, ?, ?, 1, 'published', ?,
+          '3D Interactive', ?, ?, ?, 0, 'draft', ?,
           99, ?, '[]', ?, ?,
           '[]', '[]', '{}', ?, ?, ?, ?
         )
@@ -612,14 +928,14 @@ export async function executeB2TemplateIngestPipeline(params) {
           id, template_id, template_family_id, version_number, version_label,
           name, description, category, tier, price, thumbnail,
           source_zip_storage_key, runtime_root_storage_key, manifest_storage_key,
-          schema_hash, runtime_hash, source_zip_hash,
+          schema_hash, runtime_hash, source_zip_hash, package_fingerprint,
           storage_provider, storage_bucket, storage_metadata_json,
           status, created_at, created_by
         ) VALUES (
           ?, ?, ?, ?, ?,
           ?, ?, ?, ?, ?, ?,
           ?, ?, ?,
-          ?, ?, ?,
+          ?, ?, ?, ?,
           'b2', ?, ?,
           'ready', ?, ?
         )
@@ -641,6 +957,7 @@ export async function executeB2TemplateIngestPipeline(params) {
         analyzed.schemaHash,
         analyzed.runtimeHash,
         analyzed.sourceZipSha256,
+        packageFingerprint,
         b2Provider.bucketName || 'wishmagic-templates',
         JSON.stringify({ filesCount: analyzed.fileRecords.length, totalBytes: extracted.totalUncompressedBytes }),
         nowIso,
@@ -671,7 +988,7 @@ export async function executeB2TemplateIngestPipeline(params) {
 
       // Insert template_fields records
       let fieldOrder = 0;
-      for (const field of analyzed.detectedFields) {
+      for (const field of mergedFields) {
         fieldOrder++;
         const fieldId = `tfld_${versionId}_${field.key}`;
         await db.prepare(`
@@ -698,8 +1015,20 @@ export async function executeB2TemplateIngestPipeline(params) {
       }
     }
 
+    await updateOperation(UPLOAD_OPERATION_STATE.PREVIEW_READY, 'completed', 100, {
+      templateFamilyId,
+      templateId,
+      versionId,
+      versionNumber,
+      versionLabel,
+      packageFingerprint,
+      validationReport: utpReport,
+      inventory: analyzed.fileRecords.map(f => ({ path: f.relativePath, size: f.sizeBytes, hash: f.sha256 }))
+    });
+
     return {
       success: true,
+      operationId,
       message: `Template "${templateMetadata.name || analyzed.title}" successfully ingested into Backblaze B2 storage.`,
       templateFamilyId,
       templateId,
@@ -708,17 +1037,23 @@ export async function executeB2TemplateIngestPipeline(params) {
       versionLabel,
       status: 'ready',
       isPublished: false,
+      protocol: {
+        schemaVersion: UTP_SCHEMA_VERSION,
+        runtimeApi: UTP_RUNTIME_API_VERSION
+      },
+      validationReport: utpReport,
       entryFile: extracted.entryFile,
       previewUrl: `/api/templates/${templateId}/versions/${versionId}/preview/${extracted.entryFile}`,
       storageKeys: keys,
       hashes: {
         sourceZip: analyzed.sourceZipSha256,
         runtimeHash: analyzed.runtimeHash,
-        schemaHash: analyzed.schemaHash
+        schemaHash: analyzed.schemaHash,
+        packageFingerprint
       },
       fileCount: analyzed.fileRecords.length,
-      fieldsCount: analyzed.detectedFields.length,
-      detectedFields: analyzed.detectedFields,
+      fieldsCount: mergedFields.length,
+      detectedFields: mergedFields,
       storageProvider: 'b2'
     };
 
@@ -737,7 +1072,7 @@ export async function executeB2TemplateIngestPipeline(params) {
       }
     }
 
-    // Failure Recovery: mark version as failed in DB if created, return structured error
+    // Failure Recovery: mark version as failed in DB if created, update operation status
     if (db && typeof db.prepare === 'function') {
       try {
         await db.prepare(`
@@ -748,8 +1083,20 @@ export async function executeB2TemplateIngestPipeline(params) {
       } catch (_) {}
     }
 
+    const finalOpState = rollbackErrors.length > 0 ? UPLOAD_OPERATION_STATE.CLEANUP_PENDING : UPLOAD_OPERATION_STATE.FAILED;
+    await updateOperation(finalOpState, 'failed', 100, {
+      templateFamilyId,
+      templateId,
+      versionId,
+      errorCode: error.code || 'B2_INGEST_FAILED',
+      errorMessage: error.message,
+      isRetryable: true,
+      b2Objects: rollbackErrors
+    });
+
     const errRes = {
       success: false,
+      operationId,
       error: 'B2_INGEST_FAILED',
       code: error.code || 'B2_INGEST_FAILED',
       message: `Template ingestion failed: ${error.message}`,

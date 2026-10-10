@@ -452,9 +452,13 @@ async function deployUploadedTemplate() {
   }
 
   try {
+    const idempotencyKey = 'op_' + Date.now().toString(36) + '_' + Math.random().toString(36).slice(2, 8);
     const res = await fetch('/api/templates/upload', {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
+      headers: {
+        'Content-Type': 'application/json',
+        'Idempotency-Key': idempotencyKey
+      },
       body: JSON.stringify(payload)
     });
 
@@ -464,12 +468,28 @@ async function deployUploadedTemplate() {
       toggleModal('upload-code-modal');
       // Show success notification
       if (data.versionId) {
-        showToast(`🎉 Version ${data.versionLabel || data.versionId} stored in Backblaze B2! Ready for preview.`);
+        if (data.duplicateDetected) {
+          showToast(`ℹ️ Duplicate package detected: Reusing existing staged version ${data.versionLabel || data.versionId}.`);
+        } else {
+          showToast(`🎉 Version ${data.versionLabel || data.versionId} (UTP ${data.protocol?.schemaVersion || '1.0.0'}) staged in Backblaze B2! Ready for preview.`);
+        }
+        
+        // If preview modal or versions modal is available, offer quick action
+        if (typeof window.openTemplateVersionsModal === 'function' && data.templateId) {
+          setTimeout(() => {
+            if (confirm(`Template version ${data.versionLabel || data.versionId} is staged in Backblaze B2!\n\nWould you like to open the Version Control & Publishing dialog to inspect and publish it?`)) {
+              window.openTemplateVersionsModal(data.templateId);
+            }
+          }, 400);
+        }
       } else {
         showToast(`🎉 Template "${title}" successfully deployed!`);
       }
       // Reload templates list
       loadDynamicTemplates();
+    } else if (data.code === 'UTP_VALIDATION_FAILED') {
+      const issueDetails = Array.isArray(data.issues) ? data.issues.map(i => `• [${i.severity.toUpperCase()}] ${i.code}: ${i.message}`).join('\n') : '';
+      alert(`⚠️ UNIVERSAL TEMPLATE PROTOCOL (UTP) VALIDATION FAILED:\n\n${data.message}\n\n${issueDetails}\n\nPlease check wishmagic.json manifest and required files.`);
     } else if (data.code === 'B2_NOT_CONFIGURED') {
       alert(`⚠️ Notice: Backblaze B2 is not configured in environment secrets.\n\n${data.message}\n\nPlease configure B2_APPLICATION_KEY_ID, B2_APPLICATION_KEY, and B2_BUCKET_NAME to ingest production templates into Backblaze B2.`);
     } else {

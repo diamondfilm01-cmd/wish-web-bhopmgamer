@@ -3800,7 +3800,24 @@ app.get('/api/templates/:id', (req, res) => {
   if (!template) {
     return res.status(404).json({ success: false, message: 'Template not found' });
   }
-  res.json({ success: true, template });
+
+  const previewUrl = template.previewUrl || `/templates-store/${template.folder || template.slug}/${template.entryFile || template.entry_file || 'index.html'}`;
+  const fields = template.fields || template.detectedFields || [];
+  const variants = template.variants || [];
+  const sections = template.sections || [];
+  const capabilities = template.capabilities || {};
+
+  const enrichedTemplate = {
+    ...template,
+    fields,
+    detectedFields: fields,
+    variants,
+    sections,
+    capabilities,
+    previewUrl
+  };
+
+  res.json({ success: true, template: enrichedTemplate });
 });
 
 // API: Upload a complete new website / ZIP archive / folder files bundle
@@ -3838,6 +3855,8 @@ app.post('/api/templates/upload', async (req, res) => {
         });
       }
 
+      const idempotencyKey = req.headers['idempotency-key'] || req.headers['x-idempotency-key'] || req.body?.idempotencyKey || null;
+
       const zipBuffer = Buffer.from(zipBase64, 'base64');
       const ingestResult = await executeB2TemplateIngestPipeline({
         zipBuffer,
@@ -3851,7 +3870,8 @@ app.post('/api/templates/upload', async (req, res) => {
           featured
         },
         env: process.env,
-        authorId: req.session?.userId || 'admin_system'
+        authorId: req.session?.userId || 'admin_system',
+        idempotencyKey
       });
 
       if (!ingestResult.success) {
@@ -12931,6 +12951,7 @@ app.post('/api/wishes', (req, res) => {
       customData,
       status: wishStatus,
       isDraft,
+      lock_version: 1,
       createdAt: new Date().toISOString(),
       updatedAt: new Date().toISOString(),
       views: 0
@@ -12972,8 +12993,10 @@ app.post('/api/wishes', (req, res) => {
       slug: generatedSlug,
       url: `/w/${generatedSlug}`,
       legacyUrl: `/wish.html?id=${wishId}`,
+      lockVersion: 1,
       wish: {
         ...newWish,
+        lock_version: 1,
         lifecycleStatus: isDraft ? 'draft' : computeWishStatus(newWish)
       }
     });
@@ -13208,7 +13231,25 @@ app.put('/api/wishes/:id', (req, res) => {
       return res.status(403).json({ success: false, error: { code: 'FORBIDDEN', message: 'Forbidden: Cannot edit another user\'s wish' } });
     }
 
-    const { customData, recipientName, buyerName, eventDate, slug, customSlug, status, isDraft } = req.body || {};
+    const { customData, recipientName, buyerName, eventDate, slug, customSlug, status, isDraft, lockVersion, lock_version } = req.body || {};
+
+    // Optimistic Concurrency Check (Part 4)
+    const expectedLockVersion = lockVersion !== undefined ? Number(lockVersion) : (lock_version !== undefined ? Number(lock_version) : null);
+    if (expectedLockVersion !== null && current.lock_version !== undefined && current.lock_version !== null) {
+      if (Number(current.lock_version) > expectedLockVersion) {
+        return res.status(409).json({
+          success: false,
+          error: {
+            code: 'CONCURRENCY_CONFLICT',
+            message: 'A newer draft version has already been saved. Please reload.'
+          },
+          currentLockVersion: Number(current.lock_version),
+          updatedAt: current.updatedAt
+        });
+      }
+    }
+    const nextLockVersion = (Number(current.lock_version) || 1) + 1;
+
     let targetSlug = current.slug;
     const rawRequestedSlug = String(slug || (customData && customData.slug) || customSlug || (customData && customData.customSlug) || '').toLowerCase().trim();
 
@@ -13242,6 +13283,7 @@ app.put('/api/wishes/:id', (req, res) => {
 
     wishes[idx] = {
       ...current,
+      lock_version: nextLockVersion,
       slug: targetSlug,
       recipientName: recipientName || current.recipientName,
       buyerName: buyerName || current.buyerName,
@@ -13252,7 +13294,7 @@ app.put('/api/wishes/:id', (req, res) => {
       updatedAt: new Date().toISOString()
     };
     saveWishes(wishes);
-    res.json({ success: true, wish: wishes[idx], message: 'Wish updated successfully' });
+    res.json({ success: true, wish: wishes[idx], lockVersion: nextLockVersion, message: 'Wish updated successfully' });
   } catch (err) {
     res.status(500).json({ success: false, message: err.message });
   }

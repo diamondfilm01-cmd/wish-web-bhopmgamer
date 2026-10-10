@@ -438,9 +438,30 @@
                 <label for="input-message" class="block text-xs font-bold text-purple-950 dark:text-white">
                   Heartfelt Dedication Message
                 </label>
-                <span class="text-[11px] font-mono text-purple-700 dark:text-purple-300 font-semibold" id="message-char-count">0 / 500</span>
+                <div class="flex items-center gap-2">
+                  <button type="button" id="btn-reset-variant-defaults" onclick="resetToVariantDefaults()" class="hidden text-[10px] text-pink-600 dark:text-pink-400 font-bold hover:underline cursor-pointer">↺ Reset to Variant Default</button>
+                  <span class="text-[11px] font-mono text-purple-700 dark:text-purple-300 font-semibold" id="message-char-count">0 / 500</span>
+                </div>
               </div>
               <textarea id="input-message" rows="4" maxlength="500" oninput="handleMessageInput(this.value)" placeholder="Write your heartfelt greeting, unforgettable memories, or inside jokes here..." class="w-full text-xs sm:text-sm font-medium rounded-2xl border border-purple-200/80 dark:border-purple-800/60 p-4 bg-white/80 dark:bg-purple-950/60 text-purple-950 dark:text-purple-100 focus:outline-none focus:ring-2 focus:ring-pink-500 transition shadow-inner leading-relaxed"></textarea>
+            </div>
+          </div>
+
+          <!-- SECTION: DYNAMIC TEMPLATE BLUEPRINT FIELDS (Part 4) -->
+          <div id="dynamic-template-fields-card" class="hidden glass-surface rounded-3xl p-5 sm:p-6 shadow-xl space-y-4">
+            <div class="flex items-center justify-between pb-3 border-b border-purple-200/60 dark:border-purple-800/40">
+              <div>
+                <h3 class="font-display font-extrabold text-base text-purple-950 dark:text-white flex items-center gap-2">
+                  <span>✨ Template Custom Fields</span>
+                </h3>
+                <p class="text-[11px] text-purple-700/80 dark:text-purple-300/80 mt-0.5">Manifest-driven fields defined by this blueprint</p>
+              </div>
+              <span id="dynamic-fields-count-badge" class="px-2.5 py-1 rounded-full text-[10px] font-black uppercase tracking-wider bg-pink-500/20 text-pink-700 dark:text-pink-300">
+                0 Fields
+              </span>
+            </div>
+            <div id="template-dynamic-fields-container" class="space-y-4">
+              <!-- Dynamically generated fields will be rendered here by WishMagicFieldRenderer -->
             </div>
           </div>
 

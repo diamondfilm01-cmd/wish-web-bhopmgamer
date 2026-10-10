@@ -7,6 +7,7 @@ const TOTAL_STEPS = 4;
 
 let currentEditingWishId = null;
 let currentEditingWishSlug = null;
+let currentLockVersion = 1;
 let currentSlugSuggestions = [];
 let isShowingAllSlugSuggestions = false;
 let slugCheckDebounceTimer = null;
@@ -243,6 +244,7 @@ document.addEventListener('DOMContentLoaded', async () => {
       if (wishResult.success && wishResult.wish) {
         const editWish = wishResult.wish;
         currentEditingWishId = editWish.id;
+        currentLockVersion = Number(editWish.lock_version || editWish.lockVersion || 1);
         if (editWish.slug) {
           currentEditingWishSlug = editWish.slug;
           currentCustomData.customSlug = editWish.slug;
@@ -291,6 +293,7 @@ document.addEventListener('DOMContentLoaded', async () => {
 
       if (targetDraft) {
         templateId = targetDraft.templateId || templateId;
+        currentLockVersion = Number(targetDraft.lock_version || targetDraft.lockVersion || 1);
         await loadTemplateData(templateId);
         if (targetDraft.customData) {
           currentCustomData = {
@@ -351,6 +354,8 @@ async function loadTemplateData(templateId) {
     }
 
     renderCustomizerHeader();
+    await loadTemplateManifestIfNeeded(activeTemplate);
+    renderDynamicTemplateFields(activeTemplate);
     populateFormValuesFromState();
     validateDraftEntitlements(currentCustomData);
     updateDevEntitlementUI();
@@ -359,6 +364,172 @@ async function loadTemplateData(templateId) {
   } catch (err) {
     console.error('Error loading template for customizer:', err);
   }
+}
+
+// -----------------------------------------------------------------------------
+// PART 4: MANIFEST-DRIVEN UNIVERSAL CUSTOMIZER & DYNAMIC FIELDS ENGINE
+// -----------------------------------------------------------------------------
+
+async function loadTemplateManifestIfNeeded(template) {
+  if (!template) return null;
+  if (template.manifest && typeof template.manifest === 'object') {
+    return template.manifest;
+  }
+  if (template.manifest_json) {
+    try {
+      template.manifest = typeof template.manifest_json === 'string' ? JSON.parse(template.manifest_json) : template.manifest_json;
+      return template.manifest;
+    } catch (e) {}
+  }
+  // Try fetching wishmagic.json from templates-store
+  try {
+    const folder = template.folder || template.slug || template.id;
+    const res = await fetch(`/templates-store/${folder}/wishmagic.json`);
+    if (res.ok) {
+      const manifest = await res.json();
+      if (manifest && typeof manifest === 'object') {
+        template.manifest = manifest;
+        if (manifest.fields && Array.isArray(manifest.fields) && (!template.fields || template.fields.length === 0)) {
+          template.fields = manifest.fields;
+        }
+        return manifest;
+      }
+    }
+  } catch (e) {}
+  return null;
+}
+
+function renderDynamicTemplateFields(template) {
+  const container = document.getElementById('template-dynamic-fields-container');
+  const card = document.getElementById('dynamic-template-fields-card');
+  const countBadge = document.getElementById('dynamic-fields-count-badge');
+  if (!container || !card) return;
+
+  const manifest = template ? template.manifest : null;
+  let rawFields = (manifest && manifest.fields) || (template && template.fields) || (template && template.detectedFields) || [];
+  if (!Array.isArray(rawFields)) rawFields = [];
+
+  const STANDARD_BUILTIN_KEYS = new Set([
+    'recipient_name', 'sender_name', 'sender_contact', 'event_date',
+    'occasion', 'relationship', 'custom_message', 'photos', 'music',
+    'voice_note', 'cover_photo', 'photo_1', 'customSlug', 'slug', 'buyerName'
+  ]);
+
+  const dynamicFields = rawFields.filter(f => {
+    const k = (f.id || f.key || '').trim();
+    return k && !STANDARD_BUILTIN_KEYS.has(k);
+  });
+
+  if (dynamicFields.length === 0) {
+    card.classList.add('hidden');
+    container.innerHTML = '';
+    return;
+  }
+
+  card.classList.remove('hidden');
+  if (countBadge) {
+    countBadge.textContent = `${dynamicFields.length} Field${dynamicFields.length === 1 ? '' : 's'}`;
+  }
+  container.innerHTML = '';
+
+  dynamicFields.forEach(field => {
+    const fieldKey = field.id || field.key;
+    field.key = fieldKey;
+    field.id = fieldKey;
+
+    // Initialize state if not present
+    if (currentCustomData[fieldKey] === undefined) {
+      currentCustomData[fieldKey] = (field.defaultValue !== undefined && field.defaultValue !== null) ? field.defaultValue : '';
+    }
+
+    const isVisible = evaluateFieldVisibility(field, currentCustomData);
+    const fieldState = {
+      value: currentCustomData[fieldKey],
+      visible: isVisible,
+      disabled: false
+    };
+
+    if (window.WishMagicFieldRenderer && typeof window.WishMagicFieldRenderer.render === 'function') {
+      const renderedNode = window.WishMagicFieldRenderer.render(
+        field,
+        fieldState,
+        (key, newVal) => {
+          handleDynamicFieldChange(key, newVal, field);
+        }
+      );
+      if (typeof renderedNode === 'string') {
+        const wrapper = document.createElement('div');
+        wrapper.innerHTML = renderedNode;
+        container.appendChild(wrapper.firstElementChild || wrapper);
+      } else if (renderedNode instanceof HTMLElement) {
+        container.appendChild(renderedNode);
+      }
+    }
+  });
+}
+
+function evaluateFieldVisibility(field, state) {
+  if (!field || !field.visibleIf) return true;
+  const cond = field.visibleIf;
+  if (typeof cond === 'function') {
+    try { return Boolean(cond(state)); } catch (e) { return true; }
+  }
+  if (typeof cond === 'object') {
+    const targetKey = cond.field || cond.key;
+    const currentVal = state[targetKey];
+    if (cond.equals !== undefined) {
+      return currentVal === cond.equals;
+    }
+    if (cond.notEquals !== undefined) {
+      return currentVal !== cond.notEquals;
+    }
+    if (cond.in && Array.isArray(cond.in)) {
+      return cond.in.includes(currentVal);
+    }
+    if (cond.notIn && Array.isArray(cond.notIn)) {
+      return !cond.notIn.includes(currentVal);
+    }
+    if (cond.truthy) {
+      return Boolean(currentVal);
+    }
+  }
+  return true;
+}
+
+function handleDynamicFieldChange(key, newVal, field) {
+  currentCustomData[key] = newVal;
+
+  // Re-evaluate visibility for all fields in container
+  const container = document.getElementById('template-dynamic-fields-container');
+  if (container && activeTemplate) {
+    const manifest = activeTemplate.manifest;
+    const rawFields = (manifest && manifest.fields) || activeTemplate.fields || [];
+    rawFields.forEach(f => {
+      const fKey = f.id || f.key;
+      const el = container.querySelector(`[data-field-key="${fKey}"]`);
+      if (el) {
+        const visible = evaluateFieldVisibility(f, currentCustomData);
+        if (visible) {
+          el.style.display = 'block';
+          el.classList.remove('wm-field-hidden');
+        } else {
+          el.style.display = 'none';
+          el.classList.add('wm-field-hidden');
+          if (f.clearOnHide) {
+            currentCustomData[fKey] = (f.defaultValue !== undefined && f.defaultValue !== null) ? f.defaultValue : '';
+          }
+        }
+      }
+    });
+  }
+
+  // Live preview update via Runtime Bridge
+  if (window.WishMagicRuntimeBridge) {
+    window.WishMagicRuntimeBridge.updateField(key, newVal);
+    window.WishMagicRuntimeBridge.updateState(currentCustomData);
+  }
+  syncDataToIframe();
+  triggerAutosave();
 }
 
 // Part 11: Validate loaded draft against entitlement without corrupting data
@@ -628,6 +799,35 @@ function populateFormValuesFromState() {
 
   updateContrastBadge();
 
+  // Sync dynamic manifest fields if rendered
+  const dynContainer = document.getElementById('template-dynamic-fields-container');
+  if (dynContainer) {
+    const fieldGroups = dynContainer.querySelectorAll('[data-field-key]');
+    fieldGroups.forEach(grp => {
+      const fKey = grp.getAttribute('data-field-key');
+      if (fKey && currentCustomData[fKey] !== undefined) {
+        const input = grp.querySelector('input, textarea, select');
+        if (input) {
+          if (input.type === 'checkbox') {
+            input.checked = Boolean(currentCustomData[fKey]);
+          } else {
+            input.value = currentCustomData[fKey] || '';
+          }
+        }
+      }
+    });
+  }
+
+  // Update variant reset button visibility
+  const resetBtn = document.getElementById('btn-reset-variant-defaults');
+  if (resetBtn) {
+    if (currentCustomData.relationship && findRelationshipVariantConfig(currentCustomData.relationship)) {
+      resetBtn.classList.remove('hidden');
+    } else {
+      resetBtn.classList.add('hidden');
+    }
+  }
+
   // Part 5 Advanced Media System Initialization
   initMediaSystemUI();
 }
@@ -775,6 +975,32 @@ function validateStep1() {
     if (dateInput) dateInput.classList.remove('border-red-500', 'ring-2', 'ring-red-400/40');
   }
 
+  // Validate dynamic manifest fields if any
+  const dynContainer = document.getElementById('template-dynamic-fields-container');
+  if (dynContainer && activeTemplate) {
+    const manifest = activeTemplate.manifest;
+    const rawFields = (manifest && manifest.fields) || activeTemplate.fields || [];
+    rawFields.forEach(f => {
+      const fKey = f.id || f.key;
+      const el = dynContainer.querySelector(`[data-field-key="${fKey}"]`);
+      if (el && el.style.display !== 'none' && !el.classList.contains('wm-field-hidden')) {
+        if (window.WishMagicFieldRenderer) {
+          const valResult = window.WishMagicFieldRenderer.validate(f, currentCustomData[fKey]);
+          if (!valResult.valid) {
+            errors.push(valResult.errors[0] || `${f.label || fKey} is invalid`);
+            el.classList.add('wm-field-invalid');
+            const inputCtrl = el.querySelector('input, textarea, select');
+            if (inputCtrl) inputCtrl.classList.add('border-red-500', 'ring-2', 'ring-red-400/40');
+          } else {
+            el.classList.remove('wm-field-invalid');
+            const inputCtrl = el.querySelector('input, textarea, select');
+            if (inputCtrl) inputCtrl.classList.remove('border-red-500', 'ring-2', 'ring-red-400/40');
+          }
+        }
+      }
+    });
+  }
+
   if (errors.length > 0) {
     if (errorBox) {
       errorBox.innerHTML = `
@@ -791,6 +1017,135 @@ function validateStep1() {
 
   if (errorBox) errorBox.classList.add('hidden');
   return true;
+}
+
+const DEFAULT_RELATIONSHIP_CONFIGS = {
+  girlfriend: {
+    theme: { style: 'romantic', mood: 'intimate' },
+    palette: { primary: '#ec4899', secondary: '#be185d', accent: '#f43f5e', background: '#fff1f2' },
+    messages: {
+      defaultWish: 'To my dearest girlfriend, you are the magic in every single day of my life. Happy Birthday my love!',
+      heading: 'Forever Yours ❤️',
+      subheading: 'A celebration crafted with all my heart'
+    },
+    atmosphere: { particles: 'floating_hearts', intensity: 'vibrant', glow: 'rose_gold' },
+    musicCategory: 'romantic'
+  },
+  boyfriend: {
+    theme: { style: 'romantic', mood: 'warm' },
+    palette: { primary: '#3b82f6', secondary: '#1d4ed8', accent: '#60a5fa', background: '#eff6ff' },
+    messages: {
+      defaultWish: 'To my handsome boyfriend, thank you for being my rock, my greatest laugh, and my favorite adventure. Happy Birthday!',
+      heading: 'My Best Friend & Love 💙',
+      subheading: 'Celebrating the incredible person you are'
+    },
+    atmosphere: { particles: 'sparkling_stars', intensity: 'warm', glow: 'sapphire' },
+    musicCategory: 'romantic'
+  },
+  crush: {
+    theme: { style: 'romantic', mood: 'playful_shy' },
+    palette: { primary: '#a855f7', secondary: '#7e22ce', accent: '#c084fc', background: '#faf5ff' },
+    messages: {
+      defaultWish: 'Hey there! Just wanted to make sure your special day is as wonderfully captivating as your smile. Happy Birthday ✨',
+      heading: 'A Little Secret Magic ✨',
+      subheading: 'Sent with a quiet smile just for you'
+    },
+    atmosphere: { particles: 'stardust_chimes', intensity: 'subtle', glow: 'lavender_dream' },
+    musicCategory: 'romantic'
+  },
+  friend: {
+    theme: { style: 'celebration', mood: 'energetic' },
+    palette: { primary: '#f59e0b', secondary: '#d97706', accent: '#fbbf24', background: '#fffbeb' },
+    messages: {
+      defaultWish: 'Happy Birthday to my absolute favorite human! Here is to countless more wild memories and unstoppable laughter.',
+      heading: 'Best Friends Forever 🎈',
+      subheading: 'Cheers to another year of legendary times!'
+    },
+    atmosphere: { particles: 'confetti_burst', intensity: 'high', glow: 'golden_sunshine' },
+    musicCategory: 'celebration'
+  },
+  best_friend: {
+    theme: { style: 'celebration', mood: 'energetic' },
+    palette: { primary: '#f59e0b', secondary: '#d97706', accent: '#fbbf24', background: '#fffbeb' },
+    messages: {
+      defaultWish: 'Happy Birthday to my absolute best friend and ride-or-die! May your special year be legendary and filled with adventures.',
+      heading: 'Ride or Die Bestie 🌟',
+      subheading: 'To the one who knows all my stories'
+    },
+    atmosphere: { particles: 'confetti_burst', intensity: 'high', glow: 'golden_sunshine' },
+    musicCategory: 'celebration'
+  },
+  wife: {
+    theme: { style: 'romantic', mood: 'deep_love' },
+    palette: { primary: '#e11d48', secondary: '#9f1239', accent: '#fb7185', background: '#fff1f2' },
+    messages: {
+      defaultWish: 'To my beloved wife, thank you for filling our world with grace, boundless love, and gentle warmth. Happy Birthday my queen.',
+      heading: 'My Wife, My Everything 💍',
+      subheading: 'Honoring our beautiful journey together'
+    },
+    atmosphere: { particles: 'golden_ribbons', intensity: 'graceful', glow: 'champagne_rose' },
+    musicCategory: 'romantic'
+  },
+  husband: {
+    theme: { style: 'romantic', mood: 'deep_love' },
+    palette: { primary: '#2563eb', secondary: '#1e40af', accent: '#38bdf8', background: '#f0f9ff' },
+    messages: {
+      defaultWish: 'Happy Birthday to my loving husband. Thank you for your strength, your kindness, and the countless smiles you bring to my heart.',
+      heading: 'My King & Partner 👑',
+      subheading: 'Celebrating our everlasting bond'
+    },
+    atmosphere: { particles: 'celestial_glow', intensity: 'steady', glow: 'royal_gold' },
+    musicCategory: 'romantic'
+  },
+  mother: {
+    theme: { style: 'peaceful', mood: 'reverent' },
+    palette: { primary: '#d97706', secondary: '#b45309', accent: '#f59e0b', background: '#fffbeb' },
+    messages: {
+      defaultWish: 'Dearest Mom, thank you for your unconditional love, endless sacrifices, and warm embrace. Happy Birthday to the heart of our family.',
+      heading: 'To the World\'s Best Mom 🌸',
+      subheading: 'With infinite love and eternal gratitude'
+    },
+    atmosphere: { particles: 'golden_dust', intensity: 'gentle', glow: 'amber_warmth' },
+    musicCategory: 'acoustic'
+  },
+  father: {
+    theme: { style: 'peaceful', mood: 'reverent' },
+    palette: { primary: '#0284c7', secondary: '#0369a1', accent: '#38bdf8', background: '#f0f9ff' },
+    messages: {
+      defaultWish: 'Happy Birthday Dad! Thank you for being my constant guide, my protector, and the greatest inspiration in my life.',
+      heading: 'To My Hero, Dad 👔',
+      subheading: 'With respect, pride, and boundless love'
+    },
+    atmosphere: { particles: 'starlight_chimes', intensity: 'gentle', glow: 'sapphire' },
+    musicCategory: 'acoustic'
+  },
+  family: {
+    theme: { style: 'celebration', mood: 'warm' },
+    palette: { primary: '#8b5cf6', secondary: '#6d28d9', accent: '#fbbf24', background: '#faf5ff' },
+    messages: {
+      defaultWish: 'Wishing our wonderful family member the happiest celebration! May joy, laughter, and blessings surround you always.',
+      heading: 'Family Forever 🏡',
+      subheading: 'Celebrating someone truly special to us all'
+    },
+    atmosphere: { particles: 'confetti_burst', intensity: 'high', glow: 'golden_sunshine' },
+    musicCategory: 'celebration'
+  }
+};
+
+function findRelationshipVariantConfig(rel) {
+  if (!rel) return null;
+  const relNorm = String(rel).toLowerCase().trim();
+  if (activeTemplate && Array.isArray(activeTemplate.variants)) {
+    const match = activeTemplate.variants.find(v =>
+      (v.relationship_slug && v.relationship_slug.toLowerCase() === relNorm) ||
+      (v.relationship && v.relationship.toLowerCase() === relNorm)
+    );
+    if (match) {
+      const cfg = typeof match.configuration_json === 'string' ? JSON.parse(match.configuration_json) : (match.configuration || match);
+      return cfg;
+    }
+  }
+  return DEFAULT_RELATIONSHIP_CONFIGS[relNorm] || null;
 }
 
 // Form Inputs Handlers
@@ -834,10 +1189,104 @@ function initFormInputs() {
 
   window.handleRelationshipInput = function(val) {
     currentCustomData.relationship = val;
+    const resetBtn = document.getElementById('btn-reset-variant-defaults');
+
+    const variantConfig = findRelationshipVariantConfig(val);
+    if (variantConfig) {
+      if (resetBtn) resetBtn.classList.remove('hidden');
+
+      // Auto-apply message if empty or unchanged from prior default
+      const messageInput = document.getElementById('input-message');
+      const curMsg = (currentCustomData.custom_message || '').trim();
+      const variantWish = variantConfig.messages?.defaultWish || variantConfig.messages?.main_message;
+
+      if (!curMsg && variantWish) {
+        currentCustomData.custom_message = variantWish;
+        if (messageInput) {
+          messageInput.value = variantWish;
+          const counter = document.getElementById('message-char-count');
+          if (counter) counter.textContent = `${variantWish.length} / 500`;
+        }
+      }
+
+      // Apply theme palette if provided and not explicitly overridden
+      if (variantConfig.palette && variantConfig.palette.primary) {
+        if (!currentCustomData._userOverrodePalette) {
+          currentCustomData.colors = {
+            ...currentCustomData.colors,
+            primary: variantConfig.palette.primary,
+            secondary: variantConfig.palette.secondary || currentCustomData.colors.secondary,
+            accent: variantConfig.palette.accent || currentCustomData.colors.accent,
+            background: variantConfig.palette.background || currentCustomData.colors.background
+          };
+          if (variantConfig.theme?.style) {
+            currentCustomData.theme = variantConfig.theme.style;
+          }
+          const colPrimary = document.getElementById('color-primary-input');
+          if (colPrimary) colPrimary.value = currentCustomData.colors.primary;
+          const hexPrimary = document.getElementById('hex-primary-label');
+          if (hexPrimary) hexPrimary.textContent = currentCustomData.colors.primary;
+          const colSecondary = document.getElementById('color-secondary-input');
+          if (colSecondary) colSecondary.value = currentCustomData.colors.secondary;
+        }
+      }
+    } else {
+      if (resetBtn) resetBtn.classList.add('hidden');
+    }
+
     triggerAutosave();
+    syncDataToIframe();
+    if (window.WishMagicRuntimeBridge) {
+      window.WishMagicRuntimeBridge.updateState(currentCustomData);
+    }
     if (typeof window.initSmartWishLinkUI === 'function') {
       window.initSmartWishLinkUI();
     }
+  };
+
+  window.resetToVariantDefaults = function() {
+    const rel = currentCustomData.relationship;
+    const variantConfig = findRelationshipVariantConfig(rel);
+    if (!variantConfig) {
+      showToast('No variant defaults configured for this relationship');
+      return;
+    }
+
+    const variantWish = variantConfig.messages?.defaultWish || variantConfig.messages?.main_message;
+    if (variantWish) {
+      currentCustomData.custom_message = variantWish;
+      const messageInput = document.getElementById('input-message');
+      if (messageInput) messageInput.value = variantWish;
+      const counter = document.getElementById('message-char-count');
+      if (counter) counter.textContent = `${variantWish.length} / 500`;
+    }
+
+    if (variantConfig.palette) {
+      currentCustomData.colors = {
+        ...currentCustomData.colors,
+        primary: variantConfig.palette.primary || currentCustomData.colors.primary,
+        secondary: variantConfig.palette.secondary || currentCustomData.colors.secondary,
+        accent: variantConfig.palette.accent || currentCustomData.colors.accent
+      };
+      if (variantConfig.theme?.style) {
+        currentCustomData.theme = variantConfig.theme.style;
+      }
+      currentCustomData._userOverrodePalette = false;
+
+      const colPrimary = document.getElementById('color-primary-input');
+      if (colPrimary) colPrimary.value = currentCustomData.colors.primary;
+      const hexPrimary = document.getElementById('hex-primary-label');
+      if (hexPrimary) hexPrimary.textContent = currentCustomData.colors.primary;
+      const colSecondary = document.getElementById('color-secondary-input');
+      if (colSecondary) colSecondary.value = currentCustomData.colors.secondary;
+    }
+
+    showToast(`Reset to ${rel || 'relationship'} crafted defaults ↺`);
+    syncDataToIframe();
+    if (window.WishMagicRuntimeBridge) {
+      window.WishMagicRuntimeBridge.updateState(currentCustomData);
+    }
+    triggerAutosave();
   };
 
   window.handleMessageInput = function(val) {
@@ -3984,14 +4433,24 @@ window.saveDraftLocally = function() {
           body: JSON.stringify({
             status: 'draft',
             isDraft: true,
+            lockVersion: currentLockVersion,
             recipientName: currentCustomData.recipient_name || 'Special Person',
             eventDate: currentCustomData.event_date || new Date().toISOString().split('T')[0],
             customData: currentCustomData
           })
-        }).then(() => {
-          const indicator = document.getElementById('autosave-indicator');
-          if (indicator) {
-            indicator.innerHTML = `<span class="w-2 h-2 rounded-full bg-emerald-500"></span><span>Draft saved to cloud ✨</span>`;
+        }).then(async res => {
+          const data = await res.json().catch(() => ({}));
+          if (res.status === 409 || (data && data.error && data.error.code === 'CONCURRENCY_CONFLICT')) {
+            handleDraftConcurrencyConflict(data);
+            return;
+          }
+          if (data && data.success) {
+            if (data.lockVersion) currentLockVersion = Number(data.lockVersion);
+            else currentLockVersion = (currentLockVersion || 1) + 1;
+            const indicator = document.getElementById('autosave-indicator');
+            if (indicator) {
+              indicator.innerHTML = `<span class="w-2 h-2 rounded-full bg-emerald-500"></span><span>Draft saved to cloud ✨</span>`;
+            }
           }
         }).catch(() => {});
       } else {
@@ -4011,6 +4470,7 @@ window.saveDraftLocally = function() {
         }).then(r => r.json()).then(data => {
           if (data && data.success && data.wishId) {
             currentEditingWishId = data.wishId;
+            if (data.lockVersion) currentLockVersion = Number(data.lockVersion);
             const indicator = document.getElementById('autosave-indicator');
             if (indicator) {
               indicator.innerHTML = `<span class="w-2 h-2 rounded-full bg-emerald-500"></span><span>Draft saved to cloud ✨</span>`;
@@ -4028,6 +4488,85 @@ window.saveDraftLocally = function() {
     console.warn('Error saving local draft:', e);
   }
 };
+
+function handleDraftConcurrencyConflict(conflictData) {
+  const indicator = document.getElementById('autosave-indicator');
+  if (indicator) {
+    indicator.innerHTML = `<span class="w-2 h-2 rounded-full bg-amber-400 animate-pulse"></span><span class="text-amber-700 dark:text-amber-300 font-bold">Draft Conflict Detected</span>`;
+  }
+
+  let conflictBanner = document.getElementById('draft-concurrency-conflict-banner');
+  if (!conflictBanner) {
+    conflictBanner = document.createElement('div');
+    conflictBanner.id = 'draft-concurrency-conflict-banner';
+    conflictBanner.className = 'fixed bottom-20 left-1/2 -translate-x-1/2 z-50 max-w-md w-[92%] p-4 rounded-2xl bg-amber-600/95 text-white shadow-2xl backdrop-blur-xl border border-amber-300 flex flex-col gap-2 transition-all';
+    document.body.appendChild(conflictBanner);
+  }
+
+  const remoteVer = (conflictData && conflictData.currentLockVersion) || 'newer';
+  conflictBanner.innerHTML = `
+    <div class="flex items-start gap-2.5">
+      <span class="text-xl">⚠️</span>
+      <div class="flex-1 text-xs leading-relaxed">
+        <p class="font-bold text-sm">Draft Updated Elsewhere (v${remoteVer})</p>
+        <p class="text-amber-100 mt-0.5">A newer version of this draft was saved from another browser tab or device. Choose how to keep your changes:</p>
+      </div>
+    </div>
+    <div class="flex items-center justify-end gap-2 mt-1">
+      <button type="button" id="btn-conflict-reload" class="px-3 py-1.5 rounded-xl bg-black/30 hover:bg-black/50 text-white font-bold text-xs transition cursor-pointer">
+        Reload Remote Draft
+      </button>
+      <button type="button" id="btn-conflict-overwrite" class="px-3 py-1.5 rounded-xl bg-white text-amber-900 hover:bg-amber-100 font-extrabold text-xs transition cursor-pointer">
+        Keep Local & Overwrite
+      </button>
+    </div>
+  `;
+  conflictBanner.classList.remove('hidden');
+
+  document.getElementById('btn-conflict-overwrite')?.addEventListener('click', () => {
+    currentLockVersion = Number(conflictData?.currentLockVersion || currentLockVersion);
+    conflictBanner.remove();
+    saveDraftLocally();
+    showToast('Saved your current local changes ✨');
+  });
+
+  document.getElementById('btn-conflict-reload')?.addEventListener('click', async () => {
+    conflictBanner.remove();
+    if (currentEditingWishId) {
+      try {
+        const res = await fetch(`/api/wishes/${encodeURIComponent(currentEditingWishId)}`, { credentials: 'include' });
+        const json = await res.json();
+        if (json.success && json.wish && json.wish.customData) {
+          currentCustomData = { ...currentCustomData, ...json.wish.customData };
+          currentLockVersion = Number(json.wish.lock_version || json.wish.lockVersion || currentLockVersion);
+          populateFormValuesFromState();
+          syncDataToIframe();
+          showToast('Loaded newest remote draft 🔄');
+        }
+      } catch (e) {
+        showToast('Error reloading remote draft');
+      }
+    }
+  });
+}
+
+function sanitizeCustomDataForPublish(data) {
+  if (!data || typeof data !== 'object') return data;
+  const sanitized = Array.isArray(data) ? [] : {};
+  for (const [k, v] of Object.entries(data)) {
+    if (typeof v === 'string') {
+      sanitized[k] = v
+        .replace(/<script\b[^<]*(?:(?!<\/script>)<[^<]*)*<\/script>/gi, '')
+        .replace(/javascript\s*:/gi, '')
+        .replace(/on\w+\s*=/gi, '');
+    } else if (typeof v === 'object' && v !== null) {
+      sanitized[k] = sanitizeCustomDataForPublish(v);
+    } else {
+      sanitized[k] = v;
+    }
+  }
+  return sanitized;
+}
 
 window.resetCustomizerChanges = function() {
   if (!confirm('Are you sure you want to reset all changes to template defaults?')) return;
@@ -4116,6 +4655,30 @@ window.publishWishAndGetLink = async function() {
     }
   }
 
+  // Part 4: Validate manifest dynamic required fields before publishing
+  if (activeTemplate) {
+    const rawFields = (activeTemplate.manifest && activeTemplate.manifest.fields) || activeTemplate.fields || [];
+    for (const f of rawFields) {
+      const fKey = f.id || f.key;
+      const isVisible = evaluateFieldVisibility(f, currentCustomData);
+      if (isVisible && window.WishMagicFieldRenderer) {
+        const valRes = window.WishMagicFieldRenderer.validate(f, currentCustomData[fKey]);
+        if (!valRes.valid) {
+          showToast(`⚠️ ${valRes.errors[0] || ((f.label || fKey) + ' is required')}`);
+          window.goToStep(1);
+          const el = document.querySelector(`[data-field-key="${fKey}"]`);
+          if (el) {
+            el.scrollIntoView({ behavior: 'smooth', block: 'center' });
+            el.classList.add('wm-field-invalid');
+            const inputCtrl = el.querySelector('input, textarea, select');
+            if (inputCtrl) inputCtrl.focus();
+          }
+          return;
+        }
+      }
+    }
+  }
+
   // Part 11: Centralized Entitlement Check
   if (window.WishFeatureAccess) {
     const publishCheck = window.WishFeatureAccess.canPublishWish(activeTemplate, currentCustomData);
@@ -4185,13 +4748,16 @@ async function executeWishCreation(extraPayload = {}) {
 
     const chosenSlug = (extraPayload.slug || currentCustomData.customSlug || currentCustomData.slug || '').toLowerCase().trim();
     const linkType = extraPayload.linkType || currentCustomData.linkType || (chosenSlug ? 'personalized' : 'random');
+    const sanitizedData = sanitizeCustomDataForPublish(currentCustomData);
 
     const payload = {
       templateId: activeTemplate.id,
+      templateVersionId: activeTemplate.activeVersionId || activeTemplate.versionId || activeTemplate.templateVersionId || null,
       linkType,
       userId: currentUserId,
+      lockVersion: currentLockVersion,
       customData: {
-        ...currentCustomData,
+        ...sanitizedData,
         userId: currentUserId,
         customSlug: chosenSlug,
         slug: chosenSlug,
@@ -4217,6 +4783,7 @@ async function executeWishCreation(extraPayload = {}) {
       }
       if (data && data.success) {
         data.wishId = currentEditingWishId;
+        if (data.lockVersion) currentLockVersion = Number(data.lockVersion);
       }
     } else {
       if (window.WishApiClient && typeof window.WishApiClient.post === 'function') {

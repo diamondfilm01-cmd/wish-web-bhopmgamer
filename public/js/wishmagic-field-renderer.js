@@ -147,6 +147,7 @@
         errors.push(message);
       }
 
+      const fieldIdentifier = field.label || field.key || field.id || 'Field';
       const isRequired = field.required === true;
       const isEmpty = value === undefined || value === null || value === '' ||
         (Array.isArray(value) && value.length === 0) ||
@@ -154,7 +155,7 @@
 
       // 1. Required Check
       if (isRequired && isEmpty) {
-        addError('REQUIRED', `${field.label || field.key} is required`);
+        addError('REQUIRED', `${fieldIdentifier} is required`);
         return { valid: false, errors, code: firstCode };
       }
 
@@ -164,41 +165,50 @@
       }
 
       const strVal = String(value).trim();
+      const constraints = field.constraints || {};
 
       // 2. Text & Textarea Bounds
-      const minlength = field.minlength !== undefined && field.minlength !== null ? parseInt(field.minlength, 10) : null;
-      const maxlength = field.maxlength !== undefined && field.maxlength !== null ? parseInt(field.maxlength, 10) :
-        (field.maxLength !== undefined && field.maxLength !== null ? parseInt(field.maxLength, 10) : null);
+      const rawMinLength = field.minlength !== undefined && field.minlength !== null ? field.minlength :
+        (constraints.minLength !== undefined ? constraints.minLength : constraints.minlength);
+      const minlength = rawMinLength !== undefined && rawMinLength !== null ? parseInt(rawMinLength, 10) : null;
+
+      const rawMaxLength = field.maxlength !== undefined && field.maxlength !== null ? field.maxlength :
+        (field.maxLength !== undefined && field.maxLength !== null ? field.maxLength :
+        (constraints.maxLength !== undefined ? constraints.maxLength : constraints.maxlength));
+      const maxlength = rawMaxLength !== undefined && rawMaxLength !== null ? parseInt(rawMaxLength, 10) : null;
 
       if (minlength !== null && !isNaN(minlength) && strVal.length < minlength) {
-        addError('MIN_LENGTH', `${field.label || field.key} must be at least ${minlength} characters`);
+        addError('MIN_LENGTH', `${fieldIdentifier} must be at least ${minlength} characters`);
       }
 
       if (maxlength !== null && !isNaN(maxlength) && strVal.length > maxlength) {
-        addError('MAX_LENGTH', `${field.label || field.key} cannot exceed ${maxlength} characters`);
+        addError('MAX_LENGTH', `${fieldIdentifier} cannot exceed ${maxlength} characters`);
       }
 
       // 3. Number & Range Bounds
       if (field.type === 'number' || field.type === 'range') {
         const numVal = Number(value);
         if (isNaN(numVal)) {
-          addError('INVALID_NUMBER', `${field.label || field.key} must be a valid number`);
+          addError('INVALID_NUMBER', `${fieldIdentifier} must be a valid number`);
         } else {
-          if (field.min !== undefined && field.min !== null && !isNaN(Number(field.min)) && numVal < Number(field.min)) {
-            addError('MIN_VALUE', `${field.label || field.key} must be at least ${field.min}`);
+          const rawMin = field.min !== undefined && field.min !== null ? field.min : constraints.min;
+          const rawMax = field.max !== undefined && field.max !== null ? field.max : constraints.max;
+          if (rawMin !== undefined && rawMin !== null && !isNaN(Number(rawMin)) && numVal < Number(rawMin)) {
+            addError('MIN_VALUE', `${fieldIdentifier} must be at least ${rawMin}`);
           }
-          if (field.max !== undefined && field.max !== null && !isNaN(Number(field.max)) && numVal > Number(field.max)) {
-            addError('MAX_VALUE', `${field.label || field.key} cannot exceed ${field.max}`);
+          if (rawMax !== undefined && rawMax !== null && !isNaN(Number(rawMax)) && numVal > Number(rawMax)) {
+            addError('MAX_VALUE', `${fieldIdentifier} cannot exceed ${rawMax}`);
           }
         }
       }
 
       // 4. Pattern Regex
-      if (field.pattern) {
+      const patternVal = field.pattern || constraints.pattern;
+      if (patternVal) {
         try {
-          const regex = new RegExp(field.pattern);
+          const regex = new RegExp(patternVal);
           if (!regex.test(strVal)) {
-            addError('PATTERN_MISMATCH', `${field.label || field.key} format is invalid`);
+            addError('PATTERN_MISMATCH', `${fieldIdentifier} format is invalid`);
           }
         } catch (e) {
           // Ignore bad regex in template
@@ -292,7 +302,7 @@
       }
 
       const isBrowser = typeof document !== 'undefined';
-      const fieldKey = field.key;
+      const fieldKey = field.key || field.id;
       const fieldType = (field.type || 'text').toLowerCase();
       const rawVal = (state && typeof state === 'object' && 'value' in state) ? state.value : state;
       const initialVal = rawVal !== undefined && rawVal !== null ? rawVal : (field.defaultValue !== undefined ? field.defaultValue : '');
@@ -300,7 +310,7 @@
       const isDisabled = state && typeof state === 'object' && state.disabled !== undefined ? state.disabled : false;
       const initialError = state && typeof state === 'object' && state.error ? state.error : '';
 
-      const labelText = (state && typeof state === 'object' && state.dynamicLabel) || field.label || fieldKey.replace(/_/g, ' ').replace(/\b\w/g, l => l.toUpperCase());
+      const labelText = (state && typeof state === 'object' && state.dynamicLabel) || field.label || (fieldKey ? fieldKey.replace(/_/g, ' ').replace(/\b\w/g, l => l.toUpperCase()) : 'Field');
       const descText = (state && typeof state === 'object' && state.dynamicDescription) || field.description || '';
       const isRequired = field.required === true || (state && typeof state === 'object' && state.required === true);
 
@@ -393,7 +403,7 @@
      * Render Type-Specific DOM controls
      */
     _renderTypeControl(field, value, isDisabled, onChange, countBadge) {
-      const fieldKey = field.key;
+      const fieldKey = field.key || field.id;
       const type = (field.type || 'text').toLowerCase();
 
       switch (type) {
@@ -1055,7 +1065,7 @@
      * Fallback String Renderer for Server/Testing Environments
      */
     _renderHtmlString(field, value, isVisible, isDisabled, error, labelText, descText, isRequired) {
-      const fieldKey = field.key;
+      const fieldKey = field.key || field.id;
       const fieldType = (field.type || 'text').toLowerCase();
       const escVal = escapeHtml(value);
 

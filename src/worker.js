@@ -5258,6 +5258,21 @@ export default {
         const eventDate = sanitizeString(customData.event_date || customData.eventDate || existing.event_date, 10);
         const nowIso = new Date().toISOString();
 
+        // Optimistic Concurrency Check (Part 4)
+        const expectedLockVersion = body.lockVersion !== undefined ? Number(body.lockVersion) : null;
+        if (expectedLockVersion !== null && existing.lock_version !== undefined && existing.lock_version !== null) {
+          if (Number(existing.lock_version) > expectedLockVersion) {
+            return applySecurityHeaders(
+              jsonError('CONCURRENCY_CONFLICT', 'A newer draft version has already been saved. Please reload.', 409, {
+                currentLockVersion: Number(existing.lock_version),
+                updatedAt: existing.updated_at
+              }, null, requestId),
+              request, env
+            );
+          }
+        }
+        const nextLockVersion = (Number(existing.lock_version) || 1) + 1;
+
         // Preserve existing slug unless explicitly requested and validated
         let targetSlug = existing.slug;
         const rawRequestedSlug = sanitizeString(body.slug || customData.slug || customData.customSlug || '', 80).toLowerCase().trim();
@@ -5280,11 +5295,18 @@ export default {
           targetSlug = normRequested;
         }
 
-        await env.DB.prepare(
-          'UPDATE wishes SET slug = ?, recipient_name = ?, buyer_name = ?, event_date = ?, custom_data = ?, updated_at = ? WHERE id = ?'
-        ).bind(targetSlug, recipientName, buyerName, eventDate, JSON.stringify(customData), nowIso, existing.id).run();
+        try {
+          await env.DB.prepare(
+            'UPDATE wishes SET slug = ?, recipient_name = ?, buyer_name = ?, event_date = ?, custom_data = ?, lock_version = ?, updated_at = ? WHERE id = ?'
+          ).bind(targetSlug, recipientName, buyerName, eventDate, JSON.stringify(customData), nextLockVersion, nowIso, existing.id).run();
+        } catch (_) {
+          // Backward-compatible fallback if lock_version column not present
+          await env.DB.prepare(
+            'UPDATE wishes SET slug = ?, recipient_name = ?, buyer_name = ?, event_date = ?, custom_data = ?, updated_at = ? WHERE id = ?'
+          ).bind(targetSlug, recipientName, buyerName, eventDate, JSON.stringify(customData), nowIso, existing.id).run();
+        }
 
-        response = jsonSuccess({ updated: true, wishId: existing.id, slug: targetSlug }, 200, {}, requestId);
+        response = jsonSuccess({ updated: true, wishId: existing.id, slug: targetSlug, lockVersion: nextLockVersion, updatedAt: nowIso }, 200, {}, requestId);
       }
 
       else if (pathname.startsWith('/api/wishes/') && method === 'DELETE') {
@@ -5670,13 +5692,18 @@ export default {
           return applySecurityHeaders(jsonError('ZIP_MISSING', 'A valid template ZIP archive is required for ingestion into Backblaze B2', 400), request, env);
         }
 
+        const idempotencyKey = request.headers.get('Idempotency-Key') || 
+                               request.headers.get('X-Idempotency-Key') || 
+                               templateMeta.idempotencyKey || null;
+
         // Execute Real Ingestion Pipeline
         const ingestResult = await executeB2TemplateIngestPipeline({
           zipBuffer,
           templateMetadata: templateMeta,
           env,
           db: env.DB,
-          authorId: user.id || 'admin'
+          authorId: user.id || 'admin',
+          idempotencyKey
         });
 
         if (!ingestResult.success) {
@@ -5685,6 +5712,58 @@ export default {
         }
 
         response = jsonSuccess(ingestResult, 201, {}, requestId);
+      }
+
+      // --- Part 3: Template Ingestion Operation Status & State Machine Route ---
+      else if (pathname.startsWith('/api/templates/operations/') && method === 'GET') {
+        const user = await getAuthenticatedUser(request, env);
+        if (!user) return applySecurityHeaders(jsonError('AUTH_REQUIRED', 'Authentication required', 401), request, env);
+        const isAdmin = await verifyAdminRole(user, env);
+        if (!isAdmin) return applySecurityHeaders(jsonError('FORBIDDEN', 'Admin role required', 403), request, env);
+
+        const opId = pathname.replace('/api/templates/operations/', '').trim();
+        if (!opId) return applySecurityHeaders(jsonError('BAD_REQUEST', 'Operation ID required', 400), request, env);
+
+        if (env.DB && typeof env.DB.prepare === 'function') {
+          const op = await env.DB.prepare(`
+            SELECT * FROM template_upload_operations WHERE id = ?
+          `).bind(opId).first();
+
+          if (!op) {
+            return applySecurityHeaders(jsonError('NOT_FOUND', `Operation ${opId} not found`, 404), request, env);
+          }
+
+          let validationReport = {};
+          let inventory = [];
+          try { validationReport = JSON.parse(op.validation_report_json || '{}'); } catch (_) {}
+          try { inventory = JSON.parse(op.inventory_json || '[]'); } catch (_) {}
+
+          response = jsonSuccess({
+            success: true,
+            operation: {
+              id: op.id,
+              state: op.state,
+              progressStage: op.progress_stage,
+              progressPercent: op.progress_percent,
+              templateFamilyId: op.template_family_id,
+              templateId: op.template_id,
+              versionId: op.version_id,
+              versionNumber: op.version_number,
+              versionLabel: op.version_label,
+              packageFingerprint: op.package_fingerprint,
+              isRetryable: Boolean(op.is_retryable),
+              errorCode: op.error_code,
+              errorMessage: op.error_message,
+              validationReport,
+              inventory,
+              previewUrl: op.template_id && op.version_id ? `/api/templates/${op.template_id}/versions/${op.version_id}/preview/index.html` : null,
+              createdAt: op.created_at,
+              updatedAt: op.updated_at
+            }
+          }, 200, {}, requestId);
+        } else {
+          return applySecurityHeaders(jsonError('DB_UNAVAILABLE', 'Database not available', 503), request, env);
+        }
       }
 
       // --- Part 20: Template Version Preview Route ---
@@ -6518,7 +6597,122 @@ export default {
         }
 
         if (!template) return applySecurityHeaders(jsonError('NOT_FOUND', 'Template not found', 404), request, env);
-        response = jsonSuccess({ template }, 200, {}, requestId);
+
+        const reqVersionId = url.searchParams.get('versionId') || template.current_version_id || null;
+        let activeVer = null;
+        let fields = [];
+        let variants = [];
+        let relationshipsList = [];
+        let sections = [];
+        let capabilities = {};
+
+        if (env.DB && typeof env.DB.prepare === 'function') {
+          try {
+            if (reqVersionId) {
+              activeVer = await env.DB.prepare('SELECT * FROM template_versions WHERE id = ? LIMIT 1').bind(reqVersionId).first();
+            }
+            if (!activeVer) {
+              activeVer = await env.DB.prepare(`
+                SELECT * FROM template_versions 
+                WHERE (template_id = ? OR template_family_id = ? OR template_family_id = ?) 
+                AND (is_current = 1 OR status = 'published' OR status = 'ready')
+                ORDER BY is_current DESC, version_number DESC LIMIT 1
+              `).bind(template.id, `fam_${template.id}`, template.id).first();
+            }
+
+            // Load registered fields from template_fields
+            if (activeVer) {
+              const fRows = await env.DB.prepare(`
+                SELECT * FROM template_fields 
+                WHERE template_version_id = ? AND status = 'active'
+                ORDER BY sort_order ASC
+              `).bind(activeVer.id).all();
+              if (fRows.results && fRows.results.length > 0) {
+                fields = fRows.results.map(f => ({
+                  id: f.field_key,
+                  key: f.field_key,
+                  label: f.label,
+                  type: f.field_type,
+                  placeholder: f.placeholder,
+                  helpText: f.help_text,
+                  required: Boolean(f.is_required),
+                  defaultValue: f.default_value,
+                  group: f.group_name || 'personal',
+                  validation: safeJsonParse(f.validation_json, {})
+                }));
+              }
+            }
+
+            // Load variants
+            const vRows = await env.DB.prepare(`
+              SELECT v.*, r.name as relationship_name, r.slug as relationship_slug, r.icon as relationship_icon
+              FROM template_relationship_variants v
+              LEFT JOIN relationships r ON v.relationship_id = r.id
+              WHERE (v.template_id = ? ${activeVer ? 'OR v.template_version_id = ?' : ''}) AND v.status != 'archived'
+              ORDER BY v.sort_order ASC
+            `).bind(...(activeVer ? [template.id, activeVer.id] : [template.id])).all();
+            variants = vRows.results || [];
+
+            // Load assigned relationships
+            const rRows = await env.DB.prepare(`
+              SELECT r.* FROM relationships r
+              JOIN template_relationships tr ON r.id = tr.relationship_id
+              WHERE tr.template_id = ? AND tr.enabled = 1
+              ORDER BY r.sort_order ASC
+            `).bind(template.id).all();
+            relationshipsList = rRows.results || [];
+          } catch (e) {
+            console.warn('[Template Fetch Enrichment Notice]:', e.message);
+          }
+        }
+
+        if (!activeVer) {
+          activeVer = await getOrSeedActiveTemplateVersion(env, template.id);
+        }
+
+        // If template_fields wasn't found in DB, extract from detected_fields or defaultConfig
+        if (fields.length === 0) {
+          const rawFields = activeVer?.detectedFields || template.detected_fields || template.detectedFields || [];
+          const parsed = typeof rawFields === 'string' ? safeJsonParse(rawFields, []) : rawFields;
+          if (Array.isArray(parsed)) {
+            fields = parsed.map(f => ({
+              id: f.id || f.key,
+              key: f.id || f.key,
+              label: f.label || (f.key ? f.key.replace(/_/g, ' ').replace(/\b\w/g, c => c.toUpperCase()) : 'Field'),
+              type: f.type || 'text',
+              placeholder: f.placeholder || '',
+              required: Boolean(f.required || f.isRequired),
+              defaultValue: f.defaultValue || f.default || '',
+              group: f.group || f.category || 'personal',
+              validation: f.validation || {}
+            }));
+          }
+        }
+
+        // Capabilities and sections
+        capabilities = activeVer?.capabilities ? (typeof activeVer.capabilities === 'string' ? safeJsonParse(activeVer.capabilities, {}) : activeVer.capabilities) : (typeof template.capabilities === 'string' ? safeJsonParse(template.capabilities, {}) : (template.capabilities || {}));
+        sections = activeVer?.sections ? (typeof activeVer.sections === 'string' ? safeJsonParse(activeVer.sections, []) : activeVer.sections) : (typeof template.sections === 'string' ? safeJsonParse(template.sections, []) : (template.sections || []));
+
+        // Determine preview URL
+        let previewUrl = `/templates-store/${template.folder || template.slug}/${template.entry_file || 'index.html'}`;
+        if (activeVer && activeVer.storage_provider === 'b2') {
+          previewUrl = `/api/templates/${template.id}/versions/${activeVer.id}/preview/${template.entry_file || 'index.html'}`;
+        }
+
+        const enrichedTemplate = {
+          ...template,
+          currentVersionId: activeVer ? activeVer.id : template.current_version_id,
+          version: activeVer,
+          fields,
+          detectedFields: fields,
+          sections,
+          capabilities,
+          variants,
+          relationships: relationshipsList,
+          previewUrl
+        };
+
+        response = jsonSuccess({ template: enrichedTemplate }, 200, {}, requestId);
       }
 
       // --- Categories API ---
