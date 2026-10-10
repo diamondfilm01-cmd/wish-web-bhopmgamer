@@ -11090,7 +11090,7 @@ export default {
             };
           }
 
-          // CASE 3: PHOTO / IMAGE
+          // CASE 3: PHOTO / IMAGE (Strictly ImgBB ONLY - No photos go to B2)
           let imageValidation;
           try {
             imageValidation = await validateImageBuffer(fileData, { maxSizeBytes: IMAGE_LIMITS.MAX_IMAGE_BYTES });
@@ -11102,57 +11102,38 @@ export default {
           }
 
           const imgbbConfig = getImgBBConfig(env);
-          const b2Config = getB2Config(env);
           const mediaId = `med_${Date.now().toString(36)}_${Math.random().toString(36).substring(2, 6)}`;
           let publicUrl = '';
           let storageKey = `photos/${cleanFileName}`;
-          let storageProvider = 'b2';
-          let b2UploadResult = null;
+          const storageProvider = 'imgbb';
           let imgbbResult = null;
 
-          // If ImgBB is configured, upload to ImgBB (fulfills Test 13 routing)
-          if (imgbbConfig.isConfigured) {
-            try {
-              const provider = ImgBBProvider.fromEnv(env);
-              imgbbResult = await provider.uploadImage({
-                data: imageValidation.bytes,
-                filename,
-                name: `admin_${Date.now()}`
-              });
-              publicUrl = imgbbResult.displayUrl;
-              storageProvider = 'imgbb';
-            } catch (uploadErr) {
-              console.error('[ImgBB Image Upload Failed]:', uploadErr.message);
-            }
-          }
-
-          // If B2 is configured, ALWAYS upload to Backblaze B2 Vault as well with exact original format and name!
-          if (b2Config.isConfigured) {
-            try {
-              const b2Provider = B2StorageProvider.fromEnv(env);
-              b2UploadResult = await b2Provider.putObject({
-                key: storageKey,
-                body: imageValidation.bytes,
-                contentType: imageValidation.mimeType,
-                metadata: { title: finalTitle, filename: cleanFileName, mediaId, uploader: user.id }
-              });
-              if (!publicUrl) {
-                publicUrl = b2UploadResult.playbackUrl || b2UploadResult.downloadUrl;
-                storageProvider = 'b2';
-              }
-            } catch (b2Err) {
-              console.warn('[B2 Image Upload Warning]:', b2Err.message);
-            }
-          }
-
-          if (!publicUrl) {
-            const err = new Error('Neither ImgBB nor Backblaze B2 storage is configured or succeeded for image upload.');
-            err.code = 'STORAGE_NOT_CONFIGURED';
+          if (!imgbbConfig.isConfigured) {
+            const err = new Error('ImgBB API key (IMGBB_API_KEY) is required for photo uploads. Photos are exclusively stored on ImgBB.');
+            err.code = 'IMGBB_NOT_CONFIGURED';
             err.status = 503;
             throw err;
           }
 
+          try {
+            const provider = ImgBBProvider.fromEnv(env);
+            imgbbResult = await provider.uploadImage({
+              data: imageValidation.bytes,
+              filename,
+              name: `admin_${Date.now()}`
+            });
+            publicUrl = imgbbResult.displayUrl;
+            storageKey = imgbbResult.providerAssetId ? `imgbb/${imgbbResult.providerAssetId}` : `photos/${cleanFileName}`;
+          } catch (uploadErr) {
+            console.error('[ImgBB Image Upload Failed]:', uploadErr.message);
+            const err = new Error(`Failed to upload photo to ImgBB: ${uploadErr.message}`);
+            err.code = 'IMGBB_UPLOAD_FAILED';
+            err.status = 502;
+            throw err;
+          }
+
           const streamProxyUrl = `/api/media/stream?id=${encodeURIComponent(mediaId)}`;
+
           if (env.DB && typeof env.DB.prepare === 'function') {
             await ensureMusicStorageSchema(env.DB);
             await env.DB.prepare(`
@@ -11160,29 +11141,14 @@ export default {
                 id, wish_id, user_id, object_key, filename, media_type, mime_type,
                 size_bytes, url, display_url, thumbnail_url, delete_url, sha256,
                 width, height, storage_provider, status, is_public, created_at, updated_at
-              ) VALUES (?, NULL, ?, ?, ?, 'image', ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'active', 1, ?, ?)
+              ) VALUES (?, NULL, ?, ?, ?, 'image', ?, ?, ?, ?, ?, ?, ?, ?, ?, 'imgbb', 'active', 1, ?, ?)
             `).bind(
-              mediaId, user.id, b2UploadResult ? storageKey : (imgbbResult?.providerAssetId || storageKey), filename,
+              mediaId, user.id, storageKey, filename,
               imageValidation.mimeType, imgbbResult ? imgbbResult.sizeBytes : imageValidation.sizeBytes, publicUrl, publicUrl,
               imgbbResult ? imgbbResult.thumbnailUrl : publicUrl, imgbbResult ? imgbbResult.deleteUrl : null,
               imgbbResult ? imgbbResult.sha256 : imageValidation.sha256, imgbbResult ? imgbbResult.width : imageValidation.width,
-              imgbbResult ? imgbbResult.height : imageValidation.height, storageProvider, nowIso, nowIso
+              imgbbResult ? imgbbResult.height : imageValidation.height, nowIso, nowIso
             ).run().catch(e => console.warn('wish_media admin insert error:', e.message));
-
-            if (b2UploadResult) {
-              await env.DB.prepare(`
-                INSERT OR REPLACE INTO b2_storage_objects (
-                  id, bucket_id, bucket_name, object_key, file_id, content_type,
-                  content_length, sha256, public_url, entity_type, entity_id,
-                  uploader_id, upload_status, metadata_json, created_at, updated_at
-                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, 'photo', ?, ?, 'completed', ?, ?, ?)
-              `).bind(
-                `b2_${mediaId}`, b2UploadResult.bucketId || null, b2Config.bucketName || 'wishmagic-assets', storageKey,
-                b2UploadResult.fileId || null, imageValidation.mimeType, imageValidation.sizeBytes,
-                imageValidation.sha256, publicUrl, mediaId, user.id || 'system',
-                JSON.stringify({ title: finalTitle, filename }), nowIso, nowIso
-              ).run().catch(() => {});
-            }
           }
 
           if (setAsHero) {
@@ -11247,7 +11213,7 @@ export default {
               asset,
               track: asset,
               isHeroImage: itemsToProcess[0].setAsHero,
-              message: `Media "${asset.title}" uploaded to Backblaze B2 Vault with exact format (${asset.format}) and original filename!`
+              message: `Media "${asset.title}" uploaded to ${asset.storageProvider === "imgbb" ? "ImgBB Storage" : "Backblaze B2 Vault"} with exact format (${asset.format}) and original filename!`
             }, 201, {}, requestId);
           } catch (err) {
             return applySecurityHeaders(jsonError(err.code || 'UPLOAD_FAILED', err.message, err.status || 500), request, env);

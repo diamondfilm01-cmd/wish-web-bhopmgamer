@@ -457,7 +457,7 @@
         <select id="upload-asset-type" class="w-full px-3.5 py-2.5 rounded-xl bg-surface-container-low text-on-surface border border-purple-900/30 text-xs focus:outline-none focus:border-primary" onchange="handleMediaTypeChange()">
           <option value="auto" selected>✨ Auto-Detect Format (Bulk Upload Photos, Videos & Audios)</option>
           <option value="audio">🎵 Audio Track / Music (Backblaze B2 Vault)</option>
-          <option value="image">📸 Photo / Graphic (Backblaze B2 Vault & ImgBB)</option>
+          <option value="image">📸 Photo / Graphic (ImgBB Cloud Storage Only)</option>
           <option value="video">🎬 Video / Reel (Backblaze B2 Vault)</option>
         </select>
       </div>
@@ -916,7 +916,7 @@
     } else if (type === 'image') {
       if (fileInput) fileInput.accept = 'image/*,.png,.jpg,.jpeg,.webp,.gif,.svg';
       if (fileHint) fileHint.textContent = 'Supported: .png, .jpg, .jpeg, .webp, .gif, .svg (Max 32MB). Select multiple files for bulk upload.';
-      if (targetText) targetText.innerHTML = 'Cloud Target: <strong class="text-pink-300">Backblaze B2 Vault & ImgBB</strong> (Photos)';
+      if (targetText) targetText.innerHTML = 'Cloud Target: <strong class="text-pink-300">ImgBB Cloud Storage Only</strong> (Photos)';
       if (targetLimits) targetLimits.textContent = 'Max 32 MB';
     } else {
       if (fileInput) fileInput.accept = 'audio/*,video/*,image/*,.mp3,.wav,.ogg,.m4a,.aac,.flac,.mp4,.webm,.mov,.mkv,.3gp,.jpg,.jpeg,.png,.webp,.gif,.svg';

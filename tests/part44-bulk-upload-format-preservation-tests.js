@@ -31,7 +31,23 @@ test('WishMagic Part 44: Bulk Upload & Format Preservation Suite', async (t) => 
     let uploadedObjects = [];
 
     const mockFetch = async (url, opts = {}) => {
-      if (url.includes('backblazeb2.com') || url.includes('b2api')) {
+      const urlStr = String(url);
+      if (urlStr.includes("api.imgbb.com")) {
+        return new Response(JSON.stringify({
+          success: true,
+          status: 200,
+          data: {
+            id: "imgbb_test_asset",
+            title: "Image Test",
+            url_viewer: "https://ibb.co/test",
+            url: "https://i.ibb.co/test/image.png",
+            display_url: "https://i.ibb.co/test/image.png",
+            thumb: { url: "https://i.ibb.co/test/thumb.png" },
+            size: 1000
+          }
+        }), { status: 200, headers: { "Content-Type": "application/json" } });
+      }
+      if (urlStr.includes("backblazeb2.com") || urlStr.includes("b2api")) {
         if (url.includes('b2_authorize_account')) {
           return new Response(JSON.stringify({
             accountId: 'acc_123',
@@ -68,6 +84,7 @@ test('WishMagic Part 44: Bulk Upload & Format Preservation Suite', async (t) => 
     const env = {
       ENVIRONMENT: 'test',
       fetch: mockFetch,
+      IMGBB_API_KEY: 'imgbb_test_key',
       B2_KEY_ID: 'key_123',
       B2_APPLICATION_KEY: 'secret_123',
       B2_BUCKET_NAME: 'wishmagic-assets',
@@ -139,7 +156,7 @@ test('WishMagic Part 44: Bulk Upload & Format Preservation Suite', async (t) => 
     assert.ok(photoAsset, 'Photo asset must exist');
     assert.strictEqual(photoAsset.originalFilename, 'Hero Section Photo.png');
     assert.strictEqual(photoAsset.format, 'PNG');
-    assert.strictEqual(photoAsset.storageKey, 'photos/Hero Section Photo.png');
+    assert.strictEqual(photoAsset.storageProvider, 'imgbb');
 
     console.log('✅ Bulk Upload & Original Format Preservation verified successfully!');
   });
