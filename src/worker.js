@@ -8432,18 +8432,27 @@ export default {
           } catch (_) {}
         }
 
-        // Built-in static audio library tracks (in /audio/) - only match known static IDs if not custom DB record
+        // Built-in static audio library tracks (in /audio/) - match known static IDs or filenames
         const staticAudioMap = {
           'mus_celebration_strings': '/audio/celebration-strings.mp3',
           'trk_bgm_strings': '/audio/celebration-strings.mp3',
           'mus_romantic_piano': '/audio/romantic-piano.mp3',
           'trk_bgm_celebration': '/audio/romantic-piano.mp3',
           'mus_golden_elegance': '/audio/golden-nostalgia.mp3',
-          'trk_bgm_ambient': '/audio/golden-nostalgia.mp3'
+          'trk_bgm_ambient': '/audio/golden-nostalgia.mp3',
+          'celebration-strings.mp3': '/audio/celebration-strings.mp3',
+          'romantic-piano.mp3': '/audio/romantic-piano.mp3',
+          'golden-nostalgia.mp3': '/audio/golden-nostalgia.mp3',
+          'music/celebration-acoustic-strings.mp3': '/audio/celebration-strings.mp3',
+          'celebration-acoustic-strings.mp3': '/audio/celebration-strings.mp3',
+          'music/romantic-midnight-piano.mp3': '/audio/romantic-piano.mp3',
+          'romantic-midnight-piano.mp3': '/audio/romantic-piano.mp3',
+          'music/golden-nostalgia-cello.mp3': '/audio/golden-nostalgia.mp3',
+          'golden-nostalgia-cello.mp3': '/audio/golden-nostalgia.mp3'
         };
 
-        const staticTarget = (!key && trackId && staticAudioMap[trackId]) || (trackId && staticAudioMap[trackId] && !dbRow?.storage_key ? staticAudioMap[trackId] : null);
-        if (staticTarget) {
+        const staticTarget = (trackId && staticAudioMap[trackId]) || (key && staticAudioMap[key]) || (key && staticAudioMap[key.split('/').pop()]) || null;
+        if (staticTarget && (!dbRow || !dbRow.storage_key || dbRow.storage_key.includes('celebration-acoustic') || dbRow.storage_key.includes('romantic-midnight') || dbRow.storage_key.includes('golden-nostalgia'))) {
           if (env.ASSETS && typeof env.ASSETS.fetch === 'function') {
             const assetUrl = new URL(staticTarget, request.url);
             return env.ASSETS.fetch(new Request(assetUrl, request));
@@ -10766,9 +10775,30 @@ export default {
             return applySecurityHeaders(jsonError('B2_INIT_FAILED', initErr.message, 503), request, env);
           }
 
-          const cleanFileName = filename.replace(/[^a-zA-Z0-9._-]/g, '_');
+          // Resolve exact target filename:
+          // If user provides title -> use that title + extension
+          // If user does not provide title -> use original file's name
+          const trimmedTitle = String(body.title || title || '').trim();
+          const cleanBaseFilename = filename.replace(/\.[^/.]+$/, '').replace(/[-_]+/g, ' ');
+          let targetBaseName = '';
+          let finalTitle = '';
+
+          if (trimmedTitle && trimmedTitle !== 'media-upload' && trimmedTitle !== 'upload') {
+            finalTitle = sanitizeString(trimmedTitle, 100);
+            if (trimmedTitle.toLowerCase().endsWith('.' + audioValidation.extension.toLowerCase())) {
+              targetBaseName = trimmedTitle;
+            } else {
+              targetBaseName = `${trimmedTitle}.${audioValidation.extension}`;
+            }
+          } else {
+            targetBaseName = filename;
+            finalTitle = sanitizeString(cleanBaseFilename || filename, 100);
+          }
+
+          const cleanFileName = targetBaseName.replace(/[\\/]/g, '_').replace(/[^a-zA-Z0-9._\s-]/g, '').trim() || `audio.${audioValidation.extension}`;
           const trackId = `mus_${Date.now().toString(36)}_${Math.random().toString(36).substring(2, 6)}`;
-          const storageKey = `music/${Date.now()}_${trackId}_${cleanFileName}`;
+          // In Backblaze B2: strictly music/${cleanFileName} - NO timestamp or random ID prepended!
+          const storageKey = `music/${cleanFileName}`;
 
           let b2UploadResult = null;
           let playbackUrl = '';
@@ -10779,7 +10809,8 @@ export default {
               body: audioValidation.bytes,
               contentType: audioValidation.mimeType,
               metadata: {
-                title,
+                title: finalTitle,
+                filename: cleanFileName,
                 trackId,
                 uploader: user.id
               }
@@ -10795,8 +10826,6 @@ export default {
             ), request, env);
           }
 
-          const cleanBaseFilename = filename.replace(/\.[^/.]+$/, '').replace(/[-_]+/g, ' ');
-          const finalTitle = sanitizeString(body.title || audioValidation.metadata?.title || (title && title !== 'media-upload' ? title : cleanBaseFilename), 100);
           const finalArtist = body.artist ? sanitizeString(body.artist, 80) : (audioValidation.metadata?.artist ? sanitizeString(audioValidation.metadata.artist, 80) : null);
           const finalCategory = sanitizeString(category || body.category || 'celebration', 40);
           const description = sanitizeString(body.description || finalTitle, 200);
@@ -10903,9 +10932,28 @@ export default {
           }
 
           const b2Provider = B2StorageProvider.fromEnv(env);
-          const cleanFileName = filename.replace(/[^a-zA-Z0-9._-]/g, '_');
+          // Resolve exact target filename:
+          const trimmedTitle = String(body.title || title || '').trim();
+          const cleanBaseFilename = filename.replace(/\.[^/.]+$/, '').replace(/[-_]+/g, ' ');
+          let targetBaseName = '';
+          let finalTitle = '';
+
+          if (trimmedTitle && trimmedTitle !== 'media-upload' && trimmedTitle !== 'upload') {
+            finalTitle = sanitizeString(trimmedTitle, 100);
+            if (trimmedTitle.toLowerCase().endsWith('.' + videoValidation.extension.toLowerCase())) {
+              targetBaseName = trimmedTitle;
+            } else {
+              targetBaseName = `${trimmedTitle}.${videoValidation.extension}`;
+            }
+          } else {
+            targetBaseName = filename;
+            finalTitle = sanitizeString(cleanBaseFilename || filename, 100);
+          }
+
+          const cleanFileName = targetBaseName.replace(/[\\/]/g, '_').replace(/[^a-zA-Z0-9._\s-]/g, '').trim() || `video.${videoValidation.extension}`;
           const videoId = `vid_${Date.now().toString(36)}_${Math.random().toString(36).substring(2, 6)}`;
-          const storageKey = `videos/${Date.now()}_${videoId}_${cleanFileName}`;
+          // In Backblaze B2: strictly videos/${cleanFileName} - NO timestamp or random ID prepended!
+          const storageKey = `videos/${cleanFileName}`;
 
           let b2UploadResult = null;
           let playbackUrl = '';
@@ -10915,7 +10963,7 @@ export default {
               key: storageKey,
               body: videoValidation.bytes,
               contentType: videoValidation.mimeType,
-              metadata: { title, videoId, uploader: user.id }
+              metadata: { title: finalTitle, filename: cleanFileName, videoId, uploader: user.id }
             });
             playbackUrl = b2UploadResult.playbackUrl || b2UploadResult.downloadUrl;
           } catch (uploadErr) {

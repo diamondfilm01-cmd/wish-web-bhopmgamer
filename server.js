@@ -7261,19 +7261,75 @@ app.get('/api/media', (req, res) => {
 });
 
 // API: Stream Audio / Media (Backblaze B2 & local fallback with full Range support)
-app.get(['/api/media/stream', '/api/media/stream/:id'], async (req, res) => {
+app.get(['/api/media/stream', '/api/media/stream/:id', '/api/media/stream/:id/:filename'], async (req, res) => {
   try {
-    const key = req.query.key || req.query.storageKey || req.params.id;
+    const key = req.query.key || req.query.storageKey || req.params.filename || req.params.id;
     const trackId = req.query.id || req.params.id;
 
     // First check custom uploaded media catalog
     const media = getMedia();
-    let track = media.find(t => t.id === trackId || t.storageKey === key || t.filename === key || t.diskFilename === key || (key && t.url && t.url.includes(key)));
+    let track = media.find(t =>
+      t.id === trackId ||
+      t.storageKey === key ||
+      t.filename === key ||
+      t.diskFilename === key ||
+      (key && t.storageKey && t.storageKey.endsWith(path.basename(key))) ||
+      (key && t.filename && t.filename === path.basename(key)) ||
+      (key && t.url && t.url.includes(key))
+    );
 
     // Look up in music library if not found in media catalog
     if (!track) {
       const musicList = getMusicLibrary();
-      track = musicList.find(m => m.id === trackId || m.storageKey === key || (key && m.playbackUrl && m.playbackUrl.includes(key)));
+      track = musicList.find(m =>
+        m.id === trackId ||
+        m.storageKey === key ||
+        (key && m.storageKey && m.storageKey.endsWith(path.basename(key))) ||
+        (key && m.playbackUrl && m.playbackUrl.includes(key))
+      );
+    }
+
+    // Look up in default starter assets
+    const defaultAssets = [
+      {
+        id: 'trk_bgm_strings',
+        title: 'Celebration Acoustic Strings',
+        storageKey: 'music/celebration-acoustic-strings.mp3',
+        filename: 'celebration-strings.mp3',
+        url: '/audio/celebration-strings.mp3',
+        playbackUrl: '/audio/celebration-strings.mp3'
+      },
+      {
+        id: 'trk_bgm_ambient',
+        title: 'Golden Nostalgia & Acoustic Cello',
+        storageKey: 'music/golden-nostalgia-cello.mp3',
+        filename: 'golden-nostalgia.mp3',
+        url: '/audio/golden-nostalgia.mp3',
+        playbackUrl: '/audio/golden-nostalgia.mp3'
+      },
+      {
+        id: 'trk_bgm_celebration',
+        title: 'Romantic Midnight Piano',
+        storageKey: 'music/romantic-midnight-piano.mp3',
+        filename: 'romantic-piano.mp3',
+        url: '/audio/romantic-piano.mp3',
+        playbackUrl: '/audio/romantic-piano.mp3'
+      },
+      {
+        id: 'ast_user_vn_wm_mutfo7rv_3dbw92',
+        title: 'Voice Dedication for Kritika',
+        url: 'https://cdn.freesound.org/previews/560/560446_11861866-lq.mp3',
+        playbackUrl: 'https://cdn.freesound.org/previews/560/560446_11861866-lq.mp3'
+      }
+    ];
+
+    if (!track) {
+      track = defaultAssets.find(a =>
+        a.id === trackId ||
+        a.storageKey === key ||
+        (key && a.storageKey && a.storageKey.endsWith(path.basename(key))) ||
+        (key && a.url && a.url.includes(key))
+      );
     }
 
     // Look up in wishes if not found in media catalog or music library
@@ -7296,19 +7352,32 @@ app.get(['/api/media/stream', '/api/media/stream/:id'], async (req, res) => {
       }
     }
 
-    // Built-in static audio tracks ONLY if no custom DB/media record was resolved
+    // Built-in static audio tracks mapping
     const staticAudioFiles = {
       'mus_celebration_strings': 'celebration-strings.mp3',
       'trk_bgm_strings': 'celebration-strings.mp3',
       'mus_romantic_piano': 'romantic-piano.mp3',
       'trk_bgm_celebration': 'romantic-piano.mp3',
       'mus_golden_elegance': 'golden-nostalgia.mp3',
-      'trk_bgm_ambient': 'golden-nostalgia.mp3'
+      'trk_bgm_ambient': 'golden-nostalgia.mp3',
+      'celebration-strings.mp3': 'celebration-strings.mp3',
+      'romantic-piano.mp3': 'romantic-piano.mp3',
+      'golden-nostalgia.mp3': 'golden-nostalgia.mp3',
+      'music/celebration-acoustic-strings.mp3': 'celebration-strings.mp3',
+      'celebration-acoustic-strings.mp3': 'celebration-strings.mp3',
+      'music/romantic-midnight-piano.mp3': 'romantic-piano.mp3',
+      'romantic-midnight-piano.mp3': 'romantic-piano.mp3',
+      'music/golden-nostalgia-cello.mp3': 'golden-nostalgia.mp3',
+      'golden-nostalgia-cello.mp3': 'golden-nostalgia.mp3'
     };
 
-    if (!track && !key && trackId && staticAudioFiles[trackId]) {
-      const staticPath = path.join(__dirname, 'public', 'audio', staticAudioFiles[trackId]);
+    const staticMatched = staticAudioFiles[trackId] || (key && staticAudioFiles[key]) || (key && staticAudioFiles[path.basename(key)]);
+    if (staticMatched) {
+      const staticPath = path.join(__dirname, 'public', 'audio', staticMatched);
       if (fs.existsSync(staticPath)) {
+        res.setHeader('Content-Type', 'audio/mpeg');
+        res.setHeader('Accept-Ranges', 'bytes');
+        res.setHeader('Access-Control-Allow-Origin', '*');
         return res.sendFile(staticPath, { acceptRanges: true });
       }
     }
@@ -8005,16 +8074,41 @@ app.post(['/api/admin/media/upload', '/api/admin/music/upload', '/api/music/uplo
         });
       }
 
-      const trackId = 'mus_' + Date.now().toString(36) + '_' + Math.random().toString(36).substr(2, 4);
-      const cleanFileName = safeFilename.replace(/[^a-zA-Z0-9._-]/g, '_');
-      const storageKey = `music/${Date.now()}_${trackId}_${cleanFileName}`;
+      // Resolve exact target filename:
+      // If user provides title -> use that title + extension
+      // If user does not provide title -> use original file's name
+      const trimmedTitle = String(title || '').trim();
+      let targetBaseName = '';
+      let finalTitle = '';
 
-      // Always persist audio file to local MEDIA_DIR so local stream playback is 100% reliable
-      const diskFilename = `${trackId}.${validation.extension}`;
+      if (trimmedTitle && trimmedTitle !== 'media-upload' && trimmedTitle !== 'upload') {
+        finalTitle = trimmedTitle;
+        if (trimmedTitle.toLowerCase().endsWith('.' + validation.extension.toLowerCase())) {
+          targetBaseName = trimmedTitle;
+        } else {
+          targetBaseName = `${trimmedTitle}.${validation.extension}`;
+        }
+      } else {
+        targetBaseName = safeFilename;
+        finalTitle = safeFilename.replace(/\.[^/.]+$/, '').replace(/[-_]+/g, ' ').trim() || safeFilename;
+      }
+
+      // Clean filename for safety (no directory traversal, preserve spaces, dots, hyphens, alphanumeric)
+      const cleanFileName = path.basename(targetBaseName).replace(/[\\/]/g, '_').replace(/[^a-zA-Z0-9._\s-]/g, '').trim() || `audio.${validation.extension}`;
+      const trackId = 'mus_' + Date.now().toString(36) + '_' + Math.random().toString(36).substr(2, 4);
+
+      // In Backblaze B2: strictly music/${cleanFileName} - NO timestamp or random ID prepended!
+      const storageKey = `music/${cleanFileName}`;
+
+      // Persist audio file to local MEDIA_DIR so local stream playback is 100% reliable
+      const diskFilename = cleanFileName;
       const localFilePath = path.join(MEDIA_DIR, diskFilename);
       fs.writeFileSync(localFilePath, Buffer.from(validation.bytes));
+      try {
+        fs.writeFileSync(path.join(MEDIA_DIR, `${trackId}.${validation.extension}`), Buffer.from(validation.bytes));
+      } catch (_) {}
 
-      let publicUrl = `/media/${diskFilename}`;
+      let publicUrl = `/media/${encodeURIComponent(diskFilename)}`;
       let storageProvider = 'local';
       let b2UploadData = null;
 
@@ -8026,7 +8120,7 @@ app.post(['/api/admin/media/upload', '/api/admin/music/upload', '/api/music/uplo
             key: storageKey,
             body: validation.bytes,
             contentType: validation.mimeType,
-            metadata: { title: title || safeFilename, trackId }
+            metadata: { title: finalTitle, filename: cleanFileName, trackId }
           });
           publicUrl = b2UploadData.playbackUrl || b2UploadData.downloadUrl;
           storageProvider = 'b2';
@@ -8045,18 +8139,18 @@ app.post(['/api/admin/media/upload', '/api/admin/music/upload', '/api/music/uplo
 
       const newAsset = {
         id: trackId,
-        title: (title || safeFilename || 'Celebration Track').trim(),
+        title: finalTitle,
         artist: (artist || '').trim() || null,
         type: 'audio',
         format: validation.extension.toUpperCase(),
         category: category || 'celebration',
-        filename: safeFilename,
-        diskFilename: typeof diskFilename !== 'undefined' ? diskFilename : `${trackId}.${validation.extension}`,
+        filename: cleanFileName,
+        diskFilename,
         storageKey,
         storageProvider,
         url: publicUrl,
         playbackUrl: publicUrl,
-        streamUrl: `/api/media/stream?id=${encodeURIComponent(trackId)}`,
+        streamUrl: `/api/media/stream?id=${encodeURIComponent(trackId)}&key=${encodeURIComponent(storageKey)}`,
         duration: null,
         fileSize: validation.sizeBytes,
         fileSizeFormatted: (validation.sizeBytes / (1024 * 1024)).toFixed(2) + ' MB',
@@ -8094,11 +8188,40 @@ app.post(['/api/admin/media/upload', '/api/admin/music/upload', '/api/music/uplo
         });
       }
 
-      const videoId = 'vid_' + Date.now().toString(36) + '_' + Math.random().toString(36).substr(2, 4);
-      const cleanFileName = safeFilename.replace(/[^a-zA-Z0-9._-]/g, '_');
-      const storageKey = `videos/${Date.now()}_${videoId}_${cleanFileName}`;
+      // Resolve exact target filename:
+      // If user provides title -> use that title + extension
+      // If user does not provide title -> use original file's name
+      const trimmedTitle = String(title || '').trim();
+      let targetBaseName = '';
+      let finalTitle = '';
 
-      let publicUrl = `/media/${videoId}.${validation.extension}`;
+      if (trimmedTitle && trimmedTitle !== 'media-upload' && trimmedTitle !== 'upload') {
+        finalTitle = trimmedTitle;
+        if (trimmedTitle.toLowerCase().endsWith('.' + validation.extension.toLowerCase())) {
+          targetBaseName = trimmedTitle;
+        } else {
+          targetBaseName = `${trimmedTitle}.${validation.extension}`;
+        }
+      } else {
+        targetBaseName = safeFilename;
+        finalTitle = safeFilename.replace(/\.[^/.]+$/, '').replace(/[-_]+/g, ' ').trim() || safeFilename;
+      }
+
+      // Clean filename for safety (no directory traversal, preserve spaces, dots, hyphens, alphanumeric)
+      const cleanFileName = path.basename(targetBaseName).replace(/[\\/]/g, '_').replace(/[^a-zA-Z0-9._\s-]/g, '').trim() || `video.${validation.extension}`;
+      const videoId = 'vid_' + Date.now().toString(36) + '_' + Math.random().toString(36).substr(2, 4);
+
+      // In Backblaze B2: strictly videos/${cleanFileName} - NO timestamp or random ID prepended!
+      const storageKey = `videos/${cleanFileName}`;
+
+      const diskFilename = cleanFileName;
+      const localFilePath = path.join(MEDIA_DIR, diskFilename);
+      fs.writeFileSync(localFilePath, Buffer.from(validation.bytes));
+      try {
+        fs.writeFileSync(path.join(MEDIA_DIR, `${videoId}.${validation.extension}`), Buffer.from(validation.bytes));
+      } catch (_) {}
+
+      let publicUrl = `/media/${encodeURIComponent(diskFilename)}`;
       let storageProvider = 'local';
 
       if (B2StorageProvider.isConfigured(process.env)) {
@@ -8108,7 +8231,7 @@ app.post(['/api/admin/media/upload', '/api/admin/music/upload', '/api/music/uplo
             key: storageKey,
             body: validation.bytes,
             contentType: validation.mimeType,
-            metadata: { title: title || safeFilename, videoId }
+            metadata: { title: finalTitle, filename: cleanFileName, videoId }
           });
           publicUrl = b2Res.playbackUrl || b2Res.downloadUrl;
           storageProvider = 'b2';
@@ -8119,25 +8242,21 @@ app.post(['/api/admin/media/upload', '/api/admin/music/upload', '/api/music/uplo
             message: `Failed to upload video to Backblaze B2: ${b2Err.message}`
           });
         }
-      } else {
-        const diskFilename = `${videoId}.${validation.extension}`;
-        const filePath = path.join(MEDIA_DIR, diskFilename);
-        fs.writeFileSync(filePath, Buffer.from(validation.bytes));
-        publicUrl = `/media/${diskFilename}`;
       }
 
       const newAsset = {
         id: videoId,
-        title: (title || safeFilename || 'Celebration Reel').trim(),
+        title: finalTitle,
         type: 'video',
         format: validation.extension.toUpperCase(),
         category: category || 'Video Reel',
-        filename: safeFilename,
+        filename: cleanFileName,
+        diskFilename,
         storageKey,
         storageProvider,
         url: publicUrl,
         playbackUrl: publicUrl,
-        streamUrl: `/api/media/stream?id=${encodeURIComponent(videoId)}`,
+        streamUrl: `/api/media/stream?id=${encodeURIComponent(videoId)}&key=${encodeURIComponent(storageKey)}`,
         duration: null,
         fileSize: validation.sizeBytes,
         fileSizeFormatted: (validation.sizeBytes / (1024 * 1024)).toFixed(2) + ' MB',
