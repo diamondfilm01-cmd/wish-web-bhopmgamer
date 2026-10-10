@@ -263,13 +263,22 @@ import {
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
+// Load Firebase Config from auto-provisioned file if present
+let FIREBASE_CONFIG = null;
+try {
+  const configPath = path.join(__dirname, 'firebase-applet-config.json');
+  if (fs.existsSync(configPath)) {
+    FIREBASE_CONFIG = JSON.parse(fs.readFileSync(configPath, 'utf8'));
+  }
+} catch (e) {
+  console.warn('[Server] Failed to load firebase-applet-config.json:', e.message);
+}
+
+const FIREBASE_API_KEY = process.env.FIREBASE_API_KEY || (FIREBASE_CONFIG && FIREBASE_CONFIG.apiKey) || '';
+
 const app = express();
 const PORT = process.env.PORT || 3000;
 const HOST = '0.0.0.0';
-
-if (!process.env.IMGBB_API_KEY) {
-  process.env.IMGBB_API_KEY = '75e222f33f8ccf82566ebeeac2dc70be';
-}
 
 // High limits for ZIP and folder uploads, plus rawBody capturing for HMAC webhook signatures
 app.use(express.json({
@@ -279,10 +288,6 @@ app.use(express.json({
   }
 }));
 app.use(express.urlencoded({ limit: '50mb', extended: true }));
-
-if (!process.env.IMGBB_API_KEY) {
-  process.env.IMGBB_API_KEY = '75e222f33f8ccf82566ebeeac2dc70be';
-}
 
 const DATA_DIR = path.join(__dirname, 'data');
 const TEMPLATES_FILE = path.join(DATA_DIR, 'templates.json');
@@ -2129,6 +2134,19 @@ app.get('/api/health', (req, res) => {
     stack: 'Cloudflare Pages + Workers + D1 + R2 (Parity Engine)',
     rateLimiting: 'Active',
     timezone: 'Asia/Kolkata (IST = UTC+05:30)'
+  });
+});
+
+// API: Auth Configuration
+app.get('/api/auth/config', (req, res) => {
+  res.json({
+    success: true,
+    apiKey: FIREBASE_API_KEY,
+    projectId: process.env.FIREBASE_PROJECT_ID || (FIREBASE_CONFIG && FIREBASE_CONFIG.projectId) || 'pacific-ember-18chg',
+    authDomain: process.env.FIREBASE_AUTH_DOMAIN || (FIREBASE_CONFIG && FIREBASE_CONFIG.authDomain) || 'pacific-ember-18chg.firebaseapp.com',
+    storageBucket: process.env.FIREBASE_STORAGE_BUCKET || (FIREBASE_CONFIG && FIREBASE_CONFIG.storageBucket) || 'pacific-ember-18chg.firebasestorage.app',
+    appId: process.env.FIREBASE_APP_ID || (FIREBASE_CONFIG && FIREBASE_CONFIG.appId) || '1:206581825854:web:9e195a82e2a31c359c6c6f',
+    configured: Boolean(FIREBASE_API_KEY)
   });
 });
 

@@ -89,7 +89,10 @@ export function evaluateTemplateCompatibility(versionRecord, options = {}) {
     let allFieldsSupported = true;
     for (const f of fields) {
       const type = (f.type || 'text').toLowerCase();
-      if (!UTP_SUPPORTED_FIELD_TYPES.includes(type)) {
+      const isSupported = UTP_SUPPORTED_FIELD_TYPES && typeof UTP_SUPPORTED_FIELD_TYPES.has === 'function'
+        ? UTP_SUPPORTED_FIELD_TYPES.has(type)
+        : (Array.isArray(UTP_SUPPORTED_FIELD_TYPES) ? UTP_SUPPORTED_FIELD_TYPES.includes(type) : false);
+      if (!isSupported) {
         allFieldsSupported = false;
         issues.push({
           code: 'UNSUPPORTED_FIELD_TYPE',

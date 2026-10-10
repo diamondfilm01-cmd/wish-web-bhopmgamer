@@ -217,7 +217,7 @@ export async function onRequest(context) {
 
   const env = {
     ...context.env,
-    IMGBB_API_KEY: context.env.IMGBB_API_KEY || '75e222f33f8ccf82566ebeeac2dc70be',
+    IMGBB_API_KEY: context.env.IMGBB_API_KEY || null,
     DB: context.env.DB || context.env.wishmagic_db || context.env.DATABASE,
     ASSETS: {
       fetch: async (req) => {

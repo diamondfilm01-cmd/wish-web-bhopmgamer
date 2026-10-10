@@ -310,6 +310,7 @@ CREATE TABLE IF NOT EXISTS template_versions (
   description TEXT,
   sections TEXT,      -- JSON array of section definitions
   capabilities TEXT,  -- JSON object of supported template capabilities
+  status TEXT NOT NULL DEFAULT 'active',
   created_at TEXT NOT NULL,
   FOREIGN KEY (template_id) REFERENCES templates(id) ON DELETE CASCADE
 );
@@ -999,16 +1000,34 @@ INSERT OR IGNORE INTO _migrations (id, name, applied_at) VALUES
 -- ----------------------------------------------------------------------------
 -- 20. PART 34: CUSTOMER SUPPORT, HELP CENTER & TICKET MANAGEMENT
 -- ----------------------------------------------------------------------------
-ALTER TABLE support_tickets ADD COLUMN order_id TEXT;
-ALTER TABLE support_tickets ADD COLUMN user_name TEXT;
-ALTER TABLE support_tickets ADD COLUMN last_customer_message_at TEXT;
-ALTER TABLE support_tickets ADD COLUMN last_agent_response_at TEXT;
-ALTER TABLE support_tickets ADD COLUMN resolved_at TEXT;
-ALTER TABLE support_tickets ADD COLUMN closed_at TEXT;
-ALTER TABLE support_tickets ADD COLUMN reopen_count INTEGER NOT NULL DEFAULT 0;
-ALTER TABLE support_tickets ADD COLUMN satisfaction_rating INTEGER;
-ALTER TABLE support_tickets ADD COLUMN satisfaction_feedback TEXT;
-ALTER TABLE support_tickets ADD COLUMN contact_preference TEXT DEFAULT 'in_app';
+CREATE TABLE IF NOT EXISTS support_tickets (
+  id TEXT PRIMARY KEY,
+  ticket_number TEXT UNIQUE NOT NULL,
+  user_id TEXT,
+  user_email TEXT,
+  user_name TEXT,
+  wish_id TEXT,
+  order_id TEXT,
+  category TEXT NOT NULL DEFAULT 'general',
+  subject TEXT NOT NULL,
+  description TEXT NOT NULL,
+  status TEXT NOT NULL DEFAULT 'open',
+  priority TEXT NOT NULL DEFAULT 'medium',
+  admin_notes TEXT,
+  assigned_to TEXT,
+  diagnostic_data TEXT DEFAULT '{}',
+  resolution_summary TEXT,
+  last_customer_message_at TEXT,
+  last_agent_response_at TEXT,
+  resolved_at TEXT,
+  closed_at TEXT,
+  reopen_count INTEGER NOT NULL DEFAULT 0,
+  satisfaction_rating INTEGER,
+  satisfaction_feedback TEXT,
+  contact_preference TEXT DEFAULT 'in_app',
+  created_at TEXT NOT NULL,
+  updated_at TEXT NOT NULL
+);
 
 CREATE INDEX IF NOT EXISTS idx_support_tickets_order ON support_tickets(order_id);
 CREATE INDEX IF NOT EXISTS idx_support_tickets_user_status ON support_tickets(user_id, status);

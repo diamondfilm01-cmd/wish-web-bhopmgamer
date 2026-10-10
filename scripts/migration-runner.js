@@ -36,24 +36,32 @@ export class D1MigrationRunner {
 
     await this.db.prepare(`
       CREATE TABLE IF NOT EXISTS _migrations (
-        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        id TEXT PRIMARY KEY,
         name TEXT UNIQUE NOT NULL,
-        checksum TEXT NOT NULL,
+        checksum TEXT,
         applied_at TEXT NOT NULL
       )
     `).run();
+
+    // Check if checksum column exists on older installations, add if missing
+    try {
+      const info = await this.db.prepare('PRAGMA table_info(_migrations)').all();
+      const cols = new Set((info?.results || []).map(c => c.name));
+      if (!cols.has('checksum')) {
+        await this.db.prepare('ALTER TABLE _migrations ADD COLUMN checksum TEXT').run();
+      }
+    } catch (_) {}
   }
 
   /**
    * Get all applied migrations from the database
    */
   async getAppliedMigrations() {
-    try {
-      const rows = await this.db.prepare('SELECT name, checksum, applied_at FROM _migrations ORDER BY id ASC').all();
-      return (rows.results || []).map(r => r.name);
-    } catch (e) {
-      return [];
+    if (!this.db || typeof this.db.prepare !== 'function') {
+      throw new Error('Invalid D1 database binding');
     }
+    const rows = await this.db.prepare('SELECT name, checksum, applied_at FROM _migrations').all();
+    return rows.results || [];
   }
 
   /**
@@ -64,11 +72,89 @@ export class D1MigrationRunner {
   }
 
   /**
+   * Robust SQL Statement Parser: strips comments and splits on semicolons safely
+   */
+  splitSqlStatements(sqlContent) {
+    const statements = [];
+    let current = '';
+    let inString = false;
+    let stringChar = '';
+    let inLineComment = false;
+    let inBlockComment = false;
+    const len = sqlContent.length;
+
+    for (let i = 0; i < len; i++) {
+      const char = sqlContent[i];
+      const nextChar = i + 1 < len ? sqlContent[i + 1] : '';
+
+      if (inLineComment) {
+        if (char === '\n' || char === '\r') {
+          inLineComment = false;
+        }
+        continue;
+      }
+
+      if (inBlockComment) {
+        if (char === '*' && nextChar === '/') {
+          inBlockComment = false;
+          i++;
+        }
+        continue;
+      }
+
+      if (!inString && char === '-' && nextChar === '-') {
+        inLineComment = true;
+        i++;
+        continue;
+      }
+
+      if (!inString && char === '/' && nextChar === '*') {
+        inBlockComment = true;
+        i++;
+        continue;
+      }
+
+      if ((char === "'" || char === '"' || char === '`') && !inLineComment && !inBlockComment) {
+        if (!inString) {
+          inString = true;
+          stringChar = char;
+        } else if (char === stringChar) {
+          if (nextChar === stringChar) {
+            current += char + nextChar;
+            i++;
+            continue;
+          }
+          inString = false;
+        }
+      }
+
+      if (char === ';' && !inString) {
+        const stmt = current.trim();
+        if (stmt.length > 0) {
+          statements.push(stmt);
+        }
+        current = '';
+        continue;
+      }
+
+      current += char;
+    }
+
+    const remaining = current.trim();
+    if (remaining.length > 0) {
+      statements.push(remaining);
+    }
+
+    return statements;
+  }
+
+  /**
    * Run pending migrations
    */
   async runMigrations(options = {}) {
     await this.initMigrationsTable();
-    const applied = await this.getAppliedMigrations();
+    const appliedRows = await this.getAppliedMigrations();
+    const appliedMap = new Map(appliedRows.map(r => [r.name, r]));
 
     const allFiles = fs.readdirSync(this.migrationsDir)
       .filter(f => f.endsWith('.sql'))
@@ -84,14 +170,18 @@ export class D1MigrationRunner {
     };
 
     for (const file of allFiles) {
-      if (applied.includes(file)) {
-        results.skippedCount++;
-        continue;
-      }
-
       const filePath = path.join(this.migrationsDir, file);
       const sqlContent = fs.readFileSync(filePath, 'utf8');
       const checksum = this.computeChecksum(sqlContent);
+
+      if (appliedMap.has(file)) {
+        const existing = appliedMap.get(file);
+        if (existing.checksum && existing.checksum !== checksum) {
+          console.warn(`[Migration Warning] Checksum mismatch for previously applied migration "${file}".`);
+        }
+        results.skippedCount++;
+        continue;
+      }
 
       try {
         if (options.dryRun) {
@@ -100,20 +190,24 @@ export class D1MigrationRunner {
           continue;
         }
 
-        // Split SQL statements by semicolon
-        const statements = sqlContent
-          .split(';')
-          .map(s => s.trim())
-          .filter(s => s.length > 0 && !s.startsWith('--'));
-
+        const statements = this.splitSqlStatements(sqlContent);
         for (const statement of statements) {
-          await this.db.prepare(statement).run();
+          try {
+            await this.db.prepare(statement).run();
+          } catch (stmtErr) {
+            if (/duplicate column name|already exists/i.test(stmtErr.message)) {
+              // Idempotent column or table/index creation
+              continue;
+            }
+            throw stmtErr;
+          }
         }
 
         const nowIso = new Date().toISOString();
+        const migId = 'mig_' + file.replace(/[^a-zA-Z0-9]/g, '_');
         await this.db.prepare(
-          'INSERT INTO _migrations (name, checksum, applied_at) VALUES (?, ?, ?)'
-        ).bind(file, checksum, nowIso).run();
+          'INSERT OR REPLACE INTO _migrations (id, name, checksum, applied_at) VALUES (?, ?, ?, ?)'
+        ).bind(migId, file, checksum, nowIso).run();
 
         results.appliedCount++;
         results.executed.push({ file, status: 'APPLIED', checksum, appliedAt: nowIso });

@@ -1,17 +1,17 @@
 // WishMagic Firebase Authentication Integration Module
 // Web SDK v10 (Official Google CDN ESM)
-// Project: wish-magic-47944
+// Project: pacific-ember-18chg
 
 (function(window) {
   'use strict';
 
   const firebaseConfig = {
-    apiKey: "AIzaSyCiZmxmfgyj555EI4af_rt5X_id31F4Vq0",
-    authDomain: "wish-magic-47944.firebaseapp.com",
-    projectId: "wish-magic-47944",
-    storageBucket: "wish-magic-47944.firebasestorage.app",
-    messagingSenderId: "281035115213",
-    appId: "1:281035115213:web:2af5b3a6f0ceb6c64eb784"
+    apiKey: (window.__FIREBASE_CONFIG__ && window.__FIREBASE_CONFIG__.apiKey) || (window.ENV && window.ENV.FIREBASE_API_KEY) || "",
+    authDomain: (window.__FIREBASE_CONFIG__ && window.__FIREBASE_CONFIG__.authDomain) || "pacific-ember-18chg.firebaseapp.com",
+    projectId: (window.__FIREBASE_CONFIG__ && window.__FIREBASE_CONFIG__.projectId) || "pacific-ember-18chg",
+    storageBucket: (window.__FIREBASE_CONFIG__ && window.__FIREBASE_CONFIG__.storageBucket) || "pacific-ember-18chg.firebasestorage.app",
+    messagingSenderId: (window.__FIREBASE_CONFIG__ && window.__FIREBASE_CONFIG__.messagingSenderId) || "206581825854",
+    appId: (window.__FIREBASE_CONFIG__ && window.__FIREBASE_CONFIG__.appId) || "1:206581825854:web:9e195a82e2a31c359c6c6f"
   };
 
   const ADMIN_EMAILS = [
@@ -28,6 +28,24 @@
   async function getFirebase() {
     if (initPromise) return initPromise;
     initPromise = (async () => {
+      // 0. Fetch config from server if missing or incomplete
+      if (!firebaseConfig.apiKey) {
+        try {
+          const res = await fetch('/api/auth/config');
+          const serverConfig = await res.json();
+          if (serverConfig && serverConfig.apiKey) {
+            firebaseConfig.apiKey = serverConfig.apiKey;
+            if (serverConfig.projectId) firebaseConfig.projectId = serverConfig.projectId;
+            if (serverConfig.authDomain) firebaseConfig.authDomain = serverConfig.authDomain;
+            if (serverConfig.storageBucket) firebaseConfig.storageBucket = serverConfig.storageBucket;
+            if (serverConfig.appId) firebaseConfig.appId = serverConfig.appId;
+            console.log('[WishFirebaseAuth] Configuration loaded from server');
+          }
+        } catch (e) {
+          console.warn('[WishFirebaseAuth] Failed to load config from server:', e);
+        }
+      }
+
       // 1. Check if global compat SDK is present (e.g. via script tags)
       if (typeof window.firebase !== 'undefined' && window.firebase.initializeApp && window.firebase.auth) {
         try {
@@ -82,7 +100,7 @@
           });
         });
 
-        console.log('[WishFirebaseAuth] Firebase Auth initialized successfully for wish-magic-47944');
+        console.log('[WishFirebaseAuth] Firebase Auth initialized successfully for pacific-ember-18chg');
         return {
           app: fbApp,
           auth: fbAuth,

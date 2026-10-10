@@ -39,7 +39,8 @@ import {
 } from '../src/template-protocol-validator.js';
 
 import {
-  executeB2TemplateIngestPipeline
+  executeB2TemplateIngestPipeline,
+  createMockD1Database
 } from '../src/template-ingest-pipeline.js';
 
 test('Part 2 — Universal Template Protocol (UTP) Specification & Validator Suite', async (t) => {
@@ -283,7 +284,8 @@ test('Part 2 — Universal Template Protocol (UTP) Specification & Validator Sui
     const res = await executeB2TemplateIngestPipeline({
       zipBuffer: zipBytes,
       storageProvider: fakeB2Provider,
-      templateMetadata: { name: 'Romantic Surprise 3D' }
+      templateMetadata: { name: 'Romantic Surprise 3D' },
+      db: createMockD1Database()
     });
 
     assert.strictEqual(res.success, true);

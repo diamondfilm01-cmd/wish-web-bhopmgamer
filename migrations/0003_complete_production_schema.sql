@@ -43,6 +43,7 @@ CREATE TABLE IF NOT EXISTS template_versions (
   description TEXT,
   sections TEXT,      -- JSON array of section definitions
   capabilities TEXT,  -- JSON object of supported template capabilities
+  status TEXT NOT NULL DEFAULT 'active',
   created_at TEXT NOT NULL,
   FOREIGN KEY (template_id) REFERENCES templates(id) ON DELETE CASCADE
 );

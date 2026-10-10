@@ -784,6 +784,22 @@ export async function executeB2TemplateIngestPipeline(params) {
     defaultConfig: templateMetadata.defaultConfig || {}
   };
 
+  // Validate db binding upfront before uploading any assets to B2
+  if (!db || typeof db.prepare !== 'function') {
+    await updateOperation(UPLOAD_OPERATION_STATE.FAILED, 'db_binding_required', 35, {
+      errorCode: 'DB_BINDING_REQUIRED',
+      errorMessage: 'D1 database binding is required for template ingestion',
+      isRetryable: false
+    });
+    return {
+      success: false,
+      operationId,
+      error: 'D1 database binding is required for template ingestion',
+      code: 'DB_BINDING_REQUIRED',
+      message: 'D1 database binding is required for template ingestion'
+    };
+  }
+
   const uploadedB2Objects = [];
 
   try {
@@ -852,11 +868,15 @@ export async function executeB2TemplateIngestPipeline(params) {
       b2Objects: uploadedB2Objects
     });
 
-    // 8. Commit Records into D1 Database (if DB binding provided)
-    if (db && typeof db.prepare === 'function') {
-      await updateOperation(UPLOAD_OPERATION_STATE.REGISTERING, 'registering_d1', 80);
+    // 8. Commit Records into D1 Database (D1 binding is required for authoritative registration)
+    if (!db || typeof db.prepare !== 'function') {
+      throw new Error('D1 database binding DB is required for template registration. Ingestion cannot complete without database persistence.');
+    }
 
-      // Ensure template_family exists
+    await updateOperation(UPLOAD_OPERATION_STATE.REGISTERING, 'registering_d1', 80);
+
+    // Ensure template_family exists
+    try {
       await db.prepare(`
         INSERT OR IGNORE INTO template_families (
           id, slug, name, description, thumbnail, category, tier, price, is_featured, is_premium, status, visibility, created_by, created_at, updated_at
@@ -875,9 +895,13 @@ export async function executeB2TemplateIngestPipeline(params) {
         authorId,
         nowIso,
         nowIso
-      ).run().catch(e => console.warn('template_family insert warning:', e.message));
+      ).run();
+    } catch (famErr) {
+      throw new Error(`Failed to insert template_families record: ${famErr.message}`);
+    }
 
-      // Ensure templates record exists / upserted for immediate store/admin visibility
+    // Ensure templates record exists / upserted for immediate store/admin visibility
+    try {
       await db.prepare(`
         INSERT INTO templates (
           id, name, slug, description, category, relationships, tags,
@@ -920,9 +944,13 @@ export async function executeB2TemplateIngestPipeline(params) {
         extracted.entryFile,
         nowIso,
         nowIso
-      ).run().catch(e => console.warn('templates table upsert warning:', e.message));
+      ).run();
+    } catch (tplErr) {
+      throw new Error(`Failed to register templates record: ${tplErr.message}`);
+    }
 
-      // Insert template_versions record
+    // Insert template_versions record
+    try {
       await db.prepare(`
         INSERT INTO template_versions (
           id, template_id, template_family_id, version_number, version_label,
@@ -963,15 +991,25 @@ export async function executeB2TemplateIngestPipeline(params) {
         nowIso,
         authorId
       ).run();
+    } catch (verErr) {
+      throw new Error(`Failed to insert template_versions record: ${verErr.message}`);
+    }
 
-      // Insert template_files records
-      for (const f of analyzed.fileRecords) {
-        const fileRecordId = `tfile_${versionId}_${f.sha256.slice(0, 8)}_${Math.random().toString(36).slice(-4)}`;
+    // Insert template_files records with deterministic IDs for idempotent retries
+    for (const f of analyzed.fileRecords) {
+      const pathHash = (await computeSha256Hex(f.relativePath)).slice(0, 12);
+      const fileRecordId = `tfile_${versionId}_${pathHash}`;
+      try {
         await db.prepare(`
           INSERT INTO template_files (
             id, template_version_id, relative_path, storage_provider, storage_key,
             mime_type, size_bytes, sha256, file_role, is_entry_file, status, created_at
           ) VALUES (?, ?, ?, 'b2', ?, ?, ?, ?, ?, ?, 'active', ?)
+          ON CONFLICT(id) DO UPDATE SET
+            storage_key = excluded.storage_key,
+            size_bytes = excluded.size_bytes,
+            sha256 = excluded.sha256,
+            status = 'active'
         `).bind(
           fileRecordId,
           versionId,
@@ -983,14 +1021,18 @@ export async function executeB2TemplateIngestPipeline(params) {
           f.fileRole,
           f.isEntryFile,
           nowIso
-        ).run().catch(e => console.warn('template_file insert warning:', e.message));
+        ).run();
+      } catch (fileErr) {
+        throw new Error(`Failed to insert template_files record for "${f.relativePath}": ${fileErr.message}`);
       }
+    }
 
-      // Insert template_fields records
-      let fieldOrder = 0;
-      for (const field of mergedFields) {
-        fieldOrder++;
-        const fieldId = `tfld_${versionId}_${field.key}`;
+    // Insert template_fields records
+    let fieldOrder = 0;
+    for (const field of mergedFields) {
+      fieldOrder++;
+      const fieldId = `tfld_${versionId}_${field.key}`;
+      try {
         await db.prepare(`
           INSERT OR REPLACE INTO template_fields (
             id, template_version_id, field_key, field_type, label, placeholder,
@@ -1011,7 +1053,9 @@ export async function executeB2TemplateIngestPipeline(params) {
           fieldOrder,
           field.category || 'personal',
           nowIso
-        ).run().catch(e => console.warn('template_field insert warning:', e.message));
+        ).run();
+      } catch (fldErr) {
+        throw new Error(`Failed to insert template_fields record for "${field.key}": ${fldErr.message}`);
       }
     }
 
@@ -1108,3 +1152,39 @@ export async function executeB2TemplateIngestPipeline(params) {
     return errRes;
   }
 }
+
+/**
+ * Creates a mock in-memory D1 database instance for unit testing.
+ * Compatible with prepare().bind().run() / all() / first().
+ */
+export function createMockD1Database() {
+  const store = {
+    template_families: new Map(),
+    template_versions: new Map(),
+    templates: new Map(),
+    template_upload_operations: new Map(),
+    template_audit_logs: []
+  };
+
+  return {
+    prepare(sql) {
+      let boundParams = [];
+      return {
+        bind(...params) {
+          boundParams = params;
+          return this;
+        },
+        async run() {
+          return { success: true, meta: { changes: 1 } };
+        },
+        async all() {
+          return { results: [], success: true };
+        },
+        async first() {
+          return null;
+        }
+      };
+    }
+  };
+}
+

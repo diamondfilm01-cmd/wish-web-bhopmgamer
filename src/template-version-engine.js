@@ -14,6 +14,7 @@
  */
 
 import { computeSha256Hex } from './storage-provider.js';
+import { UTP_CAPABILITY_REGISTRY } from './template-protocol-schema.js';
 
 export const VERSION_LIFECYCLE_STATUS = {
   DRAFT: 'draft',
@@ -158,15 +159,59 @@ export function validateTemplateVersionForRelease(version, context = {}) {
   });
   if (!hasHtml) errors.push('Required HTML file missing.');
 
+  // Normalized set of existing files in version inventory
+  const existingFilePaths = new Set(files.map(f => getFilePath(f).toLowerCase().replace(/^\.\//, '')));
+
+  // Collect declared and referenced assets from manifest
+  const referencedLocalAssets = [];
+  if (manifest && typeof manifest === 'object') {
+    if (Array.isArray(manifest.files)) {
+      manifest.files.forEach(p => typeof p === 'string' && referencedLocalAssets.push({ path: p, source: 'manifest.files', required: true }));
+    }
+    const assets = manifest.assets || {};
+    ['css', 'js', 'scripts', 'fonts', 'images', 'audio'].forEach(key => {
+      const val = assets[key];
+      if (Array.isArray(val)) {
+        val.forEach(p => typeof p === 'string' && referencedLocalAssets.push({ path: p, source: `assets.${key}`, required: true }));
+      } else if (typeof val === 'string') {
+        referencedLocalAssets.push({ path: val, source: `assets.${key}`, required: true });
+      } else if (val && typeof val === 'object') {
+        Object.values(val).forEach(p => typeof p === 'string' && referencedLocalAssets.push({ path: p, source: `assets.${key}`, required: true }));
+      }
+    });
+  }
+
+  // Check required assets resolution
+  let missingRequiredAssets = [];
+  let brokenAssetRefs = [];
+
+  for (const ref of referencedLocalAssets) {
+    const rawPath = ref.path.trim();
+    if (rawPath.startsWith('http://') || rawPath.startsWith('https://') || rawPath.startsWith('data:') || rawPath.startsWith('blob:')) {
+      continue; // External or embedded URLs are not local files
+    }
+    const norm = rawPath.replace(/^\.\//, '').toLowerCase();
+    if (norm.includes('../') || norm.includes('..\\') || norm.startsWith('/')) {
+      brokenAssetRefs.push(`Path traversal or root escape in referenced asset "${rawPath}"`);
+    } else if (!existingFilePaths.has(norm)) {
+      missingRequiredAssets.push(`Referenced asset "${rawPath}" (${ref.source}) not found in version files.`);
+    }
+  }
+
   // 5. E: Required assets resolve
-  const assetsResolve = hasFiles && (files.length > 0);
+  const assetsResolve = hasFiles && (files.length > 0) && missingRequiredAssets.length === 0;
   checklist.push({
     id: 'required_assets_resolve',
     name: 'Required Assets Resolve',
     description: 'All local CSS, JS and media references resolve correctly',
     passed: assetsResolve,
-    error: assetsResolve ? null : 'Assets do not resolve.'
+    error: assetsResolve ? null : (missingRequiredAssets.join('; ') || 'Assets do not resolve.')
   });
+  if (!assetsResolve && missingRequiredAssets.length > 0) {
+    errors.push(...missingRequiredAssets);
+  } else if (!hasFiles) {
+    errors.push('No files found in version inventory.');
+  }
 
   // 6. F: No path traversal
   let hasPathTraversal = false;
@@ -220,13 +265,15 @@ export function validateTemplateVersionForRelease(version, context = {}) {
   if (hasForbiddenExt) errors.push('Forbidden file extension detected in archive.');
 
   // 9. I: No broken asset references
+  const noBrokenRefs = brokenAssetRefs.length === 0;
   checklist.push({
     id: 'no_broken_asset_refs',
     name: 'Asset Reference Integrity',
     description: 'Verifies asset URI formatting and local path conventions',
-    passed: true,
-    error: null
+    passed: noBrokenRefs,
+    error: noBrokenRefs ? null : brokenAssetRefs.join('; ')
   });
+  if (!noBrokenRefs) errors.push(...brokenAssetRefs);
 
   // 10. J: Template Schema Valid
   const schemaValid = Boolean(version.name || template.name);
@@ -280,12 +327,23 @@ export function validateTemplateVersionForRelease(version, context = {}) {
   if (!sectionsValid) errors.push('Sections configuration is invalid.');
 
   // 13. M: Relationships binding valid
+  let relationshipsValid = true;
+  const declaredRels = template.relationships || manifest?.relationships || relationships || [];
+  if (Array.isArray(declaredRels) && declaredRels.length > 0) {
+    for (const rel of declaredRels) {
+      const relId = typeof rel === 'string' ? rel : (rel.id || rel.slug);
+      if (!relId || typeof relId !== 'string') {
+        relationshipsValid = false;
+        errors.push(`Invalid relationship binding declaration: ${JSON.stringify(rel)}`);
+      }
+    }
+  }
   checklist.push({
     id: 'relationships_valid',
     name: 'Relationships Compatibility',
     description: 'Validates relationship taxonomy bindings and default fallbacks',
-    passed: true,
-    error: null
+    passed: relationshipsValid,
+    error: relationshipsValid ? null : 'Relationships taxonomy declaration is invalid.'
   });
 
   // 14. N: Relationship variants valid
@@ -307,7 +365,10 @@ export function validateTemplateVersionForRelease(version, context = {}) {
   // 15. O: Images valid
   let imagesValid = true;
   for (const img of images) {
-    if (img.status === 'failed') imagesValid = false;
+    if (img.status === 'failed') {
+      imagesValid = false;
+      errors.push(`Image asset "${img.asset_key || img.id}" is in failed state.`);
+    }
   }
   checklist.push({
     id: 'images_valid',
@@ -318,34 +379,59 @@ export function validateTemplateVersionForRelease(version, context = {}) {
   });
 
   // 16. P: Music mappings valid
+  let parsedCaps = {};
+  try {
+    const rawC = version.capabilities || manifest?.capabilities || template.capabilities;
+    if (rawC) parsedCaps = typeof rawC === 'string' ? JSON.parse(rawC) : rawC;
+  } catch (e) {}
+
+  const hasAudioInFiles = files.some(f => {
+    const p = getFilePath(f).toLowerCase();
+    return p.endsWith('.mp3') || p.endsWith('.ogg') || p.endsWith('.wav') || p.endsWith('.m4a') || p.endsWith('.aac');
+  });
+  const hasAudioInLibrary = Array.isArray(musicLibrary) && musicLibrary.length > 0;
   let musicValid = true;
+  let musicError = null;
+
+  const rawMusic = version.music || manifest?.music;
+  if (rawMusic && typeof rawMusic === 'object' && rawMusic.track_id) {
+    if (!hasAudioInLibrary && !hasAudioInFiles) {
+      musicValid = false;
+      musicError = `Referenced music track "${rawMusic.track_id}" does not exist in library or bundle.`;
+      errors.push(musicError);
+    }
+  }
+
   checklist.push({
     id: 'music_mappings_valid',
     name: 'Music Mappings Valid',
     description: 'Verifies background audio tracks and audio player capability bindings',
     passed: musicValid,
-    error: null
+    error: musicError
   });
 
   // 17. Q: Required capabilities valid
   let capabilitiesValid = true;
-  const rawCaps = version.capabilities;
-  if (rawCaps) {
-    try {
-      const parsed = typeof rawCaps === 'string' ? JSON.parse(rawCaps) : rawCaps;
-      if (typeof parsed !== 'object') capabilitiesValid = false;
-    } catch (e) {
-      capabilitiesValid = false;
+  let capError = null;
+  if (parsedCaps && typeof parsedCaps === 'object') {
+    for (const capKey of Object.keys(parsedCaps)) {
+      if (UTP_CAPABILITY_REGISTRY && !UTP_CAPABILITY_REGISTRY[capKey] && capKey !== 'title' && capKey !== 'description') {
+        warnings.push(`Declared capability "${capKey}" is non-standard in UTP registry.`);
+      }
     }
+  } else if (version.capabilities) {
+    capabilitiesValid = false;
+    capError = 'Capabilities configuration format is invalid.';
+    errors.push(capError);
   }
+
   checklist.push({
     id: 'capabilities_valid',
     name: 'Required Capabilities Declared',
     description: 'Ensures audio player, particle canvas, photo gallery features are registered',
     passed: capabilitiesValid,
-    error: capabilitiesValid ? null : 'Capabilities configuration format is invalid.'
+    error: capError
   });
-  if (!capabilitiesValid) errors.push('Capabilities configuration JSON is invalid.');
 
   const valid = errors.length === 0;
   const status = valid ? VERSION_LIFECYCLE_STATUS.READY : VERSION_LIFECYCLE_STATUS.FAILED;

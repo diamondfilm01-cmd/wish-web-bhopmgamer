@@ -58,6 +58,7 @@ CREATE TABLE IF NOT EXISTS support_tickets (
   user_id TEXT,
   user_email TEXT,
   wish_id TEXT,
+  order_id TEXT,
   category TEXT NOT NULL DEFAULT 'general', -- 'link_issue', 'billing', 'media_error', 'customization', 'general'
   subject TEXT NOT NULL,
   description TEXT NOT NULL,

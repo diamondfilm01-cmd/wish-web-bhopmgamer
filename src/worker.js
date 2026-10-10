@@ -234,11 +234,26 @@ import {
   computeSearchDiagnostics
 } from './search-discovery-engine.js';
 
+import {
+  authenticateWithPassword,
+  registerWithPassword,
+  verifyToken as verifyAuthProviderToken,
+  hashPassword,
+  verifyPassword
+} from './auth/auth-provider.js';
+import {
+  createSession,
+  getSessionUser,
+  revokeSession,
+  revokeAllUserSessions,
+  MASTER_ADMIN_EMAILS
+} from './auth/session-service.js';
+
 
 // Timezone Constant: Strictly Asia/Kolkata (IST = UTC+05:30)
 const IST_OFFSET_MS = 5.5 * 60 * 60 * 1000;
 const APP_VERSION = '1.0.0-p28';
-const FIREBASE_API_KEY = ['AIzaSy', 'CiZmxmfgyj555EI4af_rt5X_id31F4Vq0'].join('');
+// Security Notice: External credentials (FIREBASE_API_KEY, IMGBB_API_KEY, B2 secrets) are loaded dynamically from server environment variables / Cloudflare secrets
 
 // Failure Classification
 const FailureCategory = {
@@ -744,7 +759,7 @@ async function verifyFirebaseIdToken(idToken, env) {
     return { valid: false, error: 'AUTH_FIREBASE_TOKEN_MALFORMED', message: 'The provided authentication token is malformed.' };
   }
 
-  const projectId = 'wish-magic-47944';
+  const projectId = 'pacific-ember-18chg';
   const expectedIssuer = `https://securetoken.google.com/${projectId}`;
   const nowSec = Math.floor(Date.now() / 1000);
 
@@ -762,33 +777,36 @@ async function verifyFirebaseIdToken(idToken, env) {
     return { valid: false, error: 'AUTH_FIREBASE_TOKEN_INVALID', message: 'Token missing user identity subject.' };
   }
 
-  // 2. Online verification via Google Identity Toolkit
-  try {
-    const lookupRes = await fetch(`https://identitytoolkit.googleapis.com/v1/accounts:lookup?key=${FIREBASE_API_KEY}`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ idToken })
-    });
-    const lookupData = await lookupRes.json().catch(() => ({}));
-    if (lookupRes.ok && lookupData?.users && lookupData.users.length > 0) {
-      const u = lookupData.users[0];
-      return {
-        valid: true,
-        uid: u.localId || claims.sub,
-        email: (u.email || claims.email || '').trim().toLowerCase(),
-        displayName: u.displayName || claims.name || '',
-        avatarUrl: u.photoUrl || claims.picture || null,
-        provider: u.providerUserInfo?.[0]?.providerId || claims.firebase?.sign_in_provider || 'google'
-      };
-    } else if (lookupData?.error?.message && (lookupData.error.message.includes('TOKEN_EXPIRED') || lookupData.error.message.includes('INVALID_ID_TOKEN') || lookupData.error.message.includes('USER_NOT_FOUND'))) {
-      return {
-        valid: false,
-        error: 'AUTH_FIREBASE_TOKEN_INVALID',
-        message: 'Google authentication token is invalid or has expired. Please sign in again.'
-      };
+  // 2. Online verification via Google Identity Toolkit (if configured in environment)
+  const serverFbKey = env?.FIREBASE_API_KEY || (typeof process !== 'undefined' && process.env?.FIREBASE_API_KEY) || null;
+  if (serverFbKey) {
+    try {
+      const lookupRes = await fetch(`https://identitytoolkit.googleapis.com/v1/accounts:lookup?key=${serverFbKey}`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ idToken })
+      });
+      const lookupData = await lookupRes.json().catch(() => ({}));
+      if (lookupRes.ok && lookupData?.users && lookupData.users.length > 0) {
+        const u = lookupData.users[0];
+        return {
+          valid: true,
+          uid: u.localId || claims.sub,
+          email: (u.email || claims.email || '').trim().toLowerCase(),
+          displayName: u.displayName || claims.name || '',
+          avatarUrl: u.photoUrl || claims.picture || null,
+          provider: u.providerUserInfo?.[0]?.providerId || claims.firebase?.sign_in_provider || 'google'
+        };
+      } else if (lookupData?.error?.message && (lookupData.error.message.includes('TOKEN_EXPIRED') || lookupData.error.message.includes('INVALID_ID_TOKEN') || lookupData.error.message.includes('USER_NOT_FOUND'))) {
+        return {
+          valid: false,
+          error: 'AUTH_FIREBASE_TOKEN_INVALID',
+          message: 'Google authentication token is invalid or has expired. Please sign in again.'
+        };
+      }
+    } catch (netErr) {
+      console.warn('[Firebase Token Online Verification Fallback to Claims]', netErr);
     }
-  } catch (netErr) {
-    console.warn('[Firebase Token Online Verification Fallback to Claims]', netErr);
   }
 
   // Fallback to verified claims
@@ -4103,9 +4121,7 @@ async function generateServerSlug(db, customData, templateId, config = {}) {
 
 export default {
   async fetch(request, rawEnv = {}, ctx) {
-    const env = (rawEnv && rawEnv.IMGBB_API_KEY) || (rawEnv && rawEnv.ENVIRONMENT === 'test')
-      ? (rawEnv || {})
-      : { IMGBB_API_KEY: '75e222f33f8ccf82566ebeeac2dc70be', ...(rawEnv || {}) };
+    const env = rawEnv || {};
     const url = new URL(request.url);
     const pathname = url.pathname;
     const method = request.method.toUpperCase();
@@ -4532,6 +4548,19 @@ export default {
         }
       }
 
+      // --- Public Auth Configuration Route (Safe Client Configuration) ---
+      else if (pathname === '/api/auth/config' && method === 'GET') {
+        const publicConfig = {
+          apiKey: env.FIREBASE_API_KEY || '',
+          projectId: env.FIREBASE_PROJECT_ID || 'pacific-ember-18chg',
+          authDomain: env.FIREBASE_AUTH_DOMAIN || 'pacific-ember-18chg.firebaseapp.com',
+          storageBucket: env.FIREBASE_STORAGE_BUCKET || 'pacific-ember-18chg.firebasestorage.app',
+          appId: env.FIREBASE_APP_ID || '1:206581825854:web:9e195a82e2a31c359c6c6f',
+          configured: Boolean(env.FIREBASE_API_KEY)
+        };
+        response = jsonSuccess(publicConfig, 200, {}, requestId);
+      }
+
       else if (pathname === '/api/auth/email-signin' && method === 'POST') {
         const body = await request.json().catch(() => ({}));
         const email = sanitizeString(body.email || '', 120).trim().toLowerCase();
@@ -4541,58 +4570,16 @@ export default {
           return applySecurityHeaders(jsonError('VALIDATION_ERROR', 'Email and password are required', 400), request, env);
         }
 
-        let verifiedUid = null;
-        let verifiedEmail = email;
-
-        try {
-          const fbRes = await fetch(`https://identitytoolkit.googleapis.com/v1/accounts:signInWithPassword?key=${FIREBASE_API_KEY}`, {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ email, password, returnSecureToken: true })
-          });
-          const fbData = await fbRes.json().catch(() => ({}));
-          if (fbData.error) {
-            const code = fbData.error.message;
-            let msg = 'Incorrect email or password. Please verify and try again.';
-            if (code === 'EMAIL_NOT_FOUND' || code === 'INVALID_LOGIN_CREDENTIALS') {
-              msg = 'Incorrect email or password. Please check your details or sign up.';
-            } else if (code === 'INVALID_PASSWORD') {
-              msg = 'Incorrect password. Please try again or use password reset.';
-            }
-            return applySecurityHeaders(jsonError('AUTH_FAILED', msg, 401), request, env);
-          }
-          verifiedUid = fbData.localId;
-          verifiedEmail = (fbData.email || email).toLowerCase();
-        } catch (e) {
-          return applySecurityHeaders(jsonError('GATEWAY_ERROR', 'Could not connect to Firebase Authentication service', 502), request, env);
-        }
-
         let userRecord = null;
         if (env.DB && typeof env.DB.prepare === 'function') {
           await verifyAndEnsureAuthSchema(env.DB);
-          userRecord = await env.DB.prepare('SELECT * FROM users WHERE LOWER(email) = LOWER(?) LIMIT 1').bind(verifiedEmail).first().catch(() => null);
-          if (!userRecord) {
-            userRecord = await env.DB.prepare('SELECT * FROM users WHERE email = ? LIMIT 1').bind(verifiedEmail).first().catch(() => null);
+          const authRes = await authenticateWithPassword(env.DB, email, password, env);
+          if (!authRes.success) {
+            return applySecurityHeaders(jsonError(authRes.code, authRes.message, authRes.status || 401), request, env);
           }
-          if (!userRecord) {
-            const cleanUid = verifiedUid ? verifiedUid.replace(/[^a-zA-Z0-9_-]/g, '') : '';
-            const newUserId = cleanUid ? (`usr_fb_${cleanUid}`) : (`usr_${crypto.randomUUID().replace(/-/g, '')}`);
-            const displayName = verifiedEmail.split('@')[0];
-            const nowIso = new Date().toISOString();
-            try {
-              await env.DB.prepare(
-                'INSERT OR REPLACE INTO users (id, email, display_name, avatar_url, role, plan, is_premium, provider, status, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)'
-              ).bind(newUserId, verifiedEmail, displayName, `https://api.dicebear.com/7.x/bottts/svg?seed=${encodeURIComponent(verifiedEmail)}`, 'creator', 'Free', 0, 'password', 'active', nowIso, nowIso).run();
-            } catch (insErr) {
-              console.warn('[Email Signin Insert Notice]', insErr);
-            }
-            userRecord = await env.DB.prepare('SELECT * FROM users WHERE LOWER(email) = LOWER(?) LIMIT 1').bind(verifiedEmail).first().catch(() => null);
-            if (!userRecord) {
-              userRecord = { id: newUserId, email: verifiedEmail, display_name: displayName, avatar_url: `https://api.dicebear.com/7.x/bottts/svg?seed=${encodeURIComponent(verifiedEmail)}`, role: 'creator', plan: 'Free', is_premium: 0 };
-            }
-          }
+          userRecord = authRes.user;
         } else {
-          userRecord = { id: 'usr_' + Date.now().toString(36), email: verifiedEmail, display_name: verifiedEmail.split('@')[0], role: 'creator', plan: 'Free', is_premium: false };
+          userRecord = { id: 'usr_' + Date.now().toString(36), email, display_name: email.split('@')[0], role: 'creator', plan: 'Free', is_premium: false };
         }
 
         const sessionToken = 'wm_tok_' + crypto.randomUUID().replace(/-/g, '') + Date.now().toString(36);
@@ -4626,44 +4613,16 @@ export default {
           return applySecurityHeaders(jsonError('VALIDATION_ERROR', 'Valid email and password (min 6 chars) required', 400), request, env);
         }
 
-        let createdUid = null;
-        try {
-          const fbRes = await fetch(`https://identitytoolkit.googleapis.com/v1/accounts:signUp?key=${FIREBASE_API_KEY}`, {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ email, password, returnSecureToken: true })
-          });
-          const fbData = await fbRes.json().catch(() => ({}));
-          if (fbData.error) {
-            const code = fbData.error.message;
-            let msg = 'Sign up failed.';
-            if (code === 'EMAIL_EXISTS') msg = 'An account already exists with this email address. Please sign in instead.';
-            return applySecurityHeaders(jsonError('AUTH_FAILED', msg, 400), request, env);
-          }
-          createdUid = fbData.localId;
-        } catch (e) {
-          return applySecurityHeaders(jsonError('GATEWAY_ERROR', 'Could not connect to Firebase Authentication service', 502), request, env);
-        }
-
         let userRecord = null;
         if (env.DB && typeof env.DB.prepare === 'function') {
           await verifyAndEnsureAuthSchema(env.DB);
-          const cleanUid = createdUid ? createdUid.replace(/[^a-zA-Z0-9_-]/g, '') : '';
-          const newUserId = cleanUid ? (`usr_fb_${cleanUid}`) : (`usr_${crypto.randomUUID().replace(/-/g, '')}`);
-          const nowIso = new Date().toISOString();
-          try {
-            await env.DB.prepare(
-              'INSERT OR REPLACE INTO users (id, email, display_name, avatar_url, role, plan, is_premium, provider, status, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)'
-            ).bind(newUserId, email, displayName, `https://api.dicebear.com/7.x/bottts/svg?seed=${encodeURIComponent(email)}`, 'creator', 'Free', 0, 'password', 'active', nowIso, nowIso).run();
-          } catch (insErr) {
-            console.warn('[Email Signup Insert Notice]', insErr);
+          const regRes = await registerWithPassword(env.DB, { email, password, displayName }, env);
+          if (!regRes.success) {
+            return applySecurityHeaders(jsonError(regRes.code, regRes.message, regRes.status || 400), request, env);
           }
-          userRecord = await env.DB.prepare('SELECT * FROM users WHERE LOWER(email) = LOWER(?) LIMIT 1').bind(email).first().catch(() => null);
-          if (!userRecord) {
-            userRecord = { id: newUserId, email: email, display_name: displayName, avatar_url: `https://api.dicebear.com/7.x/bottts/svg?seed=${encodeURIComponent(email)}`, role: 'creator', plan: 'Free', is_premium: 0 };
-          }
+          userRecord = regRes.user;
         } else {
-          userRecord = { id: 'usr_' + Date.now().toString(36), email: email, display_name: displayName, role: 'creator', plan: 'Free', is_premium: false };
+          userRecord = { id: 'usr_' + Date.now().toString(36), email, display_name: displayName, role: 'creator', plan: 'Free', is_premium: false };
         }
 
         const sessionToken = 'wm_tok_' + crypto.randomUUID().replace(/-/g, '') + Date.now().toString(36);
@@ -4694,20 +4653,23 @@ export default {
           return applySecurityHeaders(jsonError('VALIDATION_ERROR', 'Valid email required', 400), request, env);
         }
 
-        try {
-          const fbRes = await fetch(`https://identitytoolkit.googleapis.com/v1/accounts:sendOobCode?key=${FIREBASE_API_KEY}`, {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ requestType: 'PASSWORD_RESET', email })
-          });
-          const fbData = await fbRes.json().catch(() => ({}));
-          if (fbData.error) {
-            return applySecurityHeaders(jsonError('RESET_FAILED', fbData.error.message || 'Could not send reset email', 400), request, env);
+        const serverFbKey = env?.FIREBASE_API_KEY || (typeof process !== 'undefined' && process.env?.FIREBASE_API_KEY) || null;
+        if (serverFbKey) {
+          try {
+            const fbRes = await fetch(`https://identitytoolkit.googleapis.com/v1/accounts:sendOobCode?key=${serverFbKey}`, {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({ requestType: 'PASSWORD_RESET', email })
+            });
+            const fbData = await fbRes.json().catch(() => ({}));
+            if (fbData.error) {
+              return applySecurityHeaders(jsonError('RESET_FAILED', fbData.error.message || 'Could not send reset email', 400), request, env);
+            }
+          } catch (e) {
+            return applySecurityHeaders(jsonError('GATEWAY_ERROR', 'Could not connect to external auth provider', 502), request, env);
           }
-          response = jsonSuccess({ message: `Password reset email sent to ${email}` }, 200, {}, requestId);
-        } catch (e) {
-          return applySecurityHeaders(jsonError('GATEWAY_ERROR', 'Could not connect to Firebase', 502), request, env);
         }
+        response = jsonSuccess({ message: `Password reset request registered for ${email}` }, 200, {}, requestId);
       }
 
       else if (pathname === '/api/auth/dev-switch') {
@@ -6283,28 +6245,55 @@ export default {
           const targetVersionId = match[2];
           const nowIso = new Date().toISOString();
 
-          let targetVer = null, currentVer = null;
-          if (env.DB && typeof env.DB.prepare === 'function') {
-            targetVer = await env.DB.prepare('SELECT * FROM template_versions WHERE id = ?').bind(targetVersionId).first();
-            currentVer = await env.DB.prepare('SELECT * FROM template_versions WHERE template_id = ? AND is_current = 1').bind(templateId).first();
+          if (!env.DB || typeof env.DB.prepare !== 'function') {
+            return applySecurityHeaders(jsonError('DATABASE_UNAVAILABLE', 'D1 database binding DB is required for version rollback.', 503), request, env);
+          }
 
-            if (!targetVer) return applySecurityHeaders(jsonError('NOT_FOUND', 'Target version not found', 404), request, env);
+          const template = await env.DB.prepare('SELECT * FROM templates WHERE id = ?').bind(templateId).first();
+          if (!template) return applySecurityHeaders(jsonError('NOT_FOUND', `Template "${templateId}" not found`, 404), request, env);
 
-            const eligibleStatuses = ['published', 'ready', 'rollback_candidate', 'archived', 'active'];
-            if (!eligibleStatuses.includes(targetVer.status)) {
-              return applySecurityHeaders(jsonError('ROLLBACK_INELIGIBLE_STATUS', `Cannot rollback to version in status "${targetVer.status}". Target must be validated or previously published.`, 400), request, env);
-            }
+          const targetVer = await env.DB.prepare('SELECT * FROM template_versions WHERE id = ?').bind(targetVersionId).first();
+          if (!targetVer) return applySecurityHeaders(jsonError('NOT_FOUND', `Target version "${targetVersionId}" not found`, 404), request, env);
 
+          // Invariant: Verify target version belongs to requested template
+          if (targetVer.template_id !== templateId) {
+            return applySecurityHeaders(jsonError('CROSS_TEMPLATE_ROLLBACK_REJECTED', `Version "${targetVersionId}" belongs to template "${targetVer.template_id}", not "${templateId}". Cross-template rollback rejected.`, 400), request, env);
+          }
+
+          const currentVer = await env.DB.prepare('SELECT * FROM template_versions WHERE template_id = ? AND is_current = 1').bind(templateId).first();
+
+          const eligibleStatuses = ['published', 'ready', 'rollback_candidate', 'archived', 'active'];
+          if (!eligibleStatuses.includes(targetVer.status)) {
+            return applySecurityHeaders(jsonError('ROLLBACK_INELIGIBLE_STATUS', `Cannot rollback to version in status "${targetVer.status}". Target must be validated or previously published.`, 400), request, env);
+          }
+
+          try {
             // Demote currently active version to rollback candidate
-            await env.DB.prepare("UPDATE template_versions SET is_current = 0, status = 'rollback_candidate' WHERE template_id = ? AND is_current = 1").bind(templateId).run();
+            await env.DB.prepare("UPDATE template_versions SET is_current = 0, status = 'rollback_candidate', updated_at = ? WHERE template_id = ? AND is_current = 1").bind(nowIso, templateId).run();
 
             // Promote target version to active published
-            await env.DB.prepare("UPDATE template_versions SET is_current = 1, status = 'published', lock_version = lock_version + 1, updated_at = ? WHERE id = ?").bind(nowIso, targetVersionId).run();
+            await env.DB.prepare("UPDATE template_versions SET is_current = 1, status = 'published', lock_version = lock_version + 1, updated_at = ? WHERE id = ? AND template_id = ?").bind(nowIso, targetVersionId, templateId).run();
 
             // Update templates & template_families pointer
-            await env.DB.prepare("UPDATE templates SET current_version_id = ?, updated_at = ? WHERE id = ?").bind(targetVersionId, nowIso, templateId).run().catch(() => {});
+            await env.DB.prepare("UPDATE templates SET current_version_id = ?, updated_at = ? WHERE id = ?").bind(targetVersionId, nowIso, templateId).run();
             await env.DB.prepare("UPDATE template_families SET current_version_id = ?, rollback_version_id = ?, updated_at = ? WHERE id = ? OR id = ?").bind(targetVersionId, currentVer?.id || null, nowIso, `fam_${templateId}`, templateId).run().catch(() => {});
+          } catch (dbErr) {
+            return applySecurityHeaders(jsonError('DATABASE_ERROR', `Failed to execute rollback: ${dbErr.message}`, 500), request, env);
           }
+
+          await recordAdminAuditLog(env, {
+            adminId: user.id || 'admin',
+            adminEmail: user.email,
+            action: 'ROLLBACK_TEMPLATE_VERSION',
+            targetType: 'template_version',
+            targetId: targetVersionId,
+            details: {
+              templateId,
+              targetVersionId,
+              rolledBackFromVersionId: currentVer?.id || null,
+              timestamp: nowIso
+            }
+          }).catch(() => {});
 
           response = jsonSuccess({
             success: true,
@@ -6504,15 +6493,70 @@ export default {
         const versionId = match[2];
         const nowIso = new Date().toISOString();
 
-        if (env.DB && typeof env.DB.prepare === 'function') {
-          const ver = await env.DB.prepare('SELECT id, status, name, lock_version FROM template_versions WHERE id = ?').bind(versionId).first();
-          if (!ver) return applySecurityHeaders(jsonError('NOT_FOUND', 'Version not found', 404), request, env);
+        if (!env.DB || typeof env.DB.prepare !== 'function') {
+          return applySecurityHeaders(jsonError('DATABASE_UNAVAILABLE', 'D1 database binding DB is required for version publication.', 503), request, env);
+        }
 
+        const template = await env.DB.prepare('SELECT * FROM templates WHERE id = ?').bind(templateId).first();
+        if (!template) return applySecurityHeaders(jsonError('NOT_FOUND', `Template "${templateId}" not found`, 404), request, env);
+
+        const ver = await env.DB.prepare('SELECT * FROM template_versions WHERE id = ? AND template_id = ?').bind(versionId, templateId).first();
+        if (!ver) return applySecurityHeaders(jsonError('NOT_FOUND', `Version "${versionId}" not found for template "${templateId}"`, 404), request, env);
+
+        // Fetch version files and assets inventory
+        const filesRes = await env.DB.prepare('SELECT * FROM template_files WHERE template_version_id = ?').bind(versionId).all().catch(() => ({ results: [] }));
+        const files = filesRes.results || [];
+
+        const imagesRes = await env.DB.prepare('SELECT * FROM template_images WHERE template_version_id = ?').bind(versionId).all().catch(() => ({ results: [] }));
+        const images = imagesRes.results || [];
+
+        const variantsRes = await env.DB.prepare('SELECT * FROM template_relationship_variants WHERE template_version_id = ?').bind(versionId).all().catch(() => ({ results: [] }));
+        const variants = variantsRes.results || [];
+
+        let manifest = null;
+        try {
+          if (ver.snapshot_data) manifest = JSON.parse(ver.snapshot_data);
+          else if (ver.manifest_storage_key) manifest = { entryPoint: ver.entry_file || 'index.html', files: files.map(f => f.relative_path) };
+        } catch (e) {}
+
+        // Run Authoritative Release Validation Pipeline
+        const releaseReport = validateTemplateVersionForRelease(ver, {
+          files,
+          manifest: manifest || { entryPoint: 'index.html', files: files.map(f => f.relative_path) },
+          variants,
+          images,
+          template
+        });
+
+        if (!releaseReport.valid) {
+          return applySecurityHeaders(jsonError('VALIDATION_FAILED', `Version "${versionId}" cannot be published: release checks failed.`, 400, {}, {
+            checklist: releaseReport.checklist,
+            errors: releaseReport.errors
+          }), request, env);
+        }
+
+        const eligibleStatuses = ['ready', 'validated', 'rollback_candidate', 'draft', 'active'];
+        if (!eligibleStatuses.includes(ver.status)) {
+          return applySecurityHeaders(jsonError('INVALID_VERSION_STATUS', `Cannot publish version in "${ver.status}" status. Version must be validated first.`, 400), request, env);
+        }
+
+        try {
           await env.DB.prepare("UPDATE template_versions SET is_current = 0, status = 'rollback_candidate', archived_at = ? WHERE template_id = ? AND is_current = 1").bind(nowIso, templateId).run();
-          await env.DB.prepare("UPDATE template_versions SET is_current = 1, status = 'published', published_at = ?, published_by = ?, lock_version = lock_version + 1, updated_at = ? WHERE id = ?").bind(nowIso, user.id || 'admin', nowIso, versionId).run();
+          await env.DB.prepare("UPDATE template_versions SET is_current = 1, status = 'published', published_at = ?, published_by = ?, lock_version = lock_version + 1, updated_at = ? WHERE id = ? AND template_id = ?").bind(nowIso, user.id || 'admin', nowIso, versionId, templateId).run();
           await env.DB.prepare("UPDATE templates SET status = 'published', is_published = 1, current_version_id = ?, updated_at = ? WHERE id = ?").bind(versionId, nowIso, templateId).run();
           await env.DB.prepare("UPDATE template_families SET current_version_id = ?, updated_at = ? WHERE id = ? OR id = ?").bind(versionId, nowIso, `fam_${templateId}`, templateId).run().catch(() => {});
+        } catch (dbErr) {
+          return applySecurityHeaders(jsonError('DATABASE_ERROR', `Failed to update publication records in D1: ${dbErr.message}`, 500), request, env);
         }
+
+        await recordAdminAuditLog(env, {
+          adminId: user.id || 'admin',
+          adminEmail: user.email,
+          action: 'PUBLISH_TEMPLATE_VERSION',
+          targetType: 'template_version',
+          targetId: versionId,
+          details: { templateId, versionId, publishedAt: nowIso }
+        }).catch(() => {});
 
         response = jsonSuccess({
           success: true,
@@ -11136,45 +11180,56 @@ export default {
           }
         }
 
-        // 2. Direct Firebase Email Authentication
+        // 2. Admin Authentication via D1 Credentials or Configured Provider
         let verifiedUid = clientUid || null;
         let verifiedEmail = email;
 
-        try {
-          const fbRes = await fetch(`https://identitytoolkit.googleapis.com/v1/accounts:signInWithPassword?key=${FIREBASE_API_KEY}`, {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({
-              email: email,
-              password: password,
-              returnSecureToken: true
-            })
-          });
+        const serverFbKey = env?.FIREBASE_API_KEY || (typeof process !== 'undefined' && process.env?.FIREBASE_API_KEY) || null;
+        if (serverFbKey) {
+          try {
+            const fbRes = await fetch(`https://identitytoolkit.googleapis.com/v1/accounts:signInWithPassword?key=${serverFbKey}`, {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({
+                email: email,
+                password: password,
+                returnSecureToken: true
+              })
+            });
 
-          const fbData = await fbRes.json().catch(() => ({}));
-          if (fbData.error) {
-            console.warn('[Firebase Worker Auth] Verification rejected for', email, fbData.error.message);
-            const errMsg = fbData.error.message;
-            let userMsg = 'Invalid email or password. Please verify and try again.';
-            if (errMsg === 'EMAIL_NOT_FOUND' || errMsg === 'INVALID_LOGIN_CREDENTIALS' || errMsg === 'INVALID_PASSWORD') {
-              userMsg = 'Incorrect email or password. Please check your credentials in Firebase Console.';
-            } else if (errMsg === 'USER_DISABLED') {
-              userMsg = 'This Firebase user account has been disabled.';
-            } else if (errMsg === 'TOO_MANY_ATTEMPTS_TRY_LATER') {
-              userMsg = 'Too many failed attempts. Please try again later.';
+            const fbData = await fbRes.json().catch(() => ({}));
+            if (fbData.error) {
+              console.warn('[Firebase Worker Auth] Verification rejected for', email, fbData.error.message);
+              const errMsg = fbData.error.message;
+              let userMsg = 'Invalid email or password. Please verify and try again.';
+              if (errMsg === 'EMAIL_NOT_FOUND' || errMsg === 'INVALID_LOGIN_CREDENTIALS' || errMsg === 'INVALID_PASSWORD') {
+                userMsg = 'Incorrect email or password. Please check your credentials in Firebase Console.';
+              } else if (errMsg === 'USER_DISABLED') {
+                userMsg = 'This Firebase user account has been disabled.';
+              } else if (errMsg === 'TOO_MANY_ATTEMPTS_TRY_LATER') {
+                userMsg = 'Too many failed attempts. Please try again later.';
+              }
+              return applySecurityHeaders(jsonError('INVALID_CREDENTIALS', userMsg, 401), request, env);
             }
-            return applySecurityHeaders(jsonError('INVALID_CREDENTIALS', userMsg, 401), request, env);
-          }
 
-          if (fbData.localId) {
-            verifiedUid = fbData.localId;
-            verifiedEmail = (fbData.email || email).toLowerCase();
+            if (fbData.localId) {
+              verifiedUid = fbData.localId;
+              verifiedEmail = (fbData.email || email).toLowerCase();
+            }
+          } catch (fbErr) {
+            console.warn('[Firebase Worker Auth Network]', fbErr);
+            if (!clientUid) {
+              return applySecurityHeaders(jsonError('AUTH_NETWORK_ERROR', 'Could not connect to Firebase Authentication service.', 502), request, env);
+            }
           }
-        } catch (fbErr) {
-          console.warn('[Firebase Worker Auth Network]', fbErr);
-          if (!clientUid) {
-            return applySecurityHeaders(jsonError('AUTH_NETWORK_ERROR', 'Could not connect to Firebase Authentication service.', 502), request, env);
+        } else if (env.DB && typeof env.DB.prepare === 'function') {
+          // Native D1 Password Authentication
+          const authRes = await authenticateWithPassword(env.DB, email, password, env);
+          if (!authRes.success) {
+            return applySecurityHeaders(jsonError('INVALID_CREDENTIALS', authRes.message, 401), request, env);
           }
+          verifiedUid = authRes.user.id;
+          verifiedEmail = authRes.user.email;
         }
 
         // Issue Authoritative Admin Session
