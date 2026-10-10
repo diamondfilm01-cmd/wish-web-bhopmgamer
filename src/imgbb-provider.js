@@ -300,10 +300,10 @@ export class ImgBBProvider {
     this.apiUrl = config.apiUrl || 'https://api.imgbb.com/1/upload';
     this.expiration = Number(config.expiration) || 0;
     // Cloudflare Workers V8 & Native WebIDL fix:
-    // Calling globalThis.fetch via call/bind ensures that V8 never throws "TypeError: Illegal invocation".
+    // Calling globalThis.fetch directly ensures that V8 never throws "TypeError: Illegal invocation".
     const invokeNativeFetch = (url, init) => {
       if (typeof globalThis !== 'undefined' && typeof globalThis.fetch === 'function') {
-        return globalThis.fetch.call(globalThis, url, init);
+        return globalThis.fetch(url, init);
       }
       return fetch(url, init);
     };
@@ -347,7 +347,7 @@ export class ImgBBProvider {
 
     const invokeNativeFetch = (url, init) => {
       if (typeof globalThis !== 'undefined' && typeof globalThis.fetch === 'function') {
-        return globalThis.fetch.call(globalThis, url, init);
+        return globalThis.fetch(url, init);
       }
       return fetch(url, init);
     };

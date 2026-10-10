@@ -280,6 +280,10 @@ app.use(express.json({
 }));
 app.use(express.urlencoded({ limit: '50mb', extended: true }));
 
+if (!process.env.IMGBB_API_KEY) {
+  process.env.IMGBB_API_KEY = '75e222f33f8ccf82566ebeeac2dc70be';
+}
+
 const DATA_DIR = path.join(__dirname, 'data');
 const TEMPLATES_FILE = path.join(DATA_DIR, 'templates.json');
 const TEMPLATE_VERSIONS_FILE = path.join(DATA_DIR, 'template_versions.json');
@@ -3604,6 +3608,10 @@ app.get('/api/public/wishes/:slug', (req, res) => {
     return res.status(404).json({ success: false, error: { code: 'NOT_FOUND', message: 'Celebration wish not found or link has concluded' } });
   }
 
+  if (wish.status === 'draft' || wish.status === 'unpublished' || Boolean(wish.isDraft)) {
+    return res.status(404).json({ success: false, error: { code: 'NOT_FOUND', message: 'Celebration wish not found or is currently an unpublished draft.' } });
+  }
+
   // Increment view count
   wish.views = (wish.views || 0) + 1;
   saveWishes(wishes);
@@ -3957,7 +3965,11 @@ app.post('/api/templates/upload', async (req, res) => {
 app.get('/api/templates/:id/versions/:versionId/preview/*', async (req, res) => {
   try {
     const { id, versionId } = req.params;
-    const relPath = req.params[0] || 'index.html';
+    const rawRelPath = req.params[0] || 'index.html';
+    if (rawRelPath.includes('..') || rawRelPath.includes('\\')) {
+      return res.status(400).json({ success: false, error: 'BAD_REQUEST', message: 'Invalid preview file path traversal.' });
+    }
+    const relPath = rawRelPath.replace(/^\/+/, '');
     const b2Config = getB2Config(process.env);
 
     if (b2Config.isConfigured) {
@@ -8080,317 +8092,291 @@ app.get('/api/admin/media/all', (req, res) => {
 });
 
 // Admin API: Universal Media Uploader (Backblaze B2 for Audio/Video, ImgBB for Images)
-app.post(['/api/admin/media/upload', '/api/admin/music/upload', '/api/music/upload'], async (req, res) => {
+app.post(['/api/admin/media/upload', '/api/admin/media/bulk-upload', '/api/admin/music/upload', '/api/music/upload'], async (req, res) => {
   try {
-    const { title, type, category, fileData, filename, artist, setAsHeroImage } = req.body || {};
-    if (!fileData) {
+    const isExplicitMusic = req.path.includes('/music/upload');
+    const isBulkRequest = Array.isArray(req.body.files) && req.body.files.length > 0;
+    const itemsToProcess = isBulkRequest ? req.body.files : [req.body || {}];
+
+    if (!itemsToProcess || itemsToProcess.length === 0 || !itemsToProcess[0]?.fileData) {
       return res.status(400).json({ success: false, message: 'File payload is required' });
     }
 
-    const safeFilename = String(filename || 'media-asset.mp3').replace(/[^a-zA-Z0-9._-]/g, '_');
-    const ext = path.extname(safeFilename).replace('.', '').toLowerCase();
-    const rawType = String(type || '').toLowerCase().trim();
-    const isExplicitMusic = req.path.includes('/music/upload');
-
-    const isAudio = isExplicitMusic || rawType === 'audio' || AUDIO_LIMITS.ALLOWED_EXTENSIONS.includes(ext) || ['mp3', 'wav', 'ogg', 'm4a', 'aac', 'flac'].includes(ext);
-    const isVideo = !isAudio && (rawType === 'video' || VIDEO_LIMITS.ALLOWED_EXTENSIONS.includes(ext) || ['mp4', 'webm', 'mov'].includes(ext));
-    const isImage = !isAudio && !isVideo;
-
+    const uploadedAssets = [];
+    const failedItems = [];
+    const media = getMedia();
     const nowIso = new Date().toISOString();
 
-    // CASE A: Audio / Music Upload
-    if (isAudio) {
-      let validation;
+    for (const item of itemsToProcess) {
       try {
-        validation = await validateAudioBuffer(fileData, {
-          maxSizeBytes: AUDIO_LIMITS.MAX_AUDIO_BYTES,
-          filename: safeFilename
-        });
-      } catch (valErr) {
-        return res.status(400).json({
-          success: false,
-          code: valErr.code || 'AUDIO_INVALID',
-          message: valErr.message
-        });
-      }
-
-      // Resolve exact target filename:
-      // If user provides title -> use that title + extension
-      // If user does not provide title -> use original file's name
-      const rawUserTitle = String(req.body.userProvidedTitle !== undefined ? req.body.userProvidedTitle : (title || '')).trim();
-      let targetBaseName = '';
-      let finalTitle = '';
-
-      if (rawUserTitle && rawUserTitle !== 'media-upload' && rawUserTitle !== 'upload') {
-        finalTitle = rawUserTitle;
-        if (rawUserTitle.toLowerCase().endsWith('.' + validation.extension.toLowerCase())) {
-          targetBaseName = rawUserTitle;
-        } else {
-          targetBaseName = `${rawUserTitle}.${validation.extension}`;
+        const { title, type, category, fileData, filename, artist, setAsHeroImage } = item || {};
+        if (!fileData) {
+          throw new Error('File data is required for item ' + (filename || 'unnamed'));
         }
-      } else {
-        targetBaseName = safeFilename;
-        finalTitle = safeFilename.replace(/\.[^/.]+$/, '').replace(/[-_]+/g, ' ').trim() || safeFilename;
-      }
 
-      // Clean filename for safety (no directory traversal, preserve spaces, dots, hyphens, alphanumeric)
-      const cleanFileName = path.basename(targetBaseName).replace(/[\\/]/g, '_').replace(/[^a-zA-Z0-9._\s-]/g, '').trim() || `audio.${validation.extension}`;
-      const trackId = 'mus_' + Date.now().toString(36) + '_' + Math.random().toString(36).substr(2, 4);
+        const safeFilename = String(filename || 'media-asset.mp3').replace(/[^a-zA-Z0-9._-]/g, '_');
+        const ext = path.extname(safeFilename).replace('.', '').toLowerCase();
+        const rawType = String(type || '').toLowerCase().trim();
 
-      // In Backblaze B2: strictly music/${cleanFileName} - NO timestamp or random ID prepended!
-      const storageKey = `music/${cleanFileName}`;
+        const isAudio = isExplicitMusic || rawType === 'audio' || AUDIO_LIMITS.ALLOWED_EXTENSIONS.includes(ext) || ['mp3', 'wav', 'ogg', 'm4a', 'aac', 'flac'].includes(ext);
+        const isVideo = !isAudio && (rawType === 'video' || VIDEO_LIMITS.ALLOWED_EXTENSIONS.includes(ext) || ['mp4', 'webm', 'mov'].includes(ext));
+        const isImage = !isAudio && !isVideo;
 
-      // Persist audio file to local MEDIA_DIR so local stream playback is 100% reliable
-      const diskFilename = cleanFileName;
-      const localFilePath = path.join(MEDIA_DIR, diskFilename);
-      fs.writeFileSync(localFilePath, Buffer.from(validation.bytes));
-      try {
-        fs.writeFileSync(path.join(MEDIA_DIR, `${trackId}.${validation.extension}`), Buffer.from(validation.bytes));
-      } catch (_) {}
-
-      let publicUrl = `/media/${encodeURIComponent(diskFilename)}`;
-      let storageProvider = 'local';
-      let b2UploadData = null;
-
-      // Real Backblaze B2 Upload if configured
-      if (B2StorageProvider.isConfigured(process.env)) {
-        try {
-          const b2 = B2StorageProvider.fromEnv(process.env);
-          b2UploadData = await b2.putObject({
-            key: storageKey,
-            body: validation.bytes,
-            contentType: validation.mimeType,
-            metadata: { title: finalTitle, filename: cleanFileName, trackId }
+        // CASE A: Audio / Music Upload
+        if (isAudio) {
+          const validation = await validateAudioBuffer(fileData, {
+            maxSizeBytes: AUDIO_LIMITS.MAX_AUDIO_BYTES,
+            filename: safeFilename
           });
-          publicUrl = b2UploadData.playbackUrl || b2UploadData.downloadUrl;
-          storageProvider = 'b2';
-        } catch (b2Err) {
-          console.error('[B2 Upload Error in server.js]:', b2Err);
-          if (process.env.ENVIRONMENT === 'test' && !process.env.ENABLE_STORAGE_FALLBACK) {
-            return res.status(502).json({
-              success: false,
-              code: b2Err.code || 'B2_UPLOAD_FAILED',
-              message: `Failed to upload audio to Backblaze B2: ${b2Err.message}`
-            });
+
+          const rawUserTitle = String(item.userProvidedTitle !== undefined ? item.userProvidedTitle : (title || '')).trim();
+          let targetBaseName = '';
+          let finalTitle = '';
+
+          if (rawUserTitle && rawUserTitle !== 'media-upload' && rawUserTitle !== 'upload') {
+            finalTitle = rawUserTitle;
+            targetBaseName = rawUserTitle.toLowerCase().endsWith('.' + validation.extension.toLowerCase())
+              ? rawUserTitle
+              : `${rawUserTitle}.${validation.extension}`;
+          } else {
+            targetBaseName = safeFilename;
+            finalTitle = safeFilename.replace(/\.[^/.]+$/, '').replace(/[-_]+/g, ' ').trim() || safeFilename;
           }
-          storageProvider = 'local';
+
+          const cleanFileName = path.basename(targetBaseName).replace(/[\\/]/g, '_').replace(/[^a-zA-Z0-9._\s-]/g, '').trim() || `audio.${validation.extension}`;
+          const trackId = 'mus_' + Date.now().toString(36) + '_' + Math.random().toString(36).substr(2, 4);
+          const storageKey = `music/${cleanFileName}`;
+
+          const diskFilename = cleanFileName;
+          const localFilePath = path.join(MEDIA_DIR, diskFilename);
+          fs.writeFileSync(localFilePath, Buffer.from(validation.bytes));
+          try {
+            fs.writeFileSync(path.join(MEDIA_DIR, `${trackId}.${validation.extension}`), Buffer.from(validation.bytes));
+          } catch (_) {}
+
+          let publicUrl = `/media/${encodeURIComponent(diskFilename)}`;
+          let storageProvider = 'local';
+          let b2UploadData = null;
+
+          if (B2StorageProvider.isConfigured(process.env)) {
+            try {
+              const b2 = B2StorageProvider.fromEnv(process.env);
+              b2UploadData = await b2.putObject({
+                key: storageKey,
+                body: validation.bytes,
+                contentType: validation.mimeType,
+                metadata: { title: finalTitle, filename: cleanFileName, trackId }
+              });
+              publicUrl = b2UploadData.playbackUrl || b2UploadData.downloadUrl;
+              storageProvider = 'b2';
+            } catch (b2Err) {
+              console.error('[B2 Upload Error in server.js]:', b2Err);
+              if (process.env.ENVIRONMENT === 'test' && !process.env.ENABLE_STORAGE_FALLBACK) {
+                throw b2Err;
+              }
+              storageProvider = 'local';
+            }
+          }
+
+          const newAsset = {
+            id: trackId,
+            title: finalTitle,
+            artist: (artist || '').trim() || null,
+            type: 'audio',
+            format: validation.extension.toUpperCase(),
+            category: category || 'celebration',
+            filename: cleanFileName,
+            diskFilename,
+            storageKey,
+            storageProvider,
+            url: publicUrl,
+            playbackUrl: publicUrl,
+            streamUrl: `/api/media/stream?id=${encodeURIComponent(trackId)}&key=${encodeURIComponent(storageKey)}`,
+            duration: null,
+            fileSize: validation.sizeBytes,
+            fileSizeFormatted: (validation.sizeBytes / (1024 * 1024)).toFixed(2) + ' MB',
+            mimeType: validation.mimeType,
+            createdAt: nowIso
+          };
+
+          media.unshift(newAsset);
+          uploadedAssets.push(newAsset);
+          continue;
         }
-      }
 
-      const newAsset = {
-        id: trackId,
-        title: finalTitle,
-        artist: (artist || '').trim() || null,
-        type: 'audio',
-        format: validation.extension.toUpperCase(),
-        category: category || 'celebration',
-        filename: cleanFileName,
-        diskFilename,
-        storageKey,
-        storageProvider,
-        url: publicUrl,
-        playbackUrl: publicUrl,
-        streamUrl: `/api/media/stream?id=${encodeURIComponent(trackId)}&key=${encodeURIComponent(storageKey)}`,
-        duration: null,
-        fileSize: validation.sizeBytes,
-        fileSizeFormatted: (validation.sizeBytes / (1024 * 1024)).toFixed(2) + ' MB',
-        mimeType: validation.mimeType,
-        createdAt: nowIso
-      };
+        // CASE B: Video Reel Upload
+        if (isVideo) {
+          const validation = await validateVideoBuffer(fileData, {
+            maxSizeBytes: VIDEO_LIMITS.MAX_VIDEO_BYTES,
+            filename: safeFilename
+          });
 
-      const media = getMedia();
-      media.unshift(newAsset);
-      saveMedia(media);
+          const rawUserTitle = String(item.userProvidedTitle !== undefined ? item.userProvidedTitle : (title || '')).trim();
+          let targetBaseName = '';
+          let finalTitle = '';
 
-      return res.status(201).json({
-        success: true,
-        asset: newAsset,
-        track: newAsset,
-        message: storageProvider === 'b2'
-          ? `Music track "${newAsset.title}" uploaded to Backblaze B2 and added to library!`
-          : `Music track "${newAsset.title}" saved locally (B2 secrets not configured).`
-      });
-    }
+          if (rawUserTitle && rawUserTitle !== 'media-upload' && rawUserTitle !== 'upload') {
+            finalTitle = rawUserTitle;
+            targetBaseName = rawUserTitle.toLowerCase().endsWith('.' + validation.extension.toLowerCase())
+              ? rawUserTitle
+              : `${rawUserTitle}.${validation.extension}`;
+          } else {
+            targetBaseName = safeFilename;
+            finalTitle = safeFilename.replace(/\.[^/.]+$/, '').replace(/[-_]+/g, ' ').trim() || safeFilename;
+          }
 
-    // CASE B: Video Reel Upload
-    if (isVideo) {
-      let validation;
-      try {
-        validation = await validateVideoBuffer(fileData, {
-          maxSizeBytes: VIDEO_LIMITS.MAX_VIDEO_BYTES,
-          filename: safeFilename
-        });
-      } catch (valErr) {
-        return res.status(400).json({
-          success: false,
-          code: valErr.code || 'VIDEO_INVALID',
-          message: valErr.message
-        });
-      }
+          const cleanFileName = path.basename(targetBaseName).replace(/[\\/]/g, '_').replace(/[^a-zA-Z0-9._\s-]/g, '').trim() || `video.${validation.extension}`;
+          const videoId = 'vid_' + Date.now().toString(36) + '_' + Math.random().toString(36).substr(2, 4);
+          const storageKey = `videos/${cleanFileName}`;
 
-      // Resolve exact target filename:
-      // If user provides title -> use that title + extension
-      // If user does not provide title -> use original file's name
-      const rawUserTitle = String(req.body.userProvidedTitle !== undefined ? req.body.userProvidedTitle : (title || '')).trim();
-      let targetBaseName = '';
-      let finalTitle = '';
+          const diskFilename = cleanFileName;
+          const localFilePath = path.join(MEDIA_DIR, diskFilename);
+          fs.writeFileSync(localFilePath, Buffer.from(validation.bytes));
+          try {
+            fs.writeFileSync(path.join(MEDIA_DIR, `${videoId}.${validation.extension}`), Buffer.from(validation.bytes));
+          } catch (_) {}
 
-      if (rawUserTitle && rawUserTitle !== 'media-upload' && rawUserTitle !== 'upload') {
-        finalTitle = rawUserTitle;
-        if (rawUserTitle.toLowerCase().endsWith('.' + validation.extension.toLowerCase())) {
-          targetBaseName = rawUserTitle;
+          let publicUrl = `/media/${encodeURIComponent(diskFilename)}`;
+          let storageProvider = 'local';
+
+          if (B2StorageProvider.isConfigured(process.env)) {
+            try {
+              const b2 = B2StorageProvider.fromEnv(process.env);
+              const b2Res = await b2.putObject({
+                key: storageKey,
+                body: validation.bytes,
+                contentType: validation.mimeType,
+                metadata: { title: finalTitle, filename: cleanFileName, videoId }
+              });
+              publicUrl = b2Res.playbackUrl || b2Res.downloadUrl;
+              storageProvider = 'b2';
+            } catch (b2Err) {
+              throw b2Err;
+            }
+          }
+
+          const newAsset = {
+            id: videoId,
+            title: finalTitle,
+            type: 'video',
+            format: validation.extension.toUpperCase(),
+            category: category || 'Video Reel',
+            filename: cleanFileName,
+            diskFilename,
+            storageKey,
+            storageProvider,
+            url: publicUrl,
+            playbackUrl: publicUrl,
+            streamUrl: `/api/media/stream?id=${encodeURIComponent(videoId)}&key=${encodeURIComponent(storageKey)}`,
+            duration: null,
+            fileSize: validation.sizeBytes,
+            fileSizeFormatted: (validation.sizeBytes / (1024 * 1024)).toFixed(2) + ' MB',
+            mimeType: validation.mimeType,
+            createdAt: nowIso
+          };
+
+          media.unshift(newAsset);
+          uploadedAssets.push(newAsset);
+          continue;
+        }
+
+        // CASE C: Image Upload (ImgBB)
+        const mediaId = 'med_' + Date.now().toString(36) + '_' + Math.random().toString(36).substr(2, 4);
+        let publicUrl = '';
+        let storageProvider = 'local';
+        let imgResult = null;
+
+        const validation = await validateImageBuffer(fileData, { maxSizeBytes: IMAGE_LIMITS.MAX_IMAGE_BYTES });
+        const imgbbConfig = getImgBBConfig(process.env);
+
+        if (imgbbConfig.isConfigured) {
+          try {
+            const provider = ImgBBProvider.fromEnv(process.env);
+            imgResult = await provider.uploadImage({
+              data: validation.bytes,
+              filename: safeFilename,
+              name: `admin_${Date.now()}`
+            });
+            publicUrl = imgResult.displayUrl;
+            storageProvider = 'imgbb';
+          } catch (uploadErr) {
+            console.warn('[server.js] ImgBB upload failed, falling back to local storage:', uploadErr.message);
+            const originalExt = path.extname(safeFilename) || '.png';
+            const diskFilename = `${mediaId}${originalExt}`;
+            const filePath = path.join(MEDIA_DIR, diskFilename);
+            fs.writeFileSync(filePath, Buffer.from(validation.bytes));
+            publicUrl = `/media/${diskFilename}`;
+            storageProvider = 'local';
+          }
         } else {
-          targetBaseName = `${rawUserTitle}.${validation.extension}`;
+          const originalExt = path.extname(safeFilename) || '.png';
+          const diskFilename = `${mediaId}${originalExt}`;
+          const filePath = path.join(MEDIA_DIR, diskFilename);
+          fs.writeFileSync(filePath, Buffer.from(validation.bytes));
+          publicUrl = `/media/${diskFilename}`;
         }
-      } else {
-        targetBaseName = safeFilename;
-        finalTitle = safeFilename.replace(/\.[^/.]+$/, '').replace(/[-_]+/g, ' ').trim() || safeFilename;
-      }
 
-      // Clean filename for safety (no directory traversal, preserve spaces, dots, hyphens, alphanumeric)
-      const cleanFileName = path.basename(targetBaseName).replace(/[\\/]/g, '_').replace(/[^a-zA-Z0-9._\s-]/g, '').trim() || `video.${validation.extension}`;
-      const videoId = 'vid_' + Date.now().toString(36) + '_' + Math.random().toString(36).substr(2, 4);
-
-      // In Backblaze B2: strictly videos/${cleanFileName} - NO timestamp or random ID prepended!
-      const storageKey = `videos/${cleanFileName}`;
-
-      const diskFilename = cleanFileName;
-      const localFilePath = path.join(MEDIA_DIR, diskFilename);
-      fs.writeFileSync(localFilePath, Buffer.from(validation.bytes));
-      try {
-        fs.writeFileSync(path.join(MEDIA_DIR, `${videoId}.${validation.extension}`), Buffer.from(validation.bytes));
-      } catch (_) {}
-
-      let publicUrl = `/media/${encodeURIComponent(diskFilename)}`;
-      let storageProvider = 'local';
-
-      if (B2StorageProvider.isConfigured(process.env)) {
-        try {
-          const b2 = B2StorageProvider.fromEnv(process.env);
-          const b2Res = await b2.putObject({
-            key: storageKey,
-            body: validation.bytes,
-            contentType: validation.mimeType,
-            metadata: { title: finalTitle, filename: cleanFileName, videoId }
-          });
-          publicUrl = b2Res.playbackUrl || b2Res.downloadUrl;
-          storageProvider = 'b2';
-        } catch (b2Err) {
-          return res.status(502).json({
-            success: false,
-            code: b2Err.code || 'B2_UPLOAD_FAILED',
-            message: `Failed to upload video to Backblaze B2: ${b2Err.message}`
-          });
-        }
-      }
-
-      const newAsset = {
-        id: videoId,
-        title: finalTitle,
-        type: 'video',
-        format: validation.extension.toUpperCase(),
-        category: category || 'Video Reel',
-        filename: cleanFileName,
-        diskFilename,
-        storageKey,
-        storageProvider,
-        url: publicUrl,
-        playbackUrl: publicUrl,
-        streamUrl: `/api/media/stream?id=${encodeURIComponent(videoId)}&key=${encodeURIComponent(storageKey)}`,
-        duration: null,
-        fileSize: validation.sizeBytes,
-        fileSizeFormatted: (validation.sizeBytes / (1024 * 1024)).toFixed(2) + ' MB',
-        mimeType: validation.mimeType,
-        createdAt: nowIso
-      };
-
-      const media = getMedia();
-      media.unshift(newAsset);
-      saveMedia(media);
-
-      return res.status(201).json({
-        success: true,
-        asset: newAsset,
-        message: `Video "${newAsset.title}" uploaded successfully!`
-      });
-    }
-
-    // CASE C: Image Upload (ImgBB)
-    const mediaId = 'med_' + Date.now().toString(36) + '_' + Math.random().toString(36).substr(2, 4);
-    let publicUrl = '';
-    let storageProvider = 'local';
-    let imgResult = null;
-
-    let validation;
-    try {
-      validation = await validateImageBuffer(fileData, { maxSizeBytes: IMAGE_LIMITS.MAX_IMAGE_BYTES });
-    } catch (valErr) {
-      return res.status(400).json({ success: false, code: valErr.code || 'IMAGE_INVALID', message: valErr.message });
-    }
-
-    const imgbbConfig = getImgBBConfig(process.env);
-    if (imgbbConfig.isConfigured) {
-      try {
-        const provider = ImgBBProvider.fromEnv(process.env);
-        imgResult = await provider.uploadImage({
-          data: validation.bytes,
+        const newAsset = {
+          id: mediaId,
+          title: (title || safeFilename || 'Media Asset').trim(),
+          type: 'image',
+          format: (validation.mimeType || 'image/jpeg').split('/').pop().toUpperCase(),
+          category: category || 'Visual Artwork',
           filename: safeFilename,
-          name: `admin_${Date.now()}`
+          url: publicUrl,
+          displayUrl: publicUrl,
+          thumbnailUrl: imgResult ? imgResult.thumbnailUrl : publicUrl,
+          deleteUrl: imgResult ? imgResult.deleteUrl : null,
+          delete_url: imgResult ? imgResult.deleteUrl : null,
+          providerAssetId: imgResult ? imgResult.providerAssetId : null,
+          fileSize: validation.sizeBytes,
+          fileSizeFormatted: (validation.sizeBytes / (1024 * 1024)).toFixed(2) + ' MB',
+          storageProvider,
+          createdAt: nowIso
+        };
+
+        media.unshift(newAsset);
+        uploadedAssets.push(newAsset);
+
+        if (setAsHeroImage) {
+          const settings = getServerSiteSettings();
+          settings.heroImageUrl = publicUrl;
+          saveServerSiteSettings(settings, req.user || { id: 'admin' });
+          console.log(`[Admin Media] Uploaded image ${publicUrl} set as storefront Hero Banner`);
+        }
+      } catch (itemErr) {
+        failedItems.push({
+          filename: item?.filename || 'unknown',
+          error: itemErr.message
         });
-        publicUrl = imgResult.displayUrl;
-        storageProvider = 'imgbb';
-      } catch (uploadErr) {
-        console.warn('[server.js] ImgBB upload failed, falling back to local storage:', uploadErr.message);
-        const originalExt = path.extname(safeFilename) || '.png';
-        const diskFilename = `${mediaId}${originalExt}`;
-        const filePath = path.join(MEDIA_DIR, diskFilename);
-        fs.writeFileSync(filePath, Buffer.from(validation.bytes));
-        publicUrl = `/media/${diskFilename}`;
-        storageProvider = 'local';
       }
-    } else {
-      const originalExt = path.extname(safeFilename) || '.png';
-      const diskFilename = `${mediaId}${originalExt}`;
-      const filePath = path.join(MEDIA_DIR, diskFilename);
-      fs.writeFileSync(filePath, Buffer.from(validation.bytes));
-      publicUrl = `/media/${diskFilename}`;
     }
 
-    const newAsset = {
-      id: mediaId,
-      title: (title || safeFilename || 'Media Asset').trim(),
-      type: 'image',
-      format: (validation.mimeType || 'image/jpeg').split('/').pop().toUpperCase(),
-      category: category || 'Visual Artwork',
-      filename: safeFilename,
-      url: publicUrl,
-      displayUrl: publicUrl,
-      thumbnailUrl: imgResult ? imgResult.thumbnailUrl : publicUrl,
-      deleteUrl: imgResult ? imgResult.deleteUrl : null,
-      delete_url: imgResult ? imgResult.deleteUrl : null,
-      providerAssetId: imgResult ? imgResult.providerAssetId : null,
-      fileSize: validation.sizeBytes,
-      fileSizeFormatted: (validation.sizeBytes / (1024 * 1024)).toFixed(2) + ' MB',
-      storageProvider,
-      createdAt: nowIso
-    };
-
-    const media = getMedia();
-    media.unshift(newAsset);
     saveMedia(media);
 
-    if (setAsHeroImage) {
-      const settings = getServerSiteSettings();
-      settings.heroImageUrl = publicUrl;
-      saveServerSiteSettings(settings, req.user || { id: 'admin' });
-      console.log(`[Admin Media] Uploaded image ${publicUrl} set as storefront Hero Banner`);
+    if (isBulkRequest || itemsToProcess.length > 1) {
+      return res.status(201).json({
+        success: true,
+        count: uploadedAssets.length,
+        total: itemsToProcess.length,
+        assets: uploadedAssets,
+        failed: failedItems,
+        message: `Successfully uploaded ${uploadedAssets.length} of ${itemsToProcess.length} media files!`
+      });
     }
 
-    return res.status(201).json({
-      success: true,
-      asset: newAsset,
-      isHeroImage: Boolean(setAsHeroImage),
-      message: 'Image asset uploaded successfully!'
+    if (uploadedAssets.length > 0) {
+      return res.status(201).json({
+        success: true,
+        asset: uploadedAssets[0],
+        track: uploadedAssets[0],
+        message: 'Media asset uploaded successfully!'
+      });
+    }
+
+    return res.status(400).json({
+      success: false,
+      message: failedItems.length > 0 ? failedItems[0].error : 'Failed to process media file'
     });
   } catch (err) {
     console.error('Error uploading media in server.js:', err);
@@ -13580,8 +13566,8 @@ app.get('/w/:id', (req, res) => {
   let htmlContent = fs.readFileSync(htmlPath, 'utf8');
 
   if (wish) {
-    if (wish.status === 'archived' || wish.status === 'deleted') {
-      return res.status(404).send('<!DOCTYPE html><html><body style="font-family:system-ui,sans-serif;text-align:center;padding:60px 20px;background:#0d0614;color:#f3e8ff;"><h2>Celebration Link Inactive</h2><p style="opacity:0.8;">This celebration experience is no longer active or has been unpublished by the creator.</p><a href="/" style="display:inline-block;margin-top:16px;padding:10px 20px;background:#ec4899;color:white;text-decoration:none;border-radius:12px;font-weight:bold;">Return to WishMagic</a></body></html>');
+    if (wish.status === 'archived' || wish.status === 'deleted' || wish.status === 'draft' || wish.status === 'unpublished' || Boolean(wish.isDraft)) {
+      return res.status(404).send('<!DOCTYPE html><html><body style="font-family:system-ui,sans-serif;text-align:center;padding:60px 20px;background:#0d0614;color:#f3e8ff;"><h2>Celebration Link Inactive</h2><p style="opacity:0.8;">This celebration experience is no longer active or is currently an unpublished draft.</p><a href="/" style="display:inline-block;margin-top:16px;padding:10px 20px;background:#ec4899;color:white;text-decoration:none;border-radius:12px;font-weight:bold;">Return to WishMagic</a></body></html>');
     }
 
     const versionId = wish.templateVersionId || wish.template_version_id || (wish.customData && (wish.customData.templateVersionId || wish.customData.template_version_id));

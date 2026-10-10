@@ -1094,6 +1094,14 @@
   };
 
   // Expose global API
-  global.WishMagicFieldRenderer = WishMagicFieldRenderer;
+  if (typeof global !== 'undefined' && global) {
+    global.WishMagicFieldRenderer = WishMagicFieldRenderer;
+  }
+  if (typeof window !== 'undefined' && window) {
+    window.WishMagicFieldRenderer = WishMagicFieldRenderer;
+  }
+  if (typeof globalThis !== 'undefined' && globalThis) {
+    globalThis.WishMagicFieldRenderer = WishMagicFieldRenderer;
+  }
 
-})(typeof window !== 'undefined' ? window : this);
+})(typeof global !== 'undefined' ? global : (typeof window !== 'undefined' ? window : (typeof globalThis !== 'undefined' ? globalThis : this)));

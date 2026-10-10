@@ -12,7 +12,8 @@ ENVIRONMENT = "production"
 ENABLE_RATE_LIMITING = "true"
 ALLOWED_ORIGIN = "https://wishmagic.live"
 
-# ImgBB Image Cloud Hosting (Public API Endpoint; IMGBB_API_KEY is configured via Cloudflare Secrets)
+# ImgBB Image Cloud Hosting
+IMGBB_API_KEY = "75e222f33f8ccf82566ebeeac2dc70be"
 IMGBB_API_URL = "https://api.imgbb.com/1/upload"
 
 # Backblaze B2 Cloud Storage (Music, Audio & Video Vault)

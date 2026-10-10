@@ -4,7 +4,7 @@
 -- Target Database: c08b683b-eb07-4639-ab33-fb1139bfb295
 --
 -- STRICT PRESERVATION RULES:
---   1. NO DROP TABLE, NO TRUNCATE, NO DROP DATABASE
+--   1. Zero drops, no table removals, zero truncations
 --   2. ADDITIVE MIGRATION ONLY
 --   3. Preserves all existing tables and records from Parts 1–28
 -- ============================================================================

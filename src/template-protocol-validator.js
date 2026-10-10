@@ -407,7 +407,9 @@ function buildReport(valid, issues, normalized, publishable = false) {
       errors: errorsCount,
       warnings: warningsCount,
       totalIssues: issues.length,
-      passedChecks: Math.max(0, 15 - errorsCount)
+      passedChecks: Math.max(0, 15 - errorsCount),
+      fieldsCount: Array.isArray(normalized?.fields) ? normalized.fields.length : 0,
+      sectionsCount: Array.isArray(normalized?.sections) ? normalized.sections.length : 0
     },
     issues,
     normalized

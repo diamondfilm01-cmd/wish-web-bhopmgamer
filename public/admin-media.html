@@ -1580,9 +1580,11 @@
         if (artistInput) artistInput.value = 'WishMagic Studio';
         if (statusBanner) statusBanner.classList.add('hidden');
 
+        const isPhotoOnly = itemsToSubmit.every(it => it.type === 'image');
+        const vaultName = isPhotoOnly ? 'ImgBB Cloud Vault' : 'Media Vault';
         const successMsg = isBulk
-          ? `🎉 Bulk Upload Complete! ${data.count || itemsToSubmit.length} media file(s) stored in Backblaze B2 Vault with exact original formats and filenames!`
-          : `✅ Media file "${itemsToSubmit[0].filename}" uploaded to Backblaze B2 Vault with exact format preserved!`;
+          ? `🎉 Bulk Upload Complete! ${data.count || itemsToSubmit.length} media file(s) saved to ${vaultName} with exact formats and filenames preserved!`
+          : `✅ Media file "${itemsToSubmit[0].filename}" uploaded to ${vaultName} with exact format preserved!`;
 
         showToast(successMsg);
         loadAllMedia();

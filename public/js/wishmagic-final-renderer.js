@@ -70,13 +70,18 @@
       const templateId = template.id || wishData.templateId || 'tpl_general';
       const templateVersionId = wishData.templateVersionId || template.versionId || template.templateVersionId || `tv_${templateId}_v${template.templateVersion || template.version || 1}`;
 
+      const customData = wishData.customData || wishData.custom_data || {};
       const content = deepClone(wishData.content || {});
-      // Ingest standard top-level fields
+      // Ingest standard top-level fields & customData fields
       ['recipient_name', 'sender_name', 'custom_message', 'event_date', 'occasion', 'relationship', 'customSlug', 'slug', 'buyerName'].forEach(k => {
-        if (wishData[k] !== undefined && content[k] === undefined) {
-          content[k] = wishData[k];
+        if (content[k] === undefined) {
+          if (wishData[k] !== undefined) content[k] = wishData[k];
+          else if (customData[k] !== undefined) content[k] = customData[k];
         }
       });
+      if (!content.recipient_name && customData.recipientName) content.recipient_name = customData.recipientName;
+      if (!content.sender_name && customData.senderName) content.sender_name = customData.senderName;
+      if (!content.custom_message && customData.customMessage) content.custom_message = customData.customMessage;
 
       const media = deepClone(wishData.media || {
         coverPhoto: wishData.cover_photo || wishData.photo_1 || null,

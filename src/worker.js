@@ -1962,13 +1962,16 @@ export async function ensureMusicStorageSchema(db, force = false) {
           { name: 'display_url', def: "TEXT" },
           { name: 'thumbnail_url', def: "TEXT" },
           { name: 'delete_url', def: "TEXT" },
+          { name: 'provider_asset_id', def: "TEXT" },
           { name: 'sha256', def: "TEXT" },
           { name: 'width', def: "INTEGER" },
           { name: 'height', def: "INTEGER" },
-          { name: 'storage_provider', def: "TEXT DEFAULT 'b2'" },
+          { name: 'storage_provider', def: "TEXT DEFAULT 'imgbb'" },
           { name: 'status', def: "TEXT DEFAULT 'active'" },
           { name: 'original_filename', def: "TEXT" },
           { name: 'metadata_status', def: "TEXT DEFAULT 'verified'" },
+          { name: 'is_public', def: "INTEGER DEFAULT 1" },
+          { name: 'created_at', def: "TEXT DEFAULT ''" },
           { name: 'updated_at', def: "TEXT DEFAULT ''" }
         ];
         for (const col of neededWm) {
@@ -2004,6 +2007,72 @@ export async function ensureMusicStorageSchema(db, force = false) {
       await execSql(`CREATE INDEX IF NOT EXISTS idx_b2_storage_objects_file_id ON b2_storage_objects(file_id)`);
       await execSql(`CREATE INDEX IF NOT EXISTS idx_b2_storage_objects_entity ON b2_storage_objects(entity_type, entity_id)`);
       await execSql(`CREATE INDEX IF NOT EXISTS idx_b2_storage_objects_status ON b2_storage_objects(upload_status)`);
+
+      // 4. Ensure template_images table exists & is complete
+      await execSql(`
+        CREATE TABLE IF NOT EXISTS template_images (
+          id TEXT PRIMARY KEY,
+          template_version_id TEXT,
+          template_id TEXT,
+          asset_key TEXT NOT NULL,
+          original_filename TEXT NOT NULL,
+          storage_provider TEXT NOT NULL DEFAULT 'imgbb',
+          provider_asset_id TEXT,
+          original_url TEXT NOT NULL,
+          display_url TEXT NOT NULL,
+          thumbnail_url TEXT,
+          delete_url TEXT,
+          relationship_id TEXT,
+          mime_type TEXT NOT NULL DEFAULT 'image/jpeg',
+          width INTEGER,
+          height INTEGER,
+          size_bytes INTEGER NOT NULL DEFAULT 0,
+          sha256 TEXT,
+          status TEXT NOT NULL DEFAULT 'active',
+          created_at TEXT NOT NULL,
+          updated_at TEXT NOT NULL
+        )
+      `);
+
+      try {
+        const tiInfo = await queryInfo("PRAGMA table_info(template_images)");
+        const tiExisting = new Set((tiInfo?.results || []).map(c => c.name));
+        const neededTi = [
+          { name: 'template_id', def: "TEXT" },
+          { name: 'delete_url', def: "TEXT" },
+          { name: 'provider_asset_id', def: "TEXT" },
+          { name: 'display_url', def: "TEXT" },
+          { name: 'thumbnail_url', def: "TEXT" },
+          { name: 'relationship_id', def: "TEXT" },
+          { name: 'mime_type', def: "TEXT DEFAULT 'image/jpeg'" },
+          { name: 'width', def: "INTEGER" },
+          { name: 'height', def: "INTEGER" },
+          { name: 'size_bytes', def: "INTEGER DEFAULT 0" },
+          { name: 'sha256', def: "TEXT" },
+          { name: 'status', def: "TEXT DEFAULT 'active'" },
+          { name: 'created_at', def: "TEXT DEFAULT ''" },
+          { name: 'updated_at', def: "TEXT DEFAULT ''" }
+        ];
+        for (const col of neededTi) {
+          if (!tiExisting.has(col.name)) {
+            await execSql(`ALTER TABLE template_images ADD COLUMN ${col.name} ${col.def}`);
+          }
+        }
+      } catch (_) {}
+
+      await execSql(`CREATE INDEX IF NOT EXISTS idx_template_images_version ON template_images(template_version_id)`);
+      await execSql(`CREATE INDEX IF NOT EXISTS idx_template_images_template ON template_images(template_id)`);
+      await execSql(`CREATE INDEX IF NOT EXISTS idx_template_images_asset_key ON template_images(asset_key)`);
+      await execSql(`CREATE INDEX IF NOT EXISTS idx_template_images_status ON template_images(status)`);
+
+      // 5. Ensure admin user exists in users table (prevents SQLite FK constraint violations)
+      try {
+        const nowIso = new Date().toISOString();
+        await execSql(`
+          INSERT OR IGNORE INTO users (id, email, display_name, role, status, created_at, updated_at)
+          VALUES ('usr_admin_master', 'admin@wishmagic.live', 'Admin Master', 'admin', 'active', '${nowIso}', '${nowIso}')
+        `);
+      } catch (_) {}
 
       musicSchemaInitialized = true;
       return true;
@@ -2168,6 +2237,263 @@ export async function persistMusicTrackToD1(db, {
   }
 
   return true;
+}
+
+/**
+ * Resilient D1 Image Media Persistence with Schema Healing and Dynamic Column Fallback
+ */
+export async function persistImageMediaToD1(db, {
+  mediaId,
+  userId,
+  userEmail,
+  storageKey,
+  filename,
+  mimeType,
+  sizeBytes,
+  publicUrl,
+  thumbnailUrl,
+  deleteUrl,
+  providerAssetId,
+  sha256,
+  width,
+  height,
+  nowIso = new Date().toISOString()
+}) {
+  if (!db || typeof db.prepare !== 'function') return false;
+
+  await ensureMusicStorageSchema(db);
+
+  // 1. Ensure user exists in users table so SQLite foreign key constraints never fail
+  const validUserId = userId || 'usr_admin_master';
+  try {
+    await db.prepare(`
+      INSERT OR IGNORE INTO users (id, email, display_name, role, status, created_at, updated_at)
+      VALUES (?, ?, 'Admin', 'admin', 'active', ?, ?)
+    `).bind(validUserId, userEmail || 'admin@wishmagic.live', nowIso, nowIso).run().catch(() => {});
+  } catch (_) {}
+
+  // 2. Attempt primary full insert
+  try {
+    await db.prepare(`
+      INSERT INTO wish_media (
+        id, wish_id, user_id, object_key, filename, media_type, mime_type,
+        size_bytes, url, display_url, thumbnail_url, delete_url, provider_asset_id,
+        sha256, width, height, storage_provider, status, is_public, created_at, updated_at
+      ) VALUES (?, NULL, ?, ?, ?, 'image', ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'imgbb', 'active', 1, ?, ?)
+    `).bind(
+      mediaId, validUserId, storageKey, filename,
+      mimeType, sizeBytes, publicUrl, publicUrl,
+      thumbnailUrl || publicUrl, deleteUrl || null, providerAssetId || null,
+      sha256 || null, width || null, height || null,
+      nowIso, nowIso
+    ).run();
+    return true;
+  } catch (err1) {
+    console.warn('[Image D1] Primary insert failed, triggering schema repair & retry:', err1.message);
+    await ensureMusicStorageSchema(db, true);
+
+    // 3. Retry full insert after forced heal
+    try {
+      await db.prepare(`
+        INSERT INTO wish_media (
+          id, wish_id, user_id, object_key, filename, media_type, mime_type,
+          size_bytes, url, display_url, thumbnail_url, delete_url, provider_asset_id,
+          sha256, width, height, storage_provider, status, is_public, created_at, updated_at
+        ) VALUES (?, NULL, ?, ?, ?, 'image', ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'imgbb', 'active', 1, ?, ?)
+      `).bind(
+        mediaId, validUserId, storageKey, filename,
+        mimeType, sizeBytes, publicUrl, publicUrl,
+        thumbnailUrl || publicUrl, deleteUrl || null, providerAssetId || null,
+        sha256 || null, width || null, height || null,
+        nowIso, nowIso
+      ).run();
+      return true;
+    } catch (err2) {
+      console.warn('[Image D1] Retry full insert failed, attempting dynamic column fallback:', err2.message);
+
+      // 4. Dynamic column fallback based on PRAGMA table_info
+      try {
+        const info = await db.prepare("PRAGMA table_info(wish_media)").all().catch(() => null);
+        const colSet = new Set((info?.results || []).map(c => c.name));
+
+        const potentialFields = [
+          { col: 'id', val: mediaId },
+          { col: 'user_id', val: validUserId },
+          { col: 'object_key', val: storageKey },
+          { col: 'filename', val: filename },
+          { col: 'media_type', val: 'image' },
+          { col: 'mime_type', val: mimeType },
+          { col: 'size_bytes', val: sizeBytes },
+          { col: 'url', val: publicUrl },
+          { col: 'display_url', val: publicUrl },
+          { col: 'thumbnail_url', val: thumbnailUrl || publicUrl },
+          { col: 'delete_url', val: deleteUrl || null },
+          { col: 'provider_asset_id', val: providerAssetId || null },
+          { col: 'sha256', val: sha256 || null },
+          { col: 'width', val: width || null },
+          { col: 'height', val: height || null },
+          { col: 'storage_provider', val: 'imgbb' },
+          { col: 'status', val: 'active' },
+          { col: 'is_public', val: 1 },
+          { col: 'created_at', val: nowIso },
+          { col: 'updated_at', val: nowIso }
+        ];
+
+        const activeFields = colSet.size > 0
+          ? potentialFields.filter(f => colSet.has(f.col))
+          : potentialFields.filter(f => ['id', 'user_id', 'object_key', 'filename', 'media_type', 'mime_type', 'size_bytes', 'url', 'created_at'].includes(f.col));
+
+        if (activeFields.length > 0) {
+          const colsSql = activeFields.map(f => f.col).join(', ');
+          const placeholders = activeFields.map(() => '?').join(', ');
+          const vals = activeFields.map(f => f.val);
+
+          await db.prepare(`INSERT INTO wish_media (${colsSql}) VALUES (${placeholders})`)
+            .bind(...vals)
+            .run();
+          return true;
+        }
+      } catch (err3) {
+        console.error('[Image D1] Dynamic column fallback failed:', err3.message);
+        throw new Error(`D1 wish_media insert failed after schema healing: ${err3.message || err2.message || err1.message}`);
+      }
+    }
+  }
+  return false;
+}
+
+/**
+ * Resilient D1 Template Image Persistence with Schema Healing and Dynamic Column Fallback
+ */
+export async function persistTemplateImageToD1(db, {
+  imageRecordId,
+  versionId,
+  templateId,
+  assetKey,
+  filename,
+  providerAssetId,
+  originalUrl,
+  displayUrl,
+  thumbnailUrl,
+  deleteUrl,
+  relationshipId,
+  mimeType,
+  width,
+  height,
+  sizeBytes,
+  sha256,
+  nowIso = new Date().toISOString()
+}) {
+  if (!db || typeof db.prepare !== 'function') return false;
+
+  await ensureMusicStorageSchema(db);
+
+  // Ensure template and version rows exist to prevent FK errors
+  try {
+    if (templateId) {
+      await db.prepare(`
+        INSERT OR IGNORE INTO templates (id, name, slug, description, category, tier, status, created_at, updated_at)
+        VALUES (?, ?, ?, 'Template', 'Birthday', 'standard', 'active', ?, ?)
+      `).bind(templateId, templateId, templateId, nowIso, nowIso).run().catch(() => {});
+    }
+    if (versionId) {
+      await db.prepare(`
+        INSERT OR IGNORE INTO template_versions (id, template_id, version, status, is_current, created_at, updated_at)
+        VALUES (?, ?, '1.0.0', 'active', 1, ?, ?)
+      `).bind(versionId, templateId || 'tpl_default', nowIso, nowIso).run().catch(() => {});
+    }
+  } catch (_) {}
+
+  // 1. Attempt primary full insert
+  try {
+    await db.prepare(`
+      INSERT INTO template_images (
+        id, template_version_id, template_id, asset_key, original_filename,
+        storage_provider, provider_asset_id, original_url, display_url,
+        thumbnail_url, delete_url, relationship_id, mime_type,
+        width, height, size_bytes, sha256, status, created_at, updated_at
+      ) VALUES (?, ?, ?, ?, ?, 'imgbb', ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'active', ?, ?)
+    `).bind(
+      imageRecordId, versionId, templateId, assetKey, filename,
+      providerAssetId, originalUrl, displayUrl,
+      thumbnailUrl, deleteUrl, relationshipId, mimeType,
+      width, height, sizeBytes, sha256,
+      nowIso, nowIso
+    ).run();
+    return true;
+  } catch (err1) {
+    console.warn('[Template Image D1] Primary insert failed, triggering schema repair & retry:', err1.message);
+    await ensureMusicStorageSchema(db, true);
+
+    // 2. Retry full insert after forced heal
+    try {
+      await db.prepare(`
+        INSERT INTO template_images (
+          id, template_version_id, template_id, asset_key, original_filename,
+          storage_provider, provider_asset_id, original_url, display_url,
+          thumbnail_url, delete_url, relationship_id, mime_type,
+          width, height, size_bytes, sha256, status, created_at, updated_at
+        ) VALUES (?, ?, ?, ?, ?, 'imgbb', ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'active', ?, ?)
+      `).bind(
+        imageRecordId, versionId, templateId, assetKey, filename,
+        providerAssetId, originalUrl, displayUrl,
+        thumbnailUrl, deleteUrl, relationshipId, mimeType,
+        width, height, sizeBytes, sha256,
+        nowIso, nowIso
+      ).run();
+      return true;
+    } catch (err2) {
+      console.warn('[Template Image D1] Retry full insert failed, attempting dynamic column fallback:', err2.message);
+
+      // 3. Dynamic column fallback
+      try {
+        const info = await db.prepare("PRAGMA table_info(template_images)").all().catch(() => null);
+        const colSet = new Set((info?.results || []).map(c => c.name));
+
+        const potentialFields = [
+          { col: 'id', val: imageRecordId },
+          { col: 'template_version_id', val: versionId },
+          { col: 'template_id', val: templateId },
+          { col: 'asset_key', val: assetKey },
+          { col: 'original_filename', val: filename },
+          { col: 'storage_provider', val: 'imgbb' },
+          { col: 'provider_asset_id', val: providerAssetId },
+          { col: 'original_url', val: originalUrl },
+          { col: 'display_url', val: displayUrl },
+          { col: 'thumbnail_url', val: thumbnailUrl },
+          { col: 'delete_url', val: deleteUrl },
+          { col: 'relationship_id', val: relationshipId },
+          { col: 'mime_type', val: mimeType },
+          { col: 'width', val: width },
+          { col: 'height', val: height },
+          { col: 'size_bytes', val: sizeBytes },
+          { col: 'sha256', val: sha256 },
+          { col: 'status', val: 'active' },
+          { col: 'created_at', val: nowIso },
+          { col: 'updated_at', val: nowIso }
+        ];
+
+        const activeFields = colSet.size > 0
+          ? potentialFields.filter(f => colSet.has(f.col))
+          : potentialFields.filter(f => ['id', 'template_version_id', 'asset_key', 'original_filename', 'original_url', 'display_url', 'created_at'].includes(f.col));
+
+        if (activeFields.length > 0) {
+          const colsSql = activeFields.map(f => f.col).join(', ');
+          const placeholders = activeFields.map(() => '?').join(', ');
+          const vals = activeFields.map(f => f.val);
+
+          await db.prepare(`INSERT INTO template_images (${colsSql}) VALUES (${placeholders})`)
+            .bind(...vals)
+            .run();
+          return true;
+        }
+      } catch (err3) {
+        console.error('[Template Image D1] Dynamic column fallback failed:', err3.message);
+        throw new Error(`D1 template_images insert failed after schema healing: ${err3.message || err2.message || err1.message}`);
+      }
+    }
+  }
+  return false;
 }
 
 
@@ -5354,6 +5680,13 @@ export default {
           return applySecurityHeaders(jsonError('NOT_FOUND', 'Celebration wish not found', 404, {}, null, requestId), request, env);
         }
 
+        if (wish.status === 'draft' || wish.status === 'unpublished' || Boolean(wish.is_draft)) {
+          return applySecurityHeaders(
+            jsonError('NOT_FOUND', 'Celebration wish not found or is currently an unpublished draft.', 404, {}, null, requestId),
+            request, env
+          );
+        }
+
         if (wish.moderation_status === 'suspended') {
           return applySecurityHeaders(
             jsonError('WISH_SUSPENDED', 'This celebration wish has been suspended due to content moderation.', 403, {}, null, requestId),
@@ -5772,7 +6105,13 @@ export default {
         if (match) {
           const templateId = match[1];
           const versionId = match[2];
-          const relPath = match[3];
+          const rawRelPath = match[3];
+
+          // Security: Block path traversal
+          if (rawRelPath.includes('..') || rawRelPath.includes('\\')) {
+            return applySecurityHeaders(jsonError('BAD_REQUEST', 'Invalid preview file path traversal.', 400), request, env);
+          }
+          const relPath = rawRelPath.replace(/^\/+/, '');
 
           let fileRecord = null;
           if (env.DB && typeof env.DB.prepare === 'function') {
@@ -5780,7 +6119,7 @@ export default {
               SELECT storage_key, mime_type FROM template_files
               WHERE template_version_id = ? AND (relative_path = ? OR relative_path = ?)
               LIMIT 1
-            `).bind(versionId, relPath, relPath.replace(/^\/+/, '')).first();
+            `).bind(versionId, relPath, relPath).first();
           }
 
           const targetStorageKey = fileRecord?.storage_key || `templates/fam_${templateId}/versions/${versionId}/runtime/${relPath.replace(/^\/+/, '')}`;
@@ -5924,6 +6263,11 @@ export default {
             currentVer = await env.DB.prepare('SELECT * FROM template_versions WHERE template_id = ? AND is_current = 1').bind(templateId).first();
 
             if (!targetVer) return applySecurityHeaders(jsonError('NOT_FOUND', 'Target version not found', 404), request, env);
+
+            const eligibleStatuses = ['published', 'ready', 'rollback_candidate', 'archived', 'active'];
+            if (!eligibleStatuses.includes(targetVer.status)) {
+              return applySecurityHeaders(jsonError('ROLLBACK_INELIGIBLE_STATUS', `Cannot rollback to version in status "${targetVer.status}". Target must be validated or previously published.`, 400), request, env);
+            }
 
             // Demote currently active version to rollback candidate
             await env.DB.prepare("UPDATE template_versions SET is_current = 0, status = 'rollback_candidate' WHERE template_id = ? AND is_current = 1").bind(templateId).run();
@@ -6336,20 +6680,25 @@ export default {
           const nowIso = new Date().toISOString();
 
           if (env.DB && typeof env.DB.prepare === 'function') {
-            await env.DB.prepare(`
-              INSERT INTO template_images (
-                id, template_version_id, template_id, asset_key, original_filename,
-                storage_provider, provider_asset_id, original_url, display_url,
-                thumbnail_url, delete_url, relationship_id, mime_type,
-                width, height, size_bytes, sha256, status, created_at, updated_at
-              ) VALUES (?, ?, ?, ?, ?, 'imgbb', ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'active', ?, ?)
-            `).bind(
-              imageRecordId, versionId, templateId, assetKey, filename,
-              imgResult.providerAssetId, imgResult.url, imgResult.displayUrl,
-              imgResult.thumbnailUrl, imgResult.deleteUrl, relationshipId, validation.mimeType,
-              imgResult.width, imgResult.height, imgResult.sizeBytes, imgResult.sha256,
-              nowIso, nowIso
-            ).run();
+            await persistTemplateImageToD1(env.DB, {
+              imageRecordId,
+              versionId,
+              templateId,
+              assetKey,
+              filename,
+              providerAssetId: imgResult.providerAssetId,
+              originalUrl: imgResult.url,
+              displayUrl: imgResult.displayUrl,
+              thumbnailUrl: imgResult.thumbnailUrl,
+              deleteUrl: imgResult.deleteUrl,
+              relationshipId,
+              mimeType: validation.mimeType,
+              width: imgResult.width,
+              height: imgResult.height,
+              sizeBytes: imgResult.sizeBytes,
+              sha256: imgResult.sha256,
+              nowIso
+            });
           }
 
           response = jsonSuccess({
@@ -8993,7 +9342,7 @@ export default {
         const imgbbAssets = [];
         if (env.DB && typeof env.DB.prepare === 'function') {
           try {
-            const tiRows = await env.DB.prepare('SELECT id, asset_key, original_url, display_url, thumbnail_url, delete_url, provider_asset_id, size_bytes, width, height, created_at FROM template_images WHERE storage_provider = "imgbb" OR original_url LIKE "%ibb.co%" ORDER BY created_at DESC LIMIT 200').all();
+            const tiRows = await env.DB.prepare('SELECT id, asset_key, original_url, display_url, thumbnail_url, delete_url, provider_asset_id, size_bytes, width, height, created_at FROM template_images WHERE (status != "archived" OR status IS NULL) AND (storage_provider = "imgbb" OR original_url LIKE "%ibb.co%") ORDER BY created_at DESC LIMIT 500').all();
             (tiRows.results || []).forEach(ti => {
               imgbbAssets.push({
                 id: ti.id,
@@ -9009,8 +9358,12 @@ export default {
                 createdAt: ti.created_at
               });
             });
+          } catch (e1) {
+            console.warn('[ImgBB Inventory] template_images query warning:', e1.message);
+          }
 
-            const wmRows = await env.DB.prepare('SELECT id, filename, object_key, url, display_url, thumbnail_url, delete_url, size_bytes, width, height, created_at FROM wish_media WHERE storage_provider = "imgbb" OR url LIKE "%ibb.co%" ORDER BY created_at DESC LIMIT 200').all();
+          try {
+            const wmRows = await env.DB.prepare('SELECT id, filename, object_key, url, display_url, thumbnail_url, delete_url, size_bytes, width, height, created_at FROM wish_media WHERE (status != "archived" OR status IS NULL) AND (storage_provider = "imgbb" OR url LIKE "%ibb.co%") ORDER BY created_at DESC LIMIT 500').all();
             (wmRows.results || []).forEach(wm => {
               imgbbAssets.push({
                 id: wm.id,
@@ -9026,7 +9379,9 @@ export default {
                 createdAt: wm.created_at
               });
             });
-          } catch (_) {}
+          } catch (e2) {
+            console.warn('[ImgBB Inventory] wish_media query warning:', e2.message);
+          }
         }
 
         return applySecurityHeaders(jsonSuccess({
@@ -10718,7 +11073,7 @@ export default {
         // Index wish_media from D1
         if (env.DB && typeof env.DB.prepare === 'function') {
           try {
-            const wmRows = await env.DB.prepare('SELECT * FROM wish_media WHERE status != "archived" ORDER BY created_at DESC LIMIT 200').all();
+            const wmRows = await env.DB.prepare('SELECT * FROM wish_media WHERE (status != "archived" OR status IS NULL) ORDER BY created_at DESC LIMIT 500').all();
             (wmRows.results || []).forEach(m => {
               let url = m.display_url || m.url;
               if (url && url.includes('/file/wishmagic-assets/file/wishmagic-assets/')) {
@@ -10767,8 +11122,8 @@ export default {
               FROM template_images ti
               LEFT JOIN template_versions tv ON ti.template_version_id = tv.id
               LEFT JOIN templates t ON (ti.template_id = t.id OR tv.template_id = t.id)
-              WHERE ti.status != "archived"
-              ORDER BY ti.created_at DESC LIMIT 200
+              WHERE (ti.status != "archived" OR ti.status IS NULL)
+              ORDER BY ti.created_at DESC LIMIT 500
             `).all();
 
             (tiRows.results || []).forEach(ti => {
@@ -10812,7 +11167,7 @@ export default {
 
           // Index music_library from D1 (Backblaze B2 Audio Assets)
           try {
-            const mlRows = await env.DB.prepare('SELECT * FROM music_library WHERE status != "archived" ORDER BY created_at DESC LIMIT 200').all();
+            const mlRows = await env.DB.prepare('SELECT * FROM music_library WHERE (status != "archived" OR status IS NULL) ORDER BY created_at DESC LIMIT 500').all();
             (mlRows.results || []).forEach(m => {
               let url = m.playback_url;
               if (url && url.includes('/file/wishmagic-assets/file/wishmagic-assets/')) {
@@ -11329,20 +11684,23 @@ export default {
           const streamProxyUrl = `/api/media/stream?id=${encodeURIComponent(mediaId)}`;
 
           if (env.DB && typeof env.DB.prepare === 'function') {
-            await ensureMusicStorageSchema(env.DB);
-            await env.DB.prepare(`
-              INSERT INTO wish_media (
-                id, wish_id, user_id, object_key, filename, media_type, mime_type,
-                size_bytes, url, display_url, thumbnail_url, delete_url, sha256,
-                width, height, storage_provider, status, is_public, created_at, updated_at
-              ) VALUES (?, NULL, ?, ?, ?, 'image', ?, ?, ?, ?, ?, ?, ?, ?, ?, 'imgbb', 'active', 1, ?, ?)
-            `).bind(
-              mediaId, user.id, storageKey, filename,
-              imageValidation.mimeType, imgbbResult ? imgbbResult.sizeBytes : imageValidation.sizeBytes, publicUrl, publicUrl,
-              imgbbResult ? imgbbResult.thumbnailUrl : publicUrl, imgbbResult ? imgbbResult.deleteUrl : null,
-              imgbbResult ? imgbbResult.sha256 : imageValidation.sha256, imgbbResult ? imgbbResult.width : imageValidation.width,
-              imgbbResult ? imgbbResult.height : imageValidation.height, nowIso, nowIso
-            ).run().catch(e => console.warn('wish_media admin insert error:', e.message));
+            await persistImageMediaToD1(env.DB, {
+              mediaId,
+              userId: user.id,
+              userEmail: user.email,
+              storageKey,
+              filename,
+              mimeType: imageValidation.mimeType,
+              sizeBytes: imgbbResult ? imgbbResult.sizeBytes : imageValidation.sizeBytes,
+              publicUrl,
+              thumbnailUrl: imgbbResult ? imgbbResult.thumbnailUrl : publicUrl,
+              deleteUrl: imgbbResult ? imgbbResult.deleteUrl : null,
+              providerAssetId: imgbbResult ? imgbbResult.providerAssetId : null,
+              sha256: imgbbResult ? imgbbResult.sha256 : imageValidation.sha256,
+              width: imgbbResult ? imgbbResult.width : imageValidation.width,
+              height: imgbbResult ? imgbbResult.height : imageValidation.height,
+              nowIso
+            });
           }
 
           if (setAsHero) {
