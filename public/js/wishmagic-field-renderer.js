@@ -169,7 +169,8 @@
 
       // 2. Text & Textarea Bounds
       const rawMinLength = field.minlength !== undefined && field.minlength !== null ? field.minlength :
-        (constraints.minLength !== undefined ? constraints.minLength : constraints.minlength);
+        (field.minLength !== undefined && field.minLength !== null ? field.minLength :
+        (constraints.minLength !== undefined ? constraints.minLength : constraints.minlength));
       const minlength = rawMinLength !== undefined && rawMinLength !== null ? parseInt(rawMinLength, 10) : null;
 
       const rawMaxLength = field.maxlength !== undefined && field.maxlength !== null ? field.maxlength :

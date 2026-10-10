@@ -714,6 +714,92 @@ function isValidSlug(slug) {
   return true;
 }
 
+function renderWishErrorHtml({ title, heading, message, code = 404, buttonText = 'Return to WishMagic', buttonHref = '/' }) {
+  return `<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>${escapeHtml(title)} | WishMagic</title>
+  <style>
+    body {
+      margin: 0;
+      padding: 0;
+      font-family: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+      background: radial-gradient(circle at center, #19062e 0%, #0d0217 60%, #05000a 100%);
+      color: #f3e8ff;
+      min-height: 100vh;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      text-align: center;
+      box-sizing: border-box;
+      padding: 24px;
+    }
+    .card {
+      max-width: 480px;
+      width: 100%;
+      background: rgba(255, 255, 255, 0.04);
+      border: 1px solid rgba(236, 72, 153, 0.25);
+      border-radius: 24px;
+      padding: 40px 28px;
+      backdrop-filter: blur(20px);
+      box-shadow: 0 20px 50px rgba(0, 0, 0, 0.6);
+    }
+    .icon {
+      font-size: 48px;
+      margin-bottom: 16px;
+    }
+    h1 {
+      font-size: 24px;
+      font-weight: 800;
+      margin: 0 0 12px 0;
+      background: linear-gradient(135deg, #f472b6, #c084fc);
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+    }
+    p {
+      font-size: 14px;
+      line-height: 1.6;
+      color: rgba(243, 232, 255, 0.75);
+      margin: 0 0 24px 0;
+    }
+    .btn {
+      display: inline-block;
+      padding: 12px 28px;
+      background: linear-gradient(135deg, #ec4899, #a855f7);
+      color: #ffffff;
+      font-weight: 700;
+      font-size: 13px;
+      text-decoration: none;
+      border-radius: 9999px;
+      box-shadow: 0 4px 15px rgba(236, 72, 153, 0.4);
+      transition: transform 0.2s, opacity 0.2s;
+    }
+    .btn:hover {
+      opacity: 0.95;
+      transform: scale(1.02);
+    }
+    .brand {
+      margin-top: 24px;
+      font-size: 11px;
+      color: rgba(243, 232, 255, 0.35);
+      letter-spacing: 0.05em;
+    }
+  </style>
+</head>
+<body>
+  <div class="card">
+    <div class="icon">✨</div>
+    <h1>${escapeHtml(heading)}</h1>
+    <p>${escapeHtml(message)}</p>
+    <a href="${escapeHtml(buttonHref)}" class="btn">${escapeHtml(buttonText)}</a>
+    <div class="brand">WishMagic • Interactive Keepsake Platform</div>
+  </div>
+</body>
+</html>`;
+}
+
 // Cookie Helpers
 function getCookie(request, name) {
   const cookieHeader = request.headers.get('Cookie');
@@ -5477,6 +5563,53 @@ export default {
           .bind('draft', JSON.stringify(cd), nowIso, existing.id).run();
 
         response = jsonSuccess({ unpublished: true, wishId: existing.id }, 200, {}, requestId);
+      }
+
+      // --- Stage 4: Authoritative Public Link Resolution & Generation Contract ---
+      else if (pathname.match(/^\/api\/wishes\/([^\/]+)\/public-link$/)) {
+        const user = await getAuthenticatedUser(request, env);
+        if (!user) return applySecurityHeaders(jsonError('AUTH_REQUIRED', 'Authentication required to access link.', 401), request, env);
+        if (!env.DB || typeof env.DB.prepare !== 'function') {
+          return applySecurityHeaders(jsonError('DATABASE_UNAVAILABLE', 'Database service is currently unavailable.', 503), request, env);
+        }
+
+        const wishId = pathname.split('/')[3];
+        const existing = await env.DB.prepare('SELECT * FROM wishes WHERE id = ? OR slug = ? LIMIT 1').bind(wishId, wishId).first();
+        if (!existing) return applySecurityHeaders(jsonError('NOT_FOUND', 'Wish not found', 404), request, env);
+
+        const isAdmin = await verifyAdminRole(user, env);
+        if (existing.user_id !== user.id && !isAdmin) {
+          return applySecurityHeaders(jsonError('FORBIDDEN', 'Access denied to resolve public link for this wish.', 403), request, env);
+        }
+
+        if (existing.status === 'draft' || existing.status === 'unpublished' || Boolean(existing.is_draft)) {
+          return applySecurityHeaders(
+            jsonError('DRAFT_NOT_PUBLISHED', 'Cannot generate public link for an unpublished draft. Please publish first.', 422),
+            request, env
+          );
+        }
+
+        if (existing.moderation_status === 'suspended') {
+          return applySecurityHeaders(
+            jsonError('WISH_SUSPENDED', 'This celebration wish has been suspended and public link is unavailable.', 403),
+            request, env
+          );
+        }
+
+        const origin = new URL(request.url).origin;
+        const publicUrl = `${origin}/w/${existing.slug || existing.id}`;
+
+        response = jsonSuccess({
+          wishId: existing.id,
+          slug: existing.slug,
+          publicUrl,
+          canonicalUrl: publicUrl,
+          status: existing.status,
+          isPublished: true,
+          templateId: existing.template_id,
+          templateVersionId: existing.template_version_id,
+          recipientName: existing.recipient_name
+        }, 200, {}, requestId);
       }
 
       else if (pathname.startsWith('/api/wishes/') && method === 'GET') {
@@ -15757,10 +15890,227 @@ export default {
         return applySecurityHeaders(htmlRes, request, env);
       }
 
-      if (pathname.startsWith('/w/') && env.ASSETS && typeof env.ASSETS.fetch === 'function') {
-        const wishHtmlReq = new Request(new URL('/wish.html', request.url), request);
-        const htmlRes = await env.ASSETS.fetch(wishHtmlReq);
-        return applySecurityHeaders(htmlRes, request, env);
+      // --- Stage 4: Dynamic Public Wish Route with Server-Side Social SEO & Exact Status Codes ---
+      if (pathname.startsWith('/w/')) {
+        const rawParam = pathname.replace(/^\/w\//, '').split('?')[0].split('#')[0].trim();
+
+        if (!rawParam) {
+          return applySecurityHeaders(new Response(renderWishErrorHtml({
+            title: 'Wish Not Found',
+            heading: 'Celebration Link Not Found',
+            message: 'No celebration code was specified in this link. Please check the URL and try again.',
+            code: 404
+          }), {
+            status: 404,
+            headers: { 'Content-Type': 'text/html; charset=utf-8' }
+          }), request, env);
+        }
+
+        if (rawParam.length > 120 || /[<>'"\\]/.test(rawParam)) {
+          return applySecurityHeaders(new Response(renderWishErrorHtml({
+            title: 'Invalid Link',
+            heading: 'Invalid Link Format',
+            message: 'The requested celebration link format is invalid or malformed.',
+            code: 400
+          }), {
+            status: 400,
+            headers: { 'Content-Type': 'text/html; charset=utf-8' }
+          }), request, env);
+        }
+
+        if (!env.DB || typeof env.DB.prepare !== 'function') {
+          return applySecurityHeaders(new Response(renderWishErrorHtml({
+            title: 'Service Unavailable',
+            heading: 'Database Service Unavailable',
+            message: 'Our celebration storage service is temporarily undergoing maintenance. Please retry in a few moments.',
+            code: 503
+          }), {
+            status: 503,
+            headers: { 'Content-Type': 'text/html; charset=utf-8' }
+          }), request, env);
+        }
+
+        let wish = null;
+        try {
+          wish = await env.DB.prepare('SELECT * FROM wishes WHERE slug = ? OR id = ? LIMIT 1').bind(rawParam, rawParam).first();
+        } catch (dbErr) {
+          console.error('[Public Wish DB Error]', dbErr);
+          return applySecurityHeaders(new Response(renderWishErrorHtml({
+            title: 'Error',
+            heading: 'Database Query Error',
+            message: 'Unable to retrieve celebration record. Please try again shortly.',
+            code: 500
+          }), {
+            status: 500,
+            headers: { 'Content-Type': 'text/html; charset=utf-8' }
+          }), request, env);
+        }
+
+        if (!wish) {
+          return applySecurityHeaders(new Response(renderWishErrorHtml({
+            title: 'Celebration Link Not Found',
+            heading: 'Celebration Link Not Found',
+            message: 'This wish link does not exist or was typed incorrectly. Please verify the URL with the sender!',
+            code: 404
+          }), {
+            status: 404,
+            headers: { 'Content-Type': 'text/html; charset=utf-8' }
+          }), request, env);
+        }
+
+        if (wish.status === 'draft' || wish.status === 'unpublished' || Boolean(wish.is_draft)) {
+          return applySecurityHeaders(new Response(renderWishErrorHtml({
+            title: 'Celebration Inactive',
+            heading: 'Celebration Link Inactive',
+            message: 'This celebration experience is currently an unpublished draft and is not yet available for public viewing.',
+            code: 404
+          }), {
+            status: 404,
+            headers: { 'Content-Type': 'text/html; charset=utf-8' }
+          }), request, env);
+        }
+
+        if (wish.moderation_status === 'suspended') {
+          return applySecurityHeaders(new Response(renderWishErrorHtml({
+            title: 'Celebration Suspended',
+            heading: 'Celebration Link Suspended',
+            message: 'This celebration wish has been temporarily suspended by our moderation team.',
+            code: 403
+          }), {
+            status: 403,
+            headers: { 'Content-Type': 'text/html; charset=utf-8' }
+          }), request, env);
+        }
+
+        // Fetch wish.html template
+        let htmlTemplate = '';
+        if (env.ASSETS && typeof env.ASSETS.fetch === 'function') {
+          const wishReq = new Request(new URL('/wish.html', request.url), request);
+          const tRes = await env.ASSETS.fetch(wishReq);
+          if (tRes && tRes.ok) {
+            htmlTemplate = await tRes.text();
+          }
+        }
+
+        if (!htmlTemplate) {
+          return applySecurityHeaders(new Response('Wish renderer template unavailable', {
+            status: 503,
+            headers: { 'Content-Type': 'text/plain; charset=utf-8' }
+          }), request, env);
+        }
+
+        // Increment view count asynchronously
+        try {
+          await env.DB.prepare('UPDATE wishes SET views = views + 1 WHERE id = ?').bind(wish.id).run();
+        } catch (_) {}
+
+        let customData = {};
+        try {
+          customData = typeof wish.custom_data === 'string' ? JSON.parse(wish.custom_data) : (wish.custom_data || {});
+        } catch (_) {}
+
+        const recipientName = customData.recipient_name || customData.recipientName || wish.recipient_name || 'Someone Special';
+        const senderName = customData.sender_name || customData.senderName || wish.buyer_name || 'Someone Who Loves You';
+        const templateId = wish.template_id || customData.templateId || 'tpl_glitter_birthday';
+        const versionId = wish.template_version_id || customData.template_version_id || customData.templateVersionId;
+
+        let templateSnapshot = await getTemplateVersionById(env, versionId, templateId);
+        const occasion = (templateSnapshot && templateSnapshot.category) || customData.occasion || 'Celebration';
+
+        const pageTitle = `${recipientName}'s Special ${occasion} Surprise ✨ | WishMagic`;
+        const metaDesc = `A personalized celebration website created with love by ${senderName} for ${recipientName}. Open this link to unwrap music, photographs, and cherished memories! 💖`;
+
+        const origin = new URL(request.url).origin;
+        const canonicalUrl = `${origin}/w/${wish.slug || wish.id}`;
+
+        let coverPhoto = customData.cover_photo || customData.photo_1 || (customData.photos && customData.photos[0] && customData.photos[0].url);
+        if (!coverPhoto && templateSnapshot) {
+          coverPhoto = templateSnapshot.thumbnail || (templateSnapshot.previewImages && templateSnapshot.previewImages[0]);
+        }
+        if (!coverPhoto) coverPhoto = '/assets/file_ab2082.png';
+        if (!coverPhoto.startsWith('http')) {
+          coverPhoto = `${origin}${coverPhoto.startsWith('/') ? '' : '/'}${coverPhoto}`;
+        }
+
+        const isPrivate = Boolean(wish.is_private || customData.isPrivate || customData.unlisted);
+        const robotsContent = isPrivate ? 'noindex, nofollow' : 'index, follow';
+
+        const safeRecipient = escapeHtml(recipientName);
+        const safeTitle = escapeHtml(pageTitle);
+        const safeDesc = escapeHtml(metaDesc);
+        const safeUrl = escapeHtml(canonicalUrl);
+        const safeImage = escapeHtml(coverPhoto);
+
+        const safePublicWish = {
+          id: wish.id,
+          slug: wish.slug,
+          recipientName,
+          buyerName: senderName,
+          eventDate: wish.event_date || customData.event_date || '',
+          templateId,
+          templateVersionId: versionId || (templateSnapshot ? templateSnapshot.id : null),
+          templateName: wish.template_name || (templateSnapshot ? templateSnapshot.name : 'Celebration Experience'),
+          tier: wish.tier || 'free',
+          lifecycleStatus: computeLifecycle({ eventDate: wish.event_date, customData, status: wish.status }),
+          isOwner: false,
+          customData
+        };
+
+        const seoMetas = `
+  <!-- Server-Side Generated SEO & Social Preview Tags (Stage 4) -->
+  <meta name="description" content="${safeDesc}"/>
+  <meta name="robots" content="${robotsContent}"/>
+  <link rel="canonical" href="${safeUrl}"/>
+
+  <!-- OpenGraph Metadata -->
+  <meta property="og:site_name" content="WishMagic"/>
+  <meta property="og:type" content="website"/>
+  <meta property="og:url" content="${safeUrl}"/>
+  <meta property="og:title" content="${safeTitle}"/>
+  <meta property="og:description" content="${safeDesc}"/>
+  <meta property="og:image" content="${safeImage}"/>
+  <meta property="og:image:alt" content="Celebration for ${safeRecipient}"/>
+
+  <!-- Twitter Card Metadata -->
+  <meta name="twitter:card" content="summary_large_image"/>
+  <meta name="twitter:url" content="${safeUrl}"/>
+  <meta name="twitter:title" content="${safeTitle}"/>
+  <meta name="twitter:description" content="${safeDesc}"/>
+  <meta name="twitter:image" content="${safeImage}"/>
+
+  <!-- Schema.org JSON-LD Structured Data -->
+  <script type="application/ld+json">
+  {
+    "@context": "https://schema.org",
+    "@type": "WebApplication",
+    "name": ${JSON.stringify(pageTitle)},
+    "description": ${JSON.stringify(metaDesc)},
+    "url": ${JSON.stringify(canonicalUrl)},
+    "applicationCategory": "LifestyleApplication",
+    "operatingSystem": "All",
+    "author": {
+      "@type": "Person",
+      "name": ${JSON.stringify(senderName)}
+    }
+  }
+  </script>
+
+  <!-- Instant SSR Hydration Data -->
+  <script>
+    window.__SSR_WISH_DATA__ = ${JSON.stringify({ wish: safePublicWish, template: templateSnapshot || null })};
+  </script>
+`;
+
+        htmlTemplate = htmlTemplate.replace(/<title>.*?<\/title>/i, `<title>${safeTitle}</title>`);
+        htmlTemplate = htmlTemplate.replace('</head>', `${seoMetas}\n</head>`);
+
+        return applySecurityHeaders(new Response(htmlTemplate, {
+          status: 200,
+          headers: {
+            'Content-Type': 'text/html; charset=utf-8',
+            'Cache-Control': 'public, max-age=60, s-maxage=300'
+          }
+        }), request, env);
       }
 
       // 5. Fallback to Static Asset Serving via ASSETS binding (Cloudflare Pages)

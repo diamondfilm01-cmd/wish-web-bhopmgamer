@@ -198,14 +198,6 @@ export async function onRequest(context) {
     return await context.next(pageReq);
   }
 
-  if (pathname.startsWith('/w/')) {
-    if (context.env.ASSETS && typeof context.env.ASSETS.fetch === 'function') {
-      const wishReq = new Request(new URL('/wish.html', context.request.url), context.request);
-      return await context.env.ASSETS.fetch(wishReq);
-    }
-    const wishReq = new Request(new URL('/wish.html', context.request.url), context.request);
-    return await context.next(wishReq);
-  }
   if (pathname.startsWith('/template/')) {
     if (context.env.ASSETS && typeof context.env.ASSETS.fetch === 'function') {
       const tplReq = new Request(new URL('/template-preview.html', context.request.url), context.request);

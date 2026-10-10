@@ -476,7 +476,7 @@
       if (descEl) descEl.textContent = 'Start personalizing any template. Your work is safely autosaved right here.';
       if (ctaEl) {
         ctaEl.textContent = '+ Start a New Draft';
-        ctaEl.onclick = () => window.location.href = '/customize.html';
+        ctaEl.onclick = () => window.location.href = '/create.html';
       }
     } else if (filter === 'upcoming') {
       if (iconEl) iconEl.textContent = 'hourglass_top';
@@ -484,7 +484,7 @@
       if (descEl) descEl.textContent = 'Schedule a celebration wish for upcoming birthdays or anniversaries to surprise your loved ones with a live countdown!';
       if (ctaEl) {
         ctaEl.textContent = '+ Schedule Future Wish';
-        ctaEl.onclick = () => window.location.href = '/customize.html';
+        ctaEl.onclick = () => window.location.href = '/create.html';
       }
     } else if (filter === 'active') {
       if (iconEl) iconEl.textContent = 'celebration';
@@ -492,7 +492,7 @@
       if (descEl) descEl.textContent = 'Wishes automatically become ACTIVE on their celebration day in Asia/Kolkata timezone (IST).';
       if (ctaEl) {
         ctaEl.textContent = '+ Create a Wish for Today';
-        ctaEl.onclick = () => window.location.href = '/customize.html';
+        ctaEl.onclick = () => window.location.href = '/create.html';
       }
     } else if (filter === 'expired') {
       if (iconEl) iconEl.textContent = 'bedtime';
@@ -500,7 +500,7 @@
       if (descEl) descEl.textContent = 'Wishes expire at midnight IST after their special day ends to keep personal moments private and safe.';
       if (ctaEl) {
         ctaEl.textContent = '+ Create New Wish';
-        ctaEl.onclick = () => window.location.href = '/customize.html';
+        ctaEl.onclick = () => window.location.href = '/create.html';
       }
     } else if (filter === 'favorites') {
       if (iconEl) iconEl.textContent = 'favorite_border';
@@ -516,7 +516,7 @@
       if (descEl) descEl.textContent = 'Create your very first personalized celebration experience in under 2 minutes!';
       if (ctaEl) {
         ctaEl.textContent = '+ Create Your First Wish ✨';
-        ctaEl.onclick = () => window.location.href = '/customize.html';
+        ctaEl.onclick = () => window.location.href = '/create.html';
       }
     }
   }
@@ -1048,18 +1048,51 @@
     modal.classList.remove('hidden');
   };
 
-  window.copyShareModalLink = function() {
+  window.copyShareModalLink = async function() {
     const input = document.getElementById('share-link-input-modal');
     const btnText = document.getElementById('btn-copy-share-text');
-    if (input) {
-      input.select();
-      navigator.clipboard.writeText(input.value);
-      if (btnText) {
-        btnText.textContent = 'Copied! ✨';
-        setTimeout(() => btnText.textContent = 'Copy', 2500);
-      }
-      showDashboardToast('Link copied to clipboard! 📋');
+    if (!input || !input.value.trim()) {
+      showDashboardToast('⚠️ No celebration link available.');
+      return;
     }
+
+    const url = input.value.trim();
+    if (btnText) btnText.textContent = 'Copying...';
+
+    let copied = false;
+    if (navigator.clipboard && window.isSecureContext) {
+      try {
+        await navigator.clipboard.writeText(url);
+        copied = true;
+      } catch (_) {
+        copied = false;
+      }
+    }
+
+    if (!copied) {
+      try {
+        input.focus();
+        input.select();
+        input.setSelectionRange(0, 99999);
+        copied = document.execCommand('copy');
+      } catch (_) {
+        copied = false;
+      }
+    }
+
+    if (copied) {
+      if (btnText) btnText.textContent = 'Copied! ✨';
+      showDashboardToast('Link copied to clipboard! 📋');
+    } else {
+      if (btnText) btnText.textContent = 'Copy Failed';
+      showDashboardToast('⚠️ Could not copy automatically. Please copy manually.');
+      input.focus();
+      input.select();
+    }
+
+    setTimeout(() => {
+      if (btnText) btnText.textContent = 'Copy';
+    }, 2500);
   };
 
   // Toast Notification System

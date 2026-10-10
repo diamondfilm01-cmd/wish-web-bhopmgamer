@@ -30,6 +30,9 @@
 
   function getPublicWishUrl(wish) {
     if (!wish) return '';
+    if (typeof window !== 'undefined' && window.WishSlugService && typeof window.WishSlugService.getPublicUrl === 'function') {
+      return window.WishSlugService.getPublicUrl(wish);
+    }
     const base = getBaseAppUrl();
     const slug = wish.slug || wish.publicSlug || (wish.customData && wish.customData.slug);
 
@@ -59,6 +62,10 @@
     // Generate functional QR Code on Canvas
     renderToCanvas(canvas, text, size = 220) {
       if (!canvas || !text) return;
+      if (typeof window !== 'undefined' && window.WishQRCodeService && typeof window.WishQRCodeService.drawQRCodeToCanvas === 'function') {
+        window.WishQRCodeService.drawQRCodeToCanvas(text, canvas, { size, fgColor: '#17042b', bgColor: '#ffffff', margin: 4 });
+        return;
+      }
       const ctx = canvas.getContext('2d');
       if (!ctx) return;
 
@@ -184,46 +191,75 @@
     // Copy Public Wish Link to Clipboard
     async copyWishLink(wish, showNotification = true) {
       const url = getPublicWishUrl(wish);
-      if (!url) return false;
+      if (!url || typeof url !== 'string' || !url.trim()) {
+        if (showNotification) {
+          if (typeof window.showToast === 'function') {
+            window.showToast('⚠️ No celebration link available to copy.');
+          } else if (window.WishToast) {
+            window.WishToast.show({ title: 'No Link Available', message: 'No celebration link ready.', type: 'warning' });
+          }
+        }
+        return false;
+      }
 
       let copied = false;
-      try {
-        if (navigator.clipboard && navigator.clipboard.writeText) {
-          await navigator.clipboard.writeText(url);
+      if (navigator.clipboard && window.isSecureContext) {
+        try {
+          await navigator.clipboard.writeText(url.trim());
           copied = true;
-        } else {
-          // Fallback using textarea execCommand
+        } catch (err) {
+          copied = false;
+        }
+      }
+
+      if (!copied) {
+        try {
           const ta = document.createElement('textarea');
-          ta.value = url;
+          ta.value = url.trim();
           ta.style.position = 'fixed';
+          ta.style.top = '-9999px';
+          ta.style.left = '-9999px';
           ta.style.opacity = '0';
           document.body.appendChild(ta);
+          ta.focus();
           ta.select();
+          ta.setSelectionRange(0, 99999);
           copied = document.execCommand('copy');
           document.body.removeChild(ta);
+        } catch (err) {
+          copied = false;
         }
-      } catch (err) {
-        copied = false;
       }
 
       if (copied && showNotification) {
         if (typeof window.showToast === 'function') {
           window.showToast('🔗 Wish link copied to clipboard!');
+        } else if (window.WishToast) {
+          window.WishToast.show({ title: 'Link Copied! 📋', message: 'Public celebration URL copied to clipboard.', type: 'success' });
+        }
+      } else if (!copied && showNotification) {
+        if (typeof window.showToast === 'function') {
+          window.showToast('⚠️ Could not copy automatically. Please copy manually.');
+        } else if (window.WishToast) {
+          window.WishToast.show({ title: 'Copy Failed ⚠️', message: 'Please select and copy manually.', type: 'warning' });
         }
       }
 
-      this.trackEvent('wish_link_copied', { url, wishId: wish.id || wish.wishId });
+      if (copied) {
+        this.trackEvent('wish_link_copied', { url, wishId: wish.id || wish.wishId });
+      }
       return copied;
     },
 
     // Native Web Share API
     async shareViaWebShare(wish, customMessage = null) {
       const url = getPublicWishUrl(wish);
+      if (!url) return false;
       const customData = (wish && wish.customData) || wish || {};
       const recipient = customData.recipient_name || customData.recipientName || 'Someone Special';
       const text = customMessage || getDefaultShareText(wish);
 
-      if (navigator.share) {
+      if (typeof navigator !== 'undefined' && typeof navigator.share === 'function') {
         try {
           await navigator.share({
             title: `A Special Celebration For ${recipient} ✨`,
@@ -233,7 +269,7 @@
           this.trackEvent('wish_shared', { method: 'web_share', url });
           return true;
         } catch (err) {
-          // If user cancelled, do not force modal
+          // If user cancelled, do not report error and do not force modal
           if (err.name === 'AbortError') return false;
         }
       }
@@ -280,20 +316,29 @@
       const url = getPublicWishUrl(wish);
       if (!url || !canvasElement) return;
 
-      MiniQR.renderToCanvas(canvasElement, url, size);
+      if (typeof window !== 'undefined' && window.WishQRCodeService && typeof window.WishQRCodeService.drawQRCodeToCanvas === 'function') {
+        window.WishQRCodeService.drawQRCodeToCanvas(url, canvasElement, { size, fgColor: '#17042b', bgColor: '#ffffff', margin: 4 });
+      } else {
+        MiniQR.renderToCanvas(canvasElement, url, size);
+      }
       this.trackEvent('qr_generated', { url });
     },
 
     // Download QR Code PNG image
     downloadQRCode(canvasElement, filename = 'wishmagic-qr.png') {
       if (!canvasElement) return;
-      const dataUrl = canvasElement.toDataURL('image/png');
-      const a = document.createElement('a');
-      a.href = dataUrl;
-      a.download = filename;
-      document.body.appendChild(a);
-      a.click();
-      document.body.removeChild(a);
+      try {
+        const safeFilename = (filename || 'wishmagic-qr.png').replace(/[^a-z0-9_.-]/gi, '_');
+        const dataUrl = canvasElement.toDataURL('image/png');
+        const a = document.createElement('a');
+        a.href = dataUrl;
+        a.download = safeFilename.endsWith('.png') ? safeFilename : `${safeFilename}.png`;
+        document.body.appendChild(a);
+        a.click();
+        document.body.removeChild(a);
+      } catch (err) {
+        console.error('[WishShareService] downloadQRCode error:', err);
+      }
     },
 
     // =======================================================================
@@ -426,14 +471,24 @@
       if (modal) modal.classList.add('hidden');
     },
 
-    copyWishLinkFromModal() {
+    async copyWishLinkFromModal() {
       const modal = document.getElementById('wm-global-share-modal');
       if (!modal || !modal._currentWish) return;
-      this.copyWishLink(modal._currentWish, false);
       const btnLabel = document.getElementById('wm-modal-copy-label');
+      if (btnLabel) btnLabel.textContent = 'Copying...';
+      const copied = await this.copyWishLink(modal._currentWish, false);
       if (btnLabel) {
-        btnLabel.textContent = 'Copied! ✓';
-        setTimeout(() => { btnLabel.textContent = 'Copy'; }, 2000);
+        if (copied) {
+          btnLabel.textContent = 'Copied! ✓';
+        } else {
+          btnLabel.textContent = 'Copy Failed';
+          const input = document.getElementById('wm-share-modal-url');
+          if (input) {
+            input.focus();
+            input.select();
+          }
+        }
+        setTimeout(() => { btnLabel.textContent = 'Copy'; }, 2200);
       }
     },
 

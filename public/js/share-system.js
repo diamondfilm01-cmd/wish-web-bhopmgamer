@@ -629,96 +629,156 @@
       }
     },
 
+    // Standalone direct QR Code PNG download
+    downloadQRCodePNG(text, filename = 'wishmagic-qr.png', size = 320) {
+      if (!text) {
+        if (window.WishToast) window.WishToast.show({ title: 'Error', message: 'No valid URL provided for QR code.', type: 'warning' });
+        return;
+      }
+      try {
+        const canvas = document.createElement('canvas');
+        this.drawQRCodeToCanvas(text, canvas, { size });
+        const safeFilename = (filename || 'wishmagic-qr.png').replace(/[^a-z0-9_.-]/gi, '_');
+        const link = document.createElement('a');
+        link.download = safeFilename.endsWith('.png') ? safeFilename : `${safeFilename}.png`;
+        link.href = canvas.toDataURL('image/png');
+        document.body.appendChild(link);
+        link.click();
+        document.body.removeChild(link);
+      } catch (err) {
+        console.error('[WishQRCodeService] PNG download failed:', err);
+        if (window.WishToast) window.WishToast.show({ title: 'Download Error', message: 'Could not export QR code image.', type: 'error' });
+      }
+    },
+
+    // Standalone direct QR Code SVG download
+    downloadQRCodeSVG(text, filename = 'wishmagic-qr.svg', size = 320) {
+      if (!text) {
+        if (window.WishToast) window.WishToast.show({ title: 'Error', message: 'No valid URL provided for QR code.', type: 'warning' });
+        return;
+      }
+      try {
+        const svg = this.generateQRCodeSVG(text, { size });
+        const safeFilename = (filename || 'wishmagic-qr.svg').replace(/[^a-z0-9_.-]/gi, '_');
+        const blob = new Blob([svg], { type: 'image/svg+xml;charset=utf-8' });
+        const url = URL.createObjectURL(blob);
+        const link = document.createElement('a');
+        link.download = safeFilename.endsWith('.svg') ? safeFilename : `${safeFilename}.svg`;
+        link.href = url;
+        document.body.appendChild(link);
+        link.click();
+        document.body.removeChild(link);
+        setTimeout(() => URL.revokeObjectURL(url), 1000);
+      } catch (err) {
+        console.error('[WishQRCodeService] SVG download failed:', err);
+        if (window.WishToast) window.WishToast.show({ title: 'Download Error', message: 'Could not export QR code SVG.', type: 'error' });
+      }
+    },
+
     // Generates a downloadable high-resolution greeting print card with QR code
     downloadQRCardPNG(url, recipientName = 'Someone Special', title = 'Celebration Surprise') {
-      const canvas = document.createElement('canvas');
-      const cardWidth = 800;
-      const cardHeight = 1100;
-      canvas.width = cardWidth;
-      canvas.height = cardHeight;
-      const ctx = canvas.getContext('2d');
+      if (!url) {
+        if (window.WishToast) window.WishToast.show({ title: 'Error', message: 'No valid celebration URL found for print card.', type: 'warning' });
+        return;
+      }
+      try {
+        const canvas = document.createElement('canvas');
+        const cardWidth = 800;
+        const cardHeight = 1100;
+        canvas.width = cardWidth;
+        canvas.height = cardHeight;
+        const ctx = canvas.getContext('2d');
 
-      // 1. Luxury Dark Gradient Background
-      const grad = ctx.createLinearGradient(0, 0, cardWidth, cardHeight);
-      grad.addColorStop(0, '#19062e');
-      grad.addColorStop(0.5, '#0c0217');
-      grad.addColorStop(1, '#05000a');
-      ctx.fillStyle = grad;
-      ctx.fillRect(0, 0, cardWidth, cardHeight);
+        // 1. Luxury Dark Gradient Background
+        const grad = ctx.createLinearGradient(0, 0, cardWidth, cardHeight);
+        grad.addColorStop(0, '#19062e');
+        grad.addColorStop(0.5, '#0c0217');
+        grad.addColorStop(1, '#05000a');
+        ctx.fillStyle = grad;
+        ctx.fillRect(0, 0, cardWidth, cardHeight);
 
-      // 2. Decorative Border & Glow Orbs
-      ctx.strokeStyle = 'rgba(236, 72, 153, 0.4)';
-      ctx.lineWidth = 4;
-      ctx.strokeRect(30, 30, cardWidth - 60, cardHeight - 60);
+        // 2. Decorative Border & Glow Orbs
+        ctx.strokeStyle = 'rgba(236, 72, 153, 0.4)';
+        ctx.lineWidth = 4;
+        ctx.strokeRect(30, 30, cardWidth - 60, cardHeight - 60);
 
-      ctx.strokeStyle = 'rgba(168, 85, 247, 0.2)';
-      ctx.lineWidth = 1;
-      ctx.strokeRect(40, 40, cardWidth - 80, cardHeight - 80);
+        ctx.strokeStyle = 'rgba(168, 85, 247, 0.2)';
+        ctx.lineWidth = 1;
+        ctx.strokeRect(40, 40, cardWidth - 80, cardHeight - 80);
 
-      // 3. Top Header Typography
-      ctx.fillStyle = '#fdf2f8';
-      ctx.font = 'bold 36px "Outfit", sans-serif';
-      ctx.textAlign = 'center';
-      ctx.fillText('A SPECIAL SURPRISE FOR YOU', cardWidth / 2, 120);
+        // 3. Top Header Typography
+        ctx.fillStyle = '#fdf2f8';
+        ctx.font = 'bold 36px "Outfit", sans-serif';
+        ctx.textAlign = 'center';
+        ctx.fillText('A SPECIAL SURPRISE FOR YOU', cardWidth / 2, 120);
 
-      ctx.fillStyle = '#f472b6';
-      ctx.font = 'bold 54px "Playfair Display", serif';
-      ctx.fillText(recipientName, cardWidth / 2, 195);
+        ctx.fillStyle = '#f472b6';
+        ctx.font = 'bold 54px "Playfair Display", serif';
+        ctx.fillText(recipientName, cardWidth / 2, 195);
 
-      ctx.fillStyle = 'rgba(216, 180, 254, 0.8)';
-      ctx.font = '22px "Plus Jakarta Sans", sans-serif';
-      ctx.fillText('Scan this magic code with your phone camera to unwrap ✨', cardWidth / 2, 250);
+        ctx.fillStyle = 'rgba(216, 180, 254, 0.8)';
+        ctx.font = '22px "Plus Jakarta Sans", sans-serif';
+        ctx.fillText('Scan this magic code with your phone camera to unwrap ✨', cardWidth / 2, 250);
 
-      // 4. Center QR Canvas Card
-      const qrBoxSize = 440;
-      const qrBoxX = (cardWidth - qrBoxSize) / 2;
-      const qrBoxY = 310;
+        // 4. Center QR Canvas Card
+        const qrBoxSize = 440;
+        const qrBoxX = (cardWidth - qrBoxSize) / 2;
+        const qrBoxY = 310;
 
-      // White card backing
-      ctx.fillStyle = '#ffffff';
-      ctx.beginPath();
-      ctx.roundRect ? ctx.roundRect(qrBoxX, qrBoxY, qrBoxSize, qrBoxSize, 28) : ctx.fillRect(qrBoxX, qrBoxY, qrBoxSize, qrBoxSize);
-      ctx.fill();
+        // White card backing
+        ctx.fillStyle = '#ffffff';
+        ctx.beginPath();
+        if (typeof ctx.roundRect === 'function') {
+          ctx.roundRect(qrBoxX, qrBoxY, qrBoxSize, qrBoxSize, 28);
+        } else {
+          ctx.fillRect(qrBoxX, qrBoxY, qrBoxSize, qrBoxSize);
+        }
+        ctx.fill();
 
-      // Draw standard scannable QR code onto center
-      const qrTempCanvas = document.createElement('canvas');
-      this.drawQRCodeToCanvas(url, qrTempCanvas, {
-        size: qrBoxSize - 40,
-        fgColor: '#0a0114',
-        bgColor: '#ffffff',
-        margin: 4
-      });
-      ctx.drawImage(qrTempCanvas, qrBoxX + 20, qrBoxY + 20);
-
-      // 5. Bottom Instructions & Vanity URL
-      ctx.fillStyle = '#ffffff';
-      ctx.font = 'bold 26px "Outfit", sans-serif';
-      ctx.fillText('🎁 Interactive Celebration Website', cardWidth / 2, 820);
-
-      ctx.fillStyle = 'rgba(255, 255, 255, 0.6)';
-      ctx.font = '20px monospace';
-      const displayUrl = url.replace(/^https?:\/\//, '');
-      ctx.fillText(displayUrl, cardWidth / 2, 865);
-
-      ctx.fillStyle = 'rgba(244, 114, 182, 0.8)';
-      ctx.font = 'bold 20px "Great Vibes", cursive, sans-serif';
-      ctx.fillText('Handcrafted with love on WishMagic', cardWidth / 2, 980);
-
-      // 6. Trigger Download
-      const link = document.createElement('a');
-      const filename = `WishMagic-QR-${WishSlugService.slugify(recipientName) || 'card'}.png`;
-      link.download = filename;
-      link.href = canvas.toDataURL('image/png');
-      document.body.appendChild(link);
-      link.click();
-      document.body.removeChild(link);
-
-      // Part 16: Track Event
-      if (window.WishAnalyticsService) {
-        window.WishAnalyticsService.trackEvent('qr_generated', {
-          recipientName,
-          metadata: { title, url }
+        // Draw standard scannable QR code onto center
+        const qrTempCanvas = document.createElement('canvas');
+        this.drawQRCodeToCanvas(url, qrTempCanvas, {
+          size: qrBoxSize - 40,
+          fgColor: '#0a0114',
+          bgColor: '#ffffff',
+          margin: 4
         });
+        ctx.drawImage(qrTempCanvas, qrBoxX + 20, qrBoxY + 20);
+
+        // 5. Bottom Instructions & Vanity URL
+        ctx.fillStyle = '#ffffff';
+        ctx.font = 'bold 26px "Outfit", sans-serif';
+        ctx.fillText('🎁 Interactive Celebration Website', cardWidth / 2, 820);
+
+        ctx.fillStyle = 'rgba(255, 255, 255, 0.6)';
+        ctx.font = '20px monospace';
+        const displayUrl = url.replace(/^https?:\/\//, '');
+        ctx.fillText(displayUrl, cardWidth / 2, 865);
+
+        ctx.fillStyle = 'rgba(244, 114, 182, 0.8)';
+        ctx.font = 'bold 20px "Great Vibes", cursive, sans-serif';
+        ctx.fillText('Handcrafted with love on WishMagic', cardWidth / 2, 980);
+
+        // 6. Trigger Download
+        const link = document.createElement('a');
+        const cleanRecipient = (WishSlugService.slugify ? WishSlugService.slugify(recipientName) : recipientName.replace(/[^a-z0-9]/gi, '-')) || 'card';
+        const filename = `WishMagic-QR-${cleanRecipient}.png`;
+        link.download = filename;
+        link.href = canvas.toDataURL('image/png');
+        document.body.appendChild(link);
+        link.click();
+        document.body.removeChild(link);
+
+        // Part 16: Track Event
+        if (window.WishAnalyticsService) {
+          window.WishAnalyticsService.trackEvent('qr_generated', {
+            recipientName,
+            metadata: { title, url }
+          });
+        }
+      } catch (err) {
+        console.error('[WishQRCodeService] Print card export failed:', err);
+        if (window.WishToast) window.WishToast.show({ title: 'Export Failed', message: 'Could not generate greeting card image.', type: 'error' });
       }
     }
   };
@@ -731,7 +791,7 @@
      * Generates normalized OpenGraph and Twitter social card metadata
      */
     getSocialMetadata(wishOrData, template = null) {
-      const data = wishOrData.customData || wishOrData || {};
+      const data = (wishOrData && wishOrData.customData) || wishOrData || {};
       const recipient = data.recipient_name || data.recipientName || 'Someone Special';
       const sender = data.sender_name || data.senderName || 'Someone Who Cares';
       const occasion = (template && template.category) || data.occasion || 'Celebration';
@@ -865,19 +925,29 @@
      */
     async shareNative(wishOrData, template = null) {
       const meta = WishSocialPreview.getSocialMetadata(wishOrData, template);
-      if (typeof navigator !== 'undefined' && navigator.share) {
+      if (!meta.publicUrl) return false;
+
+      if (typeof navigator !== 'undefined' && typeof navigator.share === 'function') {
         try {
           await navigator.share({
             title: meta.title,
             text: `✨ Special personalized celebration website created for ${meta.recipient}!`,
             url: meta.publicUrl
           });
+          if (window.WishAnalyticsService) {
+            window.WishAnalyticsService.trackEvent('wish_shared', {
+              method: 'web_share',
+              url: meta.publicUrl
+            });
+          }
           return true;
         } catch (e) {
-          if (e.name !== 'AbortError') {
-            console.warn('[WishShareSystem] Native share failed, opening modal fallback:', e);
-            this.openShareModal(wishOrData, { template });
+          if (e.name === 'AbortError') {
+            // User cancelled share sheet — this is not an error and must not trigger failure alerts or modal fallback
+            return false;
           }
+          console.warn('[WishShareSystem] Native share failed, opening modal fallback:', e);
+          this.openShareModal(wishOrData, { template });
           return false;
         }
       } else {
@@ -887,11 +957,27 @@
     },
 
     /**
-     * Robust Clipboard Copy with fallback
+     * Robust Clipboard Copy with fallback and truthful UI states
      */
     async copyLink(urlOrWish, feedbackEl = null) {
       let url = typeof urlOrWish === 'string' ? urlOrWish : WishSlugService.getPublicUrl(urlOrWish);
+      if (!url || typeof url !== 'string' || !url.trim()) {
+        if (window.WishToast) {
+          window.WishToast.show({
+            title: 'No Link Available',
+            message: 'No celebration link is ready to copy.',
+            type: 'warning'
+          });
+        }
+        return false;
+      }
+
+      url = url.trim();
       let copied = false;
+
+      if (feedbackEl) {
+        feedbackEl.disabled = true;
+      }
 
       if (navigator.clipboard && window.isSecureContext) {
         try {
@@ -907,10 +993,13 @@
           const textArea = document.createElement('textarea');
           textArea.value = url;
           textArea.style.position = 'fixed';
+          textArea.style.top = '-9999px';
+          textArea.style.left = '-9999px';
           textArea.style.opacity = '0';
           document.body.appendChild(textArea);
           textArea.focus();
           textArea.select();
+          textArea.setSelectionRange(0, 99999);
           copied = document.execCommand('copy');
           document.body.removeChild(textArea);
         } catch (e) {
@@ -920,26 +1009,46 @@
 
       if (feedbackEl) {
         const prev = feedbackEl.innerHTML;
-        feedbackEl.innerHTML = '<span>Copied! ✨</span>';
+        if (copied) {
+          feedbackEl.innerHTML = '<span>Copied! ✨</span>';
+        } else {
+          feedbackEl.innerHTML = '<span class="text-rose-300">Copy Failed</span>';
+        }
         setTimeout(() => {
           feedbackEl.innerHTML = prev;
+          feedbackEl.disabled = false;
         }, 2200);
       }
 
-      // Part 16: Track Event
-      if (window.WishAnalyticsService) {
-        window.WishAnalyticsService.trackEvent('share_link_copied', {
-          metadata: { url }
-        });
-      }
+      if (copied) {
+        // Part 16: Track Event
+        if (window.WishAnalyticsService) {
+          window.WishAnalyticsService.trackEvent('share_link_copied', {
+            metadata: { url }
+          });
+        }
 
-      // Part 17: Toast Feedback
-      if (window.WishToast) {
-        window.WishToast.show({
-          title: 'Link Copied! 📋',
-          message: 'Public celebration URL copied to clipboard.',
-          type: 'success'
-        });
+        // Part 17: Toast Feedback
+        if (window.WishToast) {
+          window.WishToast.show({
+            title: 'Link Copied! 📋',
+            message: 'Public celebration URL copied to clipboard.',
+            type: 'success'
+          });
+        }
+      } else {
+        if (window.WishToast) {
+          window.WishToast.show({
+            title: 'Copy Failed ⚠️',
+            message: 'Please select and copy the link manually.',
+            type: 'warning'
+          });
+        }
+        const modalInput = document.getElementById('modal-share-link-input');
+        if (modalInput) {
+          modalInput.focus();
+          modalInput.select();
+        }
       }
 
       return copied;

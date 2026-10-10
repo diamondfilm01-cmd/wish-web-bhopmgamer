@@ -37,6 +37,7 @@
   <script src="js/animation-effects-engine.js"></script>
   <script src="js/public-interaction-engine.js"></script>
   <script src="js/share-system.js"></script>
+  <script src="js/share-service.js"></script>
   <script src="js/security-hardening.js"></script>
   <script src="js/wishmagic-template-sandbox.js"></script>
   <script src="js/wishmagic-final-renderer.js"></script>
@@ -176,7 +177,7 @@
       <div id="ambient-orb-3" class="absolute w-[450px] h-[450px] rounded-full bg-amber-500/10 blur-[110px] bottom-10 left-1/4"></div>
     </div>
 
-    <!-- Floating Soundscape Controller Pill (Recipient can pause/resume or unmute soundtrack anytime) -->
+    <!-- Floating Soundscape Controller & Share Pill -->
     <div id="floating-music-pill" class="fixed top-4 right-4 z-40 flex items-center gap-2 pointer-events-auto">
       <button id="btn-toggle-soundtrack" onclick="toggleSoundtrackPlayback()" class="group flex items-center gap-2 px-3 py-1.5 rounded-full bg-black/60 hover:bg-black/80 backdrop-blur-xl border border-white/20 text-white shadow-2xl transition-all hover:scale-105 active:scale-95 cursor-pointer" title="Toggle Background Soundtrack">
         <span id="soundtrack-icon" class="text-xs">🎵</span>
@@ -187,6 +188,11 @@
           <span class="w-0.5 bg-purple-300 rounded-full h-2/3 animate-[pulse_0.7s_ease-in-out_infinite]"></span>
           <span class="w-0.5 bg-amber-300 rounded-full h-4/5 animate-[pulse_1.2s_ease-in-out_infinite]"></span>
         </span>
+      </button>
+
+      <button id="btn-floating-share" onclick="if(window.WishShareSystem && window.currentRawWish){WishShareSystem.openShareModal(window.currentRawWish,{template:window.currentTemplate});}else if(window.WishShareService && window.currentRawWish){WishShareService.openShareModal(window.currentRawWish);}" class="flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-black/60 hover:bg-black/80 backdrop-blur-xl border border-white/20 text-white shadow-2xl transition-all hover:scale-105 active:scale-95 cursor-pointer" title="Share Celebration Experience">
+        <span class="material-symbols-outlined text-[15px] text-pink-300">share</span>
+        <span class="text-[11px] font-bold text-white/90 hidden sm:inline">Share</span>
       </button>
     </div>
 

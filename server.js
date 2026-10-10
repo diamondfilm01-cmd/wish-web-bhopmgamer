@@ -13497,6 +13497,66 @@ app.get('/api/admin/metrics', (req, res) => {
   }
 });
 
+// API: Public Link Generation and Verification Contract (Stage 4)
+app.all(['/api/wishes/:id/public-link', '/api/wishes/public-link'], (req, res) => {
+  try {
+    if (!req.user) {
+      return res.status(401).json({ success: false, error: { code: 'AUTH_REQUIRED', message: 'Authentication required to access link.' } });
+    }
+
+    const wishId = req.params.id || req.body.id || req.body.wishId || req.query.id || req.query.wishId;
+    if (!wishId) {
+      return res.status(400).json({ success: false, error: { code: 'VALIDATION_FAILED', message: 'Wish identifier is required.' } });
+    }
+
+    const wishes = getWishes();
+    const wish = wishes.find(w => w.id === wishId || w.slug === wishId || w.id === 'wm_' + wishId);
+    if (!wish) {
+      return res.status(404).json({ success: false, error: { code: 'NOT_FOUND', message: 'Wish not found.' } });
+    }
+
+    const isAdmin = Boolean(req.user.role === 'admin' || req.user.isAdmin);
+    if (wish.userId && wish.userId !== req.user.id && !isAdmin) {
+      return res.status(403).json({ success: false, error: { code: 'FORBIDDEN', message: 'Access denied to resolve public link for this wish.' } });
+    }
+
+    if (wish.status === 'draft' || wish.status === 'unpublished' || Boolean(wish.isDraft)) {
+      return res.status(422).json({
+        success: false,
+        error: {
+          code: 'DRAFT_NOT_PUBLISHED',
+          message: 'Cannot generate public link for an unpublished draft. Please publish first.'
+        }
+      });
+    }
+
+    if (wish.moderationStatus === 'suspended' || wish.moderation_status === 'suspended') {
+      return res.status(403).json({
+        success: false,
+        error: { code: 'WISH_SUSPENDED', message: 'This celebration wish has been suspended and public link is unavailable.' }
+      });
+    }
+
+    const baseUrl = `${req.protocol}://${req.get('host')}`;
+    const publicUrl = `${baseUrl}/w/${wish.slug || wish.id}`;
+
+    return res.json({
+      success: true,
+      wishId: wish.id,
+      slug: wish.slug,
+      publicUrl,
+      canonicalUrl: publicUrl,
+      status: wish.status,
+      isPublished: true,
+      templateId: wish.templateId,
+      templateVersionId: wish.templateVersionId,
+      recipientName: wish.recipientName || (wish.customData && wish.customData.recipient_name)
+    });
+  } catch (err) {
+    return res.status(500).json({ success: false, message: err.message });
+  }
+});
+
 // API: Get customized wish data by ID or Slug (supports both /api/wishes/wm_xxx and /api/wishes/ankit-to-kritika-x7k92)
 app.get('/api/wishes/:id', (req, res) => {
   const query = (req.params.id || '').trim();
@@ -13531,8 +13591,13 @@ app.get(['/templates', '/templates/', '/marketplace', '/marketplace.html'], (req
   res.sendFile(path.join(__dirname, 'public', 'marketplace.html'));
 });
 
-// Customizer Route: /create and /customize
-app.get(['/create', '/create/', '/customize', '/customize.html'], (req, res) => {
+// Wish Creation Wizard Route: /create
+app.get(['/create', '/create/', '/create.html'], (req, res) => {
+  res.sendFile(path.join(__dirname, 'public', 'create.html'));
+});
+
+// Customizer Route: /customize
+app.get(['/customize', '/customize.html'], (req, res) => {
   res.sendFile(path.join(__dirname, 'public', 'customize.html'));
 });
 
@@ -13574,107 +13639,265 @@ app.get(['/support/tickets', '/support/tickets/', '/support-tickets', '/support-
   res.sendFile(path.join(__dirname, 'public', 'support-tickets.html'));
 });
 
+function escapeServerHtml(str) {
+  if (str === null || str === undefined) return '';
+  return String(str)
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&#039;');
+}
+
+function renderServerWishErrorHtml({ title, heading, message, code = 404, buttonText = 'Return to WishMagic', buttonHref = '/' }) {
+  return `<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>${escapeServerHtml(title)} | WishMagic</title>
+  <style>
+    body {
+      margin: 0;
+      padding: 0;
+      font-family: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+      background: radial-gradient(circle at center, #19062e 0%, #0d0217 60%, #05000a 100%);
+      color: #f3e8ff;
+      min-height: 100vh;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      text-align: center;
+      box-sizing: border-box;
+      padding: 24px;
+    }
+    .card {
+      max-width: 480px;
+      width: 100%;
+      background: rgba(255, 255, 255, 0.04);
+      border: 1px solid rgba(236, 72, 153, 0.25);
+      border-radius: 24px;
+      padding: 40px 28px;
+      backdrop-filter: blur(20px);
+      box-shadow: 0 20px 50px rgba(0, 0, 0, 0.6);
+    }
+    .icon {
+      font-size: 48px;
+      margin-bottom: 16px;
+    }
+    h1 {
+      font-size: 24px;
+      font-weight: 800;
+      margin: 0 0 12px 0;
+      background: linear-gradient(135deg, #f472b6, #c084fc);
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+    }
+    p {
+      font-size: 14px;
+      line-height: 1.6;
+      color: rgba(243, 232, 255, 0.75);
+      margin: 0 0 24px 0;
+    }
+    .btn {
+      display: inline-block;
+      padding: 12px 28px;
+      background: linear-gradient(135deg, #ec4899, #a855f7);
+      color: #ffffff;
+      font-weight: 700;
+      font-size: 13px;
+      text-decoration: none;
+      border-radius: 9999px;
+      box-shadow: 0 4px 15px rgba(236, 72, 153, 0.4);
+      transition: transform 0.2s, opacity 0.2s;
+    }
+    .btn:hover {
+      opacity: 0.95;
+      transform: scale(1.02);
+    }
+    .brand {
+      margin-top: 24px;
+      font-size: 11px;
+      color: rgba(243, 232, 255, 0.35);
+      letter-spacing: 0.05em;
+    }
+  </style>
+</head>
+<body>
+  <div class="card">
+    <div class="icon">✨</div>
+    <h1>${escapeServerHtml(heading)}</h1>
+    <p>${escapeServerHtml(message)}</p>
+    <a href="${escapeServerHtml(buttonHref)}" class="btn">${escapeServerHtml(buttonText)}</a>
+    <div class="brand">WishMagic • Interactive Keepsake Platform</div>
+  </div>
+</body>
+</html>`;
+}
+
 // Public Clean URL Route: /w/:id and /w/:slug with Dynamic Server-Side SEO & Social Preview Meta Injection
 app.get('/w/:id', (req, res) => {
   const wishParam = (req.params.id || '').trim();
+
+  if (!wishParam) {
+    return res.status(404).send(renderServerWishErrorHtml({
+      title: 'Wish Not Found',
+      heading: 'Celebration Link Not Found',
+      message: 'No celebration code was specified in this link. Please check the URL and try again.',
+      code: 404
+    }));
+  }
+
+  if (wishParam.length > 120 || /[<>'"\\]/.test(wishParam)) {
+    return res.status(400).send(renderServerWishErrorHtml({
+      title: 'Invalid Link',
+      heading: 'Invalid Link Format',
+      message: 'The requested celebration link format is invalid or malformed.',
+      code: 400
+    }));
+  }
+
   const wishes = getWishes();
   const wish = wishes.find(w => w.id === wishParam || w.slug === wishParam || w.id === 'wm_' + wishParam);
 
+  if (!wish) {
+    return res.status(404).send(renderServerWishErrorHtml({
+      title: 'Celebration Link Not Found',
+      heading: 'Celebration Link Not Found',
+      message: 'This wish link does not exist or was typed incorrectly. Please verify the URL with the sender!',
+      code: 404
+    }));
+  }
+
+  if (wish.status === 'archived' || wish.status === 'deleted' || wish.status === 'draft' || wish.status === 'unpublished' || Boolean(wish.isDraft)) {
+    return res.status(404).send(renderServerWishErrorHtml({
+      title: 'Celebration Inactive',
+      heading: 'Celebration Link Inactive',
+      message: 'This celebration experience is currently an unpublished draft and is not yet available for public viewing.',
+      code: 404
+    }));
+  }
+
+  if (wish.moderationStatus === 'suspended' || wish.moderation_status === 'suspended') {
+    return res.status(403).send(renderServerWishErrorHtml({
+      title: 'Celebration Suspended',
+      heading: 'Celebration Link Suspended',
+      message: 'This celebration wish has been temporarily suspended by our moderation team.',
+      code: 403
+    }));
+  }
+
   const htmlPath = path.join(__dirname, 'public', 'wish.html');
   if (!fs.existsSync(htmlPath)) {
-    return res.status(404).send('Wish renderer not found');
+    return res.status(503).send('Wish renderer template not found');
   }
 
   let htmlContent = fs.readFileSync(htmlPath, 'utf8');
 
-  if (wish) {
-    if (wish.status === 'archived' || wish.status === 'deleted' || wish.status === 'draft' || wish.status === 'unpublished' || Boolean(wish.isDraft)) {
-      return res.status(404).send('<!DOCTYPE html><html><body style="font-family:system-ui,sans-serif;text-align:center;padding:60px 20px;background:#0d0614;color:#f3e8ff;"><h2>Celebration Link Inactive</h2><p style="opacity:0.8;">This celebration experience is no longer active or is currently an unpublished draft.</p><a href="/" style="display:inline-block;margin-top:16px;padding:10px 20px;background:#ec4899;color:white;text-decoration:none;border-radius:12px;font-weight:bold;">Return to WishMagic</a></body></html>');
-    }
+  const versionId = wish.templateVersionId || wish.template_version_id || (wish.customData && (wish.customData.templateVersionId || wish.customData.template_version_id));
+  const template = getTemplateVersionById(versionId, wish.templateId);
+  const customData = wish.customData || {};
 
-    const versionId = wish.templateVersionId || wish.template_version_id || (wish.customData && (wish.customData.templateVersionId || wish.customData.template_version_id));
-    const template = getTemplateVersionById(versionId, wish.templateId);
-    const customData = wish.customData || {};
+  const recipient = customData.recipient_name || customData.recipientName || wish.recipientName || 'Someone Special';
+  const sender = customData.sender_name || customData.senderName || wish.buyerName || 'Someone Special';
+  const occasion = (template && template.category) || customData.occasion || 'Celebration';
 
-    const recipient = customData.recipient_name || customData.recipientName || wish.recipientName || 'Someone Special';
-    const sender = customData.sender_name || customData.senderName || wish.buyerName || 'Someone Special';
-    const occasion = (template && template.category) || customData.occasion || 'Celebration';
+  const pageTitle = `${recipient}'s Special ${occasion} Surprise ✨ | WishMagic`;
+  const metaDesc = `A personalized celebration website created with love by ${sender} for ${recipient}. Open this link to unwrap music, photographs, and cherished memories! 💖`;
 
-    const pageTitle = `${recipient}'s Special ${occasion} Surprise ✨ | WishMagic`;
-    const metaDesc = `A personalized celebration website created with love by ${sender} for ${recipient}. Open this link to unwrap music, photographs, and cherished memories! 💖`;
+  const baseUrl = `${req.protocol}://${req.get('host')}`;
+  const canonicalUrl = `${baseUrl}/w/${wish.slug || wish.id}`;
 
-    const baseUrl = `${req.protocol}://${req.get('host')}`;
-    const canonicalUrl = `${baseUrl}/w/${wish.slug || wish.id}`;
+  // Resolve cover photo / thumbnail
+  let coverPhoto = customData.cover_photo || customData.photo_1 || (customData.photos && customData.photos[0] && customData.photos[0].src);
+  if (!coverPhoto && template) {
+    coverPhoto = template.thumbnail || (template.previewImages && template.previewImages[0]);
+  }
+  if (!coverPhoto) coverPhoto = '/assets/file_ab2082.png';
+  if (!coverPhoto.startsWith('http')) {
+    coverPhoto = `${baseUrl}${coverPhoto.startsWith('/') ? '' : '/'}${coverPhoto}`;
+  }
 
-    // Resolve cover photo / thumbnail
-    let coverPhoto = customData.cover_photo || customData.photo_1 || (customData.photos && customData.photos[0] && customData.photos[0].src);
-    if (!coverPhoto && template) {
-      coverPhoto = template.thumbnail || (template.previewImages && template.previewImages[0]);
-    }
-    if (!coverPhoto) coverPhoto = '/assets/file_ab2082.png';
-    if (!coverPhoto.startsWith('http')) {
-      coverPhoto = `${baseUrl}${coverPhoto.startsWith('/') ? '' : '/'}${coverPhoto}`;
-    }
+  // Owner searchEngineIndexing privacy preference check
+  const privacyMap = getUserPrivacySettingsMap();
+  const ownerPrivacy = (wish.userId || wish.user_id) ? privacyMap[wish.userId || wish.user_id] : null;
+  const allowIndexing = ownerPrivacy ? Boolean(ownerPrivacy.searchEngineIndexing) : true;
 
-    // Owner searchEngineIndexing privacy preference check
-    const privacyMap = getUserPrivacySettingsMap();
-    const ownerPrivacy = (wish.userId || wish.user_id) ? privacyMap[wish.userId || wish.user_id] : null;
-    const allowIndexing = ownerPrivacy ? Boolean(ownerPrivacy.searchEngineIndexing) : true;
+  const isPrivate = Boolean(wish.isPrivate || customData.isPrivate || customData.unlisted || !allowIndexing);
+  const robotsContent = isPrivate ? 'noindex, nofollow' : 'index, follow';
 
-    const isPrivate = Boolean(wish.isPrivate || customData.isPrivate || customData.unlisted || !allowIndexing);
-    const robotsContent = isPrivate ? 'noindex, nofollow' : 'index, follow';
+  const safeRecipient = escapeServerHtml(recipient);
+  const safeSender = escapeServerHtml(sender);
+  const safeTitle = escapeServerHtml(pageTitle);
+  const safeDesc = escapeServerHtml(metaDesc);
+  const safeUrl = escapeServerHtml(canonicalUrl);
+  const safeImage = escapeServerHtml(coverPhoto);
 
-    const seoMetas = `
-  <!-- Server-Side Generated SEO & Social Preview Tags (Part 15) -->
-  <meta name="description" content="${metaDesc.replace(/"/g, '&quot;')}"/>
+  const safePublicWish = {
+    id: wish.id,
+    slug: wish.slug,
+    recipientName: recipient,
+    buyerName: sender,
+    eventDate: wish.eventDate || customData.event_date || '',
+    templateId: wish.templateId,
+    templateVersionId: versionId || (template ? template.id : null),
+    templateName: wish.templateName || (template ? template.name : 'Celebration Experience'),
+    tier: wish.tier || 'free',
+    lifecycleStatus: wish.lifecycleStatus || 'active',
+    isOwner: false,
+    customData
+  };
+
+  const seoMetas = `
+  <!-- Server-Side Generated SEO & Social Preview Tags (Stage 4) -->
+  <meta name="description" content="${safeDesc}"/>
   <meta name="robots" content="${robotsContent}"/>
-  <link rel="canonical" href="${canonicalUrl}"/>
+  <link rel="canonical" href="${safeUrl}"/>
 
   <!-- OpenGraph Metadata -->
   <meta property="og:site_name" content="WishMagic"/>
   <meta property="og:type" content="website"/>
-  <meta property="og:url" content="${canonicalUrl}"/>
-  <meta property="og:title" content="${pageTitle.replace(/"/g, '&quot;')}"/>
-  <meta property="og:description" content="${metaDesc.replace(/"/g, '&quot;')}"/>
-  <meta property="og:image" content="${coverPhoto}"/>
-  <meta property="og:image:alt" content="Celebration for ${recipient}"/>
+  <meta property="og:url" content="${safeUrl}"/>
+  <meta property="og:title" content="${safeTitle}"/>
+  <meta property="og:description" content="${safeDesc}"/>
+  <meta property="og:image" content="${safeImage}"/>
+  <meta property="og:image:alt" content="Celebration for ${safeRecipient}"/>
 
   <!-- Twitter Card Metadata -->
   <meta name="twitter:card" content="summary_large_image"/>
-  <meta name="twitter:url" content="${canonicalUrl}"/>
-  <meta name="twitter:title" content="${pageTitle.replace(/"/g, '&quot;')}"/>
-  <meta name="twitter:description" content="${metaDesc.replace(/"/g, '&quot;')}"/>
-  <meta name="twitter:image" content="${coverPhoto}"/>
+  <meta name="twitter:url" content="${safeUrl}"/>
+  <meta name="twitter:title" content="${safeTitle}"/>
+  <meta name="twitter:description" content="${safeDesc}"/>
+  <meta name="twitter:image" content="${safeImage}"/>
 
   <!-- Schema.org JSON-LD Structured Data -->
   <script type="application/ld+json">
   {
     "@context": "https://schema.org",
     "@type": "WebApplication",
-    "name": "${pageTitle.replace(/"/g, '\\"')}",
-    "description": "${metaDesc.replace(/"/g, '\\"')}",
-    "url": "${canonicalUrl}",
+    "name": ${JSON.stringify(pageTitle)},
+    "description": ${JSON.stringify(metaDesc)},
+    "url": ${JSON.stringify(canonicalUrl)},
     "applicationCategory": "LifestyleApplication",
     "operatingSystem": "All",
     "author": {
       "@type": "Person",
-      "name": "${sender.replace(/"/g, '\\"')}"
+      "name": ${JSON.stringify(sender)}
     }
   }
   </script>
 
   <!-- Instant SSR Hydration Data -->
   <script>
-    window.__SSR_WISH_DATA__ = ${JSON.stringify({ wish, template: template || null })};
+    window.__SSR_WISH_DATA__ = ${JSON.stringify({ wish: safePublicWish, template: template || null })};
   </script>
 `;
 
-    // Replace Title
-    htmlContent = htmlContent.replace(/<title>.*?<\/title>/i, `<title>${pageTitle}</title>`);
+  // Replace Title
+  htmlContent = htmlContent.replace(/<title>.*?<\/title>/i, `<title>${safeTitle}</title>`);
 
-    // Inject Metas before </head>
-    htmlContent = htmlContent.replace('</head>', `${seoMetas}\n</head>`);
-  }
+  // Inject Metas before </head>
+  htmlContent = htmlContent.replace('</head>', `${seoMetas}\n</head>`);
 
   res.setHeader('Content-Type', 'text/html; charset=utf-8');
   res.send(htmlContent);

@@ -87,6 +87,8 @@
     if (window.__SSR_WISH_DATA__ && window.__SSR_WISH_DATA__.wish) {
       currentRawWish = window.__SSR_WISH_DATA__.wish;
       currentTemplate = window.__SSR_WISH_DATA__.template || null;
+      window.currentRawWish = currentRawWish;
+      window.currentTemplate = currentTemplate;
       currentWishData = extractCustomDataObject(currentRawWish);
       renderWishLifecycleRouter(currentWishData, currentTemplate);
       return;
@@ -128,6 +130,8 @@
         currentTemplate = template;
       }
 
+      window.currentRawWish = currentRawWish;
+      window.currentTemplate = currentTemplate;
       renderWishLifecycleRouter(customData, currentTemplate);
 
     } catch (err) {

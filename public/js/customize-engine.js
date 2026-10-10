@@ -14,6 +14,13 @@ let slugCheckDebounceTimer = null;
 let lastCheckedSlug = '';
 let lastSlugCheckResult = null;
 
+// Stage 5 State Management & Concurrency Tracking
+let currentCustomizerRevision = 0;
+let lastSavedRevision = 0;
+let isSaveInProgress = false;
+let pendingSaveAfterInFlight = false;
+let customizerTemplateLoadGeneration = 0;
+
 // Centralized Customizer State Model
 let currentCustomData = {
   recipient_name: '',
@@ -319,25 +326,38 @@ document.addEventListener('DOMContentLoaded', async () => {
   initFormInputs();
   renderPhotosUI();
   renderSectionsUI();
+
+  // Stage 5: Warn before leaving with unsaved changes
+  window.addEventListener('beforeunload', (e) => {
+    if (currentCustomizerRevision > lastSavedRevision && !isPublishingInProgress) {
+      e.preventDefault();
+      e.returnValue = 'You have unsaved celebration edits. Are you sure you want to leave?';
+      return e.returnValue;
+    }
+  });
 });
 
 // Load template metadata & check for saved local draft
 async function loadTemplateData(templateId) {
+  const currentGen = ++customizerTemplateLoadGeneration;
   try {
     const res = await fetch(`/api/templates/${encodeURIComponent(templateId)}`);
     const data = await res.json();
+    if (currentGen !== customizerTemplateLoadGeneration) return; // Stale request dropped
+
     if (data.success && data.template) {
       activeTemplate = data.template;
     } else {
       // Fallback: try fetching all templates
       const allRes = await fetch('/api/templates');
       const allData = await allRes.json();
+      if (currentGen !== customizerTemplateLoadGeneration) return;
       if (allData.success && allData.templates && allData.templates.length > 0) {
         activeTemplate = allData.templates[0];
       }
     }
 
-    if (!activeTemplate) return;
+    if (!activeTemplate || currentGen !== customizerTemplateLoadGeneration) return;
 
     // Apply template defaults
     applyTemplateDefaults(activeTemplate);
@@ -353,8 +373,12 @@ async function loadTemplateData(templateId) {
       }
     }
 
+    if (currentGen !== customizerTemplateLoadGeneration) return;
+
     renderCustomizerHeader();
     await loadTemplateManifestIfNeeded(activeTemplate);
+    if (currentGen !== customizerTemplateLoadGeneration) return;
+
     renderDynamicTemplateFields(activeTemplate);
     populateFormValuesFromState();
     validateDraftEntitlements(currentCustomData);
@@ -4356,24 +4380,54 @@ window.reloadSandboxIframe = function() {
 };
 
 // -----------------------------------------------------------------------------
-// AUTOSAVE & DRAFT SYSTEM
+// AUTOSAVE & DRAFT SYSTEM (Stage 5 Concurrency & Truthful Status Tracking)
 // -----------------------------------------------------------------------------
 function triggerAutosave() {
-  const indicator = document.getElementById('autosave-indicator');
-  if (indicator) {
-    indicator.innerHTML = `<span class="w-2 h-2 rounded-full bg-amber-400 animate-pulse"></span><span>Saving changes...</span>`;
-  }
+  currentCustomizerRevision++;
+  updateSaveIndicatorStatus('unsaved');
 
   if (autosaveTimeout) clearTimeout(autosaveTimeout);
   autosaveTimeout = setTimeout(() => {
     saveDraftLocally();
-  }, 500);
+  }, 400);
 }
 
-window.saveDraftLocally = function() {
-  if (!activeTemplate) return;
+function updateSaveIndicatorStatus(state, extraInfo = '') {
+  const indicator = document.getElementById('autosave-indicator');
+  if (!indicator) return;
+
+  switch (state) {
+    case 'saving':
+      indicator.innerHTML = `<span class="w-2 h-2 rounded-full bg-amber-400 animate-pulse"></span><span class="text-xs text-amber-300">Saving changes...</span>`;
+      break;
+    case 'saved':
+      indicator.innerHTML = `<span class="w-2 h-2 rounded-full bg-emerald-400"></span><span class="text-xs text-emerald-300">All changes saved ✨</span>`;
+      break;
+    case 'saved_local':
+      indicator.innerHTML = `<span class="w-2 h-2 rounded-full bg-emerald-400"></span><span class="text-xs text-emerald-300">Draft saved locally</span>`;
+      break;
+    case 'unsaved':
+      indicator.innerHTML = `<span class="w-2 h-2 rounded-full bg-pink-400 animate-pulse"></span><span class="text-xs text-pink-300">Unsaved edits</span>`;
+      break;
+    case 'conflict':
+      indicator.innerHTML = `<span class="w-2 h-2 rounded-full bg-amber-500 animate-ping"></span><span class="text-xs text-amber-200 font-bold">Conflict detected</span>`;
+      break;
+    case 'error':
+      indicator.innerHTML = `<span class="w-2 h-2 rounded-full bg-rose-500"></span><span class="text-xs text-rose-300">${extraInfo || 'Save error (retained locally)'}</span>`;
+      break;
+    default:
+      indicator.innerHTML = `<span class="w-2 h-2 rounded-full bg-purple-400/50"></span><span class="text-xs text-purple-200/70">Ready</span>`;
+  }
+}
+
+window.saveDraftLocally = async function(isManualSave = false) {
+  if (!activeTemplate) return false;
+
+  const targetRevision = currentCustomizerRevision;
   const draftKey = `wishmagic_draft_${activeTemplate.id}`;
+
   try {
+    // 1. Immediately ensure reliable local fallback preservation
     localStorage.setItem(draftKey, JSON.stringify(currentCustomData));
 
     // Also update unified drafts collection for My Wishes Creator Dashboard
@@ -4385,11 +4439,12 @@ window.saveDraftLocally = function() {
       drafts = [];
     }
 
-    const draftId = 'draft_' + activeTemplate.id;
+    const draftId = currentEditingWishId ? ('draft_' + currentEditingWishId) : ('draft_' + activeTemplate.id);
     const currentUserId = (window.WishAuth && window.WishAuth.getCurrentUser()?.id) || 'guest';
     const existingIdx = drafts.findIndex(d => (d.id === draftId || d.templateId === activeTemplate.id) && (d.userId === currentUserId || !d.userId));
     const draftRecord = {
       id: draftId,
+      wishId: currentEditingWishId || null,
       userId: currentUserId,
       templateId: activeTemplate.id,
       templateName: activeTemplate.name || 'Personalized Celebration',
@@ -4413,9 +4468,18 @@ window.saveDraftLocally = function() {
     }
     localStorage.setItem('wishmagic_drafts', JSON.stringify(drafts));
 
-    // Also persist draft to Server D1 when authenticated (Part 26)
+    // 2. Prevent overlapping network requests
+    if (isSaveInProgress) {
+      pendingSaveAfterInFlight = true;
+      return true;
+    }
+
+    // 3. Persist draft to Server D1 when authenticated (Part 26 & Stage 5)
     const authUser = window.WishAuth && window.WishAuth.getCurrentUser();
     if (authUser && authUser.id && authUser.id !== 'guest') {
+      isSaveInProgress = true;
+      updateSaveIndicatorStatus('saving');
+
       const headers = {
         'Content-Type': 'application/json',
         'Accept': 'application/json'
@@ -4425,67 +4489,97 @@ window.saveDraftLocally = function() {
         headers['Authorization'] = `Bearer ${session.token}`;
       }
 
-      if (currentEditingWishId) {
-        fetch(`/api/wishes/${encodeURIComponent(currentEditingWishId)}`, {
-          method: 'PUT',
-          headers,
-          credentials: 'include',
-          body: JSON.stringify({
-            status: 'draft',
-            isDraft: true,
-            lockVersion: currentLockVersion,
-            recipientName: currentCustomData.recipient_name || 'Special Person',
-            eventDate: currentCustomData.event_date || new Date().toISOString().split('T')[0],
-            customData: currentCustomData
-          })
-        }).then(async res => {
+      try {
+        if (currentEditingWishId) {
+          const res = await fetch(`/api/wishes/${encodeURIComponent(currentEditingWishId)}`, {
+            method: 'PUT',
+            headers,
+            credentials: 'include',
+            body: JSON.stringify({
+              status: 'draft',
+              isDraft: true,
+              lockVersion: currentLockVersion,
+              recipientName: currentCustomData.recipient_name || 'Special Person',
+              eventDate: currentCustomData.event_date || new Date().toISOString().split('T')[0],
+              customData: currentCustomData
+            })
+          });
+
           const data = await res.json().catch(() => ({}));
           if (res.status === 409 || (data && data.error && data.error.code === 'CONCURRENCY_CONFLICT')) {
+            updateSaveIndicatorStatus('conflict');
             handleDraftConcurrencyConflict(data);
-            return;
+            return false;
           }
+
           if (data && data.success) {
             if (data.lockVersion) currentLockVersion = Number(data.lockVersion);
             else currentLockVersion = (currentLockVersion || 1) + 1;
-            const indicator = document.getElementById('autosave-indicator');
-            if (indicator) {
-              indicator.innerHTML = `<span class="w-2 h-2 rounded-full bg-emerald-500"></span><span>Draft saved to cloud ✨</span>`;
+
+            if (targetRevision >= currentCustomizerRevision) {
+              lastSavedRevision = targetRevision;
+              updateSaveIndicatorStatus('saved');
+            } else {
+              updateSaveIndicatorStatus('unsaved');
             }
+          } else {
+            updateSaveIndicatorStatus('error', (data && data.message) || 'Save failed');
           }
-        }).catch(() => {});
-      } else {
-        fetch('/api/wishes', {
-          method: 'POST',
-          headers,
-          credentials: 'include',
-          body: JSON.stringify({
-            templateId: activeTemplate.id,
-            status: 'draft',
-            isDraft: true,
-            customData: {
-              ...currentCustomData,
-              isDraft: true
-            }
-          })
-        }).then(r => r.json()).then(data => {
+        } else {
+          const res = await fetch('/api/wishes', {
+            method: 'POST',
+            headers,
+            credentials: 'include',
+            body: JSON.stringify({
+              templateId: activeTemplate.id,
+              status: 'draft',
+              isDraft: true,
+              customData: {
+                ...currentCustomData,
+                isDraft: true
+              }
+            })
+          });
+
+          const data = await res.json().catch(() => ({}));
           if (data && data.success && data.wishId) {
             currentEditingWishId = data.wishId;
             if (data.lockVersion) currentLockVersion = Number(data.lockVersion);
-            const indicator = document.getElementById('autosave-indicator');
-            if (indicator) {
-              indicator.innerHTML = `<span class="w-2 h-2 rounded-full bg-emerald-500"></span><span>Draft saved to cloud ✨</span>`;
+
+            if (targetRevision >= currentCustomizerRevision) {
+              lastSavedRevision = targetRevision;
+              updateSaveIndicatorStatus('saved');
+            } else {
+              updateSaveIndicatorStatus('unsaved');
             }
+          } else {
+            updateSaveIndicatorStatus('error', (data && data.message) || 'Draft creation failed');
           }
-        }).catch(() => {});
+        }
+      } catch (netErr) {
+        console.warn('[Autosave Network Error]', netErr);
+        updateSaveIndicatorStatus('error', 'Network error (retained locally)');
+      } finally {
+        isSaveInProgress = false;
+        if (pendingSaveAfterInFlight) {
+          pendingSaveAfterInFlight = false;
+          setTimeout(() => saveDraftLocally(), 100);
+        }
       }
+    } else {
+      // Guest mode
+      lastSavedRevision = targetRevision;
+      updateSaveIndicatorStatus('saved_local');
     }
 
-    const indicator = document.getElementById('autosave-indicator');
-    if (indicator) {
-      indicator.innerHTML = `<span class="w-2 h-2 rounded-full bg-emerald-500"></span><span>Draft saved</span>`;
+    if (isManualSave) {
+      showToast('💾 Draft saved successfully!');
     }
+    return true;
   } catch (e) {
     console.warn('Error saving local draft:', e);
+    updateSaveIndicatorStatus('error', 'Local storage error');
+    return false;
   }
 };
 
@@ -4770,6 +4864,10 @@ async function executeWishCreation(extraPayload = {}) {
 
     let data = null;
     if (currentEditingWishId) {
+      // 1. Ensure latest customizations are updated
+      payload.status = 'published';
+      payload.isDraft = false;
+
       if (window.WishApiClient && typeof window.WishApiClient.put === 'function') {
         data = await window.WishApiClient.put(`/api/wishes/${encodeURIComponent(currentEditingWishId)}`, payload);
       } else {
@@ -4781,11 +4879,30 @@ async function executeWishCreation(extraPayload = {}) {
         });
         data = await res.json();
       }
+
+      // 2. Trigger server-authoritative publish snapshot generation
       if (data && data.success) {
+        try {
+          const pubRes = await fetch(`/api/wishes/${encodeURIComponent(currentEditingWishId)}/publish`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            credentials: 'include',
+            body: JSON.stringify({ id: currentEditingWishId })
+          });
+          const pubData = await pubRes.json().catch(() => ({}));
+          if (pubData && pubData.success) {
+            data.activeSnapshotId = pubData.activeSnapshotId;
+            data.snapshotVersion = pubData.snapshotVersion;
+          }
+        } catch (_) {}
+
         data.wishId = currentEditingWishId;
         if (data.lockVersion) currentLockVersion = Number(data.lockVersion);
       }
     } else {
+      payload.status = 'published';
+      payload.isDraft = false;
+
       if (window.WishApiClient && typeof window.WishApiClient.post === 'function') {
         data = await window.WishApiClient.post('/api/wishes', payload);
       } else {
@@ -4848,6 +4965,10 @@ async function executeWishCreation(extraPayload = {}) {
       } catch (e) {
         console.warn('Error saving to creator storage:', e);
       }
+
+      // Stage 5: Sync saved revision state on successful publish
+      lastSavedRevision = currentCustomizerRevision;
+      updateSaveIndicatorStatus('saved');
 
       // Trigger Confetti Celebration
       if (typeof confetti === 'function') {
@@ -4984,17 +5105,55 @@ function showGeneratedLinkModal(wishId, fullLink, wish = null) {
   }
 }
 
-function copyGeneratedLink() {
+async function copyGeneratedLink() {
   const input = document.getElementById('generated-link-input');
   const btnText = document.getElementById('copy-btn-text');
-  if (input) {
-    input.select();
-    navigator.clipboard.writeText(input.value);
-    if (btnText) {
-      btnText.textContent = 'Copied! ✨';
-      setTimeout(() => btnText.textContent = 'Copy Link', 2500);
+  const btn = document.getElementById('btn-copy-link');
+
+  if (!input || !input.value.trim()) {
+    showToast('⚠️ No celebration link available to copy.');
+    return;
+  }
+
+  const url = input.value.trim();
+  if (btn) btn.disabled = true;
+  if (btnText) btnText.textContent = 'Copying...';
+
+  let copied = false;
+  if (navigator.clipboard && window.isSecureContext) {
+    try {
+      await navigator.clipboard.writeText(url);
+      copied = true;
+    } catch (_) {
+      copied = false;
     }
   }
+
+  if (!copied) {
+    try {
+      input.focus();
+      input.select();
+      input.setSelectionRange(0, 99999);
+      copied = document.execCommand('copy');
+    } catch (_) {
+      copied = false;
+    }
+  }
+
+  if (copied) {
+    if (btnText) btnText.textContent = 'Copied! ✨';
+    showToast('🔗 Celebration link copied to clipboard!');
+  } else {
+    if (btnText) btnText.textContent = 'Copy Failed';
+    showToast('⚠️ Could not copy automatically. Please select and copy manually.');
+    input.focus();
+    input.select();
+  }
+
+  setTimeout(() => {
+    if (btnText) btnText.textContent = 'Copy Link';
+    if (btn) btn.disabled = false;
+  }, 2500);
 }
 
 // Toast notification helper
