@@ -1563,7 +1563,8 @@
       }
     }
     if (!audioUrl && music && music.enabled !== false) {
-      audioUrl = '/audio/celebration-strings.mp3';
+      console.warn('[WishRenderer] No valid audio URL found for soundtrack. Skipping playback to avoid hardcoded fallback.');
+      audioUrl = null; 
     }
 
     if (audioUrl) {

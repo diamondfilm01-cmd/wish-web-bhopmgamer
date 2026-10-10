@@ -748,6 +748,40 @@ function formatDate(isoStr) {
   }
 }
 
+async function runRegressionTest(templateId) {
+  if (!confirm(`Run full regression and backward-compatibility test suite for template "${templateId}"?\n\nThis will verify storage integrity, version snapshots, and rendering logic for existing wishes.`)) {
+    return;
+  }
+
+  if (typeof showToast === 'function') {
+    showToast(`🧪 Initializing regression suite for ${templateId}...`);
+  }
+
+  try {
+    const res = await fetch('/api/admin/regression-test', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ templateId })
+    });
+
+    const data = await res.json();
+    if (data.success) {
+      const s = data.summary;
+      if (s.failed === 0) {
+        alert(`✅ REGRESSION TEST PASSED\n\nTemplate: ${templateId}\nTotal wishes tested: ${s.total}\nStatus: ALL OK\n\nHistorical wishes are 100% compatible with the current runtime and storage assets.`);
+        if (typeof showToast === 'function') showToast(`✅ Regression passed for ${templateId}`);
+      } else {
+        alert(`❌ REGRESSION TEST FAILED\n\nTemplate: ${templateId}\nTotal: ${s.total}\nPassed: ${s.passed}\nFailed: ${s.failed}\n\nSome historical wishes may have broken dependencies. Check Audit Trail for details.`);
+        if (typeof showToast === 'function') showToast(`❌ Regression failed for ${templateId}`);
+      }
+    } else {
+      alert(`⚠️ Test Engine Error: ${data.message || 'Unknown error'}`);
+    }
+  } catch (err) {
+    alert(`Error running regression test: ${err.message}`);
+  }
+}
+
 // Render Master Grid
 function renderTemplatesGrid(templates) {
   const container = document.getElementById('dynamic-templates-container');
@@ -869,6 +903,10 @@ function renderTemplatesGrid(templates) {
         <button onclick="openTemplateVersionsModal('${tpl.id}')" class="py-1.5 px-2 rounded-lg bg-indigo-500/15 hover:bg-indigo-500/25 text-indigo-300 font-semibold text-xs transition flex items-center justify-center gap-1 cursor-pointer" title="Version Control & Release Pipeline">
           <span class="material-symbols-outlined text-[15px]">account_tree</span>
           <span>Versions</span>
+        </button>
+        <button onclick="runRegressionTest('${tpl.id}')" class="py-1.5 px-2 rounded-lg bg-emerald-500/15 hover:bg-emerald-500/25 text-emerald-300 font-semibold text-xs transition flex items-center justify-center gap-1 cursor-pointer" title="Run Backward Compatibility & Regression Tests">
+          <span class="material-symbols-outlined text-[15px]">fact_check</span>
+          <span>Test</span>
         </button>
         <button onclick="duplicateTemplate('${tpl.id}')" class="py-1.5 px-2 rounded-lg bg-surface-container-high hover:bg-surface-container-highest text-on-surface font-semibold text-xs transition flex items-center justify-center gap-1 cursor-pointer" title="Duplicate as Draft">
           <span class="material-symbols-outlined text-[15px] text-secondary">content_copy</span>
@@ -1310,21 +1348,6 @@ function showUploadProgress(msg) {
 function hideUploadProgress() {
   const progElem = document.getElementById('upload-status-indicator');
   if (progElem) progElem.classList.add('hidden');
-}
-
-var showToast = function(msg) {
-  let toast = document.getElementById('wm-admin-toast');
-  if (!toast) {
-    toast = document.createElement('div');
-    toast.id = 'wm-admin-toast';
-    toast.className = 'fixed bottom-6 right-6 z-50 px-5 py-3 rounded-xl bg-purple-900/90 text-white font-semibold shadow-2xl border border-purple-500/40 backdrop-blur-xl transition-all duration-300 transform translate-y-12 opacity-0 pointer-events-none';
-    document.body.appendChild(toast);
-  }
-  toast.textContent = msg;
-  toast.classList.remove('translate-y-12', 'opacity-0', 'pointer-events-none');
-  setTimeout(() => {
-    toast.classList.add('translate-y-12', 'opacity-0', 'pointer-events-none');
-  }, 4000);
 }
 
 function escapeRegex(string) {
@@ -2002,6 +2025,12 @@ function renderVersionsTable(versions, template) {
             <button onclick="verifyVersionFiles('${v.id}')" class="p-1.5 rounded-lg bg-surface-container-high hover:bg-surface-container-highest text-outline hover:text-on-surface transition" title="Verify File Checksums">
               <span class="material-symbols-outlined text-[15px]">verified</span>
             </button>
+            <!-- Delete (if not current) -->
+            ${!isCurrent ? `
+              <button onclick="deleteVersion('${v.id}')" class="p-1.5 rounded-lg bg-surface-container-high hover:bg-surface-container-highest text-outline hover:text-rose-400 transition" title="Delete Version">
+                <span class="material-symbols-outlined text-[15px]">delete</span>
+              </button>
+            ` : ''}
             <!-- Archive (if not current) -->
             ${!isCurrent && status !== 'archived' ? `
               <button onclick="archiveVersion('${v.id}')" class="p-1.5 rounded-lg bg-surface-container-high hover:bg-surface-container-highest text-outline hover:text-rose-400 transition" title="Archive Version">
@@ -2399,6 +2428,42 @@ async function archiveVersion(versionId) {
     await loadTemplateVersions(currentVersionsTemplateId);
   } catch (err) {
     alert('Archive error: ' + err.message);
+  }
+}
+
+async function deleteVersion(versionId) {
+  if (!currentVersionsTemplateId) return;
+  
+  if (!confirm(`Are you sure you want to PERMANENTLY delete version ${versionId}?\n\nThis is a destructive action. The system will check for active wishes pinned to this version before proceeding.`)) {
+    return;
+  }
+
+  try {
+    let res = await fetch(`/api/templates/${currentVersionsTemplateId}/versions/${versionId}`, {
+      method: 'DELETE'
+    });
+    let data = await res.json();
+
+    if (data.referenced) {
+      const force = confirm(`⚠️ SAFETY WARNING: This version is referenced by ${data.activeReferencesCount} active wishes.\n\nDeleting it will BREAK these wishes (404 / Missing Assets).\n\nAre you ABSOLUTELY sure you want to force deletion?`);
+      if (force) {
+        res = await fetch(`/api/templates/${currentVersionsTemplateId}/versions/${versionId}?force=true`, {
+          method: 'DELETE'
+        });
+        data = await res.json();
+      } else {
+        return;
+      }
+    }
+
+    if (data.deleted) {
+      if (typeof showToast === 'function') showToast(`Version ${versionId} deleted successfully.`);
+      await loadTemplateVersions(currentVersionsTemplateId);
+    } else {
+      throw new Error(data.message || 'Deletion failed');
+    }
+  } catch (err) {
+    alert('Deletion error: ' + err.message);
   }
 }
 

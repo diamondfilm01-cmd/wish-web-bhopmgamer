@@ -438,17 +438,46 @@ function toggleSidebar() {
   }
 }
 
-var showToast = function(msg) {
+var showToast = function(msg, type = 'info') {
   let toast = document.getElementById('admin-toast');
   if (!toast) {
     toast = document.createElement('div');
     toast.id = 'admin-toast';
-    toast.className = 'fixed bottom-6 right-6 z-50 px-4 py-3 rounded-2xl bg-purple-900 text-white font-semibold text-xs sm:text-sm shadow-2xl backdrop-blur-md border border-purple-500/30 flex items-center gap-2 transform transition-all duration-300 translate-y-20 opacity-0 pointer-events-none';
+    toast.className = 'fixed bottom-6 right-6 z-[9999] px-5 py-3 rounded-2xl text-white font-bold text-sm shadow-2xl backdrop-blur-xl border flex items-center gap-3 transform transition-all duration-300 translate-y-20 opacity-0 pointer-events-none';
     document.body.appendChild(toast);
   }
-  toast.innerHTML = `<span class="material-symbols-outlined text-amber-400 text-lg">magic_button</span><span>${msg}</span>`;
+
+  // Type-based styling
+  let icon = 'magic_button';
+  let bg = 'bg-purple-900/90';
+  let border = 'border-purple-500/40';
+  let iconColor = 'text-amber-400';
+
+  if (type === 'success') {
+    icon = 'check_circle';
+    bg = 'bg-emerald-900/90';
+    border = 'border-emerald-500/40';
+    iconColor = 'text-emerald-400';
+  } else if (type === 'error' || type === 'danger') {
+    icon = 'error';
+    bg = 'bg-rose-900/90';
+    border = 'border-rose-500/40';
+    iconColor = 'text-rose-400';
+  } else if (type === 'warning') {
+    icon = 'warning';
+    bg = 'bg-amber-900/90';
+    border = 'border-amber-500/40';
+    iconColor = 'text-amber-400';
+  }
+
+  toast.className = `fixed bottom-6 right-6 z-[9999] px-5 py-3 rounded-2xl text-white font-bold text-sm shadow-2xl backdrop-blur-xl border flex items-center gap-3 transform transition-all duration-300 ${bg} ${border}`;
+  toast.innerHTML = `<span class="material-symbols-outlined ${iconColor}">${icon}</span><span>${msg}</span>`;
+  
   toast.classList.remove('translate-y-20', 'opacity-0', 'pointer-events-none');
-  setTimeout(() => {
+  
+  // Auto-hide after 4 seconds
+  if (window.toastTimeout) clearTimeout(window.toastTimeout);
+  window.toastTimeout = setTimeout(() => {
     toast.classList.add('translate-y-20', 'opacity-0', 'pointer-events-none');
-  }, 2500);
+  }, 4000);
 }

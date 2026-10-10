@@ -254,7 +254,12 @@
     playCuratedTrack(trackId, onTimeUpdate, onStateChange) {
       this.stopAll();
 
-      const track = CURATED_TRACKS.find(t => t.id === trackId) || CURATED_TRACKS[0];
+      const track = CURATED_TRACKS.find(t => t.id === trackId);
+      if (!track) {
+        console.warn(`[MediaSystem] Curated track "${trackId}" not found. No fallback to prevent playing wrong audio.`);
+        if (typeof onStateChange === 'function') onStateChange(false, null);
+        return;
+      }
       this.activeTrackId = track.id;
       this.onTimeUpdateCallback = onTimeUpdate;
       this.onStateChangeCallback = onStateChange;

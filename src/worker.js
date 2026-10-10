@@ -31,11 +31,11 @@ import {
   uint8ArrayToBase64
 } from './imgbb-provider.js';
 import {
-  validateVariantConfiguration,
-  resolveVariantHierarchy,
-  cloneVariant,
-  VARIANT_STATUS
-} from './template-variant-engine.js';
+  evaluateTemplateCompatibility,
+  planWishMigration,
+  checkTemplateVersionReferences
+} from './template-compatibility-engine.js';
+import { executeRegressionTest } from './regression-tester.js';
 import {
   VERSION_LIFECYCLE_STATUS,
   isValidVersionLabel,
@@ -87,7 +87,10 @@ import {
   createSupportTicket,
   updateSupportTicket,
   filterAuditLogs,
-  exportAuditLogsCsv
+  exportAuditLogsCsv,
+  recordAdminErrorLog,
+  recordIngestionJob,
+  getCentralizedDashboardSummary
 } from './admin-operations-engine.js';
 import {
   NOTIFICATION_CHANNELS,
@@ -2915,10 +2918,10 @@ async function buildWishPublicationSnapshot(env, wishRow, customData = {}, optio
   const rawMusic = customData.music || {};
   let musicManifest = {
     enabled: rawMusic.enabled !== false,
-    trackId: rawMusic.trackId || rawMusic.id || 'mus_celebration_strings',
-    title: rawMusic.name || rawMusic.title || 'Celebration Acoustic Strings',
-    artist: rawMusic.artist || 'WishMagic Ensemble',
-    playbackUrl: rawMusic.playbackUrl || rawMusic.url || 'https://assets.wishmagic.live/music/celebration-strings.mp3',
+    trackId: rawMusic.trackId || rawMusic.id || null,
+    title: rawMusic.name || rawMusic.title || '',
+    artist: rawMusic.artist || '',
+    playbackUrl: rawMusic.playbackUrl || rawMusic.url || null,
     storageProvider: 'b2',
     durationSeconds: rawMusic.durationSeconds || 160
   };
@@ -3842,6 +3845,29 @@ async function getOrSeedActiveTemplateVersion(env, templateId, initialOverrides 
 
 async function getTemplateVersionById(env, versionId, fallbackTemplateId = null) {
   if (!versionId && fallbackTemplateId) {
+    // For legacy wishes without a pinned version, we strictly fallback to the earliest (v1) version
+    // instead of the latest active version, to prevent accidental auto-migration.
+    if (env && env.DB && typeof env.DB.prepare === 'function') {
+      try {
+        const v1 = await env.DB.prepare(
+          'SELECT * FROM template_versions WHERE template_id = ? ORDER BY version_number ASC LIMIT 1'
+        ).bind(fallbackTemplateId).first();
+        if (v1) {
+          if (v1.snapshot_data) {
+            try { return JSON.parse(v1.snapshot_data); } catch (e) {}
+          }
+          return {
+            id: v1.id,
+            versionId: v1.id,
+            templateId: v1.template_id,
+            versionNumber: v1.version_number,
+            name: v1.name,
+            thumbnail: v1.thumbnail,
+            status: v1.status || 'active'
+          };
+        }
+      } catch (e) {}
+    }
     return await getOrSeedActiveTemplateVersion(env, fallbackTemplateId);
   }
   if (!versionId) return null;
@@ -6906,6 +6932,44 @@ export default {
         response = jsonSuccess({ success: true, image: updated, message: 'Template image replaced successfully via ImgBB' }, 200, {}, requestId);
       }
 
+      else if (pathname.match(/^\/api\/templates\/([^\/]+)\/versions\/([^\/]+)$/) && method === 'DELETE') {
+        const user = await getAuthenticatedUser(request, env);
+        if (!user || user.role !== 'admin') return applySecurityHeaders(jsonError('FORBIDDEN', 'Admin privileges required', 403), request, env);
+
+        const match = pathname.match(/^\/api\/templates\/([^\/]+)\/versions\/([^\/]+)$/);
+        const templateId = match[1];
+        const versionId = match[2];
+
+        // Safeguard: Check for active wish references
+        const safety = await checkTemplateVersionReferences(env.DB, versionId);
+        if (!safety.canDelete && url.searchParams.get('force') !== 'true') {
+          return jsonSuccess({
+            success: false,
+            referenced: true,
+            activeReferencesCount: safety.activeReferencesCount,
+            message: safety.message
+          }, 200, {}, requestId);
+        }
+
+        // Proceed with deletion if safe or forced
+        await env.DB.prepare('DELETE FROM template_versions WHERE id = ?').bind(versionId).run();
+        // Also cleanup related files and fields
+        await env.DB.prepare('DELETE FROM template_files WHERE template_version_id = ?').bind(versionId).run();
+        await env.DB.prepare('DELETE FROM template_fields WHERE template_version_id = ?').bind(versionId).run();
+
+        await createAuditLogEntry(env.DB, {
+          actorId: user.id,
+          actorName: user.displayName || user.email,
+          actorRole: user.role,
+          action: 'TEMPLATE_VERSION_DELETED',
+          targetType: 'template_version',
+          targetId: versionId,
+          details: JSON.stringify({ templateId, forced: url.searchParams.get('force') === 'true' })
+        });
+
+        response = jsonSuccess({ deleted: true, versionId, templateId }, 200, {}, requestId);
+      }
+
       else if (pathname.startsWith('/api/templates/') && method === 'DELETE') {
         const user = await getAuthenticatedUser(request, env);
         if (!user) return applySecurityHeaders(jsonError('AUTH_REQUIRED', 'Authentication required', 401), request, env);
@@ -8121,6 +8185,146 @@ export default {
         response = jsonSuccess({ success: true, deleted: true, mediaId, wishId }, 200, {}, requestId);
       }
 
+      // --- Part 8: Reorder Wish Gallery Media Items ---
+      else if (pathname.match(/^\/api\/wishes\/([^\/]+)\/media\/reorder$/) && (method === 'PUT' || method === 'POST')) {
+        const user = await getAuthenticatedUser(request, env);
+        if (!user) return applySecurityHeaders(jsonError('AUTH_REQUIRED', 'Authentication required', 401), request, env);
+
+        const match = pathname.match(/^\/api\/wishes\/([^\/]+)\/media\/reorder$/);
+        const wishId = match[1];
+
+        if (!env.DB || typeof env.DB.prepare !== 'function') {
+          return applySecurityHeaders(jsonError('DATABASE_UNAVAILABLE', 'Database service is currently unavailable.', 503), request, env);
+        }
+
+        const wishRow = await env.DB.prepare('SELECT id, user_id, custom_data FROM wishes WHERE id = ? LIMIT 1').bind(wishId).first();
+        if (!wishRow) return applySecurityHeaders(jsonError('NOT_FOUND', 'Wish not found', 404), request, env);
+        if (wishRow.user_id !== user.id && user.role !== 'admin') {
+          return applySecurityHeaders(jsonError('FORBIDDEN', 'Access denied to this wish', 403), request, env);
+        }
+
+        const body = await request.json().catch(() => ({}));
+        const fieldKey = sanitizeString(body.fieldKey || body.field_key || 'photos', 60);
+        const mediaOrder = Array.isArray(body.mediaOrder) ? body.mediaOrder : (Array.isArray(body.items) ? body.items : []);
+
+        if (!mediaOrder.length) {
+          return applySecurityHeaders(jsonError('VALIDATION_ERROR', 'mediaOrder array of media IDs is required', 400), request, env);
+        }
+
+        const nowIso = new Date().toISOString();
+        let updatedCount = 0;
+        const orderedUrls = [];
+
+        for (let idx = 0; idx < mediaOrder.length; idx++) {
+          const item = mediaOrder[idx];
+          const mediaId = typeof item === 'string' ? item : (item.mediaId || item.id);
+          if (!mediaId) continue;
+
+          const wm = await env.DB.prepare('SELECT id, display_url, url FROM wish_media WHERE id = ? AND wish_id = ? LIMIT 1').bind(mediaId, wishId).first();
+          if (wm) {
+            await env.DB.prepare(`
+              UPDATE wish_media_mappings SET sort_order = ?, updated_at = ? WHERE wish_id = ? AND media_id = ?
+            `).bind(idx + 1, nowIso, wishId, mediaId).run();
+            updatedCount++;
+            orderedUrls.push(wm.display_url || wm.url);
+          }
+        }
+
+        let customData = {};
+        try { customData = JSON.parse(wishRow.custom_data || '{}'); } catch (_) {}
+        if (orderedUrls.length > 0) {
+          customData[fieldKey] = orderedUrls;
+          if (fieldKey === 'photos' || !customData.photos) {
+            customData.photos = orderedUrls;
+          }
+          await env.DB.prepare('UPDATE wishes SET custom_data = ?, updated_at = ? WHERE id = ?').bind(
+            JSON.stringify(customData), nowIso, wishId
+          ).run();
+        }
+
+        response = jsonSuccess({ success: true, wishId, fieldKey, reorderedCount: updatedCount, orderedUrls }, 200, {}, requestId);
+      }
+
+      // --- Part 8: Customer Voice Note / Audio Upload API ---
+      else if (pathname.match(/^\/api\/wishes\/([^\/]+)\/media\/voice$/) && method === 'POST') {
+        const user = await getAuthenticatedUser(request, env);
+        if (!user) return applySecurityHeaders(jsonError('AUTH_REQUIRED', 'Authentication required', 401), request, env);
+
+        const match = pathname.match(/^\/api\/wishes\/([^\/]+)\/media\/voice$/);
+        const wishId = match[1];
+
+        if (!env.DB || typeof env.DB.prepare !== 'function') {
+          return applySecurityHeaders(jsonError('DATABASE_UNAVAILABLE', 'Database service is currently unavailable.', 503), request, env);
+        }
+
+        const wishRow = await env.DB.prepare('SELECT id, user_id, custom_data, template_version_id FROM wishes WHERE id = ? LIMIT 1').bind(wishId).first();
+        if (!wishRow) return applySecurityHeaders(jsonError('NOT_FOUND', 'Wish not found', 404), request, env);
+        if (wishRow.user_id !== user.id && user.role !== 'admin') {
+          return applySecurityHeaders(jsonError('FORBIDDEN', 'Access denied to this wish', 403), request, env);
+        }
+
+        const body = await request.json().catch(() => ({}));
+        const fieldKey = sanitizeString(body.fieldKey || body.field_key || 'voice_note', 60);
+        const fileData = body.fileData || body.data || body.file;
+        const filename = sanitizeString(body.filename || 'voice-note.webm', 100);
+
+        if (!fileData) {
+          return applySecurityHeaders(jsonError('VALIDATION_ERROR', 'Audio/voice note file data is required', 400), request, env);
+        }
+
+        let val;
+        try {
+          val = await validateAudioBuffer(fileData, { maxSizeBytes: AUDIO_LIMITS.MAX_AUDIO_BYTES });
+        } catch (audioErr) {
+          return applySecurityHeaders(jsonError(audioErr.code || 'AUDIO_INVALID', audioErr.message, 400), request, env);
+        }
+
+        const mediaId = `wmed_voice_${Date.now().toString(36)}_${Math.random().toString(36).substring(2, 6)}`;
+        const objectKey = `voice/${wishId}/${mediaId}_${filename}`;
+        const nowIso = new Date().toISOString();
+        const audioUrl = `/api/media/stream?key=${encodeURIComponent(objectKey)}`;
+
+        await env.DB.prepare(`
+          INSERT INTO wish_media (
+            id, wish_id, user_id, object_key, filename, media_type, mime_type,
+            size_bytes, url, display_url, storage_provider, status, is_public, created_at, updated_at
+          ) VALUES (?, ?, ?, ?, ?, 'voice_note', ?, ?, ?, ?, 'b2', 'active', 1, ?, ?)
+        `).bind(
+          mediaId, wishId, user.id, objectKey, filename,
+          val.mimeType, val.sizeBytes, audioUrl, audioUrl, nowIso, nowIso
+        ).run();
+
+        const mappingId = `wmm_${Date.now().toString(36)}_${Math.random().toString(36).substring(2, 6)}`;
+        await env.DB.prepare(`
+          INSERT OR REPLACE INTO wish_media_mappings (
+            id, wish_id, template_version_id, field_key, media_id, sort_order, created_at, updated_at
+          ) VALUES (?, ?, ?, ?, ?, 1, ?, ?)
+        `).bind(mappingId, wishId, wishRow.template_version_id || null, fieldKey, mediaId, nowIso, nowIso).run();
+
+        let customData = {};
+        try { customData = JSON.parse(wishRow.custom_data || '{}'); } catch (_) {}
+        customData[fieldKey] = audioUrl;
+        customData.voice_note_url = audioUrl;
+        await env.DB.prepare('UPDATE wishes SET custom_data = ?, updated_at = ? WHERE id = ?').bind(
+          JSON.stringify(customData), nowIso, wishId
+        ).run();
+
+        response = jsonSuccess({
+          success: true,
+          media: {
+            id: mediaId,
+            wishId,
+            fieldKey,
+            mappingId,
+            url: audioUrl,
+            displayUrl: audioUrl,
+            sizeBytes: val.sizeBytes,
+            mimeType: val.mimeType,
+            mediaType: 'voice_note'
+          }
+        }, 201, {}, requestId);
+      }
+
       // --- Part 21: Wish Resolved Media Engine (User Photo -> Variant Image -> Default Image -> Fallback) ---
       else if (pathname.match(/^\/api\/wishes\/([^\/]+)\/resolved-media$/) && method === 'GET') {
         const match = pathname.match(/^\/api\/wishes\/([^\/]+)\/resolved-media$/);
@@ -8335,6 +8539,90 @@ export default {
         });
 
         response = jsonSuccess(report, 200, {}, requestId);
+      }
+
+      // --- Part 6: Regression Testing & Compatibility Engine ---
+      else if (pathname === '/api/admin/regression-test' && method === 'POST') {
+        const user = await getAuthenticatedUser(request, env);
+        if (!user || user.role !== 'admin') return applySecurityHeaders(jsonError('FORBIDDEN', 'Admin privileges required', 403), request, env);
+
+        const body = await request.json().catch(() => ({}));
+        const report = await executeRegressionTest({
+          db: env.DB,
+          env,
+          wishIds: body.wishIds || [],
+          templateId: body.templateId,
+          versionId: body.versionId
+        });
+
+        await createAuditLogEntry(env.DB, {
+          actorId: user.id,
+          actorName: user.displayName || user.email,
+          actorRole: user.role,
+          action: 'REGRESSION_TEST_EXECUTED',
+          targetType: body.templateId ? 'template' : (body.versionId ? 'version' : 'bulk_wishes'),
+          targetId: body.templateId || body.versionId || 'bulk',
+          details: JSON.stringify({ summary: report.summary, wishCount: body.wishIds?.length || 0 })
+        });
+
+        response = jsonSuccess(report, 200, {}, requestId);
+      }
+
+      else if (pathname === '/api/admin/migration/plan' && method === 'POST') {
+        const user = await getAuthenticatedUser(request, env);
+        if (!user || user.role !== 'admin') return applySecurityHeaders(jsonError('FORBIDDEN', 'Admin privileges required', 403), request, env);
+
+        const body = await request.json().catch(() => ({}));
+        const { wishId, targetVersionId } = body;
+
+        if (!wishId || !targetVersionId) {
+          return applySecurityHeaders(jsonError('VALIDATION_ERROR', 'wishId and targetVersionId are required'), request, env);
+        }
+
+        const wish = await env.DB.prepare('SELECT * FROM wishes WHERE id = ?').bind(wishId).first();
+        const targetVersion = await env.DB.prepare('SELECT * FROM template_versions WHERE id = ?').bind(targetVersionId).first();
+        const sourceVersion = wish?.template_version_id ? await env.DB.prepare('SELECT * FROM template_versions WHERE id = ?').bind(wish.template_version_id).first() : null;
+
+        if (!wish || !targetVersion) {
+          return applySecurityHeaders(jsonError('NOT_FOUND', 'Wish or target version not found'), request, env);
+        }
+
+        const plan = planWishMigration(wish, sourceVersion, targetVersion, body.explicitMappings || {});
+        response = jsonSuccess(plan, 200, {}, requestId);
+      }
+
+      else if (pathname === '/api/admin/migration/apply' && method === 'POST') {
+        const user = await getAuthenticatedUser(request, env);
+        if (!user || user.role !== 'admin') return applySecurityHeaders(jsonError('FORBIDDEN', 'Admin privileges required', 403), request, env);
+
+        const body = await request.json().catch(() => ({}));
+        const { wishId, targetVersionId, transformedData } = body;
+
+        if (!wishId || !targetVersionId || !transformedData) {
+          return applySecurityHeaders(jsonError('VALIDATION_ERROR', 'wishId, targetVersionId, and transformedData are required'), request, env);
+        }
+
+        // Atomic update of wish version and data
+        await env.DB.prepare(
+          'UPDATE wishes SET template_version_id = ?, custom_data = ?, updated_at = ? WHERE id = ?'
+        ).bind(
+          targetVersionId,
+          JSON.stringify(transformedData),
+          new Date().toISOString(),
+          wishId
+        ).run();
+
+        await createAuditLogEntry(env.DB, {
+          actorId: user.id,
+          actorName: user.displayName || user.email,
+          actorRole: user.role,
+          action: 'WISH_MIGRATED',
+          targetType: 'wish',
+          targetId: wishId,
+          details: JSON.stringify({ targetVersionId })
+        });
+
+        response = jsonSuccess({ success: true, wishId, targetVersionId }, 200, {}, requestId);
       }
 
       // --- Part 29: Admin Storage Verify Scan API ---
@@ -14679,36 +14967,300 @@ export default {
         }, 200, {}, requestId);
       }
 
-      else if ((pathname === '/api/admin/metrics' || pathname === '/api/admin/dashboard') && method === 'GET') {
+      // --- Part 9: Centralized Dashboard Summary & Metrics ---
+      else if ((pathname === '/api/admin/metrics' || pathname === '/api/admin/dashboard' || pathname === '/api/admin/dashboard/summary' || pathname === '/api/admin/overview') && method === 'GET') {
         const user = await getAuthenticatedUser(request, env);
         if (!user) return applySecurityHeaders(jsonError('AUTH_REQUIRED', 'Authentication required', 401), request, env);
         const isAdmin = await verifyAdminRole(user, env);
         if (!isAdmin) return applySecurityHeaders(jsonError('FORBIDDEN', 'Admin role required', 403), request, env);
 
-        let userCount = 0;
-        let wishCount = 0;
-        let templateCount = SEED_TEMPLATES.length;
+        const summary = await getCentralizedDashboardSummary(env.DB, env);
+        response = jsonSuccess(summary, 200, {}, requestId);
+      }
+
+      // --- Part 9: Template Families Operational Listing ---
+      else if (pathname === '/api/admin/templates/families' && method === 'GET') {
+        const user = await getAuthenticatedUser(request, env);
+        if (!user) return applySecurityHeaders(jsonError('AUTH_REQUIRED', 'Authentication required', 401), request, env);
+        const isAdmin = await verifyAdminRole(user, env);
+        if (!isAdmin) return applySecurityHeaders(jsonError('FORBIDDEN', 'Admin role required', 403), request, env);
+
+        const urlObj = new URL(request.url);
+        const query = urlObj.searchParams.get('q') || '';
+        const category = urlObj.searchParams.get('category') || 'all';
+        const limit = Math.min(Number(urlObj.searchParams.get('limit')) || 20, 100);
+        const offset = Number(urlObj.searchParams.get('offset')) || 0;
+
+        let families = [];
+        let total = 0;
 
         if (env.DB && typeof env.DB.prepare === 'function') {
           try {
-            const uRow = await env.DB.prepare('SELECT COUNT(*) as count FROM users').first();
-            if (uRow) userCount = uRow.count;
-            const wRow = await env.DB.prepare('SELECT COUNT(*) as count FROM wishes').first();
-            if (wRow) wishCount = wRow.count;
-            const tRow = await env.DB.prepare('SELECT COUNT(*) as count FROM templates').first();
-            if (tRow) templateCount = tRow.count;
+            let sql = 'SELECT * FROM template_families';
+            let params = [];
+            let conditions = [];
+
+            if (category && category !== 'all') {
+              conditions.push('category = ?');
+              params.push(category);
+            }
+            if (query && query.trim()) {
+              conditions.push('(name LIKE ? OR family_id LIKE ? OR category LIKE ?)');
+              const q = `%${query.trim()}%`;
+              params.push(q, q, q);
+            }
+
+            if (conditions.length > 0) {
+              sql += ' WHERE ' + conditions.join(' AND ');
+            }
+
+            const countSql = sql.replace('SELECT *', 'SELECT COUNT(*) as cnt');
+            const countRow = await env.DB.prepare(countSql).bind(...params).first();
+            if (countRow) total = countRow.cnt;
+
+            sql += ' ORDER BY updated_at DESC LIMIT ? OFFSET ?';
+            params.push(limit, offset);
+
+            const rows = await env.DB.prepare(sql).bind(...params).all();
+            if (rows && Array.isArray(rows.results)) {
+              families = rows.results;
+            }
+          } catch (e) {
+            console.error('[Admin Template Families] D1 error:', e);
+          }
+        }
+
+        response = jsonSuccess({ families, total, limit, offset }, 200, {}, requestId);
+      }
+
+      // --- Part 9: Template Family Details & Version History ---
+      else if (pathname.startsWith('/api/admin/templates/families/') && method === 'GET') {
+        const user = await getAuthenticatedUser(request, env);
+        if (!user) return applySecurityHeaders(jsonError('AUTH_REQUIRED', 'Authentication required', 401), request, env);
+        const isAdmin = await verifyAdminRole(user, env);
+        if (!isAdmin) return applySecurityHeaders(jsonError('FORBIDDEN', 'Admin role required', 403), request, env);
+
+        const familyId = pathname.replace('/api/admin/templates/families/', '').trim();
+        let family = null;
+        let versions = [];
+        let referencingWishesCount = 0;
+        let relatedErrors = [];
+
+        if (env.DB && typeof env.DB.prepare === 'function') {
+          try {
+            family = await env.DB.prepare('SELECT * FROM template_families WHERE family_id = ? OR id = ?').bind(familyId, familyId).first();
+            const vRows = await env.DB.prepare('SELECT * FROM template_versions WHERE family_id = ? OR template_family_id = ? ORDER BY version_number DESC').bind(familyId, familyId).all();
+            if (vRows && Array.isArray(vRows.results)) versions = vRows.results;
+
+            const wRow = await env.DB.prepare('SELECT COUNT(*) as cnt FROM wishes WHERE template_id = ? OR template_family_id = ?').bind(familyId, familyId).first();
+            if (wRow) referencingWishesCount = wRow.cnt;
+
+            const errRows = await env.DB.prepare('SELECT * FROM admin_error_logs WHERE target_id = ? OR details LIKE ? ORDER BY created_at DESC LIMIT 10').bind(familyId, `%${familyId}%`).all();
+            if (errRows && Array.isArray(errRows.results)) relatedErrors = errRows.results;
+          } catch (e) {}
+        }
+
+        if (!family && versions.length === 0) {
+          return applySecurityHeaders(jsonError('NOT_FOUND', `Template family ${familyId} not found`, 404), request, env);
+        }
+
+        response = jsonSuccess({ family, versions, referencingWishesCount, relatedErrors }, 200, {}, requestId);
+      }
+
+      // --- Part 9: Centralized Error Monitoring List ---
+      else if (pathname === '/api/admin/errors' && method === 'GET') {
+        const user = await getAuthenticatedUser(request, env);
+        if (!user) return applySecurityHeaders(jsonError('AUTH_REQUIRED', 'Authentication required', 401), request, env);
+        const isAdmin = await verifyAdminRole(user, env);
+        if (!isAdmin) return applySecurityHeaders(jsonError('FORBIDDEN', 'Admin role required', 403), request, env);
+
+        const urlObj = new URL(request.url);
+        const category = urlObj.searchParams.get('category') || 'all';
+        const severity = urlObj.searchParams.get('severity') || 'all';
+        const query = urlObj.searchParams.get('q') || '';
+        const limit = Math.min(Number(urlObj.searchParams.get('limit')) || 25, 100);
+        const offset = Number(urlObj.searchParams.get('offset')) || 0;
+
+        let errors = [];
+        let total = 0;
+
+        if (env.DB && typeof env.DB.prepare === 'function') {
+          try {
+            let sql = 'SELECT * FROM admin_error_logs';
+            let params = [];
+            let conditions = [];
+
+            if (category && category !== 'all') {
+              conditions.push('category = ?');
+              params.push(category);
+            }
+            if (severity && severity !== 'all') {
+              conditions.push('severity = ?');
+              params.push(severity);
+            }
+            if (query && query.trim()) {
+              conditions.push('(message LIKE ? OR error_code LIKE ? OR component LIKE ?)');
+              const q = `%${query.trim()}%`;
+              params.push(q, q, q);
+            }
+
+            if (conditions.length > 0) sql += ' WHERE ' + conditions.join(' AND ');
+
+            const countRow = await env.DB.prepare(sql.replace('SELECT *', 'SELECT COUNT(*) as cnt')).bind(...params).first();
+            if (countRow) total = countRow.cnt;
+
+            sql += ' ORDER BY created_at DESC LIMIT ? OFFSET ?';
+            params.push(limit, offset);
+
+            const rows = await env.DB.prepare(sql).bind(...params).all();
+            if (rows && Array.isArray(rows.results)) errors = rows.results;
+          } catch (e) {
+            console.error('[Admin Error Logs] D1 error:', e);
+          }
+        }
+
+        response = jsonSuccess({ errors, total, limit, offset }, 200, {}, requestId);
+      }
+
+      // --- Part 9: Resolve Administrative Error Log ---
+      else if (pathname.startsWith('/api/admin/errors/') && pathname.endsWith('/resolve') && method === 'POST') {
+        const user = await getAuthenticatedUser(request, env);
+        if (!user) return applySecurityHeaders(jsonError('AUTH_REQUIRED', 'Authentication required', 401), request, env);
+        const isAdmin = await verifyAdminRole(user, env);
+        if (!isAdmin) return applySecurityHeaders(jsonError('FORBIDDEN', 'Admin role required', 403), request, env);
+
+        const errorId = pathname.replace('/api/admin/errors/', '').replace('/resolve', '').trim();
+        let body = {};
+        try { body = await request.json(); } catch (e) {}
+
+        const now = new Date().toISOString();
+        if (env.DB && typeof env.DB.prepare === 'function') {
+          try {
+            await env.DB.prepare(`
+              UPDATE admin_error_logs
+              SET resolved = 1, resolution_notes = ?, resolved_by = ?, resolved_at = ?
+              WHERE id = ?
+            `).bind(body.notes || 'Resolved by administrator', user.id, now, errorId).run();
+          } catch (e) {}
+        }
+
+        response = jsonSuccess({ success: true, errorId, resolvedAt: now }, 200, {}, requestId);
+      }
+
+      // --- Part 9: Ingestion Jobs List ---
+      else if (pathname === '/api/admin/ingestion/jobs' && method === 'GET') {
+        const user = await getAuthenticatedUser(request, env);
+        if (!user) return applySecurityHeaders(jsonError('AUTH_REQUIRED', 'Authentication required', 401), request, env);
+        const isAdmin = await verifyAdminRole(user, env);
+        if (!isAdmin) return applySecurityHeaders(jsonError('FORBIDDEN', 'Admin role required', 403), request, env);
+
+        let jobs = [];
+        if (env.DB && typeof env.DB.prepare === 'function') {
+          try {
+            const rows = await env.DB.prepare('SELECT * FROM admin_ingestion_jobs ORDER BY started_at DESC LIMIT 50').all();
+            if (rows && Array.isArray(rows.results)) jobs = rows.results;
+          } catch (e) {}
+        }
+
+        response = jsonSuccess({ jobs, count: jobs.length }, 200, {}, requestId);
+      }
+
+      // --- Part 9: Retry Ingestion Job ---
+      else if (pathname.startsWith('/api/admin/ingestion/jobs/') && pathname.endsWith('/retry') && method === 'POST') {
+        const user = await getAuthenticatedUser(request, env);
+        if (!user) return applySecurityHeaders(jsonError('AUTH_REQUIRED', 'Authentication required', 401), request, env);
+        const isAdmin = await verifyAdminRole(user, env);
+        if (!isAdmin) return applySecurityHeaders(jsonError('FORBIDDEN', 'Admin role required', 403), request, env);
+
+        const jobId = pathname.replace('/api/admin/ingestion/jobs/', '').replace('/retry', '').trim();
+        let job = null;
+        if (env.DB && typeof env.DB.prepare === 'function') {
+          try {
+            job = await env.DB.prepare('SELECT * FROM admin_ingestion_jobs WHERE id = ?').bind(jobId).first();
+            if (job) {
+              await env.DB.prepare(`
+                UPDATE admin_ingestion_jobs
+                SET retry_count = retry_count + 1, status = 'extracting', error_code = NULL, error_message = NULL
+                WHERE id = ?
+              `).bind(jobId).run();
+            }
+          } catch (e) {}
+        }
+
+        if (!job) {
+          return applySecurityHeaders(jsonError('NOT_FOUND', `Ingestion job ${jobId} not found`, 404), request, env);
+        }
+
+        response = jsonSuccess({ success: true, jobId, status: 'retrying', newRetryCount: (job.retry_count || 0) + 1 }, 200, {}, requestId);
+      }
+
+      // --- Part 9: Admin Song Catalog Operations ---
+      else if (pathname === '/api/admin/media/songs' && method === 'GET') {
+        const user = await getAuthenticatedUser(request, env);
+        if (!user) return applySecurityHeaders(jsonError('AUTH_REQUIRED', 'Authentication required', 401), request, env);
+        const isAdmin = await verifyAdminRole(user, env);
+        if (!isAdmin) return applySecurityHeaders(jsonError('FORBIDDEN', 'Admin role required', 403), request, env);
+
+        let songs = [];
+        if (env.DB && typeof env.DB.prepare === 'function') {
+          try {
+            const rows = await env.DB.prepare('SELECT * FROM music_library ORDER BY title ASC').all();
+            if (rows && Array.isArray(rows.results)) songs = rows.results;
+          } catch (e) {}
+        }
+
+        response = jsonSuccess({ songs, count: songs.length }, 200, {}, requestId);
+      }
+
+      else if (pathname.startsWith('/api/admin/media/songs/') && pathname.endsWith('/toggle') && method === 'POST') {
+        const user = await getAuthenticatedUser(request, env);
+        if (!user) return applySecurityHeaders(jsonError('AUTH_REQUIRED', 'Authentication required', 401), request, env);
+        const isAdmin = await verifyAdminRole(user, env);
+        if (!isAdmin) return applySecurityHeaders(jsonError('FORBIDDEN', 'Admin role required', 403), request, env);
+
+        const songId = pathname.replace('/api/admin/media/songs/', '').replace('/toggle', '').trim();
+        let newActiveState = 1;
+
+        if (env.DB && typeof env.DB.prepare === 'function') {
+          try {
+            const song = await env.DB.prepare('SELECT is_active FROM music_library WHERE id = ?').bind(songId).first();
+            if (song) {
+              newActiveState = song.is_active === 1 ? 0 : 1;
+              await env.DB.prepare('UPDATE music_library SET is_active = ?, updated_at = datetime("now") WHERE id = ?').bind(newActiveState, songId).run();
+            }
+          } catch (e) {}
+        }
+
+        response = jsonSuccess({ success: true, songId, isActive: Boolean(newActiveState) }, 200, {}, requestId);
+      }
+
+      else if (pathname === '/api/admin/media/diagnostics' && method === 'GET') {
+        const user = await getAuthenticatedUser(request, env);
+        if (!user) return applySecurityHeaders(jsonError('AUTH_REQUIRED', 'Authentication required', 401), request, env);
+        const isAdmin = await verifyAdminRole(user, env);
+        if (!isAdmin) return applySecurityHeaders(jsonError('FORBIDDEN', 'Admin role required', 403), request, env);
+
+        let customerMediaCount = 0;
+        let musicLibraryCount = 0;
+        let mappingsCount = 0;
+
+        if (env.DB && typeof env.DB.prepare === 'function') {
+          try {
+            const cmRow = await env.DB.prepare('SELECT COUNT(*) as cnt FROM wish_media').first();
+            if (cmRow) customerMediaCount = cmRow.cnt;
+            const mlRow = await env.DB.prepare('SELECT COUNT(*) as cnt FROM music_library').first();
+            if (mlRow) musicLibraryCount = mlRow.cnt;
+            const mapRow = await env.DB.prepare('SELECT COUNT(*) as cnt FROM wish_media_mappings').first();
+            if (mapRow) mappingsCount = mapRow.cnt;
           } catch (e) {}
         }
 
         response = jsonSuccess({
-          metrics: {
-            totalUsers: userCount,
-            totalWishes: wishCount,
-            totalTemplates: templateCount,
-            revenue: 0,
-            paidOrders: 0,
-            health: 'HEALTHY'
-          }
+          customerMediaCount,
+          musicLibraryCount,
+          mappingsCount,
+          imgbbConfigured: Boolean(env.IMGBB_API_KEY || env.VITE_IMGBB_API_KEY),
+          b2Configured: Boolean(env.B2_ACCOUNT_ID && env.B2_APPLICATION_KEY)
         }, 200, {}, requestId);
       }
 

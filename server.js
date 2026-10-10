@@ -8521,6 +8521,9 @@ async function handleAdminMediaDelete(req, res, targetId) {
           : new ImgBBProvider({ apiKey: process.env.IMGBB_API_KEY || 'default' });
         const delResult = await provider.deleteImage(targetDeleteUrl);
         imgbbRemoteDeleted = Boolean(delResult && (delResult.remoteDeleted || delResult.success));
+        if (!imgbbRemoteDeleted) {
+          req._imgbbOutcome = delResult; // Pass outcome for the final response
+        }
         console.log(`[server.js ImgBB Remote Delete] Result for ${targetDeleteUrl}:`, delResult);
       } catch (delErr) {
         console.warn('[server.js ImgBB Remote Delete Warning]:', delErr.message);
@@ -8596,6 +8599,7 @@ async function handleAdminMediaDelete(req, res, targetId) {
       localDeleted,
       imgbbDeleted: imgbbDeleted || imgbbRemoteDeleted,
       imgbbRemoteDeleted,
+      imgbbOutcome: req._imgbbOutcome || null,
       deleteUrl: targetDeleteUrl,
       message: `Media file successfully deleted from storage and catalog.`
     });

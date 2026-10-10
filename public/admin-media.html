@@ -2365,6 +2365,13 @@
           }
         } else if (data.imgbbRemoteDeleted) {
           showToast(`✅ "${title}" ImgBB server aur catalog dono se permanently delete ho gaya!`);
+        } else if (data.imgbbOutcome && !data.imgbbOutcome.remoteDeleted) {
+          const manualUrl = data.imgbbOutcome.rawDeleteUrl || data.deleteUrl;
+          if (manualUrl) {
+            alert(`⚠️ ImgBB Remote Deletion Unconfirmed:\n\nCatalog se entry remove ho gayi hai, lekin ImgBB server ne deletion confirm nahi kiya.\n\nKripya is link par jaakar manually delete karein:\n${manualUrl}`);
+            window.open(manualUrl, '_blank');
+          }
+          showToast(`ℹ️ "${title}" catalog se remove ho gaya (ImgBB manual cleanup requested).`);
         } else if (data.databaseOutcome?.catalogOnly) {
           showToast(`ℹ️ "${title}" catalog se remove ho gaya (remote cloud file retain ki gayi).`);
         } else {

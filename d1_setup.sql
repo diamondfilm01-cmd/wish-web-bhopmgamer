@@ -1537,3 +1537,52 @@ CREATE INDEX IF NOT EXISTS idx_b2_storage_objects_status ON b2_storage_objects(u
 INSERT OR IGNORE INTO _migrations (id, name, applied_at) VALUES
 ('mig_0025', '0025_part41_b2_music_and_audio_storage.sql', '2026-10-09T08:00:00.000Z'),
 ('mig_0026', '0026_part42_media_storage_inventory_reconciliation.sql', '2026-10-09T12:00:00.000Z');
+
+-- ============================================================================
+-- Part 9: Centralized Admin Control Center Tables
+-- ============================================================================
+CREATE TABLE IF NOT EXISTS admin_error_logs (
+  id TEXT PRIMARY KEY,
+  category TEXT NOT NULL,
+  severity TEXT DEFAULT 'error',
+  component TEXT NOT NULL,
+  error_code TEXT NOT NULL,
+  message TEXT NOT NULL,
+  details TEXT DEFAULT '{}',
+  target_type TEXT,
+  target_id TEXT,
+  correlation_id TEXT,
+  resolved INTEGER DEFAULT 0,
+  resolution_notes TEXT,
+  resolved_by TEXT,
+  resolved_at TEXT,
+  created_at TEXT NOT NULL
+);
+
+CREATE INDEX IF NOT EXISTS idx_admin_error_category ON admin_error_logs(category, created_at DESC);
+CREATE INDEX IF NOT EXISTS idx_admin_error_code ON admin_error_logs(error_code);
+CREATE INDEX IF NOT EXISTS idx_admin_error_resolved ON admin_error_logs(resolved, created_at DESC);
+CREATE INDEX IF NOT EXISTS idx_admin_error_target ON admin_error_logs(target_type, target_id);
+
+CREATE TABLE IF NOT EXISTS admin_ingestion_jobs (
+  id TEXT PRIMARY KEY,
+  package_filename TEXT NOT NULL,
+  family_id TEXT,
+  template_version TEXT,
+  status TEXT NOT NULL,
+  error_code TEXT,
+  error_message TEXT,
+  validation_issues TEXT DEFAULT '[]',
+  retry_count INTEGER DEFAULT 0,
+  retry_eligible INTEGER DEFAULT 1,
+  correlation_id TEXT,
+  started_at TEXT NOT NULL,
+  completed_at TEXT
+);
+
+CREATE INDEX IF NOT EXISTS idx_admin_ingestion_status ON admin_ingestion_jobs(status, started_at DESC);
+CREATE INDEX IF NOT EXISTS idx_admin_ingestion_family ON admin_ingestion_jobs(family_id);
+
+INSERT OR IGNORE INTO _migrations (id, name, applied_at) VALUES
+('mig_0031', '0031_part9_admin_control_center.sql', '2026-10-10T00:00:00.000Z');
+

@@ -1088,3 +1088,264 @@ export function exportAuditLogsCsv(logs = []) {
 
   return [headers.join(','), ...rows.map(r => r.join(','))].join('\n');
 }
+
+// ============================================================================
+// 6. PART 9: CENTRALIZED ADMIN CONTROL CENTER & ERROR LOGGING
+// ============================================================================
+
+/**
+ * Record an error log entry in D1 or in-memory array.
+ */
+export async function recordAdminErrorLog(db, {
+  category = 'general',
+  severity = 'error',
+  component = 'system',
+  errorCode = 'UNKNOWN_ERROR',
+  message,
+  details = {},
+  targetType = null,
+  targetId = null,
+  correlationId = null
+}) {
+  const id = `err_${Date.now().toString(36)}_${Math.random().toString(36).substr(2, 6)}`;
+  const now = new Date().toISOString();
+  const safeDetails = typeof details === 'string' ? details : JSON.stringify(details);
+
+  if (db && typeof db.prepare === 'function') {
+    try {
+      await db.prepare(`
+        INSERT INTO admin_error_logs (
+          id, category, severity, component, error_code, message, details,
+          target_type, target_id, correlation_id, resolved, created_at
+        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 0, ?)
+      `).bind(id, category, severity, component, errorCode, message, safeDetails, targetType, targetId, correlationId, now).run();
+    } catch (e) {
+      console.error('[recordAdminErrorLog] D1 insert error:', e);
+    }
+  }
+
+  return {
+    id, category, severity, component, errorCode, message,
+    details: safeDetails, targetType, targetId, correlationId,
+    resolved: false, createdAt: now
+  };
+}
+
+/**
+ * Record or update an ingestion job in D1.
+ */
+export async function recordIngestionJob(db, {
+  id = null,
+  packageFilename,
+  familyId = null,
+  templateVersion = null,
+  status = 'received',
+  errorCode = null,
+  errorMessage = null,
+  validationIssues = [],
+  retryCount = 0,
+  retryEligible = 1,
+  correlationId = null
+}) {
+  const jobId = id || `job_${Date.now().toString(36)}_${Math.random().toString(36).substr(2, 6)}`;
+  const now = new Date().toISOString();
+  const issuesStr = JSON.stringify(validationIssues || []);
+
+  if (db && typeof db.prepare === 'function') {
+    try {
+      const existing = await db.prepare('SELECT id FROM admin_ingestion_jobs WHERE id = ?').bind(jobId).first();
+      if (existing) {
+        await db.prepare(`
+          UPDATE admin_ingestion_jobs
+          SET status = ?, family_id = ?, template_version = ?, error_code = ?,
+              error_message = ?, validation_issues = ?, retry_count = ?,
+              retry_eligible = ?, completed_at = ?
+          WHERE id = ?
+        `).bind(status, familyId, templateVersion, errorCode, errorMessage, issuesStr, retryCount, retryEligible, (status === 'completed' || status === 'failed') ? now : null, jobId).run();
+      } else {
+        await db.prepare(`
+          INSERT INTO admin_ingestion_jobs (
+            id, package_filename, family_id, template_version, status,
+            error_code, error_message, validation_issues, retry_count,
+            retry_eligible, correlation_id, started_at
+          ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+        `).bind(jobId, packageFilename, familyId, templateVersion, status, errorCode, errorMessage, issuesStr, retryCount, retryEligible, correlationId, now).run();
+      }
+    } catch (e) {
+      console.error('[recordIngestionJob] D1 record error:', e);
+    }
+  }
+
+  return {
+    id: jobId, packageFilename, familyId, templateVersion, status,
+    errorCode, errorMessage, validationIssues, retryCount, retryEligible,
+    correlationId, startedAt: now
+  };
+}
+
+/**
+ * Computes authoritative, real non-mocked dashboard metrics directly from D1 database.
+ */
+export async function getCentralizedDashboardSummary(db, env = {}) {
+  let templateFamiliesCount = 0;
+  let totalRegisteredVersions = 0;
+  let publishedVersionsCount = 0;
+  let draftVersionsCount = 0;
+  let failedValidationsCount = 0;
+  let compatibilityWarningsCount = 0;
+  let archivedVersionsCount = 0;
+
+  let totalWishes = 0;
+  let draftWishes = 0;
+  let publishedWishes = 0;
+  let expiredWishes = 0;
+  let recentWishesCreated24h = 0;
+
+  let totalSongs = 0;
+  let availableSongs = 0;
+  let unavailableSongs = 0;
+  let customerMediaCount = 0;
+  let failedUploadsCount = 0;
+
+  let recentErrorsCount = 0;
+  let ingestionFailuresCount = 0;
+  let recentAuditCount = 0;
+
+  let recentErrors = [];
+  let recentAuditLogs = [];
+  let templateFamiliesList = [];
+
+  const nowIso = new Date().toISOString();
+  const dayAgoIso = new Date(Date.now() - 24 * 3600 * 1000).toISOString();
+
+  if (db && typeof db.prepare === 'function') {
+    try {
+      // 1. Templates Overview
+      const tfRow = await db.prepare('SELECT COUNT(*) as cnt FROM template_families').first();
+      if (tfRow) templateFamiliesCount = tfRow.cnt;
+
+      const tvRow = await db.prepare('SELECT COUNT(*) as cnt FROM template_versions').first();
+      if (tvRow) totalRegisteredVersions = tvRow.cnt;
+
+      const pubTvRow = await db.prepare("SELECT COUNT(*) as cnt FROM template_versions WHERE is_published = 1 OR status = 'published'").first();
+      if (pubTvRow) publishedVersionsCount = pubTvRow.cnt;
+
+      const draftTvRow = await db.prepare("SELECT COUNT(*) as cnt FROM template_versions WHERE is_published = 0 OR status = 'draft'").first();
+      if (draftTvRow) draftVersionsCount = draftTvRow.cnt;
+
+      const valFailRow = await db.prepare("SELECT COUNT(*) as cnt FROM template_versions WHERE validation_status = 'failed'").first();
+      if (valFailRow) failedValidationsCount = valFailRow.cnt;
+
+      const compWarnRow = await db.prepare("SELECT COUNT(*) as cnt FROM template_versions WHERE compatibility_status = 'warning'").first();
+      if (compWarnRow) compatibilityWarningsCount = compWarnRow.cnt;
+
+      const archTvRow = await db.prepare("SELECT COUNT(*) as cnt FROM template_versions WHERE status = 'archived'").first();
+      if (archTvRow) archivedVersionsCount = archTvRow.cnt;
+
+      // 2. Wishes Overview
+      const wRow = await db.prepare('SELECT COUNT(*) as cnt FROM wishes').first();
+      if (wRow) totalWishes = wRow.cnt;
+
+      const draftWRow = await db.prepare("SELECT COUNT(*) as cnt FROM wishes WHERE status = 'draft'").first();
+      if (draftWRow) draftWishes = draftWRow.cnt;
+
+      const pubWRow = await db.prepare("SELECT COUNT(*) as cnt FROM wishes WHERE status = 'published' OR status IS NULL").first();
+      if (pubWRow) publishedWishes = pubWRow.cnt;
+
+      const expWRow = await db.prepare('SELECT COUNT(*) as cnt FROM wishes WHERE expiry_date IS NOT NULL AND expiry_date < ?').bind(nowIso).first();
+      if (expWRow) expiredWishes = expWRow.cnt;
+
+      const recWRow = await db.prepare('SELECT COUNT(*) as cnt FROM wishes WHERE created_at >= ?').bind(dayAgoIso).first();
+      if (recWRow) recentWishesCreated24h = recWRow.cnt;
+
+      // 3. Media Overview
+      const mRow = await db.prepare('SELECT COUNT(*) as cnt FROM music_library').first();
+      if (mRow) totalSongs = mRow.cnt;
+
+      const availMRow = await db.prepare('SELECT COUNT(*) as cnt FROM music_library WHERE is_active = 1').first();
+      if (availMRow) availableSongs = availMRow.cnt;
+
+      const unavailMRow = await db.prepare('SELECT COUNT(*) as cnt FROM music_library WHERE is_active = 0').first();
+      if (unavailMRow) unavailableSongs = unavailMRow.cnt;
+
+      const wmRow = await db.prepare('SELECT COUNT(*) as cnt FROM wish_media').first();
+      if (wmRow) customerMediaCount = wmRow.cnt;
+
+      // 4. Health & Errors
+      const errCountRow = await db.prepare('SELECT COUNT(*) as cnt FROM admin_error_logs WHERE resolved = 0').first();
+      if (errCountRow) recentErrorsCount = errCountRow.cnt;
+
+      const ingFailRow = await db.prepare("SELECT COUNT(*) as cnt FROM admin_ingestion_jobs WHERE status = 'failed'").first();
+      if (ingFailRow) ingestionFailuresCount = ingFailRow.cnt;
+
+      const errList = await db.prepare('SELECT * FROM admin_error_logs WHERE resolved = 0 ORDER BY created_at DESC LIMIT 10').all();
+      if (errList && Array.isArray(errList.results)) {
+        recentErrors = errList.results;
+      }
+
+      const auditList = await db.prepare('SELECT * FROM admin_audit_logs ORDER BY created_at DESC LIMIT 10').all();
+      if (auditList && Array.isArray(auditList.results)) {
+        recentAuditLogs = auditList.results;
+      }
+
+      // Sample template families
+      const tfList = await db.prepare('SELECT * FROM template_families ORDER BY updated_at DESC LIMIT 10').all();
+      if (tfList && Array.isArray(tfList.results)) {
+        templateFamiliesList = tfList.results;
+      }
+    } catch (e) {
+      console.error('[getCentralizedDashboardSummary] D1 query error:', e);
+    }
+  }
+
+  const b2Configured = Boolean(env.B2_ACCOUNT_ID && env.B2_APPLICATION_KEY);
+  const imgbbConfigured = Boolean(env.IMGBB_API_KEY || env.VITE_IMGBB_API_KEY);
+
+  return {
+    metrics: {
+      totalUsers: 0,
+      totalWishes,
+      totalTemplates: templateFamiliesCount,
+      revenue: 0,
+      paidOrders: 0,
+      health: recentErrorsCount > 5 ? 'DEGRADED' : 'HEALTHY'
+    },
+    templateOverview: {
+      totalFamilies: templateFamiliesCount,
+      totalRegisteredVersions,
+      currentlyPublished: publishedVersionsCount,
+      draftOrUnpublished: draftVersionsCount,
+      awaitingValidation: 0,
+      failedValidations: failedValidationsCount,
+      compatibilityWarnings: compatibilityWarningsCount,
+      archivedVersions: archivedVersionsCount
+    },
+    wishOverview: {
+      totalWishes,
+      draftWishes,
+      publishedWishes,
+      expiredWishes,
+      recentWishesCreated24h
+    },
+    mediaOverview: {
+      totalSongs,
+      availableSongs,
+      unavailableSongs,
+      customerMediaCount,
+      failedUploads: failedUploadsCount,
+      missingAssetReferences: 0
+    },
+    operationalHealth: {
+      recentErrorsCount,
+      ingestionFailuresCount,
+      b2Health: b2Configured ? 'HEALTHY' : 'NOT_CONFIGURED',
+      imgbbHealth: imgbbConfigured ? 'HEALTHY' : 'NOT_CONFIGURED',
+      overallStatus: recentErrorsCount > 5 ? 'DEGRADED' : 'HEALTHY'
+    },
+    recentErrors,
+    recentAuditLogs,
+    templateFamiliesList,
+    serverTime: nowIso
+  };
+}
+

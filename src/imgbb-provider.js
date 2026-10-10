@@ -552,7 +552,8 @@ export class ImgBBProvider {
           const m2 = htmlText.match(/auth_token\s*[:=]\s*["']([^"']+)["']/i);
           const m3 = htmlText.match(/<input[^>]+name=["']auth_token["'][^>]+value=["']([^"']+)["']/i);
           const m4 = htmlText.match(/data-token=["']([^"']+)["']/i);
-          authToken = (m1 && m1[1]) || (m2 && m2[1]) || (m3 && m3[1]) || (m4 && m4[1]) || null;
+          const m5 = htmlText.match(/["']auth_token["']\s*,\s*["']([^"']+)["']/i);
+          authToken = (m1 && m1[1]) || (m2 && m2[1]) || (m3 && m3[1]) || (m4 && m4[1]) || (m5 && m5[1]) || null;
         }
       } catch (getErr) {
         console.warn('[ImgBB deleteImage GET warning]:', getErr.message);
@@ -660,6 +661,7 @@ export class ImgBBProvider {
         success: false,
         remoteDeleted: false,
         deleteUrl: safeDeleteUrl,
+        rawDeleteUrl: deleteUrl, // Provide the real URL for manual cleanup link
         code: 'REMOTE_DELETE_UNCONFIRMED',
         message: 'ImgBB remote deletion could not be verified by provider. Image may still reside on remote server.'
       };

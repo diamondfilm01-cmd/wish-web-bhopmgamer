@@ -1,8 +1,9 @@
 {
-  "name": "WishMagic",
-  "description": "Gift a magical, interactive web experience with customizable wishes, animations, and templates.",
-  "prompt": "WishMagic: Gift a magical web experience with interactive greetings, animations, and custom templates",
-  "permissions": [],
+  "name": "WishMagic Template Reliability Engine",
+  "description": "Production-grade template version control, compatibility engine, and regression testing system for WishMagic.",
+  "permissions": [
+    "MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"
+  ],
   "capabilities": [
     "MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"
   ]
