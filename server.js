@@ -7263,18 +7263,28 @@ app.get('/api/media', (req, res) => {
 // API: Stream Audio / Media (Backblaze B2 & local fallback with full Range support)
 app.get(['/api/media/stream', '/api/media/stream/:id', '/api/media/stream/:id/:filename'], async (req, res) => {
   try {
-    const key = req.query.key || req.query.storageKey || req.params.filename || req.params.id;
-    const trackId = req.query.id || req.params.id;
+    let key = req.query.key || req.query.storageKey || req.params.filename || null;
+    let trackId = req.query.id || req.params.id || null;
+
+    if (!key && trackId && (trackId.includes('/') || trackId.endsWith('.mp3') || trackId.endsWith('.wav') || trackId.endsWith('.mp4') || trackId.endsWith('.webm') || trackId.endsWith('.ogg') || trackId.endsWith('.m4a'))) {
+      key = trackId;
+    }
 
     // First check custom uploaded media catalog
     const media = getMedia();
     let track = media.find(t =>
       t.id === trackId ||
+      t.id === key ||
       t.storageKey === key ||
+      t.storageKey === trackId ||
       t.filename === key ||
+      t.filename === trackId ||
       t.diskFilename === key ||
+      t.diskFilename === trackId ||
       (key && t.storageKey && t.storageKey.endsWith(path.basename(key))) ||
+      (trackId && t.storageKey && t.storageKey.endsWith(path.basename(trackId))) ||
       (key && t.filename && t.filename === path.basename(key)) ||
+      (trackId && t.filename && t.filename === path.basename(trackId)) ||
       (key && t.url && t.url.includes(key))
     );
 
@@ -7283,8 +7293,11 @@ app.get(['/api/media/stream', '/api/media/stream/:id', '/api/media/stream/:id/:f
       const musicList = getMusicLibrary();
       track = musicList.find(m =>
         m.id === trackId ||
+        m.id === key ||
         m.storageKey === key ||
+        m.storageKey === trackId ||
         (key && m.storageKey && m.storageKey.endsWith(path.basename(key))) ||
+        (trackId && m.storageKey && m.storageKey.endsWith(path.basename(trackId))) ||
         (key && m.playbackUrl && m.playbackUrl.includes(key))
       );
     }
@@ -7371,11 +7384,11 @@ app.get(['/api/media/stream', '/api/media/stream/:id', '/api/media/stream/:id/:f
       'golden-nostalgia-cello.mp3': 'golden-nostalgia.mp3'
     };
 
-    const staticMatched = staticAudioFiles[trackId] || (key && staticAudioFiles[key]) || (key && staticAudioFiles[path.basename(key)]);
+    const staticMatched = staticAudioFiles[trackId] || (key && staticAudioFiles[key]) || (trackId && staticAudioFiles[path.basename(trackId)]) || (key && staticAudioFiles[path.basename(key)]);
     if (staticMatched) {
       const staticPath = path.join(__dirname, 'public', 'audio', staticMatched);
       if (fs.existsSync(staticPath)) {
-        res.setHeader('Content-Type', 'audio/mpeg');
+        res.setHeader('Content-Type', getMimeType(staticMatched));
         res.setHeader('Accept-Ranges', 'bytes');
         res.setHeader('Access-Control-Allow-Origin', '*');
         return res.sendFile(staticPath, { acceptRanges: true });
@@ -7426,7 +7439,10 @@ app.get(['/api/media/stream', '/api/media/stream/:id', '/api/media/stream/:id/:f
             }
           }
 
-          const mime = obj.contentType || (track && track.mimeType) || getMimeType(storageKey);
+          let mime = obj.contentType;
+          if (!mime || mime === 'application/octet-stream' || mime === 'b2/x-auto') {
+            mime = (track && track.mimeType) || getMimeType(storageKey);
+          }
           res.setHeader('Content-Type', mime);
           res.setHeader('Content-Length', contentLength);
           res.setHeader('Accept-Ranges', 'bytes');
@@ -7463,6 +7479,7 @@ app.get(['/api/media/stream', '/api/media/stream/:id', '/api/media/stream/:id/:f
 
       for (const p of possiblePaths) {
         if (fs.existsSync(p)) {
+          res.setHeader('Content-Type', getMimeType(p));
           return res.sendFile(p, { acceptRanges: true });
         }
       }
@@ -7480,7 +7497,7 @@ app.get(['/api/media/stream', '/api/media/stream/:id', '/api/media/stream/:id/:f
           }
           const upstreamRes = await fetch(remoteUrl, { headers: fetchHeaders });
           if (upstreamRes.ok || upstreamRes.status === 206) {
-            const contentType = upstreamRes.headers.get('content-type') || 'audio/mpeg';
+            const contentType = upstreamRes.headers.get('content-type') || (track.mimeType || getMimeType(remoteUrl));
             res.setHeader('Content-Type', contentType);
             res.setHeader('Accept-Ranges', 'bytes');
             const cl = upstreamRes.headers.get('content-length');
@@ -7497,29 +7514,28 @@ app.get(['/api/media/stream', '/api/media/stream/:id', '/api/media/stream/:id/:f
       }
     }
 
-    // Direct filename search in MEDIA_DIR
-    if (key) {
-      const cleanKey = path.basename(key);
+    // Direct filename search in MEDIA_DIR and audio dir
+    const searchCandidates = [key, trackId].filter(Boolean);
+    for (const sc of searchCandidates) {
+      const cleanKey = path.basename(sc);
       const directPath = path.join(MEDIA_DIR, cleanKey);
       if (fs.existsSync(directPath)) {
+        res.setHeader('Content-Type', getMimeType(directPath));
         return res.sendFile(directPath, { acceptRanges: true });
       }
       const directAudioPath = path.join(__dirname, 'public', 'audio', cleanKey);
       if (fs.existsSync(directAudioPath)) {
+        res.setHeader('Content-Type', getMimeType(directAudioPath));
         return res.sendFile(directAudioPath, { acceptRanges: true });
       }
-    }
-
-    if (trackId) {
-      try {
-        const cleanTrackId = path.basename(trackId);
-        if (fs.existsSync(MEDIA_DIR)) {
-          const files = fs.readdirSync(MEDIA_DIR).filter(f => f.startsWith(cleanTrackId));
-          if (files.length > 0) {
-            return res.sendFile(path.join(MEDIA_DIR, files[0]), { acceptRanges: true });
-          }
+      if (fs.existsSync(MEDIA_DIR)) {
+        const files = fs.readdirSync(MEDIA_DIR).filter(f => f.startsWith(cleanKey) || f.endsWith(cleanKey));
+        if (files.length > 0) {
+          const matchPath = path.join(MEDIA_DIR, files[0]);
+          res.setHeader('Content-Type', getMimeType(matchPath));
+          return res.sendFile(matchPath, { acceptRanges: true });
         }
-      } catch (_) {}
+      }
     }
 
     // Return 404 if the requested track cannot be found - NEVER play an unrelated hardcoded fallback song
@@ -8077,16 +8093,16 @@ app.post(['/api/admin/media/upload', '/api/admin/music/upload', '/api/music/uplo
       // Resolve exact target filename:
       // If user provides title -> use that title + extension
       // If user does not provide title -> use original file's name
-      const trimmedTitle = String(title || '').trim();
+      const rawUserTitle = String(req.body.userProvidedTitle !== undefined ? req.body.userProvidedTitle : (title || '')).trim();
       let targetBaseName = '';
       let finalTitle = '';
 
-      if (trimmedTitle && trimmedTitle !== 'media-upload' && trimmedTitle !== 'upload') {
-        finalTitle = trimmedTitle;
-        if (trimmedTitle.toLowerCase().endsWith('.' + validation.extension.toLowerCase())) {
-          targetBaseName = trimmedTitle;
+      if (rawUserTitle && rawUserTitle !== 'media-upload' && rawUserTitle !== 'upload') {
+        finalTitle = rawUserTitle;
+        if (rawUserTitle.toLowerCase().endsWith('.' + validation.extension.toLowerCase())) {
+          targetBaseName = rawUserTitle;
         } else {
-          targetBaseName = `${trimmedTitle}.${validation.extension}`;
+          targetBaseName = `${rawUserTitle}.${validation.extension}`;
         }
       } else {
         targetBaseName = safeFilename;
@@ -8191,16 +8207,16 @@ app.post(['/api/admin/media/upload', '/api/admin/music/upload', '/api/music/uplo
       // Resolve exact target filename:
       // If user provides title -> use that title + extension
       // If user does not provide title -> use original file's name
-      const trimmedTitle = String(title || '').trim();
+      const rawUserTitle = String(req.body.userProvidedTitle !== undefined ? req.body.userProvidedTitle : (title || '')).trim();
       let targetBaseName = '';
       let finalTitle = '';
 
-      if (trimmedTitle && trimmedTitle !== 'media-upload' && trimmedTitle !== 'upload') {
-        finalTitle = trimmedTitle;
-        if (trimmedTitle.toLowerCase().endsWith('.' + validation.extension.toLowerCase())) {
-          targetBaseName = trimmedTitle;
+      if (rawUserTitle && rawUserTitle !== 'media-upload' && rawUserTitle !== 'upload') {
+        finalTitle = rawUserTitle;
+        if (rawUserTitle.toLowerCase().endsWith('.' + validation.extension.toLowerCase())) {
+          targetBaseName = rawUserTitle;
         } else {
-          targetBaseName = `${trimmedTitle}.${validation.extension}`;
+          targetBaseName = `${rawUserTitle}.${validation.extension}`;
         }
       } else {
         targetBaseName = safeFilename;

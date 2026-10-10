@@ -1469,6 +1469,7 @@
 
       const payload = {
         title,
+        userProvidedTitle: rawTitle || null,
         type: selectedType,
         category: categoryInput.value.trim() || (selectedType === 'audio' ? 'celebration' : 'Custom Upload'),
         artist: artistInput ? artistInput.value.trim() : 'WishMagic Studio',
@@ -1561,14 +1562,24 @@
     img.classList.add('hidden');
     img.src = '';
     vid.classList.remove('hidden');
-    const videoSource = streamUrl || url;
-    vid.src = videoSource;
+
+    const sources = [];
+    if (url && (url.startsWith('/media/') || url.startsWith('http'))) sources.push(url);
+    if (streamUrl && !sources.includes(streamUrl)) sources.push(streamUrl);
+    if (url && !sources.includes(url)) sources.push(url);
+
+    let srcIdx = 0;
+    vid.src = sources[0] || url;
     vid.load();
     vid.play().catch(() => {});
     vid.onerror = () => {
-      if (vid.src !== url && url) {
-        vid.src = url;
+      srcIdx++;
+      if (srcIdx < sources.length) {
+        vid.src = sources[srcIdx];
         vid.load();
+        vid.play().catch(() => {});
+      } else {
+        showToast('⚠️ Video format not supported or video file could not be loaded.');
       }
     };
     cap.innerText = caption || 'Video Reel Preview';
@@ -1796,23 +1807,31 @@
     if (bar) bar.classList.remove('hidden');
 
     // 4. Resolve playable source priority list (strictly for THIS track only, NO unrelated fallback song)
-    const streamProxyUrl = `/api/media/stream?id=${encodeURIComponent(id)}${asset?.storageKey ? `&key=${encodeURIComponent(asset.storageKey)}` : ''}`;
+    const storageKey = (asset && asset.storageKey) || (id && id.includes('/') ? id : '');
+    const streamProxyUrl = `/api/media/stream?id=${encodeURIComponent(id)}${storageKey ? `&key=${encodeURIComponent(storageKey)}` : ''}`;
     const candidateUrl = (asset && (asset.playbackUrl || asset.url)) || rawUrl || '';
 
     const sourcesToTry = [];
-    // Priority 1: Streaming proxy (same-origin, handles B2 auth & Range requests, no CORS issue)
-    sourcesToTry.push(streamProxyUrl);
-    // Priority 2: Direct local assets (if local /audio/ or /media/)
-    if (candidateUrl && (candidateUrl.startsWith('/audio/') || candidateUrl.startsWith('/media/')) && !sourcesToTry.includes(candidateUrl)) {
+    // Priority 1: Direct local assets (if local /audio/ or /media/)
+    if (candidateUrl && (candidateUrl.startsWith('/audio/') || candidateUrl.startsWith('/media/'))) {
       sourcesToTry.push(candidateUrl);
+    }
+    // Priority 2: Streaming proxy (same-origin, handles B2 auth & Range requests, no CORS issue)
+    if (!sourcesToTry.includes(streamProxyUrl)) {
+      sourcesToTry.push(streamProxyUrl);
     }
     // Priority 3: Direct external URL if different
     if (candidateUrl && candidateUrl.startsWith('http') && !candidateUrl.includes('assets.wishmagic.live') && !sourcesToTry.includes(candidateUrl)) {
       sourcesToTry.push(candidateUrl);
     }
+    // Priority 4: Filename direct media fallback
+    if (id && (id.endsWith('.mp3') || id.endsWith('.wav') || id.endsWith('.ogg') || id.endsWith('.m4a'))) {
+      const diskUrl = `/media/${encodeURIComponent(id.split('/').pop())}`;
+      if (!sourcesToTry.includes(diskUrl)) sourcesToTry.push(diskUrl);
+    }
 
     let sourceIndex = 0;
-    let isAdvancingSource = false;
+    let attemptedSourceIndex = -1;
     const audio = getAudioElement();
     activeAudio = audio;
     audio.preload = 'auto';
@@ -1889,19 +1908,17 @@
     });
 
     function tryNextAudioSource(errMsg) {
-      if (isAdvancingSource) return;
-      isAdvancingSource = true;
+      if (sourceIndex === attemptedSourceIndex) return;
+      attemptedSourceIndex = sourceIndex;
       sourceIndex++;
       if (sourceIndex < sourcesToTry.length) {
         console.warn(`[Audio Player] Trying next audio source [${sourceIndex}]:`, sourcesToTry[sourceIndex]);
         newAudio.src = sourcesToTry[sourceIndex];
         newAudio.load();
         newAudio.play().then(() => {
-          isAdvancingSource = false;
           if (iconEl) iconEl.innerText = 'pause';
           renderMediaGrid();
         }).catch(nextErr => {
-          isAdvancingSource = false;
           if (nextErr.name === 'NotAllowedError') {
             if (timeEl) timeEl.innerText = 'Click Play ▶ to start';
             if (iconEl) iconEl.innerText = 'play_arrow';
@@ -1911,7 +1928,6 @@
           }
         });
       } else {
-        isAdvancingSource = false;
         if (iconEl) iconEl.innerText = 'play_arrow';
         showPlayerError(errMsg || `Audio track "${title}" could not be retrieved from storage.`);
         renderMediaGrid();

@@ -8398,6 +8398,10 @@ export default {
         let key = urlObj.searchParams.get('key') || urlObj.searchParams.get('storageKey') || urlObj.searchParams.get('path');
         const trackId = urlObj.searchParams.get('id') || pathname.replace('/api/media/stream/', '').trim();
 
+        if (!key && trackId && (trackId.includes('/') || trackId.endsWith('.mp3') || trackId.endsWith('.wav') || trackId.endsWith('.mp4') || trackId.endsWith('.webm') || trackId.endsWith('.ogg') || trackId.endsWith('.m4a'))) {
+          key = trackId;
+        }
+
         // Sanitize key against directory traversal
         if (key) {
           key = String(key).replace(/^\/+/, '');
@@ -8520,7 +8524,10 @@ export default {
             }
 
             const headers = new Headers();
-            const mime = obj.contentType || (dbRow && dbRow.mime_type) || getMimeType(key);
+            let mime = obj.contentType;
+            if (!mime || mime === 'application/octet-stream' || mime === 'b2/x-auto') {
+              mime = (dbRow && dbRow.mime_type) || getMimeType(key);
+            }
             headers.set('Content-Type', mime);
             headers.set('Content-Length', String(contentLength));
             headers.set('Accept-Ranges', 'bytes');
@@ -10778,24 +10785,24 @@ export default {
           // Resolve exact target filename:
           // If user provides title -> use that title + extension
           // If user does not provide title -> use original file's name
-          const trimmedTitle = String(body.title || title || '').trim();
+          const userProvidedTitle = String(body.userProvidedTitle !== undefined ? body.userProvidedTitle : (body.title || '')).trim();
           const cleanBaseFilename = filename.replace(/\.[^/.]+$/, '').replace(/[-_]+/g, ' ');
           let targetBaseName = '';
           let finalTitle = '';
 
-          if (trimmedTitle && trimmedTitle !== 'media-upload' && trimmedTitle !== 'upload') {
-            finalTitle = sanitizeString(trimmedTitle, 100);
-            if (trimmedTitle.toLowerCase().endsWith('.' + audioValidation.extension.toLowerCase())) {
-              targetBaseName = trimmedTitle;
+          if (userProvidedTitle && userProvidedTitle !== 'media-upload' && userProvidedTitle !== 'upload') {
+            finalTitle = sanitizeString(userProvidedTitle, 100);
+            if (userProvidedTitle.toLowerCase().endsWith('.' + audioValidation.extension.toLowerCase())) {
+              targetBaseName = userProvidedTitle;
             } else {
-              targetBaseName = `${trimmedTitle}.${audioValidation.extension}`;
+              targetBaseName = `${userProvidedTitle}.${audioValidation.extension}`;
             }
           } else {
             targetBaseName = filename;
             finalTitle = sanitizeString(cleanBaseFilename || filename, 100);
           }
 
-          const cleanFileName = targetBaseName.replace(/[\\/]/g, '_').replace(/[^a-zA-Z0-9._\s-]/g, '').trim() || `audio.${audioValidation.extension}`;
+          const cleanFileName = targetBaseName.replace(/[\\/]/g, '_').trim() || `audio.${audioValidation.extension}`;
           const trackId = `mus_${Date.now().toString(36)}_${Math.random().toString(36).substring(2, 6)}`;
           // In Backblaze B2: strictly music/${cleanFileName} - NO timestamp or random ID prepended!
           const storageKey = `music/${cleanFileName}`;
@@ -10933,24 +10940,24 @@ export default {
 
           const b2Provider = B2StorageProvider.fromEnv(env);
           // Resolve exact target filename:
-          const trimmedTitle = String(body.title || title || '').trim();
+          const userProvidedTitle = String(body.userProvidedTitle !== undefined ? body.userProvidedTitle : (body.title || '')).trim();
           const cleanBaseFilename = filename.replace(/\.[^/.]+$/, '').replace(/[-_]+/g, ' ');
           let targetBaseName = '';
           let finalTitle = '';
 
-          if (trimmedTitle && trimmedTitle !== 'media-upload' && trimmedTitle !== 'upload') {
-            finalTitle = sanitizeString(trimmedTitle, 100);
-            if (trimmedTitle.toLowerCase().endsWith('.' + videoValidation.extension.toLowerCase())) {
-              targetBaseName = trimmedTitle;
+          if (userProvidedTitle && userProvidedTitle !== 'media-upload' && userProvidedTitle !== 'upload') {
+            finalTitle = sanitizeString(userProvidedTitle, 100);
+            if (userProvidedTitle.toLowerCase().endsWith('.' + videoValidation.extension.toLowerCase())) {
+              targetBaseName = userProvidedTitle;
             } else {
-              targetBaseName = `${trimmedTitle}.${videoValidation.extension}`;
+              targetBaseName = `${userProvidedTitle}.${videoValidation.extension}`;
             }
           } else {
             targetBaseName = filename;
             finalTitle = sanitizeString(cleanBaseFilename || filename, 100);
           }
 
-          const cleanFileName = targetBaseName.replace(/[\\/]/g, '_').replace(/[^a-zA-Z0-9._\s-]/g, '').trim() || `video.${videoValidation.extension}`;
+          const cleanFileName = targetBaseName.replace(/[\\/]/g, '_').trim() || `video.${videoValidation.extension}`;
           const videoId = `vid_${Date.now().toString(36)}_${Math.random().toString(36).substring(2, 6)}`;
           // In Backblaze B2: strictly videos/${cleanFileName} - NO timestamp or random ID prepended!
           const storageKey = `videos/${cleanFileName}`;
