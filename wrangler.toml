@@ -19,7 +19,7 @@ IMGBB_API_URL = "https://api.imgbb.com/1/upload"
 # Safe non-secret settings; B2_KEY_ID & B2_APPLICATION_KEY are configured via Cloudflare Secrets
 B2_BUCKET_NAME = "wishmagic-assets"
 B2_ENDPOINT = "https://api.backblazeb2.com"
-B2_DOWNLOAD_URL = "https://f005.backblazeb2.com/file/wishmagic-assets"
+B2_DOWNLOAD_URL = "https://f005.backblazeb2.com"
 
 
 # Cloudflare D1 Database Binding

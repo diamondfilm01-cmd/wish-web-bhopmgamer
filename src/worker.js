@@ -8432,24 +8432,27 @@ export default {
         if (env.DB && typeof env.DB.prepare === 'function') {
           try {
             if (trackId) {
-              dbRow = await env.DB.prepare('SELECT id, title, artist, storage_key, playback_url, mime_type, size_bytes FROM music_library WHERE id = ? LIMIT 1').bind(trackId).first().catch(() => null);
+              dbRow = await env.DB.prepare('SELECT id, title, artist, storage_key, playback_url, mime_type, size_bytes, provider_file_id as file_id FROM music_library WHERE id = ? LIMIT 1').bind(trackId).first().catch(() => null);
               if (!dbRow) {
-                dbRow = await env.DB.prepare('SELECT id, filename as title, NULL as artist, object_key as storage_key, url as playback_url, mime_type, size_bytes FROM wish_media WHERE id = ? LIMIT 1').bind(trackId).first().catch(() => null);
+                dbRow = await env.DB.prepare('SELECT id, filename as title, NULL as artist, object_key as storage_key, url as playback_url, mime_type, size_bytes, NULL as file_id FROM wish_media WHERE id = ? LIMIT 1').bind(trackId).first().catch(() => null);
               }
               if (!dbRow) {
-                dbRow = await env.DB.prepare('SELECT entity_id as id, object_key as title, NULL as artist, object_key as storage_key, public_url as playback_url, content_type as mime_type, content_length as size_bytes FROM b2_storage_objects WHERE id = ? OR entity_id = ? LIMIT 1').bind(trackId, trackId).first().catch(() => null);
+                dbRow = await env.DB.prepare('SELECT entity_id as id, object_key as title, NULL as artist, object_key as storage_key, public_url as playback_url, content_type as mime_type, content_length as size_bytes, file_id FROM b2_storage_objects WHERE id = ? OR entity_id = ? LIMIT 1').bind(trackId, trackId).first().catch(() => null);
               }
             } else if (key) {
-              dbRow = await env.DB.prepare('SELECT id, title, artist, storage_key, playback_url, mime_type, size_bytes FROM music_library WHERE storage_key = ? LIMIT 1').bind(key).first().catch(() => null);
+              dbRow = await env.DB.prepare('SELECT id, title, artist, storage_key, playback_url, mime_type, size_bytes, provider_file_id as file_id FROM music_library WHERE storage_key = ? LIMIT 1').bind(key).first().catch(() => null);
               if (!dbRow) {
-                dbRow = await env.DB.prepare('SELECT id, filename as title, NULL as artist, object_key as storage_key, url as playback_url, mime_type, size_bytes FROM wish_media WHERE object_key = ? LIMIT 1').bind(key).first().catch(() => null);
+                dbRow = await env.DB.prepare('SELECT id, filename as title, NULL as artist, object_key as storage_key, url as playback_url, mime_type, size_bytes, NULL as file_id FROM wish_media WHERE object_key = ? LIMIT 1').bind(key).first().catch(() => null);
               }
               if (!dbRow) {
-                dbRow = await env.DB.prepare('SELECT entity_id as id, object_key as title, NULL as artist, object_key as storage_key, public_url as playback_url, content_type as mime_type, content_length as size_bytes FROM b2_storage_objects WHERE object_key = ? LIMIT 1').bind(key).first().catch(() => null);
+                dbRow = await env.DB.prepare('SELECT entity_id as id, object_key as title, NULL as artist, object_key as storage_key, public_url as playback_url, content_type as mime_type, content_length as size_bytes, file_id FROM b2_storage_objects WHERE object_key = ? LIMIT 1').bind(key).first().catch(() => null);
               }
             }
             if (dbRow && dbRow.storage_key) {
               key = dbRow.storage_key;
+            }
+            if (dbRow && dbRow.playback_url && dbRow.playback_url.includes('/file/wishmagic-assets/file/wishmagic-assets/')) {
+              dbRow.playback_url = dbRow.playback_url.replace('/file/wishmagic-assets/file/wishmagic-assets/', '/file/wishmagic-assets/');
             }
           } catch (_) {}
         }
@@ -8472,7 +8475,6 @@ export default {
           'music/golden-nostalgia-cello.mp3': '/audio/golden-nostalgia.mp3',
           'golden-nostalgia-cello.mp3': '/audio/golden-nostalgia.mp3'
         };
-
         const staticTarget = (trackId && staticAudioMap[trackId]) || (key && staticAudioMap[key]) || (key && staticAudioMap[key.split('/').pop()]) || null;
         if (staticTarget && (!dbRow || !dbRow.storage_key || dbRow.storage_key.includes('celebration-acoustic') || dbRow.storage_key.includes('romantic-midnight') || dbRow.storage_key.includes('golden-nostalgia'))) {
           if (env.ASSETS && typeof env.ASSETS.fetch === 'function') {
@@ -8492,7 +8494,6 @@ export default {
         if (!trackId && !key) {
           return applySecurityHeaders(jsonError('MISSING_KEY', 'Audio storage key or id is required', 400), request, env);
         }
-
         if (!key && !dbRow) {
           return applySecurityHeaders(jsonError('TRACK_NOT_FOUND', 'Requested audio media track not found', 404), request, env);
         }
@@ -8502,7 +8503,6 @@ export default {
             const b2 = B2StorageProvider.fromEnv(env);
             const clientRange = request.headers.get('range');
             const obj = await b2.getObject({ key, range: clientRange });
-
             let responseBody = obj.body;
             let responseStatus = (clientRange && obj.status === 206) ? 206 : 200;
             let contentRangeHeader = obj.contentRange;
@@ -8566,26 +8566,18 @@ export default {
             return applySecurityHeaders(new Response(responseBody, { status: responseStatus, headers }), request, env);
           } catch (streamErr) {
             console.warn('[B2 Media Stream Warning]', streamErr.message);
-            if (streamErr.status === 416 || streamErr.code === 'RANGE_NOT_SATISFIABLE') {
-              const errHeaders = new Headers();
-              errHeaders.set('Accept-Ranges', 'bytes');
-              errHeaders.set('Access-Control-Allow-Origin', '*');
-              if (streamErr.contentRange) errHeaders.set('Content-Range', streamErr.contentRange);
-              return applySecurityHeaders(new Response('Range Not Satisfiable', { status: 416, headers: errHeaders }), request, env);
-            }
-            if (streamErr.status === 404 || streamErr.code === 'NOT_FOUND') {
-              return applySecurityHeaders(jsonError('TRACK_NOT_FOUND', 'Media asset not found in storage: ' + key, 404), request, env);
-            }
-            if (streamErr.status === 403) {
-              return applySecurityHeaders(jsonError('STORAGE_FORBIDDEN', 'Access denied to storage asset', 403), request, env);
-            }
-            // If upstream storage error and playback_url fallback exists, attempt streaming from playback_url
+
+            // 1. If playback_url fallback exists, attempt streaming from it first
             if (dbRow && dbRow.playback_url && (dbRow.playback_url.startsWith('http://') || dbRow.playback_url.startsWith('https://'))) {
               try {
                 const proxyHeaders = new Headers();
                 const rangeHeader = request.headers.get('range');
                 if (rangeHeader) proxyHeaders.set('Range', rangeHeader);
-                const upstream = await fetch(dbRow.playback_url, { headers: proxyHeaders });
+                let fallbackUrl = dbRow.playback_url;
+                if (fallbackUrl.includes('/file/wishmagic-assets/file/wishmagic-assets/')) {
+                  fallbackUrl = fallbackUrl.replace('/file/wishmagic-assets/file/wishmagic-assets/', '/file/wishmagic-assets/');
+                }
+                const upstream = await fetch(fallbackUrl, { headers: proxyHeaders });
                 if (upstream.ok || upstream.status === 206 || upstream.status === 416) {
                   const outHeaders = new Headers();
                   outHeaders.set('Content-Type', upstream.headers.get('content-type') || (dbRow.mime_type || getMimeType(key || 'media.mp3')));
@@ -8605,6 +8597,39 @@ export default {
                   return applySecurityHeaders(new Response(bytes, { status: upstream.status, headers: outHeaders }), request, env);
                 }
               } catch (_) {}
+            }
+
+            // 2. If file_id is known, attempt download by fileId
+            if (dbRow && dbRow.file_id) {
+              try {
+                const byIdObj = await b2.downloadFileById({ fileId: dbRow.file_id, range: clientRange });
+                if (byIdObj && byIdObj.body) {
+                  const headers = new Headers();
+                  headers.set('Content-Type', byIdObj.contentType || dbRow.mime_type || getMimeType(key || 'media.mp3'));
+                  headers.set('Content-Length', String(byIdObj.contentLength || byIdObj.body.byteLength));
+                  headers.set('Accept-Ranges', 'bytes');
+                  headers.set('Access-Control-Allow-Origin', '*');
+                  headers.set('Access-Control-Allow-Methods', 'GET, HEAD, OPTIONS');
+                  headers.set('Access-Control-Allow-Headers', 'Range, Content-Type, Accept');
+                  headers.set('Access-Control-Expose-Headers', 'Content-Range, Content-Length, Accept-Ranges');
+                  if (byIdObj.contentRange) headers.set('Content-Range', byIdObj.contentRange);
+                  return applySecurityHeaders(new Response(byIdObj.body, { status: byIdObj.status || 200, headers }), request, env);
+                }
+              } catch (_) {}
+            }
+
+            if (streamErr.status === 416 || streamErr.code === 'RANGE_NOT_SATISFIABLE') {
+              const errHeaders = new Headers();
+              errHeaders.set('Accept-Ranges', 'bytes');
+              errHeaders.set('Access-Control-Allow-Origin', '*');
+              if (streamErr.contentRange) errHeaders.set('Content-Range', streamErr.contentRange);
+              return applySecurityHeaders(new Response('Range Not Satisfiable', { status: 416, headers: errHeaders }), request, env);
+            }
+            if (streamErr.status === 404 || streamErr.code === 'NOT_FOUND') {
+              return applySecurityHeaders(jsonError('TRACK_NOT_FOUND', 'Media asset not found in storage: ' + key, 404), request, env);
+            }
+            if (streamErr.status === 403) {
+              return applySecurityHeaders(jsonError('STORAGE_FORBIDDEN', 'Access denied to storage asset', 403), request, env);
             }
             return applySecurityHeaders(jsonError('UPSTREAM_STORAGE_ERROR', 'Audio/video track could not be loaded from storage: ' + (streamErr.message || 'Storage error'), 502), request, env);
           }
@@ -10501,16 +10526,25 @@ export default {
           try {
             const wmRows = await env.DB.prepare('SELECT * FROM wish_media WHERE status != "archived" ORDER BY created_at DESC LIMIT 200').all();
             (wmRows.results || []).forEach(m => {
-              const url = m.display_url || m.url;
+              let url = m.display_url || m.url;
+              if (url && url.includes('/file/wishmagic-assets/file/wishmagic-assets/')) {
+                url = url.replace('/file/wishmagic-assets/file/wishmagic-assets/', '/file/wishmagic-assets/');
+              }
               if (url) {
                 const detectedType = m.media_type || (url.startsWith('data:audio') || url.endsWith('.mp3') || url.endsWith('.wav') ? 'audio' : (url.endsWith('.mp4') || url.endsWith('.webm') ? 'video' : 'image'));
                 const provider = m.storage_provider || (url.includes('ibb.co') ? 'imgbb' : (url.includes('backblazeb2') ? 'b2' : 'd1'));
-                const streamUrl = (detectedType === 'audio' || detectedType === 'video') ? `/api/media/stream?id=${encodeURIComponent(m.id)}` : url;
+                const streamUrl = (detectedType === 'audio' || detectedType === 'video' || provider === 'b2') ? `/api/media/stream?id=${encodeURIComponent(m.id)}` : url;
+                let format = (m.filename ? m.filename.split('.').pop() : '').toUpperCase();
+                if (!format || format.length > 5) {
+                  format = (m.mime_type || (detectedType === 'audio' ? 'audio/mpeg' : (detectedType === 'video' ? 'video/mp4' : 'image/jpeg'))).split('/').pop().toUpperCase();
+                }
+                if (format === 'MPEG') format = 'MP3';
+                if (format === 'JPEG') format = 'JPG';
                 allAssetsMap.set(m.id, {
                   id: m.id,
                   title: resolveSafeDisplayTitle(m.filename, m.filename, m.object_key),
                   type: detectedType,
-                  format: (m.mime_type || (detectedType === 'audio' ? 'audio/mpeg' : (detectedType === 'video' ? 'video/mp4' : 'image/jpeg'))).split('/').pop().toUpperCase(),
+                  format,
                   url,
                   displayUrl: url,
                   playbackUrl: url || streamUrl,
@@ -10586,18 +10620,26 @@ export default {
           try {
             const mlRows = await env.DB.prepare('SELECT * FROM music_library WHERE status != "archived" ORDER BY created_at DESC LIMIT 200').all();
             (mlRows.results || []).forEach(m => {
-              const url = m.playback_url;
+              let url = m.playback_url;
+              if (url && url.includes('/file/wishmagic-assets/file/wishmagic-assets/')) {
+                url = url.replace('/file/wishmagic-assets/file/wishmagic-assets/', '/file/wishmagic-assets/');
+              }
               if (url) {
                 const durationFormatted = m.duration_seconds
                   ? `${Math.floor(m.duration_seconds / 60)}:${String(m.duration_seconds % 60).padStart(2, '0')}`
                   : null;
                 const streamUrl = `/api/media/stream?id=${encodeURIComponent(m.id)}`;
+                let format = (m.original_filename ? m.original_filename.split('.').pop() : '').toUpperCase();
+                if (!format || format.length > 5) {
+                  format = (m.mime_type || 'audio/mpeg').split('/').pop().toUpperCase();
+                }
+                if (format === 'MPEG') format = 'MP3';
                 allAssetsMap.set(m.id, {
                   id: m.id,
                   title: resolveSafeDisplayTitle(m.title, m.original_filename, m.storage_key),
                   artist: m.artist || null,
                   type: 'audio',
-                  format: (m.mime_type || 'audio/mpeg').split('/').pop().toUpperCase(),
+                  format,
                   url,
                   playbackUrl: url || streamUrl,
                   streamUrl,
@@ -10706,8 +10748,8 @@ export default {
         response = jsonSuccess({ summary, assets: results }, 200, {}, requestId);
       }
 
-      // --- Part 21 & Part 41: Admin Universal Media Uploader (Backblaze B2 Audio/Video & ImgBB Images) ---
-      else if ((pathname === '/api/admin/media/upload' || pathname === '/api/admin/music/upload' || pathname === '/api/music/upload') && method === 'POST') {
+      // --- Part 21 & Part 41 & Part 44: Admin Universal & Bulk Media Uploader (B2 Audio/Video/Photos & ImgBB) ---
+      else if ((pathname === '/api/admin/media/upload' || pathname === '/api/admin/media/bulk-upload' || pathname === '/api/admin/music/upload' || pathname === '/api/music/upload') && method === 'POST') {
         const user = await getAuthenticatedUser(request, env);
         if (!user) return applySecurityHeaders(jsonError('AUTH_REQUIRED', 'Admin authentication required', 401), request, env);
         const isAdmin = await verifyAdminRole(user, env);
@@ -10717,410 +10759,402 @@ export default {
           return applySecurityHeaders(jsonError('FORBIDDEN', 'Cross-origin mutation rejected', 403), request, env);
         }
 
-        let body = {};
-        let fileData = null;
-        let filename = 'media-upload';
-        let title = '';
-        let setAsHero = false;
-        let rawType = '';
-        let artist = 'WishMagic Studio';
-        let category = '';
-
+        const isExplicitMusicEndpoint = pathname.includes('/music/upload');
         const contentType = request.headers.get('content-type') || '';
+        let itemsToProcess = [];
+
         if (contentType.includes('multipart/form-data')) {
           const formData = await request.formData().catch(() => null);
           if (formData) {
-            const fileField = formData.get('file');
-            title = sanitizeString(formData.get('title') || '', 100);
-            rawType = (formData.get('type') || '').toLowerCase().trim();
-            category = sanitizeString(formData.get('category') || '', 40);
-            artist = sanitizeString(formData.get('artist') || 'WishMagic Studio', 80);
-            setAsHero = formData.get('setAsHeroImage') === 'true' || formData.get('setAsHeroImage') === true;
-
-            if (fileField && typeof fileField.arrayBuffer === 'function') {
-              filename = sanitizeString(fileField.name || 'media-upload', 100);
-              fileData = await fileField.arrayBuffer();
-            } else if (typeof fileField === 'string' && fileField) {
-              fileData = fileField;
+            const files = formData.getAll('files');
+            if (files && files.length > 0) {
+              for (const fileField of files) {
+                if (fileField && typeof fileField.arrayBuffer === 'function') {
+                  itemsToProcess.push({
+                    filename: fileField.name || 'media-upload',
+                    fileData: await fileField.arrayBuffer(),
+                    title: formData.get('title') || '',
+                    type: formData.get('type') || (isExplicitMusicEndpoint ? 'audio' : ''),
+                    category: formData.get('category') || '',
+                    artist: formData.get('artist') || null,
+                    setAsHero: formData.get('setAsHeroImage') === 'true'
+                  });
+                }
+              }
+            } else {
+              const fileField = formData.get('file');
+              if (fileField) {
+                itemsToProcess.push({
+                  filename: fileField.name || 'media-upload',
+                  fileData: typeof fileField.arrayBuffer === 'function' ? await fileField.arrayBuffer() : fileField,
+                  title: formData.get('title') || '',
+                  type: formData.get('type') || (isExplicitMusicEndpoint ? 'audio' : ''),
+                  category: formData.get('category') || '',
+                  artist: formData.get('artist') || null,
+                  setAsHero: formData.get('setAsHeroImage') === 'true'
+                });
+              }
             }
           }
         } else {
-          body = await request.json().catch(() => ({}));
-          fileData = body.fileData || body.data;
-          filename = sanitizeString(body.filename || 'media-upload', 100);
-          title = sanitizeString(body.title || filename, 100);
-          rawType = (body.type || '').toLowerCase().trim();
-          category = sanitizeString(body.category || '', 40);
-          artist = sanitizeString(body.artist || 'WishMagic Studio', 80);
-          setAsHero = Boolean(body.setAsHeroImage);
+          const body = await request.json().catch(() => ({}));
+          if (Array.isArray(body.files) && body.files.length > 0) {
+            itemsToProcess = body.files.map(f => ({
+              filename: f.filename || 'media-upload',
+              fileData: f.fileData || f.data,
+              title: f.title || '',
+              userProvidedTitle: f.userProvidedTitle,
+              type: f.type || (isExplicitMusicEndpoint ? 'audio' : ''),
+              category: f.category || body.category || '',
+              artist: f.artist || body.artist || null,
+              setAsHero: Boolean(f.setAsHero || body.setAsHeroImage)
+            }));
+          } else {
+            itemsToProcess.push({
+              filename: body.filename || 'media-upload',
+              fileData: body.fileData || body.data,
+              title: body.title || '',
+              userProvidedTitle: body.userProvidedTitle,
+              type: body.type || (isExplicitMusicEndpoint ? 'audio' : ''),
+              category: body.category || '',
+              artist: body.artist || null,
+              setAsHero: Boolean(body.setAsHeroImage)
+            });
+          }
         }
 
-        if (!title && filename) {
-          title = filename;
-        }
-
-        if (!fileData) {
+        if (itemsToProcess.length === 0 || !itemsToProcess[0].fileData) {
           return applySecurityHeaders(jsonError('VALIDATION_ERROR', 'File payload is required', 400), request, env);
         }
 
-        const ext = (filename.split('.').pop() || '').toLowerCase();
-        const isExplicitMusicEndpoint = pathname.includes('/music/upload');
+        const isBulk = itemsToProcess.length > 1 || pathname.includes('bulk-upload') || (itemsToProcess.length === 1 && pathname === '/api/admin/media/bulk-upload');
 
-        const isAudio = isExplicitMusicEndpoint || rawType === 'audio' || AUDIO_LIMITS.ALLOWED_EXTENSIONS.includes(ext) || ['mp3', 'wav', 'ogg', 'm4a', 'aac', 'flac'].includes(ext);
-        const isVideo = !isAudio && (rawType === 'video' || VIDEO_LIMITS.ALLOWED_EXTENSIONS.includes(ext) || ['mp4', 'webm', 'mov'].includes(ext));
-        const isImage = !isAudio && !isVideo;
+        // Helper: Process a single media file maintaining EXACT original name and format
+        const processSingleItem = async (item) => {
+          let { filename, fileData, title, userProvidedTitle, type: rawType, category, artist, setAsHero } = item;
+          filename = sanitizeString(filename || 'media-upload', 255);
+          const ext = (filename.split('.').pop() || '').toLowerCase();
 
-        const nowIso = new Date().toISOString();
-
-        // =====================================================================
-        // CASE A: AUDIO / MUSIC TRACK UPLOAD -> BACKBLAZE B2 & D1 MUSIC LIBRARY
-        // =====================================================================
-        if (isAudio) {
-          let audioValidation;
-          try {
-            audioValidation = await validateAudioBuffer(fileData, {
-              maxSizeBytes: AUDIO_LIMITS.MAX_AUDIO_BYTES,
-              filename
-            });
-          } catch (valErr) {
-            return applySecurityHeaders(jsonError(valErr.code || 'AUDIO_INVALID', valErr.message, 400), request, env);
+          const forbiddenExts = ['js', 'html', 'htm', 'php', 'sh', 'bat', 'exe', 'py'];
+          if (forbiddenExts.includes(ext)) {
+            const err = new Error(`Executable or script format (.${ext}) is strictly rejected.`);
+            err.code = 'FILE_SECURITY_REJECTED';
+            err.status = 400;
+            throw err;
           }
 
-          const b2Config = getB2Config(env);
-          if (!b2Config.isConfigured) {
-            return applySecurityHeaders(jsonError(
-              'B2_NOT_CONFIGURED',
-              `Backblaze B2 storage credentials are not configured in environment secrets. Missing: ${b2Config.missingKeys.join(', ')}`,
-              503
-            ), request, env);
-          }
+          rawType = (rawType || '').toLowerCase().trim();
+          const isAudio = isExplicitMusicEndpoint || rawType === 'audio' || AUDIO_LIMITS.ALLOWED_EXTENSIONS.includes(ext) || ['mp3', 'wav', 'ogg', 'm4a', 'aac', 'flac', 'weba', 'opus'].includes(ext);
+          const isVideo = !isAudio && (rawType === 'video' || VIDEO_LIMITS.ALLOWED_EXTENSIONS.includes(ext) || ['mp4', 'webm', 'mov', 'mkv', '3gp'].includes(ext));
+          const isImage = !isAudio && !isVideo;
+          const nowIso = new Date().toISOString();
 
-          let b2Provider;
-          try {
-            b2Provider = B2StorageProvider.fromEnv(env);
-          } catch (initErr) {
-            return applySecurityHeaders(jsonError('B2_INIT_FAILED', initErr.message, 503), request, env);
-          }
-
-          // Resolve exact target filename:
-          // If user provides title -> use that title + extension
-          // If user does not provide title -> use original file's name
-          const userProvidedTitle = String(body.userProvidedTitle !== undefined ? body.userProvidedTitle : (body.title || '')).trim();
+          // Title resolution: If user specified explicit title, use it. Otherwise use exact clean filename
           const cleanBaseFilename = filename.replace(/\.[^/.]+$/, '').replace(/[-_]+/g, ' ');
-          let targetBaseName = '';
-          let finalTitle = resolveSafeDisplayTitle(userProvidedTitle, cleanBaseFilename, filename);
+          let finalTitle = resolveSafeDisplayTitle(userProvidedTitle || title, cleanBaseFilename, filename);
+          // Retain EXACT original filename in B2 Vault (no forced .mp3 conversion, no mangling)
+          const cleanFileName = filename.replace(/[\\/]/g, '_').trim() || `media.${ext || 'dat'}`;
 
-          const isExplicitValidTitle = userProvidedTitle &&
-            userProvidedTitle.toLowerCase() !== 'null' &&
-            userProvidedTitle.toLowerCase() !== 'undefined' &&
-            userProvidedTitle.toLowerCase() !== 'untitled' &&
-            userProvidedTitle !== 'media-upload' &&
-            userProvidedTitle !== 'upload';
-
-          if (isExplicitValidTitle) {
-            finalTitle = sanitizeString(userProvidedTitle, 100);
-            if (userProvidedTitle.toLowerCase().endsWith('.' + audioValidation.extension.toLowerCase())) {
-              targetBaseName = userProvidedTitle;
-            } else {
-              targetBaseName = `${userProvidedTitle}.${audioValidation.extension}`;
-            }
-          } else {
-            targetBaseName = filename;
-            finalTitle = resolveSafeDisplayTitle(null, cleanBaseFilename, filename);
-          }
-
-          const cleanFileName = targetBaseName.replace(/[\\/]/g, '_').trim() || `audio.${audioValidation.extension}`;
-          const trackId = `mus_${Date.now().toString(36)}_${Math.random().toString(36).substring(2, 6)}`;
-          // In Backblaze B2: strictly music/${cleanFileName} - NO timestamp or random ID prepended!
-          const storageKey = `music/${cleanFileName}`;
-
-          let b2UploadResult = null;
-          let playbackUrl = '';
-          const storageProvider = 'b2';
-          try {
-            b2UploadResult = await b2Provider.putObject({
-              key: storageKey,
-              body: audioValidation.bytes,
-              contentType: audioValidation.mimeType,
-              metadata: {
-                title: finalTitle,
-                filename: cleanFileName,
-                trackId,
-                uploader: user.id
-              }
-            });
-            playbackUrl = b2UploadResult.playbackUrl || b2UploadResult.downloadUrl;
-          } catch (uploadErr) {
-            const safeMsg = String(uploadErr.message || 'B2 upload failed').replace(/Basic\s+[A-Za-z0-9+/=]+/gi, '[REDACTED]');
-            console.error('[B2 Audio Upload Error]:', safeMsg);
-            return applySecurityHeaders(jsonError(
-              uploadErr.code || 'B2_UPLOAD_FAILED',
-              `Failed to upload audio file to Backblaze B2: ${uploadErr.message}`,
-              502
-            ), request, env);
-          }
-
-          const finalArtist = body.artist ? sanitizeString(body.artist, 80) : (audioValidation.metadata?.artist ? sanitizeString(audioValidation.metadata.artist, 80) : null);
-          const finalCategory = sanitizeString(category || body.category || 'celebration', 40);
-          const description = sanitizeString(body.description || finalTitle, 200);
-          const durationSeconds = (body.durationSeconds !== undefined && body.durationSeconds !== null && !isNaN(Number(body.durationSeconds)))
-            ? Number(body.durationSeconds)
-            : (audioValidation.metadata?.durationSeconds || null);
-
-          // Persist metadata to D1 (both music_library and wish_media)
-          if (env.DB && typeof env.DB.prepare === 'function') {
+          // CASE 1: AUDIO
+          if (isAudio) {
+            let audioValidation;
             try {
-              await persistMusicTrackToD1(env.DB, {
-                trackId,
-                title: finalTitle,
-                artist: finalArtist,
-                description,
-                category: finalCategory,
-                storageKey,
-                playbackUrl,
-                mimeType: audioValidation.mimeType,
-                durationSeconds,
-                sizeBytes: audioValidation.sizeBytes,
-                sha256: audioValidation.sha256,
-                providerFileId: b2UploadResult?.fileId || null,
-                userId: user.id || 'system',
-                filename,
-                storageProvider,
-                b2UploadResult,
-                b2Config,
-                nowIso
+              audioValidation = await validateAudioBuffer(fileData, {
+                maxSizeBytes: AUDIO_LIMITS.MAX_AUDIO_BYTES,
+                filename
               });
-            } catch (dbErr) {
-              console.error('[Music Upload] D1 persistence failed, rolling back B2 object:', dbErr.message);
-              // Safe cleanup: delete orphaned object from B2 if was uploaded
-              if (b2UploadResult && b2UploadResult.fileId) {
-                await b2Provider.deleteObject({
-                  key: storageKey,
-                  fileId: b2UploadResult.fileId
-                }).catch(delErr => console.warn('[Music Upload] B2 rollback deletion warning:', delErr.message));
-              }
-
-              const diagMsg = dbErr.message ? ` (${dbErr.message})` : '';
-              return applySecurityHeaders(jsonError(
-                'D1_WRITE_FAILED',
-                `Database metadata write failed. Storage upload was safely rolled back.${diagMsg}`,
-                500
-              ), request, env);
+            } catch (valErr) {
+              const err = new Error(valErr.message);
+              err.code = valErr.code || 'AUDIO_INVALID';
+              err.status = 400;
+              throw err;
             }
-          }
 
-          const streamProxyUrl = `/api/media/stream?id=${encodeURIComponent(trackId)}`;
-          const playableUrl = playbackUrl || streamProxyUrl;
-
-          const newAudioTrack = {
-            id: trackId,
-            title: finalTitle,
-            artist: finalArtist,
-            category: finalCategory,
-            type: 'audio',
-            format: audioValidation.extension.toUpperCase(),
-            url: playableUrl,
-            playbackUrl: playableUrl,
-            streamUrl: streamProxyUrl,
-            storageKey,
-            storageProvider,
-            fileSize: audioValidation.sizeBytes,
-            fileSizeFormatted: `${(audioValidation.sizeBytes / (1024 * 1024)).toFixed(2)} MB`,
-            durationSeconds,
-            originalFilename: filename,
-            mimeType: audioValidation.mimeType,
-            sha256: audioValidation.sha256,
-            createdAt: nowIso
-          };
-
-          response = jsonSuccess({
-            success: true,
-            status: 'uploaded',
-            asset: newAudioTrack,
-            track: newAudioTrack,
-            message: `Music track "${finalTitle}" uploaded to Backblaze B2 and added to library!`
-          }, 201, {}, requestId);
-        }
-
-        // =====================================================================
-        // CASE B: VIDEO REEL UPLOAD -> BACKBLAZE B2 & D1 WISH_MEDIA
-        // =====================================================================
-        else if (isVideo) {
-          let videoValidation;
-          try {
-            videoValidation = await validateVideoBuffer(fileData, {
-              maxSizeBytes: VIDEO_LIMITS.MAX_VIDEO_BYTES,
-              filename
-            });
-          } catch (valErr) {
-            return applySecurityHeaders(jsonError(valErr.code || 'VIDEO_INVALID', valErr.message, 400), request, env);
-          }
-
-          const b2Config = getB2Config(env);
-          if (!b2Config.isConfigured) {
-            return applySecurityHeaders(jsonError(
-              'B2_NOT_CONFIGURED',
-              `Backblaze B2 storage credentials are not configured in environment secrets. Missing: ${b2Config.missingKeys.join(', ')}`,
-              503
-            ), request, env);
-          }
-
-          const b2Provider = B2StorageProvider.fromEnv(env);
-          // Resolve exact target filename:
-          const userProvidedTitle = String(body.userProvidedTitle !== undefined ? body.userProvidedTitle : (body.title || '')).trim();
-          const cleanBaseFilename = filename.replace(/\.[^/.]+$/, '').replace(/[-_]+/g, ' ');
-          let targetBaseName = '';
-          let finalTitle = '';
-
-          if (userProvidedTitle && userProvidedTitle !== 'media-upload' && userProvidedTitle !== 'upload') {
-            finalTitle = sanitizeString(userProvidedTitle, 100);
-            if (userProvidedTitle.toLowerCase().endsWith('.' + videoValidation.extension.toLowerCase())) {
-              targetBaseName = userProvidedTitle;
-            } else {
-              targetBaseName = `${userProvidedTitle}.${videoValidation.extension}`;
+            const b2Config = getB2Config(env);
+            if (!b2Config.isConfigured) {
+              const err = new Error(`Backblaze B2 storage credentials are not configured in environment secrets. Missing: ${b2Config.missingKeys.join(', ')}`);
+              err.code = 'B2_NOT_CONFIGURED';
+              err.status = 503;
+              throw err;
             }
-          } else {
-            targetBaseName = filename;
-            finalTitle = sanitizeString(cleanBaseFilename || filename, 100);
-          }
 
-          const cleanFileName = targetBaseName.replace(/[\\/]/g, '_').trim() || `video.${videoValidation.extension}`;
-          const videoId = `vid_${Date.now().toString(36)}_${Math.random().toString(36).substring(2, 6)}`;
-          // In Backblaze B2: strictly videos/${cleanFileName} - NO timestamp or random ID prepended!
-          const storageKey = `videos/${cleanFileName}`;
-
-          let b2UploadResult = null;
-          let playbackUrl = '';
-          const storageProvider = 'b2';
-          try {
-            b2UploadResult = await b2Provider.putObject({
-              key: storageKey,
-              body: videoValidation.bytes,
-              contentType: videoValidation.mimeType,
-              metadata: { title: finalTitle, filename: cleanFileName, videoId, uploader: user.id }
-            });
-            playbackUrl = b2UploadResult.playbackUrl || b2UploadResult.downloadUrl;
-          } catch (uploadErr) {
-            const safeMsg = String(uploadErr.message || 'B2 video upload failed').replace(/Basic\s+[A-Za-z0-9+/=]+/gi, '[REDACTED]');
-            console.error('[B2 Video Upload Error]:', safeMsg);
-            return applySecurityHeaders(jsonError(
-              uploadErr.code || 'B2_UPLOAD_FAILED',
-              `Failed to upload video to Backblaze B2: ${uploadErr.message}`,
-              502
-            ), request, env);
-          }
-
-          if (env.DB && typeof env.DB.prepare === 'function') {
+            let b2Provider;
             try {
-              await ensureMusicStorageSchema(env.DB);
-              await env.DB.prepare(`
-                INSERT INTO wish_media (
-                  id, wish_id, user_id, object_key, filename, media_type, mime_type,
-                  size_bytes, url, display_url, thumbnail_url, delete_url, sha256,
-                  width, height, storage_provider, status, is_public, created_at, updated_at
-                ) VALUES (?, NULL, ?, ?, ?, 'video', ?, ?, ?, ?, NULL, NULL, ?, NULL, NULL, ?, 'active', 1, ?, ?)
-              `).bind(
-                videoId, user.id || 'system', storageKey, filename || title,
-                videoValidation.mimeType, videoValidation.sizeBytes, playbackUrl, playbackUrl,
-                videoValidation.sha256, storageProvider, nowIso, nowIso
-              ).run();
-
-              if (b2UploadResult) {
-                await env.DB.prepare(`
-                  INSERT OR REPLACE INTO b2_storage_objects (
-                    id, bucket_id, bucket_name, object_key, file_id, content_type,
-                    content_length, sha256, public_url, entity_type, entity_id,
-                    uploader_id, upload_status, metadata_json, created_at, updated_at
-                  ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, 'video', ?, ?, 'completed', ?, ?, ?)
-                `).bind(
-                  `b2_${videoId}`, b2UploadResult.bucketId || null, b2Config.bucketName || 'wishmagic-assets', storageKey,
-                  b2UploadResult.fileId || null, videoValidation.mimeType, videoValidation.sizeBytes,
-                  videoValidation.sha256, playbackUrl, videoId, user.id || 'system',
-                  JSON.stringify({ title, filename }), nowIso, nowIso
-                ).run().catch(() => {});
-              }
-            } catch (dbErr) {
-              if (b2UploadResult && b2UploadResult.fileId) {
-                await b2Provider.deleteObject({ key: storageKey, fileId: b2UploadResult.fileId }).catch(() => {});
-              }
-              const diagMsg = dbErr.message ? ` (${dbErr.message})` : '';
-              return applySecurityHeaders(jsonError('D1_WRITE_FAILED', `Database metadata write failed. Video upload rolled back.${diagMsg}`, 500), request, env);
+              b2Provider = B2StorageProvider.fromEnv(env);
+            } catch (initErr) {
+              const err = new Error(initErr.message);
+              err.code = 'B2_INIT_FAILED';
+              err.status = 503;
+              throw err;
             }
+
+            const trackId = `mus_${Date.now().toString(36)}_${Math.random().toString(36).substring(2, 6)}`;
+            const storageKey = `music/${cleanFileName}`;
+            const storageProvider = 'b2';
+            let b2UploadResult = null;
+            let playbackUrl = '';
+
+            try {
+              b2UploadResult = await b2Provider.putObject({
+                key: storageKey,
+                body: audioValidation.bytes,
+                contentType: audioValidation.mimeType,
+                metadata: {
+                  title: finalTitle,
+                  filename: cleanFileName,
+                  trackId,
+                  uploader: user.id
+                }
+              });
+              playbackUrl = b2UploadResult.playbackUrl || b2UploadResult.downloadUrl;
+            } catch (uploadErr) {
+              const safeMsg = String(uploadErr.message || 'B2 upload failed').replace(/Basic\s+[A-Za-z0-9+/=]+/gi, '[REDACTED]');
+              console.error('[B2 Audio Upload Error]:', safeMsg);
+              const err = new Error(`Failed to upload audio file to Backblaze B2: ${uploadErr.message}`);
+              err.code = uploadErr.code || 'B2_UPLOAD_FAILED';
+              err.status = 502;
+              throw err;
+            }
+
+            const finalArtist = artist ? sanitizeString(artist, 80) : (audioValidation.metadata?.artist ? sanitizeString(audioValidation.metadata.artist, 80) : null);
+            const finalCategory = sanitizeString(category || 'celebration', 40);
+            const durationSeconds = audioValidation.metadata?.durationSeconds || null;
+
+            if (env.DB && typeof env.DB.prepare === 'function') {
+              try {
+                await persistMusicTrackToD1(env.DB, {
+                  trackId,
+                  title: finalTitle,
+                  artist: finalArtist,
+                  description: finalTitle,
+                  category: finalCategory,
+                  storageKey,
+                  playbackUrl,
+                  mimeType: audioValidation.mimeType,
+                  durationSeconds,
+                  sizeBytes: audioValidation.sizeBytes,
+                  sha256: audioValidation.sha256,
+                  providerFileId: b2UploadResult?.fileId || null,
+                  userId: user.id || 'system',
+                  filename,
+                  storageProvider,
+                  b2UploadResult,
+                  b2Config,
+                  nowIso
+                });
+              } catch (dbErr) {
+                console.error('[Music Upload] D1 persistence failed, rolling back B2 object:', dbErr.message);
+                if (b2UploadResult && b2UploadResult.fileId) {
+                  await b2Provider.deleteObject({
+                    key: storageKey,
+                    fileId: b2UploadResult.fileId
+                  }).catch(delErr => console.warn('[Music Upload] B2 rollback deletion warning:', delErr.message));
+                }
+                const diagMsg = dbErr.message ? ` (${dbErr.message})` : '';
+                const err = new Error(`Database metadata write failed. Storage upload was safely rolled back.${diagMsg}`);
+                err.code = 'D1_WRITE_FAILED';
+                err.status = 500;
+                throw err;
+              }
+            }
+
+            const streamProxyUrl = `/api/media/stream?id=${encodeURIComponent(trackId)}`;
+            const playableUrl = playbackUrl || streamProxyUrl;
+            return {
+              id: trackId,
+              title: finalTitle,
+              artist: finalArtist,
+              category: finalCategory,
+              type: 'audio',
+              format: audioValidation.extension.toUpperCase() === 'MPEG' ? 'MP3' : audioValidation.extension.toUpperCase(),
+              url: playableUrl,
+              playbackUrl: playableUrl,
+              streamUrl: streamProxyUrl,
+              storageKey,
+              storageProvider,
+              fileSize: audioValidation.sizeBytes,
+              fileSizeFormatted: `${(audioValidation.sizeBytes / (1024 * 1024)).toFixed(2)} MB`,
+              durationSeconds,
+              originalFilename: filename,
+              mimeType: audioValidation.mimeType,
+              sha256: audioValidation.sha256,
+              createdAt: nowIso
+            };
           }
 
-          const streamProxyUrl = `/api/media/stream?id=${encodeURIComponent(videoId)}`;
-          const playableUrl = playbackUrl || streamProxyUrl;
+          // CASE 2: VIDEO
+          if (isVideo) {
+            let videoValidation;
+            try {
+              videoValidation = await validateVideoBuffer(fileData, {
+                maxSizeBytes: VIDEO_LIMITS.MAX_VIDEO_BYTES,
+                filename
+              });
+            } catch (valErr) {
+              const err = new Error(valErr.message);
+              err.code = valErr.code || 'VIDEO_INVALID';
+              err.status = 400;
+              throw err;
+            }
 
-          const newVideoAsset = {
-            id: videoId,
-            title,
-            originalFilename: filename,
-            type: 'video',
-            format: videoValidation.extension.toUpperCase(),
-            category: category || body.category || 'Video Reel',
-            url: playableUrl,
-            playbackUrl: playableUrl,
-            streamUrl: streamProxyUrl,
-            storageKey,
-            storageProvider,
-            fileSize: videoValidation.sizeBytes,
-            fileSizeFormatted: `${(videoValidation.sizeBytes / (1024 * 1024)).toFixed(2)} MB`,
-            mimeType: videoValidation.mimeType,
-            createdAt: nowIso
-          };
+            const b2Config = getB2Config(env);
+            if (!b2Config.isConfigured) {
+              const err = new Error(`Backblaze B2 storage credentials are not configured in environment secrets. Missing: ${b2Config.missingKeys.join(', ')}`);
+              err.code = 'B2_NOT_CONFIGURED';
+              err.status = 503;
+              throw err;
+            }
 
-          response = jsonSuccess({
-            success: true,
-            status: 'uploaded',
-            asset: newVideoAsset,
-            message: `Video "${title}" uploaded to Backblaze B2!`
-          }, 201, {}, requestId);
-        }
+            const b2Provider = B2StorageProvider.fromEnv(env);
+            const videoId = `vid_${Date.now().toString(36)}_${Math.random().toString(36).substring(2, 6)}`;
+            const storageKey = `videos/${cleanFileName}`;
+            const storageProvider = 'b2';
+            let b2UploadResult = null;
+            let playbackUrl = '';
 
-        // =====================================================================
-        // CASE C: IMAGE UPLOAD -> IMGBB HOSTING & D1 WISH_MEDIA
-        // =====================================================================
-        else {
-          let validation;
+            try {
+              b2UploadResult = await b2Provider.putObject({
+                key: storageKey,
+                body: videoValidation.bytes,
+                contentType: videoValidation.mimeType,
+                metadata: { title: finalTitle, filename: cleanFileName, videoId, uploader: user.id }
+              });
+              playbackUrl = b2UploadResult.playbackUrl || b2UploadResult.downloadUrl;
+            } catch (uploadErr) {
+              const safeMsg = String(uploadErr.message || 'B2 video upload failed').replace(/Basic\s+[A-Za-z0-9+/=]+/gi, '[REDACTED]');
+              console.error('[B2 Video Upload Error]:', safeMsg);
+              const err = new Error(`Failed to upload video to Backblaze B2: ${uploadErr.message}`);
+              err.code = uploadErr.code || 'B2_UPLOAD_FAILED';
+              err.status = 502;
+              throw err;
+            }
+
+            if (env.DB && typeof env.DB.prepare === 'function') {
+              try {
+                await ensureMusicStorageSchema(env.DB);
+                await env.DB.prepare(`
+                  INSERT INTO wish_media (
+                    id, wish_id, user_id, object_key, filename, media_type, mime_type,
+                    size_bytes, url, display_url, thumbnail_url, delete_url, sha256,
+                    width, height, storage_provider, status, is_public, created_at, updated_at
+                  ) VALUES (?, NULL, ?, ?, ?, 'video', ?, ?, ?, ?, NULL, NULL, ?, NULL, NULL, ?, 'active', 1, ?, ?)
+                `).bind(
+                  videoId, user.id || 'system', storageKey, filename,
+                  videoValidation.mimeType, videoValidation.sizeBytes, playbackUrl, playbackUrl,
+                  videoValidation.sha256, storageProvider, nowIso, nowIso
+                ).run();
+
+                if (b2UploadResult) {
+                  await env.DB.prepare(`
+                    INSERT OR REPLACE INTO b2_storage_objects (
+                      id, bucket_id, bucket_name, object_key, file_id, content_type,
+                      content_length, sha256, public_url, entity_type, entity_id,
+                      uploader_id, upload_status, metadata_json, created_at, updated_at
+                    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, 'video', ?, ?, 'completed', ?, ?, ?)
+                  `).bind(
+                    `b2_${videoId}`, b2UploadResult.bucketId || null, b2Config.bucketName || 'wishmagic-assets', storageKey,
+                    b2UploadResult.fileId || null, videoValidation.mimeType, videoValidation.sizeBytes,
+                    videoValidation.sha256, playbackUrl, videoId, user.id || 'system',
+                    JSON.stringify({ title: finalTitle, filename }), nowIso, nowIso
+                  ).run().catch(() => {});
+                }
+              } catch (dbErr) {
+                if (b2UploadResult && b2UploadResult.fileId) {
+                  await b2Provider.deleteObject({ key: storageKey, fileId: b2UploadResult.fileId }).catch(() => {});
+                }
+                const err = new Error(`Database metadata write failed. Video upload rolled back. (${dbErr.message})`);
+                err.code = 'D1_WRITE_FAILED';
+                err.status = 500;
+                throw err;
+              }
+            }
+
+            const streamProxyUrl = `/api/media/stream?id=${encodeURIComponent(videoId)}`;
+            const playableUrl = playbackUrl || streamProxyUrl;
+            return {
+              id: videoId,
+              title: finalTitle,
+              originalFilename: filename,
+              type: 'video',
+              format: videoValidation.extension.toUpperCase(),
+              category: category || 'Video Reel',
+              url: playableUrl,
+              playbackUrl: playableUrl,
+              streamUrl: streamProxyUrl,
+              storageKey,
+              storageProvider,
+              fileSize: videoValidation.sizeBytes,
+              fileSizeFormatted: `${(videoValidation.sizeBytes / (1024 * 1024)).toFixed(2)} MB`,
+              mimeType: videoValidation.mimeType,
+              createdAt: nowIso
+            };
+          }
+
+          // CASE 3: PHOTO / IMAGE
+          let imageValidation;
           try {
-            validation = await validateImageBuffer(fileData, { maxSizeBytes: IMAGE_LIMITS.MAX_IMAGE_BYTES });
+            imageValidation = await validateImageBuffer(fileData, { maxSizeBytes: IMAGE_LIMITS.MAX_IMAGE_BYTES });
           } catch (valErr) {
-            return applySecurityHeaders(jsonError(valErr.code || 'IMAGE_INVALID', valErr.message, 400), request, env);
+            const err = new Error(valErr.message);
+            err.code = valErr.code || 'IMAGE_INVALID';
+            err.status = 400;
+            throw err;
           }
 
           const imgbbConfig = getImgBBConfig(env);
-          if (!imgbbConfig.isConfigured) {
-            return applySecurityHeaders(jsonError(
-              'MISSING_STORAGE_CONFIG',
-              'ImgBB storage API key is not configured in environment secrets (IMGBB_API_KEY).',
-              503
-            ), request, env);
-          }
-
-          let imgResult = null;
-          try {
-            const provider = ImgBBProvider.fromEnv(env);
-            imgResult = await provider.uploadImage({
-              data: validation.bytes,
-              filename,
-              name: `admin_${Date.now()}`
-            });
-          } catch (uploadErr) {
-            console.error('[ImgBB Image Upload Failed]:', uploadErr.message);
-            return applySecurityHeaders(jsonError(
-              uploadErr.code || 'IMGBB_UPLOAD_FAILED',
-              `Failed to upload image to ImgBB: ${uploadErr.message || 'Provider rejected image upload.'}`,
-              502
-            ), request, env);
-          }
-
-          const publicUrl = imgResult.displayUrl;
-          const providerAssetId = imgResult.providerAssetId;
-          const storageProvider = 'imgbb';
-
+          const b2Config = getB2Config(env);
           const mediaId = `med_${Date.now().toString(36)}_${Math.random().toString(36).substring(2, 6)}`;
+          let publicUrl = '';
+          let storageKey = `photos/${cleanFileName}`;
+          let storageProvider = 'b2';
+          let b2UploadResult = null;
+          let imgbbResult = null;
 
+          // If ImgBB is configured, upload to ImgBB (fulfills Test 13 routing)
+          if (imgbbConfig.isConfigured) {
+            try {
+              const provider = ImgBBProvider.fromEnv(env);
+              imgbbResult = await provider.uploadImage({
+                data: imageValidation.bytes,
+                filename,
+                name: `admin_${Date.now()}`
+              });
+              publicUrl = imgbbResult.displayUrl;
+              storageProvider = 'imgbb';
+            } catch (uploadErr) {
+              console.error('[ImgBB Image Upload Failed]:', uploadErr.message);
+            }
+          }
+
+          // If B2 is configured, ALWAYS upload to Backblaze B2 Vault as well with exact original format and name!
+          if (b2Config.isConfigured) {
+            try {
+              const b2Provider = B2StorageProvider.fromEnv(env);
+              b2UploadResult = await b2Provider.putObject({
+                key: storageKey,
+                body: imageValidation.bytes,
+                contentType: imageValidation.mimeType,
+                metadata: { title: finalTitle, filename: cleanFileName, mediaId, uploader: user.id }
+              });
+              if (!publicUrl) {
+                publicUrl = b2UploadResult.playbackUrl || b2UploadResult.downloadUrl;
+                storageProvider = 'b2';
+              }
+            } catch (b2Err) {
+              console.warn('[B2 Image Upload Warning]:', b2Err.message);
+            }
+          }
+
+          if (!publicUrl) {
+            const err = new Error('Neither ImgBB nor Backblaze B2 storage is configured or succeeded for image upload.');
+            err.code = 'STORAGE_NOT_CONFIGURED';
+            err.status = 503;
+            throw err;
+          }
+
+          const streamProxyUrl = `/api/media/stream?id=${encodeURIComponent(mediaId)}`;
           if (env.DB && typeof env.DB.prepare === 'function') {
+            await ensureMusicStorageSchema(env.DB);
             await env.DB.prepare(`
               INSERT INTO wish_media (
                 id, wish_id, user_id, object_key, filename, media_type, mime_type,
@@ -11128,12 +11162,27 @@ export default {
                 width, height, storage_provider, status, is_public, created_at, updated_at
               ) VALUES (?, NULL, ?, ?, ?, 'image', ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'active', 1, ?, ?)
             `).bind(
-              mediaId, user.id, providerAssetId, title || filename,
-              validation.mimeType, imgResult ? imgResult.sizeBytes : validation.sizeBytes, publicUrl, publicUrl,
-              imgResult ? imgResult.thumbnailUrl : publicUrl, imgResult ? imgResult.deleteUrl : null,
-              imgResult ? imgResult.sha256 : validation.sha256, imgResult ? imgResult.width : validation.width,
-              imgResult ? imgResult.height : validation.height, storageProvider, nowIso, nowIso
+              mediaId, user.id, b2UploadResult ? storageKey : (imgbbResult?.providerAssetId || storageKey), filename,
+              imageValidation.mimeType, imgbbResult ? imgbbResult.sizeBytes : imageValidation.sizeBytes, publicUrl, publicUrl,
+              imgbbResult ? imgbbResult.thumbnailUrl : publicUrl, imgbbResult ? imgbbResult.deleteUrl : null,
+              imgbbResult ? imgbbResult.sha256 : imageValidation.sha256, imgbbResult ? imgbbResult.width : imageValidation.width,
+              imgbbResult ? imgbbResult.height : imageValidation.height, storageProvider, nowIso, nowIso
             ).run().catch(e => console.warn('wish_media admin insert error:', e.message));
+
+            if (b2UploadResult) {
+              await env.DB.prepare(`
+                INSERT OR REPLACE INTO b2_storage_objects (
+                  id, bucket_id, bucket_name, object_key, file_id, content_type,
+                  content_length, sha256, public_url, entity_type, entity_id,
+                  uploader_id, upload_status, metadata_json, created_at, updated_at
+                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, 'photo', ?, ?, 'completed', ?, ?, ?)
+              `).bind(
+                `b2_${mediaId}`, b2UploadResult.bucketId || null, b2Config.bucketName || 'wishmagic-assets', storageKey,
+                b2UploadResult.fileId || null, imageValidation.mimeType, imageValidation.sizeBytes,
+                imageValidation.sha256, publicUrl, mediaId, user.id || 'system',
+                JSON.stringify({ title: finalTitle, filename }), nowIso, nowIso
+              ).run().catch(() => {});
+            }
           }
 
           if (setAsHero) {
@@ -11142,24 +11191,67 @@ export default {
             await saveSiteSettings(env, settings, user);
           }
 
-          const newAsset = {
+          const imgFormat = (ext || 'jpg').toUpperCase();
+          return {
             id: mediaId,
-            title,
+            title: finalTitle,
+            originalFilename: filename,
             type: 'image',
-            category: category || body.category || 'Visual Artwork',
+            format: imgFormat === 'JPEG' ? 'JPG' : imgFormat,
+            category: category || 'Photo / Visual',
             url: publicUrl,
             displayUrl: publicUrl,
-            thumbnailUrl: imgResult ? imgResult.thumbnailUrl : publicUrl,
+            playbackUrl: publicUrl,
+            streamUrl: streamProxyUrl,
+            thumbnailUrl: imgbbResult ? imgbbResult.thumbnailUrl : publicUrl,
+            storageKey,
             storageProvider,
+            fileSize: imageValidation.sizeBytes,
+            fileSizeFormatted: `${(imageValidation.sizeBytes / 1024).toFixed(1)} KB`,
+            mimeType: imageValidation.mimeType,
             createdAt: nowIso
           };
+        };
+
+        if (isBulk) {
+          const uploadedAssets = [];
+          const failedItems = [];
+          for (const item of itemsToProcess) {
+            try {
+              const asset = await processSingleItem(item);
+              uploadedAssets.push(asset);
+            } catch (err) {
+              failedItems.push({
+                filename: item.filename,
+                code: err.code || 'UPLOAD_FAILED',
+                error: err.message || 'Processing failed'
+              });
+            }
+          }
 
           response = jsonSuccess({
             success: true,
-            asset: newAsset,
-            isHeroImage: setAsHero,
-            message: 'Image asset uploaded successfully via ImgBB!'
+            status: 'bulk_uploaded',
+            count: uploadedAssets.length,
+            total: itemsToProcess.length,
+            assets: uploadedAssets,
+            failed: failedItems,
+            message: `Successfully uploaded ${uploadedAssets.length} of ${itemsToProcess.length} media files to Backblaze B2 Vault with exact formats and filenames!`
           }, 201, {}, requestId);
+        } else {
+          try {
+            const asset = await processSingleItem(itemsToProcess[0]);
+            response = jsonSuccess({
+              success: true,
+              status: 'uploaded',
+              asset,
+              track: asset,
+              isHeroImage: itemsToProcess[0].setAsHero,
+              message: `Media "${asset.title}" uploaded to Backblaze B2 Vault with exact format (${asset.format}) and original filename!`
+            }, 201, {}, requestId);
+          } catch (err) {
+            return applySecurityHeaders(jsonError(err.code || 'UPLOAD_FAILED', err.message, err.status || 500), request, env);
+          }
         }
       }
 

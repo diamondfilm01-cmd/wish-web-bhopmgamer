@@ -110,6 +110,18 @@ function sanitizeB2Secret(val) {
 }
 
 /**
+ * Normalizes B2 download base URL to a clean origin/host without trailing slashes or /file/ paths.
+ */
+export function normalizeB2DownloadHost(url) {
+  if (!url) return null;
+  let str = String(url).trim().replace(/\/+$/, '');
+  if (str.includes('/file/')) {
+    str = str.split('/file/')[0];
+  }
+  return str.replace(/\/+$/, '') || null;
+}
+
+/**
  * Extracts and validates B2 Configuration from environment secrets.
  *
  * Deterministic Credential Precedence Order:
@@ -145,9 +157,9 @@ export function getB2Config(env = {}) {
     env.B2_ENDPOINT || env.B2_API_URL || env.B2_API_ENDPOINT || env.BACKBLAZE_ENDPOINT || env.BACKBLAZE_API_URL ||
     procEnv.B2_ENDPOINT || procEnv.B2_API_URL || 'https://api.backblazeb2.com'
   );
-  const downloadUrl = sanitizeB2Secret(
+  const downloadUrl = normalizeB2DownloadHost(sanitizeB2Secret(
     env.B2_DOWNLOAD_URL || env.BACKBLAZE_DOWNLOAD_URL || procEnv.B2_DOWNLOAD_URL
-  );
+  ));
 
   let endpoint = rawEndpoint || 'https://api.backblazeb2.com';
   if (endpoint.includes('s3.') && endpoint.includes('backblazeb2.com')) {
@@ -239,7 +251,7 @@ export class B2StorageProvider extends StorageProvider {
     this.bucketName = config.bucketName || 'wishmagic-assets';
     this.bucketId = config.bucketId || '';
     this.endpoint = config.endpoint || 'https://api.backblazeb2.com';
-    this.customDownloadUrl = config.downloadUrl || null;
+    this.customDownloadUrl = normalizeB2DownloadHost(config.downloadUrl) || null;
     
     // Cloudflare Workers V8 & Native WebIDL fix: wrap fetch to prevent Illegal invocation error
     const invokeNativeFetch = (url, init) => {
@@ -267,6 +279,19 @@ export class B2StorageProvider extends StorageProvider {
     this.authData = null;
     this.authExpiresAt = 0;
     this.uploadUrlCache = new Map(); // bucketId -> { uploadUrl, authorizationToken, expiresAt }
+  }
+
+  /**
+   * Deterministically constructs a canonical public/download URL for a B2 object key.
+   * Strips any duplicated /file/ paths and properly URL encodes path segments.
+   */
+  buildDownloadUrl(key) {
+    if (!key) return '';
+    const cleanKey = String(key).replace(/^\/+/, '');
+    let base = this.authData?.downloadUrl || this.customDownloadUrl || 'https://f000.backblazeb2.com';
+    base = normalizeB2DownloadHost(base) || 'https://f000.backblazeb2.com';
+    const encodedSegments = cleanKey.split('/').map(seg => encodeURIComponent(seg)).join('/');
+    return `${base}/file/${this.bucketName}/${encodedSegments}`;
   }
 
   static fromEnv(env = {}, customFetch = null) {
@@ -378,7 +403,8 @@ export class B2StorageProvider extends StorageProvider {
 
     const data = await response.json();
     const resolvedApiUrl = data.apiUrl || data.apiInfo?.storageApi?.apiUrl || this.endpoint || 'https://api.backblazeb2.com';
-    const resolvedDownloadUrl = this.customDownloadUrl || data.downloadUrl || data.apiInfo?.storageApi?.downloadUrl || 'https://f000.backblazeb2.com';
+    const rawDownloadUrl = data.downloadUrl || data.apiInfo?.storageApi?.downloadUrl || this.customDownloadUrl || 'https://f000.backblazeb2.com';
+    const resolvedDownloadUrl = normalizeB2DownloadHost(rawDownloadUrl) || 'https://f000.backblazeb2.com';
     const allowed = data.allowed || data.apiInfo?.storageApi || {};
 
     this.authData = {
@@ -602,8 +628,7 @@ export class B2StorageProvider extends StorageProvider {
     }
 
     const resData = await response.json();
-    const publicDownloadBase = this.authData?.downloadUrl || this.customDownloadUrl || 'https://f000.backblazeb2.com';
-    const downloadUrl = `${publicDownloadBase}/file/${this.bucketName}/${encodeURI(key)}`;
+    const downloadUrl = this.buildDownloadUrl(key);
 
     // Support Private Buckets: obtain download authorization token if available
     let playbackUrl = downloadUrl;
@@ -676,8 +701,7 @@ export class B2StorageProvider extends StorageProvider {
     if (!key) throw new Error('Object storage key is required');
     const cleanKey = String(key).replace(/^\/+/, '');
     let auth = await this.authorizeAccount();
-    const downloadBase = auth.downloadUrl || this.customDownloadUrl;
-    const url = `${downloadBase}/file/${this.bucketName}/${encodeURI(cleanKey)}`;
+    const url = this.buildDownloadUrl(cleanKey);
 
     const headers = {};
     if (auth.authorizationToken) {
@@ -702,6 +726,33 @@ export class B2StorageProvider extends StorageProvider {
         method: 'GET',
         headers
       });
+    }
+
+    // Resilient Key Fallback: If 404, try alternative encodings or prefix variations
+    if (response.status === 404) {
+      const candidates = [];
+      const downloadBase = normalizeB2DownloadHost(auth.downloadUrl || this.customDownloadUrl || 'https://f000.backblazeb2.com');
+      // 1. Raw URI encoding
+      candidates.push(`${downloadBase}/file/${this.bucketName}/${encodeURI(cleanKey)}`);
+      // 2. Prefix variations: if key is missing folder prefix or has folder prefix
+      if (!cleanKey.startsWith('music/') && !cleanKey.startsWith('videos/') && !cleanKey.startsWith('photos/')) {
+        candidates.push(this.buildDownloadUrl(`music/${cleanKey}`));
+        candidates.push(this.buildDownloadUrl(`videos/${cleanKey}`));
+        candidates.push(this.buildDownloadUrl(`photos/${cleanKey}`));
+      } else {
+        const withoutPrefix = cleanKey.replace(/^(music|videos|photos)\//, '');
+        candidates.push(this.buildDownloadUrl(withoutPrefix));
+      }
+      for (const altUrl of candidates) {
+        if (altUrl === url) continue;
+        try {
+          const altRes = await this.fetchFn(altUrl, { method: 'GET', headers });
+          if (altRes.ok || altRes.status === 206) {
+            response = altRes;
+            break;
+          }
+        } catch (_) {}
+      }
     }
 
     if (!response.ok && response.status !== 206) {
@@ -733,13 +784,52 @@ export class B2StorageProvider extends StorageProvider {
   }
 
   /**
+   * Downloads a file directly by B2 File ID (b2_download_file_by_id)
+   * 100% immune to filename encoding discrepancies
+   */
+  async downloadFileById({ fileId, range = null }) {
+    if (!fileId) throw new Error('File ID is required');
+    let auth = await this.authorizeAccount();
+    const base = normalizeB2DownloadHost(auth.downloadUrl || this.customDownloadUrl || 'https://f000.backblazeb2.com');
+    const url = `${base}/b2api/v3/b2_download_file_by_id?fileId=${encodeURIComponent(fileId)}`;
+    const headers = {};
+    if (auth.authorizationToken) {
+      headers['Authorization'] = auth.authorizationToken;
+    }
+    if (range) {
+      headers['Range'] = range;
+    }
+    let response = await this.fetchFn(url, { method: 'GET', headers });
+    if (response.status === 401) {
+      auth = await this.authorizeAccount(true);
+      if (auth.authorizationToken) headers['Authorization'] = auth.authorizationToken;
+      response = await this.fetchFn(url, { method: 'GET', headers });
+    }
+    if (!response.ok && response.status !== 206) {
+      const err = new Error(`B2 downloadFileById failed (${response.status})`);
+      err.status = response.status;
+      err.code = response.status === 404 ? 'NOT_FOUND' : 'B2_DOWNLOAD_FAILED';
+      throw err;
+    }
+    const buffer = await response.arrayBuffer();
+    return {
+      success: true,
+      fileId,
+      status: response.status,
+      contentType: response.headers.get('content-type'),
+      contentLength: Number(response.headers.get('content-length') || 0),
+      contentRange: response.headers.get('content-range'),
+      body: new Uint8Array(buffer)
+    };
+  }
+
+  /**
    * Checks existence and metadata of an object
    */
   async headObject({ key }) {
     if (!key) throw new Error('Object storage key is required');
     let auth = await this.authorizeAccount();
-    const downloadBase = auth.downloadUrl || this.customDownloadUrl;
-    const url = `${downloadBase}/file/${this.bucketName}/${encodeURI(key)}`;
+    const url = this.buildDownloadUrl(key);
 
     const headers = {};
     if (auth.authorizationToken) {

@@ -455,9 +455,10 @@
       <div>
         <label class="block text-xs font-bold uppercase text-outline mb-1">Media Type <span class="text-rose-400">*</span></label>
         <select id="upload-asset-type" class="w-full px-3.5 py-2.5 rounded-xl bg-surface-container-low text-on-surface border border-purple-900/30 text-xs focus:outline-none focus:border-primary" onchange="handleMediaTypeChange()">
-          <option value="audio">🎵 Audio Track / Music (Backblaze B2)</option>
-          <option value="image">📸 Photo / Graphic (ImgBB)</option>
-          <option value="video">🎬 Video / Reel (Backblaze B2)</option>
+          <option value="auto" selected>✨ Auto-Detect Format (Bulk Upload Photos, Videos & Audios)</option>
+          <option value="audio">🎵 Audio Track / Music (Backblaze B2 Vault)</option>
+          <option value="image">📸 Photo / Graphic (Backblaze B2 Vault & ImgBB)</option>
+          <option value="video">🎬 Video / Reel (Backblaze B2 Vault)</option>
         </select>
       </div>
       <div>
@@ -487,9 +488,10 @@
     </div>
 
     <div>
-      <label class="block text-xs font-bold uppercase text-outline mb-1">Select File from Device <span class="text-rose-400">*</span></label>
-      <input id="upload-asset-file" type="file" accept="audio/*,.mp3,.wav,.ogg,.m4a,.aac,.flac" class="w-full px-3 py-2 rounded-xl bg-surface-container-low text-on-surface border border-purple-900/30 text-xs focus:outline-none file:mr-3 file:py-1 file:px-3 file:rounded-lg file:border-0 file:text-xs file:font-semibold file:bg-primary/20 file:text-primary hover:file:bg-primary/30 cursor-pointer"/>
-      <p id="upload-file-hint" class="text-[11px] text-outline mt-1 font-mono">Supported: .mp3, .wav, .ogg, .m4a, .aac, .flac (Max 50MB)</p>
+      <label class="block text-xs font-bold uppercase text-outline mb-1">Select File(s) from Device <span class="text-rose-400">* (Bulk Selection Allowed)</span></label>
+      <input id="upload-asset-file" type="file" multiple accept="audio/*,video/*,image/*,.mp3,.wav,.ogg,.m4a,.aac,.flac,.mp4,.webm,.mov,.mkv,.3gp,.jpg,.jpeg,.png,.webp,.gif,.svg" class="w-full px-3 py-2 rounded-xl bg-surface-container-low text-on-surface border border-purple-900/30 text-xs focus:outline-none file:mr-3 file:py-1 file:px-3 file:rounded-lg file:border-0 file:text-xs file:font-semibold file:bg-primary/20 file:text-primary hover:file:bg-primary/30 cursor-pointer" onchange="handleFileSelectionChange()"/>
+      <p id="upload-file-hint" class="text-[11px] text-outline mt-1 font-mono">Supported: Photos (.jpg, .png, .webp), Videos (.mp4, .webm, .mov), Audios (.mp3, .wav, .ogg, .m4a, .flac). Exact formats and filenames preserved in B2!</p>
+      <div id="upload-file-list-preview" class="hidden text-xs text-purple-200 mt-2 p-2.5 rounded-xl bg-purple-950/60 border border-purple-900/40 max-h-32 overflow-y-auto font-mono"></div>
     </div>
 
     <div class="flex justify-end gap-2.5 pt-3 border-t border-purple-900/20">
@@ -897,27 +899,54 @@
     const fileHint = document.getElementById('upload-file-hint');
     const targetText = document.getElementById('storage-target-text');
     const targetLimits = document.getElementById('storage-target-limits');
-    const catSelect = document.getElementById('upload-asset-category');
 
-    if (heroBox) heroBox.style.display = type === 'image' ? 'flex' : 'none';
-    if (artistBox) artistBox.style.display = type === 'audio' ? 'block' : 'none';
+    if (heroBox) heroBox.style.display = (type === 'image' || type === 'auto') ? 'flex' : 'none';
+    if (artistBox) artistBox.style.display = (type === 'audio' || type === 'auto') ? 'block' : 'none';
 
     if (type === 'audio') {
       if (fileInput) fileInput.accept = 'audio/*,.mp3,.wav,.ogg,.m4a,.aac,.flac';
-      if (fileHint) fileHint.textContent = 'Supported: .mp3, .wav, .ogg, .m4a, .aac, .flac (Max 50MB)';
+      if (fileHint) fileHint.textContent = 'Supported: .mp3, .wav, .ogg, .m4a, .aac, .flac (Max 50MB). Select multiple files for bulk upload.';
       if (targetText) targetText.innerHTML = 'Cloud Target: <strong class="text-amber-300">Backblaze B2 Audio Vault</strong> (Music & SFX)';
       if (targetLimits) targetLimits.textContent = 'Max 50 MB';
     } else if (type === 'video') {
-      if (fileInput) fileInput.accept = 'video/*,.mp4,.webm,.mov,.mkv';
-      if (fileHint) fileHint.textContent = 'Supported: .mp4, .webm, .mov (Max 100MB)';
+      if (fileInput) fileInput.accept = 'video/*,.mp4,.webm,.mov,.mkv,.3gp';
+      if (fileHint) fileHint.textContent = 'Supported: .mp4, .webm, .mov, .mkv (Max 100MB). Select multiple files for bulk upload.';
       if (targetText) targetText.innerHTML = 'Cloud Target: <strong class="text-indigo-300">Backblaze B2 Video Storage</strong> (Reels)';
       if (targetLimits) targetLimits.textContent = 'Max 100 MB';
-    } else {
-      if (fileInput) fileInput.accept = 'image/*,.png,.jpg,.jpeg,.webp,.gif';
-      if (fileHint) fileHint.textContent = 'Supported: .png, .jpg, .webp, .gif (Max 32MB)';
-      if (targetText) targetText.innerHTML = 'Cloud Target: <strong class="text-pink-300">ImgBB Cloud Storage</strong> (Images)';
+    } else if (type === 'image') {
+      if (fileInput) fileInput.accept = 'image/*,.png,.jpg,.jpeg,.webp,.gif,.svg';
+      if (fileHint) fileHint.textContent = 'Supported: .png, .jpg, .jpeg, .webp, .gif, .svg (Max 32MB). Select multiple files for bulk upload.';
+      if (targetText) targetText.innerHTML = 'Cloud Target: <strong class="text-pink-300">Backblaze B2 Vault & ImgBB</strong> (Photos)';
       if (targetLimits) targetLimits.textContent = 'Max 32 MB';
+    } else {
+      if (fileInput) fileInput.accept = 'audio/*,video/*,image/*,.mp3,.wav,.ogg,.m4a,.aac,.flac,.mp4,.webm,.mov,.mkv,.3gp,.jpg,.jpeg,.png,.webp,.gif,.svg';
+      if (fileHint) fileHint.textContent = 'Supported: Photos, Videos & Audios in all formats. Select multiple files for bulk upload!';
+      if (targetText) targetText.innerHTML = 'Cloud Target: <strong class="text-amber-300">Backblaze B2 Vault</strong> (Photos, Videos & Audios)';
+      if (targetLimits) targetLimits.textContent = 'Auto Multi-Cloud';
     }
+    handleFileSelectionChange();
+  }
+
+  function handleFileSelectionChange() {
+    const fileInput = document.getElementById('upload-asset-file');
+    const previewEl = document.getElementById('upload-file-list-preview');
+    if (!fileInput || !previewEl) return;
+    const files = Array.from(fileInput.files || []);
+    if (files.length === 0) {
+      previewEl.classList.add('hidden');
+      previewEl.innerHTML = '';
+      return;
+    }
+    previewEl.classList.remove('hidden');
+    let html = `<div class="font-bold text-amber-300 mb-1 flex items-center justify-between"><span>📁 ${files.length} file(s) selected for upload:</span><span class="text-[10px] text-purple-300 font-normal">Formats & names preserved</span></div>`;
+    html += `<ul class="list-disc list-inside space-y-0.5 text-[11px] text-purple-100">`;
+    files.forEach((f) => {
+      const ext = (f.name.split('.').pop() || '').toUpperCase();
+      const sz = (f.size / (1024 * 1024)).toFixed(2);
+      html += `<li class="truncate"><strong class="text-white">${escapeHtml(f.name)}</strong> <span class="text-amber-300">(${ext}, ${sz} MB)</span></li>`;
+    });
+    html += `</ul>`;
+    previewEl.innerHTML = html;
   }
 
   // --- Load Hero Image and All Media Assets ---
@@ -1413,98 +1442,148 @@
     }
 
     if (!fileInput.files || fileInput.files.length === 0) {
-      showUploadError('Please choose a media file from your device to upload.');
+      showUploadError('Please choose one or more media files from your device to upload.');
       return;
     }
 
-    const file = fileInput.files[0];
+    const selectedFiles = Array.from(fileInput.files);
     const rawTitle = titleInput.value.trim();
-    // If user provided a title, use it. If not, use original file's name without extension
-    const title = rawTitle || file.name.replace(/\.[^/.]+$/, '').replace(/[-_]+/g, ' ').trim() || file.name;
     const selectedType = typeSelect.value;
-    const ext = (file.name.split('.').pop() || '').toLowerCase();
+    const categoryVal = categoryInput.value.trim() || 'Custom Upload';
+    const artistVal = artistInput ? artistInput.value.trim() : null;
 
-    // Client-side pre-validation
-    if (selectedType === 'audio') {
-      const allowedAudio = ['mp3', 'wav', 'ogg', 'm4a', 'aac', 'flac'];
-      if (!allowedAudio.includes(ext)) {
-        showUploadError(`Invalid audio format ".${ext}". Supported formats: MP3, WAV, OGG, M4A, AAC, FLAC.`);
-        return;
+    const allowedAudio = ['mp3', 'wav', 'ogg', 'm4a', 'aac', 'flac', 'weba', 'opus'];
+    const allowedVideo = ['mp4', 'webm', 'mov', 'mkv', '3gp'];
+    const allowedImages = ['jpg', 'jpeg', 'png', 'webp', 'gif', 'svg'];
+
+    const filePayloads = [];
+
+    for (let i = 0; i < selectedFiles.length; i++) {
+      const file = selectedFiles[i];
+      const ext = (file.name.split('.').pop() || '').toLowerCase();
+
+      let fileType = selectedType;
+      if (fileType === 'auto') {
+        if (allowedAudio.includes(ext) || file.type.startsWith('audio/')) {
+          fileType = 'audio';
+        } else if (allowedVideo.includes(ext) || file.type.startsWith('video/')) {
+          fileType = 'video';
+        } else if (allowedImages.includes(ext) || file.type.startsWith('image/')) {
+          fileType = 'image';
+        } else {
+          showUploadError(`File "${file.name}" has unsupported format ".${ext}". Allowed: Photos (.jpg, .png, .webp), Videos (.mp4, .webm, .mov), Audios (.mp3, .wav, .ogg, .m4a, .flac).`);
+          return;
+        }
       }
-      if (file.size > 50 * 1024 * 1024) {
-        showUploadError(`Audio file size (${(file.size / (1024 * 1024)).toFixed(2)} MB) exceeds maximum allowed limit of 50 MB.`);
-        return;
+
+      if (fileType === 'audio') {
+        if (!allowedAudio.includes(ext)) {
+          showUploadError(`Invalid audio format ".${ext}" for "${file.name}". Supported: MP3, WAV, OGG, M4A, AAC, FLAC.`);
+          return;
+        }
+        if (file.size > 50 * 1024 * 1024) {
+          showUploadError(`Audio file "${file.name}" exceeds maximum limit of 50 MB.`);
+          return;
+        }
+      } else if (fileType === 'video') {
+        if (!allowedVideo.includes(ext)) {
+          showUploadError(`Invalid video format ".${ext}" for "${file.name}". Supported: MP4, WebM, MOV, MKV.`);
+          return;
+        }
+        if (file.size > 100 * 1024 * 1024) {
+          showUploadError(`Video file "${file.name}" exceeds maximum limit of 100 MB.`);
+          return;
+        }
+      } else if (fileType === 'image') {
+        if (!allowedImages.includes(ext)) {
+          showUploadError(`Invalid photo format ".${ext}" for "${file.name}". Supported: JPEG, PNG, WEBP, GIF, SVG.`);
+          return;
+        }
+        if (file.size > 32 * 1024 * 1024) {
+          showUploadError(`Image file "${file.name}" exceeds limit of 32 MB.`);
+          return;
+        }
       }
-    } else if (selectedType === 'video') {
-      const allowedVideo = ['mp4', 'webm', 'mov', 'mkv'];
-      if (!allowedVideo.includes(ext)) {
-        showUploadError(`Invalid video format ".${ext}". Supported formats: MP4, WebM, MOV.`);
-        return;
-      }
-      if (file.size > 100 * 1024 * 1024) {
-        showUploadError(`Video file size (${(file.size / (1024 * 1024)).toFixed(2)} MB) exceeds maximum allowed limit of 100 MB.`);
-        return;
-      }
-    } else {
-      const allowedImages = ['jpg', 'jpeg', 'png', 'webp', 'gif', 'svg'];
-      if (ext && !allowedImages.includes(ext)) {
-        showUploadError(`Invalid image format ".${ext}". Supported formats: JPEG, PNG, WEBP, GIF.`);
-        return;
-      }
-      if (file.size > 32 * 1024 * 1024) {
-        showUploadError(`Image file size (${(file.size / (1024 * 1024)).toFixed(2)} MB) exceeds ImgBB limit of 32 MB.`);
-        return;
-      }
+
+      // Preserve exact original filename!
+      const itemTitle = rawTitle
+        ? (selectedFiles.length > 1 ? `${rawTitle} (${i + 1})` : rawTitle)
+        : (file.name.replace(/\.[^/.]+$/, '').replace(/[-_]+/g, ' ').trim() || file.name);
+
+      filePayloads.push({
+        file,
+        filename: file.name, // EXACT original filename including extension
+        title: itemTitle,
+        userProvidedTitle: rawTitle ? itemTitle : null,
+        type: fileType,
+        category: categoryVal,
+        artist: artistVal,
+        setAsHero: fileType === 'image' && heroCheck && heroCheck.checked
+      });
     }
 
-    // Set loading state & prevent duplicate submission
     btnSubmit.disabled = true;
     if (btnCancel) btnCancel.disabled = true;
-
-    const targetCloudName = selectedType === 'image' ? 'ImgBB' : 'Backblaze B2';
-    btnSubmit.innerHTML = `<span class="material-symbols-outlined text-sm animate-spin">progress_activity</span><span>Uploading to ${targetCloudName}...</span>`;
+    const isBulk = filePayloads.length > 1;
 
     try {
-      // Read file cleanly using FileReader DataURL (instant, asynchronous, robust across all servers)
-      const base64Data = await new Promise((resolve, reject) => {
-        const reader = new FileReader();
-        reader.onload = () => resolve(reader.result);
-        reader.onerror = () => reject(new Error('Failed to read file from disk. Please reselect the file.'));
-        reader.readAsDataURL(file);
-      });
+      const itemsToSubmit = [];
+      for (let i = 0; i < filePayloads.length; i++) {
+        const item = filePayloads[i];
+        if (btnSubmit) {
+          btnSubmit.innerHTML = `<span class="material-symbols-outlined text-sm animate-spin">progress_activity</span><span>Reading file ${i + 1}/${filePayloads.length}: ${escapeHtml(item.filename)}...</span>`;
+        }
+        const base64Data = await new Promise((resolve, reject) => {
+          const reader = new FileReader();
+          reader.onload = () => resolve(reader.result);
+          reader.onerror = () => reject(new Error(`Failed to read file "${item.filename}" from disk.`));
+          reader.readAsDataURL(item.file);
+        });
 
-      const payload = {
-        title,
-        userProvidedTitle: rawTitle || null,
-        type: selectedType,
-        category: categoryInput.value.trim() || (selectedType === 'audio' ? 'celebration' : 'Custom Upload'),
-        artist: artistInput ? artistInput.value.trim() : 'WishMagic Studio',
-        filename: file.name,
-        fileData: base64Data,
-        setAsHeroImage: selectedType === 'image' && heroCheck && heroCheck.checked
-      };
+        itemsToSubmit.push({
+          filename: item.filename, // EXACT original filename
+          fileData: base64Data,
+          title: item.title,
+          userProvidedTitle: item.userProvidedTitle,
+          type: item.type,
+          category: item.category,
+          artist: item.artist,
+          setAsHeroImage: item.setAsHero
+        });
+      }
 
-      const res = await fetch('/api/admin/media/upload', {
+      if (btnSubmit) {
+        btnSubmit.innerHTML = `<span class="material-symbols-outlined text-sm animate-spin">cloud_upload</span><span>Uploading ${itemsToSubmit.length} file(s) to Backblaze B2 Vault...</span>`;
+      }
+
+      const uploadEndpoint = isBulk ? '/api/admin/media/bulk-upload' : '/api/admin/media/upload';
+      const requestPayload = isBulk ? { files: itemsToSubmit } : itemsToSubmit[0];
+
+      const res = await fetch(uploadEndpoint, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         credentials: 'include',
-        body: JSON.stringify(payload)
+        body: JSON.stringify(requestPayload)
       });
 
       const data = await res.json().catch(() => ({}));
+
       if (res.ok && data.success) {
         toggleModal('upload-media-modal');
-        // Reset form fields on successful upload
         titleInput.value = '';
         fileInput.value = '';
+        const previewEl = document.getElementById('upload-file-list-preview');
+        if (previewEl) {
+          previewEl.classList.add('hidden');
+          previewEl.innerHTML = '';
+        }
         if (artistInput) artistInput.value = 'WishMagic Studio';
         if (statusBanner) statusBanner.classList.add('hidden');
 
-        const successMsg = selectedType === 'audio'
-          ? `🎵 Music track "${title}" uploaded to Backblaze B2 & added to library!`
-          : (selectedType === 'video'
-              ? `🎬 Video "${title}" uploaded to Backblaze B2!`
-              : `📸 Photo "${title}" uploaded to ImgBB!`);
+        const successMsg = isBulk
+          ? `🎉 Bulk Upload Complete! ${data.count || itemsToSubmit.length} media file(s) stored in Backblaze B2 Vault with exact original formats and filenames!`
+          : `✅ Media file "${itemsToSubmit[0].filename}" uploaded to Backblaze B2 Vault with exact format preserved!`;
+
         showToast(successMsg);
         loadAllMedia();
       } else {
@@ -1516,11 +1595,9 @@
         } else {
           showUploadError(`Upload failed [${errCode}]${reqId}: ${errMsg}`);
         }
-        // Selected file and form values are preserved so user can retry without re-picking file
       }
     } catch (err) {
       showUploadError(`Upload error: ${err.message}. Please check connection and retry.`);
-      // Form preserved for retry
     } finally {
       btnSubmit.disabled = false;
       if (btnCancel) btnCancel.disabled = false;
