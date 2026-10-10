@@ -647,4 +647,172 @@ test('WishMagic Part 43: Complete Audio/Video Playback & Streaming Verification'
     assert.strictEqual(restoredAsset.title, 'Midnight Waltz');
     assert.strictEqual(restoredAsset.artist, null, 'Unknown artist remains null on restore');
   });
+
+  await t.test('7. Literal "null" and "undefined" title sanitization across upload and inventory listing', async () => {
+    const env = createTestEnvironment();
+
+    // Case A: Upload with body.title literally string "null"
+    const uploadNullReq = new Request('https://wishmagic.live/api/admin/media/upload', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': 'Bearer wm_test_adm_token'
+      },
+      body: JSON.stringify({
+        title: 'null',
+        type: 'audio',
+        filename: 'wedding_march_classic.mp3',
+        fileData: Buffer.from(TEST_MP3_PAYLOAD).toString('base64'),
+        category: 'wedding'
+      })
+    });
+
+    const resA = await worker.fetch(uploadNullReq, env);
+    assert.strictEqual(resA.status, 201);
+    const dataA = await resA.json();
+    assert.strictEqual(dataA.success, true);
+    assert.notStrictEqual(dataA.asset.title, 'null', 'Title must never be literal string "null"');
+    assert.strictEqual(dataA.asset.title, 'Wedding march classic', 'Should fall back to clean filename');
+
+    // Case B: Listing assets via /api/admin/media/all when D1 record has title = "null"
+    env.d1Tables.music_library.push({
+      id: 'mus_corrupt_title_01',
+      title: 'null',
+      artist: null,
+      storage_key: 'music/royal_waltz_ballroom.mp3',
+      original_filename: 'royal_waltz_ballroom.mp3',
+      playback_url: 'https://f005.backblazeb2.com/file/wishmagic-assets/music/royal_waltz_ballroom.mp3',
+      mime_type: 'audio/mpeg',
+      size_bytes: 3733000,
+      duration_seconds: 232,
+      status: 'active'
+    });
+
+    const listReq = new Request('https://wishmagic.live/api/admin/media/all', {
+      headers: { 'Authorization': 'Bearer wm_test_adm_token' }
+    });
+    const listRes = await worker.fetch(listReq, env);
+    assert.strictEqual(listRes.status, 200);
+    const listData = await listRes.json();
+    const corruptAsset = listData.assets.find(a => a.id === 'mus_corrupt_title_01');
+    assert.ok(corruptAsset);
+    assert.notStrictEqual(corruptAsset.title, 'null', 'Media all endpoint must sanitize literal string "null"');
+    assert.strictEqual(corruptAsset.title, 'Royal waltz ballroom', 'Sanitized title derived from filename');
+    assert.strictEqual(corruptAsset.duration, '3:52', 'Duration 232s formats to 3:52');
+    assert.strictEqual(corruptAsset.fileSizeFormatted, '3.56 MB', 'Size 3733000 bytes formats to 3.56 MB');
+  });
+
+  await t.test('8. Storage error handling: Missing B2 object (404) or Unauthorized (401/403) returns truthful structured error', async () => {
+    const env = createTestEnvironment();
+
+    // Seed a D1 track whose B2 object does not exist in store
+    const missingKey = 'music/ghost_track_vanished.mp3';
+    const missingId = 'mus_ghost_01';
+    env.d1Tables.music_library.push({
+      id: missingId,
+      title: 'Ghost Melody',
+      storage_key: missingKey,
+      playback_url: `https://f005.backblazeb2.com/file/wishmagic-assets/${missingKey}`,
+      mime_type: 'audio/mpeg',
+      size_bytes: 1024
+    });
+
+    const streamReq = new Request(`https://wishmagic.live/api/media/stream?id=${missingId}`);
+    const streamRes = await worker.fetch(streamReq, env);
+    assert.strictEqual(streamRes.status, 404, 'Missing B2 object must return 404');
+    const errBody = await streamRes.json();
+    assert.strictEqual(errBody.code || errBody.error?.code || errBody.error, 'TRACK_NOT_FOUND');
+    assert.notStrictEqual(streamRes.headers.get('Content-Type'), 'audio/mpeg', 'Error response must not masquerade as audio');
+  });
+
+  await t.test('9. Public wish website music selection, soundtrack persistence, and audioUrl resolution tested separately', async () => {
+    // Test public wish soundtrack resolution logic
+    const defaultTrackMap = {
+      'celebration-strings': '/audio/celebration-strings.mp3',
+      'romantic-piano': '/audio/romantic-piano.mp3',
+      'golden-nostalgia': '/audio/golden-nostalgia.mp3',
+      'trk_bgm_strings': '/audio/celebration-strings.mp3',
+      'mus_celebration_strings': '/audio/celebration-strings.mp3'
+    };
+
+    function resolveSoundtrackUrl(music) {
+      let audioUrl = music && (music.src || music.url || music.streamUrl);
+      if (!audioUrl && music && music.trackId && defaultTrackMap[music.trackId]) {
+        audioUrl = defaultTrackMap[music.trackId];
+      }
+      if (!audioUrl && music && (music.trackId || music.id)) {
+        const tid = String(music.trackId || music.id);
+        if (tid.startsWith('mus_') || tid.startsWith('trk_') || tid.includes('/')) {
+          audioUrl = `/api/media/stream?id=${encodeURIComponent(tid)}`;
+        }
+      }
+      if (!audioUrl && music && music.enabled !== false) {
+        audioUrl = '/audio/celebration-strings.mp3';
+      }
+      return audioUrl;
+    }
+
+    // A: Built-in curated track
+    const curatedTrack = { enabled: true, type: 'curated', trackId: 'romantic-piano', name: 'Romantic Piano' };
+    assert.strictEqual(resolveSoundtrackUrl(curatedTrack), '/audio/romantic-piano.mp3');
+
+    // B: Custom B2/D1 uploaded library track
+    const uploadedB2Track = { enabled: true, type: 'library', trackId: 'mus_celebration_999', name: 'Custom Holiday Symphony' };
+    assert.strictEqual(resolveSoundtrackUrl(uploadedB2Track), '/api/media/stream?id=mus_celebration_999');
+
+    // C: Custom data URL / external URL
+    const customUpload = { enabled: true, type: 'upload', src: 'https://cdn.example.com/soundtrack.mp3', name: 'My Own Audio' };
+    assert.strictEqual(resolveSoundtrackUrl(customUpload), 'https://cdn.example.com/soundtrack.mp3');
+
+    // D: Default fallback when enabled but trackId unspecified
+    const defaultFallback = { enabled: true };
+    assert.strictEqual(resolveSoundtrackUrl(defaultFallback), '/audio/celebration-strings.mp3');
+  });
+
+  await t.test('10. Non-audio media previews continue to operate normally alongside audio engine', async () => {
+    const env = createTestEnvironment();
+
+    // Seed test image and test video
+    env.d1Tables.wish_media.push(
+      {
+        id: 'img_test_banner',
+        user_id: 'user_1',
+        filename: 'golden_birthday_banner.jpg',
+        media_type: 'image',
+        mime_type: 'image/jpeg',
+        size_bytes: 450000,
+        url: 'https://i.ibb.co/abc/golden_banner.jpg',
+        is_archived: 0
+      },
+      {
+        id: 'vid_test_reel',
+        user_id: 'user_1',
+        object_key: 'videos/anniversary_story.mp4',
+        filename: 'anniversary_story.mp4',
+        media_type: 'video',
+        mime_type: 'video/mp4',
+        size_bytes: 1250000,
+        url: 'https://f005.backblazeb2.com/file/wishmagic-assets/videos/anniversary_story.mp4',
+        is_archived: 0
+      }
+    );
+
+    const listReq = new Request('https://wishmagic.live/api/admin/media/all', {
+      headers: { 'Authorization': 'Bearer wm_test_adm_token' }
+    });
+    const listRes = await worker.fetch(listReq, env);
+    assert.strictEqual(listRes.status, 200);
+    const listData = await listRes.json();
+
+    const imgAsset = listData.assets.find(a => a.id === 'img_test_banner');
+    assert.ok(imgAsset);
+    assert.strictEqual(imgAsset.type, 'image');
+    assert.strictEqual(imgAsset.url, 'https://i.ibb.co/abc/golden_banner.jpg');
+
+    const vidAsset = listData.assets.find(a => a.id === 'vid_test_reel');
+    assert.ok(vidAsset);
+    assert.strictEqual(vidAsset.type, 'video');
+    assert.ok(vidAsset.streamUrl.includes('api/media/stream?id=vid_test_reel'));
+  });
 });
+

@@ -950,7 +950,13 @@
         return;
       }
 
-      allMediaAssets = data.assets || [];
+      allMediaAssets = (data.assets || []).map(a => {
+        if (!a.title || a.title === 'null' || a.title === 'undefined') {
+          const fallback = (a.originalFilename || a.storageKey || a.url || '').split('/').pop().replace(/\.[^/.]+$/, '').replace(/[-_]+/g, ' ').trim();
+          a.title = (fallback && fallback !== 'null' && fallback !== 'undefined') ? (fallback.charAt(0).toUpperCase() + fallback.slice(1)) : 'Media Asset';
+        }
+        return a;
+      });
       const s = data.summary || {};
 
       if (s.currentHeroImage) {
@@ -1759,7 +1765,11 @@
     // 1. Resolve authoritative media asset by ID
     const asset = allMediaAssets.find(a => String(a.id) === String(id)) || null;
 
-    const title = (asset && asset.title) || rawTitle || 'Audio Track';
+    let title = (asset && asset.title) || rawTitle || '';
+    if (!title || title === 'null' || title === 'undefined') {
+      const fallback = ((asset && (asset.originalFilename || asset.storageKey)) || rawUrl || (id && id.includes('/') ? id : '')).split('/').pop().replace(/\.[^/.]+$/, '').replace(/[-_]+/g, ' ').trim();
+      title = (fallback && fallback !== 'null' && fallback !== 'undefined') ? (fallback.charAt(0).toUpperCase() + fallback.slice(1)) : 'Audio Track';
+    }
     const artist = (asset && asset.artist) || '';
     const provider = (asset && asset.storageProvider) || rawProvider || 'b2';
     const duration = (asset && asset.duration) || '';
@@ -1858,6 +1868,7 @@
         statusIcon.innerHTML = '<span class="material-symbols-outlined text-xl">graphic_eq</span>';
       }
       if (iconEl) iconEl.innerText = 'pause';
+      showToast(`▶ Playing: "${title}"`);
       renderMediaGrid();
     });
 
@@ -1947,10 +1958,9 @@
     newAudio.load();
     newAudio.play().then(() => {
       if (iconEl) iconEl.innerText = 'pause';
-      showToast(`▶ Playing: "${title}"`);
       renderMediaGrid();
     }).catch(err => {
-      console.warn('[Audio Play Promise Catch]:', err);
+      console.warn('[Audio Play Promise Catch]:', { trackId: id, provider, error: err.message });
       if (err.name === 'NotAllowedError') {
         if (timeEl) timeEl.innerText = 'Click Play ▶ to start';
         if (iconEl) iconEl.innerText = 'play_arrow';

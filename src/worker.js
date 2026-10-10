@@ -640,6 +640,24 @@ function sanitizeString(str, maxLength = 255) {
   return str.trim().slice(0, maxLength);
 }
 
+function resolveSafeDisplayTitle(rawTitle, fallbackFilename = '', storageKey = '') {
+  if (rawTitle && typeof rawTitle === 'string') {
+    const trimmed = rawTitle.trim();
+    const lower = trimmed.toLowerCase();
+    if (lower !== 'null' && lower !== 'undefined' && lower !== 'untitled' && lower !== 'media-upload' && lower !== 'upload' && trimmed.length > 0) {
+      return trimmed;
+    }
+  }
+  const source = fallbackFilename || storageKey || '';
+  if (source && typeof source === 'string') {
+    const base = source.split('/').pop().replace(/\.[^/.]+$/, '').replace(/[-_]+/g, ' ').trim();
+    if (base && base.toLowerCase() !== 'null' && base.toLowerCase() !== 'undefined' && base.length > 0) {
+      return base.charAt(0).toUpperCase() + base.slice(1);
+    }
+  }
+  return 'Music Track';
+}
+
 const RESERVED_SLUGS = new Set([
   'admin', 'login', 'signup', 'register', 'dashboard', 'settings',
   'api', 'auth', 'templates', 'preview', 'create', 'edit',
@@ -8673,7 +8691,7 @@ export default {
                 ...f,
                 hasD1Record: Boolean(matchedD1),
                 d1Id: matchedD1?.id || null,
-                displayTitle: matchedD1?.title || matchedD1?.filename || f.filename,
+                displayTitle: resolveSafeDisplayTitle(matchedD1?.title, matchedD1?.filename || f.filename, f.key),
                 artist: matchedD1?.artist || null,
                 category: matchedD1?.category || null,
                 verificationStatus: 'verified'
@@ -10490,7 +10508,7 @@ export default {
                 const streamUrl = (detectedType === 'audio' || detectedType === 'video') ? `/api/media/stream?id=${encodeURIComponent(m.id)}` : url;
                 allAssetsMap.set(m.id, {
                   id: m.id,
-                  title: m.filename || (detectedType === 'audio' ? 'Music Track' : (detectedType === 'video' ? 'Video Reel' : 'Visual Artwork')),
+                  title: resolveSafeDisplayTitle(m.filename, m.filename, m.object_key),
                   type: detectedType,
                   format: (m.mime_type || (detectedType === 'audio' ? 'audio/mpeg' : (detectedType === 'video' ? 'video/mp4' : 'image/jpeg'))).split('/').pop().toUpperCase(),
                   url,
@@ -10576,7 +10594,7 @@ export default {
                 const streamUrl = `/api/media/stream?id=${encodeURIComponent(m.id)}`;
                 allAssetsMap.set(m.id, {
                   id: m.id,
-                  title: m.title || 'Music Track',
+                  title: resolveSafeDisplayTitle(m.title, m.original_filename, m.storage_key),
                   artist: m.artist || null,
                   type: 'audio',
                   format: (m.mime_type || 'audio/mpeg').split('/').pop().toUpperCase(),
@@ -10615,7 +10633,7 @@ export default {
                 const streamUrl = `/api/media/stream?key=${encodeURIComponent(key)}`;
                 allAssetsMap.set(`untracked_${b.id}`, {
                   id: b.id,
-                  title: key.split('/').pop() || key,
+                  title: resolveSafeDisplayTitle(null, null, key),
                   type: mediaType,
                   format: (b.content_type || (isMusic ? 'audio/mpeg' : 'video/mp4')).split('/').pop().toUpperCase(),
                   url: b.public_url || streamUrl,
@@ -10790,9 +10808,16 @@ export default {
           const userProvidedTitle = String(body.userProvidedTitle !== undefined ? body.userProvidedTitle : (body.title || '')).trim();
           const cleanBaseFilename = filename.replace(/\.[^/.]+$/, '').replace(/[-_]+/g, ' ');
           let targetBaseName = '';
-          let finalTitle = '';
+          let finalTitle = resolveSafeDisplayTitle(userProvidedTitle, cleanBaseFilename, filename);
 
-          if (userProvidedTitle && userProvidedTitle !== 'media-upload' && userProvidedTitle !== 'upload') {
+          const isExplicitValidTitle = userProvidedTitle &&
+            userProvidedTitle.toLowerCase() !== 'null' &&
+            userProvidedTitle.toLowerCase() !== 'undefined' &&
+            userProvidedTitle.toLowerCase() !== 'untitled' &&
+            userProvidedTitle !== 'media-upload' &&
+            userProvidedTitle !== 'upload';
+
+          if (isExplicitValidTitle) {
             finalTitle = sanitizeString(userProvidedTitle, 100);
             if (userProvidedTitle.toLowerCase().endsWith('.' + audioValidation.extension.toLowerCase())) {
               targetBaseName = userProvidedTitle;
@@ -10801,7 +10826,7 @@ export default {
             }
           } else {
             targetBaseName = filename;
-            finalTitle = sanitizeString(cleanBaseFilename || filename, 100);
+            finalTitle = resolveSafeDisplayTitle(null, cleanBaseFilename, filename);
           }
 
           const cleanFileName = targetBaseName.replace(/[\\/]/g, '_').trim() || `audio.${audioValidation.extension}`;

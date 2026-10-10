@@ -1552,9 +1552,15 @@
       'mus_golden_elegance': '/audio/golden-nostalgia.mp3'
     };
 
-    let audioUrl = music && (music.src || music.url);
+    let audioUrl = music && (music.src || music.url || music.streamUrl);
     if (!audioUrl && music && music.trackId && defaultTrackMap[music.trackId]) {
       audioUrl = defaultTrackMap[music.trackId];
+    }
+    if (!audioUrl && music && (music.trackId || music.id)) {
+      const tid = String(music.trackId || music.id);
+      if (tid.startsWith('mus_') || tid.startsWith('trk_') || tid.includes('/')) {
+        audioUrl = `/api/media/stream?id=${encodeURIComponent(tid)}`;
+      }
     }
     if (!audioUrl && music && music.enabled !== false) {
       audioUrl = '/audio/celebration-strings.mp3';
