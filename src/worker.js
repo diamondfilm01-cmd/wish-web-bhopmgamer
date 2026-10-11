@@ -607,6 +607,14 @@ function isCsrfViolation(request, env) {
   return false;
 }
 
+async function parseJsonBody(request) {
+  try {
+    return await request.json();
+  } catch (e) {
+    return {};
+  }
+}
+
 // Standardized Response Generators
 function jsonSuccess(data = {}, status = 200, extraHeaders = {}, requestId = null) {
   const headers = {
@@ -6046,10 +6054,180 @@ export default {
         if (!isAdmin) return applySecurityHeaders(jsonError('FORBIDDEN', 'Admin role required', 403), request, env);
 
         const body = await request.json().catch(() => ({}));
-        const sourceId = sanitizeString(body.id, 60);
-        const newId = `tpl_${Date.now().toString(36)}_${Math.random().toString(36).slice(-4)}`;
+        const sourceId = sanitizeString(body.id || body.templateId, 80);
+        if (!sourceId) {
+          return applySecurityHeaders(jsonError('VALIDATION_ERROR', 'Source template id is required', 400), request, env);
+        }
 
-        response = jsonSuccess({ duplicated: true, template: { id: newId, status: 'draft', isPublished: false } }, 201, {}, requestId);
+        if (!env.DB || typeof env.DB.prepare !== 'function') {
+          return applySecurityHeaders(jsonError('DATABASE_UNAVAILABLE', 'D1 database binding is required for template duplication', 503), request, env);
+        }
+
+        // Fetch source template from D1
+        let sourceTemplate = null;
+        try {
+          sourceTemplate = await env.DB.prepare('SELECT * FROM templates WHERE id = ? OR slug = ? LIMIT 1').bind(sourceId, sourceId).first();
+        } catch (dbErr) {
+          return applySecurityHeaders(jsonError('DATABASE_ERROR', `Failed to query source template: ${dbErr.message}`, 500), request, env);
+        }
+
+        if (!sourceTemplate) {
+          // Check fallback seed templates if not yet inserted
+          const seedMatch = SEED_TEMPLATES.find(t => t.id === sourceId || t.slug === sourceId);
+          if (seedMatch) {
+            sourceTemplate = {
+              id: seedMatch.id,
+              name: seedMatch.name,
+              slug: seedMatch.slug,
+              description: seedMatch.description,
+              category: seedMatch.category,
+              tier: seedMatch.tier || (seedMatch.isPremium ? 'vip' : 'free'),
+              price: seedMatch.price || 0,
+              is_premium: seedMatch.isPremium ? 1 : 0,
+              thumbnail: seedMatch.thumbnail,
+              folder: seedMatch.folder,
+              entry_file: seedMatch.entryFile || 'index.html',
+              relationships: '[]',
+              tags: '[]',
+              type: '3D Interactive',
+              featured: 0,
+              placement: 99,
+              preview_images: '[]',
+              capabilities: '{}',
+              detected_fields: '[]',
+              sections: '[]',
+              features: '[]',
+              theme: '{}'
+            };
+          }
+        }
+
+        if (!sourceTemplate) {
+          return applySecurityHeaders(jsonError('NOT_FOUND', `Template "${sourceId}" not found`, 404), request, env);
+        }
+
+        const nowIso = new Date().toISOString();
+        const randSuffix = Math.random().toString(36).substring(2, 6);
+        const timestampSuffix = Date.now().toString(36);
+        const newId = `tpl_${timestampSuffix}_${randSuffix}`;
+        const baseSlug = slugify(sourceTemplate.slug || sourceTemplate.name || 'template').replace(/^tpl-/, '');
+        const newSlug = `${baseSlug}-copy-${timestampSuffix.slice(-4)}${randSuffix.slice(-2)}`;
+        const newName = `${sourceTemplate.name} (Copy)`;
+
+        // Query source's active/latest version
+        let sourceVersion = null;
+        try {
+          sourceVersion = await env.DB.prepare(
+            'SELECT * FROM template_versions WHERE template_id = ? ORDER BY version_number DESC LIMIT 1'
+          ).bind(sourceTemplate.id).first();
+        } catch (e) {}
+
+        const newVersionId = `tv_${newId}_v1`;
+
+        try {
+          // 1. Insert duplicated template record into D1
+          await env.DB.prepare(`
+            INSERT INTO templates (
+              id, name, slug, description, category, relationships, tags,
+              type, tier, price, is_premium, is_published, status, featured,
+              placement, thumbnail, preview_images, capabilities, detected_fields,
+              sections, features, theme, folder, entry_file, current_version_id,
+              created_at, updated_at
+            ) VALUES (
+              ?, ?, ?, ?, ?, ?, ?,
+              ?, ?, ?, ?, 0, 'draft', 0,
+              ?, ?, ?, ?, ?,
+              ?, ?, ?, ?, ?, ?,
+              ?, ?
+            )
+          `).bind(
+            newId,
+            newName,
+            newSlug,
+            sourceTemplate.description || 'Duplicated celebration template',
+            sourceTemplate.category || 'Celebration',
+            sourceTemplate.relationships || '[]',
+            sourceTemplate.tags || '[]',
+            sourceTemplate.type || '3D Interactive',
+            sourceTemplate.tier || 'free',
+            Number(sourceTemplate.price) || 0,
+            sourceTemplate.is_premium ? 1 : 0,
+            Number(sourceTemplate.placement) || 99,
+            sourceTemplate.thumbnail || '',
+            sourceTemplate.preview_images || '[]',
+            sourceTemplate.capabilities || '{}',
+            sourceTemplate.detected_fields || '[]',
+            sourceTemplate.sections || '[]',
+            sourceTemplate.features || '[]',
+            sourceTemplate.theme || '{}',
+            sourceTemplate.folder || `templates/${newSlug}`,
+            sourceTemplate.entry_file || 'index.html',
+            newVersionId,
+            nowIso,
+            nowIso
+          ).run();
+
+          // 2. Clone active version into template_versions
+          const vTheme = sourceVersion?.theme || sourceTemplate.theme || '{}';
+          const vSections = sourceVersion?.sections || sourceTemplate.sections || '[]';
+          const vCapabilities = sourceVersion?.capabilities || sourceTemplate.capabilities || '{}';
+          const vSnapshot = sourceVersion?.snapshot_data ? sourceVersion.snapshot_data : JSON.stringify({
+            id: newId,
+            name: newName,
+            slug: newSlug,
+            category: sourceTemplate.category,
+            tier: sourceTemplate.tier,
+            price: sourceTemplate.price,
+            thumbnail: sourceTemplate.thumbnail,
+            entryFile: sourceTemplate.entry_file || 'index.html',
+            version: 1
+          });
+
+          await env.DB.prepare(`
+            INSERT INTO template_versions (
+              id, template_id, version_number, name, description, category, tier, price,
+              thumbnail, theme, sections, capabilities, layout, animations, default_config,
+              snapshot_data, status, is_current, is_publishable, created_at, created_by
+            ) VALUES (
+              ?, ?, 1, ?, ?, ?, ?, ?,
+              ?, ?, ?, ?, ?, ?, ?,
+              ?, 'draft', 1, 1, ?, ?
+            )
+          `).bind(
+            newVersionId,
+            newId,
+            newName,
+            sourceTemplate.description || 'Initial draft version',
+            sourceTemplate.category || 'Celebration',
+            sourceTemplate.tier || 'free',
+            Number(sourceTemplate.price) || 0,
+            sourceTemplate.thumbnail || '',
+            typeof vTheme === 'string' ? vTheme : JSON.stringify(vTheme),
+            typeof vSections === 'string' ? vSections : JSON.stringify(vSections),
+            typeof vCapabilities === 'string' ? vCapabilities : JSON.stringify(vCapabilities),
+            sourceVersion?.layout || 'centered-immersive',
+            sourceVersion?.animations || '{}',
+            sourceVersion?.default_config || '{}',
+            typeof vSnapshot === 'string' ? vSnapshot : JSON.stringify(vSnapshot),
+            nowIso,
+            user.id || 'admin'
+          ).run();
+
+        } catch (insertErr) {
+          return applySecurityHeaders(jsonError('PERSISTENCE_FAILED', `Failed to persist duplicated template: ${insertErr.message}`, 500), request, env);
+        }
+
+        response = jsonSuccess({
+          duplicated: true,
+          template: {
+            id: newId,
+            name: newName,
+            slug: newSlug,
+            status: 'draft',
+            isPublished: false,
+            currentVersionId: newVersionId
+          }
+        }, 201, {}, requestId);
       }
 
       else if (pathname === '/api/templates/upload' && method === 'POST') {
@@ -10749,7 +10927,8 @@ export default {
                VALUES (?, ?, 'razorpay', ?, ?, ?, 'CREATED', ?, ?)`
             ).bind(attemptId, orderId, providerOrder.id, product.amountPaise, product.currency, now, now).run();
           } catch (dbErr) {
-            console.warn('[D1 Commerce Insert Warning]', dbErr);
+            console.error('[D1 Commerce Insert Error]', dbErr);
+            return applySecurityHeaders(jsonError('PERSISTENCE_FAILED', `Failed to persist order record: ${dbErr.message}`, 500), request, env);
           }
         }
 
@@ -10773,7 +10952,10 @@ export default {
         const body = await request.json().catch(() => ({}));
         const { orderId, razorpayOrderId, razorpayPaymentId, razorpaySignature } = body;
 
-        if (!orderId && !razorpayOrderId) {
+        const effectiveOrderId = orderId || razorpayOrderId;
+        const effectiveRzpOrderId = razorpayOrderId || orderId;
+
+        if (!effectiveOrderId) {
           return applySecurityHeaders(jsonError('INVALID_INPUT', 'orderId or razorpayOrderId is required', 400), request, env);
         }
         if (!razorpayPaymentId || !razorpaySignature) {
@@ -10788,8 +10970,9 @@ export default {
           return applySecurityHeaders(jsonError(COMMERCE_ERROR_CODES.PAYMENT_PROVIDER_NOT_CONFIGURED, 'Gateway credentials not configured', 503), request, env);
         }
 
+        // Verify cryptographic signature against razorpayOrderId (or provider order id)
         const isValid = adapter.verifyPayment({
-          razorpayOrderId,
+          razorpayOrderId: effectiveRzpOrderId,
           razorpayPaymentId,
           razorpaySignature
         });
@@ -10798,36 +10981,67 @@ export default {
           return applySecurityHeaders(jsonError(COMMERCE_ERROR_CODES.PAYMENT_VERIFICATION_FAILED, 'Payment signature verification failed', 400), request, env);
         }
 
+        // Fetch order from D1 to verify existence, state, and entitlement ownership
+        let order = null;
+        if (env.DB && typeof env.DB.prepare === 'function') {
+          try {
+            order = await env.DB.prepare(
+              'SELECT * FROM orders WHERE id = ? OR provider_order_id = ? LIMIT 1'
+            ).bind(effectiveOrderId, effectiveRzpOrderId).first();
+          } catch (dbErr) {
+            return applySecurityHeaders(jsonError('DATABASE_ERROR', `Failed to query order: ${dbErr.message}`, 500), request, env);
+          }
+        }
+
+        if (!order) {
+          return applySecurityHeaders(jsonError(COMMERCE_ERROR_CODES.ORDER_NOT_FOUND, 'Referenced order not found', 404), request, env);
+        }
+
+        // Idempotent return if already marked PAID
+        if (order.status === 'PAID') {
+          return applySecurityHeaders(jsonSuccess({
+            status: 'PAID',
+            verified: true,
+            alreadyFinalized: true,
+            orderId: order.id,
+            transactionId: order.transaction_id || razorpayPaymentId
+          }, 200), request, env);
+        }
+
         const now = new Date().toISOString();
         if (env.DB && typeof env.DB.prepare === 'function') {
           try {
             await env.DB.prepare(
-              `UPDATE orders SET status = 'PAID', transaction_id = ?, verified_at = ?, updated_at = ? WHERE id = ? OR provider_order_id = ?`
-            ).bind(razorpayPaymentId, now, now, orderId || razorpayOrderId, razorpayOrderId || orderId).run();
+              `UPDATE orders SET status = 'PAID', transaction_id = ?, verified_at = ?, updated_at = ? WHERE id = ?`
+            ).bind(razorpayPaymentId, now, now, order.id).run();
 
             await env.DB.prepare(
               `UPDATE payment_attempts SET status = 'CAPTURED', provider_payment_id = ?, provider_signature = ?, signature_verified = 1, verified_at = ?, updated_at = ?
                WHERE order_id = ? OR provider_order_id = ?`
-            ).bind(razorpayPaymentId, razorpaySignature, now, now, orderId || razorpayOrderId, razorpayOrderId || orderId).run();
+            ).bind(razorpayPaymentId, razorpaySignature, now, now, order.id, order.provider_order_id).run();
 
-            // Grant Entitlement in D1
-            const userId = user ? user.id : 'usr_customer';
-            const entId = `ent_${userId}_vip_${Date.now().toString(36)}`;
+            // Grant Entitlement in D1 idempotently
+            const userId = order.user_id || (user ? user.id : 'usr_customer');
+            const entPlan = (order.plan && order.plan.toLowerCase().includes('vip')) ? 'VIP' : (order.plan || 'VIP');
+            const entId = `ent_${userId}_${order.id || Date.now().toString(36)}`;
+            
             await env.DB.prepare(
               `INSERT OR REPLACE INTO entitlements (id, user_id, plan, status, source, starts_at, created_at, updated_at)
-               VALUES (?, ?, 'VIP', 'active', 'purchase', ?, ?, ?)`
-            ).bind(entId, userId, now, now, now).run();
+               VALUES (?, ?, ?, 'active', 'purchase', ?, ?, ?)`
+            ).bind(entId, userId, entPlan, now, now, now).run();
 
             // Part 36: Evaluate Referral Qualification on First Purchase
-            evaluateReferralQualification(userId, REF_QUALIFYING_EVENTS.FIRST_PURCHASE, { orderId: orderId || razorpayOrderId, paymentId: razorpayPaymentId }, env.DB, env).catch(() => {});
+            evaluateReferralQualification(userId, REF_QUALIFYING_EVENTS.FIRST_PURCHASE, { orderId: order.id, paymentId: razorpayPaymentId }, env.DB, env).catch(() => {});
           } catch (dbErr) {
-            console.warn('[D1 Verification DB Warning]', dbErr);
+            console.error('[D1 Verification DB Error]', dbErr);
+            return applySecurityHeaders(jsonError('PERSISTENCE_FAILED', `Failed to finalize order payment: ${dbErr.message}`, 500), request, env);
           }
         }
 
         response = jsonSuccess({
           status: 'PAID',
           verified: true,
+          orderId: order.id,
           transactionId: razorpayPaymentId
         }, 200, {}, requestId);
       }
@@ -10846,7 +11060,109 @@ export default {
           return applySecurityHeaders(jsonError('FORBIDDEN', 'Invalid webhook signature', 403), request, env);
         }
 
-        response = jsonSuccess({ success: true, processed: true }, 200, {}, requestId);
+        let event = null;
+        try {
+          event = JSON.parse(rawBody);
+        } catch (e) {
+          return applySecurityHeaders(jsonError('BAD_REQUEST', 'Malformed webhook JSON payload', 400), request, env);
+        }
+
+        const eventId = event.event_id || event.id || `evt_${Date.now().toString(36)}`;
+        const eventType = event.event;
+        const now = new Date().toISOString();
+
+        // Check for duplicate webhook delivery in D1
+        if (env.DB && typeof env.DB.prepare === 'function') {
+          try {
+            const existingHook = await env.DB.prepare(
+              'SELECT * FROM payment_webhooks WHERE event_id = ? LIMIT 1'
+            ).bind(eventId).first();
+
+            if (existingHook && existingHook.status === 'PROCESSED') {
+              return applySecurityHeaders(jsonSuccess({
+                success: true,
+                processed: true,
+                deduplicated: true,
+                message: 'Webhook event previously processed'
+              }, 200), request, env);
+            }
+
+            // Insert webhook log record
+            if (!existingHook) {
+              await env.DB.prepare(`
+                INSERT INTO payment_webhooks (id, provider, event_id, event_type, status, received_at)
+                VALUES (?, 'razorpay', ?, ?, 'RECEIVED', ?)
+              `).bind(`wb_${Date.now().toString(36)}_${Math.random().toString(36).slice(-4)}`, eventId, eventType, now).run().catch(() => {});
+            }
+
+            // Process supported payment events
+            if (eventType === 'order.paid' || eventType === 'payment.captured') {
+              const paymentEntity = event.payload?.payment?.entity || {};
+              const orderEntity = event.payload?.order?.entity || {};
+              const provOrderId = paymentEntity.order_id || orderEntity.id;
+              const provPayId = paymentEntity.id;
+
+              if (provOrderId) {
+                const targetOrder = await env.DB.prepare(
+                  'SELECT * FROM orders WHERE provider_order_id = ? OR id = ? LIMIT 1'
+                ).bind(provOrderId, provOrderId).first();
+
+                if (targetOrder && targetOrder.status !== 'PAID') {
+                  await env.DB.prepare(
+                    `UPDATE orders SET status = 'PAID', transaction_id = ?, verified_at = ?, updated_at = ? WHERE id = ?`
+                  ).bind(provPayId || targetOrder.transaction_id, now, now, targetOrder.id).run();
+
+                  const entId = `ent_${targetOrder.user_id}_${targetOrder.id}`;
+                  await env.DB.prepare(
+                    `INSERT OR REPLACE INTO entitlements (id, user_id, plan, status, source, starts_at, created_at, updated_at)
+                     VALUES (?, ?, ?, 'active', 'purchase', ?, ?, ?)`
+                  ).bind(entId, targetOrder.user_id, targetOrder.plan || 'VIP', now, now, now).run();
+                }
+
+                await env.DB.prepare(
+                  `UPDATE payment_webhooks SET status = 'PROCESSED', order_id = ?, payment_id = ?, processed_at = ? WHERE event_id = ?`
+                ).bind(provOrderId, provPayId, now, eventId).run().catch(() => {});
+              }
+            } else if (eventType === 'refund.processed') {
+              const refundEntity = event.payload?.refund?.entity || {};
+              const provPayId = refundEntity.payment_id;
+              const refundAmount = refundEntity.amount || 0;
+
+              if (provPayId) {
+                const targetOrder = await env.DB.prepare(
+                  'SELECT * FROM orders WHERE transaction_id = ? OR id = ? LIMIT 1'
+                ).bind(provPayId, provPayId).first();
+
+                if (targetOrder) {
+                  const newStatus = (refundAmount >= (targetOrder.amount || 0)) ? 'REFUNDED' : 'PARTIALLY_REFUNDED';
+                  await env.DB.prepare(
+                    `UPDATE orders SET status = ?, updated_at = ? WHERE id = ?`
+                  ).bind(newStatus, now, targetOrder.id).run();
+
+                  if (newStatus === 'REFUNDED') {
+                    await env.DB.prepare(
+                      `UPDATE entitlements SET status = 'revoked', updated_at = ? WHERE user_id = ?`
+                    ).bind(now, targetOrder.user_id).run();
+                  }
+                }
+
+                await env.DB.prepare(
+                  `UPDATE payment_webhooks SET status = 'PROCESSED', payment_id = ?, processed_at = ? WHERE event_id = ?`
+                ).bind(provPayId, now, eventId).run().catch(() => {});
+              }
+            } else {
+              // Mark unsupported event as IGNORED
+              await env.DB.prepare(
+                `UPDATE payment_webhooks SET status = 'IGNORED', processed_at = ? WHERE event_id = ?`
+              ).bind(now, eventId).run().catch(() => {});
+            }
+          } catch (dbErr) {
+            console.error('[D1 Webhook Processing Error]', dbErr);
+            return applySecurityHeaders(jsonError('WEBHOOK_PROCESSING_FAILED', `Failed to persist webhook event: ${dbErr.message}`, 500), request, env);
+          }
+        }
+
+        response = jsonSuccess({ success: true, processed: true, eventId }, 200, {}, requestId);
       }
 
       // API: User Order History
@@ -13410,9 +13726,70 @@ export default {
         }
         const body = await parseJsonBody(request);
         const { isHelpful } = body || {};
+        if (typeof isHelpful !== 'boolean') {
+          return applySecurityHeaders(jsonError('VALIDATION_ERROR', 'isHelpful must be a boolean', 400), request, env);
+        }
+
+        const now = new Date().toISOString();
+        let helpfulCount = article.helpfulCount || 0;
+        let notHelpfulCount = article.notHelpfulCount || 0;
+
+        if (env.DB && typeof env.DB.prepare === 'function') {
+          try {
+            // First check if article exists in help_articles table
+            const existingRow = await env.DB.prepare('SELECT id, helpful_count, not_helpful_count FROM help_articles WHERE slug = ? LIMIT 1').bind(slug).first();
+            if (existingRow) {
+              if (isHelpful) {
+                await env.DB.prepare('UPDATE help_articles SET helpful_count = helpful_count + 1, updated_at = ? WHERE slug = ?').bind(now, slug).run();
+                helpfulCount = (existingRow.helpful_count || 0) + 1;
+                notHelpfulCount = existingRow.not_helpful_count || 0;
+              } else {
+                await env.DB.prepare('UPDATE help_articles SET not_helpful_count = not_helpful_count + 1, updated_at = ? WHERE slug = ?').bind(now, slug).run();
+                helpfulCount = existingRow.helpful_count || 0;
+                notHelpfulCount = (existingRow.not_helpful_count || 0) + 1;
+              }
+            } else {
+              // Insert row for this article into D1
+              const newHelpful = isHelpful ? 1 : 0;
+              const newNotHelpful = isHelpful ? 0 : 1;
+              await env.DB.prepare(`
+                INSERT INTO help_articles (
+                  id, slug, category_id, category_name, title, excerpt, content_markdown,
+                  helpful_count, not_helpful_count, created_at, updated_at
+                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+              `).bind(
+                article.id || `art_${slug}`,
+                slug,
+                article.categoryId || 'general',
+                article.categoryName || 'General',
+                article.title || slug,
+                article.excerpt || '',
+                article.content || '',
+                newHelpful,
+                newNotHelpful,
+                now,
+                now
+              ).run();
+              helpfulCount = newHelpful;
+              notHelpfulCount = newNotHelpful;
+            }
+          } catch (dbErr) {
+            console.error('[Help Article Feedback DB Error]', dbErr);
+            return applySecurityHeaders(jsonError('PERSISTENCE_FAILED', `Failed to record feedback: ${dbErr.message}`, 500), request, env);
+          }
+        }
+
+        // Update in-memory reference
         if (isHelpful) article.helpfulCount = (article.helpfulCount || 0) + 1;
         else article.notHelpfulCount = (article.notHelpfulCount || 0) + 1;
-        response = jsonSuccess({ success: true, message: 'Feedback recorded' }, 200, {}, requestId);
+
+        response = jsonSuccess({
+          success: true,
+          slug,
+          helpfulCount,
+          notHelpfulCount,
+          message: 'Feedback recorded successfully'
+        }, 200, {}, requestId);
       }
 
       // =====================================================================
@@ -13655,41 +14032,83 @@ export default {
 
       else if (pathname.startsWith('/api/support/tickets/') && pathname.endsWith('/close') && method === 'POST') {
         const ticketId = pathname.replace('/api/support/tickets/', '').replace('/close', '').trim();
+        if (!ticketId) {
+          return applySecurityHeaders(jsonError('INVALID_INPUT', 'Ticket identifier is required', 400), request, env);
+        }
+
         const user = await getAuthenticatedUser(request, env);
         if (!user) return applySecurityHeaders(jsonError('AUTH_REQUIRED', 'Authentication required', 401), request, env);
         const isAdmin = await verifyAdminRole(user, env);
 
-        let ticket = null;
-        if (env.DB && typeof env.DB.prepare === 'function') {
-          ticket = await env.DB.prepare('SELECT * FROM support_tickets WHERE id = ? OR ticket_number = ? LIMIT 1').bind(ticketId, ticketId).first().catch(() => null);
+        if (!env.DB || typeof env.DB.prepare !== 'function') {
+          return applySecurityHeaders(jsonError('DATABASE_UNAVAILABLE', 'D1 database binding is required to close tickets', 503), request, env);
         }
+
+        let ticket = null;
+        try {
+          ticket = await env.DB.prepare('SELECT * FROM support_tickets WHERE id = ? OR ticket_number = ? LIMIT 1').bind(ticketId, ticketId).first();
+        } catch (dbErr) {
+          return applySecurityHeaders(jsonError('DATABASE_ERROR', `Failed to query ticket: ${dbErr.message}`, 500), request, env);
+        }
+
         if (!ticket) return applySecurityHeaders(jsonError('NOT_FOUND', 'Ticket not found', 404), request, env);
 
         if (!isAdmin && ticket.user_id !== user.id) {
           return applySecurityHeaders(jsonError('FORBIDDEN', 'Access denied to this ticket', 403), request, env);
         }
 
-        const now = new Date().toISOString();
-        if (env.DB && typeof env.DB.prepare === 'function') {
-          await env.DB.prepare('UPDATE support_tickets SET status = ?, closed_at = ?, updated_at = ? WHERE id = ?')
-            .bind(TICKET_STATUS.CLOSED, now, now, ticket.id).run().catch(() => {});
+        // Idempotent check: if already closed
+        if (ticket.status === TICKET_STATUS.CLOSED) {
+          return applySecurityHeaders(jsonSuccess({
+            success: true,
+            alreadyClosed: true,
+            ticketId: ticket.id,
+            status: TICKET_STATUS.CLOSED,
+            message: 'Ticket is already closed'
+          }, 200), request, env);
         }
 
-        response = jsonSuccess({ success: true, message: 'Ticket closed successfully' }, 200, {}, requestId);
+        const now = new Date().toISOString();
+        try {
+          await env.DB.prepare('UPDATE support_tickets SET status = ?, closed_at = ?, updated_at = ? WHERE id = ?')
+            .bind(TICKET_STATUS.CLOSED, now, now, ticket.id).run();
+        } catch (updateErr) {
+          console.error('[Ticket Close DB Error]', updateErr);
+          return applySecurityHeaders(jsonError('PERSISTENCE_FAILED', `Failed to close ticket: ${updateErr.message}`, 500), request, env);
+        }
+
+        response = jsonSuccess({
+          success: true,
+          ticketId: ticket.id,
+          status: TICKET_STATUS.CLOSED,
+          closedAt: now,
+          message: 'Ticket closed successfully'
+        }, 200, {}, requestId);
       }
 
       else if (pathname.startsWith('/api/support/tickets/') && pathname.endsWith('/rate') && method === 'POST') {
         const ticketId = pathname.replace('/api/support/tickets/', '').replace('/rate', '').trim();
+        if (!ticketId) {
+          return applySecurityHeaders(jsonError('INVALID_INPUT', 'Ticket identifier is required', 400), request, env);
+        }
+
         const user = await getAuthenticatedUser(request, env);
         if (!user) return applySecurityHeaders(jsonError('AUTH_REQUIRED', 'Authentication required', 401), request, env);
 
         const body = await parseJsonBody(request);
         const { rating, feedback } = body || {};
 
-        let ticket = null;
-        if (env.DB && typeof env.DB.prepare === 'function') {
-          ticket = await env.DB.prepare('SELECT * FROM support_tickets WHERE id = ? OR ticket_number = ? LIMIT 1').bind(ticketId, ticketId).first().catch(() => null);
+        if (!env.DB || typeof env.DB.prepare !== 'function') {
+          return applySecurityHeaders(jsonError('DATABASE_UNAVAILABLE', 'D1 database binding is required to rate tickets', 503), request, env);
         }
+
+        let ticket = null;
+        try {
+          ticket = await env.DB.prepare('SELECT * FROM support_tickets WHERE id = ? OR ticket_number = ? LIMIT 1').bind(ticketId, ticketId).first();
+        } catch (dbErr) {
+          return applySecurityHeaders(jsonError('DATABASE_ERROR', `Failed to query ticket: ${dbErr.message}`, 500), request, env);
+        }
+
         if (!ticket) return applySecurityHeaders(jsonError('NOT_FOUND', 'Ticket not found', 404), request, env);
         if (ticket.user_id !== user.id) {
           return applySecurityHeaders(jsonError('FORBIDDEN', 'Can only rate your own tickets', 403), request, env);
@@ -13701,12 +14120,21 @@ export default {
           return applySecurityHeaders(jsonError('VALIDATION_ERROR', e.message, 400), request, env);
         }
 
-        if (env.DB && typeof env.DB.prepare === 'function') {
+        const now = new Date().toISOString();
+        try {
           await env.DB.prepare('UPDATE support_tickets SET satisfaction_rating = ?, satisfaction_feedback = ?, updated_at = ? WHERE id = ?')
-            .bind(ticket.satisfaction_rating, ticket.satisfaction_feedback, ticket.updated_at, ticket.id).run().catch(() => {});
+            .bind(ticket.satisfaction_rating || rating, ticket.satisfaction_feedback || feedback || null, now, ticket.id).run();
+        } catch (dbErr) {
+          console.error('[Ticket Rating DB Error]', dbErr);
+          return applySecurityHeaders(jsonError('PERSISTENCE_FAILED', `Failed to save satisfaction rating: ${dbErr.message}`, 500), request, env);
         }
 
-        response = jsonSuccess({ success: true, message: 'Thank you for your feedback!' }, 200, {}, requestId);
+        response = jsonSuccess({
+          success: true,
+          ticketId: ticket.id,
+          rating: ticket.satisfaction_rating || rating,
+          message: 'Thank you for your feedback!'
+        }, 200, {}, requestId);
       }
 
       // =====================================================================
