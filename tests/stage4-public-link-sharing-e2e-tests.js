@@ -253,8 +253,8 @@ test('Stage 4 — WishMagic Public Wish Link, Sharing, QR & Social Preview Suite
     const futureStatus = WishLifecycle.getWishStatus({ eventDate: futureDate });
     assert.strictEqual(futureStatus, 'upcoming', 'Future celebration date must yield "upcoming" status');
 
-    // Active date (today)
-    const activeDate = new Date().toISOString().split('T')[0];
+    // Active date (today in IST)
+    const activeDate = new Date(Date.now() + WishLifecycle.IST_OFFSET_MS).toISOString().split('T')[0];
     const activeStatus = WishLifecycle.getWishStatus({ eventDate: activeDate });
     assert.strictEqual(activeStatus, 'active', 'Current celebration date must yield "active" status');
   });

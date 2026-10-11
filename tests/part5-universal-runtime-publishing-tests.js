@@ -327,10 +327,11 @@ test('Part 5 — WishMagic Universal Template Runtime, Preview & Public Wish Eng
     const Renderer = ctx.window.WishMagicFinalRenderer;
     assert.ok(Renderer, 'WishMagicFinalRenderer must be instantiated');
 
-    // Check evaluateLifecycle
-    const tomorrow = new Date(Date.now() + 86400000).toISOString().split('T')[0];
+    // Check evaluateLifecycle (Asia/Kolkata standard: IST = UTC+05:30)
+    const IST_OFFSET_MS = 330 * 60 * 1000;
+    const tomorrow = new Date(Date.now() + IST_OFFSET_MS + 86400000).toISOString().split('T')[0];
     const past = '2020-01-01';
-    const today = new Date().toISOString().split('T')[0];
+    const today = new Date(Date.now() + IST_OFFSET_MS).toISOString().split('T')[0];
 
     assert.strictEqual(Renderer.evaluateLifecycle({ eventDate: tomorrow }).toLowerCase(), 'upcoming');
     assert.strictEqual(Renderer.evaluateLifecycle({ eventDate: past }).toLowerCase(), 'expired');
