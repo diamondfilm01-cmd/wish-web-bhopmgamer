@@ -722,6 +722,116 @@ function isValidSlug(slug) {
   return true;
 }
 
+async function generateUniqueTemplateSlug({
+  db,
+  sourceSlug,
+  sourceName,
+  maxAttempts = 8
+}) {
+  const baseSlug = slugify(
+    sourceSlug || sourceName || 'template'
+  ).replace(/^tpl-/, '') || 'template';
+
+  for (let attempt = 0; attempt < maxAttempts; attempt += 1) {
+    const suffix = (typeof crypto !== 'undefined' && crypto.randomUUID
+      ? crypto.randomUUID().replace(/-/g, '').slice(0, 12).toLowerCase()
+      : Math.random().toString(36).substring(2, 14));
+
+    const candidate = `${baseSlug}-copy-${suffix}`;
+
+    let existing;
+
+    try {
+      existing = await db.prepare(
+        'SELECT id FROM templates WHERE slug = ? LIMIT 1'
+      ).bind(candidate).first();
+    } catch (error) {
+      throw new Error(
+        `SLUG_LOOKUP_FAILED: ${error?.message || String(error)}`
+      );
+    }
+
+    if (!existing) {
+      return candidate;
+    }
+  }
+
+  throw new Error(
+    'UNIQUE_SLUG_GENERATION_FAILED: Unable to reserve a unique template slug'
+  );
+}
+
+function buildDuplicateSnapshot({
+  sourceSnapshot,
+  sourceTemplate,
+  newId,
+  newSlug,
+  newName,
+  newVersionId
+}) {
+  let snapshot;
+
+  if (sourceSnapshot == null) {
+    snapshot = {
+      id: sourceTemplate.id,
+      name: sourceTemplate.name,
+      slug: sourceTemplate.slug,
+      category: sourceTemplate.category,
+      tier: sourceTemplate.tier,
+      price: Number(sourceTemplate.price) || 0,
+      thumbnail: sourceTemplate.thumbnail || '',
+      version: 1
+    };
+  } else if (typeof sourceSnapshot === 'string') {
+    snapshot = JSON.parse(sourceSnapshot);
+  } else {
+    snapshot = structuredClone(sourceSnapshot);
+  }
+
+  if (
+    !snapshot ||
+    typeof snapshot !== 'object' ||
+    Array.isArray(snapshot)
+  ) {
+    throw new Error('Invalid template snapshot');
+  }
+
+  snapshot.id = newId;
+  snapshot.name = newName;
+  snapshot.slug = newSlug;
+  snapshot.version = 1;
+
+  if ('templateId' in snapshot) {
+    snapshot.templateId = newId;
+  }
+
+  if ('template_id' in snapshot) {
+    snapshot.template_id = newId;
+  }
+
+  if ('versionId' in snapshot) {
+    snapshot.versionId = newVersionId;
+  }
+
+  if ('currentVersionId' in snapshot) {
+    snapshot.currentVersionId = newVersionId;
+  }
+
+  if ('status' in snapshot) {
+    snapshot.status = 'draft';
+  }
+
+  if ('isPublished' in snapshot) {
+    snapshot.isPublished = false;
+  }
+
+  if ('is_published' in snapshot) {
+    snapshot.is_published = 0;
+  }
+
+  return snapshot;
+}
+
 function renderWishErrorHtml({ title, heading, message, code = 404, buttonText = 'Return to WishMagic', buttonHref = '/' }) {
   return `<!DOCTYPE html>
 <html lang="en">
@@ -6106,6 +6216,14 @@ export default {
           return applySecurityHeaders(jsonError('NOT_FOUND', `Template "${sourceId}" not found`, 404), request, env);
         }
 
+        if (!sourceTemplate.id || !sourceTemplate.name || !sourceTemplate.slug) {
+          return applySecurityHeaders(
+            jsonError('CORRUPT_SOURCE_TEMPLATE', 'Source template is missing required identification fields', 422),
+            request,
+            env
+          );
+        }
+
         // A. Explicit source version lookup with proper error handling
         let sourceVersion = null;
         try {
@@ -6139,21 +6257,29 @@ export default {
         const randUuid = typeof crypto !== 'undefined' && crypto.randomUUID ? crypto.randomUUID().replace(/-/g, '').substring(0, 12) : Math.random().toString(36).substring(2, 10);
         const timestampSuffix = Date.now().toString(36);
         const newId = `tpl_${timestampSuffix}_${randUuid.substring(0, 6)}`;
-        const baseSlug = slugify(sourceTemplate.slug || sourceTemplate.name || 'template').replace(/^tpl-/, '');
-        
-        // Bounded collision handling for unique slug
-        let newSlug = `${baseSlug}-copy-${timestampSuffix.slice(-4)}${randUuid.substring(0, 4)}`;
-        let slugAttempts = 0;
-        while (slugAttempts < 3) {
-          try {
-            const existingSlug = await env.DB.prepare('SELECT id FROM templates WHERE slug = ? LIMIT 1').bind(newSlug).first();
-            if (!existingSlug) break;
-            const extraRand = typeof crypto !== 'undefined' && crypto.randomUUID ? crypto.randomUUID().substring(0, 6) : Math.random().toString(36).substring(2, 8);
-            newSlug = `${baseSlug}-copy-${timestampSuffix.slice(-4)}${extraRand}`;
-            slugAttempts++;
-          } catch (e) {
-            break;
+
+        let newSlug;
+        try {
+          newSlug = await generateUniqueTemplateSlug({
+            db: env.DB,
+            sourceSlug: sourceTemplate.slug,
+            sourceName: sourceTemplate.name,
+            maxAttempts: 8
+          });
+        } catch (slugError) {
+          console.error('[Template Duplicate Slug Error]', slugError);
+          if (slugError?.message?.startsWith('SLUG_LOOKUP_FAILED')) {
+            return applySecurityHeaders(
+              jsonError('DATABASE_ERROR', slugError.message, 500),
+              request,
+              env
+            );
           }
+          return applySecurityHeaders(
+            jsonError('SLUG_COLLISION_FAILED', slugError?.message || 'Unable to reserve a unique template slug', 409),
+            request,
+            env
+          );
         }
 
         const newName = `${sourceTemplate.name} (Copy)`;
@@ -6162,54 +6288,18 @@ export default {
         // B. Correct snapshot identity & schema transformation
         let duplicateSnapshot;
         try {
-          let sourceSnapshot = sourceVersion?.snapshot_data || null;
-          let snapshot = {};
-
-          if (sourceSnapshot != null) {
-            if (typeof sourceSnapshot === 'string') {
-              snapshot = JSON.parse(sourceSnapshot);
-            } else if (typeof sourceSnapshot === 'object' && !Array.isArray(sourceSnapshot)) {
-              snapshot = structuredClone(sourceSnapshot);
-            } else {
-              throw new Error('Invalid source template snapshot format');
-            }
-          } else {
-            // Documented fallback snapshot built from the source template's persisted fields
-            snapshot = {
-              id: newId,
-              name: newName,
-              slug: newSlug,
-              category: sourceTemplate.category || 'Celebration',
-              tier: sourceTemplate.tier || 'free',
-              price: Number(sourceTemplate.price) || 0,
-              thumbnail: sourceTemplate.thumbnail || '',
-              entryFile: sourceTemplate.entry_file || 'index.html',
-              version: 1
-            };
-          }
-
-          if (!snapshot || typeof snapshot !== 'object' || Array.isArray(snapshot)) {
-            throw new Error('Source template snapshot must be an object');
-          }
-
-          snapshot.id = newId;
-          snapshot.name = newName;
-          snapshot.slug = newSlug;
-          snapshot.version = 1;
-
-          if ('templateId' in snapshot) snapshot.templateId = newId;
-          if ('template_id' in snapshot) snapshot.template_id = newId;
-          if ('versionId' in snapshot) snapshot.versionId = newVersionId;
-          if ('currentVersionId' in snapshot) snapshot.currentVersionId = newVersionId;
-          if ('status' in snapshot) snapshot.status = 'draft';
-          if ('isPublished' in snapshot) snapshot.isPublished = false;
-          if ('is_published' in snapshot) snapshot.is_published = 0;
-
-          duplicateSnapshot = snapshot;
+          duplicateSnapshot = buildDuplicateSnapshot({
+            sourceSnapshot: sourceVersion?.snapshot_data || null,
+            sourceTemplate,
+            newId,
+            newSlug,
+            newName,
+            newVersionId
+          });
         } catch (snapshotErr) {
           console.error('[Template Duplicate] Snapshot parsing/transformation failed', snapshotErr);
           return applySecurityHeaders(
-            jsonError('CORRUPT_SNAPSHOT', `Invalid source template snapshot: ${snapshotErr.message}`, 400),
+            jsonError('CORRUPT_SNAPSHOT', `Invalid source template snapshot: ${snapshotErr?.message || String(snapshotErr)}`, 400),
             request,
             env
           );
@@ -11060,17 +11150,66 @@ export default {
       // API: Secure Cryptographic Payment Verification & Order Finalization
       else if (pathname === '/api/commerce/verify' && method === 'POST') {
         const user = await getAuthenticatedUser(request, env);
+        if (!user) {
+          return applySecurityHeaders(
+            jsonError('AUTH_REQUIRED', 'Authentication required', 401),
+            request,
+            env
+          );
+        }
+
+        if (!env.DB || typeof env.DB.prepare !== 'function') {
+          return applySecurityHeaders(
+            jsonError('DATABASE_UNAVAILABLE', 'Order verification storage is unavailable.', 503),
+            request,
+            env
+          );
+        }
+
         const body = await request.json().catch(() => ({}));
         const { orderId, razorpayOrderId, razorpayPaymentId, razorpaySignature } = body;
 
-        const effectiveOrderId = orderId || razorpayOrderId;
-        const effectiveRzpOrderId = razorpayOrderId || orderId;
-
-        if (!effectiveOrderId) {
-          return applySecurityHeaders(jsonError('INVALID_INPUT', 'orderId or razorpayOrderId is required', 400), request, env);
+        if (
+          typeof orderId !== 'string' ||
+          !orderId.trim() ||
+          typeof razorpayOrderId !== 'string' ||
+          !razorpayOrderId.trim() ||
+          typeof razorpayPaymentId !== 'string' ||
+          !razorpayPaymentId.trim() ||
+          typeof razorpaySignature !== 'string' ||
+          !razorpaySignature.trim()
+        ) {
+          return applySecurityHeaders(
+            jsonError('INVALID_INPUT', 'Required payment verification fields are missing or invalid.', 400),
+            request,
+            env
+          );
         }
-        if (!razorpayPaymentId || !razorpaySignature) {
-          return applySecurityHeaders(jsonError('INVALID_INPUT', 'razorpayPaymentId and razorpaySignature are required', 400), request, env);
+
+        // Fetch order from D1 strictly scoped to the authenticated user
+        let order = null;
+        try {
+          order = await env.DB.prepare(`
+            SELECT *
+            FROM orders
+            WHERE id = ? AND user_id = ?
+            LIMIT 1
+          `).bind(orderId.trim(), user.id).first();
+        } catch (dbErr) {
+          return applySecurityHeaders(jsonError('DATABASE_ERROR', `Failed to query order: ${dbErr.message}`, 500), request, env);
+        }
+
+        if (!order) {
+          return applySecurityHeaders(jsonError(COMMERCE_ERROR_CODES.ORDER_NOT_FOUND, 'Referenced order not found', 404), request, env);
+        }
+
+        // Strict provider order ID match against stored record
+        if (!order.provider_order_id || order.provider_order_id !== razorpayOrderId.trim()) {
+          return applySecurityHeaders(
+            jsonError('PAYMENT_ORDER_MISMATCH', 'Payment does not match the requested order.', 400),
+            request,
+            env
+          );
         }
 
         const keyId = env.RAZORPAY_KEY_ID || null;
@@ -11081,31 +11220,15 @@ export default {
           return applySecurityHeaders(jsonError(COMMERCE_ERROR_CODES.PAYMENT_PROVIDER_NOT_CONFIGURED, 'Gateway credentials not configured', 503), request, env);
         }
 
-        // Verify cryptographic signature against razorpayOrderId (or provider order id)
+        // Cryptographic payment signature verification
         const isValid = adapter.verifyPayment({
-          razorpayOrderId: effectiveRzpOrderId,
-          razorpayPaymentId,
-          razorpaySignature
+          razorpayOrderId: order.provider_order_id,
+          razorpayPaymentId: razorpayPaymentId.trim(),
+          razorpaySignature: razorpaySignature.trim()
         });
 
         if (!isValid) {
           return applySecurityHeaders(jsonError(COMMERCE_ERROR_CODES.PAYMENT_VERIFICATION_FAILED, 'Payment signature verification failed', 400), request, env);
-        }
-
-        // Fetch order from D1 to verify existence, state, and entitlement ownership
-        let order = null;
-        if (env.DB && typeof env.DB.prepare === 'function') {
-          try {
-            order = await env.DB.prepare(
-              'SELECT * FROM orders WHERE id = ? OR provider_order_id = ? LIMIT 1'
-            ).bind(effectiveOrderId, effectiveRzpOrderId).first();
-          } catch (dbErr) {
-            return applySecurityHeaders(jsonError('DATABASE_ERROR', `Failed to query order: ${dbErr.message}`, 500), request, env);
-          }
-        }
-
-        if (!order) {
-          return applySecurityHeaders(jsonError(COMMERCE_ERROR_CODES.ORDER_NOT_FOUND, 'Referenced order not found', 404), request, env);
         }
 
         // Idempotent return if already marked PAID
@@ -11115,45 +11238,53 @@ export default {
             verified: true,
             alreadyFinalized: true,
             orderId: order.id,
-            transactionId: order.transaction_id || razorpayPaymentId
-          }, 200), request, env);
+            transactionId: order.transaction_id || razorpayPaymentId.trim()
+          }, 200, {}, requestId), request, env);
         }
 
         const now = new Date().toISOString();
-        if (env.DB && typeof env.DB.prepare === 'function') {
-          try {
-            await env.DB.prepare(
-              `UPDATE orders SET status = 'PAID', transaction_id = ?, verified_at = ?, updated_at = ? WHERE id = ?`
-            ).bind(razorpayPaymentId, now, now, order.id).run();
+        const entPlan = (order.plan && order.plan.toLowerCase().includes('vip')) ? 'VIP' : (order.plan || 'PRO');
+        const entId = `ent_${order.user_id}_${order.id}`;
 
-            await env.DB.prepare(
-              `UPDATE payment_attempts SET status = 'CAPTURED', provider_payment_id = ?, provider_signature = ?, signature_verified = 1, verified_at = ?, updated_at = ?
-               WHERE order_id = ? OR provider_order_id = ?`
-            ).bind(razorpayPaymentId, razorpaySignature, now, now, order.id, order.provider_order_id).run();
+        try {
+          const updateOrderStmt = env.DB.prepare(
+            `UPDATE orders SET status = 'PAID', transaction_id = ?, verified_at = ?, updated_at = ? WHERE id = ? AND status != 'PAID'`
+          ).bind(razorpayPaymentId.trim(), now, now, order.id);
 
-            // Grant Entitlement in D1 idempotently
-            const userId = order.user_id || (user ? user.id : 'usr_customer');
-            const entPlan = (order.plan && order.plan.toLowerCase().includes('vip')) ? 'VIP' : (order.plan || 'VIP');
-            const entId = `ent_${userId}_${order.id || Date.now().toString(36)}`;
-            
-            await env.DB.prepare(
-              `INSERT OR REPLACE INTO entitlements (id, user_id, plan, status, source, starts_at, created_at, updated_at)
-               VALUES (?, ?, ?, 'active', 'purchase', ?, ?, ?)`
-            ).bind(entId, userId, entPlan, now, now, now).run();
+          const updateAttemptStmt = env.DB.prepare(
+            `UPDATE payment_attempts SET status = 'CAPTURED', provider_payment_id = ?, provider_signature = ?, signature_verified = 1, verified_at = ?, updated_at = ?
+             WHERE order_id = ? OR provider_order_id = ?`
+          ).bind(razorpayPaymentId.trim(), razorpaySignature.trim(), now, now, order.id, order.provider_order_id);
 
-            // Part 36: Evaluate Referral Qualification on First Purchase
-            evaluateReferralQualification(userId, REF_QUALIFYING_EVENTS.FIRST_PURCHASE, { orderId: order.id, paymentId: razorpayPaymentId }, env.DB, env).catch(() => {});
-          } catch (dbErr) {
-            console.error('[D1 Verification DB Error]', dbErr);
-            return applySecurityHeaders(jsonError('PERSISTENCE_FAILED', `Failed to finalize order payment: ${dbErr.message}`, 500), request, env);
+          const insertEntitlementStmt = env.DB.prepare(
+            `INSERT INTO entitlements (id, user_id, plan, status, source, starts_at, created_at, updated_at)
+             VALUES (?, ?, ?, 'active', 'purchase', ?, ?, ?)
+             ON CONFLICT(id) DO UPDATE SET status = 'active', plan = excluded.plan, updated_at = excluded.updated_at`
+          ).bind(entId, order.user_id, entPlan, now, now, now);
+
+          if (typeof env.DB.batch === 'function') {
+            await env.DB.batch([
+              updateOrderStmt,
+              updateAttemptStmt,
+              insertEntitlementStmt
+            ]);
+          } else {
+            await updateOrderStmt.run();
+            await updateAttemptStmt.run();
+            await insertEntitlementStmt.run();
           }
+
+          evaluateReferralQualification(order.user_id, REF_QUALIFYING_EVENTS.FIRST_PURCHASE, { orderId: order.id, paymentId: razorpayPaymentId.trim() }, env.DB, env).catch(() => {});
+        } catch (dbErr) {
+          console.error('[D1 Verification DB Error]', dbErr);
+          return applySecurityHeaders(jsonError('PERSISTENCE_FAILED', `Failed to finalize order payment: ${dbErr.message}`, 500), request, env);
         }
 
         response = jsonSuccess({
           status: 'PAID',
           verified: true,
           orderId: order.id,
-          transactionId: razorpayPaymentId
+          transactionId: razorpayPaymentId.trim()
         }, 200, {}, requestId);
       }
 
@@ -11178,99 +11309,152 @@ export default {
           return applySecurityHeaders(jsonError('BAD_REQUEST', 'Malformed webhook JSON payload', 400), request, env);
         }
 
-        const eventId = event.event_id || event.id || `evt_${Date.now().toString(36)}`;
-        const eventType = event.event;
+        if (!env.DB || typeof env.DB.prepare !== 'function') {
+          return applySecurityHeaders(
+            jsonError('DATABASE_UNAVAILABLE', 'Webhook persistence is temporarily unavailable.', 503),
+            request,
+            env
+          );
+        }
+
+        const eventId = typeof event.event_id === 'string' ? event.event_id.trim() : (typeof event.id === 'string' ? event.id.trim() : '');
+        if (!eventId) {
+          return applySecurityHeaders(
+            jsonError('BAD_REQUEST', 'Missing or invalid provider event ID', 400),
+            request,
+            env
+          );
+        }
+
+        const eventType = event.event || 'unknown';
         const now = new Date().toISOString();
 
-        // Check for duplicate webhook delivery in D1
-        if (env.DB && typeof env.DB.prepare === 'function') {
-          try {
-            const existingHook = await env.DB.prepare(
-              'SELECT * FROM payment_webhooks WHERE event_id = ? LIMIT 1'
-            ).bind(eventId).first();
+        try {
+          // Check for duplicate webhook delivery in D1
+          const existingHook = await env.DB.prepare(
+            'SELECT * FROM payment_webhooks WHERE event_id = ? LIMIT 1'
+          ).bind(eventId).first();
 
-            if (existingHook && existingHook.status === 'PROCESSED') {
-              return applySecurityHeaders(jsonSuccess({
-                success: true,
-                processed: true,
-                deduplicated: true,
-                message: 'Webhook event previously processed'
-              }, 200), request, env);
-            }
+          if (existingHook && existingHook.status === 'PROCESSED') {
+            return applySecurityHeaders(jsonSuccess({
+              success: true,
+              processed: true,
+              deduplicated: true,
+              message: 'Webhook event previously processed'
+            }, 200, {}, requestId), request, env);
+          }
 
-            // Insert webhook log record
-            if (!existingHook) {
-              await env.DB.prepare(`
-                INSERT INTO payment_webhooks (id, provider, event_id, event_type, status, received_at)
-                VALUES (?, 'razorpay', ?, ?, 'RECEIVED', ?)
-              `).bind(`wb_${Date.now().toString(36)}_${Math.random().toString(36).slice(-4)}`, eventId, eventType, now).run().catch(() => {});
-            }
+          // Insert initial RECEIVED record if not yet logged
+          if (!existingHook) {
+            await env.DB.prepare(`
+              INSERT INTO payment_webhooks (id, provider, event_id, event_type, status, received_at)
+              VALUES (?, 'razorpay', ?, ?, 'RECEIVED', ?)
+            `).bind(`wb_${Date.now().toString(36)}_${Math.random().toString(36).slice(-4)}`, eventId, eventType, now).run();
+          }
 
-            // Process supported payment events
-            if (eventType === 'order.paid' || eventType === 'payment.captured') {
-              const paymentEntity = event.payload?.payment?.entity || {};
-              const orderEntity = event.payload?.order?.entity || {};
-              const provOrderId = paymentEntity.order_id || orderEntity.id;
-              const provPayId = paymentEntity.id;
+          // Process supported payment events
+          if (eventType === 'order.paid' || eventType === 'payment.captured') {
+            const paymentEntity = event.payload?.payment?.entity || {};
+            const orderEntity = event.payload?.order?.entity || {};
+            const provOrderId = paymentEntity.order_id || orderEntity.id;
+            const provPayId = paymentEntity.id;
 
-              if (provOrderId) {
-                const targetOrder = await env.DB.prepare(
-                  'SELECT * FROM orders WHERE provider_order_id = ? OR id = ? LIMIT 1'
-                ).bind(provOrderId, provOrderId).first();
-
-                if (targetOrder && targetOrder.status !== 'PAID') {
-                  await env.DB.prepare(
-                    `UPDATE orders SET status = 'PAID', transaction_id = ?, verified_at = ?, updated_at = ? WHERE id = ?`
-                  ).bind(provPayId || targetOrder.transaction_id, now, now, targetOrder.id).run();
-
-                  const entId = `ent_${targetOrder.user_id}_${targetOrder.id}`;
-                  await env.DB.prepare(
-                    `INSERT OR REPLACE INTO entitlements (id, user_id, plan, status, source, starts_at, created_at, updated_at)
-                     VALUES (?, ?, ?, 'active', 'purchase', ?, ?, ?)`
-                  ).bind(entId, targetOrder.user_id, targetOrder.plan || 'VIP', now, now, now).run();
-                }
-
-                await env.DB.prepare(
-                  `UPDATE payment_webhooks SET status = 'PROCESSED', order_id = ?, payment_id = ?, processed_at = ? WHERE event_id = ?`
-                ).bind(provOrderId, provPayId, now, eventId).run().catch(() => {});
-              }
-            } else if (eventType === 'refund.processed') {
-              const refundEntity = event.payload?.refund?.entity || {};
-              const provPayId = refundEntity.payment_id;
-              const refundAmount = refundEntity.amount || 0;
-
-              if (provPayId) {
-                const targetOrder = await env.DB.prepare(
-                  'SELECT * FROM orders WHERE transaction_id = ? OR id = ? LIMIT 1'
-                ).bind(provPayId, provPayId).first();
-
-                if (targetOrder) {
-                  const newStatus = (refundAmount >= (targetOrder.amount || 0)) ? 'REFUNDED' : 'PARTIALLY_REFUNDED';
-                  await env.DB.prepare(
-                    `UPDATE orders SET status = ?, updated_at = ? WHERE id = ?`
-                  ).bind(newStatus, now, targetOrder.id).run();
-
-                  if (newStatus === 'REFUNDED') {
-                    await env.DB.prepare(
-                      `UPDATE entitlements SET status = 'revoked', updated_at = ? WHERE user_id = ?`
-                    ).bind(now, targetOrder.user_id).run();
-                  }
-                }
-
-                await env.DB.prepare(
-                  `UPDATE payment_webhooks SET status = 'PROCESSED', payment_id = ?, processed_at = ? WHERE event_id = ?`
-                ).bind(provPayId, now, eventId).run().catch(() => {});
-              }
-            } else {
-              // Mark unsupported event as IGNORED
+            if (!provOrderId) {
               await env.DB.prepare(
                 `UPDATE payment_webhooks SET status = 'IGNORED', processed_at = ? WHERE event_id = ?`
-              ).bind(now, eventId).run().catch(() => {});
+              ).bind(now, eventId).run();
+            } else {
+              const targetOrder = await env.DB.prepare(
+                'SELECT * FROM orders WHERE provider_order_id = ? LIMIT 1'
+              ).bind(provOrderId).first();
+
+              if (!targetOrder) {
+                await env.DB.prepare(
+                  `UPDATE payment_webhooks SET status = 'IGNORED', order_id = ?, processed_at = ? WHERE event_id = ?`
+                ).bind(provOrderId, now, eventId).run();
+              } else {
+                const entId = `ent_${targetOrder.user_id}_${targetOrder.id}`;
+                const entPlan = (targetOrder.plan && targetOrder.plan.toLowerCase().includes('vip')) ? 'VIP' : (targetOrder.plan || 'PRO');
+
+                const updateStatements = [
+                  env.DB.prepare(
+                    `UPDATE orders SET status = 'PAID', transaction_id = ?, verified_at = ?, updated_at = ? WHERE id = ?`
+                  ).bind(provPayId || targetOrder.transaction_id, now, now, targetOrder.id),
+
+                  env.DB.prepare(
+                    `UPDATE payment_attempts SET status = 'CAPTURED', provider_payment_id = ?, signature_verified = 1, verified_at = ?, updated_at = ? WHERE provider_order_id = ? OR order_id = ?`
+                  ).bind(provPayId, now, now, provOrderId, targetOrder.id),
+
+                  env.DB.prepare(
+                    `INSERT INTO entitlements (id, user_id, plan, status, source, starts_at, created_at, updated_at)
+                     VALUES (?, ?, ?, 'active', 'purchase', ?, ?, ?)
+                     ON CONFLICT(id) DO UPDATE SET status = 'active', plan = excluded.plan, updated_at = excluded.updated_at`
+                  ).bind(entId, targetOrder.user_id, entPlan, now, now, now),
+
+                  env.DB.prepare(
+                    `UPDATE payment_webhooks SET status = 'PROCESSED', order_id = ?, payment_id = ?, processed_at = ? WHERE event_id = ?`
+                  ).bind(targetOrder.id, provPayId, now, eventId)
+                ];
+
+                if (typeof env.DB.batch === 'function') {
+                  await env.DB.batch(updateStatements);
+                } else {
+                  for (const stmt of updateStatements) await stmt.run();
+                }
+              }
             }
-          } catch (dbErr) {
-            console.error('[D1 Webhook Processing Error]', dbErr);
-            return applySecurityHeaders(jsonError('WEBHOOK_PROCESSING_FAILED', `Failed to persist webhook event: ${dbErr.message}`, 500), request, env);
+          } else if (eventType === 'refund.processed') {
+            const refundEntity = event.payload?.refund?.entity || {};
+            const provPayId = refundEntity.payment_id;
+            const refundAmount = refundEntity.amount || 0;
+
+            if (provPayId) {
+              const targetOrder = await env.DB.prepare(
+                'SELECT * FROM orders WHERE transaction_id = ? LIMIT 1'
+              ).bind(provPayId).first();
+
+              if (targetOrder) {
+                const newStatus = (refundAmount >= (targetOrder.amount || 0)) ? 'REFUNDED' : 'PARTIALLY_REFUNDED';
+                const refundStatements = [
+                  env.DB.prepare(
+                    `UPDATE orders SET status = ?, updated_at = ? WHERE id = ?`
+                  ).bind(newStatus, now, targetOrder.id)
+                ];
+
+                if (newStatus === 'REFUNDED') {
+                  refundStatements.push(
+                    env.DB.prepare(
+                      `UPDATE entitlements SET status = 'revoked', updated_at = ? WHERE user_id = ? AND id = ?`
+                    ).bind(now, targetOrder.user_id, `ent_${targetOrder.user_id}_${targetOrder.id}`)
+                  );
+                }
+
+                refundStatements.push(
+                  env.DB.prepare(
+                    `UPDATE payment_webhooks SET status = 'PROCESSED', payment_id = ?, processed_at = ? WHERE event_id = ?`
+                  ).bind(provPayId, now, eventId)
+                );
+
+                if (typeof env.DB.batch === 'function') {
+                  await env.DB.batch(refundStatements);
+                } else {
+                  for (const stmt of refundStatements) await stmt.run();
+                }
+              } else {
+                await env.DB.prepare(
+                  `UPDATE payment_webhooks SET status = 'IGNORED', processed_at = ? WHERE event_id = ?`
+                ).bind(now, eventId).run();
+              }
+            }
+          } else {
+            // Mark unsupported event as IGNORED
+            await env.DB.prepare(
+              `UPDATE payment_webhooks SET status = 'IGNORED', processed_at = ? WHERE event_id = ?`
+            ).bind(now, eventId).run();
           }
+        } catch (dbErr) {
+          console.error('[D1 Webhook Processing Error]', dbErr);
+          return applySecurityHeaders(jsonError('WEBHOOK_PROCESSING_FAILED', `Failed to persist webhook event: ${dbErr.message}`, 500), request, env);
         }
 
         response = jsonSuccess({ success: true, processed: true, eventId }, 200, {}, requestId);
@@ -13903,19 +14087,37 @@ export default {
           );
         }
 
-        // C. Read the persisted result
-        const persistedArticle = await env.DB.prepare(`
-          SELECT helpful_count, not_helpful_count
-          FROM help_articles
-          WHERE slug = ?
-          LIMIT 1
-        `).bind(slug).first();
+        // C. Read the persisted result with explicit error handling
+        let persistedArticle;
+        try {
+          persistedArticle = await env.DB.prepare(`
+            SELECT helpful_count, not_helpful_count
+            FROM help_articles
+            WHERE slug = ?
+            LIMIT 1
+          `).bind(slug).first();
+        } catch (error) {
+          console.error('[Help Feedback Read Error]', {
+            slug,
+            message: error?.message || String(error)
+          });
+
+          return applySecurityHeaders(
+            jsonError(
+              'DATABASE_ERROR',
+              'Unable to confirm the saved feedback count.',
+              500
+            ),
+            request,
+            env
+          );
+        }
 
         if (!persistedArticle) {
           return applySecurityHeaders(
             jsonError(
               'PERSISTENCE_FAILED',
-              'Feedback was not confirmed in persistent storage.',
+              'The saved feedback could not be confirmed.',
               500
             ),
             request,

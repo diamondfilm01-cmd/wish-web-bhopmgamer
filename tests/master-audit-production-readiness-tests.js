@@ -79,7 +79,12 @@ function createMockD1() {
             const vers = tables.template_versions.filter(v => v.template_id === tId);
             return vers[vers.length - 1] || null;
           }
-          if (lower.includes('from orders where')) {
+          if (/from\s+orders\s+where/i.test(sql)) {
+            if (/id\s*=\s*\?\s*and\s*user_id\s*=\s*\?/i.test(sql)) {
+              const id = boundArgs[0];
+              const uId = boundArgs[1];
+              return tables.orders.find(o => o.id === id && o.user_id === uId) || null;
+            }
             const id = boundArgs[0];
             const provId = boundArgs[1] || id;
             return tables.orders.find(o => o.id === id || o.provider_order_id === provId || o.id === provId) || null;
@@ -197,7 +202,7 @@ function createMockD1() {
             }
             return { success: true };
           }
-          if (lower.includes('insert or replace into entitlements')) {
+          if (lower.includes('into entitlements')) {
             const record = {
               id: boundArgs[0],
               user_id: boundArgs[1],
@@ -370,6 +375,23 @@ describe('WishMagic Master Audit & Verification Suite', () => {
     });
     const res2 = await worker.fetch(req2, env);
     assert.equal(res2.status, 404);
+
+    // Corrupt source template missing required name/slug
+    mockDb._tables.templates.push({
+      id: 'tpl_corrupt_123',
+      name: '',
+      slug: ''
+    });
+    const req3 = new Request('https://wishmagic.live/api/templates/duplicate', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': 'Bearer wm_test_adm_token'
+      },
+      body: JSON.stringify({ id: 'tpl_corrupt_123' })
+    });
+    const res3 = await worker.fetch(req3, env);
+    assert.equal(res3.status, 422);
   });
 
   // --------------------------------------------------------------------------
@@ -476,6 +498,40 @@ describe('WishMagic Master Audit & Verification Suite', () => {
     const retryJson = await retryRes.json();
     assert.equal(retryJson.data.alreadyFinalized, true);
     assert.equal(retryJson.data.status, 'PAID');
+
+    // Rejection when order belongs to another user
+    const otherUserReq = new Request('https://wishmagic.live/api/commerce/verify', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': 'Bearer wm_test_atk_token'
+      },
+      body: JSON.stringify({
+        orderId: 'ord_test_001',
+        razorpayOrderId: rzpOrderId,
+        razorpayPaymentId: rzpPaymentId,
+        razorpaySignature: validSignature
+      })
+    });
+    const otherUserRes = await worker.fetch(otherUserReq, env);
+    assert.equal(otherUserRes.status, 404);
+
+    // Rejection when provider order id mismatches stored order
+    const mismatchReq = new Request('https://wishmagic.live/api/commerce/verify', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': 'Bearer wm_test_cust_token'
+      },
+      body: JSON.stringify({
+        orderId: 'ord_test_001',
+        razorpayOrderId: 'order_rzp_wrong',
+        razorpayPaymentId: rzpPaymentId,
+        razorpaySignature: validSignature
+      })
+    });
+    const mismatchRes = await worker.fetch(mismatchReq, env);
+    assert.equal(mismatchRes.status, 400);
   });
 
   // --------------------------------------------------------------------------
@@ -544,6 +600,31 @@ describe('WishMagic Master Audit & Verification Suite', () => {
     assert.equal(res2.status, 200);
     const json2 = await res2.json();
     assert.equal(json2.data.deduplicated, true, 'Duplicate webhook must be recognized and marked deduplicated');
+
+    // Missing event_id must return 400
+    const noEventIdPayload = JSON.stringify({ event: 'order.paid' });
+    const noEventIdReq = new Request('https://wishmagic.live/api/commerce/webhook', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'x-razorpay-signature': computeHmacSha256(webhookSecret, noEventIdPayload)
+      },
+      body: noEventIdPayload
+    });
+    const noEventIdRes = await worker.fetch(noEventIdReq, env);
+    assert.equal(noEventIdRes.status, 400);
+
+    // Invalid signature must return 403
+    const badSigReq = new Request('https://wishmagic.live/api/commerce/webhook', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'x-razorpay-signature': 'invalid_signature_xyz'
+      },
+      body: payload
+    });
+    const badSigRes = await worker.fetch(badSigReq, env);
+    assert.equal(badSigRes.status, 403);
   });
 
   // --------------------------------------------------------------------------

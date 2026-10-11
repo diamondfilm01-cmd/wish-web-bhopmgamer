@@ -182,30 +182,33 @@ export async function onRequest(context) {
   const cleanPath = pathname.replace(/\/+$/, '') || '/';
   const targetAdminFile = ADMIN_ROUTES_MAP[cleanPath] || ADMIN_ROUTES_MAP[pathname];
   if (targetAdminFile) {
+    const destinationUrl = new URL(targetAdminFile + url.search, context.request.url);
     if (context.env.ASSETS && typeof context.env.ASSETS.fetch === 'function') {
-      const pageReq = new Request(new URL(targetAdminFile, context.request.url), context.request);
+      const pageReq = new Request(destinationUrl, context.request);
       return await context.env.ASSETS.fetch(pageReq);
     }
-    const pageReq = new Request(new URL(targetAdminFile, context.request.url), context.request);
+    const pageReq = new Request(destinationUrl, context.request);
     return await context.next(pageReq);
   }
 
   const targetPublicFile = PUBLIC_PAGES_MAP[cleanPath] || PUBLIC_PAGES_MAP[pathname];
   if (targetPublicFile) {
+    const destinationUrl = new URL(targetPublicFile + url.search, context.request.url);
     if (context.env.ASSETS && typeof context.env.ASSETS.fetch === 'function') {
-      const pageReq = new Request(new URL(targetPublicFile, context.request.url), context.request);
+      const pageReq = new Request(destinationUrl, context.request);
       return await context.env.ASSETS.fetch(pageReq);
     }
-    const pageReq = new Request(new URL(targetPublicFile, context.request.url), context.request);
+    const pageReq = new Request(destinationUrl, context.request);
     return await context.next(pageReq);
   }
 
   if (pathname.startsWith('/template/')) {
+    const destinationUrl = new URL('/template-preview.html' + url.search, context.request.url);
     if (context.env.ASSETS && typeof context.env.ASSETS.fetch === 'function') {
-      const tplReq = new Request(new URL('/template-preview.html', context.request.url), context.request);
+      const tplReq = new Request(destinationUrl, context.request);
       return await context.env.ASSETS.fetch(tplReq);
     }
-    const tplReq = new Request(new URL('/template-preview.html', context.request.url), context.request);
+    const tplReq = new Request(destinationUrl, context.request);
     return await context.next(tplReq);
   }
 
