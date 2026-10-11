@@ -776,19 +776,21 @@ export function buildDuplicateSnapshot({
   newId,
   newSlug,
   newName,
-  newVersionId
+  newVersionId,
+  originalTemplateId = null,
+  originalVersionId = null
 }) {
   let snapshot;
 
   if (sourceSnapshot == null) {
     snapshot = {
-      id: sourceTemplate.id,
-      name: sourceTemplate.name,
-      slug: sourceTemplate.slug,
-      category: sourceTemplate.category,
-      tier: sourceTemplate.tier,
-      price: Number(sourceTemplate.price) || 0,
-      thumbnail: sourceTemplate.thumbnail || '',
+      id: sourceTemplate?.id || newId,
+      name: sourceTemplate?.name || newName,
+      slug: sourceTemplate?.slug || newSlug,
+      category: sourceTemplate?.category || 'Celebration',
+      tier: sourceTemplate?.tier || 'free',
+      price: Number(sourceTemplate?.price) || 0,
+      thumbnail: sourceTemplate?.thumbnail || '',
       version: 1
     };
   } else if (typeof sourceSnapshot === 'string') {
@@ -804,6 +806,9 @@ export function buildDuplicateSnapshot({
   ) {
     throw new Error('Invalid template snapshot');
   }
+
+  const expectedTemplateId = originalTemplateId || sourceTemplate?.id || null;
+  const expectedVersionId = originalVersionId || snapshot?.versionId || snapshot?.version_id || snapshot?.currentVersionId || snapshot?.current_version_id || null;
 
   const templateIdentityKeys = new Set([
     'templateId',
@@ -830,13 +835,17 @@ export function buildDuplicateSnapshot({
 
     for (const [key, child] of Object.entries(value)) {
       if (templateIdentityKeys.has(key)) {
-        result[key] = newId;
-        continue;
+        if (!expectedTemplateId || child === expectedTemplateId) {
+          result[key] = newId;
+          continue;
+        }
       }
 
       if (versionIdentityKeys.has(key)) {
-        result[key] = newVersionId;
-        continue;
+        if (!expectedVersionId || child === expectedVersionId) {
+          result[key] = newVersionId;
+          continue;
+        }
       }
 
       result[key] = remapKnownReferences(child);
@@ -6315,6 +6324,33 @@ export default {
           );
         }
 
+        if (!sourceVersion) {
+          sourceVersion = {
+            id: `ver_${sourceTemplate.id || 'default'}_v1`,
+            template_id: sourceTemplate.id,
+            version_number: 1,
+            version_label: '1.0.0',
+            name: sourceTemplate.name,
+            description: sourceTemplate.description || 'Initial draft version',
+            category: sourceTemplate.category || 'Celebration',
+            tier: sourceTemplate.tier || 'free',
+            price: Number(sourceTemplate.price) || 0,
+            thumbnail: sourceTemplate.thumbnail || '',
+            theme: sourceTemplate.theme || '{}',
+            sections: sourceTemplate.sections || '[]',
+            capabilities: sourceTemplate.capabilities || '{}',
+            layout: 'centered-immersive',
+            animations: '{}',
+            default_config: '{}',
+            snapshot_data: null,
+            status: 'draft',
+            is_current: 1,
+            is_publishable: 1,
+            created_at: new Date().toISOString(),
+            created_by: 'system'
+          };
+        }
+
         const customName = sanitizeString(body.name || body.title, 80);
         const newName = customName || `${sourceTemplate.name} (Copy)`;
         const customSlugRaw = sanitizeString(body.slug, 80)?.trim().toLowerCase();
@@ -6467,7 +6503,9 @@ export default {
               newId,
               newSlug,
               newName,
-              newVersionId
+              newVersionId,
+              originalTemplateId: sourceTemplate.id,
+              originalVersionId: sourceVersion?.id || null
             });
           } catch (snapshotErr) {
             console.error('[Template Duplicate] Snapshot parsing/transformation failed', snapshotErr);
@@ -6599,16 +6637,20 @@ export default {
                 throw new Error('Invalid template asset relative path');
               }
 
-              let destinationKey = f.storage_key;
+              const sourceKey = String(f.storage_key || '');
+              if (!sourceKey) {
+                throw new Error(
+                  `Missing source storage key for ${relativePath}`
+                );
+              }
+
+              // Destination key is exclusively generated for the duplicate, NEVER initialized from f.storage_key
+              const destinationKey = buildTemplateStorageKeys(
+                newId,
+                newVersionId
+              ).runtimeFile(relativePath);
 
               if (duplicateB2Provider) {
-                const sourceKey = String(f.storage_key || '');
-                if (!sourceKey) {
-                  throw new Error(
-                    `Missing source storage key for ${relativePath}`
-                  );
-                }
-
                 const sourceObject = await duplicateB2Provider.getObject({
                   key: sourceKey
                 });
@@ -6618,11 +6660,6 @@ export default {
                     `Unable to read source asset: ${relativePath}`
                   );
                 }
-
-                destinationKey = buildTemplateStorageKeys(
-                  newId,
-                  newVersionId
-                ).runtimeFile(relativePath);
 
                 const uploadResult = await duplicateB2Provider.putObject({
                   key: destinationKey,
@@ -6643,6 +6680,16 @@ export default {
                   );
                 }
 
+                // Verify destination existence using provider headObject
+                try {
+                  const headCheck = await duplicateB2Provider.headObject({ key: destinationKey });
+                  if (headCheck && headCheck.exists === false) {
+                    throw new Error(`Uploaded asset verification failed for ${destinationKey}`);
+                  }
+                } catch (headErr) {
+                  console.warn('[Template Duplicate] headObject verification warning:', headErr.message);
+                }
+
                 copiedB2Objects.push({
                   key: destinationKey,
                   fileId: uploadResult.fileId || null
@@ -6650,6 +6697,7 @@ export default {
               }
 
               const newFileId = `tfile_${newVersionId}_${typeof crypto !== 'undefined' && crypto.randomUUID ? crypto.randomUUID().replace(/-/g, '').slice(0, 10) : Math.random().toString(36).slice(2, 10)}`;
+              const finalStorageKey = duplicateB2Provider ? destinationKey : f.storage_key;
 
               statementsToBatch.push(
                 env.DB.prepare(`
@@ -6662,7 +6710,7 @@ export default {
                   newVersionId,
                   relativePath,
                   f.storage_provider || 'b2',
-                  destinationKey,
+                  finalStorageKey,
                   f.mime_type || 'application/octet-stream',
                   Number(f.size_bytes) || 0,
                   f.sha256 || null,
@@ -6673,13 +6721,18 @@ export default {
               );
             }
           } catch (copyError) {
+            const cleanupFailures = [];
             for (const object of copiedB2Objects) {
               try {
-                await duplicateB2Provider?.deleteObject({
+                const delRes = await duplicateB2Provider?.deleteObject({
                   key: object.key,
                   fileId: object.fileId
                 });
+                if (delRes && delRes.success === false && !delRes.alreadyDeleted && !delRes.notFound) {
+                  cleanupFailures.push({ key: object.key, error: delRes.message || 'Deletion unsuccessful' });
+                }
               } catch (cleanupError) {
+                cleanupFailures.push({ key: object.key, error: cleanupError?.message || String(cleanupError) });
                 console.error(
                   '[Template Duplicate] B2 cleanup pending',
                   {
@@ -6693,14 +6746,17 @@ export default {
             console.error('[Template Duplicate] B2 asset copy failed', {
               sourceTemplateId: sourceTemplate.id,
               newTemplateId: newId,
-              message: copyError?.message || String(copyError)
+              message: copyError?.message || String(copyError),
+              cleanupFailures: cleanupFailures.length > 0 ? cleanupFailures : undefined
             });
 
             return applySecurityHeaders(
               jsonError(
                 'ASSET_COPY_FAILED',
                 'Template assets could not be copied. Duplication was cancelled.',
-                502
+                502,
+                {},
+                cleanupFailures.length > 0 ? { cleanupPending: true, failedObjects: cleanupFailures } : {}
               ),
               request,
               env

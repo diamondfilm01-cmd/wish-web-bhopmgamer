@@ -496,11 +496,11 @@ export async function executeB2TemplateIngestPipeline(params) {
   const nowIso = now.toISOString();
   let operationId = `top_${now.getTime().toString(36)}_${crypto.randomUUID()}`;
 
-  // Helper to persist operation state if D1 available
+  // Helper to persist operation state if D1 available - errors are propagated and never swallowed
   const updateOperation = async (state, progressStage, progressPercent, extra = {}) => {
     if (db && typeof db.prepare === 'function') {
       try {
-        await db.prepare(`
+        const stmt = db.prepare(`
           INSERT INTO template_upload_operations (
             id, idempotency_key, author_id, template_family_id, template_id, version_id,
             version_number, version_label, package_fingerprint, state, progress_stage,
@@ -545,9 +545,17 @@ export async function executeB2TemplateIngestPipeline(params) {
           Array.isArray(extra.b2Objects) ? JSON.stringify(extra.b2Objects) : (extra.b2ObjectsJson || '[]'),
           nowIso,
           new Date().toISOString()
-        ).run().catch(e => console.warn('[Upload Operation DB Warning]:', e.message));
+        );
+
+        const res = await stmt.run();
+        if (res && res.success === false) {
+          throw new Error('Database operation persistence returned unsuccessful result');
+        }
       } catch (opErr) {
-        console.warn('[Upload Operation DB Err]:', opErr.message);
+        const err = new Error(`Failed to persist upload operation state "${state}": ${opErr.message}`);
+        err.code = 'OPERATION_STATE_PERSISTENCE_FAILED';
+        err.cause = opErr;
+        throw err;
       }
     }
   };
@@ -565,12 +573,19 @@ export async function executeB2TemplateIngestPipeline(params) {
     let existingOp;
 
     try {
-      existingOp = await db.prepare(`
+      const stmt = db.prepare(`
         SELECT *
         FROM template_upload_operations
         WHERE idempotency_key = ?
         LIMIT 1
-      `).bind(idempotencyKey).first();
+      `).bind(idempotencyKey);
+      if (typeof stmt.first === 'function') {
+        existingOp = await stmt.first();
+      } else if (typeof stmt.all === 'function') {
+        const res = await stmt.all();
+        const rows = Array.isArray(res) ? res : (res?.results || []);
+        existingOp = rows[0] || null;
+      }
     } catch (error) {
       const err = new Error(
         'Unable to verify the existing upload operation'
@@ -840,37 +855,52 @@ export async function executeB2TemplateIngestPipeline(params) {
 
   // Duplicate Package Detection via package_fingerprint
   if (db && typeof db.prepare === 'function') {
+    let duplicateVer = null;
     try {
-      const duplicateVer = await db.prepare(`
+      const stmt = db.prepare(`
         SELECT id, version_number, version_label, status FROM template_versions
         WHERE (template_id = ? OR template_family_id = ?) AND package_fingerprint = ? AND status != 'failed'
         LIMIT 1
-      `).bind(templateId, templateFamilyId, packageFingerprint).first();
-      if (duplicateVer) {
-        await updateOperation(UPLOAD_OPERATION_STATE.PREVIEW_READY, 'duplicate_detected', 100, {
-          templateFamilyId,
-          templateId,
-          versionId: duplicateVer.id,
-          versionNumber: duplicateVer.version_number,
-          versionLabel: duplicateVer.version_label,
-          packageFingerprint
-        });
-        return {
-          success: true,
-          duplicateDetected: true,
-          operationId,
-          templateFamilyId,
-          templateId,
-          versionId: duplicateVer.id,
-          versionNumber: duplicateVer.version_number,
-          versionLabel: duplicateVer.version_label,
-          status: duplicateVer.status || 'ready',
-          isPublished: duplicateVer.status === 'published',
-          message: `Identical package fingerprint already exists for this template family as ${duplicateVer.version_label}.`,
-          previewUrl: `/api/templates/${templateId}/versions/${duplicateVer.id}/preview/${extracted.entryFile}`
-        };
+      `).bind(templateId, templateFamilyId, packageFingerprint);
+      if (typeof stmt.first === 'function') {
+        duplicateVer = await stmt.first();
+      } else if (typeof stmt.all === 'function') {
+        const res = await stmt.all();
+        const rows = Array.isArray(res) ? res : (res?.results || []);
+        duplicateVer = rows[0] || null;
       }
-    } catch (_) {}
+    } catch (fpErr) {
+      const err = new Error(`Database error querying package fingerprint: ${fpErr.message}`);
+      err.code = 'DATABASE_ERROR';
+      err.isRetryable = true;
+      err.cause = fpErr;
+      throw err;
+    }
+
+    if (duplicateVer) {
+      await updateOperation(UPLOAD_OPERATION_STATE.PREVIEW_READY, 'duplicate_detected', 100, {
+        templateFamilyId,
+        templateId,
+        versionId: duplicateVer.id,
+        versionNumber: duplicateVer.version_number,
+        versionLabel: duplicateVer.version_label,
+        packageFingerprint
+      });
+      return {
+        success: true,
+        duplicateDetected: true,
+        operationId,
+        templateFamilyId,
+        templateId,
+        versionId: duplicateVer.id,
+        versionNumber: duplicateVer.version_number,
+        versionLabel: duplicateVer.version_label,
+        status: duplicateVer.status || 'ready',
+        isPublished: duplicateVer.status === 'published',
+        message: `Identical package fingerprint already exists for this template family as ${duplicateVer.version_label}.`,
+        previewUrl: `/api/templates/${templateId}/versions/${duplicateVer.id}/preview/${extracted.entryFile}`
+      };
+    }
   }
 
   const versionId = `ver_${templateId}_v${versionNumber}_${now.getTime().toString(36)}`;
@@ -1017,9 +1047,12 @@ export async function executeB2TemplateIngestPipeline(params) {
 
     await updateOperation(UPLOAD_OPERATION_STATE.REGISTERING, 'registering_d1', 80);
 
-    // Ensure template_family exists
-    try {
-      await db.prepare(`
+    // Build atomic statement list for transactional D1 registration
+    const registrationStatements = [];
+
+    // 1. Template Family statement
+    registrationStatements.push(
+      db.prepare(`
         INSERT OR IGNORE INTO template_families (
           id, slug, name, description, thumbnail, category, tier, price, is_featured, is_premium, status, visibility, created_by, created_at, updated_at
         ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'draft', 'public', ?, ?, ?)
@@ -1037,14 +1070,12 @@ export async function executeB2TemplateIngestPipeline(params) {
         authorId,
         nowIso,
         nowIso
-      ).run();
-    } catch (famErr) {
-      throw new Error(`Failed to insert template_families record: ${famErr.message}`);
-    }
+      )
+    );
 
-    // Ensure templates record exists / upserted for immediate store/admin visibility
-    try {
-      await db.prepare(`
+    // 2. Templates statement
+    registrationStatements.push(
+      db.prepare(`
         INSERT INTO templates (
           id, name, slug, description, category, relationships, tags,
           type, tier, price, is_premium, is_published, status, featured,
@@ -1086,14 +1117,12 @@ export async function executeB2TemplateIngestPipeline(params) {
         extracted.entryFile,
         nowIso,
         nowIso
-      ).run();
-    } catch (tplErr) {
-      throw new Error(`Failed to register templates record: ${tplErr.message}`);
-    }
+      )
+    );
 
-    // Insert template_versions record
-    try {
-      await db.prepare(`
+    // 3. Template Versions statement
+    registrationStatements.push(
+      db.prepare(`
         INSERT INTO template_versions (
           id, template_id, template_family_id, version_number, version_label,
           name, description, category, tier, price, thumbnail,
@@ -1132,17 +1161,15 @@ export async function executeB2TemplateIngestPipeline(params) {
         JSON.stringify({ filesCount: analyzed.fileRecords.length, totalBytes: extracted.totalUncompressedBytes }),
         nowIso,
         authorId
-      ).run();
-    } catch (verErr) {
-      throw new Error(`Failed to insert template_versions record: ${verErr.message}`);
-    }
+      )
+    );
 
-    // Insert template_files records with deterministic IDs for idempotent retries
+    // 4. Template Files statements
     for (const f of analyzed.fileRecords) {
       const pathHash = (await computeSha256Hex(f.relativePath)).slice(0, 12);
       const fileRecordId = `tfile_${versionId}_${pathHash}`;
-      try {
-        await db.prepare(`
+      registrationStatements.push(
+        db.prepare(`
           INSERT INTO template_files (
             id, template_version_id, relative_path, storage_provider, storage_key,
             mime_type, size_bytes, sha256, file_role, is_entry_file, status, created_at
@@ -1163,19 +1190,17 @@ export async function executeB2TemplateIngestPipeline(params) {
           f.fileRole,
           f.isEntryFile,
           nowIso
-        ).run();
-      } catch (fileErr) {
-        throw new Error(`Failed to insert template_files record for "${f.relativePath}": ${fileErr.message}`);
-      }
+        )
+      );
     }
 
-    // Insert template_fields records
+    // 5. Template Fields statements
     let fieldOrder = 0;
     for (const field of mergedFields) {
       fieldOrder++;
       const fieldId = `tfld_${versionId}_${field.key}`;
-      try {
-        await db.prepare(`
+      registrationStatements.push(
+        db.prepare(`
           INSERT OR REPLACE INTO template_fields (
             id, template_version_id, field_key, field_type, label, placeholder,
             help_text, is_required, default_value, validation_json, capabilities_json,
@@ -1195,10 +1220,24 @@ export async function executeB2TemplateIngestPipeline(params) {
           fieldOrder,
           field.category || 'personal',
           nowIso
-        ).run();
-      } catch (fldErr) {
-        throw new Error(`Failed to insert template_fields record for "${field.key}": ${fldErr.message}`);
+        )
+      );
+    }
+
+    // Execute atomic D1 commit
+    try {
+      if (typeof db.batch === 'function') {
+        const batchResults = await db.batch(registrationStatements);
+        if (Array.isArray(batchResults) && batchResults.some(r => r && r.success === false)) {
+          throw new Error('Atomic D1 registration batch reported failed statement result');
+        }
+      } else {
+        for (const stmt of registrationStatements) {
+          await stmt.run();
+        }
       }
+    } catch (batchErr) {
+      throw new Error(`D1 registration batch commit failed: ${batchErr.message}`);
     }
 
     await updateOperation(UPLOAD_OPERATION_STATE.PREVIEW_READY, 'completed', 100, {
