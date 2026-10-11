@@ -1,6 +1,7 @@
 /**
  * WishMagic Automated Test Suite: Database Migration & Schema Integrity
- * Part 8 Fix: Migration Chain, Schema Reconciliation & Idempotent Runner
+ * Comprehensive Verification of Migration Chain, Deep Structural Parity,
+ * Intentional Negative Mismatch Detection, and Dependency Resolution.
  */
 
 import { describe, it } from 'node:test';
@@ -8,7 +9,8 @@ import assert from 'node:assert';
 import fs from 'node:fs';
 import path from 'node:path';
 import { DatabaseSync } from 'node:sqlite';
-import { D1MigrationRunner } from '../scripts/migration-runner.js';
+import { D1MigrationRunner, compareDatabaseSchemas, verifyMigrationChainSafety } from '../scripts/migration-runner.js';
+import { canResolveDependency } from '../scripts/run-test-matrix.js';
 
 describe('Database Migration & Schema Integrity Verification', () => {
 
@@ -149,7 +151,7 @@ describe('Database Migration & Schema Integrity Verification', () => {
     assert.equal(applied[0].name, '0001_initial_schema.sql');
   });
 
-  it('5. d1_setup.sql: Complete standalone setup script executes cleanly and produces identical table set', async () => {
+  it('5. d1_setup.sql vs Migrations: 100% deep structural schema parity across tables, columns, types, defaults, nullability, FKs, and indexes', async () => {
     const rawDb = new DatabaseSync(':memory:');
     const content = fs.readFileSync(path.resolve('./d1_setup.sql'), 'utf8');
 
@@ -162,24 +164,10 @@ describe('Database Migration & Schema Integrity Verification', () => {
     const runner = new D1MigrationRunner(d1Mig);
     await runner.runMigrations();
 
-    const tablesSetup = rawDb.prepare("SELECT name FROM sqlite_master WHERE type='table' AND name NOT LIKE 'sqlite_%'").all().map(t => t.name).sort();
-    const tablesMig = dbMig.prepare("SELECT name FROM sqlite_master WHERE type='table' AND name NOT LIKE 'sqlite_%'").all().map(t => t.name).sort();
-
-    assert.equal(tablesSetup.length, tablesMig.length, `Table count mismatch: setup has ${tablesSetup.length}, migrations have ${tablesMig.length}`);
-    assert.deepEqual(tablesSetup, tablesMig, 'Table list must be 100% identical');
-
-    // Deep column parity check across all tables
-    for (const tableName of tablesSetup) {
-      const colsA = rawDb.prepare(`PRAGMA table_info(${tableName})`).all().map(c => c.name);
-      const colsB = dbMig.prepare(`PRAGMA table_info(${tableName})`).all().map(c => c.name);
-      assert.deepEqual(colsA, colsB, `Columns in table ${tableName} must be identical`);
-    }
-
-    // Index parity check
-    const idxSetup = rawDb.prepare("SELECT name FROM sqlite_master WHERE type='index' AND name NOT LIKE 'sqlite_%'").all().map(t => t.name).sort();
-    const idxMig = dbMig.prepare("SELECT name FROM sqlite_master WHERE type='index' AND name NOT LIKE 'sqlite_%'").all().map(t => t.name).sort();
-    assert.equal(idxSetup.length, idxMig.length, `Index count mismatch: setup has ${idxSetup.length}, migrations have ${idxMig.length}`);
-    assert.deepEqual(idxSetup, idxMig, 'Indexes must be 100% identical');
+    // Deep structural comparison
+    const parity = await compareDatabaseSchemas(rawDb, dbMig);
+    assert.equal(parity.identical, true, `Deep schema parity failure: ${JSON.stringify(parity.differences)}`);
+    assert.equal(parity.differences.length, 0, 'Zero structural differences between d1_setup.sql and migrations chain');
   });
 
   it('6. Matrix Upgrade: Database at 0012 successfully runs 0013-0032 with clean validation_report_json', async () => {
@@ -292,5 +280,180 @@ describe('Database Migration & Schema Integrity Verification', () => {
     const auditRes = await auditDatabaseIntegrity(d1);
     assert.equal(auditRes.success, true, 'Audit should pass with 0 errors');
     assert.equal(auditRes.errors.length, 0, 'Zero relational integrity errors');
+  });
+
+  it('10. Structural Schema Parity Negative Checks: detects intentional schema mismatches accurately', async () => {
+    // 1. Column Type Mismatch
+    const db1 = new DatabaseSync(':memory:');
+    const db2 = new DatabaseSync(':memory:');
+    db1.exec('CREATE TABLE t (id TEXT PRIMARY KEY, count INTEGER);');
+    db2.exec('CREATE TABLE t (id TEXT PRIMARY KEY, count TEXT);');
+    const res1 = await compareDatabaseSchemas(db1, db2);
+    assert.equal(res1.identical, false);
+    assert.ok(res1.differences.some(d => d.type === 'COLUMN_TYPE_MISMATCH'));
+
+    // 2. Nullability Mismatch
+    const db3 = new DatabaseSync(':memory:');
+    const db4 = new DatabaseSync(':memory:');
+    db3.exec('CREATE TABLE t (id TEXT PRIMARY KEY, title TEXT NOT NULL);');
+    db4.exec('CREATE TABLE t (id TEXT PRIMARY KEY, title TEXT);');
+    const res2 = await compareDatabaseSchemas(db3, db4);
+    assert.equal(res2.identical, false);
+    assert.ok(res2.differences.some(d => d.type === 'COLUMN_NULLABILITY_MISMATCH'));
+
+    // 3. Default Value Mismatch
+    const db5 = new DatabaseSync(':memory:');
+    const db6 = new DatabaseSync(':memory:');
+    db5.exec("CREATE TABLE t (id TEXT PRIMARY KEY, status TEXT DEFAULT 'draft');");
+    db6.exec("CREATE TABLE t (id TEXT PRIMARY KEY, status TEXT DEFAULT 'active');");
+    const res3 = await compareDatabaseSchemas(db5, db6);
+    assert.equal(res3.identical, false);
+    assert.ok(res3.differences.some(d => d.type === 'COLUMN_DEFAULT_MISMATCH'));
+
+    // 4. Primary Key Position Mismatch
+    const db7 = new DatabaseSync(':memory:');
+    const db8 = new DatabaseSync(':memory:');
+    db7.exec('CREATE TABLE t (id TEXT PRIMARY KEY, code TEXT);');
+    db8.exec('CREATE TABLE t (id TEXT, code TEXT, PRIMARY KEY (id, code));');
+    const res4 = await compareDatabaseSchemas(db7, db8);
+    assert.equal(res4.identical, false);
+    assert.ok(res4.differences.some(d => d.type === 'PRIMARY_KEY_MISMATCH'));
+
+    // 5. Index Uniqueness Mismatch
+    const db9 = new DatabaseSync(':memory:');
+    const db10 = new DatabaseSync(':memory:');
+    db9.exec('CREATE TABLE t (id TEXT PRIMARY KEY, slug TEXT); CREATE UNIQUE INDEX idx_slug ON t(slug);');
+    db10.exec('CREATE TABLE t (id TEXT PRIMARY KEY, slug TEXT); CREATE INDEX idx_slug ON t(slug);');
+    const res5 = await compareDatabaseSchemas(db9, db10);
+    assert.equal(res5.identical, false);
+    assert.ok(res5.differences.some(d => d.type === 'INDEX_UNIQUENESS_MISMATCH'));
+
+    // 6. Indexed Column Order Mismatch
+    const db11 = new DatabaseSync(':memory:');
+    const db12 = new DatabaseSync(':memory:');
+    db11.exec('CREATE TABLE t (id TEXT PRIMARY KEY, a TEXT, b TEXT); CREATE INDEX idx_ab ON t(a, b);');
+    db12.exec('CREATE TABLE t (id TEXT PRIMARY KEY, a TEXT, b TEXT); CREATE INDEX idx_ab ON t(b, a);');
+    const res6 = await compareDatabaseSchemas(db11, db12);
+    assert.equal(res6.identical, false);
+    assert.ok(res6.differences.some(d => d.type === 'INDEX_COLUMNS_MISMATCH'));
+
+    // 7. Foreign Key Target Table Mismatch
+    const db13 = new DatabaseSync(':memory:');
+    const db14 = new DatabaseSync(':memory:');
+    db13.exec('CREATE TABLE p1 (id TEXT PRIMARY KEY); CREATE TABLE p2 (id TEXT PRIMARY KEY); CREATE TABLE c (id TEXT PRIMARY KEY, p_id TEXT, FOREIGN KEY (p_id) REFERENCES p1(id));');
+    db14.exec('CREATE TABLE p1 (id TEXT PRIMARY KEY); CREATE TABLE p2 (id TEXT PRIMARY KEY); CREATE TABLE c (id TEXT PRIMARY KEY, p_id TEXT, FOREIGN KEY (p_id) REFERENCES p2(id));');
+    const res7 = await compareDatabaseSchemas(db13, db14);
+    assert.equal(res7.identical, false);
+    assert.ok(res7.differences.some(d => d.type === 'FOREIGN_KEY_MISMATCH'));
+
+    // 8. Foreign Key Delete Behavior Mismatch
+    const db15 = new DatabaseSync(':memory:');
+    const db16 = new DatabaseSync(':memory:');
+    db15.exec('CREATE TABLE p (id TEXT PRIMARY KEY); CREATE TABLE c (id TEXT PRIMARY KEY, p_id TEXT, FOREIGN KEY (p_id) REFERENCES p(id) ON DELETE CASCADE);');
+    db16.exec('CREATE TABLE p (id TEXT PRIMARY KEY); CREATE TABLE c (id TEXT PRIMARY KEY, p_id TEXT, FOREIGN KEY (p_id) REFERENCES p(id) ON DELETE SET NULL);');
+    const res8 = await compareDatabaseSchemas(db15, db16);
+    assert.equal(res8.identical, false);
+    assert.ok(res8.differences.some(d => d.type === 'FOREIGN_KEY_MISMATCH'));
+  });
+
+  it('11. Schema Whitespace & Comment Invariance: equivalent schemas with different formatting are accepted', async () => {
+    const dbA = new DatabaseSync(':memory:');
+    const dbB = new DatabaseSync(':memory:');
+
+    // Schema A: formatted with comments, newlines, lowercase
+    dbA.exec(`
+      -- This is a comment
+      create table users (
+        id text primary key,
+        email text not null,
+        created_at text default (datetime('now'))
+      );
+      create index idx_users_email on users(email);
+    `);
+
+    // Schema B: compact single line, uppercase
+    dbB.exec(`
+      CREATE TABLE users (id TEXT PRIMARY KEY, email TEXT NOT NULL, created_at TEXT DEFAULT (datetime('now')));
+      CREATE INDEX idx_users_email ON users(email);
+    `);
+
+    const result = await compareDatabaseSchemas(dbA, dbB);
+    assert.equal(result.identical, true, 'Equivalent schemas with different formatting must be identical');
+    assert.equal(result.differences.length, 0);
+  });
+
+  it('12. Migration Chain Continuity & Safety: verifies sequential numbers, no gaps, no destructive drops', () => {
+    const chainCheck = verifyMigrationChainSafety(path.resolve('./migrations'));
+    assert.equal(chainCheck.safe, true, `Migration chain safety issue: ${chainCheck.issues.join(', ')}`);
+    assert.ok(chainCheck.totalMigrations >= 32, 'At least 32 migrations must exist');
+    assert.equal(chainCheck.issues.length, 0, 'Zero migration sequence or safety issues');
+  });
+
+  it('13. Pre-flight Conflict Detection: safely detects existing duplicate template slugs before constraint enforcement', async () => {
+    const rawDb = new DatabaseSync(':memory:');
+
+    // Simulate legacy table prior to unique index enforcement
+    rawDb.exec(`
+      CREATE TABLE legacy_templates (
+        id TEXT PRIMARY KEY,
+        slug TEXT,
+        name TEXT
+      );
+      INSERT INTO legacy_templates (id, slug, name) VALUES ('tpl_1', 'duplicate-slug', 'Template 1');
+      INSERT INTO legacy_templates (id, slug, name) VALUES ('tpl_2', 'duplicate-slug', 'Template 2');
+      INSERT INTO legacy_templates (id, slug, name) VALUES ('tpl_3', 'unique-slug', 'Template 3');
+    `);
+
+    // Run the conflict detection query specified in production requirements
+    const conflictQuery = `
+      SELECT slug, COUNT(*) AS row_count
+      FROM legacy_templates
+      WHERE slug IS NOT NULL AND slug <> ''
+      GROUP BY slug
+      HAVING COUNT(*) > 1;
+    `;
+    const conflicts = rawDb.prepare(conflictQuery).all();
+
+    assert.equal(conflicts.length, 1, 'Must detect exactly 1 duplicate slug conflict');
+    assert.equal(conflicts[0].slug, 'duplicate-slug');
+    assert.equal(conflicts[0].row_count, 2);
+
+    // Verify safe non-destructive remediation before applying unique index
+    rawDb.exec("UPDATE legacy_templates SET slug = slug || '-copy' WHERE id = 'tpl_2';");
+    const afterRemediation = rawDb.prepare(conflictQuery).all();
+    assert.equal(afterRemediation.length, 0, 'Zero conflicts after safe remediation');
+
+    // Safe unique index creation can now succeed
+    assert.doesNotThrow(() => {
+      rawDb.exec('CREATE UNIQUE INDEX idx_legacy_templates_slug ON legacy_templates(slug);');
+    }, 'Unique index must apply cleanly after remediation');
+  });
+
+  it('14. Dependency Integrity & JSZip Resolution: verifies package declaration, lockfile, and in-memory execution', async () => {
+    const pkg = JSON.parse(fs.readFileSync(path.resolve('./package.json'), 'utf8'));
+    assert.ok(pkg.dependencies?.jszip, 'jszip must be declared in package.json dependencies');
+
+    const lockExists = fs.existsSync(path.resolve('./package-lock.json'));
+    assert.ok(lockExists, 'package-lock.json must exist');
+
+    const lockContent = fs.readFileSync(path.resolve('./package-lock.json'), 'utf8');
+    assert.ok(lockContent.includes('node_modules/jszip'), 'package-lock.json must contain jszip entry');
+
+    // Test resolution
+    const canResolve = canResolveDependency('jszip');
+    assert.equal(canResolve, true, 'JSZip must be resolvable via node module resolution');
+
+    // Smoke test: instantiate and generate zip in memory
+    const { default: JSZip } = await import('jszip');
+    const zip = new JSZip();
+    zip.file('index.html', '<!DOCTYPE html><html><body>Hello WishMagic</body></html>');
+    const content = await zip.generateAsync({ type: 'nodebuffer' });
+    assert.ok(Buffer.isBuffer(content), 'Must generate valid zip buffer');
+    assert.ok(content.length > 50, 'Zip buffer must contain data');
+
+    // Read back
+    const readZip = await JSZip.loadAsync(content);
+    const readText = await readZip.file('index.html').async('string');
+    assert.equal(readText, '<!DOCTYPE html><html><body>Hello WishMagic</body></html>');
   });
 });

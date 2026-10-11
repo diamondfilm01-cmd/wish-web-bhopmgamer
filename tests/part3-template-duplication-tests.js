@@ -742,4 +742,62 @@ describe('WishMagic Part 3: Complete Template Duplication Repair Suite', () => {
     const res2 = await worker.fetch(req2, env);
     assert.equal(res2.status, 404);
   });
+
+  // TEST 11: Allows specifying custom slug and rejects malformed slugs
+  it('TEST 11: Validates custom requested slug and handles duplicate slug conflict', async () => {
+    const mockDb = createDuplicationMockDb();
+    const env = { DB: mockDb, ENVIRONMENT: 'test' };
+
+    // Malformed slug
+    const reqInvalid = new Request('https://wishmagic.live/api/templates/duplicate', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': 'Bearer wm_admin_token'
+      },
+      body: JSON.stringify({
+        id: 'tpl_orig_summer_breeze',
+        name: 'Summer Breeze Special',
+        slug: 'invalid_slug_with_underscores!'
+      })
+    });
+    const resInvalid = await worker.fetch(reqInvalid, env);
+    assert.equal(resInvalid.status, 400, 'Invalid slug must return 400');
+
+    // Conflicting existing slug
+    const reqConflict = new Request('https://wishmagic.live/api/templates/duplicate', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': 'Bearer wm_admin_token'
+      },
+      body: JSON.stringify({
+        id: 'tpl_orig_summer_breeze',
+        name: 'Summer Breeze Special',
+        slug: 'summer-breeze' // already exists
+      })
+    });
+    const resConflict = await worker.fetch(reqConflict, env);
+    assert.equal(resConflict.status, 409, 'Conflict on existing slug must return 409');
+
+    // Valid unique custom slug
+    const reqValid = new Request('https://wishmagic.live/api/templates/duplicate', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': 'Bearer wm_admin_token'
+      },
+      body: JSON.stringify({
+        id: 'tpl_orig_summer_breeze',
+        name: 'Summer Breeze Special Edition',
+        slug: 'summer-breeze-special-edition'
+      })
+    });
+    const resValid = await worker.fetch(reqValid, env);
+    assert.equal(resValid.status, 201, 'Valid custom slug duplication must return 201');
+    const jsonValid = await resValid.json();
+    assert.equal(jsonValid.data.template.slug, 'summer-breeze-special-edition');
+    assert.equal(jsonValid.data.template.name, 'Summer Breeze Special Edition');
+  });
 });
+

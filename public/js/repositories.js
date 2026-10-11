@@ -405,11 +405,17 @@
       return data.template;
     },
 
-    async duplicate(templateId) {
+    async duplicate(templateId, options = {}) {
       if (!templateId) throw new Error('Template ID is required to duplicate');
-      const data = await api.post('/api/templates/duplicate', { id: templateId });
+      const payload = {
+        id: templateId,
+        sourceTemplateId: templateId,
+        ...(options.name ? { name: options.name } : {}),
+        ...(options.slug ? { slug: options.slug } : {})
+      };
+      const data = await api.post('/api/templates/duplicate', payload);
       if (!data || !data.success) {
-        throw new Error((data && data.message) || 'Failed to duplicate template');
+        throw new Error((data && (data.error?.message || data.message)) || 'Failed to duplicate template');
       }
       return data.template;
     },

@@ -234,6 +234,231 @@ export class D1MigrationRunner {
   }
 }
 
+async function executeAll(db, sql) {
+  if (typeof db.prepare === 'function') {
+    const stmt = db.prepare(sql);
+    let res = typeof stmt.all === 'function' ? stmt.all() : null;
+    if (res && typeof res.then === 'function') {
+      res = await res;
+    }
+    if (res && Array.isArray(res.results)) return res.results;
+    if (Array.isArray(res)) return res;
+  }
+  return [];
+}
+
+/**
+ * Structural Database Schema Parity Verifier
+ * Deeply compares two SQLite/D1 database schemas:
+ * - Table presence
+ * - Column names, types, nullability, defaults, primary key indices
+ * - Foreign key relationships and cascade/update rules
+ * - Indexes, uniqueness flags, and indexed column sequences
+ */
+export async function compareDatabaseSchemas(dbA, dbB) {
+  const differences = [];
+
+  const rawTablesA = await executeAll(dbA, "SELECT name FROM sqlite_master WHERE type='table' AND name NOT LIKE 'sqlite_%' AND name != '_migrations'");
+  const rawTablesB = await executeAll(dbB, "SELECT name FROM sqlite_master WHERE type='table' AND name NOT LIKE 'sqlite_%' AND name != '_migrations'");
+
+  const tablesA = rawTablesA.map(t => t.name).sort();
+  const tablesB = rawTablesB.map(t => t.name).sort();
+
+  const onlyInA = tablesA.filter(t => !tablesB.includes(t));
+  const onlyInB = tablesB.filter(t => !tablesA.includes(t));
+
+  for (const t of onlyInA) {
+    differences.push({ type: 'MISSING_TABLE', table: t, message: `Table "${t}" exists in DB A but missing in DB B` });
+  }
+  for (const t of onlyInB) {
+    differences.push({ type: 'EXTRA_TABLE', table: t, message: `Table "${t}" exists in DB B but missing in DB A` });
+  }
+
+  const commonTables = tablesA.filter(t => tablesB.includes(t));
+
+  for (const tableName of commonTables) {
+    // 1. Column details: PRAGMA table_info
+    const colsA = await executeAll(dbA, `PRAGMA table_info(${tableName})`);
+    const colsB = await executeAll(dbB, `PRAGMA table_info(${tableName})`);
+
+    const colMapA = new Map(colsA.map(c => [c.name, c]));
+    const colMapB = new Map(colsB.map(c => [c.name, c]));
+
+    for (const [colName, colA] of colMapA.entries()) {
+      if (!colMapB.has(colName)) {
+        differences.push({ type: 'MISSING_COLUMN', table: tableName, column: colName, message: `Column "${colName}" missing in DB B` });
+      } else {
+        const colB = colMapB.get(colName);
+        if ((colA.type || '').toUpperCase() !== (colB.type || '').toUpperCase()) {
+          differences.push({
+            type: 'COLUMN_TYPE_MISMATCH',
+            table: tableName,
+            column: colName,
+            expected: (colA.type || '').toUpperCase(),
+            actual: (colB.type || '').toUpperCase(),
+            message: `Column "${colName}" type mismatch: ${colA.type} vs ${colB.type}`
+          });
+        }
+        if (Boolean(colA.notnull) !== Boolean(colB.notnull)) {
+          differences.push({
+            type: 'COLUMN_NULLABILITY_MISMATCH',
+            table: tableName,
+            column: colName,
+            expected: colA.notnull,
+            actual: colB.notnull,
+            message: `Column "${colName}" notnull mismatch: ${colA.notnull} vs ${colB.notnull}`
+          });
+        }
+        if (colA.dflt_value !== colB.dflt_value) {
+          differences.push({
+            type: 'COLUMN_DEFAULT_MISMATCH',
+            table: tableName,
+            column: colName,
+            expected: colA.dflt_value,
+            actual: colB.dflt_value,
+            message: `Column "${colName}" default mismatch: ${colA.dflt_value} vs ${colB.dflt_value}`
+          });
+        }
+        if (colA.pk !== colB.pk) {
+          differences.push({
+            type: 'PRIMARY_KEY_MISMATCH',
+            table: tableName,
+            column: colName,
+            expected: colA.pk,
+            actual: colB.pk,
+            message: `Column "${colName}" pk mismatch: ${colA.pk} vs ${colB.pk}`
+          });
+        }
+      }
+    }
+
+    for (const colName of colMapB.keys()) {
+      if (!colMapA.has(colName)) {
+        differences.push({ type: 'EXTRA_COLUMN', table: tableName, column: colName, message: `Extra column "${colName}" in DB B` });
+      }
+    }
+
+    // 2. Foreign keys: PRAGMA foreign_key_list
+    const fkA = await executeAll(dbA, `PRAGMA foreign_key_list(${tableName})`);
+    const fkB = await executeAll(dbB, `PRAGMA foreign_key_list(${tableName})`);
+
+    const fkNormA = fkA.map(f => ({ table: f.table, from: f.from, to: f.to, on_update: f.on_update, on_delete: f.on_delete })).sort((a,b) => (a.from||'').localeCompare(b.from||''));
+    const fkNormB = fkB.map(f => ({ table: f.table, from: f.from, to: f.to, on_update: f.on_update, on_delete: f.on_delete })).sort((a,b) => (a.from||'').localeCompare(b.from||''));
+
+    if (JSON.stringify(fkNormA) !== JSON.stringify(fkNormB)) {
+      differences.push({
+        type: 'FOREIGN_KEY_MISMATCH',
+        table: tableName,
+        expected: fkNormA,
+        actual: fkNormB,
+        message: `Foreign key constraint mismatch on table "${tableName}"`
+      });
+    }
+
+    // 3. Indexes & uniqueness: PRAGMA index_list
+    const idxListA = (await executeAll(dbA, `PRAGMA index_list(${tableName})`)).filter(i => !i.name.startsWith('sqlite_autoindex'));
+    const idxListB = (await executeAll(dbB, `PRAGMA index_list(${tableName})`)).filter(i => !i.name.startsWith('sqlite_autoindex'));
+
+    const idxMapA = new Map(idxListA.map(i => [i.name, i]));
+    const idxMapB = new Map(idxListB.map(i => [i.name, i]));
+
+    for (const [idxName, idxA] of idxMapA.entries()) {
+      if (!idxMapB.has(idxName)) {
+        differences.push({ type: 'MISSING_INDEX', table: tableName, index: idxName, message: `Index "${idxName}" missing in DB B` });
+      } else {
+        const idxB = idxMapB.get(idxName);
+        if (Boolean(idxA.unique) !== Boolean(idxB.unique)) {
+          differences.push({
+            type: 'INDEX_UNIQUENESS_MISMATCH',
+            table: tableName,
+            index: idxName,
+            expected: idxA.unique,
+            actual: idxB.unique,
+            message: `Index "${idxName}" uniqueness mismatch: ${idxA.unique} vs ${idxB.unique}`
+          });
+        }
+
+        const colsInfoA = (await executeAll(dbA, `PRAGMA index_info(${idxName})`)).map(c => ({ seqno: c.seqno, name: c.name }));
+        const colsInfoB = (await executeAll(dbB, `PRAGMA index_info(${idxName})`)).map(c => ({ seqno: c.seqno, name: c.name }));
+
+        if (JSON.stringify(colsInfoA) !== JSON.stringify(colsInfoB)) {
+          differences.push({
+            type: 'INDEX_COLUMNS_MISMATCH',
+            table: tableName,
+            index: idxName,
+            expected: colsInfoA,
+            actual: colsInfoB,
+            message: `Index "${idxName}" column sequence mismatch`
+          });
+        }
+      }
+    }
+
+    for (const idxName of idxMapB.keys()) {
+      if (!idxMapA.has(idxName)) {
+        differences.push({ type: 'EXTRA_INDEX', table: tableName, index: idxName, message: `Extra index "${idxName}" in DB B` });
+      }
+    }
+  }
+
+  return {
+    identical: differences.length === 0,
+    differences
+  };
+}
+
+/**
+ * Migration Chain Continuity & Safety Inspector
+ */
+export function verifyMigrationChainSafety(migrationsDir = MIGRATIONS_DIR) {
+  const issues = [];
+  const files = fs.readdirSync(migrationsDir).filter(f => f.endsWith('.sql')).sort();
+
+  const seqNumbers = [];
+  const namesSet = new Set();
+
+  for (let i = 0; i < files.length; i++) {
+    const file = files[i];
+    if (namesSet.has(file)) {
+      issues.push(`Duplicate migration filename: ${file}`);
+    }
+    namesSet.add(file);
+
+    const match = file.match(/^(\d{4})_/);
+    if (!match) {
+      issues.push(`Migration filename does not follow 4-digit sequence format: ${file}`);
+    } else {
+      const num = parseInt(match[1], 10);
+      seqNumbers.push(num);
+    }
+
+    const content = fs.readFileSync(path.join(migrationsDir, file), 'utf8');
+    // Strip SQL comments (-- and /* */) before checking for executable destructive statements
+    const uncommented = content
+      .replace(/--.*$/gm, '')
+      .replace(/\/\*[\s\S]*?\*\//g, '');
+
+    if (/\bDROP\s+TABLE\b/i.test(uncommented) && !uncommented.includes('IF EXISTS _temp_')) {
+      issues.push(`Unexpected destructive DROP TABLE operation in ${file}`);
+    }
+    if (/\bDROP\s+COLUMN\b/i.test(uncommented)) {
+      issues.push(`Unexpected destructive DROP COLUMN operation in ${file}`);
+    }
+  }
+
+  for (let expected = 1; expected <= files.length; expected++) {
+    if (!seqNumbers.includes(expected)) {
+      issues.push(`Missing sequence entry: ${String(expected).padStart(4, '0')}`);
+    }
+  }
+
+  return {
+    safe: issues.length === 0,
+    totalMigrations: files.length,
+    issues
+  };
+}
+
 export function runMigrationCheck(db) {
   console.log('================================================================');
   console.log('🚀 WISHMAGIC D1 MIGRATION RUNNER & VERIFIER');

@@ -868,9 +868,14 @@ export function buildDuplicateSnapshot({
     snapshot.template.id = newId;
     snapshot.template.name = newName;
     snapshot.template.slug = newSlug;
+    snapshot.template.folder = `templates/${newSlug}`;
     snapshot.template.status = 'draft';
     snapshot.template.isPublished = false;
     snapshot.template.is_published = 0;
+  }
+
+  if (snapshot.folder) {
+    snapshot.folder = `templates/${newSlug}`;
   }
 
   if (
@@ -880,6 +885,9 @@ export function buildDuplicateSnapshot({
   ) {
     if ('slug' in snapshot.metadata) {
       snapshot.metadata.slug = newSlug;
+    }
+    if ('folder' in snapshot.metadata) {
+      snapshot.metadata.folder = `templates/${newSlug}`;
     }
   }
 
@@ -6309,6 +6317,16 @@ export default {
 
         const customName = sanitizeString(body.name || body.title, 80);
         const newName = customName || `${sourceTemplate.name} (Copy)`;
+        const customSlugRaw = sanitizeString(body.slug, 80)?.trim().toLowerCase();
+
+        if (customSlugRaw && (!/^[a-z0-9]+(?:-[a-z0-9]+)*$/.test(customSlugRaw) || customSlugRaw.length > 80)) {
+          return applySecurityHeaders(
+            jsonError('VALIDATION_ERROR', 'Invalid template slug format. Use lowercase letters, numbers, and hyphens.', 400),
+            request,
+            env
+          );
+        }
+        const requestedSlug = customSlugRaw || null;
 
         // Load all source child records. Any failed required query aborts duplication.
         let sourceFiles = [];
@@ -6403,12 +6421,27 @@ export default {
 
           let newSlug;
           try {
-            newSlug = await generateUniqueTemplateSlug({
-              db: env.DB,
-              sourceSlug: sourceTemplate.slug,
-              sourceName: sourceTemplate.name,
-              maxAttempts: 10
-            });
+            if (requestedSlug && attempt === 0) {
+              const existingWithRequestedSlug = await env.DB.prepare(
+                'SELECT id FROM templates WHERE slug = ? LIMIT 1'
+              ).bind(requestedSlug).first();
+
+              if (existingWithRequestedSlug) {
+                return applySecurityHeaders(
+                  jsonError('SLUG_COLLISION_FAILED', `The template slug "${requestedSlug}" is already in use. Please pick another slug.`, 409),
+                  request,
+                  env
+                );
+              }
+              newSlug = requestedSlug;
+            } else {
+              newSlug = await generateUniqueTemplateSlug({
+                db: env.DB,
+                sourceSlug: requestedSlug || sourceTemplate.slug,
+                sourceName: newName || sourceTemplate.name,
+                maxAttempts: 10
+              });
+            }
           } catch (slugError) {
             console.error('[Template Duplicate Slug Error]', slugError);
             if (slugError?.message?.startsWith('SLUG_LOOKUP_FAILED')) {

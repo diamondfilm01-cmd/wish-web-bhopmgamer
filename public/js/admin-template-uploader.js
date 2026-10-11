@@ -1003,27 +1003,126 @@ function renderTemplatesTable(templates) {
   }).join('');
 }
 
-// 7. Duplicate Template Action
-async function duplicateTemplate(templateId) {
+// 7. Duplicate Template Modal Dialog & Action
+function openDuplicateModal(templateId) {
+  const tpl = allAdminTemplates.find(t => t.id === templateId);
+  const sourceName = tpl ? (tpl.name || 'Untitled Template') : templateId;
+  const sourceSlug = tpl ? (tpl.slug || 'template') : 'template';
+  const cleanBaseSlug = sourceSlug.replace(/-copy(-\w+)?$/, '');
+  const randomSuffix = Math.random().toString(36).substring(2, 6);
+  const proposedSlug = `${cleanBaseSlug}-copy-${randomSuffix}`;
+  const proposedName = `${sourceName} (Copy)`;
+
+  const sourceIdInput = document.getElementById('duplicate-source-id');
+  const sourceNameDisplay = document.getElementById('duplicate-source-name-display');
+  const sourceIdDisplay = document.getElementById('duplicate-source-id-display');
+  const sourceVersionBadge = document.getElementById('duplicate-source-version-badge');
+  const nameInput = document.getElementById('duplicate-input-name');
+  const slugInput = document.getElementById('duplicate-input-slug');
+  const errorBox = document.getElementById('duplicate-modal-error');
+  const submitBtn = document.getElementById('duplicate-submit-btn');
+
+  if (sourceIdInput) sourceIdInput.value = templateId;
+  if (sourceNameDisplay) sourceNameDisplay.textContent = sourceName;
+  if (sourceIdDisplay) sourceIdDisplay.textContent = templateId;
+  if (sourceVersionBadge) {
+    sourceVersionBadge.textContent = tpl?.currentVersionId ? `Version: ${tpl.currentVersionId}` : 'Latest Version';
+  }
+  if (nameInput) nameInput.value = proposedName;
+  if (slugInput) slugInput.value = proposedSlug;
+  if (errorBox) errorBox.classList.add('hidden');
+  if (submitBtn) submitBtn.disabled = false;
+
+  const modal = document.getElementById('duplicate-template-modal');
+  if (modal) modal.classList.remove('hidden');
+}
+
+function closeDuplicateModal() {
+  const modal = document.getElementById('duplicate-template-modal');
+  if (modal) modal.classList.add('hidden');
+  const errorBox = document.getElementById('duplicate-modal-error');
+  if (errorBox) errorBox.classList.add('hidden');
+}
+
+async function submitDuplicateTemplate(event) {
+  if (event) event.preventDefault();
+
+  const sourceIdInput = document.getElementById('duplicate-source-id');
+  const nameInput = document.getElementById('duplicate-input-name');
+  const slugInput = document.getElementById('duplicate-input-slug');
+  const errorBox = document.getElementById('duplicate-modal-error');
+  const errorText = document.getElementById('duplicate-modal-error-text');
+  const submitBtn = document.getElementById('duplicate-submit-btn');
+  const submitBtnText = document.getElementById('duplicate-submit-btn-text');
+
+  const sourceId = sourceIdInput ? sourceIdInput.value.trim() : '';
+  const name = nameInput ? nameInput.value.trim() : '';
+  const slug = slugInput ? slugInput.value.trim().toLowerCase() : '';
+
+  if (!sourceId) {
+    if (errorBox && errorText) {
+      errorText.textContent = 'Source template ID is missing.';
+      errorBox.classList.remove('hidden');
+    }
+    return;
+  }
+
+  if (!name) {
+    if (errorBox && errorText) {
+      errorText.textContent = 'Please enter a name for the duplicated template.';
+      errorBox.classList.remove('hidden');
+    }
+    return;
+  }
+
+  if (!slug || !/^[a-z0-9]+(?:-[a-z0-9]+)*$/.test(slug)) {
+    if (errorBox && errorText) {
+      errorText.textContent = 'Invalid slug format. Use lowercase letters, numbers, and single hyphens.';
+      errorBox.classList.remove('hidden');
+    }
+    return;
+  }
+
+  if (errorBox) errorBox.classList.add('hidden');
+  if (submitBtn) submitBtn.disabled = true;
+  if (submitBtnText) submitBtnText.textContent = 'Duplicating Assets...';
+
   try {
-    showToast('Duplicating template...');
+    showToast('Duplicating template assets and database records...');
+
     let resData;
     if (window.templateRepository && typeof window.templateRepository.duplicate === 'function') {
-      resData = await window.templateRepository.duplicate(templateId);
+      resData = await window.templateRepository.duplicate(sourceId, { name, slug });
     } else {
       const res = await fetch('/api/templates/duplicate', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ id: templateId })
+        body: JSON.stringify({ id: sourceId, name, slug })
       });
       resData = await res.json();
     }
 
+    if (resData && resData.success === false) {
+      throw new Error(resData.error?.message || resData.message || 'Duplication rejected');
+    }
+
+    closeDuplicateModal();
     showToast('🎉 Template duplicated as Draft!');
     await loadDynamicTemplates();
   } catch (err) {
-    alert('Failed to duplicate template: ' + err.message);
+    console.error('Duplication error:', err);
+    if (errorBox && errorText) {
+      errorText.textContent = err.message || 'Failed to duplicate template.';
+      errorBox.classList.remove('hidden');
+    }
+  } finally {
+    if (submitBtn) submitBtn.disabled = false;
+    if (submitBtnText) submitBtnText.textContent = 'Create Duplicate';
   }
+}
+
+async function duplicateTemplate(templateId) {
+  openDuplicateModal(templateId);
 }
 
 // 8. Publish / Unpublish Toggle Action

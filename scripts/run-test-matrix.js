@@ -2,24 +2,52 @@
 /**
  * WishMagic Matrix Test Runner
  * Executes independent test suites individually and records each outcome without stopping on early failures.
- * Reports passed, failed, skipped, and blocked suites separately.
+ * Accurately distinguishes missing dependencies (BLOCKED) from assertion failures (FAIL).
+ * Reports passed, failed, blocked, and not run suites with verified reconciliation.
  */
 
 import { spawn } from 'node:child_process';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
+import fs from 'node:fs';
+import { createRequire } from 'node:module';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 const ROOT_DIR = path.resolve(__dirname, '..');
 
-import fs from 'node:fs';
-
 const packageJson = JSON.parse(
   fs.readFileSync(path.join(ROOT_DIR, 'package.json'), 'utf8')
 );
 
-function parseConfiguredTestCommands() {
+const requireFromRoot = createRequire(path.join(ROOT_DIR, 'package.json'));
+
+/**
+ * Validates whether a dependency package or module can actually be resolved.
+ * Checks both CommonJS require resolution and ESM package.json entry points.
+ */
+export function canResolveDependency(packageName) {
+  if (!packageName || typeof packageName !== 'string') return false;
+
+  // Internal relative modules are handled by path check
+  if (packageName.startsWith('.') || packageName.startsWith('/')) {
+    const absPath = path.resolve(ROOT_DIR, packageName);
+    return fs.existsSync(absPath) || fs.existsSync(absPath + '.js');
+  }
+
+  try {
+    requireFromRoot.resolve(packageName);
+    return true;
+  } catch {
+    try {
+      const pkgPath = path.join(ROOT_DIR, 'node_modules', packageName, 'package.json');
+      if (fs.existsSync(pkgPath)) return true;
+    } catch {}
+    return false;
+  }
+}
+
+export function parseConfiguredTestCommands() {
   const testScript = packageJson.scripts?.test;
 
   if (!testScript || typeof testScript !== 'string') {
@@ -57,9 +85,11 @@ function parseConfiguredTestCommands() {
 
 const SUITES = parseConfiguredTestCommands();
 
-async function runSuite(suite) {
+export async function runSuite(suite) {
   const startTime = Date.now();
   return new Promise((resolve) => {
+    let settled = false;
+
     const child = spawn(suite.cmd, suite.args, {
       cwd: ROOT_DIR,
       env: { ...process.env, FORCE_COLOR: '0' }
@@ -72,47 +102,41 @@ async function runSuite(suite) {
     child.stderr.on('data', (d) => { stderr += d.toString(); });
 
     child.on('error', (err) => {
+      if (settled) return;
+      settled = true;
       resolve({
         suite: suite.name,
         status: 'BLOCKED',
-        error: err.message,
+        reason: `Process launch failure: ${err.message}`,
         duration: Date.now() - startTime
       });
     });
 
     child.on('close', (code) => {
+      if (settled) return;
+      settled = true;
       const duration = Date.now() - startTime;
+
       if (code === 0) {
         resolve({ suite: suite.name, status: 'PASS', duration });
       } else {
         const output = `${stdout}\n${stderr}`;
-        const missingPackageMatch = output.match(
-          /Cannot find package ['"]([^'"]+)['"] imported from/i
-        );
+        // Accurately detect missing module and dependency failures
+        const missingPkgMatch = output.match(/Cannot find package ['"]([^'"]+)['"]/i) ||
+                               output.match(/Cannot find module ['"]([^'"]+)['"]/i) ||
+                               output.match(/ERR_MODULE_NOT_FOUND.*['"]([^'"]+)['"]/i);
 
         let status = 'FAIL';
+        let blockReason = null;
 
-        if (missingPackageMatch) {
-          const packageName = missingPackageMatch[1];
-          const declaredDependencies = {
-            ...packageJson.dependencies,
-            ...packageJson.devDependencies
-          };
+        if (missingPkgMatch) {
+          const packageName = missingPkgMatch[1];
+          const isDeclared = Object.prototype.hasOwnProperty.call(packageJson.dependencies || {}, packageName) ||
+                             Object.prototype.hasOwnProperty.call(packageJson.devDependencies || {}, packageName);
 
-          const packagePath = path.join(
-            ROOT_DIR,
-            'node_modules',
-            packageName
-          );
-
-          if (
-            Object.prototype.hasOwnProperty.call(
-              declaredDependencies,
-              packageName
-            ) &&
-            !fs.existsSync(packagePath)
-          ) {
+          if (!canResolveDependency(packageName)) {
             status = 'BLOCKED';
+            blockReason = `Missing unresolvable dependency "${packageName}" (declared: ${isDeclared})`;
           }
         }
 
@@ -120,6 +144,7 @@ async function runSuite(suite) {
           suite: suite.name,
           command: suite.originalCommand,
           status,
+          reason: blockReason,
           code,
           stderr: stderr.slice(-300),
           output: output.slice(-2000),
@@ -143,27 +168,61 @@ async function main() {
     if (res.status === 'PASS') {
       console.log(`✅ PASS (${res.duration}ms)`);
     } else if (res.status === 'BLOCKED') {
-      console.log(`⚠️ BLOCKED: ${res.error}`);
+      console.log(`⚠️ BLOCKED: ${res.reason || res.error || 'Prerequisite missing'}`);
     } else {
       console.log(`❌ FAIL (code ${res.code})`);
       if (res.stderr) console.log(`   ${res.stderr.trim()}`);
     }
   }
 
+  const discoveredCount = SUITES.length;
+  const executedCount = results.filter(r => r.status !== 'NOT RUN').length;
   const passed = results.filter(r => r.status === 'PASS').length;
   const failed = results.filter(r => r.status === 'FAIL').length;
   const blocked = results.filter(r => r.status === 'BLOCKED').length;
+  const notRun = results.filter(r => r.status === 'NOT RUN').length;
+
+  // Strict reconciliation verification: total discovered must equal sum of outcomes
+  if (discoveredCount !== passed + failed + blocked + notRun) {
+    console.error(`TALLY RECONCILIATION ERROR: Discovered (${discoveredCount}) != Sum (${passed + failed + blocked + notRun})`);
+    process.exit(1);
+  }
 
   console.log('\n================================================================');
-  console.log(`MATRIX SUMMARY: Total: ${results.length} | Passed: ${passed} | Failed: ${failed} | Blocked: ${blocked}`);
+  console.log(`MATRIX SUMMARY:`);
+  console.log(`  Discovered Suites: ${discoveredCount}`);
+  console.log(`  Executed Suites:   ${executedCount}`);
+  console.log(`  Passed:            ${passed}`);
+  console.log(`  Failed:            ${failed}`);
+  console.log(`  Blocked:           ${blocked}`);
+  console.log(`  Not Run:           ${notRun}`);
   console.log('================================================================\n');
+
+  if (failed > 0) {
+    console.log('❌ Failed Suites:');
+    results.filter(r => r.status === 'FAIL').forEach(r => {
+      console.log(`  - ${r.suite} (exit code ${r.code})`);
+      if (r.stderr) console.log(`      ${r.stderr.trim()}`);
+    });
+    console.log('');
+  }
+
+  if (blocked > 0) {
+    console.log('⚠️ Blocked Suites:');
+    results.filter(r => r.status === 'BLOCKED').forEach(r => {
+      console.log(`  - ${r.suite}: ${r.reason || 'Missing dependency'}`);
+    });
+    console.log('');
+  }
 
   if (failed > 0 || blocked > 0) {
     process.exit(1);
   }
 }
 
-main().catch(err => {
-  console.error('Fatal Test Matrix Error:', err);
-  process.exit(1);
-});
+if (process.argv[1] && process.argv[1].endsWith('run-test-matrix.js')) {
+  main().catch(err => {
+    console.error('Fatal Test Matrix Error:', err);
+    process.exit(1);
+  });
+}
