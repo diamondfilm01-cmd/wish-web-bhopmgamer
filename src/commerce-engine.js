@@ -307,12 +307,13 @@ export function evaluateUserEntitlement({
 // ============================================================================
 
 export class RazorpayAdapter {
-  constructor({ keyId, keySecret, webhookSecret, isTestMode = false }) {
+  constructor({ keyId, keySecret, webhookSecret, isTestMode = false, fetchFn = null }) {
     this.keyId = keyId || null;
     this.keySecret = keySecret || null;
     this.webhookSecret = webhookSecret || null;
     this.isTestMode = Boolean(isTestMode);
     this.baseUrl = 'https://api.razorpay.com/v1';
+    this.fetchFn = fetchFn || null;
   }
 
   isConfigured() {
@@ -343,7 +344,8 @@ export class RazorpayAdapter {
       }
     };
 
-    const res = await fetch(`${this.baseUrl}/orders`, {
+    const fetchImpl = this.fetchFn || fetch;
+    const res = await fetchImpl(`${this.baseUrl}/orders`, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
@@ -371,7 +373,8 @@ export class RazorpayAdapter {
       throw new Error(ERROR_CODES.PAYMENT_PROVIDER_NOT_CONFIGURED);
     }
 
-    const res = await fetch(`${this.baseUrl}/orders/${encodeURIComponent(providerOrderId)}`, {
+    const fetchImpl = this.fetchFn || fetch;
+    const res = await fetchImpl(`${this.baseUrl}/orders/${encodeURIComponent(providerOrderId)}`, {
       headers: {
         'Authorization': this.getBasicAuthHeader()
       }
@@ -383,6 +386,7 @@ export class RazorpayAdapter {
       err.code = data.error?.code || 'ORDER_FETCH_FAILED';
       throw err;
     }
+
     return data;
   }
 
@@ -394,7 +398,8 @@ export class RazorpayAdapter {
       throw new Error(ERROR_CODES.PAYMENT_PROVIDER_NOT_CONFIGURED);
     }
 
-    const res = await fetch(`${this.baseUrl}/payments/${encodeURIComponent(providerPaymentId)}`, {
+    const fetchImpl = this.fetchFn || fetch;
+    const res = await fetchImpl(`${this.baseUrl}/payments/${encodeURIComponent(providerPaymentId)}`, {
       headers: {
         'Authorization': this.getBasicAuthHeader()
       }
@@ -404,8 +409,11 @@ export class RazorpayAdapter {
     if (!res.ok) {
       const err = new Error(data.error?.description || 'Razorpay fetch payment failed');
       err.code = data.error?.code || 'PAYMENT_FETCH_FAILED';
+      err.status = res.status;
+      err.providerData = data;
       throw err;
     }
+
     return data;
   }
 
@@ -427,7 +435,8 @@ export class RazorpayAdapter {
       payload.amount = Math.round(Number(amountPaise));
     }
 
-    const res = await fetch(`${this.baseUrl}/payments/${encodeURIComponent(providerPaymentId)}/refund`, {
+    const fetchImpl = this.fetchFn || fetch;
+    const res = await fetchImpl(`${this.baseUrl}/payments/${encodeURIComponent(providerPaymentId)}/refund`, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
@@ -443,6 +452,7 @@ export class RazorpayAdapter {
       err.providerData = data;
       throw err;
     }
+
     return data;
   }
 
@@ -717,8 +727,26 @@ export async function verifyAndFinalizePayment({
     notifications = []
   }
 }) {
-  // 1. Locate Order
-  const order = orders.find(o => o.id === orderId || o.providerOrderId === razorpayOrderId || o.provider_order_id === razorpayOrderId);
+  // 1. Validate Input
+  if (
+    typeof orderId !== 'string' || !orderId.trim() || orderId.trim().length > 128 ||
+    typeof razorpayOrderId !== 'string' || !razorpayOrderId.trim() || razorpayOrderId.trim().length > 128 ||
+    typeof razorpayPaymentId !== 'string' || !razorpayPaymentId.trim() || razorpayPaymentId.trim().length > 128 ||
+    typeof razorpaySignature !== 'string' || !razorpaySignature.trim() || razorpaySignature.trim().length > 256
+  ) {
+    const err = new Error('Required payment verification fields are missing, empty, or invalid.');
+    err.code = ERROR_CODES.PAYMENT_VERIFICATION_FAILED;
+    err.status = 400;
+    throw err;
+  }
+
+  const cleanOrderId = orderId.trim();
+  const cleanRzpOrderId = razorpayOrderId.trim();
+  const cleanRzpPaymentId = razorpayPaymentId.trim();
+  const cleanRzpSignature = razorpaySignature.trim();
+
+  // 2. Locate Order
+  const order = orders.find(o => o.id === cleanOrderId || o.providerOrderId === cleanRzpOrderId || o.provider_order_id === cleanRzpOrderId);
   if (!order) {
     const err = new Error('Commercial order not found');
     err.code = ERROR_CODES.ORDER_NOT_FOUND;
@@ -726,9 +754,10 @@ export async function verifyAndFinalizePayment({
     throw err;
   }
 
-  // 2. IDOR Protection: If non-admin user supplied, ensure order belongs to them
-  if (user && !isAuthoritativeAdmin(user)) {
-    if (order.userId !== user.id && order.user_id !== user.id) {
+  // 3. IDOR Protection: If non-admin user supplied, ensure order belongs to them
+  const orderUserId = order.userId || order.user_id;
+  if (user && !isAuthoritativeAdmin(user) && user.role !== 'system') {
+    if (orderUserId !== user.id) {
       const err = new Error('Access denied to this order record');
       err.code = ERROR_CODES.FORBIDDEN;
       err.status = 403;
@@ -736,9 +765,18 @@ export async function verifyAndFinalizePayment({
     }
   }
 
-  // 3. Idempotency check: If order is already PAID, return clean idempotent success
+  // 4. Validate Provider Order ID match
+  const storedProvOrderId = order.providerOrderId || order.provider_order_id;
+  if (storedProvOrderId && storedProvOrderId !== cleanRzpOrderId) {
+    const err = new Error('Payment does not match the requested order.');
+    err.code = 'PAYMENT_ORDER_MISMATCH';
+    err.status = 400;
+    throw err;
+  }
+
+  // 5. Order State Machine Rules & Idempotency Check
   if (order.status === ORDER_STATUS.PAID) {
-    const activeEnt = entitlements.find(e => (e.orderId === order.id || e.order_id === order.id) && e.status === 'active');
+    const activeEnt = entitlements.find(e => (e.orderId === order.id || e.order_id === order.id || e.userId === orderUserId || e.user_id === orderUserId) && e.status === 'active');
     return {
       success: true,
       alreadyFinalized: true,
@@ -747,7 +785,53 @@ export async function verifyAndFinalizePayment({
     };
   }
 
-  // 4. Validate Gateway Config
+  if (order.status === ORDER_STATUS.REFUNDED) {
+    const err = new Error('Order has already been refunded and cannot be finalized.');
+    err.code = ERROR_CODES.INVALID_ORDER_STATE;
+    err.status = 400;
+    throw err;
+  }
+
+  if (order.status === ORDER_STATUS.PARTIALLY_REFUNDED) {
+    const err = new Error('Order is partially refunded and cannot be re-finalized.');
+    err.code = ERROR_CODES.INVALID_ORDER_STATE;
+    err.status = 400;
+    throw err;
+  }
+
+  if (order.status === ORDER_STATUS.CANCELLED) {
+    const err = new Error('Cancelled order cannot be finalized.');
+    err.code = ERROR_CODES.INVALID_ORDER_STATE;
+    err.status = 400;
+    throw err;
+  }
+
+  const PAYABLE_STATES = [ORDER_STATUS.PENDING, ORDER_STATUS.PAYMENT_PROCESSING, ORDER_STATUS.PAYMENT_FAILED, 'CREATED'];
+  if (!PAYABLE_STATES.includes(order.status)) {
+    const err = new Error(`Order status '${order.status}' is not eligible for payment finalization.`);
+    err.code = ERROR_CODES.INVALID_ORDER_STATE;
+    err.status = 400;
+    throw err;
+  }
+
+  // 6. Prevent replay & conflicting payment IDs
+  const conflictingOrder = orders.find(o => (o.transactionId === cleanRzpPaymentId || o.transaction_id === cleanRzpPaymentId) && o.id !== order.id);
+  if (conflictingOrder) {
+    const err = new Error('Payment transaction has already been applied to another order.');
+    err.code = ERROR_CODES.IDEMPOTENCY_CONFLICT;
+    err.status = 409;
+    throw err;
+  }
+
+  const conflictingAttempt = paymentAttempts.find(p => (p.providerPaymentId === cleanRzpPaymentId || p.provider_payment_id === cleanRzpPaymentId) && (p.orderId !== order.id && p.order_id !== order.id) && p.status === PAYMENT_STATUS.CAPTURED);
+  if (conflictingAttempt) {
+    const err = new Error('Payment has already been captured for another order attempt.');
+    err.code = ERROR_CODES.IDEMPOTENCY_CONFLICT;
+    err.status = 409;
+    throw err;
+  }
+
+  // 7. Validate Gateway Config
   if (!adapter || !adapter.isConfigured()) {
     const err = new Error('Payment gateway credentials missing');
     err.code = ERROR_CODES.PAYMENT_PROVIDER_NOT_CONFIGURED;
@@ -755,27 +839,27 @@ export async function verifyAndFinalizePayment({
     throw err;
   }
 
-  // 5. Verify cryptographic signature
+  // 8. Verify cryptographic signature
   const isValidSignature = adapter.verifyPayment({
-    razorpayOrderId,
-    razorpayPaymentId,
-    razorpaySignature
+    razorpayOrderId: cleanRzpOrderId,
+    razorpayPaymentId: cleanRzpPaymentId,
+    razorpaySignature: cleanRzpSignature
   });
 
   const now = new Date().toISOString();
 
   // Find or create payment attempt
-  let attempt = paymentAttempts.find(p => p.orderId === order.id && (p.providerOrderId === razorpayOrderId || p.provider_order_id === razorpayOrderId));
+  let attempt = paymentAttempts.find(p => (p.orderId === order.id || p.order_id === order.id) && (p.providerOrderId === cleanRzpOrderId || p.provider_order_id === cleanRzpOrderId));
   if (!attempt) {
     attempt = {
       id: `att_${Date.now().toString(36)}_${crypto.randomUUID().slice(0, 8)}`,
       orderId: order.id,
       order_id: order.id,
       provider: PAYMENT_PROVIDERS.RAZORPAY,
-      providerOrderId: razorpayOrderId,
-      provider_order_id: razorpayOrderId,
-      providerPaymentId: razorpayPaymentId,
-      provider_payment_id: razorpayPaymentId,
+      providerOrderId: cleanRzpOrderId,
+      provider_order_id: cleanRzpOrderId,
+      providerPaymentId: cleanRzpPaymentId,
+      provider_payment_id: cleanRzpPaymentId,
       amount: order.amount,
       currency: order.currency,
       status: PAYMENT_STATUS.PENDING,
@@ -787,10 +871,10 @@ export async function verifyAndFinalizePayment({
     paymentAttempts.push(attempt);
   }
 
-  attempt.providerPaymentId = razorpayPaymentId;
-  attempt.provider_payment_id = razorpayPaymentId;
-  attempt.providerSignature = razorpaySignature;
-  attempt.provider_signature = razorpaySignature;
+  attempt.providerPaymentId = cleanRzpPaymentId;
+  attempt.provider_payment_id = cleanRzpPaymentId;
+  attempt.providerSignature = cleanRzpSignature;
+  attempt.provider_signature = cleanRzpSignature;
   attempt.updatedAt = now;
   attempt.updated_at = now;
 
@@ -813,39 +897,96 @@ export async function verifyAndFinalizePayment({
     throw err;
   }
 
-  // 6. Optional: Cross-verify captured amount and currency via Razorpay API
+  // 9. Authoritative Live Verification with Gateway API (fetchPayment)
+  let provPayment = null;
   try {
-    const provPayment = await adapter.fetchPayment(razorpayPaymentId);
-    if (provPayment) {
-      if (provPayment.amount !== order.amount) {
-        attempt.status = PAYMENT_STATUS.FAILED;
-        attempt.errorCode = ERROR_CODES.PAYMENT_AMOUNT_MISMATCH;
-        attempt.error_code = ERROR_CODES.PAYMENT_AMOUNT_MISMATCH;
-        order.status = ORDER_STATUS.PAYMENT_FAILED;
-        const err = new Error(`Payment amount mismatch: expected ${order.amount}, received ${provPayment.amount}`);
-        err.code = ERROR_CODES.PAYMENT_AMOUNT_MISMATCH;
-        err.status = 400;
-        throw err;
-      }
-      if (provPayment.currency.toUpperCase() !== order.currency.toUpperCase()) {
-        attempt.status = PAYMENT_STATUS.FAILED;
-        attempt.errorCode = ERROR_CODES.PAYMENT_CURRENCY_MISMATCH;
-        attempt.error_code = ERROR_CODES.PAYMENT_CURRENCY_MISMATCH;
-        order.status = ORDER_STATUS.PAYMENT_FAILED;
-        const err = new Error(`Payment currency mismatch: expected ${order.currency}, received ${provPayment.currency}`);
-        err.code = ERROR_CODES.PAYMENT_CURRENCY_MISMATCH;
-        err.status = 400;
-        throw err;
-      }
-    }
+    provPayment = await adapter.fetchPayment(cleanRzpPaymentId);
   } catch (apiErr) {
-    if (apiErr.code === ERROR_CODES.PAYMENT_AMOUNT_MISMATCH || apiErr.code === ERROR_CODES.PAYMENT_CURRENCY_MISMATCH) {
+    if (
+      apiErr.code === ERROR_CODES.PAYMENT_AMOUNT_MISMATCH ||
+      apiErr.code === ERROR_CODES.PAYMENT_CURRENCY_MISMATCH ||
+      apiErr.code === ERROR_CODES.PAYMENT_VERIFICATION_PENDING ||
+      apiErr.code === ERROR_CODES.INVALID_ORDER_STATE ||
+      apiErr.code === ERROR_CODES.PAYMENT_VERIFICATION_FAILED
+    ) {
       throw apiErr;
     }
-    // If provider API fetch temporarily times out, cryptographic signature remains authoritative proof
+    const err = new Error(`Payment gateway verification unavailable: ${apiErr.message || 'API error'}`);
+    err.code = ERROR_CODES.PAYMENT_PROVIDER_UNAVAILABLE;
+    err.status = 503;
+    throw err;
   }
 
-  // 7. Transition States
+  if (!provPayment || typeof provPayment !== 'object') {
+    const err = new Error('Invalid response received from payment provider.');
+    err.code = ERROR_CODES.PAYMENT_VERIFICATION_FAILED;
+    err.status = 502;
+    throw err;
+  }
+
+  if (provPayment.id && provPayment.id !== cleanRzpPaymentId) {
+    const err = new Error('Provider payment ID mismatch.');
+    err.code = ERROR_CODES.PAYMENT_VERIFICATION_FAILED;
+    err.status = 400;
+    throw err;
+  }
+
+  if (provPayment.order_id && provPayment.order_id !== cleanRzpOrderId) {
+    const err = new Error('Provider payment order reference mismatch.');
+    err.code = 'PAYMENT_ORDER_MISMATCH';
+    err.status = 400;
+    throw err;
+  }
+
+  const expectedAmount = Number(order.amount);
+  const provAmount = Number(provPayment.amount);
+  if (!Number.isInteger(expectedAmount) || !Number.isInteger(provAmount) || provAmount !== expectedAmount) {
+    attempt.status = PAYMENT_STATUS.FAILED;
+    attempt.errorCode = ERROR_CODES.PAYMENT_AMOUNT_MISMATCH;
+    attempt.error_code = ERROR_CODES.PAYMENT_AMOUNT_MISMATCH;
+    order.status = ORDER_STATUS.PAYMENT_FAILED;
+    const err = new Error(`Payment amount mismatch: expected ${expectedAmount}, received ${provAmount}`);
+    err.code = ERROR_CODES.PAYMENT_AMOUNT_MISMATCH;
+    err.status = 400;
+    throw err;
+  }
+
+  const expectedCurrency = String(order.currency || 'INR').toUpperCase();
+  const provCurrency = String(provPayment.currency || 'INR').toUpperCase();
+  if (provCurrency !== expectedCurrency) {
+    attempt.status = PAYMENT_STATUS.FAILED;
+    attempt.errorCode = ERROR_CODES.PAYMENT_CURRENCY_MISMATCH;
+    attempt.error_code = ERROR_CODES.PAYMENT_CURRENCY_MISMATCH;
+    order.status = ORDER_STATUS.PAYMENT_FAILED;
+    const err = new Error(`Payment currency mismatch: expected ${expectedCurrency}, received ${provCurrency}`);
+    err.code = ERROR_CODES.PAYMENT_CURRENCY_MISMATCH;
+    err.status = 400;
+    throw err;
+  }
+
+  const provStatus = String(provPayment.status || '').toLowerCase();
+  if (provStatus === 'authorized' || provPayment.captured === false) {
+    const err = new Error('Payment is authorized but not yet captured by payment gateway.');
+    err.code = ERROR_CODES.PAYMENT_VERIFICATION_PENDING;
+    err.status = 402;
+    throw err;
+  }
+
+  if (provStatus === 'refunded' || provPayment.refund_status) {
+    const err = new Error('Payment has been refunded and cannot be accepted.');
+    err.code = ERROR_CODES.INVALID_ORDER_STATE;
+    err.status = 400;
+    throw err;
+  }
+
+  if (provStatus !== 'captured') {
+    const err = new Error(`Payment has not been captured by provider (status: ${provStatus}).`);
+    err.code = ERROR_CODES.PAYMENT_VERIFICATION_FAILED;
+    err.status = 400;
+    throw err;
+  }
+
+  // 10. Transition States to PAID and CAPTURED
   attempt.status = PAYMENT_STATUS.CAPTURED;
   attempt.signatureVerified = 1;
   attempt.signature_verified = 1;
@@ -971,7 +1112,13 @@ export async function processRazorpayWebhook({
     throw new Error('Malformed JSON webhook payload');
   }
 
-  const eventId = event.event_id || event.id || `evt_${Date.now().toString(36)}`;
+  const eventId = typeof event.event_id === 'string' && event.event_id.trim() ? event.event_id.trim() : (typeof event.id === 'string' && event.id.trim() ? event.id.trim() : null);
+  if (!eventId) {
+    const err = new Error('Missing or invalid provider event ID');
+    err.code = ERROR_CODES.BAD_REQUEST || 'BAD_REQUEST';
+    err.status = 400;
+    throw err;
+  }
   const eventType = event.event;
 
   // 2. Deduplication check in payment_webhooks store
@@ -1024,13 +1171,21 @@ export async function processRazorpayWebhook({
         if (order && order.status !== ORDER_STATUS.PAID) {
           const webhookAdapter = Object.create(adapter);
           webhookAdapter.verifyPayment = () => true;
+          webhookAdapter.fetchPayment = async () => ({
+            id: provPayId,
+            order_id: provOrderId,
+            amount: Number(paymentEntity.amount || order.amount),
+            currency: String(paymentEntity.currency || order.currency || 'INR'),
+            status: 'captured',
+            captured: true
+          });
 
           await verifyAndFinalizePayment({
             orderId: order.id,
             razorpayOrderId: provOrderId,
             razorpayPaymentId: provPayId,
             razorpaySignature: 'WEBHOOK_VERIFIED', // Signature was verified at top of webhook
-            user: { id: order.userId, role: 'system' },
+            user: { id: order.userId || order.user_id, role: 'system' },
             adapter: webhookAdapter,
             stores
           });
@@ -1039,18 +1194,34 @@ export async function processRazorpayWebhook({
     } else if (eventType === 'refund.processed') {
       const refundEntity = event.payload?.refund?.entity || {};
       const provPayId = refundEntity.payment_id;
-      const refundId = refundEntity.id;
-      const refundAmount = refundEntity.amount;
+      const refundId = refundEntity.id || `rfnd_${Date.now().toString(36)}`;
+      const refundAmount = Number(refundEntity.amount || 0);
 
       const order = stores.orders.find(o => o.transactionId === provPayId || o.transaction_id === provPayId);
       if (order) {
-        order.totalRefunded = (order.totalRefunded || 0) + refundAmount;
+        const prevRefunded = Number(order.totalRefunded || order.total_refunded || 0);
+        order.totalRefunded = prevRefunded + refundAmount;
         order.total_refunded = order.totalRefunded;
-        order.status = (order.totalRefunded >= order.amount) ? ORDER_STATUS.REFUNDED : ORDER_STATUS.PARTIALLY_REFUNDED;
+        order.status = (order.totalRefunded >= Number(order.amount)) ? ORDER_STATUS.REFUNDED : ORDER_STATUS.PARTIALLY_REFUNDED;
         order.refundStatus = order.status;
         order.refund_status = order.status;
         order.updatedAt = now;
         order.updated_at = now;
+
+        if (Array.isArray(stores.refunds)) {
+          stores.refunds.push({
+            id: refundId,
+            orderId: order.id,
+            order_id: order.id,
+            providerRefundId: refundId,
+            provider_refund_id: refundId,
+            amount: refundAmount,
+            currency: order.currency || 'INR',
+            status: REFUND_STATUS.SUCCEEDED,
+            createdAt: now,
+            created_at: now
+          });
+        }
 
         // Revoke entitlement if 100% refunded
         if (order.status === ORDER_STATUS.REFUNDED) {
@@ -1308,15 +1479,24 @@ export async function reconcileUnresolvedOrders({
       const provOrder = await adapter.fetchOrder(provOrderId);
       if (provOrder && provOrder.status === 'paid') {
         // Gateway confirms paid! Repair order and grant entitlement
+        const reconciledPayId = `pay_reconciled_${Date.now()}`;
         const reconcileAdapter = Object.create(adapter);
         reconcileAdapter.verifyPayment = () => true;
+        reconcileAdapter.fetchPayment = async () => ({
+          id: reconciledPayId,
+          order_id: provOrderId,
+          amount: Number(order.amount),
+          currency: String(order.currency || 'INR'),
+          status: 'captured',
+          captured: true
+        });
 
         await verifyAndFinalizePayment({
           orderId: order.id,
           razorpayOrderId: provOrderId,
-          razorpayPaymentId: `pay_reconciled_${Date.now()}`,
+          razorpayPaymentId: reconciledPayId,
           razorpaySignature: 'RECONCILED_FROM_GATEWAY',
-          user: { id: order.userId, role: 'system' },
+          user: { id: order.userId || order.user_id, role: 'system' },
           adapter: reconcileAdapter,
           stores
         });

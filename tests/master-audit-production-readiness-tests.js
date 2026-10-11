@@ -80,6 +80,11 @@ function createMockD1() {
             return vers[vers.length - 1] || null;
           }
           if (/from\s+orders\s+where/i.test(sql)) {
+            if (/transaction_id\s*=\s*\?\s*and\s*id\s*!=\s*\?/i.test(sql)) {
+              const txId = boundArgs[0];
+              const ordId = boundArgs[1];
+              return tables.orders.find(o => o.transaction_id === txId && o.id !== ordId) || null;
+            }
             if (/id\s*=\s*\?\s*and\s*user_id\s*=\s*\?/i.test(sql)) {
               const id = boundArgs[0];
               const uId = boundArgs[1];
@@ -88,6 +93,19 @@ function createMockD1() {
             const id = boundArgs[0];
             const provId = boundArgs[1] || id;
             return tables.orders.find(o => o.id === id || o.provider_order_id === provId || o.id === provId) || null;
+          }
+          if (lower.includes('from payment_attempts where')) {
+            if (lower.includes('provider_payment_id = ?')) {
+              const payId = boundArgs[0];
+              const ordId = boundArgs[1];
+              return tables.payment_attempts.find(a => a.provider_payment_id === payId && a.order_id !== ordId && a.status === 'CAPTURED') || null;
+            }
+            const ordId = boundArgs[0];
+            return tables.payment_attempts.find(a => a.order_id === ordId) || null;
+          }
+          if (lower.includes('from entitlements where')) {
+            const uId = boundArgs[0];
+            return tables.entitlements.find(e => e.user_id === uId && e.status === 'active') || null;
           }
           if (lower.includes('from payment_webhooks where')) {
             const eventId = boundArgs[0];
@@ -213,6 +231,41 @@ function createMockD1() {
             tables.entitlements.push(record);
             return { success: true };
           }
+          if (lower.includes('update payment_attempts set status =')) {
+            const payId = boundArgs[0];
+            const sig = boundArgs[1];
+            const verifiedAt = boundArgs[2];
+            const updatedAt = boundArgs[3];
+            const attId = boundArgs[4];
+            const att = tables.payment_attempts.find(a => a.id === attId || a.order_id === attId);
+            if (att) {
+              att.status = 'CAPTURED';
+              att.provider_payment_id = payId;
+              att.provider_signature = sig;
+              att.signature_verified = 1;
+              att.verified_at = verifiedAt;
+              att.updated_at = updatedAt;
+            }
+            return { success: true, meta: { changes: 1 } };
+          }
+          if (lower.includes('insert into payment_attempts')) {
+            tables.payment_attempts.push({
+              id: boundArgs[0],
+              order_id: boundArgs[1],
+              provider: boundArgs[2] || 'razorpay',
+              provider_order_id: boundArgs[3],
+              provider_payment_id: boundArgs[4],
+              provider_signature: boundArgs[5],
+              amount: boundArgs[6],
+              currency: boundArgs[7],
+              status: boundArgs[8] || 'CAPTURED',
+              signature_verified: boundArgs[9] || 1,
+              verified_at: boundArgs[10],
+              created_at: boundArgs[11],
+              updated_at: boundArgs[12]
+            });
+            return { success: true, meta: { changes: 1 } };
+          }
           if (lower.includes('insert into payment_webhooks')) {
             const record = {
               id: boundArgs[0],
@@ -277,6 +330,13 @@ function createMockD1() {
         }
       };
       return stmt;
+    },
+    async batch(statements) {
+      const results = [];
+      for (const s of statements) {
+        results.push(await s.run());
+      }
+      return results;
     }
   };
 }
@@ -448,7 +508,20 @@ describe('WishMagic Master Audit & Verification Suite', () => {
       DB: mockDb,
       RAZORPAY_KEY_ID: keyId,
       RAZORPAY_KEY_SECRET: keySecret,
-      ENVIRONMENT: 'test'
+      ENVIRONMENT: 'test',
+      RAZORPAY_FETCH_FN: async (url) => {
+        return new Response(JSON.stringify({
+          id: rzpPaymentId,
+          order_id: rzpOrderId,
+          amount: 4900,
+          currency: 'INR',
+          status: 'captured',
+          captured: true
+        }), {
+          status: 200,
+          headers: { 'Content-Type': 'application/json' }
+        });
+      }
     };
 
     const verifyReq = new Request('https://wishmagic.live/api/commerce/verify', {
