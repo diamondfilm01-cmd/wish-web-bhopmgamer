@@ -31,6 +31,93 @@ const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 const ROOT_DIR = path.resolve(__dirname, '..');
 
+const SQL_SCAN_EXTENSIONS = new Set(['.js', '.mjs', '.cjs', '.ts']);
+
+const SQL_SCAN_EXCLUDED_DIRS = new Set([
+  'node_modules',
+  '.git',
+  'dist',
+  'build',
+  'coverage'
+]);
+
+function collectSqlSourceFiles(rootDir) {
+  const found = [];
+
+  function walk(directory) {
+    if (!fs.existsSync(directory)) return;
+
+    for (const entry of fs.readdirSync(directory, { withFileTypes: true })) {
+      if (entry.isSymbolicLink()) continue;
+
+      const fullPath = path.join(directory, entry.name);
+
+      if (entry.isDirectory()) {
+        if (!SQL_SCAN_EXCLUDED_DIRS.has(entry.name)) {
+          walk(fullPath);
+        }
+        continue;
+      }
+
+      if (
+        entry.isFile() &&
+        SQL_SCAN_EXTENSIONS.has(path.extname(entry.name).toLowerCase())
+      ) {
+        found.push(fullPath);
+      }
+    }
+  }
+
+  for (const directory of ['src', 'functions']) {
+    walk(path.join(rootDir, directory));
+  }
+
+  const serverFile = path.join(rootDir, 'server.js');
+  if (fs.existsSync(serverFile)) found.push(serverFile);
+
+  return [...new Set(found)].sort();
+}
+
+export function scanUnsafeSql(rootDir = ROOT_DIR) {
+  const findings = [];
+
+  const unsafePatterns = [
+    {
+      rule: 'SQL_PREPARE_INTERPOLATION',
+      regex: /\.prepare\s*\(\s*`[^`]*\$\{\s*(?:req|request|body|params|query|user)\b[^}]*\}[^`]*`/gi
+    },
+    {
+      rule: 'SQL_STRING_CONCATENATION',
+      regex: /\.prepare\s*\(\s*(['"])[^'"]*\1\s*\+\s*(?:req|request|body|params|query|user)\b/gi
+    }
+  ];
+
+  for (const filePath of collectSqlSourceFiles(rootDir)) {
+    const source = fs.readFileSync(filePath, 'utf8');
+
+    for (const pattern of unsafePatterns) {
+      pattern.regex.lastIndex = 0;
+      let match;
+
+      while ((match = pattern.regex.exec(source)) !== null) {
+        const line = source.slice(0, match.index).split('\n').length;
+
+        findings.push({
+          file: path.relative(rootDir, filePath),
+          line,
+          rule: pattern.rule
+        });
+
+        if (match[0].length === 0) {
+          pattern.regex.lastIndex += 1;
+        }
+      }
+    }
+  }
+
+  return findings;
+}
+
 export function runSecurityAudit() {
   console.log('================================================================');
   console.log('🛡️ WISHMAGIC PRODUCTION ZERO-TRUST SECURITY AUDIT');
@@ -321,21 +408,27 @@ export function runSecurityAudit() {
 
   // 18. Unsafe SQL Construction Scanner (Parameterized Queries Only)
   console.log('\n--- 18. Parameterized Query & SQL Injection Defense ---');
-  let rawConcatSqlFound = false;
-  const serverCodeFiles = ['src/worker.js', 'src/storage-provider.js', 'src/commerce-engine.js', 'src/support-desk-engine.js'];
-  for (const scf of serverCodeFiles) {
-    const scPath = path.join(ROOT_DIR, scf);
-    if (fs.existsSync(scPath)) {
-      const code = fs.readFileSync(scPath, 'utf8');
-      // Look for dangerous string interpolation of user/request parameters into SQL prepare statements
-      if (/prepare\(`[^`]*\$\{(req|body|user\.|params\.|query\.)[^}]*\}[^`]*`\)/i.test(code)) {
-        rawConcatSqlFound = true;
-        issues.push(`Unsafe user variable interpolation detected in SQL prepare in ${scf}`);
-      }
-    }
+
+  let sqlFindings = [];
+
+  try {
+    sqlFindings = scanUnsafeSql(ROOT_DIR);
+  } catch (error) {
+    issues.push(
+      `SQL scanner failed to inspect source files: ${error.message}`
+    );
   }
-  if (!rawConcatSqlFound) {
-    console.log('  ✅ 100% Parameterized queries enforced across all server-side SQL operations.');
+
+  if (sqlFindings.length > 0) {
+    for (const finding of sqlFindings) {
+      issues.push(
+        `Potential unsafe SQL (${finding.rule}) at ${finding.file}:${finding.line}`
+      );
+    }
+  } else {
+    console.log(
+      '  ✅ 100% Parameterized queries enforced across all server-side SQL operations.'
+    );
     checks.push('Parameterized SQL Defense Enforced');
   }
 

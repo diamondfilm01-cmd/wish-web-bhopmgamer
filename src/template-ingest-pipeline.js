@@ -213,27 +213,68 @@ export async function extractAndVerifyZip(zipBuffer) {
       continue;
     }
 
-    // Extract entry as binary buffer
+    // Check ZIP central-directory metadata before decompression.
+    // JSZip stores these sizes on the compressed-object metadata.
+    const compressedSize = Number(entry._data?.compressedSize);
+    const declaredUncompressedSize = Number(entry._data?.uncompressedSize);
+
+    if (
+      Number.isFinite(declaredUncompressedSize) &&
+      declaredUncompressedSize > ZIP_LIMITS.MAX_ENTRY_BYTES
+    ) {
+      const err = new Error(
+        `File ${normalized} exceeds the per-entry uncompressed size limit`
+      );
+      err.code = 'ZIP_ENTRY_TOO_LARGE';
+      throw err;
+    }
+
+    if (
+      Number.isFinite(compressedSize) &&
+      Number.isFinite(declaredUncompressedSize)
+    ) {
+      const ratio =
+        declaredUncompressedSize / Math.max(compressedSize, 1);
+
+      if (ratio > ZIP_LIMITS.MAX_COMPRESSION_RATIO && declaredUncompressedSize > 10 * 1024 * 1024) {
+        const err = new Error(
+          `File ${normalized} exceeds the maximum compression ratio`
+        );
+        err.code = 'ZIP_BOMB_DETECTED';
+        throw err;
+      }
+
+      if (
+        totalUncompressedBytes + declaredUncompressedSize >
+        ZIP_LIMITS.MAX_UNCOMPRESSED_BYTES
+      ) {
+        const err = new Error(
+          'ZIP archive exceeds the total uncompressed size limit'
+        );
+        err.code = 'ZIP_TOTAL_SIZE_EXCEEDED';
+        throw err;
+      }
+    }
+
     const entryBuffer = await entry.async('uint8array');
     const entrySize = entryBuffer.byteLength;
 
+    // Always verify the actual size too; ZIP metadata is not trusted blindly.
     if (entrySize > ZIP_LIMITS.MAX_ENTRY_BYTES) {
-      const err = new Error(`File ${normalized} exceeds single entry size limit of ${ZIP_LIMITS.MAX_ENTRY_BYTES / 1024 / 1024}MB`);
+      const err = new Error(
+        `File ${normalized} exceeds the per-entry size limit`
+      );
       err.code = 'ZIP_ENTRY_TOO_LARGE';
       throw err;
     }
 
     totalUncompressedBytes += entrySize;
-    if (totalUncompressedBytes > ZIP_LIMITS.MAX_UNCOMPRESSED_BYTES) {
-      const err = new Error(`ZIP total uncompressed size exceeds limit of ${ZIP_LIMITS.MAX_UNCOMPRESSED_BYTES / 1024 / 1024}MB (ZIP bomb detected)`);
-      err.code = 'ZIP_BOMB_DETECTED';
-      throw err;
-    }
 
-    // Check compression ratio
-    if (bytes.byteLength > 0 && (totalUncompressedBytes / bytes.byteLength) > ZIP_LIMITS.MAX_COMPRESSION_RATIO && totalUncompressedBytes > 10 * 1024 * 1024) {
-      const err = new Error('Suspicious compression ratio detected in ZIP archive (potential ZIP bomb)');
-      err.code = 'ZIP_BOMB_DETECTED';
+    if (totalUncompressedBytes > ZIP_LIMITS.MAX_UNCOMPRESSED_BYTES) {
+      const err = new Error(
+        'ZIP archive exceeds the total uncompressed size limit'
+      );
+      err.code = 'ZIP_TOTAL_SIZE_EXCEEDED';
       throw err;
     }
 
@@ -453,7 +494,7 @@ export async function executeB2TemplateIngestPipeline(params) {
 
   const now = new Date();
   const nowIso = now.toISOString();
-  const operationId = `top_${now.getTime().toString(36)}_${crypto.randomUUID().slice(0, 8)}`;
+  let operationId = `top_${now.getTime().toString(36)}_${crypto.randomUUID()}`;
 
   // Helper to persist operation state if D1 available
   const updateOperation = async (state, progressStage, progressPercent, extra = {}) => {
@@ -511,13 +552,36 @@ export async function executeB2TemplateIngestPipeline(params) {
     }
   };
 
-  // Check idempotency if key provided
-  if (idempotencyKey && db && typeof db.prepare === 'function') {
+  // Resolve an existing operation before any new storage writes.
+  if (idempotencyKey) {
+    if (!db || typeof db.prepare !== 'function') {
+      const err = new Error(
+        'Database is required to enforce upload idempotency'
+      );
+      err.code = 'DATABASE_UNAVAILABLE';
+      throw err;
+    }
+
+    let existingOp;
+
     try {
-      const existingOp = await db.prepare(`
-        SELECT * FROM template_upload_operations WHERE idempotency_key = ? LIMIT 1
+      existingOp = await db.prepare(`
+        SELECT *
+        FROM template_upload_operations
+        WHERE idempotency_key = ?
+        LIMIT 1
       `).bind(idempotencyKey).first();
-      if (existingOp && existingOp.state === UPLOAD_OPERATION_STATE.PREVIEW_READY) {
+    } catch (error) {
+      const err = new Error(
+        'Unable to verify the existing upload operation'
+      );
+      err.code = 'IDEMPOTENCY_LOOKUP_FAILED';
+      err.cause = error;
+      throw err;
+    }
+
+    if (existingOp) {
+      if (existingOp.state === UPLOAD_OPERATION_STATE.PREVIEW_READY) {
         return {
           success: true,
           idempotent: true,
@@ -529,10 +593,55 @@ export async function executeB2TemplateIngestPipeline(params) {
           versionLabel: existingOp.version_label,
           status: 'ready',
           isPublished: false,
-          message: 'Idempotent request: template version already successfully staged.'
+          message: 'This upload operation has already completed.'
         };
       }
-    } catch (_) {}
+
+      if (
+        existingOp.state === UPLOAD_OPERATION_STATE.RECEIVED ||
+        existingOp.state === UPLOAD_OPERATION_STATE.VALIDATING ||
+        existingOp.state === UPLOAD_OPERATION_STATE.STAGING ||
+        existingOp.state === UPLOAD_OPERATION_STATE.STAGED ||
+        existingOp.state === UPLOAD_OPERATION_STATE.REGISTERING
+      ) {
+        return {
+          success: false,
+          idempotent: true,
+          operationId: existingOp.id,
+          error: 'UPLOAD_IN_PROGRESS',
+          code: 'UPLOAD_IN_PROGRESS',
+          message: 'An operation with this idempotency key is already in progress.'
+        };
+      }
+
+      if (existingOp.state === UPLOAD_OPERATION_STATE.CLEANUP_PENDING) {
+        return {
+          success: false,
+          idempotent: true,
+          operationId: existingOp.id,
+          error: 'CLEANUP_PENDING',
+          code: 'CLEANUP_PENDING',
+          message: 'The previous operation requires storage cleanup before retry.'
+        };
+      }
+
+      if (
+        existingOp.state === UPLOAD_OPERATION_STATE.FAILED &&
+        Number(existingOp.is_retryable) !== 1
+      ) {
+        return {
+          success: false,
+          idempotent: true,
+          operationId: existingOp.id,
+          error: existingOp.error_code || 'UPLOAD_NOT_RETRYABLE',
+          code: existingOp.error_code || 'UPLOAD_NOT_RETRYABLE',
+          message: 'The previous upload failed and is not retryable.'
+        };
+      }
+
+      // Reuse the same operation identity for a retryable failed operation.
+      operationId = existingOp.id;
+    }
   }
 
   await updateOperation(UPLOAD_OPERATION_STATE.RECEIVED, 'archive_received', 10);
@@ -683,18 +792,51 @@ export async function executeB2TemplateIngestPipeline(params) {
   
   // Concurrency-safe version number calculation from DB
   let versionNumber = Number(templateMetadata.versionNumber || 0);
-  if (!versionNumber && db && typeof db.prepare === 'function') {
-    try {
-      const maxVerRow = await db.prepare(`
-        SELECT MAX(version_number) as maxVer FROM template_versions
-        WHERE template_id = ? OR template_family_id = ?
-      `).bind(templateId, templateFamilyId).first();
-      versionNumber = (Number(maxVerRow?.maxVer) || 0) + 1;
-    } catch (_) {
-      versionNumber = 1;
+
+  if (!versionNumber) {
+    if (!db || typeof db.prepare !== 'function') {
+      const err = new Error(
+        'A database connection is required to reserve a template version'
+      );
+      err.code = 'DATABASE_UNAVAILABLE';
+      throw err;
     }
+
+    let maxVerRow;
+
+    try {
+      const stmt = db.prepare(`
+        SELECT MAX(version_number) AS maxVer
+        FROM template_versions
+        WHERE template_id = ? OR template_family_id = ?
+      `).bind(templateId, templateFamilyId);
+
+      if (typeof stmt.first === 'function') {
+        maxVerRow = await stmt.first();
+      } else if (typeof stmt.all === 'function') {
+        const res = await stmt.all();
+        const rows = Array.isArray(res) ? res : (res?.results || []);
+        maxVerRow = rows[0] || { maxVer: 0 };
+      } else {
+        maxVerRow = { maxVer: 0 };
+      }
+    } catch (error) {
+      const err = new Error(
+        'Unable to determine the next template version number'
+      );
+      err.code = 'VERSION_LOOKUP_FAILED';
+      err.cause = error;
+      throw err;
+    }
+
+    versionNumber = (Number(maxVerRow?.maxVer) || 0) + 1;
   }
-  if (!versionNumber || versionNumber < 1) versionNumber = 1;
+
+  if (!Number.isSafeInteger(versionNumber) || versionNumber < 1) {
+    const err = new Error('Invalid template version number');
+    err.code = 'INVALID_VERSION_NUMBER';
+    throw err;
+  }
 
   // Duplicate Package Detection via package_fingerprint
   if (db && typeof db.prepare === 'function') {

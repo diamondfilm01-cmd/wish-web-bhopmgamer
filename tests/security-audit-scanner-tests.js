@@ -8,7 +8,7 @@ import { describe, it } from 'node:test';
 import assert from 'node:assert';
 import fs from 'node:fs';
 import path from 'node:path';
-import { runSecurityAudit } from '../scripts/security-audit.js';
+import { runSecurityAudit, scanUnsafeSql } from '../scripts/security-audit.js';
 
 describe('Security Audit Scanner Self-Test Suite', () => {
 
@@ -21,20 +21,20 @@ describe('Security Audit Scanner Self-Test Suite', () => {
 
   it('2. Detects unsafe SQL interpolation when fixture is introduced', () => {
     const fixtureDir = path.join('/tmp', 'sec_test_' + Date.now());
-    fs.mkdirSync(fixtureDir, { recursive: true });
+    const srcDir = path.join(fixtureDir, 'src');
+    fs.mkdirSync(srcDir, { recursive: true });
 
     const unsafeSql = "const query = env.DB.prepare(`SELECT * FROM users WHERE id = '${req.body.id}'`);";
     const safeSql = "const query = env.DB.prepare('SELECT * FROM users WHERE id = ?').bind(req.body.id);";
 
-    assert.ok(
-      /prepare\(`[^`]*\$\{(req|body|user\.|params\.|query\.)[^}]*\}[^`]*`\)/i.test(unsafeSql),
-      'Unsafe SQL regex must detect unescaped user variable interpolation'
-    );
+    fs.writeFileSync(path.join(srcDir, 'vulnerable.js'), unsafeSql, 'utf8');
+    fs.writeFileSync(path.join(srcDir, 'safe.js'), safeSql, 'utf8');
 
-    assert.ok(
-      !/prepare\(`[^`]*\$\{(req|body|user\.|params\.|query\.)[^}]*\}[^`]*`\)/i.test(safeSql),
-      'Safe SQL regex must accept parameterized bind statement'
-    );
+    const findings = scanUnsafeSql(fixtureDir);
+
+    assert.equal(findings.length, 1, 'Scanner must report exactly 1 vulnerable finding');
+    assert.equal(findings[0].file, path.join('src', 'vulnerable.js'));
+    assert.equal(findings[0].rule, 'SQL_PREPARE_INTERPOLATION');
 
     fs.rmSync(fixtureDir, { recursive: true, force: true });
   });

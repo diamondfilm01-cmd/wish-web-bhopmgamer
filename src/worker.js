@@ -805,6 +805,51 @@ export function buildDuplicateSnapshot({
     throw new Error('Invalid template snapshot');
   }
 
+  const templateIdentityKeys = new Set([
+    'templateId',
+    'template_id'
+  ]);
+
+  const versionIdentityKeys = new Set([
+    'versionId',
+    'version_id',
+    'currentVersionId',
+    'current_version_id'
+  ]);
+
+  function remapKnownReferences(value) {
+    if (Array.isArray(value)) {
+      return value.map(remapKnownReferences);
+    }
+
+    if (!value || typeof value !== 'object') {
+      return value;
+    }
+
+    const result = {};
+
+    for (const [key, child] of Object.entries(value)) {
+      if (templateIdentityKeys.has(key)) {
+        result[key] = newId;
+        continue;
+      }
+
+      if (versionIdentityKeys.has(key)) {
+        result[key] = newVersionId;
+        continue;
+      }
+
+      result[key] = remapKnownReferences(child);
+    }
+
+    return result;
+  }
+
+  snapshot = remapKnownReferences(snapshot);
+
+  // Only the root snapshot and the explicitly named template object
+  // receive generic identity-field changes. Do not rewrite arbitrary "id"
+  // properties belonging to fields, images, music, or unrelated entities.
   snapshot.id = newId;
   snapshot.name = newName;
   snapshot.slug = newSlug;
@@ -815,33 +860,27 @@ export function buildDuplicateSnapshot({
   snapshot.is_published = 0;
   snapshot.is_current = 1;
 
-  if ('templateId' in snapshot) {
-    snapshot.templateId = newId;
-  }
-  if ('template_id' in snapshot) {
-    snapshot.template_id = newId;
-  }
-  if ('versionId' in snapshot) {
-    snapshot.versionId = newVersionId;
-  }
-  if ('currentVersionId' in snapshot) {
-    snapshot.currentVersionId = newVersionId;
-  }
-
-  // Nested object cleanup to avoid stale references
-  if (snapshot.template && typeof snapshot.template === 'object') {
+  if (
+    snapshot.template &&
+    typeof snapshot.template === 'object' &&
+    !Array.isArray(snapshot.template)
+  ) {
     snapshot.template.id = newId;
-    snapshot.template.slug = newSlug;
     snapshot.template.name = newName;
+    snapshot.template.slug = newSlug;
     snapshot.template.status = 'draft';
     snapshot.template.isPublished = false;
     snapshot.template.is_published = 0;
   }
-  if (snapshot.metadata && typeof snapshot.metadata === 'object') {
-    if ('templateId' in snapshot.metadata) snapshot.metadata.templateId = newId;
-    if ('template_id' in snapshot.metadata) snapshot.metadata.template_id = newId;
-    if ('versionId' in snapshot.metadata) snapshot.metadata.versionId = newVersionId;
-    if ('slug' in snapshot.metadata) snapshot.metadata.slug = newSlug;
+
+  if (
+    snapshot.metadata &&
+    typeof snapshot.metadata === 'object' &&
+    !Array.isArray(snapshot.metadata)
+  ) {
+    if ('slug' in snapshot.metadata) {
+      snapshot.metadata.slug = newSlug;
+    }
   }
 
   return snapshot;
@@ -6271,7 +6310,7 @@ export default {
         const customName = sanitizeString(body.name || body.title, 80);
         const newName = customName || `${sourceTemplate.name} (Copy)`;
 
-        // Query related child records if sourceVersion exists
+        // Load all source child records. Any failed required query aborts duplication.
         let sourceFiles = [];
         let sourceFields = [];
         let sourceImages = [];
@@ -6279,49 +6318,79 @@ export default {
         let sourceVariants = [];
         let sourceRelationships = [];
 
-        if (sourceVersion) {
-          try {
-            const filesRes = await env.DB.prepare(
-              'SELECT * FROM template_files WHERE template_version_id = ?'
-            ).bind(sourceVersion.id).all();
-            sourceFiles = filesRes?.results || [];
-          } catch (_) {}
+        const readRequiredRows = async (label, sql, ...params) => {
+          const result = await env.DB.prepare(sql).bind(...params).all();
 
-          try {
-            const fieldsRes = await env.DB.prepare(
-              'SELECT * FROM template_fields WHERE template_version_id = ?'
-            ).bind(sourceVersion.id).all();
-            sourceFields = fieldsRes?.results || [];
-          } catch (_) {}
+          if (
+            !result ||
+            result.success === false ||
+            !Array.isArray(result.results)
+          ) {
+            throw new Error(`Required query failed: ${label}`);
+          }
 
-          try {
-            const imagesRes = await env.DB.prepare(
-              'SELECT * FROM template_images WHERE template_version_id = ?'
-            ).bind(sourceVersion.id).all();
-            sourceImages = imagesRes?.results || [];
-          } catch (_) {}
-
-          try {
-            const musicRes = await env.DB.prepare(
-              'SELECT * FROM template_music WHERE template_version_id = ?'
-            ).bind(sourceVersion.id).all();
-            sourceMusic = musicRes?.results || [];
-          } catch (_) {}
-
-          try {
-            const variantsRes = await env.DB.prepare(
-              'SELECT * FROM template_relationship_variants WHERE template_version_id = ?'
-            ).bind(sourceVersion.id).all();
-            sourceVariants = variantsRes?.results || [];
-          } catch (_) {}
-        }
+          return result.results;
+        };
 
         try {
-          const relRes = await env.DB.prepare(
-            'SELECT * FROM template_relationships WHERE template_id = ?'
-          ).bind(sourceTemplate.id).all();
-          sourceRelationships = relRes?.results || [];
-        } catch (_) {}
+          if (sourceVersion) {
+            [
+              sourceFiles,
+              sourceFields,
+              sourceImages,
+              sourceMusic,
+              sourceVariants
+            ] = await Promise.all([
+              readRequiredRows(
+                'template_files',
+                'SELECT * FROM template_files WHERE template_version_id = ?',
+                sourceVersion.id
+              ),
+              readRequiredRows(
+                'template_fields',
+                'SELECT * FROM template_fields WHERE template_version_id = ?',
+                sourceVersion.id
+              ),
+              readRequiredRows(
+                'template_images',
+                'SELECT * FROM template_images WHERE template_version_id = ?',
+                sourceVersion.id
+              ),
+              readRequiredRows(
+                'template_music',
+                'SELECT * FROM template_music WHERE template_version_id = ?',
+                sourceVersion.id
+              ),
+              readRequiredRows(
+                'template_relationship_variants',
+                'SELECT * FROM template_relationship_variants WHERE template_version_id = ?',
+                sourceVersion.id
+              )
+            ]);
+          }
+
+          sourceRelationships = await readRequiredRows(
+            'template_relationships',
+            'SELECT * FROM template_relationships WHERE template_id = ?',
+            sourceTemplate.id
+          );
+        } catch (error) {
+          console.error('[Template Duplicate] Source child-record query failed', {
+            sourceTemplateId: sourceTemplate.id,
+            sourceVersionId: sourceVersion?.id || null,
+            message: error?.message || String(error)
+          });
+
+          return applySecurityHeaders(
+            jsonError(
+              'DATABASE_ERROR',
+              'Unable to load all source template records. Duplication was cancelled.',
+              500
+            ),
+            request,
+            env
+          );
+        }
 
         const MAX_PERSISTENCE_RETRIES = 5;
         let persistedResult = null;
@@ -6387,6 +6456,15 @@ export default {
             : JSON.stringify(sourceVersion?.capabilities || sourceTemplate.capabilities || {});
 
           const statementsToBatch = [];
+          const copiedB2Objects = [];
+          let duplicateB2Provider = null;
+
+          if (sourceFiles.length > 0) {
+            const b2Config = getB2Config(env);
+            if (b2Config.isConfigured) {
+              duplicateB2Provider = new B2StorageProvider(b2Config);
+            }
+          }
 
           // 1. Template record
           const templateInsert = env.DB.prepare(`
@@ -6423,7 +6501,7 @@ export default {
             sourceTemplate.sections || '[]',
             sourceTemplate.features || '[]',
             sourceTemplate.theme || '{}',
-            sourceTemplate.folder || `templates/${newSlug}`,
+            `templates/${newSlug}`,
             sourceTemplate.entry_file || 'index.html',
             newVersionId,
             nowIso,
@@ -6464,27 +6542,135 @@ export default {
           statementsToBatch.push(versionInsert);
 
           // 3. Child tables replication
-          for (const f of sourceFiles) {
-            const newFileId = `tfile_${newVersionId}_${typeof crypto !== 'undefined' && crypto.randomUUID ? crypto.randomUUID().replace(/-/g, '').slice(0, 10) : Math.random().toString(36).slice(2, 10)}`;
-            statementsToBatch.push(
-              env.DB.prepare(`
-                INSERT INTO template_files (
-                  id, template_version_id, relative_path, storage_provider, storage_key,
-                  mime_type, size_bytes, sha256, file_role, is_entry_file, status, created_at
-                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'active', ?)
-              `).bind(
-                newFileId,
-                newVersionId,
-                f.relative_path,
-                f.storage_provider || 'b2',
-                f.storage_key,
-                f.mime_type || 'application/octet-stream',
-                Number(f.size_bytes) || 0,
-                f.sha256 || null,
-                f.file_role || 'asset',
-                f.is_entry_file ? 1 : 0,
-                nowIso
-              )
+          try {
+            for (const f of sourceFiles) {
+              if (
+                f.storage_provider &&
+                String(f.storage_provider).toLowerCase() !== 'b2'
+              ) {
+                throw new Error(
+                  `Unsupported template file storage provider: ${f.storage_provider}`
+                );
+              }
+
+              const relativePath = String(f.relative_path || '')
+                .replace(/\\/g, '/')
+                .replace(/^\/+/, '');
+
+              if (
+                !relativePath ||
+                relativePath.split('/').some(
+                  segment => !segment || segment === '.' || segment === '..'
+                )
+              ) {
+                throw new Error('Invalid template asset relative path');
+              }
+
+              let destinationKey = f.storage_key;
+
+              if (duplicateB2Provider) {
+                const sourceKey = String(f.storage_key || '');
+                if (!sourceKey) {
+                  throw new Error(
+                    `Missing source storage key for ${relativePath}`
+                  );
+                }
+
+                const sourceObject = await duplicateB2Provider.getObject({
+                  key: sourceKey
+                });
+
+                if (!sourceObject?.success || !sourceObject.body) {
+                  throw new Error(
+                    `Unable to read source asset: ${relativePath}`
+                  );
+                }
+
+                destinationKey = buildTemplateStorageKeys(
+                  newId,
+                  newVersionId
+                ).runtimeFile(relativePath);
+
+                const uploadResult = await duplicateB2Provider.putObject({
+                  key: destinationKey,
+                  body: sourceObject.body,
+                  contentType:
+                    f.mime_type || getMimeType(relativePath),
+                  contentLength: sourceObject.body.byteLength,
+                  metadata: {
+                    templateId: newId,
+                    versionId: newVersionId,
+                    duplicatedFrom: sourceTemplate.id
+                  }
+                });
+
+                if (!uploadResult?.success) {
+                  throw new Error(
+                    `Unable to store duplicate asset: ${relativePath}`
+                  );
+                }
+
+                copiedB2Objects.push({
+                  key: destinationKey,
+                  fileId: uploadResult.fileId || null
+                });
+              }
+
+              const newFileId = `tfile_${newVersionId}_${typeof crypto !== 'undefined' && crypto.randomUUID ? crypto.randomUUID().replace(/-/g, '').slice(0, 10) : Math.random().toString(36).slice(2, 10)}`;
+
+              statementsToBatch.push(
+                env.DB.prepare(`
+                  INSERT INTO template_files (
+                    id, template_version_id, relative_path, storage_provider, storage_key,
+                    mime_type, size_bytes, sha256, file_role, is_entry_file, status, created_at
+                  ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'active', ?)
+                `).bind(
+                  newFileId,
+                  newVersionId,
+                  relativePath,
+                  f.storage_provider || 'b2',
+                  destinationKey,
+                  f.mime_type || 'application/octet-stream',
+                  Number(f.size_bytes) || 0,
+                  f.sha256 || null,
+                  f.file_role || 'asset',
+                  f.is_entry_file ? 1 : 0,
+                  nowIso
+                )
+              );
+            }
+          } catch (copyError) {
+            for (const object of copiedB2Objects) {
+              try {
+                await duplicateB2Provider?.deleteObject({
+                  key: object.key,
+                  fileId: object.fileId
+                });
+              } catch (cleanupError) {
+                console.error(
+                  '[Template Duplicate] B2 cleanup pending',
+                  {
+                    key: object.key,
+                    message: cleanupError?.message || String(cleanupError)
+                  }
+                );
+              }
+            }
+
+            console.error('[Template Duplicate] B2 asset copy failed', {
+              sourceTemplateId: sourceTemplate.id,
+              newTemplateId: newId,
+              message: copyError?.message || String(copyError)
+            });
+
+            return applySecurityHeaders(
+              jsonError(
+                'ASSET_COPY_FAILED',
+                'Template assets could not be copied. Duplication was cancelled.',
+                502
+              ),
+              request,
+              env
             );
           }
 
@@ -6611,18 +6797,18 @@ export default {
           }
 
           try {
-            if (typeof env.DB.batch === 'function') {
-              const batchResults = await env.DB.batch(statementsToBatch);
-              if (!Array.isArray(batchResults) || batchResults.length !== statementsToBatch.length) {
-                throw new Error('Template duplication did not complete all database operations');
-              }
-              if (batchResults.some(result => result && result.success === false)) {
-                throw new Error('One or more template duplication database operations failed');
-              }
-            } else {
-              for (const stmt of statementsToBatch) {
-                await stmt.run();
-              }
+            if (typeof env.DB.batch !== 'function') {
+              throw new Error('Atomic D1 batch is required for template duplication');
+            }
+
+            const batchResults = await env.DB.batch(statementsToBatch);
+
+            if (
+              !Array.isArray(batchResults) ||
+              batchResults.length !== statementsToBatch.length ||
+              batchResults.some(result => result && result.success === false)
+            ) {
+              throw new Error('Atomic template duplication batch did not complete successfully');
             }
 
             persistedResult = {
@@ -6639,6 +6825,19 @@ export default {
             };
             break;
           } catch (insertErr) {
+            for (const object of copiedB2Objects) {
+              try {
+                await duplicateB2Provider?.deleteObject({
+                  key: object.key,
+                  fileId: object.fileId
+                });
+              } catch (cleanupError) {
+                console.error('[Template Duplicate] B2 rollback cleanup failed', {
+                  key: object.key,
+                  message: cleanupError?.message || String(cleanupError)
+                });
+              }
+            }
             lastPersistenceError = insertErr;
             const errMsg = String(insertErr?.message || insertErr);
             const isSlugCollision = errMsg.includes('templates.slug') || (errMsg.includes('UNIQUE constraint failed') && errMsg.includes('slug'));
