@@ -217,25 +217,54 @@ export function runSecurityAudit() {
     checks.push('Frontend Mock Auth Clean');
   }
 
-  // 13. Hardcoded Secrets Scanner
+  // 13. Hardcoded Secrets Scanner (Recursive across codebase)
   console.log('\n--- 13. Repository Secret & Key Leak Scanner ---');
-  const filesToScan = ['server.js', 'src/worker.js', 'wrangler.toml', 'package.json'];
-  let hardcodedSecretsFound = 0;
-
-  filesToScan.forEach(f => {
-    const p = path.join(ROOT_DIR, f);
-    if (fs.existsSync(p)) {
-      const content = fs.readFileSync(p, 'utf8');
-      const liveKeyPattern = /(rzp_live_[a-zA-Z0-9]{14,}|sk_live_[a-zA-Z0-9]{24,}|AIzaSy[a-zA-Z0-9_-]{33})/g;
-      if (liveKeyPattern.test(content)) {
-        hardcodedSecretsFound++;
-        issues.push(`Possible live credential pattern found in ${f}`);
+  function collectSourceFiles(dir, exts) {
+    let results = [];
+    if (!fs.existsSync(dir)) return results;
+    const entries = fs.readdirSync(dir, { withFileTypes: true });
+    for (const ent of entries) {
+      const full = path.join(dir, ent.name);
+      if (ent.isDirectory()) {
+        if (ent.name !== 'node_modules' && ent.name !== '.git' && ent.name !== '.aistudio' && ent.name !== 'templates-store') {
+          results = results.concat(collectSourceFiles(full, exts));
+        }
+      } else if (exts.some(ext => ent.name.endsWith(ext))) {
+        results.push(full);
       }
     }
+    return results;
+  }
+
+  const allCodeFiles = [
+    ...collectSourceFiles(path.join(ROOT_DIR, 'src'), ['.js']),
+    ...collectSourceFiles(path.join(ROOT_DIR, 'functions'), ['.js']),
+    ...collectSourceFiles(path.join(ROOT_DIR, 'scripts'), ['.js']),
+    ...collectSourceFiles(path.join(ROOT_DIR, 'public/js'), ['.js']),
+    path.join(ROOT_DIR, 'server.js'),
+    path.join(ROOT_DIR, 'wrangler.toml'),
+    path.join(ROOT_DIR, 'package.json')
+  ].filter(f => fs.existsSync(f));
+
+  let hardcodedSecretsFound = 0;
+  const liveKeyPattern = /(rzp_live_[a-zA-Z0-9]{14,}|sk_live_[a-zA-Z0-9]{24,}|AIzaSy[a-zA-Z0-9_-]{33})/g;
+
+  allCodeFiles.forEach(absPath => {
+    const rel = path.relative(ROOT_DIR, absPath);
+    // Skip public client auth configuration which uses standard public Firebase Web client identifier
+    if (rel === 'public/js/firebase-auth.js') return;
+    const content = fs.readFileSync(absPath, 'utf8');
+    const lines = content.split('\n');
+    lines.forEach((line, idx) => {
+      if (liveKeyPattern.test(line)) {
+        hardcodedSecretsFound++;
+        issues.push(`Possible live credential pattern in ${rel}:${idx + 1}`);
+      }
+    });
   });
 
   if (hardcodedSecretsFound === 0) {
-    console.log('  ✅ 0 hardcoded live API keys or credentials found.');
+    console.log(`  ✅ 0 hardcoded live API keys or credentials found across ${allCodeFiles.length} source files.`);
     checks.push('No Hardcoded Credentials');
   }
 

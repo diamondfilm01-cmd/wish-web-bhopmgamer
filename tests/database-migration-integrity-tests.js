@@ -149,7 +149,7 @@ describe('Database Migration & Schema Integrity Verification', () => {
     assert.equal(applied[0].name, '0001_initial_schema.sql');
   });
 
-  it('5. d1_setup.sql: Complete standalone setup script executes cleanly and produces identical table set', () => {
+  it('5. d1_setup.sql: Complete standalone setup script executes cleanly and produces identical table set', async () => {
     const rawDb = new DatabaseSync(':memory:');
     const content = fs.readFileSync(path.resolve('./d1_setup.sql'), 'utf8');
 
@@ -157,11 +157,29 @@ describe('Database Migration & Schema Integrity Verification', () => {
       rawDb.exec(content);
     }, 'd1_setup.sql must execute cleanly on a fresh database');
 
-    const tables = rawDb.prepare("SELECT name FROM sqlite_master WHERE type='table'").all().map(t => t.name);
-    assert.ok(tables.includes('template_versions'), 'd1_setup.sql must contain template_versions');
-    assert.ok(tables.includes('support_tickets'), 'd1_setup.sql must contain support_tickets');
-    assert.ok(tables.includes('wishes'), 'd1_setup.sql must contain wishes');
-    assert.ok(tables.includes('_migrations'), 'd1_setup.sql must contain _migrations');
+    const dbMig = new DatabaseSync(':memory:');
+    const d1Mig = createD1Adapter(dbMig);
+    const runner = new D1MigrationRunner(d1Mig);
+    await runner.runMigrations();
+
+    const tablesSetup = rawDb.prepare("SELECT name FROM sqlite_master WHERE type='table' AND name NOT LIKE 'sqlite_%'").all().map(t => t.name).sort();
+    const tablesMig = dbMig.prepare("SELECT name FROM sqlite_master WHERE type='table' AND name NOT LIKE 'sqlite_%'").all().map(t => t.name).sort();
+
+    assert.equal(tablesSetup.length, tablesMig.length, `Table count mismatch: setup has ${tablesSetup.length}, migrations have ${tablesMig.length}`);
+    assert.deepEqual(tablesSetup, tablesMig, 'Table list must be 100% identical');
+
+    // Deep column parity check across all tables
+    for (const tableName of tablesSetup) {
+      const colsA = rawDb.prepare(`PRAGMA table_info(${tableName})`).all().map(c => c.name);
+      const colsB = dbMig.prepare(`PRAGMA table_info(${tableName})`).all().map(c => c.name);
+      assert.deepEqual(colsA, colsB, `Columns in table ${tableName} must be identical`);
+    }
+
+    // Index parity check
+    const idxSetup = rawDb.prepare("SELECT name FROM sqlite_master WHERE type='index' AND name NOT LIKE 'sqlite_%'").all().map(t => t.name).sort();
+    const idxMig = dbMig.prepare("SELECT name FROM sqlite_master WHERE type='index' AND name NOT LIKE 'sqlite_%'").all().map(t => t.name).sort();
+    assert.equal(idxSetup.length, idxMig.length, `Index count mismatch: setup has ${idxSetup.length}, migrations have ${idxMig.length}`);
+    assert.deepEqual(idxSetup, idxMig, 'Indexes must be 100% identical');
   });
 
   it('6. Matrix Upgrade: Database at 0012 successfully runs 0013-0032 with clean validation_report_json', async () => {

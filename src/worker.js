@@ -356,8 +356,8 @@ const SEED_TEMPLATES = [
 // Production Pretty URL Routing Table
 const PRETTY_ROUTES = {
   '/': '/index.html',
-  '/templates': '/marketplace.html',
-  '/templates/': '/marketplace.html',
+  '/templates': '/templates.html',
+  '/templates/': '/templates.html',
   '/marketplace': '/marketplace.html',
   '/marketplace/': '/marketplace.html',
   '/create': '/create.html',
@@ -6106,27 +6106,130 @@ export default {
           return applySecurityHeaders(jsonError('NOT_FOUND', `Template "${sourceId}" not found`, 404), request, env);
         }
 
-        const nowIso = new Date().toISOString();
-        const randSuffix = Math.random().toString(36).substring(2, 6);
-        const timestampSuffix = Date.now().toString(36);
-        const newId = `tpl_${timestampSuffix}_${randSuffix}`;
-        const baseSlug = slugify(sourceTemplate.slug || sourceTemplate.name || 'template').replace(/^tpl-/, '');
-        const newSlug = `${baseSlug}-copy-${timestampSuffix.slice(-4)}${randSuffix.slice(-2)}`;
-        const newName = `${sourceTemplate.name} (Copy)`;
-
-        // Query source's active/latest version
+        // A. Explicit source version lookup with proper error handling
         let sourceVersion = null;
         try {
           sourceVersion = await env.DB.prepare(
-            'SELECT * FROM template_versions WHERE template_id = ? ORDER BY version_number DESC LIMIT 1'
-          ).bind(sourceTemplate.id).first();
-        } catch (e) {}
+            `SELECT *
+             FROM template_versions
+             WHERE template_id = ?
+             ORDER BY version_number DESC
+             LIMIT 1`
+          )
+            .bind(sourceTemplate.id)
+            .first();
+        } catch (error) {
+          console.error('[Template Duplicate] Source version lookup failed', {
+            sourceTemplateId: sourceTemplate.id,
+            message: error?.message || String(error)
+          });
 
+          return applySecurityHeaders(
+            jsonError(
+              'DATABASE_ERROR',
+              'Unable to load the source template version.',
+              500
+            ),
+            request,
+            env
+          );
+        }
+
+        const nowIso = new Date().toISOString();
+        const randUuid = typeof crypto !== 'undefined' && crypto.randomUUID ? crypto.randomUUID().replace(/-/g, '').substring(0, 12) : Math.random().toString(36).substring(2, 10);
+        const timestampSuffix = Date.now().toString(36);
+        const newId = `tpl_${timestampSuffix}_${randUuid.substring(0, 6)}`;
+        const baseSlug = slugify(sourceTemplate.slug || sourceTemplate.name || 'template').replace(/^tpl-/, '');
+        
+        // Bounded collision handling for unique slug
+        let newSlug = `${baseSlug}-copy-${timestampSuffix.slice(-4)}${randUuid.substring(0, 4)}`;
+        let slugAttempts = 0;
+        while (slugAttempts < 3) {
+          try {
+            const existingSlug = await env.DB.prepare('SELECT id FROM templates WHERE slug = ? LIMIT 1').bind(newSlug).first();
+            if (!existingSlug) break;
+            const extraRand = typeof crypto !== 'undefined' && crypto.randomUUID ? crypto.randomUUID().substring(0, 6) : Math.random().toString(36).substring(2, 8);
+            newSlug = `${baseSlug}-copy-${timestampSuffix.slice(-4)}${extraRand}`;
+            slugAttempts++;
+          } catch (e) {
+            break;
+          }
+        }
+
+        const newName = `${sourceTemplate.name} (Copy)`;
         const newVersionId = `tv_${newId}_v1`;
 
+        // B. Correct snapshot identity & schema transformation
+        let duplicateSnapshot;
         try {
-          // 1. Insert duplicated template record into D1
-          await env.DB.prepare(`
+          let sourceSnapshot = sourceVersion?.snapshot_data || null;
+          let snapshot = {};
+
+          if (sourceSnapshot != null) {
+            if (typeof sourceSnapshot === 'string') {
+              snapshot = JSON.parse(sourceSnapshot);
+            } else if (typeof sourceSnapshot === 'object' && !Array.isArray(sourceSnapshot)) {
+              snapshot = structuredClone(sourceSnapshot);
+            } else {
+              throw new Error('Invalid source template snapshot format');
+            }
+          } else {
+            // Documented fallback snapshot built from the source template's persisted fields
+            snapshot = {
+              id: newId,
+              name: newName,
+              slug: newSlug,
+              category: sourceTemplate.category || 'Celebration',
+              tier: sourceTemplate.tier || 'free',
+              price: Number(sourceTemplate.price) || 0,
+              thumbnail: sourceTemplate.thumbnail || '',
+              entryFile: sourceTemplate.entry_file || 'index.html',
+              version: 1
+            };
+          }
+
+          if (!snapshot || typeof snapshot !== 'object' || Array.isArray(snapshot)) {
+            throw new Error('Source template snapshot must be an object');
+          }
+
+          snapshot.id = newId;
+          snapshot.name = newName;
+          snapshot.slug = newSlug;
+          snapshot.version = 1;
+
+          if ('templateId' in snapshot) snapshot.templateId = newId;
+          if ('template_id' in snapshot) snapshot.template_id = newId;
+          if ('versionId' in snapshot) snapshot.versionId = newVersionId;
+          if ('currentVersionId' in snapshot) snapshot.currentVersionId = newVersionId;
+          if ('status' in snapshot) snapshot.status = 'draft';
+          if ('isPublished' in snapshot) snapshot.isPublished = false;
+          if ('is_published' in snapshot) snapshot.is_published = 0;
+
+          duplicateSnapshot = snapshot;
+        } catch (snapshotErr) {
+          console.error('[Template Duplicate] Snapshot parsing/transformation failed', snapshotErr);
+          return applySecurityHeaders(
+            jsonError('CORRUPT_SNAPSHOT', `Invalid source template snapshot: ${snapshotErr.message}`, 400),
+            request,
+            env
+          );
+        }
+
+        const serializedTheme = typeof (sourceVersion?.theme || sourceTemplate.theme) === 'string'
+          ? (sourceVersion?.theme || sourceTemplate.theme || '{}')
+          : JSON.stringify(sourceVersion?.theme || sourceTemplate.theme || {});
+
+        const serializedSections = typeof (sourceVersion?.sections || sourceTemplate.sections) === 'string'
+          ? (sourceVersion?.sections || sourceTemplate.sections || '[]')
+          : JSON.stringify(sourceVersion?.sections || sourceTemplate.sections || []);
+
+        const serializedCapabilities = typeof (sourceVersion?.capabilities || sourceTemplate.capabilities) === 'string'
+          ? (sourceVersion?.capabilities || sourceTemplate.capabilities || '{}')
+          : JSON.stringify(sourceVersion?.capabilities || sourceTemplate.capabilities || {});
+
+        // C. Atomic batch operation for templates and template_versions
+        try {
+          const templateInsert = env.DB.prepare(`
             INSERT INTO templates (
               id, name, slug, description, category, relationships, tags,
               type, tier, price, is_premium, is_published, status, featured,
@@ -6165,25 +6268,9 @@ export default {
             newVersionId,
             nowIso,
             nowIso
-          ).run();
+          );
 
-          // 2. Clone active version into template_versions
-          const vTheme = sourceVersion?.theme || sourceTemplate.theme || '{}';
-          const vSections = sourceVersion?.sections || sourceTemplate.sections || '[]';
-          const vCapabilities = sourceVersion?.capabilities || sourceTemplate.capabilities || '{}';
-          const vSnapshot = sourceVersion?.snapshot_data ? sourceVersion.snapshot_data : JSON.stringify({
-            id: newId,
-            name: newName,
-            slug: newSlug,
-            category: sourceTemplate.category,
-            tier: sourceTemplate.tier,
-            price: sourceTemplate.price,
-            thumbnail: sourceTemplate.thumbnail,
-            entryFile: sourceTemplate.entry_file || 'index.html',
-            version: 1
-          });
-
-          await env.DB.prepare(`
+          const versionInsert = env.DB.prepare(`
             INSERT INTO template_versions (
               id, template_id, version_number, name, description, category, tier, price,
               thumbnail, theme, sections, capabilities, layout, animations, default_config,
@@ -6202,19 +6289,43 @@ export default {
             sourceTemplate.tier || 'free',
             Number(sourceTemplate.price) || 0,
             sourceTemplate.thumbnail || '',
-            typeof vTheme === 'string' ? vTheme : JSON.stringify(vTheme),
-            typeof vSections === 'string' ? vSections : JSON.stringify(vSections),
-            typeof vCapabilities === 'string' ? vCapabilities : JSON.stringify(vCapabilities),
+            serializedTheme,
+            serializedSections,
+            serializedCapabilities,
             sourceVersion?.layout || 'centered-immersive',
             sourceVersion?.animations || '{}',
             sourceVersion?.default_config || '{}',
-            typeof vSnapshot === 'string' ? vSnapshot : JSON.stringify(vSnapshot),
+            JSON.stringify(duplicateSnapshot),
             nowIso,
             user.id || 'admin'
-          ).run();
+          );
+
+          if (typeof env.DB.batch === 'function') {
+            const batchResults = await env.DB.batch([
+              templateInsert,
+              versionInsert
+            ]);
+
+            if (!Array.isArray(batchResults) || batchResults.length !== 2) {
+              throw new Error('Template duplication did not complete both database operations');
+            }
+
+            if (batchResults.some(result => result && result.success === false)) {
+              throw new Error('One or more template duplication database operations failed');
+            }
+          } else {
+            // Fallback if batch is not supported by the environment driver
+            await templateInsert.run();
+            await versionInsert.run();
+          }
 
         } catch (insertErr) {
-          return applySecurityHeaders(jsonError('PERSISTENCE_FAILED', `Failed to persist duplicated template: ${insertErr.message}`, 500), request, env);
+          console.error('[Template Duplicate Persistence Error]', insertErr);
+          return applySecurityHeaders(
+            jsonError('PERSISTENCE_FAILED', `Failed to persist duplicated template: ${insertErr.message}`, 500),
+            request,
+            env
+          );
         }
 
         response = jsonSuccess({
@@ -13730,64 +13841,93 @@ export default {
           return applySecurityHeaders(jsonError('VALIDATION_ERROR', 'isHelpful must be a boolean', 400), request, env);
         }
 
-        const now = new Date().toISOString();
-        let helpfulCount = article.helpfulCount || 0;
-        let notHelpfulCount = article.notHelpfulCount || 0;
-
-        if (env.DB && typeof env.DB.prepare === 'function') {
-          try {
-            // First check if article exists in help_articles table
-            const existingRow = await env.DB.prepare('SELECT id, helpful_count, not_helpful_count FROM help_articles WHERE slug = ? LIMIT 1').bind(slug).first();
-            if (existingRow) {
-              if (isHelpful) {
-                await env.DB.prepare('UPDATE help_articles SET helpful_count = helpful_count + 1, updated_at = ? WHERE slug = ?').bind(now, slug).run();
-                helpfulCount = (existingRow.helpful_count || 0) + 1;
-                notHelpfulCount = existingRow.not_helpful_count || 0;
-              } else {
-                await env.DB.prepare('UPDATE help_articles SET not_helpful_count = not_helpful_count + 1, updated_at = ? WHERE slug = ?').bind(now, slug).run();
-                helpfulCount = existingRow.helpful_count || 0;
-                notHelpfulCount = (existingRow.not_helpful_count || 0) + 1;
-              }
-            } else {
-              // Insert row for this article into D1
-              const newHelpful = isHelpful ? 1 : 0;
-              const newNotHelpful = isHelpful ? 0 : 1;
-              await env.DB.prepare(`
-                INSERT INTO help_articles (
-                  id, slug, category_id, category_name, title, excerpt, content_markdown,
-                  helpful_count, not_helpful_count, created_at, updated_at
-                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-              `).bind(
-                article.id || `art_${slug}`,
-                slug,
-                article.categoryId || 'general',
-                article.categoryName || 'General',
-                article.title || slug,
-                article.excerpt || '',
-                article.content || '',
-                newHelpful,
-                newNotHelpful,
-                now,
-                now
-              ).run();
-              helpfulCount = newHelpful;
-              notHelpfulCount = newNotHelpful;
-            }
-          } catch (dbErr) {
-            console.error('[Help Article Feedback DB Error]', dbErr);
-            return applySecurityHeaders(jsonError('PERSISTENCE_FAILED', `Failed to record feedback: ${dbErr.message}`, 500), request, env);
-          }
+        // A. Database binding must be mandatory
+        if (!env.DB || typeof env.DB.prepare !== 'function') {
+          return applySecurityHeaders(
+            jsonError(
+              'DATABASE_UNAVAILABLE',
+              'Persistent feedback storage is unavailable.',
+              503
+            ),
+            request,
+            env
+          );
         }
 
-        // Update in-memory reference
-        if (isHelpful) article.helpfulCount = (article.helpfulCount || 0) + 1;
-        else article.notHelpfulCount = (article.notHelpfulCount || 0) + 1;
+        const now = new Date().toISOString();
+        const helpfulDelta = isHelpful ? 1 : 0;
+        const notHelpfulDelta = isHelpful ? 0 : 1;
+
+        // B. Atomic Upsert
+        try {
+          await env.DB.prepare(`
+            INSERT INTO help_articles (
+              id,
+              slug,
+              category_id,
+              category_name,
+              title,
+              excerpt,
+              content_markdown,
+              helpful_count,
+              not_helpful_count,
+              created_at,
+              updated_at
+            )
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+            ON CONFLICT(slug) DO UPDATE SET
+              helpful_count =
+                help_articles.helpful_count + excluded.helpful_count,
+              not_helpful_count =
+                help_articles.not_helpful_count + excluded.not_helpful_count,
+              updated_at = excluded.updated_at
+          `).bind(
+            article.id || `art_${slug}`,
+            slug,
+            article.categoryId || 'general',
+            article.categoryName || 'General',
+            article.title || slug,
+            article.excerpt || '',
+            article.content || '',
+            helpfulDelta,
+            notHelpfulDelta,
+            now,
+            now
+          ).run();
+        } catch (dbErr) {
+          console.error('[Help Article Feedback DB Error]', dbErr);
+          return applySecurityHeaders(
+            jsonError('PERSISTENCE_FAILED', `Failed to record feedback: ${dbErr.message}`, 500),
+            request,
+            env
+          );
+        }
+
+        // C. Read the persisted result
+        const persistedArticle = await env.DB.prepare(`
+          SELECT helpful_count, not_helpful_count
+          FROM help_articles
+          WHERE slug = ?
+          LIMIT 1
+        `).bind(slug).first();
+
+        if (!persistedArticle) {
+          return applySecurityHeaders(
+            jsonError(
+              'PERSISTENCE_FAILED',
+              'Feedback was not confirmed in persistent storage.',
+              500
+            ),
+            request,
+            env
+          );
+        }
 
         response = jsonSuccess({
           success: true,
           slug,
-          helpfulCount,
-          notHelpfulCount,
+          helpfulCount: Number(persistedArticle.helpful_count || 0),
+          notHelpfulCount: Number(persistedArticle.not_helpful_count || 0),
           message: 'Feedback recorded successfully'
         }, 200, {}, requestId);
       }
@@ -14070,20 +14210,73 @@ export default {
 
         const now = new Date().toISOString();
         try {
-          await env.DB.prepare('UPDATE support_tickets SET status = ?, closed_at = ?, updated_at = ? WHERE id = ?')
-            .bind(TICKET_STATUS.CLOSED, now, now, ticket.id).run();
+          // A. Conditional update and changes verification
+          const updateResult = await env.DB.prepare(`
+            UPDATE support_tickets
+            SET status = ?, closed_at = ?, updated_at = ?
+            WHERE id = ? AND status != ?
+          `).bind(
+            TICKET_STATUS.CLOSED,
+            now,
+            now,
+            ticket.id,
+            TICKET_STATUS.CLOSED
+          ).run();
+
+          const changes = Number(updateResult?.meta?.changes ?? 0);
+          if (changes === 0) {
+            const recheck = await env.DB.prepare('SELECT id, status FROM support_tickets WHERE id = ? LIMIT 1').bind(ticket.id).first();
+            if (!recheck) {
+              return applySecurityHeaders(jsonError('NOT_FOUND', 'Ticket not found', 404), request, env);
+            }
+            if (recheck.status === TICKET_STATUS.CLOSED) {
+              return applySecurityHeaders(jsonSuccess({
+                success: true,
+                alreadyClosed: true,
+                ticketId: ticket.id,
+                status: TICKET_STATUS.CLOSED,
+                message: 'Ticket is already closed'
+              }, 200), request, env);
+            }
+            return applySecurityHeaders(
+              jsonError('CONFLICT', 'The ticket could not be closed due to a state conflict.', 409),
+              request,
+              env
+            );
+          }
+
+          // B. Verify the final persisted state
+          const persistedTicket = await env.DB.prepare(`
+            SELECT id, status, closed_at, updated_at
+            FROM support_tickets
+            WHERE id = ?
+            LIMIT 1
+          `).bind(ticket.id).first();
+
+          if (!persistedTicket || persistedTicket.status !== TICKET_STATUS.CLOSED) {
+            return applySecurityHeaders(
+              jsonError(
+                'PERSISTENCE_FAILED',
+                'The ticket closure could not be confirmed.',
+                500
+              ),
+              request,
+              env
+            );
+          }
+
+          response = jsonSuccess({
+            success: true,
+            ticketId: persistedTicket.id,
+            status: persistedTicket.status,
+            closedAt: persistedTicket.closed_at || now,
+            message: 'Ticket closed successfully'
+          }, 200, {}, requestId);
+
         } catch (updateErr) {
           console.error('[Ticket Close DB Error]', updateErr);
           return applySecurityHeaders(jsonError('PERSISTENCE_FAILED', `Failed to close ticket: ${updateErr.message}`, 500), request, env);
         }
-
-        response = jsonSuccess({
-          success: true,
-          ticketId: ticket.id,
-          status: TICKET_STATUS.CLOSED,
-          closedAt: now,
-          message: 'Ticket closed successfully'
-        }, 200, {}, requestId);
       }
 
       else if (pathname.startsWith('/api/support/tickets/') && pathname.endsWith('/rate') && method === 'POST') {

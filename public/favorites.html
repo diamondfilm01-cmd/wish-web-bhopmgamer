@@ -1,0 +1,269 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8"/>
+  <base href="/"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>My Saved Favorites | WishMagic Studio</title>
+  <meta name="description" content="Access all your favorite celebration templates and saved wishes in one place."/>
+
+  <!-- Site Theme Controller -->
+  <script src="js/site-theme.js"></script>
+
+  <!-- Tailwind CSS CDN -->
+  <script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+  <script src="js/tailwind-config.js"></script>
+
+  <!-- Google Fonts: Outfit, Plus Jakarta Sans, Material Symbols -->
+  <link href="https://fonts.googleapis.com" rel="preconnect"/>
+  <link crossorigin="" href="https://fonts.gstatic.com" rel="preconnect"/>
+  <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@400;500;600;700;800;900&family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet"/>
+  <link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:opsz,wght,FILL,GRAD@20..48,100..700,0..1,-50..200" rel="stylesheet"/>
+
+  <!-- WishMagic Core Architecture & Auth -->
+  <script src="https://www.gstatic.com/firebasejs/10.8.0/firebase-app-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/10.8.0/firebase-auth-compat.js"></script>
+  <script src="js/WishMagicCore.js"></script>
+  <script src="js/api-client.js"></script>
+  <script src="js/firebase-auth.js?v=20261010_01"></script>
+  <script src="js/auth-service.js?v=20261006_05"></script>
+  <script src="js/repositories.js"></script>
+  <script src="js/security-hardening.js"></script>
+
+  <style>
+    :root {
+      --bg-body: #F6F0FF;
+      --text-main: #24113F;
+      --card-bg: rgba(255, 255, 255, 0.88);
+      --card-border: rgba(233, 213, 255, 0.8);
+      --nav-bg: rgba(255, 255, 255, 0.84);
+      --nav-border: rgba(233, 213, 255, 0.9);
+      --pill-bg: rgba(255, 255, 255, 0.9);
+      --pill-text: #24113F;
+      --pill-border: rgba(233, 213, 255, 0.9);
+    }
+    html.dark {
+      --bg-body: #0E041D;
+      --text-main: #F3E8FF;
+      --card-bg: rgba(24, 9, 44, 0.85);
+      --card-border: rgba(147, 51, 234, 0.35);
+      --nav-bg: rgba(18, 6, 36, 0.9);
+      --nav-border: rgba(147, 51, 234, 0.4);
+      --pill-bg: rgba(29, 11, 54, 0.8);
+      --pill-text: #E9D5FF;
+      --pill-border: rgba(147, 51, 234, 0.3);
+    }
+    body {
+      background-color: var(--bg-body);
+      min-height: 100vh;
+      color: var(--text-main);
+      font-family: 'Plus Jakarta Sans', sans-serif;
+    }
+    .font-display { font-family: 'Outfit', sans-serif; }
+    .glass-nav {
+      background: var(--nav-bg);
+      backdrop-filter: blur(24px);
+      -webkit-backdrop-filter: blur(24px);
+      border: 1px solid var(--nav-border);
+    }
+    .glass-card {
+      background: var(--card-bg);
+      backdrop-filter: blur(20px);
+      -webkit-backdrop-filter: blur(20px);
+      border: 1px solid var(--card-border);
+    }
+    .glass-pill {
+      background: var(--pill-bg);
+      color: var(--pill-text);
+      backdrop-filter: blur(14px);
+      border: 1px solid var(--pill-border);
+    }
+  </style>
+</head>
+<body class="w-full min-h-screen antialiased flex flex-col justify-between">
+
+  <!-- Header -->
+  <header class="sticky top-2 sm:top-5 z-40 px-3 sm:px-6 md:px-8 max-w-7xl mx-auto w-full transition-all">
+    <div class="glass-nav rounded-2xl sm:rounded-full px-3.5 sm:px-6 py-2 flex items-center justify-between gap-3 shadow-lg shadow-purple-900/5">
+      <a class="flex items-center gap-2 group flex-shrink-0" href="/">
+        <div class="w-8 h-8 sm:w-9 sm:h-9 rounded-full bg-gradient-to-tr from-purple-600 via-pink-500 to-amber-300 flex items-center justify-center shadow-md shadow-pink-500/25 group-hover:rotate-12 transition-transform">
+          <span class="material-symbols-outlined text-white text-[18px]">favorite</span>
+        </div>
+        <div class="flex flex-col">
+          <span class="font-display font-extrabold text-base sm:text-xl tracking-tight bg-gradient-to-r from-purple-900 via-pink-600 to-purple-800 dark:from-purple-200 dark:via-pink-400 dark:to-purple-300 bg-clip-text text-transparent leading-none">WishMagic</span>
+          <span class="text-[9px] font-semibold text-purple-800/80 dark:text-purple-300/80 tracking-wider mt-0.5 hidden sm:inline-block">Saved Favorites</span>
+        </div>
+      </a>
+
+      <nav class="hidden md:flex items-center gap-1 text-sm font-semibold text-purple-950 dark:text-purple-100">
+        <a class="px-3 py-1.5 rounded-full hover:bg-white/70 dark:hover:bg-purple-900/60 hover:text-purple-700 dark:hover:text-pink-300 transition" href="/">Home</a>
+        <a class="px-3 py-1.5 rounded-full hover:bg-white/70 dark:hover:bg-purple-900/60 hover:text-purple-700 dark:hover:text-pink-300 transition" href="/marketplace.html">Templates</a>
+        <a class="px-3 py-1.5 rounded-full hover:bg-white/70 dark:hover:bg-purple-900/60 hover:text-purple-700 dark:hover:text-pink-300 transition" href="/my-wishes">My Wishes</a>
+        <a class="px-3 py-1.5 rounded-full bg-pink-500/15 text-pink-600 dark:text-pink-400 font-bold border border-pink-500/30" href="/favorites">Favorites</a>
+        <a class="px-3 py-1.5 rounded-full hover:bg-white/70 dark:hover:bg-purple-900/60 hover:text-purple-700 dark:hover:text-pink-300 transition" href="/pricing">VIP Pass</a>
+      </nav>
+
+      <div class="flex items-center gap-2">
+        <button class="p-2 rounded-full glass-pill flex items-center justify-center hover:text-pink-600 transition cursor-pointer" onclick="toggleSiteTheme()" title="Toggle Theme" aria-label="Toggle Theme">
+          <span class="material-symbols-outlined text-[18px] site-theme-icon">dark_mode</span>
+        </button>
+        <div id="auth-ui" class="h-8 w-8 rounded-full bg-purple-500/10 border border-purple-500/15 flex items-center justify-center">
+          <a href="/account" class="material-symbols-outlined text-purple-700 dark:text-purple-300 text-[18px]">person</a>
+        </div>
+      </div>
+    </div>
+  </header>
+
+  <!-- Main Content -->
+  <main class="flex-1 max-w-7xl mx-auto w-full px-4 sm:px-6 lg:px-8 py-8 sm:py-12">
+    <!-- Header title -->
+    <div class="mb-8">
+      <div class="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-pink-500/10 text-pink-600 dark:text-pink-400 text-xs font-bold mb-3 border border-pink-500/20">
+        <span class="material-symbols-outlined text-[14px]">favorite</span>
+        <span>Your Collection</span>
+      </div>
+      <h1 class="font-display text-3xl sm:text-4xl font-black text-purple-950 dark:text-white">
+        Favorite Celebration Templates & Wishes
+      </h1>
+      <p class="text-sm text-purple-800/80 dark:text-purple-300/80 mt-1">
+        Templates and celebrations you've saved for upcoming birthdays, anniversaries, and milestones.
+      </p>
+    </div>
+
+    <!-- Loading State -->
+    <div id="fav-loading" class="text-center py-16">
+      <div class="inline-block w-8 h-8 border-4 border-pink-500/30 border-t-pink-500 rounded-full animate-spin"></div>
+      <p class="text-xs font-semibold text-purple-700 dark:text-purple-300 mt-3">Loading your favorites...</p>
+    </div>
+
+    <!-- Favorites Grid -->
+    <div id="fav-grid" class="hidden grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
+      <!-- Injected via JavaScript -->
+    </div>
+
+    <!-- Empty State -->
+    <div id="fav-empty" class="hidden glass-card rounded-3xl p-10 sm:p-14 text-center flex flex-col items-center justify-center gap-4 max-w-xl mx-auto border border-purple-200/70 dark:border-purple-800/60">
+      <div class="w-20 h-20 rounded-full bg-pink-500/10 text-pink-500 flex items-center justify-center text-4xl shadow-inner">
+        <span class="material-symbols-outlined text-[42px]">favorite_border</span>
+      </div>
+      <div>
+        <h3 class="font-display text-xl sm:text-2xl font-extrabold text-purple-950 dark:text-white">
+          No Favorites Saved Yet
+        </h3>
+        <p class="text-xs sm:text-sm text-purple-800/80 dark:text-purple-300/80 max-w-md mt-1.5">
+          Explore our marketplace of 3D celebration templates and click the heart icon on any template or wish to save it here.
+        </p>
+      </div>
+      <a href="/marketplace.html" class="px-6 py-3 rounded-2xl bg-gradient-to-r from-pink-500 to-purple-600 hover:brightness-110 text-white font-extrabold text-xs sm:text-sm shadow-xl shadow-pink-500/25 transition">
+        Browse Templates ✨
+      </a>
+    </div>
+  </main>
+
+  <!-- Footer -->
+  <footer class="mt-auto py-8 text-center text-xs text-purple-700 dark:text-purple-400 border-t border-purple-200/50 dark:border-purple-800/40">
+    <p>Crafted with love on <strong class="text-pink-500 font-bold">WishMagic ✨</strong></p>
+  </footer>
+
+  <script>
+    async function loadFavoritesPage() {
+      const loadingEl = document.getElementById('fav-loading');
+      const gridEl = document.getElementById('fav-grid');
+      const emptyEl = document.getElementById('fav-empty');
+
+      try {
+        let favoriteIds = [];
+
+        // 1. Try server API if authenticated
+        try {
+          const res = await fetch('/api/favorites', { credentials: 'include' });
+          if (res.ok) {
+            const data = await res.json();
+            if (Array.isArray(data.favorites)) {
+              favoriteIds = data.favorites;
+            }
+          }
+        } catch (e) {}
+
+        // 2. Fallback to localStorage
+        if (favoriteIds.length === 0) {
+          try {
+            const local = JSON.parse(localStorage.getItem('wishmagic_favs') || '[]');
+            if (Array.isArray(local)) favoriteIds = local;
+          } catch (e) {}
+        }
+
+        // Fetch all templates to match
+        const tplRes = await fetch('/api/templates').catch(() => null);
+        let allTemplates = [];
+        if (tplRes && tplRes.ok) {
+          const tplData = await tplRes.json();
+          allTemplates = tplData.templates || [];
+        }
+
+        const favTemplates = allTemplates.filter(t => favoriteIds.includes(t.id) || favoriteIds.includes(t.slug));
+
+        loadingEl.classList.add('hidden');
+
+        if (favTemplates.length === 0) {
+          emptyEl.classList.remove('hidden');
+          gridEl.classList.add('hidden');
+          return;
+        }
+
+        emptyEl.classList.add('hidden');
+        gridEl.classList.remove('hidden');
+        gridEl.innerHTML = '';
+
+        favTemplates.forEach(t => {
+          const card = document.createElement('div');
+          card.className = 'glass-card rounded-2xl overflow-hidden flex flex-col hover:shadow-xl transition-all duration-300';
+          card.innerHTML = `
+            <div class="relative aspect-video bg-purple-900/20 overflow-hidden">
+              <img src="${t.thumbnail || '/assets/default-template.jpg'}" alt="${t.name}" class="w-full h-full object-cover"/>
+              <span class="absolute top-3 left-3 px-2.5 py-1 rounded-full bg-black/60 backdrop-blur text-white text-[10px] font-bold uppercase tracking-wider">
+                ${t.category || 'Celebration'}
+              </span>
+              <button onclick="removeFavorite('${t.id}')" class="absolute top-3 right-3 p-1.5 rounded-full bg-white/80 dark:bg-purple-950/80 text-pink-500 hover:scale-110 transition shadow">
+                <span class="material-symbols-outlined text-[18px]">favorite</span>
+              </button>
+            </div>
+            <div class="p-5 flex-1 flex flex-col justify-between">
+              <div>
+                <h3 class="font-display font-bold text-base text-purple-950 dark:text-white">${t.name}</h3>
+                <p class="text-xs text-purple-800/70 dark:text-purple-300/70 mt-1 line-clamp-2">${t.description || 'Interactive 3D celebration web experience'}</p>
+              </div>
+              <div class="mt-4 pt-3 border-t border-purple-200/50 dark:border-purple-800/40 flex items-center justify-between">
+                <a href="/template/${t.slug || t.id}" class="text-xs font-bold text-purple-700 dark:text-purple-300 hover:text-pink-600 transition">Preview →</a>
+                <a href="/create?template=${t.id}" class="px-3.5 py-1.5 rounded-xl bg-gradient-to-r from-pink-500 to-purple-600 text-white font-extrabold text-xs shadow-md shadow-pink-500/20 hover:brightness-110 transition">Use Template</a>
+              </div>
+            </div>
+          `;
+          gridEl.appendChild(card);
+        });
+
+      } catch (err) {
+        console.error('Error loading favorites:', err);
+        loadingEl.classList.add('hidden');
+        emptyEl.classList.remove('hidden');
+      }
+    }
+
+    async function removeFavorite(id) {
+      try {
+        await fetch(`/api/favorites/${encodeURIComponent(id)}`, { method: 'DELETE', credentials: 'include' });
+      } catch (e) {}
+
+      try {
+        const local = JSON.parse(localStorage.getItem('wishmagic_favs') || '[]');
+        const updated = local.filter(x => x !== id);
+        localStorage.setItem('wishmagic_favs', JSON.stringify(updated));
+      } catch (e) {}
+
+      loadFavoritesPage();
+    }
+
+    document.addEventListener('DOMContentLoaded', loadFavoritesPage);
+  </script>
+</body>
+</html>

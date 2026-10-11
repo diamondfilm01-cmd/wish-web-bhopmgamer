@@ -88,11 +88,11 @@ function createMockD1() {
             const eventId = boundArgs[0];
             return tables.payment_webhooks.find(w => w.event_id === eventId) || null;
           }
-          if (lower.includes('from support_tickets where')) {
+          if (/from\s+support_tickets\s+where/i.test(sql)) {
             const id = boundArgs[0];
             return tables.support_tickets.find(t => t.id === id || t.ticket_number === id) || null;
           }
-          if (lower.includes('from help_articles where')) {
+          if (/from\s+help_articles\s+where/i.test(sql)) {
             const slug = boundArgs[0];
             return tables.help_articles.find(a => a.slug === slug) || null;
           }
@@ -226,35 +226,49 @@ function createMockD1() {
             if (hook) hook.status = 'PROCESSED';
             return { success: true };
           }
-          if (lower.includes('update support_tickets set status =')) {
+          if (lower.includes('update support_tickets set status =') || lower.includes('update support_tickets')) {
             const status = boundArgs[0];
             const closedAt = boundArgs[1];
             const updatedAt = boundArgs[2];
             const tId = boundArgs[3];
             const ticket = tables.support_tickets.find(t => t.id === tId);
+            let changes = 0;
             if (ticket) {
               ticket.status = status;
               ticket.closed_at = closedAt;
               ticket.updated_at = updatedAt;
+              changes = 1;
             }
-            return { success: true };
+            return { success: true, meta: { changes } };
           }
           if (lower.includes('insert into help_articles')) {
-            tables.help_articles.push({
-              id: boundArgs[0],
-              slug: boundArgs[1],
-              helpful_count: boundArgs[7],
-              not_helpful_count: boundArgs[8]
-            });
-            return { success: true };
+            const slug = boundArgs[1];
+            let existing = tables.help_articles.find(a => a.slug === slug);
+            if (existing) {
+              existing.helpful_count = (existing.helpful_count || 0) + boundArgs[7];
+              existing.not_helpful_count = (existing.not_helpful_count || 0) + boundArgs[8];
+            } else {
+              tables.help_articles.push({
+                id: boundArgs[0],
+                slug: boundArgs[1],
+                category_id: boundArgs[2],
+                category_name: boundArgs[3],
+                title: boundArgs[4],
+                excerpt: boundArgs[5],
+                content_markdown: boundArgs[6],
+                helpful_count: boundArgs[7],
+                not_helpful_count: boundArgs[8]
+              });
+            }
+            return { success: true, meta: { changes: 1 } };
           }
           if (lower.includes('update help_articles set helpful_count = helpful_count + 1')) {
             const slug = boundArgs[1];
             const art = tables.help_articles.find(a => a.slug === slug);
             if (art) art.helpful_count = (art.helpful_count || 0) + 1;
-            return { success: true };
+            return { success: true, meta: { changes: 1 } };
           }
-          return { success: true };
+          return { success: true, meta: { changes: 1 } };
         }
       };
       return stmt;

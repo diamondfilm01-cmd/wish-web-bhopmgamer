@@ -99,6 +99,8 @@ const PUBLIC_PAGES_MAP = {
   '/my-wishes/': '/my-wishes.html',
   '/favorites': '/favorites.html',
   '/favorites/': '/favorites.html',
+  '/templates': '/templates.html',
+  '/templates/': '/templates.html',
   '/marketplace': '/marketplace.html',
   '/marketplace/': '/marketplace.html',
   '/pricing': '/pricing.html',
