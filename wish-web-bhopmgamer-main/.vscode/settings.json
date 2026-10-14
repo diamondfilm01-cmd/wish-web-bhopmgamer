@@ -1,0 +1,13 @@
+{
+  "javascript.validate.enable": false,
+  "typescript.validate.enable": false,
+  "html.validate.scripts": false,
+  "html.validate.styles": false,
+  "css.validate": false,
+  "files.exclude": {
+    "**/.git": true,
+    "**/.DS_Store": true,
+    "**/bun.lock": true,
+    "**/bun.lockb": true
+  }
+}

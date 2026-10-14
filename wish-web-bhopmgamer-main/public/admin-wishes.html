@@ -1,0 +1,866 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8"/>
+  <base href="/"/>
+  <meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+  <meta content="web_dashboard" name="shell-type"/>
+  <title>WishMagic | Complete Wishes Management &amp; Moderation</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com"/>
+  <link crossorigin="" href="https://fonts.gstatic.com" rel="preconnect"/>
+  <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;600;700&family=Plus+Jakarta+Sans:wght@400;500;600;700;800&family=Outfit:wght@500;600;700;800&display=swap" rel="stylesheet"/>
+  <link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:opsz,wght,FILL,GRAD@20..48,100..700,0..1,-50..200&display=swap" rel="stylesheet"/>
+  <script src="js/tailwind-config.js"></script>
+  <script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+  <script>
+    if (typeof tailwind !== 'undefined' && typeof sharedTailwindConfig !== 'undefined') {
+      tailwind.config = sharedTailwindConfig;
+    }
+  </script>
+  <link rel="stylesheet" href="css/admin-theme.css"/>
+  <script src="js/api-client.js"></script>
+  <script src="js/auth-service.js"></script>
+  <script src="js/WishMagicCore.js"></script>
+  <script src="js/admin-theme.js"></script>
+  <script src="js/wish-lifecycle.js"></script>
+  <script src="js/repositories.js"></script>
+  <script src="js/analytics-service.js"></script>
+  <script src="js/share-system.js"></script>
+</head>
+<body class="bg-background text-on-surface font-body-md min-h-screen antialiased selection:bg-primary selection:text-white">
+
+<!-- Mobile Sidebar Backdrop -->
+<div id="sidebar-backdrop" class="fixed inset-0 bg-black/75 backdrop-blur-sm z-40 hidden md:hidden" onclick="toggleSidebar()"></div>
+
+<!-- Responsive Sidebar Drawer -->
+<aside id="admin-sidebar" class="fixed left-0 top-0 h-screen w-[270px] z-50 flex flex-col justify-between -translate-x-full md:translate-x-0 transition-transform duration-300 ease-in-out select-none">
+  <div class="flex flex-col min-h-0 flex-1">
+    <!-- Brand Logo Header -->
+    <div class="px-5 pt-5 pb-3 flex-shrink-0">
+      <div class="flex items-center justify-between">
+        <a href="/admin/anktech/anktech/admin/overview" class="flex items-center gap-3 group text-decoration-none">
+          <!-- Magic Wand Icon -->
+          <div class="w-10 h-10 rounded-2xl bg-gradient-to-br from-pink-500/25 via-purple-500/25 to-amber-400/20 border border-pink-400/30 flex items-center justify-center shadow-[0_0_20px_rgba(236,72,153,0.35)] flex-shrink-0">
+            <svg class="w-6 h-6" viewBox="0 0 24 24" fill="none">
+              <path d="M4 20L15.5 8.5M15.5 8.5L18.5 5.5C19.05 4.95 19.95 4.95 20.5 5.5C21.05 6.05 21.05 6.95 20.5 7.5L17.5 10.5M15.5 8.5L17.5 10.5" stroke="url(#wandGrad)" stroke-width="2.4" stroke-linecap="round"/>
+              <path d="M11 4L11.6 5.4L13 6L11.6 6.6L11 8L10.4 6.6L9 6L10.4 5.4L11 4Z" fill="#FBBF24"/>
+              <path d="M19 13L19.4 14L20.4 14.4L19.4 14.8L19 15.8L18.6 14.8L17.6 14.4L18.6 14L19 13Z" fill="#F472B6"/>
+              <path d="M6 10L6.3 10.7L7 11L6.3 11.3L6 12L5.7 11.3L5 11L5.7 10.7L6 10Z" fill="#C084FC"/>
+              <defs>
+                <linearGradient id="wandGrad" x1="4" y1="20" x2="21" y2="5" gradientUnits="userSpaceOnUse">
+                  <stop stop-color="#C084FC"/>
+                  <stop offset="0.55" stop-color="#F472B6"/>
+                  <stop offset="1" stop-color="#FBBF24"/>
+                </linearGradient>
+              </defs>
+            </svg>
+          </div>
+          <div class="flex flex-col">
+            <div class="text-[22px] leading-none tracking-tight">
+              <span class="wm-brand-wish">Wish</span><span class="wm-brand-magic">Magic</span>
+            </div>
+            <span class="text-[10.5px] text-purple-200/80 font-medium tracking-wide mt-1">Create. Personalize. Celebrate.</span>
+          </div>
+        </a>
+        <button class="md:hidden p-1.5 rounded-lg bg-white/10 hover:bg-white/20 text-white transition-colors" onclick="toggleSidebar()" aria-label="Close Sidebar">
+          <span class="material-symbols-outlined text-[20px]">close</span>
+        </button>
+      </div>
+    </div>
+
+    <!-- Navigation Menu -->
+    <div class="px-3.5 flex-1 overflow-y-auto custom-scrollbar pb-6">
+      <nav class="flex flex-col gap-0.5">
+        <!-- Top Primary Dashboard Pill -->
+        <div class="mb-2 pt-1">
+          <a class="wm-dashboard-pill" data-nav-role="dashboard" href="/admin/anktech/anktech/admin/overview">
+            <span class="material-symbols-outlined text-[20px]" style="font-variation-settings: 'FILL' 1;">home</span>
+            <span>Dashboard</span>
+          </a>
+        </div>
+
+        <!-- TEMPLATES -->
+        <div class="wm-nav-section-label">TEMPLATES</div>
+        <a href="/admin/anktech/anktech/admin/templates">
+          <span class="material-symbols-outlined">grid_view</span>
+          <span>All Templates</span>
+        </a>
+        <a href="/admin/anktech/anktech/admin/templates?action=add">
+          <span class="material-symbols-outlined">add</span>
+          <span>Add Template</span>
+        </a>
+        <a href="/admin/anktech/anktech/admin/occasions">
+          <span class="material-symbols-outlined">category</span>
+          <span>Categories</span>
+        </a>
+        <a href="/admin/anktech/anktech/admin/media">
+          <span class="material-symbols-outlined">image</span>
+          <span>Media Library</span>
+        </a>
+        <a href="/admin/anktech/anktech/admin/media?tab=audio">
+          <span class="material-symbols-outlined">music_note</span>
+          <span>Music Library</span>
+        </a>
+
+        <!-- WISHES -->
+        <div class="wm-nav-section-label">WISHES</div>
+        <a href="/admin/anktech/anktech/admin/wishes">
+          <span class="material-symbols-outlined">description</span>
+          <span>All Wishes</span>
+        </a>
+        <a href="/admin/anktech/anktech/admin/wishes?filter=expiring">
+          <span class="material-symbols-outlined">schedule</span>
+          <span>Expiring Soon</span>
+        </a>
+        <a href="/admin/anktech/anktech/admin/analytics">
+          <span class="material-symbols-outlined">trending_up</span>
+          <span>Analytics</span>
+        </a>
+
+        <!-- USERS -->
+        <div class="wm-nav-section-label">USERS</div>
+        <a href="/admin/anktech/anktech/admin/users">
+          <span class="material-symbols-outlined">group</span>
+          <span>All Users</span>
+        </a>
+        <a href="/admin/anktech/anktech/admin/pricing">
+          <span class="material-symbols-outlined">workspace_premium</span>
+          <span>Subscriptions</span>
+        </a>
+        <a href="/admin/anktech/anktech/admin/orders">
+          <span class="material-symbols-outlined">credit_card</span>
+          <span>Payments</span>
+        </a>
+
+        <!-- SYSTEM -->
+        <div class="wm-nav-section-label">SYSTEM</div>
+        <a href="/admin/anktech/anktech/admin/settings">
+          <span class="material-symbols-outlined">settings</span>
+          <span>Settings</span>
+        </a>
+        <a href="/admin/anktech/anktech/admin/storage-health">
+          <span class="material-symbols-outlined">database</span>
+          <span>Storage</span>
+        </a>
+        <a href="/admin/anktech/anktech/admin/storage-health?tab=backups">
+          <span class="material-symbols-outlined">cloud_download</span>
+          <span>Backups</span>
+        </a>
+        <a href="/admin/anktech/anktech/admin/audit-logs">
+          <span class="material-symbols-outlined">receipt_long</span>
+          <span>Activity Logs</span>
+        </a>
+
+        <!-- Expandable More Studio Tools (Keeps all 19 platform routes accessible & tested) -->
+        <button type="button" onclick="toggleMoreSidebarSections()" class="mt-2 px-3 py-1.5 rounded-xl text-[11px] font-bold uppercase tracking-wider text-purple-200/75 hover:text-white hover:bg-white/10 transition flex items-center justify-between w-full text-left cursor-pointer">
+          <span>More Studio Sections</span>
+          <span id="wm-sidebar-more-chevron" class="material-symbols-outlined text-[16px] transition-transform">expand_more</span>
+        </button>
+        <div id="wm-sidebar-more-group" class="hidden flex flex-col gap-0.5 pt-1 pl-1 border-l border-purple-400/25 ml-2">
+          <a href="/admin/anktech/anktech/admin/user-creations">
+            <span class="material-symbols-outlined">folder_shared</span>
+            <span>User Creations</span>
+          </a>
+          <a href="/admin/anktech/anktech/admin/search">
+            <span class="material-symbols-outlined">manage_search</span>
+            <span>Search &amp; Discovery</span>
+          </a>
+          <a href="/admin/anktech/anktech/admin/referrals">
+            <span class="material-symbols-outlined">loyalty</span>
+            <span>Referrals &amp; Rewards</span>
+          </a>
+          <a href="/admin/anktech/anktech/admin/moderation">
+            <span class="material-symbols-outlined">gavel</span>
+            <span>Moderation Queue</span>
+          </a>
+          <a href="/admin/anktech/anktech/admin/support">
+            <span class="material-symbols-outlined">support_agent</span>
+            <span>Support Console</span>
+          </a>
+          <a href="/admin/anktech/anktech/admin/staff">
+            <span class="material-symbols-outlined">badge</span>
+            <span>Staff &amp; Team</span>
+          </a>
+          <a href="/admin/anktech/anktech/admin/legal">
+            <span class="material-symbols-outlined">policy</span>
+            <span>Legal &amp; Compliance</span>
+          </a>
+          <a href="/admin/anktech/anktech/admin/announcements">
+            <span class="material-symbols-outlined">campaign</span>
+            <span>Announcements</span>
+          </a>
+          <a href="/admin/anktech/anktech/admin/notifications">
+            <span class="material-symbols-outlined">notifications_active</span>
+            <span>Notification Queue</span>
+          </a>
+        </div>
+      </nav>
+    </div>
+  </div>
+</aside>
+
+<!-- Main Wrapper -->
+<div class="w-full md:pl-[270px] min-h-screen flex flex-col">
+  <!-- Universal Header -->
+    <!-- Universal Top Cloud Header (Pixel-Matched to 19728.png) -->
+  <header class="wm-top-header fixed top-0 left-0 md:left-[270px] right-0 h-[68px] z-30">
+    <div class="w-full h-full px-4 md:px-6 flex items-center justify-between gap-3">
+      <div class="flex items-center gap-2.5 flex-1 max-w-lg">
+        <button class="md:hidden p-2 rounded-xl bg-white/80 hover:bg-white text-[#2b194d] shadow-sm flex items-center justify-center flex-shrink-0" onclick="toggleSidebar()" aria-label="Open Sidebar">
+          <span class="material-symbols-outlined text-[22px]">menu</span>
+        </button>
+        <div class="wm-header-search-wrap">
+          <span class="material-symbols-outlined absolute left-3.5 text-[#6b5a88] text-[18px] pointer-events-none">search</span>
+          <input id="wish-search-input" oninput="handleWishSearch(this.value)" class="wm-header-search-input" placeholder="Search by recipient, sender, wish ID, or slug..." type="text"/>
+          <span class="wm-ctrl-k-badge">Ctrl K</span>
+        </div>
+      </div>
+
+      <div class="flex items-center gap-3 md:gap-4 flex-shrink-0">
+        <button type="button" onclick="toggleAdminTheme()" class="wm-theme-pill-btn" title="Toggle Light / Dark Mode">
+          <span class="wm-theme-pill-sun">
+            <span class="material-symbols-outlined text-[16px]">light_mode</span>
+          </span>
+          <span class="wm-theme-pill-knob">
+            <span class="material-symbols-outlined text-[14px] theme-toggle-icon" id="theme-toggle-icon" style="font-variation-settings: 'FILL' 1;">dark_mode</span>
+          </span>
+        </button>
+
+        <div class="relative">
+          <button type="button" onclick="toggleAdminNotifMenu(event)" class="relative w-10 h-10 rounded-full bg-white/85 dark:bg-[#1c103b] border border-purple-200/80 dark:border-purple-500/30 flex items-center justify-center text-[#2b194d] dark:text-purple-200 shadow-sm hover:bg-white transition cursor-pointer" title="Notifications">
+            <span class="material-symbols-outlined text-[21px]">notifications</span>
+            <span class="absolute -top-0.5 -right-0.5 min-w-[18px] h-[18px] px-1 rounded-full bg-rose-500 text-white text-[10px] font-extrabold flex items-center justify-center shadow">3</span>
+          </button>
+          <div id="wm-admin-notif-dropdown" class="hidden absolute right-0 mt-2 w-80 bg-white dark:bg-[#1a0e36] rounded-2xl border border-purple-200 dark:border-purple-500/30 shadow-2xl p-3.5 z-50 text-xs" onclick="event.stopPropagation()">
+            <div class="flex items-center justify-between pb-2.5 mb-2 border-b border-purple-100 dark:border-purple-800/40">
+              <span class="font-bold text-sm text-[#1a0f30] dark:text-white">Admin Notifications</span>
+              <a href="/admin/anktech/anktech/admin/notifications" class="text-[11px] font-bold text-purple-600 hover:underline">View Queue →</a>
+            </div>
+            <div class="space-y-2">
+              <a href="/admin/anktech/anktech/admin/wishes" class="flex items-start gap-2.5 p-2 rounded-xl hover:bg-purple-50 dark:hover:bg-purple-900/30 transition">
+                <span class="w-7 h-7 rounded-full bg-pink-100 text-pink-600 flex items-center justify-center shrink-0 mt-0.5"><span class="material-symbols-outlined text-[15px]">send</span></span>
+                <div>
+                  <div class="font-bold text-[#1a0f30] dark:text-white">New wish created for Kritika ❤️</div>
+                  <div class="text-[11px] text-slate-500">Birthday Magic • 2 min ago</div>
+                </div>
+              </a>
+              <a href="/admin/anktech/anktech/admin/orders" class="flex items-start gap-2.5 p-2 rounded-xl hover:bg-purple-50 dark:hover:bg-purple-900/30 transition">
+                <span class="w-7 h-7 rounded-full bg-emerald-100 text-emerald-600 flex items-center justify-center shrink-0 mt-0.5"><span class="material-symbols-outlined text-[15px]">payments</span></span>
+                <div>
+                  <div class="font-bold text-[#1a0f30] dark:text-white">VIP Pass Payment Received (₹49)</div>
+                  <div class="text-[11px] text-slate-500">Per Wish Pass • 2 hours ago</div>
+                </div>
+              </a>
+            </div>
+          </div>
+        </div>
+
+        <div class="relative">
+          <div onclick="toggleAdminProfileMenu(event)" class="wm-admin-profile-pill">
+            <div class="w-9 h-9 rounded-full bg-gradient-to-br from-[#4c1d95] to-[#6d28d9] flex items-center justify-center text-white shadow-sm flex-shrink-0">
+              <span class="material-symbols-outlined text-[20px]">person</span>
+            </div>
+            <div class="hidden sm:flex flex-col text-left leading-tight">
+              <span class="text-[13.5px] font-extrabold text-[#1a0f30] dark:text-white">Admin</span>
+              <span id="wm-admin-header-email" class="text-[11px] font-medium text-[#5e4f7d] dark:text-purple-300">ankit.babusaini@gmail.com</span>
+            </div>
+            <span class="material-symbols-outlined text-[18px] text-[#5e4f7d] dark:text-purple-300 ml-0.5">expand_more</span>
+          </div>
+          <div id="wm-admin-profile-dropdown" class="hidden absolute right-0 mt-2 w-60 bg-white dark:bg-[#1a0e36] rounded-2xl border border-purple-200 dark:border-purple-500/30 shadow-2xl p-2 z-50 text-xs" onclick="event.stopPropagation()">
+            <a href="/admin/anktech/anktech/admin/overview" class="flex items-center gap-2.5 px-3 py-2 rounded-xl hover:bg-purple-50 dark:hover:bg-purple-900/30 text-[#1a0f30] dark:text-white font-semibold transition">
+              <span class="material-symbols-outlined text-[17px] text-purple-600">home</span>
+              <span>Dashboard</span>
+            </a>
+            <a href="/admin/anktech/anktech/admin/settings" class="flex items-center gap-2.5 px-3 py-2 rounded-xl hover:bg-purple-50 dark:hover:bg-purple-900/30 text-[#1a0f30] dark:text-white font-semibold transition">
+              <span class="material-symbols-outlined text-[17px] text-pink-500">settings</span>
+              <span>Main Website &amp; Site Settings</span>
+            </a>
+            <a href="/admin/anktech/anktech/admin/templates?action=add" class="flex items-center gap-2.5 px-3 py-2 rounded-xl hover:bg-purple-50 dark:hover:bg-purple-900/30 text-[#1a0f30] dark:text-white font-semibold transition">
+              <span class="material-symbols-outlined text-[17px] text-indigo-500">add_circle</span>
+              <span>Upload &amp; Set New Template</span>
+            </a>
+            <a href="/" target="_blank" class="flex items-center gap-2.5 px-3 py-2 rounded-xl hover:bg-purple-50 dark:hover:bg-purple-900/30 text-[#1a0f30] dark:text-white font-semibold transition">
+              <span class="material-symbols-outlined text-[17px] text-emerald-600">open_in_new</span>
+              <span>View Live Website</span>
+            </a>
+            <div class="border-t border-purple-100 dark:border-purple-800/40 my-1"></div>
+            <button type="button" onclick="window.AdminAuthController && window.AdminAuthController.logout()" class="w-full flex items-center gap-2.5 px-3 py-2 rounded-xl hover:bg-rose-50 dark:hover:bg-rose-950/40 text-rose-600 font-bold transition text-left cursor-pointer">
+              <span class="material-symbols-outlined text-[17px]">logout</span>
+              <span>Sign Out</span>
+            </button>
+          </div>
+        </div>
+      </div>
+    </div>
+  </header>
+
+  <!-- Main Content -->
+  <main class="w-full pt-20 px-4 sm:px-6 lg:px-8 pb-16 max-w-7xl mx-auto flex flex-col gap-6">
+    
+    <!-- Magical Castle Hero Banner: Wishes & Celebrations -->
+    <section class="wm-hero-banner">
+      <div class="relative z-10 flex flex-col items-start max-w-xl">
+        <div class="wm-hero-welcome-pill">
+          <span>Celebration Registry • Lifecycle &amp; Expiry Control</span>
+          <span>🪄</span>
+        </div>
+        <h1 class="wm-hero-title">
+          <span>Wish</span><span class="wm-pink-word">Magic</span> <span class="wm-lavender-word">Wishes &amp; Celebrations</span>
+        </h1>
+        <p class="wm-hero-subtitle">
+          Manage all user wishes, monitor expiring celebration links, extend expiry dates, and moderate celebration experiences!
+        </p>
+        <div class="flex flex-wrap items-center gap-3">
+          <button type="button" onclick="exportWishesCSV()" class="wm-btn-pink-pill">
+            <span class="material-symbols-outlined text-[19px]">download</span>
+            <span>Export Wishes CSV</span>
+          </button>
+          <button type="button" onclick="filterStatus('expiring')" class="wm-btn-glass-pill">
+            <span class="material-symbols-outlined text-[18px]">schedule</span>
+            <span>View Expiring Soon</span>
+          </button>
+        </div>
+      </div>
+    </section>
+
+    <!-- Lifecycle KPI Summary Cards -->
+    <div class="grid grid-cols-2 sm:grid-cols-6 gap-3">
+      <div class="p-3.5 rounded-2xl bg-surface-container border border-purple-900/30 shadow-md">
+        <span class="text-[10px] font-bold uppercase tracking-wider text-outline">Total Wishes</span>
+        <div id="kpi-total-wishes" class="font-display text-2xl font-black text-on-surface mt-0.5">0</div>
+        <span class="text-[10px] text-on-surface-variant">Lifetime creations</span>
+      </div>
+      <div class="p-3.5 rounded-2xl bg-emerald-500/10 border border-emerald-500/30 shadow-md">
+        <span class="text-[10px] font-bold uppercase tracking-wider text-emerald-400">🟢 Live Active</span>
+        <div id="kpi-active-wishes" class="font-display text-2xl font-black text-emerald-400 mt-0.5">0</div>
+        <span class="text-[10px] text-emerald-300/80">Available now</span>
+      </div>
+      <div class="p-3.5 rounded-2xl bg-purple-500/10 border border-purple-500/30 shadow-md">
+        <span class="text-[10px] font-bold uppercase tracking-wider text-purple-300">🟣 Upcoming</span>
+        <div id="kpi-upcoming-wishes" class="font-display text-2xl font-black text-purple-300 mt-0.5">0</div>
+        <span class="text-[10px] text-purple-300/80">Countdown phase</span>
+      </div>
+      <div class="p-3.5 rounded-2xl bg-rose-500/10 border border-rose-500/30 shadow-md">
+        <span class="text-[10px] font-bold uppercase tracking-wider text-rose-400">🔴 Expired</span>
+        <div id="kpi-expired-wishes" class="font-display text-2xl font-black text-rose-400 mt-0.5">0</div>
+        <span class="text-[10px] text-rose-300/80">Past 7d window</span>
+      </div>
+      <div class="p-3.5 rounded-2xl bg-amber-500/10 border border-amber-500/30 shadow-md">
+        <span class="text-[10px] font-bold uppercase tracking-wider text-amber-400">👑 VIP Wishes</span>
+        <div id="kpi-vip-wishes" class="font-display text-2xl font-black text-amber-400 mt-0.5">0</div>
+        <span class="text-[10px] text-amber-300/80">Permanent pass</span>
+      </div>
+      <div class="p-3.5 rounded-2xl bg-orange-500/10 border border-orange-500/30 shadow-md">
+        <span class="text-[10px] font-bold uppercase tracking-wider text-orange-400">⚠️ Flagged/Suspended</span>
+        <div id="kpi-flagged-wishes" class="font-display text-2xl font-black text-orange-400 mt-0.5">0</div>
+        <span class="text-[10px] text-orange-300/80">Moderation alert</span>
+      </div>
+    </div>
+
+    <!-- Filters & Search Toolbar -->
+    <div class="bg-surface-container rounded-2xl p-4 border border-purple-900/30 shadow-md flex flex-wrap items-center justify-between gap-3">
+      <!-- Status Tabs -->
+      <div class="flex items-center gap-1.5 flex-wrap">
+        <button onclick="filterStatus('all')" id="tab-status-all" class="px-3 py-1 rounded-xl text-xs font-bold bg-primary text-white cursor-pointer transition">All Wishes</button>
+        <button onclick="filterStatus('active')" id="tab-status-active" class="px-3 py-1 rounded-xl text-xs font-semibold text-on-surface-variant hover:text-on-surface cursor-pointer transition">🟢 Live</button>
+        <button onclick="filterStatus('expiring')" id="tab-status-expiring" class="px-3 py-1 rounded-xl text-xs font-semibold text-on-surface-variant hover:text-on-surface cursor-pointer transition">⏰ Expiring Soon</button>
+        <button onclick="filterStatus('upcoming')" id="tab-status-upcoming" class="px-3 py-1 rounded-xl text-xs font-semibold text-on-surface-variant hover:text-on-surface cursor-pointer transition">🟣 Upcoming</button>
+        <button onclick="filterStatus('expired')" id="tab-status-expired" class="px-3 py-1 rounded-xl text-xs font-semibold text-on-surface-variant hover:text-on-surface cursor-pointer transition">🔴 Expired</button>
+        <button onclick="filterStatus('flagged')" id="tab-status-flagged" class="px-3 py-1 rounded-xl text-xs font-semibold text-on-surface-variant hover:text-on-surface cursor-pointer transition">⚠️ Flagged</button>
+        <button onclick="filterStatus('suspended')" id="tab-status-suspended" class="px-3 py-1 rounded-xl text-xs font-semibold text-on-surface-variant hover:text-on-surface cursor-pointer transition">⛔ Suspended</button>
+      </div>
+
+      <!-- Sorting & Tier -->
+      <div class="flex items-center gap-3">
+        <div class="flex items-center gap-2">
+          <span class="text-xs font-bold text-on-surface-variant">Tier:</span>
+          <select id="wish-tier-select" onchange="filterTier(this.value)" class="bg-surface-container-low text-on-surface text-xs font-semibold rounded-xl px-3 py-1.5 border border-purple-900/30 focus:outline-none">
+            <option value="all">All Tiers</option>
+            <option value="vip">👑 VIP Pass</option>
+            <option value="free">Free Tier</option>
+          </select>
+        </div>
+
+        <div class="flex items-center gap-2">
+          <span class="text-xs font-bold text-on-surface-variant">Sort:</span>
+          <select id="wish-sort-select" onchange="sortWishes(this.value)" class="bg-surface-container-low text-on-surface text-xs font-semibold rounded-xl px-3 py-1.5 border border-purple-900/30 focus:outline-none">
+            <option value="recent">Recently Created</option>
+            <option value="views">Most Views</option>
+            <option value="event">Special Event Date</option>
+            <option value="recipient">Recipient Name (A-Z)</option>
+          </select>
+        </div>
+      </div>
+    </div>
+
+    <!-- Wishes Table -->
+    <div class="bg-surface-container rounded-2xl border border-purple-900/30 shadow-xl overflow-hidden">
+      <div class="overflow-x-auto custom-scrollbar">
+        <table class="w-full text-left border-collapse text-xs">
+          <thead>
+            <tr class="border-b border-purple-900/30 bg-surface-container-high/50 text-outline uppercase font-bold text-[10px] tracking-wider">
+              <th class="py-3.5 px-4">Recipient &amp; Occasion</th>
+              <th class="py-3.5 px-4">Creator / Owner</th>
+              <th class="py-3.5 px-4">Event Date &amp; Expiry</th>
+              <th class="py-3.5 px-4">Lifecycle Status</th>
+              <th class="py-3.5 px-4">Moderation</th>
+              <th class="py-3.5 px-4">Tier / Pass</th>
+              <th class="py-3.5 px-4 text-center">Views</th>
+              <th class="py-3.5 px-4">Celebration URL</th>
+              <th class="py-3.5 px-4 text-right">Administrative Actions</th>
+            </tr>
+          </thead>
+          <tbody id="wishes-table-body" class="divide-y divide-purple-900/20 font-medium text-on-surface">
+            <!-- Dynamic Rows Injected Here -->
+          </tbody>
+        </table>
+      </div>
+
+      <!-- Empty State -->
+      <div id="wishes-empty-state" class="hidden p-12 text-center flex flex-col items-center justify-center gap-2">
+        <span class="material-symbols-outlined text-4xl text-outline">card_giftcard</span>
+        <h4 class="font-bold text-base text-on-surface">No celebration wishes found</h4>
+        <p class="text-xs text-on-surface-variant">No items match the current search or status filters.</p>
+      </div>
+    </div>
+
+  </main>
+</div>
+
+<!-- Wish Inspector & Administrative Governance Modal -->
+<div id="wish-inspector-modal" class="fixed inset-0 z-50 bg-black/85 backdrop-blur-md hidden flex items-center justify-center p-4">
+  <div class="w-full max-w-3xl bg-surface-container rounded-3xl border border-purple-500/30 shadow-2xl p-6 sm:p-7 flex flex-col gap-5 max-h-[92vh] overflow-y-auto custom-scrollbar relative">
+    <button onclick="closeWishInspectorModal()" class="absolute top-4 right-4 p-2 text-on-surface-variant hover:text-on-surface rounded-full hover:bg-surface-container-high transition cursor-pointer">
+      <span class="material-symbols-outlined text-[20px]">close</span>
+    </button>
+    <div id="wish-inspector-content">
+      <!-- Injected dynamically -->
+    </div>
+  </div>
+</div>
+
+<script>
+  let allWishes = [];
+  let currentStatusFilter = 'all';
+  let currentTierFilter = 'all';
+  let currentSearch = '';
+  let currentSort = 'recent';
+  let activeSelectedWish = null;
+
+  document.addEventListener('DOMContentLoaded', async () => {
+    await loadWishes();
+  });
+
+  async function loadWishes() {
+    try {
+      const res = await fetch('/api/admin/wishes');
+      const data = await res.json();
+      allWishes = data.wishes || [];
+      updateKPIs(data.counts);
+      renderWishesTable();
+    } catch (e) {
+      console.warn('Error loading wishes:', e);
+    }
+  }
+
+  function updateKPIs(counts = {}) {
+    document.getElementById('kpi-total-wishes').textContent = counts.total !== undefined ? counts.total : allWishes.length;
+    document.getElementById('kpi-active-wishes').textContent = counts.active !== undefined ? counts.active : allWishes.filter(w => w.lifecycleStatus === 'active' || w.lifecycleStatus === 'live').length;
+    document.getElementById('kpi-upcoming-wishes').textContent = counts.upcoming !== undefined ? counts.upcoming : allWishes.filter(w => w.lifecycleStatus === 'upcoming').length;
+    document.getElementById('kpi-expired-wishes').textContent = counts.expired !== undefined ? counts.expired : allWishes.filter(w => w.lifecycleStatus === 'expired').length;
+    document.getElementById('kpi-vip-wishes').textContent = counts.vip !== undefined ? counts.vip : allWishes.filter(w => w.tier === 'vip').length;
+    document.getElementById('kpi-flagged-wishes').textContent = (counts.flagged || 0) + (counts.suspended || 0);
+  }
+
+  function renderWishesTable() {
+    const tbody = document.getElementById('wishes-table-body');
+    const empty = document.getElementById('wishes-empty-state');
+    if (!tbody) return;
+
+    let filtered = [...allWishes];
+
+    // Status Filter
+    if (currentStatusFilter !== 'all') {
+      if (currentStatusFilter === 'active') {
+        filtered = filtered.filter(w => w.lifecycleStatus === 'active' || w.lifecycleStatus === 'live');
+      } else if (currentStatusFilter === 'expiring') {
+        filtered = filtered.filter(w => (w.lifecycleStatus === 'active' || w.lifecycleStatus === 'live') && w.tier !== 'vip');
+      } else if (currentStatusFilter === 'upcoming') {
+        filtered = filtered.filter(w => w.lifecycleStatus === 'upcoming' || w.lifecycleStatus === 'future');
+      } else if (currentStatusFilter === 'expired') {
+        filtered = filtered.filter(w => w.lifecycleStatus === 'expired');
+      } else if (currentStatusFilter === 'flagged') {
+        filtered = filtered.filter(w => w.isFlagged || w.moderationStatus === 'flagged');
+      } else if (currentStatusFilter === 'suspended') {
+        filtered = filtered.filter(w => w.moderationStatus === 'suspended');
+      }
+    }
+
+    // Tier Filter
+    if (currentTierFilter !== 'all') {
+      filtered = filtered.filter(w => w.tier === currentTierFilter);
+    }
+
+    // Search Query
+    if (currentSearch) {
+      const q = currentSearch.toLowerCase();
+      filtered = filtered.filter(w =>
+        (w.recipientName && w.recipientName.toLowerCase().includes(q)) ||
+        (w.creatorName && w.creatorName.toLowerCase().includes(q)) ||
+        (w.creatorEmail && w.creatorEmail.toLowerCase().includes(q)) ||
+        (w.templateName && w.templateName.toLowerCase().includes(q)) ||
+        (w.slug && w.slug.toLowerCase().includes(q)) ||
+        (w.id && w.id.toLowerCase().includes(q))
+      );
+    }
+
+    // Sorting
+    if (currentSort === 'recent') {
+      filtered.sort((a, b) => new Date(b.createdAt || 0) - new Date(a.createdAt || 0));
+    } else if (currentSort === 'views') {
+      filtered.sort((a, b) => (b.views || 0) - (a.views || 0));
+    } else if (currentSort === 'event') {
+      filtered.sort((a, b) => new Date(b.eventDate || 0) - new Date(a.eventDate || 0));
+    } else if (currentSort === 'recipient') {
+      filtered.sort((a, b) => (a.recipientName || '').localeCompare(b.recipientName || ''));
+    }
+
+    if (filtered.length === 0) {
+      tbody.innerHTML = '';
+      empty.classList.remove('hidden');
+      return;
+    }
+
+    empty.classList.add('hidden');
+    tbody.innerHTML = filtered.map(w => {
+      const isVIP = w.tier === 'vip' || (w.price && w.price > 0);
+      const isExpired = w.lifecycleStatus === 'expired';
+      const isUpcoming = w.lifecycleStatus === 'upcoming' || w.lifecycleStatus === 'future';
+      const isSuspended = w.moderationStatus === 'suspended';
+      const isFlagged = w.isFlagged || w.moderationStatus === 'flagged';
+      const publicSlug = w.slug || w.id;
+      const publicUrl = `/w/${publicSlug}`;
+
+      let lifecycleBadge = `<span class="px-2.5 py-0.5 rounded-full text-[10px] font-black uppercase tracking-wider bg-emerald-500/20 text-emerald-300 border border-emerald-500/30 flex items-center gap-1 w-fit"><span class="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse"></span> Live</span>`;
+      if (isUpcoming) {
+        lifecycleBadge = `<span class="px-2.5 py-0.5 rounded-full text-[10px] font-black uppercase tracking-wider bg-purple-500/20 text-purple-300 border border-purple-500/30 flex items-center gap-1 w-fit"><span class="w-1.5 h-1.5 rounded-full bg-purple-400"></span> Upcoming</span>`;
+      } else if (isExpired) {
+        lifecycleBadge = `<span class="px-2.5 py-0.5 rounded-full text-[10px] font-black uppercase tracking-wider bg-rose-500/20 text-rose-300 border border-rose-500/30 flex items-center gap-1 w-fit"><span class="w-1.5 h-1.5 rounded-full bg-rose-400"></span> Expired</span>`;
+      }
+
+      let modBadge = `<span class="px-2 py-0.5 rounded text-[10px] font-bold uppercase bg-emerald-500/10 text-emerald-400">Approved</span>`;
+      if (isSuspended) {
+        modBadge = `<span class="px-2 py-0.5 rounded text-[10px] font-black uppercase bg-rose-500/20 text-rose-300 border border-rose-500/30">⛔ Suspended</span>`;
+      } else if (isFlagged) {
+        modBadge = `<span class="px-2 py-0.5 rounded text-[10px] font-black uppercase bg-amber-500/20 text-amber-300 border border-amber-500/30">⚠️ Flagged</span>`;
+      }
+
+      return `
+        <tr class="hover:bg-surface-container-high/40 transition">
+          <td class="py-3 px-4">
+            <div class="font-bold text-on-surface text-sm flex items-center gap-1.5">
+              <span>${w.recipientName || 'Loved One'}</span>
+            </div>
+            <div class="text-[11px] text-primary font-semibold truncate max-w-xs">${w.templateName || w.templateId}</div>
+          </td>
+          <td class="py-3 px-4">
+            <div class="font-semibold text-on-surface">${w.creatorName}</div>
+            <div class="text-[10px] text-outline font-mono">${w.creatorEmail}</div>
+          </td>
+          <td class="py-3 px-4 font-mono text-[11px] text-on-surface">
+            <div>${w.eventDate || 'N/A'}</div>
+            <div class="text-[10px] text-outline">Exp: ${w.expiryDate || 'N/A'}</div>
+          </td>
+          <td class="py-3 px-4">
+            ${lifecycleBadge}
+          </td>
+          <td class="py-3 px-4">
+            ${modBadge}
+          </td>
+          <td class="py-3 px-4">
+            ${isVIP 
+              ? '<span class="px-2 py-0.5 rounded-md text-[10px] font-extrabold bg-amber-400/20 text-amber-400 border border-amber-400/30">👑 VIP</span>'
+              : '<span class="px-2 py-0.5 rounded-md text-[10px] font-medium bg-surface-container-high text-on-surface-variant">Free</span>'
+            }
+          </td>
+          <td class="py-3 px-4 text-center font-mono text-purple-300 font-bold">
+            ${w.views || 0}
+          </td>
+          <td class="py-3 px-4 font-mono text-[11px]">
+            <a href="${publicUrl}" target="_blank" class="text-pink-400 hover:underline flex items-center gap-1 max-w-[140px] truncate">
+              <span>${publicSlug}</span>
+              <span class="material-symbols-outlined text-[13px] shrink-0">open_in_new</span>
+            </a>
+          </td>
+          <td class="py-3 px-4 text-right">
+            <div class="flex items-center justify-end gap-1.5">
+              <button onclick="inspectWish('${w.id}')" class="px-2.5 py-1 rounded-lg bg-surface-container-high hover:bg-surface-container-highest text-on-surface text-xs font-bold transition flex items-center gap-1 cursor-pointer" title="Inspect & Manage Wish">
+                <span class="material-symbols-outlined text-[15px]">settings</span>
+                <span>Inspect</span>
+              </button>
+              <button onclick="shareWishFromAdmin('${w.id}')" class="p-1.5 rounded-lg bg-purple-500/20 hover:bg-purple-500/40 text-purple-300 text-xs transition cursor-pointer" title="Share Modal">
+                <span class="material-symbols-outlined text-[14px]">share</span>
+              </button>
+            </div>
+          </td>
+        </tr>
+      `;
+    }).join('');
+  }
+
+  function handleWishSearch(val) {
+    currentSearch = val;
+    renderWishesTable();
+  }
+
+  function filterStatus(status) {
+    currentStatusFilter = status;
+    ['all', 'active', 'expiring', 'upcoming', 'expired', 'flagged', 'suspended'].forEach(s => {
+      const btn = document.getElementById(`tab-status-${s}`);
+      if (btn) {
+        if (s === status) {
+          btn.className = 'px-3 py-1 rounded-xl text-xs font-bold bg-primary text-white cursor-pointer transition';
+        } else {
+          btn.className = 'px-3 py-1 rounded-xl text-xs font-semibold text-on-surface-variant hover:text-on-surface cursor-pointer transition';
+        }
+      }
+    });
+    renderWishesTable();
+  }
+
+  function filterTier(tier) {
+    currentTierFilter = tier;
+    renderWishesTable();
+  }
+
+  function sortWishes(val) {
+    currentSort = val;
+    renderWishesTable();
+  }
+
+  async function inspectWish(wishId) {
+    const modal = document.getElementById('wish-inspector-modal');
+    const content = document.getElementById('wish-inspector-content');
+    content.innerHTML = `<div class="p-8 text-center text-outline">Loading deep wish diagnostic &amp; metadata...</div>`;
+    modal.classList.remove('hidden');
+
+    try {
+      const res = await fetch(`/api/admin/wishes/${encodeURIComponent(wishId)}`);
+      const data = await res.json();
+      if (!data.success) {
+        content.innerHTML = `<div class="p-8 text-center text-rose-400 font-bold">${data.message || 'Wish not found'}</div>`;
+        return;
+      }
+
+      const wish = data.wish;
+      activeSelectedWish = wish;
+      const creator = data.creator || {};
+      const health = data.healthReport || {};
+      const isVIP = wish.tier === 'vip' || (wish.price && wish.price > 0);
+      const isSuspended = wish.moderationStatus === 'suspended' || wish.moderation_status === 'suspended';
+
+      content.innerHTML = `
+        <div class="flex items-start justify-between gap-4 pb-4 border-b border-purple-900/30">
+          <div>
+            <div class="flex items-center gap-2 mb-1">
+              <span class="px-2 py-0.5 rounded-full text-[10px] font-black uppercase ${
+                health.overallIntegrity === 'HEALTHY' ? 'bg-emerald-500/20 text-emerald-300' : 'bg-rose-500/20 text-rose-300'
+              }">INTEGRITY: ${health.overallIntegrity || 'OK'}</span>
+              <span class="text-outline">•</span>
+              <span class="text-xs font-mono text-outline">ID: ${wish.id}</span>
+            </div>
+            <h3 class="font-display text-xl font-extrabold text-on-surface">To: ${wish.recipientName || wish.recipient_name || 'Loved One'}</h3>
+            <p class="text-xs text-on-surface-variant font-mono">Slug: /w/${wish.slug} • Template: ${wish.templateName || wish.template_name}</p>
+          </div>
+          <a href="/w/${wish.slug || wish.id}" target="_blank" class="px-3 py-1.5 rounded-xl bg-primary-container text-white text-xs font-bold flex items-center gap-1.5 shadow-md shadow-purple-600/30">
+            <span>Live Experience</span>
+            <span class="material-symbols-outlined text-[15px]">open_in_new</span>
+          </a>
+        </div>
+
+        <!-- Quick Summary Metrics -->
+        <div class="grid grid-cols-4 gap-3 text-center">
+          <div class="p-3 rounded-xl bg-surface-container-low border border-purple-900/20">
+            <div class="text-[10px] font-bold text-outline uppercase">Event Date</div>
+            <div class="font-bold text-sm text-on-surface mt-0.5">${wish.eventDate || wish.event_date || 'N/A'}</div>
+          </div>
+          <div class="p-3 rounded-xl bg-surface-container-low border border-purple-900/20">
+            <div class="text-[10px] font-bold text-outline uppercase">Active Expiry</div>
+            <div class="font-bold text-sm text-amber-400 mt-0.5">${wish.expiryDate || wish.expiry_date || 'N/A'}</div>
+          </div>
+          <div class="p-3 rounded-xl bg-surface-container-low border border-purple-900/20">
+            <div class="text-[10px] font-bold text-outline uppercase">Total Views</div>
+            <div class="font-bold text-lg text-purple-300 mt-0.5">${wish.views || 0}</div>
+          </div>
+          <div class="p-3 rounded-xl bg-surface-container-low border border-purple-900/20">
+            <div class="text-[10px] font-bold text-outline uppercase">Creator</div>
+            <div class="font-bold text-xs text-on-surface mt-1 truncate" title="${creator.email || 'Anonymous'}">${creator.displayName || 'Guest'}</div>
+          </div>
+        </div>
+
+        <!-- Moderation Controls -->
+        <div class="p-4 rounded-2xl bg-surface-container-low border border-purple-500/20 space-y-3">
+          <h4 class="font-bold text-xs uppercase tracking-wider text-primary flex items-center gap-1.5">
+            <span class="material-symbols-outlined text-[16px]">gavel</span>
+            <span>Content Moderation Governance</span>
+          </h4>
+          <div class="flex items-center gap-2 flex-wrap">
+            <button onclick="moderateCurrentWish('${wish.id}', 'approve')" class="px-3.5 py-1.5 rounded-xl bg-emerald-500/20 hover:bg-emerald-500 text-emerald-300 hover:text-white font-bold text-xs transition cursor-pointer flex items-center gap-1">
+              <span class="material-symbols-outlined text-[15px]">check_circle</span>
+              <span>Approve &amp; Clear Flags</span>
+            </button>
+            <button onclick="moderateCurrentWish('${wish.id}', 'flag')" class="px-3.5 py-1.5 rounded-xl bg-amber-500/20 hover:bg-amber-500 text-amber-300 hover:text-white font-bold text-xs transition cursor-pointer flex items-center gap-1">
+              <span class="material-symbols-outlined text-[15px]">flag</span>
+              <span>Flag for Review</span>
+            </button>
+            <button onclick="moderateCurrentWish('${wish.id}', 'suspend')" class="px-3.5 py-1.5 rounded-xl bg-rose-500/20 hover:bg-rose-500 text-rose-300 hover:text-white font-bold text-xs transition cursor-pointer flex items-center gap-1">
+              <span class="material-symbols-outlined text-[15px]">block</span>
+              <span>Suspend Link (403)</span>
+            </button>
+          </div>
+        </div>
+
+        <!-- Expiry Extension & VIP Conversion -->
+        <div class="p-4 rounded-2xl bg-surface-container-low border border-purple-500/20 space-y-3">
+          <h4 class="font-bold text-xs uppercase tracking-wider text-amber-400 flex items-center gap-1.5">
+            <span class="material-symbols-outlined text-[16px]">update</span>
+            <span>Extend Link Expiry or Upgrade to VIP</span>
+          </h4>
+          <div class="flex items-center gap-2 flex-wrap">
+            <button onclick="extendExpiryAction('${wish.id}', 7, false)" class="px-3 py-1.5 rounded-xl bg-purple-500/20 hover:bg-purple-500 text-purple-300 hover:text-white font-bold text-xs transition cursor-pointer">
+              +7 Days Extension
+            </button>
+            <button onclick="extendExpiryAction('${wish.id}', 30, false)" class="px-3 py-1.5 rounded-xl bg-purple-500/20 hover:bg-purple-500 text-purple-300 hover:text-white font-bold text-xs transition cursor-pointer">
+              +30 Days Extension
+            </button>
+            <button onclick="extendExpiryAction('${wish.id}', 0, true)" class="px-3.5 py-1.5 rounded-xl bg-amber-500/20 hover:bg-amber-500 text-amber-300 hover:text-white font-bold text-xs transition cursor-pointer flex items-center gap-1">
+              <span>👑 Permanent VIP Pass</span>
+            </button>
+          </div>
+        </div>
+
+        <!-- Transfer Ownership & Safe Deletion -->
+        <div class="flex items-center justify-between pt-2">
+          <button onclick="promptTransferOwnership('${wish.id}')" class="px-3.5 py-2 rounded-xl bg-surface-container-high hover:bg-surface-container-highest text-on-surface font-bold text-xs transition cursor-pointer flex items-center gap-1.5">
+            <span class="material-symbols-outlined text-[16px]">switch_account</span>
+            <span>Transfer Ownership</span>
+          </button>
+          <button onclick="deleteWishPrompt('${wish.id}', '${(wish.recipientName || wish.recipient_name || '').replace(/'/g, "\\'")}')" class="px-3.5 py-2 rounded-xl bg-rose-500/10 hover:bg-rose-500 text-rose-400 hover:text-white font-bold text-xs transition cursor-pointer flex items-center gap-1.5">
+            <span class="material-symbols-outlined text-[16px]">delete</span>
+            <span>Delete Wish Safely</span>
+          </button>
+        </div>
+      `;
+    } catch (e) {
+      content.innerHTML = `<div class="p-8 text-center text-rose-400 font-bold">Network error loading wish</div>`;
+    }
+  }
+
+  function closeWishInspectorModal() {
+    document.getElementById('wish-inspector-modal').classList.add('hidden');
+    activeSelectedWish = null;
+  }
+
+  async function moderateCurrentWish(wishId, action) {
+    const reason = prompt(`Enter reason for moderation action "${action}":`, action === 'approve' ? 'Content verified by admin' : 'Inappropriate content');
+    if (reason === null) return;
+
+    try {
+      const res = await fetch(`/api/admin/wishes/${encodeURIComponent(wishId)}/moderate`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ action, reason })
+      });
+      const data = await res.json();
+      if (data.success) {
+        alert(data.message || 'Moderation status updated!');
+        await loadWishes();
+        await inspectWish(wishId);
+      } else {
+        alert('Failed: ' + data.message);
+      }
+    } catch (e) {
+      alert('Network error');
+    }
+  }
+
+  async function extendExpiryAction(wishId, days, permanentVip) {
+    const reason = prompt('Reason for extension:', permanentVip ? 'Admin complimentary VIP upgrade' : 'Customer support extension');
+    if (reason === null) return;
+
+    try {
+      const res = await fetch(`/api/admin/wishes/${encodeURIComponent(wishId)}/extend-expiry`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ days, permanentVip, reason })
+      });
+      const data = await res.json();
+      if (data.success) {
+        alert(data.message || 'Expiry updated!');
+        await loadWishes();
+        await inspectWish(wishId);
+      } else {
+        alert('Failed: ' + data.message);
+      }
+    } catch (e) {
+      alert('Network error');
+    }
+  }
+
+  async function promptTransferOwnership(wishId) {
+    const targetEmail = prompt('Enter new owner email or user ID:');
+    if (!targetEmail) return;
+
+    try {
+      const res = await fetch(`/api/admin/wishes/${encodeURIComponent(wishId)}/transfer`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ targetEmailOrId: targetEmail, reason: 'Admin manual re-assignment' })
+      });
+      const data = await res.json();
+      if (data.success) {
+        alert(data.message || 'Ownership transferred!');
+        await loadWishes();
+        await inspectWish(wishId);
+      } else {
+        alert('Failed: ' + data.message);
+      }
+    } catch (e) {
+      alert('Network error');
+    }
+  }
+
+  async function deleteWishPrompt(wishId, recipient) {
+    if (!confirm(`Are you sure you want to delete celebration wish for "${recipient}"?`)) return;
+
+    try {
+      const res = await fetch(`/api/admin/wishes/${encodeURIComponent(wishId)}`, { method: 'DELETE' });
+      const data = await res.json();
+      if (data.success) {
+        alert(data.message);
+        closeWishInspectorModal();
+        await loadWishes();
+      } else {
+        alert('Error: ' + (data.message || 'Failed to delete'));
+      }
+    } catch (e) {
+      alert('Network error deleting wish');
+    }
+  }
+
+  function shareWishFromAdmin(wishId) {
+    const wish = allWishes.find(w => w.id === wishId);
+    if (wish && window.WishShareSystem) {
+      WishShareSystem.openShareModal(wish);
+    }
+  }
+
+  function exportWishesCSV() {
+    if (window.WishAnalyticsService) {
+      window.WishAnalyticsService.exportToCSV('wishes', allWishes);
+    }
+  }
+</script>
+
+</body>
+</html>

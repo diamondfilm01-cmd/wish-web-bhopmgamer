@@ -1,0 +1,42 @@
+name = "wishmagic"
+compatibility_date = "2024-09-23"
+compatibility_flags = ["nodejs_compat"]
+pages_build_output_dir = "public"
+
+# Environment Variables (Non-conflicting global Pages configuration)
+# Note: Sensitive secrets and storage bucket bindings (B2_BUCKET_NAME, B2_APPLICATION_KEY,
+# B2_APPLICATION_KEY_ID, IMGBB_API_KEY) are managed in Cloudflare Dashboard to avoid duplicate binding collisions.
+[vars]
+PUBLIC_APP_URL = "https://wishmagic.pages.dev"
+ENVIRONMENT = "production"
+ENABLE_RATE_LIMITING = "true"
+ALLOWED_ORIGIN = "https://wishmagic.live"
+
+# ImgBB Image Cloud Hosting
+# IMGBB_API_KEY is managed via Cloudflare Secrets (`wrangler secret put IMGBB_API_KEY`)
+IMGBB_API_URL = "https://api.imgbb.com/1/upload"
+
+# Backblaze B2 Cloud Storage (Music, Audio & Video Vault)
+# Safe non-secret settings; B2_KEY_ID & B2_APPLICATION_KEY are configured via Cloudflare Secrets
+B2_BUCKET_NAME = "wishmagic-assets"
+B2_ENDPOINT = "https://api.backblazeb2.com"
+B2_DOWNLOAD_URL = "https://f005.backblazeb2.com"
+
+
+# Cloudflare D1 Database Binding
+[[d1_databases]]
+binding = "DB"
+database_name = "wishmagic-db"
+database_id = "c08b683b-eb07-4639-ab33-fb1139bfb295"
+migrations_dir = "migrations"
+
+# Optional Cloudflare R2 Media Storage Bucket (Uncomment once 'wishmagic-media' is created in Cloudflare Dashboard)
+# [[r2_buckets]]
+# binding = "BUCKET"
+# bucket_name = "wishmagic-media"
+
+# Note: Cloudflare Pages projects do not support triggers/crons directly in wrangler.toml.
+# Scheduled tasks are executed via Cloudflare Workers Cron Triggers or external webhook / scheduler.
+# [triggers]
+# crons = ["*/15 * * * *"]
+

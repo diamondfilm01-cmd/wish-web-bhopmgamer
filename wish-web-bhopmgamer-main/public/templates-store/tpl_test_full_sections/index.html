@@ -1,0 +1,50 @@
+<!DOCTYPE html>
+<html lang="en" data-wm-protocol="1.0" data-wm-template-runtime="1.0">
+<head>
+  <meta charset="utf-8"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>Full Capability Test Template ✨</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script src="/js/wishmagic-template-protocol.js"></script>
+  <script src="/js/wishmagic-template-analyzer.js"></script>
+  <script src="/js/wishmagic-template-runtime.js"></script>
+</head>
+<body class="bg-slate-900 text-white min-h-screen p-6 flex flex-col items-center">
+  <main class="w-full max-w-xl mx-auto space-y-6">
+    <!-- Hero (Required & Fixed Start) -->
+    <section data-wm-section="hero" data-wm-label="Celebration Hero" data-wm-required="true" data-wm-toggleable="false" data-wm-fixed-position="start" data-wm-order="1" class="p-6 bg-slate-800 rounded-2xl border border-slate-700 text-center">
+      <h1 class="text-3xl font-black text-pink-400" data-wm-field="recipient_name" data-wm-type="text" data-wm-required="true">Celebration Star</h1>
+      <p class="text-xs text-slate-300 mt-2">A magical journey crafted with love.</p>
+    </section>
+
+    <!-- Message -->
+    <section data-wm-section="message" data-wm-label="Personal Message" data-wm-toggleable="true" data-wm-reorderable="true" data-wm-order="2" class="p-6 bg-slate-800 rounded-2xl border border-slate-700">
+      <h2 class="text-xs font-bold text-slate-400 uppercase tracking-wider mb-2">Message</h2>
+      <p class="text-sm text-slate-100" data-wm-field="custom_message" data-wm-type="textarea">Wishing you infinite moments of joy and wonder!</p>
+    </section>
+
+    <!-- Gallery (Supports Grid & Polaroid) -->
+    <section data-wm-section="gallery" data-wm-label="Photo Keepsake" data-wm-toggleable="true" data-wm-reorderable="true" data-wm-order="3" data-wm-layouts="grid,polaroid" data-wm-default-layout="grid" data-wm-requires="photo_1" class="p-6 bg-slate-800 rounded-2xl border border-slate-700" data-wm-layout="grid">
+      <h2 class="text-xs font-bold text-slate-400 uppercase tracking-wider mb-2">Memories</h2>
+      <div class="aspect-video rounded-xl bg-slate-700 overflow-hidden">
+        <img class="w-full h-full object-cover" data-wm-field="photo_1" data-wm-type="image" src="https://images.unsplash.com/photo-1513151233558-d860c5398176?w=600" alt="Memory"/>
+      </div>
+    </section>
+
+    <!-- Timeline (Supports Vertical & Alternating) -->
+    <section data-wm-section="timeline" data-wm-label="Journey Timeline" data-wm-toggleable="true" data-wm-reorderable="true" data-wm-order="4" data-wm-layouts="vertical,alternating" data-wm-default-layout="vertical" data-wm-capabilities="milestone-nodes,glowing-line" class="p-6 bg-slate-800 rounded-2xl border border-slate-700" data-wm-layout="vertical">
+      <h2 class="text-xs font-bold text-slate-400 uppercase tracking-wider mb-2">Milestones</h2>
+      <div class="space-y-3 text-xs text-slate-300">
+        <div class="p-2 rounded bg-slate-700/50">✦ Day We Met</div>
+        <div class="p-2 rounded bg-slate-700/50">✦ Big Adventure</div>
+      </div>
+    </section>
+
+    <!-- Final Surprise (Supports Confetti & Fireworks, Fixed End) -->
+    <section data-wm-section="final_surprise" data-wm-label="Grand Finale" data-wm-toggleable="true" data-wm-fixed-position="end" data-wm-order="5" data-wm-layouts="confetti,fireworks" data-wm-default-layout="confetti" class="p-6 bg-slate-800 rounded-2xl border border-slate-700 text-center" data-wm-layout="confetti">
+      <h2 class="text-sm font-bold text-pink-400">Grand Celebration Cheers! 🎉</h2>
+      <p class="text-xs text-slate-300 mt-1">With all my heart from <span data-wm-field="sender_name" data-wm-type="text">Someone Special</span></p>
+    </section>
+  </main>
+</body>
+</html>

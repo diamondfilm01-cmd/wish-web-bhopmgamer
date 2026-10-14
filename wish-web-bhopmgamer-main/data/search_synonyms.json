@@ -1,0 +1,519 @@
+[
+  {
+    "id": "syn_1",
+    "keyword": "bday",
+    "synonyms": [
+      "birthday",
+      "celebration"
+    ],
+    "boostWeight": 1.5,
+    "isActive": 1,
+    "createdAt": "2026-10-09T05:14:24.911Z",
+    "updatedAt": "2026-10-09T05:14:24.911Z"
+  },
+  {
+    "id": "syn_2",
+    "keyword": "janamdin",
+    "synonyms": [
+      "birthday",
+      "celebration"
+    ],
+    "boostWeight": 1.5,
+    "isActive": 1,
+    "createdAt": "2026-10-09T05:14:24.911Z",
+    "updatedAt": "2026-10-09T05:14:24.911Z"
+  },
+  {
+    "id": "syn_3",
+    "keyword": "salgirah",
+    "synonyms": [
+      "anniversary",
+      "birthday"
+    ],
+    "boostWeight": 1.5,
+    "isActive": 1,
+    "createdAt": "2026-10-09T05:14:24.911Z",
+    "updatedAt": "2026-10-09T05:14:24.911Z"
+  },
+  {
+    "id": "syn_4",
+    "keyword": "anniv",
+    "synonyms": [
+      "anniversary"
+    ],
+    "boostWeight": 1.5,
+    "isActive": 1,
+    "createdAt": "2026-10-09T05:14:24.911Z",
+    "updatedAt": "2026-10-09T05:14:24.911Z"
+  },
+  {
+    "id": "syn_5",
+    "keyword": "shadi",
+    "synonyms": [
+      "anniversary",
+      "wedding"
+    ],
+    "boostWeight": 1.5,
+    "isActive": 1,
+    "createdAt": "2026-10-09T05:14:24.911Z",
+    "updatedAt": "2026-10-09T05:14:24.911Z"
+  },
+  {
+    "id": "syn_6",
+    "keyword": "gf",
+    "synonyms": [
+      "girlfriend",
+      "romantic",
+      "love"
+    ],
+    "boostWeight": 1.5,
+    "isActive": 1,
+    "createdAt": "2026-10-09T05:14:24.911Z",
+    "updatedAt": "2026-10-09T05:14:24.911Z"
+  },
+  {
+    "id": "syn_7",
+    "keyword": "bf",
+    "synonyms": [
+      "boyfriend",
+      "romantic",
+      "love"
+    ],
+    "boostWeight": 1.5,
+    "isActive": 1,
+    "createdAt": "2026-10-09T05:14:24.911Z",
+    "updatedAt": "2026-10-09T05:14:24.911Z"
+  },
+  {
+    "id": "syn_8",
+    "keyword": "binaural",
+    "synonyms": [
+      "audio",
+      "music"
+    ],
+    "boostWeight": 1.5,
+    "isActive": 1,
+    "createdAt": "2026-10-09T05:14:24.911Z",
+    "updatedAt": "2026-10-09T05:14:24.911Z"
+  },
+  {
+    "id": "syn_9",
+    "keyword": "bgm",
+    "synonyms": [
+      "music",
+      "audio",
+      "song"
+    ],
+    "boostWeight": 1.5,
+    "isActive": 1,
+    "createdAt": "2026-10-09T05:14:24.911Z",
+    "updatedAt": "2026-10-09T05:14:24.911Z"
+  },
+  {
+    "id": "syn_10",
+    "keyword": "song",
+    "synonyms": [
+      "music",
+      "audio",
+      "track"
+    ],
+    "boostWeight": 1.5,
+    "isActive": 1,
+    "createdAt": "2026-10-09T05:14:24.911Z",
+    "updatedAt": "2026-10-09T05:14:24.911Z"
+  },
+  {
+    "id": "syn_11",
+    "keyword": "track",
+    "synonyms": [
+      "music",
+      "audio",
+      "song"
+    ],
+    "boostWeight": 1.5,
+    "isActive": 1,
+    "createdAt": "2026-10-09T05:14:24.911Z",
+    "updatedAt": "2026-10-09T05:14:24.911Z"
+  },
+  {
+    "id": "syn_12",
+    "keyword": "audio",
+    "synonyms": [
+      "music",
+      "audio"
+    ],
+    "boostWeight": 1.5,
+    "isActive": 1,
+    "createdAt": "2026-10-09T05:14:24.911Z",
+    "updatedAt": "2026-10-09T05:14:24.911Z"
+  },
+  {
+    "id": "syn_13",
+    "keyword": "tune",
+    "synonyms": [
+      "music",
+      "audio"
+    ],
+    "boostWeight": 1.5,
+    "isActive": 1,
+    "createdAt": "2026-10-09T05:14:24.911Z",
+    "updatedAt": "2026-10-09T05:14:24.911Z"
+  },
+  {
+    "id": "syn_14",
+    "keyword": "melody",
+    "synonyms": [
+      "music",
+      "audio"
+    ],
+    "boostWeight": 1.5,
+    "isActive": 1,
+    "createdAt": "2026-10-09T05:14:24.911Z",
+    "updatedAt": "2026-10-09T05:14:24.911Z"
+  },
+  {
+    "id": "syn_15",
+    "keyword": "dost",
+    "synonyms": [
+      "friend",
+      "friendship",
+      "best friend"
+    ],
+    "boostWeight": 1.5,
+    "isActive": 1,
+    "createdAt": "2026-10-09T05:14:24.911Z",
+    "updatedAt": "2026-10-09T05:14:24.911Z"
+  },
+  {
+    "id": "syn_16",
+    "keyword": "yaar",
+    "synonyms": [
+      "friend",
+      "friendship",
+      "best friend"
+    ],
+    "boostWeight": 1.5,
+    "isActive": 1,
+    "createdAt": "2026-10-09T05:14:24.911Z",
+    "updatedAt": "2026-10-09T05:14:24.911Z"
+  },
+  {
+    "id": "syn_17",
+    "keyword": "dosti",
+    "synonyms": [
+      "friendship",
+      "friend"
+    ],
+    "boostWeight": 1.5,
+    "isActive": 1,
+    "createdAt": "2026-10-09T05:14:24.911Z",
+    "updatedAt": "2026-10-09T05:14:24.911Z"
+  },
+  {
+    "id": "syn_18",
+    "keyword": "pyaar",
+    "synonyms": [
+      "love",
+      "romantic"
+    ],
+    "boostWeight": 1.5,
+    "isActive": 1,
+    "createdAt": "2026-10-09T05:14:24.911Z",
+    "updatedAt": "2026-10-09T05:14:24.911Z"
+  },
+  {
+    "id": "syn_19",
+    "keyword": "ishq",
+    "synonyms": [
+      "love",
+      "romantic"
+    ],
+    "boostWeight": 1.5,
+    "isActive": 1,
+    "createdAt": "2026-10-09T05:14:24.911Z",
+    "updatedAt": "2026-10-09T05:14:24.911Z"
+  },
+  {
+    "id": "syn_20",
+    "keyword": "mohabbat",
+    "synonyms": [
+      "love",
+      "romantic"
+    ],
+    "boostWeight": 1.5,
+    "isActive": 1,
+    "createdAt": "2026-10-09T05:14:24.911Z",
+    "updatedAt": "2026-10-09T05:14:24.911Z"
+  },
+  {
+    "id": "syn_21",
+    "keyword": "mom",
+    "synonyms": [
+      "mother",
+      "family",
+      "parents"
+    ],
+    "boostWeight": 1.5,
+    "isActive": 1,
+    "createdAt": "2026-10-09T05:14:24.911Z",
+    "updatedAt": "2026-10-09T05:14:24.911Z"
+  },
+  {
+    "id": "syn_22",
+    "keyword": "dad",
+    "synonyms": [
+      "father",
+      "family",
+      "parents"
+    ],
+    "boostWeight": 1.5,
+    "isActive": 1,
+    "createdAt": "2026-10-09T05:14:24.911Z",
+    "updatedAt": "2026-10-09T05:14:24.911Z"
+  },
+  {
+    "id": "syn_23",
+    "keyword": "maa",
+    "synonyms": [
+      "mother",
+      "family"
+    ],
+    "boostWeight": 1.5,
+    "isActive": 1,
+    "createdAt": "2026-10-09T05:14:24.911Z",
+    "updatedAt": "2026-10-09T05:14:24.911Z"
+  },
+  {
+    "id": "syn_24",
+    "keyword": "papa",
+    "synonyms": [
+      "father",
+      "family"
+    ],
+    "boostWeight": 1.5,
+    "isActive": 1,
+    "createdAt": "2026-10-09T05:14:24.911Z",
+    "updatedAt": "2026-10-09T05:14:24.911Z"
+  },
+  {
+    "id": "syn_25",
+    "keyword": "bhai",
+    "synonyms": [
+      "brother",
+      "family"
+    ],
+    "boostWeight": 1.5,
+    "isActive": 1,
+    "createdAt": "2026-10-09T05:14:24.911Z",
+    "updatedAt": "2026-10-09T05:14:24.911Z"
+  },
+  {
+    "id": "syn_26",
+    "keyword": "bro",
+    "synonyms": [
+      "brother",
+      "family",
+      "best friend"
+    ],
+    "boostWeight": 1.5,
+    "isActive": 1,
+    "createdAt": "2026-10-09T05:14:24.911Z",
+    "updatedAt": "2026-10-09T05:14:24.911Z"
+  },
+  {
+    "id": "syn_27",
+    "keyword": "behen",
+    "synonyms": [
+      "sister",
+      "family"
+    ],
+    "boostWeight": 1.5,
+    "isActive": 1,
+    "createdAt": "2026-10-09T05:14:24.911Z",
+    "updatedAt": "2026-10-09T05:14:24.911Z"
+  },
+  {
+    "id": "syn_28",
+    "keyword": "sis",
+    "synonyms": [
+      "sister",
+      "family",
+      "best friend"
+    ],
+    "boostWeight": 1.5,
+    "isActive": 1,
+    "createdAt": "2026-10-09T05:14:24.911Z",
+    "updatedAt": "2026-10-09T05:14:24.911Z"
+  },
+  {
+    "id": "syn_29",
+    "keyword": "polaroids",
+    "synonyms": [
+      "polaroid",
+      "photos",
+      "gallery"
+    ],
+    "boostWeight": 1.5,
+    "isActive": 1,
+    "createdAt": "2026-10-09T05:14:24.911Z",
+    "updatedAt": "2026-10-09T05:14:24.911Z"
+  },
+  {
+    "id": "syn_30",
+    "keyword": "photos",
+    "synonyms": [
+      "polaroid",
+      "gallery"
+    ],
+    "boostWeight": 1.5,
+    "isActive": 1,
+    "createdAt": "2026-10-09T05:14:24.911Z",
+    "updatedAt": "2026-10-09T05:14:24.911Z"
+  },
+  {
+    "id": "syn_31",
+    "keyword": "pictures",
+    "synonyms": [
+      "polaroid",
+      "gallery"
+    ],
+    "boostWeight": 1.5,
+    "isActive": 1,
+    "createdAt": "2026-10-09T05:14:24.911Z",
+    "updatedAt": "2026-10-09T05:14:24.911Z"
+  },
+  {
+    "id": "syn_32",
+    "keyword": "images",
+    "synonyms": [
+      "polaroid",
+      "gallery"
+    ],
+    "boostWeight": 1.5,
+    "isActive": 1,
+    "createdAt": "2026-10-09T05:14:24.911Z",
+    "updatedAt": "2026-10-09T05:14:24.911Z"
+  },
+  {
+    "id": "syn_33",
+    "keyword": "pass",
+    "synonyms": [
+      "vip",
+      "premium"
+    ],
+    "boostWeight": 1.5,
+    "isActive": 1,
+    "createdAt": "2026-10-09T05:14:24.911Z",
+    "updatedAt": "2026-10-09T05:14:24.911Z"
+  },
+  {
+    "id": "syn_34",
+    "keyword": "freebie",
+    "synonyms": [
+      "free"
+    ],
+    "boostWeight": 1.5,
+    "isActive": 1,
+    "createdAt": "2026-10-09T05:14:24.911Z",
+    "updatedAt": "2026-10-09T05:14:24.911Z"
+  },
+  {
+    "id": "syn_35",
+    "keyword": "help",
+    "synonyms": [
+      "faq",
+      "support",
+      "articles"
+    ],
+    "boostWeight": 1.5,
+    "isActive": 1,
+    "createdAt": "2026-10-09T05:14:24.911Z",
+    "updatedAt": "2026-10-09T05:14:24.911Z"
+  },
+  {
+    "id": "syn_36",
+    "keyword": "faq",
+    "synonyms": [
+      "help",
+      "support",
+      "articles"
+    ],
+    "boostWeight": 1.5,
+    "isActive": 1,
+    "createdAt": "2026-10-09T05:14:24.911Z",
+    "updatedAt": "2026-10-09T05:14:24.911Z"
+  },
+  {
+    "id": "syn_37",
+    "keyword": "ticket",
+    "synonyms": [
+      "support",
+      "help"
+    ],
+    "boostWeight": 1.5,
+    "isActive": 1,
+    "createdAt": "2026-10-09T05:14:24.911Z",
+    "updatedAt": "2026-10-09T05:14:24.911Z"
+  },
+  {
+    "id": "syn_38",
+    "keyword": "refund",
+    "synonyms": [
+      "billing",
+      "payments",
+      "orders"
+    ],
+    "boostWeight": 1.5,
+    "isActive": 1,
+    "createdAt": "2026-10-09T05:14:24.911Z",
+    "updatedAt": "2026-10-09T05:14:24.911Z"
+  },
+  {
+    "id": "syn_39",
+    "keyword": "upi",
+    "synonyms": [
+      "billing",
+      "payments",
+      "checkout"
+    ],
+    "boostWeight": 1.5,
+    "isActive": 1,
+    "createdAt": "2026-10-09T05:14:24.911Z",
+    "updatedAt": "2026-10-09T05:14:24.911Z"
+  },
+  {
+    "id": "syn_40",
+    "keyword": "payment",
+    "synonyms": [
+      "billing",
+      "orders",
+      "payments"
+    ],
+    "boostWeight": 1.5,
+    "isActive": 1,
+    "createdAt": "2026-10-09T05:14:24.911Z",
+    "updatedAt": "2026-10-09T05:14:24.911Z"
+  },
+  {
+    "id": "syn_41",
+    "keyword": "clock",
+    "synonyms": [
+      "countdown"
+    ],
+    "boostWeight": 1.5,
+    "isActive": 1,
+    "createdAt": "2026-10-09T05:14:24.911Z",
+    "updatedAt": "2026-10-09T05:14:24.911Z"
+  },
+  {
+    "id": "syn_42",
+    "keyword": "timer",
+    "synonyms": [
+      "countdown"
+    ],
+    "boostWeight": 1.5,
+    "isActive": 1,
+    "createdAt": "2026-10-09T05:14:24.911Z",
+    "updatedAt": "2026-10-09T05:14:24.911Z"
+  }
+]

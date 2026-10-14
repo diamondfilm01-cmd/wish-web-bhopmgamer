@@ -1,0 +1,50 @@
+{
+  "terms_of_service": {
+    "policy_type": "terms_of_service",
+    "current_policy_id": "pol_tos_v1_0",
+    "current_version": "1.0.0",
+    "effective_at": "2026-10-09T04:53:36.779Z"
+  },
+  "privacy_policy": {
+    "policy_type": "privacy_policy",
+    "current_policy_id": "pol_priv_v1_0",
+    "current_version": "1.0.0",
+    "effective_at": "2026-10-09T04:53:36.779Z"
+  },
+  "cookie_policy": {
+    "policy_type": "cookie_policy",
+    "current_policy_id": "pol_cookie_v1_0",
+    "current_version": "1.0.0",
+    "effective_at": "2026-10-09T04:53:36.779Z"
+  },
+  "refund_policy": {
+    "policy_type": "refund_policy",
+    "current_policy_id": "pol_ref_v1_0",
+    "current_version": "1.0.0",
+    "effective_at": "2026-10-09T04:53:36.779Z"
+  },
+  "premium_terms": {
+    "policy_type": "premium_terms",
+    "current_policy_id": "pol_prem_v1_0",
+    "current_version": "1.0.0",
+    "effective_at": "2026-10-09T04:53:36.779Z"
+  },
+  "content_policy": {
+    "policy_type": "content_policy",
+    "current_policy_id": "pol_cont_v1_0",
+    "current_version": "1.0.0",
+    "effective_at": "2026-10-09T04:53:36.779Z"
+  },
+  "referral_terms": {
+    "policy_type": "referral_terms",
+    "current_policy_id": "pol_ref_terms_v1_0",
+    "current_version": "1.0.0",
+    "effective_at": "2026-10-09T04:53:36.779Z"
+  },
+  "community_guidelines": {
+    "policy_type": "community_guidelines",
+    "current_policy_id": "pol_comm_v1_0",
+    "current_version": "1.0.0",
+    "effective_at": "2026-10-09T04:53:36.779Z"
+  }
+}

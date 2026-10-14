@@ -1,0 +1,284 @@
+<!DOCTYPE html>
+
+<html lang="en"><head>
+  <meta charset="utf-8"/>
+  <base href="/"/>
+  <meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+  <meta content="web_standard" name="shell-type"/>
+  <title>WishMagic | Link Expired</title>
+  <script src="js/site-theme.js"></script>
+  <script src="js/api-client.js"></script>
+  <script src="js/auth-service.js"></script>
+  <script src="js/tailwind-config.js"></script>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:opsz,wght,FILL,GRAD@20..48,100..700,0..1,-50..200" rel="stylesheet"/>
+  <link href="https://fonts.googleapis.com" rel="preconnect"/>
+  <link crossorigin="" href="https://fonts.gstatic.com" rel="preconnect"/>
+  <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;600;700&amp;family=Plus+Jakarta+Sans:wght@400;500;600;700;800&amp;display=swap" rel="stylesheet"/>
+  <link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+  <style>@layer base{html,body{margin:0;padding:0;}body{overscroll-behavior:none;}main>:first-child{margin-top:0!important;}main>:last-child{margin-bottom:0!important;}}::-webkit-scrollbar{display:none;}</style>
+  <script src="js/WishMagicCore.js"></script>
+  <script src="js/site-tracker.js"></script>
+</head><body class="bg-background font-body-md text-on-surface antialiased selection:bg-primary selection:text-on-primary min-h-screen"><header class="fixed top-0 left-0 right-0 z-50 bg-surface/75 backdrop-blur-xl shadow-[0_4px_30px_rgba(0,0,0,0.4)]"><div class="h-20 w-full px-space-xl flex items-center justify-between gap-space-lg"><div class="flex items-center gap-space-xl"><a class="flex items-center gap-space-sm group" data-path="home" href="#"><div class="w-10 h-10 rounded-xl bg-gradient-to-br from-primary-container to-secondary-container flex items-center justify-center shadow-[0_0_16px_rgba(124,58,237,0.5)] group-hover:shadow-[0_0_24px_rgba(236,72,153,0.6)] transition-all"><span class="material-symbols-outlined text-on-primary-container text-[22px]">auto_fix_high</span></div><span class="font-headline-md text-headline-md tracking-tight text-on-surface flex items-center">Wish<span class="text-primary">Magic</span></span></a><nav class="hidden xl:flex items-center gap-space-md" data-active-classes="bg-primary-container text-on-primary-container font-headline-sm rounded-lg px-space-md py-space-xs"><a class="font-body-md text-body-md text-on-surface-variant hover:text-on-surface transition-colors px-space-sm py-space-xs rounded-lg hover:bg-surface-container-high" data-path="home" href="#">Home</a><a aria-current="page" class="transition-colors bg-primary-container text-on-primary-container font-headline-sm rounded-lg px-space-md py-space-xs" data-path="templates" href="#">Templates</a><a class="font-body-md text-body-md text-on-surface-variant hover:text-on-surface transition-colors px-space-sm py-space-xs rounded-lg hover:bg-surface-container-high" data-path="how-it-works" href="#">How It Works</a><a class="font-body-md text-body-md text-on-surface-variant hover:text-on-surface transition-colors px-space-sm py-space-xs rounded-lg hover:bg-surface-container-high" data-path="pricing" href="#">Pricing</a><a class="font-body-md text-body-md text-on-surface-variant hover:text-on-surface transition-colors px-space-sm py-space-xs rounded-lg hover:bg-surface-container-high" data-path="about" href="#">About</a></nav></div><div class="flex items-center gap-space-md"><div class="hidden md:flex items-center relative w-64 lg:w-72"><span class="material-symbols-outlined absolute left-3 text-outline text-[18px] pointer-events-none">search</span><input class="w-full pl-10 pr-4 py-space-xs bg-surface-container-lowest/80 text-on-surface placeholder:text-outline font-body-sm text-body-sm rounded-full focus:outline-none focus:ring-2 focus:ring-primary transition-all" placeholder="Search templates, wishes..." type="text"/></div><a class="font-body-md text-body-md text-on-surface-variant hover:text-on-surface px-space-md py-space-xs rounded-lg hover:bg-surface-container-high transition-colors" data-path="sign-in" href="#">Sign In</a><a class="font-body-md text-body-md bg-gradient-to-r from-primary-container to-secondary-container text-on-primary-container px-space-lg py-space-xs rounded-lg shadow-[0_0_20px_rgba(124,58,237,0.35)] hover:shadow-[0_0_24px_rgba(236,72,153,0.5)] transition-all font-medium" data-path="sign-up" href="#">Sign Up</a><div class="w-8 h-8 rounded-full bg-primary flex items-center justify-center"><span class="material-symbols-outlined text-on-primary text-[18px]">person</span></div></div></div></header><main class="w-full pt-20 bg-background"><div class="flex flex-col w-full relative overflow-hidden">
+<!-- Dynamic Ambient Cosmic Canvas Background Layer -->
+<div class="absolute inset-0 pointer-events-none select-none z-0">
+<div class="absolute top-1/4 left-1/2 -translate-x-1/2 w-[720px] h-[520px] rounded-full bg-primary-container/15 blur-[140px]"></div>
+<div class="absolute top-1/3 left-1/4 w-[420px] h-[420px] rounded-full bg-secondary-container/10 blur-[130px]"></div>
+<div class="absolute top-2/3 right-1/4 w-[540px] h-[460px] rounded-full bg-tertiary-container/15 blur-[160px]"></div>
+<!-- Cosmic Star Particles (SVG) -->
+<svg class="absolute inset-0 w-full h-full opacity-60" xmlns="http://www.w3.org/2000/svg">
+<defs>
+<radialgradient cx="50%" cy="50%" id="star-glow" r="50%">
+<stop offset="0%" stop-color="#ffb95f" stop-opacity="0.9"></stop>
+<stop offset="60%" stop-color="#ffb0cd" stop-opacity="0.3"></stop>
+<stop offset="100%" stop-color="#d2bbff" stop-opacity="0"></stop>
+</radialgradient>
+</defs>
+<circle cx="12%" cy="18%" fill="#eadff1" opacity="0.6" r="1.5"></circle>
+<circle cx="28%" cy="12%" fill="#d2bbff" opacity="0.8" r="2"></circle>
+<circle cx="82%" cy="16%" fill="#ffb95f" opacity="0.7" r="2.5"></circle>
+<circle cx="91%" cy="34%" fill="#eadff1" opacity="0.5" r="1.5"></circle>
+<circle cx="8%" cy="48%" fill="#ffb0cd" opacity="0.7" r="2"></circle>
+<circle cx="22%" cy="64%" fill="#eadff1" opacity="0.4" r="1"></circle>
+<circle cx="75%" cy="72%" fill="#d2bbff" opacity="0.75" r="2"></circle>
+<circle cx="88%" cy="84%" fill="#ffb95f" opacity="0.5" r="1.5"></circle>
+<circle cx="45%" cy="8%" fill="#eadff1" opacity="0.5" r="1.2"></circle>
+<circle cx="63%" cy="22%" fill="#d2bbff" opacity="0.65" r="1.8"></circle>
+<polygon fill="#ffb95f" opacity="0.55" points="420,120 422,126 428,128 422,130 420,136 418,130 412,128 418,126"></polygon>
+<polygon fill="#ffb0cd" opacity="0.6" points="980,240 982,245 987,247 982,249 980,254 978,249 973,247 978,245"></polygon>
+<polygon fill="#d2bbff" opacity="0.5" points="160,390 162,395 167,397 162,399 160,404 158,399 153,397 158,395"></polygon>
+</svg>
+</div>
+<!-- Primary Page Body Container -->
+<div class="relative z-10 w-full max-w-5xl mx-auto px-space-md md:px-space-xl py-space-xl flex flex-col items-center">
+<!-- Top Vault Navigation / Breadcrumb Pill -->
+<div class="flex items-center gap-space-sm mb-space-lg px-space-md py-space-xs rounded-full bg-surface-container-low shadow-sm">
+<span class="w-2 h-2 rounded-full bg-tertiary animate-pulse"></span>
+<span class="font-label-sm text-label-sm uppercase tracking-widest text-on-surface-variant">Archived Celebration Record</span>
+<span class="text-outline-variant font-label-sm">/</span>
+<span class="font-label-sm text-label-sm text-tertiary">#WM-EXP-98412</span>
+</div>
+<!-- Center Obsidian Glass Card -->
+<div class="w-full bg-surface-container-lowest/80 backdrop-blur-2xl rounded-xl p-space-md sm:p-space-xl shadow-2xl relative flex flex-col items-center text-center">
+<!-- Subtle internal ambient light overlay -->
+<div class="absolute -top-20 left-1/2 -translate-x-1/2 w-64 h-24 bg-gradient-to-b from-secondary/15 to-transparent rounded-full blur-2xl pointer-events-none"></div>
+<!-- Floating Animated Graphic & Celestial Hourglass / Cosmic Capsule -->
+<div class="relative w-36 h-36 mb-space-md flex items-center justify-center">
+<!-- Orbiting Stardust Rings -->
+<div class="absolute inset-0 rounded-full bg-gradient-to-tr from-primary/10 via-secondary/15 to-tertiary/20 animate-spin" style="animation-duration: 22s;"></div>
+<div class="absolute inset-2 rounded-full bg-surface-container-high/90 flex items-center justify-center shadow-inner"></div>
+<!-- Floating Cosmic Hourglass Vector -->
+<div class="relative z-10 flex flex-col items-center justify-center transform hover:scale-105 transition-transform duration-500">
+<svg class="w-20 h-20 drop-shadow-[0_0_18px_rgba(255,185,95,0.45)]" fill="none" viewbox="0 0 80 80" xmlns="http://www.w3.org/2000/svg">
+<!-- Hourglass outer rim frame -->
+<path d="M22 14C22 14 38 14 58 14C60 14 60 18 58 18L50 28C45 34 45 38 50 44L58 54C60 56 59 60 56 60H24C21 60 20 56 22 54L30 44C35 38 35 34 30 28L22 18C20 18 20 14 22 14Z" fill="#231d2a" stroke="#d2bbff" stroke-linejoin="round" stroke-width="1.8"></path>
+<!-- Upper chamber empty celestial starlight -->
+<path d="M28 20C32 20 48 20 52 20L47 27C44 31 43 33 40 34C37 33 36 31 33 27L28 20Z" fill="#393240" fill-opacity="0.6"></path>
+<!-- Lower chamber accumulated stardust -->
+<path d="M26 56L34 46C37 42 38 40 40 40C42 40 43 42 46 46L54 56C54 56 42 58 26 56Z" fill="url(#goldSand)"></path>
+<!-- Falling Stardust Stream -->
+<line stroke="#ffddb8" stroke-dasharray="2 2" stroke-linecap="round" stroke-width="1.5" x1="40" x2="40" y1="34" y2="48"></line>
+<!-- Ascending Sparkle & Seal Dispersal -->
+<circle cx="40" cy="18" fill="#ffddb8" r="1.5"></circle>
+<circle cx="34" cy="24" fill="#ffb0cd" r="1"></circle>
+<circle cx="48" cy="22" fill="#d2bbff" r="1.2"></circle>
+<circle cx="42" cy="10" fill="#ffb95f" r="1.8"></circle>
+<!-- Top Cap and Base Bar -->
+<rect fill="#ffb95f" height="3" rx="1.5" width="44" x="18" y="12"></rect>
+<rect fill="#ffb95f" height="3" rx="1.5" width="44" x="18" y="59"></rect>
+<defs>
+<lineargradient gradientunits="userSpaceOnUse" id="goldSand" x1="40" x2="40" y1="40" y2="58">
+<stop stop-color="#ffddb8"></stop>
+<stop offset="0.6" stop-color="#ffb95f"></stop>
+<stop offset="1" stop-color="#905b00"></stop>
+</lineargradient>
+</defs>
+</svg>
+</div>
+<!-- Drifting celestial spark badge -->
+<span class="absolute -top-1 -right-1 flex h-6 w-6 items-center justify-center rounded-full bg-secondary text-on-secondary shadow-md">
+<span class="material-symbols-outlined text-[14px]">auto_awesome</span>
+</span>
+</div>
+<!-- Status Tag -->
+<div class="inline-flex items-center gap-space-xs px-space-md py-1 rounded-full bg-surface-container-high shadow-inner mb-space-md">
+<span class="material-symbols-outlined text-tertiary text-[16px]">hourglass_disabled</span>
+<span class="font-label-md text-label-md tracking-wider uppercase text-tertiary font-medium">Time-Capsule Expired • Archived To Stardust</span>
+</div>
+<!-- Main Heading -->
+<h1 class="font-headline-lg text-headline-lg md:font-display-lg md:text-display-lg text-on-surface tracking-tight max-w-2xl">
+        This Magical Wish Has Expired <span class="inline-block text-tertiary">✨</span>
+</h1>
+<!-- Emotional Narrative Body -->
+<p class="font-body-lg text-body-lg text-on-surface-variant max-w-2xl mt-space-sm leading-relaxed">
+        Every moment in time is precious. The celebratory 72-hour live window for this cosmic capsule (originally created for <span class="text-secondary font-semibold">Kritika</span> by <span class="text-primary font-semibold">Ankit</span>) has gracefully concluded, and its live interactive 3D physics have returned to starlight.
+      </p>
+<!-- Memory Keepsake Note Container -->
+<div class="mt-space-lg w-full max-w-xl bg-surface-container/70 rounded-lg p-space-md flex items-start text-left gap-space-md shadow-sm">
+<div class="w-10 h-10 rounded-lg bg-surface-container-highest flex-shrink-0 flex items-center justify-center text-primary mt-space-xs">
+<span class="material-symbols-outlined text-[20px]">photo_library</span>
+</div>
+<div class="flex flex-col">
+<span class="font-headline-sm text-headline-sm text-on-surface font-semibold">Are you the sender or recipient?</span>
+<p class="font-body-sm text-body-sm text-on-surface-variant mt-1 leading-normal">
+            Don't worry — all uploaded Polaroid memories, soundscapes, and heartfelt letters have been securely backed up and locked in the sender's personal WishMagic Vault.
+          </p>
+</div>
+</div>
+<!-- Decorative Divider with Sparkle Star -->
+<div class="w-full max-w-lg my-space-xl flex items-center justify-center relative">
+<div class="w-full h-px bg-surface-container-highest"></div>
+<div class="absolute px-space-md bg-surface-container-lowest flex items-center justify-center text-tertiary">
+<span class="material-symbols-outlined text-[20px]">arrow_back_ios_new</span>
+</div>
+</div>
+<!-- High-Conversion Re-engagement Call-to-Action -->
+<div class="w-full max-w-xl flex flex-col items-center">
+<span class="font-label-lg text-label-lg uppercase tracking-wider text-secondary">Spark A New Wonder</span>
+<h2 class="font-headline-md text-headline-md text-on-surface mt-1">Want to make someone smile today?</h2>
+<p class="font-body-md text-body-md text-on-surface-variant mt-space-xs max-w-md">
+          Create your own breathtaking 3D birthday card, anniversary milestone, or romantic constellation in under 60 seconds.
+        </p>
+<!-- CTA Action Buttons -->
+<div class="mt-space-lg flex flex-col sm:flex-row items-center gap-space-md w-full justify-center">
+<a class="w-full sm:w-auto inline-flex items-center justify-center gap-space-sm bg-gradient-to-r from-primary-container via-secondary-container to-secondary text-on-primary-container font-headline-sm text-headline-sm px-space-xl py-space-md rounded-lg shadow-xl shadow-primary-container/25 hover:shadow-secondary/30 hover:scale-[1.02] active:scale-[0.98] transition-all" data-path="templates" href="#">
+<span class="material-symbols-outlined text-[22px]">magic_button</span>
+<span>Gift a Magical Experience (From ₹0 / Free)</span>
+</a>
+<a class="w-full sm:w-auto inline-flex items-center justify-center gap-space-xs font-body-md text-body-md text-on-surface-variant hover:text-on-surface hover:bg-surface-container-high px-space-lg py-space-md rounded-lg transition-colors" data-path="templates" href="#">
+<span>Explore Popular 3D Templates</span>
+<span class="material-symbols-outlined text-[18px]">arrow_forward</span>
+</a>
+</div>
+</div>
+</div>
+<!-- Bottom Quick Discovery Grid Section -->
+<div class="w-full mt-space-xl flex flex-col items-center">
+<div class="w-full flex items-center justify-between mb-space-md px-space-xs">
+<div class="flex items-center gap-space-xs">
+<span class="material-symbols-outlined text-secondary text-[20px]">local_fire_department</span>
+<span class="font-headline-sm text-headline-sm text-on-surface font-semibold">Trending Experiences Right Now</span>
+</div>
+<a class="font-label-sm text-label-sm uppercase tracking-wider text-primary hover:text-primary-fixed transition-colors flex items-center gap-1" data-path="templates" href="#">
+<span>View All 42+ Themes</span>
+<span class="material-symbols-outlined text-[14px]">chevron_right</span>
+</a>
+</div>
+<!-- 3 Mini Cards Grid -->
+<div class="w-full grid grid-cols-1 md:grid-cols-3 gap-space-md">
+<!-- Card 1: Glitter Birthday Bash 3D -->
+<div class="group relative bg-surface-container-low rounded-xl overflow-hidden shadow-md hover:shadow-xl transition-all duration-300 flex flex-col">
+<div class="relative h-44 w-full overflow-hidden bg-surface-container-high">
+<img class="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500" data-alt="Vibrant 3D birthday celebration digital card with floating metallic holographic helium balloons, cascading pink and violet confetti, illuminated neon candles, and shimmering stardust on an obsidian background." src="https://lh3.googleusercontent.com/aida-public/AB6AXuAh1R-LZEL3szzMcwt_VdvHI4oVpwG3ehyaYa78z-_-JVZuImxdW84daBUbbzzzg03_CVExh1kJ8O8JsuufsLArFA8V765842CMBoPrlrmIwMgvy2GNjFyPAfqUaU9Ls2oqzZvnPSs30OpQGxz4PqVhoITvpKVey1s6EaBV1RFIIUIlkpPkuUDesU7nQp8dv75Kfcb0Pr8xhVTEFGZwW8kPIjgHUmOvsa2XFJSBoYwec7iEyfRysU-L"/>
+<div class="absolute inset-0 bg-gradient-to-t from-surface-container-low via-transparent to-transparent"></div>
+<div class="absolute top-space-sm left-space-sm bg-surface-container-lowest/80 backdrop-blur-md px-2.5 py-1 rounded-full flex items-center gap-1">
+<span class="material-symbols-outlined text-tertiary text-[14px]">star</span>
+<span class="font-label-sm text-label-sm text-on-surface">4.9</span>
+</div>
+<div class="absolute top-space-sm right-space-sm bg-primary/20 backdrop-blur-md px-2.5 py-1 rounded-full">
+<span class="font-label-sm text-label-sm text-primary font-semibold uppercase tracking-wider">Free Tier</span>
+</div>
+</div>
+<div class="p-space-md flex flex-col flex-grow justify-between">
+<div>
+<h3 class="font-headline-sm text-headline-sm text-on-surface group-hover:text-primary transition-colors">Glitter Birthday Bash 3D</h3>
+<p class="font-body-sm text-body-sm text-on-surface-variant mt-1">Multi-stage gift box explosion with custom song sync and candle-blowing audio physics.</p>
+</div>
+<div class="mt-space-md pt-space-xs flex items-center justify-between">
+<span class="font-label-md text-label-md text-tertiary">3D Physics • Audio</span>
+<a class="inline-flex items-center gap-1 font-body-sm text-body-sm text-on-surface hover:text-primary transition-colors" data-path="templates" href="#">
+<span>Customize</span>
+<span class="material-symbols-outlined text-[16px]">chevron_right</span>
+</a>
+</div>
+</div>
+</div>
+<!-- Card 2: Endless Love: Cosmic Galaxy -->
+<div class="group relative bg-surface-container-low rounded-xl overflow-hidden shadow-md hover:shadow-xl transition-all duration-300 flex flex-col">
+<div class="relative h-44 w-full overflow-hidden bg-surface-container-high">
+<img class="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500" data-alt="Romantic cosmic nebula galaxy digital card featuring glowing intertwined constellations forming hearts, deep magenta stardust clouds, ethereal orbiting rings, and tender ambient purple cosmic glow." src="https://lh3.googleusercontent.com/aida-public/AB6AXuAaqMhGpQzo6X9Ya7nn9As8gk5MT6KAsOZ6uGjzSdTx5DFknyPmg7tm_qoI_jSxjTVS5VJ4dUFJVv0_OKfg-7Jz-fFspbw-5TsAiEl5VlenKDUYnV7ynQylpOHK-jEAsEi6b7IO7mYA-T3H9GyiyNcUSsPztRTseg719vmIkaIdUqGicDvB8XjAkb6N-PxR3Dj8-7s6EH0qqmT9ZJTG4WNQGfo8OpNXN94o8tIzCRMgs3ijoRQpBF-k"/>
+<div class="absolute inset-0 bg-gradient-to-t from-surface-container-low via-transparent to-transparent"></div>
+<div class="absolute top-space-sm left-space-sm bg-surface-container-lowest/80 backdrop-blur-md px-2.5 py-1 rounded-full flex items-center gap-1">
+<span class="material-symbols-outlined text-tertiary text-[14px]">star</span>
+<span class="font-label-sm text-label-sm text-on-surface">5.0</span>
+</div>
+<div class="absolute top-space-sm right-space-sm bg-secondary-container/30 backdrop-blur-md px-2.5 py-1 rounded-full">
+<span class="font-label-sm text-label-sm text-secondary font-semibold uppercase tracking-wider">₹49</span>
+</div>
+</div>
+<div class="p-space-md flex flex-col flex-grow justify-between">
+<div>
+<h3 class="font-headline-sm text-headline-sm text-on-surface group-hover:text-secondary transition-colors">Endless Love: Cosmic Galaxy</h3>
+<p class="font-body-sm text-body-sm text-on-surface-variant mt-1">Immersive celestial universe journey with custom couple stars and milestone memory timeline.</p>
+</div>
+<div class="mt-space-md pt-space-xs flex items-center justify-between">
+<span class="font-label-md text-label-md text-secondary">Bestseller • Unlimited</span>
+<a class="inline-flex items-center gap-1 font-body-sm text-body-sm text-on-surface hover:text-secondary transition-colors" data-path="templates" href="#">
+<span>Customize</span>
+<span class="material-symbols-outlined text-[16px]">chevron_right</span>
+</a>
+</div>
+</div>
+</div>
+<!-- Card 3: Diwali Golden Sparkle & Diya -->
+<div class="group relative bg-surface-container-low rounded-xl overflow-hidden shadow-md hover:shadow-xl transition-all duration-300 flex flex-col">
+<div class="relative h-44 w-full overflow-hidden bg-surface-container-high">
+<img class="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500" data-alt="Traditional luxury celebratory greeting with floating 3D golden brass diyas flickering with sacred fire, swirling gold foil fireworks, marigold petal particles, and dark velvet obsidian background." src="https://lh3.googleusercontent.com/aida-public/AB6AXuAK6KhKPv6M1to7ewcm897xf9nZpigiXtoNTkm716ZTQMtMgz2aT18Pmm_sszlua6FwBpLd0eVZjqLMW9wTovcSTLv2_hS6DAhcxT5qQ9kTFOYDjqlbOVDWVTogySL4NtpKkBgrJpUpKHIVBg3Yubj79gX-RqAiRSIYhs-yPRAqmftB-WDJja-SoVfoPmP7XzYvTnyVUNP1sRwb0kozX6eajtv9U9Tv2lCrLfZFAJh0QyhDEQXpQhRP"/>
+<div class="absolute inset-0 bg-gradient-to-t from-surface-container-low via-transparent to-transparent"></div>
+<div class="absolute top-space-sm left-space-sm bg-surface-container-lowest/80 backdrop-blur-md px-2.5 py-1 rounded-full flex items-center gap-1">
+<span class="material-symbols-outlined text-tertiary text-[14px]">star</span>
+<span class="font-label-sm text-label-sm text-on-surface">4.8</span>
+</div>
+<div class="absolute top-space-sm right-space-sm bg-tertiary-container/40 backdrop-blur-md px-2.5 py-1 rounded-full">
+<span class="font-label-sm text-label-sm text-tertiary font-semibold uppercase tracking-wider">₹49</span>
+</div>
+</div>
+<div class="p-space-md flex flex-col flex-grow justify-between">
+<div>
+<h3 class="font-headline-sm text-headline-sm text-on-surface group-hover:text-tertiary transition-colors">Diwali Golden Sparkle &amp; Diya</h3>
+<p class="font-body-sm text-body-sm text-on-surface-variant mt-1">Festive golden sparkles, interactive flame ignition, and royal personalized greeting parchment.</p>
+</div>
+<div class="mt-space-md pt-space-xs flex items-center justify-between">
+<span class="font-label-md text-label-md text-tertiary">Festive • Multi-Music</span>
+<a class="inline-flex items-center gap-1 font-body-sm text-body-sm text-on-surface hover:text-tertiary transition-colors" data-path="templates" href="#">
+<span>Customize</span>
+<span class="material-symbols-outlined text-[16px]">chevron_right</span>
+</a>
+</div>
+</div>
+</div>
+</div>
+</div>
+<!-- System Capsule Audit / Bottom Safe Note -->
+<div class="mt-space-xl pt-space-md flex flex-col sm:flex-row items-center justify-between gap-space-sm w-full opacity-70">
+<div class="flex items-center gap-space-xs text-outline">
+<span class="material-symbols-outlined text-[16px] text-primary">verified_user</span>
+<span class="font-label-sm text-label-sm">WishMagic OS • Cryptographic Capsule ID: <span class="font-label-md text-on-surface-variant">wm-exp-892x7k</span> • Verified Safe</span>
+</div>
+<div class="flex items-center gap-space-md text-outline">
+<a class="font-label-sm text-label-sm hover:text-on-surface transition-colors" data-path="contact-support" href="#">Claim Expired Capsule Help</a>
+<span>•</span>
+<a class="font-label-sm text-label-sm hover:text-on-surface transition-colors" data-path="how-it-works" href="#">How Expiries Work</a>
+</div>
+</div>
+</div>
+</div></main><footer class="w-full bg-surface-container-lowest pt-space-xl pb-space-lg"><div class="w-full px-space-xl grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-space-xl pb-space-xl"><div class="lg:col-span-2 flex flex-col gap-space-md"><div class="flex items-center gap-space-sm"><div class="w-8 h-8 rounded-lg bg-gradient-to-br from-primary-container to-secondary-container flex items-center justify-center"><span class="material-symbols-outlined text-on-primary-container text-[18px]">auto_fix_high</span></div><span class="font-headline-sm text-headline-sm tracking-tight text-on-surface">Wish<span class="text-primary">Magic</span></span></div><p class="font-body-sm text-body-sm text-on-surface-variant max-w-sm">Crafting enchanted, cosmic digital greetings and luxury celebrations. Express heartfelt wishes with cinematic animations, high-fidelity micro-interactions, and pure elegance.</p><div class="flex items-center gap-space-md pt-space-xs"><a class="w-9 h-9 rounded-full bg-surface-container flex items-center justify-center text-on-surface-variant hover:text-primary hover:bg-surface-container-high transition-all" href="#"><span class="material-symbols-outlined text-[18px]">public</span></a><a class="w-9 h-9 rounded-full bg-surface-container flex items-center justify-center text-on-surface-variant hover:text-primary hover:bg-surface-container-high transition-all" href="#"><span class="material-symbols-outlined text-[18px]">share</span></a><a class="w-9 h-9 rounded-full bg-surface-container flex items-center justify-center text-on-surface-variant hover:text-primary hover:bg-surface-container-high transition-all" href="#"><span class="material-symbols-outlined text-[18px]">forum</span></a><a class="w-9 h-9 rounded-full bg-surface-container flex items-center justify-center text-on-surface-variant hover:text-primary hover:bg-surface-container-high transition-all" href="#"><span class="material-symbols-outlined text-[18px]">alternate_email</span></a></div></div><div class="flex flex-col gap-space-sm"><span class="font-label-lg text-label-lg uppercase tracking-wider text-tertiary">Experience</span><a class="font-body-sm text-body-sm text-on-surface-variant hover:text-on-surface transition-colors" data-path="templates" href="#">Greeting Library</a><a class="font-body-sm text-body-sm text-on-surface-variant hover:text-on-surface transition-colors" data-path="how-it-works" href="#">Occasions Engine</a><a class="font-body-sm text-body-sm text-on-surface-variant hover:text-on-surface transition-colors" data-path="pricing" href="#">Studio Tiering</a><a class="font-body-sm text-body-sm text-on-surface-variant hover:text-on-surface transition-colors" data-path="templates" href="#">Cosmic Audio</a></div><div class="flex flex-col gap-space-sm"><span class="font-label-lg text-label-lg uppercase tracking-wider text-secondary">Company</span><a class="font-body-sm text-body-sm text-on-surface-variant hover:text-on-surface transition-colors" data-path="about" href="#">About Us</a><a class="font-body-sm text-body-sm text-on-surface-variant hover:text-on-surface transition-colors" data-path="contact-support" href="#">Customer Support</a><a class="font-body-sm text-body-sm text-on-surface-variant hover:text-on-surface transition-colors" href="#">Brand Assets</a><a class="font-body-sm text-body-sm text-on-surface-variant hover:text-on-surface transition-colors" href="#">Creator Portal</a></div><div class="flex flex-col gap-space-sm"><span class="font-label-lg text-label-lg uppercase tracking-wider text-primary">Trust &amp; Compliance</span><a class="font-body-sm text-body-sm text-on-surface-variant hover:text-on-surface transition-colors" data-path="privacy-policy" href="#">Privacy Policy</a><a class="font-body-sm text-body-sm text-on-surface-variant hover:text-on-surface transition-colors" data-path="terms-of-service" href="#">Terms of Service</a><a class="font-body-sm text-body-sm text-on-surface-variant hover:text-on-surface transition-colors" href="#">Security Standards</a><a class="font-body-sm text-body-sm text-on-surface-variant hover:text-on-surface transition-colors" href="#">Cookie Preferences</a></div></div><div class="w-full px-space-xl pt-space-lg flex flex-col sm:flex-row items-center justify-between gap-space-md bg-surface-container-lowest"><span class="font-label-sm text-label-sm text-outline">© 2025 WishMagic Inc. All rights reserved. Ethereal celebrations engineered for the multiverse.</span><div class="flex items-center gap-space-lg"><a class="font-label-sm text-label-sm text-outline hover:text-on-surface transition-colors" data-path="privacy-policy" href="#">Privacy</a><a class="font-label-sm text-label-sm text-outline hover:text-on-surface transition-colors" data-path="terms-of-service" href="#">Terms</a><a class="font-label-sm text-label-sm text-outline hover:text-on-surface transition-colors" data-path="contact-support" href="#">Support</a></div></div></footer>
+  <script>
+    document.addEventListener('DOMContentLoaded', () => {
+      const urlParams = new URLSearchParams(window.location.search);
+      const status = urlParams.get('status');
+
+      const headline = document.querySelector('h1');
+      const message = document.querySelector('p.text-on-surface-variant');
+
+      if (status === 'too_early') {
+          if(headline) headline.innerText = "It's Not Time Yet! ⏳";
+          if(message) message.innerText = "This magical wish is sealed and will only open on the special day. Please come back later!";
+      } else if (status === 'not_found') {
+          if(headline) headline.innerText = "Wish Not Found 🔍";
+          if(message) message.innerText = "We couldn't find this magical wish. The link might be broken.";
+      }
+    });
+  </script>
+
+</body></html>

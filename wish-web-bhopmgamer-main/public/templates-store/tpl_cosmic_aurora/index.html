@@ -1,0 +1,62 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Cosmic Birthday Aurora</title>
+    <link rel="stylesheet" href="style.css">
+    <!-- WebFonts -->
+    <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;700;800&family=JetBrains+Mono:wght@500&display=swap" rel="stylesheet">
+</head>
+<body class="cosmic-body">
+    <!-- Star Background Particles (Capability: particles) -->
+    <div id="starfield" class="stars-container"></div>
+
+    <main class="wish-experience">
+        <!-- HERO SECTION (sec_hero) -->
+        <section id="sec_hero" class="hero-section" data-wm-section="sec_hero">
+            <div class="aurora-glow" id="aurora" style="--aurora-color: {{aurora_color}}"></div>
+            <div class="hero-content">
+                <div class="photo-frame" data-wm-field="hero_photo" data-wm-type="image">
+                    <img src="{{hero_photo}}" alt="Birthday Person" id="main-photo">
+                </div>
+                <h1 class="glow-text">Happy Birthday, <span data-wm-field="recipient_name">{{recipient_name}}</span>!</h1>
+                <p class="subtitle">A Galactic Celebration Awaits</p>
+            </div>
+        </section>
+
+        <!-- COUNTDOWN SECTION (sec_countdown) -->
+        <section id="sec_countdown" class="countdown-section hidden" data-wm-section="sec_countdown">
+            <h2 class="section-title">The Magic Unlocks In:</h2>
+            <div id="timer" class="timer-grid">
+                <div class="timer-unit"><span id="days">00</span><label>Days</label></div>
+                <div class="timer-unit"><span id="hours">00</span><label>Hours</label></div>
+                <div class="timer-unit"><span id="minutes">00</span><label>Mins</label></div>
+                <div class="timer-unit"><span id="seconds">00</span><label>Secs</label></div>
+            </div>
+            <input type="hidden" id="event-date-val" data-wm-field="event_date" value="{{event_date}}">
+        </section>
+
+        <!-- LETTER SECTION (sec_letter) -->
+        <section id="sec_letter" class="letter-section" data-wm-section="sec_letter">
+            <div class="nebula-card">
+                <div class="card-decoration top-left">✨</div>
+                <div class="card-decoration bottom-right">✨</div>
+                <h3 class="card-title">A Message from the Stars</h3>
+                <div class="message-content" data-wm-field="custom_message">
+                    {{custom_message}}
+                </div>
+                <p class="sender-sig">— Sent with Love & Magic</p>
+            </div>
+        </section>
+
+        <!-- FINALE SECTION (sec_finale) -->
+        <section id="sec_finale" class="finale-section" data-wm-section="sec_finale">
+            <button id="finale-trigger" class="magic-btn">Reveal Final Surprise</button>
+            <div id="confetti-container"></div>
+        </section>
+    </main>
+
+    <script src="script.js"></script>
+</body>
+</html>
