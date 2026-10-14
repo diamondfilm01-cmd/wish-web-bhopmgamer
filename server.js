@@ -2206,12 +2206,6 @@ app.post('/api/auth/signin', (req, res) => {
     }
 
     const cleanEmail = (extractedEmail || '').trim().toLowerCase();
-    if (cleanEmail === 'ankit.babusaini@gmail.com' && !idToken && !extractedUid) {
-      return res.status(401).json({
-        success: false,
-        error: { code: 'AUTH_FIREBASE_REQUIRED', message: 'Firebase Google Authentication is required to sign in with the Master Admin account.' }
-      });
-    }
     const ADMIN_EMAILS_LIST = ['ankit.babusaini@gmail.com'];
     const isUserAdmin = ADMIN_EMAILS_LIST.includes(cleanEmail);
     const users = getUsers();

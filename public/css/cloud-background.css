@@ -1,8 +1,11 @@
 /* ==========================================================================
    WishMagic Main Website - Unified Admin Studio Design System & Mobile-First Engine
-   - Desktop (>= 768px): 5 Direct Working Nav Options in Header, NO 3-line button.
-   - Mobile (< 768px): Compact Icon Header + 3-line Menu with the 5 Options,
-     Zero Horizontal Overflow across Hero, Templates, Steps, 3D Phone & Modals.
+   - Desktop (>= 768px):
+     1. Header: 5 Direct Working Nav Options, NO 3-line button, ZERO overflow across all pages & widths.
+     2. Templates Grid: Always 4 templates per row (`repeat(4, minmax(0, 1fr))`) with balanced height, width, padding & buttons.
+   - Mobile (< 768px):
+     1. Header: Compact Icon Header + 3-line Menu with the 5 Options, ZERO overflow on any screen (`320px+`).
+     2. Templates Grid & Sections: Clean responsive layout with zero horizontal overflow.
    - Non-Home Pages: Exact Light & Dark Smooth Radial Aura Gradients.
    - Home Page (body[data-page="home"]): Fairytale Castle & Cloud Canyon.
    - 100% Text Visibility in both Light Mode and Dark Mode.
@@ -42,7 +45,7 @@ html:not(.dark) {
   --color-outline-variant: #d6c8f2;
 
   --wm-bg-page: #f6f0ff;
-  --wm-bg-header: rgba(255, 255, 255, 0.95);
+  --wm-bg-header: rgba(255, 255, 255, 0.96);
   --wm-card-bg: rgba(255, 255, 255, 0.96);
   --wm-card-alt-bg: #f6f1fe;
   --wm-card-border: #d6c8f2;
@@ -88,7 +91,7 @@ body.dark,
   --color-outline-variant: rgba(147, 102, 245, 0.36);
 
   --wm-bg-page: #0f0521;
-  --wm-bg-header: rgba(23, 12, 48, 0.95);
+  --wm-bg-header: rgba(23, 12, 48, 0.96);
   --wm-card-bg: rgba(31, 18, 62, 0.94);
   --wm-card-alt-bg: #170d30;
   --wm-card-border: rgba(147, 102, 245, 0.35);
@@ -112,6 +115,17 @@ body {
 *::before,
 *::after {
   box-sizing: border-box;
+}
+
+/* Prevent Material Symbols ligature text from expanding layout before font loads */
+.material-symbols-outlined {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  overflow: hidden;
+  max-width: 1.35em;
+  white-space: nowrap;
+  vertical-align: middle;
 }
 
 /* ==========================================================================
@@ -185,8 +199,18 @@ html.dark body[data-page="home"]::after {
 }
 
 /* ==========================================================================
-   2. HEADER NAVIGATION: DESKTOP (5 Direct Options, No 3-Line) vs MOBILE (3-Line Only)
+   2. HEADER NAVIGATION: ZERO OVERFLOW ON DESKTOP (>= 768px) & MOBILE (< 768px)
+      ACROSS EVERY SINGLE STOREFRONT PAGE
    ========================================================================== */
+header,
+header[data-purpose="site-navigation"] {
+  width: 100% !important;
+  max-width: min(96vw, 1260px) !important;
+  margin-left: auto !important;
+  margin-right: auto !important;
+  box-sizing: border-box !important;
+}
+
 header .glass-nav,
 .wm-site-header-bar {
   background: var(--wm-bg-header) !important;
@@ -197,6 +221,11 @@ header .glass-nav,
   border-radius: 9999px !important;
   width: 100% !important;
   max-width: 100% !important;
+  display: flex !important;
+  align-items: center !important;
+  justify-content: space-between !important;
+  flex-wrap: nowrap !important;
+  box-sizing: border-box !important;
 }
 
 .wm-brand-magic {
@@ -206,42 +235,20 @@ header .glass-nav,
   background-clip: text;
 }
 
-/* Desktop vs Mobile Header Visibility Rules */
-@media (min-width: 768px) {
-  .wm-desktop-nav {
-    display: flex !important;
-  }
-  .wm-mobile-only-btn,
-  #wm-mobile-menu-btn,
-  .wm-mobile-only-drawer,
-  #wm-mobile-nav-drawer {
-    display: none !important;
-  }
-}
-
-@media (max-width: 767.98px) {
-  .wm-desktop-nav {
-    display: none !important;
-  }
-  .wm-mobile-only-btn,
-  #wm-mobile-menu-btn {
-    display: inline-flex !important;
-  }
-}
-
 /* Admin-Style Navigation Pills */
 .wm-nav-pill {
   display: inline-flex;
   align-items: center;
   gap: 5px;
-  padding: 6px 13px;
+  padding: 6px 11px;
   border-radius: 9999px;
-  font-size: 13px;
+  font-size: 12.5px;
   font-weight: 700;
   color: var(--wm-text-primary) !important;
   transition: all 0.18s ease;
   text-decoration: none;
   white-space: nowrap;
+  flex-shrink: 0;
 }
 
 html.dark .wm-nav-pill:not(.active) {
@@ -275,9 +282,9 @@ html.dark .wm-nav-pill:not(.active) {
   display: inline-flex;
   align-items: center;
   justify-content: space-between;
-  width: 60px;
-  height: 30px;
-  padding: 3px;
+  width: 54px;
+  height: 28px;
+  padding: 2px;
   border-radius: 9999px;
   background: #ede5fb !important;
   border: 1.5px solid #d2c1f2 !important;
@@ -299,8 +306,8 @@ body.dark .wm-theme-pill-btn {
   position: absolute;
   top: 2px;
   left: 2px;
-  width: 23px;
-  height: 23px;
+  width: 21px;
+  height: 21px;
   border-radius: 9999px;
   background: linear-gradient(135deg, #f59e0b 0%, #ec4899 100%);
   box-shadow: 0 2px 8px rgba(236, 72, 153, 0.35);
@@ -310,7 +317,7 @@ body.dark .wm-theme-pill-btn {
 
 html.dark .wm-theme-pill-btn::after,
 body.dark .wm-theme-pill-btn::after {
-  transform: translateX(29px);
+  transform: translateX(26px);
   background: linear-gradient(135deg, #a855f7 0%, #6366f1 100%);
   box-shadow: 0 2px 10px rgba(168, 85, 247, 0.55);
 }
@@ -319,8 +326,8 @@ body.dark .wm-theme-pill-btn::after {
 .wm-theme-pill-knob {
   position: relative;
   z-index: 2;
-  width: 23px;
-  height: 23px;
+  width: 21px;
+  height: 21px;
   display: inline-flex;
   align-items: center;
   justify-content: center;
@@ -335,8 +342,9 @@ html.dark .wm-theme-pill-knob { color: #ffffff !important; }
 
 /* Header Notification Bell Button */
 #wishmagic-notification-bell-btn {
-  width: 34px !important;
-  height: 34px !important;
+  width: 32px !important;
+  height: 32px !important;
+  min-width: 32px !important;
   border-radius: 9999px !important;
   background: var(--wm-card-alt-bg) !important;
   border: 1.5px solid var(--wm-card-border) !important;
@@ -346,6 +354,7 @@ html.dark .wm-theme-pill-knob { color: #ffffff !important; }
   justify-content: center !important;
   padding: 0 !important;
   box-shadow: 0 2px 8px rgba(98, 56, 178, 0.08) !important;
+  flex-shrink: 0 !important;
 }
 
 #wishmagic-notification-bell-btn:hover {
@@ -353,8 +362,374 @@ html.dark .wm-theme-pill-knob { color: #ffffff !important; }
   color: #ec4899 !important;
 }
 
+/* Desktop View Header Layout (>= 768px):
+   - 5 Direct Options visible in header
+   - 3-Line button strictly hidden
+   - Responsive sizing so ZERO items ever overflow at 768px, 980px, 1024px, 1280px, 1440px+ */
+@media (min-width: 768px) {
+  .wm-site-header-bar,
+  header .glass-nav {
+    padding: 7px 14px !important;
+    gap: 8px !important;
+  }
+
+  .wm-desktop-nav {
+    display: flex !important;
+    align-items: center !important;
+    gap: 3px !important;
+    flex: 0 1 auto !important;
+    min-width: 0 !important;
+  }
+
+  .wm-mobile-only-btn,
+  #wm-mobile-menu-btn,
+  .wm-mobile-only-drawer,
+  #wm-mobile-nav-drawer {
+    display: none !important;
+  }
+
+  .wm-header-actions {
+    gap: 6px !important;
+  }
+
+  .wm-header-create-btn {
+    height: 32px !important;
+    padding: 0 11px !important;
+    font-size: 11.5px !important;
+    gap: 4px !important;
+  }
+
+  .wm-create-text-short {
+    display: inline !important;
+  }
+  .wm-create-text-full {
+    display: none !important;
+  }
+
+  .wm-nav-signin-btn {
+    height: 32px !important;
+    padding: 0 12px !important;
+    font-size: 11.5px !important;
+  }
+}
+
+/* Compact Desktop Range (768px - 959px): Extra sleek pills so 5 options + actions never overflow */
+@media (min-width: 768px) and (max-width: 959.98px) {
+  .wm-site-header-bar,
+  header .glass-nav {
+    padding: 6px 10px !important;
+    gap: 5px !important;
+  }
+
+  .wm-desktop-nav .wm-nav-pill {
+    padding: 5px 8px !important;
+    font-size: 11.5px !important;
+    gap: 3px !important;
+  }
+
+  .wm-desktop-nav .wm-nav-icon {
+    display: none !important;
+  }
+}
+
+/* Medium Desktop Range (960px - 1199px, including 980px Chrome Mobile "Desktop site" mode) */
+@media (min-width: 960px) and (max-width: 1199.98px) {
+  .wm-site-header-bar,
+  header .glass-nav {
+    padding: 7px 14px !important;
+    gap: 8px !important;
+  }
+
+  .wm-desktop-nav {
+    gap: 4px !important;
+  }
+
+  .wm-desktop-nav .wm-nav-pill {
+    padding: 5.5px 9.5px !important;
+    font-size: 12px !important;
+    gap: 4px !important;
+  }
+}
+
+/* Large Desktop Range (>= 1200px) */
+@media (min-width: 1200px) {
+  .wm-site-header-bar,
+  header .glass-nav {
+    padding: 8px 20px !important;
+    gap: 14px !important;
+  }
+
+  .wm-desktop-nav {
+    gap: 6px !important;
+  }
+
+  .wm-desktop-nav .wm-nav-pill {
+    padding: 6.5px 13px !important;
+    font-size: 13px !important;
+    gap: 5px !important;
+  }
+
+  .wm-header-actions {
+    gap: 8px !important;
+  }
+
+  .wm-header-create-btn {
+    height: 34px !important;
+    padding: 0 14px !important;
+    font-size: 12px !important;
+    gap: 5px !important;
+  }
+
+  .wm-create-text-short {
+    display: none !important;
+  }
+  .wm-create-text-full {
+    display: inline !important;
+  }
+
+  .wm-nav-signin-btn {
+    height: 34px !important;
+    padding: 0 15px !important;
+    font-size: 12px !important;
+  }
+}
+
+/* Mobile View Header Layout (< 768px):
+   - Hide 5 options from horizontal bar
+   - Show compact icon buttons + 3-Line Menu button */
+@media (max-width: 767.98px) {
+  header,
+  header[data-purpose="site-navigation"] {
+    max-width: 100vw !important;
+    padding-left: 8px !important;
+    padding-right: 8px !important;
+    top: 6px !important;
+  }
+
+  .wm-site-header-bar,
+  header .glass-nav {
+    padding: 6px 10px !important;
+    border-radius: 9999px !important;
+    gap: 4px !important;
+  }
+
+  .wm-desktop-nav {
+    display: none !important;
+  }
+
+  .wm-mobile-only-btn,
+  #wm-mobile-menu-btn {
+    display: inline-flex !important;
+    width: 31px !important;
+    height: 31px !important;
+    min-width: 31px !important;
+  }
+
+  .wm-header-actions {
+    gap: 4px !important;
+  }
+
+  .wm-header-create-btn {
+    width: 31px !important;
+    height: 31px !important;
+    min-width: 31px !important;
+    padding: 0 !important;
+  }
+
+  .wm-create-text-short,
+  .wm-create-text-full {
+    display: none !important;
+  }
+
+  .wm-theme-pill-btn {
+    width: 46px !important;
+    height: 25px !important;
+    padding: 2px !important;
+  }
+
+  .wm-theme-pill-btn::after {
+    width: 19px !important;
+    height: 19px !important;
+    top: 1.5px !important;
+    left: 2px !important;
+  }
+
+  html.dark .wm-theme-pill-btn::after,
+  body.dark .wm-theme-pill-btn::after {
+    transform: translateX(21px) !important;
+  }
+
+  .wm-theme-pill-sun,
+  .wm-theme-pill-knob {
+    width: 19px !important;
+    height: 19px !important;
+  }
+
+  #wishmagic-notification-bell-btn,
+  #account-dropdown-wrapper > button {
+    width: 31px !important;
+    height: 31px !important;
+    min-width: 31px !important;
+  }
+
+  .wm-nav-signin-btn {
+    padding: 0 9px !important;
+    font-size: 11px !important;
+    height: 31px !important;
+  }
+
+  /* Position Profile Dropdown, Notification Popover & 3-Line Menu cleanly inside Mobile Viewport */
+  #account-dropdown-menu,
+  #wishmagic-notification-popover,
+  #wm-mobile-nav-drawer {
+    position: fixed !important;
+    top: 56px !important;
+    left: 10px !important;
+    right: 10px !important;
+    width: auto !important;
+    max-width: calc(100vw - 20px) !important;
+    margin-top: 0 !important;
+  }
+}
+
 /* ==========================================================================
-   3. ADMIN STUDIO CARDS, CONTAINERS, PILLS & BUTTONS ACROSS ALL PAGES
+   3. DESKTOP 4-COLUMN TEMPLATES GRID & PROPORTIONAL CARD DIMENSIONS (>= 768px)
+      Always shows 4 templates in a single row on Desktop View!
+   ========================================================================== */
+@media (min-width: 768px) {
+  #templates-grid,
+  #templates-grid-container,
+  #wizard-templates-grid,
+  #fav-grid:not(.hidden) {
+    display: grid !important;
+    grid-template-columns: repeat(4, minmax(0, 1fr)) !important;
+    gap: 14px !important;
+    align-items: stretch !important;
+    width: 100% !important;
+  }
+
+  .template-card,
+  .catalog-template-card {
+    width: 100% !important;
+    min-width: 0 !important;
+    height: 100% !important;
+    padding: 11px !important;
+    border-radius: 18px !important;
+    display: flex !important;
+    flex-direction: column !important;
+    justify-content: space-between !important;
+    box-sizing: border-box !important;
+  }
+
+  /* Thumbnail container inside 4-column card */
+  .template-card > div > div:first-child,
+  .catalog-template-card > div > div:first-child {
+    aspect-ratio: 16 / 10 !important;
+    width: 100% !important;
+    height: auto !important;
+    border-radius: 12px !important;
+    margin-bottom: 9px !important;
+    overflow: hidden !important;
+  }
+
+  /* Top-right Free/Premium badge inside 4-column card */
+  .template-card > div > div:first-child > div.absolute,
+  .catalog-template-card > div > div:first-child > div.absolute {
+    top: 7px !important;
+    right: 7px !important;
+  }
+
+  .template-card > div > div:first-child > div.absolute > span,
+  .catalog-template-card > div > div:first-child > div.absolute > span {
+    padding: 3px 8px !important;
+    font-size: 10px !important;
+    border-radius: 8px !important;
+  }
+
+  /* Card title inside 4-column card */
+  .template-card h3,
+  .catalog-template-card h3 {
+    font-size: 14px !important;
+    line-height: 1.3 !important;
+    font-weight: 800 !important;
+    white-space: nowrap !important;
+    overflow: hidden !important;
+    text-overflow: ellipsis !important;
+  }
+
+  /* Rating row inside 4-column card */
+  .template-card > div > div:nth-child(3),
+  .catalog-template-card > div > div:nth-child(3) {
+    font-size: 11px !important;
+    margin-bottom: 9px !important;
+  }
+
+  /* Bottom action buttons row inside 4-column card */
+  .template-card > div:last-child,
+  .catalog-template-card > div:last-child {
+    gap: 7px !important;
+    padding-top: 2px !important;
+  }
+
+  .template-card a[href*="customize"],
+  .catalog-template-card a[href*="customize"] {
+    height: 35px !important;
+    padding: 0 10px !important;
+    font-size: 12.5px !important;
+    font-weight: 800 !important;
+    border-radius: 9999px !important;
+    display: inline-flex !important;
+    align-items: center !important;
+    justify-content: center !important;
+    gap: 5px !important;
+    white-space: nowrap !important;
+  }
+
+  .template-card > div:last-child > button,
+  .catalog-template-card > div:last-child > button {
+    width: 35px !important;
+    height: 35px !important;
+    min-width: 35px !important;
+    border-radius: 10px !important;
+    padding: 0 !important;
+  }
+}
+
+@media (min-width: 1150px) {
+  #templates-grid,
+  #templates-grid-container,
+  #wizard-templates-grid,
+  #fav-grid:not(.hidden) {
+    gap: 18px !important;
+  }
+
+  .template-card,
+  .catalog-template-card {
+    padding: 14px !important;
+    border-radius: 20px !important;
+  }
+
+  .template-card h3,
+  .catalog-template-card h3 {
+    font-size: 15px !important;
+  }
+
+  .template-card a[href*="customize"],
+  .catalog-template-card a[href*="customize"] {
+    height: 38px !important;
+    font-size: 13.5px !important;
+  }
+
+  .template-card > div:last-child > button,
+  .catalog-template-card > div:last-child > button {
+    width: 38px !important;
+    height: 38px !important;
+    min-width: 38px !important;
+  }
+}
+
+/* ==========================================================================
+   4. ADMIN STUDIO CARDS, CONTAINERS, PILLS & BUTTONS ACROSS ALL PAGES
    ========================================================================== */
 .wm-card,
 .glass-card,
@@ -400,7 +775,7 @@ html.dark .wm-theme-pill-knob { color: #ffffff !important; }
 }
 
 /* ==========================================================================
-   4. LIGHT MODE CONTRAST & SURFACE ENFORCEMENT (100% Text Visibility)
+   5. LIGHT MODE CONTRAST & SURFACE ENFORCEMENT (100% Text Visibility)
    ========================================================================== */
 html:not(.dark) main.bg-background {
   background-color: transparent !important;
@@ -505,7 +880,7 @@ html:not(.dark) textarea::placeholder {
 }
 
 /* ==========================================================================
-   5. DARK MODE CONTRAST & SURFACE ENFORCEMENT (100% Text Visibility)
+   6. DARK MODE CONTRAST & SURFACE ENFORCEMENT (100% Text Visibility)
    ========================================================================== */
 html.dark main.bg-background {
   background-color: transparent !important;
@@ -630,84 +1005,21 @@ html.dark textarea::placeholder {
 }
 
 /* ==========================================================================
-   6. MOBILE VIEW RESPONSIVE PERFECTION (< 768px) — ZERO OVERFLOW ANYWHERE
+   7. MOBILE VIEW RESPONSIVE PERFECTION (< 768px) — ZERO OVERFLOW ANYWHERE
    ========================================================================== */
-@media (max-width: 1023.98px) {
+@media (min-width: 640px) and (max-width: 767.98px) {
   #templates-grid,
   #templates-grid-container,
-  #wizard-templates-grid {
+  #wizard-templates-grid,
+  #fav-grid:not(.hidden) {
     display: grid !important;
     grid-template-columns: repeat(2, minmax(0, 1fr)) !important;
-    gap: 1rem !important;
+    gap: 14px !important;
   }
 }
 
 @media (max-width: 639.98px) {
-  /* 1. Compact Mobile Header */
-  header[data-purpose="site-navigation"] {
-    padding-left: 8px !important;
-    padding-right: 8px !important;
-    top: 6px !important;
-  }
-
-  .wm-site-header-bar {
-    padding: 6px 10px !important;
-    border-radius: 9999px !important;
-    gap: 4px !important;
-  }
-
-  /* Compact Theme Pill Switch on Mobile */
-  .wm-theme-pill-btn {
-    width: 48px !important;
-    height: 26px !important;
-    padding: 2px !important;
-  }
-  .wm-theme-pill-btn::after {
-    width: 20px !important;
-    height: 20px !important;
-    top: 1.5px !important;
-    left: 2px !important;
-  }
-  html.dark .wm-theme-pill-btn::after,
-  body.dark .wm-theme-pill-btn::after {
-    transform: translateX(22px) !important;
-  }
-  .wm-theme-pill-sun,
-  .wm-theme-pill-knob {
-    width: 20px !important;
-    height: 20px !important;
-  }
-
-  #wishmagic-notification-bell-btn,
-  #wm-mobile-menu-btn,
-  .wm-header-create-btn,
-  #account-dropdown-wrapper > button {
-    width: 32px !important;
-    height: 32px !important;
-    min-width: 32px !important;
-  }
-
-  /* Compact Sign In button on mobile */
-  .wm-nav-signin-btn {
-    padding: 6px 10px !important;
-    font-size: 11px !important;
-    height: 32px !important;
-  }
-
-  /* Position Profile Dropdown, Notification Popover & 3-Line Menu cleanly inside Mobile Viewport */
-  #account-dropdown-menu,
-  #wishmagic-notification-popover,
-  #wm-mobile-nav-drawer {
-    position: fixed !important;
-    top: 58px !important;
-    left: 10px !important;
-    right: 10px !important;
-    width: auto !important;
-    max-width: calc(100vw - 20px) !important;
-    margin-top: 0 !important;
-  }
-
-  /* 2. Mobile Hero Section on Home Page */
+  /* 1. Mobile Hero Section on Home Page */
   main {
     padding-left: 10px !important;
     padding-right: 10px !important;
@@ -765,7 +1077,7 @@ html.dark textarea::placeholder {
     padding-top: 10px !important;
   }
 
-  /* 3. Templates Grid on Mobile: 1 Clean Full-Width Column */
+  /* 2. Templates Grid on Mobile (< 640px): 1 Clean Full-Width Column */
   #templates-section {
     padding-left: 4px !important;
     padding-right: 4px !important;
@@ -777,7 +1089,8 @@ html.dark textarea::placeholder {
 
   #templates-grid,
   #templates-grid-container,
-  #wizard-templates-grid {
+  #wizard-templates-grid,
+  #fav-grid:not(.hidden) {
     display: grid !important;
     grid-template-columns: 1fr !important;
     gap: 14px !important;
@@ -792,7 +1105,7 @@ html.dark textarea::placeholder {
     max-width: 100% !important;
   }
 
-  /* 4. How WishMagic Works & 3D Phone Stage on Mobile (Zero Overflow) */
+  /* 3. How WishMagic Works & 3D Phone Stage on Mobile (Zero Overflow) */
   .wm-showcase-wrapper {
     padding: 8px 2px 24px !important;
     max-width: 100% !important;
@@ -813,72 +1126,96 @@ html.dark textarea::placeholder {
   }
 
   .wm-step-card {
-    padding: 11px 9px !important;
+    padding: 12px 10px !important;
+    min-height: auto !important;
     border-radius: 16px !important;
-    min-width: 0 !important;
-    overflow: hidden !important;
+  }
+
+  .wm-step-num {
+    font-size: 1.5rem !important;
+  }
+
+  .wm-step-icon-wrap {
+    width: 38px !important;
+    height: 38px !important;
+  }
+
+  .wm-step-icon-wrap svg {
+    width: 34px !important;
+    height: 34px !important;
   }
 
   .wm-step-title {
-    font-size: 0.84rem !important;
-    white-space: normal !important;
-    word-break: break-word !important;
+    font-size: 0.85rem !important;
+    margin-bottom: 4px !important;
   }
 
   .wm-step-desc {
     font-size: 0.72rem !important;
-    line-height: 1.38 !important;
+    line-height: 1.35 !important;
+  }
+
+  .wm-section-title,
+  .wm-exp-title {
+    font-size: 1.4rem !important;
+    line-height: 1.2 !important;
+  }
+
+  .wm-section-subtitle,
+  .wm-exp-lead {
+    font-size: 0.8rem !important;
+    line-height: 1.45 !important;
   }
 
   .wm-feature-grid {
-    grid-template-columns: repeat(2, minmax(0, 1fr)) !important;
+    grid-template-columns: 1fr !important;
     gap: 8px !important;
-    width: 100% !important;
   }
 
   .wm-feature-card {
-    padding: 9px 8px !important;
+    padding: 10px 12px !important;
     border-radius: 14px !important;
-    min-width: 0 !important;
-    overflow: hidden !important;
-  }
-
-  .wm-feature-title {
-    font-size: 0.76rem !important;
-    white-space: normal !important;
-    word-break: break-word !important;
   }
 
   .wm-phone-stage {
-    width: 100% !important;
-    max-width: 264px !important;
-    height: 375px !important;
-    margin: 4px auto !important;
+    min-height: 360px !important;
+    max-width: 100% !important;
+    overflow: hidden !important;
+    padding: 10px 0 !important;
   }
 
-  .wm-phone-3d-tilt {
-    width: 186px !important;
-    height: 348px !important;
+  .wm-phone-3d-rig {
+    width: 220px !important;
+    height: 350px !important;
     margin: 0 auto !important;
   }
 
-  .wm-float-music { top: 12px !important; left: 2px !important; width: 42px !important; height: 42px !important; }
-  .wm-float-photo-left { top: 82px !important; left: 0px !important; width: 54px !important; height: 68px !important; }
-  .wm-float-heart-badge { top: 68px !important; right: 2px !important; width: 44px !important; height: 44px !important; }
-  .wm-float-photo-right { top: 175px !important; right: 0px !important; width: 54px !important; height: 68px !important; }
-  .wm-float-play-badge { bottom: 18px !important; right: 4px !important; width: 44px !important; height: 44px !important; }
-  .wm-mini-heart-1 { top: 160px !important; left: 4px !important; width: 22px !important; height: 22px !important; }
-  .wm-mini-heart-2 { top: 225px !important; left: 8px !important; width: 20px !important; height: 20px !important; }
-  .wm-mini-heart-3 { bottom: 88px !important; right: 8px !important; width: 20px !important; height: 20px !important; }
-}
+  .wm-phone-tilt {
+    transform: rotateZ(-3deg) scale(0.88) !important;
+  }
 
-/* Modals & Dropdowns Z-Index */
-.fixed.inset-0 {
-  z-index: 120 !important;
-}
-#wishmagic-universal-auth-modal {
-  z-index: 150 !important;
-}
-#account-dropdown-menu {
-  z-index: 9999999 !important;
+  .wm-float-badge-top {
+    top: 4px !important;
+    right: 4px !important;
+    padding: 6px 10px !important;
+    font-size: 10px !important;
+  }
+
+  .wm-float-badge-bottom {
+    bottom: 6px !important;
+    left: 4px !important;
+    padding: 6px 10px !important;
+    font-size: 10px !important;
+  }
+
+  .wm-cta-row {
+    width: 100% !important;
+  }
+
+  .wm-btn-surprise {
+    width: 100% !important;
+    justify-content: center !important;
+    padding: 12px 16px !important;
+    font-size: 0.88rem !important;
+  }
 }

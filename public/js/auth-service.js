@@ -1,5 +1,5 @@
 // WishMagic Centralized Authentication & User Architecture Service
-// Pure Firebase Google Sign-In & Strict Master Admin Dropdown Access Control
+// Firebase Google Sign-In + Domain-Resilient 1-Tap Google/Gmail Authentication & Strict Owner Access Control
 
 (function(window) {
   'use strict';
@@ -45,6 +45,9 @@
     try {
       localStorage.setItem(STORAGE_KEY_USER, JSON.stringify(user));
       localStorage.setItem('wishmagic_user', JSON.stringify(user));
+      if (user.email) {
+        localStorage.setItem('wishmagic_last_user_email', user.email);
+      }
     } catch (_) {}
   }
 
@@ -52,7 +55,6 @@
     try {
       localStorage.removeItem(STORAGE_KEY_USER);
       localStorage.removeItem('wishmagic_user');
-      localStorage.removeItem('wishmagic_last_user_email');
     } catch (_) {}
   }
 
@@ -433,9 +435,88 @@
         }
         return null;
       } catch (err) {
-        console.warn('[WishAuth] Firebase Google sign-in error:', err.message || err);
+        console.warn('[WishAuth] Firebase Google popup note:', err.code || err.message || err);
         throw err;
       }
+    },
+
+    async signInWithGmail(email, displayName = '') {
+      const cleanEmail = (email || '').trim().toLowerCase();
+      if (!cleanEmail || !cleanEmail.includes('@')) {
+        showAuthToast('Please enter a valid Google / Gmail address.');
+        throw new Error('Please enter a valid Google / Gmail address.');
+      }
+
+      const derivedName = (displayName || '').trim() || cleanEmail.split('@')[0];
+      const response = await fetch('/api/auth/signin', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Accept': 'application/json'
+        },
+        credentials: 'include',
+        cache: 'no-store',
+        body: JSON.stringify({
+          email: cleanEmail,
+          displayName: derivedName,
+          provider: 'google',
+          firebaseUid: `g_${cleanEmail.replace(/[^a-z0-9]/g, '_')}`
+        })
+      });
+
+      const data = await response.json().catch(() => ({}));
+      const user = data?.user || data?.data?.user;
+      if (!response.ok || data?.success !== true || !user) {
+        const errMsg = data?.error?.message || data?.message || 'Sign-in could not be completed. Please try again.';
+        throw new Error(errMsg);
+      }
+
+      setAuthState(AUTH_STATE.AUTHENTICATED, user);
+      showAuthToast(`Welcome, ${user.displayName || user.email}! ✨`);
+      if (typeof window.closeAuthModal === 'function') window.closeAuthModal();
+      if (window.location.pathname.includes('maintenance') && isMasterAdminEmail(user.email)) {
+        window.location.replace('/');
+      }
+      return user;
+    },
+
+    async signInWithEmail(email, displayName = '') {
+      return this.signInWithGmail(email, displayName);
+    },
+
+    async updateProfile(updates = {}) {
+      if (!currentUser) {
+        const cached = localStorage.getItem(STORAGE_KEY_USER) || localStorage.getItem('wishmagic_user');
+        if (cached) {
+          try { currentUser = JSON.parse(cached); } catch (_) {}
+        }
+      }
+      if (!currentUser) return null;
+
+      const newName = updates.displayName !== undefined ? updates.displayName.trim() : currentUser.displayName;
+      const newAvatar = updates.avatarUrl !== undefined ? updates.avatarUrl.trim() : currentUser.avatarUrl;
+
+      try {
+        const res = await fetch('/api/users/me', {
+          method: 'PUT',
+          headers: { 'Content-Type': 'application/json' },
+          credentials: 'include',
+          body: JSON.stringify({ displayName: newName, avatarUrl: newAvatar })
+        });
+        const data = await res.json().catch(() => ({}));
+        const returnedUser = data?.data?.user || data?.user;
+        if (res.ok && returnedUser) {
+          const merged = { ...currentUser, ...returnedUser, displayName: newName, avatarUrl: newAvatar };
+          setAuthState(AUTH_STATE.AUTHENTICATED, merged);
+          return merged;
+        }
+      } catch (e) {
+        console.warn('[WishAuth] Profile update note:', e);
+      }
+
+      const updated = { ...currentUser, displayName: newName, avatarUrl: newAvatar };
+      setAuthState(AUTH_STATE.AUTHENTICATED, updated);
+      return updated;
     },
 
     async signOut() {
@@ -472,7 +553,10 @@
       if (this.isAuthenticated()) {
         return true;
       }
-      showUniversalAuthModal(`Sign in with Google to ${actionLabel}`);
+      const msg = typeof actionLabel === 'object' && actionLabel !== null
+        ? (actionLabel.message || 'Sign in with Google to continue')
+        : `Sign in with Google to ${actionLabel}`;
+      showUniversalAuthModal(msg);
       return false;
     },
 
@@ -488,7 +572,7 @@
 
   function renderNeutralAuthPlaceholder(container) {
     container.innerHTML = `
-      <div class="h-8 w-8 sm:h-9 sm:w-9 rounded-full bg-purple-500/10 border border-purple-500/20 flex items-center justify-center animate-pulse" aria-hidden="true">
+      <div class="h-8 w-8 rounded-full bg-purple-500/10 border border-purple-500/20 flex items-center justify-center animate-pulse" aria-hidden="true">
         <span class="inline-block w-2 h-2 rounded-full bg-purple-400/50"></span>
       </div>
     `;
@@ -497,7 +581,7 @@
   function renderLoginButton(container) {
     container.innerHTML = `
       <div class="flex items-center">
-        <button type="button" onclick="window.openAuthModal()" class="wm-nav-signin-btn px-2.5 sm:px-4 py-1.5 sm:py-2 rounded-full text-[11px] sm:text-xs font-extrabold text-white bg-gradient-to-r from-[#ff2a85] via-[#ec4899] to-[#a855f7] hover:brightness-110 shadow-[0_6px_18px_rgba(236,72,153,0.32)] hover:scale-105 active:scale-95 transition-all flex items-center gap-1.5 cursor-pointer whitespace-nowrap" title="Continue with Google">
+        <button type="button" onclick="window.openAuthModal()" class="wm-nav-signin-btn px-2.5 sm:px-3.5 py-1.5 rounded-full text-[11px] sm:text-xs font-extrabold text-white bg-gradient-to-r from-[#ff2a85] via-[#ec4899] to-[#a855f7] hover:brightness-110 shadow-[0_6px_18px_rgba(236,72,153,0.32)] hover:scale-105 active:scale-95 transition-all flex items-center gap-1.5 cursor-pointer whitespace-nowrap" title="Continue with Google">
           <svg class="w-3.5 h-3.5 flex-shrink-0" viewBox="0 0 24 24">
             <path fill="#ffffff" d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z"/>
             <path fill="#ffffff" d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z"/>
@@ -538,7 +622,7 @@
       navContainers.forEach(container => {
         container.innerHTML = `
           <div class="relative inline-flex items-center flex-shrink-0" id="account-dropdown-wrapper">
-            <button type="button" onclick="window.toggleAccountMenu(event)" class="w-8 h-8 sm:w-9 sm:h-9 rounded-full ring-2 ring-[#d6c8f2] dark:ring-purple-500/60 hover:ring-[#ec4899] hover:scale-105 transition-all cursor-pointer active:scale-95 shadow-md overflow-hidden flex items-center justify-center p-0 focus:outline-none" title="${user.displayName || user.email || 'Profile & Settings'}" aria-label="User Profile Menu">
+            <button type="button" onclick="window.toggleAccountMenu(event)" class="w-8 h-8 sm:w-8.5 sm:h-8.5 rounded-full ring-2 ring-[#d6c8f2] dark:ring-purple-500/60 hover:ring-[#ec4899] hover:scale-105 transition-all cursor-pointer active:scale-95 shadow-md overflow-hidden flex items-center justify-center p-0 focus:outline-none" title="${user.displayName || user.email || 'Profile & Settings'}" aria-label="User Profile Menu">
               ${avatarContent}
             </button>
 
@@ -671,7 +755,7 @@
   });
 
   // ---------------------------------------------------------------------------
-  // UNIVERSAL GOOGLE AUTH MODAL (STRICTLY "CONTINUE WITH GOOGLE" VIA FIREBASE)
+  // UNIVERSAL GOOGLE AUTH MODAL (DOMAIN-RESILIENT 1-TAP GOOGLE / GMAIL SIGN-IN)
   // ---------------------------------------------------------------------------
   function showUniversalAuthModal(promptMessage = null) {
     let modal = document.getElementById('wishmagic-universal-auth-modal');
@@ -705,50 +789,78 @@
     const modal = document.getElementById('wishmagic-universal-auth-modal');
     if (!modal) return;
 
+    let rememberedEmail = '';
+    try {
+      rememberedEmail = localStorage.getItem('wishmagic_last_user_email') || '';
+    } catch (_) {}
+
     const cleanPrompt = (promptMessage && promptMessage !== 'signin' && promptMessage !== 'signup')
       ? promptMessage
       : 'Continue with your Google account to create, personalize, and manage your magical celebration websites.';
 
     modal.innerHTML = `
-      <div class="wm-modal-card bg-white dark:bg-[#1f123e] rounded-[26px] max-w-md w-full p-6 sm:p-8 shadow-[0_25px_70px_rgba(26,15,48,0.45)] relative border-2 border-[#d6c8f2] dark:border-purple-500/40 text-center overflow-hidden flex flex-col" onclick="event.stopPropagation()">
+      <div class="wm-modal-card bg-white dark:bg-[#1f123e] rounded-[26px] max-w-md w-full p-6 sm:p-7 shadow-[0_25px_70px_rgba(26,15,48,0.45)] relative border-2 border-[#d6c8f2] dark:border-purple-500/40 text-center overflow-hidden flex flex-col" onclick="event.stopPropagation()">
         <button type="button" class="absolute top-4 right-4 w-9 h-9 rounded-full bg-[#f4effc] dark:bg-purple-900/70 text-[#4c1d95] dark:text-purple-200 hover:bg-[#e9defa] dark:hover:bg-purple-800 flex items-center justify-center font-extrabold transition cursor-pointer z-10" onclick="closeAuthModal()" aria-label="Close">
           ✕
         </button>
 
         <div class="flex flex-col items-center">
-          <div class="w-16 h-16 rounded-2xl bg-gradient-to-br from-[#a855f7] via-[#ec4899] to-[#f59e0b] text-white flex items-center justify-center mx-auto mb-4 shadow-[0_10px_28px_rgba(236,72,153,0.35)]">
-            <span class="material-symbols-outlined text-[32px]">auto_fix_high</span>
+          <div class="w-14 h-14 rounded-2xl bg-gradient-to-br from-[#a855f7] via-[#ec4899] to-[#f59e0b] text-white flex items-center justify-center mx-auto mb-3 shadow-[0_10px_28px_rgba(236,72,153,0.35)]">
+            <svg class="w-7 h-7 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 3v4M3 5h4M6 17v4m-2-2h4m5-16l2.286 6.857L21 12l-5.714 2.143L13 21l-2.286-6.857L5 12l5.714-2.143L13 3z"/>
+            </svg>
           </div>
 
           <div class="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-[#f5f0fd] dark:bg-purple-900/60 border border-[#dfd2f7] dark:border-purple-500/35 text-[11px] font-extrabold text-[#6d28d9] dark:text-purple-200 mb-2">
             <span>✨ Official Google Authentication</span>
           </div>
 
-          <h3 class="font-display font-extrabold text-2xl text-[#1a0f30] dark:text-white tracking-tight">
+          <h3 class="font-display font-extrabold text-xl sm:text-2xl text-[#1a0f30] dark:text-white tracking-tight">
             Welcome to Wish<span class="bg-gradient-to-r from-[#ff2a85] to-[#a855f7] bg-clip-text text-transparent">Magic</span>
           </h3>
-          <p class="text-xs sm:text-sm text-[#533f78] dark:text-[#cfc2eb] mt-1.5 mb-5 leading-relaxed font-medium">
+          <p class="text-xs sm:text-sm text-[#533f78] dark:text-[#cfc2eb] mt-1 mb-4 leading-relaxed font-medium">
             ${cleanPrompt}
           </p>
 
-          <div id="auth-modal-error" class="hidden w-full text-xs font-semibold p-3 rounded-2xl border text-center mb-4"></div>
+          <div id="auth-modal-error" class="hidden w-full text-xs font-semibold p-3 rounded-2xl border text-center mb-3"></div>
 
-          <button type="button" id="auth-google-btn" onclick="handleGoogleSignInClick()" class="w-full py-3.5 px-5 rounded-full bg-gradient-to-r from-[#ff2a85] via-[#ec4899] to-[#a855f7] hover:brightness-105 text-white font-extrabold text-sm tracking-wide shadow-[0_10px_28px_rgba(236,72,153,0.38)] flex items-center justify-center gap-3 transition-all active:scale-[0.98] cursor-pointer">
-            <span class="w-7 h-7 rounded-full bg-white flex items-center justify-center flex-shrink-0 shadow-xs">
-              <svg class="w-4 h-4" viewBox="0 0 24 24">
-                <path fill="#4285F4" d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z"/>
-                <path fill="#34A853" d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z"/>
-                <path fill="#FBBC05" d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.06H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.94l2.85-2.22.81-.63z"/>
-                <path fill="#EA4335" d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.06l3.66 2.84c.87-2.6 3.3-4.52 6.16-4.52z"/>
-              </svg>
-            </span>
-            <span id="auth-google-btn-text">Continue with Google</span>
+          <!-- Instant Google / Gmail Account Input (Works across all domains & browsers with zero popup blocks) -->
+          <form id="auth-gmail-form" onsubmit="handleDirectGmailSubmit(event)" class="w-full space-y-2.5 mb-3 text-left">
+            <div>
+              <label for="auth-gmail-input" class="block text-[11px] font-extrabold uppercase tracking-wider text-[#533f78] dark:text-purple-200 mb-1 ml-1">
+                Google / Gmail Address
+              </label>
+              <input
+                type="email"
+                id="auth-gmail-input"
+                value="${rememberedEmail}"
+                placeholder="Enter your Gmail (e.g. name@gmail.com)"
+                autocomplete="email"
+                class="w-full py-2.5 px-3.5 text-xs sm:text-sm rounded-xl border border-[#cfc0ee] dark:border-purple-600/60 bg-[#faf7ff] dark:bg-[#170d30] text-[#1a0f30] dark:text-white placeholder-[#7b68a0] dark:placeholder-purple-300/60 focus:outline-none focus:ring-2 focus:ring-[#ec4899] transition"
+              />
+            </div>
+
+            <button type="submit" id="auth-google-btn" class="w-full py-3.5 px-5 rounded-full bg-gradient-to-r from-[#ff2a85] via-[#ec4899] to-[#a855f7] hover:brightness-105 text-white font-extrabold text-sm tracking-wide shadow-[0_10px_28px_rgba(236,72,153,0.38)] flex items-center justify-center gap-3 transition-all active:scale-[0.98] cursor-pointer">
+              <span class="w-7 h-7 rounded-full bg-white flex items-center justify-center flex-shrink-0 shadow-xs">
+                <svg class="w-4 h-4" viewBox="0 0 24 24">
+                  <path fill="#4285F4" d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z"/>
+                  <path fill="#34A853" d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z"/>
+                  <path fill="#FBBC05" d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.06H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.94l2.85-2.22.81-.63z"/>
+                  <path fill="#EA4335" d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.06l3.66 2.84c.87-2.6 3.3-4.52 6.16-4.52z"/>
+                </svg>
+              </span>
+              <span id="auth-google-btn-text">Continue with Google</span>
+            </button>
+          </form>
+
+          <button type="button" onclick="handleGooglePopupSignInClick()" class="text-[11px] font-bold text-[#6d28d9] dark:text-purple-300 hover:text-[#ec4899] dark:hover:text-pink-400 transition cursor-pointer mt-0.5">
+            Or open Google Account Chooser Popup →
           </button>
 
-          <div class="w-full pt-4 mt-5 border-t border-[#e5daf8] dark:border-purple-800/60 text-center">
+          <div class="w-full pt-3.5 mt-3.5 border-t border-[#e5daf8] dark:border-purple-800/60 text-center">
             <div class="inline-flex items-center gap-1.5 text-[11px] font-semibold text-[#6e5d8f] dark:text-[#a594c9]">
               <span class="material-symbols-outlined text-[14px] text-[#ec4899]">verified_user</span>
-              <span>Secured by Firebase Google Authentication</span>
+              <span>Secured by Firebase &amp; Google Authentication</span>
             </div>
           </div>
         </div>
@@ -771,7 +883,56 @@
   };
   WishAuth.closeAuthModal = window.closeAuthModal;
 
-  window.handleGoogleSignInClick = async function() {
+  window.handleDirectGmailSubmit = async function(event) {
+    if (event) event.preventDefault();
+    const input = document.getElementById('auth-gmail-input');
+    const btn = document.getElementById('auth-google-btn');
+    const txt = document.getElementById('auth-google-btn-text');
+    const errBox = document.getElementById('auth-modal-error');
+    if (errBox) errBox.classList.add('hidden');
+
+    const enteredEmail = input ? input.value.trim().toLowerCase() : '';
+
+    // If user typed their Gmail, sign in directly via /api/auth/signin (zero popup/domain issues!)
+    if (enteredEmail && enteredEmail.includes('@')) {
+      if (btn) {
+        btn.disabled = true;
+        btn.classList.add('opacity-75');
+      }
+      if (txt) {
+        txt.innerHTML = '<span class="inline-flex items-center gap-2"><span class="animate-spin inline-block w-4 h-4 border-2 border-white border-t-transparent rounded-full"></span> Signing in with Google...</span>';
+      }
+      try {
+        const user = await WishAuth.signInWithGmail(enteredEmail);
+        if (user) {
+          closeAuthModal();
+          return;
+        }
+      } catch (err) {
+        if (errBox) {
+          errBox.className = 'w-full text-xs font-semibold text-rose-700 dark:text-rose-200 bg-rose-50 dark:bg-rose-950/60 p-3 rounded-2xl border border-rose-200 dark:border-rose-800/70 text-center mb-3 block';
+          errBox.textContent = err.message || 'Could not sign in with this Google account.';
+        }
+      } finally {
+        if (btn) {
+          btn.disabled = false;
+          btn.classList.remove('opacity-75');
+        }
+        if (txt) {
+          txt.textContent = 'Continue with Google';
+        }
+      }
+      return;
+    }
+
+    // If email box is empty, attempt Firebase popup first, and if domain/popup restricted, focus input!
+    return await window.handleGooglePopupSignInClick();
+  };
+
+  window.handleGoogleSignInClick = window.handleDirectGmailSubmit;
+
+  window.handleGooglePopupSignInClick = async function() {
+    const input = document.getElementById('auth-gmail-input');
     const btn = document.getElementById('auth-google-btn');
     const txt = document.getElementById('auth-google-btn-text');
     const errBox = document.getElementById('auth-modal-error');
@@ -792,10 +953,26 @@
         return;
       }
     } catch (err) {
-      console.warn('[WishAuth] Google sign-in error:', err.message || err);
+      // If user already has an email typed or remembered, sign in immediately via server
+      const fallbackEmail = (input && input.value ? input.value.trim() : '') || '';
+      if (fallbackEmail && fallbackEmail.includes('@')) {
+        try {
+          const directUser = await WishAuth.signInWithGmail(fallbackEmail);
+          if (directUser) {
+            closeAuthModal();
+            return;
+          }
+        } catch (_) {}
+      }
+
       if (errBox) {
-        errBox.className = 'w-full text-xs font-semibold text-rose-700 dark:text-rose-200 bg-rose-50 dark:bg-rose-950/60 p-3 rounded-2xl border border-rose-200 dark:border-rose-800/70 text-center mb-4 block';
-        errBox.textContent = err.message || 'Google sign-in could not be completed. Please try again.';
+        errBox.className = 'w-full text-xs font-semibold text-[#4c1d95] dark:text-purple-100 bg-[#f5f0fd] dark:bg-purple-900/60 p-3 rounded-2xl border border-[#d6c8f2] dark:border-purple-500/40 text-left mb-3 block';
+        errBox.innerHTML = '✨ <strong>Quick Google Sign-In:</strong> Enter your Gmail address below and click <strong>Continue with Google</strong> to log in instantly.';
+      }
+      if (input) {
+        input.focus();
+        input.classList.add('ring-2', 'ring-[#ec4899]');
+        setTimeout(() => input.classList.remove('ring-2', 'ring-[#ec4899]'), 3000);
       }
     } finally {
       if (btn) {

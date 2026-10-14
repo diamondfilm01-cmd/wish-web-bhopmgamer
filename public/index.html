@@ -10,7 +10,7 @@
 <meta property="og:description" content="Gift a magical, interactive web experience with customizable wishes, animations, and templates."/>
 <meta property="og:type" content="website"/>
 <!-- Tailwind CSS CDN with forms and container queries -->
-<script src="/js/tailwind-config.js?v=20261014_v7"></script>
+<script src="/js/tailwind-config.js?v=20261014_v8"></script>
   <script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
   <script>if (typeof tailwind !== "undefined" && typeof sharedTailwindConfig !== "undefined") { tailwind.config = sharedTailwindConfig; }</script>
 <!-- Google Fonts: Plus Jakarta Sans & Outfit for modern playful rounded look -->
@@ -23,14 +23,14 @@
 <!-- Firebase Official SDK (Compat for universal browser support) -->
 <script src="https://www.gstatic.com/firebasejs/10.8.0/firebase-app-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.8.0/firebase-auth-compat.js"></script>
-<script src="/js/site-theme.js?v=20261014_v7"></script>
+<script src="/js/site-theme.js?v=20261014_v8"></script>
 <!-- Canvas Confetti for Interactive Celebrations -->
 <script src="https://cdn.jsdelivr.net/npm/canvas-confetti@1.9.3/dist/confetti.browser.min.js"></script>
 <!-- WishMagic Core, Auth, Repositories & Section System Layer -->
 <script src="/js/WishMagicCore.js"></script>
 <script src="/js/api-client.js"></script>
-<script src="/js/firebase-auth.js?v=20261014_v7"></script>
-<script src="/js/auth-service.js?v=20261014_v7"></script>
+<script src="/js/firebase-auth.js?v=20261014_v8"></script>
+<script src="/js/auth-service.js?v=20261014_v8"></script>
 <script src="/js/repositories.js"></script>
 <script src="/js/wishmagic-dependencies.js"></script>
 <script src="/js/wishmagic-content-system.js"></script>
@@ -39,7 +39,7 @@
 <script src="/js/wishmagic-preview-controller.js"></script>
 <script src="/js/wishmagic-state-migrator.js"></script>
 <script src="/js/template-section-system.js"></script>
-<script src="/js/notification-service.js?v=20261014_v7"></script>
+<script src="/js/notification-service.js?v=20261014_v8"></script>
 <script src="/js/security-hardening.js"></script>
 <!-- Tailwind Configuration -->
 <script data-purpose="tailwind-config">
@@ -1655,10 +1655,12 @@ body::after {
   }
 }
 
-@media (min-width: 1024px) {
-  header[data-purpose="site-navigation"],
+@media (min-width: 768px) {
+  header[data-purpose="site-navigation"] {
+    max-width: min(96vw, 1260px) !important;
+  }
   main:has(#hero-desktop-section) {
-    max-width: min(83.5vw, 1220px) !important;
+    max-width: min(94vw, 1240px) !important;
     padding-left: 0 !important;
     padding-right: 0 !important;
   }
@@ -1676,7 +1678,7 @@ body::after {
 }
 
 /* Global 4-Column Desktop Templates Grid Helper */
-@media (min-width: 1024px) {
+@media (min-width: 768px) {
   #templates-grid,
   #templates-grid-container,
   #wizard-templates-grid {
@@ -1747,7 +1749,7 @@ body.dark .hero-gradient-text,
 })();
 </script>
 <!-- END: WishMagic Inline Cloud Background Engine -->
-  <link id="wishmagic-cloud-css" rel="stylesheet" href="/css/cloud-background.css?v=20261014_v7"/>
+  <link id="wishmagic-cloud-css" rel="stylesheet" href="/css/cloud-background.css?v=20261014_v8"/>
 </head>
 <body data-page="home" class="w-full min-h-screen font-sans antialiased selection:bg-pink-500 selection:text-white">
 
@@ -2029,7 +2031,7 @@ body.dark .hero-gradient-text,
   </div>
 
   <!-- Templates Grid (Populated dynamically by initHomepageTemplates / renderTemplateCards) -->
-  <div class="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-5 sm:gap-6" id="templates-grid">
+  <div class="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 lg:grid-cols-4 gap-4 lg:gap-5" id="templates-grid">
     <!-- Skeleton loader cards while templates load -->
     <div class="animate-pulse bg-white/60 dark:bg-purple-950/60 rounded-2xl p-4 sm:p-5 border border-purple-100 dark:border-purple-800/60 h-80"></div>
     <div class="animate-pulse bg-white/60 dark:bg-purple-950/60 rounded-2xl p-4 sm:p-5 border border-purple-100 dark:border-purple-800/60 h-80"></div>
@@ -2800,33 +2802,118 @@ body.dark .hero-gradient-text,
     let currentTier = 'all';
     let currentSearchTerm = '';
 
+        const FALLBACK_HOME_TEMPLATES = [
+      {
+        id: "tpl_glitter_birthday",
+        slug: "glitter-birthday-blast",
+        name: "Glitter Birthday Bash",
+        category: "Birthday",
+        relationships: ["Birthday", "Best Friend", "Brother", "Sister", "Friendship", "Family"],
+        tier: "free",
+        price: 0,
+        thumbnail: "https://images.unsplash.com/photo-1513151233558-d860c5398176?w=600&auto=format&fit=crop&q=80",
+        description: "Interactive 3D celebration with real candle blowing, sparkling confetti bursts, and polaroid memories."
+      },
+      {
+        id: "tpl_romantic_starlight",
+        slug: "romantic-starlight",
+        name: "Endless Love Serenade",
+        category: "Love",
+        relationships: ["Love", "Girlfriend", "Boyfriend", "Wife", "Husband", "Crush"],
+        tier: "vip",
+        price: 49,
+        thumbnail: "https://images.unsplash.com/photo-1518199266791-5375a83190b7?w=600&auto=format&fit=crop&q=80",
+        description: "Dreamy starlit romantic message with floating glowing hearts, wax seal envelope, and music."
+      },
+      {
+        id: "tpl_golden_elegance",
+        slug: "golden-elegance-anniversary",
+        name: "Golden Anniversary Wishes",
+        category: "Anniversary",
+        relationships: ["Anniversary", "Wife", "Husband", "Parents", "Family"],
+        tier: "vip",
+        price: 49,
+        thumbnail: "https://images.unsplash.com/photo-1522673607200-164d1b6ce486?w=600&auto=format&fit=crop&q=80",
+        description: "Luxurious gold foil anniversary experience with interactive love timeline and photo gallery."
+      },
+      {
+        id: "tpl_neon_party",
+        slug: "neon-night-celebration",
+        name: "Purr-fect Birthday Party",
+        category: "Birthday",
+        relationships: ["Birthday", "Friendship", "Best Friend", "Funny", "Colleague"],
+        tier: "free",
+        price: 0,
+        thumbnail: "https://images.unsplash.com/photo-1514888286974-6c03e2ca1dba?w=600&auto=format&fit=crop&q=80",
+        description: "Playful party wish with celebratory confetti, music beats, and fun birthday energy."
+      },
+      {
+        id: "tpl_parents_tribute",
+        slug: "dearest-parents-tribute",
+        name: "Heartfelt Thank You Keepsake",
+        category: "Thank You",
+        relationships: ["Thank You", "Mother", "Father", "Parents", "Family", "Teacher"],
+        tier: "free",
+        price: 0,
+        thumbnail: "https://images.unsplash.com/photo-1490750967868-88aa4486c946?w=600&auto=format&fit=crop&q=80",
+        description: "Warm floral gratitude keepsake designed to thank parents, mentors, and loved ones."
+      },
+      {
+        id: "tpl_midnight_countdown",
+        slug: "midnight-celebration-countdown",
+        name: "Grand Congratulations Finale",
+        category: "Congratulations",
+        relationships: ["Congratulations", "Best Friend", "Brother", "Sister", "Colleague"],
+        tier: "vip",
+        price: 49,
+        thumbnail: "https://images.unsplash.com/photo-1492684223066-81342ee5ff30?w=600&auto=format&fit=crop&q=80",
+        description: "Synchronized celebration countdown unlocking midnight fireworks and custom music."
+      },
+      {
+        id: "tpl_friendship_chronicles",
+        slug: "forever-friends-funhouse",
+        name: "Forever Friends Polaroid Deck",
+        category: "Friendship",
+        relationships: ["Friendship", "Best Friend", "Funny", "Brother", "Sister"],
+        tier: "free",
+        price: 0,
+        thumbnail: "https://images.unsplash.com/photo-1529156069898-49953e39b3ac?w=600&auto=format&fit=crop&q=80",
+        description: "Interactive polaroid memory stack with party confetti pop and upbeat friendship tunes."
+      },
+      {
+        id: "tpl_festive_lights",
+        slug: "royal-festival-celebration",
+        name: "Royal Festival of Lights",
+        category: "Festivals",
+        relationships: ["Festivals", "Family", "Parents", "Friendship"],
+        tier: "vip",
+        price: 49,
+        thumbnail: "https://images.unsplash.com/photo-1534447677768-be436bb09401?w=600&auto=format&fit=crop&q=80",
+        description: "Sparkling festive celebration with golden lanterns, fireworks, and warm family wishes."
+      }
+    ];
+
     // Load templates from API
     async function initHomepageTemplates() {
+      const grid = document.getElementById("templates-grid");
+      if (!grid) return;
       try {
         const res = await fetch("/api/templates");
         const data = await res.json();
-        const grid = document.getElementById("templates-grid");
-        if (!grid) return;
-
-        if (!data.success || !data.templates || data.templates.length === 0) {
-          grid.innerHTML = `
-            <div class="col-span-full py-16 px-4 flex flex-col items-center justify-center text-center bg-white/60 dark:bg-purple-950/40 backdrop-blur-md rounded-3xl border border-dashed border-purple-200 dark:border-purple-800 shadow-sm max-w-xl mx-auto my-4">
-              <div class="w-14 h-14 rounded-2xl bg-purple-100 dark:bg-purple-900/60 text-purple-700 dark:text-purple-300 flex items-center justify-center mb-3">
-                <span class="text-2xl">✨</span>
-              </div>
-              <h3 class="font-display font-bold text-lg sm:text-xl text-[#24113F] dark:text-white mb-1">New Magical Templates Coming Soon</h3>
-              <p class="text-xs sm:text-sm text-purple-800/80 dark:text-purple-300/80 max-w-md mb-2 leading-relaxed">
-                Check back soon or explore our customization engine!
-              </p>
-            </div>
-          `;
-          return;
+        let list = (data && data.success && Array.isArray(data.templates)) ? data.templates : [];
+        const seen = new Set(list.map(t => t.id));
+        for (const fb of FALLBACK_HOME_TEMPLATES) {
+          if (list.length < 8 && !seen.has(fb.id)) {
+            list.push(fb);
+            seen.add(fb.id);
+          }
         }
-
-        loadedTemplates = data.templates;
+        loadedTemplates = list.length > 0 ? list : FALLBACK_HOME_TEMPLATES;
         renderTemplateCards(loadedTemplates);
       } catch (e) {
-        console.error("Error loading templates on home:", e);
+        console.error("Error loading templates on home, using fallback catalog:", e);
+        loadedTemplates = FALLBACK_HOME_TEMPLATES;
+        renderTemplateCards(loadedTemplates);
       }
     }
 

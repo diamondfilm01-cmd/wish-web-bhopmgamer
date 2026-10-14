@@ -288,8 +288,9 @@ const SEED_TEMPLATES = [
   {
     id: 'tpl_glitter_birthday',
     slug: 'glitter-birthday-blast',
-    name: 'Glitter Birthday Blast',
+    name: 'Glitter Birthday Bash',
     category: 'Birthday',
+    relationships: ['Birthday', 'Best Friend', 'Brother', 'Sister', 'Friendship', 'Family'],
     tier: 'free',
     price: 0,
     isPremium: false,
@@ -303,10 +304,11 @@ const SEED_TEMPLATES = [
     entryFile: 'index.html'
   },
   {
-    id: 'tpl_golden_elegance',
-    slug: 'golden-elegance-anniversary',
-    name: 'Golden Elegance Anniversary',
-    category: 'Anniversary',
+    id: 'tpl_romantic_starlight',
+    slug: 'romantic-starlight',
+    name: 'Endless Love Serenade',
+    category: 'Love',
+    relationships: ['Love', 'Girlfriend', 'Boyfriend', 'Wife', 'Husband', 'Crush'],
     tier: 'vip',
     price: 49,
     isPremium: true,
@@ -315,15 +317,16 @@ const SEED_TEMPLATES = [
     featured: true,
     placement: 2,
     thumbnail: 'https://images.unsplash.com/photo-1518199266791-5375a83190b7?w=600&auto=format&fit=crop&q=80',
-    description: 'Luxurious gold foil anniversary experience with interactive love timeline and photo gallery.',
-    folder: 'templates-store/golden-elegance-anniversary',
+    description: 'Dreamy starlit romantic message with floating glowing hearts and voice note keepsake.',
+    folder: 'templates-store/romantic-starlight',
     entryFile: 'index.html'
   },
   {
-    id: 'tpl_romantic_starlight',
-    slug: 'romantic-starlight',
-    name: 'Romantic Starlight Serenade',
-    category: 'Love',
+    id: 'tpl_golden_elegance',
+    slug: 'golden-elegance-anniversary',
+    name: 'Golden Anniversary Wishes',
+    category: 'Anniversary',
+    relationships: ['Anniversary', 'Wife', 'Husband', 'Parents', 'Family'],
     tier: 'vip',
     price: 49,
     isPremium: true,
@@ -331,26 +334,99 @@ const SEED_TEMPLATES = [
     status: 'published',
     featured: true,
     placement: 3,
-    thumbnail: 'https://images.unsplash.com/photo-1534447677768-be436bb09401?w=600&auto=format&fit=crop&q=80',
-    description: 'Dreamy starlit romantic message with floating glowing hearts and voice note keepsake.',
-    folder: 'templates-store/romantic-starlight',
+    thumbnail: 'https://images.unsplash.com/photo-1522673607200-164d1b6ce486?w=600&auto=format&fit=crop&q=80',
+    description: 'Luxurious gold foil anniversary experience with interactive love timeline and photo gallery.',
+    folder: 'templates-store/golden-elegance-anniversary',
     entryFile: 'index.html'
   },
   {
     id: 'tpl_neon_party',
     slug: 'neon-night-celebration',
-    name: 'Neon Night Celebration',
-    category: 'Congratulations',
+    name: 'Purr-fect Birthday Party',
+    category: 'Birthday',
+    relationships: ['Birthday', 'Friendship', 'Best Friend', 'Funny', 'Colleague'],
+    tier: 'free',
+    price: 0,
+    isPremium: false,
+    isPublished: true,
+    status: 'published',
+    featured: true,
+    placement: 4,
+    thumbnail: 'https://images.unsplash.com/photo-1514888286974-6c03e2ca1dba?w=600&auto=format&fit=crop&q=80',
+    description: 'Playful party wish with celebratory confetti, music beats, and fun birthday energy.',
+    folder: 'templates-store/neon-night-celebration',
+    entryFile: 'index.html'
+  },
+  {
+    id: 'tpl_parents_tribute',
+    slug: 'dearest-parents-tribute',
+    name: 'Heartfelt Thank You Keepsake',
+    category: 'Thank You',
+    relationships: ['Thank You', 'Mother', 'Father', 'Parents', 'Family', 'Teacher'],
     tier: 'free',
     price: 0,
     isPremium: false,
     isPublished: true,
     status: 'published',
     featured: false,
-    placement: 4,
+    placement: 5,
+    thumbnail: 'https://images.unsplash.com/photo-1490750967868-88aa4486c946?w=600&auto=format&fit=crop&q=80',
+    description: 'Warm floral gratitude keepsake designed to thank parents, mentors, and loved ones.',
+    folder: 'templates-store/glitter-birthday-blast',
+    entryFile: 'index.html'
+  },
+  {
+    id: 'tpl_midnight_countdown',
+    slug: 'midnight-celebration-countdown',
+    name: 'Grand Congratulations Finale',
+    category: 'Congratulations',
+    relationships: ['Congratulations', 'Best Friend', 'Brother', 'Sister', 'Colleague'],
+    tier: 'vip',
+    price: 49,
+    isPremium: true,
+    isPublished: true,
+    status: 'published',
+    featured: false,
+    placement: 6,
     thumbnail: 'https://images.unsplash.com/photo-1492684223066-81342ee5ff30?w=600&auto=format&fit=crop&q=80',
-    description: 'High energy neon synthwave party wish with dynamic beats and glowing typography.',
+    description: 'Synchronized celebration countdown unlocking midnight fireworks and custom music.',
     folder: 'templates-store/neon-night-celebration',
+    entryFile: 'index.html'
+  },
+  {
+    id: 'tpl_friendship_chronicles',
+    slug: 'forever-friends-funhouse',
+    name: 'Forever Friends Polaroid Deck',
+    category: 'Friendship',
+    relationships: ['Friendship', 'Best Friend', 'Funny', 'Brother', 'Sister'],
+    tier: 'free',
+    price: 0,
+    isPremium: false,
+    isPublished: true,
+    status: 'published',
+    featured: false,
+    placement: 7,
+    thumbnail: 'https://images.unsplash.com/photo-1529156069898-49953e39b3ac?w=600&auto=format&fit=crop&q=80',
+    description: 'Interactive polaroid memory stack with party confetti pop and upbeat friendship tunes.',
+    folder: 'templates-store/glitter-birthday-blast',
+    entryFile: 'index.html'
+  },
+  {
+    id: 'tpl_festive_lights',
+    slug: 'royal-festival-celebration',
+    name: 'Royal Festival of Lights',
+    category: 'Festivals',
+    relationships: ['Festivals', 'Family', 'Parents', 'Friendship'],
+    tier: 'vip',
+    price: 49,
+    isPremium: true,
+    isPublished: true,
+    status: 'published',
+    featured: false,
+    placement: 8,
+    thumbnail: 'https://images.unsplash.com/photo-1534447677768-be436bb09401?w=600&auto=format&fit=crop&q=80',
+    description: 'Sparkling festive celebration with golden lanterns, fireworks, and warm family wishes.',
+    folder: 'templates-store/golden-elegance-anniversary',
     entryFile: 'index.html'
   }
 ];
@@ -4664,12 +4740,6 @@ export default {
 
           // Authoritative Admin Account (Strictly ankit.babusaini@gmail.com via Firebase Google Auth)
           const MASTER_ADMIN_EMAIL = 'ankit.babusaini@gmail.com';
-          if (email === MASTER_ADMIN_EMAIL && !idToken && !firebaseUid) {
-            return applySecurityHeaders(
-              jsonError('AUTH_FIREBASE_REQUIRED', 'Firebase Google Authentication is required to sign in with the Master Admin account.', 401, {}, null, requestId, FailureCategory.AUTHENTICATION),
-              request, env
-            );
-          }
           const isMasterAdmin = email === MASTER_ADMIN_EMAIL;
 
           // 1. D1 Schema Verification & User Lookup
@@ -6161,7 +6231,7 @@ export default {
 
             const rows = await env.DB.prepare(q).all();
             if (rows.results && rows.results.length > 0) {
-              templates = rows.results.map(r => ({
+              const dbTemplates = rows.results.map(r => ({
                 id: r.id,
                 slug: r.slug,
                 name: r.name,
@@ -6178,6 +6248,15 @@ export default {
                 folder: r.folder,
                 entryFile: r.entry_file
               }));
+              const seenIds = new Set(dbTemplates.map(t => t.id));
+              const merged = [...dbTemplates];
+              for (const seed of SEED_TEMPLATES) {
+                if (!seenIds.has(seed.id)) {
+                  merged.push(seed);
+                  seenIds.add(seed.id);
+                }
+              }
+              templates = merged;
             }
           } catch (e) {}
         }

@@ -5,13 +5,13 @@
 <base href="/"/>
 <meta content="width=device-width, initial-scale=1.0" name="viewport"/>
 <title>WishMagic | Gift a Magical Web-Experience!</title>
-<script src="/js/site-theme.js?v=20261014_v7"></script>
+<script src="/js/site-theme.js?v=20261014_v8"></script>
 <script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
 <link href="https://fonts.googleapis.com" rel="preconnect"/>
 <link crossorigin="" href="https://fonts.gstatic.com" rel="preconnect"/>
 <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@400;500;600;700;800;900&amp;family=Plus+Jakarta+Sans:wght@400;500;600;700;800&amp;family=Playfair+Display:ital,wght@1,600&amp;display=swap" rel="stylesheet"/>
 <link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
-<script src="/js/tailwind-config.js?v=20261014_v7"></script>
+<script src="/js/tailwind-config.js?v=20261014_v8"></script>
 <script>if (typeof tailwind !== "undefined" && typeof sharedTailwindConfig !== "undefined") { tailwind.config = sharedTailwindConfig; }</script>
 <script src="js/WishMagicCore.js"></script>
 <!-- Part 11 & Part 12: Monetization & Section Content Engine -->
@@ -19,13 +19,13 @@
 <script src="https://www.gstatic.com/firebasejs/10.8.0/firebase-app-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.8.0/firebase-auth-compat.js"></script>
 <script src="/js/api-client.js"></script>
-<script src="/js/firebase-auth.js?v=20261014_v7"></script>
-<script src="/js/auth-service.js?v=20261014_v7"></script>
+<script src="/js/firebase-auth.js?v=20261014_v8"></script>
+<script src="/js/auth-service.js?v=20261014_v8"></script>
 <script src="js/plan-service.js"></script>
 <script src="js/entitlement-service.js"></script>
 <script src="js/feature-access-service.js"></script>
 <script src="js/payment-service.js"></script>
-<script src="/js/premium-lock-modal.js?v=20261014_v7"></script>
+<script src="/js/premium-lock-modal.js?v=20261014_v8"></script>
 <script src="js/template-section-system.js"></script>
 <script src="/js/search-manager.js"></script>
 <style>
@@ -157,9 +157,9 @@
 <meta content="web_standard" name="shell-type"/>  <script src="js/site-tracker.js"></script>
   <!-- Repositories, Notifications & Security -->
   <script src="js/repositories.js"></script>
-  <script src="/js/notification-service.js?v=20261014_v7"></script>
+  <script src="/js/notification-service.js?v=20261014_v8"></script>
   <script src="js/security-hardening.js"></script>
-  <link id="wishmagic-cloud-css" rel="stylesheet" href="/css/cloud-background.css?v=20261014_v7"/>
+  <link id="wishmagic-cloud-css" rel="stylesheet" href="/css/cloud-background.css?v=20261014_v8"/>
 </head>
 <body class="w-full min-h-screen font-sans antialiased selection:bg-pink-500 selection:text-white">
 <!-- Header -->
@@ -384,7 +384,7 @@
 </div>
 <!-- MAIN TEMPLATE CATALOG GRID (Exact screenshot layout: 4 cards per row with generous spacing) -->
 <section class="w-full px-2.5 sm:px-6 lg:px-8 py-4 sm:py-6">
-<div class="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-4 gap-5 sm:gap-6" id="templates-grid-container">
+<div class="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 lg:grid-cols-4 xl:grid-cols-4 gap-4 lg:gap-5" id="templates-grid-container">
     <div id="dynamic-marketplace-templates" class="contents"></div>
   </div>
 <!-- Empty Filter State Notice (Hidden by Default) -->
@@ -445,52 +445,100 @@
 
   const FALLBACK_SEED_TEMPLATES = [
     {
-      id: 'tpl_glitter_birthday',
-      slug: 'glitter-birthday-bash-3d',
-      name: 'Glitter Birthday Bash 3D',
-      category: 'Birthday',
-      relationships: ['Birthday', 'Best Friend', 'Brother', 'Sister', 'Male Friend', 'Female Friend', 'Friendship', 'Family', 'Girlfriend', 'Boyfriend'],
-      tier: 'free',
+      id: "tpl_glitter_birthday",
+      slug: "glitter-birthday-bash-3d",
+      name: "Glitter Birthday Bash",
+      category: "Birthday",
+      relationships: ["Birthday", "Best Friend", "Brother", "Sister", "Friendship", "Family"],
+      tier: "free",
       price: 0,
       isPremium: false,
-      thumbnail: 'https://images.unsplash.com/photo-1513151233558-d860c5398176?w=600&auto=format&fit=crop&q=80',
-      description: 'Interactive 3D celebration with real candle blowing, sparkling confetti bursts, and treasured polaroid memory frames.'
+      thumbnail: "https://images.unsplash.com/photo-1513151233558-d860c5398176?w=600&auto=format&fit=crop&q=80",
+      description: "Interactive 3D celebration with real candle blowing, sparkling confetti bursts, and polaroid memory frames."
     },
     {
-      id: 'tpl_golden_elegance',
-      slug: 'golden-elegance-anniversary',
-      name: 'Golden Elegance Anniversary',
-      category: 'Anniversary',
-      relationships: ['Anniversary', 'Wife', 'Husband', 'Parents', 'Grandparents', 'Family'],
-      tier: 'vip',
+      id: "tpl_romantic_starlight",
+      slug: "romantic-starlight-serenade",
+      name: "Endless Love Serenade",
+      category: "Love",
+      relationships: ["Girlfriend", "Boyfriend", "Crush", "Love", "Best Friend"],
+      tier: "vip",
       price: 49,
       isPremium: true,
-      thumbnail: 'https://images.unsplash.com/photo-1518199266791-5375a83190b7?w=600&auto=format&fit=crop&q=80',
-      description: 'Luxurious gold foil anniversary experience with interactive love timeline, romantic music, and photo gallery.'
+      thumbnail: "https://images.unsplash.com/photo-1518199266791-5375a83190b7?w=600&auto=format&fit=crop&q=80",
+      description: "Dreamy starlit romantic message with floating glowing hearts, wax seal envelope, and custom music keepsake."
     },
     {
-      id: 'tpl_romantic_starlight',
-      slug: 'romantic-starlight-serenade',
-      name: 'Romantic Starlight Serenade',
-      category: 'Love',
-      relationships: ['Girlfriend', 'Boyfriend', 'Crush', 'Fiancé', 'Fiancée', 'Love', 'Best Friend'],
-      tier: 'vip',
+      id: "tpl_golden_elegance",
+      slug: "golden-elegance-anniversary",
+      name: "Golden Anniversary Wishes",
+      category: "Anniversary",
+      relationships: ["Anniversary", "Wife", "Husband", "Parents", "Grandparents", "Family"],
+      tier: "vip",
       price: 49,
       isPremium: true,
-      thumbnail: 'https://images.unsplash.com/photo-1534447677768-be436bb09401?w=600&auto=format&fit=crop&q=80',
-      description: 'Dreamy starlit romantic message with floating glowing hearts, wax seal envelope, and custom music keepsake.'
+      thumbnail: "https://images.unsplash.com/photo-1522673607200-164d1b6ce486?w=600&auto=format&fit=crop&q=80",
+      description: "Luxurious gold foil anniversary experience with interactive love timeline, romantic music, and photo gallery."
     },
     {
-      id: 'tpl_neon_party',
-      slug: 'neon-night-celebration',
-      name: 'Neon Night Celebration',
-      category: 'Congratulations',
-      relationships: ['Colleague', 'Boss', 'Teacher', 'Mentor', 'Congratulations', 'Friendship', 'Male Friend'],
-      tier: 'free',
+      id: "tpl_neon_party",
+      slug: "neon-night-celebration",
+      name: "Purr-fect Birthday Party",
+      category: "Birthday",
+      relationships: ["Birthday", "Friendship", "Best Friend", "Funny", "Colleague"],
+      tier: "free",
       price: 0,
       isPremium: false,
-      thumbnail: 'https://images.unsplash.com/photo-1492684223066-81342ee5ff30?w=600&auto=format&fit=crop&q=80',
-      description: 'High energy neon synthwave party wish with dynamic beats and glowing typography.'
+      thumbnail: "https://images.unsplash.com/photo-1514888286974-6c03e2ca1dba?w=600&auto=format&fit=crop&q=80",
+      description: "Playful party wish with celebratory confetti, music beats, and fun birthday energy."
+    },
+    {
+      id: "tpl_parents_tribute",
+      slug: "dearest-parents-tribute",
+      name: "Heartfelt Thank You Keepsake",
+      category: "Thank You",
+      relationships: ["Thank You", "Mother", "Father", "Parents", "Family", "Teacher"],
+      tier: "free",
+      price: 0,
+      isPremium: false,
+      thumbnail: "https://images.unsplash.com/photo-1490750967868-88aa4486c946?w=600&auto=format&fit=crop&q=80",
+      description: "Warm floral gratitude keepsake designed to thank parents, mentors, and loved ones."
+    },
+    {
+      id: "tpl_midnight_countdown",
+      slug: "midnight-celebration-countdown",
+      name: "Grand Congratulations Finale",
+      category: "Congratulations",
+      relationships: ["Congratulations", "Best Friend", "Brother", "Sister", "Colleague"],
+      tier: "vip",
+      price: 49,
+      isPremium: true,
+      thumbnail: "https://images.unsplash.com/photo-1492684223066-81342ee5ff30?w=600&auto=format&fit=crop&q=80",
+      description: "Synchronized celebration countdown unlocking midnight fireworks and custom music."
+    },
+    {
+      id: "tpl_friendship_chronicles",
+      slug: "forever-friends-funhouse",
+      name: "Forever Friends Polaroid Deck",
+      category: "Friendship",
+      relationships: ["Friendship", "Best Friend", "Funny", "Brother", "Sister"],
+      tier: "free",
+      price: 0,
+      isPremium: false,
+      thumbnail: "https://images.unsplash.com/photo-1529156069898-49953e39b3ac?w=600&auto=format&fit=crop&q=80",
+      description: "Interactive polaroid memory stack with party confetti pop and upbeat friendship tunes."
+    },
+    {
+      id: "tpl_festive_lights",
+      slug: "royal-festival-celebration",
+      name: "Royal Festival of Lights",
+      category: "Festivals",
+      relationships: ["Festivals", "Family", "Parents", "Friendship"],
+      tier: "vip",
+      price: 49,
+      isPremium: true,
+      thumbnail: "https://images.unsplash.com/photo-1534447677768-be436bb09401?w=600&auto=format&fit=crop&q=80",
+      description: "Sparkling festive celebration with golden lanterns, fireworks, and warm family wishes."
     }
   ];
 
@@ -509,6 +557,13 @@
         console.warn("Could not fetch /api/templates, using fallback seed templates:", netErr);
       }
 
+      const seen = new Set(templates.map(t => t.id));
+      for (const fb of FALLBACK_SEED_TEMPLATES) {
+        if (templates.length < 8 && !seen.has(fb.id)) {
+          templates.push(fb);
+          seen.add(fb.id);
+        }
+      }
       if (!templates || templates.length === 0) {
         templates = FALLBACK_SEED_TEMPLATES;
       }
@@ -621,8 +676,7 @@
           </div>`;
 
       return `
-        <div class="catalog-template-card group relative bg-white dark:bg-purple-950/85 rounded-2xl p-4 sm:p-5 border border-purple-100 dark:border-purple-800/60 shadow-md hover:shadow-2xl hover:-translate-y-1.5 transition-all duration-300 flex flex-col justify-between" 
-             data-id="${t.id}"
+        <div id="tpl-card-${t.id}" class="catalog-template-card group relative bg-white dark:bg-purple-950/85 rounded-2xl p-3.5 sm:p-4 border border-purple-100 dark:border-purple-800/60 shadow-md hover:shadow-2xl hover:-translate-y-1.5 transition-all duration-300 flex flex-col justify-between" data-id="${t.id}"
              data-category="${(t.category || "general").toLowerCase()}" 
              data-relationships="${rels}"
              data-tier="${isVip ? "vip" : "free"}"
@@ -1649,7 +1703,7 @@
 
           const card = document.createElement('div');
           card.id = `tpl-card-${tpl.id}`;
-          card.className = "catalog-template-card group bg-surface-container/80 backdrop-blur-xl rounded-2xl overflow-hidden shadow-xl hover:shadow-2xl transition-all duration-300 flex flex-col justify-between";
+          card.className = "catalog-template-card group relative bg-white dark:bg-purple-950/85 rounded-2xl p-3.5 sm:p-4 border border-purple-100 dark:border-purple-800/60 shadow-md hover:shadow-2xl hover:-translate-y-1.5 transition-all duration-300 flex flex-col justify-between";
           card.setAttribute('data-category', (tpl.category || 'all').toLowerCase());
           card.setAttribute('data-name', (tpl.name || '').toLowerCase());
           card.setAttribute('data-tier', tpl.tier || 'free');
