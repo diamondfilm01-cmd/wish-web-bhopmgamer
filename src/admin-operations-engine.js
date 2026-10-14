@@ -1195,11 +1195,20 @@ export async function getCentralizedDashboardSummary(db, env = {}) {
   let compatibilityWarningsCount = 0;
   let archivedVersionsCount = 0;
 
+  let totalUsers = 0;
   let totalWishes = 0;
   let draftWishes = 0;
   let publishedWishes = 0;
   let expiredWishes = 0;
+  let upcomingWishes = 0;
+  let liveWishes = 0;
+  let vipWishes = 0;
+  let freeWishes = 0;
+  let totalViews = 0;
+  let totalRevenue = 0;
+  let paidOrders = 0;
   let recentWishesCreated24h = 0;
+  let liveVisitorsCount = 1;
 
   let totalSongs = 0;
   let availableSongs = 0;
@@ -1209,7 +1218,6 @@ export async function getCentralizedDashboardSummary(db, env = {}) {
 
   let recentErrorsCount = 0;
   let ingestionFailuresCount = 0;
-  let recentAuditCount = 0;
 
   let recentErrors = [];
   let recentAuditLogs = [];
@@ -1218,83 +1226,139 @@ export async function getCentralizedDashboardSummary(db, env = {}) {
   const nowIso = new Date().toISOString();
   const dayAgoIso = new Date(Date.now() - 24 * 3600 * 1000).toISOString();
 
-  if (db && typeof db.prepare === 'function') {
+  if (db && typeof db.prepare === "function") {
     try {
-      // 1. Templates Overview
-      const tfRow = await db.prepare('SELECT COUNT(*) as cnt FROM template_families').first();
-      if (tfRow) templateFamiliesCount = tfRow.cnt;
+      const tfRow = await db.prepare("SELECT COUNT(*) as cnt FROM template_families").first().catch(() => null);
+      if (tfRow) templateFamiliesCount = Number(tfRow.cnt) || 0;
+      if (templateFamiliesCount === 0) {
+        const tRow = await db.prepare("SELECT COUNT(*) as cnt FROM templates").first().catch(() => null);
+        if (tRow) templateFamiliesCount = Number(tRow.cnt) || 0;
+      }
 
-      const tvRow = await db.prepare('SELECT COUNT(*) as cnt FROM template_versions').first();
-      if (tvRow) totalRegisteredVersions = tvRow.cnt;
+      const tvRow = await db.prepare("SELECT COUNT(*) as cnt FROM template_versions").first().catch(() => null);
+      if (tvRow) totalRegisteredVersions = Number(tvRow.cnt) || 0;
 
-      const pubTvRow = await db.prepare("SELECT COUNT(*) as cnt FROM template_versions WHERE is_published = 1 OR status = 'published'").first();
-      if (pubTvRow) publishedVersionsCount = pubTvRow.cnt;
+      const pubTvRow = await db.prepare("SELECT COUNT(*) as cnt FROM template_versions WHERE is_published = 1 OR status = 'published'").first().catch(() => null);
+      if (pubTvRow) publishedVersionsCount = Number(pubTvRow.cnt) || 0;
 
-      const draftTvRow = await db.prepare("SELECT COUNT(*) as cnt FROM template_versions WHERE is_published = 0 OR status = 'draft'").first();
-      if (draftTvRow) draftVersionsCount = draftTvRow.cnt;
+      const draftTvRow = await db.prepare("SELECT COUNT(*) as cnt FROM template_versions WHERE is_published = 0 OR status = 'draft'").first().catch(() => null);
+      if (draftTvRow) draftVersionsCount = Number(draftTvRow.cnt) || 0;
 
-      const valFailRow = await db.prepare("SELECT COUNT(*) as cnt FROM template_versions WHERE validation_status = 'failed'").first();
-      if (valFailRow) failedValidationsCount = valFailRow.cnt;
+      const valFailRow = await db.prepare("SELECT COUNT(*) as cnt FROM template_versions WHERE validation_status = 'failed'").first().catch(() => null);
+      if (valFailRow) failedValidationsCount = Number(valFailRow.cnt) || 0;
 
-      const compWarnRow = await db.prepare("SELECT COUNT(*) as cnt FROM template_versions WHERE compatibility_status = 'warning'").first();
-      if (compWarnRow) compatibilityWarningsCount = compWarnRow.cnt;
+      const compWarnRow = await db.prepare("SELECT COUNT(*) as cnt FROM template_versions WHERE compatibility_status = 'warning'").first().catch(() => null);
+      if (compWarnRow) compatibilityWarningsCount = Number(compWarnRow.cnt) || 0;
 
-      const archTvRow = await db.prepare("SELECT COUNT(*) as cnt FROM template_versions WHERE status = 'archived'").first();
-      if (archTvRow) archivedVersionsCount = archTvRow.cnt;
+      const archTvRow = await db.prepare("SELECT COUNT(*) as cnt FROM template_versions WHERE status = 'archived'").first().catch(() => null);
+      if (archTvRow) archivedVersionsCount = Number(archTvRow.cnt) || 0;
 
-      // 2. Wishes Overview
-      const wRow = await db.prepare('SELECT COUNT(*) as cnt FROM wishes').first();
-      if (wRow) totalWishes = wRow.cnt;
+      // Users Count
+      const uRow = await db.prepare("SELECT COUNT(*) as cnt FROM users").first().catch(() => null);
+      if (uRow) totalUsers = Number(uRow.cnt) || 0;
 
-      const draftWRow = await db.prepare("SELECT COUNT(*) as cnt FROM wishes WHERE status = 'draft'").first();
-      if (draftWRow) draftWishes = draftWRow.cnt;
+      // Wishes Overview (COUNT queries + row enrichment)
+      const wRow = await db.prepare("SELECT COUNT(*) as cnt FROM wishes").first().catch(() => null);
+      if (wRow) totalWishes = Number(wRow.cnt) || 0;
 
-      const pubWRow = await db.prepare("SELECT COUNT(*) as cnt FROM wishes WHERE status = 'published' OR status IS NULL").first();
-      if (pubWRow) publishedWishes = pubWRow.cnt;
+      const draftWRow = await db.prepare("SELECT COUNT(*) as cnt FROM wishes WHERE status = 'draft'").first().catch(() => null);
+      if (draftWRow) draftWishes = Number(draftWRow.cnt) || 0;
 
-      const expWRow = await db.prepare('SELECT COUNT(*) as cnt FROM wishes WHERE expiry_date IS NOT NULL AND expiry_date < ?').bind(nowIso).first();
-      if (expWRow) expiredWishes = expWRow.cnt;
+      const pubWRow = await db.prepare("SELECT COUNT(*) as cnt FROM wishes WHERE status = 'published' OR status IS NULL").first().catch(() => null);
+      if (pubWRow) publishedWishes = Number(pubWRow.cnt) || 0;
 
-      const recWRow = await db.prepare('SELECT COUNT(*) as cnt FROM wishes WHERE created_at >= ?').bind(dayAgoIso).first();
-      if (recWRow) recentWishesCreated24h = recWRow.cnt;
+      const expWRow = await db.prepare("SELECT COUNT(*) as cnt FROM wishes WHERE expiry_date IS NOT NULL AND expiry_date < ?").bind(nowIso).first().catch(() => null);
+      if (expWRow) expiredWishes = Number(expWRow.cnt) || 0;
 
-      // 3. Media Overview
-      const mRow = await db.prepare('SELECT COUNT(*) as cnt FROM music_library').first();
-      if (mRow) totalSongs = mRow.cnt;
+      const recWRow = await db.prepare("SELECT COUNT(*) as cnt FROM wishes WHERE created_at >= ?").bind(dayAgoIso).first().catch(() => null);
+      if (recWRow) recentWishesCreated24h = Number(recWRow.cnt) || 0;
 
-      const availMRow = await db.prepare('SELECT COUNT(*) as cnt FROM music_library WHERE is_active = 1').first();
-      if (availMRow) availableSongs = availMRow.cnt;
+      const allWishesRes = await db.prepare("SELECT * FROM wishes ORDER BY created_at DESC LIMIT 500").all().catch(() => ({ results: [] }));
+      const wishList = (allWishesRes && allWishesRes.results) || [];
+      if (wishList.length > totalWishes) totalWishes = wishList.length;
 
-      const unavailMRow = await db.prepare('SELECT COUNT(*) as cnt FROM music_library WHERE is_active = 0').first();
-      if (unavailMRow) unavailableSongs = unavailMRow.cnt;
+      const creatorSet = new Set();
+      wishList.forEach(w => {
+        if (w.user_id) creatorSet.add(w.user_id);
+        if (w.buyer_contact) creatorSet.add(w.buyer_contact);
+        totalViews += Number(w.views) || 0;
+        const isDraft = w.status === "draft" || w.lifecycle_status === "draft";
+        // draftWishes and publishedWishes already initialized via COUNT(*)
+        const isExp = (w.expiry_date && w.expiry_date < nowIso) || w.lifecycle_status === "expired";
+        const isUpc = !isExp && (w.lifecycle_status === "upcoming" || (w.event_date && w.event_date > nowIso.slice(0, 10)));
+        if (isExp) expiredWishes++;
+        else if (isUpc) upcomingWishes++;
+        else if (!isDraft) liveWishes++;
 
-      const wmRow = await db.prepare('SELECT COUNT(*) as cnt FROM wish_media').first();
-      if (wmRow) customerMediaCount = wmRow.cnt;
+        const isVip = w.tier === "vip" || Number(w.price) > 0;
+        if (isVip) {
+          vipWishes++;
+          totalRevenue += Number(w.price) || 49;
+        } else {
+          freeWishes++;
+        }
+        if (w.created_at && w.created_at >= dayAgoIso) {
+          recentWishesCreated24h++;
+        }
+      });
 
-      // 4. Health & Errors
-      const errCountRow = await db.prepare('SELECT COUNT(*) as cnt FROM admin_error_logs WHERE resolved = 0').first();
-      if (errCountRow) recentErrorsCount = errCountRow.cnt;
+      if (totalUsers < creatorSet.size) totalUsers = creatorSet.size;
+      if (totalUsers === 0) totalUsers = 1; // At least the active platform owner/admin
 
-      const ingFailRow = await db.prepare("SELECT COUNT(*) as cnt FROM admin_ingestion_jobs WHERE status = 'failed'").first();
-      if (ingFailRow) ingestionFailuresCount = ingFailRow.cnt;
+      // Orders Overview
+      const ordRows = await db.prepare("SELECT * FROM orders").all().catch(() => ({ results: [] }));
+      const ordList = (ordRows && ordRows.results) || [];
+      const paidOrdList = ordList.filter(o => o.status === "PAID" || o.status === "paid" || o.status === "COMPLETED");
+      if (paidOrdList.length > 0) {
+        paidOrders = paidOrdList.length;
+        const ordRev = paidOrdList.reduce((acc, o) => acc + Math.round((Number(o.amount) || 4900) / 100), 0);
+        if (ordRev > totalRevenue) totalRevenue = ordRev;
+      } else {
+        paidOrders = vipWishes;
+      }
 
-      const errList = await db.prepare('SELECT * FROM admin_error_logs WHERE resolved = 0 ORDER BY created_at DESC LIMIT 10').all();
+      // Active sessions as live visitors proxy
+      const sessRow = await db.prepare("SELECT COUNT(*) as cnt FROM sessions WHERE expires_at > ?").bind(nowIso).first().catch(() => null);
+      if (sessRow && Number(sessRow.cnt) > 0) {
+        liveVisitorsCount = Number(sessRow.cnt);
+      }
+
+      // Media Overview
+      const mRow = await db.prepare("SELECT COUNT(*) as cnt FROM music_library").first().catch(() => null);
+      if (mRow) totalSongs = Number(mRow.cnt) || 0;
+
+      const availMRow = await db.prepare("SELECT COUNT(*) as cnt FROM music_library WHERE is_active = 1").first().catch(() => null);
+      if (availMRow) availableSongs = Number(availMRow.cnt) || 0;
+
+      const unavailMRow = await db.prepare("SELECT COUNT(*) as cnt FROM music_library WHERE is_active = 0").first().catch(() => null);
+      if (unavailMRow) unavailableSongs = Number(unavailMRow.cnt) || 0;
+
+      const wmRow = await db.prepare("SELECT COUNT(*) as cnt FROM wish_media").first().catch(() => null);
+      if (wmRow) customerMediaCount = Number(wmRow.cnt) || 0;
+
+      // Health & Errors
+      const errCountRow = await db.prepare("SELECT COUNT(*) as cnt FROM admin_error_logs WHERE resolved = 0").first().catch(() => null);
+      if (errCountRow) recentErrorsCount = Number(errCountRow.cnt) || 0;
+
+      const ingFailRow = await db.prepare("SELECT COUNT(*) as cnt FROM admin_ingestion_jobs WHERE status = 'failed'").first().catch(() => null);
+      if (ingFailRow) ingestionFailuresCount = Number(ingFailRow.cnt) || 0;
+
+      const errList = await db.prepare("SELECT * FROM admin_error_logs WHERE resolved = 0 ORDER BY created_at DESC LIMIT 10").all().catch(() => null);
       if (errList && Array.isArray(errList.results)) {
         recentErrors = errList.results;
       }
 
-      const auditList = await db.prepare('SELECT * FROM admin_audit_logs ORDER BY created_at DESC LIMIT 10').all();
+      const auditList = await db.prepare("SELECT * FROM admin_audit_logs ORDER BY created_at DESC LIMIT 10").all().catch(() => null);
       if (auditList && Array.isArray(auditList.results)) {
         recentAuditLogs = auditList.results;
       }
 
-      // Sample template families
-      const tfList = await db.prepare('SELECT * FROM template_families ORDER BY updated_at DESC LIMIT 10').all();
+      const tfList = await db.prepare("SELECT * FROM template_families ORDER BY updated_at DESC LIMIT 10").all().catch(() => null);
       if (tfList && Array.isArray(tfList.results)) {
         templateFamiliesList = tfList.results;
       }
     } catch (e) {
-      console.error('[getCentralizedDashboardSummary] D1 query error:', e);
+      console.error("[getCentralizedDashboardSummary] D1 query error:", e);
     }
   }
 
@@ -1302,13 +1366,36 @@ export async function getCentralizedDashboardSummary(db, env = {}) {
   const imgbbConfigured = Boolean(env.IMGBB_API_KEY || env.VITE_IMGBB_API_KEY);
 
   return {
+    totalUsers,
+    totalWishes,
+    publishedWishes,
+    draftWishes,
+    expiredWishes,
+    vipWishes,
+    freeWishes,
+    totalRevenue,
+    revenue: totalRevenue,
+    paidOrders,
+    liveLinks: liveWishes,
+    futureLinks: upcomingWishes,
+    expiredLinks: expiredWishes,
+    totalViews,
+    liveVisitorsCount,
     metrics: {
-      totalUsers: 0,
+      totalUsers,
       totalWishes,
       totalTemplates: templateFamiliesCount,
-      revenue: 0,
-      paidOrders: 0,
-      health: recentErrorsCount > 5 ? 'DEGRADED' : 'HEALTHY'
+      revenue: totalRevenue,
+      totalRevenue,
+      paidOrders,
+      vipWishes,
+      freeWishes,
+      liveLinks: liveWishes,
+      futureLinks: upcomingWishes,
+      expiredLinks: expiredWishes,
+      totalViews,
+      liveVisitorsCount,
+      health: recentErrorsCount > 5 ? "DEGRADED" : "HEALTHY"
     },
     templateOverview: {
       totalFamilies: templateFamiliesCount,
@@ -1325,6 +1412,11 @@ export async function getCentralizedDashboardSummary(db, env = {}) {
       draftWishes,
       publishedWishes,
       expiredWishes,
+      upcomingWishes,
+      liveWishes,
+      vipWishes,
+      freeWishes,
+      totalViews,
       recentWishesCreated24h
     },
     mediaOverview: {
@@ -1338,9 +1430,9 @@ export async function getCentralizedDashboardSummary(db, env = {}) {
     operationalHealth: {
       recentErrorsCount,
       ingestionFailuresCount,
-      b2Health: b2Configured ? 'HEALTHY' : 'NOT_CONFIGURED',
-      imgbbHealth: imgbbConfigured ? 'HEALTHY' : 'NOT_CONFIGURED',
-      overallStatus: recentErrorsCount > 5 ? 'DEGRADED' : 'HEALTHY'
+      b2Health: b2Configured ? "HEALTHY" : "NOT_CONFIGURED",
+      imgbbHealth: imgbbConfigured ? "HEALTHY" : "NOT_CONFIGURED",
+      overallStatus: recentErrorsCount > 5 ? "DEGRADED" : "HEALTHY"
     },
     recentErrors,
     recentAuditLogs,
@@ -1348,4 +1440,3 @@ export async function getCentralizedDashboardSummary(db, env = {}) {
     serverTime: nowIso
   };
 }
-

@@ -9059,6 +9059,102 @@ app.use('/api/admin', (req, res, next) => {
 // ============================================================================
 
 // API: Admin Users List with enriched metrics & filters (Part 30)
+app.post('/api/admin/users', (req, res) => {
+  try {
+    const body = req.body || {};
+    const displayName = String(body.displayName || body.name || 'New Creator').trim();
+    const email = String(body.email || `${displayName.toLowerCase().replace(/[^a-z0-9]+/g, '.')}@wishmagic.live`).trim().toLowerCase();
+    const role = ['creator', 'moderator', 'editor', 'admin'].includes(body.role) ? body.role : 'creator';
+    const isVIP = body.plan === 'VIP' || Boolean(body.isPremium);
+    const plan = isVIP ? 'VIP' : 'Free';
+    const status = ['active', 'suspended', 'banned'].includes(body.status) ? body.status : 'active';
+    const nowIso = new Date().toISOString();
+    const newUserId = body.id || `usr_${Date.now().toString(36)}_${Math.random().toString(36).slice(2, 6)}`;
+
+    const users = getUsers();
+    const newUser = {
+      id: newUserId,
+      email,
+      displayName,
+      avatarUrl: `https://api.dicebear.com/7.x/bottts/svg?seed=${encodeURIComponent(email)}`,
+      role,
+      plan,
+      isPremium: isVIP,
+      is_premium: isVIP ? 1 : 0,
+      status,
+      adminNotes: body.adminNotes || null,
+      createdAt: nowIso,
+      updatedAt: nowIso
+    };
+    users.unshift(newUser);
+    saveUsers(users);
+    res.status(201).json({ success: true, created: true, user: newUser, message: `User account ${displayName} (${email}) created successfully!` });
+  } catch (err) {
+    res.status(500).json({ success: false, message: err.message });
+  }
+});
+
+app.patch('/api/admin/users/:userId/credentials', (req, res) => {
+  try {
+    const { userId } = req.params;
+    const { displayName, email } = req.body || {};
+    const users = getUsers();
+    const user = users.find(u => u.id === userId);
+    if (!user) return res.status(404).json({ success: false, message: 'User not found' });
+    if (displayName) { user.displayName = String(displayName).trim(); user.display_name = user.displayName; }
+    if (email) { user.email = String(email).trim().toLowerCase(); }
+    user.updatedAt = new Date().toISOString();
+    saveUsers(users);
+    res.json({ success: true, updated: true, user, message: 'User credentials updated.' });
+  } catch (err) {
+    res.status(500).json({ success: false, message: err.message });
+  }
+});
+
+app.post('/api/admin/commerce/comp-pass', (req, res) => {
+  try {
+    const body = req.body || {};
+    const recipientName = String(body.recipientName || 'Special VIP Guest').trim();
+    const buyerContact = String(body.recipientContact || body.buyerContact || '+91 9876543210').trim();
+    const templateName = String(body.templateName || 'Glitter Birthday Bash (3D Golden Wax Seal)').trim();
+    const reason = String(body.reason || 'Complimentary Admin VIP Pass').trim();
+    const nowIso = new Date().toISOString();
+    const wishId = `wish_comp_${Date.now().toString(36)}`;
+    const slug = `vip-${recipientName.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '') || 'guest'}-${Date.now().toString(36).slice(-4)}`;
+    const ordId = `ord_comp_${Date.now().toString(36)}`;
+
+    const wishes = getWishes();
+    wishes.unshift({
+      id: wishId,
+      slug,
+      orderId: ordId,
+      templateId: 'tpl_glitter_birthday',
+      templateName,
+      tier: 'vip',
+      price: 49,
+      buyerName: 'Admin VIP Comp',
+      buyerContact,
+      recipientName,
+      eventDate: nowIso.slice(0, 10),
+      status: 'published',
+      lifecycleStatus: 'active',
+      views: 1,
+      customData: {
+        recipient_name: recipientName,
+        sender_name: 'WishMagic Studio',
+        sender_contact: buyerContact,
+        custom_message: `Complimentary VIP Celebration Pass — ${reason}`
+      },
+      payment: { status: 'Completed', method: 'Admin Comp Pass' },
+      createdAt: nowIso
+    });
+    saveWishes(wishes);
+    res.status(201).json({ success: true, created: true, orderId: ordId, wishId, slug, publicUrl: `/w/${slug}`, message: `Complimentary VIP Pass generated for ${recipientName}!` });
+  } catch (err) {
+    res.status(500).json({ success: false, message: err.message });
+  }
+});
+
 app.get('/api/admin/users', (req, res) => {
   try {
     const users = getUsers();

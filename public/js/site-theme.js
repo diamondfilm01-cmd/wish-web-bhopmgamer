@@ -187,3 +187,70 @@
     });
   }
 })();
+
+// 5. Universal Storefront Live Settings Synchronizer (for /templates.html, /marketplace.html, /pricing.html, etc.)
+(function() {
+  async function syncGlobalStorefrontSettings() {
+    if (typeof window.loadLiveSiteConfiguration === "function") {
+      return; // Handled by index.html directly
+    }
+    try {
+      const res = await fetch("/api/settings/site?_t=" + Date.now(), {
+        headers: { "Cache-Control": "no-cache", "Pragma": "no-cache" }
+      }).catch(() => null);
+      if (!res || !res.ok) return;
+      const data = await res.json().catch(() => ({}));
+      const s = (data.data && data.data.settings) || data.settings;
+      if (!s) return;
+      window._cachedSiteSettings = s;
+
+      if (s.brandName) {
+        document.querySelectorAll(".brand-name-text, #navbar-brand-name, #footer-brand-name, #copyright-brand-name").forEach(el => {
+          el.textContent = s.brandName;
+        });
+      }
+      if (s.supportWa) {
+        const waText = document.getElementById("footer-support-wa-text");
+        if (waText) waText.textContent = s.supportWa;
+      }
+      if (s.supportWaUrl) {
+        const waLink = document.getElementById("footer-support-wa-link");
+        if (waLink) waLink.href = s.supportWaUrl;
+      }
+
+      // Promo Banner across storefront pages
+      let banner = document.getElementById("wm-storefront-promo-banner");
+      const isActive = Boolean(s.promoBannerActive || s.promoFreeOfferMode);
+      const text = s.promoBannerActive
+        ? (s.promoBannerText || "🎉 Special Launch Offer: All Personalized Links & VIP Wishes are 100% FREE Today!")
+        : (s.promoFreeOfferMode ? (s.promoBadgeText || "🔥 Limited Time Offer: 100% FREE VIP Celebrations Active Now!") : "");
+      if (!isActive || !text) {
+        if (banner) banner.classList.add("hidden");
+      } else if (document.body) {
+        if (!banner) {
+          banner = document.createElement("div");
+          banner.id = "wm-storefront-promo-banner";
+          banner.className = "w-full py-2 px-4 bg-gradient-to-r from-pink-600 via-purple-600 to-amber-500 text-white text-center text-xs font-extrabold shadow-md z-[60] relative";
+          document.body.insertAdjacentElement("afterbegin", banner);
+        }
+        banner.classList.remove("hidden");
+        banner.textContent = text;
+      }
+    } catch (_) {}
+  }
+
+  if (document.readyState === "loading") {
+    document.addEventListener("DOMContentLoaded", syncGlobalStorefrontSettings);
+  } else {
+    syncGlobalStorefrontSettings();
+  }
+  try {
+    if (typeof BroadcastChannel !== "undefined") {
+      const bc = new BroadcastChannel("wishmagic_site_settings");
+      bc.onmessage = () => syncGlobalStorefrontSettings();
+    }
+  } catch (_) {}
+  window.addEventListener("storage", (e) => {
+    if (e.key === "wishmagic_site_settings_updated_at") syncGlobalStorefrontSettings();
+  });
+})();

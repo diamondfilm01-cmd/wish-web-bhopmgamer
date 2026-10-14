@@ -26,7 +26,8 @@ html:not(.dark) {
   /* RGB Channel Variables (--c-*) */
   --c-background: 243 239 250;
   --c-on-background: 26 15 48;
-  --c-surface: 243 239 250;
+  --c-surface: 255 255 255;
+  --c-surface-variant: 243 239 251;
   --c-surface-dim: 235 229 247;
   --c-surface-bright: 255 255 255;
   --c-surface-container-lowest: 255 255 255;
@@ -82,6 +83,7 @@ html.dark {
   --c-background: 15 8 34;
   --c-on-background: 247 244 255;
   --c-surface: 24 14 50;
+  --c-surface-variant: 34 20 69;
   --c-surface-dim: 11 6 24;
   --c-surface-bright: 44 26 88;
   --c-surface-container-lowest: 20 11 41;
@@ -155,18 +157,43 @@ html.dark body {
    ========================================================================== */
 aside#admin-sidebar {
   width: 270px !important;
+  z-index: 60 !important;
+  transition: background 0.28s ease, border-color 0.28s ease, box-shadow 0.28s ease, transform 0.3s ease-in-out !important;
+}
+
+/* LIGHT MODE SIDEBAR: Clean, Bright Fairytale Lavender & White Panel */
+html:not(.dark) aside#admin-sidebar {
+  background-color: #faf7ff !important;
+  background-image: linear-gradient(180deg, #ffffff 0%, #f6f0ff 54%, #fdf2f8 100%) !important;
+  border-right: 1px solid #dfd3f6 !important;
+  box-shadow: 6px 0 24px rgba(109, 40, 217, 0.08) !important;
+  color: #1a0f30 !important;
+}
+
+html:not(.dark) aside#admin-sidebar::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background:
+    radial-gradient(circle at 20% 8%, rgba(168, 85, 247, 0.08), transparent 45%),
+    radial-gradient(circle at 80% 92%, rgba(236, 72, 153, 0.10), transparent 50%);
+  pointer-events: none;
+  z-index: 0;
+}
+
+/* DARK MODE SIDEBAR: Deep Cosmic Fairytale Castle Artwork */
+html.dark aside#admin-sidebar {
   background-color: #160d31 !important;
   background-image: url('/assets/admin-sidebar-bg.png') !important;
   background-size: 100% 100% !important;
   background-position: center bottom !important;
   background-repeat: no-repeat !important;
   border-right: 1px solid rgba(255, 255, 255, 0.14) !important;
-  box-shadow: 6px 0 28px rgba(18, 9, 43, 0.30) !important;
+  box-shadow: 6px 0 28px rgba(18, 9, 43, 0.35) !important;
   color: #ffffff !important;
-  z-index: 60 !important;
 }
 
-aside#admin-sidebar::before {
+html.dark aside#admin-sidebar::before {
   content: '';
   position: absolute;
   inset: 0;
@@ -184,19 +211,45 @@ aside#admin-sidebar > * {
   z-index: 55 !important;
 }
 
-/* Brand Typography in Sidebar ("WishMagic" from 19728.png) */
+/* Brand Typography in Sidebar ("WishMagic") */
 .wm-brand-wish {
   font-family: 'Outfit', 'Plus Jakarta Sans', sans-serif;
   font-weight: 800;
-  color: #ffffff !important;
   letter-spacing: -0.02em;
+}
+
+html:not(.dark) .wm-brand-wish {
+  color: #1a0f30 !important;
+}
+
+html.dark .wm-brand-wish {
+  color: #ffffff !important;
+}
+
+html:not(.dark) aside#admin-sidebar [class*="text-purple-200"] {
+  color: #5e4f7d !important;
+}
+
+html:not(.dark) aside#admin-sidebar button[onclick*="toggleSidebar"] {
+  background: #f2ebfc !important;
+  color: #2b194d !important;
+}
+
+html:not(.dark) aside#admin-sidebar button[onclick*="toggleMoreSidebarSections"] {
+  color: #5b3ea8 !important;
+  background: rgba(139, 92, 246, 0.08) !important;
+}
+
+html:not(.dark) aside#admin-sidebar button[onclick*="toggleMoreSidebarSections"]:hover {
+  color: #1a0f30 !important;
+  background: rgba(139, 92, 246, 0.16) !important;
 }
 
 .wm-brand-magic {
   font-family: 'Outfit', 'Plus Jakarta Sans', sans-serif;
   font-weight: 800;
   font-style: italic;
-  background: linear-gradient(90deg, #ff4da6 0%, #f472b6 55%, #fbbf24 100%);
+  background: linear-gradient(90deg, #ff2a85 0%, #ec4899 55%, #f59e0b 100%);
   -webkit-background-clip: text;
   -webkit-text-fill-color: transparent;
   padding-right: 2px;
@@ -209,13 +262,21 @@ aside#admin-sidebar > * {
   font-weight: 800;
   letter-spacing: 0.10em;
   text-transform: uppercase;
-  color: rgba(206, 188, 252, 0.68) !important;
   padding: 12px 14px 4px;
   user-select: none;
 }
 
-/* Unified Sidebar Navigation Links (Including Dashboard!)
-   Default state is unselected; ONLY .wm-nav-active / .active gets the glowing pink pill! */
+html:not(.dark) .wm-nav-section-label,
+html:not(.dark) .wm-sidebar-section-label {
+  color: #7c3aed !important;
+}
+
+html.dark .wm-nav-section-label,
+html.dark .wm-sidebar-section-label {
+  color: rgba(206, 188, 252, 0.68) !important;
+}
+
+/* Unified Sidebar Navigation Links (Including Dashboard!) */
 aside#admin-sidebar nav a,
 .wm-dashboard-pill,
 .wm-nav-item {
@@ -226,8 +287,6 @@ aside#admin-sidebar nav a,
   margin: 1.5px 0 !important;
   border-radius: 9999px !important;
   font-size: 13.5px !important;
-  font-weight: 500 !important;
-  color: rgba(238, 230, 255, 0.86) !important;
   background: transparent !important;
   border: 1px solid transparent !important;
   box-shadow: none !important;
@@ -236,31 +295,59 @@ aside#admin-sidebar nav a,
   cursor: pointer;
 }
 
-aside#admin-sidebar nav a .material-symbols-outlined {
+html:not(.dark) aside#admin-sidebar nav a:not(.wm-nav-active):not(.active) {
+  color: #2b194d !important;
+  font-weight: 600 !important;
+}
+
+html:not(.dark) aside#admin-sidebar nav a:not(.wm-nav-active):not(.active) .material-symbols-outlined {
+  font-size: 19px !important;
+  color: #6d28d9 !important;
+  transition: transform 0.18s ease, color 0.18s ease;
+  flex-shrink: 0;
+}
+
+html:not(.dark) aside#admin-sidebar nav a:not(.wm-nav-active):not(.active):hover {
+  background: rgba(139, 92, 246, 0.12) !important;
+  border-color: rgba(139, 92, 246, 0.24) !important;
+  color: #1a0f30 !important;
+}
+
+html:not(.dark) aside#admin-sidebar nav a:not(.wm-nav-active):not(.active):hover .material-symbols-outlined {
+  color: #db2777 !important;
+  transform: translateX(2px);
+}
+
+html.dark aside#admin-sidebar nav a:not(.wm-nav-active):not(.active) {
+  color: rgba(238, 230, 255, 0.86) !important;
+  font-weight: 500 !important;
+}
+
+html.dark aside#admin-sidebar nav a:not(.wm-nav-active):not(.active) .material-symbols-outlined {
   font-size: 19px !important;
   color: rgba(218, 200, 255, 0.84) !important;
   transition: transform 0.18s ease, color 0.18s ease;
   flex-shrink: 0;
 }
 
-aside#admin-sidebar nav a:hover {
+html.dark aside#admin-sidebar nav a:not(.wm-nav-active):not(.active):hover {
   background: rgba(255, 255, 255, 0.12) !important;
   border-color: rgba(255, 255, 255, 0.16) !important;
   color: #ffffff !important;
 }
 
-aside#admin-sidebar nav a:hover .material-symbols-outlined {
+html.dark aside#admin-sidebar nav a:not(.wm-nav-active):not(.active):hover .material-symbols-outlined {
   color: #ffffff !important;
-  transform: translateX(1px);
+  transform: translateX(2px);
 }
 
-/* ACTIVE SIDEBAR SECTION PILL — Exact Glowing Pink-Magenta Pill from 19728.png */
+/* ACTIVE SIDEBAR SECTION PILL — Glowing Pink-Magenta Pill in Both Light & Dark Modes */
 aside#admin-sidebar nav a.wm-nav-active,
 aside#admin-sidebar nav a.active {
   background: linear-gradient(90deg, #ff2a85 0%, #ec4899 52%, #a855f7 100%) !important;
   border: 1px solid rgba(255, 255, 255, 0.36) !important;
   border-radius: 9999px !important;
-  box-shadow: 0 6px 20px rgba(236, 72, 153, 0.48), inset 0 1px 0 rgba(255, 255, 255, 0.35) !important;
+  box-shadow: 0 6px 20px rgba(236, 72, 153, 0.42), inset 0 1px 0 rgba(255, 255, 255, 0.35) !important;
   color: #ffffff !important;
   font-weight: 700 !important;
 }
@@ -374,54 +461,89 @@ html.dark .wm-ctrl-k-badge {
   color: #e9d5ff;
 }
 
-/* Sun / Moon Pill Toggle Switch in Top Header */
+/* Sun / Moon Pill Toggle Switch in Top Header (Smooth Sliding Thumb + Rotating Icons) */
 .wm-theme-pill-btn {
+  position: relative;
   display: inline-flex;
   align-items: center;
-  gap: 4px;
+  justify-content: space-between;
+  width: 68px;
+  height: 34px;
   padding: 3px;
   border-radius: 9999px;
-  background: rgba(255, 255, 255, 0.90);
-  border: 1px solid rgba(198, 182, 242, 0.88);
-  box-shadow: 0 2px 8px rgba(88, 28, 135, 0.06);
+  background: linear-gradient(135deg, #f8f2ff 0%, #ede4fc 100%);
+  border: 1px solid rgba(186, 164, 238, 0.92);
+  box-shadow: inset 0 1px 3px rgba(88, 28, 135, 0.10), 0 2px 8px rgba(88, 28, 135, 0.06);
   cursor: pointer;
-  transition: all 0.2s ease;
+  transition: background 0.35s ease, border-color 0.35s ease, box-shadow 0.35s ease;
   flex-shrink: 0;
+  overflow: hidden;
 }
 
 html.dark .wm-theme-pill-btn {
-  background: rgba(33, 19, 66, 0.94);
-  border-color: rgba(147, 102, 245, 0.42);
+  background: linear-gradient(135deg, #1b0f38 0%, #2a1654 100%);
+  border-color: rgba(168, 85, 247, 0.50);
+  box-shadow: inset 0 1px 4px rgba(0, 0, 0, 0.55), 0 0 12px rgba(139, 92, 246, 0.25);
 }
 
-.wm-theme-pill-sun {
-  width: 28px;
-  height: 28px;
+/* Sliding Circular Thumb Indicator */
+.wm-theme-pill-btn::before {
+  content: '';
+  position: absolute;
+  top: 3px;
+  left: 3px;
+  width: 26px;
+  height: 26px;
+  border-radius: 9999px;
+  background: linear-gradient(135deg, #fbbf24 0%, #f59e0b 100%);
+  box-shadow: 0 2px 8px rgba(245, 158, 11, 0.48);
+  transform: translateX(0px);
+  transition: transform 0.42s cubic-bezier(0.34, 1.56, 0.64, 1), background 0.35s ease, box-shadow 0.35s ease;
+  z-index: 1;
+}
+
+html.dark .wm-theme-pill-btn::before {
+  transform: translateX(34px);
+  background: linear-gradient(135deg, #ec4899 0%, #7c3aed 100%);
+  box-shadow: 0 0 12px rgba(236, 72, 153, 0.65);
+}
+
+.wm-theme-pill-sun,
+.wm-theme-pill-knob {
+  position: relative;
+  z-index: 2;
+  width: 26px;
+  height: 26px;
   border-radius: 9999px;
   display: flex;
   align-items: center;
   justify-content: center;
-  color: #f59e0b;
-  background: rgba(254, 243, 199, 0.90);
-  transition: all 0.2s ease;
+  background: transparent !important;
+  box-shadow: none !important;
+  transition: transform 0.42s cubic-bezier(0.34, 1.56, 0.64, 1), color 0.3s ease, opacity 0.3s ease;
+}
+
+html:not(.dark) .wm-theme-pill-sun {
+  color: #ffffff !important;
+  transform: rotate(0deg) scale(1.08);
+}
+
+html:not(.dark) .wm-theme-pill-knob {
+  color: #6d5594 !important;
+  transform: rotate(-30deg) scale(0.88);
+  opacity: 0.78;
 }
 
 html.dark .wm-theme-pill-sun {
-  background: transparent;
-  color: #a391c9;
+  color: #9b88c4 !important;
+  transform: rotate(90deg) scale(0.85);
+  opacity: 0.72;
 }
 
-.wm-theme-pill-knob {
-  width: 28px;
-  height: 28px;
-  border-radius: 9999px;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  background: linear-gradient(135deg, #4c1d95 0%, #311068 100%);
-  color: #fde68a;
-  box-shadow: 0 2px 6px rgba(49, 16, 104, 0.35);
-  transition: all 0.2s ease;
+html.dark .wm-theme-pill-knob {
+  color: #fef08a !important;
+  transform: rotate(0deg) scale(1.10);
+  opacity: 1;
 }
 
 /* Admin Profile Card Pill in Top Header */
@@ -1078,10 +1200,19 @@ main#admin-main-content > div.w-full[class*="px-3"] {
   }
 
   .wm-theme-pill-btn {
+    width: 60px !important;
+    height: 30px !important;
     padding: 2px !important;
-    gap: 2px !important;
   }
-
+  .wm-theme-pill-btn::before {
+    top: 2px !important;
+    left: 2px !important;
+    width: 24px !important;
+    height: 24px !important;
+  }
+  html.dark .wm-theme-pill-btn::before {
+    transform: translateX(30px) !important;
+  }
   .wm-theme-pill-sun,
   .wm-theme-pill-knob {
     width: 24px !important;
@@ -1167,4 +1298,41 @@ main#admin-main-content > div.w-full[class*="px-3"] {
   aside#admin-sidebar {
     transform: translateX(0) !important;
   }
+}
+
+/* Comprehensive Light Mode Surface Overrides for Opacity & Slate/Dark Gradient Containers */
+html:not(.dark) main [class*="bg-surface-container-low"],
+html:not(.dark) main [class*="bg-surface-container-lowest"],
+html:not(.dark) [id*="modal"] [class*="bg-surface-container-low"],
+html:not(.dark) [id*="modal"] [class*="bg-surface-container-lowest"] {
+  background-color: #ffffff !important;
+  border-color: rgba(214, 200, 242, 0.90) !important;
+}
+
+html:not(.dark) main [class*="bg-surface-container-high"],
+html:not(.dark) [id*="modal"] [class*="bg-surface-container-high"] {
+  background-color: #f4effc !important;
+  border-color: #dfd4f4 !important;
+}
+
+html:not(.dark) main [class*="to-slate-950"],
+html:not(.dark) main [class*="via-purple-950"],
+html:not(.dark) main [class*="bg-slate-9"],
+html:not(.dark) main [class*="bg-zinc-9"],
+html:not(.dark) main [class*="bg-gray-9"],
+html:not(.dark) main [class*="bg-[#120924]"],
+html:not(.dark) main [class*="bg-[#140b29]"],
+html:not(.dark) main [class*="bg-[#1a0e36]"] {
+  background-color: #f6f1fe !important;
+  background-image: linear-gradient(135deg, #ffffff 0%, #f5eeff 52%, #fdf2f8 100%) !important;
+  border-color: #decff5 !important;
+  color: #1a0f30 !important;
+}
+
+/* Keep Hero Preview Canvas in Settings readable with crisp white text */
+html:not(.dark) #hero-preview-canvas,
+html:not(.dark) #hero-preview-canvas h3,
+html:not(.dark) #hero-preview-canvas p,
+html:not(.dark) #hero-preview-canvas span {
+  color: #ffffff !important;
 }

@@ -1,3 +1,20 @@
+// Universal Admin Fetch Credentials Interceptor (Ensures all /api/ calls send session cookies)
+(function patchAdminFetchCredentials() {
+  if (typeof window === 'undefined' || !window.fetch || window.__wmFetchPatched) return;
+  const originalFetch = window.fetch.bind(window);
+  window.fetch = function(input, init) {
+    try {
+      const urlStr = typeof input === 'string' ? input : (input && input.url ? input.url : '');
+      if (urlStr.startsWith('/api/') || urlStr.includes('/api/')) {
+        init = Object.assign({ credentials: 'include' }, init || {});
+        if (!init.credentials) init.credentials = 'include';
+      }
+    } catch (_) {}
+    return originalFetch(input, init);
+  };
+  window.__wmFetchPatched = true;
+})();
+
 // WishMagic Admin Studio - Universal Dual Theme Engine & Utilities
 
 const SECRET_ADMIN_PREFIX = '/admin/anktech/anktech/admin';
@@ -765,21 +782,23 @@ if (document.readyState === 'loading') {
 }
 
 function updateThemeIcons(isDark) {
-  const icons = document.querySelectorAll('.theme-toggle-icon, #theme-toggle-icon');
-  icons.forEach(icon => {
-    icon.textContent = isDark ? 'light_mode' : 'dark_mode';
-  });
+  // Keep sun icon on left (#wm-theme-sun-pill) and moon icon on right (#wm-theme-moon-pill) so the CSS sliding thumb animates smoothly!
   const sunPill = document.getElementById('wm-theme-sun-pill');
   const moonPill = document.getElementById('wm-theme-moon-pill');
-  if (sunPill && moonPill) {
-    if (isDark) {
-      sunPill.className = 'w-7 h-7 rounded-full flex items-center justify-center text-[#9583b8] transition-all';
-      moonPill.className = 'w-7 h-7 rounded-full bg-purple-600 text-white shadow-sm flex items-center justify-center transition-all';
-    } else {
-      sunPill.className = 'w-7 h-7 rounded-full bg-amber-100 text-amber-500 shadow-sm flex items-center justify-center transition-all';
-      moonPill.className = 'w-7 h-7 rounded-full bg-[#3b1578] text-amber-200 flex items-center justify-center transition-all';
-    }
+  if (sunPill) {
+    sunPill.className = 'wm-theme-pill-sun';
+    const sunIcon = sunPill.querySelector('.material-symbols-outlined');
+    if (sunIcon) sunIcon.textContent = 'light_mode';
   }
+  if (moonPill) {
+    moonPill.className = 'wm-theme-pill-knob';
+    const moonIcon = moonPill.querySelector('.material-symbols-outlined');
+    if (moonIcon) moonIcon.textContent = 'dark_mode';
+  }
+  document.querySelectorAll('.wm-theme-pill-btn').forEach(btn => {
+    btn.setAttribute('data-theme-mode', isDark ? 'dark' : 'light');
+    btn.setAttribute('aria-checked', isDark ? 'true' : 'false');
+  });
 }
 
 (function initTheme() {

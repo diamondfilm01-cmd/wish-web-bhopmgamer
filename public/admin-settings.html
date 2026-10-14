@@ -10,18 +10,18 @@
   <link crossorigin="" href="https://fonts.gstatic.com" rel="preconnect"/>
   <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;600;700&family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet"/>
   <link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:opsz,wght,FILL,GRAD@20..48,100..700,0..1,-50..200&display=swap" rel="stylesheet"/>
-  <script src="js/tailwind-config.js?v=20261014_v3"></script>
+  <script src="js/tailwind-config.js?v=20261014_v4"></script>
   <script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
   <script>
     if (typeof tailwind !== 'undefined' && typeof sharedTailwindConfig !== 'undefined') {
       tailwind.config = sharedTailwindConfig;
     }
   </script>
-  <link rel="stylesheet" href="css/admin-theme.css?v=20261014_v3"/>
+  <link rel="stylesheet" href="css/admin-theme.css?v=20261014_v4"/>
   <script src="js/api-client.js"></script>
   <script src="js/auth-service.js"></script>
   <script src="js/WishMagicCore.js"></script>
-  <script src="js/admin-theme.js?v=20261014_v3"></script>
+  <script src="js/admin-theme.js?v=20261014_v4"></script>
   <script src="js/wish-lifecycle.js"></script>
   <script src="js/repositories.js"></script>
   <script src="js/analytics-service.js"></script>
@@ -803,7 +803,7 @@
           </div>
         </div>
         <div class="flex items-center gap-2 self-start sm:self-auto">
-          <a href="/admin/staff" class="px-4 py-2 rounded-xl bg-primary-container hover:brightness-110 text-white text-xs sm:text-sm font-bold flex items-center gap-1.5 transition">
+          <a href="/admin/anktech/anktech/admin/staff" class="px-4 py-2 rounded-xl bg-primary-container hover:brightness-110 text-white text-xs sm:text-sm font-bold flex items-center gap-1.5 transition">
             <span class="material-symbols-outlined text-sm">shield_person</span>
             <span>Open Staff &amp; Access Studio</span>
           </a>
@@ -842,7 +842,7 @@
                 </span>
               </td>
               <td class="py-3.5 px-3 text-right">
-                <a href="/admin/staff" class="text-xs text-primary hover:underline font-bold">Manage in RBAC</a>
+                <a href="/admin/anktech/anktech/admin/staff" class="text-xs text-primary hover:underline font-bold">Manage in RBAC</a>
               </td>
             </tr>
           </tbody>
@@ -1241,6 +1241,79 @@
     }
   }
 
+  function notifyLiveStorefrontSettingsUpdated() {
+    try {
+      localStorage.setItem('wishmagic_site_settings_updated_at', String(Date.now()));
+      if (typeof BroadcastChannel !== 'undefined') {
+        const bc = new BroadcastChannel('wishmagic_site_settings');
+        bc.postMessage({ updatedAt: Date.now() });
+      }
+    } catch (_) {}
+  }
+
+  function handleFreeOfferModeToggle() {
+    const isFree = document.getElementById('setting-promo-free-mode')?.checked;
+    if (isFree) {
+      const enabledEl = document.getElementById('setting-promo-enabled');
+      if (enabledEl) enabledEl.checked = true;
+      const saleEl = document.getElementById('setting-promo-discount-price');
+      if (saleEl) saleEl.value = 0;
+    } else {
+      const saleEl = document.getElementById('setting-promo-discount-price');
+      if (saleEl && Number(saleEl.value) === 0) saleEl.value = 49;
+    }
+    updatePromoPreview();
+  }
+
+  function updatePromoPreview() {
+    const curr = document.getElementById('setting-currency')?.value || 'INR';
+    const sym = getCurrencySymbol(curr);
+    const s1 = document.getElementById('promo-currency-sym-1');
+    const s2 = document.getElementById('promo-currency-sym-2');
+    if (s1) s1.textContent = sym;
+    if (s2) s2.textContent = sym;
+
+    const freeMode = Boolean(document.getElementById('setting-promo-free-mode')?.checked);
+    const promoEnabled = Boolean(document.getElementById('setting-promo-enabled')?.checked);
+    const origPrice = Math.max(0, Number(document.getElementById('setting-promo-original-price')?.value || 99));
+    const salePrice = freeMode ? 0 : Math.max(0, Number(document.getElementById('setting-promo-discount-price')?.value || 49));
+    const badgeText = document.getElementById('setting-promo-badge-text')?.value || '🔥 Limited Time Offer';
+    const bannerActive = Boolean(document.getElementById('setting-promo-banner-active')?.checked);
+    const bannerText = document.getElementById('setting-promo-banner-text')?.value || '';
+
+    const pBanner = document.getElementById('promo-preview-banner');
+    const pBannerTxt = document.getElementById('promo-preview-banner-text');
+    if (pBanner) {
+      if (bannerActive && bannerText) {
+        pBanner.classList.remove('hidden');
+        if (pBannerTxt) pBannerTxt.textContent = bannerText;
+      } else {
+        pBanner.classList.add('hidden');
+      }
+    }
+
+    const pBadge = document.getElementById('promo-preview-badge');
+    if (pBadge) pBadge.textContent = badgeText;
+
+    const pOrig = document.getElementById('promo-preview-original-price');
+    if (pOrig) {
+      pOrig.textContent = `${sym}${origPrice}`;
+      pOrig.style.display = (promoEnabled || freeMode) ? 'inline' : 'none';
+    }
+
+    const pFinal = document.getElementById('promo-preview-final-price');
+    if (pFinal) {
+      pFinal.textContent = freeMode ? `${sym}0 FREE` : `${sym}${salePrice}`;
+    }
+
+    const pPct = document.getElementById('promo-preview-discount-percent');
+    if (pPct) {
+      const pct = origPrice > 0 ? Math.max(0, Math.round(((origPrice - salePrice) / origPrice) * 100)) : 100;
+      pPct.textContent = freeMode ? '100% OFF FREE' : `${pct}% OFF`;
+      pPct.style.display = (promoEnabled || freeMode) ? 'inline-block' : 'none';
+    }
+  }
+
   // Load Persisted Server Site Settings
   async function loadSiteSettings() {
     try {
@@ -1252,21 +1325,46 @@
       const data = await res.json();
       const s = (data.data && data.data.settings) || data.settings;
       if (s) {
-        if (s.heroBadge) document.getElementById('setting-hero-badge').value = s.heroBadge;
-        if (s.heroHeadline) document.getElementById('setting-hero-headline').value = s.heroHeadline;
-        if (s.heroSubheadline) document.getElementById('setting-hero-subheadline').value = s.heroSubheadline;
-        if (s.heroGiftIcon) document.getElementById('setting-hero-gift-icon').value = s.heroGiftIcon;
-        if (s.heroBgMode) document.getElementById('setting-hero-bg-mode').value = s.heroBgMode;
-        if (s.heroImageUrl) document.getElementById('setting-hero-image-url').value = s.heroImageUrl;
-        if (s.heroStyle) document.getElementById('setting-hero-style').value = s.heroStyle;
-        if (s.heroCta1) document.getElementById('setting-hero-cta1').value = s.heroCta1;
-        if (s.heroCta2) document.getElementById('setting-hero-cta2').value = s.heroCta2;
-        if (s.brandName) document.getElementById('setting-brand-name').value = s.brandName;
-        if (s.supportWa) document.getElementById('setting-support-wa').value = s.supportWa;
-        if (s.currency) document.getElementById('setting-currency').value = s.currency;
+        if (s.heroBadge !== undefined) document.getElementById('setting-hero-badge').value = s.heroBadge;
+        if (s.heroHeadline !== undefined) document.getElementById('setting-hero-headline').value = s.heroHeadline;
+        if (s.heroSubheadline !== undefined) document.getElementById('setting-hero-subheadline').value = s.heroSubheadline;
+        if (s.heroGiftIcon !== undefined) document.getElementById('setting-hero-gift-icon').value = s.heroGiftIcon;
+        if (s.heroBgMode !== undefined) document.getElementById('setting-hero-bg-mode').value = s.heroBgMode;
+        if (s.heroImageUrl !== undefined) document.getElementById('setting-hero-image-url').value = s.heroImageUrl;
+        if (s.heroStyle !== undefined) document.getElementById('setting-hero-style').value = s.heroStyle;
+        if (s.heroCta1 !== undefined) document.getElementById('setting-hero-cta1').value = s.heroCta1;
+        if (s.heroCta2 !== undefined) document.getElementById('setting-hero-cta2').value = s.heroCta2;
+        if (s.brandName !== undefined) document.getElementById('setting-brand-name').value = s.brandName;
+        if (s.supportWa !== undefined) document.getElementById('setting-support-wa').value = s.supportWa;
+        if (s.currency !== undefined) document.getElementById('setting-currency').value = s.currency;
         if (s.particleFx !== undefined) document.getElementById('setting-particle-fx').checked = Boolean(s.particleFx);
         if (s.maintenanceMode !== undefined) document.getElementById('setting-maintenance-mode').checked = Boolean(s.maintenanceMode);
+
+        // Promotional & 100% Free Offer Mode fields
+        if (s.promoFreeOfferMode !== undefined && document.getElementById('setting-promo-free-mode')) {
+          document.getElementById('setting-promo-free-mode').checked = Boolean(s.promoFreeOfferMode);
+        }
+        if (s.promoDiscountEnabled !== undefined && document.getElementById('setting-promo-enabled')) {
+          document.getElementById('setting-promo-enabled').checked = Boolean(s.promoDiscountEnabled);
+        }
+        if (s.promoOriginalPrice !== undefined && document.getElementById('setting-promo-original-price')) {
+          document.getElementById('setting-promo-original-price').value = s.promoOriginalPrice;
+        }
+        if (s.promoDiscountPrice !== undefined && document.getElementById('setting-promo-discount-price')) {
+          document.getElementById('setting-promo-discount-price').value = s.promoDiscountPrice;
+        }
+        if (s.promoBadgeText !== undefined && document.getElementById('setting-promo-badge-text')) {
+          document.getElementById('setting-promo-badge-text').value = s.promoBadgeText;
+        }
+        if (s.promoBannerActive !== undefined && document.getElementById('setting-promo-banner-active')) {
+          document.getElementById('setting-promo-banner-active').checked = Boolean(s.promoBannerActive);
+        }
+        if (s.promoBannerText !== undefined && document.getElementById('setting-promo-banner-text')) {
+          document.getElementById('setting-promo-banner-text').value = s.promoBannerText;
+        }
+
         updateHeroPreview();
+        updatePromoPreview();
       }
     } catch (err) {
       showStatusBanner('Connection error while fetching site configuration.', 'error');
@@ -1289,7 +1387,14 @@
       supportWa: document.getElementById('setting-support-wa').value,
       currency: document.getElementById('setting-currency').value,
       particleFx: document.getElementById('setting-particle-fx').checked,
-      maintenanceMode: document.getElementById('setting-maintenance-mode').checked
+      maintenanceMode: document.getElementById('setting-maintenance-mode').checked,
+      promoFreeOfferMode: Boolean(document.getElementById('setting-promo-free-mode')?.checked),
+      promoDiscountEnabled: Boolean(document.getElementById('setting-promo-enabled')?.checked),
+      promoOriginalPrice: Number(document.getElementById('setting-promo-original-price')?.value || 99),
+      promoDiscountPrice: Number(document.getElementById('setting-promo-discount-price')?.value || 49),
+      promoBadgeText: document.getElementById('setting-promo-badge-text')?.value || '🔥 Limited Time Offer',
+      promoBannerActive: Boolean(document.getElementById('setting-promo-banner-active')?.checked),
+      promoBannerText: document.getElementById('setting-promo-banner-text')?.value || ''
     };
 
     try {
@@ -1335,6 +1440,8 @@
       if (persisted.maintenanceMode !== undefined) document.getElementById('setting-maintenance-mode').checked = Boolean(persisted.maintenanceMode);
 
       updateHeroPreview();
+      updatePromoPreview();
+      notifyLiveStorefrontSettingsUpdated();
       showStatusBanner('✨ Site configuration successfully persisted to D1 and published to live website!', 'success');
       showToast('✨ Published to Live Site! D1 Database Updated');
     } catch (err) {
@@ -1366,6 +1473,7 @@
 
       await loadSiteSettings();
       await loadWishLinkSettings();
+      notifyLiveStorefrontSettingsUpdated();
       showStatusBanner('✨ Restored factory defaults in D1 database!', 'success');
       showToast('✨ Factory defaults restored');
     } catch (err) {
@@ -1443,7 +1551,7 @@
               </span>
             </td>
             <td class="py-3.5 px-3 text-right">
-              <a href="/admin/staff" class="text-xs text-primary hover:underline font-bold">Manage in RBAC</a>
+              <a href="/admin/anktech/anktech/admin/staff" class="text-xs text-primary hover:underline font-bold">Manage in RBAC</a>
             </td>
           </tr>
         `).join('');
