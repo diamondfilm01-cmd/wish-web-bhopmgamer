@@ -65,62 +65,98 @@ const ADMIN_ROUTES_MAP = {
 };
 
 const PUBLIC_PAGES_MAP = {
+  '/': '/index.html',
+  '/index.html': '/index.html',
   '/legal': '/legal.html',
   '/legal/': '/legal.html',
+  '/legal.html': '/legal.html',
   '/terms': '/legal.html',
   '/terms/': '/legal.html',
+  '/terms.html': '/legal.html',
   '/terms-of-service': '/legal.html',
   '/terms-of-service/': '/legal.html',
+  '/terms-of-service.html': '/legal.html',
   '/privacy': '/legal.html',
   '/privacy/': '/legal.html',
+  '/privacy.html': '/legal.html',
   '/privacy-policy': '/legal.html',
   '/privacy-policy/': '/legal.html',
+  '/privacy-policy.html': '/legal.html',
   '/cookies': '/legal.html',
   '/cookies/': '/legal.html',
+  '/cookies.html': '/legal.html',
   '/cookie-policy': '/legal.html',
   '/cookie-policy/': '/legal.html',
+  '/cookie-policy.html': '/legal.html',
   '/compliance': '/legal.html',
   '/compliance/': '/legal.html',
+  '/compliance.html': '/legal.html',
   '/account': '/account.html',
   '/account/': '/account.html',
+  '/account.html': '/account.html',
   '/profile': '/account.html',
   '/profile/': '/account.html',
+  '/profile.html': '/account.html',
   '/settings': '/account.html',
   '/settings/': '/account.html',
+  '/settings.html': '/account.html',
   '/security': '/account.html',
   '/security/': '/account.html',
+  '/security.html': '/account.html',
   '/export': '/account.html',
   '/export/': '/account.html',
+  '/export.html': '/account.html',
   '/data-export': '/account.html',
   '/data-export/': '/account.html',
+  '/data-export.html': '/account.html',
   '/deletion': '/account.html',
   '/deletion/': '/account.html',
+  '/deletion.html': '/account.html',
   '/my-wishes': '/my-wishes.html',
   '/my-wishes/': '/my-wishes.html',
+  '/my-wishes.html': '/my-wishes.html',
   '/favorites': '/favorites.html',
   '/favorites/': '/favorites.html',
+  '/favorites.html': '/favorites.html',
   '/templates': '/templates.html',
   '/templates/': '/templates.html',
-  '/marketplace': '/marketplace.html',
-  '/marketplace/': '/marketplace.html',
+  '/templates.html': '/templates.html',
+  '/marketplace': '/templates.html',
+  '/marketplace/': '/templates.html',
+  '/marketplace.html': '/templates.html',
   '/pricing': '/pricing.html',
   '/pricing/': '/pricing.html',
+  '/pricing.html': '/pricing.html',
+  '/premium': '/pricing.html',
+  '/premium/': '/pricing.html',
+  '/premium.html': '/pricing.html',
   '/checkout': '/checkout.html',
   '/checkout/': '/checkout.html',
+  '/checkout.html': '/checkout.html',
   '/customize': '/customize.html',
   '/customize/': '/customize.html',
+  '/customize.html': '/customize.html',
   '/create': '/create.html',
   '/create/': '/create.html',
+  '/create.html': '/create.html',
   '/help': '/help.html',
   '/help/': '/help.html',
+  '/help.html': '/help.html',
   '/help/contact': '/contact.html',
   '/help/contact/': '/contact.html',
+  '/help/contact.html': '/contact.html',
   '/contact': '/contact.html',
   '/contact/': '/contact.html',
+  '/contact.html': '/contact.html',
   '/support': '/help.html',
   '/support/': '/help.html',
+  '/support.html': '/help.html',
   '/support/tickets': '/support-tickets.html',
-  '/support/tickets/': '/support-tickets.html'
+  '/support/tickets/': '/support-tickets.html',
+  '/support/tickets.html': '/support-tickets.html',
+  '/expired': '/expired.html',
+  '/expired/': '/expired.html',
+  '/expired.html': '/expired.html'
 };
 
 export async function onRequest(context) {
@@ -191,32 +227,55 @@ export async function onRequest(context) {
     return await context.next(pageReq);
   }
 
-  const targetPublicFile = PUBLIC_PAGES_MAP[cleanPath] || PUBLIC_PAGES_MAP[pathname];
+  const targetPublicFile = PUBLIC_PAGES_MAP[cleanPath] || PUBLIC_PAGES_MAP[pathname] || (pathname.endsWith('.html') ? pathname : null);
   if (targetPublicFile) {
     const destinationUrl = new URL(targetPublicFile + url.search, context.request.url);
     if (context.env.ASSETS && typeof context.env.ASSETS.fetch === 'function') {
-      const pageReq = new Request(destinationUrl, context.request);
-      return await context.env.ASSETS.fetch(pageReq);
+      try {
+        const pageReq = new Request(destinationUrl, context.request);
+        const htmlRes = await context.env.ASSETS.fetch(pageReq);
+        if (htmlRes && htmlRes.status !== 404) {
+          return htmlRes;
+        }
+      } catch (err) {
+        console.warn('[Pages ASSETS.fetch warning]', err);
+      }
+    }
+    if (pathname === targetPublicFile) {
+      try {
+        return await context.next();
+      } catch (_) {}
     }
     const pageReq = new Request(destinationUrl, context.request);
-    return await context.next(pageReq);
+    try {
+      return await context.next(pageReq);
+    } catch (_) {
+      return await context.next();
+    }
   }
 
   if (pathname.startsWith('/template/')) {
     const destinationUrl = new URL('/template-preview.html' + url.search, context.request.url);
     if (context.env.ASSETS && typeof context.env.ASSETS.fetch === 'function') {
-      const tplReq = new Request(destinationUrl, context.request);
-      return await context.env.ASSETS.fetch(tplReq);
+      try {
+        const tplReq = new Request(destinationUrl, context.request);
+        const res = await context.env.ASSETS.fetch(tplReq);
+        if (res && res.status !== 404) return res;
+      } catch (_) {}
     }
     const tplReq = new Request(destinationUrl, context.request);
-    return await context.next(tplReq);
+    try {
+      return await context.next(tplReq);
+    } catch (_) {
+      return await context.next();
+    }
   }
 
   const env = {
     ...context.env,
     IMGBB_API_KEY: context.env.IMGBB_API_KEY || null,
     DB: context.env.DB || context.env.wishmagic_db || context.env.DATABASE,
-    ASSETS: {
+    ASSETS: context.env.ASSETS || {
       fetch: async (req) => {
         const fetchReq = typeof req === 'string' ? new Request(new URL(req, context.request.url), context.request) : req;
         return await context.next(fetchReq);

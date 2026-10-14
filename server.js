@@ -13681,8 +13681,8 @@ app.get('/api/wishes/:id', (req, res) => {
 });
 
 // Templates Marketplace Route: /templates and /marketplace
-app.get(['/templates', '/templates/', '/marketplace', '/marketplace.html'], (req, res) => {
-  res.sendFile(path.join(__dirname, 'public', 'marketplace.html'));
+app.get(['/templates', '/templates/', '/templates.html', '/marketplace', '/marketplace/', '/marketplace.html'], (req, res) => {
+  res.sendFile(path.join(__dirname, 'public', 'templates.html'));
 });
 
 // Wish Creation Wizard Route: /create

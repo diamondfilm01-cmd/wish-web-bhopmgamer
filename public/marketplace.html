@@ -449,32 +449,80 @@
 <script>
   let allLoadedTemplates = [];
 
+  const FALLBACK_SEED_TEMPLATES = [
+    {
+      id: 'tpl_glitter_birthday',
+      slug: 'glitter-birthday-bash-3d',
+      name: 'Glitter Birthday Bash 3D',
+      category: 'Birthday',
+      relationships: ['Birthday', 'Best Friend', 'Brother', 'Sister', 'Male Friend', 'Female Friend', 'Friendship', 'Family', 'Girlfriend', 'Boyfriend'],
+      tier: 'free',
+      price: 0,
+      isPremium: false,
+      thumbnail: 'https://images.unsplash.com/photo-1513151233558-d860c5398176?w=600&auto=format&fit=crop&q=80',
+      description: 'Interactive 3D celebration with real candle blowing, sparkling confetti bursts, and treasured polaroid memory frames.'
+    },
+    {
+      id: 'tpl_golden_elegance',
+      slug: 'golden-elegance-anniversary',
+      name: 'Golden Elegance Anniversary',
+      category: 'Anniversary',
+      relationships: ['Anniversary', 'Wife', 'Husband', 'Parents', 'Grandparents', 'Family'],
+      tier: 'vip',
+      price: 49,
+      isPremium: true,
+      thumbnail: 'https://images.unsplash.com/photo-1518199266791-5375a83190b7?w=600&auto=format&fit=crop&q=80',
+      description: 'Luxurious gold foil anniversary experience with interactive love timeline, romantic music, and photo gallery.'
+    },
+    {
+      id: 'tpl_romantic_starlight',
+      slug: 'romantic-starlight-serenade',
+      name: 'Romantic Starlight Serenade',
+      category: 'Love',
+      relationships: ['Girlfriend', 'Boyfriend', 'Crush', 'Fiancé', 'Fiancée', 'Love', 'Best Friend'],
+      tier: 'vip',
+      price: 49,
+      isPremium: true,
+      thumbnail: 'https://images.unsplash.com/photo-1534447677768-be436bb09401?w=600&auto=format&fit=crop&q=80',
+      description: 'Dreamy starlit romantic message with floating glowing hearts, wax seal envelope, and custom music keepsake.'
+    },
+    {
+      id: 'tpl_neon_party',
+      slug: 'neon-night-celebration',
+      name: 'Neon Night Celebration',
+      category: 'Congratulations',
+      relationships: ['Colleague', 'Boss', 'Teacher', 'Mentor', 'Congratulations', 'Friendship', 'Male Friend'],
+      tier: 'free',
+      price: 0,
+      isPremium: false,
+      thumbnail: 'https://images.unsplash.com/photo-1492684223066-81342ee5ff30?w=600&auto=format&fit=crop&q=80',
+      description: 'High energy neon synthwave party wish with dynamic beats and glowing typography.'
+    }
+  ];
+
   async function loadMarketplaceTemplates() {
     try {
-      const res = await fetch("/api/templates");
-      const data = await res.json();
+      let templates = [];
+      try {
+        const res = await fetch("/api/templates");
+        if (res.ok) {
+          const data = await res.json();
+          if (data && data.success && Array.isArray(data.templates) && data.templates.length > 0) {
+            templates = data.templates;
+          }
+        }
+      } catch (netErr) {
+        console.warn("Could not fetch /api/templates, using fallback seed templates:", netErr);
+      }
+
+      if (!templates || templates.length === 0) {
+        templates = FALLBACK_SEED_TEMPLATES;
+      }
+
       const container = document.getElementById("templates-grid-container");
       const countEl = document.getElementById("visible-card-count");
 
-      if (!data.success || !data.templates || data.templates.length === 0) {
-        if (countEl) countEl.textContent = "0";
-        if (container) {
-          container.innerHTML = `
-            <div class="col-span-full py-20 px-4 flex flex-col items-center justify-center text-center bg-surface-container/60 rounded-3xl border border-dashed border-purple-500/20 max-w-xl mx-auto my-6">
-              <div class="w-16 h-16 rounded-2xl bg-secondary-container/20 text-secondary flex items-center justify-center mb-4">
-                <span class="material-symbols-outlined text-3xl">auto_awesome</span>
-              </div>
-              <h3 class="font-headline-sm text-xl font-bold text-on-surface mb-2">No Templates Available Yet</h3>
-              <p class="text-sm text-on-surface-variant max-w-md mb-2 leading-relaxed">
-                Sabhi fake / demo templates hata diye gaye hain. Admin panel se nayi website ka code upload hote hi yahan aapke interactive magical templates automatically live dikhenge!
-              </p>
-            </div>
-          `;
-        }
-        return;
-      }
-
-      allLoadedTemplates = data.templates;
+      allLoadedTemplates = templates;
       if (countEl) countEl.textContent = allLoadedTemplates.length;
 
       renderMarketplaceCards(allLoadedTemplates);

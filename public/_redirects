@@ -44,12 +44,14 @@
 /settings/ /account.html 200
 /favorites /favorites.html 200
 /favorites/ /favorites.html 200
-/marketplace /marketplace.html 200
-/marketplace/ /marketplace.html 200
+/marketplace /templates.html 200
+/marketplace/ /templates.html 200
+/marketplace.html /templates.html 200
 /pricing /pricing.html 200
 /pricing/ /pricing.html 200
 /templates /templates.html 200
 /templates/ /templates.html 200
+/templates.html /templates.html 200
 /checkout /checkout.html 200
 /checkout/ /checkout.html 200
 /customize /customize.html 200

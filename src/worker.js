@@ -356,32 +356,65 @@ const SEED_TEMPLATES = [
 // Production Pretty URL Routing Table
 const PRETTY_ROUTES = {
   '/': '/index.html',
+  '/index.html': '/index.html',
   '/templates': '/templates.html',
   '/templates/': '/templates.html',
-  '/marketplace': '/marketplace.html',
-  '/marketplace/': '/marketplace.html',
+  '/templates.html': '/templates.html',
+  '/marketplace': '/templates.html',
+  '/marketplace/': '/templates.html',
+  '/marketplace.html': '/templates.html',
   '/create': '/create.html',
   '/create/': '/create.html',
+  '/create.html': '/create.html',
   '/customize': '/customize.html',
   '/customize/': '/customize.html',
+  '/customize.html': '/customize.html',
   '/my-wishes': '/my-wishes.html',
   '/my-wishes/': '/my-wishes.html',
+  '/my-wishes.html': '/my-wishes.html',
   '/favorites': '/favorites.html',
   '/favorites/': '/favorites.html',
+  '/favorites.html': '/favorites.html',
   '/premium': '/pricing.html',
   '/premium/': '/pricing.html',
+  '/premium.html': '/pricing.html',
   '/pricing': '/pricing.html',
   '/pricing/': '/pricing.html',
+  '/pricing.html': '/pricing.html',
   '/account': '/account.html',
   '/account/': '/account.html',
+  '/account.html': '/account.html',
   '/profile': '/account.html',
   '/profile/': '/account.html',
+  '/profile.html': '/account.html',
   '/settings': '/account.html',
   '/settings/': '/account.html',
+  '/settings.html': '/account.html',
+  '/security': '/account.html',
+  '/security/': '/account.html',
+  '/security.html': '/account.html',
   '/checkout': '/checkout.html',
   '/checkout/': '/checkout.html',
+  '/checkout.html': '/checkout.html',
   '/expired': '/expired.html',
   '/expired/': '/expired.html',
+  '/expired.html': '/expired.html',
+  '/referrals': '/referrals.html',
+  '/referrals/': '/referrals.html',
+  '/referrals.html': '/referrals.html',
+  '/help': '/help.html',
+  '/help/': '/help.html',
+  '/help.html': '/help.html',
+  '/contact': '/contact.html',
+  '/contact/': '/contact.html',
+  '/contact.html': '/contact.html',
+  '/support': '/help.html',
+  '/support/': '/help.html',
+  '/support.html': '/help.html',
+  '/support/tickets': '/support-tickets.html',
+  '/support/tickets/': '/support-tickets.html',
+  '/support-tickets': '/support-tickets.html',
+  '/support-tickets.html': '/support-tickets.html',
   '/admin/anktech/anktech/admin': '/admin-overview.html',
   '/admin/anktech/anktech/admin/': '/admin-overview.html',
   '/admin/anktech/anktech/admin/overview': '/admin-overview.html',
@@ -442,20 +475,28 @@ const PRETTY_ROUTES = {
   '/admin/anktech/anktech/admin/login/': '/admin-login.html',
   '/legal': '/legal.html',
   '/legal/': '/legal.html',
+  '/legal.html': '/legal.html',
   '/terms': '/legal.html',
   '/terms/': '/legal.html',
+  '/terms.html': '/legal.html',
   '/terms-of-service': '/legal.html',
   '/terms-of-service/': '/legal.html',
+  '/terms-of-service.html': '/legal.html',
   '/privacy': '/legal.html',
   '/privacy/': '/legal.html',
+  '/privacy.html': '/legal.html',
   '/privacy-policy': '/legal.html',
   '/privacy-policy/': '/legal.html',
+  '/privacy-policy.html': '/legal.html',
   '/cookies': '/legal.html',
   '/cookies/': '/legal.html',
+  '/cookies.html': '/legal.html',
   '/cookie-policy': '/legal.html',
   '/cookie-policy/': '/legal.html',
+  '/cookie-policy.html': '/legal.html',
   '/compliance': '/legal.html',
   '/compliance/': '/legal.html',
+  '/compliance.html': '/legal.html',
   '/admin-login': '/admin-login.html'
 };
 
@@ -17665,11 +17706,17 @@ export default {
       }
 
       const normalizedPath = pathname.replace(/\/+$/, '') || '/';
-      const targetHtml = PRETTY_ROUTES[pathname] || PRETTY_ROUTES[normalizedPath];
+      const targetHtml = PRETTY_ROUTES[pathname] || PRETTY_ROUTES[normalizedPath] || (pathname.endsWith('.html') ? pathname : null);
       if (targetHtml && env.ASSETS && typeof env.ASSETS.fetch === 'function') {
-        const pageReq = new Request(new URL(targetHtml, request.url), request);
-        const htmlRes = await env.ASSETS.fetch(pageReq);
-        return applySecurityHeaders(htmlRes, request, env);
+        try {
+          const pageReq = new Request(new URL(targetHtml, request.url), request);
+          const htmlRes = await env.ASSETS.fetch(pageReq);
+          if (htmlRes && htmlRes.status !== 404) {
+            return applySecurityHeaders(htmlRes, request, env);
+          }
+        } catch (assetErr) {
+          console.warn('[Worker ASSETS.fetch warning]', assetErr);
+        }
       }
 
       if (pathname.startsWith('/admin/anktech/anktech/admin') && !targetHtml) {
