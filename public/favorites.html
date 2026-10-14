@@ -8,11 +8,12 @@
   <meta name="description" content="Access all your favorite celebration templates and saved wishes in one place."/>
 
   <!-- Site Theme Controller -->
-  <script src="/js/site-theme.js?v=20261014_v6"></script>
+  <script src="/js/site-theme.js?v=20261014_v7"></script>
 
   <!-- Tailwind CSS CDN -->
   <script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
-  <script src="/js/tailwind-config.js?v=20261014_v6"></script>
+  <script>if (typeof tailwind !== "undefined" && typeof sharedTailwindConfig !== "undefined") { tailwind.config = sharedTailwindConfig; }</script>
+  <script src="/js/tailwind-config.js?v=20261014_v7"></script>
 
   <!-- Google Fonts: Outfit, Plus Jakarta Sans, Material Symbols -->
   <link href="https://fonts.googleapis.com" rel="preconnect"/>
@@ -25,8 +26,8 @@
   <script src="https://www.gstatic.com/firebasejs/10.8.0/firebase-auth-compat.js"></script>
   <script src="js/WishMagicCore.js"></script>
   <script src="js/api-client.js"></script>
-  <script src="/js/firebase-auth.js?v=20261014_v6"></script>
-  <script src="/js/auth-service.js?v=20261014_v6"></script>
+  <script src="/js/firebase-auth.js?v=20261014_v7"></script>
+  <script src="/js/auth-service.js?v=20261014_v7"></script>
   <script src="js/repositories.js"></script>
   <script src="js/security-hardening.js"></script>
 
@@ -79,7 +80,7 @@
       border: 1px solid var(--pill-border);
     }
   </style>
-  <link id="wishmagic-cloud-css" rel="stylesheet" href="/css/cloud-background.css?v=20261014_v6"/>
+  <link id="wishmagic-cloud-css" rel="stylesheet" href="/css/cloud-background.css?v=20261014_v7"/>
 </head>
 <body class="w-full min-h-screen antialiased flex flex-col justify-between">
 

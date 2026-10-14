@@ -852,6 +852,9 @@
     },
 
     async open() {
+      if (typeof window.closeAllHeaderDropdowns === 'function') {
+        window.closeAllHeaderDropdowns('wishmagic-notification-popover');
+      }
       this._isOpen = true;
       const popover = document.getElementById('wishmagic-notification-popover');
       const bellBtn = document.getElementById('wishmagic-notification-bell-btn');

@@ -365,7 +365,7 @@
       ]);
     },
 
-    requireAdmin(options = {}) {
+    requireAdmin() {
       if (IS_ADMIN_STUDIO || window.AdminAuthController) {
         return true;
       }
@@ -386,9 +386,6 @@
       return authState === AUTH_STATE.BOOTING;
     },
 
-    /**
-     * Authoritatively check if currently signed-in user is the Master Admin (ankit.babusaini@gmail.com)
-     */
     isAdmin() {
       if (!currentUser || !currentUser.email) return false;
       return isMasterAdminEmail(currentUser.email);
@@ -414,9 +411,6 @@
       return () => {};
     },
 
-    /**
-     * Pure Firebase Google Authentication (ONLY allowed sign-in method)
-     */
     async signInWithGoogle() {
       await ensureFirebaseAuth();
       if (!window.WishFirebaseAuth) {
@@ -431,7 +425,6 @@
             setAuthState(AUTH_STATE.AUTHENTICATED, serverUser);
             showAuthToast(`Welcome, ${serverUser.displayName || serverUser.email}! ✨`);
             if (typeof window.closeAuthModal === 'function') window.closeAuthModal();
-            // If we are on maintenance.html and signed in as Master Admin, reload or go to homepage
             if (window.location.pathname.includes('maintenance') && isMasterAdminEmail(serverUser.email)) {
               window.location.replace('/');
             }
@@ -445,9 +438,6 @@
       }
     },
 
-    /**
-     * Sign out current user from both Firebase & Server Session
-     */
     async signOut() {
       try {
         if (window.WishFirebaseAuth) {
@@ -498,7 +488,7 @@
 
   function renderNeutralAuthPlaceholder(container) {
     container.innerHTML = `
-      <div class="h-9 w-9 rounded-full bg-purple-500/10 border border-purple-500/20 flex items-center justify-center animate-pulse" aria-hidden="true">
+      <div class="h-8 w-8 sm:h-9 sm:w-9 rounded-full bg-purple-500/10 border border-purple-500/20 flex items-center justify-center animate-pulse" aria-hidden="true">
         <span class="inline-block w-2 h-2 rounded-full bg-purple-400/50"></span>
       </div>
     `;
@@ -506,8 +496,8 @@
 
   function renderLoginButton(container) {
     container.innerHTML = `
-      <div class="flex items-center gap-1.5 sm:gap-2">
-        <button type="button" onclick="window.openAuthModal()" class="wm-nav-signin-btn px-3 sm:px-4 py-2 rounded-full text-xs font-extrabold text-white bg-gradient-to-r from-[#ff2a85] via-[#ec4899] to-[#a855f7] hover:brightness-110 shadow-[0_6px_18px_rgba(236,72,153,0.32)] hover:scale-105 active:scale-95 transition-all flex items-center gap-1.5 cursor-pointer whitespace-nowrap">
+      <div class="flex items-center">
+        <button type="button" onclick="window.openAuthModal()" class="wm-nav-signin-btn px-2.5 sm:px-4 py-1.5 sm:py-2 rounded-full text-[11px] sm:text-xs font-extrabold text-white bg-gradient-to-r from-[#ff2a85] via-[#ec4899] to-[#a855f7] hover:brightness-110 shadow-[0_6px_18px_rgba(236,72,153,0.32)] hover:scale-105 active:scale-95 transition-all flex items-center gap-1.5 cursor-pointer whitespace-nowrap" title="Continue with Google">
           <svg class="w-3.5 h-3.5 flex-shrink-0" viewBox="0 0 24 24">
             <path fill="#ffffff" d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z"/>
             <path fill="#ffffff" d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z"/>
@@ -547,12 +537,12 @@
 
       navContainers.forEach(container => {
         container.innerHTML = `
-          <div class="relative inline-block flex-shrink-0" id="account-dropdown-wrapper">
-            <button type="button" onclick="window.toggleAccountMenu(event)" class="w-9 h-9 rounded-full ring-2 ring-[#d6c8f2] dark:ring-purple-500/60 hover:ring-[#ec4899] hover:scale-105 transition-all cursor-pointer active:scale-95 shadow-md overflow-hidden flex items-center justify-center p-0 focus:outline-none" title="${user.displayName || user.email || 'Profile & Settings'}" aria-label="User Profile Menu">
+          <div class="relative inline-flex items-center flex-shrink-0" id="account-dropdown-wrapper">
+            <button type="button" onclick="window.toggleAccountMenu(event)" class="w-8 h-8 sm:w-9 sm:h-9 rounded-full ring-2 ring-[#d6c8f2] dark:ring-purple-500/60 hover:ring-[#ec4899] hover:scale-105 transition-all cursor-pointer active:scale-95 shadow-md overflow-hidden flex items-center justify-center p-0 focus:outline-none" title="${user.displayName || user.email || 'Profile & Settings'}" aria-label="User Profile Menu">
               ${avatarContent}
             </button>
 
-            <div id="account-dropdown-menu" class="hidden absolute right-0 top-full mt-2.5 w-68 max-w-[calc(100vw-24px)] rounded-2xl shadow-[0_24px_60px_rgba(26,15,48,0.35)] p-3 z-[9999999] text-left border-2" style="background-color: ${isDark ? '#1b0f36' : '#ffffff'} !important; background: ${isDark ? '#1b0f36' : '#ffffff'} !important; border-color: ${isDark ? '#7e22ce' : '#d6c8f2'} !important; color: ${isDark ? '#f7f4ff' : '#1a0f30'} !important; opacity: 1 !important;">
+            <div id="account-dropdown-menu" class="hidden absolute right-0 top-full mt-2.5 w-68 max-w-[calc(100vw-20px)] rounded-2xl shadow-[0_24px_60px_rgba(26,15,48,0.35)] p-3 z-[9999999] text-left border-2" style="background-color: ${isDark ? '#1b0f36' : '#ffffff'} !important; background: ${isDark ? '#1b0f36' : '#ffffff'} !important; border-color: ${isDark ? '#7e22ce' : '#d6c8f2'} !important; color: ${isDark ? '#f7f4ff' : '#1a0f30'} !important; opacity: 1 !important;">
               
               <!-- User Profile Header Card -->
               <a href="/account.html" class="block px-3.5 py-3 rounded-xl mb-2 border transition cursor-pointer hover:brightness-105 active:scale-98" style="background-color: ${isDark ? '#26154a' : '#f7f3fe'} !important; border-color: ${isDark ? '#6b21a8' : '#e2d6f8'} !important;">
@@ -639,6 +629,16 @@
       e.preventDefault();
       e.stopPropagation();
     }
+    // Always close the 3-line mobile menu and notification popover so two dropdowns NEVER open together!
+    if (typeof window.closeAllHeaderDropdowns === 'function') {
+      window.closeAllHeaderDropdowns('account-dropdown-menu');
+    } else {
+      const mob = document.getElementById('wm-mobile-nav-drawer');
+      if (mob) mob.classList.add('hidden');
+      const notif = document.getElementById('wishmagic-notification-popover');
+      if (notif) notif.classList.add('hidden');
+    }
+
     const menu = document.getElementById('account-dropdown-menu');
     if (!menu) return;
 
@@ -711,13 +711,11 @@
 
     modal.innerHTML = `
       <div class="wm-modal-card bg-white dark:bg-[#1f123e] rounded-[26px] max-w-md w-full p-6 sm:p-8 shadow-[0_25px_70px_rgba(26,15,48,0.45)] relative border-2 border-[#d6c8f2] dark:border-purple-500/40 text-center overflow-hidden flex flex-col" onclick="event.stopPropagation()">
-        <!-- Close Button -->
         <button type="button" class="absolute top-4 right-4 w-9 h-9 rounded-full bg-[#f4effc] dark:bg-purple-900/70 text-[#4c1d95] dark:text-purple-200 hover:bg-[#e9defa] dark:hover:bg-purple-800 flex items-center justify-center font-extrabold transition cursor-pointer z-10" onclick="closeAuthModal()" aria-label="Close">
           ✕
         </button>
 
         <div class="flex flex-col items-center">
-          <!-- Brand Magic Wand Icon -->
           <div class="w-16 h-16 rounded-2xl bg-gradient-to-br from-[#a855f7] via-[#ec4899] to-[#f59e0b] text-white flex items-center justify-center mx-auto mb-4 shadow-[0_10px_28px_rgba(236,72,153,0.35)]">
             <span class="material-symbols-outlined text-[32px]">auto_fix_high</span>
           </div>
@@ -733,10 +731,8 @@
             ${cleanPrompt}
           </p>
 
-          <!-- Dynamic Notice / Error Box -->
           <div id="auth-modal-error" class="hidden w-full text-xs font-semibold p-3 rounded-2xl border text-center mb-4"></div>
 
-          <!-- ONLY Continue with Google Button (Firebase Auth) -->
           <button type="button" id="auth-google-btn" onclick="handleGoogleSignInClick()" class="w-full py-3.5 px-5 rounded-full bg-gradient-to-r from-[#ff2a85] via-[#ec4899] to-[#a855f7] hover:brightness-105 text-white font-extrabold text-sm tracking-wide shadow-[0_10px_28px_rgba(236,72,153,0.38)] flex items-center justify-center gap-3 transition-all active:scale-[0.98] cursor-pointer">
             <span class="w-7 h-7 rounded-full bg-white flex items-center justify-center flex-shrink-0 shadow-xs">
               <svg class="w-4 h-4" viewBox="0 0 24 24">

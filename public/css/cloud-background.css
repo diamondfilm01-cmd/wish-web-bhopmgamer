@@ -1,10 +1,11 @@
 /* ==========================================================================
-   WishMagic Main Website - Unified Admin Studio Design System & Background Engine
-   - All pages EXCEPT Home Page (index.html) use the exact smooth radial gradient
-     backgrounds from the reference Light Mode & Dark Mode screenshots.
-   - Home Page (index.html, body[data-page="home"]) uses the Fairytale Castle
-     & Cloud Canyon background harmonized with the Admin UI.
-   - 100% Text Visibility & Admin Studio Card/Button styling in Light & Dark Mode.
+   WishMagic Main Website - Unified Admin Studio Design System & Mobile-First Engine
+   - Desktop (>= 768px): 5 Direct Working Nav Options in Header, NO 3-line button.
+   - Mobile (< 768px): Compact Icon Header + 3-line Menu with the 5 Options,
+     Zero Horizontal Overflow across Hero, Templates, Steps, 3D Phone & Modals.
+   - Non-Home Pages: Exact Light & Dark Smooth Radial Aura Gradients.
+   - Home Page (body[data-page="home"]): Fairytale Castle & Cloud Canyon.
+   - 100% Text Visibility in both Light Mode and Dark Mode.
    ========================================================================== */
 
 :root,
@@ -99,14 +100,25 @@ body.dark,
   --wm-input-border: rgba(147, 102, 245, 0.38);
 }
 
+/* Global Viewport & Overflow Protection */
+html,
+body {
+  max-width: 100vw !important;
+  overflow-x: hidden !important;
+  box-sizing: border-box !important;
+}
+
+*,
+*::before,
+*::after {
+  box-sizing: border-box;
+}
+
 /* ==========================================================================
    1. BACKGROUND ENGINE:
       - All Non-Home Pages: Exact Light & Dark Smooth Radial Aura Gradients
-        matching the user's reference photos (Screenshot_20261014_212106_Chrome.jpg
-        for Light Mode & 19925_7635bf.jpg for Dark Mode).
-      - Home Page (body[data-page="home"]): Fairytale Castle & Cloud Canyon.
+      - Home Page (body[data-page="home"]): Fairytale Castle & Cloud Canyon
    ========================================================================== */
-
 html:not(.dark) {
   background-color: #f6f0ff !important;
   color: #1a0f30 !important;
@@ -118,7 +130,6 @@ html.dark,
   color: #f7f4ff !important;
 }
 
-/* Non-Home Pages — Light Mode (Matches Screenshot_20261014_212106_Chrome.jpg) */
 html:not(.dark) body:not([data-page="home"]) {
   background-color: #f6f0ff !important;
   background-image:
@@ -135,7 +146,6 @@ html:not(.dark) body:not([data-page="home"]) {
   font-family: 'Plus Jakarta Sans', -apple-system, BlinkMacSystemFont, sans-serif;
 }
 
-/* Non-Home Pages — Dark Mode (Matches 19925_7635bf.jpg) */
 html.dark body:not([data-page="home"]),
 body.dark:not([data-page="home"]),
 [data-theme="dark"] body:not([data-page="home"]) {
@@ -154,14 +164,12 @@ body.dark:not([data-page="home"]),
   font-family: 'Plus Jakarta Sans', -apple-system, BlinkMacSystemFont, sans-serif;
 }
 
-/* Ensure non-home pages never show the castle/cloud pseudo-elements */
 body:not([data-page="home"])::before,
 body:not([data-page="home"])::after {
   display: none !important;
   content: none !important;
 }
 
-/* Home Page (body[data-page="home"]): Harmonize Cloud & Castle Background with Admin UI */
 html:not(.dark) body[data-page="home"]::before,
 html:not(.dark) body[data-page="home"]::after {
   filter: saturate(1.06) brightness(1.02);
@@ -177,7 +185,7 @@ html.dark body[data-page="home"]::after {
 }
 
 /* ==========================================================================
-   2. UNIFIED ADMIN-STYLE TOP HEADER & SLIDING THEME PILL SWITCH
+   2. HEADER NAVIGATION: DESKTOP (5 Direct Options, No 3-Line) vs MOBILE (3-Line Only)
    ========================================================================== */
 header .glass-nav,
 .wm-site-header-bar {
@@ -187,13 +195,8 @@ header .glass-nav,
   backdrop-filter: blur(18px) !important;
   -webkit-backdrop-filter: blur(18px) !important;
   border-radius: 9999px !important;
-}
-
-@media (max-width: 640px) {
-  header .glass-nav,
-  .wm-site-header-bar {
-    border-radius: 22px !important;
-  }
+  width: 100% !important;
+  max-width: 100% !important;
 }
 
 .wm-brand-magic {
@@ -203,12 +206,35 @@ header .glass-nav,
   background-clip: text;
 }
 
+/* Desktop vs Mobile Header Visibility Rules */
+@media (min-width: 768px) {
+  .wm-desktop-nav {
+    display: flex !important;
+  }
+  .wm-mobile-only-btn,
+  #wm-mobile-menu-btn,
+  .wm-mobile-only-drawer,
+  #wm-mobile-nav-drawer {
+    display: none !important;
+  }
+}
+
+@media (max-width: 767.98px) {
+  .wm-desktop-nav {
+    display: none !important;
+  }
+  .wm-mobile-only-btn,
+  #wm-mobile-menu-btn {
+    display: inline-flex !important;
+  }
+}
+
 /* Admin-Style Navigation Pills */
 .wm-nav-pill {
   display: inline-flex;
   align-items: center;
-  gap: 6px;
-  padding: 7px 14px;
+  gap: 5px;
+  padding: 6px 13px;
   border-radius: 9999px;
   font-size: 13px;
   font-weight: 700;
@@ -218,8 +244,12 @@ header .glass-nav,
   white-space: nowrap;
 }
 
+html.dark .wm-nav-pill:not(.active) {
+  color: #f7f4ff !important;
+}
+
 .wm-nav-pill:hover {
-  background: rgba(168, 85, 247, 0.12) !important;
+  background: rgba(168, 85, 247, 0.14) !important;
   color: #ec4899 !important;
 }
 
@@ -245,8 +275,8 @@ header .glass-nav,
   display: inline-flex;
   align-items: center;
   justify-content: space-between;
-  width: 64px;
-  height: 32px;
+  width: 60px;
+  height: 30px;
   padding: 3px;
   border-radius: 9999px;
   background: #ede5fb !important;
@@ -269,8 +299,8 @@ body.dark .wm-theme-pill-btn {
   position: absolute;
   top: 2px;
   left: 2px;
-  width: 25px;
-  height: 25px;
+  width: 23px;
+  height: 23px;
   border-radius: 9999px;
   background: linear-gradient(135deg, #f59e0b 0%, #ec4899 100%);
   box-shadow: 0 2px 8px rgba(236, 72, 153, 0.35);
@@ -280,7 +310,7 @@ body.dark .wm-theme-pill-btn {
 
 html.dark .wm-theme-pill-btn::after,
 body.dark .wm-theme-pill-btn::after {
-  transform: translateX(31px);
+  transform: translateX(29px);
   background: linear-gradient(135deg, #a855f7 0%, #6366f1 100%);
   box-shadow: 0 2px 10px rgba(168, 85, 247, 0.55);
 }
@@ -289,8 +319,8 @@ body.dark .wm-theme-pill-btn::after {
 .wm-theme-pill-knob {
   position: relative;
   z-index: 2;
-  width: 25px;
-  height: 25px;
+  width: 23px;
+  height: 23px;
   display: inline-flex;
   align-items: center;
   justify-content: center;
@@ -298,23 +328,15 @@ body.dark .wm-theme-pill-btn::after {
   transition: color 0.2s ease;
 }
 
-html:not(.dark) .wm-theme-pill-sun {
-  color: #ffffff !important;
-}
-html:not(.dark) .wm-theme-pill-knob {
-  color: #5b3ea8 !important;
-}
-html.dark .wm-theme-pill-sun {
-  color: #a594c9 !important;
-}
-html.dark .wm-theme-pill-knob {
-  color: #ffffff !important;
-}
+html:not(.dark) .wm-theme-pill-sun { color: #ffffff !important; }
+html:not(.dark) .wm-theme-pill-knob { color: #5b3ea8 !important; }
+html.dark .wm-theme-pill-sun { color: #a594c9 !important; }
+html.dark .wm-theme-pill-knob { color: #ffffff !important; }
 
 /* Header Notification Bell Button */
 #wishmagic-notification-bell-btn {
-  width: 36px !important;
-  height: 36px !important;
+  width: 34px !important;
+  height: 34px !important;
   border-radius: 9999px !important;
   background: var(--wm-card-alt-bg) !important;
   border: 1.5px solid var(--wm-card-border) !important;
@@ -369,18 +391,12 @@ html.dark .wm-theme-pill-knob {
   box-shadow: 0 6px 18px rgba(236, 72, 153, 0.32) !important;
 }
 
-/* Upgrade all Customize / Primary Action Buttons to Admin Studio Pink-Purple Gradient */
 .catalog-template-card a[href*="customize"],
 .template-card a[href*="customize"] {
   background: var(--wm-pill-grad) !important;
   color: #ffffff !important;
   border-radius: 9999px !important;
   box-shadow: 0 6px 18px rgba(236, 72, 153, 0.30) !important;
-}
-
-.catalog-template-card a[href*="customize"]:hover,
-.template-card a[href*="customize"]:hover {
-  filter: brightness(1.08);
 }
 
 /* ==========================================================================
@@ -404,7 +420,6 @@ html:not(.dark) main p:not(.hero-subtext-crisp):not(.wm-phone-kicker):not(.wm-ph
   color: #533f78 !important;
 }
 
-/* Keep Phone Mockup Screen Texts White in Both Light & Dark Modes */
 #preview-screen-bg,
 #preview-screen-bg h4,
 #preview-screen-bg p,
@@ -416,7 +431,6 @@ html:not(.dark) main p:not(.hero-subtext-crisp):not(.wm-phone-kicker):not(.wm-ph
   color: #ffffff !important;
 }
 
-/* Convert dark hardcoded containers on notifications.html, checkout.html, etc. in Light Mode */
 html:not(.dark) main [class*="bg-surface"],
 html:not(.dark) main [class*="bg-[#0e041e]"],
 html:not(.dark) main [class*="bg-[#140628]"],
@@ -434,7 +448,6 @@ html:not(.dark) main [class*="bg-slate-950"] {
   box-shadow: 0 10px 28px rgba(98, 56, 178, 0.07) !important;
 }
 
-/* Bespoke CTA Banner & Gradient Surface Containers in Light Mode */
 html:not(.dark) main [class*="from-surface-container"] {
   background-image: linear-gradient(135deg, #ffffff 0%, #f5eeff 52%, #fdf2f8 100%) !important;
   border: 1.5px solid #d6c8f2 !important;
@@ -442,7 +455,6 @@ html:not(.dark) main [class*="from-surface-container"] {
   box-shadow: 0 16px 40px rgba(98, 56, 178, 0.10) !important;
 }
 
-/* Footer in Light Mode: Fairytale Lavender-White Surface with Crisp Plum Text */
 html:not(.dark) footer {
   background-color: #f7f3fe !important;
   background-image: linear-gradient(180deg, rgba(248, 244, 255, 0.96) 0%, #ffffff 50%, #f3ecfd 100%) !important;
@@ -473,16 +485,6 @@ html:not(.dark) footer div.bg-white\/5 {
   box-shadow: 0 6px 18px rgba(98, 56, 178, 0.06) !important;
 }
 
-/* Override light-only text utilities outside Hero and Phone preview in Light Mode */
-html:not(.dark) main :not(#hero-desktop-section):not(#preview-screen-bg):not(.wm-phone-screen) > .text-white:not(button):not(a):not(.badge):not([class*="bg-"]),
-html:not(.dark) main :not(#hero-desktop-section):not(#preview-screen-bg):not(.wm-phone-screen) .text-slate-100,
-html:not(.dark) main :not(#hero-desktop-section):not(#preview-screen-bg):not(.wm-phone-screen) .text-slate-200,
-html:not(.dark) main :not(#hero-desktop-section):not(#preview-screen-bg):not(.wm-phone-screen) .text-slate-300,
-html:not(.dark) main :not(#hero-desktop-section):not(#preview-screen-bg):not(.wm-phone-screen) .text-slate-400 {
-  color: #4a3570 !important;
-}
-
-/* Inputs, Selects & Textareas in Light Mode */
 html:not(.dark) input:not([type="checkbox"]):not([type="radio"]):not([type="range"]):not([type="color"]):not(#template-search-input):not(#modal-public-url-input),
 html:not(.dark) select:not(#catalog-sort),
 html:not(.dark) textarea {
@@ -513,22 +515,37 @@ html.dark .text-on-surface,
 html.dark main h1,
 html.dark main h2,
 html.dark main h3,
-html.dark main h4 {
+html.dark main h4,
+html.dark main h5,
+html.dark main h6,
+html.dark .wm-section-title,
+html.dark .wm-step-title,
+html.dark .wm-exp-title,
+html.dark .wm-feature-title {
   color: #f7f4ff !important;
 }
 
 html.dark .text-on-surface-variant,
 html.dark .text-outline,
-html.dark main p:not(.wm-phone-kicker) {
+html.dark main p:not(.wm-phone-kicker),
+html.dark .wm-section-subtitle,
+html.dark .wm-step-desc,
+html.dark .wm-exp-lead,
+html.dark .wm-feature-sub {
   color: #cfc2eb !important;
 }
 
-/* Bespoke CTA Banner & Gradient Surface Containers in Dark Mode */
 html.dark main [class*="from-surface-container"] {
   background-image: linear-gradient(135deg, #25134d 0%, #1a0c38 55%, #2b0f42 100%) !important;
   border: 1.5px solid rgba(168, 85, 247, 0.38) !important;
   color: #f7f4ff !important;
   box-shadow: 0 20px 50px rgba(0, 0, 0, 0.60) !important;
+}
+
+html.dark main [class*="bg-surface-container"] {
+  background-color: #1f123e !important;
+  border-color: rgba(147, 102, 245, 0.36) !important;
+  color: #f7f4ff !important;
 }
 
 html.dark main [class*="bg-white"]:not(.rounded-full):not(iframe):not(.w-7) {
@@ -537,31 +554,59 @@ html.dark main [class*="bg-white"]:not(.rounded-full):not(iframe):not(.w-7) {
   color: #f7f4ff !important;
 }
 
-html.dark main .text-\[\#24113F\],
-html.dark main .text-\[\#1c0836\],
-html.dark main .text-\[\#1a0f30\],
-html.dark main .text-purple-950,
-html.dark main .text-purple-900,
-html.dark main .text-gray-800,
-html.dark main .text-gray-900,
-html.dark main .text-slate-800,
-html.dark main .text-slate-900,
-html.dark [id*="modal"] .text-\[\#24113F\],
-html.dark [id*="modal"] .text-purple-950,
-html.dark [id*="modal"] .text-gray-700,
-html.dark [id*="modal"] .text-gray-800 {
+/* Force all dark text utilities to be bright and legible in Dark Mode */
+html.dark main [class*="text-[#1"],
+html.dark main [class*="text-[#2"],
+html.dark main [class*="text-[#3"],
+html.dark main [class*="text-purple-9"],
+html.dark main [class*="text-purple-8"],
+html.dark main [class*="text-purple-7"],
+html.dark main [class*="text-gray-9"],
+html.dark main [class*="text-gray-8"],
+html.dark main [class*="text-gray-7"],
+html.dark main [class*="text-gray-6"],
+html.dark main [class*="text-gray-5"],
+html.dark main [class*="text-slate-9"],
+html.dark main [class*="text-slate-8"],
+html.dark main [class*="text-slate-7"],
+html.dark main [class*="text-slate-6"],
+html.dark [id*="modal"] [class*="text-[#1"],
+html.dark [id*="modal"] [class*="text-[#2"],
+html.dark [id*="modal"] [class*="text-purple-9"],
+html.dark [id*="modal"] [class*="text-purple-8"],
+html.dark [id*="modal"] [class*="text-purple-7"],
+html.dark [id*="modal"] [class*="text-gray-"],
+html.dark [id*="modal"] label {
   color: #f7f4ff !important;
 }
 
-html.dark main .text-purple-800,
-html.dark main .text-purple-800\/80,
-html.dark main .text-purple-700,
-html.dark main .text-purple-700\/80,
-html.dark main .text-gray-600,
-html.dark main .text-gray-500,
-html.dark [id*="modal"] .text-purple-700\/80,
-html.dark [id*="modal"] .text-purple-800\/80,
-html.dark [id*="modal"] label {
+/* Keep text on bright yellow/amber badges dark even in Dark Mode */
+html.dark [class*="bg-[#fbc531]"],
+html.dark [class*="bg-[#fbc531]"] span,
+html.dark [class*="bg-amber-400"],
+html.dark [class*="bg-amber-400"] span {
+  color: #1a0f30 !important;
+}
+
+html.dark footer {
+  background-color: #120626 !important;
+  background-image: linear-gradient(180deg, #180933 0%, #110524 60%, #0b0318 100%) !important;
+  border-top: 1.5px solid rgba(147, 102, 245, 0.30) !important;
+  color: #f7f4ff !important;
+}
+
+html.dark footer h3,
+html.dark footer h4,
+html.dark footer p.font-bold,
+html.dark footer #footer-brand-name,
+html.dark footer #copyright-brand-name {
+  color: #ffffff !important;
+  -webkit-text-fill-color: #ffffff !important;
+}
+
+html.dark footer p:not(.font-bold),
+html.dark footer li,
+html.dark footer a:not(.bg-gradient-to-r) {
   color: #cfc2eb !important;
 }
 
@@ -582,6 +627,249 @@ html.dark #catalog-sort {
 html.dark input::placeholder,
 html.dark textarea::placeholder {
   color: #9a89be !important;
+}
+
+/* ==========================================================================
+   6. MOBILE VIEW RESPONSIVE PERFECTION (< 768px) — ZERO OVERFLOW ANYWHERE
+   ========================================================================== */
+@media (max-width: 1023.98px) {
+  #templates-grid,
+  #templates-grid-container,
+  #wizard-templates-grid {
+    display: grid !important;
+    grid-template-columns: repeat(2, minmax(0, 1fr)) !important;
+    gap: 1rem !important;
+  }
+}
+
+@media (max-width: 639.98px) {
+  /* 1. Compact Mobile Header */
+  header[data-purpose="site-navigation"] {
+    padding-left: 8px !important;
+    padding-right: 8px !important;
+    top: 6px !important;
+  }
+
+  .wm-site-header-bar {
+    padding: 6px 10px !important;
+    border-radius: 9999px !important;
+    gap: 4px !important;
+  }
+
+  /* Compact Theme Pill Switch on Mobile */
+  .wm-theme-pill-btn {
+    width: 48px !important;
+    height: 26px !important;
+    padding: 2px !important;
+  }
+  .wm-theme-pill-btn::after {
+    width: 20px !important;
+    height: 20px !important;
+    top: 1.5px !important;
+    left: 2px !important;
+  }
+  html.dark .wm-theme-pill-btn::after,
+  body.dark .wm-theme-pill-btn::after {
+    transform: translateX(22px) !important;
+  }
+  .wm-theme-pill-sun,
+  .wm-theme-pill-knob {
+    width: 20px !important;
+    height: 20px !important;
+  }
+
+  #wishmagic-notification-bell-btn,
+  #wm-mobile-menu-btn,
+  .wm-header-create-btn,
+  #account-dropdown-wrapper > button {
+    width: 32px !important;
+    height: 32px !important;
+    min-width: 32px !important;
+  }
+
+  /* Compact Sign In button on mobile */
+  .wm-nav-signin-btn {
+    padding: 6px 10px !important;
+    font-size: 11px !important;
+    height: 32px !important;
+  }
+
+  /* Position Profile Dropdown, Notification Popover & 3-Line Menu cleanly inside Mobile Viewport */
+  #account-dropdown-menu,
+  #wishmagic-notification-popover,
+  #wm-mobile-nav-drawer {
+    position: fixed !important;
+    top: 58px !important;
+    left: 10px !important;
+    right: 10px !important;
+    width: auto !important;
+    max-width: calc(100vw - 20px) !important;
+    margin-top: 0 !important;
+  }
+
+  /* 2. Mobile Hero Section on Home Page */
+  main {
+    padding-left: 10px !important;
+    padding-right: 10px !important;
+    max-width: 100vw !important;
+    overflow-x: hidden !important;
+  }
+
+  #hero-desktop-section {
+    padding: 18px 14px !important;
+    border-radius: 20px !important;
+    margin-left: 0 !important;
+    margin-right: 0 !important;
+    max-width: 100% !important;
+    overflow: hidden !important;
+  }
+
+  #hero-content-grid {
+    padding: 4px 0 !important;
+    gap: 10px !important;
+  }
+
+  #hero-headline {
+    font-size: 1.55rem !important;
+    line-height: 1.18 !important;
+    letter-spacing: -0.02em !important;
+    word-break: break-word !important;
+  }
+
+  #hero-subheadline {
+    font-size: 0.80rem !important;
+    line-height: 1.45 !important;
+  }
+
+  #hero-content-grid > div.flex.flex-wrap.items-center.gap-3\.5 {
+    display: grid !important;
+    grid-template-columns: 1fr 1fr !important;
+    gap: 8px !important;
+    width: 100% !important;
+  }
+
+  #hero-content-grid > div.flex.flex-wrap.items-center.gap-3\.5 > a,
+  #hero-content-grid > div.flex.flex-wrap.items-center.gap-3\.5 > button {
+    padding: 10px 8px !important;
+    font-size: 12px !important;
+    justify-content: center !important;
+    width: 100% !important;
+    white-space: nowrap !important;
+  }
+
+  #hero-content-grid > div:last-child {
+    display: grid !important;
+    grid-template-columns: 1fr 1fr !important;
+    gap: 6px 8px !important;
+    font-size: 11px !important;
+    padding-top: 10px !important;
+  }
+
+  /* 3. Templates Grid on Mobile: 1 Clean Full-Width Column */
+  #templates-section {
+    padding-left: 4px !important;
+    padding-right: 4px !important;
+    padding-top: 20px !important;
+    padding-bottom: 20px !important;
+    max-width: 100% !important;
+    overflow-x: hidden !important;
+  }
+
+  #templates-grid,
+  #templates-grid-container,
+  #wizard-templates-grid {
+    display: grid !important;
+    grid-template-columns: 1fr !important;
+    gap: 14px !important;
+    width: 100% !important;
+  }
+
+  [data-purpose="category-tabs"] {
+    margin-left: 0 !important;
+    margin-right: 0 !important;
+    padding-left: 2px !important;
+    padding-right: 2px !important;
+    max-width: 100% !important;
+  }
+
+  /* 4. How WishMagic Works & 3D Phone Stage on Mobile (Zero Overflow) */
+  .wm-showcase-wrapper {
+    padding: 8px 2px 24px !important;
+    max-width: 100% !important;
+    overflow-x: hidden !important;
+  }
+
+  .wm-glass-shell {
+    padding: 16px 12px !important;
+    border-radius: 22px !important;
+    max-width: 100% !important;
+    overflow: hidden !important;
+  }
+
+  .wm-steps-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr)) !important;
+    gap: 8px !important;
+    width: 100% !important;
+  }
+
+  .wm-step-card {
+    padding: 11px 9px !important;
+    border-radius: 16px !important;
+    min-width: 0 !important;
+    overflow: hidden !important;
+  }
+
+  .wm-step-title {
+    font-size: 0.84rem !important;
+    white-space: normal !important;
+    word-break: break-word !important;
+  }
+
+  .wm-step-desc {
+    font-size: 0.72rem !important;
+    line-height: 1.38 !important;
+  }
+
+  .wm-feature-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr)) !important;
+    gap: 8px !important;
+    width: 100% !important;
+  }
+
+  .wm-feature-card {
+    padding: 9px 8px !important;
+    border-radius: 14px !important;
+    min-width: 0 !important;
+    overflow: hidden !important;
+  }
+
+  .wm-feature-title {
+    font-size: 0.76rem !important;
+    white-space: normal !important;
+    word-break: break-word !important;
+  }
+
+  .wm-phone-stage {
+    width: 100% !important;
+    max-width: 264px !important;
+    height: 375px !important;
+    margin: 4px auto !important;
+  }
+
+  .wm-phone-3d-tilt {
+    width: 186px !important;
+    height: 348px !important;
+    margin: 0 auto !important;
+  }
+
+  .wm-float-music { top: 12px !important; left: 2px !important; width: 42px !important; height: 42px !important; }
+  .wm-float-photo-left { top: 82px !important; left: 0px !important; width: 54px !important; height: 68px !important; }
+  .wm-float-heart-badge { top: 68px !important; right: 2px !important; width: 44px !important; height: 44px !important; }
+  .wm-float-photo-right { top: 175px !important; right: 0px !important; width: 54px !important; height: 68px !important; }
+  .wm-float-play-badge { bottom: 18px !important; right: 4px !important; width: 44px !important; height: 44px !important; }
+  .wm-mini-heart-1 { top: 160px !important; left: 4px !important; width: 22px !important; height: 22px !important; }
+  .wm-mini-heart-2 { top: 225px !important; left: 8px !important; width: 20px !important; height: 20px !important; }
+  .wm-mini-heart-3 { bottom: 88px !important; right: 8px !important; width: 20px !important; height: 20px !important; }
 }
 
 /* Modals & Dropdowns Z-Index */

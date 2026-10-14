@@ -18,20 +18,19 @@ const sharedTailwindConfig = {
           pink: '#ec4899', hotpink: '#ff1493', glow: '#ff0080',
           gold: '#F4C542', amber: '#f59e0b', emerald: '#16A34A'
         },
-        // Adaptive Theme Tokens (Defaults to Fairytale Light Mode matching 19728.png)
-        background: 'rgb(var(--c-background, 243 239 250) / <alpha-value>)',
+        background: 'rgb(var(--c-background, 246 240 255) / <alpha-value>)',
         surface: 'rgb(var(--c-surface, 255 255 255) / <alpha-value>)',
-        'surface-variant': 'rgb(var(--c-surface-variant, 243 239 251) / <alpha-value>)',
+        'surface-variant': 'rgb(var(--c-surface-variant, 245 240 253) / <alpha-value>)',
         'surface-bright': 'rgb(var(--c-surface-bright, 255 255 255) / <alpha-value>)',
         'surface-container-lowest': 'rgb(var(--c-surface-container-lowest, 255 255 255) / <alpha-value>)',
-        'surface-container-low': 'rgb(var(--c-surface-container-low, 250 248 255) / <alpha-value>)',
+        'surface-container-low': 'rgb(var(--c-surface-container-low, 250 247 255) / <alpha-value>)',
         'surface-container': 'rgb(var(--c-surface-container, 255 255 255) / <alpha-value>)',
-        'surface-container-high': 'rgb(var(--c-surface-container-high, 243 238 252) / <alpha-value>)',
-        'surface-container-highest': 'rgb(var(--c-surface-container-highest, 233 225 248) / <alpha-value>)',
+        'surface-container-high': 'rgb(var(--c-surface-container-high, 243 237 253) / <alpha-value>)',
+        'surface-container-highest': 'rgb(var(--c-surface-container-highest, 233 224 250) / <alpha-value>)',
         'on-surface': 'rgb(var(--c-on-surface, 26 15 48) / <alpha-value>)',
         'on-surface-variant': 'rgb(var(--c-on-surface-variant, 83 63 120) / <alpha-value>)',
-        outline: 'rgb(var(--c-outline, 115 96 153) / <alpha-value>)',
-        'outline-variant': 'rgb(var(--c-outline-variant, 222 212 242) / <alpha-value>)',
+        outline: 'rgb(var(--c-outline, 110 93 143) / <alpha-value>)',
+        'outline-variant': 'rgb(var(--c-outline-variant, 214 200 242) / <alpha-value>)',
         primary: '#7c3aed',
         'primary-fixed': '#c084fc',
         'primary-container': '#7c3aed',
@@ -93,6 +92,12 @@ const sharedTailwindConfig = {
   }
 };
 
+// Ensure tailwind.config is always set whether tailwind-config.js loads before or after cdn.tailwindcss.com
+if (typeof window !== 'undefined') {
+  window.sharedTailwindConfig = sharedTailwindConfig;
+  window.tailwind = window.tailwind || {};
+  window.tailwind.config = sharedTailwindConfig;
+}
 if (typeof tailwind !== 'undefined') {
   tailwind.config = sharedTailwindConfig;
 }
