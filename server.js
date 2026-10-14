@@ -464,11 +464,8 @@ function savePolicyAcceptancesList(list) {
 
 function getUserCookieConsentsList() {
   try {
-    const targetFile = fs.existsSync(USER_COOKIE_CONSENTS_FILE)
-      ? USER_COOKIE_CONSENTS_FILE
-      : (fs.existsSync(path.join(DATA_DIR, 'user_cookies.json')) ? path.join(DATA_DIR, 'user_cookies.json') : null);
-    if (targetFile) {
-      const data = fs.readFileSync(targetFile, 'utf8');
+    if (fs.existsSync(USER_COOKIE_CONSENTS_FILE)) {
+      const data = fs.readFileSync(USER_COOKIE_CONSENTS_FILE, 'utf8');
       const parsed = JSON.parse(data || '[]');
       if (Array.isArray(parsed)) return parsed;
     }
@@ -478,9 +475,7 @@ function getUserCookieConsentsList() {
 
 function saveUserCookieConsentsList(list) {
   try {
-    const jsonStr = JSON.stringify(list.slice(-5000), null, 2);
-    fs.writeFileSync(USER_COOKIE_CONSENTS_FILE, jsonStr, 'utf8');
-    fs.writeFileSync(path.join(DATA_DIR, 'user_cookies.json'), jsonStr, 'utf8');
+    fs.writeFileSync(USER_COOKIE_CONSENTS_FILE, JSON.stringify(list.slice(-5000), null, 2), 'utf8');
   } catch (e) {}
 }
 
@@ -1824,7 +1819,6 @@ function parseCookies(cookieStr) {
 
 app.use((req, res, next) => {
   const cookies = parseCookies(req.headers.cookie);
-  req.cookies = cookies;
   const queryAuth = req.query && (req.query.auth || req.query.token);
   const token = queryAuth || cookies.wm_session || cookies.wishmagic_admin_token || cookies.admin_token || (req.headers.authorization || '').replace(/^Bearer\s+/i, '');
   req.user = null;
