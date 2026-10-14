@@ -11,16 +11,16 @@
   <link crossorigin="" href="https://fonts.gstatic.com" rel="preconnect"/>
   <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;600;700&family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet"/>
   <link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:opsz,wght,FILL,GRAD@20..48,100..700,0..1,-50..200&display=swap" rel="stylesheet"/>
-  <script src="js/tailwind-config.js?v=20261014_v2"></script>
+  <script src="js/tailwind-config.js?v=20261014_v3"></script>
   <script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
   <script>
     if (typeof tailwind !== 'undefined' && typeof sharedTailwindConfig !== 'undefined') {
       tailwind.config = sharedTailwindConfig;
     }
   </script>
-  <link rel="stylesheet" href="css/admin-theme.css?v=20261014_v2"/>
+  <link rel="stylesheet" href="css/admin-theme.css?v=20261014_v3"/>
   <script src="js/WishMagicCore.js"></script>
-  <script src="js/admin-theme.js?v=20261014_v2"></script>
+  <script src="js/admin-theme.js?v=20261014_v3"></script>
   <script src="js/wish-lifecycle.js"></script>
   <script src="js/auth-service.js"></script>
   <script src="js/repositories.js"></script>
@@ -70,9 +70,9 @@
     <!-- Navigation Menu -->
     <div class="px-3.5 flex-1 overflow-y-auto custom-scrollbar pb-6">
       <nav class="flex flex-col gap-0.5">
-        <!-- Top Primary Dashboard Pill -->
-        <div class="mb-2 pt-1">
-          <a class="wm-dashboard-pill" data-nav-role="dashboard" href="/admin/anktech/anktech/admin/overview">
+        <!-- Top Primary Dashboard Link -->
+        <div class="mb-1 pt-1">
+          <a data-nav-role="dashboard" href="/admin/anktech/anktech/admin/overview">
             <span class="material-symbols-outlined text-[20px]" style="font-variation-settings: 'FILL' 1;">home</span>
             <span>Dashboard</span>
           </a>
@@ -84,8 +84,8 @@
           <span class="material-symbols-outlined">grid_view</span>
           <span>All Templates</span>
         </a>
-        <a href="/admin/anktech/anktech/admin/templates?action=add">
-          <span class="material-symbols-outlined">add</span>
+        <a href="/admin/anktech/anktech/admin/add-template">
+          <span class="material-symbols-outlined">add_circle</span>
           <span>Add Template</span>
         </a>
         <a href="/admin/anktech/anktech/admin/occasions">
@@ -122,7 +122,7 @@
           <span class="material-symbols-outlined">group</span>
           <span>All Users</span>
         </a>
-        <a href="/admin/anktech/anktech/admin/pricing">
+        <a class="wm-nav-active" href="/admin/anktech/anktech/admin/pricing">
           <span class="material-symbols-outlined">workspace_premium</span>
           <span>Subscriptions</span>
         </a>
@@ -200,23 +200,25 @@
 
 <!-- Main Viewport Wrapper -->
 <div class="w-full md:pl-[270px] min-h-screen flex flex-col">
-  <!-- Universal Top Cloud Header (Pixel-Matched to 19728.png) -->
+<!-- Universal Top Cloud Header (Pixel-Matched to 19728.png) -->
   <header class="wm-top-header fixed top-0 left-0 md:left-[270px] right-0 h-[68px] z-30">
-    <div class="w-full h-full px-4 md:px-6 flex items-center justify-between gap-3">
+    <div class="w-full h-full px-3 sm:px-6 flex items-center justify-between gap-2.5 sm:gap-4">
       <!-- Left: Hamburger + Search Pill with Ctrl K -->
-      <div class="flex items-center gap-2.5 flex-1 max-w-lg">
-        <button class="md:hidden p-2 rounded-xl bg-white/80 hover:bg-white text-[#2b194d] shadow-sm flex items-center justify-center flex-shrink-0" onclick="toggleSidebar()" aria-label="Open Sidebar">
+      <div class="flex items-center gap-2 sm:gap-2.5 flex-1 max-w-lg min-w-0">
+        <button class="md:hidden p-2 rounded-xl bg-white/85 dark:bg-[#24144a] hover:bg-white text-[#2b194d] dark:text-white shadow-sm flex items-center justify-center flex-shrink-0" onclick="toggleSidebar()" aria-label="Open Sidebar">
           <span class="material-symbols-outlined text-[22px]">menu</span>
         </button>
         <div class="wm-header-search-wrap">
-          <span class="material-symbols-outlined absolute left-3.5 text-[#6b5a88] text-[18px] pointer-events-none">search</span>
+          <span class="material-symbols-outlined absolute left-3.5 text-[#6b5a88] dark:text-purple-300 text-[18px] pointer-events-none">search</span>
           <input class="wm-header-search-input" placeholder="Search pricing tiers, coupons, gateways..." type="text"/>
           <span class="wm-ctrl-k-badge hidden sm:inline-block">Ctrl K</span>
+          <!-- Search Dropdown Results Container -->
+          <div id="global-search-results" class="hidden absolute top-12 left-0 right-0 bg-white dark:bg-[#1c103b] rounded-2xl border border-purple-200 dark:border-purple-500/30 shadow-2xl p-3 z-50 max-h-96 overflow-y-auto custom-scrollbar"></div>
         </div>
       </div>
 
-      <!-- Right: Sun/Moon Pill Switcher + Bell with Badge '3' + Admin Profile Card -->
-      <div class="flex items-center gap-2.5 md:gap-4 flex-shrink-0">
+      <!-- Right: Sun/Moon Pill Switcher + Live Bell + Admin Profile Card -->
+      <div class="flex items-center gap-2 sm:gap-3.5 flex-shrink-0">
         <!-- Sun / Moon Pill Toggle -->
         <button type="button" onclick="toggleAdminTheme()" class="wm-theme-pill-btn" title="Toggle Light / Dark Mode">
           <span class="wm-theme-pill-sun" id="wm-theme-sun-pill">
@@ -227,70 +229,51 @@
           </span>
         </button>
 
-        <!-- Notification Bell with Red Badge '3' -->
+        <!-- Live Notification Bell (Populated Dynamically from Real Backend APIs) -->
         <div class="relative">
-          <button type="button" onclick="toggleAdminNotifMenu(event)" class="relative w-10 h-10 rounded-full bg-white/85 dark:bg-[#1c103b] border border-purple-200/80 dark:border-purple-500/30 flex items-center justify-center text-[#2b194d] dark:text-purple-200 shadow-sm hover:bg-white transition cursor-pointer" title="Notifications">
-            <span class="material-symbols-outlined text-[21px]">notifications</span>
-            <span id="wm-header-notif-badge" class="absolute -top-0.5 -right-0.5 min-w-[18px] h-[18px] px-1 rounded-full bg-rose-500 text-white text-[10px] font-extrabold flex items-center justify-center shadow">3</span>
+          <button type="button" onclick="toggleAdminNotifMenu(event)" class="relative w-9 h-9 sm:w-10 sm:h-10 rounded-full bg-white/90 dark:bg-[#211342] border border-purple-200/80 dark:border-purple-500/35 flex items-center justify-center text-[#2b194d] dark:text-purple-200 shadow-sm hover:bg-white transition cursor-pointer" title="Live Notifications">
+            <span class="material-symbols-outlined text-[20px]">notifications</span>
+            <span id="wm-header-notif-badge" class="hidden absolute -top-0.5 -right-0.5 min-w-[18px] h-[18px] px-1 rounded-full bg-rose-500 text-white text-[10px] font-extrabold flex items-center justify-center shadow">0</span>
           </button>
 
-          <!-- Notifications Popover -->
+          <!-- Notifications Popover (Populated by loadLiveAdminHeaderNotifications in admin-theme.js) -->
           <div id="wm-admin-notif-dropdown" class="hidden absolute right-0 mt-2 w-80 bg-white dark:bg-[#1a0e36] rounded-2xl border border-purple-200 dark:border-purple-500/30 shadow-2xl p-3.5 z-50 text-xs" onclick="event.stopPropagation()">
-            <div class="flex items-center justify-between pb-2.5 mb-2 border-b border-purple-100 dark:border-purple-800/40">
-              <span class="font-bold text-sm text-[#1a0f30] dark:text-white">Admin Notifications</span>
-              <a href="/admin/anktech/anktech/admin/notifications" class="text-[11px] font-bold text-purple-600 hover:underline">View Queue →</a>
-            </div>
-            <div class="space-y-2">
-              <a href="/admin/anktech/anktech/admin/wishes" class="flex items-start gap-2.5 p-2 rounded-xl hover:bg-purple-50 dark:hover:bg-purple-900/30 transition">
-                <span class="w-7 h-7 rounded-full bg-pink-100 text-pink-600 flex items-center justify-center shrink-0 mt-0.5"><span class="material-symbols-outlined text-[15px]">send</span></span>
-                <div>
-                  <div class="font-bold text-[#1a0f30] dark:text-white">New wish created for Kritika ❤️</div>
-                  <div class="text-[11px] text-slate-500">Birthday Magic • 2 min ago</div>
-                </div>
-              </a>
-              <a href="/admin/anktech/anktech/admin/orders" class="flex items-start gap-2.5 p-2 rounded-xl hover:bg-purple-50 dark:hover:bg-purple-900/30 transition">
-                <span class="w-7 h-7 rounded-full bg-emerald-100 text-emerald-600 flex items-center justify-center shrink-0 mt-0.5"><span class="material-symbols-outlined text-[15px]">payments</span></span>
-                <div>
-                  <div class="font-bold text-[#1a0f30] dark:text-white">VIP Pass Payment Received (₹49)</div>
-                  <div class="text-[11px] text-slate-500">Per Wish Pass • 2 hours ago</div>
-                </div>
-              </a>
-            </div>
+            <div class="py-4 text-center text-xs text-on-surface-variant">Loading live notifications...</div>
           </div>
         </div>
 
-        <!-- Admin Profile Pill (Admin / ankit.babusaini@gmail.com) -->
+        <!-- Admin Profile Pill -->
         <div class="relative">
           <div onclick="toggleAdminProfileMenu(event)" class="wm-admin-profile-pill">
-            <div class="w-9 h-9 rounded-full bg-gradient-to-br from-[#4c1d95] to-[#6d28d9] flex items-center justify-center text-white shadow-sm flex-shrink-0">
-              <span class="material-symbols-outlined text-[20px]">person</span>
+            <div class="w-8 h-8 sm:w-9 sm:h-9 rounded-full bg-gradient-to-br from-[#4c1d95] to-[#6d28d9] flex items-center justify-center text-white shadow-sm flex-shrink-0">
+              <span class="material-symbols-outlined text-[19px]">person</span>
             </div>
             <div class="hidden sm:flex flex-col text-left leading-tight">
-              <span class="text-[13.5px] font-extrabold text-[#1a0f30] dark:text-white">Admin</span>
-              <span id="wm-admin-header-email" class="text-[11px] font-medium text-[#5e4f7d] dark:text-purple-300">ankit.babusaini@gmail.com</span>
+              <span class="text-[13.5px] font-extrabold text-on-surface">Admin</span>
+              <span id="wm-admin-header-email" class="text-[11px] font-medium text-on-surface-variant">ankit.babusaini@gmail.com</span>
             </div>
-            <span class="material-symbols-outlined text-[18px] text-[#5e4f7d] dark:text-purple-300 ml-0.5">expand_more</span>
+            <span class="material-symbols-outlined text-[18px] text-on-surface-variant ml-0.5">expand_more</span>
           </div>
 
           <!-- Profile Dropdown Menu -->
           <div id="wm-admin-profile-dropdown" class="hidden absolute right-0 mt-2 w-60 bg-white dark:bg-[#1a0e36] rounded-2xl border border-purple-200 dark:border-purple-500/30 shadow-2xl p-2 z-50 text-xs" onclick="event.stopPropagation()">
             <div class="px-3 py-2 border-b border-purple-100 dark:border-purple-800/40 mb-1">
-              <div class="font-bold text-sm text-[#1a0f30] dark:text-white">Admin Studio</div>
-              <div class="text-[11px] text-slate-500 truncate">ankit.babusaini@gmail.com</div>
+              <div class="font-bold text-sm text-on-surface">Admin Studio</div>
+              <div class="text-[11px] text-on-surface-variant truncate">ankit.babusaini@gmail.com</div>
             </div>
-            <a href="/admin/anktech/anktech/admin/settings" class="flex items-center gap-2.5 px-3 py-2 rounded-xl hover:bg-purple-50 dark:hover:bg-purple-900/30 text-[#1a0f30] dark:text-white font-semibold transition">
+            <a href="/admin/anktech/anktech/admin/settings" class="flex items-center gap-2.5 px-3 py-2 rounded-xl hover:bg-purple-50 dark:hover:bg-purple-900/30 text-on-surface font-semibold transition">
               <span class="material-symbols-outlined text-[17px] text-purple-600">settings</span>
               <span>Main Website &amp; Site Settings</span>
             </a>
-            <a href="/admin/anktech/anktech/admin/templates?action=add" class="flex items-center gap-2.5 px-3 py-2 rounded-xl hover:bg-purple-50 dark:hover:bg-purple-900/30 text-[#1a0f30] dark:text-white font-semibold transition">
+            <a href="/admin/anktech/anktech/admin/add-template" class="flex items-center gap-2.5 px-3 py-2 rounded-xl hover:bg-purple-50 dark:hover:bg-purple-900/30 text-on-surface font-semibold transition">
               <span class="material-symbols-outlined text-[17px] text-pink-500">add_circle</span>
               <span>Upload &amp; Set New Template</span>
             </a>
-            <a href="/admin/anktech/anktech/admin/media" class="flex items-center gap-2.5 px-3 py-2 rounded-xl hover:bg-purple-50 dark:hover:bg-purple-900/30 text-[#1a0f30] dark:text-white font-semibold transition">
+            <a href="/admin/anktech/anktech/admin/media" class="flex items-center gap-2.5 px-3 py-2 rounded-xl hover:bg-purple-50 dark:hover:bg-purple-900/30 text-on-surface font-semibold transition">
               <span class="material-symbols-outlined text-[17px] text-indigo-500">perm_media</span>
               <span>Hero Photo &amp; Media Vault</span>
             </a>
-            <a href="/" target="_blank" class="flex items-center gap-2.5 px-3 py-2 rounded-xl hover:bg-purple-50 dark:hover:bg-purple-900/30 text-[#1a0f30] dark:text-white font-semibold transition">
+            <a href="/" target="_blank" class="flex items-center gap-2.5 px-3 py-2 rounded-xl hover:bg-purple-50 dark:hover:bg-purple-900/30 text-on-surface font-semibold transition">
               <span class="material-symbols-outlined text-[17px] text-emerald-600">open_in_new</span>
               <span>View Live Website</span>
             </a>
@@ -306,7 +289,7 @@
   </header>
 
   <!-- Main Workspace Content -->
-  <main id="admin-main-content" class="w-full pt-[80px] px-4 sm:px-6 pb-12 max-w-[1360px] mx-auto flex flex-col gap-5">
+  <main id="admin-main-content" class="w-full pt-[80px] px-4 sm:px-6 pb-12 max-w-[1560px] mx-auto flex flex-col gap-5">
 
     <section class="wm-hero-banner">
       <div class="relative z-10 flex flex-col items-start max-w-2xl">
@@ -416,7 +399,7 @@
           </div>
           <div>
             <div class="text-[12.5px] font-semibold text-[#5e4f7d] dark:text-purple-300">Active Coupons</div>
-            <div class="text-[24px] font-extrabold text-[#1a0f30] dark:text-white leading-tight mt-0.5">3 Live</div>
+            <div class="text-[24px] font-extrabold text-on-surface leading-tight mt-0.5" id="stat-active-coupons">Live</div>
             <div class="text-[11px] font-bold text-emerald-600 mt-1">↑ Instant checkout</div>
           </div>
         </div>

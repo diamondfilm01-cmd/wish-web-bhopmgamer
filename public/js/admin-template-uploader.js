@@ -464,8 +464,11 @@ async function deployUploadedTemplate() {
 
     const data = await res.json();
     if (data.success) {
-      // Close modal
-      toggleModal('upload-code-modal');
+      // Only hide if not on dedicated inline Add Template page
+      const upEl = document.getElementById('upload-code-modal');
+      if (upEl && upEl.dataset.inlinePage !== 'true' && typeof toggleModal === 'function') {
+        toggleModal('upload-code-modal');
+      }
       // Show success notification
       if (data.versionId) {
         if (data.duplicateDetected) {
@@ -522,6 +525,7 @@ window.filterTemplatesByTier = function(tier) {
   activeAdminFilter = tier;
   updateFilterButtonsUI();
   applyFiltersAndRender();
+    if (typeof renderQuickSetTemplatesList === 'function') renderQuickSetTemplatesList(templates);
 };
 
 window.filterTemplatesByOccasion = function(occ) {
@@ -2710,3 +2714,61 @@ async function runVersionComparison() {
   }
 }
 
+
+
+// Render Live Storefront Quick-Set Templates List on Add Template Studio page
+function renderQuickSetTemplatesList(templates) {
+  const listEl = document.getElementById('quick-set-templates-list');
+  if (!listEl) return;
+  if (!Array.isArray(templates) || templates.length === 0) {
+    listEl.innerHTML = '<div class="py-8 text-center text-xs text-on-surface-variant">No templates registered yet. Upload your first template on the left!</div>';
+    return;
+  }
+  listEl.innerHTML = templates.slice(0, 12).map(tpl => {
+    const isPub = tpl.status === 'published' || (tpl.isPublished !== false && tpl.status !== 'draft');
+    const isVip = tpl.tier === 'vip' || tpl.isPremium === true || Number(tpl.price) > 0;
+    const thumb = tpl.thumbnail || '/assets/admin-tpl-thumb-1.png';
+    return `
+      <div class="p-3 rounded-2xl bg-surface-container-low border border-purple-200/70 dark:border-purple-500/25 flex items-center justify-between gap-3">
+        <div class="flex items-center gap-3 min-w-0">
+          <img src="${thumb}" alt="${tpl.name}" class="w-14 h-10 rounded-xl object-cover border border-purple-200/60 shrink-0" onerror="this.src='/assets/file_ab2082.png'"/>
+          <div class="min-w-0">
+            <div class="font-bold text-xs sm:text-sm text-on-surface truncate">${tpl.name}</div>
+            <div class="flex items-center gap-1.5 text-[11px] text-on-surface-variant mt-0.5">
+              <span>${tpl.category || 'General'}</span>
+              <span>•</span>
+              <span class="font-bold ${isVip ? 'text-amber-600 dark:text-amber-400' : 'text-emerald-600 dark:text-emerald-400'}">${isVip ? '₹' + (tpl.price || 49) + ' VIP' : 'Free'}</span>
+            </div>
+          </div>
+        </div>
+        <div class="flex items-center gap-1.5 shrink-0">
+          <button type="button" onclick="togglePublishTemplate('${tpl.id}', '${tpl.status || (tpl.isPublished ? 'published' : 'draft')}')" class="px-2.5 py-1.5 rounded-xl text-[11px] font-bold transition cursor-pointer ${isPub ? 'bg-emerald-100 text-emerald-700 dark:bg-emerald-950/60 dark:text-emerald-300' : 'bg-amber-100 text-amber-700 dark:bg-amber-950/60 dark:text-amber-300'}">
+            ${isPub ? '● Live on Site' : 'Set Live'}
+          </button>
+          <a href="/template/${encodeURIComponent(tpl.id)}" target="_blank" class="wm-table-action-btn" title="Preview Template">
+            <span class="material-symbols-outlined text-[16px]">visibility</span>
+          </a>
+        </div>
+      </div>
+    `;
+  }).join('');
+}
+
+function setSandboxViewport(mode) {
+  const wrap = document.getElementById('sandbox-iframe-wrapper');
+  const btnDesktop = document.getElementById('btn-vp-desktop');
+  const btnMobile = document.getElementById('btn-vp-mobile');
+  if (!wrap) return;
+  if (mode === 'mobile') {
+    wrap.style.maxWidth = '375px';
+    wrap.style.margin = '0 auto';
+    if (btnMobile) btnMobile.className = 'px-3 py-1 rounded-full bg-primary text-white text-xs font-bold cursor-pointer';
+    if (btnDesktop) btnDesktop.className = 'px-3 py-1 rounded-full bg-surface-container-high text-on-surface-variant text-xs font-semibold cursor-pointer';
+  } else {
+    wrap.style.maxWidth = '100%';
+    wrap.style.margin = '0';
+    if (btnDesktop) btnDesktop.className = 'px-3 py-1 rounded-full bg-primary text-white text-xs font-bold cursor-pointer';
+    if (btnMobile) btnMobile.className = 'px-3 py-1 rounded-full bg-surface-container-high text-on-surface-variant text-xs font-semibold cursor-pointer';
+  }
+}
+window.setSandboxViewport = setSandboxViewport;

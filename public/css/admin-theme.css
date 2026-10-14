@@ -1,102 +1,134 @@
 /* ==========================================================================
-   WishMagic — Fairytale Castle & Cosmic Cloud Admin Studio Theme (v2026.10.14)
-   Pixel-Matched to Reference Screenshot (19728.png) Across All 22 Admin Pages
+   WishMagic — Fairytale Castle & Cosmic Cloud Admin Studio Theme (v2026.10.14_v3)
+   Pixel-Matched to Reference Screenshot (19728.png) Across All 23 Admin Pages
    Full Desktop & Mobile Responsiveness + Seamless Light & Dark Mode
    ========================================================================== */
 
 @import url('https://fonts.googleapis.com/css2?family=Playfair+Display:ital,wght@0,600;0,700;1,400;1,600&family=Plus+Jakarta+Sans:ital,wght@0,400;0,500;0,600;0,700;0,800;1,700;1,800&family=Outfit:ital,wght@0,500;0,600;0,700;0,800;1,700;1,800&family=JetBrains+Mono:wght@400;500;600;700&display=swap');
 
-:root {
-  /* Default Light Mode Palette — Matches Reference Screenshot 19728.png */
-  --c-background: 244 240 250;                /* #f4f0fa soft pastel lavender-grey canvas */
-  --c-on-background: 26 15 48;                /* #1a0f30 deep royal plum text */
-  --c-surface: 244 240 250;                   /* #f4f0fa */
-  --c-surface-dim: 235 229 247;               /* #ebe5f7 */
-  --c-surface-bright: 255 255 255;            /* #ffffff */
-  --c-surface-container-lowest: 255 255 255;  /* #ffffff crisp white card */
-  --c-surface-container-low: 252 250 255;     /* #fcfaff */
-  --c-surface-container: 255 255 255;         /* #ffffff */
-  --c-surface-container-high: 243 238 252;    /* #f3eefc soft lavender tint */
-  --c-surface-container-highest: 233 225 248; /* #e9e1f8 */
-  --c-on-surface: 26 15 48;                   /* #1a0f30 */
-  --c-on-surface-variant: 94 78 122;          /* #5e4e7a muted lavender-plum */
-  --c-outline: 138 122 168;                   /* #8a7aa8 */
-  --c-outline-variant: 222 212 242;           /* #ded4f2 crisp card border */
-  --c-primary: 124 58 237;                    /* #7c3aed vivid royal purple */
-  --c-primary-container: 109 40 217;          /* #6d28d9 */
+:root,
+html:not(.dark) {
+  /* Tailwind Config CSS Variables (--color-*) — Light Mode Default (19728.png) */
+  --color-background: #f3effa;
+  --color-surface: #ffffff;
+  --color-surface-variant: #f3effb;
+  --color-surface-bright: #ffffff;
+  --color-surface-container-lowest: #ffffff;
+  --color-surface-container-low: #faf8ff;
+  --color-surface-container: #ffffff;
+  --color-surface-container-high: #f3eefc;
+  --color-surface-container-highest: #e9e1f8;
+  --color-on-surface: #1a0f30;
+  --color-on-surface-variant: #533f78;
+  --color-outline: #736099;
+  --color-outline-variant: #ded4f2;
+
+  /* RGB Channel Variables (--c-*) */
+  --c-background: 243 239 250;
+  --c-on-background: 26 15 48;
+  --c-surface: 243 239 250;
+  --c-surface-dim: 235 229 247;
+  --c-surface-bright: 255 255 255;
+  --c-surface-container-lowest: 255 255 255;
+  --c-surface-container-low: 250 248 255;
+  --c-surface-container: 255 255 255;
+  --c-surface-container-high: 243 238 252;
+  --c-surface-container-highest: 233 225 248;
+  --c-on-surface: 26 15 48;
+  --c-on-surface-variant: 83 63 120;
+  --c-outline: 115 96 153;
+  --c-outline-variant: 222 212 242;
+  --c-primary: 124 58 237;
+  --c-primary-container: 109 40 217;
   --c-on-primary: 255 255 255;
   --c-on-primary-container: 255 255 255;
-  --c-secondary: 219 39 119;                  /* #db2777 rose magenta */
-  --c-secondary-container: 252 231 243;       /* #fce7f3 */
+  --c-secondary: 219 39 119;
+  --c-secondary-container: 252 231 243;
   --c-on-secondary: 255 255 255;
   --c-on-secondary-container: 157 23 77;
-  --c-tertiary: 16 185 129;                   /* #10b981 emerald green */
-  --c-tertiary-container: 209 250 229;        /* #d1fae5 */
-  --c-inverse-surface: 26 15 48;
-  --c-inverse-on-surface: 248 245 255;
-  --c-inverse-primary: 196 181 253;
+  --c-tertiary: 16 185 129;
+  --c-tertiary-container: 209 250 229;
 
-  --wm-card-bg: rgba(255, 255, 255, 0.96);
-  --wm-card-border: rgba(216, 204, 242, 0.85);
-  --wm-card-shadow: 0 6px 24px -4px rgba(55, 25, 110, 0.06), 0 2px 6px -1px rgba(55, 25, 110, 0.04);
+  /* Universal Component Tokens — Light Mode */
+  --wm-card-bg: rgba(255, 255, 255, 0.97);
+  --wm-card-border: rgba(214, 200, 242, 0.90);
+  --wm-card-shadow: 0 6px 24px -4px rgba(55, 25, 110, 0.07), 0 2px 6px -1px rgba(55, 25, 110, 0.04);
   --wm-text-main: #1a0f30;
-  --wm-text-muted: #5e4f7d;
-  --wm-text-soft: #8c7ba8;
-  --wm-table-head-bg: #f6f3fd;
+  --wm-text-muted: #533f78;
+  --wm-text-soft: #736099;
+  --wm-table-head-bg: #f5f0fd;
   --wm-table-row-hover: #faf7ff;
   --wm-input-bg: #ffffff;
-  --wm-input-border: #dcd2f0;
+  --wm-input-border: #d5c7f0;
 }
 
 html.dark {
-  /* Dark Mode Palette — Deep Cosmic Violet & Fairytale Gold/Magenta */
-  --c-background: 15 9 32;                    /* #0f0920 deep night indigo */
-  --c-on-background: 245 240 255;             /* #f5f0ff */
-  --c-surface: 15 9 32;                       /* #0f0920 */
-  --c-surface-dim: 11 6 24;                   /* #0b0618 */
-  --c-surface-bright: 39 24 72;               /* #271848 */
-  --c-surface-container-lowest: 19 11 38;     /* #130b26 */
-  --c-surface-container-low: 25 15 48;        /* #190f30 */
-  --c-surface-container: 30 18 58;            /* #1e123a */
-  --c-surface-container-high: 38 24 72;       /* #261848 */
-  --c-surface-container-highest: 49 32 90;    /* #31205a */
-  --c-on-surface: 245 240 255;                /* #f5f0ff */
-  --c-on-surface-variant: 196 182 226;        /* #c4b6e2 */
-  --c-outline: 142 124 180;                   /* #8e7cb4 */
-  --c-outline-variant: 68 46 118;             /* #442e76 */
-  --c-primary: 192 132 252;                   /* #c084fc */
-  --c-primary-container: 124 58 237;          /* #7c3aed */
+  /* Tailwind Config CSS Variables (--color-*) — Cosmic Dark Mode */
+  --color-background: #0f0822;
+  --color-surface: #180e32;
+  --color-surface-variant: #221445;
+  --color-surface-bright: #2c1a58;
+  --color-surface-container-lowest: #140b29;
+  --color-surface-container-low: #1b1038;
+  --color-surface-container: #211342;
+  --color-surface-container-high: #2a1952;
+  --color-surface-container-highest: #352166;
+  --color-on-surface: #f7f4ff;
+  --color-on-surface-variant: #cfc2eb;
+  --color-outline: #a391c9;
+  --color-outline-variant: #48327a;
+
+  /* RGB Channel Variables (--c-*) — Cosmic Dark Mode */
+  --c-background: 15 8 34;
+  --c-on-background: 247 244 255;
+  --c-surface: 24 14 50;
+  --c-surface-dim: 11 6 24;
+  --c-surface-bright: 44 26 88;
+  --c-surface-container-lowest: 20 11 41;
+  --c-surface-container-low: 27 16 56;
+  --c-surface-container: 33 19 66;
+  --c-surface-container-high: 42 25 82;
+  --c-surface-container-highest: 53 33 102;
+  --c-on-surface: 247 244 255;
+  --c-on-surface-variant: 207 194 235;
+  --c-outline: 163 145 201;
+  --c-outline-variant: 72 50 122;
+  --c-primary: 192 132 252;
+  --c-primary-container: 124 58 237;
   --c-on-primary: 255 255 255;
   --c-on-primary-container: 243 232 255;
-  --c-secondary: 244 114 182;                 /* #f472b6 */
-  --c-secondary-container: 157 23 77;         /* #9d174d */
+  --c-secondary: 244 114 182;
+  --c-secondary-container: 157 23 77;
   --c-on-secondary: 255 255 255;
   --c-on-secondary-container: 252 231 243;
-  --c-tertiary: 52 211 153;                   /* #34d399 */
+  --c-tertiary: 52 211 153;
   --c-tertiary-container: 6 95 70;
-  --c-inverse-surface: 245 240 255;
-  --c-inverse-on-surface: 26 15 48;
-  --c-inverse-primary: 109 40 217;
 
-  --wm-card-bg: rgba(30, 18, 58, 0.92);
-  --wm-card-border: rgba(139, 92, 246, 0.28);
-  --wm-card-shadow: 0 10px 30px -6px rgba(0, 0, 0, 0.45);
-  --wm-text-main: #f5f0ff;
-  --wm-text-muted: #c4b6e2;
-  --wm-text-soft: #9583b8;
-  --wm-table-head-bg: rgba(42, 26, 78, 0.85);
-  --wm-table-row-hover: rgba(139, 92, 246, 0.12);
-  --wm-input-bg: rgba(22, 13, 44, 0.9);
-  --wm-input-border: rgba(139, 92, 246, 0.35);
+  /* Universal Component Tokens — Dark Mode */
+  --wm-card-bg: rgba(31, 18, 62, 0.94);
+  --wm-card-border: rgba(147, 102, 245, 0.32);
+  --wm-card-shadow: 0 10px 30px -6px rgba(0, 0, 0, 0.50);
+  --wm-text-main: #f7f4ff;
+  --wm-text-muted: #cfc2eb;
+  --wm-text-soft: #a391c9;
+  --wm-table-head-bg: rgba(45, 27, 88, 0.90);
+  --wm-table-row-hover: rgba(139, 92, 246, 0.14);
+  --wm-input-bg: rgba(20, 11, 42, 0.95);
+  --wm-input-border: rgba(147, 102, 245, 0.42);
 }
 
 /* Base Body & Typography matching 19728.png */
-body {
+*, *::before, *::after {
+  box-sizing: border-box;
+}
+
+html, body {
   font-family: 'Plus Jakarta Sans', -apple-system, BlinkMacSystemFont, sans-serif !important;
-  color: var(--wm-text-main);
-  background-color: rgb(var(--c-background));
-  transition: background-color 0.25s ease, color 0.25s ease;
+  color: var(--wm-text-main) !important;
+  background-color: var(--color-background) !important;
+  transition: background-color 0.22s ease, color 0.22s ease;
   overflow-x: hidden;
+  max-width: 100vw;
 }
 
 html:not(.dark) body {
@@ -109,16 +141,17 @@ html:not(.dark) body {
 }
 
 html.dark body {
-  background-color: #0f0920 !important;
+  background-color: #0f0822 !important;
   background-image:
-    radial-gradient(at 15% 10%, rgba(124, 58, 237, 0.18) 0px, transparent 48%),
-    radial-gradient(at 85% 12%, rgba(219, 39, 119, 0.14) 0px, transparent 50%),
-    radial-gradient(at 50% 90%, rgba(88, 28, 135, 0.20) 0px, transparent 55%) !important;
+    radial-gradient(at 15% 10%, rgba(124, 58, 237, 0.20) 0px, transparent 48%),
+    radial-gradient(at 85% 12%, rgba(219, 39, 119, 0.15) 0px, transparent 50%),
+    radial-gradient(at 50% 90%, rgba(88, 28, 135, 0.22) 0px, transparent 55%) !important;
   background-attachment: fixed;
 }
 
 /* ==========================================================================
    1. LEFT SIDEBAR — Exact Cosmic Fairytale Castle Artwork from 19728.png
+      Fixed Active Highlighting: ONLY the selected section gets the pink pill!
    ========================================================================== */
 aside#admin-sidebar {
   width: 270px !important;
@@ -127,17 +160,17 @@ aside#admin-sidebar {
   background-size: 100% 100% !important;
   background-position: center bottom !important;
   background-repeat: no-repeat !important;
-  border-right: 1px solid rgba(255, 255, 255, 0.12) !important;
-  box-shadow: 6px 0 28px rgba(18, 9, 43, 0.28) !important;
+  border-right: 1px solid rgba(255, 255, 255, 0.14) !important;
+  box-shadow: 6px 0 28px rgba(18, 9, 43, 0.30) !important;
   color: #ffffff !important;
-  z-index: 50 !important;
+  z-index: 60 !important;
 }
 
 aside#admin-sidebar::before {
   content: '';
   position: absolute;
   inset: 0;
-  background: linear-gradient(180deg, rgba(20, 11, 46, 0.62) 0%, rgba(23, 13, 52, 0.46) 58%, rgba(20, 11, 46, 0.10) 100%);
+  background: linear-gradient(180deg, rgba(20, 11, 46, 0.58) 0%, rgba(23, 13, 52, 0.44) 58%, rgba(20, 11, 46, 0.08) 100%);
   pointer-events: none;
   z-index: 0;
 }
@@ -147,11 +180,15 @@ aside#admin-sidebar > * {
   z-index: 1;
 }
 
+#sidebar-backdrop {
+  z-index: 55 !important;
+}
+
 /* Brand Typography in Sidebar ("WishMagic" from 19728.png) */
 .wm-brand-wish {
   font-family: 'Outfit', 'Plus Jakarta Sans', sans-serif;
   font-weight: 800;
-  color: #ffffff;
+  color: #ffffff !important;
   letter-spacing: -0.02em;
 }
 
@@ -165,39 +202,6 @@ aside#admin-sidebar > * {
   padding-right: 2px;
 }
 
-/* Top Glowing Pink-Magenta Dashboard Pill in Sidebar */
-.wm-dashboard-pill {
-  display: flex;
-  align-items: center;
-  gap: 11px;
-  padding: 11px 16px;
-  border-radius: 9999px;
-  background: linear-gradient(90deg, #ff2a85 0%, #ec4899 52%, #a855f7 100%);
-  color: #ffffff !important;
-  font-weight: 700;
-  font-size: 14px;
-  box-shadow: 0 6px 20px rgba(236, 72, 153, 0.45), inset 0 1px 0 rgba(255, 255, 255, 0.35);
-  border: 1px solid rgba(255, 255, 255, 0.28);
-  text-decoration: none;
-  transition: all 0.2s ease;
-}
-
-.wm-dashboard-pill:hover {
-  transform: translateY(-1px);
-  box-shadow: 0 8px 24px rgba(236, 72, 153, 0.58);
-}
-
-.wm-dashboard-pill.wm-inactive-pill {
-  background: rgba(255, 255, 255, 0.10);
-  box-shadow: none;
-  border-color: rgba(255, 255, 255, 0.14);
-  color: rgba(240, 234, 255, 0.90) !important;
-}
-.wm-dashboard-pill.wm-inactive-pill:hover {
-  background: linear-gradient(90deg, rgba(255, 42, 133, 0.65) 0%, rgba(168, 85, 247, 0.65) 100%);
-  color: #ffffff !important;
-}
-
 /* Sidebar Section Headers (TEMPLATES, WISHES, USERS, SYSTEM) */
 .wm-nav-section-label,
 .wm-sidebar-section-label {
@@ -206,67 +210,75 @@ aside#admin-sidebar > * {
   letter-spacing: 0.10em;
   text-transform: uppercase;
   color: rgba(206, 188, 252, 0.68) !important;
-  padding: 13px 14px 4px;
+  padding: 12px 14px 4px;
   user-select: none;
 }
 
-/* Sidebar Navigation Links */
-aside#admin-sidebar nav a:not(.wm-dashboard-pill),
+/* Unified Sidebar Navigation Links (Including Dashboard!)
+   Default state is unselected; ONLY .wm-nav-active / .active gets the glowing pink pill! */
+aside#admin-sidebar nav a,
+.wm-dashboard-pill,
 .wm-nav-item {
-  display: flex;
-  align-items: center;
-  gap: 11px;
-  padding: 8px 14px;
-  margin: 1px 0;
-  border-radius: 11px;
-  font-size: 13.5px;
-  font-weight: 500;
-  color: rgba(236, 228, 255, 0.85) !important;
-  transition: all 0.18s ease;
-  text-decoration: none;
-  border: 1px solid transparent;
+  display: flex !important;
+  align-items: center !important;
+  gap: 11px !important;
+  padding: 9px 15px !important;
+  margin: 1.5px 0 !important;
+  border-radius: 9999px !important;
+  font-size: 13.5px !important;
+  font-weight: 500 !important;
+  color: rgba(238, 230, 255, 0.86) !important;
+  background: transparent !important;
+  border: 1px solid transparent !important;
+  box-shadow: none !important;
+  transition: all 0.18s ease !important;
+  text-decoration: none !important;
+  cursor: pointer;
 }
 
-aside#admin-sidebar nav a:not(.wm-dashboard-pill) .material-symbols-outlined {
-  font-size: 19px;
-  color: rgba(216, 198, 255, 0.82);
+aside#admin-sidebar nav a .material-symbols-outlined {
+  font-size: 19px !important;
+  color: rgba(218, 200, 255, 0.84) !important;
   transition: transform 0.18s ease, color 0.18s ease;
+  flex-shrink: 0;
 }
 
-aside#admin-sidebar nav a:not(.wm-dashboard-pill):hover,
-.wm-nav-item:hover {
-  background: rgba(255, 255, 255, 0.10) !important;
+aside#admin-sidebar nav a:hover {
+  background: rgba(255, 255, 255, 0.12) !important;
+  border-color: rgba(255, 255, 255, 0.16) !important;
   color: #ffffff !important;
 }
 
-aside#admin-sidebar nav a:not(.wm-dashboard-pill):hover .material-symbols-outlined {
+aside#admin-sidebar nav a:hover .material-symbols-outlined {
   color: #ffffff !important;
   transform: translateX(1px);
 }
 
-aside#admin-sidebar nav a:not(.wm-dashboard-pill).wm-nav-active,
-aside#admin-sidebar nav a:not(.wm-dashboard-pill).active,
-.wm-nav-item.active,
-.wm-nav-item.wm-nav-active {
-  background: linear-gradient(90deg, rgba(236, 72, 153, 0.55) 0%, rgba(168, 85, 247, 0.52) 100%) !important;
-  border: 1px solid rgba(255, 255, 255, 0.30) !important;
-  box-shadow: 0 4px 15px rgba(168, 85, 247, 0.32), inset 0 1px 0 rgba(255, 255, 255, 0.25) !important;
+/* ACTIVE SIDEBAR SECTION PILL — Exact Glowing Pink-Magenta Pill from 19728.png */
+aside#admin-sidebar nav a.wm-nav-active,
+aside#admin-sidebar nav a.active {
+  background: linear-gradient(90deg, #ff2a85 0%, #ec4899 52%, #a855f7 100%) !important;
+  border: 1px solid rgba(255, 255, 255, 0.36) !important;
+  border-radius: 9999px !important;
+  box-shadow: 0 6px 20px rgba(236, 72, 153, 0.48), inset 0 1px 0 rgba(255, 255, 255, 0.35) !important;
   color: #ffffff !important;
-  font-weight: 700;
+  font-weight: 700 !important;
 }
 
-aside#admin-sidebar nav a:not(.wm-dashboard-pill).wm-nav-active .material-symbols-outlined,
-aside#admin-sidebar nav a:not(.wm-dashboard-pill).active .material-symbols-outlined {
+aside#admin-sidebar nav a.wm-nav-active span,
+aside#admin-sidebar nav a.active span,
+aside#admin-sidebar nav a.wm-nav-active .material-symbols-outlined,
+aside#admin-sidebar nav a.active .material-symbols-outlined {
   color: #ffffff !important;
 }
 
 .custom-scrollbar {
   scrollbar-width: thin;
-  scrollbar-color: rgba(255, 255, 255, 0.22) transparent;
+  scrollbar-color: rgba(168, 85, 247, 0.35) transparent;
 }
 .custom-scrollbar::-webkit-scrollbar {
-  width: 4px;
-  height: 4px;
+  width: 5px;
+  height: 5px;
 }
 .custom-scrollbar::-webkit-scrollbar-thumb {
   background: rgba(168, 85, 247, 0.35);
@@ -281,11 +293,11 @@ header.wm-top-header {
   border-bottom: 1px solid var(--wm-card-border) !important;
   backdrop-filter: blur(16px) !important;
   -webkit-backdrop-filter: blur(16px) !important;
-  z-index: 35 !important;
+  z-index: 40 !important;
 }
 
 html:not(.dark) header.wm-top-header {
-  background-color: rgba(248, 243, 255, 0.94) !important;
+  background-color: rgba(248, 243, 255, 0.95) !important;
   background-image:
     linear-gradient(90deg, rgba(255, 255, 255, 0.65) 0%, rgba(248, 238, 255, 0.55) 50%, rgba(255, 242, 250, 0.65) 100%),
     url('/assets/admin-header-clouds.png') !important;
@@ -295,18 +307,17 @@ html:not(.dark) header.wm-top-header {
 }
 
 html.dark header.wm-top-header {
-  background: rgba(20, 12, 42, 0.92) !important;
-  border-bottom: 1px solid rgba(139, 92, 246, 0.25) !important;
-  box-shadow: 0 2px 16px rgba(0, 0, 0, 0.4) !important;
+  background: rgba(20, 11, 42, 0.94) !important;
+  border-bottom: 1px solid rgba(147, 102, 245, 0.28) !important;
+  box-shadow: 0 2px 16px rgba(0, 0, 0, 0.45) !important;
 }
 
-/* Search Bar with Ctrl K badge in Top Header */
 .wm-header-search-wrap {
   position: relative;
   display: flex;
   align-items: center;
   width: 100%;
-  max-width: 430px;
+  max-width: 440px;
 }
 
 .wm-header-search-input {
@@ -314,8 +325,8 @@ html.dark header.wm-top-header {
   height: 40px;
   padding: 0 64px 0 38px;
   border-radius: 9999px !important;
-  background: rgba(255, 255, 255, 0.92) !important;
-  border: 1px solid rgba(205, 190, 245, 0.85) !important;
+  background: rgba(255, 255, 255, 0.94) !important;
+  border: 1px solid rgba(198, 182, 242, 0.90) !important;
   color: #1a0f30 !important;
   font-size: 13px;
   font-weight: 500;
@@ -324,24 +335,24 @@ html.dark header.wm-top-header {
 }
 
 .wm-header-search-input::placeholder {
-  color: #7c6b9c !important;
+  color: #736099 !important;
 }
 
 html.dark .wm-header-search-input {
-  background: rgba(34, 20, 66, 0.90) !important;
-  border: 1px solid rgba(139, 92, 246, 0.35) !important;
-  color: #f5f0ff !important;
+  background: rgba(33, 19, 66, 0.94) !important;
+  border: 1px solid rgba(147, 102, 245, 0.42) !important;
+  color: #f7f4ff !important;
   box-shadow: none !important;
 }
 
 html.dark .wm-header-search-input::placeholder {
-  color: #a795cc !important;
+  color: #a996d1 !important;
 }
 
 .wm-header-search-input:focus {
   outline: none !important;
   border-color: #9333ea !important;
-  box-shadow: 0 0 0 3px rgba(147, 51, 234, 0.16) !important;
+  box-shadow: 0 0 0 3px rgba(147, 51, 234, 0.18) !important;
 }
 
 .wm-ctrl-k-badge {
@@ -351,35 +362,36 @@ html.dark .wm-header-search-input::placeholder {
   border-radius: 9999px;
   background: #f2ecfc;
   border: 1px solid #dfd3f6;
-  color: #5b487d;
+  color: #533f78;
   font-size: 11px;
   font-weight: 700;
   pointer-events: none;
 }
 
 html.dark .wm-ctrl-k-badge {
-  background: rgba(139, 92, 246, 0.22);
-  border-color: rgba(139, 92, 246, 0.35);
-  color: #ddd0f8;
+  background: rgba(139, 92, 246, 0.25);
+  border-color: rgba(139, 92, 246, 0.40);
+  color: #e9d5ff;
 }
 
-/* Sun / Moon Pill Toggle Switch in Top Header (Matches 19728.png) */
+/* Sun / Moon Pill Toggle Switch in Top Header */
 .wm-theme-pill-btn {
   display: inline-flex;
   align-items: center;
   gap: 4px;
   padding: 3px;
   border-radius: 9999px;
-  background: rgba(255, 255, 255, 0.88);
-  border: 1px solid rgba(205, 190, 245, 0.85);
+  background: rgba(255, 255, 255, 0.90);
+  border: 1px solid rgba(198, 182, 242, 0.88);
   box-shadow: 0 2px 8px rgba(88, 28, 135, 0.06);
   cursor: pointer;
   transition: all 0.2s ease;
+  flex-shrink: 0;
 }
 
 html.dark .wm-theme-pill-btn {
-  background: rgba(34, 20, 66, 0.92);
-  border-color: rgba(139, 92, 246, 0.38);
+  background: rgba(33, 19, 66, 0.94);
+  border-color: rgba(147, 102, 245, 0.42);
 }
 
 .wm-theme-pill-sun {
@@ -390,13 +402,13 @@ html.dark .wm-theme-pill-btn {
   align-items: center;
   justify-content: center;
   color: #f59e0b;
-  background: rgba(254, 243, 199, 0.85);
+  background: rgba(254, 243, 199, 0.90);
   transition: all 0.2s ease;
 }
 
 html.dark .wm-theme-pill-sun {
   background: transparent;
-  color: #a795cc;
+  color: #a391c9;
 }
 
 .wm-theme-pill-knob {
@@ -419,44 +431,38 @@ html.dark .wm-theme-pill-sun {
   gap: 9px;
   padding: 4px 12px 4px 5px;
   border-radius: 9999px;
-  background: rgba(255, 255, 255, 0.88);
-  border: 1px solid rgba(205, 190, 245, 0.85);
+  background: rgba(255, 255, 255, 0.90);
+  border: 1px solid rgba(198, 182, 242, 0.88);
   box-shadow: 0 2px 8px rgba(88, 28, 135, 0.05);
   cursor: pointer;
   transition: all 0.2s ease;
+  flex-shrink: 0;
 }
 
 html.dark .wm-admin-profile-pill {
-  background: rgba(34, 20, 66, 0.92);
-  border-color: rgba(139, 92, 246, 0.38);
-}
-
-.wm-admin-profile-pill:hover {
-  background: #ffffff;
-}
-html.dark .wm-admin-profile-pill:hover {
-  background: rgba(48, 28, 92, 0.96);
+  background: rgba(33, 19, 66, 0.94);
+  border-color: rgba(147, 102, 245, 0.42);
 }
 
 /* ==========================================================================
-   3. FAIRYTALE CASTLE HERO BANNER — Matches 19728.png Across All 22 Pages
+   3. FAIRYTALE CASTLE HERO BANNER — Matches 19728.png Across All 23 Pages
    ========================================================================== */
 .wm-hero-banner {
   position: relative;
   border-radius: 22px;
   overflow: hidden;
-  background-color: #1b0f3b;
-  background-image: url('/assets/admin-hero-banner.png');
-  background-size: cover;
-  background-position: right center;
-  background-repeat: no-repeat;
-  min-height: 192px;
+  background-color: #1b0f3b !important;
+  background-image: url('/assets/admin-hero-banner.png') !important;
+  background-size: cover !important;
+  background-position: right center !important;
+  background-repeat: no-repeat !important;
+  min-height: 188px;
   padding: 24px 30px;
   display: flex;
   flex-direction: column;
   justify-content: center;
-  box-shadow: 0 12px 32px -6px rgba(45, 20, 95, 0.28);
-  border: 1px solid rgba(255, 255, 255, 0.24);
+  box-shadow: 0 12px 32px -6px rgba(45, 20, 95, 0.28) !important;
+  border: 1px solid rgba(255, 255, 255, 0.24) !important;
   color: #ffffff !important;
 }
 
@@ -464,7 +470,7 @@ html.dark .wm-admin-profile-pill:hover {
   content: '';
   position: absolute;
   inset: 0;
-  background: linear-gradient(90deg, rgba(22, 10, 52, 0.84) 0%, rgba(36, 16, 78, 0.64) 45%, rgba(36, 16, 78, 0.12) 76%, rgba(36, 16, 78, 0.02) 100%);
+  background: linear-gradient(90deg, rgba(22, 10, 52, 0.86) 0%, rgba(36, 16, 78, 0.68) 46%, rgba(36, 16, 78, 0.14) 76%, rgba(36, 16, 78, 0.02) 100%);
   pointer-events: none;
   z-index: 0;
 }
@@ -480,20 +486,21 @@ html.dark .wm-admin-profile-pill:hover {
   gap: 6px;
   padding: 4px 13px;
   border-radius: 9999px;
-  background: rgba(255, 255, 255, 0.14);
+  background: rgba(255, 255, 255, 0.15) !important;
   backdrop-filter: blur(8px);
   -webkit-backdrop-filter: blur(8px);
-  border: 1px solid rgba(255, 255, 255, 0.24);
+  border: 1px solid rgba(255, 255, 255, 0.26) !important;
   color: #f5ebff !important;
   font-size: 12px;
   font-weight: 600;
   margin-bottom: 8px;
 }
 
-.wm-hero-title {
+.wm-hero-title,
+.wm-hero-title span:not(.wm-pink-word) {
   font-family: 'Outfit', 'Plus Jakarta Sans', sans-serif;
   font-weight: 800;
-  font-size: clamp(1.55rem, 2.6vw, 2.2rem);
+  font-size: clamp(1.5rem, 2.5vw, 2.15rem);
   color: #ffffff !important;
   letter-spacing: -0.02em;
   line-height: 1.15;
@@ -504,7 +511,7 @@ html.dark .wm-admin-profile-pill:hover {
   font-style: italic;
   background: linear-gradient(90deg, #ff3b9a 0%, #f472b6 55%, #fbbf24 100%);
   -webkit-background-clip: text;
-  -webkit-text-fill-color: transparent;
+  -webkit-text-fill-color: transparent !important;
   padding-right: 3px;
 }
 
@@ -514,17 +521,17 @@ html.dark .wm-admin-profile-pill:hover {
 
 .wm-hero-subtitle {
   font-size: 13.5px;
-  color: rgba(243, 236, 255, 0.92) !important;
+  color: rgba(243, 236, 255, 0.94) !important;
   margin-top: 6px;
   margin-bottom: 16px;
   font-weight: 500;
-  max-width: 540px;
+  max-width: 560px;
 }
 
-/* Hero Banner Pill Buttons (Matches "+ Add New Template" & "View Website" in 19728.png) */
 .wm-btn-pink-pill {
   display: inline-flex;
   align-items: center;
+  justify-content: center;
   gap: 7px;
   padding: 9.5px 18px;
   border-radius: 9999px;
@@ -533,10 +540,16 @@ html.dark .wm-admin-profile-pill:hover {
   font-size: 13px;
   font-weight: 700;
   box-shadow: 0 6px 20px rgba(236, 72, 153, 0.45), inset 0 1px 0 rgba(255, 255, 255, 0.35);
-  border: 1px solid rgba(255, 255, 255, 0.30);
+  border: 1px solid rgba(255, 255, 255, 0.32) !important;
   text-decoration: none;
   cursor: pointer;
   transition: all 0.2s ease;
+}
+
+.wm-btn-pink-pill *,
+.wm-btn-glass-pill *,
+.wm-hero-pill-btn * {
+  color: #ffffff !important;
 }
 
 .wm-btn-pink-pill:hover {
@@ -548,6 +561,7 @@ html.dark .wm-admin-profile-pill:hover {
 .wm-hero-pill-btn {
   display: inline-flex;
   align-items: center;
+  justify-content: center;
   gap: 7px;
   padding: 9px 17px;
   border-radius: 9999px;
@@ -557,7 +571,7 @@ html.dark .wm-admin-profile-pill:hover {
   background: rgba(255, 255, 255, 0.16) !important;
   backdrop-filter: blur(10px);
   -webkit-backdrop-filter: blur(10px);
-  border: 1px solid rgba(255, 255, 255, 0.32) !important;
+  border: 1px solid rgba(255, 255, 255, 0.34) !important;
   box-shadow: 0 4px 14px rgba(0, 0, 0, 0.18);
   transition: all 0.18s ease;
   cursor: pointer;
@@ -580,7 +594,7 @@ html.dark .wm-admin-profile-pill:hover {
   border-radius: 20px !important;
   box-shadow: var(--wm-card-shadow) !important;
   backdrop-filter: blur(12px);
-  transition: transform 0.2s ease, box-shadow 0.2s ease;
+  transition: transform 0.2s ease, box-shadow 0.2s ease, background-color 0.2s ease;
 }
 
 .wm-view-all-pill {
@@ -599,17 +613,11 @@ html.dark .wm-admin-profile-pill:hover {
 }
 
 html.dark .wm-view-all-pill {
-  background: rgba(139, 92, 246, 0.18);
-  border-color: rgba(139, 92, 246, 0.32);
+  background: rgba(139, 92, 246, 0.20) !important;
+  border-color: rgba(139, 92, 246, 0.36) !important;
   color: #e9d5ff !important;
 }
 
-.wm-view-all-pill:hover {
-  background: #ebe2fc;
-  transform: translateX(1px);
-}
-
-/* Status Pills in Recent Wishes & Subpage Tables (Matches 19728.png) */
 .wm-status-active,
 .wm-badge-active {
   display: inline-flex;
@@ -626,9 +634,9 @@ html.dark .wm-view-all-pill {
 
 html.dark .wm-status-active,
 html.dark .wm-badge-active {
-  background: rgba(16, 185, 129, 0.20) !important;
+  background: rgba(16, 185, 129, 0.22) !important;
   color: #6ee7b7 !important;
-  border-color: rgba(16, 185, 129, 0.35) !important;
+  border-color: rgba(16, 185, 129, 0.40) !important;
 }
 
 .wm-status-expired,
@@ -647,12 +655,11 @@ html.dark .wm-badge-active {
 
 html.dark .wm-status-expired,
 html.dark .wm-badge-expiring {
-  background: rgba(244, 63, 94, 0.20) !important;
+  background: rgba(244, 63, 94, 0.22) !important;
   color: #fda4af !important;
-  border-color: rgba(244, 63, 94, 0.35) !important;
+  border-color: rgba(244, 63, 94, 0.40) !important;
 }
 
-/* Table Action Icon Buttons (Eye / Trash in 19728.png) */
 .wm-table-action-btn {
   width: 30px;
   height: 30px;
@@ -668,9 +675,9 @@ html.dark .wm-badge-expiring {
 }
 
 html.dark .wm-table-action-btn {
-  background: rgba(139, 92, 246, 0.16);
-  border-color: rgba(139, 92, 246, 0.30);
-  color: #d8b4fe;
+  background: rgba(139, 92, 246, 0.20) !important;
+  border-color: rgba(139, 92, 246, 0.35) !important;
+  color: #e9d5ff !important;
 }
 
 .wm-table-action-btn:hover {
@@ -679,7 +686,6 @@ html.dark .wm-table-action-btn {
   transform: translateY(-1px);
 }
 
-/* 3x2 Quick Action Tiles (Matches 19728.png Right Column) */
 .wm-quick-action-tile {
   display: flex;
   flex-direction: column;
@@ -696,9 +702,9 @@ html.dark .wm-table-action-btn {
 }
 
 html.dark .wm-quick-action-tile {
-  background: rgba(42, 25, 80, 0.65);
-  border-color: rgba(139, 92, 246, 0.28);
-  color: #f3e8ff !important;
+  background: rgba(42, 25, 82, 0.72) !important;
+  border-color: rgba(147, 102, 245, 0.32) !important;
+  color: #f5f0ff !important;
 }
 
 .wm-quick-action-tile:hover {
@@ -709,10 +715,10 @@ html.dark .wm-quick-action-tile {
 }
 
 html.dark .wm-quick-action-tile:hover {
-  background: rgba(58, 35, 108, 0.85);
+  background: rgba(58, 35, 110, 0.90) !important;
 }
 
-/* Universal Tables on Subpages */
+/* Universal Tables */
 main table thead tr th {
   background: var(--wm-table-head-bg) !important;
   color: var(--wm-text-muted) !important;
@@ -724,12 +730,13 @@ main table thead tr th {
 
 main table tbody tr td {
   color: var(--wm-text-main);
-  border-bottom: 1px solid rgba(216, 204, 242, 0.38);
+  border-bottom: 1px solid rgba(216, 204, 242, 0.42);
   vertical-align: middle;
 }
 
 html.dark main table tbody tr td {
-  border-bottom: 1px solid rgba(139, 92, 246, 0.16);
+  color: #f5f0ff;
+  border-bottom: 1px solid rgba(147, 102, 245, 0.18);
 }
 
 main table tbody tr:hover td {
@@ -737,9 +744,21 @@ main table tbody tr:hover td {
 }
 
 /* ==========================================================================
-   5. COMPLETE LIGHT MODE ADAPTATION OVERRIDES FOR ALL 22 PAGES & MODALS
-   Ensures zero dark-mode leftover boxes or unreadable white text in Light Mode
+   5. COMPLETE LIGHT MODE & DARK MODE CONTRAST GUARANTEES (100% VALID CSS)
+   Fixes every invisible text and non-switching element across all 23 pages
    ========================================================================== */
+
+/* --- A. LIGHT MODE (html:not(.dark)) --- */
+html:not(.dark) .text-on-surface {
+  color: #1a0f30 !important;
+}
+html:not(.dark) .text-on-surface-variant {
+  color: #533f78 !important;
+}
+html:not(.dark) .text-outline {
+  color: #6e5a94 !important;
+}
+
 html:not(.dark) main .bg-surface-container,
 html:not(.dark) main .bg-surface-container-low,
 html:not(.dark) main .bg-surface-container-lowest,
@@ -747,8 +766,7 @@ html:not(.dark) [id*="modal"] .bg-surface-container,
 html:not(.dark) [id*="modal"] .bg-surface-container-low,
 html:not(.dark) [id*="modal"] .bg-surface-container-lowest {
   background-color: #ffffff !important;
-  border-color: rgba(214, 200, 242, 0.85) !important;
-  box-shadow: 0 6px 24px -4px rgba(55, 25, 110, 0.06), 0 2px 6px -1px rgba(55, 25, 110, 0.04) !important;
+  border-color: rgba(214, 200, 242, 0.90) !important;
 }
 
 html:not(.dark) main .bg-surface-container-high,
@@ -762,12 +780,12 @@ html:not(.dark) [id*="modal"] .bg-surface-container-highest {
   background-color: #eae1f9 !important;
 }
 
-/* Override hardcoded dark purple/pink/amber/emerald/rose containers in Light Mode */
+/* Convert legacy dark containers to crisp Light Mode surfaces */
 html:not(.dark) main [class*="bg-purple-950"],
 html:not(.dark) main [class*="bg-purple-900"],
 html:not(.dark) [id*="modal"] [class*="bg-purple-950"],
 html:not(.dark) [id*="modal"] [class*="bg-purple-900"] {
-  background-color: #f5f0fd !important;
+  background-color: #f4effc !important;
   border-color: #dccff4 !important;
   color: #3b1d70 !important;
 }
@@ -804,7 +822,6 @@ html:not(.dark) [id*="modal"] [class*="bg-pink-950"] {
   color: #9d174d !important;
 }
 
-/* Override hardcoded dark gradients in Light Mode (e.g. Media Hero Controller, Upload Zone, Storage cards) */
 html:not(.dark) main [class*="from-purple-950"],
 html:not(.dark) main [class*="from-pink-950"],
 html:not(.dark) main [class*="from-emerald-950"],
@@ -812,10 +829,8 @@ html:not(.dark) [id*="modal"] [class*="from-purple-950"],
 html:not(.dark) [id*="modal"] [class*="from-pink-950"] {
   background-image: linear-gradient(135deg, #ffffff 0%, #f7f2ff 55%, #fdf2f8 100%) !important;
   border-color: #e2d4f8 !important;
-  box-shadow: 0 8px 28px -6px rgba(88, 28, 135, 0.08) !important;
 }
 
-/* Override bg-black/40 and bg-black/60 inner boxes (excluding modal overlays & image hover overlays) */
 html:not(.dark) main div[class*="bg-black/"]:not(.fixed):not(.absolute),
 html:not(.dark) main pre[class*="bg-black/"],
 html:not(.dark) [id*="modal"] div[class*="bg-black/"]:not(.fixed):not(.absolute),
@@ -825,7 +840,6 @@ html:not(.dark) [id*="modal"] pre[class*="bg-black/"] {
   color: #1a0f30 !important;
 }
 
-/* Override hardcoded borders in Light Mode */
 html:not(.dark) main [class*="border-purple-900"],
 html:not(.dark) main [class*="border-purple-800"],
 html:not(.dark) main [class*="border-purple-500/20"],
@@ -835,48 +849,169 @@ html:not(.dark) [id*="modal"] [class*="border-purple-800"] {
   border-color: #e2d8f5 !important;
 }
 
-/* Override hardcoded text-white inside main/modals when NOT on a colored button, badge, or hero banner */
-html:not(.dark) main :not(.wm-hero-banner):not(.wm-hero-banner *) > .text-white:not(button):not(a):not(.wm-stat-icon):not([class*="bg-primary"]):not([class*="bg-purple-6"]):not([class*="bg-pink-"]):not([class*="bg-emerald-"]):not([class*="bg-rose-"]):not([class*="bg-amber-"]):not([class*="bg-blue-"]):not([class*="bg-indigo-"]):not([class*="from-"]):not([class*="bg-black"]),
-html:not(.dark) [id*="modal"] .text-white:not(button):not(a):not(.wm-stat-icon):not([class*="bg-primary"]):not([class*="bg-purple-6"]):not([class*="bg-pink-"]):not([class*="bg-emerald-"]):not([class*="bg-rose-"]):not([class*="bg-amber-"]):not([class*="from-"]):not([class*="bg-black"]) {
+/* VALID CSS RULE: Convert .text-white inside Light Mode cards/modals to #1a0f30,
+   then explicitly preserve white text on Hero Banner & solid colored buttons/icons! */
+html:not(.dark) main .text-white,
+html:not(.dark) [id*="modal"] .text-white {
   color: #1a0f30 !important;
 }
 
-/* Override light-purple/amber/emerald/rose text utilities for crisp contrast in Light Mode */
-html:not(.dark) main :not(.wm-hero-banner):not(.wm-hero-banner *) > [class*="text-purple-200"],
-html:not(.dark) main :not(.wm-hero-banner):not(.wm-hero-banner *) > [class*="text-purple-300"],
-html:not(.dark) main :not(.wm-hero-banner):not(.wm-hero-banner *) > [class*="text-purple-100"],
+html:not(.dark) .wm-hero-banner,
+html:not(.dark) .wm-hero-banner h1,
+html:not(.dark) .wm-hero-banner h2,
+html:not(.dark) .wm-hero-banner p,
+html:not(.dark) .wm-hero-banner > div > span,
+html:not(.dark) .wm-hero-banner .wm-hero-welcome-pill,
+html:not(.dark) .wm-hero-banner .wm-hero-welcome-pill span,
+html:not(.dark) .wm-btn-pink-pill,
+html:not(.dark) .wm-btn-pink-pill span,
+html:not(.dark) .wm-btn-glass-pill,
+html:not(.dark) .wm-btn-glass-pill span,
+html:not(.dark) .wm-hero-pill-btn,
+html:not(.dark) .wm-hero-pill-btn span,
+html:not(.dark) main button[class*="bg-primary"],
+html:not(.dark) main button[class*="bg-primary"] span,
+html:not(.dark) main a[class*="bg-primary"],
+html:not(.dark) main a[class*="bg-primary"] span,
+html:not(.dark) main button[class*="bg-purple-6"],
+html:not(.dark) main button[class*="bg-purple-6"] span,
+html:not(.dark) main button[class*="bg-pink-5"],
+html:not(.dark) main button[class*="bg-pink-6"],
+html:not(.dark) main button[class*="bg-emerald-5"],
+html:not(.dark) main button[class*="bg-emerald-6"],
+html:not(.dark) main button[class*="bg-rose-5"],
+html:not(.dark) main button[class*="bg-rose-6"],
+html:not(.dark) main button[class*="bg-amber-5"],
+html:not(.dark) main button[class*="bg-amber-6"],
+html:not(.dark) main button[class*="from-"],
+html:not(.dark) main button[class*="from-"] span,
+html:not(.dark) main a[class*="from-"],
+html:not(.dark) main a[class*="from-"] span,
+html:not(.dark) [id*="modal"] button[class*="bg-primary"],
+html:not(.dark) [id*="modal"] button[class*="bg-primary"] span,
+html:not(.dark) [id*="modal"] button[class*="bg-purple-6"],
+html:not(.dark) [id*="modal"] button[class*="bg-pink-6"],
+html:not(.dark) [id*="modal"] button[class*="bg-emerald-6"],
+html:not(.dark) [id*="modal"] button[class*="bg-rose-6"],
+html:not(.dark) [id*="modal"] button[class*="from-"],
+html:not(.dark) [id*="modal"] button[class*="from-"] span,
+html:not(.dark) main div[class*="from-[#"],
+html:not(.dark) main div[class*="from-[#"] span,
+html:not(.dark) main div[class*="from-pink-500"],
+html:not(.dark) main div[class*="from-pink-600"],
+html:not(.dark) main div[class*="from-purple-600"],
+html:not(.dark) main span[class*="bg-emerald-500"],
+html:not(.dark) main span[class*="bg-amber-500"],
+html:not(.dark) main span[class*="bg-pink-500"],
+html:not(.dark) main span[class*="bg-rose-500"],
+html:not(.dark) main span[class*="bg-primary"],
+html:not(.dark) main .absolute[class*="bg-black"],
+html:not(.dark) main .absolute[class*="bg-black"] span {
+  color: #ffffff !important;
+}
+
+/* Readable pastel text utilities in Light Mode */
+html:not(.dark) main [class*="text-purple-100"],
+html:not(.dark) main [class*="text-purple-200"],
+html:not(.dark) main [class*="text-purple-300"],
+html:not(.dark) [id*="modal"] [class*="text-purple-100"],
 html:not(.dark) [id*="modal"] [class*="text-purple-200"],
-html:not(.dark) [id*="modal"] [class*="text-purple-300"],
-html:not(.dark) [id*="modal"] [class*="text-purple-100"] {
+html:not(.dark) [id*="modal"] [class*="text-purple-300"] {
   color: #533f78 !important;
 }
 
-html:not(.dark) main :not(.wm-hero-banner):not(.wm-hero-banner *) > [class*="text-amber-200"],
-html:not(.dark) main :not(.wm-hero-banner):not(.wm-hero-banner *) > [class*="text-amber-300"],
+html:not(.dark) main [class*="text-amber-200"],
+html:not(.dark) main [class*="text-amber-300"],
+html:not(.dark) main [class*="text-amber-400"]:not(.wm-stat-icon *),
 html:not(.dark) [id*="modal"] [class*="text-amber-200"],
 html:not(.dark) [id*="modal"] [class*="text-amber-300"] {
   color: #b45309 !important;
 }
 
-html:not(.dark) main :not(.wm-hero-banner):not(.wm-hero-banner *) > [class*="text-emerald-200"],
-html:not(.dark) main :not(.wm-hero-banner):not(.wm-hero-banner *) > [class*="text-emerald-300"],
+html:not(.dark) main [class*="text-emerald-200"],
+html:not(.dark) main [class*="text-emerald-300"],
+html:not(.dark) main [class*="text-emerald-400"],
 html:not(.dark) [id*="modal"] [class*="text-emerald-200"],
 html:not(.dark) [id*="modal"] [class*="text-emerald-300"] {
   color: #047857 !important;
 }
 
-html:not(.dark) main :not(.wm-hero-banner):not(.wm-hero-banner *) > [class*="text-rose-200"],
-html:not(.dark) main :not(.wm-hero-banner):not(.wm-hero-banner *) > [class*="text-rose-300"],
+html:not(.dark) main [class*="text-rose-200"],
+html:not(.dark) main [class*="text-rose-300"],
+html:not(.dark) main [class*="text-rose-400"],
 html:not(.dark) [id*="modal"] [class*="text-rose-200"],
 html:not(.dark) [id*="modal"] [class*="text-rose-300"] {
   color: #be123c !important;
 }
 
-html:not(.dark) main :not(.wm-hero-banner):not(.wm-hero-banner *) > [class*="text-pink-200"]:not([class*="bg-black"]),
-html:not(.dark) main :not(.wm-hero-banner):not(.wm-hero-banner *) > [class*="text-pink-300"]:not([class*="bg-black"]),
+html:not(.dark) main [class*="text-pink-200"]:not([class*="bg-black"]),
+html:not(.dark) main [class*="text-pink-300"]:not([class*="bg-black"]),
 html:not(.dark) [id*="modal"] [class*="text-pink-200"]:not([class*="bg-black"]),
 html:not(.dark) [id*="modal"] [class*="text-pink-300"]:not([class*="bg-black"]) {
   color: #be185d !important;
+}
+
+/* --- B. DARK MODE (html.dark) --- */
+html.dark .text-on-surface {
+  color: #f7f4ff !important;
+}
+html.dark .text-on-surface-variant {
+  color: #cfc2eb !important;
+}
+html.dark .text-outline {
+  color: #a391c9 !important;
+}
+
+html.dark main [class*="text-[#1a0f30]"],
+html.dark main [class*="text-[#2b194d]"],
+html.dark header [class*="text-[#1a0f30]"],
+html.dark header [class*="text-[#2b194d]"],
+html.dark [id*="modal"] [class*="text-[#1a0f30]"],
+html.dark [id*="modal"] [class*="text-[#2b194d]"] {
+  color: #f7f4ff !important;
+}
+
+html.dark main [class*="text-[#4e3f6b]"],
+html.dark main [class*="text-[#5e4f7d]"],
+html.dark main [class*="text-[#3b2860]"],
+html.dark main [class*="text-[#4c1d95]"],
+html.dark header [class*="text-[#5e4f7d]"],
+html.dark [id*="modal"] [class*="text-[#5e4f7d]"] {
+  color: #cfc2eb !important;
+}
+
+html.dark main .bg-surface-container,
+html.dark main .bg-surface-container-low,
+html.dark main .bg-surface-container-lowest,
+html.dark [id*="modal"] .bg-surface-container,
+html.dark [id*="modal"] .bg-surface-container-low,
+html.dark [id*="modal"] .bg-surface-container-lowest {
+  background-color: rgba(31, 18, 62, 0.94) !important;
+  border-color: rgba(147, 102, 245, 0.32) !important;
+  color: #f7f4ff !important;
+}
+
+html.dark main .bg-surface-container-high,
+html.dark [id*="modal"] .bg-surface-container-high {
+  background-color: rgba(42, 25, 82, 0.92) !important;
+  border-color: rgba(147, 102, 245, 0.36) !important;
+  color: #f7f4ff !important;
+}
+
+html.dark main .bg-surface-container-highest,
+html.dark [id*="modal"] .bg-surface-container-highest {
+  background-color: rgba(55, 34, 105, 0.95) !important;
+  color: #f7f4ff !important;
+}
+
+html.dark main [class*="bg-[#f6f3fd]"],
+html.dark main [class*="bg-[#f5f1fd]"],
+html.dark main [class*="bg-[#faf7ff]"],
+html.dark main [class*="bg-[#f5f0fd]"],
+html.dark [id*="modal"] [class*="bg-white"] {
+  background-color: rgba(38, 22, 76, 0.94) !important;
+  border-color: rgba(147, 102, 245, 0.34) !important;
+  color: #f7f4ff !important;
 }
 
 /* Inputs, Selects & Textareas across all Admin Pages & Modals */
@@ -887,7 +1022,7 @@ html:not(.dark) [id*="modal"] input:not([type="checkbox"]):not([type="radio"]):n
 html:not(.dark) [id*="modal"] select,
 html:not(.dark) [id*="modal"] textarea {
   background-color: #ffffff !important;
-  border: 1px solid #d8ccf0 !important;
+  border: 1px solid #d5c7f0 !important;
   color: #1a0f30 !important;
 }
 
@@ -897,14 +1032,33 @@ html.dark main textarea,
 html.dark [id*="modal"] input:not([type="checkbox"]):not([type="radio"]):not([type="range"]):not([type="color"]):not([type="file"]),
 html.dark [id*="modal"] select,
 html.dark [id*="modal"] textarea {
-  background-color: rgba(20, 12, 42, 0.9) !important;
-  border: 1px solid rgba(139, 92, 246, 0.35) !important;
-  color: #f5f0ff !important;
+  background-color: rgba(20, 11, 42, 0.95) !important;
+  border: 1px solid rgba(147, 102, 245, 0.42) !important;
+  color: #f7f4ff !important;
 }
 
 /* ==========================================================================
-   6. MOBILE VIEW & DESKTOP VIEW RESPONSIVE ADAPTATION
+   6. DESKTOP VIEW & MOBILE VIEW RESPONSIVE ENGINE
+   Fixes full-width alignment on Desktop and compact responsive layout on Mobile
    ========================================================================== */
+
+/* Normalize inner legacy wrappers inside <main> so there is no double padding */
+main#admin-main-content {
+  width: 100% !important;
+  max-width: 1560px !important;
+  margin-left: auto !important;
+  margin-right: auto !important;
+}
+
+main#admin-main-content > div.flex.flex-col.w-full > div.relative.w-full > div[class*="px-space-"],
+main#admin-main-content > div[class*="px-space-"],
+main#admin-main-content > div.w-full[class*="px-3"] {
+  padding-left: 0 !important;
+  padding-right: 0 !important;
+  padding-top: 0 !important;
+  max-width: 100% !important;
+}
+
 @media (max-width: 767px) {
   aside#admin-sidebar {
     width: 270px !important;
@@ -917,31 +1071,78 @@ html.dark [id*="modal"] textarea {
     height: 60px !important;
   }
 
+  .wm-header-search-input {
+    height: 36px !important;
+    padding: 0 12px 0 34px !important;
+    font-size: 12px !important;
+  }
+
+  .wm-theme-pill-btn {
+    padding: 2px !important;
+    gap: 2px !important;
+  }
+
+  .wm-theme-pill-sun,
+  .wm-theme-pill-knob {
+    width: 24px !important;
+    height: 24px !important;
+  }
+
+  .wm-admin-profile-pill {
+    padding: 3px !important;
+    gap: 0 !important;
+  }
+
+  .wm-admin-profile-pill > span.material-symbols-outlined {
+    display: none !important;
+  }
+
+  #wm-admin-notif-dropdown,
+  #wm-admin-profile-dropdown,
+  #global-search-results {
+    position: fixed !important;
+    top: 64px !important;
+    right: 12px !important;
+    left: 12px !important;
+    width: auto !important;
+    max-width: calc(100vw - 24px) !important;
+  }
+
+  main#admin-main-content {
+    padding-top: 72px !important;
+    padding-left: 12px !important;
+    padding-right: 12px !important;
+    padding-bottom: 40px !important;
+    gap: 14px !important;
+  }
+
   .wm-hero-banner {
-    padding: 18px 18px !important;
-    min-height: 148px !important;
+    padding: 18px 16px !important;
+    min-height: 152px !important;
     border-radius: 16px !important;
-    background-position: 78% center !important;
+    background-position: 76% center !important;
   }
 
   .wm-hero-banner::before {
-    background: linear-gradient(180deg, rgba(22, 11, 50, 0.88) 0%, rgba(28, 14, 62, 0.82) 100%) !important;
+    background: linear-gradient(180deg, rgba(20, 9, 48, 0.90) 0%, rgba(28, 14, 64, 0.84) 100%) !important;
   }
 
-  .wm-hero-title {
+  .wm-hero-title,
+  .wm-hero-title span:not(.wm-pink-word) {
     font-size: 1.35rem !important;
   }
 
   .wm-hero-subtitle {
     font-size: 12px !important;
     margin-bottom: 12px !important;
+    line-height: 1.4 !important;
   }
 
   .wm-btn-pink-pill,
   .wm-btn-glass-pill,
   .wm-hero-pill-btn {
-    padding: 7.5px 13px !important;
-    font-size: 11.5px !important;
+    padding: 8px 13px !important;
+    font-size: 12px !important;
   }
 
   .wm-card,
@@ -949,10 +1150,16 @@ html.dark [id*="modal"] textarea {
     border-radius: 16px !important;
   }
 
-  /* Make tables horizontally scrollable on mobile without breaking card width */
-  main .overflow-x-auto,
-  main table {
-    max-width: 100%;
+  /* Prevent tables or wide flex rows from breaking mobile viewport */
+  main section,
+  main .wm-card {
+    max-width: 100% !important;
+    overflow-x: hidden;
+  }
+
+  main .overflow-x-auto {
+    overflow-x: auto !important;
+    -webkit-overflow-scrolling: touch;
   }
 }
 

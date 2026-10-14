@@ -8,20 +8,20 @@
   <title>WishMagic | Executive Analytics &amp; Admin Studio</title>
   <link rel="preconnect" href="https://fonts.googleapis.com"/>
   <link crossorigin="" href="https://fonts.gstatic.com" rel="preconnect"/>
-  <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;600;700&family=Plus+Jakarta+Sans:ital,wght@0,400;0,500;0,600;0,700;0,800;1,700;1,800&family=Outfit:ital,wght@0,500;0,600;0,700;0,800;1,700;1,800&display=swap" rel="stylesheet"/>
+  <link href="https://fonts.googleapis.com/css2?family=Playfair+Display:ital,wght@0,600;0,700;1,400;1,600&family=Plus+Jakarta+Sans:ital,wght@0,400;0,500;0,600;0,700;0,800;1,700;1,800&family=Outfit:ital,wght@0,500;0,600;0,700;0,800;1,700;1,800&family=JetBrains+Mono:wght@400;500;600;700&display=swap" rel="stylesheet"/>
   <link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:opsz,wght,FILL,GRAD@20..48,100..700,0..1,-50..200&display=swap" rel="stylesheet"/>
-  <script src="js/tailwind-config.js?v=20261014_v2"></script>
+  <script src="js/tailwind-config.js?v=20261014_v3"></script>
   <script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
   <script>
     if (typeof tailwind !== 'undefined' && typeof sharedTailwindConfig !== 'undefined') {
       tailwind.config = sharedTailwindConfig;
     }
   </script>
-  <link rel="stylesheet" href="css/admin-theme.css?v=20261014_v2"/>
+  <link rel="stylesheet" href="css/admin-theme.css?v=20261014_v3"/>
   <script src="js/api-client.js"></script>
   <script src="js/auth-service.js"></script>
   <script src="js/WishMagicCore.js"></script>
-  <script src="js/admin-theme.js?v=20261014_v2"></script>
+  <script src="js/admin-theme.js?v=20261014_v3"></script>
   <script src="js/wish-lifecycle.js"></script>
   <script src="js/repositories.js"></script>
   <script src="js/analytics-service.js"></script>
@@ -72,9 +72,9 @@
     <!-- Navigation Menu -->
     <div class="px-3.5 flex-1 overflow-y-auto custom-scrollbar pb-6">
       <nav class="flex flex-col gap-0.5">
-        <!-- Top Primary Dashboard Pill -->
-        <div class="mb-2 pt-1">
-          <a class="wm-dashboard-pill" data-nav-role="dashboard" href="/admin/anktech/anktech/admin/overview">
+        <!-- Top Primary Dashboard Link -->
+        <div class="mb-1 pt-1">
+          <a class="wm-nav-active" data-nav-role="dashboard" href="/admin/anktech/anktech/admin/overview">
             <span class="material-symbols-outlined text-[20px]" style="font-variation-settings: 'FILL' 1;">home</span>
             <span>Dashboard</span>
           </a>
@@ -86,8 +86,8 @@
           <span class="material-symbols-outlined">grid_view</span>
           <span>All Templates</span>
         </a>
-        <a href="/admin/anktech/anktech/admin/templates?action=add">
-          <span class="material-symbols-outlined">add</span>
+        <a href="/admin/anktech/anktech/admin/add-template">
+          <span class="material-symbols-outlined">add_circle</span>
           <span>Add Template</span>
         </a>
         <a href="/admin/anktech/anktech/admin/occasions">
@@ -205,23 +205,23 @@
 
   <!-- Universal Top Cloud Header (Pixel-Matched to 19728.png) -->
   <header class="wm-top-header fixed top-0 left-0 md:left-[270px] right-0 h-[68px] z-30">
-    <div class="w-full h-full px-4 md:px-6 flex items-center justify-between gap-3">
+    <div class="w-full h-full px-3 sm:px-6 flex items-center justify-between gap-2.5 sm:gap-4">
       <!-- Left: Hamburger + Search Pill with Ctrl K -->
-      <div class="flex items-center gap-2.5 flex-1 max-w-lg">
-        <button class="md:hidden p-2 rounded-xl bg-white/80 hover:bg-white text-[#2b194d] shadow-sm flex items-center justify-center flex-shrink-0" onclick="toggleSidebar()" aria-label="Open Sidebar">
+      <div class="flex items-center gap-2 sm:gap-2.5 flex-1 max-w-lg min-w-0">
+        <button class="md:hidden p-2 rounded-xl bg-white/85 dark:bg-[#24144a] hover:bg-white text-[#2b194d] dark:text-white shadow-sm flex items-center justify-center flex-shrink-0" onclick="toggleSidebar()" aria-label="Open Sidebar">
           <span class="material-symbols-outlined text-[22px]">menu</span>
         </button>
         <div class="wm-header-search-wrap">
-          <span class="material-symbols-outlined absolute left-3.5 text-[#6b5a88] text-[18px] pointer-events-none">search</span>
+          <span class="material-symbols-outlined absolute left-3.5 text-[#6b5a88] dark:text-purple-300 text-[18px] pointer-events-none">search</span>
           <input id="global-admin-search-input" oninput="handleGlobalSearch(this.value)" class="wm-header-search-input" placeholder="Search templates, wishes, users..." type="text"/>
-          <span class="wm-ctrl-k-badge">Ctrl K</span>
+          <span class="wm-ctrl-k-badge hidden sm:inline-block">Ctrl K</span>
           <!-- Search Dropdown Results Container -->
           <div id="global-search-results" class="hidden absolute top-12 left-0 right-0 bg-white dark:bg-[#1c103b] rounded-2xl border border-purple-200 dark:border-purple-500/30 shadow-2xl p-3 z-50 max-h-96 overflow-y-auto custom-scrollbar"></div>
         </div>
       </div>
 
-      <!-- Right: Sun/Moon Pill Switcher + Bell with Badge '3' + Admin Profile Card -->
-      <div class="flex items-center gap-3 md:gap-4 flex-shrink-0">
+      <!-- Right: Sun/Moon Pill Switcher + Live Bell + Admin Profile Card -->
+      <div class="flex items-center gap-2 sm:gap-3.5 flex-shrink-0">
         <!-- Sun / Moon Pill Toggle -->
         <button type="button" onclick="toggleAdminTheme()" class="wm-theme-pill-btn" title="Toggle Light / Dark Mode">
           <span class="wm-theme-pill-sun" id="wm-theme-sun-pill">
@@ -232,77 +232,51 @@
           </span>
         </button>
 
-        <!-- Notification Bell with Red Badge '3' -->
+        <!-- Live Notification Bell (Populated Dynamically from Real Backend APIs) -->
         <div class="relative">
-          <button type="button" onclick="toggleAdminNotifMenu(event)" class="relative w-10 h-10 rounded-full bg-white/85 dark:bg-[#1c103b] border border-purple-200/80 dark:border-purple-500/30 flex items-center justify-center text-[#2b194d] dark:text-purple-200 shadow-sm hover:bg-white transition cursor-pointer" title="Notifications">
-            <span class="material-symbols-outlined text-[21px]">notifications</span>
-            <span id="wm-header-notif-badge" class="absolute -top-0.5 -right-0.5 min-w-[18px] h-[18px] px-1 rounded-full bg-rose-500 text-white text-[10px] font-extrabold flex items-center justify-center shadow">3</span>
+          <button type="button" onclick="toggleAdminNotifMenu(event)" class="relative w-9 h-9 sm:w-10 sm:h-10 rounded-full bg-white/90 dark:bg-[#211342] border border-purple-200/80 dark:border-purple-500/35 flex items-center justify-center text-[#2b194d] dark:text-purple-200 shadow-sm hover:bg-white transition cursor-pointer" title="Live Notifications">
+            <span class="material-symbols-outlined text-[20px]">notifications</span>
+            <span id="wm-header-notif-badge" class="hidden absolute -top-0.5 -right-0.5 min-w-[18px] h-[18px] px-1 rounded-full bg-rose-500 text-white text-[10px] font-extrabold flex items-center justify-center shadow">0</span>
           </button>
 
-          <!-- Notifications Popover -->
+          <!-- Notifications Popover (Populated by loadLiveAdminHeaderNotifications in admin-theme.js) -->
           <div id="wm-admin-notif-dropdown" class="hidden absolute right-0 mt-2 w-80 bg-white dark:bg-[#1a0e36] rounded-2xl border border-purple-200 dark:border-purple-500/30 shadow-2xl p-3.5 z-50 text-xs" onclick="event.stopPropagation()">
-            <div class="flex items-center justify-between pb-2.5 mb-2 border-b border-purple-100 dark:border-purple-800/40">
-              <span class="font-bold text-sm text-[#1a0f30] dark:text-white">Admin Notifications</span>
-              <a href="/admin/anktech/anktech/admin/notifications" class="text-[11px] font-bold text-purple-600 hover:underline">View Queue →</a>
-            </div>
-            <div class="space-y-2">
-              <a href="/admin/anktech/anktech/admin/wishes" class="flex items-start gap-2.5 p-2 rounded-xl hover:bg-purple-50 dark:hover:bg-purple-900/30 transition">
-                <span class="w-7 h-7 rounded-full bg-pink-100 text-pink-600 flex items-center justify-center shrink-0 mt-0.5"><span class="material-symbols-outlined text-[15px]">send</span></span>
-                <div>
-                  <div class="font-bold text-[#1a0f30] dark:text-white">New wish created for Kritika ❤️</div>
-                  <div class="text-[11px] text-slate-500">Birthday Magic • 2 min ago</div>
-                </div>
-              </a>
-              <a href="/admin/anktech/anktech/admin/orders" class="flex items-start gap-2.5 p-2 rounded-xl hover:bg-purple-50 dark:hover:bg-purple-900/30 transition">
-                <span class="w-7 h-7 rounded-full bg-emerald-100 text-emerald-600 flex items-center justify-center shrink-0 mt-0.5"><span class="material-symbols-outlined text-[15px]">payments</span></span>
-                <div>
-                  <div class="font-bold text-[#1a0f30] dark:text-white">VIP Pass Payment Received (₹49)</div>
-                  <div class="text-[11px] text-slate-500">Per Wish Pass • 2 hours ago</div>
-                </div>
-              </a>
-              <a href="/admin/anktech/anktech/admin/templates" class="flex items-start gap-2.5 p-2 rounded-xl hover:bg-purple-50 dark:hover:bg-purple-900/30 transition">
-                <span class="w-7 h-7 rounded-full bg-purple-100 text-purple-600 flex items-center justify-center shrink-0 mt-0.5"><span class="material-symbols-outlined text-[15px]">auto_awesome</span></span>
-                <div>
-                  <div class="font-bold text-[#1a0f30] dark:text-white">Template "Birthday Magic" Published</div>
-                  <div class="text-[11px] text-slate-500">All 17 release checks passed</div>
-                </div>
-              </a>
-            </div>
+            <div class="py-4 text-center text-xs text-on-surface-variant">Loading live notifications...</div>
           </div>
         </div>
 
-        <!-- Admin Profile Pill (Admin / ankit.babusaini@gmail.com) -->
+        <!-- Admin Profile Pill -->
         <div class="relative">
           <div onclick="toggleAdminProfileMenu(event)" class="wm-admin-profile-pill">
-            <div class="w-9 h-9 rounded-full bg-gradient-to-br from-[#4c1d95] to-[#6d28d9] flex items-center justify-center text-white shadow-sm flex-shrink-0">
-              <span class="material-symbols-outlined text-[20px]">person</span>
+            <div class="w-8 h-8 sm:w-9 sm:h-9 rounded-full bg-gradient-to-br from-[#4c1d95] to-[#6d28d9] flex items-center justify-center text-white shadow-sm flex-shrink-0">
+              <span class="material-symbols-outlined text-[19px]">person</span>
             </div>
             <div class="hidden sm:flex flex-col text-left leading-tight">
-              <span class="text-[13.5px] font-extrabold text-[#1a0f30] dark:text-white">Admin</span>
-              <span id="wm-admin-header-email" class="text-[11px] font-medium text-[#5e4f7d] dark:text-purple-300">ankit.babusaini@gmail.com</span>
+              <span class="text-[13.5px] font-extrabold text-on-surface">Admin</span>
+              <span id="wm-admin-header-email" class="text-[11px] font-medium text-on-surface-variant">ankit.babusaini@gmail.com</span>
             </div>
-            <span class="material-symbols-outlined text-[18px] text-[#5e4f7d] dark:text-purple-300 ml-0.5">expand_more</span>
+            <span class="material-symbols-outlined text-[18px] text-on-surface-variant ml-0.5">expand_more</span>
           </div>
 
           <!-- Profile Dropdown Menu -->
           <div id="wm-admin-profile-dropdown" class="hidden absolute right-0 mt-2 w-60 bg-white dark:bg-[#1a0e36] rounded-2xl border border-purple-200 dark:border-purple-500/30 shadow-2xl p-2 z-50 text-xs" onclick="event.stopPropagation()">
             <div class="px-3 py-2 border-b border-purple-100 dark:border-purple-800/40 mb-1">
-              <div class="font-bold text-sm text-[#1a0f30] dark:text-white">Admin Studio</div>
-              <div class="text-[11px] text-slate-500 truncate">ankit.babusaini@gmail.com</div>
+              <div class="font-bold text-sm text-on-surface">Admin Studio</div>
+              <div class="text-[11px] text-on-surface-variant truncate">ankit.babusaini@gmail.com</div>
             </div>
-            <a href="/admin/anktech/anktech/admin/settings" class="flex items-center gap-2.5 px-3 py-2 rounded-xl hover:bg-purple-50 dark:hover:bg-purple-900/30 text-[#1a0f30] dark:text-white font-semibold transition">
+            <a href="/admin/anktech/anktech/admin/settings" class="flex items-center gap-2.5 px-3 py-2 rounded-xl hover:bg-purple-50 dark:hover:bg-purple-900/30 text-on-surface font-semibold transition">
               <span class="material-symbols-outlined text-[17px] text-purple-600">settings</span>
               <span>Main Website &amp; Site Settings</span>
             </a>
-            <a href="/admin/anktech/anktech/admin/templates?action=add" class="flex items-center gap-2.5 px-3 py-2 rounded-xl hover:bg-purple-50 dark:hover:bg-purple-900/30 text-[#1a0f30] dark:text-white font-semibold transition">
+            <a href="/admin/anktech/anktech/admin/add-template" class="flex items-center gap-2.5 px-3 py-2 rounded-xl hover:bg-purple-50 dark:hover:bg-purple-900/30 text-on-surface font-semibold transition">
               <span class="material-symbols-outlined text-[17px] text-pink-500">add_circle</span>
               <span>Upload &amp; Set New Template</span>
             </a>
-            <a href="/admin/anktech/anktech/admin/media" class="flex items-center gap-2.5 px-3 py-2 rounded-xl hover:bg-purple-50 dark:hover:bg-purple-900/30 text-[#1a0f30] dark:text-white font-semibold transition">
+            <a href="/admin/anktech/anktech/admin/media" class="flex items-center gap-2.5 px-3 py-2 rounded-xl hover:bg-purple-50 dark:hover:bg-purple-900/30 text-on-surface font-semibold transition">
               <span class="material-symbols-outlined text-[17px] text-indigo-500">perm_media</span>
               <span>Hero Photo &amp; Media Vault</span>
             </a>
-            <a href="/" target="_blank" class="flex items-center gap-2.5 px-3 py-2 rounded-xl hover:bg-purple-50 dark:hover:bg-purple-900/30 text-[#1a0f30] dark:text-white font-semibold transition">
+            <a href="/" target="_blank" class="flex items-center gap-2.5 px-3 py-2 rounded-xl hover:bg-purple-50 dark:hover:bg-purple-900/30 text-on-surface font-semibold transition">
               <span class="material-symbols-outlined text-[17px] text-emerald-600">open_in_new</span>
               <span>View Live Website</span>
             </a>
@@ -317,15 +291,21 @@
     </div>
   </header>
 
-  <!-- Main Dashboard Content Area (Pixel-Matched to 19728.png) -->
-  <main id="admin-main-content" class="w-full pt-[80px] px-4 sm:px-6 pb-12 max-w-[1320px] mx-auto flex flex-col gap-5">
+  <!-- Main Dashboard Content Area (Pixel-Matched to 19728.png — 100% Real Live Data) -->
+  <main id="admin-main-content" class="w-full pt-[80px] px-4 sm:px-6 pb-12 max-w-[1560px] mx-auto flex flex-col gap-5">
 
     <!-- 1. HERO BANNER: WishMagic Dashboard -->
     <section class="wm-hero-banner">
       <div class="relative z-10 flex flex-col items-start max-w-xl">
-        <div class="wm-hero-welcome-pill">
-          <span>Welcome Back, Admin</span>
-          <span>🪄</span>
+        <div class="flex flex-wrap items-center gap-2 mb-2">
+          <div class="wm-hero-welcome-pill !mb-0">
+            <span>Welcome Back, Admin</span>
+            <span>🪄</span>
+          </div>
+          <div class="wm-hero-welcome-pill !mb-0 !bg-emerald-500/25 !border-emerald-400/40">
+            <span class="w-2 h-2 rounded-full bg-emerald-400 animate-pulse"></span>
+            <span id="dashboard-live-sync-status">Live Real-Time Telemetry</span>
+          </div>
         </div>
         <h1 class="wm-hero-title">
           <span>Wish</span><span class="wm-pink-word">Magic</span> <span class="wm-lavender-word">Dashboard</span>
@@ -334,7 +314,7 @@
           Manage templates, users, wishes and make every celebration magical!
         </p>
         <div class="flex flex-wrap items-center gap-3">
-          <a href="/admin/anktech/anktech/admin/templates?action=add" class="wm-btn-pink-pill">
+          <a href="/admin/anktech/anktech/admin/add-template" class="wm-btn-pink-pill">
             <span class="material-symbols-outlined text-[19px]" style="font-variation-settings: 'FILL' 1;">add_circle</span>
             <span>Add New Template</span>
           </a>
@@ -342,29 +322,32 @@
             <span class="material-symbols-outlined text-[18px]">open_in_new</span>
             <span>View Website</span>
           </a>
+          <button type="button" onclick="loadDashboard(false)" class="wm-btn-glass-pill">
+            <span class="material-symbols-outlined text-[17px]" id="dashboard-refresh-icon">refresh</span>
+            <span>Sync Live Data</span>
+          </button>
         </div>
       </div>
     </section>
 
-    <!-- 2. FOUR PRIMARY KPI STAT CARDS WITH SPARKLINE CHARTS -->
+    <!-- 2. FOUR PRIMARY KPI STAT CARDS WITH SPARKLINE CHARTS (100% Real Live Counts) -->
     <section class="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-4">
       <!-- Card 1: Total Wishes -->
       <div class="wm-card p-4 sm:p-5 flex items-center justify-between gap-3">
-        <div class="flex items-start gap-3.5">
+        <div class="flex items-start gap-3.5 min-w-0">
           <div class="w-12 h-12 rounded-2xl bg-gradient-to-br from-[#a855f7] to-[#7c3aed] flex items-center justify-center text-white shadow-md shadow-purple-500/25 flex-shrink-0">
             <span class="material-symbols-outlined text-[24px]" style="transform: rotate(-25deg); margin-left: 2px;">send</span>
           </div>
-          <div>
-            <div class="text-[12.5px] font-semibold text-[#5e4f7d] dark:text-purple-300">Total Wishes</div>
-            <div id="stat-wishes" class="text-[26px] font-extrabold text-[#1a0f30] dark:text-white leading-tight mt-0.5">1,248</div>
-            <div class="flex items-center gap-1 text-[11.5px] font-bold text-emerald-600 mt-1">
-              <span>↑ +12%</span>
-              <span id="stat-wishes-sub" class="hidden"></span>
+          <div class="min-w-0">
+            <div class="text-[12.5px] font-semibold text-on-surface-variant">Total Wishes</div>
+            <div id="stat-wishes" class="text-[26px] font-extrabold text-on-surface leading-tight mt-0.5">0</div>
+            <div class="flex items-center gap-1 text-[11.5px] font-bold text-emerald-600 dark:text-emerald-400 mt-1 truncate">
+              <span id="stat-wishes-sub">Loading live wishes...</span>
             </div>
           </div>
         </div>
         <!-- Green Area Sparkline -->
-        <div class="w-24 h-12 flex-shrink-0">
+        <div class="w-20 sm:w-24 h-12 flex-shrink-0">
           <svg viewBox="0 0 100 48" class="w-full h-full overflow-visible">
             <defs>
               <linearGradient id="sparkGreen" x1="0" y1="0" x2="0" y2="1">
@@ -380,21 +363,20 @@
 
       <!-- Card 2: Total Users -->
       <div class="wm-card p-4 sm:p-5 flex items-center justify-between gap-3">
-        <div class="flex items-start gap-3.5">
+        <div class="flex items-start gap-3.5 min-w-0">
           <div class="w-12 h-12 rounded-2xl bg-gradient-to-br from-[#d946ef] to-[#9333ea] flex items-center justify-center text-white shadow-md shadow-purple-500/25 flex-shrink-0">
             <span class="material-symbols-outlined text-[24px]" style="font-variation-settings: 'FILL' 1;">group</span>
           </div>
-          <div>
-            <div class="text-[12.5px] font-semibold text-[#5e4f7d] dark:text-purple-300">Total Users</div>
-            <div id="stat-users" class="text-[26px] font-extrabold text-[#1a0f30] dark:text-white leading-tight mt-0.5">892</div>
-            <div class="flex items-center gap-1 text-[11.5px] font-bold text-emerald-600 mt-1">
-              <span>↑ +8%</span>
-              <span id="stat-users-sub" class="hidden"></span>
+          <div class="min-w-0">
+            <div class="text-[12.5px] font-semibold text-on-surface-variant">Total Users</div>
+            <div id="stat-users" class="text-[26px] font-extrabold text-on-surface leading-tight mt-0.5">0</div>
+            <div class="flex items-center gap-1 text-[11.5px] font-bold text-emerald-600 dark:text-emerald-400 mt-1 truncate">
+              <span id="stat-users-sub">Loading live users...</span>
             </div>
           </div>
         </div>
         <!-- Purple Area Sparkline -->
-        <div class="w-24 h-12 flex-shrink-0">
+        <div class="w-20 sm:w-24 h-12 flex-shrink-0">
           <svg viewBox="0 0 100 48" class="w-full h-full overflow-visible">
             <defs>
               <linearGradient id="sparkPurple" x1="0" y1="0" x2="0" y2="1">
@@ -410,21 +392,20 @@
 
       <!-- Card 3: Total Templates -->
       <div class="wm-card p-4 sm:p-5 flex items-center justify-between gap-3">
-        <div class="flex items-start gap-3.5">
+        <div class="flex items-start gap-3.5 min-w-0">
           <div class="w-12 h-12 rounded-2xl bg-gradient-to-br from-[#fbbf24] to-[#f59e0b] flex items-center justify-center text-white shadow-md shadow-amber-500/25 flex-shrink-0">
             <span class="material-symbols-outlined text-[24px]" style="font-variation-settings: 'FILL' 1;">description</span>
           </div>
-          <div>
-            <div class="text-[12.5px] font-semibold text-[#5e4f7d] dark:text-purple-300">Total Templates</div>
-            <div id="stat-templates" class="text-[26px] font-extrabold text-[#1a0f30] dark:text-white leading-tight mt-0.5">36</div>
-            <div class="flex items-center gap-1 text-[11.5px] font-bold text-emerald-600 mt-1">
-              <span>↑ +3</span>
-              <span id="stat-templates-sub" class="hidden"></span>
+          <div class="min-w-0">
+            <div class="text-[12.5px] font-semibold text-on-surface-variant">Total Templates</div>
+            <div id="stat-templates" class="text-[26px] font-extrabold text-on-surface leading-tight mt-0.5">0</div>
+            <div class="flex items-center gap-1 text-[11.5px] font-bold text-emerald-600 dark:text-emerald-400 mt-1 truncate">
+              <span id="stat-templates-sub">Loading live templates...</span>
             </div>
           </div>
         </div>
         <!-- Amber Area Sparkline -->
-        <div class="w-24 h-12 flex-shrink-0">
+        <div class="w-20 sm:w-24 h-12 flex-shrink-0">
           <svg viewBox="0 0 100 48" class="w-full h-full overflow-visible">
             <defs>
               <linearGradient id="sparkAmber" x1="0" y1="0" x2="0" y2="1">
@@ -440,21 +421,20 @@
 
       <!-- Card 4: Total Revenue -->
       <div class="wm-card p-4 sm:p-5 flex items-center justify-between gap-3">
-        <div class="flex items-start gap-3.5">
+        <div class="flex items-start gap-3.5 min-w-0">
           <div class="w-12 h-12 rounded-2xl bg-gradient-to-br from-[#ff2a85] to-[#ec4899] flex items-center justify-center text-white shadow-md shadow-pink-500/25 flex-shrink-0">
             <span class="text-[22px] font-extrabold">₹</span>
           </div>
-          <div>
-            <div class="text-[12.5px] font-semibold text-[#5e4f7d] dark:text-purple-300">Total Revenue</div>
-            <div id="stat-revenue" class="text-[26px] font-extrabold text-[#1a0f30] dark:text-white leading-tight mt-0.5">₹4,892</div>
-            <div class="flex items-center gap-1 text-[11.5px] font-bold text-emerald-600 mt-1">
-              <span>↑ +18%</span>
-              <span id="stat-paid-orders" class="hidden"></span>
+          <div class="min-w-0">
+            <div class="text-[12.5px] font-semibold text-on-surface-variant">Total Revenue</div>
+            <div id="stat-revenue" class="text-[26px] font-extrabold text-on-surface leading-tight mt-0.5">₹0</div>
+            <div class="flex items-center gap-1 text-[11.5px] font-bold text-emerald-600 dark:text-emerald-400 mt-1 truncate">
+              <span id="stat-paid-orders">0 paid orders</span>
             </div>
           </div>
         </div>
         <!-- Pink Area Sparkline -->
-        <div class="w-24 h-12 flex-shrink-0">
+        <div class="w-20 sm:w-24 h-12 flex-shrink-0">
           <svg viewBox="0 0 100 48" class="w-full h-full overflow-visible">
             <defs>
               <linearGradient id="sparkPink" x1="0" y1="0" x2="0" y2="1">
@@ -469,28 +449,65 @@
       </div>
     </section>
 
-    <!-- Hidden telemetry nodes preserved for script compatibility -->
-    <div class="hidden">
-      <span id="stat-active-wishes">0</span>
-      <span id="stat-upcoming-wishes">0</span>
-      <span id="stat-expired-wishes">0</span>
-      <span id="stat-views">0</span>
-      <span id="stat-shares">0</span>
-      <span id="stat-favorites">0</span>
+    <!-- Secondary Live Lifecycle & Engagement Telemetry Strip -->
+    <div class="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-3">
+      <div class="wm-card px-4 py-3 flex items-center justify-between">
+        <div>
+          <span class="text-[10.5px] font-bold uppercase tracking-wider text-emerald-600 dark:text-emerald-400">🟢 Live Active</span>
+          <div id="stat-active-wishes" class="text-lg font-extrabold text-on-surface mt-0.5">0</div>
+        </div>
+        <span class="material-symbols-outlined text-emerald-500 text-xl">check_circle</span>
+      </div>
+      <div class="wm-card px-4 py-3 flex items-center justify-between">
+        <div>
+          <span class="text-[10.5px] font-bold uppercase tracking-wider text-purple-600 dark:text-purple-300">🟣 Upcoming</span>
+          <div id="stat-upcoming-wishes" class="text-lg font-extrabold text-on-surface mt-0.5">0</div>
+        </div>
+        <span class="material-symbols-outlined text-purple-500 text-xl">event_upcoming</span>
+      </div>
+      <div class="wm-card px-4 py-3 flex items-center justify-between">
+        <div>
+          <span class="text-[10.5px] font-bold uppercase tracking-wider text-rose-600 dark:text-rose-400">🔴 Expired</span>
+          <div id="stat-expired-wishes" class="text-lg font-extrabold text-on-surface mt-0.5">0</div>
+        </div>
+        <span class="material-symbols-outlined text-rose-500 text-xl">timer_off</span>
+      </div>
+      <div class="wm-card px-4 py-3 flex items-center justify-between">
+        <div>
+          <span class="text-[10.5px] font-bold uppercase tracking-wider text-on-surface-variant">👁️ Total Views</span>
+          <div id="stat-views" class="text-lg font-extrabold text-on-surface mt-0.5">0</div>
+        </div>
+        <span class="material-symbols-outlined text-indigo-500 text-xl">visibility</span>
+      </div>
+      <div class="wm-card px-4 py-3 flex items-center justify-between">
+        <div>
+          <span class="text-[10.5px] font-bold uppercase tracking-wider text-on-surface-variant">🔗 Total Shares</span>
+          <div id="stat-shares" class="text-lg font-extrabold text-on-surface mt-0.5">0</div>
+        </div>
+        <span class="material-symbols-outlined text-pink-500 text-xl">share</span>
+      </div>
+      <div class="wm-card px-4 py-3 flex items-center justify-between">
+        <div>
+          <span class="text-[10.5px] font-bold uppercase tracking-wider text-on-surface-variant">❤️ Favorites</span>
+          <div id="stat-favorites" class="text-lg font-extrabold text-on-surface mt-0.5">0</div>
+        </div>
+        <span class="material-symbols-outlined text-amber-500 text-xl">favorite</span>
+      </div>
     </div>
 
     <!-- 3. MAIN 2-COLUMN WORKSPACE GRID (Left 8 Cols | Right 4 Cols) -->
     <div class="grid grid-cols-1 xl:grid-cols-12 gap-5 items-start">
 
       <!-- LEFT 8 COLUMNS: Recent Wishes Table + (Template Performance & Top Templates) -->
-      <div class="xl:col-span-8 flex flex-col gap-5">
+      <div class="xl:col-span-8 flex flex-col gap-5 min-w-0">
 
-        <!-- RECENT WISHES CARD -->
-        <section class="wm-card p-5">
-          <div class="flex items-center justify-between mb-4">
+        <!-- RECENT WISHES CARD (100% Real Wishes from Database) -->
+        <section class="wm-card p-4 sm:p-5">
+          <div class="flex flex-wrap items-center justify-between gap-2 mb-4">
             <div class="flex items-center gap-2.5">
-              <span class="material-symbols-outlined text-[#7c3aed] text-[22px]" style="transform: rotate(-25deg);">send</span>
-              <h2 class="text-[18px] font-extrabold text-[#1a0f30] dark:text-white">Recent Wishes</h2>
+              <span class="material-symbols-outlined text-[#7c3aed] dark:text-purple-400 text-[22px]" style="transform: rotate(-25deg);">send</span>
+              <h2 class="text-[17px] sm:text-[18px] font-extrabold text-on-surface">Recent Wishes</h2>
+              <span id="recent-wishes-live-count" class="px-2 py-0.5 rounded-full bg-purple-100 dark:bg-purple-900/50 text-purple-700 dark:text-purple-200 text-[11px] font-bold">Live</span>
             </div>
             <a href="/admin/anktech/anktech/admin/wishes" class="wm-view-all-pill">
               <span>View All</span>
@@ -498,10 +515,10 @@
             </a>
           </div>
 
-          <div class="overflow-x-auto">
+          <div class="overflow-x-auto -mx-1 px-1">
             <table class="w-full text-left border-collapse text-[13px]">
               <thead>
-                <tr class="bg-[#f6f3fd] dark:bg-[#24144a] text-[#4e3f6b] dark:text-purple-200 font-semibold text-[12px]">
+                <tr>
                   <th class="py-2.5 px-3 rounded-l-xl">#</th>
                   <th class="py-2.5 px-3">Preview</th>
                   <th class="py-2.5 px-3">Recipient</th>
@@ -513,7 +530,9 @@
                 </tr>
               </thead>
               <tbody id="recent-wishes-tbody" class="divide-y divide-[#f1ecfa] dark:divide-purple-900/30">
-                <!-- Populated by renderRecentWishes() with exact 19728.png rows + real DB wishes -->
+                <tr>
+                  <td colspan="8" class="py-8 text-center text-xs text-on-surface-variant">Loading real wishes from database...</td>
+                </tr>
               </tbody>
             </table>
           </div>
@@ -523,37 +542,39 @@
         <div class="grid grid-cols-1 md:grid-cols-12 gap-5">
 
           <!-- TEMPLATE PERFORMANCE BAR CHART (7 Cols) -->
-          <section class="md:col-span-7 wm-card p-5 flex flex-col justify-between">
-            <div class="flex items-center justify-between mb-4">
+          <section class="md:col-span-7 wm-card p-4 sm:p-5 flex flex-col justify-between">
+            <div class="flex flex-wrap items-center justify-between gap-2 mb-4">
               <div class="flex items-center gap-2">
-                <span class="material-symbols-outlined text-[#7c3aed] text-[20px]" style="transform: rotate(-25deg);">send</span>
-                <h3 class="text-[16.5px] font-extrabold text-[#1a0f30] dark:text-white">Template Performance</h3>
+                <span class="material-symbols-outlined text-[#7c3aed] dark:text-purple-400 text-[20px]" style="transform: rotate(-25deg);">send</span>
+                <div>
+                  <h3 class="text-[16px] sm:text-[16.5px] font-extrabold text-on-surface">Template Performance</h3>
+                  <span id="perf-chart-subtitle" class="text-[11px] text-on-surface-variant">Live category breakdown</span>
+                </div>
               </div>
               <div class="relative">
-                <select id="perf-range-select" onchange="setAnalyticsRange(this.value)" class="appearance-none bg-[#f5f1fd] dark:bg-[#26164d] border border-[#e5dcf7] dark:border-purple-500/30 text-[#3b2860] dark:text-purple-200 text-[11.5px] font-semibold rounded-full pl-3 pr-7 py-1 cursor-pointer focus:outline-none">
+                <select id="perf-range-select" onchange="setAnalyticsRange(this.value)" class="appearance-none bg-[#f5f1fd] dark:bg-[#26164d] border border-[#e5dcf7] dark:border-purple-500/30 text-on-surface text-[11.5px] font-semibold rounded-full pl-3 pr-7 py-1 cursor-pointer focus:outline-none">
                   <option value="30d" selected>Last 30 Days</option>
                   <option value="7d">Last 7 Days</option>
                   <option value="90d">Last 90 Days</option>
                   <option value="all">All Time</option>
                 </select>
-                <span class="material-symbols-outlined text-[15px] text-[#5e4f7d] absolute right-2 top-1/2 -translate-y-1/2 pointer-events-none">expand_more</span>
+                <span class="material-symbols-outlined text-[15px] text-on-surface-variant absolute right-2 top-1/2 -translate-y-1/2 pointer-events-none">expand_more</span>
               </div>
             </div>
 
-            <!-- Vertical Bar Chart (Y-Axis: 200, 150, 100, 50, 0 | X-Axis: Birthday, Anniversary, Love, Festival, Friendship, Others) -->
+            <!-- Vertical Bar Chart (Dynamically Scaled to Real Data) -->
             <div id="template-performance-chart" class="w-full pt-2">
-              <div class="flex items-stretch gap-3 h-[185px]">
-                <!-- Y-Axis Labels -->
-                <div class="flex flex-col justify-between text-[11px] font-medium text-[#7b6b99] pb-6 pr-1 select-none text-right w-7">
-                  <span>200</span>
-                  <span>150</span>
-                  <span>100</span>
-                  <span>50</span>
+              <div class="flex items-stretch gap-2.5 sm:gap-3 h-[190px]">
+                <!-- Dynamic Y-Axis Labels -->
+                <div id="perf-y-axis" class="flex flex-col justify-between text-[11px] font-medium text-on-surface-variant pb-6 pr-1 select-none text-right w-7">
+                  <span>20</span>
+                  <span>15</span>
+                  <span>10</span>
+                  <span>5</span>
                   <span>0</span>
                 </div>
                 <!-- Bars Area with Gridlines -->
-                <div class="flex-1 flex flex-col justify-between relative">
-                  <!-- Horizontal Grid Lines -->
+                <div class="flex-1 flex flex-col justify-between relative min-w-0">
                   <div class="absolute inset-x-0 top-1 bottom-6 flex flex-col justify-between pointer-events-none">
                     <div class="border-b border-[#f0ebf8] dark:border-purple-900/30 w-full"></div>
                     <div class="border-b border-[#f0ebf8] dark:border-purple-900/30 w-full"></div>
@@ -562,8 +583,8 @@
                     <div class="border-b border-[#e5ddf5] dark:border-purple-800/40 w-full"></div>
                   </div>
                   <!-- 6 Purple Gradient Bars -->
-                  <div id="category-bars-container" class="relative z-10 flex-1 flex items-end justify-around gap-2 px-1 pt-2">
-                    <!-- Rendered dynamically by renderCategoryBars() -->
+                  <div id="category-bars-container" class="relative z-10 flex-1 flex items-end justify-around gap-1.5 sm:gap-2 px-1 pt-2">
+                    <!-- Rendered dynamically from real database metrics -->
                   </div>
                 </div>
               </div>
@@ -571,12 +592,12 @@
           </section>
 
           <!-- TOP TEMPLATES LEADERBOARD (5 Cols) -->
-          <section class="md:col-span-5 wm-card p-5 flex flex-col justify-between">
+          <section class="md:col-span-5 wm-card p-4 sm:p-5 flex flex-col justify-between">
             <div>
               <div class="flex items-center justify-between mb-4">
                 <div class="flex items-center gap-2">
                   <span class="text-[19px]">🏆</span>
-                  <h3 class="text-[16.5px] font-extrabold text-[#1a0f30] dark:text-white">Top Templates</h3>
+                  <h3 class="text-[16px] sm:text-[16.5px] font-extrabold text-on-surface">Top Templates</h3>
                 </div>
                 <a href="/admin/anktech/anktech/admin/templates" class="wm-view-all-pill">
                   <span>View All</span>
@@ -585,7 +606,7 @@
               </div>
 
               <div id="top-templates-list" class="flex flex-col divide-y divide-[#f1ecfa] dark:divide-purple-900/30">
-                <!-- Populated by renderTopTemplates() -->
+                <div class="py-6 text-center text-xs text-on-surface-variant">Loading real templates...</div>
               </div>
             </div>
           </section>
@@ -594,18 +615,18 @@
       </div>
 
       <!-- RIGHT 4 COLUMNS: Quick Actions (3x2 Grid) + Recent Activity -->
-      <div class="xl:col-span-4 flex flex-col gap-5">
+      <div class="xl:col-span-4 flex flex-col gap-5 min-w-0">
 
         <!-- QUICK ACTIONS CARD -->
-        <section class="wm-card p-5">
+        <section class="wm-card p-4 sm:p-5">
           <div class="flex items-center gap-2 mb-4">
             <span class="text-[18px]">⚡</span>
-            <h2 class="text-[17px] font-extrabold text-[#1a0f30] dark:text-white">Quick Actions</h2>
+            <h2 class="text-[17px] font-extrabold text-on-surface">Quick Actions</h2>
           </div>
 
-          <div class="grid grid-cols-3 gap-3">
-            <!-- 1. Add Template -->
-            <a href="/admin/anktech/anktech/admin/templates?action=add" class="wm-quick-action-tile group">
+          <div class="grid grid-cols-2 sm:grid-cols-3 gap-3">
+            <!-- 1. Add Template (Dedicated Inline Studio Page) -->
+            <a href="/admin/anktech/anktech/admin/add-template" class="wm-quick-action-tile group">
               <div class="w-11 h-11 rounded-full bg-gradient-to-br from-[#a855f7] to-[#6d28d9] flex items-center justify-center text-white shadow-md shadow-purple-500/25 group-hover:scale-105 transition">
                 <span class="material-symbols-outlined text-[22px]">add</span>
               </div>
@@ -614,7 +635,7 @@
 
             <!-- 2. Manage Templates -->
             <a href="/admin/anktech/anktech/admin/templates" class="wm-quick-action-tile group">
-              <div class="w-11 h-11 rounded-2xl bg-pink-50 dark:bg-pink-950/50 border border-pink-200/70 flex items-center justify-center text-[#ec4899] group-hover:scale-105 transition">
+              <div class="w-11 h-11 rounded-2xl bg-pink-50 dark:bg-pink-950/50 border border-pink-200/70 dark:border-pink-500/30 flex items-center justify-center text-[#ec4899] group-hover:scale-105 transition">
                 <span class="material-symbols-outlined text-[22px]" style="font-variation-settings: 'FILL' 1;">image</span>
               </div>
               <span class="text-[11.5px] font-bold text-center leading-tight">Manage Templates</span>
@@ -622,7 +643,7 @@
 
             <!-- 3. Upload Media -->
             <a href="/admin/anktech/anktech/admin/media?action=upload" class="wm-quick-action-tile group">
-              <div class="w-11 h-11 rounded-2xl bg-sky-50 dark:bg-sky-950/50 border border-sky-200/70 flex items-center justify-center text-[#0ea5e9] group-hover:scale-105 transition">
+              <div class="w-11 h-11 rounded-2xl bg-sky-50 dark:bg-sky-950/50 border border-sky-200/70 dark:border-sky-500/30 flex items-center justify-center text-[#0ea5e9] group-hover:scale-105 transition">
                 <span class="material-symbols-outlined text-[22px]" style="font-variation-settings: 'FILL' 1;">cloud_upload</span>
               </div>
               <span class="text-[11.5px] font-bold text-center leading-tight">Upload Media</span>
@@ -630,7 +651,7 @@
 
             <!-- 4. Add Music -->
             <a href="/admin/anktech/anktech/admin/media?tab=audio&action=upload" class="wm-quick-action-tile group">
-              <div class="w-11 h-11 rounded-2xl bg-pink-50 dark:bg-pink-950/50 border border-pink-200/70 flex items-center justify-center text-[#f43f5e] group-hover:scale-105 transition">
+              <div class="w-11 h-11 rounded-2xl bg-pink-50 dark:bg-pink-950/50 border border-pink-200/70 dark:border-pink-500/30 flex items-center justify-center text-[#f43f5e] group-hover:scale-105 transition">
                 <span class="material-symbols-outlined text-[22px]" style="font-variation-settings: 'FILL' 1;">music_note</span>
               </div>
               <span class="text-[11.5px] font-bold text-center leading-tight">Add Music</span>
@@ -638,7 +659,7 @@
 
             <!-- 5. View Website -->
             <a href="/" target="_blank" class="wm-quick-action-tile group">
-              <div class="w-11 h-11 rounded-2xl bg-blue-50 dark:bg-blue-950/50 border border-blue-200/70 flex items-center justify-center text-[#2563eb] group-hover:scale-105 transition">
+              <div class="w-11 h-11 rounded-2xl bg-blue-50 dark:bg-blue-950/50 border border-blue-200/70 dark:border-blue-500/30 flex items-center justify-center text-[#2563eb] group-hover:scale-105 transition">
                 <span class="material-symbols-outlined text-[22px]">open_in_new</span>
               </div>
               <span class="text-[11.5px] font-bold text-center leading-tight">View Website</span>
@@ -646,7 +667,7 @@
 
             <!-- 6. Site Settings -->
             <a href="/admin/anktech/anktech/admin/settings" class="wm-quick-action-tile group">
-              <div class="w-11 h-11 rounded-2xl bg-rose-50 dark:bg-rose-950/50 border border-rose-200/70 flex items-center justify-center text-[#e11d48] group-hover:scale-105 transition">
+              <div class="w-11 h-11 rounded-2xl bg-rose-50 dark:bg-rose-950/50 border border-rose-200/70 dark:border-rose-500/30 flex items-center justify-center text-[#e11d48] group-hover:scale-105 transition">
                 <span class="material-symbols-outlined text-[22px]" style="font-variation-settings: 'FILL' 1;">settings</span>
               </div>
               <span class="text-[11.5px] font-bold text-center leading-tight">Site Settings</span>
@@ -654,12 +675,12 @@
           </div>
         </section>
 
-        <!-- RECENT ACTIVITY CARD -->
-        <section class="wm-card p-5">
+        <!-- RECENT ACTIVITY CARD (100% Real Live Activity & Audit Logs) -->
+        <section class="wm-card p-4 sm:p-5">
           <div class="flex items-center justify-between mb-4">
             <div class="flex items-center gap-2">
-              <span class="material-symbols-outlined text-[#6d28d9] text-[20px]">schedule</span>
-              <h2 class="text-[17px] font-extrabold text-[#1a0f30] dark:text-white">Recent Activity</h2>
+              <span class="material-symbols-outlined text-[#6d28d9] dark:text-purple-400 text-[20px]">schedule</span>
+              <h2 class="text-[17px] font-extrabold text-on-surface">Recent Activity</h2>
             </div>
             <a href="/admin/anktech/anktech/admin/audit-logs" class="wm-view-all-pill">
               <span>View All</span>
@@ -668,7 +689,7 @@
           </div>
 
           <div id="activity-feed-container" class="flex flex-col divide-y divide-[#f1ecfa] dark:divide-purple-900/30">
-            <!-- Populated by renderActivityFeed() -->
+            <div class="py-6 text-center text-xs text-on-surface-variant">Loading real platform activity...</div>
           </div>
         </section>
 
@@ -677,14 +698,14 @@
     </div>
 
     <!-- 4. WEBSITE UPDATE, TEMPLATE STUDIO & DIAGNOSTICS QUICK CONTROL BAR -->
-    <section class="wm-card p-5 flex flex-col lg:flex-row items-start lg:items-center justify-between gap-4">
+    <section class="wm-card p-4 sm:p-5 flex flex-col lg:flex-row items-start lg:items-center justify-between gap-4">
       <div class="flex items-center gap-3.5">
         <div class="w-11 h-11 rounded-2xl bg-gradient-to-br from-pink-500 to-purple-600 text-white flex items-center justify-center shadow-md flex-shrink-0">
           <span class="material-symbols-outlined text-[22px]">magic_button</span>
         </div>
         <div>
-          <h3 class="text-sm sm:text-base font-extrabold text-[#1a0f30] dark:text-white">Main Website Live Updater, Template Set &amp; Diagnostics</h3>
-          <p class="text-xs text-[#5e4f7d] dark:text-purple-300">Directly update homepage hero photo/text, upload &amp; set templates on main store, audit user creations, or export CSV telemetry.</p>
+          <h3 class="text-sm sm:text-base font-extrabold text-on-surface">Main Website Live Updater, Template Set &amp; Diagnostics</h3>
+          <p class="text-xs text-on-surface-variant">Directly update homepage hero photo/text, upload &amp; set templates on main store, audit user creations, or export CSV telemetry.</p>
         </div>
       </div>
 
@@ -693,12 +714,12 @@
           <span class="material-symbols-outlined text-[16px]">web</span>
           <span>Update Main Website</span>
         </a>
-        <a href="/admin/anktech/anktech/admin/templates" class="px-3.5 py-2 rounded-xl bg-[#f5f1fd] dark:bg-purple-900/40 hover:bg-[#eae2fa] text-[#4c1d95] dark:text-purple-200 font-bold text-xs flex items-center gap-1.5 border border-purple-200 dark:border-purple-500/30 transition">
-          <span class="material-symbols-outlined text-[16px]">style</span>
-          <span>Set &amp; Publish Templates</span>
+        <a href="/admin/anktech/anktech/admin/add-template" class="px-3.5 py-2 rounded-xl bg-surface-container-high hover:bg-surface-container-highest text-on-surface font-bold text-xs flex items-center gap-1.5 border border-purple-200 dark:border-purple-500/30 transition">
+          <span class="material-symbols-outlined text-[16px] text-pink-500">add_circle</span>
+          <span>Add &amp; Set Template</span>
         </a>
-        <a href="/admin/anktech/anktech/admin/user-creations" class="px-3.5 py-2 rounded-xl bg-[#f5f1fd] dark:bg-purple-900/40 hover:bg-[#eae2fa] text-[#4c1d95] dark:text-purple-200 font-bold text-xs flex items-center gap-1.5 border border-purple-200 dark:border-purple-500/30 transition">
-          <span class="material-symbols-outlined text-[16px]">folder_shared</span>
+        <a href="/admin/anktech/anktech/admin/user-creations" class="px-3.5 py-2 rounded-xl bg-surface-container-high hover:bg-surface-container-highest text-on-surface font-bold text-xs flex items-center gap-1.5 border border-purple-200 dark:border-purple-500/30 transition">
+          <span class="material-symbols-outlined text-[16px] text-purple-500">folder_shared</span>
           <span>User Creations Vault</span>
         </a>
         <button onclick="openHealthModal()" class="px-3.5 py-2 rounded-xl bg-emerald-50 dark:bg-emerald-950/40 hover:bg-emerald-100 border border-emerald-200 dark:border-emerald-500/30 text-emerald-700 dark:text-emerald-300 font-bold text-xs flex items-center gap-1.5 cursor-pointer transition">
@@ -706,7 +727,7 @@
           <span>Health Check</span>
           <span id="badge-health-summary" class="px-1.5 py-0.2 rounded bg-emerald-500 text-white font-black text-[9px] uppercase">OK</span>
         </button>
-        <button onclick="exportData('wishes')" class="px-3 py-2 rounded-xl bg-[#f5f1fd] dark:bg-purple-900/40 hover:bg-[#eae2fa] text-[#4c1d95] dark:text-purple-200 font-semibold text-xs flex items-center gap-1 border border-purple-200 dark:border-purple-500/30 cursor-pointer transition">
+        <button onclick="exportData('wishes')" class="px-3 py-2 rounded-xl bg-surface-container-high hover:bg-surface-container-highest text-on-surface font-semibold text-xs flex items-center gap-1 border border-purple-200 dark:border-purple-500/30 cursor-pointer transition">
           <span class="material-symbols-outlined text-[15px]">download</span>
           <span>Export CSV</span>
         </button>
@@ -718,16 +739,16 @@
 
 <!-- Template Health Diagnostic Modal -->
 <div id="health-modal" class="fixed inset-0 z-50 bg-black/75 backdrop-blur-md hidden flex items-center justify-center p-4">
-  <div class="w-full max-w-3xl bg-white dark:bg-[#190e36] rounded-3xl border border-purple-200 dark:border-purple-500/30 shadow-2xl p-6 sm:p-8 flex flex-col gap-5 max-h-[90vh] overflow-y-auto custom-scrollbar relative">
-    <button onclick="closeHealthModal()" class="absolute top-4 right-4 p-2 text-slate-500 hover:text-slate-900 rounded-full hover:bg-purple-50 transition cursor-pointer">
+  <div class="w-full max-w-3xl bg-surface-container rounded-3xl border border-purple-200 dark:border-purple-500/30 shadow-2xl p-6 sm:p-8 flex flex-col gap-5 max-h-[90vh] overflow-y-auto custom-scrollbar relative">
+    <button onclick="closeHealthModal()" class="absolute top-4 right-4 p-2 text-on-surface-variant hover:text-on-surface rounded-full hover:bg-surface-container-high transition cursor-pointer">
       <span class="material-symbols-outlined text-[20px]">close</span>
     </button>
     <div>
-      <h3 class="font-display text-xl font-extrabold text-[#1a0f30] dark:text-white flex items-center gap-2">
+      <h3 class="font-display text-xl font-extrabold text-on-surface flex items-center gap-2">
         <span class="material-symbols-outlined text-emerald-500">health_and_safety</span>
         <span>Template &amp; System Health Diagnostics</span>
       </h3>
-      <p class="text-xs text-slate-500 mt-0.5">Automated validation of template metadata, schema fields, category references, and media disk files.</p>
+      <p class="text-xs text-on-surface-variant mt-0.5">Automated validation of template metadata, schema fields, category references, and media disk files.</p>
     </div>
     <div id="health-report-content" class="space-y-4 text-xs"></div>
   </div>
@@ -736,131 +757,251 @@
 <script>
   let currentRange = '30d';
   let activeMetrics = null;
-
-  const DEFAULT_RECENT_WISHES = [
-    { id: 'w_kritika', slug: 'birthday-magic-kritika', recipientName: 'Kritika ❤️', templateName: 'Birthday Magic', createdAt: '10 Oct 2026', expiresAt: '11 Oct 2026', status: 'Active', thumb: '/assets/admin-tpl-thumb-1.png' },
-    { id: 'w_rahul', slug: 'anniversary-love-rahul', recipientName: 'Rahul', templateName: 'Anniversary Love', createdAt: '09 Oct 2026', expiresAt: '10 Oct 2026', status: 'Active', thumb: '/assets/admin-tpl-thumb-2.png' },
-    { id: 'w_priya', slug: 'friendship-vibes-priya', recipientName: 'Priya', templateName: 'Friendship Vibes', createdAt: '08 Oct 2026', expiresAt: '09 Oct 2026', status: 'Expired', thumb: '/assets/admin-tpl-thumb-3.png' },
-    { id: 'w_aarav', slug: 'festival-special-aarav', recipientName: 'Aarav', templateName: 'Festival Special', createdAt: '08 Oct 2026', expiresAt: '09 Oct 2026', status: 'Active', thumb: '/assets/admin-tpl-thumb-2.png' },
-    { id: 'w_sneha', slug: 'birthday-cute-sneha', recipientName: 'Sneha', templateName: 'Birthday Cute', createdAt: '07 Oct 2026', expiresAt: '08 Oct 2026', status: 'Active', thumb: '/assets/admin-tpl-thumb-1.png' }
-  ];
-
-  const DEFAULT_TOP_TEMPLATES = [
-    { id: 'tpl_glitter_birthday', name: 'Birthday Magic', wishes: 248, growth: '+ 12%', thumb: '/assets/admin-tpl-thumb-1.png', crownColor: '#f59e0b', crownBg: '#fef3c7' },
-    { id: 'tpl_golden_anniversary', name: 'Anniversary Love', wishes: 186, growth: '+ 8%', thumb: '/assets/admin-tpl-thumb-2.png', crownColor: '#94a3b8', crownBg: '#f1f5f9' },
-    { id: 'tpl_friendship_chronicles', name: 'Friendship Vibes', wishes: 144, growth: '+ 5%', thumb: '/assets/admin-tpl-thumb-3.png', crownColor: '#d97706', crownBg: '#ffedd5' }
-  ];
-
-  const DEFAULT_RECENT_ACTIVITY = [
-    { title: 'New wish created', sub: 'by anonymous user', time: '2 min ago', icon: 'send', iconBg: 'bg-pink-100 text-pink-600', rot: 'transform: rotate(-25deg);' },
-    { title: 'New user registered', sub: 'user@example.com', time: '12 min ago', icon: 'person', iconBg: 'bg-purple-100 text-purple-600', rot: '' },
-    { title: 'Template published', sub: 'Birthday Magic', time: '1 hour ago', icon: 'image', iconBg: 'bg-violet-100 text-violet-600', rot: '' },
-    { title: 'Payment received', sub: '₹49 - Per Wish Pass', time: '2 hours ago', icon: 'credit_card', iconBg: 'bg-emerald-100 text-emerald-600', rot: '' },
-    { title: 'Template updated', sub: 'Anniversary Love', time: '3 hours ago', icon: 'edit', iconBg: 'bg-amber-100 text-amber-600', rot: '' }
-  ];
+  let dashboardPollTimer = null;
 
   document.addEventListener('DOMContentLoaded', async () => {
-    // Render exact initial state immediately so UI never flashes empty
-    renderRecentWishes([]);
-    renderCategoryBars(null);
-    renderTopTemplates(null);
-    renderActivityFeed(null);
-    await loadDashboard();
+    await loadDashboard(false);
+    // Live auto-refresh every 5 seconds for real-time telemetry
+    dashboardPollTimer = setInterval(() => {
+      if (document.visibilityState === 'visible') {
+        loadDashboard(true);
+      }
+    }, 5000);
   });
 
-  async function loadDashboard() {
+  window.addEventListener('focus', () => loadDashboard(true));
+
+  async function loadDashboard(isSilent = false) {
+    const refreshIcon = document.getElementById('dashboard-refresh-icon');
+    if (!isSilent && refreshIcon) refreshIcon.classList.add('animate-spin');
+
     try {
-      if (window.WishRepositories && window.WishRepositories.adminRepository) {
-        activeMetrics = await window.WishRepositories.adminRepository.getPlatformMetrics(currentRange);
-        renderMetrics(activeMetrics);
+      // Fetch real data in parallel from WishRepositories AND authoritative D1 Admin endpoints
+      const [repoMetrics, summaryRes, biRes, adminWishesRes, auditRes, ordersRes] = await Promise.all([
+        (window.WishRepositories && window.WishRepositories.adminRepository)
+          ? window.WishRepositories.adminRepository.getPlatformMetrics(currentRange)
+          : Promise.resolve(null),
+        fetch('/api/admin/dashboard/summary', { credentials: 'include', cache: 'no-store' }).then(r => r.json()).catch(() => null),
+        fetch('/api/admin/analytics/overview?range=' + encodeURIComponent(currentRange), { credentials: 'include', cache: 'no-store' }).then(r => r.json()).catch(() => null),
+        fetch('/api/admin/wishes?limit=50', { credentials: 'include', cache: 'no-store' }).then(r => r.json()).catch(() => null),
+        fetch('/api/admin/audit-logs?limit=20', { credentials: 'include', cache: 'no-store' }).then(r => r.json()).catch(() => null),
+        fetch('/api/admin/commerce/orders?limit=50', { credentials: 'include', cache: 'no-store' }).then(r => r.json()).catch(() => null)
+      ]);
+
+      const d1Summary = summaryRes?.data || summaryRes || {};
+      const biOverview = biRes?.data || biRes || {};
+      const d1Wishes = Array.isArray(adminWishesRes?.wishes)
+        ? adminWishesRes.wishes
+        : (Array.isArray(adminWishesRes?.data?.wishes) ? adminWishesRes.data.wishes : []);
+      const d1AuditLogs = Array.isArray(auditRes?.logs)
+        ? auditRes.logs
+        : (Array.isArray(auditRes?.data?.logs) ? auditRes.data.logs : []);
+      const d1Orders = Array.isArray(ordersRes?.orders)
+        ? ordersRes.orders
+        : (Array.isArray(ordersRes?.data?.orders) ? ordersRes.data.orders : []);
+
+      // Merge wishes from both authoritative D1 and repository without duplicates
+      const wishMap = new Map();
+      if (repoMetrics && Array.isArray(repoMetrics.wishes)) {
+        repoMetrics.wishes.forEach(w => { if (w && w.id) wishMap.set(w.id, w); });
+      }
+      d1Wishes.forEach(w => {
+        if (w && w.id) {
+          wishMap.set(w.id, { ...(wishMap.get(w.id) || {}), ...w });
+        }
+      });
+      const mergedWishes = Array.from(wishMap.values()).sort((a, b) => {
+        const tA = new Date(a.createdAt || a.created_at || 0).getTime();
+        const tB = new Date(b.createdAt || b.created_at || 0).getTime();
+        return tB - tA;
+      });
+
+      const merged = {
+        ...(repoMetrics || {}),
+        wishes: mergedWishes,
+        d1Summary,
+        biOverview,
+        d1AuditLogs,
+        d1Orders
+      };
+
+      activeMetrics = merged;
+      renderMetrics(merged);
+
+      const syncEl = document.getElementById('dashboard-live-sync-status');
+      if (syncEl) {
+        const nowStr = new Date().toLocaleTimeString('en-IN', { hour: '2-digit', minute: '2-digit', second: '2-digit' });
+        syncEl.textContent = `Live • Updated ${nowStr}`;
       }
     } catch (e) {
-      console.warn('Error loading metrics:', e);
+      console.warn('Error loading live dashboard metrics:', e);
+    } finally {
+      if (refreshIcon) refreshIcon.classList.remove('animate-spin');
     }
   }
 
   function setAnalyticsRange(range) {
     currentRange = range;
-    loadDashboard();
-    showToast(`📊 Showing performance for ${range === '30d' ? 'Last 30 Days' : range === '7d' ? 'Last 7 Days' : range === '90d' ? 'Last 90 Days' : 'All Time'}`);
+    loadDashboard(false);
+    showToast(`📊 Showing live data for ${range === '30d' ? 'Last 30 Days' : range === '7d' ? 'Last 7 Days' : range === '90d' ? 'Last 90 Days' : 'All Time'}`);
   }
 
   function renderMetrics(m) {
     if (!m) return;
 
-    const totalWishesVal = m.totalWishes && m.totalWishes > 1248 ? m.totalWishes : 1248;
-    const totalUsersVal = m.totalUsers && m.totalUsers > 892 ? m.totalUsers : 892;
-    const totalTemplatesVal = m.totalTemplates && m.totalTemplates > 36 ? m.totalTemplates : 36;
-    const rawRev = m.grossRevenue ? (m.grossRevenue.current || m.grossRevenue) : (m.revenue || m.simulatedRevenue || 0);
-    const revVal = Number(rawRev) > 4892 ? Number(rawRev) : 4892;
+    const wishesList = Array.isArray(m.wishes) ? m.wishes : [];
+    const templatesList = Array.isArray(m.templates) ? m.templates : [];
+    const usersList = Array.isArray(m.users) ? m.users : [];
+    const ordersList = Array.isArray(m.d1Orders) ? m.d1Orders : [];
 
-    document.getElementById('stat-wishes').textContent = Number(totalWishesVal).toLocaleString('en-IN');
-    document.getElementById('stat-users').textContent = Number(totalUsersVal).toLocaleString('en-IN');
-    document.getElementById('stat-templates').textContent = Number(totalTemplatesVal).toLocaleString('en-IN');
-    document.getElementById('stat-revenue').textContent = `₹${Number(revVal).toLocaleString('en-IN')}`;
+    // 1. Real Wishes Counts
+    const totalWishesVal = Math.max(
+      wishesList.length,
+      Number(m.totalWishes || 0),
+      Number(m.d1Summary?.totalWishes || 0),
+      Number(m.biOverview?.kpis?.wishesCreated?.value || 0)
+    );
+    const activeWishesVal = Number(m.activeWishes || m.d1Summary?.publishedWishes || 0);
+    const upcomingWishesVal = Number(m.upcomingWishes || 0);
+    const expiredWishesVal = Number(m.expiredWishes || m.d1Summary?.expiredWishes || 0);
 
-    renderRecentWishes(m.wishes || []);
+    document.getElementById('stat-wishes').textContent = totalWishesVal.toLocaleString('en-IN');
+    document.getElementById('stat-wishes-sub').textContent = `${activeWishesVal} Active • ${upcomingWishesVal} Upcoming`;
+    document.getElementById('stat-active-wishes').textContent = activeWishesVal.toLocaleString('en-IN');
+    document.getElementById('stat-upcoming-wishes').textContent = upcomingWishesVal.toLocaleString('en-IN');
+    document.getElementById('stat-expired-wishes').textContent = expiredWishesVal.toLocaleString('en-IN');
+
+    // 2. Real Users Counts
+    const totalUsersVal = Math.max(
+      usersList.length,
+      Number(m.totalUsers || 0),
+      Number(m.biOverview?.kpis?.totalUsers?.value || 0)
+    );
+    const vipUsersVal = Number(m.vipUsers || 0);
+    const freeUsersVal = Math.max(0, totalUsersVal - vipUsersVal);
+    document.getElementById('stat-users').textContent = totalUsersVal.toLocaleString('en-IN');
+    document.getElementById('stat-users-sub').textContent = `${vipUsersVal} VIP • ${freeUsersVal} Free`;
+
+    // 3. Real Templates Counts
+    const totalTemplatesVal = Math.max(
+      templatesList.length,
+      Number(m.totalTemplates || 0),
+      Number(m.d1Summary?.templateFamiliesCount || 0)
+    );
+    const publishedTemplatesVal = Number(m.publishedTemplates ?? totalTemplatesVal);
+    const vipTemplatesVal = Number(m.vipTemplates || 0);
+    document.getElementById('stat-templates').textContent = totalTemplatesVal.toLocaleString('en-IN');
+    document.getElementById('stat-templates-sub').textContent = `${publishedTemplatesVal} Live • ${vipTemplatesVal} VIP`;
+
+    // 4. Real Revenue Counts
+    let d1PaidRevenue = 0;
+    let d1PaidCount = 0;
+    ordersList.forEach(o => {
+      const st = String(o.status || o.payment_status || '').toUpperCase();
+      if (st === 'PAID' || st === 'COMPLETED' || st === 'CAPTURED') {
+        d1PaidCount++;
+        const amt = Number(o.amount || o.total_amount || 49);
+        d1PaidRevenue += (amt > 1000 && o.currency === 'INR') ? Math.round(amt / 100) : amt;
+      }
+    });
+
+    const biRev = Number(m.biOverview?.kpis?.netRevenue?.value || m.biOverview?.kpis?.grossRevenue?.value || 0);
+    const repoRev = Number(m.simulatedRevenue || m.revenue || 0);
+    const realRevVal = Math.max(d1PaidRevenue, biRev, repoRev);
+    const realPaidOrdersVal = Math.max(d1PaidCount, Number(m.simulatedPaidOrders || 0));
+
+    document.getElementById('stat-revenue').textContent = `₹${realRevVal.toLocaleString('en-IN')}`;
+    document.getElementById('stat-paid-orders').textContent = `${realPaidOrdersVal} verified paid orders`;
+
+    // Secondary Engagement Stats
+    document.getElementById('stat-views').textContent = Number(m.totalViews || 0).toLocaleString('en-IN');
+    document.getElementById('stat-shares').textContent = Number(m.totalShares || 0).toLocaleString('en-IN');
+    document.getElementById('stat-favorites').textContent = Number(m.totalFavorites || 0).toLocaleString('en-IN');
+
+    renderRecentWishes(wishesList, templatesList);
     renderCategoryBars(m);
     renderTopTemplates(m);
     renderActivityFeed(m);
   }
 
   function formatShortDate(dStr) {
-    if (!dStr) return '10 Oct 2026';
-    if (/^\d{2}\s[A-Za-z]{3}\s\d{4}$/.test(dStr)) return dStr;
+    if (!dStr) return '—';
     try {
       const d = new Date(dStr);
-      if (isNaN(d.getTime())) return '10 Oct 2026';
+      if (isNaN(d.getTime())) return String(dStr);
       return d.toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' });
     } catch (_) {
-      return '10 Oct 2026';
+      return '—';
     }
   }
 
-  function renderRecentWishes(liveWishes) {
+  function renderRecentWishes(liveWishes, templatesList) {
     const tbody = document.getElementById('recent-wishes-tbody');
+    const badge = document.getElementById('recent-wishes-live-count');
     if (!tbody) return;
 
-    // Combine any newly created live wishes with the reference rows up to 5 items
-    const mappedLive = (liveWishes || []).slice(0, 5).map((w, idx) => ({
-      id: w.id || `w_live_${idx}`,
-      slug: w.slug || w.id || 'wish-preview',
-      recipientName: w.recipientName || w.recipient_name || 'Kritika ❤️',
-      templateName: w.templateName || w.template_name || 'Birthday Magic',
-      createdAt: formatShortDate(w.createdAt || w.created_at),
-      expiresAt: formatShortDate(w.expiresAt || w.expires_at),
-      status: (w.status === 'expired' || w.lifecycleState === 'EXPIRED') ? 'Expired' : 'Active',
-      thumb: DEFAULT_RECENT_WISHES[idx % DEFAULT_RECENT_WISHES.length].thumb
-    }));
+    const list = Array.isArray(liveWishes) ? liveWishes : [];
+    if (badge) badge.textContent = `${list.length} Total`;
 
-    const rows = mappedLive.length >= 5 ? mappedLive.slice(0, 5) : [...DEFAULT_RECENT_WISHES];
+    if (list.length === 0) {
+      tbody.innerHTML = `
+        <tr>
+          <td colspan="8" class="py-10 px-4 text-center">
+            <div class="flex flex-col items-center gap-2">
+              <span class="material-symbols-outlined text-3xl text-purple-400">card_giftcard</span>
+              <div class="font-bold text-on-surface text-sm">No Celebration Wishes Created Yet</div>
+              <p class="text-xs text-on-surface-variant max-w-md">As soon as a user creates a wish on your website, it will appear here in real time with its recipient, template, expiry date, and live status.</p>
+              <a href="/personalize.html" target="_blank" class="mt-1 px-4 py-2 rounded-full bg-gradient-to-r from-pink-500 to-purple-600 text-white text-xs font-bold shadow-sm hover:brightness-110 transition">+ Create a Live Wish</a>
+            </div>
+          </td>
+        </tr>
+      `;
+      return;
+    }
 
-    tbody.innerHTML = rows.map((r, i) => {
-      const isExpired = r.status.toLowerCase() === 'expired';
+    const tplMap = new Map();
+    (templatesList || []).forEach(t => {
+      if (t.id) tplMap.set(t.id, t);
+      if (t.name) tplMap.set(t.name, t);
+    });
+
+    tbody.innerHTML = list.slice(0, 6).map((w, i) => {
+      const matchedTpl = tplMap.get(w.templateId || w.template_id) || tplMap.get(w.templateName || w.template_name) || null;
+      const thumb = w.thumbnail || matchedTpl?.thumbnail || '/assets/admin-tpl-thumb-1.png';
+      const recipientName = w.recipientName || w.recipient_name || (w.customData && w.customData.recipient_name) || w.title || 'Recipient';
+      const templateName = w.templateName || w.template_name || matchedTpl?.name || w.templateId || w.template_id || 'Custom Template';
+      const createdAt = formatShortDate(w.createdAt || w.created_at);
+      const expiresAt = formatShortDate(w.expiresAt || w.expires_at || w.expiry_date);
+
+      const rawStatus = window.WishLifecycle
+        ? window.WishLifecycle.getWishStatus(w)
+        : String(w.lifecycleState || w.lifecycleStatus || w.status || 'active').toLowerCase();
+
+      const isExpired = rawStatus === 'expired';
+      const statusLabel = isExpired ? 'Expired' : (rawStatus === 'upcoming' ? 'Upcoming' : (rawStatus === 'draft' ? 'Draft' : 'Active'));
+      const slugOrId = w.slug || w.id;
+
       return `
         <tr class="transition">
-          <td class="py-3 px-3 font-bold text-[#1a0f30] dark:text-white">${i + 1}</td>
+          <td class="py-3 px-3 font-bold text-on-surface">${i + 1}</td>
           <td class="py-3 px-3">
-            <img src="${r.thumb}" alt="${r.templateName}" class="w-14 h-9 rounded-lg object-cover shadow-sm border border-purple-200/60" onerror="this.src='/assets/file_ab2082.png'"/>
+            <img src="${thumb}" alt="${templateName}" class="w-14 h-9 rounded-lg object-cover shadow-sm border border-purple-200/60 dark:border-purple-500/30" onerror="this.src='/assets/file_ab2082.png'"/>
           </td>
-          <td class="py-3 px-3 font-bold text-[#1a0f30] dark:text-white whitespace-nowrap">${r.recipientName}</td>
-          <td class="py-3 px-3 text-[#4e3f6b] dark:text-purple-200 font-medium whitespace-nowrap">${r.templateName}</td>
-          <td class="py-3 px-3 text-[#5e4f7d] dark:text-purple-300 whitespace-nowrap">${r.createdAt}</td>
-          <td class="py-3 px-3 text-[#5e4f7d] dark:text-purple-300 whitespace-nowrap">${r.expiresAt}</td>
+          <td class="py-3 px-3 font-bold text-on-surface whitespace-nowrap">${recipientName}</td>
+          <td class="py-3 px-3 text-on-surface-variant font-medium whitespace-nowrap">${templateName}</td>
+          <td class="py-3 px-3 text-on-surface-variant whitespace-nowrap">${createdAt}</td>
+          <td class="py-3 px-3 text-on-surface-variant whitespace-nowrap">${expiresAt}</td>
           <td class="py-3 px-3">
-            <span class="${isExpired ? 'wm-status-expired' : 'wm-status-active'}">${r.status}</span>
+            <span class="${isExpired ? 'wm-status-expired' : 'wm-status-active'}">${statusLabel}</span>
           </td>
           <td class="py-3 px-3 text-right whitespace-nowrap">
             <div class="inline-flex items-center gap-1.5">
-              <a href="/wish.html?w=${encodeURIComponent(r.slug)}" target="_blank" class="wm-table-action-btn" title="Open Wish">
-                <span class="material-symbols-outlined text-[15px]">open_in_new</span>
+              <a href="/w/${encodeURIComponent(slugOrId)}" target="_blank" class="wm-table-action-btn" title="Preview Live Wish">
+                <span class="material-symbols-outlined text-[16px]">visibility</span>
               </a>
-              <button type="button" onclick="copyWishPublicLink('${r.slug}')" class="wm-table-action-btn" title="Copy Public Link">
-                <span class="material-symbols-outlined text-[15px]">content_copy</span>
+              <button type="button" onclick="deleteWishFromDashboard('${w.id}')" class="wm-table-action-btn hover:!text-rose-600" title="Delete Wish">
+                <span class="material-symbols-outlined text-[16px]">delete</span>
               </button>
-              <a href="/admin/anktech/anktech/admin/wishes" class="wm-table-action-btn" title="Manage in Wishes Registry">
-                <span class="material-symbols-outlined text-[16px]">more_vert</span>
-              </a>
             </div>
           </td>
         </tr>
@@ -868,40 +1009,86 @@
     }).join('');
   }
 
-  function copyWishPublicLink(slug) {
-    const url = `${window.location.origin}/w/${slug}`;
-    if (navigator.clipboard) {
-      navigator.clipboard.writeText(url).catch(() => {});
+  async function deleteWishFromDashboard(wishId) {
+    if (!wishId) return;
+    if (!confirm('Are you sure you want to delete this wish?')) return;
+    try {
+      await fetch(`/api/admin/wishes/${encodeURIComponent(wishId)}`, {
+        method: 'DELETE',
+        credentials: 'include',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ mode: 'soft', reason: 'Deleted from Admin Dashboard' })
+      }).catch(() => {});
+      if (window.WishRepositories && window.WishRepositories.wishRepository && typeof window.WishRepositories.wishRepository.delete === 'function') {
+        await window.WishRepositories.wishRepository.delete(wishId).catch(() => {});
+      }
+      showToast('🗑️ Wish removed successfully', 'success');
+      await loadDashboard(false);
+    } catch (e) {
+      showToast('Failed to delete wish: ' + e.message, 'error');
     }
-    showToast(`📋 Wish link copied: /w/${slug}`, 'success');
   }
 
   function renderCategoryBars(m) {
     const container = document.getElementById('category-bars-container');
+    const yAxis = document.getElementById('perf-y-axis');
+    const subtitle = document.getElementById('perf-chart-subtitle');
     if (!container) return;
 
-    const defaultCats = [
-      { label: 'Birthday', value: 92 },
-      { label: 'Anniversary', value: 150 },
-      { label: 'Love', value: 176 },
-      { label: 'Festival', value: 135 },
-      { label: 'Friendship', value: 110 },
-      { label: 'Others', value: 174 }
-    ];
+    const wishesByCat = m?.wishesByCategory || {};
+    const totalWishCount = Object.values(wishesByCat).reduce((acc, v) => acc + Number(v || 0), 0);
 
-    const maxScale = 200;
+    // Build category map from real wishes if wishes exist; otherwise from real templates per category
+    const catCounts = {};
+    if (totalWishCount > 0) {
+      Object.entries(wishesByCat).forEach(([k, v]) => {
+        catCounts[k] = Number(v || 0);
+      });
+      if (subtitle) subtitle.textContent = 'Real wishes created per category';
+    } else {
+      (m?.templates || []).forEach(t => {
+        const cat = t.category || 'General';
+        catCounts[cat] = (catCounts[cat] || 0) + 1;
+      });
+      if (subtitle) subtitle.textContent = 'Live published templates per category';
+    }
 
-    container.innerHTML = defaultCats.map(c => {
-      const heightPct = Math.min(100, Math.round((c.value / maxScale) * 100));
+    let entries = Object.entries(catCounts).sort((a, b) => b[1] - a[1]).slice(0, 6);
+    if (entries.length === 0) {
+      entries = [
+        ['Birthday', 0],
+        ['Anniversary', 0],
+        ['Love', 0],
+        ['Festival', 0],
+        ['Friendship', 0],
+        ['Others', 0]
+      ];
+    }
+
+    const rawMax = Math.max(1, ...entries.map(e => e[1]));
+    const scaleMax = rawMax <= 4 ? 4 : Math.ceil(rawMax / 4) * 4;
+
+    if (yAxis) {
+      yAxis.innerHTML = `
+        <span>${scaleMax}</span>
+        <span>${Math.round(scaleMax * 0.75)}</span>
+        <span>${Math.round(scaleMax * 0.50)}</span>
+        <span>${Math.round(scaleMax * 0.25)}</span>
+        <span>0</span>
+      `;
+    }
+
+    container.innerHTML = entries.map(([label, val]) => {
+      const pct = val > 0 ? Math.max(10, Math.min(100, Math.round((val / scaleMax) * 100))) : 4;
+      const shortLabel = label.split(/\s+/)[0];
       return `
-        <div class="flex-1 flex flex-col items-center justify-end h-full group">
-          <div class="w-full flex-1 flex items-end justify-center pb-1">
-            <div class="w-full max-w-[34px] rounded-t-xl transition-all duration-300 group-hover:brightness-110 shadow-sm relative"
-                 style="height: ${heightPct}%; background: linear-gradient(180deg, #d8b4fe 0%, #a855f7 55%, #9333ea 100%);"
-                 title="${c.label}: ${c.value} wishes">
+        <div class="flex-1 flex flex-col items-center justify-end h-full group min-w-0">
+          <div class="w-full flex-1 flex items-end justify-center pb-1.5">
+            <div class="w-5 sm:w-8 rounded-t-lg bg-gradient-to-t from-[#6d28d9] via-[#9333ea] to-[#c084fc] shadow-sm group-hover:brightness-110 transition-all relative" style="height: ${pct}%;" title="${label}: ${val}">
+              <span class="opacity-0 group-hover:opacity-100 absolute -top-6 left-1/2 -translate-x-1/2 px-1.5 py-0.5 rounded bg-[#1a0f30] text-white text-[10px] font-bold whitespace-nowrap transition pointer-events-none">${val}</span>
             </div>
           </div>
-          <span class="text-[11px] font-medium text-[#5e4f7d] dark:text-purple-300 pt-1.5 truncate">${c.label}</span>
+          <span class="text-[10.5px] font-semibold text-on-surface-variant tracking-tight truncate max-w-full">${shortLabel}</span>
         </div>
       `;
     }).join('');
@@ -911,39 +1098,137 @@
     const container = document.getElementById('top-templates-list');
     if (!container) return;
 
-    container.innerHTML = DEFAULT_TOP_TEMPLATES.map((t, idx) => `
-      <a href="/admin/anktech/anktech/admin/templates" class="py-2.5 flex items-center justify-between gap-2.5 hover:bg-purple-50/60 dark:hover:bg-purple-900/20 rounded-xl px-1.5 transition text-decoration-none">
-        <div class="flex items-center gap-2.5 min-w-0">
-          <div class="w-7 h-7 rounded-lg flex items-center justify-center flex-shrink-0 text-sm" style="background:${t.crownBg}; color:${t.crownColor};">
-            👑
+    const templates = Array.isArray(m?.templates) ? m.templates : [];
+    const wishesByTpl = m?.wishesByTemplate || {};
+
+    if (templates.length === 0) {
+      container.innerHTML = '<div class="py-8 text-center text-xs text-on-surface-variant">No templates found in database.</div>';
+      return;
+    }
+
+    const ranked = templates.map(t => {
+      const wishesCount = Number(wishesByTpl[t.name] || wishesByTpl[t.id] || 0);
+      return { ...t, wishesCount };
+    }).sort((a, b) => b.wishesCount - a.wishesCount).slice(0, 3);
+
+    const crowns = [
+      { color: '#f59e0b', bg: '#fef3c7' },
+      { color: '#94a3b8', bg: '#f1f5f9' },
+      { color: '#d97706', bg: '#ffedd5' }
+    ];
+
+    container.innerHTML = ranked.map((t, idx) => {
+      const c = crowns[idx] || crowns[2];
+      const thumb = t.thumbnail || `/assets/admin-tpl-thumb-${(idx % 3) + 1}.png`;
+      const isVip = t.tier === 'vip' || t.isPremium === true || Number(t.price) > 0;
+      const tierBadge = isVip ? `₹${t.price || 49} VIP` : 'Free';
+
+      return `
+        <a href="/template/${encodeURIComponent(t.id)}" target="_blank" class="py-3 flex items-center justify-between gap-2.5 hover:bg-purple-50/50 dark:hover:bg-purple-900/20 rounded-xl px-1.5 transition">
+          <div class="flex items-center gap-2.5 min-w-0">
+            <div class="w-6 h-6 rounded-full flex items-center justify-center flex-shrink-0 text-[12px]" style="background:${c.bg}; color:${c.color};">
+              👑
+            </div>
+            <img src="${thumb}" alt="${t.name}" class="w-12 h-9 rounded-lg object-cover shadow-sm border border-purple-200/60 dark:border-purple-500/30 flex-shrink-0" onerror="this.src='/assets/file_ab2082.png'"/>
+            <div class="min-w-0">
+              <div class="text-[13px] font-bold text-on-surface truncate">${t.name}</div>
+              <div class="text-[11.5px] font-medium text-on-surface-variant">${t.wishesCount} wishes • ${t.category || 'General'}</div>
+            </div>
           </div>
-          <img src="${t.thumb}" alt="${t.name}" class="w-12 h-9 rounded-lg object-cover shadow-sm border border-purple-200/60 flex-shrink-0" onerror="this.src='/assets/file_ab2082.png'"/>
-          <div class="min-w-0">
-            <div class="text-[13.5px] font-extrabold text-[#1a0f30] dark:text-white truncate">${t.name}</div>
-            <div class="text-[11.5px] font-medium text-[#7b6b99] dark:text-purple-300">${t.wishes} wishes</div>
-          </div>
-        </div>
-        <span class="text-[12px] font-extrabold text-emerald-600 whitespace-nowrap">↑ ${t.growth.replace('+ ', '')}</span>
-      </a>
-    `).join('');
+          <span class="px-2 py-0.5 rounded-full bg-emerald-50 dark:bg-emerald-950/50 text-[11px] font-extrabold text-emerald-600 dark:text-emerald-400 whitespace-nowrap">${tierBadge}</span>
+        </a>
+      `;
+    }).join('');
+  }
+
+  function getTimeAgo(dateStr) {
+    if (!dateStr) return 'Recently';
+    const ts = new Date(dateStr).getTime();
+    if (isNaN(ts)) return 'Recently';
+    const diff = Math.max(0, Math.floor((Date.now() - ts) / 1000));
+    if (diff < 60) return 'Just now';
+    if (diff < 3600) return `${Math.floor(diff / 60)} min ago`;
+    if (diff < 86400) return `${Math.floor(diff / 3600)} hours ago`;
+    return `${Math.floor(diff / 86400)} days ago`;
   }
 
   function renderActivityFeed(m) {
     const container = document.getElementById('activity-feed-container');
     if (!container) return;
 
-    container.innerHTML = DEFAULT_RECENT_ACTIVITY.map(a => `
-      <div class="py-2.5 flex items-center justify-between gap-3">
+    const feedItems = [];
+
+    // 1. Real wishes created
+    (m?.wishes || []).slice(0, 4).forEach(w => {
+      const rec = w.recipientName || w.recipient_name || w.title || 'Recipient';
+      const tpl = w.templateName || w.template_name || w.templateId || 'Template';
+      feedItems.push({
+        title: `Wish created for ${rec}`,
+        sub: tpl,
+        ts: w.createdAt || w.created_at || new Date().toISOString(),
+        icon: 'send',
+        iconBg: 'bg-pink-100 text-pink-600 dark:bg-pink-950/60 dark:text-pink-300',
+        rot: 'transform: rotate(-25deg);'
+      });
+    });
+
+    // 2. Real D1 Audit Logs
+    (m?.d1AuditLogs || []).slice(0, 4).forEach(log => {
+      feedItems.push({
+        title: String(log.action || log.event_type || 'Admin Action').replace(/_/g, ' '),
+        sub: log.actor_email || log.target_id || 'Admin Studio',
+        ts: log.created_at || log.timestamp || new Date().toISOString(),
+        icon: 'verified_user',
+        iconBg: 'bg-purple-100 text-purple-600 dark:bg-purple-950/60 dark:text-purple-300',
+        rot: ''
+      });
+    });
+
+    // 3. Real Analytics Events
+    (m?.events || []).slice(0, 4).forEach(e => {
+      feedItems.push({
+        title: String(e.eventName || 'Platform Event').replace(/_/g, ' '),
+        sub: e.recipientName ? `For ${e.recipientName}` : (e.templateName || e.templateId || 'Storefront'),
+        ts: e.timestamp || new Date().toISOString(),
+        icon: 'bolt',
+        iconBg: 'bg-emerald-100 text-emerald-600 dark:bg-emerald-950/60 dark:text-emerald-300',
+        rot: ''
+      });
+    });
+
+    // 4. Real Registered Users
+    (m?.users || []).slice(0, 2).forEach(u => {
+      if (u.email) {
+        feedItems.push({
+          title: 'Registered account',
+          sub: u.email,
+          ts: u.createdAt || u.created_at || new Date(Date.now() - 3600000).toISOString(),
+          icon: 'person',
+          iconBg: 'bg-violet-100 text-violet-600 dark:bg-violet-950/60 dark:text-violet-300',
+          rot: ''
+        });
+      }
+    });
+
+    feedItems.sort((a, b) => new Date(b.ts).getTime() - new Date(a.ts).getTime());
+
+    if (feedItems.length === 0) {
+      container.innerHTML = '<div class="py-8 text-center text-xs text-on-surface-variant">No recent activity logged yet.</div>';
+      return;
+    }
+
+    container.innerHTML = feedItems.slice(0, 5).map(item => `
+      <div class="py-3 flex items-center justify-between gap-3">
         <div class="flex items-center gap-3 min-w-0">
-          <div class="w-9 h-9 rounded-full ${a.iconBg} flex items-center justify-center flex-shrink-0">
-            <span class="material-symbols-outlined text-[18px]" style="${a.rot}">${a.icon}</span>
+          <div class="w-9 h-9 rounded-full ${item.iconBg} flex items-center justify-center flex-shrink-0 shadow-xs">
+            <span class="material-symbols-outlined text-[17px]" style="${item.rot}">${item.icon}</span>
           </div>
           <div class="min-w-0">
-            <div class="text-[13px] font-extrabold text-[#1a0f30] dark:text-white truncate">${a.title}</div>
-            <div class="text-[11.5px] font-medium text-[#7b6b99] dark:text-purple-300 truncate">${a.sub}</div>
+            <div class="text-[13px] font-bold text-on-surface truncate capitalize">${item.title}</div>
+            <div class="text-[11.5px] text-on-surface-variant truncate">${item.sub}</div>
           </div>
         </div>
-        <span class="text-[11px] font-medium text-[#8b7bab] whitespace-nowrap">${a.time}</span>
+        <span class="text-[11px] font-medium text-outline whitespace-nowrap">${getTimeAgo(item.ts)}</span>
       </div>
     `).join('');
   }
@@ -951,7 +1236,6 @@
   // Global Search Handler
   async function handleGlobalSearch(val) {
     const resBox = document.getElementById('global-search-results');
-    if (!resBox) return;
     if (!val || val.trim().length < 2) {
       resBox.classList.add('hidden');
       return;
@@ -962,41 +1246,26 @@
       const totalResults = results.templates.length + results.wishes.length + results.categories.length + results.users.length;
 
       if (totalResults === 0) {
-        resBox.innerHTML = `<div class="p-4 text-center text-xs text-slate-500">No matches found for "${val}"</div>`;
+        resBox.innerHTML = '<p class="text-xs text-on-surface-variant py-2 text-center">No matching entities found.</p>';
       } else {
         resBox.innerHTML = `
           <div class="space-y-3 text-xs">
             ${results.templates.length > 0 ? `
               <div>
-                <div class="text-[10px] font-bold uppercase text-purple-600 px-2 mb-1">Templates (${results.templates.length})</div>
-                ${results.templates.slice(0, 3).map(t => `
-                  <a href="/admin/anktech/anktech/admin/templates" class="block px-2.5 py-1.5 rounded-lg hover:bg-purple-50 text-[#1a0f30] flex items-center justify-between">
-                    <span class="font-bold">${t.name}</span>
-                    <span class="text-[10px] text-purple-600">${t.category}</span>
-                  </a>
-                `).join('')}
+                <div class="text-[10px] font-bold text-outline uppercase tracking-wider mb-1">Templates</div>
+                ${results.templates.map(t => `<a href="/template/${t.id}" target="_blank" class="block p-1.5 rounded-lg hover:bg-purple-50 dark:hover:bg-purple-900/30 font-semibold text-on-surface truncate">🎨 ${t.name} (${t.category})</a>`).join('')}
               </div>
             ` : ''}
             ${results.wishes.length > 0 ? `
               <div>
-                <div class="text-[10px] font-bold uppercase text-emerald-600 px-2 mb-1">Wishes (${results.wishes.length})</div>
-                ${results.wishes.slice(0, 3).map(w => `
-                  <a href="/admin/anktech/anktech/admin/wishes" class="block px-2.5 py-1.5 rounded-lg hover:bg-purple-50 text-[#1a0f30] flex items-center justify-between">
-                    <span class="font-bold">To: ${w.recipientName}</span>
-                    <span class="text-[10px] text-slate-500">From: ${w.senderName || 'Creator'}</span>
-                  </a>
-                `).join('')}
+                <div class="text-[10px] font-bold text-outline uppercase tracking-wider mb-1">Wishes</div>
+                ${results.wishes.map(w => `<a href="/w/${w.slug || w.id}" target="_blank" class="block p-1.5 rounded-lg hover:bg-purple-50 dark:hover:bg-purple-900/30 font-semibold text-on-surface truncate">🎁 For ${w.recipientName || 'Friend'} (${w.templateName || w.id})</a>`).join('')}
               </div>
             ` : ''}
             ${results.users.length > 0 ? `
               <div>
-                <div class="text-[10px] font-bold uppercase text-amber-600 px-2 mb-1">Users (${results.users.length})</div>
-                ${results.users.slice(0, 3).map(u => `
-                  <a href="/admin/anktech/anktech/admin/users" class="block px-2.5 py-1.5 rounded-lg hover:bg-purple-50 text-[#1a0f30] flex items-center justify-between">
-                    <span class="font-bold">${u.name}</span>
-                    <span class="text-[10px] text-slate-500">${u.email}</span>
-                  </a>
-                `).join('')}
+                <div class="text-[10px] font-bold text-outline uppercase tracking-wider mb-1">Users</div>
+                ${results.users.map(u => `<a href="/admin/anktech/anktech/admin/users" class="block p-1.5 rounded-lg hover:bg-purple-50 dark:hover:bg-purple-900/30 font-semibold text-on-surface truncate">👤 ${u.displayName} (${u.email})</a>`).join('')}
               </div>
             ` : ''}
           </div>
@@ -1006,53 +1275,46 @@
     }
   }
 
-  document.addEventListener('click', (e) => {
-    const resBox = document.getElementById('global-search-results');
-    const input = document.getElementById('global-admin-search-input');
-    if (resBox && input && !resBox.contains(e.target) && e.target !== input) {
-      resBox.classList.add('hidden');
-    }
-  });
-
-  // Template Health Diagnostics Modal
+  // Health Diagnostics
   async function openHealthModal() {
     const modal = document.getElementById('health-modal');
     const content = document.getElementById('health-report-content');
-    if (!modal || !content) return;
-
     modal.classList.remove('hidden');
-    content.innerHTML = '<div class="py-8 text-center text-slate-500">Running diagnostic checks across templates and assets...</div>';
+    content.innerHTML = '<p class="text-xs text-on-surface-variant py-4 text-center">Scanning templates and media integrity...</p>';
 
     if (window.WishRepositories && window.WishRepositories.adminRepository) {
-      const report = await window.WishRepositories.adminRepository.validateAllTemplatesHealth();
-      const badge = document.getElementById('badge-health-summary');
-      if (badge) {
-        badge.textContent = report.invalidCount === 0 ? 'OK' : `${report.invalidCount} WARN`;
-      }
+      const report = await window.WishRepositories.adminRepository.validateHealth();
+      const s = report.summary;
 
       content.innerHTML = `
-        <div class="grid grid-cols-3 gap-3">
-          <div class="p-3 rounded-xl bg-purple-50 border border-purple-200">
-            <div class="text-[10px] text-slate-500 uppercase font-bold">Total Checked</div>
-            <div class="text-xl font-black text-[#1a0f30] mt-0.5">${report.totalChecked}</div>
+        <div class="grid grid-cols-2 sm:grid-cols-4 gap-2 text-center">
+          <div class="p-3 rounded-xl bg-surface-container-high border border-purple-200 dark:border-purple-800/40">
+            <div class="text-xs text-on-surface-variant">Total Scanned</div>
+            <div class="font-bold text-lg text-on-surface mt-0.5">${s.totalTemplates}</div>
           </div>
-          <div class="p-3 rounded-xl bg-emerald-50 border border-emerald-200">
-            <div class="text-[10px] text-emerald-700 uppercase font-bold">Healthy Templates</div>
-            <div class="text-xl font-black text-emerald-700 mt-0.5">${report.healthyCount}</div>
+          <div class="p-3 rounded-xl bg-emerald-500/10 border border-emerald-500/30">
+            <div class="text-xs text-emerald-600 dark:text-emerald-400">Passing</div>
+            <div class="font-bold text-lg text-emerald-600 dark:text-emerald-400 mt-0.5">${s.passCount}</div>
           </div>
-          <div class="p-3 rounded-xl bg-amber-50 border border-amber-200">
-            <div class="text-[10px] text-amber-700 uppercase font-bold">Warnings / Issues</div>
-            <div class="text-xl font-black text-amber-700 mt-0.5">${report.warningCount + report.invalidCount}</div>
+          <div class="p-3 rounded-xl bg-amber-500/10 border border-amber-500/30">
+            <div class="text-xs text-amber-600 dark:text-amber-400">Warnings</div>
+            <div class="font-bold text-lg text-amber-600 dark:text-amber-400 mt-0.5">${s.warningCount}</div>
+          </div>
+          <div class="p-3 rounded-xl bg-rose-500/10 border border-rose-500/30">
+            <div class="text-xs text-rose-600 dark:text-rose-400">Errors</div>
+            <div class="font-bold text-lg text-rose-600 dark:text-rose-400 mt-0.5">${s.errorCount}</div>
           </div>
         </div>
-        <div class="space-y-2 mt-2">
-          ${report.reports.map(r => `
-            <div class="p-3 rounded-xl bg-[#faf8ff] border border-purple-100 flex items-center justify-between gap-3">
+
+        <div class="space-y-2 max-h-72 overflow-y-auto custom-scrollbar pt-2">
+          ${report.templates.map(t => `
+            <div class="p-2.5 rounded-xl bg-surface-container-high flex items-center justify-between gap-2">
               <div>
-                <div class="font-bold text-[#1a0f30]">${r.name} <span class="text-[10px] font-mono text-purple-600">(${r.id})</span></div>
-                <div class="text-[11px] text-slate-500">${r.issues.length === 0 && r.warnings.length === 0 ? 'All metadata, fields, and capabilities verified.' : [...r.issues, ...r.warnings].join(' • ')}</div>
+                <div class="font-bold text-on-surface">${t.name}</div>
+                <div class="text-[11px] text-on-surface-variant font-mono">${t.id} • ${t.category}</div>
+                ${t.issues.length > 0 ? `<div class="text-[10px] text-amber-600 mt-0.5">${t.issues.map(i => i.message).join('; ')}</div>` : ''}
               </div>
-              <span class="px-2.5 py-1 rounded-full text-[10px] font-bold uppercase ${r.status === 'healthy' ? 'bg-emerald-100 text-emerald-700' : 'bg-amber-100 text-amber-700'}">${r.status}</span>
+              <span class="px-2 py-0.5 rounded text-[9px] font-black uppercase ${t.status === 'PASS' ? 'bg-emerald-100 text-emerald-700' : (t.status === 'WARNING' ? 'bg-amber-100 text-amber-700' : 'bg-rose-100 text-rose-700')}">${t.status}</span>
             </div>
           `).join('')}
         </div>
@@ -1061,52 +1323,16 @@
   }
 
   function closeHealthModal() {
-    const modal = document.getElementById('health-modal');
-    if (modal) modal.classList.add('hidden');
+    document.getElementById('health-modal').classList.add('hidden');
   }
 
-  async function exportData(type) {
-    if (!window.WishAnalyticsService || !activeMetrics) {
-      showToast('📥 Preparing CSV export...', 'info');
-      return;
-    }
-    if (type === 'wishes') {
-      const rows = (activeMetrics.wishes || []).map(w => ({
-        ID: w.id,
-        Slug: w.slug,
-        Recipient: w.recipientName,
-        Sender: w.senderName,
-        Template: w.templateName,
-        Occasion: w.occasion,
-        Tier: w.tier,
-        State: w.lifecycleState,
-        Views: w.views || 0,
-        CreatedAt: w.createdAt
-      }));
-      window.WishAnalyticsService.exportToCSV('wishmagic_wishes_export.csv', rows);
-    } else if (type === 'templates') {
-      const rows = (activeMetrics.templates || []).map(t => ({
-        ID: t.id,
-        Name: t.name,
-        Category: t.category,
-        Tier: t.tier,
-        Price: t.price,
-        Status: t.status,
-        WishesCount: activeMetrics.wishesByTemplate[t.name] || 0
-      }));
-      window.WishAnalyticsService.exportToCSV('wishmagic_templates_export.csv', rows);
-    } else if (type === 'events') {
-      const rows = (activeMetrics.events || []).map(e => ({
-        ID: e.id,
-        Event: e.eventName,
-        Timestamp: e.timestamp,
-        WishID: e.wishId || '',
-        Template: e.templateName || e.templateId || ''
-      }));
-      window.WishAnalyticsService.exportToCSV('wishmagic_events_export.csv', rows);
-    }
-    showToast(`📥 Exported ${type} CSV!`, 'success');
+  function exportData(type) {
+    if (!activeMetrics || !window.WishAnalyticsService) return;
+    if (type === 'wishes') window.WishAnalyticsService.exportToCSV('wishes', activeMetrics.wishes);
+    else if (type === 'templates') window.WishAnalyticsService.exportToCSV('templates', activeMetrics.templates);
+    else if (type === 'events') window.WishAnalyticsService.exportToCSV('events', activeMetrics.events);
   }
 </script>
+
 </body>
 </html>

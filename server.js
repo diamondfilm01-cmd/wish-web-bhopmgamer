@@ -15088,6 +15088,55 @@ app.get([
 });
 
 app.get([
+  `${ADMIN_BASE}/add-template`,
+  `${ADMIN_BASE}/add-template.html`
+], (req, res) => {
+  sendAdminPage('admin-add-template.html', req, res);
+});
+
+app.get([
+  `${ADMIN_BASE}/music`,
+  `${ADMIN_BASE}/music.html`
+], (req, res) => {
+  sendAdminPage('admin-media.html', req, res);
+});
+
+app.get([
+  `${ADMIN_BASE}/expiring`,
+  `${ADMIN_BASE}/expiring.html`
+], (req, res) => {
+  sendAdminPage('admin-wishes.html', req, res);
+});
+
+app.get([
+  `${ADMIN_BASE}/subscriptions`,
+  `${ADMIN_BASE}/subscriptions.html`
+], (req, res) => {
+  sendAdminPage('admin-pricing.html', req, res);
+});
+
+app.get([
+  `${ADMIN_BASE}/payments`,
+  `${ADMIN_BASE}/payments.html`
+], (req, res) => {
+  sendAdminPage('admin-orders.html', req, res);
+});
+
+app.get([
+  `${ADMIN_BASE}/backups`,
+  `${ADMIN_BASE}/backups.html`
+], (req, res) => {
+  sendAdminPage('admin-storage-health.html', req, res);
+});
+
+app.get([
+  `${ADMIN_BASE}/activity-logs`,
+  `${ADMIN_BASE}/activity-logs.html`
+], (req, res) => {
+  sendAdminPage('admin-audit-logs.html', req, res);
+});
+
+app.get([
   `${ADMIN_BASE}/occasions`,
   `${ADMIN_BASE}/occasions.html`,
   `${ADMIN_BASE}/categories`,

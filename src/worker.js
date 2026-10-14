@@ -429,6 +429,8 @@ const PRETTY_ROUTES = {
   '/admin/anktech/anktech/admin/creations/': '/admin-user-creations.html',
   '/admin/anktech/anktech/admin/templates': '/admin-templates.html',
   '/admin/anktech/anktech/admin/templates/': '/admin-templates.html',
+  '/admin/anktech/anktech/admin/add-template': '/admin-add-template.html',
+  '/admin/anktech/anktech/admin/add-template/': '/admin-add-template.html',
   '/admin/anktech/anktech/admin/occasions': '/admin-occasions.html',
   '/admin/anktech/anktech/admin/occasions/': '/admin-occasions.html',
   '/admin/anktech/anktech/admin/categories': '/admin-occasions.html',

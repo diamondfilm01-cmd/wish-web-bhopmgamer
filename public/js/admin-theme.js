@@ -1,4 +1,4 @@
-// WishMagic Admin Studio - Universal Dual Theme Engine, Navigation & Header Controller
+// WishMagic Admin Studio - Universal Dual Theme Engine & Utilities
 
 const SECRET_ADMIN_PREFIX = '/admin/anktech/anktech/admin';
 
@@ -145,6 +145,7 @@ const AdminAuthController = (() => {
           headers['Authorization'] = `Bearer ${idToken}`;
         }
 
+        // Call POST /api/auth/signin
         const signinRes = await fetch('/api/auth/signin', {
           method: 'POST',
           credentials: 'include',
@@ -176,11 +177,13 @@ const AdminAuthController = (() => {
           throw new Error(signinData?.error?.message || signinData?.message || 'Admin authentication failed.');
         }
 
+        // Authoritative verification via GET /api/auth/session
         const verifiedUser = await checkSession();
         if (!verifiedUser) {
           throw new Error('Unable to verify server session.');
         }
 
+        // Exactly one navigation
         if (!navigationStarted) {
           navigationStarted = true;
           window.location.replace(ADMIN_TARGET);
@@ -195,6 +198,7 @@ const AdminAuthController = (() => {
     return signInPromise;
   }
 
+  // Initialization method for Admin login page
   async function init() {
     currentState = STATE.BOOTING;
     const existing = await checkSession();
@@ -209,6 +213,7 @@ const AdminAuthController = (() => {
     return null;
   }
 
+  // Logout method
   async function logout() {
     try {
       await fetch('/api/auth/signout', { method: 'POST', credentials: 'include' });
@@ -225,6 +230,7 @@ const AdminAuthController = (() => {
     }
   }
 
+  // Direct Master Admin Authentication (Fallback if Google popup is restricted)
   async function signInDirect(adminEmail) {
     const email = cleanEmail(adminEmail || MASTER_EMAIL);
     if (!isAuthorizedEmail(email)) {
@@ -294,6 +300,7 @@ window.AdminAuthController = AdminAuthController;
   const isLoginPage = pathname.endsWith('/login') || pathname === '/admin-login.html';
 
   if (isLoginPage) {
+    // Admin login page manages its own dedicated lifecycle via AdminAuthController.init()
     return;
   }
 
@@ -302,15 +309,16 @@ window.AdminAuthController = AdminAuthController;
   try {
     const user = await window.AdminAuthController.checkSession();
     if (user) {
+      // Validated Admin Session! Unhide page
       const screen = document.getElementById('admin-access-restricted-screen');
       if (screen) screen.remove();
       document.body.style.display = '';
-      // Update profile pill email/name if available
       const emailEl = document.getElementById('wm-admin-header-email');
       if (emailEl && user.email) emailEl.textContent = user.email;
       return;
     }
 
+    // Missing or invalid session: single redirect to login page
     if (!adminRedirectStarted) {
       adminRedirectStarted = true;
       window.location.replace('/admin/anktech/anktech/admin/login');
@@ -324,38 +332,46 @@ window.AdminAuthController = AdminAuthController;
   }
 })();
 
-// 2. Automatically ensure all sidebar and navigation links strictly use /admin/anktech/anktech/admin/<section> and maintain consistent active styling
+// 2. Automatically ensure all sidebar and navigation links strictly use /admin/anktech/anktech/admin/<section> and highlight ONLY the active section
 function rewriteAdminSidebarLinks() {
   const sectionMap = {
     'user-creations': 'user-creations',
-    'creations': 'user-creations',
+    ' storage-health': 'storage-health',
     'storage-health': 'storage-health',
+    'activity-logs': 'audit-logs',
+    'subscriptions': 'pricing',
+    'announcements': 'announcements',
+    'notifications': 'notifications',
+    'add-template': 'add-template',
+    'diagnostics': 'settings',
     'audit-logs': 'audit-logs',
+    'categories': 'occasions',
+    'moderation': 'moderation',
+    'compliance': 'legal',
+    'creations': 'user-creations',
     'analytics': 'analytics',
     'templates': 'templates',
     'occasions': 'occasions',
-    'categories': 'occasions',
-    'moderation': 'moderation',
     'referrals': 'referrals',
-    'rewards': 'referrals',
-    'compliance': 'legal',
-    'announcements': 'announcements',
-    'notifications': 'notifications',
-    'diagnostics': 'settings',
+    'expiring': 'wishes',
+    'payments': 'orders',
     'settings': 'settings',
+    'overview': 'overview',
+    'rewards': 'referrals',
     'support': 'support',
     'storage': 'storage-health',
-    'orders': 'orders',
+    'backups': 'storage-health',
     'billing': 'orders',
     'pricing': 'pricing',
+    'orders': 'orders',
     'search': 'search',
     'wishes': 'wishes',
     'media': 'media',
+    'music': 'media',
     'users': 'users',
     'staff': 'staff',
     'legal': 'legal',
     'audit': 'audit-logs',
-    'overview': 'overview',
     'login': 'login'
   };
 
@@ -364,16 +380,38 @@ function rewriteAdminSidebarLinks() {
   const currentHash = window.location.hash.toLowerCase();
   let currentSection = 'overview';
 
-  // Sort keys by descending length so multi-word keys (e.g., 'user-creations', 'audit-logs', 'storage-health') take priority
+  // Sort keys by descending length so multi-word keys (e.g., 'user-creations', 'add-template', 'storage-health') take priority
   const sortedKeys = Object.keys(sectionMap).sort((a, b) => b.length - a.length);
   for (const key of sortedKeys) {
-    if (currentPath.includes(key)) {
+    const cleanKey = key.trim();
+    if (currentPath.includes(cleanKey)) {
       currentSection = sectionMap[key];
       break;
     }
   }
 
-  // Update hrefs on all admin links while preserving query strings or hashes when present
+  // Detect sub-section aliases from URL path or query parameters
+  const isAddTemplateActive =
+    currentSection === 'add-template' ||
+    currentPath.includes('add-template') ||
+    (currentSection === 'templates' && (currentSearch.includes('action=add') || currentHash.includes('upload')));
+
+  const isMusicActive =
+    currentPath.endsWith('/music') ||
+    currentPath.endsWith('/music/') ||
+    (currentSection === 'media' && (currentSearch.includes('tab=audio') || currentHash.includes('music')));
+
+  const isExpiringActive =
+    currentPath.endsWith('/expiring') ||
+    currentPath.endsWith('/expiring/') ||
+    (currentSection === 'wishes' && (currentSearch.includes('filter=expiring') || currentHash.includes('expiring')));
+
+  const isBackupsActive =
+    currentPath.endsWith('/backups') ||
+    currentPath.endsWith('/backups/') ||
+    (currentSection === 'storage-health' && (currentSearch.includes('tab=backups') || currentHash.includes('backups')));
+
+  // Rewrite all admin links to use SECRET_ADMIN_PREFIX while preserving query strings or hashes
   document.querySelectorAll('a[href*="admin"]').forEach(a => {
     let href = a.getAttribute('href');
     if (!href || href.startsWith('#') || href.startsWith('javascript:')) return;
@@ -392,7 +430,8 @@ function rewriteAdminSidebarLinks() {
 
     let matchedSection = null;
     for (const key of sortedKeys) {
-      if (baseHref.toLowerCase().includes(key)) {
+      const cleanKey = key.trim();
+      if (baseHref.toLowerCase().includes(cleanKey)) {
         matchedSection = sectionMap[key];
         break;
       }
@@ -400,91 +439,99 @@ function rewriteAdminSidebarLinks() {
 
     if (matchedSection) {
       a.setAttribute('href', `${SECRET_ADMIN_PREFIX}/${matchedSection}${suffix}`);
-    } else if (baseHref.toLowerCase().endsWith('/admin') || baseHref.toLowerCase().endsWith('/admin/') || baseHref.toLowerCase().endsWith('admin.html') || baseHref.toLowerCase().endsWith('admin-overview.html')) {
+    } else if (
+      baseHref.toLowerCase().endsWith('/admin') ||
+      baseHref.toLowerCase().endsWith('/admin/') ||
+      baseHref.toLowerCase().endsWith('admin.html') ||
+      baseHref.toLowerCase().endsWith('admin-overview.html')
+    ) {
       a.setAttribute('href', `${SECRET_ADMIN_PREFIX}/overview${suffix}`);
     }
   });
 
-  // Highlight active link in sidebar matching 19728.png aesthetic
+  // Auto-expand "More Studio Sections" if currentSection is inside it
+  const moreSections = ['user-creations', 'search', 'referrals', 'moderation', 'support', 'staff', 'legal', 'announcements', 'notifications'];
+  if (moreSections.includes(currentSection)) {
+    const extra = document.getElementById('wm-sidebar-more-group');
+    const chevron = document.getElementById('wm-sidebar-more-chevron');
+    if (extra) extra.classList.remove('hidden');
+    if (chevron) chevron.style.transform = 'rotate(180deg)';
+  }
+
+  // Highlight ONLY the active link in sidebar (and unhighlight Dashboard when on any other section!)
   const sidebarNav = document.querySelector('#admin-sidebar nav, aside nav');
   if (sidebarNav) {
     const navLinks = sidebarNav.querySelectorAll('a');
     navLinks.forEach(a => {
       const href = (a.getAttribute('href') || '').toLowerCase();
-      const isDashboardBtn = a.classList.contains('wm-dashboard-pill') || a.getAttribute('data-nav-role') === 'dashboard';
+      const isDashboardBtn =
+        a.getAttribute('data-nav-role') === 'dashboard' ||
+        href.endsWith('/overview') ||
+        href.endsWith('/overview/') ||
+        href.endsWith('admin-overview.html');
+
+      // Always strip legacy permanent pill classes first
+      a.classList.remove('wm-dashboard-pill', 'wm-inactive-pill', 'active', 'wm-nav-active');
+
+      let isTarget = false;
 
       if (isDashboardBtn) {
-        if (currentSection === 'overview') {
-          a.classList.remove('wm-inactive-pill');
-        } else {
-          a.classList.add('wm-inactive-pill');
-        }
-        return;
-      }
-
-      // Check sub-target specificity (e.g. Add Template vs All Templates, Music Library vs Media Library, Expiring Soon vs All Wishes, Backups vs Storage)
-      let isTarget = false;
-      if (href.includes('action=add')) {
-        isTarget = currentSection === 'templates' && (currentSearch.includes('action=add') || currentHash.includes('upload'));
-      } else if (href.includes('tab=audio') || href.includes('#music')) {
-        isTarget = currentSection === 'media' && (currentSearch.includes('tab=audio') || currentHash.includes('music'));
-      } else if (href.includes('filter=expiring')) {
-        isTarget = currentSection === 'wishes' && (currentSearch.includes('filter=expiring') || currentHash.includes('expiring'));
-      } else if (href.includes('tab=backups') || href.includes('#backups')) {
-        isTarget = currentSection === 'storage-health' && (currentSearch.includes('tab=backups') || currentHash.includes('backups'));
+        isTarget = (currentSection === 'overview' && !isAddTemplateActive && !isMusicActive && !isExpiringActive && !isBackupsActive);
+      } else if (href.includes('add-template') || href.includes('action=add')) {
+        isTarget = isAddTemplateActive;
+      } else if (href.includes('tab=audio') || href.endsWith('/music') || href.includes('#music')) {
+        isTarget = isMusicActive;
+      } else if (href.includes('filter=expiring') || href.endsWith('/expiring')) {
+        isTarget = isExpiringActive;
+      } else if (href.includes('tab=backups') || href.endsWith('/backups') || href.includes('#backups')) {
+        isTarget = isBackupsActive;
       } else {
         const cleanHref = href.split('?')[0].split('#')[0];
-        const matchesSection = cleanHref.endsWith('/' + currentSection) ||
-                               cleanHref.endsWith('/' + currentSection + '/') ||
-                               cleanHref.includes('/admin-' + currentSection + '.html');
+        const matchesSection =
+          cleanHref.endsWith('/' + currentSection) ||
+          cleanHref.endsWith('/' + currentSection + '/') ||
+          cleanHref.includes('/admin-' + currentSection + '.html');
+
         if (matchesSection) {
-          // Ensure primary section link isn't highlighted when a sub-query link is active
-          if (currentSection === 'templates' && (currentSearch.includes('action=add') || currentHash.includes('upload'))) {
-            isTarget = false;
-          } else if (currentSection === 'media' && (currentSearch.includes('tab=audio') || currentHash.includes('music'))) {
-            isTarget = false;
-          } else if (currentSection === 'wishes' && (currentSearch.includes('filter=expiring') || currentHash.includes('expiring'))) {
-            isTarget = false;
-          } else if (currentSection === 'storage-health' && (currentSearch.includes('tab=backups') || currentHash.includes('backups'))) {
-            isTarget = false;
-          } else {
-            isTarget = true;
-          }
+          if (currentSection === 'templates' && isAddTemplateActive) isTarget = false;
+          else if (currentSection === 'media' && isMusicActive) isTarget = false;
+          else if (currentSection === 'wishes' && isExpiringActive) isTarget = false;
+          else if (currentSection === 'storage-health' && isBackupsActive) isTarget = false;
+          else isTarget = true;
         }
       }
 
       if (isTarget) {
         a.classList.add('active', 'wm-nav-active');
-      } else {
-        a.classList.remove('active', 'wm-nav-active');
       }
     });
   }
 }
 
-// Auto-handle deep-link query params across admin subpages (?action=add, ?tab=audio, ?filter=expiring, ?tab=backups)
+// Auto-handle query actions across admin subpages (?action=add, ?tab=audio, ?filter=expiring, ?tab=backups)
 function handleAdminQueryActions() {
   const params = new URLSearchParams(window.location.search);
   const hash = window.location.hash.toLowerCase();
+  const path = window.location.pathname.toLowerCase();
 
-  // 1. Templates Page: ?action=add -> open Upload/Add Template modal
+  // 1. Templates Page: ?action=add -> expand inline Add Template studio section (not a popup!)
   if (params.get('action') === 'add' || hash === '#upload') {
     setTimeout(() => {
-      const uploadModal = document.getElementById('upload-code-modal');
-      if (uploadModal && uploadModal.classList.contains('hidden')) {
-        if (typeof toggleModal === 'function') toggleModal('upload-code-modal');
-        else uploadModal.classList.remove('hidden');
+      const uploadSection = document.getElementById('upload-code-modal');
+      if (uploadSection) {
+        uploadSection.classList.remove('hidden');
+        uploadSection.scrollIntoView({ behavior: 'smooth', block: 'start' });
       }
-    }, 250);
+    }, 150);
   }
 
-  // 2. Media Page: ?tab=audio -> switch to Audio/Music Library tab; ?action=upload -> open upload modal
-  if (params.get('tab') === 'audio' || hash === '#music') {
+  // 2. Media Page: ?tab=audio or /music -> switch to Audio/Music Library tab
+  if (params.get('tab') === 'audio' || hash === '#music' || path.endsWith('/music')) {
     setTimeout(() => {
       if (typeof setMediaFilter === 'function') {
         setMediaFilter('audio');
       }
-    }, 300);
+    }, 250);
   }
   if (params.get('action') === 'upload') {
     setTimeout(() => {
@@ -496,24 +543,99 @@ function handleAdminQueryActions() {
           mediaModal.classList.add('flex');
         }
       }
-    }, 300);
+    }, 250);
   }
 
-  // 3. Wishes Page: ?filter=expiring -> filter expiring wishes
-  if (params.get('filter') === 'expiring' || hash === '#expiring') {
+  // 3. Wishes Page: ?filter=expiring or /expiring -> filter expiring wishes
+  if (params.get('filter') === 'expiring' || hash === '#expiring' || path.endsWith('/expiring')) {
     setTimeout(() => {
       if (typeof filterStatus === 'function') {
         filterStatus('expiring');
       }
-    }, 300);
+    }, 250);
   }
 
-  // 4. Storage Health Page: ?tab=backups -> scroll to or highlight backups
-  if (params.get('tab') === 'backups' || hash === '#backups') {
+  // 4. Storage Health Page: ?tab=backups or /backups -> scroll to backups/cleanup
+  if (params.get('tab') === 'backups' || hash === '#backups' || path.endsWith('/backups')) {
     setTimeout(() => {
       const backupEl = document.getElementById('backups-section') || document.getElementById('btn-open-cleanup');
       if (backupEl) backupEl.scrollIntoView({ behavior: 'smooth', block: 'center' });
-    }, 300);
+    }, 250);
+  }
+}
+
+// 3. Live Real-Time Header Notifications (Zero Fake Data!)
+async function loadLiveAdminHeaderNotifications() {
+  const badge = document.getElementById('wm-header-notif-badge');
+  const dropdown = document.getElementById('wm-admin-notif-dropdown');
+  if (!badge && !dropdown) return;
+
+  try {
+    const [wishesRes, auditRes] = await Promise.all([
+      fetch('/api/wishes?all=true', { credentials: 'include' }).then(r => r.json()).catch(() => ({})),
+      fetch('/api/admin/audit-logs?limit=5', { credentials: 'include' }).then(r => r.json()).catch(() => ({}))
+    ]);
+
+    const wishes = Array.isArray(wishesRes?.wishes) ? wishesRes.wishes : (Array.isArray(wishesRes?.data?.wishes) ? wishesRes.data.wishes : []);
+    const logs = Array.isArray(auditRes?.logs) ? auditRes.logs : (Array.isArray(auditRes?.data?.logs) ? auditRes.data.logs : []);
+
+    const items = [];
+    wishes.slice(0, 3).forEach(w => {
+      const rec = w.recipientName || w.recipient_name || w.title || 'Celebration Wish';
+      const tpl = w.templateName || w.template_name || w.templateId || 'WishMagic Template';
+      items.push({
+        href: '/admin/anktech/anktech/admin/wishes',
+        icon: 'send',
+        iconCls: 'bg-pink-100 text-pink-600 dark:bg-pink-950/60 dark:text-pink-300',
+        title: `Wish created for ${rec}`,
+        sub: `${tpl}`,
+        ts: w.createdAt || w.created_at || null
+      });
+    });
+
+    logs.slice(0, 3).forEach(l => {
+      items.push({
+        href: '/admin/anktech/anktech/admin/audit-logs',
+        icon: 'verified_user',
+        iconCls: 'bg-purple-100 text-purple-600 dark:bg-purple-950/60 dark:text-purple-300',
+        title: (l.action || l.event_type || 'System Action').replace(/_/g, ' '),
+        sub: l.actor_email || l.target_id || 'Admin Studio',
+        ts: l.created_at || l.timestamp || null
+      });
+    });
+
+    const totalCount = items.length;
+    if (badge) {
+      badge.textContent = String(totalCount);
+      if (totalCount === 0) badge.classList.add('hidden');
+      else badge.classList.remove('hidden');
+    }
+
+    if (dropdown) {
+      const listHtml = items.length === 0
+        ? '<div class="py-6 text-center text-xs text-on-surface-variant">No new live notifications right now.</div>'
+        : items.slice(0, 5).map(item => `
+            <a href="${item.href}" class="flex items-start gap-2.5 p-2 rounded-xl hover:bg-purple-50 dark:hover:bg-purple-900/30 transition">
+              <span class="w-7 h-7 rounded-full ${item.iconCls} flex items-center justify-center shrink-0 mt-0.5">
+                <span class="material-symbols-outlined text-[15px]">${item.icon}</span>
+              </span>
+              <div class="min-w-0 flex-1">
+                <div class="font-bold text-on-surface truncate capitalize">${item.title}</div>
+                <div class="text-[11px] text-on-surface-variant truncate">${item.sub}</div>
+              </div>
+            </a>
+          `).join('');
+
+      dropdown.innerHTML = `
+        <div class="flex items-center justify-between pb-2.5 mb-2 border-b border-purple-100 dark:border-purple-800/40">
+          <span class="font-bold text-sm text-on-surface">Live Notifications</span>
+          <a href="/admin/anktech/anktech/admin/notifications" class="text-[11px] font-bold text-purple-600 dark:text-purple-300 hover:underline">Delivery Queue →</a>
+        </div>
+        <div class="space-y-1.5">${listHtml}</div>
+      `;
+    }
+  } catch (e) {
+    console.warn('[AdminTheme] Notification poll note:', e);
   }
 }
 
@@ -569,14 +691,77 @@ document.addEventListener('keydown', (e) => {
   }
 });
 
-if (document.readyState === 'loading') {
-  document.addEventListener('DOMContentLoaded', () => {
-    rewriteAdminSidebarLinks();
-    handleAdminQueryActions();
-  });
-} else {
+function initAdminNavigationAndNotifications() {
   rewriteAdminSidebarLinks();
   handleAdminQueryActions();
+  loadLiveAdminHeaderNotifications();
+  setInterval(loadLiveAdminHeaderNotifications, 15000);
+
+  // Universal Live Data Auto-Refresh across Admin Subpages (when tab is visible and user is not typing in an input)
+  setInterval(() => {
+    if (document.visibilityState !== 'visible') return;
+    const activeEl = document.activeElement;
+    if (activeEl && (activeEl.tagName === 'INPUT' || activeEl.tagName === 'TEXTAREA' || activeEl.tagName === 'SELECT')) return;
+    // Skip if a modal is open
+    const openModal = document.querySelector('[id*="modal"]:not(.hidden):not([data-inline-page="true"])');
+    if (openModal && openModal.classList.contains('fixed')) return;
+
+    const p = window.location.pathname.toLowerCase();
+    try {
+      if (p.includes('wishes') || p.includes('expiring')) {
+        if (typeof window.loadWishes === 'function') window.loadWishes();
+      } else if (p.includes('user-creations') || p.includes('creations')) {
+        if (typeof window.loadUserCreations === 'function') window.loadUserCreations();
+      } else if (p.includes('users')) {
+        if (typeof window.loadUsers === 'function') window.loadUsers();
+      } else if (p.includes('audit') || p.includes('activity-logs')) {
+        if (typeof window.loadAuditLogs === 'function') window.loadAuditLogs();
+      } else if (p.includes('moderation')) {
+        if (typeof window.loadModerationData === 'function') window.loadModerationData();
+      } else if (p.includes('notifications')) {
+        if (typeof window.loadQueueData === 'function') window.loadQueueData();
+      } else if (p.includes('announcements')) {
+        if (typeof window.loadAnnouncements === 'function') window.loadAnnouncements();
+      } else if (p.includes('referrals')) {
+        if (typeof window.loadAdminReferralData === 'function') window.loadAdminReferralData();
+      }
+    } catch (_) {}
+  }, 8000);
+
+
+  // Also update active state immediately if a sidebar link is clicked
+  const sidebarNav = document.querySelector('#admin-sidebar nav, aside nav');
+  if (sidebarNav) {
+    sidebarNav.addEventListener('click', (e) => {
+      const link = e.target.closest('a');
+      if (!link) return;
+      sidebarNav.querySelectorAll('a').forEach(a => {
+        a.classList.remove('wm-dashboard-pill', 'wm-inactive-pill', 'active', 'wm-nav-active');
+      });
+      link.classList.add('active', 'wm-nav-active');
+      if (window.innerWidth < 768) {
+        const sidebar = document.getElementById('admin-sidebar');
+        if (sidebar && !sidebar.classList.contains('-translate-x-full')) {
+          toggleSidebar();
+        }
+      }
+    });
+  }
+}
+
+window.addEventListener('popstate', () => {
+  rewriteAdminSidebarLinks();
+  handleAdminQueryActions();
+});
+window.addEventListener('hashchange', () => {
+  rewriteAdminSidebarLinks();
+  handleAdminQueryActions();
+});
+
+if (document.readyState === 'loading') {
+  document.addEventListener('DOMContentLoaded', initAdminNavigationAndNotifications);
+} else {
+  initAdminNavigationAndNotifications();
 }
 
 function updateThemeIcons(isDark) {
@@ -588,11 +773,11 @@ function updateThemeIcons(isDark) {
   const moonPill = document.getElementById('wm-theme-moon-pill');
   if (sunPill && moonPill) {
     if (isDark) {
-      sunPill.className = 'w-7 h-6 rounded-full flex items-center justify-center text-[#9583b8] transition-all';
-      moonPill.className = 'w-7 h-6 rounded-full bg-purple-600 text-white shadow-sm flex items-center justify-center transition-all';
+      sunPill.className = 'w-7 h-7 rounded-full flex items-center justify-center text-[#9583b8] transition-all';
+      moonPill.className = 'w-7 h-7 rounded-full bg-purple-600 text-white shadow-sm flex items-center justify-center transition-all';
     } else {
-      sunPill.className = 'w-7 h-6 rounded-full bg-white text-amber-500 shadow-sm flex items-center justify-center transition-all';
-      moonPill.className = 'w-7 h-6 rounded-full flex items-center justify-center text-[#7c699e] transition-all';
+      sunPill.className = 'w-7 h-7 rounded-full bg-amber-100 text-amber-500 shadow-sm flex items-center justify-center transition-all';
+      moonPill.className = 'w-7 h-7 rounded-full bg-[#3b1578] text-amber-200 flex items-center justify-center transition-all';
     }
   }
 }
