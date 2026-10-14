@@ -237,16 +237,13 @@ export async function onRequest(context) {
     }
   }
 
-  // Secret Admin Portal Entry: Direct route mapping with Server-Side Protection
+  // Secret Admin Portal Entry: Strictly accessible ONLY when signed in as ankit.babusaini@gmail.com
   if (pathname.startsWith('/admin/anktech/anktech/admin')) {
     if (pathname === '/admin/anktech/anktech/admin/login' || pathname.endsWith('/login')) {
-      const loginHtml = await serveHtmlAsset(context, '/admin-login.html', url.search);
-      if (loginHtml) return loginHtml;
-      const loginReq = new Request(new URL('/admin-login.html', context.request.url), context.request);
-      return await context.next(loginReq);
+      return Response.redirect(new URL('/', context.request.url), 302);
     }
 
-    // Server-Side Authentication & Role Verification
+    // Server-Side Authentication & Strict Owner Email Verification (ankit.babusaini@gmail.com only)
     try {
       const sessionRes = await worker.fetch(new Request(new URL('/api/auth/session', context.request.url), {
         headers: context.request.headers
@@ -255,7 +252,7 @@ export async function onRequest(context) {
       if (sessionRes.status === 200) {
         const sessionData = await sessionRes.json().catch(() => ({}));
         const u = sessionData.data?.user || sessionData.user;
-        const isMaster = u && (u.role === 'admin' || u.role === 'OWNER' || u.role === 'SUPER_ADMIN' || u.isAdmin === true || (u.email && (u.email.toLowerCase() === 'ankit.babusaini@gmail.com' || u.email.toLowerCase() === 'shrijiposhakbhandarshop@gmail.com')));
+        const isMaster = Boolean(u && u.email && String(u.email).trim().toLowerCase() === 'ankit.babusaini@gmail.com');
         if (isMaster) {
           const cleanPath = pathname.replace(/\/+$/, '') || '/admin/anktech/anktech/admin';
           const targetFile = ADMIN_ROUTES_MAP[cleanPath] || ADMIN_ROUTES_MAP[pathname];
@@ -270,19 +267,14 @@ export async function onRequest(context) {
           const destinationUrl = new URL(targetFile + url.search, context.request.url);
           const pageReq = new Request(destinationUrl, context.request);
           return await context.next(pageReq);
-        } else if (u) {
-          return new Response('Access Denied: Insufficient administrative privileges.', {
-            status: 403,
-            headers: { 'Content-Type': 'text/plain; charset=utf-8' }
-          });
         }
       }
     } catch (e) {
       console.warn('[Server Admin Guard]', e);
     }
 
-    // Unauthenticated: redirect to login
-    return Response.redirect(new URL('/admin/anktech/anktech/admin/login', context.request.url), 302);
+    // Unauthenticated or non-owner user: redirect to Main Website homepage (never to an admin login page)
+    return Response.redirect(new URL('/', context.request.url), 302);
   }
 
   // Pretty admin and storefront route mapping

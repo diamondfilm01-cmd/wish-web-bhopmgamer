@@ -1336,3 +1336,29 @@ html:not(.dark) #hero-preview-canvas p,
 html:not(.dark) #hero-preview-canvas span {
   color: #ffffff !important;
 }
+
+
+/* ==========================================================================
+   8. GLOBAL ADMIN MODAL & POPUP ELEVATION FIX (Always above Sidebar z-60 & Header z-40)
+   ========================================================================== */
+.fixed.inset-0:not(#sidebar-backdrop),
+[id$="-modal"].fixed,
+[id*="modal"].fixed {
+  z-index: 120 !important;
+}
+
+html:not(.dark) [id*="modal"].fixed > div,
+html:not(.dark) .fixed.inset-0:not(#sidebar-backdrop) > div:not(#preview-viewport-shell) {
+  background-color: #ffffff !important;
+  border-color: #d6c8f2 !important;
+  color: #1a0f30 !important;
+  box-shadow: 0 25px 70px rgba(26, 15, 48, 0.28) !important;
+}
+
+html.dark [id*="modal"].fixed > div,
+html.dark .fixed.inset-0:not(#sidebar-backdrop) > div:not(#preview-viewport-shell) {
+  background-color: #1f123e !important;
+  border-color: rgba(147, 102, 245, 0.38) !important;
+  color: #f7f4ff !important;
+  box-shadow: 0 25px 70px rgba(0, 0, 0, 0.72) !important;
+}

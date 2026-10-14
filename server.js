@@ -2120,7 +2120,7 @@ app.use((req, res, next) => {
 
   // Block plain /admin unauthorized directory listing attempt
   if (p === '/admin' || p === '/admin/') {
-    return res.redirect('/admin-login.html');
+    return res.redirect('/');
   }
 
   next();
@@ -2206,8 +2206,14 @@ app.post('/api/auth/signin', (req, res) => {
     }
 
     const cleanEmail = (extractedEmail || '').trim().toLowerCase();
-    const ADMIN_EMAILS_LIST = ['ankit.babusaini@gmail.com', 'shrijiposhakbhandarshop@gmail.com'];
-    const isUserAdmin = ADMIN_EMAILS_LIST.includes(cleanEmail) || cleanEmail.endsWith('@wishmagic.internal');
+    if (cleanEmail === 'ankit.babusaini@gmail.com' && !idToken && !extractedUid) {
+      return res.status(401).json({
+        success: false,
+        error: { code: 'AUTH_FIREBASE_REQUIRED', message: 'Firebase Google Authentication is required to sign in with the Master Admin account.' }
+      });
+    }
+    const ADMIN_EMAILS_LIST = ['ankit.babusaini@gmail.com'];
+    const isUserAdmin = ADMIN_EMAILS_LIST.includes(cleanEmail);
     const users = getUsers();
 
     let target = users.find(u => (userId && u.id === userId) || (cleanEmail && u.email === cleanEmail));
@@ -15138,9 +15144,9 @@ function sendAdminPage(file, req, res) {
   res.sendFile(path.join(__dirname, 'public', file));
 }
 
-// Direct Admin Login Routes
+// Direct Admin Login Routes Disabled -> Redirect to Main Website Homepage
 app.get(['/admin-login', '/admin-login.html', `${ADMIN_BASE}/login`, `${ADMIN_BASE}/login.html`], (req, res) => {
-  res.sendFile(path.join(__dirname, 'public', 'admin-login.html'));
+  res.redirect('/');
 });
 
 // Direct admin static pages

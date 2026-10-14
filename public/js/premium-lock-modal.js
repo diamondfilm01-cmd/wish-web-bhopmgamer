@@ -1,5 +1,5 @@
 // WishMagic Reusable Premium Lock & Upgrade Prompt Component
-// Part 11: Premium Access & Monetization Architecture
+// Redesigned with Admin Studio Fairytale Light Mode & Cosmic Dark Mode UI
 
 (function(window) {
   'use strict';
@@ -14,7 +14,7 @@
       el.id = 'wm-premium-lock-modal';
       el.setAttribute('role', 'dialog');
       el.setAttribute('aria-modal', 'true');
-      el.className = 'fixed inset-0 z-[100] bg-black/80 backdrop-blur-md hidden items-center justify-center p-4 transition-all duration-300';
+      el.className = 'fixed inset-0 z-[140] bg-black/75 backdrop-blur-md hidden items-center justify-center p-4 transition-all duration-300';
       document.body.appendChild(el);
     }
     return el;
@@ -27,14 +27,6 @@
   }
 
   const WishPremiumLock = {
-    /**
-     * Open the Premium Lock upgrade dialog
-     * @param {Object} options
-     *   - context: 'template' | 'theme' | 'section' | 'media_limit' | 'voice' | 'music_upload' | 'watermark' | 'preservation'
-     *   - template: Optional template object
-     *   - onUnlocked: Callback when development unlock is triggered
-     *   - onCancel: Callback when dismissed
-     */
     open(options = {}) {
       const modal = ensureModalElement();
       activeModalEl = modal;
@@ -58,47 +50,43 @@
       const templateName = options.template ? (options.template.name || 'VIP Blueprint') : null;
 
       modal.innerHTML = `
-        <div class="w-full max-w-lg bg-[#140628] text-white rounded-3xl border border-purple-500/30 shadow-[0_25px_60px_-15px_rgba(168,85,247,0.4)] p-6 sm:p-8 flex flex-col gap-5 relative overflow-hidden" onclick="event.stopPropagation()">
+        <div class="wm-card w-full max-w-lg bg-white dark:bg-[#1f123e] text-[#1a0f30] dark:text-white rounded-3xl border-2 border-[#d6c8f2] dark:border-purple-500/40 shadow-[0_25px_70px_rgba(26,15,48,0.45)] p-6 sm:p-8 flex flex-col gap-5 relative overflow-hidden" onclick="event.stopPropagation()">
           
-          <!-- Background ambient glow -->
-          <div class="absolute -top-24 -right-24 w-60 h-60 bg-pink-500/20 rounded-full blur-3xl pointer-events-none"></div>
-          <div class="absolute -bottom-24 -left-24 w-60 h-60 bg-purple-600/20 rounded-full blur-3xl pointer-events-none"></div>
-
           <!-- Close button -->
-          <button onclick="WishPremiumLock.close()" aria-label="Close dialog" class="absolute top-5 right-5 w-8 h-8 rounded-full bg-white/10 hover:bg-white/20 text-white/80 hover:text-white flex items-center justify-center font-bold text-xs transition cursor-pointer">
+          <button type="button" onclick="WishPremiumLock.close()" aria-label="Close dialog" class="absolute top-5 right-5 w-9 h-9 rounded-full bg-[#f4effc] dark:bg-purple-900/70 text-[#4c1d95] dark:text-purple-200 hover:bg-[#e9defa] dark:hover:bg-purple-800 flex items-center justify-center font-extrabold text-xs transition cursor-pointer">
             ✕
           </button>
 
           <!-- Top Badge & Header -->
           <div class="flex items-start gap-4">
-            <div class="w-12 h-12 rounded-2xl bg-gradient-to-tr from-amber-400 via-pink-500 to-purple-600 text-white flex items-center justify-center text-2xl shadow-lg shadow-pink-500/30 flex-shrink-0">
+            <div class="w-12 h-12 rounded-2xl bg-gradient-to-br from-[#a855f7] via-[#ec4899] to-[#f59e0b] text-white flex items-center justify-center text-2xl shadow-lg shadow-pink-500/30 flex-shrink-0">
               👑
             </div>
-            <div class="min-w-0 pr-6">
+            <div class="min-w-0 pr-6 text-left">
               <div class="flex items-center gap-2 mb-1">
-                <span class="px-2.5 py-0.5 rounded-full text-[10px] font-black uppercase tracking-wider bg-amber-400 text-purple-950 shadow-sm">
+                <span class="px-2.5 py-0.5 rounded-full text-[10px] font-black uppercase tracking-wider bg-amber-400 text-[#1a0f30] shadow-xs">
                   ${details.badge}
                 </span>
-                <span class="text-xs text-amber-300 font-bold font-mono">₹49 ONE-TIME</span>
+                <span class="text-xs text-[#be185d] dark:text-amber-300 font-extrabold font-mono">₹49 ONE-TIME</span>
               </div>
-              <h3 class="font-display font-black text-xl text-white tracking-tight leading-snug">
+              <h3 class="font-display font-extrabold text-xl text-[#1a0f30] dark:text-white tracking-tight leading-snug">
                 ${details.title}
               </h3>
-              ${templateName ? `<p class="text-xs text-pink-300 font-semibold mt-0.5">${templateName}</p>` : ''}
+              ${templateName ? `<p class="text-xs text-[#ec4899] font-bold mt-0.5">${templateName}</p>` : ''}
             </div>
           </div>
 
           <!-- Description & Benefits -->
-          <p class="text-xs sm:text-sm text-purple-200/90 leading-relaxed font-medium">
+          <p class="text-xs sm:text-sm text-[#533f78] dark:text-[#cfc2eb] leading-relaxed font-medium text-left">
             ${details.subtitle}
           </p>
 
-          <div class="p-4 rounded-2xl bg-white/5 border border-white/10 flex flex-col gap-2.5">
-            <span class="text-[11px] font-bold text-amber-300 uppercase tracking-wider">What Premium Unlocks:</span>
-            <ul class="flex flex-col gap-2 text-xs text-purple-100">
+          <div class="p-4 rounded-2xl bg-[#f7f3fe] dark:bg-[#170d30] border border-[#dfd2f7] dark:border-purple-500/30 flex flex-col gap-2.5 text-left">
+            <span class="text-[11px] font-extrabold text-[#6d28d9] dark:text-amber-300 uppercase tracking-wider">What VIP Pass Unlocks:</span>
+            <ul class="flex flex-col gap-2 text-xs text-[#1a0f30] dark:text-[#f7f4ff] font-medium">
               ${details.bullets.map(b => `
                 <li class="flex items-center gap-2">
-                  <span class="text-emerald-400 font-bold">✓</span>
+                  <span class="text-emerald-600 dark:text-emerald-400 font-extrabold">✓</span>
                   <span>${b}</span>
                 </li>
               `).join('')}
@@ -106,25 +94,25 @@
           </div>
 
           <!-- Payment Gateway Notice -->
-          <div class="p-3 rounded-xl bg-purple-950/80 border border-purple-500/40 text-[11px] text-purple-300 flex items-start gap-2">
-            <span class="text-sm">🔒</span>
+          <div class="p-3.5 rounded-2xl bg-[#faf7ff] dark:bg-purple-950/70 border border-[#d6c8f2] dark:border-purple-500/40 text-[11px] text-[#533f78] dark:text-[#cfc2eb] flex items-start gap-2.5 text-left">
+            <span class="text-base">🔒</span>
             <div>
-              <span class="font-bold text-white block uppercase tracking-wider text-[10px]">Secure Payment Gateway</span>
-              <span>Transactions are processed securely via authorized payment infrastructure with instant server-side verification.</span>
+              <span class="font-extrabold text-[#1a0f30] dark:text-white block uppercase tracking-wider text-[10px]">Secure Payment Gateway</span>
+              <span>Transactions are processed securely with instant server-side entitlement verification.</span>
             </div>
           </div>
 
           <!-- Actions -->
           <div class="flex flex-col sm:flex-row items-center gap-2.5 pt-1">
-            <button id="wm-lock-pay-btn" onclick="WishPremiumLock.initiateCheckout()" class="w-full sm:flex-1 py-3 px-5 rounded-2xl bg-gradient-to-r from-amber-400 via-pink-500 to-purple-600 hover:brightness-110 active:scale-95 text-purple-950 font-extrabold text-xs sm:text-sm shadow-xl shadow-pink-500/25 flex items-center justify-center gap-2 transition-all cursor-pointer">
+            <button type="button" id="wm-lock-pay-btn" onclick="WishPremiumLock.initiateCheckout()" class="w-full sm:flex-1 py-3 px-5 rounded-full bg-gradient-to-r from-[#ff2a85] via-[#ec4899] to-[#a855f7] hover:brightness-110 active:scale-95 text-white font-extrabold text-xs sm:text-sm shadow-[0_8px_24px_rgba(236,72,153,0.35)] flex items-center justify-center gap-2 transition-all cursor-pointer">
               <span class="material-symbols-outlined text-[18px]">lock_open</span>
               <span id="wm-lock-pay-btn-text">Unlock VIP Pass • ₹49</span>
             </button>
-            <a href="/checkout.html" class="w-full sm:w-auto py-3 px-4 rounded-2xl bg-white/10 hover:bg-white/20 text-white font-bold text-xs text-center transition cursor-pointer">
-              Checkout Details
+            <a href="/checkout.html" class="w-full sm:w-auto py-3 px-4 rounded-full bg-[#f4effc] dark:bg-purple-900/60 border border-[#d6c8f2] dark:border-purple-500/40 text-[#4c1d95] dark:text-purple-200 font-extrabold text-xs text-center transition cursor-pointer">
+              Checkout
             </a>
-            <button onclick="WishPremiumLock.close()" class="w-full sm:w-auto py-3 px-4 rounded-2xl text-purple-300/80 hover:text-white font-medium text-xs text-center transition cursor-pointer">
-              Continue Exploring
+            <button type="button" onclick="WishPremiumLock.close()" class="w-full sm:w-auto py-3 px-4 rounded-full text-[#533f78] dark:text-purple-300 hover:text-[#1a0f30] dark:hover:text-white font-bold text-xs text-center transition cursor-pointer">
+              Cancel
             </button>
           </div>
 

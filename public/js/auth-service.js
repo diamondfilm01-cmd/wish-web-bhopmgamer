@@ -1,10 +1,11 @@
 // WishMagic Centralized Authentication & User Architecture Service
-// Single Authoritative Client Auth Bootstrap Engine
+// Pure Firebase Google Sign-In & Strict Master Admin Dropdown Access Control
 
 (function(window) {
   'use strict';
 
   const STORAGE_KEY_USER = 'wishmagic_auth_user';
+  const MASTER_ADMIN_EMAIL = 'ankit.babusaini@gmail.com';
 
   const IS_ADMIN_STUDIO =
     typeof window !== 'undefined' &&
@@ -14,7 +15,6 @@
       window.location.pathname === '/admin/anktech/anktech/admin'
     );
 
-  // Authoritative Client Auth States
   const AUTH_STATE = Object.freeze({
     BOOTING: 'BOOTING',
     AUTHENTICATED: 'AUTHENTICATED',
@@ -35,7 +35,11 @@
     authReadyResolve = resolve;
   });
 
-  // Non-authoritative UI cache helpers (Updated ONLY after real authentication)
+  function isMasterAdminEmail(email) {
+    if (!email) return false;
+    return String(email).trim().toLowerCase() === MASTER_ADMIN_EMAIL;
+  }
+
   function persistUserCache(user) {
     if (!user) return;
     try {
@@ -48,10 +52,10 @@
     try {
       localStorage.removeItem(STORAGE_KEY_USER);
       localStorage.removeItem('wishmagic_user');
+      localStorage.removeItem('wishmagic_last_user_email');
     } catch (_) {}
   }
 
-  // Single authoritative transition controller
   function setAuthState(state, user = null) {
     authState = state;
     currentUser = user;
@@ -81,7 +85,6 @@
     renderNavbarAuthState();
   }
 
-  // Deduplicated Server Session Check
   function fetchServerSessionOnce() {
     if (inFlightSessionPromise) {
       return inFlightSessionPromise;
@@ -99,13 +102,14 @@
         });
 
         const data = await response.json().catch(() => ({}));
+        const user = data?.data?.user || data?.user || null;
         if (
           response.ok &&
           data?.success === true &&
-          data?.isAuthenticated === true &&
-          data?.user
+          (data?.isAuthenticated === true || data?.data?.isAuthenticated === true) &&
+          user
         ) {
-          return data.user;
+          return user;
         }
 
         return null;
@@ -119,7 +123,6 @@
     return inFlightSessionPromise;
   }
 
-  // Deduplicated Server Sign-In Mutation
   function syncSessionWithServer(fbUser, fallbackDisplayName = '') {
     if (!fbUser) {
       return Promise.reject(new Error('Firebase user is missing.'));
@@ -170,7 +173,7 @@
             email,
             displayName,
             avatarUrl,
-            provider: fbUser.providerData?.[0]?.providerId || 'google',
+            provider: 'google',
             firebaseUid: fbUser.uid,
             idToken: idToken || undefined
           })
@@ -195,7 +198,6 @@
     return inFlightSignInPromise;
   }
 
-  // Ensure WishFirebaseAuth module is ready
   function ensureFirebaseAuth() {
     if (window.WishFirebaseAuth) {
       if (typeof window.WishFirebaseAuth.ready === 'function') {
@@ -234,10 +236,8 @@
     });
   }
 
-  // Single Deterministic Auth Bootstrap Engine
   async function performAuthBootstrap() {
     if (IS_ADMIN_STUDIO) {
-      // Admin Studio uses window.AdminAuthController exclusively
       authState = AUTH_STATE.UNAUTHENTICATED;
       authInitialized = true;
       if (authReadyResolve) {
@@ -251,7 +251,6 @@
     renderNavbarAuthState();
 
     try {
-      // Parallel Start: Firebase initialization + existing server session check
       const firebasePromise = ensureFirebaseAuth();
       const serverPromise = fetchServerSessionOnce();
 
@@ -260,31 +259,17 @@
         serverPromise
       ]);
 
-      // If a valid server session already exists, use it immediately
       if (serverUser) {
         setAuthState(AUTH_STATE.AUTHENTICATED, serverUser);
-
-        // Firebase continues warming in the background
-        if (
-          firebaseAuth &&
-          typeof firebaseAuth.onAuthStateChanged === 'function'
-        ) {
+        if (firebaseAuth && typeof firebaseAuth.onAuthStateChanged === 'function') {
           firebaseAuth.onAuthStateChanged(async (firebaseUser) => {
-            // NEVER clear server session just because Firebase temporarily emits null
-            if (!firebaseUser) {
-              return;
-            }
+            if (!firebaseUser) return;
           });
         }
-
         return serverUser;
       }
 
-      // No server session. Wait for Firebase authoritative initial state.
-      if (
-        !firebaseAuth ||
-        typeof firebaseAuth.onAuthStateChanged !== 'function'
-      ) {
+      if (!firebaseAuth || typeof firebaseAuth.onAuthStateChanged !== 'function') {
         setAuthState(AUTH_STATE.UNAUTHENTICATED, null);
         return null;
       }
@@ -293,9 +278,7 @@
         let firstEvent = true;
 
         const unsubscribe = firebaseAuth.onAuthStateChanged(async (firebaseUser) => {
-          if (!firstEvent) {
-            return;
-          }
+          if (!firstEvent) return;
           firstEvent = false;
 
           if (!firebaseUser) {
@@ -306,7 +289,6 @@
           }
 
           try {
-            // Firebase says user is authenticated: create server session
             const syncedUser = await syncSessionWithServer(
               firebaseUser,
               firebaseUser.displayName || ''
@@ -316,12 +298,11 @@
               throw new Error('Server authentication did not return a user.');
             }
 
-            // Verify with server session
             const verifiedUser = (await fetchServerSessionOnce()) || syncedUser;
             setAuthState(AUTH_STATE.AUTHENTICATED, verifiedUser);
             resolve(verifiedUser);
           } catch (error) {
-            console.error('[WishAuth] Firebase → server session sync failed:', error);
+            console.error('[WishAuth] Firebase -> server session sync failed:', error);
             setAuthState(AUTH_STATE.ERROR, null);
             resolve(null);
           }
@@ -344,7 +325,6 @@
     return authBootstrapPromise;
   }
 
-  // Centralized Auth Service API
   const WishAuth = {
     getAuthState() {
       return authState;
@@ -362,7 +342,9 @@
       if (IS_ADMIN_STUDIO) {
         return Boolean(
           window.WishMagicAdminSession &&
-          window.WishMagicAdminSession.authenticated === true
+          window.WishMagicAdminSession.authenticated === true &&
+          window.WishMagicAdminSession.user &&
+          isMasterAdminEmail(window.WishMagicAdminSession.user.email)
         );
       }
 
@@ -384,50 +366,16 @@
     },
 
     requireAdmin(options = {}) {
-      const containerId =
-        options.containerId || 'admin-main-content';
-
-      const container =
-        document.getElementById(containerId);
-
-      // In Admin Studio pages, AdminAuthController and checkAdminGatekeeper handle authoritative session enforcement and redirecting
       if (IS_ADMIN_STUDIO || window.AdminAuthController) {
         return true;
       }
 
-      const session =
-        window.WishMagicAdminSession;
-
-      const user =
-        session?.user || window.__WishMagicVerifiedAdminUser || currentUser || null;
-
-      const allowed =
-        user &&
-        (
-          user.role === 'admin' ||
-          user.role === 'OWNER' ||
-          user.role === 'SUPER_ADMIN' ||
-          user.isAdmin === true ||
-          (user.email && String(user.email).toLowerCase() === 'ankit.babusaini@gmail.com')
-        );
+      const session = window.WishMagicAdminSession;
+      const user = session?.user || window.__WishMagicVerifiedAdminUser || currentUser || null;
+      const allowed = Boolean(user && isMasterAdminEmail(user.email));
 
       if (!allowed) {
-        if (container && !options.silent) {
-          container.innerHTML = `
-            <div class="min-h-[50vh] flex items-center justify-center p-8">
-              <div class="text-center max-w-md">
-                <div class="text-4xl mb-4">🔒</div>
-                <h2 class="text-xl font-bold">
-                  Admin Session Required
-                </h2>
-                <p class="text-sm opacity-70 mt-2">
-                  Please complete Admin authentication first.
-                </p>
-              </div>
-            </div>
-          `;
-        }
-
+        window.location.replace('/');
         return false;
       }
 
@@ -435,29 +383,17 @@
     },
 
     isCheckingSession() {
-      return isCheckingSession;
-    },
-
-    async waitForAuthReady(timeoutMs = 4000) {
-      if (!isCheckingSession) return currentUser;
-      const start = Date.now();
-      while (isCheckingSession && (Date.now() - start < timeoutMs)) {
-        await new Promise(r => setTimeout(r, 50));
-      }
-      return currentUser;
+      return authState === AUTH_STATE.BOOTING;
     },
 
     /**
-     * Authoritatively check if currently signed-in user has Admin privileges
+     * Authoritatively check if currently signed-in user is the Master Admin (ankit.babusaini@gmail.com)
      */
     isAdmin() {
-      if (!currentUser) return false;
-      return Boolean(currentUser.role === 'admin' || currentUser.isAdmin === true);
+      if (!currentUser || !currentUser.email) return false;
+      return isMasterAdminEmail(currentUser.email);
     },
 
-    /**
-     * Hydrate active session from server if available without breaking static hosts
-     */
     async hydrateSessionFromServer() {
       try {
         const user = await fetchServerSessionOnce();
@@ -465,9 +401,7 @@
           setAuthState(AUTH_STATE.AUTHENTICATED, user);
           return user;
         }
-      } catch (e) {
-        // Expected on static hosting like Cloudflare Pages
-      }
+      } catch (e) {}
       return currentUser;
     },
 
@@ -481,49 +415,12 @@
     },
 
     /**
-     * Sign In / Sign Up with Email (Fallback direct endpoint)
-     */
-    async signInWithEmail(email, displayName = '') {
-      const cleanEmail = (email || '').trim().toLowerCase();
-      if (!cleanEmail || !cleanEmail.includes('@')) {
-        showAuthToast('Please enter a valid email address.');
-        return null;
-      }
-
-      try {
-        const res = await fetch('/api/auth/signin', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          credentials: 'include',
-          body: JSON.stringify({
-            email: cleanEmail,
-            displayName: displayName.trim() || cleanEmail.split('@')[0]
-          })
-        });
-
-        const data = await res.json();
-        if (res.ok && data && data.success && data.user) {
-          setAuthState(AUTH_STATE.AUTHENTICATED, data.user);
-          showAuthToast(`Welcome back, ${data.user.displayName}! ✨`);
-          return data.user;
-        } else {
-          showAuthToast((data && data.message) || 'Sign in failed. Please try again.');
-          return null;
-        }
-      } catch (err) {
-        console.error('[WishAuth] Sign in error:', err);
-        showAuthToast('Network error during sign in.');
-        return null;
-      }
-    },
-
-    /**
-     * Firebase Google Authentication (Official Popup)
+     * Pure Firebase Google Authentication (ONLY allowed sign-in method)
      */
     async signInWithGoogle() {
       await ensureFirebaseAuth();
       if (!window.WishFirebaseAuth) {
-        throw new Error('Firebase authentication is initializing.');
+        throw new Error('Firebase Google Authentication is initializing. Please try again.');
       }
 
       try {
@@ -532,322 +429,77 @@
           const serverUser = await syncSessionWithServer(fbUser);
           if (serverUser) {
             setAuthState(AUTH_STATE.AUTHENTICATED, serverUser);
-            showAuthToast(`Welcome, ${serverUser.displayName}! ✨`);
+            showAuthToast(`Welcome, ${serverUser.displayName || serverUser.email}! ✨`);
             if (typeof window.closeAuthModal === 'function') window.closeAuthModal();
-            return serverUser;
-          }
-        }
-      } catch (err) {
-        console.warn('[WishAuth] Google popup sign-in note:', err.message || err);
-        throw err;
-      }
-    },
-
-    /**
-     * Direct Gmail / Email Sign In (Seamless 1-tap fallback for restricted domains/popups)
-     */
-    async signInWithGmail(email, displayName = '') {
-      const cleanEmail = (email || '').trim().toLowerCase();
-      if (!cleanEmail || !cleanEmail.includes('@')) {
-        showAuthToast('Please enter a valid Gmail / email address.');
-        throw new Error('Please enter a valid Gmail / email address.');
-      }
-
-      showAuthToast('Signing in with Gmail... 🪄');
-      try {
-        const response = await fetch('/api/auth/signin', {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-            'Accept': 'application/json'
-          },
-          credentials: 'include',
-          cache: 'no-store',
-          body: JSON.stringify({
-            email: cleanEmail,
-            displayName: displayName || cleanEmail.split('@')[0],
-            provider: 'google'
-          })
-        });
-
-        const data = await response.json().catch(() => ({}));
-        const user = data?.user || data?.data?.user;
-        if (!response.ok || data?.success !== true || !user) {
-          const errMsg = data?.error?.message || data?.message || 'Authentication failed. Please try again.';
-          throw new Error(errMsg);
-        }
-
-        setAuthState(AUTH_STATE.AUTHENTICATED, user);
-        showAuthToast(`Welcome, ${user.displayName}! ✨`);
-        if (typeof window.closeAuthModal === 'function') window.closeAuthModal();
-        return user;
-      } catch (err) {
-        console.error('[WishAuth] Gmail sign-in error:', err);
-        showAuthToast(err.message || 'Gmail sign-in could not be completed.');
-        throw err;
-      }
-    },
-
-    /**
-     * Firebase Email + Password Sign In (with Server Proxy Fallback for Iframe/Domain Safety)
-     */
-    async signInWithEmailPassword(email, password) {
-      const cleanEmail = (email || '').trim().toLowerCase();
-      if (!cleanEmail || !cleanEmail.includes('@')) {
-        showAuthToast('Please enter a valid email address.');
-        return null;
-      }
-      if (!password) {
-        showAuthToast('Please enter your password.');
-        return null;
-      }
-
-      await ensureFirebaseAuth();
-
-      // 1. Try client SDK if available
-      if (window.WishFirebaseAuth && typeof window.WishFirebaseAuth.signInWithEmailPassword === 'function') {
-        try {
-          const fbUser = await window.WishFirebaseAuth.signInWithEmailPassword(cleanEmail, password);
-          if (fbUser) {
-            const serverUser = await syncSessionWithServer(fbUser);
-            if (serverUser) {
-              setAuthState(AUTH_STATE.AUTHENTICATED, serverUser);
-              showAuthToast(`Welcome back, ${serverUser.displayName}! ✨`);
-              if (typeof window.closeAuthModal === 'function') window.closeAuthModal();
-              return serverUser;
+            // If we are on maintenance.html and signed in as Master Admin, reload or go to homepage
+            if (window.location.pathname.includes('maintenance') && isMasterAdminEmail(serverUser.email)) {
+              window.location.replace('/');
             }
-          }
-        } catch (clientErr) {
-          console.warn('[WishAuth] Client SDK sign-in notice, falling back to server verification:', clientErr.message);
-          // If explicitly wrong credentials from Firebase, report directly
-          if (clientErr.message && (clientErr.message.includes('Incorrect') || clientErr.message.includes('password') || clientErr.message.includes('not found') || clientErr.message.includes('invalid-credential'))) {
-            showAuthToast(clientErr.message);
-            throw clientErr;
-          }
-        }
-      }
-
-      // 2. Authoritative Server Identity Toolkit Proxy
-      try {
-        const res = await fetch('/api/auth/email-signin', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          credentials: 'include',
-          body: JSON.stringify({ email: cleanEmail, password })
-        });
-
-        const data = await res.json();
-        if (res.ok && data && data.success && data.user) {
-          setAuthState(AUTH_STATE.AUTHENTICATED, data.user);
-          showAuthToast(`Welcome back, ${data.user.displayName}! ✨`);
-          if (typeof window.closeAuthModal === 'function') window.closeAuthModal();
-          return data.user;
-        } else {
-          const errMsg = data.error?.message || data.message || 'Incorrect email or password.';
-          showAuthToast(errMsg);
-          throw new Error(errMsg);
-        }
-      } catch (err) {
-        console.error('[WishAuth] Server email sign-in error:', err);
-        showAuthToast(err.message || 'Incorrect email or password. Please verify and try again.');
-        throw err;
-      }
-    },
-
-    /**
-     * Firebase Email + Password Sign Up (with Server Proxy Fallback)
-     */
-    async signUpWithEmailPassword(email, password, displayName = '') {
-      const cleanEmail = (email || '').trim().toLowerCase();
-      if (!cleanEmail || !cleanEmail.includes('@')) {
-        showAuthToast('Please enter a valid email address.');
-        return null;
-      }
-      if (!password || password.length < 6) {
-        showAuthToast('Password must be at least 6 characters.');
-        return null;
-      }
-
-      await ensureFirebaseAuth();
-
-      // 1. Try client SDK if available
-      if (window.WishFirebaseAuth && typeof window.WishFirebaseAuth.signUpWithEmailPassword === 'function') {
-        try {
-          const fbUser = await window.WishFirebaseAuth.signUpWithEmailPassword(cleanEmail, password, displayName);
-          if (fbUser) {
-            const serverUser = await syncSessionWithServer(fbUser, displayName);
-            setAuthState(AUTH_STATE.AUTHENTICATED, serverUser);
-            showAuthToast(`Account created! Welcome, ${serverUser.displayName}! ✨`);
-            if (typeof window.closeAuthModal === 'function') window.closeAuthModal();
             return serverUser;
           }
-        } catch (clientErr) {
-          console.warn('[WishAuth] Client SDK sign-up notice, falling back to server:', clientErr.message);
-          if (clientErr.message && (clientErr.message.includes('already exists') || clientErr.message.includes('already in use'))) {
-            showAuthToast(clientErr.message);
-            throw clientErr;
-          }
         }
-      }
-
-      // 2. Server Identity Toolkit Proxy
-      try {
-        const res = await fetch('/api/auth/email-signup', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          credentials: 'include',
-          body: JSON.stringify({ email: cleanEmail, password, displayName })
-        });
-
-        const data = await res.json();
-        if (res.ok && data && data.success && data.user) {
-          if (data.token) {
-            try {
-              localStorage.setItem('wishmagic_auth_token', data.token);
-              document.cookie = `wm_session=${encodeURIComponent(data.token)}; Path=/; Max-Age=2592000; SameSite=Lax`;
-            } catch (e) {}
-          }
-          setAuthState(AUTH_STATE.AUTHENTICATED, data.user);
-          showAuthToast(`Account created! Welcome, ${data.user.displayName}! ✨`);
-          if (typeof window.closeAuthModal === 'function') window.closeAuthModal();
-          return data.user;
-        } else {
-          const errMsg = data.error?.message || data.message || 'Sign up could not be completed.';
-          showAuthToast(errMsg);
-          throw new Error(errMsg);
-        }
+        return null;
       } catch (err) {
-        console.error('[WishAuth] Server sign up error:', err);
-        showAuthToast(err.message || 'Failed to create account. Please try again.');
+        console.warn('[WishAuth] Firebase Google sign-in error:', err.message || err);
         throw err;
       }
     },
 
     /**
-     * Firebase Password Reset Email
-     */
-    async sendPasswordReset(email) {
-      const cleanEmail = (email || '').trim().toLowerCase();
-      if (!cleanEmail || !cleanEmail.includes('@')) {
-        showAuthToast('Please enter a valid email address.');
-        return false;
-      }
-
-      await ensureFirebaseAuth();
-
-      if (window.WishFirebaseAuth && typeof window.WishFirebaseAuth.sendPasswordReset === 'function') {
-        try {
-          await window.WishFirebaseAuth.sendPasswordReset(cleanEmail);
-          showAuthToast(`Password reset link sent to ${cleanEmail}! ✉️`);
-          return true;
-        } catch (e) {}
-      }
-
-      // Fallback to server REST API
-      try {
-        const res = await fetch('/api/auth/send-password-reset', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ email: cleanEmail })
-        });
-        const data = await res.json();
-        if (res.ok && data && data.success) {
-          showAuthToast(`Password reset link sent to ${cleanEmail}! Please check your inbox. ✉️`);
-          return true;
-        } else {
-          showAuthToast(data.error?.message || data.message || 'Could not send reset email.');
-          return false;
-        }
-      } catch (err) {
-        showAuthToast('Failed to send reset email. Please verify the address.');
-        return false;
-      }
-    },
-
-    /**
-     * OAuth Sign In Handler
-     */
-    signInWithOAuth(provider = 'Google') {
-      if (provider === 'Google') {
-        return this.signInWithGoogle();
-      }
-      showAuthToast(`${provider} sign-in is not supported in this project. Please continue with Google or Email.`);
-    },
-
-    /**
-     * Update Current User Profile (Display Name & Avatar)
-     */
-    async updateProfile(updates = {}) {
-      if (!currentUser) {
-        const cached = localStorage.getItem(STORAGE_KEY_USER) || localStorage.getItem('wishmagic_user');
-        if (cached) {
-          try { currentUser = JSON.parse(cached); } catch (_) {}
-        }
-      }
-      if (!currentUser) return null;
-
-      const newName = updates.displayName !== undefined ? updates.displayName.trim() : currentUser.displayName;
-      const newAvatar = updates.avatarUrl !== undefined ? updates.avatarUrl.trim() : currentUser.avatarUrl;
-
-      const headers = { 'Content-Type': 'application/json' };
-      if (window.WishFirebaseAuth && typeof window.WishFirebaseAuth.getIdToken === 'function') {
-        const idToken = await window.WishFirebaseAuth.getIdToken().catch(() => null);
-        if (idToken) headers['Authorization'] = `Bearer ${idToken}`;
-      }
-
-      try {
-        const res = await fetch('/api/users/me', {
-          method: 'PUT',
-          headers,
-          credentials: 'include',
-          body: JSON.stringify({ displayName: newName, avatarUrl: newAvatar })
-        });
-        const data = await res.json().catch(() => ({}));
-        const returnedUser = data?.data?.user || data?.user;
-        if (res.ok && data && (data.success || returnedUser) && returnedUser) {
-          const merged = { ...currentUser, ...returnedUser, displayName: newName, avatarUrl: newAvatar };
-          setAuthState(AUTH_STATE.AUTHENTICATED, merged);
-          return merged;
-        }
-      } catch (e) {
-        console.warn('[WishAuth] Profile update error:', e);
-      }
-
-      const updated = { ...currentUser, displayName: newName, avatarUrl: newAvatar };
-      setAuthState(AUTH_STATE.AUTHENTICATED, updated);
-      return updated;
-    },
-
-    /**
-     * Sign Out
+     * Sign out current user from both Firebase & Server Session
      */
     async signOut() {
+      try {
+        if (window.WishFirebaseAuth) {
+          await window.WishFirebaseAuth.signOut();
+        }
+      } catch (e) {
+        console.warn('[WishAuth] Firebase signOut notice:', e);
+      }
+
       try {
         await fetch('/api/auth/signout', {
           method: 'POST',
           credentials: 'include'
         });
-      } catch (e) {}
-
-      if (window.WishFirebaseAuth) {
-        try {
-          await window.WishFirebaseAuth.signOut();
-        } catch (_) {}
+      } catch (err) {
+        console.warn('[WishAuth] Server signout notice:', err);
       }
 
       setAuthState(AUTH_STATE.UNAUTHENTICATED, null);
-      showAuthToast('Signed out successfully.');
+      showAuthToast('Signed out of WishMagic.');
+
+      const menu = document.getElementById('account-dropdown-menu');
+      if (menu) menu.classList.add('hidden');
+
+      const protectedPages = ['/my-wishes', '/account', '/profile', '/settings', '/favorites', '/referrals', '/notifications', '/support-tickets', '/admin'];
+      if (protectedPages.some(p => window.location.pathname.startsWith(p))) {
+        window.location.replace('/');
+      }
+    },
+
+    requireAuth(actionLabel = 'continue') {
+      if (this.isAuthenticated()) {
+        return true;
+      }
+      showUniversalAuthModal(`Sign in with Google to ${actionLabel}`);
+      return false;
+    },
+
+    getUserHeaders(extraHeaders = {}) {
+      const headers = { ...extraHeaders };
+      if (currentUser && currentUser.id) {
+        headers['x-user-id'] = currentUser.id;
+        headers['x-user-email'] = currentUser.email || '';
+      }
+      return headers;
     }
   };
 
-  // ---------------------------------------------------------------------------
-  // NAVBAR AUTH STATE RENDERER
-  // Deterministic rendering based strictly on authState
-  // ---------------------------------------------------------------------------
   function renderNeutralAuthPlaceholder(container) {
     container.innerHTML = `
-      <div id="auth-ui" data-auth-state="booting" class="h-8 w-8 rounded-full bg-purple-500/10 border border-purple-500/15 flex items-center justify-center animate-pulse" aria-hidden="true">
-        <span class="inline-block w-2 h-2 rounded-full bg-purple-400/40"></span>
+      <div class="h-9 w-9 rounded-full bg-purple-500/10 border border-purple-500/20 flex items-center justify-center animate-pulse" aria-hidden="true">
+        <span class="inline-block w-2 h-2 rounded-full bg-purple-400/50"></span>
       </div>
     `;
   }
@@ -855,9 +507,14 @@
   function renderLoginButton(container) {
     container.innerHTML = `
       <div class="flex items-center gap-1.5 sm:gap-2">
-        <button onclick="window.openAuthModal()" class="px-2.5 sm:px-3.5 py-1.5 rounded-full text-xs font-bold text-white bg-gradient-to-r from-[#EC4899] to-[#7C3AED] hover:brightness-110 shadow-sm hover:scale-105 active:scale-95 transition-all flex items-center gap-1 cursor-pointer whitespace-nowrap">
-          <span class="material-symbols-outlined text-[16px]">account_circle</span>
-          <span class="hidden xs:inline">Sign In</span>
+        <button type="button" onclick="window.openAuthModal()" class="wm-nav-signin-btn px-3 sm:px-4 py-2 rounded-full text-xs font-extrabold text-white bg-gradient-to-r from-[#ff2a85] via-[#ec4899] to-[#a855f7] hover:brightness-110 shadow-[0_6px_18px_rgba(236,72,153,0.32)] hover:scale-105 active:scale-95 transition-all flex items-center gap-1.5 cursor-pointer whitespace-nowrap">
+          <svg class="w-3.5 h-3.5 flex-shrink-0" viewBox="0 0 24 24">
+            <path fill="#ffffff" d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z"/>
+            <path fill="#ffffff" d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z"/>
+            <path fill="#ffffff" d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.06H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.94l2.85-2.22.81-.63z"/>
+            <path fill="#ffffff" d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.06l3.66 2.84c.87-2.6 3.3-4.52 6.16-4.52z"/>
+          </svg>
+          <span>Sign In</span>
         </button>
       </div>
     `;
@@ -883,71 +540,74 @@
       const initials = (user.displayName || user.email || 'U').split(' ').map(n => n[0]).join('').slice(0, 2).toUpperCase();
       const avatarContent = user.avatarUrl
         ? `<img src="${user.avatarUrl}" alt="${user.displayName || 'User'}" class="w-full h-full object-cover rounded-full"/>`
-        : `<div class="w-full h-full bg-gradient-to-tr from-pink-500 to-purple-600 text-white flex items-center justify-center font-bold text-xs uppercase">${initials}</div>`;
+        : `<div class="w-full h-full bg-gradient-to-tr from-[#ff2a85] via-[#ec4899] to-[#a855f7] text-white flex items-center justify-center font-extrabold text-xs uppercase">${initials}</div>`;
 
-      const isUserMaster = user.role === 'admin' || user.isAdmin === true || (window.WishFirebaseAuth?.isAdminEmail && window.WishFirebaseAuth.isAdminEmail(user.email)) || (user.email && user.email.toLowerCase() === 'ankit.babusaini@gmail.com');
+      // STRICT RULE: Admin Panel option in profile dropdown ONLY appears when signed in as ankit.babusaini@gmail.com
+      const isStrictMasterAdmin = isMasterAdminEmail(user.email);
 
       navContainers.forEach(container => {
         container.innerHTML = `
           <div class="relative inline-block flex-shrink-0" id="account-dropdown-wrapper">
-            <!-- Profile Avatar Only Button (Compact & Sleek) -->
-            <button onclick="window.toggleAccountMenu(event)" class="w-8 h-8 sm:w-8.5 sm:h-8.5 rounded-full ring-2 ring-purple-300/80 dark:ring-purple-600/80 hover:ring-pink-500 hover:scale-105 transition-all cursor-pointer active:scale-95 shadow-sm overflow-hidden flex items-center justify-center p-0 focus:outline-none" title="${user.displayName || user.email || 'Profile & Settings'}" aria-label="User Profile Menu">
+            <button type="button" onclick="window.toggleAccountMenu(event)" class="w-9 h-9 rounded-full ring-2 ring-[#d6c8f2] dark:ring-purple-500/60 hover:ring-[#ec4899] hover:scale-105 transition-all cursor-pointer active:scale-95 shadow-md overflow-hidden flex items-center justify-center p-0 focus:outline-none" title="${user.displayName || user.email || 'Profile & Settings'}" aria-label="User Profile Menu">
               ${avatarContent}
             </button>
 
-            <!-- 100% Solid Non-Transparent Dropdown Menu (Zero Blur / Zero Transparency) -->
-            <div id="account-dropdown-menu" class="hidden absolute right-0 top-full mt-2 w-64 max-w-[calc(100vw-20px)] rounded-2xl shadow-[0_25px_60px_rgba(0,0,0,0.55),0_0_25px_rgba(124,58,237,0.3)] p-2.5 z-[9999999] text-left border-2" style="background-color: ${isDark ? '#150927' : '#ffffff'} !important; background: ${isDark ? '#150927' : '#ffffff'} !important; border-color: ${isDark ? '#7e22ce' : '#ddd6fe'} !important; color: ${isDark ? '#f3e8ff' : '#0f172a'} !important; opacity: 1 !important; backdrop-filter: none !important; -webkit-backdrop-filter: none !important;">
+            <div id="account-dropdown-menu" class="hidden absolute right-0 top-full mt-2.5 w-68 max-w-[calc(100vw-24px)] rounded-2xl shadow-[0_24px_60px_rgba(26,15,48,0.35)] p-3 z-[9999999] text-left border-2" style="background-color: ${isDark ? '#1b0f36' : '#ffffff'} !important; background: ${isDark ? '#1b0f36' : '#ffffff'} !important; border-color: ${isDark ? '#7e22ce' : '#d6c8f2'} !important; color: ${isDark ? '#f7f4ff' : '#1a0f30'} !important; opacity: 1 !important;">
               
-              <!-- User Profile Header Card (Clickable to open profile settings) -->
-              <a href="/account.html" class="block px-3 py-2.5 rounded-xl mb-1.5 border transition cursor-pointer hover:brightness-105 active:scale-98" style="background-color: ${isDark ? '#231042' : '#f5f3ff'} !important; background: ${isDark ? '#231042' : '#f5f3ff'} !important; border-color: ${isDark ? '#6b21a8' : '#e9d5ff'} !important;">
+              <!-- User Profile Header Card -->
+              <a href="/account.html" class="block px-3.5 py-3 rounded-xl mb-2 border transition cursor-pointer hover:brightness-105 active:scale-98" style="background-color: ${isDark ? '#26154a' : '#f7f3fe'} !important; border-color: ${isDark ? '#6b21a8' : '#e2d6f8'} !important;">
                 <div class="flex items-center gap-2.5">
-                  <div class="w-9 h-9 rounded-full overflow-hidden flex-shrink-0 border border-pink-400">
+                  <div class="w-10 h-10 rounded-full overflow-hidden flex-shrink-0 border-2 border-[#ec4899]">
                     ${avatarContent}
                   </div>
                   <div class="min-w-0 flex-1">
-                    <div class="font-extrabold text-xs truncate" style="color: ${isDark ? '#ffffff' : '#1e1b4b'};">${user.displayName || user.name || 'Creator Profile'}</div>
-                    <div class="text-[11px] font-medium truncate mt-0.5" style="color: ${isDark ? '#d8b4fe' : '#6d28d9'};">${user.email}</div>
+                    <div class="font-extrabold text-xs truncate" style="color: ${isDark ? '#ffffff' : '#1a0f30'};">${user.displayName || user.name || 'Creator Profile'}</div>
+                    <div class="text-[11px] font-semibold truncate mt-0.5" style="color: ${isDark ? '#d8b4fe' : '#6d28d9'};">${user.email}</div>
                   </div>
                 </div>
-                <div class="flex items-center justify-between mt-2 pt-1.5 border-t" style="border-color: ${isDark ? '#4c1d95' : '#e9d5ff'};">
+                <div class="flex items-center justify-between mt-2.5 pt-2 border-t" style="border-color: ${isDark ? '#4c1d95' : '#e2d6f8'};">
                   <div class="flex items-center gap-1.5">
-                    <span class="px-2 py-0.5 rounded-full text-[9px] font-black uppercase tracking-wider" style="background-color: ${user.isPremium || user.plan === 'VIP' ? 'rgba(245, 158, 11, 0.2)' : 'rgba(168, 85, 247, 0.2)'}; color: ${user.isPremium || user.plan === 'VIP' ? '#f59e0b' : '#c084fc'}; border: 1px solid ${user.isPremium || user.plan === 'VIP' ? 'rgba(245, 158, 11, 0.5)' : 'rgba(168, 85, 247, 0.4)'};">
+                    <span class="px-2 py-0.5 rounded-full text-[9px] font-black uppercase tracking-wider" style="background-color: ${user.isPremium || user.plan === 'VIP' ? 'rgba(245, 158, 11, 0.2)' : 'rgba(168, 85, 247, 0.16)'}; color: ${user.isPremium || user.plan === 'VIP' ? '#d97706' : (isDark ? '#d8b4fe' : '#6d28d9')}; border: 1px solid ${user.isPremium || user.plan === 'VIP' ? 'rgba(245, 158, 11, 0.45)' : 'rgba(168, 85, 247, 0.35)'};">
                       ${user.plan || 'Free'} Plan
                     </span>
-                    ${user.role === 'admin' || user.isAdmin ? '<span class="px-2 py-0.5 rounded-full text-[9px] font-black uppercase bg-gradient-to-r from-pink-500 to-purple-600 text-white shadow-xs">ADMIN</span>' : ''}
+                    ${isStrictMasterAdmin ? '<span class="px-2 py-0.5 rounded-full text-[9px] font-black uppercase bg-gradient-to-r from-[#ff2a85] to-[#a855f7] text-white shadow-xs">OWNER</span>' : ''}
                   </div>
-                  <span class="text-[10px] font-bold text-pink-500 flex items-center gap-0.5">Edit Profile →</span>
+                  <span class="text-[10px] font-extrabold text-[#ec4899] flex items-center gap-0.5">Profile →</span>
                 </div>
               </a>
 
               <!-- Menu Items -->
               <div class="py-1 space-y-1">
-                <a href="/my-wishes" class="px-3 py-2.5 rounded-xl text-xs font-bold flex items-center gap-2.5 transition hover:bg-purple-100/70 dark:hover:bg-purple-900/50" style="color: ${isDark ? '#f3e8ff' : '#1e293b'};">
-                  <span class="material-symbols-outlined text-[18px] text-pink-500">card_giftcard</span>
-                  <span>My Celebration Wishes</span>
-                </a>
-                <a href="/account.html" class="px-3 py-2.5 rounded-xl text-xs font-bold flex items-center gap-2.5 transition hover:bg-purple-100/70 dark:hover:bg-purple-900/50" style="color: ${isDark ? '#f3e8ff' : '#1e293b'};">
-                  <span class="material-symbols-outlined text-[18px] text-purple-500">manage_accounts</span>
-                  <span>Profile &amp; Account Settings</span>
-                </a>
-                <a href="/favorites" class="px-3 py-2.5 rounded-xl text-xs font-bold flex items-center gap-2.5 transition hover:bg-purple-100/70 dark:hover:bg-purple-900/50" style="color: ${isDark ? '#f3e8ff' : '#1e293b'};">
-                  <span class="material-symbols-outlined text-[18px] text-purple-500">favorite</span>
-                  <span>Favorites</span>
-                </a>
-                ${isUserMaster ? `
-                  <a href="/admin/anktech/anktech/admin/overview" onclick="window.handleAdminPortalClick(event)" class="px-3 py-2.5 rounded-xl text-xs font-bold flex items-center justify-between transition border cursor-pointer hover:brightness-110" style="background-color: ${isDark ? 'rgba(80, 7, 36, 0.7)' : '#fdf2f8'} !important; border-color: ${isDark ? '#db2777' : '#f472b6'} !important; color: ${isDark ? '#f472b6' : '#db2777'};">
+                ${isStrictMasterAdmin ? `
+                  <a href="/admin/anktech/anktech/admin/overview" onclick="window.handleAdminPortalClick(event)" class="px-3.5 py-2.5 rounded-xl text-xs font-extrabold flex items-center justify-between transition border cursor-pointer hover:brightness-105 shadow-sm mb-1" style="background: linear-gradient(90deg, rgba(255,42,133,0.14) 0%, rgba(168,85,247,0.14) 100%) !important; border-color: ${isDark ? '#ec4899' : '#f472b6'} !important; color: ${isDark ? '#fbcfe8' : '#be185d'} !important;">
                     <div class="flex items-center gap-2.5">
-                      <span class="material-symbols-outlined text-[18px] text-pink-500">admin_panel_settings</span>
+                      <span class="material-symbols-outlined text-[18px] text-[#ec4899]">admin_panel_settings</span>
                       <span>Admin Panel</span>
                     </div>
-                    <span class="px-1.5 py-0.5 rounded text-[8px] font-black bg-pink-500 text-white shadow-xs">⚡ MASTER</span>
+                    <span class="px-2 py-0.5 rounded-full text-[9px] font-black bg-gradient-to-r from-[#ff2a85] to-[#a855f7] text-white shadow-xs">STUDIO</span>
                   </a>
                 ` : ''}
+                <a href="/my-wishes.html" class="px-3.5 py-2.5 rounded-xl text-xs font-bold flex items-center gap-2.5 transition hover:bg-purple-100/70 dark:hover:bg-purple-900/50" style="color: ${isDark ? '#f7f4ff' : '#1a0f30'};">
+                  <span class="material-symbols-outlined text-[18px] text-[#ec4899]">card_giftcard</span>
+                  <span>My Celebration Wishes</span>
+                </a>
+                <a href="/account.html" class="px-3.5 py-2.5 rounded-xl text-xs font-bold flex items-center gap-2.5 transition hover:bg-purple-100/70 dark:hover:bg-purple-900/50" style="color: ${isDark ? '#f7f4ff' : '#1a0f30'};">
+                  <span class="material-symbols-outlined text-[18px] text-[#8b5cf6]">manage_accounts</span>
+                  <span>Profile &amp; Account Settings</span>
+                </a>
+                <a href="/favorites.html" class="px-3.5 py-2.5 rounded-xl text-xs font-bold flex items-center gap-2.5 transition hover:bg-purple-100/70 dark:hover:bg-purple-900/50" style="color: ${isDark ? '#f7f4ff' : '#1a0f30'};">
+                  <span class="material-symbols-outlined text-[18px] text-[#ec4899]">favorite</span>
+                  <span>Saved Favorites</span>
+                </a>
+                <a href="/referrals.html" class="px-3.5 py-2.5 rounded-xl text-xs font-bold flex items-center gap-2.5 transition hover:bg-purple-100/70 dark:hover:bg-purple-900/50" style="color: ${isDark ? '#f7f4ff' : '#1a0f30'};">
+                  <span class="material-symbols-outlined text-[18px] text-[#f59e0b]">redeem</span>
+                  <span>Referrals &amp; Rewards</span>
+                </a>
               </div>
 
               <!-- Sign Out -->
-              <div class="pt-1.5 mt-1 border-t" style="border-color: ${isDark ? '#4c1d95' : '#e9d5ff'};">
-                <button onclick="WishAuth.signOut()" class="w-full text-left px-3 py-2.5 rounded-xl text-xs font-bold flex items-center gap-2.5 transition cursor-pointer hover:bg-rose-50 dark:hover:bg-rose-950/40" style="color: #f43f5e;">
+              <div class="pt-1.5 mt-1 border-t" style="border-color: ${isDark ? '#4c1d95' : '#e2d6f8'};">
+                <button type="button" onclick="WishAuth.signOut()" class="w-full text-left px-3.5 py-2.5 rounded-xl text-xs font-extrabold flex items-center gap-2.5 transition cursor-pointer hover:bg-rose-50 dark:hover:bg-rose-950/40" style="color: #e11d48;">
                   <span class="material-symbols-outlined text-[18px]">logout</span>
                   <span>Sign Out</span>
                 </button>
@@ -962,45 +622,18 @@
     navContainers.forEach(container => renderLoginButton(container));
   }
 
-  // Ensure solid opaque dropdown styling across all pages
-  if (typeof document !== 'undefined') {
-    const styleEl = document.createElement('style');
-    styleEl.id = 'account-dropdown-solid-fix';
-    styleEl.textContent = `
-      #account-dropdown-menu {
-        background-color: #ffffff !important;
-        background: #ffffff !important;
-        opacity: 1 !important;
-        backdrop-filter: none !important;
-        -webkit-backdrop-filter: none !important;
-        border: 2px solid #ddd6fe !important;
-        box-shadow: 0 25px 60px rgba(0, 0, 0, 0.35), 0 0 30px rgba(124, 58, 237, 0.2) !important;
-        z-index: 999999 !important;
-      }
-      html.dark #account-dropdown-menu,
-      body.dark #account-dropdown-menu,
-      [data-theme="dark"] #account-dropdown-menu {
-        background-color: #150927 !important;
-        background: #150927 !important;
-        border-color: #7e22ce !important;
-        box-shadow: 0 25px 60px rgba(0, 0, 0, 0.85), 0 0 35px rgba(124, 58, 237, 0.4) !important;
-      }
-    `;
-    if (!document.getElementById('account-dropdown-solid-fix')) {
-      document.head.appendChild(styleEl);
-    }
-  }
-
-  // Seamless Master Admin Portal navigation
   window.handleAdminPortalClick = function(e) {
     if (e) {
       e.preventDefault();
       e.stopPropagation();
     }
+    if (!currentUser || !isMasterAdminEmail(currentUser.email)) {
+      showAuthToast('Admin Panel requires signing in with the authorized owner Google account.');
+      return;
+    }
     window.location.href = '/admin/anktech/anktech/admin/overview';
   };
 
-  // Toggle account menu open/closed with guaranteed solid non-transparent background
   window.toggleAccountMenu = function(e) {
     if (e) {
       e.preventDefault();
@@ -1012,13 +645,11 @@
     const isHidden = menu.classList.contains('hidden');
     if (isHidden) {
       const isDark = document.documentElement.classList.contains('dark') || document.documentElement.getAttribute('data-theme') === 'dark';
-      menu.style.setProperty('background-color', isDark ? '#150927' : '#ffffff', 'important');
-      menu.style.setProperty('background', isDark ? '#150927' : '#ffffff', 'important');
-      menu.style.setProperty('border-color', isDark ? '#7e22ce' : '#ddd6fe', 'important');
-      menu.style.setProperty('color', isDark ? '#f3e8ff' : '#0f172a', 'important');
+      menu.style.setProperty('background-color', isDark ? '#1b0f36' : '#ffffff', 'important');
+      menu.style.setProperty('background', isDark ? '#1b0f36' : '#ffffff', 'important');
+      menu.style.setProperty('border-color', isDark ? '#7e22ce' : '#d6c8f2', 'important');
+      menu.style.setProperty('color', isDark ? '#f7f4ff' : '#1a0f30', 'important');
       menu.style.setProperty('opacity', '1', 'important');
-      menu.style.setProperty('backdrop-filter', 'none', 'important');
-      menu.style.setProperty('-webkit-backdrop-filter', 'none', 'important');
       menu.style.setProperty('z-index', '9999999', 'important');
       menu.classList.remove('hidden');
     } else {
@@ -1026,7 +657,6 @@
     }
   };
 
-  // Close menu on click outside
   document.addEventListener('click', (e) => {
     const wrapper = document.getElementById('account-dropdown-wrapper');
     const menu = document.getElementById('account-dropdown-menu');
@@ -1035,21 +665,20 @@
     }
   });
 
-  // Re-render auth state on DOMContentLoaded
   document.addEventListener('DOMContentLoaded', () => {
     initAuth();
     setupGlobalAuthModal();
   });
 
   // ---------------------------------------------------------------------------
-  // UNIVERSAL GOOGLE AUTH MODAL (100% PURE 1-TAP GOOGLE SIGN-IN)
+  // UNIVERSAL GOOGLE AUTH MODAL (STRICTLY "CONTINUE WITH GOOGLE" VIA FIREBASE)
   // ---------------------------------------------------------------------------
   function showUniversalAuthModal(promptMessage = null) {
     let modal = document.getElementById('wishmagic-universal-auth-modal');
     if (!modal) {
       modal = document.createElement('div');
       modal.id = 'wishmagic-universal-auth-modal';
-      modal.className = 'fixed inset-0 z-50 bg-black/80 backdrop-blur-md flex items-center justify-center p-3 sm:p-4 transition-all duration-300';
+      modal.className = 'fixed inset-0 z-[150] bg-black/75 backdrop-blur-md flex items-center justify-center p-4 transition-all duration-300';
       document.body.appendChild(modal);
     }
 
@@ -1076,134 +705,59 @@
     const modal = document.getElementById('wishmagic-universal-auth-modal');
     if (!modal) return;
 
-    let rememberedEmail = '';
-    try {
-      rememberedEmail = localStorage.getItem('wishmagic_last_user_email') || '';
-    } catch (e) {}
+    const cleanPrompt = (promptMessage && promptMessage !== 'signin' && promptMessage !== 'signup')
+      ? promptMessage
+      : 'Continue with your Google account to create, personalize, and manage your magical celebration websites.';
 
     modal.innerHTML = `
-      <div class="bg-white dark:bg-[#150927] rounded-3xl max-w-sm w-full p-6 sm:p-7 shadow-2xl relative border border-purple-200/80 dark:border-purple-800 text-center animate-scaleUp overflow-hidden flex flex-col">
+      <div class="wm-modal-card bg-white dark:bg-[#1f123e] rounded-[26px] max-w-md w-full p-6 sm:p-8 shadow-[0_25px_70px_rgba(26,15,48,0.45)] relative border-2 border-[#d6c8f2] dark:border-purple-500/40 text-center overflow-hidden flex flex-col" onclick="event.stopPropagation()">
         <!-- Close Button -->
-        <button class="absolute top-4 right-4 w-8 h-8 rounded-full bg-purple-100 dark:bg-purple-900/70 text-purple-700 dark:text-purple-300 hover:text-black dark:hover:text-white flex items-center justify-center font-bold transition cursor-pointer z-10" onclick="closeAuthModal()" aria-label="Close">
+        <button type="button" class="absolute top-4 right-4 w-9 h-9 rounded-full bg-[#f4effc] dark:bg-purple-900/70 text-[#4c1d95] dark:text-purple-200 hover:bg-[#e9defa] dark:hover:bg-purple-800 flex items-center justify-center font-extrabold transition cursor-pointer z-10" onclick="closeAuthModal()" aria-label="Close">
           ✕
         </button>
 
-        <div class="overflow-y-auto pr-1">
-          <!-- Header Icon & Title -->
-          <div class="w-14 h-14 rounded-2xl bg-gradient-to-tr from-pink-500 via-purple-600 to-amber-300 text-white flex items-center justify-center mx-auto text-2xl mb-3 shadow-lg shadow-pink-500/25">
-            🪄
+        <div class="flex flex-col items-center">
+          <!-- Brand Magic Wand Icon -->
+          <div class="w-16 h-16 rounded-2xl bg-gradient-to-br from-[#a855f7] via-[#ec4899] to-[#f59e0b] text-white flex items-center justify-center mx-auto mb-4 shadow-[0_10px_28px_rgba(236,72,153,0.35)]">
+            <span class="material-symbols-outlined text-[32px]">auto_fix_high</span>
           </div>
 
-          <h3 class="font-display font-extrabold text-xl sm:text-2xl text-purple-950 dark:text-white">Sign In to WishMagic</h3>
-          <p class="text-xs text-purple-800/80 dark:text-purple-300/80 mt-1 mb-3 leading-relaxed">
-            ${promptMessage || 'Enter your Gmail to create, publish, and save celebration websites.'}
+          <div class="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-[#f5f0fd] dark:bg-purple-900/60 border border-[#dfd2f7] dark:border-purple-500/35 text-[11px] font-extrabold text-[#6d28d9] dark:text-purple-200 mb-2">
+            <span>✨ Official Google Authentication</span>
+          </div>
+
+          <h3 class="font-display font-extrabold text-2xl text-[#1a0f30] dark:text-white tracking-tight">
+            Welcome to Wish<span class="bg-gradient-to-r from-[#ff2a85] to-[#a855f7] bg-clip-text text-transparent">Magic</span>
+          </h3>
+          <p class="text-xs sm:text-sm text-[#533f78] dark:text-[#cfc2eb] mt-1.5 mb-5 leading-relaxed font-medium">
+            ${cleanPrompt}
           </p>
 
-          <!-- Dynamic Notice / Message Box -->
-          <div id="auth-modal-error" class="hidden text-xs font-semibold p-2.5 rounded-xl border text-center mb-3"></div>
+          <!-- Dynamic Notice / Error Box -->
+          <div id="auth-modal-error" class="hidden w-full text-xs font-semibold p-3 rounded-2xl border text-center mb-4"></div>
 
-          <!-- Direct Gmail Form (Instant 1-Tap Sign-In - Always works on preview/all domains) -->
-          <form id="auth-gmail-form" onsubmit="handleDirectGmailSubmit(event)" class="space-y-2 mb-3">
-            <div class="relative">
-              <input type="email" id="auth-gmail-input" value="${rememberedEmail}" placeholder="Enter your Gmail (e.g. name@gmail.com)" required
-                class="w-full py-2.5 px-3.5 text-xs sm:text-sm rounded-xl border border-purple-200 dark:border-purple-700 bg-purple-50/50 dark:bg-purple-950/40 text-purple-950 dark:text-white placeholder-purple-400 dark:placeholder-purple-500 focus:outline-none focus:ring-2 focus:ring-purple-500 text-left transition"/>
-            </div>
-            <button type="submit" id="auth-gmail-submit-btn" class="w-full py-2.5 px-4 rounded-xl bg-gradient-to-r from-purple-600 to-indigo-600 hover:from-purple-500 hover:to-indigo-500 text-white font-bold text-xs sm:text-sm transition shadow-md flex items-center justify-center gap-1.5 cursor-pointer">
-              <span>Sign In with Gmail (1-Tap)</span>
-              <span class="text-amber-300">✨</span>
-            </button>
-          </form>
-
-          <!-- Divider -->
-          <div class="relative flex py-1 items-center my-1.5">
-            <div class="flex-grow border-t border-purple-200/80 dark:border-purple-800/80"></div>
-            <span class="flex-shrink mx-2 text-[10px] font-bold text-purple-600/70 dark:text-purple-400/70 uppercase tracking-wider">or Google Popup</span>
-            <div class="flex-grow border-t border-purple-200/80 dark:border-purple-800/80"></div>
-          </div>
-
-          <!-- Official Google One-Tap / GSI Container (if available) -->
-          <div id="gsi-login-container" class="w-full flex justify-center mb-2 empty:hidden"></div>
-
-          <!-- Google Continue Button (1-Tap Auth) -->
-          <div class="mb-3">
-            <button type="button" id="auth-google-btn" onclick="handleGoogleSignInClick()" class="w-full py-2.5 px-4 rounded-2xl bg-white dark:bg-purple-950/70 hover:bg-purple-50 dark:hover:bg-purple-900/60 border border-purple-200 dark:border-purple-700/80 text-xs sm:text-sm font-bold text-gray-800 dark:text-white flex items-center justify-center gap-2.5 transition-all shadow-sm hover:shadow-md active:scale-[0.99] cursor-pointer">
-              <svg class="w-4 h-4 flex-shrink-0" viewBox="0 0 24 24">
+          <!-- ONLY Continue with Google Button (Firebase Auth) -->
+          <button type="button" id="auth-google-btn" onclick="handleGoogleSignInClick()" class="w-full py-3.5 px-5 rounded-full bg-gradient-to-r from-[#ff2a85] via-[#ec4899] to-[#a855f7] hover:brightness-105 text-white font-extrabold text-sm tracking-wide shadow-[0_10px_28px_rgba(236,72,153,0.38)] flex items-center justify-center gap-3 transition-all active:scale-[0.98] cursor-pointer">
+            <span class="w-7 h-7 rounded-full bg-white flex items-center justify-center flex-shrink-0 shadow-xs">
+              <svg class="w-4 h-4" viewBox="0 0 24 24">
                 <path fill="#4285F4" d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z"/>
                 <path fill="#34A853" d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z"/>
                 <path fill="#FBBC05" d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.06H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.94l2.85-2.22.81-.63z"/>
                 <path fill="#EA4335" d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.06l3.66 2.84c.87-2.6 3.3-4.52 6.16-4.52z"/>
               </svg>
-              <span id="auth-google-btn-text">Continue with Google (Gmail)</span>
-            </button>
-          </div>
+            </span>
+            <span id="auth-google-btn-text">Continue with Google</span>
+          </button>
 
-          <div class="pt-2 border-t border-purple-100 dark:border-purple-900 text-center">
-            <div class="inline-flex items-center gap-1.5 text-[11px] font-medium text-purple-600/80 dark:text-purple-400/80">
-              <span class="material-symbols-outlined text-[13px]">lock</span>
-              <span>1-Tap secure login with Gmail • Powered by Google &amp; Firebase</span>
+          <div class="w-full pt-4 mt-5 border-t border-[#e5daf8] dark:border-purple-800/60 text-center">
+            <div class="inline-flex items-center gap-1.5 text-[11px] font-semibold text-[#6e5d8f] dark:text-[#a594c9]">
+              <span class="material-symbols-outlined text-[14px] text-[#ec4899]">verified_user</span>
+              <span>Secured by Firebase Google Authentication</span>
             </div>
           </div>
         </div>
       </div>
     `;
-
-    // Try Google Identity Services initialization if available
-    tryInitGoogleIdentityServices();
-  }
-
-  function tryInitGoogleIdentityServices() {
-    if (typeof window === 'undefined') return;
-    const clientId = '206581825854-7v4s15i3ac3qckhnh8s7peol0173a74h.apps.googleusercontent.com';
-    if (window.google && window.google.accounts && window.google.accounts.id) {
-      try {
-        window.google.accounts.id.initialize({
-          client_id: clientId,
-          callback: async (response) => {
-            if (response && response.credential) {
-              showAuthToast('Authenticating with Google... 🪄');
-              try {
-                const res = await fetch('/api/auth/signin', {
-                  method: 'POST',
-                  headers: {
-                    'Content-Type': 'application/json',
-                    'Authorization': `Bearer ${response.credential}`
-                  },
-                  credentials: 'include',
-                  body: JSON.stringify({
-                    idToken: response.credential,
-                    provider: 'google'
-                  })
-                });
-                const data = await res.json().catch(() => ({}));
-                const user = data?.user || data?.data?.user;
-                if (res.ok && data?.success && user) {
-                  setAuthState(AUTH_STATE.AUTHENTICATED, user);
-                  showAuthToast(`Welcome, ${user.displayName}! ✨`);
-                  closeAuthModal();
-                }
-              } catch (gsiErr) {
-                console.warn('[GSI Sign-In Note]', gsiErr);
-              }
-            }
-          },
-          auto_select: false,
-          cancel_on_tap_outside: true
-        });
-
-        const gsiContainer = document.getElementById('gsi-login-container');
-        if (gsiContainer) {
-          window.google.accounts.id.renderButton(gsiContainer, {
-            theme: 'outline',
-            size: 'large',
-            text: 'continue_with',
-            shape: 'pill',
-            width: 280
-          });
-        }
-      } catch (e) {
-        console.warn('[WishAuth] GSI init note:', e);
-      }
-    }
   }
 
   window.closeAuthModal = function() {
@@ -1225,108 +779,35 @@
     const btn = document.getElementById('auth-google-btn');
     const txt = document.getElementById('auth-google-btn-text');
     const errBox = document.getElementById('auth-modal-error');
-    const input = document.getElementById('auth-gmail-input') || document.getElementById('legacy-gmail-input');
     if (errBox) errBox.classList.add('hidden');
-
-    let enteredEmail = input ? input.value.trim() : '';
-    if (!enteredEmail) {
-      try {
-        enteredEmail = (localStorage.getItem('wishmagic_last_user_email') || '').trim();
-        if (enteredEmail && input) input.value = enteredEmail;
-      } catch (e) {}
-    }
-
-    // If user already typed or has remembered email, sign in directly with it!
-    if (enteredEmail && enteredEmail.includes('@')) {
-      return await handleDirectGmailSubmit();
-    }
 
     if (btn) {
       btn.disabled = true;
-      btn.classList.add('opacity-70');
+      btn.classList.add('opacity-75');
     }
     if (txt) {
-      txt.innerHTML = '<span class="inline-flex items-center gap-2"><span class="animate-spin inline-block w-3.5 h-3.5 border-2 border-purple-600 border-t-transparent rounded-full"></span> Connecting to Google...</span>';
+      txt.innerHTML = '<span class="inline-flex items-center gap-2"><span class="animate-spin inline-block w-4 h-4 border-2 border-white border-t-transparent rounded-full"></span> Connecting to Google...</span>';
     }
 
     try {
       const user = await WishAuth.signInWithGoogle();
       if (user) {
-        if (user.email) {
-          try { localStorage.setItem('wishmagic_last_user_email', user.email); } catch (e) {}
-        }
         closeAuthModal();
         return;
       }
     } catch (err) {
-      console.warn('[WishAuth] Google popup note, offering instant Gmail sign-in:', err.message || err);
-      // Popup was blocked or preview domain is not in Firebase console authorized list:
-      // Smoothly guide the user to the Gmail input without intimidating red errors:
+      console.warn('[WishAuth] Google sign-in error:', err.message || err);
       if (errBox) {
-        errBox.className = 'text-xs font-semibold text-purple-900 dark:text-purple-200 bg-purple-50 dark:bg-purple-950/70 p-3 rounded-2xl border border-purple-200 dark:border-purple-800 text-left mb-3 block';
-        errBox.innerHTML = `
-          <div class="flex items-center gap-1.5 font-bold mb-1 text-purple-900 dark:text-purple-200">
-            <span>✨</span>
-            <span>Enter your Gmail to sign in instantly:</span>
-          </div>
-          <div class="text-[11px] font-normal text-purple-700/90 dark:text-purple-300/90">
-            Google popup domain verification in progress. Please enter your Gmail in the box above to log in instantly (no password needed):
-          </div>
-        `;
-      }
-      if (input) {
-        input.focus();
-        input.classList.add('ring-2', 'ring-purple-500');
-        setTimeout(() => input.classList.remove('ring-2', 'ring-purple-500'), 3000);
+        errBox.className = 'w-full text-xs font-semibold text-rose-700 dark:text-rose-200 bg-rose-50 dark:bg-rose-950/60 p-3 rounded-2xl border border-rose-200 dark:border-rose-800/70 text-center mb-4 block';
+        errBox.textContent = err.message || 'Google sign-in could not be completed. Please try again.';
       }
     } finally {
       if (btn) {
         btn.disabled = false;
-        btn.classList.remove('opacity-70');
+        btn.classList.remove('opacity-75');
       }
       if (txt) {
-        txt.textContent = 'Continue with Google (Gmail)';
-      }
-    }
-  };
-
-  window.handleDirectGmailSubmit = async function(event) {
-    if (event) event.preventDefault();
-    const input = document.getElementById('auth-gmail-input') || document.getElementById('legacy-gmail-input');
-    const btn = document.getElementById('auth-gmail-submit-btn');
-    const errBox = document.getElementById('auth-modal-error');
-    if (errBox) errBox.classList.add('hidden');
-
-    const email = input ? input.value.trim() : '';
-    if (!email || !email.includes('@')) {
-      if (errBox) {
-        errBox.className = 'text-xs font-semibold text-rose-500 bg-rose-50 dark:bg-rose-950/50 p-2.5 rounded-xl border border-rose-200 dark:border-rose-900/60 text-center mb-3 block';
-        errBox.textContent = 'Please enter a valid Gmail / email address.';
-      }
-      if (input) input.focus();
-      return;
-    }
-
-    if (btn) {
-      btn.disabled = true;
-      btn.innerHTML = '<span class="inline-flex items-center gap-2"><span class="animate-spin inline-block w-3 h-3 border-2 border-white border-t-transparent rounded-full"></span> Signing in...</span>';
-    }
-
-    try {
-      const user = await WishAuth.signInWithGmail(email);
-      if (user) {
-        try { localStorage.setItem('wishmagic_last_user_email', email); } catch (e) {}
-        closeAuthModal();
-      }
-    } catch (err) {
-      if (errBox) {
-        errBox.className = 'text-xs font-semibold text-rose-500 bg-rose-50 dark:bg-rose-950/50 p-2.5 rounded-xl border border-rose-200 dark:border-rose-900/60 text-center mb-3 block';
-        errBox.textContent = err.message || 'Could not sign in with this email.';
-      }
-    } finally {
-      if (btn) {
-        btn.disabled = false;
-        btn.innerHTML = '<span>Sign In with Gmail (1-Tap)</span><span class="text-amber-300">✨</span>';
+        txt.textContent = 'Continue with Google';
       }
     }
   };
@@ -1336,7 +817,7 @@
     if (!toast) {
       toast = document.createElement('div');
       toast.id = 'wishmagic-auth-toast';
-      toast.className = 'fixed top-6 right-6 z-50 transform translate-y-[-150%] opacity-0 transition-all duration-300 pointer-events-none px-4 py-2.5 rounded-2xl bg-purple-950/95 text-white text-xs font-bold shadow-2xl border border-pink-500/50 flex items-center gap-2';
+      toast.className = 'fixed top-6 right-6 z-[200] transform translate-y-[-150%] opacity-0 transition-all duration-300 pointer-events-none px-4 py-2.5 rounded-2xl bg-[#1a0f30] text-white text-xs font-extrabold shadow-2xl border border-[#ec4899]/50 flex items-center gap-2';
       document.body.appendChild(toast);
     }
     toast.textContent = msg;
@@ -1353,7 +834,7 @@
     if (legacyOpen) {
       window.openModal = function(id) {
         if (id === 'auth-modal') {
-          showUniversalAuthModal('signin');
+          showUniversalAuthModal();
           return;
         }
         legacyOpen(id);
@@ -1361,13 +842,11 @@
     }
   }
 
-  // Set up global modal interceptor immediately
   setupGlobalAuthModal();
 
   window.WishAuth = WishAuth;
   window.showAuthToast = showAuthToast;
 
-  // Auto-start deterministic bootstrap for non-admin storefront pages
   if (typeof document !== 'undefined' && !IS_ADMIN_STUDIO) {
     if (document.readyState === 'loading') {
       document.addEventListener('DOMContentLoaded', () => {

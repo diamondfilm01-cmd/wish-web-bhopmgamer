@@ -488,8 +488,8 @@ const PRETTY_ROUTES = {
   '/admin/anktech/anktech/admin/compliance/': '/admin-legal.html',
   '/admin/anktech/anktech/admin/search': '/admin-search.html',
   '/admin/anktech/anktech/admin/search/': '/admin-search.html',
-  '/admin/anktech/anktech/admin/login': '/admin-login.html',
-  '/admin/anktech/anktech/admin/login/': '/admin-login.html',
+  '/admin/anktech/anktech/admin/login': '/index.html',
+  '/admin/anktech/anktech/admin/login/': '/index.html',
   '/legal': '/legal.html',
   '/legal/': '/legal.html',
   '/legal.html': '/legal.html',
@@ -514,7 +514,7 @@ const PRETTY_ROUTES = {
   '/compliance': '/legal.html',
   '/compliance/': '/legal.html',
   '/compliance.html': '/legal.html',
-  '/admin-login': '/admin-login.html'
+  '/admin-login': '/index.html'
 };
 
 // In-memory rate limiting bucket
@@ -3535,7 +3535,7 @@ const MAINTENANCE_HTML_FALLBACK = `<!DOCTYPE html>
 .card{background:rgba(255,255,255,0.08);padding:40px;border-radius:24px;max-width:500px;border:1px solid rgba(255,255,255,0.15)}
 h1{color:#f472b6}a{color:#f4c542;text-decoration:none;font-weight:bold}</style></head>
 <body><div class="card"><h1>✨ Polishing the Magic</h1><p>WishMagic is currently undergoing scheduled maintenance. We will be back online shortly!</p>
-<p><a href="/admin-login.html">Admin Sign In →</a></p></div></body></html>`;
+</div></body></html>`;
 
 let inMemorySiteSettings = JSON.parse(JSON.stringify(DEFAULT_SITE_SETTINGS));
 
@@ -4662,9 +4662,15 @@ export default {
             );
           }
 
-          // Authoritative Admin Account
+          // Authoritative Admin Account (Strictly ankit.babusaini@gmail.com via Firebase Google Auth)
           const MASTER_ADMIN_EMAIL = 'ankit.babusaini@gmail.com';
-          const isMasterAdmin = email === MASTER_ADMIN_EMAIL || email === 'shrijiposhakbhandarshop@gmail.com';
+          if (email === MASTER_ADMIN_EMAIL && !idToken && !firebaseUid) {
+            return applySecurityHeaders(
+              jsonError('AUTH_FIREBASE_REQUIRED', 'Firebase Google Authentication is required to sign in with the Master Admin account.', 401, {}, null, requestId, FailureCategory.AUTHENTICATION),
+              request, env
+            );
+          }
+          const isMasterAdmin = email === MASTER_ADMIN_EMAIL;
 
           // 1. D1 Schema Verification & User Lookup
           await verifyAndEnsureAuthSchema(db);

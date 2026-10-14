@@ -15,29 +15,22 @@
   window.__wmFetchPatched = true;
 })();
 
-// WishMagic Admin Studio - Universal Dual Theme Engine & Utilities
-
+// WishMagic Admin Studio - Universal Dual Theme Engine & Strict Owner Gatekeeper
 const SECRET_ADMIN_PREFIX = '/admin/anktech/anktech/admin';
 
 /*
- * WishMagic Admin Studio
- * Authoritative Admin Session Gate
- *
- * IMPORTANT:
- * - Never authorize from localStorage.
- * - Never authorize from sessionStorage.
- * - Never create fake admin tokens.
- * - Never POST /api/auth/signin in background without checking it.
- * - Server session is authoritative.
+ * WishMagic Admin Studio - Authoritative Owner Session Gatekeeper
+ * STRICT SECURITY RULE:
+ * - No separate Admin Login page exists.
+ * - ONLY ankit.babusaini@gmail.com authenticated via Firebase Google Auth on the Main Website can open the Admin Panel.
+ * - Anyone else or any unauthenticated visitor is immediately redirected to '/'.
  */
-
-// WishMagic Admin Studio - Single Authoritative Admin Auth Controller
 const AdminAuthController = (() => {
   'use strict';
 
   const MASTER_EMAIL = 'ankit.babusaini@gmail.com';
   const ADMIN_TARGET = '/admin/anktech/anktech/admin/overview';
-  const LOGIN_TARGET = '/admin/anktech/anktech/admin/login';
+  const HOME_TARGET = '/';
 
   const STATE = Object.freeze({
     BOOTING: 'BOOTING',
@@ -58,15 +51,12 @@ const AdminAuthController = (() => {
   }
 
   function isAuthorizedEmail(email) {
-    const e = cleanEmail(email);
-    return e === MASTER_EMAIL || e === 'shrijiposhakbhandarshop@gmail.com' || e.endsWith('@wishmagic.internal');
+    return cleanEmail(email) === MASTER_EMAIL;
   }
 
   function isValidAdminUser(user) {
-    if (!user) return false;
-    const email = cleanEmail(user.email);
-    const hasAdminRole = user.role === 'admin' || user.role === 'OWNER' || user.role === 'SUPER_ADMIN' || user.isAdmin === true;
-    return hasAdminRole || email === MASTER_EMAIL || isAuthorizedEmail(email);
+    if (!user || !user.email) return false;
+    return cleanEmail(user.email) === MASTER_EMAIL;
   }
 
   // Deduplicated GET /api/auth/session check
@@ -86,8 +76,9 @@ const AdminAuthController = (() => {
 
         const data = await response.json().catch(() => ({}));
         const user = data?.data?.user || data?.user || null;
+        const isAuth = Boolean(data?.isAuthenticated === true || data?.data?.isAuthenticated === true);
 
-        if (response.ok && data?.success === true && data?.isAuthenticated === true && isValidAdminUser(user)) {
+        if (response.ok && data?.success === true && isAuth && isValidAdminUser(user)) {
           window.__WishMagicVerifiedAdminUser = user;
           window.WishMagicAdminSession = { authenticated: true, user };
           currentState = STATE.READY;
@@ -108,39 +99,28 @@ const AdminAuthController = (() => {
     return sessionCheckPromise;
   }
 
-  // Authoritative Google sign-in and server session verification
+  // Authoritative Firebase Google sign-in and server session verification
   async function signIn() {
-    if (signInPromise) {
-      return signInPromise;
-    }
-    if (navigationStarted) {
-      return;
-    }
+    if (signInPromise) return signInPromise;
+    if (navigationStarted) return;
 
     currentState = STATE.AUTHENTICATING;
 
     signInPromise = (async () => {
       try {
         if (!window.WishFirebaseAuth) {
-          throw new Error('Google authentication service is initializing. Please try again.');
+          throw new Error('Firebase Google Authentication is initializing. Please sign in from the Main Website.');
         }
 
-        let firebaseUser = null;
-        try {
-          firebaseUser = await window.WishFirebaseAuth.signInWithGoogle();
-        } catch (popupErr) {
-          console.warn('[AdminAuthController] Firebase popup note, using authoritative admin session fallback:', popupErr.message || popupErr);
-          return await signInDirect('ankit.babusaini@gmail.com');
-        }
-
+        const firebaseUser = await window.WishFirebaseAuth.signInWithGoogle();
         if (!firebaseUser) {
-          return await signInDirect('ankit.babusaini@gmail.com');
+          throw new Error('Google sign-in was not completed.');
         }
 
         const email = cleanEmail(firebaseUser.email);
         if (!isAuthorizedEmail(email)) {
           try { await window.WishFirebaseAuth.signOut(); } catch (_) {}
-          const err = new Error('Access Denied: This Google account is not authorized for Admin Studio.');
+          const err = new Error('Access Denied: Only the authorized owner account can access Admin Studio.');
           err.code = 'UNAUTHORIZED_EMAIL';
           throw err;
         }
@@ -162,7 +142,6 @@ const AdminAuthController = (() => {
           headers['Authorization'] = `Bearer ${idToken}`;
         }
 
-        // Call POST /api/auth/signin
         const signinRes = await fetch('/api/auth/signin', {
           method: 'POST',
           credentials: 'include',
@@ -179,28 +158,15 @@ const AdminAuthController = (() => {
         });
 
         const signinData = await signinRes.json().catch(() => ({}));
-
         if (!signinRes.ok || signinData?.success !== true) {
-          if (signinData?.error?.code === 'DATABASE_UNAVAILABLE' || signinRes.status === 503) {
-            const dbErr = new Error('Google authentication succeeded, but the production server database is not connected yet.');
-            dbErr.code = 'DATABASE_UNAVAILABLE';
-            throw dbErr;
-          }
-          if (signinRes.status === 401 || signinRes.status === 403) {
-            const authErr = new Error(signinData?.error?.message || signinData?.message || 'Admin authorization failed.');
-            authErr.code = 'FORBIDDEN';
-            throw authErr;
-          }
           throw new Error(signinData?.error?.message || signinData?.message || 'Admin authentication failed.');
         }
 
-        // Authoritative verification via GET /api/auth/session
         const verifiedUser = await checkSession();
         if (!verifiedUser) {
           throw new Error('Unable to verify server session.');
         }
 
-        // Exactly one navigation
         if (!navigationStarted) {
           navigationStarted = true;
           window.location.replace(ADMIN_TARGET);
@@ -215,7 +181,6 @@ const AdminAuthController = (() => {
     return signInPromise;
   }
 
-  // Initialization method for Admin login page
   async function init() {
     currentState = STATE.BOOTING;
     const existing = await checkSession();
@@ -227,10 +192,13 @@ const AdminAuthController = (() => {
       return existing;
     }
     currentState = STATE.LOGIN_REQUIRED;
+    if (!redirectStarted) {
+      redirectStarted = true;
+      window.location.replace(HOME_TARGET);
+    }
     return null;
   }
 
-  // Logout method
   async function logout() {
     try {
       await fetch('/api/auth/signout', { method: 'POST', credentials: 'include' });
@@ -238,61 +206,18 @@ const AdminAuthController = (() => {
     if (window.WishFirebaseAuth) {
       try { await window.WishFirebaseAuth.signOut(); } catch (_) {}
     }
+    try {
+      localStorage.removeItem('wishmagic_auth_user');
+      localStorage.removeItem('wishmagic_user');
+      localStorage.removeItem('wishmagic_last_user_email');
+    } catch (_) {}
     window.__WishMagicVerifiedAdminUser = null;
     window.WishMagicAdminSession = null;
     currentState = STATE.LOGIN_REQUIRED;
     if (!redirectStarted) {
       redirectStarted = true;
-      window.location.replace(LOGIN_TARGET);
+      window.location.replace(HOME_TARGET);
     }
-  }
-
-  // Direct Master Admin Authentication (Fallback if Google popup is restricted)
-  async function signInDirect(adminEmail) {
-    const email = cleanEmail(adminEmail || MASTER_EMAIL);
-    if (!isAuthorizedEmail(email)) {
-      const err = new Error('Access Denied: This Google account is not authorized for Admin Studio.');
-      err.code = 'UNAUTHORIZED_EMAIL';
-      throw err;
-    }
-
-    const signinRes = await fetch('/api/auth/signin', {
-      method: 'POST',
-      credentials: 'include',
-      cache: 'no-store',
-      headers: {
-        'Content-Type': 'application/json',
-        'Accept': 'application/json'
-      },
-      body: JSON.stringify({
-        email,
-        displayName: 'Ankit Babu Saini',
-        provider: 'google'
-      })
-    });
-
-    const signinData = await signinRes.json().catch(() => ({}));
-
-    if (!signinRes.ok || signinData?.success !== true) {
-      if (signinData?.error?.code === 'DATABASE_UNAVAILABLE' || signinRes.status === 503) {
-        const dbErr = new Error('Database service is not ready. Please try again.');
-        dbErr.code = 'DATABASE_UNAVAILABLE';
-        throw dbErr;
-      }
-      throw new Error(signinData?.error?.message || signinData?.message || 'Admin authentication failed.');
-    }
-
-    const verifiedUser = await checkSession();
-    if (!verifiedUser) {
-      throw new Error('Unable to verify server session.');
-    }
-
-    if (!navigationStarted) {
-      navigationStarted = true;
-      window.location.replace(ADMIN_TARGET);
-    }
-
-    return verifiedUser;
   }
 
   return {
@@ -301,7 +226,6 @@ const AdminAuthController = (() => {
     isAuthorizedEmail,
     checkSession,
     signIn,
-    signInDirect,
     init,
     logout
   };
@@ -309,15 +233,15 @@ const AdminAuthController = (() => {
 
 window.AdminAuthController = AdminAuthController;
 
-// Client-Side Admin Session Gatekeeper (Only for Content Pages, Never Loops)
+// Client-Side Admin Session Gatekeeper (Strictly requires ankit.babusaini@gmail.com; redirects others to '/')
 (async function checkAdminGatekeeper() {
   'use strict';
 
   const pathname = typeof window !== 'undefined' ? window.location.pathname : '';
-  const isLoginPage = pathname.endsWith('/login') || pathname === '/admin-login.html';
+  const isLoginPage = pathname.endsWith('/login') || pathname === '/admin-login.html' || pathname === '/admin-login';
 
   if (isLoginPage) {
-    // Admin login page manages its own dedicated lifecycle via AdminAuthController.init()
+    window.location.replace('/');
     return;
   }
 
@@ -325,26 +249,24 @@ window.AdminAuthController = AdminAuthController;
 
   try {
     const user = await window.AdminAuthController.checkSession();
-    if (user) {
-      // Validated Admin Session! Unhide page
+    if (user && String(user.email || '').trim().toLowerCase() === 'ankit.babusaini@gmail.com') {
       const screen = document.getElementById('admin-access-restricted-screen');
       if (screen) screen.remove();
-      document.body.style.display = '';
+      if (document.body) document.body.style.display = '';
       const emailEl = document.getElementById('wm-admin-header-email');
       if (emailEl && user.email) emailEl.textContent = user.email;
       return;
     }
 
-    // Missing or invalid session: single redirect to login page
     if (!adminRedirectStarted) {
       adminRedirectStarted = true;
-      window.location.replace('/admin/anktech/anktech/admin/login');
+      window.location.replace('/');
     }
   } catch (err) {
     console.warn('[AdminGate] Gatekeeper verification error:', err);
     if (!adminRedirectStarted) {
       adminRedirectStarted = true;
-      window.location.replace('/admin/anktech/anktech/admin/login');
+      window.location.replace('/');
     }
   }
 })();
@@ -388,8 +310,7 @@ function rewriteAdminSidebarLinks() {
     'users': 'users',
     'staff': 'staff',
     'legal': 'legal',
-    'audit': 'audit-logs',
-    'login': 'login'
+    'audit': 'audit-logs'
   };
 
   const currentPath = window.location.pathname.toLowerCase();
@@ -397,7 +318,6 @@ function rewriteAdminSidebarLinks() {
   const currentHash = window.location.hash.toLowerCase();
   let currentSection = 'overview';
 
-  // Sort keys by descending length so multi-word keys (e.g., 'user-creations', 'add-template', 'storage-health') take priority
   const sortedKeys = Object.keys(sectionMap).sort((a, b) => b.length - a.length);
   for (const key of sortedKeys) {
     const cleanKey = key.trim();
@@ -407,7 +327,6 @@ function rewriteAdminSidebarLinks() {
     }
   }
 
-  // Detect sub-section aliases from URL path or query parameters
   const isAddTemplateActive =
     currentSection === 'add-template' ||
     currentPath.includes('add-template') ||
@@ -428,7 +347,6 @@ function rewriteAdminSidebarLinks() {
     currentPath.endsWith('/backups/') ||
     (currentSection === 'storage-health' && (currentSearch.includes('tab=backups') || currentHash.includes('backups')));
 
-  // Rewrite all admin links to use SECRET_ADMIN_PREFIX while preserving query strings or hashes
   document.querySelectorAll('a[href*="admin"]').forEach(a => {
     let href = a.getAttribute('href');
     if (!href || href.startsWith('#') || href.startsWith('javascript:')) return;
@@ -466,7 +384,6 @@ function rewriteAdminSidebarLinks() {
     }
   });
 
-  // Auto-expand "More Studio Sections" if currentSection is inside it
   const moreSections = ['user-creations', 'search', 'referrals', 'moderation', 'support', 'staff', 'legal', 'announcements', 'notifications'];
   if (moreSections.includes(currentSection)) {
     const extra = document.getElementById('wm-sidebar-more-group');
@@ -475,7 +392,6 @@ function rewriteAdminSidebarLinks() {
     if (chevron) chevron.style.transform = 'rotate(180deg)';
   }
 
-  // Highlight ONLY the active link in sidebar (and unhighlight Dashboard when on any other section!)
   const sidebarNav = document.querySelector('#admin-sidebar nav, aside nav');
   if (sidebarNav) {
     const navLinks = sidebarNav.querySelectorAll('a');
@@ -487,7 +403,6 @@ function rewriteAdminSidebarLinks() {
         href.endsWith('/overview/') ||
         href.endsWith('admin-overview.html');
 
-      // Always strip legacy permanent pill classes first
       a.classList.remove('wm-dashboard-pill', 'wm-inactive-pill', 'active', 'wm-nav-active');
 
       let isTarget = false;
@@ -525,13 +440,11 @@ function rewriteAdminSidebarLinks() {
   }
 }
 
-// Auto-handle query actions across admin subpages (?action=add, ?tab=audio, ?filter=expiring, ?tab=backups)
 function handleAdminQueryActions() {
   const params = new URLSearchParams(window.location.search);
   const hash = window.location.hash.toLowerCase();
   const path = window.location.pathname.toLowerCase();
 
-  // 1. Templates Page: ?action=add -> expand inline Add Template studio section (not a popup!)
   if (params.get('action') === 'add' || hash === '#upload') {
     setTimeout(() => {
       const uploadSection = document.getElementById('upload-code-modal');
@@ -542,7 +455,6 @@ function handleAdminQueryActions() {
     }, 150);
   }
 
-  // 2. Media Page: ?tab=audio or /music -> switch to Audio/Music Library tab
   if (params.get('tab') === 'audio' || hash === '#music' || path.endsWith('/music')) {
     setTimeout(() => {
       if (typeof setMediaFilter === 'function') {
@@ -563,7 +475,6 @@ function handleAdminQueryActions() {
     }, 250);
   }
 
-  // 3. Wishes Page: ?filter=expiring or /expiring -> filter expiring wishes
   if (params.get('filter') === 'expiring' || hash === '#expiring' || path.endsWith('/expiring')) {
     setTimeout(() => {
       if (typeof filterStatus === 'function') {
@@ -572,7 +483,6 @@ function handleAdminQueryActions() {
     }, 250);
   }
 
-  // 4. Storage Health Page: ?tab=backups or /backups -> scroll to backups/cleanup
   if (params.get('tab') === 'backups' || hash === '#backups' || path.endsWith('/backups')) {
     setTimeout(() => {
       const backupEl = document.getElementById('backups-section') || document.getElementById('btn-open-cleanup');
@@ -581,7 +491,6 @@ function handleAdminQueryActions() {
   }
 }
 
-// 3. Live Real-Time Header Notifications (Zero Fake Data!)
 async function loadLiveAdminHeaderNotifications() {
   const badge = document.getElementById('wm-header-notif-badge');
   const dropdown = document.getElementById('wm-admin-notif-dropdown');
@@ -696,7 +605,6 @@ document.addEventListener('click', () => {
   if (notif) notif.classList.add('hidden');
 });
 
-// Universal Ctrl+K / Cmd+K shortcut for header search
 document.addEventListener('keydown', (e) => {
   if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'k') {
     const input = document.querySelector('.wm-header-search-input, #global-admin-search-input');
@@ -714,12 +622,10 @@ function initAdminNavigationAndNotifications() {
   loadLiveAdminHeaderNotifications();
   setInterval(loadLiveAdminHeaderNotifications, 15000);
 
-  // Universal Live Data Auto-Refresh across Admin Subpages (when tab is visible and user is not typing in an input)
   setInterval(() => {
     if (document.visibilityState !== 'visible') return;
     const activeEl = document.activeElement;
     if (activeEl && (activeEl.tagName === 'INPUT' || activeEl.tagName === 'TEXTAREA' || activeEl.tagName === 'SELECT')) return;
-    // Skip if a modal is open
     const openModal = document.querySelector('[id*="modal"]:not(.hidden):not([data-inline-page="true"])');
     if (openModal && openModal.classList.contains('fixed')) return;
 
@@ -745,8 +651,6 @@ function initAdminNavigationAndNotifications() {
     } catch (_) {}
   }, 8000);
 
-
-  // Also update active state immediately if a sidebar link is clicked
   const sidebarNav = document.querySelector('#admin-sidebar nav, aside nav');
   if (sidebarNav) {
     sidebarNav.addEventListener('click', (e) => {
@@ -782,7 +686,6 @@ if (document.readyState === 'loading') {
 }
 
 function updateThemeIcons(isDark) {
-  // Keep sun icon on left (#wm-theme-sun-pill) and moon icon on right (#wm-theme-moon-pill) so the CSS sliding thumb animates smoothly!
   const sunPill = document.getElementById('wm-theme-sun-pill');
   const moonPill = document.getElementById('wm-theme-moon-pill');
   if (sunPill) {
