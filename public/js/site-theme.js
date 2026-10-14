@@ -115,13 +115,22 @@
     `;
   }
 
-  // 4. Ensure Unified Admin-Style Header & Navigation Buttons Across Every Storefront Page/Section
+  // 4. Ensure Unified Admin-Style Header & Navigation Buttons Across EVERY Storefront Page (Including Home Page index.html!)
   function ensureUnifiedStorefrontHeader() {
     if (typeof document === 'undefined' || !document.body) return;
     const pathname = (window.location.pathname || '/').toLowerCase();
 
     // Do not inject storefront header on Admin pages or fullscreen Wish player
     if (pathname.startsWith('/admin') || pathname.includes('wish.html')) return;
+
+    const isHome = pathname === '/' || pathname.endsWith('/index.html');
+    if (isHome) {
+      document.body.setAttribute('data-page', 'home');
+      document.documentElement.setAttribute('data-page', 'home');
+    } else {
+      document.body.removeAttribute('data-page');
+      document.documentElement.removeAttribute('data-page');
+    }
 
     // Ensure Material Symbols Outlined font is loaded for icons
     if (!document.querySelector('link[href*="Material+Symbols+Outlined"]')) {
@@ -131,13 +140,17 @@
       document.head.appendChild(iconLink);
     }
 
-    // Ensure cloud-background.css is loaded
-    if (!document.getElementById('wishmagic-cloud-css') && !document.querySelector('link[href*="cloud-background.css"]')) {
-      const link = document.createElement('link');
-      link.id = 'wishmagic-cloud-css';
-      link.rel = 'stylesheet';
-      link.href = '/css/cloud-background.css?v=20261014_v5';
-      document.head.appendChild(link);
+    // Ensure cloud-background.css is loaded AT THE VERY END of <head> (after any inline <style> blocks!)
+    let cloudLink = document.getElementById('wishmagic-cloud-css') || document.querySelector('link[href*="cloud-background.css"]');
+    if (!cloudLink) {
+      cloudLink = document.createElement('link');
+      cloudLink.id = 'wishmagic-cloud-css';
+      cloudLink.rel = 'stylesheet';
+      cloudLink.href = '/css/cloud-background.css?v=20261014_v6';
+      document.head.appendChild(cloudLink);
+    } else {
+      // Move to the end of <head> so inline <style> blocks never override it
+      document.head.appendChild(cloudLink);
     }
 
     // Special handling for customize.html: preserve customizer toolbar controls, upgrade theme button & remove dev toggle
@@ -154,28 +167,13 @@
     }
 
     // Determine active nav item
-    const isHome = pathname === '/' || pathname.endsWith('/index.html');
     const isTemplates = pathname.includes('template') || pathname.includes('marketplace');
     const isCreate = pathname.includes('create');
     const isMyWishes = pathname.includes('my-wishes') || pathname.includes('favorites');
     const isPricing = pathname.includes('pricing') || pathname.includes('premium') || pathname.includes('checkout');
     const isHelp = pathname.includes('help') || pathname.includes('contact') || pathname.includes('support') || pathname.includes('legal');
 
-    // On index.html, upgrade the existing header's theme button and nav pills while keeping #nav-search-input intact
-    if (isHome) {
-      const oldThemeBtn = document.querySelector('header button[onclick*="toggleSiteTheme"]');
-      if (oldThemeBtn && !oldThemeBtn.classList.contains('wm-theme-pill-btn')) {
-        oldThemeBtn.outerHTML = getThemePillButtonHTML();
-      }
-      const navLinks = document.querySelectorAll('header nav a');
-      navLinks.forEach((a, idx) => {
-        a.classList.add('wm-nav-pill');
-        if (idx === 0) a.classList.add('active');
-      });
-      return;
-    }
-
-    // On all other storefront pages (templates, marketplace, create, my-wishes, pricing, premium, account, profile, settings, favorites, referrals, checkout, contact, help, legal, notifications, support-tickets, expired, maintenance), render the unified Admin-Style Storefront Header so NO button is ever missing!
+    // Render the unified Admin-Style Storefront Header on ALL pages (including index.html!) so every page has the exact same Admin Studio header and buttons!
     const existingHeader = document.querySelector('header');
     const unifiedHeaderHTML = `
       <div class="wm-site-header-bar glass-nav rounded-2xl sm:rounded-full px-3 sm:px-5 lg:px-6 py-2 sm:py-2.5 flex items-center justify-between gap-2 sm:gap-4">
@@ -188,7 +186,7 @@
             <span id="navbar-brand-name" class="brand-name-text font-display font-extrabold text-base sm:text-xl tracking-tight leading-none">
               <span class="text-[#1a0f30] dark:text-white">Wish</span><span class="wm-brand-magic">Magic</span>
             </span>
-            <span class="text-[10px] font-semibold text-[#6e5d8f] dark:text-[#a594c9] tracking-wide mt-0.5 hidden sm:inline-block">Create. Personalize. Celebrate.</span>
+            <span class="text-[10px] font-semibold text-[#6e5d8f] dark:text-[#a594c9] tracking-wide mt-0.5">Create. Personalize. Celebrate.</span>
           </div>
         </a>
 
@@ -220,18 +218,20 @@
           </a>
         </nav>
 
-        <!-- Right: Theme Switch, Create CTA, Profile / Google Sign-In & Mobile Menu -->
-        <div class="flex items-center gap-2 sm:gap-2.5 flex-shrink-0">
+        <!-- Right: Theme Switch, Create CTA, Notification Bell, Profile / Google Sign-In & Mobile Menu -->
+        <div class="flex items-center gap-1.5 sm:gap-2.5 flex-shrink-0">
           ${getThemePillButtonHTML()}
 
-          <a href="/create.html" class="hidden sm:inline-flex items-center gap-1.5 px-3.5 py-2 rounded-full text-xs font-extrabold text-white bg-gradient-to-r from-[#ff2a85] via-[#ec4899] to-[#a855f7] hover:brightness-110 shadow-[0_6px_18px_rgba(236,72,153,0.3)] transition-all">
-            <span class="material-symbols-outlined text-[15px]">add_circle</span>
+          <a href="/create.html" class="inline-flex items-center gap-1 px-3 sm:px-3.5 py-1.5 sm:py-2 rounded-full text-[11px] sm:text-xs font-extrabold text-white bg-gradient-to-r from-[#ff2a85] via-[#ec4899] to-[#a855f7] hover:brightness-110 shadow-[0_6px_18px_rgba(236,72,153,0.3)] transition-all whitespace-nowrap">
+            <span class="material-symbols-outlined text-[14px] sm:text-[15px]">add_circle</span>
             <span>Create Wish</span>
           </a>
 
+          <div data-purpose="navbar-notifications" class="relative inline-flex items-center flex-shrink-0"></div>
+
           <div data-purpose="navbar-auth" class="navbar-auth-container flex-shrink-0"></div>
 
-          <button type="button" onclick="toggleMobileStorefrontNav()" class="lg:hidden w-9 h-9 rounded-full bg-[#f4effc] dark:bg-purple-900/60 border border-[#d6c8f2] dark:border-purple-500/40 flex items-center justify-center text-[#1a0f30] dark:text-white cursor-pointer" aria-label="Open Navigation Menu">
+          <button type="button" onclick="toggleMobileStorefrontNav()" class="lg:hidden w-9 h-9 rounded-full bg-[#f4effc] dark:bg-[#25144a] border border-[#d6c8f2] dark:border-purple-500/40 flex items-center justify-center text-[#1a0f30] dark:text-white cursor-pointer flex-shrink-0" aria-label="Open Navigation Menu">
             <span class="material-symbols-outlined text-[20px]">menu</span>
           </button>
         </div>
@@ -268,22 +268,29 @@
 
     if (existingHeader) {
       existingHeader.className = 'sticky top-2 sm:top-4 z-50 px-2.5 sm:px-6 md:px-8 max-w-7xl mx-auto w-full transition-all';
+      existingHeader.setAttribute('data-purpose', 'site-navigation');
       existingHeader.innerHTML = unifiedHeaderHTML;
     } else {
       const newHeader = document.createElement('header');
       newHeader.className = 'sticky top-2 sm:top-4 z-50 px-2.5 sm:px-6 md:px-8 max-w-7xl mx-auto w-full transition-all';
+      newHeader.setAttribute('data-purpose', 'site-navigation');
       newHeader.innerHTML = unifiedHeaderHTML;
       document.body.insertAdjacentElement('afterbegin', newHeader);
     }
 
-    // If checkout.html or expired.html had pt-20 on main due to fixed header, normalize it
     const mainEl = document.querySelector('main');
     if (mainEl && mainEl.classList.contains('pt-20')) {
       mainEl.classList.remove('pt-20');
       mainEl.classList.add('pt-4');
     }
 
-    // Trigger WishAuth to populate the newly injected .navbar-auth-container if already loaded
+    // Re-trigger Notification Center bell & Auth Avatar if already initialized
+    if (window.WishNotificationCenter && typeof window.WishNotificationCenter._renderNotificationCenter === 'function') {
+      try {
+        window.WishNotificationCenter._renderNotificationCenter();
+        window.WishNotificationCenter.refreshBadgeCount();
+      } catch (_) {}
+    }
     if (window.WishAuth && typeof window.WishAuth.onAuthStateChange === 'function') {
       try {
         window.WishAuth.onAuthStateChange(() => {});

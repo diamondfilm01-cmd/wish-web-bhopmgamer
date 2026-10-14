@@ -707,7 +707,7 @@
           <!-- Name & Icon -->
           <td class="py-3.5 px-3">
             <div class="flex items-center gap-3">
-              <span class="text-2xl p-1.5 rounded-xl bg-purple-500/10 shrink-0">${cat.icon || '✨'}</span>
+              <span class="${/^[a-z0-9_]+$/i.test((cat.icon || '').trim()) ? 'material-symbols-outlined ' : ''}text-2xl p-1.5 rounded-xl bg-purple-500/10 shrink-0">${cat.icon || '✨'}</span>
               <div>
                 <span class="font-bold text-on-surface block text-sm">${cat.name}</span>
                 <span class="text-[11px] text-on-surface-variant">${cat.description || 'Occasion category'}</span>

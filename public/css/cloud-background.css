@@ -1,15 +1,49 @@
 /* ==========================================================================
-   WishMagic Main Website - Unified Admin Studio Design System & Cloud Canvas
-   Matches Admin Studio Fairytale Light Mode (#f3effa / #ffffff / #1a0f30)
-   & Cosmic Dark Mode (#0f0822 / #1f123e / #f7f4ff) with 100% Text Visibility
+   WishMagic Main Website - Unified Admin Studio Design System & Background Engine
+   - All pages EXCEPT Home Page (index.html) use the exact smooth radial gradient
+     backgrounds from the reference Light Mode & Dark Mode screenshots.
+   - Home Page (index.html, body[data-page="home"]) uses the Fairytale Castle
+     & Cloud Canyon background harmonized with the Admin UI.
+   - 100% Text Visibility & Admin Studio Card/Button styling in Light & Dark Mode.
    ========================================================================== */
 
-:root {
-  --wm-hero-end: 650px;
-  --wm-bg-page: #f3effa;
-  --wm-bg-header: rgba(255, 255, 255, 0.94);
+:root,
+html:not(.dark) {
+  --wm-hero-end: 535px;
+
+  /* Admin Studio Fairytale Light Mode Tokens */
+  --c-background: 246 240 255;
+  --c-surface: 255 255 255;
+  --c-surface-variant: 245 240 253;
+  --c-surface-bright: 255 255 255;
+  --c-surface-container-lowest: 255 255 255;
+  --c-surface-container-low: 250 247 255;
+  --c-surface-container: 255 255 255;
+  --c-surface-container-high: 243 237 253;
+  --c-surface-container-highest: 233 224 250;
+  --c-on-surface: 26 15 48;
+  --c-on-surface-variant: 83 63 120;
+  --c-outline: 110 93 143;
+  --c-outline-variant: 214 200 242;
+
+  --color-background: #f6f0ff;
+  --color-surface: #ffffff;
+  --color-surface-variant: #f5f0fd;
+  --color-surface-bright: #ffffff;
+  --color-surface-container-lowest: #ffffff;
+  --color-surface-container-low: #faf7ff;
+  --color-surface-container: #ffffff;
+  --color-surface-container-high: #f3edfd;
+  --color-surface-container-highest: #e9e0fa;
+  --color-on-surface: #1a0f30;
+  --color-on-surface-variant: #533f78;
+  --color-outline: #6e5d8f;
+  --color-outline-variant: #d6c8f2;
+
+  --wm-bg-page: #f6f0ff;
+  --wm-bg-header: rgba(255, 255, 255, 0.95);
   --wm-card-bg: rgba(255, 255, 255, 0.96);
-  --wm-card-alt-bg: #f8f5fe;
+  --wm-card-alt-bg: #f6f1fe;
   --wm-card-border: #d6c8f2;
   --wm-card-shadow: 0 12px 32px rgba(98, 56, 178, 0.08), 0 2px 8px rgba(98, 56, 178, 0.04);
   --wm-text-primary: #1a0f30;
@@ -23,11 +57,40 @@
 html.dark,
 body.dark,
 [data-theme="dark"] {
-  --wm-bg-page: #0f0822;
-  --wm-bg-header: rgba(23, 13, 48, 0.94);
+  /* Admin Studio Cosmic Dark Mode Tokens */
+  --c-background: 15 5 33;
+  --c-surface: 31 18 62;
+  --c-surface-variant: 40 23 78;
+  --c-surface-bright: 52 31 98;
+  --c-surface-container-lowest: 20 10 42;
+  --c-surface-container-low: 26 14 54;
+  --c-surface-container: 31 18 62;
+  --c-surface-container-high: 40 24 78;
+  --c-surface-container-highest: 50 30 94;
+  --c-on-surface: 247 244 255;
+  --c-on-surface-variant: 207 194 235;
+  --c-outline: 165 148 201;
+  --c-outline-variant: 88 58 148;
+
+  --color-background: #0f0521;
+  --color-surface: #1f123e;
+  --color-surface-variant: #28174e;
+  --color-surface-bright: #341f62;
+  --color-surface-container-lowest: #140a2a;
+  --color-surface-container-low: #1a0e36;
+  --color-surface-container: #1f123e;
+  --color-surface-container-high: #28184e;
+  --color-surface-container-highest: #321e5e;
+  --color-on-surface: #f7f4ff;
+  --color-on-surface-variant: #cfc2eb;
+  --color-outline: #a594c9;
+  --color-outline-variant: rgba(147, 102, 245, 0.36);
+
+  --wm-bg-page: #0f0521;
+  --wm-bg-header: rgba(23, 12, 48, 0.95);
   --wm-card-bg: rgba(31, 18, 62, 0.94);
   --wm-card-alt-bg: #170d30;
-  --wm-card-border: rgba(147, 102, 245, 0.34);
+  --wm-card-border: rgba(147, 102, 245, 0.35);
   --wm-card-shadow: 0 16px 40px rgba(0, 0, 0, 0.52), 0 0 24px rgba(139, 92, 246, 0.12);
   --wm-text-primary: #f7f4ff;
   --wm-text-secondary: #cfc2eb;
@@ -37,114 +100,76 @@ body.dark,
 }
 
 /* ==========================================================================
-   1. REDESIGNED FAIRYTALE & COSMIC CLOUD BACKGROUND CANVAS
+   1. BACKGROUND ENGINE:
+      - All Non-Home Pages: Exact Light & Dark Smooth Radial Aura Gradients
+        matching the user's reference photos (Screenshot_20261014_212106_Chrome.jpg
+        for Light Mode & 19925_7635bf.jpg for Dark Mode).
+      - Home Page (body[data-page="home"]): Fairytale Castle & Cloud Canyon.
    ========================================================================== */
+
 html:not(.dark) {
-  background-color: #f3effa !important;
+  background-color: #f6f0ff !important;
   color: #1a0f30 !important;
 }
 
 html.dark,
 [data-theme="dark"] {
-  background-color: #0f0822 !important;
+  background-color: #0f0521 !important;
   color: #f7f4ff !important;
 }
 
-/* Light Mode: Admin Fairytale Pastel Lavender-Rose Cloud Canvas */
-html:not(.dark) body {
-  background-color: #f3effa !important;
+/* Non-Home Pages — Light Mode (Matches Screenshot_20261014_212106_Chrome.jpg) */
+html:not(.dark) body:not([data-page="home"]) {
+  background-color: #f6f0ff !important;
   background-image:
-    radial-gradient(circle at 16% 12%, rgba(236, 72, 153, 0.11) 0%, transparent 42%),
-    radial-gradient(circle at 84% 18%, rgba(168, 85, 247, 0.13) 0%, transparent 46%),
-    radial-gradient(circle at 50% 85%, rgba(245, 158, 11, 0.07) 0%, transparent 50%),
-    linear-gradient(180deg, rgba(243, 239, 250, 0.38) 0%, rgba(243, 239, 250, 0.65) var(--wm-hero-end, 650px), rgba(243, 239, 250, 0.88) 100%),
-    url('/assets/cb.png'),
-    url('/assets/cb.png') !important;
-  background-position:
-    0 0,
-    0 0,
-    0 0,
-    0 0,
-    center top,
-    center var(--wm-hero-end, 650px) !important;
-  background-size:
-    100% 100%,
-    100% 100%,
-    100% 100%,
-    100% 100%,
-    100% var(--wm-hero-end, 650px),
-    100% 900px !important;
-  background-repeat:
-    no-repeat,
-    no-repeat,
-    no-repeat,
-    no-repeat,
-    no-repeat,
-    repeat-y !important;
-  background-attachment: scroll !important;
+    radial-gradient(at 50% 6%, rgba(216, 180, 254, 0.60) 0px, transparent 52%),
+    radial-gradient(at 10% 8%, rgba(233, 213, 255, 0.80) 0px, transparent 45%),
+    radial-gradient(at 90% 12%, rgba(251, 207, 232, 0.65) 0px, transparent 50%),
+    radial-gradient(at 50% 45%, rgba(243, 232, 255, 0.85) 0px, transparent 65%),
+    radial-gradient(at 85% 75%, rgba(230, 205, 254, 0.55) 0px, transparent 55%),
+    radial-gradient(at 15% 90%, rgba(254, 215, 240, 0.55) 0px, transparent 50%) !important;
+  background-repeat: no-repeat !important;
+  background-size: 100% 100% !important;
+  background-attachment: fixed !important;
   color: #1a0f30 !important;
   font-family: 'Plus Jakarta Sans', -apple-system, BlinkMacSystemFont, sans-serif;
 }
 
-/* Dark Mode: Admin Cosmic Indigo & Nebula Starlight Cloud Canvas */
-html.dark body,
-body.dark,
-[data-theme="dark"] body {
-  background-color: #0f0822 !important;
+/* Non-Home Pages — Dark Mode (Matches 19925_7635bf.jpg) */
+html.dark body:not([data-page="home"]),
+body.dark:not([data-page="home"]),
+[data-theme="dark"] body:not([data-page="home"]) {
+  background-color: #0f0521 !important;
   background-image:
-    radial-gradient(circle at 18% 14%, rgba(236, 72, 153, 0.16) 0%, transparent 42%),
-    radial-gradient(circle at 82% 20%, rgba(139, 92, 246, 0.20) 0%, transparent 48%),
-    radial-gradient(circle at 50% 80%, rgba(124, 58, 237, 0.14) 0%, transparent 52%),
-    linear-gradient(180deg, rgba(15, 8, 34, 0.35) 0%, rgba(15, 8, 34, 0.62) var(--wm-hero-end, 650px), rgba(15, 8, 34, 0.86) 100%),
-    url('/assets/cbd.png'),
-    url('/assets/cbd.png') !important;
-  background-position:
-    0 0,
-    0 0,
-    0 0,
-    0 0,
-    center top,
-    center var(--wm-hero-end, 650px) !important;
-  background-size:
-    100% 100%,
-    100% 100%,
-    100% 100%,
-    100% 100%,
-    100% var(--wm-hero-end, 650px),
-    100% 900px !important;
-  background-repeat:
-    no-repeat,
-    no-repeat,
-    no-repeat,
-    no-repeat,
-    no-repeat,
-    repeat-y !important;
-  background-attachment: scroll !important;
+    radial-gradient(at 50% 8%, rgba(147, 51, 234, 0.35) 0px, transparent 52%),
+    radial-gradient(at 10% 8%, rgba(147, 51, 234, 0.25) 0px, transparent 50%),
+    radial-gradient(at 90% 12%, rgba(236, 72, 153, 0.20) 0px, transparent 50%),
+    radial-gradient(at 50% 45%, rgba(88, 28, 135, 0.30) 0px, transparent 65%),
+    radial-gradient(at 85% 75%, rgba(126, 34, 206, 0.20) 0px, transparent 55%),
+    radial-gradient(at 15% 90%, rgba(157, 23, 77, 0.20) 0px, transparent 50%) !important;
+  background-repeat: no-repeat !important;
+  background-size: 100% 100% !important;
+  background-attachment: fixed !important;
   color: #f7f4ff !important;
   font-family: 'Plus Jakarta Sans', -apple-system, BlinkMacSystemFont, sans-serif;
 }
 
-@media (max-width: 768px) {
-  html:not(.dark) body {
-    background-size:
-      100% 100%,
-      100% 100%,
-      100% 100%,
-      100% 100%,
-      cover,
-      100% 560px !important;
-  }
-  html.dark body,
-  body.dark,
-  [data-theme="dark"] body {
-    background-size:
-      100% 100%,
-      100% 100%,
-      100% 100%,
-      100% 100%,
-      cover,
-      100% 560px !important;
-  }
+/* Ensure non-home pages never show the castle/cloud pseudo-elements */
+body:not([data-page="home"])::before,
+body:not([data-page="home"])::after {
+  display: none !important;
+  content: none !important;
+}
+
+/* Home Page (body[data-page="home"]): Harmonize Cloud & Castle Background with Admin UI */
+html:not(.dark) body[data-page="home"]::before,
+html:not(.dark) body[data-page="home"]::after {
+  filter: saturate(1.06) brightness(1.02);
+}
+
+html.dark body[data-page="home"]::before,
+html.dark body[data-page="home"]::after {
+  filter: saturate(1.10) contrast(1.04);
 }
 
 .bg-ambient-layer {
@@ -159,15 +184,15 @@ header .glass-nav,
   background: var(--wm-bg-header) !important;
   border: 1.5px solid var(--wm-card-border) !important;
   box-shadow: var(--wm-card-shadow) !important;
-  backdrop-filter: blur(16px) !important;
-  -webkit-backdrop-filter: blur(16px) !important;
+  backdrop-filter: blur(18px) !important;
+  -webkit-backdrop-filter: blur(18px) !important;
   border-radius: 9999px !important;
 }
 
 @media (max-width: 640px) {
   header .glass-nav,
   .wm-site-header-bar {
-    border-radius: 20px !important;
+    border-radius: 22px !important;
   }
 }
 
@@ -198,14 +223,19 @@ header .glass-nav,
   color: #ec4899 !important;
 }
 
-.wm-nav-pill.active {
+.wm-nav-pill.active,
+.pill-active,
+.active-chip {
   background: var(--wm-pill-grad) !important;
   color: #ffffff !important;
+  border-color: transparent !important;
   box-shadow: 0 6px 18px rgba(236, 72, 153, 0.32) !important;
 }
 
 .wm-nav-pill.active span,
-.wm-nav-pill.active svg {
+.wm-nav-pill.active svg,
+.pill-active span,
+.active-chip span {
   color: #ffffff !important;
 }
 
@@ -281,45 +311,112 @@ html.dark .wm-theme-pill-knob {
   color: #ffffff !important;
 }
 
+/* Header Notification Bell Button */
+#wishmagic-notification-bell-btn {
+  width: 36px !important;
+  height: 36px !important;
+  border-radius: 9999px !important;
+  background: var(--wm-card-alt-bg) !important;
+  border: 1.5px solid var(--wm-card-border) !important;
+  color: var(--wm-text-primary) !important;
+  display: inline-flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  padding: 0 !important;
+  box-shadow: 0 2px 8px rgba(98, 56, 178, 0.08) !important;
+}
+
+#wishmagic-notification-bell-btn:hover {
+  border-color: #ec4899 !important;
+  color: #ec4899 !important;
+}
+
 /* ==========================================================================
-   3. ADMIN STUDIO CARDS, CONTAINERS, MODALS & INPUTS ACROSS ALL PAGES
+   3. ADMIN STUDIO CARDS, CONTAINERS, PILLS & BUTTONS ACROSS ALL PAGES
    ========================================================================== */
 .wm-card,
 .glass-card,
 .glass-surface,
+.catalog-template-card,
+.template-card,
 .feature-card,
 .step-card,
 .pricing-card,
-.template-card,
 .faq-item,
 .testimonial-card {
   background: var(--wm-card-bg) !important;
   border: 1.5px solid var(--wm-card-border) !important;
   box-shadow: var(--wm-card-shadow) !important;
-  backdrop-filter: blur(14px) !important;
-  -webkit-backdrop-filter: blur(14px) !important;
+  backdrop-filter: blur(16px) !important;
+  -webkit-backdrop-filter: blur(16px) !important;
   color: var(--wm-text-primary) !important;
 }
 
-.glass-pill {
-  background: var(--wm-card-alt-bg) !important;
+.glass-pill,
+.occasion-chip:not(.active-chip),
+.feature-filter-btn:not(.active),
+.category-btn:not(.pill-active) {
+  background: var(--wm-card-bg) !important;
   border: 1.5px solid var(--wm-card-border) !important;
   color: var(--wm-text-primary) !important;
+  box-shadow: 0 4px 12px rgba(98, 56, 178, 0.05) !important;
+}
+
+.feature-filter-btn.active {
+  background: var(--wm-pill-grad) !important;
+  color: #ffffff !important;
+  border-color: transparent !important;
+  box-shadow: 0 6px 18px rgba(236, 72, 153, 0.32) !important;
+}
+
+/* Upgrade all Customize / Primary Action Buttons to Admin Studio Pink-Purple Gradient */
+.catalog-template-card a[href*="customize"],
+.template-card a[href*="customize"] {
+  background: var(--wm-pill-grad) !important;
+  color: #ffffff !important;
+  border-radius: 9999px !important;
+  box-shadow: 0 6px 18px rgba(236, 72, 153, 0.30) !important;
+}
+
+.catalog-template-card a[href*="customize"]:hover,
+.template-card a[href*="customize"]:hover {
+  filter: brightness(1.08);
 }
 
 /* ==========================================================================
    4. LIGHT MODE CONTRAST & SURFACE ENFORCEMENT (100% Text Visibility)
    ========================================================================== */
-/* Convert dark hardcoded page/card backgrounds to Admin Fairytale Light surfaces */
-html:not(.dark) body.bg-background,
-html:not(.dark) body.bg-\[\#0e041e\],
-html:not(.dark) body.bg-\[\#140628\],
-html:not(.dark) body.bg-\[\#150927\],
 html:not(.dark) main.bg-background {
   background-color: transparent !important;
+}
+
+html:not(.dark) .text-on-surface,
+html:not(.dark) main h1:not(.hero-text-crisp),
+html:not(.dark) main h2:not(.hero-text-crisp),
+html:not(.dark) main h3:not(.hero-text-crisp),
+html:not(.dark) main h4:not(.hero-text-crisp) {
   color: #1a0f30 !important;
 }
 
+html:not(.dark) .text-on-surface-variant,
+html:not(.dark) .text-outline,
+html:not(.dark) main p:not(.hero-subtext-crisp):not(.wm-phone-kicker):not(.wm-phone-quote) {
+  color: #533f78 !important;
+}
+
+/* Keep Phone Mockup Screen Texts White in Both Light & Dark Modes */
+#preview-screen-bg,
+#preview-screen-bg h4,
+#preview-screen-bg p,
+#preview-screen-bg span:not(.text-amber-950),
+.wm-phone-screen,
+.wm-phone-screen h4,
+.wm-phone-screen p,
+.wm-phone-screen span {
+  color: #ffffff !important;
+}
+
+/* Convert dark hardcoded containers on notifications.html, checkout.html, etc. in Light Mode */
 html:not(.dark) main [class*="bg-surface"],
 html:not(.dark) main [class*="bg-[#0e041e]"],
 html:not(.dark) main [class*="bg-[#140628]"],
@@ -329,66 +426,74 @@ html:not(.dark) main [class*="bg-[#1A0B2E]"],
 html:not(.dark) main [class*="bg-[#120722]"],
 html:not(.dark) main [class*="bg-purple-950"],
 html:not(.dark) main [class*="bg-slate-900"],
-html:not(.dark) main [class*="bg-slate-950"],
-html:not(.dark) footer[class*="bg-[#"] {
+html:not(.dark) main [class*="bg-slate-950"] {
   background-color: rgba(255, 255, 255, 0.95) !important;
+  background-image: none !important;
   border-color: #d6c8f2 !important;
   color: #1a0f30 !important;
   box-shadow: 0 10px 28px rgba(98, 56, 178, 0.07) !important;
 }
 
-/* Keep Hero Desktop Section & Live Preview Phone Frame properly styled */
-html:not(.dark) #hero-desktop-section {
-  border: 1.5px solid rgba(214, 200, 242, 0.7) !important;
-  box-shadow: 0 20px 50px rgba(98, 56, 178, 0.16) !important;
+/* Bespoke CTA Banner & Gradient Surface Containers in Light Mode */
+html:not(.dark) main [class*="from-surface-container"] {
+  background-image: linear-gradient(135deg, #ffffff 0%, #f5eeff 52%, #fdf2f8 100%) !important;
+  border: 1.5px solid #d6c8f2 !important;
+  color: #1a0f30 !important;
+  box-shadow: 0 16px 40px rgba(98, 56, 178, 0.10) !important;
 }
 
-html:not(.dark) #preview-viewport-shell {
-  background-color: #f3effa !important;
-}
-
-html:not(.dark) #preview-frame-container {
-  background-color: #1a0f30 !important;
-}
-
-/* Ensure all text inside Light Mode cards, sections, tables, and footers is crisp & visible */
-html:not(.dark) .text-on-surface,
-html:not(.dark) main h1:not(#hero-headline-text),
-html:not(.dark) main h2,
-html:not(.dark) main h3,
-html:not(.dark) main h4,
-html:not(.dark) footer h3,
-html:not(.dark) footer h4 {
+/* Footer in Light Mode: Fairytale Lavender-White Surface with Crisp Plum Text */
+html:not(.dark) footer {
+  background-color: #f7f3fe !important;
+  background-image: linear-gradient(180deg, rgba(248, 244, 255, 0.96) 0%, #ffffff 50%, #f3ecfd 100%) !important;
+  border-top: 1.5px solid #d6c8f2 !important;
   color: #1a0f30 !important;
 }
 
-html:not(.dark) .text-on-surface-variant,
-html:not(.dark) .text-outline,
-html:not(.dark) main p:not(#hero-subheadline-text),
-html:not(.dark) footer p,
-html:not(.dark) footer a:not(.bg-gradient-to-r) {
+html:not(.dark) footer h3,
+html:not(.dark) footer h4,
+html:not(.dark) footer p.font-bold,
+html:not(.dark) footer #footer-brand-name,
+html:not(.dark) footer #copyright-brand-name {
+  color: #1a0f30 !important;
+  -webkit-text-fill-color: #1a0f30 !important;
+}
+
+html:not(.dark) footer p:not(.font-bold),
+html:not(.dark) footer li,
+html:not(.dark) footer a:not(.bg-gradient-to-r),
+html:not(.dark) footer span:not(#footer-brand-name):not(#copyright-brand-name) {
   color: #533f78 !important;
 }
 
-/* Override light-colored text classes when used on light cards outside the hero banner */
-html:not(.dark) main :not(#hero-desktop-section) .text-purple-100,
-html:not(.dark) main :not(#hero-desktop-section) .text-purple-200,
-html:not(.dark) main :not(#hero-desktop-section) .text-purple-300,
-html:not(.dark) main :not(#hero-desktop-section) .text-slate-100,
-html:not(.dark) main :not(#hero-desktop-section) .text-slate-200,
-html:not(.dark) main :not(#hero-desktop-section) .text-slate-300,
-html:not(.dark) main :not(#hero-desktop-section) .text-slate-400,
-html:not(.dark) main :not(#hero-desktop-section) .text-gray-200,
-html:not(.dark) main :not(#hero-desktop-section) .text-gray-300 {
+html:not(.dark) footer a.bg-white\/5,
+html:not(.dark) footer div.bg-white\/5 {
+  background-color: #ffffff !important;
+  border-color: #d6c8f2 !important;
+  box-shadow: 0 6px 18px rgba(98, 56, 178, 0.06) !important;
+}
+
+/* Override light-only text utilities outside Hero and Phone preview in Light Mode */
+html:not(.dark) main :not(#hero-desktop-section):not(#preview-screen-bg):not(.wm-phone-screen) > .text-white:not(button):not(a):not(.badge):not([class*="bg-"]),
+html:not(.dark) main :not(#hero-desktop-section):not(#preview-screen-bg):not(.wm-phone-screen) .text-slate-100,
+html:not(.dark) main :not(#hero-desktop-section):not(#preview-screen-bg):not(.wm-phone-screen) .text-slate-200,
+html:not(.dark) main :not(#hero-desktop-section):not(#preview-screen-bg):not(.wm-phone-screen) .text-slate-300,
+html:not(.dark) main :not(#hero-desktop-section):not(#preview-screen-bg):not(.wm-phone-screen) .text-slate-400 {
   color: #4a3570 !important;
 }
 
-/* Form inputs, selects, textareas in Light Mode */
-html:not(.dark) input:not([type="checkbox"]):not([type="radio"]):not([type="range"]):not([type="color"]),
-html:not(.dark) select,
+/* Inputs, Selects & Textareas in Light Mode */
+html:not(.dark) input:not([type="checkbox"]):not([type="radio"]):not([type="range"]):not([type="color"]):not(#template-search-input):not(#modal-public-url-input),
+html:not(.dark) select:not(#catalog-sort),
 html:not(.dark) textarea {
   background-color: #faf7ff !important;
   border-color: #cfc0ee !important;
+  color: #1a0f30 !important;
+}
+
+html:not(.dark) #template-search-input,
+html:not(.dark) #catalog-sort {
+  background-color: transparent !important;
   color: #1a0f30 !important;
 }
 
@@ -400,18 +505,33 @@ html:not(.dark) textarea::placeholder {
 /* ==========================================================================
    5. DARK MODE CONTRAST & SURFACE ENFORCEMENT (100% Text Visibility)
    ========================================================================== */
-html.dark .glass-card,
-html.dark .glass-surface,
-html.dark .wm-card,
-html.dark [id*="modal"].fixed > div:not(#preview-viewport-shell) {
-  background-color: rgba(31, 18, 62, 0.95) !important;
-  border-color: rgba(147, 102, 245, 0.36) !important;
+html.dark main.bg-background {
+  background-color: transparent !important;
+}
+
+html.dark .text-on-surface,
+html.dark main h1,
+html.dark main h2,
+html.dark main h3,
+html.dark main h4 {
   color: #f7f4ff !important;
 }
 
-/* Fix hardcoded white/light cards and text inside Dark Mode */
-html.dark main [class*="bg-white"]:not(.rounded-full):not(iframe),
-html.dark [id*="modal"] [class*="bg-white"]:not(.rounded-full):not(iframe) {
+html.dark .text-on-surface-variant,
+html.dark .text-outline,
+html.dark main p:not(.wm-phone-kicker) {
+  color: #cfc2eb !important;
+}
+
+/* Bespoke CTA Banner & Gradient Surface Containers in Dark Mode */
+html.dark main [class*="from-surface-container"] {
+  background-image: linear-gradient(135deg, #25134d 0%, #1a0c38 55%, #2b0f42 100%) !important;
+  border: 1.5px solid rgba(168, 85, 247, 0.38) !important;
+  color: #f7f4ff !important;
+  box-shadow: 0 20px 50px rgba(0, 0, 0, 0.60) !important;
+}
+
+html.dark main [class*="bg-white"]:not(.rounded-full):not(iframe):not(.w-7) {
   background-color: #1f123e !important;
   border-color: rgba(147, 102, 245, 0.36) !important;
   color: #f7f4ff !important;
@@ -445,11 +565,17 @@ html.dark [id*="modal"] label {
   color: #cfc2eb !important;
 }
 
-html.dark input:not([type="checkbox"]):not([type="radio"]):not([type="range"]):not([type="color"]),
-html.dark select,
+html.dark input:not([type="checkbox"]):not([type="radio"]):not([type="range"]):not([type="color"]):not(#template-search-input):not(#modal-public-url-input),
+html.dark select:not(#catalog-sort),
 html.dark textarea {
   background-color: #170d30 !important;
   border-color: rgba(147, 102, 245, 0.38) !important;
+  color: #ffffff !important;
+}
+
+html.dark #template-search-input,
+html.dark #catalog-sort {
+  background-color: transparent !important;
   color: #ffffff !important;
 }
 
@@ -458,7 +584,7 @@ html.dark textarea::placeholder {
   color: #9a89be !important;
 }
 
-/* Ensure all modals on the Main Website sit above headers and sidebars */
+/* Modals & Dropdowns Z-Index */
 .fixed.inset-0 {
   z-index: 120 !important;
 }

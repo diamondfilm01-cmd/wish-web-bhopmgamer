@@ -5,27 +5,27 @@
 <base href="/"/>
 <meta content="width=device-width, initial-scale=1.0" name="viewport"/>
 <title>WishMagic | Gift a Magical Web-Experience!</title>
-<script src="/js/site-theme.js?v=20261014_v5"></script>
-<link rel="stylesheet" href="/css/cloud-background.css?v=20261014_v5" />
+<script src="/js/site-theme.js?v=20261014_v6"></script>
 <script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
 <link href="https://fonts.googleapis.com" rel="preconnect"/>
 <link crossorigin="" href="https://fonts.gstatic.com" rel="preconnect"/>
 <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@400;500;600;700;800;900&amp;family=Plus+Jakarta+Sans:wght@400;500;600;700;800&amp;family=Playfair+Display:ital,wght@1,600&amp;display=swap" rel="stylesheet"/>
 <link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
-<script src="js/tailwind-config.js"></script>
+<script src="/js/tailwind-config.js?v=20261014_v6"></script>
+<script>if (typeof tailwind !== "undefined" && typeof sharedTailwindConfig !== "undefined") { tailwind.config = sharedTailwindConfig; }</script>
 <script src="js/WishMagicCore.js"></script>
 <!-- Part 11 & Part 12: Monetization & Section Content Engine -->
 <!-- Firebase Official SDK (Compat) -->
 <script src="https://www.gstatic.com/firebasejs/10.8.0/firebase-app-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.8.0/firebase-auth-compat.js"></script>
 <script src="/js/api-client.js"></script>
-<script src="/js/firebase-auth.js?v=20261014_v5"></script>
-<script src="/js/auth-service.js?v=20261014_v5"></script>
+<script src="/js/firebase-auth.js?v=20261014_v6"></script>
+<script src="/js/auth-service.js?v=20261014_v6"></script>
 <script src="js/plan-service.js"></script>
 <script src="js/entitlement-service.js"></script>
 <script src="js/feature-access-service.js"></script>
 <script src="js/payment-service.js"></script>
-<script src="/js/premium-lock-modal.js?v=20261014_v5"></script>
+<script src="/js/premium-lock-modal.js?v=20261014_v6"></script>
 <script src="js/template-section-system.js"></script>
 <script src="/js/search-manager.js"></script>
 <style>
@@ -159,6 +159,7 @@
   <script src="js/repositories.js"></script>
   <script src="js/notification-service.js"></script>
   <script src="js/security-hardening.js"></script>
+  <link id="wishmagic-cloud-css" rel="stylesheet" href="/css/cloud-background.css?v=20261014_v6"/>
 </head>
 <body class="w-full min-h-screen font-sans antialiased selection:bg-pink-500 selection:text-white">
 <!-- Header -->
@@ -655,7 +656,7 @@
 
           <!-- Bottom Action Buttons: Customize & Bookmark (Matching reference screenshot) -->
           <div class="flex items-center gap-2.5 mt-auto pt-1">
-            <a href="/customize.html?template=${t.id}" class="flex-1 py-2.5 sm:py-3 px-4 rounded-xl bg-[#6c5ce7] hover:bg-[#5b4cdb] text-white text-sm sm:text-base font-bold shadow-md shadow-purple-500/25 active:scale-95 transition-all text-center flex items-center justify-center gap-2">
+            <a href="/customize.html?template=${t.id}" class="flex-1 py-2.5 sm:py-3 px-4 rounded-full bg-gradient-to-r from-[#ff2a85] via-[#ec4899] to-[#a855f7] hover:brightness-110 text-white text-sm sm:text-base font-bold shadow-md shadow-purple-500/25 active:scale-95 transition-all text-center flex items-center justify-center gap-2">
               <span>Customize</span>
               <span>✨</span>
             </a>
@@ -1616,7 +1617,7 @@
                   const btn = document.createElement('button');
                   btn.className = "occasion-chip flex-shrink-0 px-4 py-2 rounded-xl bg-surface-container text-on-surface hover:bg-surface-bright font-headline-sm text-body-sm flex items-center gap-1.5 transition";
                   btn.onclick = function() { selectOccasion(cat.name, this); };
-                  btn.innerHTML = `<span>${cat.icon || '✨'}</span><span>${cat.name}</span>`;
+                  const isMatIcon = /^[a-z0-9_]+$/i.test((cat.icon || '').trim()); btn.innerHTML = `<span class="${isMatIcon ? 'material-symbols-outlined text-[16px]' : ''}">${cat.icon || '✨'}</span><span>${cat.name}</span>`;
                   catContainer.appendChild(btn);
                 });
               }
@@ -1693,7 +1694,7 @@
               </div>
             </div>
             <div class="flex items-center gap-2 mt-auto">
-              <a href="/customize.html?template=${tpl.id}" onclick="return handleMarketplaceTemplateCardClick(event, '${tpl.id}')" class="flex-1 py-2 px-3 rounded-xl bg-[#6c5ce7] hover:bg-[#5b4cdb] text-white text-xs sm:text-sm font-bold shadow-md shadow-purple-500/20 active:scale-95 transition-all text-center flex items-center justify-center gap-1.5">
+              <a href="/customize.html?template=${tpl.id}" onclick="return handleMarketplaceTemplateCardClick(event, '${tpl.id}')" class="flex-1 py-2 px-3 rounded-full bg-gradient-to-r from-[#ff2a85] via-[#ec4899] to-[#a855f7] hover:brightness-110 text-white text-xs sm:text-sm font-bold shadow-md shadow-purple-500/20 active:scale-95 transition-all text-center flex items-center justify-center gap-1.5">
                 <span>Customize</span>
                 <span>✨</span>
               </a>
