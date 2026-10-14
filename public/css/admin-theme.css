@@ -58,10 +58,12 @@ body {
   transition: background-color 0.2s ease, color 0.2s ease;
 }
 
-html.dark body {
+html.dark body,
+body.dark,
+[data-theme="dark"] body {
   background-image: 
     linear-gradient(to bottom, rgba(13, 7, 26, 0.88) 0%, rgba(13, 7, 26, 0.93) 100%),
-    url('/assets/cb.png?v=2') !important;
+    url('/assets/cbd.png?v=2') !important;
 }
 
 /* Strict Isolation: Never render consumer notification elements in Admin Studio */

@@ -1,6 +1,6 @@
 {
   "heroBadge": "Make Every Moment Magical ✨",
-  "heroHeadline": "Gift a Magical <span class=\"bg-gradient-to-r from-[#F472B6] via-[#EC4899] to-[#F4C542] bg-clip-text text-transparent drop-shadow-[0_2px_15px_rgba(236,72,153,0.4)]\">Web Experience</span>",
+  "heroHeadline": "Gift a Magical <span class=\"hero-gradient-text\">Web Experience</span>",
   "heroSubheadline": "Create beautiful personalized digital wishes that feel like a real experience — interactive 3D unboxing, customized music & unforgettable celebration magic.",
   "heroGiftIcon": "🎁",
   "heroBgMode": "image",

@@ -25,14 +25,31 @@
     });
   }
 
+  function updateBodyBackground(isDark) {
+    if (typeof document === 'undefined' || !document.body) return;
+    // Cloud background is powered exclusively by /css/cloud-background.css (no cb.png or cbd.png)
+    document.body.style.backgroundImage = 'none';
+    document.body.style.backgroundColor = 'transparent';
+  }
+
   function applyTheme(targetTheme) {
     const isDark = targetTheme === 'dark';
     if (isDark) {
       document.documentElement.classList.add('dark');
       document.documentElement.setAttribute('data-theme', 'dark');
+      if (document.body) {
+        document.body.classList.add('dark');
+      }
     } else {
       document.documentElement.classList.remove('dark');
       document.documentElement.setAttribute('data-theme', 'light');
+      if (document.body) {
+        document.body.classList.remove('dark');
+      }
+    }
+    updateBodyBackground(isDark);
+    if (typeof window !== 'undefined' && typeof window.updateHeroVisualsForTheme === 'function') {
+      window.updateHeroVisualsForTheme();
     }
     const userSetting = localStorage.getItem('wishmagic_theme') || 'auto';
     updateThemeUI(isDark, userSetting);
@@ -109,7 +126,7 @@
     }
   }
 
-  // 4. Universal Dreamy Background Engine for full website: Directly display cb.png
+  // 4. Universal Dreamy Background Engine for full website: Powered exclusively by cloud-background.css
   function ensureCloudyBackground() {
     if (typeof document === 'undefined') return;
 
@@ -118,17 +135,21 @@
       const link = document.createElement('link');
       link.id = 'wishmagic-cloud-css';
       link.rel = 'stylesheet';
-      link.href = '/css/cloud-background.css?v=2';
+      link.href = '/css/cloud-background.css';
       document.head.appendChild(link);
     }
 
     if (document.body) {
-      // Force cb.png on body style directly with cache-bust
-      document.body.style.backgroundImage = "url('/assets/cb.png?v=2')";
-      document.body.style.backgroundSize = "cover";
-      document.body.style.backgroundPosition = "center top";
-      document.body.style.backgroundAttachment = "fixed";
-      document.body.style.backgroundRepeat = "no-repeat";
+      const isDark = document.documentElement.classList.contains('dark') || document.documentElement.getAttribute('data-theme') === 'dark';
+      updateBodyBackground(isDark);
+
+      // Ensure dedicated cloudy-background-stage div exists for cloud-background.css
+      if (!document.querySelector('.cloudy-background-stage')) {
+        const stage = document.createElement('div');
+        stage.className = 'cloudy-background-stage';
+        stage.setAttribute('aria-hidden', 'true');
+        document.body.insertBefore(stage, document.body.firstChild);
+      }
 
       const oldLayer = document.querySelector('.bg-ambient-layer');
       if (oldLayer) {

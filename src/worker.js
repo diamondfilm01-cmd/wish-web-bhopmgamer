@@ -3435,7 +3435,7 @@ function buildPublishedWishRenderModel(snapshotRecord, lifecycleState = 'active'
 
 const DEFAULT_SITE_SETTINGS = {
   heroBadge: 'Make Every Moment Magical ✨',
-  heroHeadline: 'Gift a <span class="bg-gradient-to-r from-[#F472B6] via-[#EC4899] to-[#F4C542] bg-clip-text text-transparent">Magical</span> Web-Experience!',
+  heroHeadline: 'Gift a <span class="bg-gradient-to-r from-[#7c3aed] via-[#EC4899] to-[#f59e0b] dark:from-[#F472B6] dark:via-[#EC4899] dark:to-[#F4C542] bg-clip-text text-transparent">Magical</span> Web-Experience!',
   heroSubheadline: 'Create beautiful personalized digital wishes that feel like a real experience — interactive 3D unboxing, customized music & unforgettable celebration magic.',
   heroGiftIcon: '🎁',
   heroBgMode: 'image',
