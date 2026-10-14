@@ -17,10 +17,14 @@
 <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@400;500;600;700;800;900&amp;family=Plus+Jakarta+Sans:wght@400;500;600;700;800&amp;family=Playfair+Display:ital,wght@1,600&amp;display=swap" rel="stylesheet"/>
 <!-- Google Material Symbols Icons -->
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:opsz,wght,FILL,GRAD@20..48,100..700,0..1,-50..200" />
+<!-- Dreamy Pastel Cloudy Background Stylesheet (Matching reference photo) -->
+<link rel="stylesheet" href="/css/cloud-background.css" />
 <!-- Firebase Official SDK (Compat for universal browser support) -->
 <script src="https://www.gstatic.com/firebasejs/10.8.0/firebase-app-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.8.0/firebase-auth-compat.js"></script>
 <script src="/js/site-theme.js"></script>
+<!-- Canvas Confetti for Interactive Celebrations -->
+<script src="https://cdn.jsdelivr.net/npm/canvas-confetti@1.9.3/dist/confetti.browser.min.js"></script>
 <!-- WishMagic Core, Auth, Repositories & Section System Layer -->
 <script src="/js/WishMagicCore.js"></script>
 <script src="/js/api-client.js"></script>
@@ -129,12 +133,11 @@
 
     body {
       background-color: var(--bg-body);
-      background-image: 
-        radial-gradient(at 10% 8%, rgba(233, 213, 255, 0.75) 0px, transparent 45%),
-        radial-gradient(at 90% 12%, rgba(251, 207, 232, 0.6) 0px, transparent 50%),
-        radial-gradient(at 50% 45%, rgba(243, 232, 255, 0.8) 0px, transparent 65%),
-        radial-gradient(at 85% 75%, rgba(230, 205, 254, 0.5) 0px, transparent 55%),
-        radial-gradient(at 15% 90%, rgba(254, 215, 240, 0.5) 0px, transparent 50%);
+      background-image: url('/assets/cb.png?v=2');
+      background-size: cover;
+      background-position: center top;
+      background-repeat: no-repeat;
+      background-attachment: fixed;
       min-height: 100vh;
       overflow-x: hidden;
       color: var(--text-main);
@@ -142,42 +145,62 @@
     }
 
     html.dark body {
-      background-image: 
-        radial-gradient(at 10% 8%, rgba(147, 51, 234, 0.22) 0px, transparent 50%),
-        radial-gradient(at 90% 12%, rgba(236, 72, 153, 0.18) 0px, transparent 50%),
-        radial-gradient(at 50% 45%, rgba(88, 28, 135, 0.25) 0px, transparent 65%),
-        radial-gradient(at 85% 75%, rgba(126, 34, 206, 0.18) 0px, transparent 55%),
-        radial-gradient(at 15% 90%, rgba(157, 23, 77, 0.18) 0px, transparent 50%);
+      background-color: #0c051a;
+      background-image: url('/assets/cb.png?v=2');
+      background-size: cover;
+      background-position: center top;
+      background-repeat: no-repeat;
+      background-attachment: fixed;
     }
 
-    /* Ambient cloud shapes */
+    /* Ambient cloud shapes and castle skyline layer */
     .bg-ambient-layer {
       position: fixed;
       inset: 0;
       pointer-events: none;
       z-index: 0;
       overflow: hidden;
-      opacity: 0.6;
+      opacity: 0.75;
     }
 
     .ambient-cloud {
       position: absolute;
       fill: #ffffff;
-      filter: blur(50px);
-      opacity: 0.7;
+      filter: blur(55px);
+      opacity: 0.75;
+      animation: floatClouds 18s ease-in-out infinite alternate;
     }
     html.dark .ambient-cloud {
-      opacity: 0.2;
+      opacity: 0.32;
     }
 
-    /* Reference Glass Shell */
+    @keyframes floatClouds {
+      0% { transform: translateY(0px) translateX(0px); }
+      50% { transform: translateY(-15px) translateX(12px); }
+      100% { transform: translateY(0px) translateX(0px); }
+    }
+
+    /* Reference Glass Shell & Dreamy Cloud Castle Panels */
     .glass-card {
       background: var(--card-bg);
-      backdrop-filter: blur(20px);
-      -webkit-backdrop-filter: blur(20px);
+      backdrop-filter: blur(24px);
+      -webkit-backdrop-filter: blur(24px);
       border: 1px solid var(--card-border);
-      box-shadow: 0 16px 40px -10px rgba(107, 33, 168, 0.08);
+      box-shadow: 0 16px 40px -10px rgba(107, 33, 168, 0.12), inset 0 1px 1px 0 rgba(255, 255, 255, 0.45);
       transition: background 0.3s ease, border-color 0.3s ease, box-shadow 0.3s ease;
+    }
+
+    .glass-castle-panel {
+      background: linear-gradient(135deg, rgba(255, 255, 255, 0.22) 0%, rgba(255, 255, 255, 0.08) 100%);
+      backdrop-filter: blur(28px);
+      -webkit-backdrop-filter: blur(28px);
+      border: 1px solid rgba(255, 255, 255, 0.4);
+      box-shadow: 0 25px 50px -12px rgba(147, 51, 234, 0.25), 0 0 25px rgba(236, 72, 153, 0.2), inset 0 1px 2px 0 rgba(255, 255, 255, 0.6);
+    }
+    html.dark .glass-castle-panel {
+      background: linear-gradient(135deg, rgba(30, 10, 56, 0.8) 0%, rgba(15, 5, 30, 0.9) 100%);
+      border: 1px solid rgba(192, 132, 252, 0.35);
+      box-shadow: 0 25px 60px -10px rgba(0, 0, 0, 0.7), 0 0 30px rgba(236, 72, 153, 0.25), inset 0 1px 1px 0 rgba(255, 255, 255, 0.25);
     }
 
     .glass-nav {
@@ -228,10 +251,28 @@
       border-color: rgba(255, 255, 255, 0.35) !important;
     }
 
-    /* 3D Hero Gradient & Lighting */
+    /* Hero Desktop Canvas: Dynamic Clean Photo OR Pure Gradient */
     .hero-desktop-canvas {
-      background: radial-gradient(circle at 75% 25%, #9d174d 0%, #6d28d9 28%, #4c1d95 62%, #2e0854 100%);
-      box-shadow: 0 30px 80px -15px rgba(46, 8, 84, 0.45), 0 0 0 1px rgba(255, 255, 255, 0.2) inset;
+      background: url('/assets/file_ab2082.png') center / cover no-repeat;
+      background-size: cover;
+      background-position: center;
+      background-repeat: no-repeat;
+      box-shadow: 0 30px 80px -15px rgba(46, 8, 84, 0.45), 0 0 0 1px rgba(255, 255, 255, 0.25) inset;
+    }
+
+    /* Hero Text High-Contrast Readability Guarantee (Words never mix into background) */
+    .hero-text-crisp {
+      text-shadow: 0 2px 14px rgba(10, 3, 22, 0.95), 0 4px 26px rgba(10, 3, 22, 0.85);
+    }
+    .hero-subtext-crisp {
+      text-shadow: 0 1px 8px rgba(10, 3, 22, 0.95), 0 2px 16px rgba(10, 3, 22, 0.85);
+    }
+
+    /* Hero layout: clean responsive flow */
+    #hero-content-grid {
+      display: flex !important;
+      flex-direction: column !important;
+      justify-content: center !important;
     }
 
     /* Shimmering magical sparkles */
@@ -276,12 +317,7 @@
   <script src="js/site-tracker.js"></script>
 </head>
 <body class="w-full min-h-screen font-sans antialiased selection:bg-pink-500 selection:text-white">
-<!-- Ambient Cloud Decorative Background Layers -->
-<div class="bg-ambient-layer">
-<div class="ambient-cloud w-[750px] h-[400px] -top-20 -left-20 bg-purple-200/50 dark:bg-purple-900/30 rounded-full"></div>
-<div class="ambient-cloud w-[850px] h-[450px] top-1/4 -right-48 bg-pink-200/50 dark:bg-pink-900/30 rounded-full"></div>
-<div class="ambient-cloud w-[950px] h-[500px] bottom-10 left-1/4 bg-indigo-200/40 dark:bg-indigo-950/40 rounded-full"></div>
-</div>
+
 <div class="relative z-10 flex flex-col min-h-screen w-full">
 <!-- BEGIN: FloatingGlassNavbar -->
 <header class="sticky top-2 sm:top-5 z-50 px-2.5 sm:px-6 md:px-8 max-w-7xl mx-auto w-full transition-all duration-300" data-purpose="site-navigation">
@@ -381,514 +417,465 @@
 <div class="w-60 h-20 bg-white/40 rounded-full blur-xl transform translate-x-12"></div>
 </div>
 </div>
-<!-- 2-COLUMN EXPANSIVE DESKTOP HERO -->
-<div class="relative z-10 grid grid-cols-1 lg:grid-cols-12 gap-6 lg:gap-8 items-center w-full">
-<!-- Left Column: 60% Content -->
-<div class="lg:col-span-7 space-y-3.5 sm:space-y-4">
+<!-- Text Contrast & Readability Scrim (Used in Photo Mode so words never mix into photo) -->
+<div id="hero-image-scrim" class="absolute inset-0 pointer-events-none transition-opacity duration-500 z-[1] bg-gradient-to-r from-[#0c041a]/95 via-[#0c041a]/75 to-[#0c041a]/25 md:to-transparent"></div>
+
+<!-- EXPANSIVE HERO CONTENT (Clean, high-contrast, box removed from photo) -->
+<div id="hero-content-grid" class="relative z-10 w-full max-w-4xl space-y-4 sm:space-y-6 py-6 sm:py-10 md:py-14">
 <!-- Glowing pill badge -->
-<div class="inline-flex items-center gap-2 px-3.5 py-1 rounded-full bg-white/10 backdrop-blur-md border border-white/25 text-xs font-bold tracking-wider text-pink-200 shadow-inner">
-<span id="hero-badge-text" class="tracking-widest uppercase text-[11px]">Make Every Moment Unforgettable</span>
-<span class="text-amber-300 text-xs">✨</span>
+<div class="inline-flex items-center gap-2 px-4 py-1.5 rounded-full bg-black/50 backdrop-blur-md border border-white/25 text-xs font-bold tracking-wider text-pink-200 shadow-md">
+  <span id="hero-badge-text" class="tracking-widest uppercase text-[11px] sm:text-xs drop-shadow-sm">Make Every Moment Unforgettable</span>
+  <span class="text-amber-300 text-xs">✨</span>
 </div>
-<!-- Main Display Headline -->
+<!-- Main Display Headline (Words never mix into background) -->
 <div>
-<h1 id="hero-headline" class="font-display text-2xl sm:text-3xl lg:text-4xl xl:text-5xl font-extrabold tracking-tight leading-tight text-white">
-  Create a Beautiful <span class="bg-gradient-to-r from-[#F472B6] via-[#EC4899] to-[#F4C542] bg-clip-text text-transparent drop-shadow-[0_2px_15px_rgba(236,72,153,0.4)]">Wish Website</span><br class="hidden sm:inline"/> for Someone Special
-</h1>
+  <h1 id="hero-headline" class="font-display text-3xl sm:text-4xl lg:text-5xl xl:text-6xl font-extrabold tracking-tight leading-tight text-white uppercase hero-text-crisp max-w-3xl">
+    Gift a Magical <span class="bg-gradient-to-r from-[#F472B6] via-[#EC4899] to-[#F4C542] bg-clip-text text-transparent drop-shadow-[0_2px_16px_rgba(236,72,153,0.6)] filter">Web Experience</span>
+  </h1>
 </div>
-<!-- Subheadline -->
-<p id="hero-subheadline" class="text-xs sm:text-sm md:text-base text-purple-100/90 max-w-lg leading-relaxed font-normal">
+<!-- Subheadline (Words never mix into background) -->
+<p id="hero-subheadline" class="text-sm sm:text-base md:text-lg text-purple-100 max-w-2xl leading-relaxed font-medium hero-subtext-crisp">
   Personalize an interactive celebration web-experience in seconds — complete with 3D unboxing, customized music, photo memories, and instant magic.
 </p>
 <!-- CTA Row -->
-<div class="flex flex-wrap items-center gap-3 pt-1">
-<a href="/create.html" class="px-6 py-2.5 sm:py-3 rounded-full bg-gradient-to-r from-[#EC4899] via-pink-600 to-[#7C3AED] text-white text-xs sm:text-sm font-bold shadow-lg shadow-pink-500/30 hover:scale-105 active:scale-95 transition-transform flex items-center gap-2 group">
-  <span id="hero-cta1-text">Create a Wish</span>
-  <span class="group-hover:rotate-45 transition-transform duration-300">✨</span>
-</a>
-<button class="px-6 py-2.5 sm:py-3 rounded-full backdrop-blur-md bg-white/15 border border-white/30 text-white text-xs sm:text-sm font-bold hover:bg-white/25 transition-all active:scale-95 flex items-center gap-1.5" onclick="document.getElementById('templates-section').scrollIntoView({ behavior: 'smooth' })">
-  <span id="hero-cta2-text">Explore Templates</span>
-  <span class="text-xs opacity-75">↓</span>
-</button>
+<div class="flex flex-wrap items-center gap-3.5 pt-2">
+  <a href="/create.html" class="px-7 py-3 sm:py-3.5 rounded-full bg-gradient-to-r from-[#EC4899] via-pink-600 to-[#7C3AED] text-white text-xs sm:text-sm font-bold shadow-lg shadow-pink-500/30 hover:scale-105 active:scale-95 transition-transform flex items-center gap-2 group">
+    <span id="hero-cta1-text">Create a Wish</span>
+    <span class="group-hover:rotate-45 transition-transform duration-300">✨</span>
+  </a>
+  <button class="px-7 py-3 sm:py-3.5 rounded-full backdrop-blur-md bg-black/40 hover:bg-black/60 border border-white/30 text-white text-xs sm:text-sm font-bold transition-all active:scale-95 flex items-center gap-1.5 shadow-md" onclick="document.getElementById('templates-section').scrollIntoView({ behavior: 'smooth' })">
+    <span id="hero-cta2-text">Explore Templates</span>
+    <span class="text-xs opacity-75">↓</span>
+  </button>
 </div>
 <!-- Trust Badges Row -->
-<div class="pt-3 border-t border-white/15 flex flex-wrap items-center gap-3 sm:gap-5 text-[11px] sm:text-xs font-semibold text-purple-200">
-<div class="flex items-center gap-1.5">
-<span class="w-5 h-5 rounded-full bg-amber-400/20 text-amber-300 flex items-center justify-center font-bold text-[10px]">⚡</span>
-<span>Instant Delivery</span>
+<div class="pt-4 border-t border-white/20 flex flex-wrap items-center gap-4 sm:gap-6 text-xs sm:text-sm font-semibold text-purple-100">
+  <div class="flex items-center gap-1.5 hero-subtext-crisp">
+    <span class="w-5 h-5 rounded-full bg-amber-400/30 text-amber-300 flex items-center justify-center font-bold text-[10px] shadow-sm">⚡</span>
+    <span>Instant Delivery</span>
+  </div>
+  <div class="flex items-center gap-1.5 hero-subtext-crisp">
+    <span class="w-5 h-5 rounded-full bg-pink-400/30 text-pink-300 flex items-center justify-center font-bold text-[10px] shadow-sm">🎨</span>
+    <span>Easy to Customize</span>
+  </div>
+  <div class="flex items-center gap-1.5 hero-subtext-crisp">
+    <span class="w-5 h-5 rounded-full bg-purple-400/30 text-purple-200 flex items-center justify-center font-bold text-[10px] shadow-sm">💖</span>
+    <span>Loved by Everyone</span>
+  </div>
+  <div class="flex items-center gap-1.5 hero-subtext-crisp">
+    <span class="w-5 h-5 rounded-full bg-emerald-400/30 text-emerald-300 flex items-center justify-center font-bold text-[10px] shadow-sm">📱</span>
+    <span>100% Mobile Ready</span>
+  </div>
 </div>
-<div class="flex items-center gap-1.5">
-<span class="w-5 h-5 rounded-full bg-pink-400/20 text-pink-300 flex items-center justify-center font-bold text-[10px]">🎨</span>
-<span>Easy to Customize</span>
 </div>
-<div class="flex items-center gap-1.5">
-<span class="w-5 h-5 rounded-full bg-purple-400/20 text-purple-200 flex items-center justify-center font-bold text-[10px]">💖</span>
-<span>Loved by Everyone</span>
-</div>
-<div class="flex items-center gap-1.5">
-<span class="w-5 h-5 rounded-full bg-emerald-400/20 text-emerald-300 flex items-center justify-center font-bold text-[10px]">📱</span>
-<span>100% Mobile Ready</span>
-</div>
-</div>
-</div>
-<!-- Right Column: 40% Visual Composition -->
-<div class="lg:col-span-5 relative flex justify-center items-center py-2">
-<!-- Ambient Radiance Background -->
-<div class="absolute w-48 h-48 rounded-full bg-pink-500/25 blur-2xl -z-10 animate-pulse-glow"></div>
-<!-- Visual 3D Showcase Canvas -->
-<div class="relative w-full max-w-xs h-52 sm:h-56 flex items-center justify-center">
-<!-- Floating Balloons & Elements -->
-<div class="absolute top-0 left-4 animate-float-slow text-2xl filter drop-shadow-[0_8px_12px_rgba(0,0,0,0.3)]">
-  🎈
-</div>
-<div class="absolute top-2 right-6 animate-float-delayed text-2xl filter drop-shadow-[0_8px_12px_rgba(0,0,0,0.3)]">
-  💖
-</div>
-<div class="absolute bottom-4 right-2 animate-float-slow text-xl filter drop-shadow-[0_6px_10px_rgba(0,0,0,0.25)]">
-  ✨
-</div>
-<div class="absolute bottom-2 left-6 animate-float-delayed text-xl">
-  🎵
-</div>
-<!-- Floating Note Card: Spread Joy Create Magic -->
-<div class="absolute top-3 right-0 rotate-12 bg-white/95 text-purple-900 rounded-xl px-2.5 py-1.5 shadow-xl border border-white/80 animate-float-delayed text-center z-20">
-<span class="block text-[9px] font-extrabold uppercase tracking-wider text-purple-600">Spread Joy</span>
-<span class="font-serifAccent text-xs font-bold italic text-pink-600 leading-tight">Create Magic</span>
-</div>
-<!-- 3D Gift Box & Hero Showcase Centerpiece (Controlled by Admin) -->
-<div class="relative w-44 h-44 sm:w-52 sm:h-52 flex items-center justify-center">
-<!-- Glowing Golden Light Rays Bursting Upward -->
-<div class="absolute -top-8 inset-x-2 h-36 bg-gradient-to-t from-amber-400/30 via-yellow-200/20 to-transparent rounded-full filter blur-lg transform scale-110"></div>
-<!-- Main Showcase Box with Admin Configured Photo -->
-<div id="hero-photo-container" class="relative z-10 w-40 h-40 sm:w-48 sm:h-48 rounded-2xl overflow-hidden p-1 bg-gradient-to-tr from-pink-500 via-purple-700 to-amber-400 shadow-[0_0_40px_rgba(236,72,153,0.4)] flex flex-col items-center justify-center text-center transform hover:rotate-1 hover:scale-105 transition duration-500">
-  <img id="hero-showcase-image" src="/assets/file_ab2082.png" alt="Celebration Experience Artwork" class="w-full h-full object-cover rounded-xl" onerror="this.onerror=null;this.src='/assets/file_ab2082.png';"/>
-  <!-- Floating Bottom Glass Pill -->
-  <div class="absolute bottom-2 inset-x-2 py-1 px-2 rounded-lg bg-black/65 backdrop-blur-md border border-white/20 flex items-center justify-between text-[10px] text-white">
-    <div class="flex items-center gap-1.5 font-bold">
-      <span class="w-2 h-2 rounded-full bg-pink-400 animate-pulse"></span>
-      <span id="hero-gift-icon-display" class="text-sm">🎁</span>
-      <span class="text-[9px] uppercase tracking-wider text-pink-200 font-extrabold">Surprise Inside</span>
+</section>
+<!-- END: HeroSection -->
+
+<!-- BEGIN: CategoryNavigationBar & Templates Marketplace -->
+<section class="py-8 sm:py-12 px-4 sm:px-6 md:px-12 max-w-7xl mx-auto w-full" id="templates-section" data-purpose="templates-marketplace">
+  <!-- Section Header -->
+  <div class="flex flex-col md:flex-row md:items-end justify-between gap-4 mb-8">
+    <div>
+      <div class="inline-flex items-center gap-2 px-3.5 py-1 rounded-full bg-purple-100/90 dark:bg-purple-900/60 text-[#7c3aed] dark:text-purple-300 text-xs font-bold uppercase tracking-wider mb-2 border border-purple-200/50">
+        <span>✨ Handcrafted 3D Experiences</span>
+      </div>
+      <h2 class="font-display text-2xl sm:text-3xl md:text-4xl font-black text-[#1c0836] dark:text-white tracking-tight">
+        Explore <span class="bg-gradient-to-r from-[#7c3aed] via-[#ec4899] to-[#7c3aed] bg-clip-text text-transparent">Popular Templates</span>
+      </h2>
+      <p class="text-xs sm:text-sm text-purple-900/70 dark:text-purple-300 mt-1 font-medium">
+        Choose a wish blueprint, customize names, songs, photos & share in seconds.
+      </p>
+    </div>
+
+    <!-- Tier Filter Tabs (All / Free / VIP) -->
+    <div class="flex items-center gap-1.5 p-1 rounded-2xl bg-purple-100/80 dark:bg-purple-900/50 backdrop-blur-md border border-purple-200/60 dark:border-purple-800/60 self-start md:self-auto">
+      <button type="button" onclick="filterByTier('all', this)" data-tier="all" class="tier-filter-btn px-4 py-1.5 rounded-xl text-xs font-bold transition-all bg-white dark:bg-purple-800 text-purple-950 dark:text-white shadow-sm">
+        All
+      </button>
+      <button type="button" onclick="filterByTier('free', this)" data-tier="free" class="tier-filter-btn px-4 py-1.5 rounded-xl text-xs font-bold transition-all text-purple-700 dark:text-purple-300 hover:text-purple-950 dark:hover:text-white">
+        Free
+      </button>
+      <button type="button" onclick="filterByTier('vip', this)" data-tier="vip" class="tier-filter-btn px-4 py-1.5 rounded-xl text-xs font-bold transition-all text-purple-700 dark:text-purple-300 hover:text-purple-950 dark:hover:text-white flex items-center gap-1">
+        <span>👑</span> VIP ₹49
+      </button>
     </div>
   </div>
-</div>
-<!-- Ribbons & Confetti Around Base -->
-<div class="absolute -bottom-1 -left-2 text-2xl">🎀</div>
-<div class="absolute -bottom-2 right-4 text-2xl">🎉</div>
-</div>
-</div>
-</div>
-</div>
-</section>
-</main>
-<!-- END: HeroSection -->
-<!-- BEGIN: CategoryNavigationBar -->
-<section class="px-4 sm:px-6 md:px-12 max-w-7xl mx-auto w-full mb-10 sm:mb-14" data-purpose="category-tabs">
-<div class="flex flex-col sm:flex-row sm:items-center justify-between gap-2 mb-3 sm:mb-4">
-<div>
-  <h3 class="font-display font-bold text-lg sm:text-xl text-[#24113F] dark:text-white flex items-center gap-2">
-    <span>Occasions &amp; Relationships</span>
-    <span class="text-xs font-semibold text-purple-600 dark:text-purple-300 bg-purple-100/80 dark:bg-purple-900/60 px-2.5 py-0.5 rounded-full">Curated Magic</span>
-  </h3>
-  <p class="text-xs text-purple-800/80 dark:text-purple-300/80">Choose who you're surprising today to see hand-picked designs</p>
-</div>
-<div class="text-xs font-semibold text-purple-700 dark:text-purple-300 flex items-center gap-1.5 self-end sm:self-auto">
-  <span class="w-2 h-2 rounded-full bg-emerald-500 animate-pulse"></span>
-  <span id="active-category-indicator">Showing: All Occasions</span>
-</div>
-</div>
-<!-- Horizontal Scrollable Category Chips Container -->
-<div class="glass-card rounded-2xl sm:rounded-3xl p-2 sm:p-2.5 overflow-x-auto no-scrollbar shadow-lg shadow-purple-900/5 border border-purple-200/60 dark:border-purple-800/60">
-<div class="flex items-center gap-1.5 sm:gap-2 min-w-max" id="category-container">
-  <button class="category-btn pill-active px-4 sm:px-5 py-2 rounded-full text-xs sm:text-sm font-bold flex items-center gap-1.5 transition duration-200" data-category="all" onclick="filterTemplates('all', this)">
-    <span>✨</span><span>All</span>
-  </button>
-  <button class="category-btn glass-pill text-[#24113F] dark:text-purple-100 px-4 sm:px-5 py-2 rounded-full text-xs sm:text-sm font-semibold flex items-center gap-1.5 transition duration-200 hover:border-purple-400" data-category="birthday" onclick="filterTemplates('birthday', this)">
-    <span>🎂</span><span>Birthday</span>
-  </button>
-  <button class="category-btn glass-pill text-[#24113F] dark:text-purple-100 px-4 sm:px-5 py-2 rounded-full text-xs sm:text-sm font-semibold flex items-center gap-1.5 transition duration-200 hover:border-purple-400" data-category="anniversary" onclick="filterTemplates('anniversary', this)">
-    <span>💍</span><span>Anniversary</span>
-  </button>
-  <button class="category-btn glass-pill text-[#24113F] dark:text-purple-100 px-4 sm:px-5 py-2 rounded-full text-xs sm:text-sm font-semibold flex items-center gap-1.5 transition duration-200 hover:border-purple-400" data-category="love" onclick="filterTemplates('love', this)">
-    <span>❤️</span><span>Love</span>
-  </button>
-  <button class="category-btn glass-pill text-[#24113F] dark:text-purple-100 px-4 sm:px-5 py-2 rounded-full text-xs sm:text-sm font-semibold flex items-center gap-1.5 transition duration-200 hover:border-purple-400" data-category="crush" onclick="filterTemplates('crush', this)">
-    <span>💌</span><span>Crush</span>
-  </button>
-  <button class="category-btn glass-pill text-[#24113F] dark:text-purple-100 px-4 sm:px-5 py-2 rounded-full text-xs sm:text-sm font-semibold flex items-center gap-1.5 transition duration-200 hover:border-purple-400" data-category="girlfriend" onclick="filterTemplates('girlfriend', this)">
-    <span>🌹</span><span>Girlfriend</span>
-  </button>
-  <button class="category-btn glass-pill text-[#24113F] dark:text-purple-100 px-4 sm:px-5 py-2 rounded-full text-xs sm:text-sm font-semibold flex items-center gap-1.5 transition duration-200 hover:border-purple-400" data-category="boyfriend" onclick="filterTemplates('boyfriend', this)">
-    <span>✨</span><span>Boyfriend</span>
-  </button>
-  <button class="category-btn glass-pill text-[#24113F] dark:text-purple-100 px-4 sm:px-5 py-2 rounded-full text-xs sm:text-sm font-semibold flex items-center gap-1.5 transition duration-200 hover:border-purple-400" data-category="wife" onclick="filterTemplates('wife', this)">
-    <span>👑</span><span>Wife</span>
-  </button>
-  <button class="category-btn glass-pill text-[#24113F] dark:text-purple-100 px-4 sm:px-5 py-2 rounded-full text-xs sm:text-sm font-semibold flex items-center gap-1.5 transition duration-200 hover:border-purple-400" data-category="husband" onclick="filterTemplates('husband', this)">
-    <span>👔</span><span>Husband</span>
-  </button>
-  <button class="category-btn glass-pill text-[#24113F] dark:text-purple-100 px-4 sm:px-5 py-2 rounded-full text-xs sm:text-sm font-semibold flex items-center gap-1.5 transition duration-200 hover:border-purple-400" data-category="mother" onclick="filterTemplates('mother', this)">
-    <span>🌸</span><span>Mother</span>
-  </button>
-  <button class="category-btn glass-pill text-[#24113F] dark:text-purple-100 px-4 sm:px-5 py-2 rounded-full text-xs sm:text-sm font-semibold flex items-center gap-1.5 transition duration-200 hover:border-purple-400" data-category="father" onclick="filterTemplates('father', this)">
-    <span>🌟</span><span>Father</span>
-  </button>
-  <button class="category-btn glass-pill text-[#24113F] dark:text-purple-100 px-4 sm:px-5 py-2 rounded-full text-xs sm:text-sm font-semibold flex items-center gap-1.5 transition duration-200 hover:border-purple-400" data-category="brother" onclick="filterTemplates('brother', this)">
-    <span>⚡</span><span>Brother</span>
-  </button>
-  <button class="category-btn glass-pill text-[#24113F] dark:text-purple-100 px-4 sm:px-5 py-2 rounded-full text-xs sm:text-sm font-semibold flex items-center gap-1.5 transition duration-200 hover:border-purple-400" data-category="sister" onclick="filterTemplates('sister', this)">
-    <span>🦋</span><span>Sister</span>
-  </button>
-  <button class="category-btn glass-pill text-[#24113F] dark:text-purple-100 px-4 sm:px-5 py-2 rounded-full text-xs sm:text-sm font-semibold flex items-center gap-1.5 transition duration-200 hover:border-purple-400" data-category="best-friend" onclick="filterTemplates('best friend', this)">
-    <span>👯</span><span>Best Friend</span>
-  </button>
-  <button class="category-btn glass-pill text-[#24113F] dark:text-purple-100 px-4 sm:px-5 py-2 rounded-full text-xs sm:text-sm font-semibold flex items-center gap-1.5 transition duration-200 hover:border-purple-400" data-category="female-friend" onclick="filterTemplates('female friend', this)">
-    <span>💖</span><span>Female Friend</span>
-  </button>
-  <button class="category-btn glass-pill text-[#24113F] dark:text-purple-100 px-4 sm:px-5 py-2 rounded-full text-xs sm:text-sm font-semibold flex items-center gap-1.5 transition duration-200 hover:border-purple-400" data-category="male-friend" onclick="filterTemplates('male friend', this)">
-    <span>🤝</span><span>Male Friend</span>
-  </button>
-  <button class="category-btn glass-pill text-[#24113F] dark:text-purple-100 px-4 sm:px-5 py-2 rounded-full text-xs sm:text-sm font-semibold flex items-center gap-1.5 transition duration-200 hover:border-purple-400" data-category="family" onclick="filterTemplates('family', this)">
-    <span>🏡</span><span>Family</span>
-  </button>
-  <button class="category-btn glass-pill text-[#24113F] dark:text-purple-100 px-4 sm:px-5 py-2 rounded-full text-xs sm:text-sm font-semibold flex items-center gap-1.5 transition duration-200 hover:border-purple-400" data-category="friendship" onclick="filterTemplates('friendship', this)">
-    <span>🌈</span><span>Friendship</span>
-  </button>
-</div>
-</div>
-</section>
-<!-- END: CategoryNavigationBar -->
-<!-- BEGIN: PopularTemplatesGallery (EXPANSIVE 4-COLUMN MARKETPLACE GALLERY) -->
-<section class="px-4 sm:px-6 md:px-12 max-w-7xl mx-auto w-full mb-24" data-purpose="templates-catalog" id="templates-section">
-<!-- Section Header & Filter Console -->
-<div class="flex flex-col lg:flex-row lg:items-end justify-between gap-6 mb-8">
-<div>
-  <div class="flex items-center gap-2.5">
-    <h2 class="font-display text-2xl sm:text-3xl lg:text-4xl font-extrabold text-[#24113F] dark:text-white tracking-tight">Template Marketplace</h2>
-    <span class="text-amber-500 text-2xl">✨</span>
+
+  <!-- Search & Instant Filter Bar -->
+  <div class="relative max-w-xl w-full mb-6">
+    <div class="relative flex items-center">
+      <svg class="w-4 h-4 text-purple-500 absolute left-4 pointer-events-none" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"></path>
+      </svg>
+      <input type="text" id="marketplace-search-box" oninput="handleMarketplaceSearch(this.value)" placeholder="Search templates by name, theme or mood (e.g. Birthday, Anniversary, Romance)..." class="w-full pl-11 pr-10 py-3 rounded-2xl bg-white/90 dark:bg-purple-950/70 backdrop-blur-xl border border-purple-200/80 dark:border-purple-800/80 text-xs sm:text-sm text-purple-950 dark:text-white placeholder-purple-400 dark:placeholder-purple-400/60 focus:outline-none focus:ring-2 focus:ring-purple-400 shadow-sm transition">
+      <button type="button" id="marketplace-search-clear" onclick="clearMarketplaceSearch()" class="hidden absolute right-3 w-6 h-6 rounded-full bg-purple-100 dark:bg-purple-800 text-purple-700 dark:text-purple-300 hover:bg-purple-200 flex items-center justify-center text-xs font-bold transition">
+        ✕
+      </button>
+    </div>
   </div>
-  <p class="text-xs sm:text-sm text-purple-800/80 dark:text-purple-300/80 mt-1 font-medium">Browse, preview, and personalize handcrafted web keepsakes in under 60 seconds.</p>
-</div>
-<!-- Marketplace Search & Tier Filter Controls -->
-<div class="flex flex-col sm:flex-row items-stretch sm:items-center gap-3 w-full lg:w-auto">
-  <!-- Search Box -->
-  <div class="relative w-full sm:w-72">
-    <input type="text" id="marketplace-search-box" class="w-full text-xs font-semibold pl-9 pr-8 py-2.5 rounded-full border border-purple-200 dark:border-purple-800 bg-white/90 dark:bg-purple-950/70 text-purple-950 dark:text-purple-100 placeholder-purple-400 dark:placeholder-purple-400/70 shadow-sm focus:outline-none focus:ring-2 focus:ring-purple-400 transition" placeholder="Search by name, relation, or occasion..." oninput="handleMarketplaceSearch(this.value)"/>
-    <svg class="w-4 h-4 text-purple-500 absolute left-3 top-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" stroke-linecap="round" stroke-linejoin="round" stroke-width="2"></path></svg>
-    <button class="hidden absolute right-3 top-2.5 text-gray-400 hover:text-gray-700 text-xs font-bold" id="marketplace-search-clear" onclick="clearMarketplaceSearch()">✕</button>
+
+  <!-- Category & Relationship Filter Pills (Horizontal Scroll) -->
+  <div class="mb-8 overflow-x-auto pb-2 -mx-4 px-4 sm:mx-0 sm:px-0 flex items-center gap-2 sm:gap-2.5 no-scrollbar" data-purpose="category-tabs">
+    <span id="active-category-indicator" class="hidden">Showing: All Occasions</span>
+    <button type="button" onclick="filterTemplates('all', this)" data-category="all" class="category-btn pill-active px-5 py-2 rounded-full text-xs sm:text-sm font-bold flex items-center gap-1.5 transition whitespace-nowrap">
+      <span>✨</span> All Occasions
+    </button>
+    <button type="button" onclick="filterTemplates('birthday', this)" data-category="birthday" class="category-btn glass-pill px-5 py-2 rounded-full text-xs sm:text-sm font-bold text-purple-900 dark:text-purple-200 flex items-center gap-1.5 transition whitespace-nowrap">
+      <span>🎂</span> Birthdays
+    </button>
+    <button type="button" onclick="filterTemplates('anniversary', this)" data-category="anniversary" class="category-btn glass-pill px-5 py-2 rounded-full text-xs sm:text-sm font-bold text-purple-900 dark:text-purple-200 flex items-center gap-1.5 transition whitespace-nowrap">
+      <span>💍</span> Anniversaries
+    </button>
+    <button type="button" onclick="filterTemplates('love', this)" data-category="love" class="category-btn glass-pill px-5 py-2 rounded-full text-xs sm:text-sm font-bold text-purple-900 dark:text-purple-200 flex items-center gap-1.5 transition whitespace-nowrap">
+      <span>💖</span> Love & Romance
+    </button>
+    <button type="button" onclick="filterTemplates('crush', this)" data-category="crush" class="category-btn glass-pill px-5 py-2 rounded-full text-xs sm:text-sm font-bold text-purple-900 dark:text-purple-200 flex items-center gap-1.5 transition whitespace-nowrap">
+      <span>💌</span> Crush
+    </button>
+    <button type="button" onclick="filterTemplates('girlfriend', this)" data-category="girlfriend" class="category-btn glass-pill px-5 py-2 rounded-full text-xs sm:text-sm font-bold text-purple-900 dark:text-purple-200 flex items-center gap-1.5 transition whitespace-nowrap">
+      <span>🌹</span> Girlfriend
+    </button>
+    <button type="button" onclick="filterTemplates('boyfriend', this)" data-category="boyfriend" class="category-btn glass-pill px-5 py-2 rounded-full text-xs sm:text-sm font-bold text-purple-900 dark:text-purple-200 flex items-center gap-1.5 transition whitespace-nowrap">
+      <span>✨</span> Boyfriend
+    </button>
+    <button type="button" onclick="filterTemplates('wife', this)" data-category="wife" class="category-btn glass-pill px-5 py-2 rounded-full text-xs sm:text-sm font-bold text-purple-900 dark:text-purple-200 flex items-center gap-1.5 transition whitespace-nowrap">
+      <span>👑</span> Wife
+    </button>
+    <button type="button" onclick="filterTemplates('husband', this)" data-category="husband" class="category-btn glass-pill px-5 py-2 rounded-full text-xs sm:text-sm font-bold text-purple-900 dark:text-purple-200 flex items-center gap-1.5 transition whitespace-nowrap">
+      <span>👔</span> Husband
+    </button>
+    <button type="button" onclick="filterTemplates('mother', this)" data-category="mother" class="category-btn glass-pill px-5 py-2 rounded-full text-xs sm:text-sm font-bold text-purple-900 dark:text-purple-200 flex items-center gap-1.5 transition whitespace-nowrap">
+      <span>🌸</span> Mother
+    </button>
+    <button type="button" onclick="filterTemplates('father', this)" data-category="father" class="category-btn glass-pill px-5 py-2 rounded-full text-xs sm:text-sm font-bold text-purple-900 dark:text-purple-200 flex items-center gap-1.5 transition whitespace-nowrap">
+      <span>🌟</span> Father
+    </button>
+    <button type="button" onclick="filterTemplates('brother', this)" data-category="brother" class="category-btn glass-pill px-5 py-2 rounded-full text-xs sm:text-sm font-bold text-purple-900 dark:text-purple-200 flex items-center gap-1.5 transition whitespace-nowrap">
+      <span>⚡</span> Brother
+    </button>
+    <button type="button" onclick="filterTemplates('sister', this)" data-category="sister" class="category-btn glass-pill px-5 py-2 rounded-full text-xs sm:text-sm font-bold text-purple-900 dark:text-purple-200 flex items-center gap-1.5 transition whitespace-nowrap">
+      <span>🦋</span> Sister
+    </button>
+    <button type="button" onclick="filterTemplates('best friend', this)" data-category="best friend" class="category-btn glass-pill px-5 py-2 rounded-full text-xs sm:text-sm font-bold text-purple-900 dark:text-purple-200 flex items-center gap-1.5 transition whitespace-nowrap">
+      <span>👯</span> Best Friend
+    </button>
+    <button type="button" onclick="filterTemplates('female friend', this)" data-category="female friend" class="category-btn glass-pill px-5 py-2 rounded-full text-xs sm:text-sm font-bold text-purple-900 dark:text-purple-200 flex items-center gap-1.5 transition whitespace-nowrap">
+      <span>💖</span> Female Friend
+    </button>
+    <button type="button" onclick="filterTemplates('male friend', this)" data-category="male friend" class="category-btn glass-pill px-5 py-2 rounded-full text-xs sm:text-sm font-bold text-purple-900 dark:text-purple-200 flex items-center gap-1.5 transition whitespace-nowrap">
+      <span>🤝</span> Male Friend
+    </button>
+    <button type="button" onclick="filterTemplates('family', this)" data-category="family" class="category-btn glass-pill px-5 py-2 rounded-full text-xs sm:text-sm font-bold text-purple-900 dark:text-purple-200 flex items-center gap-1.5 transition whitespace-nowrap">
+      <span>🏡</span> Family
+    </button>
+    <button type="button" onclick="filterTemplates('festive', this)" data-category="festive" class="category-btn glass-pill px-5 py-2 rounded-full text-xs sm:text-sm font-bold text-purple-900 dark:text-purple-200 flex items-center gap-1.5 transition whitespace-nowrap">
+      <span>🎉</span> Festivals
+    </button>
+    <button type="button" onclick="filterTemplates('friendship', this)" data-category="friendship" class="category-btn glass-pill px-5 py-2 rounded-full text-xs sm:text-sm font-bold text-purple-900 dark:text-purple-200 flex items-center gap-1.5 transition whitespace-nowrap">
+      <span>🤝</span> Friendship
+    </button>
+    <button type="button" onclick="filterTemplates('congratulations', this)" data-category="congratulations" class="category-btn glass-pill px-5 py-2 rounded-full text-xs sm:text-sm font-bold text-purple-900 dark:text-purple-200 flex items-center gap-1.5 transition whitespace-nowrap">
+      <span>🎓</span> Congratulations
+    </button>
   </div>
-  <!-- Tier Switcher Chips -->
-  <div class="flex items-center gap-1.5 p-1 rounded-full bg-purple-100/70 dark:bg-purple-950/60 border border-purple-200/80 dark:border-purple-800/80 text-xs font-bold self-start sm:self-auto">
-    <button class="tier-filter-btn px-3 py-1.5 rounded-full bg-white dark:bg-purple-800 text-purple-950 dark:text-white shadow-sm transition" data-tier="all" onclick="filterByTier('all', this)">All</button>
-    <button class="tier-filter-btn px-3 py-1.5 rounded-full text-purple-700 dark:text-purple-300 hover:text-purple-950 dark:hover:text-white transition" data-tier="free" onclick="filterByTier('free', this)">Free</button>
-    <button class="tier-filter-btn px-3 py-1.5 rounded-full text-purple-700 dark:text-purple-300 hover:text-purple-950 dark:hover:text-white transition" data-tier="vip" onclick="filterByTier('vip', this)">Premium</button>
+
+  <!-- Filter Feedback Banner -->
+  <div id="search-feedback" class="hidden mb-6 px-4 py-2.5 rounded-xl bg-purple-100/90 dark:bg-purple-900/60 border border-purple-200 dark:border-purple-800 flex items-center justify-between gap-3 text-xs text-purple-900 dark:text-purple-200 font-semibold">
+    <div class="flex items-center gap-2">
+      <span class="text-purple-600 dark:text-purple-400">🔍</span>
+      <span id="active-query-text">Active Filter</span>
+    </div>
+    <button type="button" onclick="resetAllFilters()" class="text-xs font-bold text-pink-600 dark:text-pink-400 hover:underline">
+      Clear all filters
+    </button>
   </div>
-</div>
-</div>
-<!-- Live Search & Filter Feedback Bar -->
-<div class="hidden mb-6 p-3.5 sm:p-4 rounded-2xl bg-purple-100/90 dark:bg-purple-950/90 border border-purple-200 dark:border-purple-800 text-xs sm:text-sm font-semibold text-purple-900 dark:text-purple-200 flex items-center justify-between" id="search-feedback">
-<span class="flex items-center gap-2">
-  <span class="text-base">🎯</span>
-  <span>Filtered: <span class="text-pink-600 dark:text-pink-400 font-bold" id="active-query-text">All Templates</span></span>
-</span>
-<button class="underline text-purple-700 dark:text-purple-300 hover:text-purple-950 dark:hover:text-white font-bold" onclick="resetAllFilters()">Reset All Filters</button>
-</div>
-<!-- 8 High-Fidelity Cards Grid (2 Columns Mobile, 3 Columns Tablet, 4 Columns Desktop) -->
-<div class="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 xl:grid-cols-3 2xl:grid-cols-4 gap-4 sm:gap-6" id="templates-grid">
-  <!-- Dynamic template cards rendered via JS -->
-</div>
-<!-- No Results State -->
-<div class="hidden text-center py-16 px-4 bg-white/60 dark:bg-purple-950/40 rounded-3xl border border-dashed border-purple-200 dark:border-purple-800" id="no-results-msg">
-<span class="text-5xl block mb-3">🔍</span>
-<h4 class="font-display font-bold text-xl text-[#24113F] dark:text-white">No magical templates matched your selection</h4>
-<p class="text-xs sm:text-sm text-purple-700 dark:text-purple-300 mt-1 max-w-md mx-auto">Try clearing your search term, switching categories, or resetting filters to browse our full collection.</p>
-<button class="mt-4 px-6 py-2.5 rounded-full bg-gradient-to-r from-purple-600 to-pink-500 text-white font-bold text-xs sm:text-sm shadow-md hover:scale-105 transition-all" onclick="resetAllFilters()">Reset All Filters</button>
-</div>
+
+  <!-- Templates Grid (Populated dynamically by initHomepageTemplates / renderTemplateCards) -->
+  <div class="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-5 sm:gap-6" id="templates-grid">
+    <!-- Skeleton loader cards while templates load -->
+    <div class="animate-pulse bg-white/60 dark:bg-purple-950/60 rounded-2xl p-4 sm:p-5 border border-purple-100 dark:border-purple-800/60 h-80"></div>
+    <div class="animate-pulse bg-white/60 dark:bg-purple-950/60 rounded-2xl p-4 sm:p-5 border border-purple-100 dark:border-purple-800/60 h-80"></div>
+    <div class="animate-pulse bg-white/60 dark:bg-purple-950/60 rounded-2xl p-4 sm:p-5 border border-purple-100 dark:border-purple-800/60 h-80"></div>
+    <div class="animate-pulse bg-white/60 dark:bg-purple-950/60 rounded-2xl p-4 sm:p-5 border border-purple-100 dark:border-purple-800/60 h-80"></div>
+  </div>
+
+  <!-- No Results Found State -->
+  <div id="no-results-msg" class="hidden py-16 text-center">
+    <div class="w-16 h-16 mx-auto mb-3 rounded-full bg-purple-100 dark:bg-purple-900/60 flex items-center justify-center text-3xl">🪄</div>
+    <h3 class="font-display font-bold text-lg text-purple-950 dark:text-white">No matching templates found</h3>
+    <p class="text-xs sm:text-sm text-purple-800/70 dark:text-purple-300 mt-1 max-w-md mx-auto">Try a different search keyword or select another occasion filter.</p>
+    <button type="button" onclick="resetAllFilters()" class="mt-4 px-6 py-2.5 rounded-full bg-purple-600 hover:bg-purple-700 text-white text-xs font-bold shadow-md transition">
+      Reset Filters
+    </button>
+  </div>
+
+  <!-- Bottom CTA: Explore All Templates -->
+  <div class="text-center pt-10 sm:pt-12">
+    <a href="/templates.html" class="inline-flex items-center gap-2 px-8 py-3.5 rounded-full bg-white dark:bg-purple-900/80 hover:bg-purple-50 dark:hover:bg-purple-800 text-purple-950 dark:text-white font-bold text-xs sm:text-sm shadow-md border border-purple-200 dark:border-purple-700 hover:scale-105 active:scale-95 transition-all group">
+      <span>View All 240+ Interactive Blueprints</span>
+      <span class="group-hover:translate-x-1 transition-transform">→</span>
+    </a>
+  </div>
 </section>
-<!-- END: PopularTemplatesGallery -->
-<!-- BEGIN: HowWishMagicWorks -->
-<section class="py-16 md:py-24 px-6 md:px-12 max-w-7xl mx-auto w-full mb-12" data-purpose="how-it-works-steps" id="how-it-works">
-<div class="text-center max-w-2xl mx-auto mb-14">
-<span class="text-xs font-bold uppercase tracking-widest text-purple-800 dark:text-purple-300 bg-purple-200/60 dark:bg-purple-900/60 px-4 py-1.5 rounded-full border border-purple-300/60 dark:border-purple-700/60 shadow-sm">Easy 4-Step Process</span>
-<h2 class="font-display text-3xl sm:text-4xl lg:text-5xl font-black text-[#24113F] dark:text-white mt-4">How WishMagic Works</h2>
-<p class="text-base text-purple-800/80 dark:text-purple-300/80 mt-2.5 font-medium">Send an unforgettable, interactive celebration in four delightful steps.</p>
-</div>
-<div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-7 relative">
-<!-- Step 1 -->
-<div class="glass-card rounded-[28px] p-7 relative flex flex-col justify-between hover:-translate-y-2 transition-transform duration-300">
-<div>
-<div class="w-13 h-13 w-12 h-12 rounded-2xl bg-purple-600 text-white flex items-center justify-center font-black text-lg mb-5 shadow-lg shadow-purple-500/30">
-              01
+<!-- END: CategoryNavigationBar & Templates Marketplace -->
+<!-- BEGIN: HowWishMagicWorks (Exact ss1 Reference Design - Spacious Container Matching ss) -->
+<section class="py-10 sm:py-14 md:py-16 px-4 sm:px-6 md:px-12 max-w-7xl mx-auto w-full" data-purpose="how-it-works-steps" id="how-it-works">
+  <div class="bg-white dark:bg-purple-950/80 rounded-[32px] sm:rounded-[40px] p-6 sm:p-10 lg:p-14 shadow-[0_20px_50px_-15px_rgba(107,33,168,0.15)] border border-purple-100 dark:border-purple-800">
+    <div class="text-center max-w-2xl mx-auto mb-8 sm:mb-12">
+      <span class="inline-block px-4 py-1.5 rounded-full bg-[#f3e8ff] dark:bg-purple-900/60 text-[#7c3aed] dark:text-purple-300 text-[11px] sm:text-xs font-bold uppercase tracking-wider shadow-sm border border-purple-200/50">EASY 4-STEP PROCESS</span>
+      <h2 class="font-display text-3xl sm:text-4xl lg:text-5xl font-black text-[#1c0836] dark:text-white mt-3.5 tracking-tight">How <span class="bg-gradient-to-r from-[#7c3aed] via-[#ec4899] to-[#7c3aed] bg-clip-text text-transparent">WishMagic</span> Works</h2>
+      <p class="text-xs sm:text-sm md:text-base text-purple-900/70 dark:text-purple-300 mt-2 font-medium">Send an unforgettable, interactive celebration in four delightful steps.</p>
+    </div>
+    
+    <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 sm:gap-6">
+      <!-- Step 01 -->
+      <div class="bg-white dark:bg-purple-900/40 rounded-2xl p-5 sm:p-6 border border-purple-100 dark:border-purple-800/80 shadow-sm flex flex-col justify-between hover:shadow-lg transition-all duration-300">
+        <div>
+          <div class="flex items-center justify-between mb-4">
+            <span class="w-8 h-8 rounded-full bg-[#ec4899] text-white flex items-center justify-center font-black text-xs shadow-md shadow-pink-500/30">01</span>
+            <div class="w-12 h-12 rounded-xl bg-[#fdf2f8] dark:bg-pink-950/50 flex items-center justify-center text-[#ec4899] border border-pink-100 dark:border-pink-900/50">
+              <svg class="w-6 h-6 fill-[#ec4899]" viewBox="0 0 24 24"><path d="M21 19V5c0-1.1-.9-2-2-2H5c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h14c1.1 0 2-.9 2-2zM8.5 13.5l2.5 3.01L14.5 12l4.5 6H5l3.5-4.5z"/></svg>
             </div>
-<h3 class="font-display font-bold text-xl text-[#24113F] dark:text-white mb-2">Pick a Template</h3>
-<p class="text-sm text-purple-800/80 dark:text-purple-300/80 leading-relaxed font-normal">
-              Browse our curated gallery of birthday, anniversary, and celebration themes with rich 3D animations.
-            </p>
-</div>
-<div class="mt-6 text-3xl">🎨✨</div>
-</div>
-<!-- Step 2 -->
-<div class="glass-card rounded-[28px] p-7 relative flex flex-col justify-between hover:-translate-y-2 transition-transform duration-300">
-<div>
-<div class="w-12 h-12 rounded-2xl bg-pink-500 text-white flex items-center justify-center font-black text-lg mb-5 shadow-lg shadow-pink-500/30">
-              02
+          </div>
+          <h3 class="font-display font-bold text-base sm:text-lg text-[#1c0836] dark:text-white mb-2">Pick a Template</h3>
+          <p class="text-xs sm:text-sm text-purple-900/70 dark:text-purple-300 leading-relaxed font-normal">
+            Browse our curated gallery of celebration themes with rich 3D animations.
+          </p>
+        </div>
+      </div>
+
+      <!-- Step 02 -->
+      <div class="bg-white dark:bg-purple-900/40 rounded-2xl p-5 sm:p-6 border border-purple-100 dark:border-purple-800/80 shadow-sm flex flex-col justify-between hover:shadow-lg transition-all duration-300">
+        <div>
+          <div class="flex items-center justify-between mb-4">
+            <span class="w-8 h-8 rounded-full bg-[#8b5cf6] text-white flex items-center justify-center font-black text-xs shadow-md shadow-purple-500/30">02</span>
+            <div class="w-12 h-12 rounded-xl bg-[#f5f3ff] dark:bg-purple-950/50 flex items-center justify-center text-[#8b5cf6] border border-purple-100 dark:border-purple-900/50">
+              <svg class="w-6 h-6 fill-[#8b5cf6]" viewBox="0 0 24 24"><path d="M3 17.25V21h3.75L17.81 9.94l-3.75-3.75L3 17.25zM20.71 7.04c.39-.39.39-1.02 0-1.41l-2.34-2.34c-.39-.39-1.02-.39-1.41 0l-1.83 1.83 3.75 3.75 1.83-1.83z"/></svg>
             </div>
-<h3 class="font-display font-bold text-xl text-[#24113F] dark:text-white mb-2">Personalize Your Wish</h3>
-<p class="text-sm text-purple-800/80 dark:text-purple-300/80 leading-relaxed font-normal">
-              Add your favorite memories, heart-touching message, upload photos, and choose delightful background music.
-            </p>
-</div>
-<div class="mt-6 text-3xl">📸🎶</div>
-</div>
-<!-- Step 3 -->
-<div class="glass-card rounded-[28px] p-7 relative flex flex-col justify-between hover:-translate-y-2 transition-transform duration-300">
-<div>
-<div class="w-12 h-12 rounded-2xl bg-amber-500 text-white flex items-center justify-center font-black text-lg mb-5 shadow-lg shadow-amber-500/30">
-              03
+          </div>
+          <h3 class="font-display font-bold text-base sm:text-lg text-[#1c0836] dark:text-white mb-2">Personalize Your Wish</h3>
+          <p class="text-xs sm:text-sm text-purple-900/70 dark:text-purple-300 leading-relaxed font-normal">
+            Add photos, names, messages, music and heart-touching notes.
+          </p>
+        </div>
+      </div>
+
+      <!-- Step 03 -->
+      <div class="bg-white dark:bg-purple-900/40 rounded-2xl p-5 sm:p-6 border border-purple-100 dark:border-purple-800/80 shadow-sm flex flex-col justify-between hover:shadow-lg transition-all duration-300">
+        <div>
+          <div class="flex items-center justify-between mb-4">
+            <span class="w-8 h-8 rounded-full bg-[#f59e0b] text-white flex items-center justify-center font-black text-xs shadow-md shadow-amber-500/30">03</span>
+            <div class="w-12 h-12 rounded-xl bg-[#fffbeb] dark:bg-amber-950/50 flex items-center justify-center text-[#f59e0b] border border-amber-100 dark:border-amber-900/50">
+              <svg class="w-6 h-6 stroke-[#f59e0b] stroke-2 fill-none" viewBox="0 0 24 24"><path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"/><path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"/></svg>
             </div>
-<h3 class="font-display font-bold text-xl text-[#24113F] dark:text-white mb-2">Instant Magical Link</h3>
-<p class="text-sm text-purple-800/80 dark:text-purple-300/80 leading-relaxed font-normal">
-              WishMagic instantly crafts a private, encrypted web page loaded with unboxing animations and confetti.
-            </p>
-</div>
-<div class="mt-6 text-3xl">🔗⚡</div>
-</div>
-<!-- Step 4 -->
-<div class="glass-card rounded-[28px] p-7 relative flex flex-col justify-between hover:-translate-y-2 transition-transform duration-300">
-<div>
-<div class="w-12 h-12 rounded-2xl bg-emerald-600 text-white flex items-center justify-center font-black text-lg mb-5 shadow-lg shadow-emerald-500/30">
-              04
+          </div>
+          <h3 class="font-display font-bold text-base sm:text-lg text-[#1c0836] dark:text-white mb-2">Instant Magical Link</h3>
+          <p class="text-xs sm:text-sm text-purple-900/70 dark:text-purple-300 leading-relaxed font-normal">
+            Get your unique link instantly, ready to share with loved ones.
+          </p>
+        </div>
+      </div>
+
+      <!-- Step 04 -->
+      <div class="bg-white dark:bg-purple-900/40 rounded-2xl p-5 sm:p-6 border border-purple-100 dark:border-purple-800/80 shadow-sm flex flex-col justify-between hover:shadow-lg transition-all duration-300">
+        <div>
+          <div class="flex items-center justify-between mb-4">
+            <span class="w-8 h-8 rounded-full bg-[#10b981] text-white flex items-center justify-center font-black text-xs shadow-md shadow-emerald-500/30">04</span>
+            <div class="w-12 h-12 rounded-xl bg-[#ecfdf5] dark:bg-emerald-950/50 flex items-center justify-center text-[#10b981] border border-emerald-100 dark:border-emerald-900/50">
+              <svg class="w-6 h-6 fill-[#10b981]" viewBox="0 0 24 24"><path d="M18 16.08c-.76 0-1.44.3-1.96.77L8.91 12.7c.05-.23.09-.46.09-.7s-.04-.47-.09-.7l7.05-4.11c.54.5 1.25.81 2.04.81 1.66 0 3-1.34 3-3s-1.34-3-3-3-3 1.34-3 3c0 .24.04.47.09.7L8.04 9.81C7.5 9.31 6.79 9 6 9c-1.66 0-3 1.34-3 3s1.34 3 3 3c.79 0 1.5-.31 2.04-.81l7.12 4.16c-.05.21-.08.43-.08.65 0 1.61 1.31 2.92 2.92 2.92s2.92-1.31 2.92-2.92c0-1.61-1.31-2.92-2.92-2.92z"/></svg>
             </div>
-<h3 class="font-display font-bold text-xl text-[#24113F] dark:text-white mb-2">Share the Joy</h3>
-<p class="text-sm text-purple-800/80 dark:text-purple-300/80 leading-relaxed font-normal">
-              Share directly via WhatsApp, iMessage, Instagram, or QR code. Watch them light up with genuine smiles!
-            </p>
-</div>
-<div class="mt-6 text-3xl">💖🎁</div>
-</div>
-</div>
+          </div>
+          <h3 class="font-display font-bold text-base sm:text-lg text-[#1c0836] dark:text-white mb-2">Share the Joy</h3>
+          <p class="text-xs sm:text-sm text-purple-900/70 dark:text-purple-300 leading-relaxed font-normal">
+            Share directly via WhatsApp, Instagram or any platform and create smiles!
+          </p>
+        </div>
+      </div>
+    </div>
+  </div>
 </section>
 <!-- END: HowWishMagicWorks -->
-<!-- BEGIN: InteractiveExperienceShowcase (MORE THAN A GREETING CARD) -->
-<section class="py-16 md:py-24 px-6 md:px-12 max-w-7xl mx-auto w-full mb-12" data-purpose="experience-features">
-<div class="glass-card rounded-[36px] p-8 sm:p-12 lg:p-16 border border-white/80 dark:border-purple-900/40 overflow-hidden relative shadow-2xl shadow-purple-900/10">
-<div class="grid grid-cols-1 lg:grid-cols-12 gap-12 lg:gap-14 items-center">
-<!-- Left: Persuasive copy & Value points -->
-<div class="lg:col-span-6 space-y-6">
-<span class="px-4 py-1.5 rounded-full bg-pink-100 dark:bg-pink-900/40 text-pink-700 dark:text-pink-300 text-xs font-extrabold uppercase tracking-wider">
-              More than a greeting card
-            </span>
-<h2 class="font-display text-3xl sm:text-4xl lg:text-5xl font-black text-[#24113F] dark:text-white leading-tight">
-              An Immersive Web Experience That Never Gets Lost.
-            </h2>
-<p class="text-base sm:text-lg text-purple-800/80 dark:text-purple-300/80 leading-relaxed font-normal">
-              Paper greeting cards gather dust, but WishMagic creates a digital keepsake. Recipients unlock interactive envelopes, watch celebratory fireworks, and listen to songs curated just for them.
-            </p>
-<!-- Feature Checklist with custom icons -->
-<div class="grid grid-cols-1 sm:grid-cols-2 gap-4 pt-3">
-<div class="flex items-center gap-3.5 p-3 rounded-2xl bg-white/70 dark:bg-purple-950/60 border border-purple-100 dark:border-purple-900/40">
-<span class="w-10 h-10 rounded-xl bg-purple-100 dark:bg-purple-900/80 text-purple-700 dark:text-purple-300 flex items-center justify-center font-bold text-lg">🎵</span>
-<span class="text-sm font-bold text-[#24113F] dark:text-purple-100">Licensed BGM Tracks</span>
-</div>
-<div class="flex items-center gap-3.5 p-3 rounded-2xl bg-white/70 dark:bg-purple-950/60 border border-purple-100 dark:border-purple-900/40">
-<span class="w-10 h-10 rounded-xl bg-pink-100 dark:bg-pink-900/80 text-pink-700 dark:text-pink-300 flex items-center justify-center font-bold text-lg">🎆</span>
-<span class="text-sm font-bold text-[#24113F] dark:text-purple-100">Full Screen Fireworks</span>
-</div>
-<div class="flex items-center gap-3.5 p-3 rounded-2xl bg-white/70 dark:bg-purple-950/60 border border-purple-100 dark:border-purple-900/40">
-<span class="w-10 h-10 rounded-xl bg-amber-100 dark:bg-amber-900/80 text-amber-700 dark:text-amber-300 flex items-center justify-center font-bold text-lg">💌</span>
-<span class="text-sm font-bold text-[#24113F] dark:text-purple-100">Interactive Wax Seal Unboxing</span>
-</div>
-<div class="flex items-center gap-3.5 p-3 rounded-2xl bg-white/70 dark:bg-purple-950/60 border border-purple-100 dark:border-purple-900/40">
-<span class="w-10 h-10 rounded-xl bg-emerald-100 dark:bg-emerald-900/80 text-emerald-700 dark:text-emerald-300 flex items-center justify-center font-bold text-lg">📱</span>
-<span class="text-sm font-bold text-[#24113F] dark:text-purple-100">100% Mobile Optimized</span>
-</div>
-</div>
-<div class="pt-4">
-<button class="px-8 py-4 rounded-full bg-[#1D0B36] dark:bg-purple-600 hover:bg-[#2E0854] dark:hover:bg-purple-500 text-white text-base font-bold shadow-xl shadow-purple-950/20 hover:scale-105 active:scale-95 transition flex items-center gap-2.5" onclick="document.getElementById('templates-section').scrollIntoView({ behavior: 'smooth' })">
-<span>Explore All Templates</span>
-<span class="text-amber-300">✨</span>
-</button>
-</div>
-</div>
-<!-- Right: Realistic Mobile Preview Frame -->
-<div class="lg:col-span-6 flex justify-center">
-<div class="relative w-full max-w-sm">
-<!-- Floating Feature Badges -->
-<div class="absolute -top-4 -left-4 bg-white/95 dark:bg-purple-900/90 rounded-2xl px-4 py-2 shadow-xl border border-purple-200 dark:border-purple-700 text-xs font-bold text-purple-700 dark:text-purple-200 animate-float-slow z-20 flex items-center gap-2">
-<span>🎵</span> Background Music
+
+<!-- BEGIN: InteractiveExperienceShowcase (Exact ss1 Reference Design - Spacious Container Matching ss) -->
+<section class="py-6 sm:py-10 md:py-12 px-4 sm:px-6 md:px-12 max-w-7xl mx-auto w-full mb-16 sm:mb-20" data-purpose="experience-features">
+  <div class="bg-white dark:bg-purple-950/80 rounded-[32px] sm:rounded-[40px] p-6 sm:p-10 lg:p-14 shadow-[0_20px_50px_-15px_rgba(107,33,168,0.15)] border border-purple-100 dark:border-purple-800 relative overflow-hidden">
+    <div class="grid grid-cols-1 lg:grid-cols-12 gap-8 lg:gap-12 items-center">
+      
+      <!-- Left: Copy & 2x2 Feature Cards Grid (Matching ss1) -->
+      <div class="lg:col-span-7 space-y-6">
+        <span class="inline-block px-4 py-1.5 rounded-full bg-[#fdf2f8] dark:bg-pink-950/60 text-[#ec4899] dark:text-pink-300 text-xs font-bold uppercase tracking-wider">
+          MORE THAN A GREETING CARD
+        </span>
+        <h2 class="font-display text-3xl sm:text-4xl lg:text-[44px] font-black text-[#1c0836] dark:text-white leading-[1.2] tracking-tight">
+          An Immersive Web Experience That Never Gets Lost.
+        </h2>
+        <p class="text-xs sm:text-sm md:text-base text-purple-900/70 dark:text-purple-300 leading-relaxed font-normal">
+          Paper greeting cards gather dust, but WishMagic creates a digital keepsake. Recipients unlock interactive envelopes, watch celebratory fireworks, and listen to songs curated just for them.
+        </p>
+
+        <!-- 2x2 Feature Checklist (Matching ss1) -->
+        <div class="grid grid-cols-1 sm:grid-cols-2 gap-4 pt-2">
+          <!-- 1. Licensed BGM Tracks -->
+          <div class="p-4 sm:p-4.5 rounded-2xl bg-white dark:bg-purple-900/40 border border-purple-100 dark:border-purple-800/80 shadow-sm flex items-center gap-3.5 hover:shadow-md transition-shadow">
+            <div class="w-12 h-12 rounded-xl bg-[#f5f3ff] dark:bg-purple-950/60 text-[#8b5cf6] flex items-center justify-center shrink-0 text-2xl shadow-inner">🎵</div>
+            <div>
+              <h4 class="font-bold text-sm sm:text-base text-[#1c0836] dark:text-white">Licensed BGM Tracks</h4>
+              <p class="text-xs text-purple-900/60 dark:text-purple-300/70 mt-0.5">Make it special with high-quality music</p>
+            </div>
+          </div>
+
+          <!-- 2. Full Screen Fireworks -->
+          <div class="p-4 sm:p-4.5 rounded-2xl bg-white dark:bg-purple-900/40 border border-purple-100 dark:border-purple-800/80 shadow-sm flex items-center gap-3.5 hover:shadow-md transition-shadow">
+            <div class="w-12 h-12 rounded-xl bg-[#fffbeb] dark:bg-amber-950/60 text-[#f59e0b] flex items-center justify-center shrink-0 text-2xl shadow-inner">🎆</div>
+            <div>
+              <h4 class="font-bold text-sm sm:text-base text-[#1c0836] dark:text-white">Full Screen Fireworks</h4>
+              <p class="text-xs text-purple-900/60 dark:text-purple-300/70 mt-0.5">Stunning animations that create magic</p>
+            </div>
+          </div>
+
+          <!-- 3. Wax Seal Unboxing -->
+          <div class="p-4 sm:p-4.5 rounded-2xl bg-white dark:bg-purple-900/40 border border-purple-100 dark:border-purple-800/80 shadow-sm flex items-center gap-3.5 hover:shadow-md transition-shadow">
+            <div class="w-12 h-12 rounded-xl bg-[#fdf2f8] dark:bg-pink-950/60 text-[#ec4899] flex items-center justify-center shrink-0 text-2xl shadow-inner">💌</div>
+            <div>
+              <h4 class="font-bold text-sm sm:text-base text-[#1c0836] dark:text-white">Wax Seal Unboxing</h4>
+              <p class="text-xs text-purple-900/60 dark:text-purple-300/70 mt-0.5">A memorable and emotional experience</p>
+            </div>
+          </div>
+
+          <!-- 4. 100% Mobile Ready -->
+          <div class="p-4 sm:p-4.5 rounded-2xl bg-white dark:bg-purple-900/40 border border-purple-100 dark:border-purple-800/80 shadow-sm flex items-center gap-3.5 hover:shadow-md transition-shadow">
+            <div class="w-12 h-12 rounded-xl bg-[#f0f9ff] dark:bg-sky-950/60 text-[#0284c7] flex items-center justify-center shrink-0 text-2xl shadow-inner">📱</div>
+            <div>
+              <h4 class="font-bold text-sm sm:text-base text-[#1c0836] dark:text-white">100% Mobile Ready</h4>
+              <p class="text-xs text-purple-900/60 dark:text-purple-300/70 mt-0.5">Perfect on all devices with smooth performance</p>
+            </div>
+          </div>
+        </div>
+
+        <!-- Explore All Templates Button (Matching ss1) -->
+        <div class="pt-4">
+          <button type="button" class="px-8 sm:px-10 py-4 rounded-full bg-gradient-to-r from-[#6d28d9] via-[#7c3aed] to-[#4f46e5] hover:brightness-110 text-white font-extrabold text-sm sm:text-base shadow-xl shadow-purple-600/30 hover:scale-105 active:scale-95 transition-all flex items-center gap-2.5 cursor-pointer" onclick="location.href='/templates.html'">
+            <span>Explore All Templates</span>
+            <span class="text-amber-300 text-lg">✨</span>
+          </button>
+        </div>
+      </div>
+
+      <!-- Right: Gorgeous 3D Smartphone Frame with Floating Polaroids & Music Icons (Matching ss1) -->
+      <div class="lg:col-span-5 flex justify-center items-center relative py-6 sm:py-8">
+        
+        <!-- Floating 3D Music Note (Top-Left) -->
+        <div class="absolute -left-2 sm:-left-4 top-2 sm:top-4 w-12 h-12 rounded-full bg-gradient-to-tr from-[#ec4899] to-[#f43f5e] text-white flex items-center justify-center text-xl shadow-lg shadow-pink-500/40 z-30 animate-bounce [animation-duration:3s]">
+          🎵
+        </div>
+
+        <!-- Floating Polaroid Photo 1 (Top-Left Tilted) -->
+        <div class="absolute -left-6 sm:-left-8 top-14 sm:top-18 z-20 transform -rotate-12 hover:rotate-0 transition-transform duration-300 shadow-2xl bg-white p-2 pb-3.5 rounded-xl border border-gray-100 w-22 sm:w-26">
+          <img src="/assets/file_ab2082.png" alt="Happy Memories" class="w-full h-18 sm:h-22 object-cover rounded-lg"/>
+        </div>
+
+        <!-- Floating 3D Heart (Top-Right) -->
+        <div class="absolute -right-2 sm:-right-4 top-16 sm:top-20 w-12 h-12 rounded-2xl bg-gradient-to-br from-[#f43f5e] to-[#e11d48] text-white flex items-center justify-center text-xl shadow-lg shadow-pink-500/30 z-30 animate-pulse">
+          💖
+        </div>
+
+        <!-- Floating Polaroid Photo 2 (Bottom-Right Tilted) -->
+        <div class="absolute -right-5 sm:-right-7 bottom-20 sm:bottom-24 z-20 transform rotate-12 hover:rotate-0 transition-transform duration-300 shadow-2xl bg-white p-2 pb-3.5 rounded-xl border border-gray-100 w-22 sm:w-26">
+          <img src="/assets/file_ab2082.png" alt="Happy Celebrant" class="w-full h-18 sm:h-22 object-cover rounded-lg"/>
+        </div>
+
+        <!-- Floating 3D Play Button Pill (Bottom-Right) -->
+        <div class="absolute -right-1 sm:-right-3 bottom-6 sm:bottom-8 w-12 h-10 rounded-2xl bg-gradient-to-tr from-[#7c3aed] to-[#6366f1] text-white flex items-center justify-center text-lg shadow-lg shadow-purple-600/40 z-30">
+          ▶
+        </div>
+
+        <!-- Smartphone Frame Chassis (Matching ss1) -->
+        <div class="w-full max-w-[290px] sm:max-w-[310px] relative bg-gray-950 p-3 sm:p-3.5 rounded-[2.8rem] shadow-2xl border-4 border-gray-700/80 shadow-purple-950/50">
+          <!-- Screen Glass -->
+          <div class="bg-gradient-to-b from-[#1b0836] via-[#2a0e4e] to-[#120426] rounded-[2.3rem] p-4 sm:p-5 text-white text-center relative overflow-hidden min-h-[450px] flex flex-col justify-between border border-purple-500/30 shadow-inner">
+            
+            <!-- Phone Top Status Bar -->
+            <div class="flex justify-between items-center text-[10px] text-purple-200/90 mb-2 px-1 font-mono">
+              <span>9:41</span>
+              <span class="bg-black/50 backdrop-blur-md px-2.5 py-0.5 rounded-full text-[9px] text-purple-200 border border-white/10 flex items-center gap-1 font-sans">
+                🔒 wishmagic.link
+              </span>
+              <span>🔋</span>
+            </div>
+
+            <!-- Envelope & Wish Unboxing Experience (Matching ss1) -->
+            <div class="my-auto space-y-3.5 py-2 relative">
+              <!-- Background Ambient Glow -->
+              <div class="w-40 h-40 rounded-full bg-pink-500/20 blur-2xl absolute left-1/2 -translate-x-1/2 top-1/2 -translate-y-1/2 pointer-events-none"></div>
+
+              <!-- Wax-Sealed 3D Envelope -->
+              <div class="relative w-28 h-20 mx-auto bg-gradient-to-tr from-pink-300 via-pink-200 to-rose-200 rounded-xl shadow-xl border border-white/40 flex items-center justify-center">
+                <div class="absolute inset-x-0 top-0 h-10 bg-pink-200/90 [clip-path:polygon(0_0,100%_0,50%_100%)] border-b border-pink-300/60"></div>
+                <div class="relative z-10 w-8 h-8 rounded-full bg-gradient-to-tr from-rose-600 to-pink-500 text-white flex items-center justify-center text-sm shadow-md animate-pulse">
+                  💖
+                </div>
               </div>
-<div class="absolute top-1/2 -right-6 bg-white/95 dark:bg-purple-900/90 rounded-2xl px-4 py-2 shadow-xl border border-pink-200 dark:border-pink-700 text-xs font-bold text-pink-600 dark:text-pink-300 animate-float-delayed z-20 flex items-center gap-2">
-<span>✨</span> Confetti Shower
+
+              <!-- Text Details -->
+              <div>
+                <p class="text-[10px] sm:text-[11px] uppercase tracking-widest text-amber-300 font-extrabold">A Special Wish For You</p>
+                <h4 class="font-serif italic text-2xl sm:text-3xl font-bold mt-1 text-white tracking-wide drop-shadow-md">Happy Birthday!</h4>
+                <p class="text-[11px] sm:text-xs text-purple-200/90 mt-1.5 italic px-2">"May your year be as radiant and magical as you are!"</p>
               </div>
-<!-- Phone Frame Outer -->
-<div class="bg-gray-950 p-3.5 rounded-[3rem] shadow-2xl border-4 border-white/70 dark:border-purple-500/40">
-<div class="bg-gradient-to-b from-purple-950 via-indigo-950 to-purple-900 rounded-[2.3rem] p-6 text-white text-center relative overflow-hidden min-h-[420px] flex flex-col justify-between">
-<!-- Top Bar Indicator -->
-<div class="flex justify-between items-center text-[11px] text-purple-300 mb-4 px-2 font-mono">
-<span>9:41 AM</span>
-<span class="font-bold text-white/90">wishmagic.link/special-for-you</span>
-<span>🔋 100%</span>
-</div>
-<!-- Envelope Experience Card Inside Mobile -->
-<div class="space-y-4 my-auto">
-<div class="w-18 h-18 w-16 h-16 rounded-full bg-pink-500/25 mx-auto flex items-center justify-center text-3xl border border-pink-400/50 shadow-inner animate-pulse">
-                      💌
-                    </div>
-<div>
-<p class="text-[11px] uppercase tracking-widest text-amber-300 font-extrabold">Special Delivery For You</p>
-<h4 class="font-serifAccent text-2xl font-bold italic mt-1 text-white">"Happy Birthday, Sarah!"</h4>
-<p class="text-xs text-purple-200 mt-2 line-clamp-2">"May your year be as radiant, joyful and magical as you are!"</p>
-</div>
-<button class="px-6 py-2.5 rounded-full bg-gradient-to-r from-pink-500 to-purple-600 text-white text-xs font-bold shadow-lg hover:brightness-110 active:scale-95 transition" onclick="triggerConfettiDemo()">
-                      Tap to Unseal Envelope ✨
-                    </button>
-</div>
-<div class="text-[11px] text-purple-300/80 pt-2 border-t border-purple-800/40">Made with ❤️ via WishMagic</div>
-</div>
-</div>
-</div>
-</div>
-</div>
-</div>
+
+              <!-- Action Button inside Phone (Tap to Unseal ✨) -->
+              <div class="pt-2">
+                <button type="button" onclick="triggerConfettiDemo()" class="w-full py-2.5 px-5 rounded-full bg-gradient-to-r from-[#ec4899] via-[#f43f5e] to-[#fb7185] text-white text-xs font-extrabold shadow-lg shadow-pink-500/40 hover:brightness-110 active:scale-95 transition-all cursor-pointer">
+                  Tap to Unseal ✨
+                </button>
+              </div>
+            </div>
+
+            <!-- Footer Credit -->
+            <div class="text-[9px] text-purple-300/70 pt-1.5 border-t border-purple-800/30">
+              Made with ❤️ via WishMagic
+            </div>
+          </div>
+        </div>
+
+      </div>
+
+    </div>
+  </div>
 </section>
 <!-- END: InteractiveExperienceShowcase -->
-<!-- BEGIN: SimpleTransparentPricing -->
-<section class="py-16 md:py-24 px-6 md:px-12 max-w-7xl mx-auto w-full mb-12" data-purpose="pricing-plans" id="pricing-section">
-<div class="text-center max-w-2xl mx-auto mb-14">
-<span class="text-xs font-bold uppercase tracking-widest text-purple-800 dark:text-purple-300 bg-purple-200/60 dark:bg-purple-900/60 px-4 py-1.5 rounded-full border border-purple-300/60 dark:border-purple-700/60 shadow-sm">Transparent &amp; Affordable</span>
-<h2 class="font-display text-3xl sm:text-4xl lg:text-5xl font-black text-[#24113F] dark:text-white mt-4">Simple Pricing For Infinite Smiles</h2>
-<p class="text-base text-purple-800/80 dark:text-purple-300/80 mt-2.5 font-medium">Start for free or unlock ultra-custom luxury magic for less than a cup of chai.</p>
-</div>
-<div class="grid grid-cols-1 md:grid-cols-2 gap-8 max-w-4xl mx-auto">
-<!-- Plan 1: Free Forever -->
-<div class="glass-card rounded-[32px] p-8 md:p-10 flex flex-col justify-between hover:shadow-2xl transition duration-300">
-<div>
-<div class="flex justify-between items-center mb-4">
-<span class="px-3.5 py-1 rounded-full bg-emerald-100 dark:bg-emerald-900/50 text-emerald-800 dark:text-emerald-300 text-xs font-black uppercase">Free Starter</span>
-<span class="text-3xl">🌱</span>
-</div>
-<h3 class="font-display text-3xl font-black text-[#24113F] dark:text-white">Free Forever</h3>
-<p class="text-xs sm:text-sm text-purple-700/80 dark:text-purple-300/80 mt-1">Perfect for spontaneous cute wishes.</p>
-<div class="my-7">
-<span class="font-display text-5xl font-black text-[#24113F] dark:text-white">₹0</span>
-<span class="text-sm font-semibold text-purple-700 dark:text-purple-300"> / forever free</span>
-</div>
-<ul class="space-y-3.5 text-sm text-[#24113F] dark:text-purple-200 font-semibold">
-<li class="flex items-center gap-2.5">
-<span class="text-emerald-600 dark:text-emerald-400 font-bold text-base">✓</span> Access to all Free Templates
-              </li>
-<li class="flex items-center gap-2.5">
-<span class="text-emerald-600 dark:text-emerald-400 font-bold text-base">✓</span> Up to 3 personalized photos
-              </li>
-<li class="flex items-center gap-2.5">
-<span class="text-emerald-600 dark:text-emerald-400 font-bold text-base">✓</span> Standard background music library
-              </li>
-<li class="flex items-center gap-2.5">
-<span class="text-emerald-600 dark:text-emerald-400 font-bold text-base">✓</span> Instant shareable web link
-              </li>
-<li class="flex items-center gap-2.5 text-purple-400 dark:text-purple-500/70">
-<span>✕</span> <s class="font-normal">No WishMagic watermark</s>
-</li>
-</ul>
-</div>
-<button class="mt-8 w-full py-3.5 rounded-full border border-purple-300 dark:border-purple-700 bg-white dark:bg-purple-900/60 hover:bg-purple-50 dark:hover:bg-purple-800 text-purple-900 dark:text-purple-100 font-bold text-sm shadow-sm transition active:scale-95" onclick="document.getElementById('templates-section').scrollIntoView({ behavior: 'smooth' })">
-            Start Free
-          </button>
-</div>
-<!-- Plan 2: Magic Premium -->
-<div class="glass-card rounded-[32px] p-8 md:p-10 flex flex-col justify-between relative border-2 border-pink-400 dark:border-pink-500 shadow-2xl bg-gradient-to-b from-white to-purple-50/80 dark:from-purple-950/80 dark:to-[#1D0B36]">
-<!-- Popular ribbon -->
-<div class="absolute -top-3.5 right-8 px-4 py-1 rounded-full bg-gradient-to-r from-[#EC4899] to-[#7C3AED] text-white text-[11px] font-black tracking-wider uppercase shadow-md">
-            Most Magical
-          </div>
-<div>
-<div class="flex justify-between items-center mb-4">
-<span class="px-3.5 py-1 rounded-full bg-amber-100 dark:bg-amber-900/50 text-amber-900 dark:text-amber-300 text-xs font-black uppercase">Magic Premium</span>
-<span class="text-3xl">👑</span>
-</div>
-<h3 class="font-display text-3xl font-black text-[#24113F] dark:text-white">Per Wish Pass</h3>
-<p class="text-xs sm:text-sm text-purple-700/80 dark:text-purple-300/80 mt-1">For those milestone days that deserve total wonder.</p>
-<div class="my-7">
-<span class="font-display text-5xl font-black text-purple-900 dark:text-pink-300">₹49</span>
-<span class="text-sm font-semibold text-purple-700 dark:text-purple-300"> / per custom wish link</span>
-</div>
-<ul class="space-y-3.5 text-sm text-[#24113F] dark:text-purple-200 font-semibold">
-<li class="flex items-center gap-2.5">
-<span class="text-pink-600 dark:text-pink-400 font-bold text-base">★</span> <span class="font-extrabold text-purple-950 dark:text-white">Unlock ALL Premium 3D Templates</span>
-</li>
-<li class="flex items-center gap-2.5">
-<span class="text-pink-600 dark:text-pink-400 font-bold text-base">★</span> Unlimited photos + voice memo note
-              </li>
-<li class="flex items-center gap-2.5">
-<span class="text-pink-600 dark:text-pink-400 font-bold text-base">★</span> Custom audio upload (their favorite song)
-              </li>
-<li class="flex items-center gap-2.5">
-<span class="text-pink-600 dark:text-pink-400 font-bold text-base">★</span> Zero ads &amp; 100% white-labeled link
-              </li>
-<li class="flex items-center gap-2.5">
-<span class="text-pink-600 dark:text-pink-400 font-bold text-base">★</span> Live Countdown timer + Fireworks burst
-              </li>
-</ul>
-</div>
-<button class="mt-8 w-full py-3.5 rounded-full bg-gradient-to-r from-[#EC4899] via-rose-500 to-[#7C3AED] hover:opacity-95 text-white font-bold text-sm shadow-xl shadow-pink-500/30 hover:scale-[1.02] active:scale-95 transition" onclick="location.href='/customize.html'">
-            Create Premium Wish (₹49) 🪄
-          </button>
-</div>
-</div>
-</section>
-<!-- END: SimpleTransparentPricing -->
-<!-- BEGIN: EmotionalClimaxBanner -->
-<section class="py-8 px-6 md:px-12 max-w-7xl mx-auto w-full mb-16" data-purpose="call-to-action-banner">
-<div class="relative rounded-[36px] bg-gradient-to-r from-[#2E0854] via-[#4C1D95] to-[#9D174D] text-white p-10 sm:p-16 text-center overflow-hidden shadow-2xl border border-white/20">
-<div class="sparkle-dot w-2.5 h-2.5 top-8 left-12 animate-ping"></div>
-<div class="sparkle-dot w-2 h-2 bottom-8 right-16 animate-pulse"></div>
-<div class="max-w-2xl mx-auto relative z-10 space-y-5">
-<span class="text-5xl block">✨💌✨</span>
-<h2 class="font-display text-3xl sm:text-4xl lg:text-5xl font-extrabold tracking-tight">
-            Make Their Special Day Truly Unforgettable.
-          </h2>
-<p class="text-purple-200 text-sm sm:text-base font-normal max-w-lg mx-auto">
-            Replace boring text messages with magical, interactive digital surprises.
-          </p>
-<div class="pt-4">
-<button class="px-9 py-4 rounded-full bg-white text-purple-950 font-black text-base shadow-xl hover:bg-pink-50 hover:scale-105 active:scale-95 transition-all" onclick="document.getElementById('templates-section').scrollIntoView({ behavior: 'smooth' })">
-              Create Your Wish Now 🪄
-            </button>
-</div>
-</div>
-</div>
-</section>
-<!-- END: EmotionalClimaxBanner -->
-<!-- BEGIN: AdaptiveLightDarkFooter -->
-<footer class="bg-gradient-to-b from-purple-50/80 via-white to-purple-100/50 dark:from-[#140628] dark:via-[#1D0B36] dark:to-[#0D041A] text-[#24113F] dark:text-white pt-16 pb-12 px-6 md:px-12 mt-auto border-t border-purple-200/80 dark:border-purple-900/50 transition-colors duration-300" data-purpose="site-footer" id="about-section">
+</main>
+<!-- BEGIN: AdaptiveLightDarkFooter (DEEP PURPLE COSMIC FOOTER) -->
+<footer class="bg-gradient-to-b from-[#18072e] via-[#120424] to-[#0a0214] text-white pt-16 pb-12 px-6 md:px-12 mt-auto border-t border-purple-500/25 shadow-2xl transition-colors duration-300" data-purpose="site-footer" id="about-section">
 <div class="max-w-7xl mx-auto">
 <!-- Trust & Support Horizontal Bar -->
-<div class="grid grid-cols-1 md:grid-cols-3 gap-6 pb-12 border-b border-purple-200/70 dark:border-purple-800/40">
-<a href="/legal?policy=privacy_policy" class="p-4 rounded-2xl bg-white/90 dark:bg-purple-950/60 border border-purple-200/70 dark:border-purple-900/40 shadow-sm flex items-start gap-4 transition-all hover:border-pink-400 group">
-<div class="w-10 h-10 rounded-xl bg-purple-100 dark:bg-purple-900/80 text-pink-600 dark:text-pink-400 flex items-center justify-center flex-shrink-0 text-base shadow-sm group-hover:scale-105 transition-transform">
+<div class="grid grid-cols-1 md:grid-cols-3 gap-6 pb-12 border-b border-purple-800/40">
+<a href="/legal?policy=privacy_policy" class="p-4 rounded-2xl bg-white/5 hover:bg-white/10 border border-purple-400/20 hover:border-pink-400/60 shadow-sm flex items-start gap-4 transition-all group backdrop-blur-md">
+<div class="w-10 h-10 rounded-xl bg-purple-900/60 text-pink-400 flex items-center justify-center flex-shrink-0 text-base shadow-sm group-hover:scale-105 transition-transform border border-purple-500/30">
 <svg class="w-5 h-5" fill="none" stroke="currentColor" viewbox="0 0 24 24"><path d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z" stroke-linecap="round" stroke-linejoin="round" stroke-width="2"></path></svg>
 </div>
 <div>
-<p class="font-bold text-purple-950 dark:text-white text-base group-hover:text-pink-600 dark:group-hover:text-pink-400 transition-colors">Privacy Policy ↗</p>
-<p class="text-purple-800/80 dark:text-purple-300/80 mt-1 leading-relaxed text-xs sm:text-sm">Your privacy is important to us. Photos and wishes remain strictly confidential.</p>
+<p class="font-bold text-white text-base group-hover:text-pink-300 transition-colors">Privacy Policy ↗</p>
+<p class="text-purple-200/80 mt-1 leading-relaxed text-xs sm:text-sm">Your privacy is important to us. Photos and wishes remain strictly confidential.</p>
 </div>
 </a>
-<a href="/legal?policy=terms_of_service" class="p-4 rounded-2xl bg-white/90 dark:bg-purple-950/60 border border-purple-200/70 dark:border-purple-900/40 shadow-sm flex items-start gap-4 transition-all hover:border-pink-400 group">
-<div class="w-10 h-10 rounded-xl bg-purple-100 dark:bg-purple-900/80 text-pink-600 dark:text-pink-400 flex items-center justify-center flex-shrink-0 text-base shadow-sm group-hover:scale-105 transition-transform">
+<a href="/legal?policy=terms_of_service" class="p-4 rounded-2xl bg-white/5 hover:bg-white/10 border border-purple-400/20 hover:border-pink-400/60 shadow-sm flex items-start gap-4 transition-all group backdrop-blur-md">
+<div class="w-10 h-10 rounded-xl bg-purple-900/60 text-pink-400 flex items-center justify-center flex-shrink-0 text-base shadow-sm group-hover:scale-105 transition-transform border border-purple-500/30">
 <svg class="w-5 h-5" fill="none" stroke="currentColor" viewbox="0 0 24 24"><path d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" stroke-linecap="round" stroke-linejoin="round" stroke-width="2"></path></svg>
 </div>
 <div>
-<p class="font-bold text-purple-950 dark:text-white text-base group-hover:text-pink-600 dark:group-hover:text-pink-400 transition-colors">Terms of Service ↗</p>
-<p class="text-purple-800/80 dark:text-purple-300/80 mt-1 leading-relaxed text-xs sm:text-sm">Simple, honest guidelines for creating pure joyful experiences.</p>
+<p class="font-bold text-white text-base group-hover:text-pink-300 transition-colors">Terms of Service ↗</p>
+<p class="text-purple-200/80 mt-1 leading-relaxed text-xs sm:text-sm">Simple, honest guidelines for creating pure joyful experiences.</p>
 </div>
 </a>
-<div class="p-4 rounded-2xl bg-white/90 dark:bg-purple-950/60 border border-purple-200/70 dark:border-purple-900/40 shadow-sm flex items-start gap-4 transition-colors">
-<div class="w-10 h-10 rounded-xl bg-purple-100 dark:bg-purple-900/80 text-pink-600 dark:text-pink-400 flex items-center justify-center flex-shrink-0 text-base shadow-sm">
+<div class="p-4 rounded-2xl bg-white/5 border border-purple-400/20 shadow-sm flex items-start gap-4 transition-colors backdrop-blur-md">
+<div class="w-10 h-10 rounded-xl bg-purple-900/60 text-pink-400 flex items-center justify-center flex-shrink-0 text-base shadow-sm border border-purple-500/30">
 <svg class="w-5 h-5" fill="none" stroke="currentColor" viewbox="0 0 24 24"><path d="M18.364 5.636l-3.536 3.536m0 5.656l3.536 3.536M9.172 9.172L5.636 5.636m3.536 9.192l-3.536 3.536M21 12a9 9 0 11-18 0 9 9 0 0118 0zm-5 0a4 4 0 11-8 0 4 4 0 018 0z" stroke-linecap="round" stroke-linejoin="round" stroke-width="2"></path></svg>
 </div>
 <div>
-<p class="font-bold text-purple-950 dark:text-white text-base">Contact Support</p>
-<p class="text-purple-800/80 dark:text-purple-300/80 mt-1 leading-relaxed text-xs sm:text-sm">
-  Need help? Reach our team on WhatsApp: <a id="footer-support-wa-link" href="https://wa.me/919876543210" target="_blank" rel="noopener noreferrer" class="font-bold text-pink-600 dark:text-pink-400 hover:underline"><span id="footer-support-wa-text">+91 98765 43210</span></a>
+<p class="font-bold text-white text-base">Contact Support</p>
+<p class="text-purple-200/80 mt-1 leading-relaxed text-xs sm:text-sm">
+  Need help? Reach our team on WhatsApp: <a id="footer-support-wa-link" href="https://wa.me/919876543210" target="_blank" rel="noopener noreferrer" class="font-bold text-pink-400 hover:text-pink-300 hover:underline"><span id="footer-support-wa-text">+91 98765 43210</span></a>
 </p>
 </div>
 </div>
@@ -897,57 +884,57 @@
 <div class="grid grid-cols-2 md:grid-cols-5 gap-10 py-12 text-sm">
 <div class="col-span-2">
 <div class="flex items-center gap-3 mb-4">
-<div class="w-9 h-9 rounded-full bg-gradient-to-tr from-purple-600 to-pink-500 flex items-center justify-center font-bold text-white shadow-md">🪄</div>
-<span id="footer-brand-name" class="brand-name-text font-display font-extrabold text-2xl text-purple-950 dark:text-white">WishMagic</span>
+<div class="w-9 h-9 rounded-full bg-gradient-to-tr from-purple-600 via-pink-500 to-amber-300 flex items-center justify-center font-bold text-white shadow-md shadow-pink-500/25">🪄</div>
+<span id="footer-brand-name" class="brand-name-text font-display font-extrabold text-2xl bg-gradient-to-r from-white via-pink-200 to-purple-300 bg-clip-text text-transparent">WishMagic</span>
 </div>
-<p class="text-purple-800/80 dark:text-purple-300/80 leading-relaxed max-w-sm mb-5 text-sm font-medium">
-              Crafting joyous, emotional, and interactive digital web experiences that turn every birthday, anniversary, and celebration into a treasured memory.
-            </p>
+<p class="text-purple-200/85 leading-relaxed max-w-sm mb-5 text-sm font-medium">
+  Crafting joyous, emotional, and interactive digital web experiences that turn every birthday, anniversary, and celebration into a treasured memory.
+</p>
 <!-- Social Icons -->
 <div class="flex items-center gap-3 text-sm">
-<a aria-label="Instagram" class="w-9 h-9 rounded-full bg-purple-100 dark:bg-purple-900/70 text-purple-700 dark:text-purple-300 hover:bg-pink-500 hover:text-white flex items-center justify-center transition shadow-sm" href="#">📷</a>
-<a aria-label="YouTube" class="w-9 h-9 rounded-full bg-purple-100 dark:bg-purple-900/70 text-purple-700 dark:text-purple-300 hover:bg-pink-500 hover:text-white flex items-center justify-center transition shadow-sm" href="#">▶</a>
-<a aria-label="Facebook" class="w-9 h-9 rounded-full bg-purple-100 dark:bg-purple-900/70 text-purple-700 dark:text-purple-300 hover:bg-pink-500 hover:text-white flex items-center justify-center transition shadow-sm" href="#">f</a>
-<a aria-label="X Twitter" class="w-9 h-9 rounded-full bg-purple-100 dark:bg-purple-900/70 text-purple-700 dark:text-purple-300 hover:bg-pink-500 hover:text-white flex items-center justify-center transition shadow-sm" href="#">𝕏</a>
-<a aria-label="Pinterest" class="w-9 h-9 rounded-full bg-purple-100 dark:bg-purple-900/70 text-purple-700 dark:text-purple-300 hover:bg-pink-500 hover:text-white flex items-center justify-center transition shadow-sm" href="#">📌</a>
+<a aria-label="Instagram" class="w-9 h-9 rounded-full bg-white/10 text-purple-200 hover:bg-pink-500 hover:text-white flex items-center justify-center transition shadow-sm border border-white/10" href="#">📷</a>
+<a aria-label="YouTube" class="w-9 h-9 rounded-full bg-white/10 text-purple-200 hover:bg-pink-500 hover:text-white flex items-center justify-center transition shadow-sm border border-white/10" href="#">▶</a>
+<a aria-label="Facebook" class="w-9 h-9 rounded-full bg-white/10 text-purple-200 hover:bg-pink-500 hover:text-white flex items-center justify-center transition shadow-sm border border-white/10" href="#">f</a>
+<a aria-label="X Twitter" class="w-9 h-9 rounded-full bg-white/10 text-purple-200 hover:bg-pink-500 hover:text-white flex items-center justify-center transition shadow-sm border border-white/10" href="#">𝕏</a>
+<a aria-label="Pinterest" class="w-9 h-9 rounded-full bg-white/10 text-purple-200 hover:bg-pink-500 hover:text-white flex items-center justify-center transition shadow-sm border border-white/10" href="#">📌</a>
 </div>
 </div>
 <div>
-<h4 class="font-bold text-purple-950 dark:text-white mb-4 uppercase tracking-wider text-xs">Occasions</h4>
-<ul class="space-y-2.5 text-purple-800/80 dark:text-purple-300/80 font-medium">
-<li><a class="hover:text-pink-600 dark:hover:text-pink-400 transition" href="#">Birthday Wishes</a></li>
-<li><a class="hover:text-pink-600 dark:hover:text-pink-400 transition" href="#">Anniversary Celebrations</a></li>
-<li><a class="hover:text-pink-600 dark:hover:text-pink-400 transition" href="#">Romantic Love Notes</a></li>
-<li><a class="hover:text-pink-600 dark:hover:text-pink-400 transition" href="#">Graduation &amp; Success</a></li>
-<li><a class="hover:text-pink-600 dark:hover:text-pink-400 transition" href="#">Festive Seasons</a></li>
+<h4 class="font-extrabold text-white mb-4 uppercase tracking-wider text-xs">Occasions</h4>
+<ul class="space-y-2.5 text-purple-200/80 font-medium">
+<li><a class="hover:text-pink-300 transition" href="#">Birthday Wishes</a></li>
+<li><a class="hover:text-pink-300 transition" href="#">Anniversary Celebrations</a></li>
+<li><a class="hover:text-pink-300 transition" href="#">Romantic Love Notes</a></li>
+<li><a class="hover:text-pink-300 transition" href="#">Graduation &amp; Success</a></li>
+<li><a class="hover:text-pink-300 transition" href="#">Festive Seasons</a></li>
 </ul>
 </div>
 <div>
-<h4 class="font-bold text-purple-950 dark:text-white mb-4 uppercase tracking-wider text-xs">Product</h4>
-<ul class="space-y-2.5 text-purple-800/80 dark:text-purple-300/80 font-medium">
-<li><a class="hover:text-pink-600 dark:hover:text-pink-400 transition" href="#">Template Library</a></li>
-<li><a class="hover:text-pink-600 dark:hover:text-pink-400 transition" href="#">Custom Audio Studio</a></li>
-<li><a class="hover:text-pink-600 dark:hover:text-pink-400 transition" href="#">QR Code Delivery</a></li>
-<li><a class="hover:text-pink-600 dark:hover:text-pink-400 transition" href="#">Magic Premium Pass</a></li>
-<li><a class="hover:text-pink-600 dark:hover:text-pink-400 transition" href="#">Customer Stories</a></li>
+<h4 class="font-extrabold text-white mb-4 uppercase tracking-wider text-xs">Product</h4>
+<ul class="space-y-2.5 text-purple-200/80 font-medium">
+<li><a class="hover:text-pink-300 transition" href="#">Template Library</a></li>
+<li><a class="hover:text-pink-300 transition" href="#">Custom Audio Studio</a></li>
+<li><a class="hover:text-pink-300 transition" href="#">QR Code Delivery</a></li>
+<li><a class="hover:text-pink-300 transition" href="#">Magic Premium Pass</a></li>
+<li><a class="hover:text-pink-300 transition" href="#">Customer Stories</a></li>
 </ul>
 </div>
 <div>
-<h4 class="font-bold text-purple-950 dark:text-white mb-4 uppercase tracking-wider text-xs">Trust &amp; Legal</h4>
-<ul class="space-y-2.5 text-purple-800/80 dark:text-purple-300/80 font-medium">
-<li><a class="hover:text-pink-600 dark:hover:text-pink-400 transition" href="/legal?policy=terms_of_service">Terms of Service</a></li>
-<li><a class="hover:text-pink-600 dark:hover:text-pink-400 transition" href="/legal?policy=privacy_policy">Privacy Policy</a></li>
-<li><a class="hover:text-pink-600 dark:hover:text-pink-400 transition" href="/legal?policy=cookie_policy">Cookie Notice</a></li>
-<li><a class="hover:text-pink-600 dark:hover:text-pink-400 transition" href="/legal?policy=refund_policy">Refund Policy</a></li>
-<li><button type="button" class="hover:text-pink-600 dark:hover:text-pink-400 transition text-left cursor-pointer" data-action="cookie-preferences">Cookie Preferences</button></li>
-<li><a class="hover:text-pink-600 dark:hover:text-pink-400 transition font-bold text-pink-600 dark:text-pink-400" href="/legal">Legal Center ↗</a></li>
+<h4 class="font-extrabold text-white mb-4 uppercase tracking-wider text-xs">Trust &amp; Legal</h4>
+<ul class="space-y-2.5 text-purple-200/80 font-medium">
+<li><a class="hover:text-pink-300 transition" href="/legal?policy=terms_of_service">Terms of Service</a></li>
+<li><a class="hover:text-pink-300 transition" href="/legal?policy=privacy_policy">Privacy Policy</a></li>
+<li><a class="hover:text-pink-300 transition" href="/legal?policy=cookie_policy">Cookie Notice</a></li>
+<li><a class="hover:text-pink-300 transition" href="/legal?policy=refund_policy">Refund Policy</a></li>
+<li><button type="button" class="hover:text-pink-300 transition text-left cursor-pointer" data-action="cookie-preferences">Cookie Preferences</button></li>
+<li><a class="hover:text-pink-300 transition font-bold text-pink-400" href="/legal">Legal Center ↗</a></li>
 </ul>
 </div>
 </div>
 <!-- Copyright Badge bottom -->
-<div class="pt-8 border-t border-purple-200/80 dark:border-purple-900/50 flex flex-col sm:flex-row items-center justify-between text-xs sm:text-sm text-purple-800/90 dark:text-purple-400 gap-3">
-<span>© 2026 <span id="copyright-brand-name" class="brand-name-text">WishMagic</span>. All rights reserved. 💜</span>
-<span class="text-purple-600/80 dark:text-purple-300/60 text-xs">Designed with wonder for people who care deeply.</span>
+<div class="pt-8 border-t border-purple-800/40 flex flex-col sm:flex-row items-center justify-between text-xs sm:text-sm text-purple-300/80 gap-3">
+<span>© 2026 <span id="copyright-brand-name" class="brand-name-text text-white font-semibold">WishMagic</span>. All rights reserved. 💜</span>
+<span class="text-purple-300/60 text-xs">Designed with wonder for people who care deeply.</span>
 </div>
 </div>
 </footer>
@@ -1062,11 +1049,26 @@
 <h3 class="font-display font-black text-xl text-[#24113F]" id="auth-title">Welcome to WishMagic</h3>
 <p class="text-xs text-purple-700/80 mb-6" id="auth-subtitle">Save your wishes and revisit smiles anytime.</p>
 <div class="space-y-3">
-<button class="w-full py-3 px-4 rounded-2xl bg-white hover:bg-purple-50 border-2 border-purple-200 text-xs sm:text-sm font-bold text-gray-800 flex items-center justify-center gap-2.5 transition shadow-sm cursor-pointer" onclick="closeModal('auth-modal'); if (window.WishAuth) window.WishAuth.signInWithGoogle();">
+<button class="w-full py-3 px-4 rounded-2xl bg-white hover:bg-purple-50 border-2 border-purple-200 text-xs sm:text-sm font-bold text-gray-800 flex items-center justify-center gap-2.5 transition shadow-sm cursor-pointer" onclick="closeModal('auth-modal'); if (window.WishAuth && window.WishAuth.openAuthModal) { window.WishAuth.openAuthModal(); } else if (window.handleGoogleSignInClick) { handleGoogleSignInClick(); }">
   <svg class="w-4 h-4 flex-shrink-0" viewBox="0 0 24 24"><path fill="#4285F4" d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z"/><path fill="#34A853" d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z"/><path fill="#FBBC05" d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.06H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.94l2.85-2.22.81-.63z"/><path fill="#EA4335" d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.06l3.66 2.84c.87-2.6 3.3-4.52 6.16-4.52z"/></svg>
   <span>Continue with Google (Gmail)</span>
 </button>
-<p class="text-[11px] text-purple-600/80 mt-3">🔒 1-Tap secure login with Gmail • Powered by Firebase</p>
+
+<div class="relative flex py-1 items-center">
+  <div class="flex-grow border-t border-purple-200"></div>
+  <span class="flex-shrink mx-2 text-[10px] font-bold text-purple-600/70 uppercase tracking-wider">or enter your Gmail</span>
+  <div class="flex-grow border-t border-purple-200"></div>
+</div>
+
+<form onsubmit="event.preventDefault(); const em = (document.getElementById('legacy-gmail-input').value || '').trim(); if (window.WishAuth) { window.WishAuth.signInWithGmail(em).then(() => closeModal('auth-modal')).catch(err => console.warn(err)); }" class="space-y-2">
+  <input type="email" id="legacy-gmail-input" placeholder="e.g. ankit.babusaini@gmail.com" required class="w-full py-2.5 px-3.5 text-xs rounded-xl border border-purple-200 bg-purple-50/50 text-purple-950 placeholder-purple-400 focus:outline-none focus:ring-2 focus:ring-purple-500 text-left"/>
+  <button type="submit" class="w-full py-2.5 px-4 rounded-xl bg-purple-600 hover:bg-purple-700 text-white font-bold text-xs transition shadow-md flex items-center justify-center gap-1.5 cursor-pointer">
+    <span>Sign In with Gmail</span>
+    <span class="text-amber-300">✨</span>
+  </button>
+</form>
+
+<p class="text-[11px] text-purple-600/80 mt-2">🔒 1-Tap secure login with Gmail • Powered by Google &amp; Firebase</p>
 </div>
 </div>
 </div>
@@ -1167,7 +1169,7 @@
       templates.forEach(tpl => {
         const isFav = favs.includes(tpl.id);
         const card = document.createElement("div");
-        card.className = "template-card group relative bg-white/85 dark:bg-purple-950/70 backdrop-blur-md rounded-2xl sm:rounded-3xl p-3.5 sm:p-4 border border-purple-200/70 dark:border-purple-800/60 shadow-lg shadow-purple-900/5 hover:shadow-2xl hover:shadow-pink-500/15 hover:-translate-y-1.5 transition-all duration-300 flex flex-col justify-between";
+        card.className = "template-card group relative bg-white dark:bg-purple-950/85 rounded-2xl p-4 sm:p-5 border border-purple-100 dark:border-purple-800/60 shadow-md hover:shadow-2xl hover:-translate-y-1.5 transition-all duration-300 flex flex-col justify-between";
         
         // Data attributes for multi-axis filtering
         card.setAttribute("data-id", tpl.id);
@@ -1178,61 +1180,63 @@
         card.setAttribute("data-description", (tpl.description || "").toLowerCase());
 
         const isVip = tpl.tier === "vip" || (tpl.price && Number(tpl.price) > 0);
-        const priceBadge = isVip ? `PREMIUM • ₹${tpl.price || 49}` : "FREE";
-        const priceBadgeClass = isVip ? "bg-gradient-to-r from-amber-400 to-amber-500 text-purple-950 shadow-amber-500/30" : "bg-emerald-500 text-white shadow-emerald-500/30";
-
-        const previewUrl = `/templates-store/${tpl.folder || tpl.id}/${tpl.entryFile || "index.html"}`;
+        const price = tpl.price || 49;
         const previewImg = tpl.thumbnail || tpl.previewImage || "/assets/file_ab2082.png";
 
-        // Display relationships tags (up to 3)
-        const relTags = (tpl.relationships || []).slice(0, 3).map(r => `<span class="px-2 py-0.5 rounded-full bg-purple-100/80 dark:bg-purple-900/60 text-purple-800 dark:text-purple-200 text-[10px] font-semibold">#${r}</span>`).join(" ");
+        // Realistic consistent star rating & review count matching reference screenshot
+        const ratingSeed = (tpl.id.charCodeAt(tpl.id.length - 1) || 5) % 4;
+        const rating = (4.6 + ratingSeed * 0.1).toFixed(1);
+        const reviews = 50 + ((tpl.name.length * 13) % 80);
+
+        // Top-right badge (Free Gift box or Premium ₹49) exactly matching screenshot
+        const badgeMarkup = isVip
+          ? `<div class="absolute top-3 right-3 z-10 text-center">
+              <span class="inline-flex flex-col items-center justify-center px-3 py-1 rounded-xl bg-[#fbc531] text-[#24113F] text-xs font-black leading-tight shadow-md border border-yellow-200/90">
+                <span class="font-extrabold text-[10px] uppercase tracking-wider">Premium</span>
+                <span class="font-black text-xs">₹${price}</span>
+              </span>
+            </div>`
+          : `<div class="absolute top-3 right-3 z-10">
+              <span class="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-[#00c569] text-white text-xs font-bold shadow-md">
+                <svg class="w-3.5 h-3.5 fill-current" viewBox="0 0 24 24"><path d="M20 6h-2.18c.11-.31.18-.65.18-1a2.996 2.996 0 0 0-5.5-1.65l-.5.67-.5-.68C10.96 2.54 10.05 2 9 2 7.34 2 6 3.34 6 5c0 .35.07.69.18 1H4c-1.11 0-1.99.89-1.99 2L2 19c0 1.11.89 2 2 2h16c1.11 0 2-.89 2-2V8c0-1.11-.89-2-2-2zm-5-2c.55 0 1 .45 1 1s-.45 1-1 1h-2l1.3-1.74C14.47 4.1 14.72 4 15 4zm-6 0c.28 0 .53.11.7.26L11 6H9c-.55 0-1-.45-1-1s.45-1 1-1zm11 15H4v-2h16v2zm0-5H4V8h5.08L7 10.83 8.62 12 11 8.76l1-1.36 1 1.36 2.38 3.24L17 10.83 14.92 8H20v6z"/></svg>
+                Free
+              </span>
+            </div>`;
 
         card.innerHTML = `
           <div>
-            <!-- Image & Badges Banner -->
-            <div class="relative rounded-2xl overflow-hidden mb-3 aspect-[16/10] bg-purple-900/10 dark:bg-purple-950/80 shadow-inner">
-              <img class="w-full h-full object-cover group-hover:scale-108 transition-transform duration-500" src="${previewImg}" alt="${tpl.name}" loading="lazy"/>
-              <div class="absolute inset-0 bg-gradient-to-t from-black/60 via-transparent to-black/20 pointer-events-none"></div>
-              
-              <!-- Top Left: Tier Badge -->
-              <div class="absolute top-2.5 left-2.5 flex items-center gap-1.5 z-10">
-                <span class="px-2.5 py-1 rounded-full text-[10px] font-black uppercase tracking-wider ${priceBadgeClass} shadow-md">${priceBadge}</span>
-              </div>
-              
-              <!-- Top Right: Favorite Button -->
-              <button class="absolute top-2.5 right-2.5 w-8 h-8 rounded-full bg-black/40 backdrop-blur-md border border-white/20 text-white flex items-center justify-center hover:scale-110 active:scale-95 transition-all z-10" onclick="toggleFavorite('${tpl.id}', this)" data-saved="${isFav}" title="Favorite template" aria-label="Favorite">
-                <svg class="w-4 h-4 ${isFav ? 'fill-pink-500 text-pink-500' : 'fill-none text-white/80'} transition-colors" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M4.318 6.318a4.5 4.5 0 000 6.364L12 20.364l7.682-7.682a4.5 4.5 0 00-6.364-6.364L12 7.636l-1.318-1.318a4.5 4.5 0 00-6.364 0z"></path></svg>
-              </button>
-
-              <!-- Bottom Left: Category Pill -->
-              <div class="absolute bottom-2.5 left-2.5 z-10 flex items-center gap-1.5">
-                <span class="px-2.5 py-0.5 rounded-lg bg-black/60 backdrop-blur-md text-pink-200 border border-white/10 text-[11px] font-bold">✦ ${tpl.category || "Celebration"}</span>
-              </div>
+            <!-- Image Thumbnail Banner with Top-Right Badge -->
+            <div class="relative rounded-xl overflow-hidden mb-3 aspect-[16/10] bg-purple-900/10 dark:bg-purple-950/80 shadow-inner group/img cursor-pointer" onclick="openTemplatePreview('${tpl.id}')">
+              <img class="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500" src="${previewImg}" alt="${tpl.name}" loading="lazy"/>
+              <div class="absolute inset-0 bg-gradient-to-t from-black/45 via-transparent to-black/10 pointer-events-none"></div>
+              ${badgeMarkup}
             </div>
 
-            <!-- Title & Description -->
-            <div class="space-y-1 mb-2">
+            <!-- Title -->
+            <div class="mb-1.5">
               <a href="/template/${tpl.id}" class="block">
-                <h3 class="font-display font-extrabold text-base sm:text-lg text-purple-950 dark:text-white line-clamp-1 hover:text-pink-600 dark:hover:text-pink-400 transition-colors">${tpl.name}</h3>
+                <h3 class="font-display font-bold text-base sm:text-lg text-gray-900 dark:text-white line-clamp-1 hover:text-[#6c5ce7] dark:hover:text-purple-300 transition-colors">${tpl.name}</h3>
               </a>
-              <p class="text-xs text-purple-900/75 dark:text-purple-300/80 line-clamp-2 leading-relaxed font-normal">${tpl.description || ""}</p>
             </div>
 
-            <!-- Relationships Tags -->
-            <div class="flex flex-wrap gap-1 mb-3">
-              ${relTags}
+            <!-- Rating & Review Count (Matching reference screenshot) -->
+            <div class="flex items-center gap-1.5 text-xs text-gray-500 dark:text-purple-300/80 mb-4">
+              <span class="text-amber-400 text-sm tracking-tighter">★★★★★</span>
+              <span class="font-bold text-gray-700 dark:text-purple-200 text-xs">${rating} (${reviews})</span>
             </div>
           </div>
 
-          <!-- Bottom Action Buttons: Preview & Create This Wish -->
-          <div class="pt-3 border-t border-purple-100 dark:border-purple-800/60 flex items-center justify-between gap-2 mt-auto">
-            <button type="button" onclick="openTemplatePreview('${tpl.id}')" class="px-3 py-2 rounded-xl bg-purple-50 dark:bg-purple-900/50 hover:bg-purple-100 dark:hover:bg-purple-900 text-purple-800 dark:text-purple-200 text-xs font-bold transition flex items-center gap-1.5 active:scale-95 cursor-pointer">
-              <span>👁️</span><span>Preview</span>
-            </button>
-            <a href="/customize.html?template=${tpl.id}" class="flex-grow py-2 px-3 sm:px-4 rounded-xl bg-gradient-to-r from-pink-500 via-purple-600 to-indigo-600 text-white text-xs font-bold shadow-md shadow-pink-500/20 hover:brightness-110 active:scale-95 transition-all text-center flex items-center justify-center gap-1 group/btn">
-              <span>Create This Wish</span>
-              <span class="group-hover/btn:translate-x-0.5 transition-transform text-amber-300">✨</span>
+          <!-- Bottom Action Buttons: Customize & Bookmark (Matching reference screenshot) -->
+          <div class="flex items-center gap-2.5 mt-auto pt-1">
+            <a href="/customize.html?template=${tpl.id}" class="flex-1 py-2.5 sm:py-3 px-4 rounded-xl bg-[#6c5ce7] hover:bg-[#5b4cdb] text-white text-sm sm:text-base font-bold shadow-md shadow-purple-500/25 active:scale-95 transition-all text-center flex items-center justify-center gap-2">
+              <span>Customize</span>
+              <span>✨</span>
             </a>
+            <button type="button" onclick="toggleFavorite('${tpl.id}', this)" data-saved="${isFav}" class="w-11 sm:w-12 h-11 sm:h-12 rounded-xl border border-purple-200 dark:border-purple-800 bg-white dark:bg-purple-900/40 text-purple-600 dark:text-purple-300 hover:bg-purple-50 dark:hover:bg-purple-800 flex items-center justify-center shrink-0 transition active:scale-90 cursor-pointer shadow-sm" title="Save to bookmarks" aria-label="Bookmark">
+              <svg class="w-5 h-5 ${isFav ? 'fill-[#6c5ce7] text-[#6c5ce7]' : 'fill-none text-purple-600 dark:text-purple-300'} transition-colors" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+                <path d="M5 5a2 2 0 012-2h10a2 2 0 012 2v16l-7-3.5L5 21V5z"/>
+              </svg>
+            </button>
           </div>
         `;
         grid.appendChild(card);
@@ -1407,6 +1411,12 @@
 
     // Modal Control Functions
     function openModal(modalId) {
+      if (modalId === 'auth-modal') {
+        if (window.WishAuth && typeof window.WishAuth.openAuthModal === 'function') {
+          window.WishAuth.openAuthModal('signin');
+          return;
+        }
+      }
       const modal = document.getElementById(modalId);
       if (modal) {
         modal.classList.remove('hidden');
@@ -1553,11 +1563,31 @@
           if (imgEl) imgEl.src = s.heroImageUrl;
         }
 
-        // 5. Hero Gradient / Style
-        if (s.heroStyleGradient) {
-          const heroSec = document.getElementById('hero-desktop-section');
-          if (heroSec) {
-            heroSec.style.background = s.heroStyleGradient;
+        // 5. Hero Background: Photo OR Gradient (Never mixed together!)
+        const heroSec = document.getElementById('hero-desktop-section');
+        const ambientBackdrop = document.getElementById('ambient-hero-backdrop');
+        const heroScrim = document.getElementById('hero-image-scrim');
+        if (heroSec) {
+          const mode = s.heroBgMode || 'image';
+          if (mode === 'gradient') {
+            // PURE GRADIENT MODE: Only vibrant theme gradient, NO photo!
+            const pureGrad = s.heroStyleGradient || 'radial-gradient(circle at 75% 25%, #9d174d 0%, #6d28d9 28%, #4c1d95 62%, #2e0854 100%)';
+            heroSec.style.background = pureGrad;
+            heroSec.style.backgroundImage = pureGrad;
+            if (ambientBackdrop) ambientBackdrop.style.display = '';
+            if (heroScrim) heroScrim.style.display = 'none';
+          } else {
+            // PURE PHOTO MODE: Clean photo, NO purple gradient overlay!
+            const bgImg = s.heroImageUrl || '/assets/file_ab2082.png';
+            heroSec.style.background = `url('${bgImg}') center / cover no-repeat`;
+            heroSec.style.backgroundImage = `url('${bgImg}')`;
+            heroSec.style.backgroundSize = 'cover';
+            heroSec.style.backgroundPosition = 'center';
+            heroSec.style.backgroundRepeat = 'no-repeat';
+            // Hide purple glowing shapes/orbs so photo is 100% clean and clear
+            if (ambientBackdrop) ambientBackdrop.style.display = 'none';
+            // Show contrast scrim so text never blends into background photo
+            if (heroScrim) heroScrim.style.display = 'block';
           }
         }
 
@@ -1614,6 +1644,192 @@
       }
     }
 
+    // Interactive 3D Gift Box Centerpiece Surprise Handler
+    // Interactive Occasion Preset Styles for Hero Showcase Card
+    const HERO_PRESETS = {
+      'birthday': {
+        title: '🎂 Birthday Surprise',
+        giftIcon: '🎁',
+        openIcon: '🎂',
+        openTitle: 'Happy Birthday!',
+        openDesc: 'Animated Candles, Cake & Music',
+        balloons: ['🎈', '💖', '✨', '🎵'],
+        colors: ['#ec4899', '#f43f5e', '#fbbf24', '#a855f7']
+      },
+      'love': {
+        title: '💖 Romantic Heart Wish',
+        giftIcon: '💝',
+        openIcon: '🌹',
+        openTitle: 'With All My Heart!',
+        openDesc: 'Love Letter, Photos & Romantic Tune',
+        balloons: ['💖', '💌', '🌹', '✨'],
+        colors: ['#f43f5e', '#fb7185', '#fda4af', '#f472b6']
+      },
+      'anniversary': {
+        title: '💍 Golden Anniversary',
+        giftIcon: '💎',
+        openIcon: '🥂',
+        openTitle: 'Happy Anniversary!',
+        openDesc: 'Timeline Memories & Champagne Cheers',
+        balloons: ['💍', '🥂', '✨', '💖'],
+        colors: ['#fbbf24', '#f59e0b', '#ec4899', '#c084fc']
+      },
+      'festival': {
+        title: '🎉 Festive Celebration',
+        giftIcon: '🎆',
+        openIcon: '🎊',
+        openTitle: 'Festive Joy & Cheers!',
+        openDesc: 'Fireworks, Lights & Joyful Beats',
+        balloons: ['🎉', '🎆', '✨', '🎈'],
+        colors: ['#fbbf24', '#10b981', '#3b82f6', '#ec4899']
+      }
+    };
+
+    let currentHeroPreset = 'birthday';
+
+    window.selectHeroOccasionPreset = function(presetKey) {
+      const p = HERO_PRESETS[presetKey];
+      if (!p) return;
+      currentHeroPreset = presetKey;
+
+      // Update preset title
+      const titleEl = document.getElementById('hero-preset-title');
+      if (titleEl) titleEl.textContent = p.title;
+
+      // Update closed icon
+      const giftIconEl = document.getElementById('hero-gift-icon-display');
+      if (giftIconEl) giftIconEl.textContent = p.giftIcon;
+
+      // Update opened state
+      const openIconEl = document.getElementById('hero-opened-icon');
+      if (openIconEl) openIconEl.textContent = p.openIcon;
+      const openTitleEl = document.getElementById('hero-opened-title');
+      if (openTitleEl) openTitleEl.textContent = p.openTitle;
+      const openDescEl = document.getElementById('hero-opened-desc');
+      if (openDescEl) openDescEl.textContent = p.openDesc;
+
+      // Update floating charms
+      const bEl = document.getElementById('charm-balloon');
+      if (bEl && p.balloons[0]) bEl.textContent = p.balloons[0];
+      const hEl = document.getElementById('charm-heart');
+      if (hEl && p.balloons[1]) hEl.textContent = p.balloons[1];
+      const sEl = document.getElementById('charm-sparkle');
+      if (sEl && p.balloons[2]) sEl.textContent = p.balloons[2];
+      const mEl = document.getElementById('charm-music');
+      if (mEl && p.balloons[3]) mEl.textContent = p.balloons[3];
+
+      // Update preset buttons styling
+      document.querySelectorAll('.hero-preset-btn').forEach(btn => {
+        btn.classList.remove('bg-pink-500', 'text-white');
+        btn.classList.add('bg-white/10', 'text-purple-200');
+        if (btn.getAttribute('onclick') && btn.getAttribute('onclick').includes(presetKey)) {
+          btn.classList.add('bg-pink-500', 'text-white');
+          btn.classList.remove('bg-white/10', 'text-purple-200');
+        }
+      });
+
+      // Mini confetti celebration for preset change
+      if (typeof confetti === 'function') {
+        try {
+          confetti({
+            particleCount: 20,
+            spread: 50,
+            origin: { y: 0.65 },
+            colors: p.colors
+          });
+        } catch(e) {}
+      }
+    };
+
+    // Interactive 3D Gift Box Centerpiece Surprise Handler
+    window.toggleHero3DGiftSurprise = function() {
+      const closedEl = document.getElementById('hero-gift-closed-state');
+      const openedEl = document.getElementById('hero-gift-opened-state');
+      if (!closedEl || !openedEl) return;
+      const isOpen = !openedEl.classList.contains('hidden');
+      if (isOpen) {
+        openedEl.classList.add('hidden');
+        openedEl.classList.remove('flex');
+        closedEl.classList.remove('hidden');
+        closedEl.classList.add('flex');
+      } else {
+        closedEl.classList.add('hidden');
+        closedEl.classList.remove('flex');
+        openedEl.classList.remove('hidden');
+        openedEl.classList.add('flex');
+        
+        // Full celebratory confetti blast!
+        const p = HERO_PRESETS[currentHeroPreset] || HERO_PRESETS.birthday;
+        if (typeof confetti === 'function') {
+          try {
+            confetti({
+              particleCount: 70,
+              spread: 80,
+              origin: { y: 0.62 },
+              colors: p.colors
+            });
+            setTimeout(() => {
+              confetti({
+                particleCount: 40,
+                angle: 60,
+                spread: 55,
+                origin: { x: 0.7, y: 0.65 },
+                colors: p.colors
+              });
+              confetti({
+                particleCount: 40,
+                angle: 120,
+                spread: 55,
+                origin: { x: 0.85, y: 0.65 },
+                colors: p.colors
+              });
+            }, 250);
+          } catch(e) {}
+        }
+      }
+    };
+
+    window.triggerConfettiDemo = function() {
+      if (typeof confetti === 'function') {
+        try {
+          confetti({
+            particleCount: 80,
+            spread: 90,
+            origin: { y: 0.6 },
+            colors: ['#ec4899', '#f43f5e', '#a855f7', '#fbbf24', '#38bdf8']
+          });
+          setTimeout(() => {
+            confetti({
+              particleCount: 50,
+              angle: 60,
+              spread: 60,
+              origin: { x: 0.3, y: 0.6 },
+              colors: ['#ec4899', '#f43f5e', '#a855f7', '#fbbf24']
+            });
+            confetti({
+              particleCount: 50,
+              angle: 120,
+              spread: 60,
+              origin: { x: 0.7, y: 0.6 },
+              colors: ['#ec4899', '#f43f5e', '#a855f7', '#fbbf24']
+            });
+          }, 200);
+        } catch(e) {}
+      }
+      try {
+        const btn = (typeof event !== 'undefined' && event && event.target) ? event.target.closest('button') : null;
+        if (btn) {
+          const orig = btn.innerHTML;
+          btn.innerHTML = 'Unsealed with Love! 💖✨';
+          btn.classList.add('scale-105', 'brightness-110');
+          setTimeout(() => {
+            btn.innerHTML = orig;
+            btn.classList.remove('scale-105', 'brightness-110');
+          }, 2500);
+        }
+      } catch(e) {}
+    };
+
     // Immediately trigger server config sync
     loadLiveSiteConfiguration();
 
@@ -1637,8 +1853,8 @@
         });
         navSearch.addEventListener('keydown', (e) => {
           if (e.key === 'Enter') {
-            const sec = document.getElementById('templates-section');
-            if (sec) sec.scrollIntoView({ behavior: 'smooth' });
+            const val = encodeURIComponent(e.target.value.trim());
+            location.href = val ? `/templates.html?search=${val}` : '/templates.html';
           }
         });
       }

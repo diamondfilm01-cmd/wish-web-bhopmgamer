@@ -386,6 +386,225 @@ export function resolveVariantHierarchy({
   };
 }
 
+export const RELATIONSHIP_PRESETS = Object.freeze({
+  crush: {
+    displayName: 'Secret Crush Edition',
+    atmosphere: 'Playful, Sweet & Enchanting',
+    messages: {
+      hero_title: 'To Someone Who Makes Every Day A Little Brighter ✨',
+      subtitle: 'A magical surprise from someone who admires you',
+      main_message: 'There is something truly magical about your smile that brightens up everything around you. Wishing you a day as extraordinary as you are!',
+      gallery_heading: 'Favorite Moments',
+      memory_heading: 'Reasons You Are Special',
+      final_message: 'From a Secret Admirer 💕',
+      surprise_text: 'Tap to uncover your secret note 💌',
+      sender_placeholder: 'Your Secret Admirer',
+      recipient_placeholder: 'My Crush'
+    },
+    theme: {
+      mood: 'Sweet Admiration',
+      accentColor: '#f43f5e',
+      backgroundStyle: 'cosmic-rose',
+      cardStyle: 'glass-glow'
+    },
+    music: { defaultMusicId: 'mus_romantic_piano' },
+    effects: { particles: 'floating-hearts' }
+  },
+  girlfriend: {
+    displayName: 'Dearest Girlfriend Edition',
+    atmosphere: 'Romantic, Dreamy & Intimate',
+    messages: {
+      hero_title: 'Happy Celebration to the Love of My Life 💕',
+      subtitle: 'Every moment with you is pure magic',
+      main_message: 'You bring so much warmth, laughter, and beauty into my world. Thank you for being my favorite story and my sweetest adventure.',
+      gallery_heading: 'Our Love Story',
+      memory_heading: 'Unforgettable Days Together',
+      final_message: 'Forever & Always With All My Heart ❤️',
+      surprise_text: 'Unbox my heart for you 🎁',
+      sender_placeholder: 'With All My Love',
+      recipient_placeholder: 'My Beautiful Girlfriend'
+    },
+    theme: {
+      mood: 'Deep Romance',
+      accentColor: '#ec4899',
+      backgroundStyle: 'cosmic-pink',
+      cardStyle: 'glass-glow'
+    },
+    music: { defaultMusicId: 'mus_romantic_piano' },
+    effects: { particles: 'floating-hearts' }
+  },
+  boyfriend: {
+    displayName: 'Handsome Boyfriend Edition',
+    atmosphere: 'Warm, Loving & Playful',
+    messages: {
+      hero_title: 'Happy Celebration to My Favorite Person 💙',
+      subtitle: 'A special surprise crafted just for you',
+      main_message: 'Thank you for being my constant rock, my greatest laugh, and my favorite adventure. Wishing you the most incredible celebration ahead!',
+      gallery_heading: 'Our Adventures',
+      memory_heading: 'Every Memory With You',
+      final_message: 'With all my love and hugs 💫',
+      surprise_text: 'Tap for your special gift 🎁',
+      sender_placeholder: 'Your Biggest Fan',
+      recipient_placeholder: 'My Handsome Boyfriend'
+    },
+    theme: {
+      mood: 'Warm Affection',
+      accentColor: '#3b82f6',
+      backgroundStyle: 'cosmic-blue',
+      cardStyle: 'glass-glow'
+    },
+    music: { defaultMusicId: 'mus_romantic_piano' },
+    effects: { particles: 'stars-and-sparks' }
+  },
+  wife: {
+    displayName: 'Beloved Wife Edition',
+    atmosphere: 'Elegant, Deep Devotion & Warmth',
+    messages: {
+      hero_title: 'Happy Celebration to My Beautiful Wife 💍',
+      subtitle: 'Honoring the heart and soul of our home',
+      main_message: 'Thank you for filling every day of our life with grace, devotion, and boundless love. You make every milestone meaningful and every tomorrow worth dreaming of.',
+      gallery_heading: 'Our Journey of Love',
+      memory_heading: 'Cherished Milestones',
+      final_message: 'Forever Grateful & Devoted to You 💖',
+      surprise_text: 'A gift of endless love for you 💐',
+      sender_placeholder: 'Your Loving Husband',
+      recipient_placeholder: 'My Dearest Wife'
+    },
+    theme: {
+      mood: 'Timeless Devotion',
+      accentColor: '#d946ef',
+      backgroundStyle: 'purple-gold',
+      cardStyle: 'glass-glow'
+    },
+    music: { defaultMusicId: 'mus_golden_elegance' },
+    effects: { particles: 'golden-glitter' }
+  },
+  husband: {
+    displayName: 'Loving Husband Edition',
+    atmosphere: 'Regal, Warm & Loving',
+    messages: {
+      hero_title: 'To My Amazing Husband & Best Friend 👑',
+      subtitle: 'Celebrating the anchor of my world',
+      main_message: 'Here is to celebrating the wonderful man you are. Your strength, kindness, and love make our life so rich, joyful, and complete.',
+      gallery_heading: 'Moments by Your Side',
+      memory_heading: 'Memories We Built Together',
+      final_message: 'With endless love and pride 🌟',
+      surprise_text: 'Unbox your royal surprise 🎁',
+      sender_placeholder: 'Your Loving Wife',
+      recipient_placeholder: 'My Wonderful Husband'
+    },
+    theme: {
+      mood: 'Regal Warmth',
+      accentColor: '#8b5cf6',
+      backgroundStyle: 'midnight-gold',
+      cardStyle: 'glass-glow'
+    },
+    music: { defaultMusicId: 'mus_golden_elegance' },
+    effects: { particles: 'stars-and-sparks' }
+  },
+  friend: {
+    displayName: 'Best Friend Forever Edition',
+    atmosphere: 'Joyful, Energetic & Celebratory',
+    messages: {
+      hero_title: 'Happy Celebration to My Partner-In-Crime 🎈',
+      subtitle: 'Cheers to another year of crazy memories!',
+      main_message: 'From all the uncontrollable laughing fits to late-night talks, life is a thousand times better with you as my best friend. May your year be packed with massive wins and wild adventures!',
+      gallery_heading: 'Hall of Chaos & Laughs',
+      memory_heading: 'Legendary Memories',
+      final_message: 'Friends for life, no matter what! 🚀',
+      surprise_text: 'Tap to detonate the party confetti! 💥',
+      sender_placeholder: 'Your Partner-In-Crime',
+      recipient_placeholder: 'My Best Friend'
+    },
+    theme: {
+      mood: 'High Energy',
+      accentColor: '#eab308',
+      backgroundStyle: 'vibrant-sunshine',
+      cardStyle: 'glass-glow'
+    },
+    music: { defaultMusicId: 'mus_celebration_strings' },
+    effects: { particles: 'confetti-and-stars' }
+  },
+  parents: {
+    displayName: 'Family Tribute Edition',
+    atmosphere: 'Peaceful, Nostalgic & Sacred',
+    messages: {
+      hero_title: 'With Utmost Gratitude & Love 🌸',
+      subtitle: 'A heartfelt tribute to the guiding light of our family',
+      main_message: 'Thank you for your tireless sacrifices, your unconditional blessings, and your warm embrace that makes our house a true home.',
+      gallery_heading: 'Generations of Love',
+      memory_heading: 'Moments of Gratitude',
+      final_message: 'Forever grateful for your love and wisdom 🙏',
+      surprise_text: 'A tribute wrapped with blessings 🌺',
+      sender_placeholder: 'With Love & Respect',
+      recipient_placeholder: 'Mom & Dad'
+    },
+    theme: {
+      mood: 'Warm Reverence',
+      accentColor: '#f59e0b',
+      backgroundStyle: 'golden-warmth',
+      cardStyle: 'glass-glow'
+    },
+    music: { defaultMusicId: 'mus_golden_elegance' },
+    effects: { particles: 'golden-glitter' }
+  }
+});
+
+/**
+ * Generates an authoritative default configuration for a given relationship variant
+ */
+export function getDefaultRelationshipVariantConfig(templateId, relInput) {
+  const relKey = typeof relInput === 'string'
+    ? relInput.toLowerCase().replace(/^rel_/, '')
+    : ((relInput?.slug || relInput?.id || '').toLowerCase().replace(/^rel_/, ''));
+  
+  const relName = (typeof relInput === 'object' && (relInput.displayName || relInput.name)) || (relKey.charAt(0).toUpperCase() + relKey.slice(1));
+  const preset = RELATIONSHIP_PRESETS[relKey] || {
+    displayName: `${relName} Edition`,
+    atmosphere: 'Joyful & Celebratory',
+    messages: {
+      hero_title: `Happy Celebration, ${relName}! ✨`,
+      subtitle: 'A magical gift created especially for you',
+      main_message: `Wishing you a day filled with laughter, love, and extraordinary moments.`,
+      gallery_heading: 'Treasured Memories',
+      memory_heading: 'Special Moments',
+      final_message: 'Always in our hearts 💕',
+      surprise_text: 'Tap to unbox your surprise 🎁'
+    },
+    theme: {
+      mood: 'Vibrant Celebration',
+      accentColor: '#a855f7',
+      backgroundStyle: 'cosmic-purple',
+      cardStyle: 'glass-glow'
+    },
+    music: { defaultMusicId: 'mus_celebration_strings' },
+    effects: { particles: 'confetti-and-stars' }
+  };
+
+  return {
+    displayName: preset.displayName,
+    atmosphere: preset.atmosphere,
+    messages: { ...preset.messages },
+    theme: { ...preset.theme },
+    images: {
+      hero_photo: null,
+      hero_photo_fallback: 'template_default'
+    },
+    music: { ...preset.music },
+    sections: [
+      { id: 'sec_1', type: 'hero', name: 'Hero Unboxing', isEnabled: true, sortOrder: 1 },
+      { id: 'sec_2', type: 'letter', name: 'Dedication Note', isEnabled: true, sortOrder: 2 },
+      { id: 'sec_3', type: 'photos', name: 'Photo Highlights', isEnabled: true, sortOrder: 3 },
+      { id: 'sec_4', type: 'surprise', name: 'Finale Celebration', isEnabled: true, sortOrder: 4 }
+    ],
+    effects: { ...preset.effects },
+    animations: {
+      intensity: 'smooth',
+      duration: 1.2
+    }
+  };
+}
+
 /**
  * Deep clones an existing variant for a target relationship with clean initial status.
  */

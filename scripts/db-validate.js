@@ -62,6 +62,7 @@ const REQUIRED_INDEXES = [
   'idx_templates_slug',
   'idx_wishes_user_id',
   'idx_wishes_slug',
+  'idx_wishes_slug_unique',
   'idx_wish_sections_wish_id',
   'idx_wish_media_wish_id',
   'idx_favorites_user_item',

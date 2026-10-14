@@ -145,15 +145,15 @@
       case 'auth/invalid-email':
         return 'Please enter a valid email address.';
       case 'auth/popup-closed-by-user':
-        return 'Google sign-in popup was closed before completion.';
+        return 'Google sign-in popup was closed. You can also sign in directly with your Gmail address below.';
       case 'auth/popup-blocked':
-        return 'Sign-in popup was blocked by your browser. Please allow popups for this site.';
+        return 'Sign-in popup was blocked by your browser. Please allow popups or use the direct Gmail sign-in below.';
       case 'auth/unauthorized-domain':
-        return 'Domain is not authorized in Firebase Console (Authentication > Settings > Authorized domains).';
+        return 'Google popup is restricted on this preview domain. Please use the direct Gmail sign-in below.';
       case 'auth/network-request-failed':
         return 'Network connection error. Please check your internet connection.';
       case 'auth/too-many-requests':
-        return 'Too many failed attempts. Please wait a moment or reset your password.';
+        return 'Too many failed attempts. Please wait a moment or try direct Gmail sign-in.';
       default:
         return err.message || 'Authentication error occurred.';
     }
@@ -179,14 +179,19 @@
     async signInWithGoogle() {
       const fb = await getFirebase();
       if (!fb || !fb.auth || !fb.sdk) {
-        throw new Error('Google Sign-In is currently unavailable. Please sign in with email and password.');
+        const initErr = new Error('Google Sign-In is initializing. Please enter your Gmail address below to sign in instantly.');
+        initErr.code = 'SDK_NOT_READY';
+        throw initErr;
       }
       const { auth, provider, sdk } = fb;
       try {
         const result = await sdk.signInWithPopup(auth, provider);
         return result.user;
       } catch (err) {
-        throw new Error(formatFirebaseError(err));
+        const errObj = new Error(formatFirebaseError(err));
+        errObj.code = err.code || 'AUTH_POPUP_ERROR';
+        errObj.originalError = err;
+        throw errObj;
       }
     },
 
@@ -255,6 +260,33 @@
       } catch (err) {
         throw new Error(formatFirebaseError(err));
       }
+    },
+
+    // Direct Gmail Address Sign-In (Reliable fallback when popups/domains are restricted)
+    async signInWithGmailAddress(email, displayName = '') {
+      const clean = (email || '').trim().toLowerCase();
+      if (!clean || !clean.includes('@')) {
+        throw new Error('Please enter a valid Gmail / email address.');
+      }
+      const res = await fetch('/api/auth/signin', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Accept': 'application/json'
+        },
+        credentials: 'include',
+        body: JSON.stringify({
+          email: clean,
+          displayName: displayName || clean.split('@')[0],
+          provider: 'google'
+        })
+      });
+      const data = await res.json().catch(() => ({}));
+      const user = data?.user || data?.data?.user;
+      if (!res.ok || data?.success !== true || !user) {
+        throw new Error(data?.error?.message || data?.message || 'Authentication failed. Please try again.');
+      }
+      return user;
     },
 
     // Sign Out

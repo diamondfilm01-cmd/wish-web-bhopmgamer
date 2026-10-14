@@ -108,4 +108,38 @@
       (document.head || document.documentElement).appendChild(s);
     }
   }
+
+  // 4. Universal Dreamy Background Engine for full website: Directly display cb.png
+  function ensureCloudyBackground() {
+    if (typeof document === 'undefined') return;
+
+    // Link cloud-background.css if not present
+    if (!document.getElementById('wishmagic-cloud-css')) {
+      const link = document.createElement('link');
+      link.id = 'wishmagic-cloud-css';
+      link.rel = 'stylesheet';
+      link.href = '/css/cloud-background.css?v=2';
+      document.head.appendChild(link);
+    }
+
+    if (document.body) {
+      // Force cb.png on body style directly with cache-bust
+      document.body.style.backgroundImage = "url('/assets/cb.png?v=2')";
+      document.body.style.backgroundSize = "cover";
+      document.body.style.backgroundPosition = "center top";
+      document.body.style.backgroundAttachment = "fixed";
+      document.body.style.backgroundRepeat = "no-repeat";
+
+      const oldLayer = document.querySelector('.bg-ambient-layer');
+      if (oldLayer) {
+        oldLayer.style.display = 'none';
+      }
+    }
+  }
+
+  if (document.readyState === 'loading') {
+    document.addEventListener('DOMContentLoaded', ensureCloudyBackground);
+  } else {
+    ensureCloudyBackground();
+  }
 })();

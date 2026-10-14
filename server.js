@@ -1876,6 +1876,7 @@ const DEFAULT_SERVER_SITE_SETTINGS = {
   heroHeadline: 'Gift a <span class="bg-gradient-to-r from-[#F472B6] via-[#EC4899] to-[#F4C542] bg-clip-text text-transparent">Magical</span> Web-Experience!',
   heroSubheadline: 'Create beautiful personalized digital wishes that feel like a real experience — interactive 3D unboxing, customized music & unforgettable celebration magic.',
   heroGiftIcon: '🎁',
+  heroBgMode: 'image',
   heroImageUrl: '/assets/file_ab2082.png',
   heroStyle: 'cosmic-purple',
   heroCta1: 'Explore Magic',
@@ -1896,13 +1897,15 @@ const DEFAULT_SERVER_SITE_SETTINGS = {
   updatedBy: 'system'
 };
 
-const ALLOWED_SERVER_HERO_STYLES = ['cosmic-purple', 'midnight-gold', 'romantic-rose'];
+const ALLOWED_SERVER_HERO_STYLES = ['cosmic-purple', 'midnight-gold', 'romantic-rose', 'sunset-amber', 'emerald-aurora'];
 const ALLOWED_SERVER_CURRENCIES = ['INR', 'USD', 'EUR', 'GBP', 'CAD', 'AUD'];
 
 const SERVER_HERO_STYLE_GRADIENTS = {
   'cosmic-purple': 'radial-gradient(circle at 75% 25%, #9d174d 0%, #6d28d9 28%, #4c1d95 62%, #2e0854 100%)',
   'midnight-gold': 'radial-gradient(circle at 75% 25%, #d97706 0%, #1e1b4b 28%, #0f172a 62%, #020617 100%)',
-  'romantic-rose': 'radial-gradient(circle at 75% 25%, #e11d48 0%, #831843 30%, #4c0519 65%, #1f020a 100%)'
+  'romantic-rose': 'radial-gradient(circle at 75% 25%, #e11d48 0%, #831843 28%, #4c0519 62%, #1f020a 100%)',
+  'sunset-amber': 'radial-gradient(circle at 75% 25%, #ea580c 0%, #9a3412 30%, #431407 65%, #1c0702 100%)',
+  'emerald-aurora': 'radial-gradient(circle at 75% 25%, #059669 0%, #065f46 30%, #064e3b 65%, #022c22 100%)'
 };
 
 function generateServerSafeWhatsAppUrl(phone, defaultMsg = 'Hello! I need help with WishMagic.') {
@@ -2016,6 +2019,7 @@ function validateServerSiteSettings(settings) {
   const promoBannerText = String(s.promoBannerText !== undefined ? s.promoBannerText : current.promoBannerText).trim();
 
   const heroImageUrl = s.heroImageUrl !== undefined ? String(s.heroImageUrl).trim() : (current.heroImageUrl || '/assets/file_ab2082.png');
+  const heroBgMode = (s.heroBgMode === 'gradient') ? 'gradient' : 'image';
 
   return {
     valid: true,
@@ -2024,6 +2028,7 @@ function validateServerSiteSettings(settings) {
       heroHeadline,
       heroSubheadline,
       heroGiftIcon,
+      heroBgMode,
       heroImageUrl,
       heroStyle,
       heroCta1,
@@ -2045,14 +2050,20 @@ function validateServerSiteSettings(settings) {
 }
 
 function formatServerPublicSiteSettings(settings) {
+  const heroBgMode = (settings.heroBgMode === 'gradient') ? 'gradient' : 'image';
+  const pureGrad = SERVER_HERO_STYLE_GRADIENTS[settings.heroStyle] || SERVER_HERO_STYLE_GRADIENTS['cosmic-purple'];
   return {
     heroBadge: settings.heroBadge,
     heroHeadline: settings.heroHeadline,
     heroSubheadline: settings.heroSubheadline,
     heroGiftIcon: settings.heroGiftIcon,
+    heroBgMode,
     heroImageUrl: settings.heroImageUrl || '/assets/file_ab2082.png',
     heroStyle: settings.heroStyle,
-    heroStyleGradient: SERVER_HERO_STYLE_GRADIENTS[settings.heroStyle] || SERVER_HERO_STYLE_GRADIENTS['cosmic-purple'],
+    heroStyleGradient: pureGrad,
+    heroEffectiveBackground: heroBgMode === 'gradient'
+      ? pureGrad
+      : `url('${settings.heroImageUrl || '/assets/file_ab2082.png'}') center / cover no-repeat`,
     heroCta1: settings.heroCta1,
     heroCta2: settings.heroCta2,
     brandName: settings.brandName,
@@ -2159,13 +2170,42 @@ app.get('/api/auth/session', (req, res) => {
   });
 });
 
+// Helper to parse JWT claims safely
+function parseServerJwtClaims(token) {
+  if (!token || typeof token !== 'string') return null;
+  const parts = token.split('.');
+  if (parts.length < 2) return null;
+  try {
+    const payload = Buffer.from(parts[1], 'base64').toString('utf8');
+    return JSON.parse(payload);
+  } catch (e) {
+    return null;
+  }
+}
+
 // API: Auth Sign In (Issues HttpOnly Cookie)
 app.post('/api/auth/signin', (req, res) => {
   const requestId = 'req_' + Date.now().toString(36) + '_' + Math.random().toString(36).substr(2, 6);
   res.setHeader('X-Request-ID', requestId);
   try {
     const { email, userId, displayName, avatarUrl, provider, firebaseUid, idToken } = req.body || {};
-    const cleanEmail = (email || '').trim().toLowerCase();
+    
+    // If idToken is provided, safely extract claims if email is not explicitly present
+    let extractedEmail = email;
+    let extractedName = displayName;
+    let extractedAvatar = avatarUrl;
+    let extractedUid = firebaseUid;
+    if (idToken) {
+      const claims = parseServerJwtClaims(idToken);
+      if (claims) {
+        if (!extractedEmail && claims.email) extractedEmail = claims.email;
+        if (!extractedName && (claims.name || claims.displayName)) extractedName = claims.name || claims.displayName;
+        if (!extractedAvatar && (claims.picture || claims.photoUrl)) extractedAvatar = claims.picture || claims.photoUrl;
+        if (!extractedUid && (claims.sub || claims.user_id)) extractedUid = claims.sub || claims.user_id;
+      }
+    }
+
+    const cleanEmail = (extractedEmail || '').trim().toLowerCase();
     const ADMIN_EMAILS_LIST = ['ankit.babusaini@gmail.com', 'shrijiposhakbhandarshop@gmail.com'];
     const isUserAdmin = ADMIN_EMAILS_LIST.includes(cleanEmail) || cleanEmail.endsWith('@wishmagic.internal');
     const users = getUsers();
@@ -2174,10 +2214,10 @@ app.post('/api/auth/signin', (req, res) => {
 
     if (!target) {
       target = {
-        id: userId || (firebaseUid ? 'usr_fb_' + firebaseUid.slice(0, 16) : ('usr_' + Date.now().toString(36) + '_' + Math.random().toString(36).substr(2, 4))),
+        id: userId || (extractedUid ? 'usr_fb_' + extractedUid.slice(0, 16) : ('usr_' + Date.now().toString(36) + '_' + Math.random().toString(36).substr(2, 4))),
         email: cleanEmail || 'creator@example.com',
-        displayName: displayName || (cleanEmail ? cleanEmail.split('@')[0] : 'Celebration Creator'),
-        avatarUrl: avatarUrl || `https://api.dicebear.com/7.x/bottts/svg?seed=${encodeURIComponent(cleanEmail || 'creator')}`,
+        displayName: extractedName || (cleanEmail ? cleanEmail.split('@')[0] : 'Celebration Creator'),
+        avatarUrl: extractedAvatar || `https://api.dicebear.com/7.x/bottts/svg?seed=${encodeURIComponent(cleanEmail || 'creator')}`,
         role: isUserAdmin ? 'admin' : 'creator',
         isAdmin: isUserAdmin,
         plan: isUserAdmin ? 'VIP' : 'Free',
@@ -8689,12 +8729,14 @@ app.delete(['/api/admin/storage/imgbb/:id', '/api/admin/storage/imgbb'], (req, r
 });
 
 // Admin API: Direct Hero Section Photo Management (Get & Set Hero Image)
-app.get(['/api/admin/hero-image', '/api/admin/hero/photo'], (req, res) => {
+app.get(['/api/admin/hero-image', '/api/admin/hero/photo', '/api/admin/hero/bg-mode'], (req, res) => {
   try {
     const settings = getServerSiteSettings();
     return res.json({
       success: true,
+      heroBgMode: settings.heroBgMode || 'image',
       heroImageUrl: settings.heroImageUrl || '/assets/file_ab2082.png',
+      heroStyle: settings.heroStyle || 'cosmic-purple',
       updatedAt: settings.updatedAt || new Date().toISOString()
     });
   } catch (err) {
@@ -8704,24 +8746,76 @@ app.get(['/api/admin/hero-image', '/api/admin/hero/photo'], (req, res) => {
 
 app.post(['/api/admin/hero-image', '/api/admin/hero/photo'], (req, res) => {
   try {
-    const { heroImageUrl, photoUrl, imageUrl } = req.body || {};
-    const targetUrl = (heroImageUrl || photoUrl || imageUrl || '').trim();
-    if (!targetUrl) {
-      return res.status(400).json({ success: false, message: 'Hero photo URL is required' });
+    const { heroImageUrl, photoUrl, imageUrl, heroBgMode, imagePayload, fileName } = req.body || {};
+    let targetUrl = (heroImageUrl || photoUrl || imageUrl || '').trim();
+
+    // If an image was uploaded directly as dataURL from device
+    if (imagePayload && typeof imagePayload === 'string' && imagePayload.startsWith('data:image/')) {
+      const match = imagePayload.match(/^data:image\/([a-zA-Z0-9+]+);base64,(.+)$/);
+      if (match) {
+        const rawExt = match[1].toLowerCase();
+        const ext = (rawExt === 'jpeg' || rawExt === 'jpg') ? 'jpg' : (rawExt === 'png' ? 'png' : (rawExt === 'webp' ? 'webp' : 'png'));
+        const safeName = `hero_${Date.now()}_${Math.random().toString(36).substring(2, 7)}.${ext}`;
+        const assetsDir = path.join(__dirname, 'public', 'assets');
+        if (!fs.existsSync(assetsDir)) fs.mkdirSync(assetsDir, { recursive: true });
+        const filePath = path.join(assetsDir, safeName);
+        fs.writeFileSync(filePath, Buffer.from(match[2], 'base64'));
+        targetUrl = `/assets/${safeName}`;
+      }
+    }
+
+    if (!targetUrl && !heroBgMode) {
+      return res.status(400).json({ success: false, message: 'Hero photo URL or heroBgMode is required' });
     }
 
     const settings = getServerSiteSettings();
-    settings.heroImageUrl = targetUrl;
+    if (targetUrl) {
+      settings.heroImageUrl = targetUrl;
+      // When a new photo is uploaded, automatically activate image mode so admin sees it immediately
+      settings.heroBgMode = 'image';
+    }
+    if (heroBgMode && (heroBgMode === 'image' || heroBgMode === 'gradient')) {
+      settings.heroBgMode = heroBgMode;
+    }
     const saveRes = saveServerSiteSettings(settings, req.user || { id: 'admin' });
     if (!saveRes.success) {
       return res.status(500).json({ success: false, message: saveRes.error || 'Failed to save settings' });
     }
 
-    console.log(`[Admin Hero Image] Successfully updated storefront Hero Image to: ${targetUrl}`);
+    console.log(`[Admin Hero Image] Successfully updated storefront Hero Image to: ${settings.heroImageUrl}, mode: ${settings.heroBgMode}`);
     return res.json({
       success: true,
-      heroImageUrl: targetUrl,
+      heroImageUrl: settings.heroImageUrl,
+      heroBgMode: settings.heroBgMode,
       message: 'Storefront hero section photo updated successfully!'
+    });
+  } catch (err) {
+    return res.status(500).json({ success: false, message: err.message });
+  }
+});
+
+app.post('/api/admin/hero/bg-mode', (req, res) => {
+  try {
+    const { heroBgMode, heroStyle } = req.body || {};
+    if (heroBgMode && heroBgMode !== 'image' && heroBgMode !== 'gradient') {
+      return res.status(400).json({ success: false, message: 'Invalid heroBgMode. Must be "image" or "gradient".' });
+    }
+    const settings = getServerSiteSettings();
+    if (heroBgMode) settings.heroBgMode = heroBgMode;
+    if (heroStyle && ALLOWED_SERVER_HERO_STYLES.includes(heroStyle)) {
+      settings.heroStyle = heroStyle;
+    }
+    const saveRes = saveServerSiteSettings(settings, req.user || { id: 'admin' });
+    if (!saveRes.success) {
+      return res.status(500).json({ success: false, message: saveRes.error || 'Failed to save background mode' });
+    }
+    return res.json({
+      success: true,
+      heroBgMode: settings.heroBgMode,
+      heroStyle: settings.heroStyle,
+      message: heroBgMode === 'image'
+        ? 'Hero background set to pure photo (gradient removed).'
+        : 'Hero background set to pure color gradient (photo removed).'
     });
   } catch (err) {
     return res.status(500).json({ success: false, message: err.message });

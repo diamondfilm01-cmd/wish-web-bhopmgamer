@@ -1,10 +1,11 @@
 {
   "heroBadge": "Make Every Moment Magical ✨",
-  "heroHeadline": "Gift a <span class=\"bg-gradient-to-r from-[#F472B6] via-[#EC4899] to-[#F4C542] bg-clip-text text-transparent\">Magical</span> Web-Experience!",
+  "heroHeadline": "Gift a Magical <span class=\"bg-gradient-to-r from-[#F472B6] via-[#EC4899] to-[#F4C542] bg-clip-text text-transparent drop-shadow-[0_2px_15px_rgba(236,72,153,0.4)]\">Web Experience</span>",
   "heroSubheadline": "Create beautiful personalized digital wishes that feel like a real experience — interactive 3D unboxing, customized music & unforgettable celebration magic.",
   "heroGiftIcon": "🎁",
+  "heroBgMode": "image",
   "heroImageUrl": "/assets/file_ab2082.png",
-  "heroStyle": "cosmic-purple",
+  "heroStyle": "midnight-gold",
   "heroCta1": "Explore Magic",
   "heroCta2": "Create Your Wish",
   "brandName": "WishMagic",
@@ -19,6 +20,7 @@
   "promoBadgeText": "🔥 Limited Time Offer - 100% OFF Free Today!",
   "promoBannerActive": false,
   "promoBannerText": "🎉 Special Launch Offer: All Personalized Links & VIP Wishes are 100% FREE Today!",
-  "updatedAt": "2026-10-06T09:05:04.674Z",
-  "updatedBy": "admin"
+  "updatedAt": "2026-10-13T04:21:34.349Z",
+  "updatedBy": "admin",
+  "heroStyleGradient": "radial-gradient(circle at 75% 25%, #9d174d 0%, #6d28d9 28%, #4c1d95 62%, #2e0854 100%)"
 }

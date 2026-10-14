@@ -416,8 +416,8 @@
     }
 
     function handleSignInPrompt() {
-      if (typeof WishAuth !== 'undefined' && WishAuth.signInWithGoogle) {
-        WishAuth.signInWithGoogle().then(() => loadReferralDashboard());
+      if (typeof WishAuth !== 'undefined' && typeof WishAuth.openAuthModal === 'function') {
+        WishAuth.openAuthModal('signin');
       } else {
         window.location.href = '/account';
       }

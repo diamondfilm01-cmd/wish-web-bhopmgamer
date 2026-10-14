@@ -225,8 +225,32 @@
             </div>
             <h2 class="text-xl sm:text-2xl font-black text-white font-['Outfit',sans-serif]">Storefront Hero Section Photo</h2>
             <p class="text-xs text-purple-200/80 leading-relaxed">
-              Ye photo WishMagic ke main homepage ke Hero Showcase section me live display hoti hai. Aap niche se direct URL daal kar ya file upload karke isse change kar sakte hain.
+              Storefront Hero background: Aap yahan se photo laga sakte hain ya color gradient. Dono ek sath nahi aayenge — 1 click me switch karein!
             </p>
+            <!-- 1-Click Hero Background Mode Switcher (Photo vs Gradient) -->
+            <div class="mt-2 p-2.5 rounded-xl bg-purple-950/70 border border-purple-500/40 flex flex-wrap items-center justify-between gap-2">
+              <div class="flex items-center gap-1.5">
+                <span class="text-[11px] font-bold text-white">Live Mode:</span>
+                <span id="hero-bg-mode-badge" class="px-2 py-0.5 rounded-full text-[10px] font-black uppercase tracking-wider bg-pink-500/30 text-pink-300 border border-pink-500/50">🖼️ Pure Photo</span>
+              </div>
+              <div class="flex items-center gap-1">
+                <button id="btn-mode-photo" type="button" onclick="setHeroBackgroundMode('image')" class="px-2.5 py-1 rounded-lg text-[11px] font-bold transition bg-gradient-to-r from-pink-600 to-purple-600 text-white shadow-sm cursor-pointer">
+                  🖼️ Photo (Clean)
+                </button>
+                <button id="btn-mode-gradient" type="button" onclick="setHeroBackgroundMode('gradient')" class="px-2.5 py-1 rounded-lg text-[11px] font-bold transition bg-surface-container text-purple-300 hover:text-white border border-purple-500/30 cursor-pointer">
+                  🎨 Pure Gradient
+                </button>
+              </div>
+            </div>
+            <!-- Quick Gradient Style Switcher -->
+            <div id="hero-gradient-quick-picker" class="mt-2 p-2 rounded-xl bg-purple-900/30 border border-purple-500/20 flex flex-wrap items-center gap-1.5 text-xs">
+              <span class="text-[10px] font-bold text-purple-300">Quick Gradients:</span>
+              <button type="button" onclick="setHeroGradientStyle('cosmic-purple')" class="px-2 py-0.5 rounded-lg text-[10px] font-bold bg-pink-600/30 text-pink-200 hover:bg-pink-600/50 border border-pink-500/40 cursor-pointer">🌌 Cosmic</button>
+              <button type="button" onclick="setHeroGradientStyle('midnight-gold')" class="px-2 py-0.5 rounded-lg text-[10px] font-bold bg-amber-600/30 text-amber-200 hover:bg-amber-600/50 border border-amber-500/40 cursor-pointer">✨ Midnight</button>
+              <button type="button" onclick="setHeroGradientStyle('romantic-rose')" class="px-2 py-0.5 rounded-lg text-[10px] font-bold bg-rose-600/30 text-rose-200 hover:bg-rose-600/50 border border-rose-500/40 cursor-pointer">🌹 Romantic</button>
+              <button type="button" onclick="setHeroGradientStyle('sunset-amber')" class="px-2 py-0.5 rounded-lg text-[10px] font-bold bg-orange-600/30 text-orange-200 hover:bg-orange-600/50 border border-orange-500/40 cursor-pointer">🌅 Sunset</button>
+              <button type="button" onclick="setHeroGradientStyle('emerald-aurora')" class="px-2 py-0.5 rounded-lg text-[10px] font-bold bg-emerald-600/30 text-emerald-200 hover:bg-emerald-600/50 border border-emerald-500/40 cursor-pointer">🌲 Aurora</button>
+            </div>
             <div class="text-[11px] font-mono text-purple-300/60 truncate max-w-sm mt-1" id="hero-current-url-display">
               URL: /assets/file_ab2082.png
             </div>
@@ -964,9 +988,14 @@
       const heroRes = await fetch('/api/admin/hero-image', { credentials: 'include' });
       if (heroRes.ok) {
         const heroData = await heroRes.json();
-        if (heroData.success && heroData.heroImageUrl) {
-          currentHeroImage = heroData.heroImageUrl;
-          updateHeroDisplay(currentHeroImage);
+        if (heroData.success) {
+          if (heroData.heroImageUrl) {
+            currentHeroImage = heroData.heroImageUrl;
+            updateHeroDisplay(currentHeroImage);
+          }
+          if (heroData.heroBgMode) {
+            updateHeroBgModeBadge(heroData.heroBgMode);
+          }
         }
       }
 
@@ -1422,6 +1451,75 @@
         renderMediaGrid();
       }
     } catch (e) {}
+  }
+
+  function updateHeroBgModeBadge(mode) {
+    const badge = document.getElementById('hero-bg-mode-badge');
+    const btnPhoto = document.getElementById('btn-mode-photo');
+    const btnGrad = document.getElementById('btn-mode-gradient');
+    if (badge) {
+      if (mode === 'gradient') {
+        badge.textContent = '🎨 Pure Gradient';
+        badge.className = 'px-2 py-0.5 rounded-full text-[10px] font-black uppercase tracking-wider bg-purple-500/30 text-purple-200 border border-purple-500/50';
+      } else {
+        badge.textContent = '🖼️ Pure Photo (Clean)';
+        badge.className = 'px-2 py-0.5 rounded-full text-[10px] font-black uppercase tracking-wider bg-pink-500/30 text-pink-300 border border-pink-500/50';
+      }
+    }
+    if (btnPhoto && btnGrad) {
+      if (mode === 'gradient') {
+        btnPhoto.className = 'px-2.5 py-1 rounded-lg text-[11px] font-bold transition bg-surface-container text-purple-300 hover:text-white border border-purple-500/30 cursor-pointer';
+        btnGrad.className = 'px-2.5 py-1 rounded-lg text-[11px] font-bold transition bg-gradient-to-r from-purple-600 to-indigo-600 text-white shadow-sm cursor-pointer';
+      } else {
+        btnPhoto.className = 'px-2.5 py-1 rounded-lg text-[11px] font-bold transition bg-gradient-to-r from-pink-600 to-purple-600 text-white shadow-sm cursor-pointer';
+        btnGrad.className = 'px-2.5 py-1 rounded-lg text-[11px] font-bold transition bg-surface-container text-purple-300 hover:text-white border border-purple-500/30 cursor-pointer';
+      }
+    }
+  }
+
+  async function setHeroBackgroundMode(mode) {
+    try {
+      showToast('⏳ Updating hero background mode...');
+      const res = await fetch('/api/admin/hero/bg-mode', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        credentials: 'include',
+        body: JSON.stringify({ heroBgMode: mode })
+      });
+      const data = await res.json();
+      if (data.success) {
+        updateHeroBgModeBadge(mode);
+        showToast(mode === 'image'
+          ? '🖼️ Hero background set to pure photo! Purple gradient removed.'
+          : '🎨 Hero background set to pure color gradient! Photo removed.'
+        );
+      } else {
+        alert('Failed: ' + (data.message || 'Error'));
+      }
+    } catch (e) {
+      alert('Error updating mode: ' + e.message);
+    }
+  }
+
+  async function setHeroGradientStyle(style) {
+    try {
+      showToast('⏳ Applying gradient style: ' + style + '...');
+      const res = await fetch('/api/admin/hero/bg-mode', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        credentials: 'include',
+        body: JSON.stringify({ heroBgMode: 'gradient', heroStyle: style })
+      });
+      const data = await res.json();
+      if (data.success) {
+        updateHeroBgModeBadge('gradient');
+        showToast('🎨 Pure gradient applied (' + style + ')! Photo removed.');
+      } else {
+        alert('Failed: ' + (data.message || 'Error'));
+      }
+    } catch (e) {
+      alert('Error updating style: ' + e.message);
+    }
   }
 
   // --- Upload Modal Submit with Backblaze B2 & ImgBB Multi-Cloud Routing ---

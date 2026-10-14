@@ -19,6 +19,7 @@
 /admin/anktech/anktech/admin/referrals /admin-referrals.html 200
 /template/* /template-preview.html 200
 /w/* /wish.html 200
+/wish/* /wish.html 200
 /legal /legal.html 200
 /legal/ /legal.html 200
 /terms /legal.html 200

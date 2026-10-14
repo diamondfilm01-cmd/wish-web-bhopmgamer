@@ -1,0 +1,387 @@
+/* ==========================================================================
+   WishMagic Dreamy Cloudscape Background Engine
+   Recreated from reference photo:
+   - Soft lavender & lilac purple (#d5cbfa, #c4b5fd, #a855f7)
+   - Pastel candy pink & blush rose (#ffc4ea, #fbcfe8, #f472b6)
+   - Warm golden sunrise peach (#fff4d4, #fde68a, #fed7aa)
+   - Ethereal periwinkle sky (#dbeafe, #c7d2fe, #e0e7ff)
+   - Small billowy cumulus clouds & twinkling 4-point fairy stars
+   ========================================================================== */
+
+:root {
+  --cloud-sky-top: #dfd4fa;
+  --cloud-sky-mid: #eef2ff;
+  --cloud-sky-bottom: #fce7f3;
+  --cloud-sun-glow: rgba(254, 215, 170, 0.45);
+  --cloud-pink-bloom: rgba(244, 114, 182, 0.38);
+  --cloud-lavender-bloom: rgba(192, 132, 252, 0.42);
+  --cloud-gold-rim: rgba(254, 240, 138, 0.55);
+}
+
+html.dark {
+  --cloud-sky-top: #0d041c;
+  --cloud-sky-mid: #180933;
+  --cloud-sky-bottom: #220b42;
+  --cloud-sun-glow: rgba(254, 215, 170, 0.25);
+  --cloud-pink-bloom: rgba(236, 72, 153, 0.35);
+  --cloud-lavender-bloom: rgba(147, 51, 234, 0.4);
+  --cloud-gold-rim: rgba(254, 240, 138, 0.4);
+}
+
+/* Global body background: directly display user's cb.png */
+body {
+  background-color: var(--bg-body, #f8f4ff);
+  background-image: url('/assets/cb.png?v=2') !important;
+  background-size: cover !important;
+  background-position: center top !important;
+  background-attachment: fixed !important;
+  background-repeat: no-repeat !important;
+  min-height: 100vh;
+  position: relative;
+}
+
+html.dark body {
+  background-color: #0c051a !important;
+  background-image: url('/assets/cb.png?v=2') !important;
+  background-size: cover !important;
+  background-position: center top !important;
+  background-attachment: fixed !important;
+  background-repeat: no-repeat !important;
+}
+
+/* The Fixed Background Container: Do not block cb.png artwork */
+.cloudy-background-stage {
+  position: fixed;
+  inset: 0;
+  width: 100vw;
+  height: 100vh;
+  pointer-events: none;
+  z-index: 0;
+  overflow: hidden;
+  user-select: none;
+}
+
+/* Hide opaque veils and artificial SVG flanks so cb.png is 100% visible */
+.cloud-sky-veil,
+.cloud-framing-flank,
+.cloud-framing-bottom,
+.small-cloud-item {
+  display: none !important;
+}
+
+/* --------------------------------------------------------------------------
+   Small Fluffy Drifting Clouds ("chote cloud")
+   -------------------------------------------------------------------------- */
+.small-cloud-item {
+  position: absolute;
+  pointer-events: none;
+  background-size: contain;
+  background-repeat: no-repeat;
+  background-position: center;
+  filter: drop-shadow(0 12px 24px rgba(168, 85, 247, 0.16));
+  opacity: 0.92;
+  will-change: transform;
+}
+
+html.dark .small-cloud-item {
+  filter: drop-shadow(0 10px 25px rgba(0, 0, 0, 0.6)) brightness(0.85);
+  opacity: 0.78;
+}
+
+/* Cloud variants */
+.cloud-pink {
+  background-image: url('/assets/small-cloud-pink.svg');
+}
+.cloud-lavender {
+  background-image: url('/assets/small-cloud-lavender.svg');
+}
+.cloud-peach {
+  background-image: url('/assets/small-cloud-peach.svg');
+}
+
+/* Individual Small Cloud Configurations (Scaled & Positioned nicely across the viewport) */
+/* Top Left Small Cloud */
+.cloud-top-left {
+  top: 7%;
+  left: 6%;
+  width: 170px;
+  height: 100px;
+  animation: floatCloudGentle 9s ease-in-out infinite;
+}
+
+/* Top Right Small Cloud */
+.cloud-top-right {
+  top: 9%;
+  right: 8%;
+  width: 190px;
+  height: 110px;
+  animation: floatCloudGentle 11s ease-in-out 1.5s infinite;
+}
+
+/* Upper Middle Small Cloud */
+.cloud-mid-upper {
+  top: 19%;
+  left: 36%;
+  width: 140px;
+  height: 80px;
+  opacity: 0.82;
+  animation: floatCloudGentle 13s ease-in-out 3s infinite;
+}
+
+/* Left Flank Small Cloud */
+.cloud-flank-left {
+  top: 42%;
+  left: 3%;
+  width: 210px;
+  height: 125px;
+  animation: floatCloudDrift 14s ease-in-out 2s infinite;
+}
+
+/* Right Flank Small Cloud */
+.cloud-flank-right {
+  top: 48%;
+  right: 4%;
+  width: 220px;
+  height: 130px;
+  animation: floatCloudDrift 16s ease-in-out 4s infinite;
+}
+
+/* Lower Center Small Cloud (floating near content) */
+.cloud-lower-center {
+  bottom: 22%;
+  left: 28%;
+  width: 165px;
+  height: 98px;
+  opacity: 0.85;
+  animation: floatCloudGentle 10s ease-in-out 2.5s infinite;
+}
+
+/* Lower Right Small Cloud */
+.cloud-lower-right {
+  bottom: 18%;
+  right: 18%;
+  width: 180px;
+  height: 105px;
+  opacity: 0.88;
+  animation: floatCloudGentle 12s ease-in-out 0.8s infinite;
+}
+
+/* Slow Gentle Horizontal Cruising Clouds */
+.cloud-drifter-1 {
+  top: 14%;
+  left: -220px;
+  width: 150px;
+  height: 90px;
+  opacity: 0.75;
+  animation: cruiseAcrossSky 68s linear infinite;
+}
+
+.cloud-drifter-2 {
+  top: 60%;
+  left: -240px;
+  width: 175px;
+  height: 102px;
+  opacity: 0.7;
+  animation: cruiseAcrossSky 82s linear 25s infinite;
+}
+
+/* --------------------------------------------------------------------------
+   Flanking Cloud Masses (Framing sides like the photo)
+   -------------------------------------------------------------------------- */
+.cloud-framing-flank {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  width: 280px;
+  background-repeat: no-repeat;
+  background-size: cover;
+  pointer-events: none;
+  opacity: 0.55;
+  filter: blur(1.5px);
+}
+
+html.dark .cloud-framing-flank {
+  opacity: 0.35;
+  filter: blur(2px) brightness(0.8);
+}
+
+.cloud-framing-left {
+  left: 0;
+  background-image: url('/assets/cloud-framing-flanks.svg');
+  background-position: left center;
+}
+
+.cloud-framing-right {
+  right: 0;
+  background-image: url('/assets/cloud-framing-flanks.svg');
+  background-position: right center;
+  transform: scaleX(-1);
+}
+
+/* Bottom Cloud Bank Amphitheater */
+.cloud-framing-bottom {
+  position: absolute;
+  bottom: 0;
+  left: 0;
+  right: 0;
+  height: 190px;
+  background-image: url('/assets/cloud-framing-bottom.svg');
+  background-repeat: no-repeat;
+  background-size: cover;
+  background-position: center bottom;
+  pointer-events: none;
+  opacity: 0.65;
+  filter: blur(1.5px);
+}
+
+html.dark .cloud-framing-bottom {
+  opacity: 0.45;
+  filter: blur(2px) brightness(0.75);
+}
+
+/* --------------------------------------------------------------------------
+   Twinkling 4-Point Golden/White Fairy Stars (Matching the photo)
+   -------------------------------------------------------------------------- */
+.cloud-fairy-star {
+  position: absolute;
+  pointer-events: none;
+  background-image: url('/assets/cloud-twinkle-star.svg');
+  background-size: contain;
+  background-repeat: no-repeat;
+  background-position: center;
+  will-change: transform, opacity;
+  animation: starTwinkleGlow 4s ease-in-out infinite;
+}
+
+.star-1 {
+  top: 8%;
+  left: 24%;
+  width: 22px;
+  height: 22px;
+  animation-duration: 3.8s;
+  animation-delay: 0.2s;
+}
+
+.star-2 {
+  top: 14%;
+  right: 28%;
+  width: 26px;
+  height: 26px;
+  animation-duration: 4.5s;
+  animation-delay: 1.4s;
+}
+
+.star-3 {
+  top: 28%;
+  right: 14%;
+  width: 18px;
+  height: 18px;
+  animation-duration: 3.2s;
+  animation-delay: 2.1s;
+}
+
+.star-4 {
+  top: 36%;
+  left: 16%;
+  width: 20px;
+  height: 20px;
+  animation-duration: 4.1s;
+  animation-delay: 0.8s;
+}
+
+.star-5 {
+  top: 52%;
+  right: 22%;
+  width: 24px;
+  height: 24px;
+  animation-duration: 4.8s;
+  animation-delay: 2.7s;
+}
+
+.star-6 {
+  bottom: 24%;
+  left: 32%;
+  width: 19px;
+  height: 19px;
+  animation-duration: 3.6s;
+  animation-delay: 1.8s;
+}
+
+.star-7 {
+  bottom: 14%;
+  right: 36%;
+  width: 22px;
+  height: 22px;
+  animation-duration: 4.2s;
+  animation-delay: 0.5s;
+}
+
+.star-8 {
+  top: 6%;
+  right: 12%;
+  width: 16px;
+  height: 16px;
+  animation-duration: 3.5s;
+  animation-delay: 2.9s;
+}
+
+/* --------------------------------------------------------------------------
+   Animations (Hardware-Accelerated Compositor Properties Only)
+   -------------------------------------------------------------------------- */
+@keyframes floatCloudGentle {
+  0%, 100% {
+    transform: translateY(0px) translateX(0px);
+  }
+  50% {
+    transform: translateY(-10px) translateX(6px);
+  }
+}
+
+@keyframes floatCloudDrift {
+  0%, 100% {
+    transform: translateY(0px) translateX(0px) scale(1);
+  }
+  50% {
+    transform: translateY(-14px) translateX(12px) scale(1.02);
+  }
+}
+
+@keyframes cruiseAcrossSky {
+  0% {
+    transform: translateX(0);
+  }
+  100% {
+    transform: translateX(calc(100vw + 350px));
+  }
+}
+
+@keyframes starTwinkleGlow {
+  0%, 100% {
+    opacity: 0.35;
+    transform: scale(0.85) rotate(0deg);
+  }
+  50% {
+    opacity: 1;
+    transform: scale(1.25) rotate(4deg);
+    filter: drop-shadow(0 0 8px rgba(254, 240, 138, 0.9));
+  }
+}
+
+/* Respect user's motion preference */
+@media (prefers-reduced-motion: reduce) {
+  .small-cloud-item,
+  .cloud-fairy-star {
+    animation: none !important;
+  }
+}
+
+/* Enforce Exactly 4 Templates per row in Desktop View (from 640px / tablet / desktop) */
+@media (min-width: 640px) {
+  #templates-grid,
+  #templates-grid-container,
+  #wizard-templates-grid {
+    display: grid !important;
+    grid-template-columns: repeat(4, minmax(0, 1fr)) !important;
+    gap: 1.25rem !important;
+  }
+}

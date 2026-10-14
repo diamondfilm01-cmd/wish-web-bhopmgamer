@@ -4933,7 +4933,7 @@ async function executeWishCreation(extraPayload = {}) {
     const createdWishId = data.wishId || (data.wish && data.wish.id) || currentEditingWishId;
     if (data.success && createdWishId) {
       const wishSlug = data.slug || (data.wish && data.wish.slug) || chosenSlug || createdWishId;
-      const fullLink = `${window.location.origin}/w/${wishSlug}`;
+      const fullLink = data.canonicalUrl || data.url || (typeof window.getPublicWishUrl === 'function' ? window.getPublicWishUrl(wishSlug) : `${window.location.origin}/wish/${wishSlug}`);
 
       // Save to local user wishes collection for creator dashboard with repository
       try {

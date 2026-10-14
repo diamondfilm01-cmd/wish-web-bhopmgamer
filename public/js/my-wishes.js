@@ -620,7 +620,7 @@
       `;
     } else if (isUpcoming) {
       // Upcoming: Countdown Link + Share + Edit + Duplicate + Delete/Archive
-      const publicLink = `/w/${encodeURIComponent(w.slug || w.id)}`;
+      const publicLink = typeof window.getPublicWishUrl === 'function' ? window.getPublicWishUrl(w) : `/wish/${encodeURIComponent(w.slug || w.id)}`;
       actionButtonsHTML = `
         <div class="flex flex-col gap-2 pt-3 border-t border-purple-200/50 dark:border-purple-800/40">
           <div class="grid grid-cols-2 gap-2">
@@ -651,7 +651,7 @@
       `;
     } else if (isActive) {
       // Active: Open Live + Share + Edit + Duplicate + Delete/Archive
-      const publicLink = `/w/${encodeURIComponent(w.slug || w.id)}`;
+      const publicLink = typeof window.getPublicWishUrl === 'function' ? window.getPublicWishUrl(w) : `/wish/${encodeURIComponent(w.slug || w.id)}`;
       actionButtonsHTML = `
         <div class="flex flex-col gap-2 pt-3 border-t border-purple-200/50 dark:border-purple-800/40">
           <div class="grid grid-cols-2 gap-2">
@@ -682,7 +682,7 @@
       `;
     } else {
       // Expired: Create Again ✨ + Preview/View Keepsake + Duplicate + Archive/Delete (NO Reactivate)
-      const publicLink = `/w/${encodeURIComponent(w.slug || w.id)}`;
+      const publicLink = typeof window.getPublicWishUrl === 'function' ? window.getPublicWishUrl(w) : `/wish/${encodeURIComponent(w.slug || w.id)}`;
       actionButtonsHTML = `
         <div class="flex flex-col gap-2 pt-3 border-t border-purple-200/50 dark:border-purple-800/40">
           <div class="grid grid-cols-2 gap-2">
@@ -992,7 +992,7 @@
     }
 
     const recipient = wish.recipientName || wish.customData?.recipient_name || 'Special Person';
-    const fullLink = `${window.location.origin}/w/${wish.slug || wish.id}`;
+    const fullLink = typeof window.getPublicWishUrl === 'function' ? window.getPublicWishUrl(wish) : `${window.location.origin}/wish/${wish.slug || wish.id}`;
     const whatsappText = encodeURIComponent(`✨ Hey ${recipient}! I crafted an immersive personalized celebration website for you. Open your surprise here: ${fullLink}`);
 
     let modal = document.getElementById('dashboard-share-modal');

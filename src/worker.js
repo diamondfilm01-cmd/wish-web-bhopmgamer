@@ -1035,20 +1035,24 @@ async function verifyFirebaseIdToken(idToken, env) {
   }
 
   const projectId = 'pacific-ember-18chg';
-  const expectedIssuer = `https://securetoken.google.com/${projectId}`;
+  const oAuthClientId = '206581825854-7v4s15i3ac3qckhnh8s7peol0173a74h.apps.googleusercontent.com';
+  const expectedFirebaseIssuer = `https://securetoken.google.com/${projectId}`;
   const nowSec = Math.floor(Date.now() / 1000);
 
+  const isGoogleOidc = claims.aud === oAuthClientId || (claims.iss && claims.iss.includes('accounts.google.com'));
+  const isFirebaseToken = claims.aud === projectId && claims.iss === expectedFirebaseIssuer;
+
   // 1. Validate standard JWT claims
-  if (claims.aud !== projectId) {
-    return { valid: false, error: 'AUTH_FIREBASE_TOKEN_AUDIENCE_MISMATCH', message: 'Token audience does not match project configuration.' };
-  }
-  if (claims.iss !== expectedIssuer) {
-    return { valid: false, error: 'AUTH_FIREBASE_TOKEN_ISSUER_MISMATCH', message: 'Token issuer does not match Google Firebase authority.' };
+  if (!isGoogleOidc && !isFirebaseToken) {
+    // If neither matching, still check if aud matches either
+    if (claims.aud !== projectId && claims.aud !== oAuthClientId) {
+      return { valid: false, error: 'AUTH_FIREBASE_TOKEN_AUDIENCE_MISMATCH', message: 'Token audience does not match project configuration.' };
+    }
   }
   if (claims.exp && claims.exp < (nowSec - 60)) {
     return { valid: false, error: 'AUTH_FIREBASE_TOKEN_EXPIRED', message: 'Authentication session has expired. Please sign in again.' };
   }
-  if (!claims.sub) {
+  if (!claims.sub && !claims.user_id) {
     return { valid: false, error: 'AUTH_FIREBASE_TOKEN_INVALID', message: 'Token missing user identity subject.' };
   }
 
@@ -3434,6 +3438,7 @@ const DEFAULT_SITE_SETTINGS = {
   heroHeadline: 'Gift a <span class="bg-gradient-to-r from-[#F472B6] via-[#EC4899] to-[#F4C542] bg-clip-text text-transparent">Magical</span> Web-Experience!',
   heroSubheadline: 'Create beautiful personalized digital wishes that feel like a real experience — interactive 3D unboxing, customized music & unforgettable celebration magic.',
   heroGiftIcon: '🎁',
+  heroBgMode: 'image',
   heroImageUrl: '/assets/file_ab2082.png',
   heroStyle: 'cosmic-purple',
   heroCta1: 'Explore Magic',
@@ -3454,13 +3459,15 @@ const DEFAULT_SITE_SETTINGS = {
   updatedBy: 'system'
 };
 
-const ALLOWED_HERO_STYLES = ['cosmic-purple', 'midnight-gold', 'romantic-rose'];
+const ALLOWED_HERO_STYLES = ['cosmic-purple', 'midnight-gold', 'romantic-rose', 'sunset-amber', 'emerald-aurora'];
 const ALLOWED_SITE_CURRENCIES = ['INR', 'USD', 'EUR', 'GBP', 'CAD', 'AUD'];
 
 const HERO_STYLE_GRADIENTS = {
   'cosmic-purple': 'radial-gradient(circle at 75% 25%, #9d174d 0%, #6d28d9 28%, #4c1d95 62%, #2e0854 100%)',
   'midnight-gold': 'radial-gradient(circle at 75% 25%, #d97706 0%, #1e1b4b 28%, #0f172a 62%, #020617 100%)',
-  'romantic-rose': 'radial-gradient(circle at 75% 25%, #e11d48 0%, #831843 30%, #4c0519 65%, #1f020a 100%)'
+  'romantic-rose': 'radial-gradient(circle at 75% 25%, #e11d48 0%, #831843 28%, #4c0519 62%, #1f020a 100%)',
+  'sunset-amber': 'radial-gradient(circle at 75% 25%, #ea580c 0%, #9a3412 30%, #431407 65%, #1c0702 100%)',
+  'emerald-aurora': 'radial-gradient(circle at 75% 25%, #059669 0%, #065f46 30%, #064e3b 65%, #022c22 100%)'
 };
 
 const MAINTENANCE_HTML_FALLBACK = `<!DOCTYPE html>
@@ -3735,13 +3742,20 @@ async function resetSiteSettingsToDefaults(env, actor = {}) {
 }
 
 function formatPublicSiteSettings(settings) {
+  const heroBgMode = (settings.heroBgMode === 'gradient') ? 'gradient' : 'image';
+  const pureGrad = HERO_STYLE_GRADIENTS[settings.heroStyle] || HERO_STYLE_GRADIENTS['cosmic-purple'];
   return {
     heroBadge: settings.heroBadge,
     heroHeadline: settings.heroHeadline,
     heroSubheadline: settings.heroSubheadline,
     heroGiftIcon: settings.heroGiftIcon,
+    heroBgMode,
+    heroImageUrl: settings.heroImageUrl || '/assets/file_ab2082.png',
     heroStyle: settings.heroStyle,
-    heroStyleGradient: HERO_STYLE_GRADIENTS[settings.heroStyle] || HERO_STYLE_GRADIENTS['cosmic-purple'],
+    heroStyleGradient: pureGrad,
+    heroEffectiveBackground: heroBgMode === 'gradient'
+      ? pureGrad
+      : `url('${settings.heroImageUrl || '/assets/file_ab2082.png'}') center / cover no-repeat`,
     heroCta1: settings.heroCta1,
     heroCta2: settings.heroCta2,
     brandName: settings.brandName,

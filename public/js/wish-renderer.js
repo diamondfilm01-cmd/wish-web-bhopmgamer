@@ -57,7 +57,7 @@
     const pathParts = window.location.pathname.split('/').filter(Boolean);
     let wishId = null;
 
-    if (pathParts[0] === 'w' && pathParts[1]) {
+    if ((pathParts[0] === 'w' || pathParts[0] === 'wish') && pathParts[1]) {
       wishId = decodeURIComponent(pathParts[1]);
     } else {
       const urlParams = new URLSearchParams(window.location.search);

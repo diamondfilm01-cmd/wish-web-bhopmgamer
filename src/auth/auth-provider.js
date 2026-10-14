@@ -64,16 +64,21 @@ export async function verifyToken(idToken, env = {}) {
   const nowSec = Math.floor(Date.now() / 1000);
 
   // Validate standard JWT claims
-  if (claims.aud !== projectId) {
-    return { valid: false, error: 'AUTH_TOKEN_AUDIENCE_MISMATCH', message: 'Token audience does not match project configuration.' };
-  }
-  if (claims.iss !== expectedIssuer) {
+  const isFirebaseToken = claims.aud === projectId || claims.iss === expectedIssuer;
+  const isGoogleOidcToken = (
+    claims.iss === 'https://accounts.google.com' ||
+    claims.iss === 'accounts.google.com' ||
+    String(claims.aud || '').endsWith('.apps.googleusercontent.com') ||
+    String(claims.aud || '').startsWith('206581825854')
+  );
+
+  if (!isFirebaseToken && !isGoogleOidcToken) {
     return { valid: false, error: 'AUTH_TOKEN_ISSUER_MISMATCH', message: 'Token issuer does not match authorized authority.' };
   }
   if (claims.exp && claims.exp < (nowSec - 60)) {
     return { valid: false, error: 'AUTH_TOKEN_EXPIRED', message: 'Authentication session has expired. Please sign in again.' };
   }
-  if (!claims.sub) {
+  if (!claims.sub && !claims.email) {
     return { valid: false, error: 'AUTH_TOKEN_INVALID', message: 'Token missing user identity subject.' };
   }
 

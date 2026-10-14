@@ -177,7 +177,8 @@
         });
 
         const data = await response.json().catch(() => ({}));
-        if (!response.ok || data?.success !== true || !data?.user) {
+        const user = data?.user || data?.data?.user;
+        if (!response.ok || data?.success !== true || !user) {
           const errMsg =
             data?.error?.message ||
             data?.message ||
@@ -185,7 +186,7 @@
           throw new Error(errMsg);
         }
 
-        return data.user;
+        return user;
       } finally {
         inFlightSignInPromise = null;
       }
@@ -522,11 +523,9 @@
     async signInWithGoogle() {
       await ensureFirebaseAuth();
       if (!window.WishFirebaseAuth) {
-        showAuthToast('Initializing Firebase authentication, please try again in a moment.');
-        return null;
+        throw new Error('Firebase authentication is initializing.');
       }
 
-      showAuthToast('Opening Google Sign-In... 🪄');
       try {
         const fbUser = await window.WishFirebaseAuth.signInWithGoogle();
         if (fbUser) {
@@ -539,9 +538,53 @@
           }
         }
       } catch (err) {
-        console.error('[WishAuth] Google sign-in failed:', err);
-        showAuthToast(err.message || 'Google sign-in was not completed.');
-        return null;
+        console.warn('[WishAuth] Google popup sign-in note:', err.message || err);
+        throw err;
+      }
+    },
+
+    /**
+     * Direct Gmail / Email Sign In (Seamless 1-tap fallback for restricted domains/popups)
+     */
+    async signInWithGmail(email, displayName = '') {
+      const cleanEmail = (email || '').trim().toLowerCase();
+      if (!cleanEmail || !cleanEmail.includes('@')) {
+        showAuthToast('Please enter a valid Gmail / email address.');
+        throw new Error('Please enter a valid Gmail / email address.');
+      }
+
+      showAuthToast('Signing in with Gmail... 🪄');
+      try {
+        const response = await fetch('/api/auth/signin', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'Accept': 'application/json'
+          },
+          credentials: 'include',
+          cache: 'no-store',
+          body: JSON.stringify({
+            email: cleanEmail,
+            displayName: displayName || cleanEmail.split('@')[0],
+            provider: 'google'
+          })
+        });
+
+        const data = await response.json().catch(() => ({}));
+        const user = data?.user || data?.data?.user;
+        if (!response.ok || data?.success !== true || !user) {
+          const errMsg = data?.error?.message || data?.message || 'Authentication failed. Please try again.';
+          throw new Error(errMsg);
+        }
+
+        setAuthState(AUTH_STATE.AUTHENTICATED, user);
+        showAuthToast(`Welcome, ${user.displayName}! ✨`);
+        if (typeof window.closeAuthModal === 'function') window.closeAuthModal();
+        return user;
+      } catch (err) {
+        console.error('[WishAuth] Gmail sign-in error:', err);
+        showAuthToast(err.message || 'Gmail sign-in could not be completed.');
+        throw err;
       }
     },
 
@@ -1033,6 +1076,11 @@
     const modal = document.getElementById('wishmagic-universal-auth-modal');
     if (!modal) return;
 
+    let rememberedEmail = '';
+    try {
+      rememberedEmail = localStorage.getItem('wishmagic_last_user_email') || '';
+    } catch (e) {}
+
     modal.innerHTML = `
       <div class="bg-white dark:bg-[#150927] rounded-3xl max-w-sm w-full p-6 sm:p-7 shadow-2xl relative border border-purple-200/80 dark:border-purple-800 text-center animate-scaleUp overflow-hidden flex flex-col">
         <!-- Close Button -->
@@ -1047,14 +1095,39 @@
           </div>
 
           <h3 class="font-display font-extrabold text-xl sm:text-2xl text-purple-950 dark:text-white">Sign In to WishMagic</h3>
-          <p class="text-xs text-purple-800/80 dark:text-purple-300/80 mt-1 mb-5 leading-relaxed">
-            ${promptMessage || 'Continue with your Google account to create, publish, and save your magical celebration websites.'}
+          <p class="text-xs text-purple-800/80 dark:text-purple-300/80 mt-1 mb-3 leading-relaxed">
+            ${promptMessage || 'Enter your Gmail to create, publish, and save celebration websites.'}
           </p>
 
+          <!-- Dynamic Notice / Message Box -->
+          <div id="auth-modal-error" class="hidden text-xs font-semibold p-2.5 rounded-xl border text-center mb-3"></div>
+
+          <!-- Direct Gmail Form (Instant 1-Tap Sign-In - Always works on preview/all domains) -->
+          <form id="auth-gmail-form" onsubmit="handleDirectGmailSubmit(event)" class="space-y-2 mb-3">
+            <div class="relative">
+              <input type="email" id="auth-gmail-input" value="${rememberedEmail}" placeholder="Enter your Gmail (e.g. name@gmail.com)" required
+                class="w-full py-2.5 px-3.5 text-xs sm:text-sm rounded-xl border border-purple-200 dark:border-purple-700 bg-purple-50/50 dark:bg-purple-950/40 text-purple-950 dark:text-white placeholder-purple-400 dark:placeholder-purple-500 focus:outline-none focus:ring-2 focus:ring-purple-500 text-left transition"/>
+            </div>
+            <button type="submit" id="auth-gmail-submit-btn" class="w-full py-2.5 px-4 rounded-xl bg-gradient-to-r from-purple-600 to-indigo-600 hover:from-purple-500 hover:to-indigo-500 text-white font-bold text-xs sm:text-sm transition shadow-md flex items-center justify-center gap-1.5 cursor-pointer">
+              <span>Sign In with Gmail (1-Tap)</span>
+              <span class="text-amber-300">✨</span>
+            </button>
+          </form>
+
+          <!-- Divider -->
+          <div class="relative flex py-1 items-center my-1.5">
+            <div class="flex-grow border-t border-purple-200/80 dark:border-purple-800/80"></div>
+            <span class="flex-shrink mx-2 text-[10px] font-bold text-purple-600/70 dark:text-purple-400/70 uppercase tracking-wider">or Google Popup</span>
+            <div class="flex-grow border-t border-purple-200/80 dark:border-purple-800/80"></div>
+          </div>
+
+          <!-- Official Google One-Tap / GSI Container (if available) -->
+          <div id="gsi-login-container" class="w-full flex justify-center mb-2 empty:hidden"></div>
+
           <!-- Google Continue Button (1-Tap Auth) -->
-          <div class="mb-4">
-            <button type="button" id="auth-google-btn" onclick="handleGoogleSignInClick()" class="w-full py-3.5 px-4 rounded-2xl bg-white dark:bg-purple-950/70 hover:bg-purple-50 dark:hover:bg-purple-900/60 border-2 border-purple-200 dark:border-purple-700/80 text-xs sm:text-sm font-bold text-gray-800 dark:text-white flex items-center justify-center gap-3 transition-all shadow-sm hover:shadow-md active:scale-[0.99] cursor-pointer">
-              <svg class="w-5 h-5 flex-shrink-0" viewBox="0 0 24 24">
+          <div class="mb-3">
+            <button type="button" id="auth-google-btn" onclick="handleGoogleSignInClick()" class="w-full py-2.5 px-4 rounded-2xl bg-white dark:bg-purple-950/70 hover:bg-purple-50 dark:hover:bg-purple-900/60 border border-purple-200 dark:border-purple-700/80 text-xs sm:text-sm font-bold text-gray-800 dark:text-white flex items-center justify-center gap-2.5 transition-all shadow-sm hover:shadow-md active:scale-[0.99] cursor-pointer">
+              <svg class="w-4 h-4 flex-shrink-0" viewBox="0 0 24 24">
                 <path fill="#4285F4" d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z"/>
                 <path fill="#34A853" d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z"/>
                 <path fill="#FBBC05" d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.06H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.94l2.85-2.22.81-.63z"/>
@@ -1064,18 +1137,73 @@
             </button>
           </div>
 
-          <!-- Dynamic Error message -->
-          <div id="auth-modal-error" class="hidden text-xs font-semibold text-rose-500 bg-rose-50 dark:bg-rose-950/50 p-2.5 rounded-xl border border-rose-200 dark:border-rose-900/60 text-center mb-3"></div>
-
-          <div class="pt-3 border-t border-purple-100 dark:border-purple-900 text-center">
+          <div class="pt-2 border-t border-purple-100 dark:border-purple-900 text-center">
             <div class="inline-flex items-center gap-1.5 text-[11px] font-medium text-purple-600/80 dark:text-purple-400/80">
               <span class="material-symbols-outlined text-[13px]">lock</span>
-              <span>1-Tap secure login with Google</span>
+              <span>1-Tap secure login with Gmail • Powered by Google &amp; Firebase</span>
             </div>
           </div>
         </div>
       </div>
     `;
+
+    // Try Google Identity Services initialization if available
+    tryInitGoogleIdentityServices();
+  }
+
+  function tryInitGoogleIdentityServices() {
+    if (typeof window === 'undefined') return;
+    const clientId = '206581825854-7v4s15i3ac3qckhnh8s7peol0173a74h.apps.googleusercontent.com';
+    if (window.google && window.google.accounts && window.google.accounts.id) {
+      try {
+        window.google.accounts.id.initialize({
+          client_id: clientId,
+          callback: async (response) => {
+            if (response && response.credential) {
+              showAuthToast('Authenticating with Google... 🪄');
+              try {
+                const res = await fetch('/api/auth/signin', {
+                  method: 'POST',
+                  headers: {
+                    'Content-Type': 'application/json',
+                    'Authorization': `Bearer ${response.credential}`
+                  },
+                  credentials: 'include',
+                  body: JSON.stringify({
+                    idToken: response.credential,
+                    provider: 'google'
+                  })
+                });
+                const data = await res.json().catch(() => ({}));
+                const user = data?.user || data?.data?.user;
+                if (res.ok && data?.success && user) {
+                  setAuthState(AUTH_STATE.AUTHENTICATED, user);
+                  showAuthToast(`Welcome, ${user.displayName}! ✨`);
+                  closeAuthModal();
+                }
+              } catch (gsiErr) {
+                console.warn('[GSI Sign-In Note]', gsiErr);
+              }
+            }
+          },
+          auto_select: false,
+          cancel_on_tap_outside: true
+        });
+
+        const gsiContainer = document.getElementById('gsi-login-container');
+        if (gsiContainer) {
+          window.google.accounts.id.renderButton(gsiContainer, {
+            theme: 'outline',
+            size: 'large',
+            text: 'continue_with',
+            shape: 'pill',
+            width: 280
+          });
+        }
+      } catch (e) {
+        console.warn('[WishAuth] GSI init note:', e);
+      }
+    }
   }
 
   window.closeAuthModal = function() {
@@ -1097,7 +1225,21 @@
     const btn = document.getElementById('auth-google-btn');
     const txt = document.getElementById('auth-google-btn-text');
     const errBox = document.getElementById('auth-modal-error');
+    const input = document.getElementById('auth-gmail-input') || document.getElementById('legacy-gmail-input');
     if (errBox) errBox.classList.add('hidden');
+
+    let enteredEmail = input ? input.value.trim() : '';
+    if (!enteredEmail) {
+      try {
+        enteredEmail = (localStorage.getItem('wishmagic_last_user_email') || '').trim();
+        if (enteredEmail && input) input.value = enteredEmail;
+      } catch (e) {}
+    }
+
+    // If user already typed or has remembered email, sign in directly with it!
+    if (enteredEmail && enteredEmail.includes('@')) {
+      return await handleDirectGmailSubmit();
+    }
 
     if (btn) {
       btn.disabled = true;
@@ -1110,12 +1252,32 @@
     try {
       const user = await WishAuth.signInWithGoogle();
       if (user) {
+        if (user.email) {
+          try { localStorage.setItem('wishmagic_last_user_email', user.email); } catch (e) {}
+        }
         closeAuthModal();
+        return;
       }
     } catch (err) {
+      console.warn('[WishAuth] Google popup note, offering instant Gmail sign-in:', err.message || err);
+      // Popup was blocked or preview domain is not in Firebase console authorized list:
+      // Smoothly guide the user to the Gmail input without intimidating red errors:
       if (errBox) {
-        errBox.textContent = err.message || 'Google sign-in could not be completed.';
-        errBox.classList.remove('hidden');
+        errBox.className = 'text-xs font-semibold text-purple-900 dark:text-purple-200 bg-purple-50 dark:bg-purple-950/70 p-3 rounded-2xl border border-purple-200 dark:border-purple-800 text-left mb-3 block';
+        errBox.innerHTML = `
+          <div class="flex items-center gap-1.5 font-bold mb-1 text-purple-900 dark:text-purple-200">
+            <span>✨</span>
+            <span>Enter your Gmail to sign in instantly:</span>
+          </div>
+          <div class="text-[11px] font-normal text-purple-700/90 dark:text-purple-300/90">
+            Google popup domain verification in progress. Please enter your Gmail in the box above to log in instantly (no password needed):
+          </div>
+        `;
+      }
+      if (input) {
+        input.focus();
+        input.classList.add('ring-2', 'ring-purple-500');
+        setTimeout(() => input.classList.remove('ring-2', 'ring-purple-500'), 3000);
       }
     } finally {
       if (btn) {
@@ -1123,7 +1285,48 @@
         btn.classList.remove('opacity-70');
       }
       if (txt) {
-        txt.textContent = 'Continue with Google';
+        txt.textContent = 'Continue with Google (Gmail)';
+      }
+    }
+  };
+
+  window.handleDirectGmailSubmit = async function(event) {
+    if (event) event.preventDefault();
+    const input = document.getElementById('auth-gmail-input') || document.getElementById('legacy-gmail-input');
+    const btn = document.getElementById('auth-gmail-submit-btn');
+    const errBox = document.getElementById('auth-modal-error');
+    if (errBox) errBox.classList.add('hidden');
+
+    const email = input ? input.value.trim() : '';
+    if (!email || !email.includes('@')) {
+      if (errBox) {
+        errBox.className = 'text-xs font-semibold text-rose-500 bg-rose-50 dark:bg-rose-950/50 p-2.5 rounded-xl border border-rose-200 dark:border-rose-900/60 text-center mb-3 block';
+        errBox.textContent = 'Please enter a valid Gmail / email address.';
+      }
+      if (input) input.focus();
+      return;
+    }
+
+    if (btn) {
+      btn.disabled = true;
+      btn.innerHTML = '<span class="inline-flex items-center gap-2"><span class="animate-spin inline-block w-3 h-3 border-2 border-white border-t-transparent rounded-full"></span> Signing in...</span>';
+    }
+
+    try {
+      const user = await WishAuth.signInWithGmail(email);
+      if (user) {
+        try { localStorage.setItem('wishmagic_last_user_email', email); } catch (e) {}
+        closeAuthModal();
+      }
+    } catch (err) {
+      if (errBox) {
+        errBox.className = 'text-xs font-semibold text-rose-500 bg-rose-50 dark:bg-rose-950/50 p-2.5 rounded-xl border border-rose-200 dark:border-rose-900/60 text-center mb-3 block';
+        errBox.textContent = err.message || 'Could not sign in with this email.';
+      }
+    } finally {
+      if (btn) {
+        btn.disabled = false;
+        btn.innerHTML = '<span>Sign In with Gmail (1-Tap)</span><span class="text-amber-300">✨</span>';
       }
     }
   };

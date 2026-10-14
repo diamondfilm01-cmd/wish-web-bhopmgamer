@@ -34,14 +34,16 @@
       return window.WishSlugService.getPublicUrl(wish);
     }
     const base = getBaseAppUrl();
-    const slug = wish.slug || wish.publicSlug || (wish.customData && wish.customData.slug);
+    const slug = typeof wish === 'string'
+      ? wish
+      : (wish.slug || wish.publicSlug || (wish.customData && wish.customData.slug));
 
     if (slug) {
-      return `${base}/w/${encodeURIComponent(slug)}`;
+      return `${base}/wish/${encodeURIComponent(slug)}`;
     }
     const wishId = wish.id || wish.wishId;
     if (wishId) {
-      return `${base}/w/${encodeURIComponent(wishId)}`;
+      return `${base}/wish/${encodeURIComponent(wishId)}`;
     }
     return `${base}/wish.html`;
   }
@@ -612,6 +614,7 @@
   // Export to global window namespace
   window.generateWishSlug = generateWishSlug;
   window.getPublicWishUrl = getPublicWishUrl;
+  window.WishMagicUrl = { getPublicWishUrl, getCanonicalPublicWishUrl: getPublicWishUrl };
   window.WishShareService = WishShareService;
   window.WishSocialMetadata = { updateSocialMetadata };
 
