@@ -1125,7 +1125,7 @@
       const container = document.getElementById('dev-accounts-switcher-grid');
       if (!container) return;
 
-      const accounts = WishAuth.getAllKnownUsers();
+      const accounts = (window.WishAuth && typeof WishAuth.getAllKnownUsers === 'function') ? WishAuth.getAllKnownUsers() : (window.WishAuth && WishAuth.getCurrentUser() ? [WishAuth.getCurrentUser()] : []);
       container.innerHTML = accounts.map(acc => {
         const isCurrent = acc.id === currentUserId;
         return `

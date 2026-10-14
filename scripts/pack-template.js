@@ -1,6 +1,6 @@
 import fs from 'fs';
 import path from 'path';
-import JSZip from 'jszip';
+import JSZip from '../src/vendor/jszip.js';
 
 async function packTemplate(sourceDir, outputFile) {
   const zip = new JSZip();

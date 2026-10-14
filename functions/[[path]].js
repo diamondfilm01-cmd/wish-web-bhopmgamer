@@ -1,6 +1,7 @@
 /**
  * Cloudflare Pages Functions Catch-all Adapter
  * Routes dynamic requests and pretty URLs directly through the centralized worker API in src/worker.js
+ * Includes Clean-URL 308 redirect loop protection for Cloudflare Pages ASSETS.fetch.
  */
 
 import worker from '../src/worker.js';
@@ -154,10 +155,62 @@ const PUBLIC_PAGES_MAP = {
   '/support/tickets': '/support-tickets.html',
   '/support/tickets/': '/support-tickets.html',
   '/support/tickets.html': '/support-tickets.html',
+  '/support-tickets': '/support-tickets.html',
+  '/support-tickets/': '/support-tickets.html',
+  '/support-tickets.html': '/support-tickets.html',
   '/expired': '/expired.html',
   '/expired/': '/expired.html',
-  '/expired.html': '/expired.html'
+  '/expired.html': '/expired.html',
+  '/notifications': '/notifications.html',
+  '/notifications/': '/notifications.html',
+  '/notifications.html': '/notifications.html',
+  '/referrals': '/referrals.html',
+  '/referrals/': '/referrals.html',
+  '/referrals.html': '/referrals.html'
 };
+
+/**
+ * Fetches a static HTML file from Cloudflare Pages ASSETS or context.next
+ * while resolving Clean-URL 308 redirects internally so the browser NEVER gets a redirect loop.
+ */
+async function serveHtmlAsset(context, targetHtmlFile, search = '') {
+  const cleanExtPath = (targetHtmlFile === '/index.html') ? '/' : targetHtmlFile.replace(/\.html$/i, '');
+  const candidates = [targetHtmlFile + search, cleanExtPath + search];
+
+  const fetchCandidate = async (pathWithSearch) => {
+    const targetUrl = new URL(pathWithSearch, context.request.url);
+    const reqInit = { method: 'GET', headers: context.request.headers };
+    if (context.env && context.env.ASSETS && typeof context.env.ASSETS.fetch === 'function') {
+      return await context.env.ASSETS.fetch(new Request(targetUrl, reqInit));
+    }
+    if (typeof context.next === 'function') {
+      return await context.next(new Request(targetUrl, reqInit));
+    }
+    return null;
+  };
+
+  for (const cand of candidates) {
+    try {
+      let res = await fetchCandidate(cand);
+      // If Cloudflare Pages Clean URLs returned 308/301/302/307 redirect, follow Location once against ASSETS
+      if (res && res.status >= 300 && res.status < 400) {
+        const loc = res.headers.get('Location');
+        if (loc) {
+          res = await fetchCandidate(loc);
+        }
+      }
+      if (res && res.status === 200) {
+        const headers = new Headers(res.headers);
+        headers.set('Content-Type', 'text/html; charset=utf-8');
+        headers.set('Cache-Control', 'no-cache, must-revalidate');
+        return new Response(res.body, { status: 200, headers });
+      }
+    } catch (err) {
+      console.warn('[serveHtmlAsset candidate warning]', cand, err);
+    }
+  }
+  return null;
+}
 
 export async function onRequest(context) {
   const url = new URL(context.request.url);
@@ -173,6 +226,8 @@ export async function onRequest(context) {
   // Secret Admin Portal Entry: Direct route mapping with Server-Side Protection
   if (pathname.startsWith('/admin/anktech/anktech/admin')) {
     if (pathname === '/admin/anktech/anktech/admin/login' || pathname.endsWith('/login')) {
+      const loginHtml = await serveHtmlAsset(context, '/admin-login.html', url.search);
+      if (loginHtml) return loginHtml;
       const loginReq = new Request(new URL('/admin-login.html', context.request.url), context.request);
       return await context.next(loginReq);
     }
@@ -196,6 +251,8 @@ export async function onRequest(context) {
               headers: { 'Content-Type': 'text/plain; charset=utf-8' }
             });
           }
+          const adminHtml = await serveHtmlAsset(context, targetFile, url.search);
+          if (adminHtml) return adminHtml;
           const destinationUrl = new URL(targetFile + url.search, context.request.url);
           const pageReq = new Request(destinationUrl, context.request);
           return await context.next(pageReq);
@@ -218,67 +275,39 @@ export async function onRequest(context) {
   const cleanPath = pathname.replace(/\/+$/, '') || '/';
   const targetAdminFile = ADMIN_ROUTES_MAP[cleanPath] || ADMIN_ROUTES_MAP[pathname];
   if (targetAdminFile) {
-    const destinationUrl = new URL(targetAdminFile + url.search, context.request.url);
-    if (context.env.ASSETS && typeof context.env.ASSETS.fetch === 'function') {
-      const pageReq = new Request(destinationUrl, context.request);
-      return await context.env.ASSETS.fetch(pageReq);
-    }
-    const pageReq = new Request(destinationUrl, context.request);
-    return await context.next(pageReq);
+    const adminHtml = await serveHtmlAsset(context, targetAdminFile, url.search);
+    if (adminHtml) return adminHtml;
   }
 
   const targetPublicFile = PUBLIC_PAGES_MAP[cleanPath] || PUBLIC_PAGES_MAP[pathname] || (pathname.endsWith('.html') ? pathname : null);
   if (targetPublicFile) {
-    const destinationUrl = new URL(targetPublicFile + url.search, context.request.url);
-    if (context.env.ASSETS && typeof context.env.ASSETS.fetch === 'function') {
-      try {
-        const pageReq = new Request(destinationUrl, context.request);
-        const htmlRes = await context.env.ASSETS.fetch(pageReq);
-        if (htmlRes && htmlRes.status !== 404) {
-          return htmlRes;
-        }
-      } catch (err) {
-        console.warn('[Pages ASSETS.fetch warning]', err);
-      }
-    }
-    if (pathname === targetPublicFile) {
-      try {
-        return await context.next();
-      } catch (_) {}
-    }
-    const pageReq = new Request(destinationUrl, context.request);
-    try {
-      return await context.next(pageReq);
-    } catch (_) {
-      return await context.next();
-    }
+    const pubHtml = await serveHtmlAsset(context, targetPublicFile, url.search);
+    if (pubHtml) return pubHtml;
   }
 
   if (pathname.startsWith('/template/')) {
-    const destinationUrl = new URL('/template-preview.html' + url.search, context.request.url);
-    if (context.env.ASSETS && typeof context.env.ASSETS.fetch === 'function') {
-      try {
-        const tplReq = new Request(destinationUrl, context.request);
-        const res = await context.env.ASSETS.fetch(tplReq);
-        if (res && res.status !== 404) return res;
-      } catch (_) {}
-    }
-    const tplReq = new Request(destinationUrl, context.request);
-    try {
-      return await context.next(tplReq);
-    } catch (_) {
-      return await context.next();
-    }
+    const tplHtml = await serveHtmlAsset(context, '/template-preview.html', url.search);
+    if (tplHtml) return tplHtml;
   }
 
   const env = {
     ...context.env,
     IMGBB_API_KEY: context.env.IMGBB_API_KEY || null,
     DB: context.env.DB || context.env.wishmagic_db || context.env.DATABASE,
-    ASSETS: context.env.ASSETS || {
+    ASSETS: {
       fetch: async (req) => {
-        const fetchReq = typeof req === 'string' ? new Request(new URL(req, context.request.url), context.request) : req;
-        return await context.next(fetchReq);
+        const reqUrl = typeof req === 'string' ? new URL(req, context.request.url) : new URL(req.url);
+        const rawFetcher = (context.env && context.env.ASSETS && typeof context.env.ASSETS.fetch === 'function')
+          ? (r) => context.env.ASSETS.fetch(r)
+          : (r) => context.next(r);
+        let res = await rawFetcher(new Request(reqUrl, { method: 'GET', headers: context.request.headers }));
+        if (res && res.status >= 300 && res.status < 400) {
+          const loc = res.headers.get('Location');
+          if (loc) {
+            res = await rawFetcher(new Request(new URL(loc, context.request.url), { method: 'GET', headers: context.request.headers }));
+          }
+        }
+        return res;
       }
     }
   };

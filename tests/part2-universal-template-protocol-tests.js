@@ -21,7 +21,7 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import fs from 'node:fs';
 import path from 'node:path';
-import JSZip from 'jszip';
+import JSZip from '../src/vendor/jszip.js';
 
 import {
   UTP_PROTOCOL_NAME,

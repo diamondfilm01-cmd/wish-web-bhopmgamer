@@ -27,9 +27,10 @@
 
   function updateBodyBackground(isDark) {
     if (typeof document === 'undefined' || !document.body) return;
-    // Cloud background is powered exclusively by /css/cloud-background.css (no cb.png or cbd.png)
-    document.body.style.backgroundImage = 'none';
-    document.body.style.backgroundColor = 'transparent';
+    document.body.style.removeProperty('background-image');
+    document.body.style.removeProperty('background-size');
+    document.body.style.removeProperty('background-position');
+    document.body.style.removeProperty('background-attachment');
   }
 
   function applyTheme(targetTheme) {
@@ -126,7 +127,7 @@
     }
   }
 
-  // 4. Universal Dreamy Background Engine for full website: Powered exclusively by cloud-background.css
+  // 4. Universal Dreamy Background Engine for full website: Display cb.png (light) and cbd.png (dark)
   function ensureCloudyBackground() {
     if (typeof document === 'undefined') return;
 
@@ -135,21 +136,13 @@
       const link = document.createElement('link');
       link.id = 'wishmagic-cloud-css';
       link.rel = 'stylesheet';
-      link.href = '/css/cloud-background.css';
+      link.href = '/css/cloud-background.css?v=10';
       document.head.appendChild(link);
     }
 
     if (document.body) {
       const isDark = document.documentElement.classList.contains('dark') || document.documentElement.getAttribute('data-theme') === 'dark';
       updateBodyBackground(isDark);
-
-      // Ensure dedicated cloudy-background-stage div exists for cloud-background.css
-      if (!document.querySelector('.cloudy-background-stage')) {
-        const stage = document.createElement('div');
-        stage.className = 'cloudy-background-stage';
-        stage.setAttribute('aria-hidden', 'true');
-        document.body.insertBefore(stage, document.body.firstChild);
-      }
 
       const oldLayer = document.querySelector('.bg-ambient-layer');
       if (oldLayer) {
@@ -162,5 +155,35 @@
     document.addEventListener('DOMContentLoaded', ensureCloudyBackground);
   } else {
     ensureCloudyBackground();
+  }
+})();
+
+
+(function() {
+  function syncHeroCastleBoundary() {
+    var hero = document.getElementById('hero-desktop-section') || document.querySelector('.hero-desktop-canvas');
+    if (!hero || !document.body) return;
+    var bodyRect = document.body.getBoundingClientRect();
+    var heroRect = hero.getBoundingClientRect();
+    var endY = Math.round(heroRect.bottom - bodyRect.top + 10);
+    if (endY > 180) {
+      document.documentElement.style.setProperty('--wm-hero-end', endY + 'px');
+    }
+  }
+  if (document.readyState === 'loading') {
+    document.addEventListener('DOMContentLoaded', syncHeroCastleBoundary);
+  } else {
+    syncHeroCastleBoundary();
+  }
+  window.addEventListener('load', syncHeroCastleBoundary);
+  window.addEventListener('resize', syncHeroCastleBoundary);
+  if (typeof ResizeObserver !== 'undefined') {
+    document.addEventListener('DOMContentLoaded', function() {
+      var hero = document.getElementById('hero-desktop-section') || document.querySelector('.hero-desktop-canvas');
+      if (hero) {
+        var ro = new ResizeObserver(syncHeroCastleBoundary);
+        ro.observe(hero);
+      }
+    });
   }
 })();

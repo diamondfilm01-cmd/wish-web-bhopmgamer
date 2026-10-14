@@ -1,6 +1,6 @@
 import fs from 'fs';
 import path from 'path';
-import JSZip from 'jszip';
+import JSZip from '../src/vendor/jszip.js';
 
 const EXCLUDE_DIRS = new Set(['node_modules', '.git', '.cache', 'dist', 'build']);
 const EXCLUDE_FILES = new Set(['wish-web-bhopmgamer-main-repaired.zip', '.DS_Store']);

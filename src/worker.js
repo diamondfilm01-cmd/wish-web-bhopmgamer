@@ -1,3 +1,5 @@
+import { webcrypto as _nodeWebCrypto } from 'node:crypto';
+if (!globalThis.crypto) { globalThis.crypto = _nodeWebCrypto; }
 /**
  * WishMagic Cloudflare Worker / Pages Functions Production API
  * Stack: Cloudflare Pages + Cloudflare Workers + Cloudflare D1 + Cloudflare R2
@@ -17709,10 +17711,26 @@ export default {
       const targetHtml = PRETTY_ROUTES[pathname] || PRETTY_ROUTES[normalizedPath] || (pathname.endsWith('.html') ? pathname : null);
       if (targetHtml && env.ASSETS && typeof env.ASSETS.fetch === 'function') {
         try {
-          const pageReq = new Request(new URL(targetHtml, request.url), request);
-          const htmlRes = await env.ASSETS.fetch(pageReq);
-          if (htmlRes && htmlRes.status !== 404) {
-            return applySecurityHeaders(htmlRes, request, env);
+          const cleanExt = (targetHtml === '/index.html') ? '/' : targetHtml.replace(/\.html$/i, '');
+          for (const cand of [targetHtml, cleanExt]) {
+            const pageReq = new Request(new URL(cand + url.search, request.url), { method: 'GET', headers: request.headers });
+            let htmlRes = await env.ASSETS.fetch(pageReq);
+            if (htmlRes && htmlRes.status >= 300 && htmlRes.status < 400) {
+              const loc = htmlRes.headers.get('Location');
+              if (loc) {
+                htmlRes = await env.ASSETS.fetch(new Request(new URL(loc, request.url), { method: 'GET', headers: request.headers }));
+              }
+            }
+            if (htmlRes && htmlRes.status === 200) {
+              const okRes = new Response(htmlRes.body, {
+                status: 200,
+                headers: {
+                  'Content-Type': 'text/html; charset=utf-8',
+                  'Cache-Control': 'no-cache, must-revalidate'
+                }
+              });
+              return applySecurityHeaders(okRes, request, env);
+            }
           }
         } catch (assetErr) {
           console.warn('[Worker ASSETS.fetch warning]', assetErr);
@@ -17727,9 +17745,20 @@ export default {
       }
 
       if (pathname.startsWith('/template/') && env.ASSETS && typeof env.ASSETS.fetch === 'function') {
-        const pageReq = new Request(new URL('/template-preview.html', request.url), request);
-        const htmlRes = await env.ASSETS.fetch(pageReq);
-        return applySecurityHeaders(htmlRes, request, env);
+        for (const cand of ['/template-preview.html', '/template-preview']) {
+          const pageReq = new Request(new URL(cand + url.search, request.url), { method: 'GET', headers: request.headers });
+          let htmlRes = await env.ASSETS.fetch(pageReq);
+          if (htmlRes && htmlRes.status >= 300 && htmlRes.status < 400) {
+            const loc = htmlRes.headers.get('Location');
+            if (loc) htmlRes = await env.ASSETS.fetch(new Request(new URL(loc, request.url), { method: 'GET', headers: request.headers }));
+          }
+          if (htmlRes && htmlRes.status === 200) {
+            return applySecurityHeaders(new Response(htmlRes.body, {
+              status: 200,
+              headers: { 'Content-Type': 'text/html; charset=utf-8', 'Cache-Control': 'no-cache, must-revalidate' }
+            }), request, env);
+          }
+        }
       }
 
       // --- Stage 4: Dynamic Public Wish Route with Server-Side Social SEO & Exact Status Codes ---

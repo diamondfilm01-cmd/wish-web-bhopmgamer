@@ -7,7 +7,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import fs from 'node:fs';
-import JSZip from 'jszip';
+import JSZip from '../src/vendor/jszip.js';
 
 import {
   executeB2TemplateIngestPipeline,

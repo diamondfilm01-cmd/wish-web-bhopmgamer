@@ -1,3 +1,5 @@
+import { webcrypto as _nodeWebCrypto } from 'node:crypto';
+if (!globalThis.crypto) { globalThis.crypto = _nodeWebCrypto; }
 /**
  * WishMagic Template ZIP Ingestion & Security Pipeline (Part 20)
  * =============================================================
@@ -13,7 +15,7 @@
  * 9. Structured failure recovery
  */
 
-import JSZip from 'jszip';
+import JSZip from './vendor/jszip.js';
 import {
   computeSha256Hex,
   getB2Config,

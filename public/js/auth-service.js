@@ -899,7 +899,7 @@
             <div id="account-dropdown-menu" class="hidden absolute right-0 top-full mt-2 w-64 max-w-[calc(100vw-20px)] rounded-2xl shadow-[0_25px_60px_rgba(0,0,0,0.55),0_0_25px_rgba(124,58,237,0.3)] p-2.5 z-[9999999] text-left border-2" style="background-color: ${isDark ? '#150927' : '#ffffff'} !important; background: ${isDark ? '#150927' : '#ffffff'} !important; border-color: ${isDark ? '#7e22ce' : '#ddd6fe'} !important; color: ${isDark ? '#f3e8ff' : '#0f172a'} !important; opacity: 1 !important; backdrop-filter: none !important; -webkit-backdrop-filter: none !important;">
               
               <!-- User Profile Header Card (Clickable to open profile settings) -->
-              <a href="/account" class="block px-3 py-2.5 rounded-xl mb-1.5 border transition cursor-pointer hover:brightness-105 active:scale-98" style="background-color: ${isDark ? '#231042' : '#f5f3ff'} !important; background: ${isDark ? '#231042' : '#f5f3ff'} !important; border-color: ${isDark ? '#6b21a8' : '#e9d5ff'} !important;">
+              <a href="/account.html" class="block px-3 py-2.5 rounded-xl mb-1.5 border transition cursor-pointer hover:brightness-105 active:scale-98" style="background-color: ${isDark ? '#231042' : '#f5f3ff'} !important; background: ${isDark ? '#231042' : '#f5f3ff'} !important; border-color: ${isDark ? '#6b21a8' : '#e9d5ff'} !important;">
                 <div class="flex items-center gap-2.5">
                   <div class="w-9 h-9 rounded-full overflow-hidden flex-shrink-0 border border-pink-400">
                     ${avatarContent}
@@ -926,7 +926,7 @@
                   <span class="material-symbols-outlined text-[18px] text-pink-500">card_giftcard</span>
                   <span>My Celebration Wishes</span>
                 </a>
-                <a href="/account" class="px-3 py-2.5 rounded-xl text-xs font-bold flex items-center gap-2.5 transition hover:bg-purple-100/70 dark:hover:bg-purple-900/50" style="color: ${isDark ? '#f3e8ff' : '#1e293b'};">
+                <a href="/account.html" class="px-3 py-2.5 rounded-xl text-xs font-bold flex items-center gap-2.5 transition hover:bg-purple-100/70 dark:hover:bg-purple-900/50" style="color: ${isDark ? '#f3e8ff' : '#1e293b'};">
                   <span class="material-symbols-outlined text-[18px] text-purple-500">manage_accounts</span>
                   <span>Profile &amp; Account Settings</span>
                 </a>
@@ -1064,10 +1064,10 @@
   WishAuth.openAuthModal = showUniversalAuthModal;
 
   window.openProfileSettings = function() {
-    window.location.href = '/account';
+    window.location.href = '/account.html';
   };
   window.openAccountSettings = function() {
-    window.location.href = '/account';
+    window.location.href = '/account.html';
   };
   WishAuth.openProfileSettings = window.openProfileSettings;
   WishAuth.openAccountSettings = window.openAccountSettings;
