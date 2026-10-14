@@ -1,4 +1,4 @@
-// WishMagic Admin Studio - Universal Dual Theme Engine & Utilities
+// WishMagic Admin Studio - Universal Dual Theme Engine, Navigation & Header Controller
 
 const SECRET_ADMIN_PREFIX = '/admin/anktech/anktech/admin';
 
@@ -145,7 +145,6 @@ const AdminAuthController = (() => {
           headers['Authorization'] = `Bearer ${idToken}`;
         }
 
-        // Call POST /api/auth/signin
         const signinRes = await fetch('/api/auth/signin', {
           method: 'POST',
           credentials: 'include',
@@ -177,13 +176,11 @@ const AdminAuthController = (() => {
           throw new Error(signinData?.error?.message || signinData?.message || 'Admin authentication failed.');
         }
 
-        // Authoritative verification via GET /api/auth/session
         const verifiedUser = await checkSession();
         if (!verifiedUser) {
           throw new Error('Unable to verify server session.');
         }
 
-        // Exactly one navigation
         if (!navigationStarted) {
           navigationStarted = true;
           window.location.replace(ADMIN_TARGET);
@@ -198,7 +195,6 @@ const AdminAuthController = (() => {
     return signInPromise;
   }
 
-  // Initialization method for Admin login page
   async function init() {
     currentState = STATE.BOOTING;
     const existing = await checkSession();
@@ -213,7 +209,6 @@ const AdminAuthController = (() => {
     return null;
   }
 
-  // Logout method
   async function logout() {
     try {
       await fetch('/api/auth/signout', { method: 'POST', credentials: 'include' });
@@ -230,7 +225,6 @@ const AdminAuthController = (() => {
     }
   }
 
-  // Direct Master Admin Authentication (Fallback if Google popup is restricted)
   async function signInDirect(adminEmail) {
     const email = cleanEmail(adminEmail || MASTER_EMAIL);
     if (!isAuthorizedEmail(email)) {
@@ -300,7 +294,6 @@ window.AdminAuthController = AdminAuthController;
   const isLoginPage = pathname.endsWith('/login') || pathname === '/admin-login.html';
 
   if (isLoginPage) {
-    // Admin login page manages its own dedicated lifecycle via AdminAuthController.init()
     return;
   }
 
@@ -309,14 +302,15 @@ window.AdminAuthController = AdminAuthController;
   try {
     const user = await window.AdminAuthController.checkSession();
     if (user) {
-      // Validated Admin Session! Unhide page
       const screen = document.getElementById('admin-access-restricted-screen');
       if (screen) screen.remove();
       document.body.style.display = '';
+      // Update profile pill email/name if available
+      const emailEl = document.getElementById('wm-admin-header-email');
+      if (emailEl && user.email) emailEl.textContent = user.email;
       return;
     }
 
-    // Missing or invalid session: single redirect to login page
     if (!adminRedirectStarted) {
       adminRedirectStarted = true;
       window.location.replace('/admin/anktech/anktech/admin/login');
@@ -366,6 +360,8 @@ function rewriteAdminSidebarLinks() {
   };
 
   const currentPath = window.location.pathname.toLowerCase();
+  const currentSearch = window.location.search.toLowerCase();
+  const currentHash = window.location.hash.toLowerCase();
   let currentSection = 'overview';
 
   // Sort keys by descending length so multi-word keys (e.g., 'user-creations', 'audit-logs', 'storage-health') take priority
@@ -377,67 +373,210 @@ function rewriteAdminSidebarLinks() {
     }
   }
 
-  // Update hrefs on all admin links
+  // Update hrefs on all admin links while preserving query strings or hashes when present
   document.querySelectorAll('a[href*="admin"]').forEach(a => {
     let href = a.getAttribute('href');
     if (!href || href.startsWith('#') || href.startsWith('javascript:')) return;
 
-    // Detect target section
+    let suffix = '';
+    const qIdx = href.indexOf('?');
+    const hIdx = href.indexOf('#');
+    let baseHref = href;
+    if (qIdx !== -1) {
+      suffix = href.slice(qIdx);
+      baseHref = href.slice(0, qIdx);
+    } else if (hIdx !== -1) {
+      suffix = href.slice(hIdx);
+      baseHref = href.slice(0, hIdx);
+    }
+
     let matchedSection = null;
     for (const key of sortedKeys) {
-      if (href.toLowerCase().includes(key)) {
+      if (baseHref.toLowerCase().includes(key)) {
         matchedSection = sectionMap[key];
         break;
       }
     }
 
     if (matchedSection) {
-      // Strictly enforce /admin/anktech/anktech/admin/<section> without query string tokens
-      a.setAttribute('href', `${SECRET_ADMIN_PREFIX}/${matchedSection}`);
-    } else if (href.toLowerCase().endsWith('/admin') || href.toLowerCase().endsWith('/admin/') || href.toLowerCase().endsWith('admin.html') || href.toLowerCase().endsWith('admin-overview.html')) {
-      a.setAttribute('href', `${SECRET_ADMIN_PREFIX}/overview`);
+      a.setAttribute('href', `${SECRET_ADMIN_PREFIX}/${matchedSection}${suffix}`);
+    } else if (baseHref.toLowerCase().endsWith('/admin') || baseHref.toLowerCase().endsWith('/admin/') || baseHref.toLowerCase().endsWith('admin.html') || baseHref.toLowerCase().endsWith('admin-overview.html')) {
+      a.setAttribute('href', `${SECRET_ADMIN_PREFIX}/overview${suffix}`);
     }
   });
 
-  // Highlight active link in sidebar and ensure uniform heights & states across all pages
+  // Highlight active link in sidebar matching 19728.png aesthetic
   const sidebarNav = document.querySelector('#admin-sidebar nav, aside nav');
   if (sidebarNav) {
     const navLinks = sidebarNav.querySelectorAll('a');
     navLinks.forEach(a => {
       const href = (a.getAttribute('href') || '').toLowerCase();
-      const isTarget = href.endsWith('/' + currentSection) || 
-                       href.endsWith('/' + currentSection + '/') ||
-                       href.includes('/admin-' + currentSection + '.html') ||
-                       (currentSection === 'overview' && (
-                         href.endsWith('/overview') ||
-                         href.endsWith('/overview/') ||
-                         href.endsWith('/admin') ||
-                         href.endsWith('/admin/') ||
-                         href.endsWith('admin.html') ||
-                         href.endsWith('admin-overview.html')
-                       ));
-      
-      const icon = a.querySelector('.material-symbols-outlined');
+      const isDashboardBtn = a.classList.contains('wm-dashboard-pill') || a.getAttribute('data-nav-role') === 'dashboard';
+
+      if (isDashboardBtn) {
+        if (currentSection === 'overview') {
+          a.classList.remove('wm-inactive-pill');
+        } else {
+          a.classList.add('wm-inactive-pill');
+        }
+        return;
+      }
+
+      // Check sub-target specificity (e.g. Add Template vs All Templates, Music Library vs Media Library, Expiring Soon vs All Wishes, Backups vs Storage)
+      let isTarget = false;
+      if (href.includes('action=add')) {
+        isTarget = currentSection === 'templates' && (currentSearch.includes('action=add') || currentHash.includes('upload'));
+      } else if (href.includes('tab=audio') || href.includes('#music')) {
+        isTarget = currentSection === 'media' && (currentSearch.includes('tab=audio') || currentHash.includes('music'));
+      } else if (href.includes('filter=expiring')) {
+        isTarget = currentSection === 'wishes' && (currentSearch.includes('filter=expiring') || currentHash.includes('expiring'));
+      } else if (href.includes('tab=backups') || href.includes('#backups')) {
+        isTarget = currentSection === 'storage-health' && (currentSearch.includes('tab=backups') || currentHash.includes('backups'));
+      } else {
+        const cleanHref = href.split('?')[0].split('#')[0];
+        const matchesSection = cleanHref.endsWith('/' + currentSection) ||
+                               cleanHref.endsWith('/' + currentSection + '/') ||
+                               cleanHref.includes('/admin-' + currentSection + '.html');
+        if (matchesSection) {
+          // Ensure primary section link isn't highlighted when a sub-query link is active
+          if (currentSection === 'templates' && (currentSearch.includes('action=add') || currentHash.includes('upload'))) {
+            isTarget = false;
+          } else if (currentSection === 'media' && (currentSearch.includes('tab=audio') || currentHash.includes('music'))) {
+            isTarget = false;
+          } else if (currentSection === 'wishes' && (currentSearch.includes('filter=expiring') || currentHash.includes('expiring'))) {
+            isTarget = false;
+          } else if (currentSection === 'storage-health' && (currentSearch.includes('tab=backups') || currentHash.includes('backups'))) {
+            isTarget = false;
+          } else {
+            isTarget = true;
+          }
+        }
+      }
 
       if (isTarget) {
-        a.className = 'group flex items-center gap-space-sm px-space-md py-2.5 rounded-lg bg-primary-container text-white font-semibold shadow-[0_0_24px_rgba(124,58,237,0.35)] transition-all duration-200';
-        if (icon) {
-          icon.className = 'material-symbols-outlined text-[20px] transition-transform group-hover:scale-110 text-white';
-        }
+        a.classList.add('active', 'wm-nav-active');
       } else {
-        a.className = 'group flex items-center gap-space-sm px-space-md py-2.5 rounded-lg text-on-surface-variant hover:bg-surface-container-high hover:text-on-surface transition-all duration-200';
-        if (icon) {
-          icon.className = 'material-symbols-outlined text-[20px] transition-transform group-hover:scale-110 text-on-surface-variant group-hover:text-on-surface';
-        }
+        a.classList.remove('active', 'wm-nav-active');
       }
     });
   }
 }
 
+// Auto-handle deep-link query params across admin subpages (?action=add, ?tab=audio, ?filter=expiring, ?tab=backups)
+function handleAdminQueryActions() {
+  const params = new URLSearchParams(window.location.search);
+  const hash = window.location.hash.toLowerCase();
+
+  // 1. Templates Page: ?action=add -> open Upload/Add Template modal
+  if (params.get('action') === 'add' || hash === '#upload') {
+    setTimeout(() => {
+      const uploadModal = document.getElementById('upload-code-modal');
+      if (uploadModal && uploadModal.classList.contains('hidden')) {
+        if (typeof toggleModal === 'function') toggleModal('upload-code-modal');
+        else uploadModal.classList.remove('hidden');
+      }
+    }, 250);
+  }
+
+  // 2. Media Page: ?tab=audio -> switch to Audio/Music Library tab; ?action=upload -> open upload modal
+  if (params.get('tab') === 'audio' || hash === '#music') {
+    setTimeout(() => {
+      if (typeof setMediaFilter === 'function') {
+        setMediaFilter('audio');
+      }
+    }, 300);
+  }
+  if (params.get('action') === 'upload') {
+    setTimeout(() => {
+      const mediaModal = document.getElementById('upload-media-modal');
+      if (mediaModal && mediaModal.classList.contains('hidden')) {
+        if (typeof toggleModal === 'function') toggleModal('upload-media-modal');
+        else {
+          mediaModal.classList.remove('hidden');
+          mediaModal.classList.add('flex');
+        }
+      }
+    }, 300);
+  }
+
+  // 3. Wishes Page: ?filter=expiring -> filter expiring wishes
+  if (params.get('filter') === 'expiring' || hash === '#expiring') {
+    setTimeout(() => {
+      if (typeof filterStatus === 'function') {
+        filterStatus('expiring');
+      }
+    }, 300);
+  }
+
+  // 4. Storage Health Page: ?tab=backups -> scroll to or highlight backups
+  if (params.get('tab') === 'backups' || hash === '#backups') {
+    setTimeout(() => {
+      const backupEl = document.getElementById('backups-section') || document.getElementById('btn-open-cleanup');
+      if (backupEl) backupEl.scrollIntoView({ behavior: 'smooth', block: 'center' });
+    }, 300);
+  }
+}
+
+function toggleMoreSidebarSections() {
+  const extra = document.getElementById('wm-sidebar-more-group');
+  const chevron = document.getElementById('wm-sidebar-more-chevron');
+  if (!extra) return;
+  const isHidden = extra.classList.contains('hidden');
+  if (isHidden) {
+    extra.classList.remove('hidden');
+    if (chevron) chevron.style.transform = 'rotate(180deg)';
+  } else {
+    extra.classList.add('hidden');
+    if (chevron) chevron.style.transform = 'rotate(0deg)';
+  }
+}
+window.toggleMoreSidebarSections = toggleMoreSidebarSections;
+
+function toggleAdminProfileMenu(event) {
+  if (event) event.stopPropagation();
+  const menu = document.getElementById('wm-admin-profile-dropdown');
+  const notif = document.getElementById('wm-admin-notif-dropdown');
+  if (notif) notif.classList.add('hidden');
+  if (menu) menu.classList.toggle('hidden');
+}
+window.toggleAdminProfileMenu = toggleAdminProfileMenu;
+
+function toggleAdminNotifMenu(event) {
+  if (event) event.stopPropagation();
+  const notif = document.getElementById('wm-admin-notif-dropdown');
+  const menu = document.getElementById('wm-admin-profile-dropdown');
+  if (menu) menu.classList.add('hidden');
+  if (notif) notif.classList.toggle('hidden');
+}
+window.toggleAdminNotifMenu = toggleAdminNotifMenu;
+
+document.addEventListener('click', () => {
+  const menu = document.getElementById('wm-admin-profile-dropdown');
+  const notif = document.getElementById('wm-admin-notif-dropdown');
+  if (menu) menu.classList.add('hidden');
+  if (notif) notif.classList.add('hidden');
+});
+
+// Universal Ctrl+K / Cmd+K shortcut for header search
+document.addEventListener('keydown', (e) => {
+  if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'k') {
+    const input = document.querySelector('.wm-header-search-input, #global-admin-search-input');
+    if (input) {
+      e.preventDefault();
+      input.focus();
+      input.select();
+    }
+  }
+});
+
 if (document.readyState === 'loading') {
-  document.addEventListener('DOMContentLoaded', rewriteAdminSidebarLinks);
+  document.addEventListener('DOMContentLoaded', () => {
+    rewriteAdminSidebarLinks();
+    handleAdminQueryActions();
+  });
 } else {
   rewriteAdminSidebarLinks();
+  handleAdminQueryActions();
 }
 
 function updateThemeIcons(isDark) {
@@ -445,17 +584,28 @@ function updateThemeIcons(isDark) {
   icons.forEach(icon => {
     icon.textContent = isDark ? 'light_mode' : 'dark_mode';
   });
+  const sunPill = document.getElementById('wm-theme-sun-pill');
+  const moonPill = document.getElementById('wm-theme-moon-pill');
+  if (sunPill && moonPill) {
+    if (isDark) {
+      sunPill.className = 'w-7 h-6 rounded-full flex items-center justify-center text-[#9583b8] transition-all';
+      moonPill.className = 'w-7 h-6 rounded-full bg-purple-600 text-white shadow-sm flex items-center justify-center transition-all';
+    } else {
+      sunPill.className = 'w-7 h-6 rounded-full bg-white text-amber-500 shadow-sm flex items-center justify-center transition-all';
+      moonPill.className = 'w-7 h-6 rounded-full flex items-center justify-center text-[#7c699e] transition-all';
+    }
+  }
 }
 
 (function initTheme() {
-  const savedTheme = localStorage.getItem('wishmagic_admin_theme') || 'light';
+  const savedTheme = localStorage.getItem('wishmagic_admin_theme_v2') || 'light';
   const isDark = savedTheme === 'dark';
   if (isDark) {
     document.documentElement.classList.add('dark');
   } else {
     document.documentElement.classList.remove('dark');
   }
-  
+
   if (document.readyState === 'loading') {
     document.addEventListener('DOMContentLoaded', () => updateThemeIcons(isDark));
   } else {
@@ -467,32 +617,37 @@ function toggleAdminTheme() {
   const isCurrentlyDark = document.documentElement.classList.contains('dark');
   if (isCurrentlyDark) {
     document.documentElement.classList.remove('dark');
+    localStorage.setItem('wishmagic_admin_theme_v2', 'light');
     localStorage.setItem('wishmagic_admin_theme', 'light');
     updateThemeIcons(false);
-    showToast('☀️ Clean Light Mode Activated');
+    showToast('☀️ Fairytale Light Mode Activated');
   } else {
     document.documentElement.classList.add('dark');
+    localStorage.setItem('wishmagic_admin_theme_v2', 'dark');
     localStorage.setItem('wishmagic_admin_theme', 'dark');
     updateThemeIcons(true);
     showToast('🌙 Cosmic Dark Mode Activated');
   }
 }
+window.toggleAdminTheme = toggleAdminTheme;
+window.toggleTheme = toggleAdminTheme;
 
 function toggleSidebar() {
   const sidebar = document.getElementById('admin-sidebar');
   const backdrop = document.getElementById('sidebar-backdrop');
-  if (!sidebar || !backdrop) return;
+  if (!sidebar) return;
   const isClosed = sidebar.classList.contains('-translate-x-full');
   if (isClosed) {
     sidebar.classList.remove('-translate-x-full');
-    backdrop.classList.remove('hidden');
+    if (backdrop) backdrop.classList.remove('hidden');
     document.body.style.overflow = 'hidden';
   } else {
     sidebar.classList.add('-translate-x-full');
-    backdrop.classList.add('hidden');
+    if (backdrop) backdrop.classList.add('hidden');
     document.body.style.overflow = '';
   }
 }
+window.toggleSidebar = toggleSidebar;
 
 var showToast = function(msg, type = 'info') {
   let toast = document.getElementById('admin-toast');
@@ -503,37 +658,35 @@ var showToast = function(msg, type = 'info') {
     document.body.appendChild(toast);
   }
 
-  // Type-based styling
   let icon = 'magic_button';
-  let bg = 'bg-purple-900/90';
-  let border = 'border-purple-500/40';
-  let iconColor = 'text-amber-400';
+  let bg = 'bg-[#240d54]/95';
+  let border = 'border-purple-400/40';
+  let iconColor = 'text-pink-400';
 
   if (type === 'success') {
     icon = 'check_circle';
-    bg = 'bg-emerald-900/90';
+    bg = 'bg-emerald-900/95';
     border = 'border-emerald-500/40';
     iconColor = 'text-emerald-400';
   } else if (type === 'error' || type === 'danger') {
     icon = 'error';
-    bg = 'bg-rose-900/90';
+    bg = 'bg-rose-900/95';
     border = 'border-rose-500/40';
     iconColor = 'text-rose-400';
   } else if (type === 'warning') {
     icon = 'warning';
-    bg = 'bg-amber-900/90';
+    bg = 'bg-amber-900/95';
     border = 'border-amber-500/40';
     iconColor = 'text-amber-400';
   }
 
   toast.className = `fixed bottom-6 right-6 z-[9999] px-5 py-3 rounded-2xl text-white font-bold text-sm shadow-2xl backdrop-blur-xl border flex items-center gap-3 transform transition-all duration-300 ${bg} ${border}`;
   toast.innerHTML = `<span class="material-symbols-outlined ${iconColor}">${icon}</span><span>${msg}</span>`;
-  
+
   toast.classList.remove('translate-y-20', 'opacity-0', 'pointer-events-none');
-  
-  // Auto-hide after 4 seconds
+
   if (window.toastTimeout) clearTimeout(window.toastTimeout);
   window.toastTimeout = setTimeout(() => {
     toast.classList.add('translate-y-20', 'opacity-0', 'pointer-events-none');
   }, 4000);
-}
+};

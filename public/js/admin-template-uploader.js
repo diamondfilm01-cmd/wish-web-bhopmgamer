@@ -807,7 +807,7 @@ function renderTemplatesGrid(templates) {
 
   templates.forEach(tpl => {
     const card = document.createElement('article');
-    card.className = "bg-surface-container-low rounded-2xl overflow-hidden flex flex-col justify-between shadow-xl hover:shadow-[0_12px_40px_-8px_rgba(124,58,237,0.35)] transition-all duration-300 group border border-purple-500/20";
+    card.className = "wm-card bg-surface-container-low rounded-2xl overflow-hidden flex flex-col justify-between shadow-xl hover:shadow-[0_12px_40px_-8px_rgba(124,58,237,0.25)] transition-all duration-300 group border border-purple-500/20";
 
     const isVip = tpl.tier === 'vip' || tpl.isPremium === true || Number(tpl.price) > 0;
     const isPub = tpl.status === 'published' || (tpl.isPublished !== false && tpl.status !== 'draft');
@@ -888,7 +888,7 @@ function renderTemplatesGrid(templates) {
       </div>
 
       <!-- Action Buttons Row -->
-      <div class="p-3 bg-surface-container/60 border-t border-purple-500/10 flex items-center justify-between gap-1.5">
+      <div class="p-3 bg-surface-container/60 border-t border-purple-500/10 flex flex-wrap items-center justify-between gap-1.5">
         <a href="/template/${tpl.id}" target="_blank" class="p-2 rounded-lg bg-surface-container-high hover:bg-surface-container-highest text-on-surface transition flex items-center justify-center text-xs font-semibold" title="Preview Live Template">
           <span class="material-symbols-outlined text-[16px]">visibility</span>
         </a>

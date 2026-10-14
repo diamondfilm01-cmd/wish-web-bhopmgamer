@@ -10,237 +10,432 @@
   <link crossorigin="" href="https://fonts.gstatic.com" rel="preconnect"/>
   <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;600;700&family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet"/>
   <link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:opsz,wght,FILL,GRAD@20..48,100..700,0..1,-50..200&display=swap" rel="stylesheet"/>
-  <script src="js/tailwind-config.js"></script>
+  <script src="js/tailwind-config.js?v=20261014_v2"></script>
   <script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
   <script>
     if (typeof tailwind !== 'undefined' && typeof sharedTailwindConfig !== 'undefined') {
       tailwind.config = sharedTailwindConfig;
     }
   </script>
-  <link rel="stylesheet" href="css/admin-theme.css"/>
+  <link rel="stylesheet" href="css/admin-theme.css?v=20261014_v2"/>
   <script src="js/WishMagicCore.js"></script>
-  <script src="js/admin-theme.js"></script>
+  <script src="js/admin-theme.js?v=20261014_v2"></script>
   <!-- Part 10 Auth & Repositories Layer -->
   <script src="js/api-client.js"></script>
   <script src="js/auth-service.js"></script>
   <script src="js/repositories.js"></script>
+
 </head>
-<body class="bg-background text-on-surface font-body-md min-h-screen antialiased">
+<body class="bg-background text-on-surface font-body-md min-h-screen antialiased selection:bg-primary selection:text-white">
 
 <!-- Mobile Sidebar Backdrop Overlay -->
 <div id="sidebar-backdrop" class="fixed inset-0 bg-black/75 backdrop-blur-sm z-40 hidden md:hidden" onclick="toggleSidebar()"></div>
 
-<!-- Responsive Sidebar Drawer -->
-<aside id="admin-sidebar" class="fixed left-0 top-0 h-screen w-72 bg-surface-container-lowest border-r border-outline-variant/30 z-50 flex flex-col justify-between shadow-2xl -translate-x-full md:translate-x-0 transition-transform duration-300 ease-in-out">
+<!-- Magical Castle Sidebar (Pixel-Matched to 19728.png) -->
+<aside id="admin-sidebar" class="fixed left-0 top-0 h-screen w-[270px] z-50 flex flex-col justify-between -translate-x-full md:translate-x-0 transition-transform duration-300 ease-in-out select-none">
   <div class="flex flex-col min-h-0 flex-1">
-    <div class="px-space-lg pt-space-lg pb-space-md flex-shrink-0">
+    <!-- Brand Logo Header -->
+    <div class="px-5 pt-5 pb-3 flex-shrink-0">
       <div class="flex items-center justify-between">
-        <div class="flex items-center gap-space-sm">
-          <div class="w-9 h-9 rounded-xl bg-gradient-to-tr from-primary-container to-secondary flex items-center justify-center shadow-[0_0_20px_rgba(124,58,237,0.45)] flex-shrink-0">
-            <span class="material-symbols-outlined text-white text-[20px]">auto_fix_high</span>
+        <a href="/admin/anktech/anktech/admin/overview" class="flex items-center gap-3 group text-decoration-none">
+          <!-- Magic Wand Icon -->
+          <div class="w-10 h-10 rounded-2xl bg-gradient-to-br from-pink-500/25 via-purple-500/25 to-amber-400/20 border border-pink-400/30 flex items-center justify-center shadow-[0_0_20px_rgba(236,72,153,0.35)] flex-shrink-0">
+            <svg class="w-6 h-6" viewBox="0 0 24 24" fill="none">
+              <path d="M4 20L15.5 8.5M15.5 8.5L18.5 5.5C19.05 4.95 19.95 4.95 20.5 5.5C21.05 6.05 21.05 6.95 20.5 7.5L17.5 10.5M15.5 8.5L17.5 10.5" stroke="url(#wandGrad)" stroke-width="2.4" stroke-linecap="round"/>
+              <path d="M11 4L11.6 5.4L13 6L11.6 6.6L11 8L10.4 6.6L9 6L10.4 5.4L11 4Z" fill="#FBBF24"/>
+              <path d="M19 13L19.4 14L20.4 14.4L19.4 14.8L19 15.8L18.6 14.8L17.6 14.4L18.6 14L19 13Z" fill="#F472B6"/>
+              <path d="M6 10L6.3 10.7L7 11L6.3 11.3L6 12L5.7 11.3L5 11L5.7 10.7L6 10Z" fill="#C084FC"/>
+              <defs>
+                <linearGradient id="wandGrad" x1="4" y1="20" x2="21" y2="5" gradientUnits="userSpaceOnUse">
+                  <stop stop-color="#C084FC"/>
+                  <stop offset="0.55" stop-color="#F472B6"/>
+                  <stop offset="1" stop-color="#FBBF24"/>
+                </linearGradient>
+              </defs>
+            </svg>
           </div>
           <div class="flex flex-col">
-            <span class="font-headline-sm text-headline-sm text-on-surface font-bold tracking-tight">WishMagic</span>
-            <span class="font-label-sm text-label-sm text-primary tracking-widest uppercase">Admin Studio</span>
+            <div class="text-[22px] leading-none tracking-tight">
+              <span class="wm-brand-wish">Wish</span><span class="wm-brand-magic">Magic</span>
+            </div>
+            <span class="text-[10.5px] text-purple-200/80 font-medium tracking-wide mt-1">Create. Personalize. Celebrate.</span>
           </div>
-        </div>
-        <button class="md:hidden p-1.5 rounded-lg bg-surface-container-high hover:bg-surface-container-highest text-on-surface transition-colors" onclick="toggleSidebar()" aria-label="Close Sidebar">
+        </a>
+        <button class="md:hidden p-1.5 rounded-lg bg-white/10 hover:bg-white/20 text-white transition-colors" onclick="toggleSidebar()" aria-label="Close Sidebar">
           <span class="material-symbols-outlined text-[20px]">close</span>
         </button>
       </div>
     </div>
-    <div class="px-space-md mt-space-sm flex-1 overflow-y-auto custom-scrollbar pb-4">
-      <div class="px-space-sm pb-space-xs font-label-sm text-label-sm uppercase tracking-wider text-outline sticky top-0 bg-surface-container-lowest/95 backdrop-blur-xs z-10">Core Navigation</div>
-      <nav class="flex flex-col gap-1 px-space-xs mt-space-xs">
-        <a class="group flex items-center gap-space-sm px-space-md py-2.5 rounded-lg text-on-surface-variant hover:bg-surface-container-high hover:text-on-surface transition-all duration-200" href="/admin/anktech/anktech/admin/overview">
-          <span class="material-symbols-outlined text-[20px] transition-transform group-hover:scale-110">dashboard</span>
-          <span class="font-body-md text-body-md">Overview &amp; Diagnostics</span>
+
+    <!-- Navigation Menu -->
+    <div class="px-3.5 flex-1 overflow-y-auto custom-scrollbar pb-6">
+      <nav class="flex flex-col gap-0.5">
+        <!-- Top Primary Dashboard Pill -->
+        <div class="mb-2 pt-1">
+          <a class="wm-dashboard-pill" data-nav-role="dashboard" href="/admin/anktech/anktech/admin/overview">
+            <span class="material-symbols-outlined text-[20px]" style="font-variation-settings: 'FILL' 1;">home</span>
+            <span>Dashboard</span>
+          </a>
+        </div>
+
+        <!-- TEMPLATES -->
+        <div class="wm-nav-section-label">TEMPLATES</div>
+        <a href="/admin/anktech/anktech/admin/templates">
+          <span class="material-symbols-outlined">grid_view</span>
+          <span>All Templates</span>
         </a>
-        <a class="group flex items-center gap-space-sm px-space-md py-2.5 rounded-lg text-on-surface-variant hover:bg-surface-container-high hover:text-on-surface transition-all duration-200" href="/admin/anktech/anktech/admin/analytics">
-          <span class="material-symbols-outlined text-[20px] transition-transform group-hover:scale-110">insights</span>
-          <span class="font-body-md text-body-md flex-1">Analytics &amp; BI Studio</span>
-          <span class="px-2 py-0.5 rounded-full bg-emerald-500 text-purple-950 font-black text-[10px]">NEW</span>
+        <a href="/admin/anktech/anktech/admin/templates?action=add">
+          <span class="material-symbols-outlined">add</span>
+          <span>Add Template</span>
         </a>
-        <a class="group flex items-center gap-space-sm px-space-md py-2.5 rounded-lg text-on-surface-variant hover:bg-surface-container-high hover:text-on-surface transition-all duration-200" href="/admin/anktech/anktech/admin/user-creations">
-          <span class="material-symbols-outlined text-[20px] transition-transform group-hover:scale-110">folder_shared</span>
-          <span class="font-body-md text-body-md flex-1">User Creations &amp; Files</span>
-          <span class="px-2 py-0.5 rounded-full bg-pink-500 text-white font-bold text-[10px]">NEW</span>
+        <a href="/admin/anktech/anktech/admin/occasions">
+          <span class="material-symbols-outlined">category</span>
+          <span>Categories</span>
         </a>
-        <a class="group flex items-center gap-space-sm px-space-md py-2.5 rounded-lg text-on-surface-variant hover:bg-surface-container-high hover:text-on-surface transition-all duration-200" href="/admin/anktech/anktech/admin/templates">
-          <span class="material-symbols-outlined text-[20px] transition-transform group-hover:scale-110">style</span>
-          <span class="font-body-md text-body-md">Templates Manager</span>
+        <a href="/admin/anktech/anktech/admin/media">
+          <span class="material-symbols-outlined">image</span>
+          <span>Media Library</span>
         </a>
-        <a class="group flex items-center gap-space-sm px-space-md py-2.5 rounded-lg text-on-surface-variant hover:bg-surface-container-high hover:text-on-surface transition-all duration-200" href="/admin/anktech/anktech/admin/search">
-          <span class="material-symbols-outlined text-[20px] transition-transform group-hover:scale-110">manage_search</span>
-          <span class="font-body-md text-body-md flex-1">Search &amp; Discovery</span>
-          <span class="px-2 py-0.5 rounded-full bg-primary text-white font-bold text-[10px]">Part 39</span>
+        <a href="/admin/anktech/anktech/admin/media?tab=audio">
+          <span class="material-symbols-outlined">music_note</span>
+          <span>Music Library</span>
         </a>
-        <a class="group flex items-center gap-space-sm px-space-md py-2.5 rounded-lg bg-primary-container text-white font-semibold shadow-[0_0_24px_rgba(124,58,237,0.35)] transition-all duration-200" href="/admin/anktech/anktech/admin/occasions">
-          <span class="material-symbols-outlined text-[20px] transition-transform group-hover:scale-110">loyalty</span>
-          <span class="font-body-md text-body-md">Occasions &amp; Tags</span>
+
+        <!-- WISHES -->
+        <div class="wm-nav-section-label">WISHES</div>
+        <a href="/admin/anktech/anktech/admin/wishes">
+          <span class="material-symbols-outlined">description</span>
+          <span>All Wishes</span>
         </a>
-        <a class="group flex items-center gap-space-sm px-space-md py-2.5 rounded-lg text-on-surface-variant hover:bg-surface-container-high hover:text-on-surface transition-all duration-200" href="/admin/anktech/anktech/admin/wishes">
-          <span class="material-symbols-outlined text-[20px] transition-transform group-hover:scale-110">card_giftcard</span>
-          <span class="font-body-md text-body-md flex-1">Wishes &amp; Celebrations</span>
-          <span class="px-2 py-0.5 rounded-full bg-emerald-500/20 text-emerald-400 font-bold text-[10px]">Live</span>
+        <a href="/admin/anktech/anktech/admin/wishes?filter=expiring">
+          <span class="material-symbols-outlined">schedule</span>
+          <span>Expiring Soon</span>
         </a>
-        <a class="group flex items-center gap-space-sm px-space-md py-2.5 rounded-lg text-on-surface-variant hover:bg-surface-container-high hover:text-on-surface transition-all duration-200" href="/admin/anktech/anktech/admin/users">
-          <span class="material-symbols-outlined text-[20px] transition-transform group-hover:scale-110">group</span>
-          <span class="font-body-md text-body-md">Users &amp; Creators</span>
+        <a href="/admin/anktech/anktech/admin/analytics">
+          <span class="material-symbols-outlined">trending_up</span>
+          <span>Analytics</span>
         </a>
-        <a class="group flex items-center gap-space-sm px-space-md py-2.5 rounded-lg text-on-surface-variant hover:bg-surface-container-high hover:text-on-surface transition-all duration-200" href="/admin/anktech/anktech/admin/referrals">
-          <span class="material-symbols-outlined text-[20px] transition-transform group-hover:scale-110">loyalty</span>
-          <span class="font-body-md text-body-md flex-1">Referrals &amp; Rewards</span>
-          <span class="px-2 py-0.5 rounded-full bg-pink-500/20 text-pink-400 font-bold text-[10px]">Part 36</span>
+
+        <!-- USERS -->
+        <div class="wm-nav-section-label">USERS</div>
+        <a href="/admin/anktech/anktech/admin/users">
+          <span class="material-symbols-outlined">group</span>
+          <span>All Users</span>
         </a>
-        <a class="group flex items-center gap-space-sm px-space-md py-2.5 rounded-lg text-on-surface-variant hover:bg-surface-container-high hover:text-on-surface transition-all duration-200" href="/admin/anktech/anktech/admin/moderation">
-          <span class="material-symbols-outlined text-[20px] transition-transform group-hover:scale-110">gavel</span>
-          <span class="font-body-md text-body-md">Moderation Queue</span>
+        <a href="/admin/anktech/anktech/admin/pricing">
+          <span class="material-symbols-outlined">workspace_premium</span>
+          <span>Subscriptions</span>
         </a>
-        <a class="group flex items-center gap-space-sm px-space-md py-2.5 rounded-lg text-on-surface-variant hover:bg-surface-container-high hover:text-on-surface transition-all duration-200" href="/admin/anktech/anktech/admin/support">
-          <span class="material-symbols-outlined text-[20px] transition-transform group-hover:scale-110">support_agent</span>
-          <span class="font-body-md text-body-md">Support Console</span>
+        <a href="/admin/anktech/anktech/admin/orders">
+          <span class="material-symbols-outlined">credit_card</span>
+          <span>Payments</span>
         </a>
-        <a class="group flex items-center gap-space-sm px-space-md py-2.5 rounded-lg text-on-surface-variant hover:bg-surface-container-high hover:text-on-surface transition-all duration-200" href="/admin/anktech/anktech/admin/audit-logs">
-          <span class="material-symbols-outlined text-[20px] transition-transform group-hover:scale-110">history_toggle_off</span>
-          <span class="font-body-md text-body-md">Audit Trail</span>
+
+        <!-- SYSTEM -->
+        <div class="wm-nav-section-label">SYSTEM</div>
+        <a href="/admin/anktech/anktech/admin/settings">
+          <span class="material-symbols-outlined">settings</span>
+          <span>Settings</span>
         </a>
-        <a class="group flex items-center gap-space-sm px-space-md py-2.5 rounded-lg text-on-surface-variant hover:bg-surface-container-high hover:text-on-surface transition-all duration-200" href="/admin/anktech/anktech/admin/storage-health">
-          <span class="material-symbols-outlined text-[20px] transition-transform group-hover:scale-110">health_and_safety</span>
-          <span class="font-body-md text-body-md">Storage Health</span>
+        <a href="/admin/anktech/anktech/admin/storage-health">
+          <span class="material-symbols-outlined">database</span>
+          <span>Storage</span>
         </a>
-        <a class="group flex items-center gap-space-sm px-space-md py-2.5 rounded-lg text-on-surface-variant hover:bg-surface-container-high hover:text-on-surface transition-all duration-200" href="/admin/anktech/anktech/admin/media">
-          <span class="material-symbols-outlined text-[20px] transition-transform group-hover:scale-110">perm_media</span>
-          <span class="font-body-md text-body-md">Media &amp; Audio Library</span>
+        <a href="/admin/anktech/anktech/admin/storage-health?tab=backups">
+          <span class="material-symbols-outlined">cloud_download</span>
+          <span>Backups</span>
         </a>
-        <a class="group flex items-center gap-space-sm px-space-md py-2.5 rounded-lg text-on-surface-variant hover:bg-surface-container-high hover:text-on-surface transition-all duration-200" href="/admin/anktech/anktech/admin/orders">
-          <span class="material-symbols-outlined text-[20px] transition-transform group-hover:scale-110">receipt_long</span>
-          <span class="font-body-md text-body-md flex-1">Orders &amp; Billing</span>
-          <span class="px-2 py-0.5 rounded-full bg-purple-500/20 text-purple-300 font-bold text-[10px]">Simulated</span>
+        <a href="/admin/anktech/anktech/admin/audit-logs">
+          <span class="material-symbols-outlined">receipt_long</span>
+          <span>Activity Logs</span>
         </a>
-        <a class="group flex items-center gap-space-sm px-space-md py-2.5 rounded-lg text-on-surface-variant hover:bg-surface-container-high hover:text-on-surface transition-all duration-200" href="/admin/anktech/anktech/admin/pricing">
-          <span class="material-symbols-outlined text-[20px] transition-transform group-hover:scale-110">payments</span>
-          <span class="font-body-md text-body-md">Pricing &amp; Plans</span>
-        </a>
-        <a class="group flex items-center gap-space-sm px-space-md py-2.5 rounded-lg text-on-surface-variant hover:bg-surface-container-high hover:text-on-surface transition-all duration-200" href="/admin/anktech/anktech/admin/staff">
-          <span class="material-symbols-outlined text-[20px] transition-transform group-hover:scale-110">badge</span>
-          <span class="font-body-md text-body-md">Staff &amp; Team</span>
-        </a>
-        <a class="group flex items-center gap-space-sm px-space-md py-2.5 rounded-lg text-on-surface-variant hover:bg-surface-container-high hover:text-on-surface transition-all duration-200" href="/admin/anktech/anktech/admin/legal">
-          <span class="material-symbols-outlined text-[20px] transition-transform group-hover:scale-110">policy</span>
-          <span class="font-body-md text-body-md flex-1">Legal &amp; Policies</span>
-        </a>
-        <a class="group flex items-center gap-space-sm px-space-md py-2.5 rounded-lg text-on-surface-variant hover:bg-surface-container-high hover:text-on-surface transition-all duration-200" href="/admin/anktech/anktech/admin/settings">
-          <span class="material-symbols-outlined text-[20px] transition-transform group-hover:scale-110">admin_panel_settings</span>
-          <span class="font-body-md text-body-md">Settings &amp; Diagnostics</span>
-        </a>
+
+        <!-- Expandable More Studio Tools (Keeps all 19 platform routes accessible & tested) -->
+        <button type="button" onclick="toggleMoreSidebarSections()" class="mt-2 px-3 py-1.5 rounded-xl text-[11px] font-bold uppercase tracking-wider text-purple-200/75 hover:text-white hover:bg-white/10 transition flex items-center justify-between w-full text-left cursor-pointer">
+          <span>More Studio Sections</span>
+          <span id="wm-sidebar-more-chevron" class="material-symbols-outlined text-[16px] transition-transform">expand_more</span>
+        </button>
+        <div id="wm-sidebar-more-group" class="hidden flex flex-col gap-0.5 pt-1 pl-1 border-l border-purple-400/25 ml-2">
+          <a href="/admin/anktech/anktech/admin/user-creations">
+            <span class="material-symbols-outlined">folder_shared</span>
+            <span>User Creations</span>
+          </a>
+          <a href="/admin/anktech/anktech/admin/search">
+            <span class="material-symbols-outlined">manage_search</span>
+            <span>Search &amp; Discovery</span>
+          </a>
+          <a href="/admin/anktech/anktech/admin/referrals">
+            <span class="material-symbols-outlined">loyalty</span>
+            <span>Referrals &amp; Rewards</span>
+          </a>
+          <a href="/admin/anktech/anktech/admin/moderation">
+            <span class="material-symbols-outlined">gavel</span>
+            <span>Moderation Queue</span>
+          </a>
+          <a href="/admin/anktech/anktech/admin/support">
+            <span class="material-symbols-outlined">support_agent</span>
+            <span>Support Console</span>
+          </a>
+          <a href="/admin/anktech/anktech/admin/staff">
+            <span class="material-symbols-outlined">badge</span>
+            <span>Staff &amp; Team</span>
+          </a>
+          <a href="/admin/anktech/anktech/admin/legal">
+            <span class="material-symbols-outlined">policy</span>
+            <span>Legal &amp; Compliance</span>
+          </a>
+          <a href="/admin/anktech/anktech/admin/announcements">
+            <span class="material-symbols-outlined">campaign</span>
+            <span>Announcements</span>
+          </a>
+          <a href="/admin/anktech/anktech/admin/notifications">
+            <span class="material-symbols-outlined">notifications_active</span>
+            <span>Notification Queue</span>
+          </a>
+        </div>
       </nav>
-    </div>
-  </div>
-  <div class="p-space-md flex flex-col gap-space-xs bg-surface-container-lowest border-t border-purple-900/30 flex-shrink-0">
-    <div class="flex items-center justify-between text-on-surface-variant text-xs">
-      <span>WishMagic Engine</span>
-      <span class="px-2 py-0.5 rounded-full bg-surface-container-high text-primary font-mono font-bold">v4.16</span>
     </div>
   </div>
 </aside>
 
 <!-- Main Viewport Wrapper -->
-<div class="w-full md:pl-72 min-h-screen flex flex-col">
-  <!-- Universal Header -->
-  <header class="fixed top-0 left-0 md:left-72 right-0 h-16 bg-surface/90 backdrop-blur-xl z-30 shadow-[0_1px_8px_rgba(0,0,0,0.04)] border-b border-outline-variant/30">
-    <div class="w-full h-full px-3 md:px-space-lg flex items-center justify-between gap-2 md:gap-space-lg">
-      <div class="flex items-center gap-2 flex-1 max-w-md">
-        <button class="md:hidden p-2 rounded-lg bg-surface-container hover:bg-surface-container-high text-on-surface flex items-center justify-center flex-shrink-0" onclick="toggleSidebar()" aria-label="Toggle Navigation Menu">
+<div class="w-full md:pl-[270px] min-h-screen flex flex-col">
+  <!-- Universal Top Cloud Header (Pixel-Matched to 19728.png) -->
+  <header class="wm-top-header fixed top-0 left-0 md:left-[270px] right-0 h-[68px] z-30">
+    <div class="w-full h-full px-4 md:px-6 flex items-center justify-between gap-3">
+      <!-- Left: Hamburger + Search Pill with Ctrl K -->
+      <div class="flex items-center gap-2.5 flex-1 max-w-lg">
+        <button class="md:hidden p-2 rounded-xl bg-white/80 hover:bg-white text-[#2b194d] shadow-sm flex items-center justify-center flex-shrink-0" onclick="toggleSidebar()" aria-label="Open Sidebar">
           <span class="material-symbols-outlined text-[22px]">menu</span>
         </button>
-        <div class="relative flex items-center w-full">
-          <span class="material-symbols-outlined absolute left-3 text-outline text-[18px]">search</span>
-          <input class="w-full bg-surface-container-low pl-9 pr-space-md py-space-xs rounded-lg font-body-sm text-body-sm text-on-surface placeholder:text-outline focus:outline-none focus:ring-1 focus:ring-secondary" id="header-search-occasions" placeholder="Search occasions, viral tags, slugs..." type="text" onkeyup="filterOccasions(this.value)"/>
+        <div class="wm-header-search-wrap">
+          <span class="material-symbols-outlined absolute left-3.5 text-[#6b5a88] text-[18px] pointer-events-none">search</span>
+          <input class="wm-header-search-input" id="header-search-occasions" onkeyup="filterOccasions(this.value)" placeholder="Search occasions, viral tags, slugs..." type="text"/>
+          <span class="wm-ctrl-k-badge hidden sm:inline-block">Ctrl K</span>
         </div>
       </div>
-      <div class="flex items-center gap-2 md:gap-space-md flex-shrink-0">
-        <!-- Dark / Light Theme Toggle -->
-        <button class="p-2 rounded-lg bg-surface-container hover:bg-surface-container-high text-on-surface transition-all flex items-center justify-center cursor-pointer" onclick="toggleAdminTheme()" title="Toggle Dark / Light Theme" aria-label="Toggle Theme">
-          <span class="material-symbols-outlined text-[20px] theme-toggle-icon" id="theme-toggle-icon">light_mode</span>
+
+      <!-- Right: Sun/Moon Pill Switcher + Bell with Badge '3' + Admin Profile Card -->
+      <div class="flex items-center gap-2.5 md:gap-4 flex-shrink-0">
+        <!-- Sun / Moon Pill Toggle -->
+        <button type="button" onclick="toggleAdminTheme()" class="wm-theme-pill-btn" title="Toggle Light / Dark Mode">
+          <span class="wm-theme-pill-sun" id="wm-theme-sun-pill">
+            <span class="material-symbols-outlined text-[16px]">light_mode</span>
+          </span>
+          <span class="wm-theme-pill-knob" id="wm-theme-moon-pill">
+            <span class="material-symbols-outlined text-[14px] theme-toggle-icon" id="theme-toggle-icon" style="font-variation-settings: 'FILL' 1;">dark_mode</span>
+          </span>
         </button>
-        <a class="flex items-center gap-1.5 px-2.5 md:px-space-sm py-1.5 md:py-space-xs rounded-lg bg-surface-container-high hover:bg-surface-container-highest text-on-surface-variant hover:text-on-surface transition-all text-xs md:font-label-md md:text-label-md" href="index.html" target="_blank">
-          <span class="hidden sm:inline">Live Store</span>
-          <span class="material-symbols-outlined text-[16px]">open_in_new</span>
-        </a>
-        <div class="flex items-center gap-2 md:gap-space-sm pl-1 md:pl-space-xs">
-          <div class="w-8 h-8 rounded-full bg-primary flex items-center justify-center shadow-md text-white font-bold text-xs">
-            A
+
+        <!-- Notification Bell with Red Badge '3' -->
+        <div class="relative">
+          <button type="button" onclick="toggleAdminNotifMenu(event)" class="relative w-10 h-10 rounded-full bg-white/85 dark:bg-[#1c103b] border border-purple-200/80 dark:border-purple-500/30 flex items-center justify-center text-[#2b194d] dark:text-purple-200 shadow-sm hover:bg-white transition cursor-pointer" title="Notifications">
+            <span class="material-symbols-outlined text-[21px]">notifications</span>
+            <span id="wm-header-notif-badge" class="absolute -top-0.5 -right-0.5 min-w-[18px] h-[18px] px-1 rounded-full bg-rose-500 text-white text-[10px] font-extrabold flex items-center justify-center shadow">3</span>
+          </button>
+
+          <!-- Notifications Popover -->
+          <div id="wm-admin-notif-dropdown" class="hidden absolute right-0 mt-2 w-80 bg-white dark:bg-[#1a0e36] rounded-2xl border border-purple-200 dark:border-purple-500/30 shadow-2xl p-3.5 z-50 text-xs" onclick="event.stopPropagation()">
+            <div class="flex items-center justify-between pb-2.5 mb-2 border-b border-purple-100 dark:border-purple-800/40">
+              <span class="font-bold text-sm text-[#1a0f30] dark:text-white">Admin Notifications</span>
+              <a href="/admin/anktech/anktech/admin/notifications" class="text-[11px] font-bold text-purple-600 hover:underline">View Queue →</a>
+            </div>
+            <div class="space-y-2">
+              <a href="/admin/anktech/anktech/admin/wishes" class="flex items-start gap-2.5 p-2 rounded-xl hover:bg-purple-50 dark:hover:bg-purple-900/30 transition">
+                <span class="w-7 h-7 rounded-full bg-pink-100 text-pink-600 flex items-center justify-center shrink-0 mt-0.5"><span class="material-symbols-outlined text-[15px]">send</span></span>
+                <div>
+                  <div class="font-bold text-[#1a0f30] dark:text-white">New wish created for Kritika ❤️</div>
+                  <div class="text-[11px] text-slate-500">Birthday Magic • 2 min ago</div>
+                </div>
+              </a>
+              <a href="/admin/anktech/anktech/admin/orders" class="flex items-start gap-2.5 p-2 rounded-xl hover:bg-purple-50 dark:hover:bg-purple-900/30 transition">
+                <span class="w-7 h-7 rounded-full bg-emerald-100 text-emerald-600 flex items-center justify-center shrink-0 mt-0.5"><span class="material-symbols-outlined text-[15px]">payments</span></span>
+                <div>
+                  <div class="font-bold text-[#1a0f30] dark:text-white">VIP Pass Payment Received (₹49)</div>
+                  <div class="text-[11px] text-slate-500">Per Wish Pass • 2 hours ago</div>
+                </div>
+              </a>
+            </div>
           </div>
-          <div class="hidden sm:flex flex-col text-left">
-            <span class="font-label-lg text-label-lg font-semibold text-on-surface leading-tight">Aman</span>
-            <span class="font-label-sm text-label-sm text-primary font-medium leading-none">Chief Magician</span>
+        </div>
+
+        <!-- Admin Profile Pill (Admin / ankit.babusaini@gmail.com) -->
+        <div class="relative">
+          <div onclick="toggleAdminProfileMenu(event)" class="wm-admin-profile-pill">
+            <div class="w-9 h-9 rounded-full bg-gradient-to-br from-[#4c1d95] to-[#6d28d9] flex items-center justify-center text-white shadow-sm flex-shrink-0">
+              <span class="material-symbols-outlined text-[20px]">person</span>
+            </div>
+            <div class="hidden sm:flex flex-col text-left leading-tight">
+              <span class="text-[13.5px] font-extrabold text-[#1a0f30] dark:text-white">Admin</span>
+              <span id="wm-admin-header-email" class="text-[11px] font-medium text-[#5e4f7d] dark:text-purple-300">ankit.babusaini@gmail.com</span>
+            </div>
+            <span class="material-symbols-outlined text-[18px] text-[#5e4f7d] dark:text-purple-300 ml-0.5">expand_more</span>
+          </div>
+
+          <!-- Profile Dropdown Menu -->
+          <div id="wm-admin-profile-dropdown" class="hidden absolute right-0 mt-2 w-60 bg-white dark:bg-[#1a0e36] rounded-2xl border border-purple-200 dark:border-purple-500/30 shadow-2xl p-2 z-50 text-xs" onclick="event.stopPropagation()">
+            <div class="px-3 py-2 border-b border-purple-100 dark:border-purple-800/40 mb-1">
+              <div class="font-bold text-sm text-[#1a0f30] dark:text-white">Admin Studio</div>
+              <div class="text-[11px] text-slate-500 truncate">ankit.babusaini@gmail.com</div>
+            </div>
+            <a href="/admin/anktech/anktech/admin/settings" class="flex items-center gap-2.5 px-3 py-2 rounded-xl hover:bg-purple-50 dark:hover:bg-purple-900/30 text-[#1a0f30] dark:text-white font-semibold transition">
+              <span class="material-symbols-outlined text-[17px] text-purple-600">settings</span>
+              <span>Main Website &amp; Site Settings</span>
+            </a>
+            <a href="/admin/anktech/anktech/admin/templates?action=add" class="flex items-center gap-2.5 px-3 py-2 rounded-xl hover:bg-purple-50 dark:hover:bg-purple-900/30 text-[#1a0f30] dark:text-white font-semibold transition">
+              <span class="material-symbols-outlined text-[17px] text-pink-500">add_circle</span>
+              <span>Upload &amp; Set New Template</span>
+            </a>
+            <a href="/admin/anktech/anktech/admin/media" class="flex items-center gap-2.5 px-3 py-2 rounded-xl hover:bg-purple-50 dark:hover:bg-purple-900/30 text-[#1a0f30] dark:text-white font-semibold transition">
+              <span class="material-symbols-outlined text-[17px] text-indigo-500">perm_media</span>
+              <span>Hero Photo &amp; Media Vault</span>
+            </a>
+            <a href="/" target="_blank" class="flex items-center gap-2.5 px-3 py-2 rounded-xl hover:bg-purple-50 dark:hover:bg-purple-900/30 text-[#1a0f30] dark:text-white font-semibold transition">
+              <span class="material-symbols-outlined text-[17px] text-emerald-600">open_in_new</span>
+              <span>View Live Website</span>
+            </a>
+            <div class="border-t border-purple-100 dark:border-purple-800/40 my-1"></div>
+            <button type="button" onclick="window.AdminAuthController && window.AdminAuthController.logout()" class="w-full flex items-center gap-2.5 px-3 py-2 rounded-xl hover:bg-rose-50 dark:hover:bg-rose-950/40 text-rose-600 font-bold transition text-left cursor-pointer">
+              <span class="material-symbols-outlined text-[17px]">logout</span>
+              <span>Sign Out</span>
+            </button>
           </div>
         </div>
       </div>
     </div>
   </header>
 
-  <!-- Main Content Area -->
-  <main id="admin-main-content" class="w-full pt-20 px-4 sm:px-6 lg:px-8 pb-16 max-w-7xl mx-auto flex flex-col gap-8">
-    <!-- Page Header & Action Bar -->
-    <div class="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
-      <div>
-        <div class="flex items-center gap-2 mb-1">
-          <span class="px-2 py-0.5 rounded bg-primary-container/20 text-primary font-label-sm text-label-sm font-bold uppercase tracking-wider">Taxonomy &amp; Metadata</span>
-          <span class="text-outline">•</span>
-          <span class="text-on-surface-variant text-xs font-mono">STOREFRONT CATEGORIES</span>
+  <!-- Main Workspace Content -->
+  <main id="admin-main-content" class="w-full pt-[80px] px-4 sm:px-6 pb-12 max-w-[1360px] mx-auto flex flex-col gap-5">
+
+    <section class="wm-hero-banner">
+      <div class="relative z-10 flex flex-col items-start max-w-2xl">
+        <div class="wm-hero-welcome-pill">
+          <span>Taxonomy &amp; Storefront Categories</span>
+          <span>🎉</span>
         </div>
-        <h1 class="font-display-lg text-2xl sm:text-3xl font-extrabold text-on-surface">Occasions &amp; Tags Manager</h1>
-        <p class="text-sm text-on-surface-variant mt-1">Organize greeting categories, viral campaign tags, and filter badges shown on the public marketplace.</p>
+        <h1 class="wm-hero-title">
+          <span>Occasions &amp;</span> <span class="wm-pink-word">Categories</span> <span class="wm-lavender-word">Manager</span>
+        </h1>
+        <p class="wm-hero-subtitle">
+          Organize greeting categories, viral campaign tags, and filter badges displayed on the public WishMagic marketplace.
+        </p>
+        <div class="flex flex-wrap items-center gap-3">
+          <button type="button" onclick="toggleModal('new-occasion-modal')" class="wm-btn-pink-pill">
+            <span class="material-symbols-outlined text-[19px]">add_circle</span>
+            <span>+ Add New Occasion</span>
+          </button>
+          <a href="/marketplace.html" target="_blank" class="wm-btn-glass-pill">
+            <span class="material-symbols-outlined text-[18px]">open_in_new</span>
+            <span>View Marketplace</span>
+          </a>
+        </div>
       </div>
-      <button class="px-5 py-2.5 rounded-xl bg-gradient-to-r from-primary to-secondary text-white text-xs sm:text-sm font-bold flex items-center gap-2 shadow-lg shadow-purple-600/30 hover:brightness-110 active:scale-95 transition" onclick="toggleModal('new-occasion-modal')">
-        <span class="material-symbols-outlined text-sm">add_circle</span>
-        <span>Add New Occasion</span>
-      </button>
+    </section>
+    <!-- 4 Bento Cards (Matched to 19728.png) -->
+    <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+      <div class="wm-card p-4 sm:p-5 flex items-center justify-between gap-3">
+        <div class="flex items-start gap-3.5">
+          <div class="w-12 h-12 rounded-2xl bg-gradient-to-br from-[#a855f7] to-[#7c3aed] flex items-center justify-center text-white shadow-md shadow-purple-500/25 flex-shrink-0">
+            <span class="material-symbols-outlined text-[23px]">category</span>
+          </div>
+          <div>
+            <div class="text-[12.5px] font-semibold text-[#5e4f7d] dark:text-purple-300">Active Occasions</div>
+            <div class="text-[24px] font-extrabold text-[#1a0f30] dark:text-white leading-tight mt-0.5" id="stat-active-occasions">0 Live</div>
+            <div class="text-[11px] font-bold text-emerald-600 mt-1">↑ 100% active on store</div>
+          </div>
+        </div>
+        <div class="w-20 h-11 flex-shrink-0">
+    <svg viewBox="0 0 100 48" class="w-full h-full overflow-visible">
+      <defs>
+        <linearGradient id="spark_occ_1" x1="0" y1="0" x2="0" y2="1">
+          <stop offset="0%" stop-color="#7c3aed" stop-opacity="0.32"/>
+          <stop offset="100%" stop-color="#7c3aed" stop-opacity="0.0"/>
+        </linearGradient>
+      </defs>
+      <path d="M2,42 Q16,35 28,37 T52,25 T74,27 T98,10 L98,46 L2,46 Z" fill="url(#spark_occ_1)"/>
+      <path d="M2,42 Q16,35 28,37 T52,25 T74,27 T98,10" fill="none" stroke="#7c3aed" stroke-width="2.2" stroke-linecap="round"/>
+    </svg>
+  </div>
+      </div>
+
+      <div class="wm-card p-4 sm:p-5 flex items-center justify-between gap-3">
+        <div class="flex items-start gap-3.5">
+          <div class="w-12 h-12 rounded-2xl bg-gradient-to-br from-[#ff2a85] to-[#ec4899] flex items-center justify-center text-white shadow-md shadow-pink-500/25 flex-shrink-0">
+            <span class="material-symbols-outlined text-[23px]">style</span>
+          </div>
+          <div>
+            <div class="text-[12.5px] font-semibold text-[#5e4f7d] dark:text-purple-300">Total Templates</div>
+            <div class="text-[24px] font-extrabold text-[#1a0f30] dark:text-white leading-tight mt-0.5" id="stat-total-templates">0</div>
+            <div class="text-[11px] font-bold text-emerald-600 mt-1">↑ Live blueprints</div>
+          </div>
+        </div>
+        <div class="w-20 h-11 flex-shrink-0">
+    <svg viewBox="0 0 100 48" class="w-full h-full overflow-visible">
+      <defs>
+        <linearGradient id="spark_occ_2" x1="0" y1="0" x2="0" y2="1">
+          <stop offset="0%" stop-color="#ec4899" stop-opacity="0.32"/>
+          <stop offset="100%" stop-color="#ec4899" stop-opacity="0.0"/>
+        </linearGradient>
+      </defs>
+      <path d="M2,40 Q18,32 30,28 T56,22 T78,24 T98,10 L98,46 L2,46 Z" fill="url(#spark_occ_2)"/>
+      <path d="M2,40 Q18,32 30,28 T56,22 T78,24 T98,10" fill="none" stroke="#ec4899" stroke-width="2.2" stroke-linecap="round"/>
+    </svg>
+  </div>
+      </div>
+
+      <div class="wm-card p-4 sm:p-5 flex items-center justify-between gap-3">
+        <div class="flex items-start gap-3.5">
+          <div class="w-12 h-12 rounded-2xl bg-gradient-to-br from-[#fbbf24] to-[#f59e0b] flex items-center justify-center text-white shadow-md shadow-amber-500/25 flex-shrink-0">
+            <span class="material-symbols-outlined text-[23px]">cake</span>
+          </div>
+          <div>
+            <div class="text-[12.5px] font-semibold text-[#5e4f7d] dark:text-purple-300">Top Volume</div>
+            <div class="text-[22px] font-extrabold text-[#1a0f30] dark:text-white leading-tight mt-0.5" id="stat-top-occasion">Birthday</div>
+            <div class="text-[11px] font-bold text-amber-600 mt-1" id="stat-top-occasion-sub">0 Templates active</div>
+          </div>
+        </div>
+        <div class="w-20 h-11 flex-shrink-0">
+    <svg viewBox="0 0 100 48" class="w-full h-full overflow-visible">
+      <defs>
+        <linearGradient id="spark_occ_3" x1="0" y1="0" x2="0" y2="1">
+          <stop offset="0%" stop-color="#f59e0b" stop-opacity="0.32"/>
+          <stop offset="100%" stop-color="#f59e0b" stop-opacity="0.0"/>
+        </linearGradient>
+      </defs>
+      <path d="M2,42 Q20,38 35,30 T65,28 T85,18 T98,9 L98,46 L2,46 Z" fill="url(#spark_occ_3)"/>
+      <path d="M2,42 Q20,38 35,30 T65,28 T85,18 T98,9" fill="none" stroke="#f59e0b" stroke-width="2.2" stroke-linecap="round"/>
+    </svg>
+  </div>
+      </div>
+
+      <div class="wm-card p-4 sm:p-5 flex items-center justify-between gap-3">
+        <div class="flex items-start gap-3.5">
+          <div class="w-12 h-12 rounded-2xl bg-gradient-to-br from-[#10b981] to-[#059669] flex items-center justify-center text-white shadow-md shadow-emerald-500/25 flex-shrink-0">
+            <span class="material-symbols-outlined text-[23px]">trending_up</span>
+          </div>
+          <div>
+            <div class="text-[12.5px] font-semibold text-[#5e4f7d] dark:text-purple-300">Occasions Telemetry</div>
+            <div class="text-[22px] font-extrabold text-[#1a0f30] dark:text-white leading-tight mt-0.5" id="stat-total-shares">Real-time</div>
+            <div class="text-[11px] font-bold text-emerald-600 mt-1">↑ 100% synced</div>
+          </div>
+        </div>
+        <div class="w-20 h-11 flex-shrink-0">
+    <svg viewBox="0 0 100 48" class="w-full h-full overflow-visible">
+      <defs>
+        <linearGradient id="spark_occ_4" x1="0" y1="0" x2="0" y2="1">
+          <stop offset="0%" stop-color="#10b981" stop-opacity="0.32"/>
+          <stop offset="100%" stop-color="#10b981" stop-opacity="0.0"/>
+        </linearGradient>
+      </defs>
+      <path d="M2,42 Q14,36 22,38 T42,26 T64,28 T82,16 T98,8 L98,46 L2,46 Z" fill="url(#spark_occ_4)"/>
+      <path d="M2,42 Q14,36 22,38 T42,26 T64,28 T82,16 T98,8" fill="none" stroke="#10b981" stroke-width="2.2" stroke-linecap="round"/>
+    </svg>
+  </div>
+      </div>
     </div>
-
-    <!-- 4 Bento Cards -->
-    <div class="grid grid-cols-2 lg:grid-cols-4 gap-4">
-      <div class="bg-surface-container rounded-2xl p-4 sm:p-5 border border-purple-900/30 shadow-lg">
-        <div class="flex items-center justify-between text-outline text-xs uppercase font-bold mb-2">
-          <span>Active Occasions</span>
-          <span class="material-symbols-outlined text-primary text-base">category</span>
-        </div>
-        <div class="font-headline-lg text-xl sm:text-2xl font-black text-on-surface" id="stat-active-occasions">0 Live</div>
-        <span class="text-[11px] text-emerald-400 mt-1 block">100% active on store</span>
-      </div>
-
-      <div class="bg-surface-container rounded-2xl p-4 sm:p-5 border border-purple-900/30 shadow-lg">
-        <div class="flex items-center justify-between text-outline text-xs uppercase font-bold mb-2">
-          <span>Total Templates</span>
-          <span class="material-symbols-outlined text-secondary text-base">style</span>
-        </div>
-        <div class="font-headline-lg text-xl sm:text-2xl font-black text-on-surface" id="stat-total-templates">0</div>
-        <span class="text-[11px] text-on-surface-variant mt-1 block">Live blueprints inventory</span>
-      </div>
-
-      <div class="bg-surface-container rounded-2xl p-4 sm:p-5 border border-purple-900/30 shadow-lg">
-        <div class="flex items-center justify-between text-outline text-xs uppercase font-bold mb-2">
-          <span>Top Volume</span>
-          <span class="material-symbols-outlined text-amber-400 text-base">cake</span>
-        </div>
-        <div class="font-headline-lg text-xl sm:text-2xl font-black text-on-surface" id="stat-top-occasion">None</div>
-        <span class="text-[11px] text-primary mt-1 block" id="stat-top-occasion-sub">0 Templates active</span>
-      </div>
-
-      <div class="bg-surface-container rounded-2xl p-4 sm:p-5 border border-purple-900/30 shadow-lg">
-        <div class="flex items-center justify-between text-outline text-xs uppercase font-bold mb-2">
-          <span>Occasions Telemetry</span>
-          <span class="material-symbols-outlined text-emerald-400 text-base">trending_up</span>
-        </div>
-        <div class="font-headline-lg text-xl sm:text-2xl font-black text-on-surface" id="stat-total-shares">Real-time</div>
-        <span class="text-[11px] text-emerald-400 mt-1 block">100% Verified Telemetry</span>
-      </div>
-    </div>
-
     <!-- Occasions Catalog Table (Part 10 Section 13) -->
-    <div class="bg-surface-container rounded-2xl p-5 sm:p-7 border border-purple-900/30 shadow-xl flex flex-col gap-5">
+    <div class="wm-card bg-surface-container rounded-2xl p-5 sm:p-7 border border-purple-900/30 shadow-xl flex flex-col gap-5">
       <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pb-4 border-b border-purple-900/20">
         <div>
           <h2 class="font-headline-sm text-lg font-bold text-on-surface">Storefront Categories &amp; Occasions Taxonomy</h2>
@@ -249,7 +444,7 @@
         <div class="flex items-center gap-3">
           <div class="relative flex items-center">
             <span class="material-symbols-outlined absolute left-2.5 text-outline text-[16px]">search</span>
-            <input id="search-occasions" oninput="filterOccasions(this.value)" placeholder="Search categories..." class="bg-surface-container-low text-on-surface pl-8 pr-3 py-1.5 rounded-lg border border-purple-900/30 text-xs focus:outline-none focus:ring-1 focus:ring-primary w-48"/>
+            <input id="search-occasions" oninput="filterOccasions(this.value)" placeholder="Search categories..." class="wm-card bg-surface-container-low text-on-surface pl-8 pr-3 py-1.5 rounded-lg border border-purple-900/30 text-xs focus:outline-none focus:ring-1 focus:ring-primary w-48"/>
           </div>
           <span class="text-xs text-outline font-mono" id="occasions-count-badge">0 Categories</span>
         </div>
@@ -281,7 +476,7 @@
     </div>
 
     <!-- Trending Tags Cloud & Manager -->
-    <div class="bg-surface-container rounded-2xl p-5 sm:p-7 border border-purple-900/30 shadow-xl flex flex-col gap-6">
+    <div class="wm-card bg-surface-container rounded-2xl p-5 sm:p-7 border border-purple-900/30 shadow-xl flex flex-col gap-6">
       <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pb-4 border-b border-purple-900/20">
         <div>
           <h2 class="font-headline-sm text-lg font-bold text-on-surface">Trending Tags Cloud &amp; Filters</h2>
@@ -337,7 +532,7 @@
 
 <!-- Modal: Add New Occasion Category -->
 <div id="new-occasion-modal" class="fixed inset-0 bg-black/80 backdrop-blur-sm z-50 hidden items-center justify-center p-4">
-  <div class="bg-surface-container w-full max-w-md rounded-2xl p-6 border border-purple-900/40 shadow-2xl flex flex-col gap-4">
+  <div class="wm-card bg-surface-container w-full max-w-md rounded-2xl p-6 border border-purple-900/40 shadow-2xl flex flex-col gap-4">
     <div class="flex items-center justify-between border-b border-purple-900/30 pb-3">
       <h3 class="font-headline-sm text-base font-bold text-on-surface flex items-center gap-2">
         <span class="material-symbols-outlined text-primary">add_circle</span>
@@ -378,7 +573,7 @@
 
 <!-- Modal: Edit Occasion Category -->
 <div id="edit-occasion-modal" class="fixed inset-0 bg-black/80 backdrop-blur-sm z-50 hidden items-center justify-center p-4">
-  <div class="bg-surface-container w-full max-w-md rounded-2xl p-6 border border-purple-900/40 shadow-2xl flex flex-col gap-4">
+  <div class="wm-card bg-surface-container w-full max-w-md rounded-2xl p-6 border border-purple-900/40 shadow-2xl flex flex-col gap-4">
     <div class="flex items-center justify-between border-b border-purple-900/30 pb-3">
       <h3 class="font-headline-sm text-base font-bold text-on-surface flex items-center gap-2">
         <span class="material-symbols-outlined text-secondary">edit</span>

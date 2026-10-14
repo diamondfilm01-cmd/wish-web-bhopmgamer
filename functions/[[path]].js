@@ -62,7 +62,19 @@ const ADMIN_ROUTES_MAP = {
   '/admin/anktech/anktech/admin/announcements': '/admin-announcements.html',
   '/admin/anktech/anktech/admin/announcements/': '/admin-announcements.html',
   '/admin/anktech/anktech/admin/notifications': '/admin-notifications.html',
-  '/admin/anktech/anktech/admin/notifications/': '/admin-notifications.html'
+  '/admin/anktech/anktech/admin/notifications/': '/admin-notifications.html',
+  '/admin/anktech/anktech/admin/music': '/admin-media.html',
+  '/admin/anktech/anktech/admin/music/': '/admin-media.html',
+  '/admin/anktech/anktech/admin/expiring': '/admin-wishes.html',
+  '/admin/anktech/anktech/admin/expiring/': '/admin-wishes.html',
+  '/admin/anktech/anktech/admin/subscriptions': '/admin-pricing.html',
+  '/admin/anktech/anktech/admin/subscriptions/': '/admin-pricing.html',
+  '/admin/anktech/anktech/admin/payments': '/admin-orders.html',
+  '/admin/anktech/anktech/admin/payments/': '/admin-orders.html',
+  '/admin/anktech/anktech/admin/backups': '/admin-storage-health.html',
+  '/admin/anktech/anktech/admin/backups/': '/admin-storage-health.html',
+  '/admin/anktech/anktech/admin/activity-logs': '/admin-audit-logs.html',
+  '/admin/anktech/anktech/admin/activity-logs/': '/admin-audit-logs.html',
 };
 
 const PUBLIC_PAGES_MAP = {

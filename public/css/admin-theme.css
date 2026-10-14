@@ -1,333 +1,963 @@
-/* WishMagic Admin Studio - Universal Dual Theme & Mobile Styles */
+/* ==========================================================================
+   WishMagic — Fairytale Castle & Cosmic Cloud Admin Studio Theme (v2026.10.14)
+   Pixel-Matched to Reference Screenshot (19728.png) Across All 22 Admin Pages
+   Full Desktop & Mobile Responsiveness + Seamless Light & Dark Mode
+   ========================================================================== */
+
+@import url('https://fonts.googleapis.com/css2?family=Playfair+Display:ital,wght@0,600;0,700;1,400;1,600&family=Plus+Jakarta+Sans:ital,wght@0,400;0,500;0,600;0,700;0,800;1,700;1,800&family=Outfit:ital,wght@0,500;0,600;0,700;0,800;1,700;1,800&family=JetBrains+Mono:wght@400;500;600;700&display=swap');
 
 :root {
-  --color-background: #f8f7fc;
-  --color-surface: #ffffff;
-  --color-surface-variant: #f1ecfa;
-  --color-surface-bright: #e9e2f5;
-  --color-surface-container-lowest: #ffffff;
-  --color-surface-container-low: #f8f6fc;
-  --color-surface-container: #ffffff;
-  --color-surface-container-high: #f3effa;
-  --color-surface-container-highest: #eae3f7;
-  --color-on-surface: #180d2b;
-  --color-on-surface-variant: #4e3f6b;
-  --color-outline: #72628f;
-  --color-outline-variant: #e2d9f3;
-  --color-border: #e2d9f3;
-  --color-card-bg: #ffffff;
-  --color-header-bg: rgba(255, 255, 255, 0.95);
-  --color-sidebar-bg: #ffffff;
-  --color-input-bg: #f6f3fb;
+  /* Default Light Mode Palette — Matches Reference Screenshot 19728.png */
+  --c-background: 244 240 250;                /* #f4f0fa soft pastel lavender-grey canvas */
+  --c-on-background: 26 15 48;                /* #1a0f30 deep royal plum text */
+  --c-surface: 244 240 250;                   /* #f4f0fa */
+  --c-surface-dim: 235 229 247;               /* #ebe5f7 */
+  --c-surface-bright: 255 255 255;            /* #ffffff */
+  --c-surface-container-lowest: 255 255 255;  /* #ffffff crisp white card */
+  --c-surface-container-low: 252 250 255;     /* #fcfaff */
+  --c-surface-container: 255 255 255;         /* #ffffff */
+  --c-surface-container-high: 243 238 252;    /* #f3eefc soft lavender tint */
+  --c-surface-container-highest: 233 225 248; /* #e9e1f8 */
+  --c-on-surface: 26 15 48;                   /* #1a0f30 */
+  --c-on-surface-variant: 94 78 122;          /* #5e4e7a muted lavender-plum */
+  --c-outline: 138 122 168;                   /* #8a7aa8 */
+  --c-outline-variant: 222 212 242;           /* #ded4f2 crisp card border */
+  --c-primary: 124 58 237;                    /* #7c3aed vivid royal purple */
+  --c-primary-container: 109 40 217;          /* #6d28d9 */
+  --c-on-primary: 255 255 255;
+  --c-on-primary-container: 255 255 255;
+  --c-secondary: 219 39 119;                  /* #db2777 rose magenta */
+  --c-secondary-container: 252 231 243;       /* #fce7f3 */
+  --c-on-secondary: 255 255 255;
+  --c-on-secondary-container: 157 23 77;
+  --c-tertiary: 16 185 129;                   /* #10b981 emerald green */
+  --c-tertiary-container: 209 250 229;        /* #d1fae5 */
+  --c-inverse-surface: 26 15 48;
+  --c-inverse-on-surface: 248 245 255;
+  --c-inverse-primary: 196 181 253;
+
+  --wm-card-bg: rgba(255, 255, 255, 0.96);
+  --wm-card-border: rgba(216, 204, 242, 0.85);
+  --wm-card-shadow: 0 6px 24px -4px rgba(55, 25, 110, 0.06), 0 2px 6px -1px rgba(55, 25, 110, 0.04);
+  --wm-text-main: #1a0f30;
+  --wm-text-muted: #5e4f7d;
+  --wm-text-soft: #8c7ba8;
+  --wm-table-head-bg: #f6f3fd;
+  --wm-table-row-hover: #faf7ff;
+  --wm-input-bg: #ffffff;
+  --wm-input-border: #dcd2f0;
 }
 
-html.dark, :root.dark {
-  --color-background: #0d071a;
-  --color-surface: #130a24;
-  --color-surface-variant: #1f1338;
-  --color-surface-bright: #2b1b4d;
-  --color-surface-container-lowest: #090414;
-  --color-surface-container-low: #150c29;
-  --color-surface-container: #1c1036;
-  --color-surface-container-high: #241544;
-  --color-surface-container-highest: #2f1c57;
-  --color-on-surface: #f5f0ff;
-  --color-on-surface-variant: #c4b5fd;
-  --color-outline: #7c6d99;
-  --color-outline-variant: #473b61;
-  --color-border: rgba(124, 58, 237, 0.25);
-  --color-card-bg: #1c1036;
-  --color-header-bg: rgba(9, 4, 20, 0.95);
-  --color-sidebar-bg: #090414;
-  --color-input-bg: rgba(21, 12, 41, 0.75);
+html.dark {
+  /* Dark Mode Palette — Deep Cosmic Violet & Fairytale Gold/Magenta */
+  --c-background: 15 9 32;                    /* #0f0920 deep night indigo */
+  --c-on-background: 245 240 255;             /* #f5f0ff */
+  --c-surface: 15 9 32;                       /* #0f0920 */
+  --c-surface-dim: 11 6 24;                   /* #0b0618 */
+  --c-surface-bright: 39 24 72;               /* #271848 */
+  --c-surface-container-lowest: 19 11 38;     /* #130b26 */
+  --c-surface-container-low: 25 15 48;        /* #190f30 */
+  --c-surface-container: 30 18 58;            /* #1e123a */
+  --c-surface-container-high: 38 24 72;       /* #261848 */
+  --c-surface-container-highest: 49 32 90;    /* #31205a */
+  --c-on-surface: 245 240 255;                /* #f5f0ff */
+  --c-on-surface-variant: 196 182 226;        /* #c4b6e2 */
+  --c-outline: 142 124 180;                   /* #8e7cb4 */
+  --c-outline-variant: 68 46 118;             /* #442e76 */
+  --c-primary: 192 132 252;                   /* #c084fc */
+  --c-primary-container: 124 58 237;          /* #7c3aed */
+  --c-on-primary: 255 255 255;
+  --c-on-primary-container: 243 232 255;
+  --c-secondary: 244 114 182;                 /* #f472b6 */
+  --c-secondary-container: 157 23 77;         /* #9d174d */
+  --c-on-secondary: 255 255 255;
+  --c-on-secondary-container: 252 231 243;
+  --c-tertiary: 52 211 153;                   /* #34d399 */
+  --c-tertiary-container: 6 95 70;
+  --c-inverse-surface: 245 240 255;
+  --c-inverse-on-surface: 26 15 48;
+  --c-inverse-primary: 109 40 217;
+
+  --wm-card-bg: rgba(30, 18, 58, 0.92);
+  --wm-card-border: rgba(139, 92, 246, 0.28);
+  --wm-card-shadow: 0 10px 30px -6px rgba(0, 0, 0, 0.45);
+  --wm-text-main: #f5f0ff;
+  --wm-text-muted: #c4b6e2;
+  --wm-text-soft: #9583b8;
+  --wm-table-head-bg: rgba(42, 26, 78, 0.85);
+  --wm-table-row-hover: rgba(139, 92, 246, 0.12);
+  --wm-input-bg: rgba(22, 13, 44, 0.9);
+  --wm-input-border: rgba(139, 92, 246, 0.35);
 }
 
+/* Base Body & Typography matching 19728.png */
 body {
-  background-color: var(--color-background) !important;
-  background-image: 
-    linear-gradient(to bottom, rgba(255, 255, 255, 0.88) 0%, rgba(255, 255, 255, 0.92) 100%),
-    url('/assets/cb.png?v=2') !important;
-  background-attachment: fixed !important;
-  background-size: cover !important;
-  background-position: center top !important;
-  color: var(--color-on-surface) !important;
-  font-family: 'Plus Jakarta Sans', sans-serif;
-  margin: 0;
-  padding: 0;
+  font-family: 'Plus Jakarta Sans', -apple-system, BlinkMacSystemFont, sans-serif !important;
+  color: var(--wm-text-main);
+  background-color: rgb(var(--c-background));
+  transition: background-color 0.25s ease, color 0.25s ease;
   overflow-x: hidden;
-  transition: background-color 0.2s ease, color 0.2s ease;
 }
 
-html.dark body,
-body.dark,
-[data-theme="dark"] body {
-  background-image: 
-    linear-gradient(to bottom, rgba(13, 7, 26, 0.88) 0%, rgba(13, 7, 26, 0.93) 100%),
-    url('/assets/cbd.png?v=2') !important;
+html:not(.dark) body {
+  background-color: #f3effa !important;
+  background-image:
+    radial-gradient(at 15% 10%, rgba(244, 218, 255, 0.55) 0px, transparent 48%),
+    radial-gradient(at 85% 12%, rgba(216, 200, 255, 0.50) 0px, transparent 50%),
+    radial-gradient(at 50% 90%, rgba(252, 228, 246, 0.45) 0px, transparent 55%) !important;
+  background-attachment: fixed;
 }
 
-/* Strict Isolation: Never render consumer notification elements in Admin Studio */
-#wishmagic-notification-bell-btn,
-[data-purpose="navbar-notifications"],
-#wishmagic-notification-popover,
-#wishmagic-notification-badge,
-header > [data-purpose="navbar-notifications"] {
-  display: none !important;
-  visibility: hidden !important;
-  pointer-events: none !important;
-  width: 0 !important;
-  height: 0 !important;
-  position: absolute !important;
-  opacity: 0 !important;
-  overflow: hidden !important;
-}
-
-/* Material Symbols font display guarantee */
-.material-symbols-outlined {
-  font-family: 'Material Symbols Outlined' !important;
-  font-weight: normal;
-  font-style: normal;
-  font-size: 20px;
-  line-height: 1;
-  display: inline-block;
-  white-space: nowrap;
-  word-wrap: normal;
-  direction: ltr;
-  vertical-align: middle;
-  -webkit-font-feature-settings: 'liga';
-  -webkit-font-smoothing: antialiased;
-  font-feature-settings: 'liga';
+html.dark body {
+  background-color: #0f0920 !important;
+  background-image:
+    radial-gradient(at 15% 10%, rgba(124, 58, 237, 0.18) 0px, transparent 48%),
+    radial-gradient(at 85% 12%, rgba(219, 39, 119, 0.14) 0px, transparent 50%),
+    radial-gradient(at 50% 90%, rgba(88, 28, 135, 0.20) 0px, transparent 55%) !important;
+  background-attachment: fixed;
 }
 
 /* ==========================================================================
-   LIGHT MODE TOTAL OVERRIDES (When <html> does NOT have .dark)
+   1. LEFT SIDEBAR — Exact Cosmic Fairytale Castle Artwork from 19728.png
    ========================================================================== */
-
-html:not(.dark) body {
-  background-color: #f8f7fc !important;
-  color: #180d2b !important;
+aside#admin-sidebar {
+  width: 270px !important;
+  background-color: #160d31 !important;
+  background-image: url('/assets/admin-sidebar-bg.png') !important;
+  background-size: 100% 100% !important;
+  background-position: center bottom !important;
+  background-repeat: no-repeat !important;
+  border-right: 1px solid rgba(255, 255, 255, 0.12) !important;
+  box-shadow: 6px 0 28px rgba(18, 9, 43, 0.28) !important;
+  color: #ffffff !important;
+  z-index: 50 !important;
 }
 
-html:not(.dark) .bg-background {
-  background-color: #f8f7fc !important;
+aside#admin-sidebar::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(180deg, rgba(20, 11, 46, 0.62) 0%, rgba(23, 13, 52, 0.46) 58%, rgba(20, 11, 46, 0.10) 100%);
+  pointer-events: none;
+  z-index: 0;
 }
 
-html:not(.dark) .bg-surface {
-  background-color: #f8f7fc !important;
+aside#admin-sidebar > * {
+  position: relative;
+  z-index: 1;
 }
 
-html:not(.dark) .bg-surface-container-lowest {
-  background-color: #ffffff !important;
+/* Brand Typography in Sidebar ("WishMagic" from 19728.png) */
+.wm-brand-wish {
+  font-family: 'Outfit', 'Plus Jakarta Sans', sans-serif;
+  font-weight: 800;
+  color: #ffffff;
+  letter-spacing: -0.02em;
 }
 
-html:not(.dark) .bg-surface-container-low {
-  background-color: #ffffff !important;
-  border-color: #e4ddf4 !important;
+.wm-brand-magic {
+  font-family: 'Outfit', 'Plus Jakarta Sans', sans-serif;
+  font-weight: 800;
+  font-style: italic;
+  background: linear-gradient(90deg, #ff4da6 0%, #f472b6 55%, #fbbf24 100%);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  padding-right: 2px;
 }
 
-html:not(.dark) .bg-surface-container {
-  background-color: #ffffff !important;
-  border-color: #e4ddf4 !important;
+/* Top Glowing Pink-Magenta Dashboard Pill in Sidebar */
+.wm-dashboard-pill {
+  display: flex;
+  align-items: center;
+  gap: 11px;
+  padding: 11px 16px;
+  border-radius: 9999px;
+  background: linear-gradient(90deg, #ff2a85 0%, #ec4899 52%, #a855f7 100%);
+  color: #ffffff !important;
+  font-weight: 700;
+  font-size: 14px;
+  box-shadow: 0 6px 20px rgba(236, 72, 153, 0.45), inset 0 1px 0 rgba(255, 255, 255, 0.35);
+  border: 1px solid rgba(255, 255, 255, 0.28);
+  text-decoration: none;
+  transition: all 0.2s ease;
 }
 
-html:not(.dark) .bg-surface-container-high {
-  background-color: #f3effa !important;
+.wm-dashboard-pill:hover {
+  transform: translateY(-1px);
+  box-shadow: 0 8px 24px rgba(236, 72, 153, 0.58);
 }
 
-html:not(.dark) .bg-surface-container-highest {
-  background-color: #eae3f7 !important;
+.wm-dashboard-pill.wm-inactive-pill {
+  background: rgba(255, 255, 255, 0.10);
+  box-shadow: none;
+  border-color: rgba(255, 255, 255, 0.14);
+  color: rgba(240, 234, 255, 0.90) !important;
 }
-
-html:not(.dark) .bg-surface-bright {
-  background-color: #f0eaf8 !important;
-}
-
-/* Hardcoded Dark Hex Overrides in Light Mode */
-html:not(.dark) [class*="bg-[#0d071a]"],
-html:not(.dark) [class*="bg-[#130a24]"],
-html:not(.dark) [class*="bg-[#090414]"],
-html:not(.dark) [class*="bg-[#1c1036]"],
-html:not(.dark) [class*="bg-[#150c29]"] {
-  background-color: #ffffff !important;
-}
-
-html:not(.dark) [class*="bg-[#090414]/90"],
-html:not(.dark) [class*="bg-[#090414]/80"],
-html:not(.dark) [class*="bg-[#0d071a]/90"],
-html:not(.dark) [class*="bg-[#130a24]/90"] {
-  background-color: rgba(255, 255, 255, 0.96) !important;
-}
-
-/* Sidebar & Header in Light Mode */
-html:not(.dark) aside#admin-sidebar {
-  background-color: #ffffff !important;
-  border-right-color: #e4ddf4 !important;
-  box-shadow: 4px 0 24px rgba(107, 33, 168, 0.06) !important;
-}
-
-html:not(.dark) header {
-  background-color: rgba(255, 255, 255, 0.96) !important;
-  border-bottom-color: #e4ddf4 !important;
-  box-shadow: 0 4px 20px rgba(107, 33, 168, 0.05) !important;
-}
-
-/* Light Mode Typography & High Contrast */
-html:not(.dark) .text-on-surface {
-  color: #180d2b !important;
-}
-
-html:not(.dark) .text-on-surface-variant {
-  color: #4e3f6b !important;
-}
-
-html:not(.dark) .text-outline {
-  color: #6b5a88 !important;
-}
-
-html:not(.dark) h1:not([class*="bg-clip-text"]):not(.keep-white),
-html:not(.dark) h2:not([class*="bg-clip-text"]):not(.keep-white),
-html:not(.dark) h3:not([class*="bg-clip-text"]):not(.keep-white),
-html:not(.dark) h4:not([class*="bg-clip-text"]):not(.keep-white),
-html:not(.dark) h5:not([class*="bg-clip-text"]):not(.keep-white) {
-  color: #180d2b !important;
-}
-
-/* Soft muted purple text to high-contrast readable dark purple */
-html:not(.dark) .text-purple-100,
-html:not(.dark) .text-purple-200,
-html:not(.dark) .text-purple-300 {
-  color: #581c87 !important;
-}
-
-html:not(.dark) .text-gray-300,
-html:not(.dark) .text-gray-400,
-html:not(.dark) .text-slate-400 {
-  color: #4b5563 !important;
-}
-
-/* Turn generic text-white on light backgrounds into dark text, UNLESS inside colored/gradient buttons */
-html:not(.dark) .text-white:not(.btn-solid-text):not(.keep-white):not([class*="bg-gradient-to"]):not(.bg-primary-container):not(.bg-secondary-container):not(.bg-primary) {
-  color: #180d2b;
-}
-
-/* Maintain crisp white text on colored/gradient badges and buttons */
-html:not(.dark) .bg-primary,
-html:not(.dark) .bg-primary-container,
-html:not(.dark) .bg-secondary,
-html:not(.dark) .bg-secondary-container,
-html:not(.dark) [class*="bg-gradient-to"],
-html:not(.dark) .text-on-primary,
-html:not(.dark) .text-on-primary-container,
-html:not(.dark) .keep-white,
-html:not(.dark) .btn-solid-text,
-html:not(.dark) button[class*="bg-gradient-to"],
-html:not(.dark) a[class*="bg-gradient-to"] {
+.wm-dashboard-pill.wm-inactive-pill:hover {
+  background: linear-gradient(90deg, rgba(255, 42, 133, 0.65) 0%, rgba(168, 85, 247, 0.65) 100%);
   color: #ffffff !important;
 }
 
-html:not(.dark) .bg-primary-container .text-white,
-html:not(.dark) .bg-secondary-container .text-white,
-html:not(.dark) [class*="bg-gradient-to"] .text-white,
-html:not(.dark) .bg-emerald-600 .text-white,
-html:not(.dark) .bg-purple-600 .text-white {
+/* Sidebar Section Headers (TEMPLATES, WISHES, USERS, SYSTEM) */
+.wm-nav-section-label,
+.wm-sidebar-section-label {
+  font-size: 10.5px;
+  font-weight: 800;
+  letter-spacing: 0.10em;
+  text-transform: uppercase;
+  color: rgba(206, 188, 252, 0.68) !important;
+  padding: 13px 14px 4px;
+  user-select: none;
+}
+
+/* Sidebar Navigation Links */
+aside#admin-sidebar nav a:not(.wm-dashboard-pill),
+.wm-nav-item {
+  display: flex;
+  align-items: center;
+  gap: 11px;
+  padding: 8px 14px;
+  margin: 1px 0;
+  border-radius: 11px;
+  font-size: 13.5px;
+  font-weight: 500;
+  color: rgba(236, 228, 255, 0.85) !important;
+  transition: all 0.18s ease;
+  text-decoration: none;
+  border: 1px solid transparent;
+}
+
+aside#admin-sidebar nav a:not(.wm-dashboard-pill) .material-symbols-outlined {
+  font-size: 19px;
+  color: rgba(216, 198, 255, 0.82);
+  transition: transform 0.18s ease, color 0.18s ease;
+}
+
+aside#admin-sidebar nav a:not(.wm-dashboard-pill):hover,
+.wm-nav-item:hover {
+  background: rgba(255, 255, 255, 0.10) !important;
   color: #ffffff !important;
 }
 
-/* Tables in Light Mode */
-html:not(.dark) table {
-  color: #180d2b !important;
+aside#admin-sidebar nav a:not(.wm-dashboard-pill):hover .material-symbols-outlined {
+  color: #ffffff !important;
+  transform: translateX(1px);
 }
 
-html:not(.dark) table thead,
-html:not(.dark) table thead tr {
-  background-color: #f3effa !important;
-  color: #3b2a59 !important;
+aside#admin-sidebar nav a:not(.wm-dashboard-pill).wm-nav-active,
+aside#admin-sidebar nav a:not(.wm-dashboard-pill).active,
+.wm-nav-item.active,
+.wm-nav-item.wm-nav-active {
+  background: linear-gradient(90deg, rgba(236, 72, 153, 0.55) 0%, rgba(168, 85, 247, 0.52) 100%) !important;
+  border: 1px solid rgba(255, 255, 255, 0.30) !important;
+  box-shadow: 0 4px 15px rgba(168, 85, 247, 0.32), inset 0 1px 0 rgba(255, 255, 255, 0.25) !important;
+  color: #ffffff !important;
+  font-weight: 700;
 }
 
-html:not(.dark) table thead th {
-  color: #3b2a59 !important;
-  border-bottom: 1px solid #e4ddf4 !important;
+aside#admin-sidebar nav a:not(.wm-dashboard-pill).wm-nav-active .material-symbols-outlined,
+aside#admin-sidebar nav a:not(.wm-dashboard-pill).active .material-symbols-outlined {
+  color: #ffffff !important;
 }
 
-html:not(.dark) table tbody tr {
+.custom-scrollbar {
+  scrollbar-width: thin;
+  scrollbar-color: rgba(255, 255, 255, 0.22) transparent;
+}
+.custom-scrollbar::-webkit-scrollbar {
+  width: 4px;
+  height: 4px;
+}
+.custom-scrollbar::-webkit-scrollbar-thumb {
+  background: rgba(168, 85, 247, 0.35);
+  border-radius: 9999px;
+}
+
+/* ==========================================================================
+   2. TOP HEADER BAR — Pastel Lavender-Pink Cloud Strip (Matches 19728.png)
+   ========================================================================== */
+header.wm-top-header {
+  height: 68px !important;
+  border-bottom: 1px solid var(--wm-card-border) !important;
+  backdrop-filter: blur(16px) !important;
+  -webkit-backdrop-filter: blur(16px) !important;
+  z-index: 35 !important;
+}
+
+html:not(.dark) header.wm-top-header {
+  background-color: rgba(248, 243, 255, 0.94) !important;
+  background-image:
+    linear-gradient(90deg, rgba(255, 255, 255, 0.65) 0%, rgba(248, 238, 255, 0.55) 50%, rgba(255, 242, 250, 0.65) 100%),
+    url('/assets/admin-header-clouds.png') !important;
+  background-size: cover !important;
+  background-position: center !important;
+  box-shadow: 0 2px 14px rgba(88, 40, 160, 0.06) !important;
+}
+
+html.dark header.wm-top-header {
+  background: rgba(20, 12, 42, 0.92) !important;
+  border-bottom: 1px solid rgba(139, 92, 246, 0.25) !important;
+  box-shadow: 0 2px 16px rgba(0, 0, 0, 0.4) !important;
+}
+
+/* Search Bar with Ctrl K badge in Top Header */
+.wm-header-search-wrap {
+  position: relative;
+  display: flex;
+  align-items: center;
+  width: 100%;
+  max-width: 430px;
+}
+
+.wm-header-search-input {
+  width: 100%;
+  height: 40px;
+  padding: 0 64px 0 38px;
+  border-radius: 9999px !important;
+  background: rgba(255, 255, 255, 0.92) !important;
+  border: 1px solid rgba(205, 190, 245, 0.85) !important;
+  color: #1a0f30 !important;
+  font-size: 13px;
+  font-weight: 500;
+  box-shadow: 0 2px 10px rgba(88, 28, 135, 0.04), inset 0 1px 2px rgba(255, 255, 255, 0.8) !important;
+  transition: all 0.2s ease;
+}
+
+.wm-header-search-input::placeholder {
+  color: #7c6b9c !important;
+}
+
+html.dark .wm-header-search-input {
+  background: rgba(34, 20, 66, 0.90) !important;
+  border: 1px solid rgba(139, 92, 246, 0.35) !important;
+  color: #f5f0ff !important;
+  box-shadow: none !important;
+}
+
+html.dark .wm-header-search-input::placeholder {
+  color: #a795cc !important;
+}
+
+.wm-header-search-input:focus {
+  outline: none !important;
+  border-color: #9333ea !important;
+  box-shadow: 0 0 0 3px rgba(147, 51, 234, 0.16) !important;
+}
+
+.wm-ctrl-k-badge {
+  position: absolute;
+  right: 10px;
+  padding: 2.5px 8px;
+  border-radius: 9999px;
+  background: #f2ecfc;
+  border: 1px solid #dfd3f6;
+  color: #5b487d;
+  font-size: 11px;
+  font-weight: 700;
+  pointer-events: none;
+}
+
+html.dark .wm-ctrl-k-badge {
+  background: rgba(139, 92, 246, 0.22);
+  border-color: rgba(139, 92, 246, 0.35);
+  color: #ddd0f8;
+}
+
+/* Sun / Moon Pill Toggle Switch in Top Header (Matches 19728.png) */
+.wm-theme-pill-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 3px;
+  border-radius: 9999px;
+  background: rgba(255, 255, 255, 0.88);
+  border: 1px solid rgba(205, 190, 245, 0.85);
+  box-shadow: 0 2px 8px rgba(88, 28, 135, 0.06);
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+html.dark .wm-theme-pill-btn {
+  background: rgba(34, 20, 66, 0.92);
+  border-color: rgba(139, 92, 246, 0.38);
+}
+
+.wm-theme-pill-sun {
+  width: 28px;
+  height: 28px;
+  border-radius: 9999px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: #f59e0b;
+  background: rgba(254, 243, 199, 0.85);
+  transition: all 0.2s ease;
+}
+
+html.dark .wm-theme-pill-sun {
+  background: transparent;
+  color: #a795cc;
+}
+
+.wm-theme-pill-knob {
+  width: 28px;
+  height: 28px;
+  border-radius: 9999px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: linear-gradient(135deg, #4c1d95 0%, #311068 100%);
+  color: #fde68a;
+  box-shadow: 0 2px 6px rgba(49, 16, 104, 0.35);
+  transition: all 0.2s ease;
+}
+
+/* Admin Profile Card Pill in Top Header */
+.wm-admin-profile-pill {
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  padding: 4px 12px 4px 5px;
+  border-radius: 9999px;
+  background: rgba(255, 255, 255, 0.88);
+  border: 1px solid rgba(205, 190, 245, 0.85);
+  box-shadow: 0 2px 8px rgba(88, 28, 135, 0.05);
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+html.dark .wm-admin-profile-pill {
+  background: rgba(34, 20, 66, 0.92);
+  border-color: rgba(139, 92, 246, 0.38);
+}
+
+.wm-admin-profile-pill:hover {
+  background: #ffffff;
+}
+html.dark .wm-admin-profile-pill:hover {
+  background: rgba(48, 28, 92, 0.96);
+}
+
+/* ==========================================================================
+   3. FAIRYTALE CASTLE HERO BANNER — Matches 19728.png Across All 22 Pages
+   ========================================================================== */
+.wm-hero-banner {
+  position: relative;
+  border-radius: 22px;
+  overflow: hidden;
+  background-color: #1b0f3b;
+  background-image: url('/assets/admin-hero-banner.png');
+  background-size: cover;
+  background-position: right center;
+  background-repeat: no-repeat;
+  min-height: 192px;
+  padding: 24px 30px;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  box-shadow: 0 12px 32px -6px rgba(45, 20, 95, 0.28);
+  border: 1px solid rgba(255, 255, 255, 0.24);
+  color: #ffffff !important;
+}
+
+.wm-hero-banner::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(90deg, rgba(22, 10, 52, 0.84) 0%, rgba(36, 16, 78, 0.64) 45%, rgba(36, 16, 78, 0.12) 76%, rgba(36, 16, 78, 0.02) 100%);
+  pointer-events: none;
+  z-index: 0;
+}
+
+.wm-hero-banner > * {
+  position: relative;
+  z-index: 1;
+}
+
+.wm-hero-welcome-pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 4px 13px;
+  border-radius: 9999px;
+  background: rgba(255, 255, 255, 0.14);
+  backdrop-filter: blur(8px);
+  -webkit-backdrop-filter: blur(8px);
+  border: 1px solid rgba(255, 255, 255, 0.24);
+  color: #f5ebff !important;
+  font-size: 12px;
+  font-weight: 600;
+  margin-bottom: 8px;
+}
+
+.wm-hero-title {
+  font-family: 'Outfit', 'Plus Jakarta Sans', sans-serif;
+  font-weight: 800;
+  font-size: clamp(1.55rem, 2.6vw, 2.2rem);
+  color: #ffffff !important;
+  letter-spacing: -0.02em;
+  line-height: 1.15;
+  text-shadow: 0 2px 14px rgba(0, 0, 0, 0.35);
+}
+
+.wm-pink-word {
+  font-style: italic;
+  background: linear-gradient(90deg, #ff3b9a 0%, #f472b6 55%, #fbbf24 100%);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  padding-right: 3px;
+}
+
+.wm-lavender-word {
+  color: #f3e8ff !important;
+}
+
+.wm-hero-subtitle {
+  font-size: 13.5px;
+  color: rgba(243, 236, 255, 0.92) !important;
+  margin-top: 6px;
+  margin-bottom: 16px;
+  font-weight: 500;
+  max-width: 540px;
+}
+
+/* Hero Banner Pill Buttons (Matches "+ Add New Template" & "View Website" in 19728.png) */
+.wm-btn-pink-pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  padding: 9.5px 18px;
+  border-radius: 9999px;
+  background: linear-gradient(90deg, #ff2a85 0%, #ec4899 55%, #a855f7 100%) !important;
+  color: #ffffff !important;
+  font-size: 13px;
+  font-weight: 700;
+  box-shadow: 0 6px 20px rgba(236, 72, 153, 0.45), inset 0 1px 0 rgba(255, 255, 255, 0.35);
+  border: 1px solid rgba(255, 255, 255, 0.30);
+  text-decoration: none;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.wm-btn-pink-pill:hover {
+  transform: translateY(-1px);
+  box-shadow: 0 8px 24px rgba(236, 72, 153, 0.58);
+}
+
+.wm-btn-glass-pill,
+.wm-hero-pill-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  padding: 9px 17px;
+  border-radius: 9999px;
+  font-size: 13px;
+  font-weight: 700;
+  color: #ffffff !important;
+  background: rgba(255, 255, 255, 0.16) !important;
+  backdrop-filter: blur(10px);
+  -webkit-backdrop-filter: blur(10px);
+  border: 1px solid rgba(255, 255, 255, 0.32) !important;
+  box-shadow: 0 4px 14px rgba(0, 0, 0, 0.18);
+  transition: all 0.18s ease;
+  cursor: pointer;
+  text-decoration: none;
+}
+
+.wm-btn-glass-pill:hover,
+.wm-hero-pill-btn:hover {
+  background: rgba(255, 255, 255, 0.26) !important;
+  transform: translateY(-1px);
+}
+
+/* ==========================================================================
+   4. CARDS, TABLES, STATUS BADGES & QUICK ACTION TILES (Matches 19728.png)
+   ========================================================================== */
+.wm-card,
+.wm-stat-card {
+  background: var(--wm-card-bg) !important;
+  border: 1px solid var(--wm-card-border) !important;
+  border-radius: 20px !important;
+  box-shadow: var(--wm-card-shadow) !important;
+  backdrop-filter: blur(12px);
+  transition: transform 0.2s ease, box-shadow 0.2s ease;
+}
+
+.wm-view-all-pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 5px 12px;
+  border-radius: 9999px;
+  background: #f5f1fd;
+  border: 1px solid #e4daf7;
+  color: #5b3ea8 !important;
+  font-size: 12px;
+  font-weight: 700;
+  text-decoration: none;
+  transition: all 0.18s ease;
+}
+
+html.dark .wm-view-all-pill {
+  background: rgba(139, 92, 246, 0.18);
+  border-color: rgba(139, 92, 246, 0.32);
+  color: #e9d5ff !important;
+}
+
+.wm-view-all-pill:hover {
+  background: #ebe2fc;
+  transform: translateX(1px);
+}
+
+/* Status Pills in Recent Wishes & Subpage Tables (Matches 19728.png) */
+.wm-status-active,
+.wm-badge-active {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 3.5px 12px;
+  border-radius: 9999px;
+  font-size: 11.5px;
+  font-weight: 700;
+  background: #d1fae5 !important;
+  color: #047857 !important;
+  border: 1px solid #a7f3d0 !important;
+}
+
+html.dark .wm-status-active,
+html.dark .wm-badge-active {
+  background: rgba(16, 185, 129, 0.20) !important;
+  color: #6ee7b7 !important;
+  border-color: rgba(16, 185, 129, 0.35) !important;
+}
+
+.wm-status-expired,
+.wm-badge-expiring {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 3.5px 12px;
+  border-radius: 9999px;
+  font-size: 11.5px;
+  font-weight: 700;
+  background: #ffe4e6 !important;
+  color: #be123c !important;
+  border: 1px solid #fecdd3 !important;
+}
+
+html.dark .wm-status-expired,
+html.dark .wm-badge-expiring {
+  background: rgba(244, 63, 94, 0.20) !important;
+  color: #fda4af !important;
+  border-color: rgba(244, 63, 94, 0.35) !important;
+}
+
+/* Table Action Icon Buttons (Eye / Trash in 19728.png) */
+.wm-table-action-btn {
+  width: 30px;
+  height: 30px;
+  border-radius: 8px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  background: #f6f2fd;
+  border: 1px solid #e5dcf7;
+  color: #5b4682;
+  transition: all 0.16s ease;
+  cursor: pointer;
+}
+
+html.dark .wm-table-action-btn {
+  background: rgba(139, 92, 246, 0.16);
+  border-color: rgba(139, 92, 246, 0.30);
+  color: #d8b4fe;
+}
+
+.wm-table-action-btn:hover {
+  background: #ece3fc;
+  color: #4c1d95;
+  transform: translateY(-1px);
+}
+
+/* 3x2 Quick Action Tiles (Matches 19728.png Right Column) */
+.wm-quick-action-tile {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  padding: 14px 8px;
+  border-radius: 16px;
+  background: #faf7ff;
+  border: 1px solid #e9e0fa;
+  color: #2b194d !important;
+  text-decoration: none;
+  transition: all 0.2s ease;
+}
+
+html.dark .wm-quick-action-tile {
+  background: rgba(42, 25, 80, 0.65);
+  border-color: rgba(139, 92, 246, 0.28);
+  color: #f3e8ff !important;
+}
+
+.wm-quick-action-tile:hover {
+  background: #f2ebff;
+  border-color: #d0bef5;
+  transform: translateY(-2px);
+  box-shadow: 0 6px 16px rgba(109, 40, 217, 0.08);
+}
+
+html.dark .wm-quick-action-tile:hover {
+  background: rgba(58, 35, 108, 0.85);
+}
+
+/* Universal Tables on Subpages */
+main table thead tr th {
+  background: var(--wm-table-head-bg) !important;
+  color: var(--wm-text-muted) !important;
+  font-size: 11.5px !important;
+  font-weight: 700 !important;
+  letter-spacing: 0.02em;
+  border-bottom: 1px solid var(--wm-card-border) !important;
+}
+
+main table tbody tr td {
+  color: var(--wm-text-main);
+  border-bottom: 1px solid rgba(216, 204, 242, 0.38);
+  vertical-align: middle;
+}
+
+html.dark main table tbody tr td {
+  border-bottom: 1px solid rgba(139, 92, 246, 0.16);
+}
+
+main table tbody tr:hover td {
+  background: var(--wm-table-row-hover) !important;
+}
+
+/* ==========================================================================
+   5. COMPLETE LIGHT MODE ADAPTATION OVERRIDES FOR ALL 22 PAGES & MODALS
+   Ensures zero dark-mode leftover boxes or unreadable white text in Light Mode
+   ========================================================================== */
+html:not(.dark) main .bg-surface-container,
+html:not(.dark) main .bg-surface-container-low,
+html:not(.dark) main .bg-surface-container-lowest,
+html:not(.dark) [id*="modal"] .bg-surface-container,
+html:not(.dark) [id*="modal"] .bg-surface-container-low,
+html:not(.dark) [id*="modal"] .bg-surface-container-lowest {
   background-color: #ffffff !important;
-  border-color: #ede7f8 !important;
-  color: #180d2b !important;
+  border-color: rgba(214, 200, 242, 0.85) !important;
+  box-shadow: 0 6px 24px -4px rgba(55, 25, 110, 0.06), 0 2px 6px -1px rgba(55, 25, 110, 0.04) !important;
 }
 
-html:not(.dark) table tbody td {
-  color: #180d2b !important;
+html:not(.dark) main .bg-surface-container-high,
+html:not(.dark) [id*="modal"] .bg-surface-container-high {
+  background-color: #f4effc !important;
+  border-color: #dfd4f4 !important;
 }
 
-html:not(.dark) table tbody tr:hover {
-  background-color: #f8f6fc !important;
+html:not(.dark) main .bg-surface-container-highest,
+html:not(.dark) [id*="modal"] .bg-surface-container-highest {
+  background-color: #eae1f9 !important;
 }
 
-html:not(.dark) .divide-purple-900\/20 > :not([hidden]) ~ :not([hidden]),
-html:not(.dark) .divide-purple-900\/30 > :not([hidden]) ~ :not([hidden]) {
-  border-color: #ede7f8 !important;
+/* Override hardcoded dark purple/pink/amber/emerald/rose containers in Light Mode */
+html:not(.dark) main [class*="bg-purple-950"],
+html:not(.dark) main [class*="bg-purple-900"],
+html:not(.dark) [id*="modal"] [class*="bg-purple-950"],
+html:not(.dark) [id*="modal"] [class*="bg-purple-900"] {
+  background-color: #f5f0fd !important;
+  border-color: #dccff4 !important;
+  color: #3b1d70 !important;
 }
 
-/* Inputs, Selects & Forms in Light Mode */
-html:not(.dark) input:not([type="checkbox"]):not([type="radio"]),
-html:not(.dark) select,
-html:not(.dark) textarea {
+html:not(.dark) main [class*="bg-amber-950"],
+html:not(.dark) main [class*="bg-amber-900"],
+html:not(.dark) [id*="modal"] [class*="bg-amber-950"],
+html:not(.dark) [id*="modal"] [class*="bg-amber-900"] {
+  background-color: #fffbeb !important;
+  border-color: #fde68a !important;
+  color: #92400e !important;
+}
+
+html:not(.dark) main [class*="bg-emerald-950"],
+html:not(.dark) main [class*="bg-emerald-900"],
+html:not(.dark) [id*="modal"] [class*="bg-emerald-950"] {
+  background-color: #ecfdf5 !important;
+  border-color: #a7f3d0 !important;
+  color: #065f46 !important;
+}
+
+html:not(.dark) main [class*="bg-rose-950"],
+html:not(.dark) main [class*="bg-rose-900"],
+html:not(.dark) [id*="modal"] [class*="bg-rose-950"] {
+  background-color: #fff1f2 !important;
+  border-color: #fecdd3 !important;
+  color: #9f1239 !important;
+}
+
+html:not(.dark) main [class*="bg-pink-950"],
+html:not(.dark) [id*="modal"] [class*="bg-pink-950"] {
+  background-color: #fdf2f8 !important;
+  border-color: #fbcfe8 !important;
+  color: #9d174d !important;
+}
+
+/* Override hardcoded dark gradients in Light Mode (e.g. Media Hero Controller, Upload Zone, Storage cards) */
+html:not(.dark) main [class*="from-purple-950"],
+html:not(.dark) main [class*="from-pink-950"],
+html:not(.dark) main [class*="from-emerald-950"],
+html:not(.dark) [id*="modal"] [class*="from-purple-950"],
+html:not(.dark) [id*="modal"] [class*="from-pink-950"] {
+  background-image: linear-gradient(135deg, #ffffff 0%, #f7f2ff 55%, #fdf2f8 100%) !important;
+  border-color: #e2d4f8 !important;
+  box-shadow: 0 8px 28px -6px rgba(88, 28, 135, 0.08) !important;
+}
+
+/* Override bg-black/40 and bg-black/60 inner boxes (excluding modal overlays & image hover overlays) */
+html:not(.dark) main div[class*="bg-black/"]:not(.fixed):not(.absolute),
+html:not(.dark) main pre[class*="bg-black/"],
+html:not(.dark) [id*="modal"] div[class*="bg-black/"]:not(.fixed):not(.absolute),
+html:not(.dark) [id*="modal"] pre[class*="bg-black/"] {
+  background-color: #f6f2fc !important;
+  border-color: #e0d4f5 !important;
+  color: #1a0f30 !important;
+}
+
+/* Override hardcoded borders in Light Mode */
+html:not(.dark) main [class*="border-purple-900"],
+html:not(.dark) main [class*="border-purple-800"],
+html:not(.dark) main [class*="border-purple-500/20"],
+html:not(.dark) main [class*="border-purple-500/30"],
+html:not(.dark) [id*="modal"] [class*="border-purple-900"],
+html:not(.dark) [id*="modal"] [class*="border-purple-800"] {
+  border-color: #e2d8f5 !important;
+}
+
+/* Override hardcoded text-white inside main/modals when NOT on a colored button, badge, or hero banner */
+html:not(.dark) main :not(.wm-hero-banner):not(.wm-hero-banner *) > .text-white:not(button):not(a):not(.wm-stat-icon):not([class*="bg-primary"]):not([class*="bg-purple-6"]):not([class*="bg-pink-"]):not([class*="bg-emerald-"]):not([class*="bg-rose-"]):not([class*="bg-amber-"]):not([class*="bg-blue-"]):not([class*="bg-indigo-"]):not([class*="from-"]):not([class*="bg-black"]),
+html:not(.dark) [id*="modal"] .text-white:not(button):not(a):not(.wm-stat-icon):not([class*="bg-primary"]):not([class*="bg-purple-6"]):not([class*="bg-pink-"]):not([class*="bg-emerald-"]):not([class*="bg-rose-"]):not([class*="bg-amber-"]):not([class*="from-"]):not([class*="bg-black"]) {
+  color: #1a0f30 !important;
+}
+
+/* Override light-purple/amber/emerald/rose text utilities for crisp contrast in Light Mode */
+html:not(.dark) main :not(.wm-hero-banner):not(.wm-hero-banner *) > [class*="text-purple-200"],
+html:not(.dark) main :not(.wm-hero-banner):not(.wm-hero-banner *) > [class*="text-purple-300"],
+html:not(.dark) main :not(.wm-hero-banner):not(.wm-hero-banner *) > [class*="text-purple-100"],
+html:not(.dark) [id*="modal"] [class*="text-purple-200"],
+html:not(.dark) [id*="modal"] [class*="text-purple-300"],
+html:not(.dark) [id*="modal"] [class*="text-purple-100"] {
+  color: #533f78 !important;
+}
+
+html:not(.dark) main :not(.wm-hero-banner):not(.wm-hero-banner *) > [class*="text-amber-200"],
+html:not(.dark) main :not(.wm-hero-banner):not(.wm-hero-banner *) > [class*="text-amber-300"],
+html:not(.dark) [id*="modal"] [class*="text-amber-200"],
+html:not(.dark) [id*="modal"] [class*="text-amber-300"] {
+  color: #b45309 !important;
+}
+
+html:not(.dark) main :not(.wm-hero-banner):not(.wm-hero-banner *) > [class*="text-emerald-200"],
+html:not(.dark) main :not(.wm-hero-banner):not(.wm-hero-banner *) > [class*="text-emerald-300"],
+html:not(.dark) [id*="modal"] [class*="text-emerald-200"],
+html:not(.dark) [id*="modal"] [class*="text-emerald-300"] {
+  color: #047857 !important;
+}
+
+html:not(.dark) main :not(.wm-hero-banner):not(.wm-hero-banner *) > [class*="text-rose-200"],
+html:not(.dark) main :not(.wm-hero-banner):not(.wm-hero-banner *) > [class*="text-rose-300"],
+html:not(.dark) [id*="modal"] [class*="text-rose-200"],
+html:not(.dark) [id*="modal"] [class*="text-rose-300"] {
+  color: #be123c !important;
+}
+
+html:not(.dark) main :not(.wm-hero-banner):not(.wm-hero-banner *) > [class*="text-pink-200"]:not([class*="bg-black"]),
+html:not(.dark) main :not(.wm-hero-banner):not(.wm-hero-banner *) > [class*="text-pink-300"]:not([class*="bg-black"]),
+html:not(.dark) [id*="modal"] [class*="text-pink-200"]:not([class*="bg-black"]),
+html:not(.dark) [id*="modal"] [class*="text-pink-300"]:not([class*="bg-black"]) {
+  color: #be185d !important;
+}
+
+/* Inputs, Selects & Textareas across all Admin Pages & Modals */
+html:not(.dark) main input:not([type="checkbox"]):not([type="radio"]):not([type="range"]):not([type="color"]):not([type="file"]),
+html:not(.dark) main select,
+html:not(.dark) main textarea,
+html:not(.dark) [id*="modal"] input:not([type="checkbox"]):not([type="radio"]):not([type="range"]):not([type="color"]):not([type="file"]),
+html:not(.dark) [id*="modal"] select,
+html:not(.dark) [id*="modal"] textarea {
   background-color: #ffffff !important;
-  color: #180d2b !important;
-  border: 1px solid #d5c8ea !important;
+  border: 1px solid #d8ccf0 !important;
+  color: #1a0f30 !important;
 }
 
-html:not(.dark) input::placeholder,
-html:not(.dark) textarea::placeholder {
-  color: #8c7b9f !important;
+html.dark main input:not([type="checkbox"]):not([type="radio"]):not([type="range"]):not([type="color"]):not([type="file"]),
+html.dark main select,
+html.dark main textarea,
+html.dark [id*="modal"] input:not([type="checkbox"]):not([type="radio"]):not([type="range"]):not([type="color"]):not([type="file"]),
+html.dark [id*="modal"] select,
+html.dark [id*="modal"] textarea {
+  background-color: rgba(20, 12, 42, 0.9) !important;
+  border: 1px solid rgba(139, 92, 246, 0.35) !important;
+  color: #f5f0ff !important;
 }
 
-/* Borders in Light Mode */
-html:not(.dark) .border-purple-900\/50,
-html:not(.dark) .border-purple-900\/40,
-html:not(.dark) .border-purple-900\/30,
-html:not(.dark) .border-purple-900\/20,
-html:not(.dark) .border-purple-500\/30,
-html:not(.dark) .border-purple-500\/20,
-html:not(.dark) .border-amber-500\/30,
-html:not(.dark) .border-emerald-500\/30,
-html:not(.dark) .border-rose-500\/30 {
-  border-color: #e4ddf4 !important;
+/* ==========================================================================
+   6. MOBILE VIEW & DESKTOP VIEW RESPONSIVE ADAPTATION
+   ========================================================================== */
+@media (max-width: 767px) {
+  aside#admin-sidebar {
+    width: 270px !important;
+    max-width: 84vw !important;
+  }
+
+  header.wm-top-header {
+    left: 0 !important;
+    right: 0 !important;
+    height: 60px !important;
+  }
+
+  .wm-hero-banner {
+    padding: 18px 18px !important;
+    min-height: 148px !important;
+    border-radius: 16px !important;
+    background-position: 78% center !important;
+  }
+
+  .wm-hero-banner::before {
+    background: linear-gradient(180deg, rgba(22, 11, 50, 0.88) 0%, rgba(28, 14, 62, 0.82) 100%) !important;
+  }
+
+  .wm-hero-title {
+    font-size: 1.35rem !important;
+  }
+
+  .wm-hero-subtitle {
+    font-size: 12px !important;
+    margin-bottom: 12px !important;
+  }
+
+  .wm-btn-pink-pill,
+  .wm-btn-glass-pill,
+  .wm-hero-pill-btn {
+    padding: 7.5px 13px !important;
+    font-size: 11.5px !important;
+  }
+
+  .wm-card,
+  .wm-stat-card {
+    border-radius: 16px !important;
+  }
+
+  /* Make tables horizontally scrollable on mobile without breaking card width */
+  main .overflow-x-auto,
+  main table {
+    max-width: 100%;
+  }
 }
 
-/* Modals & Dialogs in Light Mode */
-html:not(.dark) #live-visitors-modal > div,
-html:not(.dark) #upload-code-modal > div,
-html:not(.dark) .modal-panel {
-  background-color: #ffffff !important;
-  border-color: #e4ddf4 !important;
-  color: #180d2b !important;
-  box-shadow: 0 25px 60px -15px rgba(0, 0, 0, 0.25) !important;
-}
-
-html:not(.dark) #live-visitors-modal .bg-surface-container,
-html:not(.dark) #live-visitors-modal .bg-surface-container-lowest\/80 {
-  background-color: #f7f4fc !important;
-  border-color: #e4ddf4 !important;
-}
-
-/* Bento Cards in Light Mode */
-html:not(.dark) .shadow-xl,
-html:not(.dark) .shadow-lg,
-html:not(.dark) .shadow-md {
-  box-shadow: 0 4px 20px -2px rgba(107, 33, 168, 0.07), 0 2px 6px -1px rgba(0, 0, 0, 0.04) !important;
-}
-
-/* Amber / Emerald / Primary stat numbers in Light Mode */
-html:not(.dark) #stat-live-visitors,
-html:not(.dark) #header-live-visitors {
-  color: #059669 !important;
-}
-
-html:not(.dark) #stat-revenue {
-  color: #7e22ce !important;
-}
-
-html:not(.dark) #stat-vip {
-  color: #d97706 !important;
+@media (min-width: 768px) {
+  aside#admin-sidebar {
+    transform: translateX(0) !important;
+  }
 }
