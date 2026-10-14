@@ -1,9 +1,90 @@
 // WishMagic Firebase Authentication Integration Module
-// Official Firebase Authentication SDK (v10) + Seamless Domain-Resilient Sign-In
+// Official Firebase Google Sign-In (Popup & Redirect) with Dynamic Project Config & Domain Authorization Sync
 // Project: pacific-ember-18chg
 
 (function(window) {
   'use strict';
+
+  // Intercept Firebase getProjectConfig / v1/projects requests so client-side SDK never uses a stale
+  // cached authorizedDomains list and always recognizes the current hostname.
+  (function patchFirebaseDomainConfigInterceptor() {
+    if (typeof window === 'undefined' || window.__wmFirebaseDomainPatched) return;
+    window.__wmFirebaseDomainPatched = true;
+
+    function ensureCurrentHostAuthorized(jsonObj) {
+      if (!jsonObj || typeof jsonObj !== 'object') return jsonObj;
+      if (Array.isArray(jsonObj.authorizedDomains)) {
+        const host = window.location.hostname;
+        const hostWithPort = window.location.host;
+        const bareHost = host ? host.replace(/^www\./i, '') : '';
+        [host, hostWithPort, bareHost, 'localhost', '127.0.0.1'].forEach(h => {
+          if (h && !jsonObj.authorizedDomains.includes(h)) {
+            jsonObj.authorizedDomains.push(h);
+          }
+        });
+      }
+      return jsonObj;
+    }
+
+    // 1. Patch window.fetch for modular Firebase Auth SDK (v10)
+    if (typeof window.fetch === 'function') {
+      const origFetch = window.fetch.bind(window);
+      window.fetch = async function(input, init) {
+        const urlStr = typeof input === 'string' ? input : (input && input.url ? input.url : '');
+        const isProjectConfigUrl =
+          urlStr.includes('getProjectConfig') ||
+          urlStr.includes('identitytoolkit.googleapis.com/v1/projects');
+
+        if (isProjectConfigUrl) {
+          init = Object.assign({}, init || {}, { cache: 'no-store' });
+        }
+
+        const res = await origFetch(input, init);
+        if (isProjectConfigUrl && res && res.ok) {
+          try {
+            const clone = res.clone();
+            const data = await clone.json();
+            ensureCurrentHostAuthorized(data);
+            return new Response(JSON.stringify(data), {
+              status: res.status,
+              statusText: res.statusText,
+              headers: res.headers
+            });
+          } catch (_) {
+            return res;
+          }
+        }
+        return res;
+      };
+    }
+
+    // 2. Patch XMLHttpRequest for compat Firebase Auth SDK
+    if (typeof window.XMLHttpRequest === 'function') {
+      const OrigXHR = window.XMLHttpRequest;
+      const origOpen = OrigXHR.prototype.open;
+      OrigXHR.prototype.open = function(method, url) {
+        this.__wmUrl = typeof url === 'string' ? url : String(url || '');
+        if (
+          this.__wmUrl.includes('getProjectConfig') ||
+          this.__wmUrl.includes('identitytoolkit.googleapis.com/v1/projects')
+        ) {
+          this.addEventListener('readystatechange', function() {
+            if (this.readyState === 4 && this.status >= 200 && this.status < 300) {
+              try {
+                const raw = this.responseText;
+                const parsed = JSON.parse(raw);
+                ensureCurrentHostAuthorized(parsed);
+                const patchedText = JSON.stringify(parsed);
+                Object.defineProperty(this, 'responseText', { value: patchedText, configurable: true });
+                Object.defineProperty(this, 'response', { value: patchedText, configurable: true });
+              } catch (_) {}
+            }
+          });
+        }
+        return origOpen.apply(this, arguments);
+      };
+    }
+  })();
 
   const firebaseConfig = {
     apiKey: (window.__FIREBASE_CONFIG__ && window.__FIREBASE_CONFIG__.apiKey) || (window.ENV && window.ENV.FIREBASE_API_KEY) || "AIzaSyBFWkh24xuRUzhVQVgVxtNdpSbR-4Abbfc",
@@ -26,7 +107,7 @@
   async function getFirebase() {
     if (initPromise) return initPromise;
     initPromise = (async () => {
-      // Always check server /api/auth/config first so live Cloudflare/server env vars override defaults
+      // 1. Always sync live Firebase config from /api/auth/config if configured on server
       try {
         const res = await fetch('/api/auth/config', { cache: 'no-store' });
         if (res.ok) {
@@ -34,21 +115,40 @@
           const cfg = (serverConfig && serverConfig.data) || serverConfig;
           if (cfg && cfg.apiKey) {
             firebaseConfig.apiKey = cfg.apiKey;
-            if (cfg.projectId) firebaseConfig.projectId = cfg.projectId;
-            if (cfg.authDomain) firebaseConfig.authDomain = cfg.authDomain;
-            if (cfg.storageBucket) firebaseConfig.storageBucket = cfg.storageBucket;
-            if (cfg.appId) firebaseConfig.appId = cfg.appId;
           }
+          if (cfg && cfg.projectId) {
+            firebaseConfig.projectId = cfg.projectId;
+            if (!cfg.authDomain || cfg.authDomain === 'pacific-ember-18chg.firebaseapp.com') {
+              firebaseConfig.authDomain = `${cfg.projectId}.firebaseapp.com`;
+            }
+          }
+          if (cfg && cfg.authDomain && cfg.authDomain !== 'pacific-ember-18chg.firebaseapp.com') {
+            firebaseConfig.authDomain = cfg.authDomain;
+          }
+          if (cfg && cfg.storageBucket) firebaseConfig.storageBucket = cfg.storageBucket;
+          if (cfg && cfg.appId) firebaseConfig.appId = cfg.appId;
         }
-      } catch (e) {
-        // Proceed with built-in firebaseConfig
+      } catch (_) {}
+
+      // 2. Auto-detect projectId & authDomain from Identity Toolkit if API key belongs to a custom Firebase project
+      if (firebaseConfig.apiKey) {
+        try {
+          const projRes = await fetch(`https://identitytoolkit.googleapis.com/v1/projects?key=${encodeURIComponent(firebaseConfig.apiKey)}`, { cache: 'no-store' });
+          if (projRes.ok) {
+            const projData = await projRes.json().catch(() => ({}));
+            if (projData && projData.projectId) {
+              firebaseConfig.projectId = projData.projectId;
+              firebaseConfig.authDomain = `${projData.projectId}.firebaseapp.com`;
+            }
+          }
+        } catch (_) {}
       }
 
       if (!firebaseConfig.apiKey) {
         return { app: null, auth: null, provider: null, sdk: null, isReady: false };
       }
 
-      // 1. Check if global compat SDK is present
+      // 3. Initialize via Global Compat SDK if present
       if (typeof window.firebase !== 'undefined' && window.firebase.initializeApp && window.firebase.auth) {
         try {
           if (!window.firebase.apps || window.firebase.apps.length === 0) {
@@ -63,10 +163,6 @@
             signInWithPopup: (auth, provider) => auth.signInWithPopup(provider),
             signInWithRedirect: (auth, provider) => auth.signInWithRedirect(provider),
             getRedirectResult: (auth) => auth.getRedirectResult(),
-            signInWithEmailAndPassword: (auth, email, password) => auth.signInWithEmailAndPassword(email, password),
-            createUserWithEmailAndPassword: (auth, email, password) => auth.createUserWithEmailAndPassword(email, password),
-            sendPasswordResetEmail: (auth, email) => auth.sendPasswordResetEmail(email),
-            updateProfile: (user, profile) => user.updateProfile(profile),
             signOut: (auth) => auth.signOut(),
             onAuthStateChanged: (auth, cb) => auth.onAuthStateChanged(cb)
           };
@@ -93,7 +189,7 @@
         }
       }
 
-      // 2. Official Google ESM imports
+      // 4. Fallback to Official Google ESM imports
       try {
         const [appMod, authMod] = await Promise.all([
           import('https://www.gstatic.com/firebasejs/10.8.0/firebase-app.js'),
@@ -145,34 +241,6 @@
     return initPromise;
   }
 
-  function formatFirebaseError(err) {
-    if (!err) return 'Please enter your Google / Gmail address below to continue.';
-    const code = err.code || '';
-    switch (code) {
-      case 'auth/invalid-credential':
-      case 'auth/wrong-password':
-      case 'auth/user-not-found':
-        return 'Incorrect email or password. Please verify and try again.';
-      case 'auth/email-already-in-use':
-        return 'An account already exists with this email address. Please sign in instead.';
-      case 'auth/weak-password':
-        return 'Password should be at least 6 characters.';
-      case 'auth/invalid-email':
-        return 'Please enter a valid email address.';
-      case 'auth/popup-closed-by-user':
-      case 'auth/cancelled-popup-request':
-        return 'Enter your Google / Gmail address below and click "Continue with Google" to sign in instantly.';
-      case 'auth/popup-blocked':
-      case 'auth/unauthorized-domain':
-      case 'auth/operation-not-supported-in-this-environment':
-        return 'Enter your Google / Gmail address below and click "Continue with Google" to sign in instantly.';
-      case 'auth/network-request-failed':
-        return 'Network connection error. Please check your internet connection and try again.';
-      default:
-        return 'Enter your Google / Gmail address below and click "Continue with Google" to sign in instantly.';
-    }
-  }
-
   const WishFirebaseAuth = {
     getConfig() {
       return { ...firebaseConfig };
@@ -191,8 +259,8 @@
     async signInWithGoogle() {
       const fb = await getFirebase();
       if (!fb || !fb.auth || !fb.sdk) {
-        const initErr = new Error('Enter your Google / Gmail address below and click "Continue with Google" to sign in instantly.');
-        initErr.code = 'AUTH_FALLBACK_REQUIRED';
+        const initErr = new Error('GOOGLE_CHOOSER_FALLBACK');
+        initErr.code = 'auth/account-chooser-fallback';
         throw initErr;
       }
       const { auth, provider, sdk } = fb;
@@ -200,84 +268,12 @@
         const result = await sdk.signInWithPopup(auth, provider);
         return result.user;
       } catch (err) {
-        const errObj = new Error(formatFirebaseError(err));
-        errObj.code = (err && err.code) || 'AUTH_FALLBACK_REQUIRED';
+        const code = (err && err.code) || 'auth/account-chooser-fallback';
+        const errObj = new Error(err && err.message ? err.message : 'Google sign-in popup note');
+        errObj.code = code;
         errObj.originalError = err;
         throw errObj;
       }
-    },
-
-    async signInWithGmailAddress(email, displayName = '') {
-      const clean = (email || '').trim().toLowerCase();
-      if (!clean || !clean.includes('@')) {
-        throw new Error('Please enter a valid Google / Gmail address.');
-      }
-      const res = await fetch('/api/auth/signin', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'Accept': 'application/json'
-        },
-        credentials: 'include',
-        body: JSON.stringify({
-          email: clean,
-          displayName: (displayName || '').trim() || clean.split('@')[0],
-          provider: 'google'
-        })
-      });
-      const data = await res.json().catch(() => ({}));
-      const user = data?.user || data?.data?.user;
-      if (!res.ok || data?.success !== true || !user) {
-        throw new Error(data?.error?.message || data?.message || 'Authentication failed. Please try again.');
-      }
-      return user;
-    },
-
-    async signInWithEmailPassword(email, password) {
-      if (!email || !email.includes('@')) {
-        throw new Error('Please enter a valid email address.');
-      }
-      if (!password || password.length < 6) {
-        throw new Error('Password must be at least 6 characters.');
-      }
-      const fb = await getFirebase();
-      if (!fb || !fb.auth || !fb.sdk || typeof fb.sdk.signInWithEmailAndPassword !== 'function') {
-        throw new Error('Firebase Auth is currently unavailable.');
-      }
-      const result = await fb.sdk.signInWithEmailAndPassword(fb.auth, email.trim(), password);
-      return result.user;
-    },
-
-    async signUpWithEmailPassword(email, password, displayName = '') {
-      if (!email || !email.includes('@')) {
-        throw new Error('Please enter a valid email address.');
-      }
-      if (!password || password.length < 6) {
-        throw new Error('Password must be at least 6 characters.');
-      }
-      const fb = await getFirebase();
-      if (!fb || !fb.auth || !fb.sdk || typeof fb.sdk.createUserWithEmailAndPassword !== 'function') {
-        throw new Error('Firebase Auth is currently unavailable.');
-      }
-      const result = await fb.sdk.createUserWithEmailAndPassword(fb.auth, email.trim(), password);
-      if (displayName && displayName.trim() && typeof fb.sdk.updateProfile === 'function') {
-        try {
-          await fb.sdk.updateProfile(result.user, { displayName: displayName.trim() });
-        } catch (_) {}
-      }
-      return result.user;
-    },
-
-    async sendPasswordReset(email) {
-      if (!email || !email.includes('@')) {
-        throw new Error('Please enter a valid email address.');
-      }
-      const fb = await getFirebase();
-      if (!fb || !fb.auth || !fb.sdk || typeof fb.sdk.sendPasswordResetEmail !== 'function') {
-        throw new Error('Password reset is currently unavailable.');
-      }
-      await fb.sdk.sendPasswordResetEmail(fb.auth, email.trim());
-      return true;
     },
 
     async signOut() {

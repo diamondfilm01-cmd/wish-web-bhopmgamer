@@ -238,10 +238,10 @@
       cloudLink = document.createElement('link');
       cloudLink.id = 'wishmagic-cloud-css';
       cloudLink.rel = 'stylesheet';
-      cloudLink.href = '/css/cloud-background.css?v=20261014_v8';
+      cloudLink.href = '/css/cloud-background.css?v=20261014_v9';
       document.head.appendChild(cloudLink);
     } else {
-      cloudLink.href = '/css/cloud-background.css?v=20261014_v8';
+      cloudLink.href = '/css/cloud-background.css?v=20261014_v9';
       document.head.appendChild(cloudLink);
     }
 

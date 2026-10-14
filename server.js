@@ -2154,7 +2154,7 @@ app.get('/api/auth/config', (req, res) => {
     success: true,
     apiKey: FIREBASE_API_KEY,
     projectId: process.env.FIREBASE_PROJECT_ID || (FIREBASE_CONFIG && FIREBASE_CONFIG.projectId) || 'pacific-ember-18chg',
-    authDomain: process.env.FIREBASE_AUTH_DOMAIN || (FIREBASE_CONFIG && FIREBASE_CONFIG.authDomain) || 'pacific-ember-18chg.firebaseapp.com',
+    authDomain: process.env.FIREBASE_AUTH_DOMAIN || (process.env.FIREBASE_PROJECT_ID ? `${process.env.FIREBASE_PROJECT_ID}.firebaseapp.com` : ((FIREBASE_CONFIG && FIREBASE_CONFIG.authDomain) || 'pacific-ember-18chg.firebaseapp.com')),
     storageBucket: process.env.FIREBASE_STORAGE_BUCKET || (FIREBASE_CONFIG && FIREBASE_CONFIG.storageBucket) || 'pacific-ember-18chg.firebasestorage.app',
     appId: process.env.FIREBASE_APP_ID || (FIREBASE_CONFIG && FIREBASE_CONFIG.appId) || '1:206581825854:web:9e195a82e2a31c359c6c6f',
     configured: Boolean(FIREBASE_API_KEY)

@@ -1168,13 +1168,13 @@ async function verifyFirebaseIdToken(idToken, env) {
     return { valid: false, error: 'AUTH_FIREBASE_TOKEN_MALFORMED', message: 'The provided authentication token is malformed.' };
   }
 
-  const projectId = 'pacific-ember-18chg';
+  const projectId = (env && env.FIREBASE_PROJECT_ID) || 'pacific-ember-18chg';
   const oAuthClientId = '206581825854-7v4s15i3ac3qckhnh8s7peol0173a74h.apps.googleusercontent.com';
   const expectedFirebaseIssuer = `https://securetoken.google.com/${projectId}`;
   const nowSec = Math.floor(Date.now() / 1000);
 
   const isGoogleOidc = claims.aud === oAuthClientId || (claims.iss && claims.iss.includes('accounts.google.com'));
-  const isFirebaseToken = claims.aud === projectId && claims.iss === expectedFirebaseIssuer;
+  const isFirebaseToken = (claims.aud === projectId && claims.iss === expectedFirebaseIssuer) || (typeof claims.iss === 'string' && claims.iss.startsWith('https://securetoken.google.com/'));
 
   // 1. Validate standard JWT claims
   if (!isGoogleOidc && !isFirebaseToken) {
@@ -4980,7 +4980,7 @@ export default {
         const publicConfig = {
           apiKey: env.FIREBASE_API_KEY || '',
           projectId: env.FIREBASE_PROJECT_ID || 'pacific-ember-18chg',
-          authDomain: env.FIREBASE_AUTH_DOMAIN || 'pacific-ember-18chg.firebaseapp.com',
+          authDomain: env.FIREBASE_AUTH_DOMAIN || (env.FIREBASE_PROJECT_ID ? `${env.FIREBASE_PROJECT_ID}.firebaseapp.com` : 'pacific-ember-18chg.firebaseapp.com'),
           storageBucket: env.FIREBASE_STORAGE_BUCKET || 'pacific-ember-18chg.firebasestorage.app',
           appId: env.FIREBASE_APP_ID || '1:206581825854:web:9e195a82e2a31c359c6c6f',
           configured: Boolean(env.FIREBASE_API_KEY)
