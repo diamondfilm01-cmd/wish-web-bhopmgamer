@@ -10,8 +10,10 @@ import JSZip from '../src/vendor/jszip.js';
 import worker from '../src/worker.js';
 import {
   executeB2TemplateIngestPipeline,
+  extractAndVerifyZip,
   analyzeHtmlString
 } from '../src/template-ingest-pipeline.js';
+import { validateUtpManifest } from '../src/template-protocol-validator.js';
 import {
   ImgBBProvider,
   uint8ArrayToBase64
@@ -271,5 +273,85 @@ test('Hybrid ImgBB + Backblaze B2 Template Ingestion, Code Link Injection & Cust
     // Verify D1 persistence of template_images, template_files, template_versions, and templates
     assert.ok(d1Statements.some(s => s.sql.includes('INSERT OR REPLACE INTO template_images')), 'Must save ImgBB image record in D1 template_images');
     assert.ok(d1Statements.some(s => s.sql.includes('INSERT INTO template_files')), 'Must save B2 file records in D1 template_files');
+  });
+
+  await t.test("strips multi-level nested container folders in ZIP so wishmagic.json and index.html are at package root", async () => {
+    const zip = new JSZip();
+    zip.file("export-bundle/birthday-magic/wishmagic.json", JSON.stringify({
+      $schema: "wishmagic-template",
+      schemaVersion: "1.0.0",
+      template: { id: "birthday-magic", name: "Birthday Magic", templateVersion: "1.0.0", category: "birthday", tier: "free" }
+    }));
+    zip.file("export-bundle/birthday-magic/index.html", "<!DOCTYPE html><html><body><h1 data-wm-field=\"recipient_name\">Someone Special</h1></body></html>");
+    zip.file("export-bundle/birthday-magic/css/style.css", "body { color: #fff; }");
+
+    const zipBuffer = await zip.generateAsync({ type: "uint8array" });
+    const extracted = await extractAndVerifyZip(zipBuffer);
+
+    assert.strictEqual(extracted.entryFile, "index.html");
+    assert.ok(extracted.files.has("wishmagic.json"), "wishmagic.json normalized to root");
+    assert.ok(extracted.files.has("css/style.css"), "css/style.css normalized relative to root");
+  });
+
+  await t.test("validates 3-way UTP agreement: bound fields, MANIFEST_FIELD_UNBOUND warnings, and UNDECLARED_HTML_FIELD suggestions", () => {
+    const filesMap = new Map();
+    const htmlContent = `<!DOCTYPE html>
+<html>
+<head>
+  <link rel="stylesheet" href="css/style.css">
+</head>
+<body>
+  <section data-wm-section="hero">
+    <h1 data-wm-field="recipient_name" data-wm-type="text">Someone Special</h1>
+    <p data-wm-field="undeclared_extra_quote" data-wm-type="text">Bonus Quote</p>
+  </section>
+</body>
+</html>`;
+    filesMap.set("index.html", { content: new TextEncoder().encode(htmlContent) });
+    filesMap.set("css/style.css", { content: new TextEncoder().encode(":root { --wm-primary: #ff2a85; }") });
+
+    const manifest = {
+      $schema: "wishmagic-template",
+      schemaVersion: "1.0.0",
+      template: {
+        id: "birthday-magic",
+        name: "Birthday Magic",
+        templateVersion: "1.0.0",
+        category: "birthday",
+        tier: "free"
+      },
+      fields: [
+        {
+          id: "recipient_name",
+          type: "text",
+          label: "Recipient Name",
+          required: true,
+          defaultValue: "Someone Special",
+          binding: { target: "text", selector: "[data-wm-field='recipient_name']" }
+        },
+        {
+          id: "ghost_unbound_field",
+          type: "text",
+          label: "Ghost Field",
+          required: false,
+          binding: { target: "text", selector: "[data-wm-field='ghost_unbound_field']" }
+        }
+      ],
+      sections: [
+        { id: "hero", label: "Hero Section", required: true, toggleable: false }
+      ],
+      capabilities: ["themes"]
+    };
+
+    const report = validateUtpManifest(manifest, { filesMap, entryFile: "index.html" });
+    assert.strictEqual(report.valid, true);
+    assert.strictEqual(report.boundFields.length, 1);
+    assert.strictEqual(report.boundFields[0].id, "recipient_name");
+    assert.strictEqual(report.unboundFields.length, 1);
+    assert.strictEqual(report.unboundFields[0].id, "ghost_unbound_field");
+    assert.ok(report.issues.some(i => i.code === "MANIFEST_FIELD_UNBOUND" && i.field === "ghost_unbound_field"));
+    assert.strictEqual(report.suggestedFields.length, 1);
+    assert.strictEqual(report.suggestedFields[0].id, "undeclared_extra_quote");
+    assert.ok(report.issues.some(i => i.code === "UNDECLARED_HTML_FIELD" && i.field === "undeclared_extra_quote"));
   });
 });

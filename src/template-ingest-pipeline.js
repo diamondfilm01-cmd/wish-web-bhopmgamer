@@ -229,17 +229,29 @@ export async function extractAndVerifyZip(zipBuffer) {
     throw err;
   }
 
-  // 4. Calculate common root folder if present
-  // If all files start with "folder_name/", we can strip the top-level container
-  const fileEntriesOnly = entries.filter(p => !zip.files[p].dir);
-  let commonPrefix = '';
-  if (fileEntriesOnly.length > 0 && !fileEntriesOnly.some(p => p.toLowerCase() === 'index.html')) {
-    const firstParts = fileEntriesOnly[0].split('/');
-    if (firstParts.length > 1) {
-      const candidate = firstParts[0] + '/';
-      const allShare = fileEntriesOnly.every(p => p.startsWith(candidate));
-      if (allShare) {
-        commonPrefix = candidate;
+  // 4. Calculate common root folder if present (supports multi-level nested containers)
+  const fileEntriesOnly = entries
+    .filter(p => !zip.files[p].dir)
+    .map(p => String(p).replace(/\\/g, "/"))
+    .filter(p => !p.includes("__MACOSX/") && !p.endsWith(".DS_Store"));
+  let commonPrefix = "";
+  if (fileEntriesOnly.length > 0 && !fileEntriesOnly.some(p => p.toLowerCase() === "index.html")) {
+    const rootMarker = fileEntriesOnly
+      .filter(p => /(?:^|\/)index\.html$/i.test(p) || /(?:^|\/)wishmagic\.json$/i.test(p))
+      .sort((a, b) => a.length - b.length)[0];
+    if (rootMarker && rootMarker.includes("/")) {
+      const candidatePrefix = rootMarker.slice(0, rootMarker.lastIndexOf("/") + 1);
+      if (fileEntriesOnly.every(p => p.startsWith(candidatePrefix))) {
+        commonPrefix = candidatePrefix;
+      }
+    }
+    if (!commonPrefix) {
+      const firstParts = fileEntriesOnly[0].split("/");
+      if (firstParts.length > 1) {
+        const candidate = firstParts[0] + "/";
+        if (fileEntriesOnly.every(p => p.startsWith(candidate))) {
+          commonPrefix = candidate;
+        }
       }
     }
   }
@@ -961,26 +973,42 @@ export async function executeB2TemplateIngestPipeline(params) {
   // 3. Analyze template & compute hashes
   const analyzed = await analyzeTemplateAndBuildIntegrity(extracted, zipBuffer);
 
-  // Merge manifest-declared fields with DOM-detected fields without duplicates
+  // Merge manifest-declared fields with DOM-detected fields following UTP priority:
+  // Explicit manifest declarations first; auto-detected HTML fields only auto-merged when no explicit manifest fields array exists (otherwise surfaced in suggestedFields until confirmed)
+  const hasExplicitManifestFields = Boolean(
+    rawManifest && (Array.isArray(rawManifest.fields) || (rawManifest.template && Array.isArray(rawManifest.template.fields)))
+  );
   const finalFieldsMap = new Map();
-  for (const f of analyzed.detectedFields) {
-    finalFieldsMap.set(f.key, f);
-  }
   if (utpReport.normalized && Array.isArray(utpReport.normalized.fields)) {
     for (const mf of utpReport.normalized.fields) {
       const fKey = mf.id || mf.key;
       if (!fKey) continue;
-      if (!finalFieldsMap.has(fKey)) {
-        finalFieldsMap.set(fKey, {
-          key: fKey,
-          label: mf.label || fKey.replace(/_/g, ' ').replace(/\b\w/g, c => c.toUpperCase()),
-          type: mf.type || 'text',
-          placeholder: mf.placeholder || '',
-          defaultValue: mf.defaultValue || '',
-          isRequired: Boolean(mf.required),
-          category: mf.group || mf.category || 'personal',
-          validation: mf.constraints || mf.validation || {}
-        });
+      const htmlDetected = analyzed.detectedFields.find(df => df.key === fKey);
+      finalFieldsMap.set(fKey, {
+        id: fKey,
+        key: fKey,
+        label: mf.label || htmlDetected?.label || fKey.replace(/_/g, " ").replace(/\b\w/g, c => c.toUpperCase()),
+        type: mf.type || htmlDetected?.type || "text",
+        placeholder: mf.placeholder || htmlDetected?.placeholder || "",
+        defaultValue: mf.defaultValue !== undefined && mf.defaultValue !== null && mf.defaultValue !== "" ? mf.defaultValue : (htmlDetected?.defaultValue || ""),
+        originalSrc: htmlDetected?.originalSrc || (typeof mf.defaultValue === "string" ? mf.defaultValue : ""),
+        isRequired: Boolean(mf.required ?? htmlDetected?.isRequired),
+        required: Boolean(mf.required ?? htmlDetected?.isRequired),
+        category: mf.group || mf.category || htmlDetected?.category || "personal",
+        binding: mf.binding || { target: "text", selector: "[data-wm-field='" + fKey + "']" },
+        options: mf.options || null,
+        visibleIf: mf.visibleIf || null,
+        clearOnHide: Boolean(mf.clearOnHide),
+        autoDetected: false,
+        confirmed: true,
+        validation: mf.constraints || mf.validation || htmlDetected?.validation || {}
+      });
+    }
+  }
+  if (!hasExplicitManifestFields) {
+    for (const f of analyzed.detectedFields) {
+      if (!finalFieldsMap.has(f.key)) {
+        finalFieldsMap.set(f.key, f);
       }
     }
   }
@@ -1542,8 +1570,10 @@ export async function executeB2TemplateIngestPipeline(params) {
         templateMetadata.featured ? 1 : 0,
         resolvedThumbnail,
         JSON.stringify(uploadedImgbbImages.map(img => img.displayUrl).filter(Boolean)),
-        JSON.stringify(templateMetadata.capabilities || {}),
+        JSON.stringify(utpReport.normalized?.capabilities || templateMetadata.capabilities || {}),
         JSON.stringify(mergedFields || []),
+        JSON.stringify(utpReport.normalized?.sections || templateMetadata.sections || []),
+        JSON.stringify(utpReport.normalized || {}),
         familySlug,
         extracted.entryFile,
         nowIso,
@@ -1767,6 +1797,7 @@ export async function executeB2TemplateIngestPipeline(params) {
       fileCount: analyzed.fileRecords.length,
       fieldsCount: mergedFields.length,
       detectedFields: mergedFields,
+      suggestedFields: utpReport.suggestedFields || [],
       imgbbImages: manifestPayload.imgbbImages,
       b2MediaAssets: manifestPayload.b2MediaAssets,
       storageProvider: 'b2'

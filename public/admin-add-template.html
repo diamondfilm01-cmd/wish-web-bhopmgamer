@@ -545,10 +545,16 @@
             <a href="/admin/anktech/anktech/admin/templates" class="px-5 py-2.5 rounded-full bg-surface-container-high hover:bg-surface-container-highest text-on-surface font-bold text-xs sm:text-sm transition">
               ← View All Templates
             </a>
-            <button type="button" id="btn-deploy-template" onclick="deployUploadedTemplate()" class="wm-btn-pink-pill !px-7 !py-3 !text-sm">
-              <span class="material-symbols-outlined text-[20px]" style="font-variation-settings: 'FILL' 1;">rocket_launch</span>
-              <span>Deploy &amp; Set Template on Website</span>
-            </button>
+            <div class="flex flex-wrap items-center gap-2.5">
+              <button type="button" id="btn-stage-template-draft" onclick="deployUploadedTemplate(false)" class="px-5 py-2.5 rounded-full bg-surface-container-high hover:bg-surface-container-highest border border-purple-500/30 text-on-surface font-bold text-xs sm:text-sm transition flex items-center gap-1.5 cursor-pointer" title="Upload to cloud and stage for live preview without publishing to public store yet">
+                <span class="material-symbols-outlined text-[18px]">draft</span>
+                <span>Save as Draft (Preview First)</span>
+              </button>
+              <button type="button" id="btn-deploy-template" onclick="deployUploadedTemplate(true)" class="wm-btn-pink-pill !px-7 !py-3 !text-sm">
+                <span class="material-symbols-outlined text-[20px]" style="font-variation-settings: 'FILL' 1;">rocket_launch</span>
+                <span>Deploy &amp; Publish to Website</span>
+              </button>
+            </div>
           </div>
         </section>
 

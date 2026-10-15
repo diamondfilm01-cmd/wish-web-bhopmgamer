@@ -379,6 +379,7 @@ async function loadTemplateData(templateId) {
     await loadTemplateManifestIfNeeded(activeTemplate);
     if (currentGen !== customizerTemplateLoadGeneration) return;
 
+    applyUtpTemplateCapabilityGating(activeTemplate);
     renderDynamicTemplateFields(activeTemplate);
     populateFormValuesFromState();
     validateDraftEntitlements(currentCustomData);
@@ -421,6 +422,140 @@ async function loadTemplateManifestIfNeeded(template) {
     }
   } catch (e) {}
   return null;
+}
+
+/**
+ * Enforces strict UTP v1.0.0 capability & field gating so custom uploaded templates
+ * ONLY display customization controls, media uploaders, and sections that they genuinely support.
+ */
+function applyUtpTemplateCapabilityGating(template) {
+  if (!template) return;
+  const manifest = (template.manifest && typeof template.manifest === "object")
+    ? template.manifest
+    : (typeof template.theme === "object" && template.theme && template.theme.fields ? template.theme : null);
+
+  const rawFields = (manifest && Array.isArray(manifest.fields) && manifest.fields.length > 0)
+    ? manifest.fields
+    : (Array.isArray(template.detectedFields) && template.detectedFields.length > 0
+      ? template.detectedFields
+      : (Array.isArray(template.fields) ? template.fields : []));
+
+  const hasExplicitUtpSchema = Boolean(
+    (manifest && Array.isArray(manifest.fields) && manifest.fields.length > 0) ||
+    (Array.isArray(template.detectedFields) && template.detectedFields.length > 0)
+  );
+
+  if (!hasExplicitUtpSchema) return;
+
+  const fieldByKey = new Map();
+  rawFields.forEach(f => {
+    const k = String(f.id || f.key || "").trim();
+    if (k) fieldByKey.set(k, f);
+  });
+
+  const capsList = Array.isArray(manifest?.capabilities)
+    ? manifest.capabilities
+    : (Array.isArray(template.capabilities) ? template.capabilities : []);
+  const capsObj = (!Array.isArray(manifest?.capabilities) && typeof manifest?.capabilities === "object" && manifest?.capabilities)
+    ? manifest.capabilities
+    : ((!Array.isArray(template.capabilities) && typeof template.capabilities === "object" && template.capabilities) ? template.capabilities : {});
+
+  const hasCap = (name) => capsList.includes(name) || Boolean(capsObj[name]);
+
+  // 1. Sync Core Personal Info Fields (recipient_name, sender_name, event_date, custom_message)
+  const coreFieldInputs = [
+    { key: "recipient_name", inputId: "input-recipient" },
+    { key: "sender_name", inputId: "input-sender" },
+    { key: "event_date", inputId: "input-date" },
+    { key: "custom_message", inputId: "input-message" }
+  ];
+
+  coreFieldInputs.forEach(({ key, inputId }) => {
+    const inputEl = document.getElementById(inputId);
+    if (!inputEl) return;
+    const wrapper = inputEl.closest("div");
+    const declared = fieldByKey.get(key);
+
+    if (declared) {
+      if (wrapper) wrapper.classList.remove("hidden");
+      const labelEl = wrapper ? wrapper.querySelector("label") : null;
+      if (labelEl && declared.label) {
+        labelEl.innerHTML = declared.label + (declared.required || declared.isRequired ? " <span class=\"text-pink-500\">*</span>" : "");
+      }
+      if (declared.placeholder) inputEl.placeholder = declared.placeholder;
+      if (declared.defaultValue && !currentCustomData[key]) {
+        currentCustomData[key] = declared.defaultValue;
+      }
+    } else if (manifest && Array.isArray(manifest.fields) && manifest.fields.length > 0) {
+      // If template has a strict wishmagic.json manifest and did not declare this built-in field, hide it
+      if (key === "event_date" && !hasCap("countdown")) {
+        if (wrapper) wrapper.classList.add("hidden");
+      } else if (key === "sender_name") {
+        if (wrapper) wrapper.classList.add("hidden");
+      } else if (key === "custom_message" && rawFields.some(f => f.type === "textarea")) {
+        if (wrapper) wrapper.classList.add("hidden");
+      }
+    }
+  });
+
+  // 2. Gate Photo / Gallery Section
+  const imageFields = rawFields.filter(f => f.type === "image" || f.type === "image-multiple");
+  const supportsMultiGallery = rawFields.some(f => f.type === "image-multiple") || imageFields.length > 1 || hasCap("gallery") || hasCap("multiplePhotos");
+  const supportsAnyPhoto = imageFields.length > 0 || hasCap("photos") || supportsMultiGallery;
+
+  const photoDropzone = document.getElementById("photo-dropzone");
+  const photoCard = photoDropzone ? photoDropzone.closest(".glass-surface") : null;
+  const galleryLayoutBox = document.getElementById("gallery-layout-selector")?.parentElement;
+
+  if (photoCard) {
+    if (!supportsAnyPhoto) {
+      photoCard.classList.add("hidden");
+    } else {
+      photoCard.classList.remove("hidden");
+      if (galleryLayoutBox) {
+        if (!supportsMultiGallery) galleryLayoutBox.classList.add("hidden");
+        else galleryLayoutBox.classList.remove("hidden");
+      }
+    }
+  }
+
+  // 3. Gate Voice Note Section
+  const supportsVoice = rawFields.some(f => f.type === "voice" || f.id === "voice_note" || f.key === "voice_note") || hasCap("voice") || hasCap("voiceNote");
+  const voiceWrapper = document.getElementById("voice-note-section-wrapper");
+  if (voiceWrapper) {
+    if (!supportsVoice) voiceWrapper.classList.add("hidden");
+    else voiceWrapper.classList.remove("hidden");
+  }
+
+  // 4. Gate Background Music Section
+  const supportsMusic = rawFields.some(f => f.type === "audio" || f.id === "background_music" || f.key === "background_music") || hasCap("music") || hasCap("audio");
+  const musicWrapper = document.getElementById("music-section-wrapper");
+  if (musicWrapper) {
+    if (!supportsMusic) musicWrapper.classList.add("hidden");
+    else musicWrapper.classList.remove("hidden");
+  }
+
+  // 5. Sync Declared Sections for Step 3
+  const declaredSections = (manifest && Array.isArray(manifest.sections) && manifest.sections.length > 0)
+    ? manifest.sections
+    : (Array.isArray(template.sections) && template.sections.length > 0 ? template.sections : []);
+
+  if (declaredSections.length > 0) {
+    currentCustomData.sections = declaredSections.map((sec, idx) => {
+      const sId = typeof sec === "string" ? sec : (sec.id || sec.key);
+      return {
+        id: sId,
+        name: sec.label || sec.name || sId.replace(/_/g, " ").replace(/\b\w/g, c => c.toUpperCase()),
+        description: sec.description || "",
+        required: Boolean(sec.required),
+        toggleable: sec.required ? false : (sec.toggleable !== false),
+        enabled: sec.defaultEnabled !== false,
+        order: sec.order || (idx + 1),
+        selector: "[data-wm-section=\"" + sId + "\"]"
+      };
+    });
+    renderSectionsUI();
+  }
 }
 
 function renderDynamicTemplateFields(template) {
@@ -4394,9 +4529,16 @@ function syncDataToIframe() {
       });
     }
 
-    // Detected custom fields & arbitrary field sync (supports IMG, AUDIO, VIDEO, and text)
-    if (activeTemplate && Array.isArray(activeTemplate.detectedFields)) {
-      activeTemplate.detectedFields.forEach(f => {
+    // Detected & manifest custom fields sync (supports IMG, AUDIO, VIDEO, CSS variables, custom selectors, and text)
+    const allTemplateFields = [
+      ...((activeTemplate && activeTemplate.manifest && Array.isArray(activeTemplate.manifest.fields)) ? activeTemplate.manifest.fields : []),
+      ...((activeTemplate && Array.isArray(activeTemplate.detectedFields)) ? activeTemplate.detectedFields : [])
+    ];
+    if (allTemplateFields.length > 0) {
+      allTemplateFields.forEach(f => {
+        const fKey = f.key || f.id;
+        if (!fKey) return;
+        f.key = fKey;
         const val = currentCustomData[f.key];
         if (val !== undefined && val !== null && val !== '') {
           doc.querySelectorAll(`[data-wm="${f.key}"], [data-wm-field="${f.key}"]`).forEach(el => {
@@ -4430,6 +4572,26 @@ function syncDataToIframe() {
       const activeTheme = getActiveThemeConfig();
       window.WishThemeEngine.applyThemeToDocument(doc, activeTheme);
     }
+
+    // Toggle [data-wm-section] elements directly in iframe DOM
+    if (Array.isArray(currentCustomData.sections)) {
+      currentCustomData.sections.forEach(sec => {
+        if (!sec || !sec.id) return;
+        doc.querySelectorAll(`[data-wm-section="${sec.id}"]`).forEach(secEl => {
+          secEl.style.display = sec.enabled === false ? "none" : "";
+        });
+      });
+    }
+
+    // Dispatch wishmagic:data-updated custom event inside iframe so countdowns/galleries react live
+    try {
+      if (iframe.contentWindow) {
+        iframe.contentWindow.WishMagicData = currentCustomData;
+        const liveEvt = new CustomEvent("wishmagic:data-updated", { detail: currentCustomData });
+        iframe.contentWindow.dispatchEvent(liveEvt);
+        doc.dispatchEvent(liveEvt);
+      }
+    } catch (_) {}
 
     // Inject Dynamic Styles for Themes, Colors, Fonts, & Section Visibility
     injectCustomStylesToIframe(doc);

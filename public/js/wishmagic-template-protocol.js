@@ -2,7 +2,8 @@
  * WishMagic Universal Template Protocol (v1.0)
  * -------------------------------------------------------------
  * Provides self-describing capability discovery, validation,
- * safe DOM data hydration, and event listeners for all wish templates.
+ * safe DOM data hydration, manifest binding target execution,
+ * and event listeners for all UTP v1.0.0 wish templates.
  */
 
 (function (global) {
@@ -35,19 +36,86 @@
   }
 
   /**
-   * Universal Field Setter
+   * Lookup manifest field definition if window.WishMagicManifest is available
+   */
+  function getManifestFieldConfig(key) {
+    const manifest = global.WishMagicManifest;
+    if (!manifest || !Array.isArray(manifest.fields)) return null;
+    return manifest.fields.find(f => (f.id || f.key) === key) || null;
+  }
+
+  /**
+   * Resolve DOM elements for a field key using both standard [data-wm-field] / [data-wm]
+   * and any custom binding.selector declared in wishmagic.json
+   */
+  function resolveFieldElements(key, fieldConfig) {
+    const selectorParts = [`[data-wm-field="${key}"]`, `[data-wm="${key}"]`];
+    if (fieldConfig && fieldConfig.binding && fieldConfig.binding.selector) {
+      const customSel = String(fieldConfig.binding.selector).trim();
+      if (customSel && ! customSel.startsWith('{{') && !customSel.startsWith('--')) {
+        selectorParts.push(customSel);
+      }
+    }
+    const nodeSet = new Set();
+    selectorParts.forEach(sel => {
+      try {
+        document.querySelectorAll(sel).forEach(el => nodeSet.add(el));
+      } catch (_) {}
+    });
+    return Array.from(nodeSet);
+  }
+
+  /**
+   * Universal Field Setter (supports all UTP v1.0.0 field types & binding targets)
    */
   function setWishMagicField(key, value, customData) {
-    // Look for elements with data-wm-field or legacy data-wm
-    const elements = document.querySelectorAll(`[data-wm-field="${key}"], [data-wm="${key}"]`);
-    
-    elements.forEach(element => {
-      const type = element.getAttribute('data-wm-type') || (element.tagName === 'IMG' ? 'image' : 'text');
-      const isRequired = element.getAttribute('data-wm-required') === 'true';
-      const defaultValue = element.getAttribute('data-wm-default') || '';
+    const fieldConfig = getManifestFieldConfig(key);
+    const declaredType = fieldConfig && fieldConfig.type ? String(fieldConfig.type).toLowerCase() : '';
+    const bindingTarget = fieldConfig && fieldConfig.binding && fieldConfig.binding.target
+      ? String(fieldConfig.binding.target).toLowerCase()
+      : '';
 
-      // Check empty state
-      const hasValue = value !== undefined && value !== null && String(value).trim() !== '';
+    // Handle root CSS variable binding even if no specific DOM element is targeted
+    if (declaredType === 'color' || bindingTarget === 'css-variable') {
+      const cssVarName = (fieldConfig && fieldConfig.binding && (fieldConfig.binding.attribute || fieldConfig.binding.selector)) || '';
+      const activeColor = (value !== undefined && value !== null && String(value).trim() !== '')
+        ? String(value).trim()
+        : (fieldConfig && fieldConfig.defaultValue ? String(fieldConfig.defaultValue) : '');
+      if (activeColor) {
+        if (cssVarName && cssVarName.startsWith('--')) {
+          document.documentElement.style.setProperty(cssVarName, activeColor);
+        } else if (key === 'primary_color' || key === 'primary') {
+          document.documentElement.style.setProperty('--wm-primary', activeColor);
+        } else if (key === 'secondary_color' || key === 'secondary') {
+          document.documentElement.style.setProperty('--wm-secondary', activeColor);
+        } else if (key === 'accent_color' || key === 'accent') {
+          document.documentElement.style.setProperty('--wm-accent', activeColor);
+        } else {
+          document.documentElement.style.setProperty(`--wm-${key.replace(/_/g, '-')}`, activeColor);
+        }
+      }
+    }
+
+    const elements = resolveFieldElements(key, fieldConfig);
+
+    elements.forEach(element => {
+      const type = (
+        element.getAttribute('data-wm-type') ||
+        declaredType ||
+        (element.tagName === 'IMG' ? 'image' : (element.tagName === 'AUDIO' ? 'audio' : (element.tagName === 'VIDEO' ? 'video' : 'text')))
+      ).toLowerCase();
+      const target = (
+        element.getAttribute('data-wm-target') ||
+        bindingTarget ||
+        (element.tagName === 'IMG' || element.tagName === 'AUDIO' || element.tagName === 'VIDEO' ? 'src' : 'text')
+      ).toLowerCase();
+
+      const isRequired = element.getAttribute('data-wm-required') === 'true' || Boolean(fieldConfig && fieldConfig.required);
+      const defaultValue = element.getAttribute('data-wm-default') || (fieldConfig && fieldConfig.defaultValue !== undefined ? fieldConfig.defaultValue : '');
+
+      const hasValue = value !== undefined && value !== null && (
+        Array.isArray(value) ? value.length > 0 : String(value).trim() !== ''
+      );
 
       if (!hasValue && !isRequired && !defaultValue) {
         element.setAttribute('data-wm-empty', 'true');
@@ -57,64 +125,147 @@
 
       const activeValue = hasValue ? value : defaultValue;
 
+      // Explicit binding target support
+      if (target === 'background-image') {
+        const bgUrl = typeof activeValue === 'object' && activeValue !== null ? (activeValue.displayUrl || activeValue.url || activeValue.src || '') : activeValue;
+        element.style.backgroundImage = bgUrl ? `url("${bgUrl}")` : '';
+        return;
+      }
+      if (target === 'href') {
+        if (activeValue) element.setAttribute('href', String(activeValue));
+        return;
+      }
+      if (target === 'css-variable') {
+        const varProp = element.getAttribute('data-wm-css-var') || (fieldConfig?.binding?.attribute) || `--wm-${key.replace(/_/g, '-')}`;
+        if (activeValue) element.style.setProperty(varProp, String(activeValue));
+        return;
+      }
+      if (target === 'style-property') {
+        const styleProp = element.getAttribute('data-wm-style-prop') || (fieldConfig?.binding?.attribute) || 'color';
+        if (activeValue) element.style[styleProp] = String(activeValue);
+        return;
+      }
+      if (target === 'visibility') {
+        const visible = Boolean(activeValue && activeValue !== 'false' && activeValue !== '0');
+        element.style.display = visible ? '' : 'none';
+        return;
+      }
+
       switch (type) {
-        case 'image':
+        case 'image': {
+          const imgUrl = typeof activeValue === 'object' && activeValue !== null
+            ? (activeValue.displayUrl || activeValue.url || activeValue.src || '')
+            : String(activeValue || '');
           if (element.tagName === 'IMG') {
-            setImageSafe(element, activeValue, '/assets/file_ab2082.png');
+            setImageSafe(element, imgUrl, '/assets/file_ab2082.png');
           } else {
-            element.style.backgroundImage = activeValue ? `url("${activeValue}")` : '';
+            element.style.backgroundImage = imgUrl ? `url("${imgUrl}")` : '';
           }
           break;
+        }
+
+        case 'image-multiple': {
+          const list = Array.isArray(activeValue) ? activeValue : [];
+          const childImgs = element.querySelectorAll('img');
+          if (childImgs.length > 0) {
+            childImgs.forEach((imgEl, idx) => {
+              const item = list[idx];
+              const itemUrl = typeof item === 'string' ? item : (item && (item.displayUrl || item.url || item.src));
+              if (itemUrl) {
+                imgEl.src = itemUrl;
+                imgEl.style.display = '';
+              }
+            });
+          }
+          break;
+        }
 
         case 'video':
-          if (element.tagName === 'VIDEO') {
-            if (activeValue) {
-              element.src = activeValue;
-              element.load();
+        case 'video-multiple': {
+          const vidUrl = typeof activeValue === 'object' && activeValue !== null
+            ? (activeValue.streamUrl || activeValue.url || activeValue.src || '')
+            : String(activeValue || '');
+          if (element.tagName === 'VIDEO' && vidUrl) {
+            if (element.src !== vidUrl) {
+              element.src = vidUrl;
+              const sourceChild = element.querySelector('source');
+              if (sourceChild) sourceChild.src = vidUrl;
+              try { element.load(); } catch (_) {}
             }
           }
           break;
+        }
 
         case 'audio':
-          if (element.tagName === 'AUDIO') {
-            if (activeValue) {
-              element.src = activeValue;
+        case 'voice': {
+          const audUrl = typeof activeValue === 'object' && activeValue !== null
+            ? (activeValue.streamUrl || activeValue.url || activeValue.src || '')
+            : String(activeValue || '');
+          const audioEl = element.tagName === 'AUDIO' ? element : element.querySelector('audio');
+          if (audioEl && audUrl) {
+            if (audioEl.src !== audUrl) {
+              audioEl.src = audUrl;
+              const sourceChild = audioEl.querySelector('source');
+              if (sourceChild) sourceChild.src = audUrl;
+              try { audioEl.load(); } catch (_) {}
             }
           }
           break;
+        }
 
-        case 'color':
+        case 'color': {
           if (key === 'primary_color' || key === 'primary') {
             document.documentElement.style.setProperty('--wm-primary', activeValue);
           } else if (key === 'secondary_color' || key === 'secondary') {
             document.documentElement.style.setProperty('--wm-secondary', activeValue);
           } else if (key === 'accent_color' || key === 'accent') {
             document.documentElement.style.setProperty('--wm-accent', activeValue);
+          } else {
+            document.documentElement.style.setProperty(`--wm-${key.replace(/_/g, '-')}`, activeValue);
           }
           break;
+        }
 
-        case 'toggle':
-          if (typeof activeValue === 'boolean') {
-            if (!activeValue) {
-              element.setAttribute('data-wm-disabled', 'true');
-            } else {
-              element.removeAttribute('data-wm-disabled');
+        case 'toggle': {
+          const boolVal = typeof activeValue === 'boolean' ? activeValue : (String(activeValue).toLowerCase() === 'true');
+          if (!boolVal) {
+            element.setAttribute('data-wm-disabled', 'true');
+            if (target === 'toggle' && element.hasAttribute('data-wm-hide-when-off')) {
+              element.style.display = 'none';
+            }
+          } else {
+            element.removeAttribute('data-wm-disabled');
+            if (target === 'toggle' && element.hasAttribute('data-wm-hide-when-off')) {
+              element.style.display = '';
             }
           }
           break;
+        }
+
+        case 'date':
+        case 'time':
+        case 'datetime': {
+          if (activeValue) {
+            element.setAttribute('data-wm-date-value', String(activeValue));
+          }
+          setTextSafe(element, activeValue);
+          break;
+        }
 
         case 'text':
         case 'textarea':
-        case 'date':
-        case 'time':
-        case 'datetime':
         case 'number':
         case 'phone':
         case 'email':
-        default:
-          if (key === 'sender_name') {
-            // Standard formatting for sender attribution
-            setTextSafe(element, activeValue ? `— ${activeValue}` : '— Someone Special');
+        case 'select':
+        case 'multiselect':
+        case 'range':
+        default: {
+          if (element.tagName === 'INPUT' || element.tagName === 'TEXTAREA' || element.tagName === 'SELECT') {
+            element.value = activeValue !== undefined && activeValue !== null ? String(activeValue) : '';
+          } else if (key === 'sender_name') {
+            const rawSender = String(activeValue || '').trim();
+            setTextSafe(element, rawSender ? (rawSender.startsWith('—') ? rawSender : `— ${rawSender}`) : '— Someone Special');
           } else if (key === 'recipient_name') {
             setTextSafe(element, activeValue || 'Someone Special');
           } else if (key === 'custom_message') {
@@ -123,6 +274,7 @@
             setTextSafe(element, activeValue);
           }
           break;
+        }
       }
     });
   }
@@ -133,45 +285,92 @@
   function applyData(data) {
     if (!data || typeof data !== 'object') return;
 
-    // Apply known standard fields
+    // 1. Apply all direct keys in data
     Object.keys(data).forEach(key => {
       setWishMagicField(key, data[key], data);
     });
 
-    // Special handling for photos array (e.g. photo_1, photo_2, etc.)
-    if (Array.isArray(data.photos)) {
-      data.photos.forEach((photo, idx) => {
-        const photoUrl = typeof photo === 'string' ? photo : (photo && (photo.url || photo.src));
+    // 2. Special handling for photos array (e.g. photo_1, photo_2, gallery slots)
+    const photosList = Array.isArray(data.photos)
+      ? data.photos
+      : (data.media && Array.isArray(data.media.photos) ? data.media.photos : []);
+
+    if (photosList.length > 0) {
+      photosList.forEach((photo, idx) => {
+        const photoUrl = typeof photo === 'string' ? photo : (photo && (photo.displayUrl || photo.url || photo.src));
         if (photoUrl) {
           setWishMagicField(`photo_${idx + 1}`, photoUrl, data);
         }
       });
-      if (data.photos.length > 0) {
-        const firstPhoto = typeof data.photos[0] === 'string' ? data.photos[0] : (data.photos[0] && (data.photos[0].url || data.photos[0].src));
-        if (firstPhoto) setWishMagicField('photo_1', firstPhoto, data);
+      const firstPhoto = typeof photosList[0] === 'string'
+        ? photosList[0]
+        : (photosList[0] && (photosList[0].displayUrl || photosList[0].url || photosList[0].src));
+      if (firstPhoto) {
+        setWishMagicField('photo_1', firstPhoto, data);
+        if (!data.cover_photo) setWishMagicField('cover_photo', firstPhoto, data);
       }
+      setWishMagicField('photos', photosList, data);
+      setWishMagicField('gallery_photos', photosList, data);
     }
 
     if (data.cover_photo) {
       setWishMagicField('photo_1', data.cover_photo, data);
+      setWishMagicField('cover_photo', data.cover_photo, data);
     }
 
-    // Colors
+    // 3. Background Music & Voice Note hydration
+    const musicSrc = data.background_music ||
+      (data.music && (data.music.url || data.music.src)) ||
+      (data.media && data.media.music && data.media.music.enabled !== false && (data.media.music.src || data.media.music.url));
+    if (musicSrc) {
+      setWishMagicField('background_music', musicSrc, data);
+      setWishMagicField('music', musicSrc, data);
+    }
+
+    const voiceSrc = (data.voice_note && (typeof data.voice_note === 'string' ? data.voice_note : (data.voice_note.url || data.voice_note.src))) ||
+      (data.media && data.media.voiceNote && data.media.voiceNote.enabled && (data.media.voiceNote.src || data.media.voiceNote.url));
+    if (voiceSrc) {
+      setWishMagicField('voice_note', voiceSrc, data);
+      setWishMagicField('voice', voiceSrc, data);
+    }
+
+    // 4. Colors & CSS custom properties
     if (data.colors && typeof data.colors === 'object') {
       if (data.colors.primary) document.documentElement.style.setProperty('--wm-primary', data.colors.primary);
       if (data.colors.secondary) document.documentElement.style.setProperty('--wm-secondary', data.colors.secondary);
       if (data.colors.accent) document.documentElement.style.setProperty('--wm-accent', data.colors.accent);
     }
 
-    // Section visibility
+    // 5. Theme attribute synchronization
+    if (data.theme && typeof data.theme === 'string') {
+      document.documentElement.setAttribute('data-wm-theme', data.theme);
+      if (document.body) document.body.setAttribute('data-wm-theme', data.theme);
+    }
+
+    // 6. Section visibility toggles
     if (Array.isArray(data.sections)) {
       data.sections.forEach(sec => {
-        const secEl = document.querySelector(`[data-wm-section="${sec.id || sec.key}"]`);
-        if (secEl && secEl.getAttribute('data-wm-toggleable') === 'true') {
-          secEl.style.display = sec.enabled === false ? 'none' : '';
+        const secId = sec.id || sec.key;
+        if (!secId) return;
+        const secEl = document.querySelector(`[data-wm-section="${secId}"]`);
+        if (secEl) {
+          const isRequired = secEl.getAttribute('data-wm-required') === 'true';
+          const isToggleable = secEl.getAttribute('data-wm-toggleable') !== 'false' && !isRequired;
+          if (isToggleable) {
+            secEl.style.display = sec.enabled === false ? 'none' : '';
+            secEl.setAttribute('data-wm-section-enabled', sec.enabled === false ? 'false' : 'true');
+          }
         }
       });
     }
+
+    // 7. Dispatch CustomEvent so template scripts (countdowns, carousels, particles) react immediately
+    try {
+      global.WishMagicData = data;
+      const evt = new CustomEvent('wishmagic:data-updated', { detail: data });
+      window.dispatchEvent(evt);
+      document.dispatchEvent(evt);
+    } catch (_) {}
   }
 
   /**

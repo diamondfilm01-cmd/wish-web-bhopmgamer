@@ -1,7 +1,10 @@
 // WishMagic Admin Studio - Universal Website & Code Folder Uploader Engine
 
 let currentUploadedFiles = {}; // { [relativePath]: { content, isBase64 } }
-let detectedDynamicFields = []; // [ { key, label, type, defaultValue } ]
+let detectedDynamicFields = []; // Confirmed customizer fields
+let suggestedDynamicFields = []; // Undeclared HTML/media fields awaiting admin confirmation
+let currentParsedManifest = null;
+let currentUtpValidationIssues = [];
 let customCoverThumbnail = null;
 let currentPreviewBlobUrl = null;
 let currentZipRawFile = null; // Part 20: Real B2 ZIP archive buffer tracker
@@ -108,17 +111,31 @@ function serializeUploadedFilesToArray(filesMap) {
 }
 
 function computeCommonFolderPrefix(pathsList) {
-  if (!pathsList || pathsList.length === 0) return '';
-  const normalized = pathsList.map(p => String(p).replace(/\\/g, '/').replace(/^\/+/, ''));
-  if (normalized.some(p => p.toLowerCase() === 'index.html')) return '';
-  const firstParts = normalized[0].split('/');
+  if (!pathsList || pathsList.length === 0) return "";
+  const normalized = pathsList
+    .map(p => String(p).replace(/\\/g, "/").replace(/^\/+/, ""))
+    .filter(p => p && !p.includes("__MACOSX/") && !p.endsWith(".DS_Store"));
+  if (normalized.length === 0) return "";
+  if (normalized.some(p => p.toLowerCase() === "index.html" || p.toLowerCase() === "wishmagic.json")) return "";
+
+  const rootMarkers = normalized
+    .filter(p => /(?:^|\/)index\.html$/i.test(p) || /(?:^|\/)wishmagic\.json$/i.test(p))
+    .sort((a, b) => a.length - b.length);
+  if (rootMarkers.length > 0 && rootMarkers[0].includes("/")) {
+    const candidatePrefix = rootMarkers[0].slice(0, rootMarkers[0].lastIndexOf("/") + 1);
+    if (normalized.every(p => p.startsWith(candidatePrefix))) {
+      return candidatePrefix;
+    }
+  }
+
+  const firstParts = normalized[0].split("/");
   if (firstParts.length > 1) {
-    const candidate = firstParts[0] + '/';
+    const candidate = firstParts[0] + "/";
     if (normalized.every(p => p.startsWith(candidate))) {
       return candidate;
     }
   }
-  return '';
+  return "";
 }
 
 async function handleFolderSelection(fileList) {
@@ -331,64 +348,169 @@ function finishProcessingFiles(foundIndex, htmlContent, firstFoundImage, package
   if (placeholderState) placeholderState.classList.add('hidden');
 }
 
+function checkClientFieldBinding(field, htmlContent, cssContent) {
+  const fId = String(field.id || field.key || "").trim();
+  if (!fId) return false;
+  const fType = String(field.type || "text").toLowerCase();
+  const bTarget = String((field.binding && field.binding.target) || "").toLowerCase();
+  const bSel = String((field.binding && field.binding.selector) || "").trim();
+
+  if (fType === "color" || bTarget === "css-variable" || bTarget === "style-property") {
+    if ((cssContent && cssContent.includes("--wm-")) || (htmlContent && htmlContent.includes("--wm-"))) return true;
+  }
+  if (!htmlContent) return true;
+  const esc = fId.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+  if (new RegExp("data-wm(?:-field|-media)?\\s*=\\s*[\"']" + esc + "[\"']", "i").test(htmlContent)) return true;
+  if (new RegExp("\\{\\{\\s*" + esc + "\\s*\\}\\}", "i").test(htmlContent)) return true;
+  if (new RegExp("\\bid\\s*=\\s*[\"']" + esc + "[\"']", "i").test(htmlContent)) return true;
+  if (fType === "image-multiple" && (/data-wm(?:-field)?\s*=\s*["']photo_\d+["']/i.test(htmlContent) || /data-wm-section\s*=\s*["']gallery["']/i.test(htmlContent))) return true;
+  if (bSel) {
+    const attrM = bSel.match(/\[\s*([a-zA-Z0-9_-]+)\s*=\s*["']?([^"'\]]+)["']?\s*\]/);
+    if (attrM && new RegExp(attrM[1] + "\\s*=\\s*[\"']" + attrM[2].replace(/[.*+?^${}()|[\]\\]/g, "\\$&") + "[\"']", "i").test(htmlContent)) {
+      return true;
+    }
+  }
+  return false;
+}
+
 function scanDynamicFields(html) {
   detectedDynamicFields = [];
-  const fieldMap = new Map();
+  suggestedDynamicFields = [];
+  currentParsedManifest = null;
+  currentUtpValidationIssues = [];
 
-  function addDetectedSlot(slot) {
-    if (!slot || !slot.key) return;
-    const cleanKey = String(slot.key).trim();
-    if (!cleanKey || fieldMap.has(cleanKey)) return;
-    fieldMap.set(cleanKey, {
-      key: cleanKey,
-      label: slot.label || cleanKey.replace(/_/g, ' ').replace(/\b\w/g, c => c.toUpperCase()),
-      type: slot.type || 'text',
-      required: Boolean(slot.required || slot.isRequired),
-      defaultValue: slot.defaultValue || '',
-      originalSrc: slot.originalSrc || slot.defaultValue || '',
-      autoDetected: Boolean(slot.autoDetected)
-    });
-  }
+  const confirmedMap = new Map();
+  const suggestedMap = new Map();
 
-  // 1. Run WishMagicTemplateAnalyzer if available
-  if (typeof WishMagicTemplateAnalyzer !== 'undefined' && typeof WishMagicTemplateAnalyzer.analyze === 'function') {
-    let cssText = '';
-    let jsText = '';
-    let jsonManifest = null;
+  let cssText = "";
+  let jsText = "";
+  let rawManifestStr = null;
 
-    Object.keys(currentUploadedFiles).forEach(p => {
-      const entry = currentUploadedFiles[p];
-      if (!entry.isBase64) {
-        if (p.endsWith('.css')) cssText += '\n' + entry.content;
-        else if (p.endsWith('.js')) jsText += '\n' + entry.content;
-        else if (p.endsWith('wishmagic.json') || p.endsWith('manifest.json')) jsonManifest = entry.content;
+  Object.keys(currentUploadedFiles).forEach(p => {
+    const entry = currentUploadedFiles[p];
+    if (entry && !entry.isBase64) {
+      const lower = p.toLowerCase();
+      if (lower.endsWith(".css")) cssText += "\n" + entry.content;
+      else if (lower.endsWith(".js") && !lower.endsWith(".json")) jsText += "\n" + entry.content;
+      else if (lower === "wishmagic.json" || lower === "manifest.json" || lower.endsWith("/wishmagic.json")) {
+        rawManifestStr = entry.content;
       }
-    });
+    }
+  });
 
+  if (rawManifestStr) {
     try {
-      const analysis = WishMagicTemplateAnalyzer.analyze({
-        html,
-        css: cssText,
-        js: jsText,
-        json: jsonManifest,
-        files: currentUploadedFiles
-      }, { force: true });
-
-      if (analysis && Array.isArray(analysis.fields)) {
-        analysis.fields.forEach(f => addDetectedSlot({
-          key: f.key || f.id,
-          label: f.label || f.key,
-          type: f.type || 'text',
-          required: Boolean(f.required),
-          defaultValue: f.defaultValue || f.default || ''
-        }));
-      }
-    } catch (e) {
-      console.warn('[Template Analyzer Warning]:', e);
+      currentParsedManifest = JSON.parse(rawManifestStr);
+    } catch (jsonErr) {
+      currentUtpValidationIssues.push({
+        severity: "error",
+        code: "INVALID_MANIFEST_JSON",
+        message: "wishmagic.json contains invalid JSON: " + jsonErr.message
+      });
     }
   }
 
-  // 2. Scan HTML directly for data-wm-field, data-wm, {{mustache}}, AND unmarked <img>, <audio>, <video>
+  const hasExplicitManifestFields = Boolean(
+    currentParsedManifest &&
+    (Array.isArray(currentParsedManifest.fields) || (currentParsedManifest.template && Array.isArray(currentParsedManifest.template.fields)))
+  );
+
+  // Auto-populate template metadata inputs from wishmagic.json if present
+  if (currentParsedManifest) {
+    const tMeta = currentParsedManifest.template || currentParsedManifest;
+    const nameInput = document.getElementById("new-tpl-title");
+    const descInput = document.getElementById("new-tpl-desc");
+    const catInput = document.getElementById("new-tpl-category");
+    const tierInput = document.getElementById("new-tpl-tier");
+    const priceInput = document.getElementById("new-tpl-price");
+    if (nameInput && (tMeta.name || tMeta.title)) nameInput.value = tMeta.name || tMeta.title;
+    if (descInput && tMeta.description) descInput.value = tMeta.description;
+    if (catInput && tMeta.category) {
+      const matchOpt = Array.from(catInput.options || []).find(o => o.value.toLowerCase() === String(tMeta.category).toLowerCase());
+      if (matchOpt) catInput.value = matchOpt.value;
+    }
+    if (tierInput && tMeta.tier) tierInput.value = String(tMeta.tier).toLowerCase() === "vip" || Number(tMeta.price) > 0 ? "vip" : "free";
+    if (priceInput && tMeta.price !== undefined) priceInput.value = Number(tMeta.price) || 0;
+  }
+
+  function addConfirmedSlot(slot) {
+    if (!slot || !(slot.key || slot.id)) return;
+    const cleanKey = String(slot.key || slot.id).trim();
+    if (!cleanKey || confirmedMap.has(cleanKey)) return;
+    const isBound = checkClientFieldBinding({ ...slot, id: cleanKey, key: cleanKey }, html, cssText);
+    if (hasExplicitManifestFields && !isBound) {
+      currentUtpValidationIssues.push({
+        severity: "warning",
+        code: "MANIFEST_FIELD_UNBOUND",
+        field: cleanKey,
+        message: "Field \"" + cleanKey + "\" is declared in wishmagic.json but no matching binding ([data-wm-field='" + cleanKey + "']) was found in index.html."
+      });
+    }
+    confirmedMap.set(cleanKey, {
+      id: cleanKey,
+      key: cleanKey,
+      label: slot.label || cleanKey.replace(/_/g, " ").replace(/\b\w/g, c => c.toUpperCase()),
+      type: slot.type || "text",
+      required: Boolean(slot.required || slot.isRequired),
+      defaultValue: slot.defaultValue !== undefined && slot.defaultValue !== null ? slot.defaultValue : "",
+      originalSrc: slot.originalSrc || (typeof slot.defaultValue === "string" ? slot.defaultValue : ""),
+      binding: slot.binding || { target: ["image", "audio", "video"].includes(slot.type) ? "src" : "text", selector: "[data-wm-field='" + cleanKey + "']" },
+      options: slot.options || null,
+      visibleIf: slot.visibleIf || null,
+      boundInHtml: isBound,
+      autoDetected: Boolean(slot.autoDetected),
+      confirmed: true
+    });
+  }
+
+  function addCandidateOrSuggestedSlot(slot) {
+    if (!slot || !(slot.key || slot.id)) return;
+    const cleanKey = String(slot.key || slot.id).trim();
+    if (!cleanKey || confirmedMap.has(cleanKey) || suggestedMap.has(cleanKey)) return;
+    if (hasExplicitManifestFields) {
+      // When wishmagic.json is present, undeclared HTML/media slots go to suggestedDynamicFields for admin confirmation
+      suggestedMap.set(cleanKey, {
+        id: cleanKey,
+        key: cleanKey,
+        label: slot.label || cleanKey.replace(/_/g, " ").replace(/\b\w/g, c => c.toUpperCase()),
+        type: slot.type || "text",
+        required: Boolean(slot.required || slot.isRequired),
+        defaultValue: slot.defaultValue || "",
+        originalSrc: slot.originalSrc || slot.defaultValue || "",
+        binding: slot.binding || { target: ["image", "audio", "video"].includes(slot.type) ? "src" : "text", selector: "[data-wm-field='" + cleanKey + "']" },
+        boundInHtml: true,
+        autoDetected: true,
+        confirmed: false
+      });
+    } else {
+      addConfirmedSlot(slot);
+    }
+  }
+
+  // 1. First load explicit fields from wishmagic.json if present
+  if (hasExplicitManifestFields) {
+    const rawFields = Array.isArray(currentParsedManifest.fields)
+      ? currentParsedManifest.fields
+      : currentParsedManifest.template.fields;
+    rawFields.forEach(mf => {
+      if (mf && (mf.id || mf.key)) {
+        addConfirmedSlot({
+          id: mf.id || mf.key,
+          key: mf.id || mf.key,
+          label: mf.label,
+          type: mf.type || "text",
+          required: Boolean(mf.required),
+          defaultValue: mf.defaultValue !== undefined ? mf.defaultValue : (mf.default || ""),
+          binding: mf.binding,
+          options: mf.options,
+          visibleIf: mf.visibleIf,
+          autoDetected: false
+        });
+      }
+    });
+  }
+
+  // 2. Scan HTML for data-wm-field, data-wm, {{mustache}}, and media tags
   if (html) {
     const tagRegex = /<([a-zA-Z0-9-]+)([^>]*)>/g;
     let match;
@@ -398,10 +520,10 @@ function scanDynamicFields(html) {
 
     while ((match = tagRegex.exec(html)) !== null) {
       const tagLower = match[1].toLowerCase();
-      const attrs = match[2] || '';
+      const attrs = match[2] || "";
       const wmMatch = attrs.match(/data-wm(?:-field)?=["']([^"']+)["']/i);
       const srcMatch = attrs.match(/\bsrc=["']([^"']+)["']/i);
-      const srcVal = srcMatch ? srcMatch[1].trim() : '';
+      const srcVal = srcMatch ? srcMatch[1].trim() : "";
 
       if (wmMatch) {
         const key = wmMatch[1].trim();
@@ -412,51 +534,60 @@ function scanDynamicFields(html) {
         const inferredMeta = guessFieldMeta(key, html);
         const resolvedType = typeAttr
           ? typeAttr[1].toLowerCase()
-          : (tagLower === 'img' ? 'image' : (tagLower === 'audio' ? 'audio' : (tagLower === 'video' ? 'video' : inferredMeta.type)));
+          : (tagLower === "img" ? "image" : (tagLower === "audio" ? "audio" : (tagLower === "video" ? "video" : inferredMeta.type)));
 
-        addDetectedSlot({
-          key,
-          label: labelAttr ? labelAttr[1] : inferredMeta.label,
-          type: resolvedType,
-          required: reqAttr ? reqAttr[1] === 'true' : false,
-          defaultValue: defAttr ? defAttr[1] : srcVal,
-          originalSrc: srcVal
-        });
-      } else if (tagLower === 'img' && srcVal && !srcVal.startsWith('data:image/svg')) {
+        // If already in confirmedMap (from wishmagic.json), enrich originalSrc if needed
+        if (confirmedMap.has(key)) {
+          const existing = confirmedMap.get(key);
+          if (!existing.originalSrc && srcVal) existing.originalSrc = srcVal;
+          if (!existing.defaultValue && (defAttr ? defAttr[1] : srcVal)) {
+            existing.defaultValue = defAttr ? defAttr[1] : srcVal;
+          }
+        } else {
+          addCandidateOrSuggestedSlot({
+            key,
+            label: labelAttr ? labelAttr[1] : inferredMeta.label,
+            type: resolvedType,
+            required: reqAttr ? reqAttr[1] === "true" : false,
+            defaultValue: defAttr ? defAttr[1] : srcVal,
+            originalSrc: srcVal
+          });
+        }
+      } else if (tagLower === "img" && srcVal && !srcVal.startsWith("data:image/svg")) {
         unmarkedImgIdx++;
         const idMatch = attrs.match(/\bid=["']([^"']+)["']/i);
         const altMatch = attrs.match(/\balt=["']([^"']+)["']/i);
-        const fileStem = srcVal.split('/').pop().split('?')[0].replace(/\.[^/.]+$/, '').replace(/[^a-zA-Z0-9_]+/g, '_').toLowerCase();
-        let key = (unmarkedImgIdx === 1 && !fieldMap.has('photo_1'))
-          ? 'photo_1'
-          : (idMatch ? idMatch[1].replace(/[^a-zA-Z0-9_]+/g, '_').toLowerCase() : (fileStem ? 'photo_' + fileStem : 'photo_' + unmarkedImgIdx));
-        if (fieldMap.has(key)) key = 'photo_' + unmarkedImgIdx;
-        addDetectedSlot({
+        const fileStem = srcVal.split("/").pop().split("?")[0].replace(/\.[^/.]+$/, "").replace(/[^a-zA-Z0-9_]+/g, "_").toLowerCase();
+        let key = (unmarkedImgIdx === 1 && !confirmedMap.has("photo_1") && !suggestedMap.has("photo_1"))
+          ? "photo_1"
+          : (idMatch ? idMatch[1].replace(/[^a-zA-Z0-9_]+/g, "_").toLowerCase() : (fileStem ? "photo_" + fileStem : "photo_" + unmarkedImgIdx));
+        if (confirmedMap.has(key) || suggestedMap.has(key)) key = "photo_" + unmarkedImgIdx;
+        addCandidateOrSuggestedSlot({
           key,
-          label: (altMatch && altMatch[1].trim()) ? altMatch[1].trim() : ('Template Photo ' + unmarkedImgIdx + ' (' + srcVal.split('/').pop() + ')'),
-          type: 'image',
+          label: (altMatch && altMatch[1].trim()) ? altMatch[1].trim() : ("Template Photo " + unmarkedImgIdx + " (" + srcVal.split("/").pop() + ")"),
+          type: "image",
           defaultValue: srcVal,
           originalSrc: srcVal,
           autoDetected: true
         });
-      } else if (tagLower === 'audio' && srcVal) {
+      } else if (tagLower === "audio" && srcVal) {
         unmarkedAudioIdx++;
-        const key = (unmarkedAudioIdx === 1 && !fieldMap.has('background_music')) ? 'background_music' : ('audio_track_' + unmarkedAudioIdx);
-        addDetectedSlot({
+        const key = (unmarkedAudioIdx === 1 && !confirmedMap.has("background_music") && !suggestedMap.has("background_music")) ? "background_music" : ("audio_track_" + unmarkedAudioIdx);
+        addCandidateOrSuggestedSlot({
           key,
-          label: 'Background Music (' + srcVal.split('/').pop() + ')',
-          type: 'audio',
+          label: "Background Music (" + srcVal.split("/").pop() + ")",
+          type: "audio",
           defaultValue: srcVal,
           originalSrc: srcVal,
           autoDetected: true
         });
-      } else if (tagLower === 'video' && srcVal) {
+      } else if (tagLower === "video" && srcVal) {
         unmarkedVideoIdx++;
-        const key = (unmarkedVideoIdx === 1 && !fieldMap.has('celebration_video')) ? 'celebration_video' : ('video_clip_' + unmarkedVideoIdx);
-        addDetectedSlot({
+        const key = (unmarkedVideoIdx === 1 && !confirmedMap.has("celebration_video") && !suggestedMap.has("celebration_video")) ? "celebration_video" : ("video_clip_" + unmarkedVideoIdx);
+        addCandidateOrSuggestedSlot({
           key,
-          label: 'Celebration Video (' + srcVal.split('/').pop() + ')',
-          type: 'video',
+          label: "Celebration Video (" + srcVal.split("/").pop() + ")",
+          type: "video",
           defaultValue: srcVal,
           originalSrc: srcVal,
           autoDetected: true
@@ -471,11 +602,11 @@ function scanDynamicFields(html) {
         const sMatch = match[2].match(/<source\b[^>]*\bsrc=["']([^"']+)["']/i);
         if (sMatch && sMatch[1]) {
           unmarkedAudioIdx++;
-          const key = !fieldMap.has('background_music') ? 'background_music' : ('audio_track_' + unmarkedAudioIdx);
-          addDetectedSlot({
+          const key = (!confirmedMap.has("background_music") && !suggestedMap.has("background_music")) ? "background_music" : ("audio_track_" + unmarkedAudioIdx);
+          addCandidateOrSuggestedSlot({
             key,
-            label: 'Background Music (' + sMatch[1].split('/').pop() + ')',
-            type: 'audio',
+            label: "Background Music (" + sMatch[1].split("/").pop() + ")",
+            type: "audio",
             defaultValue: sMatch[1].trim(),
             originalSrc: sMatch[1].trim(),
             autoDetected: true
@@ -490,11 +621,11 @@ function scanDynamicFields(html) {
         const sMatch = match[2].match(/<source\b[^>]*\bsrc=["']([^"']+)["']/i);
         if (sMatch && sMatch[1]) {
           unmarkedVideoIdx++;
-          const key = !fieldMap.has('celebration_video') ? 'celebration_video' : ('video_clip_' + unmarkedVideoIdx);
-          addDetectedSlot({
+          const key = (!confirmedMap.has("celebration_video") && !suggestedMap.has("celebration_video")) ? "celebration_video" : ("video_clip_" + unmarkedVideoIdx);
+          addCandidateOrSuggestedSlot({
             key,
-            label: 'Celebration Video (' + sMatch[1].split('/').pop() + ')',
-            type: 'video',
+            label: "Celebration Video (" + sMatch[1].split("/").pop() + ")",
+            type: "video",
             defaultValue: sMatch[1].trim(),
             originalSrc: sMatch[1].trim(),
             autoDetected: true
@@ -507,49 +638,78 @@ function scanDynamicFields(html) {
     const curlyRegex = /\{\{\s*([a-zA-Z0-9_\-]+)\s*\}\}/g;
     while ((match = curlyRegex.exec(html)) !== null) {
       const key = match[1].trim();
-      if (key && !key.startsWith('#') && !key.startsWith('/')) {
-        addDetectedSlot(guessFieldMeta(key, html));
+      if (key && !key.startsWith("#") && !key.startsWith("/")) {
+        addCandidateOrSuggestedSlot(guessFieldMeta(key, html));
+      }
+    }
+
+    // Check referenced local files in index.html against currentUploadedFiles
+    const refRegex = /<(?:link|script|img|audio|video|source)\b[^>]*?\b(?:src|href)=["']([^"']+)["'][^>]*>/gi;
+    while ((match = refRegex.exec(html)) !== null) {
+      const rawRef = match[1].trim();
+      if (!rawRef || rawRef.startsWith("http") || rawRef.startsWith("//") || rawRef.startsWith("data:") || rawRef.startsWith("#") || rawRef.startsWith("{{") || rawRef.startsWith("/js/") || rawRef.startsWith("/css/") || rawRef.startsWith("/assets/")) {
+        continue;
+      }
+      if (/^[a-zA-Z]:\\/.test(rawRef) || rawRef.startsWith("file://") || rawRef.includes("../")) {
+        currentUtpValidationIssues.push({
+          severity: "error",
+          code: "UNSAFE_LOCAL_ASSET_PATH",
+          message: "Unsafe local or parent-traversal path in HTML: \"" + rawRef + "\". Use relative paths inside the ZIP."
+        });
+        continue;
+      }
+      const cleanRef = rawRef.split("?")[0].split("#")[0].replace(/\\/g, "/").replace(/^\.?\/+/, "");
+      if (cleanRef && !currentUploadedFiles[cleanRef]) {
+        const caseMatch = Object.keys(currentUploadedFiles).some(k => k.toLowerCase() === cleanRef.toLowerCase());
+        if (!caseMatch) {
+          currentUtpValidationIssues.push({
+            severity: "warning",
+            code: "MISSING_REFERENCED_ASSET",
+            message: "Referenced file \"" + cleanRef + "\" in index.html was not found in the ZIP archive."
+          });
+        }
       }
     }
   }
 
-  // 3. Also ensure every image, audio, or video file bundled in the ZIP is represented
+  // 3. Check bundled media files in the ZIP
   Object.keys(currentUploadedFiles).forEach((relPath) => {
-    const fileName = relPath.split('/').pop();
-    const alreadyMapped = Array.from(fieldMap.values()).some(f => {
-      const def = String(f.defaultValue || f.originalSrc || '').replace(/^\.?\/+/, '');
-      return def === relPath || def.endsWith('/' + fileName) || def === fileName;
+    const fileName = relPath.split("/").pop();
+    const allKnown = [...Array.from(confirmedMap.values()), ...Array.from(suggestedMap.values())];
+    const alreadyMapped = allKnown.some(f => {
+      const def = String(f.defaultValue || f.originalSrc || "").replace(/^\.?\/+/, "");
+      return def === relPath || def.endsWith("/" + fileName) || def === fileName;
     });
     if (!alreadyMapped) {
       if (isImageFile(relPath)) {
-        const stem = fileName.replace(/\.[^/.]+$/, '').replace(/[^a-zA-Z0-9_]+/g, '_').toLowerCase();
-        const key = !fieldMap.has('photo_1') ? 'photo_1' : ('photo_' + stem);
-        addDetectedSlot({
+        const stem = fileName.replace(/\.[^/.]+$/, "").replace(/[^a-zA-Z0-9_]+/g, "_").toLowerCase();
+        const key = (!confirmedMap.has("photo_1") && !suggestedMap.has("photo_1")) ? "photo_1" : ("photo_" + stem);
+        addCandidateOrSuggestedSlot({
           key,
-          label: 'Photo (' + fileName + ')',
-          type: 'image',
+          label: "Photo (" + fileName + ")",
+          type: "image",
           defaultValue: relPath,
           originalSrc: relPath,
           autoDetected: true
         });
       } else if (/\.(mp3|wav|ogg|m4a|aac)$/i.test(relPath)) {
-        const stem = fileName.replace(/\.[^/.]+$/, '').replace(/[^a-zA-Z0-9_]+/g, '_').toLowerCase();
-        const key = !fieldMap.has('background_music') ? 'background_music' : ('audio_' + stem);
-        addDetectedSlot({
+        const stem = fileName.replace(/\.[^/.]+$/, "").replace(/[^a-zA-Z0-9_]+/g, "_").toLowerCase();
+        const key = (!confirmedMap.has("background_music") && !suggestedMap.has("background_music")) ? "background_music" : ("audio_" + stem);
+        addCandidateOrSuggestedSlot({
           key,
-          label: 'Music Track (' + fileName + ')',
-          type: 'audio',
+          label: "Music Track (" + fileName + ")",
+          type: "audio",
           defaultValue: relPath,
           originalSrc: relPath,
           autoDetected: true
         });
       } else if (/\.(mp4|webm|mov|m4v)$/i.test(relPath)) {
-        const stem = fileName.replace(/\.[^/.]+$/, '').replace(/[^a-zA-Z0-9_]+/g, '_').toLowerCase();
-        const key = !fieldMap.has('celebration_video') ? 'celebration_video' : ('video_' + stem);
-        addDetectedSlot({
+        const stem = fileName.replace(/\.[^/.]+$/, "").replace(/[^a-zA-Z0-9_]+/g, "_").toLowerCase();
+        const key = (!confirmedMap.has("celebration_video") && !suggestedMap.has("celebration_video")) ? "celebration_video" : ("video_" + stem);
+        addCandidateOrSuggestedSlot({
           key,
-          label: 'Video Clip (' + fileName + ')',
-          type: 'video',
+          label: "Video Clip (" + fileName + ")",
+          type: "video",
           defaultValue: relPath,
           originalSrc: relPath,
           autoDetected: true
@@ -558,108 +718,153 @@ function scanDynamicFields(html) {
     }
   });
 
-  // 4. Ensure core personal celebration fields are present if no text fields were declared
-  const hasTextFields = Array.from(fieldMap.values()).some(f => f.type === 'text' || f.type === 'textarea');
-  if (!hasTextFields) {
-    addDetectedSlot({ key: 'recipient_name', label: 'Recipient Name', type: 'text', required: true, autoDetected: true });
-    addDetectedSlot({ key: 'sender_name', label: 'Sender Name', type: 'text', required: false, autoDetected: true });
-    addDetectedSlot({ key: 'event_date', label: 'Celebration Date', type: 'date', required: false, autoDetected: true });
-    addDetectedSlot({ key: 'custom_message', label: 'Heartfelt Message', type: 'textarea', required: true, autoDetected: true });
+  // 4. Only add fallback core fields when NO explicit wishmagic.json manifest and NO text fields were found
+  if (!hasExplicitManifestFields) {
+    const hasTextFields = Array.from(confirmedMap.values()).some(f => f.type === "text" || f.type === "textarea");
+    if (!hasTextFields) {
+      addConfirmedSlot({ key: "recipient_name", label: "Recipient Name", type: "text", required: true, autoDetected: true });
+      addConfirmedSlot({ key: "sender_name", label: "Sender Name", type: "text", required: false, autoDetected: true });
+      addConfirmedSlot({ key: "event_date", label: "Celebration Date", type: "date", required: false, autoDetected: true });
+      addConfirmedSlot({ key: "custom_message", label: "Heartfelt Message", type: "textarea", required: true, autoDetected: true });
+    }
   }
 
-  detectedDynamicFields = Array.from(fieldMap.values());
+  detectedDynamicFields = Array.from(confirmedMap.values());
+  suggestedDynamicFields = Array.from(suggestedMap.values());
   renderDetectedFieldsBadges();
 }
 
 function guessFieldMeta(key, html) {
   const lKey = key.toLowerCase();
-  let type = 'text';
-  let label = key.replace(/_/g, ' ').replace(/\b\w/g, c => c.toUpperCase());
+  let type = "text";
+  let label = key.replace(/_/g, " ").replace(/\b\w/g, c => c.toUpperCase());
 
-  if (lKey.includes('date') || lKey.includes('time')) {
-    type = 'date';
-  } else if (lKey.includes('photo') || lKey.includes('img') || lKey.includes('image') || lKey.includes('picture') || lKey.includes('avatar') || lKey.includes('cover')) {
-    type = 'image';
-  } else if (lKey.includes('video') || lKey.includes('clip') || lKey.includes('reel')) {
-    type = 'video';
-  } else if (lKey.includes('audio') || lKey.includes('music') || lKey.includes('song') || lKey.includes('bgm')) {
-    type = 'audio';
-  } else if (lKey.includes('message') || lKey.includes('letter') || lKey.includes('note') || lKey.includes('wishes') || lKey.includes('quote')) {
-    type = 'textarea';
+  if (lKey.includes("date") || lKey.includes("time")) {
+    type = "date";
+  } else if (lKey.includes("photo") || lKey.includes("img") || lKey.includes("image") || lKey.includes("picture") || lKey.includes("avatar") || lKey.includes("cover")) {
+    type = "image";
+  } else if (lKey.includes("video") || lKey.includes("clip") || lKey.includes("reel")) {
+    type = "video";
+  } else if (lKey.includes("voice")) {
+    type = "voice";
+  } else if (lKey.includes("audio") || lKey.includes("music") || lKey.includes("song") || lKey.includes("bgm")) {
+    type = "audio";
+  } else if (lKey.includes("color") || lKey.includes("theme_color")) {
+    type = "color";
+  } else if (lKey.includes("message") || lKey.includes("letter") || lKey.includes("note") || lKey.includes("wishes") || lKey.includes("quote")) {
+    type = "textarea";
   }
 
   return { key, label, type };
 }
 
 function renderCloudRoutingInspector(foundIndex, imageFiles, audioVideoFiles, codeFiles) {
-  const stepConfig = document.getElementById('upload-step-config');
+  const stepConfig = document.getElementById("upload-step-config");
   if (!stepConfig) return;
 
-  let inspectorEl = document.getElementById('cloud-routing-inspector-box');
+  let inspectorEl = document.getElementById("cloud-routing-inspector-box");
   if (!inspectorEl) {
-    inspectorEl = document.createElement('div');
-    inspectorEl.id = 'cloud-routing-inspector-box';
-    inspectorEl.className = 'p-4 rounded-xl bg-surface-container-low border border-outline-variant/25 space-y-3';
+    inspectorEl = document.createElement("div");
+    inspectorEl.id = "cloud-routing-inspector-box";
+    inspectorEl.className = "p-4 rounded-xl bg-surface-container-low border border-outline-variant/25 space-y-3";
     stepConfig.insertBefore(inspectorEl, stepConfig.firstChild);
   }
 
-  const cssCount = codeFiles.filter(p => p.toLowerCase().endsWith('.css')).length;
-  const jsCount = codeFiles.filter(p => p.toLowerCase().endsWith('.js')).length;
-  const hasManifest = codeFiles.some(p => p.toLowerCase().endsWith('wishmagic.json') || p.toLowerCase().endsWith('manifest.json'));
+  const cssCount = codeFiles.filter(p => p.toLowerCase().endsWith(".css")).length;
+  const jsCount = codeFiles.filter(p => p.toLowerCase().endsWith(".js") && !p.toLowerCase().endsWith(".json")).length;
+  const hasManifest = codeFiles.some(p => p.toLowerCase().endsWith("wishmagic.json") || p.toLowerCase().endsWith("manifest.json"));
+  const boundCount = detectedDynamicFields.filter(f => f.boundInHtml !== false).length;
+  const unboundCount = detectedDynamicFields.length - boundCount;
 
   const imgListHtml = imageFiles.length > 0
     ? imageFiles.map(p => {
-        const exactName = p.split('/').pop();
-        return '<span class="inline-flex items-center gap-1 px-2 py-0.5 rounded-md bg-pink-500/15 border border-pink-500/30 text-[11px] font-mono text-pink-200" title="' + p + '">🖼️ ' + exactName + ' <b class="text-emerald-300">→ ImgBB</b></span>';
-      }).join(' ')
-    : '<span class="text-[11px] text-outline">No bundled images in ZIP (cover thumbnail & user photos still upload to ImgBB)</span>';
+        const exactName = p.split("/").pop();
+        return "<span class=\"inline-flex items-center gap-1 px-2 py-0.5 rounded-md bg-pink-500/15 border border-pink-500/30 text-[11px] font-mono text-pink-200\" title=\"" + p + "\">🖼️ " + exactName + " <b class=\"text-emerald-300\">→ ImgBB</b></span>";
+      }).join(" ")
+    : "<span class=\"text-[11px] text-outline\">No bundled images in ZIP (cover thumbnail & user photos still upload to ImgBB)</span>";
 
   const mediaListHtml = audioVideoFiles.length > 0
     ? audioVideoFiles.map(p => {
-        const exactName = p.split('/').pop();
+        const exactName = p.split("/").pop();
         const isVid = /\.(mp4|webm|mov|m4v)$/i.test(exactName);
-        return '<span class="inline-flex items-center gap-1 px-2 py-0.5 rounded-md bg-emerald-500/15 border border-emerald-500/30 text-[11px] font-mono text-emerald-200" title="' + p + '">' + (isVid ? '🎬 ' : '🎵 ') + exactName + ' <b class="text-cyan-300">→ B2</b></span>';
-      }).join(' ')
-    : '<span class="text-[11px] text-outline">No bundled audio/video files in ZIP</span>';
+        return "<span class=\"inline-flex items-center gap-1 px-2 py-0.5 rounded-md bg-emerald-500/15 border border-emerald-500/30 text-[11px] font-mono text-emerald-200\" title=\"" + p + "\">" + (isVid ? "🎬 " : "🎵 ") + exactName + " <b class=\"text-cyan-300\">→ B2</b></span>";
+      }).join(" ")
+    : "<span class=\"text-[11px] text-outline\">No bundled audio/video files in ZIP</span>";
+
+  const issuesHtml = currentUtpValidationIssues.length > 0
+    ? "<div class=\"p-2.5 rounded-lg bg-amber-500/10 border border-amber-500/30 text-[11px] text-amber-200 space-y-1\">" +
+        "<div class=\"font-bold uppercase tracking-wider text-[10px] text-amber-300\">⚠️ UTP Compatibility Diagnostics (" + currentUtpValidationIssues.length + ")</div>" +
+        currentUtpValidationIssues.map(iss => "<div>• <b>[" + iss.code + "]</b> " + iss.message + "</div>").join("") +
+      "</div>"
+    : "";
 
   inspectorEl.innerHTML =
-    '<div class="flex flex-wrap items-center justify-between gap-2">' +
-      '<div class="flex items-center gap-2">' +
-        '<span class="material-symbols-outlined text-emerald-400 text-[18px]">verified</span>' +
-        '<span class="text-xs font-bold text-on-surface uppercase tracking-wider">Instant Code Check & Hybrid Cloud Routing</span>' +
-      '</div>' +
-      '<div class="flex flex-wrap items-center gap-1.5 text-[10px] font-bold">' +
-        '<span class="px-2 py-0.5 rounded-full ' + (foundIndex ? 'bg-emerald-500/20 text-emerald-300 border border-emerald-500/30' : 'bg-rose-500/20 text-rose-300 border border-rose-500/30') + '">' +
-          (foundIndex ? '✓ index.html Ready' : '✕ Missing index.html') +
-        '</span>' +
-        '<span class="px-2 py-0.5 rounded-full bg-purple-500/20 text-purple-200 border border-purple-500/30">' + cssCount + ' CSS • ' + jsCount + ' JS</span>' +
-        '<span class="px-2 py-0.5 rounded-full bg-amber-500/20 text-amber-200 border border-amber-500/30">' + (hasManifest ? '✓ Manifest Found' : 'Auto-Schema Generated') + '</span>' +
-      '</div>' +
-    '</div>' +
-    '<div class="grid grid-cols-1 md:grid-cols-2 gap-2.5 pt-1">' +
-      '<div class="p-2.5 rounded-lg bg-surface-container-lowest/80 border border-pink-500/20">' +
-        '<div class="text-[10px] font-bold uppercase tracking-wider text-pink-300 mb-1.5 flex items-center justify-between">' +
-          '<span>🖼️ Photos → ImgBB (Same Name & Format + Auto-Link)</span>' +
-          '<span class="px-1.5 py-0.2 rounded bg-pink-500/20 text-pink-200">' + imageFiles.length + '</span>' +
-        '</div>' +
-        '<div class="flex flex-wrap gap-1 max-h-20 overflow-y-auto">' + imgListHtml + '</div>' +
-      '</div>' +
-      '<div class="p-2.5 rounded-lg bg-surface-container-lowest/80 border border-emerald-500/20">' +
-        '<div class="text-[10px] font-bold uppercase tracking-wider text-emerald-300 mb-1.5 flex items-center justify-between">' +
-          '<span>🎵🎬 Music/Video & Code → Backblaze B2 (Same Name & Format)</span>' +
-          '<span class="px-1.5 py-0.2 rounded bg-emerald-500/20 text-emerald-200">' + (audioVideoFiles.length + codeFiles.length) + '</span>' +
-        '</div>' +
-        '<div class="flex flex-wrap gap-1 max-h-20 overflow-y-auto">' + mediaListHtml + '</div>' +
-      '</div>' +
-    '</div>' +
-    '<div id="deployed-cloud-links-summary" class="hidden pt-2 border-t border-outline-variant/20"></div>';
+    "<div class=\"flex flex-wrap items-center justify-between gap-2\">" +
+      "<div class=\"flex items-center gap-2\">" +
+        "<span class=\"material-symbols-outlined text-emerald-400 text-[18px]\">verified</span>" +
+        "<span class=\"text-xs font-bold text-on-surface uppercase tracking-wider\">UTP v1.0.0 Code Check & Hybrid Cloud Routing</span>" +
+      "</div>" +
+      "<div class=\"flex flex-wrap items-center gap-1.5 text-[10px] font-bold\">" +
+        "<span class=\"px-2 py-0.5 rounded-full " + (foundIndex ? "bg-emerald-500/20 text-emerald-300 border border-emerald-500/30" : "bg-rose-500/20 text-rose-300 border border-rose-500/30") + "\">" +
+          (foundIndex ? "✓ index.html Ready" : "✕ Missing index.html") +
+        "</span>" +
+        "<span class=\"px-2 py-0.5 rounded-full " + (hasManifest ? "bg-emerald-500/20 text-emerald-300 border border-emerald-500/30" : "bg-amber-500/20 text-amber-200 border border-amber-500/30") + "\">" +
+          (hasManifest ? "✓ wishmagic.json Standard" : "Auto-Schema Mode") +
+        "</span>" +
+        "<span class=\"px-2 py-0.5 rounded-full bg-purple-500/20 text-purple-200 border border-purple-500/30\">" + cssCount + " CSS • " + jsCount + " JS</span>" +
+        "<span class=\"px-2 py-0.5 rounded-full " + (unboundCount === 0 ? "bg-cyan-500/20 text-cyan-200 border border-cyan-500/30" : "bg-amber-500/20 text-amber-200 border border-amber-500/30") + "\">" +
+          boundCount + "/" + detectedDynamicFields.length + " Fields Bound" +
+        "</span>" +
+      "</div>" +
+    "</div>" +
+    issuesHtml +
+    "<div class=\"grid grid-cols-1 md:grid-cols-2 gap-2.5 pt-1\">" +
+      "<div class=\"p-2.5 rounded-lg bg-surface-container-lowest/80 border border-pink-500/20\">" +
+        "<div class=\"text-[10px] font-bold uppercase tracking-wider text-pink-300 mb-1.5 flex items-center justify-between\">" +
+          "<span>🖼️ Photos → ImgBB (Same Name & Format + Auto-Link)</span>" +
+          "<span class=\"px-1.5 py-0.2 rounded bg-pink-500/20 text-pink-200\">" + imageFiles.length + "</span>" +
+        "</div>" +
+        "<div class=\"flex flex-wrap gap-1 max-h-20 overflow-y-auto\">" + imgListHtml + "</div>" +
+      "</div>" +
+      "<div class=\"p-2.5 rounded-lg bg-surface-container-lowest/80 border border-emerald-500/20\">" +
+        "<div class=\"text-[10px] font-bold uppercase tracking-wider text-emerald-300 mb-1.5 flex items-center justify-between\">" +
+          "<span>🎵🎬 Music/Video & Code → Backblaze B2 (Same Name & Format)</span>" +
+          "<span class=\"px-1.5 py-0.2 rounded bg-emerald-500/20 text-emerald-200\">" + (audioVideoFiles.length + codeFiles.length) + "</span>" +
+        "</div>" +
+        "<div class=\"flex flex-wrap gap-1 max-h-20 overflow-y-auto\">" + mediaListHtml + "</div>" +
+      "</div>" +
+    "</div>" +
+    "<div id=\"deployed-cloud-links-summary\" class=\"hidden pt-2 border-t border-outline-variant/20\"></div>";
 }
 
 window.removeDetectedFieldSlot = function(idx) {
   if (idx >= 0 && idx < detectedDynamicFields.length) {
-    detectedDynamicFields.splice(idx, 1);
+    const removed = detectedDynamicFields.splice(idx, 1)[0];
+    if (removed) {
+      suggestedDynamicFields.push({ ...removed, confirmed: false });
+    }
     renderDetectedFieldsBadges();
   }
+};
+
+window.confirmSuggestedFieldSlot = function(idx) {
+  if (idx >= 0 && idx < suggestedDynamicFields.length) {
+    const item = suggestedDynamicFields.splice(idx, 1)[0];
+    if (item && !detectedDynamicFields.some(f => f.key === item.key)) {
+      detectedDynamicFields.push({ ...item, confirmed: true });
+    }
+    renderDetectedFieldsBadges();
+  }
+};
+
+window.confirmAllSuggestedFieldSlots = function() {
+  while (suggestedDynamicFields.length > 0) {
+    const item = suggestedDynamicFields.shift();
+    if (item && !detectedDynamicFields.some(f => f.key === item.key)) {
+      detectedDynamicFields.push({ ...item, confirmed: true });
+    }
+  }
+  renderDetectedFieldsBadges();
 };
 
 window.updateDetectedFieldType = function(idx, newType) {
@@ -670,163 +875,206 @@ window.updateDetectedFieldType = function(idx, newType) {
 };
 
 window.promptAddCustomFieldSlot = function() {
-  const rawKey = prompt('Enter field key (e.g. partner_name, hero_photo, background_music):', 'custom_field_' + (detectedDynamicFields.length + 1));
+  const rawKey = prompt("Enter field key (e.g. partner_name, hero_photo, background_music):", "custom_field_" + (detectedDynamicFields.length + 1));
   if (!rawKey) return;
-  const cleanKey = rawKey.trim().replace(/[^a-zA-Z0-9_-]/g, '_').toLowerCase();
+  const cleanKey = rawKey.trim().replace(/[^a-zA-Z0-9_-]/g, "_").toLowerCase();
   if (!cleanKey) return;
-  const meta = guessFieldMeta(cleanKey, '');
+  const meta = guessFieldMeta(cleanKey, "");
   detectedDynamicFields.push({
+    id: cleanKey,
     key: cleanKey,
     label: meta.label,
     type: meta.type,
     required: false,
-    defaultValue: ''
+    defaultValue: "",
+    boundInHtml: true,
+    confirmed: true
   });
   renderDetectedFieldsBadges();
 };
 
 function renderDetectedFieldsBadges() {
-  const container = document.getElementById('detected-fields-container');
-  const countBadge = document.getElementById('detected-fields-count');
+  const container = document.getElementById("detected-fields-container");
+  const countBadge = document.getElementById("detected-fields-count");
   if (!container) return;
 
   if (countBadge) {
-    countBadge.textContent = detectedDynamicFields.length + ' Customizable Slots Ready';
+    countBadge.textContent = detectedDynamicFields.length + " Confirmed Slot(s)" + (suggestedDynamicFields.length > 0 ? " • " + suggestedDynamicFields.length + " Suggested" : "");
   }
 
-  container.innerHTML = '';
+  container.innerHTML = "";
   detectedDynamicFields.forEach((field, idx) => {
-    let icon = 'badge';
-    let colorClass = 'bg-primary-container/20 text-primary border-primary/30';
-    let routeHint = 'D1 Field';
-    if (field.type === 'image') {
-      icon = 'image';
-      colorClass = 'bg-pink-500/20 text-pink-300 border-pink-500/30';
-      routeHint = 'ImgBB Link';
-    } else if (field.type === 'video') {
-      icon = 'videocam';
-      colorClass = 'bg-amber-500/20 text-amber-300 border-amber-500/30';
-      routeHint = 'B2 Video';
-    } else if (field.type === 'audio') {
-      icon = 'music_note';
-      colorClass = 'bg-emerald-500/20 text-emerald-300 border-emerald-500/30';
-      routeHint = 'B2 Audio';
-    } else if (field.type === 'date') {
-      icon = 'calendar_today';
-      colorClass = 'bg-indigo-500/20 text-indigo-300 border-indigo-500/30';
-    } else if (field.type === 'textarea') {
-      icon = 'notes';
-      colorClass = 'bg-purple-500/20 text-purple-300 border-purple-500/30';
+    let icon = "badge";
+    let colorClass = "bg-primary-container/20 text-primary border-primary/30";
+    let routeHint = "D1 Field";
+    if (field.type === "image" || field.type === "image-multiple") {
+      icon = "image";
+      colorClass = "bg-pink-500/20 text-pink-300 border-pink-500/30";
+      routeHint = "ImgBB Link";
+    } else if (field.type === "video" || field.type === "video-multiple") {
+      icon = "videocam";
+      colorClass = "bg-amber-500/20 text-amber-300 border-amber-500/30";
+      routeHint = "B2 Video";
+    } else if (field.type === "audio" || field.type === "voice") {
+      icon = "music_note";
+      colorClass = "bg-emerald-500/20 text-emerald-300 border-emerald-500/30";
+      routeHint = "B2 Audio";
+    } else if (field.type === "date" || field.type === "datetime") {
+      icon = "calendar_today";
+      colorClass = "bg-indigo-500/20 text-indigo-300 border-indigo-500/30";
+    } else if (field.type === "color") {
+      icon = "palette";
+      colorClass = "bg-cyan-500/20 text-cyan-300 border-cyan-500/30";
+      routeHint = "CSS Var";
+    } else if (field.type === "textarea") {
+      icon = "notes";
+      colorClass = "bg-purple-500/20 text-purple-300 border-purple-500/30";
     }
 
-    const pill = document.createElement('div');
-    pill.className = 'flex items-center gap-1.5 px-2.5 py-1 rounded-xl border text-xs font-semibold ' + colorClass;
+    const unboundBadge = field.boundInHtml === false
+      ? "<span class=\"px-1.5 py-0.2 rounded bg-amber-500/30 text-amber-200 text-[9px] font-bold\" title=\"Declared in wishmagic.json but no matching HTML binding found\">⚠️ Unbound</span>"
+      : "";
+
+    const pill = document.createElement("div");
+    pill.className = "flex items-center gap-1.5 px-2.5 py-1 rounded-xl border text-xs font-semibold " + colorClass;
     pill.innerHTML =
-      '<span class="material-symbols-outlined text-[15px]">' + icon + '</span>' +
-      '<span>' + field.label + '</span>' +
-      '<span class="text-[10px] opacity-75 font-mono">(' + field.key + ')</span>' +
-      '<span class="px-1.5 py-0.2 rounded bg-black/30 text-[9px] font-mono uppercase">' + routeHint + '</span>' +
-      '<button type="button" onclick="removeDetectedFieldSlot(' + idx + ')" class="ml-1 text-white/60 hover:text-rose-300 text-[11px] font-bold cursor-pointer" title="Remove slot">✕</button>';
+      "<span class=\"material-symbols-outlined text-[15px]\">" + icon + "</span>" +
+      "<span>" + field.label + "</span>" +
+      "<span class=\"text-[10px] opacity-75 font-mono\">(" + field.key + ")</span>" +
+      "<span class=\"px-1.5 py-0.2 rounded bg-black/30 text-[9px] font-mono uppercase\">" + routeHint + "</span>" +
+      unboundBadge +
+      "<button type=\"button\" onclick=\"removeDetectedFieldSlot(" + idx + ")\" class=\"ml-1 text-white/60 hover:text-rose-300 text-[11px] font-bold cursor-pointer\" title=\"Move to unconfirmed suggestions\">✕</button>";
     container.appendChild(pill);
   });
 
   // Add "+ Add Slot" button
-  const addBtn = document.createElement('button');
-  addBtn.type = 'button';
+  const addBtn = document.createElement("button");
+  addBtn.type = "button";
   addBtn.onclick = window.promptAddCustomFieldSlot;
-  addBtn.className = 'flex items-center gap-1 px-2.5 py-1 rounded-xl border border-dashed border-outline-variant/50 hover:border-primary text-xs font-bold text-on-surface-variant hover:text-primary transition cursor-pointer';
-  addBtn.innerHTML = '<span class="material-symbols-outlined text-[14px]">add</span><span>Add Slot</span>';
+  addBtn.className = "flex items-center gap-1 px-2.5 py-1 rounded-xl border border-dashed border-outline-variant/50 hover:border-primary text-xs font-bold text-on-surface-variant hover:text-primary transition cursor-pointer";
+  addBtn.innerHTML = "<span class=\"material-symbols-outlined text-[14px]\">add</span><span>Add Slot</span>";
   container.appendChild(addBtn);
+
+  // Render Suggested Undeclared HTML/Media Fields box (if any) so admin can explicitly confirm them
+  let suggestionsBox = document.getElementById("suggested-fields-confirm-box");
+  if (suggestedDynamicFields.length > 0) {
+    if (!suggestionsBox) {
+      suggestionsBox = document.createElement("div");
+      suggestionsBox.id = "suggested-fields-confirm-box";
+      suggestionsBox.className = "mt-3 p-3 rounded-xl bg-amber-500/10 border border-amber-500/30 space-y-2 w-full";
+      container.parentNode.appendChild(suggestionsBox);
+    }
+    suggestionsBox.innerHTML =
+      "<div class=\"flex flex-wrap items-center justify-between gap-2\">" +
+        "<div class=\"text-[11px] font-bold text-amber-300\">💡 Suggested HTML/Media Slots Found Outside wishmagic.json (" + suggestedDynamicFields.length + ") — Confirm to enable in Customizer:</div>" +
+        "<button type=\"button\" onclick=\"confirmAllSuggestedFieldSlots()\" class=\"px-2.5 py-1 rounded-lg bg-amber-500/20 hover:bg-amber-500/30 border border-amber-500/40 text-amber-200 text-[10px] font-bold cursor-pointer\">✓ Confirm All Suggestions</button>" +
+      "</div>" +
+      "<div class=\"flex flex-wrap gap-1.5\">" +
+        suggestedDynamicFields.map((sf, sIdx) =>
+          "<button type=\"button\" onclick=\"confirmSuggestedFieldSlot(" + sIdx + ")\" class=\"inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-surface-container-lowest border border-amber-500/30 hover:border-emerald-400 text-[11px] text-amber-100 cursor-pointer transition\" title=\"Click to confirm and add to template manifest\">" +
+            "<span class=\"text-emerald-400 font-bold\">+ Confirm</span>" +
+            "<span>" + sf.label + "</span>" +
+            "<span class=\"text-[10px] font-mono opacity-75\">(" + sf.key + " : " + sf.type + ")</span>" +
+          "</button>"
+        ).join("") +
+      "</div>";
+  } else if (suggestionsBox) {
+    suggestionsBox.remove();
+  }
 }
 
 // 4. Render In-Memory Live Sandbox Preview in iframe (with CSS, JS, Images, Audio, and Video wired)
 function renderLiveSandboxPreview() {
-  const iframe = document.getElementById('upload-preview-iframe');
+  const iframe = document.getElementById("upload-preview-iframe");
   if (!iframe) return;
 
-  let indexContent = '';
+  let indexContent = "";
   for (const [pathKey, data] of Object.entries(currentUploadedFiles)) {
-    if (pathKey.toLowerCase() === 'index.html' || pathKey.toLowerCase().endsWith('/index.html')) {
-      indexContent = typeof data === 'string' ? data : data.content;
+    if (pathKey.toLowerCase() === "index.html" || pathKey.toLowerCase().endsWith("/index.html")) {
+      indexContent = typeof data === "string" ? data : data.content;
       break;
     }
   }
 
   if (!indexContent) {
-    indexContent = '<h1 style="color:white;text-align:center;font-family:sans-serif;padding:40px;">No index.html entry file detected</h1>';
+    indexContent = "<h1 style=\"color:white;text-align:center;font-family:sans-serif;padding:40px;\">No index.html entry file detected</h1>";
   }
 
   // Inline CSS, JS, Images, Audio, and Video data URLs so preview works 100% offline/before deploy
   const sortedPaths = Object.keys(currentUploadedFiles).sort((a, b) => b.length - a.length);
   for (const p of sortedPaths) {
     const d = currentUploadedFiles[p];
-    const rawContent = typeof d === 'string' ? d : d.content;
+    const rawContent = typeof d === "string" ? d : d.content;
     const escP = escapeRegex(p);
-    if (p.toLowerCase().endsWith('.css')) {
-      const cssDataUrl = 'data:text/css;base64,' + btoa(unescape(encodeURIComponent(rawContent)));
-      indexContent = indexContent.replace(new RegExp('href=["\'](?:\\.\\.?\\/|\\/)*' + escP + '["\']', 'gi'), 'href="' + cssDataUrl + '"');
-    } else if (p.toLowerCase().endsWith('.js') && !p.toLowerCase().endsWith('.json')) {
-      const jsDataUrl = 'data:text/javascript;base64,' + btoa(unescape(encodeURIComponent(rawContent)));
-      indexContent = indexContent.replace(new RegExp('src=["\'](?:\\.\\.?\\/|\\/)*' + escP + '["\']', 'gi'), 'src="' + jsDataUrl + '"');
+    if (p.toLowerCase().endsWith(".css")) {
+      const cssDataUrl = "data:text/css;base64," + btoa(unescape(encodeURIComponent(rawContent)));
+      indexContent = indexContent.replace(new RegExp("href=[\"'](?:\\.\\.?\\/|\\/)*" + escP + "[\"']", "gi"), "href=\"" + cssDataUrl + "\"");
+    } else if (p.toLowerCase().endsWith(".js") && !p.toLowerCase().endsWith(".json")) {
+      const jsDataUrl = "data:text/javascript;base64," + btoa(unescape(encodeURIComponent(rawContent)));
+      indexContent = indexContent.replace(new RegExp("src=[\"'](?:\\.\\.?\\/|\\/)*" + escP + "[\"']", "gi"), "src=\"" + jsDataUrl + "\"");
     } else if (d && d.isBase64 && rawContent) {
-      indexContent = indexContent.replace(new RegExp('(["\'(\s])(?:\\.\\.?\\/|\\/)*' + escP + '(?=["\')?\\s#])', 'gi'), '$1' + rawContent);
+      indexContent = indexContent.replace(new RegExp("([\"'(\s])(?:\\.\\.?\\/|\\/)*" + escP + "(?=[\"')?\\s#])", "gi"), "$1" + rawContent);
     }
   }
 
   // Populate sample values for dynamic placeholders in preview
-  indexContent = indexContent.replace(/\{\{\s*recipient_name\s*\}\}/g, 'Priya Sharma');
-  indexContent = indexContent.replace(/\{\{\s*event_date\s*\}\}/g, '25 October 2026');
-  indexContent = indexContent.replace(/\{\{\s*sender_name\s*\}\}/g, 'Ankit Verma');
-  indexContent = indexContent.replace(/\{\{\s*custom_message\s*\}\}/g, 'May this special day bring you magical memories and endless joy!');
+  indexContent = indexContent.replace(/\{\{\s*recipient_name\s*\}\}/g, "Priya Sharma");
+  indexContent = indexContent.replace(/\{\{\s*event_date\s*\}\}/g, "25 October 2026");
+  indexContent = indexContent.replace(/\{\{\s*sender_name\s*\}\}/g, "Ankit Verma");
+  indexContent = indexContent.replace(/\{\{\s*custom_message\s*\}\}/g, "May this special day bring you magical memories and endless joy!");
 
   iframe.srcdoc = indexContent;
 }
 
-// 5. Deploy Template to Server API (ImgBB for Images + Backblaze B2 for Music/Video/Code + D1 Persistence + Auto-Publish)
-async function deployUploadedTemplate() {
-  const nameInput = document.getElementById('new-tpl-title');
-  const catInput = document.getElementById('new-tpl-category');
-  const descInput = document.getElementById('new-tpl-desc');
-  const tierInput = document.getElementById('new-tpl-tier');
-  const priceInput = document.getElementById('new-tpl-price');
-  const orderInput = document.getElementById('new-tpl-placement');
-  const featuredInput = document.getElementById('new-tpl-featured');
+// 5. Deploy Template to Server API (Supports both Staged Draft Preview and Direct Publish)
+async function deployUploadedTemplate(publishImmediately = true) {
+  const nameInput = document.getElementById("new-tpl-title");
+  const catInput = document.getElementById("new-tpl-category");
+  const descInput = document.getElementById("new-tpl-desc");
+  const tierInput = document.getElementById("new-tpl-tier");
+  const priceInput = document.getElementById("new-tpl-price");
+  const orderInput = document.getElementById("new-tpl-placement");
+  const featuredInput = document.getElementById("new-tpl-featured");
 
-  const title = nameInput ? nameInput.value.trim() : '';
+  const title = nameInput ? nameInput.value.trim() : "";
   if (!title) {
-    alert('Please enter a Template Title.');
+    alert("Please enter a Template Title.");
     if (nameInput) nameInput.focus();
     return;
   }
 
   if (Object.keys(currentUploadedFiles).length === 0) {
-    alert('Please upload a website folder or ZIP file first.');
+    alert("Please upload a website folder or ZIP file first.");
     return;
   }
 
-  const deployBtn = document.getElementById('btn-deploy-template');
+  const deployBtn = document.getElementById("btn-deploy-template");
   if (deployBtn) {
     deployBtn.disabled = true;
     deployBtn.innerHTML =
-      '<span class="material-symbols-outlined text-[18px] animate-spin">refresh</span>' +
-      '<span>Uploading Photos to ImgBB & Media/Code to B2...</span>';
+      "<span class=\"material-symbols-outlined text-[18px] animate-spin\">refresh</span>" +
+      "<span>Uploading Photos to ImgBB & Media/Code to B2...</span>";
   }
 
+  const shouldPublish = publishImmediately !== false;
   const normalizedFilesArray = serializeUploadedFilesToArray(currentUploadedFiles);
   const payload = {
     name: title,
-    category: catInput ? catInput.value : 'Birthday',
-    description: descInput ? descInput.value.trim() : 'Custom handcrafted celebration experience.',
-    tier: tierInput ? tierInput.value : 'vip',
-    price: priceInput ? Number(priceInput.value) : 49,
+    category: catInput ? catInput.value : (currentParsedManifest?.template?.category || "Birthday"),
+    description: descInput ? descInput.value.trim() : (currentParsedManifest?.template?.description || "Custom handcrafted celebration experience."),
+    tier: tierInput ? tierInput.value : (currentParsedManifest?.template?.tier || "vip"),
+    price: priceInput ? Number(priceInput.value) : Number(currentParsedManifest?.template?.price ?? 49),
     placement: orderInput ? Number(orderInput.value) : 1,
     featured: featuredInput ? featuredInput.checked : true,
-    thumbnail: customCoverThumbnail || 'https://images.unsplash.com/photo-1513151233558-d860c5398176?w=600&auto=format&fit=crop&q=80',
-    thumbnailName: customCoverThumbnailName || 'cover-photo.png',
+    thumbnail: customCoverThumbnail || "https://images.unsplash.com/photo-1513151233558-d860c5398176?w=600&auto=format&fit=crop&q=80",
+    thumbnailName: customCoverThumbnailName || "cover-photo.png",
     detectedFields: detectedDynamicFields,
-    publishImmediately: true,
-    autoPublish: true,
-    isPublished: true,
+    confirmedFields: detectedDynamicFields,
+    capabilities: currentParsedManifest?.capabilities || {},
+    sections: currentParsedManifest?.sections || [],
+    publishImmediately: shouldPublish,
+    autoPublish: shouldPublish,
+    isPublished: shouldPublish,
     files: normalizedFilesArray,
     filesMap: currentUploadedFiles
   };
@@ -837,7 +1085,7 @@ async function deployUploadedTemplate() {
         const reader = new FileReader();
         reader.onload = () => {
           const res = reader.result;
-          resolve(typeof res === 'string' ? res.split(',')[1] : null);
+          resolve(typeof res === "string" ? res.split(",")[1] : null);
         };
         reader.onerror = reject;
         reader.readAsDataURL(currentZipRawFile);
@@ -847,31 +1095,31 @@ async function deployUploadedTemplate() {
       try {
         const arrayBuffer = await currentZipRawFile.arrayBuffer();
         const bytes = new Uint8Array(arrayBuffer);
-        let binary = '';
+        let binary = "";
         const chunkSize = 8192;
         for (let i = 0; i < bytes.length; i += chunkSize) {
           binary += String.fromCharCode.apply(null, bytes.subarray(i, i + chunkSize));
         }
         payload.zipBase64 = btoa(binary);
       } catch (err2) {
-        console.warn('Could not encode raw ZIP file, falling back to extracted files bundle:', err2);
+        console.warn("Could not encode raw ZIP file, falling back to extracted files bundle:", err2);
       }
     }
   }
 
   try {
-    const idempotencyKey = 'op_' + Date.now().toString(36) + '_' + Math.random().toString(36).slice(2, 8);
+    const idempotencyKey = "op_" + Date.now().toString(36) + "_" + Math.random().toString(36).slice(2, 8);
     let res = null;
     let data = null;
     const maxAttempts = 2;
 
     for (let attempt = 1; attempt <= maxAttempts; attempt++) {
       try {
-        res = await fetch('/api/templates/upload', {
-          method: 'POST',
+        res = await fetch("/api/templates/upload", {
+          method: "POST",
           headers: {
-            'Content-Type': 'application/json',
-            'Idempotency-Key': idempotencyKey
+            "Content-Type": "application/json",
+            "Idempotency-Key": idempotencyKey
           },
           body: JSON.stringify(payload)
         });
@@ -896,55 +1144,57 @@ async function deployUploadedTemplate() {
 
       // Update live preview iframe to the real cloud-deployed preview URL if available
       if (previewUrl) {
-        const iframe = document.getElementById('upload-preview-iframe');
+        const iframe = document.getElementById("upload-preview-iframe");
         if (iframe) {
-          iframe.removeAttribute('srcdoc');
+          iframe.removeAttribute("srcdoc");
           iframe.src = previewUrl;
         }
       }
 
       // Show deployed cloud links summary right inside the inspector box
-      const linksBox = document.getElementById('deployed-cloud-links-summary');
+      const linksBox = document.getElementById("deployed-cloud-links-summary");
       if (linksBox) {
-        linksBox.classList.remove('hidden');
+        linksBox.classList.remove("hidden");
         linksBox.innerHTML =
-          '<div class="text-xs font-bold text-emerald-400 mb-1.5">✅ Deployed to Cloud (ImgBB + Backblaze B2 + Cloudflare D1) & Published to Main Website!</div>' +
-          '<div class="flex flex-wrap gap-2 text-[11px]">' +
-            (previewUrl ? '<a href="' + previewUrl + '" target="_blank" class="px-2.5 py-1 rounded-lg bg-primary-container text-white font-bold hover:opacity-90">🔗 Open Live B2 Runtime Preview</a>' : '') +
-            (tplId ? '<a href="/customize.html?template=' + encodeURIComponent(tplId) + '" target="_blank" class="px-2.5 py-1 rounded-lg bg-emerald-600 text-white font-bold hover:opacity-90">✨ Customize on Main Website</a>' : '') +
-            imgbbImages.map(img => '<a href="' + (img.displayUrl || img.originalUrl) + '" target="_blank" class="px-2 py-1 rounded-lg bg-pink-500/20 border border-pink-500/40 text-pink-200 font-mono">🖼️ ' + (img.filename || img.assetKey) + ' (ImgBB)</a>').join('') +
-            b2MediaAssets.map(m => '<a href="' + m.streamUrl + '" target="_blank" class="px-2 py-1 rounded-lg bg-cyan-500/20 border border-cyan-500/40 text-cyan-200 font-mono">🎵 ' + m.filename + ' (B2)</a>').join('') +
-          '</div>';
+          "<div class=\"text-xs font-bold text-emerald-400 mb-1.5\">✅ " +
+            (shouldPublish ? "Deployed to Cloud (ImgBB + Backblaze B2 + Cloudflare D1) & Published to Main Website!" : "Staged as Draft in Cloud (ImgBB + Backblaze B2 + D1) — Ready for Preview!") +
+          "</div>" +
+          "<div class=\"flex flex-wrap gap-2 text-[11px]\">" +
+            (previewUrl ? "<a href=\"" + previewUrl + "\" target=\"_blank\" class=\"px-2.5 py-1 rounded-lg bg-primary-container text-white font-bold hover:opacity-90\">🔗 Open Live B2 Runtime Preview</a>" : "") +
+            (tplId ? "<a href=\"/customize.html?template=" + encodeURIComponent(tplId) + "\" target=\"_blank\" class=\"px-2.5 py-1 rounded-lg bg-emerald-600 text-white font-bold hover:opacity-90\">✨ Open Auto-Generated Customizer</a>" : "") +
+            imgbbImages.map(img => "<a href=\"" + (img.displayUrl || img.originalUrl) + "\" target=\"_blank\" class=\"px-2 py-1 rounded-lg bg-pink-500/20 border border-pink-500/40 text-pink-200 font-mono\">🖼️ " + (img.filename || img.assetKey) + " (ImgBB)</a>").join("") +
+            b2MediaAssets.map(m => "<a href=\"" + m.streamUrl + "\" target=\"_blank\" class=\"px-2 py-1 rounded-lg bg-cyan-500/20 border border-cyan-500/40 text-cyan-200 font-mono\">🎵 " + m.filename + " (B2)</a>").join("") +
+          "</div>";
       }
 
-      const upEl = document.getElementById('upload-code-modal');
-      if (upEl && upEl.dataset.inlinePage !== 'true' && typeof toggleModal === 'function') {
-        toggleModal('upload-code-modal');
+      const upEl = document.getElementById("upload-code-modal");
+      if (upEl && upEl.dataset.inlinePage !== "true" && typeof toggleModal === "function") {
+        toggleModal("upload-code-modal");
       }
 
       showToast(
-        '🎉 Template "' + title + '" deployed & published! (' +
-        imgbbImages.length + ' ImgBB photo(s), ' +
-        (resultObj.fileCount || Object.keys(currentUploadedFiles).length) + ' B2 files saved in D1)'
+        "🎉 Template \"" + title + "\" " + (shouldPublish ? "deployed & published" : "staged as draft") + "! (" +
+        imgbbImages.length + " ImgBB photo(s), " +
+        (resultObj.fileCount || Object.keys(currentUploadedFiles).length) + " B2 files saved in D1)"
       );
 
       loadDynamicTemplates();
-    } else if (data && data.code === 'UTP_VALIDATION_FAILED') {
-      const issueDetails = Array.isArray(data.issues) ? data.issues.map(i => '• [' + i.severity.toUpperCase() + '] ' + i.code + ': ' + i.message).join('\n') : '';
-      alert('⚠️ UNIVERSAL TEMPLATE PROTOCOL (UTP) VALIDATION FAILED:\n\n' + data.message + '\n\n' + issueDetails);
-    } else if (data && data.code === 'B2_NOT_CONFIGURED') {
-      alert('⚠️ Backblaze B2 is not configured in environment secrets.\n\n' + data.message);
+    } else if (data && data.code === "UTP_VALIDATION_FAILED") {
+      const issueDetails = Array.isArray(data.issues) ? data.issues.map(i => "• [" + i.severity.toUpperCase() + "] " + i.code + ": " + i.message).join("\n") : "";
+      alert("⚠️ UNIVERSAL TEMPLATE PROTOCOL (UTP) VALIDATION FAILED:\n\n" + data.message + "\n\n" + issueDetails);
+    } else if (data && data.code === "B2_NOT_CONFIGURED") {
+      alert("⚠️ Backblaze B2 is not configured in environment secrets.\n\n" + data.message);
     } else {
-      alert('Error deploying template: ' + (data?.message || data?.error?.message || 'Unknown error'));
+      alert("Error deploying template: " + (data?.message || data?.error?.message || "Unknown error"));
     }
   } catch (err) {
-    alert('Network error deploying template: ' + err.message);
+    alert("Network error deploying template: " + err.message);
   } finally {
     if (deployBtn) {
       deployBtn.disabled = false;
       deployBtn.innerHTML =
-        '<span class="material-symbols-outlined text-[20px]" style="font-variation-settings: \'FILL\' 1;">rocket_launch</span>' +
-        '<span>Deploy & Publish to Store</span>';
+        "<span class=\"material-symbols-outlined text-[20px]\" style=\"font-variation-settings: 'FILL' 1;\">rocket_launch</span>" +
+        "<span>Deploy & Publish to Store</span>";
     }
   }
 }

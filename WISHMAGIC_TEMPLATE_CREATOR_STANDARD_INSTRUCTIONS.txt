@@ -1,0 +1,490 @@
+================================================================================
+WISHMAGIC UNIVERSAL TEMPLATE CREATOR STANDARD (UTP v1.0.0)
+COMPLETE INSTRUCTIONS & COPY-PASTE AI STUDIO MASTER PROMPT
+================================================================================
+
+Yeh file tumhare liye ek complete blueprint + copy-paste AI Prompt guide hai.
+Tum Google AI Studio, ChatGPT, Claude, Cursor, ya kisi bhi developer ko yeh
+instructions dekar KOI BHI HTML/CSS/JS Wish Template (Birthday, Anniversary,
+Love, Proposal, Friendship, Apology, Festival, 3D Interactive, etc.) banwa
+sakte ho.
+
+Jab tum is standard se bana hua ZIP WishMagic ke Admin Panel mein upload karoge:
+1. Website automatically `wishmagic.json` + `index.html` + `css/` + `js/` padhegi.
+2. ZIP ke andar ke saare Photos automatically ImgBB par (same filename & format
+   ke saath) upload honge aur HTML/CSS/JS mein unka live link lag jayega.
+3. ZIP ke andar ke saare Music/Audio, Video aur Code files Backblaze B2 par
+   (same filename & format ke saath) upload honge aur link ho jayenge.
+4. Customizer (`customize.html`) mein SIRF wahi options aur inputs dikhenge jo
+   template sach mein support karta hai — koi fake option nahi, aur har template
+   ke liye website ke core code mein kabhi koi manual coding nahi karni padegi!
+
+--------------------------------------------------------------------------------
+PART 1: COPY-PASTE MASTER PROMPT FOR GOOGLE AI STUDIO / CHATGPT / CLAUDE
+(Neeche diye gaye prompt ko seedha copy karke AI Studio mein paste karo aur
+aakhir mein apna template idea likh do!)
+--------------------------------------------------------------------------------
+
+[COPY START]
+You are an expert front-end creative developer building a self-contained,
+interactive HTML/CSS/JS celebration template package for the "WishMagic"
+platform following the **Universal Template Protocol (UTP v1.0.0)**.
+
+When I upload your generated ZIP package into the WishMagic Admin Panel, the
+platform will automatically parse `wishmagic.json` and `index.html`, validate
+all bindings and assets, upload images to ImgBB and audio/video/code to
+Backblaze B2, and auto-generate the user customization form.
+
+You MUST strictly follow all 7 rules below:
+
+### RULE 1: STANDARD ZIP PACKAGE STRUCTURE (FLAT ROOT)
+Generate the template files using this exact relative directory structure at the
+package root:
+- `wishmagic.json`       (MANDATORY — UTP v1.0.0 manifest declaring metadata, fields, sections, capabilities)
+- `index.html`           (MANDATORY — Entry HTML with matching `data-wm-field` and `data-wm-section` attributes)
+- `css/style.css`        (Stylesheet using CSS variables `--wm-primary`, `--wm-secondary`, `--wm-accent`)
+- `js/template.js`       (Interactive logic, countdown/gallery/surprise handlers, and WishMagic live update listener)
+- `assets/images/...`    (Optional local default images)
+- `assets/audio/...`     (Optional local default background music)
+- `assets/video/...`     (Optional local default video clips)
+- `README.md`            (Optional notes)
+
+CRITICAL PATH RULES:
+- Use ONLY relative paths inside the package (e.g., `css/style.css`, `js/template.js`, `assets/images/cover.jpg`).
+- NEVER use local computer paths (`C:\...`, `file://`), parent traversal (`../`), or server executables (`.php`, `.exe`, `.sh`).
+- Every local file referenced in `index.html`, `css/style.css`, or `wishmagic.json` MUST exist in the package.
+
+### RULE 2: THREE-WAY AGREEMENT FOR EVERY CUSTOMIZABLE FIELD
+Every customizable item in the template MUST have 3-way agreement between:
+1. **Manifest Declaration (`wishmagic.json` -> `fields` array)**:
+   Declares `id`, `type`, `label`, `required`, `defaultValue`, `placeholder`, and `binding`.
+2. **HTML Binding (`index.html`)**:
+   Has an element with `data-wm-field="<id>"` and `data-wm-type="<type>"` matching the exact same `id` and `type`.
+3. **Working Runtime (`js/template.js`)**:
+   Listens for `window.addEventListener('message', ...)` and `window.addEventListener('wishmagic:data-updated', ...)` so when the user changes a value in the WishMagic Customizer, the template updates immediately in real time!
+
+NEVER declare a field in `wishmagic.json` without binding it in `index.html`, and NEVER put a customizable element in `index.html` without declaring it in `wishmagic.json`.
+
+### RULE 3: STANDARD FIELD IDs & TYPES TO USE
+Whenever the template includes these common features, use these canonical field IDs so WishMagic's customizer wires them seamlessly:
+- Recipient Name:
+  `id`: `"recipient_name"`, `type`: `"text"`, HTML: `<span data-wm-field="recipient_name" data-wm-type="text">Priya</span>`
+- Sender Name:
+  `id`: `"sender_name"`, `type`: `"text"`, HTML: `<span data-wm-field="sender_name" data-wm-type="text">— Rahul</span>`
+- Personal Message / Letter:
+  `id`: `"custom_message"`, `type`: `"textarea"`, HTML: `<p data-wm-field="custom_message" data-wm-type="textarea">Your heartfelt message...</p>`
+- Celebration / Countdown Date:
+  `id`: `"event_date"`, `type`: `"date"` (or `"datetime"`), HTML: `<span data-wm-field="event_date" data-wm-type="date" data-wm-date-value="2026-12-25">2026-12-25</span>`
+- Single Cover / Hero Photo:
+  `id`: `"photo_1"`, `type`: `"image"`, HTML: `<img data-wm-field="photo_1" data-wm-type="image" src="assets/images/cover.jpg" alt="Memory Photo">`
+- Multiple Photos (Gallery Slots):
+  Use individual slots `photo_1`, `photo_2`, `photo_3`, `photo_4` (`type: "image"`) OR a gallery container with `id`: `"photos"`, `type`: `"image-multiple"` containing `<img data-wm-field="photo_1">`, `<img data-wm-field="photo_2">`, etc.
+- Background Music:
+  `id`: `"background_music"`, `type`: `"audio"`, HTML: `<audio id="wm-bg-music" data-wm-field="background_music" data-wm-type="audio" src="assets/audio/bgm.mp3" loop preload="auto"></audio>`
+- Voice Note:
+  `id`: `"voice_note"`, `type`: `"voice"`, HTML: `<audio id="wm-voice-note" data-wm-field="voice_note" data-wm-type="voice" controls></audio>`
+- Video Greeting:
+  `id`: `"celebration_video"`, `type`: `"video"`, HTML: `<video id="wm-video" data-wm-field="celebration_video" data-wm-type="video" src="assets/video/intro.mp4" controls playsinline></video>`
+- Any Custom Extra Text / Quote / Inside Joke / Nickname / Button Label:
+  Give it a unique snake_case `id` (e.g., `"pet_nickname"`, `"secret_wish_quote"`, `"memory_caption_1"`), declare it in `wishmagic.json` under `fields`, and bind it in `index.html` with `data-wm-field="<id>" data-wm-type="<type>"`.
+
+Supported `type` values in `wishmagic.json`:
+`text`, `textarea`, `date`, `time`, `datetime`, `number`, `email`, `url`, `phone`, `color`, `select`, `multiselect`, `toggle`, `range`, `image`, `image-multiple`, `video`, `video-multiple`, `audio`, `voice`, `font`, `icon`.
+
+Supported `binding.target` values:
+`text`, `src`, `background-image`, `href`, `style-property`, `css-variable`, `visibility`, `toggle`, `collection`, `value`.
+
+### RULE 4: SECTIONS DECLARATION (`sections` + `data-wm-section`)
+Every major visual section in `index.html` should have `data-wm-section="<section_id>"` and be declared in `wishmagic.json` under `"sections"`:
+- Required sections (like `"hero"`, `"message"`) must have `"required": true, "toggleable": false`.
+- Optional sections (like `"gallery"`, `"countdown"`, `"timeline"`, `"secret_message"`, `"final_surprise"`) must have `"required": false, "toggleable": true, "defaultEnabled": true`.
+
+### RULE 5: CAPABILITIES DECLARATION (`capabilities`)
+In `wishmagic.json`, declare ONLY the capabilities your template genuinely implements from this canonical list:
+- `"photos"`           (if template has at least 1 customizable image)
+- `"multiplePhotos"`   (if template has 2+ photo slots)
+- `"gallery"`          (if template has a photo gallery section)
+- `"music"`            (if template has `<audio>` background music player & play/pause toggle)
+- `"voice"`            (if template has a voice note player)
+- `"video"`            (if template has a `<video>` element)
+- `"countdown"`        (if template has real JS countdown logic connected to `event_date`)
+- `"timeline"`         (if template has a milestone/timeline section)
+- `"themes"`           (if CSS uses `--wm-primary`, `--wm-secondary`, `--wm-accent`)
+- `"animations"`       (if template has entrance/reveal animations)
+- `"particles"`        (if template has confetti/sparkles/hearts canvas or DOM particles)
+- `"sections"`         (if template has toggleable `data-wm-section` blocks)
+- `"secretMessage"`    (if template has a lock/scratch/click-to-reveal secret message)
+- `"finalSurprise"`    (if template has a grand finale celebration reveal)
+
+### RULE 6: CSS THEME VARIABLES (`css/style.css`)
+Always define these CSS variables on `:root` in `css/style.css` and use them in your design so WishMagic's theme & color picker works automatically:
+```css
+:root {
+  --wm-primary: #ec4899;
+  --wm-secondary: #8b5cf6;
+  --wm-accent: #fbbf24;
+}
+```
+
+### RULE 7: MANDATORY LIVE RUNTIME BRIDGE (`js/template.js`)
+Include this universal live hydration listener in `js/template.js` (and also include `<script src="/js/wishmagic-template-protocol.js"></script>` in `index.html` right before `js/template.js`) so the template works both standalone and inside WishMagic's live customizer & published gift links:
+```javascript
+(function () {
+  function applyWishMagicPayload(data) {
+    if (!data || typeof data !== 'object') return;
+    if (window.WishMagicTemplate && typeof window.WishMagicTemplate.applyData === 'function') {
+      window.WishMagicTemplate.applyData(data);
+    }
+    // Trigger any template-specific recalculation (e.g. countdown date update)
+    if (data.event_date && typeof window.updateTemplateCountdown === 'function') {
+      window.updateTemplateCountdown(data.event_date);
+    }
+  }
+
+  window.addEventListener('message', function (event) {
+    if (!event.data || typeof event.data !== 'object') return;
+    if (
+      event.data.type === 'WISHMAGIC_INIT' ||
+      event.data.type === 'WISHMAGIC_LIVE_UPDATE' ||
+      event.data.type === 'WISHMAGIC_UPDATE'
+    ) {
+      applyWishMagicPayload(event.data.payload);
+    }
+  });
+
+  window.addEventListener('wishmagic:data-updated', function (event) {
+    if (event.detail && typeof window.updateTemplateCountdown === 'function' && event.detail.event_date) {
+      window.updateTemplateCountdown(event.detail.event_date);
+    }
+  });
+})();
+```
+
+Now build a complete, production-ready, visually breathtaking WishMagic template package (`wishmagic.json`, `index.html`, `css/style.css`, `js/template.js`) for the following concept:
+[WRITE YOUR TEMPLATE IDEA HERE — e.g., "A Royal Midnight Birthday Surprise with 3D envelope opening, countdown timer, 4 polaroid photo memories, heartfelt letter, background music toggle, and final confetti explosion"]
+[COPY END]
+
+
+--------------------------------------------------------------------------------
+PART 2: COMPLETE EXAMPLE OF `wishmagic.json` (UTP v1.0.0 MANIFEST)
+--------------------------------------------------------------------------------
+
+Har template ki ZIP ke root mein `wishmagic.json` hona zaroori hai. Neeche ek
+100% valid, complete example diya gaya hai:
+
+```json
+{
+  "$schema": "wishmagic-template",
+  "schemaVersion": "1.0.0",
+  "template": {
+    "id": "birthday-magic-deluxe",
+    "name": "Birthday Magic Deluxe",
+    "description": "Interactive birthday surprise with live countdown, photo gallery, music, and secret wish reveal.",
+    "templateVersion": "1.0.0",
+    "category": "birthday",
+    "tier": "free",
+    "price": 0,
+    "author": "WishMagic Studio",
+    "entry": "index.html"
+  },
+  "compatibility": {
+    "runtimeApi": "1.0",
+    "minimumRuntimeApi": "1.0"
+  },
+  "files": {
+    "entry": "index.html",
+    "styles": ["css/style.css"],
+    "scripts": ["js/template.js"]
+  },
+  "capabilities": [
+    "photos",
+    "multiplePhotos",
+    "gallery",
+    "music",
+    "countdown",
+    "themes",
+    "animations",
+    "particles",
+    "sections",
+    "secretMessage",
+    "finalSurprise"
+  ],
+  "relationships": [
+    "friend",
+    "best_friend",
+    "girlfriend",
+    "boyfriend",
+    "sister",
+    "brother"
+  ],
+  "sections": [
+    {
+      "id": "hero",
+      "label": "Hero Celebration Banner",
+      "required": true,
+      "toggleable": false,
+      "defaultEnabled": true,
+      "order": 1
+    },
+    {
+      "id": "countdown",
+      "label": "Birthday Countdown Timer",
+      "required": false,
+      "toggleable": true,
+      "defaultEnabled": true,
+      "order": 2
+    },
+    {
+      "id": "message",
+      "label": "Personal Letter",
+      "required": true,
+      "toggleable": false,
+      "defaultEnabled": true,
+      "order": 3
+    },
+    {
+      "id": "gallery",
+      "label": "Photo Memories Gallery",
+      "required": false,
+      "toggleable": true,
+      "defaultEnabled": true,
+      "order": 4
+    },
+    {
+      "id": "secret_message",
+      "label": "Secret Wish Unlock",
+      "required": false,
+      "toggleable": true,
+      "defaultEnabled": true,
+      "order": 5
+    },
+    {
+      "id": "final_surprise",
+      "label": "Grand Finale Fireworks",
+      "required": false,
+      "toggleable": true,
+      "defaultEnabled": true,
+      "order": 6
+    }
+  ],
+  "fields": [
+    {
+      "id": "recipient_name",
+      "type": "text",
+      "label": "Recipient Name",
+      "placeholder": "e.g. Priya Sharma",
+      "required": true,
+      "defaultValue": "Someone Special",
+      "constraints": { "minLength": 1, "maxLength": 60 },
+      "binding": {
+        "target": "text",
+        "selector": "[data-wm-field='recipient_name']"
+      }
+    },
+    {
+      "id": "hero_subtitle",
+      "type": "text",
+      "label": "Hero Tagline",
+      "placeholder": "e.g. Today the universe celebrates you!",
+      "required": false,
+      "defaultValue": "Wishing you the happiest birthday filled with magic ✨",
+      "binding": {
+        "target": "text",
+        "selector": "[data-wm-field='hero_subtitle']"
+      }
+    },
+    {
+      "id": "event_date",
+      "type": "date",
+      "label": "Birthday Date",
+      "required": false,
+      "defaultValue": "2026-12-25",
+      "binding": {
+        "target": "text",
+        "selector": "[data-wm-field='event_date']"
+      }
+    },
+    {
+      "id": "custom_message",
+      "type": "textarea",
+      "label": "Heartfelt Birthday Letter",
+      "required": true,
+      "defaultValue": "May your year ahead be filled with endless laughter, warm memories, and every dream coming true!",
+      "constraints": { "maxLength": 600 },
+      "binding": {
+        "target": "text",
+        "selector": "[data-wm-field='custom_message']"
+      }
+    },
+    {
+      "id": "sender_name",
+      "type": "text",
+      "label": "From (Sender Name)",
+      "required": false,
+      "defaultValue": "Your Best Friend",
+      "binding": {
+        "target": "text",
+        "selector": "[data-wm-field='sender_name']"
+      }
+    },
+    {
+      "id": "photo_1",
+      "type": "image",
+      "label": "Main Cover Photo",
+      "required": false,
+      "defaultValue": "assets/images/cover.jpg",
+      "binding": {
+        "target": "src",
+        "selector": "[data-wm-field='photo_1']"
+      }
+    },
+    {
+      "id": "photo_2",
+      "type": "image",
+      "label": "Memory Photo 2",
+      "required": false,
+      "defaultValue": "assets/images/memory2.jpg",
+      "binding": {
+        "target": "src",
+        "selector": "[data-wm-field='photo_2']"
+      }
+    },
+    {
+      "id": "photo_3",
+      "type": "image",
+      "label": "Memory Photo 3",
+      "required": false,
+      "defaultValue": "assets/images/memory3.jpg",
+      "binding": {
+        "target": "src",
+        "selector": "[data-wm-field='photo_3']"
+      }
+    },
+    {
+      "id": "background_music",
+      "type": "audio",
+      "label": "Background Music Track",
+      "required": false,
+      "defaultValue": "assets/audio/birthday-melody.mp3",
+      "binding": {
+        "target": "src",
+        "selector": "[data-wm-field='background_music']"
+      }
+    },
+    {
+      "id": "secret_note",
+      "type": "textarea",
+      "label": "Hidden Secret Note",
+      "required": false,
+      "defaultValue": "You are the brightest star in my life! Keep shining forever 🌟",
+      "binding": {
+        "target": "text",
+        "selector": "[data-wm-field='secret_note']"
+      }
+    }
+  ]
+}
+```
+
+--------------------------------------------------------------------------------
+PART 3: COMPLETE EXAMPLE OF `index.html` BINDINGS
+--------------------------------------------------------------------------------
+
+```html
+<!DOCTYPE html>
+<html lang="en" data-wm-protocol="1.0" data-wm-theme="magical">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Birthday Magic Deluxe</title>
+  <link rel="stylesheet" href="css/style.css" />
+</head>
+<body>
+
+  <!-- Background Music Player (Bound to background_music) -->
+  <audio id="wm-bg-music"
+         data-wm-field="background_music"
+         data-wm-type="audio"
+         src="assets/audio/birthday-melody.mp3"
+         loop
+         preload="auto"></audio>
+
+  <!-- 1. HERO SECTION -->
+  <section data-wm-section="hero" data-wm-label="Hero Celebration Banner" data-wm-required="true" data-wm-toggleable="false">
+    <div class="hero-card">
+      <img data-wm-field="photo_1"
+           data-wm-type="image"
+           data-wm-label="Main Cover Photo"
+           src="assets/images/cover.jpg"
+           alt="Main Cover Photo"
+           class="cover-photo" />
+      <h1>Happy Birthday, <span data-wm-field="recipient_name" data-wm-type="text">Someone Special</span>! 🎂</h1>
+      <p data-wm-field="hero_subtitle" data-wm-type="text">Wishing you the happiest birthday filled with magic ✨</p>
+    </div>
+  </section>
+
+  <!-- 2. COUNTDOWN SECTION -->
+  <section data-wm-section="countdown" data-wm-label="Birthday Countdown Timer" data-wm-toggleable="true">
+    <h2>Celebration Date: <span data-wm-field="event_date" data-wm-type="date">2026-12-25</span></h2>
+    <div id="countdown-timer">
+      <div><span id="cd-days">00</span><small>Days</small></div>
+      <div><span id="cd-hours">00</span><small>Hours</small></div>
+      <div><span id="cd-mins">00</span><small>Mins</small></div>
+      <div><span id="cd-secs">00</span><small>Secs</small></div>
+    </div>
+  </section>
+
+  <!-- 3. PERSONAL LETTER SECTION -->
+  <section data-wm-section="message" data-wm-label="Personal Letter" data-wm-required="true" data-wm-toggleable="false">
+    <blockquote data-wm-field="custom_message" data-wm-type="textarea">
+      May your year ahead be filled with endless laughter, warm memories, and every dream coming true!
+    </blockquote>
+    <p class="sender-sign" data-wm-field="sender_name" data-wm-type="text">— Your Best Friend</p>
+  </section>
+
+  <!-- 4. PHOTO GALLERY SECTION -->
+  <section data-wm-section="gallery" data-wm-label="Photo Memories Gallery" data-wm-toggleable="true">
+    <div class="gallery-grid">
+      <img data-wm-field="photo_2" data-wm-type="image" src="assets/images/memory2.jpg" alt="Memory 2" />
+      <img data-wm-field="photo_3" data-wm-type="image" src="assets/images/memory3.jpg" alt="Memory 3" />
+    </div>
+  </section>
+
+  <!-- 5. SECRET MESSAGE SECTION -->
+  <section data-wm-section="secret_message" data-wm-label="Secret Wish Unlock" data-wm-toggleable="true">
+    <button id="btn-unlock-secret" type="button">🔒 Tap to Reveal Secret Message</button>
+    <div id="secret-box" hidden>
+      <p data-wm-field="secret_note" data-wm-type="textarea">
+        You are the brightest star in my life! Keep shining forever 🌟
+      </p>
+    </div>
+  </section>
+
+  <!-- 6. FINAL SURPRISE SECTION -->
+  <section data-wm-section="final_surprise" data-wm-label="Grand Finale Fireworks" data-wm-toggleable="true">
+    <button id="btn-celebrate-finale" type="button">🎊 Launch Celebration Fireworks</button>
+  </section>
+
+  <!-- WishMagic UTP Runtime Protocol + Template Script -->
+  <script src="/js/wishmagic-template-protocol.js"></script>
+  <script src="js/template.js"></script>
+</body>
+</html>
+```
+
+--------------------------------------------------------------------------------
+PART 4: PRE-UPLOAD CHECKLIST (ZIP UPLOAD SE PEHLE ZAROOR CHECK KAREIN)
+--------------------------------------------------------------------------------
+
+1. [ ] Kya ZIP ke andar `wishmagic.json` aur `index.html` maujood hain?
+2. [ ] Kya `wishmagic.json` valid JSON format mein hai (koi extra trailing comma nahi)?
+3. [ ] Kya `wishmagic.json` ke har field ka `id` unique hai aur `index.html` mein
+       uske liye matching `data-wm-field="<id>"` laga hua hai?
+4. [ ] Kya `index.html` mein lagaye gaye saare local images (`assets/images/...`),
+       audio (`assets/audio/...`), video (`assets/video/...`), CSS (`css/style.css`),
+       aur JS (`js/template.js`) ZIP ke andar sach mein maujood hain?
+5. [ ] Kya saare local paths relative hain (`assets/images/cover.jpg`) aur koi bhi
+       `C:\...`, `file://`, ya `../` path use nahi hua hai?
+6. [ ] Kya ZIP ka compressed size 50 MB se kam, uncompressed size 150 MB se kam,
+       aur total files 1,000 se kam hain?
+================================================================================
