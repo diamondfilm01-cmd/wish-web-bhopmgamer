@@ -10,7 +10,7 @@
 <meta property="og:description" content="Gift a magical, interactive web experience with customizable wishes, animations, and templates."/>
 <meta property="og:type" content="website"/>
 <!-- Tailwind CSS CDN with forms and container queries -->
-<script src="/js/tailwind-config.js?v=20261015_wm47944_v4"></script>
+<script src="/js/tailwind-config.js?v=20261015_wm47944_v6"></script>
   <script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
   <script>if (typeof tailwind !== "undefined" && typeof sharedTailwindConfig !== "undefined") { tailwind.config = sharedTailwindConfig; }</script>
 <!-- Google Fonts: Plus Jakarta Sans & Outfit for modern playful rounded look -->
@@ -23,14 +23,14 @@
 <!-- Firebase Official SDK (Compat for universal browser support) -->
 <script src="https://www.gstatic.com/firebasejs/10.8.0/firebase-app-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.8.0/firebase-auth-compat.js"></script>
-<script src="/js/site-theme.js?v=20261015_wm47944_v4"></script>
+<script src="/js/site-theme.js?v=20261015_wm47944_v6"></script>
 <!-- Canvas Confetti for Interactive Celebrations -->
 <script src="https://cdn.jsdelivr.net/npm/canvas-confetti@1.9.3/dist/confetti.browser.min.js"></script>
 <!-- WishMagic Core, Auth, Repositories & Section System Layer -->
 <script src="/js/WishMagicCore.js"></script>
 <script src="/js/api-client.js"></script>
-<script src="/js/firebase-auth.js?v=20261015_wm47944_v4"></script>
-<script src="/js/auth-service.js?v=20261015_wm47944_v4"></script>
+<script src="/js/firebase-auth.js?v=20261015_wm47944_v6"></script>
+<script src="/js/auth-service.js?v=20261015_wm47944_v6"></script>
 <script src="/js/repositories.js"></script>
 <script src="/js/wishmagic-dependencies.js"></script>
 <script src="/js/wishmagic-content-system.js"></script>
@@ -39,7 +39,7 @@
 <script src="/js/wishmagic-preview-controller.js"></script>
 <script src="/js/wishmagic-state-migrator.js"></script>
 <script src="/js/template-section-system.js"></script>
-<script src="/js/notification-service.js?v=20261015_wm47944_v4"></script>
+<script src="/js/notification-service.js?v=20261015_wm47944_v6"></script>
 <script src="/js/security-hardening.js"></script>
 <!-- Tailwind Configuration -->
 <script data-purpose="tailwind-config">
@@ -1749,7 +1749,7 @@ body.dark .hero-gradient-text,
 })();
 </script>
 <!-- END: WishMagic Inline Cloud Background Engine -->
-  <link id="wishmagic-cloud-css" rel="stylesheet" href="/css/cloud-background.css?v=20261015_wm47944_v4"/>
+  <link id="wishmagic-cloud-css" rel="stylesheet" href="/css/cloud-background.css?v=20261015_wm47944_v6"/>
 </head>
 <body data-page="home" class="w-full min-h-screen font-sans antialiased selection:bg-pink-500 selection:text-white">
 
@@ -2583,22 +2583,18 @@ body.dark .hero-gradient-text,
 <div class="max-w-7xl mx-auto">
 <!-- Trust & Support Horizontal Bar -->
 <div class="grid grid-cols-1 md:grid-cols-3 gap-6 pb-12 border-b border-purple-800/40">
-<a href="/legal?policy=privacy_policy" class="p-4 rounded-2xl bg-white/5 hover:bg-white/10 border border-purple-400/20 hover:border-pink-400/60 shadow-sm flex items-start gap-4 transition-all group backdrop-blur-md">
-<div class="w-10 h-10 rounded-xl bg-purple-900/60 text-pink-400 flex items-center justify-center flex-shrink-0 text-base shadow-sm group-hover:scale-105 transition-transform border border-purple-500/30">
-<svg class="w-5 h-5" fill="none" stroke="currentColor" viewbox="0 0 24 24"><path d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z" stroke-linecap="round" stroke-linejoin="round" stroke-width="2"></path></svg>
-</div>
+<a href="/referrals.html" class="p-4 rounded-2xl bg-white/5 hover:bg-white/10 border border-purple-400/20 hover:border-pink-400/60 shadow-sm flex items-start gap-4 transition-all group backdrop-blur-md">
+<div class="w-10 h-10 rounded-xl bg-purple-900/60 text-pink-400 flex items-center justify-center flex-shrink-0 text-base shadow-sm group-hover:scale-105 transition-transform border border-purple-500/30">🎁</div>
 <div>
-<p class="font-bold text-white text-base group-hover:text-pink-300 transition-colors">Privacy Policy ↗</p>
-<p class="text-purple-200/80 mt-1 leading-relaxed text-xs sm:text-sm">Your privacy is important to us. Photos and wishes remain strictly confidential.</p>
+<p class="font-bold text-white text-base group-hover:text-pink-300 transition-colors">Refer 7 Friends • Free Custom Link ↗</p>
+<p class="text-purple-200/80 mt-1 leading-relaxed text-xs sm:text-sm">Share with 7 friends! When they create any template (even Free), get 1 Custom Link Free.</p>
 </div>
 </a>
-<a href="/legal?policy=terms_of_service" class="p-4 rounded-2xl bg-white/5 hover:bg-white/10 border border-purple-400/20 hover:border-pink-400/60 shadow-sm flex items-start gap-4 transition-all group backdrop-blur-md">
-<div class="w-10 h-10 rounded-xl bg-purple-900/60 text-pink-400 flex items-center justify-center flex-shrink-0 text-base shadow-sm group-hover:scale-105 transition-transform border border-purple-500/30">
-<svg class="w-5 h-5" fill="none" stroke="currentColor" viewbox="0 0 24 24"><path d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" stroke-linecap="round" stroke-linejoin="round" stroke-width="2"></path></svg>
-</div>
+<a href="/pricing.html" class="p-4 rounded-2xl bg-white/5 hover:bg-white/10 border border-purple-400/20 hover:border-pink-400/60 shadow-sm flex items-start gap-4 transition-all group backdrop-blur-md">
+<div class="w-10 h-10 rounded-xl bg-purple-900/60 text-pink-400 flex items-center justify-center flex-shrink-0 text-base shadow-sm group-hover:scale-105 transition-transform border border-purple-500/30">👑</div>
 <div>
-<p class="font-bold text-white text-base group-hover:text-pink-300 transition-colors">Terms of Service ↗</p>
-<p class="text-purple-200/80 mt-1 leading-relaxed text-xs sm:text-sm">Simple, honest guidelines for creating pure joyful experiences.</p>
+<p class="font-bold text-white text-base group-hover:text-pink-300 transition-colors">Pricing &amp; Combo Offers ↗</p>
+<p class="text-purple-200/80 mt-1 leading-relaxed text-xs sm:text-sm">₹59 Custom Link, ₹59 HD Images + Style, ₹99 Free Combo &amp; Template + ₹70 Royal Combo.</p>
 </div>
 </a>
 <div class="p-4 rounded-2xl bg-white/5 border border-purple-400/20 shadow-sm flex items-start gap-4 transition-colors backdrop-blur-md">
@@ -2653,14 +2649,13 @@ body.dark .hero-gradient-text,
 </ul>
 </div>
 <div>
-<h4 class="font-extrabold text-white mb-4 uppercase tracking-wider text-xs">Trust &amp; Legal</h4>
+<h4 class="font-extrabold text-white mb-4 uppercase tracking-wider text-xs">Rewards &amp; Account</h4>
 <ul class="space-y-2.5 text-purple-200/80 font-medium">
-<li><a class="hover:text-pink-300 transition" href="/legal?policy=terms_of_service">Terms of Service</a></li>
-<li><a class="hover:text-pink-300 transition" href="/legal?policy=privacy_policy">Privacy Policy</a></li>
-<li><a class="hover:text-pink-300 transition" href="/legal?policy=cookie_policy">Cookie Notice</a></li>
-<li><a class="hover:text-pink-300 transition" href="/legal?policy=refund_policy">Refund Policy</a></li>
-<li><button type="button" class="hover:text-pink-300 transition text-left cursor-pointer" data-action="cookie-preferences">Cookie Preferences</button></li>
-<li><a class="hover:text-pink-300 transition font-bold text-pink-400" href="/legal">Legal Center ↗</a></li>
+<li><a class="hover:text-pink-300 transition font-bold text-pink-400" href="/referrals.html">7-Friends Free Link ↗</a></li>
+<li><a class="hover:text-pink-300 transition" href="/pricing.html">Pricing &amp; Combos</a></li>
+<li><a class="hover:text-pink-300 transition" href="/my-wishes.html">My Wishes</a></li>
+<li><a class="hover:text-pink-300 transition" href="/settings.html">Account Settings</a></li>
+<li><a class="hover:text-pink-300 transition" href="/help.html">Help &amp; Support</a></li>
 </ul>
 </div>
 </div>
@@ -3786,5 +3781,5 @@ body.dark .hero-gradient-text,
     });
   </script>
 <!-- END: InteractiveScriptHandlers -->
-<script src="/js/consent-manager.js"></script>
+
 </body></html>

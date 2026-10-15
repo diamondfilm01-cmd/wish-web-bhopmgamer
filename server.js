@@ -2208,9 +2208,34 @@ app.post('/api/auth/signin', (req, res) => {
     const cleanEmail = (extractedEmail || '').trim().toLowerCase();
     const ADMIN_EMAILS_LIST = ['ankit.babusaini@gmail.com'];
     const isUserAdmin = ADMIN_EMAILS_LIST.includes(cleanEmail);
-    const users = getUsers();
+    // 1. Purge any accounts whose 14-day deletion timer has expired
+    const nowTime = new Date();
+    const nowIsoStr = nowTime.toISOString();
+    const delRequests = getAccountDeletionRequestsList();
+    let delRequestsChanged = false;
+    let usersList = getUsers();
+    let usersChanged = false;
 
+    for (const r of delRequests) {
+      if ((r.status === DELETION_STATUS.DEACTIVATED || r.status === DELETION_STATUS.PENDING) && r.gracePeriodEndsAt && new Date(r.gracePeriodEndsAt) <= nowTime) {
+        const expUid = r.userId || r.user_id;
+        r.status = DELETION_STATUS.COMPLETED;
+        r.completedAt = nowIsoStr;
+        delRequestsChanged = true;
+        usersList = usersList.filter(u => u.id !== expUid);
+        usersChanged = true;
+        const cleanedWishes = getWishes().filter(w => w.userId !== expUid && w.user_id !== expUid);
+        saveWishes(cleanedWishes);
+        const cleanedSessions = getSessions().filter(s => s.userId !== expUid && s.user_id !== expUid);
+        saveSessions(cleanedSessions);
+      }
+    }
+    if (delRequestsChanged) saveAccountDeletionRequestsList(delRequests);
+    if (usersChanged) saveUsers(usersList);
+
+    const users = getUsers();
     let target = users.find(u => (userId && u.id === userId) || (cleanEmail && u.email === cleanEmail));
+    let deletionTimerCancelled = false;
 
     if (!target) {
       target = {
@@ -2232,6 +2257,26 @@ app.post('/api/auth/signin', (req, res) => {
       saveUsers(users);
     } else {
       let updated = false;
+      // If user was scheduled for 14-day deletion and logs back in within 14 days, cancel the timer!
+      const activeDelList = getAccountDeletionRequestsList();
+      let activeDelCancelled = false;
+      activeDelList.forEach(r => {
+        if ((r.userId === target.id || r.user_id === target.id) && (r.status === DELETION_STATUS.DEACTIVATED || r.status === DELETION_STATUS.PENDING)) {
+          r.status = DELETION_STATUS.CANCELLED;
+          r.cancelledAt = new Date().toISOString();
+          r.adminNotes = 'Auto-cancelled: User signed in within 14-day grace period';
+          activeDelCancelled = true;
+        }
+      });
+      if (activeDelCancelled || target.status === 'deactivated') {
+        if (activeDelCancelled) saveAccountDeletionRequestsList(activeDelList);
+        target.status = 'active';
+        if (!target.displayName || target.displayName === 'Deactivated Creator') {
+          target.displayName = extractedName || (cleanEmail ? cleanEmail.split('@')[0] : 'Creator');
+        }
+        updated = true;
+        deletionTimerCancelled = true;
+      }
       if (isUserAdmin && target.role !== 'admin') {
         target.role = 'admin';
         target.isAdmin = true;
@@ -2243,7 +2288,7 @@ app.post('/api/auth/signin', (req, res) => {
         target.displayName = displayName;
         updated = true;
       }
-      if (avatarUrl && target.avatarUrl !== avatarUrl) {
+      if (avatarUrl && !target.avatarUrl) {
         target.avatarUrl = avatarUrl;
         updated = true;
       }
@@ -2271,7 +2316,16 @@ app.post('/api/auth/signin', (req, res) => {
     saveSessions(sessions);
 
     res.setHeader('Set-Cookie', `wm_session=${encodeURIComponent(token)}; Path=/; Max-Age=${30 * 24 * 60 * 60}; HttpOnly; SameSite=Lax`);
-    res.json({ success: true, user: target, requestId });
+    res.json({
+      success: true,
+      user: target,
+      requestId,
+      deletionTimerCancelled,
+      accountRestored: deletionTimerCancelled,
+      message: deletionTimerCancelled
+        ? 'Welcome back! Your 14-day account deletion timer has been cancelled and your account is active again.'
+        : 'Signed in successfully.'
+    });
   } catch (err) {
     res.status(500).json({
       success: false,
@@ -10897,7 +10951,7 @@ app.get(['/api/account/deletion', '/api/account/deletion-status'], (req, res) =>
   }
 });
 
-// API: Account Deletion / Deactivation Workflow (Supports POST /api/account/deletion & /api/account/delete)
+// API: Account Deletion / 14-Day Grace Period Workflow (Supports POST /api/account/deletion & /api/account/delete)
 app.post(['/api/account/deletion', '/api/account/delete'], (req, res) => {
   try {
     if (!req.user) {
@@ -10907,76 +10961,61 @@ app.post(['/api/account/deletion', '/api/account/delete'], (req, res) => {
     const { confirmationText, reason, feedback, wishesHandling } = req.body || {};
     const deletionRes = processAccountDeletionRequest({
       user: req.user,
-      confirmationText,
-      reason,
-      feedback,
-      wishesHandling,
+      confirmationText: confirmationText || 'DELETE MY ACCOUNT',
+      reason: reason || 'User requested account deletion',
+      feedback: feedback || '',
+      wishesHandling: wishesHandling || 'retain_grace',
       actor: req.user
     });
 
     const { deletionRecord, deactivatedUser, auditLog, message } = deletionRes;
 
-    // 1. Record deletion request
+    // 1. Record 14-day deletion timer request
     const requests = getAccountDeletionRequestsList();
+    requests.forEach(r => {
+      if ((r.userId === req.user.id || r.user_id === req.user.id) && (r.status === DELETION_STATUS.DEACTIVATED || r.status === DELETION_STATUS.PENDING)) {
+        r.status = DELETION_STATUS.CANCELLED;
+      }
+    });
     requests.unshift(deletionRecord);
     saveAccountDeletionRequestsList(requests);
 
-    // 2. Anonymize user record & set status to deactivated
+    // 2. Mark user status as deactivated (preserving displayName & avatarUrl during 14-day grace period)
     const users = getUsers();
     const uIdx = users.findIndex(u => u.id === req.user.id);
     if (uIdx >= 0) {
-      users[uIdx] = { ...users[uIdx], ...deactivatedUser };
+      users[uIdx].status = 'deactivated';
+      users[uIdx].updatedAt = deactivatedUser.updatedAt;
       saveUsers(users);
     }
 
-    // 3. Handle wishes if requested to unpublish immediately
+    // 3. Handle published wishes if immediate unpublish chosen
     if (wishesHandling === 'unpublish_immediately') {
       const wishes = getWishes();
-      let updatedWishes = false;
       wishes.forEach(w => {
         if (w.userId === req.user.id || w.user_id === req.user.id) {
           w.status = 'archived';
-          updatedWishes = true;
         }
       });
-      if (updatedWishes) saveWishes(wishes);
+      saveWishes(wishes);
     }
 
-    // 4. Create background lifecycle purge job
-    const lifecycleJobs = getAccountLifecycleJobsList();
-    const newLifeJob = createLifecycleJobRecord({
-      userId: req.user.id,
-      jobType: LIFECYCLE_JOB_TYPES.ACCOUNT_DELETION_PURGE,
-      progressStep: 'GRACE_PERIOD_ACTIVE',
-      details: {
-        deletionRequestId: deletionRecord.id,
-        wishesHandling,
-        gracePeriodEndsAt: deletionRecord.gracePeriodEndsAt
-      }
-    });
-    lifecycleJobs.unshift(newLifeJob);
-    saveAccountLifecycleJobsList(lifecycleJobs);
-
-    // 5. Terminate all active sessions for this user
-    let sessions = getSessions();
-    sessions = sessions.filter(s => s.userId !== req.user.id);
+    // 4. Terminate all active sessions immediately so user is signed out
+    const sessions = getSessions().filter(s => s.userId !== req.user.id && s.user_id !== req.user.id);
     saveSessions(sessions);
 
-    // 6. Audit log
-    const logs = getAdminAuditLogs();
-    logs.push(auditLog);
-    saveAdminAuditLogs(logs);
-
-    res.setHeader('Set-Cookie', 'wm_session=; Path=/; Max-Age=0; HttpOnly; SameSite=Lax');
+    res.clearCookie('wm_session', { path: '/' });
     res.json({
       success: true,
-      message,
+      scheduledForDeletion: true,
+      gracePeriodDays: 14,
       requestId: deletionRecord.id,
       gracePeriodEndsAt: deletionRecord.gracePeriodEndsAt,
-      status: 'deactivated'
+      status: 'deactivated',
+      message
     });
   } catch (err) {
-    res.status(400).json({ success: false, message: err.message });
+    res.status(400).json({ success: false, error: { code: 'VALIDATION_ERROR', message: err.message }, message: err.message });
   }
 });
 
@@ -15419,7 +15458,7 @@ app.get([
   '/compliance',
   '/compliance.html'
 ], (req, res) => {
-  res.sendFile(path.join(__dirname, 'public', 'legal.html'));
+  res.redirect(302, '/');
 });
 
 app.get([

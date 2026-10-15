@@ -40,21 +40,69 @@
     return String(email).trim().toLowerCase() === MASTER_ADMIN_EMAIL;
   }
 
+  function getProfileOverrides(email, userId) {
+    try {
+      const eKey = email ? `wishmagic_profile_overrides_${String(email).trim().toLowerCase()}` : null;
+      const uKey = userId ? `wishmagic_profile_overrides_${String(userId).trim()}` : null;
+      const raw = (eKey && localStorage.getItem(eKey)) || (uKey && localStorage.getItem(uKey));
+      if (raw) return JSON.parse(raw);
+    } catch (_) {}
+    return null;
+  }
+
+  function saveProfileOverrides(email, userId, overrides) {
+    try {
+      const clean = { ...(getProfileOverrides(email, userId) || {}), ...overrides, updatedAt: new Date().toISOString() };
+      if (email) {
+        localStorage.setItem(`wishmagic_profile_overrides_${String(email).trim().toLowerCase()}`, JSON.stringify(clean));
+      }
+      if (userId) {
+        localStorage.setItem(`wishmagic_profile_overrides_${String(userId).trim()}`, JSON.stringify(clean));
+      }
+    } catch (_) {}
+  }
+
+  function clearProfileOverrides(email, userId) {
+    try {
+      if (email) localStorage.removeItem(`wishmagic_profile_overrides_${String(email).trim().toLowerCase()}`);
+      if (userId) localStorage.removeItem(`wishmagic_profile_overrides_${String(userId).trim()}`);
+    } catch (_) {}
+  }
+
+  function applyProfileOverrides(user) {
+    if (!user) return user;
+    const ov = getProfileOverrides(user.email, user.id);
+    if (!ov) return user;
+    return {
+      ...user,
+      displayName: ov.displayName || user.displayName,
+      name: ov.displayName || user.name || user.displayName,
+      avatarUrl: ov.avatarUrl || user.avatarUrl,
+      preferredLanguage: ov.preferredLanguage || user.preferredLanguage || 'en',
+      timezone: ov.timezone || user.timezone || 'Asia/Kolkata'
+    };
+  }
+
   function buildClientUserFromFirebase(fbUser, fallbackDisplayName = '') {
     const email = (fbUser.email || '').trim().toLowerCase();
     const isOwner = isMasterAdminEmail(email);
+    const uid = fbUser.uid || email.replace(/[^a-z0-9]/g, '_');
+    const id = `usr_fb_${uid.slice(0, 24)}`;
+    const ov = getProfileOverrides(email, id);
+
     const displayName = (
+      (ov && ov.displayName) ||
       fbUser.displayName ||
       fallbackDisplayName ||
       (email ? email.split('@')[0] : 'Creator')
     ).trim();
     const avatarUrl =
+      (ov && ov.avatarUrl) ||
       fbUser.photoURL ||
       `https://api.dicebear.com/7.x/bottts/svg?seed=${encodeURIComponent(email || 'creator')}`;
-    const uid = fbUser.uid || email.replace(/[^a-z0-9]/g, '_');
 
-    return {
-      id: `usr_fb_${uid.slice(0, 24)}`,
+    return applyProfileOverrides({
+      id,
       email,
       displayName,
       avatarUrl,
@@ -62,7 +110,7 @@
       plan: isOwner ? 'VIP' : 'Free',
       isPremium: isOwner,
       isAdmin: isOwner
-    };
+    });
   }
 
   function persistUserCache(user) {
@@ -82,7 +130,8 @@
 
   function setAuthState(state, user = null) {
     authState = state;
-    currentUser = user;
+    currentUser = user ? applyProfileOverrides(user) : null;
+    user = currentUser;
 
     if (state === AUTH_STATE.AUTHENTICATED && user) {
       persistUserCache(user);
@@ -194,7 +243,13 @@
 
         const data = await response.json().catch(() => ({}));
         const user = data?.user || data?.data?.user;
+        const timerCancelled = Boolean(data?.deletionTimerCancelled || data?.data?.deletionTimerCancelled || data?.accountRestored || data?.data?.accountRestored);
         if (response.ok && data?.success === true && user) {
+          if (timerCancelled) {
+            setTimeout(() => {
+              showAuthToast('🎉 Welcome back! Your 14-day account deletion timer has been cancelled and your account is active again.');
+            }, 350);
+          }
           return user;
         }
 
@@ -462,30 +517,126 @@
       }
       if (!currentUser) return null;
 
-      const newName = updates.displayName !== undefined ? updates.displayName.trim() : currentUser.displayName;
-      const newAvatar = updates.avatarUrl !== undefined ? updates.avatarUrl.trim() : currentUser.avatarUrl;
+      const newName = updates.displayName !== undefined ? String(updates.displayName).trim() : currentUser.displayName;
+      const newAvatar = updates.avatarUrl !== undefined ? String(updates.avatarUrl).trim() : currentUser.avatarUrl;
+      const newLang = updates.preferredLanguage !== undefined ? updates.preferredLanguage : (currentUser.preferredLanguage || 'en');
+      const newTz = updates.timezone !== undefined ? updates.timezone : (currentUser.timezone || 'Asia/Kolkata');
 
+      // 1. Save persistent profile overrides locally immediately
+      saveProfileOverrides(currentUser.email, currentUser.id, {
+        displayName: newName,
+        avatarUrl: newAvatar,
+        preferredLanguage: newLang,
+        timezone: newTz
+      });
+
+      // 2. Update Firebase Auth user profile if available
+      let idToken = null;
       try {
-        const res = await fetch('/api/users/me', {
-          method: 'PUT',
-          headers: { 'Content-Type': 'application/json' },
-          credentials: 'include',
-          body: JSON.stringify({ displayName: newName, avatarUrl: newAvatar })
-        });
-        const data = await res.json().catch(() => ({}));
-        const returnedUser = data?.data?.user || data?.user;
-        if (res.ok && returnedUser) {
-          const merged = { ...currentUser, ...returnedUser, displayName: newName, avatarUrl: newAvatar };
-          setAuthState(AUTH_STATE.AUTHENTICATED, merged);
-          return merged;
+        if (typeof firebase !== 'undefined' && firebase.auth && firebase.auth().currentUser) {
+          const fbCurrent = firebase.auth().currentUser;
+          if (typeof fbCurrent.updateProfile === 'function') {
+            await fbCurrent.updateProfile({ displayName: newName, photoURL: newAvatar }).catch(() => {});
+          }
+          if (typeof fbCurrent.getIdToken === 'function') {
+            idToken = await fbCurrent.getIdToken().catch(() => null);
+          }
         }
+      } catch (_) {}
+
+      const headers = { 'Content-Type': 'application/json' };
+      if (idToken) headers['Authorization'] = `Bearer ${idToken}`;
+
+      // 3. Persist on backend (/api/account/profile and /api/users/me)
+      try {
+        await Promise.all([
+          fetch('/api/account/profile', {
+            method: 'PUT',
+            headers,
+            credentials: 'include',
+            body: JSON.stringify({
+              displayName: newName,
+              avatarUrl: newAvatar,
+              preferredLanguage: newLang,
+              timezone: newTz
+            })
+          }).catch(() => null),
+          fetch('/api/users/me', {
+            method: 'PUT',
+            headers,
+            credentials: 'include',
+            body: JSON.stringify({ displayName: newName, avatarUrl: newAvatar })
+          }).catch(() => null)
+        ]);
       } catch (e) {
         console.warn('[WishAuth] Profile update note:', e);
       }
 
-      const updated = { ...currentUser, displayName: newName, avatarUrl: newAvatar };
+      const updated = {
+        ...currentUser,
+        displayName: newName,
+        name: newName,
+        avatarUrl: newAvatar,
+        preferredLanguage: newLang,
+        timezone: newTz
+      };
       setAuthState(AUTH_STATE.AUTHENTICATED, updated);
       return updated;
+    },
+
+    async deleteCurrentAccount(options = {}) {
+      let idToken = null;
+      try {
+        if (typeof firebase !== 'undefined' && firebase.auth && firebase.auth().currentUser) {
+          const fbCurrent = firebase.auth().currentUser;
+          if (typeof fbCurrent.getIdToken === 'function') {
+            idToken = await fbCurrent.getIdToken().catch(() => null);
+          }
+        }
+      } catch (_) {}
+
+      const headers = { 'Content-Type': 'application/json' };
+      if (idToken) headers['Authorization'] = `Bearer ${idToken}`;
+
+      let serverResult = null;
+      try {
+        const res = await fetch('/api/account/delete', {
+          method: 'POST',
+          headers,
+          credentials: 'include',
+          body: JSON.stringify({
+            confirmationText: options.confirmationText || 'DELETE MY ACCOUNT',
+            reason: options.reason || 'User requested 14-day account deletion',
+            wishesHandling: options.wishesHandling || 'retain_grace'
+          })
+        });
+        serverResult = await res.json().catch(() => ({}));
+      } catch (e) {
+        console.warn('[WishAuth] Server 14-day deletion request notice:', e);
+      }
+
+      // Sign out from Firebase Auth (do NOT delete Firebase identity so user can log back in within 14 days to cancel timer!)
+      try {
+        if (window.WishFirebaseAuth && typeof window.WishFirebaseAuth.signOut === 'function') {
+          await window.WishFirebaseAuth.signOut().catch(() => {});
+        }
+      } catch (_) {}
+
+      try {
+        await fetch('/api/auth/signout', { method: 'POST', credentials: 'include' }).catch(() => {});
+      } catch (_) {}
+
+      clearUserCache();
+      setAuthState(AUTH_STATE.UNAUTHENTICATED, null);
+
+      const graceDateStr = serverResult?.gracePeriodEndsAt || serverResult?.data?.gracePeriodEndsAt || new Date(Date.now() + 14 * 24 * 60 * 60 * 1000).toISOString();
+      return {
+        success: true,
+        scheduledForDeletion: true,
+        gracePeriodDays: 14,
+        gracePeriodEndsAt: graceDateStr,
+        message: serverResult?.message || serverResult?.data?.message || 'Your account is scheduled for deletion in 14 days. Log back in anytime within 14 days to cancel the deletion timer.'
+      };
     },
 
     async signOut() {

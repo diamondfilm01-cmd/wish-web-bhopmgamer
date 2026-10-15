@@ -8,10 +8,10 @@
   <meta name="description" content="Manage your WishMagic creator account, profile information, and celebration preferences."/>
   
   <!-- Auto Device Theme Detector & Engine -->
-  <script src="/js/site-theme.js?v=20261015_wm47944_v4"></script>
+  <script src="/js/site-theme.js?v=20261015_wm47944_v6"></script>
 
   <!-- Tailwind CSS CDN -->
-  <script src="/js/tailwind-config.js?v=20261015_wm47944_v4"></script>
+  <script src="/js/tailwind-config.js?v=20261015_wm47944_v6"></script>
   <script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
   <script>if (typeof tailwind !== "undefined" && typeof sharedTailwindConfig !== "undefined") { tailwind.config = sharedTailwindConfig; }</script>
 
@@ -107,13 +107,13 @@
   <script src="js/api-client.js"></script>
   <script src="https://www.gstatic.com/firebasejs/10.8.0/firebase-app-compat.js"></script>
   <script src="https://www.gstatic.com/firebasejs/10.8.0/firebase-auth-compat.js"></script>
-  <script src="/js/firebase-auth.js?v=20261015_wm47944_v4"></script>
-  <script src="/js/auth-service.js?v=20261015_wm47944_v4"></script>
+  <script src="/js/firebase-auth.js?v=20261015_wm47944_v6"></script>
+  <script src="/js/auth-service.js?v=20261015_wm47944_v6"></script>
   <script src="js/repositories.js"></script>
   <script src="js/wish-lifecycle.js"></script>
-  <script src="/js/notification-service.js?v=20261015_wm47944_v4"></script>
+  <script src="/js/notification-service.js?v=20261015_wm47944_v6"></script>
   <script src="js/security-hardening.js"></script>
-  <link id="wishmagic-cloud-css" rel="stylesheet" href="/css/cloud-background.css?v=20261015_wm47944_v4"/>
+  <link id="wishmagic-cloud-css" rel="stylesheet" href="/css/cloud-background.css?v=20261015_wm47944_v6"/>
 </head>
 <body class="w-full min-h-screen antialiased flex flex-col selection:bg-pink-500 selection:text-white">
 
@@ -177,7 +177,7 @@
         </p>
       </div>
       <button onclick="openAuthModal('signin')" class="px-6 py-2.5 rounded-2xl bg-gradient-to-r from-pink-500 to-purple-600 text-white font-bold text-xs sm:text-sm shadow-md hover:brightness-110 active:scale-95 transition cursor-pointer">
-        Sign In / Choose Dev Profile ✨
+        Sign In with Google ✨
       </button>
     </div>
 
@@ -219,7 +219,7 @@
               </span>
               <span class="flex items-center gap-1">
                 <span class="material-symbols-outlined text-[15px]">bolt</span>
-                <span id="profile-provider-badge">Development Identity</span>
+                <span id="profile-provider-badge">Google Verified</span>
               </span>
             </div>
           </div>
@@ -311,18 +311,18 @@
         </form>
       </section>
 
-      <!-- Part 36: Referral Program & Invite Rewards -->
+      <!-- 7-Friends Referral Program & Free Custom Link Rewards -->
       <section class="glass-card rounded-3xl p-6 sm:p-8">
         <div class="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 mb-4">
           <div class="flex items-center gap-2">
             <span class="material-symbols-outlined text-pink-500 text-[24px]">loyalty</span>
             <div>
-              <h2 class="font-display font-extrabold text-xl text-purple-950 dark:text-white">Referral Program &amp; Rewards</h2>
-              <p class="text-xs text-purple-800/80 dark:text-purple-300/80 mt-0.5">Invite friends to WishMagic and earn free VIP access for each qualifying wish created.</p>
+              <h2 class="font-display font-extrabold text-xl text-purple-950 dark:text-white">7-Friends Referral Program</h2>
+              <p class="text-xs text-purple-800/80 dark:text-purple-300/80 mt-0.5">Share WishMagic with 7 friends! When 7 friends create any wish template (even a Free template), you unlock 1 Free Custom Link (worth ₹59).</p>
             </div>
           </div>
-          <a href="/referrals" class="px-4 py-2 rounded-xl bg-gradient-to-r from-pink-500 to-purple-600 hover:brightness-110 text-white font-bold text-xs shadow-md transition flex items-center gap-1.5 flex-shrink-0">
-            <span>Open Rewards Hub</span>
+          <a href="/referrals.html" class="px-4 py-2 rounded-xl bg-gradient-to-r from-pink-500 to-purple-600 hover:brightness-110 text-white font-bold text-xs shadow-md transition flex items-center gap-1.5 flex-shrink-0">
+            <span>Open 7-Friends Hub</span>
             <span class="material-symbols-outlined text-[16px]">arrow_forward</span>
           </a>
         </div>
@@ -333,25 +333,25 @@
               🎁
             </div>
             <div>
-              <div class="text-xs font-bold text-purple-950 dark:text-white">Give 3 Days VIP, Get 7 Days VIP</div>
-              <div class="text-[11px] text-purple-800/70 dark:text-purple-300/70">Share your invite link with family and friends to unlock premium features together.</div>
+              <div class="text-xs font-bold text-purple-950 dark:text-white">Refer 7 Friends → Get 1 Free Custom Link (Worth ₹59)</div>
+              <div class="text-[11px] text-purple-800/70 dark:text-purple-300/70">When 7 referred friends create any template (even a ₹0 Free template), you get 1 Custom Link free on any Free template!</div>
             </div>
           </div>
-          <a href="/referrals" class="text-xs font-bold text-pink-600 dark:text-pink-400 hover:underline flex items-center gap-1">
-            <span>View your code &amp; stats</span>
+          <a href="/referrals.html" class="text-xs font-bold text-pink-600 dark:text-pink-400 hover:underline flex items-center gap-1">
+            <span>Track 0/7 Progress</span>
             <span class="material-symbols-outlined text-[14px]">chevron_right</span>
           </a>
         </div>
       </section>
 
-      <!-- Part 17: Notification Preferences & Communication Channels -->
+      <!-- Notification Preferences -->
       <section class="glass-card rounded-3xl p-6 sm:p-8">
         <div class="flex items-center justify-between mb-4">
           <div class="flex items-center gap-2">
             <span class="material-symbols-outlined text-primary text-[22px]">notifications_active</span>
             <div>
-              <h2 class="font-display font-extrabold text-xl text-purple-950 dark:text-white">Notification Preferences &amp; Channels</h2>
-              <p class="text-xs text-purple-800/80 dark:text-purple-300/80 mt-0.5">Control how and when WishMagic communicates updates, celebration milestones, and reminders.</p>
+              <h2 class="font-display font-extrabold text-xl text-purple-950 dark:text-white">Notification Preferences</h2>
+              <p class="text-xs text-purple-800/80 dark:text-purple-300/80 mt-0.5">Control your celebration date alerts, draft nudges, and link expiry reminders.</p>
             </div>
           </div>
           <button onclick="saveNotificationPreferences()" id="btn-save-notif-prefs" class="px-4 py-2 rounded-xl bg-primary hover:bg-pink-600 text-white text-xs font-bold transition shadow-sm cursor-pointer">
@@ -359,52 +359,8 @@
           </button>
         </div>
 
-        <div class="grid grid-cols-1 md:grid-cols-2 gap-6 pt-2">
-          <!-- Column 1: Delivery Channels -->
-          <div class="p-4 rounded-2xl bg-purple-50/50 dark:bg-purple-950/30 border border-purple-200/60 dark:border-purple-800/50 flex flex-col gap-3.5">
-            <div class="text-xs font-bold uppercase tracking-wider text-purple-900 dark:text-purple-200 flex items-center gap-1.5">
-              <span class="material-symbols-outlined text-[16px] text-pink-500">cell_tower</span>
-              <span>Delivery Channels</span>
-            </div>
-
-            <!-- In-App Notification Center -->
-            <label class="flex items-start justify-between gap-3 p-3 rounded-xl bg-white/70 dark:bg-purple-900/30 border border-purple-200/50 dark:border-purple-800/40 cursor-pointer">
-              <div>
-                <div class="text-xs font-bold text-purple-950 dark:text-white flex items-center gap-1.5">
-                  <span>In-App Notification Center</span>
-                  <span class="px-1.5 py-0.2 rounded bg-emerald-500/20 text-emerald-600 dark:text-emerald-400 font-bold text-[9px] uppercase">Active</span>
-                </div>
-                <div class="text-[11px] text-purple-800/70 dark:text-purple-300/70 mt-0.5">Show notifications in the top navbar bell &amp; popover drawer.</div>
-              </div>
-              <input type="checkbox" id="pref-inApp" class="rounded text-pink-500 focus:ring-pink-500 mt-1 cursor-pointer" checked/>
-            </label>
-
-            <!-- Email Delivery (Provider Notice) -->
-            <label class="flex items-start justify-between gap-3 p-3 rounded-xl bg-white/70 dark:bg-purple-900/30 border border-purple-200/50 dark:border-purple-800/40 cursor-pointer">
-              <div>
-                <div class="text-xs font-bold text-purple-950 dark:text-white flex items-center gap-1.5">
-                  <span>Email Notifications</span>
-                  <span class="px-1.5 py-0.2 rounded bg-amber-500/20 text-amber-600 dark:text-amber-400 font-bold text-[9px] uppercase">Cloud Ready</span>
-                </div>
-                <div class="text-[11px] text-purple-800/70 dark:text-purple-300/70 mt-0.5">Send purchase receipts &amp; special date summaries. <em>(Available when email delivery is connected in Part 20)</em></div>
-              </div>
-              <input type="checkbox" id="pref-email" class="rounded text-pink-500 focus:ring-pink-500 mt-1 cursor-pointer" checked/>
-            </label>
-
-            <!-- WhatsApp Delivery (Provider Notice) -->
-            <label class="flex items-start justify-between gap-3 p-3 rounded-xl bg-white/70 dark:bg-purple-900/30 border border-purple-200/50 dark:border-purple-800/40 cursor-pointer">
-              <div>
-                <div class="text-xs font-bold text-purple-950 dark:text-white flex items-center gap-1.5">
-                  <span>Automated WhatsApp Alerts</span>
-                  <span class="px-1.5 py-0.2 rounded bg-purple-500/20 text-purple-600 dark:text-purple-400 font-bold text-[9px] uppercase">Optional</span>
-                </div>
-                <div class="text-[11px] text-purple-800/70 dark:text-purple-300/70 mt-0.5">Direct reminder messages for upcoming dates. <em>(Available when WhatsApp API is connected)</em></div>
-              </div>
-              <input type="checkbox" id="pref-whatsapp" class="rounded text-pink-500 focus:ring-pink-500 mt-1 cursor-pointer"/>
-            </label>
-          </div>
-
-          <!-- Column 2: Event Triggers -->
+        <div class="pt-2">
+          <!-- Celebration & Lifecycle Alerts -->
           <div class="p-4 rounded-2xl bg-purple-50/50 dark:bg-purple-950/30 border border-purple-200/60 dark:border-purple-800/50 flex flex-col gap-3.5">
             <div class="text-xs font-bold uppercase tracking-wider text-purple-900 dark:text-purple-200 flex items-center gap-1.5">
               <span class="material-symbols-outlined text-[16px] text-pink-500">checklist</span>
@@ -435,24 +391,6 @@
               <input type="checkbox" id="pref-expiryReminders" class="rounded text-pink-500 focus:ring-pink-500 mt-1 cursor-pointer" checked/>
             </label>
           </div>
-        </div>
-
-        <!-- Live Reminder Scan & Simulation Test Tool -->
-        <div class="mt-5 p-4 rounded-2xl bg-pink-50/60 dark:bg-pink-950/20 border border-pink-200/60 dark:border-pink-800/40">
-          <div class="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3">
-            <div>
-              <div class="text-xs font-bold text-purple-950 dark:text-white flex items-center gap-1.5">
-                <span class="material-symbols-outlined text-pink-500 text-[18px]">rule</span>
-                <span>Reminder Eligibility Scanner (Part 17 Architecture)</span>
-              </div>
-              <p class="text-[11px] text-purple-800/80 dark:text-purple-300/80 mt-0.5">Scans current user's drafts and active wishes using the centralized lifecycle engine without spamming.</p>
-            </div>
-            <button onclick="runReminderScanner()" class="px-3.5 py-1.5 rounded-xl bg-pink-500 hover:bg-pink-600 text-white font-bold text-xs shadow-sm transition flex items-center gap-1.5 cursor-pointer flex-shrink-0">
-              <span class="material-symbols-outlined text-[15px]">radar</span>
-              <span>Scan Reminders</span>
-            </button>
-          </div>
-          <div id="reminder-scan-results" class="mt-3 text-xs hidden space-y-2"></div>
         </div>
       </section>
 
@@ -581,196 +519,59 @@
         </div>
       </section>
 
-      <!-- Part 35: Privacy Controls & Consent Management -->
-      <section id="section-privacy" class="glass-card rounded-3xl p-6 sm:p-8">
-        <div class="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 mb-5">
-          <div class="flex items-center gap-2.5">
-            <div class="w-9 h-9 rounded-xl bg-pink-500/20 text-pink-500 flex items-center justify-center">
-              <span class="material-symbols-outlined text-[20px]">privacy_tip</span>
-            </div>
-            <div>
-              <h2 class="font-display font-extrabold text-xl text-purple-950 dark:text-white">Privacy Controls &amp; Data Preferences</h2>
-              <p class="text-xs text-purple-800/80 dark:text-purple-300/80">Manage your profile discoverability, search engine indexing, and telemetry consent.</p>
-            </div>
-          </div>
-          <button onclick="handleSavePrivacySettings()" id="btn-save-privacy" class="px-5 py-2 rounded-xl bg-gradient-to-r from-pink-500 to-purple-600 hover:brightness-110 text-white font-bold text-xs shadow-md transition active:scale-95 cursor-pointer">
-            Save Privacy Controls ✨
-          </button>
-        </div>
-
-        <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
-          <!-- Profile Discoverability -->
-          <div class="p-4 rounded-2xl bg-purple-50/50 dark:bg-purple-950/30 border border-purple-200/60 dark:border-purple-800/50 space-y-3">
-            <div class="text-xs font-bold uppercase tracking-wider text-purple-900 dark:text-purple-200 flex items-center gap-1.5">
-              <span class="material-symbols-outlined text-[16px] text-pink-500">visibility</span>
-              <span>Profile Visibility</span>
-            </div>
-
-            <label class="flex items-start gap-3 p-3 rounded-xl bg-white/70 dark:bg-purple-900/30 border border-purple-200/50 dark:border-purple-800/40 cursor-pointer">
-              <input type="radio" name="privacy-visibility" value="public" class="text-pink-500 focus:ring-pink-500 mt-0.5" checked/>
-              <div>
-                <div class="text-xs font-bold text-purple-950 dark:text-white">Public Creator Profile</div>
-                <div class="text-[11px] text-purple-800/70 dark:text-purple-300/70 mt-0.5">Show your creator name &amp; avatar as author on shared celebration cards.</div>
-              </div>
-            </label>
-
-            <label class="flex items-start gap-3 p-3 rounded-xl bg-white/70 dark:bg-purple-900/30 border border-purple-200/50 dark:border-purple-800/40 cursor-pointer">
-              <input type="radio" name="privacy-visibility" value="unlisted" class="text-pink-500 focus:ring-pink-500 mt-0.5"/>
-              <div>
-                <div class="text-xs font-bold text-purple-950 dark:text-white">Unlisted Creator</div>
-                <div class="text-[11px] text-purple-800/70 dark:text-purple-300/70 mt-0.5">Wishes are viewable only by recipients with direct link. Profile hidden from public listings.</div>
-              </div>
-            </label>
-
-            <label class="flex items-start gap-3 p-3 rounded-xl bg-white/70 dark:bg-purple-900/30 border border-purple-200/50 dark:border-purple-800/40 cursor-pointer">
-              <input type="radio" name="privacy-visibility" value="private" class="text-pink-500 focus:ring-pink-500 mt-0.5"/>
-              <div>
-                <div class="text-xs font-bold text-purple-950 dark:text-white">Strictly Private</div>
-                <div class="text-[11px] text-purple-800/70 dark:text-purple-300/70 mt-0.5">Completely hide creator attribution. Wishes show as anonymous magic cards.</div>
-              </div>
-            </label>
-          </div>
-
-          <!-- Compliance & Consent Toggles -->
-          <div class="p-4 rounded-2xl bg-purple-50/50 dark:bg-purple-950/30 border border-purple-200/60 dark:border-purple-800/50 space-y-3">
-            <div class="text-xs font-bold uppercase tracking-wider text-purple-900 dark:text-purple-200 flex items-center gap-1.5">
-              <span class="material-symbols-outlined text-[16px] text-pink-500">tune</span>
-              <span>Search &amp; Telemetry Consents</span>
-            </div>
-
-            <!-- Search Engine Indexing -->
-            <label class="flex items-start justify-between gap-3 p-3 rounded-xl bg-white/70 dark:bg-purple-900/30 border border-purple-200/50 dark:border-purple-800/40 cursor-pointer">
-              <div>
-                <div class="text-xs font-bold text-purple-950 dark:text-white">Search Engine Indexing</div>
-                <div class="text-[11px] text-purple-800/70 dark:text-purple-300/70 mt-0.5">Allow search crawlers (Google, Bing) to discover public celebration links.</div>
-              </div>
-              <input type="checkbox" id="privacy-search-indexing" class="rounded text-pink-500 focus:ring-pink-500 mt-1 cursor-pointer" checked/>
-            </label>
-
-            <!-- Usage Analytics -->
-            <label class="flex items-start justify-between gap-3 p-3 rounded-xl bg-white/70 dark:bg-purple-900/30 border border-purple-200/50 dark:border-purple-800/40 cursor-pointer">
-              <div>
-                <div class="text-xs font-bold text-purple-950 dark:text-white">Anonymous Usage Analytics</div>
-                <div class="text-[11px] text-purple-800/70 dark:text-purple-300/70 mt-0.5">Send anonymized interaction events to help improve template performance &amp; 3D rendering.</div>
-              </div>
-              <input type="checkbox" id="privacy-analytics" class="rounded text-pink-500 focus:ring-pink-500 mt-1 cursor-pointer" checked/>
-            </label>
-
-            <!-- Promotional Communications -->
-            <label class="flex items-start justify-between gap-3 p-3 rounded-xl bg-white/70 dark:bg-purple-900/30 border border-purple-200/50 dark:border-purple-800/40 cursor-pointer">
-              <div>
-                <div class="text-xs font-bold text-purple-950 dark:text-white">Celebration Blueprints &amp; Offers</div>
-                <div class="text-[11px] text-purple-800/70 dark:text-purple-300/70 mt-0.5">Opt-in to occasional updates about newly published festival templates.</div>
-              </div>
-              <input type="checkbox" id="privacy-marketing" class="rounded text-pink-500 focus:ring-pink-500 mt-1 cursor-pointer"/>
-            </label>
-          </div>
-        </div>
-
-        <!-- Legal & Compliance Links Box -->
-        <div class="mt-4 p-4 rounded-2xl bg-purple-100/60 dark:bg-purple-900/20 border border-purple-200/60 dark:border-purple-800/40 flex flex-col sm:flex-row sm:items-center justify-between gap-3 text-xs">
-          <div class="flex items-center gap-2">
-            <span class="material-symbols-outlined text-[18px] text-pink-500">policy</span>
-            <span class="text-purple-950 dark:text-purple-200 font-semibold">Review Terms of Service, Privacy Policy &amp; Cookie Notices in the Legal Center</span>
-          </div>
-          <div class="flex items-center gap-2 flex-shrink-0">
-            <button type="button" data-action="cookie-preferences" class="px-3 py-1.5 rounded-xl border border-purple-300 dark:border-purple-700 hover:bg-purple-200/60 dark:hover:bg-purple-800/50 font-bold transition">
-              🍪 Cookie Prefs
-            </button>
-            <a href="/legal" target="_blank" class="px-3.5 py-1.5 rounded-xl bg-purple-600 hover:bg-purple-700 text-white font-bold transition flex items-center gap-1">
-              <span>Legal Center</span>
-              <span class="material-symbols-outlined text-[14px]">open_in_new</span>
-            </a>
-          </div>
-        </div>
-      </section>
-
-      <!-- Part 35: Personal Data Portability & GDPR / DPDP Export -->
-      <section id="section-export" class="glass-card rounded-3xl p-6 sm:p-8">
-        <div class="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 mb-4">
-          <div class="flex items-center gap-2.5">
-            <div class="w-9 h-9 rounded-xl bg-emerald-500/20 text-emerald-600 dark:text-emerald-300 flex items-center justify-center">
-              <span class="material-symbols-outlined text-[20px]">download_for_offline</span>
-            </div>
-            <div>
-              <h2 class="font-display font-extrabold text-xl text-purple-950 dark:text-white">Personal Data Portability (Data Export)</h2>
-              <p class="text-xs text-purple-800/80 dark:text-purple-300/80">Download a complete, machine-readable JSON archive of all your account data.</p>
-            </div>
-          </div>
-          <button onclick="handleRequestDataExport()" id="btn-request-export" class="px-4 py-2 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white text-xs font-bold transition flex items-center gap-1.5 shadow-sm cursor-pointer">
-            <span class="material-symbols-outlined text-[16px]">file_download</span>
-            <span>Export My Data (.JSON)</span>
-          </button>
-        </div>
-
-        <div class="p-4 rounded-2xl bg-emerald-50/50 dark:bg-emerald-950/20 border border-emerald-500/30 text-xs text-purple-900 dark:text-purple-200 space-y-2">
-          <div class="font-bold flex items-center gap-1.5 text-emerald-800 dark:text-emerald-300">
-            <span class="material-symbols-outlined text-[16px]">verified_user</span>
-            <span>Compliance Notice (GDPR Article 20 &amp; DPDP Act)</span>
-          </div>
-          <p class="text-[11px] leading-relaxed text-purple-800/80 dark:text-purple-300/80">
-            Your export archive contains all data associated with your creator identity: profile credentials, celebration wishes, uploaded message drafts, favorites, purchase invoices, verified VIP passes, support ticket conversations, and security activity history.
-          </p>
-          <div id="export-status-panel" class="mt-3 pt-3 border-t border-emerald-500/20 hidden">
-            <!-- Injected via JavaScript upon request -->
-          </div>
-        </div>
-      </section>
-
-      <!-- Part 35: Danger Zone & Account Deletion / Deactivation -->
+      <!-- Account Deletion (14-Day Grace Period & Auto-Cancel on Login) -->
       <section id="section-danger" class="glass-card rounded-3xl p-6 sm:p-8 border-2 border-rose-500/30">
         <div class="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 mb-4">
           <div class="flex items-center gap-2.5">
             <div class="w-9 h-9 rounded-xl bg-rose-500/20 text-rose-600 dark:text-rose-400 flex items-center justify-center">
-              <span class="material-symbols-outlined text-[20px]">warning</span>
+              <span class="material-symbols-outlined text-[20px]">delete_forever</span>
             </div>
             <div>
-              <h2 class="font-display font-extrabold text-xl text-rose-600 dark:text-rose-400">Account Deletion &amp; Deactivation</h2>
-              <p class="text-xs text-purple-800/80 dark:text-purple-300/80">Permanently deactivate your creator identity and remove personal profile data.</p>
+              <h2 class="font-display font-extrabold text-xl text-rose-600 dark:text-rose-400">Delete Account (14-Day Grace Period)</h2>
+              <p class="text-xs text-purple-800/80 dark:text-purple-300/80">Schedule your account for deletion in 14 days. Log in anytime within 14 days to automatically cancel the timer.</p>
             </div>
           </div>
-          <button onclick="openDeletionModal()" class="px-4 py-2 rounded-xl bg-rose-600 hover:bg-rose-700 text-white text-xs font-bold transition flex items-center gap-1.5 shadow-sm cursor-pointer">
+          <button onclick="openDeletionModal()" class="px-4 py-2.5 rounded-xl bg-rose-600 hover:bg-rose-700 text-white text-xs font-bold transition flex items-center gap-1.5 shadow-sm cursor-pointer">
             <span class="material-symbols-outlined text-[16px]">delete_forever</span>
-            <span>Request Account Deletion</span>
+            <span>Delete My Account</span>
           </button>
         </div>
 
-        <div class="p-4 rounded-2xl bg-rose-500/10 border border-rose-500/20 text-xs text-purple-900 dark:text-purple-200 space-y-2">
+        <div class="p-4 rounded-2xl bg-rose-500/10 border border-rose-500/20 text-xs text-purple-900 dark:text-purple-200 space-y-1.5">
           <div class="font-bold text-rose-600 dark:text-rose-400 flex items-center gap-1.5">
-            <span class="material-symbols-outlined text-[16px]">info</span>
-            <span>Retention Safeguards &amp; Legal Disclosures</span>
+            <span class="material-symbols-outlined text-[16px]">schedule</span>
+            <span>How 14-Day Account Deletion Works</span>
           </div>
           <ul class="list-disc pl-5 space-y-1 text-[11px] text-purple-800/80 dark:text-purple-300/80">
-            <li><strong>Financial Records Retention:</strong> Transaction invoices and UPI/Card payment receipts are legally retained under statutory accounting and tax regulations.</li>
-            <li><strong>Published Wishes:</strong> You may choose to unpublish active celebration links immediately or leave them active until their standard 7-day expiration completes.</li>
-            <li><strong>14-Day Restoration Window:</strong> Your account is softly deactivated. If you sign in again within 14 days, you may cancel deletion and restore your account.</li>
+            <li><strong>14-Day Deletion Timer:</strong> When you request account deletion, you are signed out immediately and a 14-day deletion timer starts on the server.</li>
+            <li><strong>Auto-Cancel on Re-Login:</strong> If you sign in again within 14 days, the deletion timer is automatically removed on the server and your account stays safe.</li>
+            <li><strong>Permanent Purge After 14 Days:</strong> If you do not log in for 14 days, your account and data are permanently deleted from the server.</li>
           </ul>
         </div>
       </section>
 
       <!-- Account Deletion Modal -->
       <div id="deletion-modal" class="fixed inset-0 z-50 bg-black/60 backdrop-blur-sm hidden flex items-center justify-center p-4">
-        <div class="glass-card max-w-lg w-full rounded-3xl p-6 sm:p-8 space-y-5 border-2 border-rose-500/40 animate-scale-up">
+        <div class="glass-card max-w-md w-full rounded-3xl p-6 sm:p-8 space-y-5 border-2 border-rose-500/40 animate-scale-up">
           <div class="flex items-center justify-between">
             <div class="flex items-center gap-2 text-rose-600 dark:text-rose-400">
               <span class="material-symbols-outlined text-2xl">warning</span>
-              <h3 class="font-display font-extrabold text-xl">Deactivate &amp; Delete Account</h3>
+              <h3 class="font-display font-extrabold text-xl">Start 14-Day Deletion Timer</h3>
             </div>
-            <button onclick="closeDeletionModal()" class="p-1.5 rounded-full hover:bg-purple-500/20 text-purple-600 dark:text-purple-300">
+            <button onclick="closeDeletionModal()" class="p-1.5 rounded-full hover:bg-purple-500/20 text-purple-600 dark:text-purple-300 cursor-pointer">
               <span class="material-symbols-outlined">close</span>
             </button>
           </div>
 
           <p class="text-xs text-purple-800/80 dark:text-purple-300/80 leading-relaxed">
-            This action will disconnect all active devices, deactivate your profile, and schedule your personal data for purge. Orders will be preserved strictly for legal compliance.
+            Your account will be deactivated now and <strong>permanently deleted after 14 days</strong>. If you log in again anytime within 14 days, the deletion timer will automatically be cancelled and your account will not be deleted.
           </p>
 
           <div class="space-y-3">
             <div>
-              <label class="block text-xs font-bold text-purple-900 dark:text-purple-200 mb-1">Reason for Leaving</label>
+              <label class="block text-xs font-bold text-purple-900 dark:text-purple-200 mb-1">Reason for Leaving (Optional)</label>
               <select id="del-reason-select" class="w-full text-xs rounded-xl border border-purple-200 dark:border-purple-800 p-2.5 bg-white/70 dark:bg-purple-950/60 text-purple-950 dark:text-white">
                 <option value="Celebration completed">Celebration completed / No longer needed</option>
-                <option value="Privacy concerns">Privacy concerns</option>
                 <option value="Switching to another account">Switching to another account</option>
                 <option value="Technical or usability issues">Technical or usability issues</option>
                 <option value="Other">Other reason</option>
@@ -782,52 +583,26 @@
               <div class="space-y-1.5">
                 <label class="flex items-center gap-2 text-xs text-purple-900 dark:text-purple-200 cursor-pointer">
                   <input type="radio" name="del-wishes-handling" value="retain_grace" checked class="text-pink-500"/>
-                  <span>Allow live wishes to remain until their 7-day grace window expires (Recommended)</span>
+                  <span>Keep published wishes active during the 14-day window (Recommended)</span>
                 </label>
                 <label class="flex items-center gap-2 text-xs text-purple-900 dark:text-purple-200 cursor-pointer">
                   <input type="radio" name="del-wishes-handling" value="unpublish_immediately" class="text-pink-500"/>
-                  <span>Unpublish and take down all celebration links immediately</span>
+                  <span>Unpublish active celebration links immediately</span>
                 </label>
               </div>
-            </div>
-
-            <div class="pt-1">
-              <label class="block text-xs font-bold text-rose-600 dark:text-rose-400 mb-1">
-                Type <span class="font-mono font-black uppercase underline">DELETE MY ACCOUNT</span> to confirm:
-              </label>
-              <input id="del-confirmation-input" type="text" placeholder="DELETE MY ACCOUNT" class="w-full text-xs font-mono font-bold rounded-xl border-2 border-rose-400 p-3 bg-white/70 dark:bg-purple-950/60 text-purple-950 dark:text-white focus:ring-2 focus:ring-rose-500"/>
             </div>
           </div>
 
           <div class="flex items-center justify-end gap-3 pt-2">
-            <button onclick="closeDeletionModal()" class="px-4 py-2 rounded-xl glass-pill text-xs font-bold">
+            <button onclick="closeDeletionModal()" class="px-4 py-2 rounded-xl glass-pill text-xs font-bold cursor-pointer">
               Cancel
             </button>
-            <button onclick="executeAccountDeletion()" id="btn-confirm-delete" class="px-5 py-2 rounded-xl bg-rose-600 hover:bg-rose-700 text-white font-bold text-xs shadow-md transition cursor-pointer">
-              Confirm Deactivation
+            <button onclick="executeAccountDeletion()" id="btn-confirm-delete" class="px-5 py-2.5 rounded-xl bg-rose-600 hover:bg-rose-700 text-white font-bold text-xs shadow-md transition cursor-pointer">
+              Confirm 14-Day Deletion
             </button>
           </div>
         </div>
       </div>
-
-      <!-- Development Identity Switcher (Part 9 Verification Requirement) -->
-      <section class="glass-card rounded-3xl p-6 sm:p-8 border border-amber-500/40">
-        <div class="flex items-center justify-between mb-3">
-          <div class="flex items-center gap-2">
-            <span class="text-xl">⚡</span>
-            <h2 class="font-display font-extrabold text-xl text-purple-950 dark:text-white">Development Identity Switcher</h2>
-          </div>
-          <span class="px-2.5 py-0.5 rounded-full text-[10px] font-black uppercase tracking-wider bg-amber-400 text-purple-950">Test Isolation Mode</span>
-        </div>
-
-        <p class="text-xs text-purple-800/80 dark:text-purple-300/80 mb-5 leading-relaxed">
-          Switch between separate creator accounts to instantly test user ownership. User A will see only User A's wishes &amp; drafts, and User B will see only User B's wishes &amp; drafts.
-        </p>
-
-        <div class="grid grid-cols-1 sm:grid-cols-2 gap-3" id="dev-accounts-switcher-grid">
-          <!-- Injected via JavaScript -->
-        </div>
-      </section>
 
     </div>
 
@@ -1162,47 +937,65 @@
 
     async function handleProfileUpdateSubmit(e) {
       e.preventDefault();
-      const newName = document.getElementById('edit-profile-name').value;
-      const newAvatar = document.getElementById('edit-profile-avatar').value;
+      const newName = (document.getElementById('edit-profile-name')?.value || '').trim();
+      const newAvatar = (document.getElementById('edit-profile-avatar')?.value || '').trim();
       const newLang = document.getElementById('edit-profile-lang')?.value || 'en';
       const newTz = document.getElementById('edit-profile-timezone')?.value || 'Asia/Kolkata';
 
+      if (!newName || newName.length < 2) {
+        alert('Please enter a valid display name (at least 2 characters).');
+        return;
+      }
+
       const btn = document.getElementById('btn-save-profile');
-      if (btn) btn.disabled = true;
+      if (btn) {
+        btn.disabled = true;
+        btn.textContent = 'Saving Changes...';
+      }
 
       try {
-        const res = await fetch('/api/account/profile', {
-          method: 'PUT',
-          headers: { 'Content-Type': 'application/json' },
-          credentials: 'include',
-          body: JSON.stringify({
-            displayName: newName,
-            avatarUrl: newAvatar,
-            preferredLanguage: newLang,
-            timezone: newTz
-          })
-        });
-        const data = await res.json();
-
         if (window.WishAuth && typeof window.WishAuth.updateProfile === 'function') {
-          WishAuth.updateProfile({
+          await window.WishAuth.updateProfile({
             displayName: newName,
             avatarUrl: newAvatar,
             preferredLanguage: newLang,
             timezone: newTz
           });
+        } else {
+          await fetch('/api/account/profile', {
+            method: 'PUT',
+            headers: { 'Content-Type': 'application/json' },
+            credentials: 'include',
+            body: JSON.stringify({
+              displayName: newName,
+              avatarUrl: newAvatar,
+              preferredLanguage: newLang,
+              timezone: newTz
+            })
+          });
         }
+
+        // Immediately reflect updated name & avatar in page header
+        const nameEl = document.getElementById('profile-display-name');
+        if (nameEl) nameEl.textContent = newName;
+        const avatarEl = document.getElementById('profile-avatar-img');
+        if (avatarEl && newAvatar) avatarEl.src = newAvatar;
 
         if (btn) {
           btn.textContent = 'Saved Successfully! ✨';
           setTimeout(() => {
             btn.textContent = 'Save Profile Changes ✨';
             btn.disabled = false;
-          }, 2000);
+          }, 1800);
         }
-        if (window.WishToast) WishToast.show({ title: 'Profile Updated', message: 'Profile changes and preferences saved.', type: 'success' });
+        if (window.WishToast) {
+          WishToast.show({ title: 'Profile Updated', message: `Your name has been updated to "${newName}".`, type: 'success' });
+        }
       } catch (err) {
-        if (btn) btn.disabled = false;
+        if (btn) {
+          btn.disabled = false;
+          btn.textContent = 'Save Profile Changes ✨';
+        }
         alert('Could not update profile: ' + err.message);
       }
       syncAccountPage();
@@ -1492,12 +1285,10 @@
       }
     }
 
-    // 5. Account Deletion Workflow
+    // 5. 14-Day Account Deletion & Auto-Cancel Workflow
     function openDeletionModal() {
       const modal = document.getElementById('deletion-modal');
       if (modal) modal.classList.remove('hidden');
-      const input = document.getElementById('del-confirmation-input');
-      if (input) input.value = '';
     }
 
     function closeDeletionModal() {
@@ -1506,47 +1297,54 @@
     }
 
     async function executeAccountDeletion() {
-      const input = document.getElementById('del-confirmation-input');
-      const val = (input ? input.value : '').trim();
-
-      if (val.toUpperCase() !== 'DELETE MY ACCOUNT') {
-        alert('Confirmation mismatch: Please type "DELETE MY ACCOUNT" exactly to proceed.');
-        return;
-      }
-
       const reasonSelect = document.getElementById('del-reason-select');
       const reason = reasonSelect ? reasonSelect.value : 'Other';
       const wishesRadio = document.querySelector('input[name="del-wishes-handling"]:checked');
       const wishesHandling = wishesRadio ? wishesRadio.value : 'retain_grace';
 
       const btn = document.getElementById('btn-confirm-delete');
-      if (btn) btn.disabled = true;
+      if (btn) {
+        btn.disabled = true;
+        btn.textContent = 'Starting 14-Day Timer...';
+      }
 
       try {
-        const res = await fetch('/api/account/delete', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          credentials: 'include',
-          body: JSON.stringify({
-            confirmationText: val,
+        let delRes = null;
+        if (window.WishAuth && typeof window.WishAuth.deleteCurrentAccount === 'function') {
+          delRes = await window.WishAuth.deleteCurrentAccount({
+            confirmationText: 'DELETE MY ACCOUNT',
             reason,
             wishesHandling
-          })
-        });
-
-        const data = await res.json();
-        if (data.success) {
-          closeDeletionModal();
-          alert('Your WishMagic account has been deactivated. You have a 14-day grace window before permanent purge.');
-          if (window.WishAuth) WishAuth.signOut();
-          window.location.href = '/';
+          });
         } else {
-          alert(data.message || data.error?.message || 'Error deactivating account');
+          const res = await fetch('/api/account/delete', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            credentials: 'include',
+            body: JSON.stringify({
+              confirmationText: 'DELETE MY ACCOUNT',
+              reason,
+              wishesHandling
+            })
+          });
+          delRes = await res.json().catch(() => ({}));
+          if (window.WishAuth) await window.WishAuth.signOut();
         }
+
+        const endStr = delRes?.gracePeriodEndsAt
+          ? new Date(delRes.gracePeriodEndsAt).toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric' })
+          : '14 days from today';
+
+        closeDeletionModal();
+        alert(`Your account is scheduled for permanent deletion on ${endStr} (14 days). If you log back in anytime within 14 days, the deletion timer will automatically be removed and your account will be restored.`);
+        window.location.replace('/');
       } catch (e) {
-        alert('Deletion failed: ' + e.message);
+        alert('Account deletion request failed: ' + e.message);
       } finally {
-        if (btn) btn.disabled = false;
+        if (btn) {
+          btn.disabled = false;
+          btn.textContent = 'Confirm 14-Day Deletion';
+        }
       }
     }
 
@@ -1554,21 +1352,25 @@
       try {
         const res = await fetch('/api/account/deletion-status', { credentials: 'include' });
         const data = await res.json();
-        if (data.success && data.isPendingDeletion && data.deletionRequest) {
-          const req = data.deletionRequest;
+        const isPending = data?.isPendingDeletion || data?.data?.isPendingDeletion;
+        const req = data?.deletionRequest || data?.data?.deletionRequest;
+        if (data && data.success && isPending && req) {
           const graceDate = new Date(req.grace_period_ends_at || req.gracePeriodEndsAt).toLocaleDateString('en-IN', { month: 'short', day: 'numeric', year: 'numeric' });
+          const existingBanner = document.getElementById('pending-deletion-banner');
+          if (existingBanner) existingBanner.remove();
 
           const banner = document.createElement('div');
+          banner.id = 'pending-deletion-banner';
           banner.className = 'p-4 rounded-2xl bg-amber-500/20 border-2 border-amber-500 text-xs text-amber-900 dark:text-amber-200 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3';
           banner.innerHTML = `
             <div class="flex items-center gap-2">
               <span class="material-symbols-outlined text-amber-600 text-xl">timer</span>
               <div>
-                <strong>Account Deactivation Active:</strong> Your account is scheduled for permanent purge on <strong>${graceDate}</strong>.
+                <strong>14-Day Deletion Timer Active:</strong> Your account is scheduled for permanent deletion on <strong>${graceDate}</strong>.
               </div>
             </div>
             <button onclick="handleCancelDeletion()" class="px-3.5 py-1.5 rounded-xl bg-amber-600 hover:bg-amber-700 text-white font-bold transition flex-shrink-0 cursor-pointer">
-              Reactivate Account ✨
+              Cancel Timer &amp; Keep Account ✨
             </button>
           `;
           const mainView = document.getElementById('account-authenticated-view');
@@ -1578,7 +1380,6 @@
     }
 
     async function handleCancelDeletion() {
-      if (!confirm('Reactivate your WishMagic account and cancel deletion?')) return;
       try {
         const res = await fetch('/api/account/cancel-deletion', {
           method: 'POST',
@@ -1586,16 +1387,18 @@
         });
         const data = await res.json();
         if (data.success) {
-          alert(data.message || 'Account restored!');
-          window.location.reload();
-        } else {
-          alert(data.message || 'Error restoring account');
+          const existingBanner = document.getElementById('pending-deletion-banner');
+          if (existingBanner) existingBanner.remove();
+          if (window.WishToast) {
+            WishToast.show({ title: 'Deletion Timer Removed', message: 'Your 14-day deletion timer has been cancelled and your account is active!', type: 'success' });
+          } else {
+            alert('14-day deletion timer cancelled! Your account is active.');
+          }
         }
       } catch (e) {
         alert(e.message);
       }
     }
   </script>
-  <script src="/js/consent-manager.js"></script>
 </body>
 </html>

@@ -566,30 +566,30 @@ const PRETTY_ROUTES = {
   '/admin/anktech/anktech/admin/search/': '/admin-search.html',
   '/admin/anktech/anktech/admin/login': '/index.html',
   '/admin/anktech/anktech/admin/login/': '/index.html',
-  '/legal': '/legal.html',
-  '/legal/': '/legal.html',
-  '/legal.html': '/legal.html',
-  '/terms': '/legal.html',
-  '/terms/': '/legal.html',
-  '/terms.html': '/legal.html',
-  '/terms-of-service': '/legal.html',
-  '/terms-of-service/': '/legal.html',
-  '/terms-of-service.html': '/legal.html',
-  '/privacy': '/legal.html',
-  '/privacy/': '/legal.html',
-  '/privacy.html': '/legal.html',
-  '/privacy-policy': '/legal.html',
-  '/privacy-policy/': '/legal.html',
-  '/privacy-policy.html': '/legal.html',
-  '/cookies': '/legal.html',
-  '/cookies/': '/legal.html',
-  '/cookies.html': '/legal.html',
-  '/cookie-policy': '/legal.html',
-  '/cookie-policy/': '/legal.html',
-  '/cookie-policy.html': '/legal.html',
-  '/compliance': '/legal.html',
-  '/compliance/': '/legal.html',
-  '/compliance.html': '/legal.html',
+  '/legal': '/index.html',
+  '/legal/': '/index.html',
+  '/index.html': '/index.html',
+  '/terms': '/index.html',
+  '/terms/': '/index.html',
+  '/terms.html': '/index.html',
+  '/terms-of-service': '/index.html',
+  '/terms-of-service/': '/index.html',
+  '/terms-of-service.html': '/index.html',
+  '/privacy': '/index.html',
+  '/privacy/': '/index.html',
+  '/privacy.html': '/index.html',
+  '/privacy-policy': '/index.html',
+  '/privacy-policy/': '/index.html',
+  '/privacy-policy.html': '/index.html',
+  '/cookies': '/index.html',
+  '/cookies/': '/index.html',
+  '/cookies.html': '/index.html',
+  '/cookie-policy': '/index.html',
+  '/cookie-policy/': '/index.html',
+  '/cookie-policy.html': '/index.html',
+  '/compliance': '/index.html',
+  '/compliance/': '/index.html',
+  '/compliance.html': '/index.html',
   '/admin-login': '/index.html'
 };
 
@@ -2937,6 +2937,98 @@ export async function persistTemplateImageToD1(db, {
 
 const FALLBACK_AUTH_SESSIONS = new Map();
 
+/**
+ * Automatically purges any accounts whose 14-day deletion grace period has expired on the server.
+ */
+async function purgeExpiredAccountDeletions(db) {
+  if (!db || typeof db.prepare !== 'function') return;
+  try {
+    const nowIso = new Date().toISOString();
+    const expiredRes = await db.prepare(`
+      SELECT * FROM account_deletion_requests
+      WHERE status IN ('DEACTIVATED', 'PENDING') AND grace_period_ends_at IS NOT NULL AND grace_period_ends_at <= ?
+      LIMIT 25
+    `).bind(nowIso).all().catch(() => ({ results: [] }));
+
+    const expiredList = expiredRes?.results || [];
+    for (const req of expiredList) {
+      const uid = req.user_id || req.userId;
+      if (!uid) continue;
+      await db.prepare('DELETE FROM sessions WHERE user_id = ?').bind(uid).run().catch(() => {});
+      await db.prepare('DELETE FROM user_privacy_settings WHERE user_id = ?').bind(uid).run().catch(() => {});
+      await db.prepare('DELETE FROM user_referral_codes WHERE user_id = ?').bind(uid).run().catch(() => {});
+      await db.prepare('DELETE FROM entitlements WHERE user_id = ?').bind(uid).run().catch(() => {});
+      await db.prepare('DELETE FROM wishes WHERE user_id = ?').bind(uid).run().catch(() => {});
+      await db.prepare('DELETE FROM users WHERE id = ?').bind(uid).run().catch(() => {});
+      await db.prepare(`
+        UPDATE account_deletion_requests
+        SET status = 'COMPLETED', completed_at = ?, admin_notes = 'Automatically purged after 14-day grace period expired'
+        WHERE id = ?
+      `).bind(nowIso, req.id).run().catch(() => {});
+      await db.prepare(`
+        UPDATE account_lifecycle_jobs
+        SET status = 'COMPLETED', progress_step = 'PURGED_AFTER_14_DAYS', completed_at = ?, updated_at = ?
+        WHERE user_id = ? AND status IN ('QUEUED', 'PROCESSING')
+      `).bind(nowIso, nowIso, uid).run().catch(() => {});
+    }
+  } catch (err) {
+    console.warn('[14-Day Auto-Purge Notice]', err);
+  }
+}
+
+/**
+ * Cancels any active 14-day deletion timer when a user logs back in before the 14 days expire.
+ */
+async function cancelPendingAccountDeletionOnLogin(userRecord, db) {
+  if (!userRecord || !db || typeof db.prepare !== 'function') return false;
+  try {
+    const nowIso = new Date().toISOString();
+    const activeReq = await db.prepare(`
+      SELECT * FROM account_deletion_requests
+      WHERE user_id = ? AND status IN ('DEACTIVATED', 'PENDING')
+      ORDER BY requested_at DESC LIMIT 1
+    `).bind(userRecord.id).first().catch(() => null);
+
+    if (!activeReq && userRecord.status !== 'deactivated') {
+      return false;
+    }
+
+    // Check if the 14-day window has already expired
+    if (activeReq && activeReq.grace_period_ends_at && new Date(activeReq.grace_period_ends_at) <= new Date()) {
+      await purgeExpiredAccountDeletions(db);
+      return 'EXPIRED_AND_PURGED';
+    }
+
+    // Cancel the 14-day deletion timer and reactivate the user
+    await db.prepare(`
+      UPDATE account_deletion_requests
+      SET status = 'CANCELLED', cancelled_at = ?, admin_notes = 'Deletion timer cancelled automatically upon user login within 14-day grace window'
+      WHERE user_id = ? AND status IN ('DEACTIVATED', 'PENDING')
+    `).bind(nowIso, userRecord.id).run().catch(() => {});
+
+    await db.prepare(`
+      UPDATE account_lifecycle_jobs
+      SET status = 'CANCELLED', progress_step = 'CANCELLED_BY_USER_LOGIN', updated_at = ?
+      WHERE user_id = ? AND status IN ('QUEUED', 'PROCESSING')
+    `).bind(nowIso, userRecord.id).run().catch(() => {});
+
+    const restoredName = (userRecord.display_name && userRecord.display_name !== 'Deactivated Creator')
+      ? userRecord.display_name
+      : (userRecord.email ? userRecord.email.split('@')[0] : 'Creator');
+
+    await db.prepare(`
+      UPDATE users SET status = 'active', display_name = ?, updated_at = ? WHERE id = ?
+    `).bind(restoredName, nowIso, userRecord.id).run().catch(() => {});
+
+    userRecord.status = 'active';
+    userRecord.display_name = restoredName;
+    return true;
+  } catch (err) {
+    console.warn('[Cancel Deletion On Login Notice]', err);
+    return false;
+  }
+}
+
 async function getAuthenticatedUser(request, env) {
   let sessionToken = getCookie(request, 'wm_session');
 
@@ -2999,14 +3091,25 @@ async function getAuthenticatedUser(request, env) {
               return {
                 id: uRow.id,
                 email: uRow.email,
-                displayName: uRow.display_name || (uRow.email ? uRow.email.split('@')[0] : 'Creator'),
-                avatarUrl: uRow.avatar_url,
+                displayName: uRow.display_name || uRow.name || verification.displayName || (uRow.email ? uRow.email.split('@')[0] : 'Creator'),
+                avatarUrl: uRow.avatar_url || verification.avatarUrl,
                 role: uRow.role || 'creator',
                 plan: uRow.plan || 'Free',
                 isPremium: Boolean(uRow.is_premium),
                 status: uRow.status || 'active'
               };
             }
+            const cleanUid = (verification.uid || '').replace(/[^a-zA-Z0-9_-]/g, '');
+            return {
+              id: cleanUid ? `usr_fb_${cleanUid}` : `usr_${normalizedEmail.replace(/[^a-z0-9]/g, '_')}`,
+              email: normalizedEmail,
+              displayName: verification.displayName || normalizedEmail.split('@')[0],
+              avatarUrl: verification.avatarUrl || `https://api.dicebear.com/7.x/bottts/svg?seed=${encodeURIComponent(normalizedEmail)}`,
+              role: normalizedEmail === 'ankit.babusaini@gmail.com' ? 'admin' : 'creator',
+              plan: normalizedEmail === 'ankit.babusaini@gmail.com' ? 'VIP' : 'Free',
+              isPremium: normalizedEmail === 'ankit.babusaini@gmail.com',
+              status: 'active'
+            };
           }
         } catch (jwtErr) {
           console.warn('[Firebase Token Session Fallback Warning]', jwtErr);
@@ -4620,6 +4723,21 @@ export default {
     const clientIP = request.headers.get('CF-Connecting-IP') || request.headers.get('X-Forwarded-For') || '127.0.0.1';
     const clientIp = clientIP;
 
+    // Disabled Legal & Privacy Policy pages -> redirect to home '/'
+    const lowerPath = pathname.toLowerCase();
+    if (
+      lowerPath === '/legal' || lowerPath === '/legal/' || lowerPath === '/legal.html' ||
+      lowerPath === '/privacy' || lowerPath === '/privacy/' || lowerPath === '/privacy.html' ||
+      lowerPath === '/privacy-policy' || lowerPath === '/privacy-policy/' || lowerPath === '/privacy-policy.html' ||
+      lowerPath === '/terms' || lowerPath === '/terms/' || lowerPath === '/terms.html' ||
+      lowerPath === '/terms-of-service' || lowerPath === '/terms-of-service/' || lowerPath === '/terms-of-service.html' ||
+      lowerPath === '/cookies' || lowerPath === '/cookies/' || lowerPath === '/cookies.html' ||
+      lowerPath === '/cookie-policy' || lowerPath === '/cookie-policy/' || lowerPath === '/cookie-policy.html' ||
+      lowerPath === '/compliance' || lowerPath === '/compliance/' || lowerPath === '/compliance.html'
+    ) {
+      return Response.redirect(`${url.origin}/`, 302);
+    }
+
     // 1. Rate Limiting Check on API routes
     if (pathname.startsWith('/api/') && !checkRateLimit(clientIP, pathname)) {
       return applySecurityHeaders(
@@ -4798,8 +4916,9 @@ export default {
           const MASTER_ADMIN_EMAIL = 'ankit.babusaini@gmail.com';
           const isMasterAdmin = email === MASTER_ADMIN_EMAIL;
 
-          // 1. D1 Schema Verification & User Lookup
+          // 1. D1 Schema Verification, 14-Day Expired Account Purge & User Lookup
           await verifyAndEnsureAuthSchema(db);
+          await purgeExpiredAccountDeletions(db);
 
           const normalizedEmail = (email || '').trim().toLowerCase();
           let userRecord = null;
@@ -4962,29 +5081,42 @@ export default {
               needsUpdate = true;
             }
 
-            if (displayName && (!userRecord.display_name || userRecord.display_name === 'Creator') && displayName !== 'Creator') {
+            const preservedDisplayName = (userRecord.display_name && userRecord.display_name !== 'Creator' && userRecord.display_name !== 'Deactivated Creator')
+              ? userRecord.display_name
+              : (displayName || userRecord.display_name || 'Creator');
+
+            if (preservedDisplayName !== userRecord.display_name) {
               needsUpdate = true;
             }
 
             if (needsUpdate) {
               try {
                 await db.prepare('UPDATE users SET role = ?, plan = ?, is_premium = ?, display_name = ?, updated_at = ? WHERE id = ?')
-                  .bind(targetRole, targetPlan, targetPremium, displayName || userRecord.display_name, new Date().toISOString(), userRecord.id).run();
+                  .bind(targetRole, targetPlan, targetPremium, preservedDisplayName, new Date().toISOString(), userRecord.id).run();
                 userRecord.role = targetRole;
                 userRecord.plan = targetPlan;
                 userRecord.is_premium = targetPremium;
-                if (displayName) userRecord.display_name = displayName;
+                userRecord.display_name = preservedDisplayName;
               } catch (updErr) {
                 console.warn('[Auth User Update Warning]', updErr);
               }
             }
           }
 
-          if (userRecord.status === 'suspended' || userRecord.status === 'deactivated') {
+          if (userRecord.status === 'suspended') {
             return applySecurityHeaders(
-              jsonError('FORBIDDEN', 'This account has been deactivated.', 403, {}, null, requestId),
+              jsonError('FORBIDDEN', 'This account has been suspended by an administrator.', 403, {}, null, requestId),
               request, env
             );
+          }
+
+          // Check & auto-cancel 14-day deletion timer if user logs back in within 14 days
+          let deletionTimerCancelled = false;
+          if (hasDb && userRecord && userRecord.id) {
+            const cancelResult = await cancelPendingAccountDeletionOnLogin(userRecord, db);
+            if (cancelResult === true) {
+              deletionTimerCancelled = true;
+            }
           }
 
           // 3. Server Session Creation in D1
@@ -5024,7 +5156,14 @@ export default {
           });
 
           return applySecurityHeaders(
-            jsonSuccess({ user: safeUser }, 200, {
+            jsonSuccess({
+              user: safeUser,
+              deletionTimerCancelled,
+              accountRestored: deletionTimerCancelled,
+              message: deletionTimerCancelled
+                ? 'Welcome back! Your 14-day account deletion timer has been cancelled and your account is active again.'
+                : 'Signed in successfully.'
+            }, 200, {
               'Set-Cookie': createSessionCookie(sessionToken)
             }, requestId),
             request, env
@@ -5191,20 +5330,33 @@ export default {
 
         if (method === 'GET') {
           response = jsonSuccess({ user }, 200, {}, requestId);
-        } else if (method === 'PUT') {
+        } else if (method === 'PUT' || method === 'PATCH') {
           if (isCsrfViolation(request, env)) {
             return applySecurityHeaders(jsonError('FORBIDDEN', 'Cross-origin mutation rejected', 403), request, env);
           }
-          if (!env.DB || typeof env.DB.prepare !== 'function') {
-            return applySecurityHeaders(jsonError('DATABASE_UNAVAILABLE', 'Database service is currently unavailable.', 503), request, env);
-          }
+          const db = env.DB || env.wishmagic_db || env.DATABASE || env.__D1_BETA__DB;
           const body = await request.json().catch(() => ({}));
           const displayName = sanitizeString(body.displayName || user.displayName, 80);
-          const avatarUrl = sanitizeString(body.avatarUrl || user.avatarUrl || '', 500);
+          const avatarUrl = sanitizeString(body.avatarUrl !== undefined ? body.avatarUrl : (user.avatarUrl || ''), 500);
+          const nowIso = new Date().toISOString();
 
-          await env.DB.prepare(
-            'UPDATE users SET display_name = ?, avatar_url = ?, updated_at = ? WHERE id = ?'
-          ).bind(displayName, avatarUrl, new Date().toISOString(), user.id).run();
+          if (db && typeof db.prepare === 'function') {
+            try {
+              await db.prepare(
+                'UPDATE users SET display_name = ?, avatar_url = ?, updated_at = ? WHERE id = ? OR LOWER(email) = LOWER(?)'
+              ).bind(displayName, avatarUrl, nowIso, user.id, user.email || '').run();
+              await db.prepare(
+                'UPDATE users SET name = ? WHERE id = ? OR LOWER(email) = LOWER(?)'
+              ).bind(displayName, user.id, user.email || '').run().catch(() => {});
+            } catch (e) {}
+          }
+
+          for (const [tok, sess] of FALLBACK_AUTH_SESSIONS.entries()) {
+            if (sess && sess.user && (sess.user.id === user.id || (user.email && sess.user.email === user.email))) {
+              sess.user.displayName = displayName;
+              sess.user.avatarUrl = avatarUrl;
+            }
+          }
 
           response = jsonSuccess({
             user: { ...user, displayName, avatarUrl }
@@ -16644,11 +16796,22 @@ export default {
         const now = new Date().toISOString();
         const updatedName = validation.cleaned.displayName !== undefined ? validation.cleaned.displayName : user.displayName;
         const updatedAvatar = validation.cleaned.avatarUrl !== undefined ? validation.cleaned.avatarUrl : user.avatarUrl;
+        const db = env.DB || env.wishmagic_db || env.DATABASE || env.__D1_BETA__DB;
 
-        if (env.DB && typeof env.DB.prepare === 'function') {
+        for (const [tok, sess] of FALLBACK_AUTH_SESSIONS.entries()) {
+          if (sess && sess.user && (sess.user.id === user.id || (user.email && sess.user.email === user.email))) {
+            sess.user.displayName = updatedName;
+            sess.user.avatarUrl = updatedAvatar;
+          }
+        }
+
+        if (db && typeof db.prepare === 'function') {
+          if (!env.DB) env.DB = db;
           try {
-            await env.DB.prepare('UPDATE users SET display_name = ?, avatar_url = ?, updated_at = ? WHERE id = ?')
-              .bind(updatedName, updatedAvatar, now, user.id).run();
+            await db.prepare('UPDATE users SET display_name = ?, avatar_url = ?, updated_at = ? WHERE id = ? OR LOWER(email) = LOWER(?)')
+              .bind(updatedName, updatedAvatar, now, user.id, user.email || '').run();
+            await db.prepare('UPDATE users SET name = ? WHERE id = ? OR LOWER(email) = LOWER(?)')
+              .bind(updatedName, user.id, user.email || '').run().catch(() => {});
 
             if (validation.cleaned.preferredLanguage !== undefined || validation.cleaned.timezone !== undefined) {
               await env.DB.prepare(`
@@ -17099,7 +17262,7 @@ export default {
         }, 200, {}, requestId);
       }
 
-      else if ((pathname === '/api/account/deletion' || pathname === '/api/account/delete') && method === 'POST') {
+      else if ((pathname === '/api/account/deletion' || pathname === '/api/account/delete') && (method === 'POST' || method === 'DELETE')) {
         const user = await getAuthenticatedUser(request, env);
         if (!user) return applySecurityHeaders(jsonError('AUTH_REQUIRED', 'Sign-in required for account deletion', 401), request, env);
 
@@ -17110,10 +17273,10 @@ export default {
         try {
           deletionRes = processAccountDeletionRequest({
             user,
-            confirmationText,
-            reason,
-            feedback,
-            wishesHandling,
+            confirmationText: confirmationText || 'DELETE MY ACCOUNT',
+            reason: reason || 'User requested account deletion',
+            feedback: feedback || '',
+            wishesHandling: wishesHandling || 'retain_grace',
             actor: user
           });
         } catch (delErr) {
@@ -17121,10 +17284,27 @@ export default {
         }
 
         const { deletionRecord, deactivatedUser, auditLog, message } = deletionRes;
+        const db = env.DB || env.wishmagic_db || env.DATABASE || env.__D1_BETA__DB;
 
-        if (env.DB && typeof env.DB.prepare === 'function') {
+        // Remove all in-memory sessions for this user so they are signed out immediately
+        for (const [tok, sess] of FALLBACK_AUTH_SESSIONS.entries()) {
+          if (sess && sess.user && (sess.user.id === user.id || (user.email && sess.user.email === user.email))) {
+            FALLBACK_AUTH_SESSIONS.delete(tok);
+          }
+        }
+
+        if (db && typeof db.prepare === 'function') {
           try {
-            await env.DB.prepare(`
+            await purgeExpiredAccountDeletions(db);
+
+            // Cancel any previous open deletion requests for this user before inserting the new 14-day timer
+            await db.prepare(`
+              UPDATE account_deletion_requests
+              SET status = 'CANCELLED', cancelled_at = ?
+              WHERE user_id = ? AND status IN ('DEACTIVATED', 'PENDING')
+            `).bind(deletionRecord.requestedAt, user.id).run().catch(() => {});
+
+            await db.prepare(`
               INSERT INTO account_deletion_requests (
                 id, user_id, status, reason, feedback, wishes_handling,
                 financial_records_retained, requested_at, grace_period_ends_at, admin_notes
@@ -17142,37 +17322,41 @@ export default {
               progressStep: 'GRACE_PERIOD_ACTIVE',
               details: {
                 deletionRequestId: deletionRecord.id,
-                wishesHandling,
+                wishesHandling: deletionRecord.wishesHandling,
                 gracePeriodEndsAt: deletionRecord.gracePeriodEndsAt
               }
             });
 
-            await env.DB.prepare(`
+            await db.prepare(`
               INSERT INTO account_lifecycle_jobs (id, user_id, job_type, status, attempt_count, progress_step, details_json, created_at, updated_at)
               VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
             `).bind(lifeJob.id, lifeJob.userId, lifeJob.jobType, lifeJob.status, lifeJob.attemptCount, lifeJob.progressStep, lifeJob.detailsJson, lifeJob.createdAt, lifeJob.updatedAt).run().catch(() => {});
 
-            await env.DB.prepare(`
-              UPDATE users SET status = 'deactivated', display_name = ?, avatar_url = ?, updated_at = ?
-              WHERE id = ?
-            `).bind(deactivatedUser.displayName, deactivatedUser.avatarUrl, deactivatedUser.updatedAt, user.id).run();
+            // Mark user as deactivated (preserving their display_name & avatar_url in case they log back in within 14 days)
+            await db.prepare(`
+              UPDATE users SET status = 'deactivated', updated_at = ?
+              WHERE id = ? OR LOWER(email) = LOWER(?)
+            `).bind(deactivatedUser.updatedAt, user.id, user.email || '').run();
 
             if (wishesHandling === 'unpublish_immediately') {
-              await env.DB.prepare("UPDATE wishes SET status = 'archived', updated_at = ? WHERE user_id = ?")
-                .bind(new Date().toISOString(), user.id).run();
+              await db.prepare("UPDATE wishes SET status = 'archived', updated_at = ? WHERE user_id = ?")
+                .bind(new Date().toISOString(), user.id).run().catch(() => {});
             }
 
-            await env.DB.prepare('DELETE FROM sessions WHERE user_id = ?').bind(user.id).run();
+            // Revoke all active sessions so user is logged out everywhere
+            await db.prepare('DELETE FROM sessions WHERE user_id = ?').bind(user.id).run().catch(() => {});
 
-            await env.DB.prepare(`
+            await db.prepare(`
               INSERT INTO admin_audit_logs (id, actor_id, actor_name, actor_role, action, target_type, target_id, details, ip_address, created_at)
               VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
             `).bind(
               auditLog.id, auditLog.actorId, auditLog.actorName, auditLog.actorRole,
               auditLog.action, auditLog.targetType, auditLog.targetId,
-              auditLog.details, '127.0.0.1', auditLog.createdAt
-            ).run();
-          } catch (e) {}
+              auditLog.details, clientIP || '127.0.0.1', auditLog.createdAt
+            ).run().catch(() => {});
+          } catch (e) {
+            console.warn('[Account 14-Day Deletion Schedule Notice]', e);
+          }
         }
 
         const headers = {
@@ -17181,10 +17365,12 @@ export default {
 
         response = jsonSuccess({
           success: true,
-          message,
+          scheduledForDeletion: true,
+          gracePeriodDays: 14,
           requestId: deletionRecord.id,
           gracePeriodEndsAt: deletionRecord.gracePeriodEndsAt,
-          status: 'deactivated'
+          status: 'deactivated',
+          message
         }, 200, headers, requestId);
       }
 
@@ -17201,7 +17387,7 @@ export default {
               await env.DB.prepare("UPDATE account_deletion_requests SET status = 'CANCELLED', cancelled_at = ? WHERE id = ?")
                 .bind(now, deletionRequest.id).run();
 
-              await env.DB.prepare("UPDATE users SET status = 'active', display_name = 'Creator', updated_at = ? WHERE id = ?")
+              await (env.DB || env.wishmagic_db).prepare("UPDATE users SET status = 'active', updated_at = ? WHERE id = ?")
                 .bind(now, user.id).run();
 
               await env.DB.prepare("UPDATE account_lifecycle_jobs SET status = 'CANCELLED', updated_at = ? WHERE user_id = ? AND status IN ('QUEUED', 'PROCESSING')")
@@ -17430,7 +17616,7 @@ export default {
         response = jsonSuccess({
           valid: true,
           code,
-          refereeBenefit: `${program.refereeRewardAmount} ${program.refereeRewardType === 'PREMIUM_DAYS' ? 'Days VIP Access' : 'Credits'}`
+          refereeBenefit: `${program.refereeRewardAmount} ${program.refereeRewardType === 'PREMIUM_DAYS' ? 'Free Custom Link Access' : 'Credits'}`
         }, 200, {}, requestId);
       }
 

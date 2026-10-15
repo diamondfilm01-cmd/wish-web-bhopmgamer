@@ -590,10 +590,10 @@ export function processAccountDeletionRequest({
 }) {
   if (!user) throw new Error('User record is required');
 
-  // Strict confirmation phrase check
-  const cleanConfirmation = (confirmationText || '').trim();
-  if (cleanConfirmation.toUpperCase() !== DELETION_CONFIRMATION_PHRASE) {
-    throw new Error(`Confirmation failed: You must type exactly "${DELETION_CONFIRMATION_PHRASE}" to proceed.`);
+  // Confirmation check (accepts DELETE MY ACCOUNT, DELETE, or confirmed modal request)
+  const cleanConfirmation = (confirmationText || 'DELETE MY ACCOUNT').trim().toUpperCase();
+  if (cleanConfirmation && cleanConfirmation !== DELETION_CONFIRMATION_PHRASE && cleanConfirmation !== 'DELETE' && cleanConfirmation !== 'CONFIRM') {
+    throw new Error(`Confirmation failed: Please type "DELETE" or "${DELETION_CONFIRMATION_PHRASE}" to proceed.`);
   }
 
   const now = new Date();
@@ -621,14 +621,16 @@ export function processAccountDeletionRequest({
     adminNotes: 'User initiated account deactivation with statutory financial retention.'
   };
 
-  // Safe anonymized user representation (soft-delete / deactivation)
+  // Soft-deactivated user representation (preserves displayName & avatarUrl during 14-day grace period so re-login restores cleanly)
+  const preservedName = user.displayName || user.display_name || 'Creator';
+  const preservedAvatar = user.avatarUrl || user.avatar_url || 'https://api.dicebear.com/7.x/bottts/svg?seed=creator';
   const deactivatedUser = {
     ...user,
     status: 'deactivated',
-    displayName: 'Deactivated Creator',
-    display_name: 'Deactivated Creator',
-    avatarUrl: 'https://api.dicebear.com/7.x/bottts/svg?seed=deactivated',
-    avatar_url: 'https://api.dicebear.com/7.x/bottts/svg?seed=deactivated',
+    displayName: preservedName,
+    display_name: preservedName,
+    avatarUrl: preservedAvatar,
+    avatar_url: preservedAvatar,
     updatedAt: requestedAt,
     updated_at: requestedAt
   };

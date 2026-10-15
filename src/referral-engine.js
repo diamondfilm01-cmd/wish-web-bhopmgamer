@@ -45,8 +45,8 @@ export const DEFAULT_PROGRAM = {
   qualifying_event: 'FIRST_WISH',
   referrer_reward_type: 'FREE_CUSTOM_LINK',
   referrer_reward_amount: 1,
-  referee_reward_type: 'PREMIUM_DAYS',
-  referee_reward_amount: 3,
+  referee_reward_type: 'NONE',
+  referee_reward_amount: 0,
   required_referrals_for_reward: 7,
   count_free_templates: 1,
   max_referrals_per_user: 70,
@@ -139,8 +139,8 @@ export async function getProgramConfig(db) {
         qualifyingEvent: row.qualifying_event || 'FIRST_WISH',
         referrerRewardType: row.referrer_reward_type || 'FREE_CUSTOM_LINK',
         referrerRewardAmount: Number(row.referrer_reward_amount) || 1,
-        refereeRewardType: row.referee_reward_type || 'PREMIUM_DAYS',
-        refereeRewardAmount: Number(row.referee_reward_amount) || 3,
+        refereeRewardType: 'NONE',
+        refereeRewardAmount: 0,
         requiredReferralsForReward: Number(row.required_referrals_for_reward) || 7,
         countFreeTemplates: row.count_free_templates !== undefined ? Boolean(row.count_free_templates) : true,
         maxReferralsPerUser: Number(row.max_referrals_per_user) || 70,
@@ -576,54 +576,18 @@ export async function linkRefereeSignup({
  * Grant Authoritative Entitlement directly in D1
  */
 async function grantPlatformEntitlement(userId, rewardType, rewardAmount, db) {
-  if (!db || !userId) return;
+  if (!db || !userId || rewardType === 'NONE') return;
   const now = new Date();
-
-  if (rewardType === REWARD_TYPES.PREMIUM_DAYS) {
-    const days = Math.max(1, Number(rewardAmount) || 7);
-    const msToAdd = days * 24 * 60 * 60 * 1000;
-
-    // Check existing active entitlement
-    const existing = await db.prepare(`
-      SELECT * FROM entitlements
-      WHERE user_id = ? AND status = 'active' AND (expires_at IS NULL OR expires_at > ?)
-      ORDER BY expires_at DESC LIMIT 1
-    `).bind(userId, now.toISOString()).first().catch(() => null);
-
-    let startsAt = now.toISOString();
-    let newExpiresAt;
-
-    if (existing && existing.expires_at) {
-      // Extend current expiration
-      const currentExpiry = new Date(existing.expires_at);
-      newExpiresAt = new Date(currentExpiry.getTime() + msToAdd).toISOString();
-      await db.prepare(`
-        UPDATE entitlements
-        SET expires_at = ?, updated_at = ?
-        WHERE id = ?
-      `).bind(newExpiresAt, startsAt, existing.id).run().catch(() => {});
-    } else {
-      // Create new entitlement
-      newExpiresAt = new Date(now.getTime() + msToAdd).toISOString();
-      const entId = `ent_ref_${Date.now().toString(36)}_${Math.random().toString(36).substring(2, 6)}`;
-      await db.prepare(`
-        INSERT INTO entitlements (
-          id, user_id, item_type, plan, status, source, starts_at, expires_at, created_at, updated_at
-        ) VALUES (?, ?, 'referral_vip', 'VIP', 'active', 'referral', ?, ?, ?, ?)
-      `).bind(entId, userId, startsAt, newExpiresAt, startsAt, startsAt).run().catch(() => {});
-    }
-  } else if (rewardType === REWARD_TYPES.FREE_CUSTOM_LINK || rewardType === REWARD_TYPES.FREE_WISH_CREDIT) {
-    const credits = Math.max(1, Number(rewardAmount) || 1);
-    const startsAt = now.toISOString();
-    const newExpiresAt = new Date(now.getTime() + (365 * 24 * 60 * 60 * 1000)).toISOString();
-    for (let i = 0; i < credits; i++) {
-      const entId = `ent_clink_${Date.now().toString(36)}_${Math.random().toString(36).substring(2, 6)}_${i}`;
-      await db.prepare(`
-        INSERT INTO entitlements (
-          id, user_id, item_type, plan, status, source, starts_at, expires_at, created_at, updated_at
-        ) VALUES (?, ?, 'free_custom_link', 'FREE_CUSTOM_LINK', 'active', 'referral_7_friends', ?, ?, ?, ?)
-      `).bind(entId, userId, startsAt, newExpiresAt, startsAt, startsAt).run().catch(() => {});
-    }
+  const credits = Math.max(1, Number(rewardAmount) || 1);
+  const startsAt = now.toISOString();
+  const newExpiresAt = new Date(now.getTime() + (365 * 24 * 60 * 60 * 1000)).toISOString();
+  for (let i = 0; i < credits; i++) {
+    const entId = `ent_clink_${Date.now().toString(36)}_${Math.random().toString(36).substring(2, 6)}_${i}`;
+    await db.prepare(`
+      INSERT INTO entitlements (
+        id, user_id, item_type, plan, status, source, starts_at, expires_at, created_at, updated_at
+      ) VALUES (?, ?, 'free_custom_link', 'FREE_CUSTOM_LINK', 'active', 'referral_7_friends', ?, ?, ?, ?)
+    `).bind(entId, userId, startsAt, newExpiresAt, startsAt, startsAt).run().catch(() => {});
   }
 }
 
@@ -692,57 +656,12 @@ export async function evaluateQualifyingEvent(userId, eventType, eventMetadata =
     return { qualified: false, reason: 'FRAUD_BLOCKED', flags: fraud.flags };
   }
 
-  // 6. Qualification Status & Ledger Generation
+  // 6. Qualification Status & 7-Friends Milestone Evaluation
   const initialStatus = (program.requireAdminApproval || !fraud.isClean) ? LEDGER_STATUS.PENDING : LEDGER_STATUS.GRANTED;
   const nowIso = now.toISOString();
+  const requiredFriends = Math.max(1, Number(program.requiredReferralsForReward) || 7);
 
-  // Create Referrer Ledger Entry
-  const refLedgerId = `rw_r_${Date.now().toString(36)}_${Math.random().toString(36).substring(2, 7)}`;
-  await db.prepare(`
-    INSERT INTO referral_rewards_ledger (
-      id, attribution_id, user_id, counterpart_user_id, role,
-      reward_type, reward_amount, status, idempotency_key,
-      granted_at, details_json, created_at, updated_at
-    ) VALUES (?, ?, ?, ?, 'REFERRER', ?, ?, ?, ?, ?, ?, ?, ?)
-  `).bind(
-    refLedgerId,
-    attribution.id,
-    attribution.referrer_user_id,
-    userId,
-    program.referrerRewardType,
-    program.referrerRewardAmount,
-    initialStatus,
-    referrerIdemKey,
-    initialStatus === LEDGER_STATUS.GRANTED ? nowIso : null,
-    JSON.stringify({ eventType, eventMetadata }),
-    nowIso,
-    nowIso
-  ).run().catch(() => {});
-
-  // Create Referee Ledger Entry
-  const refEELedgerId = `rw_e_${Date.now().toString(36)}_${Math.random().toString(36).substring(2, 7)}`;
-  await db.prepare(`
-    INSERT INTO referral_rewards_ledger (
-      id, attribution_id, user_id, counterpart_user_id, role,
-      reward_type, reward_amount, status, idempotency_key,
-      granted_at, details_json, created_at, updated_at
-    ) VALUES (?, ?, ?, ?, 'REFEREE', ?, ?, ?, ?, ?, ?, ?, ?)
-  `).bind(
-    refEELedgerId,
-    attribution.id,
-    userId,
-    attribution.referrer_user_id,
-    program.refereeRewardType,
-    program.refereeRewardAmount,
-    initialStatus,
-    refereeIdemKey,
-    initialStatus === LEDGER_STATUS.GRANTED ? nowIso : null,
-    JSON.stringify({ eventType, eventMetadata }),
-    nowIso,
-    nowIso
-  ).run().catch(() => {});
-
-  // Update Attribution Record
+  // Update Attribution Record to QUALIFIED / REWARDED
   const newAttrStatus = initialStatus === LEDGER_STATUS.GRANTED ? ATTRIBUTION_STATUS.REWARDED : ATTRIBUTION_STATUS.QUALIFIED;
   await db.prepare(`
     UPDATE referral_attributions
@@ -750,45 +669,72 @@ export async function evaluateQualifyingEvent(userId, eventType, eventMetadata =
     WHERE id = ?
   `).bind(newAttrStatus, eventType, nowIso, attribution.id).run().catch(() => {});
 
+  // Count total qualified referrals for this referrer
+  const qualCountRow = await db.prepare(`
+    SELECT COUNT(*) as cnt FROM referral_attributions
+    WHERE referrer_user_id = ? AND status IN ('QUALIFIED', 'REWARDED')
+  `).bind(attribution.referrer_user_id).first().catch(() => null);
+  const newQualifiedTotal = Number(qualCountRow?.cnt || 1);
+
+  // Check if this friend completes a 7-Friend Milestone (e.g. 7, 14, 21...)
+  const milestoneUnlocked = (newQualifiedTotal > 0 && (newQualifiedTotal % requiredFriends === 0));
+  const creditsEarnedNow = milestoneUnlocked ? Math.max(1, Number(program.referrerRewardAmount) || 1) : 0;
+
   // Update Referrer Metrics
   await db.prepare(`
     UPDATE user_referral_codes
-    SET total_qualified = total_qualified + 1,
+    SET total_qualified = ?,
         total_rewards_earned = total_rewards_earned + ?,
         updated_at = ?
     WHERE referral_code = ?
-  `).bind(program.referrerRewardAmount, nowIso, attribution.referral_code).run().catch(() => {});
+  `).bind(newQualifiedTotal, creditsEarnedNow, nowIso, attribution.referral_code).run().catch(() => {});
 
-  // If granted immediately, activate authoritative entitlements
-  if (initialStatus === LEDGER_STATUS.GRANTED) {
-    await grantPlatformEntitlement(attribution.referrer_user_id, program.referrerRewardType, program.referrerRewardAmount, db);
-    await grantPlatformEntitlement(userId, program.refereeRewardType, program.refereeRewardAmount, db);
+  const rewardsGranted = [];
+  if (milestoneUnlocked) {
+    const refLedgerId = `rw_r_${Date.now().toString(36)}_${Math.random().toString(36).substring(2, 7)}`;
+    await db.prepare(`
+      INSERT INTO referral_rewards_ledger (
+        id, attribution_id, user_id, counterpart_user_id, role,
+        reward_type, reward_amount, status, idempotency_key,
+        granted_at, details_json, created_at, updated_at
+      ) VALUES (?, ?, ?, ?, 'REFERRER', 'FREE_CUSTOM_LINK', ?, ?, ?, ?, ?, ?, ?)
+    `).bind(
+      refLedgerId,
+      attribution.id,
+      attribution.referrer_user_id,
+      userId,
+      creditsEarnedNow,
+      initialStatus,
+      referrerIdemKey,
+      initialStatus === LEDGER_STATUS.GRANTED ? nowIso : null,
+      JSON.stringify({ eventType, milestoneQualifiedCount: newQualifiedTotal, requiredFriends, eventMetadata }),
+      nowIso,
+      nowIso
+    ).run().catch(() => {});
+
+    if (initialStatus === LEDGER_STATUS.GRANTED) {
+      await grantPlatformEntitlement(attribution.referrer_user_id, 'FREE_CUSTOM_LINK', creditsEarnedNow, db);
+    }
+
+    rewardsGranted.push({
+      ledgerId: refLedgerId,
+      userId: attribution.referrer_user_id,
+      role: 'REFERRER',
+      rewardType: 'FREE_CUSTOM_LINK',
+      rewardAmount: creditsEarnedNow,
+      status: initialStatus
+    });
   }
 
   return {
     qualified: true,
+    milestoneUnlocked,
+    newQualifiedTotal,
+    requiredFriends,
     status: initialStatus,
     attributionId: attribution.id,
-    referrerReward: { type: program.referrerRewardType, amount: program.referrerRewardAmount },
-    refereeReward: { type: program.refereeRewardType, amount: program.refereeRewardAmount },
-    rewardsGranted: [
-      {
-        ledgerId: refLedgerId,
-        userId: attribution.referrer_user_id,
-        role: 'REFERRER',
-        rewardType: program.referrerRewardType,
-        rewardAmount: program.referrerRewardAmount,
-        status: initialStatus
-      },
-      {
-        ledgerId: refEELedgerId,
-        userId: userId,
-        role: 'REFEREE',
-        rewardType: program.refereeRewardType,
-        rewardAmount: program.refereeRewardAmount,
-        status: initialStatus
-      }
-    ]
+    referrerReward: { type: 'FREE_CUSTOM_LINK', amount: creditsEarnedNow },
+    rewardsGranted
   };
 }
 
@@ -965,7 +911,7 @@ export async function getUserReferralDashboard(userId, db, baseUrl = 'https://wi
       referrerRewardType: program.referrerRewardType,
       referrerRewardAmount: program.referrerRewardAmount,
       referrerReward: `1 Free Custom Link (per ${targetFriends} friends)`,
-      refereeReward: `${program.refereeRewardAmount} ${program.refereeRewardType === 'PREMIUM_DAYS' ? 'Days VIP' : 'Credits'}`,
+      refereeReward: 'None (7-Friends Referrer Milestone)',
       termsSummary: program.termsSummary
     },
     invitedFriends,
@@ -1319,10 +1265,12 @@ export function createMockReferralDatabase(seed = {}) {
         name: 'WishMagic Friends & Family Rewards',
         is_active: 1,
         qualifying_event: 'FIRST_WISH',
-        referrer_reward_type: 'PREMIUM_DAYS',
-        referrer_reward_amount: 7,
-        referee_reward_type: 'PREMIUM_DAYS',
-        referee_reward_amount: 3,
+        referrer_reward_type: 'FREE_CUSTOM_LINK',
+        referrer_reward_amount: 1,
+        referee_reward_type: 'NONE',
+        referee_reward_amount: 0,
+        required_referrals_for_reward: 7,
+        count_free_templates: 1,
         max_referrals_per_user: 50,
         attribution_window_days: 30,
         require_admin_approval: 0,
