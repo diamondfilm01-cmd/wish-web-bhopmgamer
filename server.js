@@ -233,6 +233,19 @@ import {
   buildDefaultLegalPolicies
 } from './src/legal-compliance-engine.js';
 import {
+  MODERATION_STATUS,
+  MODERATION_CATEGORIES,
+  MODERATION_LIMITS,
+  checkModerationUploadRateLimit,
+  moderateTextContent,
+  moderateWishPayloadFields,
+  moderateImageAsset,
+  moderateAudioVideoAsset,
+  validateTemplateSecurityAndModeration,
+  sanitizeModerationItemForAdmin
+} from './src/content-moderation-engine.js';
+
+import {
   SEARCH_ENTITY_TYPES,
   SORT_OPTIONS,
   TIER_FILTERS,
@@ -6609,12 +6622,35 @@ app.post(['/api/wishes/:id/media/upload', '/api/wishes/:id/media'], async (req, 
       return res.status(400).json({ success: false, message: 'Image fileData is required' });
     }
 
+    if (req.body?.moderationStatus || req.body?.moderation_status || req.body?.bypassModeration || req.body?.skipModeration) {
+      return res.status(403).json({ success: false, code: 'MODERATION_BYPASS_REJECTED', message: 'Direct API moderation bypass parameters are forbidden.' });
+    }
+
     // 1. Validate image
     let validation;
     try {
       validation = await validateImageBuffer(fileData, { maxSizeBytes: IMAGE_LIMITS.MAX_IMAGE_BYTES });
     } catch (valErr) {
       return res.status(400).json({ success: false, code: valErr.code || 'IMAGE_INVALID', message: valErr.message });
+    }
+
+    // 1b. Content Moderation Scan (Part 47)
+    const imgModScan = await moderateImageAsset(validation.bytes, {
+      filename: filename || 'wish-photo.jpg',
+      ocrText: req.body?.ocrText || req.body?.caption || '',
+      rawPixels: req.body?.rawPixels,
+      env: process.env
+    });
+    if (!imgModScan.allowed) {
+      const errCode = imgModScan.isCsam ? 'CSAM_COMPLIANCE_LOCK' : (imgModScan.status === MODERATION_STATUS.REJECTED ? 'MODERATION_REJECTED' : 'MEDIA_QUARANTINED_PENDING_REVIEW');
+      return res.status(imgModScan.isCsam ? 451 : 422).json({
+        success: false,
+        code: errCode,
+        moderationStatus: imgModScan.status,
+        isQuarantined: true,
+        categories: imgModScan.categories,
+        message: imgModScan.reason
+      });
     }
 
     // 2. Check ImgBB config
@@ -13313,6 +13349,20 @@ app.post('/api/wishes', (req, res) => {
       return res.status(400).json({ success: false, message: 'templateId and customData are required' });
     }
 
+    const bodyMod = moderateWishPayloadFields(req.body || {});
+    const customMod = moderateWishPayloadFields(customData || {});
+    if (bodyMod.bypassAttempted || customMod.bypassAttempted) {
+      return res.status(403).json({ success: false, error: { code: 'MODERATION_BYPASS_REJECTED', message: 'Direct API moderation bypass parameters are forbidden.' } });
+    }
+    if (!bodyMod.allowed || !customMod.allowed) {
+      const isCsam = Boolean(bodyMod.isCsam || customMod.isCsam);
+      const reason = bodyMod.reason || customMod.reason;
+      return res.status(isCsam ? 451 : 422).json({
+        success: false,
+        error: { code: isCsam ? 'CSAM_COMPLIANCE_LOCK' : 'MODERATION_REJECTED', message: reason, categories: [...(bodyMod.categories || []), ...(customMod.categories || [])] }
+      });
+    }
+
     const templates = getTemplates();
     const template = templates.find(t => t.id === templateId);
 
@@ -13720,6 +13770,16 @@ app.put('/api/wishes/:id', (req, res) => {
     }
 
     const { customData, recipientName, buyerName, eventDate, slug, customSlug, status, isDraft, lockVersion, lock_version } = req.body || {};
+    const putMod = moderateWishPayloadFields(req.body || {});
+    if (putMod.bypassAttempted) {
+      return res.status(403).json({ success: false, error: { code: 'MODERATION_BYPASS_REJECTED', message: 'Direct API moderation bypass parameters are forbidden.' } });
+    }
+    if (!putMod.allowed) {
+      return res.status(putMod.isCsam ? 451 : 422).json({
+        success: false,
+        error: { code: putMod.isCsam ? 'CSAM_COMPLIANCE_LOCK' : 'MODERATION_REJECTED', message: putMod.reason, categories: putMod.categories }
+      });
+    }
 
     // Optimistic Concurrency Check (Part 4)
     const expectedLockVersion = lockVersion !== undefined ? Number(lockVersion) : (lock_version !== undefined ? Number(lock_version) : null);

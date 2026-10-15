@@ -36,6 +36,9 @@ import {
   ImgBBProvider,
   getImgBBConfig
 } from './imgbb-provider.js';
+import {
+  validateTemplateSecurityAndModeration
+} from './content-moderation-engine.js';
 
 // Security & Resource Constraints
 export const ZIP_LIMITS = {
@@ -967,6 +970,51 @@ export async function executeB2TemplateIngestPipeline(params) {
       message: `Template package failed Universal Template Protocol validation with ${utpReport.summary.errors} error(s).`,
       validationReport: utpReport,
       issues: utpReport.issues
+    };
+  }
+
+  // 2c. Template Code Security & Content Moderation Scan (Part 47)
+  const securityAndModReport = await validateTemplateSecurityAndModeration(
+    extracted.files,
+    rawManifest || { template: templateMetadata },
+    { env }
+  );
+
+  if (!securityAndModReport.securityValid) {
+    const firstSec = securityAndModReport.securityIssues[0];
+    await updateOperation(UPLOAD_OPERATION_STATE.VALIDATION_FAILED, 'template_security_failed', 32, {
+      errorCode: 'TEMPLATE_SECURITY_VIOLATION',
+      errorMessage: firstSec.message,
+      validationReport: { ...utpReport, securityIssues: securityAndModReport.securityIssues },
+      isRetryable: false
+    });
+    return {
+      success: false,
+      operationId,
+      error: 'TEMPLATE_SECURITY_VIOLATION',
+      code: 'TEMPLATE_SECURITY_VIOLATION',
+      message: firstSec.message,
+      securityIssues: securityAndModReport.securityIssues,
+      issues: securityAndModReport.securityIssues
+    };
+  }
+
+  if (!securityAndModReport.moderationValid) {
+    const firstMod = securityAndModReport.moderationIssues[0];
+    await updateOperation(UPLOAD_OPERATION_STATE.VALIDATION_FAILED, 'template_moderation_failed', 33, {
+      errorCode: 'TEMPLATE_MODERATION_REJECTED',
+      errorMessage: firstMod.message,
+      validationReport: { ...utpReport, moderationIssues: securityAndModReport.moderationIssues },
+      isRetryable: false
+    });
+    return {
+      success: false,
+      operationId,
+      error: 'TEMPLATE_MODERATION_REJECTED',
+      code: 'TEMPLATE_MODERATION_REJECTED',
+      message: firstMod.message,
+      moderationIssues: securityAndModReport.moderationIssues,
+      issues: securityAndModReport.moderationIssues
     };
   }
 

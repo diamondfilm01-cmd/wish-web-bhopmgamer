@@ -242,6 +242,22 @@ import {
 } from './search-discovery-engine.js';
 
 import {
+  MODERATION_STATUS,
+  MODERATION_CATEGORIES,
+  MODERATION_LIMITS,
+  checkModerationUploadRateLimit,
+  moderateTextContent,
+  moderateWishPayloadFields,
+  moderateImageAsset,
+  moderateAudioVideoAsset,
+  validateTemplateSecurityAndModeration,
+  checkUserModerationStanding,
+  recordModerationViolationAndEnforceStrike,
+  recordModerationItemAndScan,
+  sanitizeModerationItemForAdmin
+} from './content-moderation-engine.js';
+
+import {
   authenticateWithPassword,
   registerWithPassword,
   verifyToken as verifyAuthProviderToken,
@@ -2314,8 +2330,209 @@ async function verifyAndEnsureAuthSchema(db) {
 let schemaInitialized = false;
 let schemaInitPromise = null;
 
+const moderationInitializedDbs = new WeakSet();
+
+async function ensureModerationSchema(db) {
+  if (!db || typeof db.prepare !== 'function') return false;
+  if (moderationInitializedDbs.has(db)) return true;
+
+  async function execModSql(sql) {
+    try {
+      const stmt = db.prepare(sql);
+      if (stmt && typeof stmt.run === 'function') {
+        await stmt.run().catch(() => {});
+      } else if (stmt && typeof stmt.bind === 'function') {
+        await stmt.bind().run().catch(() => {});
+      }
+    } catch (_) {}
+  }
+
+  await execModSql(`
+    CREATE TABLE IF NOT EXISTS moderation_items (
+      id TEXT PRIMARY KEY,
+      target_type TEXT NOT NULL,
+      target_id TEXT NOT NULL,
+      owner_user_id TEXT,
+      owner_email TEXT,
+      media_kind TEXT DEFAULT 'text',
+      filename TEXT,
+      mime_type TEXT,
+      size_bytes INTEGER DEFAULT 0,
+      sha256 TEXT,
+      storage_provider TEXT,
+      private_storage_key TEXT,
+      approved_public_url TEXT,
+      thumbnail_url TEXT,
+      content_excerpt TEXT,
+      extracted_ocr_text TEXT,
+      transcript_text TEXT,
+      status TEXT NOT NULL DEFAULT 'PENDING_REVIEW',
+      is_quarantined INTEGER NOT NULL DEFAULT 1,
+      is_csam_locked INTEGER NOT NULL DEFAULT 0,
+      categories_json TEXT DEFAULT '[]',
+      confidence_score INTEGER DEFAULT 0,
+      provider_name TEXT DEFAULT 'local_hybrid',
+      rejection_reason TEXT,
+      scan_report_json TEXT DEFAULT '{}',
+      reviewed_by TEXT,
+      reviewed_at TEXT,
+      review_notes TEXT,
+      appeal_status TEXT DEFAULT 'NONE',
+      retention_expires_at TEXT,
+      created_at TEXT NOT NULL,
+      updated_at TEXT NOT NULL
+    )
+  `);
+
+  await execModSql(`
+    CREATE TABLE IF NOT EXISTS moderation_scans (
+      id TEXT PRIMARY KEY,
+      moderation_item_id TEXT NOT NULL,
+      provider_name TEXT NOT NULL,
+      media_kind TEXT NOT NULL,
+      scan_status TEXT NOT NULL,
+      verdict TEXT NOT NULL,
+      confidence_score INTEGER DEFAULT 0,
+      categories_json TEXT DEFAULT '[]',
+      error_code TEXT,
+      error_message TEXT,
+      latency_ms INTEGER DEFAULT 0,
+      raw_summary_json TEXT DEFAULT '{}',
+      created_at TEXT NOT NULL
+    )
+  `);
+
+  await execModSql(`
+    CREATE TABLE IF NOT EXISTS moderation_violations (
+      id TEXT PRIMARY KEY,
+      user_id TEXT NOT NULL,
+      moderation_item_id TEXT,
+      target_type TEXT NOT NULL,
+      target_id TEXT,
+      violation_category TEXT NOT NULL,
+      severity TEXT NOT NULL DEFAULT 'HIGH',
+      reason TEXT NOT NULL,
+      strike_weight INTEGER NOT NULL DEFAULT 1,
+      action_taken TEXT NOT NULL DEFAULT 'CONTENT_BLOCKED',
+      created_at TEXT NOT NULL
+    )
+  `);
+
+  await execModSql(`
+    CREATE TABLE IF NOT EXISTS moderation_appeals (
+      id TEXT PRIMARY KEY,
+      moderation_item_id TEXT NOT NULL,
+      user_id TEXT NOT NULL,
+      user_email TEXT,
+      appeal_reason TEXT NOT NULL,
+      status TEXT NOT NULL DEFAULT 'PENDING',
+      resolution_notes TEXT,
+      resolved_by TEXT,
+      resolved_at TEXT,
+      created_at TEXT NOT NULL,
+      updated_at TEXT NOT NULL
+    )
+  `);
+
+  await execModSql(`
+    CREATE TABLE IF NOT EXISTS csam_compliance_incidents (
+      id TEXT PRIMARY KEY,
+      moderation_item_id TEXT NOT NULL,
+      offender_user_id TEXT,
+      offender_ip_hash TEXT,
+      sha256_evidence TEXT,
+      detection_source TEXT NOT NULL,
+      legal_report_status TEXT NOT NULL DEFAULT 'PENDING_MANDATORY_REPORT',
+      sealed_metadata_json TEXT DEFAULT '{}',
+      created_at TEXT NOT NULL
+    )
+  `);
+
+  await execModSql("ALTER TABLE wish_media ADD COLUMN moderation_status TEXT DEFAULT 'APPROVED'");
+  await execModSql("ALTER TABLE wish_media ADD COLUMN moderation_reason TEXT");
+  await execModSql("ALTER TABLE wish_media ADD COLUMN moderation_item_id TEXT");
+  await execModSql("ALTER TABLE wish_media ADD COLUMN is_quarantined INTEGER DEFAULT 0");
+  await execModSql("ALTER TABLE music_library ADD COLUMN moderation_status TEXT DEFAULT 'APPROVED'");
+  await execModSql("ALTER TABLE music_library ADD COLUMN moderation_reason TEXT");
+  await execModSql("ALTER TABLE music_library ADD COLUMN moderation_item_id TEXT");
+  await execModSql("ALTER TABLE users ADD COLUMN moderation_strikes INTEGER DEFAULT 0");
+  await execModSql("ALTER TABLE users ADD COLUMN moderation_restricted INTEGER DEFAULT 0");
+  await execModSql("ALTER TABLE users ADD COLUMN moderation_restriction_reason TEXT");
+  await execModSql("ALTER TABLE users ADD COLUMN moderation_restricted_until TEXT");
+
+  moderationInitializedDbs.add(db);
+  return true;
+}
+
+async function verifyWishMediaModerationReadiness(db, wishId, customData = {}) {
+  if (!db || typeof db.prepare !== 'function') return { ready: true };
+  try {
+    await ensureModerationSchema(db);
+    if (wishId) {
+      const wmRows = await db.prepare(
+        'SELECT id, filename, status, moderation_status, is_quarantined, moderation_reason FROM wish_media WHERE wish_id = ?'
+      ).bind(wishId).all().catch(() => ({ results: [] }));
+      for (const row of (wmRows?.results || [])) {
+        const modSt = String(row.moderation_status || 'APPROVED').toUpperCase();
+        if (Number(row.is_quarantined) === 1 || row.status === 'quarantined' || row.status === 'rejected' || row.status === 'csam_locked' || modSt !== 'APPROVED') {
+          return {
+            ready: false,
+            mediaId: row.id,
+            status: modSt,
+            reason: row.moderation_reason || `Attached media "${row.filename || row.id}" has not passed content moderation (status: ${modSt}).`
+          };
+        }
+      }
+    }
+
+    // Also inspect customData for any referenced media IDs or quarantined URLs
+    const serialized = JSON.stringify(customData || {});
+    if (serialized.includes('/quarantine/') || serialized.includes('quarantined:')) {
+      return {
+        ready: false,
+        status: 'PENDING_REVIEW',
+        reason: 'Wish references private quarantined media that has not been approved.'
+      };
+    }
+
+    const mediaIdMatches = serialized.match(/(?:wmed|med|mus|vid|mitem)_[a-zA-Z0-9_]+/g) || [];
+    for (const refId of mediaIdMatches) {
+      const wm = await db.prepare(
+        'SELECT id, status, moderation_status, is_quarantined, moderation_reason FROM wish_media WHERE id = ? LIMIT 1'
+      ).bind(refId).first().catch(() => null);
+      if (wm) {
+        const modSt = String(wm.moderation_status || 'APPROVED').toUpperCase();
+        if (Number(wm.is_quarantined) === 1 || wm.status === 'quarantined' || wm.status === 'rejected' || wm.status === 'csam_locked' || modSt !== 'APPROVED') {
+          return {
+            ready: false,
+            mediaId: wm.id,
+            status: modSt,
+            reason: wm.moderation_reason || `Referenced media "${refId}" is in ${modSt} state and cannot be published.`
+          };
+        }
+      }
+      const mi = await db.prepare(
+        'SELECT id, status, is_quarantined, rejection_reason FROM moderation_items WHERE id = ? OR target_id = ? LIMIT 1'
+      ).bind(refId, refId).first().catch(() => null);
+      if (mi) {
+        const miSt = String(mi.status || 'APPROVED').toUpperCase();
+        if (Number(mi.is_quarantined) === 1 || miSt !== 'APPROVED') {
+          return {
+            ready: false,
+            moderationItemId: mi.id,
+            status: miSt,
+            reason: mi.rejection_reason || `Referenced moderation item "${refId}" is in ${miSt} state.`
+          };
+        }
+      }
+    }
+  } catch (_) {}
+  return { ready: true };
+}
+
 async function ensureCoreSchema(db) {
   if (!db || typeof db.prepare !== 'function') return false;
+  await ensureModerationSchema(db);
   if (schemaInitialized) return true;
   return (await verifyAndEnsureAuthSchema(db)).ok;
 }
@@ -5692,6 +5909,19 @@ export default {
 
         const rawSlug = url.searchParams.get('slug') || '';
         const excludeWishId = sanitizeString(url.searchParams.get('wishId') || '', 60);
+        const slugMod = moderateTextContent(rawSlug.replace(/-/g, ' '), { fieldName: 'slug' });
+        if (!slugMod.allowed) {
+          return applySecurityHeaders(
+            jsonSuccess({
+              available: false,
+              slug: rawSlug,
+              reason: 'moderation_rejected',
+              categories: slugMod.categories,
+              message: slugMod.reason
+            }, 200, {}, requestId),
+            request, env
+          );
+        }
         const normalizedSlug = rawSlug
           .toLowerCase()
           .trim()
@@ -5883,6 +6113,94 @@ export default {
 
           const body = await request.json().catch(() => ({}));
           const customData = body.customData || body;
+
+          // Part 47: Authoritative User Standing & Content Moderation Enforcement
+          if (env.DB && typeof env.DB.prepare === 'function') {
+            await ensureModerationSchema(env.DB);
+            const standing = await checkUserModerationStanding(env.DB, user.id);
+            if (standing.restricted) {
+              return applySecurityHeaders(
+                jsonError('ACCOUNT_MODERATION_RESTRICTED', standing.reason || 'Your account is restricted from creating or publishing wishes due to repeated policy violations.', 403, { strikes: standing.strikes }, null, requestId, FailureCategory.AUTHORIZATION),
+                request, env
+              );
+            }
+          }
+
+          const bodyMod = moderateWishPayloadFields(body);
+          const customMod = body.customData ? moderateWishPayloadFields(customData) : { allowed: true, violations: [], categories: [] };
+          if (bodyMod.bypassAttempted || customMod.bypassAttempted) {
+            if (env.DB) {
+              await recordModerationViolationAndEnforceStrike(env.DB, {
+                userId: user.id,
+                userEmail: user.email,
+                targetType: 'wish',
+                category: MODERATION_CATEGORIES.DIRECT_BYPASS_ATTEMPT,
+                severity: 'CRITICAL',
+                reason: 'Direct API moderation bypass attempt on POST /api/wishes'
+              });
+            }
+            return applySecurityHeaders(
+              jsonError('MODERATION_BYPASS_REJECTED', 'Direct API moderation bypass parameters are forbidden.', 403, { categories: [MODERATION_CATEGORIES.DIRECT_BYPASS_ATTEMPT] }, null, requestId, FailureCategory.AUTHORIZATION),
+              request, env
+            );
+          }
+
+          if (!bodyMod.allowed || !customMod.allowed) {
+            const isCsam = Boolean(bodyMod.isCsam || customMod.isCsam);
+            const allCats = Array.from(new Set([...(bodyMod.categories || []), ...(customMod.categories || [])]));
+            const firstReason = bodyMod.reason || customMod.reason || 'Content violates WishMagic community safety policy.';
+            if (env.DB) {
+              const modRec = await recordModerationItemAndScan(env.DB, {
+                targetType: 'wish_text',
+                targetId: ' blocked_wish_' + Date.now().toString(36),
+                ownerUserId: user.id,
+                ownerEmail: user.email,
+                mediaKind: 'text',
+                contentExcerpt: JSON.stringify({ recipient: customData.recipient_name || customData.recipientName, message: customData.custom_message || customData.message }).slice(0, 300),
+                scanResult: {
+                  allowed: false,
+                  status: isCsam ? MODERATION_STATUS.CSAM_LOCKED : MODERATION_STATUS.REJECTED,
+                  isCsam,
+                  categories: allCats,
+                  confidenceScore: 95,
+                  provider: 'local_hybrid',
+                  reason: firstReason
+                }
+              });
+              await recordModerationViolationAndEnforceStrike(env.DB, {
+                userId: user.id,
+                userEmail: user.email,
+                moderationItemId: modRec.moderationItemId,
+                targetType: 'wish',
+                category: allCats[0] || 'PROFANITY',
+                severity: isCsam ? 'CRITICAL' : 'HIGH',
+                reason: firstReason,
+                isCsam
+              });
+            }
+            return applySecurityHeaders(
+              jsonError(
+                isCsam ? 'CSAM_COMPLIANCE_LOCK' : 'MODERATION_REJECTED',
+                firstReason,
+                isCsam ? 451 : 422,
+                { categories: allCats, moderationStatus: isCsam ? MODERATION_STATUS.CSAM_LOCKED : MODERATION_STATUS.REJECTED },
+                null,
+                requestId,
+                FailureCategory.VALIDATION
+              ),
+              request, env
+            );
+          }
+
+          if (!(customData.isDraft || body.isDraft || body.status === 'draft') && env.DB) {
+            const mediaReady = await verifyWishMediaModerationReadiness(env.DB, body.id || customData.id || null, customData);
+            if (!mediaReady.ready) {
+              return applySecurityHeaders(
+                jsonError('MEDIA_MODERATION_BLOCKED', mediaReady.reason, 422, { moderationStatus: mediaReady.status, mediaId: mediaReady.mediaId }, null, requestId, FailureCategory.VALIDATION),
+                request, env
+              );
+            }
+          }
           const templateId = sanitizeString(body.templateId || customData.templateId || 'tpl_glitter_birthday', 60);
 
           // Ensure authenticated creator exists in users table to satisfy foreign key constraints
@@ -6402,6 +6720,53 @@ export default {
         let cd = {};
         try { cd = typeof existing.custom_data === 'string' ? JSON.parse(existing.custom_data) : (existing.custom_data || {}); } catch (e) {}
 
+        // --- Part 47: Server-Authoritative Content & Media Moderation Gate before Publish ---
+        await ensureModerationSchema(env.DB);
+        const pubStanding = await checkUserModerationStanding(env.DB, user.id);
+        if (pubStanding.restricted) {
+          return applySecurityHeaders(jsonError('ACCOUNT_MODERATION_RESTRICTED', pubStanding.reason || 'Account is restricted from publishing wishes.', 403), request, env);
+        }
+
+        const existingModStatus = String(existing.moderation_status || 'approved').toLowerCase();
+        if (['suspended', 'rejected', 'pending_review', 'scan_failed', 'csam_locked'].includes(existingModStatus)) {
+          return applySecurityHeaders(
+            jsonError('WISH_MODERATION_BLOCKED', existing.moderation_reason || `Cannot publish wish while moderation status is "${existing.moderation_status}".`, 422),
+            request, env
+          );
+        }
+
+        const pubTextMod = moderateWishPayloadFields({
+          recipient_name: existing.recipient_name,
+          sender_name: existing.buyer_name,
+          slug: existing.slug,
+          ...cd
+        });
+        if (!pubTextMod.allowed) {
+          await env.DB.prepare("UPDATE wishes SET moderation_status = 'rejected', is_flagged = 1, moderation_reason = ? WHERE id = ?")
+            .bind(pubTextMod.reason, existing.id).run().catch(() => {});
+          await recordModerationViolationAndEnforceStrike(env.DB, {
+            userId: user.id,
+            userEmail: user.email,
+            targetType: 'wish',
+            targetId: existing.id,
+            category: pubTextMod.categories[0] || 'PROFANITY',
+            reason: pubTextMod.reason,
+            isCsam: pubTextMod.isCsam
+          });
+          return applySecurityHeaders(
+            jsonError('MODERATION_REJECTED', pubTextMod.reason, 422, { categories: pubTextMod.categories }),
+            request, env
+          );
+        }
+
+        const pubMediaReady = await verifyWishMediaModerationReadiness(env.DB, existing.id, cd);
+        if (!pubMediaReady.ready) {
+          return applySecurityHeaders(
+            jsonError('MEDIA_MODERATION_BLOCKED', pubMediaReady.reason, 422, { moderationStatus: pubMediaReady.status, mediaId: pubMediaReady.mediaId }),
+            request, env
+          );
+        }
+
         // --- Part 25: Server-Authoritative Publish Readiness Validation ---
         const recipientName = sanitizeString(cd.recipient_name || cd.recipientName || existing.recipient_name || '', 80);
         if (!recipientName) {
@@ -6511,7 +6876,7 @@ export default {
           );
         }
 
-        if (existing.moderation_status === 'suspended') {
+        if (existing.moderation_status === 'suspended' || ['rejected', 'pending_review', 'scan_failed', 'csam_locked'].includes(String(existing.moderation_status || '').toLowerCase())) {
           return applySecurityHeaders(
             jsonError('WISH_SUSPENDED', 'This celebration wish has been suspended and public link is unavailable.', 403),
             request, env
@@ -6622,6 +6987,48 @@ export default {
 
         const body = await request.json().catch(() => ({}));
         const customData = body.customData || body;
+
+        // Part 47: Server-Side Moderation Check on Wish Update
+        await ensureModerationSchema(env.DB);
+        const putStanding = await checkUserModerationStanding(env.DB, user.id);
+        if (putStanding.restricted) {
+          return applySecurityHeaders(jsonError('ACCOUNT_MODERATION_RESTRICTED', putStanding.reason || 'Account is restricted due to moderation violations.', 403), request, env);
+        }
+
+        const putBodyMod = moderateWishPayloadFields(body);
+        const putCustomMod = body.customData ? moderateWishPayloadFields(customData) : { allowed: true, violations: [], categories: [] };
+        if (putBodyMod.bypassAttempted || putCustomMod.bypassAttempted) {
+          await recordModerationViolationAndEnforceStrike(env.DB, {
+            userId: user.id,
+            userEmail: user.email,
+            targetType: 'wish',
+            targetId: existing.id,
+            category: MODERATION_CATEGORIES.DIRECT_BYPASS_ATTEMPT,
+            severity: 'CRITICAL',
+            reason: 'Direct API moderation bypass attempt on PUT /api/wishes/:id'
+          });
+          return applySecurityHeaders(jsonError('MODERATION_BYPASS_REJECTED', 'Direct API moderation bypass parameters are forbidden.', 403), request, env);
+        }
+
+        if (!putBodyMod.allowed || !putCustomMod.allowed) {
+          const isCsam = Boolean(putBodyMod.isCsam || putCustomMod.isCsam);
+          const allCats = Array.from(new Set([...(putBodyMod.categories || []), ...(putCustomMod.categories || [])]));
+          const firstReason = putBodyMod.reason || putCustomMod.reason;
+          await recordModerationViolationAndEnforceStrike(env.DB, {
+            userId: user.id,
+            userEmail: user.email,
+            targetType: 'wish',
+            targetId: existing.id,
+            category: allCats[0] || 'PROFANITY',
+            reason: firstReason,
+            isCsam
+          });
+          return applySecurityHeaders(
+            jsonError(isCsam ? 'CSAM_COMPLIANCE_LOCK' : 'MODERATION_REJECTED', firstReason, isCsam ? 451 : 422, { categories: allCats }),
+            request, env
+          );
+        }
+
         const recipientName = sanitizeString(customData.recipient_name || customData.recipientName || existing.recipient_name, 80);
         const buyerName = sanitizeString(customData.sender_name || customData.senderName || existing.buyer_name, 80);
         const eventDate = sanitizeString(customData.event_date || customData.eventDate || existing.event_date, 10);
@@ -6730,7 +7137,7 @@ export default {
           );
         }
 
-        if (wish.moderation_status === 'suspended') {
+        if (wish.moderation_status === 'suspended' || ['rejected', 'pending_review', 'scan_failed', 'csam_locked'].includes(String(wish.moderation_status || '').toLowerCase())) {
           return applySecurityHeaders(
             jsonError('WISH_SUSPENDED', 'This celebration wish has been suspended due to content moderation.', 403, {}, null, requestId),
             request, env
@@ -6912,6 +7319,14 @@ export default {
         const name = sanitizeString(body.name || body.title, 80);
         const category = sanitizeString(body.category || 'Celebration', 50);
         if (!name) return applySecurityHeaders(jsonError('VALIDATION_ERROR', 'Template name is required', 400), request, env);
+
+        const tplTextMod = moderateWishPayloadFields({ name, description: body.description || '', slug: body.slug || '' });
+        if (!tplTextMod.allowed) {
+          return applySecurityHeaders(
+            jsonError('TEMPLATE_MODERATION_REJECTED', tplTextMod.reason, 422, { categories: tplTextMod.categories }),
+            request, env
+          );
+        }
 
         const tier = body.tier === 'vip' || body.isPremium ? 'vip' : 'free';
         const price = tier === 'vip' ? (Number(body.price) || 49) : 0;
@@ -8437,6 +8852,28 @@ export default {
           return applySecurityHeaders(jsonError('INVALID_VERSION_STATUS', `Cannot publish version in "${ver.status}" status. Version must be validated first.`, 400), request, env);
         }
 
+        // Part 47: Verify Template Version has passed Security & Content Moderation before Publish
+        await ensureModerationSchema(env.DB);
+        const verModText = moderateWishPayloadFields({
+          name: ver.name || template.name || '',
+          description: ver.description || template.description || ''
+        });
+        if (!verModText.allowed) {
+          return applySecurityHeaders(
+            jsonError('TEMPLATE_MODERATION_REJECTED', verModText.reason, 422, { categories: verModText.categories }),
+            request, env
+          );
+        }
+        const blockedVerItems = await env.DB.prepare(
+          "SELECT id, status, rejection_reason FROM moderation_items WHERE (target_id = ? OR target_id = ?) AND (is_quarantined = 1 OR status != 'APPROVED') LIMIT 1"
+        ).bind(versionId, templateId).first().catch(() => null);
+        if (blockedVerItems) {
+          return applySecurityHeaders(
+            jsonError('TEMPLATE_MODERATION_BLOCKED', blockedVerItems.rejection_reason || `Cannot publish template version while moderation status is ${blockedVerItems.status}.`, 422),
+            request, env
+          );
+        }
+
         try {
           // Cloudflare D1 batching executes atomically in a single transaction
           const resolvedFamilyId = ver.template_family_id || `fam_${String(templateId).replace(/^tpl_/, '')}`;
@@ -8633,6 +9070,81 @@ export default {
             validation = await validateImageBuffer(fileData, { maxSizeBytes: IMAGE_LIMITS.MAX_IMAGE_BYTES });
           } catch (valErr) {
             return applySecurityHeaders(jsonError(valErr.code || 'IMAGE_INVALID', valErr.message, 400), request, env);
+          }
+
+          const genImgMod = await moderateImageAsset(validation.bytes, {
+            filename,
+            ocrText: body.ocrText || body.caption || '',
+            rawPixels: body.rawPixels,
+            env
+          });
+
+          if (!genImgMod.allowed) {
+            const qId = `media_q_${Date.now()}_${Math.random().toString(36).slice(2, 7)}`;
+            const nowQ = new Date().toISOString();
+            let modItem = { moderationItemId: qId };
+            if (env.DB && typeof env.DB.prepare === 'function') {
+              modItem = await recordModerationItemAndScan(env.DB, {
+                targetType: 'wish_media',
+                targetId: qId,
+                ownerUserId: user.id,
+                ownerEmail: user.email,
+                mediaKind: 'image',
+                filename,
+                mimeType: validation.mimeType,
+                sizeBytes: validation.bytes.byteLength,
+                sha256: genImgMod.sha256,
+                storageProvider: 'quarantine',
+                privateStorageKey: `quarantine/${qId}`,
+                extractedOcrText: genImgMod.extractedOcrText,
+                scanResult: genImgMod
+              });
+
+              const qStatus = genImgMod.isCsam ? 'csam_locked' : (genImgMod.status === MODERATION_STATUS.REJECTED ? 'rejected' : 'quarantined');
+              await env.DB.prepare(`
+                INSERT INTO wish_media (
+                  id, wish_id, user_id, object_key, filename, media_type, mime_type,
+                  size_bytes, url, display_url, thumbnail_url, delete_url, sha256,
+                  width, height, storage_provider, status, is_public,
+                  moderation_status, moderation_reason, moderation_item_id, is_quarantined,
+                  created_at, updated_at
+                ) VALUES (?, ?, ?, ?, ?, 'image', ?, ?, '', NULL, NULL, NULL, ?, ?, ?, 'quarantine', ?, 0, ?, ?, ?, 1, ?, ?)
+              `).bind(
+                qId, body.wishId || null, user.id, `quarantine/${qId}`, filename,
+                validation.mimeType, validation.bytes.byteLength, genImgMod.sha256 || null,
+                genImgMod.width || null, genImgMod.height || null, qStatus,
+                genImgMod.status, genImgMod.reason, modItem.moderationItemId, nowQ, nowQ
+              ).run().catch(() => {});
+
+              if (genImgMod.status === MODERATION_STATUS.REJECTED || genImgMod.isCsam) {
+                await recordModerationViolationAndEnforceStrike(env.DB, {
+                  userId: user.id,
+                  userEmail: user.email,
+                  moderationItemId: modItem.moderationItemId,
+                  targetType: 'wish_media',
+                  targetId: qId,
+                  category: (genImgMod.categories && genImgMod.categories[0]) || MODERATION_CATEGORIES.NUDITY_PORNOGRAPHY,
+                  reason: genImgMod.reason,
+                  isCsam: genImgMod.isCsam
+                });
+              }
+            }
+
+            const errCode = genImgMod.isCsam
+              ? 'CSAM_COMPLIANCE_LOCK'
+              : (genImgMod.status === MODERATION_STATUS.REJECTED
+                  ? 'MODERATION_REJECTED'
+                  : (genImgMod.status === MODERATION_STATUS.SCAN_FAILED ? 'MODERATION_SCAN_FAILED' : 'MEDIA_QUARANTINED_PENDING_REVIEW'));
+            return applySecurityHeaders(
+              jsonError(errCode, genImgMod.reason, genImgMod.isCsam ? 451 : 422, {
+                mediaId: qId,
+                moderationItemId: modItem.moderationItemId,
+                moderationStatus: genImgMod.status,
+                isQuarantined: true,
+                categories: genImgMod.categories
+              }),
+              request, env
+            );
           }
 
           // 2. Check ImgBB Configuration
@@ -9997,12 +10509,112 @@ export default {
           return applySecurityHeaders(jsonError('VALIDATION_ERROR', 'Image file data is required (fileData as base64 or buffer)', 400), request, env);
         }
 
+        await ensureModerationSchema(env.DB);
+        const wmStanding = await checkUserModerationStanding(env.DB, user.id);
+        if (wmStanding.restricted) {
+          return applySecurityHeaders(jsonError('ACCOUNT_MODERATION_RESTRICTED', wmStanding.reason || 'Account is restricted due to moderation violations.', 403), request, env);
+        }
+
+        const wmRate = checkModerationUploadRateLimit(user.id || clientIP);
+        if (!wmRate.allowed) {
+          return applySecurityHeaders(jsonError('RATE_LIMIT_EXCEEDED', 'Too many media uploads. Please wait before uploading again.', 429), request, env);
+        }
+
+        if (body.moderationStatus || body.moderation_status || body.isQuarantined !== undefined || body.bypassModeration || body.skipModeration || body.forceApprove) {
+          await recordModerationViolationAndEnforceStrike(env.DB, {
+            userId: user.id,
+            userEmail: user.email,
+            targetType: 'media_upload',
+            targetId: wishId,
+            category: MODERATION_CATEGORIES.DIRECT_BYPASS_ATTEMPT,
+            severity: 'CRITICAL',
+            reason: 'Direct API moderation bypass attempt on POST /api/wishes/:id/media'
+          });
+          return applySecurityHeaders(jsonError('MODERATION_BYPASS_REJECTED', 'Direct API moderation bypass parameters are forbidden.', 403), request, env);
+        }
+
         // 1. Strict Server-Side Validation (Magic bytes, format, size <= 32MB, dimensions)
         let validation;
         try {
           validation = await validateImageBuffer(fileData, { maxSizeBytes: IMAGE_LIMITS.MAX_IMAGE_BYTES });
         } catch (valErr) {
           return applySecurityHeaders(jsonError(valErr.code || 'IMAGE_INVALID', valErr.message, 400), request, env);
+        }
+
+        // 1b. Quarantine-First Content Moderation Scan (Part 47)
+        const preMediaId = `wmed_${Date.now().toString(36)}_${Math.random().toString(36).substring(2, 6)}`;
+        const imgModScan = await moderateImageAsset(validation.bytes, {
+          filename,
+          ocrText: body.ocrText || body.caption || '',
+          rawPixels: body.rawPixels,
+          env
+        });
+
+        if (!imgModScan.allowed) {
+          const nowQ = new Date().toISOString();
+          const modItem = await recordModerationItemAndScan(env.DB, {
+            targetType: 'wish_media',
+            targetId: preMediaId,
+            ownerUserId: user.id,
+            ownerEmail: user.email,
+            mediaKind: 'image',
+            filename,
+            mimeType: validation.mimeType,
+            sizeBytes: validation.bytes.byteLength,
+            sha256: imgModScan.sha256,
+            storageProvider: 'quarantine',
+            privateStorageKey: `quarantine/${wishId}/${preMediaId}`,
+            extractedOcrText: imgModScan.extractedOcrText,
+            scanResult: imgModScan
+          });
+
+          const qStatus = imgModScan.isCsam ? 'csam_locked' : (imgModScan.status === MODERATION_STATUS.REJECTED ? 'rejected' : 'quarantined');
+          await env.DB.prepare(`
+            INSERT INTO wish_media (
+              id, wish_id, user_id, object_key, filename, media_type, mime_type,
+              size_bytes, url, display_url, thumbnail_url, delete_url, sha256,
+              width, height, storage_provider, status, is_public,
+              moderation_status, moderation_reason, moderation_item_id, is_quarantined,
+              created_at, updated_at
+            ) VALUES (?, ?, ?, ?, ?, 'image', ?, ?, '', NULL, NULL, NULL, ?, ?, ?, 'quarantine', ?, 0, ?, ?, ?, 1, ?, ?)
+          `).bind(
+            preMediaId, wishId, user.id, `quarantine/${wishId}/${preMediaId}`, filename,
+            validation.mimeType, validation.bytes.byteLength, imgModScan.sha256 || null,
+            imgModScan.width || null, imgModScan.height || null, qStatus,
+            imgModScan.status, imgModScan.reason, modItem.moderationItemId, nowQ, nowQ
+          ).run().catch(() => {});
+
+          if (imgModScan.status === MODERATION_STATUS.REJECTED || imgModScan.isCsam) {
+            await recordModerationViolationAndEnforceStrike(env.DB, {
+              userId: user.id,
+              userEmail: user.email,
+              moderationItemId: modItem.moderationItemId,
+              targetType: 'wish_media',
+              targetId: preMediaId,
+              category: (imgModScan.categories && imgModScan.categories[0]) || MODERATION_CATEGORIES.NUDITY_PORNOGRAPHY,
+              severity: imgModScan.isCsam ? 'CRITICAL' : 'HIGH',
+              reason: imgModScan.reason,
+              isCsam: imgModScan.isCsam
+            });
+          }
+
+          const errCode = imgModScan.isCsam
+            ? 'CSAM_COMPLIANCE_LOCK'
+            : (imgModScan.status === MODERATION_STATUS.REJECTED
+                ? 'MODERATION_REJECTED'
+                : (imgModScan.status === MODERATION_STATUS.SCAN_FAILED ? 'MODERATION_SCAN_FAILED' : 'MEDIA_QUARANTINED_PENDING_REVIEW'));
+          const httpCode = imgModScan.isCsam ? 451 : 422;
+
+          return applySecurityHeaders(
+            jsonError(errCode, imgModScan.reason, httpCode, {
+              mediaId: preMediaId,
+              moderationItemId: modItem.moderationItemId,
+              moderationStatus: imgModScan.status,
+              isQuarantined: true,
+              categories: imgModScan.categories
+            }),
+            request, env
+          );
         }
 
         // 2. Check ImgBB Configuration
@@ -10024,8 +10636,23 @@ export default {
           return applySecurityHeaders(jsonError(uploadErr.code || 'IMGBB_UPLOAD_FAILED', uploadErr.message, 502), request, env);
         }
 
-        // 4. Store in wish_media
-        const mediaId = `wmed_${Date.now().toString(36)}_${Math.random().toString(36).substring(2, 6)}`;
+        // 4. Store in wish_media & moderation_items (APPROVED)
+        const mediaId = preMediaId || `wmed_${Date.now().toString(36)}_${Math.random().toString(36).substring(2, 6)}`;
+        await recordModerationItemAndScan(env.DB, {
+          targetType: 'wish_media',
+          targetId: mediaId,
+          ownerUserId: user.id,
+          ownerEmail: user.email,
+          mediaKind: 'image',
+          filename,
+          mimeType: validation.mimeType,
+          sizeBytes: imgResult.sizeBytes,
+          sha256: imgResult.sha256,
+          storageProvider: 'imgbb',
+          approvedPublicUrl: imgResult.displayUrl,
+          thumbnailUrl: imgResult.thumbnailUrl,
+          scanResult: imgModScan
+        });
         const nowIso = new Date().toISOString();
 
         await env.DB.prepare(`
@@ -10225,11 +10852,93 @@ export default {
           return applySecurityHeaders(jsonError('VALIDATION_ERROR', 'Audio/voice note file data is required', 400), request, env);
         }
 
+        await ensureModerationSchema(env.DB);
+        const voiceStanding = await checkUserModerationStanding(env.DB, user.id);
+        if (voiceStanding.restricted) {
+          return applySecurityHeaders(jsonError('ACCOUNT_MODERATION_RESTRICTED', voiceStanding.reason || 'Account is restricted due to moderation violations.', 403), request, env);
+        }
+
+        if (body.moderationStatus || body.moderation_status || body.isQuarantined !== undefined || body.bypassModeration || body.skipModeration || body.forceApprove) {
+          return applySecurityHeaders(jsonError('MODERATION_BYPASS_REJECTED', 'Direct API moderation bypass parameters are forbidden.', 403), request, env);
+        }
+
         let val;
         try {
           val = await validateAudioBuffer(fileData, { maxSizeBytes: AUDIO_LIMITS.MAX_AUDIO_BYTES });
         } catch (audioErr) {
           return applySecurityHeaders(jsonError(audioErr.code || 'AUDIO_INVALID', audioErr.message, 400), request, env);
+        }
+
+        const voiceModScan = await moderateAudioVideoAsset(val.bytes, {
+          mediaKind: 'audio',
+          filename,
+          title: body.title || '',
+          transcript: body.transcript || '',
+          requireExternalProvider: body.requireExternalProvider,
+          simulateScanFailure: body.simulateScanFailure,
+          env
+        });
+
+        if (!voiceModScan.allowed) {
+          const qMediaId = `wmed_voice_${Date.now().toString(36)}_${Math.random().toString(36).substring(2, 6)}`;
+          const nowQ = new Date().toISOString();
+          const modItem = await recordModerationItemAndScan(env.DB, {
+            targetType: 'wish_media',
+            targetId: qMediaId,
+            ownerUserId: user.id,
+            ownerEmail: user.email,
+            mediaKind: 'audio',
+            filename,
+            mimeType: val.mimeType,
+            sizeBytes: val.sizeBytes,
+            sha256: voiceModScan.sha256,
+            storageProvider: 'quarantine',
+            privateStorageKey: `quarantine/voice/${wishId}/${qMediaId}`,
+            transcriptText: voiceModScan.transcriptText,
+            scanResult: voiceModScan
+          });
+
+          const qStatus = voiceModScan.isCsam ? 'csam_locked' : (voiceModScan.status === MODERATION_STATUS.REJECTED ? 'rejected' : 'quarantined');
+          await env.DB.prepare(`
+            INSERT INTO wish_media (
+              id, wish_id, user_id, object_key, filename, media_type, mime_type,
+              size_bytes, url, display_url, storage_provider, status, is_public,
+              moderation_status, moderation_reason, moderation_item_id, is_quarantined,
+              created_at, updated_at
+            ) VALUES (?, ?, ?, ?, ?, 'voice_note', ?, ?, '', NULL, 'quarantine', ?, 0, ?, ?, ?, 1, ?, ?)
+          `).bind(
+            qMediaId, wishId, user.id, `quarantine/voice/${wishId}/${qMediaId}`, filename,
+            val.mimeType, val.sizeBytes, qStatus, voiceModScan.status, voiceModScan.reason, modItem.moderationItemId, nowQ, nowQ
+          ).run().catch(() => {});
+
+          if (voiceModScan.status === MODERATION_STATUS.REJECTED || voiceModScan.isCsam) {
+            await recordModerationViolationAndEnforceStrike(env.DB, {
+              userId: user.id,
+              userEmail: user.email,
+              moderationItemId: modItem.moderationItemId,
+              targetType: 'wish_media',
+              targetId: qMediaId,
+              category: (voiceModScan.categories && voiceModScan.categories[0]) || MODERATION_CATEGORIES.AUDIO_VIDEO_EXPLICIT,
+              reason: voiceModScan.reason,
+              isCsam: voiceModScan.isCsam
+            });
+          }
+
+          const errCode = voiceModScan.isCsam
+            ? 'CSAM_COMPLIANCE_LOCK'
+            : (voiceModScan.status === MODERATION_STATUS.REJECTED
+                ? 'MODERATION_REJECTED'
+                : (voiceModScan.status === MODERATION_STATUS.SCAN_FAILED ? 'MODERATION_SCAN_FAILED' : 'MEDIA_QUARANTINED_PENDING_REVIEW'));
+          return applySecurityHeaders(
+            jsonError(errCode, voiceModScan.reason, voiceModScan.isCsam ? 451 : 422, {
+              mediaId: qMediaId,
+              moderationItemId: modItem.moderationItemId,
+              moderationStatus: voiceModScan.status,
+              isQuarantined: true,
+              categories: voiceModScan.categories
+            }),
+            request, env
+          );
         }
 
         const mediaId = `wmed_voice_${Date.now().toString(36)}_${Math.random().toString(36).substring(2, 6)}`;
@@ -10998,6 +11707,40 @@ export default {
             return applySecurityHeaders(jsonError('AUTH_REQUIRED', 'Authentication required', 401), request, env);
           }
         }
+        if (env.DB && typeof env.DB.prepare === 'function') {
+          await ensureModerationSchema(env.DB);
+          const upStanding = await checkUserModerationStanding(env.DB, user.id);
+          if (upStanding.restricted) {
+            return applySecurityHeaders(jsonError('ACCOUNT_MODERATION_RESTRICTED', upStanding.reason || 'Account is restricted due to moderation violations.', 403), request, env);
+          }
+        }
+
+        const upRate = checkModerationUploadRateLimit(user.id || clientIP);
+        if (!upRate.allowed) {
+          return applySecurityHeaders(jsonError('RATE_LIMIT_EXCEEDED', 'Upload rate limit exceeded. Please wait a moment.', 429), request, env);
+        }
+
+        if (body.moderationStatus || body.moderation_status || body.isQuarantined !== undefined || body.bypassModeration || body.skipModeration || body.forceApprove) {
+          if (env.DB) {
+            await recordModerationViolationAndEnforceStrike(env.DB, {
+              userId: user.id,
+              userEmail: user.email,
+              targetType: 'media_upload',
+              category: MODERATION_CATEGORIES.DIRECT_BYPASS_ATTEMPT,
+              severity: 'CRITICAL',
+              reason: 'Direct API moderation bypass attempt on /api/media/upload'
+            });
+          }
+          return applySecurityHeaders(jsonError('MODERATION_BYPASS_REJECTED', 'Direct API moderation bypass parameters are forbidden.', 403), request, env);
+        }
+
+        if (body.title) {
+          const titleMod = moderateTextContent(body.title, { fieldName: 'title' });
+          if (!titleMod.allowed) {
+            return applySecurityHeaders(jsonError('MODERATION_REJECTED', titleMod.reason, 422, { categories: titleMod.categories }), request, env);
+          }
+        }
+
         const ext = filename.split('.').pop().toLowerCase();
         const forbiddenExts = ['js', 'html', 'htm', 'php', 'sh', 'bat', 'exe', 'py', 'svg'];
 
@@ -11023,6 +11766,81 @@ export default {
             validation = await validateImageBuffer(fileData, { maxSizeBytes: IMAGE_LIMITS.MAX_IMAGE_BYTES });
           } catch (valErr) {
             return applySecurityHeaders(jsonError(valErr.code || 'IMAGE_INVALID', valErr.message, 400), request, env);
+          }
+
+          const genImgMod = await moderateImageAsset(validation.bytes, {
+            filename,
+            ocrText: body.ocrText || body.caption || '',
+            rawPixels: body.rawPixels,
+            env
+          });
+
+          if (!genImgMod.allowed) {
+            const qId = `media_q_${Date.now()}_${Math.random().toString(36).slice(2, 7)}`;
+            const nowQ = new Date().toISOString();
+            let modItem = { moderationItemId: qId };
+            if (env.DB && typeof env.DB.prepare === 'function') {
+              modItem = await recordModerationItemAndScan(env.DB, {
+                targetType: 'wish_media',
+                targetId: qId,
+                ownerUserId: user.id,
+                ownerEmail: user.email,
+                mediaKind: 'image',
+                filename,
+                mimeType: validation.mimeType,
+                sizeBytes: validation.bytes.byteLength,
+                sha256: genImgMod.sha256,
+                storageProvider: 'quarantine',
+                privateStorageKey: `quarantine/${qId}`,
+                extractedOcrText: genImgMod.extractedOcrText,
+                scanResult: genImgMod
+              });
+
+              const qStatus = genImgMod.isCsam ? 'csam_locked' : (genImgMod.status === MODERATION_STATUS.REJECTED ? 'rejected' : 'quarantined');
+              await env.DB.prepare(`
+                INSERT INTO wish_media (
+                  id, wish_id, user_id, object_key, filename, media_type, mime_type,
+                  size_bytes, url, display_url, thumbnail_url, delete_url, sha256,
+                  width, height, storage_provider, status, is_public,
+                  moderation_status, moderation_reason, moderation_item_id, is_quarantined,
+                  created_at, updated_at
+                ) VALUES (?, ?, ?, ?, ?, 'image', ?, ?, '', NULL, NULL, NULL, ?, ?, ?, 'quarantine', ?, 0, ?, ?, ?, 1, ?, ?)
+              `).bind(
+                qId, body.wishId || null, user.id, `quarantine/${qId}`, filename,
+                validation.mimeType, validation.bytes.byteLength, genImgMod.sha256 || null,
+                genImgMod.width || null, genImgMod.height || null, qStatus,
+                genImgMod.status, genImgMod.reason, modItem.moderationItemId, nowQ, nowQ
+              ).run().catch(() => {});
+
+              if (genImgMod.status === MODERATION_STATUS.REJECTED || genImgMod.isCsam) {
+                await recordModerationViolationAndEnforceStrike(env.DB, {
+                  userId: user.id,
+                  userEmail: user.email,
+                  moderationItemId: modItem.moderationItemId,
+                  targetType: 'wish_media',
+                  targetId: qId,
+                  category: (genImgMod.categories && genImgMod.categories[0]) || MODERATION_CATEGORIES.NUDITY_PORNOGRAPHY,
+                  reason: genImgMod.reason,
+                  isCsam: genImgMod.isCsam
+                });
+              }
+            }
+
+            const errCode = genImgMod.isCsam
+              ? 'CSAM_COMPLIANCE_LOCK'
+              : (genImgMod.status === MODERATION_STATUS.REJECTED
+                  ? 'MODERATION_REJECTED'
+                  : (genImgMod.status === MODERATION_STATUS.SCAN_FAILED ? 'MODERATION_SCAN_FAILED' : 'MEDIA_QUARANTINED_PENDING_REVIEW'));
+            return applySecurityHeaders(
+              jsonError(errCode, genImgMod.reason, genImgMod.isCsam ? 451 : 422, {
+                mediaId: qId,
+                moderationItemId: modItem.moderationItemId,
+                moderationStatus: genImgMod.status,
+                isQuarantined: true,
+                categories: genImgMod.categories
+              }),
+              request, env
+            );
           }
 
           const provider = ImgBBProvider.fromEnv(env);
@@ -11099,10 +11917,90 @@ export default {
 
           if (fileData) {
             try {
-              const validation = await validateAudioBuffer(fileData, { filename });
+              const isVidExt = ['mp4', 'webm', 'mov', 'mkv', '3gp'].includes(ext) || body.type === 'video';
+              const validation = isVidExt
+                ? await validateVideoBuffer(fileData, { filename })
+                : await validateAudioBuffer(fileData, { filename });
               bytes = validation.bytes;
               mimeType = validation.mimeType;
               sha256 = validation.sha256;
+
+              const avScan = await moderateAudioVideoAsset(bytes, {
+                mediaKind: isVidExt ? 'video' : 'audio',
+                filename,
+                title: body.title || '',
+                transcript: body.transcript || '',
+                frames: body.frames,
+                requireExternalProvider: body.requireExternalProvider,
+                simulateScanFailure: body.simulateScanFailure,
+                env
+              });
+
+              if (!avScan.allowed) {
+                const qTrackId = `av_q_${Date.now().toString(36)}_${Math.random().toString(36).slice(2, 6)}`;
+                const nowQ = new Date().toISOString();
+                let modItem = { moderationItemId: qTrackId };
+                if (env.DB && typeof env.DB.prepare === 'function') {
+                  modItem = await recordModerationItemAndScan(env.DB, {
+                    targetType: 'wish_media',
+                    targetId: qTrackId,
+                    ownerUserId: user.id,
+                    ownerEmail: user.email,
+                    mediaKind: isVidExt ? 'video' : 'audio',
+                    filename,
+                    mimeType,
+                    sizeBytes: bytes.byteLength,
+                    sha256,
+                    storageProvider: 'quarantine',
+                    privateStorageKey: `quarantine/${qTrackId}`,
+                    transcriptText: avScan.transcriptText,
+                    scanResult: avScan
+                  });
+
+                  const qStatus = avScan.isCsam ? 'csam_locked' : (avScan.status === MODERATION_STATUS.REJECTED ? 'rejected' : 'quarantined');
+                  await env.DB.prepare(`
+                    INSERT INTO wish_media (
+                      id, wish_id, user_id, object_key, filename, media_type, mime_type,
+                      size_bytes, url, display_url, storage_provider, status, is_public,
+                      moderation_status, moderation_reason, moderation_item_id, is_quarantined,
+                      created_at, updated_at
+                    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, '', NULL, 'quarantine', ?, 0, ?, ?, ?, 1, ?, ?)
+                  `).bind(
+                    qTrackId, body.wishId || null, user.id, `quarantine/${qTrackId}`, filename,
+                    isVidExt ? 'video' : 'audio', mimeType, bytes.byteLength, qStatus,
+                    avScan.status, avScan.reason, modItem.moderationItemId, nowQ, nowQ
+                  ).run().catch(() => {});
+
+                  if (avScan.status === MODERATION_STATUS.REJECTED || avScan.isCsam) {
+                    await recordModerationViolationAndEnforceStrike(env.DB, {
+                      userId: user.id,
+                      userEmail: user.email,
+                      moderationItemId: modItem.moderationItemId,
+                      targetType: 'wish_media',
+                      targetId: qTrackId,
+                      category: (avScan.categories && avScan.categories[0]) || MODERATION_CATEGORIES.AUDIO_VIDEO_EXPLICIT,
+                      reason: avScan.reason,
+                      isCsam: avScan.isCsam
+                    });
+                  }
+                }
+
+                const errCode = avScan.isCsam
+                  ? 'CSAM_COMPLIANCE_LOCK'
+                  : (avScan.status === MODERATION_STATUS.REJECTED
+                      ? 'MODERATION_REJECTED'
+                      : (avScan.status === MODERATION_STATUS.SCAN_FAILED ? 'MODERATION_SCAN_FAILED' : 'MEDIA_QUARANTINED_PENDING_REVIEW'));
+                return applySecurityHeaders(
+                  jsonError(errCode, avScan.reason, avScan.isCsam ? 451 : 422, {
+                    mediaId: qTrackId,
+                    moderationItemId: modItem.moderationItemId,
+                    moderationStatus: avScan.status,
+                    isQuarantined: true,
+                    categories: avScan.categories
+                  }),
+                  request, env
+                );
+              }
             } catch (vErr) {
               return applySecurityHeaders(jsonError(vErr.code || 'AUDIO_INVALID', vErr.message, 400), request, env);
             }
@@ -11237,6 +12135,34 @@ export default {
           key = String(key).replace(/^\/+/, '');
           if (key.includes('..')) {
             return applySecurityHeaders(jsonError('INVALID_KEY', 'Path traversal is not allowed', 400), request, env);
+          }
+          if (key.startsWith('quarantine/')) {
+            return applySecurityHeaders(jsonError('MEDIA_QUARANTINED', 'Access denied: media asset is in private moderation quarantine.', 403), request, env);
+          }
+        }
+
+        if (env.DB && typeof env.DB.prepare === 'function' && (trackId || key)) {
+          await ensureModerationSchema(env.DB);
+          const qCheck = await env.DB.prepare(
+            'SELECT id, status, moderation_status, is_quarantined, is_public FROM wish_media WHERE id = ? OR object_key = ? LIMIT 1'
+          ).bind(trackId || '', key || '').first().catch(() => null);
+          if (qCheck) {
+            const modSt = String(qCheck.moderation_status || 'APPROVED').toUpperCase();
+            if (Number(qCheck.is_quarantined) === 1 || Number(qCheck.is_public) === 0 || ['quarantined', 'rejected', 'csam_locked'].includes(qCheck.status) || modSt !== 'APPROVED') {
+              return applySecurityHeaders(
+                jsonError('MEDIA_QUARANTINED', `Access denied: media asset is not approved for public access (status: ${modSt}).`, 403),
+                request, env
+              );
+            }
+          }
+          const miCheck = await env.DB.prepare(
+            'SELECT id, status, is_quarantined, is_csam_locked FROM moderation_items WHERE id = ? OR target_id = ? OR private_storage_key = ? LIMIT 1'
+          ).bind(trackId || '', trackId || '', key || '').first().catch(() => null);
+          if (miCheck && (Number(miCheck.is_quarantined) === 1 || Number(miCheck.is_csam_locked) === 1 || String(miCheck.status).toUpperCase() !== 'APPROVED')) {
+            return applySecurityHeaders(
+              jsonError('MEDIA_QUARANTINED', `Access denied: media item is in moderation quarantine (status: ${miCheck.status}).`, 403),
+              request, env
+            );
           }
         }
 
@@ -16370,29 +17296,499 @@ export default {
         }
         response = jsonSuccess({ deleted: true, wishId, message: 'Wish deleted.' }, 200, {}, requestId);
       }
-      // --- Moderation Queue API ---
+      // --- Part 30 & Part 47: Complete Content Moderation Queue, Quarantine Review, Appeals & Retention APIs ---
       else if (pathname === '/api/admin/moderation/queue' && method === 'GET') {
         const user = await getAuthenticatedUser(request, env);
         if (!user) return applySecurityHeaders(jsonError('AUTH_REQUIRED', 'Authentication required', 401), request, env);
         const isAdmin = await verifyAdminRole(user, env);
         if (!isAdmin) return applySecurityHeaders(jsonError('FORBIDDEN', 'Admin role required', 403), request, env);
 
+        const statusFilter = (url.searchParams.get('status') || '').toUpperCase().trim();
         let reports = [];
         let flaggedWishes = [];
+        let rawItems = [];
+        let appeals = [];
+        let violations = [];
+        let restrictedUsers = [];
+        let auditLogs = [];
+
         if (env.DB && typeof env.DB.prepare === 'function') {
+          await ensureModerationSchema(env.DB);
           try {
-            const rRows = await env.DB.prepare('SELECT * FROM moderation_reports ORDER BY created_at DESC LIMIT 100').all();
+            const rRows = await env.DB.prepare('SELECT * FROM moderation_reports ORDER BY created_at DESC LIMIT 100').all().catch(() => ({ results: [] }));
             reports = rRows.results || [];
-            const wRows = await env.DB.prepare("SELECT * FROM wishes WHERE is_flagged = 1 OR moderation_status = 'flagged' OR moderation_status = 'suspended' LIMIT 100").all();
+            const wRows = await env.DB.prepare("SELECT * FROM wishes WHERE is_flagged = 1 OR moderation_status IN ('flagged', 'suspended', 'rejected', 'pending_review') LIMIT 100").all().catch(() => ({ results: [] }));
             flaggedWishes = wRows.results || [];
+            const itemRows = await env.DB.prepare('SELECT * FROM moderation_items ORDER BY created_at DESC LIMIT 200').all().catch(() => ({ results: [] }));
+            rawItems = itemRows.results || [];
+            const appRows = await env.DB.prepare('SELECT * FROM moderation_appeals ORDER BY created_at DESC LIMIT 100').all().catch(() => ({ results: [] }));
+            appeals = appRows.results || [];
+            const violRows = await env.DB.prepare('SELECT * FROM moderation_violations ORDER BY created_at DESC LIMIT 100').all().catch(() => ({ results: [] }));
+            violations = violRows.results || [];
+            const uRows = await env.DB.prepare("SELECT id, email, display_name, status, suspension_reason, moderation_strikes, moderation_restricted, moderation_restriction_reason, updated_at FROM users WHERE moderation_restricted = 1 OR moderation_strikes > 0 OR status IN ('suspended', 'banned') ORDER BY moderation_strikes DESC LIMIT 100").all().catch(() => ({ results: [] }));
+            restrictedUsers = uRows.results || [];
+            const aRows = await env.DB.prepare("SELECT * FROM admin_audit_logs WHERE action LIKE '%MODERATION%' OR target_type LIKE '%moderation%' ORDER BY created_at DESC LIMIT 50").all().catch(() => ({ results: [] }));
+            auditLogs = aRows.results || [];
           } catch (e) {}
         }
 
+        const sanitizedItems = rawItems.map(sanitizeModerationItemForAdmin).filter(Boolean);
+        const filteredItems = (statusFilter && statusFilter !== 'ALL')
+          ? sanitizedItems.filter(i => i.status === statusFilter)
+          : sanitizedItems;
+
+        const counts = {
+          pendingReview: sanitizedItems.filter(i => i.status === MODERATION_STATUS.PENDING_REVIEW).length,
+          approved: sanitizedItems.filter(i => i.status === MODERATION_STATUS.APPROVED).length,
+          rejected: sanitizedItems.filter(i => i.status === MODERATION_STATUS.REJECTED).length,
+          scanFailed: sanitizedItems.filter(i => i.status === MODERATION_STATUS.SCAN_FAILED).length,
+          appealed: appeals.filter(a => a.status === 'PENDING').length,
+          csamLocked: sanitizedItems.filter(i => i.isCsamLocked || i.status === MODERATION_STATUS.CSAM_LOCKED).length,
+          restrictedUsers: restrictedUsers.filter(u => Number(u.moderation_restricted) === 1 || u.status === 'suspended' || u.status === 'banned').length,
+          totalItems: sanitizedItems.length
+        };
+
         response = jsonSuccess({
-          pendingCount: reports.filter(r => r.status === 'pending').length,
+          pendingCount: reports.filter(r => r.status === 'pending').length + counts.pendingReview + counts.scanFailed,
           flaggedWishesCount: flaggedWishes.length,
+          counts,
+          items: filteredItems,
+          appeals,
+          violations,
+          restrictedUsers,
+          auditLogs,
           reports,
           flaggedWishes
+        }, 200, {}, requestId);
+      }
+
+      else if (pathname.startsWith('/api/admin/moderation/items/') && pathname.endsWith('/review') && method === 'POST') {
+        const user = await getAuthenticatedUser(request, env);
+        if (!user) return applySecurityHeaders(jsonError('AUTH_REQUIRED', 'Authentication required', 401), request, env);
+        const isAdmin = await verifyAdminRole(user, env);
+        if (!isAdmin) return applySecurityHeaders(jsonError('FORBIDDEN', 'Admin role required', 403), request, env);
+
+        if (!env.DB || typeof env.DB.prepare !== 'function') {
+          return applySecurityHeaders(jsonError('DATABASE_UNAVAILABLE', 'Database service unavailable', 503), request, env);
+        }
+
+        await ensureModerationSchema(env.DB);
+        const itemId = decodeURIComponent(pathname.split('/')[5]);
+        const body = await parseJsonBody(request);
+        const action = String(body?.action || '').toLowerCase().trim();
+        const reason = sanitizeString(body?.reason || body?.notes || '', 300);
+        const notes = sanitizeString(body?.notes || body?.reason || '', 500);
+        const nowIso = new Date().toISOString();
+
+        const item = await env.DB.prepare('SELECT * FROM moderation_items WHERE id = ? OR target_id = ? LIMIT 1').bind(itemId, itemId).first();
+        if (!item) {
+          return applySecurityHeaders(jsonError('NOT_FOUND', 'Moderation item not found', 404), request, env);
+        }
+
+        if (Number(item.is_csam_locked) === 1 || item.status === MODERATION_STATUS.CSAM_LOCKED) {
+          if (action === 'approve' || action === 'rescan') {
+            return applySecurityHeaders(
+              jsonError('CSAM_UNLOCK_FORBIDDEN', 'CSAM-locked items are permanently sealed under mandatory legal compliance and cannot be approved or unlocked.', 403),
+              request, env
+            );
+          }
+          if ((action === 'delete' || action === 'purge') && !body?.legalHoldCleared) {
+            return applySecurityHeaders(
+              jsonError('CSAM_EVIDENCE_HOLD', 'CSAM-locked evidence cannot be purged until mandatory legal reporting hold is cleared.', 403),
+              request, env
+            );
+          }
+        }
+
+        if (!['approve', 'reject', 'rescan', 'delete', 'purge'].includes(action)) {
+          return applySecurityHeaders(jsonError('INVALID_ACTION', 'Action must be approve, reject, rescan, or delete/purge', 400), request, env);
+        }
+
+        let newStatus = item.status;
+        if (action === 'approve') {
+          newStatus = MODERATION_STATUS.APPROVED;
+          const publicUrl = item.approved_public_url || (item.media_kind !== 'text' ? `/api/media/stream?id=${encodeURIComponent(item.target_id)}` : null);
+          await env.DB.prepare(`
+            UPDATE moderation_items
+            SET status = 'APPROVED', is_quarantined = 0, approved_public_url = ?,
+                reviewed_by = ?, reviewed_at = ?, review_notes = ?, updated_at = ?
+            WHERE id = ?
+          `).bind(publicUrl, user.id || 'admin', nowIso, notes || 'Approved by moderator', nowIso, item.id).run();
+
+          await env.DB.prepare(`
+            UPDATE wish_media
+            SET status = 'active', moderation_status = 'APPROVED', is_quarantined = 0, is_public = 1,
+                url = CASE WHEN url IS NULL OR url = '' THEN ? ELSE url END,
+                display_url = COALESCE(display_url, ?),
+                updated_at = ?
+            WHERE id = ? OR moderation_item_id = ?
+          `).bind(publicUrl || '', publicUrl || '', nowIso, item.target_id, item.id).run().catch(() => {});
+
+          await env.DB.prepare(`
+            UPDATE wishes SET moderation_status = 'approved', is_flagged = 0, moderated_by = ?, moderated_at = ?, updated_at = ?
+            WHERE id = ?
+          `).bind(user.id || 'admin', nowIso, nowIso, item.target_id).run().catch(() => {});
+        } else if (action === 'reject') {
+          newStatus = MODERATION_STATUS.REJECTED;
+          await env.DB.prepare(`
+            UPDATE moderation_items
+            SET status = 'REJECTED', is_quarantined = 1, approved_public_url = NULL, thumbnail_url = NULL,
+                rejection_reason = ?, reviewed_by = ?, reviewed_at = ?, review_notes = ?, updated_at = ?
+            WHERE id = ?
+          `).bind(reason || 'Rejected by moderator', user.id || 'admin', nowIso, notes || reason || 'Rejected', nowIso, item.id).run();
+
+          await env.DB.prepare(`
+            UPDATE wish_media
+            SET status = 'rejected', moderation_status = 'REJECTED', is_quarantined = 1, is_public = 0,
+                url = '', display_url = NULL, thumbnail_url = NULL, moderation_reason = ?, updated_at = ?
+            WHERE id = ? OR moderation_item_id = ?
+          `).bind(reason || 'Rejected by moderator', nowIso, item.target_id, item.id).run().catch(() => {});
+
+          if (item.owner_user_id) {
+            await recordModerationViolationAndEnforceStrike(env.DB, {
+              userId: item.owner_user_id,
+              userEmail: item.owner_email,
+              moderationItemId: item.id,
+              targetType: item.target_type,
+              targetId: item.target_id,
+              category: 'MANUAL_MODERATION_REJECTION',
+              reason: reason || 'Rejected by administrator during manual review'
+            });
+          }
+        } else if (action === 'rescan') {
+          const textToScan = [item.content_excerpt, item.extracted_ocr_text, item.transcript_text, item.filename].filter(Boolean).join(' ');
+          const rescanRes = moderateTextContent(textToScan, { fieldName: 'rescan' });
+          newStatus = rescanRes.allowed ? MODERATION_STATUS.APPROVED : MODERATION_STATUS.REJECTED;
+          const isQ = newStatus === MODERATION_STATUS.APPROVED ? 0 : 1;
+          const publicUrl = newStatus === MODERATION_STATUS.APPROVED
+            ? (item.approved_public_url || (item.media_kind !== 'text' ? `/api/media/stream?id=${encodeURIComponent(item.target_id)}` : null))
+            : null;
+
+          await env.DB.prepare(`
+            UPDATE moderation_items
+            SET status = ?, is_quarantined = ?, approved_public_url = ?, rejection_reason = ?,
+                reviewed_by = ?, reviewed_at = ?, review_notes = ?, updated_at = ?
+            WHERE id = ?
+          `).bind(newStatus, isQ, publicUrl, rescanRes.reason, user.id || 'admin', nowIso, notes || 'Re-scanned by moderator', nowIso, item.id).run();
+
+          await env.DB.prepare(`
+            UPDATE wish_media
+            SET status = ?, moderation_status = ?, is_quarantined = ?, is_public = ?,
+                url = CASE WHEN ? = 0 AND (url IS NULL OR url = '') THEN ? ELSE url END,
+                display_url = CASE WHEN ? = 0 THEN COALESCE(display_url, ?) ELSE NULL END,
+                updated_at = ?
+            WHERE id = ? OR moderation_item_id = ?
+          `).bind(isQ ? 'rejected' : 'active', newStatus, isQ, isQ ? 0 : 1, isQ, publicUrl || '', isQ, publicUrl || '', nowIso, item.target_id, item.id).run().catch(() => {});
+        } else if (action === 'delete' || action === 'purge') {
+          newStatus = 'PURGED';
+          await env.DB.prepare('DELETE FROM wish_media WHERE id = ? OR moderation_item_id = ?').bind(item.target_id, item.id).run().catch(() => {});
+          await env.DB.prepare('DELETE FROM moderation_items WHERE id = ?').bind(item.id).run().catch(() => {});
+        }
+
+        const auditEntry = createAuditLogEntry({
+          actorId: user.id || 'admin',
+          actorName: user.displayName || user.email || 'Admin',
+          actorRole: user.role || 'admin',
+          action: `MODERATION_ITEM_${action.toUpperCase()}`,
+          targetType: 'moderation_item',
+          targetId: item.id,
+          details: { targetId: item.target_id, previousStatus: item.status, newStatus, reason, notes }
+        });
+
+        await env.DB.prepare(
+          'INSERT INTO admin_audit_logs (id, actor_id, actor_name, actor_role, action, target_type, target_id, details, ip_address, created_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)'
+        ).bind(
+          auditEntry.id, auditEntry.actorId, auditEntry.actorName, auditEntry.actorRole,
+          auditEntry.action, auditEntry.targetType, auditEntry.targetId, auditEntry.details,
+          clientIP || '127.0.0.1', auditEntry.createdAt
+        ).run().catch(() => {});
+
+        const updatedRow = action === 'delete' || action === 'purge'
+          ? null
+          : await env.DB.prepare('SELECT * FROM moderation_items WHERE id = ? LIMIT 1').bind(item.id).first().catch(() => null);
+
+        response = jsonSuccess({
+          success: true,
+          itemId: item.id,
+          targetId: item.target_id,
+          action,
+          status: newStatus,
+          item: updatedRow ? sanitizeModerationItemForAdmin(updatedRow) : null,
+          auditLog: auditEntry
+        }, 200, {}, requestId);
+      }
+
+      else if (pathname === '/api/admin/moderation/resolve' && method === 'POST') {
+        const user = await getAuthenticatedUser(request, env);
+        if (!user) return applySecurityHeaders(jsonError('AUTH_REQUIRED', 'Authentication required', 401), request, env);
+        const isAdmin = await verifyAdminRole(user, env);
+        if (!isAdmin) return applySecurityHeaders(jsonError('FORBIDDEN', 'Admin role required', 403), request, env);
+
+        const body = await parseJsonBody(request);
+        const { reportId, action, notes } = body || {};
+        if (!reportId || !action) {
+          return applySecurityHeaders(jsonError('BAD_REQUEST', 'reportId and action are required', 400), request, env);
+        }
+
+        const nowIso = new Date().toISOString();
+        if (env.DB && typeof env.DB.prepare === 'function') {
+          const repRow = await env.DB.prepare('SELECT * FROM moderation_reports WHERE id = ? LIMIT 1').bind(reportId).first().catch(() => null);
+          const newRepStatus = action === 'dismissed' ? 'dismissed' : 'resolved';
+          await env.DB.prepare(
+            'UPDATE moderation_reports SET status = ?, resolution_action = ?, resolution_notes = ?, resolved_by = ?, resolved_at = ? WHERE id = ?'
+          ).bind(newRepStatus, action, notes || '', user.id || 'admin', nowIso, reportId).run().catch(() => {});
+
+          if (repRow && repRow.target_id && (action === 'suspended' || action === 'approved')) {
+            const wMod = action === 'suspended' ? 'suspended' : 'approved';
+            const isFlag = action === 'suspended' ? 1 : 0;
+            await env.DB.prepare(
+              'UPDATE wishes SET moderation_status = ?, is_flagged = ?, moderation_reason = ?, moderated_by = ?, moderated_at = ?, updated_at = ? WHERE id = ? OR slug = ?'
+            ).bind(wMod, isFlag, notes || '', user.id || 'admin', nowIso, nowIso, repRow.target_id, repRow.target_id).run().catch(() => {});
+          }
+        }
+
+        response = jsonSuccess({ success: true, reportId, action, message: `Report ${reportId} resolved with action ${action}.` }, 200, {}, requestId);
+      }
+
+      else if (pathname === '/api/moderation/appeals' && method === 'POST') {
+        const user = await getAuthenticatedUser(request, env);
+        if (!user) return applySecurityHeaders(jsonError('AUTH_REQUIRED', 'Authentication required to submit an appeal', 401), request, env);
+        if (!env.DB || typeof env.DB.prepare !== 'function') {
+          return applySecurityHeaders(jsonError('DATABASE_UNAVAILABLE', 'Database service unavailable', 503), request, env);
+        }
+
+        await ensureModerationSchema(env.DB);
+        const body = await parseJsonBody(request);
+        const moderationItemId = sanitizeString(body?.moderationItemId || body?.itemId || body?.targetId || '', 80);
+        const appealReason = sanitizeString(body?.reason || body?.appealReason || '', 500);
+        if (!moderationItemId || !appealReason) {
+          return applySecurityHeaders(jsonError('VALIDATION_ERROR', 'moderationItemId and appeal reason are required', 400), request, env);
+        }
+
+        const reasonMod = moderateTextContent(appealReason, { fieldName: 'appeal_reason' });
+        if (!reasonMod.allowed) {
+          return applySecurityHeaders(jsonError('MODERATION_REJECTED', reasonMod.reason, 422), request, env);
+        }
+
+        const item = await env.DB.prepare('SELECT * FROM moderation_items WHERE id = ? OR target_id = ? LIMIT 1').bind(moderationItemId, moderationItemId).first();
+        if (!item) {
+          return applySecurityHeaders(jsonError('NOT_FOUND', 'Moderation item not found', 404), request, env);
+        }
+        if (Number(item.is_csam_locked) === 1 || item.status === MODERATION_STATUS.CSAM_LOCKED) {
+          return applySecurityHeaders(jsonError('CSAM_APPEAL_FORBIDDEN', 'Items locked under mandatory compliance cannot be appealed.', 403), request, env);
+        }
+        if (item.owner_user_id && item.owner_user_id !== user.id && !isAuthoritativeAdmin(user)) {
+          return applySecurityHeaders(jsonError('FORBIDDEN', 'You can only appeal moderation decisions on your own content.', 403), request, env);
+        }
+
+        const appealId = `mapl_${Date.now().toString(36)}_${Math.random().toString(36).slice(2, 7)}`;
+        const nowIso = new Date().toISOString();
+
+        await env.DB.prepare(`
+          INSERT INTO moderation_appeals (
+            id, moderation_item_id, user_id, user_email, appeal_reason, status, created_at, updated_at
+          ) VALUES (?, ?, ?, ?, ?, 'PENDING', ?, ?)
+        `).bind(appealId, item.id, user.id, user.email || '', appealReason, nowIso, nowIso).run();
+
+        await env.DB.prepare("UPDATE moderation_items SET appeal_status = 'PENDING', updated_at = ? WHERE id = ?")
+          .bind(nowIso, item.id).run();
+
+        response = jsonSuccess({
+          success: true,
+          appealId,
+          moderationItemId: item.id,
+          status: 'PENDING',
+          message: 'Your moderation appeal has been submitted for manual review.'
+        }, 201, {}, requestId);
+      }
+
+      else if (pathname.startsWith('/api/admin/moderation/appeals/') && pathname.endsWith('/resolve') && method === 'POST') {
+        const user = await getAuthenticatedUser(request, env);
+        if (!user) return applySecurityHeaders(jsonError('AUTH_REQUIRED', 'Authentication required', 401), request, env);
+        const isAdmin = await verifyAdminRole(user, env);
+        if (!isAdmin) return applySecurityHeaders(jsonError('FORBIDDEN', 'Admin role required', 403), request, env);
+
+        if (!env.DB || typeof env.DB.prepare !== 'function') {
+          return applySecurityHeaders(jsonError('DATABASE_UNAVAILABLE', 'Database service unavailable', 503), request, env);
+        }
+
+        await ensureModerationSchema(env.DB);
+        const appealId = decodeURIComponent(pathname.split('/')[5]);
+        const body = await parseJsonBody(request);
+        const decision = String(body?.decision || body?.action || '').toLowerCase().trim();
+        const notes = sanitizeString(body?.notes || body?.resolutionNotes || '', 500);
+        if (!['approve', 'approved', 'reject', 'rejected'].includes(decision)) {
+          return applySecurityHeaders(jsonError('VALIDATION_ERROR', 'decision must be approve or reject', 400), request, env);
+        }
+
+        const appeal = await env.DB.prepare('SELECT * FROM moderation_appeals WHERE id = ? LIMIT 1').bind(appealId).first();
+        if (!appeal) return applySecurityHeaders(jsonError('NOT_FOUND', 'Appeal not found', 404), request, env);
+
+        const isApproved = decision.startsWith('approve');
+        const nowIso = new Date().toISOString();
+        const resolvedStatus = isApproved ? 'APPROVED' : 'REJECTED';
+
+        await env.DB.prepare(`
+          UPDATE moderation_appeals
+          SET status = ?, resolution_notes = ?, resolved_by = ?, resolved_at = ?, updated_at = ?
+          WHERE id = ?
+        `).bind(resolvedStatus, notes || (isApproved ? 'Appeal approved' : 'Appeal rejected'), user.id || 'admin', nowIso, nowIso, appeal.id).run();
+
+        const item = await env.DB.prepare('SELECT * FROM moderation_items WHERE id = ? LIMIT 1').bind(appeal.moderation_item_id).first();
+        if (item && Number(item.is_csam_locked) !== 1) {
+          if (isApproved) {
+            const pubUrl = item.approved_public_url || (item.media_kind !== 'text' ? `/api/media/stream?id=${encodeURIComponent(item.target_id)}` : null);
+            await env.DB.prepare(`
+              UPDATE moderation_items
+              SET status = 'APPROVED', is_quarantined = 0, approved_public_url = ?, appeal_status = 'APPROVED',
+                  reviewed_by = ?, reviewed_at = ?, review_notes = ?, updated_at = ?
+              WHERE id = ?
+            `).bind(pubUrl, user.id || 'admin', nowIso, notes || 'Appeal approved', nowIso, item.id).run();
+
+            await env.DB.prepare(`
+              UPDATE wish_media
+              SET status = 'active', moderation_status = 'APPROVED', is_quarantined = 0, is_public = 1,
+                  url = CASE WHEN url IS NULL OR url = '' THEN ? ELSE url END,
+                  display_url = COALESCE(display_url, ?),
+                  updated_at = ?
+              WHERE id = ? OR moderation_item_id = ?
+            `).bind(pubUrl || '', pubUrl || '', nowIso, item.target_id, item.id).run().catch(() => {});
+          } else {
+            await env.DB.prepare(`
+              UPDATE moderation_items
+              SET appeal_status = 'REJECTED', reviewed_by = ?, reviewed_at = ?, review_notes = ?, updated_at = ?
+              WHERE id = ?
+            `).bind(user.id || 'admin', nowIso, notes || 'Appeal rejected', nowIso, item.id).run();
+          }
+        }
+
+        const auditEntry = createAuditLogEntry({
+          actorId: user.id || 'admin',
+          actorName: user.displayName || user.email || 'Admin',
+          actorRole: user.role || 'admin',
+          action: `MODERATION_APPEAL_${resolvedStatus}`,
+          targetType: 'moderation_appeal',
+          targetId: appeal.id,
+          details: { moderationItemId: appeal.moderation_item_id, decision: resolvedStatus, notes }
+        });
+        await env.DB.prepare(
+          'INSERT INTO admin_audit_logs (id, actor_id, actor_name, actor_role, action, target_type, target_id, details, ip_address, created_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)'
+        ).bind(auditEntry.id, auditEntry.actorId, auditEntry.actorName, auditEntry.actorRole, auditEntry.action, auditEntry.targetType, auditEntry.targetId, auditEntry.details, clientIP || '127.0.0.1', auditEntry.createdAt).run().catch(() => {});
+
+        response = jsonSuccess({
+          success: true,
+          appealId: appeal.id,
+          moderationItemId: appeal.moderation_item_id,
+          status: resolvedStatus,
+          auditLog: auditEntry
+        }, 200, {}, requestId);
+      }
+
+      else if (pathname.startsWith('/api/admin/moderation/users/') && pathname.endsWith('/restrict') && method === 'POST') {
+        const user = await getAuthenticatedUser(request, env);
+        if (!user) return applySecurityHeaders(jsonError('AUTH_REQUIRED', 'Authentication required', 401), request, env);
+        const isAdmin = await verifyAdminRole(user, env);
+        if (!isAdmin) return applySecurityHeaders(jsonError('FORBIDDEN', 'Admin role required', 403), request, env);
+
+        if (!env.DB || typeof env.DB.prepare !== 'function') {
+          return applySecurityHeaders(jsonError('DATABASE_UNAVAILABLE', 'Database service unavailable', 503), request, env);
+        }
+
+        await ensureModerationSchema(env.DB);
+        const targetUserId = decodeURIComponent(pathname.split('/')[5]);
+        const body = await parseJsonBody(request);
+        const action = String(body?.action || 'restrict').toLowerCase().trim();
+        const reason = sanitizeString(body?.reason || 'Administrative moderation restriction', 300);
+        const nowIso = new Date().toISOString();
+
+        const targetUser = await env.DB.prepare('SELECT * FROM users WHERE id = ? OR email = ? LIMIT 1').bind(targetUserId, targetUserId).first();
+        if (!targetUser) return applySecurityHeaders(jsonError('NOT_FOUND', 'User not found', 404), request, env);
+
+        if (targetUser.email && targetUser.email.toLowerCase() === PRIMARY_ADMIN_EMAIL.toLowerCase()) {
+          return applySecurityHeaders(jsonError('FORBIDDEN', 'Primary administrator cannot be restricted.', 403), request, env);
+        }
+
+        const restrictFlag = action === 'unrestrict' ? 0 : 1;
+        const newStatus = 'active';
+        const newStrikes = action === 'unrestrict' ? 0 : Math.max(Number(targetUser.moderation_strikes) || 0, MODERATION_LIMITS.STRIKE_RESTRICTION_THRESHOLD);
+
+        await env.DB.prepare(`
+          UPDATE users
+          SET moderation_restricted = ?, moderation_strikes = ?, moderation_restriction_reason = ?,
+              status = ?, suspension_reason = ?, updated_at = ?
+          WHERE id = ?
+        `).bind(restrictFlag, newStrikes, restrictFlag ? reason : null, newStatus, restrictFlag ? reason : null, nowIso, targetUser.id).run();
+
+        const auditEntry = createAuditLogEntry({
+          actorId: user.id || 'admin',
+          actorName: user.displayName || user.email || 'Admin',
+          actorRole: user.role || 'admin',
+          action: restrictFlag ? 'USER_MODERATION_RESTRICTED' : 'USER_MODERATION_UNRESTRICTED',
+          targetType: 'user',
+          targetId: targetUser.id,
+          details: { action, reason, strikes: newStrikes }
+        });
+        await env.DB.prepare(
+          'INSERT INTO admin_audit_logs (id, actor_id, actor_name, actor_role, action, target_type, target_id, details, ip_address, created_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)'
+        ).bind(auditEntry.id, auditEntry.actorId, auditEntry.actorName, auditEntry.actorRole, auditEntry.action, auditEntry.targetType, auditEntry.targetId, auditEntry.details, clientIP || '127.0.0.1', auditEntry.createdAt).run().catch(() => {});
+
+        response = jsonSuccess({
+          success: true,
+          userId: targetUser.id,
+          restricted: Boolean(restrictFlag),
+          status: newStatus,
+          strikes: newStrikes,
+          auditLog: auditEntry
+        }, 200, {}, requestId);
+      }
+
+      else if (pathname === '/api/admin/moderation/retention/cleanup' && method === 'POST') {
+        const user = await getAuthenticatedUser(request, env);
+        if (!user) return applySecurityHeaders(jsonError('AUTH_REQUIRED', 'Authentication required', 401), request, env);
+        const isAdmin = await verifyAdminRole(user, env);
+        if (!isAdmin) return applySecurityHeaders(jsonError('FORBIDDEN', 'Admin role required', 403), request, env);
+
+        if (!env.DB || typeof env.DB.prepare !== 'function') {
+          return applySecurityHeaders(jsonError('DATABASE_UNAVAILABLE', 'Database service unavailable', 503), request, env);
+        }
+
+        await ensureModerationSchema(env.DB);
+        const body = await parseJsonBody(request);
+        const purgeAllRejected = Boolean(body?.purgeAllRejected);
+        const nowIso = new Date().toISOString();
+
+        const candidates = await env.DB.prepare(`
+          SELECT id, target_id, status, is_csam_locked, retention_expires_at
+          FROM moderation_items
+          WHERE is_csam_locked = 0
+            AND status IN ('REJECTED', 'SCAN_FAILED')
+            AND (? = 1 OR (retention_expires_at IS NOT NULL AND retention_expires_at <= ?))
+        `).bind(purgeAllRejected ? 1 : 0, nowIso).all().catch(() => ({ results: [] }));
+
+        const itemsToPurge = candidates.results || [];
+        for (const item of itemsToPurge) {
+          await env.DB.prepare('DELETE FROM wish_media WHERE id = ? OR moderation_item_id = ?').bind(item.target_id, item.id).run().catch(() => {});
+          await env.DB.prepare('DELETE FROM moderation_items WHERE id = ?').bind(item.id).run().catch(() => {});
+        }
+
+        const auditEntry = createAuditLogEntry({
+          actorId: user.id || 'admin',
+          actorName: user.displayName || user.email || 'Admin',
+          actorRole: user.role || 'admin',
+          action: 'MODERATION_RETENTION_CLEANUP',
+          targetType: 'moderation_retention',
+          targetId: 'cleanup',
+          details: { purgedCount: itemsToPurge.length, purgeAllRejected }
+        });
+        await env.DB.prepare(
+          'INSERT INTO admin_audit_logs (id, actor_id, actor_name, actor_role, action, target_type, target_id, details, ip_address, created_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)'
+        ).bind(auditEntry.id, auditEntry.actorId, auditEntry.actorName, auditEntry.actorRole, auditEntry.action, auditEntry.targetType, auditEntry.targetId, auditEntry.details, clientIP || '127.0.0.1', auditEntry.createdAt).run().catch(() => {});
+
+        response = jsonSuccess({
+          success: true,
+          purgedCount: itemsToPurge.length,
+          purgedIds: itemsToPurge.map(i => i.id),
+          auditLog: auditEntry
         }, 200, {}, requestId);
       }
 
@@ -16600,6 +17996,14 @@ export default {
 
         const body = await parseJsonBody(request);
         const { category, subject, description, orderId, wishId, attachments, contactPreference } = body || {};
+
+        const ticketMod = moderateWishPayloadFields({ subject: subject || '', description: description || '' });
+        if (!ticketMod.allowed) {
+          return applySecurityHeaders(
+            jsonError('MODERATION_REJECTED', ticketMod.reason, 422, { categories: ticketMod.categories }),
+            request, env
+          );
+        }
 
         // Security check: If wishId provided, verify it belongs to current user
         if (wishId && env.DB && typeof env.DB.prepare === 'function') {
@@ -19346,7 +20750,7 @@ export default {
           }), request, env);
         }
 
-        if (wish.moderation_status === 'suspended') {
+        if (wish.moderation_status === 'suspended' || ['rejected', 'pending_review', 'scan_failed', 'csam_locked'].includes(String(wish.moderation_status || '').toLowerCase())) {
           return applySecurityHeaders(new Response(renderWishErrorHtml({
             title: 'Celebration Suspended',
             heading: 'Celebration Link Suspended',

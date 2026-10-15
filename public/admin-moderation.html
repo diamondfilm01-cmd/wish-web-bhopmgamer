@@ -310,22 +310,138 @@
         </div>
       </div>
     </section>
-    <!-- KPI Summary Cards -->
-    <div class="grid grid-cols-1 sm:grid-cols-3 gap-4">
+    <!-- KPI Summary Cards (Part 47 Complete Content Moderation Console) -->
+    <div class="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-3.5">
       <div class="wm-card p-4 rounded-2xl bg-amber-500/10 border border-amber-500/30 shadow-md">
-        <span class="text-xs font-bold uppercase tracking-wider text-amber-400">Pending User Reports</span>
-        <div id="stat-pending-reports" class="font-display text-3xl font-black text-amber-400 mt-1">0</div>
-        <span class="text-[11px] text-amber-300/80">Requires staff decision</span>
-      </div>
-      <div class="wm-card p-4 rounded-2xl bg-rose-500/10 border border-rose-500/30 shadow-md">
-        <span class="text-xs font-bold uppercase tracking-wider text-rose-400">Flagged Celebration Wishes</span>
-        <div id="stat-flagged-wishes" class="font-display text-3xl font-black text-rose-400 mt-1">0</div>
-        <span class="text-[11px] text-rose-300/80">Active flags or suspensions</span>
+        <span class="text-[11px] font-bold uppercase tracking-wider text-amber-400">Pending Review</span>
+        <div id="stat-pending-items" class="font-display text-2xl font-black text-amber-400 mt-1">0</div>
+        <span class="text-[10px] text-amber-300/80">Quarantined queue</span>
       </div>
       <div class="wm-card p-4 rounded-2xl bg-emerald-500/10 border border-emerald-500/30 shadow-md">
-        <span class="text-xs font-bold uppercase tracking-wider text-emerald-400">Resolved Reports</span>
-        <div id="stat-resolved-reports" class="font-display text-3xl font-black text-emerald-400 mt-1">0</div>
-        <span class="text-[11px] text-emerald-300/80">Closed audit history</span>
+        <span class="text-[11px] font-bold uppercase tracking-wider text-emerald-400">Approved Items</span>
+        <div id="stat-approved-items" class="font-display text-2xl font-black text-emerald-400 mt-1">0</div>
+        <span class="text-[10px] text-emerald-300/80">Released to public</span>
+      </div>
+      <div class="wm-card p-4 rounded-2xl bg-rose-500/10 border border-rose-500/30 shadow-md">
+        <span class="text-[11px] font-bold uppercase tracking-wider text-rose-400">Rejected Items</span>
+        <div id="stat-rejected-items" class="font-display text-2xl font-black text-rose-400 mt-1">0</div>
+        <span class="text-[10px] text-rose-300/80">Blocked violations</span>
+      </div>
+      <div class="wm-card p-4 rounded-2xl bg-orange-500/10 border border-orange-500/30 shadow-md">
+        <span class="text-[11px] font-bold uppercase tracking-wider text-orange-400">Scan Failed</span>
+        <div id="stat-scan-failed-items" class="font-display text-2xl font-black text-orange-400 mt-1">0</div>
+        <span class="text-[10px] text-orange-300/80">Fail-closed hold</span>
+      </div>
+      <div class="wm-card p-4 rounded-2xl bg-purple-500/10 border border-purple-500/30 shadow-md">
+        <span class="text-[11px] font-bold uppercase tracking-wider text-purple-300">Pending Appeals</span>
+        <div id="stat-pending-appeals" class="font-display text-2xl font-black text-purple-300 mt-1">0</div>
+        <span class="text-[10px] text-purple-300/80">Recheck requests</span>
+      </div>
+      <div class="wm-card p-4 rounded-2xl bg-red-500/10 border border-red-500/30 shadow-md">
+        <span class="text-[11px] font-bold uppercase tracking-wider text-red-400">Restricted Users</span>
+        <div id="stat-restricted-users" class="font-display text-2xl font-black text-red-400 mt-1">0</div>
+        <span class="text-[10px] text-red-300/80">Repeat offenders</span>
+      </div>
+    </div>
+
+    <!-- Legacy KPI counters preserved for compatibility -->
+    <div class="hidden">
+      <span id="stat-pending-reports">0</span>
+      <span id="stat-flagged-wishes">0</span>
+      <span id="stat-resolved-reports">0</span>
+      <span id="sidebar-mod-badge">0</span>
+    </div>
+
+    <!-- Section 0: Content Moderation & Quarantine Vault Queue -->
+    <div class="wm-card bg-surface-container rounded-2xl border border-purple-900/30 shadow-xl overflow-hidden p-5 flex flex-col gap-4">
+      <div class="flex flex-wrap items-center justify-between gap-3">
+        <div class="flex items-center gap-2">
+          <span class="material-symbols-outlined text-pink-400 text-[22px]">shield_lock</span>
+          <h3 class="font-display text-base font-bold text-on-surface">Media &amp; Content Quarantine Moderation Queue</h3>
+        </div>
+        <div class="flex flex-wrap items-center gap-2">
+          <button onclick="filterModerationItems('ALL')" data-mod-tab="ALL" class="mod-tab-btn px-3 py-1.5 rounded-xl bg-primary text-white text-xs font-bold cursor-pointer">All</button>
+          <button onclick="filterModerationItems('PENDING_REVIEW')" data-mod-tab="PENDING_REVIEW" class="mod-tab-btn px-3 py-1.5 rounded-xl bg-surface-container-high text-on-surface-variant text-xs font-bold cursor-pointer">Pending Review</button>
+          <button onclick="filterModerationItems('APPROVED')" data-mod-tab="APPROVED" class="mod-tab-btn px-3 py-1.5 rounded-xl bg-surface-container-high text-on-surface-variant text-xs font-bold cursor-pointer">Approved</button>
+          <button onclick="filterModerationItems('REJECTED')" data-mod-tab="REJECTED" class="mod-tab-btn px-3 py-1.5 rounded-xl bg-surface-container-high text-on-surface-variant text-xs font-bold cursor-pointer">Rejected</button>
+          <button onclick="filterModerationItems('SCAN_FAILED')" data-mod-tab="SCAN_FAILED" class="mod-tab-btn px-3 py-1.5 rounded-xl bg-surface-container-high text-on-surface-variant text-xs font-bold cursor-pointer">Scan Failed</button>
+          <button onclick="runRetentionCleanup()" class="px-3 py-1.5 rounded-xl bg-rose-500/20 hover:bg-rose-500 text-rose-300 hover:text-white text-xs font-bold transition cursor-pointer flex items-center gap-1">
+            <span class="material-symbols-outlined text-[15px]">delete_sweep</span>
+            <span>Purge Expired Rejected</span>
+          </button>
+          <button onclick="loadModerationQueue()" class="px-3 py-1.5 rounded-xl bg-purple-500/20 hover:bg-purple-500 text-purple-200 hover:text-white text-xs font-bold transition cursor-pointer flex items-center gap-1">
+            <span class="material-symbols-outlined text-[15px]">refresh</span>
+            <span>Refresh</span>
+          </button>
+        </div>
+      </div>
+
+      <div class="overflow-x-auto custom-scrollbar">
+        <table class="w-full text-left border-collapse text-xs">
+          <thead>
+            <tr class="border-b border-purple-900/30 bg-surface-container-high/50 text-outline uppercase font-bold text-[10px] tracking-wider">
+              <th class="py-3 px-3">Item / Kind</th>
+              <th class="py-3 px-3">Owner &amp; Target</th>
+              <th class="py-3 px-3">Status &amp; Quarantine</th>
+              <th class="py-3 px-3">Reason, Categories &amp; Provider</th>
+              <th class="py-3 px-3">Timestamps</th>
+              <th class="py-3 px-3 text-right">Authorized Review Actions</th>
+            </tr>
+          </thead>
+          <tbody id="moderation-items-body" class="divide-y divide-purple-900/20 font-medium text-on-surface">
+            <!-- Populated dynamically -->
+          </tbody>
+        </table>
+      </div>
+      <div id="moderation-items-empty" class="hidden p-6 text-center text-outline text-xs">
+        No moderation items matching the current filter.
+      </div>
+    </div>
+
+    <!-- Section 0B: Appeals & Recheck Workflow + Repeat-Offender Account Restrictions -->
+    <div class="grid grid-cols-1 lg:grid-cols-2 gap-5">
+      <!-- Appeals & Recheck Queue -->
+      <div class="wm-card bg-surface-container rounded-2xl border border-purple-900/30 shadow-xl overflow-hidden p-5 flex flex-col gap-4">
+        <h3 class="font-display text-base font-bold text-on-surface flex items-center gap-2">
+          <span class="material-symbols-outlined text-purple-400 text-[20px]">rate_review</span>
+          <span>User Appeals &amp; Recheck Requests</span>
+        </h3>
+        <div class="overflow-x-auto custom-scrollbar">
+          <table class="w-full text-left border-collapse text-xs">
+            <thead>
+              <tr class="border-b border-purple-900/30 bg-surface-container-high/50 text-outline uppercase font-bold text-[10px] tracking-wider">
+                <th class="py-2.5 px-3">Appeal / Item</th>
+                <th class="py-2.5 px-3">User &amp; Reason</th>
+                <th class="py-2.5 px-3">Status</th>
+                <th class="py-2.5 px-3 text-right">Decision</th>
+              </tr>
+            </thead>
+            <tbody id="appeals-table-body" class="divide-y divide-purple-900/20 font-medium text-on-surface"></tbody>
+          </table>
+        </div>
+        <div id="appeals-empty" class="hidden p-4 text-center text-outline text-xs">No pending appeals.</div>
+      </div>
+
+      <!-- Repeat Violations & Account Restrictions -->
+      <div class="wm-card bg-surface-container rounded-2xl border border-purple-900/30 shadow-xl overflow-hidden p-5 flex flex-col gap-4">
+        <h3 class="font-display text-base font-bold text-on-surface flex items-center gap-2">
+          <span class="material-symbols-outlined text-red-400 text-[20px]">person_off</span>
+          <span>Repeated Violations &amp; Account Restrictions</span>
+        </h3>
+        <div class="overflow-x-auto custom-scrollbar">
+          <table class="w-full text-left border-collapse text-xs">
+            <thead>
+              <tr class="border-b border-purple-900/30 bg-surface-container-high/50 text-outline uppercase font-bold text-[10px] tracking-wider">
+                <th class="py-2.5 px-3">User Account</th>
+                <th class="py-2.5 px-3">Strikes</th>
+                <th class="py-2.5 px-3">Restriction Reason</th>
+                <th class="py-2.5 px-3 text-right">Control</th>
+              </tr>
+            </thead>
+            <tbody id="restricted-users-body" class="divide-y divide-purple-900/20 font-medium text-on-surface"></tbody>
+          </table>
+        </div>
+        <div id="restricted-users-empty" class="hidden p-4 text-center text-outline text-xs">No restricted accounts or strike records.</div>
       </div>
     </div>
 
@@ -395,14 +511,48 @@
       </div>
     </div>
 
+    <!-- Section 3: Moderation Audit Trail -->
+    <div class="wm-card bg-surface-container rounded-2xl border border-purple-900/30 shadow-xl overflow-hidden p-5 flex flex-col gap-4">
+      <h3 class="font-display text-base font-bold text-on-surface flex items-center gap-2">
+        <span class="material-symbols-outlined text-emerald-400 text-[20px]">history_edu</span>
+        <span>Moderation Enforcement Audit Logs</span>
+      </h3>
+      <div class="overflow-x-auto custom-scrollbar">
+        <table class="w-full text-left border-collapse text-xs">
+          <thead>
+            <tr class="border-b border-purple-900/30 bg-surface-container-high/50 text-outline uppercase font-bold text-[10px] tracking-wider">
+              <th class="py-2.5 px-3">Audit ID</th>
+              <th class="py-2.5 px-3">Actor</th>
+              <th class="py-2.5 px-3">Action</th>
+              <th class="py-2.5 px-3">Target</th>
+              <th class="py-2.5 px-3">Timestamp</th>
+            </tr>
+          </thead>
+          <tbody id="moderation-audit-body" class="divide-y divide-purple-900/20 font-medium text-on-surface"></tbody>
+        </table>
+      </div>
+    </div>
   </main>
 </div>
 
 <script>
   let queueReports = [];
   let flaggedWishes = [];
+  let moderationItems = [];
+  let moderationAppeals = [];
+  let restrictedUsers = [];
+  let moderationAuditLogs = [];
+  let activeStatusTab = 'ALL';
 
   document.addEventListener('DOMContentLoaded', loadModerationQueue);
+
+  function escapeModHtml(str) {
+    return String(str ?? '')
+      .replace(/&/g, '&amp;')
+      .replace(/</g, '&lt;')
+      .replace(/>/g, '&gt;')
+      .replace(/"/g, '&quot;');
+  }
 
   async function loadModerationQueue() {
     try {
@@ -411,22 +561,301 @@
       if (data.success) {
         queueReports = data.reports || [];
         flaggedWishes = data.flaggedWishes || [];
-        updateCounts();
+        moderationItems = data.items || [];
+        moderationAppeals = data.appeals || [];
+        restrictedUsers = data.restrictedUsers || [];
+        moderationAuditLogs = data.auditLogs || [];
+        updateCounts(data.counts || {});
+        renderModerationItemsTable();
+        renderAppealsTable();
+        renderRestrictedUsersTable();
         renderReportsTable();
         renderFlaggedTable();
+        renderAuditLogsTable();
       }
     } catch (e) {
       console.warn('Error loading moderation queue:', e);
     }
   }
 
-  function updateCounts() {
-    const pending = queueReports.filter(r => r.status === 'pending').length;
-    const resolved = queueReports.filter(r => r.status === 'resolved' || r.status === 'dismissed').length;
-    document.getElementById('stat-pending-reports').textContent = pending;
-    document.getElementById('stat-flagged-wishes').textContent = flaggedWishes.length;
-    document.getElementById('stat-resolved-reports').textContent = resolved;
-    document.getElementById('sidebar-mod-badge').textContent = pending;
+  function filterModerationItems(status) {
+    activeStatusTab = status;
+    document.querySelectorAll('.mod-tab-btn').forEach(btn => {
+      if (btn.getAttribute('data-mod-tab') === status) {
+        btn.className = 'mod-tab-btn px-3 py-1.5 rounded-xl bg-primary text-white text-xs font-bold cursor-pointer';
+      } else {
+        btn.className = 'mod-tab-btn px-3 py-1.5 rounded-xl bg-surface-container-high text-on-surface-variant text-xs font-bold cursor-pointer';
+      }
+    });
+    renderModerationItemsTable();
+  }
+
+  function updateCounts(counts = {}) {
+    const pendingReports = queueReports.filter(r => r.status === 'pending').length;
+    const resolvedReports = queueReports.filter(r => r.status === 'resolved' || r.status === 'dismissed').length;
+
+    const setEl = (id, val) => {
+      const el = document.getElementById(id);
+      if (el) el.textContent = val;
+    };
+
+    setEl('stat-pending-items', counts.pendingReview ?? moderationItems.filter(i => i.status === 'PENDING_REVIEW').length);
+    setEl('stat-approved-items', counts.approved ?? moderationItems.filter(i => i.status === 'APPROVED').length);
+    setEl('stat-rejected-items', counts.rejected ?? moderationItems.filter(i => i.status === 'REJECTED').length);
+    setEl('stat-scan-failed-items', counts.scanFailed ?? moderationItems.filter(i => i.status === 'SCAN_FAILED').length);
+    setEl('stat-pending-appeals', counts.appealed ?? moderationAppeals.filter(a => a.status === 'PENDING').length);
+    setEl('stat-restricted-users', counts.restrictedUsers ?? restrictedUsers.length);
+
+    setEl('stat-pending-reports', pendingReports);
+    setEl('stat-flagged-wishes', flaggedWishes.length);
+    setEl('stat-resolved-reports', resolvedReports);
+    setEl('sidebar-mod-badge', pendingReports + (counts.pendingReview || 0));
+  }
+
+  function renderModerationItemsTable() {
+    const tbody = document.getElementById('moderation-items-body');
+    const empty = document.getElementById('moderation-items-empty');
+    if (!tbody) return;
+
+    const list = activeStatusTab === 'ALL'
+      ? moderationItems
+      : moderationItems.filter(i => i.status === activeStatusTab);
+
+    if (list.length === 0) {
+      tbody.innerHTML = '';
+      if (empty) empty.classList.remove('hidden');
+      return;
+    }
+    if (empty) empty.classList.add('hidden');
+
+    tbody.innerHTML = list.map(item => {
+      const isCsam = Boolean(item.isCsamLocked || item.status === 'CSAM_LOCKED');
+      const statusBadgeClass =
+        item.status === 'APPROVED' ? 'bg-emerald-500/20 text-emerald-300' :
+        item.status === 'REJECTED' ? 'bg-rose-500/20 text-rose-300' :
+        item.status === 'SCAN_FAILED' ? 'bg-orange-500/20 text-orange-300' :
+        isCsam ? 'bg-red-700/40 text-red-200 border border-red-500' :
+        'bg-amber-500/20 text-amber-300';
+
+      // CSAM Zero-Exposure Policy: Never render media preview or public URL for CSAM_LOCKED items
+      const previewSummary = isCsam
+        ? '<div class="text-[11px] font-bold text-red-300">🔒 [SEALED FOR LEGAL COMPLIANCE — PREVIEW DISABLED]</div>'
+        : (item.contentExcerpt
+            ? '<div class="text-[11px] text-outline truncate max-w-xs">' + escapeModHtml(item.contentExcerpt) + '</div>'
+            : (item.extractedOcrText
+                ? '<div class="text-[11px] text-amber-300 truncate max-w-xs">OCR: ' + escapeModHtml(item.extractedOcrText) + '</div>'
+                : ''));
+
+      return `
+        <tr class="hover:bg-surface-container-high/40 transition">
+          <td class="py-3 px-3">
+            <div class="font-mono text-[11px] text-outline">${escapeModHtml(item.id)}</div>
+            <div class="font-bold uppercase text-[11px] text-primary">${escapeModHtml(item.mediaKind || 'media')} • ${escapeModHtml(item.filename || item.targetType)}</div>
+          </td>
+          <td class="py-3 px-3">
+            <div class="font-bold text-on-surface">${escapeModHtml(item.ownerEmail || item.ownerUserId || 'guest')}</div>
+            <div class="font-mono text-[10px] text-outline">Target: ${escapeModHtml(item.targetId)}</div>
+          </td>
+          <td class="py-3 px-3">
+            <span class="px-2 py-0.5 rounded text-[10px] font-black uppercase ${statusBadgeClass}">${escapeModHtml(item.status)}</span>
+            <div class="text-[10px] text-outline mt-1">${item.isQuarantined ? '🔒 Private Quarantine' : '🌐 Public Released'}</div>
+          </td>
+          <td class="py-3 px-3 max-w-sm">
+            <div class="font-semibold text-on-surface-variant">${escapeModHtml(item.rejectionReason || 'Passed automated checks')}</div>
+            ${previewSummary}
+            <div class="text-[10px] text-outline mt-0.5">
+              Categories: ${escapeModHtml((item.categories || []).join(', ') || 'none')} • Score: ${Number(item.confidenceScore) || 0}% • Provider: ${escapeModHtml(item.providerName || 'local_hybrid')}
+            </div>
+          </td>
+          <td class="py-3 px-3 font-mono text-[10px] text-outline">
+            <div>Created: ${item.createdAt ? new Date(item.createdAt).toLocaleString() : 'N/A'}</div>
+            ${item.reviewedAt ? '<div>Reviewed: ' + new Date(item.reviewedAt).toLocaleString() + '</div>' : ''}
+          </td>
+          <td class="py-3 px-3 text-right">
+            ${isCsam ? `
+              <span class="px-2.5 py-1 rounded-lg bg-red-900/40 text-red-200 font-bold text-[10px]">Sealed Legal Hold</span>
+            ` : `
+              <div class="flex flex-wrap items-center justify-end gap-1.5">
+                <button onclick="reviewModerationItem('${escapeModHtml(item.id)}', 'approve')" class="px-2.5 py-1 rounded-lg bg-emerald-500/20 hover:bg-emerald-500 text-emerald-300 hover:text-white font-bold text-xs transition cursor-pointer">Approve</button>
+                <button onclick="reviewModerationItem('${escapeModHtml(item.id)}', 'reject')" class="px-2.5 py-1 rounded-lg bg-rose-500/20 hover:bg-rose-500 text-rose-300 hover:text-white font-bold text-xs transition cursor-pointer">Reject</button>
+                <button onclick="reviewModerationItem('${escapeModHtml(item.id)}', 'rescan')" class="px-2.5 py-1 rounded-lg bg-amber-500/20 hover:bg-amber-500 text-amber-300 hover:text-white font-bold text-xs transition cursor-pointer">Recheck</button>
+                <button onclick="reviewModerationItem('${escapeModHtml(item.id)}', 'purge')" class="px-2.5 py-1 rounded-lg bg-surface-container-high hover:bg-rose-600 text-outline hover:text-white font-bold text-xs transition cursor-pointer">Purge</button>
+              </div>
+            `}
+          </td>
+        </tr>
+      `;
+    }).join('');
+  }
+
+  function renderAppealsTable() {
+    const tbody = document.getElementById('appeals-table-body');
+    const empty = document.getElementById('appeals-empty');
+    if (!tbody) return;
+
+    if (moderationAppeals.length === 0) {
+      tbody.innerHTML = '';
+      if (empty) empty.classList.remove('hidden');
+      return;
+    }
+    if (empty) empty.classList.add('hidden');
+
+    tbody.innerHTML = moderationAppeals.map(a => `
+      <tr class="hover:bg-surface-container-high/40 transition">
+        <td class="py-2.5 px-3 font-mono text-[11px]">
+          <div>${escapeModHtml(a.id)}</div>
+          <div class="text-outline text-[10px]">Item: ${escapeModHtml(a.moderation_item_id)}</div>
+        </td>
+        <td class="py-2.5 px-3">
+          <div class="font-bold">${escapeModHtml(a.user_email || a.user_id)}</div>
+          <div class="text-outline text-[11px]">${escapeModHtml(a.appeal_reason)}</div>
+        </td>
+        <td class="py-2.5 px-3">
+          <span class="px-2 py-0.5 rounded text-[10px] font-black uppercase ${a.status === 'PENDING' ? 'bg-amber-500/20 text-amber-300' : 'bg-emerald-500/20 text-emerald-300'}">${escapeModHtml(a.status)}</span>
+        </td>
+        <td class="py-2.5 px-3 text-right">
+          ${a.status === 'PENDING' ? `
+            <div class="flex items-center justify-end gap-1.5">
+              <button onclick="resolveAppeal('${escapeModHtml(a.id)}', 'approve')" class="px-2 py-1 rounded bg-emerald-500/20 hover:bg-emerald-500 text-emerald-300 hover:text-white font-bold text-[11px] cursor-pointer">Approve</button>
+              <button onclick="resolveAppeal('${escapeModHtml(a.id)}', 'reject')" class="px-2 py-1 rounded bg-rose-500/20 hover:bg-rose-500 text-rose-300 hover:text-white font-bold text-[11px] cursor-pointer">Reject</button>
+            </div>
+          ` : '<span class="text-[10px] text-outline">' + escapeModHtml(a.resolution_notes || 'Resolved') + '</span>'}
+        </td>
+      </tr>
+    `).join('');
+  }
+
+  function renderRestrictedUsersTable() {
+    const tbody = document.getElementById('restricted-users-body');
+    const empty = document.getElementById('restricted-users-empty');
+    if (!tbody) return;
+
+    if (restrictedUsers.length === 0) {
+      tbody.innerHTML = '';
+      if (empty) empty.classList.remove('hidden');
+      return;
+    }
+    if (empty) empty.classList.add('hidden');
+
+    tbody.innerHTML = restrictedUsers.map(u => {
+      const isRestricted = Number(u.moderation_restricted) === 1 || u.status === 'suspended' || u.status === 'banned';
+      return `
+        <tr class="hover:bg-surface-container-high/40 transition">
+          <td class="py-2.5 px-3">
+            <div class="font-bold">${escapeModHtml(u.display_name || u.email || u.id)}</div>
+            <div class="font-mono text-[10px] text-outline">${escapeModHtml(u.email || u.id)}</div>
+          </td>
+          <td class="py-2.5 px-3 font-mono font-bold text-rose-400">${Number(u.moderation_strikes) || 0} strikes</td>
+          <td class="py-2.5 px-3 text-outline text-[11px]">${escapeModHtml(u.moderation_restriction_reason || u.suspension_reason || 'Active watch')}</td>
+          <td class="py-2.5 px-3 text-right">
+            ${isRestricted ? `
+              <button onclick="toggleUserRestriction('${escapeModHtml(u.id)}', 'unrestrict')" class="px-2.5 py-1 rounded bg-emerald-500/20 hover:bg-emerald-500 text-emerald-300 hover:text-white font-bold text-[11px] cursor-pointer">Lift Restriction</button>
+            ` : `
+              <button onclick="toggleUserRestriction('${escapeModHtml(u.id)}', 'restrict')" class="px-2.5 py-1 rounded bg-rose-500/20 hover:bg-rose-500 text-rose-300 hover:text-white font-bold text-[11px] cursor-pointer">Restrict Account</button>
+            `}
+          </td>
+        </tr>
+      `;
+    }).join('');
+  }
+
+  function renderAuditLogsTable() {
+    const tbody = document.getElementById('moderation-audit-body');
+    if (!tbody) return;
+    if (moderationAuditLogs.length === 0) {
+      tbody.innerHTML = '<tr><td colspan="5" class="py-4 text-center text-outline">No recent moderation audit events.</td></tr>';
+      return;
+    }
+    tbody.innerHTML = moderationAuditLogs.map(l => `
+      <tr>
+        <td class="py-2 px-3 font-mono text-[10px] text-outline">${escapeModHtml(l.id)}</td>
+        <td class="py-2 px-3 font-bold">${escapeModHtml(l.actor_name || l.actor_id)}</td>
+        <td class="py-2 px-3 font-mono text-pink-400">${escapeModHtml(l.action)}</td>
+        <td class="py-2 px-3 font-mono text-[11px]">${escapeModHtml(l.target_type)}: ${escapeModHtml(l.target_id)}</td>
+        <td class="py-2 px-3 font-mono text-[10px] text-outline">${l.created_at ? new Date(l.created_at).toLocaleString() : ''}</td>
+      </tr>
+    `).join('');
+  }
+
+  async function reviewModerationItem(itemId, action) {
+    const reason = action === 'reject'
+      ? prompt('Rejection reason:', 'Violates WishMagic Content Safety Policy')
+      : 'Reviewed by moderator';
+    if (reason === null) return;
+    try {
+      const res = await fetch('/api/admin/moderation/items/' + encodeURIComponent(itemId) + '/review', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ action, reason, notes: reason })
+      });
+      const data = await res.json();
+      if (data.success) {
+        loadModerationQueue();
+      } else {
+        alert(data.error?.message || data.message || 'Action failed');
+      }
+    } catch (e) {
+      alert('Network error');
+    }
+  }
+
+  async function resolveAppeal(appealId, decision) {
+    const notes = prompt('Resolution notes for appeal (' + decision + '):', 'Reviewed by moderation team');
+    if (notes === null) return;
+    try {
+      const res = await fetch('/api/admin/moderation/appeals/' + encodeURIComponent(appealId) + '/resolve', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ decision, notes })
+      });
+      const data = await res.json();
+      if (data.success) {
+        loadModerationQueue();
+      } else {
+        alert(data.error?.message || data.message || 'Failed to resolve appeal');
+      }
+    } catch (e) {
+      alert('Network error');
+    }
+  }
+
+  async function toggleUserRestriction(userId, action) {
+    const reason = action === 'restrict'
+      ? prompt('Reason for account restriction:', 'Repeated content moderation violations')
+      : 'Restriction lifted by administrator';
+    if (reason === null) return;
+    try {
+      const res = await fetch('/api/admin/moderation/users/' + encodeURIComponent(userId) + '/restrict', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ action, reason })
+      });
+      const data = await res.json();
+      if (data.success) {
+        loadModerationQueue();
+      } else {
+        alert(data.error?.message || data.message || 'Failed to update user restriction');
+      }
+    } catch (e) {
+      alert('Network error');
+    }
+  }
+
+  async function runRetentionCleanup() {
+    try {
+      const res = await fetch('/api/admin/moderation/retention/cleanup', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ purgeAllRejected: false })
+      });
+      const data = await res.json();
+      if (data.success) {
+        alert('Retention cleanup completed: ' + (data.purgedCount || 0) + ' expired item(s) purged.');
+        loadModerationQueue();
+      }
+    } catch (e) {
+      alert('Network error');
+    }
   }
 
   function renderReportsTable() {

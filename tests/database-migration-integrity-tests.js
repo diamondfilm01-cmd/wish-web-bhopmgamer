@@ -9,7 +9,7 @@ import assert from 'node:assert';
 import fs from 'node:fs';
 import path from 'node:path';
 import { DatabaseSync, cleanupSqliteBridge } from '../scripts/sqlite-compat.js';
-import { D1MigrationRunner, compareDatabaseSchemas, verifyMigrationChainSafety } from '../scripts/migration-runner.js';
+import { D1MigrationRunner, compareDatabaseSchemas, verifyMigrationChainSafety, listMigrationSqlFiles } from '../scripts/migration-runner.js';
 import { canResolveDependency } from '../scripts/run-test-matrix.js';
 
 describe('Database Migration & Schema Integrity Verification', () => {
@@ -176,7 +176,7 @@ describe('Database Migration & Schema Integrity Verification', () => {
     const runner = new D1MigrationRunner(d1);
 
     // Apply migrations 0001 through 0012 manually
-    const allFiles = fs.readdirSync('migrations').filter(f => f.endsWith('.sql')).sort();
+    const allFiles = listMigrationSqlFiles('migrations');
     const upTo0012 = allFiles.slice(0, 12);
     await runner.initMigrationsTable();
 
@@ -205,7 +205,7 @@ describe('Database Migration & Schema Integrity Verification', () => {
     const runner = new D1MigrationRunner(d1);
 
     // Apply migrations 0001 through 0026
-    const allFiles = fs.readdirSync('migrations').filter(f => f.endsWith('.sql')).sort();
+    const allFiles = listMigrationSqlFiles('migrations');
     const upTo0026 = allFiles.slice(0, 26);
     await runner.initMigrationsTable();
 
