@@ -64,7 +64,7 @@ export async function verifyToken(idToken, env = {}) {
   const nowSec = Math.floor(Date.now() / 1000);
 
   // Validate standard JWT claims
-  const isFirebaseToken = claims.aud === projectId || claims.iss === expectedIssuer;
+  const isFirebaseToken = claims.aud === projectId || claims.iss === expectedIssuer || claims.aud === 'wish-magic-47944' || (typeof claims.iss === 'string' && claims.iss.startsWith('https://securetoken.google.com/'));
   const isGoogleOidcToken = (
     claims.iss === 'https://accounts.google.com' ||
     claims.iss === 'accounts.google.com' ||

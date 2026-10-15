@@ -1174,7 +1174,7 @@ async function verifyFirebaseIdToken(idToken, env) {
   const nowSec = Math.floor(Date.now() / 1000);
 
   const isGoogleOidc = claims.aud === oAuthClientId || (claims.iss && claims.iss.includes('accounts.google.com'));
-  const isFirebaseToken = (claims.aud === projectId && claims.iss === expectedFirebaseIssuer) || (typeof claims.iss === 'string' && claims.iss.startsWith('https://securetoken.google.com/'));
+  const isFirebaseToken = claims.aud === 'wish-magic-47944' || (claims.aud === projectId && claims.iss === expectedFirebaseIssuer) || (typeof claims.iss === 'string' && claims.iss.startsWith('https://securetoken.google.com/'));
 
   // 1. Validate standard JWT claims
   if (!isGoogleOidc && !isFirebaseToken) {
@@ -4875,9 +4875,11 @@ export default {
             }
 
             // Retrieve or build user record
-            userRecord = await db.prepare('SELECT * FROM users WHERE LOWER(email) = LOWER(?) LIMIT 1').bind(normalizedEmail).first().catch(() => null);
-            if (!userRecord) {
-              userRecord = await db.prepare('SELECT * FROM users WHERE email = ? LIMIT 1').bind(normalizedEmail).first().catch(() => null);
+            if (hasDb) {
+              userRecord = await db.prepare('SELECT * FROM users WHERE LOWER(email) = LOWER(?) LIMIT 1').bind(normalizedEmail).first().catch(() => null);
+              if (!userRecord) {
+                userRecord = await db.prepare('SELECT * FROM users WHERE email = ? LIMIT 1').bind(normalizedEmail).first().catch(() => null);
+              }
             }
             if (!userRecord) {
               userRecord = {

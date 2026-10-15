@@ -222,7 +222,7 @@
       let existing = document.querySelector('script[src*="firebase-auth.js"]');
       if (!existing) {
         const script = document.createElement('script');
-        script.src = '/js/firebase-auth.js';
+        script.src = '/js/firebase-auth.js?v=20261015_wm47944_v3';
         script.async = true;
         script.onload = () => {
           if (window.WishFirebaseAuth && typeof window.WishFirebaseAuth.ready === 'function') {
@@ -421,28 +421,36 @@
       return () => {};
     },
 
-    async signInWithGoogle() {
-      if (!window.WishFirebaseAuth) {
-        await ensureFirebaseAuth();
-      }
-      if (!window.WishFirebaseAuth) {
-        throw new Error('Firebase Google Authentication is initializing. Please tap "Continue with Google" again.');
+    signInWithGoogle() {
+      const completeSignIn = async (fbUser) => {
+        if (fbUser) {
+          const serverUser = await syncSessionWithServer(fbUser);
+          if (serverUser) {
+            setAuthState(AUTH_STATE.AUTHENTICATED, serverUser);
+            showAuthToast(`Welcome, ${serverUser.displayName || serverUser.email}! ✨`);
+            if (typeof window.closeAuthModal === 'function') window.closeAuthModal();
+            if (window.location.pathname.includes('maintenance') && isMasterAdminEmail(serverUser.email)) {
+              window.location.replace('/');
+            }
+            return serverUser;
+          }
+        }
+        return null;
+      };
+
+      // Invoke synchronously when WishFirebaseAuth is ready so mobile popup gesture is 100% preserved
+      if (window.WishFirebaseAuth && typeof window.WishFirebaseAuth.signInWithGoogle === 'function') {
+        const popupPromise = window.WishFirebaseAuth.signInWithGoogle();
+        return Promise.resolve(popupPromise).then(completeSignIn);
       }
 
-      const fbUser = await window.WishFirebaseAuth.signInWithGoogle();
-      if (fbUser) {
-        const serverUser = await syncSessionWithServer(fbUser);
-        if (serverUser) {
-          setAuthState(AUTH_STATE.AUTHENTICATED, serverUser);
-          showAuthToast(`Welcome, ${serverUser.displayName || serverUser.email}! ✨`);
-          if (typeof window.closeAuthModal === 'function') window.closeAuthModal();
-          if (window.location.pathname.includes('maintenance') && isMasterAdminEmail(serverUser.email)) {
-            window.location.replace('/');
-          }
-          return serverUser;
+      return ensureFirebaseAuth().then(async () => {
+        if (!window.WishFirebaseAuth) {
+          throw new Error('Firebase Google Authentication is initializing. Please tap "Continue with Google" again.');
         }
-      }
-      return null;
+        const fbUser = await window.WishFirebaseAuth.signInWithGoogle();
+        return completeSignIn(fbUser);
+      });
     },
 
     async updateProfile(updates = {}) {
@@ -818,6 +826,9 @@
   WishAuth.closeAuthModal = window.closeAuthModal;
 
   window.handleGoogleSignInClick = async function() {
+    // Trigger popup synchronously FIRST before disabling the clicked button so mobile browsers preserve user gesture!
+    const signInActionPromise = WishAuth.signInWithGoogle();
+
     const btn = document.getElementById('auth-google-btn');
     const txt = document.getElementById('auth-google-btn-text');
     const errBox = document.getElementById('auth-modal-error');
@@ -832,7 +843,7 @@
     }
 
     try {
-      const user = await WishAuth.signInWithGoogle();
+      const user = await signInActionPromise;
       if (user) {
         closeAuthModal();
         return;

@@ -4,20 +4,23 @@
   X-Frame-Options: SAMEORIGIN
   Referrer-Policy: strict-origin-when-cross-origin
   Permissions-Policy: camera=(), microphone=(), geolocation=()
+  Cache-Control: no-store, no-cache, must-revalidate, max-age=0
 
-# Immutable Static Assets
-/assets/*
-  Cache-Control: public, max-age=31536000, immutable
+/
+  Cache-Control: no-store, no-cache, must-revalidate, max-age=0
 
-/css/*
-  Cache-Control: public, max-age=31536000, immutable
+/*.html
+  Cache-Control: no-store, no-cache, must-revalidate, max-age=0
 
 /js/*
-  Cache-Control: public, max-age=31536000, immutable
+  Cache-Control: no-store, no-cache, must-revalidate, max-age=0
+
+/css/*
+  Cache-Control: no-store, no-cache, must-revalidate, max-age=0
+
+# Media & Store Assets
+/assets/*
+  Cache-Control: public, max-age=86400
 
 /templates-store/*
   Cache-Control: public, max-age=86400, stale-while-revalidate=604800
-
-# HTML Files (Always revalidate with etag)
-/*.html
-  Cache-Control: public, max-age=0, must-revalidate

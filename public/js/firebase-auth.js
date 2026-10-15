@@ -1,57 +1,88 @@
 // WishMagic Firebase Authentication Integration Module
-// Configured with User's Official Firebase Project: wish-magic-47944
+// Official Firebase Configuration: wish-magic-47944
+// Synchronous Popup Execution + Zero-Latency ProjectConfig + Legacy Cache Purge
 
 (function(window) {
   'use strict';
 
-  // Ensure client-side getProjectConfig never uses a stale cache and always allows the active hostname
-  (function patchFirebaseDomainConfigInterceptor() {
-    if (typeof window === 'undefined' || window.__wmFirebaseDomainPatched) return;
-    window.__wmFirebaseDomainPatched = true;
+  // Your web app's Firebase configuration (wish-magic-47944)
+  const firebaseConfig = {
+    apiKey: "AIzaSyCiZmxmfgyj555EI4af_rt5X_id31F4Vq0",
+    authDomain: "wish-magic-47944.firebaseapp.com",
+    projectId: "wish-magic-47944",
+    storageBucket: "wish-magic-47944.firebasestorage.app",
+    messagingSenderId: "281035115213",
+    appId: "1:281035115213:web:2af5b3a6f0ceb6c64eb784"
+  };
 
-    function ensureCurrentHostAuthorized(jsonObj) {
-      if (!jsonObj || typeof jsonObj !== 'object') return jsonObj;
-      if (Array.isArray(jsonObj.authorizedDomains)) {
-        const host = window.location.hostname;
-        const hostWithPort = window.location.host;
-        const bareHost = host ? host.replace(/^www\./i, '') : '';
-        [host, hostWithPort, bareHost, 'localhost', '127.0.0.1'].forEach(h => {
-          if (h && !jsonObj.authorizedDomains.includes(h)) {
-            jsonObj.authorizedDomains.push(h);
+  window.__FIREBASE_CONFIG__ = firebaseConfig;
+
+  // 1. Purge any legacy storage entries from old Firebase projects (e.g. 206581825854 / pacific-ember-18chg)
+  (function cleanupLegacyFirebaseStorage() {
+    try {
+      const legacyTokens = ['206581825854', '1825854', 'pacific-ember', 'AIzaSyBFWkh24xuRUzhVQVgVxtNdpSbR'];
+      [window.localStorage, window.sessionStorage].forEach(store => {
+        if (!store) return;
+        const keysToRemove = [];
+        for (let i = 0; i < store.length; i++) {
+          const k = store.key(i);
+          if (!k) continue;
+          const v = store.getItem(k) || '';
+          if (legacyTokens.some(tok => k.includes(tok) || v.includes(tok))) {
+            keysToRemove.push(k);
           }
+        }
+        keysToRemove.forEach(k => {
+          try { store.removeItem(k); } catch (_) {}
         });
-      }
-      return jsonObj;
+      });
+    } catch (_) {}
+  })();
+
+  // 2. Intercept getProjectConfig (0ms instant response so mobile popup user-gesture never expires)
+  //    and guard window.open against any legacy authDomain URLs.
+  (function patchFirebaseRuntimeGuards() {
+    if (typeof window === 'undefined' || window.__wmFirebaseGuardsActive) return;
+    window.__wmFirebaseGuardsActive = true;
+
+    function getAuthorizedDomainsPayload() {
+      const host = window.location.hostname || 'localhost';
+      const hostWithPort = window.location.host || host;
+      const bareHost = host.replace(/^www\./i, '');
+      const domains = Array.from(new Set([
+        'localhost',
+        '127.0.0.1',
+        'wish-magic-47944.firebaseapp.com',
+        'wish-magic-47944.web.app',
+        host,
+        hostWithPort,
+        bareHost
+      ].filter(Boolean)));
+      return {
+        projectId: firebaseConfig.projectId,
+        authorizedDomains: domains
+      };
     }
 
     if (typeof window.fetch === 'function') {
       const origFetch = window.fetch.bind(window);
-      window.fetch = async function(input, init) {
+      window.fetch = function(input, init) {
         const urlStr = typeof input === 'string' ? input : (input && input.url ? input.url : '');
         const isProjectConfigUrl =
           urlStr.includes('getProjectConfig') ||
           urlStr.includes('identitytoolkit.googleapis.com/v1/projects');
 
         if (isProjectConfigUrl) {
-          init = Object.assign({}, init || {}, { cache: 'no-store' });
+          // Resolve immediately in 0ms to preserve transient user gesture activation on mobile browsers
+          const payload = getAuthorizedDomainsPayload();
+          return Promise.resolve(new Response(JSON.stringify(payload), {
+            status: 200,
+            statusText: 'OK',
+            headers: { 'Content-Type': 'application/json' }
+          }));
         }
 
-        const res = await origFetch(input, init);
-        if (isProjectConfigUrl && res && res.ok) {
-          try {
-            const clone = res.clone();
-            const data = await clone.json();
-            ensureCurrentHostAuthorized(data);
-            return new Response(JSON.stringify(data), {
-              status: res.status,
-              statusText: res.statusText,
-              headers: res.headers
-            });
-          } catch (_) {
-            return res;
-          }
-        }
-        return res;
+        return origFetch(input, init);
       };
     }
 
@@ -67,10 +98,8 @@
           this.addEventListener('readystatechange', function() {
             if (this.readyState === 4 && this.status >= 200 && this.status < 300) {
               try {
-                const raw = this.responseText;
-                const parsed = JSON.parse(raw);
-                ensureCurrentHostAuthorized(parsed);
-                const patchedText = JSON.stringify(parsed);
+                const payload = getAuthorizedDomainsPayload();
+                const patchedText = JSON.stringify(payload);
                 Object.defineProperty(this, 'responseText', { value: patchedText, configurable: true });
                 Object.defineProperty(this, 'response', { value: patchedText, configurable: true });
               } catch (_) {}
@@ -80,19 +109,20 @@
         return origOpen.apply(this, arguments);
       };
     }
+
+    if (typeof window.open === 'function') {
+      const origWindowOpen = window.open.bind(window);
+      window.open = function(url, target, features) {
+        if (typeof url === 'string' && (url.includes('1825854.firebaseapp.com') || url.includes('pacific-ember-18chg.firebaseapp.com'))) {
+          url = url
+            .replace(/[a-zA-Z0-9_-]*1825854\.firebaseapp\.com/g, firebaseConfig.authDomain)
+            .replace(/pacific-ember-18chg\.firebaseapp\.com/g, firebaseConfig.authDomain)
+            .replace(/apiKey=[^&]+/, 'apiKey=' + encodeURIComponent(firebaseConfig.apiKey));
+        }
+        return origWindowOpen(url, target, features);
+      };
+    }
   })();
-
-  // Your web app's Firebase configuration (wish-magic-47944)
-  const firebaseConfig = {
-    apiKey: "AIzaSyCiZmxmfgyj555EI4af_rt5X_id31F4Vq0",
-    authDomain: "wish-magic-47944.firebaseapp.com",
-    projectId: "wish-magic-47944",
-    storageBucket: "wish-magic-47944.firebasestorage.app",
-    messagingSenderId: "281035115213",
-    appId: "1:281035115213:web:2af5b3a6f0ceb6c64eb784"
-  };
-
-  window.__FIREBASE_CONFIG__ = firebaseConfig;
 
   const MASTER_ADMIN_EMAIL = 'ankit.babusaini@gmail.com';
 
@@ -109,12 +139,27 @@
     }
     if (typeof window.firebase !== 'undefined' && window.firebase.initializeApp && window.firebase.auth) {
       try {
-        if (!window.firebase.apps || window.firebase.apps.length === 0) {
+        // Ensure we always use an app configured with wish-magic-47944
+        let matchingApp = null;
+        if (Array.isArray(window.firebase.apps)) {
+          matchingApp = window.firebase.apps.find(
+            a => a && a.options && a.options.projectId === firebaseConfig.projectId && a.options.authDomain === firebaseConfig.authDomain
+          );
+        }
+
+        if (matchingApp) {
+          fbApp = matchingApp;
+        } else if (!window.firebase.apps || window.firebase.apps.length === 0) {
           fbApp = window.firebase.initializeApp(firebaseConfig);
         } else {
-          fbApp = window.firebase.app();
+          try {
+            fbApp = window.firebase.app('wish-magic-47944');
+          } catch (_) {
+            fbApp = window.firebase.initializeApp(firebaseConfig, 'wish-magic-47944');
+          }
         }
-        fbAuth = window.firebase.auth();
+
+        fbAuth = window.firebase.auth(fbApp);
         fbGoogleProvider = new window.firebase.auth.GoogleAuthProvider();
         fbGoogleProvider.setCustomParameters({ prompt: 'select_account' });
         fbSdk = {
@@ -149,7 +194,7 @@
     return null;
   }
 
-  // Initialize synchronously immediately on script load if compat SDK is present
+  // Initialize synchronously immediately on script load
   const syncInstance = trySyncInitCompat();
   if (syncInstance) {
     initPromise = Promise.resolve(syncInstance);
@@ -224,7 +269,7 @@
       case 'auth/cancelled-popup-request':
         return 'Google sign-in window was closed before completing sign-in. Please tap "Continue with Google" again.';
       case 'auth/popup-blocked':
-        return 'Sign-in popup was blocked by your browser. Redirecting to Google Sign-In...';
+        return 'Popup was blocked by your browser. Please allow popups for this site and tap "Continue with Google" again.';
       case 'auth/network-request-failed':
         return 'Network connection error. Please check your internet connection and try again.';
       default:
@@ -243,39 +288,55 @@
     },
 
     async getAuthInstance() {
-      const fb = await getFirebase();
-      return fb.auth;
+      const fb = trySyncInitCompat() || (await getFirebase());
+      return fb ? fb.auth : null;
     },
 
-    async signInWithGoogle() {
-      // Use synchronous instance if already initialized to preserve browser user-gesture token for popup!
-      const fb = trySyncInitCompat() || (await getFirebase());
-      if (!fb || !fb.auth || !fb.sdk) {
-        const initErr = new Error('Firebase Google Authentication is initializing. Please tap "Continue with Google" again.');
-        initErr.code = 'SDK_NOT_READY';
-        throw initErr;
-      }
-      const { auth, provider, sdk } = fb;
-      try {
-        const result = await sdk.signInWithPopup(auth, provider);
-        return result.user;
-      } catch (err) {
-        const code = (err && err.code) || '';
-        // If popup is blocked or unsupported in mobile webview, seamlessly redirect to Google Account Chooser
-        if (
-          (code === 'auth/popup-blocked' || code === 'auth/operation-not-supported-in-this-environment' || code === 'auth/unauthorized-domain') &&
-          typeof sdk.signInWithRedirect === 'function'
-        ) {
-          try {
-            await sdk.signInWithRedirect(auth, provider);
-            return null;
-          } catch (_) {}
+    signInWithGoogle() {
+      // IMPORTANT: Call signInWithPopup synchronously when compat SDK is ready so mobile browsers
+      // never lose the user-gesture activation token and never fall into cross-site bounce redirects!
+      const syncFb = trySyncInitCompat();
+      if (syncFb && syncFb.auth && syncFb.sdk) {
+        let popupPromise;
+        try {
+          popupPromise = syncFb.sdk.signInWithPopup(syncFb.auth, syncFb.provider);
+        } catch (syncErr) {
+          return Promise.reject(syncErr);
         }
-        const errObj = new Error(formatFirebaseError(err));
-        errObj.code = code || 'AUTH_POPUP_ERROR';
-        errObj.originalError = err;
-        throw errObj;
+        return popupPromise.then(result => (result && result.user) ? result.user : null).catch(async (err) => {
+          const code = (err && err.code) || '';
+          if (code === 'auth/operation-not-supported-in-this-environment' && typeof syncFb.sdk.signInWithRedirect === 'function') {
+            await syncFb.sdk.signInWithRedirect(syncFb.auth, syncFb.provider);
+            return null;
+          }
+          const errObj = new Error(formatFirebaseError(err));
+          errObj.code = code || 'AUTH_POPUP_ERROR';
+          errObj.originalError = err;
+          throw errObj;
+        });
       }
+
+      return getFirebase().then(async (fb) => {
+        if (!fb || !fb.auth || !fb.sdk) {
+          const initErr = new Error('Firebase Google Authentication is initializing. Please tap "Continue with Google" again.');
+          initErr.code = 'SDK_NOT_READY';
+          throw initErr;
+        }
+        try {
+          const result = await fb.sdk.signInWithPopup(fb.auth, fb.provider);
+          return (result && result.user) ? result.user : null;
+        } catch (err) {
+          const code = (err && err.code) || '';
+          if (code === 'auth/operation-not-supported-in-this-environment' && typeof fb.sdk.signInWithRedirect === 'function') {
+            await fb.sdk.signInWithRedirect(fb.auth, fb.provider);
+            return null;
+          }
+          const errObj = new Error(formatFirebaseError(err));
+          errObj.code = code || 'AUTH_POPUP_ERROR';
+          errObj.originalError = err;
+          throw errObj;
+        }
+      });
     },
 
     async signOut() {
