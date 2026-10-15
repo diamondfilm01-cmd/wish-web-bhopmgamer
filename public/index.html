@@ -399,26 +399,30 @@
     @media (max-width: 767.98px) {
       html:not(.dark) #hero-image-scrim,
       [data-theme="light"] #hero-image-scrim {
-        background: linear-gradient(
-          90deg,
-          rgba(26, 6, 165, 0.96) 0%,
-          rgba(12, 10, 145, 0.93) 42%,
-          rgba(28, 14, 165, 0.72) 68%,
-          rgba(56, 16, 185, 0.25) 88%,
-          rgba(56, 16, 185, 0.05) 100%
-        ) !important;
+        background:
+          radial-gradient(ellipse 62% 58% at 78% 62%, rgba(56, 16, 185, 0.0) 0%, rgba(34, 10, 160, 0.18) 70%, rgba(22, 8, 148, 0.55) 100%),
+          linear-gradient(
+            90deg,
+            rgba(26, 6, 165, 0.96) 0%,
+            rgba(14, 10, 145, 0.90) 34%,
+            rgba(28, 14, 165, 0.52) 54%,
+            rgba(56, 16, 185, 0.12) 72%,
+            rgba(56, 16, 185, 0.0) 86%
+          ) !important;
       }
       html.dark #hero-image-scrim,
       body.dark #hero-image-scrim,
       [data-theme="dark"] #hero-image-scrim {
-        background: linear-gradient(
-          90deg,
-          rgba(16, 4, 118, 0.97) 0%,
-          rgba(8, 8, 112, 0.94) 45%,
-          rgba(20, 10, 132, 0.76) 70%,
-          rgba(35, 10, 140, 0.30) 90%,
-          rgba(35, 10, 140, 0.08) 100%
-        ) !important;
+        background:
+          radial-gradient(ellipse 62% 58% at 78% 62%, rgba(35, 10, 140, 0.0) 0%, rgba(24, 8, 125, 0.22) 70%, rgba(16, 4, 118, 0.60) 100%),
+          linear-gradient(
+            90deg,
+            rgba(16, 4, 118, 0.97) 0%,
+            rgba(10, 8, 112, 0.91) 36%,
+            rgba(20, 10, 132, 0.55) 56%,
+            rgba(35, 10, 140, 0.14) 74%,
+            rgba(35, 10, 140, 0.0) 88%
+          ) !important;
       }
     }
 
@@ -1738,26 +1742,84 @@ body.dark .hero-gradient-text,
   window.addEventListener('load', syncHeroCastleBoundary);
   window.addEventListener('resize', syncHeroCastleBoundary);
 
-  // Interactive 3D Perspective Parallax for Background Balloons, Gift Box & Stars
+  // Interactive 3D Perspective Parallax & Touch/Tap Responsiveness for Background Balloons, Gift Box & Stars
   (function initHero3DParallax() {
     function bindHero3D() {
       var hero = document.getElementById('hero-desktop-section');
-      if (!hero) return;
-      hero.addEventListener('mousemove', function(e) {
+      var vp = document.getElementById('hero-css-3d-viewport');
+      if (!hero || !vp) return;
+      var pulseTimer = null;
+
+      function applyHeroTiltAndShift(clientX, clientY, boost) {
         var r = hero.getBoundingClientRect();
         if (!r.width || !r.height) return;
-        var nx = ((e.clientX - r.left) / r.width - 0.5) * 2;
-        var ny = ((e.clientY - r.top) / r.height - 0.5) * 2;
-        hero.style.setProperty('--wm-3d-tilt-y', (nx * 2.0).toFixed(2) + 'deg');
-        hero.style.setProperty('--wm-3d-tilt-x', (-ny * 1.5).toFixed(2) + 'deg');
-        hero.style.setProperty('--wm-3d-px', (nx * 4.5).toFixed(2) + 'px');
-        hero.style.setProperty('--wm-3d-py', (ny * 3.5).toFixed(2) + 'px');
-      }, { passive: true });
-      hero.addEventListener('mouseleave', function() {
+        var nx = Math.max(-1, Math.min(1, ((clientX - r.left) / r.width - 0.5) * 2));
+        var ny = Math.max(-1, Math.min(1, ((clientY - r.top) / r.height - 0.5) * 2));
+        var mult = boost || 1;
+        hero.style.setProperty('--wm-3d-tilt-y', (nx * 3.2 * mult).toFixed(2) + 'deg');
+        hero.style.setProperty('--wm-3d-tilt-x', (-ny * 2.4 * mult).toFixed(2) + 'deg');
+        hero.style.setProperty('--wm-3d-px', (nx * 7.5 * mult).toFixed(2) + 'px');
+        hero.style.setProperty('--wm-3d-py', (ny * 6.0 * mult).toFixed(2) + 'px');
+      }
+
+      function resetHeroTiltAndShift() {
         hero.style.setProperty('--wm-3d-tilt-y', '0deg');
         hero.style.setProperty('--wm-3d-tilt-x', '0deg');
         hero.style.setProperty('--wm-3d-px', '0px');
         hero.style.setProperty('--wm-3d-py', '0px');
+      }
+
+      function triggerTouchPulse() {
+        vp.classList.add('wm-touch-pulse');
+        if (pulseTimer) clearTimeout(pulseTimer);
+        pulseTimer = setTimeout(function() {
+          vp.classList.remove('wm-touch-pulse');
+        }, 650);
+      }
+
+      // Desktop Mouse Move / Click
+      hero.addEventListener('mousemove', function(e) {
+        applyHeroTiltAndShift(e.clientX, e.clientY, 1.0);
+      }, { passive: true });
+
+      hero.addEventListener('mouseleave', function() {
+        resetHeroTiltAndShift();
+        vp.classList.remove('wm-touch-pulse');
+      }, { passive: true });
+
+      hero.addEventListener('mousedown', function(e) {
+        applyHeroTiltAndShift(e.clientX, e.clientY, 1.25);
+        triggerTouchPulse();
+      }, { passive: true });
+
+      // Mobile Touch Start / Move / End (Responsive to tap & drag in the background!)
+      hero.addEventListener('touchstart', function(e) {
+        if (e.touches && e.touches.length > 0) {
+          var t = e.touches[0];
+          applyHeroTiltAndShift(t.clientX, t.clientY, 1.35);
+        }
+        triggerTouchPulse();
+      }, { passive: true });
+
+      hero.addEventListener('touchmove', function(e) {
+        if (e.touches && e.touches.length > 0) {
+          var t = e.touches[0];
+          applyHeroTiltAndShift(t.clientX, t.clientY, 1.45);
+          vp.classList.add('wm-touch-pulse');
+        }
+      }, { passive: true });
+
+      hero.addEventListener('touchend', function() {
+        resetHeroTiltAndShift();
+        if (pulseTimer) clearTimeout(pulseTimer);
+        pulseTimer = setTimeout(function() {
+          vp.classList.remove('wm-touch-pulse');
+        }, 420);
+      }, { passive: true });
+
+      hero.addEventListener('touchcancel', function() {
+        resetHeroTiltAndShift();
+        vp.classList.remove('wm-touch-pulse');
       }, { passive: true });
     }
     if (document.readyState === 'loading') {
@@ -1862,7 +1924,6 @@ body.dark .hero-gradient-text,
   <div id="hero-css-3d-canvas" class="hero-css-3d-canvas">
     <div class="hero-3d-bg-base"></div>
     <div class="hero-3d-css-atmosphere"></div>
-    <div class="hero-3d-plane hero-3d-plane-orbs"><div class="hero-3d-layer hero-3d-orbs-layer"></div></div>
     <div class="hero-3d-plane hero-3d-plane-box"><div class="hero-3d-layer hero-3d-box-layer"></div></div>
     <div class="hero-3d-plane hero-3d-plane-light"><div class="hero-3d-box-light-cone"></div></div>
     <div class="hero-3d-plane hero-3d-plane-b-back"><div class="hero-3d-layer hero-3d-balloons-back"></div></div>
@@ -3428,7 +3489,7 @@ body.dark .hero-gradient-text,
           heroSec.style.backgroundImage = `url('${customUrl}')`;
           if (stage3d) stage3d.style.display = 'none';
         } else {
-          heroSec.style.backgroundImage = 'var(--wm-hero-3d-composite)';
+          heroSec.style.backgroundImage = 'none';
           if (stage3d) stage3d.style.display = 'block';
         }
         heroSec.style.backgroundPosition = 'center';
