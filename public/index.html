@@ -257,7 +257,7 @@
     /* Hero Desktop Canvas: Dual Theme Support (Light & Dark) */
     .hero-desktop-canvas {
       position: relative;
-      background-image: url('/assets/file_ab2082.png');
+      background-image: var(--wm-hero-3d-composite);
       background-position: center;
       background-size: cover;
       background-repeat: no-repeat;
@@ -1737,6 +1737,36 @@ body.dark .hero-gradient-text,
   }
   window.addEventListener('load', syncHeroCastleBoundary);
   window.addEventListener('resize', syncHeroCastleBoundary);
+
+  // Interactive 3D Perspective Parallax for Background Balloons, Gift Box & Stars
+  (function initHero3DParallax() {
+    function bindHero3D() {
+      var hero = document.getElementById('hero-desktop-section');
+      if (!hero) return;
+      hero.addEventListener('mousemove', function(e) {
+        var r = hero.getBoundingClientRect();
+        if (!r.width || !r.height) return;
+        var nx = ((e.clientX - r.left) / r.width - 0.5) * 2;
+        var ny = ((e.clientY - r.top) / r.height - 0.5) * 2;
+        hero.style.setProperty('--wm-3d-tilt-y', (nx * 2.0).toFixed(2) + 'deg');
+        hero.style.setProperty('--wm-3d-tilt-x', (-ny * 1.5).toFixed(2) + 'deg');
+        hero.style.setProperty('--wm-3d-px', (nx * 4.5).toFixed(2) + 'px');
+        hero.style.setProperty('--wm-3d-py', (ny * 3.5).toFixed(2) + 'px');
+      }, { passive: true });
+      hero.addEventListener('mouseleave', function() {
+        hero.style.setProperty('--wm-3d-tilt-y', '0deg');
+        hero.style.setProperty('--wm-3d-tilt-x', '0deg');
+        hero.style.setProperty('--wm-3d-px', '0px');
+        hero.style.setProperty('--wm-3d-py', '0px');
+      }, { passive: true });
+    }
+    if (document.readyState === 'loading') {
+      document.addEventListener('DOMContentLoaded', bindHero3D);
+    } else {
+      bindHero3D();
+    }
+  })();
+
   if (typeof ResizeObserver !== 'undefined') {
     document.addEventListener('DOMContentLoaded', function() {
       var hero = document.getElementById('hero-desktop-section') || document.querySelector('.hero-desktop-canvas');
@@ -1827,6 +1857,29 @@ body.dark .hero-gradient-text,
 <!-- BEGIN: HeroSection (MAJOR UPGRADE - 2-COLUMN EXPANSIVE DESKTOP) -->
 <main class="flex-grow pt-3 sm:pt-4 pb-6 px-4 sm:px-6 md:px-8 max-w-7xl mx-auto w-full">
 <section id="hero-desktop-section" class="hero-desktop-canvas rounded-2xl sm:rounded-3xl p-5 sm:p-7 md:p-8 text-[#1c0836] dark:text-white relative overflow-hidden flex items-center shadow-xl transition-all duration-700" data-purpose="hero-carousel">
+<!-- Pure Code CSS & True 3D Hero Background Stage (Replaces /assets/file_ab2082.png) -->
+<div id="hero-css-3d-viewport" class="hero-css-3d-viewport" aria-hidden="true">
+  <div id="hero-css-3d-canvas" class="hero-css-3d-canvas">
+    <div class="hero-3d-bg-base"></div>
+    <div class="hero-3d-css-atmosphere"></div>
+    <div class="hero-3d-plane hero-3d-plane-orbs"><div class="hero-3d-layer hero-3d-orbs-layer"></div></div>
+    <div class="hero-3d-plane hero-3d-plane-box"><div class="hero-3d-layer hero-3d-box-layer"></div></div>
+    <div class="hero-3d-plane hero-3d-plane-light"><div class="hero-3d-box-light-cone"></div></div>
+    <div class="hero-3d-plane hero-3d-plane-b-back"><div class="hero-3d-layer hero-3d-balloons-back"></div></div>
+    <div class="hero-3d-plane hero-3d-plane-b-mid"><div class="hero-3d-layer hero-3d-balloons-mid"></div></div>
+    <div class="hero-3d-plane hero-3d-plane-b-front"><div class="hero-3d-layer hero-3d-balloons-front"></div></div>
+    <div class="hero-3d-plane hero-3d-plane-stars"><div class="hero-3d-layer hero-3d-stars-layer"></div></div>
+    <div class="hero-3d-plane hero-3d-plane-spec">
+      <span class="wm-spec-dome wm-spec-b1"></span>
+      <span class="wm-spec-dome wm-spec-b2"></span>
+      <span class="wm-spec-dome wm-spec-b4"></span>
+      <span class="wm-spec-dome wm-spec-b5"></span>
+      <span class="wm-spec-dome wm-spec-b7"></span>
+      <span class="wm-spec-dome wm-spec-b8"></span>
+      <span class="wm-spec-dome wm-spec-b9"></span>
+    </div>
+  </div>
+</div>
 <!-- Ambient Decorative Backdrop inside Hero -->
 <div id="ambient-hero-backdrop" class="absolute inset-0 pointer-events-none overflow-hidden">
 <!-- Radial Glowing orbs -->
@@ -2988,7 +3041,7 @@ body.dark .hero-gradient-text,
         const configuredVipPrice = (Number(tpl.price) > 0) ? Number(tpl.price) : ((linkCfg.personalized && linkCfg.personalized.price !== undefined) ? Number(linkCfg.personalized.price) : 59);
         const price = siteCfg.promoFreeOfferMode ? 0 : (siteCfg.promoDiscountEnabled && siteCfg.promoDiscountPrice !== undefined ? Number(siteCfg.promoDiscountPrice) : configuredVipPrice);
         const origPrice = Number(siteCfg.promoOriginalPrice || 99);
-        const previewImg = tpl.thumbnail || tpl.previewImage || "/assets/file_ab2082.png";
+        const previewImg = tpl.thumbnail || tpl.previewImage || (window.WM_HERO_3D_FALLBACK_URI || "");
 
         // Realistic consistent star rating & review count matching reference screenshot
         const ratingSeed = (tpl.id.charCodeAt(tpl.id.length - 1) || 5) % 4;
@@ -3360,15 +3413,24 @@ body.dark .hero-gradient-text,
         const grad = s.heroStyleGradient || HERO_STYLE_GRADIENTS_MAP[s.heroStyle || 'cosmic-purple'] || HERO_STYLE_GRADIENTS_MAP['cosmic-purple'];
         heroSec.style.setProperty('background', grad, 'important');
         if (ambientBackdrop) ambientBackdrop.style.display = 'block';
+        const stage3d = document.getElementById('hero-css-3d-viewport');
+        if (stage3d) stage3d.style.display = 'none';
         if (heroScrim) {
           heroScrim.style.setProperty('opacity', '0', 'important');
           heroScrim.style.setProperty('display', 'none', 'important');
         }
       } else {
-        // Photo Mode (default): Keeps the celebration banner photo visible behind hero text in BOTH light & dark modes!
-        const photoUrl = s.heroImageUrl || '/assets/file_ab2082.png';
+        // Pure CSS & 3D Hero Scene Mode (default): Uses code-generated 3D hero scene unless a custom external URL is set
+        const stage3d = document.getElementById('hero-css-3d-viewport');
+        const customUrl = (s.heroImageUrl && s.heroImageUrl !== '/assets/file_ab2082.png') ? s.heroImageUrl : '';
         heroSec.style.removeProperty('background');
-        heroSec.style.backgroundImage = `url('${photoUrl}')`;
+        if (customUrl) {
+          heroSec.style.backgroundImage = `url('${customUrl}')`;
+          if (stage3d) stage3d.style.display = 'none';
+        } else {
+          heroSec.style.backgroundImage = 'var(--wm-hero-3d-composite)';
+          if (stage3d) stage3d.style.display = 'block';
+        }
         heroSec.style.backgroundPosition = 'center';
         heroSec.style.backgroundSize = 'cover';
         heroSec.style.backgroundRepeat = 'no-repeat';
