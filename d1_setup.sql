@@ -2004,3 +2004,23 @@ CREATE INDEX idx_wishes_user_id ON wishes(user_id);
 -- Index: idx_wishes_user_status
 CREATE INDEX idx_wishes_user_status ON wishes(user_id, status);
 
+-- Index: idx_wishes_slug_unique (Migration 0033)
+CREATE UNIQUE INDEX IF NOT EXISTS idx_wishes_slug_unique ON wishes(slug);
+
+-- Index: idx_wishes_lifecycle_status (Migration 0033)
+CREATE INDEX IF NOT EXISTS idx_wishes_lifecycle_status ON wishes(lifecycle_status);
+
+-- Index: idx_wishes_expiry_date (Migration 0033)
+CREATE INDEX IF NOT EXISTS idx_wishes_expiry_date ON wishes(expiry_date);
+
+-- Index: idx_templates_published_cat (Migration 0034)
+CREATE INDEX IF NOT EXISTS idx_templates_published_cat ON templates(is_published, category);
+
+-- Index: idx_templates_published_tier (Migration 0034)
+CREATE INDEX IF NOT EXISTS idx_templates_published_tier ON templates(is_published, tier);
+
+-- Index: idx_templates_published_placement (Migration 0034)
+CREATE INDEX IF NOT EXISTS idx_templates_published_placement ON templates(is_published, placement);
+
+-- Index: idx_template_rel_enabled (Migration 0034)
+CREATE INDEX IF NOT EXISTS idx_template_rel_enabled ON template_relationships(template_id, enabled);

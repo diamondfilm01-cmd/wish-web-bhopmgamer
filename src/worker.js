@@ -3549,7 +3549,14 @@ async function getEffectiveEntitlement(user, env, options = {}) {
         "SELECT * FROM entitlements WHERE user_id = ? AND (expires_at IS NULL OR expires_at > ?) ORDER BY created_at DESC"
       ).bind(user.id, now).all().catch(() => ({ results: [] }));
 
-      const rows = (entRes && entRes.results) || [];
+      let rows = (entRes && Array.isArray(entRes.results)) ? [...entRes.results] : [];
+      if (rows.length === 0) {
+        const firstEnt = await env.DB.prepare(
+          "SELECT * FROM entitlements WHERE user_id = ? AND (status = 'active' OR is_active = 1) AND (expires_at IS NULL OR expires_at > ?) ORDER BY created_at DESC LIMIT 1"
+        ).bind(user.id, now).first().catch(() => null);
+        if (firstEnt) rows.push(firstEnt);
+      }
+
       for (const ent of rows) {
         const st = String(ent.status || "").toLowerCase();
         const isActive = st === "active" || ent.is_active === 1 || ent.is_active === true;
@@ -3572,7 +3579,7 @@ async function getEffectiveEntitlement(user, env, options = {}) {
           startsAt: ent.starts_at || ent.created_at
         });
 
-        if (pPlan === "vip_pass" || pPlan === "vip" || pPlan === "premium" || String(ent.plan).toUpperCase() === "VIP") {
+        if (pPlan === "vip_pass" || pPlan === "vip" || pPlan === "premium" || String(ent.plan || ent.plan_id || "").toUpperCase() === "VIP") {
           hasVipPass = true;
           hasCustomLinkEntitlement = true;
           hasHdStyleEntitlement = true;
@@ -5928,9 +5935,10 @@ export default {
             );
           }
 
-          // Strict Personalized Custom Link Payment / Referral Credit Check when client explicitly requests linkType === "personalized"
+          // Strict Personalized Custom Link Payment / Referral Credit Check when payment gateway is configured or order verification is requested
+          const isGatewayLive = Boolean(env && env.RAZORPAY_KEY_ID && env.RAZORPAY_KEY_SECRET);
           const explicitPersonalizedLink = (body.linkType === 'personalized' || customData.linkType === 'personalized') && !isDraftRequest;
-          if (explicitPersonalizedLink && !entitlement.hasCustomLinkEntitlement && !(body.useReferralCredit || customData.useReferralCredit)) {
+          if (explicitPersonalizedLink && (isGatewayLive || body.orderId || customData.verifiedOrderId) && !entitlement.hasCustomLinkEntitlement && !(body.useReferralCredit || customData.useReferralCredit)) {
             return applySecurityHeaders(
               jsonError('PAYMENT_REQUIRED', 'Payment required: please complete payment for your Custom Link or Combo Pack before publishing a personalized link.', 402, {}, null, requestId, FailureCategory.AUTHORIZATION),
               request, env

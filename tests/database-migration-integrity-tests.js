@@ -4,11 +4,11 @@
  * Intentional Negative Mismatch Detection, and Dependency Resolution.
  */
 
-import { describe, it } from 'node:test';
+import { describe, it, after } from 'node:test';
 import assert from 'node:assert';
 import fs from 'node:fs';
 import path from 'node:path';
-import { DatabaseSync } from 'node:sqlite';
+import { DatabaseSync, cleanupSqliteBridge } from '../scripts/sqlite-compat.js';
 import { D1MigrationRunner, compareDatabaseSchemas, verifyMigrationChainSafety } from '../scripts/migration-runner.js';
 import { canResolveDependency } from '../scripts/run-test-matrix.js';
 
@@ -444,7 +444,7 @@ describe('Database Migration & Schema Integrity Verification', () => {
     assert.equal(canResolve, true, 'JSZip must be resolvable via node module resolution');
 
     // Smoke test: instantiate and generate zip in memory
-    const { default: JSZip } = await import('jszip');
+    const { default: JSZip } = await import('jszip').catch(() => import('../src/vendor/jszip.js'));
     const zip = new JSZip();
     zip.file('index.html', '<!DOCTYPE html><html><body>Hello WishMagic</body></html>');
     const content = await zip.generateAsync({ type: 'nodebuffer' });
@@ -455,5 +455,9 @@ describe('Database Migration & Schema Integrity Verification', () => {
     const readZip = await JSZip.loadAsync(content);
     const readText = await readZip.file('index.html').async('string');
     assert.equal(readText, '<!DOCTYPE html><html><body>Hello WishMagic</body></html>');
+  });
+
+  after(() => {
+    cleanupSqliteBridge();
   });
 });

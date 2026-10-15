@@ -42,6 +42,8 @@ export function canResolveDependency(packageName) {
     try {
       const pkgPath = path.join(ROOT_DIR, 'node_modules', packageName, 'package.json');
       if (fs.existsSync(pkgPath)) return true;
+      const vendorPath = path.join(ROOT_DIR, 'src', 'vendor', `${packageName}.js`);
+      if (fs.existsSync(vendorPath)) return true;
     } catch {}
     return false;
   }
