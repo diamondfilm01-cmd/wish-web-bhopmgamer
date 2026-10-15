@@ -1681,6 +1681,118 @@ body::after {
   display: none !important;
 }
 
+
+/* Critical Anti-FOUC Header Lock: Prevents header/logo from ever appearing as a giant circle ("Gola") before Tailwind CDN loads */
+header[data-purpose="site-navigation"] {
+  width: 100% !important;
+  max-width: min(96vw, 1260px) !important;
+  margin-left: auto !important;
+  margin-right: auto !important;
+  box-sizing: border-box !important;
+}
+header .glass-nav,
+.wm-site-header-bar {
+  height: 48px !important;
+  min-height: 44px !important;
+  max-height: 56px !important;
+  padding: 5px 12px !important;
+  border-radius: 9999px !important;
+  width: 100% !important;
+  display: flex !important;
+  flex-direction: row !important;
+  align-items: center !important;
+  justify-content: space-between !important;
+  flex-wrap: nowrap !important;
+  box-sizing: border-box !important;
+}
+@media (min-width: 640px) {
+  header .glass-nav,
+  .wm-site-header-bar {
+    height: 54px !important;
+    max-height: 58px !important;
+    padding: 6px 18px !important;
+  }
+}
+header svg,
+.wm-site-header-bar svg,
+#wm-mobile-nav-drawer svg {
+  width: 16px !important;
+  height: 16px !important;
+  max-width: 20px !important;
+  max-height: 20px !important;
+  flex-shrink: 0 !important;
+  display: inline-block !important;
+}
+header .wm-brand-icon-box {
+  width: 32px !important;
+  height: 32px !important;
+  min-width: 32px !important;
+  max-width: 32px !important;
+  border-radius: 10px !important;
+  display: inline-flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  flex-shrink: 0 !important;
+  overflow: hidden !important;
+  background: linear-gradient(135deg, #a855f7 0%, #ec4899 55%, #f59e0b 100%) !important;
+}
+.wm-desktop-nav { display: none !important; }
+.wm-mobile-only-btn { display: inline-flex !important; width: 32px !important; height: 32px !important; border-radius: 9999px !important; align-items: center !important; justify-content: center !important; }
+#wm-mobile-nav-drawer.hidden, .hidden { display: none !important; }
+@media (min-width: 768px) {
+  .wm-desktop-nav { display: flex !important; align-items: center !important; gap: 4px !important; }
+  .wm-mobile-only-btn, #wm-mobile-nav-drawer { display: none !important; }
+}
+
+
+/* Prevent ANY SVG icon (header, search bar, cards) from blowing up into a giant circle ("Gola") before Tailwind CDN loads */
+svg:not([width]) {
+  width: 1.25rem;
+  height: 1.25rem;
+  max-width: 100%;
+}
+svg.w-3\.5 { width: 14px !important; height: 14px !important; }
+svg.w-4 { width: 16px !important; height: 16px !important; }
+svg.w-5 { width: 20px !important; height: 20px !important; }
+svg.w-6 { width: 24px !important; height: 24px !important; }
+header .wm-header-brand,
+header .wm-header-actions,
+header .wm-header-create-btn,
+header .wm-theme-pill-btn {
+  display: inline-flex !important;
+  flex-direction: row !important;
+  align-items: center !important;
+  flex-wrap: nowrap !important;
+  gap: 6px !important;
+}
+header .wm-theme-pill-btn {
+  width: 56px !important;
+  height: 30px !important;
+  border-radius: 9999px !important;
+  padding: 3px !important;
+  position: relative !important;
+  justify-content: space-between !important;
+}
+header .wm-header-create-btn {
+  height: 32px !important;
+  padding: 0 12px !important;
+  border-radius: 9999px !important;
+  color: #ffffff !important;
+  text-decoration: none !important;
+  font-size: 12px !important;
+  font-weight: 800 !important;
+}
+@media (max-width: 639.98px) {
+  header .wm-header-create-btn {
+    width: 32px !important;
+    padding: 0 !important;
+  }
+  header .wm-create-text-short,
+  header .wm-create-text-full {
+    display: none !important;
+  }
+}
+
 /* Global 4-Column Desktop Templates Grid Helper */
 @media (min-width: 768px) {
   #templates-grid,
@@ -1742,91 +1854,169 @@ body.dark .hero-gradient-text,
   window.addEventListener('load', syncHeroCastleBoundary);
   window.addEventListener('resize', syncHeroCastleBoundary);
 
-  // Interactive 3D Perspective Parallax & Touch/Tap Responsiveness for Background Balloons, Gift Box & Stars
-  (function initHero3DParallax() {
-    function bindHero3D() {
+  // WishMagic Theme-Matched Celebration Confetti & Wish-Charms Burst on Hero Touch / Click
+  (function initHeroCelebrationInteraction() {
+    function bindHeroCelebration() {
       var hero = document.getElementById('hero-desktop-section');
-      var vp = document.getElementById('hero-css-3d-viewport');
-      if (!hero || !vp) return;
-      var pulseTimer = null;
+      var stage = document.getElementById('wm-hero-confetti-stage');
+      if (!hero || !stage) {
+        setTimeout(bindHeroCelebration, 80);
+        return;
+      }
+      if (hero.dataset.wmCelebrationBound === '1') return;
+      hero.dataset.wmCelebrationBound = '1';
+      var lastBurstAt = 0;
 
-      function applyHeroTiltAndShift(clientX, clientY, boost) {
+      var COLORS = [
+        'linear-gradient(135deg, #ff2a85, #ec4899)',
+        'linear-gradient(135deg, #fbbf24, #f59e0b)',
+        'linear-gradient(135deg, #a855f7, #6366f1)',
+        'linear-gradient(135deg, #fde047, #fb7185)',
+        'linear-gradient(135deg, #f472b6, #c084fc)',
+        'linear-gradient(135deg, #38bdf8, #818cf8)'
+      ];
+      var CHARMS = ['✨', '💖', '🎉', '⭐', '💝', '🎊', '✨'];
+
+      function spawnWishMagicCelebrationBurst(clientX, clientY) {
+        var now = Date.now();
+        if (now - lastBurstAt < 180) return;
+        lastBurstAt = now;
+
         var r = hero.getBoundingClientRect();
         if (!r.width || !r.height) return;
-        var nx = Math.max(-1, Math.min(1, ((clientX - r.left) / r.width - 0.5) * 2));
-        var ny = Math.max(-1, Math.min(1, ((clientY - r.top) / r.height - 0.5) * 2));
-        var mult = boost || 1;
-        hero.style.setProperty('--wm-3d-tilt-y', (nx * 3.2 * mult).toFixed(2) + 'deg');
-        hero.style.setProperty('--wm-3d-tilt-x', (-ny * 2.4 * mult).toFixed(2) + 'deg');
-        hero.style.setProperty('--wm-3d-px', (nx * 7.5 * mult).toFixed(2) + 'px');
-        hero.style.setProperty('--wm-3d-py', (ny * 6.0 * mult).toFixed(2) + 'px');
+        var x = clientX - r.left;
+        var y = clientY - r.top;
+
+        // 1. Expanding golden-pink magic ring at touch/tap point
+        var ring = document.createElement('span');
+        ring.className = 'wm-touch-ring-ripple';
+        ring.style.left = x.toFixed(1) + 'px';
+        ring.style.top = y.toFixed(1) + 'px';
+        stage.appendChild(ring);
+        setTimeout(function() { if (ring.parentNode) ring.parentNode.removeChild(ring); }, 700);
+
+        // 2. Spawn 22 3D confetti ribbons + magical wish charms (✨, 💖, 🎉, ⭐) bursting from touch point
+        var frag = document.createDocumentFragment();
+        for (var i = 0; i < 22; i++) {
+          var el = document.createElement('span');
+          var isCharm = (i % 3 === 0);
+          el.className = 'wm-confetti-piece ' + (isCharm ? 'wm-confetti-charm' : 'wm-confetti-ribbon');
+          var angle = (Math.PI * 2 * i) / 22 + (Math.random() - 0.5) * 0.35;
+          var dist = 36 + Math.random() * 88;
+          var dx = Math.cos(angle) * dist;
+          var dy = Math.sin(angle) * dist - (24 + Math.random() * 36);
+          var rot = Math.round((Math.random() - 0.5) * 520);
+          var dur = Math.round(880 + Math.random() * 480);
+
+          el.style.left = x.toFixed(1) + 'px';
+          el.style.top = y.toFixed(1) + 'px';
+          el.style.setProperty('--wm-cf-dx', dx.toFixed(1) + 'px');
+          el.style.setProperty('--wm-cf-dy', dy.toFixed(1) + 'px');
+          el.style.setProperty('--wm-cf-rot', rot + 'deg');
+          el.style.setProperty('--wm-cf-dur', dur + 'ms');
+          el.style.setProperty('--wm-cf-fall', Math.round(48 + Math.random() * 45) + 'px');
+
+          if (isCharm) {
+            el.textContent = CHARMS[i % CHARMS.length];
+            el.style.setProperty('--wm-cf-size', Math.round(13 + Math.random() * 7) + 'px');
+          } else {
+            el.style.setProperty('--wm-cf-bg', COLORS[i % COLORS.length]);
+            el.style.setProperty('--wm-cf-w', Math.round(6 + Math.random() * 5) + 'px');
+            el.style.setProperty('--wm-cf-h', Math.round(10 + Math.random() * 7) + 'px');
+          }
+          frag.appendChild(el);
+          (function(node, ttl) {
+            setTimeout(function() { if (node.parentNode) node.parentNode.removeChild(node); }, ttl + 60);
+          })(el, dur);
+        }
+        // 2b. Also shoot 12 golden stars, hearts & confetti ribbons upward out of the open 3D Gift Box in the background!
+        var boxEl = hero.querySelector('.hero-3d-box-layer');
+        if (boxEl) {
+          var br = boxEl.getBoundingClientRect();
+          var bx = (br.left - r.left) + br.width * 0.56;
+          var by = (br.top - r.top) + br.height * 0.24;
+          for (var j = 0; j < 12; j++) {
+            var bel = document.createElement('span');
+            var bCharm = (j % 2 === 0);
+            bel.className = 'wm-confetti-piece ' + (bCharm ? 'wm-confetti-charm' : 'wm-confetti-ribbon');
+            var bAngle = -Math.PI / 2 + (Math.random() - 0.5) * 1.15;
+            var bDist = 55 + Math.random() * 95;
+            var bdx = Math.cos(bAngle) * bDist;
+            var bdy = Math.sin(bAngle) * bDist - 20;
+            var bDur = Math.round(950 + Math.random() * 450);
+            bel.style.left = bx.toFixed(1) + 'px';
+            bel.style.top = by.toFixed(1) + 'px';
+            bel.style.setProperty('--wm-cf-dx', bdx.toFixed(1) + 'px');
+            bel.style.setProperty('--wm-cf-dy', bdy.toFixed(1) + 'px');
+            bel.style.setProperty('--wm-cf-rot', Math.round((Math.random() - 0.5) * 480) + 'deg');
+            bel.style.setProperty('--wm-cf-dur', bDur + 'ms');
+            bel.style.setProperty('--wm-cf-fall', Math.round(30 + Math.random() * 35) + 'px');
+            if (bCharm) {
+              bel.textContent = CHARMS[(j + 1) % CHARMS.length];
+              bel.style.setProperty('--wm-cf-size', Math.round(14 + Math.random() * 7) + 'px');
+            } else {
+              bel.style.setProperty('--wm-cf-bg', COLORS[(j + 2) % COLORS.length]);
+              bel.style.setProperty('--wm-cf-w', Math.round(6 + Math.random() * 5) + 'px');
+              bel.style.setProperty('--wm-cf-h', Math.round(11 + Math.random() * 6) + 'px');
+            }
+            frag.appendChild(bel);
+            (function(node, ttl) {
+              setTimeout(function() { if (node.parentNode) node.parentNode.removeChild(node); }, ttl + 60);
+            })(bel, bDur);
+          }
+        }
+
+        stage.appendChild(frag);
+
+        // 3. Also trigger canvas-confetti celebration burst if loaded
+        if (typeof window.confetti === 'function') {
+          try {
+            window.confetti({
+              particleCount: 28,
+              spread: 68,
+              startVelocity: 26,
+              scalar: 0.85,
+              origin: {
+                x: Math.max(0.05, Math.min(0.95, clientX / window.innerWidth)),
+                y: Math.max(0.05, Math.min(0.95, clientY / window.innerHeight))
+              },
+              colors: ['#ff2a85', '#ec4899', '#fbbf24', '#a855f7', '#fde047']
+            });
+          } catch (_) {}
+        }
       }
 
-      function resetHeroTiltAndShift() {
-        hero.style.setProperty('--wm-3d-tilt-y', '0deg');
-        hero.style.setProperty('--wm-3d-tilt-x', '0deg');
-        hero.style.setProperty('--wm-3d-px', '0px');
-        hero.style.setProperty('--wm-3d-py', '0px');
-      }
-
-      function triggerTouchPulse() {
-        vp.classList.add('wm-touch-pulse');
-        if (pulseTimer) clearTimeout(pulseTimer);
-        pulseTimer = setTimeout(function() {
-          vp.classList.remove('wm-touch-pulse');
-        }, 650);
-      }
-
-      // Desktop Mouse Move / Click
+      // Gentle desktop hover parallax only (no jump on touch!)
       hero.addEventListener('mousemove', function(e) {
-        applyHeroTiltAndShift(e.clientX, e.clientY, 1.0);
+        if (window.innerWidth < 768) return;
+        var r = hero.getBoundingClientRect();
+        if (!r.width || !r.height) return;
+        var nx = ((e.clientX - r.left) / r.width - 0.5) * 2;
+        var ny = ((e.clientY - r.top) / r.height - 0.5) * 2;
+        hero.style.setProperty('--wm-3d-px', (nx * 4.0).toFixed(2) + 'px');
+        hero.style.setProperty('--wm-3d-py', (ny * 3.0).toFixed(2) + 'px');
       }, { passive: true });
 
       hero.addEventListener('mouseleave', function() {
-        resetHeroTiltAndShift();
-        vp.classList.remove('wm-touch-pulse');
+        hero.style.setProperty('--wm-3d-px', '0px');
+        hero.style.setProperty('--wm-3d-py', '0px');
       }, { passive: true });
 
-      hero.addEventListener('mousedown', function(e) {
-        applyHeroTiltAndShift(e.clientX, e.clientY, 1.25);
-        triggerTouchPulse();
-      }, { passive: true });
-
-      // Mobile Touch Start / Move / End (Responsive to tap & drag in the background!)
+      // Touch & Click Celebration Confetti Burst
       hero.addEventListener('touchstart', function(e) {
         if (e.touches && e.touches.length > 0) {
           var t = e.touches[0];
-          applyHeroTiltAndShift(t.clientX, t.clientY, 1.35);
-        }
-        triggerTouchPulse();
-      }, { passive: true });
-
-      hero.addEventListener('touchmove', function(e) {
-        if (e.touches && e.touches.length > 0) {
-          var t = e.touches[0];
-          applyHeroTiltAndShift(t.clientX, t.clientY, 1.45);
-          vp.classList.add('wm-touch-pulse');
+          spawnWishMagicCelebrationBurst(t.clientX, t.clientY);
         }
       }, { passive: true });
 
-      hero.addEventListener('touchend', function() {
-        resetHeroTiltAndShift();
-        if (pulseTimer) clearTimeout(pulseTimer);
-        pulseTimer = setTimeout(function() {
-          vp.classList.remove('wm-touch-pulse');
-        }, 420);
-      }, { passive: true });
-
-      hero.addEventListener('touchcancel', function() {
-        resetHeroTiltAndShift();
-        vp.classList.remove('wm-touch-pulse');
+      hero.addEventListener('mousedown', function(e) {
+        spawnWishMagicCelebrationBurst(e.clientX, e.clientY);
       }, { passive: true });
     }
-    if (document.readyState === 'loading') {
-      document.addEventListener('DOMContentLoaded', bindHero3D);
-    } else {
-      bindHero3D();
-    }
+    bindHeroCelebration();
+    document.addEventListener('DOMContentLoaded', bindHeroCelebration);
+    window.addEventListener('load', bindHeroCelebration);
   })();
 
   if (typeof ResizeObserver !== 'undefined') {
@@ -1847,73 +2037,110 @@ body.dark .hero-gradient-text,
 
 <div class="relative z-10 flex flex-col min-h-screen w-full">
 <!-- BEGIN: FloatingGlassNavbar -->
-<header class="sticky top-2 sm:top-5 z-50 px-2.5 sm:px-6 md:px-8 max-w-7xl mx-auto w-full transition-all duration-300" data-purpose="site-navigation">
-<div class="glass-nav rounded-2xl sm:rounded-full px-3 sm:px-5 lg:px-7 py-1.5 sm:py-2.5 flex items-center justify-between gap-2 sm:gap-4 shadow-lg shadow-purple-900/5">
-<!-- Left: Brand Logo & Tagline -->
-<a class="flex items-center gap-2 sm:gap-2.5 group flex-shrink-0" href="#">
-<div class="w-8 h-8 sm:w-9 sm:h-9 rounded-full bg-gradient-to-tr from-purple-600 via-pink-500 to-amber-300 flex items-center justify-center shadow-md shadow-pink-500/25 group-hover:rotate-12 transition-transform duration-300">
-<svg class="w-4 h-4 sm:w-4.5 sm:h-4.5 text-white" fill="none" stroke="currentColor" viewbox="0 0 24 24">
-<path d="M19.428 15.428a2 2 0 00-1.022-.547l-2.387-.477a6 6 0 00-3.86.517l-.318.158a6 6 0 01-3.86.517L6.05 15.21a2 2 0 00-1.806.547M8 4h8l-1 1v5.172a2 2 0 00.586 1.414l5 5c1.26 1.26.367 3.414-1.415 3.414H4.828c-1.782 0-2.674-2.154-1.414-3.414l5-5A2 2 0 009 10.172V5L8 4z" stroke-linecap="round" stroke-linejoin="round" stroke-width="2"></path>
-</svg>
-</div>
-<div class="flex flex-col">
-<span id="navbar-brand-name" class="brand-name-text font-display font-extrabold text-base sm:text-xl lg:text-2xl tracking-tight bg-gradient-to-r from-purple-900 via-pink-600 to-purple-800 dark:from-purple-200 dark:via-pink-400 dark:to-purple-300 bg-clip-text text-transparent leading-none">WishMagic</span>
-<span class="text-[9px] sm:text-[10px] font-semibold text-purple-800/80 dark:text-purple-300/80 tracking-wider mt-0.5 hidden md:inline-block">Create. Personalize. Celebrate.</span>
-</div>
-</a>
-<!-- Center: Nav links -->
-<nav class="hidden lg:flex items-center gap-1 xl:gap-2 text-sm font-semibold text-magic-900 dark:text-magic-100">
-<a class="px-3.5 py-1.5 rounded-full bg-purple-700 text-white shadow-sm flex items-center gap-1.5 transition-all" href="#">
-<svg class="w-4 h-4" fill="currentColor" viewbox="0 0 20 20"><path d="M10.707 2.293a1 1 0 00-1.414 0l-7 7a1 1 0 001.414 1.414L4 10.414V17a1 1 0 001 1h2a1 1 0 001-1v-2a1 1 0 011-1h2a1 1 0 011 1v2a1 1 0 001 1h2a1 1 0 001-1v-6.586l.293.293a1 1 0 001.414-1.414l-7-7z"></path></svg>
-            Home
-          </a>
-<a class="px-3.5 py-1.5 rounded-full hover:bg-white/70 dark:hover:bg-purple-900/60 hover:text-purple-700 dark:hover:text-pink-300 transition-all flex items-center gap-1.5" href="#templates-section">
-<svg class="w-4 h-4 text-magic-600 dark:text-magic-400" fill="none" stroke="currentColor" viewbox="0 0 24 24"><path d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" stroke-linecap="round" stroke-linejoin="round" stroke-width="2"></path></svg>
-            Templates
-          </a>
-<a class="px-3.5 py-1.5 rounded-full hover:bg-white/70 dark:hover:bg-purple-900/60 hover:text-purple-700 dark:hover:text-pink-300 transition-all flex items-center gap-1.5" href="/my-wishes">
-<span class="material-symbols-outlined text-[18px] text-pink-500">auto_awesome_mosaic</span>
-            My Wishes
-          </a>
-<a class="px-3.5 py-1.5 rounded-full hover:bg-white/70 dark:hover:bg-purple-900/60 hover:text-purple-700 dark:hover:text-pink-300 transition-all flex items-center gap-1.5" href="#how-it-works">
-<svg class="w-4 h-4 text-magic-600 dark:text-magic-400" fill="none" stroke="currentColor" viewbox="0 0 24 24"><path d="M13 10V3L4 14h7v7l9-11h-7z" stroke-linecap="round" stroke-linejoin="round" stroke-width="2"></path></svg>
-            How It Works
-          </a>
-<a class="px-3.5 py-1.5 rounded-full hover:bg-white/70 dark:hover:bg-purple-900/60 hover:text-purple-700 dark:hover:text-pink-300 transition-all flex items-center gap-1.5" href="#pricing-section">
-<svg class="w-4 h-4 text-magic-600 dark:text-magic-400" fill="none" stroke="currentColor" viewbox="0 0 24 24"><path d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z" stroke-linecap="round" stroke-linejoin="round" stroke-width="2"></path></svg>
-            Pricing
-          </a>
-<a class="px-3.5 py-1.5 rounded-full hover:bg-white/70 dark:hover:bg-purple-900/60 hover:text-purple-700 dark:hover:text-pink-300 transition-all flex items-center gap-1.5" href="#about-section">
-<svg class="w-4 h-4 text-magic-600 dark:text-magic-400" fill="none" stroke="currentColor" viewbox="0 0 24 24"><path d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" stroke-linecap="round" stroke-linejoin="round" stroke-width="2"></path></svg>
-            About
-          </a>
-</nav>
-<!-- Right: Theme toggle, Search pill + Auth CTAs -->
-<div class="flex items-center gap-1.5 sm:gap-2 flex-shrink-0">
-<!-- Admin Studio Animated Sun/Moon Theme Pill Switch -->
-<button type="button" onclick="toggleSiteTheme()" class="wm-theme-pill-btn" title="Switch Light / Dark Mode" aria-label="Toggle Light or Dark Theme">
-  <span class="wm-theme-pill-sun">
-    <span class="material-symbols-outlined text-[15px]" style="font-variation-settings: 'FILL' 1;">light_mode</span>
-  </span>
-  <span class="wm-theme-pill-knob">
-    <span class="material-symbols-outlined text-[14px]" style="font-variation-settings: 'FILL' 1;">dark_mode</span>
-  </span>
-</button>
-<!-- Sleek Search Input -->
-<div class="relative hidden xl:block w-48">
-<input class="w-full text-xs font-semibold pl-9 pr-7 py-1.5 rounded-full border border-purple-200/90 dark:border-purple-800/80 bg-white/70 dark:bg-purple-950/60 text-purple-950 dark:text-purple-100 focus:bg-white dark:focus:bg-purple-900 focus:outline-none focus:ring-2 focus:ring-purple-400 placeholder-purple-400 dark:placeholder-purple-400/60 transition" id="nav-search-input" placeholder="Search templates..." type="text"/>
-<svg class="w-3.5 h-3.5 text-purple-600 dark:text-purple-400 absolute left-3 top-2" fill="none" stroke="currentColor" viewbox="0 0 24 24">
-<path d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" stroke-linecap="round" stroke-linejoin="round" stroke-width="2"></path>
-</svg>
-<button class="hidden absolute right-2.5 top-1.5 text-gray-400 hover:text-gray-600 text-xs font-bold" id="search-clear-btn">✕</button>
-</div>
-<div data-purpose="navbar-auth" class="navbar-auth-container flex-shrink-0">
-  <div id="auth-ui" data-auth-state="booting" class="h-8 w-8 rounded-full bg-purple-500/10 border border-purple-500/15 flex items-center justify-center animate-pulse" aria-hidden="true">
-    <span class="inline-block w-2 h-2 rounded-full bg-purple-400/40"></span>
+<header class="sticky top-2 sm:top-4 z-50 px-2 sm:px-4 lg:px-6 max-w-7xl mx-auto w-full transition-all" data-purpose="site-navigation">
+  <div class="wm-site-header-bar glass-nav rounded-full flex items-center justify-between relative">
+    <!-- Left: Brand Logo -->
+    <a href="/" onclick="return window.handleStorefrontNav ? window.handleStorefrontNav(event, 'home') : true" class="wm-header-brand flex items-center gap-2 group flex-shrink-0 text-decoration-none min-w-0">
+      <div class="wm-brand-icon-box w-8 h-8 rounded-xl bg-gradient-to-br from-[#a855f7] via-[#ec4899] to-[#f59e0b] flex items-center justify-center text-white shadow-md group-hover:scale-105 transition-transform flex-shrink-0">
+        <svg width="16" height="16" class="w-4 h-4 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.2" d="M5 3v4M3 5h4M6 17v4m-2-2h4m5-16l2.286 6.857L21 12l-5.714 2.143L13 21l-2.286-6.857L5 12l5.714-2.143L13 3z"/>
+        </svg>
+      </div>
+      <div class="flex flex-col min-w-0">
+        <span id="navbar-brand-name" class="brand-name-text font-display font-extrabold text-[15px] sm:text-[17px] lg:text-[19px] tracking-tight leading-none truncate">
+          <span class="text-[#1a0f30] dark:text-white">Wish</span><span class="wm-brand-magic">Magic</span>
+        </span>
+        <span class="wm-brand-tagline text-[9px] font-semibold text-[#6e5d8f] dark:text-[#cfc2eb] tracking-wide mt-0.5 hidden 2xl:inline-block whitespace-nowrap">Create. Personalize. Celebrate.</span>
+      </div>
+    </a>
+
+    <!-- Center: 5 Direct Working Options for Desktop View ONLY (Hidden on Mobile < 768px) -->
+    <nav class="wm-desktop-nav items-center justify-center min-w-0" aria-label="Main Navigation">
+      <a href="/" data-nav-key="home" onclick="return window.handleStorefrontNav ? window.handleStorefrontNav(event, 'home') : true" class="wm-nav-pill active">
+        <svg width="14" height="14" class="wm-nav-icon w-3.5 h-3.5 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.2" d="M3 10.5L12 3l9 7.5V20a1 1 0 01-1 1h-5.5v-6h-5v6H4a1 1 0 01-1-1v-9.5z"/></svg>
+        <span>Home</span>
+      </a>
+      <a href="/templates.html" data-nav-key="templates" onclick="return window.handleStorefrontNav ? window.handleStorefrontNav(event, 'templates') : true" class="wm-nav-pill">
+        <svg width="14" height="14" class="wm-nav-icon w-3.5 h-3.5 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.2" d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z"/></svg>
+        <span>Templates</span>
+      </a>
+      <a href="/#how-it-works" data-nav-key="how-it-works" onclick="return window.handleStorefrontNav ? window.handleStorefrontNav(event, 'how-it-works') : true" class="wm-nav-pill">
+        <svg width="14" height="14" class="wm-nav-icon w-3.5 h-3.5 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.2" d="M13 10V3L4 14h7v7l9-11h-7z"/></svg>
+        <span>How It Works</span>
+      </a>
+      <a href="/pricing.html" data-nav-key="pricing" onclick="return window.handleStorefrontNav ? window.handleStorefrontNav(event, 'pricing') : true" class="wm-nav-pill">
+        <svg width="14" height="14" class="wm-nav-icon w-3.5 h-3.5 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.2" d="M3 7l4.5 5L12 5l4.5 7L21 7v11a2 2 0 01-2 2H5a2 2 0 01-2-2V7z"/></svg>
+        <span>Pricing</span>
+      </a>
+      <a href="/#about-section" data-nav-key="about" onclick="return window.handleStorefrontNav ? window.handleStorefrontNav(event, 'about') : true" class="wm-nav-pill">
+        <svg width="14" height="14" class="wm-nav-icon w-3.5 h-3.5 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>
+        <span>About</span>
+      </a>
+    </nav>
+
+    <!-- Right: Compact Icon Controls on Mobile, Balanced Controls on Desktop -->
+    <div class="wm-header-actions flex items-center flex-shrink-0">
+      <button type="button" onclick="toggleSiteTheme()" class="wm-theme-pill-btn" data-theme-mode="light" aria-checked="false" title="Switch Light / Dark Mode" aria-label="Toggle Light or Dark Theme">
+        <span class="wm-theme-pill-sun" aria-hidden="true">
+          <svg width="14" height="14" class="w-3.5 h-3.5" viewBox="0 0 24 24" fill="currentColor">
+            <path d="M12 7a5 5 0 100 10 5 5 0 000-10zM2 13h2a1 1 0 100-2H2a1 1 0 100 2zm18 0h2a1 1 0 100-2h-2a1 1 0 100 2zM11 2v2a1 1 0 102 0V2a1 1 0 10-2 0zm0 18v2a1 1 0 102 0v-2a1 1 0 10-2 0zM5.99 4.58a1 1 0 00-1.41 1.41l1.06 1.06a1 1 0 001.41-1.41L5.99 4.58zm12.37 12.37a1 1 0 00-1.41 1.41l1.06 1.06a1 1 0 001.41-1.41l-1.06-1.06zm1.06-10.96a1 1 0 00-1.41-1.41l-1.06 1.06a1 1 0 001.41 1.41l1.06-1.06zM7.05 18.36a1 1 0 00-1.41-1.41l-1.06 1.06a1 1 0 001.41 1.41l1.06-1.06z"/>
+          </svg>
+        </span>
+        <span class="wm-theme-pill-knob" aria-hidden="true">
+          <svg width="14" height="14" class="w-3.5 h-3.5" viewBox="0 0 24 24" fill="currentColor">
+            <path d="M12.1 22c-5.52 0-10-4.48-10-10 0-4.75 3.31-8.72 7.75-9.74.68-.16 1.24.53.94 1.16A7.96 7.96 0 0010 7c0 4.42 3.58 8 8 8 1.29 0 2.51-.31 3.58-.85.63-.31 1.32.25 1.16.94C21.72 19.53 17.34 22 12.1 22z"/>
+          </svg>
+        </span>
+      </button>
+
+      <a href="/create.html" class="wm-header-create-btn inline-flex items-center justify-center rounded-full font-extrabold text-white bg-gradient-to-r from-[#ff2a85] via-[#ec4899] to-[#a855f7] hover:brightness-110 shadow-[0_6px_18px_rgba(236,72,153,0.3)] transition-all flex-shrink-0 whitespace-nowrap" title="Create Wish">
+        <svg width="14" height="14" class="w-3.5 h-3.5 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M12 4v16m8-8H4"/></svg>
+        <span class="wm-create-text-short">Create</span>
+        <span class="wm-create-text-full">Create Wish</span>
+      </a>
+
+      <div data-purpose="navbar-notifications" class="relative inline-flex items-center flex-shrink-0"></div>
+      <div data-purpose="navbar-auth" class="navbar-auth-container flex-shrink-0"></div>
+
+      <button type="button" id="wm-mobile-menu-btn" onclick="window.toggleMobileStorefrontNav && window.toggleMobileStorefrontNav(event)" class="wm-mobile-only-btn rounded-full bg-[#f4effc] dark:bg-[#25144a] border border-[#d6c8f2] dark:border-purple-500/40 items-center justify-center text-[#1a0f30] dark:text-white cursor-pointer flex-shrink-0" aria-label="Open Navigation Menu">
+        <svg width="16" height="16" class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.3" d="M4 6h16M4 12h16M4 18h16"/></svg>
+      </button>
+    </div>
   </div>
-</div>
-</div>
-</div>
+
+  <!-- Mobile 3-Line Navigation Dropdown -->
+  <div id="wm-mobile-nav-drawer" class="hidden wm-mobile-only-drawer mt-2 p-3 rounded-2xl wm-card space-y-1 shadow-2xl">
+    <a href="/" data-nav-key="home" onclick="return window.handleStorefrontNav ? window.handleStorefrontNav(event, 'home') : true" class="wm-nav-pill w-full active">
+      <svg width="16" height="16" class="w-4 h-4 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.2" d="M3 10.5L12 3l9 7.5V20a1 1 0 01-1 1h-5.5v-6h-5v6H4a1 1 0 01-1-1v-9.5z"/></svg>
+      <span>Home</span>
+    </a>
+    <a href="/templates.html" data-nav-key="templates" onclick="return window.handleStorefrontNav ? window.handleStorefrontNav(event, 'templates') : true" class="wm-nav-pill w-full">
+      <svg width="16" height="16" class="w-4 h-4 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.2" d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z"/></svg>
+      <span>Templates</span>
+    </a>
+    <a href="/#how-it-works" data-nav-key="how-it-works" onclick="return window.handleStorefrontNav ? window.handleStorefrontNav(event, 'how-it-works') : true" class="wm-nav-pill w-full">
+      <svg width="16" height="16" class="w-4 h-4 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.2" d="M13 10V3L4 14h7v7l9-11h-7z"/></svg>
+      <span>How It Works</span>
+    </a>
+    <a href="/pricing.html" data-nav-key="pricing" onclick="return window.handleStorefrontNav ? window.handleStorefrontNav(event, 'pricing') : true" class="wm-nav-pill w-full">
+      <svg width="16" height="16" class="w-4 h-4 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.2" d="M3 7l4.5 5L12 5l4.5 7L21 7v11a2 2 0 01-2 2H5a2 2 0 01-2-2V7z"/></svg>
+      <span>Pricing</span>
+    </a>
+    <a href="/#about-section" data-nav-key="about" onclick="return window.handleStorefrontNav ? window.handleStorefrontNav(event, 'about') : true" class="wm-nav-pill w-full">
+      <svg width="16" height="16" class="w-4 h-4 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>
+      <span>About</span>
+    </a>
+    <div class="pt-2 mt-1 border-t border-[#e2d6f8] dark:border-purple-800/60 flex items-center gap-2">
+      <a href="/create.html" class="flex-1 py-2.5 px-3 rounded-xl bg-gradient-to-r from-[#ff2a85] via-[#ec4899] to-[#a855f7] text-white font-extrabold text-xs flex items-center justify-center gap-1.5 shadow-sm">
+        <svg width="14" height="14" class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M12 4v16m8-8H4"/></svg>
+        <span>Create Wish</span>
+      </a>
+      <a href="/my-wishes.html" class="flex-1 py-2.5 px-3 rounded-xl bg-[#f4effc] dark:bg-[#25144a] border border-[#d6c8f2] dark:border-purple-500/40 text-[#1a0f30] dark:text-white font-extrabold text-xs flex items-center justify-center gap-1.5">
+        <span>🎁</span>
+        <span>My Wishes</span>
+      </a>
+    </div>
+  </div>
 </header>
 <!-- END: FloatingGlassNavbar -->
 <!-- BEGIN: HeroSection (MAJOR UPGRADE - 2-COLUMN EXPANSIVE DESKTOP) -->
@@ -1941,16 +2168,17 @@ body.dark .hero-gradient-text,
     </div>
   </div>
 </div>
+<div id="wm-hero-confetti-stage" class="wm-hero-confetti-stage" aria-hidden="true"></div>
 <!-- Ambient Decorative Backdrop inside Hero -->
 <div id="ambient-hero-backdrop" class="absolute inset-0 pointer-events-none overflow-hidden">
 <!-- Radial Glowing orbs -->
 <div class="absolute -top-24 -left-24 w-72 h-72 bg-[#EC4899]/20 dark:bg-[#EC4899]/30 rounded-full blur-3xl"></div>
 <div class="absolute -bottom-20 right-1/4 w-60 h-60 bg-[#A855F7]/15 dark:bg-[#A855F7]/25 rounded-full blur-3xl"></div>
 <!-- Dreamy Castle Silhouettes (Desktop Width Visual) -->
-<svg class="absolute -bottom-6 -left-12 w-48 h-[180px] text-purple-600/10 dark:text-purple-300/15 fill-current opacity-70" viewbox="0 0 200 300">
+<svg width="16" height="16" class="absolute -bottom-6 -left-12 w-48 h-[180px] text-purple-600/10 dark:text-purple-300/15 fill-current opacity-70" viewbox="0 0 200 300">
 <path d="M20,300 L20,170 L35,150 L35,115 L45,105 L45,30 L50,18 L55,30 L55,105 L65,115 L65,150 L85,170 L85,300 Z M95,300 L95,135 L115,105 L115,55 L120,40 L125,55 L125,105 L145,135 L145,300 Z"></path>
 </svg>
-<svg class="absolute -bottom-8 right-2 w-48 h-[180px] text-pink-600/10 dark:text-pink-300/15 fill-current opacity-70" viewbox="0 0 200 300">
+<svg width="16" height="16" class="absolute -bottom-8 right-2 w-48 h-[180px] text-pink-600/10 dark:text-pink-300/15 fill-current opacity-70" viewbox="0 0 200 300">
 <path d="M45,300 L45,155 L65,135 L65,85 L70,65 L75,85 L75,135 L95,155 L95,300 Z M115,300 L115,125 L130,95 L130,25 L135,12 L140,25 L140,95 L155,125 L155,300 Z"></path>
 </svg>
 <!-- Golden Celestial Icon & Star Dust -->
@@ -2058,7 +2286,7 @@ body.dark .hero-gradient-text,
   <!-- Search & Instant Filter Bar -->
   <div class="relative max-w-xl w-full mb-6">
     <div class="relative flex items-center">
-      <svg class="w-4 h-4 text-purple-500 absolute left-4 pointer-events-none" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+      <svg width="16" height="16" class="w-4 h-4 text-purple-500 absolute left-4 pointer-events-none" fill="none" stroke="currentColor" viewBox="0 0 24 24">
         <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"></path>
       </svg>
       <input type="text" id="marketplace-search-box" oninput="handleMarketplaceSearch(this.value)" placeholder="Search templates by name, theme or mood (e.g. Birthday, Anniversary, Romance)..." class="w-full pl-11 pr-10 py-3 rounded-2xl bg-white/90 dark:bg-purple-950/70 backdrop-blur-xl border border-purple-200/80 dark:border-purple-800/80 text-xs sm:text-sm text-purple-950 dark:text-white placeholder-purple-400 dark:placeholder-purple-400/60 focus:outline-none focus:ring-2 focus:ring-purple-400 shadow-sm transition">
@@ -2501,7 +2729,7 @@ body.dark .hero-gradient-text,
 
           <!-- 1. Floating 3D Pink Music Cushion Badge (Top-Left) -->
           <div class="wm-float-music" aria-hidden="true">
-            <svg viewBox="0 0 72 72" fill="none" xmlns="http://www.w3.org/2000/svg">
+            <svg width="20" height="20" viewBox="0 0 72 72" fill="none" xmlns="http://www.w3.org/2000/svg">
               <defs>
                 <radialGradient id="musicBadgeBg" cx="35%" cy="28%" r="70%">
                   <stop offset="0%" stop-color="#ffe4f2"/>
@@ -2528,7 +2756,7 @@ body.dark .hero-gradient-text,
 
           <!-- 3. Floating Plump 3D Hearts (Left Side) -->
           <div class="wm-mini-heart-1" aria-hidden="true">
-            <svg viewBox="0 0 40 40" fill="none" xmlns="http://www.w3.org/2000/svg">
+            <svg width="20" height="20" viewBox="0 0 40 40" fill="none" xmlns="http://www.w3.org/2000/svg">
               <defs>
                 <radialGradient id="miniHeartGrad1" cx="35%" cy="30%" r="70%">
                   <stop offset="0%" stop-color="#ff80bf"/>
@@ -2542,21 +2770,21 @@ body.dark .hero-gradient-text,
           </div>
 
           <div class="wm-mini-heart-2" aria-hidden="true">
-            <svg viewBox="0 0 40 40" fill="none" xmlns="http://www.w3.org/2000/svg">
+            <svg width="20" height="20" viewBox="0 0 40 40" fill="none" xmlns="http://www.w3.org/2000/svg">
               <path d="M20 34C20 34 6 24.8 6 14.5C6 9.8 9.7 6 14.3 6C17 6 19.2 7.4 20 9.4C20.8 7.4 23 6 25.7 6C30.3 6 34 9.8 34 14.5C34 24.8 20 34 20 34Z" fill="url(#miniHeartGrad1)"/>
               <ellipse cx="13.5" cy="12" rx="3" ry="1.8" transform="rotate(-25 13.5 12)" fill="white" fill-opacity="0.55"/>
             </svg>
           </div>
           <!-- Bottom-left 4-point pink sparkle -->
           <div style="position:absolute;bottom:28px;left:18px;width:24px;height:24px;z-index:24;pointer-events:none;" aria-hidden="true">
-            <svg viewBox="0 0 24 24" fill="none">
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none">
               <path d="M12 1L14.2 9.8L23 12L14.2 14.2L12 23L9.8 14.2L1 12L9.8 9.8L12 1Z" fill="#f472b6" fill-opacity="0.75"/>
             </svg>
           </div>
 
           <!-- 4. Floating Upper-Right 3D Heart Squircle Cushion Badge -->
           <div class="wm-float-heart-badge" aria-hidden="true">
-            <svg viewBox="0 0 76 76" fill="none" xmlns="http://www.w3.org/2000/svg">
+            <svg width="20" height="20" viewBox="0 0 76 76" fill="none" xmlns="http://www.w3.org/2000/svg">
               <defs>
                 <linearGradient id="heartCushionBg" x1="10" y1="8" x2="66" y2="68" gradientUnits="userSpaceOnUse">
                   <stop offset="0%" stop-color="#fff5f9"/>
@@ -2579,14 +2807,14 @@ body.dark .hero-gradient-text,
 
           <!-- 6. Floating Plump 3D Heart (Right Side) -->
           <div class="wm-mini-heart-3" aria-hidden="true">
-            <svg viewBox="0 0 40 40" fill="none" xmlns="http://www.w3.org/2000/svg">
+            <svg width="20" height="20" viewBox="0 0 40 40" fill="none" xmlns="http://www.w3.org/2000/svg">
               <path d="M20 34C20 34 6 24.8 6 14.5C6 9.8 9.7 6 14.3 6C17 6 19.2 7.4 20 9.4C20.8 7.4 23 6 25.7 6C30.3 6 34 9.8 34 14.5C34 24.8 20 34 20 34Z" fill="url(#miniHeartGrad1)"/>
             </svg>
           </div>
 
           <!-- 7. Floating Bottom-Right 3D Purple Video Play Cushion Badge -->
           <div class="wm-float-play-badge" aria-hidden="true">
-            <svg viewBox="0 0 76 76" fill="none" xmlns="http://www.w3.org/2000/svg">
+            <svg width="20" height="20" viewBox="0 0 76 76" fill="none" xmlns="http://www.w3.org/2000/svg">
               <defs>
                 <linearGradient id="playCushionBg" x1="12" y1="10" x2="64" y2="66" gradientUnits="userSpaceOnUse">
                   <stop offset="0%" stop-color="#c084fc"/>
@@ -2625,7 +2853,7 @@ body.dark .hero-gradient-text,
                     <span>9:41</span>
                     <span style="display:inline-flex;align-items:center;gap:0.35cqw;">
                       <!-- Signal, Wifi, Battery icons -->
-                      <svg style="width:3.6cqw;height:0.95cqw;" viewBox="0 0 38 10" fill="white">
+                      <svg width="20" height="20" style="width:3.6cqw;height:0.95cqw;" viewBox="0 0 38 10" fill="white">
                         <rect x="0" y="6" width="2" height="4" rx="0.5"/>
                         <rect x="3" y="4.5" width="2" height="5.5" rx="0.5"/>
                         <rect x="6" y="2.5" width="2" height="7.5" rx="0.5"/>
@@ -2713,7 +2941,7 @@ body.dark .hero-gradient-text,
 </a>
 <div class="p-4 rounded-2xl bg-white/5 border border-purple-400/20 shadow-sm flex items-start gap-4 transition-colors backdrop-blur-md">
 <div class="w-10 h-10 rounded-xl bg-purple-900/60 text-pink-400 flex items-center justify-center flex-shrink-0 text-base shadow-sm border border-purple-500/30">
-<svg class="w-5 h-5" fill="none" stroke="currentColor" viewbox="0 0 24 24"><path d="M18.364 5.636l-3.536 3.536m0 5.656l3.536 3.536M9.172 9.172L5.636 5.636m3.536 9.192l-3.536 3.536M21 12a9 9 0 11-18 0 9 9 0 0118 0zm-5 0a4 4 0 11-8 0 4 4 0 018 0z" stroke-linecap="round" stroke-linejoin="round" stroke-width="2"></path></svg>
+<svg width="20" height="20" class="w-5 h-5" fill="none" stroke="currentColor" viewbox="0 0 24 24"><path d="M18.364 5.636l-3.536 3.536m0 5.656l3.536 3.536M9.172 9.172L5.636 5.636m3.536 9.192l-3.536 3.536M21 12a9 9 0 11-18 0 9 9 0 0118 0zm-5 0a4 4 0 11-8 0 4 4 0 018 0z" stroke-linecap="round" stroke-linejoin="round" stroke-width="2"></path></svg>
 </div>
 <div>
 <p class="font-bold text-white text-base">Contact Support</p>
@@ -2851,7 +3079,7 @@ body.dark .hero-gradient-text,
         <button class="px-2.5 py-1 rounded-lg text-purple-700 dark:text-purple-300 hover:text-purple-950 dark:hover:text-white transition" id="preview-btn-desktop" onclick="setPreviewDevice('desktop')">💻 Desktop</button>
       </div>
       <a href="#" target="_blank" id="preview-modal-external" class="p-2 rounded-xl text-purple-700 dark:text-purple-300 hover:bg-purple-100 dark:hover:bg-purple-900 transition" title="Open in new window">
-        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14" stroke-linecap="round" stroke-linejoin="round" stroke-width="2"></path></svg>
+        <svg width="16" height="16" class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14" stroke-linecap="round" stroke-linejoin="round" stroke-width="2"></path></svg>
       </a>
       <button class="w-8 h-8 rounded-full bg-purple-100 dark:bg-purple-900/80 text-purple-700 dark:text-purple-300 hover:bg-purple-200 dark:hover:bg-purple-800 flex items-center justify-center font-bold text-xs transition" onclick="closeModal('template-preview-modal')">✕</button>
     </div>
@@ -2894,7 +3122,7 @@ body.dark .hero-gradient-text,
 <div class="space-y-3">
 <button type="button" class="w-full py-3.5 px-5 rounded-full bg-gradient-to-r from-[#ff2a85] via-[#ec4899] to-[#a855f7] hover:brightness-105 text-xs sm:text-sm font-extrabold text-white flex items-center justify-center gap-3 transition shadow-[0_10px_28px_rgba(236,72,153,0.38)] cursor-pointer" onclick="if (window.handleGoogleSignInClick) { handleGoogleSignInClick(); } else if (window.WishAuth) { window.WishAuth.signInWithGoogle(); }">
   <span class="w-7 h-7 rounded-full bg-white flex items-center justify-center flex-shrink-0 shadow-xs">
-    <svg class="w-4 h-4" viewBox="0 0 24 24"><path fill="#4285F4" d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z"/><path fill="#34A853" d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z"/><path fill="#FBBC05" d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.06H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.94l2.85-2.22.81-.63z"/><path fill="#EA4335" d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.06l3.66 2.84c.87-2.6 3.3-4.52 6.16-4.52z"/></svg>
+    <svg width="16" height="16" class="w-4 h-4" viewBox="0 0 24 24"><path fill="#4285F4" d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z"/><path fill="#34A853" d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z"/><path fill="#FBBC05" d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.06H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.94l2.85-2.22.81-.63z"/><path fill="#EA4335" d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.06l3.66 2.84c.87-2.6 3.3-4.52 6.16-4.52z"/></svg>
   </span>
   <span>Continue with Google</span>
 </button>
@@ -3134,7 +3362,7 @@ body.dark .hero-gradient-text,
         } else {
           badgeMarkup = `<div class="absolute top-3 right-3 z-10">
               <span class="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-[#00c569] text-white text-xs font-bold shadow-md">
-                <svg class="w-3.5 h-3.5 fill-current" viewBox="0 0 24 24"><path d="M20 6h-2.18c.11-.31.18-.65.18-1a2.996 2.996 0 0 0-5.5-1.65l-.5.67-.5-.68C10.96 2.54 10.05 2 9 2 7.34 2 6 3.34 6 5c0 .35.07.69.18 1H4c-1.11 0-1.99.89-1.99 2L2 19c0 1.11.89 2 2 2h16c1.11 0 2-.89 2-2V8c0-1.11-.89-2-2-2zm-5-2c.55 0 1 .45 1 1s-.45 1-1 1h-2l1.3-1.74C14.47 4.1 14.72 4 15 4zm-6 0c.28 0 .53.11.7.26L11 6H9c-.55 0-1-.45-1-1s.45-1 1-1zm11 15H4v-2h16v2zm0-5H4V8h5.08L7 10.83 8.62 12 11 8.76l1-1.36 1 1.36 2.38 3.24L17 10.83 14.92 8H20v6z"/></svg>
+                <svg width="14" height="14" class="w-3.5 h-3.5 fill-current" viewBox="0 0 24 24"><path d="M20 6h-2.18c.11-.31.18-.65.18-1a2.996 2.996 0 0 0-5.5-1.65l-.5.67-.5-.68C10.96 2.54 10.05 2 9 2 7.34 2 6 3.34 6 5c0 .35.07.69.18 1H4c-1.11 0-1.99.89-1.99 2L2 19c0 1.11.89 2 2 2h16c1.11 0 2-.89 2-2V8c0-1.11-.89-2-2-2zm-5-2c.55 0 1 .45 1 1s-.45 1-1 1h-2l1.3-1.74C14.47 4.1 14.72 4 15 4zm-6 0c.28 0 .53.11.7.26L11 6H9c-.55 0-1-.45-1-1s.45-1 1-1zm11 15H4v-2h16v2zm0-5H4V8h5.08L7 10.83 8.62 12 11 8.76l1-1.36 1 1.36 2.38 3.24L17 10.83 14.92 8H20v6z"/></svg>
                 Free
               </span>
             </div>`;

@@ -1241,15 +1241,16 @@ html.dark textarea::placeholder {
   --wm-3d-tilt-y: 0deg;
   --wm-3d-px: 0px;
   --wm-3d-py: 0px;
-  --wm-hero-canvas-anchor-x: -50%;
+  --wm-hero-canvas-anchor-x: -46.0%;
 }
 
-@media (max-width: 1023.98px) {
+@media (min-width: 768px) and (max-width: 1199.98px) {
   :root {
-    --wm-hero-canvas-anchor-x: -58%;
+    --wm-hero-canvas-anchor-x: -48.8%;
   }
 }
 
+/* Mobile View (< 768px) kept 100% untouched! */
 @media (max-width: 767.98px) {
   :root {
     --wm-hero-canvas-anchor-x: -57.5%;
@@ -1288,10 +1289,17 @@ html.dark textarea::placeholder {
   width: auto !important;
   min-width: 100% !important;
   aspect-ratio: 1600 / 533 !important;
-  transform: translate3d(var(--wm-hero-canvas-anchor-x, -50%), -50%, 0) rotateX(var(--wm-3d-tilt-x, 0deg)) rotateY(var(--wm-3d-tilt-y, 0deg));
+  transform: translate3d(var(--wm-hero-canvas-anchor-x, -44.2%), -50%, 0) rotateX(var(--wm-3d-tilt-x, 0deg)) rotateY(var(--wm-3d-tilt-y, 0deg));
   transform-style: preserve-3d;
   transition: transform 0.32s cubic-bezier(0.22, 1, 0.36, 1);
   will-change: transform;
+}
+
+@media (min-width: 768px) {
+  .hero-css-3d-canvas {
+    min-width: 112% !important;
+    min-height: 100% !important;
+  }
 }
 
 /* Full-canvas 3D Parallax Planes (driven by mouse/touch drag & tap) */
@@ -1337,29 +1345,133 @@ html.dark textarea::placeholder {
 .hero-3d-plane-stars   { transform: translate3d(calc(var(--wm-3d-px, 0px) * 1.45), calc(var(--wm-3d-py, 0px) * 1.45), 0px); }
 .hero-3d-plane-spec    { transform: translate3d(calc(var(--wm-3d-px, 0px) * 1.30), calc(var(--wm-3d-py, 0px) * 1.30), 0px); }
 
-/* Touch / Tap Active 3D Bounce & Glow Response (Stays strictly in the background!) */
-.hero-css-3d-viewport.wm-touch-pulse .hero-3d-plane-box {
-  transform: translate3d(calc(var(--wm-3d-px, 0px) * 0.45), calc(var(--wm-3d-py, 0px) * 0.45 - 5px), 0px) scale(1.028);
-  filter: brightness(1.14) drop-shadow(0 0 16px rgba(251, 191, 36, 0.45));
+/* WishMagic Theme-Matched Touch/Click Confetti & Magical Celebration Burst Overlay */
+.wm-hero-confetti-stage {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  overflow: hidden;
+  pointer-events: none;
+  z-index: 6;
 }
-.hero-css-3d-viewport.wm-touch-pulse .hero-3d-plane-light {
-  transform: translate3d(calc(var(--wm-3d-px, 0px) * 0.55), calc(var(--wm-3d-py, 0px) * 0.55 - 6px), 0px) scale(1.12);
-  filter: brightness(1.35);
+
+.wm-confetti-piece {
+  position: absolute;
+  pointer-events: none;
+  will-change: transform, opacity;
+  animation: wmConfettiBurst var(--wm-cf-dur, 1150ms) cubic-bezier(0.18, 0.82, 0.28, 1) forwards;
 }
-.hero-css-3d-viewport.wm-touch-pulse .hero-3d-plane-b-back {
-  transform: translate3d(calc(var(--wm-3d-px, 0px) * 0.75 - 2px), calc(var(--wm-3d-py, 0px) * 0.75 - 8px), 0px) scale(1.035);
+
+.wm-confetti-ribbon {
+  width: var(--wm-cf-w, 8px);
+  height: var(--wm-cf-h, 14px);
+  border-radius: 3px;
+  background: var(--wm-cf-bg, #ff2a85);
+  box-shadow: 0 2px 8px rgba(236, 72, 153, 0.35);
 }
-.hero-css-3d-viewport.wm-touch-pulse .hero-3d-plane-b-mid {
-  transform: translate3d(calc(var(--wm-3d-px, 0px) * 1.00 + 3px), calc(var(--wm-3d-py, 0px) * 1.00 - 10px), 0px) scale(1.045);
+
+.wm-confetti-charm {
+  font-size: var(--wm-cf-size, 16px);
+  line-height: 1;
+  filter: drop-shadow(0 2px 8px rgba(251, 191, 36, 0.55));
 }
-.hero-css-3d-viewport.wm-touch-pulse .hero-3d-plane-b-front,
-.hero-css-3d-viewport.wm-touch-pulse .hero-3d-plane-spec {
-  transform: translate3d(calc(var(--wm-3d-px, 0px) * 1.30 - 3px), calc(var(--wm-3d-py, 0px) * 1.30 - 12px), 0px) scale(1.055);
-  filter: brightness(1.10);
+
+.wm-touch-ring-ripple {
+  position: absolute;
+  width: 24px;
+  height: 24px;
+  margin-left: -12px;
+  margin-top: -12px;
+  border-radius: 9999px;
+  border: 2px solid rgba(253, 224, 71, 0.85);
+  box-shadow: 0 0 18px rgba(236, 72, 153, 0.65), inset 0 0 12px rgba(253, 224, 71, 0.55);
+  pointer-events: none;
+  animation: wmTouchRippleExpand 680ms cubic-bezier(0.16, 1, 0.3, 1) forwards;
 }
-.hero-css-3d-viewport.wm-touch-pulse .hero-3d-plane-stars {
-  transform: translate3d(calc(var(--wm-3d-px, 0px) * 1.45 + 2px), calc(var(--wm-3d-py, 0px) * 1.45 - 11px), 0px) scale(1.08);
-  filter: brightness(1.22) drop-shadow(0 0 10px rgba(253, 224, 71, 0.65));
+
+@keyframes wmConfettiBurst {
+  0% {
+    opacity: 1;
+    transform: translate3d(0, 0, 0) scale(0.35) rotate(0deg);
+  }
+  22% {
+    opacity: 1;
+    transform: translate3d(calc(var(--wm-cf-dx) * 0.55), calc(var(--wm-cf-dy) * 0.75), 0) scale(1.08) rotate(calc(var(--wm-cf-rot) * 0.45));
+  }
+  100% {
+    opacity: 0;
+    transform: translate3d(var(--wm-cf-dx), calc(var(--wm-cf-dy) + var(--wm-cf-fall, 68px)), 0) scale(0.72) rotate(var(--wm-cf-rot));
+  }
+}
+
+@keyframes wmTouchRippleExpand {
+  0% {
+    opacity: 0.95;
+    transform: scale(0.3);
+  }
+  100% {
+    opacity: 0;
+    transform: scale(3.4);
+  }
+}
+
+/* ==========================================================================
+   9. CRITICAL ANTI-FOUC HEADER LOCK (Prevents Header from flashing as a
+      giant circle / "Gola" on initial page load before Tailwind CDN runs!)
+   ========================================================================== */
+header .glass-nav,
+.wm-site-header-bar {
+  height: 48px !important;
+  min-height: 44px !important;
+  max-height: 56px !important;
+  padding: 5px 12px !important;
+  border-radius: 9999px !important;
+  display: flex !important;
+  flex-direction: row !important;
+  align-items: center !important;
+  justify-content: space-between !important;
+  overflow: visible !important;
+}
+
+@media (min-width: 640px) {
+  header .glass-nav,
+  .wm-site-header-bar {
+    height: 54px !important;
+    max-height: 58px !important;
+    padding: 6px 18px !important;
+  }
+}
+
+header svg,
+.wm-site-header-bar svg,
+#wm-mobile-nav-drawer svg {
+  width: 16px !important;
+  height: 16px !important;
+  min-width: 14px !important;
+  max-width: 20px !important;
+  max-height: 20px !important;
+  flex-shrink: 0 !important;
+  display: inline-block !important;
+}
+
+header .wm-brand-icon-box,
+header a.group > div:first-child {
+  width: 32px !important;
+  height: 32px !important;
+  min-width: 32px !important;
+  max-width: 36px !important;
+  max-height: 36px !important;
+  border-radius: 10px !important;
+  display: inline-flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  flex-shrink: 0 !important;
+  overflow: hidden !important;
+}
+
+#wm-mobile-nav-drawer.hidden {
+  display: none !important;
 }
 
 .hero-3d-layer {

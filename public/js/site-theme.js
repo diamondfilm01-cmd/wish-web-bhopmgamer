@@ -193,12 +193,12 @@
     return `
       <button type="button" onclick="toggleSiteTheme()" class="wm-theme-pill-btn" data-theme-mode="${isDark ? 'dark' : 'light'}" aria-checked="${isDark ? 'true' : 'false'}" title="Switch Light / Dark Mode" aria-label="Toggle Light or Dark Theme">
         <span class="wm-theme-pill-sun" aria-hidden="true">
-          <svg class="w-3.5 h-3.5" viewBox="0 0 24 24" fill="currentColor">
+          <svg width="14" height="14" class="w-3.5 h-3.5" viewBox="0 0 24 24" fill="currentColor">
             <path d="M12 7a5 5 0 100 10 5 5 0 000-10zM2 13h2a1 1 0 100-2H2a1 1 0 100 2zm18 0h2a1 1 0 100-2h-2a1 1 0 100 2zM11 2v2a1 1 0 102 0V2a1 1 0 10-2 0zm0 18v2a1 1 0 102 0v-2a1 1 0 10-2 0zM5.99 4.58a1 1 0 00-1.41 1.41l1.06 1.06a1 1 0 001.41-1.41L5.99 4.58zm12.37 12.37a1 1 0 00-1.41 1.41l1.06 1.06a1 1 0 001.41-1.41l-1.06-1.06zm1.06-10.96a1 1 0 00-1.41-1.41l-1.06 1.06a1 1 0 001.41 1.41l1.06-1.06zM7.05 18.36a1 1 0 00-1.41-1.41l-1.06 1.06a1 1 0 001.41 1.41l1.06-1.06z"/>
           </svg>
         </span>
         <span class="wm-theme-pill-knob" aria-hidden="true">
-          <svg class="w-3.5 h-3.5" viewBox="0 0 24 24" fill="currentColor">
+          <svg width="14" height="14" class="w-3.5 h-3.5" viewBox="0 0 24 24" fill="currentColor">
             <path d="M12.1 22c-5.52 0-10-4.48-10-10 0-4.75 3.31-8.72 7.75-9.74.68-.16 1.24.53.94 1.16A7.96 7.96 0 0010 7c0 4.42 3.58 8 8 8 1.29 0 2.51-.31 3.58-.85.63-.31 1.32.25 1.16.94C21.72 19.53 17.34 22 12.1 22z"/>
           </svg>
         </span>
@@ -238,10 +238,7 @@
       cloudLink = document.createElement('link');
       cloudLink.id = 'wishmagic-cloud-css';
       cloudLink.rel = 'stylesheet';
-      cloudLink.href = '/css/cloud-background.css?v=20261015_wm47944_v4';
-      document.head.appendChild(cloudLink);
-    } else {
-      cloudLink.href = '/css/cloud-background.css?v=20261015_wm47944_v4';
+      cloudLink.href = '/css/cloud-background.css?v=20261015_wm47944_v6';
       document.head.appendChild(cloudLink);
     }
 
@@ -276,7 +273,7 @@
         <!-- Left: Brand Logo -->
         <a href="/" onclick="return window.handleStorefrontNav(event, 'home')" class="wm-header-brand flex items-center gap-2 group flex-shrink-0 text-decoration-none min-w-0">
           <div class="wm-brand-icon-box w-8 h-8 rounded-xl bg-gradient-to-br from-[#a855f7] via-[#ec4899] to-[#f59e0b] flex items-center justify-center text-white shadow-md group-hover:scale-105 transition-transform flex-shrink-0">
-            <svg class="w-4 h-4 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <svg width="16" height="16" class="w-4 h-4 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.2" d="M5 3v4M3 5h4M6 17v4m-2-2h4m5-16l2.286 6.857L21 12l-5.714 2.143L13 21l-2.286-6.857L5 12l5.714-2.143L13 3z"/>
             </svg>
           </div>
@@ -291,23 +288,23 @@
         <!-- Center: 5 Direct Working Options for Desktop View ONLY (Hidden on Mobile < 768px) -->
         <nav class="wm-desktop-nav items-center justify-center min-w-0" aria-label="Main Navigation">
           <a href="/" data-nav-key="home" onclick="return window.handleStorefrontNav(event, 'home')" class="wm-nav-pill ${activeKey === 'home' ? 'active' : ''}">
-            <svg class="wm-nav-icon w-3.5 h-3.5 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.2" d="M3 10.5L12 3l9 7.5V20a1 1 0 01-1 1h-5.5v-6h-5v6H4a1 1 0 01-1-1v-9.5z"/></svg>
+            <svg width="14" height="14" class="wm-nav-icon w-3.5 h-3.5 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.2" d="M3 10.5L12 3l9 7.5V20a1 1 0 01-1 1h-5.5v-6h-5v6H4a1 1 0 01-1-1v-9.5z"/></svg>
             <span>Home</span>
           </a>
           <a href="/templates.html" data-nav-key="templates" onclick="return window.handleStorefrontNav(event, 'templates')" class="wm-nav-pill ${activeKey === 'templates' ? 'active' : ''}">
-            <svg class="wm-nav-icon w-3.5 h-3.5 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.2" d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z"/></svg>
+            <svg width="14" height="14" class="wm-nav-icon w-3.5 h-3.5 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.2" d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z"/></svg>
             <span>Templates</span>
           </a>
           <a href="/#how-it-works" data-nav-key="how-it-works" onclick="return window.handleStorefrontNav(event, 'how-it-works')" class="wm-nav-pill ${activeKey === 'how-it-works' ? 'active' : ''}">
-            <svg class="wm-nav-icon w-3.5 h-3.5 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.2" d="M13 10V3L4 14h7v7l9-11h-7z"/></svg>
+            <svg width="14" height="14" class="wm-nav-icon w-3.5 h-3.5 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.2" d="M13 10V3L4 14h7v7l9-11h-7z"/></svg>
             <span>How It Works</span>
           </a>
           <a href="/pricing.html" data-nav-key="pricing" onclick="return window.handleStorefrontNav(event, 'pricing')" class="wm-nav-pill ${activeKey === 'pricing' ? 'active' : ''}">
-            <svg class="wm-nav-icon w-3.5 h-3.5 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.2" d="M3 7l4.5 5L12 5l4.5 7L21 7v11a2 2 0 01-2 2H5a2 2 0 01-2-2V7z"/></svg>
+            <svg width="14" height="14" class="wm-nav-icon w-3.5 h-3.5 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.2" d="M3 7l4.5 5L12 5l4.5 7L21 7v11a2 2 0 01-2 2H5a2 2 0 01-2-2V7z"/></svg>
             <span>Pricing</span>
           </a>
           <a href="/#about-section" data-nav-key="about" onclick="return window.handleStorefrontNav(event, 'about')" class="wm-nav-pill ${activeKey === 'about' ? 'active' : ''}">
-            <svg class="wm-nav-icon w-3.5 h-3.5 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>
+            <svg width="14" height="14" class="wm-nav-icon w-3.5 h-3.5 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>
             <span>About</span>
           </a>
         </nav>
@@ -329,7 +326,7 @@
 
           <!-- 3-Line Menu Button: Visible ONLY on Mobile (< 768px), Strictly Hidden on Desktop! -->
           <button type="button" id="wm-mobile-menu-btn" onclick="window.toggleMobileStorefrontNav(event)" class="wm-mobile-only-btn rounded-full bg-[#f4effc] dark:bg-[#25144a] border border-[#d6c8f2] dark:border-purple-500/40 items-center justify-center text-[#1a0f30] dark:text-white cursor-pointer flex-shrink-0" aria-label="Open Navigation Menu">
-            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.3" d="M4 6h16M4 12h16M4 18h16"/></svg>
+            <svg width="16" height="16" class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.3" d="M4 6h16M4 12h16M4 18h16"/></svg>
           </button>
         </div>
       </div>
@@ -337,28 +334,28 @@
       <!-- Mobile 3-Line Navigation Dropdown (Contains the 5 Options for Mobile View Only) -->
       <div id="wm-mobile-nav-drawer" class="hidden wm-mobile-only-drawer mt-2 p-3 rounded-2xl wm-card space-y-1 shadow-2xl">
         <a href="/" data-nav-key="home" onclick="return window.handleStorefrontNav(event, 'home')" class="wm-nav-pill w-full ${activeKey === 'home' ? 'active' : ''}">
-          <svg class="w-4 h-4 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.2" d="M3 10.5L12 3l9 7.5V20a1 1 0 01-1 1h-5.5v-6h-5v6H4a1 1 0 01-1-1v-9.5z"/></svg>
+          <svg width="16" height="16" class="w-4 h-4 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.2" d="M3 10.5L12 3l9 7.5V20a1 1 0 01-1 1h-5.5v-6h-5v6H4a1 1 0 01-1-1v-9.5z"/></svg>
           <span>Home</span>
         </a>
         <a href="/templates.html" data-nav-key="templates" onclick="return window.handleStorefrontNav(event, 'templates')" class="wm-nav-pill w-full ${activeKey === 'templates' ? 'active' : ''}">
-          <svg class="w-4 h-4 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.2" d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z"/></svg>
+          <svg width="16" height="16" class="w-4 h-4 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.2" d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z"/></svg>
           <span>Templates</span>
         </a>
         <a href="/#how-it-works" data-nav-key="how-it-works" onclick="return window.handleStorefrontNav(event, 'how-it-works')" class="wm-nav-pill w-full ${activeKey === 'how-it-works' ? 'active' : ''}">
-          <svg class="w-4 h-4 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.2" d="M13 10V3L4 14h7v7l9-11h-7z"/></svg>
+          <svg width="16" height="16" class="w-4 h-4 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.2" d="M13 10V3L4 14h7v7l9-11h-7z"/></svg>
           <span>How It Works</span>
         </a>
         <a href="/pricing.html" data-nav-key="pricing" onclick="return window.handleStorefrontNav(event, 'pricing')" class="wm-nav-pill w-full ${activeKey === 'pricing' ? 'active' : ''}">
-          <svg class="w-4 h-4 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.2" d="M3 7l4.5 5L12 5l4.5 7L21 7v11a2 2 0 01-2 2H5a2 2 0 01-2-2V7z"/></svg>
+          <svg width="16" height="16" class="w-4 h-4 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.2" d="M3 7l4.5 5L12 5l4.5 7L21 7v11a2 2 0 01-2 2H5a2 2 0 01-2-2V7z"/></svg>
           <span>Pricing</span>
         </a>
         <a href="/#about-section" data-nav-key="about" onclick="return window.handleStorefrontNav(event, 'about')" class="wm-nav-pill w-full ${activeKey === 'about' ? 'active' : ''}">
-          <svg class="w-4 h-4 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>
+          <svg width="16" height="16" class="w-4 h-4 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>
           <span>About</span>
         </a>
         <div class="pt-2 mt-1 border-t border-[#e2d6f8] dark:border-purple-800/60 flex items-center gap-2">
           <a href="/create.html" class="flex-1 py-2.5 px-3 rounded-xl bg-gradient-to-r from-[#ff2a85] via-[#ec4899] to-[#a855f7] text-white font-extrabold text-xs flex items-center justify-center gap-1.5 shadow-sm">
-            <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M12 4v16m8-8H4"/></svg>
+            <svg width="14" height="14" class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M12 4v16m8-8H4"/></svg>
             <span>Create Wish</span>
           </a>
           <a href="/my-wishes.html" class="flex-1 py-2.5 px-3 rounded-xl bg-[#f4effc] dark:bg-[#25144a] border border-[#d6c8f2] dark:border-purple-500/40 text-[#1a0f30] dark:text-white font-extrabold text-xs flex items-center justify-center gap-1.5">
@@ -372,7 +369,11 @@
     if (existingHeader) {
       existingHeader.className = 'sticky top-2 sm:top-4 z-50 px-2 sm:px-4 lg:px-6 max-w-7xl mx-auto w-full transition-all';
       existingHeader.setAttribute('data-purpose', 'site-navigation');
-      existingHeader.innerHTML = unifiedHeaderHTML;
+      if (!existingHeader.querySelector('.wm-site-header-bar')) {
+        existingHeader.innerHTML = unifiedHeaderHTML;
+      } else {
+        highlightActiveHeaderNav(activeKey);
+      }
     } else {
       const newHeader = document.createElement('header');
       newHeader.className = 'sticky top-2 sm:top-4 z-50 px-2 sm:px-4 lg:px-6 max-w-7xl mx-auto w-full transition-all';
