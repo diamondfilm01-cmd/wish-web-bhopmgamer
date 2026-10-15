@@ -1877,6 +1877,8 @@ const DEFAULT_SERVER_SITE_SETTINGS = {
   heroSubheadline: 'Create beautiful personalized digital wishes that feel like a real experience — interactive 3D unboxing, customized music & unforgettable celebration magic.',
   heroGiftIcon: '🎁',
   heroBgMode: 'image',
+  hero3dFloatingEnabled: true,
+  heroTouchBurstEnabled: true,
   heroImageUrl: '/assets/file_ab2082.png',
   heroStyle: 'cosmic-purple',
   heroCta1: 'Explore Magic',
@@ -2019,7 +2021,9 @@ function validateServerSiteSettings(settings) {
   const promoBannerText = String(s.promoBannerText !== undefined ? s.promoBannerText : current.promoBannerText).trim();
 
   const heroImageUrl = s.heroImageUrl !== undefined ? String(s.heroImageUrl).trim() : (current.heroImageUrl || '/assets/file_ab2082.png');
-  const heroBgMode = (s.heroBgMode === 'gradient') ? 'gradient' : 'image';
+  const heroBgMode = (s.heroBgMode === 'gradient' || s.heroBgMode === 'custom-photo' || s.heroBgMode === '3d-magic') ? s.heroBgMode : 'image';
+  const hero3dFloatingEnabled = s.hero3dFloatingEnabled !== undefined ? Boolean(s.hero3dFloatingEnabled) : (current.hero3dFloatingEnabled !== false);
+  const heroTouchBurstEnabled = s.heroTouchBurstEnabled !== undefined ? Boolean(s.heroTouchBurstEnabled) : (current.heroTouchBurstEnabled !== false);
 
   return {
     valid: true,
@@ -2029,6 +2033,8 @@ function validateServerSiteSettings(settings) {
       heroSubheadline,
       heroGiftIcon,
       heroBgMode,
+      hero3dFloatingEnabled,
+      heroTouchBurstEnabled,
       heroImageUrl,
       heroStyle,
       heroCta1,

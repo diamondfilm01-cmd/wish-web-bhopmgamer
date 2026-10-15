@@ -368,12 +368,13 @@
 
           <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
             <div>
-              <label class="block text-xs font-bold uppercase tracking-wider text-outline mb-1.5">Hero Background Mode (Photo vs Gradient)</label>
+              <label class="block text-xs font-bold uppercase tracking-wider text-outline mb-1.5">Hero Visual Engine Mode (3D Scene / Photo / Gradient)</label>
               <select id="setting-hero-bg-mode" class="w-full px-3.5 py-2.5 rounded-xl bg-surface-container-low text-on-surface border border-purple-900/30 text-sm font-medium focus:ring-2 focus:ring-primary focus:outline-none" onchange="updateHeroPreview()">
-                <option value="image" selected>🖼️ Pure Photo (Clean Photo with Readability Contrast)</option>
-                <option value="gradient">🎨 Pure Gradient (Color Gradient, No Photo)</option>
+                <option value="image" selected>✨ Interactive 3D Gift Box, Balloons &amp; Stars Scene (Default)</option>
+                <option value="custom-photo">🖼️ Custom Uploaded Hero Photo (Static Photo + Scrim)</option>
+                <option value="gradient">🎨 Pure Cosmic Gradient (Color Gradient Only)</option>
               </select>
-              <span class="text-[10px] text-pink-300/80 mt-0.5 block">Dono ek sath nahi aayenge — ya clean photo ya pure gradient</span>
+              <span class="text-[10px] text-pink-300/80 mt-0.5 block">Control whether homepage renders the 3D Floating Gift Box &amp; Balloons scene, custom photo, or pure gradient</span>
             </div>
             <div>
               <label class="block text-xs font-bold uppercase tracking-wider text-outline mb-1.5">Hero Canvas Gradient Style (When Gradient Mode)</label>
@@ -385,6 +386,24 @@
                 <option value="emerald-aurora">Emerald Aurora &amp; Mystic Forest</option>
               </select>
             </div>
+          </div>
+
+          <!-- 3D Hero Interactive Physics & Touch Confetti Controls -->
+          <div class="grid grid-cols-1 sm:grid-cols-2 gap-3 p-3.5 rounded-xl bg-surface-container-low border border-purple-500/25">
+            <label class="flex items-center justify-between gap-3 cursor-pointer">
+              <div>
+                <span class="font-bold text-xs text-on-surface block">🎈 3D Floating &amp; Parallax Motion</span>
+                <span class="text-[11px] text-on-surface-variant">Animate 3D floating gift box, multi-depth balloons, stars &amp; hover tilt</span>
+              </div>
+              <input type="checkbox" id="setting-hero-3d-floating" checked onchange="updateHeroPreview()" class="w-5 h-5 rounded text-primary focus:ring-primary cursor-pointer"/>
+            </label>
+            <label class="flex items-center justify-between gap-3 cursor-pointer">
+              <div>
+                <span class="font-bold text-xs text-on-surface block">🎉 Touch / Click Confetti &amp; Box Burst</span>
+                <span class="text-[11px] text-on-surface-variant">Spawn 3D confetti ribbons, charms &amp; gift box star burst on touch/click</span>
+              </div>
+              <input type="checkbox" id="setting-hero-touch-burst" checked onchange="updateHeroPreview()" class="w-5 h-5 rounded text-primary focus:ring-primary cursor-pointer"/>
+            </label>
           </div>
 
           <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
@@ -1038,6 +1057,8 @@
 
     const bgMode = document.getElementById('setting-hero-bg-mode')?.value || 'image';
     const imgUrl = document.getElementById('setting-hero-image-url')?.value || '/assets/file_ab2082.png';
+    const floatOn = document.getElementById('setting-hero-3d-floating')?.checked !== false;
+    const burstOn = document.getElementById('setting-hero-touch-burst')?.checked !== false;
 
     if (pBadge) pBadge.textContent = badge;
     if (pHead) pHead.innerHTML = headline;
@@ -1045,13 +1066,21 @@
     if (pCta1) pCta1.textContent = cta1;
     if (pCta2) pCta2.textContent = cta2;
     if (pIcon) pIcon.textContent = icon;
-    if (pStyleLabel) pStyleLabel.textContent = (bgMode === 'image') ? '🖼️ Clean Photo (High Contrast)' : (HERO_STYLE_LABELS[style] || style);
+    if (pStyleLabel) {
+      if (bgMode === 'gradient') {
+        pStyleLabel.textContent = HERO_STYLE_LABELS[style] || style;
+      } else if (bgMode === 'custom-photo') {
+        pStyleLabel.textContent = '🖼️ Custom Photo + Scrim';
+      } else {
+        pStyleLabel.textContent = `✨ 3D Scene (${floatOn ? 'Float ON' : 'Static'} • ${burstOn ? 'Touch Burst ON' : 'Burst OFF'})`;
+      }
+    }
     if (canvas) {
       if (bgMode === 'gradient') {
         canvas.style.background = HERO_GRADIENTS[style] || HERO_GRADIENTS['cosmic-purple'];
       } else {
-        // High-contrast scrim so text never mixes into photo in the preview
-        canvas.style.background = `linear-gradient(rgba(12, 4, 26, 0.85), rgba(12, 4, 26, 0.65)), url('${imgUrl}') center / cover no-repeat`;
+        const previewImg = (bgMode === 'custom-photo' && imgUrl) ? imgUrl : '/assets/file_ab2082.png';
+        canvas.style.background = `linear-gradient(90deg, rgba(24, 8, 128, 0.92) 0%, rgba(28, 12, 138, 0.78) 46%, rgba(42, 12, 155, 0.22) 100%), url('${previewImg}') 65% center / cover no-repeat`;
       }
     }
   }
@@ -1334,6 +1363,12 @@
         if (s.heroStyle !== undefined) document.getElementById('setting-hero-style').value = s.heroStyle;
         if (s.heroCta1 !== undefined) document.getElementById('setting-hero-cta1').value = s.heroCta1;
         if (s.heroCta2 !== undefined) document.getElementById('setting-hero-cta2').value = s.heroCta2;
+        if (s.hero3dFloatingEnabled !== undefined && document.getElementById('setting-hero-3d-floating')) {
+          document.getElementById('setting-hero-3d-floating').checked = Boolean(s.hero3dFloatingEnabled);
+        }
+        if (s.heroTouchBurstEnabled !== undefined && document.getElementById('setting-hero-touch-burst')) {
+          document.getElementById('setting-hero-touch-burst').checked = Boolean(s.heroTouchBurstEnabled);
+        }
         if (s.brandName !== undefined) document.getElementById('setting-brand-name').value = s.brandName;
         if (s.supportWa !== undefined) document.getElementById('setting-support-wa').value = s.supportWa;
         if (s.currency !== undefined) document.getElementById('setting-currency').value = s.currency;
@@ -1383,6 +1418,8 @@
       heroStyle: document.getElementById('setting-hero-style').value,
       heroCta1: document.getElementById('setting-hero-cta1').value,
       heroCta2: document.getElementById('setting-hero-cta2').value,
+      hero3dFloatingEnabled: document.getElementById('setting-hero-3d-floating') ? document.getElementById('setting-hero-3d-floating').checked : true,
+      heroTouchBurstEnabled: document.getElementById('setting-hero-touch-burst') ? document.getElementById('setting-hero-touch-burst').checked : true,
       brandName: document.getElementById('setting-brand-name').value,
       supportWa: document.getElementById('setting-support-wa').value,
       currency: document.getElementById('setting-currency').value,

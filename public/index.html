@@ -10,7 +10,7 @@
 <meta property="og:description" content="Gift a magical, interactive web experience with customizable wishes, animations, and templates."/>
 <meta property="og:type" content="website"/>
 <!-- Tailwind CSS CDN with forms and container queries -->
-<script src="/js/tailwind-config.js?v=20261015_wm47944_v6"></script>
+<script src="/js/tailwind-config.js?v=20261015_wm_v8"></script>
   <script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
   <script>if (typeof tailwind !== "undefined" && typeof sharedTailwindConfig !== "undefined") { tailwind.config = sharedTailwindConfig; }</script>
 <!-- Google Fonts: Plus Jakarta Sans & Outfit for modern playful rounded look -->
@@ -23,14 +23,14 @@
 <!-- Firebase Official SDK (Compat for universal browser support) -->
 <script src="https://www.gstatic.com/firebasejs/10.8.0/firebase-app-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.8.0/firebase-auth-compat.js"></script>
-<script src="/js/site-theme.js?v=20261015_wm47944_v6"></script>
+<script src="/js/site-theme.js?v=20261015_wm_v8"></script>
 <!-- Canvas Confetti for Interactive Celebrations -->
 <script src="https://cdn.jsdelivr.net/npm/canvas-confetti@1.9.3/dist/confetti.browser.min.js"></script>
 <!-- WishMagic Core, Auth, Repositories & Section System Layer -->
 <script src="/js/WishMagicCore.js"></script>
 <script src="/js/api-client.js"></script>
-<script src="/js/firebase-auth.js?v=20261015_wm47944_v6"></script>
-<script src="/js/auth-service.js?v=20261015_wm47944_v6"></script>
+<script src="/js/firebase-auth.js?v=20261015_wm_v8"></script>
+<script src="/js/auth-service.js?v=20261015_wm_v8"></script>
 <script src="/js/repositories.js"></script>
 <script src="/js/wishmagic-dependencies.js"></script>
 <script src="/js/wishmagic-content-system.js"></script>
@@ -39,7 +39,7 @@
 <script src="/js/wishmagic-preview-controller.js"></script>
 <script src="/js/wishmagic-state-migrator.js"></script>
 <script src="/js/template-section-system.js"></script>
-<script src="/js/notification-service.js?v=20261015_wm47944_v6"></script>
+<script src="/js/notification-service.js?v=20261015_wm_v8"></script>
 <script src="/js/security-hardening.js"></script>
 <!-- Tailwind Configuration -->
 <script data-purpose="tailwind-config">
@@ -264,11 +264,12 @@
       transition: border-color 0.4s ease, box-shadow 0.4s ease, color 0.4s ease;
     }
 
-    /* Hero layout: clean responsive flow */
+    /* Hero layout: clean top-aligned responsive flow with fit-content pill badge */
     #hero-content-grid {
       display: flex !important;
       flex-direction: column !important;
-      justify-content: center !important;
+      align-items: flex-start !important;
+      justify-content: flex-start !important;
     }
 
     /* Shimmering magical sparkles */
@@ -426,50 +427,115 @@
       }
     }
 
-    /* Keep Hero Text Crisp Bright White on top of the Royal-Blue Left Half in BOTH Light & Dark Modes */
+    /* Keep Hero Text Crisp Bright White & Luxury Styled on top of the Royal-Blue Left Half in BOTH Light & Dark Modes */
+    #hero-desktop-section.hero-desktop-canvas {
+      align-items: flex-start !important;
+      padding-top: 1.35rem !important;
+      padding-bottom: 1.5rem !important;
+    }
+    @media (min-width: 768px) {
+      #hero-desktop-section.hero-desktop-canvas {
+        padding: 1.65rem 2.25rem 1.85rem !important;
+        min-height: 410px !important;
+      }
+      #hero-desktop-section #hero-content-grid {
+        max-width: 600px !important;
+        width: 56% !important;
+        padding-top: 0.15rem !important;
+        padding-bottom: 0.25rem !important;
+      }
+    }
+
     #hero-desktop-section .hero-text-crisp,
     html:not(.dark) #hero-desktop-section .hero-text-crisp,
     html.dark #hero-desktop-section .hero-text-crisp {
       color: #ffffff !important;
-      text-shadow: 0 2px 14px rgba(6, 4, 45, 0.65) !important;
+      text-shadow: 0 4px 22px rgba(8, 3, 42, 0.78), 0 1px 3px rgba(0, 0, 0, 0.45) !important;
+      letter-spacing: -0.02em !important;
+      line-height: 1.12 !important;
     }
+
     #hero-desktop-section .hero-subtext-crisp,
     html:not(.dark) #hero-desktop-section .hero-subtext-crisp,
     html.dark #hero-desktop-section .hero-subtext-crisp {
-      color: #f3e8ff !important;
-      text-shadow: 0 1px 10px rgba(6, 4, 45, 0.65) !important;
+      color: #f5f0ff !important;
+      text-shadow: 0 2px 12px rgba(6, 4, 45, 0.75) !important;
     }
+
+    /* Ensure ANY <span> or .hero-gradient-text inside #hero-headline glows with 3D Pink-Gold-Violet Gradient! */
     #hero-desktop-section .hero-gradient-text,
+    #hero-desktop-section #hero-headline span,
     html:not(.dark) #hero-desktop-section .hero-gradient-text,
-    html.dark #hero-desktop-section .hero-gradient-text {
-      background-image: linear-gradient(135deg, #ff85e8 0%, #ff3399 52%, #fcd34d 100%) !important;
+    html:not(.dark) #hero-desktop-section #hero-headline span,
+    html.dark #hero-desktop-section .hero-gradient-text,
+    html.dark #hero-desktop-section #hero-headline span {
+      display: inline-block !important;
+      background-image: linear-gradient(135deg, #ffd6f9 0%, #ff52ad 38%, #ff2a85 64%, #fde047 100%) !important;
       -webkit-background-clip: text !important;
       background-clip: text !important;
       -webkit-text-fill-color: transparent !important;
       color: transparent !important;
       text-shadow: none !important;
-      filter: drop-shadow(0 2px 12px rgba(236, 72, 153, 0.45));
+      filter: drop-shadow(0 4px 16px rgba(236, 72, 153, 0.52));
     }
-    /* Secondary CTA Button inside Hero on Royal-Blue Backdrop */
+
+    /* Hero Top Pill Badge: Compact fit-content luxury glass pill positioned cleanly at the top-left of Hero! */
+    #hero-desktop-section #hero-content-grid > div:first-child {
+      display: inline-flex !important;
+      align-items: center !important;
+      gap: 0.45rem !important;
+      width: fit-content !important;
+      max-width: 100% !important;
+      align-self: flex-start !important;
+      padding: 0.42rem 1.05rem !important;
+      margin-top: 0 !important;
+      margin-bottom: 0.15rem !important;
+      border-radius: 9999px !important;
+      background: linear-gradient(135deg, rgba(30, 12, 108, 0.86) 0%, rgba(88, 24, 148, 0.78) 100%) !important;
+      border: 1.5px solid rgba(244, 114, 182, 0.55) !important;
+      color: #fdf4ff !important;
+      box-shadow: 0 6px 20px rgba(15, 6, 60, 0.38), 0 0 15px rgba(236, 72, 153, 0.28), inset 0 1px 1px rgba(255, 255, 255, 0.30) !important;
+      backdrop-filter: blur(12px) !important;
+      -webkit-backdrop-filter: blur(12px) !important;
+    }
+
+    /* Primary & Secondary CTA Buttons inside Hero */
+    #hero-desktop-section #hero-content-grid a[href*="create"] {
+      background: linear-gradient(135deg, #ff2a85 0%, #ec4899 48%, #7c3aed 100%) !important;
+      border: 1px solid rgba(255, 255, 255, 0.35) !important;
+      box-shadow: 0 10px 28px -4px rgba(236, 72, 153, 0.58), inset 0 1px 1px rgba(255, 255, 255, 0.42) !important;
+    }
     #hero-desktop-section #hero-content-grid button[onclick*="templates-section"] {
-      background: rgba(255, 255, 255, 0.16) !important;
-      border-color: rgba(255, 255, 255, 0.38) !important;
+      background: rgba(255, 255, 255, 0.15) !important;
+      border: 1.5px solid rgba(255, 255, 255, 0.42) !important;
       color: #ffffff !important;
-      backdrop-filter: blur(10px) !important;
+      backdrop-filter: blur(12px) !important;
+      -webkit-backdrop-filter: blur(12px) !important;
+      box-shadow: 0 8px 22px rgba(8, 4, 42, 0.32) !important;
     }
     #hero-desktop-section #hero-content-grid button[onclick*="templates-section"]:hover {
       background: rgba(255, 255, 255, 0.26) !important;
+      border-color: rgba(255, 255, 255, 0.65) !important;
     }
-    /* Hero Top Pill Badge on Blue Backdrop */
-    #hero-desktop-section #hero-content-grid > div:first-child {
-      background: rgba(20, 12, 92, 0.72) !important;
-      border-color: rgba(192, 132, 252, 0.45) !important;
-      color: #f5d0fe !important;
-      box-shadow: 0 4px 15px rgba(0, 0, 0, 0.25) !important;
-    }
-    /* Hero Trust Badges Divider on Blue Backdrop */
+
+    /* Hero Trust Badges Row: Frosted Glass Micro-Pills that never clash with the 3D Gift Box */
     #hero-desktop-section #hero-content-grid > div:last-child {
-      border-top-color: rgba(192, 132, 252, 0.28) !important;
+      border-top: 1px solid rgba(192, 132, 252, 0.26) !important;
+      padding-top: 0.85rem !important;
+      gap: 0.55rem !important;
+      max-width: 580px !important;
+    }
+    #hero-desktop-section #hero-content-grid > div:last-child > div {
+      background: rgba(18, 8, 66, 0.62) !important;
+      border: 1px solid rgba(216, 180, 254, 0.32) !important;
+      backdrop-filter: blur(8px) !important;
+      -webkit-backdrop-filter: blur(8px) !important;
+      padding: 0.28rem 0.72rem !important;
+      border-radius: 9999px !important;
+      font-size: 11.5px !important;
+      font-weight: 700 !important;
+      color: #f5f0ff !important;
+      box-shadow: 0 4px 12px rgba(6, 3, 32, 0.28) !important;
     }
 
     /* ==========================================================================
@@ -1757,8 +1823,7 @@ svg.w-5 { width: 20px !important; height: 20px !important; }
 svg.w-6 { width: 24px !important; height: 24px !important; }
 header .wm-header-brand,
 header .wm-header-actions,
-header .wm-header-create-btn,
-header .wm-theme-pill-btn {
+header .wm-header-create-btn {
   display: inline-flex !important;
   flex-direction: row !important;
   align-items: center !important;
@@ -1766,12 +1831,26 @@ header .wm-theme-pill-btn {
   gap: 6px !important;
 }
 header .wm-theme-pill-btn {
-  width: 56px !important;
-  height: 30px !important;
-  border-radius: 9999px !important;
-  padding: 3px !important;
-  position: relative !important;
+  display: inline-flex !important;
+  flex-direction: row !important;
+  align-items: center !important;
   justify-content: space-between !important;
+  flex-wrap: nowrap !important;
+  gap: 0px !important;
+  width: 54px !important;
+  height: 28px !important;
+  border-radius: 9999px !important;
+  padding: 2px !important;
+  position: relative !important;
+  box-sizing: border-box !important;
+}
+@media (max-width: 639.98px) {
+  header .wm-theme-pill-btn {
+    width: 48px !important;
+    height: 26px !important;
+    padding: 2px !important;
+    gap: 0px !important;
+  }
 }
 header .wm-header-create-btn {
   height: 32px !important;
@@ -1878,6 +1957,7 @@ body.dark .hero-gradient-text,
       var CHARMS = ['✨', '💖', '🎉', '⭐', '💝', '🎊', '✨'];
 
       function spawnWishMagicCelebrationBurst(clientX, clientY) {
+        if (hero.getAttribute('data-3d-burst') === 'off') return;
         var now = Date.now();
         if (now - lastBurstAt < 180) return;
         lastBurstAt = now;
@@ -2031,7 +2111,7 @@ body.dark .hero-gradient-text,
 })();
 </script>
 <!-- END: WishMagic Inline Cloud Background Engine -->
-  <link id="wishmagic-cloud-css" rel="stylesheet" href="/css/cloud-background.css?v=20261015_wm47944_v6"/>
+  <link id="wishmagic-cloud-css" rel="stylesheet" href="/css/cloud-background.css?v=20261015_wm_v8"/>
 </head>
 <body data-page="home" class="w-full min-h-screen font-sans antialiased selection:bg-pink-500 selection:text-white">
 
@@ -2203,21 +2283,22 @@ body.dark .hero-gradient-text,
 <div id="hero-image-scrim" class="absolute inset-0 pointer-events-none transition-opacity duration-500 z-[1]"></div>
 
 <!-- EXPANSIVE HERO CONTENT (Clean, high-contrast, perfectly matches Light Mode & Dark Mode) -->
-<div id="hero-content-grid" class="relative z-10 w-full max-w-4xl space-y-4 sm:space-y-6 py-6 sm:py-10 md:py-14">
-<!-- Glowing pill badge -->
-<div class="inline-flex items-center gap-2 px-4 py-1.5 rounded-full bg-purple-100/90 dark:bg-black/50 backdrop-blur-md border border-purple-200/80 dark:border-white/25 text-xs font-bold tracking-wider text-purple-900 dark:text-pink-200 shadow-sm dark:shadow-md">
-  <span id="hero-badge-text" class="tracking-widest uppercase text-[11px] sm:text-xs drop-shadow-sm">Make Every Moment Unforgettable</span>
-  <span class="text-amber-500 dark:text-amber-300 text-xs">✨</span>
+<div id="hero-content-grid" class="relative z-10 w-full max-w-xl space-y-3 sm:space-y-4 pt-1 pb-2 sm:py-2">
+<!-- Glowing pill badge (Compact fit-content pill near top-left of Hero) -->
+<div class="inline-flex items-center gap-2 px-3.5 py-1.5 rounded-full bg-purple-950/80 backdrop-blur-md border border-pink-400/50 text-xs font-extrabold tracking-wider text-pink-100 shadow-md w-fit self-start">
+  <span class="w-2 h-2 rounded-full bg-gradient-to-r from-amber-300 to-pink-400 animate-pulse flex-shrink-0"></span>
+  <span id="hero-badge-text" class="tracking-widest uppercase text-[10.5px] sm:text-[11.5px] font-extrabold text-white drop-shadow-sm">Make Every Moment Magical</span>
+  <span class="text-amber-300 text-xs leading-none flex-shrink-0">✨</span>
 </div>
-<!-- Main Display Headline (Words never mix into background) -->
-<div>
-  <h1 id="hero-headline" class="font-display text-3xl sm:text-4xl lg:text-5xl xl:text-6xl font-extrabold tracking-tight leading-tight text-[#1c0836] dark:text-white uppercase hero-text-crisp max-w-3xl">
-    Gift a Magical <span class="hero-gradient-text">Web Experience</span>
+<!-- Main Display Headline (Luxury 3D Typography + Rose-Gold Gradient Highlight) -->
+<div class="w-full">
+  <h1 id="hero-headline" class="font-display text-3xl sm:text-4xl lg:text-[44px] xl:text-[50px] font-black tracking-tight leading-[1.12] text-white uppercase hero-text-crisp max-w-xl">
+    Gift a <span class="hero-gradient-text">Magical</span> Web-Experience!
   </h1>
 </div>
-<!-- Subheadline (Words never mix into background) -->
-<p id="hero-subheadline" class="text-sm sm:text-base md:text-lg text-purple-950/85 dark:text-purple-100 max-w-2xl leading-relaxed font-medium hero-subtext-crisp">
-  Personalize an interactive celebration web-experience in seconds — complete with 3D unboxing, customized music, photo memories, and instant magic.
+<!-- Subheadline -->
+<p id="hero-subheadline" class="text-xs sm:text-sm md:text-[15.5px] text-purple-100/95 max-w-lg leading-relaxed font-medium hero-subtext-crisp">
+  Create beautiful personalized digital wishes with interactive 3D unboxing, custom music &amp; unforgettable celebration magic.
 </p>
 <!-- CTA Row -->
 <div class="flex flex-wrap items-center gap-3.5 pt-2">
@@ -3694,30 +3775,43 @@ body.dark .hero-gradient-text,
       const heroSec = document.getElementById('hero-desktop-section');
       const ambientBackdrop = document.getElementById('ambient-hero-backdrop');
       const heroScrim = document.getElementById('hero-image-scrim');
+      const stage3d = document.getElementById('hero-css-3d-viewport');
+      const confettiStage = document.getElementById('wm-hero-confetti-stage');
       if (!heroSec) return;
       const s = window._cachedSiteSettings || {};
       const mode = s.heroBgMode || 'image';
+
+      // Apply 3D Floating & Touch Celebration Burst toggles from Admin Settings
+      const floatEnabled = s.hero3dFloatingEnabled !== false;
+      const burstEnabled = s.heroTouchBurstEnabled !== false;
+      heroSec.setAttribute('data-3d-floating', floatEnabled ? 'on' : 'off');
+      heroSec.setAttribute('data-3d-burst', burstEnabled ? 'on' : 'off');
+      if (confettiStage) confettiStage.style.display = burstEnabled ? 'block' : 'none';
+      if (stage3d) {
+        stage3d.querySelectorAll('.hero-3d-layer, .hero-3d-box-light-cone, .wm-spec-dome').forEach(el => {
+          el.style.animationPlayState = floatEnabled ? 'running' : 'paused';
+        });
+      }
 
       if (mode === 'gradient') {
         const grad = s.heroStyleGradient || HERO_STYLE_GRADIENTS_MAP[s.heroStyle || 'cosmic-purple'] || HERO_STYLE_GRADIENTS_MAP['cosmic-purple'];
         heroSec.style.setProperty('background', grad, 'important');
         if (ambientBackdrop) ambientBackdrop.style.display = 'block';
-        const stage3d = document.getElementById('hero-css-3d-viewport');
         if (stage3d) stage3d.style.display = 'none';
         if (heroScrim) {
           heroScrim.style.setProperty('opacity', '0', 'important');
           heroScrim.style.setProperty('display', 'none', 'important');
         }
       } else {
-        // Pure CSS & 3D Hero Scene Mode (default): Uses code-generated 3D hero scene unless a custom external URL is set
-        const stage3d = document.getElementById('hero-css-3d-viewport');
-        const customUrl = (s.heroImageUrl && s.heroImageUrl !== '/assets/file_ab2082.png') ? s.heroImageUrl : '';
+        // 3D Hero Scene Mode ('image' or '3d-magic') or Custom Uploaded Photo ('custom-photo')
+        const isCustomPhoto = (mode === 'custom-photo') || (s.heroImageUrl && s.heroImageUrl !== '/assets/file_ab2082.png' && mode !== '3d-magic');
+        const customUrl = isCustomPhoto ? (s.heroImageUrl || '/assets/file_ab2082.png') : '';
         heroSec.style.removeProperty('background');
         if (customUrl) {
-          heroSec.style.backgroundImage = `url('${customUrl}')`;
+          heroSec.style.setProperty('background-image', `url('${customUrl}')`, 'important');
           if (stage3d) stage3d.style.display = 'none';
         } else {
-          heroSec.style.backgroundImage = 'none';
+          heroSec.style.setProperty('background-image', 'none', 'important');
           if (stage3d) stage3d.style.display = 'block';
         }
         heroSec.style.backgroundPosition = 'center';
@@ -3801,10 +3895,10 @@ body.dark .hero-gradient-text,
 
         window._cachedSiteSettings = s;
 
-        // 1. Hero Badge
+        // 1. Hero Badge (strip trailing ✨ so it never duplicates the badge icon)
         if (s.heroBadge) {
           const el = document.getElementById('hero-badge-text');
-          if (el) el.textContent = s.heroBadge;
+          if (el) el.textContent = String(s.heroBadge).replace(/[✨\s]+$/u, '').trim() || s.heroBadge;
         }
 
         // 2. Hero Headline

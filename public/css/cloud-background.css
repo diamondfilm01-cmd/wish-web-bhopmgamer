@@ -276,63 +276,81 @@ html.dark .wm-nav-pill:not(.active) {
   color: #ffffff !important;
 }
 
-/* Admin-Style Animated Sun/Moon Sliding Pill Toggle (.wm-theme-pill-btn) */
-.wm-theme-pill-btn {
-  position: relative;
-  display: inline-flex;
-  align-items: center;
-  justify-content: space-between;
-  width: 54px;
-  height: 28px;
-  padding: 2px;
-  border-radius: 9999px;
+/* Admin-Style Animated Sun/Moon Sliding Pill Toggle (.wm-theme-pill-btn) - Locked Geometry */
+.wm-theme-pill-btn,
+header .wm-theme-pill-btn {
+  position: relative !important;
+  display: inline-flex !important;
+  flex-direction: row !important;
+  align-items: center !important;
+  justify-content: space-between !important;
+  gap: 0px !important;
+  width: 54px !important;
+  height: 28px !important;
+  padding: 2px !important;
+  border-radius: 9999px !important;
   background: #ede5fb !important;
   border: 1.5px solid #d2c1f2 !important;
-  cursor: pointer;
-  transition: background-color 0.25s ease, border-color 0.25s ease, box-shadow 0.25s ease;
-  box-shadow: inset 0 1px 3px rgba(98, 56, 178, 0.12);
-  flex-shrink: 0;
+  box-sizing: border-box !important;
+  cursor: pointer !important;
+  transition: background-color 0.25s ease, border-color 0.25s ease, box-shadow 0.25s ease !important;
+  box-shadow: inset 0 1px 3px rgba(98, 56, 178, 0.12) !important;
+  flex-shrink: 0 !important;
+  overflow: hidden !important;
 }
 
 html.dark .wm-theme-pill-btn,
-body.dark .wm-theme-pill-btn {
+body.dark .wm-theme-pill-btn,
+html.dark header .wm-theme-pill-btn,
+body.dark header .wm-theme-pill-btn {
   background: #25144a !important;
   border-color: rgba(168, 85, 247, 0.48) !important;
-  box-shadow: inset 0 1px 4px rgba(0, 0, 0, 0.45);
+  box-shadow: inset 0 1px 4px rgba(0, 0, 0, 0.45) !important;
 }
 
-.wm-theme-pill-btn::after {
-  content: '';
-  position: absolute;
-  top: 2px;
-  left: 2px;
-  width: 21px;
-  height: 21px;
-  border-radius: 9999px;
-  background: linear-gradient(135deg, #f59e0b 0%, #ec4899 100%);
-  box-shadow: 0 2px 8px rgba(236, 72, 153, 0.35);
-  transition: transform 0.28s cubic-bezier(0.34, 1.56, 0.64, 1), background 0.25s ease;
-  z-index: 1;
+.wm-theme-pill-btn::after,
+header .wm-theme-pill-btn::after {
+  content: '' !important;
+  position: absolute !important;
+  top: 2px !important;
+  left: 2px !important;
+  width: 21px !important;
+  height: 21px !important;
+  border-radius: 9999px !important;
+  background: linear-gradient(135deg, #f59e0b 0%, #ec4899 100%) !important;
+  box-shadow: 0 2px 8px rgba(236, 72, 153, 0.35) !important;
+  transform: translate3d(0px, 0, 0) !important;
+  transition: transform 0.28s cubic-bezier(0.34, 1.56, 0.64, 1), background 0.25s ease !important;
+  z-index: 1 !important;
+  pointer-events: none !important;
 }
 
 html.dark .wm-theme-pill-btn::after,
-body.dark .wm-theme-pill-btn::after {
-  transform: translateX(26px);
-  background: linear-gradient(135deg, #a855f7 0%, #6366f1 100%);
-  box-shadow: 0 2px 10px rgba(168, 85, 247, 0.55);
+body.dark .wm-theme-pill-btn::after,
+html.dark header .wm-theme-pill-btn::after,
+body.dark header .wm-theme-pill-btn::after {
+  transform: translate3d(26px, 0, 0) !important;
+  background: linear-gradient(135deg, #a855f7 0%, #6366f1 100%) !important;
+  box-shadow: 0 2px 10px rgba(168, 85, 247, 0.55) !important;
 }
 
 .wm-theme-pill-sun,
-.wm-theme-pill-knob {
-  position: relative;
-  z-index: 2;
-  width: 21px;
-  height: 21px;
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  border-radius: 9999px;
-  transition: color 0.2s ease;
+.wm-theme-pill-knob,
+header .wm-theme-pill-sun,
+header .wm-theme-pill-knob {
+  position: relative !important;
+  z-index: 2 !important;
+  width: 21px !important;
+  height: 21px !important;
+  flex: 0 0 21px !important;
+  margin: 0 !important;
+  padding: 0 !important;
+  display: inline-flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  border-radius: 9999px !important;
+  line-height: 1 !important;
+  transition: color 0.2s ease !important;
 }
 
 html:not(.dark) .wm-theme-pill-sun { color: #ffffff !important; }
@@ -541,28 +559,40 @@ html.dark .wm-theme-pill-knob { color: #ffffff !important; }
     display: none !important;
   }
 
-  .wm-theme-pill-btn {
-    width: 46px !important;
-    height: 25px !important;
+  .wm-theme-pill-btn,
+  header .wm-theme-pill-btn {
+    width: 48px !important;
+    height: 26px !important;
     padding: 2px !important;
+    gap: 0px !important;
+    border-width: 1.5px !important;
+    box-sizing: border-box !important;
   }
 
-  .wm-theme-pill-btn::after {
+  .wm-theme-pill-btn::after,
+  header .wm-theme-pill-btn::after {
     width: 19px !important;
     height: 19px !important;
-    top: 1.5px !important;
+    top: 2px !important;
     left: 2px !important;
+    transform: translate3d(0px, 0, 0) !important;
   }
 
   html.dark .wm-theme-pill-btn::after,
-  body.dark .wm-theme-pill-btn::after {
-    transform: translateX(21px) !important;
+  body.dark .wm-theme-pill-btn::after,
+  html.dark header .wm-theme-pill-btn::after,
+  body.dark header .wm-theme-pill-btn::after {
+    transform: translate3d(22px, 0, 0) !important;
   }
 
   .wm-theme-pill-sun,
-  .wm-theme-pill-knob {
+  .wm-theme-pill-knob,
+  header .wm-theme-pill-sun,
+  header .wm-theme-pill-knob {
     width: 19px !important;
     height: 19px !important;
+    flex: 0 0 19px !important;
+    margin: 0 !important;
   }
 
   #wishmagic-notification-bell-btn,
