@@ -3998,8 +3998,12 @@ app.post('/api/templates/upload', async (req, res) => {
           price,
           description,
           thumbnail,
-          featured
+          thumbnailName: req.body?.thumbnailName,
+          featured,
+          detectedFields: Array.isArray(detectedFields) ? detectedFields : undefined,
+          publishImmediately: Boolean(req.body?.publishImmediately || req.body?.autoPublish || req.body?.isPublished === true)
         },
+        publishImmediately: Boolean(req.body?.publishImmediately || req.body?.autoPublish || req.body?.isPublished === true),
         env: process.env,
         authorId: req.session?.userId || 'admin_system',
         idempotencyKey
@@ -4008,6 +4012,41 @@ app.post('/api/templates/upload', async (req, res) => {
       if (!ingestResult.success) {
         return res.status(ingestResult.code === 'B2_NOT_CONFIGURED' ? 503 : 400).json(ingestResult);
       }
+
+      // Sync deployed template into local templates list so main website reflects it immediately
+      try {
+        const templates = getTemplates();
+        const existingIdx = templates.findIndex(t => t.id === ingestResult.templateId);
+        const syncedTemplate = {
+          id: ingestResult.templateId,
+          slug: String(ingestResult.templateId).replace(/^tpl_/, ''),
+          name: (name || ingestResult.name || 'Custom Celebration').trim(),
+          category: category || 'Birthday',
+          description: description || 'Custom web celebration template.',
+          thumbnail: ingestResult.thumbnail || thumbnail || '/assets/default-template.jpg',
+          tier: tier === 'vip' ? 'vip' : 'free',
+          price: tier === 'vip' ? (Number(price) || 49) : 0,
+          isPremium: tier === 'vip',
+          isPublished: Boolean(ingestResult.isPublished ?? true),
+          status: ingestResult.status || 'published',
+          entryFile: ingestResult.entryFile || 'index.html',
+          folder: String(ingestResult.templateId).replace(/^tpl_/, ''),
+          currentVersionId: ingestResult.versionId,
+          previewUrl: ingestResult.previewUrl,
+          featured: Boolean(featured),
+          placement: Number(placement) || 1,
+          detectedFields: ingestResult.detectedFields || (Array.isArray(detectedFields) ? detectedFields : []),
+          imgbbImages: ingestResult.imgbbImages || [],
+          b2MediaAssets: ingestResult.b2MediaAssets || [],
+          createdAt: new Date().toISOString()
+        };
+        if (existingIdx >= 0) {
+          templates[existingIdx] = { ...templates[existingIdx], ...syncedTemplate };
+        } else {
+          templates.unshift(syncedTemplate);
+        }
+        saveTemplates(templates);
+      } catch (_) {}
 
       return res.status(201).json(ingestResult);
     }
@@ -7704,7 +7743,7 @@ app.get(['/api/media/stream', '/api/media/stream/:id', '/api/media/stream/:id/:f
 });
 
 // API: Upload a new audio track or image asset
-app.post('/api/media/upload', async (req, res) => {
+app.post(['/api/media/upload', '/api/imgbb/upload'], async (req, res) => {
   try {
     const { title, genre, duration, license, fileData, filename, type } = req.body || {};
     if (!fileData) {
@@ -7736,7 +7775,7 @@ app.post('/api/media/upload', async (req, res) => {
       const imgResult = await provider.uploadImage({
         data: validation.bytes,
         filename: filename || 'user-upload.jpg',
-        name: `media_${Date.now()}`
+        name: String(filename || 'user-upload').split('/').pop().replace(/\.[^/.]+$/, '') || 'user-upload'
       });
 
       const media = getMedia();
@@ -7764,8 +7803,32 @@ app.post('/api/media/upload', async (req, res) => {
       return res.status(201).json({
         success: true,
         status: 'uploaded',
+        mediaId: newAsset.id,
+        provider: 'imgbb',
+        storageProvider: 'imgbb',
+        filename: imgResult.originalFilename || newAsset.filename,
+        url: newAsset.displayUrl,
+        displayUrl: newAsset.displayUrl,
+        originalUrl: imgResult.originalUrl || newAsset.url,
+        thumbnailUrl: newAsset.thumbnailUrl,
+        width: newAsset.width,
+        height: newAsset.height,
         track: newAsset,
         asset: newAsset,
+         data: {
+          status: 'uploaded',
+          mediaId: newAsset.id,
+          provider: 'imgbb',
+          storageProvider: 'imgbb',
+          filename: imgResult.originalFilename || newAsset.filename,
+          url: newAsset.displayUrl,
+          displayUrl: newAsset.displayUrl,
+          originalUrl: imgResult.originalUrl || newAsset.url,
+          thumbnailUrl: newAsset.thumbnailUrl,
+          width: newAsset.width,
+          height: newAsset.height,
+          track: newAsset
+        },
         message: 'Image asset uploaded successfully to ImgBB'
       });
     }
@@ -8421,7 +8484,7 @@ app.post(['/api/admin/media/upload', '/api/admin/media/bulk-upload', '/api/admin
             imgResult = await provider.uploadImage({
               data: validation.bytes,
               filename: safeFilename,
-              name: `admin_${Date.now()}`
+              name: String(filename || 'admin-photo').split('/').pop().replace(/\.[^/.]+$/, '')
             });
             publicUrl = imgResult.displayUrl;
             storageProvider = 'imgbb';

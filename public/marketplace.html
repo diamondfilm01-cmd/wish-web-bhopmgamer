@@ -819,7 +819,7 @@
     const extLink = document.getElementById('mkt-preview-external');
     const ctaBtn = document.getElementById('mkt-preview-cta');
 
-    const url = `/templates-store/${tpl.folder || tpl.id}/${tpl.entryFile || "index.html"}`;
+    const cleanFolder = String(tpl.folder || tpl.slug || tpl.id || "").replace(/^templates-store\/+/, ""); const url = tpl.previewUrl || `/templates-store/${cleanFolder}/${tpl.entryFile || "index.html"}`;
     const isVip = tpl.tier === 'vip' || (tpl.price && Number(tpl.price) > 0);
 
     if (titleEl) titleEl.textContent = tpl.name;

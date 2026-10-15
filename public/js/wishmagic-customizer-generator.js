@@ -1340,26 +1340,60 @@
     /**
      * File Upload Handlers
      */
-    handleImageUpload(key, input) {
+    async handleImageUpload(key, input) {
       if (!input || !input.files || !input.files[0]) return;
       const file = input.files[0];
 
-      // File validation
       if (!file.type.startsWith('image/')) {
-        alert('Please select a valid image file (PNG, JPG, WEBP)');
+        alert('Please select a valid image file (PNG, JPG, WEBP, GIF)');
         return;
       }
 
-      if (file.size > 10 * 1024 * 1024) {
-        alert('Image file size must not exceed 10MB');
+      if (file.size > 16 * 1024 * 1024) {
+        alert('Image file size must not exceed 16MB');
         return;
       }
 
-      const blobUrl = URL.createObjectURL(file);
-      activeCreatedObjectURLs.add(blobUrl);
-
-      this.setValue(key, blobUrl);
+      const tempBlobUrl = URL.createObjectURL(file);
+      activeCreatedObjectURLs.add(tempBlobUrl);
+      this.setValue(key, tempBlobUrl);
       if (currentContainer) this.render(currentContainer);
+
+      try {
+        if (global.WishMediaSystem && global.WishMediaSystem.ImageProcessor) {
+          const uploaded = await global.WishMediaSystem.ImageProcessor.processImageFile(file);
+          if (uploaded && (uploaded.displayUrl || uploaded.url || uploaded.src)) {
+            this.setValue(key, uploaded.displayUrl || uploaded.url || uploaded.src);
+            if (currentContainer) this.render(currentContainer);
+            return;
+          }
+        }
+        const dataUrl = await new Promise((res, rej) => {
+          const r = new FileReader();
+          r.onload = () => res(r.result);
+          r.onerror = rej;
+          r.readAsDataURL(file);
+        });
+        const apiRes = await fetch('/api/imgbb/upload', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            fileData: dataUrl,
+            filename: file.name,
+            type: 'image',
+            title: file.name.replace(/\.[^/.]+$/, '')
+          })
+        });
+        const apiJson = await apiRes.json().catch(() => ({}));
+        const payload = apiJson?.data || apiJson || {};
+        const liveUrl = payload.displayUrl || payload.url || payload.track?.url;
+        if (apiRes.ok && liveUrl) {
+          this.setValue(key, liveUrl);
+          if (currentContainer) this.render(currentContainer);
+        }
+      } catch (e) {
+        console.warn('[Customizer Image ImgBB Upload Fallback]:', e);
+      }
     },
 
     hasMediaSlots() {
@@ -1641,21 +1675,53 @@
         activeCreatedObjectURLs.delete(oldSlotVal.url);
       }
 
-      const blobUrl = URL.createObjectURL(file);
-      activeCreatedObjectURLs.add(blobUrl);
+      let resolvedUrl = URL.createObjectURL(file);
+      let resolvedProvider = 'temporary';
+      activeCreatedObjectURLs.add(resolvedUrl);
+
+      try {
+        const isImg = mediaType === 'image' || (file.type && file.type.startsWith('image/'));
+        const dataUrl = await new Promise((res, rej) => {
+          const r = new FileReader();
+          r.onload = () => res(r.result);
+          r.onerror = rej;
+          r.readAsDataURL(file);
+        });
+        const endpoint = isImg ? '/api/imgbb/upload' : '/api/media/upload';
+        const upRes = await fetch(endpoint, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            fileData: dataUrl,
+            filename: file.name,
+            type: isImg ? 'image' : mediaType,
+            title: file.name.replace(/\.[^/.]+$/, '')
+          })
+        });
+        const upJson = await upRes.json().catch(() => ({}));
+        const payload = upJson?.data || upJson || {};
+        const cloudUrl = payload.displayUrl || payload.url || payload.track?.playbackUrl || payload.track?.url;
+        if (upRes.ok && cloudUrl) {
+          resolvedUrl = cloudUrl;
+          resolvedProvider = isImg ? 'imgbb' : 'b2';
+        }
+      } catch (_) {}
 
       const mediaRef = {
         id: `media_${Date.now()}_${Math.random().toString(36).slice(2, 7)}`,
-        provider: 'temporary',
+        provider: resolvedProvider,
         providerId: slotId,
-        url: blobUrl,
+        url: resolvedUrl,
+        displayUrl: resolvedUrl,
         mimeType: file.type || 'application/octet-stream',
         size: file.size,
-        name: file.name
+        name: file.name,
+        filename: file.name
       };
 
       if (!currentData.media) currentData.media = {};
       currentData.media[slotId] = mediaRef;
+      currentData[slotId] = resolvedUrl;
       global.WishMagicData = currentData;
       isDirtyState = true;
 
@@ -1667,7 +1733,7 @@
     /**
      * Multiple Media Upload Handler (Gallery)
      */
-    handleMultipleMediaUpload(slotId, input) {
+    async handleMultipleMediaUpload(slotId, input) {
       if (!input || !input.files || input.files.length === 0) return;
       const slot = (currentSchema.media && currentSchema.media.slots || []).find(s => s.id === slotId);
 
@@ -1677,19 +1743,32 @@
       const maxItems = (slot && slot.maxItems) || 8;
       const filesToAdd = Array.from(input.files).slice(0, maxItems - currentItems.length);
 
-      filesToAdd.forEach(file => {
-        const blobUrl = URL.createObjectURL(file);
-        activeCreatedObjectURLs.add(blobUrl);
+      for (const file of filesToAdd) {
+        let resolvedUrl = URL.createObjectURL(file);
+        let resolvedProvider = 'temporary';
+        activeCreatedObjectURLs.add(resolvedUrl);
+
+        try {
+          if (global.WishMediaSystem && global.WishMediaSystem.ImageProcessor && file.type.startsWith('image/')) {
+            const processed = await global.WishMediaSystem.ImageProcessor.processImageFile(file);
+            if (processed && (processed.displayUrl || processed.url)) {
+              resolvedUrl = processed.displayUrl || processed.url;
+              resolvedProvider = processed.provider || 'imgbb';
+            }
+          }
+        } catch (_) {}
 
         currentItems.push({
           id: `media_${Date.now()}_${Math.random().toString(36).slice(2, 7)}`,
-          provider: 'temporary',
-          url: blobUrl,
+          provider: resolvedProvider,
+          url: resolvedUrl,
+          displayUrl: resolvedUrl,
           mimeType: file.type || 'image/jpeg',
           size: file.size,
-          name: file.name
+          name: file.name,
+          filename: file.name
         });
-      });
+      }
 
       currentData.media[slotId] = currentItems;
       global.WishMagicData = currentData;

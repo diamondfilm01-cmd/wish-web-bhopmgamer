@@ -1,5 +1,10 @@
 import { webcrypto as _nodeWebCrypto } from 'node:crypto';
 if (!globalThis.crypto) { globalThis.crypto = _nodeWebCrypto; }
+function safeJsonParse(val, fallback = null) {
+  if (val === undefined || val === null || val === '') return fallback;
+  if (typeof val === 'object') return val;
+  try { return JSON.parse(val); } catch (_) { return fallback; }
+}
 /**
  * WishMagic Cloudflare Worker / Pages Functions Production API
  * Stack: Cloudflare Pages + Cloudflare Workers + Cloudflare D1 + Cloudflare R2
@@ -6500,23 +6505,36 @@ export default {
 
             const rows = await env.DB.prepare(q).all();
             if (rows.results && rows.results.length > 0) {
-              const dbTemplates = rows.results.map(r => ({
-                id: r.id,
-                slug: r.slug,
-                name: r.name,
-                category: r.category,
-                tier: r.tier,
-                price: r.price,
-                isPremium: Boolean(r.is_premium),
-                isPublished: Boolean(r.is_published),
-                status: r.status,
-                featured: Boolean(r.featured),
-                placement: r.placement,
-                thumbnail: r.thumbnail,
-                description: r.description,
-                folder: r.folder,
-                entryFile: r.entry_file
-              }));
+              const dbTemplates = rows.results.map(r => {
+                const entryFile = r.entry_file || 'index.html';
+                const folder = r.folder || r.slug || r.id;
+                const previewUrl = r.current_version_id
+                  ? `/api/templates/${r.id}/versions/${r.current_version_id}/preview/${entryFile}`
+                  : `/templates-store/${folder}/${entryFile}`;
+                return {
+                  id: r.id,
+                  slug: r.slug,
+                  name: r.name,
+                  category: r.category,
+                  tier: r.tier,
+                  price: r.price,
+                  isPremium: Boolean(r.is_premium),
+                  isPublished: Boolean(r.is_published),
+                  status: r.status,
+                  featured: Boolean(r.featured),
+                  placement: r.placement,
+                  thumbnail: r.thumbnail,
+                  previewImages: safeJsonParse(r.preview_images, []),
+                  detectedFields: safeJsonParse(r.detected_fields, []),
+                  fields: safeJsonParse(r.detected_fields, []),
+                  capabilities: safeJsonParse(r.capabilities, {}),
+                  description: r.description,
+                  folder,
+                  entryFile,
+                  currentVersionId: r.current_version_id || null,
+                  previewUrl
+                };
+              });
               const seenIds = new Set(dbTemplates.map(t => t.id));
               const merged = [...dbTemplates];
               for (const seed of SEED_TEMPLATES) {
@@ -7459,15 +7477,20 @@ export default {
         } else {
           // JSON payload
           const body = await request.json().catch(() => ({}));
+          const rawThumb = String(body.thumbnail || '').trim();
           templateMeta = {
             name: sanitizeString(body.title || body.name || 'Custom Template', 80),
             category: sanitizeString(body.category || 'celebration', 50),
             tier: body.tier === 'vip' ? 'vip' : 'free',
             price: Number(body.price || 0),
             description: sanitizeString(body.description || '', 300),
-            thumbnail: sanitizeString(body.thumbnail || '', 500),
+            thumbnail: rawThumb.startsWith('data:image/') ? rawThumb : sanitizeString(rawThumb, 500),
+            thumbnailName: sanitizeString(body.thumbnailName || '', 120),
             slug: sanitizeString(body.slug || '', 60),
-            familyId: sanitizeString(body.familyId || '', 60)
+            familyId: sanitizeString(body.familyId || '', 60),
+            featured: Boolean(body.featured),
+            detectedFields: Array.isArray(body.detectedFields) ? body.detectedFields : undefined,
+            publishImmediately: Boolean(body.publishImmediately || body.autoPublish || body.isPublished === true)
           };
 
           if (body.zipBase64) {
@@ -7531,6 +7554,8 @@ export default {
             env,
             db: env.DB,
             storageProvider: injectedStorageProvider,
+            imgbbProvider: env.IMGBB_PROVIDER || null,
+            publishImmediately: Boolean(templateMeta.publishImmediately),
             authorId: user.id || 'admin',
             idempotencyKey
           });
@@ -7640,10 +7665,43 @@ export default {
             try {
               const b2Provider = injectedStorageProvider || B2StorageProvider.fromEnv(env);
               const b2Res = await b2Provider.getObject({ key: targetStorageKey });
-              return new Response(b2Res.body, {
+              const rawBody = b2Res.body instanceof Uint8Array
+                ? b2Res.body
+                : (typeof b2Res.body === 'string' ? new TextEncoder().encode(b2Res.body) : new Uint8Array(b2Res.body || 0));
+              const totalLen = rawBody.byteLength;
+              const contentType = b2Res.contentType || resolvedMime;
+              const rangeHeader = request.headers.get('range') || request.headers.get('Range');
+
+              if (rangeHeader && totalLen > 0) {
+                const rangeMatch = rangeHeader.match(/bytes=(\d*)-(\d*)/i);
+                if (rangeMatch) {
+                  const start = rangeMatch[1] ? parseInt(rangeMatch[1], 10) : 0;
+                  const end = rangeMatch[2] ? Math.min(parseInt(rangeMatch[2], 10), totalLen - 1) : totalLen - 1;
+                  if (start >= 0 && start < totalLen && end >= start) {
+                    const chunk = rawBody.subarray(start, end + 1);
+                    return new Response(chunk, {
+                      status: 206,
+                      headers: {
+                        'Content-Type': contentType,
+                        'Content-Range': `bytes ${start}-${end}/${totalLen}`,
+                        'Content-Length': String(chunk.byteLength),
+                        'Accept-Ranges': 'bytes',
+                        'Access-Control-Allow-Origin': '*',
+                        'Cache-Control': 'public, max-age=3600',
+                        'X-Frame-Options': 'SAMEORIGIN'
+                      }
+                    });
+                  }
+                }
+              }
+
+              return new Response(rawBody, {
                 status: 200,
                 headers: {
-                  'Content-Type': b2Res.contentType || resolvedMime,
+                  'Content-Type': contentType,
+                  'Content-Length': String(totalLen),
+                  'Accept-Ranges': 'bytes',
+                  'Access-Control-Allow-Origin': '*',
                   'Cache-Control': 'public, max-age=3600',
                   'X-Frame-Options': 'SAMEORIGIN'
                 }
@@ -8283,7 +8341,7 @@ export default {
             imgResult = await provider.uploadImage({
               data: validation.bytes,
               filename,
-              name: `template_${templateId}_${versionId}_${assetKey}`
+              name: filename.replace(/\.[^/.]+$/, '') || `template_${templateId}_${assetKey}`
             });
           } catch (uploadErr) {
             return applySecurityHeaders(jsonError(uploadErr.code || 'IMGBB_UPLOAD_FAILED', uploadErr.message, 502), request, env);
@@ -8497,7 +8555,7 @@ export default {
           imgResult = await provider.uploadImage({
             data: validation.bytes,
             filename,
-            name: `template_${existing.template_id || 'tpl'}_${existing.asset_key}_replaced`
+            name: filename.replace(/\.[^/.]+$/, '') || `template_${existing.asset_key}`
           });
         } catch (uploadErr) {
           return applySecurityHeaders(jsonError(uploadErr.code || 'IMGBB_UPLOAD_FAILED', uploadErr.message, 502), request, env);
@@ -9653,7 +9711,7 @@ export default {
           imgResult = await provider.uploadImage({
             data: validation.bytes,
             filename,
-            name: `wish_${wishId}_${fieldKey}`
+            name: filename.replace(/\.[^/.]+$/, '') || `wish_${wishId}_${fieldKey}`
           });
         } catch (uploadErr) {
           return applySecurityHeaders(jsonError(uploadErr.code || 'IMGBB_UPLOAD_FAILED', uploadErr.message, 502), request, env);
@@ -10615,16 +10673,24 @@ export default {
         response = jsonSuccess({ tracks, total: tracks.length }, 200, {}, requestId);
       }
 
-      else if (pathname === '/api/media/upload' && method === 'POST') {
-        const user = await getAuthenticatedUser(request, env);
-        if (!user) return applySecurityHeaders(jsonError('AUTH_REQUIRED', 'Authentication required', 401), request, env);
-
+      else if ((pathname === '/api/media/upload' || pathname === '/api/imgbb/upload') && method === 'POST') {
         if (isCsrfViolation(request, env)) {
           return applySecurityHeaders(jsonError('FORBIDDEN', 'Cross-origin mutation rejected', 403), request, env);
         }
 
         const body = await request.json().catch(() => ({}));
-        const filename = sanitizeString(body.filename || 'asset.mp3', 100);
+        const rawFilename = String(body.filename || body.fileName || (pathname === '/api/imgbb/upload' ? 'photo.png' : 'asset.mp3')).split('/').pop().split('\\').pop().trim();
+        const filename = sanitizeString(rawFilename || 'asset.mp3', 120);
+        let user = await getAuthenticatedUser(request, env);
+        if (!user) {
+          const extCheck = filename.split('.').pop().toLowerCase();
+          const isImgPayload = pathname === '/api/imgbb/upload' || IMAGE_LIMITS.ALLOWED_EXTENSIONS.includes(extCheck) || body.type === 'image' || Boolean((body.fileData || body.data) && String(body.fileData || body.data).includes('image/'));
+          if (isImgPayload && (body.fileData || body.data)) {
+            user = { id: 'guest_customizer', email: 'guest@wishmagic.live', role: 'user' };
+          } else {
+            return applySecurityHeaders(jsonError('AUTH_REQUIRED', 'Authentication required', 401), request, env);
+          }
+        }
         const ext = filename.split('.').pop().toLowerCase();
         const forbiddenExts = ['js', 'html', 'htm', 'php', 'sh', 'bat', 'exe', 'py', 'svg'];
 
@@ -10658,7 +10724,7 @@ export default {
             imgResult = await provider.uploadImage({
               data: validation.bytes,
               filename,
-              name: `user_${user.id}_${Date.now()}`
+              name: filename.replace(/\.[^/.]+$/, '') || `user_${user.id}`
             });
           } catch (uploadErr) {
             return applySecurityHeaders(jsonError(uploadErr.code || 'IMGBB_UPLOAD_FAILED', uploadErr.message, 502), request, env);
@@ -10682,13 +10748,33 @@ export default {
             ).run().catch(e => console.warn('wish_media insert warning:', e.message));
           }
 
+          if (body.wishId && body.fieldKey && env.DB && typeof env.DB.prepare === 'function') {
+            const mapId = `wmm_${Date.now().toString(36)}_${Math.random().toString(36).slice(2, 6)}`;
+            await env.DB.prepare(`
+              INSERT OR REPLACE INTO wish_media_mappings (id, wish_id, field_key, media_id, sort_order, created_at)
+              VALUES (?, ?, ?, ?, 1, ?)
+            `).bind(mapId, String(body.wishId), String(body.fieldKey), mediaId, nowIso).run().catch(() => {});
+          }
+
           return applySecurityHeaders(jsonSuccess({
             status: 'uploaded',
+            mediaId,
+            provider: 'imgbb',
+            storageProvider: 'imgbb',
+            filename: imgResult.originalFilename || filename,
+            url: imgResult.displayUrl || imgResult.url,
+            displayUrl: imgResult.displayUrl || imgResult.url,
+            originalUrl: imgResult.originalUrl || imgResult.url,
+            thumbnailUrl: imgResult.thumbnailUrl || imgResult.displayUrl,
+            width: imgResult.width,
+            height: imgResult.height,
             track: {
               id: mediaId,
               title: sanitizeString(body.title || filename, 80),
-              url: imgResult.displayUrl,
-              displayUrl: imgResult.displayUrl,
+              filename: imgResult.originalFilename || filename,
+              url: imgResult.displayUrl || imgResult.url,
+              displayUrl: imgResult.displayUrl || imgResult.url,
+              originalUrl: imgResult.originalUrl || imgResult.url,
               thumbnailUrl: imgResult.thumbnailUrl,
               width: imgResult.width,
               height: imgResult.height,
@@ -10718,8 +10804,8 @@ export default {
           if (bytes) {
             const b2Provider = B2StorageProvider.fromEnv(env);
             const trackId = `mus_${Date.now().toString(36)}_${Math.random().toString(36).substring(2, 6)}`;
-            const cleanFileName = filename.replace(/[^a-zA-Z0-9._-]/g, '_');
-            const storageKey = `music/${Date.now()}_${trackId}_${cleanFileName}`;
+            const cleanFileName = filename.replace(/[^a-zA-Z0-9._ -]/g, '').trim() || 'audio.mp3';
+            const storageKey = `music/${trackId}/${cleanFileName}`;
 
             const uploadRes = await b2Provider.putObject({
               key: storageKey,
@@ -13657,9 +13743,14 @@ export default {
         // If base64 payload and ImgBB is configured, attempt upload for clean CDN URL, else keep data URI
         if (targetUrl.startsWith('data:image/')) {
           try {
-            const imgbbProvider = ImgBBProvider.fromEnv(env);
-            if (imgbbProvider && imgbbProvider.isConfigured()) {
-              const upRes = await imgbbProvider.uploadImage(targetUrl, body.fileName || 'hero-banner');
+            if (ImgBBProvider.isConfigured(env)) {
+              const imgbbProvider = ImgBBProvider.fromEnv(env);
+              const heroFileName = String(body.fileName || body.filename || 'hero-banner.png').trim();
+              const upRes = await imgbbProvider.uploadImage({
+                data: targetUrl,
+                filename: heroFileName,
+                name: heroFileName.replace(/\.[^/.]+$/, '') || 'hero-banner'
+              });
               if (upRes && (upRes.displayUrl || upRes.url)) {
                 targetUrl = upRes.displayUrl || upRes.url;
               }
@@ -14357,7 +14448,7 @@ export default {
             imgbbResult = await provider.uploadImage({
               data: imageValidation.bytes,
               filename,
-              name: `admin_${Date.now()}`
+              name: filename.replace(/\.[^/.]+$/, '') || `admin_${Date.now()}`
             });
             publicUrl = imgbbResult.displayUrl;
             storageKey = imgbbResult.providerAssetId ? `imgbb/${imgbbResult.providerAssetId}` : `photos/${cleanFileName}`;
@@ -18936,6 +19027,60 @@ export default {
             'Cache-Control': 'public, max-age=60, s-maxage=300'
           }
         }), request, env);
+      }
+
+      // 4b. Dynamic B2 Template Store Resolver (/templates-store/:folder/:relPath)
+      if (!response && pathname.startsWith('/templates-store/') && (method === 'GET' || method === 'HEAD')) {
+        const storeParts = pathname.replace(/^\/templates-store\/+/, '').split('/');
+        const folderOrId = storeParts.shift() || '';
+        const relPath = (storeParts.join('/') || 'index.html').replace(/^\/+/, '');
+        if (folderOrId && !relPath.includes('..') && env.DB && typeof env.DB.prepare === 'function') {
+          try {
+            const cleanSlug = folderOrId.replace(/^tpl_/, '');
+            const tplRow = await env.DB.prepare(
+              'SELECT id, slug, current_version_id FROM templates WHERE id = ? OR slug = ? OR folder = ? OR id = ? LIMIT 1'
+            ).bind(folderOrId, cleanSlug, folderOrId, 'tpl_' + cleanSlug).first();
+
+            let verRow = null;
+            if (tplRow && tplRow.current_version_id) {
+              verRow = await env.DB.prepare('SELECT * FROM template_versions WHERE id = ? LIMIT 1').bind(tplRow.current_version_id).first();
+            }
+            if (!verRow) {
+              verRow = await env.DB.prepare(
+                "SELECT * FROM template_versions WHERE (template_id = ? OR template_id = ? OR template_family_id = ?) AND storage_provider = 'b2' ORDER BY is_current DESC, version_number DESC LIMIT 1"
+              ).bind(tplRow ? tplRow.id : ('tpl_' + cleanSlug), folderOrId, 'fam_' + cleanSlug).first();
+            }
+
+            if (verRow && verRow.storage_provider === 'b2') {
+              const fileRow = await env.DB.prepare(
+                'SELECT storage_key, mime_type FROM template_files WHERE template_version_id = ? AND relative_path = ? LIMIT 1'
+              ).bind(verRow.id, relPath).first();
+              const targetKey = fileRow?.storage_key || (relPath === 'wishmagic.json' ? verRow.manifest_storage_key : `templates/${verRow.template_family_id || ('fam_' + cleanSlug)}/versions/${verRow.id}/runtime/${relPath}`);
+              const b2Config = getB2Config(env);
+              const injectedStorageProvider = env.B2_STORAGE_PROVIDER || null;
+              if (targetKey && (b2Config.isConfigured || injectedStorageProvider)) {
+                const b2Provider = injectedStorageProvider || B2StorageProvider.fromEnv(env);
+                const b2Res = await b2Provider.getObject({ key: targetKey });
+                if (b2Res && b2Res.body !== undefined) {
+                  const rawBody = b2Res.body instanceof Uint8Array
+                    ? b2Res.body
+                    : (typeof b2Res.body === 'string' ? new TextEncoder().encode(b2Res.body) : new Uint8Array(b2Res.body || 0));
+                  return new Response(rawBody, {
+                    status: 200,
+                    headers: {
+                      'Content-Type': b2Res.contentType || fileRow?.mime_type || getMimeType(relPath),
+                      'Content-Length': String(rawBody.byteLength),
+                      'Accept-Ranges': 'bytes',
+                      'Access-Control-Allow-Origin': '*',
+                      'Cache-Control': 'public, max-age=3600',
+                      'X-Frame-Options': 'SAMEORIGIN'
+                    }
+                  });
+                }
+              }
+            }
+          } catch (_) {}
+        }
       }
 
       // 5. Fallback to Static Asset Serving via ASSETS binding (Cloudflare Pages)

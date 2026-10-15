@@ -822,8 +822,7 @@
         case 'video-multiple':
         case 'audio':
         case 'voice': {
-          // Delegate to Media System if present, or render media slot card
-          const mediaWrap = createEl('div', { className: 'wm-media-slot-container' });
+          const mediaWrap = createEl('div', { className: 'wm-media-slot-container space-y-2' });
           if (global.WishMagicMedia && typeof global.WishMagicMedia.renderSlotCard === 'function') {
             const slotCard = global.WishMagicMedia.renderSlotCard(field, value, onChange);
             if (slotCard) {
@@ -831,12 +830,118 @@
               return mediaWrap;
             }
           }
-          // Default media fallback card
-          const placeholderBox = createEl('div', {
-            className: 'border-2 border-dashed border-slate-300 dark:border-slate-700 rounded-2xl p-4 text-center bg-slate-50 dark:bg-slate-800/40 hover:border-amber-400 transition cursor-pointer'
+
+          const isImg = type === 'image' || type === 'image-multiple';
+          const isVid = type === 'video' || type === 'video-multiple';
+          const acceptAttr = isImg ? 'image/png,image/jpeg,image/webp,image/gif' : (isVid ? 'video/mp4,video/webm,video/quicktime' : 'audio/mpeg,audio/wav,audio/ogg,audio/mp4,audio/aac');
+          const currentUrl = typeof value === 'string' ? value : (value && (value.displayUrl || value.url || value.src) ? (value.displayUrl || value.url || value.src) : '');
+
+          const cardBox = createEl('div', {
+            className: 'p-3.5 rounded-2xl border border-purple-200/80 dark:border-purple-800/60 bg-white/80 dark:bg-purple-950/40 space-y-2.5'
           });
-          placeholderBox.innerHTML = `<div class="text-xs font-medium text-slate-600 dark:text-slate-300 uppercase tracking-wider mb-1">${type} slot: ${escapeHtml(field.label || fieldKey)}</div><div class="text-[11px] text-slate-400">Click or Drag to Upload</div>`;
-          mediaWrap.appendChild(placeholderBox);
+
+          const previewArea = createEl('div', { className: 'w-full' });
+          const renderPreviewContent = (activeSrc, statusLabel = '') => {
+            if (!activeSrc) {
+              previewArea.innerHTML = '<div class="text-[11px] text-slate-400 italic">No file uploaded yet — using template default</div>';
+              return;
+            }
+            if (isImg) {
+              previewArea.innerHTML =
+                '<div class="flex items-center gap-3">' +
+                  '<img src="' + escapeHtml(activeSrc) + '" alt="Preview" class="w-16 h-16 rounded-xl object-cover border border-pink-400/40 shadow-sm shrink-0"/>' +
+                  '<div class="min-w-0 flex-1">' +
+                    '<div class="text-[11px] font-bold text-emerald-600 dark:text-emerald-400 truncate">' + escapeHtml(statusLabel || (activeSrc.includes('ibb.co') ? '✓ Hosted on ImgBB Cloud' : '✓ Image Ready')) + '</div>' +
+                    '<div class="text-[10px] font-mono text-slate-500 dark:text-slate-400 truncate">' + escapeHtml(activeSrc) + '</div>' +
+                  '</div>' +
+                '</div>';
+            } else if (isVid) {
+              previewArea.innerHTML =
+                '<div class="space-y-1">' +
+                  '<video controls src="' + escapeHtml(activeSrc) + '" class="w-full max-h-40 rounded-xl bg-black"></video>' +
+                  '<div class="text-[10px] font-mono text-emerald-600 dark:text-emerald-400 truncate">' + escapeHtml(statusLabel || '✓ Video Ready') + '</div>' +
+                '</div>';
+            } else {
+              previewArea.innerHTML =
+                '<div class="space-y-1">' +
+                  '<audio controls src="' + escapeHtml(activeSrc) + '" class="w-full h-9"></audio>' +
+                  '<div class="text-[10px] font-mono text-emerald-600 dark:text-emerald-400 truncate">' + escapeHtml(statusLabel || '✓ Audio Ready') + '</div>' +
+                '</div>';
+            }
+          };
+
+          renderPreviewContent(currentUrl);
+
+          const fileInput = createEl('input', {
+            type: 'file',
+            accept: acceptAttr,
+            className: 'hidden'
+          });
+
+          const btnRow = createEl('div', { className: 'flex items-center gap-2' });
+          const uploadBtn = createEl('button', {
+            type: 'button',
+            className: 'px-3.5 py-2 rounded-xl bg-gradient-to-r from-pink-500 to-purple-600 hover:opacity-95 text-white font-bold text-xs shadow-sm transition cursor-pointer flex items-center gap-1.5'
+          });
+          uploadBtn.innerHTML = isImg
+            ? '<span>🖼️ Upload Photo (ImgBB)</span>'
+            : (isVid ? '<span>🎬 Upload Video (B2)</span>' : '<span>🎵 Upload Audio (B2)</span>');
+
+          uploadBtn.addEventListener('click', () => {
+            if (!isDisabled) fileInput.click();
+          });
+
+          fileInput.addEventListener('change', async () => {
+            if (!fileInput.files || !fileInput.files[0]) return;
+            const file = fileInput.files[0];
+            uploadBtn.disabled = true;
+            const prevHtml = uploadBtn.innerHTML;
+            uploadBtn.innerHTML = '<span>⏳ Uploading ' + escapeHtml(file.name) + '...</span>';
+
+            try {
+              if (isImg && global.WishMediaSystem && global.WishMediaSystem.ImageProcessor) {
+                const processed = await global.WishMediaSystem.ImageProcessor.processImageFile(file);
+                const finalUrl = processed.displayUrl || processed.url || processed.src;
+                renderPreviewContent(finalUrl, '✓ Uploaded to ImgBB (' + file.name + ')');
+                onChange(finalUrl);
+              } else {
+                const dataUrl = await new Promise((res, rej) => {
+                  const r = new FileReader();
+                  r.onload = () => res(r.result);
+                  r.onerror = rej;
+                  r.readAsDataURL(file);
+                });
+                const endpoint = isImg ? '/api/imgbb/upload' : '/api/media/upload';
+                const upRes = await fetch(endpoint, {
+                  method: 'POST',
+                  headers: { 'Content-Type': 'application/json' },
+                  body: JSON.stringify({
+                    fileData: dataUrl,
+                    filename: file.name,
+                    type: isImg ? 'image' : (isVid ? 'video' : 'audio'),
+                    title: file.name.replace(/\.[^/.]+$/, '')
+                  })
+                });
+                const upJson = await upRes.json().catch(() => ({}));
+                const payload = upJson?.data || upJson || {};
+                const cloudUrl = payload.displayUrl || payload.url || payload.track?.playbackUrl || payload.track?.url || dataUrl;
+                renderPreviewContent(cloudUrl, '✓ Uploaded (' + file.name + ')');
+                onChange(cloudUrl);
+              }
+            } catch (err) {
+              console.warn('[Slot Media Upload Warning]:', err);
+            } finally {
+              uploadBtn.disabled = false;
+              uploadBtn.innerHTML = prevHtml;
+              fileInput.value = '';
+            }
+          });
+
+          btnRow.appendChild(uploadBtn);
+          cardBox.appendChild(previewArea);
+          cardBox.appendChild(btnRow);
+          cardBox.appendChild(fileInput);
+          mediaWrap.appendChild(cardBox);
           return mediaWrap;
         }
 

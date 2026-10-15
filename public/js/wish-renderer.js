@@ -609,6 +609,85 @@
     if (!storyFlow) return;
     storyFlow.innerHTML = '';
 
+    // If this wish uses a custom uploaded B2+ImgBB template, render its interactive runtime showcase first
+    const builtinIds = new Set([
+      'tpl_glitter_birthday',
+      'tpl_romantic_scrapbook',
+      'tpl_midnight_countdown',
+      'tpl_friendship_chronicles',
+      'tpl_golden_anniversary',
+      'tpl_parents_tribute'
+    ]);
+    const activeTplId = (template && template.id) || normalized.templateId || '';
+    const isCustomUploadedTemplate = Boolean(
+      (template && (template.previewUrl || template.currentVersionId)) ||
+      (activeTplId && !builtinIds.has(activeTplId))
+    );
+
+    if (isCustomUploadedTemplate) {
+      const cleanFolder = String((template && (template.folder || template.slug || template.id)) || activeTplId).replace(/^templates-store\/+/, '');
+      const entryFile = (template && (template.entryFile || template.entry_file)) || 'index.html';
+      const customRuntimeUrl = (template && template.previewUrl)
+        ? template.previewUrl
+        : `/templates-store/${cleanFolder}/${entryFile}`;
+
+      const customStage = document.createElement('section');
+      customStage.id = 'section-custom-template-runtime';
+      customStage.className = 'w-full max-w-5xl px-2 sm:px-6 py-4 flex flex-col items-center';
+      customStage.innerHTML = `
+        <div class="w-full rounded-3xl overflow-hidden border border-white/20 shadow-2xl bg-black/40 backdrop-blur-xl">
+          <iframe id="wish-custom-template-iframe" src="${customRuntimeUrl}" class="w-full h-[680px] sm:h-[760px] border-0 bg-white" sandbox="allow-scripts allow-same-origin allow-forms" title="Celebration Experience"></iframe>
+        </div>
+      `;
+      storyFlow.appendChild(customStage);
+
+      const customIframe = customStage.querySelector('#wish-custom-template-iframe');
+      if (customIframe) {
+        customIframe.onload = () => {
+          try {
+            if (customIframe.contentWindow) {
+              customIframe.contentWindow.postMessage({ type: 'WISHMAGIC_INIT', payload: normalized }, '*');
+              customIframe.contentWindow.postMessage({ type: 'WISHMAGIC_LIVE_UPDATE', payload: normalized }, '*');
+            }
+            const doc = customIframe.contentDocument || customIframe.contentWindow.document;
+            if (doc) {
+              Object.keys(normalized).forEach(k => {
+                const v = normalized[k];
+                if (v === undefined || v === null || typeof v === 'object') return;
+                doc.querySelectorAll(`[data-wm="${k}"], [data-wm-field="${k}"]`).forEach(el => {
+                  if (el.tagName === 'IMG') el.src = v;
+                  else if (el.tagName === 'AUDIO' || el.tagName === 'VIDEO') {
+                    el.src = v;
+                    const s = el.querySelector('source');
+                    if (s) s.src = v;
+                    try { el.load(); } catch (_) {}
+                  } else {
+                    el.textContent = v;
+                  }
+                });
+              });
+              const activeCover = mediaState.coverPhoto || normalized.cover_photo || normalized.photo_1;
+              if (activeCover) {
+                doc.querySelectorAll('[data-wm="photo_1"], [data-wm-field="photo_1"], [data-wm="cover_photo"], [data-wm-field="cover_photo"]').forEach(el => {
+                  if (el.tagName === 'IMG') el.src = activeCover;
+                });
+              }
+              if (Array.isArray(mediaState.photos)) {
+                mediaState.photos.forEach((ph, idx) => {
+                  const pUrl = ph && (ph.displayUrl || ph.url || ph.src);
+                  if (pUrl) {
+                    doc.querySelectorAll(`[data-wm="photo_${idx + 1}"], [data-wm-field="photo_${idx + 1}"]`).forEach(el => {
+                      if (el.tagName === 'IMG') el.src = pUrl;
+                    });
+                  }
+                });
+              }
+            }
+          } catch (_) {}
+        };
+      }
+    }
+
     // Determine section list & order
     const orderedSections = getOrderedSections(normalized, template);
 

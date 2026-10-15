@@ -32,6 +32,10 @@ import {
   validateUtpManifest,
   normalizeManifestToUtp
 } from './template-protocol-validator.js';
+import {
+  ImgBBProvider,
+  getImgBBConfig
+} from './imgbb-provider.js';
 
 // Security & Resource Constraints
 export const ZIP_LIMITS = {
@@ -401,6 +405,18 @@ export function classifyFileRole(relPath, isEntry) {
 /**
  * Fallback regex-based dynamic field analyzer when full DOM is not available
  */
+export function isImageExtension(relPath) {
+  return /\.(png|jpe?g|webp|gif)$/i.test(String(relPath || ''));
+}
+
+export function isAudioExtension(relPath) {
+  return /\.(mp3|wav|ogg|m4a|aac)$/i.test(String(relPath || ''));
+}
+
+export function isVideoExtension(relPath) {
+  return /\.(mp4|webm|mov|m4v)$/i.test(String(relPath || ''));
+}
+
 export function analyzeHtmlString(htmlString) {
   const fields = [];
   const fieldKeysSeen = new Set();
@@ -414,49 +430,147 @@ export function analyzeHtmlString(htmlString) {
       type: f.type || 'text',
       placeholder: f.placeholder || '',
       defaultValue: f.defaultValue || '',
+      originalSrc: f.originalSrc || f.defaultValue || '',
       isRequired: Boolean(f.isRequired),
-      category: f.category || 'personal',
+      category: f.category || (['image', 'audio', 'video'].includes(f.type) ? 'media' : 'personal'),
+      autoDetected: Boolean(f.autoDetected),
       validation: f.validation || {}
     });
   }
 
-  // 1. data-wm-* attribute extraction
-  // Matches: data-wm-field="rec_name" data-wm-type="text" data-wm-label="..." data-wm-required="true"
   const tagRegex = /<([a-zA-Z0-9-]+)([^>]*)>/g;
   let match;
+  let unmarkedImgIdx = 0;
+  let unmarkedAudioIdx = 0;
+  let unmarkedVideoIdx = 0;
+
   while ((match = tagRegex.exec(htmlString)) !== null) {
-    const attrs = match[2];
-    const fieldMatch = attrs.match(/data-wm-field=["']([^"']+)["']/i);
+    const tagLower = match[1].toLowerCase();
+    const attrs = match[2] || '';
+    const fieldMatch = attrs.match(/data-wm(?:-field)?=["']([^"']+)["']/i);
+    const srcMatch = attrs.match(/\bsrc=["']([^"']+)["']/i);
+    const srcVal = srcMatch ? srcMatch[1].trim() : '';
+
     if (fieldMatch) {
       const key = fieldMatch[1].trim();
       const typeMatch = attrs.match(/data-wm-type=["']([^"']+)["']/i);
       const labelMatch = attrs.match(/data-wm-label=["']([^"']+)["']/i);
       const reqMatch = attrs.match(/data-wm-required=["']([^"']+)["']/i);
       const defaultMatch = attrs.match(/data-wm-default=["']([^"']+)["']/i);
-      
+      const inferredType = tagLower === 'img'
+        ? 'image'
+        : (tagLower === 'audio' ? 'audio' : (tagLower === 'video' ? 'video' : 'text'));
+
       addField({
         key,
-        type: typeMatch ? typeMatch[1].toLowerCase() : (match[1].toLowerCase() === 'img' ? 'image' : 'text'),
+        type: typeMatch ? typeMatch[1].toLowerCase() : inferredType,
         label: labelMatch ? labelMatch[1] : undefined,
         isRequired: reqMatch ? reqMatch[1] === 'true' : false,
-        defaultValue: defaultMatch ? defaultMatch[1] : ''
+        defaultValue: defaultMatch ? defaultMatch[1] : srcVal,
+        originalSrc: srcVal
+      });
+    } else if (tagLower === 'img' && srcVal && !srcVal.startsWith('data:image/svg')) {
+      unmarkedImgIdx++;
+      const idMatch = attrs.match(/\bid=["']([^"']+)["']/i);
+      const altMatch = attrs.match(/\balt=["']([^"']+)["']/i);
+      const baseName = srcVal.split('/').pop().split('?')[0].replace(/\.[^/.]+$/, '').replace(/[^a-zA-Z0-9_]+/g, '_').toLowerCase();
+      let candidateKey = (unmarkedImgIdx === 1 && !fieldKeysSeen.has('photo_1'))
+        ? 'photo_1'
+        : (idMatch ? idMatch[1].replace(/[^a-zA-Z0-9_]+/g, '_').toLowerCase() : (baseName ? 'photo_' + baseName : 'photo_' + unmarkedImgIdx));
+      if (fieldKeysSeen.has(candidateKey)) candidateKey = 'photo_' + unmarkedImgIdx;
+      addField({
+        key: candidateKey,
+        type: 'image',
+        label: altMatch && altMatch[1].trim() ? altMatch[1].trim() : 'Template Photo ' + unmarkedImgIdx,
+        defaultValue: srcVal,
+        originalSrc: srcVal,
+        category: 'media',
+        autoDetected: true
+      });
+    } else if (tagLower === 'audio' && srcVal) {
+      unmarkedAudioIdx++;
+      const candidateKey = (unmarkedAudioIdx === 1 && !fieldKeysSeen.has('background_music')) ? 'background_music' : 'audio_track_' + unmarkedAudioIdx;
+      addField({
+        key: candidateKey,
+        type: 'audio',
+        label: unmarkedAudioIdx === 1 ? 'Background Music' : 'Audio Track ' + unmarkedAudioIdx,
+        defaultValue: srcVal,
+        originalSrc: srcVal,
+        category: 'media',
+        autoDetected: true
+      });
+    } else if (tagLower === 'video' && srcVal) {
+      unmarkedVideoIdx++;
+      const candidateKey = (unmarkedVideoIdx === 1 && !fieldKeysSeen.has('celebration_video')) ? 'celebration_video' : 'video_clip_' + unmarkedVideoIdx;
+      addField({
+        key: candidateKey,
+        type: 'video',
+        label: unmarkedVideoIdx === 1 ? 'Celebration Video' : 'Video Clip ' + unmarkedVideoIdx,
+        defaultValue: srcVal,
+        originalSrc: srcVal,
+        category: 'media',
+        autoDetected: true
       });
     }
   }
 
-  // 2. Mustache variable extraction: {{recipient_name}}, {{wish_message}}
+  const audioBlockRegex = /<audio\b([^>]*)>([\s\S]*?)<\/audio>/gi;
+  while ((match = audioBlockRegex.exec(htmlString)) !== null) {
+    const audioAttrs = match[1] || '';
+    const innerHtml = match[2] || '';
+    if (!/data-wm(?:-field)?=/i.test(audioAttrs) && !/\bsrc=/i.test(audioAttrs)) {
+      const sourceMatch = innerHtml.match(/<source\b[^>]*\bsrc=["']([^"']+)["']/i);
+      if (sourceMatch && sourceMatch[1]) {
+        unmarkedAudioIdx++;
+        const candidateKey = !fieldKeysSeen.has('background_music') ? 'background_music' : 'audio_track_' + unmarkedAudioIdx;
+        addField({
+          key: candidateKey,
+          type: 'audio',
+          label: candidateKey === 'background_music' ? 'Background Music' : 'Audio Track ' + unmarkedAudioIdx,
+          defaultValue: sourceMatch[1].trim(),
+          originalSrc: sourceMatch[1].trim(),
+          category: 'media',
+          autoDetected: true
+        });
+      }
+    }
+  }
+
+  const videoBlockRegex = /<video\b([^>]*)>([\s\S]*?)<\/video>/gi;
+  while ((match = videoBlockRegex.exec(htmlString)) !== null) {
+    const videoAttrs = match[1] || '';
+    const innerHtml = match[2] || '';
+    if (!/data-wm(?:-field)?=/i.test(videoAttrs) && !/\bsrc=/i.test(videoAttrs)) {
+      const sourceMatch = innerHtml.match(/<source\b[^>]*\bsrc=["']([^"']+)["']/i);
+      if (sourceMatch && sourceMatch[1]) {
+        unmarkedVideoIdx++;
+        const candidateKey = !fieldKeysSeen.has('celebration_video') ? 'celebration_video' : 'video_clip_' + unmarkedVideoIdx;
+        addField({
+          key: candidateKey,
+          type: 'video',
+          label: candidateKey === 'celebration_video' ? 'Celebration Video' : 'Video Clip ' + unmarkedVideoIdx,
+          defaultValue: sourceMatch[1].trim(),
+          originalSrc: sourceMatch[1].trim(),
+          category: 'media',
+          autoDetected: true
+        });
+      }
+    }
+  }
+
   const mustacheRegex = /\{\{\s*([a-zA-Z0-9_-]+)\s*\}\}/g;
   while ((match = mustacheRegex.exec(htmlString)) !== null) {
     const key = match[1].trim();
     if (!key.startsWith('#') && !key.startsWith('/') && !key.startsWith('^')) {
       const type = key.includes('photo') || key.includes('image')
         ? 'image'
-        : (key.includes('message') || key.includes('letter') ? 'textarea' : 'text');
+        : (key.includes('music') || key.includes('audio') ? 'audio'
+        : (key.includes('video') ? 'video'
+        : (key.includes('message') || key.includes('letter') ? 'textarea' : 'text')));
       addField({ key, type });
     }
   }
 
-  // 3. Extract title if present
   const titleMatch = htmlString.match(/<title[^>]*>([^<]+)<\/title>/i);
   const title = titleMatch ? titleMatch[1].trim() : 'Magical Wish Template';
 
@@ -870,6 +984,25 @@ export async function executeB2TemplateIngestPipeline(params) {
       }
     }
   }
+  if (Array.isArray(templateMetadata.detectedFields)) {
+    for (const df of templateMetadata.detectedFields) {
+      const fKey = df && (df.key || df.id);
+      if (!fKey) continue;
+      const existing = finalFieldsMap.get(fKey);
+      finalFieldsMap.set(fKey, {
+        key: fKey,
+        label: df.label || existing?.label || fKey.replace(/_/g, ' ').replace(/\b\w/g, c => c.toUpperCase()),
+        type: df.type || existing?.type || 'text',
+        placeholder: df.placeholder || existing?.placeholder || '',
+        defaultValue: df.defaultValue !== undefined ? df.defaultValue : (existing?.defaultValue || ''),
+        originalSrc: df.originalSrc || existing?.originalSrc || df.defaultValue || '',
+        isRequired: df.isRequired !== undefined ? Boolean(df.isRequired) : Boolean(df.required ?? existing?.isRequired),
+        category: df.category || df.group || existing?.category || 'personal',
+        autoDetected: Boolean(df.autoDetected ?? existing?.autoDetected),
+        validation: df.validation || existing?.validation || {}
+      });
+    }
+  }
   const mergedFields = Array.from(finalFieldsMap.values());
 
   // 4. Generate deterministic identifiers and family/version reservation
@@ -1045,8 +1178,197 @@ export async function executeB2TemplateIngestPipeline(params) {
   }
 
   const uploadedB2Objects = [];
+  const uploadedImgbbImages = [];
+  const imgbbUrlByRelPath = new Map();
+  const b2MediaUrlByRelPath = new Map();
+  const shouldPublishImmediately = Boolean(
+    params.publishImmediately ||
+    templateMetadata.publishImmediately ||
+    templateMetadata.autoPublish ||
+    templateMetadata.isPublished === true
+  );
+
+  // Resolve ImgBB Provider if configured or injected
+  let activeImgbbProvider = params.imgbbProvider || null;
+  if (!activeImgbbProvider && ImgBBProvider.isConfigured(env)) {
+    try {
+      activeImgbbProvider = ImgBBProvider.fromEnv(env);
+    } catch (_) {
+      activeImgbbProvider = null;
+    }
+  }
 
   try {
+    // 5a. Upload All Template Images in the ZIP/Folder to ImgBB (preserving exact name & format)
+    if (activeImgbbProvider) {
+      for (const fileRecord of analyzed.fileRecords) {
+        if (isImageExtension(fileRecord.relativePath)) {
+          const exactFileName = fileRecord.relativePath.split('/').pop();
+          const exactStem = exactFileName.replace(/\.[^/.]+$/, '');
+          try {
+            const imgbbRes = await activeImgbbProvider.uploadImage({
+              data: fileRecord.content,
+              filename: exactFileName,
+              name: exactStem
+            });
+            const liveImgUrl = imgbbRes.displayUrl || imgbbRes.originalUrl || imgbbRes.url;
+            if (liveImgUrl) {
+              imgbbUrlByRelPath.set(fileRecord.relativePath, liveImgUrl);
+              fileRecord.imgbbUrl = liveImgUrl;
+              fileRecord.imgbbAssetId = imgbbRes.providerAssetId;
+              fileRecord.publicUrl = liveImgUrl;
+
+              // Find matching field key if any
+              const matchingField = mergedFields.find(f => {
+                const defClean = String(f.defaultValue || f.originalSrc || '').replace(/^\.?\/+/, '');
+                return defClean === fileRecord.relativePath || defClean.endsWith('/' + exactFileName) || defClean === exactFileName;
+              });
+              const assetKey = matchingField ? matchingField.key : exactStem;
+
+              uploadedImgbbImages.push({
+                ...imgbbRes,
+                relativePath: fileRecord.relativePath,
+                exactFileName,
+                assetKey
+              });
+            }
+          } catch (imgErr) {
+            console.warn('[Template Ingest ImgBB Image Upload Warning]:', fileRecord.relativePath, imgErr.message);
+          }
+        }
+      }
+    }
+
+    // Resolve cover thumbnail (upload base64 cover to ImgBB if provided, or map from uploaded ZIP images)
+    let resolvedThumbnail = templateMetadata.thumbnail || '';
+    if (resolvedThumbnail && resolvedThumbnail.startsWith('data:image/') && activeImgbbProvider) {
+      try {
+        const thumbName = templateMetadata.thumbnailName || (familySlug + '-cover.png');
+        const thumbStem = thumbName.replace(/\.[^/.]+$/, '');
+        const thumbUpload = await activeImgbbProvider.uploadImage({
+          data: resolvedThumbnail,
+          filename: thumbName,
+          name: thumbStem
+        });
+        resolvedThumbnail = thumbUpload.displayUrl || thumbUpload.originalUrl || thumbUpload.url || resolvedThumbnail;
+        uploadedImgbbImages.push({
+          ...thumbUpload,
+          relativePath: '__cover_thumbnail__',
+          exactFileName: thumbUpload.filename || thumbName,
+          assetKey: 'cover_thumbnail'
+        });
+      } catch (thumbErr) {
+        console.warn('[Template Ingest Cover Thumbnail ImgBB Warning]:', thumbErr.message);
+      }
+    } else if (resolvedThumbnail && !resolvedThumbnail.startsWith('http') && !resolvedThumbnail.startsWith('/')) {
+      const cleanThumbRel = resolvedThumbnail.replace(/^\.?\/+/, '');
+      if (imgbbUrlByRelPath.has(cleanThumbRel)) {
+        resolvedThumbnail = imgbbUrlByRelPath.get(cleanThumbRel);
+      }
+    } else if (!resolvedThumbnail && uploadedImgbbImages.length > 0) {
+      resolvedThumbnail = uploadedImgbbImages[0].displayUrl || uploadedImgbbImages[0].url || '';
+    }
+
+    // 5b. Map structured Backblaze B2 URLs for Audio & Video files (exact name & format preserved)
+    for (const fileRecord of analyzed.fileRecords) {
+      if (isAudioExtension(fileRecord.relativePath) || isVideoExtension(fileRecord.relativePath)) {
+        const streamUrl = '/api/templates/' + templateId + '/versions/' + versionId + '/preview/' + fileRecord.relativePath;
+        b2MediaUrlByRelPath.set(fileRecord.relativePath, streamUrl);
+        fileRecord.publicUrl = streamUrl;
+      } else if (!fileRecord.publicUrl) {
+        fileRecord.publicUrl = '/api/templates/' + templateId + '/versions/' + versionId + '/preview/' + fileRecord.relativePath;
+      }
+    }
+
+    // 5c. Update mergedFields default values so image slots point to ImgBB URLs and audio/video slots point to B2 stream URLs
+    for (const field of mergedFields) {
+      const rawDef = String(field.defaultValue || field.originalSrc || '').trim();
+      if (!rawDef || rawDef.startsWith('http://') || rawDef.startsWith('https://') || rawDef.startsWith('data:')) continue;
+      const cleanRel = rawDef.replace(/^\.?\/+/, '');
+      if (imgbbUrlByRelPath.has(cleanRel)) {
+        field.defaultValue = imgbbUrlByRelPath.get(cleanRel);
+        field.imgbbUrl = field.defaultValue;
+      } else if (b2MediaUrlByRelPath.has(cleanRel)) {
+        field.defaultValue = b2MediaUrlByRelPath.get(cleanRel);
+        field.b2StreamUrl = field.defaultValue;
+      } else {
+        for (const [relP, liveUrl] of imgbbUrlByRelPath.entries()) {
+          if (relP.endsWith('/' + cleanRel) || relP.split('/').pop() === cleanRel.split('/').pop()) {
+            field.defaultValue = liveUrl;
+            field.imgbbUrl = liveUrl;
+            break;
+          }
+        }
+        for (const [relP, streamUrl] of b2MediaUrlByRelPath.entries()) {
+          if (relP.endsWith('/' + cleanRel) || relP.split('/').pop() === cleanRel.split('/').pop()) {
+            field.defaultValue = streamUrl;
+            field.b2StreamUrl = streamUrl;
+            break;
+          }
+        }
+      }
+    }
+
+    // 5d. Rewrite image links (to ImgBB URLs) and audio/video links (to structured B2 URLs) inside HTML/CSS/JS/Manifest code
+    if (imgbbUrlByRelPath.size > 0 || b2MediaUrlByRelPath.size > 0) {
+      const replaceAssetReferencesInText = (textContent) => {
+        let updated = textContent;
+        // Replace longest paths first to avoid partial collisions
+        const allMappings = [
+          ...Array.from(imgbbUrlByRelPath.entries()),
+          ...Array.from(b2MediaUrlByRelPath.entries())
+        ].sort((a, b) => b[0].length - a[0].length);
+
+        for (const [relPath, targetUrl] of allMappings) {
+          const escapedRel = relPath.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+          // Match "./relPath", "../relPath", "/relPath", or "relPath" inside quotes or CSS url(...)
+          const attrAndCssPattern = new RegExp(
+            '(["\'(\s])(?:\\.\\.?\\/|\\/)*' + escapedRel + '(?=["\')?\\s#])',
+            'g'
+          );
+          updated = updated.replace(attrAndCssPattern, '$1' + targetUrl);
+        }
+        return updated;
+      };
+
+      for (const fileRecord of analyzed.fileRecords) {
+        const lowerPath = fileRecord.relativePath.toLowerCase();
+        if (lowerPath.endsWith('.html') || lowerPath.endsWith('.css') || lowerPath.endsWith('.js') || lowerPath.endsWith('.json')) {
+          const originalText = new TextDecoder('utf-8').decode(fileRecord.content);
+          let rewrittenText = replaceAssetReferencesInText(originalText);
+
+          // For entry HTML, also ensure unmarked <img>/<audio>/<video> have data-wm-field attributes & live bridge listener
+          if (fileRecord.isEntryFile && lowerPath.endsWith('.html')) {
+            for (const f of mergedFields) {
+              if (f.autoDetected && f.originalSrc) {
+                const resolvedSrc = f.defaultValue || f.originalSrc;
+                const escSrc = resolvedSrc.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+                const tagType = f.type === 'image' ? 'img' : (f.type === 'audio' ? 'audio' : (f.type === 'video' ? 'video' : null));
+                if (tagType) {
+                  const tagPattern = new RegExp('<' + tagType + '\\b(?![^>]*data-wm)([^>]*\\bsrc=["\']' + escSrc + '["\'][^>]*)>', 'i');
+                  rewrittenText = rewrittenText.replace(
+                    tagPattern,
+                    '<' + tagType + ' data-wm-field="' + f.key + '" data-wm="' + f.key + '" data-wm-type="' + f.type + '"$1>'
+                  );
+                }
+              }
+            }
+          }
+
+          if (rewrittenText !== originalText) {
+            const encodedBytes = new TextEncoder().encode(rewrittenText);
+            fileRecord.content = encodedBytes;
+            fileRecord.sizeBytes = encodedBytes.byteLength;
+            fileRecord.sha256 = await computeSha256Hex(encodedBytes);
+            if (analyzed.hashesPayload && analyzed.hashesPayload.files && analyzed.hashesPayload.files[fileRecord.relativePath]) {
+              analyzed.hashesPayload.files[fileRecord.relativePath].sha256 = fileRecord.sha256;
+              analyzed.hashesPayload.files[fileRecord.relativePath].sizeBytes = fileRecord.sizeBytes;
+            }
+          }
+        }
+      }
+    }
+
     // 5. Upload Original ZIP to B2
     const zipUploadRes = await b2Provider.putObject({
       key: keys.sourceZip,
@@ -1061,7 +1383,7 @@ export async function executeB2TemplateIngestPipeline(params) {
     });
     uploadedB2Objects.push({ key: keys.sourceZip, fileId: zipUploadRes.fileId });
 
-    // 6. Upload Extracted Runtime Files to B2
+    // 6. Upload Extracted Runtime Files to B2 (preserving exact original filenames and formats for music, videos, and code)
     for (const fileRecord of analyzed.fileRecords) {
       const b2Key = keys.runtimeFile(fileRecord.relativePath);
       const fileUploadRes = await b2Provider.putObject({
@@ -1072,13 +1394,39 @@ export async function executeB2TemplateIngestPipeline(params) {
         metadata: {
           familyId: templateFamilyId,
           versionId,
-          sha256: fileRecord.sha256
+          sha256: fileRecord.sha256,
+          originalFilename: fileRecord.relativePath.split('/').pop()
         }
       });
       uploadedB2Objects.push({ key: b2Key, fileId: fileUploadRes.fileId });
       fileRecord.storageKey = b2Key;
       fileRecord.b2FileId = fileUploadRes.fileId;
     }
+
+    // Enrich manifestPayload with ImgBB & B2 asset mappings before uploading manifest
+    manifestPayload.thumbnail = resolvedThumbnail;
+    manifestPayload.imgbbImages = uploadedImgbbImages.map(img => ({
+      assetKey: img.assetKey,
+      relativePath: img.relativePath,
+      filename: img.exactFileName || img.filename,
+      displayUrl: img.displayUrl,
+      originalUrl: img.originalUrl || img.url,
+      thumbnailUrl: img.thumbnailUrl,
+      providerAssetId: img.providerAssetId,
+      mimeType: img.mimeType,
+      width: img.width,
+      height: img.height
+    }));
+    manifestPayload.b2MediaAssets = analyzed.fileRecords
+      .filter(f => isAudioExtension(f.relativePath) || isVideoExtension(f.relativePath))
+      .map(f => ({
+        relativePath: f.relativePath,
+        filename: f.relativePath.split('/').pop(),
+        mimeType: f.mimeType,
+        sizeBytes: f.sizeBytes,
+        storageKey: f.storageKey,
+        streamUrl: b2MediaUrlByRelPath.get(f.relativePath)
+      }));
 
     // 7. Upload Manifest, Analyzer Schema, Hashes to B2
     const manifestJson = JSON.stringify(manifestPayload, null, 2);
@@ -1119,6 +1467,10 @@ export async function executeB2TemplateIngestPipeline(params) {
 
     await updateOperation(UPLOAD_OPERATION_STATE.REGISTERING, 'registering_d1', 80);
 
+    const targetTemplateStatus = shouldPublishImmediately ? 'published' : 'draft';
+    const targetIsPublishedInt = shouldPublishImmediately ? 1 : 0;
+    const targetVersionStatus = shouldPublishImmediately ? 'published' : 'ready';
+
     // Build atomic statement list for transactional D1 registration
     const registrationStatements = [];
 
@@ -1127,18 +1479,19 @@ export async function executeB2TemplateIngestPipeline(params) {
       db.prepare(`
         INSERT OR IGNORE INTO template_families (
           id, slug, name, description, thumbnail, category, tier, price, is_featured, is_premium, status, visibility, created_by, created_at, updated_at
-        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'draft', 'public', ?, ?, ?)
+        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'public', ?, ?, ?)
       `).bind(
         templateFamilyId,
         familySlug,
         templateMetadata.name || analyzed.title,
         templateMetadata.description || 'Custom web celebration template',
-        templateMetadata.thumbnail || '',
+        resolvedThumbnail,
         templateMetadata.category || 'celebration',
         templateMetadata.tier || 'free',
         Number(templateMetadata.price || 0),
         templateMetadata.featured ? 1 : 0,
         templateMetadata.isPremium ? 1 : 0,
+        targetTemplateStatus,
         authorId,
         nowIso,
         nowIso
@@ -1155,8 +1508,8 @@ export async function executeB2TemplateIngestPipeline(params) {
           sections, features, theme, folder, entry_file, created_at, updated_at
         ) VALUES (
           ?, ?, ?, ?, ?, '[]', '[]',
-          '3D Interactive', ?, ?, ?, 0, 'draft', ?,
-          99, ?, '[]', ?, ?,
+          '3D Interactive', ?, ?, ?, ?, ?, ?,
+          99, ?, ?, ?, ?,
           '[]', '[]', '{}', ?, ?, ?, ?
         )
         ON CONFLICT(id) DO UPDATE SET
@@ -1167,7 +1520,10 @@ export async function executeB2TemplateIngestPipeline(params) {
           tier = excluded.tier,
           price = excluded.price,
           is_premium = excluded.is_premium,
-          thumbnail = excluded.thumbnail,
+          is_published = CASE WHEN excluded.is_published = 1 THEN 1 ELSE templates.is_published END,
+          status = CASE WHEN excluded.status = 'published' THEN 'published' ELSE templates.status END,
+          thumbnail = CASE WHEN excluded.thumbnail != '' THEN excluded.thumbnail ELSE templates.thumbnail END,
+          preview_images = excluded.preview_images,
           capabilities = excluded.capabilities,
           detected_fields = excluded.detected_fields,
           entry_file = excluded.entry_file,
@@ -1181,10 +1537,13 @@ export async function executeB2TemplateIngestPipeline(params) {
         templateMetadata.tier || 'free',
         Number(templateMetadata.price || 0),
         templateMetadata.tier === 'vip' || templateMetadata.isPremium ? 1 : 0,
+        targetIsPublishedInt,
+        targetTemplateStatus,
         templateMetadata.featured ? 1 : 0,
-        templateMetadata.thumbnail || '',
+        resolvedThumbnail,
+        JSON.stringify(uploadedImgbbImages.map(img => img.displayUrl).filter(Boolean)),
         JSON.stringify(templateMetadata.capabilities || {}),
-        JSON.stringify(analyzed.detectedFields || []),
+        JSON.stringify(mergedFields || []),
         familySlug,
         extracted.entryFile,
         nowIso,
@@ -1208,7 +1567,7 @@ export async function executeB2TemplateIngestPipeline(params) {
           ?, ?, ?,
           ?, ?, ?, ?,
           'b2', ?, ?,
-          'ready', ?, ?
+          ?, ?, ?
         )
       `).bind(
         versionId,
@@ -1221,7 +1580,7 @@ export async function executeB2TemplateIngestPipeline(params) {
         templateMetadata.category || 'celebration',
         templateMetadata.tier || 'free',
         Number(templateMetadata.price || 0),
-        templateMetadata.thumbnail || '',
+        resolvedThumbnail,
         keys.sourceZip,
         keys.runtimeRoot,
         keys.manifest,
@@ -1230,7 +1589,14 @@ export async function executeB2TemplateIngestPipeline(params) {
         analyzed.sourceZipSha256,
         packageFingerprint,
         b2Provider.bucketName || 'wishmagic-templates',
-        JSON.stringify({ filesCount: analyzed.fileRecords.length, totalBytes: extracted.totalUncompressedBytes }),
+        JSON.stringify({
+          filesCount: analyzed.fileRecords.length,
+          totalBytes: extracted.totalUncompressedBytes,
+          imgbbCount: uploadedImgbbImages.length,
+          imgbbImages: manifestPayload.imgbbImages,
+          b2MediaAssets: manifestPayload.b2MediaAssets
+        }),
+        targetVersionStatus,
         nowIso,
         authorId
       )
@@ -1296,6 +1662,40 @@ export async function executeB2TemplateIngestPipeline(params) {
       );
     }
 
+    // 6. Template Images statements (ImgBB records stored in D1)
+    let imgIdx = 0;
+    for (const img of uploadedImgbbImages) {
+      imgIdx++;
+      const imgRecordId = `timg_${versionId}_${imgIdx}_${(img.providerAssetId || 'asset').replace(/[^a-zA-Z0-9]/g, '')}`;
+      registrationStatements.push(
+        db.prepare(`
+          INSERT OR REPLACE INTO template_images (
+            id, template_id, template_version_id, asset_key, relationship_id,
+            storage_provider, provider_asset_id, original_url, display_url,
+            thumbnail_url, delete_url, mime_type, size_bytes, width, height,
+            sha256, status, created_at, updated_at
+          ) VALUES (?, ?, ?, ?, NULL, 'imgbb', ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'active', ?, ?)
+        `).bind(
+          imgRecordId,
+          templateId,
+          versionId,
+          img.assetKey || img.exactFileName || ('image_' + imgIdx),
+          img.providerAssetId || '',
+          img.originalUrl || img.url || img.displayUrl || '',
+          img.displayUrl || img.url || '',
+          img.thumbnailUrl || img.displayUrl || '',
+          img.deleteUrl || null,
+          img.mimeType || 'image/png',
+          Number(img.sizeBytes) || 0,
+          Number(img.width) || 0,
+          Number(img.height) || 0,
+          img.sha256 || '',
+          nowIso,
+          nowIso
+        )
+      );
+    }
+
     // Execute atomic D1 commit
     try {
       if (typeof db.batch === 'function') {
@@ -1312,6 +1712,15 @@ export async function executeB2TemplateIngestPipeline(params) {
       throw new Error(`D1 registration batch commit failed: ${batchErr.message}`);
     }
 
+    // If publishImmediately is requested, also update current_version_id / published_version_id safely
+    if (shouldPublishImmediately) {
+      try {
+        await db.prepare(`UPDATE templates SET current_version_id = ?, is_published = 1, status = 'published', updated_at = ? WHERE id = ?`).bind(versionId, nowIso, templateId).run();
+        await db.prepare(`UPDATE template_versions SET is_current = 1, status = 'published', published_at = ? WHERE id = ?`).bind(nowIso, versionId).run();
+        await db.prepare(`UPDATE template_families SET published_version_id = ?, latest_version_id = ?, status = 'published', updated_at = ? WHERE id = ?`).bind(versionId, versionId, nowIso, templateFamilyId).run();
+      } catch (_) {}
+    }
+
     await updateOperation(UPLOAD_OPERATION_STATE.PREVIEW_READY, 'completed', 100, {
       templateFamilyId,
       templateId,
@@ -1320,20 +1729,27 @@ export async function executeB2TemplateIngestPipeline(params) {
       versionLabel,
       packageFingerprint,
       validationReport: utpReport,
-      inventory: analyzed.fileRecords.map(f => ({ path: f.relativePath, size: f.sizeBytes, hash: f.sha256 }))
+      inventory: analyzed.fileRecords.map(f => ({
+        path: f.relativePath,
+        size: f.sizeBytes,
+        hash: f.sha256,
+        provider: f.imgbbUrl ? 'imgbb+b2' : 'b2',
+        publicUrl: f.publicUrl
+      }))
     });
 
     return {
       success: true,
       operationId,
-      message: `Template "${templateMetadata.name || analyzed.title}" successfully ingested into Backblaze B2 storage.`,
+      message: `Template "${templateMetadata.name || analyzed.title}" successfully ingested into Backblaze B2 & ImgBB cloud storage.`,
       templateFamilyId,
       templateId,
       versionId,
       versionNumber,
       versionLabel,
-      status: 'ready',
-      isPublished: false,
+      status: targetVersionStatus,
+      isPublished: shouldPublishImmediately,
+      thumbnail: resolvedThumbnail,
       protocol: {
         schemaVersion: UTP_SCHEMA_VERSION,
         runtimeApi: UTP_RUNTIME_API_VERSION
@@ -1351,6 +1767,8 @@ export async function executeB2TemplateIngestPipeline(params) {
       fileCount: analyzed.fileRecords.length,
       fieldsCount: mergedFields.length,
       detectedFields: mergedFields,
+      imgbbImages: manifestPayload.imgbbImages,
+      b2MediaAssets: manifestPayload.b2MediaAssets,
       storageProvider: 'b2'
     };
 

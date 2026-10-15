@@ -689,7 +689,8 @@
     if (!iframe) return;
 
     const tpl = state.templatesCatalog.find(t => t.id === state.selectedTemplateId) || state.templatesCatalog[0];
-    const entryUrl = `/templates-store/${tpl.folder || tpl.id}/${tpl.entryFile || 'index.html'}`;
+    const cleanFolder = String(tpl.folder || tpl.slug || tpl.id || '').replace(/^templates-store\/+/, '');
+    const entryUrl = tpl.previewUrl || `/templates-store/${cleanFolder}/${tpl.entryFile || 'index.html'}`;
 
     if (iframe.getAttribute('data-loaded-src') !== entryUrl) {
       iframe.setAttribute('data-loaded-src', entryUrl);

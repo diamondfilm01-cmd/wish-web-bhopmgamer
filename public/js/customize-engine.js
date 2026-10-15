@@ -2250,13 +2250,35 @@ window.handleCustomMusicUpload = function(input) {
   }
 
   const reader = new FileReader();
-  reader.onload = (e) => {
+  reader.onload = async (e) => {
+    let audioUrl = e.target.result;
+    try {
+      const upRes = await fetch('/api/media/upload', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          fileData: audioUrl,
+          filename: file.name,
+          type: 'audio',
+          title: file.name.replace(/\.[^/.]+$/, '')
+        })
+      });
+      const upJson = await upRes.json().catch(() => ({}));
+      const payload = upJson?.data || upJson || {};
+      const b2Url = payload.track?.playbackUrl || payload.track?.url || payload.url;
+      if (upRes.ok && b2Url) {
+        audioUrl = b2Url;
+      }
+    } catch (_) {}
+
     currentCustomData.media.music = {
       enabled: true,
       type: 'upload',
       name: file.name.replace(/\.[^/.]+$/, ''),
+      filename: file.name,
       trackId: 'custom_upload',
-      src: e.target.result,
+      src: audioUrl,
+      url: audioUrl,
       genre: 'Custom Audio',
       duration: 'Attached'
     };
@@ -4289,7 +4311,8 @@ function loadTemplateInSandbox() {
   const container = document.getElementById('sandbox-iframe-container');
   if (!container) return;
 
-  const templateEntryUrl = `/templates-store/${activeTemplate.folder || activeTemplate.id}/${activeTemplate.entryFile || 'index.html'}`;
+  const cleanFolder = String(activeTemplate.folder || activeTemplate.slug || activeTemplate.id || '').replace(/^templates-store\/+/, '');
+  const templateEntryUrl = activeTemplate.previewUrl || `/templates-store/${cleanFolder}/${activeTemplate.entryFile || 'index.html'}`;
 
   container.innerHTML = `
     <iframe id="live-custom-iframe" src="${templateEntryUrl}" class="w-full h-full border-0 rounded-2xl flex-grow bg-white" title="Live Template Sandbox" sandbox="allow-scripts allow-same-origin allow-forms"></iframe>
@@ -4323,48 +4346,69 @@ function syncDataToIframe() {
     if (!doc) return;
 
     // Recipient Name
-    doc.querySelectorAll('[data-wm="recipient_name"]').forEach(el => {
+    doc.querySelectorAll('[data-wm="recipient_name"], [data-wm-field="recipient_name"]').forEach(el => {
       el.textContent = currentCustomData.recipient_name || 'Someone Special';
     });
 
     // Sender Name
-    doc.querySelectorAll('[data-wm="sender_name"]').forEach(el => {
+    doc.querySelectorAll('[data-wm="sender_name"], [data-wm-field="sender_name"]').forEach(el => {
       el.textContent = currentCustomData.sender_name ? `— ${currentCustomData.sender_name}` : '— Someone Special';
     });
 
     // Event Date
-    doc.querySelectorAll('[data-wm="event_date"]').forEach(el => {
+    doc.querySelectorAll('[data-wm="event_date"], [data-wm-field="event_date"]').forEach(el => {
       el.textContent = currentCustomData.event_date || 'Today';
     });
 
     // Custom Message
-    doc.querySelectorAll('[data-wm="custom_message"]').forEach(el => {
+    doc.querySelectorAll('[data-wm="custom_message"], [data-wm-field="custom_message"]').forEach(el => {
       el.textContent = currentCustomData.custom_message || 'May your day be filled with warm magic, sparkling smiles, and infinite moments of joy!';
     });
 
-    // Cover Photo & Photos
+    // Cover Photo & Photos (ImgBB links)
     const photos = currentCustomData.photos || [];
-    const activeCover = currentCustomData.cover_photo || (photos.length > 0 ? photos[0].url : '');
+    const activeCover = currentCustomData.cover_photo || (photos.length > 0 ? (photos[0].displayUrl || photos[0].url || photos[0].src) : '');
     if (activeCover) {
-      doc.querySelectorAll('[data-wm="photo_1"]').forEach(el => {
-        el.src = activeCover;
+      doc.querySelectorAll('[data-wm="photo_1"], [data-wm-field="photo_1"], [data-wm="cover_photo"], [data-wm-field="cover_photo"]').forEach(el => {
+        if (el.tagName === 'IMG') el.src = activeCover;
+        else el.style.backgroundImage = `url("${activeCover}")`;
       });
     }
     photos.forEach((ph, idx) => {
-      const el = doc.querySelector(`[data-wm="photo_${idx + 1}"]`);
-      if (el && ph && (ph.url || ph.src)) {
-        el.src = ph.url || ph.src;
+      const photoUrl = ph && (ph.displayUrl || ph.url || ph.src);
+      if (photoUrl) {
+        doc.querySelectorAll(`[data-wm="photo_${idx + 1}"], [data-wm-field="photo_${idx + 1}"]`).forEach(el => {
+          if (el.tagName === 'IMG') el.src = photoUrl;
+          else el.style.backgroundImage = `url("${photoUrl}")`;
+        });
       }
     });
 
-    // Detected custom fields & arbitrary field sync
+    // Sync custom music / audio if updated
+    const activeMusicSrc = currentCustomData.background_music || (currentCustomData.media && currentCustomData.media.music && currentCustomData.media.music.src);
+    if (activeMusicSrc) {
+      doc.querySelectorAll('[data-wm="background_music"], [data-wm-field="background_music"]').forEach(el => {
+        if (el.tagName === 'AUDIO' && el.src !== activeMusicSrc) {
+          el.src = activeMusicSrc;
+        }
+      });
+    }
+
+    // Detected custom fields & arbitrary field sync (supports IMG, AUDIO, VIDEO, and text)
     if (activeTemplate && Array.isArray(activeTemplate.detectedFields)) {
       activeTemplate.detectedFields.forEach(f => {
         const val = currentCustomData[f.key];
-        if (val !== undefined && val !== null) {
-          doc.querySelectorAll(`[data-wm="${f.key}"]`).forEach(el => {
+        if (val !== undefined && val !== null && val !== '') {
+          doc.querySelectorAll(`[data-wm="${f.key}"], [data-wm-field="${f.key}"]`).forEach(el => {
             if (el.tagName === 'IMG') {
               el.src = val;
+            } else if (el.tagName === 'AUDIO' || el.tagName === 'VIDEO') {
+              if (el.src !== val) {
+                el.src = val;
+                const srcChild = el.querySelector('source');
+                if (srcChild) srcChild.src = val;
+                try { el.load(); } catch (_) {}
+              }
             } else if (f.key === 'sender_name') {
               el.textContent = val ? `— ${val}` : '— Someone Special';
             } else {

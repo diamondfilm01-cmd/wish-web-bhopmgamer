@@ -87,28 +87,71 @@
         return { valid: false, error: 'No file selected.' };
       }
       const type = (file.type || '').toLowerCase();
-      const validTypes = CONFIG.ACCEPTED_IMAGE_TYPES;
-      const isTypeOk = validTypes.includes(type) || /\.(jpe?g|png|webp)$/i.test(file.name);
+      const validTypes = [...CONFIG.ACCEPTED_IMAGE_TYPES, 'image/gif'];
+      const isTypeOk = validTypes.includes(type) || /\.(jpe?g|png|webp|gif)$/i.test(file.name);
 
       if (!isTypeOk) {
         return {
           valid: false,
-          error: `Unsupported image format (${file.type || 'unknown'}). Please upload JPG, PNG, or WEBP.`
+          error: `Unsupported image format (${file.type || 'unknown'}). Please upload JPG, PNG, WEBP, or GIF.`
         };
       }
 
-      if (file.size > CONFIG.MAX_PHOTO_SIZE_BYTES) {
+      if (file.size > Math.max(CONFIG.MAX_PHOTO_SIZE_BYTES, 16 * 1024 * 1024)) {
         return {
           valid: false,
-          error: 'Image is too large. Please choose a smaller image (under 8MB).'
+          error: 'Image is too large. Please choose a smaller image (under 16MB).'
         };
       }
 
       return { valid: true };
     },
 
-    // Decodes, tests for corruption, and optionally downscales oversized images
-    processImageFile(file, maxDimension = 1600, quality = 0.88) {
+    async uploadToImgBB(dataUrl, filename, extra = {}) {
+      try {
+        const res = await fetch('/api/imgbb/upload', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            fileData: dataUrl,
+            filename: filename || 'photo.png',
+            type: 'image',
+            title: String(filename || 'photo').replace(/\.[^/.]+$/, ''),
+            ...extra
+          })
+        });
+        const json = await res.json().catch(() => ({}));
+        const payload = json?.data || json || {};
+        const liveUrl = payload.displayUrl || payload.url || payload.track?.displayUrl || payload.track?.url;
+        if (res.ok && liveUrl) {
+          return {
+            uploaded: true,
+            url: liveUrl,
+            displayUrl: liveUrl,
+            originalUrl: payload.originalUrl || liveUrl,
+            thumbnailUrl: payload.thumbnailUrl || liveUrl,
+            mediaId: payload.mediaId || payload.track?.id || null,
+            filename: payload.filename || filename,
+            provider: 'imgbb'
+          };
+        }
+      } catch (e) {
+        console.warn('[ImgBB Upload Fallback to Local DataURL]:', e.message);
+      }
+      return {
+        uploaded: false,
+        url: dataUrl,
+        displayUrl: dataUrl,
+        originalUrl: dataUrl,
+        thumbnailUrl: dataUrl,
+        mediaId: null,
+        filename,
+        provider: 'local'
+      };
+    },
+
+    // Preserves exact original format & filename and automatically uploads to ImgBB
+    processImageFile(file, maxDimension = 1600, quality = 0.92) {
       return new Promise((resolve, reject) => {
         const validation = this.validateFile(file);
         if (!validation.valid) {
@@ -128,59 +171,42 @@
             reject(new Error('Unable to decode image. The file may be corrupted or unreadable.'));
           };
 
-          img.onload = () => {
+          img.onload = async () => {
             try {
-              let width = img.naturalWidth || img.width;
-              let height = img.naturalHeight || img.height;
+              const width = img.naturalWidth || img.width;
+              const height = img.naturalHeight || img.height;
 
               if (!width || !height) {
                 return reject(new Error('Image dimensions could not be read. File may be corrupted.'));
               }
 
-              // Downscale if oversized to preserve memory and keep preview responsive
-              let targetWidth = width;
-              let targetHeight = height;
+              // Keep exact original file bytes & format so PNG/WEBP/GIF/JPG format and name never change
+              const cloudRes = await this.uploadToImgBB(rawDataUrl, file.name);
+              const finalUrl = cloudRes.displayUrl || cloudRes.url || rawDataUrl;
 
-              if (width > maxDimension || height > maxDimension) {
-                if (width > height) {
-                  targetWidth = maxDimension;
-                  targetHeight = Math.round((height * maxDimension) / width);
-                } else {
-                  targetHeight = maxDimension;
-                  targetWidth = Math.round((width * maxDimension) / height);
-                }
-              }
-
-              const canvas = document.createElement('canvas');
-              canvas.width = targetWidth;
-              canvas.height = targetHeight;
-              const ctx = canvas.getContext('2d');
-              ctx.imageSmoothingEnabled = true;
-              ctx.imageSmoothingQuality = 'high';
-
-              ctx.drawImage(img, 0, 0, targetWidth, targetHeight);
-
-              // Use jpeg for photos if large, webp if supported, or preserve png if small
-              let outputType = 'image/jpeg';
-              if (file.type === 'image/png' && file.size < 500 * 1024) {
-                outputType = 'image/png';
-              }
-
-              const optimizedDataUrl = canvas.toDataURL(outputType, quality);
               resolve({
-                src: optimizedDataUrl,
-                width: targetWidth,
-                height: targetHeight,
+                src: finalUrl,
+                url: finalUrl,
+                displayUrl: finalUrl,
+                originalUrl: cloudRes.originalUrl || finalUrl,
+                thumbnailUrl: cloudRes.thumbnailUrl || finalUrl,
+                mediaId: cloudRes.mediaId,
+                provider: cloudRes.provider,
+                width,
+                height,
                 name: file.name,
+                filename: file.name,
                 originalSize: file.size
               });
             } catch (err) {
-              console.warn('Canvas optimization fallback to raw DataURL:', err);
               resolve({
                 src: rawDataUrl,
-                width: img.width,
-                height: img.height,
+                url: rawDataUrl,
+                displayUrl: rawDataUrl,
+                width: img.width || 800,
+                height: img.height || 600,
                 name: file.name,
+                filename: file.name,
                 originalSize: file.size
               });
             }

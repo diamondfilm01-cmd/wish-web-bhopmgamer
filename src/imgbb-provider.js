@@ -408,10 +408,16 @@ export class ImgBBProvider {
     // 1. Validate image payload
     const validation = await validateImageBuffer(data);
 
-    // 2. Prepare payload for ImgBB REST API
+    // 2. Prepare payload for ImgBB REST API (strictly preserving original filename & format)
     const base64Data = uint8ArrayToBase64(validation.bytes);
-    const cleanFilename = String(filename || 'image').replace(/[^a-zA-Z0-9._-]/g, '_');
-    const targetName = name || cleanFilename.replace(/\.[^/.]+$/, '');
+    const rawBasename = String(filename || 'image').split('/').pop().split('\\').pop().trim();
+    const cleanFilename = (rawBasename || 'image').replace(/[^a-zA-Z0-9._ -]/g, '').trim() || ('image.' + validation.extension);
+    const originalStem = cleanFilename.replace(/\.[^/.]+$/, '').trim();
+    const isSyntheticOverride = name && /^(user|admin|wish|template)_[a-zA-Z0-9_-]+_\d+$/i.test(String(name).trim()) && originalStem && originalStem !== 'image';
+    const targetName = (!isSyntheticOverride && name && String(name).trim())
+      ? String(name).trim().replace(/\.[^/.]+$/, '')
+      : (originalStem || 'image');
+    const exactFilenameWithExt = targetName + '.' + validation.extension;
     const targetExpiration = expiration !== null ? expiration : this.expiration;
 
     let response;
@@ -472,6 +478,7 @@ export class ImgBBProvider {
       provider: 'imgbb',
       providerAssetId: itemData.id,
       url: itemData.url,
+      originalUrl: itemData.image?.url || itemData.url,
       displayUrl: itemData.display_url || itemData.url,
       thumbnailUrl: itemData.thumb?.url || null,
       viewerUrl: itemData.url_viewer || null,
@@ -480,7 +487,10 @@ export class ImgBBProvider {
       height: Number(itemData.height) || validation.height,
       sizeBytes: Number(itemData.size) || validation.sizeBytes,
       mimeType: itemData.image?.mime || validation.mimeType,
-      filename: itemData.image?.filename || cleanFilename,
+      extension: itemData.image?.extension || validation.extension,
+      name: targetName,
+      filename: itemData.image?.filename || exactFilenameWithExt,
+      originalFilename: cleanFilename.includes('.') ? cleanFilename : exactFilenameWithExt,
       sha256: validation.sha256,
       status: 'active'
     };

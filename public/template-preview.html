@@ -995,7 +995,8 @@
       const fullscreenBtn = document.getElementById('btn-preview-fullscreen');
       const browserSlug = document.getElementById('browser-bar-slug');
 
-      const url = `/templates-store/${t.folder || t.id}/${t.entryFile || 'index.html'}`;
+      const cleanFolder = String(t.folder || t.slug || t.id || '').replace(/^templates-store\/+/, '');
+      const url = t.previewUrl || `/templates-store/${cleanFolder}/${t.entryFile || 'index.html'}`;
       fullscreenBtn.href = url;
       if (browserSlug) browserSlug.textContent = `${t.category ? t.category.toLowerCase() : 'celebrate'}/${t.id}`;
 
@@ -1024,7 +1025,7 @@
 
           // Apply to [data-wm] elements if present in template
           Object.keys(sampleData).forEach(key => {
-            const el = doc.querySelector(`[data-wm="${key}"]`);
+            const el = doc.querySelector(`[data-wm="${key}"], [data-wm-field="${key}"]`);
             if (el) {
               if (el.tagName === 'IMG') {
                 el.src = sampleData[key];
