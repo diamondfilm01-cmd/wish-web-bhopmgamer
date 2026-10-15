@@ -294,8 +294,20 @@ export function evaluateUserEntitlement({
   entitlements = [],
   templates = []
 }) {
-  // If product is inherently free, always allow
-  if (templateId) {
+  // If checking template entitlement itself and the template is inherently free, allow
+  const normProd = String(productId || '').trim().toLowerCase();
+  const isPaidAddonCheck = (
+    normProd === 'vip_pass' ||
+    normProd === 'personalized_link' ||
+    normProd === 'custom_link_only' ||
+    normProd === 'hd_image_style_pack' ||
+    normProd === 'hd_style' ||
+    normProd === 'free_template_combo' ||
+    normProd === 'combo_99' ||
+    normProd === 'premium_template_combo' ||
+    normProd.startsWith('premium_combo:')
+  );
+  if (templateId && !isPaidAddonCheck) {
     const tpl = templates.find(t => t.id === templateId);
     if (tpl && (tpl.tier === 'free' || !tpl.price || Number(tpl.price) === 0)) {
       return { allowed: true, isFree: true, reason: 'FREE_TEMPLATE' };
@@ -666,11 +678,25 @@ export async function createCheckoutSession({
   }
 
   // 6. Build Order Record (Strict Integer minor currency units)
+  const requestedSlug = options.requestedSlug || options.slug || null;
+  const wishId = options.wishId || null;
+  const resolvedTplId = product.templateId || templateId || options.templateId || null;
+
   const orderRecord = {
     id: orderId,
     userId: user.id,
     user_id: user.id,
     plan: product.productId,
+    productId: product.productId,
+    product_id: product.productId,
+    productName: product.productName,
+    product_name: product.productName,
+    templateId: resolvedTplId,
+    template_id: resolvedTplId,
+    wishId,
+    wish_id: wishId,
+    requestedSlug,
+    requested_slug: requestedSlug,
     amount: product.amountPaise, // in paise
     currency: product.currency,
     provider: PAYMENT_PROVIDERS.RAZORPAY,
@@ -1072,6 +1098,9 @@ export async function verifyAndFinalizePayment({
 
   let entitlement = entitlements.find(e => e.orderId === order.id || e.order_id === order.id);
   if (!entitlement) {
+    const resolvedTplId = orderItem?.templateId || order.templateId || order.template_id || null;
+    const resolvedSlug = order.requestedSlug || order.requested_slug || null;
+    const resolvedWishId = order.wishId || order.wish_id || null;
     entitlement = {
       id: entitlementId,
       userId: order.userId,
@@ -1080,9 +1109,19 @@ export async function verifyAndFinalizePayment({
       order_id: order.id,
       productId: order.plan,
       product_id: order.plan,
+      itemType: orderItem?.productType || order.plan,
+      item_type: orderItem?.productType || order.plan,
+      itemId: resolvedTplId || resolvedSlug || order.plan,
+      item_id: resolvedTplId || resolvedSlug || order.plan,
       plan: order.plan === 'vip_pass' ? 'VIP' : order.plan,
-      templateId: orderItem?.templateId || null,
-      template_id: orderItem?.templateId || null,
+      templateId: resolvedTplId,
+      template_id: resolvedTplId,
+      wishId: resolvedWishId,
+      wish_id: resolvedWishId,
+      requestedSlug: resolvedSlug,
+      requested_slug: resolvedSlug,
+      amountPaise: order.amount,
+      amount_paise: order.amount,
       templateFamilyId: orderItem?.templateFamilyId || null,
       template_family_id: orderItem?.templateFamilyId || null,
       status: 'active',
@@ -1254,6 +1293,51 @@ export async function processRazorpayWebhook({
             adapter: webhookAdapter,
             stores
           });
+        }
+      }
+    } else if (eventType === 'payment.failed' || eventType === 'order.cancelled') {
+      const paymentEntity = event.payload?.payment?.entity || {};
+      const orderEntity = event.payload?.order?.entity || {};
+      const provOrderId = paymentEntity.order_id || orderEntity.id;
+      const provPayId = paymentEntity.id || null;
+      const errCode = paymentEntity.error_code || (eventType === 'order.cancelled' ? 'ORDER_CANCELLED' : 'PAYMENT_FAILED');
+      const errDesc = paymentEntity.error_description || paymentEntity.error_reason || 'Payment failed or was cancelled at gateway';
+
+      webhookRecord.orderId = provOrderId;
+      webhookRecord.order_id = provOrderId;
+      webhookRecord.paymentId = provPayId;
+      webhookRecord.payment_id = provPayId;
+
+      if (provOrderId) {
+        const order = stores.orders.find(o => o.providerOrderId === provOrderId || o.provider_order_id === provOrderId);
+        if (order && order.status !== ORDER_STATUS.PAID) {
+          order.status = eventType === 'order.cancelled' ? ORDER_STATUS.CANCELLED : ORDER_STATUS.PAYMENT_FAILED;
+          order.errorCode = errCode;
+          order.error_code = errCode;
+          order.errorDescription = errDesc;
+          order.error_description = errDesc;
+          order.updatedAt = now;
+          order.updated_at = now;
+
+          const attempt = stores.paymentAttempts.find(p => p.orderId === order.id || p.order_id === order.id);
+          if (attempt && attempt.status !== PAYMENT_STATUS.CAPTURED) {
+            attempt.status = eventType === 'order.cancelled' ? PAYMENT_STATUS.CANCELLED : PAYMENT_STATUS.FAILED;
+            attempt.providerPaymentId = provPayId || attempt.providerPaymentId;
+            attempt.provider_payment_id = provPayId || attempt.provider_payment_id;
+            attempt.errorCode = errCode;
+            attempt.error_code = errCode;
+            attempt.errorDescription = errDesc;
+            attempt.error_description = errDesc;
+            attempt.updatedAt = now;
+            attempt.updated_at = now;
+          }
+
+          const ent = stores.entitlements.find(e => e.orderId === order.id || e.order_id === order.id);
+          if (ent) {
+            ent.status = 'revoked';
+            ent.updatedAt = now;
+            ent.updated_at = now;
+          }
         }
       }
     } else if (eventType === 'refund.processed') {

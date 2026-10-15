@@ -2852,7 +2852,7 @@ app.delete('/api/favorites/:itemId', (req, res) => {
 // ============================================================================
 
 // API: Authoritative User Entitlements Evaluation
-app.get(['/api/entitlements/status', '/api/commerce/entitlements'], (req, res) => {
+app.get(['/api/entitlements/status', '/api/commerce/entitlements', '/api/entitlements'], (req, res) => {
   const user = req.user || null;
   const templates = getTemplates();
   const entitlements = getEntitlements();
@@ -2867,19 +2867,64 @@ app.get(['/api/entitlements/status', '/api/commerce/entitlements'], (req, res) =
     templates
   });
 
-  const isVip = Boolean(evaluation.allowed && (evaluation.reason === 'VIP_PASS_ENTITLEMENT' || evaluation.reason === 'USER_VIP_PLAN' || evaluation.reason === 'ADMIN_PRIVILEGE'));
+  const userEnts = user && user.id
+    ? (entitlements || []).filter(e => {
+        const uMatch = (e.userId === user.id || e.user_id === user.id);
+        const active = (e.status === 'active' || e.status === 'ACTIVE');
+        const notExpired = (!e.expiresAt && !e.expires_at) || new Date(e.expiresAt || e.expires_at).getTime() > Date.now();
+        return uMatch && active && notExpired;
+      })
+    : [];
+
+  let hasVipPass = Boolean(user && (user.isPremium || user.plan === 'VIP' || user.role === 'admin'));
+  let hasCustomLinkEntitlement = hasVipPass;
+  let hasHdStyleEntitlement = hasVipPass;
+  const unlockedTemplatesSet = new Set();
+
+  for (const e of userEnts) {
+    const p = String(e.productId || e.product_id || e.itemType || e.item_type || e.plan || '').toLowerCase();
+    const tpl = e.templateId || e.template_id || (p.startsWith('template:') ? p.slice(9) : (p.startsWith('premium_combo:') ? p.slice(14) : null));
+    if (p === 'vip_pass' || p === 'vip' || p === 'premium') {
+      hasVipPass = true;
+      hasCustomLinkEntitlement = true;
+      hasHdStyleEntitlement = true;
+    } else if (p === 'personalized_link' || p === 'custom_link') {
+      hasCustomLinkEntitlement = true;
+    } else if (p === 'hd_image_style_pack' || p === 'hd_style') {
+      hasHdStyleEntitlement = true;
+    } else if (p === 'free_template_combo' || p === 'combo_99') {
+      hasCustomLinkEntitlement = true;
+      hasHdStyleEntitlement = true;
+    } else if (p === 'premium_template_combo' || p.startsWith('premium_combo:')) {
+      hasCustomLinkEntitlement = true;
+      hasHdStyleEntitlement = true;
+      if (tpl) unlockedTemplatesSet.add(tpl);
+    } else if (p === 'template' || p.startsWith('template:')) {
+      if (tpl) unlockedTemplatesSet.add(tpl);
+    }
+  }
+
+  const isTargetTplUnlocked = Boolean(templateId && unlockedTemplatesSet.has(templateId));
+  const isVip = hasVipPass || isTargetTplUnlocked;
 
   res.json({
     success: true,
     isPremium: isVip,
-    plan: isVip ? 'VIP' : (user ? 'Free' : 'Guest'),
+    hasVipPass,
+    hasCustomLinkEntitlement,
+    hasHdStyleEntitlement,
+    unlockedTemplates: Array.from(unlockedTemplatesSet),
+    activeEntitlements: userEnts,
+    plan: hasVipPass ? 'VIP' : (userEnts.length > 0 ? userEnts[0].plan : (user ? 'Free' : 'Guest')),
     evaluation,
     features: {
-      watermarkRemoval: isVip,
-      unlimitedVIPWishes: isVip,
-      customAudioUpload: isVip,
-      prioritySupport: isVip,
-      permanentKeepsake: isVip
+      watermarkRemoval: isVip || hasHdStyleEntitlement,
+      unlimitedVIPWishes: hasVipPass,
+      customAudioUpload: isVip || hasHdStyleEntitlement,
+      customLink: hasCustomLinkEntitlement,
+      hdStyle: hasHdStyleEntitlement,
+      prioritySupport: hasVipPass,
+      permanentKeepsake: isVip || hasHdStyleEntitlement
     }
   });
 });
@@ -3068,6 +3113,99 @@ app.post('/api/commerce/verify', async (req, res) => {
       }
     });
   }
+});
+
+// API: Record Cancelled or Failed Payment Attempt (Strict Zero-Entitlement Guard)
+app.post(['/api/commerce/cancel', '/api/commerce/fail'], (req, res) => {
+  if (!req.user) {
+    return res.status(401).json({
+      success: false,
+      error: { code: COMMERCE_ERROR_CODES.UNAUTHORIZED, message: 'Authentication required' }
+    });
+  }
+  const isCancel = req.path.endsWith('/cancel');
+  const body = req.body || {};
+  const { orderId, providerOrderId, razorpayPaymentId, errorCode, errorDescription, reason } = body;
+
+  const orders = getOrders();
+  const paymentAttempts = getPaymentAttempts();
+  const entitlements = getEntitlements();
+
+  const order = orders.find(o =>
+    (orderId && o.id === orderId) ||
+    (providerOrderId && (o.providerOrderId === providerOrderId || o.provider_order_id === providerOrderId))
+  );
+
+  if (!order) {
+    return res.status(404).json({
+      success: false,
+      error: { code: COMMERCE_ERROR_CODES.ORDER_NOT_FOUND, message: 'Order not found' }
+    });
+  }
+
+  const orderUserId = order.userId || order.user_id;
+  if (!isAuthoritativeAdmin(req.user) && orderUserId !== req.user.id) {
+    return res.status(403).json({
+      success: false,
+      error: { code: COMMERCE_ERROR_CODES.FORBIDDEN, message: 'Access denied to this order' }
+    });
+  }
+
+  if (order.status === 'PAID') {
+    return res.status(400).json({
+      success: false,
+      error: { code: COMMERCE_ERROR_CODES.INVALID_ORDER_STATE, message: 'Order is already paid and verified' }
+    });
+  }
+
+  const now = new Date().toISOString();
+  const nextOrderStatus = isCancel ? 'CANCELLED' : 'PAYMENT_FAILED';
+  const nextAttemptStatus = isCancel ? 'CANCELLED' : 'FAILED';
+  const errCode = errorCode || (isCancel ? 'USER_CANCELLED_CHECKOUT' : 'PAYMENT_FAILED');
+  const errDesc = errorDescription || reason || (isCancel ? 'Customer dismissed or cancelled checkout' : 'Payment failed');
+
+  order.status = nextOrderStatus;
+  order.errorCode = errCode;
+  order.error_code = errCode;
+  order.errorDescription = errDesc;
+  order.error_description = errDesc;
+  order.updatedAt = now;
+  order.updated_at = now;
+
+  const attempt = paymentAttempts.find(p => (p.orderId === order.id || p.order_id === order.id));
+  if (attempt && attempt.status !== 'CAPTURED') {
+    attempt.status = nextAttemptStatus;
+    if (razorpayPaymentId) {
+      attempt.providerPaymentId = razorpayPaymentId;
+      attempt.provider_payment_id = razorpayPaymentId;
+    }
+    attempt.errorCode = errCode;
+    attempt.error_code = errCode;
+    attempt.errorDescription = errDesc;
+    attempt.error_description = errDesc;
+    attempt.updatedAt = now;
+    attempt.updated_at = now;
+  }
+
+  // Ensure no entitlement exists or remains active for an unpaid order
+  entitlements.forEach(e => {
+    if (e.orderId === order.id || e.order_id === order.id) {
+      e.status = 'revoked';
+      e.updatedAt = now;
+      e.updated_at = now;
+    }
+  });
+
+  saveOrders(orders);
+  savePaymentAttempts(paymentAttempts);
+  saveEntitlements(entitlements);
+
+  res.json({
+    success: true,
+    orderId: order.id,
+    status: nextOrderStatus,
+    entitlementGranted: false
+  });
 });
 
 // API: Gateway Webhook Processing (Raw HMAC verification & Idempotency)

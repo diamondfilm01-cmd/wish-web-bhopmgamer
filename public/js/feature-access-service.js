@@ -1,5 +1,5 @@
 // WishMagic Centralized Feature Access API
-// Part 11: Premium Access & Monetization Architecture
+// Part 11 + Item-Scoped Entitlement Enforcement
 //
 // ⚠️ ARCHITECTURAL RULE:
 // Components and views must NEVER directly inspect `user.isPremium` or `template.price`.
@@ -8,7 +8,6 @@
 (function(window) {
   'use strict';
 
-  // Feature categorization
   const PREMIUM_THEMES = ['romantic', 'elegant', 'royal', 'dark'];
   const FREE_THEMES = ['magical', 'cute', 'celebration', 'pastel'];
 
@@ -22,14 +21,31 @@
     return Boolean(window.WishEntitlement && window.WishEntitlement.isPremium());
   }
 
+  function hasTemplateEntitlement(templateId) {
+    if (isUserPremium()) return true;
+    if (templateId && window.WishEntitlement && typeof window.WishEntitlement.hasTemplateEntitlement === 'function') {
+      return Boolean(window.WishEntitlement.hasTemplateEntitlement(templateId));
+    }
+    return false;
+  }
+
+  function hasHdStyleEntitlement(templateId) {
+    if (isUserPremium()) return true;
+    if (window.WishEntitlement && typeof window.WishEntitlement.hasHdStyleAccess === 'function') {
+      return Boolean(window.WishEntitlement.hasHdStyleAccess(templateId));
+    }
+    return false;
+  }
+
   const WishFeatureAccess = {
     /**
-     * Check if user is entitled to use or create a specific template
+     * Check if user is entitled to use or publish a specific template
      * @param {Object|string} template
      */
     canUseTemplate(template) {
       if (!template) return { allowed: true };
 
+      const templateId = (typeof template === 'object') ? template.id : String(template);
       const isVip = (typeof template === 'object')
         ? (template.tier === 'vip' || template.isPremium === true || Number(template.price) > 0)
         : false;
@@ -38,13 +54,14 @@
         return { allowed: true, plan: 'free' };
       }
 
-      if (isUserPremium()) {
+      if (hasTemplateEntitlement(templateId)) {
         return { allowed: true, plan: 'premium' };
       }
 
       return {
         allowed: false,
         feature: 'premium_templates',
+        templateId,
         title: 'VIP Celebration Blueprint',
         reason: 'This exclusive blueprint features cinematic 3D effects, unlimited memories, and an interactive finale.',
         requiredPlan: 'premium'
@@ -52,17 +69,17 @@
     },
 
     /**
-     * Check if a visual theme is allowed on the user's plan
+     * Check if a visual theme is allowed on the user's plan or HD Style pack
      * @param {string} themeId
      */
-    canUseTheme(themeId) {
+    canUseTheme(themeId, templateId = null) {
       const cleanTheme = String(themeId || 'magical').toLowerCase();
 
       if (FREE_THEMES.includes(cleanTheme)) {
         return { allowed: true, plan: 'free' };
       }
 
-      if (isUserPremium()) {
+      if (hasHdStyleEntitlement(templateId)) {
         return { allowed: true, plan: 'premium' };
       }
 
@@ -86,14 +103,14 @@
      * Check if a celebration section is allowed on the user's plan
      * @param {string} sectionId
      */
-    canUseSection(sectionId) {
+    canUseSection(sectionId, templateId = null) {
       const cleanId = String(sectionId || '').toLowerCase();
 
       if (FREE_SECTIONS.includes(cleanId)) {
         return { allowed: true, plan: 'free' };
       }
 
-      if (isUserPremium()) {
+      if (hasTemplateEntitlement(templateId) || hasHdStyleEntitlement(templateId)) {
         return { allowed: true, plan: 'premium' };
       }
 
@@ -110,7 +127,7 @@
         allowed: false,
         feature: 'advanced_sections',
         title: `${sectionLabels[cleanId] || 'Special Story Section'} Locked`,
-        reason: 'This interactive section requires a VIP Magic Pass to activate in the recipient experience.',
+        reason: 'This interactive section requires unlocking this blueprint or the VIP Magic Pass.',
         requiredPlan: 'premium'
       };
     },
@@ -119,14 +136,14 @@
      * Check if gallery layout is allowed
      * @param {string} layout ('grid' | 'polaroid' | 'carousel' | 'masonry')
      */
-    canUseGalleryLayout(layout) {
+    canUseGalleryLayout(layout, templateId = null) {
       const cleanLayout = String(layout || 'grid').toLowerCase();
 
       if (FREE_GALLERY_LAYOUTS.includes(cleanLayout)) {
         return { allowed: true, plan: 'free' };
       }
 
-      if (isUserPremium()) {
+      if (hasHdStyleEntitlement(templateId) || hasTemplateEntitlement(templateId)) {
         return { allowed: true, plan: 'premium' };
       }
 
@@ -140,7 +157,7 @@
         allowed: false,
         feature: 'unlimited_photos',
         title: `${layoutNames[cleanLayout] || 'Special Gallery Style'} Locked`,
-        reason: 'Polaroid pinboards, sliding filmstrips, and mosaic collages are exclusive to the VIP Pass.',
+        reason: 'Polaroid pinboards, sliding filmstrips, and mosaic collages are unlocked with HD Style Pack or VIP Pass.',
         requiredPlan: 'premium'
       };
     },
@@ -149,8 +166,8 @@
      * Check if user can add another photo
      * @param {number} currentCount
      */
-    canAddPhoto(currentCount = 0) {
-      const isPrem = isUserPremium();
+    canAddPhoto(currentCount = 0, templateId = null) {
+      const isPrem = hasHdStyleEntitlement(templateId) || hasTemplateEntitlement(templateId);
       const planLimits = (window.WishPlanService && window.WishPlanService.getPlanLimits(isPrem ? 'premium' : 'free')) || { maxPhotos: isPrem ? 16 : 3 };
       const maxAllowed = planLimits.maxPhotos || (isPrem ? 16 : 3);
 
@@ -172,7 +189,7 @@
         title: 'Photo Memory Limit Reached',
         reason: isPrem
           ? 'You have reached the maximum keepsake limit of 16 photos for this celebration.'
-          : 'The Free plan supports up to 3 keepsake photos. Upgrade to VIP to attach up to 16 precious memories.',
+          : 'The Free plan supports up to 3 keepsake photos. Unlock HD Images & Style or VIP Pass to attach up to 16 precious memories.',
         requiredPlan: 'premium'
       };
     },
@@ -181,12 +198,12 @@
      * Check if custom music upload is allowed
      * @param {string} type ('curated' | 'upload')
      */
-    canUseMusic(type = 'curated') {
+    canUseMusic(type = 'curated', templateId = null) {
       if (type !== 'upload') {
         return { allowed: true, plan: 'free' };
       }
 
-      if (isUserPremium()) {
+      if (hasTemplateEntitlement(templateId) || hasHdStyleEntitlement(templateId)) {
         return { allowed: true, plan: 'premium' };
       }
 
@@ -194,7 +211,7 @@
         allowed: false,
         feature: 'premium_music',
         title: 'Custom Audio Upload Locked',
-        reason: 'Upload your own MP3 soundtrack with VIP Pass. Free users can select from our curated acoustic chimes.',
+        reason: 'Upload your own MP3 soundtrack with VIP Pass or Combo Pack. Free users can select from our curated acoustic chimes.',
         requiredPlan: 'premium'
       };
     },
@@ -202,8 +219,8 @@
     /**
      * Check if voice note recording/upload is allowed
      */
-    canUploadVoiceNote() {
-      if (isUserPremium()) {
+    canUploadVoiceNote(templateId = null) {
+      if (hasTemplateEntitlement(templateId) || hasHdStyleEntitlement(templateId)) {
         return { allowed: true, maxDurationSeconds: 120 };
       }
 
@@ -220,21 +237,24 @@
      * Watermark policy (Section 13)
      */
     canRemoveWatermark(user, wish) {
-      if (isUserPremium()) return true;
-      if (wish && (wish.tier === 'vip' || wish.price > 0 || (wish.payment && wish.payment.status === 'Completed'))) {
+      const tplId = wish && (wish.templateId || wish.template_id);
+      if (hasTemplateEntitlement(tplId) || hasHdStyleEntitlement(tplId)) return true;
+      if (wish && wish.payment && (wish.payment.status === 'Completed' || wish.payment.status === 'PAID')) {
         return true;
       }
       return false;
     },
 
     shouldShowWatermark(wish, user) {
-      // If user requested watermark removal and has entitlement or wish is VIP
       if (wish && wish.customData && wish.customData.watermarkRemoved) {
         if (this.canRemoveWatermark(user, wish)) {
           return false;
         }
       }
-      if (wish && (wish.tier === 'vip' || (wish.payment && wish.payment.status === 'Completed'))) {
+      if (wish && wish.payment && (wish.payment.status === 'Completed' || wish.payment.status === 'PAID')) {
+        return false;
+      }
+      if (isUserPremium()) {
         return false;
       }
       return true;
@@ -244,34 +264,35 @@
      * Lifetime preservation policy (Section 14)
      */
     canKeepMemoryForever(user, wish) {
-      if (isUserPremium()) return true;
-      if (wish && (wish.tier === 'vip' || (wish.payment && wish.payment.status === 'Completed'))) {
+      const tplId = wish && (wish.templateId || wish.template_id);
+      if (hasTemplateEntitlement(tplId) || hasHdStyleEntitlement(tplId)) return true;
+      if (wish && wish.payment && (wish.payment.status === 'Completed' || wish.payment.status === 'PAID')) {
         return true;
       }
       return false;
     },
 
     /**
-     * Check if wish contains any premium features and if creator has entitlement
+     * Check if wish contains any premium features and if creator has matching item entitlement
      * @param {Object} template
      * @param {Object} customData
      */
     canPublishWish(template, customData = {}) {
-      const isTplVip = template && (template.tier === 'vip' || template.isPremium === true || Number(template.price) > 0);
-      const isThemeVip = customData.theme && PREMIUM_THEMES.includes(String(customData.theme).toLowerCase());
+      const templateId = template ? template.id : null;
+      const isTplVip = Boolean(template && (template.tier === 'vip' || template.isPremium === true || Number(template.price) > 0));
+      const isThemeVip = Boolean(customData.theme && PREMIUM_THEMES.includes(String(customData.theme).toLowerCase()));
       const hasVoice = Boolean(customData.media && customData.media.voiceNote && customData.media.voiceNote.enabled);
       const hasCustomMusic = Boolean(customData.media && customData.media.music && customData.media.music.type === 'upload');
       const hasTooManyPhotos = Boolean(customData.media && customData.media.photos && customData.media.photos.length > 3);
       const hasPreservation = Boolean(customData.lifetimePreservation);
 
-      const requiresPremium = isTplVip || isThemeVip || hasVoice || hasCustomMusic || hasTooManyPhotos || hasPreservation;
+      const tplMissing = isTplVip && !hasTemplateEntitlement(templateId);
+      const hdStyleMissing = (isThemeVip || hasTooManyPhotos) && !hasHdStyleEntitlement(templateId) && !hasTemplateEntitlement(templateId);
+      const extraVipMissing = (hasVoice || hasCustomMusic || hasPreservation) && !hasTemplateEntitlement(templateId) && !hasHdStyleEntitlement(templateId);
 
-      if (!requiresPremium) {
-        return { allowed: true, requiredTier: 'free', requiresUpgrade: false };
-      }
-
-      if (isUserPremium()) {
-        return { allowed: true, requiredTier: 'vip', requiresUpgrade: false };
+      if (!tplMissing && !hdStyleMissing && !extraVipMissing) {
+        const usedPaid = isTplVip || isThemeVip || hasVoice || hasCustomMusic || hasTooManyPhotos || hasPreservation;
+        return { allowed: true, requiredTier: usedPaid ? 'vip' : 'free', requiresUpgrade: false };
       }
 
       return {
@@ -279,12 +300,12 @@
         requiredTier: 'vip',
         requiresUpgrade: true,
         reasons: [
-          isTplVip ? 'Exclusive VIP Blueprint' : null,
-          isThemeVip ? 'Premium Visual Theme' : null,
-          hasVoice ? 'Personal Voice Note' : null,
-          hasCustomMusic ? 'Custom Uploaded Soundtrack' : null,
-          hasTooManyPhotos ? 'Expanded Photo Gallery (4+ Photos)' : null,
-          hasPreservation ? 'Lifetime Memory Preservation' : null
+          tplMissing ? 'Exclusive VIP Blueprint' : null,
+          isThemeVip && hdStyleMissing ? 'Premium Visual Theme' : null,
+          hasVoice && extraVipMissing ? 'Personal Voice Note' : null,
+          hasCustomMusic && extraVipMissing ? 'Custom Uploaded Soundtrack' : null,
+          hasTooManyPhotos && hdStyleMissing ? 'Expanded Photo Gallery (4+ Photos)' : null,
+          hasPreservation && extraVipMissing ? 'Lifetime Memory Preservation' : null
         ].filter(Boolean)
       };
     },
@@ -292,12 +313,14 @@
     /**
      * Metadata helper for contextual upgrade dialogs
      */
-    explainLock(contextType, contextKey) {
+    explainLock(contextType, contextKey, template) {
+      const tplPrice = (template && Number(template.price) > 0) ? Number(template.price) : 59;
       switch (contextType) {
         case 'template':
           return {
             title: 'Unlock This Magical Blueprint',
             badge: 'VIP BLUEPRINT',
+            priceLabel: `₹${tplPrice} ONE-TIME`,
             subtitle: 'Craft a showstopping 3D celebration with interactive storytelling.',
             bullets: [
               'Full cinematic transitions & 4K confetti particles',
@@ -306,104 +329,112 @@
               '100% white-label with zero platform watermark',
               'Permanent link with lifetime anniversary preservation'
             ],
-            cta: 'Unlock VIP Pass • ₹49'
+            cta: `Unlock This Template • ₹${tplPrice}`
           };
 
         case 'theme':
           return {
             title: 'Unlock Luxury Theme Atmosphere',
             badge: 'PREMIUM AESTHETIC',
+            priceLabel: '₹59 ONE-TIME',
             subtitle: 'Elevate your celebration website with rich colors and tailored typography.',
             bullets: [
               'Curated gradients & cosmic atmospheric particles',
               'High-contrast accessible typography pairings',
               'Frosted glass surfaces with luminous borders'
             ],
-            cta: 'Unlock All Themes with VIP'
+            cta: 'Unlock HD & Style Pack • ₹59'
           };
 
         case 'section':
           return {
             title: 'Unlock Exclusive Story Section',
             badge: 'PREMIUM COMPONENT',
+            priceLabel: '₹59 ONE-TIME',
             subtitle: 'Create an emotional, memorable experience with interactive story elements.',
             bullets: [
               'Live countdown to recipient celebration date',
               'Surprise scratch-to-reveal secret letters',
               'Timed midnight fireworks and balloon explosions'
             ],
-            cta: 'Unlock All Sections with VIP'
+            cta: 'Unlock Story Sections • ₹59'
           };
 
         case 'media_limit':
           return {
             title: 'Expand Your Keepsake Photo Gallery',
             badge: '16 MEMORIES CAPACITY',
-            subtitle: 'Free tier includes 3 photos. Unlock VIP to cherish up to 16 unforgettable moments.',
+            priceLabel: '₹59 ONE-TIME',
+            subtitle: 'Free tier includes 3 photos. Unlock HD Pack to cherish up to 16 unforgettable moments.',
             bullets: [
               'Attach up to 16 high-resolution memories',
               'Choose from Polaroid, Filmstrip, and Mosaic layouts',
               'Full-screen high-definition lightbox viewer'
             ],
-            cta: 'Unlock 16 Photos with VIP'
+            cta: 'Unlock 16 Photos & Style • ₹59'
           };
 
         case 'voice':
           return {
             title: 'Add a Spoken Voice Dedication',
             badge: 'AUDIO BLESSING',
+            priceLabel: '₹49 VIP PASS',
             subtitle: 'Nothing touches the heart like hearing someone you love speak directly to you.',
             bullets: [
               'Record directly in your browser or upload any audio file',
               'Up to 2 minutes of genuine laughter, songs, or blessings',
               'Interactive waveform player with custom soundboard controls'
             ],
-            cta: 'Unlock Voice Notes with VIP'
+            cta: 'Unlock Voice Notes • ₹49'
           };
 
         case 'music_upload':
           return {
             title: 'Upload Your Favorite Song (MP3)',
             badge: 'CUSTOM SOUNDSCAPE',
+            priceLabel: '₹49 VIP PASS',
             subtitle: 'Attach the exact song that defines your friendship or relationship.',
             bullets: [
               'Attach your personal song file (MP3, WAV, AAC)',
               'Auto-looping celebration background audio',
               'Independent volume and playback controls for the recipient'
             ],
-            cta: 'Unlock Custom Music with VIP'
+            cta: 'Unlock Custom Music • ₹49'
           };
 
         case 'watermark':
           return {
             title: 'Remove Platform Watermark',
             badge: '100% WHITE-LABEL',
+            priceLabel: '₹59 ONE-TIME',
             subtitle: 'Deliver a pure, bespoke experience that feels completely handcrafted by you.',
             bullets: [
               'Zero WishMagic tags, badges, or brand marks',
               'Pristine footer dedicated exclusively to your love and names',
               'Luxury custom link presentation'
             ],
-            cta: 'Remove Watermark with VIP'
+            cta: 'Remove Watermark • ₹59'
           };
 
         case 'preservation':
           return {
             title: 'Keep This Memory Forever',
             badge: 'LIFETIME PRESERVATION',
+            priceLabel: '₹49 VIP PASS',
             subtitle: 'Standard free links expire after 7 days. Preserve this keepsake for every anniversary to come.',
             bullets: [
               'Permanent celebration link that never expires',
               'Safe for 50th anniversaries, weddings, and milestones',
               'Revisit joyful smiles anytime on any device'
             ],
-            cta: 'Preserve Forever with VIP'
+            cta: 'Preserve Forever • ₹49'
           };
 
         default:
           return {
             title: 'Unlock VIP Magic Pass',
             badge: 'VIP ACCESS',
+            priceLabel: '₹49 ONE-TIME',
             subtitle: 'Get unlimited access to all templates, advanced themes, audio, and lifetime memories.',
             bullets: [
               'All current and future VIP templates',

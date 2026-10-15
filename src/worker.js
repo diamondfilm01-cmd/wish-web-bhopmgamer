@@ -1626,6 +1626,12 @@ async function verifyAndEnsureAuthSchema(db) {
             user_id TEXT NOT NULL,
             item_type TEXT,
             item_id TEXT,
+            product_id TEXT,
+            template_id TEXT,
+            order_id TEXT,
+            wish_id TEXT,
+            requested_slug TEXT,
+            amount_paise INTEGER DEFAULT 0,
             plan TEXT DEFAULT 'free',
             status TEXT DEFAULT 'active',
             source TEXT DEFAULT 'purchase',
@@ -1636,25 +1642,125 @@ async function verifyAndEnsureAuthSchema(db) {
             FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
           )
         `).run().catch(() => {});
+      } else {
+        await reconcileTableColumns('entitlements', [
+          { name: 'item_type', def: 'TEXT' },
+          { name: 'item_id', def: 'TEXT' },
+          { name: 'product_id', def: 'TEXT' },
+          { name: 'template_id', def: 'TEXT' },
+          { name: 'order_id', def: 'TEXT' },
+          { name: 'wish_id', def: 'TEXT' },
+          { name: 'requested_slug', def: 'TEXT' },
+          { name: 'amount_paise', def: 'INTEGER DEFAULT 0' },
+          { name: 'plan', def: "TEXT DEFAULT 'free'" },
+          { name: 'status', def: "TEXT DEFAULT 'active'" },
+          { name: 'source', def: "TEXT DEFAULT 'purchase'" },
+          { name: 'starts_at', def: 'TEXT' },
+          { name: 'expires_at', def: 'TEXT' },
+          { name: 'updated_at', def: 'TEXT' }
+        ]);
       }
 
-      // 13. Orders
+      // 13. Orders, Order Items, Payment Attempts & Webhooks
       if (!tableNames.has('orders')) {
         await db.prepare(`
           CREATE TABLE IF NOT EXISTS orders (
             id TEXT PRIMARY KEY,
             user_id TEXT NOT NULL,
             plan TEXT NOT NULL,
+            product_id TEXT,
+            product_name TEXT,
+            template_id TEXT,
+            wish_id TEXT,
+            requested_slug TEXT,
             amount INTEGER NOT NULL DEFAULT 0,
             currency TEXT NOT NULL DEFAULT 'INR',
             provider TEXT NOT NULL DEFAULT 'manual',
             provider_order_id TEXT,
             transaction_id TEXT,
             status TEXT NOT NULL DEFAULT 'PENDING',
+            total_refunded INTEGER DEFAULT 0,
+            error_code TEXT,
+            error_description TEXT,
             created_at TEXT NOT NULL,
             updated_at TEXT NOT NULL,
             verified_at TEXT,
             FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
+          )
+        `).run().catch(() => {});
+      } else {
+        await reconcileTableColumns('orders', [
+          { name: 'product_id', def: 'TEXT' },
+          { name: 'product_name', def: 'TEXT' },
+          { name: 'template_id', def: 'TEXT' },
+          { name: 'wish_id', def: 'TEXT' },
+          { name: 'requested_slug', def: 'TEXT' },
+          { name: 'provider_order_id', def: 'TEXT' },
+          { name: 'transaction_id', def: 'TEXT' },
+          { name: 'total_refunded', def: 'INTEGER DEFAULT 0' },
+          { name: 'error_code', def: 'TEXT' },
+          { name: 'error_description', def: 'TEXT' },
+          { name: 'verified_at', def: 'TEXT' },
+          { name: 'updated_at', def: 'TEXT' }
+        ]);
+      }
+
+      if (!tableNames.has('order_items')) {
+        await db.prepare(`
+          CREATE TABLE IF NOT EXISTS order_items (
+            id TEXT PRIMARY KEY,
+            order_id TEXT NOT NULL,
+            product_id TEXT NOT NULL,
+            product_type TEXT NOT NULL,
+            product_name TEXT NOT NULL,
+            template_family_id TEXT,
+            template_id TEXT,
+            version_id TEXT,
+            quantity INTEGER NOT NULL DEFAULT 1,
+            unit_price INTEGER NOT NULL DEFAULT 0,
+            currency TEXT NOT NULL DEFAULT 'INR',
+            created_at TEXT NOT NULL
+          )
+        `).run().catch(() => {});
+      }
+
+      if (!tableNames.has('payment_attempts')) {
+        await db.prepare(`
+          CREATE TABLE IF NOT EXISTS payment_attempts (
+            id TEXT PRIMARY KEY,
+            order_id TEXT NOT NULL,
+            provider TEXT NOT NULL DEFAULT 'razorpay',
+            provider_order_id TEXT,
+            provider_payment_id TEXT,
+            provider_signature TEXT,
+            amount INTEGER NOT NULL DEFAULT 0,
+            currency TEXT NOT NULL DEFAULT 'INR',
+            status TEXT NOT NULL DEFAULT 'CREATED',
+            error_code TEXT,
+            error_description TEXT,
+            signature_verified INTEGER NOT NULL DEFAULT 0,
+            raw_response_summary TEXT,
+            created_at TEXT NOT NULL,
+            updated_at TEXT NOT NULL,
+            verified_at TEXT
+          )
+        `).run().catch(() => {});
+      }
+
+      if (!tableNames.has('payment_webhooks')) {
+        await db.prepare(`
+          CREATE TABLE IF NOT EXISTS payment_webhooks (
+            id TEXT PRIMARY KEY,
+            provider TEXT NOT NULL DEFAULT 'razorpay',
+            event_id TEXT UNIQUE,
+            event_type TEXT NOT NULL,
+            order_id TEXT,
+            payment_id TEXT,
+            payload_summary TEXT,
+            status TEXT NOT NULL DEFAULT 'RECEIVED',
+            error_code TEXT,
+            received_at TEXT NOT NULL,
+            processed_at TEXT
           )
         `).run().catch(() => {});
       }
@@ -3312,39 +3418,207 @@ async function verifyAdminRole(user, env) {
   return profile && profile.isAdmin === true;
 }
 
-async function getEffectiveEntitlement(user, env) {
-  if (!user || !user.id) {
-    return { isPremium: false, plan: 'Free', features: [] };
-  }
-
-  // 1. Direct user property check
-  if (user.isPremium || user.plan === 'VIP' || user.role === 'admin') {
+function mapProductToEntitlementScope(productIdOrPlan, templateId = null, requestedSlug = null) {
+  const norm = String(productIdOrPlan || "").trim().toLowerCase();
+  if (norm === "vip_pass" || norm === "vip" || norm === "premium") {
     return {
-      isPremium: true,
-      plan: 'VIP',
-      features: ['premium_templates', 'unlimited_photos', 'voice_note', 'custom_slug', 'watermark_removed', 'analytics']
+      plan: "VIP",
+      itemType: "vip_pass",
+      itemId: "all_templates",
+      productId: "vip_pass",
+      templateId: null,
+      unlocksAllTemplates: true,
+      unlocksCustomLink: true,
+      unlocksHdStyle: true
+    };
+  }
+  if (norm === "personalized_link" || norm === "custom_link_only" || norm === "custom_link") {
+    return {
+      plan: "CUSTOM_LINK",
+      itemType: "custom_link",
+      itemId: requestedSlug || "single_wish",
+      productId: "personalized_link",
+      templateId: templateId || null,
+      unlocksAllTemplates: false,
+      unlocksCustomLink: true,
+      unlocksHdStyle: false
+    };
+  }
+  if (norm === "hd_image_style_pack" || norm === "hd_style") {
+    return {
+      plan: "HD_STYLE",
+      itemType: "hd_style",
+      itemId: templateId || "single_wish",
+      productId: "hd_image_style_pack",
+      templateId: templateId || null,
+      unlocksAllTemplates: false,
+      unlocksCustomLink: false,
+      unlocksHdStyle: true
+    };
+  }
+  if (norm === "free_template_combo" || norm === "combo_99" || norm === "free_combo") {
+    return {
+      plan: "FREE_COMBO",
+      itemType: "free_combo",
+      itemId: requestedSlug || templateId || "single_wish",
+      productId: "free_template_combo",
+      templateId: templateId || null,
+      unlocksAllTemplates: false,
+      unlocksCustomLink: true,
+      unlocksHdStyle: true
+    };
+  }
+  if (norm === "premium_template_combo" || norm.startsWith("premium_combo:") || norm === "premium_combo") {
+    const resolvedTpl = templateId || (norm.startsWith("premium_combo:") ? norm.slice("premium_combo:".length) : null);
+    return {
+      plan: "PREMIUM_COMBO",
+      itemType: "premium_combo",
+      itemId: resolvedTpl || "single_template",
+      productId: resolvedTpl ? `premium_combo:${resolvedTpl}` : "premium_template_combo",
+      templateId: resolvedTpl,
+      unlocksAllTemplates: false,
+      unlocksCustomLink: true,
+      unlocksHdStyle: true
+    };
+  }
+  if (norm.startsWith("template:")) {
+    const resolvedTpl = templateId || norm.slice("template:".length);
+    return {
+      plan: "TEMPLATE_UNLOCK",
+      itemType: "template",
+      itemId: resolvedTpl,
+      productId: `template:${resolvedTpl}`,
+      templateId: resolvedTpl,
+      unlocksAllTemplates: false,
+      unlocksCustomLink: false,
+      unlocksHdStyle: false
+    };
+  }
+  return {
+    plan: String(productIdOrPlan || "PRO").toUpperCase(),
+    itemType: norm || "custom",
+    itemId: templateId || requestedSlug || "single_item",
+    productId: norm || "custom",
+    templateId: templateId || null,
+    unlocksAllTemplates: false,
+    unlocksCustomLink: false,
+    unlocksHdStyle: false
+  };
+}
+
+async function getEffectiveEntitlement(user, env, options = {}) {
+  if (!user || !user.id) {
+    return {
+      isPremium: false,
+      hasVipPass: false,
+      hasCustomLinkEntitlement: false,
+      hasHdStyleEntitlement: false,
+      unlockedTemplates: [],
+      activeEntitlements: [],
+      plan: "Free",
+      features: []
     };
   }
 
-  // 2. Authoritative D1 entitlements table check
-  if (env && env.DB && typeof env.DB.prepare === 'function') {
+  // 1. Direct user property check (Admin or explicit VIP account)
+  if (user.isPremium || user.plan === "VIP" || user.role === "admin") {
+    return {
+      isPremium: true,
+      hasVipPass: true,
+      hasCustomLinkEntitlement: true,
+      hasHdStyleEntitlement: true,
+      unlockedTemplates: ["*"],
+      activeEntitlements: [{ id: `ent_user_${user.id}`, plan: "VIP", itemType: "vip_pass", status: "active" }],
+      plan: "VIP",
+      features: ["premium_templates", "unlimited_photos", "voice_note", "custom_slug", "hd_style", "advanced_themes", "watermark_removed", "analytics"]
+    };
+  }
+
+  let hasVipPass = false;
+  let hasCustomLinkEntitlement = false;
+  let hasHdStyleEntitlement = false;
+  const unlockedTemplatesSet = new Set();
+  const activeEntitlements = [];
+  const featuresSet = new Set();
+
+  // 2. Authoritative D1 entitlements + PAID orders check strictly scoped to user.id
+  if (env && env.DB && typeof env.DB.prepare === "function") {
     try {
       const now = new Date().toISOString();
-      const ent = await env.DB.prepare(
-        'SELECT * FROM entitlements WHERE user_id = ? AND (expires_at IS NULL OR expires_at > ?) ORDER BY created_at DESC LIMIT 1'
-      ).bind(user.id, now).first();
+      const entRes = await env.DB.prepare(
+        "SELECT * FROM entitlements WHERE user_id = ? AND (expires_at IS NULL OR expires_at > ?) ORDER BY created_at DESC"
+      ).bind(user.id, now).all().catch(() => ({ results: [] }));
 
-      if (ent && ent.is_active) {
-        return {
-          isPremium: true,
-          plan: ent.plan_id || 'VIP',
-          features: ['premium_templates', 'unlimited_photos', 'voice_note', 'custom_slug', 'watermark_removed', 'analytics']
-        };
+      const rows = (entRes && entRes.results) || [];
+      for (const ent of rows) {
+        const st = String(ent.status || "").toLowerCase();
+        const isActive = st === "active" || ent.is_active === 1 || ent.is_active === true;
+        if (!isActive) continue;
+
+        const pPlan = String(ent.product_id || ent.item_type || ent.plan || ent.plan_id || "").toLowerCase();
+        const tplId = ent.template_id || (pPlan.startsWith("template:") ? pPlan.slice(9) : (pPlan.startsWith("premium_combo:") ? pPlan.slice(14) : ent.item_id)) || null;
+
+        activeEntitlements.push({
+          id: ent.id,
+          userId: ent.user_id,
+          plan: ent.plan || ent.plan_id || "VIP",
+          itemType: ent.item_type || pPlan,
+          itemId: ent.item_id || tplId || null,
+          productId: ent.product_id || pPlan,
+          templateId: tplId,
+          orderId: ent.order_id || null,
+          requestedSlug: ent.requested_slug || null,
+          status: "active",
+          startsAt: ent.starts_at || ent.created_at
+        });
+
+        if (pPlan === "vip_pass" || pPlan === "vip" || pPlan === "premium" || String(ent.plan).toUpperCase() === "VIP") {
+          hasVipPass = true;
+          hasCustomLinkEntitlement = true;
+          hasHdStyleEntitlement = true;
+          ["premium_templates", "unlimited_photos", "voice_note", "custom_slug", "hd_style", "advanced_themes", "watermark_removed", "analytics"].forEach(f => featuresSet.add(f));
+        } else if (pPlan === "personalized_link" || pPlan === "custom_link" || pPlan === "free_custom_link") {
+          hasCustomLinkEntitlement = true;
+          featuresSet.add("custom_slug");
+        } else if (pPlan === "hd_image_style_pack" || pPlan === "hd_style") {
+          hasHdStyleEntitlement = true;
+          ["hd_style", "advanced_themes", "unlimited_photos", "voice_note", "watermark_removed"].forEach(f => featuresSet.add(f));
+        } else if (pPlan === "free_template_combo" || pPlan === "free_combo" || pPlan === "combo_99") {
+          hasCustomLinkEntitlement = true;
+          hasHdStyleEntitlement = true;
+          ["custom_slug", "hd_style", "advanced_themes", "unlimited_photos", "voice_note", "watermark_removed"].forEach(f => featuresSet.add(f));
+        } else if (pPlan === "premium_template_combo" || pPlan === "premium_combo" || pPlan.startsWith("premium_combo:")) {
+          hasCustomLinkEntitlement = true;
+          hasHdStyleEntitlement = true;
+          if (tplId) {
+            unlockedTemplatesSet.add(tplId);
+            featuresSet.add(`template:${tplId}`);
+          }
+          ["custom_slug", "hd_style", "advanced_themes", "unlimited_photos", "voice_note", "watermark_removed"].forEach(f => featuresSet.add(f));
+        } else if (pPlan === "template" || pPlan === "template_unlock" || pPlan.startsWith("template:")) {
+          if (tplId) {
+            unlockedTemplatesSet.add(tplId);
+            featuresSet.add(`template:${tplId}`);
+          }
+        }
       }
     } catch (e) {}
   }
 
-  return { isPremium: false, plan: 'Free', features: [] };
+  const targetTemplateId = options.templateId || null;
+  const isTargetTemplateUnlocked = Boolean(targetTemplateId && unlockedTemplatesSet.has(targetTemplateId));
+  const isPremium = hasVipPass || isTargetTemplateUnlocked;
+
+  return {
+    isPremium,
+    hasVipPass,
+    hasCustomLinkEntitlement,
+    hasHdStyleEntitlement,
+    unlockedTemplates: Array.from(unlockedTemplatesSet),
+    activeEntitlements,
+    plan: hasVipPass ? "VIP" : (activeEntitlements.length > 0 ? activeEntitlements[0].plan : "Free"),
+    features: Array.from(featuresSet)
+  };
 }
 
 // ============================================================================
@@ -5641,13 +5915,24 @@ export default {
           customData.templateVersionId = templateVersionId;
           customData.template_version = templateVersionNumber;
 
-          // Authoritative Server-Side Entitlement Check (Never trust client tier/isPremium/entitlement overrides)
-          const entitlement = await getEffectiveEntitlement(user, env);
-          const templateRequiresVip = template ? Boolean(template.is_premium || template.isPremium || template.tier === 'vip') : false;
+          // Authoritative Server-Side Entitlement Check (Scoped to user.id and exact templateId)
+          const resolvedTplId = template ? template.id : templateId;
+          const entitlement = await getEffectiveEntitlement(user, env, { templateId: resolvedTplId });
+          const templateRequiresVip = template ? Boolean(template.is_premium || template.isPremium || template.tier === 'vip' || Number(template.price) > 0) : false;
+          const isDraftRequest = Boolean(customData.isDraft || body.isDraft || body.status === 'draft');
 
-          if (templateRequiresVip && !entitlement.isPremium) {
+          if (templateRequiresVip && !entitlement.isPremium && !isDraftRequest) {
             return applySecurityHeaders(
-              jsonError('PREMIUM_REQUIRED', 'This template requires a VIP or Premium subscription.', 403, {}, null, requestId, FailureCategory.AUTHORIZATION),
+              jsonError('PREMIUM_REQUIRED', 'This template requires a verified VIP Pass or template purchase before publishing.', 403, {}, null, requestId, FailureCategory.AUTHORIZATION),
+              request, env
+            );
+          }
+
+          // Strict Personalized Custom Link Payment / Referral Credit Check when client explicitly requests linkType === "personalized"
+          const explicitPersonalizedLink = (body.linkType === 'personalized' || customData.linkType === 'personalized') && !isDraftRequest;
+          if (explicitPersonalizedLink && !entitlement.hasCustomLinkEntitlement && !(body.useReferralCredit || customData.useReferralCredit)) {
+            return applySecurityHeaders(
+              jsonError('PAYMENT_REQUIRED', 'Payment required: please complete payment for your Custom Link or Combo Pack before publishing a personalized link.', 402, {}, null, requestId, FailureCategory.AUTHORIZATION),
               request, env
             );
           }
@@ -5747,6 +6032,20 @@ export default {
             updatedAt: new Date().toISOString()
           };
 
+          const matchedEnt = Array.isArray(entitlement.activeEntitlements) && entitlement.activeEntitlements.length > 0 ? entitlement.activeEntitlements[0] : null;
+          if (matchedEnt && matchedEnt.orderId) {
+            newWish.orderId = matchedEnt.orderId;
+          }
+          const verifiedPaymentMeta = matchedEnt ? JSON.stringify({
+            status: 'Completed',
+            userId: newWish.userId,
+            orderId: matchedEnt.orderId || newWish.orderId,
+            entitlementId: matchedEnt.id,
+            productId: matchedEnt.productId || matchedEnt.plan,
+            itemType: matchedEnt.itemType,
+            templateId: matchedEnt.templateId || newWish.templateId,
+            verifiedAt: matchedEnt.startsAt || newWish.createdAt
+          }) : null;
           const wishValues = {
             id: newWish.id,
             slug: newWish.slug,
@@ -5766,7 +6065,7 @@ export default {
             lifecycle_status: 'active',
             views: 0,
             custom_data: JSON.stringify(customData),
-            payment: null,
+            payment: verifiedPaymentMeta,
             status: status,
             created_at: newWish.createdAt,
             updated_at: newWish.updatedAt
@@ -5797,7 +6096,7 @@ export default {
               'active',
               0,
               JSON.stringify(customData),
-              null,
+              verifiedPaymentMeta,
               status,
               templateVersionId,
               newWish.createdAt,
@@ -11967,10 +12266,21 @@ export default {
       }
 
       // --- Entitlements & Pricing ---
-      else if ((pathname === '/api/entitlements' || pathname === '/api/entitlements/status') && method === 'GET') {
+      else if ((pathname === '/api/entitlements' || pathname === '/api/entitlements/status' || pathname === '/api/commerce/entitlements') && method === 'GET') {
         const user = await getAuthenticatedUser(request, env);
-        const entitlement = await getEffectiveEntitlement(user, env);
-        response = jsonSuccess({ entitlement }, 200, {}, requestId);
+        const templateIdParam = url.searchParams.get('templateId') || null;
+        const entitlement = await getEffectiveEntitlement(user, env, { templateId: templateIdParam });
+        response = jsonSuccess({
+          isPremium: entitlement.isPremium,
+          hasVipPass: entitlement.hasVipPass,
+          hasCustomLinkEntitlement: entitlement.hasCustomLinkEntitlement,
+          hasHdStyleEntitlement: entitlement.hasHdStyleEntitlement,
+          unlockedTemplates: entitlement.unlockedTemplates,
+          activeEntitlements: entitlement.activeEntitlements,
+          plan: entitlement.plan,
+          features: entitlement.features,
+          entitlement
+        }, 200, {}, requestId);
       }
 
       // --- Public Site Settings ---
@@ -12138,14 +12448,24 @@ export default {
         const isTestMode = env.ENVIRONMENT !== 'production' || Boolean(keyId && keyId.startsWith('rzp_test_'));
         const adapter = new RazorpayAdapter({ keyId, keySecret, webhookSecret, isTestMode });
 
-        // Retrieve server link and monetization settings
+        // Retrieve server link and monetization settings + templates catalog
         const linkSettings = await getWishLinkSettings(env);
+        let catalogueTemplates = [...SEED_TEMPLATES];
+        if (env.DB && typeof env.DB.prepare === 'function') {
+          try {
+            const tRes = await env.DB.prepare('SELECT * FROM templates WHERE is_published = 1 OR status = \x27published\x27 LIMIT 200').all().catch(() => ({ results: [] }));
+            ((tRes && tRes.results) || []).forEach(r => {
+              if (!catalogueTemplates.some(t => t.id === r.id)) catalogueTemplates.push(r);
+            });
+          } catch (_) {}
+        }
 
         // Authoritative resolution of product
         const product = resolveAuthoritativeProduct({
           productId,
           templateId,
           options: body.options || {},
+          templates: catalogueTemplates,
           siteSettings: linkSettings
         });
 
@@ -12208,17 +12528,28 @@ export default {
           return applySecurityHeaders(jsonError(COMMERCE_ERROR_CODES.CHECKOUT_CREATION_FAILED, `Gateway order creation failed: ${provErr.message}`, 502), request, env);
         }
 
+        const requestedSlug = sanitizeString((body.options && (body.options.requestedSlug || body.options.slug)) || body.slug || '', 80).toLowerCase().trim() || null;
+        const targetWishId = sanitizeString((body.options && body.options.wishId) || body.wishId || '', 80).trim() || null;
+        const resolvedTemplateId = product.templateId || templateId || null;
+
         if (env.DB && typeof env.DB.prepare === 'function') {
           try {
-            await env.DB.prepare(
-              `INSERT INTO orders (id, user_id, plan, amount, currency, provider, provider_order_id, status, created_at, updated_at)
-               VALUES (?, ?, ?, ?, ?, ?, ?, 'PENDING', ?, ?)`
-            ).bind(orderId, user.id, product.productId, product.amountPaise, product.currency, 'razorpay', providerOrder.id, now, now).run();
+            try {
+              await env.DB.prepare(
+                `INSERT INTO orders (id, user_id, plan, amount, currency, provider, provider_order_id, status, created_at, updated_at, product_id, product_name, template_id, wish_id, requested_slug)
+                 VALUES (?, ?, ?, ?, ?, ?, ?, 'PENDING', ?, ?, ?, ?, ?, ?, ?)`
+              ).bind(orderId, user.id, product.productId, product.amountPaise, product.currency, 'razorpay', providerOrder.id, now, now, product.productId, product.productName, resolvedTemplateId, targetWishId, requestedSlug).run();
+            } catch (_) {
+              await env.DB.prepare(
+                `INSERT INTO orders (id, user_id, plan, amount, currency, provider, provider_order_id, status, created_at, updated_at)
+                 VALUES (?, ?, ?, ?, ?, ?, ?, 'PENDING', ?, ?)`
+              ).bind(orderId, user.id, product.productId, product.amountPaise, product.currency, 'razorpay', providerOrder.id, now, now).run();
+            }
 
             await env.DB.prepare(
-              `INSERT INTO order_items (id, order_id, product_id, product_type, product_name, quantity, unit_price, currency, created_at)
-               VALUES (?, ?, ?, ?, ?, 1, ?, ?, ?)`
-            ).bind(itemId, orderId, product.productId, product.productType, product.productName, product.amountPaise, product.currency, now).run();
+              `INSERT INTO order_items (id, order_id, product_id, product_type, product_name, template_id, quantity, unit_price, currency, created_at)
+               VALUES (?, ?, ?, ?, ?, ?, 1, ?, ?, ?)`
+            ).bind(itemId, orderId, product.productId, product.productType, product.productName, resolvedTemplateId, product.amountPaise, product.currency, now).run();
 
             await env.DB.prepare(
               `INSERT INTO payment_attempts (id, order_id, provider, provider_order_id, amount, currency, status, created_at, updated_at)
@@ -12576,9 +12907,23 @@ export default {
           );
         }
 
-        // Step 7: Atomic guarded state transitions and entitlement granting in D1
+        // Step 6b: Ensure provider payment notes (if present) do not belong to a different user
+        if (provPayment.notes && provPayment.notes.userId && String(provPayment.notes.userId) !== String(user.id)) {
+          return applySecurityHeaders(
+            jsonError('FORBIDDEN', 'Payment user identity mismatch.', 403),
+            request,
+            env
+          );
+        }
+
+        // Step 7: Atomic guarded state transitions and exact item-scoped entitlement granting in D1
         const now = new Date().toISOString();
-        const entPlan = (order.plan && order.plan.toLowerCase().includes('vip')) ? 'VIP' : (order.plan || 'PRO');
+        const scopeMeta = mapProductToEntitlementScope(
+          order.product_id || order.plan,
+          order.template_id || body.templateId || null,
+          order.requested_slug || body.requestedSlug || null
+        );
+        const entPlan = scopeMeta.plan;
         const entId = `ent_${order.user_id}_${order.id}`;
 
         const updateOrderStmt = env.DB.prepare(
@@ -12615,10 +12960,25 @@ export default {
         }
 
         const insertEntitlementStmt = env.DB.prepare(
-          `INSERT INTO entitlements (id, user_id, plan, status, source, starts_at, created_at, updated_at)
-           VALUES (?, ?, ?, 'active', 'purchase', ?, ?, ?)
-           ON CONFLICT(id) DO UPDATE SET status = 'active', plan = excluded.plan, updated_at = excluded.updated_at`
-        ).bind(entId, order.user_id, entPlan, now, now, now);
+          `INSERT INTO entitlements (id, user_id, plan, status, source, starts_at, created_at, updated_at, item_type, item_id, product_id, template_id, order_id, wish_id, requested_slug, amount_paise)
+           VALUES (?, ?, ?, 'active', 'purchase', ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+           ON CONFLICT(id) DO UPDATE SET status = 'active', plan = excluded.plan, item_type = excluded.item_type, item_id = excluded.item_id, product_id = excluded.product_id, template_id = excluded.template_id, order_id = excluded.order_id, updated_at = excluded.updated_at`
+        ).bind(
+          entId,
+          order.user_id,
+          entPlan,
+          now,
+          now,
+          now,
+          scopeMeta.itemType,
+          scopeMeta.itemId,
+          scopeMeta.productId,
+          scopeMeta.templateId,
+          order.id,
+          order.wish_id || body.wishId || null,
+          order.requested_slug || body.requestedSlug || null,
+          Number(order.amount) || 0
+        );
 
         try {
           if (typeof env.DB.batch === 'function') {
@@ -12659,10 +13019,66 @@ export default {
             id: entId,
             userId: order.user_id,
             plan: entPlan,
+            itemType: scopeMeta.itemType,
+            itemId: scopeMeta.itemId,
+            productId: scopeMeta.productId,
+            templateId: scopeMeta.templateId,
+            orderId: order.id,
+            requestedSlug: order.requested_slug || body.requestedSlug || null,
             status: 'active',
             source: 'purchase',
             startsAt: now
           }
+        }, 200, {}, requestId);
+      }
+
+      // API: Explicitly Record Cancelled or Failed Payment Attempt (Zero Entitlement Granted)
+      else if ((pathname === '/api/commerce/cancel' || pathname === '/api/commerce/fail') && method === 'POST') {
+        const user = await getAuthenticatedUser(request, env);
+        if (!user || !user.id) {
+          return applySecurityHeaders(jsonError('AUTH_REQUIRED', 'Authentication required', 401), request, env);
+        }
+        const body = await request.json().catch(() => ({}));
+        const cleanOrderId = sanitizeString(body.orderId || body.providerOrderId || '', 128).trim();
+        const reasonStatus = (pathname.endsWith('/fail') || body.status === 'PAYMENT_FAILED' || body.status === 'FAILED') ? 'PAYMENT_FAILED' : 'CANCELLED';
+        const attemptStatus = reasonStatus === 'PAYMENT_FAILED' ? 'FAILED' : 'CANCELLED';
+        const errCode = sanitizeString(body.errorCode || reasonStatus, 80);
+        const errDesc = sanitizeString(body.errorDescription || body.reason || (reasonStatus === 'CANCELLED' ? 'Customer closed or cancelled checkout' : 'Payment failed at gateway'), 240);
+        const nowIso = new Date().toISOString();
+
+        if (!cleanOrderId) {
+          return applySecurityHeaders(jsonError('INVALID_INPUT', 'orderId is required', 400), request, env);
+        }
+
+        if (env.DB && typeof env.DB.prepare === 'function') {
+          const ord = await env.DB.prepare('SELECT * FROM orders WHERE id = ? OR provider_order_id = ? LIMIT 1').bind(cleanOrderId, cleanOrderId).first().catch(() => null);
+          if (!ord) {
+            return applySecurityHeaders(jsonError('ORDER_NOT_FOUND', 'Order not found', 404), request, env);
+          }
+          if (ord.user_id && ord.user_id !== user.id && user.role !== 'admin') {
+            return applySecurityHeaders(jsonError('FORBIDDEN', 'Access denied to this order', 403), request, env);
+          }
+          if (ord.status !== 'PAID') {
+            await env.DB.prepare(
+              `UPDATE orders SET status = ?, error_code = ?, error_description = ?, updated_at = ? WHERE id = ? AND user_id = ? AND status != 'PAID'`
+            ).bind(reasonStatus, errCode, errDesc, nowIso, ord.id, user.id).run().catch(() => {});
+            await env.DB.prepare(
+              `UPDATE payment_attempts SET status = ?, error_code = ?, error_description = ?, updated_at = ? WHERE order_id = ? AND status != 'CAPTURED'`
+            ).bind(attemptStatus, errCode, errDesc, nowIso, ord.id).run().catch(() => {});
+            await env.DB.prepare(
+              `UPDATE entitlements SET status = 'revoked', updated_at = ? WHERE user_id = ? AND (id = ? OR order_id = ?)`
+            ).bind(nowIso, user.id, `ent_${user.id}_${ord.id}`, ord.id).run().catch(() => {});
+          }
+        }
+
+        response = jsonSuccess({
+          recorded: true,
+          orderId: cleanOrderId,
+          status: reasonStatus,
+          entitlementGranted: false,
+          message: reasonStatus === 'CANCELLED'
+            ? 'Payment cancelled. No charges were completed and no paid access was granted.'
+            : 'Payment failure recorded. No paid access was granted.'
         }, 200, {}, requestId);
       }
 
@@ -12832,6 +13248,42 @@ export default {
               orderId: targetOrder.id
             }, 200, {}, requestId), request, env);
 
+          } else if (eventType === "payment.failed") {
+            const paymentEntity = event.payload?.payment?.entity || {};
+            const provOrderId = paymentEntity.order_id;
+            const provPayId = paymentEntity.id || null;
+            const errCode = paymentEntity.error_code || "PAYMENT_FAILED";
+            const errDesc = paymentEntity.error_description || "Gateway reported payment failure";
+
+            if (provOrderId) {
+              const targetOrder = await env.DB.prepare(
+                "SELECT * FROM orders WHERE provider_order_id = ? LIMIT 1"
+              ).bind(provOrderId).first();
+              if (targetOrder && targetOrder.status !== "PAID") {
+                await env.DB.prepare(
+                  "UPDATE orders SET status = 'PAYMENT_FAILED', updated_at = ? WHERE id = ? AND status != 'PAID'"
+                ).bind(now, targetOrder.id).run().catch(() => {});
+                await env.DB.prepare(
+                  "UPDATE payment_attempts SET status = 'FAILED', provider_payment_id = ?, error_code = ?, error_description = ?, updated_at = ? WHERE provider_order_id = ? OR order_id = ?"
+                ).bind(provPayId, errCode, errDesc, now, provOrderId, targetOrder.id).run().catch(() => {});
+                await env.DB.prepare(
+                  "UPDATE entitlements SET status = 'revoked', updated_at = ? WHERE user_id = ? AND id = ?"
+                ).bind(now, targetOrder.user_id, "ent_" + targetOrder.user_id + "_" + targetOrder.id).run().catch(() => {});
+              }
+              await env.DB.prepare(
+                "UPDATE payment_webhooks SET status = 'PROCESSED', order_id = ?, payment_id = ?, processed_at = ? WHERE event_id = ?"
+              ).bind(targetOrder ? targetOrder.id : provOrderId, provPayId, now, eventId).run().catch(() => {});
+            } else {
+              await env.DB.prepare(
+                "UPDATE payment_webhooks SET status = 'IGNORED', processed_at = ? WHERE event_id = ?"
+              ).bind(now, eventId).run().catch(() => {});
+            }
+            return applySecurityHeaders(jsonSuccess({
+              success: true,
+              processed: Boolean(provOrderId),
+              eventId,
+              status: "PAYMENT_FAILED"
+            }, 200, {}, requestId), request, env);
           } else if (eventType === "refund.processed") {
             const refundEntity = event.payload?.refund?.entity || {};
             const provPayId = refundEntity.payment_id;

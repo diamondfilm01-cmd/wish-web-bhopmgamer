@@ -509,7 +509,7 @@
       slug: "midnight-celebration-countdown",
       name: "Grand Congratulations Finale",
       category: "Congratulations",
-      relationships: ["Congratulations", "Best Friend", "Brother", "Sister", "Colleague"],
+      relationships: ["Birthday", "Congratulations", "Best Friend", "Brother", "Sister", "Colleague"],
       tier: "vip",
       price: 59,
       isPremium: true,
@@ -676,7 +676,7 @@
           </div>`;
 
       return `
-        <div class="catalog-template-card group relative bg-white dark:bg-purple-950/85 rounded-2xl p-4 sm:p-5 border border-purple-100 dark:border-purple-800/60 shadow-md hover:shadow-2xl hover:-translate-y-1.5 transition-all duration-300 flex flex-col justify-between" 
+        <div id="tpl-card-${t.id}" class="catalog-template-card group relative bg-white dark:bg-purple-950/85 rounded-2xl p-4 sm:p-5 border border-purple-100 dark:border-purple-800/60 shadow-md hover:shadow-2xl hover:-translate-y-1.5 transition-all duration-300 flex flex-col justify-between" 
              data-id="${t.id}"
              data-category="${(t.category || "general").toLowerCase()}" 
              data-relationships="${rels}"
@@ -787,15 +787,27 @@
 
       if (matchesSearch && matchesOccasion && matchesFeature) {
         card.classList.remove('hidden');
+        card.removeAttribute('hidden');
+        card.style.removeProperty('display');
         visibleCount++;
       } else {
         card.classList.add('hidden');
+        card.setAttribute('hidden', 'hidden');
+        card.style.setProperty('display', 'none', 'important');
       }
     });
 
     const countElem = document.getElementById('visible-card-count');
     if (countElem) countElem.innerText = visibleCount;
 
+    const gridContainer = document.getElementById('templates-grid-container');
+    if (gridContainer) {
+      if (visibleCount === 0) {
+        gridContainer.classList.add('hidden');
+      } else {
+        gridContainer.classList.remove('hidden');
+      }
+    }
     const noResults = document.getElementById('no-results-state');
     if (noResults) {
       if (visibleCount === 0) {
@@ -1620,7 +1632,7 @@
       });
       button.className = 'cat-pill pill-active px-6 py-2.5 rounded-full text-xs sm:text-sm font-bold flex items-center gap-2 transition';
 
-      const cards = document.querySelectorAll('.template-card');
+      const cards = document.querySelectorAll('.catalog-template-card, .template-card');
       cards.forEach(card => {
         if (category === 'all' || card.getAttribute('data-category') === category) {
           card.classList.remove('hidden');

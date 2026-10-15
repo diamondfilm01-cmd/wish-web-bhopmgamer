@@ -1874,9 +1874,9 @@ header .wm-header-create-btn {
 
 /* Global 4-Column Desktop Templates Grid Helper */
 @media (min-width: 768px) {
-  #templates-grid,
-  #templates-grid-container,
-  #wizard-templates-grid {
+  #templates-grid:not(.hidden),
+  #templates-grid-container:not(.hidden),
+  #wizard-templates-grid:not(.hidden) {
     display: grid !important;
     grid-template-columns: repeat(4, minmax(0, 1fr)) !important;
     gap: 1.25rem !important;
@@ -3281,7 +3281,7 @@ body.dark .hero-gradient-text,
         slug: "midnight-celebration-countdown",
         name: "Grand Congratulations Finale",
         category: "Congratulations",
-        relationships: ["Congratulations", "Best Friend", "Brother", "Sister", "Colleague"],
+        relationships: ["Birthday", "Congratulations", "Best Friend", "Brother", "Sister", "Colleague"],
         tier: "vip",
         price: 59,
         thumbnail: "https://images.unsplash.com/photo-1492684223066-81342ee5ff30?w=600&auto=format&fit=crop&q=80",
@@ -3588,11 +3588,28 @@ body.dark .hero-gradient-text,
 
         if (matchesCategory && matchesTier && matchesSearch) {
           card.classList.remove('hidden');
+          card.removeAttribute('hidden');
+          card.style.removeProperty('display');
           visibleCount++;
         } else {
           card.classList.add('hidden');
+          card.setAttribute('hidden', 'hidden');
+          card.style.setProperty('display', 'none', 'important');
         }
       });
+
+      const gridEl = document.getElementById('templates-grid');
+      if (gridEl) {
+        if (visibleCount === 0) {
+          gridEl.classList.add('hidden');
+          gridEl.setAttribute('hidden', 'hidden');
+          gridEl.style.setProperty('display', 'none', 'important');
+        } else {
+          gridEl.classList.remove('hidden');
+          gridEl.removeAttribute('hidden');
+          gridEl.style.removeProperty('display');
+        }
+      }
 
       // Update feedback banner
       const hasFilter = currentCategory !== 'all' || currentTier !== 'all' || currentSearchTerm.length > 0;

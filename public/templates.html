@@ -509,7 +509,7 @@
       slug: "midnight-celebration-countdown",
       name: "Grand Congratulations Finale",
       category: "Congratulations",
-      relationships: ["Congratulations", "Best Friend", "Brother", "Sister", "Colleague"],
+      relationships: ["Birthday", "Congratulations", "Best Friend", "Brother", "Sister", "Colleague"],
       tier: "vip",
       price: 59,
       isPremium: true,
@@ -786,15 +786,27 @@
 
       if (matchesSearch && matchesOccasion && matchesFeature) {
         card.classList.remove('hidden');
+        card.removeAttribute('hidden');
+        card.style.removeProperty('display');
         visibleCount++;
       } else {
         card.classList.add('hidden');
+        card.setAttribute('hidden', 'hidden');
+        card.style.setProperty('display', 'none', 'important');
       }
     });
 
     const countElem = document.getElementById('visible-card-count');
     if (countElem) countElem.innerText = visibleCount;
 
+    const gridContainer = document.getElementById('templates-grid-container');
+    if (gridContainer) {
+      if (visibleCount === 0) {
+        gridContainer.classList.add('hidden');
+      } else {
+        gridContainer.classList.remove('hidden');
+      }
+    }
     const noResults = document.getElementById('no-results-state');
     if (noResults) {
       if (visibleCount === 0) {
@@ -1619,7 +1631,7 @@
       });
       button.className = 'cat-pill pill-active px-6 py-2.5 rounded-full text-xs sm:text-sm font-bold flex items-center gap-2 transition';
 
-      const cards = document.querySelectorAll('.template-card');
+      const cards = document.querySelectorAll('.catalog-template-card, .template-card');
       cards.forEach(card => {
         if (category === 'all' || card.getAttribute('data-category') === category) {
           card.classList.remove('hidden');

@@ -363,37 +363,37 @@
               Instant generation • Experience goes live worldwide in ~1.2 seconds
             </span>
 </div>
-<!-- POST-GENERATION PREVIEW BANNER (Simulated Live Delivery State) -->
-<div class="mt-space-xs rounded-xl bg-gradient-to-br from-surface-container-high/90 via-surface-container/70 to-surface-container-lowest p-space-md shadow-md flex flex-col gap-space-sm">
+<!-- POST-GENERATION PREVIEW BANNER (Locked Until Server Payment Verification) -->
+<div id="pre-allocated-link-banner" class="mt-space-xs rounded-xl bg-gradient-to-br from-surface-container-high/90 via-surface-container/70 to-surface-container-lowest p-space-md shadow-md flex flex-col gap-space-sm">
 <div class="flex items-center justify-between">
 <span class="font-label-sm text-label-sm text-tertiary uppercase tracking-wider font-semibold flex items-center gap-1">
-<span class="material-symbols-outlined text-[14px]">link</span>
-                Pre-Allocated Public Web Link
+<span class="material-symbols-outlined text-[14px]">lock</span>
+                <span id="pre-allocated-link-status-title">Reserved Celebration Link (Locked Until Paid)</span>
               </span>
-<span class="font-label-sm text-label-sm text-on-surface-variant bg-surface-container px-2 py-0.5 rounded">Ready to Bind</span>
+<span id="pre-allocated-link-badge" class="font-label-sm text-label-sm text-amber-300 bg-surface-container px-2 py-0.5 rounded">Awaiting Payment</span>
 </div>
-<!-- Link Box with Action Bar -->
+<!-- Link Box with Action Bar (Actions unlocked only after verified payment) -->
 <div class="flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-space-sm bg-surface-container-lowest p-2.5 rounded-lg">
 <div class="flex items-center gap-2 overflow-hidden px-1">
 <span class="material-symbols-outlined text-primary text-[18px]">public</span>
-<span class="font-label-md text-label-md text-on-surface font-semibold truncate select-all">
-                  wishmagic.in/w/wm-892x7k
+<span id="pre-allocated-link-preview" class="font-label-md text-label-md text-on-surface-variant font-semibold truncate">
+                  🔒 Complete payment above to unlock &amp; activate link
                 </span>
 </div>
-<div class="flex items-center gap-2">
-<button class="flex items-center gap-1 px-3 py-1.5 rounded-md bg-surface-container-high hover:bg-surface-bright text-on-surface font-label-sm text-label-sm transition-colors shadow-sm" onclick="navigator.clipboard?.writeText('https://wishmagic.in/w/wm-892x7k'); alert('Copied Magic Link to clipboard!');">
+<div id="pre-allocated-link-actions" class="hidden items-center gap-2">
+<button type="button" id="btn-copy-verified-link" class="flex items-center gap-1 px-3 py-1.5 rounded-md bg-surface-container-high hover:bg-surface-bright text-on-surface font-label-sm text-label-sm transition-colors shadow-sm" onclick="copyWishLink()">
 <span class="material-symbols-outlined text-[15px] text-primary">content_copy</span>
 <span>Copy Magic Link</span>
 </button>
-<a class="flex items-center gap-1 px-3 py-1.5 rounded-md bg-gradient-to-r from-emerald-600 to-teal-600 hover:opacity-90 text-white font-label-sm text-label-sm transition-all shadow-sm" href="https://api.whatsapp.com/send?text=Hey%20Kritika!%20I%20have%20unlocked%20a%20magical%20birthday%20surprise%20for%20you%20here:%20https://wishmagic.in/w/wm-892x7k" target="_blank">
+<a id="btn-whatsapp-verified-link" class="flex items-center gap-1 px-3 py-1.5 rounded-md bg-gradient-to-r from-emerald-600 to-teal-600 hover:opacity-90 text-white font-label-sm text-label-sm transition-all shadow-sm" href="#" target="_blank">
 <span class="material-symbols-outlined text-[15px]">send</span>
 <span>Share via WhatsApp</span>
 </a>
 </div>
 </div>
 <div class="flex items-center gap-2 text-on-surface-variant font-body-sm text-body-sm">
-<span class="material-symbols-outlined text-secondary text-[16px]">celebration</span>
-<span>Recipient will experience ambient spatial confetti, interactive candles, and personalized audio on page opening.</span>
+<span class="material-symbols-outlined text-secondary text-[16px]">verified_user</span>
+<span id="pre-allocated-link-note">Access is bound to your user ID and activates only after server-verified payment.</span>
 </div>
 </div>
 <!-- Trust, Security & Guarantee Badges -->
@@ -429,7 +429,7 @@
 </div>
 </div>
 </div>
-<!-- Real Payment Gateway Checkout Handler (Part 32) -->
+<!-- Real Payment Gateway Checkout Handler (Part 32 + Scoped Verification) -->
 <script>
     (function() {
       const btn = document.getElementById('payCtaBtn');
@@ -448,16 +448,59 @@
 
           try {
             if (!window.WishPaymentService) throw new Error('Payment service not loaded');
-            const result = await window.WishPaymentService.createCheckout('vip_pass');
-            if (result && result.verified) {
+            const urlParams = new URLSearchParams(window.location.search);
+            let cart = {};
+            try {
+              cart = JSON.parse(localStorage.getItem('wm_checkout_cart') || '{}') || {};
+            } catch (_) {}
+
+            const productId = urlParams.get('productId') || urlParams.get('planId') || cart.planId || cart.productId || 'vip_pass';
+            const templateId = urlParams.get('templateId') || cart.templateId || null;
+            const slug = urlParams.get('slug') || cart.slug || null;
+            const wishId = urlParams.get('wish_id') || cart.wishId || null;
+            const templatePrice = Number(urlParams.get('templatePrice') || cart.templatePrice || 0) || 0;
+
+            const result = await window.WishPaymentService.createCheckout(productId, {
+              planId: productId,
+              templateId,
+              templatePrice,
+              slug,
+              requestedSlug: slug,
+              wishId
+            });
+
+            if (result && result.success && result.verified === true) {
               btn.innerHTML = `
                 <div class="w-full h-full bg-gradient-to-r from-emerald-600 to-teal-600 py-3.5 px-6 rounded-xl flex items-center justify-center gap-3">
                   <span class="material-symbols-outlined text-white text-[22px]">check_circle</span>
                   <span class="font-headline-md text-headline-md text-white font-extrabold tracking-tight">
-                    Payment Verified! Magic Link Active 👑
+                    Payment Verified! Access Unlocked 👑
                   </span>
                 </div>
               `;
+              const readyCard = document.getElementById('post-payment-wish-ready-card');
+              if (readyCard) readyCard.classList.remove('hidden');
+              const linkPreview = document.getElementById('pre-allocated-link-preview');
+              const linkActions = document.getElementById('pre-allocated-link-actions');
+              const linkBadge = document.getElementById('pre-allocated-link-badge');
+              const linkTitle = document.getElementById('pre-allocated-link-status-title');
+              const linkInput = document.getElementById('wish-link-input');
+              const waBtn = document.getElementById('btn-whatsapp-verified-link');
+              const resolvedUrl = (linkInput && linkInput.getAttribute('data-target-url')) || `${window.location.origin}/w/${slug || 'celebration'}`;
+              if (linkInput) linkInput.value = resolvedUrl;
+              if (linkPreview) linkPreview.textContent = resolvedUrl;
+              if (linkActions) {
+                linkActions.classList.remove('hidden');
+                linkActions.classList.add('flex');
+              }
+              if (linkBadge) {
+                linkBadge.textContent = 'Verified & Active';
+                linkBadge.className = 'font-label-sm text-label-sm text-emerald-300 bg-emerald-950/60 px-2 py-0.5 rounded';
+              }
+              if (linkTitle) linkTitle.textContent = 'Verified Public Web Link';
+              if (waBtn) {
+                waBtn.href = `https://api.whatsapp.com/send?text=${encodeURIComponent('Here is your magical celebration surprise: ' + resolvedUrl)}`;
+              }
             } else if (result && result.status === 'provider_not_configured') {
               btn.disabled = false;
               btn.innerHTML = `
@@ -482,12 +525,12 @@
     })();
   </script>
 </div>
-<div class="mt-space-lg p-space-md bg-surface-container-high rounded-xl border border-outline">
+<div id="post-payment-wish-ready-card" class="hidden mt-space-lg p-space-md bg-surface-container-high rounded-xl border border-outline">
   <h3 class="font-headline-sm text-headline-sm text-on-surface mb-space-xs">Your Magical Wish is Ready! 🎉</h3>
-  <p class="font-body-sm text-body-sm text-on-surface-variant mb-space-md">Copy the link below and share it with your loved one. It will only open on their special day!</p>
+  <p class="font-body-sm text-body-sm text-on-surface-variant mb-space-md">Your payment has been verified on our server. Copy the link below and share it with your loved one!</p>
 
   <div class="flex items-center gap-space-sm">
-    <input type="text" id="wish-link-input" readonly class="flex-1 bg-surface-container-lowest text-on-surface font-body-sm text-body-sm px-3 py-2.5 rounded-lg focus:outline-none border border-outline/50 shadow-inner" value="Generating..." />
+    <input type="text" id="wish-link-input" readonly class="flex-1 bg-surface-container-lowest text-on-surface font-body-sm text-body-sm px-3 py-2.5 rounded-lg focus:outline-none border border-outline/50 shadow-inner" value="Locked until payment is verified" />
     <button onclick="copyWishLink()" class="px-4 py-2.5 bg-primary text-on-primary rounded-lg font-label-md text-label-md hover:bg-primary-dark transition flex items-center gap-2">
       <span class="material-symbols-outlined text-lg">content_copy</span> Copy Link
     </button>
@@ -513,7 +556,10 @@
         if (qrEl) qrEl.textContent = `Scan & Pay ₹${amountParam}`;
         if (btnEl) btnEl.textContent = `Pay ₹${amountParam} & Generate Unique Wish Link 🪄`;
         const linkInput = document.getElementById('wish-link-input');
-        if (linkInput) linkInput.value = `${window.location.origin}/w/${slugParam}`;
+        if (linkInput) {
+          linkInput.setAttribute('data-target-url', `${window.location.origin}/w/${slugParam}`);
+          linkInput.value = 'Locked until payment is verified';
+        }
       } catch (_) {}
       if (!wishId) return;
 
@@ -524,7 +570,7 @@
         const linkInput = document.getElementById('wish-link-input');
         if (linkInput) {
             const baseUrl = window.location.origin + window.location.pathname.replace('checkout.html', '');
-            linkInput.value = `${baseUrl}wish.html?id=${wish.public_slug}`;
+            linkInput.setAttribute('data-target-url', `${baseUrl}wish.html?id=${wish.public_slug}`);
         }
       }
     });

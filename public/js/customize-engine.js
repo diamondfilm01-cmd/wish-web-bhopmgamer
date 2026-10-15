@@ -3176,7 +3176,11 @@ window.renderPersonalizedPaymentCallout = function(overrideState = null) {
     priceBadgeEl.textContent = isPremTpl ? `₹${clPrice} / +₹${premComboAddon} Combo` : `₹${clPrice} / ₹${freeComboPrice} Combo`;
   }
 
-  const isVipUser = (window.WishEntitlement && window.WishEntitlement.isPremium()) || (window.WishAuth && window.WishAuth.getCurrentUser() && window.WishAuth.getCurrentUser().isPremium);
+  const chosenSlugForCallout = (currentCustomData.customSlug || currentCustomData.slug || document.getElementById('wish-slug-input')?.value || '').toLowerCase().trim();
+  const hasVipPass = Boolean((window.WishEntitlement && window.WishEntitlement.isPremium()) || (window.WishAuth && window.WishAuth.getCurrentUser() && window.WishAuth.getCurrentUser().isPremium));
+  const hasTplEnt = !isPremTpl || hasVipPass || Boolean(window.WishEntitlement && typeof window.WishEntitlement.hasTemplateEntitlement === 'function' && window.WishEntitlement.hasTemplateEntitlement(activeTemplate && activeTemplate.id));
+  const hasLinkEnt = hasVipPass || Boolean(window.WishEntitlement && typeof window.WishEntitlement.hasCustomLinkAccess === 'function' && window.WishEntitlement.hasCustomLinkAccess(chosenSlugForCallout, activeTemplate && activeTemplate.id));
+  const isVipUser = hasTplEnt && hasLinkEnt;
 
   if (overrideState && overrideState.notConfigured) {
     container.className = 'p-4 rounded-2xl bg-amber-500/10 border border-amber-500/30 text-amber-900 dark:text-amber-200 text-xs space-y-2';
@@ -3385,6 +3389,23 @@ window.publishFreeRandomWish = async function() {
     showToast('Please select a template');
     return;
   }
+  if (window.WishFeatureAccess) {
+    const tplAccess = window.WishFeatureAccess.canUseTemplate(activeTemplate);
+    if (!tplAccess.allowed) {
+      if (window.WishPremiumLock) {
+        window.WishPremiumLock.open({
+          context: 'template',
+          template: activeTemplate,
+          onUnlocked: async () => {
+            await window.publishFreeRandomWish();
+          }
+        });
+      } else {
+        showToast('⚠️ Please unlock this premium template before publishing.');
+      }
+      return;
+    }
+  }
   const currentUser = window.WishAuth && window.WishAuth.getCurrentUser();
   if (!currentUser) {
     if (typeof window.openAuthModal === 'function') {
@@ -3442,7 +3463,7 @@ window.publishFreeRandomWish = async function() {
 window.handlePersonalizedLinkCheckout = async function(packType = null, amountOverride = null) {
   const activePack = packType || selectedCustomizerPack || 'combo';
   const chosenSlug = (currentCustomData.customSlug || currentCustomData.slug || document.getElementById('wish-slug-input')?.value || '').toLowerCase().trim();
-  if (!chosenSlug) {
+  if (activePack !== 'hd_style' && !chosenSlug) {
     showToast('⚠️ Please choose or enter a personalized link first');
     const input = document.getElementById('wish-slug-input');
     if (input) input.focus();
@@ -3452,14 +3473,14 @@ window.handlePersonalizedLinkCheckout = async function(packType = null, amountOv
   const currentUser = window.WishAuth && window.WishAuth.getCurrentUser();
   if (!currentUser) {
     if (typeof window.openAuthModal === 'function') {
-      window.openAuthModal('signin', 'Please sign in or create an account to get a personalized link.');
+      window.openAuthModal('signin', 'Please sign in or create an account to unlock this feature.');
     } else {
       showToast('⚠️ Please sign in first.');
     }
     return;
   }
 
-  if (lastSlugCheckResult && lastSlugCheckResult.available === false && !lastSlugCheckResult.isCurrent) {
+  if (activePack !== 'hd_style' && lastSlugCheckResult && lastSlugCheckResult.available === false && !lastSlugCheckResult.isCurrent) {
     showToast('⚠️ Please choose an available link first');
     return;
   }
@@ -3478,47 +3499,70 @@ window.handlePersonalizedLinkCheckout = async function(packType = null, amountOv
         templateName: activeTemplate ? activeTemplate.name : 'Celebration Template',
         templatePrice: tplPrice,
         slug: chosenSlug,
+        wishId: currentEditingWishId || null,
         amount: amountOverride || 99
       }));
     } catch (_) {}
 
-    const res = await fetch('/api/entitlements/checkout', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      credentials: 'include',
-      body: JSON.stringify({
-        planId: resolvedPlanId,
-        templateId: activeTemplate ? activeTemplate.id : null,
-        options: {
-          planId: resolvedPlanId,
-          templatePrice: tplPrice,
-          slug: chosenSlug,
-          requestedSlug: chosenSlug
-        }
-      })
-    });
-    const data = await res.json();
+    if (!window.WishPaymentService || typeof window.WishPaymentService.createCheckout !== 'function') {
+      showToast('⚠️ Payment service is still loading. Please try again in a moment.');
+      return;
+    }
 
-    if (data.status === 'provider_not_configured' || data.configured === false) {
+    const result = await window.WishPaymentService.createCheckout(resolvedPlanId, {
+      planId: resolvedPlanId,
+      templateId: activeTemplate ? activeTemplate.id : null,
+      templatePrice: tplPrice,
+      slug: chosenSlug || null,
+      requestedSlug: chosenSlug || null,
+      wishId: currentEditingWishId || null
+    });
+
+    if (result && result.status === 'provider_not_configured') {
       renderPersonalizedPaymentCallout({
         notConfigured: true,
-        message: data.message || 'Payment currently unavailable / NOT_CONFIGURED. Gateway is not configured in environment variables.',
-        amount: data.amount || currentWishLinkSettings.personalized.price,
-        currency: data.currency || currentWishLinkSettings.personalized.currency
+        message: result.message || 'Payment currently unavailable / NOT_CONFIGURED. Gateway is not configured in environment variables.',
+        amount: result.amount || amountOverride || currentWishLinkSettings.personalized.price,
+        currency: result.currency || currentWishLinkSettings.personalized.currency
       });
       showToast('⚠️ Payment currently unavailable. You can publish using Free Random Link.');
       return;
     }
 
-    if (data.checkoutUrl) {
-      window.location.href = data.checkoutUrl;
-    } else if (data.success) {
+    // Strict Payment Guard: Never grant access or publish if payment was cancelled, failed, or unverified
+    if (!result || !result.success || result.verified !== true) {
+      if (result && result.status === 'cancelled') {
+        showToast('⚠️ Payment was cancelled. Your feature was not unlocked.');
+      } else {
+        showToast('⚠️ ' + ((result && result.error) || 'Payment was not completed. Access was not granted.'));
+      }
+      return;
+    }
+
+    // Payment is cryptographically verified on the server and saved with user_id
+    currentCustomData.verifiedOrderId = result.orderId || (result.order && result.order.id) || null;
+    currentCustomData.verifiedTransactionId = (result.order && result.order.transactionId) || null;
+
+    if (window.WishEntitlement && typeof window.WishEntitlement.refresh === 'function') {
+      try {
+        await window.WishEntitlement.refresh();
+      } catch (_) {}
+    }
+
+    window.renderPersonalizedPaymentCallout();
+
+    if (activePack === 'hd_style' && !chosenSlug) {
+      showToast('✅ HD Images & Custom Style unlocked for your account!');
+      return;
+    }
+
+    if (activePack !== 'hd_style') {
       currentCustomData.linkType = 'personalized';
       currentCustomData.link_type = 'personalized';
-      await window.publishWishAndGetLink();
     }
+    await window.publishWishAndGetLink();
   } catch (err) {
-    showToast('⚠️ Could not initiate checkout: ' + err.message);
+    showToast('⚠️ Could not complete checkout: ' + err.message);
   }
 };
 
@@ -5170,24 +5214,44 @@ window.publishWishAndGetLink = async function() {
     return;
   }
 
+  // Verify Custom Link entitlement if user is publishing a personalized slug
+  const randomPrefix = (currentWishLinkSettings && currentWishLinkSettings.random && currentWishLinkSettings.random.prefix) || 'wish-';
+  const isRandomSlug = Boolean(chosenSlug && chosenSlug.startsWith(randomPrefix) && (currentCustomData.linkType === 'random' || currentCustomData.link_type === 'random'));
+  const wantsPersonalizedLink = Boolean(chosenSlug && !isRandomSlug && !currentCustomData.useReferralCredit);
+
+  if (wantsPersonalizedLink) {
+    const hasCustomLinkEnt = (window.WishEntitlement && typeof window.WishEntitlement.hasCustomLinkAccess === 'function')
+      ? window.WishEntitlement.hasCustomLinkAccess(chosenSlug, activeTemplate && activeTemplate.id)
+      : (window.WishEntitlement ? window.WishEntitlement.isPremium() : false);
+
+    if (!hasCustomLinkEnt && !currentCustomData.verifiedOrderId) {
+      await window.handlePersonalizedLinkCheckout(selectedCustomizerPack === 'hd_style' ? 'custom_link' : (selectedCustomizerPack || 'combo'));
+      return;
+    }
+  }
+
   isPublishingInProgress = true;
   try {
     const isVipEntitled = window.WishEntitlement ? window.WishEntitlement.isPremium() : false;
+    const hasTplEnt = window.WishEntitlement && typeof window.WishEntitlement.hasTemplateEntitlement === 'function'
+      ? window.WishEntitlement.hasTemplateEntitlement(activeTemplate && activeTemplate.id)
+      : isVipEntitled;
     const isVipTemplate = activeTemplate.tier === 'vip' || activeTemplate.isPremium === true || (activeTemplate.price && Number(activeTemplate.price) > 0);
-    const isVip = isVipEntitled || isVipTemplate || Boolean(currentCustomData.lifetimePreservation) || Boolean(currentCustomData.watermarkRemoved);
+    const isVip = isVipEntitled || hasTplEnt || isVipTemplate || Boolean(currentCustomData.lifetimePreservation) || Boolean(currentCustomData.watermarkRemoved);
 
-    // Direct generation with verified entitlement
     await executeWishCreation({
       tier: isVip ? 'vip' : 'free',
       price: isVip ? (activeTemplate.price || 49) : 0,
+      orderId: currentCustomData.verifiedOrderId || null,
       buyerDetails: {
         name: currentCustomData.sender_name || 'Creator',
         phone: currentCustomData.sender_contact || ''
       },
-      payment: isVip ? {
+      payment: (isVip || wantsPersonalizedLink || currentCustomData.verifiedOrderId) ? {
         status: 'Completed',
-        method: 'VIP Pass Entitlement',
-        transactionId: 'ENT_' + Date.now().toString(36).toUpperCase()
+        orderId: currentCustomData.verifiedOrderId || null,
+        method: currentCustomData.verifiedOrderId ? 'Razorpay Verified' : 'Verified Entitlement',
+        transactionId: currentCustomData.verifiedTransactionId || ('ENT_' + Date.now().toString(36).toUpperCase())
       } : null
     });
   } finally {

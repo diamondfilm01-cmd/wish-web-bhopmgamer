@@ -627,9 +627,9 @@ html.dark .wm-theme-pill-knob { color: #ffffff !important; }
       Always shows 4 templates in a single row on Desktop View!
    ========================================================================== */
 @media (min-width: 768px) {
-  #templates-grid,
-  #templates-grid-container,
-  #wizard-templates-grid,
+  #templates-grid:not(.hidden),
+  #templates-grid-container:not(.hidden),
+  #wizard-templates-grid:not(.hidden),
   #fav-grid:not(.hidden) {
     display: grid !important;
     grid-template-columns: repeat(4, minmax(0, 1fr)) !important;
@@ -638,8 +638,8 @@ html.dark .wm-theme-pill-knob { color: #ffffff !important; }
     width: 100% !important;
   }
 
-  .template-card,
-  .catalog-template-card {
+  .template-card:not(.hidden),
+  .catalog-template-card:not(.hidden) {
     width: 100% !important;
     min-width: 0 !important;
     height: 100% !important;
@@ -726,15 +726,15 @@ html.dark .wm-theme-pill-knob { color: #ffffff !important; }
 }
 
 @media (min-width: 1150px) {
-  #templates-grid,
-  #templates-grid-container,
-  #wizard-templates-grid,
+  #templates-grid:not(.hidden),
+  #templates-grid-container:not(.hidden),
+  #wizard-templates-grid:not(.hidden),
   #fav-grid:not(.hidden) {
     gap: 18px !important;
   }
 
-  .template-card,
-  .catalog-template-card {
+  .template-card:not(.hidden),
+  .catalog-template-card:not(.hidden) {
     padding: 14px !important;
     border-radius: 20px !important;
   }
@@ -1038,9 +1038,9 @@ html.dark textarea::placeholder {
    7. MOBILE VIEW RESPONSIVE PERFECTION (< 768px) — ZERO OVERFLOW ANYWHERE
    ========================================================================== */
 @media (min-width: 640px) and (max-width: 767.98px) {
-  #templates-grid,
-  #templates-grid-container,
-  #wizard-templates-grid,
+  #templates-grid:not(.hidden),
+  #templates-grid-container:not(.hidden),
+  #wizard-templates-grid:not(.hidden),
   #fav-grid:not(.hidden) {
     display: grid !important;
     grid-template-columns: repeat(2, minmax(0, 1fr)) !important;
@@ -1117,9 +1117,9 @@ html.dark textarea::placeholder {
     overflow-x: hidden !important;
   }
 
-  #templates-grid,
-  #templates-grid-container,
-  #wizard-templates-grid,
+  #templates-grid:not(.hidden),
+  #templates-grid-container:not(.hidden),
+  #wizard-templates-grid:not(.hidden),
   #fav-grid:not(.hidden) {
     display: grid !important;
     grid-template-columns: 1fr !important;
@@ -1694,5 +1694,19 @@ header a.group > div:first-child {
 
 
 #ambient-hero-backdrop > svg {
+  display: none !important;
+}
+
+/* Strict Filter Visibility Override — Ensures hidden template cards & empty grids never stay visible */
+.hidden,
+[hidden],
+.template-card.hidden,
+.catalog-template-card.hidden,
+#templates-grid.hidden,
+#templates-grid-container.hidden,
+#wizard-templates-grid.hidden,
+#search-feedback.hidden,
+#no-results-msg.hidden,
+#no-results-state.hidden {
   display: none !important;
 }
