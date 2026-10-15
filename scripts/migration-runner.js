@@ -472,7 +472,7 @@ export function runMigrationCheck(db) {
 if (process.argv[1] && process.argv[1].endsWith('migration-runner.js')) {
   (async () => {
     try {
-      const { DatabaseSync } = await import('node:sqlite');
+      const { DatabaseSync, cleanupSqliteBridge } = await import('./sqlite-compat.js');
       const dbFile = process.argv[2] || ':memory:';
       console.log(`Running D1 migrations on SQLite (${dbFile})...`);
       const rawDb = new DatabaseSync(dbFile);
@@ -516,6 +516,7 @@ if (process.argv[1] && process.argv[1].endsWith('migration-runner.js')) {
       const runner = new D1MigrationRunner(adapter);
       const res = await runner.runMigrations();
       console.log(`✅ Migrations completed successfully: ${res.appliedCount} applied, ${res.skippedCount} skipped, 0 failed.`);
+      cleanupSqliteBridge();
       process.exit(0);
     } catch (err) {
       console.error(`❌ Migration runner failed: ${err.message}`);
