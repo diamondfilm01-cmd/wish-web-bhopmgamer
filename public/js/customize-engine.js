@@ -2857,10 +2857,19 @@ let isPersonalizedStudioOpen = false;
 let currentWishLinkSettings = {
   personalized: {
     enabled: true,
-    price: 49,
+    price: 59,
     currency: 'INR',
-    displayName: 'Personalized Link',
-    description: 'Create a memorable link for your wish.'
+    displayName: 'Custom Link Only',
+    description: 'Create a memorable custom link (/w/your-name) for your wish.'
+  },
+  addons: {
+    customLinkPrice: 59,
+    hdImageStylePrice: 59,
+    freeTemplateComboPrice: 99,
+    premiumComboAddonPrice: 70
+  },
+  referral: {
+    requiredReferrals: 7
   },
   random: {
     enabled: true,
@@ -2869,6 +2878,8 @@ let currentWishLinkSettings = {
     allowedCharacters: 'abcdefghijklmnopqrstuvwxyz0123456789'
   }
 };
+let userAvailableReferralCredits = Number(localStorage.getItem('wm_free_custom_link_credits') || 0) || 0;
+let selectedCustomizerPack = 'combo'; // 'custom_link' | 'hd_style' | 'combo'
 
 function getCurrencySymbol(curr) {
   switch (String(curr || 'INR').toUpperCase()) {
@@ -2884,10 +2895,28 @@ function getCurrencySymbol(curr) {
 
 window.loadWishLinkStudioSettings = async function() {
   try {
-    const res = await fetch('/api/settings/wish-links', { credentials: 'include' });
-    const data = await res.json();
-    if (data && data.success && data.settings) {
-      currentWishLinkSettings = data.settings;
+    const [res, refRes] = await Promise.all([
+      fetch('/api/settings/wish-links', { credentials: 'include' }).catch(() => null),
+      fetch('/api/referrals/dashboard', { credentials: 'include' }).catch(() => null)
+    ]);
+    if (res) {
+      const data = await res.json().catch(() => ({}));
+      const s = (data && data.data && data.data.settings) || (data && data.settings);
+      if (data && data.success && s) {
+        currentWishLinkSettings = {
+          ...currentWishLinkSettings,
+          ...s,
+          addons: { ...(currentWishLinkSettings.addons || {}), ...(s.addons || {}) },
+          referral: { ...(currentWishLinkSettings.referral || {}), ...(s.referral || {}) }
+        };
+      }
+    }
+    if (refRes && refRes.ok) {
+      const refData = await refRes.json().catch(() => ({}));
+      if (refData && refData.success && refData.metrics) {
+        userAvailableReferralCredits = Number(refData.metrics.freeCustomLinkCreditsAvailable || 0) || 0;
+        try { localStorage.setItem('wm_free_custom_link_credits', String(userAvailableReferralCredits)); } catch (_) {}
+      }
     }
   } catch (e) {
     console.warn('[Customizer] Using default wish link settings:', e);
@@ -2935,16 +2964,64 @@ window.loadWishLinkStudioSettings = async function() {
   window.renderPersonalizedPaymentCallout();
 };
 
+window.selectCustomizerPack = function(packType) {
+  selectedCustomizerPack = packType || 'combo';
+  window.renderPersonalizedPaymentCallout();
+};
+
+window.redeemReferralCreditAndPublish = async function() {
+  const chosenSlug = (currentCustomData.customSlug || currentCustomData.slug || document.getElementById('wish-slug-input')?.value || '').toLowerCase().trim();
+  if (!chosenSlug) {
+    showToast('⚠️ Please choose or type your Custom Link name first');
+    const input = document.getElementById('wish-slug-input');
+    if (input) input.focus();
+    return;
+  }
+  currentCustomData.customSlug = chosenSlug;
+  currentCustomData.slug = chosenSlug;
+  currentCustomData.linkType = 'personalized';
+  currentCustomData.link_type = 'personalized';
+  currentCustomData.useReferralCredit = true;
+
+  await executeWishCreation({
+    slug: chosenSlug,
+    linkType: 'personalized',
+    useReferralCredit: true,
+    tier: 'free',
+    price: 0,
+    customData: {
+      ...currentCustomData,
+      customSlug: chosenSlug,
+      slug: chosenSlug,
+      linkType: 'personalized',
+      link_type: 'personalized',
+      useReferralCredit: true
+    }
+  });
+};
+
 window.renderPersonalizedPaymentCallout = function(overrideState = null) {
   const container = document.getElementById('personalized-payment-callout');
   if (!container) return;
 
   const sym = getCurrencySymbol(currentWishLinkSettings.personalized.currency);
-  const price = currentWishLinkSettings.personalized.price;
+  const a = currentWishLinkSettings.addons || {};
+  const clPrice = Number(a.customLinkPrice ?? currentWishLinkSettings.personalized.price ?? 59) || 59;
+  const hdPrice = Number(a.hdImageStylePrice ?? 59) || 59;
+  const freeComboPrice = Number(a.freeTemplateComboPrice ?? 99) || 99;
+  const premComboAddon = Number(a.premiumComboAddonPrice ?? 70) || 70;
+  const tplPrice = Math.max(0, Number((activeTemplate && activeTemplate.price) || 0));
+  const isPremTpl = tplPrice > 0;
+  const premComboTotal = tplPrice + premComboAddon;
+
+  const priceBadgeEl = document.getElementById('card-personalized-price');
+  if (priceBadgeEl) {
+    priceBadgeEl.textContent = isPremTpl ? `₹${clPrice} / +₹${premComboAddon} Combo` : `₹${clPrice} / ₹${freeComboPrice} Combo`;
+  }
+
   const isVipUser = (window.WishEntitlement && window.WishEntitlement.isPremium()) || (window.WishAuth && window.WishAuth.getCurrentUser() && window.WishAuth.getCurrentUser().isPremium);
 
   if (overrideState && overrideState.notConfigured) {
-    // REQUIREMENT 16: Payment not configured state
     container.className = 'p-4 rounded-2xl bg-amber-500/10 border border-amber-500/30 text-amber-900 dark:text-amber-200 text-xs space-y-2';
     container.innerHTML = `
       <div class="flex items-start gap-2.5">
@@ -2952,12 +3029,12 @@ window.renderPersonalizedPaymentCallout = function(overrideState = null) {
         <div>
           <span class="font-bold block">Payment Gateway Currently Unavailable (NOT_CONFIGURED)</span>
           <p class="text-[11px] text-amber-800/80 dark:text-amber-300/80 mt-0.5 leading-relaxed">
-            The platform payment processor is not currently connected in environment variables. Personalized link purchases (${sym}${price}) cannot be completed at this time.
+            Live payment checkout (${sym}${overrideState.amount || clPrice}) is not configured in environment variables yet. You can continue with a Free Random Link or earn a Free Custom Link by referring 7 friends!
           </p>
         </div>
       </div>
-      <div class="pt-1 flex items-center justify-between">
-        <span class="text-[10px] uppercase font-bold tracking-wider text-amber-600 dark:text-amber-400">Alternative Available</span>
+      <div class="pt-1 flex flex-wrap items-center justify-between gap-2">
+        <a href="/referrals.html" class="px-3 py-1.5 rounded-xl bg-amber-500/20 text-amber-900 dark:text-amber-200 font-bold text-xs">🎁 Refer 7 Friends for Free Custom Link</a>
         <button type="button" onclick="publishFreeRandomWish()" class="px-3 py-1.5 rounded-xl bg-emerald-500 hover:bg-emerald-600 text-white font-bold text-xs transition cursor-pointer">
           Continue with Free Random Link 🎲
         </button>
@@ -2972,32 +3049,93 @@ window.renderPersonalizedPaymentCallout = function(overrideState = null) {
       <div class="flex items-center gap-2">
         <span class="material-symbols-outlined text-emerald-500 text-lg">verified</span>
         <div>
-          <span class="font-bold block">VIP Pass Entitled</span>
-          <span class="text-[11px] text-emerald-800/80 dark:text-emerald-300/80">Personalized links included at no extra charge.</span>
+          <span class="font-bold block">VIP Creator Entitled</span>
+          <span class="text-[11px] text-emerald-800/80 dark:text-emerald-300/80">Custom Link, HD Images &amp; Style included at no extra charge.</span>
         </div>
       </div>
       <button type="button" onclick="publishWishAndGetLink()" class="px-4 py-2 rounded-xl bg-gradient-to-r from-emerald-500 to-teal-600 text-white font-bold text-xs shadow-sm hover:brightness-110 transition cursor-pointer">
-        Publish Personalized Link ✨
+        Publish Custom Link ✨
       </button>
     `;
     return;
   }
 
+  const referralBannerHtml = (!isPremTpl && userAvailableReferralCredits > 0) ? `
+    <div class="p-3.5 rounded-2xl bg-emerald-500/15 border-2 border-emerald-500 text-emerald-950 dark:text-emerald-100 space-y-2 mb-3">
+      <div class="flex items-center justify-between">
+        <span class="font-extrabold text-xs flex items-center gap-1.5">🎁 7-Friends Referral Credit Unlocked (${userAvailableReferralCredits} Available)</span>
+        <span class="px-2 py-0.5 rounded-full bg-emerald-500 text-white font-black text-[10px]">₹0 FREE</span>
+      </div>
+      <p class="text-[11px] opacity-90">You referred 7 friends who created templates! Redeem 1 credit to publish your Custom Link on this Free template for ₹0.</p>
+      <button type="button" onclick="redeemReferralCreditAndPublish()" class="w-full py-2.5 px-4 rounded-xl bg-gradient-to-r from-emerald-500 to-teal-600 text-white font-extrabold text-xs shadow-md hover:brightness-110 transition cursor-pointer">
+        ✨ Redeem 1 Free Custom Link Credit &amp; Publish Now (₹0)
+      </button>
+    </div>
+  ` : `
+    <div class="p-2.5 rounded-xl bg-emerald-500/10 border border-emerald-500/30 flex items-center justify-between gap-2 mb-2 text-[11px]">
+      <span class="text-emerald-800 dark:text-emerald-200 font-semibold">🎁 Share with 7 friends &amp; get 1 Custom Link FREE on any Free template!</span>
+      <a href="/referrals.html" class="font-extrabold text-emerald-600 dark:text-emerald-400 underline whitespace-nowrap">Refer 7 Friends →</a>
+    </div>
+  `;
+
+  const opt1Price = isPremTpl ? (tplPrice + clPrice) : clPrice;
+  const opt2Price = isPremTpl ? (tplPrice + hdPrice) : hdPrice;
+  const optComboPrice = isPremTpl ? premComboTotal : freeComboPrice;
+  const optComboSavings = isPremTpl ? (clPrice + hdPrice - premComboAddon) : (clPrice + hdPrice - freeComboPrice);
+
+  let selectedAmount = optComboPrice;
+  let selectedLabel = isPremTpl
+    ? `Template (₹${tplPrice}) + Full Combo (+₹${premComboAddon}) = ₹${optComboPrice}`
+    : `All-in-One Combo (Custom Link + HD Images & Style) = ₹${optComboPrice}`;
+
+  if (selectedCustomizerPack === 'custom_link') {
+    selectedAmount = opt1Price;
+    selectedLabel = isPremTpl ? `Template (₹${tplPrice}) + Custom Link (₹${clPrice}) = ₹${opt1Price}` : `Custom Link Only = ₹${opt1Price}`;
+  } else if (selectedCustomizerPack === 'hd_style') {
+    selectedAmount = opt2Price;
+    selectedLabel = isPremTpl ? `Template (₹${tplPrice}) + HD Images & Style (₹${hdPrice}) = ₹${opt2Price}` : `HD Images & Custom Style Only = ₹${opt2Price}`;
+  }
+
   container.className = 'p-4 rounded-2xl bg-gradient-to-br from-pink-500/10 via-purple-500/5 to-transparent border border-pink-500/30 text-purple-950 dark:text-purple-100 text-xs space-y-3';
   container.innerHTML = `
-    <div class="flex items-center justify-between">
-      <div class="flex items-center gap-2">
-        <span class="text-base">✨</span>
-        <span class="font-bold text-sm text-purple-950 dark:text-white">Get Personalized Link Access</span>
-      </div>
-      <span class="font-black text-base text-pink-600 dark:text-pink-400">${sym}${price}</span>
+    ${referralBannerHtml}
+    <div class="font-extrabold text-xs uppercase tracking-wider text-purple-800 dark:text-purple-200">
+      Select Your Upgrade / Combo Pack ${isPremTpl ? `(Template Base Price: ₹${tplPrice})` : '(Free Template: ₹0)'}:
     </div>
-    <p class="text-[11px] text-purple-700/80 dark:text-purple-300/80 leading-relaxed">
-      Unlock a unique, personalized address for your wish website. Securely processed via our authorized payment provider.
-    </p>
-    <button type="button" onclick="handlePersonalizedLinkCheckout()" class="w-full py-2.5 px-4 rounded-xl bg-gradient-to-r from-pink-500 to-purple-600 text-white font-bold text-xs shadow-md hover:brightness-110 transition flex items-center justify-center gap-2 cursor-pointer">
-      <span class="material-symbols-outlined text-sm">lock</span>
-      <span>Get Personalized Link (${sym}${price})</span>
+
+    <div class="grid grid-cols-1 sm:grid-cols-3 gap-2.5">
+      <!-- Option 1: Custom Link Only (₹59) -->
+      <div onclick="selectCustomizerPack('custom_link')" class="p-3 rounded-xl border-2 cursor-pointer transition ${selectedCustomizerPack === 'custom_link' ? 'border-pink-500 bg-pink-500/15' : 'border-purple-200 dark:border-purple-800 bg-white/70 dark:bg-purple-950/50'}">
+        <div class="flex items-center justify-between font-extrabold text-xs">
+          <span>🔗 Custom Link</span>
+          <span class="text-pink-600 dark:text-pink-400">${sym}${opt1Price}</span>
+        </div>
+        <div class="text-[10px] opacity-80 mt-1">${isPremTpl ? `₹${tplPrice} Template + ₹${clPrice} Link` : `Only Custom Link (₹${clPrice})`}</div>
+      </div>
+
+      <!-- Option 2: HD Images + Style (₹59) -->
+      <div onclick="selectCustomizerPack('hd_style')" class="p-3 rounded-xl border-2 cursor-pointer transition ${selectedCustomizerPack === 'hd_style' ? 'border-pink-500 bg-pink-500/15' : 'border-purple-200 dark:border-purple-800 bg-white/70 dark:bg-purple-950/50'}">
+        <div class="flex items-center justify-between font-extrabold text-xs">
+          <span>🖼️ HD + Style</span>
+          <span class="text-purple-600 dark:text-purple-300">${sym}${opt2Price}</span>
+        </div>
+        <div class="text-[10px] opacity-80 mt-1">${isPremTpl ? `₹${tplPrice} Template + ₹${hdPrice} HD/Style` : `HD Images & Style (₹${hdPrice})`}</div>
+      </div>
+
+      <!-- Option 3: Best Value Combo (₹99 on Free / Template + ₹70 on Premium) -->
+      <div onclick="selectCustomizerPack('combo')" class="p-3 rounded-xl border-2 cursor-pointer transition relative ${selectedCustomizerPack === 'combo' ? 'border-amber-400 bg-amber-400/15 shadow-md' : 'border-purple-200 dark:border-purple-800 bg-white/70 dark:bg-purple-950/50'}">
+        <span class="absolute -top-2 right-2 px-1.5 py-0.2 rounded bg-gradient-to-r from-pink-500 to-amber-500 text-white font-black text-[9px]">SAVE ₹${optComboSavings}</span>
+        <div class="flex items-center justify-between font-extrabold text-xs">
+          <span>🔥 Full Combo</span>
+          <span class="text-amber-600 dark:text-amber-300">${sym}${optComboPrice}</span>
+        </div>
+        <div class="text-[10px] opacity-85 mt-1">${isPremTpl ? `₹${tplPrice} Template + ₹${premComboAddon} Combo` : `Custom Link + HD + Style (₹${freeComboPrice})`}</div>
+      </div>
+    </div>
+
+    <button type="button" onclick="handlePersonalizedLinkCheckout('${selectedCustomizerPack}', ${selectedAmount})" class="w-full py-3 px-4 rounded-xl bg-gradient-to-r from-[#ff2a85] via-[#ec4899] to-[#a855f7] text-white font-extrabold text-xs shadow-lg hover:brightness-110 transition flex items-center justify-center gap-2 cursor-pointer">
+      <span class="material-symbols-outlined text-sm">lock_open</span>
+      <span>Unlock ${selectedLabel} ✨</span>
     </button>
   `;
 };
@@ -3144,8 +3282,9 @@ window.publishFreeRandomWish = async function() {
   }
 };
 
-window.handlePersonalizedLinkCheckout = async function() {
-  const chosenSlug = (currentCustomData.customSlug || currentCustomData.slug || '').toLowerCase().trim();
+window.handlePersonalizedLinkCheckout = async function(packType = null, amountOverride = null) {
+  const activePack = packType || selectedCustomizerPack || 'combo';
+  const chosenSlug = (currentCustomData.customSlug || currentCustomData.slug || document.getElementById('wish-slug-input')?.value || '').toLowerCase().trim();
   if (!chosenSlug) {
     showToast('⚠️ Please choose or enter a personalized link first');
     const input = document.getElementById('wish-slug-input');
@@ -3169,15 +3308,35 @@ window.handlePersonalizedLinkCheckout = async function() {
   }
 
   try {
+    const tplPrice = Math.max(0, Number((activeTemplate && activeTemplate.price) || 0));
+    const resolvedPlanId = activePack === 'combo'
+      ? (tplPrice > 0 ? 'premium_template_combo' : 'free_template_combo')
+      : (activePack === 'hd_style' ? 'hd_image_style_pack' : 'personalized_link');
+
+    try {
+      localStorage.setItem('wm_checkout_cart', JSON.stringify({
+        planId: resolvedPlanId,
+        packType: activePack,
+        templateId: activeTemplate ? activeTemplate.id : null,
+        templateName: activeTemplate ? activeTemplate.name : 'Celebration Template',
+        templatePrice: tplPrice,
+        slug: chosenSlug,
+        amount: amountOverride || 99
+      }));
+    } catch (_) {}
+
     const res = await fetch('/api/entitlements/checkout', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       credentials: 'include',
       body: JSON.stringify({
-        planId: 'personalized_link',
+        planId: resolvedPlanId,
+        templateId: activeTemplate ? activeTemplate.id : null,
         options: {
-          planId: 'personalized_link',
-          slug: chosenSlug
+          planId: resolvedPlanId,
+          templatePrice: tplPrice,
+          slug: chosenSlug,
+          requestedSlug: chosenSlug
         }
       })
     });

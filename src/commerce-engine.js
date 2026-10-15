@@ -45,6 +45,9 @@ export const REFUND_STATUS = {
 export const PRODUCT_TYPES = {
   VIP_PASS: 'vip_pass',
   PERSONALIZED_LINK: 'personalized_link',
+  HD_IMAGE_STYLE_PACK: 'hd_image_style_pack',
+  FREE_TEMPLATE_COMBO: 'free_template_combo',
+  PREMIUM_TEMPLATE_COMBO: 'premium_template_combo',
   TEMPLATE_FAMILY: 'template_family',
   TEMPLATE: 'template'
 };
@@ -148,21 +151,83 @@ export function resolveAuthoritativeProduct({ productId, templateId, options = {
     };
   }
 
-  // 2. Personalized Link (Custom vanity slug reservation)
-  if (normId === 'personalized_link') {
-    const customPrice = siteSettings?.monetization?.personalizedLinkPrice || siteSettings?.personalized?.price || 99;
-    const paise = Math.round(Number(customPrice) * 100) || 9900;
+  const addons = siteSettings?.addons || {};
+  const customLinkUnit = Number(addons.customLinkPrice ?? siteSettings?.personalized?.price ?? 59) || 59;
+  const hdStyleUnit = Number(addons.hdImageStylePrice ?? 59) || 59;
+  const freeComboUnit = Number(addons.freeTemplateComboPrice ?? 99) || 99;
+  const premComboAddon = Number(addons.premiumComboAddonPrice ?? 70) || 70;
+
+  // 2. Personalized Link Only (₹59 default)
+  if (normId === 'personalized_link' || normId === 'custom_link_only') {
+    const customPrice = siteSettings?.monetization?.personalizedLinkPrice || siteSettings?.personalized?.price || customLinkUnit;
+    const paise = Math.round(Number(customPrice) * 100) || 5900;
     const price = Math.round(paise / 100);
     return {
       productId: 'personalized_link',
       productType: PRODUCT_TYPES.PERSONALIZED_LINK,
-      productName: 'Personalized Celebration Address',
+      productName: 'Custom Celebration Link',
       description: `Custom branded link reservation (${options.requestedSlug || 'custom-name'}).`,
       amountPaise: paise,
       price,
       currency: 'INR',
       priceDisplay: `₹${price}`,
       scope: 'custom_slug',
+      isFree: false
+    };
+  }
+
+  // 2b. High Quality Images + Custom Style Pack (₹59 default)
+  if (normId === 'hd_image_style_pack' || normId === 'hd_style') {
+    const paise = Math.round(hdStyleUnit * 100);
+    return {
+      productId: 'hd_image_style_pack',
+      productType: PRODUCT_TYPES.HD_IMAGE_STYLE_PACK,
+      productName: 'HD Images & Custom Style Pack',
+      description: 'Upload High Quality (HD) photos and customize fonts, colors, frames & effects.',
+      amountPaise: paise,
+      price: hdStyleUnit,
+      currency: 'INR',
+      priceDisplay: `₹${hdStyleUnit}`,
+      scope: 'hd_style',
+      isFree: false
+    };
+  }
+
+  // 2c. Free Template Super Combo (₹99 default: Custom Link + HD Images + Custom Style)
+  if (normId === 'free_template_combo' || normId === 'combo_99') {
+    const paise = Math.round(freeComboUnit * 100);
+    return {
+      productId: 'free_template_combo',
+      productType: PRODUCT_TYPES.FREE_TEMPLATE_COMBO,
+      productName: 'All-in-One Celebration Combo (Custom Link + HD Images + Style)',
+      description: 'Includes Custom Link (/w/your-name) + High Quality (HD) Images + Custom Style.',
+      amountPaise: paise,
+      price: freeComboUnit,
+      currency: 'INR',
+      priceDisplay: `₹${freeComboUnit}`,
+      scope: 'combo_pack',
+      isFree: false
+    };
+  }
+
+  // 2d. Premium Template Royal Combo (Template Price + ₹70: Template + Custom Link + HD Images + Style)
+  if (normId === 'premium_template_combo' || normId.startsWith('premium_combo:')) {
+    const targetTplId = templateId || normId.replace('premium_combo:', '');
+    const tplObj = templates.find(t => t.id === targetTplId);
+    const baseTplPrice = Number(options.templatePrice ?? tplObj?.price ?? 59) || 59;
+    const totalRupees = baseTplPrice + premComboAddon;
+    const paise = Math.round(totalRupees * 100);
+    return {
+      productId: targetTplId ? `premium_combo:${targetTplId}` : 'premium_template_combo',
+      productType: PRODUCT_TYPES.PREMIUM_TEMPLATE_COMBO,
+      productName: `${tplObj?.name || 'Premium Template'} + Full Combo (Custom Link + HD Images + Style)`,
+      description: `Premium Template (₹${baseTplPrice}) + Custom Link + High Quality Images + Custom Style (+₹${premComboAddon} Combo).`,
+      templateId: targetTplId || null,
+      amountPaise: paise,
+      price: totalRupees,
+      currency: 'INR',
+      priceDisplay: `₹${totalRupees}`,
+      scope: 'premium_combo',
       isFree: false
     };
   }

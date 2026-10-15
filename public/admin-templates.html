@@ -6,23 +6,23 @@
 <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;600;700&amp;family=Plus+Jakarta+Sans:wght@400;500;600;700;800&amp;display=swap" rel="stylesheet"/>
 <link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:opsz,wght,FILL,GRAD@20..48,100..700,0..1,-50..200&amp;display=swap" rel="stylesheet"/>
 <!-- Tailwind Config must load BEFORE Tailwind CDN -->
-<script src="js/tailwind-config.js?v=20261015_wm47944_v3"></script>
+<script src="js/tailwind-config.js?v=20261015_wm47944_v4"></script>
 <script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
 <script>
   if (typeof tailwind !== 'undefined' && typeof sharedTailwindConfig !== 'undefined') {
     tailwind.config = sharedTailwindConfig;
   }
 </script>
-<link rel="stylesheet" href="css/admin-theme.css?v=20261015_wm47944_v3"/>
+<link rel="stylesheet" href="css/admin-theme.css?v=20261015_wm47944_v4"/>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
 <script src="js/WishMagicCore.js"></script>
-<script src="js/admin-theme.js?v=20261015_wm47944_v3"></script>
+<script src="js/admin-theme.js?v=20261015_wm47944_v4"></script>
 <!-- Part 10-12 Auth, Repositories & Section System Layer -->
 <script src="js/api-client.js"></script>
-  <script src="js/auth-service.js?v=20261015_wm47944_v3"></script>
+  <script src="js/auth-service.js?v=20261015_wm47944_v4"></script>
 <script src="js/repositories.js"></script>
 <script src="js/template-section-system.js"></script>
-<script src="js/admin-template-uploader.js?v=20261015_wm47944_v3"></script>
+<script src="js/admin-template-uploader.js?v=20261015_wm47944_v4"></script>
 
 </head>
 <body class="bg-background text-on-surface font-body-md min-h-screen antialiased selection:bg-primary selection:text-white">
@@ -940,13 +940,20 @@
       <div class="grid grid-cols-2 md:grid-cols-4 gap-4 p-3 bg-surface-container-lowest rounded-xl border border-purple-500/20">
         <div>
           <label class="block text-[11px] font-bold uppercase tracking-wider text-outline mb-1">Tier</label>
-          <select id="edit-tpl-tier" onchange="document.getElementById('edit-tpl-price').value = this.value === 'vip' ? '49' : '0'" class="w-full bg-surface-container text-on-surface px-3 py-1.5 rounded-lg border border-purple-500/30">
-            <option value="free">Free Tier</option>
-            <option value="vip">VIP Magic Pass</option>
+          <select id="edit-tpl-tier" onchange="document.getElementById('edit-tpl-price').value = this.value === 'vip' ? '59' : '0'" class="w-full bg-surface-container text-on-surface px-3 py-1.5 rounded-lg border border-purple-500/30">
+            <option value="free">Free Tier (₹0 • Combo ₹99)</option>
+            <option value="vip">Premium Template (₹59 / ₹149 • +₹70 Combo)</option>
           </select>
         </div>
         <div>
-          <label class="block text-[11px] font-bold uppercase tracking-wider text-outline mb-1">Price (₹ INR)</label>
+          <div class="flex items-center justify-between mb-1">
+            <label class="block text-[11px] font-bold uppercase tracking-wider text-outline">Price (₹ INR)</label>
+            <div class="flex gap-1 text-[9px] font-black">
+              <button type="button" onclick="document.getElementById('edit-tpl-price').value='0';document.getElementById('edit-tpl-tier').value='free';" class="px-1.5 py-0.5 rounded bg-emerald-500/20 text-emerald-400 cursor-pointer">₹0</button>
+              <button type="button" onclick="document.getElementById('edit-tpl-price').value='59';document.getElementById('edit-tpl-tier').value='vip';" class="px-1.5 py-0.5 rounded bg-purple-500/20 text-purple-300 cursor-pointer">₹59</button>
+              <button type="button" onclick="document.getElementById('edit-tpl-price').value='149';document.getElementById('edit-tpl-tier').value='vip';" class="px-1.5 py-0.5 rounded bg-amber-500/20 text-amber-300 cursor-pointer">₹149</button>
+            </div>
+          </div>
           <input id="edit-tpl-price" type="number" class="w-full bg-surface-container text-on-surface px-3 py-1.5 rounded-lg border border-purple-500/30 font-bold"/>
         </div>
         <div>

@@ -310,7 +310,7 @@ const SEED_TEMPLATES = [
     category: 'Love',
     relationships: ['Love', 'Girlfriend', 'Boyfriend', 'Wife', 'Husband', 'Crush'],
     tier: 'vip',
-    price: 49,
+    price: 59,
     isPremium: true,
     isPublished: true,
     status: 'published',
@@ -328,7 +328,7 @@ const SEED_TEMPLATES = [
     category: 'Anniversary',
     relationships: ['Anniversary', 'Wife', 'Husband', 'Parents', 'Family'],
     tier: 'vip',
-    price: 49,
+    price: 149,
     isPremium: true,
     isPublished: true,
     status: 'published',
@@ -382,7 +382,7 @@ const SEED_TEMPLATES = [
     category: 'Congratulations',
     relationships: ['Congratulations', 'Best Friend', 'Brother', 'Sister', 'Colleague'],
     tier: 'vip',
-    price: 49,
+    price: 59,
     isPremium: true,
     isPublished: true,
     status: 'published',
@@ -418,7 +418,7 @@ const SEED_TEMPLATES = [
     category: 'Festivals',
     relationships: ['Festivals', 'Family', 'Parents', 'Friendship'],
     tier: 'vip',
-    price: 49,
+    price: 149,
     isPremium: true,
     isPublished: true,
     status: 'published',
@@ -3946,10 +3946,24 @@ function formatPublicSiteSettings(settings) {
 const DEFAULT_WISH_LINK_SETTINGS = {
   personalized: {
     enabled: true,
-    price: 49,
+    price: 59,
     currency: 'INR',
-    displayName: 'Personalized Link',
-    description: 'Create a memorable link for your wish.'
+    displayName: 'Custom Link Only',
+    description: 'Create a memorable custom link (/w/your-name) for your wish.'
+  },
+  addons: {
+    customLinkPrice: 59,
+    hdImageStylePrice: 59,
+    freeTemplateComboPrice: 99,
+    premiumComboAddonPrice: 70,
+    templatePriceTiers: [0, 59, 149]
+  },
+  referral: {
+    enabled: true,
+    requiredReferrals: 7,
+    countFreeTemplates: true,
+    rewardType: 'FREE_CUSTOM_LINK',
+    rewardCredits: 1
   },
   random: {
     enabled: true,
@@ -3957,7 +3971,7 @@ const DEFAULT_WISH_LINK_SETTINGS = {
     length: 6,
     allowedCharacters: 'abcdefghijklmnopqrstuvwxyz0123456789'
   },
-  updatedAt: '2026-10-05T00:00:00.000Z'
+  updatedAt: '2026-10-15T00:00:00.000Z'
 };
 
 let inMemoryWishLinkSettings = JSON.parse(JSON.stringify(DEFAULT_WISH_LINK_SETTINGS));
@@ -3979,10 +3993,17 @@ function validateWishLinkSettings(settings) {
   }
 
   // Price validation: numeric, non-negative, sensible max
-  const price = Number(p.price !== undefined ? p.price : 49);
+  const a = settings.addons || {};
+  const refCfg = settings.referral || {};
+  const price = Number(p.price !== undefined ? p.price : (a.customLinkPrice !== undefined ? a.customLinkPrice : 59));
   if (isNaN(price) || price < 0 || price > 100000) {
     return { valid: false, error: 'Personalized link price must be a valid non-negative number up to 100,000.' };
   }
+  const customLinkPrice = Number(a.customLinkPrice !== undefined ? a.customLinkPrice : price);
+  const hdImageStylePrice = Number(a.hdImageStylePrice !== undefined ? a.hdImageStylePrice : 59);
+  const freeTemplateComboPrice = Number(a.freeTemplateComboPrice !== undefined ? a.freeTemplateComboPrice : 99);
+  const premiumComboAddonPrice = Number(a.premiumComboAddonPrice !== undefined ? a.premiumComboAddonPrice : 70);
+  const requiredReferrals = Math.max(1, parseInt(refCfg.requiredReferrals !== undefined ? refCfg.requiredReferrals : 7, 10) || 7);
 
   // Currency validation
   const currency = String(p.currency || 'INR').trim().toUpperCase();
@@ -4017,10 +4038,24 @@ function validateWishLinkSettings(settings) {
     normalized: {
       personalized: {
         enabled: pEnabled,
-        price,
+        price: customLinkPrice,
         currency,
-        displayName: sanitizeString(p.displayName || 'Personalized Link', 50),
-        description: sanitizeString(p.description || 'Create a memorable link for your wish.', 150)
+        displayName: sanitizeString(p.displayName || 'Custom Link Only', 50),
+        description: sanitizeString(p.description || 'Create a memorable custom link (/w/your-name) for your wish.', 150)
+      },
+      addons: {
+        customLinkPrice,
+        hdImageStylePrice,
+        freeTemplateComboPrice,
+        premiumComboAddonPrice,
+        templatePriceTiers: Array.isArray(a.templatePriceTiers) ? a.templatePriceTiers.map(Number) : [0, 59, 149]
+      },
+      referral: {
+        enabled: refCfg.enabled !== undefined ? Boolean(refCfg.enabled) : true,
+        requiredReferrals,
+        countFreeTemplates: refCfg.countFreeTemplates !== undefined ? Boolean(refCfg.countFreeTemplates) : true,
+        rewardType: 'FREE_CUSTOM_LINK',
+        rewardCredits: Math.max(1, parseInt(refCfg.rewardCredits || 1, 10) || 1)
       },
       random: {
         enabled: rEnabled,
@@ -5703,6 +5738,29 @@ export default {
             } catch (snapErr) {
               console.warn('[Initial Wish Publication Snapshot Notice]', snapErr);
             }
+          }
+
+          // Always evaluate referral qualification when any wish (including Free template) is created
+          evaluateReferralQualification(newWish.userId, REF_QUALIFYING_EVENTS.FIRST_WISH, { wishId: newWish.id, tier: newWish.tier }, env.DB, env).catch(() => {});
+
+          // If user redeemed a Free Custom Link credit from 7-friends referral program, mark one active credit as used
+          if ((body.useReferralCredit || customData.useReferralCredit) && !isRandomRequested) {
+            try {
+              const activeCredit = await env.DB.prepare(
+                "SELECT id FROM entitlements WHERE user_id = ? AND item_type = 'free_custom_link' AND status = 'active' LIMIT 1"
+              ).bind(newWish.userId).first().catch(() => null);
+              if (activeCredit && activeCredit.id) {
+                await env.DB.prepare("UPDATE entitlements SET status = 'used', updated_at = ? WHERE id = ?")
+                  .bind(new Date().toISOString(), activeCredit.id).run().catch(() => {});
+              } else {
+                // Record used credit entry so dashboard deducts 1 from milestone credits
+                const usedId = `ent_used_${Date.now().toString(36)}_${Math.random().toString(36).slice(2, 6)}`;
+                const nowStr = new Date().toISOString();
+                await env.DB.prepare(
+                  "INSERT INTO entitlements (id, user_id, item_type, plan, status, source, starts_at, created_at, updated_at) VALUES (?, ?, 'free_custom_link', 'FREE_CUSTOM_LINK', 'used', 'referral_redeemed', ?, ?, ?)"
+                ).bind(usedId, newWish.userId, nowStr, nowStr, nowStr).run().catch(() => {});
+              }
+            } catch (_) {}
           }
 
           response = jsonSuccess({
@@ -17533,6 +17591,44 @@ export default {
 
         const rejectResult = await adminRejectReferral(attributionId, reason || 'Rejected by administrator', user, env.DB);
         response = jsonSuccess(rejectResult, 200, {}, requestId);
+      }
+
+      // 16. Admin: Grant Free Custom Link Credit to User
+      else if (pathname === '/api/admin/referrals/grant-credit' && method === 'POST') {
+        const user = await getAuthenticatedUser(request, env);
+        if (!user) return applySecurityHeaders(jsonError('AUTH_REQUIRED', 'Authentication required', 401), request, env);
+        const isAdmin = await verifyAdminRole(user, env);
+        if (!isAdmin) return applySecurityHeaders(jsonError('FORBIDDEN', 'Admin role required', 403), request, env);
+
+        const body = await request.json().catch(() => ({}));
+        const targetIdentifier = String(body.email || body.userId || '').trim();
+        const credits = Math.max(1, parseInt(body.credits || 1, 10) || 1);
+        if (!targetIdentifier) {
+          return applySecurityHeaders(jsonError('MISSING_TARGET', 'User email or userId is required', 400), request, env);
+        }
+
+        let targetUserId = targetIdentifier;
+        if (env.DB && typeof env.DB.prepare === 'function') {
+          const foundUser = await env.DB.prepare('SELECT id, email FROM users WHERE LOWER(email) = LOWER(?) OR id = ? LIMIT 1')
+            .bind(targetIdentifier, targetIdentifier).first().catch(() => null);
+          if (foundUser && foundUser.id) targetUserId = foundUser.id;
+
+          const nowIso = new Date().toISOString();
+          const expIso = new Date(Date.now() + 365 * 24 * 60 * 60 * 1000).toISOString();
+          for (let i = 0; i < credits; i++) {
+            const entId = `ent_clink_adm_${Date.now().toString(36)}_${Math.random().toString(36).slice(2, 6)}_${i}`;
+            await env.DB.prepare(
+              "INSERT INTO entitlements (id, user_id, item_type, plan, status, source, starts_at, expires_at, created_at, updated_at) VALUES (?, ?, 'free_custom_link', 'FREE_CUSTOM_LINK', 'active', 'admin_grant', ?, ?, ?, ?)"
+            ).bind(entId, targetUserId, nowIso, expIso, nowIso, nowIso).run().catch(() => {});
+          }
+        }
+
+        response = jsonSuccess({
+          granted: true,
+          targetUserId,
+          creditsGranted: credits,
+          rewardType: 'FREE_CUSTOM_LINK'
+        }, 200, {}, requestId);
       }
 
 

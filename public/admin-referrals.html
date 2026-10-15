@@ -10,18 +10,18 @@
   <link crossorigin="" href="https://fonts.gstatic.com" rel="preconnect"/>
   <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;600;700&family=Plus+Jakarta+Sans:wght@400;500;600;700;800&family=Outfit:wght@500;600;700;800&display=swap" rel="stylesheet"/>
   <link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:opsz,wght,FILL,GRAD@20..48,100..700,0..1,-50..200&display=swap" rel="stylesheet"/>
-  <script src="js/tailwind-config.js?v=20261015_wm47944_v3"></script>
+  <script src="js/tailwind-config.js?v=20261015_wm47944_v4"></script>
   <script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
   <script>
     if (typeof tailwind !== 'undefined' && typeof sharedTailwindConfig !== 'undefined') {
       tailwind.config = sharedTailwindConfig;
     }
   </script>
-  <link rel="stylesheet" href="css/admin-theme.css?v=20261015_wm47944_v3"/>
+  <link rel="stylesheet" href="css/admin-theme.css?v=20261015_wm47944_v4"/>
   <script src="js/api-client.js"></script>
-  <script src="js/auth-service.js?v=20261015_wm47944_v3"></script>
+  <script src="js/auth-service.js?v=20261015_wm47944_v4"></script>
   <script src="js/WishMagicCore.js"></script>
-  <script src="js/admin-theme.js?v=20261015_wm47944_v3"></script>
+  <script src="js/admin-theme.js?v=20261015_wm47944_v4"></script>
 
 </head>
 <body class="bg-background text-on-surface font-body-md min-h-screen antialiased selection:bg-primary selection:text-white">
@@ -300,7 +300,7 @@
           <span>Referral</span> <span class="wm-pink-word">Program</span> <span class="wm-lavender-word">&amp; Rewards</span>
         </h1>
         <p class="wm-hero-subtitle">
-          Manage creator invite campaigns, inspect reward ledgers, and audit automated fraud prevention scores.
+          Control the 7-Friends Free Custom Link referral program (even Free ₹0 templates count!), grant custom link credits, and inspect reward ledgers.
         </p>
         <div class="flex flex-wrap items-center gap-3">
           <button type="button" onclick="loadAdminReferralData()" class="wm-btn-pink-pill">
@@ -350,6 +350,48 @@
         <span class="text-xs text-on-surface-variant font-medium">Fraud Flagged</span>
         <span id="kpi-fraud" class="font-display font-extrabold text-2xl text-red-400 mt-1">0</span>
         <span class="text-[10px] text-red-300">Suspicious Events</span>
+      </div>
+    </div>
+
+    <!-- 7-FRIENDS MILESTONE SUMMARY & MANUAL CREDIT GRANT STUDIO -->
+    <div class="wm-card p-5 rounded-2xl bg-surface-container border border-emerald-500/30 grid grid-cols-1 lg:grid-cols-3 gap-5">
+      <div class="lg:col-span-2 flex flex-col justify-between gap-3">
+        <div>
+          <div class="flex flex-wrap items-center gap-2 mb-1">
+            <span class="px-2.5 py-0.5 rounded-full bg-emerald-500/20 text-emerald-300 text-[10px] font-extrabold uppercase tracking-wider">Active Milestone Rule</span>
+            <span class="px-2.5 py-0.5 rounded-full bg-purple-500/20 text-purple-300 text-[10px] font-extrabold uppercase tracking-wider">Free Templates Count ✓</span>
+          </div>
+          <h2 class="font-display font-extrabold text-base sm:text-lg text-on-surface">
+            Share Website with <span id="banner-req-friends" class="text-emerald-400">7 Friends</span> → Unlock <span class="text-pink-400">1 Free Custom Link</span> (Worth ₹59)
+          </h2>
+          <p class="text-xs text-on-surface-variant mt-1">
+            Jab koi user 7 dosto ko website share karta hai aur wo 7 log koi bhi wish template bana lete hain (chahe ₹0 Free template hi kyu na ho), to refer karne wale user ko 1 Free template me Custom Link (<code class="text-pink-400">/w/custom-name</code>) bilkul FREE (₹0) milta hai.
+          </p>
+        </div>
+        <div class="flex flex-wrap items-center gap-2.5 pt-2 border-t border-outline-variant/20 text-xs">
+          <button type="button" onclick="switchTab('config')" class="px-3.5 py-1.5 rounded-lg bg-primary-container text-white font-bold hover:brightness-110 transition cursor-pointer">
+            Edit 7-Friends Milestone Rules
+          </button>
+          <a href="/referrals.html" target="_blank" class="px-3.5 py-1.5 rounded-lg bg-surface-container-high text-on-surface font-semibold hover:bg-surface-container-highest transition">
+            Open User Referral Page ↗
+          </a>
+        </div>
+      </div>
+
+      <!-- Manual Grant Free Custom Link Credit Box -->
+      <div class="p-4 rounded-xl bg-surface-container-low border border-outline-variant/30 flex flex-col gap-2.5">
+        <div class="flex items-center justify-between">
+          <span class="text-xs font-extrabold text-on-surface">🎁 Grant Free Custom Link Credit</span>
+          <span class="text-[10px] font-bold text-emerald-400 uppercase">Admin Override</span>
+        </div>
+        <input id="grant-user-target" type="text" placeholder="User Email or User ID..." class="w-full px-3 py-1.5 rounded-lg bg-surface-container border border-outline-variant/30 text-xs text-on-surface"/>
+        <div class="grid grid-cols-2 gap-2">
+          <input id="grant-credits-count" type="number" min="1" max="50" value="1" class="w-full px-3 py-1.5 rounded-lg bg-surface-container border border-outline-variant/30 text-xs font-bold text-on-surface" title="Credits to Grant"/>
+          <button type="button" onclick="grantFreeCustomLinkCredit()" class="w-full py-1.5 px-3 rounded-lg bg-emerald-500 hover:bg-emerald-600 text-slate-950 font-extrabold text-xs transition cursor-pointer">
+            + Grant Credit
+          </button>
+        </div>
+        <span id="grant-credit-status" class="text-[11px] text-on-surface-variant">Instantly adds Free Custom Link credit(s) to user wallet.</span>
       </div>
     </div>
 
@@ -455,13 +497,39 @@
 
     <!-- Tab 4: Program Configuration Form -->
     <section id="sec-tab-config" class="space-y-6 hidden">
-      <div class="p-6 rounded-2xl bg-surface-container-low border border-outline-variant/30 max-w-2xl">
-        <h3 class="font-display font-bold text-base text-on-surface mb-4">Referral Campaign Configuration</h3>
+      <div class="p-6 rounded-2xl bg-surface-container-low border border-outline-variant/30 max-w-3xl">
+        <h3 class="font-display font-bold text-base text-on-surface mb-1">7-Friends Referral Campaign Configuration</h3>
+        <p class="text-xs text-on-surface-variant mb-4">Control how many friends must create a template (including Free ₹0 templates) for the referrer to unlock a Free Custom Link credit.</p>
 
         <form onsubmit="handleSaveConfig(event)" class="space-y-4 text-xs">
           <div>
             <label class="block font-bold text-on-surface mb-1">Campaign Name</label>
-            <input type="text" id="cfg-name" required class="w-full p-2.5 rounded-lg bg-surface-container border border-outline-variant/30 text-on-surface"/>
+            <input type="text" id="cfg-name" required class="w-full p-2.5 rounded-lg bg-surface-container border border-outline-variant/30 text-on-surface" value="7-Friends Free Custom Link Referral Program"/>
+          </div>
+
+          <div class="grid grid-cols-1 sm:grid-cols-3 gap-4 p-4 rounded-xl bg-emerald-500/10 border border-emerald-500/30">
+            <div>
+              <label class="block font-extrabold text-emerald-300 mb-1">Friends Required for Milestone</label>
+              <input type="number" id="cfg-required-referrals" min="1" max="100" value="7" class="w-full p-2.5 rounded-lg bg-surface-container border border-emerald-500/40 text-on-surface font-black text-sm"/>
+              <span class="text-[10px] text-on-surface-variant">Default: 7 Friends</span>
+            </div>
+            <div>
+              <label class="block font-extrabold text-emerald-300 mb-1">Count Free (₹0) Templates?</label>
+              <select id="cfg-count-free" class="w-full p-2.5 rounded-lg bg-surface-container border border-emerald-500/40 text-on-surface font-bold">
+                <option value="1" selected>Yes — Any Template (Free or Paid)</option>
+                <option value="0">No — Paid Templates Only</option>
+              </select>
+              <span class="text-[10px] text-on-surface-variant">Chahe Free template banaye</span>
+            </div>
+            <div>
+              <label class="block font-extrabold text-emerald-300 mb-1">Milestone Reward Unlocked</label>
+              <select id="cfg-milestone-reward" class="w-full p-2.5 rounded-lg bg-surface-container border border-emerald-500/40 text-on-surface font-bold">
+                <option value="FREE_CUSTOM_LINK" selected>1 Free Custom Link (₹59 Value)</option>
+                <option value="FREE_WISH_CREDIT">Free Wish Credit</option>
+                <option value="PREMIUM_DAYS">VIP Access Days</option>
+              </select>
+              <span class="text-[10px] text-on-surface-variant">Redeemable on Free templates</span>
+            </div>
           </div>
 
           <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
@@ -476,7 +544,7 @@
             <div>
               <label class="block font-bold text-on-surface mb-1">Qualifying Trigger Event</label>
               <select id="cfg-trigger" class="w-full p-2.5 rounded-lg bg-surface-container border border-outline-variant/30 text-on-surface">
-                <option value="FIRST_WISH">First Published Wish</option>
+                <option value="FIRST_WISH">Any Created Wish Template (Free or Paid)</option>
                 <option value="SIGNUP">Account Signup</option>
                 <option value="FIRST_PURCHASE">First Order Purchase</option>
               </select>
@@ -485,12 +553,13 @@
 
           <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
             <div>
-              <label class="block font-bold text-on-surface mb-1">Referrer Reward (Inviter)</label>
+              <label class="block font-bold text-on-surface mb-1">Referrer Reward Amount &amp; Type</label>
               <div class="flex gap-2">
-                <input type="number" id="cfg-referrer-amount" min="1" max="365" class="w-20 p-2.5 rounded-lg bg-surface-container border border-outline-variant/30 text-on-surface" value="7"/>
+                <input type="number" id="cfg-referrer-amount" min="1" max="365" class="w-20 p-2.5 rounded-lg bg-surface-container border border-outline-variant/30 text-on-surface" value="1"/>
                 <select id="cfg-referrer-type" class="flex-1 p-2.5 rounded-lg bg-surface-container border border-outline-variant/30 text-on-surface">
-                  <option value="PREMIUM_DAYS">Days VIP Access</option>
+                  <option value="FREE_CUSTOM_LINK">Free Custom Link Credit (₹59 Value)</option>
                   <option value="FREE_WISH_CREDIT">Wish Credits</option>
+                  <option value="PREMIUM_DAYS">Days VIP Access</option>
                 </select>
               </div>
             </div>
@@ -501,6 +570,7 @@
                 <input type="number" id="cfg-referee-amount" min="1" max="365" class="w-20 p-2.5 rounded-lg bg-surface-container border border-outline-variant/30 text-on-surface" value="3"/>
                 <select id="cfg-referee-type" class="flex-1 p-2.5 rounded-lg bg-surface-container border border-outline-variant/30 text-on-surface">
                   <option value="PREMIUM_DAYS">Days VIP Access</option>
+                  <option value="FREE_CUSTOM_LINK">Free Custom Link Credit</option>
                   <option value="FREE_WISH_CREDIT">Wish Credits</option>
                 </select>
               </div>
@@ -510,7 +580,7 @@
           <div class="grid grid-cols-1 sm:grid-cols-3 gap-4">
             <div>
               <label class="block font-bold text-on-surface mb-1">Max Invites Per User</label>
-              <input type="number" id="cfg-max-user" min="1" max="1000" class="w-full p-2.5 rounded-lg bg-surface-container border border-outline-variant/30 text-on-surface" value="50"/>
+              <input type="number" id="cfg-max-user" min="1" max="1000" class="w-full p-2.5 rounded-lg bg-surface-container border border-outline-variant/30 text-on-surface" value="70"/>
             </div>
             <div>
               <label class="block font-bold text-on-surface mb-1">Attribution Window (Days)</label>
@@ -528,12 +598,12 @@
 
           <div>
             <label class="block font-bold text-on-surface mb-1">Terms Summary / Description</label>
-            <textarea id="cfg-terms" rows="2" class="w-full p-2.5 rounded-lg bg-surface-container border border-outline-variant/30 text-on-surface"></textarea>
+            <textarea id="cfg-terms" rows="2" class="w-full p-2.5 rounded-lg bg-surface-container border border-outline-variant/30 text-on-surface">Share WishMagic with 7 friends! When 7 friends create any wish template (even a Free template), you unlock 1 Free Custom Link credit (worth ₹59) for any Free template.</textarea>
           </div>
 
           <div class="pt-2">
-            <button type="submit" class="px-5 py-2.5 rounded-lg bg-primary hover:bg-primary-hover text-white font-bold transition">
-              Save Campaign Settings
+            <button type="submit" class="px-5 py-2.5 rounded-lg bg-primary hover:bg-primary-hover text-white font-bold transition cursor-pointer">
+              Save 7-Friends Referral Settings
             </button>
           </div>
         </form>
@@ -669,7 +739,7 @@
           <tr class="hover:bg-surface-container transition">
             <td class="p-3.5 font-semibold">${l.userEmail || l.user_id || l.userId}</td>
             <td class="p-3.5 font-bold">${l.role}</td>
-            <td class="p-3.5 text-primary font-bold">${l.reward_amount || l.rewardAmount} Days VIP</td>
+            <td class="p-3.5 text-primary font-bold">${(l.reward_type || l.rewardType) === "FREE_CUSTOM_LINK" ? `${l.reward_amount || l.rewardAmount || 1} Free Custom Link (₹59)` : `${l.reward_amount || l.rewardAmount} ${l.reward_type || "Days VIP"}`}</td>
             <td class="p-3.5"><span class="px-2 py-0.5 rounded-full text-[10px] font-bold bg-purple-500/20 text-purple-300">${l.status}</span></td>
             <td class="p-3.5 font-mono text-[10px] text-outline">${l.idempotency_key || l.idempotencyKey || l.id}</td>
             <td class="p-3.5 text-right text-on-surface-variant">${l.created_at ? new Date(l.created_at).toLocaleDateString() : 'Recent'}</td>
@@ -713,29 +783,44 @@
       const data = await res.json();
       if (data.success && data.config) {
         const c = data.config;
-        document.getElementById('cfg-name').value = c.name || '';
+        const reqFriends = Number(c.required_referrals_for_reward ?? c.requiredReferralsForReward ?? 7);
+        const countFree = (c.count_free_templates ?? c.countFreeTemplates ?? 1) ? '1' : '0';
+        const rType = c.referrer_reward_type || c.referrerRewardType || 'FREE_CUSTOM_LINK';
+        document.getElementById('cfg-name').value = c.name || '7-Friends Free Custom Link Referral Program';
         document.getElementById('cfg-active').value = (c.is_active || c.isActive) ? '1' : '0';
         document.getElementById('cfg-trigger').value = c.qualifying_event || c.qualifyingEvent || 'FIRST_WISH';
-        document.getElementById('cfg-referrer-amount').value = c.referrer_reward_amount || c.referrerRewardAmount || 7;
-        document.getElementById('cfg-referrer-type').value = c.referrer_reward_type || c.referrerRewardType || 'PREMIUM_DAYS';
+        document.getElementById('cfg-required-referrals').value = reqFriends;
+        document.getElementById('cfg-count-free').value = countFree;
+        document.getElementById('cfg-milestone-reward').value = rType;
+        document.getElementById('cfg-referrer-amount').value = c.referrer_reward_amount || c.referrerRewardAmount || 1;
+        document.getElementById('cfg-referrer-type').value = rType;
         document.getElementById('cfg-referee-amount').value = c.referee_reward_amount || c.refereeRewardAmount || 3;
         document.getElementById('cfg-referee-type').value = c.referee_reward_type || c.refereeRewardType || 'PREMIUM_DAYS';
-        document.getElementById('cfg-max-user').value = c.max_referrals_per_user || c.maxReferralsPerUser || 50;
+        document.getElementById('cfg-max-user').value = c.max_referrals_per_user || c.maxReferralsPerUser || 70;
         document.getElementById('cfg-window').value = c.attribution_window_days || c.attributionWindowDays || 30;
         document.getElementById('cfg-strictness').value = c.fraud_strictness || c.fraudStrictness || 'standard';
         document.getElementById('cfg-terms').value = c.terms_summary || c.termsSummary || '';
+        const bEl = document.getElementById('banner-req-friends');
+        if (bEl) bEl.textContent = `${reqFriends} Friends`;
       }
     } catch (e) {}
   }
 
   async function handleSaveConfig(e) {
     e.preventDefault();
+    const requiredReferralsForReward = Math.max(1, Number(document.getElementById('cfg-required-referrals').value) || 7);
+    const countFreeTemplates = document.getElementById('cfg-count-free').value === '1';
+    const referrerRewardType = document.getElementById('cfg-referrer-type').value || 'FREE_CUSTOM_LINK';
+    const referrerRewardAmount = Math.max(1, Number(document.getElementById('cfg-referrer-amount').value) || 1);
+
     const payload = {
       name: document.getElementById('cfg-name').value,
       isActive: document.getElementById('cfg-active').value === '1',
       qualifyingEvent: document.getElementById('cfg-trigger').value,
-      referrerRewardAmount: Number(document.getElementById('cfg-referrer-amount').value),
-      referrerRewardType: document.getElementById('cfg-referrer-type').value,
+      requiredReferralsForReward,
+      countFreeTemplates,
+      referrerRewardAmount,
+      referrerRewardType,
       refereeRewardAmount: Number(document.getElementById('cfg-referee-amount').value),
       refereeRewardType: document.getElementById('cfg-referee-type').value,
       maxReferralsPerUser: Number(document.getElementById('cfg-max-user').value),
@@ -745,20 +830,75 @@
     };
 
     try {
-      const res = await fetch('/api/admin/referrals/config', {
-        method: 'PUT',
-        headers: { 'Content-Type': 'application/json' },
-        credentials: 'include',
-        body: JSON.stringify(payload)
-      });
+      const [res] = await Promise.all([
+        fetch('/api/admin/referrals/config', {
+          method: 'PUT',
+          headers: { 'Content-Type': 'application/json' },
+          credentials: 'include',
+          body: JSON.stringify(payload)
+        }),
+        fetch('/api/admin/settings/wish-links', {
+          method: 'PUT',
+          headers: { 'Content-Type': 'application/json' },
+          credentials: 'include',
+          body: JSON.stringify({
+            settings: {
+              referral: {
+                enabled: payload.isActive,
+                requiredReferrals: requiredReferralsForReward,
+                countFreeTemplates,
+                rewardType: referrerRewardType,
+                rewardCredits: referrerRewardAmount
+              }
+            }
+          })
+        }).catch(() => null)
+      ]);
       const data = await res.json();
       if (data.success) {
-        alert('Referral campaign configuration updated successfully!');
+        const bEl = document.getElementById('banner-req-friends');
+        if (bEl) bEl.textContent = `${requiredReferralsForReward} Friends`;
+        if (typeof showToast === 'function') {
+          showToast(`🎁 Saved! ${requiredReferralsForReward} Friends → ${referrerRewardAmount} Free Custom Link Credit`);
+        } else {
+          alert('Referral campaign configuration updated successfully!');
+        }
       } else {
         alert('Failed to update config: ' + (data.message || 'Error'));
       }
     } catch (e) {
       alert('Error saving configuration');
+    }
+  }
+
+  async function grantFreeCustomLinkCredit() {
+    const target = (document.getElementById('grant-user-target')?.value || '').trim();
+    const credits = Math.max(1, parseInt(document.getElementById('grant-credits-count')?.value, 10) || 1);
+    const statusEl = document.getElementById('grant-credit-status');
+    if (!target) {
+      if (statusEl) statusEl.innerHTML = '<span class="text-rose-400 font-bold">Please enter a User Email or User ID</span>';
+      return;
+    }
+    if (statusEl) statusEl.innerHTML = '<span class="text-amber-300 font-bold">Granting Free Custom Link credit...</span>';
+    try {
+      const body = target.includes('@') ? { email: target, credits } : { userId: target, credits };
+      const res = await fetch('/api/admin/referrals/grant-credit', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        credentials: 'include',
+        body: JSON.stringify(body)
+      });
+      const data = await res.json();
+      if (data && data.success) {
+        if (statusEl) statusEl.innerHTML = `<span class="text-emerald-400 font-bold">✓ Granted ${credits} Free Custom Link credit(s) to ${target}!</span>`;
+        document.getElementById('grant-user-target').value = '';
+        loadAdminReferralData();
+        if (activeTab === 'ledger') loadLedgerList();
+      } else {
+        if (statusEl) statusEl.innerHTML = `<span class="text-rose-400 font-bold">✕ ${data.error || 'Could not grant credit'}</span>`;
+      }
+    } catch (err) {
+      if (statusEl) statusEl.innerHTML = `<span class="text-rose-400 font-bold">✕ Error granting credit</span>`;
     }
   }
 

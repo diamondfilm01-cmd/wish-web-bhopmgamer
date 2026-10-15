@@ -10,7 +10,7 @@
 <meta property="og:description" content="Gift a magical, interactive web experience with customizable wishes, animations, and templates."/>
 <meta property="og:type" content="website"/>
 <!-- Tailwind CSS CDN with forms and container queries -->
-<script src="/js/tailwind-config.js?v=20261015_wm47944_v3"></script>
+<script src="/js/tailwind-config.js?v=20261015_wm47944_v4"></script>
   <script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
   <script>if (typeof tailwind !== "undefined" && typeof sharedTailwindConfig !== "undefined") { tailwind.config = sharedTailwindConfig; }</script>
 <!-- Google Fonts: Plus Jakarta Sans & Outfit for modern playful rounded look -->
@@ -23,14 +23,14 @@
 <!-- Firebase Official SDK (Compat for universal browser support) -->
 <script src="https://www.gstatic.com/firebasejs/10.8.0/firebase-app-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.8.0/firebase-auth-compat.js"></script>
-<script src="/js/site-theme.js?v=20261015_wm47944_v3"></script>
+<script src="/js/site-theme.js?v=20261015_wm47944_v4"></script>
 <!-- Canvas Confetti for Interactive Celebrations -->
 <script src="https://cdn.jsdelivr.net/npm/canvas-confetti@1.9.3/dist/confetti.browser.min.js"></script>
 <!-- WishMagic Core, Auth, Repositories & Section System Layer -->
 <script src="/js/WishMagicCore.js"></script>
 <script src="/js/api-client.js"></script>
-<script src="/js/firebase-auth.js?v=20261015_wm47944_v3"></script>
-<script src="/js/auth-service.js?v=20261015_wm47944_v3"></script>
+<script src="/js/firebase-auth.js?v=20261015_wm47944_v4"></script>
+<script src="/js/auth-service.js?v=20261015_wm47944_v4"></script>
 <script src="/js/repositories.js"></script>
 <script src="/js/wishmagic-dependencies.js"></script>
 <script src="/js/wishmagic-content-system.js"></script>
@@ -39,7 +39,7 @@
 <script src="/js/wishmagic-preview-controller.js"></script>
 <script src="/js/wishmagic-state-migrator.js"></script>
 <script src="/js/template-section-system.js"></script>
-<script src="/js/notification-service.js?v=20261015_wm47944_v3"></script>
+<script src="/js/notification-service.js?v=20261015_wm47944_v4"></script>
 <script src="/js/security-hardening.js"></script>
 <!-- Tailwind Configuration -->
 <script data-purpose="tailwind-config">
@@ -1749,7 +1749,7 @@ body.dark .hero-gradient-text,
 })();
 </script>
 <!-- END: WishMagic Inline Cloud Background Engine -->
-  <link id="wishmagic-cloud-css" rel="stylesheet" href="/css/cloud-background.css?v=20261015_wm47944_v3"/>
+  <link id="wishmagic-cloud-css" rel="stylesheet" href="/css/cloud-background.css?v=20261015_wm47944_v4"/>
 </head>
 <body data-page="home" class="w-full min-h-screen font-sans antialiased selection:bg-pink-500 selection:text-white">
 
@@ -2821,7 +2821,7 @@ body.dark .hero-gradient-text,
         category: "Love",
         relationships: ["Love", "Girlfriend", "Boyfriend", "Wife", "Husband", "Crush"],
         tier: "vip",
-        price: 49,
+        price: 59,
         thumbnail: "https://images.unsplash.com/photo-1518199266791-5375a83190b7?w=600&auto=format&fit=crop&q=80",
         description: "Dreamy starlit romantic message with floating glowing hearts, wax seal envelope, and music."
       },
@@ -2832,7 +2832,7 @@ body.dark .hero-gradient-text,
         category: "Anniversary",
         relationships: ["Anniversary", "Wife", "Husband", "Parents", "Family"],
         tier: "vip",
-        price: 49,
+        price: 149,
         thumbnail: "https://images.unsplash.com/photo-1522673607200-164d1b6ce486?w=600&auto=format&fit=crop&q=80",
         description: "Luxurious gold foil anniversary experience with interactive love timeline and photo gallery."
       },
@@ -2865,7 +2865,7 @@ body.dark .hero-gradient-text,
         category: "Congratulations",
         relationships: ["Congratulations", "Best Friend", "Brother", "Sister", "Colleague"],
         tier: "vip",
-        price: 49,
+        price: 59,
         thumbnail: "https://images.unsplash.com/photo-1492684223066-81342ee5ff30?w=600&auto=format&fit=crop&q=80",
         description: "Synchronized celebration countdown unlocking midnight fireworks and custom music."
       },
@@ -2887,7 +2887,7 @@ body.dark .hero-gradient-text,
         category: "Festivals",
         relationships: ["Festivals", "Family", "Parents", "Friendship"],
         tier: "vip",
-        price: 49,
+        price: 149,
         thumbnail: "https://images.unsplash.com/photo-1534447677768-be436bb09401?w=600&auto=format&fit=crop&q=80",
         description: "Sparkling festive celebration with golden lanterns, fireworks, and warm family wishes."
       }
@@ -2990,7 +2990,7 @@ body.dark .hero-gradient-text,
         const linkCfg = window._cachedWishLinkSettings || {};
         const sym = siteCfg.currencySymbol || (siteCfg.currency === "USD" || siteCfg.currency === "CAD" || siteCfg.currency === "AUD" ? "$" : siteCfg.currency === "EUR" ? "€" : siteCfg.currency === "GBP" ? "£" : "₹");
         const isVip = tpl.tier === "vip" || (tpl.price && Number(tpl.price) > 0);
-        const configuredVipPrice = (linkCfg.personalized && linkCfg.personalized.price !== undefined) ? Number(linkCfg.personalized.price) : (Number(tpl.price) || 49);
+        const configuredVipPrice = (Number(tpl.price) > 0) ? Number(tpl.price) : ((linkCfg.personalized && linkCfg.personalized.price !== undefined) ? Number(linkCfg.personalized.price) : 59);
         const price = siteCfg.promoFreeOfferMode ? 0 : (siteCfg.promoDiscountEnabled && siteCfg.promoDiscountPrice !== undefined ? Number(siteCfg.promoDiscountPrice) : configuredVipPrice);
         const origPrice = Number(siteCfg.promoOriginalPrice || 99);
         const previewImg = tpl.thumbnail || tpl.previewImage || "/assets/file_ab2082.png";
@@ -3286,7 +3286,7 @@ body.dark .hero-gradient-text,
       if (titleEl) titleEl.textContent = tpl.name;
       if (catEl) catEl.textContent = `${tpl.category || "Celebration"} • ${tpl.type || "Interactive 3D"}`;
       if (badgeEl) {
-        badgeEl.textContent = isVip ? `PREMIUM • ₹${tpl.price || 49}` : 'FREE';
+        badgeEl.textContent = isVip ? `PREMIUM • ₹${tpl.price || 59}` : 'FREE';
         badgeEl.className = `px-2 py-0.5 rounded-full text-[10px] font-black uppercase tracking-wider ${isVip ? 'bg-amber-400 text-purple-950' : 'bg-emerald-500 text-white'}`;
       }
       if (iframeEl) iframeEl.src = url;

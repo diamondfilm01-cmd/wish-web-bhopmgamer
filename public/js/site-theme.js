@@ -238,10 +238,10 @@
       cloudLink = document.createElement('link');
       cloudLink.id = 'wishmagic-cloud-css';
       cloudLink.rel = 'stylesheet';
-      cloudLink.href = '/css/cloud-background.css?v=20261014_v9';
+      cloudLink.href = '/css/cloud-background.css?v=20261015_wm47944_v4';
       document.head.appendChild(cloudLink);
     } else {
-      cloudLink.href = '/css/cloud-background.css?v=20261014_v9';
+      cloudLink.href = '/css/cloud-background.css?v=20261015_wm47944_v4';
       document.head.appendChild(cloudLink);
     }
 
@@ -495,6 +495,215 @@
     }
   } catch (_) {}
   window.addEventListener('storage', (e) => {
-    if (e.key === 'wishmagic_site_settings_updated_at') syncGlobalStorefrontSettings();
+    if (e.key === 'wishmagic_site_settings_updated_at') {
+      syncGlobalStorefrontSettings();
+      WishPricingEngine.refreshFromServer();
+    }
   });
+
+  // =========================================================================
+  // 6. GLOBAL MODULAR & COMBO PRICING ENGINE + 7-REFERRAL AUTO-TRACKER
+  // =========================================================================
+  const DEFAULT_PRICING_RULES = {
+    customLinkPrice: 59,        // ₹59 for Custom Link only
+    hdImageStylePrice: 59,      // ₹59 for High Quality Images + Custom Style
+    freeTemplateComboPrice: 99, // ₹99 for Free Template Combo (Custom Link + HD Images + Style)
+    premiumComboAddonPrice: 70, // +₹70 added to any Premium Template price for full Combo
+    templatePriceTiers: [0, 59, 149],
+    requiredReferrals: 7
+  };
+
+  let activePricingRules = { ...DEFAULT_PRICING_RULES };
+  try {
+    const cachedPricing = localStorage.getItem('wishmagic_pricing_rules_v4');
+    if (cachedPricing) {
+      activePricingRules = { ...DEFAULT_PRICING_RULES, ...JSON.parse(cachedPricing) };
+    }
+  } catch (_) {}
+
+  const WishPricingEngine = {
+    getRules() {
+      return { ...activePricingRules };
+    },
+
+    async refreshFromServer() {
+      try {
+        const res = await fetch('/api/settings/wish-links', { cache: 'no-store' });
+        if (res.ok) {
+          const data = await res.json();
+          const s = (data && data.data && data.data.settings) || (data && data.settings) || {};
+          const a = s.addons || {};
+          const refCfg = s.referral || {};
+          activePricingRules = {
+            customLinkPrice: Number(a.customLinkPrice ?? s.personalized?.price ?? 59) || 59,
+            hdImageStylePrice: Number(a.hdImageStylePrice ?? 59) || 59,
+            freeTemplateComboPrice: Number(a.freeTemplateComboPrice ?? 99) || 99,
+            premiumComboAddonPrice: Number(a.premiumComboAddonPrice ?? 70) || 70,
+            templatePriceTiers: Array.isArray(a.templatePriceTiers) ? a.templatePriceTiers.map(Number) : [0, 59, 149],
+            requiredReferrals: Number(refCfg.requiredReferrals ?? 7) || 7
+          };
+          try {
+            localStorage.setItem('wishmagic_pricing_rules_v4', JSON.stringify(activePricingRules));
+          } catch (_) {}
+        }
+      } catch (_) {}
+      return { ...activePricingRules };
+    },
+
+    /**
+     * Calculates exact price breakdown for any template + add-on / combo selection:
+     * - Free Template (₹0):
+     *   • Custom Link Only = ₹59 (or ₹0 with 7-Friends Referral Credit!)
+     *   • HD Images + Style Only = ₹59
+     *   • All-in-One Combo (Custom Link + HD Images + Style) = ₹99 (Save ₹19)
+     * - Premium Template (₹59, ₹149, etc.):
+     *   • Template Only (Random Link) = Template Price (e.g. ₹59 or ₹149)
+     *   • Template + Custom Link Only = Template Price + ₹59
+     *   • Template + HD Images & Style Only = Template Price + ₹59
+     *   • Template + Full Combo (Custom Link + HD Images + Style) = Template Price + ₹70 (Save ₹48!)
+     */
+    calculateQuote(opts = {}) {
+      const rules = this.getRules();
+      const tplPrice = Math.max(0, Number(opts.templatePrice || 0));
+      const isPremiumTemplate = tplPrice > 0;
+      const isCombo = Boolean(opts.isCombo || (opts.hasCustomLink && opts.hasHdImageStyle));
+      const hasCustomLink = Boolean(isCombo || opts.hasCustomLink);
+      const hasHdImageStyle = Boolean(isCombo || opts.hasHdImageStyle);
+      const useReferralCredit = Boolean(opts.useReferralCredit && !isPremiumTemplate && hasCustomLink);
+
+      const clPrice = rules.customLinkPrice;
+      const hdPrice = rules.hdImageStylePrice;
+      const freeCombo = rules.freeTemplateComboPrice;
+      const premComboAddon = rules.premiumComboAddonPrice;
+
+      let regularTotal = tplPrice + (hasCustomLink ? clPrice : 0) + (hasHdImageStyle ? hdPrice : 0);
+      let finalPayable = regularTotal;
+      let planCode = 'free_random';
+      let planLabel = 'Free Template + Random Link';
+
+      if (!isPremiumTemplate) {
+        if (isCombo) {
+          if (useReferralCredit) {
+            finalPayable = hdPrice; // Custom link is free via referral credit, only HD+Style paid
+            planCode = 'hd_image_style_pack';
+            planLabel = 'Free Template + Referral Free Custom Link + HD Images & Style';
+          } else {
+            finalPayable = freeCombo; // ₹99 Combo
+            planCode = 'free_template_combo';
+            planLabel = `Free Template + All-in-One Combo (Custom Link + HD Images & Style) • ₹${freeCombo}`;
+          }
+        } else if (hasCustomLink) {
+          if (useReferralCredit) {
+            finalPayable = 0;
+            planCode = 'referral_free_custom_link';
+            planLabel = 'Free Custom Link (7-Friends Referral Reward Redeemed • ₹0)';
+          } else {
+            finalPayable = clPrice; // ₹59
+            planCode = 'personalized_link';
+            planLabel = `Custom Link Only • ₹${clPrice}`;
+          }
+        } else if (hasHdImageStyle) {
+          finalPayable = hdPrice; // ₹59
+          planCode = 'hd_image_style_pack';
+          planLabel = `HD Images + Custom Style Pack • ₹${hdPrice}`;
+        } else {
+          finalPayable = 0;
+          planCode = 'free_random';
+          planLabel = 'Free Template + Free Random Link • ₹0';
+        }
+      } else {
+        // Premium Template (e.g. ₹59 or ₹149)
+        if (isCombo) {
+          finalPayable = tplPrice + premComboAddon; // Template Price + ₹70
+          planCode = 'premium_template_combo';
+          planLabel = `Premium Template (₹${tplPrice}) + Full Combo (+₹${premComboAddon} for Custom Link + HD Images & Style)`;
+        } else if (hasCustomLink) {
+          finalPayable = tplPrice + clPrice;
+          planCode = 'template_plus_custom_link';
+          planLabel = `Premium Template (₹${tplPrice}) + Custom Link (₹${clPrice})`;
+        } else if (hasHdImageStyle) {
+          finalPayable = tplPrice + hdPrice;
+          planCode = 'template_plus_hd_style';
+          planLabel = `Premium Template (₹${tplPrice}) + HD Images & Style (₹${hdPrice})`;
+        } else {
+          finalPayable = tplPrice;
+          planCode = 'template_only';
+          planLabel = `Premium Template Only (₹${tplPrice}) + Free Random Link`;
+        }
+      }
+
+      const savings = Math.max(0, regularTotal - finalPayable);
+      return {
+        templatePrice: tplPrice,
+        isPremiumTemplate,
+        hasCustomLink,
+        hasHdImageStyle,
+        isCombo,
+        useReferralCredit,
+        customLinkUnitPrice: clPrice,
+        hdImageStyleUnitPrice: hdPrice,
+        freeComboUnitPrice: freeCombo,
+        premiumComboAddonUnitPrice: premComboAddon,
+        regularTotal,
+        finalPayable,
+        savings,
+        planCode,
+        planLabel
+      };
+    }
+  };
+
+  window.WishPricingEngine = WishPricingEngine;
+  WishPricingEngine.refreshFromServer();
+
+  // Global ?ref= Referral Code Auto-Capture & Attribution Linker
+  (function initGlobalReferralCapture() {
+    try {
+      const params = new URLSearchParams(window.location.search);
+      const refCode = (params.get('ref') || params.get('invite') || '').trim().toUpperCase();
+      if (refCode && refCode.length >= 3) {
+        localStorage.setItem('wm_pending_referral_code', refCode);
+        document.cookie = `wm_ref=${encodeURIComponent(refCode)}; Path=/; Max-Age=${30 * 24 * 60 * 60}; SameSite=Lax`;
+        fetch('/api/referrals/track-click', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            referralCode: refCode,
+            landingPage: window.location.pathname
+          })
+        }).catch(() => {});
+      }
+
+      // Whenever a user authenticates, link their pending referral code if not already linked
+      const tryLinkPendingReferral = () => {
+        const pendingCode = localStorage.getItem('wm_pending_referral_code');
+        if (!pendingCode) return;
+        if (window.WishAuth && typeof window.WishAuth.onAuthStateChange === 'function') {
+          window.WishAuth.onAuthStateChange((user) => {
+            if (user && user.id) {
+              const linkedKey = `wm_ref_linked_${user.id}`;
+              if (localStorage.getItem(linkedKey)) return;
+              fetch('/api/referrals/link-signup', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                credentials: 'include',
+                body: JSON.stringify({ referralCode: pendingCode })
+              }).then(r => r.json()).then(res => {
+                if (res && (res.success || res.reason === 'ALREADY_ATTRIBUTED')) {
+                  localStorage.setItem(linkedKey, '1');
+                }
+              }).catch(() => {});
+            }
+          });
+        }
+      };
+
+      if (document.readyState === 'loading') {
+        document.addEventListener('DOMContentLoaded', tryLinkPendingReferral);
+      } else {
+        tryLinkPendingReferral();
+      }
+    } catch (_) {}
+  })();
+
 })();

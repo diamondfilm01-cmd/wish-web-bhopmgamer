@@ -11,18 +11,18 @@
   <link crossorigin="" href="https://fonts.gstatic.com" rel="preconnect"/>
   <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;600;700&family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet"/>
   <link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:opsz,wght,FILL,GRAD@20..48,100..700,0..1,-50..200&display=swap" rel="stylesheet"/>
-  <script src="js/tailwind-config.js?v=20261015_wm47944_v3"></script>
+  <script src="js/tailwind-config.js?v=20261015_wm47944_v4"></script>
   <script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
   <script>
     if (typeof tailwind !== 'undefined' && typeof sharedTailwindConfig !== 'undefined') {
       tailwind.config = sharedTailwindConfig;
     }
   </script>
-  <link rel="stylesheet" href="css/admin-theme.css?v=20261015_wm47944_v3"/>
+  <link rel="stylesheet" href="css/admin-theme.css?v=20261015_wm47944_v4"/>
   <script src="js/WishMagicCore.js"></script>
-  <script src="js/admin-theme.js?v=20261015_wm47944_v3"></script>
+  <script src="js/admin-theme.js?v=20261015_wm47944_v4"></script>
   <script src="js/wish-lifecycle.js"></script>
-  <script src="js/auth-service.js?v=20261015_wm47944_v3"></script>
+  <script src="js/auth-service.js?v=20261015_wm47944_v4"></script>
   <script src="js/repositories.js"></script>
 
 </head>
@@ -301,7 +301,7 @@
           <span>Subscriptions,</span> <span class="wm-pink-word">Plans</span> <span class="wm-lavender-word">&amp; Coupons</span>
         </h1>
         <p class="wm-hero-subtitle">
-          Configure ₹49 Per-Wish VIP pass pricing, ₹199 Creator Pro subscriptions, discount promo codes, and payment gateways.
+          Control ₹59 Custom Link Only, ₹59 HD Images + Style, ₹99 Free Template Combo, Template + ₹70 Premium Combo, and 7-Friends Referral rules.
         </p>
         <div class="flex flex-wrap items-center gap-3">
           <button type="button" onclick="savePricingConfig()" class="wm-btn-pink-pill">
@@ -324,7 +324,7 @@
           </div>
           <div>
             <div class="text-[12.5px] font-semibold text-[#5e4f7d] dark:text-purple-300">Primary Tier</div>
-            <div class="text-[24px] font-extrabold text-[#1a0f30] dark:text-white leading-tight mt-0.5" id="stat-primary-tier-price">₹49 VIP</div>
+            <div class="text-[24px] font-extrabold text-[#1a0f30] dark:text-white leading-tight mt-0.5" id="stat-primary-tier-price">₹59 / ₹99</div>
             <div class="text-[11px] font-bold text-emerald-600 mt-1">↑ Most popular plan</div>
           </div>
         </div>
@@ -417,88 +417,180 @@
   </div>
       </div>
     </div>
-    <!-- TIER CONFIGURATOR (3 CARDS) -->
-    <div class="grid grid-cols-1 md:grid-cols-3 gap-6">
-      <!-- Tier 1: Free -->
-      <div class="wm-card bg-surface-container rounded-2xl p-5 sm:p-6 border border-purple-900/30 shadow-xl flex flex-col justify-between">
+    <!-- MODULAR & COMBO PRICING CONFIGURATOR (4 CARDS + 7-REFERRAL & TEMPLATE TIERS) -->
+    <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-5">
+      <!-- Card 1: Custom Link Only (₹59) -->
+      <div class="wm-card bg-surface-container rounded-2xl p-5 border border-purple-900/30 shadow-xl flex flex-col justify-between">
         <div>
-          <div class="flex items-center justify-between mb-4">
-            <span class="px-2.5 py-1 rounded-full bg-surface-container-high text-xs font-bold text-on-surface">Free Tier</span>
-            <span class="text-xs text-outline">Default</span>
-          </div>
-          <div class="text-3xl font-black text-on-surface mb-2">₹0 <span class="text-xs font-normal text-outline">/ wish</span></div>
-          <p class="text-xs text-on-surface-variant mb-4">Standard greetings for viral peer invitations.</p>
-
-          <ul class="flex flex-col gap-2.5 text-xs text-on-surface-variant pt-4 border-t border-purple-900/20">
-            <li class="flex items-center gap-2"><span class="text-emerald-400">✓</span> 7-day link expiration</li>
-            <li class="flex items-center gap-2"><span class="text-emerald-400">✓</span> Standard background tracks</li>
-            <li class="flex items-center gap-2"><span class="text-emerald-400">✓</span> Up to 3 recipient photos</li>
-            <li class="flex items-center gap-2 text-outline"><span class="text-outline">✕</span> WishMagic subtle watermark</li>
-          </ul>
-        </div>
-        <button class="mt-6 w-full py-2.5 rounded-xl bg-surface-container-high text-on-surface text-xs font-bold transition hover:bg-surface-container-highest" onclick="showToast('Free tier rules are standard')">
-          Configure Free Limits
-        </button>
-      </div>
-
-      <!-- Tier 2: VIP Magic Pass (Featured) -->
-      <div class="wm-card bg-surface-container rounded-2xl p-5 sm:p-6 border-2 border-primary shadow-2xl relative flex flex-col justify-between">
-        <div class="absolute -top-3 left-1/2 -translate-x-1/2 px-3 py-0.5 rounded-full bg-gradient-to-r from-primary to-secondary text-white font-bold text-[10px] uppercase tracking-wider shadow-md">
-          Most Popular VIP
-        </div>
-        <div>
-          <div class="flex items-center justify-between mb-4">
-            <span class="px-2.5 py-1 rounded-full bg-primary-container text-white text-xs font-bold">VIP Magic Pass</span>
-            <span class="text-xs text-emerald-400 font-bold">92% of Sales</span>
+          <div class="flex items-center justify-between mb-3">
+            <span class="px-2.5 py-1 rounded-full bg-purple-500/20 text-purple-300 text-xs font-extrabold">1. Custom Link Only</span>
+            <span class="text-[11px] font-bold text-emerald-400">Or Free via 7 Referrals</span>
           </div>
           <div class="flex items-baseline gap-2 mb-2">
             <span class="text-xs font-bold text-outline">Price:</span>
             <div class="flex items-center gap-1">
               <span class="text-lg font-bold text-primary">₹</span>
-              <input id="vip-price-input" type="number" class="w-20 px-2 py-1 rounded-lg bg-surface-container-low text-on-surface border border-primary text-xl font-black focus:outline-none" value="49"/>
+              <input id="vip-price-input" type="number" min="0" class="w-20 px-2.5 py-1 rounded-lg bg-surface-container-low text-on-surface border border-primary text-xl font-black focus:outline-none" value="59"/>
             </div>
           </div>
-          <p class="text-xs text-on-surface-variant mb-4">Lifetime keepsake with zero watermark &amp; custom audio.</p>
-
-          <ul class="flex flex-col gap-2.5 text-xs text-on-surface-variant pt-4 border-t border-purple-900/20">
-            <li class="flex items-center gap-2"><span class="text-emerald-400">✓</span> Lifetime permanent link (Never expires)</li>
-            <li class="flex items-center gap-2"><span class="text-emerald-400">✓</span> 100% Zero Watermark</li>
-            <li class="flex items-center gap-2"><span class="text-emerald-400">✓</span> Custom MP3 audio upload</li>
-            <li class="flex items-center gap-2"><span class="text-emerald-400">✓</span> 4K Gold Particle confetti</li>
-            <li class="flex items-center gap-2"><span class="text-emerald-400">✓</span> Interactive Wax Seal secret note</li>
+          <p class="text-xs text-on-surface-variant mb-3">Sirf Custom Link (<code class="text-pink-400">/w/your-custom-name</code>) set karne ka price. Template base price alag rahega.</p>
+          <ul class="flex flex-col gap-2 text-xs text-on-surface-variant pt-3 border-t border-purple-900/20">
+            <li class="flex items-center gap-2"><span class="text-emerald-400">✓</span> Custom personalized URL slug</li>
+            <li class="flex items-center gap-2"><span class="text-emerald-400">✓</span> Free (₹0) when redeeming 7-Referral Credit</li>
+            <li class="flex items-center gap-2"><span class="text-outline">•</span> Standard images &amp; default style</li>
           </ul>
         </div>
-        <button class="mt-6 w-full py-2.5 rounded-xl bg-gradient-to-r from-primary to-secondary text-white text-xs font-bold shadow-lg shadow-purple-600/30 hover:brightness-110 transition" onclick="savePricingConfig()">
-          Update VIP Price (₹49)
+        <button class="mt-5 w-full py-2.5 rounded-xl bg-surface-container-high text-on-surface text-xs font-bold transition hover:bg-surface-container-highest cursor-pointer" onclick="savePricingConfig()">
+          Save Custom Link Price
         </button>
       </div>
 
-      <!-- Tier 3: Creator / Commercial Pack -->
-      <div class="wm-card bg-surface-container rounded-2xl p-5 sm:p-6 border border-purple-900/30 shadow-xl flex flex-col justify-between">
+      <!-- Card 2: High Quality Images + Style Only (₹59) -->
+      <div class="wm-card bg-surface-container rounded-2xl p-5 border border-purple-900/30 shadow-xl flex flex-col justify-between">
         <div>
-          <div class="flex items-center justify-between mb-4">
-            <span class="px-2.5 py-1 rounded-full bg-surface-container-high text-xs font-bold text-on-surface">Creator Pack</span>
-            <span class="text-xs text-outline">Bulk / Agency</span>
+          <div class="flex items-center justify-between mb-3">
+            <span class="px-2.5 py-1 rounded-full bg-pink-500/20 text-pink-300 text-xs font-extrabold">2. HD Images + Style</span>
+            <span class="text-[11px] font-bold text-pink-400">Visual Add-On</span>
           </div>
           <div class="flex items-baseline gap-2 mb-2">
             <span class="text-xs font-bold text-outline">Price:</span>
             <div class="flex items-center gap-1">
               <span class="text-lg font-bold text-secondary">₹</span>
-              <input id="creator-price-input" type="number" class="w-20 px-2 py-1 rounded-lg bg-surface-container-low text-on-surface border border-purple-900/30 text-xl font-black focus:outline-none" value="199"/>
+              <input id="hd-style-price-input" type="number" min="0" class="w-20 px-2.5 py-1 rounded-lg bg-surface-container-low text-on-surface border border-purple-500/40 text-xl font-black focus:outline-none" value="59"/>
             </div>
           </div>
-          <p class="text-xs text-on-surface-variant mb-4">For corporate gifting, event organizers &amp; bulk orders.</p>
-
-          <ul class="flex flex-col gap-2.5 text-xs text-on-surface-variant pt-4 border-t border-purple-900/20">
-            <li class="flex items-center gap-2"><span class="text-emerald-400">✓</span> Unlimited wishes generated</li>
-            <li class="flex items-center gap-2"><span class="text-emerald-400">✓</span> Custom branding &amp; logo badge</li>
-            <li class="flex items-center gap-2"><span class="text-emerald-400">✓</span> CSV batch link export</li>
-            <li class="flex items-center gap-2"><span class="text-emerald-400">✓</span> Dedicated WhatsApp blast links</li>
+          <p class="text-xs text-on-surface-variant mb-3">High quality (HD) images upload karne aur custom theme/font/particle style set karne ka price.</p>
+          <ul class="flex flex-col gap-2 text-xs text-on-surface-variant pt-3 border-t border-purple-900/20">
+            <li class="flex items-center gap-2"><span class="text-emerald-400">✓</span> High Quality (HD) photo uploads</li>
+            <li class="flex items-center gap-2"><span class="text-emerald-400">✓</span> Custom fonts, colors &amp; 3D particles</li>
+            <li class="flex items-center gap-2"><span class="text-outline">•</span> Uses random wish link unless combined</li>
           </ul>
         </div>
-        <button class="mt-6 w-full py-2.5 rounded-xl bg-surface-container-high text-on-surface text-xs font-bold transition hover:bg-surface-container-highest" onclick="savePricingConfig()">
-          Update Creator Pack (₹199)
+        <button class="mt-5 w-full py-2.5 rounded-xl bg-surface-container-high text-on-surface text-xs font-bold transition hover:bg-surface-container-highest cursor-pointer" onclick="savePricingConfig()">
+          Save HD + Style Price
         </button>
+      </div>
+
+      <!-- Card 3: Free Template Combo Offer (₹99) -->
+      <div class="wm-card bg-surface-container rounded-2xl p-5 border-2 border-primary shadow-2xl relative flex flex-col justify-between">
+        <div class="absolute -top-3 left-1/2 -translate-x-1/2 px-3 py-0.5 rounded-full bg-gradient-to-r from-primary to-secondary text-white font-bold text-[10px] uppercase tracking-wider shadow-md whitespace-nowrap">
+          Best Seller • Free Template Combo
+        </div>
+        <div>
+          <div class="flex items-center justify-between mb-3 mt-1">
+            <span class="px-2.5 py-1 rounded-full bg-primary-container text-white text-xs font-bold">3. Free Template Combo</span>
+            <span class="text-xs text-emerald-400 font-bold">Save ₹19</span>
+          </div>
+          <div class="flex items-baseline gap-2 mb-2">
+            <span class="text-xs font-bold text-outline">Combo Price:</span>
+            <div class="flex items-center gap-1">
+              <span class="text-lg font-bold text-primary">₹</span>
+              <input id="free-combo-price-input" type="number" min="0" class="w-20 px-2.5 py-1 rounded-lg bg-surface-container-low text-on-surface border border-primary text-xl font-black focus:outline-none" value="99"/>
+            </div>
+          </div>
+          <p class="text-xs text-on-surface-variant mb-3">Free template ke saath Custom Link + High Quality Images + Custom Style sab kuch ek saath.</p>
+          <ul class="flex flex-col gap-2 text-xs text-on-surface-variant pt-3 border-t border-purple-900/20">
+            <li class="flex items-center gap-2"><span class="text-emerald-400">✓</span> Custom Link (<code class="text-pink-400">/w/custom-name</code>)</li>
+            <li class="flex items-center gap-2"><span class="text-emerald-400">✓</span> High Quality (HD) Images upload</li>
+            <li class="flex items-center gap-2"><span class="text-emerald-400">✓</span> Custom Style, Fonts, Colors &amp; Effects</li>
+          </ul>
+        </div>
+        <button class="mt-5 w-full py-2.5 rounded-xl bg-gradient-to-r from-primary to-secondary text-white text-xs font-bold shadow-lg shadow-purple-600/30 hover:brightness-110 transition cursor-pointer" onclick="savePricingConfig()">
+          Update Free Combo (₹99)
+        </button>
+      </div>
+
+      <!-- Card 4: Premium Template Royal Combo (Template Price + ₹70) -->
+      <div class="wm-card bg-surface-container rounded-2xl p-5 border-2 border-amber-500/50 shadow-xl relative flex flex-col justify-between">
+        <div class="absolute -top-3 left-1/2 -translate-x-1/2 px-3 py-0.5 rounded-full bg-gradient-to-r from-amber-500 to-pink-500 text-white font-bold text-[10px] uppercase tracking-wider shadow-md whitespace-nowrap">
+          Premium Template + Combo
+        </div>
+        <div>
+          <div class="flex items-center justify-between mb-3 mt-1">
+            <span class="px-2.5 py-1 rounded-full bg-amber-500/20 text-amber-300 text-xs font-bold">4. Premium Combo Add-On</span>
+            <span class="text-xs text-amber-300 font-bold">Tpl + ₹70</span>
+          </div>
+          <div class="flex items-baseline gap-2 mb-2">
+            <span class="text-xs font-bold text-outline">Tpl Price +</span>
+            <div class="flex items-center gap-1">
+              <span class="text-lg font-bold text-amber-400">₹</span>
+              <input id="premium-combo-addon-input" type="number" min="0" class="w-20 px-2.5 py-1 rounded-lg bg-surface-container-low text-on-surface border border-amber-500/50 text-xl font-black focus:outline-none" value="70"/>
+            </div>
+          </div>
+          <p class="text-xs text-on-surface-variant mb-3">Premium template (₹59 ya ₹149) ke saath +₹70 me Custom Link + HD Images + Style sab milega.</p>
+          <ul class="flex flex-col gap-2 text-xs text-on-surface-variant pt-3 border-t border-purple-900/20">
+            <li class="flex items-center gap-2"><span class="text-amber-400">★</span> ₹59 Template Combo = <strong>₹129</strong></li>
+            <li class="flex items-center gap-2"><span class="text-amber-400">★</span> ₹149 Template Combo = <strong>₹219</strong></li>
+            <li class="flex items-center gap-2"><span class="text-emerald-400">✓</span> Unlocks Template + Link + HD + Style</li>
+          </ul>
+        </div>
+        <button class="mt-5 w-full py-2.5 rounded-xl bg-gradient-to-r from-amber-500 to-pink-500 text-white text-xs font-bold shadow-lg hover:brightness-110 transition cursor-pointer" onclick="savePricingConfig()">
+          Update Premium Add-On (+₹70)
+        </button>
+      </div>
+    </div>
+
+    <!-- TEMPLATE TIER PRESETS & 7-FRIENDS REFERRAL RULE CONTROL -->
+    <div class="wm-card bg-surface-container rounded-2xl p-5 sm:p-6 border border-purple-900/30 shadow-xl grid grid-cols-1 lg:grid-cols-3 gap-5">
+      <div class="p-4 rounded-xl bg-surface-container-low border border-purple-900/20 flex flex-col justify-between gap-3">
+        <div>
+          <div class="flex items-center justify-between mb-1">
+            <span class="text-xs font-extrabold uppercase tracking-wider text-purple-300">Template Base Price Tiers</span>
+            <a href="/admin/anktech/anktech/admin/templates" class="text-[11px] font-bold text-pink-400 hover:underline">Manage Templates →</a>
+          </div>
+          <p class="text-xs text-on-surface-variant mb-3">Individual templates can be Free (₹0), ₹59, ₹149, or any custom price set in Template Studio.</p>
+          <div class="grid grid-cols-3 gap-2">
+            <div class="p-2.5 rounded-lg bg-emerald-500/10 border border-emerald-500/30 text-center">
+              <div class="text-[10px] font-bold text-emerald-400 uppercase">Free Tier</div>
+              <div class="text-base font-black text-on-surface">₹0</div>
+            </div>
+            <div class="p-2.5 rounded-lg bg-purple-500/10 border border-purple-500/30 text-center">
+              <div class="text-[10px] font-bold text-purple-300 uppercase">Standard VIP</div>
+              <div class="text-base font-black text-on-surface">₹59</div>
+            </div>
+            <div class="p-2.5 rounded-lg bg-amber-500/10 border border-amber-500/30 text-center">
+              <div class="text-[10px] font-bold text-amber-300 uppercase">Royal VIP</div>
+              <div class="text-base font-black text-on-surface">₹149</div>
+            </div>
+          </div>
+        </div>
+        <div class="flex items-center justify-between pt-2 border-t border-purple-900/20 text-xs">
+          <span class="text-on-surface-variant font-semibold">Creator Bulk Pack Price (₹):</span>
+          <input id="creator-price-input" type="number" class="w-24 px-2.5 py-1 rounded-lg bg-surface-container text-on-surface border border-purple-900/40 font-black text-sm text-right" value="199"/>
+        </div>
+      </div>
+
+      <div class="lg:col-span-2 p-4 rounded-xl bg-surface-container-low border border-emerald-500/30 flex flex-col justify-between gap-3">
+        <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
+          <div>
+            <span class="px-2.5 py-0.5 rounded-full bg-emerald-500/20 text-emerald-300 text-[10px] font-extrabold uppercase tracking-wider">🎁 7-Friends Referral Program Control</span>
+            <h3 class="text-sm sm:text-base font-extrabold text-on-surface mt-1">Share with 7 Friends (Even Free Templates Count) → Get 1 Free Custom Link</h3>
+          </div>
+          <a href="/admin/anktech/anktech/admin/referrals" class="px-3 py-1.5 rounded-lg bg-emerald-500/20 text-emerald-300 text-xs font-bold hover:bg-emerald-500/30 transition self-start">Open Referral Ledger →</a>
+        </div>
+        <div class="grid grid-cols-1 sm:grid-cols-3 gap-3 text-xs">
+          <div>
+            <label class="block font-bold text-outline mb-1">Friends Required for Free Link</label>
+            <input id="ref-required-friends-input" type="number" min="1" max="100" value="7" class="w-full px-3 py-2 rounded-lg bg-surface-container text-on-surface border border-purple-900/30 font-black text-sm"/>
+          </div>
+          <div>
+            <label class="block font-bold text-outline mb-1">Count Free (₹0) Templates?</label>
+            <select id="ref-count-free-select" class="w-full px-3 py-2 rounded-lg bg-surface-container text-on-surface border border-purple-900/30 font-bold text-xs">
+              <option value="true" selected>Yes — Free &amp; Paid Both Count</option>
+              <option value="false">No — Only Paid Templates Count</option>
+            </select>
+          </div>
+          <div>
+            <label class="block font-bold text-outline mb-1">Free Custom Links Earned</label>
+            <input id="ref-reward-credits-input" type="number" min="1" max="20" value="1" class="w-full px-3 py-2 rounded-lg bg-surface-container text-on-surface border border-purple-900/30 font-black text-sm"/>
+          </div>
+        </div>
+        <div class="flex items-center justify-between pt-2 border-t border-purple-900/20">
+          <span class="text-[11px] text-emerald-400 font-semibold">✓ Changes sync immediately to Main Website, Customizer, Checkout &amp; Referral Dashboard</span>
+          <button type="button" onclick="savePricingConfig()" class="px-4 py-2 rounded-lg bg-emerald-500 hover:bg-emerald-600 text-slate-950 font-extrabold text-xs transition cursor-pointer">
+            Save All Pricing &amp; Referral Rules
+          </button>
+        </div>
       </div>
     </div>
 
@@ -726,27 +818,76 @@
   }
 
   async function savePricingConfig() {
-    const vip = parseFloat(document.getElementById('vip-price-input').value) || 49;
-    const creator = parseFloat(document.getElementById('creator-price-input').value) || 199;
-    localStorage.setItem('wishmagic_pricing', JSON.stringify({ vip, creator }));
+    const customLinkPrice = Math.max(0, parseFloat(document.getElementById('vip-price-input')?.value) || 59);
+    const hdImageStylePrice = Math.max(0, parseFloat(document.getElementById('hd-style-price-input')?.value) || 59);
+    const freeTemplateComboPrice = Math.max(0, parseFloat(document.getElementById('free-combo-price-input')?.value) || 99);
+    const premiumComboAddonPrice = Math.max(0, parseFloat(document.getElementById('premium-combo-addon-input')?.value) || 70);
+    const creator = Math.max(0, parseFloat(document.getElementById('creator-price-input')?.value) || 199);
+    const requiredReferrals = Math.max(1, parseInt(document.getElementById('ref-required-friends-input')?.value, 10) || 7);
+    const countFreeTemplates = document.getElementById('ref-count-free-select')?.value !== 'false';
+    const rewardCredits = Math.max(1, parseInt(document.getElementById('ref-reward-credits-input')?.value, 10) || 1);
+
+    localStorage.setItem('wishmagic_pricing', JSON.stringify({
+      vip: customLinkPrice,
+      customLinkPrice,
+      hdImageStylePrice,
+      freeTemplateComboPrice,
+      premiumComboAddonPrice,
+      creator,
+      requiredReferrals,
+      countFreeTemplates,
+      rewardCredits
+    }));
 
     const tierLabel = document.getElementById('stat-primary-tier-price');
-    if (tierLabel) tierLabel.textContent = `₹${vip} VIP`;
+    if (tierLabel) tierLabel.textContent = `₹${customLinkPrice} / ₹${freeTemplateComboPrice}`;
 
     try {
-      await fetch('/api/admin/settings/wish-links', {
-        method: 'PUT',
-        headers: { 'Content-Type': 'application/json' },
-        credentials: 'include',
-        body: JSON.stringify({
-          settings: {
-            personalized: {
-              enabled: true,
-              price: vip
+      await Promise.all([
+        fetch('/api/admin/settings/wish-links', {
+          method: 'PUT',
+          headers: { 'Content-Type': 'application/json' },
+          credentials: 'include',
+          body: JSON.stringify({
+            settings: {
+              personalized: {
+                enabled: true,
+                price: customLinkPrice
+              },
+              addons: {
+                customLinkPrice,
+                hdImageStylePrice,
+                freeTemplateComboPrice,
+                premiumComboAddonPrice,
+                templatePriceTiers: [0, 59, 149]
+              },
+              referral: {
+                enabled: true,
+                requiredReferrals,
+                countFreeTemplates,
+                rewardType: 'FREE_CUSTOM_LINK',
+                rewardCredits
+              }
             }
-          }
-        })
-      });
+          })
+        }),
+        fetch('/api/admin/referrals/config', {
+          method: 'PUT',
+          headers: { 'Content-Type': 'application/json' },
+          credentials: 'include',
+          body: JSON.stringify({
+            name: `${requiredReferrals}-Friends Free Custom Link Referral Program`,
+            isActive: true,
+            qualifyingEvent: 'FIRST_WISH',
+            requiredReferralsForReward: requiredReferrals,
+            countFreeTemplates,
+            referrerRewardType: 'FREE_CUSTOM_LINK',
+            referrerRewardAmount: rewardCredits,
+            refereeRewardType: 'PREMIUM_DAYS',
+            refereeRewardAmount: 3
+          })
+        }).catch(() => null)
+      ]);
       localStorage.setItem('wishmagic_site_settings_updated_at', String(Date.now()));
       if (typeof BroadcastChannel !== 'undefined') {
         const bc = new BroadcastChannel('wishmagic_site_settings');
@@ -754,7 +895,7 @@
       }
     } catch (e) {}
 
-    showToast(`💰 Pricing Updated! Personalized / VIP Pass set to ₹${vip}, Creator Pack set to ₹${creator}`);
+    showToast(`💰 Saved! Link: ₹${customLinkPrice} | HD+Style: ₹${hdImageStylePrice} | Free Combo: ₹${freeTemplateComboPrice} | Premium Combo: +₹${premiumComboAddonPrice} | Referral: ${requiredReferrals} Friends`);
   }
 
   function saveCoupon() {
@@ -820,15 +961,25 @@
     try {
       const res = await fetch('/api/settings/wish-links', { credentials: 'include' });
       const data = await res.json();
-      const s = (data.data && data.data.settings) || data.settings;
-      if (data && data.success && s && s.personalized) {
-        const input = document.getElementById('vip-price-input');
-        if (input && s.personalized.price !== undefined) {
-          input.value = s.personalized.price;
-          const tierLabel = document.getElementById('stat-primary-tier-price');
-          if (tierLabel) tierLabel.textContent = `₹${s.personalized.price} VIP`;
-        }
-      }
+      const s = (data.data && data.data.settings) || data.settings || {};
+      const linkPrice = s.addons?.customLinkPrice ?? s.personalized?.price ?? 59;
+      const hdPrice = s.addons?.hdImageStylePrice ?? 59;
+      const freeCombo = s.addons?.freeTemplateComboPrice ?? 99;
+      const premAddon = s.addons?.premiumComboAddonPrice ?? 70;
+      const reqRefs = s.referral?.requiredReferrals ?? 7;
+      const countFree = s.referral?.countFreeTemplates !== false;
+      const rewCreds = s.referral?.rewardCredits ?? 1;
+
+      if (document.getElementById('vip-price-input')) document.getElementById('vip-price-input').value = linkPrice;
+      if (document.getElementById('hd-style-price-input')) document.getElementById('hd-style-price-input').value = hdPrice;
+      if (document.getElementById('free-combo-price-input')) document.getElementById('free-combo-price-input').value = freeCombo;
+      if (document.getElementById('premium-combo-addon-input')) document.getElementById('premium-combo-addon-input').value = premAddon;
+      if (document.getElementById('ref-required-friends-input')) document.getElementById('ref-required-friends-input').value = reqRefs;
+      if (document.getElementById('ref-count-free-select')) document.getElementById('ref-count-free-select').value = countFree ? 'true' : 'false';
+      if (document.getElementById('ref-reward-credits-input')) document.getElementById('ref-reward-credits-input').value = rewCreds;
+
+      const tierLabel = document.getElementById('stat-primary-tier-price');
+      if (tierLabel) tierLabel.textContent = `₹${linkPrice} / ₹${freeCombo}`;
     } catch (e) {}
   }
 

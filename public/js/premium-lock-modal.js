@@ -44,7 +44,7 @@
           '100% white-label with zero platform watermark',
           'Permanent link with lifetime anniversary preservation'
         ],
-        cta: 'Unlock VIP Pass • ₹49'
+        cta: 'Unlock Add-On / Combo • From ₹59'
       };
 
       const templateName = options.template ? (options.template.name || 'VIP Blueprint') : null;
@@ -67,7 +67,7 @@
                 <span class="px-2.5 py-0.5 rounded-full text-[10px] font-black uppercase tracking-wider bg-amber-400 text-[#1a0f30] shadow-xs">
                   ${details.badge}
                 </span>
-                <span class="text-xs text-[#be185d] dark:text-amber-300 font-extrabold font-mono">₹49 ONE-TIME</span>
+                <span class="text-xs text-[#be185d] dark:text-amber-300 font-extrabold font-mono">₹59 ONE-TIME</span>
               </div>
               <h3 class="font-display font-extrabold text-xl text-[#1a0f30] dark:text-white tracking-tight leading-snug">
                 ${details.title}
@@ -106,7 +106,7 @@
           <div class="flex flex-col sm:flex-row items-center gap-2.5 pt-1">
             <button type="button" id="wm-lock-pay-btn" onclick="WishPremiumLock.initiateCheckout()" class="w-full sm:flex-1 py-3 px-5 rounded-full bg-gradient-to-r from-[#ff2a85] via-[#ec4899] to-[#a855f7] hover:brightness-110 active:scale-95 text-white font-extrabold text-xs sm:text-sm shadow-[0_8px_24px_rgba(236,72,153,0.35)] flex items-center justify-center gap-2 transition-all cursor-pointer">
               <span class="material-symbols-outlined text-[18px]">lock_open</span>
-              <span id="wm-lock-pay-btn-text">Unlock VIP Pass • ₹49</span>
+              <span id="wm-lock-pay-btn-text">Unlock Add-On / Combo • From ₹59</span>
             </button>
             <a href="/checkout.html" class="w-full sm:w-auto py-3 px-4 rounded-full bg-[#f4effc] dark:bg-purple-900/60 border border-[#d6c8f2] dark:border-purple-500/40 text-[#4c1d95] dark:text-purple-200 font-extrabold text-xs text-center transition cursor-pointer">
               Checkout
@@ -159,7 +159,7 @@
       } finally {
         if (btn) btn.disabled = false;
         if (btnText && btnText.textContent === 'Connecting Gateway...') {
-          btnText.textContent = 'Unlock VIP Pass • ₹49';
+          btnText.textContent = 'Unlock Add-On / Combo • From ₹59';
         }
       }
     }

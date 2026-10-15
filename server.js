@@ -12607,10 +12607,24 @@ const WISH_LINK_SETTINGS_FILE = path.join(DATA_DIR, 'wish_link_settings.json');
 const DEFAULT_SERVER_WISH_LINK_SETTINGS = {
   personalized: {
     enabled: true,
-    price: 49,
+    price: 59,
     currency: 'INR',
-    displayName: 'Personalized Link',
-    description: 'Create a memorable link for your wish.'
+    displayName: 'Custom Link Only',
+    description: 'Create a memorable custom link (/w/your-name) for your wish.'
+  },
+  addons: {
+    customLinkPrice: 59,
+    hdImageStylePrice: 59,
+    freeTemplateComboPrice: 99,
+    premiumComboAddonPrice: 70,
+    templatePriceTiers: [0, 59, 149]
+  },
+  referral: {
+    enabled: true,
+    requiredReferrals: 7,
+    countFreeTemplates: true,
+    rewardType: 'FREE_CUSTOM_LINK',
+    rewardCredits: 1
   },
   random: {
     enabled: true,
@@ -12901,13 +12915,35 @@ app.all(['/api/admin/settings/wish-links'], (req, res, next) => {
     });
   }
 
+  const a = body.addons || {};
+  const refCfg = body.referral || {};
+  const customLinkPrice = Number(a.customLinkPrice !== undefined ? a.customLinkPrice : price);
+  const hdImageStylePrice = Number(a.hdImageStylePrice !== undefined ? a.hdImageStylePrice : 59);
+  const freeTemplateComboPrice = Number(a.freeTemplateComboPrice !== undefined ? a.freeTemplateComboPrice : 99);
+  const premiumComboAddonPrice = Number(a.premiumComboAddonPrice !== undefined ? a.premiumComboAddonPrice : 70);
+  const requiredReferrals = Math.max(1, parseInt(refCfg.requiredReferrals !== undefined ? refCfg.requiredReferrals : 7, 10) || 7);
+
   const normalized = {
     personalized: {
       enabled: pEnabled,
-      price,
+      price: customLinkPrice,
       currency,
-      displayName: String(p.displayName || 'Personalized Link').trim().substring(0, 50),
-      description: String(p.description || 'Create a memorable link for your wish.').trim().substring(0, 150)
+      displayName: String(p.displayName || 'Custom Link Only').trim().substring(0, 50),
+      description: String(p.description || 'Create a memorable custom link (/w/your-name) for your wish.').trim().substring(0, 150)
+    },
+    addons: {
+      customLinkPrice,
+      hdImageStylePrice,
+      freeTemplateComboPrice,
+      premiumComboAddonPrice,
+      templatePriceTiers: Array.isArray(a.templatePriceTiers) ? a.templatePriceTiers.map(Number) : [0, 59, 149]
+    },
+    referral: {
+      enabled: refCfg.enabled !== undefined ? Boolean(refCfg.enabled) : true,
+      requiredReferrals,
+      countFreeTemplates: refCfg.countFreeTemplates !== undefined ? Boolean(refCfg.countFreeTemplates) : true,
+      rewardType: 'FREE_CUSTOM_LINK',
+      rewardCredits: Math.max(1, parseInt(refCfg.rewardCredits || 1, 10) || 1)
     },
     random: {
       enabled: rEnabled,

@@ -13,6 +13,7 @@ export const QUALIFYING_EVENTS = {
 export const REWARD_TYPES = {
   PREMIUM_DAYS: 'PREMIUM_DAYS',
   VIP_DAYS: 'PREMIUM_DAYS', // convenient alias
+  FREE_CUSTOM_LINK: 'FREE_CUSTOM_LINK',
   FREE_WISH_CREDIT: 'FREE_WISH_CREDIT',
   DISCOUNT_COUPON: 'DISCOUNT_COUPON',
   BADGE: 'BADGE',
@@ -39,18 +40,20 @@ export const ATTRIBUTION_STATUS = {
 
 export const DEFAULT_PROGRAM = {
   id: 'default_program',
-  name: 'WishMagic Friends & Family Rewards',
+  name: 'Share with 7 Friends • Unlock 1 Free Custom Link',
   is_active: 1,
   qualifying_event: 'FIRST_WISH',
-  referrer_reward_type: 'PREMIUM_DAYS',
-  referrer_reward_amount: 7,
+  referrer_reward_type: 'FREE_CUSTOM_LINK',
+  referrer_reward_amount: 1,
   referee_reward_type: 'PREMIUM_DAYS',
   referee_reward_amount: 3,
-  max_referrals_per_user: 50,
+  required_referrals_for_reward: 7,
+  count_free_templates: 1,
+  max_referrals_per_user: 70,
   attribution_window_days: 30,
   require_admin_approval: 0,
   fraud_strictness: 'standard',
-  terms_summary: 'Invite friends to WishMagic. When they create and publish their first celebration wish, you get 7 days of VIP access and your friend gets 3 days!'
+  terms_summary: 'Share WishMagic with 7 friends! When 7 referred friends create any wish template (even a ₹0 Free template), you unlock 1 Free Custom Link Credit (worth ₹59) for any Free template!'
 };
 
 /**
@@ -134,11 +137,13 @@ export async function getProgramConfig(db) {
         name: row.name,
         isActive: Boolean(row.is_active),
         qualifyingEvent: row.qualifying_event || 'FIRST_WISH',
-        referrerRewardType: row.referrer_reward_type || 'PREMIUM_DAYS',
-        referrerRewardAmount: Number(row.referrer_reward_amount) || 7,
+        referrerRewardType: row.referrer_reward_type || 'FREE_CUSTOM_LINK',
+        referrerRewardAmount: Number(row.referrer_reward_amount) || 1,
         refereeRewardType: row.referee_reward_type || 'PREMIUM_DAYS',
         refereeRewardAmount: Number(row.referee_reward_amount) || 3,
-        maxReferralsPerUser: Number(row.max_referrals_per_user) || 50,
+        requiredReferralsForReward: Number(row.required_referrals_for_reward) || 7,
+        countFreeTemplates: row.count_free_templates !== undefined ? Boolean(row.count_free_templates) : true,
+        maxReferralsPerUser: Number(row.max_referrals_per_user) || 70,
         attributionWindowDays: Number(row.attribution_window_days) || 30,
         requireAdminApproval: Boolean(row.require_admin_approval),
         fraudStrictness: row.fraud_strictness || 'standard',
@@ -157,6 +162,8 @@ export async function getProgramConfig(db) {
     referrerRewardAmount: DEFAULT_PROGRAM.referrer_reward_amount,
     refereeRewardType: DEFAULT_PROGRAM.referee_reward_type,
     refereeRewardAmount: DEFAULT_PROGRAM.referee_reward_amount,
+    requiredReferralsForReward: DEFAULT_PROGRAM.required_referrals_for_reward || 7,
+    countFreeTemplates: true,
     maxReferralsPerUser: DEFAULT_PROGRAM.max_referrals_per_user,
     attributionWindowDays: DEFAULT_PROGRAM.attribution_window_days,
     requireAdminApproval: Boolean(DEFAULT_PROGRAM.require_admin_approval),
@@ -605,6 +612,18 @@ async function grantPlatformEntitlement(userId, rewardType, rewardAmount, db) {
         ) VALUES (?, ?, 'referral_vip', 'VIP', 'active', 'referral', ?, ?, ?, ?)
       `).bind(entId, userId, startsAt, newExpiresAt, startsAt, startsAt).run().catch(() => {});
     }
+  } else if (rewardType === REWARD_TYPES.FREE_CUSTOM_LINK || rewardType === REWARD_TYPES.FREE_WISH_CREDIT) {
+    const credits = Math.max(1, Number(rewardAmount) || 1);
+    const startsAt = now.toISOString();
+    const newExpiresAt = new Date(now.getTime() + (365 * 24 * 60 * 60 * 1000)).toISOString();
+    for (let i = 0; i < credits; i++) {
+      const entId = `ent_clink_${Date.now().toString(36)}_${Math.random().toString(36).substring(2, 6)}_${i}`;
+      await db.prepare(`
+        INSERT INTO entitlements (
+          id, user_id, item_type, plan, status, source, starts_at, expires_at, created_at, updated_at
+        ) VALUES (?, ?, 'free_custom_link', 'FREE_CUSTOM_LINK', 'active', 'referral_7_friends', ?, ?, ?, ?)
+      `).bind(entId, userId, startsAt, newExpiresAt, startsAt, startsAt).run().catch(() => {});
+    }
   }
 }
 
@@ -893,6 +912,30 @@ export async function getUserReferralDashboard(userId, db, baseUrl = 'https://wi
     email: `mailto:?subject=${encodeURIComponent('VIP perks on WishMagic')}&body=${encodeURIComponent(shareText)}`
   };
 
+  const targetFriends = Number(program.requiredReferralsForReward) || 7;
+  const totalQual = Number(codeData.totalQualified) || 0;
+  const completedMilestones = Math.floor(totalQual / targetFriends);
+  const currentCycleProgress = totalQual % targetFriends;
+  const friendsRemaining = targetFriends - currentCycleProgress;
+
+  // Count active free_custom_link entitlements in DB if available
+  let activeCustomLinkEnts = 0;
+  let usedCustomLinkEnts = 0;
+  if (db) {
+    try {
+      const entRows = await db.prepare(
+        "SELECT status FROM entitlements WHERE user_id = ? AND item_type = 'free_custom_link'"
+      ).bind(userId).all().catch(() => ({ results: [] }));
+      for (const r of (entRows.results || [])) {
+        if (r.status === 'active') activeCustomLinkEnts++;
+        else if (r.status === 'used' || r.status === 'consumed') usedCustomLinkEnts++;
+      }
+    } catch (_) {}
+  }
+
+  const totalCreditsEarned = Math.max(completedMilestones, activeCustomLinkEnts + usedCustomLinkEnts);
+  const freeCustomLinkCreditsAvailable = Math.max(activeCustomLinkEnts, Math.max(0, completedMilestones - usedCustomLinkEnts));
+
   return {
     success: true,
     referralCode: codeData.referralCode,
@@ -901,16 +944,27 @@ export async function getUserReferralDashboard(userId, db, baseUrl = 'https://wi
     metrics: {
       totalClicks: codeData.totalClicks,
       totalSignups: codeData.totalSignups,
-      totalQualified: codeData.totalQualified,
+      totalQualified: totalQual,
       totalRewardsEarned: codeData.totalRewardsEarned,
       claimableRewardsCount: claimableCount,
-      pendingRewardsCount: pendingCount
+      pendingRewardsCount: pendingCount,
+      milestoneTarget: targetFriends,
+      currentCycleProgress,
+      friendsRemaining,
+      completedMilestones,
+      totalCreditsEarned,
+      freeCustomLinkCreditsAvailable,
+      freeCustomLinkCreditsUsed: usedCustomLinkEnts
     },
     program: {
       name: program.name,
       isActive: program.isActive,
       qualifyingEvent: program.qualifyingEvent,
-      referrerReward: `${program.referrerRewardAmount} ${program.referrerRewardType === 'PREMIUM_DAYS' ? 'Days VIP' : 'Credits'}`,
+      requiredReferralsForReward: targetFriends,
+      countFreeTemplates: true,
+      referrerRewardType: program.referrerRewardType,
+      referrerRewardAmount: program.referrerRewardAmount,
+      referrerReward: `1 Free Custom Link (per ${targetFriends} friends)`,
       refereeReward: `${program.refereeRewardAmount} ${program.refereeRewardType === 'PREMIUM_DAYS' ? 'Days VIP' : 'Credits'}`,
       termsSummary: program.termsSummary
     },
