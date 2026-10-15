@@ -59,7 +59,7 @@ export async function verifyToken(idToken, env = {}) {
     return { valid: false, error: 'AUTH_TOKEN_MALFORMED', message: 'The provided authentication token is malformed.' };
   }
 
-  const projectId = env.FIREBASE_PROJECT_ID || 'pacific-ember-18chg';
+  const projectId = env.FIREBASE_PROJECT_ID || 'wish-magic-47944';
   const expectedIssuer = `https://securetoken.google.com/${projectId}`;
   const nowSec = Math.floor(Date.now() / 1000);
 
@@ -69,7 +69,7 @@ export async function verifyToken(idToken, env = {}) {
     claims.iss === 'https://accounts.google.com' ||
     claims.iss === 'accounts.google.com' ||
     String(claims.aud || '').endsWith('.apps.googleusercontent.com') ||
-    String(claims.aud || '').startsWith('206581825854')
+    String(claims.aud || '').startsWith('281035115213')
   );
 
   if (!isFirebaseToken && !isGoogleOidcToken) {

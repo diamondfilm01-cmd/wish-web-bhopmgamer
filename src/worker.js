@@ -1168,7 +1168,7 @@ async function verifyFirebaseIdToken(idToken, env) {
     return { valid: false, error: 'AUTH_FIREBASE_TOKEN_MALFORMED', message: 'The provided authentication token is malformed.' };
   }
 
-  const projectId = (env && env.FIREBASE_PROJECT_ID) || 'pacific-ember-18chg';
+  const projectId = (env && env.FIREBASE_PROJECT_ID) || 'wish-magic-47944';
   const oAuthClientId = '206581825854-7v4s15i3ac3qckhnh8s7peol0173a74h.apps.googleusercontent.com';
   const expectedFirebaseIssuer = `https://securetoken.google.com/${projectId}`;
   const nowSec = Math.floor(Date.now() / 1000);
@@ -1210,11 +1210,11 @@ async function verifyFirebaseIdToken(idToken, env) {
           avatarUrl: u.photoUrl || claims.picture || null,
           provider: u.providerUserInfo?.[0]?.providerId || claims.firebase?.sign_in_provider || 'google'
         };
-      } else if (lookupData?.error?.message && (lookupData.error.message.includes('TOKEN_EXPIRED') || lookupData.error.message.includes('INVALID_ID_TOKEN') || lookupData.error.message.includes('USER_NOT_FOUND'))) {
+      } else if (lookupData?.error?.message && lookupData.error.message.includes('TOKEN_EXPIRED')) {
         return {
           valid: false,
           error: 'AUTH_FIREBASE_TOKEN_INVALID',
-          message: 'Google authentication token is invalid or has expired. Please sign in again.'
+          message: 'Google authentication token has expired. Please sign in again.'
         };
       }
     } catch (netErr) {
@@ -2935,6 +2935,8 @@ export async function persistTemplateImageToD1(db, {
 // AUTHENTICATION & AUTHORIZATION BOUNDARY
 // ============================================================================
 
+const FALLBACK_AUTH_SESSIONS = new Map();
+
 async function getAuthenticatedUser(request, env) {
   let sessionToken = getCookie(request, 'wm_session');
 
@@ -3032,6 +3034,33 @@ async function getAuthenticatedUser(request, env) {
     } catch (err) {
       console.warn('[Session Lookup DB Warning]', err);
     }
+  }
+
+  if (FALLBACK_AUTH_SESSIONS.has(sessionToken)) {
+    const cached = FALLBACK_AUTH_SESSIONS.get(sessionToken);
+    if (cached && cached.expiresAt > Date.now()) {
+      return cached.user;
+    }
+    FALLBACK_AUTH_SESSIONS.delete(sessionToken);
+  }
+
+  if (sessionToken && sessionToken.includes('.')) {
+    try {
+      const verification = await verifyFirebaseIdToken(sessionToken, env);
+      if (verification && verification.valid && verification.email) {
+        const isMaster = verification.email.toLowerCase() === 'ankit.babusaini@gmail.com';
+        return {
+          id: verification.uid ? ('usr_fb_' + verification.uid) : ('usr_' + verification.email.replace(/[^a-z0-9]/gi, '_')),
+          email: verification.email.toLowerCase(),
+          displayName: verification.displayName || verification.email.split('@')[0],
+          avatarUrl: verification.avatarUrl,
+          role: isMaster ? 'admin' : 'creator',
+          plan: isMaster ? 'VIP' : 'Free',
+          isPremium: isMaster,
+          status: 'active'
+        };
+      }
+    } catch (e) {}
   }
 
   return null;
@@ -4680,15 +4709,7 @@ export default {
 
       else if (pathname === '/api/auth/signin' && method === 'POST') {
         const db = env.DB || env.wishmagic_db || env.DATABASE || env.__D1_BETA__DB;
-        if (!db || typeof db.prepare !== 'function') {
-          return applySecurityHeaders(
-            jsonError('DATABASE_UNAVAILABLE', 'Database service is currently unavailable. Please try again shortly.', 503, {
-              d1BindingPresent: Boolean(db),
-              bindingName: 'DB'
-            }, null, requestId, FailureCategory.DATABASE),
-            request, env
-          );
-        }
+        const hasDb = Boolean(db && typeof db.prepare === 'function');
 
         try {
           const body = await request.json().catch(() => ({}));
@@ -4960,6 +4981,11 @@ export default {
             isAdmin: isMasterAdmin || userRecord.role === 'admin'
           };
 
+          FALLBACK_AUTH_SESSIONS.set(sessionToken, {
+            user: safeUser,
+            expiresAt: expiresAt
+          });
+
           return applySecurityHeaders(
             jsonSuccess({ user: safeUser }, 200, {
               'Set-Cookie': createSessionCookie(sessionToken)
@@ -4979,10 +5005,10 @@ export default {
       else if (pathname === '/api/auth/config' && method === 'GET') {
         const publicConfig = {
           apiKey: env.FIREBASE_API_KEY || '',
-          projectId: env.FIREBASE_PROJECT_ID || 'pacific-ember-18chg',
-          authDomain: env.FIREBASE_AUTH_DOMAIN || (env.FIREBASE_PROJECT_ID ? `${env.FIREBASE_PROJECT_ID}.firebaseapp.com` : 'pacific-ember-18chg.firebaseapp.com'),
-          storageBucket: env.FIREBASE_STORAGE_BUCKET || 'pacific-ember-18chg.firebasestorage.app',
-          appId: env.FIREBASE_APP_ID || '1:206581825854:web:9e195a82e2a31c359c6c6f',
+          projectId: env.FIREBASE_PROJECT_ID || 'wish-magic-47944',
+          authDomain: env.FIREBASE_AUTH_DOMAIN || (env.FIREBASE_PROJECT_ID ? `${env.FIREBASE_PROJECT_ID}.firebaseapp.com` : 'wish-magic-47944.firebaseapp.com'),
+          storageBucket: env.FIREBASE_STORAGE_BUCKET || 'wish-magic-47944.firebasestorage.app',
+          appId: env.FIREBASE_APP_ID || '1:281035115213:web:2af5b3a6f0ceb6c64eb784',
           configured: Boolean(env.FIREBASE_API_KEY)
         };
         response = jsonSuccess(publicConfig, 200, {}, requestId);

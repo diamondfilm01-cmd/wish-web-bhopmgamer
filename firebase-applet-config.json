@@ -1,12 +1,10 @@
 {
-  "projectId": "pacific-ember-18chg",
-  "appId": "1:206581825854:web:9e195a82e2a31c359c6c6f",
-  "apiKey": "AIzaSyBFWkh24xuRUzhVQVgVxtNdpSbR-4Abbfc",
-  "authDomain": "pacific-ember-18chg.firebaseapp.com",
-  "firestoreDatabaseId": "ai-studio-wishwebbhopmgame-8826db5f-6f10-4bd1-aefc-606579efd366",
-  "storageBucket": "pacific-ember-18chg.firebasestorage.app",
-  "messagingSenderId": "206581825854",
+  "projectId": "wish-magic-47944",
+  "appId": "1:281035115213:web:2af5b3a6f0ceb6c64eb784",
+  "apiKey": "AIzaSyCiZmxmfgyj555EI4af_rt5X_id31F4Vq0",
+  "authDomain": "wish-magic-47944.firebaseapp.com",
+  "storageBucket": "wish-magic-47944.firebasestorage.app",
+  "messagingSenderId": "281035115213",
   "measurementId": "",
-  "oAuthClientId": "206581825854-7v4s15i3ac3qckhnh8s7peol0173a74h.apps.googleusercontent.com",
   "recaptchaSiteKey": ""
 }
