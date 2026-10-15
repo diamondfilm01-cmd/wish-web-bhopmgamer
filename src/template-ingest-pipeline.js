@@ -73,18 +73,87 @@ export async function computePackageFingerprint(filesMap) {
 export const DANGEROUS_EXTENSIONS = /\.(exe|sh|bat|cmd|com|vbs|php|py|pl|cgi|jar|war|scr|msi|dll|so)$/i;
 
 /**
- * Creates a valid ZIP Uint8Array archive from an array of files ({ path/name, content })
+ * Normalizes uploaded files from either an Array ([{ path, content, isBase64 }])
+ * or an Object map ({ [relPath]: { content, isBase64 } | string | Uint8Array })
+ * into a canonical array of file descriptors.
+ */
+export function normalizeUploadedFilesInput(filesInput) {
+  if (!filesInput) return [];
+  if (Array.isArray(filesInput)) {
+    return filesInput
+      .map(f => {
+        if (!f || typeof f !== "object") return null;
+        const filePath = f.path || f.relativePath || f.name || f.filename;
+        if (!filePath || typeof filePath !== "string") return null;
+        return {
+          path: filePath.replace(/\\/g, "/").replace(/^\/+/, ""),
+          content: f.content !== undefined ? f.content : (f.data !== undefined ? f.data : ""),
+          isBase64: Boolean(f.isBase64)
+        };
+      })
+      .filter(Boolean);
+  }
+  if (typeof filesInput === "object") {
+    return Object.entries(filesInput)
+      .map(([relPath, val]) => {
+        if (!relPath || typeof relPath !== "string") return null;
+        if (val instanceof Uint8Array || val instanceof ArrayBuffer) {
+          return { path: relPath.replace(/\\/g, "/").replace(/^\/+/, ""), content: new Uint8Array(val), isBase64: false };
+        }
+        if (typeof val === "string") {
+          return { path: relPath.replace(/\\/g, "/").replace(/^\/+/, ""), content: val, isBase64: val.startsWith("data:") && val.includes(";base64,") };
+        }
+        if (val && typeof val === "object") {
+          const rawContent = val.content !== undefined ? val.content : (val.data !== undefined ? val.data : "");
+          return {
+            path: (val.path || val.relativePath || relPath).replace(/\\/g, "/").replace(/^\/+/, ""),
+            content: rawContent,
+            isBase64: Boolean(val.isBase64 || (typeof rawContent === "string" && rawContent.startsWith("data:") && rawContent.includes(";base64,")))
+          };
+        }
+        return null;
+      })
+      .filter(Boolean);
+  }
+  return [];
+}
+
+function decodeBase64ToBytes(b64String) {
+  const cleanB64 = String(b64String || "").replace(/^data:[^;]+;base64,/i, "").replace(/\s+/g, "");
+  const binStr = atob(cleanB64);
+  const bytes = new Uint8Array(binStr.length);
+  for (let i = 0; i < binStr.length; i++) {
+    bytes[i] = binStr.charCodeAt(i);
+  }
+  return bytes;
+}
+
+/**
+ * Creates a valid ZIP Uint8Array archive from an array or object map of files ({ path/name, content, isBase64 })
  */
 export async function createZipFromFiles(files = []) {
-  const zip = new JSZip();
-  for (const f of files) {
-    const filePath = f.path || f.name || f.filename;
-    if (!filePath) continue;
-    const cleanPath = filePath.replace(/^[/\\]+/, '');
-    const content = f.content || f.data || '';
-    zip.file(cleanPath, content);
+  const normalizedList = normalizeUploadedFilesInput(files);
+  if (normalizedList.length === 0) {
+    const err = new Error("No valid files provided to build template ZIP archive");
+    err.code = "ZIP_EMPTY";
+    throw err;
   }
-  return await zip.generateAsync({ type: 'uint8array', compression: 'DEFLATE' });
+  const zip = new JSZip();
+  for (const f of normalizedList) {
+    const cleanPath = String(f.path || "").replace(/^[/\\]+/, "");
+    if (!cleanPath) continue;
+    const rawContent = f.content;
+    if (rawContent instanceof Uint8Array) {
+      zip.file(cleanPath, rawContent);
+    } else if (rawContent instanceof ArrayBuffer) {
+      zip.file(cleanPath, new Uint8Array(rawContent));
+    } else if (typeof rawContent === "string" && (f.isBase64 || (rawContent.startsWith("data:") && rawContent.includes(";base64,")))) {
+      zip.file(cleanPath, decodeBase64ToBytes(rawContent));
+    } else {
+      zip.file(cleanPath, String(rawContent ?? ""));
+    }
+  }
+  return await zip.generateAsync({ type: "uint8array", compression: "DEFLATE" });
 }
 
 /**
@@ -323,7 +392,8 @@ export function classifyFileRole(relPath, isEntry) {
   if (ext === 'js' || ext === 'mjs') return 'script';
   if (['png', 'jpg', 'jpeg', 'webp', 'gif', 'svg', 'ico'].includes(ext)) return 'asset';
   if (['woff', 'woff2', 'ttf', 'otf', 'eot'].includes(ext)) return 'font';
-  if (['mp3', 'wav', 'ogg', 'm4a'].includes(ext)) return 'audio';
+  if (['mp3', 'wav', 'ogg', 'm4a', 'aac'].includes(ext)) return 'audio';
+  if (['mp4', 'webm', 'mov', 'm4v'].includes(ext)) return 'video';
   if (ext === 'json') return 'manifest';
   return 'asset';
 }

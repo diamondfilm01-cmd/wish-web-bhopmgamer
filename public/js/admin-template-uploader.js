@@ -55,7 +55,30 @@ function handleCustomCoverThumb(input) {
   }
 }
 
-// 1. Handle Selection of a Full Directory/Folder
+// 1. Handle Selection of a Full Directory/Folder or Multiple Dropped Files
+function handleMultipleFiles(fileList) {
+  return handleFolderSelection(fileList);
+}
+
+function serializeUploadedFilesToArray(filesMap) {
+  if (!filesMap) return [];
+  if (Array.isArray(filesMap)) return filesMap;
+  return Object.entries(filesMap).map(([relPath, entry]) => {
+    if (typeof entry === "string") {
+      return {
+        path: relPath,
+        content: entry,
+        isBase64: entry.startsWith("data:") && entry.includes(";base64,")
+      };
+    }
+    return {
+      path: relPath,
+      content: entry && entry.content !== undefined ? entry.content : "",
+      isBase64: Boolean(entry && entry.isBase64)
+    };
+  });
+}
+
 async function handleFolderSelection(fileList) {
   if (!fileList || fileList.length === 0) return;
   currentZipRawFile = null;
@@ -409,6 +432,7 @@ async function deployUploadedTemplate() {
     `;
   }
 
+  const normalizedFilesArray = serializeUploadedFilesToArray(currentUploadedFiles);
   const payload = {
     name: title,
     category: catInput ? catInput.value : 'Birthday',
@@ -419,7 +443,8 @@ async function deployUploadedTemplate() {
     featured: featuredInput ? featuredInput.checked : true,
     thumbnail: customCoverThumbnail || 'https://images.unsplash.com/photo-1513151233558-d860c5398176?w=600&auto=format&fit=crop&q=80',
     detectedFields: detectedDynamicFields,
-    files: currentUploadedFiles
+    files: normalizedFilesArray,
+    filesMap: currentUploadedFiles
   };
 
   if (currentZipRawFile) {
@@ -453,16 +478,31 @@ async function deployUploadedTemplate() {
 
   try {
     const idempotencyKey = 'op_' + Date.now().toString(36) + '_' + Math.random().toString(36).slice(2, 8);
-    const res = await fetch('/api/templates/upload', {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        'Idempotency-Key': idempotencyKey
-      },
-      body: JSON.stringify(payload)
-    });
+    let res = null;
+    let data = null;
+    const maxAttempts = 2;
 
-    const data = await res.json();
+    for (let attempt = 1; attempt <= maxAttempts; attempt++) {
+      try {
+        res = await fetch('/api/templates/upload', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'Idempotency-Key': idempotencyKey
+          },
+          body: JSON.stringify(payload)
+        });
+        data = await res.json().catch(() => ({}));
+        if (res.status >= 502 && res.status <= 504 && attempt < maxAttempts) {
+          await new Promise(r => setTimeout(r, 600 * attempt));
+          continue;
+        }
+        break;
+      } catch (netErr) {
+        if (attempt >= maxAttempts) throw netErr;
+        await new Promise(r => setTimeout(r, 600 * attempt));
+      }
+    }
     if (data.success) {
       // Only hide if not on dedicated inline Add Template page
       const upEl = document.getElementById('upload-code-modal');

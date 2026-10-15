@@ -2586,9 +2586,9 @@ app.get('/api/admin/auth/session', (req, res) => {
     }
   }
 
-  const MASTER_ADMINS = ['ankit.babusaini@gmail.com', 'bhoomgamer@gmail.com'];
+  const MASTER_ADMINS = ['ankit.babusaini@gmail.com'];
   const userEmail = (user && user.email ? user.email.toLowerCase().trim() : '');
-  const isMaster = user && (user.role === 'admin' || user.role === 'OWNER' || user.role === 'SUPER_ADMIN' || user.isAdmin || MASTER_ADMINS.includes(userEmail) || userEmail.startsWith('admin@'));
+  const isMaster = user && (user.role === 'admin' || user.role === 'OWNER' || user.role === 'SUPER_ADMIN' || user.isAdmin || MASTER_ADMINS.includes(userEmail));
 
   if (isMaster) {
     return res.json({
@@ -3785,7 +3785,7 @@ app.get('/api/admin/diagnostic', (req, res) => {
     emailProvider: process.env.RESEND_API_KEY ? 'Configured' : 'Missing',
     whatsAppProvider: process.env.WHATSAPP_TOKEN ? 'Configured' : 'Missing',
     environment: process.env.NODE_ENV || 'production',
-    publicAppUrl: process.env.PUBLIC_APP_URL || 'https://wishmagic.pages.dev',
+    publicAppUrl: process.env.PUBLIC_APP_URL || 'https://wishmagic.live',
     rateLimiting: 'Active',
     lifecycleEngine: 'Asia/Kolkata (IST = UTC+05:30) Active'
   };
@@ -3964,9 +3964,14 @@ app.post('/api/templates/upload', async (req, res) => {
     } = req.body || {};
 
     const b2Config = getB2Config(process.env);
+    let resolvedZipBase64 = zipBase64;
+    if (!resolvedZipBase64 && files && b2Config.isConfigured) {
+      const zipUint8 = await createZipFromFiles(files);
+      resolvedZipBase64 = Buffer.from(zipUint8).toString('base64');
+    }
 
-    // If a ZIP archive is provided
-    if (zipBase64) {
+    // If a ZIP archive (or B2-packaged folder bundle) is provided
+    if (resolvedZipBase64) {
       if (!b2Config.isConfigured) {
         return res.status(503).json({
           success: false,
@@ -3983,7 +3988,7 @@ app.post('/api/templates/upload', async (req, res) => {
 
       const idempotencyKey = req.headers['idempotency-key'] || req.headers['x-idempotency-key'] || req.body?.idempotencyKey || null;
 
-      const zipBuffer = Buffer.from(zipBase64, 'base64');
+      const zipBuffer = Buffer.from(resolvedZipBase64, 'base64');
       const ingestResult = await executeB2TemplateIngestPipeline({
         zipBuffer,
         templateMetadata: {
@@ -4018,7 +4023,10 @@ app.post('/api/templates/upload', async (req, res) => {
     let entryFile = 'index.html';
 
     // Write all uploaded files to public/templates-store/[templateId]/...
-    for (const [filePath, fileData] of Object.entries(files)) {
+    const normalizedEntries = Array.isArray(files)
+      ? files.map(f => [f.path || f.name || f.filename, f])
+      : Object.entries(files);
+    for (const [filePath, fileData] of normalizedEntries) {
       // Normalize path to prevent directory traversal
       const safePath = path.normalize(filePath).replace(/^(\.\.[\/\\])+/, '');
       const fullPath = path.join(targetFolder, safePath);

@@ -625,50 +625,70 @@ function getValidatedOrigin(request, env) {
   const origin = request.headers.get('Origin');
   if (!origin) return null;
 
+  let originUrl = null;
   let originHostname = '';
   try {
-    originHostname = new URL(origin).hostname;
+    originUrl = new URL(origin);
+    originHostname = originUrl.hostname.toLowerCase();
   } catch (e) {
     return null;
   }
 
-  // Exact request hostname match (same-origin is always trusted)
+  // 1. Exact request hostname match (same-origin is always trusted)
+  let reqHostname = '';
   try {
     const reqUrl = new URL(request.url);
-    if (reqUrl.hostname && (originHostname === reqUrl.hostname || origin === `${reqUrl.protocol}//${reqUrl.host}`)) {
+    reqHostname = (reqUrl.hostname || '').toLowerCase();
+    if (reqHostname && (originHostname === reqHostname || origin === `${reqUrl.protocol}//${reqUrl.host}`)) {
       return origin;
     }
   } catch (e) {}
 
+  // 2. Canonical production domain & www subdomain (wishmagic.live)
+  const canonicalDomain = ((env && env.CANONICAL_DOMAIN) || 'wishmagic.live').toLowerCase();
+  if (
+    originUrl.protocol === 'https:' &&
+    (originHostname === canonicalDomain || originHostname === `www.${canonicalDomain}`)
+  ) {
+    return origin;
+  }
+
+  // 3. Configured PUBLIC_APP_URL match
   const publicAppUrl = (env && env.PUBLIC_APP_URL) || 'https://wishmagic.live';
-  let allowedOriginHostname = 'wishmagic.live';
   try {
-    allowedOriginHostname = new URL(publicAppUrl).hostname;
+    const pubUrl = new URL(publicAppUrl);
+    if (origin === publicAppUrl || (originUrl.protocol === pubUrl.protocol && originHostname === pubUrl.hostname.toLowerCase())) {
+      return origin;
+    }
   } catch (e) {}
 
-  // Explicit ALLOWED_ORIGIN secret support
+  // 4. Explicit ALLOWED_ORIGIN support (single URL or comma-separated list)
   if (env && env.ALLOWED_ORIGIN) {
-    try {
-      const allowedSecretHostname = new URL(env.ALLOWED_ORIGIN).hostname;
-      if (origin === env.ALLOWED_ORIGIN || originHostname === allowedSecretHostname) {
-        return origin;
-      }
-    } catch (e) {}
+    const allowedList = String(env.ALLOWED_ORIGIN).split(',').map(s => s.trim()).filter(Boolean);
+    for (const entry of allowedList) {
+      try {
+        const entryUrl = new URL(entry);
+        if (origin === entry || (originUrl.protocol === entryUrl.protocol && originHostname === entryUrl.hostname.toLowerCase())) {
+          return origin;
+        }
+      } catch (e) {}
+    }
   }
 
-  // Exact match to configured app origin
-  if (origin === publicAppUrl || originHostname === allowedOriginHostname) {
+  // 5. Cloudflare Pages production & preview domains strictly scoped to project (wishmagic.pages.dev & *.wishmagic.pages.dev)
+  const pagesDomain = ((env && env.PAGES_DOMAIN) || 'wishmagic.pages.dev').toLowerCase();
+  if (
+    originUrl.protocol === 'https:' &&
+    (originHostname === pagesDomain || originHostname.endsWith(`.${pagesDomain}`))
+  ) {
     return origin;
   }
 
-  // Cloudflare Pages preview domains (*.wishmagic.pages.dev or *.pages.dev)
-  if (originHostname.endsWith('.pages.dev')) {
-    return origin;
-  }
-
-  // In development environments, allow localhost / 127.0.0.1 / AI Studio preview run URLs
-  const isDev = (env && env.ENVIRONMENT === 'development') || originHostname.includes('localhost') || originHostname.includes('127.0.0.1') || originHostname.endsWith('.run.app');
-  if (isDev) {
+  // 6. Development environment or local test runner targeting localhost / 127.0.0.1
+  const isLocalRequest = reqHostname === 'localhost' || reqHostname === '127.0.0.1';
+  const isLocalOrigin = originHostname === 'localhost' || originHostname === '127.0.0.1';
+  const isDev = (env && env.ENVIRONMENT === 'development') || (isLocalRequest && isLocalOrigin);
+  if (isDev && (isLocalOrigin || originHostname.endsWith('.run.app'))) {
     return origin;
   }
 
@@ -1159,78 +1179,15 @@ function parseJwtClaims(token) {
 }
 
 async function verifyFirebaseIdToken(idToken, env) {
-  if (!idToken || typeof idToken !== 'string') {
-    return { valid: false, error: 'AUTH_FIREBASE_TOKEN_MISSING', message: 'No authentication token provided.' };
+  const res = await verifyAuthProviderToken(idToken, env || {});
+  if (!res || !res.valid) {
+    return {
+      valid: false,
+      error: (res && res.error) || 'AUTH_FIREBASE_TOKEN_INVALID',
+      message: (res && res.message) || 'The authentication token is invalid, expired, or could not be verified.'
+    };
   }
-
-  const claims = parseJwtClaims(idToken);
-  if (!claims) {
-    return { valid: false, error: 'AUTH_FIREBASE_TOKEN_MALFORMED', message: 'The provided authentication token is malformed.' };
-  }
-
-  const projectId = (env && env.FIREBASE_PROJECT_ID) || 'wish-magic-47944';
-  const oAuthClientId = '206581825854-7v4s15i3ac3qckhnh8s7peol0173a74h.apps.googleusercontent.com';
-  const expectedFirebaseIssuer = `https://securetoken.google.com/${projectId}`;
-  const nowSec = Math.floor(Date.now() / 1000);
-
-  const isGoogleOidc = claims.aud === oAuthClientId || (claims.iss && claims.iss.includes('accounts.google.com'));
-  const isFirebaseToken = claims.aud === 'wish-magic-47944' || (claims.aud === projectId && claims.iss === expectedFirebaseIssuer) || (typeof claims.iss === 'string' && claims.iss.startsWith('https://securetoken.google.com/'));
-
-  // 1. Validate standard JWT claims
-  if (!isGoogleOidc && !isFirebaseToken) {
-    // If neither matching, still check if aud matches either
-    if (claims.aud !== projectId && claims.aud !== oAuthClientId) {
-      return { valid: false, error: 'AUTH_FIREBASE_TOKEN_AUDIENCE_MISMATCH', message: 'Token audience does not match project configuration.' };
-    }
-  }
-  if (claims.exp && claims.exp < (nowSec - 60)) {
-    return { valid: false, error: 'AUTH_FIREBASE_TOKEN_EXPIRED', message: 'Authentication session has expired. Please sign in again.' };
-  }
-  if (!claims.sub && !claims.user_id) {
-    return { valid: false, error: 'AUTH_FIREBASE_TOKEN_INVALID', message: 'Token missing user identity subject.' };
-  }
-
-  // 2. Online verification via Google Identity Toolkit (if configured in environment)
-  const serverFbKey = env?.FIREBASE_API_KEY || (typeof process !== 'undefined' && process.env?.FIREBASE_API_KEY) || null;
-  if (serverFbKey) {
-    try {
-      const lookupRes = await fetch(`https://identitytoolkit.googleapis.com/v1/accounts:lookup?key=${serverFbKey}`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ idToken })
-      });
-      const lookupData = await lookupRes.json().catch(() => ({}));
-      if (lookupRes.ok && lookupData?.users && lookupData.users.length > 0) {
-        const u = lookupData.users[0];
-        return {
-          valid: true,
-          uid: u.localId || claims.sub,
-          email: (u.email || claims.email || '').trim().toLowerCase(),
-          displayName: u.displayName || claims.name || '',
-          avatarUrl: u.photoUrl || claims.picture || null,
-          provider: u.providerUserInfo?.[0]?.providerId || claims.firebase?.sign_in_provider || 'google'
-        };
-      } else if (lookupData?.error?.message && lookupData.error.message.includes('TOKEN_EXPIRED')) {
-        return {
-          valid: false,
-          error: 'AUTH_FIREBASE_TOKEN_INVALID',
-          message: 'Google authentication token has expired. Please sign in again.'
-        };
-      }
-    } catch (netErr) {
-      console.warn('[Firebase Token Online Verification Fallback to Claims]', netErr);
-    }
-  }
-
-  // Fallback to verified claims
-  return {
-    valid: true,
-    uid: claims.sub,
-    email: (claims.email || '').trim().toLowerCase(),
-    displayName: claims.name || '',
-    avatarUrl: claims.picture || null,
-    provider: claims.firebase?.sign_in_provider || 'google'
-  };
+  return res;
 }
 
 // ============================================================================
@@ -3041,10 +2998,16 @@ async function getAuthenticatedUser(request, env) {
 
   if (!sessionToken) return null;
 
+  // Reject development bypass tokens in production
+  if (sessionToken.startsWith('dev_token_') && (!env || env.ENVIRONMENT === 'production')) {
+    return null;
+  }
+
   const db = env.DB || env.wishmagic_db || env.DATABASE || env.__D1_BETA__DB;
+  const hasDb = Boolean(db && typeof db.prepare === 'function');
 
   // Authoritative D1 Session Verification
-  if (db && typeof db.prepare === 'function') {
+  if (hasDb) {
     try {
       const now = Date.now();
       let sessionRow = await db.prepare(
@@ -3060,18 +3023,23 @@ async function getAuthenticatedUser(request, env) {
           `SELECT * FROM sessions WHERE token = ? LIMIT 1`
         ).bind(sessionToken).first().catch(() => null);
         if (sRow) {
+          if (!sRow.expires_at || Number(sRow.expires_at) <= now) {
+            await db.prepare('DELETE FROM sessions WHERE token = ?').bind(sessionToken).run().catch(() => {});
+            FALLBACK_AUTH_SESSIONS.delete(sessionToken);
+            return null;
+          }
           const uRow = await db.prepare(
             `SELECT * FROM users WHERE id = ? LIMIT 1`
           ).bind(sRow.user_id).first().catch(() => null);
           if (uRow) {
             sessionRow = {
               user_id: uRow.id,
-              email: uRow.email || uRow.mobile || 'admin@wishmagic.live',
-              display_name: uRow.display_name || uRow.name || 'Admin',
+              email: uRow.email || uRow.mobile || '',
+              display_name: uRow.display_name || uRow.name || 'Creator',
               avatar_url: uRow.avatar_url,
-              role: uRow.role || (sRow.user_id.includes('admin') || sRow.user_id.includes('owner') ? 'admin' : 'creator'),
-              plan: uRow.plan || 'VIP',
-              is_premium: 1,
+              role: uRow.role || (sRow.user_id === 'usr_admin_master' ? 'admin' : 'creator'),
+              plan: uRow.plan || (uRow.is_premium ? 'VIP' : 'Free'),
+              is_premium: uRow.is_premium ? 1 : 0,
               status: uRow.status || 'active'
             };
           }
@@ -3100,14 +3068,15 @@ async function getAuthenticatedUser(request, env) {
               };
             }
             const cleanUid = (verification.uid || '').replace(/[^a-zA-Z0-9_-]/g, '');
+            const isMaster = MASTER_ADMIN_EMAILS.has(normalizedEmail);
             return {
               id: cleanUid ? `usr_fb_${cleanUid}` : `usr_${normalizedEmail.replace(/[^a-z0-9]/g, '_')}`,
               email: normalizedEmail,
               displayName: verification.displayName || normalizedEmail.split('@')[0],
               avatarUrl: verification.avatarUrl || `https://api.dicebear.com/7.x/bottts/svg?seed=${encodeURIComponent(normalizedEmail)}`,
-              role: normalizedEmail === 'ankit.babusaini@gmail.com' ? 'admin' : 'creator',
-              plan: normalizedEmail === 'ankit.babusaini@gmail.com' ? 'VIP' : 'Free',
-              isPremium: normalizedEmail === 'ankit.babusaini@gmail.com',
+              role: isMaster ? 'admin' : 'creator',
+              plan: isMaster ? 'VIP' : 'Free',
+              isPremium: isMaster,
               status: 'active'
             };
           }
@@ -3118,6 +3087,7 @@ async function getAuthenticatedUser(request, env) {
 
       if (sessionRow) {
         if (sessionRow.status === 'suspended' || sessionRow.status === 'deactivated') {
+          FALLBACK_AUTH_SESSIONS.delete(sessionToken);
           return null;
         }
 
@@ -3126,7 +3096,7 @@ async function getAuthenticatedUser(request, env) {
         return {
           id: resolvedId,
           email: sessionRow.email,
-          displayName: sessionRow.display_name || (sessionRow.email ? sessionRow.email.split('@')[0] : 'Admin'),
+          displayName: sessionRow.display_name || (sessionRow.email ? sessionRow.email.split('@')[0] : 'Creator'),
           avatarUrl: sessionRow.avatar_url,
           role: sessionRow.role || 'creator',
           plan: sessionRow.plan || 'Free',
@@ -3134,12 +3104,18 @@ async function getAuthenticatedUser(request, env) {
           status: sessionRow.status || 'active'
         };
       }
+
+      // Authoritative D1 database is active and session was not found (revoked, expired, or invalid):
+      // Purge any stale in-memory fallback entry and reject the token.
+      FALLBACK_AUTH_SESSIONS.delete(sessionToken);
+      return null;
     } catch (err) {
       console.warn('[Session Lookup DB Warning]', err);
     }
   }
 
-  if (FALLBACK_AUTH_SESSIONS.has(sessionToken)) {
+  // Only used when D1 binding is not attached
+  if (!hasDb && FALLBACK_AUTH_SESSIONS.has(sessionToken)) {
     const cached = FALLBACK_AUTH_SESSIONS.get(sessionToken);
     if (cached && cached.expiresAt > Date.now()) {
       return cached.user;
@@ -3151,7 +3127,7 @@ async function getAuthenticatedUser(request, env) {
     try {
       const verification = await verifyFirebaseIdToken(sessionToken, env);
       if (verification && verification.valid && verification.email) {
-        const isMaster = verification.email.toLowerCase() === 'ankit.babusaini@gmail.com';
+        const isMaster = MASTER_ADMIN_EMAILS.has(verification.email.toLowerCase());
         return {
           id: verification.uid ? ('usr_fb_' + verification.uid) : ('usr_' + verification.email.replace(/[^a-z0-9]/gi, '_')),
           email: verification.email.toLowerCase(),
@@ -3207,6 +3183,19 @@ async function verifyAdminPassword(password, saltHex, expectedHash) {
   if (!password || !saltHex || !expectedHash) return false;
   const { hash } = await hashAdminPassword(password, saltHex);
   return hash === expectedHash;
+}
+
+async function recordAdminAuditLog(env, opts = {}) {
+  return logAdminAudit(env, {
+    actorId: opts.actorId || opts.adminId || 'admin',
+    actorName: opts.actorName || opts.adminEmail || 'Admin',
+    actorRole: opts.actorRole || 'ADMIN',
+    action: opts.action,
+    targetType: opts.targetType,
+    targetId: opts.targetId,
+    details: opts.details,
+    ipAddress: opts.ipAddress || null
+  });
 }
 
 async function logAdminAudit(env, { actorId, actorName, actorRole, action, targetType, targetId, details, ipAddress }) {
@@ -3294,8 +3283,19 @@ async function getAdminProfile(user, env) {
   }
 
   // 3. Fallback direct database role check & Master Email Check
+  if (user.status === 'suspended' || user.status === 'deactivated') {
+    return null;
+  }
   const userEmail = (user.email || '').toLowerCase().trim();
-  if (userEmail === 'ankit.babusaini@gmail.com' || user.role === 'admin' || (user.id && String(user.id).includes('admin'))) {
+  const primaryAdmin = (env && env.PRIMARY_ADMIN_EMAIL ? String(env.PRIMARY_ADMIN_EMAIL).toLowerCase().trim() : '');
+  if (
+    MASTER_ADMIN_EMAILS.has(userEmail) ||
+    (primaryAdmin && userEmail === primaryAdmin) ||
+    user.role === 'admin' ||
+    user.role === 'superadmin' ||
+    user.role === 'OWNER' ||
+    user.id === 'usr_admin_master'
+  ) {
     return { isAdmin: true, isOwner: true, role: 'OWNER', permissions: ['*'], status: 'active' };
   }
 
@@ -3852,7 +3852,9 @@ function validateSiteSettings(settings) {
   const promoBannerActive = s.promoBannerActive !== undefined ? Boolean(s.promoBannerActive) : inMemorySiteSettings.promoBannerActive;
   const promoBannerText = sanitizeString(String(s.promoBannerText !== undefined ? s.promoBannerText : inMemorySiteSettings.promoBannerText).trim(), 200);
   const heroImageUrl = s.heroImageUrl !== undefined ? String(s.heroImageUrl).trim() : (inMemorySiteSettings.heroImageUrl || '/assets/file_ab2082.png');
-  const heroBgMode = s.heroBgMode !== undefined ? (s.heroBgMode === 'gradient' ? 'gradient' : 'image') : (inMemorySiteSettings.heroBgMode || 'image');
+  const heroBgMode = s.heroBgMode !== undefined ? (s.heroBgMode === 'gradient' ? 'gradient' : (s.heroBgMode === 'custom-photo' ? 'custom-photo' : 'image')) : (inMemorySiteSettings.heroBgMode || 'image');
+  const hero3dFloatingEnabled = s.hero3dFloatingEnabled !== undefined ? Boolean(s.hero3dFloatingEnabled) : (inMemorySiteSettings.hero3dFloatingEnabled !== false);
+  const heroTouchBurstEnabled = s.heroTouchBurstEnabled !== undefined ? Boolean(s.heroTouchBurstEnabled) : (inMemorySiteSettings.heroTouchBurstEnabled !== false);
 
   return {
     valid: true,
@@ -4274,6 +4276,9 @@ const DEFAULT_TEMPLATE_SECTIONS = [
 ];
 
 let inMemoryTemplateVersions = new Map();
+let inMemoryUsers = [];
+let inMemoryStaff = [];
+let inMemoryOrders = [];
 
 function buildCanonicalTemplateSnapshot(template, versionNumber = 1) {
   const rawId = template.templateId || template.template_id || template.id || template.slug || 'tpl_custom';
@@ -4833,10 +4838,28 @@ export default {
       }
 
       else if (pathname === '/api/config') {
+        const canonicalPublicUrl = env.PUBLIC_APP_URL || 'https://wishmagic.live';
+        const canonicalDomain = env.CANONICAL_DOMAIN || 'wishmagic.live';
+        const pagesDomain = env.PAGES_DOMAIN || 'wishmagic.pages.dev';
         response = jsonSuccess({
           environment: env.ENVIRONMENT || 'production',
           version: APP_VERSION,
-          publicAppUrl: env.PUBLIC_APP_URL || 'https://wishmagic.live',
+          publicAppUrl: canonicalPublicUrl,
+          canonicalDomain,
+          pagesDomain,
+          allowedOrigins: [
+            canonicalPublicUrl,
+            `https://www.${canonicalDomain}`,
+            `https://${pagesDomain}`,
+            `https://*.${pagesDomain}`
+          ],
+          oauthCallbackUrls: [
+            `${canonicalPublicUrl}/__/auth/handler`,
+            `${canonicalPublicUrl}/api/auth/signin`,
+            `https://${pagesDomain}/__/auth/handler`,
+            `https://${pagesDomain}/api/auth/signin`,
+            'https://wish-magic-47944.firebaseapp.com/__/auth/handler'
+          ],
           features: {
             musicCustomization: true,
             photoUploads: true,
@@ -5313,11 +5336,15 @@ export default {
         );
       }
 
-      else if (pathname === '/api/auth/signout' && method === 'POST') {
+      else if ((pathname === '/api/auth/signout' || pathname === '/api/auth/logout') && method === 'POST') {
         const token = getCookie(request, 'wm_session') || (request.headers.get('Authorization') || '').replace(/^Bearer\s+/i, '').trim();
-        if (token && env.DB && typeof env.DB.prepare === 'function') {
+        if (token) {
+          FALLBACK_AUTH_SESSIONS.delete(token);
+        }
+        const db = env.DB || env.wishmagic_db || env.DATABASE || env.__D1_BETA__DB;
+        if (token && db && typeof db.prepare === 'function') {
           try {
-            await env.DB.prepare('DELETE FROM sessions WHERE token = ?').bind(token).run();
+            await db.prepare('DELETE FROM sessions WHERE token = ?').bind(token).run();
           } catch (e) {
             console.warn('[Signout Error]', e);
           }
@@ -7456,17 +7483,24 @@ export default {
             }
           }
 
-          if (!zipBuffer && body.files && Array.isArray(body.files) && body.files.length > 0) {
+          const rawFilesBundle = body.files || body.filesMap || body.currentUploadedFiles || null;
+          const hasLooseFiles = rawFilesBundle && (
+            (Array.isArray(rawFilesBundle) && rawFilesBundle.length > 0) ||
+            (typeof rawFilesBundle === 'object' && !Array.isArray(rawFilesBundle) && Object.keys(rawFilesBundle).length > 0)
+          );
+          if (!zipBuffer && hasLooseFiles) {
             try {
-              zipBuffer = await createZipFromFiles(body.files);
+              zipBuffer = await createZipFromFiles(rawFilesBundle);
             } catch (packErr) {
               console.warn('[Template Upload] Could not create zip from loose files:', packErr.message);
+              return applySecurityHeaders(jsonError(packErr.code || 'INVALID_FILES_BUNDLE', `Failed to package folder files into ZIP archive: ${packErr.message}`, 400), request, env);
             }
           }
         }
 
-        // Enforce: No fake storage success if B2 is not configured
-        if (!b2Config.isConfigured) {
+        // Enforce: No fake storage success if B2 is not configured (unless custom storageProvider injected)
+        const injectedStorageProvider = env.B2_STORAGE_PROVIDER || null;
+        if (!b2Config.isConfigured && !injectedStorageProvider) {
           return applySecurityHeaders(jsonSuccess({
             success: false,
             error: 'B2_NOT_CONFIGURED',
@@ -7481,7 +7515,7 @@ export default {
         }
 
         if (!zipBuffer) {
-          return applySecurityHeaders(jsonError('ZIP_MISSING', 'A valid template ZIP archive is required for ingestion into Backblaze B2', 400), request, env);
+          return applySecurityHeaders(jsonError('ZIP_MISSING', 'A valid template ZIP archive or folder files bundle is required for ingestion into Backblaze B2', 400), request, env);
         }
 
         const idempotencyKey = request.headers.get('Idempotency-Key') || 
@@ -7489,14 +7523,29 @@ export default {
                                templateMeta.idempotencyKey || null;
 
         // Execute Real Ingestion Pipeline
-        const ingestResult = await executeB2TemplateIngestPipeline({
-          zipBuffer,
-          templateMetadata: templateMeta,
-          env,
-          db: env.DB,
-          authorId: user.id || 'admin',
-          idempotencyKey
-        });
+        let ingestResult;
+        try {
+          ingestResult = await executeB2TemplateIngestPipeline({
+            zipBuffer,
+            templateMetadata: templateMeta,
+            env,
+            db: env.DB,
+            storageProvider: injectedStorageProvider,
+            authorId: user.id || 'admin',
+            idempotencyKey
+          });
+        } catch (ingestErr) {
+          const errCode = ingestErr.code || 'TEMPLATE_INGEST_ERROR';
+          const isSizeErr = errCode.includes('TOO_LARGE') || errCode.includes('SIZE_EXCEEDED') || errCode.includes('COUNT_EXCEEDED');
+          const status = isSizeErr ? 413 : (errCode === 'DATABASE_UNAVAILABLE' ? 503 : 400);
+          return applySecurityHeaders(jsonSuccess({
+            success: false,
+            error: errCode,
+            code: errCode,
+            message: ingestErr.message,
+            isRetryable: Boolean(ingestErr.isRetryable)
+          }, status), request, env);
+        }
 
         if (!ingestResult.success) {
           const status = ingestResult.code === 'B2_NOT_CONFIGURED' ? 503 : 400;
@@ -7581,13 +7630,15 @@ export default {
             `).bind(versionId, relPath, relPath).first();
           }
 
-          const targetStorageKey = fileRecord?.storage_key || `templates/fam_${templateId}/versions/${versionId}/runtime/${relPath.replace(/^\/+/, '')}`;
+          const cleanFamilySlug = String(templateId || 'default').replace(/^tpl_/, '');
+          const targetStorageKey = fileRecord?.storage_key || `templates/fam_${cleanFamilySlug}/versions/${versionId}/runtime/${relPath.replace(/^\/+/, '')}`;
           const resolvedMime = fileRecord?.mime_type || getMimeType(relPath);
 
           const b2Config = getB2Config(env);
-          if (b2Config.isConfigured) {
+          const injectedStorageProvider = env.B2_STORAGE_PROVIDER || null;
+          if (b2Config.isConfigured || injectedStorageProvider) {
             try {
-              const b2Provider = B2StorageProvider.fromEnv(env);
+              const b2Provider = injectedStorageProvider || B2StorageProvider.fromEnv(env);
               const b2Res = await b2Provider.getObject({ key: targetStorageKey });
               return new Response(b2Res.body, {
                 status: 200,
@@ -8023,11 +8074,12 @@ export default {
 
         try {
           // Cloudflare D1 batching executes atomically in a single transaction
+          const resolvedFamilyId = ver.template_family_id || `fam_${String(templateId).replace(/^tpl_/, '')}`;
           const publishStatements = [
             env.DB.prepare("UPDATE template_versions SET is_current = 0, status = 'rollback_candidate', archived_at = ? WHERE template_id = ? AND is_current = 1").bind(nowIso, templateId),
             env.DB.prepare("UPDATE template_versions SET is_current = 1, status = 'published', published_at = ?, published_by = ?, lock_version = lock_version + 1, updated_at = ? WHERE id = ? AND template_id = ?").bind(nowIso, user.id || 'admin', nowIso, versionId, templateId),
             env.DB.prepare("UPDATE templates SET status = 'published', is_published = 1, current_version_id = ?, updated_at = ? WHERE id = ?").bind(versionId, nowIso, templateId),
-            env.DB.prepare("UPDATE template_families SET current_version_id = ?, updated_at = ? WHERE id = ? OR id = ?").bind(versionId, nowIso, `fam_${templateId}`, templateId)
+            env.DB.prepare("UPDATE template_families SET status = 'published', current_version_id = ?, updated_at = ? WHERE id = ? OR id = ? OR id = ?").bind(versionId, nowIso, resolvedFamilyId, `fam_${templateId}`, templateId)
           ];
 
           if (typeof env.DB.batch === 'function') {
@@ -14763,7 +14815,10 @@ export default {
 
       // --- Admin Auth Logout ---
       else if (pathname === '/api/admin/auth/logout' && method === 'POST') {
-        const sessionToken = getCookie(request, 'wm_session');
+        const sessionToken = getCookie(request, 'wm_session') || (request.headers.get('Authorization') || '').replace(/^Bearer\s+/i, '').trim();
+        if (sessionToken) {
+          FALLBACK_AUTH_SESSIONS.delete(sessionToken);
+        }
         if (sessionToken && env.DB && typeof env.DB.prepare === 'function') {
           await env.DB.prepare('DELETE FROM sessions WHERE token = ?').bind(sessionToken).run();
         }

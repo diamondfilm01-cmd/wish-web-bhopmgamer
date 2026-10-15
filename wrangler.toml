@@ -3,11 +3,13 @@ compatibility_date = "2024-09-23"
 compatibility_flags = ["nodejs_compat"]
 pages_build_output_dir = "public"
 
-# Environment Variables (Non-conflicting global Pages configuration)
+# Environment Variables (Canonical production domain & Pages preview configuration)
 # Note: Sensitive secrets and storage bucket bindings (B2_BUCKET_NAME, B2_APPLICATION_KEY,
 # B2_APPLICATION_KEY_ID, IMGBB_API_KEY) are managed in Cloudflare Dashboard to avoid duplicate binding collisions.
 [vars]
-PUBLIC_APP_URL = "https://wishmagic.pages.dev"
+PUBLIC_APP_URL = "https://wishmagic.live"
+CANONICAL_DOMAIN = "wishmagic.live"
+PAGES_DOMAIN = "wishmagic.pages.dev"
 ENVIRONMENT = "production"
 ENABLE_RATE_LIMITING = "true"
 ALLOWED_ORIGIN = "https://wishmagic.live"
@@ -39,4 +41,3 @@ migrations_dir = "migrations"
 # Scheduled tasks are executed via Cloudflare Workers Cron Triggers or external webhook / scheduler.
 # [triggers]
 # crons = ["*/15 * * * *"]
-

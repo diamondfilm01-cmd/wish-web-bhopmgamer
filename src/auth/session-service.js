@@ -6,9 +6,10 @@
 export const SESSION_COOKIE_NAME = 'wm_session';
 export const DEFAULT_SESSION_DURATION_MS = 30 * 24 * 60 * 60 * 1000; // 30 days
 
+export const PRIMARY_OWNER_ADMIN_EMAIL = 'ankit.babusaini@gmail.com';
+
 export const MASTER_ADMIN_EMAILS = new Set([
-  'ankit.babusaini@gmail.com',
-  'shrijiposhakbhandarshop@gmail.com'
+  PRIMARY_OWNER_ADMIN_EMAIL
 ]);
 
 /**
@@ -16,9 +17,11 @@ export const MASTER_ADMIN_EMAILS = new Set([
  */
 export function getCookie(request, name = SESSION_COOKIE_NAME) {
   if (!request) return null;
-  const cookieHeader = request.headers ? request.headers.get('Cookie') : (request.headers?.cookie || null);
+  const cookieHeader = request.headers && typeof request.headers.get === 'function'
+    ? request.headers.get('Cookie')
+    : (request.headers?.cookie || request.headers?.Cookie || null);
   if (!cookieHeader) return null;
-  const match = cookieHeader.match(new RegExp('(^|;\\s*)' + name + '=([^;]*)'));
+  const match = cookieHeader.match(new RegExp('(^|;\\s*)(' + name + ')=([^;]*)'));
   return match ? decodeURIComponent(match[3]) : null;
 }
 
@@ -132,7 +135,7 @@ export async function verifyAdminRole(user, env = {}, db = null) {
   const normEmail = user.email.trim().toLowerCase();
   const primaryAdmin = (env.PRIMARY_ADMIN_EMAIL || '').trim().toLowerCase();
 
-  // 1. Check primary admin emails
+  // 1. Check canonical owner-admin email policy
   if (MASTER_ADMIN_EMAILS.has(normEmail) || (primaryAdmin && normEmail === primaryAdmin)) {
     return true;
   }
