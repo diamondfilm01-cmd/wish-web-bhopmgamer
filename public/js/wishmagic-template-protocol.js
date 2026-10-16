@@ -110,8 +110,19 @@
         (element.tagName === 'IMG' || element.tagName === 'AUDIO' || element.tagName === 'VIDEO' ? 'src' : 'text')
       ).toLowerCase();
 
-      const isRequired = element.getAttribute('data-wm-required') === 'true' || Boolean(fieldConfig && fieldConfig.required);
-      const defaultValue = element.getAttribute('data-wm-default') || (fieldConfig && fieldConfig.defaultValue !== undefined ? fieldConfig.defaultValue : '');
+      if (
+        !element.hasAttribute('data-wm-original-text') &&
+        !['IMG', 'AUDIO', 'VIDEO', 'INPUT', 'TEXTAREA', 'SELECT'].includes(element.tagName)
+      ) {
+        element.setAttribute('data-wm-original-text', element.textContent || '');
+      }
+      const originalDomText = element.getAttribute('data-wm-original-text') || '';
+      const isNameOrDob = ['recipient_name', 'recipientname', 'event_date', 'eventdate', 'dob', 'birth_date', 'celebration_date'].includes(String(key).toLowerCase());
+      const isRequired = isNameOrDob || element.getAttribute('data-wm-required') === 'true' || Boolean(fieldConfig && fieldConfig.required);
+      const manifestDef = (fieldConfig && fieldConfig.defaultValue !== undefined && fieldConfig.defaultValue !== null && String(fieldConfig.defaultValue) !== '')
+        ? fieldConfig.defaultValue
+        : '';
+      const defaultValue = element.getAttribute('data-wm-default') || manifestDef || originalDomText || '';
 
       const hasValue = value !== undefined && value !== null && (
         Array.isArray(value) ? value.length > 0 : String(value).trim() !== ''
@@ -264,14 +275,24 @@
           if (element.tagName === 'INPUT' || element.tagName === 'TEXTAREA' || element.tagName === 'SELECT') {
             element.value = activeValue !== undefined && activeValue !== null ? String(activeValue) : '';
           } else if (key === 'sender_name') {
-            const rawSender = String(activeValue || '').trim();
-            setTextSafe(element, rawSender ? (rawSender.startsWith('—') ? rawSender : `— ${rawSender}`) : '— Someone Special');
+            if (hasValue) {
+              const rawSender = String(value).trim();
+              const origStartsDash = originalDomText.trim().startsWith('—');
+              setTextSafe(element, origStartsDash && !rawSender.startsWith('—') ? `— ${rawSender}` : rawSender);
+            } else {
+              setTextSafe(element, defaultValue || originalDomText || '— Someone Special');
+            }
           } else if (key === 'recipient_name') {
-            setTextSafe(element, activeValue || 'Someone Special');
+            setTextSafe(element, activeValue || originalDomText || 'Someone Special');
           } else if (key === 'custom_message') {
-            setTextSafe(element, activeValue || 'May your day be filled with warm magic, sparkling smiles, and infinite moments of joy!');
+            setTextSafe(element, activeValue || originalDomText || 'May your day be filled with warm magic, sparkling smiles, and infinite moments of joy!');
           } else {
-            setTextSafe(element, activeValue);
+            // If user did not customize this message/text field, keep its normal template text
+            if (hasValue || activeValue !== '') {
+              setTextSafe(element, activeValue);
+            } else if (originalDomText) {
+              setTextSafe(element, originalDomText);
+            }
           }
           break;
         }

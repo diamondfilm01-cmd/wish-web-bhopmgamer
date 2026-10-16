@@ -359,14 +359,14 @@
             <div class="grid grid-cols-1 sm:grid-cols-2 gap-3.5">
               <div>
                 <label for="input-sender" class="block text-xs font-bold text-purple-950 dark:text-white mb-1.5">
-                  From (Your Name) <span class="text-pink-500">*</span>
+                  From (Your Name) <span class="text-purple-500 font-normal">(Optional)</span>
                 </label>
                 <input type="text" id="input-sender" oninput="handleSenderInput(this.value)" placeholder="e.g. Rohan & Squad" class="w-full text-xs sm:text-sm font-semibold rounded-2xl border border-purple-200/80 dark:border-purple-800/60 px-4 py-3 bg-white/80 dark:bg-purple-950/60 text-purple-950 dark:text-purple-100 focus:outline-none focus:ring-2 focus:ring-pink-500 transition shadow-inner"/>
               </div>
 
               <div>
                 <label for="input-date" class="block text-xs font-bold text-purple-950 dark:text-white mb-1.5">
-                  Celebration Date <span class="text-pink-500">*</span>
+                  Date of Birth / Celebration Date <span class="text-pink-500">*</span>
                 </label>
                 <input type="date" id="input-date" onchange="handleDateInput(this.value)" class="w-full text-xs sm:text-sm font-semibold rounded-2xl border border-purple-200/80 dark:border-purple-800/60 px-4 py-3 bg-white/80 dark:bg-purple-950/60 text-purple-950 dark:text-purple-100 focus:outline-none focus:ring-2 focus:ring-pink-500 transition shadow-inner"/>
               </div>
@@ -441,7 +441,7 @@
             <div>
               <div class="flex items-center justify-between mb-1.5">
                 <label for="input-message" class="block text-xs font-bold text-purple-950 dark:text-white">
-                  Heartfelt Dedication Message
+                  Heartfelt Dedication Message <span class="text-purple-500 font-normal">(Optional — keeps normal template message if unchanged)</span>
                 </label>
                 <div class="flex items-center gap-2">
                   <button type="button" id="btn-reset-variant-defaults" onclick="resetToVariantDefaults()" class="hidden text-[10px] text-pink-600 dark:text-pink-400 font-bold hover:underline cursor-pointer">↺ Reset to Variant Default</button>

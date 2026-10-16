@@ -22,6 +22,18 @@ ALTER TABLE users ADD COLUMN moderation_strikes INTEGER DEFAULT 0;
 ALTER TABLE users ADD COLUMN moderation_restricted INTEGER DEFAULT 0;
 ALTER TABLE users ADD COLUMN moderation_restriction_reason TEXT;
 ALTER TABLE users ADD COLUMN moderation_restricted_until TEXT;
+ALTER TABLE template_versions ADD COLUMN category TEXT;
+ALTER TABLE template_versions ADD COLUMN tier TEXT DEFAULT 'free';
+ALTER TABLE template_versions ADD COLUMN price INTEGER DEFAULT 0;
+ALTER TABLE template_versions ADD COLUMN thumbnail TEXT;
+ALTER TABLE template_versions ADD COLUMN theme TEXT;
+ALTER TABLE template_versions ADD COLUMN layout TEXT;
+ALTER TABLE template_versions ADD COLUMN animations TEXT;
+ALTER TABLE template_versions ADD COLUMN default_config TEXT;
+ALTER TABLE template_versions ADD COLUMN snapshot_data TEXT;
+ALTER TABLE template_versions ADD COLUMN created_by TEXT DEFAULT 'system';
+ALTER TABLE template_families ADD COLUMN published_version_id TEXT;
+ALTER TABLE template_families ADD COLUMN latest_version_id TEXT;
 
 -- 2. MODERATION ITEMS & QUARANTINE VAULT TABLE
 CREATE TABLE IF NOT EXISTS moderation_items (

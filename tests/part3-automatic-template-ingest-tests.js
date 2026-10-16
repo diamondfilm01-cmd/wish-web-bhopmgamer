@@ -357,4 +357,244 @@ test('Part 3 — Automatic Template ZIP Ingestion Engine & Storage Pipeline', as
     assert.ok(deletedObjects.some(k => k.includes('source/template.zip') || k.includes('runtime/index.html')), 'Source ZIP or runtime files deleted during rollback');
   });
 
+
+  await t.test("TEST 11: Real SQLite D1 Auto-Healing when template_upload_operations or template_versions columns are missing", async () => {
+    const { DatabaseSync } = await import("../scripts/sqlite-compat.js");
+    const rawDb = new DatabaseSync(":memory:");
+    // Simulate legacy D1 database missing template_upload_operations and missing category/tier/price on template_versions
+    rawDb.exec(`
+      CREATE TABLE templates (
+        id TEXT PRIMARY KEY,
+        name TEXT NOT NULL,
+        slug TEXT UNIQUE NOT NULL,
+        description TEXT,
+        category TEXT NOT NULL,
+        thumbnail TEXT NOT NULL DEFAULT "",
+        folder TEXT NOT NULL DEFAULT "",
+        created_at TEXT NOT NULL,
+        updated_at TEXT NOT NULL
+      );
+      CREATE TABLE template_versions (
+        id TEXT PRIMARY KEY,
+        template_id TEXT NOT NULL,
+        version_number INTEGER NOT NULL DEFAULT 1,
+        name TEXT NOT NULL,
+        status TEXT NOT NULL DEFAULT "active",
+        created_at TEXT NOT NULL
+      );
+    `);
+
+    const realD1 = {
+      prepare(sql) {
+        let bound = [];
+        return {
+          bind(...args) { bound = args; return this; },
+          async run() {
+            const stmt = rawDb.prepare(sql);
+            const info = stmt.run(...bound);
+            return { success: true, meta: { changes: info.changes } };
+          },
+          async first() {
+            const stmt = rawDb.prepare(sql);
+            return stmt.get(...bound) || null;
+          },
+          async all() {
+            const stmt = rawDb.prepare(sql);
+            return { success: true, results: stmt.all(...bound) };
+          }
+        };
+      },
+      async batch(stmts) {
+        const out = [];
+        for (const s of stmts) out.push(await s.run());
+        return out;
+      }
+    };
+
+    const zip = new JSZip();
+    zip.file("wishmagic.json", JSON.stringify({
+      "$schema": "wishmagic-template",
+      "schemaVersion": "1.0.0",
+      "template": {
+        "id": "bro-code-dost-hai-ya-namuna",
+        "name": "Bro Code: Dost Hai Ya Namuna?",
+        "category": "friendship",
+        "tier": "free",
+        "price": 0,
+        "entry": "index.html"
+      },
+      "fields": [
+        { "id": "recipient_name", "type": "text", "label": "Friend Name", "required": true, "defaultValue": "Rohan" },
+        { "id": "photo_1", "type": "image", "label": "Cover Photo", "required": false, "defaultValue": "assets/images/cover.jpg" }
+      ]
+    }));
+    zip.file("index.html", "<!DOCTYPE html><html><head><title>Bro Code</title></head><body><h1 data-wm-field=\"recipient_name\" data-wm-type=\"text\">Rohan</h1><img data-wm-field=\"photo_1\" data-wm-type=\"image\" src=\"assets/images/cover.jpg\"/></body></html>");
+    zip.file("assets/images/cover.jpg", new Uint8Array([0xFF, 0xD8, 0xFF, 0xE0, 0x00, 0x10, 0x4A, 0x46, 0x49, 0x46]));
+    const zipBuffer = await zip.generateAsync({ type: "uint8array" });
+
+    const res = await executeB2TemplateIngestPipeline({
+      zipBuffer,
+      templateMetadata: {
+        name: "Bro Code: Dost Hai Ya Namuna?",
+        category: "Friendship",
+        tier: "free",
+        price: 0,
+        publishImmediately: true
+      },
+      env: {},
+      db: realD1,
+      storageProvider: {
+        bucketName: "wishmagic-assets",
+        async putObject({ key }) { return { success: true, key, fileId: "b2_" + key }; }
+      },
+      imgbbProvider: {
+        async uploadImage({ filename, name }) {
+          return {
+            displayUrl: "https://i.ibb.co/bro/" + filename,
+            originalUrl: "https://i.ibb.co/bro/" + filename,
+            thumbnailUrl: "https://i.ibb.co/bro/t_" + filename,
+            providerAssetId: "imgbb_" + name,
+            mimeType: "image/jpeg",
+            sizeBytes: 1024,
+            width: 600,
+            height: 600
+          };
+        }
+      },
+      authorId: "admin_ankit",
+      idempotencyKey: "op_auto_heal_bro_code_v1"
+    });
+
+    assert.strictEqual(res.success, true, "Must auto-heal D1 schema and complete ingestion without IDEMPOTENCY_LOOKUP_FAILED");
+    assert.strictEqual(res.templateId, "tpl_bro-code-dost-hai-ya-namuna");
+    assert.strictEqual(res.isPublished, true);
+
+    const savedOp = rawDb.prepare("SELECT * FROM template_upload_operations WHERE idempotency_key = ?").get("op_auto_heal_bro_code_v1");
+    assert.ok(savedOp, "template_upload_operations row must be persisted after auto-healing");
+    assert.strictEqual(savedOp.state, UPLOAD_OPERATION_STATE.PREVIEW_READY);
+
+    const savedImg = rawDb.prepare("SELECT * FROM template_images WHERE template_id = ?").get("tpl_bro-code-dost-hai-ya-namuna");
+    assert.ok(savedImg, "template_images row must be persisted with original_filename");
+    assert.strictEqual(savedImg.original_filename, "cover.jpg");
+  });
+
+
+  await t.test("TEST 12: Mandatory Name & DOB Enforcement and Default Message/Text Preservation When Uncustomized", async () => {
+    const vm = await import("node:vm");
+    const zip = new JSZip();
+    zip.file("wishmagic.json", JSON.stringify({
+      "$schema": "wishmagic-template",
+      "schemaVersion": "1.0.0",
+      "template": {
+        "id": "bro-code-default-preservation",
+        "name": "Bro Code Default Preservation",
+        "category": "friendship",
+        "tier": "free",
+        "price": 0,
+        "entry": "index.html"
+      },
+      "fields": [
+        { "id": "recipient_name", "type": "text", "label": "Friend Name", "required": true, "defaultValue": "Rohan" },
+        { "id": "event_date", "type": "date", "label": "Date of Birth", "required": false, "defaultValue": "2026-12-25" },
+        { "id": "custom_message", "type": "textarea", "label": "Main Message", "required": true, "defaultValue": "Tu chahe kitna bhi namuna ho, bhai hamesha rahega!" },
+        { "id": "hero_title", "type": "text", "label": "Hero Title", "required": true, "defaultValue": "BRO CODE" },
+        { "id": "sender_name", "type": "text", "label": "Sender Name", "required": false, "defaultValue": "Tera Asli Bhai" }
+      ]
+    }));
+    zip.file(
+      "index.html",
+      "<!DOCTYPE html><html><head><title>Bro Code</title></head><body>" +
+      "<h1 data-wm-field=\"hero_title\" data-wm-type=\"text\">BRO CODE</h1>" +
+      "<span data-wm-field=\"recipient_name\" data-wm-type=\"text\">Rohan</span>" +
+      "<span data-wm-field=\"event_date\" data-wm-type=\"date\">2026-12-25</span>" +
+      "<p data-wm-field=\"custom_message\" data-wm-type=\"textarea\">Tu chahe kitna bhi namuna ho, bhai hamesha rahega!</p>" +
+      "<span data-wm-field=\"sender_name\" data-wm-type=\"text\">Tera Asli Bhai</span>" +
+      "</body></html>"
+    );
+    const zipBuffer = await zip.generateAsync({ type: "uint8array" });
+
+    const mockDb = {
+      prepare() {
+        return {
+          bind() {
+            return {
+              async run() { return { success: true }; },
+              async first() { return null; },
+              async all() { return { results: [] }; }
+            };
+          }
+        };
+      }
+    };
+
+    const res = await executeB2TemplateIngestPipeline({
+      zipBuffer,
+      templateMetadata: { name: "Bro Code Default Preservation", category: "Friendship" },
+      env: {},
+      db: mockDb,
+      storageProvider: { bucketName: "test", async putObject({ key }) { return { success: true, key, fileId: "f1" }; } },
+      authorId: "admin_ankit"
+    });
+
+    assert.strictEqual(res.success, true);
+    const byKey = new Map(res.detectedFields.map(f => [f.key, f]));
+    assert.strictEqual(byKey.get("recipient_name").isRequired, true, "recipient_name (Name) must be mandatory");
+    assert.strictEqual(byKey.get("event_date").isRequired, true, "event_date (DOB) must be mandatory");
+    assert.strictEqual(byKey.get("custom_message").isRequired, false, "custom_message must be optional when default text exists");
+    assert.strictEqual(byKey.get("hero_title").isRequired, false, "hero_title must be optional when default text exists");
+    assert.strictEqual(byKey.get("sender_name").isRequired, false, "sender_name must be optional when default text exists");
+
+    // Verify runtime protocol preserves normal template text when user only enters Name and DOB
+    const elementsByField = {
+      hero_title: { tagName: "H1", textContent: "BRO CODE", _attrs: { "data-wm-field": "hero_title", "data-wm-type": "text" } },
+      recipient_name: { tagName: "SPAN", textContent: "Rohan", _attrs: { "data-wm-field": "recipient_name", "data-wm-type": "text" } },
+      event_date: { tagName: "SPAN", textContent: "2026-12-25", _attrs: { "data-wm-field": "event_date", "data-wm-type": "date" } },
+      custom_message: { tagName: "P", textContent: "Tu chahe kitna bhi namuna ho, bhai hamesha rahega!", _attrs: { "data-wm-field": "custom_message", "data-wm-type": "textarea" } },
+      sender_name: { tagName: "SPAN", textContent: "Tera Asli Bhai", _attrs: { "data-wm-field": "sender_name", "data-wm-type": "text" } }
+    };
+    Object.values(elementsByField).forEach(el => {
+      el.getAttribute = (k) => el._attrs[k] ?? null;
+      el.setAttribute = (k, v) => { el._attrs[k] = String(v); };
+      el.hasAttribute = (k) => Object.prototype.hasOwnProperty.call(el._attrs, k);
+      el.removeAttribute = (k) => { delete el._attrs[k]; };
+      el.style = {};
+    });
+
+    const sandbox = {
+      window: { addEventListener: () => {}, dispatchEvent: () => {} },
+      document: {
+        readyState: "complete",
+        documentElement: { style: { setProperty: () => {} }, setAttribute: () => {}, getAttribute: () => "1.0" },
+        body: { setAttribute: () => {}, getAttribute: () => null },
+        addEventListener: () => {},
+        dispatchEvent: () => {},
+        querySelectorAll: (sel) => {
+          const m = sel.match(/\[data-wm(?:-field)?="([^"]+)"\]/);
+          if (m && elementsByField[m[1]]) return [elementsByField[m[1]]];
+          return [];
+        }
+      },
+      CustomEvent: class { constructor(t, o) { this.type = t; this.detail = o?.detail; } }
+    };
+    sandbox.window.document = sandbox.document;
+    sandbox.window.window = sandbox.window;
+    const protoCode = fs.readFileSync("public/js/wishmagic-template-protocol.js", "utf8");
+    vm.runInContext(protoCode, vm.createContext(sandbox));
+
+    // User only customized recipient_name and event_date, leaving custom_message, hero_title, sender_name empty
+    sandbox.window.WishMagicTemplate.applyData({
+      recipient_name: "Ankit",
+      event_date: "2002-08-15",
+      custom_message: "",
+      hero_title: "",
+      sender_name: ""
+    });
+
+    assert.strictEqual(elementsByField.recipient_name.textContent, "Ankit", "Customized Name must update");
+    assert.strictEqual(elementsByField.event_date.textContent, "2002-08-15", "Customized DOB/Date must update");
+    assert.strictEqual(elementsByField.custom_message.textContent, "Tu chahe kitna bhi namuna ho, bhai hamesha rahega!", "Uncustomized message must stay as normal template message");
+    assert.strictEqual(elementsByField.hero_title.textContent, "BRO CODE", "Uncustomized title must stay as normal template text");
+    assert.strictEqual(elementsByField.sender_name.textContent, "Tera Asli Bhai", "Uncustomized sender name must stay as normal template text");
+  });
+
 });

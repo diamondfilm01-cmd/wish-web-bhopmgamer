@@ -13,6 +13,7 @@ function safeJsonParse(val, fallback = null) {
 
 import {
   executeB2TemplateIngestPipeline,
+  ensureTemplateIngestionSchema,
   validateZipMagicBytes,
   extractAndVerifyZip,
   createZipFromFiles
@@ -2533,6 +2534,7 @@ async function verifyWishMediaModerationReadiness(db, wishId, customData = {}) {
 async function ensureCoreSchema(db) {
   if (!db || typeof db.prepare !== 'function') return false;
   await ensureModerationSchema(db);
+  await ensureTemplateIngestionSchema(db);
   if (schemaInitialized) return true;
   return (await verifyAndEnsureAuthSchema(db)).ok;
 }
@@ -6240,6 +6242,24 @@ export default {
           customData.templateVersionId = templateVersionId;
           customData.template_version = templateVersionNumber;
 
+          // Preserve normal template messages/texts when user did not customize them
+          try {
+            const rawTplFields = (activeVersion && activeVersion.detectedFields) || (template && (template.detected_fields || template.detectedFields)) || [];
+            const parsedTplFields = typeof rawTplFields === 'string' ? safeJsonParse(rawTplFields, []) : rawTplFields;
+            if (Array.isArray(parsedTplFields)) {
+              for (const tf of parsedTplFields) {
+                const fKey = tf && (tf.key || tf.id);
+                if (!fKey) continue;
+                const isIdentityField = ['recipient_name', 'recipientname', 'event_date', 'eventdate', 'dob', 'birth_date', 'celebration_date'].includes(String(fKey).toLowerCase());
+                if (!isIdentityField && tf.defaultValue !== undefined && tf.defaultValue !== null && String(tf.defaultValue) !== '') {
+                  if (customData[fKey] === undefined || customData[fKey] === null || (typeof customData[fKey] === 'string' && customData[fKey].trim() === '')) {
+                    customData[fKey] = tf.defaultValue;
+                  }
+                }
+              }
+            }
+          } catch (_) {}
+
           // Authoritative Server-Side Entitlement Check (Scoped to user.id and exact templateId)
           const resolvedTplId = template ? template.id : templateId;
           const entitlement = await getEffectiveEntitlement(user, env, { templateId: resolvedTplId });
@@ -8267,6 +8287,11 @@ export default {
                                request.headers.get('X-Idempotency-Key') || 
                                templateMeta.idempotencyKey || null;
 
+        // Ensure template ingestion D1 schema is initialized before pipeline execution
+        if (env.DB && typeof env.DB.prepare === 'function') {
+          await ensureTemplateIngestionSchema(env.DB);
+        }
+
         // Execute Real Ingestion Pipeline
         let ingestResult;
         try {
@@ -8313,6 +8338,7 @@ export default {
         if (!opId) return applySecurityHeaders(jsonError('BAD_REQUEST', 'Operation ID required', 400), request, env);
 
         if (env.DB && typeof env.DB.prepare === 'function') {
+          await ensureTemplateIngestionSchema(env.DB);
           const op = await env.DB.prepare(`
             SELECT * FROM template_upload_operations WHERE id = ?
           `).bind(opId).first();

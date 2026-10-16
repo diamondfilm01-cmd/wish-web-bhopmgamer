@@ -904,7 +904,7 @@ CREATE TABLE IF NOT EXISTS template_families (
   created_by TEXT DEFAULT 'system',
   created_at TEXT NOT NULL,
   updated_at TEXT NOT NULL
-, current_version_id TEXT, rollback_version_id TEXT, supported_relationships_json TEXT DEFAULT '["friend","girlfriend","boyfriend","best_friend","crush","wife","husband","mother","father","parents","sister","brother"]', default_runtime_api TEXT DEFAULT '1.0');
+, current_version_id TEXT, rollback_version_id TEXT, supported_relationships_json TEXT DEFAULT '["friend","girlfriend","boyfriend","best_friend","crush","wife","husband","mother","father","parents","sister","brother"]', default_runtime_api TEXT DEFAULT '1.0', published_version_id TEXT, latest_version_id TEXT);
 
 -- Table: template_fields
 CREATE TABLE IF NOT EXISTS template_fields (
@@ -1045,7 +1045,7 @@ CREATE TABLE IF NOT EXISTS template_versions (
   sections TEXT,      -- JSON array of section definitions
   capabilities TEXT,  -- JSON object of supported template capabilities
   status TEXT NOT NULL DEFAULT 'active',
-  created_at TEXT NOT NULL, template_family_id TEXT, version_label TEXT DEFAULT 'v1.0.0', source_zip_storage_key TEXT, runtime_root_storage_key TEXT, manifest_storage_key TEXT, schema_hash TEXT, runtime_hash TEXT, source_zip_hash TEXT, storage_provider TEXT DEFAULT 'b2', storage_bucket TEXT, storage_metadata_json TEXT DEFAULT '{}', error_message TEXT, published_at TEXT, archived_at TEXT, fields_json TEXT DEFAULT '[]', theme_defaults_json TEXT DEFAULT '{}', effects_defaults_json TEXT DEFAULT '{}', release_notes TEXT DEFAULT '', published_by TEXT, manifest_json TEXT DEFAULT '{}', file_count INTEGER DEFAULT 0, total_size_bytes INTEGER DEFAULT 0, entry_point TEXT DEFAULT 'index.html', integrity_status TEXT DEFAULT 'unverified', integrity_checked_at TEXT, validation_report_json TEXT DEFAULT '{}', lock_version INTEGER NOT NULL DEFAULT 1, is_current INTEGER NOT NULL DEFAULT 0, protocol_version TEXT DEFAULT '1.0', schema_version TEXT DEFAULT '1.0.0', runtime_api_version TEXT DEFAULT '1.0', is_publishable INTEGER NOT NULL DEFAULT 1, package_fingerprint TEXT,
+  created_at TEXT NOT NULL, template_family_id TEXT, version_label TEXT DEFAULT 'v1.0.0', source_zip_storage_key TEXT, runtime_root_storage_key TEXT, manifest_storage_key TEXT, schema_hash TEXT, runtime_hash TEXT, source_zip_hash TEXT, storage_provider TEXT DEFAULT 'b2', storage_bucket TEXT, storage_metadata_json TEXT DEFAULT '{}', error_message TEXT, published_at TEXT, archived_at TEXT, fields_json TEXT DEFAULT '[]', theme_defaults_json TEXT DEFAULT '{}', effects_defaults_json TEXT DEFAULT '{}', release_notes TEXT DEFAULT '', published_by TEXT, manifest_json TEXT DEFAULT '{}', file_count INTEGER DEFAULT 0, total_size_bytes INTEGER DEFAULT 0, entry_point TEXT DEFAULT 'index.html', integrity_status TEXT DEFAULT 'unverified', integrity_checked_at TEXT, validation_report_json TEXT DEFAULT '{}', lock_version INTEGER NOT NULL DEFAULT 1, is_current INTEGER NOT NULL DEFAULT 0, protocol_version TEXT DEFAULT '1.0', schema_version TEXT DEFAULT '1.0.0', runtime_api_version TEXT DEFAULT '1.0', is_publishable INTEGER NOT NULL DEFAULT 1, package_fingerprint TEXT, category TEXT, tier TEXT DEFAULT 'free', price INTEGER DEFAULT 0, thumbnail TEXT, theme TEXT, layout TEXT, animations TEXT, default_config TEXT, snapshot_data TEXT, created_by TEXT DEFAULT 'system',
   FOREIGN KEY (template_id) REFERENCES templates(id) ON DELETE CASCADE
 );
 

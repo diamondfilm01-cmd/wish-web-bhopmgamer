@@ -446,12 +446,14 @@ function scanDynamicFields(html) {
         message: "Field \"" + cleanKey + "\" is declared in wishmagic.json but no matching binding ([data-wm-field='" + cleanKey + "']) was found in index.html."
       });
     }
+    const isNameOrDobSlot = ["recipient_name", "recipientname", "event_date", "eventdate", "dob", "birth_date", "celebration_date"].includes(cleanKey.toLowerCase());
+    const hasDefSlot = slot.defaultValue !== undefined && slot.defaultValue !== null && String(slot.defaultValue).trim() !== "";
     confirmedMap.set(cleanKey, {
       id: cleanKey,
       key: cleanKey,
       label: slot.label || cleanKey.replace(/_/g, " ").replace(/\b\w/g, c => c.toUpperCase()),
       type: slot.type || "text",
-      required: Boolean(slot.required || slot.isRequired),
+      required: isNameOrDobSlot ? true : (hasDefSlot ? false : Boolean(slot.required || slot.isRequired)),
       defaultValue: slot.defaultValue !== undefined && slot.defaultValue !== null ? slot.defaultValue : "",
       originalSrc: slot.originalSrc || (typeof slot.defaultValue === "string" ? slot.defaultValue : ""),
       binding: slot.binding || { target: ["image", "audio", "video"].includes(slot.type) ? "src" : "text", selector: "[data-wm-field='" + cleanKey + "']" },
@@ -1104,6 +1106,10 @@ async function deployUploadedTemplate(publishImmediately = true) {
       } catch (err2) {
         console.warn("Could not encode raw ZIP file, falling back to extracted files bundle:", err2);
       }
+    }
+    if (payload.zipBase64) {
+      delete payload.files;
+      delete payload.filesMap;
     }
   }
 

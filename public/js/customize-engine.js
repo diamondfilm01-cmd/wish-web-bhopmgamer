@@ -21,6 +21,25 @@ let isSaveInProgress = false;
 let pendingSaveAfterInFlight = false;
 let customizerTemplateLoadGeneration = 0;
 
+// Map of template default values so uncustomized messages/texts always stay as normal template text
+let templateDefaultValues = {};
+
+function isMandatoryIdentityField(key) {
+  const k = String(key || '').trim().toLowerCase();
+  return k === 'recipient_name' || k === 'recipientname' || k === 'event_date' || k === 'eventdate' || k === 'dob' || k === 'birth_date' || k === 'celebration_date';
+}
+
+function ensureDefaultMessagesPreserved() {
+  Object.entries(templateDefaultValues).forEach(([k, defVal]) => {
+    if (!isMandatoryIdentityField(k) && defVal !== undefined && defVal !== null && String(defVal) !== '') {
+      const cur = currentCustomData[k];
+      if (cur === undefined || cur === null || (typeof cur === 'string' && cur.trim() === '')) {
+        currentCustomData[k] = defVal;
+      }
+    }
+  });
+}
+
 // Centralized Customizer State Model
 let currentCustomData = {
   recipient_name: '',
@@ -30,7 +49,7 @@ let currentCustomData = {
   relationship: '',
   customSlug: '',
   slug: '',
-  event_date: new Date().toISOString().split('T')[0],
+  event_date: '',
   custom_message: '',
   cover_photo: '',
   photos: [], // Array of { id, url, name, isCover, order }
@@ -470,27 +489,56 @@ function applyUtpTemplateCapabilityGating(template) {
     { key: "custom_message", inputId: "input-message" }
   ];
 
+  rawFields.forEach(f => {
+    const fKey = String(f.id || f.key || "").trim();
+    if (fKey && f.defaultValue !== undefined && f.defaultValue !== null && String(f.defaultValue) !== "") {
+      templateDefaultValues[fKey] = f.defaultValue;
+    }
+  });
+
   coreFieldInputs.forEach(({ key, inputId }) => {
     const inputEl = document.getElementById(inputId);
     if (!inputEl) return;
     const wrapper = inputEl.closest("div");
-    const declared = fieldByKey.get(key);
+    const declared = fieldByKey.get(key) || (key === "event_date" ? (fieldByKey.get("dob") || fieldByKey.get("birth_date") || fieldByKey.get("celebration_date")) : null);
+
+    // Name (recipient_name) and DOB/Date (event_date) are ALWAYS mandatory and visible
+    if (key === "recipient_name" || key === "event_date") {
+      if (wrapper) wrapper.classList.remove("hidden");
+      const labelEl = wrapper ? wrapper.querySelector("label") : null;
+      if (labelEl) {
+        const baseLabel = (declared && declared.label)
+          ? declared.label
+          : (key === "recipient_name" ? "Recipient's Name" : "Date of Birth / Celebration Date");
+        labelEl.innerHTML = baseLabel + " <span class=\"text-pink-500\">*</span>";
+      }
+      if (declared && declared.defaultValue) {
+        templateDefaultValues[key] = declared.defaultValue;
+        if (key === "recipient_name" && !declared.placeholder) {
+          inputEl.placeholder = "e.g. " + declared.defaultValue;
+        }
+      }
+      if (declared && declared.placeholder) {
+        inputEl.placeholder = declared.placeholder;
+      }
+      return;
+    }
 
     if (declared) {
       if (wrapper) wrapper.classList.remove("hidden");
       const labelEl = wrapper ? wrapper.querySelector("label") : null;
       if (labelEl && declared.label) {
-        labelEl.innerHTML = declared.label + (declared.required || declared.isRequired ? " <span class=\"text-pink-500\">*</span>" : "");
+        labelEl.innerHTML = declared.label + " <span class=\"text-purple-500 font-normal\">(Optional)</span>";
       }
       if (declared.placeholder) inputEl.placeholder = declared.placeholder;
-      if (declared.defaultValue && !currentCustomData[key]) {
-        currentCustomData[key] = declared.defaultValue;
+      if (declared.defaultValue) {
+        templateDefaultValues[key] = declared.defaultValue;
+        if (!currentCustomData[key]) {
+          currentCustomData[key] = declared.defaultValue;
+        }
       }
     } else if (manifest && Array.isArray(manifest.fields) && manifest.fields.length > 0) {
-      // If template has a strict wishmagic.json manifest and did not declare this built-in field, hide it
-      if (key === "event_date" && !hasCap("countdown")) {
-        if (wrapper) wrapper.classList.add("hidden");
-      } else if (key === "sender_name") {
+      if (key === "sender_name") {
         if (wrapper) wrapper.classList.add("hidden");
       } else if (key === "custom_message" && rawFields.some(f => f.type === "textarea")) {
         if (wrapper) wrapper.classList.add("hidden");
@@ -596,8 +644,17 @@ function renderDynamicTemplateFields(template) {
     field.key = fieldKey;
     field.id = fieldKey;
 
-    // Initialize state if not present
-    if (currentCustomData[fieldKey] === undefined) {
+    // Only Name and DOB are mandatory; all other template messages/texts are optional and keep their normal default text
+    if (!isMandatoryIdentityField(fieldKey)) {
+      field.required = false;
+      field.isRequired = false;
+    }
+    if (field.defaultValue !== undefined && field.defaultValue !== null && String(field.defaultValue) !== '') {
+      templateDefaultValues[fieldKey] = field.defaultValue;
+    }
+
+    // Initialize state with template default value if not present or empty
+    if (currentCustomData[fieldKey] === undefined || currentCustomData[fieldKey] === '') {
       currentCustomData[fieldKey] = (field.defaultValue !== undefined && field.defaultValue !== null) ? field.defaultValue : '';
     }
 
@@ -778,14 +835,23 @@ function updateDevEntitlementUI() {
 function applyTemplateDefaults(tpl) {
   const isVip = tpl.tier === 'vip' || (tpl.price && Number(tpl.price) > 0);
 
-  // Default detected fields
-  if (tpl.detectedFields && Array.isArray(tpl.detectedFields)) {
-    tpl.detectedFields.forEach(f => {
-      if (f.defaultValue && !currentCustomData[f.key]) {
-        currentCustomData[f.key] = f.defaultValue;
+  // Default detected fields (store all defaults; pre-fill optional messages/texts while keeping Name & DOB for user input)
+  templateDefaultValues = {};
+  const allTplFields = [
+    ...((tpl.manifest && Array.isArray(tpl.manifest.fields)) ? tpl.manifest.fields : []),
+    ...(Array.isArray(tpl.fields) ? tpl.fields : []),
+    ...(Array.isArray(tpl.detectedFields) ? tpl.detectedFields : [])
+  ];
+  allTplFields.forEach(f => {
+    const fKey = f && (f.key || f.id);
+    if (!fKey) return;
+    if (f.defaultValue !== undefined && f.defaultValue !== null && String(f.defaultValue) !== '') {
+      templateDefaultValues[fKey] = f.defaultValue;
+      if (!isMandatoryIdentityField(fKey) && !currentCustomData[fKey]) {
+        currentCustomData[fKey] = f.defaultValue;
       }
-    });
-  }
+    }
+  });
 
   // Cover photo default
   if (!currentCustomData.cover_photo) {
@@ -1106,35 +1172,32 @@ function updateStepVisibility() {
 
 // Validation for Step 1
 function validateStep1() {
+  ensureDefaultMessagesPreserved();
+
   const errorBox = document.getElementById('step-1-validation-error');
   const recipientInput = document.getElementById('input-recipient');
   const senderInput = document.getElementById('input-sender');
   const dateInput = document.getElementById('input-date');
 
+  if (senderInput) senderInput.classList.remove('border-red-500', 'ring-2', 'ring-red-400/40');
+
   let errors = [];
 
   if (!currentCustomData.recipient_name || currentCustomData.recipient_name.trim().length === 0) {
-    errors.push("Recipient name is required");
+    errors.push("Recipient Name is required");
     if (recipientInput) recipientInput.classList.add('border-red-500', 'ring-2', 'ring-red-400/40');
   } else {
     if (recipientInput) recipientInput.classList.remove('border-red-500', 'ring-2', 'ring-red-400/40');
   }
 
-  if (!currentCustomData.sender_name || currentCustomData.sender_name.trim().length === 0) {
-    errors.push("Sender name is required");
-    if (senderInput) senderInput.classList.add('border-red-500', 'ring-2', 'ring-red-400/40');
-  } else {
-    if (senderInput) senderInput.classList.remove('border-red-500', 'ring-2', 'ring-red-400/40');
-  }
-
   if (!currentCustomData.event_date || currentCustomData.event_date.trim().length === 0) {
-    errors.push("Celebration date is required");
+    errors.push("Date of Birth / Celebration Date is required");
     if (dateInput) dateInput.classList.add('border-red-500', 'ring-2', 'ring-red-400/40');
   } else {
     if (dateInput) dateInput.classList.remove('border-red-500', 'ring-2', 'ring-red-400/40');
   }
 
-  // Validate dynamic manifest fields if any
+  // Validate dynamic manifest fields (only Name/DOB are required; uncustomized messages/texts keep their template defaults)
   const dynContainer = document.getElementById('template-dynamic-fields-container');
   if (dynContainer && activeTemplate) {
     const manifest = activeTemplate.manifest;
@@ -1143,8 +1206,9 @@ function validateStep1() {
       const fKey = f.id || f.key;
       const el = dynContainer.querySelector(`[data-field-key="${fKey}"]`);
       if (el && el.style.display !== 'none' && !el.classList.contains('wm-field-hidden')) {
+        const fieldForVal = { ...f, required: isMandatoryIdentityField(fKey) };
         if (window.WishMagicFieldRenderer) {
-          const valResult = window.WishMagicFieldRenderer.validate(f, currentCustomData[fKey]);
+          const valResult = window.WishMagicFieldRenderer.validate(fieldForVal, currentCustomData[fKey]);
           if (!valResult.valid) {
             errors.push(valResult.errors[0] || `${f.label || fKey} is invalid`);
             el.classList.add('wm-field-invalid');
@@ -4524,24 +4588,44 @@ function syncDataToIframe() {
     const doc = iframe.contentDocument || iframe.contentWindow.document;
     if (!doc) return;
 
+    const captureAndGetOrigText = (el, key) => {
+      if (!el.hasAttribute('data-wm-original-text')) {
+        el.setAttribute('data-wm-original-text', el.textContent || '');
+      }
+      return templateDefaultValues[key] || el.getAttribute('data-wm-default') || el.getAttribute('data-wm-original-text') || '';
+    };
+
     // Recipient Name
     doc.querySelectorAll('[data-wm="recipient_name"], [data-wm-field="recipient_name"]').forEach(el => {
-      el.textContent = currentCustomData.recipient_name || 'Someone Special';
+      const defText = captureAndGetOrigText(el, 'recipient_name');
+      const recVal = (currentCustomData.recipient_name || '').trim();
+      el.textContent = recVal || defText || 'Someone Special';
     });
 
     // Sender Name
     doc.querySelectorAll('[data-wm="sender_name"], [data-wm-field="sender_name"]').forEach(el => {
-      el.textContent = currentCustomData.sender_name ? `— ${currentCustomData.sender_name}` : '— Someone Special';
+      const defText = captureAndGetOrigText(el, 'sender_name');
+      const sndVal = (currentCustomData.sender_name || '').trim();
+      if (sndVal) {
+        const origHasDash = (el.getAttribute('data-wm-original-text') || '').trim().startsWith('—');
+        el.textContent = origHasDash && !sndVal.startsWith('—') ? `— ${sndVal}` : sndVal;
+      } else {
+        el.textContent = defText || '— Someone Special';
+      }
     });
 
-    // Event Date
-    doc.querySelectorAll('[data-wm="event_date"], [data-wm-field="event_date"]').forEach(el => {
-      el.textContent = currentCustomData.event_date || 'Today';
+    // Event Date / DOB
+    doc.querySelectorAll('[data-wm="event_date"], [data-wm-field="event_date"], [data-wm="dob"], [data-wm-field="dob"], [data-wm="birth_date"], [data-wm-field="birth_date"]').forEach(el => {
+      const defText = captureAndGetOrigText(el, 'event_date');
+      const dtVal = (currentCustomData.event_date || '').trim();
+      el.textContent = dtVal || defText || 'Today';
     });
 
     // Custom Message
     doc.querySelectorAll('[data-wm="custom_message"], [data-wm-field="custom_message"]').forEach(el => {
-      el.textContent = currentCustomData.custom_message || 'May your day be filled with warm magic, sparkling smiles, and infinite moments of joy!';
+      const defText = captureAndGetOrigText(el, 'custom_message');
+      const msgVal = (currentCustomData.custom_message || '').trim();
+      el.textContent = msgVal || defText || 'May your day be filled with warm magic, sparkling smiles, and infinite moments of joy!';
     });
 
     // Cover Photo & Photos (ImgBB links)
@@ -4584,21 +4668,29 @@ function syncDataToIframe() {
         if (!fKey) return;
         f.key = fKey;
         const val = currentCustomData[f.key];
-        if (val !== undefined && val !== null && val !== '') {
+        const fallbackDef = (f.defaultValue !== undefined && f.defaultValue !== null && String(f.defaultValue) !== '')
+          ? f.defaultValue
+          : (templateDefaultValues[f.key] || '');
+        const effectiveVal = (val !== undefined && val !== null && String(val).trim() !== '') ? val : fallbackDef;
+        if (effectiveVal !== undefined && effectiveVal !== null && String(effectiveVal) !== '') {
           doc.querySelectorAll(`[data-wm="${f.key}"], [data-wm-field="${f.key}"]`).forEach(el => {
+            if (!el.hasAttribute('data-wm-original-text') && !['IMG', 'AUDIO', 'VIDEO'].includes(el.tagName)) {
+              el.setAttribute('data-wm-original-text', el.textContent || '');
+            }
             if (el.tagName === 'IMG') {
-              el.src = val;
+              el.src = effectiveVal;
             } else if (el.tagName === 'AUDIO' || el.tagName === 'VIDEO') {
-              if (el.src !== val) {
-                el.src = val;
+              if (el.src !== effectiveVal) {
+                el.src = effectiveVal;
                 const srcChild = el.querySelector('source');
-                if (srcChild) srcChild.src = val;
+                if (srcChild) srcChild.src = effectiveVal;
                 try { el.load(); } catch (_) {}
               }
             } else if (f.key === 'sender_name') {
-              el.textContent = val ? `— ${val}` : '— Someone Special';
+              const origHasDash = (el.getAttribute('data-wm-original-text') || '').trim().startsWith('—');
+              el.textContent = origHasDash && !String(effectiveVal).startsWith('—') ? `— ${effectiveVal}` : effectiveVal;
             } else {
-              el.textContent = val;
+              el.textContent = effectiveVal;
             }
           });
         }
@@ -5081,7 +5173,7 @@ window.resetCustomizerChanges = function() {
     currentCustomData.recipient_name = '';
     currentCustomData.sender_name = '';
     currentCustomData.sender_contact = '';
-    currentCustomData.event_date = new Date().toISOString().split('T')[0];
+    currentCustomData.event_date = '';
     currentCustomData.custom_message = '';
     currentCustomData.photos = [];
     currentCustomData.cover_photo = '';
@@ -5158,14 +5250,17 @@ window.publishWishAndGetLink = async function() {
     }
   }
 
-  // Part 4: Validate manifest dynamic required fields before publishing
+  ensureDefaultMessagesPreserved();
+
+  // Part 4: Validate manifest dynamic fields before publishing (only Name/DOB are required; uncustomized messages keep template defaults)
   if (activeTemplate) {
     const rawFields = (activeTemplate.manifest && activeTemplate.manifest.fields) || activeTemplate.fields || [];
     for (const f of rawFields) {
       const fKey = f.id || f.key;
       const isVisible = evaluateFieldVisibility(f, currentCustomData);
       if (isVisible && window.WishMagicFieldRenderer) {
-        const valRes = window.WishMagicFieldRenderer.validate(f, currentCustomData[fKey]);
+        const fieldForVal = { ...f, required: isMandatoryIdentityField(fKey) };
+        const valRes = window.WishMagicFieldRenderer.validate(fieldForVal, currentCustomData[fKey]);
         if (!valRes.valid) {
           showToast(`⚠️ ${valRes.errors[0] || ((f.label || fKey) + ' is required')}`);
           window.goToStep(1);

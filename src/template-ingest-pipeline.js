@@ -476,12 +476,25 @@ export function analyzeHtmlString(htmlString) {
         ? 'image'
         : (tagLower === 'audio' ? 'audio' : (tagLower === 'video' ? 'video' : 'text'));
 
+      let innerTextDefault = '';
+      if (!defaultMatch && !srcVal && !['img', 'audio', 'video', 'input', 'source'].includes(tagLower)) {
+        const afterTagIdx = match.index + match[0].length;
+        const closeRegex = new RegExp(`</${tagLower}\\s*>`, 'i');
+        const restHtml = htmlString.slice(afterTagIdx);
+        const closeMatch = closeRegex.exec(restHtml);
+        if (closeMatch) {
+          const rawInner = restHtml.slice(0, closeMatch.index).replace(/<[^>]+>/g, ' ').replace(/\s+/g, ' ').trim();
+          if (rawInner && !rawInner.includes('{{')) {
+            innerTextDefault = rawInner;
+          }
+        }
+      }
       addField({
         key,
         type: typeMatch ? typeMatch[1].toLowerCase() : inferredType,
         label: labelMatch ? labelMatch[1] : undefined,
         isRequired: reqMatch ? reqMatch[1] === 'true' : false,
-        defaultValue: defaultMatch ? defaultMatch[1] : srcVal,
+        defaultValue: defaultMatch ? defaultMatch[1] : (srcVal || innerTextDefault),
         originalSrc: srcVal
       });
     } else if (tagLower === 'img' && srcVal && !srcVal.startsWith('data:image/svg')) {
@@ -682,6 +695,390 @@ export async function analyzeTemplateAndBuildIntegrity(extractedData, originalZi
  * 8. Commit immutable version records into D1
  * 9. Provide preview-ready metadata
  */
+/**
+ * Ensures all D1 tables, columns, and indexes required by the Template Ingestion Pipeline
+ * exist in the target database (auto-healing unmigrated or partially migrated D1 instances).
+ */
+export async function ensureTemplateIngestionSchema(db) {
+  if (!db || typeof db.prepare !== "function") return false;
+
+  const execSql = async (sql) => {
+    try {
+      const stmt = db.prepare(sql);
+      if (typeof stmt.run === "function") {
+        await stmt.run();
+      } else if (typeof stmt.bind === "function") {
+        const bound = stmt.bind();
+        if (bound && typeof bound.run === "function") {
+          await bound.run();
+        }
+      }
+      return true;
+    } catch (_) {
+      return false;
+    }
+  };
+
+  const getExistingColumns = async (tableName) => {
+    try {
+      const stmt = db.prepare(`PRAGMA table_info(${tableName})`);
+      let res = null;
+      if (typeof stmt.all === "function") {
+        res = await stmt.all();
+      } else if (typeof stmt.bind === "function") {
+        const bound = stmt.bind();
+        if (bound && typeof bound.all === "function") {
+          res = await bound.all();
+        }
+      }
+      const rows = Array.isArray(res) ? res : (res?.results || []);
+      if (rows.length > 0) {
+        return new Set(rows.map(r => r.name));
+      }
+    } catch (_) {}
+    return null;
+  };
+
+  const reconcileColumns = async (tableName, cols) => {
+    const existing = await getExistingColumns(tableName);
+    for (const col of cols) {
+      if (!existing || !existing.has(col.name)) {
+        await execSql(`ALTER TABLE ${tableName} ADD COLUMN ${col.name} ${col.def}`);
+      }
+    }
+  };
+
+  // 1. template_upload_operations (Part 3 / Migration 0028)
+  await execSql(`
+    CREATE TABLE IF NOT EXISTS template_upload_operations (
+      id TEXT PRIMARY KEY,
+      idempotency_key TEXT,
+      author_id TEXT NOT NULL DEFAULT 'admin',
+      template_family_id TEXT,
+      template_id TEXT,
+      version_id TEXT,
+      version_number INTEGER,
+      version_label TEXT,
+      package_fingerprint TEXT,
+      state TEXT NOT NULL DEFAULT 'received',
+      progress_stage TEXT DEFAULT 'received',
+      progress_percent INTEGER DEFAULT 0,
+      is_retryable INTEGER DEFAULT 1,
+      error_code TEXT,
+      error_message TEXT,
+      validation_report_json TEXT DEFAULT '{}',
+      inventory_json TEXT DEFAULT '[]',
+      b2_objects_json TEXT DEFAULT '[]',
+      created_at TEXT NOT NULL,
+      updated_at TEXT NOT NULL
+    )
+  `);
+  await reconcileColumns("template_upload_operations", [
+    { name: "idempotency_key", def: "TEXT" },
+    { name: "author_id", def: "TEXT DEFAULT 'admin'" },
+    { name: "template_family_id", def: "TEXT" },
+    { name: "template_id", def: "TEXT" },
+    { name: "version_id", def: "TEXT" },
+    { name: "version_number", def: "INTEGER" },
+    { name: "version_label", def: "TEXT" },
+    { name: "package_fingerprint", def: "TEXT" },
+    { name: "state", def: "TEXT DEFAULT 'received'" },
+    { name: "progress_stage", def: "TEXT DEFAULT 'received'" },
+    { name: "progress_percent", def: "INTEGER DEFAULT 0" },
+    { name: "is_retryable", def: "INTEGER DEFAULT 1" },
+    { name: "error_code", def: "TEXT" },
+    { name: "error_message", def: "TEXT" },
+    { name: "validation_report_json", def: "TEXT DEFAULT '{}'" },
+    { name: "inventory_json", def: "TEXT DEFAULT '[]'" },
+    { name: "b2_objects_json", def: "TEXT DEFAULT '[]'" },
+    { name: "created_at", def: "TEXT" },
+    { name: "updated_at", def: "TEXT" }
+  ]);
+  await execSql("CREATE UNIQUE INDEX IF NOT EXISTS idx_template_upload_idempotency ON template_upload_operations(idempotency_key) WHERE idempotency_key IS NOT NULL");
+  await execSql("CREATE INDEX IF NOT EXISTS idx_template_upload_state ON template_upload_operations(state)");
+  await execSql("CREATE INDEX IF NOT EXISTS idx_template_upload_family ON template_upload_operations(template_family_id)");
+  await execSql("CREATE INDEX IF NOT EXISTS idx_template_upload_fingerprint ON template_upload_operations(package_fingerprint)");
+
+  // 2. template_families
+  await execSql(`
+    CREATE TABLE IF NOT EXISTS template_families (
+      id TEXT PRIMARY KEY,
+      slug TEXT UNIQUE NOT NULL,
+      name TEXT NOT NULL,
+      description TEXT,
+      thumbnail TEXT NOT NULL DEFAULT '',
+      category TEXT NOT NULL DEFAULT 'celebration',
+      tier TEXT NOT NULL DEFAULT 'free',
+      price INTEGER NOT NULL DEFAULT 0,
+      is_featured INTEGER NOT NULL DEFAULT 0,
+      is_premium INTEGER NOT NULL DEFAULT 0,
+      status TEXT NOT NULL DEFAULT 'published',
+      visibility TEXT NOT NULL DEFAULT 'public',
+      created_by TEXT DEFAULT 'system',
+      created_at TEXT NOT NULL,
+      updated_at TEXT NOT NULL,
+      current_version_id TEXT,
+      published_version_id TEXT,
+      latest_version_id TEXT,
+      rollback_version_id TEXT,
+      supported_relationships_json TEXT DEFAULT '[]',
+      default_runtime_api TEXT DEFAULT '1.0'
+    )
+  `);
+  await reconcileColumns("template_families", [
+    { name: "current_version_id", def: "TEXT" },
+    { name: "published_version_id", def: "TEXT" },
+    { name: "latest_version_id", def: "TEXT" },
+    { name: "rollback_version_id", def: "TEXT" },
+    { name: "supported_relationships_json", def: "TEXT DEFAULT '[]'" },
+    { name: "default_runtime_api", def: "TEXT DEFAULT '1.0'" }
+  ]);
+
+  // 3. templates
+  await execSql(`
+    CREATE TABLE IF NOT EXISTS templates (
+      id TEXT PRIMARY KEY,
+      name TEXT NOT NULL,
+      slug TEXT UNIQUE NOT NULL,
+      description TEXT,
+      category TEXT NOT NULL,
+      relationships TEXT,
+      tags TEXT,
+      type TEXT DEFAULT '3D Interactive',
+      tier TEXT NOT NULL DEFAULT 'free',
+      price INTEGER NOT NULL DEFAULT 0,
+      is_premium INTEGER NOT NULL DEFAULT 0,
+      is_published INTEGER NOT NULL DEFAULT 1,
+      status TEXT NOT NULL DEFAULT 'published',
+      featured INTEGER NOT NULL DEFAULT 0,
+      placement INTEGER NOT NULL DEFAULT 99,
+      thumbnail TEXT NOT NULL DEFAULT '',
+      preview_images TEXT,
+      capabilities TEXT,
+      detected_fields TEXT,
+      sections TEXT,
+      features TEXT,
+      theme TEXT,
+      folder TEXT NOT NULL DEFAULT '',
+      entry_file TEXT NOT NULL DEFAULT 'index.html',
+      created_at TEXT NOT NULL,
+      updated_at TEXT NOT NULL,
+      current_version_id TEXT
+    )
+  `);
+  await reconcileColumns("templates", [
+    { name: "relationships", def: "TEXT" },
+    { name: "tags", def: "TEXT" },
+    { name: "type", def: "TEXT DEFAULT '3D Interactive'" },
+    { name: "tier", def: "TEXT DEFAULT 'free'" },
+    { name: "price", def: "INTEGER DEFAULT 0" },
+    { name: "is_premium", def: "INTEGER DEFAULT 0" },
+    { name: "is_published", def: "INTEGER DEFAULT 1" },
+    { name: "status", def: "TEXT DEFAULT 'published'" },
+    { name: "featured", def: "INTEGER DEFAULT 0" },
+    { name: "placement", def: "INTEGER DEFAULT 99" },
+    { name: "thumbnail", def: "TEXT DEFAULT ''" },
+    { name: "preview_images", def: "TEXT" },
+    { name: "capabilities", def: "TEXT" },
+    { name: "detected_fields", def: "TEXT" },
+    { name: "sections", def: "TEXT" },
+    { name: "features", def: "TEXT" },
+    { name: "theme", def: "TEXT" },
+    { name: "folder", def: "TEXT DEFAULT ''" },
+    { name: "entry_file", def: "TEXT DEFAULT 'index.html'" },
+    { name: "current_version_id", def: "TEXT" }
+  ]);
+
+  // 4. template_versions
+  await execSql(`
+    CREATE TABLE IF NOT EXISTS template_versions (
+      id TEXT PRIMARY KEY,
+      template_id TEXT NOT NULL,
+      template_family_id TEXT,
+      version_number INTEGER NOT NULL DEFAULT 1,
+      version_label TEXT DEFAULT 'v1.0.0',
+      name TEXT NOT NULL,
+      description TEXT,
+      category TEXT,
+      tier TEXT DEFAULT 'free',
+      price INTEGER DEFAULT 0,
+      thumbnail TEXT,
+      theme TEXT,
+      sections TEXT,
+      capabilities TEXT,
+      layout TEXT,
+      animations TEXT,
+      default_config TEXT,
+      snapshot_data TEXT,
+      source_zip_storage_key TEXT,
+      runtime_root_storage_key TEXT,
+      manifest_storage_key TEXT,
+      schema_hash TEXT,
+      runtime_hash TEXT,
+      source_zip_hash TEXT,
+      package_fingerprint TEXT,
+      storage_provider TEXT DEFAULT 'b2',
+      storage_bucket TEXT,
+      storage_metadata_json TEXT DEFAULT '{}',
+      status TEXT NOT NULL DEFAULT 'active',
+      error_message TEXT,
+      published_at TEXT,
+      published_by TEXT,
+      archived_at TEXT,
+      created_at TEXT NOT NULL,
+      created_by TEXT DEFAULT 'system',
+      fields_json TEXT DEFAULT '[]',
+      theme_defaults_json TEXT DEFAULT '{}',
+      effects_defaults_json TEXT DEFAULT '{}',
+      release_notes TEXT DEFAULT '',
+      manifest_json TEXT DEFAULT '{}',
+      file_count INTEGER DEFAULT 0,
+      total_size_bytes INTEGER DEFAULT 0,
+      entry_point TEXT DEFAULT 'index.html',
+      integrity_status TEXT DEFAULT 'unverified',
+      integrity_checked_at TEXT,
+      validation_report_json TEXT DEFAULT '{}',
+      lock_version INTEGER NOT NULL DEFAULT 1,
+      is_current INTEGER NOT NULL DEFAULT 0,
+      protocol_version TEXT DEFAULT '1.0',
+      schema_version TEXT DEFAULT '1.0.0',
+      runtime_api_version TEXT DEFAULT '1.0',
+      is_publishable INTEGER NOT NULL DEFAULT 1,
+      updated_at TEXT
+    )
+  `);
+  await reconcileColumns("template_versions", [
+    { name: "template_family_id", def: "TEXT" },
+    { name: "version_number", def: "INTEGER DEFAULT 1" },
+    { name: "version_label", def: "TEXT DEFAULT 'v1.0.0'" },
+    { name: "description", def: "TEXT" },
+    { name: "category", def: "TEXT" },
+    { name: "tier", def: "TEXT DEFAULT 'free'" },
+    { name: "price", def: "INTEGER DEFAULT 0" },
+    { name: "thumbnail", def: "TEXT" },
+    { name: "theme", def: "TEXT" },
+    { name: "sections", def: "TEXT" },
+    { name: "capabilities", def: "TEXT" },
+    { name: "layout", def: "TEXT" },
+    { name: "animations", def: "TEXT" },
+    { name: "default_config", def: "TEXT" },
+    { name: "snapshot_data", def: "TEXT" },
+    { name: "source_zip_storage_key", def: "TEXT" },
+    { name: "runtime_root_storage_key", def: "TEXT" },
+    { name: "manifest_storage_key", def: "TEXT" },
+    { name: "schema_hash", def: "TEXT" },
+    { name: "runtime_hash", def: "TEXT" },
+    { name: "source_zip_hash", def: "TEXT" },
+    { name: "package_fingerprint", def: "TEXT" },
+    { name: "storage_provider", def: "TEXT DEFAULT 'b2'" },
+    { name: "storage_bucket", def: "TEXT" },
+    { name: "storage_metadata_json", def: "TEXT DEFAULT '{}'" },
+    { name: "status", def: "TEXT DEFAULT 'active'" },
+    { name: "error_message", def: "TEXT" },
+    { name: "published_at", def: "TEXT" },
+    { name: "published_by", def: "TEXT" },
+    { name: "archived_at", def: "TEXT" },
+    { name: "created_by", def: "TEXT DEFAULT 'system'" },
+    { name: "fields_json", def: "TEXT DEFAULT '[]'" },
+    { name: "theme_defaults_json", def: "TEXT DEFAULT '{}'" },
+    { name: "effects_defaults_json", def: "TEXT DEFAULT '{}'" },
+    { name: "release_notes", def: "TEXT DEFAULT ''" },
+    { name: "manifest_json", def: "TEXT DEFAULT '{}'" },
+    { name: "file_count", def: "INTEGER DEFAULT 0" },
+    { name: "total_size_bytes", def: "INTEGER DEFAULT 0" },
+    { name: "entry_point", def: "TEXT DEFAULT 'index.html'" },
+    { name: "integrity_status", def: "TEXT DEFAULT 'unverified'" },
+    { name: "integrity_checked_at", def: "TEXT" },
+    { name: "validation_report_json", def: "TEXT DEFAULT '{}'" },
+    { name: "lock_version", def: "INTEGER DEFAULT 1" },
+    { name: "is_current", def: "INTEGER DEFAULT 0" },
+    { name: "protocol_version", def: "TEXT DEFAULT '1.0'" },
+    { name: "schema_version", def: "TEXT DEFAULT '1.0.0'" },
+    { name: "runtime_api_version", def: "TEXT DEFAULT '1.0'" },
+    { name: "is_publishable", def: "INTEGER DEFAULT 1" },
+    { name: "updated_at", def: "TEXT" }
+  ]);
+
+  // 5. template_files
+  await execSql(`
+    CREATE TABLE IF NOT EXISTS template_files (
+      id TEXT PRIMARY KEY,
+      template_version_id TEXT NOT NULL,
+      relative_path TEXT NOT NULL,
+      storage_provider TEXT NOT NULL DEFAULT 'b2',
+      storage_key TEXT NOT NULL,
+      mime_type TEXT NOT NULL,
+      size_bytes INTEGER NOT NULL DEFAULT 0,
+      sha256 TEXT,
+      file_role TEXT DEFAULT 'asset',
+      is_entry_file INTEGER NOT NULL DEFAULT 0,
+      status TEXT NOT NULL DEFAULT 'active',
+      created_at TEXT NOT NULL
+    )
+  `);
+
+  // 6. template_fields
+  await execSql(`
+    CREATE TABLE IF NOT EXISTS template_fields (
+      id TEXT PRIMARY KEY,
+      template_version_id TEXT NOT NULL,
+      field_key TEXT NOT NULL,
+      field_type TEXT NOT NULL,
+      label TEXT NOT NULL,
+      placeholder TEXT,
+      help_text TEXT,
+      is_required INTEGER NOT NULL DEFAULT 0,
+      default_value TEXT,
+      validation_json TEXT DEFAULT '{}',
+      capabilities_json TEXT DEFAULT '{}',
+      sort_order INTEGER NOT NULL DEFAULT 0,
+      group_name TEXT DEFAULT 'personal',
+      status TEXT NOT NULL DEFAULT 'active',
+      created_at TEXT NOT NULL
+    )
+  `);
+
+  // 7. template_images
+  await execSql(`
+    CREATE TABLE IF NOT EXISTS template_images (
+      id TEXT PRIMARY KEY,
+      template_id TEXT,
+      template_version_id TEXT NOT NULL,
+      asset_key TEXT NOT NULL,
+      original_filename TEXT NOT NULL DEFAULT '',
+      storage_provider TEXT NOT NULL DEFAULT 'imgbb',
+      provider_asset_id TEXT,
+      original_url TEXT NOT NULL,
+      display_url TEXT NOT NULL,
+      thumbnail_url TEXT,
+      delete_url TEXT,
+      relationship_id TEXT,
+      mime_type TEXT NOT NULL DEFAULT 'image/jpeg',
+      width INTEGER,
+      height INTEGER,
+      size_bytes INTEGER NOT NULL DEFAULT 0,
+      sha256 TEXT,
+      status TEXT NOT NULL DEFAULT 'active',
+      health_status TEXT DEFAULT 'HEALTHY',
+      last_health_check_at TEXT,
+      health_issues TEXT,
+      created_at TEXT NOT NULL,
+      updated_at TEXT NOT NULL
+    )
+  `);
+  await reconcileColumns("template_images", [
+    { name: "template_id", def: "TEXT" },
+    { name: "original_filename", def: "TEXT DEFAULT ''" },
+    { name: "delete_url", def: "TEXT" },
+    { name: "relationship_id", def: "TEXT" },
+    { name: "health_status", def: "TEXT DEFAULT 'HEALTHY'" },
+    { name: "last_health_check_at", def: "TEXT" },
+    { name: "health_issues", def: "TEXT" }
+  ]);
+
+  return true;
+}
+
 export async function executeB2TemplateIngestPipeline(params) {
   const {
     zipBuffer,
@@ -700,7 +1097,7 @@ export async function executeB2TemplateIngestPipeline(params) {
   // Helper to persist operation state if D1 available - errors are propagated and never swallowed
   const updateOperation = async (state, progressStage, progressPercent, extra = {}) => {
     if (db && typeof db.prepare === 'function') {
-      try {
+      const runPersistOp = async () => {
         const stmt = db.prepare(`
           INSERT INTO template_upload_operations (
             id, idempotency_key, author_id, template_family_id, template_id, version_id,
@@ -752,11 +1149,20 @@ export async function executeB2TemplateIngestPipeline(params) {
         if (res && res.success === false) {
           throw new Error('Database operation persistence returned unsuccessful result');
         }
-      } catch (opErr) {
-        const err = new Error(`Failed to persist upload operation state "${state}": ${opErr.message}`);
-        err.code = 'OPERATION_STATE_PERSISTENCE_FAILED';
-        err.cause = opErr;
-        throw err;
+      };
+
+      try {
+        await runPersistOp();
+      } catch (firstOpErr) {
+        try {
+          await ensureTemplateIngestionSchema(db);
+          await runPersistOp();
+        } catch (opErr) {
+          const err = new Error(`Failed to persist upload operation state "${state}": ${opErr.message}`);
+          err.code = 'OPERATION_STATE_PERSISTENCE_FAILED';
+          err.cause = opErr;
+          throw err;
+        }
       }
     }
   };
@@ -773,7 +1179,7 @@ export async function executeB2TemplateIngestPipeline(params) {
 
     let existingOp;
 
-    try {
+    const queryExistingOperation = async () => {
       const stmt = db.prepare(`
         SELECT *
         FROM template_upload_operations
@@ -781,19 +1187,29 @@ export async function executeB2TemplateIngestPipeline(params) {
         LIMIT 1
       `).bind(idempotencyKey);
       if (typeof stmt.first === 'function') {
-        existingOp = await stmt.first();
+        return await stmt.first();
       } else if (typeof stmt.all === 'function') {
         const res = await stmt.all();
         const rows = Array.isArray(res) ? res : (res?.results || []);
-        existingOp = rows[0] || null;
+        return rows[0] || null;
       }
-    } catch (error) {
-      const err = new Error(
-        'Unable to verify the existing upload operation'
-      );
-      err.code = 'IDEMPOTENCY_LOOKUP_FAILED';
-      err.cause = error;
-      throw err;
+      return null;
+    };
+
+    try {
+      existingOp = await queryExistingOperation();
+    } catch (firstErr) {
+      try {
+        await ensureTemplateIngestionSchema(db);
+        existingOp = await queryExistingOperation();
+      } catch (error) {
+        const err = new Error(
+          'Unable to verify the existing upload operation'
+        );
+        err.code = 'IDEMPOTENCY_LOOKUP_FAILED';
+        err.cause = error;
+        throw err;
+      }
     }
 
     if (existingOp) {
@@ -1032,16 +1448,20 @@ export async function executeB2TemplateIngestPipeline(params) {
       const fKey = mf.id || mf.key;
       if (!fKey) continue;
       const htmlDetected = analyzed.detectedFields.find(df => df.key === fKey);
+      const resolvedDefVal = mf.defaultValue !== undefined && mf.defaultValue !== null && mf.defaultValue !== "" ? mf.defaultValue : (htmlDetected?.defaultValue || "");
+      const isMandatoryNameOrDob = ["recipient_name", "recipientname", "event_date", "eventdate", "dob", "birth_date", "celebration_date"].includes(String(fKey).toLowerCase());
+      const hasNormalDefaultText = Boolean(resolvedDefVal !== undefined && resolvedDefVal !== null && String(resolvedDefVal).trim() !== "");
+      const resolvedReq = isMandatoryNameOrDob ? true : (hasNormalDefaultText ? false : Boolean(mf.required ?? htmlDetected?.isRequired));
       finalFieldsMap.set(fKey, {
         id: fKey,
         key: fKey,
         label: mf.label || htmlDetected?.label || fKey.replace(/_/g, " ").replace(/\b\w/g, c => c.toUpperCase()),
         type: mf.type || htmlDetected?.type || "text",
         placeholder: mf.placeholder || htmlDetected?.placeholder || "",
-        defaultValue: mf.defaultValue !== undefined && mf.defaultValue !== null && mf.defaultValue !== "" ? mf.defaultValue : (htmlDetected?.defaultValue || ""),
+        defaultValue: resolvedDefVal,
         originalSrc: htmlDetected?.originalSrc || (typeof mf.defaultValue === "string" ? mf.defaultValue : ""),
-        isRequired: Boolean(mf.required ?? htmlDetected?.isRequired),
-        required: Boolean(mf.required ?? htmlDetected?.isRequired),
+        isRequired: resolvedReq,
+        required: resolvedReq,
         category: mf.group || mf.category || htmlDetected?.category || "personal",
         binding: mf.binding || { target: "text", selector: "[data-wm-field='" + fKey + "']" },
         options: mf.options || null,
@@ -1072,7 +1492,12 @@ export async function executeB2TemplateIngestPipeline(params) {
         placeholder: df.placeholder || existing?.placeholder || '',
         defaultValue: df.defaultValue !== undefined ? df.defaultValue : (existing?.defaultValue || ''),
         originalSrc: df.originalSrc || existing?.originalSrc || df.defaultValue || '',
-        isRequired: df.isRequired !== undefined ? Boolean(df.isRequired) : Boolean(df.required ?? existing?.isRequired),
+        isRequired: ["recipient_name", "recipientname", "event_date", "eventdate", "dob", "birth_date", "celebration_date"].includes(String(fKey).toLowerCase())
+          ? true
+          : ((df.defaultValue || existing?.defaultValue) ? false : (df.isRequired !== undefined ? Boolean(df.isRequired) : Boolean(df.required ?? existing?.isRequired))),
+        required: ["recipient_name", "recipientname", "event_date", "eventdate", "dob", "birth_date", "celebration_date"].includes(String(fKey).toLowerCase())
+          ? true
+          : ((df.defaultValue || existing?.defaultValue) ? false : (df.isRequired !== undefined ? Boolean(df.isRequired) : Boolean(df.required ?? existing?.isRequired))),
         category: df.category || df.group || existing?.category || 'personal',
         autoDetected: Boolean(df.autoDetected ?? existing?.autoDetected),
         validation: df.validation || existing?.validation || {}
@@ -1100,7 +1525,7 @@ export async function executeB2TemplateIngestPipeline(params) {
 
     let maxVerRow;
 
-    try {
+    const queryMaxVersion = async () => {
       const stmt = db.prepare(`
         SELECT MAX(version_number) AS maxVer
         FROM template_versions
@@ -1108,21 +1533,29 @@ export async function executeB2TemplateIngestPipeline(params) {
       `).bind(templateId, templateFamilyId);
 
       if (typeof stmt.first === 'function') {
-        maxVerRow = await stmt.first();
+        return await stmt.first();
       } else if (typeof stmt.all === 'function') {
         const res = await stmt.all();
         const rows = Array.isArray(res) ? res : (res?.results || []);
-        maxVerRow = rows[0] || { maxVer: 0 };
-      } else {
-        maxVerRow = { maxVer: 0 };
+        return rows[0] || { maxVer: 0 };
       }
-    } catch (error) {
-      const err = new Error(
-        'Unable to determine the next template version number'
-      );
-      err.code = 'VERSION_LOOKUP_FAILED';
-      err.cause = error;
-      throw err;
+      return { maxVer: 0 };
+    };
+
+    try {
+      maxVerRow = await queryMaxVersion();
+    } catch (firstVerErr) {
+      try {
+        await ensureTemplateIngestionSchema(db);
+        maxVerRow = await queryMaxVersion();
+      } catch (error) {
+        const err = new Error(
+          'Unable to determine the next template version number'
+        );
+        err.code = 'VERSION_LOOKUP_FAILED';
+        err.cause = error;
+        throw err;
+      }
     }
 
     versionNumber = (Number(maxVerRow?.maxVer) || 0) + 1;
@@ -1137,25 +1570,35 @@ export async function executeB2TemplateIngestPipeline(params) {
   // Duplicate Package Detection via package_fingerprint
   if (db && typeof db.prepare === 'function') {
     let duplicateVer = null;
-    try {
+    const queryDuplicateFingerprint = async () => {
       const stmt = db.prepare(`
         SELECT id, version_number, version_label, status FROM template_versions
         WHERE (template_id = ? OR template_family_id = ?) AND package_fingerprint = ? AND status != 'failed'
         LIMIT 1
       `).bind(templateId, templateFamilyId, packageFingerprint);
       if (typeof stmt.first === 'function') {
-        duplicateVer = await stmt.first();
+        return await stmt.first();
       } else if (typeof stmt.all === 'function') {
         const res = await stmt.all();
         const rows = Array.isArray(res) ? res : (res?.results || []);
-        duplicateVer = rows[0] || null;
+        return rows[0] || null;
       }
-    } catch (fpErr) {
-      const err = new Error(`Database error querying package fingerprint: ${fpErr.message}`);
-      err.code = 'DATABASE_ERROR';
-      err.isRetryable = true;
-      err.cause = fpErr;
-      throw err;
+      return null;
+    };
+
+    try {
+      duplicateVer = await queryDuplicateFingerprint();
+    } catch (firstFpErr) {
+      try {
+        await ensureTemplateIngestionSchema(db);
+        duplicateVer = await queryDuplicateFingerprint();
+      } catch (fpErr) {
+        const err = new Error(`Database error querying package fingerprint: ${fpErr.message}`);
+        err.code = 'DATABASE_ERROR';
+        err.isRetryable = true;
+        err.cause = fpErr;
+        throw err;
+      }
     }
 
     if (duplicateVer) {
@@ -1547,7 +1990,8 @@ export async function executeB2TemplateIngestPipeline(params) {
     const targetIsPublishedInt = shouldPublishImmediately ? 1 : 0;
     const targetVersionStatus = shouldPublishImmediately ? 'published' : 'ready';
 
-    // Build atomic statement list for transactional D1 registration
+    // Build and execute atomic statement list for transactional D1 registration
+    const buildRegistrationStatements = async () => {
     const registrationStatements = [];
 
     // 1. Template Family statement
@@ -1586,9 +2030,11 @@ export async function executeB2TemplateIngestPipeline(params) {
           ?, ?, ?, ?, ?, '[]', '[]',
           '3D Interactive', ?, ?, ?, ?, ?, ?,
           99, ?, ?, ?, ?,
-          '[]', '[]', '{}', ?, ?, ?, ?
+          ?, ?, '{}', ?, ?, ?, ?
         )
         ON CONFLICT(id) DO UPDATE SET
+          sections = excluded.sections,
+          features = excluded.features,
           name = excluded.name,
           slug = excluded.slug,
           description = excluded.description,
@@ -1748,16 +2194,17 @@ export async function executeB2TemplateIngestPipeline(params) {
       registrationStatements.push(
         db.prepare(`
           INSERT OR REPLACE INTO template_images (
-            id, template_id, template_version_id, asset_key, relationship_id,
+            id, template_id, template_version_id, asset_key, original_filename, relationship_id,
             storage_provider, provider_asset_id, original_url, display_url,
             thumbnail_url, delete_url, mime_type, size_bytes, width, height,
             sha256, status, created_at, updated_at
-          ) VALUES (?, ?, ?, ?, NULL, 'imgbb', ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'active', ?, ?)
+          ) VALUES (?, ?, ?, ?, ?, NULL, 'imgbb', ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'active', ?, ?)
         `).bind(
           imgRecordId,
           templateId,
           versionId,
           img.assetKey || img.exactFileName || ('image_' + imgIdx),
+          img.exactFileName || img.filename || img.assetKey || ('image_' + imgIdx + '.png'),
           img.providerAssetId || '',
           img.originalUrl || img.url || img.displayUrl || '',
           img.displayUrl || img.url || '',
@@ -1774,20 +2221,33 @@ export async function executeB2TemplateIngestPipeline(params) {
       );
     }
 
-    // Execute atomic D1 commit
-    try {
+    return registrationStatements;
+    };
+
+    // Execute atomic D1 commit (with schema auto-healing retry)
+    const runAtomicRegistration = async () => {
+      const stmts = await buildRegistrationStatements();
       if (typeof db.batch === 'function') {
-        const batchResults = await db.batch(registrationStatements);
+        const batchResults = await db.batch(stmts);
         if (Array.isArray(batchResults) && batchResults.some(r => r && r.success === false)) {
           throw new Error('Atomic D1 registration batch reported failed statement result');
         }
       } else {
-        for (const stmt of registrationStatements) {
+        for (const stmt of stmts) {
           await stmt.run();
         }
       }
-    } catch (batchErr) {
-      throw new Error(`D1 registration batch commit failed: ${batchErr.message}`);
+    };
+
+    try {
+      await runAtomicRegistration();
+    } catch (firstBatchErr) {
+      try {
+        await ensureTemplateIngestionSchema(db);
+        await runAtomicRegistration();
+      } catch (batchErr) {
+        throw new Error(`D1 registration batch commit failed: ${batchErr.message}`);
+      }
     }
 
     // If publishImmediately is requested, also update current_version_id / published_version_id safely
@@ -1795,8 +2255,12 @@ export async function executeB2TemplateIngestPipeline(params) {
       try {
         await db.prepare(`UPDATE templates SET current_version_id = ?, is_published = 1, status = 'published', updated_at = ? WHERE id = ?`).bind(versionId, nowIso, templateId).run();
         await db.prepare(`UPDATE template_versions SET is_current = 1, status = 'published', published_at = ? WHERE id = ?`).bind(nowIso, versionId).run();
-        await db.prepare(`UPDATE template_families SET published_version_id = ?, latest_version_id = ?, status = 'published', updated_at = ? WHERE id = ?`).bind(versionId, versionId, nowIso, templateFamilyId).run();
-      } catch (_) {}
+        await db.prepare(`UPDATE template_families SET current_version_id = ?, published_version_id = ?, latest_version_id = ?, status = 'published', updated_at = ? WHERE id = ?`).bind(versionId, versionId, versionId, nowIso, templateFamilyId).run();
+      } catch (_) {
+        try {
+          await db.prepare(`UPDATE template_families SET current_version_id = ?, status = 'published', updated_at = ? WHERE id = ?`).bind(versionId, nowIso, templateFamilyId).run();
+        } catch (_2) {}
+      }
     }
 
     await updateOperation(UPLOAD_OPERATION_STATE.PREVIEW_READY, 'completed', 100, {

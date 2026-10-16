@@ -707,11 +707,18 @@
     const iframe = document.getElementById('wizard-live-iframe');
     if (!iframe) return;
 
+    const tpl = state.templatesCatalog.find(t => t.id === state.selectedTemplateId) || state.templatesCatalog[0] || {};
+    const tplFields = tpl.fields || tpl.detectedFields || [];
+    const getTplDef = (key) => {
+      const found = tplFields.find(f => (f.key || f.id) === key);
+      return found && found.defaultValue ? found.defaultValue : '';
+    };
+
     const payload = {
-      recipient_name: state.recipientName || 'Someone Special',
-      sender_name: state.senderName || 'A Cherished Friend',
-      event_date: state.eventDate,
-      custom_message: state.wishMessage || 'May your day be filled with warm magic, sparkling smiles, and infinite joy!',
+      recipient_name: state.recipientName || getTplDef('recipient_name') || 'Someone Special',
+      sender_name: state.senderName || getTplDef('sender_name') || '',
+      event_date: state.eventDate || getTplDef('event_date') || '',
+      custom_message: state.wishMessage || getTplDef('custom_message') || '',
       occasion: state.selectedOccasion,
       relationship: state.selectedRelationship
     };
@@ -722,22 +729,30 @@
       iframe.contentWindow.postMessage({ type: 'WISHMAGIC_INIT', payload }, '*');
     }
 
-    // 2. Direct DOM Hydration
+    // 2. Direct DOM Hydration (preserve original template text when field is not customized)
     try {
       const doc = iframe.contentDocument || iframe.contentWindow.document;
       if (!doc) return;
 
-      doc.querySelectorAll('[data-wm="recipient_name"]').forEach(el => {
-        el.textContent = payload.recipient_name;
+      doc.querySelectorAll('[data-wm="recipient_name"], [data-wm-field="recipient_name"]').forEach(el => {
+        if (!el.hasAttribute('data-wm-original-text')) el.setAttribute('data-wm-original-text', el.textContent || '');
+        el.textContent = state.recipientName || el.getAttribute('data-wm-original-text') || 'Someone Special';
       });
-      doc.querySelectorAll('[data-wm="sender_name"]').forEach(el => {
-        el.textContent = payload.sender_name ? `— ${payload.sender_name}` : '';
+      doc.querySelectorAll('[data-wm="sender_name"], [data-wm-field="sender_name"]').forEach(el => {
+        if (!el.hasAttribute('data-wm-original-text')) el.setAttribute('data-wm-original-text', el.textContent || '');
+        const origText = el.getAttribute('data-wm-original-text') || '';
+        el.textContent = state.senderName ? (origText.trim().startsWith('—') && !state.senderName.startsWith('—') ? `— ${state.senderName}` : state.senderName) : (origText || '');
       });
-      doc.querySelectorAll('[data-wm="event_date"]').forEach(el => {
-        el.textContent = window.WishLifecycle ? window.WishLifecycle.formatISTDate(payload.event_date) : payload.event_date;
+      doc.querySelectorAll('[data-wm="event_date"], [data-wm-field="event_date"], [data-wm="dob"], [data-wm-field="dob"]').forEach(el => {
+        if (!el.hasAttribute('data-wm-original-text')) el.setAttribute('data-wm-original-text', el.textContent || '');
+        if (state.eventDate) {
+          el.textContent = window.WishLifecycle ? window.WishLifecycle.formatISTDate(state.eventDate) : state.eventDate;
+        }
       });
-      doc.querySelectorAll('[data-wm="custom_message"]').forEach(el => {
-        el.textContent = payload.custom_message;
+      doc.querySelectorAll('[data-wm="custom_message"], [data-wm-field="custom_message"]').forEach(el => {
+        if (!el.hasAttribute('data-wm-original-text')) el.setAttribute('data-wm-original-text', el.textContent || '');
+        const origText = el.getAttribute('data-wm-original-text') || '';
+        el.textContent = state.wishMessage || payload.custom_message || origText;
       });
     } catch (e) {}
   }
@@ -921,10 +936,17 @@
   // Path C: Instant Publish
   window.WishWizard.publishNow = async function() {
     if (!state.recipientName || !state.recipientName.trim()) {
-      showToast('Recipient name is required before publishing');
+      showToast('Recipient Name is required before publishing');
       goToStep(3);
       const nameInput = document.getElementById('input-recipient-name');
       if (nameInput) nameInput.focus();
+      return;
+    }
+    if (!state.eventDate || !String(state.eventDate).trim()) {
+      showToast('Date of Birth / Celebration Date is required before publishing');
+      goToStep(3);
+      const dateInput = document.getElementById('input-event-date');
+      if (dateInput) dateInput.focus();
       return;
     }
 

@@ -31,8 +31,8 @@
     }
 
     const recipient = cd.recipient_name || cd.recipientName || wishObj.recipientName || wishObj.recipient_name || 'Someone Special';
-    const sender = cd.sender_name || cd.senderName || wishObj.buyerName || wishObj.buyer_name || 'A Special Friend';
-    const date = cd.event_date || cd.eventDate || wishObj.eventDate || wishObj.event_date || '';
+    const sender = cd.sender_name || cd.senderName || wishObj.buyerName || wishObj.buyer_name || '';
+    const date = cd.event_date || cd.eventDate || cd.dob || cd.birth_date || wishObj.eventDate || wishObj.event_date || '';
     const message = cd.custom_message || cd.customMessage || cd.message || wishObj.customMessage || '';
 
     return {
@@ -645,16 +645,29 @@
       if (customIframe) {
         customIframe.onload = () => {
           try {
+            const tplFields = (template && (template.fields || template.detectedFields)) || [];
+            const effectivePayload = { ...normalized };
+            tplFields.forEach(tf => {
+              const fKey = tf && (tf.key || tf.id);
+              if (fKey && tf.defaultValue !== undefined && tf.defaultValue !== null && String(tf.defaultValue) !== '') {
+                if (effectivePayload[fKey] === undefined || effectivePayload[fKey] === null || String(effectivePayload[fKey]).trim() === '') {
+                  effectivePayload[fKey] = tf.defaultValue;
+                }
+              }
+            });
             if (customIframe.contentWindow) {
-              customIframe.contentWindow.postMessage({ type: 'WISHMAGIC_INIT', payload: normalized }, '*');
-              customIframe.contentWindow.postMessage({ type: 'WISHMAGIC_LIVE_UPDATE', payload: normalized }, '*');
+              customIframe.contentWindow.postMessage({ type: 'WISHMAGIC_INIT', payload: effectivePayload }, '*');
+              customIframe.contentWindow.postMessage({ type: 'WISHMAGIC_LIVE_UPDATE', payload: effectivePayload }, '*');
             }
             const doc = customIframe.contentDocument || customIframe.contentWindow.document;
             if (doc) {
-              Object.keys(normalized).forEach(k => {
-                const v = normalized[k];
-                if (v === undefined || v === null || typeof v === 'object') return;
+              Object.keys(effectivePayload).forEach(k => {
+                const v = effectivePayload[k];
+                if (v === undefined || v === null || typeof v === 'object' || String(v).trim() === '') return;
                 doc.querySelectorAll(`[data-wm="${k}"], [data-wm-field="${k}"]`).forEach(el => {
+                  if (!el.hasAttribute('data-wm-original-text') && !['IMG', 'AUDIO', 'VIDEO'].includes(el.tagName)) {
+                    el.setAttribute('data-wm-original-text', el.textContent || '');
+                  }
                   if (el.tagName === 'IMG') el.src = v;
                   else if (el.tagName === 'AUDIO' || el.tagName === 'VIDEO') {
                     el.src = v;
