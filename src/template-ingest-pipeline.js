@@ -829,6 +829,20 @@ export async function ensureTemplateIngestionSchema(db, force = false) {
     )
   `);
   await reconcileColumns("template_families", [
+    { name: "slug", def: "TEXT" },
+    { name: "name", def: "TEXT DEFAULT ''" },
+    { name: "description", def: "TEXT DEFAULT ''" },
+    { name: "thumbnail", def: "TEXT DEFAULT ''" },
+    { name: "category", def: "TEXT DEFAULT 'celebration'" },
+    { name: "tier", def: "TEXT DEFAULT 'free'" },
+    { name: "price", def: "INTEGER DEFAULT 0" },
+    { name: "is_featured", def: "INTEGER DEFAULT 0" },
+    { name: "is_premium", def: "INTEGER DEFAULT 0" },
+    { name: "status", def: "TEXT DEFAULT 'published'" },
+    { name: "visibility", def: "TEXT DEFAULT 'public'" },
+    { name: "created_by", def: "TEXT DEFAULT 'system'" },
+    { name: "created_at", def: "TEXT" },
+    { name: "updated_at", def: "TEXT" },
     { name: "current_version_id", def: "TEXT" },
     { name: "published_version_id", def: "TEXT" },
     { name: "latest_version_id", def: "TEXT" },
@@ -870,8 +884,12 @@ export async function ensureTemplateIngestionSchema(db, force = false) {
     )
   `);
   await reconcileColumns("templates", [
-    { name: "relationships", def: "TEXT" },
-    { name: "tags", def: "TEXT" },
+    { name: "name", def: "TEXT DEFAULT ''" },
+    { name: "slug", def: "TEXT" },
+    { name: "description", def: "TEXT DEFAULT ''" },
+    { name: "category", def: "TEXT DEFAULT 'celebration'" },
+    { name: "relationships", def: "TEXT DEFAULT '[]'" },
+    { name: "tags", def: "TEXT DEFAULT '[]'" },
     { name: "type", def: "TEXT DEFAULT '3D Interactive'" },
     { name: "tier", def: "TEXT DEFAULT 'free'" },
     { name: "price", def: "INTEGER DEFAULT 0" },
@@ -889,6 +907,8 @@ export async function ensureTemplateIngestionSchema(db, force = false) {
     { name: "theme", def: "TEXT" },
     { name: "folder", def: "TEXT DEFAULT ''" },
     { name: "entry_file", def: "TEXT DEFAULT 'index.html'" },
+    { name: "created_at", def: "TEXT" },
+    { name: "updated_at", def: "TEXT" },
     { name: "current_version_id", def: "TEXT" }
   ]);
 
@@ -1019,6 +1039,19 @@ export async function ensureTemplateIngestionSchema(db, force = false) {
       created_at TEXT NOT NULL
     )
   `);
+  await reconcileColumns("template_files", [
+    { name: "template_version_id", def: "TEXT" },
+    { name: "relative_path", def: "TEXT" },
+    { name: "storage_provider", def: "TEXT DEFAULT 'b2'" },
+    { name: "storage_key", def: "TEXT" },
+    { name: "mime_type", def: "TEXT DEFAULT 'application/octet-stream'" },
+    { name: "size_bytes", def: "INTEGER DEFAULT 0" },
+    { name: "sha256", def: "TEXT" },
+    { name: "file_role", def: "TEXT DEFAULT 'asset'" },
+    { name: "is_entry_file", def: "INTEGER DEFAULT 0" },
+    { name: "status", def: "TEXT DEFAULT 'active'" },
+    { name: "created_at", def: "TEXT" }
+  ]);
 
   // 6. template_fields
   await execSql(`
@@ -1040,6 +1073,22 @@ export async function ensureTemplateIngestionSchema(db, force = false) {
       created_at TEXT NOT NULL
     )
   `);
+  await reconcileColumns("template_fields", [
+    { name: "template_version_id", def: "TEXT" },
+    { name: "field_key", def: "TEXT" },
+    { name: "field_type", def: "TEXT DEFAULT 'text'" },
+    { name: "label", def: "TEXT DEFAULT ''" },
+    { name: "placeholder", def: "TEXT" },
+    { name: "help_text", def: "TEXT" },
+    { name: "is_required", def: "INTEGER DEFAULT 0" },
+    { name: "default_value", def: "TEXT" },
+    { name: "validation_json", def: "TEXT DEFAULT '{}'" },
+    { name: "capabilities_json", def: "TEXT DEFAULT '{}'" },
+    { name: "sort_order", def: "INTEGER DEFAULT 0" },
+    { name: "group_name", def: "TEXT DEFAULT 'personal'" },
+    { name: "status", def: "TEXT DEFAULT 'active'" },
+    { name: "created_at", def: "TEXT" }
+  ]);
 
   // 7. template_images
   await execSql(`
@@ -1071,12 +1120,27 @@ export async function ensureTemplateIngestionSchema(db, force = false) {
   `);
   await reconcileColumns("template_images", [
     { name: "template_id", def: "TEXT" },
+    { name: "template_version_id", def: "TEXT" },
+    { name: "asset_key", def: "TEXT" },
     { name: "original_filename", def: "TEXT DEFAULT ''" },
+    { name: "storage_provider", def: "TEXT DEFAULT 'imgbb'" },
+    { name: "provider_asset_id", def: "TEXT" },
+    { name: "original_url", def: "TEXT DEFAULT ''" },
+    { name: "display_url", def: "TEXT DEFAULT ''" },
+    { name: "thumbnail_url", def: "TEXT" },
     { name: "delete_url", def: "TEXT" },
     { name: "relationship_id", def: "TEXT" },
+    { name: "mime_type", def: "TEXT DEFAULT 'image/jpeg'" },
+    { name: "width", def: "INTEGER" },
+    { name: "height", def: "INTEGER" },
+    { name: "size_bytes", def: "INTEGER DEFAULT 0" },
+    { name: "sha256", def: "TEXT" },
+    { name: "status", def: "TEXT DEFAULT 'active'" },
     { name: "health_status", def: "TEXT DEFAULT 'HEALTHY'" },
     { name: "last_health_check_at", def: "TEXT" },
-    { name: "health_issues", def: "TEXT" }
+    { name: "health_issues", def: "TEXT" },
+    { name: "created_at", def: "TEXT" },
+    { name: "updated_at", def: "TEXT" }
   ]);
 
   if (typeof db === "object") healedTemplateIngestionDbs.add(db);
@@ -1314,6 +1378,41 @@ export async function executeB2TemplateIngestPipeline(params) {
   const extracted = await extractAndVerifyZip(zipBuffer);
   const packageFingerprint = await computePackageFingerprint(extracted.files);
 
+  // Helper to roll back any client pre-uploaded ImgBB photos if early validation fails before B2 staging
+  const rollbackPreUploadedImgbbOnly = async () => {
+    const preMap = (templateMetadata && templateMetadata.preUploadedImgbbMap && typeof templateMetadata.preUploadedImgbbMap === 'object')
+      ? templateMetadata.preUploadedImgbbMap
+      : {};
+    const entries = Object.values(preMap).filter(Boolean);
+    if (entries.length === 0) return { imgbbDeletedCount: 0 };
+    let cleaner = params.imgbbProvider || null;
+    if (!cleaner) {
+      try {
+        cleaner = ImgBBProvider.isConfigured(env) ? ImgBBProvider.fromEnv(env) : new ImgBBProvider({ apiKey: 'cleanup' });
+      } catch (_) {
+        cleaner = new ImgBBProvider({ apiKey: 'cleanup' });
+      }
+    }
+    let deletedCount = 0;
+    for (let i = 0; i < entries.length; i += 3) {
+      const batch = entries.slice(i, i + 3);
+      await Promise.all(batch.map(async (item) => {
+        if (item.deleteUrl && cleaner && typeof cleaner.deleteImage === 'function') {
+          try {
+            await cleaner.deleteImage(item.deleteUrl);
+            deletedCount++;
+          } catch (_) {}
+        }
+        if (item.mediaId && db && typeof db.prepare === 'function') {
+          try {
+            await db.prepare(`DELETE FROM wish_media WHERE id = ?`).bind(item.mediaId).run();
+          } catch (_) {}
+        }
+      }));
+    }
+    return { imgbbDeletedCount: deletedCount, imgbb: true };
+  };
+
   // 2b. Parse & Validate Universal Template Protocol (UTP) Manifest
   let rawManifest = null;
   let manifestPath = null;
@@ -1328,6 +1427,7 @@ export async function executeB2TemplateIngestPipeline(params) {
           const text = new TextDecoder('utf-8').decode(f.content);
           rawManifest = JSON.parse(text);
         } catch (jsonErr) {
+          const rbEarly1 = await rollbackPreUploadedImgbbOnly();
           await updateOperation(UPLOAD_OPERATION_STATE.VALIDATION_FAILED, 'manifest_syntax_error', 25, {
             errorCode: 'INVALID_MANIFEST_JSON',
             errorMessage: `Malformed JSON in ${p}: ${jsonErr.message}`,
@@ -1353,6 +1453,7 @@ export async function executeB2TemplateIngestPipeline(params) {
 
   // Reject ambiguous multiple conflicting manifests
   if (manifestCount > 1) {
+    await rollbackPreUploadedImgbbOnly();
     await updateOperation(UPLOAD_OPERATION_STATE.VALIDATION_FAILED, 'ambiguous_manifests', 25, {
       errorCode: 'MULTIPLE_MANIFESTS_CONFLICT',
       errorMessage: `Multiple conflicting manifest files detected in ZIP archive (${manifestCount} manifests found).`,
@@ -1380,6 +1481,7 @@ export async function executeB2TemplateIngestPipeline(params) {
   });
 
   if (!utpReport.valid && utpReport.issues.some(i => i.severity === 'error' && i.blocking !== false)) {
+    await rollbackPreUploadedImgbbOnly();
     await updateOperation(UPLOAD_OPERATION_STATE.VALIDATION_FAILED, 'utp_validation_failed', 30, {
       errorCode: 'UTP_VALIDATION_FAILED',
       errorMessage: `Template package failed Universal Template Protocol validation with ${utpReport.summary.errors} error(s).`,
@@ -1405,6 +1507,7 @@ export async function executeB2TemplateIngestPipeline(params) {
   );
 
   if (!securityAndModReport.securityValid) {
+    await rollbackPreUploadedImgbbOnly();
     const firstSec = securityAndModReport.securityIssues[0];
     await updateOperation(UPLOAD_OPERATION_STATE.VALIDATION_FAILED, 'template_security_failed', 32, {
       errorCode: 'TEMPLATE_SECURITY_VIOLATION',
@@ -1424,6 +1527,7 @@ export async function executeB2TemplateIngestPipeline(params) {
   }
 
   if (!securityAndModReport.moderationValid) {
+    await rollbackPreUploadedImgbbOnly();
     const firstMod = securityAndModReport.moderationIssues[0];
     await updateOperation(UPLOAD_OPERATION_STATE.VALIDATION_FAILED, 'template_moderation_failed', 33, {
       errorCode: 'TEMPLATE_MODERATION_REJECTED',
@@ -1714,6 +1818,21 @@ export async function executeB2TemplateIngestPipeline(params) {
     templateMetadata.autoPublish ||
     templateMetadata.isPublished === true
   );
+
+  // Check if template_families or templates already existed in D1 before this upload attempt
+  // so that if an error occurs, we ONLY delete newly created rows and NEVER delete pre-existing templates!
+  let hadExistingFamilyBeforeUpload = false;
+  let hadExistingTemplateBeforeUpload = false;
+  if (db && typeof db.prepare === 'function') {
+    try {
+      const existingFam = await db.prepare(`SELECT id FROM template_families WHERE id = ? LIMIT 1`).bind(templateFamilyId).first();
+      hadExistingFamilyBeforeUpload = Boolean(existingFam && existingFam.id);
+    } catch (_) {}
+    try {
+      const existingTpl = await db.prepare(`SELECT id FROM templates WHERE id = ? LIMIT 1`).bind(templateId).first();
+      hadExistingTemplateBeforeUpload = Boolean(existingTpl && existingTpl.id);
+    } catch (_) {}
+  }
 
   // Resolve ImgBB Provider if configured or injected
   let activeImgbbProvider = params.imgbbProvider || null;
@@ -2177,6 +2296,9 @@ export async function executeB2TemplateIngestPipeline(params) {
           'b2', ?, ?,
           ?, ?, ?
         )
+        ON CONFLICT(id) DO UPDATE SET
+          status = excluded.status,
+          storage_metadata_json = excluded.storage_metadata_json
       `).bind(
         versionId,
         templateId,
@@ -2330,11 +2452,33 @@ export async function executeB2TemplateIngestPipeline(params) {
     try {
       await runAtomicRegistration();
     } catch (firstBatchErr) {
-      try {
-        await ensureTemplateIngestionSchema(db);
-        await runAtomicRegistration();
-      } catch (batchErr) {
-        throw new Error(`D1 registration batch commit failed: ${batchErr.message}`);
+      await ensureTemplateIngestionSchema(db, true);
+      let lastBatchErr = null;
+      let succeededAfterHeal = false;
+      for (let healAttempt = 1; healAttempt <= 6; healAttempt++) {
+        try {
+          await runAtomicRegistration();
+          succeededAfterHeal = true;
+          break;
+        } catch (retryErr) {
+          lastBatchErr = retryErr;
+          const msg = String(retryErr && retryErr.message ? retryErr.message : retryErr);
+          const colMatch = msg.match(/table\s+([a-zA-Z0-9_]+)\s+has\s+no\s+column\s+named\s+([a-zA-Z0-9_]+)/i);
+          if (colMatch && db && typeof db.prepare === 'function') {
+            const missingTable = colMatch[1];
+            const missingCol = colMatch[2];
+            try {
+              const alterStmt = db.prepare(`ALTER TABLE ${missingTable} ADD COLUMN ${missingCol} TEXT DEFAULT ''`);
+              if (typeof alterStmt.run === 'function') await alterStmt.run();
+              else if (typeof alterStmt.bind === 'function') await alterStmt.bind().run();
+              continue;
+            } catch (_) {}
+          }
+          break;
+        }
+      }
+      if (!succeededAfterHeal && lastBatchErr) {
+        throw new Error(`D1 registration batch commit failed: ${lastBatchErr.message}`);
       }
     }
 
@@ -2404,9 +2548,9 @@ export async function executeB2TemplateIngestPipeline(params) {
     };
 
   } catch (error) {
-    console.error(`[Template Ingest Pipeline Error]: ${error.message}. Initiating rollback of ${uploadedB2Objects.length} B2 objects...`);
+    console.error(`[Template Ingest Pipeline Error]: ${error.message}. Initiating 3-way rollback (B2 + ImgBB + D1)...`);
 
-    // Clean up all B2 objects uploaded during this failed run to prevent untracked orphans
+    // 1. Clean up all B2 objects uploaded during THIS failed attempt only
     const rollbackErrors = [];
     for (const obj of uploadedB2Objects) {
       try {
@@ -2418,15 +2562,70 @@ export async function executeB2TemplateIngestPipeline(params) {
       }
     }
 
-    // Failure Recovery: mark version as failed in DB if created, update operation status
+    // 2. Clean up all ImgBB images uploaded during THIS failed attempt only (both client pre-uploaded & server uploaded)
+    let imgbbRolledBackCount = 0;
+    try {
+      const preMap = (templateMetadata && templateMetadata.preUploadedImgbbMap && typeof templateMetadata.preUploadedImgbbMap === 'object')
+        ? templateMetadata.preUploadedImgbbMap
+        : {};
+      const allAttemptImgbb = [...uploadedImgbbImages, ...Object.values(preMap).filter(Boolean)];
+      const seenDeleteUrls = new Set();
+      const uniqueImgbbToDelete = [];
+      for (const imgItem of allAttemptImgbb) {
+        const dUrl = imgItem && imgItem.deleteUrl;
+        if (dUrl && !seenDeleteUrls.has(dUrl)) {
+          seenDeleteUrls.add(dUrl);
+          uniqueImgbbToDelete.push(imgItem);
+        }
+      }
+      if (uniqueImgbbToDelete.length > 0) {
+        const imgCleaner = activeImgbbProvider || new ImgBBProvider({ apiKey: 'cleanup' });
+        if (typeof imgCleaner.deleteImage === 'function') {
+          for (let i = 0; i < uniqueImgbbToDelete.length; i += 3) {
+            const batch = uniqueImgbbToDelete.slice(i, i + 3);
+            await Promise.all(batch.map(async (imgItem) => {
+              try {
+                await imgCleaner.deleteImage(imgItem.deleteUrl);
+                imgbbRolledBackCount++;
+              } catch (_) {}
+            }));
+          }
+        }
+      }
+    } catch (_) {}
+
+    // 3. Clean up any D1 rows created during THIS failed attempt only (never touch pre-existing templates or families!)
+    let d1Cleaned = false;
     if (db && typeof db.prepare === 'function') {
-      try {
-        await db.prepare(`
-          UPDATE template_versions 
-          SET status = 'failed', error_message = ?
-          WHERE id = ?
-        `).bind(error.message, versionId).run();
-      } catch (_) {}
+      const safeRunDelete = async (sql, ...args) => {
+        try {
+          const s = db.prepare(sql).bind(...args);
+          if (typeof s.run === 'function') await s.run();
+        } catch (_) {}
+      };
+      await safeRunDelete(`DELETE FROM template_images WHERE template_version_id = ?`, versionId);
+      await safeRunDelete(`DELETE FROM template_fields WHERE template_version_id = ?`, versionId);
+      await safeRunDelete(`DELETE FROM template_files WHERE template_version_id = ?`, versionId);
+      await safeRunDelete(`DELETE FROM template_versions WHERE id = ?`, versionId);
+
+      // Only delete from templates / template_families if they did NOT exist before this upload attempt!
+      if (!hadExistingTemplateBeforeUpload && templateId) {
+        await safeRunDelete(`DELETE FROM templates WHERE id = ?`, templateId);
+      }
+      if (!hadExistingFamilyBeforeUpload && templateFamilyId) {
+        await safeRunDelete(`DELETE FROM template_families WHERE id = ?`, templateFamilyId);
+      }
+
+      // Also clean up any temporary wish_media rows created during pre-upload
+      const preMap = (templateMetadata && templateMetadata.preUploadedImgbbMap && typeof templateMetadata.preUploadedImgbbMap === 'object')
+        ? templateMetadata.preUploadedImgbbMap
+        : {};
+      for (const item of Object.values(preMap)) {
+        if (item && item.mediaId) {
+          await safeRunDelete(`DELETE FROM wish_media WHERE id = ?`, item.mediaId);
+        }
+      }
+      d1Cleaned = true;
     }
 
     const finalOpState = rollbackErrors.length > 0 ? UPLOAD_OPERATION_STATE.CLEANUP_PENDING : UPLOAD_OPERATION_STATE.FAILED;
@@ -2449,6 +2648,14 @@ export async function executeB2TemplateIngestPipeline(params) {
       versionId,
       uploadedCount: uploadedB2Objects.length,
       rolledBackCount: uploadedB2Objects.length - rollbackErrors.length,
+      imgbbRolledBackCount,
+      rolledBack: {
+        b2: true,
+        imgbb: true,
+        d1: d1Cleaned,
+        b2DeletedCount: uploadedB2Objects.length - rollbackErrors.length,
+        imgbbDeletedCount: imgbbRolledBackCount
+      },
       rollbackErrors: rollbackErrors.length > 0 ? rollbackErrors : undefined
     };
     return errRes;

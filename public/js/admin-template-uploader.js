@@ -1059,6 +1059,7 @@ function renderLiveSandboxPreview() {
   indexContent = indexContent.replace(/\{\{\s*custom_message\s*\}\}/g, "May this special day bring you magical memories and endless joy!");
 
   iframe.srcdoc = indexContent;
+  setTimeout(() => setSandboxViewport(currentSandboxViewportMode), 30);
 }
 
 // 5. Deploy Template to Server API (Supports both Staged Draft Preview and Direct Publish)
@@ -1204,6 +1205,8 @@ async function deployUploadedTemplate(publishImmediately = true) {
             if (imgRes.ok && liveUrl) {
               batchSuccessCount++;
               preUploadedImgbbMap[relPath] = {
+                mediaId: resData.mediaId || null,
+                deleteUrl: resData.deleteUrl || null,
                 displayUrl: liveUrl,
                 originalUrl: resData.originalUrl || liveUrl,
                 thumbnailUrl: resData.thumbnailUrl || resData.thumbUrl || liveUrl,
@@ -1382,15 +1385,36 @@ async function deployUploadedTemplate(publishImmediately = true) {
       );
 
       loadDynamicTemplates();
-    } else if (data && data.code === "UTP_VALIDATION_FAILED") {
-      const issueDetails = Array.isArray(data.issues) ? data.issues.map(i => "• [" + i.severity.toUpperCase() + "] " + i.code + ": " + i.message).join("\n") : "";
-      alert("⚠️ UNIVERSAL TEMPLATE PROTOCOL (UTP) VALIDATION FAILED:\n\n" + data.message + "\n\n" + issueDetails);
-    } else if (data && data.code === "B2_NOT_CONFIGURED") {
-      alert("⚠️ Backblaze B2 is not configured in environment secrets.\n\n" + data.message);
     } else {
-      alert("Error deploying template: " + (data?.message || data?.error?.message || "Unknown error"));
+      if (!resultObj?.rolledBack?.imgbb && Object.keys(preUploadedImgbbMap).length > 0) {
+        setLiveButtonStatus("Rolling back uploaded cloud files after error...");
+        try {
+          await fetch("/api/templates/upload-rollback", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ preUploadedImgbbMap })
+          });
+        } catch (_) {}
+      }
+      if (data && data.code === "UTP_VALIDATION_FAILED") {
+        const issueDetails = Array.isArray(data.issues) ? data.issues.map(i => "• [" + i.severity.toUpperCase() + "] " + i.code + ": " + i.message).join("\n") : "";
+        alert("⚠️ UNIVERSAL TEMPLATE PROTOCOL (UTP) VALIDATION FAILED:\n\n" + data.message + "\n\n" + issueDetails);
+      } else if (data && data.code === "B2_NOT_CONFIGURED") {
+        alert("⚠️ Backblaze B2 is not configured in environment secrets.\n\n" + data.message);
+      } else {
+        alert("Error deploying template: " + (data?.message || data?.error?.message || "Unknown error"));
+      }
     }
   } catch (err) {
+    try {
+      if (typeof preUploadedImgbbMap === "object" && Object.keys(preUploadedImgbbMap).length > 0) {
+        await fetch("/api/templates/upload-rollback", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ preUploadedImgbbMap })
+        });
+      }
+    } catch (_) {}
     alert("Network error deploying template: " + (err && err.message ? err.message : String(err)));
   } finally {
     hideUploadProgress();
@@ -3651,21 +3675,95 @@ function renderQuickSetTemplatesList(templates) {
   }).join('');
 }
 
+let currentSandboxViewportMode = 'desktop';
+
 function setSandboxViewport(mode) {
-  const wrap = document.getElementById('sandbox-iframe-wrapper');
+  currentSandboxViewportMode = mode === 'mobile' ? 'mobile' : 'desktop';
+  const iframe = document.getElementById('upload-preview-iframe');
+  const wrap = document.getElementById('sandbox-iframe-wrapper') || (iframe ? iframe.parentElement : null);
   const btnDesktop = document.getElementById('btn-vp-desktop');
   const btnMobile = document.getElementById('btn-vp-mobile');
-  if (!wrap) return;
-  if (mode === 'mobile') {
-    wrap.style.maxWidth = '375px';
+  if (!wrap || !iframe) return;
+
+  // Measure available width from parent container
+  const parentEl = wrap.parentElement || wrap;
+  const availWidth = Math.max(260, (parentEl.clientWidth || window.innerWidth || 360) - 4);
+
+  // Ensure badge indicator exists inside wrapper
+  let badgeEl = document.getElementById('sandbox-viewport-mode-badge');
+  if (!badgeEl) {
+    badgeEl = document.createElement('div');
+    badgeEl.id = 'sandbox-viewport-mode-badge';
+    badgeEl.style.cssText = 'position:absolute;top:8px;right:10px;z-index:20;padding:3px 9px;border-radius:999px;font-size:10px;font-weight:800;letter-spacing:0.03em;pointer-events:none;background:rgba(18,9,36,0.82);color:#f9a8d4;border:1px solid rgba(236,72,153,0.4);backdrop-filter:blur(6px);';
+    wrap.appendChild(badgeEl);
+  }
+
+  if (currentSandboxViewportMode === 'mobile') {
+    const mobileW = 375;
+    const mobileH = 667;
+    const targetFrameW = Math.min(availWidth, mobileW + 16);
+    const innerAvailW = Math.max(240, targetFrameW - 16);
+    const scale = Math.min(1, innerAvailW / mobileW);
+    const scaledH = Math.round(mobileH * scale);
+
+    wrap.style.width = targetFrameW + 'px';
+    wrap.style.maxWidth = targetFrameW + 'px';
+    wrap.style.height = (scaledH + 28) + 'px';
     wrap.style.margin = '0 auto';
-    if (btnMobile) btnMobile.className = 'px-3 py-1 rounded-full bg-primary text-white text-xs font-bold cursor-pointer';
+    wrap.style.borderRadius = '28px';
+    wrap.style.border = '6px solid #2e1a47';
+    wrap.style.boxShadow = '0 14px 35px rgba(0,0,0,0.45)';
+    wrap.style.paddingTop = '16px';
+    wrap.style.background = '#0c0618';
+
+    iframe.style.width = mobileW + 'px';
+    iframe.style.height = mobileH + 'px';
+    iframe.style.transform = scale < 1 ? (`scale(${scale.toFixed(4)})`) : 'none';
+    iframe.style.transformOrigin = 'top left';
+    iframe.style.display = 'block';
+
+    badgeEl.textContent = '📱 Mobile View (375×667)';
+
+    if (btnMobile) btnMobile.className = 'px-3 py-1 rounded-full bg-primary text-white text-xs font-bold cursor-pointer shadow-sm';
     if (btnDesktop) btnDesktop.className = 'px-3 py-1 rounded-full bg-surface-container-high text-on-surface-variant text-xs font-semibold cursor-pointer';
   } else {
+    // True Desktop Widescreen Viewport (1280x800) scaled down cleanly to fit any container or mobile screen
+    const desktopW = 1280;
+    const desktopH = 800;
+    wrap.style.width = '100%';
     wrap.style.maxWidth = '100%';
     wrap.style.margin = '0';
-    if (btnDesktop) btnDesktop.className = 'px-3 py-1 rounded-full bg-primary text-white text-xs font-bold cursor-pointer';
+    wrap.style.borderRadius = '16px';
+    wrap.style.border = '1px solid rgba(168,85,247,0.4)';
+    wrap.style.boxShadow = 'inset 0 2px 10px rgba(0,0,0,0.35)';
+    wrap.style.paddingTop = '0px';
+    wrap.style.background = '#120924';
+
+    const actualWrapW = Math.max(260, wrap.clientWidth || availWidth);
+    const scale = Math.min(1, actualWrapW / desktopW);
+    const scaledH = Math.max(220, Math.round(desktopH * scale));
+
+    wrap.style.height = scaledH + 'px';
+    iframe.style.width = desktopW + 'px';
+    iframe.style.height = desktopH + 'px';
+    iframe.style.transform = scale < 1 ? (`scale(${scale.toFixed(4)})`) : 'none';
+    iframe.style.transformOrigin = 'top left';
+    iframe.style.display = 'block';
+
+    badgeEl.textContent = '🖥️ Desktop View (1280×800)';
+
+    if (btnDesktop) btnDesktop.className = 'px-3 py-1 rounded-full bg-primary text-white text-xs font-bold cursor-pointer shadow-sm';
     if (btnMobile) btnMobile.className = 'px-3 py-1 rounded-full bg-surface-container-high text-on-surface-variant text-xs font-semibold cursor-pointer';
   }
 }
 window.setSandboxViewport = setSandboxViewport;
+if (typeof window !== 'undefined' && typeof window.addEventListener === 'function') {
+  window.addEventListener('resize', () => {
+    try { setSandboxViewport(currentSandboxViewportMode); } catch (_) {}
+  });
+  if (typeof document !== 'undefined' && typeof document.addEventListener === 'function') {
+    document.addEventListener('DOMContentLoaded', () => {
+      setTimeout(() => { try { setSandboxViewport(currentSandboxViewportMode); } catch (_) {} }, 80);
+    });
+  }
+}

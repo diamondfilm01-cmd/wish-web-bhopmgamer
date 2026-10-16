@@ -508,4 +508,189 @@ test('Hybrid ImgBB + Backblaze B2 Template Ingestion, Code Link Injection & Cust
     assert.strictEqual(sndField.required, false, "sender_name must be optional");
     assert.strictEqual(sndField.defaultValue, "Tera Jigri Yaar", "sender_name default text must be preserved");
   });
+
+  await t.test("7. Auto-heals missing templates.description column in D1 and performs surgical 3-way rollback (ImgBB + B2 + D1) on failure without touching existing templates", async () => {
+    const { DatabaseSync } = await import("../scripts/sqlite-compat.js");
+    const rawDb = new DatabaseSync(":memory:");
+
+    // Create a legacy templates table MISSING the "description" column (reproducing screenshot error)
+    rawDb.exec(`
+      CREATE TABLE template_families (
+        id TEXT PRIMARY KEY,
+        slug TEXT UNIQUE NOT NULL,
+        name TEXT NOT NULL
+      );
+      CREATE TABLE templates (
+        id TEXT PRIMARY KEY,
+        name TEXT NOT NULL,
+        slug TEXT UNIQUE NOT NULL,
+        category TEXT NOT NULL
+      );
+      INSERT INTO template_families (id, slug, name) VALUES ('fam_existing_keep', 'existing-keep', 'Existing Safe Family');
+      INSERT INTO templates (id, name, slug, category) VALUES ('tpl_existing_keep', 'Existing Safe Template', 'existing-keep', 'Birthday');
+    `);
+
+    const wrapD1 = (sqliteDb, failOnTable = null) => ({
+      prepare(sql) {
+        return {
+          sql,
+          args: [],
+          bind(...args) {
+            this.args = args;
+            return this;
+          },
+          async first() {
+            const stmt = sqliteDb.prepare(this.sql);
+            return stmt.get(...this.args) || null;
+          },
+          async all() {
+            const stmt = sqliteDb.prepare(this.sql);
+            return { results: stmt.all(...this.args) };
+          },
+          async run() {
+            if (failOnTable && this.sql.includes(failOnTable)) {
+              throw new Error("Simulated D1 failure on " + failOnTable);
+            }
+            const stmt = sqliteDb.prepare(this.sql);
+            stmt.run(...this.args);
+            return { success: true };
+          }
+        };
+      },
+      async batch(stmts) {
+        const out = [];
+        for (const s of stmts) {
+          out.push(await s.run());
+        }
+        return out;
+      }
+    });
+
+    const zip = new JSZip();
+    const dummyPng = new Uint8Array([0x89, 0x50, 0x4E, 0x47, 0x0D, 0x0A, 0x1A, 0x0A, 0x00, 0x00, 0x00, 0x0D, 0x49, 0x48, 0x44, 0x52]);
+    zip.file("assets/images/cover.png", dummyPng);
+    zip.file("wishmagic.json", JSON.stringify({
+      $schema: "wishmagic-template",
+      schemaVersion: "1.0.0",
+      template: { id: "healed-desc-tpl", name: "Healed Desc Template", description: "Auto-heals description column", category: "birthday", tier: "free", price: 0, entry: "index.html" },
+      fields: [
+        { id: "recipient_name", type: "text", label: "Recipient Name", required: true, defaultValue: "Aman", binding: { target: "text", selector: "[data-wm-field='recipient_name']" } },
+        { id: "photo_1", type: "image", label: "Cover", required: false, defaultValue: "assets/images/cover.png", binding: { target: "src", selector: "[data-wm-field='photo_1']" } }
+      ],
+      sections: [{ id: "hero", label: "Hero", required: true, toggleable: false }],
+      capabilities: ["photos"]
+    }));
+    zip.file("index.html", `<!DOCTYPE html><html><body><section data-wm-section="hero"><h1 data-wm-field="recipient_name">Aman</h1><img data-wm-field="photo_1" src="assets/images/cover.png"/></section></body></html>`);
+    const zipBuffer = await zip.generateAsync({ type: "uint8array" });
+
+    // Part A: Verify missing templates.description column is auto-healed and upload succeeds
+    const d1Healed = wrapD1(rawDb);
+    const healRes = await executeB2TemplateIngestPipeline({
+      zipBuffer,
+      templateMetadata: {
+        name: "Healed Desc Template",
+        description: "Auto-heals description column",
+        category: "birthday",
+        publishImmediately: true
+      },
+      env: {},
+      db: d1Healed,
+      storageProvider: {
+        bucketName: "wishmagic-assets",
+        putObject: async ({ key }) => ({ success: true, key, fileId: "fid_" + key }),
+        deleteObject: async () => ({ success: true })
+      },
+      imgbbProvider: {
+        uploadImage: async ({ filename }) => ({
+          provider: "imgbb",
+          providerAssetId: "ibb_heal_1",
+          filename,
+          displayUrl: "https://i.ibb.co/ibb_heal_1/" + filename,
+          originalUrl: "https://i.ibb.co/ibb_heal_1/" + filename,
+          deleteUrl: "https://ibb.co/ibb_heal_1/hash123"
+        }),
+        deleteImage: async () => ({ success: true })
+      },
+      authorId: "admin_1"
+    });
+
+    assert.strictEqual(healRes.success, true, "Upload must succeed after auto-healing missing templates.description column");
+    const savedHealedTpl = rawDb.prepare("SELECT id, description FROM templates WHERE id = ?").get("tpl_healed-desc-tpl");
+    assert.ok(savedHealedTpl, "Healed template must be saved in D1 templates table");
+    assert.strictEqual(savedHealedTpl.description, "Auto-heals description column");
+
+    // Part B: Verify 3-way surgical rollback (B2 + ImgBB + D1) when a new template upload fails mid-commit
+    const deletedB2Keys = [];
+    const deletedImgbbUrls = [];
+    const zipFail = new JSZip();
+    zipFail.file("assets/images/fail-photo.png", dummyPng);
+    zipFail.file("wishmagic.json", JSON.stringify({
+      $schema: "wishmagic-template",
+      schemaVersion: "1.0.0",
+      template: { id: "new-failing-tpl", name: "New Failing Template", category: "birthday", tier: "free", price: 0, entry: "index.html" },
+      fields: [
+        { id: "recipient_name", type: "text", label: "Recipient Name", required: true, defaultValue: "Rohit", binding: { target: "text", selector: "[data-wm-field='recipient_name']" } },
+        { id: "photo_1", type: "image", label: "Photo", required: false, defaultValue: "assets/images/fail-photo.png", binding: { target: "src", selector: "[data-wm-field='photo_1']" } }
+      ],
+      sections: [{ id: "hero", label: "Hero", required: true, toggleable: false }],
+      capabilities: ["photos"]
+    }));
+    zipFail.file("index.html", `<!DOCTYPE html><html><body><section data-wm-section="hero"><h1 data-wm-field="recipient_name">Rohit</h1><img data-wm-field="photo_1" src="assets/images/fail-photo.png"/></section></body></html>`);
+    const zipFailBuffer = await zipFail.generateAsync({ type: "uint8array" });
+
+    // Force failure when inserting into template_images (after template_families, templates, template_versions, template_files have already been inserted!)
+    const d1Failing = wrapD1(rawDb, "INSERT OR REPLACE INTO template_images");
+    const failRes = await executeB2TemplateIngestPipeline({
+      zipBuffer: zipFailBuffer,
+      templateMetadata: {
+        name: "New Failing Template",
+        category: "birthday",
+        preUploadedImgbbMap: {
+          "assets/images/fail-photo.png": {
+            displayUrl: "https://i.ibb.co/fail1/fail-photo.png",
+            originalUrl: "https://i.ibb.co/fail1/fail-photo.png",
+            deleteUrl: "https://ibb.co/fail1/delhash999",
+            providerAssetId: "fail1",
+            filename: "fail-photo.png"
+          }
+        }
+      },
+      env: {},
+      db: d1Failing,
+      storageProvider: {
+        bucketName: "wishmagic-assets",
+        putObject: async ({ key }) => ({ success: true, key, fileId: "fid_" + key }),
+        deleteObject: async ({ key }) => {
+          deletedB2Keys.push(key);
+          return { success: true };
+        }
+      },
+      imgbbProvider: {
+        uploadImage: async () => ({}),
+        deleteImage: async (delUrl) => {
+          deletedImgbbUrls.push(delUrl);
+          return { success: true, remoteDeleted: true };
+        }
+      },
+      authorId: "admin_1"
+    });
+
+    assert.strictEqual(failRes.success, false, "Must return failure when registration fails");
+    assert.ok(deletedB2Keys.length >= 4, "All B2 objects uploaded during the failed attempt must be deleted");
+    assert.deepStrictEqual(deletedImgbbUrls, ["https://ibb.co/fail1/delhash999"], "Newly uploaded ImgBB image must be deleted via deleteUrl on failure");
+
+    // Verify D1 rows for the failed new template were rolled back and deleted
+    const orphanTpl = rawDb.prepare("SELECT * FROM templates WHERE id = ?").get("tpl_new-failing-tpl");
+    const orphanFam = rawDb.prepare("SELECT * FROM template_families WHERE id = ?").get("fam_new-failing-tpl");
+    const orphanVer = rawDb.prepare("SELECT * FROM template_versions WHERE template_id = ?").get("tpl_new-failing-tpl");
+    assert.strictEqual(orphanTpl, undefined, "Failed new template row must be deleted from D1 templates");
+    assert.strictEqual(orphanFam, undefined, "Failed new template family row must be deleted from D1 template_families");
+    assert.strictEqual(orphanVer, undefined, "Failed new template version row must be deleted from D1 template_versions");
+
+    // Verify pre-existing templates in D1 were NOT touched!
+    const existingSafeTpl = rawDb.prepare("SELECT * FROM templates WHERE id = ?").get("tpl_existing_keep");
+    const existingHealedTpl = rawDb.prepare("SELECT * FROM templates WHERE id = ?").get("tpl_healed-desc-tpl");
+    assert.ok(existingSafeTpl, "Pre-existing template tpl_existing_keep must NEVER be deleted during rollback");
+    assert.ok(existingHealedTpl, "Previously succeeded template tpl_healed-desc-tpl must NEVER be deleted during rollback");
+  });
 });

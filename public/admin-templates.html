@@ -22,7 +22,7 @@
   <script src="js/auth-service.js?v=20261015_wm47944_v7"></script>
 <script src="js/repositories.js"></script>
 <script src="js/template-section-system.js"></script>
-<script src="js/admin-template-uploader.js?v=20261016_wm_upload_fix_v14"></script>
+<script src="js/admin-template-uploader.js?v=20261016_wm_upload_fix_v16"></script>
 
 </head>
 <body class="bg-background text-on-surface font-body-md min-h-screen antialiased selection:bg-primary selection:text-white">
@@ -414,15 +414,17 @@
 
         <!-- Live Sandbox Preview Iframe -->
         <div class="flex flex-col gap-2">
-          <div class="flex items-center justify-between">
-            <label class="font-label-sm text-label-sm text-on-surface-variant uppercase tracking-wider font-bold">
-              Live In-Memory Sandbox Preview
+          <div class="flex flex-wrap items-center justify-between gap-2">
+            <label class="font-label-sm text-label-sm text-on-surface-variant uppercase tracking-wider font-bold flex items-center gap-2">
+              <span class="w-2 h-2 rounded-full bg-emerald-400 animate-pulse"></span>
+              <span>Live Interactive Sandbox Preview</span>
             </label>
-            <span class="text-xs text-primary flex items-center gap-1 font-semibold">
-              <span class="w-2 h-2 rounded-full bg-emerald-400 animate-pulse"></span> Running Uploaded Code
-            </span>
+            <div class="flex items-center gap-1.5">
+              <button type="button" id="btn-vp-desktop" onclick="setSandboxViewport('desktop')" class="px-3 py-1 rounded-full bg-primary text-white text-xs font-bold cursor-pointer">Desktop</button>
+              <button type="button" id="btn-vp-mobile" onclick="setSandboxViewport('mobile')" class="px-3 py-1 rounded-full bg-surface-container-high text-on-surface-variant text-xs font-semibold cursor-pointer">Mobile</button>
+            </div>
           </div>
-          <div class="w-full h-72 sm:h-96 rounded-xl border border-purple-500/40 overflow-hidden bg-black relative shadow-inner">
+          <div id="sandbox-iframe-wrapper" class="w-full h-72 sm:h-96 rounded-xl border border-purple-500/40 overflow-hidden bg-black relative shadow-inner transition-all">
             <iframe id="upload-preview-iframe" class="w-full h-full border-0" sandbox="allow-scripts allow-same-origin"></iframe>
           </div>
         </div>

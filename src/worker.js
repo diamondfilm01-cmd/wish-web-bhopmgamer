@@ -8324,6 +8324,54 @@ export default {
         response = jsonSuccess(ingestResult, 201, {}, requestId);
       }
 
+      // --- Part 20/45: Client-Triggered Rollback of Pre-Uploaded Template Assets on Failed Upload ---
+      else if (pathname === '/api/templates/upload-rollback' && method === 'POST') {
+        const user = await getAuthenticatedUser(request, env);
+        if (!user) return applySecurityHeaders(jsonError('AUTH_REQUIRED', 'Authentication required', 401), request, env);
+        const isAdmin = await verifyAdminRole(user, env);
+        if (!isAdmin) return applySecurityHeaders(jsonError('FORBIDDEN', 'Admin role required', 403), request, env);
+
+        const body = await request.json().catch(() => ({}));
+        const preMap = (body && body.preUploadedImgbbMap && typeof body.preUploadedImgbbMap === 'object')
+          ? body.preUploadedImgbbMap
+          : {};
+        const items = Object.values(preMap).filter(Boolean);
+        let imgbbDeletedCount = 0;
+
+        if (items.length > 0) {
+          let cleaner = env.IMGBB_PROVIDER || null;
+          if (!cleaner) {
+            try {
+              cleaner = ImgBBProvider.isConfigured(env) ? ImgBBProvider.fromEnv(env) : new ImgBBProvider({ apiKey: 'cleanup' });
+            } catch (_) {
+              cleaner = new ImgBBProvider({ apiKey: 'cleanup' });
+            }
+          }
+          for (let i = 0; i < items.length; i += 3) {
+            const batch = items.slice(i, i + 3);
+            await Promise.all(batch.map(async (item) => {
+              if (item.deleteUrl && cleaner && typeof cleaner.deleteImage === 'function') {
+                try {
+                  await cleaner.deleteImage(item.deleteUrl);
+                  imgbbDeletedCount++;
+                } catch (_) {}
+              }
+              if (item.mediaId && env.DB && typeof env.DB.prepare === 'function') {
+                try {
+                  await env.DB.prepare(`DELETE FROM wish_media WHERE id = ?`).bind(item.mediaId).run();
+                } catch (_) {}
+              }
+            }));
+          }
+        }
+
+        response = jsonSuccess({
+          success: true,
+          rolledBack: true,
+          imgbbDeletedCount
+        }, 200, {}, requestId);
+      }
+
       // --- Part 3: Template Ingestion Operation Status & State Machine Route ---
       else if (pathname.startsWith('/api/templates/operations/') && method === 'GET') {
         const user = await getAuthenticatedUser(request, env);
@@ -11922,6 +11970,10 @@ export default {
             displayUrl: imgResult.displayUrl || imgResult.url,
             originalUrl: imgResult.originalUrl || imgResult.url,
             thumbnailUrl: imgResult.thumbnailUrl || imgResult.displayUrl,
+            deleteUrl: isAdminUploader ? (imgResult.deleteUrl || null) : null,
+            providerAssetId: imgResult.providerAssetId || imgResult.imageId || null,
+            sizeBytes: imgResult.sizeBytes || validation.bytes.byteLength,
+            mimeType: imgResult.mimeType || validation.mimeType,
             width: imgResult.width,
             height: imgResult.height,
             track: {
