@@ -6,8 +6,11 @@ let suggestedDynamicFields = []; // Undeclared HTML/media fields awaiting admin 
 let currentParsedManifest = null;
 let currentUtpValidationIssues = [];
 let customCoverThumbnail = null;
+let customCoverThumbnailIsManual = false;
+let firstFoundImageRelPath = "";
 let currentPreviewBlobUrl = null;
 let currentZipRawFile = null; // Part 20: Real B2 ZIP archive buffer tracker
+let currentZipBase64 = null; // Cached base64 of the uploaded ZIP so deploy never hangs on FileReader
 
 // Initialize on page load
 document.addEventListener('DOMContentLoaded', () => {
@@ -52,6 +55,7 @@ async function handleCustomCoverThumb(input) {
   if (input.files && input.files[0]) {
     const file = input.files[0];
     customCoverThumbnailName = file.name;
+    customCoverThumbnailIsManual = true;
     const reader = new FileReader();
     reader.onload = async (e) => {
       const dataUrl = e.target.result;
@@ -140,7 +144,14 @@ function computeCommonFolderPrefix(pathsList) {
 
 async function handleFolderSelection(fileList) {
   if (!fileList || fileList.length === 0) return;
+  const fInput = document.getElementById("folder-input");
   currentZipRawFile = null;
+  currentZipBase64 = null;
+  firstFoundImageRelPath = "";
+  if (!customCoverThumbnailIsManual) {
+    customCoverThumbnail = null;
+    customCoverThumbnailName = "";
+  }
   showUploadProgress('Reading & verifying folder files...');
   currentUploadedFiles = {};
   detectedDynamicFields = [];
@@ -182,12 +193,28 @@ async function handleFolderSelection(fileList) {
   }
 
   finishProcessingFiles(foundIndex, htmlContent, firstFoundImage, folderHintName, firstFoundImageName);
+  if (fInput) { try { fInput.value = ""; } catch (_) {} }
 }
 
 // 2. Handle Selection of a ZIP file using JSZip
+function encodeUint8ArrayToBase64(bytes) {
+  let binary = "";
+  const chunkSize = 8192;
+  for (let i = 0; i < bytes.length; i += chunkSize) {
+    binary += String.fromCharCode.apply(null, bytes.subarray(i, i + chunkSize));
+  }
+  return btoa(binary);
+}
+
 async function handleZipFile(zipFile) {
   if (!zipFile) return;
   currentZipRawFile = zipFile;
+  currentZipBase64 = null;
+  firstFoundImageRelPath = "";
+  if (!customCoverThumbnailIsManual) {
+    customCoverThumbnail = null;
+    customCoverThumbnailName = "";
+  }
   if (typeof JSZip === 'undefined') {
     alert('JSZip library is loading. Please try again in a second.');
     return;
@@ -198,7 +225,9 @@ async function handleZipFile(zipFile) {
   detectedDynamicFields = [];
 
   try {
-    const zip = await JSZip.loadAsync(zipFile);
+    const zipArrayBuffer = await zipFile.arrayBuffer();
+    currentZipBase64 = encodeUint8ArrayToBase64(new Uint8Array(zipArrayBuffer));
+    const zip = await JSZip.loadAsync(zipArrayBuffer);
     let htmlContent = '';
     let foundIndex = false;
     let firstFoundImage = null;
@@ -258,6 +287,7 @@ async function handleZipFile(zipFile) {
         if (!firstFoundImage && isImageFile(relPath)) {
           firstFoundImage = dataUrl;
           firstFoundImageName = baseFileName;
+          firstFoundImageRelPath = relPath;
         }
       } else {
         const text = await entry.async('string');
@@ -279,6 +309,9 @@ async function handleZipFile(zipFile) {
   } catch (err) {
     alert('Failed to read ZIP file: ' + err.message);
     hideUploadProgress();
+  } finally {
+    const zInput = document.getElementById("zip-input");
+    if (zInput) { try { zInput.value = ""; } catch (_) {} }
   }
 }
 
@@ -725,9 +758,9 @@ function scanDynamicFields(html) {
     const hasTextFields = Array.from(confirmedMap.values()).some(f => f.type === "text" || f.type === "textarea");
     if (!hasTextFields) {
       addConfirmedSlot({ key: "recipient_name", label: "Recipient Name", type: "text", required: true, autoDetected: true });
-      addConfirmedSlot({ key: "sender_name", label: "Sender Name", type: "text", required: false, autoDetected: true });
-      addConfirmedSlot({ key: "event_date", label: "Celebration Date", type: "date", required: false, autoDetected: true });
-      addConfirmedSlot({ key: "custom_message", label: "Heartfelt Message", type: "textarea", required: true, autoDetected: true });
+      addConfirmedSlot({ key: "event_date", label: "Date of Birth / Celebration Date", type: "date", required: true, autoDetected: true });
+      addConfirmedSlot({ key: "sender_name", label: "Sender Name", type: "text", required: false, defaultValue: "Your Best Friend", autoDetected: true });
+      addConfirmedSlot({ key: "custom_message", label: "Heartfelt Message", type: "textarea", required: false, defaultValue: "Wishing you endless joy, magical memories, and every happiness today!", autoDetected: true });
     }
   }
 
@@ -1029,6 +1062,57 @@ function renderLiveSandboxPreview() {
 }
 
 // 5. Deploy Template to Server API (Supports both Staged Draft Preview and Direct Publish)
+const MINIMAL_VALID_PNG_BYTES = new Uint8Array([
+  0x89,0x50,0x4E,0x47,0x0D,0x0A,0x1A,0x0A,0x00,0x00,0x00,0x0D,0x49,0x48,0x44,0x52,
+  0x00,0x00,0x00,0x01,0x00,0x00,0x00,0x01,0x08,0x06,0x00,0x00,0x00,0x1F,0x15,0xC4,
+  0x89,0x00,0x00,0x00,0x0A,0x49,0x44,0x41,0x54,0x78,0x9C,0x63,0x00,0x01,0x00,0x00,
+  0x05,0x00,0x01,0x0D,0x0A,0x2D,0xB4,0x00,0x00,0x00,0x00,0x49,0x45,0x4E,0x44,0xAE,
+  0x42,0x60,0x82
+]);
+const MINIMAL_VALID_JPEG_BYTES = new Uint8Array([
+  0xFF,0xD8,0xFF,0xE0,0x00,0x10,0x4A,0x46,0x49,0x46,0x00,0x01,0x01,0x01,0x00,0x48,
+  0x00,0x48,0x00,0x00,0xFF,0xC0,0x00,0x11,0x08,0x00,0x01,0x00,0x01,0x03,0x01,0x11,
+  0x00,0x02,0x11,0x01,0x03,0x11,0x01,0xFF,0xDA,0x00,0x0C,0x03,0x01,0x00,0x02,0x11,
+  0x03,0x11,0x00,0x3F,0x00,0xBF,0x00,0xFF,0xD9
+]);
+const MINIMAL_VALID_GIF_BYTES = new Uint8Array([
+  0x47,0x49,0x46,0x38,0x39,0x61,0x01,0x00,0x01,0x00,0x80,0x00,0x00,0x00,0x00,0x00,
+  0xFF,0xFF,0xFF,0x21,0xF9,0x04,0x01,0x00,0x00,0x00,0x00,0x2C,0x00,0x00,0x00,0x00,
+  0x01,0x00,0x01,0x00,0x00,0x02,0x02,0x44,0x01,0x00,0x3B
+]);
+const MINIMAL_VALID_WEBP_BYTES = new Uint8Array([
+  0x52,0x49,0x46,0x46,0x1A,0x00,0x00,0x00,0x57,0x45,0x42,0x50,0x56,0x50,0x38,0x4C,
+  0x0D,0x00,0x00,0x00,0x2F,0x00,0x00,0x00,0x10,0x07,0x10,0x11,0x11,0x88,0x88,0xFE,
+  0x07,0x00
+]);
+
+function getMinimalStubBytesForImage(relPath) {
+  const lower = String(relPath || "").toLowerCase();
+  if (lower.endsWith(".jpg") || lower.endsWith(".jpeg")) return MINIMAL_VALID_JPEG_BYTES;
+  if (lower.endsWith(".gif")) return MINIMAL_VALID_GIF_BYTES;
+  if (lower.endsWith(".webp")) return MINIMAL_VALID_WEBP_BYTES;
+  return MINIMAL_VALID_PNG_BYTES;
+}
+
+async function buildCompactTemplateZipBase64(filesMap, preUploadedImgbbMap) {
+  if (typeof JSZip === "undefined") return null;
+  const zip = new JSZip();
+  for (const [relPath, entry] of Object.entries(filesMap)) {
+    const rawContent = typeof entry === "string" ? entry : (entry && entry.content !== undefined ? entry.content : "");
+    const isB64 = Boolean(entry && entry.isBase64) || (typeof rawContent === "string" && rawContent.startsWith("data:") && rawContent.includes(";base64,"));
+    if (preUploadedImgbbMap && preUploadedImgbbMap[relPath] && isImageFile(relPath)) {
+      zip.file(relPath, getMinimalStubBytesForImage(relPath));
+    } else if (isB64 && typeof rawContent === "string") {
+      const b64Part = rawContent.includes(";base64,") ? rawContent.split(";base64,")[1] : rawContent;
+      zip.file(relPath, b64Part, { base64: true });
+    } else {
+      zip.file(relPath, String(rawContent || ""));
+    }
+  }
+  const zipBytes = await zip.generateAsync({ type: "uint8array", compression: "DEFLATE", compressionOptions: { level: 5 } });
+  return encodeUint8ArrayToBase64(zipBytes);
+}
+
 async function deployUploadedTemplate(publishImmediately = true) {
   const nameInput = document.getElementById("new-tpl-title");
   const catInput = document.getElementById("new-tpl-category");
@@ -1051,75 +1135,180 @@ async function deployUploadedTemplate(publishImmediately = true) {
   }
 
   const deployBtn = document.getElementById("btn-deploy-template");
-  if (deployBtn) {
-    deployBtn.disabled = true;
-    deployBtn.innerHTML =
-      "<span class=\"material-symbols-outlined text-[18px] animate-spin\">refresh</span>" +
-      "<span>Uploading Photos to ImgBB & Media/Code to B2...</span>";
-  }
+  const stageBtn = document.getElementById("btn-stage-template-draft");
+  const prevDeployHtml = deployBtn ? deployBtn.innerHTML : "";
+  const prevStageHtml = stageBtn ? stageBtn.innerHTML : "";
 
-  const shouldPublish = publishImmediately !== false;
-  const normalizedFilesArray = serializeUploadedFilesToArray(currentUploadedFiles);
-  const payload = {
-    name: title,
-    category: catInput ? catInput.value : (currentParsedManifest?.template?.category || "Birthday"),
-    description: descInput ? descInput.value.trim() : (currentParsedManifest?.template?.description || "Custom handcrafted celebration experience."),
-    tier: tierInput ? tierInput.value : (currentParsedManifest?.template?.tier || "vip"),
-    price: priceInput ? Number(priceInput.value) : Number(currentParsedManifest?.template?.price ?? 49),
-    placement: orderInput ? Number(orderInput.value) : 1,
-    featured: featuredInput ? featuredInput.checked : true,
-    thumbnail: customCoverThumbnail || "https://images.unsplash.com/photo-1513151233558-d860c5398176?w=600&auto=format&fit=crop&q=80",
-    thumbnailName: customCoverThumbnailName || "cover-photo.png",
-    detectedFields: detectedDynamicFields,
-    confirmedFields: detectedDynamicFields,
-    capabilities: currentParsedManifest?.capabilities || {},
-    sections: currentParsedManifest?.sections || [],
-    publishImmediately: shouldPublish,
-    autoPublish: shouldPublish,
-    isPublished: shouldPublish,
-    files: normalizedFilesArray,
-    filesMap: currentUploadedFiles
+  const setLiveButtonStatus = (statusMsg) => {
+    if (deployBtn) {
+      deployBtn.disabled = true;
+      deployBtn.innerHTML =
+        "<span class=\"material-symbols-outlined text-[18px] animate-spin\">refresh</span>" +
+        "<span>" + statusMsg + "</span>";
+    }
+    if (stageBtn) {
+      stageBtn.disabled = true;
+    }
+    showUploadProgress(statusMsg);
   };
 
-  if (currentZipRawFile) {
-    try {
-      const base64Promise = new Promise((resolve, reject) => {
-        const reader = new FileReader();
-        reader.onload = () => {
-          const res = reader.result;
-          resolve(typeof res === "string" ? res.split(",")[1] : null);
-        };
-        reader.onerror = reject;
-        reader.readAsDataURL(currentZipRawFile);
-      });
-      payload.zipBase64 = await base64Promise;
-    } catch (e) {
-      try {
-        const arrayBuffer = await currentZipRawFile.arrayBuffer();
-        const bytes = new Uint8Array(arrayBuffer);
-        let binary = "";
-        const chunkSize = 8192;
-        for (let i = 0; i < bytes.length; i += chunkSize) {
-          binary += String.fromCharCode.apply(null, bytes.subarray(i, i + chunkSize));
-        }
-        payload.zipBase64 = btoa(binary);
-      } catch (err2) {
-        console.warn("Could not encode raw ZIP file, falling back to extracted files bundle:", err2);
-      }
-    }
-    if (payload.zipBase64) {
-      delete payload.files;
-      delete payload.filesMap;
-    }
-  }
+  setLiveButtonStatus("Preparing template files for cloud upload...");
 
   try {
-    const idempotencyKey = "op_" + Date.now().toString(36) + "_" + Math.random().toString(36).slice(2, 8);
+    const shouldPublish = publishImmediately !== false;
+    const preUploadedImgbbMap = {};
+
+    // Stage 1: Pre-upload template images to /api/imgbb/upload in small batches of 2
+    // so each image gets its own fast Worker request and never hits Cloudflare subrequest/CPU limits!
+    const imageRelPaths = Object.keys(currentUploadedFiles).filter(p => isImageFile(p) && !p.toLowerCase().endsWith(".svg"));
+    if (imageRelPaths.length > 0) {
+      let completedPhotos = 0;
+      let skipClientImgbb = false;
+      const CLIENT_BATCH_SIZE = 2;
+
+      let consecutiveBatchFailures = 0;
+      for (let i = 0; i < imageRelPaths.length && !skipClientImgbb; i += CLIENT_BATCH_SIZE) {
+        let batchSuccessCount = 0;
+        const batchPaths = imageRelPaths.slice(i, i + CLIENT_BATCH_SIZE);
+        setLiveButtonStatus("Uploading Photos to ImgBB (" + Math.min(i + 1, imageRelPaths.length) + "/" + imageRelPaths.length + ")...");
+
+        await Promise.all(batchPaths.map(async (relPath) => {
+          if (skipClientImgbb) return;
+          const fileEntry = currentUploadedFiles[relPath];
+          const dataUrl = typeof fileEntry === "string" ? fileEntry : (fileEntry && fileEntry.content);
+          if (!dataUrl) return;
+          const exactFileName = relPath.split("/").pop();
+          const controller = typeof AbortController !== "undefined" ? new AbortController() : null;
+          const timerId = controller ? setTimeout(() => { try { controller.abort(); } catch (_) {} }, 15000) : null;
+          try {
+            const imgRes = await fetch("/api/imgbb/upload", {
+              method: "POST",
+              headers: { "Content-Type": "application/json" },
+              body: JSON.stringify({
+                fileData: dataUrl,
+                filename: exactFileName,
+                type: "image",
+                isTemplateAsset: true,
+                title: exactFileName.replace(/\.[^/.]+$/, "")
+              }),
+              ...(controller ? { signal: controller.signal } : {})
+            });
+            if (timerId) clearTimeout(timerId);
+            const imgJson = await imgRes.json().catch(() => ({}));
+            if (imgRes.status === 503 && imgJson?.code === "IMGBB_NOT_CONFIGURED") {
+              skipClientImgbb = true;
+              return;
+            }
+            const resData = imgJson?.data || imgJson || {};
+            const liveUrl = resData.displayUrl || resData.originalUrl || resData.url;
+            if (imgRes.ok && liveUrl) {
+              batchSuccessCount++;
+              preUploadedImgbbMap[relPath] = {
+                displayUrl: liveUrl,
+                originalUrl: resData.originalUrl || liveUrl,
+                thumbnailUrl: resData.thumbnailUrl || resData.thumbUrl || liveUrl,
+                providerAssetId: resData.providerAssetId || resData.imageId || null,
+                mimeType: resData.mimeType || getMimeType(relPath),
+                width: resData.width || null,
+                height: resData.height || null,
+                sizeBytes: (fileEntry && fileEntry.sizeBytes) || resData.sizeBytes || 0,
+                filename: exactFileName
+              };
+            }
+          } catch (photoErr) {
+            if (timerId) clearTimeout(timerId);
+            console.warn("[Client ImgBB Pre-Upload Warning]:", relPath, photoErr && photoErr.message ? photoErr.message : photoErr);
+          } finally {
+            completedPhotos++;
+            setLiveButtonStatus("Uploading Photos to ImgBB (" + completedPhotos + "/" + imageRelPaths.length + ")...");
+          }
+        }));
+        if (batchSuccessCount === 0) {
+          consecutiveBatchFailures++;
+          if (consecutiveBatchFailures >= 1) {
+            skipClientImgbb = true;
+          }
+        } else {
+          consecutiveBatchFailures = 0;
+        }
+      }
+    }
+
+    // Stage 2: Build compact ZIP archive (replacing already-uploaded ImgBB photos with tiny valid image stubs so upload payload is ~25KB instead of 10MB)
+    setLiveButtonStatus("Packaging & Deploying Code/Media to Backblaze B2 & D1...");
+    let resolvedZipBase64 = null;
+    if (Object.keys(preUploadedImgbbMap).length > 0 && typeof JSZip !== "undefined") {
+      try {
+        resolvedZipBase64 = await buildCompactTemplateZipBase64(currentUploadedFiles, preUploadedImgbbMap);
+      } catch (compactErr) {
+        console.warn("Compact ZIP build fallback:", compactErr);
+      }
+    }
+
+    if (!resolvedZipBase64) {
+      resolvedZipBase64 = currentZipBase64;
+    }
+    if (!resolvedZipBase64 && currentZipRawFile) {
+      try {
+        const arrayBuffer = await currentZipRawFile.arrayBuffer();
+        resolvedZipBase64 = encodeUint8ArrayToBase64(new Uint8Array(arrayBuffer));
+        currentZipBase64 = resolvedZipBase64;
+      } catch (zipReadErr) {
+        console.warn("Could not read raw ZIP file buffer, falling back to extracted files bundle:", zipReadErr);
+      }
+    }
+
+    // Resolve cover thumbnail URL (reuse pre-uploaded ImgBB URL if cover was auto-selected from ZIP)
+    let thumbnailPayloadValue = customCoverThumbnail || "https://images.unsplash.com/photo-1513151233558-d860c5398176?w=600&auto=format&fit=crop&q=80";
+    if (!customCoverThumbnailIsManual && firstFoundImageRelPath && preUploadedImgbbMap[firstFoundImageRelPath]) {
+      thumbnailPayloadValue = preUploadedImgbbMap[firstFoundImageRelPath].displayUrl;
+    } else if (
+      resolvedZipBase64 &&
+      !customCoverThumbnailIsManual &&
+      typeof thumbnailPayloadValue === "string" &&
+      thumbnailPayloadValue.startsWith("data:image/") &&
+      firstFoundImageRelPath
+    ) {
+      thumbnailPayloadValue = firstFoundImageRelPath;
+    }
+
+    const payload = {
+      name: title,
+      category: catInput ? catInput.value : (currentParsedManifest?.template?.category || "Birthday"),
+      description: descInput ? descInput.value.trim() : (currentParsedManifest?.template?.description || "Custom handcrafted celebration experience."),
+      tier: tierInput ? tierInput.value : (currentParsedManifest?.template?.tier || "vip"),
+      price: priceInput ? Number(priceInput.value) : Number(currentParsedManifest?.template?.price ?? 49),
+      placement: orderInput ? Number(orderInput.value) : 1,
+      featured: featuredInput ? featuredInput.checked : true,
+      thumbnail: thumbnailPayloadValue,
+      thumbnailName: customCoverThumbnailName || "cover-photo.png",
+      detectedFields: detectedDynamicFields,
+      confirmedFields: detectedDynamicFields,
+      preUploadedImgbbMap,
+      skipServerImgbbRetry: Boolean(imageRelPaths.length > 0 && Object.keys(preUploadedImgbbMap).length === 0),
+      capabilities: currentParsedManifest?.capabilities || {},
+      sections: currentParsedManifest?.sections || [],
+      publishImmediately: shouldPublish,
+      autoPublish: shouldPublish,
+      isPublished: shouldPublish
+    };
+
+    if (resolvedZipBase64) {
+      payload.zipBase64 = resolvedZipBase64;
+    } else {
+      payload.files = serializeUploadedFilesToArray(currentUploadedFiles);
+      payload.filesMap = currentUploadedFiles;
+    }
+
     let res = null;
     let data = null;
     const maxAttempts = 2;
+    const bodyJson = JSON.stringify(payload);
 
     for (let attempt = 1; attempt <= maxAttempts; attempt++) {
+      const idempotencyKey = "op_" + Date.now().toString(36) + "_" + Math.random().toString(36).slice(2, 8);
+      const controller = typeof AbortController !== "undefined" ? new AbortController() : null;
+      const timeoutId = controller ? setTimeout(() => controller.abort(), 45000) : null;
       try {
         res = await fetch("/api/templates/upload", {
           method: "POST",
@@ -1127,17 +1316,25 @@ async function deployUploadedTemplate(publishImmediately = true) {
             "Content-Type": "application/json",
             "Idempotency-Key": idempotencyKey
           },
-          body: JSON.stringify(payload)
+          body: bodyJson,
+          ...(controller ? { signal: controller.signal } : {})
         });
+        if (timeoutId) clearTimeout(timeoutId);
         data = await res.json().catch(() => ({}));
-        if (res.status >= 502 && res.status <= 504 && attempt < maxAttempts) {
-          await new Promise(r => setTimeout(r, 600 * attempt));
+        if ((res.status === 409 || (res.status >= 502 && res.status <= 504)) && attempt < maxAttempts) {
+          await new Promise(r => setTimeout(r, 700 * attempt));
           continue;
         }
         break;
       } catch (netErr) {
-        if (attempt >= maxAttempts) throw netErr;
-        await new Promise(r => setTimeout(r, 600 * attempt));
+        if (timeoutId) clearTimeout(timeoutId);
+        if (attempt >= maxAttempts) {
+          if (netErr && netErr.name === "AbortError") {
+            throw new Error("Upload request timed out after 45 seconds. Please check your connection and try again.");
+          }
+          throw netErr;
+        }
+        await new Promise(r => setTimeout(r, 700 * attempt));
       }
     }
 
@@ -1194,13 +1391,19 @@ async function deployUploadedTemplate(publishImmediately = true) {
       alert("Error deploying template: " + (data?.message || data?.error?.message || "Unknown error"));
     }
   } catch (err) {
-    alert("Network error deploying template: " + err.message);
+    alert("Network error deploying template: " + (err && err.message ? err.message : String(err)));
   } finally {
+    hideUploadProgress();
     if (deployBtn) {
       deployBtn.disabled = false;
-      deployBtn.innerHTML =
+      deployBtn.innerHTML = prevDeployHtml || (
         "<span class=\"material-symbols-outlined text-[20px]\" style=\"font-variation-settings: 'FILL' 1;\">rocket_launch</span>" +
-        "<span>Deploy & Publish to Store</span>";
+        "<span>Deploy & Publish to Store</span>"
+      );
+    }
+    if (stageBtn) {
+      stageBtn.disabled = false;
+      if (prevStageHtml) stageBtn.innerHTML = prevStageHtml;
     }
   }
 }

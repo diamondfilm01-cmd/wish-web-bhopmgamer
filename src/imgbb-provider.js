@@ -301,11 +301,18 @@ export class ImgBBProvider {
     this.expiration = Number(config.expiration) || 0;
     // Cloudflare Workers V8 & Native WebIDL fix:
     // Calling globalThis.fetch directly ensures that V8 never throws "TypeError: Illegal invocation".
-    const invokeNativeFetch = (url, init) => {
-      if (typeof globalThis !== 'undefined' && typeof globalThis.fetch === 'function') {
-        return globalThis.fetch(url, init);
+    const invokeNativeFetch = async (url, init = {}) => {
+      const controller = typeof AbortController !== 'undefined' ? new AbortController() : null;
+      const timer = controller ? setTimeout(() => { try { controller.abort(); } catch (_) {} }, 10000) : null;
+      try {
+        const mergedInit = (controller && !init.signal) ? { ...init, signal: controller.signal } : init;
+        if (typeof globalThis !== 'undefined' && typeof globalThis.fetch === 'function') {
+          return await globalThis.fetch(url, mergedInit);
+        }
+        return await fetch(url, mergedInit);
+      } finally {
+        if (timer) clearTimeout(timer);
       }
-      return fetch(url, init);
     };
 
     const customUserFetch = typeof config.fetchFn === 'function' ? config.fetchFn : null;
@@ -345,11 +352,18 @@ export class ImgBBProvider {
       throw err;
     }
 
-    const invokeNativeFetch = (url, init) => {
-      if (typeof globalThis !== 'undefined' && typeof globalThis.fetch === 'function') {
-        return globalThis.fetch(url, init);
+    const invokeNativeFetch = async (url, init = {}) => {
+      const controller = typeof AbortController !== 'undefined' ? new AbortController() : null;
+      const timer = controller ? setTimeout(() => { try { controller.abort(); } catch (_) {} }, 10000) : null;
+      try {
+        const mergedInit = (controller && !init.signal) ? { ...init, signal: controller.signal } : init;
+        if (typeof globalThis !== 'undefined' && typeof globalThis.fetch === 'function') {
+          return await globalThis.fetch(url, mergedInit);
+        }
+        return await fetch(url, mergedInit);
+      } finally {
+        if (timer) clearTimeout(timer);
       }
-      return fetch(url, init);
     };
 
     const resolvedFetch = typeof customFetch === 'function'

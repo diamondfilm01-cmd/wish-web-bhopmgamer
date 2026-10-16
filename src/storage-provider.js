@@ -254,11 +254,18 @@ export class B2StorageProvider extends StorageProvider {
     this.customDownloadUrl = normalizeB2DownloadHost(config.downloadUrl) || null;
     
     // Cloudflare Workers V8 & Native WebIDL fix: wrap fetch to prevent Illegal invocation error
-    const invokeNativeFetch = (url, init) => {
-      if (typeof globalThis !== 'undefined' && typeof globalThis.fetch === 'function') {
-        return globalThis.fetch.call(globalThis, url, init);
+    const invokeNativeFetch = async (url, init = {}) => {
+      const controller = typeof AbortController !== 'undefined' ? new AbortController() : null;
+      const timer = controller ? setTimeout(() => { try { controller.abort(); } catch (_) {} }, 12000) : null;
+      try {
+        const mergedInit = (controller && !init.signal) ? { ...init, signal: controller.signal } : init;
+        if (typeof globalThis !== 'undefined' && typeof globalThis.fetch === 'function') {
+          return await globalThis.fetch.call(globalThis, url, mergedInit);
+        }
+        return await fetch(url, mergedInit);
+      } finally {
+        if (timer) clearTimeout(timer);
       }
-      return fetch(url, init);
     };
 
     const customUserFetch = typeof config.fetchFn === 'function' ? config.fetchFn : null;
@@ -303,11 +310,18 @@ export class B2StorageProvider extends StorageProvider {
       throw error;
     }
 
-    const invokeNativeFetch = (url, init) => {
-      if (typeof globalThis !== 'undefined' && typeof globalThis.fetch === 'function') {
-        return globalThis.fetch.call(globalThis, url, init);
+    const invokeNativeFetch = async (url, init = {}) => {
+      const controller = typeof AbortController !== 'undefined' ? new AbortController() : null;
+      const timer = controller ? setTimeout(() => { try { controller.abort(); } catch (_) {} }, 12000) : null;
+      try {
+        const mergedInit = (controller && !init.signal) ? { ...init, signal: controller.signal } : init;
+        if (typeof globalThis !== 'undefined' && typeof globalThis.fetch === 'function') {
+          return await globalThis.fetch.call(globalThis, url, mergedInit);
+        }
+        return await fetch(url, mergedInit);
+      } finally {
+        if (timer) clearTimeout(timer);
       }
-      return fetch(url, init);
     };
 
     const resolvedFetch = typeof customFetch === 'function'
@@ -555,7 +569,7 @@ export class B2StorageProvider extends StorageProvider {
   /**
    * Upload an object into Backblaze B2 (b2_upload_file)
    */
-  async putObject({ key, body, contentType, contentLength, metadata = {} }) {
+  async putObject({ key, body, contentType, contentLength, metadata = {}, skipDownloadAuth = false }) {
     if (!key) throw new Error('Object storage key is required');
     if (body === undefined || body === null) throw new Error('Object body is required');
 
@@ -630,15 +644,17 @@ export class B2StorageProvider extends StorageProvider {
     const resData = await response.json();
     const downloadUrl = this.buildDownloadUrl(key);
 
-    // Support Private Buckets: obtain download authorization token if available
+    // Support Private Buckets: obtain download authorization token if available (unless skipped for internal template files)
     let playbackUrl = downloadUrl;
     let downloadToken = null;
-    try {
-      downloadToken = await this.getDownloadAuthorization({ fileNamePrefix: key, validDurationInSeconds: 604800 });
-      if (downloadToken) {
-        playbackUrl = `${downloadUrl}?b2-download-token=${downloadToken}`;
-      }
-    } catch (_) {}
+    if (!skipDownloadAuth) {
+      try {
+        downloadToken = await this.getDownloadAuthorization({ fileNamePrefix: key, validDurationInSeconds: 604800 });
+        if (downloadToken) {
+          playbackUrl = `${downloadUrl}?b2-download-token=${downloadToken}`;
+        }
+      } catch (_) {}
+    }
 
     return {
       success: true,

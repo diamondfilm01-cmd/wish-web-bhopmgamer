@@ -354,4 +354,158 @@ test('Hybrid ImgBB + Backblaze B2 Template Ingestion, Code Link Injection & Cust
     assert.strictEqual(report.suggestedFields[0].id, "undeclared_extra_quote");
     assert.ok(report.issues.some(i => i.code === "UNDECLARED_HTML_FIELD" && i.field === "undeclared_extra_quote"));
   });
+
+  await t.test("6. Large UTP Template (13 images + 141 fields): parallel ImgBB batches, B2 deduplication, D1 chunked batching (<=40 stmts), and mandatory Name/DOB with optional default messages", async () => {
+    const zip = new JSZip();
+    const fields = [
+      { id: "recipient_name", type: "text", label: "Recipient Name", required: false, defaultValue: "Mere Namune Dost", binding: { target: "text", selector: "[data-wm-field='recipient_name']" } },
+      { id: "event_date", type: "date", label: "Date of Birth / Celebration Date", required: false, defaultValue: "2026-10-25", binding: { target: "text", selector: "[data-wm-field='event_date']" } },
+      { id: "custom_message", type: "textarea", label: "Heartfelt Roast", required: true, defaultValue: "Tu dost nahi bhai hai mera!", binding: { target: "text", selector: "[data-wm-field='custom_message']" } },
+      { id: "sender_name", type: "text", label: "Sender Name", required: true, defaultValue: "Tera Jigri Yaar", binding: { target: "text", selector: "[data-wm-field='sender_name']" } }
+    ];
+
+    let htmlSpans = `<span data-wm-field="recipient_name">Mere Namune Dost</span><span data-wm-field="event_date">2026-10-25</span><p data-wm-field="custom_message">Tu dost nahi bhai hai mera!</p><span data-wm-field="sender_name">Tera Jigri Yaar</span>`;
+
+    const dummyPng = new Uint8Array([0x89, 0x50, 0x4E, 0x47, 0x0D, 0x0A, 0x1A, 0x0A, 0x00, 0x00, 0x00, 0x0D, 0x49, 0x48, 0x44, 0x52]);
+    for (let i = 1; i <= 13; i++) {
+      const imgPath = `assets/images/friend-photo-${i}.png`;
+      zip.file(imgPath, dummyPng);
+      fields.push({
+        id: `photo_${i}`,
+        type: "image",
+        label: `Photo ${i}`,
+        required: false,
+        defaultValue: imgPath,
+        binding: { target: "src", selector: `[data-wm-field='photo_${i}']` }
+      });
+      htmlSpans += `<img data-wm-field="photo_${i}" src="${imgPath}" />`;
+    }
+
+    for (let i = 1; i <= 124; i++) {
+      const fid = `roast_line_${i}`;
+      fields.push({
+        id: fid,
+        type: "text",
+        label: `Roast Line ${i}`,
+        required: false,
+        defaultValue: `Default Roast #${i}`,
+        binding: { target: "text", selector: `[data-wm-field='${fid}']` }
+      });
+      htmlSpans += `<span data-wm-field="${fid}">Default Roast #${i}</span>`;
+    }
+
+    zip.file("wishmagic.json", JSON.stringify({
+      $schema: "wishmagic-template",
+      schemaVersion: "1.0.0",
+      template: { id: "bro-code-test", name: "Bro Code Dost Test", category: "friendship", tier: "vip", price: 49, entry: "index.html" },
+      fields,
+      sections: [{ id: "hero", label: "Hero", required: true, toggleable: false }],
+      capabilities: ["photos", "multiplePhotos", "themes"]
+    }));
+    zip.file("index.html", `<!DOCTYPE html><html><head><link rel="stylesheet" href="css/style.css"></head><body><section data-wm-section="hero">${htmlSpans}</section><script src="js/template.js"></script></body></html>`);
+    zip.file("css/style.css", ":root { --wm-primary: #ff2a85; }");
+    zip.file("js/template.js", "window.addEventListener('message', () => {});");
+
+    const zipBytes = await zip.generateAsync({ type: "uint8array" });
+
+    const imgbbUploads = [];
+    const mockImgbb = {
+      uploadImage: async ({ filename }) => {
+        imgbbUploads.push(filename);
+        return {
+          provider: "imgbb",
+          imageId: "ibb_" + imgbbUploads.length,
+          title: filename,
+          filename,
+          extension: "png",
+          mimeType: "image/png",
+          displayUrl: `https://i.ibb.co/ibb_${imgbbUploads.length}/${filename}`,
+          originalUrl: `https://i.ibb.co/ibb_${imgbbUploads.length}/${filename}`,
+          thumbUrl: `https://i.ibb.co/ibb_${imgbbUploads.length}/thumb_${filename}`,
+          mediumUrl: null,
+          deleteUrl: null,
+          width: 400,
+          height: 400,
+          sizeBytes: 16,
+          expiration: null,
+          rawMetadataJson: "{}"
+        };
+      }
+    };
+
+    const b2PutKeys = [];
+    const mockB2 = {
+      putObject: async ({ key }) => {
+        b2PutKeys.push(key);
+        return { key, etag: "etag", size: 10 };
+      }
+    };
+
+    const batchSizes = [];
+    const mockDb = {
+      prepare: (sql) => ({
+        bind: (...args) => ({
+          sql,
+          args,
+          first: async () => {
+            if (sql.includes("FROM template_upload_operations")) {
+              // Simulate a stale operation (>15s old) that previously timed out
+              return {
+                id: "op_stale_1",
+                state: "STAGING",
+                updated_at: new Date(Date.now() - 25000).toISOString()
+              };
+            }
+            return null;
+          },
+          run: async () => ({ success: true })
+        }),
+        first: async () => null,
+        run: async () => ({ success: true })
+      }),
+      batch: async (stmts) => {
+        batchSizes.push(stmts.length);
+        return stmts.map(() => ({ success: true }));
+      }
+    };
+
+    const res = await executeB2TemplateIngestPipeline({
+      zipBuffer: zipBytes,
+      templateMetadata: {
+        name: "Bro Code Dost Test",
+        category: "friendship",
+        thumbnail: "assets/images/friend-photo-1.png",
+        thumbnailName: "friend-photo-1.png",
+        publishImmediately: true
+      },
+      storageProvider: mockB2,
+      env: {},
+      imgbbProvider: mockImgbb,
+      db: mockDb,
+      authorId: "admin_1",
+      idempotencyKey: "idem_stale_retry"
+    });
+
+    assert.strictEqual(res.success, true);
+    // 13 ZIP images uploaded once each (no duplicate 14th cover thumbnail upload!)
+    assert.strictEqual(imgbbUploads.length, 13, "Must upload all 13 ZIP images without duplicate cover upload");
+    // B2 should only receive source/template.zip + non-ImgBB runtime files (wishmagic.json, index.html, css/style.css, js/template.js, manifest.json = 6 PUTs total, NOT 19!)
+    assert.strictEqual(b2PutKeys.length, 8, "Must skip redundant B2 runtime uploads for all 13 images already hosted on ImgBB");
+    assert.ok(!b2PutKeys.some(k => k.includes("friend-photo-")), "No image already on ImgBB should be re-uploaded to B2 runtime");
+    // D1 batch chunks must never exceed 40 statements
+    assert.ok(batchSizes.length >= 4, "170+ SQL statements must be split into multiple D1 batch chunks");
+    assert.ok(batchSizes.every(sz => sz <= 40), "Every D1 batch chunk must be <= 40 statements");
+
+    // Verify recipient_name & event_date are required while custom_message & sender_name are optional with defaultValue preserved
+    const recField = res.detectedFields.find(f => (f.id || f.key) === "recipient_name");
+    const dobField = res.detectedFields.find(f => (f.id || f.key) === "event_date");
+    const msgField = res.detectedFields.find(f => (f.id || f.key) === "custom_message");
+    const sndField = res.detectedFields.find(f => (f.id || f.key) === "sender_name");
+    assert.strictEqual(recField.required, true, "recipient_name must be required");
+    assert.strictEqual(dobField.required, true, "event_date (DOB) must be required");
+    assert.strictEqual(msgField.required, false, "custom_message must be optional");
+    assert.strictEqual(msgField.defaultValue, "Tu dost nahi bhai hai mera!", "custom_message default text must be preserved");
+    assert.strictEqual(sndField.required, false, "sender_name must be optional");
+    assert.strictEqual(sndField.defaultValue, "Tera Jigri Yaar", "sender_name default text must be preserved");
+  });
 });

@@ -699,8 +699,11 @@ export async function analyzeTemplateAndBuildIntegrity(extractedData, originalZi
  * Ensures all D1 tables, columns, and indexes required by the Template Ingestion Pipeline
  * exist in the target database (auto-healing unmigrated or partially migrated D1 instances).
  */
-export async function ensureTemplateIngestionSchema(db) {
+const healedTemplateIngestionDbs = new WeakSet();
+
+export async function ensureTemplateIngestionSchema(db, force = false) {
   if (!db || typeof db.prepare !== "function") return false;
+  if (!force && typeof db === "object" && healedTemplateIngestionDbs.has(db)) return true;
 
   const execSql = async (sql) => {
     try {
@@ -1076,6 +1079,7 @@ export async function ensureTemplateIngestionSchema(db) {
     { name: "health_issues", def: "TEXT" }
   ]);
 
+  if (typeof db === "object") healedTemplateIngestionDbs.add(db);
   return true;
 }
 
@@ -1236,14 +1240,18 @@ export async function executeB2TemplateIngestPipeline(params) {
         existingOp.state === UPLOAD_OPERATION_STATE.STAGED ||
         existingOp.state === UPLOAD_OPERATION_STATE.REGISTERING
       ) {
-        return {
-          success: false,
-          idempotent: true,
-          operationId: existingOp.id,
-          error: 'UPLOAD_IN_PROGRESS',
-          code: 'UPLOAD_IN_PROGRESS',
-          message: 'An operation with this idempotency key is already in progress.'
-        };
+        const updatedMs = existingOp.updated_at ? Date.parse(existingOp.updated_at) : 0;
+        const isStaleInProgress = updatedMs > 0 && (Date.now() - updatedMs > 15000);
+        if (!isStaleInProgress) {
+          return {
+            success: false,
+            idempotent: true,
+            operationId: existingOp.id,
+            error: 'UPLOAD_IN_PROGRESS',
+            code: 'UPLOAD_IN_PROGRESS',
+            message: 'An operation with this idempotency key is already in progress.'
+          };
+        }
       }
 
       if (existingOp.state === UPLOAD_OPERATION_STATE.CLEANUP_PENDING) {
@@ -1718,10 +1726,59 @@ export async function executeB2TemplateIngestPipeline(params) {
   }
 
   try {
-    // 5a. Upload All Template Images in the ZIP/Folder to ImgBB (preserving exact name & format)
-    if (activeImgbbProvider) {
-      for (const fileRecord of analyzed.fileRecords) {
-        if (isImageExtension(fileRecord.relativePath)) {
+    // 5a. Map pre-uploaded ImgBB images (from client-assisted /api/imgbb/upload) or upload remaining images in batches of 3
+    const preUploadedImgbbMap = (templateMetadata && templateMetadata.preUploadedImgbbMap && typeof templateMetadata.preUploadedImgbbMap === 'object')
+      ? templateMetadata.preUploadedImgbbMap
+      : {};
+    const imageRecords = analyzed.fileRecords.filter(fr => isImageExtension(fr.relativePath));
+    const remainingImageRecords = [];
+
+    for (const fileRecord of imageRecords) {
+      const preItem = preUploadedImgbbMap[fileRecord.relativePath];
+      const preUrl = preItem && (preItem.displayUrl || preItem.originalUrl || preItem.url);
+      if (preUrl) {
+        const exactFileName = fileRecord.relativePath.split('/').pop();
+        const exactStem = exactFileName.replace(/\.[^/.]+$/, '');
+        imgbbUrlByRelPath.set(fileRecord.relativePath, preUrl);
+        fileRecord.imgbbUrl = preUrl;
+        fileRecord.imgbbAssetId = preItem.providerAssetId || preItem.imageId || null;
+        fileRecord.publicUrl = preUrl;
+        if (preItem.sizeBytes && Number(preItem.sizeBytes) > 0) {
+          fileRecord.sizeBytes = Number(preItem.sizeBytes);
+        }
+
+        const matchingField = mergedFields.find(f => {
+          const defClean = String(f.defaultValue || f.originalSrc || '').replace(/^\.?\/+/, '');
+          return defClean === fileRecord.relativePath || defClean.endsWith('/' + exactFileName) || defClean === exactFileName;
+        });
+        const assetKey = matchingField ? matchingField.key : exactStem;
+
+        uploadedImgbbImages.push({
+          provider: 'imgbb',
+          providerAssetId: preItem.providerAssetId || preItem.imageId || null,
+          displayUrl: preUrl,
+          originalUrl: preItem.originalUrl || preUrl,
+          thumbnailUrl: preItem.thumbnailUrl || preItem.thumbUrl || preUrl,
+          deleteUrl: preItem.deleteUrl || null,
+          mimeType: preItem.mimeType || fileRecord.mimeType,
+          width: preItem.width || null,
+          height: preItem.height || null,
+          sizeBytes: Number(preItem.sizeBytes) || fileRecord.sizeBytes,
+          relativePath: fileRecord.relativePath,
+          exactFileName,
+          filename: exactFileName,
+          assetKey
+        });
+      } else {
+        remainingImageRecords.push(fileRecord);
+      }
+    }
+
+    if (activeImgbbProvider && remainingImageRecords.length > 0 && !templateMetadata?.skipServerImgbbRetry) {
+      const IMGBB_BATCH_SIZE = 3;
+      for (let i = 0; i < remainingImageRecords.length; i += IMGBB_BATCH_SIZE) {
+        const batch = remainingImageRecords.slice(i, i + IMGBB_BATCH_SIZE);
+        const batchResults = await Promise.all(batch.map(async (fileRecord) => {
           const exactFileName = fileRecord.relativePath.split('/').pop();
           const exactStem = exactFileName.replace(/\.[^/.]+$/, '');
           try {
@@ -1730,59 +1787,72 @@ export async function executeB2TemplateIngestPipeline(params) {
               filename: exactFileName,
               name: exactStem
             });
-            const liveImgUrl = imgbbRes.displayUrl || imgbbRes.originalUrl || imgbbRes.url;
-            if (liveImgUrl) {
-              imgbbUrlByRelPath.set(fileRecord.relativePath, liveImgUrl);
-              fileRecord.imgbbUrl = liveImgUrl;
-              fileRecord.imgbbAssetId = imgbbRes.providerAssetId;
-              fileRecord.publicUrl = liveImgUrl;
-
-              // Find matching field key if any
-              const matchingField = mergedFields.find(f => {
-                const defClean = String(f.defaultValue || f.originalSrc || '').replace(/^\.?\/+/, '');
-                return defClean === fileRecord.relativePath || defClean.endsWith('/' + exactFileName) || defClean === exactFileName;
-              });
-              const assetKey = matchingField ? matchingField.key : exactStem;
-
-              uploadedImgbbImages.push({
-                ...imgbbRes,
-                relativePath: fileRecord.relativePath,
-                exactFileName,
-                assetKey
-              });
-            }
+            return { fileRecord, exactFileName, exactStem, imgbbRes };
           } catch (imgErr) {
             console.warn('[Template Ingest ImgBB Image Upload Warning]:', fileRecord.relativePath, imgErr.message);
+            return null;
+          }
+        }));
+
+        for (const item of batchResults) {
+          if (!item || !item.imgbbRes) continue;
+          const { fileRecord, exactFileName, exactStem, imgbbRes } = item;
+          const liveImgUrl = imgbbRes.displayUrl || imgbbRes.originalUrl || imgbbRes.url;
+          if (liveImgUrl) {
+            imgbbUrlByRelPath.set(fileRecord.relativePath, liveImgUrl);
+            fileRecord.imgbbUrl = liveImgUrl;
+            fileRecord.imgbbAssetId = imgbbRes.providerAssetId;
+            fileRecord.publicUrl = liveImgUrl;
+
+            const matchingField = mergedFields.find(f => {
+              const defClean = String(f.defaultValue || f.originalSrc || '').replace(/^\.?\/+/, '');
+              return defClean === fileRecord.relativePath || defClean.endsWith('/' + exactFileName) || defClean === exactFileName;
+            });
+            const assetKey = matchingField ? matchingField.key : exactStem;
+
+            uploadedImgbbImages.push({
+              ...imgbbRes,
+              relativePath: fileRecord.relativePath,
+              exactFileName,
+              assetKey
+            });
           }
         }
       }
     }
 
-    // Resolve cover thumbnail (upload base64 cover to ImgBB if provided, or map from uploaded ZIP images)
+    // Resolve cover thumbnail (reuse already-uploaded ZIP image if matching, or upload custom cover to ImgBB)
     let resolvedThumbnail = templateMetadata.thumbnail || '';
     if (resolvedThumbnail && resolvedThumbnail.startsWith('data:image/') && activeImgbbProvider) {
-      try {
-        const thumbName = templateMetadata.thumbnailName || (familySlug + '-cover.png');
-        const thumbStem = thumbName.replace(/\.[^/.]+$/, '');
-        const thumbUpload = await activeImgbbProvider.uploadImage({
-          data: resolvedThumbnail,
-          filename: thumbName,
-          name: thumbStem
-        });
-        resolvedThumbnail = thumbUpload.displayUrl || thumbUpload.originalUrl || thumbUpload.url || resolvedThumbnail;
-        uploadedImgbbImages.push({
-          ...thumbUpload,
-          relativePath: '__cover_thumbnail__',
-          exactFileName: thumbUpload.filename || thumbName,
-          assetKey: 'cover_thumbnail'
-        });
-      } catch (thumbErr) {
-        console.warn('[Template Ingest Cover Thumbnail ImgBB Warning]:', thumbErr.message);
+      const thumbName = templateMetadata.thumbnailName || (familySlug + '-cover.png');
+      const matchingExisting = uploadedImgbbImages.find(img => img.exactFileName === thumbName) || uploadedImgbbImages[0];
+      if (matchingExisting && (matchingExisting.displayUrl || matchingExisting.url)) {
+        resolvedThumbnail = matchingExisting.displayUrl || matchingExisting.originalUrl || matchingExisting.url;
+      } else {
+        try {
+          const thumbStem = thumbName.replace(/\.[^/.]+$/, '');
+          const thumbUpload = await activeImgbbProvider.uploadImage({
+            data: resolvedThumbnail,
+            filename: thumbName,
+            name: thumbStem
+          });
+          resolvedThumbnail = thumbUpload.displayUrl || thumbUpload.originalUrl || thumbUpload.url || resolvedThumbnail;
+          uploadedImgbbImages.push({
+            ...thumbUpload,
+            relativePath: '__cover_thumbnail__',
+            exactFileName: thumbUpload.filename || thumbName,
+            assetKey: 'cover_thumbnail'
+          });
+        } catch (thumbErr) {
+          console.warn('[Template Ingest Cover Thumbnail ImgBB Warning]:', thumbErr.message);
+        }
       }
     } else if (resolvedThumbnail && !resolvedThumbnail.startsWith('http') && !resolvedThumbnail.startsWith('/')) {
       const cleanThumbRel = resolvedThumbnail.replace(/^\.?\/+/, '');
       if (imgbbUrlByRelPath.has(cleanThumbRel)) {
         resolvedThumbnail = imgbbUrlByRelPath.get(cleanThumbRel);
+      } else if (uploadedImgbbImages.length > 0) {
+        resolvedThumbnail = uploadedImgbbImages[0].displayUrl || uploadedImgbbImages[0].url || '';
       }
     } else if (!resolvedThumbnail && uploadedImgbbImages.length > 0) {
       resolvedThumbnail = uploadedImgbbImages[0].displayUrl || uploadedImgbbImages[0].url || '';
@@ -1795,7 +1865,11 @@ export async function executeB2TemplateIngestPipeline(params) {
         b2MediaUrlByRelPath.set(fileRecord.relativePath, streamUrl);
         fileRecord.publicUrl = streamUrl;
       } else if (!fileRecord.publicUrl) {
-        fileRecord.publicUrl = '/api/templates/' + templateId + '/versions/' + versionId + '/preview/' + fileRecord.relativePath;
+        const fallbackPreviewUrl = '/api/templates/' + templateId + '/versions/' + versionId + '/preview/' + fileRecord.relativePath;
+        fileRecord.publicUrl = fallbackPreviewUrl;
+        if (isImageExtension(fileRecord.relativePath) && !fileRecord.imgbbUrl) {
+          b2MediaUrlByRelPath.set(fileRecord.relativePath, fallbackPreviewUrl);
+        }
       }
     }
 
@@ -1894,6 +1968,7 @@ export async function executeB2TemplateIngestPipeline(params) {
       body: zipBuffer,
       contentType: 'application/zip',
       contentLength: zipBuffer.byteLength,
+      skipDownloadAuth: true,
       metadata: {
         familyId: templateFamilyId,
         versionId,
@@ -1902,14 +1977,20 @@ export async function executeB2TemplateIngestPipeline(params) {
     });
     uploadedB2Objects.push({ key: keys.sourceZip, fileId: zipUploadRes.fileId });
 
-    // 6. Upload Extracted Runtime Files to B2 (preserving exact original filenames and formats for music, videos, and code)
+    // 6. Upload Extracted Runtime Files to B2 (music, videos, and code; images already hosted on ImgBB skip duplicate B2 upload)
     for (const fileRecord of analyzed.fileRecords) {
       const b2Key = keys.runtimeFile(fileRecord.relativePath);
+      if (fileRecord.imgbbUrl) {
+        fileRecord.storageKey = fileRecord.imgbbUrl;
+        fileRecord.storageProvider = 'imgbb';
+        continue;
+      }
       const fileUploadRes = await b2Provider.putObject({
         key: b2Key,
         body: fileRecord.content,
         contentType: fileRecord.mimeType,
         contentLength: fileRecord.sizeBytes,
+        skipDownloadAuth: true,
         metadata: {
           familyId: templateFamilyId,
           versionId,
@@ -1953,7 +2034,8 @@ export async function executeB2TemplateIngestPipeline(params) {
       key: keys.manifest,
       body: manifestJson,
       contentType: 'application/json; charset=utf-8',
-      contentLength: new TextEncoder().encode(manifestJson).byteLength
+      contentLength: new TextEncoder().encode(manifestJson).byteLength,
+      skipDownloadAuth: true
     });
     uploadedB2Objects.push({ key: keys.manifest });
 
@@ -1962,7 +2044,8 @@ export async function executeB2TemplateIngestPipeline(params) {
       key: keys.analyzerSchema,
       body: schemaJson,
       contentType: 'application/json; charset=utf-8',
-      contentLength: new TextEncoder().encode(schemaJson).byteLength
+      contentLength: new TextEncoder().encode(schemaJson).byteLength,
+      skipDownloadAuth: true
     });
     uploadedB2Objects.push({ key: keys.analyzerSchema });
 
@@ -1971,7 +2054,8 @@ export async function executeB2TemplateIngestPipeline(params) {
       key: keys.hashes,
       body: hashesJson,
       contentType: 'application/json; charset=utf-8',
-      contentLength: new TextEncoder().encode(hashesJson).byteLength
+      contentLength: new TextEncoder().encode(hashesJson).byteLength,
+      skipDownloadAuth: true
     });
     uploadedB2Objects.push({ key: keys.hashes });
 
@@ -2224,13 +2308,17 @@ export async function executeB2TemplateIngestPipeline(params) {
     return registrationStatements;
     };
 
-    // Execute atomic D1 commit (with schema auto-healing retry)
+    // Execute atomic D1 commit in safe chunks of 40 statements (with schema auto-healing retry)
     const runAtomicRegistration = async () => {
       const stmts = await buildRegistrationStatements();
       if (typeof db.batch === 'function') {
-        const batchResults = await db.batch(stmts);
-        if (Array.isArray(batchResults) && batchResults.some(r => r && r.success === false)) {
-          throw new Error('Atomic D1 registration batch reported failed statement result');
+        const D1_BATCH_CHUNK_SIZE = 40;
+        for (let i = 0; i < stmts.length; i += D1_BATCH_CHUNK_SIZE) {
+          const chunk = stmts.slice(i, i + D1_BATCH_CHUNK_SIZE);
+          const batchResults = await db.batch(chunk);
+          if (Array.isArray(batchResults) && batchResults.some(r => r && r.success === false)) {
+            throw new Error('Atomic D1 registration batch reported failed statement result');
+          }
         }
       } else {
         for (const stmt of stmts) {
