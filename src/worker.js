@@ -814,7 +814,6 @@ const PRETTY_ROUTES = {
   '/admin/anktech/anktech/admin/login/': '/index.html',
   '/legal': '/index.html',
   '/legal/': '/index.html',
-  '/index.html': '/index.html',
   '/terms': '/index.html',
   '/terms/': '/index.html',
   '/terms.html': '/index.html',
@@ -12852,8 +12851,6 @@ export default {
             mimeType: imgResult.mimeType || validation.mimeType,
             width: imgResult.width,
             height: imgResult.height,
-            sizeBytes: imgResult.sizeBytes,
-            mimeType: validation.mimeType,
             storageProvider: 'imgbb'
           }
         }, 201, {}, requestId);
