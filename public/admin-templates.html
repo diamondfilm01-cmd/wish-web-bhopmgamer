@@ -412,6 +412,9 @@
           </p>
         </div>
 
+        <!-- UTP v1.2.0 Section/Subsection Visibility & Button/Action Configuration Editor (Upload Flow) -->
+        <div id="upload-utp-v12-config-panel" class="wm-card bg-surface-container-lowest p-4 rounded-xl border border-purple-500/30 flex flex-col gap-4"></div>
+
         <!-- Live Sandbox Preview Iframe -->
         <div class="flex flex-col gap-2">
           <div class="flex flex-wrap items-center justify-between gap-2">
@@ -984,6 +987,9 @@
         </label>
       </div>
 
+      <!-- Part 49: UTP v1.2.0 Section/Subsection Visibility & Button/Action Configuration Studio -->
+      <div id="edit-utp-v12-config-panel" class="border border-purple-500/30 rounded-xl p-4 bg-surface-container-lowest/90 flex flex-col gap-4"></div>
+
       <!-- Part 10 Section 11: Capabilities Matrix Management -->
       <div class="border border-purple-500/30 rounded-xl p-4 bg-surface-container-lowest/80">
         <div class="flex items-center justify-between pb-2 mb-3 border-b border-purple-500/20">
@@ -1067,9 +1073,17 @@
       <button onclick="closeEditTemplateModal()" class="px-4 py-2 rounded-xl bg-surface-container-high hover:bg-surface-container-highest text-on-surface font-semibold text-xs transition cursor-pointer">
         Cancel
       </button>
-      <button id="btn-save-tpl-edits" onclick="saveTemplateEdits()" class="px-6 py-2 rounded-xl bg-gradient-to-r from-primary to-secondary text-white font-bold text-xs shadow-lg hover:brightness-110 active:scale-95 transition cursor-pointer">
-        Save Changes
-      </button>
+      <div class="flex flex-wrap items-center gap-2">
+        <button id="btn-reset-tpl-config" type="button" onclick="resetEditTemplateUtpConfig()" class="px-3.5 py-2 rounded-xl bg-surface-container-high hover:bg-surface-container-highest text-amber-300 border border-amber-500/30 font-semibold text-xs transition cursor-pointer">
+          ↺ Reset to Manifest Defaults
+        </button>
+        <button id="btn-save-tpl-draft" type="button" onclick="saveTemplateEdits(false)" class="px-4 py-2 rounded-xl bg-surface-container-high hover:bg-surface-container-highest text-on-surface border border-purple-500/30 font-bold text-xs transition cursor-pointer">
+          Save Config Draft
+        </button>
+        <button id="btn-save-tpl-edits" onclick="saveTemplateEdits(true)" class="px-6 py-2 rounded-xl bg-gradient-to-r from-primary to-secondary text-white font-bold text-xs shadow-lg hover:brightness-110 active:scale-95 transition cursor-pointer">
+          Save &amp; Publish Changes
+        </button>
+      </div>
     </div>
   </div>
 </div>

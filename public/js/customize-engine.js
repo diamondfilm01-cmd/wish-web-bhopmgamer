@@ -735,25 +735,46 @@ function applyUtpTemplateCapabilityGating(template) {
     else musicWrapper.classList.remove("hidden");
   }
 
-  // 5. Sync Declared Sections for Step 3
-  const declaredSections = (manifest && Array.isArray(manifest.sections) && manifest.sections.length > 0)
-    ? manifest.sections
-    : (Array.isArray(template.sections) && template.sections.length > 0 ? template.sections : []);
+  // 5. Sync Declared Sections for Step 3 (excluding any admin-disabled sections/subsections per UTP v1.2.0)
+  const adminDisabledSet = new Set(Array.isArray(template.disabledIds) ? template.disabledIds : []);
+  if (template.visibilityMap && typeof template.visibilityMap === "object") {
+    Object.entries(template.visibilityMap).forEach(([k, v]) => {
+      if (v === false) adminDisabledSet.add(k);
+    });
+  }
+  if (adminDisabledSet.has("voice") || adminDisabledSet.has("voice_note")) {
+    if (voiceWrapper) voiceWrapper.classList.add("hidden");
+  }
+  if (adminDisabledSet.has("music") || adminDisabledSet.has("background_music")) {
+    if (musicWrapper) musicWrapper.classList.add("hidden");
+  }
+
+  const declaredSections = (Array.isArray(template.sections) && template.sections.length > 0)
+    ? template.sections
+    : ((manifest && Array.isArray(manifest.sections) && manifest.sections.length > 0) ? manifest.sections : []);
 
   if (declaredSections.length > 0) {
-    currentCustomData.sections = declaredSections.map((sec, idx) => {
-      const sId = typeof sec === "string" ? sec : (sec.id || sec.key);
-      return {
-        id: sId,
-        name: sec.label || sec.name || sId.replace(/_/g, " ").replace(/\b\w/g, c => c.toUpperCase()),
-        description: sec.description || "",
-        required: Boolean(sec.required),
-        toggleable: sec.required ? false : (sec.toggleable !== false),
-        enabled: sec.defaultEnabled !== false,
-        order: sec.order || (idx + 1),
-        selector: "[data-wm-section=\"" + sId + "\"]"
-      };
-    });
+    currentCustomData.sections = declaredSections
+      .filter(sec => {
+        if (!sec) return false;
+        const sId = typeof sec === "string" ? sec : (sec.id || sec.key);
+        if (!sId || adminDisabledSet.has(sId)) return false;
+        if (typeof sec === "object" && (sec.enabled === false || sec.isEnabled === false || sec.effectiveEnabled === false)) return false;
+        return true;
+      })
+      .map((sec, idx) => {
+        const sId = typeof sec === "string" ? sec : (sec.id || sec.key);
+        return {
+          id: sId,
+          name: sec.label || sec.name || sId.replace(/_/g, " ").replace(/\b\w/g, c => c.toUpperCase()),
+          description: sec.description || "",
+          required: Boolean(sec.required),
+          toggleable: sec.required ? false : (sec.toggleable !== false),
+          enabled: sec.defaultEnabled !== false && sec.enabled !== false && sec.isEnabled !== false,
+          order: sec.order || (idx + 1),
+          selector: "[data-wm-section=\"" + sId + "\"]"
+        };
+      });
     renderSectionsUI();
   }
 }
@@ -774,9 +795,20 @@ function renderDynamicTemplateFields(template) {
     'voice_note', 'cover_photo', 'photo_1', 'customSlug', 'slug', 'buyerName'
   ]);
 
+  const disabledIdsSet = new Set(Array.isArray(template?.disabledIds) ? template.disabledIds : []);
+  if (template?.visibilityMap && typeof template.visibilityMap === 'object') {
+    Object.entries(template.visibilityMap).forEach(([k, v]) => { if (v === false) disabledIdsSet.add(k); });
+  }
+  const excludedFieldIdsSet = new Set(Array.isArray(template?.excludedFieldIds) ? template.excludedFieldIds : []);
+
   const dynamicFields = rawFields.filter(f => {
+    if (!f || f.disabled === true || f.enabled === false) return false;
     const k = (f.id || f.key || '').trim();
-    return k && !STANDARD_BUILTIN_KEYS.has(k);
+    if (!k || STANDARD_BUILTIN_KEYS.has(k) || excludedFieldIdsSet.has(k)) return false;
+    if ((f.sectionId && disabledIdsSet.has(f.sectionId)) || (f.subsectionId && disabledIdsSet.has(f.subsectionId)) || (f.section && disabledIdsSet.has(f.section))) {
+      return false;
+    }
+    return true;
   });
 
   if (dynamicFields.length === 0) {
@@ -4394,8 +4426,12 @@ function renderSectionsUI() {
     supportedDefs = window.WishTemplateDefinitionService.getTemplateSections(activeTemplate);
   }
 
-  // Normalize sections from customData
-  let sections = currentCustomData.sections || [];
+  // Normalize sections from customData & strictly exclude admin-disabled sections (UTP v1.2.0)
+  const adminDisabledIds = new Set(Array.isArray(activeTemplate?.disabledIds) ? activeTemplate.disabledIds : []);
+  if (activeTemplate?.visibilityMap && typeof activeTemplate.visibilityMap === 'object') {
+    Object.entries(activeTemplate.visibilityMap).forEach(([k, v]) => { if (v === false) adminDisabledIds.add(k); });
+  }
+  let sections = (currentCustomData.sections || []).filter(s => s && !adminDisabledIds.has(s.id) && !adminDisabledIds.has(s.type));
   if (supportedDefs.length > 0) {
     // Only display sections supported by this template!
     const supportedIds = new Set(supportedDefs.map(d => d.id));
@@ -4785,15 +4821,25 @@ function syncDataToIframe() {
   const iframe = document.getElementById('live-custom-iframe');
   if (!iframe) return;
 
-  // 1. PostMessage Event Dispatch
+  // 1. PostMessage Event Dispatch (including UTP v1.2.0 visibilityMap, disabledIds, and actions)
+  const livePayload = {
+    ...currentCustomData,
+    templateId: activeTemplate ? activeTemplate.id : currentCustomData.templateId,
+    templateSlug: activeTemplate ? (activeTemplate.slug || activeTemplate.id) : currentCustomData.templateId,
+    visibilityMap: (activeTemplate && activeTemplate.visibilityMap) || {},
+    disabledIds: (activeTemplate && Array.isArray(activeTemplate.disabledIds)) ? activeTemplate.disabledIds : [],
+    actions: (activeTemplate && activeTemplate.selectedVariant && Array.isArray(activeTemplate.selectedVariant.actions))
+      ? activeTemplate.selectedVariant.actions
+      : ((activeTemplate && Array.isArray(activeTemplate.actions)) ? activeTemplate.actions : [])
+  };
   if (iframe.contentWindow) {
     iframe.contentWindow.postMessage({
       type: 'WISHMAGIC_LIVE_UPDATE',
-      payload: currentCustomData
+      payload: livePayload
     }, '*');
     iframe.contentWindow.postMessage({
       type: 'WISHMAGIC_INIT',
-      payload: currentCustomData
+      payload: livePayload
     }, '*');
   }
 
@@ -4923,12 +4969,22 @@ function syncDataToIframe() {
       window.WishThemeEngine.applyThemeToDocument(doc, activeTheme);
     }
 
-    // Toggle [data-wm-section] elements directly in iframe DOM
+    // Physically remove admin-disabled sections/subsections and apply actions in iframe DOM (UTP v1.2.0)
+    if (window.WishMagicTemplate && typeof window.WishMagicTemplate.removeDisabledContentFromDom === 'function') {
+      window.WishMagicTemplate.removeDisabledContentFromDom(doc, livePayload);
+    }
+    if (window.WishMagicTemplate && typeof window.WishMagicTemplate.applyActionsToDom === 'function') {
+      window.WishMagicTemplate.applyActionsToDom(doc, livePayload.actions, livePayload);
+    }
+
+    // Remove or toggle customer-toggled [data-wm-section] elements in iframe DOM
     if (Array.isArray(currentCustomData.sections)) {
       currentCustomData.sections.forEach(sec => {
         if (!sec || !sec.id) return;
         doc.querySelectorAll(`[data-wm-section="${sec.id}"]`).forEach(secEl => {
-          secEl.style.display = sec.enabled === false ? "none" : "";
+          if (sec.enabled === false) {
+            secEl.remove();
+          }
         });
       });
     }

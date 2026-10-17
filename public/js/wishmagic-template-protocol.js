@@ -1,17 +1,19 @@
 /**
- * WishMagic Universal Template Protocol (v1.0 & v1.1 Variant Runtime Bridge)
- * --------------------------------------------------------------------------
+ * WishMagic Universal Template Protocol (v1.0, v1.1 & v1.2 Runtime Bridge)
+ * -------------------------------------------------------------------------
  * Provides self-describing capability discovery, validation,
  * safe DOM data hydration, manifest binding target execution,
- * relationship variant resolution, and event listeners for all UTP wish templates.
+ * relationship variant resolution, physical DOM removal of disabled
+ * sections/subsections (with media/timer/navigation cleanup and empty-parent collapse),
+ * and deterministic button/action execution (`data-wm-action`) for all UTP templates.
  */
 
 (function (global) {
   'use strict';
 
-  const PROTOCOL_VERSION = '1.1';
-  const SCHEMA_VERSION = '1.1.0';
-  const RUNTIME_API_VERSION = '1.1';
+  const PROTOCOL_VERSION = '1.2';
+  const SCHEMA_VERSION = '1.2.0';
+  const RUNTIME_API_VERSION = '1.2';
 
   /**
    * Helper to safely sanitize and set text without XSS risks
@@ -48,7 +50,8 @@
    * Resolve DOM elements for a field key using both standard [data-wm-field] / [data-wm]
    * and any custom binding.selector declared in wishmagic.json
    */
-  function resolveFieldElements(key, fieldConfig) {
+  function resolveFieldElements(key, fieldConfig, rootDoc) {
+    const doc = rootDoc || document;
     const selectorParts = [`[data-wm-field="${key}"]`, `[data-wm="${key}"]`];
     if (fieldConfig && fieldConfig.binding && fieldConfig.binding.selector) {
       const customSel = String(fieldConfig.binding.selector).trim();
@@ -59,14 +62,448 @@
     const nodeSet = new Set();
     selectorParts.forEach(sel => {
       try {
-        document.querySelectorAll(sel).forEach(el => nodeSet.add(el));
+        doc.querySelectorAll(sel).forEach(el => nodeSet.add(el));
       } catch (_) {}
     });
     return Array.from(nodeSet);
   }
 
   /**
-   * Universal Field Setter (supports all UTP v1.0.0 & v1.1.0 field types & binding targets)
+   * Safely stops and unloads any active media, timers, or observers inside an element before removal.
+   */
+  function cleanupElementResourcesBeforeRemoval(el, sectionId, rootDoc) {
+    if (!el) return;
+    try {
+      const mediaNodes = [];
+      if (el.tagName === 'AUDIO' || el.tagName === 'VIDEO') {
+        mediaNodes.push(el);
+      }
+      if (typeof el.querySelectorAll === 'function') {
+        el.querySelectorAll('audio, video, iframe').forEach(m => mediaNodes.push(m));
+      }
+      mediaNodes.forEach(m => {
+        try {
+          if (typeof m.pause === 'function') m.pause();
+          m.removeAttribute('src');
+          if (typeof m.querySelectorAll === 'function') {
+            m.querySelectorAll('source').forEach(s => s.removeAttribute('src'));
+          }
+          if (typeof m.load === 'function') m.load();
+        } catch (_) {}
+      });
+    } catch (_) {}
+
+    try {
+      const evt = new CustomEvent('wishmagic:section-removed', {
+        detail: { id: sectionId || el.getAttribute('data-wm-section') || el.getAttribute('data-wm-subsection') || el.id || null }
+      });
+      window.dispatchEvent(evt);
+      if (rootDoc && rootDoc !== document && typeof rootDoc.dispatchEvent === 'function') {
+        rootDoc.dispatchEvent(evt);
+      }
+    } catch (_) {}
+  }
+
+  /**
+   * Completely removes disabled sections and subsections from the DOM (`el.remove()`),
+   * cleans up dependent media/navigation links/separators, and collapses empty parent sections
+   * according to the UTP v1.2.0 empty-parent policy so customers never see blank gaps or placeholders.
+   */
+  function removeDisabledContentFromDom(rootDoc, visibilityConfigOrPayload) {
+    const doc = rootDoc || document;
+    if (!doc || typeof doc.querySelectorAll !== 'function') return { removedIds: [] };
+
+    const data = visibilityConfigOrPayload || {};
+    const eff = data.effectiveConfig || data;
+    const visibilityMap = (eff.visibilityMap && typeof eff.visibilityMap === 'object')
+      ? eff.visibilityMap
+      : ((data.visibilityMap && typeof data.visibilityMap === 'object') ? data.visibilityMap : {});
+
+    const disabledSet = new Set();
+    if (Array.isArray(eff.disabledIds)) {
+      eff.disabledIds.forEach(id => { if (id) disabledSet.add(String(id).trim()); });
+    }
+    if (Array.isArray(data.disabledIds)) {
+      data.disabledIds.forEach(id => { if (id) disabledSet.add(String(id).trim()); });
+    }
+    Object.entries(visibilityMap).forEach(([id, enabled]) => {
+      if (enabled === false) disabledSet.add(String(id).trim());
+    });
+
+    const walkSectionsForDisabled = (secList, parentDisabled = false) => {
+      if (!Array.isArray(secList)) return;
+      secList.forEach(sec => {
+        if (!sec || typeof sec !== 'object') return;
+        const sId = String(sec.id || sec.key || '').trim();
+        const isOff = parentDisabled || sec.enabled === false || sec.isEnabled === false || sec.effectiveEnabled === false;
+        if (sId && isOff) {
+          disabledSet.add(sId);
+        }
+        if (Array.isArray(sec.subsections)) {
+          walkSectionsForDisabled(sec.subsections, isOff);
+        }
+      });
+    };
+    if (Array.isArray(eff.sections)) walkSectionsForDisabled(eff.sections, false);
+    if (Array.isArray(data.sections)) walkSectionsForDisabled(data.sections, false);
+
+    const removedIds = [];
+
+    // 1. Physically remove all disabled sections and subsections from the DOM
+    disabledSet.forEach(secId => {
+      if (!secId) return;
+      const selectors = [
+        `[data-wm-section="${secId}"]`,
+        `[data-wm-subsection="${secId}"]`,
+        `#section-${secId}`
+      ];
+      selectors.forEach(sel => {
+        try {
+          doc.querySelectorAll(sel).forEach(el => {
+            const isReq = el.getAttribute('data-wm-required') === 'true';
+            if (isReq) return;
+            cleanupElementResourcesBeforeRemoval(el, secId, doc);
+            // Also remove immediately adjacent decorative separator if marked
+            const nextSib = el.nextElementSibling;
+            if (nextSib && (nextSib.hasAttribute('data-wm-separator') || nextSib.getAttribute('data-wm-for-section') === secId)) {
+              nextSib.remove();
+            }
+            el.remove();
+            if (!removedIds.includes(secId)) removedIds.push(secId);
+          });
+        } catch (_) {}
+      });
+
+      // 2. Remove navigation links, section index pills, and action triggers pointing to the disabled section
+      const navSelectors = [
+        `a[href="#${secId}"]`,
+        `a[href="#section-${secId}"]`,
+        `[data-wm-nav-target="${secId}"]`,
+        `[data-wm-scroll-to="${secId}"]`,
+        `[data-wm-section-link="${secId}"]`
+      ];
+      navSelectors.forEach(navSel => {
+        try {
+          doc.querySelectorAll(navSel).forEach(navEl => {
+            // Skip [data-wm-action] elements here if they have their own fallbackBehavior handled in applyActionsToDom
+            if (navEl.hasAttribute('data-wm-action') || navEl.hasAttribute('data-wm-button')) return;
+            const parentLi = navEl.parentElement && navEl.parentElement.tagName === 'LI' ? navEl.parentElement : null;
+            navEl.remove();
+            if (parentLi && parentLi.children.length === 0 && !parentLi.textContent.trim()) {
+              parentLi.remove();
+            }
+          });
+        } catch (_) {}
+      });
+    });
+
+    // 3. Apply Empty-Parent Collapse Policy:
+    // If a parent [data-wm-section] had child [data-wm-subsection] elements removed and now has
+    // no remaining child subsections, fields, media, or meaningful body content (or all its children were removed),
+    // remove the parent section cleanly so no orphaned heading or blank gap remains.
+    try {
+      doc.querySelectorAll('[data-wm-section]').forEach(secEl => {
+        const policy = (secEl.getAttribute('data-wm-empty-policy') || secEl.getAttribute('data-wm-empty-parent-policy') || 'collapse').toLowerCase();
+        if (policy === 'keep' || secEl.getAttribute('data-wm-required') === 'true') return;
+        const secId = secEl.getAttribute('data-wm-section');
+        if (secEl.getAttribute('data-wm-had-subsections') === 'true' || disabledSet.size > 0) {
+          const remainingSubsections = secEl.querySelectorAll('[data-wm-subsection]');
+          const remainingFields = secEl.querySelectorAll('[data-wm-field], [data-wm]');
+          const remainingMedia = secEl.querySelectorAll('img, audio, video, canvas, iframe');
+          const remainingActions = secEl.querySelectorAll('[data-wm-action], [data-wm-button]');
+          if (
+            remainingSubsections.length === 0 &&
+            remainingFields.length === 0 &&
+            remainingMedia.length === 0 &&
+            remainingActions.length === 0 &&
+            secEl.children.length <= 1
+          ) {
+            // Check if only an orphaned heading remains
+            const onlyHeading = secEl.children.length === 0 ||
+              (secEl.children.length === 1 && /^H[1-6]$/.test(secEl.children[0].tagName));
+            if (onlyHeading && removedIds.length > 0) {
+              cleanupElementResourcesBeforeRemoval(secEl, secId, doc);
+              secEl.remove();
+              if (secId && !removedIds.includes(secId)) removedIds.push(secId);
+            }
+          }
+        }
+      });
+    } catch (_) {}
+
+    return { removedIds };
+  }
+
+  /**
+   * Builds a safe internal URL preserving `template`, `variant`, and `rel` context parameters.
+   */
+  function resolveClientInternalActionUrl(rawTarget, contextData) {
+    const trimmed = String(rawTarget || '').trim();
+    if (!trimmed) return '';
+    const lower = trimmed.toLowerCase();
+    if (lower.startsWith('javascript:') || lower.startsWith('data:') || lower.startsWith('vbscript:') || lower.startsWith('file:')) {
+      return '';
+    }
+    const data = contextData || {};
+    const hashIdx = trimmed.indexOf('#');
+    const hashPart = hashIdx !== -1 ? trimmed.slice(hashIdx) : '';
+    const withoutHash = hashIdx !== -1 ? trimmed.slice(0, hashIdx) : trimmed;
+    const qIdx = withoutHash.indexOf('?');
+    const pathname = qIdx !== -1 ? withoutHash.slice(0, qIdx) : withoutHash;
+    const searchStr = qIdx !== -1 ? withoutHash.slice(qIdx + 1) : '';
+    const params = new URLSearchParams(searchStr);
+
+    const cleanPath = pathname.toLowerCase().replace(/\/+$/, '') || '/';
+    const isContextual =
+      cleanPath === '/customize' ||
+      cleanPath === '/customize.html' ||
+      cleanPath === '/preview' ||
+      cleanPath === '/template-preview' ||
+      cleanPath === '/template-preview.html';
+
+    if (isContextual) {
+      const tplId = data.templateId || data.template_id || data.templateSlug || '';
+      const varId = data.variantId || data.variant_id || data.variantSlug || (data.variant && (data.variant.id || data.variant.slug)) || '';
+      const relSlug = data.relationshipSlug || data.relationship_slug || data.relationship || (data.variant && (data.variant.relationshipSlug || data.variant.relationship)) || '';
+      if (tplId && !params.has('template') && !params.has('id')) params.set('template', tplId);
+      if (varId && !params.has('variant')) params.set('variant', varId);
+      if (relSlug && relSlug !== 'general' && !params.has('rel') && !params.has('relationship')) params.set('rel', relSlug);
+    }
+
+    const qs = params.toString();
+    return `${pathname}${qs ? `?${qs}` : ''}${hashPart}`;
+  }
+
+  /**
+   * Applies the UTP v1.2.0 Button & Link Action Registry (`actions[]`) to the DOM.
+   * Updates labels safely (`textContent`), validates targets, applies fallback behaviors
+   * (`hide` -> `el.remove()`, `disable` -> `disabled`), and binds deterministic click handlers.
+   */
+  function applyActionsToDom(arg1, arg2, arg3) {
+    let doc = document;
+    let payload = {};
+    let ctx = {};
+    if (arg1 && typeof arg1.querySelectorAll === 'function') {
+      doc = arg1;
+      payload = arg2 || {};
+      ctx = arg3 || payload || {};
+    } else {
+      doc = document;
+      if (arg1 && typeof arg1 === 'object' && !Array.isArray(arg1) && !arg1.actions && !arg1.actionsMap && !arg1.effectiveConfig) {
+        payload = { actionsMap: arg1, visibilityMap: (arg2 && typeof arg2 === 'object') ? arg2 : {} };
+        ctx = arg3 || {};
+      } else {
+        payload = arg1 || {};
+        ctx = arg3 || arg2 || payload || {};
+      }
+    }
+    if (!doc || typeof doc.querySelectorAll !== 'function') return;
+
+    const eff = payload.effectiveConfig || payload;
+
+    let actionsList = [];
+    if (Array.isArray(payload)) {
+      actionsList = payload;
+    } else if (Array.isArray(eff.actions)) {
+      actionsList = eff.actions;
+    } else if (Array.isArray(payload.actions)) {
+      actionsList = payload.actions;
+    } else if (eff.actionsMap && typeof eff.actionsMap === 'object') {
+      actionsList = Object.values(eff.actionsMap);
+    } else if (payload.actionsMap && typeof payload.actionsMap === 'object') {
+      actionsList = Object.values(payload.actionsMap);
+    } else if (global.WishMagicManifest && Array.isArray(global.WishMagicManifest.actions)) {
+      actionsList = global.WishMagicManifest.actions;
+    }
+
+    if (!Array.isArray(actionsList) || actionsList.length === 0) return;
+
+    const disabledSectionSet = new Set(
+      Array.isArray(eff.disabledIds) ? eff.disabledIds : (Array.isArray(payload.disabledIds) ? payload.disabledIds : [])
+    );
+    const visMap = eff.visibilityMap || payload.visibilityMap || {};
+    Object.entries(visMap).forEach(([k, v]) => {
+      if (v === false) disabledSectionSet.add(k);
+    });
+
+    actionsList.forEach(action => {
+      if (!action || typeof action !== 'object') return;
+      const actId = String(action.id || action.key || '').trim();
+      if (!actId) return;
+
+      const selectors = [
+        `[data-wm-action="${actId}"]`,
+        `[data-wm-button="${actId}"]`
+      ];
+      if (action.binding && action.binding.selector) {
+        const customSel = String(action.binding.selector).trim();
+        if (customSel) selectors.push(customSel);
+      }
+
+      const elements = new Set();
+      selectors.forEach(sel => {
+        try {
+          doc.querySelectorAll(sel).forEach(el => elements.add(el));
+        } catch (_) {}
+      });
+
+      elements.forEach(el => {
+        const actType = String(action.type || action.actionType || 'section').toLowerCase().trim();
+        const rawTarget = String(action.resolvedUrl || action.target || action.destination || '').trim();
+        const fallback = String(action.fallbackBehavior || 'hide').toLowerCase().trim();
+        let isActionEnabled = action.enabled !== false && action.effectiveEnabled !== false;
+
+        // Verify target existence & availability in the live DOM for 'section' and 'modal' actions
+        let targetEl = null;
+        if (actType === 'section') {
+          const cleanSecId = String(action.target || rawTarget).replace(/^#/, '').trim();
+          if (!cleanSecId || disabledSectionSet.has(cleanSecId)) {
+            isActionEnabled = false;
+          } else {
+            targetEl = doc.querySelector(`[data-wm-section="${cleanSecId}"], [data-wm-subsection="${cleanSecId}"], #${cleanSecId}, #section-${cleanSecId}`);
+            if (!targetEl) {
+              isActionEnabled = false;
+            }
+          }
+        } else if (actType === 'modal') {
+          const cleanModId = String(action.target || rawTarget).replace(/^#/, '').trim();
+          if (!cleanModId || disabledSectionSet.has(cleanModId)) {
+            isActionEnabled = false;
+          } else {
+            targetEl = doc.querySelector(`[data-wm-modal="${cleanModId}"], #${cleanModId}`);
+            if (!targetEl) {
+              isActionEnabled = false;
+            }
+          }
+        } else if (actType === 'external_url') {
+          const lowerUrl = rawTarget.toLowerCase();
+          if (!rawTarget || (!lowerUrl.startsWith('https://') && !lowerUrl.startsWith('http://')) || lowerUrl.startsWith('javascript:') || lowerUrl.startsWith('data:')) {
+            isActionEnabled = false;
+          }
+        } else if (actType === 'internal_url' || actType === 'customizer') {
+          const resolvedInternal = resolveClientInternalActionUrl(rawTarget || (actType === 'customizer' ? '/customize' : ''), ctx);
+          if (!resolvedInternal || !resolvedInternal.startsWith('/')) {
+            isActionEnabled = false;
+          }
+        }
+
+        // Handle disabled / unavailable action according to fallbackBehavior
+        if (!isActionEnabled) {
+          if (fallback === 'disable') {
+            el.disabled = true;
+            el.setAttribute('disabled', 'disabled');
+            el.setAttribute('aria-disabled', 'true');
+            el.setAttribute('data-wm-action-disabled', 'true');
+            el.removeAttribute('href');
+            el.style.pointerEvents = 'none';
+            el.style.opacity = '0.5';
+            return;
+          }
+          // Default fallbackBehavior === 'hide': physically remove from DOM so no dead button remains
+          el.remove();
+          return;
+        }
+
+        // Safely set button label via textContent (preventing HTML/script injection)
+        if (action.label !== undefined && action.label !== null && String(action.label).trim() !== '') {
+          const labelSpan = el.querySelector('[data-wm-action-label]');
+          if (labelSpan) {
+            setTextSafe(labelSpan, action.label);
+          } else {
+            setTextSafe(el, action.label);
+          }
+        }
+
+        el.setAttribute('data-wm-action-type', actType);
+        el.removeAttribute('disabled');
+        el.removeAttribute('aria-disabled');
+        el.removeAttribute('data-wm-action-disabled');
+
+        // Configure href and deterministic click handler
+        if (actType === 'internal_url' || actType === 'customizer') {
+          const finalUrl = resolveClientInternalActionUrl(
+            action.resolvedUrl || action.target || (actType === 'customizer' ? '/customize' : ''),
+            ctx
+          );
+          if (el.tagName === 'A') {
+            el.setAttribute('href', finalUrl);
+          }
+          el.onclick = function (ev) {
+            ev.preventDefault();
+            try {
+              if (window.top && window.top !== window) {
+                window.top.location.href = finalUrl;
+              } else {
+                window.location.href = finalUrl;
+              }
+            } catch (_) {
+              window.location.href = finalUrl;
+            }
+          };
+        } else if (actType === 'external_url') {
+          const safeExtUrl = rawTarget;
+          if (el.tagName === 'A') {
+            el.setAttribute('href', safeExtUrl);
+            el.setAttribute('rel', 'noopener noreferrer');
+            if (action.openInNewTab !== false) {
+              el.setAttribute('target', '_blank');
+            }
+          }
+          el.onclick = function (ev) {
+            ev.preventDefault();
+            if (action.openInNewTab !== false) {
+              window.open(safeExtUrl, '_blank', 'noopener,noreferrer');
+            } else {
+              window.location.href = safeExtUrl;
+            }
+          };
+        } else if (actType === 'section') {
+          const cleanSecId = String(action.target || rawTarget).replace(/^#/, '').trim();
+          if (el.tagName === 'A') {
+            el.setAttribute('href', `#${cleanSecId}`);
+          }
+          el.onclick = function (ev) {
+            ev.preventDefault();
+            const liveTarget = doc.querySelector(`[data-wm-section="${cleanSecId}"], [data-wm-subsection="${cleanSecId}"], #${cleanSecId}, #section-${cleanSecId}`);
+            if (liveTarget && typeof liveTarget.scrollIntoView === 'function') {
+              liveTarget.scrollIntoView({ behavior: 'smooth', block: 'start' });
+            }
+          };
+        } else if (actType === 'modal') {
+          const cleanModId = String(action.target || rawTarget).replace(/^#/, '').trim();
+          const modalClickHandler = function (ev) {
+            if (ev && typeof ev.preventDefault === 'function') ev.preventDefault();
+            const liveModal = doc.querySelector(`[data-wm-modal="${cleanModId}"], #${cleanModId}`);
+            if (liveModal) {
+              if (liveModal.classList && typeof liveModal.classList.remove === 'function') {
+                liveModal.classList.remove('hidden');
+              }
+              liveModal.style.display = '';
+              liveModal.setAttribute('data-wm-modal-open', 'true');
+              liveModal.setAttribute('aria-hidden', 'false');
+              try {
+                const modEvt = new CustomEvent('wishmagic:modal-open', { detail: { modalId: cleanModId, triggerId: actId } });
+                window.dispatchEvent(modEvt);
+                doc.dispatchEvent(modEvt);
+              } catch (_) {}
+            }
+          };
+          el.onclick = modalClickHandler;
+          if (typeof el.addEventListener === 'function') el.addEventListener('click', modalClickHandler);
+        } else if (actType === 'none') {
+          if (el.tagName === 'A') {
+            el.removeAttribute('href');
+          }
+          el.onclick = function (ev) {
+            ev.preventDefault();
+          };
+        }
+      });
+    });
+  }
+
+  /**
+   * Universal Field Setter (supports all UTP v1.0.0, v1.1.0 & v1.2.0 field types & binding targets)
    */
   function setWishMagicField(key, value, customData) {
     const fieldConfig = getManifestFieldConfig(key);
@@ -96,7 +533,7 @@
       }
     }
 
-    const elements = resolveFieldElements(key, fieldConfig);
+    const elements = resolveFieldElements(key, fieldConfig, document);
 
     elements.forEach(element => {
       const type = (
@@ -300,12 +737,24 @@
   }
 
   /**
-   * Apply entire dataset (including UTP v1.1.0 variant overrides, messages, palette, and assets) to template
+   * Apply entire dataset (including UTP v1.1.0 & v1.2.0 variant overrides, visibility removal, actions, messages, palette, and assets) to template
    */
   function applyData(data) {
     if (!data || typeof data !== 'object') return;
 
-    // 0. Apply UTP v1.1.0 variant & relationship attributes on root html/body
+    // Mark parent sections that contain subsections before removal so empty-parent collapse knows which sections had subsections
+    try {
+      document.querySelectorAll('[data-wm-section]').forEach(secEl => {
+        if (secEl.querySelector('[data-wm-subsection]')) {
+          secEl.setAttribute('data-wm-had-subsections', 'true');
+        }
+      });
+    } catch (_) {}
+
+    // 0. Physically remove disabled sections & subsections from DOM first (UTP v1.2.0 strict requirement)
+    removeDisabledContentFromDom(document, data);
+
+    // 0a. Apply UTP v1.1.0 / v1.2.0 variant & relationship attributes on root html/body
     const variantId = data.variantId || data.variant_id || (data.variant && (data.variant.id || data.variant.slug)) || '';
     const relSlug = data.relationshipSlug || data.relationship_slug || data.relationship || (data.variant && (data.variant.relationshipSlug || data.variant.relationship)) || '';
     if (variantId && typeof variantId === 'string') {
@@ -342,7 +791,7 @@
 
     // 1. Apply all direct keys in data (Customer Wish values override variant defaults)
     Object.keys(data).forEach(key => {
-      if (['messages', 'assets', 'variant', 'colors', 'palette', 'sections', 'media'].includes(key)) return;
+      if (['messages', 'assets', 'variant', 'colors', 'palette', 'sections', 'media', 'visibilityMap', 'disabledIds', 'enabledIds', 'actions', 'actionsMap', 'effectiveConfig'].includes(key)) return;
       setWishMagicField(key, data[key], data);
     });
 
@@ -413,22 +862,8 @@
       if (document.body) document.body.setAttribute('data-wm-theme', themeName);
     }
 
-    // 6. Section visibility toggles
-    if (Array.isArray(data.sections)) {
-      data.sections.forEach(sec => {
-        const secId = sec.id || sec.key;
-        if (!secId) return;
-        const secEl = document.querySelector(`[data-wm-section="${secId}"]`);
-        if (secEl) {
-          const isRequired = secEl.getAttribute('data-wm-required') === 'true';
-          const isToggleable = secEl.getAttribute('data-wm-toggleable') !== 'false' && !isRequired;
-          if (isToggleable) {
-            secEl.style.display = sec.enabled === false ? 'none' : '';
-            secEl.setAttribute('data-wm-section-enabled', sec.enabled === false ? 'false' : 'true');
-          }
-        }
-      });
-    }
+    // 6. Apply UTP v1.2.0 Action / Button configurations (`data-wm-action`)
+    applyActionsToDom(document, data, data);
 
     // 7. Dispatch CustomEvent so template scripts (countdowns, carousels, particles) react immediately
     try {
@@ -440,7 +875,7 @@
   }
 
   /**
-   * Discover and extract full template capabilities from DOM metadata
+   * Discover and extract full template capabilities from DOM metadata (including subsections & actions)
    */
   function getCapabilities() {
     const fields = [];
@@ -459,6 +894,7 @@
         placeholder: el.getAttribute('data-wm-placeholder') || '',
         maxlength: el.getAttribute('data-wm-maxlength') ? parseInt(el.getAttribute('data-wm-maxlength'), 10) : null,
         section: el.getAttribute('data-wm-section') || el.closest('[data-wm-section]')?.getAttribute('data-wm-section') || 'main',
+        subsection: el.getAttribute('data-wm-subsection') || el.closest('[data-wm-subsection]')?.getAttribute('data-wm-subsection') || null,
         group: el.getAttribute('data-wm-group') || 'personal'
       };
 
@@ -480,13 +916,38 @@
       const sectionKey = el.getAttribute('data-wm-section');
       if (!sectionKey) return;
 
+      const subsections = [];
+      el.querySelectorAll('[data-wm-subsection]').forEach(subEl => {
+        const subKey = subEl.getAttribute('data-wm-subsection');
+        if (!subKey) return;
+        subsections.push({
+          id: subKey,
+          label: subEl.getAttribute('data-wm-label') || subKey.replace(/_/g, ' ').replace(/\b\w/g, l => l.toUpperCase()),
+          toggleable: subEl.getAttribute('data-wm-toggleable') !== 'false',
+          defaultEnabled: subEl.getAttribute('data-wm-default-enabled') !== 'false'
+        });
+      });
+
       sections.push({
         id: sectionKey,
         name: el.getAttribute('data-wm-label') || sectionKey.replace(/_/g, ' ').replace(/\b\w/g, l => l.toUpperCase()),
         toggleable: el.getAttribute('data-wm-toggleable') !== 'false',
         reorderable: el.getAttribute('data-wm-reorderable') === 'true',
         order: el.getAttribute('data-wm-order') ? parseInt(el.getAttribute('data-wm-order'), 10) : null,
-        animation: el.getAttribute('data-wm-animation') ? el.getAttribute('data-wm-animation').split(',').map(s => s.trim()) : []
+        animation: el.getAttribute('data-wm-animation') ? el.getAttribute('data-wm-animation').split(',').map(s => s.trim()) : [],
+        subsections
+      });
+    });
+
+    const actions = [];
+    document.querySelectorAll('[data-wm-action], [data-wm-button]').forEach(el => {
+      const actionId = el.getAttribute('data-wm-action') || el.getAttribute('data-wm-button');
+      if (!actionId) return;
+      actions.push({
+        id: actionId,
+        label: el.getAttribute('data-wm-label') || (el.textContent || '').trim(),
+        type: el.getAttribute('data-wm-action-type') || 'section',
+        target: el.getAttribute('data-wm-action-target') || el.getAttribute('href') || ''
       });
     });
 
@@ -506,6 +967,7 @@
       templateRuntime: rootEl.getAttribute('data-wm-template-runtime') || PROTOCOL_VERSION,
       fields,
       sections,
+      actions,
       animations,
       particles,
       themes,
@@ -559,7 +1021,10 @@
     getCapabilities,
     validate,
     applyData,
-    setField: setWishMagicField
+    setField: setWishMagicField,
+    removeDisabledContentFromDom,
+    applyActionsToDom,
+    resolveClientInternalActionUrl
   };
 
   global.validateWishMagicTemplate = validate;

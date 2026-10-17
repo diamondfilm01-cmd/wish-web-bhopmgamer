@@ -1030,16 +1030,34 @@
       const sectionsList = document.getElementById('sections-checklist');
       sectionsList.innerHTML = '';
       
+      const disabledSet = new Set(Array.isArray(t.disabledIds) ? t.disabledIds : []);
+      if (t.visibilityMap && typeof t.visibilityMap === 'object') {
+        Object.entries(t.visibilityMap).forEach(([k, v]) => { if (v === false) disabledSet.add(k); });
+      }
+      const rawEffectiveSections = (selectedVariant && Array.isArray(selectedVariant.sections) && selectedVariant.sections.length > 0)
+        ? selectedVariant.sections
+        : (Array.isArray(t.sections) ? t.sections : []);
       let sectionsToDisplay = [];
-      if (window.WishTemplateDefinitionService) {
-        const supported = window.WishTemplateDefinitionService.getTemplateSections(t);
+      if (rawEffectiveSections.length > 0) {
+        sectionsToDisplay = rawEffectiveSections
+          .filter(s => {
+            if (!s) return false;
+            const sId = typeof s === 'string' ? s : (s.id || s.key || s.type || '');
+            if (sId && disabledSet.has(sId)) return false;
+            if (typeof s === 'object' && (s.enabled === false || s.isEnabled === false || s.effectiveEnabled === false)) return false;
+            return true;
+          })
+          .map(s => ({
+            name: typeof s === 'string' ? s : (s.label || s.name || s.id),
+            isVip: Boolean(s && s.isPremium)
+          }));
+      } else if (window.WishTemplateDefinitionService) {
+        const supported = window.WishTemplateDefinitionService.getTemplateSections(t)
+          .filter(s => !disabledSet.has(s.id) && s.enabled !== false && s.isEnabled !== false);
         sectionsToDisplay = supported.map(s => ({
           name: s.label || s.name,
           isVip: s.isPremium
         }));
-      } else {
-        const raw = t.sections && t.sections.length > 0 ? t.sections : ['Hero Celebration Unboxing', 'Heartfelt Dedication Letter', 'Photo Keepsake Reel', 'Confetti & Fireworks Finale'];
-        sectionsToDisplay = raw.map(s => ({ name: typeof s === 'string' ? s : s.name, isVip: false }));
       }
 
       sectionsToDisplay.forEach(s => {
@@ -1172,15 +1190,25 @@
       iframe.onload = () => {
         const varMsgs = (selectedVariant && selectedVariant.messages) || {};
         const varAssets = (selectedVariant && selectedVariant.assets) || {};
+        const effectiveSections = (selectedVariant && Array.isArray(selectedVariant.sections)) ? selectedVariant.sections : (Array.isArray(t.sections) ? t.sections : []);
+        const effectiveActions = (selectedVariant && Array.isArray(selectedVariant.actions)) ? selectedVariant.actions : (Array.isArray(t.actions) ? t.actions : []);
         const sampleData = {
+          templateId: t.id,
+          templateSlug: t.slug || t.id,
           recipient_name: varMsgs.recipient_name || 'Someone Special',
           sender_name: varMsgs.sender_name || 'From Someone Who Cares',
           custom_message: varMsgs.custom_message || varMsgs.defaultWish || varMsgs.main_message || 'Wishing you a magnificent year filled with boundless joy, radiant smiles, and unforgettable magic!',
           event_date: 'Today',
           photo_1: varAssets.photo_1 || varAssets.cover || (selectedVariant && selectedVariant.thumbnail) || t.thumbnail || t.previewImage || '/assets/file_ab2082.png',
           variantId: selectedVariant ? selectedVariant.id : '',
+          variantSlug: selectedVariant ? (selectedVariant.slug || selectedVariant.id) : '',
           relationship: selectedVariant ? selectedVariant.relationshipSlug : '',
           relationshipSlug: selectedVariant ? selectedVariant.relationshipSlug : '',
+          visibilityMap: t.visibilityMap || {},
+          disabledIds: Array.isArray(t.disabledIds) ? t.disabledIds : [],
+          enabledIds: Array.isArray(t.enabledIds) ? t.enabledIds : [],
+          sections: effectiveSections,
+          actions: effectiveActions,
           messages: varMsgs,
           assets: varAssets,
           palette: selectedVariant ? selectedVariant.theme : null,
@@ -1215,8 +1243,17 @@
             return;
           }
 
+          // Physically remove disabled sections & subsections and apply button actions (UTP v1.2.0)
+          if (window.WishMagicTemplate && typeof window.WishMagicTemplate.removeDisabledContentFromDom === 'function') {
+            window.WishMagicTemplate.removeDisabledContentFromDom(doc, sampleData);
+          }
+          if (window.WishMagicTemplate && typeof window.WishMagicTemplate.applyActionsToDom === 'function') {
+            window.WishMagicTemplate.applyActionsToDom(doc, sampleData.actions, sampleData);
+          }
+
           // Apply to [data-wm] elements if present in template
           Object.keys(sampleData).forEach(key => {
+            if (['messages', 'assets', 'palette', 'visibilityMap', 'disabledIds', 'enabledIds', 'sections', 'actions'].includes(key)) return;
             const el = doc.querySelector(`[data-wm="${key}"], [data-wm-field="${key}"]`);
             if (el) {
               if (el.tagName === 'IMG') {

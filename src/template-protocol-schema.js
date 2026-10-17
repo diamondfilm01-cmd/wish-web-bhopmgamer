@@ -1,22 +1,211 @@
 /**
- * WishMagic Universal Template Protocol (UTP v1.0.0 / v1.1.0)
- * ============================================================
+ * WishMagic Universal Template Protocol (UTP v1.0.0 / v1.1.0 / v1.2.0)
+ * ====================================================================
  * Formal machine-readable specification for self-contained celebration templates,
- * including UTP v1.1.0 multi-relationship variant families.
- * Defines the canonical manifest schema (`wishmagic.json`), supported field types,
- * binding targets, section contracts, variant declarations, and capability registry.
+ * including:
+ * - UTP v1.0.0 single-variant templates
+ * - UTP v1.1.0 multi-relationship variant families
+ * - UTP v1.2.0 nested section/subsection hierarchy, relationship-scoped visibility
+ *   precedence, and deterministic admin-editable button/action registry.
  */
 
 export const UTP_SCHEMA_VERSION = '1.0.0';
-export const UTP_LATEST_SCHEMA_VERSION = '1.1.0';
 export const UTP_VARIANT_SCHEMA_VERSION = '1.1.0';
-export const UTP_SUPPORTED_SCHEMA_VERSIONS = Object.freeze(['1.0.0', '1.1.0']);
+export const UTP_SECTIONS_ACTIONS_SCHEMA_VERSION = '1.2.0';
+export const UTP_LATEST_SCHEMA_VERSION = '1.2.0';
+export const UTP_SUPPORTED_SCHEMA_VERSIONS = Object.freeze(['1.0.0', '1.1.0', '1.2.0']);
 export const UTP_RUNTIME_API_VERSION = '1.0';
+export const UTP_LATEST_RUNTIME_API_VERSION = '1.2';
+export const UTP_SUPPORTED_RUNTIME_API_VERSIONS = Object.freeze(['1.0', '1.1', '1.2']);
 export const UTP_PROTOCOL_NAME = 'wishmagic-template';
 
 /**
- * Supported customization field types in `wishmagic.json`
+ * Maximum supported nesting depth for sections -> subsections -> nested subsections.
+ * Level 1 = top-level section, Level 2 = child subsection, Level 3 = grandchild subsection.
  */
+export const UTP_MAX_SECTION_NESTING_DEPTH = 3;
+
+/**
+ * Supported empty-parent handling policies when all subsections inside a parent section are disabled.
+ * - 'collapse': completely remove the parent section from DOM so no empty container or gap remains.
+ * - 'keep': keep the parent section if it has its own standalone non-subsection content.
+ */
+export const UTP_EMPTY_PARENT_POLICIES = new Set(['collapse', 'keep']);
+
+/**
+ * Supported button / link action types in UTP v1.2.0 (`actions[]` in `wishmagic.json`).
+ * Verified against real WishMagic runtime and routing capabilities:
+ * - 'internal_url': Navigates to a validated internal WishMagic route (preserving template/variant/rel context)
+ * - 'external_url': Opens a validated safe HTTPS (or explicitly allowed HTTP) external URL in a new tab with rel="noopener noreferrer"
+ * - 'section': Smooth-scrolls to or reveals an enabled `[data-wm-section]` or `[data-wm-subsection]` inside the template
+ * - 'modal': Opens an existing in-template modal (`[data-wm-modal="<target>"]` or `#<target>`)
+ * - 'customizer': Navigates directly to `/customize.html` preserving `template`, `variant`, and `rel` parameters without re-prompting for relationship
+ * - 'none': Passive/decorative button or handled purely by template-local non-navigation visual effect (e.g. confetti burst)
+ */
+export const UTP_SUPPORTED_ACTION_TYPES = new Set([
+  'internal_url',
+  'external_url',
+  'section',
+  'modal',
+  'customizer',
+  'none'
+]);
+
+/**
+ * Supported fallback behaviors when an action's target section or modal is disabled or unavailable:
+ * - 'hide': Completely remove the button from DOM so customers never see a dead or broken button (Default)
+ * - 'disable': Render button inert/non-interactive (only if explicitly requested by template layout)
+ * - 'none': Do nothing
+ */
+export const UTP_ACTION_FALLBACK_BEHAVIORS = new Set([
+  'hide',
+  'disable',
+  'none'
+]);
+
+/**
+ * Authoritative allowlist of valid internal WishMagic routes for `internal_url` actions.
+ */
+export const UTP_VALID_INTERNAL_ROUTES = Object.freeze([
+  '/',
+  '/index.html',
+  '/templates',
+  '/templates.html',
+  '/marketplace',
+  '/marketplace.html',
+  '/template-preview',
+  '/template-preview.html',
+  '/customize',
+  '/customize.html',
+  '/create',
+  '/create.html',
+  '/my-wishes',
+  '/my-wishes.html',
+  '/pricing',
+  '/pricing.html',
+  '/premium',
+  '/premium.html',
+  '/favorites',
+  '/favorites.html',
+  '/help',
+  '/help.html',
+  '/contact',
+  '/contact.html',
+  '/wish',
+  '/wish.html'
+]);
+
+/**
+ * Validates whether a path is a supported internal WishMagic route.
+ */
+export function isValidInternalWishMagicRoute(rawTarget) {
+  if (!rawTarget || typeof rawTarget !== 'string') return false;
+  const trimmed = rawTarget.trim();
+  if (!trimmed.startsWith('/') || trimmed.startsWith('//')) return false;
+  if (/[\0<>'"`]/.test(trimmed)) return false;
+
+  const [pathnamePart] = trimmed.split(/[?#]/);
+  const cleanPath = pathnamePart.replace(/\/+$/, '') || '/';
+
+  if (UTP_VALID_INTERNAL_ROUTES.includes(cleanPath)) return true;
+  if (/^\/template\/[a-zA-Z0-9_-]+$/.test(cleanPath)) return true;
+  if (/^\/w\/[a-zA-Z0-9_-]+$/.test(cleanPath)) return true;
+  return false;
+}
+
+/**
+ * Validates whether a URL is safe for `external_url` or `internal_url` action navigation.
+ * Strictly rejects `javascript:`, `data:`, `file:`, `vbscript:`, `blob:`, protocol-relative `//`,
+ * and inline script payloads.
+ */
+export function validateActionDestinationUrl(arg1, arg2 = "external_url", options = {}) {
+  let rawUrl = arg1;
+  let actionType = arg2;
+  if (typeof arg1 === "string" && UTP_SUPPORTED_ACTION_TYPES.has(arg1.toLowerCase().trim()) && arg2 !== undefined && !UTP_SUPPORTED_ACTION_TYPES.has(String(arg2).toLowerCase().trim())) {
+    actionType = arg1.toLowerCase().trim();
+    rawUrl = arg2;
+  } else {
+    actionType = String(arg2 || "external_url").toLowerCase().trim();
+  }
+
+  if (actionType === "customizer" && (rawUrl === undefined || rawUrl === null || String(rawUrl).trim() === "")) {
+    rawUrl = "/customize.html";
+  }
+
+  if (rawUrl === undefined || rawUrl === null) {
+    const msg = "Action target URL is required.";
+    return { valid: false, code: "MISSING_ACTION_TARGET", message: msg, reason: msg };
+  }
+  const str = String(rawUrl).trim();
+  if (!str) {
+    const msg = "Action target URL cannot be empty.";
+    return { valid: false, code: "EMPTY_ACTION_TARGET", message: msg, reason: msg };
+  }
+
+  const lower = str.replace(/\s+/g, "").toLowerCase();
+  if (
+    lower.startsWith("javascript:") ||
+    lower.startsWith("data:") ||
+    lower.startsWith("file:") ||
+    lower.startsWith("vbscript:") ||
+    lower.startsWith("blob:") ||
+    lower.startsWith("//") ||
+    lower.includes("<script") ||
+    lower.includes("onerror=") ||
+    lower.includes("onclick=")
+  ) {
+    const msg = `Unsafe URL scheme or script payload rejected in action target "${str}".`;
+    return {
+      valid: false,
+      code: "UNSAFE_URL_SCHEME",
+      message: msg,
+      reason: msg
+    };
+  }
+
+  if (actionType === "internal_url" || actionType === "customizer") {
+    if (!isValidInternalWishMagicRoute(str)) {
+      const msg = `Internal URL "${str}" does not match an existing supported WishMagic route.`;
+      return {
+        valid: false,
+        code: "INVALID_INTERNAL_ROUTE",
+        message: msg,
+        reason: msg
+      };
+    }
+    return { valid: true, normalizedTarget: str, normalizedUrl: str };
+  }
+
+  if (actionType === "external_url") {
+    let parsed;
+    try {
+      parsed = new URL(str);
+    } catch (_) {
+      const msg = `External URL "${str}" is not a valid absolute URL.`;
+      return {
+        valid: false,
+        code: "INVALID_EXTERNAL_URL",
+        message: msg,
+        reason: msg
+      };
+    }
+    const allowHttp = Boolean(options.allowHttpExternal || options.allowHttp);
+    if (parsed.protocol !== "https:" && !(allowHttp && parsed.protocol === "http:")) {
+      const msg = `External URL "${str}" must use HTTPS (received "${parsed.protocol}").`;
+      return {
+        valid: false,
+        code: "UNSAFE_EXTERNAL_URL_PROTOCOL",
+        message: msg,
+        reason: msg
+      };
+    }
+    const norm = parsed.toString();
+    return { valid: true, normalizedTarget: norm, normalizedUrl: norm };
+  }
+
+  return { valid: true, normalizedTarget: str, normalizedUrl: str };
+}
+
 export const UTP_SUPPORTED_FIELD_TYPES = new Set([
   'text',
   'textarea',
@@ -86,6 +275,7 @@ export const UTP_CANONICAL_RELATIONSHIPS = new Set([
   'teacher',
   'crush',
   'family',
+  'kids',
   'custom',
   'any'
 ]);
@@ -115,7 +305,8 @@ export const UTP_RELATIONSHIP_CATALOG = Object.freeze({
   family: { id: 'rel_family', slug: 'family', label: 'Family', displayName: 'Family Edition', icon: '🏡', category: 'family', sortOrder: 19 },
   colleague: { id: 'rel_colleague', slug: 'colleague', label: 'Colleague', displayName: 'Valued Colleague', icon: '🎉', category: 'professional', sortOrder: 20 },
   teacher: { id: 'rel_teacher', slug: 'teacher', label: 'Teacher', displayName: 'Inspiring Teacher', icon: '📚', category: 'professional', sortOrder: 21 },
-  mentor: { id: 'rel_mentor', slug: 'mentor', label: 'Mentor', displayName: 'Trusted Mentor', icon: '🧭', category: 'professional', sortOrder: 22 }
+  mentor: { id: 'rel_mentor', slug: 'mentor', label: 'Mentor', displayName: 'Trusted Mentor', icon: '🧭', category: 'professional', sortOrder: 22 },
+  kids: { id: 'rel_kids', slug: 'kids', label: 'Kids', displayName: 'Kids Celebration', icon: '🎈', category: 'family', sortOrder: 23 }
 });
 
 /**
@@ -144,7 +335,6 @@ export function normalizeRelationshipIdentifier(relInput, customLabel = null) {
     .replace(/[^a-z0-9_]/g, '')
     .replace(/^_+|_+$/g, '');
 
-  // Common synonyms normalization
   const synonymMap = {
     bestfriend: 'best_friend',
     bestie: 'best_friend',
@@ -319,6 +509,18 @@ export const UTP_CAPABILITY_REGISTRY = Object.freeze({
     key: 'sections',
     label: 'Toggleable Template Sections',
     customizerGroup: 'sections',
+    requiresFieldTypes: []
+  },
+  subsections: {
+    key: 'subsections',
+    label: 'Nested Subsection Visibility Controls',
+    customizerGroup: 'sections',
+    requiresFieldTypes: []
+  },
+  actions: {
+    key: 'actions',
+    label: 'Configurable Buttons & Action Links',
+    customizerGroup: 'actions',
     requiresFieldTypes: []
   },
   secretMessage: {

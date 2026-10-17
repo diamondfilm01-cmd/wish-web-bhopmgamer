@@ -1,555 +1,162 @@
 ================================================================================
-WISHMAGIC UNIVERSAL TEMPLATE CREATOR STANDARD (UTP v1.0.0)
-COMPLETE INSTRUCTIONS & COPY-PASTE AI STUDIO MASTER PROMPT
+WISHMAGIC UNIVERSAL TEMPLATE CREATOR STANDARD (UTP v1.2.0)
+COMPLETE RELATIONSHIP VARIANT, SECTION VISIBILITY & ACTION CONFIGURATION GUIDE
 ================================================================================
 
-Yeh file tumhare liye ek complete blueprint + copy-paste AI Prompt guide hai.
-Tum Google AI Studio, ChatGPT, Claude, Cursor, ya kisi bhi developer ko yeh
-instructions dekar KOI BHI HTML/CSS/JS Wish Template (Birthday, Anniversary,
-Love, Proposal, Friendship, Apology, Festival, 3D Interactive, etc.) banwa
-sakte ho.
+Version: 1.2.0 (100% Backward Compatible with UTP v1.0.0 and UTP v1.1.0)
 
-Jab tum is standard se bana hua ZIP WishMagic ke Admin Panel mein upload karoge:
-1. Website automatically `wishmagic.json` + `index.html` + `css/` + `js/` padhegi.
-2. ZIP ke andar ke saare Photos automatically ImgBB par (same filename & format
-   ke saath) upload honge aur HTML/CSS/JS mein unka live link lag jayega.
-3. ZIP ke andar ke saare Music/Audio, Video aur Code files Backblaze B2 par
-   (same filename & format ke saath) upload honge aur link ho jayenge.
-4. Customizer (`customize.html` & `create.html`) mein **Recipient Name (`recipient_name`)**
-   aur **Date of Birth / Celebration Date (`event_date`)** mandatory (`required: true`)
-   honge (user ko ye daalne hi honge), jabki baaki saare messages, quotes, roasts,
-   quiz answers, aur texts (`custom_message`, `sender_name`, etc.) optional
-   (`required: false`) honge — agar user kisi message ya text ko customize nahi
-   karta, to wo bilkul waisa hi rahega jo template ka normal/default message ya
-   text hai!
-5. Customizer (`customize.html`) mein SIRF wahi options aur inputs dikhenge jo
-   template sach mein support karta hai — koi fake option nahi, aur har template
-   ke liye website ke core code mein kabhi koi manual coding nahi karni padegi!
+Yeh file tumhare liye updated UTP v1.2.0 blueprint + copy-paste AI Prompt guide hai.
+Ab tum Google AI Studio, ChatGPT, Claude, ya Cursor se:
+1. Single-Template Package (UTP v1.0.0 / v1.1.0 / v1.2.0 without variants), YA
+2. Multi-Relation Variant Template Family Package (jaise "BRO CODE" jisme ek hi
+   ZIP ke andar Best Friend, Brother, aur Boyfriend teeno variants hain)
+banwa sakte ho — aur ab har template mein:
+- Nested Sections & Subsections (`data-wm-section` + `data-wm-subsection`)
+- All Relationships vs Single Relationship Visibility Overrides
+- Admin-Editable Buttons & Action Links (`data-wm-action` + `actions[]`)
+automatically discover aur configure ho sakte hain!
+
+Jab tum UTP v1.2.0 wala ZIP WishMagic ke Admin Panel mein upload karoge:
+1. Website automatically `wishmagic.json` aur `index.html` inspect karke:
+   - Saare `sections[]` aur nested `subsections[]` (up to 3 levels)
+   - Saare configurable buttons/links (`actions[]` + `data-wm-action`)
+   - Saare relationship `variants[]` (`Best Friend`, `Brother`, `Boyfriend`, etc.)
+   discover aur validate karegi.
+2. Upload flow aur Edit Template screen dono mein Admin ke paas "UTP v1.2.0
+   Visibility & Action Studio" hoga jahan se Admin:
+   - "All Relationships (Template-Wide)" YA kisi ek specific relationship
+     (e.g., "Brother") ke liye kisi bhi toggleable section ya subsection ko
+     Enable/Disable kar sakta hai.
+   - Kisi bhi configurable button ka Label (e.g. "Create for Your Best Friend"),
+     Action Type (`customizer`, `section`, `modal`, `internal_url`,
+     `external_url`, `none`), aur Destination URL/Target edit kar sakta hai.
+   - Changes ko Draft mein save kar sakta hai, har relationship ke liye live
+     Preview dekh sakta hai, Manifest Defaults par reset kar sakta hai, aur
+     validate hone ke baad Publish kar sakta hai!
+3. Strict Customer Removal Guarantee:
+   - Agar koi section ya subsection disable kiya gaya hai, toh woh Public
+     Template Preview, Customer Customizer form, Navigation menus, Button lists,
+     aur Final Personalized Wish website se 100% physically remove (`el.remove()`)
+     ho jata hai — koi blank gap, placeholder, ya locked card nahi dikhta!
+   - Agar koi button kisi disabled section ya modal ko target karta hai, toh woh
+     button bhi automatically hide/disable ho jata hai.
+   - Existing published wish links hamesha apne original published version aur
+     configuration snapshot (`published_config_snapshot_json`) par chalti rehti
+     hain, jabki naye wishes ko latest published configuration milta hai!
 
 --------------------------------------------------------------------------------
-PART 1: COPY-PASTE MASTER PROMPT FOR GOOGLE AI STUDIO / CHATGPT / CLAUDE
-(Neeche diye gaye prompt ko seedha copy karke AI Studio mein paste karo aur
-aakhir mein apna template idea likh do!)
+COPY-PASTE MASTER PROMPT FOR GOOGLE AI STUDIO / CHATGPT / CLAUDE (UTP v1.2.0)
 --------------------------------------------------------------------------------
 
 [COPY START]
-You are an expert front-end creative developer building a self-contained,
+You are a senior front-end creative developer building a self-contained,
 interactive HTML/CSS/JS celebration template package for the "WishMagic"
-platform following the **Universal Template Protocol (UTP v1.0.0)**.
+platform following the **WishMagic Universal Template Protocol (UTP v1.2.0)**.
 
 When I upload your generated ZIP package into the WishMagic Admin Panel, the
 platform will automatically parse `wishmagic.json` and `index.html`, validate
-all bindings and assets, upload images to ImgBB and audio/video/code to
-Backblaze B2, and auto-generate the user customization form.
+all field bindings (`data-wm-field`), section/subsection hierarchy
+(`data-wm-section`, `data-wm-subsection`), and configurable buttons/actions
+(`data-wm-action`), discover and register all declared relationship `variants[]`,
+upload images to ImgBB and audio/video/code to Backblaze B2, and build the
+Admin Visibility & Action Configuration Studio.
 
-You MUST strictly follow all 8 rules below:
+You MUST strictly follow all 9 rules below:
 
 ### RULE 1: STANDARD ZIP PACKAGE STRUCTURE (FLAT ROOT)
 Generate the template files using this exact relative directory structure at the
 package root:
-- `wishmagic.json`       (MANDATORY — UTP v1.0.0 manifest declaring metadata, fields, sections, capabilities)
-- `index.html`           (MANDATORY — Entry HTML with matching `data-wm-field` and `data-wm-section` attributes)
-- `css/style.css`        (Stylesheet using CSS variables `--wm-primary`, `--wm-secondary`, `--wm-accent`)
-- `js/template.js`       (Interactive logic, countdown/gallery/surprise handlers, and WishMagic live update listener)
-- `assets/images/...`    (Optional local default images)
+- `wishmagic.json`       (MANDATORY — UTP v1.2.0 manifest declaring metadata, `fields`, hierarchical `sections` with `subsections`, `actions`, `capabilities`, and optional `variants[]`)
+- `index.html`           (MANDATORY — Default entry HTML with matching `data-wm-field`, `data-wm-section`, `data-wm-subsection`, `data-wm-action`, and `data-wm-modal` attributes)
+- `css/style.css`        (Stylesheet using CSS variables `--wm-primary`, `--wm-secondary`, `--wm-accent`, `--wm-bg`, `--wm-text`)
+- `js/template.js`       (Interactive logic, countdown/gallery/surprise handlers, and WishMagic UTP v1.2.0 live variant + field + visibility + action update listener)
+- `assets/images/...`    (Optional local default images and per-variant thumbnails)
 - `assets/audio/...`     (Optional local default background music)
 - `assets/video/...`     (Optional local default video clips)
-- `README.md`            (Optional notes)
+- `variants/...`         (Optional — ONLY if a variant uses a dedicated HTML entry file instead of sharing `index.html`)
 
-CRITICAL PATH RULES:
-- Use ONLY relative paths inside the package (e.g., `css/style.css`, `js/template.js`, `assets/images/cover.jpg`).
-- NEVER use local computer paths (`C:\...`, `file://`), parent traversal (`../`), or server executables (`.php`, `.exe`, `.sh`).
-- Every local file referenced in `index.html`, `css/style.css`, or `wishmagic.json` MUST exist in the package.
+CRITICAL PATH & SECURITY RULES:
+- Use ONLY safe relative paths inside the package (`css/style.css`, `js/template.js`, `assets/images/cover.jpg`).
+- NEVER use local computer paths (`C:\...`, `file://`), parent directory traversal (`../`), or server executables (`.php`, `.exe`, `.sh`).
+- Every local file referenced in `index.html`, `css/style.css`, or `wishmagic.json` MUST exist inside the package.
 
 ### RULE 2: THREE-WAY AGREEMENT FOR EVERY CUSTOMIZABLE FIELD
-Every customizable item in the template MUST have 3-way agreement between:
-1. **Manifest Declaration (`wishmagic.json` -> `fields` array)**:
-   Declares `id`, `type`, `label`, `required`, `defaultValue`, `placeholder`, and `binding`.
-2. **HTML Binding (`index.html`)**:
-   Has an element with `data-wm-field="<id>"` and `data-wm-type="<type>"` matching the exact same `id` and `type`, pre-populated with the exact same default text or media source as `defaultValue`.
+Every customizable field in the template MUST have 3-way agreement between:
+1. **Manifest Declaration (`wishmagic.json` -> `fields` array, or `variants[].fields` for variant-specific fields)**:
+   Declares `id`, `type`, `label`, `required`, `defaultValue`, `placeholder`, `section`, optional `subsection`, and `binding`.
+2. **HTML Binding (`index.html` or the variant's `entry` HTML)**:
+   Has an element with `data-wm-field="<id>"` and `data-wm-type="<type>"` matching the exact same `id` and `type`.
 3. **Working Runtime (`js/template.js`)**:
-   Listens for `window.addEventListener('message', ...)` and `window.addEventListener('wishmagic:data-updated', ...)` so when the user changes a value in the WishMagic Customizer, the template updates immediately in real time — and if a user leaves any optional text/message blank, the element keeps its original default template text!
+   Listens for `WISHMAGIC_INIT`, `WISHMAGIC_LIVE_UPDATE`, `WISHMAGIC_UPDATE`, and `wishmagic:data-updated` so any field, visibility, action, or variant change updates the DOM immediately in real time.
 
-NEVER declare a field in `wishmagic.json` without binding it in `index.html`, and NEVER put a customizable element in `index.html` without declaring it in `wishmagic.json`.
+### RULE 3: SECTIONS & NESTED SUBSECTIONS (`sections[]` + `data-wm-section` + `data-wm-subsection`)
+- Every major visual section in `index.html` must have `data-wm-section="<section_id>"` and be listed in `wishmagic.json` under `"sections"`.
+- Any modular sub-block inside a section that an admin might want to toggle independently (e.g. a badge, secondary photo card, quote box, or CTA bar) must have `data-wm-subsection="<subsection_id>"` in HTML and be declared inside its parent section's `"subsections": [...]` array in `wishmagic.json` (up to 3 nesting levels supported).
+- Each section and subsection must include:
+  - `"id"`: unique snake_case ID (`"hero"`, `"hero_badge"`, `"gallery"`, `"gallery_featured"`)
+  - `"label"`: human-readable label for the Admin UI
+  - `"order"`: integer order (`1`, `2`, `3`, ...)
+  - `"required"`: `true` for mandatory core sections (`hero`), `false` for optional sections/subsections
+  - `"toggleable"`: `false` when `required: true`, `true` for optional sections/subsections
+  - `"defaultEnabled"`: `true` (or `false`)
+  - `"emptyParentPolicy"`: `"collapse"` (removes parent section if all child subsections are disabled) or `"keep"`
+  - `"fields"`: array of field IDs inside this section/subsection
+  - `"actions"`: array of action IDs inside this section/subsection
+- Layout Resilience: If an optional subsection is removed from the DOM, the parent section's CSS layout (Flexbox/Grid) must automatically reflow cleanly with zero empty gaps or broken borders.
 
-### RULE 3: MANDATORY NAME & DOB vs. OPTIONAL MESSAGES WITH PRESERVED DEFAULTS
-You MUST follow this strict customization requirement rule across `wishmagic.json`, `index.html`, and `js/template.js`:
-1. **ONLY TWO FIELDS ARE MANDATORY (`"required": true`)**:
-   - `recipient_name` (Recipient Name) -> `"required": true`
-   - `event_date` (Date of Birth / Celebration Date) -> `"required": true`
-   The user MUST enter Name and Date of Birth / Celebration Date.
-2. **ALL OTHER MESSAGES, TEXTS & MEDIA SLOTS MUST BE OPTIONAL (`"required": false`)**:
-   - Every other field (`custom_message`, `sender_name`, `hero_subtitle`, `secret_note`, quiz questions/options, roast lines, awards, memory captions, button labels, photos, audio, video) MUST set `"required": false`.
-   - Every text/message field MUST include a rich, complete, natural `"defaultValue"` in `wishmagic.json` AND have that exact same text rendered inside the corresponding `data-wm-field` element in `index.html`.
-   - If the user does NOT customize a message or text field (leaves it blank or untouched), the template MUST keep and display its normal/default message or text — NEVER replace an uncustomized field with an empty string or placeholder!
-
-### RULE 4: STANDARD FIELD IDs & TYPES TO USE
-Whenever the template includes these common features, use these canonical field IDs so WishMagic's customizer wires them seamlessly:
-- Recipient Name (MANDATORY):
-  `id`: `"recipient_name"`, `type`: `"text"`, `required`: `true`, HTML: `<span data-wm-field="recipient_name" data-wm-type="text">Priya</span>`
-- Date of Birth / Celebration Date (MANDATORY):
-  `id`: `"event_date"`, `type`: `"date"` (or `"datetime"`), `required`: `true`, HTML: `<span data-wm-field="event_date" data-wm-type="date" data-wm-date-value="2026-12-25">2026-12-25</span>`
-- Personal Message / Letter (OPTIONAL — keeps default text if not customized):
-  `id`: `"custom_message"`, `type`: `"textarea"`, `required`: `false`, HTML: `<p data-wm-field="custom_message" data-wm-type="textarea">May your day be filled with endless laughter, warm memories, and every dream coming true!</p>`
-- Sender Name (OPTIONAL — keeps default text if not customized):
-  `id`: `"sender_name"`, `type`: `"text"`, `required`: `false`, HTML: `<span data-wm-field="sender_name" data-wm-type="text">— Rahul</span>`
-- Single Cover / Hero Photo (OPTIONAL — keeps default photo if not customized):
-  `id`: `"photo_1"`, `type`: `"image"`, `required`: `false`, HTML: `<img data-wm-field="photo_1" data-wm-type="image" src="assets/images/cover.jpg" alt="Memory Photo">`
-- Multiple Photos (Gallery Slots):
-  Use individual slots `photo_1`, `photo_2`, `photo_3`, `photo_4` (`type: "image"`, `required: false`) OR a gallery container with `id`: `"photos"`, `type`: `"image-multiple"` containing `<img data-wm-field="photo_1">`, `<img data-wm-field="photo_2">`, etc.
-- Background Music:
-  `id`: `"background_music"`, `type`: `"audio"`, `required`: `false`, HTML: `<audio id="wm-bg-music" data-wm-field="background_music" data-wm-type="audio" src="assets/audio/bgm.mp3" loop preload="auto"></audio>`
-- Voice Note:
-  `id`: `"voice_note"`, `type`: `"voice"`, `required`: `false`, HTML: `<audio id="wm-voice-note" data-wm-field="voice_note" data-wm-type="voice" controls></audio>`
-- Video Greeting:
-  `id`: `"celebration_video"`, `type`: `"video"`, `required`: `false`, HTML: `<video id="wm-video" data-wm-field="celebration_video" data-wm-type="video" src="assets/video/intro.mp4" controls playsinline></video>`
-- Any Custom Extra Text / Quote / Inside Joke / Nickname / Quiz / Roast / Button Label:
-  Give it a unique snake_case `id` (e.g., `"pet_nickname"`, `"secret_wish_quote"`, `"memory_caption_1"`), set `"required": false`, provide a meaningful `"defaultValue"`, declare it in `wishmagic.json` under `fields`, and bind it in `index.html` with `data-wm-field="<id>" data-wm-type="<type>"`.
-
-Supported `type` values in `wishmagic.json`:
-`text`, `textarea`, `date`, `time`, `datetime`, `number`, `email`, `url`, `phone`, `color`, `select`, `multiselect`, `toggle`, `range`, `image`, `image-multiple`, `video`, `video-multiple`, `audio`, `voice`, `font`, `icon`.
-
-Supported `binding.target` values:
-`text`, `src`, `background-image`, `href`, `style-property`, `css-variable`, `visibility`, `toggle`, `collection`, `value`.
-
-### RULE 5: SECTIONS DECLARATION (`sections` + `data-wm-section`)
-Every major visual section in `index.html` should have `data-wm-section="<section_id>"` and be declared in `wishmagic.json` under `"sections"`:
-- Required sections (like `"hero"`, `"message"`) must have `"required": true, "toggleable": false`.
-- Optional sections (like `"gallery"`, `"countdown"`, `"timeline"`, `"secret_message"`, `"final_surprise"`) must have `"required": false, "toggleable": true, "defaultEnabled": true`.
-
-### RULE 6: CAPABILITIES DECLARATION (`capabilities`)
-In `wishmagic.json`, declare ONLY the capabilities your template genuinely implements from this canonical list:
-- `"photos"`           (if template has at least 1 customizable image)
-- `"multiplePhotos"`   (if template has 2+ photo slots)
-- `"gallery"`          (if template has a photo gallery section)
-- `"music"`            (if template has `<audio>` background music player & play/pause toggle)
-- `"voice"`            (if template has a voice note player)
-- `"video"`            (if template has a `<video>` element)
-- `"countdown"`        (if template has real JS countdown logic connected to `event_date`)
-- `"timeline"`         (if template has a milestone/timeline section)
-- `"themes"`           (if CSS uses `--wm-primary`, `--wm-secondary`, `--wm-accent`)
-- `"animations"`       (if template has entrance/reveal animations)
-- `"particles"`        (if template has confetti/sparkles/hearts canvas or DOM particles)
-- `"sections"`         (if template has toggleable `data-wm-section` blocks)
-- `"secretMessage"`    (if template has a lock/scratch/click-to-reveal secret message)
-- `"finalSurprise"`    (if template has a grand finale celebration reveal)
-
-### RULE 7: CSS THEME VARIABLES (`css/style.css`)
-Always define these CSS variables on `:root` in `css/style.css` and use them in your design so WishMagic's theme & color picker works automatically:
-```css
-:root {
-  --wm-primary: #ec4899;
-  --wm-secondary: #8b5cf6;
-  --wm-accent: #fbbf24;
-}
-```
-
-### RULE 8: MANDATORY LIVE RUNTIME BRIDGE WITH DEFAULT TEXT PRESERVATION (`js/template.js`)
-Include this universal live hydration listener in `js/template.js` (and also include `<script src="/js/wishmagic-template-protocol.js"></script>` in `index.html` right before `js/template.js`) so the template works both standalone and inside WishMagic's live customizer & published gift links, while preserving original default text whenever a field is not customized:
-```javascript
-(function () {
-  // Cache original default text and media src on initial load so uncustomized fields keep their normal text
-  function cacheOriginalDefaults() {
-    document.querySelectorAll('[data-wm-field]').forEach(function (el) {
-      if (el.dataset.wmOriginalText === undefined) {
-        el.dataset.wmOriginalText = el.textContent;
-      }
-      if (el.getAttribute('src') && el.dataset.wmOriginalSrc === undefined) {
-        el.dataset.wmOriginalSrc = el.getAttribute('src');
-      }
-    });
+### RULE 4: CONFIGURABLE BUTTONS & ACTION LINKS (`actions[]` + `data-wm-action`)
+- Every interactive CTA button or link in `index.html` that an admin may customize must have `data-wm-action="<action_id>"` and be declared in `wishmagic.json` under `"actions"`:
+  ```json
+  {
+    "id": "hero_cta",
+    "label": "Create Your Wish",
+    "type": "customizer",
+    "target": "/customize.html",
+    "sectionId": "hero_cta_bar",
+    "editableLabel": true,
+    "configurable": true,
+    "relationshipSpecific": true,
+    "required": false,
+    "defaultEnabled": true,
+    "fallbackBehavior": "hide"
   }
+  ```
+- Supported `"type"` values ONLY:
+  1. `"customizer"` — Opens the WishMagic Customizer preserving the active `template`, `variant`, and `rel` query parameters (`target: "/customize.html"`).
+  2. `"section"` — Smooth-scrolls to an enabled section or subsection (`target: "<section_or_subsection_id>"`). Automatically hidden if that target section is disabled!
+  3. `"modal"` — Opens a template modal (`target: "<modal_id>"` matching `[data-wm-modal="<modal_id>"]` or `id="<modal_id>"`). Automatically hidden if the modal or its parent section is disabled!
+  4. `"internal_url"` — Navigates to a real WishMagic page (`/templates.html`, `/marketplace.html`, `/template-preview.html`, `/customize.html`, `/create.html`, `/pricing.html`, `/help.html`, `/`).
+  5. `"external_url"` — Opens a safe `https://` URL in a new tab with `rel="noopener noreferrer"`. (Never use `javascript:`, `data:`, `file:`, or `http://`).
+  6. `"none"` — Passive decorative button with no navigation.
 
-  if (document.readyState === 'loading') {
-    document.addEventListener('DOMContentLoaded', cacheOriginalDefaults);
-  } else {
-    cacheOriginalDefaults();
-  }
+### RULE 5: RELATIONSHIP VARIANTS (`variants[]` IN `wishmagic.json`)
+If the template family supports multiple relationships, declare them in `wishmagic.json` under `"variants"`. Each variant object supports:
+- `"id"`, `"slug"`, `"name"`, `"relationship"`, `"relationshipLabel"`, `"status": "published"`, `"enabled": true`, `"isDefault"`, `"order"`, `"entry": "index.html"`, `"thumbnail"`, `"description"`
+- `"theme"`: `{ "primary", "secondary", "accent", "background", "text" }`
+- `"messages"`: object mapping field IDs to relationship-specific default copy
+- `"visibilityOverrides"`: optional object mapping section/subsection IDs to `true` or `false` for that specific relationship (e.g. `{ "secret_message": true, "gallery_secondary": false }`)
+- `"actions"`: optional array of relationship-specific button overrides (e.g. `[{ "id": "hero_cta", "label": "Create for Your Best Friend", "type": "customizer", "target": "/customize.html" }]`)
 
-  function applyWishMagicPayload(data) {
-    if (!data || typeof data !== 'object') return;
-    cacheOriginalDefaults();
+### RULE 6: STANDARD FIELD IDs & TYPES TO USE
+- `recipient_name` (`type: "text"`, required)
+- `sender_name` (`type: "text"`)
+- `custom_message` (`type: "textarea"`)
+- `event_date` (`type: "date"` or `"datetime"`, required)
+- `photo_1`, `photo_2`, `photo_3`, `photo_4` (`type: "image"`)
+- `background_music` (`type: "audio"`)
+- `voice_note` (`type: "voice"`)
+- Any custom template fields (`hero_title`, `hero_subtitle`, `secret_note`, etc.)
 
-    // Filter out empty strings so uncustomized text/message fields retain their normal template text
-    var filteredData = {};
-    Object.keys(data).forEach(function (key) {
-      var val = data[key];
-      if (val !== undefined && val !== null && String(val).trim() !== '') {
-        filteredData[key] = val;
-      } else {
-        // Restore original default text if user cleared an optional field
-        document.querySelectorAll('[data-wm-field="' + key + '"]').forEach(function (el) {
-          var tag = el.tagName.toLowerCase();
-          if (tag !== 'img' && tag !== 'audio' && tag !== 'video' && tag !== 'source' && el.dataset.wmOriginalText !== undefined) {
-            el.textContent = el.dataset.wmOriginalText;
-          }
-        });
-      }
-    });
+### RULE 7: CAPABILITIES DECLARATION (`capabilities`)
+Declare ONLY capabilities genuinely implemented in the package from:
+`"photos"`, `"multiplePhotos"`, `"gallery"`, `"music"`, `"voice"`, `"video"`, `"countdown"`, `"timeline"`, `"themes"`, `"animations"`, `"particles"`, `"sections"`, `"secretMessage"`, `"finalSurprise"`.
 
-    if (window.WishMagicTemplate && typeof window.WishMagicTemplate.applyData === 'function') {
-      window.WishMagicTemplate.applyData(filteredData);
-    }
+### RULE 8: CSS THEME VARIABLES (`css/style.css`)
+Define `--wm-primary`, `--wm-secondary`, `--wm-accent`, `--wm-bg`, and `--wm-text` on `:root` in `css/style.css`.
 
-    // Trigger any template-specific recalculation (e.g. countdown date update)
-    if (filteredData.event_date && typeof window.updateTemplateCountdown === 'function') {
-      window.updateTemplateCountdown(filteredData.event_date);
-    }
-  }
+### RULE 9: MANDATORY UTP v1.2.0 LIVE RUNTIME BRIDGE (`js/template.js`)
+Include `<script src="/js/wishmagic-template-protocol.js"></script>` in `index.html` before `js/template.js`, guard all DOM queries against removed sections (`if (!el) return;`), and listen for `WISHMAGIC_INIT`, `WISHMAGIC_LIVE_UPDATE`, `WISHMAGIC_UPDATE`, and `wishmagic:data-updated`.
 
-  window.addEventListener('message', function (event) {
-    if (!event.data || typeof event.data !== 'object') return;
-    if (
-      event.data.type === 'WISHMAGIC_INIT' ||
-      event.data.type === 'WISHMAGIC_LIVE_UPDATE' ||
-      event.data.type === 'WISHMAGIC_UPDATE'
-    ) {
-      applyWishMagicPayload(event.data.payload);
-    }
-  });
-
-  window.addEventListener('wishmagic:data-updated', function (event) {
-    if (event.detail && typeof window.updateTemplateCountdown === 'function' && event.detail.event_date) {
-      window.updateTemplateCountdown(event.detail.event_date);
-    }
-  });
-})();
-```
-
-Now build a complete, production-ready, visually breathtaking WishMagic template package (`wishmagic.json`, `index.html`, `css/style.css`, `js/template.js`) for the following concept:
-[WRITE YOUR TEMPLATE IDEA HERE — e.g., "A Royal Midnight Birthday Surprise with 3D envelope opening, countdown timer, 4 polaroid photo memories, heartfelt letter, background music toggle, and final confetti explosion"]
+Now build a complete, production-ready, visually breathtaking UTP v1.2.0 WishMagic template package (`wishmagic.json`, `index.html`, `css/style.css`, `js/template.js`) for the following concept and relationship variants:
+[WRITE YOUR TEMPLATE IDEA & VARIANTS HERE]
 [COPY END]
-
-
---------------------------------------------------------------------------------
-PART 2: COMPLETE EXAMPLE OF `wishmagic.json` (UTP v1.0.0 MANIFEST)
---------------------------------------------------------------------------------
-
-Har template ki ZIP ke root mein `wishmagic.json` hona zaroori hai. Dhyan rahe:
-- `recipient_name` aur `event_date` (DOB / Celebration Date) mein `"required": true` hoga.
-- Baaki sabhi messages/texts (`custom_message`, `sender_name`, `hero_subtitle`, `secret_note`, etc.) mein `"required": false` aur `"defaultValue"` hona zaroori hai taaki user agar unhe customize na kare to normal message hi dikhe!
-
-Neeche ek 100% valid, complete example diya gaya hai:
-
-```json
-{
-  "$schema": "wishmagic-template",
-  "schemaVersion": "1.0.0",
-  "template": {
-    "id": "birthday-magic-deluxe",
-    "name": "Birthday Magic Deluxe",
-    "description": "Interactive birthday surprise with live countdown, photo gallery, music, and secret wish reveal.",
-    "templateVersion": "1.0.0",
-    "category": "birthday",
-    "tier": "free",
-    "price": 0,
-    "author": "WishMagic Studio",
-    "entry": "index.html"
-  },
-  "compatibility": {
-    "runtimeApi": "1.0",
-    "minimumRuntimeApi": "1.0"
-  },
-  "files": {
-    "entry": "index.html",
-    "styles": ["css/style.css"],
-    "scripts": ["js/template.js"]
-  },
-  "capabilities": [
-    "photos",
-    "multiplePhotos",
-    "gallery",
-    "music",
-    "countdown",
-    "themes",
-    "animations",
-    "particles",
-    "sections",
-    "secretMessage",
-    "finalSurprise"
-  ],
-  "relationships": [
-    "friend",
-    "best_friend",
-    "girlfriend",
-    "boyfriend",
-    "sister",
-    "brother"
-  ],
-  "sections": [
-    {
-      "id": "hero",
-      "label": "Hero Celebration Banner",
-      "required": true,
-      "toggleable": false,
-      "defaultEnabled": true,
-      "order": 1
-    },
-    {
-      "id": "countdown",
-      "label": "Birthday Countdown Timer",
-      "required": false,
-      "toggleable": true,
-      "defaultEnabled": true,
-      "order": 2
-    },
-    {
-      "id": "message",
-      "label": "Personal Letter",
-      "required": true,
-      "toggleable": false,
-      "defaultEnabled": true,
-      "order": 3
-    },
-    {
-      "id": "gallery",
-      "label": "Photo Memories Gallery",
-      "required": false,
-      "toggleable": true,
-      "defaultEnabled": true,
-      "order": 4
-    },
-    {
-      "id": "secret_message",
-      "label": "Secret Wish Unlock",
-      "required": false,
-      "toggleable": true,
-      "defaultEnabled": true,
-      "order": 5
-    },
-    {
-      "id": "final_surprise",
-      "label": "Grand Finale Fireworks",
-      "required": false,
-      "toggleable": true,
-      "defaultEnabled": true,
-      "order": 6
-    }
-  ],
-  "fields": [
-    {
-      "id": "recipient_name",
-      "type": "text",
-      "label": "Recipient Name",
-      "placeholder": "e.g. Priya Sharma",
-      "required": true,
-      "defaultValue": "Someone Special",
-      "constraints": { "minLength": 1, "maxLength": 60 },
-      "binding": {
-        "target": "text",
-        "selector": "[data-wm-field='recipient_name']"
-      }
-    },
-    {
-      "id": "event_date",
-      "type": "date",
-      "label": "Date of Birth / Celebration Date",
-      "required": true,
-      "defaultValue": "2026-12-25",
-      "binding": {
-        "target": "text",
-        "selector": "[data-wm-field='event_date']"
-      }
-    },
-    {
-      "id": "hero_subtitle",
-      "type": "text",
-      "label": "Hero Tagline (Optional)",
-      "placeholder": "Leave blank to keep default tagline",
-      "required": false,
-      "defaultValue": "Wishing you the happiest birthday filled with magic ✨",
-      "binding": {
-        "target": "text",
-        "selector": "[data-wm-field='hero_subtitle']"
-      }
-    },
-    {
-      "id": "custom_message",
-      "type": "textarea",
-      "label": "Heartfelt Birthday Letter (Optional)",
-      "placeholder": "Leave blank to keep default message",
-      "required": false,
-      "defaultValue": "May your year ahead be filled with endless laughter, warm memories, and every dream coming true!",
-      "constraints": { "maxLength": 600 },
-      "binding": {
-        "target": "text",
-        "selector": "[data-wm-field='custom_message']"
-      }
-    },
-    {
-      "id": "sender_name",
-      "type": "text",
-      "label": "From / Sender Name (Optional)",
-      "placeholder": "Leave blank to keep default sender signature",
-      "required": false,
-      "defaultValue": "Your Best Friend",
-      "binding": {
-        "target": "text",
-        "selector": "[data-wm-field='sender_name']"
-      }
-    },
-    {
-      "id": "photo_1",
-      "type": "image",
-      "label": "Main Cover Photo",
-      "required": false,
-      "defaultValue": "assets/images/cover.jpg",
-      "binding": {
-        "target": "src",
-        "selector": "[data-wm-field='photo_1']"
-      }
-    },
-    {
-      "id": "photo_2",
-      "type": "image",
-      "label": "Memory Photo 2",
-      "required": false,
-      "defaultValue": "assets/images/memory2.jpg",
-      "binding": {
-        "target": "src",
-        "selector": "[data-wm-field='photo_2']"
-      }
-    },
-    {
-      "id": "photo_3",
-      "type": "image",
-      "label": "Memory Photo 3",
-      "required": false,
-      "defaultValue": "assets/images/memory3.jpg",
-      "binding": {
-        "target": "src",
-        "selector": "[data-wm-field='photo_3']"
-      }
-    },
-    {
-      "id": "background_music",
-      "type": "audio",
-      "label": "Background Music Track",
-      "required": false,
-      "defaultValue": "assets/audio/birthday-melody.mp3",
-      "binding": {
-        "target": "src",
-        "selector": "[data-wm-field='background_music']"
-      }
-    },
-    {
-      "id": "secret_note",
-      "type": "textarea",
-      "label": "Hidden Secret Note (Optional)",
-      "placeholder": "Leave blank to keep default secret note",
-      "required": false,
-      "defaultValue": "You are the brightest star in my life! Keep shining forever 🌟",
-      "binding": {
-        "target": "text",
-        "selector": "[data-wm-field='secret_note']"
-      }
-    }
-  ]
-}
-```
-
---------------------------------------------------------------------------------
-PART 3: COMPLETE EXAMPLE OF `index.html` BINDINGS
---------------------------------------------------------------------------------
-
-```html
-<!DOCTYPE html>
-<html lang="en" data-wm-protocol="1.0" data-wm-theme="magical">
-<head>
-  <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>Birthday Magic Deluxe</title>
-  <link rel="stylesheet" href="css/style.css" />
-</head>
-<body>
-
-  <!-- Background Music Player (Bound to background_music) -->
-  <audio id="wm-bg-music"
-         data-wm-field="background_music"
-         data-wm-type="audio"
-         src="assets/audio/birthday-melody.mp3"
-         loop
-         preload="auto"></audio>
-
-  <!-- 1. HERO SECTION -->
-  <section data-wm-section="hero" data-wm-label="Hero Celebration Banner" data-wm-required="true" data-wm-toggleable="false">
-    <div class="hero-card">
-      <img data-wm-field="photo_1"
-           data-wm-type="image"
-           data-wm-label="Main Cover Photo"
-           src="assets/images/cover.jpg"
-           alt="Main Cover Photo"
-           class="cover-photo" />
-      <h1>Happy Birthday, <span data-wm-field="recipient_name" data-wm-type="text" data-wm-required="true">Someone Special</span>! 🎂</h1>
-      <p data-wm-field="hero_subtitle" data-wm-type="text">Wishing you the happiest birthday filled with magic ✨</p>
-    </div>
-  </section>
-
-  <!-- 2. COUNTDOWN SECTION -->
-  <section data-wm-section="countdown" data-wm-label="Birthday Countdown Timer" data-wm-toggleable="true">
-    <h2>Celebration Date: <span data-wm-field="event_date" data-wm-type="date" data-wm-required="true">2026-12-25</span></h2>
-    <div id="countdown-timer">
-      <div><span id="cd-days">00</span><small>Days</small></div>
-      <div><span id="cd-hours">00</span><small>Hours</small></div>
-      <div><span id="cd-mins">00</span><small>Mins</small></div>
-      <div><span id="cd-secs">00</span><small>Secs</small></div>
-    </div>
-  </section>
-
-  <!-- 3. PERSONAL LETTER SECTION -->
-  <section data-wm-section="message" data-wm-label="Personal Letter" data-wm-required="true" data-wm-toggleable="false">
-    <blockquote data-wm-field="custom_message" data-wm-type="textarea">
-      May your year ahead be filled with endless laughter, warm memories, and every dream coming true!
-    </blockquote>
-    <p class="sender-sign" data-wm-field="sender_name" data-wm-type="text">— Your Best Friend</p>
-  </section>
-
-  <!-- 4. PHOTO GALLERY SECTION -->
-  <section data-wm-section="gallery" data-wm-label="Photo Memories Gallery" data-wm-toggleable="true">
-    <div class="gallery-grid">
-      <img data-wm-field="photo_2" data-wm-type="image" src="assets/images/memory2.jpg" alt="Memory 2" />
-      <img data-wm-field="photo_3" data-wm-type="image" src="assets/images/memory3.jpg" alt="Memory 3" />
-    </div>
-  </section>
-
-  <!-- 5. SECRET MESSAGE SECTION -->
-  <section data-wm-section="secret_message" data-wm-label="Secret Wish Unlock" data-wm-toggleable="true">
-    <button id="btn-unlock-secret" type="button">🔒 Tap to Reveal Secret Message</button>
-    <div id="secret-box" hidden>
-      <p data-wm-field="secret_note" data-wm-type="textarea">
-        You are the brightest star in my life! Keep shining forever 🌟
-      </p>
-    </div>
-  </section>
-
-  <!-- 6. FINAL SURPRISE SECTION -->
-  <section data-wm-section="final_surprise" data-wm-label="Grand Finale Fireworks" data-wm-toggleable="true">
-    <button id="btn-celebrate-finale" type="button">🎊 Launch Celebration Fireworks</button>
-  </section>
-
-  <!-- WishMagic UTP Runtime Protocol + Template Script -->
-  <script src="/js/wishmagic-template-protocol.js"></script>
-  <script src="js/template.js"></script>
-</body>
-</html>
-```
-
---------------------------------------------------------------------------------
-PART 4: PRE-UPLOAD CHECKLIST (ZIP UPLOAD SE PEHLE ZAROOR CHECK KAREIN)
---------------------------------------------------------------------------------
-
-1. [ ] Kya ZIP ke andar `wishmagic.json` aur `index.html` maujood hain?
-2. [ ] Kya `wishmagic.json` valid JSON format mein hai (koi extra trailing comma nahi)?
-3. [ ] Kya `wishmagic.json` mein `recipient_name` (Name) aur `event_date` (DOB / Celebration Date)
-       par `"required": true` hai, aur baaki saare messages/texts (`custom_message`, `sender_name`,
-       captions, quotes, quiz, roasts) par `"required": false` ke saath `"defaultValue"` diya gaya hai?
-4. [ ] Kya `wishmagic.json` ke har field ka `id` unique hai aur `index.html` mein
-       uske liye matching `data-wm-field="<id>"` ke andar default text likha hua hai?
-5. [ ] Kya `index.html` mein lagaye gaye saare local images (`assets/images/...`),
-       audio (`assets/audio/...`), video (`assets/video/...`), CSS (`css/style.css`),
-       aur JS (`js/template.js`) ZIP ke andar sach mein maujood hain?
-6. [ ] Kya saare local paths relative hain (`assets/images/cover.jpg`) aur koi bhi
-       `C:\...`, `file://`, ya `../` path use nahi hua hai?
-7. [ ] Kya ZIP ka compressed size 50 MB se kam, uncompressed size 150 MB se kam,
-       aur total files 1,000 se kam hain?
-================================================================================

@@ -37,11 +37,16 @@ import {
   normalizeRelationshipIdentifier
 } from './src/template-protocol-schema.js';
 import {
-  validateUtpManifest
+  validateUtpManifest,
+  validateAdminTemplateConfiguration
 } from './src/template-protocol-validator.js';
 import {
   validateVariantConfiguration,
   resolveVariantHierarchy,
+  resolveEffectiveTemplateConfiguration,
+  sanitizeCustomerWishDataAgainstConfig,
+  extractVisibilityMap,
+  extractActionsOverrideMap,
   buildVariantRecordFromUtpDeclaration,
   filterPublicAvailableVariants,
   mergeTemplateAndVariantFields,
@@ -3971,6 +3976,32 @@ app.get('/api/public/wishes/:slug', (req, res) => {
     }
   }
 
+  const pinnedSnap = wish.publishedConfigSnapshot || customData._publishedConfigSnapshot || (template ? resolveEffectiveTemplateConfiguration({
+    template,
+    templateVersion: getOrSeedTemplateVersion(wish.templateId) || {},
+    variant: null,
+    relationshipSlug: customData.relationship || customData.rel || 'general',
+    useDraft: false,
+    isAdminView: false
+  }) : null);
+
+  if (pinnedSnap) {
+    customData = sanitizeCustomerWishDataAgainstConfig(customData, pinnedSnap);
+    delete customData._publishedConfigSnapshot;
+  }
+
+  const publicTemplate = template ? {
+    ...template,
+    ...(pinnedSnap ? {
+      sections: pinnedSnap.sections || template.sections || [],
+      visibilityMap: pinnedSnap.visibilityMap || {},
+      disabledIds: pinnedSnap.disabledIds || [],
+      enabledIds: pinnedSnap.enabledIds || [],
+      actions: pinnedSnap.actions || [],
+      actionsMap: pinnedSnap.actionsMap || {}
+    } : {})
+  } : null;
+
   res.json({
     success: true,
     wish: {
@@ -3978,10 +4009,18 @@ app.get('/api/public/wishes/:slug', (req, res) => {
       recipientName,
       buyerName: senderName,
       customData,
+      effectiveConfig: pinnedSnap ? {
+        visibilityMap: pinnedSnap.visibilityMap || {},
+        disabledIds: pinnedSnap.disabledIds || [],
+        enabledIds: pinnedSnap.enabledIds || [],
+        sections: pinnedSnap.sections || [],
+        actions: pinnedSnap.actions || [],
+        actionsMap: pinnedSnap.actionsMap || {}
+      } : undefined,
       lifecycleStatus,
       isOwner
     },
-    template: template || null
+    template: publicTemplate
   });
 });
 
@@ -4263,12 +4302,37 @@ app.get('/api/templates/:id', (req, res) => {
     }
   }
 
+  const activeVer = getOrSeedTemplateVersion(template.id) || {};
+  const effectiveConfig = resolveEffectiveTemplateConfiguration({
+    template: { ...template, sections, detected_fields: fields },
+    templateVersion: activeVer,
+    variant: selectedVariant,
+    relationshipSlug: (selectedVariant && (selectedVariant.relationshipSlug || selectedVariant.relationship_slug)) || reqRelParam || 'general',
+    useDraft: isDraftView && req.query.useDraft === 'true',
+    isAdminView: isDraftView
+  });
+
+  const finalFields = effectiveConfig.fields.length > 0 || (effectiveConfig.excludedFieldIds && effectiveConfig.excludedFieldIds.length > 0)
+    ? effectiveConfig.fields
+    : fields;
+  const finalSections = effectiveConfig.sections.length > 0 || (effectiveConfig.disabledIds && effectiveConfig.disabledIds.length > 0)
+    ? effectiveConfig.sections
+    : sections;
+
+  const safeBase = { ...template };
+  if (!isDraftView) {
+    delete safeBase.draftConfig;
+    delete safeBase.draft_config_json;
+    delete safeBase.visibility_config_json;
+    delete safeBase.actions_config_json;
+  }
+
   const enrichedTemplate = {
-    ...template,
+    ...safeBase,
     familyId: template.familyId || `fam_${template.id}`,
     entryFile: entryFileName,
-    fields,
-    detectedFields: fields,
+    fields: finalFields,
+    detectedFields: finalFields,
     hasVariants,
     availableVariants,
     availableRelations,
@@ -4276,7 +4340,22 @@ app.get('/api/templates/:id', (req, res) => {
     selectedVariantError,
     variants: isDraftView ? rawVariants : availableVariants,
     relationships: hasVariants ? availableRelations.map(ar => ar.label) : (template.relationships || []),
-    sections,
+    sections: finalSections,
+    visibilityMap: effectiveConfig.visibilityMap,
+    disabledIds: effectiveConfig.disabledIds,
+    enabledIds: effectiveConfig.enabledIds,
+    actions: effectiveConfig.actions,
+    actionsMap: effectiveConfig.actionsMap,
+    ...(isDraftView ? {
+      manifestSections: sections,
+      manifestActions: template.actions || activeVer.actions || [],
+      visibilityConfig: template.visibilityConfig || activeVer.visibilityConfig || {},
+      actionsConfig: template.actionsConfig || activeVer.actionsConfig || {},
+      draftConfig: template.draftConfig || activeVer.draftConfig || null,
+      lockVersion: Number(template.lockVersion || template.lock_version || 1),
+      adminSections: effectiveConfig.adminSections,
+      adminActions: effectiveConfig.adminActions
+    } : {}),
     capabilities,
     previewUrl
   };
@@ -5519,6 +5598,9 @@ app.post('/api/templates/duplicate', (req, res) => {
 // API: Update template metadata (edit title, price, category, capabilities, status, etc.)
 app.post('/api/templates/update', (req, res) => {
   try {
+    if (req.user && req.user.role !== 'admin' && !req.user.isAdmin) {
+      return res.status(403).json({ success: false, error: { code: 'FORBIDDEN', message: 'Admin role required.' } });
+    }
     const {
       id,
       name,
@@ -5539,6 +5621,11 @@ app.post('/api/templates/update', (req, res) => {
       capabilities,
       detectedFields,
       sections,
+      actions,
+      visibilityConfig,
+      actionsConfig,
+      variantOverrides,
+      lockVersion,
       sectionDefinitions,
       layouts,
       templateVersion
@@ -5552,6 +5639,37 @@ app.post('/api/templates/update', (req, res) => {
     }
 
     const current = templates[idx];
+    const currentLock = Number(current.lockVersion || current.lock_version || 1);
+    if (lockVersion !== undefined && Number(lockVersion) !== currentLock) {
+      return res.status(409).json({
+        success: false,
+        code: 'CONFIG_VERSION_CONFLICT',
+        message: 'Template configuration was modified by another administrator. Please reload before saving.',
+        currentLockVersion: currentLock,
+        submittedLockVersion: Number(lockVersion)
+      });
+    }
+    if (visibilityConfig || actionsConfig || variantOverrides) {
+      const cfgCheck = validateAdminTemplateConfiguration({
+        manifest: {
+          sections: sections || current.sections || [],
+          actions: actions || current.actions || [],
+          fields: detectedFields || current.detectedFields || []
+        },
+        visibilityConfig: visibilityConfig || {},
+        actionsConfig: actionsConfig || {},
+        variantOverrides: variantOverrides || {}
+      });
+      if (!cfgCheck.valid) {
+        return res.status(400).json({
+          success: false,
+          code: 'UTP_CONFIG_VALIDATION_FAILED',
+          message: cfgCheck.errors[0]?.message || 'Invalid section visibility or button action configuration.',
+          errors: cfgCheck.errors,
+          issues: cfgCheck.issues
+        });
+      }
+    }
     const isVip = tier !== undefined ? (tier === 'vip') : (isPremium !== undefined ? Boolean(isPremium) : current.isPremium);
     const determinedStatus = status !== undefined ? status : (isPublished !== undefined ? (isPublished ? 'published' : 'draft') : current.status);
     const determinedIsPublished = determinedStatus === 'published';
@@ -5577,6 +5695,14 @@ app.post('/api/templates/update', (req, res) => {
       capabilities: capabilities !== undefined ? { ...current.capabilities, ...capabilities } : current.capabilities,
       detectedFields: detectedFields !== undefined ? detectedFields : current.detectedFields,
       sections: sections !== undefined ? sections : current.sections,
+      actions: actions !== undefined ? actions : (current.actions || []),
+      visibilityConfig: visibilityConfig !== undefined ? visibilityConfig : (current.visibilityConfig || {}),
+      actionsConfig: actionsConfig !== undefined ? actionsConfig : (current.actionsConfig || {}),
+      visibility_config_json: JSON.stringify(visibilityConfig !== undefined ? visibilityConfig : (current.visibilityConfig || {})),
+      actions_config_json: JSON.stringify(actionsConfig !== undefined ? actionsConfig : (current.actionsConfig || {})),
+      actions_json: JSON.stringify(actions !== undefined ? actions : (current.actions || [])),
+      lockVersion: currentLock + 1,
+      lock_version: currentLock + 1,
       sectionDefinitions: sectionDefinitions !== undefined ? sectionDefinitions : current.sectionDefinitions,
       layouts: layouts !== undefined ? layouts : current.layouts,
       templateVersion: templateVersion !== undefined ? templateVersion : (current.templateVersion || 1),
@@ -6708,6 +6834,325 @@ app.get('/api/templates/:id/resolver', (req, res) => {
     });
 
     res.json({ success: true, resolved });
+  } catch (err) {
+    res.status(500).json({ success: false, message: err.message });
+  }
+});
+
+// 12b. UTP v1.2.0 Admin Section/Subsection Visibility & Button/Action Configuration Endpoints
+app.get('/api/templates/:id/config', (req, res) => {
+  try {
+    const isAdmin = Boolean(req.user && (req.user.role === 'admin' || req.user.isAdmin));
+    if (!isAdmin) {
+      return res.status(403).json({ success: false, error: { code: 'FORBIDDEN', message: 'Admin role required.' } });
+    }
+    const templates = getTemplates();
+    const template = findTemplateByIdOrSlug(templates, req.params.id);
+    if (!template) return res.status(404).json({ success: false, message: 'Template not found' });
+
+    const activeVer = getOrSeedTemplateVersion(template.id) || {};
+    const allVars = getTemplateRelationshipVariants().filter(v => v.template_id === template.id && v.is_latest !== 0);
+    const relParam = String(req.query.relationship || req.query.rel || 'all').trim();
+    const useDraft = req.query.useDraft !== 'false';
+
+    let targetVariant = null;
+    if (relParam && relParam !== 'all') {
+      const normRel = normalizeRelationshipIdentifier(relParam);
+      const slugTarget = normRel ? normRel.slug : relParam.toLowerCase();
+      targetVariant = allVars.find(v => v.relationship_slug === slugTarget || v.relationship_id === relParam || v.id === relParam) || null;
+    }
+
+    const effective = resolveEffectiveTemplateConfiguration({
+      template,
+      templateVersion: activeVer,
+      variant: targetVariant,
+      relationshipSlug: targetVariant ? targetVariant.relationship_slug : (relParam === 'all' ? 'general' : relParam),
+      useDraft,
+      isAdminView: true
+    });
+
+    const variantOverrides = {};
+    for (const vr of allVars) {
+      let vCfg = {};
+      try { vCfg = typeof vr.configuration_json === 'string' ? JSON.parse(vr.configuration_json) : (vr.configuration || {}); } catch (_) {}
+      const relKey = vr.relationship_slug || vr.variant_slug || vr.id;
+      variantOverrides[relKey] = {
+        variantId: vr.id,
+        relationshipId: vr.relationship_id,
+        relationshipSlug: vr.relationship_slug,
+        relationshipLabel: vr.relationship_label || vCfg.relationshipLabel || vr.name,
+        status: vr.status,
+        lockVersion: Number(vr.lock_version || 1),
+        visibility: { ...extractVisibilityMap(vCfg.visibility || vCfg.sections), ...extractVisibilityMap(vr.visibility_json) },
+        actions: { ...extractActionsOverrideMap(vCfg.actions), ...extractActionsOverrideMap(vr.actions_json) }
+      };
+    }
+
+    res.json({
+      success: true,
+      templateId: template.id,
+      templateName: template.name,
+      lockVersion: Number(template.lockVersion || template.lock_version || 1),
+      selectedRelationship: relParam,
+      hasDraft: Boolean(template.draftConfig || template.draft_config_json),
+      manifestSections: template.sections || activeVer.sections || [],
+      manifestActions: template.actions || activeVer.actions || [],
+      manifestFields: template.detectedFields || template.fields || [],
+      visibilityConfig: template.visibilityConfig || activeVer.visibilityConfig || {},
+      actionsConfig: template.actionsConfig || activeVer.actionsConfig || {},
+      draftConfig: template.draftConfig || null,
+      variantOverrides,
+      effective
+    });
+  } catch (err) {
+    res.status(500).json({ success: false, message: err.message });
+  }
+});
+
+app.post(['/api/templates/:id/config', '/api/templates/:id/config/publish'], (req, res) => {
+  try {
+    const isAdmin = Boolean(req.user && (req.user.role === 'admin' || req.user.isAdmin));
+    if (!isAdmin) {
+      return res.status(403).json({ success: false, error: { code: 'FORBIDDEN', message: 'Admin role required.' } });
+    }
+    const templates = getTemplates();
+    const idx = templates.findIndex(t => t.id === req.params.id || t.slug === req.params.id);
+    if (idx === -1) return res.status(404).json({ success: false, message: 'Template not found' });
+
+    const template = templates[idx];
+    const body = req.body || {};
+    const isPublishRoute = req.path.endsWith('/publish');
+    const shouldPublish = isPublishRoute || Boolean(body.publish || body.mode === 'publish');
+    const currentLock = Number(template.lockVersion || template.lock_version || 1);
+
+    if (body.lockVersion !== undefined && Number(body.lockVersion) !== currentLock) {
+      return res.status(409).json({
+        success: false,
+        code: 'CONFIG_VERSION_CONFLICT',
+        message: 'This template configuration was modified by another administrator. Please reload before saving.',
+        currentLockVersion: currentLock,
+        submittedLockVersion: Number(body.lockVersion)
+      });
+    }
+
+    const existingVis = template.visibilityConfig || {};
+    const existingAct = template.actionsConfig || {};
+    const existingDraft = template.draftConfig || {};
+    const submittedScope = String(body.scope || body.relationship || 'all').trim();
+
+    let nextVis = body.visibilityConfig !== undefined
+      ? body.visibilityConfig
+      : (shouldPublish && existingDraft.visibility ? existingDraft.visibility : existingVis);
+    let nextAct = body.actionsConfig !== undefined
+      ? body.actionsConfig
+      : (shouldPublish && existingDraft.actions ? existingDraft.actions : existingAct);
+    let nextVarOverrides = body.variantOverrides !== undefined
+      ? body.variantOverrides
+      : (shouldPublish && existingDraft.variants ? existingDraft.variants : {});
+
+    if (submittedScope !== 'all' && (body.visibility !== undefined || body.actions !== undefined)) {
+      nextVarOverrides = {
+        ...nextVarOverrides,
+        [submittedScope]: {
+          ...(nextVarOverrides[submittedScope] || {}),
+          ...(body.visibility !== undefined ? { visibility: body.visibility } : {}),
+          ...(body.actions !== undefined ? { actions: body.actions } : {})
+        }
+      };
+    } else if (submittedScope === 'all') {
+      if (body.visibility !== undefined && body.visibilityConfig === undefined) nextVis = body.visibility;
+      if (body.actions !== undefined && body.actionsConfig === undefined) nextAct = body.actions;
+    }
+
+    const validation = validateAdminTemplateConfiguration({
+      manifest: {
+        sections: body.sections || template.sections || [],
+        actions: body.actionsList || template.actions || [],
+        fields: template.detectedFields || template.fields || []
+      },
+      visibilityConfig: nextVis,
+      actionsConfig: nextAct,
+      variantOverrides: nextVarOverrides
+    });
+
+    const nowIso = new Date().toISOString();
+    const draftSnapshot = {
+      visibility: nextVis,
+      actions: nextAct,
+      variants: nextVarOverrides,
+      updatedAt: nowIso
+    };
+
+    if (!validation.valid) {
+      if (body.preserveDraftOnFailure !== false) {
+        templates[idx].draftConfig = draftSnapshot;
+        templates[idx].draft_config_json = JSON.stringify(draftSnapshot);
+        saveTemplates(templates);
+      }
+      return res.status(400).json({
+        success: false,
+        code: 'UTP_CONFIG_VALIDATION_FAILED',
+        message: validation.errors[0]?.message || 'Configuration validation failed.',
+        draftPreserved: body.preserveDraftOnFailure !== false,
+        errors: validation.errors,
+        warnings: validation.warnings,
+        issues: validation.issues
+      });
+    }
+
+    const nextLock = currentLock + 1;
+    let versionId = template.currentVersionId || `tv_${template.id}_v1`;
+    let versionNumber = Number(template.templateVersion || 1);
+
+    if (!shouldPublish) {
+      templates[idx].draftConfig = draftSnapshot;
+      templates[idx].draft_config_json = JSON.stringify(draftSnapshot);
+      templates[idx].lockVersion = nextLock;
+      templates[idx].lock_version = nextLock;
+      templates[idx].updatedAt = nowIso;
+      saveTemplates(templates);
+    } else {
+      if (body.sections) templates[idx].sections = body.sections;
+      if (body.actionsList) {
+        templates[idx].actions = body.actionsList;
+        templates[idx].actions_json = JSON.stringify(body.actionsList);
+      }
+      templates[idx].visibilityConfig = nextVis;
+      templates[idx].visibility_config_json = JSON.stringify(nextVis);
+      templates[idx].actionsConfig = nextAct;
+      templates[idx].actions_config_json = JSON.stringify(nextAct);
+      templates[idx].draftConfig = null;
+      templates[idx].draft_config_json = null;
+      templates[idx].lockVersion = nextLock;
+      templates[idx].lock_version = nextLock;
+      templates[idx].updatedAt = nowIso;
+      saveTemplates(templates);
+
+      const newVer = createNewTemplateVersion(template.id, {
+        ...templates[idx],
+        visibilityConfig: nextVis,
+        actionsConfig: nextAct
+      });
+      if (newVer) {
+        versionId = newVer.id;
+        versionNumber = newVer.versionNumber;
+      }
+
+      if (nextVarOverrides && typeof nextVarOverrides === 'object') {
+        const allVars = getTemplateRelationshipVariants();
+        let varsChanged = false;
+        for (const [relKey, vOver] of Object.entries(nextVarOverrides)) {
+          if (!vOver || typeof vOver !== 'object') continue;
+          const normRel = normalizeRelationshipIdentifier(relKey);
+          const slugTarget = normRel ? normRel.slug : relKey.toLowerCase();
+          const vIdx = allVars.findIndex(v => v.template_id === template.id && v.is_latest !== 0 && (v.relationship_slug === slugTarget || v.relationship_id === relKey || v.id === relKey));
+          if (vIdx >= 0) {
+            let vCfg = {};
+            try { vCfg = typeof allVars[vIdx].configuration_json === 'string' ? JSON.parse(allVars[vIdx].configuration_json) : (allVars[vIdx].configuration || {}); } catch (_) {}
+            if (vOver.visibility !== undefined) vCfg.visibility = vOver.visibility;
+            if (vOver.actions !== undefined) vCfg.actions = vOver.actions;
+            allVars[vIdx].configuration_json = JSON.stringify(vCfg);
+            allVars[vIdx].visibility_json = JSON.stringify(vCfg.visibility || {});
+            allVars[vIdx].actions_json = JSON.stringify(vCfg.actions || []);
+            allVars[vIdx].lock_version = Number(allVars[vIdx].lock_version || 1) + 1;
+            allVars[vIdx].updated_at = nowIso;
+            varsChanged = true;
+          }
+        }
+        if (varsChanged) saveTemplateRelationshipVariants(allVars);
+      }
+    }
+
+    const effective = resolveEffectiveTemplateConfiguration({
+      template: templates[idx],
+      templateVersion: getOrSeedTemplateVersion(template.id) || {},
+      variant: null,
+      relationshipSlug: submittedScope === 'all' ? 'general' : submittedScope,
+      useDraft: !shouldPublish,
+      isAdminView: true
+    });
+
+    res.json({
+      success: true,
+      saved: true,
+      published: shouldPublish,
+      mode: shouldPublish ? 'published' : 'draft',
+      templateId: template.id,
+      versionId,
+      versionNumber,
+      lockVersion: nextLock,
+      visibilityConfig: nextVis,
+      actionsConfig: nextAct,
+      variantOverrides: nextVarOverrides,
+      effective,
+      warnings: validation.warnings
+    });
+  } catch (err) {
+    res.status(500).json({ success: false, message: err.message });
+  }
+});
+
+app.post('/api/templates/:id/config/reset', (req, res) => {
+  try {
+    const isAdmin = Boolean(req.user && (req.user.role === 'admin' || req.user.isAdmin));
+    if (!isAdmin) {
+      return res.status(403).json({ success: false, error: { code: 'FORBIDDEN', message: 'Admin role required.' } });
+    }
+    const templates = getTemplates();
+    const idx = templates.findIndex(t => t.id === req.params.id || t.slug === req.params.id);
+    if (idx === -1) return res.status(404).json({ success: false, message: 'Template not found' });
+
+    const body = req.body || {};
+    const scope = String(body.scope || body.relationship || 'all').trim();
+    const nextLock = Number(templates[idx].lockVersion || templates[idx].lock_version || 1) + 1;
+    const nowIso = new Date().toISOString();
+
+    if (scope === 'all') {
+      templates[idx].visibilityConfig = {};
+      templates[idx].visibility_config_json = '{}';
+      templates[idx].actionsConfig = {};
+      templates[idx].actions_config_json = '{}';
+      templates[idx].draftConfig = null;
+      templates[idx].draft_config_json = null;
+      templates[idx].lockVersion = nextLock;
+      templates[idx].lock_version = nextLock;
+      templates[idx].updatedAt = nowIso;
+      saveTemplates(templates);
+    } else {
+      const allVars = getTemplateRelationshipVariants();
+      const normRel = normalizeRelationshipIdentifier(scope);
+      const slugTarget = normRel ? normRel.slug : scope.toLowerCase();
+      const vIdx = allVars.findIndex(v => v.template_id === templates[idx].id && v.is_latest !== 0 && (v.relationship_slug === slugTarget || v.id === scope));
+      if (vIdx >= 0) {
+        let vCfg = {};
+        try { vCfg = typeof allVars[vIdx].configuration_json === 'string' ? JSON.parse(allVars[vIdx].configuration_json) : {}; } catch (_) {}
+        delete vCfg.visibility;
+        delete vCfg.actions;
+        allVars[vIdx].configuration_json = JSON.stringify(vCfg);
+        allVars[vIdx].visibility_json = '{}';
+        allVars[vIdx].actions_json = '[]';
+        allVars[vIdx].updated_at = nowIso;
+        saveTemplateRelationshipVariants(allVars);
+      }
+    }
+
+    const effective = resolveEffectiveTemplateConfiguration({
+      template: templates[idx],
+      templateVersion: getOrSeedTemplateVersion(templates[idx].id) || {},
+      variant: null,
+      relationshipSlug: scope === 'all' ? 'general' : scope,
+      useDraft: false,
+      isAdminView: true
+    });
+
+    res.json({
+      success: true,
+      reset: true,
+      scope,
+      templateId: templates[idx].id,
+      lockVersion: nextLock,
+      effective
+    });
   } catch (err) {
     res.status(500).json({ success: false, message: err.message });
   }
@@ -13743,9 +14188,43 @@ app.post('/api/wishes', (req, res) => {
     const isDraft = Boolean(req.body.status === 'draft' || req.body.isDraft || customData.isDraft);
     const wishStatus = isDraft ? 'draft' : 'published';
 
-    // Resolve immutable template version snapshot
+    // Resolve immutable template version snapshot & UTP v1.2.0 Effective Configuration
     const activeVersion = getOrSeedTemplateVersion(templateId);
     const templateVersionId = activeVersion ? activeVersion.id : `tv_${templateId}_v1`;
+    const allVarsForWish = getTemplateRelationshipVariants().filter(v => v.template_id === templateId && v.is_latest !== 0);
+    const reqWishRel = customData.relationship || customData.rel || customData.relationshipSlug || '';
+    const reqWishVar = customData.relationship_variant_id || customData.relationshipVariantId || customData.variantId || customData.variant || '';
+    const matchedWishVar = allVarsForWish.find(v =>
+      (reqWishVar && (v.id === reqWishVar || v.variant_slug === reqWishVar)) ||
+      (reqWishRel && (v.relationship_slug === reqWishRel || v.relationship_id === reqWishRel))
+    ) || null;
+    const wishEffCfg = resolveEffectiveTemplateConfiguration({
+      template: template || { id: templateId },
+      templateVersion: activeVersion || {},
+      variant: matchedWishVar,
+      relationshipSlug: reqWishRel || (matchedWishVar ? matchedWishVar.relationship_slug : 'general'),
+      useDraft: false,
+      isAdminView: false
+    });
+    const cleanWishCd = sanitizeCustomerWishDataAgainstConfig(customData, wishEffCfg);
+    for (const k of Object.keys(customData)) {
+      if (!Object.prototype.hasOwnProperty.call(cleanWishCd, k)) {
+        delete customData[k];
+      }
+    }
+    const publishedConfigSnapshot = {
+      versionId: templateVersionId,
+      variantId: matchedWishVar ? matchedWishVar.id : null,
+      relationshipSlug: wishEffCfg.relationshipSlug,
+      visibilityMap: wishEffCfg.visibilityMap,
+      disabledIds: wishEffCfg.disabledIds,
+      enabledIds: wishEffCfg.enabledIds,
+      excludedFieldIds: wishEffCfg.excludedFieldIds,
+      sections: wishEffCfg.sections,
+      actions: wishEffCfg.actions,
+      actionsMap: wishEffCfg.actionsMap
+    };
+    customData._publishedConfigSnapshot = publishedConfigSnapshot;
     customData.templateId = templateId;
     customData.templateVersionId = templateVersionId;
     customData.template_version_id = templateVersionId;
@@ -13783,6 +14262,7 @@ app.post('/api/wishes', (req, res) => {
         amount: wishPrice
       } : null,
       customData,
+      publishedConfigSnapshot,
       status: wishStatus,
       isDraft,
       lock_version: 1,

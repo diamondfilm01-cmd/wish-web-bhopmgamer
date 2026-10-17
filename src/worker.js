@@ -27,12 +27,19 @@ import {
   STANDARD_MESSAGE_FIELDS,
   validateVariantConfiguration,
   resolveVariantHierarchy,
+  resolveEffectiveTemplateConfiguration,
+  sanitizeCustomerWishDataAgainstConfig,
+  extractVisibilityMap,
+  extractActionsOverrideMap,
   buildVariantRecordFromUtpDeclaration,
   filterPublicAvailableVariants,
   mergeTemplateAndVariantFields,
   getDefaultRelationshipVariantConfig,
   cloneVariant
 } from './template-variant-engine.js';
+import {
+  validateAdminTemplateConfiguration
+} from './template-protocol-validator.js';
 import {
   B2StorageProvider,
   getB2Config,
@@ -5424,6 +5431,9 @@ async function createNewTemplateVersion(env, templateId, updatedFields = {}, act
     thumbnail: updatedFields.thumbnail || base.thumbnail,
     theme: updatedFields.theme || base.theme,
     sections: updatedFields.sections || base.sections,
+    actions: updatedFields.actions || base.actions || safeJsonParse(base.actions_json, []),
+    visibilityConfig: updatedFields.visibilityConfig || base.visibilityConfig || safeJsonParse(base.visibility_config_json, {}),
+    actionsConfig: updatedFields.actionsConfig || base.actionsConfig || safeJsonParse(base.actions_config_json, {}),
     capabilities: updatedFields.capabilities || base.capabilities,
     layout: updatedFields.layout || base.layout || 'centered-immersive',
     animations: updatedFields.animations || base.animations,
@@ -5462,23 +5472,72 @@ async function createNewTemplateVersion(env, templateId, updatedFields = {}, act
         actor.id || 'admin'
       ).run();
 
+      // Persist UTP v1.2.0 visibility & action configuration on template_versions if columns exist
+      try {
+        await ensureTemplateIngestionSchema(env.DB);
+        await env.DB.prepare(
+          `UPDATE template_versions SET
+             actions_json = ?,
+             visibility_config_json = ?,
+             actions_config_json = ?,
+             is_current = 1
+           WHERE id = ?`
+        ).bind(
+          JSON.stringify(merged.actions || []),
+          JSON.stringify(merged.visibilityConfig || {}),
+          JSON.stringify(merged.actionsConfig || {}),
+          newSnapshot.id
+        ).run();
+      } catch (_) {}
+
       // Also update live templates table pointer
-      await env.DB.prepare(
-        `UPDATE templates SET
-         name = ?, description = ?, category = ?, tier = ?, price = ?, is_premium = ?, thumbnail = ?, updated_at = ?
-         WHERE id = ? OR slug = ?`
-      ).bind(
-        newSnapshot.name,
-        newSnapshot.description,
-        newSnapshot.category,
-        newSnapshot.tier,
-        newSnapshot.price,
-        newSnapshot.isPremium ? 1 : 0,
-        newSnapshot.thumbnail,
-        nowIso,
-        cleanId,
-        cleanId
-      ).run();
+      try {
+        await env.DB.prepare(
+          `UPDATE templates SET
+           name = ?, description = ?, category = ?, tier = ?, price = ?, is_premium = ?, thumbnail = ?,
+           sections = COALESCE(?, sections),
+           actions_json = COALESCE(?, actions_json),
+           visibility_config_json = COALESCE(?, visibility_config_json),
+           actions_config_json = COALESCE(?, actions_config_json),
+           current_version_id = ?,
+           lock_version = COALESCE(lock_version, 1) + 1,
+           updated_at = ?
+           WHERE id = ? OR slug = ?`
+        ).bind(
+          newSnapshot.name,
+          newSnapshot.description,
+          newSnapshot.category,
+          newSnapshot.tier,
+          newSnapshot.price,
+          newSnapshot.isPremium ? 1 : 0,
+          newSnapshot.thumbnail,
+          updatedFields.sections ? JSON.stringify(updatedFields.sections) : null,
+          updatedFields.actions ? JSON.stringify(updatedFields.actions) : null,
+          updatedFields.visibilityConfig ? JSON.stringify(updatedFields.visibilityConfig) : null,
+          updatedFields.actionsConfig ? JSON.stringify(updatedFields.actionsConfig) : null,
+          newSnapshot.id,
+          nowIso,
+          cleanId,
+          cleanId
+        ).run();
+      } catch (_) {
+        await env.DB.prepare(
+          `UPDATE templates SET
+           name = ?, description = ?, category = ?, tier = ?, price = ?, is_premium = ?, thumbnail = ?, updated_at = ?
+           WHERE id = ? OR slug = ?`
+        ).bind(
+          newSnapshot.name,
+          newSnapshot.description,
+          newSnapshot.category,
+          newSnapshot.tier,
+          newSnapshot.price,
+          newSnapshot.isPremium ? 1 : 0,
+          newSnapshot.thumbnail,
+          nowIso,
+          cleanId,
+          cleanId
+        ).run();
+      }
     } catch (e) {}
   }
 
@@ -6555,6 +6614,53 @@ export default {
           const templateVersionId = activeVersion ? activeVersion.id : `tv_${templateId}_v1`;
           const templateVersionNumber = activeVersion ? activeVersion.versionNumber : 1;
 
+          // Resolve UTP v1.2.0 Effective Configuration for this template & relationship variant,
+          // sanitize customer customData (preventing disabled sections/fields from being re-enabled),
+          // and snapshot the published configuration so existing wish links remain immutable!
+          let matchedWishVariant = null;
+          const requestedWishRel = customData.relationship || customData.rel || customData.relationshipSlug || body.relationship || '';
+          const requestedWishVarId = customData.relationship_variant_id || customData.relationshipVariantId || customData.variantId || customData.variant || '';
+          if (env.DB && (requestedWishRel || requestedWishVarId)) {
+            try {
+              const vRows = await env.DB.prepare(
+                `SELECT * FROM template_relationship_variants WHERE (template_id = ? OR template_version_id = ?) AND is_latest = 1`
+              ).bind(template ? template.id : templateId, templateVersionId).all();
+              const vList = vRows.results || [];
+              matchedWishVariant = vList.find(v =>
+                (requestedWishVarId && (v.id === requestedWishVarId || v.variant_slug === requestedWishVarId)) ||
+                (requestedWishRel && (v.relationship_slug === requestedWishRel || v.relationship_id === requestedWishRel))
+              ) || null;
+            } catch (_) {}
+          }
+          const wishEffectiveConfig = resolveEffectiveTemplateConfiguration({
+            template: template || { id: templateId },
+            templateVersion: activeVersion || {},
+            variant: matchedWishVariant,
+            relationshipSlug: requestedWishRel || (matchedWishVariant ? matchedWishVariant.relationship_slug : 'general'),
+            useDraft: false,
+            isAdminView: false
+          });
+          const sanitizedCd = sanitizeCustomerWishDataAgainstConfig(customData, wishEffectiveConfig);
+          for (const k of Object.keys(customData)) {
+            if (!Object.prototype.hasOwnProperty.call(sanitizedCd, k)) {
+              delete customData[k];
+            }
+          }
+          const publishedConfigSnapshot = {
+            versionId: templateVersionId,
+            versionNumber: templateVersionNumber,
+            variantId: matchedWishVariant ? matchedWishVariant.id : null,
+            relationshipSlug: wishEffectiveConfig.relationshipSlug,
+            visibilityMap: wishEffectiveConfig.visibilityMap,
+            disabledIds: wishEffectiveConfig.disabledIds,
+            enabledIds: wishEffectiveConfig.enabledIds,
+            excludedFieldIds: wishEffectiveConfig.excludedFieldIds,
+            sections: wishEffectiveConfig.sections,
+            actions: wishEffectiveConfig.actions,
+            actionsMap: wishEffectiveConfig.actionsMap
+          };
+          customData._publishedConfigSnapshot = publishedConfigSnapshot;
+
           // Stamp immutable version IDs into customData
           customData.templateId = templateId;
           customData.template_version_id = templateVersionId;
@@ -6566,9 +6672,10 @@ export default {
             const rawTplFields = (activeVersion && activeVersion.detectedFields) || (template && (template.detected_fields || template.detectedFields)) || [];
             const parsedTplFields = typeof rawTplFields === 'string' ? safeJsonParse(rawTplFields, []) : rawTplFields;
             if (Array.isArray(parsedTplFields)) {
+              const excludedSet = new Set(Array.isArray(wishEffectiveConfig?.excludedFieldIds) ? wishEffectiveConfig.excludedFieldIds : []);
               for (const tf of parsedTplFields) {
                 const fKey = tf && (tf.key || tf.id);
-                if (!fKey) continue;
+                if (!fKey || excludedSet.has(fKey)) continue;
                 const isIdentityField = ['recipient_name', 'recipientname', 'event_date', 'eventdate', 'dob', 'birth_date', 'celebration_date'].includes(String(fKey).toLowerCase());
                 if (!isIdentityField && tf.defaultValue !== undefined && tf.defaultValue !== null && String(tf.defaultValue) !== '') {
                   if (customData[fKey] === undefined || customData[fKey] === null || (typeof customData[fKey] === 'string' && customData[fKey].trim() === '')) {
@@ -7368,6 +7475,19 @@ export default {
           );
         }
 
+        // Preserve existing wish pinned config snapshot & strip any client attempt to re-enable disabled sections
+        let existingCd = {};
+        try { existingCd = typeof existing.custom_data === 'string' ? JSON.parse(existing.custom_data) : (existing.custom_data || {}); } catch (_) {}
+        const pinnedSnap = safeJsonParse(existing.published_config_snapshot_json, null) || existingCd._publishedConfigSnapshot || null;
+        if (pinnedSnap) {
+          const sanitizedPut = sanitizeCustomerWishDataAgainstConfig(customData, pinnedSnap);
+          for (const k of Object.keys(customData)) {
+            if (!Object.prototype.hasOwnProperty.call(sanitizedPut, k)) {
+              delete customData[k];
+            }
+          }
+          customData._publishedConfigSnapshot = pinnedSnap;
+        }
         const recipientName = sanitizeString(customData.recipient_name || customData.recipientName || existing.recipient_name, 80);
         const buyerName = sanitizeString(customData.sender_name || customData.senderName || existing.buyer_name, 80);
         const eventDate = sanitizeString(customData.event_date || customData.eventDate || existing.event_date, 10);
@@ -7527,7 +7647,44 @@ export default {
         const versionId = wish.template_version_id || (customData && (customData.template_version_id || customData.templateVersionId));
         const templateSnapshot = await getTemplateVersionById(env, versionId, wish.template_id);
 
+        // Resolve UTP v1.2.0 pinned published configuration snapshot for this wish
+        let effectiveWishConfig = safeJsonParse(wish.published_config_snapshot_json, null) || customData._publishedConfigSnapshot || null;
+        if (!effectiveWishConfig) {
+          let tplRow = null;
+          if (env.DB) {
+            try { tplRow = await env.DB.prepare('SELECT * FROM templates WHERE id = ? LIMIT 1').bind(wish.template_id).first(); } catch (_) {}
+          }
+          effectiveWishConfig = resolveEffectiveTemplateConfiguration({
+            template: tplRow || { id: wish.template_id },
+            templateVersion: templateSnapshot || {},
+            variant: null,
+            relationshipSlug: customData.relationship || customData.rel || 'general',
+            useDraft: false,
+            isAdminView: false
+          });
+        }
+        // Strip any disabled section fields or internal snapshot keys from customer-facing customData
+        customData = sanitizeCustomerWishDataAgainstConfig(customData, effectiveWishConfig);
+        delete customData._publishedConfigSnapshot;
+
+        if (templateSnapshot && effectiveWishConfig) {
+          templateSnapshot.sections = effectiveWishConfig.sections || templateSnapshot.sections || [];
+          templateSnapshot.visibilityMap = effectiveWishConfig.visibilityMap || {};
+          templateSnapshot.disabledIds = effectiveWishConfig.disabledIds || [];
+          templateSnapshot.enabledIds = effectiveWishConfig.enabledIds || [];
+          templateSnapshot.actions = effectiveWishConfig.actions || [];
+          templateSnapshot.actionsMap = effectiveWishConfig.actionsMap || {};
+        }
+
         const safePublicWish = {
+          effectiveConfig: {
+            visibilityMap: effectiveWishConfig?.visibilityMap || {},
+            disabledIds: effectiveWishConfig?.disabledIds || [],
+            enabledIds: effectiveWishConfig?.enabledIds || [],
+            sections: effectiveWishConfig?.sections || [],
+            actions: effectiveWishConfig?.actions || [],
+            actionsMap: effectiveWishConfig?.actionsMap || {}
+          },
           id: wish.id,
           slug: wish.slug,
           recipientName,
@@ -7790,7 +7947,7 @@ export default {
         }, 201, {}, requestId);
       }
 
-      else if ((pathname === '/api/templates/update' || pathname.startsWith('/api/templates/')) && method === 'PUT') {
+      else if ((pathname === '/api/templates/update' || (pathname.startsWith('/api/templates/') && !pathname.includes('/config'))) && method === 'PUT') {
         const user = await getAuthenticatedUser(request, env);
         if (!user) return applySecurityHeaders(jsonError('AUTH_REQUIRED', 'Authentication required', 401), request, env);
         const isAdmin = await verifyAdminRole(user, env);
@@ -7818,7 +7975,46 @@ export default {
         if (!isAdmin) return applySecurityHeaders(jsonError('FORBIDDEN', 'Admin role required', 403), request, env);
 
         const body = await request.json().catch(() => ({}));
-        const templateId = sanitizeString(body.id, 60);
+        const templateId = sanitizeString(body.id || body.templateId, 60);
+
+        if (env.DB && typeof env.DB.prepare === 'function') {
+          await ensureTemplateIngestionSchema(env.DB);
+          const existingTpl = await env.DB.prepare('SELECT * FROM templates WHERE id = ? OR slug = ? LIMIT 1').bind(templateId, templateId).first();
+          if (existingTpl && body.lockVersion !== undefined && existingTpl.lock_version !== undefined) {
+            if (Number(body.lockVersion) !== Number(existingTpl.lock_version)) {
+              return applySecurityHeaders(
+                jsonError('CONFIG_VERSION_CONFLICT', 'Template configuration was modified by another administrator. Please reload before saving.', 409, {
+                  currentLockVersion: Number(existingTpl.lock_version),
+                  submittedLockVersion: Number(body.lockVersion)
+                }),
+                request, env
+              );
+            }
+          }
+
+          if (body.visibilityConfig || body.actionsConfig || body.variantOverrides) {
+            const baseManifest = {
+              sections: body.sections || safeJsonParse(existingTpl?.sections, []),
+              actions: body.actions || safeJsonParse(existingTpl?.actions_json, []),
+              fields: body.detectedFields || safeJsonParse(existingTpl?.detected_fields, [])
+            };
+            const cfgValidation = validateAdminTemplateConfiguration({
+              manifest: baseManifest,
+              visibilityConfig: body.visibilityConfig || {},
+              actionsConfig: body.actionsConfig || {},
+              variantOverrides: body.variantOverrides || {}
+            });
+            if (!cfgValidation.valid) {
+              return applySecurityHeaders(
+                jsonError('UTP_CONFIG_VALIDATION_FAILED', cfgValidation.errors[0]?.message || 'Invalid section visibility or button action configuration.', 400, {
+                  errors: cfgValidation.errors,
+                  issues: cfgValidation.issues
+                }),
+                request, env
+              );
+            }
+          }
+        }
 
         const updatedSnapshot = await createNewTemplateVersion(env, templateId, body, user);
 
@@ -8647,7 +8843,12 @@ export default {
             detectedFields: Array.isArray(body.detectedFields) ? body.detectedFields : undefined,
             preUploadedImgbbMap: (body.preUploadedImgbbMap && typeof body.preUploadedImgbbMap === 'object') ? body.preUploadedImgbbMap : undefined,
             skipServerImgbbRetry: Boolean(body.skipServerImgbbRetry),
-            publishImmediately: Boolean(body.publishImmediately || body.autoPublish || body.isPublished === true)
+            publishImmediately: Boolean(body.publishImmediately || body.autoPublish || body.isPublished === true),
+            sections: Array.isArray(body.sections) ? body.sections : undefined,
+            actions: Array.isArray(body.actions) ? body.actions : undefined,
+            visibilityConfig: (body.visibilityConfig && typeof body.visibilityConfig === 'object') ? body.visibilityConfig : undefined,
+            actionsConfig: (body.actionsConfig && typeof body.actionsConfig === 'object') ? body.actionsConfig : undefined,
+            variantOverrides: (body.variantOverrides && typeof body.variantOverrides === 'object') ? body.variantOverrides : undefined
           };
 
           if (body.zipBase64) {
@@ -10043,6 +10244,7 @@ export default {
         !pathname.endsWith('/variants') &&
         !pathname.includes('/variants/') &&
         !pathname.endsWith('/resolver') &&
+        !pathname.includes('/config') &&
         !pathname.endsWith('/fields') &&
         !pathname.endsWith('/music') &&
         !pathname.includes('/versions') &&
@@ -10229,27 +10431,66 @@ export default {
           }
         }
 
+        const isDraftOrAdminQuery = url.searchParams.get('includeDrafts') === 'true';
+        const effectiveConfig = resolveEffectiveTemplateConfiguration({
+          template: { ...template, sections, detected_fields: fields },
+          templateVersion: activeVer || {},
+          variant: selectedVariant,
+          relationshipSlug: (selectedVariant && (selectedVariant.relationshipSlug || selectedVariant.relationship_slug)) || reqRelParam || 'general',
+          useDraft: isDraftOrAdminQuery && url.searchParams.get('useDraft') === 'true',
+          isAdminView: isDraftOrAdminQuery
+        });
+
+        const finalPublicFields = effectiveConfig.fields.length > 0 || (effectiveConfig.excludedFieldIds && effectiveConfig.excludedFieldIds.length > 0)
+          ? effectiveConfig.fields
+          : fields;
+        const finalPublicSections = effectiveConfig.sections.length > 0 || (effectiveConfig.disabledIds && effectiveConfig.disabledIds.length > 0)
+          ? effectiveConfig.sections
+          : sections;
+
         const publicRelationships = hasDeclaredVariants
           ? availableRelations.map(ar => ar.label)
           : (relationshipsList.length > 0 ? relationshipsList.map(r => r.name || r.slug) : (Array.isArray(template.relationships) ? template.relationships : safeJsonParse(template.relationships, [])));
 
+        const safeTemplateBase = { ...template };
+        if (!isDraftOrAdminQuery) {
+          delete safeTemplateBase.draft_config_json;
+          delete safeTemplateBase.visibility_config_json;
+          delete safeTemplateBase.actions_config_json;
+        }
+
         const enrichedTemplate = {
-          ...template,
+          ...safeTemplateBase,
           familyId: `fam_${template.id}`,
           folder: resolvedFolder,
           entryFile: (selectedVariant && selectedVariant.entryFile) || entryFileName,
           currentVersionId: activeVer ? activeVer.id : template.current_version_id,
           version: activeVer,
-          fields,
-          detectedFields: fields,
-          sections,
+          fields: finalPublicFields,
+          detectedFields: finalPublicFields,
+          sections: finalPublicSections,
+          visibilityMap: effectiveConfig.visibilityMap,
+          disabledIds: effectiveConfig.disabledIds,
+          enabledIds: effectiveConfig.enabledIds,
+          actions: effectiveConfig.actions,
+          actionsMap: effectiveConfig.actionsMap,
+          ...(isDraftOrAdminQuery ? {
+            manifestSections: sections,
+            manifestActions: safeJsonParse(activeVer?.actions_json || template.actions_json, []),
+            visibilityConfig: safeJsonParse(activeVer?.visibility_config_json || template.visibility_config_json, {}),
+            actionsConfig: safeJsonParse(activeVer?.actions_config_json || template.actions_config_json, {}),
+            draftConfig: safeJsonParse(activeVer?.draft_config_json || template.draft_config_json, null),
+            lockVersion: Number(template.lock_version || activeVer?.lock_version || 1),
+            adminSections: effectiveConfig.adminSections,
+            adminActions: effectiveConfig.adminActions
+          } : {}),
           capabilities,
           hasVariants: hasDeclaredVariants,
           availableVariants,
           availableRelations,
           selectedVariant,
           selectedVariantError,
-          variants: url.searchParams.get('includeDrafts') === 'true' ? variants : availableVariants,
+          variants: isDraftOrAdminQuery ? variants : availableVariants,
           relationships: publicRelationships,
           relationshipsCatalog: relationshipsList,
           previewUrl
@@ -10967,7 +11208,7 @@ export default {
       }
 
       // 8. Validate Variant
-      else if (pathname.startsWith('/api/templates/') && pathname.endsWith('/validate') && method === 'POST') {
+      else if (pathname.startsWith('/api/templates/') && pathname.includes('/variants/') && pathname.endsWith('/validate') && method === 'POST') {
         const parts = pathname.split('/').filter(Boolean);
         const templateId = sanitizeString(parts[2], 60);
         const body = await request.json().catch(() => ({}));
@@ -10995,7 +11236,7 @@ export default {
       }
 
       // 9. Publish Variant (Enforces Validation & Immutable Version Bump if Wishes Exist)
-      else if (pathname.startsWith('/api/templates/') && pathname.endsWith('/publish') && method === 'POST') {
+      else if (pathname.startsWith('/api/templates/') && pathname.includes('/variants/') && pathname.endsWith('/publish') && method === 'POST') {
         const user = await getAuthenticatedUser(request, env);
         if (!user) return applySecurityHeaders(jsonError('AUTH_REQUIRED', 'Authentication required', 401), request, env);
         const isAdmin = await verifyAdminRole(user, env);
@@ -11102,7 +11343,7 @@ export default {
       }
 
       // 10. Clone Variant
-      else if (pathname.startsWith('/api/templates/') && pathname.endsWith('/clone') && method === 'POST') {
+      else if (pathname.startsWith('/api/templates/') && pathname.includes('/variants/') && pathname.endsWith('/clone') && method === 'POST') {
         const user = await getAuthenticatedUser(request, env);
         if (!user) return applySecurityHeaders(jsonError('AUTH_REQUIRED', 'Authentication required', 401), request, env);
         const isAdmin = await verifyAdminRole(user, env);
@@ -11141,7 +11382,7 @@ export default {
       }
 
       // 11. Archive Variant (Preserves Historical Snapshots)
-      else if (pathname.startsWith('/api/templates/') && pathname.endsWith('/archive') && method === 'POST') {
+      else if (pathname.startsWith('/api/templates/') && pathname.includes('/variants/') && pathname.endsWith('/archive') && method === 'POST') {
         const user = await getAuthenticatedUser(request, env);
         if (!user) return applySecurityHeaders(jsonError('AUTH_REQUIRED', 'Authentication required', 401), request, env);
         const isAdmin = await verifyAdminRole(user, env);
@@ -11236,6 +11477,445 @@ export default {
         });
 
         response = jsonSuccess({ success: true, resolved }, 200, {}, requestId);
+      }
+
+      // 12b. UTP v1.2.0 Admin Section/Subsection Visibility & Button/Action Configuration Endpoints
+      else if (pathname.startsWith('/api/templates/') && (pathname.endsWith('/config') || pathname.endsWith('/config/publish') || pathname.endsWith('/config/reset'))) {
+        const user = await getAuthenticatedUser(request, env);
+        if (!user) return applySecurityHeaders(jsonError('AUTH_REQUIRED', 'Authentication required', 401), request, env);
+        const isAdmin = await verifyAdminRole(user, env);
+        if (!isAdmin) return applySecurityHeaders(jsonError('FORBIDDEN', 'Admin role required to access template configuration', 403), request, env);
+
+        if (!env.DB || typeof env.DB.prepare !== 'function') {
+          return applySecurityHeaders(jsonError('DATABASE_UNAVAILABLE', 'Database service is currently unavailable.', 503), request, env);
+        }
+
+        await ensureTemplateIngestionSchema(env.DB);
+        const parts = pathname.split('/').filter(Boolean);
+        const templateId = sanitizeString(decodeURIComponent(parts[2] || ''), 60);
+        const isPublishRoute = pathname.endsWith('/config/publish');
+        const isResetRoute = pathname.endsWith('/config/reset');
+
+        let template = await env.DB.prepare('SELECT * FROM templates WHERE id = ? OR slug = ? LIMIT 1').bind(templateId, templateId).first();
+        if (!template) {
+          const seedTpl = SEED_TEMPLATES.find(t => t.id === templateId || t.slug === templateId);
+          if (seedTpl) {
+            template = { ...seedTpl, lock_version: 1 };
+          }
+        }
+        if (!template) return applySecurityHeaders(jsonError('NOT_FOUND', 'Template not found', 404), request, env);
+
+        const activeVer = await env.DB.prepare('SELECT * FROM template_versions WHERE template_id = ? ORDER BY version_number DESC LIMIT 1').bind(template.id).first();
+        const varRows = await env.DB.prepare('SELECT * FROM template_relationship_variants WHERE (template_id = ? OR template_version_id = ?) AND is_latest = 1 ORDER BY sort_order ASC').bind(template.id, activeVer ? activeVer.id : `tv_${template.id}_v1`).all();
+        const variantsList = varRows.results || [];
+
+        const pickNonEmptyArray = (...candidates) => {
+          for (const c of candidates) {
+            const arr = Array.isArray(c) ? c : safeJsonParse(c, []);
+            if (Array.isArray(arr) && arr.length > 0) return arr;
+          }
+          return [];
+        };
+        const parsedVerManifest = safeJsonParse(activeVer?.manifest_json, {});
+        const parsedTplManifest = safeJsonParse(template.manifest_json || template.theme, {});
+        const manifestSections = pickNonEmptyArray(activeVer?.sections, activeVer?.sections_json, template.sections, template.sections_json, parsedVerManifest?.sections, parsedTplManifest?.sections);
+        const manifestActions = pickNonEmptyArray(activeVer?.actions_json, template.actions_json, parsedVerManifest?.actions, parsedTplManifest?.actions);
+        const manifestFields = pickNonEmptyArray(activeVer?.fields_json, template.detected_fields, parsedVerManifest?.fields, parsedTplManifest?.fields);
+
+        if (method === 'GET' && !isPublishRoute && !isResetRoute) {
+          const relParam = sanitizeString(url.searchParams.get('relationship') || url.searchParams.get('rel') || 'all', 60);
+          const useDraft = url.searchParams.get('useDraft') !== 'false';
+
+          let targetVariant = null;
+          if (relParam && relParam !== 'all') {
+            const normRel = normalizeRelationshipIdentifier(relParam);
+            const slugMatch = normRel ? normRel.slug : relParam.toLowerCase();
+            targetVariant = variantsList.find(v =>
+              v.relationship_slug === slugMatch ||
+              v.relationship_id === relParam ||
+              v.variant_slug === relParam ||
+              v.id === relParam
+            ) || null;
+          }
+
+          const effective = resolveEffectiveTemplateConfiguration({
+            template,
+            templateVersion: activeVer || {},
+            variant: targetVariant,
+            relationshipSlug: targetVariant ? targetVariant.relationship_slug : (relParam === 'all' ? 'general' : relParam),
+            useDraft,
+            isAdminView: true
+          });
+
+          const variantOverridesMap = {};
+          for (const vr of variantsList) {
+            const vCfg = safeJsonParse(vr.configuration_json, {});
+            const vVis = { ...extractVisibilityMap(vCfg.visibility || vCfg.sections), ...extractVisibilityMap(vr.visibility_json) };
+            const vAct = { ...extractActionsOverrideMap(vCfg.actions), ...extractActionsOverrideMap(vr.actions_json) };
+            const relKey = vr.relationship_slug || vr.variant_slug || vr.id;
+            variantOverridesMap[relKey] = {
+              variantId: vr.id,
+              relationshipId: vr.relationship_id,
+              relationshipSlug: vr.relationship_slug,
+              relationshipLabel: vr.relationship_label || vCfg.relationshipLabel || vr.name,
+              status: vr.status,
+              lockVersion: Number(vr.lock_version || 1),
+              visibility: vVis,
+              actions: vAct
+            };
+          }
+
+          const savedDraft = safeJsonParse(activeVer?.draft_config_json || template.draft_config_json, null);
+          const publishedVis = safeJsonParse(activeVer?.visibility_config_json || template.visibility_config_json, {});
+          const publishedAct = safeJsonParse(activeVer?.actions_config_json || template.actions_config_json, {});
+
+          response = jsonSuccess({
+            templateId: template.id,
+            templateName: template.name,
+            versionId: activeVer ? activeVer.id : null,
+            versionNumber: activeVer ? activeVer.version_number : 1,
+            lockVersion: Number(template.lock_version || activeVer?.lock_version || 1),
+            selectedRelationship: relParam,
+            hasDraft: Boolean(savedDraft),
+            hasUnpublishedDraft: Boolean(savedDraft),
+            manifestSections,
+            manifestActions,
+            manifestFields,
+            visibilityConfig: publishedVis,
+            actionsConfig: publishedAct,
+            publishedConfig: {
+              visibilityConfig: publishedVis,
+              actionsConfig: publishedAct,
+              variantOverrides: variantOverridesMap
+            },
+            draftConfig: savedDraft
+              ? {
+                  ...savedDraft,
+                  visibilityConfig: savedDraft.visibility || savedDraft.visibilityConfig || {},
+                  actionsConfig: savedDraft.actions || savedDraft.actionsConfig || {},
+                  variantOverrides: savedDraft.variants || savedDraft.variantOverrides || {}
+                }
+              : null,
+            variantOverrides: variantOverridesMap,
+            variants: variantsList.map(vr => ({
+              id: vr.id,
+              slug: vr.variant_slug,
+              relationshipId: vr.relationship_id,
+              relationshipSlug: vr.relationship_slug,
+              label: vr.relationship_label || vr.name,
+              status: vr.status,
+              enabled: Boolean(vr.enabled)
+            })),
+            effective
+          }, 200, {}, requestId);
+        } else if (method === 'POST' && isResetRoute) {
+          const body = await request.json().catch(() => ({}));
+          const scope = String(body.scope || body.relationship || 'all').trim();
+          const nowIso = new Date().toISOString();
+          const nextLock = Number(template.lock_version || 1) + 1;
+
+          if (scope === 'all') {
+            await env.DB.prepare(
+              `UPDATE templates SET visibility_config_json = '{}', actions_config_json = '{}', draft_config_json = NULL, lock_version = ?, updated_at = ? WHERE id = ?`
+            ).bind(nextLock, nowIso, template.id).run();
+            if (activeVer) {
+              await env.DB.prepare(
+                `UPDATE template_versions SET visibility_config_json = '{}', actions_config_json = '{}', draft_config_json = NULL, updated_at = ? WHERE id = ?`
+              ).bind(nowIso, activeVer.id).run();
+            }
+            if (body.resetAllVariants !== false) {
+              for (const vr of variantsList) {
+                const vCfg = safeJsonParse(vr.configuration_json, {});
+                delete vCfg.visibility;
+                delete vCfg.actions;
+                await env.DB.prepare(
+                  `UPDATE template_relationship_variants SET visibility_json = '{}', actions_json = '[]', draft_configuration_json = NULL, configuration_json = ?, lock_version = COALESCE(lock_version, 1) + 1, updated_at = ? WHERE id = ?`
+                ).bind(JSON.stringify(vCfg), nowIso, vr.id).run();
+              }
+            }
+          } else {
+            const normRel = normalizeRelationshipIdentifier(scope);
+            const targetSlug = normRel ? normRel.slug : scope.toLowerCase();
+            const targetVar = variantsList.find(v => v.relationship_slug === targetSlug || v.id === scope || v.variant_slug === scope);
+            if (targetVar) {
+              const vCfg = safeJsonParse(targetVar.configuration_json, {});
+              delete vCfg.visibility;
+              delete vCfg.actions;
+              await env.DB.prepare(
+                `UPDATE template_relationship_variants SET visibility_json = '{}', actions_json = '[]', draft_configuration_json = NULL, configuration_json = ?, lock_version = COALESCE(lock_version, 1) + 1, updated_at = ? WHERE id = ?`
+              ).bind(JSON.stringify(vCfg), nowIso, targetVar.id).run();
+            }
+          }
+
+          const refreshedTpl = await env.DB.prepare('SELECT * FROM templates WHERE id = ? LIMIT 1').bind(template.id).first();
+          const refreshedVer = activeVer ? await env.DB.prepare('SELECT * FROM template_versions WHERE id = ? LIMIT 1').bind(activeVer.id).first() : null;
+          const effective = resolveEffectiveTemplateConfiguration({
+            template: refreshedTpl || template,
+            templateVersion: refreshedVer || {},
+            variant: null,
+            relationshipSlug: scope === 'all' ? 'general' : scope,
+            useDraft: false,
+            isAdminView: true
+          });
+
+          response = jsonSuccess({
+            reset: true,
+            scope,
+            templateId: template.id,
+            lockVersion: nextLock,
+            visibilityConfig: {},
+            actionsConfig: {},
+            publishedConfig: {
+              visibilityConfig: {},
+              actionsConfig: {},
+              variantOverrides: {}
+            },
+            effective
+          }, 200, {}, requestId);
+        } else if ((method === 'POST' || method === 'PUT') && !isResetRoute) {
+          const body = await request.json().catch(() => ({}));
+          const shouldPublish = isPublishRoute || Boolean(body.publish || body.mode === 'publish');
+          const currentLock = Number(template.lock_version || activeVer?.lock_version || 1);
+
+          if (body.lockVersion !== undefined && Number(body.lockVersion) !== currentLock) {
+            return applySecurityHeaders(
+              jsonError('CONCURRENCY_CONFLICT', 'This template configuration was modified by another administrator. Please reload before saving.', 409, {
+                currentLockVersion: currentLock,
+                submittedLockVersion: Number(body.lockVersion)
+              }),
+              request, env
+            );
+          }
+
+          const existingVis = safeJsonParse(activeVer?.visibility_config_json || template.visibility_config_json, {});
+          const existingAct = safeJsonParse(activeVer?.actions_config_json || template.actions_config_json, {});
+          const existingDraft = safeJsonParse(activeVer?.draft_config_json || template.draft_config_json, {}) || {};
+
+          const submittedScope = String(body.scope || body.relationship || 'all').trim();
+          let nextVis = body.visibilityConfig !== undefined
+            ? body.visibilityConfig
+            : (shouldPublish && existingDraft.visibility ? existingDraft.visibility : existingVis);
+          let nextAct = body.actionsConfig !== undefined
+            ? body.actionsConfig
+            : (shouldPublish && existingDraft.actions ? existingDraft.actions : existingAct);
+          let nextVarOverrides = body.variantOverrides !== undefined
+            ? body.variantOverrides
+            : (shouldPublish && existingDraft.variants ? existingDraft.variants : {});
+
+          // If single-relationship payload was submitted with body.visibility / body.actions
+          if (submittedScope !== 'all' && (body.visibility !== undefined || body.actions !== undefined)) {
+            nextVarOverrides = {
+              ...nextVarOverrides,
+              [submittedScope]: {
+                ...(nextVarOverrides[submittedScope] || {}),
+                ...(body.visibility !== undefined ? { visibility: body.visibility } : {}),
+                ...(body.actions !== undefined ? { actions: body.actions } : {})
+              }
+            };
+          } else if (submittedScope === 'all') {
+            if (body.visibility !== undefined && body.visibilityConfig === undefined) nextVis = body.visibility;
+            if (body.actions !== undefined && body.actionsConfig === undefined) nextAct = body.actions;
+          }
+
+          const validation = validateAdminTemplateConfiguration({
+            manifest: {
+              sections: body.sections || manifestSections,
+              actions: body.actionsList || manifestActions,
+              fields: manifestFields
+            },
+            visibilityConfig: nextVis,
+            actionsConfig: nextAct,
+            variantOverrides: nextVarOverrides
+          });
+
+          const nowIso = new Date().toISOString();
+          const draftSnapshot = {
+            visibility: nextVis,
+            actions: nextAct,
+            variants: nextVarOverrides,
+            updatedAt: nowIso,
+            updatedBy: user.id || 'admin'
+          };
+
+          if (!validation.valid) {
+            // Preserve original draft in draft_config_json so admin does not lose work, and NEVER publish invalid config!
+            const hasPriorDraft = existingDraft && (existingDraft.visibility || existingDraft.actions || existingDraft.variants);
+            if (body.preserveDraftOnFailure !== false && !hasPriorDraft) {
+              try {
+                await env.DB.prepare(`UPDATE templates SET draft_config_json = ?, updated_at = ? WHERE id = ?`).bind(JSON.stringify(draftSnapshot), nowIso, template.id).run();
+                if (activeVer) {
+                  await env.DB.prepare(`UPDATE template_versions SET draft_config_json = ?, updated_at = ? WHERE id = ?`).bind(JSON.stringify(draftSnapshot), nowIso, activeVer.id).run();
+                }
+              } catch (_) {}
+            }
+            return applySecurityHeaders(
+              jsonError('UTP_CONFIG_VALIDATION_FAILED', validation.errors[0]?.message || 'Configuration validation failed.', 400, {
+                valid: false,
+                publishable: false,
+                draftPreserved: body.preserveDraftOnFailure !== false,
+                errors: validation.errors,
+                warnings: validation.warnings,
+                issues: validation.issues
+              }),
+              request, env
+            );
+          }
+
+          const nextLock = currentLock + 1;
+          let publishedVersionId = activeVer ? activeVer.id : `tv_${template.id}_v1`;
+          let publishedVersionNumber = activeVer ? Number(activeVer.version_number || 1) : 1;
+
+          if (!shouldPublish) {
+            // Save as Draft only
+            await env.DB.prepare(
+              `UPDATE templates SET draft_config_json = ?, lock_version = ?, updated_at = ? WHERE id = ?`
+            ).bind(JSON.stringify(draftSnapshot), nextLock, nowIso, template.id).run();
+            if (activeVer) {
+              await env.DB.prepare(
+                `UPDATE template_versions SET draft_config_json = ?, lock_version = ?, updated_at = ? WHERE id = ?`
+              ).bind(JSON.stringify(draftSnapshot), nextLock, nowIso, activeVer.id).run();
+            }
+          } else {
+            // Publish Configuration: check if existing wishes reference current version
+            let wishesOnVersion = 0;
+            try {
+              const wCount = await env.DB.prepare(
+                `SELECT COUNT(*) as cnt FROM wishes WHERE (template_id = ? OR template_id = ?) AND status = 'published'`
+              ).bind(template.id, template.slug || template.id).first();
+              wishesOnVersion = Number(wCount?.cnt || 0);
+            } catch (_) {}
+
+            if (wishesOnVersion > 0) {
+              const newSnap = await createNewTemplateVersion(env, template.id, {
+                sections: body.sections || manifestSections,
+                actions: body.actionsList || manifestActions,
+                visibilityConfig: nextVis,
+                actionsConfig: nextAct
+              }, user);
+              if (newSnap) {
+                publishedVersionId = newSnap.id;
+                publishedVersionNumber = newSnap.versionNumber;
+              }
+            }
+
+            await env.DB.prepare(
+              `UPDATE templates SET
+                 sections = COALESCE(?, sections),
+                 actions_json = COALESCE(?, actions_json),
+                 visibility_config_json = ?,
+                 actions_config_json = ?,
+                 draft_config_json = NULL,
+                 lock_version = ?,
+                 updated_at = ?
+               WHERE id = ?`
+            ).bind(
+              body.sections ? JSON.stringify(body.sections) : null,
+              body.actionsList ? JSON.stringify(body.actionsList) : null,
+              JSON.stringify(nextVis || {}),
+              JSON.stringify(nextAct || {}),
+              nextLock,
+              nowIso,
+              template.id
+            ).run();
+
+            if (activeVer) {
+              await env.DB.prepare(
+                `UPDATE template_versions SET
+                   sections = COALESCE(?, sections),
+                   actions_json = COALESCE(?, actions_json),
+                   visibility_config_json = ?,
+                   actions_config_json = ?,
+                   draft_config_json = NULL,
+                   lock_version = ?,
+                   updated_at = ?
+                 WHERE id = ?`
+              ).bind(
+                body.sections ? JSON.stringify(body.sections) : null,
+                body.actionsList ? JSON.stringify(body.actionsList) : null,
+                JSON.stringify(nextVis || {}),
+                JSON.stringify(nextAct || {}),
+                nextLock,
+                nowIso,
+                publishedVersionId
+              ).run();
+            }
+
+            // Persist relationship-specific overrides to template_relationship_variants
+            if (nextVarOverrides && typeof nextVarOverrides === 'object') {
+              for (const [relKey, vOver] of Object.entries(nextVarOverrides)) {
+                if (!vOver || typeof vOver !== 'object') continue;
+                const normRel = normalizeRelationshipIdentifier(relKey);
+                const slugTarget = normRel ? normRel.slug : relKey.toLowerCase();
+                const matchVar = variantsList.find(v =>
+                  v.relationship_slug === slugTarget ||
+                  v.relationship_id === relKey ||
+                  v.variant_slug === relKey ||
+                  v.id === relKey
+                );
+                if (matchVar) {
+                  const vCfg = safeJsonParse(matchVar.configuration_json, {});
+                  if (vOver.visibility !== undefined) vCfg.visibility = vOver.visibility;
+                  if (vOver.actions !== undefined) vCfg.actions = vOver.actions;
+                  await env.DB.prepare(
+                    `UPDATE template_relationship_variants SET
+                       configuration_json = ?,
+                       visibility_json = ?,
+                       actions_json = ?,
+                       draft_configuration_json = NULL,
+                       lock_version = COALESCE(lock_version, 1) + 1,
+                       updated_at = ?
+                     WHERE id = ?`
+                  ).bind(
+                    JSON.stringify(vCfg),
+                    JSON.stringify(vCfg.visibility || {}),
+                    JSON.stringify(Array.isArray(vCfg.actions) ? vCfg.actions : Object.entries(vCfg.actions || {}).map(([id, a]) => ({ id, ...a }))),
+                    nowIso,
+                    matchVar.id
+                  ).run();
+                }
+              }
+            }
+          }
+
+          const updatedTpl = await env.DB.prepare('SELECT * FROM templates WHERE id = ? LIMIT 1').bind(template.id).first();
+          const updatedVer = await env.DB.prepare('SELECT * FROM template_versions WHERE id = ? LIMIT 1').bind(publishedVersionId).first();
+          const updatedVarRows = await env.DB.prepare('SELECT * FROM template_relationship_variants WHERE (template_id = ? OR template_version_id = ?) AND is_latest = 1').bind(template.id, publishedVersionId).all();
+          const updatedVars = updatedVarRows.results || [];
+          const selectedVar = submittedScope !== 'all'
+            ? updatedVars.find(v => v.relationship_slug === submittedScope || v.id === submittedScope || v.variant_slug === submittedScope) || null
+            : null;
+
+          const effective = resolveEffectiveTemplateConfiguration({
+            template: updatedTpl || template,
+            templateVersion: updatedVer || activeVer || {},
+            variant: selectedVar,
+            relationshipSlug: selectedVar ? selectedVar.relationship_slug : (submittedScope === 'all' ? 'general' : submittedScope),
+            useDraft: !shouldPublish,
+            isAdminView: true
+          });
+
+          response = jsonSuccess({
+            saved: true,
+            published: shouldPublish,
+            hasUnpublishedDraft: !shouldPublish,
+            mode: shouldPublish ? 'published' : 'draft',
+            templateId: template.id,
+            versionId: publishedVersionId,
+            publishedVersionId,
+            versionNumber: publishedVersionNumber,
+            lockVersion: nextLock,
+            publishedConfig: {
+              visibilityConfig: shouldPublish ? nextVis : existingVis,
+              actionsConfig: shouldPublish ? nextAct : existingAct,
+              variantOverrides: nextVarOverrides
+            },
+            visibilityConfig: nextVis,
+            actionsConfig: nextAct,
+            variantOverrides: nextVarOverrides,
+            effective,
+            warnings: validation.warnings
+          }, 200, {}, requestId);
+        }
       }
 
       // 13. Template Fields Registry API

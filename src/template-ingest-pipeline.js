@@ -31,7 +31,8 @@ import {
 } from './template-protocol-schema.js';
 import {
   validateUtpManifest,
-  normalizeManifestToUtp
+  normalizeManifestToUtp,
+  validateAdminTemplateConfiguration
 } from './template-protocol-validator.js';
 import {
   buildVariantRecordFromUtpDeclaration,
@@ -1150,10 +1151,19 @@ export async function ensureTemplateIngestionSchema(db, force = false) {
 
   await reconcileColumns("templates", [
     { name: "variants_json", def: "TEXT DEFAULT '[]'" },
-    { name: "has_variants", def: "INTEGER DEFAULT 0" }
+    { name: "has_variants", def: "INTEGER DEFAULT 0" },
+    { name: "actions_json", def: "TEXT DEFAULT '[]'" },
+    { name: "visibility_config_json", def: "TEXT DEFAULT '{}'" },
+    { name: "actions_config_json", def: "TEXT DEFAULT '{}'" },
+    { name: "draft_config_json", def: "TEXT DEFAULT NULL" },
+    { name: "lock_version", def: "INTEGER DEFAULT 1" }
   ]);
   await reconcileColumns("template_versions", [
-    { name: "variants_json", def: "TEXT DEFAULT '[]'" }
+    { name: "variants_json", def: "TEXT DEFAULT '[]'" },
+    { name: "actions_json", def: "TEXT DEFAULT '[]'" },
+    { name: "visibility_config_json", def: "TEXT DEFAULT '{}'" },
+    { name: "actions_config_json", def: "TEXT DEFAULT '{}'" },
+    { name: "draft_config_json", def: "TEXT DEFAULT NULL" }
   ]);
 
   // 8. relationships, template_relationships, template_relationship_variants (Part 48 UTP v1.1.0)
@@ -1237,11 +1247,17 @@ export async function ensureTemplateIngestionSchema(db, force = false) {
     { name: "parent_variant_id", def: "TEXT" },
     { name: "is_latest", def: "INTEGER DEFAULT 1" },
     { name: "lock_version", def: "INTEGER DEFAULT 1" },
-    { name: "published_at", def: "TEXT" }
+    { name: "published_at", def: "TEXT" },
+    { name: "actions_json", def: "TEXT DEFAULT '[]'" },
+    { name: "visibility_json", def: "TEXT DEFAULT '{}'" },
+    { name: "draft_configuration_json", def: "TEXT DEFAULT NULL" }
   ]);
   await execSql("CREATE INDEX IF NOT EXISTS idx_trv_family_status ON template_relationship_variants(template_family_id, status, enabled, is_latest)");
   await execSql("CREATE INDEX IF NOT EXISTS idx_trv_rel_slug ON template_relationship_variants(relationship_slug)");
 
+  await reconcileColumns("wishes", [
+    { name: "published_config_snapshot_json", def: "TEXT DEFAULT NULL" }
+  ]);
   if (typeof db === "object") healedTemplateIngestionDbs.add(db);
   return true;
 }
@@ -1616,6 +1632,56 @@ export async function executeB2TemplateIngestPipeline(params) {
     };
   }
 
+  // 2b-ii. Validate Admin Section Visibility & Button Action Configuration if provided during upload (UTP v1.2.0)
+  const adminCfg = params.adminConfigOverrides || templateMetadata.adminConfigOverrides || {};
+  const uploadVisibilityConfig = (adminCfg.visibilityConfig || templateMetadata.visibilityConfig) || {};
+  const uploadActionsConfig = (adminCfg.actionsConfig || templateMetadata.actionsConfig) || {};
+  const rawUploadVarOverrides = (adminCfg.variantOverrides || templateMetadata.variantOverrides) || {};
+  const uploadVariantOverrides = {};
+  for (const [rk, rv] of Object.entries(rawUploadVarOverrides)) {
+    if (!rv || typeof rv !== "object") continue;
+    uploadVariantOverrides[rk] = {
+      ...rv,
+      visibility: rv.visibility || rv.visibilityOverrides || {},
+      actions: rv.actions || {}
+    };
+  }
+
+  if (
+    Object.keys(uploadVisibilityConfig).length > 0 ||
+    Object.keys(uploadActionsConfig).length > 0 ||
+    Object.keys(uploadVariantOverrides).length > 0
+  ) {
+    const entryObj = extracted.files.get(extracted.entryFile);
+    const entryHtmlText = entryObj ? new TextDecoder('utf-8').decode(entryObj.content) : '';
+    const adminConfigCheck = validateAdminTemplateConfiguration({
+      manifest: utpReport.normalized,
+      visibilityConfig: uploadVisibilityConfig,
+      actionsConfig: uploadActionsConfig,
+      variantOverrides: uploadVariantOverrides,
+      htmlContent: entryHtmlText
+    });
+    if (!adminConfigCheck.valid) {
+      await rollbackPreUploadedImgbbOnly();
+      await updateOperation(UPLOAD_OPERATION_STATE.VALIDATION_FAILED, 'admin_config_validation_failed', 31, {
+        errorCode: 'UTP_CONFIG_VALIDATION_FAILED',
+        errorMessage: adminConfigCheck.errors[0]?.message || 'Invalid section visibility or button action configuration.',
+        validationReport: { ...utpReport, configErrors: adminConfigCheck.errors },
+        isRetryable: true
+      });
+      return {
+        success: false,
+        operationId,
+        error: 'UTP_CONFIG_VALIDATION_FAILED',
+        code: 'UTP_CONFIG_VALIDATION_FAILED',
+        message: adminConfigCheck.errors[0]?.message || 'Invalid section visibility or button action configuration.',
+        issues: adminConfigCheck.issues,
+        errors: adminConfigCheck.errors,
+        validationReport: utpReport
+      };
+    }
+  }
+
   // 2c. Template Code Security & Content Moderation Scan (Part 47)
   const securityAndModReport = await validateTemplateSecurityAndModeration(
     extracted.files,
@@ -1692,6 +1758,10 @@ export async function executeB2TemplateIngestPipeline(params) {
         isRequired: resolvedReq,
         required: resolvedReq,
         category: mf.group || mf.category || htmlDetected?.category || "personal",
+        section: mf.section || mf.sectionId || htmlDetected?.section || null,
+        sectionId: mf.sectionId || mf.section || htmlDetected?.sectionId || null,
+        subsection: mf.subsection || mf.subsectionId || htmlDetected?.subsection || null,
+        subsectionId: mf.subsectionId || mf.subsection || htmlDetected?.subsectionId || null,
         binding: mf.binding || { target: "text", selector: "[data-wm-field='" + fKey + "']" },
         options: mf.options || null,
         visibleIf: mf.visibleIf || null,
@@ -1926,6 +1996,9 @@ export async function executeB2TemplateIngestPipeline(params) {
     fields: mergedFields,
     capabilities: utpReport.normalized?.capabilities || templateMetadata.capabilities || {},
     sections: utpReport.normalized?.sections || templateMetadata.sections || [],
+    actions: utpReport.normalized?.actions || templateMetadata.actions || [],
+    visibilityConfig: uploadVisibilityConfig,
+    actionsConfig: uploadActionsConfig,
     relationships: utpReport.normalized?.relationships || [],
     storageKeys: keys,
     validationReport: utpReport,
@@ -2276,8 +2349,17 @@ export async function executeB2TemplateIngestPipeline(params) {
     const declaredValidVariants = Array.isArray(utpReport.variants?.validVariants)
       ? utpReport.variants.validVariants
       : [];
-    const registeredVariantRecords = declaredValidVariants.map((normVar, idx) =>
-      buildVariantRecordFromUtpDeclaration({ ...normVar, sortOrder: normVar.sortOrder || (idx + 1) }, {
+    const registeredVariantRecords = declaredValidVariants.map((normVar, idx) => {
+      const vOverride = uploadVariantOverrides[normVar.relationship] || uploadVariantOverrides[normVar.slug] || uploadVariantOverrides[normVar.id] || {};
+      const mergedVar = {
+        ...normVar,
+        sortOrder: normVar.sortOrder || (idx + 1),
+        visibility: { ...(normVar.visibility || {}), ...(vOverride.visibility || {}) },
+        actions: vOverride.actions
+          ? (Array.isArray(vOverride.actions) ? vOverride.actions : Object.entries(vOverride.actions).map(([id, a]) => ({ id, ...a })))
+          : (normVar.actions || [])
+      };
+      return buildVariantRecordFromUtpDeclaration(mergedVar, {
         templateId,
         templateFamilyId,
         versionId,
@@ -2287,8 +2369,8 @@ export async function executeB2TemplateIngestPipeline(params) {
         b2MediaUrlByRelPath,
         fallbackThumbnail: resolvedThumbnail,
         nowIso
-      })
-    );
+      });
+    });
     const publicAvailableVariants = filterPublicAvailableVariants(
       registeredVariantRecords.map(vr => ({ ...vr, status: 'published' }))
     );
@@ -2418,15 +2500,18 @@ export async function executeB2TemplateIngestPipeline(params) {
           id, name, slug, description, category, relationships, tags,
           type, tier, price, is_premium, is_published, status, featured,
           placement, thumbnail, preview_images, capabilities, detected_fields,
-          sections, features, theme, folder, entry_file, variants_json, has_variants, created_at, updated_at
+          sections, actions_json, visibility_config_json, actions_config_json, features, theme, folder, entry_file, variants_json, has_variants, created_at, updated_at
         ) VALUES (
           ?, ?, ?, ?, ?, ?, '[]',
           '3D Interactive', ?, ?, ?, ?, ?, ?,
           99, ?, ?, ?, ?,
-          ?, ?, '{}', ?, ?, ?, ?, ?, ?
+          ?, ?, ?, ?, ?, '{}', ?, ?, ?, ?, ?, ?
         )
         ON CONFLICT(id) DO UPDATE SET
           sections = excluded.sections,
+          actions_json = excluded.actions_json,
+          visibility_config_json = excluded.visibility_config_json,
+          actions_config_json = excluded.actions_config_json,
           features = excluded.features,
           relationships = excluded.relationships,
           variants_json = excluded.variants_json,
@@ -2464,6 +2549,9 @@ export async function executeB2TemplateIngestPipeline(params) {
         JSON.stringify(utpReport.normalized?.capabilities || templateMetadata.capabilities || {}),
         JSON.stringify(mergedFields || []),
         JSON.stringify(utpReport.normalized?.sections || templateMetadata.sections || []),
+        JSON.stringify(utpReport.normalized?.actions || templateMetadata.actions || []),
+        JSON.stringify(uploadVisibilityConfig || {}),
+        JSON.stringify(uploadActionsConfig || {}),
         JSON.stringify(utpReport.normalized || {}),
         familySlug,
         extracted.entryFile,
@@ -2501,6 +2589,7 @@ export async function executeB2TemplateIngestPipeline(params) {
           source_zip_storage_key, runtime_root_storage_key, manifest_storage_key,
           schema_hash, runtime_hash, source_zip_hash, package_fingerprint,
           storage_provider, storage_bucket, storage_metadata_json,
+          sections, fields_json, actions_json, visibility_config_json, actions_config_json, manifest_json,
           status, created_at, created_by
         ) VALUES (
           ?, ?, ?, ?, ?,
@@ -2508,10 +2597,17 @@ export async function executeB2TemplateIngestPipeline(params) {
           ?, ?, ?,
           ?, ?, ?, ?,
           'b2', ?, ?,
+          ?, ?, ?, ?, ?, ?,
           ?, ?, ?
         )
         ON CONFLICT(id) DO UPDATE SET
           status = excluded.status,
+          sections = excluded.sections,
+          fields_json = excluded.fields_json,
+          actions_json = excluded.actions_json,
+          visibility_config_json = excluded.visibility_config_json,
+          actions_config_json = excluded.actions_config_json,
+          manifest_json = excluded.manifest_json,
           storage_metadata_json = excluded.storage_metadata_json
       `).bind(
         versionId,
@@ -2540,6 +2636,12 @@ export async function executeB2TemplateIngestPipeline(params) {
           imgbbImages: manifestPayload.imgbbImages,
           b2MediaAssets: manifestPayload.b2MediaAssets
         }),
+        JSON.stringify(utpReport.normalized?.sections || templateMetadata.sections || []),
+        JSON.stringify(mergedFields || []),
+        JSON.stringify(utpReport.normalized?.actions || templateMetadata.actions || []),
+        JSON.stringify(uploadVisibilityConfig || {}),
+        JSON.stringify(uploadActionsConfig || {}),
+        JSON.stringify(manifestPayload || {}),
         targetVersionStatus,
         nowIso,
         authorId
@@ -2709,13 +2811,13 @@ export async function executeB2TemplateIngestPipeline(params) {
               id, variant_slug, template_id, template_family_id, template_version_id,
               relationship_id, relationship_slug, relationship_label, name, description,
               thumbnail, entry_file, configuration_json, fields_json, sections_json,
-              assets_json, status, enabled, sort_order, is_default,
+              actions_json, visibility_json, assets_json, status, enabled, sort_order, is_default,
               version_number, lock_version, is_latest, published_at, created_at, updated_at
             ) VALUES (
               ?, ?, ?, ?, ?,
               ?, ?, ?, ?, ?,
               ?, ?, ?, ?, ?,
-              ?, ?, ?, ?, ?,
+              ?, ?, ?, ?, ?, ?, ?,
               ?, 1, 1, ?, ?, ?
             )
             ON CONFLICT(id) DO UPDATE SET
@@ -2730,6 +2832,8 @@ export async function executeB2TemplateIngestPipeline(params) {
               configuration_json = excluded.configuration_json,
               fields_json = excluded.fields_json,
               sections_json = excluded.sections_json,
+              actions_json = excluded.actions_json,
+              visibility_json = excluded.visibility_json,
               assets_json = excluded.assets_json,
               status = excluded.status,
               enabled = excluded.enabled,
@@ -2756,6 +2860,8 @@ export async function executeB2TemplateIngestPipeline(params) {
             vr.configuration_json,
             vr.fields_json,
             vr.sections_json,
+            vr.actions_json || '[]',
+            vr.visibility_json || '{}',
             vr.assets_json,
             vr.status,
             vr.enabled,
@@ -2933,6 +3039,12 @@ export async function executeB2TemplateIngestPipeline(params) {
       fieldsCount: mergedFields.length,
       detectedFields: mergedFields,
       suggestedFields: utpReport.suggestedFields || [],
+      sections: utpReport.confirmedSections || utpReport.normalized?.sections || [],
+      suggestedSections: utpReport.suggestedSections || [],
+      actions: utpReport.confirmedActions || utpReport.normalized?.actions || [],
+      suggestedActions: utpReport.suggestedActions || [],
+      visibilityConfig: uploadVisibilityConfig,
+      actionsConfig: uploadActionsConfig,
       imgbbImages: manifestPayload.imgbbImages,
       b2MediaAssets: manifestPayload.b2MediaAssets,
       storageProvider: 'b2'

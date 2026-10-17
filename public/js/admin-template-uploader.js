@@ -6,6 +6,28 @@ let suggestedDynamicFields = []; // Undeclared HTML/media fields awaiting admin 
 let currentParsedManifest = null;
 let currentUtpValidationIssues = [];
 let currentDetectedVariantsReport = null;
+let uploadUtpConfigState = {
+  activeScope: "all", // "all" or relationshipSlug
+  sections: [],
+  actions: [],
+  visibilityConfig: {},
+  actionsConfig: {},
+  variantOverrides: {},
+  validationErrors: []
+};
+let editUtpConfigState = {
+  templateId: null,
+  activeScope: "all", // "all" or relationshipSlug
+  lockVersion: 1,
+  manifestSections: [],
+  manifestActions: [],
+  visibilityConfig: {},
+  actionsConfig: {},
+  variantOverrides: {},
+  variants: [],
+  hasDraft: false,
+  validationErrors: []
+};
 let customCoverThumbnail = null;
 let customCoverThumbnailIsManual = false;
 let firstFoundImageRelPath = "";
@@ -901,6 +923,8 @@ function scanDynamicFields(html) {
   detectedDynamicFields = Array.from(confirmedMap.values());
   suggestedDynamicFields = Array.from(suggestedMap.values());
   renderDetectedFieldsBadges();
+  discoverUploadUtpV12SectionsAndActions(html);
+  renderUploadUtpV12ConfigPanel();
 }
 
 function guessFieldMeta(key, html) {
@@ -1259,6 +1283,14 @@ function renderLiveSandboxPreview() {
   indexContent = indexContent.replace(/\{\{\s*custom_message\s*\}\}/g, "May this special day bring you magical memories and endless joy!");
 
   iframe.srcdoc = indexContent;
+  iframe.onload = function() {
+    try {
+      const doc = iframe.contentDocument || (iframe.contentWindow && iframe.contentWindow.document);
+      if (doc && typeof applyUtpV12StateToPreviewIframe === "function") {
+        applyUtpV12StateToPreviewIframe(doc, uploadUtpConfigState);
+      }
+    } catch (_) {}
+  };
   setTimeout(() => setSandboxViewport(currentSandboxViewportMode), 30);
 }
 
@@ -1490,7 +1522,11 @@ async function deployUploadedTemplate(publishImmediately = true) {
       preUploadedImgbbMap,
       skipServerImgbbRetry: Boolean(imageRelPaths.length > 0 && Object.keys(preUploadedImgbbMap).length === 0),
       capabilities: currentParsedManifest?.capabilities || {},
-      sections: currentParsedManifest?.sections || [],
+      sections: (uploadUtpConfigState.sections && uploadUtpConfigState.sections.length > 0) ? uploadUtpConfigState.sections : (currentParsedManifest?.sections || []),
+      actions: (uploadUtpConfigState.actions && uploadUtpConfigState.actions.length > 0) ? uploadUtpConfigState.actions : (currentParsedManifest?.actions || []),
+      visibilityConfig: uploadUtpConfigState.visibilityConfig || {},
+      actionsConfig: uploadUtpConfigState.actionsConfig || {},
+      variantOverrides: uploadUtpConfigState.variantOverrides || {},
       publishImmediately: shouldPublish,
       autoPublish: shouldPublish,
       isPublished: shouldPublish
@@ -1602,7 +1638,11 @@ async function deployUploadedTemplate(publishImmediately = true) {
           });
         } catch (_) {}
       }
-      if (data && data.code === "UTP_VALIDATION_FAILED") {
+      if (data && (data.code === "UTP_VALIDATION_FAILED" || data.code === "UTP_CONFIG_VALIDATION_FAILED")) {
+        if (Array.isArray(data.errors)) {
+          uploadUtpConfigState.validationErrors = data.errors.map(e => e.message || String(e));
+          renderUploadUtpV12ConfigPanel();
+        }
         if (data.variantReport) {
           const reportEl = document.getElementById("admin-variant-discovery-report");
           if (reportEl) reportEl.outerHTML = renderAdminVariantUploadReportHtml(data.variantReport, true);
@@ -2431,6 +2471,7 @@ window.openEditTemplateModal = async function(templateId) {
     }
   });
 
+  await loadEditTemplateUtpV12Config(templateId, tpl);
   const modal = document.getElementById('edit-template-modal');
   if (modal) modal.classList.remove('hidden');
 };
@@ -2441,7 +2482,7 @@ window.closeEditTemplateModal = function() {
   currentEditingTemplateId = null;
 };
 
-window.saveTemplateEdits = async function() {
+window.saveTemplateEdits = async function(publishChanges = true) {
   if (!currentEditingTemplateId) return;
 
   const btn = document.getElementById('btn-save-tpl-edits');
@@ -2518,20 +2559,68 @@ window.saveTemplateEdits = async function() {
       }
     }
 
-    if (window.templateRepository && typeof window.templateRepository.update === 'function') {
-      await window.templateRepository.update(updatePayload);
-    } else {
-      const res = await fetch('/api/templates/update', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(updatePayload)
-      });
-      const data = await res.json();
-      if (!data.success) throw new Error(data.message || 'Update failed');
+    // First save/publish UTP v1.2.0 Section Visibility & Button Action Configuration to /api/templates/:id/config
+    const cfgEndpoint = publishChanges
+      ? `/api/templates/${encodeURIComponent(currentEditingTemplateId)}/config/publish`
+      : `/api/templates/${encodeURIComponent(currentEditingTemplateId)}/config`;
+    const cfgRes = await fetch(cfgEndpoint, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      credentials: 'include',
+      body: JSON.stringify({
+        publish: Boolean(publishChanges),
+        mode: publishChanges ? 'publish' : 'draft',
+        lockVersion: editUtpConfigState.lockVersion,
+        sections: editUtpConfigState.manifestSections,
+        actionsList: editUtpConfigState.manifestActions,
+        visibilityConfig: editUtpConfigState.visibilityConfig,
+        actionsConfig: editUtpConfigState.actionsConfig,
+        variantOverrides: editUtpConfigState.variantOverrides
+      })
+    });
+    const cfgData = await cfgRes.json().catch(() => ({}));
+    if (!cfgRes.ok || cfgData.success === false) {
+      const errList = Array.isArray(cfgData.errors)
+        ? cfgData.errors.map(e => e.message || String(e))
+        : [cfgData.error?.message || cfgData.message || 'Configuration validation failed'];
+      editUtpConfigState.validationErrors = errList;
+      renderEditUtpV12ConfigPanel();
+      throw new Error(errList.join('\n'));
+    }
+    if (cfgData.data?.lockVersion || cfgData.lockVersion) {
+      editUtpConfigState.lockVersion = cfgData.data?.lockVersion || cfgData.lockVersion;
     }
 
-    closeEditTemplateModal();
-    showToast(`🎉 Template "${name}" updated successfully!`);
+    updatePayload.sections = editUtpConfigState.manifestSections;
+    updatePayload.actions = editUtpConfigState.manifestActions;
+    updatePayload.visibilityConfig = editUtpConfigState.visibilityConfig;
+    updatePayload.actionsConfig = editUtpConfigState.actionsConfig;
+    updatePayload.variantOverrides = editUtpConfigState.variantOverrides;
+    if (!publishChanges) {
+      updatePayload.status = 'draft';
+      updatePayload.isPublished = false;
+    }
+
+    const res = await fetch('/api/templates/update', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      credentials: 'include',
+      body: JSON.stringify(updatePayload)
+    });
+    const data = await res.json().catch(() => ({}));
+    if (!res.ok || data.success === false) {
+      throw new Error(data.error?.message || data.message || 'Update failed');
+    }
+
+    if (publishChanges) {
+      closeEditTemplateModal();
+      showToast(`🎉 Template "${name}" configuration published!`);
+    } else {
+      editUtpConfigState.hasDraft = true;
+      editUtpConfigState.validationErrors = [];
+      renderEditUtpV12ConfigPanel();
+      showToast(`💾 Draft configuration saved for "${name}"!`);
+    }
     await loadDynamicTemplates();
   } catch (err) {
     alert('Failed to save changes: ' + err.message);
@@ -4064,3 +4153,588 @@ if (typeof window !== 'undefined' && typeof window.addEventListener === 'functio
     });
   }
 }
+
+
+// ============================================================================
+// PART 49: UTP v1.2.0 Admin Section/Subsection Visibility & Button/Action Studio
+// ============================================================================
+
+function normalizeClientSectionNode(s, idx = 0, depth = 1, parentId = null) {
+  if (typeof s === "string") {
+    const id = s.trim();
+    return {
+      id,
+      label: id.replace(/_/g, " ").replace(/\b\w/g, c => c.toUpperCase()),
+      defaultEnabled: true,
+      toggleable: true,
+      required: false,
+      order: idx + 1,
+      depth,
+      parentId,
+      subsections: []
+    };
+  }
+  if (!s || typeof s !== "object") return null;
+  const id = String(s.id || s.key || "").trim();
+  const req = Boolean(s.required);
+  const subs = Array.isArray(s.subsections)
+    ? s.subsections.map((sub, subIdx) => normalizeClientSectionNode(sub, subIdx, depth + 1, id)).filter(Boolean)
+    : [];
+  return {
+    id,
+    label: String(s.label || s.name || id.replace(/_/g, " ").replace(/\b\w/g, c => c.toUpperCase())).trim(),
+    defaultEnabled: req ? true : (s.defaultEnabled !== false && s.enabled !== false && s.isEnabled !== false),
+    toggleable: req ? false : (s.toggleable !== false),
+    required: req,
+    order: s.order || (idx + 1),
+    depth,
+    parentId,
+    emptyParentPolicy: s.emptyParentPolicy || "collapse",
+    fields: Array.isArray(s.fields) ? s.fields : [],
+    actions: Array.isArray(s.actions) ? s.actions : [],
+    subsections: subs
+  };
+}
+
+function normalizeClientActionNode(a, idx = 0) {
+  if (!a || typeof a !== "object") return null;
+  const id = String(a.id || a.key || a.actionId || "").trim();
+  if (!id) return null;
+  const type = String(a.type || a.actionType || "section").toLowerCase().trim();
+  const label = String(a.label !== undefined ? a.label : (a.defaultLabel !== undefined ? a.defaultLabel : id.replace(/_/g, " ").replace(/\b\w/g, c => c.toUpperCase()))).trim();
+  const target = String(a.target !== undefined ? a.target : (a.destination !== undefined ? a.destination : (a.url !== undefined ? a.url : (a.defaultTarget || "")))).trim();
+  return {
+    id,
+    label,
+    defaultLabel: String(a.defaultLabel !== undefined ? a.defaultLabel : label).trim(),
+    type,
+    defaultType: a.defaultType || type,
+    target,
+    defaultTarget: String(a.defaultTarget !== undefined ? a.defaultTarget : target).trim(),
+    sectionId: a.sectionId || a.section || null,
+    editableLabel: a.editableLabel !== false,
+    configurable: a.configurable !== false,
+    relationshipSpecific: a.relationshipSpecific !== false,
+    required: Boolean(a.required),
+    defaultEnabled: a.defaultEnabled !== false && a.enabled !== false,
+    openInNewTab: a.openInNewTab !== undefined ? Boolean(a.openInNewTab) : (type === "external_url"),
+    fallbackBehavior: a.fallbackBehavior || "hide",
+    order: a.order || (idx + 1)
+  };
+}
+
+function discoverUploadUtpV12SectionsAndActions(html) {
+  const manifest = currentParsedManifest || {};
+  const rawSections = Array.isArray(manifest.sections)
+    ? manifest.sections
+    : (manifest.template && Array.isArray(manifest.template.sections) ? manifest.template.sections : []);
+  const rawActions = Array.isArray(manifest.actions)
+    ? manifest.actions
+    : (manifest.template && Array.isArray(manifest.template.actions) ? manifest.template.actions : []);
+
+  const normSections = rawSections.map((s, idx) => normalizeClientSectionNode(s, idx, 1, null)).filter(Boolean);
+  const seenSecIds = new Set();
+  const walkMarkSeen = (list) => {
+    list.forEach(s => {
+      seenSecIds.add(s.id);
+      if (Array.isArray(s.subsections)) walkMarkSeen(s.subsections);
+    });
+  };
+  walkMarkSeen(normSections);
+
+  const normActions = rawActions.map((a, idx) => normalizeClientActionNode(a, idx)).filter(Boolean);
+  const seenActIds = new Set(normActions.map(a => a.id));
+
+  if (html && typeof html === "string") {
+    const secRegex = /<([a-zA-Z0-9-]+)([^>]*?\bdata-wm-section\s*=\s*["']([^"']+)["'][^>]*)>/gi;
+    let m;
+    while ((m = secRegex.exec(html)) !== null) {
+      const sId = m[3].trim();
+      if (sId && !seenSecIds.has(sId)) {
+        seenSecIds.add(sId);
+        const lblMatch = m[2].match(/data-wm-label\s*=\s*["']([^"']+)["']/i);
+        normSections.push(normalizeClientSectionNode({
+          id: sId,
+          label: lblMatch ? lblMatch[1].trim() : sId.replace(/_/g, " ").replace(/\b\w/g, c => c.toUpperCase()),
+          defaultEnabled: true,
+          toggleable: true
+        }, normSections.length, 1, null));
+      }
+    }
+
+    const actRegex = /<([a-zA-Z0-9-]+)([^>]*?\bdata-wm-(?:action|button)\s*=\s*["']([^"']+)["'][^>]*)>([\s\S]*?)<\/\1>/gi;
+    while ((m = actRegex.exec(html)) !== null) {
+      const aId = m[3].trim();
+      if (aId && !seenActIds.has(aId)) {
+        seenActIds.add(aId);
+        const attrs = m[2] || "";
+        const innerText = (m[4] || "").replace(/<[^>]+>/g, "").trim();
+        const typeM = attrs.match(/data-wm-action-type\s*=\s*["']([^"']+)["']/i);
+        const targetM = attrs.match(/data-wm-action-target\s*=\s*["']([^"']+)["']/i) || attrs.match(/\bhref\s*=\s*["']([^"']+)["']/i);
+        const rawTarget = targetM ? targetM[1].trim() : "";
+        let inferredType = typeM ? typeM[1].toLowerCase().trim() : "section";
+        if (!typeM) {
+          if (rawTarget.startsWith("https://") || rawTarget.startsWith("http://")) inferredType = "external_url";
+          else if (rawTarget.includes("customize")) inferredType = "customizer";
+          else if (rawTarget.startsWith("/")) inferredType = "internal_url";
+        }
+        normActions.push(normalizeClientActionNode({
+          id: aId,
+          label: innerText || aId.replace(/_/g, " ").replace(/\b\w/g, c => c.toUpperCase()),
+          type: inferredType,
+          target: rawTarget.startsWith("#") && inferredType === "section" ? rawTarget.slice(1) : rawTarget
+        }, normActions.length));
+      }
+    }
+  }
+
+  const varOverrides = {};
+  if (Array.isArray(manifest.variants)) {
+    manifest.variants.forEach(rv => {
+      if (!rv || typeof rv !== "object") return;
+      const relSlug = String(rv.relationship || rv.slug || "").toLowerCase().trim();
+      if (!relSlug) return;
+      const vis = (rv.visibility && typeof rv.visibility === "object") ? { ...rv.visibility } : {};
+      const acts = {};
+      if (Array.isArray(rv.actions)) {
+        rv.actions.forEach(va => {
+          if (va && va.id) acts[va.id] = { ...va };
+        });
+      } else if (rv.actions && typeof rv.actions === "object") {
+        Object.assign(acts, rv.actions);
+      }
+      varOverrides[relSlug] = { visibility: vis, actions: acts };
+    });
+  }
+
+  uploadUtpConfigState = {
+    activeScope: "all",
+    sections: normSections,
+    actions: normActions,
+    visibilityConfig: {},
+    actionsConfig: {},
+    variantOverrides: varOverrides,
+    validationErrors: []
+  };
+}
+
+function evaluateClientSectionTree(sections, tplVis, varVis, isSingleRelScope, parentEnabled = true) {
+  return (sections || []).map(sec => {
+    const isReq = Boolean(sec.required) || sec.toggleable === false;
+    const defVal = isReq ? true : (sec.defaultEnabled !== false);
+    const hasTpl = Object.prototype.hasOwnProperty.call(tplVis || {}, sec.id);
+    const tplVal = hasTpl ? Boolean(tplVis[sec.id]) : undefined;
+    const hasVar = isSingleRelScope && Object.prototype.hasOwnProperty.call(varVis || {}, sec.id);
+    const varVal = hasVar ? Boolean(varVis[sec.id]) : undefined;
+
+    let ownEnabled = defVal;
+    let badgeText = "Manifest Default";
+    let badgeClass = "bg-surface-container-high text-outline";
+
+    if (isReq) {
+      ownEnabled = true;
+      badgeText = "Required (Locked)";
+      badgeClass = "bg-purple-500/20 text-purple-300";
+    } else if (hasVar) {
+      ownEnabled = varVal;
+      badgeText = "Relationship Override";
+      badgeClass = "bg-pink-500/20 text-pink-300 border border-pink-500/30";
+    } else if (hasTpl) {
+      ownEnabled = tplVal;
+      badgeText = isSingleRelScope ? "Inherited (All Relations)" : "Template-Wide Override";
+      badgeClass = "bg-cyan-500/20 text-cyan-300 border border-cyan-500/30";
+    } else if (isSingleRelScope) {
+      badgeText = "Inherited (Manifest Default)";
+    }
+
+    const parentDisabled = !parentEnabled;
+    const effectiveEnabled = parentDisabled ? false : ownEnabled;
+    if (parentDisabled) {
+      badgeText = "Disabled by Parent Section";
+      badgeClass = "bg-rose-500/20 text-rose-300";
+    }
+
+    const evaluatedSubs = evaluateClientSectionTree(sec.subsections || [], tplVis, varVis, isSingleRelScope, effectiveEnabled);
+    return {
+      ...sec,
+      ownEnabled,
+      effectiveEnabled,
+      parentDisabled,
+      badgeText,
+      badgeClass,
+      subsections: evaluatedSubs
+    };
+  });
+}
+
+function evaluateClientActions(actions, tplActs, varActs, isSingleRelScope, disabledSectionIdsSet) {
+  return (actions || []).map(act => {
+    const tplOv = (tplActs && tplActs[act.id]) || null;
+    const varOv = (isSingleRelScope && act.relationshipSpecific !== false && varActs && varActs[act.id]) ? varActs[act.id] : null;
+
+    let label = act.defaultLabel || act.label;
+    let type = act.defaultType || act.type;
+    let target = act.defaultTarget !== undefined ? act.defaultTarget : act.target;
+    let enabled = act.defaultEnabled !== false;
+    let sourceLabel = "Manifest Default";
+
+    if (tplOv) {
+      if (act.editableLabel !== false && tplOv.label !== undefined) label = tplOv.label;
+      if (act.configurable !== false) {
+        if (tplOv.type !== undefined) type = tplOv.type;
+        if (tplOv.target !== undefined) target = tplOv.target;
+      }
+      if (!act.required && tplOv.enabled !== undefined) enabled = Boolean(tplOv.enabled);
+      sourceLabel = isSingleRelScope ? "Inherited (All Relations)" : "Template-Wide Override";
+    }
+    if (varOv) {
+      if (act.editableLabel !== false && varOv.label !== undefined) label = varOv.label;
+      if (act.configurable !== false) {
+        if (varOv.type !== undefined) type = varOv.type;
+        if (varOv.target !== undefined) target = varOv.target;
+      }
+      if (!act.required && varOv.enabled !== undefined) enabled = Boolean(varOv.enabled);
+      sourceLabel = "Relationship Override";
+    }
+
+    const targetDisabled = type === "section" && target && disabledSectionIdsSet.has(String(target).replace(/^#/, ""));
+    return {
+      ...act,
+      effectiveLabel: label,
+      effectiveType: type,
+      effectiveTarget: target,
+      effectiveEnabled: enabled && !targetDisabled,
+      targetDisabled,
+      sourceLabel
+    };
+  });
+}
+
+function escapeUtpHtml(str) {
+  return String(str ?? "")
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;")
+    .replace(/"/g, "&quot;");
+}
+
+function renderUtpV12EditorHtml(state, modePrefix) {
+  const isSingleRel = state.activeScope !== "all";
+  const relList = modePrefix === "upload"
+    ? ((currentDetectedVariantsReport && currentDetectedVariantsReport.detectedRelations) || [])
+    : ((state.variants || []).map(v => ({ slug: v.relationshipSlug || v.slug, label: v.label || v.relationshipSlug })));
+
+  const varVis = isSingleRel ? ((state.variantOverrides[state.activeScope] && state.variantOverrides[state.activeScope].visibility) || {}) : {};
+  const varActs = isSingleRel ? ((state.variantOverrides[state.activeScope] && state.variantOverrides[state.activeScope].actions) || {}) : {};
+
+  const evaluatedTree = evaluateClientSectionTree(state.sections || state.manifestSections || [], state.visibilityConfig, varVis, isSingleRel, true);
+  const disabledSet = new Set();
+  const collectDisabled = (nodes) => {
+    nodes.forEach(n => {
+      if (!n.effectiveEnabled) disabledSet.add(n.id);
+      if (Array.isArray(n.subsections)) collectDisabled(n.subsections);
+    });
+  };
+  collectDisabled(evaluatedTree);
+
+  const evaluatedActions = evaluateClientActions(state.actions || state.manifestActions || [], state.actionsConfig, varActs, isSingleRel, disabledSet);
+
+  const renderSectionRowRecursive = (sec, indentLevel = 0) => {
+    const padClass = indentLevel === 0 ? "" : (indentLevel === 1 ? "ml-5 border-l-2 border-purple-500/30 pl-3" : "ml-10 border-l-2 border-pink-500/30 pl-3");
+    const isLocked = sec.required || sec.toggleable === false || sec.parentDisabled;
+    const subRows = (sec.subsections || []).map(sub => renderSectionRowRecursive(sub, indentLevel + 1)).join("");
+    const visSubtext = sec.effectiveEnabled
+      ? "🟢 Visible to Customer & Customizer"
+      : "🔴 Completely Removed from Customer Experience (DOM & Form)";
+    return `
+      <div class="space-y-1.5 ${padClass}">
+        <div class="p-2.5 rounded-xl bg-surface-container border border-purple-500/20 flex flex-wrap items-center justify-between gap-2">
+          <div class="flex items-center gap-2 min-w-0">
+            <span class="material-symbols-outlined text-[16px] ${sec.effectiveEnabled ? 'text-emerald-400' : 'text-rose-400'}">${indentLevel === 0 ? 'view_agenda' : 'subdirectory_arrow_right'}</span>
+            <div>
+              <div class="flex items-center gap-1.5 flex-wrap">
+                <span class="font-bold text-xs text-on-surface">${escapeUtpHtml(sec.label)}</span>
+                <span class="font-mono text-[10px] text-primary">(${escapeUtpHtml(sec.id)})</span>
+                <span class="px-2 py-0.5 rounded-full text-[9px] font-bold ${sec.badgeClass}">${escapeUtpHtml(sec.badgeText)}</span>
+              </div>
+              <div class="text-[10px] text-outline">${visSubtext}</div>
+            </div>
+          </div>
+          <div class="flex items-center gap-2">
+            <label class="inline-flex items-center gap-1.5 ${isLocked ? 'opacity-50 cursor-not-allowed' : 'cursor-pointer'}">
+              <input type="checkbox" ${sec.effectiveEnabled ? 'checked' : ''} ${isLocked ? 'disabled' : ''} onchange="handleUtpV12SectionToggle('${modePrefix}', '${escapeQuotes(sec.id)}', this.checked)" class="rounded text-primary w-4 h-4"/>
+              <span class="text-[11px] font-bold ${sec.effectiveEnabled ? 'text-emerald-300' : 'text-rose-300'}">${sec.effectiveEnabled ? 'Enabled' : 'Disabled'}</span>
+            </label>
+          </div>
+        </div>
+        ${subRows}
+      </div>
+    `;
+  };
+
+  const sectionsHtml = evaluatedTree.length > 0
+    ? evaluatedTree.map(s => renderSectionRowRecursive(s, 0)).join("")
+    : `<div class="p-3 rounded-xl bg-surface-container text-xs text-outline italic">No toggleable sections declared in wishmagic.json or HTML. Legacy template mode active.</div>`;
+
+  const actionsHtml = evaluatedActions.length > 0
+    ? evaluatedActions.map(act => `
+      <div class="p-3 rounded-xl bg-surface-container border border-purple-500/20 space-y-2">
+        <div class="flex flex-wrap items-center justify-between gap-2">
+          <div class="flex items-center gap-2">
+            <span class="material-symbols-outlined text-[16px] text-amber-300">smart_button</span>
+            <span class="font-bold text-xs text-on-surface">${escapeUtpHtml(act.effectiveLabel || act.id)}</span>
+            <span class="font-mono text-[10px] text-primary">[data-wm-action="${escapeUtpHtml(act.id)}"]</span>
+            <span class="px-2 py-0.5 rounded-full text-[9px] font-bold bg-purple-500/20 text-purple-200">${escapeUtpHtml(act.sourceLabel)}</span>
+            ${act.targetDisabled ? '<span class="px-2 py-0.5 rounded-full text-[9px] font-bold bg-amber-500/20 text-amber-300">Target Section Disabled → Auto-Hidden</span>' : ''}
+          </div>
+          <label class="inline-flex items-center gap-1.5 ${act.required ? 'opacity-50 cursor-not-allowed' : 'cursor-pointer'}">
+            <input type="checkbox" ${act.effectiveEnabled ? 'checked' : ''} ${act.required ? 'disabled' : ''} onchange="handleUtpV12ActionChange('${modePrefix}', '${escapeQuotes(act.id)}', 'enabled', this.checked)" class="rounded text-primary w-4 h-4"/>
+            <span class="text-[11px] font-bold">${act.effectiveEnabled ? 'Active' : 'Hidden'}</span>
+          </label>
+        </div>
+        <div class="grid grid-cols-1 sm:grid-cols-3 gap-2 text-xs">
+          <div>
+            <label class="block text-[10px] font-bold uppercase text-outline mb-1">Button Label</label>
+            <input type="text" value="${escapeUtpHtml(act.effectiveLabel)}" ${act.editableLabel === false ? 'disabled' : ''} onchange="handleUtpV12ActionChange('${modePrefix}', '${escapeQuotes(act.id)}', 'label', this.value)" class="w-full bg-surface-container-lowest text-on-surface px-2.5 py-1.5 rounded-lg border border-purple-500/30 text-xs font-semibold"/>
+          </div>
+          <div>
+            <label class="block text-[10px] font-bold uppercase text-outline mb-1">Action Type</label>
+            <select ${act.configurable === false ? 'disabled' : ''} onchange="handleUtpV12ActionChange('${modePrefix}', '${escapeQuotes(act.id)}', 'type', this.value)" class="w-full bg-surface-container-lowest text-on-surface px-2.5 py-1.5 rounded-lg border border-purple-500/30 text-xs font-semibold">
+              <option value="section" ${act.effectiveType === 'section' ? 'selected' : ''}>Scroll to Section (section)</option>
+              <option value="customizer" ${act.effectiveType === 'customizer' ? 'selected' : ''}>Open Customizer (customizer)</option>
+              <option value="internal_url" ${act.effectiveType === 'internal_url' ? 'selected' : ''}>Internal WishMagic Route (internal_url)</option>
+              <option value="external_url" ${act.effectiveType === 'external_url' ? 'selected' : ''}>Safe HTTPS External Link (external_url)</option>
+              <option value="modal" ${act.effectiveType === 'modal' ? 'selected' : ''}>Open Template Modal (modal)</option>
+              <option value="none" ${act.effectiveType === 'none' ? 'selected' : ''}>Display Only / No Action (none)</option>
+            </select>
+          </div>
+          <div>
+            <label class="block text-[10px] font-bold uppercase text-outline mb-1">Destination / Target ID</label>
+            <input type="text" value="${escapeUtpHtml(act.effectiveTarget)}" ${act.configurable === false ? 'disabled' : ''} placeholder="e.g. gallery, /customize, https://..." onchange="handleUtpV12ActionChange('${modePrefix}', '${escapeQuotes(act.id)}', 'target', this.value)" class="w-full bg-surface-container-lowest text-on-surface font-mono px-2.5 py-1.5 rounded-lg border border-purple-500/30 text-xs"/>
+          </div>
+        </div>
+      </div>
+    `).join("")
+    : `<div class="p-3 rounded-xl bg-surface-container text-xs text-outline italic">No configurable [data-wm-action] buttons declared in wishmagic.json or HTML.</div>`;
+
+  const errorsBanner = Array.isArray(state.validationErrors) && state.validationErrors.length > 0
+    ? `<div id="${modePrefix}-utp-v12-validation-banner" class="p-3 rounded-xl bg-rose-500/15 border border-rose-500/40 text-rose-200 text-xs space-y-1">
+        <div class="font-bold uppercase tracking-wider text-[10px] text-rose-300">✕ Configuration Validation Errors (Draft Preserved — Fix Before Publishing)</div>
+        ${state.validationErrors.map(e => `<div>• ${escapeUtpHtml(e)}</div>`).join("")}
+      </div>`
+    : "";
+
+  return `
+    <div class="flex flex-wrap items-center justify-between gap-2 pb-2 border-b border-purple-500/20">
+      <div>
+        <h4 class="font-bold text-sm text-on-surface flex items-center gap-1.5">
+          <span class="material-symbols-outlined text-[18px] text-primary">visibility</span>
+          <span>UTP v1.2.0 Section Visibility &amp; Button Action Configuration</span>
+        </h4>
+        <p class="text-[11px] text-on-surface-variant">Configure section/subsection visibility and button destinations for All Relationships or a Single Relationship.</p>
+      </div>
+      <div class="flex flex-wrap items-center gap-2">
+        <select onchange="handleUtpV12ScopeChange('${modePrefix}', this.value)" class="bg-surface-container text-on-surface px-3 py-1.5 rounded-lg border border-purple-500/40 text-xs font-bold">
+          <option value="all" ${state.activeScope === 'all' ? 'selected' : ''}>🌐 ALL RELATIONSHIPS (Template-Wide Default)</option>
+          ${relList.map(r => `<option value="${escapeUtpHtml(r.slug)}" ${state.activeScope === r.slug ? 'selected' : ''}>🎯 ONE RELATIONSHIP: ${escapeUtpHtml(r.label || r.slug)}</option>`).join("")}
+        </select>
+        <button type="button" onclick="previewUtpV12SelectedRelationship('${modePrefix}')" class="px-2.5 py-1.5 rounded-lg bg-primary/20 hover:bg-primary/30 text-primary border border-primary/30 text-[11px] font-bold cursor-pointer">
+          👁️ Preview Scope
+        </button>
+      </div>
+    </div>
+    ${errorsBanner}
+    <div class="space-y-2">
+      <div class="flex items-center justify-between">
+        <span class="text-[11px] font-bold uppercase tracking-wider text-outline">Sections &amp; Nested Subsections (${evaluatedTree.length})</span>
+        <span class="text-[10px] text-outline">Precedence: Platform Required → Single Relationship Override → All Relationships → Manifest Default</span>
+      </div>
+      <div class="space-y-2 max-h-64 overflow-y-auto pr-1">${sectionsHtml}</div>
+    </div>
+    <div class="space-y-2 pt-2 border-t border-purple-500/20">
+      <div class="flex items-center justify-between">
+        <span class="text-[11px] font-bold uppercase tracking-wider text-outline">Configurable Buttons &amp; Links (${evaluatedActions.length})</span>
+        <span class="text-[10px] text-outline">Validated against internal routes, safe HTTPS URLs &amp; active sections</span>
+      </div>
+      <div class="space-y-2 max-h-64 overflow-y-auto pr-1">${actionsHtml}</div>
+    </div>
+  `;
+}
+
+function renderUploadUtpV12ConfigPanel() {
+  const panel = document.getElementById("upload-utp-v12-config-panel");
+  if (!panel) return;
+  panel.innerHTML = renderUtpV12EditorHtml(uploadUtpConfigState, "upload");
+}
+
+function renderEditUtpV12ConfigPanel() {
+  const panel = document.getElementById("edit-utp-v12-config-panel");
+  if (!panel) return;
+  panel.innerHTML = renderUtpV12EditorHtml(editUtpConfigState, "edit");
+}
+
+window.handleUtpV12ScopeChange = function(modePrefix, newScope) {
+  const state = modePrefix === "upload" ? uploadUtpConfigState : editUtpConfigState;
+  state.activeScope = newScope || "all";
+  if (modePrefix === "upload") {
+    renderUploadUtpV12ConfigPanel();
+    renderLiveSandboxPreview();
+  } else {
+    renderEditUtpV12ConfigPanel();
+  }
+};
+
+window.handleUtpV12SectionToggle = function(modePrefix, sectionId, enabled) {
+  const state = modePrefix === "upload" ? uploadUtpConfigState : editUtpConfigState;
+  if (state.activeScope === "all") {
+    state.visibilityConfig = { ...(state.visibilityConfig || {}), [sectionId]: Boolean(enabled) };
+  } else {
+    const curVar = (state.variantOverrides && state.variantOverrides[state.activeScope]) || { visibility: {}, actions: {} };
+    curVar.visibility = { ...(curVar.visibility || {}), [sectionId]: Boolean(enabled) };
+    state.variantOverrides = { ...(state.variantOverrides || {}), [state.activeScope]: curVar };
+  }
+  state.validationErrors = [];
+  if (modePrefix === "upload") {
+    renderUploadUtpV12ConfigPanel();
+    renderLiveSandboxPreview();
+  } else {
+    renderEditUtpV12ConfigPanel();
+  }
+};
+
+window.handleUtpV12ActionChange = function(modePrefix, actionId, prop, value) {
+  const state = modePrefix === "upload" ? uploadUtpConfigState : editUtpConfigState;
+  if (state.activeScope === "all") {
+    const curAct = (state.actionsConfig && state.actionsConfig[actionId]) || { id: actionId };
+    curAct[prop] = value;
+    state.actionsConfig = { ...(state.actionsConfig || {}), [actionId]: curAct };
+  } else {
+    const curVar = (state.variantOverrides && state.variantOverrides[state.activeScope]) || { visibility: {}, actions: {} };
+    const curAct = (curVar.actions && curVar.actions[actionId]) || { id: actionId };
+    curAct[prop] = value;
+    curVar.actions = { ...(curVar.actions || {}), [actionId]: curAct };
+    state.variantOverrides = { ...(state.variantOverrides || {}), [state.activeScope]: curVar };
+  }
+  state.validationErrors = [];
+  if (modePrefix === "upload") {
+    renderUploadUtpV12ConfigPanel();
+    renderLiveSandboxPreview();
+  } else {
+    renderEditUtpV12ConfigPanel();
+  }
+};
+
+function applyUtpV12StateToPreviewIframe(doc, state) {
+  if (!doc) return;
+  const isSingle = state.activeScope !== "all";
+  const varVis = isSingle ? ((state.variantOverrides[state.activeScope] && state.variantOverrides[state.activeScope].visibility) || {}) : {};
+  const varActs = isSingle ? ((state.variantOverrides[state.activeScope] && state.variantOverrides[state.activeScope].actions) || {}) : {};
+  const evalTree = evaluateClientSectionTree(state.sections || state.manifestSections || [], state.visibilityConfig, varVis, isSingle, true);
+  const disabledIds = [];
+  const walk = (nodes) => {
+    nodes.forEach(n => {
+      if (!n.effectiveEnabled) disabledIds.push(n.id);
+      if (Array.isArray(n.subsections)) walk(n.subsections);
+    });
+  };
+  walk(evalTree);
+  const evalActs = evaluateClientActions(state.actions || state.manifestActions || [], state.actionsConfig, varActs, isSingle, new Set(disabledIds));
+
+  // Physical removal of disabled sections & subsections in preview
+  disabledIds.forEach(secId => {
+    doc.querySelectorAll(`[data-wm-section="${secId}"], [data-wm-subsection="${secId}"], #section-${secId}`).forEach(el => el.remove());
+  });
+
+  // Apply button labels & action states in preview
+  evalActs.forEach(act => {
+    doc.querySelectorAll(`[data-wm-action="${act.id}"], [data-wm-button="${act.id}"]`).forEach(el => {
+      if (!act.effectiveEnabled) {
+        if (act.fallbackBehavior === "disable") {
+          el.setAttribute("disabled", "disabled");
+          el.style.opacity = "0.5";
+        } else {
+          el.remove();
+        }
+        return;
+      }
+      if (act.effectiveLabel) el.textContent = act.effectiveLabel;
+    });
+  });
+}
+
+window.previewUtpV12SelectedRelationship = function(modePrefix) {
+  if (modePrefix === "upload") {
+    renderLiveSandboxPreview();
+    if (typeof showToast === "function") showToast("👁️ Refreshed upload sandbox preview for scope: " + uploadUtpConfigState.activeScope);
+  } else if (editUtpConfigState.templateId) {
+    const scope = editUtpConfigState.activeScope;
+    const url = scope && scope !== "all"
+      ? `/template-preview.html?template=${encodeURIComponent(editUtpConfigState.templateId)}&rel=${encodeURIComponent(scope)}`
+      : `/template-preview.html?template=${encodeURIComponent(editUtpConfigState.templateId)}`;
+    window.open(url, "_blank", "noopener,noreferrer");
+  }
+};
+
+async function loadEditTemplateUtpV12Config(templateId, fallbackTpl) {
+  editUtpConfigState = {
+    templateId,
+    activeScope: "all",
+    lockVersion: Number(fallbackTpl?.lockVersion || fallbackTpl?.lock_version || 1),
+    manifestSections: (fallbackTpl?.sections || []).map((s, idx) => normalizeClientSectionNode(s, idx, 1, null)).filter(Boolean),
+    manifestActions: (fallbackTpl?.actions || []).map((a, idx) => normalizeClientActionNode(a, idx)).filter(Boolean),
+    visibilityConfig: fallbackTpl?.visibilityConfig || {},
+    actionsConfig: fallbackTpl?.actionsConfig || {},
+    variantOverrides: {},
+    variants: fallbackTpl?.variants || fallbackTpl?.availableVariants || [],
+    hasDraft: false,
+    validationErrors: []
+  };
+
+  try {
+    const res = await fetch(`/api/templates/${encodeURIComponent(templateId)}/config`, { credentials: "include" });
+    if (res.ok) {
+      const json = await res.json();
+      const data = json.data || json;
+      if (data && data.templateId) {
+        editUtpConfigState.lockVersion = Number(data.lockVersion || 1);
+        editUtpConfigState.manifestSections = (data.manifestSections || []).map((s, idx) => normalizeClientSectionNode(s, idx, 1, null)).filter(Boolean);
+        editUtpConfigState.manifestActions = (data.manifestActions || []).map((a, idx) => normalizeClientActionNode(a, idx)).filter(Boolean);
+        const draft = data.draftConfig;
+        editUtpConfigState.hasDraft = Boolean(draft);
+        editUtpConfigState.visibilityConfig = (draft && draft.visibility) ? { ...(data.visibilityConfig || {}), ...draft.visibility } : (data.visibilityConfig || {});
+        editUtpConfigState.actionsConfig = (draft && draft.actions) ? { ...(data.actionsConfig || {}), ...draft.actions } : (data.actionsConfig || {});
+        editUtpConfigState.variantOverrides = (draft && draft.variants) ? { ...(data.variantOverrides || {}), ...draft.variants } : (data.variantOverrides || {});
+        editUtpConfigState.variants = data.variants || editUtpConfigState.variants;
+      }
+    }
+  } catch (err) {
+    console.warn("[Edit Template Config Load Notice]:", err.message);
+  }
+
+  renderEditUtpV12ConfigPanel();
+}
+
+window.resetEditTemplateUtpConfig = async function() {
+  if (!editUtpConfigState.templateId) return;
+  const scope = editUtpConfigState.activeScope || "all";
+  const scopeLabel = scope === "all" ? "ALL relationships (template-wide)" : `relationship "${scope}"`;
+  if (!confirm(`Reset section visibility and button configurations for ${scopeLabel} back to manifest defaults?`)) {
+    return;
+  }
+  try {
+    const res = await fetch(`/api/templates/${encodeURIComponent(editUtpConfigState.templateId)}/config/reset`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      credentials: "include",
+      body: JSON.stringify({ scope })
+    });
+    const json = await res.json().catch(() => ({}));
+    if (!res.ok || json.success === false) {
+      throw new Error(json.error?.message || json.message || "Reset failed");
+    }
+    await loadEditTemplateUtpV12Config(editUtpConfigState.templateId, null);
+    if (typeof showToast === "function") showToast(`↺ Reset ${scopeLabel} to manifest defaults!`);
+  } catch (err) {
+    alert("Error resetting configuration: " + err.message);
+  }
+};

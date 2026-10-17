@@ -678,7 +678,19 @@
         customIframe.onload = () => {
           try {
             const tplFields = (template && (template.fields || template.detectedFields)) || [];
-            const effectivePayload = { ...normalized };
+            const effCfg = (currentRawWish && currentRawWish.effectiveConfig) || (template && {
+              visibilityMap: template.visibilityMap || {},
+              disabledIds: Array.isArray(template.disabledIds) ? template.disabledIds : [],
+              sections: Array.isArray(template.sections) ? template.sections : [],
+              actions: Array.isArray(template.actions) ? template.actions : []
+            }) || {};
+            const effectivePayload = {
+              ...normalized,
+              visibilityMap: effCfg.visibilityMap || {},
+              disabledIds: Array.isArray(effCfg.disabledIds) ? effCfg.disabledIds : [],
+              sections: Array.isArray(effCfg.sections) ? effCfg.sections : (normalized.sections || []),
+              actions: Array.isArray(effCfg.actions) ? effCfg.actions : []
+            };
             tplFields.forEach(tf => {
               const fKey = tf && (tf.key || tf.id);
               if (fKey && tf.defaultValue !== undefined && tf.defaultValue !== null && String(tf.defaultValue) !== '') {
@@ -693,6 +705,12 @@
             }
             const doc = customIframe.contentDocument || customIframe.contentWindow.document;
             if (doc) {
+              if (window.WishMagicTemplate && typeof window.WishMagicTemplate.removeDisabledContentFromDom === 'function') {
+                window.WishMagicTemplate.removeDisabledContentFromDom(doc, effectivePayload);
+              }
+              if (window.WishMagicTemplate && typeof window.WishMagicTemplate.applyActionsToDom === 'function') {
+                window.WishMagicTemplate.applyActionsToDom(doc, effectivePayload.actions, effectivePayload);
+              }
               Object.keys(effectivePayload).forEach(k => {
                 const v = effectivePayload[k];
                 if (v === undefined || v === null || typeof v === 'object' || String(v).trim() === '') return;
@@ -733,11 +751,19 @@
       }
     }
 
-    // Determine section list & order
-    const orderedSections = getOrderedSections(normalized, template);
+    // Determine section list & order (excluding any admin-disabled sections from the customer experience)
+    const wishEffCfg = (currentRawWish && currentRawWish.effectiveConfig) || (template && {
+      visibilityMap: template.visibilityMap || {},
+      disabledIds: Array.isArray(template.disabledIds) ? template.disabledIds : []
+    }) || {};
+    const wishDisabledSet = new Set(Array.isArray(wishEffCfg.disabledIds) ? wishEffCfg.disabledIds : []);
+    if (wishEffCfg.visibilityMap && typeof wishEffCfg.visibilityMap === 'object') {
+      Object.entries(wishEffCfg.visibilityMap).forEach(([k, v]) => { if (v === false) wishDisabledSet.add(k); });
+    }
+    const orderedSections = getOrderedSections(normalized, template).filter(sec => sec && !wishDisabledSet.has(sec.id));
 
     orderedSections.forEach((sec) => {
-      if (!sec.enabled) return;
+      if (!sec.enabled || wishDisabledSet.has(sec.id)) return;
 
       const secWrapper = document.createElement('section');
       secWrapper.id = `section-${sec.id}`;

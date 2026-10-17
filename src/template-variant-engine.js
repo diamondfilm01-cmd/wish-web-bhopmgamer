@@ -1,19 +1,33 @@
 /**
  * WishMagic Template Family & Relationship Variant Management Engine
- * Part 27 & Part 48: Production-Grade Relationship Variant Resolver,
- * UTP v1.1.0 Multi-Variant Package Discovery, & Visual Configuration
+ * Part 27, Part 48 & Part 49: Production-Grade Relationship Variant Resolver,
+ * UTP v1.2.0 Section/Subsection Visibility Engine, & Action/Button Registry
  * 
  * Capabilities:
  * 1. Template Family & Version reconciliation
  * 2. Many-to-Many Template <-> Relationship bindings
  * 3. Variant Lifecycle States (DRAFT, READY, PUBLISHED, DISABLED, ARCHIVED)
- * 4. Comprehensive Variant Validation (Fields, Sections, Images, Music, Theme, Effects, Animations)
- * 5. Hierarchical Value & Asset Resolvers (Customer Wish CustomData -> Variant Override -> Template Default -> Fallback)
- * 6. Immutable Versioning & Optimistic Concurrency Protection (lock_version)
- * 7. Safe Variant Cloning, Public Tag Filtering, & Archival with Dependency Verification
+ * 4. Comprehensive Variant Validation (Fields, Nested Sections/Subsections, Actions, Images, Music, Theme, Effects, Animations)
+ * 5. Hierarchical Effective Configuration Resolver:
+ *    - Platform-required constraints (required=true / toggleable=false, disabled parent -> disabled children)
+ *    - Published Relationship Variant override
+ *    - Published Template-Wide visibility/action configuration
+ *    - Manifest default
+ * 6. Complete Exclusion of Disabled Content & Fields from Customer Customizer, Preview, and Final Renderer
+ * 7. Immutable Versioning & Optimistic Concurrency Protection (lock_version)
  */
 
-import { normalizeRelationshipIdentifier } from './template-protocol-schema.js';
+import {
+  normalizeRelationshipIdentifier,
+  UTP_SUPPORTED_ACTION_TYPES,
+  UTP_ACTION_FALLBACK_BEHAVIORS,
+  validateActionDestinationUrl
+} from './template-protocol-schema.js';
+import {
+  normalizeSectionEntry,
+  normalizeActionEntry,
+  flattenSectionsTree
+} from './template-protocol-validator.js';
 
 export const VARIANT_STATUS = {
   DRAFT: 'draft',
@@ -55,6 +69,781 @@ export const STANDARD_MESSAGE_FIELDS = [
   'recipient_placeholder',
   'sender_placeholder'
 ];
+
+/**
+ * Escapes HTML special characters in user/admin-supplied button labels to prevent XSS.
+ */
+export function escapeHtmlText(raw = '') {
+  return String(raw ?? '')
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&#39;');
+}
+
+/**
+ * Appends or preserves `template`, `variant`, and `rel` query parameters on internal preview/customizer routes.
+ */
+export function buildContextualInternalUrl(rawTarget = '', context = {}) {
+  const trimmed = String(rawTarget || '').trim();
+  if (!trimmed) return '';
+  const hashIdx = trimmed.indexOf('#');
+  const hashPart = hashIdx !== -1 ? trimmed.slice(hashIdx) : '';
+  const withoutHash = hashIdx !== -1 ? trimmed.slice(0, hashIdx) : trimmed;
+
+  const qIdx = withoutHash.indexOf('?');
+  const pathname = qIdx !== -1 ? withoutHash.slice(0, qIdx) : withoutHash;
+  const searchStr = qIdx !== -1 ? withoutHash.slice(qIdx + 1) : '';
+  const params = new URLSearchParams(searchStr);
+
+  const cleanPath = pathname.toLowerCase().replace(/\/+$/, '') || '/';
+  const isContextualRoute =
+    cleanPath === '/customize' ||
+    cleanPath === '/customize.html' ||
+    cleanPath === '/preview' ||
+    cleanPath === '/template-preview' ||
+    cleanPath === '/template-preview.html';
+
+  if (isContextualRoute && context.preserveRelationshipContext !== false) {
+    const tplSlug = context.templateSlug || context.templateId || '';
+    const varSlug = context.variantSlug || '';
+    const relSlug = context.relationshipSlug || '';
+    if (tplSlug && !params.has('template') && !params.has('id')) {
+      params.set('template', tplSlug);
+    }
+    if (varSlug && !params.has('variant')) {
+      params.set('variant', varSlug);
+    }
+    if (relSlug && relSlug !== 'general' && !params.has('rel') && !params.has('relationship')) {
+      params.set('rel', relSlug);
+    }
+  }
+
+  const finalQuery = params.toString();
+  return `${pathname}${finalQuery ? `?${finalQuery}` : ''}${hashPart}`;
+}
+
+/**
+ * Extracts a normalized boolean visibility map `{ [sectionOrSubsectionId]: boolean }` from any stored object/array
+ */
+export function extractVisibilityMap(source) {
+  const map = {};
+  if (!source) return map;
+  const parsed = typeof source === 'string' ? safeJsonParse(source, {}) : source;
+  if (Array.isArray(parsed)) {
+    const walk = (arr) => {
+      for (const item of arr) {
+        if (!item || typeof item !== 'object') continue;
+        const id = String(item.id || item.key || item.type || '').trim();
+        if (id) {
+          if (typeof item.enabled === 'boolean') map[id] = item.enabled;
+          else if (typeof item.isEnabled === 'boolean') map[id] = item.isEnabled;
+          else if (typeof item.defaultEnabled === 'boolean') map[id] = item.defaultEnabled;
+          else if (item.disabled === true) map[id] = false;
+        }
+        if (Array.isArray(item.subsections)) walk(item.subsections);
+      }
+    };
+    walk(parsed);
+    return map;
+  }
+  if (parsed && typeof parsed === 'object') {
+    const inner = (parsed.visibility && typeof parsed.visibility === 'object' && !Array.isArray(parsed.visibility))
+      ? parsed.visibility
+      : parsed;
+    for (const [k, v] of Object.entries(inner)) {
+      if (k === 'sections' && Array.isArray(v)) {
+        Object.assign(map, extractVisibilityMap(v));
+        continue;
+      }
+      if (typeof v === 'boolean') {
+        map[k] = v;
+      } else if (v && typeof v === 'object' && typeof v.enabled === 'boolean') {
+        map[k] = v.enabled;
+      }
+    }
+  }
+  return map;
+}
+
+/**
+ * Extracts a normalized action override map `{ [actionId]: { id, label?, type?, target?, enabled?, openInNewTab?, fallbackBehavior? } }`
+ */
+export function extractActionsOverrideMap(source) {
+  const map = {};
+  if (!source) return map;
+  const parsed = typeof source === 'string' ? safeJsonParse(source, {}) : source;
+  if (Array.isArray(parsed)) {
+    for (const item of parsed) {
+      if (!item || typeof item !== 'object') continue;
+      const id = String(item.id || item.key || item.actionId || '').trim();
+      if (!id) continue;
+      map[id] = { ...item, id };
+    }
+    return map;
+  }
+  if (parsed && typeof parsed === 'object') {
+    const inner = (parsed.actions && typeof parsed.actions === 'object') ? parsed.actions : parsed;
+    if (Array.isArray(inner)) {
+      return extractActionsOverrideMap(inner);
+    }
+    for (const [k, v] of Object.entries(inner)) {
+      const id = String(k || '').trim();
+      if (!id) continue;
+      if (typeof v === 'string') {
+        map[id] = { id, label: v };
+      } else if (v && typeof v === 'object' && !Array.isArray(v)) {
+        map[id] = { ...v, id };
+      }
+    }
+  }
+  return map;
+}
+
+/**
+ * Authoritative UTP v1.2.0 Effective Configuration Resolver.
+ * Computes the effective section/subsection visibility tree, disabled IDs, filtered fields,
+ * and resolved button/link actions for a template and optional relationship variant.
+ *
+ * Precedence Order (Strict):
+ * 1. Platform-required security & structural constraints:
+ *    - `required: true` or `toggleable: false` -> always `true`
+ *    - Parent section/subsection disabled -> all child/descendant subsections forced `false`
+ * 2. Published relationship-specific override (`variantVisibilityMap[id]`)
+ * 3. Published template-wide visibility setting (`templateWideVisibilityMap[id]`)
+ * 4. Manifest default (`section.defaultEnabled`)
+ */
+export function resolveEffectiveTemplateConfiguration({
+  manifest = null,
+  template = null,
+  templateRecord = null,
+  templateVersion = {},
+  variant = null,
+  variantRecord = null,
+  relationshipSlug = null,
+  useDraft = false,
+  isAdminView = false
+} = {}) {
+  template = template || templateRecord || {};
+  variant = variant || variantRecord || null;
+  const rawManifest = manifest ||
+    (typeof templateVersion.manifest_json === 'string' ? safeJsonParse(templateVersion.manifest_json, null) : templateVersion.manifest_json) ||
+    (typeof template.manifest_json === 'string' ? safeJsonParse(template.manifest_json, null) : template.manifest_json) ||
+    {};
+
+  const parseArrayCol = (val) => {
+    if (!val) return [];
+    if (Array.isArray(val)) return val;
+    if (typeof val === "string") {
+      const p = safeJsonParse(val, []);
+      return Array.isArray(p) ? p : [];
+    }
+    return [];
+  };
+
+  // 1. Canonical base sections tree from manifest / version / template
+  const manifestSecs = parseArrayCol(rawManifest.sections);
+  const verSecs = parseArrayCol(templateVersion.sections).length > 0
+    ? parseArrayCol(templateVersion.sections)
+    : parseArrayCol(templateVersion.sections_json);
+  const tplSecs = parseArrayCol(template.sections).length > 0
+    ? parseArrayCol(template.sections)
+    : parseArrayCol(template.sections_json);
+  const rawBaseSections = manifestSecs.length > 0 ? manifestSecs : (verSecs.length > 0 ? verSecs : tplSecs);
+
+  const normalizedSectionsTree = Array.isArray(rawBaseSections)
+    ? rawBaseSections.map((s, idx) => normalizeSectionEntry(s, idx, 1, null)).filter(Boolean)
+    : [];
+
+  // 2. Canonical base fields from manifest / version / template
+  const manifestFlds = parseArrayCol(rawManifest.fields);
+  const verFlds = parseArrayCol(templateVersion.fields_json).length > 0
+    ? parseArrayCol(templateVersion.fields_json)
+    : parseArrayCol(templateVersion.detected_fields || templateVersion.detectedFields || templateVersion.fields);
+  const tplFlds = parseArrayCol(template.detected_fields || template.detectedFields || template.fields || template.fields_json);
+  const rawBaseFields = manifestFlds.length > 0 ? manifestFlds : (verFlds.length > 0 ? verFlds : tplFlds);
+
+  const baseFieldsList = Array.isArray(rawBaseFields) ? rawBaseFields : [];
+
+  // 3. Canonical base actions from manifest / version / template
+  const rawBaseActions = Array.isArray(rawManifest.actions) && rawManifest.actions.length > 0
+    ? rawManifest.actions
+    : (templateVersion.actions_json
+      ? (typeof templateVersion.actions_json === 'string' ? safeJsonParse(templateVersion.actions_json, []) : templateVersion.actions_json)
+      : (Array.isArray(template.actions)
+        ? template.actions
+        : (typeof template.actions_json === 'string' ? safeJsonParse(template.actions_json, []) : [])));
+
+  const baseActionsList = Array.isArray(rawBaseActions)
+    ? rawBaseActions.map((a, idx) => normalizeActionEntry(a, idx)).filter(Boolean)
+    : [];
+
+  // 4. Extract Template-Wide Visibility & Action Configs (Published or Draft when useDraft=true)
+  const tplDraftConfig = useDraft
+    ? ((typeof templateVersion.draft_config_json === 'string' ? safeJsonParse(templateVersion.draft_config_json, null) : templateVersion.draft_config_json) ||
+       (typeof template.draft_config_json === 'string' ? safeJsonParse(template.draft_config_json, null) : template.draft_config_json) ||
+       null)
+    : null;
+
+  const publishedTplVisibility = {
+    ...extractVisibilityMap(template.visibility_config_json || template.visibilityConfig),
+    ...extractVisibilityMap(templateVersion.visibility_config_json || templateVersion.visibilityConfig)
+  };
+  const templateWideVisibilityMap = (useDraft && tplDraftConfig && tplDraftConfig.visibility)
+    ? { ...publishedTplVisibility, ...extractVisibilityMap(tplDraftConfig.visibility) }
+    : publishedTplVisibility;
+
+  const publishedTplActions = {
+    ...extractActionsOverrideMap(template.actions_config_json || template.actionsConfig),
+    ...extractActionsOverrideMap(templateVersion.actions_config_json || templateVersion.actionsConfig)
+  };
+  const templateWideActionsMap = (useDraft && tplDraftConfig && tplDraftConfig.actions)
+    ? { ...publishedTplActions, ...extractActionsOverrideMap(tplDraftConfig.actions) }
+    : publishedTplActions;
+
+  // 5. Extract Relationship-Specific Variant Visibility & Action Overrides
+  const variantConfig = variant
+    ? (typeof variant.configuration_json === 'string'
+      ? safeJsonParse(variant.configuration_json, {})
+      : (variant.configuration || variant.configuration_json || {}))
+    : {};
+
+  const variantDraftConfig = (useDraft && variant)
+    ? ((typeof variant.draft_configuration_json === 'string' ? safeJsonParse(variant.draft_configuration_json, null) : variant.draft_configuration_json) || null)
+    : null;
+
+  const effectiveRelSlug = relationshipSlug ||
+    (variant && (variant.relationship_slug || variant.relationshipSlug || variant.relationship)) ||
+    variantConfig.relationshipSlug ||
+    variantConfig.relationship ||
+    'general';
+
+  // Also check if template draft has per-variant overrides keyed by relationshipSlug or variantId
+  const draftVariantOverride = (useDraft && tplDraftConfig && tplDraftConfig.variants)
+    ? (tplDraftConfig.variants[effectiveRelSlug] || (variant && tplDraftConfig.variants[variant.id]) || null)
+    : null;
+
+  // Also check manifest variant declaration if variant record doesn't have visibility_json yet
+  const manifestVariant = Array.isArray(rawManifest.variants)
+    ? rawManifest.variants.find(mv =>
+        mv && (
+          mv.relationship === effectiveRelSlug ||
+          mv.slug === effectiveRelSlug ||
+          (variant && (mv.id === variant.id || mv.id === variant.declaredId || mv.slug === variant.variant_slug))
+        )
+      )
+    : null;
+
+  const variantVisibilityMap = {
+    ...(manifestVariant ? extractVisibilityMap(manifestVariant.visibility || manifestVariant.visibilityOverrides || manifestVariant.sections) : {}),
+    ...(variant ? extractVisibilityMap(variant.visibilityOverrides || variant.visibility || variantConfig.visibility || variantConfig.visibilityOverrides || variantConfig.sections) : {}),
+    ...(variant && variant.visibility_json ? extractVisibilityMap(variant.visibility_json) : {}),
+    ...(variantDraftConfig ? extractVisibilityMap(variantDraftConfig.visibility || variantDraftConfig.visibilityOverrides || variantDraftConfig.sections) : {}),
+    ...(draftVariantOverride && (draftVariantOverride.visibility || draftVariantOverride.visibilityOverrides) ? extractVisibilityMap(draftVariantOverride.visibility || draftVariantOverride.visibilityOverrides) : {})
+  };
+
+  const variantActionsMap = {
+    ...(manifestVariant ? extractActionsOverrideMap(manifestVariant.actions) : {}),
+    ...(variant ? extractActionsOverrideMap(variant.actions || variantConfig.actions) : {}),
+    ...(variant && variant.actions_json ? extractActionsOverrideMap(variant.actions_json) : {}),
+    ...(variantDraftConfig ? extractActionsOverrideMap(variantDraftConfig.actions) : {}),
+    ...(draftVariantOverride && draftVariantOverride.actions ? extractActionsOverrideMap(draftVariantOverride.actions) : {})
+  };
+
+  // 6. Recursively evaluate section & subsection visibility with strict parent->child precedence
+  const visibilityMap = {};
+  const disabledIdsSet = new Set();
+  const enabledIdsSet = new Set();
+  const sectionNodeById = new Map();
+
+  const evaluateSectionNode = (sec, parentEffectiveEnabled = true, ancestorIds = []) => {
+    const sId = sec.id;
+    const isRequired = Boolean(sec.required);
+    const isToggleable = isRequired ? false : (sec.toggleable !== false);
+    const manifestDefault = isRequired ? true : (sec.defaultEnabled !== false);
+    const hasTemplateWide = Object.prototype.hasOwnProperty.call(templateWideVisibilityMap, sId);
+    const templateWideValue = hasTemplateWide ? Boolean(templateWideVisibilityMap[sId]) : undefined;
+    const hasVariantOverride = Object.prototype.hasOwnProperty.call(variantVisibilityMap, sId);
+    const variantOverrideValue = hasVariantOverride ? Boolean(variantVisibilityMap[sId]) : undefined;
+
+    let ownEnabled = manifestDefault;
+    let effectiveSource = 'manifest_default';
+    let isOverridden = false;
+    let isInherited = true;
+
+    if (isRequired || !isToggleable) {
+      ownEnabled = true;
+      effectiveSource = 'platform_required';
+      isOverridden = false;
+      isInherited = true;
+    } else if (hasVariantOverride) {
+      ownEnabled = variantOverrideValue;
+      effectiveSource = 'variant_override';
+      isOverridden = true;
+      isInherited = false;
+    } else if (hasTemplateWide) {
+      ownEnabled = templateWideValue;
+      effectiveSource = 'template_wide';
+      isOverridden = templateWideValue !== manifestDefault;
+      isInherited = true;
+    }
+
+    const parentDisabled = !parentEffectiveEnabled;
+    let effectiveEnabled = parentDisabled ? false : ownEnabled;
+    if (parentDisabled) {
+      effectiveSource = 'parent_disabled';
+    }
+
+    const evaluatedSubsections = Array.isArray(sec.subsections)
+      ? sec.subsections.map(sub => evaluateSectionNode(sub, effectiveEnabled, [...ancestorIds, sId]))
+      : [];
+
+    // Empty-parent policy: if a parent section has subsections, emptyParentPolicy === 'collapse',
+    // is not required, has no enabled subsections, and has no direct fields/actions, collapse it automatically
+    let collapsedEmptyParent = false;
+    if (
+      effectiveEnabled &&
+      !isRequired &&
+      evaluatedSubsections.length > 0 &&
+      sec.emptyParentPolicy !== 'keep' &&
+      evaluatedSubsections.every(sub => !sub.effectiveEnabled) &&
+      (!Array.isArray(sec.fields) || sec.fields.length === 0) &&
+      (!Array.isArray(sec.actions) || sec.actions.length === 0)
+    ) {
+      effectiveEnabled = false;
+      collapsedEmptyParent = true;
+      effectiveSource = 'empty_parent_collapsed';
+    }
+
+    visibilityMap[sId] = effectiveEnabled;
+    if (effectiveEnabled) {
+      enabledIdsSet.add(sId);
+    } else {
+      disabledIdsSet.add(sId);
+    }
+
+    const evaluatedNode = {
+      id: sId,
+      key: sId,
+      label: sec.label,
+      order: sec.order,
+      depth: sec.depth || (ancestorIds.length + 1),
+      parentId: sec.parentId || (ancestorIds.length > 0 ? ancestorIds[ancestorIds.length - 1] : null),
+      ancestorIds,
+      required: isRequired,
+      toggleable: isToggleable,
+      emptyParentPolicy: sec.emptyParentPolicy || 'collapse',
+      manifestDefault,
+      templateWideValue,
+      variantOverrideValue,
+      ownEnabled,
+      effectiveEnabled,
+      isEnabled: effectiveEnabled,
+      enabled: effectiveEnabled,
+      effectiveSource,
+      isOverridden,
+      isInherited,
+      parentDisabled,
+      collapsedEmptyParent,
+      fields: Array.isArray(sec.fields) ? [...sec.fields] : [],
+      actions: Array.isArray(sec.actions) ? [...sec.actions] : [],
+      subsections: evaluatedSubsections
+    };
+
+    sectionNodeById.set(sId, evaluatedNode);
+    return evaluatedNode;
+  };
+
+  const adminSectionsTree = normalizedSectionsTree.map(sec => evaluateSectionNode(sec, true, []));
+
+  // Build customer-facing public sections tree (ONLY enabled sections & subsections, no internal override metadata)
+  const buildPublicSectionsTree = (nodes) => {
+    const out = [];
+    for (const n of nodes) {
+      if (!n.effectiveEnabled) continue;
+      out.push({
+        id: n.id,
+        key: n.id,
+        type: n.id,
+        name: n.label,
+        label: n.label,
+        order: n.order,
+        sortOrder: n.order,
+        required: n.required,
+        toggleable: n.toggleable,
+        isEnabled: true,
+        enabled: true,
+        subsections: buildPublicSectionsTree(n.subsections || [])
+      });
+    }
+    return out;
+  };
+  const publicSectionsTree = buildPublicSectionsTree(adminSectionsTree);
+
+  // Map field ID -> most specific owning section/subsection ID from section declarations (deeper subsections win over parent sections)
+  const fieldOwnerMap = {};
+  const fieldOwnerDepthMap = {};
+  for (const [secId, secNode] of sectionNodeById.entries()) {
+    if (Array.isArray(secNode.fields)) {
+      for (const fId of secNode.fields) {
+        const curDepth = fieldOwnerDepthMap[fId] || 0;
+        if ((secNode.depth || 1) >= curDepth) {
+          fieldOwnerMap[fId] = secId;
+          fieldOwnerDepthMap[fId] = secNode.depth || 1;
+        }
+      }
+    }
+  }
+
+  // 7. Resolve and filter fields (completely excluding fields in disabled sections/subsections)
+  const variantFieldsRaw = (variant && typeof variant.fields_json === 'string')
+    ? safeJsonParse(variant.fields_json, [])
+    : (Array.isArray(variantConfig.fields) ? variantConfig.fields : (manifestVariant?.fields || []));
+  const variantMessages = variantConfig.messages || manifestVariant?.messages || {};
+  const variantAssetsRaw = (variant && typeof variant.assets_json === 'string')
+    ? safeJsonParse(variant.assets_json, {})
+    : {};
+  const variantImages = {
+    ...(manifestVariant?.assets || {}),
+    ...variantAssetsRaw,
+    ...(variantConfig.assets || {}),
+    ...(variantConfig.images || {})
+  };
+
+  const mergedAllFields = mergeTemplateAndVariantFields(baseFieldsList, variantFieldsRaw, variantMessages, variantImages);
+  const effectiveFields = [];
+  const excludedFieldIds = [];
+
+  for (const field of mergedAllFields) {
+    const fId = field.id || field.key;
+    if (!fId) continue;
+    if (field.disabled === true || field.enabled === false) {
+      excludedFieldIds.push(fId);
+      continue;
+    }
+    const secId = field.sectionId || field.section || null;
+    const subId = field.subsectionId || field.subsection || null;
+    const mappedOwnerId = fieldOwnerMap[fId] || null;
+
+    const isContainerDisabled =
+      (secId && disabledIdsSet.has(secId)) ||
+      (subId && disabledIdsSet.has(subId)) ||
+      (mappedOwnerId && disabledIdsSet.has(mappedOwnerId));
+
+    if (isContainerDisabled) {
+      excludedFieldIds.push(fId);
+      continue;
+    }
+
+    effectiveFields.push({
+      ...field,
+      sectionId: secId || (mappedOwnerId && sectionNodeById.get(mappedOwnerId)?.depth === 1 ? mappedOwnerId : sectionNodeById.get(mappedOwnerId)?.parentId || null),
+      subsectionId: subId || (mappedOwnerId && sectionNodeById.get(mappedOwnerId)?.depth > 1 ? mappedOwnerId : null)
+    });
+  }
+
+  // Map action ID -> owning section/subsection ID from section declarations
+  const actionOwnerMap = {};
+  for (const [secId, secNode] of sectionNodeById.entries()) {
+    if (Array.isArray(secNode.actions)) {
+      for (const aId of secNode.actions) {
+        actionOwnerMap[aId] = secId;
+      }
+    }
+  }
+
+  // 8. Resolve Actions / Buttons with precedence: Variant Override > Template-Wide Config > Manifest Default
+  const templateSlug = template.slug || rawManifest.template?.slug || rawManifest.template?.id || template.id || '';
+  const variantSlug = (variant && (variant.variant_slug || variant.slug)) || variantConfig.slug || manifestVariant?.slug || effectiveRelSlug;
+
+  const adminActionsList = [];
+  const publicActionsList = [];
+  const publicActionsMap = {};
+
+  for (const baseAct of baseActionsList) {
+    const aId = baseAct.id;
+    if (!aId) continue;
+
+    const tplOverride = templateWideActionsMap[aId] || null;
+    const varOverride = (baseAct.relationshipSpecific !== false && variantActionsMap[aId]) ? variantActionsMap[aId] : null;
+
+    let rawLabel = baseAct.defaultLabel || baseAct.label;
+    let effectiveType = baseAct.type;
+    let effectiveTarget = baseAct.defaultTarget !== undefined ? baseAct.defaultTarget : baseAct.target;
+    let ownEnabled = baseAct.defaultEnabled !== false;
+    let openInNewTab = baseAct.openInNewTab;
+    let fallbackBehavior = baseAct.fallbackBehavior || 'hide';
+    let effectiveSource = 'manifest_default';
+    let isOverridden = false;
+
+    // Apply Template-Wide Override
+    if (tplOverride) {
+      if (baseAct.editableLabel !== false && tplOverride.label !== undefined) {
+        rawLabel = String(tplOverride.label).trim();
+      }
+      if (baseAct.configurable !== false) {
+        if (tplOverride.type !== undefined && UTP_SUPPORTED_ACTION_TYPES.has(String(tplOverride.type).toLowerCase())) {
+          effectiveType = String(tplOverride.type).toLowerCase();
+        }
+        if (tplOverride.target !== undefined) {
+          effectiveTarget = String(tplOverride.target).trim();
+        }
+        if (tplOverride.openInNewTab !== undefined) {
+          openInNewTab = Boolean(tplOverride.openInNewTab);
+        }
+        if (tplOverride.fallbackBehavior !== undefined && UTP_ACTION_FALLBACK_BEHAVIORS.has(String(tplOverride.fallbackBehavior).toLowerCase())) {
+          fallbackBehavior = String(tplOverride.fallbackBehavior).toLowerCase();
+        }
+      }
+      if (!baseAct.required && tplOverride.enabled !== undefined) {
+        ownEnabled = Boolean(tplOverride.enabled);
+      }
+      effectiveSource = 'template_wide';
+    }
+
+    // Apply Relationship Variant Override (if relationshipSpecific !== false)
+    if (varOverride && baseAct.relationshipSpecific !== false) {
+      if (baseAct.editableLabel !== false && varOverride.label !== undefined) {
+        rawLabel = String(varOverride.label).trim();
+      }
+      if (baseAct.configurable !== false) {
+        if (varOverride.type !== undefined && UTP_SUPPORTED_ACTION_TYPES.has(String(varOverride.type).toLowerCase())) {
+          effectiveType = String(varOverride.type).toLowerCase();
+        }
+        if (varOverride.target !== undefined) {
+          effectiveTarget = String(varOverride.target).trim();
+        }
+        if (varOverride.openInNewTab !== undefined) {
+          openInNewTab = Boolean(varOverride.openInNewTab);
+        }
+        if (varOverride.fallbackBehavior !== undefined && UTP_ACTION_FALLBACK_BEHAVIORS.has(String(varOverride.fallbackBehavior).toLowerCase())) {
+          fallbackBehavior = String(varOverride.fallbackBehavior).toLowerCase();
+        }
+      }
+      if (!baseAct.required && varOverride.enabled !== undefined) {
+        ownEnabled = Boolean(varOverride.enabled);
+      }
+      effectiveSource = 'variant_override';
+      isOverridden = true;
+    }
+
+    if (baseAct.required) {
+      ownEnabled = true;
+    }
+
+    // Check if enclosing section is disabled
+    const enclosingSectionId = baseAct.sectionId || actionOwnerMap[aId] || null;
+    const enclosingSectionDisabled = Boolean(enclosingSectionId && disabledIdsSet.has(enclosingSectionId));
+
+    // Check destination validity and target section availability
+    let targetAvailable = true;
+    let targetUnavailableReason = null;
+    let resolvedUrl = '';
+
+    if (effectiveType === 'section') {
+      const targetSecId = String(effectiveTarget || '').replace(/^#/, '').trim();
+      if (!targetSecId || disabledIdsSet.has(targetSecId) || (sectionNodeById.size > 0 && !sectionNodeById.has(targetSecId))) {
+        targetAvailable = false;
+        targetUnavailableReason = disabledIdsSet.has(targetSecId) ? 'target_section_disabled' : 'target_section_missing';
+      } else {
+        resolvedUrl = `#${targetSecId}`;
+      }
+    } else if (effectiveType === 'modal') {
+      const targetModalId = String(effectiveTarget || '').replace(/^#/, '').trim();
+      if (!targetModalId || disabledIdsSet.has(targetModalId)) {
+        targetAvailable = false;
+        targetUnavailableReason = 'target_modal_unavailable';
+      } else {
+        resolvedUrl = `#${targetModalId}`;
+      }
+    } else if (effectiveType === 'customizer') {
+      const baseTarget = effectiveTarget || '/customize';
+      const check = validateActionDestinationUrl('customizer', baseTarget);
+      if (!check.valid) {
+        targetAvailable = false;
+        targetUnavailableReason = check.reason;
+      } else {
+        resolvedUrl = buildContextualInternalUrl(check.normalizedUrl || '/customize', {
+          templateSlug,
+          templateId: template.id,
+          variantSlug,
+          relationshipSlug: effectiveRelSlug,
+          preserveRelationshipContext: baseAct.preserveRelationshipContext !== false
+        });
+      }
+    } else if (effectiveType === 'internal_url') {
+      const check = validateActionDestinationUrl('internal_url', effectiveTarget);
+      if (!check.valid) {
+        targetAvailable = false;
+        targetUnavailableReason = check.reason;
+      } else {
+        resolvedUrl = buildContextualInternalUrl(check.normalizedUrl, {
+          templateSlug,
+          templateId: template.id,
+          variantSlug,
+          relationshipSlug: effectiveRelSlug,
+          preserveRelationshipContext: baseAct.preserveRelationshipContext !== false
+        });
+      }
+    } else if (effectiveType === 'external_url') {
+      const check = validateActionDestinationUrl('external_url', effectiveTarget);
+      if (!check.valid) {
+        targetAvailable = false;
+        targetUnavailableReason = check.reason;
+      } else {
+        resolvedUrl = check.normalizedUrl;
+      }
+    } else if (effectiveType === 'none') {
+      resolvedUrl = '';
+    }
+
+    let effectiveEnabled = ownEnabled && !enclosingSectionDisabled;
+    let fallbackApplied = null;
+    if (effectiveEnabled && !targetAvailable) {
+      fallbackApplied = fallbackBehavior;
+      if (fallbackBehavior === 'hide' || fallbackBehavior === 'disable') {
+        effectiveEnabled = false;
+      }
+    }
+
+    const safeLabel = escapeHtmlText(rawLabel);
+
+    const adminActionRecord = {
+      id: aId,
+      key: aId,
+      label: rawLabel,
+      safeLabel,
+      defaultLabel: baseAct.defaultLabel || baseAct.label,
+      type: effectiveType,
+      defaultType: baseAct.type,
+      target: effectiveTarget,
+      defaultTarget: baseAct.defaultTarget !== undefined ? baseAct.defaultTarget : baseAct.target,
+      resolvedUrl,
+      sectionId: enclosingSectionId,
+      editableLabel: baseAct.editableLabel !== false,
+      configurable: baseAct.configurable !== false,
+      relationshipSpecific: baseAct.relationshipSpecific !== false,
+      required: Boolean(baseAct.required),
+      openInNewTab: Boolean(openInNewTab),
+      preserveRelationshipContext: baseAct.preserveRelationshipContext !== false,
+      fallbackBehavior,
+      ownEnabled,
+      effectiveEnabled,
+      enclosingSectionDisabled,
+      targetAvailable,
+      targetUnavailableReason,
+      fallbackApplied,
+      effectiveSource,
+      isOverridden,
+      order: baseAct.order || 1,
+      binding: baseAct.binding || { selector: `[data-wm-action='${aId}']` }
+    };
+    adminActionsList.push(adminActionRecord);
+
+    const pubAct = {
+      id: aId,
+      label: rawLabel,
+      safeLabel,
+      type: effectiveType,
+      target: effectiveTarget,
+      resolvedUrl,
+      enabled: effectiveEnabled,
+      effectiveEnabled,
+      targetAvailable,
+      targetUnavailableReason,
+      openInNewTab: Boolean(openInNewTab),
+      rel: effectiveType === 'external_url' ? 'noopener noreferrer' : undefined,
+      fallbackBehavior,
+      fallbackApplied,
+      binding: adminActionRecord.binding
+    };
+    if (!enclosingSectionDisabled) {
+      publicActionsList.push(pubAct);
+    }
+    publicActionsMap[aId] = pubAct;
+  }
+
+  const disabledSectionIds = [];
+  const disabledSubsectionIds = [];
+  for (const id of disabledIdsSet) {
+    const node = sectionNodeById.get(id);
+    if (node && node.depth > 1) {
+      disabledSubsectionIds.push(id);
+    } else {
+      disabledSectionIds.push(id);
+    }
+  }
+  const enabledFieldIds = effectiveFields.map(f => f.id || f.key).filter(Boolean);
+
+  return {
+    relationshipSlug: effectiveRelSlug,
+    variantSlug,
+    visibilityMap,
+    disabledIds: Array.from(disabledIdsSet),
+    disabledSectionIds,
+    disabledSubsectionIds,
+    enabledIds: Array.from(enabledIdsSet),
+    sections: publicSectionsTree,
+    ...(isAdminView ? { adminSections: adminSectionsTree } : {}),
+    fields: effectiveFields,
+    enabledFieldIds,
+    excludedFieldIds,
+    disabledFieldIds: excludedFieldIds,
+    actions: publicActionsList,
+    actionsMap: publicActionsMap,
+    ...(isAdminView ? {
+      adminActions: adminActionsList,
+      templateWideVisibility: templateWideVisibilityMap,
+      variantVisibilityOverrides: variantVisibilityMap,
+      templateWideActions: templateWideActionsMap,
+      variantActionOverrides: variantActionsMap
+    } : {})
+  };
+}
+
+/**
+ * Enforces server-side security when a customer creates or updates a wish:
+ * - Strips any client-supplied visibility maps or action overrides
+ * - Removes any customData keys belonging to disabled sections or subsections
+ * - Applies effective default values for enabled fields
+ */
+export function sanitizeCustomerWishDataAgainstConfig(rawCustomData = {}, effectiveConfig = {}) {
+  const clean = {};
+  if (!rawCustomData || typeof rawCustomData !== 'object' || Array.isArray(rawCustomData)) {
+    return clean;
+  }
+
+  const forbiddenMetaKeys = new Set([
+    'visibility',
+    'visibilityMap',
+    'sectionVisibility',
+    'disabledSections',
+    'enabledSections',
+    'disabledIds',
+    'enabledIds',
+    'actions',
+    'actionOverrides',
+    'buttonActions',
+    'adminSections',
+    'adminActions',
+    '__proto__',
+    'constructor',
+    'prototype'
+  ]);
+
+  const excludedFieldsSet = new Set(Array.isArray(effectiveConfig.excludedFieldIds) ? effectiveConfig.excludedFieldIds : []);
+  const disabledSectionIdsSet = new Set(Array.isArray(effectiveConfig.disabledIds) ? effectiveConfig.disabledIds : []);
+
+  for (const [k, v] of Object.entries(rawCustomData)) {
+    if (forbiddenMetaKeys.has(k)) continue;
+    if (excludedFieldsSet.has(k)) continue;
+    if (disabledSectionIdsSet.has(k)) continue;
+    clean[k] = v;
+  }
+
+  return clean;
+}
 
 /**
  * Validates variant configuration against template version capabilities and schema constraints.
@@ -99,18 +888,24 @@ export function validateVariantConfiguration(variant, options = {}) {
     (options.template && options.template.capabilities) || {};
 
   const templateSections = (options.templateVersion && (options.templateVersion.sections || options.templateVersion.sections_json)) ||
-    (options.template && options.template.sections) || [];
+    (options.template && (options.template.sections || options.template.sections_json)) || [];
+  const parsedTemplateSections = typeof templateSections === 'string' ? safeJsonParse(templateSections, []) : templateSections;
+  const flatTplSections = flattenSectionsTree(
+    Array.isArray(parsedTemplateSections)
+      ? parsedTemplateSections.map((s, idx) => normalizeSectionEntry(s, idx))
+      : []
+  );
+  const tplSectionMap = new Map(flatTplSections.map(s => [s.id, s]));
 
-  const allowedSectionsList = Array.isArray(templateSections)
-    ? templateSections.map(s => (typeof s === 'string' ? s.toLowerCase() : (s.key || s.type || s.id || '').toLowerCase()))
-    : [];
+  const allowedSectionsList = flatTplSections.map(s => (s.id || '').toLowerCase());
 
-  // 2. Sections Compatibility Validation (Cannot enable sections not supported by template)
+  // 2. Sections Compatibility Validation (Cannot enable sections not supported by template or disable required sections)
   if (rawConfig.sections && Array.isArray(rawConfig.sections)) {
     for (const sec of rawConfig.sections) {
-      const secKey = (typeof sec === 'string' ? sec : (sec.key || sec.type || sec.id || '')).toLowerCase();
+      const secId = typeof sec === 'string' ? sec : (sec.id || sec.key || sec.type || '');
+      const secKey = secId.toLowerCase();
       if (secKey === 'voicenote' || secKey === 'voice_note' || secKey === 'voice') {
-        if (!templateCapabilities.voiceNote && !templateCapabilities.supportsVoice && !templateCapabilities.voice) {
+        if (!templateCapabilities.voiceNote && !templateCapabilities.supportsVoice && !templateCapabilities.voice && !(Array.isArray(templateCapabilities) && templateCapabilities.includes('voice'))) {
           errors.push('Section "Voice Note" is not supported by this template version and cannot be enabled.');
         }
       }
@@ -121,6 +916,53 @@ export function validateVariantConfiguration(variant, options = {}) {
       }
       if (secKey === 'countdown' && templateCapabilities.countdown === false) {
         errors.push('Section "Countdown Clock" is not supported by this template version.');
+      }
+
+      if (typeof sec === 'object' && sec !== null && (sec.enabled === false || sec.isEnabled === false || sec.defaultEnabled === false)) {
+        const baseSec = tplSectionMap.get(secId);
+        if (baseSec && baseSec.required) {
+          errors.push(`Required section "${baseSec.label || secId}" cannot be disabled.`);
+        } else if (baseSec && baseSec.toggleable === false) {
+          errors.push(`Non-toggleable section "${baseSec.label || secId}" cannot be disabled.`);
+        }
+      }
+    }
+  }
+
+  // 2b. Validate UTP v1.2.0 visibility map overrides if present
+  if (rawConfig.visibility && typeof rawConfig.visibility === 'object' && !Array.isArray(rawConfig.visibility)) {
+    for (const [secId, visVal] of Object.entries(rawConfig.visibility)) {
+      if (typeof visVal !== 'boolean') {
+        errors.push(`Visibility setting for "${secId}" must be a boolean.`);
+        continue;
+      }
+      if (tplSectionMap.size > 0 && !tplSectionMap.has(secId)) {
+        errors.push(`Unknown section or subsection ID "${secId}" in visibility overrides.`);
+        continue;
+      }
+      const baseSec = tplSectionMap.get(secId);
+      if (baseSec && visVal === false) {
+        if (baseSec.required) {
+          errors.push(`Required section "${baseSec.label || secId}" cannot be disabled.`);
+        } else if (baseSec.toggleable === false) {
+          errors.push(`Non-toggleable section "${baseSec.label || secId}" cannot be disabled.`);
+        }
+      }
+    }
+  }
+
+  // 2c. Validate UTP v1.2.0 action overrides if present
+  if (rawConfig.actions) {
+    const actMap = extractActionsOverrideMap(rawConfig.actions);
+    for (const [actId, actObj] of Object.entries(actMap)) {
+      const actType = actObj.type ? String(actObj.type).toLowerCase() : null;
+      if (actType && !UTP_SUPPORTED_ACTION_TYPES.has(actType)) {
+        errors.push(`Action "${actId}" specifies unsupported action type "${actType}".`);
+      } else if ((actType === 'internal_url' || actType === 'customizer' || actType === 'external_url') && actObj.target !== undefined) {
+        const check = validateActionDestinationUrl(actType, actObj.target);
+        if (!check.valid) {
+          errors.push(`Action "${actId}": ${check.reason}`);
+        }
       }
     }
   }
@@ -277,10 +1119,10 @@ export function mergeTemplateAndVariantFields(baseFields = [], variantFields = [
 /**
  * Resolves full hierarchy for a template and relationship variant.
  * Resolution chain:
- * Customer Wish CustomData -> Relationship Variant -> Variant-specific default -> Template default -> No value
+ * Customer Wish CustomData -> Relationship Variant -> Template-wide Config -> Manifest Default -> Fallback
  * 
  * @param {Object} params
- * @returns {Object} Fully resolved configuration ready for marketplace, preview, and customizer
+ * @returns {Object} Fully resolved configuration ready for marketplace, preview, customizer, and final renderer
  */
 export function resolveVariantHierarchy({
   template = {},
@@ -291,7 +1133,9 @@ export function resolveVariantHierarchy({
   templateImages = [],
   musicLibrary = [],
   customData = {},
-  wishCustomData = null
+  wishCustomData = null,
+  useDraft = false,
+  isAdminView = false
 }) {
   if (!variant && variantOverride) variant = variantOverride;
   if ((!customData || Object.keys(customData).length === 0) && wishCustomData && typeof wishCustomData === 'object') {
@@ -300,9 +1144,6 @@ export function resolveVariantHierarchy({
   const versionCapabilities = typeof templateVersion.capabilities === 'string'
     ? safeJsonParse(templateVersion.capabilities, {})
     : (templateVersion.capabilities || (typeof template.capabilities === 'string' ? safeJsonParse(template.capabilities, {}) : template.capabilities) || {});
-  const versionSections = typeof templateVersion.sections === 'string'
-    ? safeJsonParse(templateVersion.sections, [])
-    : (templateVersion.sections || (typeof template.sections === 'string' ? safeJsonParse(template.sections, []) : template.sections) || []);
   const versionTheme = typeof templateVersion.theme === 'string'
     ? safeJsonParse(templateVersion.theme, {})
     : (templateVersion.theme || (typeof template.theme === 'string' ? safeJsonParse(template.theme, {}) : template.theme) || {});
@@ -359,43 +1200,53 @@ export function resolveVariantHierarchy({
     entryFile
   };
 
-  // 2. Resolve Messages & Field Defaults
-  const rawBaseFields = templateVersion.fields_json
-    ? (typeof templateVersion.fields_json === 'string' ? safeJsonParse(templateVersion.fields_json, []) : templateVersion.fields_json)
-    : (template.detectedFields || template.fields || template.defaultConfig || []);
-  const baseFieldsList = Array.isArray(rawBaseFields)
-    ? rawBaseFields
-    : (typeof rawBaseFields === 'string' ? safeJsonParse(rawBaseFields, []) : []);
+  // 2. Resolve UTP v1.2.0 Effective Visibility, Sections, Subsections, Filtered Fields & Actions
+  const effectiveConfig = resolveEffectiveTemplateConfiguration({
+    template,
+    templateVersion,
+    variant,
+    relationshipSlug,
+    useDraft,
+    isAdminView
+  });
 
+  // Sanitize customer customData against effectiveConfig so disabled section fields cannot leak in
+  const safeCustomData = sanitizeCustomerWishDataAgainstConfig(customData, effectiveConfig);
+
+  // 3. Resolve Messages & Field Defaults (only for active/enabled fields)
   const tplMsgMap = {};
-  if (Array.isArray(baseFieldsList)) {
-    baseFieldsList.forEach(f => {
-      const fKey = f && (f.key || f.id || f.field_key);
-      const fDef = f && (f.defaultValue !== undefined ? f.defaultValue : f.default_value);
-      if (fKey && fDef) tplMsgMap[fKey] = fDef;
-    });
-  } else if (typeof rawBaseFields === 'object' && rawBaseFields !== null) {
-    Object.assign(tplMsgMap, rawBaseFields);
+  for (const f of effectiveConfig.fields) {
+    const fKey = f && (f.key || f.id || f.field_key);
+    const fDef = f && (f.defaultValue !== undefined ? f.defaultValue : f.default_value);
+    if (fKey && fDef !== undefined && fDef !== '') tplMsgMap[fKey] = fDef;
   }
 
-  const variantMessages = variantConfig.messages || {};
+  const excludedSet = new Set(effectiveConfig.excludedFieldIds || []);
+  const rawVariantMessages = variantConfig.messages || {};
+  const variantMessages = {};
+  for (const [mk, mv] of Object.entries(rawVariantMessages)) {
+    if (!excludedSet.has(mk)) variantMessages[mk] = mv;
+  }
+
   const messages = {
     ...tplMsgMap,
     ...variantMessages,
-    recipient_name: customData.recipient_name || customData.recipientName || variantMessages.recipient_name || variantMessages.recipient_placeholder || tplMsgMap.recipient_name || 'Special Person',
-    sender_name: customData.sender_name || customData.senderName || variantMessages.sender_name || variantMessages.sender_placeholder || tplMsgMap.sender_name || 'With Love',
-    custom_message: customData.custom_message || customData.message || variantMessages.custom_message || variantMessages.main_message || tplMsgMap.custom_message || template.description || 'Wishing you infinite joy, magic, and smiles!',
-    hero_title: customData.hero_title || variantMessages.hero_title || tplMsgMap.hero_title || `Happy Celebration ✨`,
-    hero_subtitle: customData.hero_subtitle || variantMessages.hero_subtitle || variantMessages.subtitle || tplMsgMap.hero_subtitle || tplMsgMap.subtitle || 'A magical surprise crafted just for you',
-    subtitle: customData.subtitle || variantMessages.subtitle || variantMessages.hero_subtitle || tplMsgMap.subtitle || 'A magical surprise crafted just for you',
-    gallery_heading: customData.gallery_heading || variantMessages.gallery_heading || 'Treasured Memories',
-    memory_heading: customData.memory_heading || variantMessages.memory_heading || 'Moments We Cherish',
-    final_message: customData.final_message || variantMessages.final_message || 'Forever & Always',
-    surprise_text: customData.surprise_text || variantMessages.surprise_text || 'Tap to unbox your magical surprise! 🎁'
+    recipient_name: safeCustomData.recipient_name || safeCustomData.recipientName || variantMessages.recipient_name || variantMessages.recipient_placeholder || tplMsgMap.recipient_name || 'Special Person',
+    sender_name: safeCustomData.sender_name || safeCustomData.senderName || variantMessages.sender_name || variantMessages.sender_placeholder || tplMsgMap.sender_name || 'With Love',
+    custom_message: safeCustomData.custom_message || safeCustomData.message || variantMessages.custom_message || variantMessages.main_message || tplMsgMap.custom_message || template.description || 'Wishing you infinite joy, magic, and smiles!',
+    hero_title: safeCustomData.hero_title || variantMessages.hero_title || tplMsgMap.hero_title || `Happy Celebration ✨`,
+    hero_subtitle: safeCustomData.hero_subtitle || variantMessages.hero_subtitle || variantMessages.subtitle || tplMsgMap.hero_subtitle || tplMsgMap.subtitle || 'A magical surprise crafted just for you',
+    subtitle: safeCustomData.subtitle || variantMessages.subtitle || variantMessages.hero_subtitle || tplMsgMap.subtitle || 'A magical surprise crafted just for you',
+    gallery_heading: safeCustomData.gallery_heading || variantMessages.gallery_heading || 'Treasured Memories',
+    memory_heading: safeCustomData.memory_heading || variantMessages.memory_heading || 'Moments We Cherish',
+    final_message: safeCustomData.final_message || variantMessages.final_message || 'Forever & Always',
+    surprise_text: safeCustomData.surprise_text || variantMessages.surprise_text || 'Tap to unbox your magical surprise! 🎁'
   };
+  for (const exKey of excludedSet) {
+    delete messages[exKey];
+  }
 
-  // 3. Resolve Image Slots with Strict Fallback
-  // Rule: Relationship specific -> Template Default -> null (NEVER silently use an unrelated relationship's photo!)
+  // 4. Resolve Image Slots with Strict Fallback
   const variantAssetsRaw = (variant && typeof variant.assets_json === 'string')
     ? safeJsonParse(variant.assets_json, {})
     : {};
@@ -407,6 +1258,7 @@ export function resolveVariantHierarchy({
   const resolvedImages = {};
 
   for (const slotKey of STANDARD_IMAGE_SLOTS) {
+    if (excludedSet.has(slotKey)) continue;
     let chosenUrl = null;
     let chosenSource = 'none';
 
@@ -454,7 +1306,7 @@ export function resolveVariantHierarchy({
     };
   }
 
-  // 4. Resolve Music Track
+  // 5. Resolve Music Track
   const variantMusic = variantConfig.music || {};
   let defaultMusic = null;
   const availableMusic = [];
@@ -497,15 +1349,15 @@ export function resolveVariantHierarchy({
     defaultMusic = availableMusic.find(m => m.isSuited) || availableMusic[0];
   }
 
-  // 5. Resolve Theme & Visual Palette
+  // 6. Resolve Theme & Visual Palette
   const variantTheme = variantConfig.theme || {};
   const variantPalette = variantConfig.palette || variantTheme.palette || {};
-  const primaryColor = customData.accentColor || customData.accent_color || variantPalette.primary || variantTheme.primary || variantTheme.accentColor || versionTheme.accentColor || '#ec4899';
+  const primaryColor = safeCustomData.accentColor || safeCustomData.accent_color || variantPalette.primary || variantTheme.primary || variantTheme.accentColor || versionTheme.accentColor || '#ec4899';
   const secondaryColor = variantPalette.secondary || variantTheme.secondary || versionTheme.secondaryColor || '#8b5cf6';
   const accentHighlight = variantPalette.accent || variantTheme.accent || '#fbbf24';
 
   const theme = {
-    mood: customData.mood || variantTheme.mood || versionTheme.mood || 'Magical & Celebratory',
+    mood: safeCustomData.mood || variantTheme.mood || versionTheme.mood || 'Magical & Celebratory',
     accentColor: primaryColor,
     primary: primaryColor,
     secondary: secondaryColor,
@@ -518,36 +1370,16 @@ export function resolveVariantHierarchy({
     particles: variantConfig.effects?.particles || 'magic-sparkles'
   };
 
-  // 6. Resolve Sections Ordering & Overrides
-  const variantSectionsRaw = (variant && typeof variant.sections_json === 'string')
-    ? safeJsonParse(variant.sections_json, [])
-    : (Array.isArray(variantConfig.sections) ? variantConfig.sections : []);
-
-  let sections = [];
-  if (Array.isArray(variantSectionsRaw) && variantSectionsRaw.length > 0) {
-    sections = variantSectionsRaw;
-  } else if (Array.isArray(versionSections) && versionSections.length > 0) {
-    sections = versionSections.map((s, idx) => {
-      const name = typeof s === 'string' ? s : (s.label || s.name || s.title || s.type || `Section ${idx + 1}`);
-      const type = typeof s === 'string' ? s.toLowerCase().replace(/\s+/g, '_') : (s.id || s.type || s.key);
-      return {
-        id: (typeof s === 'object' && (s.id || s.key)) ? (s.id || s.key) : `sec_${idx + 1}`,
-        type,
-        name,
-        label: name,
-        required: Boolean(s && s.required),
-        toggleable: s && s.toggleable !== undefined ? Boolean(s.toggleable) : !Boolean(s && s.required),
-        isEnabled: s && s.defaultEnabled !== undefined ? Boolean(s.defaultEnabled) : true,
-        sortOrder: (s && s.order) || idx + 1
-      };
-    });
+  // 7. Resolve Sections & Overrides (Fall back to legacy variant sections if manifest had no sections)
+  let sections = effectiveConfig.sections;
+  if (sections.length === 0 && Object.keys(effectiveConfig.visibilityMap).length === 0) {
+    const variantSectionsRaw = (variant && typeof variant.sections_json === 'string')
+      ? safeJsonParse(variant.sections_json, [])
+      : (Array.isArray(variantConfig.sections) ? variantConfig.sections : []);
+    if (Array.isArray(variantSectionsRaw) && variantSectionsRaw.length > 0) {
+      sections = variantSectionsRaw.filter(s => s && s.isEnabled !== false && s.enabled !== false && s.defaultEnabled !== false);
+    }
   }
-
-  // 7. Resolve Variant-Specific Fields
-  const variantFieldsRaw = (variant && typeof variant.fields_json === 'string')
-    ? safeJsonParse(variant.fields_json, [])
-    : (Array.isArray(variantConfig.fields) ? variantConfig.fields : []);
-  const resolvedFields = mergeTemplateAndVariantFields(baseFieldsList, variantFieldsRaw, variantMessages, variantImages);
 
   // 8. Resolve Effects & Animations
   const effects = {
@@ -584,7 +1416,8 @@ export function resolveVariantHierarchy({
     thumbnail,
     general,
     messages,
-    fields: resolvedFields,
+    fields: effectiveConfig.fields,
+    excludedFieldIds: effectiveConfig.excludedFieldIds,
     images: resolvedImages,
     music: {
       defaultMusic,
@@ -597,6 +1430,15 @@ export function resolveVariantHierarchy({
       accent: accentHighlight
     },
     sections,
+    visibilityMap: effectiveConfig.visibilityMap,
+    disabledIds: effectiveConfig.disabledIds,
+    enabledIds: effectiveConfig.enabledIds,
+    actions: effectiveConfig.actions,
+    actionsMap: effectiveConfig.actionsMap,
+    ...(isAdminView ? {
+      adminSections: effectiveConfig.adminSections,
+      adminActions: effectiveConfig.adminActions
+    } : {}),
     effects,
     animations,
     capabilities: versionCapabilities
@@ -604,7 +1446,7 @@ export function resolveVariantHierarchy({
 }
 
 /**
- * Builds a deterministic D1 `template_relationship_variants` record from a normalized UTP v1.1.0 variant object
+ * Builds a deterministic D1 `template_relationship_variants` record from a normalized UTP v1.1.0 / v1.2.0 variant object
  */
 export function buildVariantRecordFromUtpDeclaration(normVar, context = {}) {
   const ctxObj = (context && typeof context === 'object') ? context : {};
@@ -714,6 +1556,11 @@ export function buildVariantRecordFromUtpDeclaration(normVar, context = {}) {
     accent: normVar.palette?.accent || normVar.theme?.accent || '#fbbf24'
   };
 
+  const visibilityOverrides = (normVar.visibility && typeof normVar.visibility === 'object')
+    ? { ...normVar.visibility }
+    : {};
+  const actionOverrides = Array.isArray(normVar.actions) ? [...normVar.actions] : [];
+
   const configObj = {
     id: stableId,
     declaredVariantId: normVar.id,
@@ -749,6 +1596,8 @@ export function buildVariantRecordFromUtpDeclaration(normVar, context = {}) {
     },
     fields: resolvedFields,
     sections: Array.isArray(normVar.sections) && normVar.sections.length > 0 ? normVar.sections : preset.sections,
+    visibility: visibilityOverrides,
+    actions: actionOverrides,
     effects: {
       ...preset.effects,
       ...(normVar.effects || {})
@@ -778,6 +1627,8 @@ export function buildVariantRecordFromUtpDeclaration(normVar, context = {}) {
     configuration_json: JSON.stringify(configObj),
     fields_json: JSON.stringify(resolvedFields),
     sections_json: JSON.stringify(Array.isArray(normVar.sections) ? normVar.sections : []),
+    actions_json: JSON.stringify(actionOverrides),
+    visibility_json: JSON.stringify(visibilityOverrides),
     assets_json: JSON.stringify(resolvedAssets),
     status: effectiveStatus,
     enabled: enabled ? 1 : 0,
@@ -796,7 +1647,7 @@ export function buildVariantRecordFromUtpDeclaration(normVar, context = {}) {
  * Filters a list of raw variant records down to ONLY public, valid, published, enabled variants
  * and strips any internal storage paths or admin-only metadata.
  */
-export function filterPublicAvailableVariants(rawVariants = []) {
+export function filterPublicAvailableVariants(rawVariants = [], templateContext = null) {
   if (!Array.isArray(rawVariants) || rawVariants.length === 0) return [];
 
   const seenRels = new Set();
@@ -815,7 +1666,7 @@ export function filterPublicAvailableVariants(rawVariants = []) {
 
     const cfg = typeof v.configuration_json === 'string'
       ? safeJsonParse(v.configuration_json, {})
-      : (v.configuration || {});
+      : (v.configuration || v);
 
     const rawRel = v.relationship_slug || v.relationshipSlug || v.relationship || cfg.relationshipSlug || cfg.relationship || v.relationship_id || '';
     const rawLabel = v.relationship_label || v.relationshipLabel || v.relationship_name || cfg.relationshipLabel || cfg.label || null;
@@ -824,6 +1675,28 @@ export function filterPublicAvailableVariants(rawVariants = []) {
 
     if (seenRels.has(relMeta.slug)) continue;
     seenRels.add(relMeta.slug);
+
+    const rawFields = Array.isArray(cfg.fields)
+      ? cfg.fields
+      : (typeof v.fields_json === 'string' ? safeJsonParse(v.fields_json, []) : (Array.isArray(v.fields) ? v.fields : []));
+
+    let publicFields = rawFields.filter(f => f && f.disabled !== true && f.enabled !== false);
+    let publicSections = undefined;
+    let publicActions = undefined;
+
+    if (templateContext && typeof templateContext === 'object') {
+      const eff = resolveEffectiveTemplateConfiguration({
+        template: templateContext.template || templateContext,
+        templateVersion: templateContext.templateVersion || {},
+        variant: v,
+        relationshipSlug: relMeta.slug,
+        useDraft: false,
+        isAdminView: false
+      });
+      publicFields = eff.fields;
+      publicSections = eff.sections;
+      publicActions = eff.actions;
+    }
 
     publicList.push({
       id: v.id || `trv_${relMeta.slug}`,
@@ -850,7 +1723,9 @@ export function filterPublicAvailableVariants(rawVariants = []) {
       } : null,
       messages: cfg.messages || null,
       assets: cfg.assets || cfg.images || null,
-      fields: Array.isArray(cfg.fields) ? cfg.fields : (typeof v.fields_json === 'string' ? safeJsonParse(v.fields_json, []) : [])
+      fields: publicFields,
+      ...(publicSections ? { sections: publicSections } : {}),
+      ...(publicActions ? { actions: publicActions } : {})
     });
   }
 
@@ -1183,6 +2058,8 @@ export function getDefaultRelationshipVariantConfig(templateId, relInput) {
       { id: 'sec_3', type: 'photos', name: 'Photo Highlights', isEnabled: true, sortOrder: 3 },
       { id: 'sec_4', type: 'surprise', name: 'Finale Celebration', isEnabled: true, sortOrder: 4 }
     ],
+    visibility: {},
+    actions: [],
     effects: { ...preset.effects },
     animations: {
       intensity: 'smooth',
