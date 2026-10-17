@@ -4051,6 +4051,77 @@ async function getEffectiveEntitlement(user, env, options = {}) {
 
 const deletedSeedTemplateIds = new Set();
 
+async function getDeletedTemplateIdsSet(env) {
+  const combined = new Set(deletedSeedTemplateIds);
+  if (env && env.DB && typeof env.DB.prepare === "function") {
+    try {
+      await env.DB.prepare(
+        "CREATE TABLE IF NOT EXISTS deleted_templates (id TEXT PRIMARY KEY, slug TEXT, deleted_at TEXT)"
+      ).run().catch(() => {});
+      const rows = await env.DB.prepare("SELECT id, slug FROM deleted_templates").all().catch(() => null);
+      if (rows && Array.isArray(rows.results)) {
+        for (const r of rows.results) {
+          if (r && r.id) {
+            combined.add(String(r.id));
+            deletedSeedTemplateIds.add(String(r.id));
+          }
+          if (r && r.slug) {
+            combined.add(String(r.slug));
+            deletedSeedTemplateIds.add(String(r.slug));
+          }
+        }
+      }
+    } catch (_) {}
+  }
+  return combined;
+}
+
+async function recordPermanentTemplateDeletion(env, templateId, cleanSlug) {
+  const nowIso = new Date().toISOString();
+  const idsToRecord = new Set([templateId, cleanSlug].filter(Boolean));
+  for (const seed of SEED_TEMPLATES) {
+    if (
+      seed.id === templateId ||
+      seed.slug === templateId ||
+      seed.id === cleanSlug ||
+      seed.slug === cleanSlug ||
+      seed.folder === templateId
+    ) {
+      idsToRecord.add(seed.id);
+      if (seed.slug) idsToRecord.add(seed.slug);
+    }
+  }
+  for (const item of idsToRecord) {
+    deletedSeedTemplateIds.add(item);
+  }
+  if (env && env.DB && typeof env.DB.prepare === "function") {
+    try {
+      await env.DB.prepare(
+        "CREATE TABLE IF NOT EXISTS deleted_templates (id TEXT PRIMARY KEY, slug TEXT, deleted_at TEXT)"
+      ).run().catch(() => {});
+      for (const item of idsToRecord) {
+        await env.DB.prepare(
+          "INSERT OR REPLACE INTO deleted_templates (id, slug, deleted_at) VALUES (?, ?, ?)"
+        ).bind(item, cleanSlug || templateId, nowIso).run().catch(() => {});
+      }
+    } catch (_) {}
+  }
+}
+
+async function clearPermanentTemplateDeletion(env, templateId, cleanSlug) {
+  const idsToClear = [templateId, cleanSlug].filter(Boolean);
+  for (const item of idsToClear) {
+    deletedSeedTemplateIds.delete(item);
+  }
+  if (env && env.DB && typeof env.DB.prepare === "function") {
+    try {
+      for (const item of idsToClear) {
+        await env.DB.prepare("DELETE FROM deleted_templates WHERE id = ? OR slug = ?").bind(item, item).run().catch(() => {});
+      }
+    } catch (_) {}
+  }
+}
+
 function computeLifecycle(wish) {
   if (!wish) return 'active';
   if (wish.status === 'expired' || wish.status === 'deleted') return 'expired';
@@ -7477,7 +7548,8 @@ export default {
       // --- Templates API ---
       else if (pathname === '/api/templates' && method === 'GET') {
         const includeDrafts = url.searchParams.get('includeDrafts') === 'true';
-        let templates = SEED_TEMPLATES.filter(t => !deletedSeedTemplateIds.has(t.id)).map(t => ({
+        const deletedSet = await getDeletedTemplateIdsSet(env);
+        let templates = SEED_TEMPLATES.filter(t => !deletedSet.has(t.id) && !deletedSet.has(t.slug)).map(t => ({
           ...t,
           hasVariants: false,
           availableVariants: [],
@@ -7515,7 +7587,7 @@ export default {
               }
             } catch (_) {}
 
-            if (rows.results && rows.results.length > 0) {
+            if (rows && Array.isArray(rows.results)) {
               const dbTemplates = rows.results.map(r => {
                 const entryFile = r.entry_file || 'index.html';
                 const folder = resolveCanonicalTemplateFolder(r.folder, r.slug, r.id);
@@ -7575,10 +7647,12 @@ export default {
                   previewUrl
                 };
               });
-              const seenIds = new Set(dbTemplates.map(t => t.id));
-              const merged = [...dbTemplates];
+              const filteredDbTemplates = dbTemplates.filter(t => !deletedSet.has(t.id) && !deletedSet.has(t.slug));
+              const seenIds = new Set(filteredDbTemplates.map(t => t.id));
+              const seenSlugs = new Set(filteredDbTemplates.map(t => t.slug).filter(Boolean));
+              const merged = [...filteredDbTemplates];
               for (const seed of SEED_TEMPLATES) {
-                if (!seenIds.has(seed.id) && !deletedSeedTemplateIds.has(seed.id)) {
+                if (!seenIds.has(seed.id) && !seenSlugs.has(seed.slug) && !deletedSet.has(seed.id) && !deletedSet.has(seed.slug)) {
                   const seedVars = variantsByTplId.get(seed.id) || [];
                   const seedAvail = filterPublicAvailableVariants(seedVars);
                   const seedRels = seedAvail.map(av => ({
@@ -7706,6 +7780,7 @@ export default {
           ).run();
         }
 
+        await clearPermanentTemplateDeletion(env, id, slug);
         const v1Snapshot = await getOrSeedActiveTemplateVersion(env, id, body);
 
         response = jsonSuccess({
@@ -8659,6 +8734,7 @@ export default {
           return applySecurityHeaders(jsonSuccess(ingestResult, status), request, env);
         }
 
+        await clearPermanentTemplateDeletion(env, ingestResult.templateId, ingestResult.slug);
         response = jsonSuccess(ingestResult, 201, {}, requestId);
       }
 
@@ -9873,7 +9949,14 @@ export default {
         response = jsonSuccess({ deleted: true, versionId, templateId }, 200, {}, requestId);
       }
 
-      else if (pathname.startsWith('/api/templates/') && method === 'DELETE') {
+      else if (
+        pathname.startsWith('/api/templates/') &&
+        !pathname.includes('/relationships/') &&
+        !pathname.includes('/versions/') &&
+        !pathname.includes('/variants/') &&
+        !pathname.includes('/images') &&
+        method === 'DELETE'
+      ) {
         const user = await getAuthenticatedUser(request, env);
         if (!user) return applySecurityHeaders(jsonError('AUTH_REQUIRED', 'Authentication required', 401), request, env);
         const isAdmin = await verifyAdminRole(user, env);
@@ -9882,11 +9965,14 @@ export default {
         const templateId = sanitizeString(decodeURIComponent(pathname.replace('/api/templates/', '').trim()), 60);
         const cleanSlug = templateId.replace(/^tpl_/, '').replace(/_/g, '-');
         const familyId = `fam_${templateId.replace(/^tpl_/, '')}`;
+        const isSeedDemoTemplate = SEED_TEMPLATES.some(
+          s => s.id === templateId || s.slug === templateId || s.id === cleanSlug || s.slug === cleanSlug || s.folder === templateId
+        );
 
         // Safeguard: Only active (within event_date -2d to +2d) or upcoming (future) wishes block deletion.
-        // Expired wishes (past event_date + 2d) do NOT block template deletion.
+        // Expired wishes (past event_date + 2d) and built-in demo templates do NOT block template deletion.
         if (env.DB && typeof env.DB.prepare === 'function') {
-          const force = url.searchParams.get('force') === 'true';
+          const force = url.searchParams.get('force') === 'true' || isSeedDemoTemplate;
           let activeOrFutureCount = 0;
 
           try {
@@ -9943,15 +10029,29 @@ export default {
           await env.DB.prepare('DELETE FROM template_families WHERE id = ? OR slug = ?').bind(familyId, cleanSlug).run().catch(() => {});
         }
 
-        deletedSeedTemplateIds.add(templateId);
+        await recordPermanentTemplateDeletion(env, templateId, cleanSlug);
         inMemoryTemplateVersions.delete(`tv_${templateId}_v1`);
 
         response = jsonSuccess({ deleted: true, templateId }, 200, {}, requestId);
       }
 
-      else if (pathname.startsWith('/api/templates/') && method === 'GET') {
-        const idOrSlug = sanitizeString(pathname.replace('/api/templates/', '').replace('/preview', '').trim(), 60);
-        let template = SEED_TEMPLATES.find(t => t.id === idOrSlug || t.slug === idOrSlug) || null;
+      else if (
+        pathname.startsWith('/api/templates/') &&
+        !pathname.endsWith('/family') &&
+        !pathname.endsWith('/relationships') &&
+        !pathname.includes('/relationships/') &&
+        !pathname.endsWith('/variants') &&
+        !pathname.includes('/variants/') &&
+        !pathname.endsWith('/resolver') &&
+        !pathname.endsWith('/fields') &&
+        !pathname.endsWith('/music') &&
+        !pathname.includes('/versions') &&
+        !pathname.includes('/images') &&
+        method === 'GET'
+      ) {
+        const idOrSlug = sanitizeString(decodeURIComponent(pathname.replace('/api/templates/', '').replace('/preview', '').trim()), 60);
+        const deletedSet = await getDeletedTemplateIdsSet(env);
+        let template = SEED_TEMPLATES.find(t => (t.id === idOrSlug || t.slug === idOrSlug) && !deletedSet.has(t.id) && !deletedSet.has(t.slug)) || null;
 
         if (env.DB && typeof env.DB.prepare === 'function') {
           try {
@@ -10312,9 +10412,13 @@ export default {
       // 1. Template Family Overview & Multi-Relationship Details
       else if (pathname.startsWith('/api/templates/') && pathname.endsWith('/family') && method === 'GET') {
         const parts = pathname.split('/').filter(Boolean);
-        const templateId = sanitizeString(parts[2], 60);
+        const templateId = sanitizeString(decodeURIComponent(parts[2] || ''), 60);
+        const strippedSlug = templateId.replace(/^tpl_/, '').replace(/_/g, '-');
+        const deletedSet = await getDeletedTemplateIdsSet(env);
 
-        let template = SEED_TEMPLATES.find(t => t.id === templateId || t.slug === templateId) || null;
+        let template = SEED_TEMPLATES.find(
+          t => (t.id === templateId || t.slug === templateId || t.slug === strippedSlug) && !deletedSet.has(t.id) && !deletedSet.has(t.slug)
+        ) || null;
         let family = null;
         let activeVersion = null;
         let versions = [];
@@ -10329,16 +10433,22 @@ export default {
 
         if (env.DB && typeof env.DB.prepare === 'function') {
           try {
-            const tRow = await env.DB.prepare('SELECT * FROM templates WHERE id = ? OR slug = ? LIMIT 1').bind(templateId, templateId).first();
+            const tRow = await env.DB.prepare(
+              'SELECT * FROM templates WHERE id = ? OR slug = ? OR slug = ? OR id = ? LIMIT 1'
+            ).bind(templateId, templateId, strippedSlug, `tpl_${strippedSlug}`).first().catch(() => null);
             if (tRow) template = tRow;
 
             const tId = (template && template.id) || templateId;
+            const famLookupId = `fam_${tId}`;
+            const famAltLookupId = `fam_${tId.replace(/^tpl_/, '')}`;
 
             // Template family
-            const famRow = await env.DB.prepare('SELECT * FROM template_families WHERE id = ? OR slug = ? LIMIT 1').bind(`fam_${tId}`, (template && template.slug) || tId).first();
+            const famRow = await env.DB.prepare(
+              'SELECT * FROM template_families WHERE id = ? OR id = ? OR slug = ? LIMIT 1'
+            ).bind(famLookupId, famAltLookupId, (template && template.slug) || strippedSlug).first().catch(() => null);
             family = famRow || {
-              id: `fam_${tId}`,
-              slug: (template && template.slug) || tId,
+              id: famLookupId,
+              slug: (template && template.slug) || strippedSlug,
               name: (template && template.name) || tId,
               description: template ? template.description : '',
               thumbnail: (template && (template.thumbnail || template.previewImage)) || '',
@@ -10352,10 +10462,12 @@ export default {
             };
 
             // Versions
-            const vRows = await env.DB.prepare('SELECT * FROM template_versions WHERE template_id = ? ORDER BY version_number DESC').bind(tId).all();
-            versions = vRows.results || [];
+            const vRows = await env.DB.prepare(
+              'SELECT * FROM template_versions WHERE template_id = ? OR template_family_id = ? ORDER BY version_number DESC'
+            ).bind(tId, famLookupId).all().catch(() => ({ results: [] }));
+            versions = (vRows && vRows.results) || [];
             activeVersion = versions[0] || {
-              id: `tv_${tId}_v1`,
+              id: (template && template.current_version_id) || `tv_${tId}_v1`,
               template_id: tId,
               version_number: 1,
               name: (template && template.name) || tId,
@@ -10363,24 +10475,54 @@ export default {
             };
             const versionId = activeVersion.id;
 
-            // Relationships
-            const relCatalogRows = await env.DB.prepare('SELECT * FROM relationships WHERE status = "active" ORDER BY sort_order ASC').all();
-            const relCatalog = relCatalogRows.results || [];
+            // Relationships catalog (with canonical fallback if relationships table is empty)
+            const relCatalogRows = await env.DB.prepare(
+              'SELECT * FROM relationships WHERE status = "active" ORDER BY sort_order ASC'
+            ).all().catch(() => ({ results: [] }));
+            let relCatalog = (relCatalogRows && relCatalogRows.results) || [];
+            if (relCatalog.length === 0) {
+              relCatalog = [
+                { id: 'rel_best_friend', slug: 'best_friend', name: 'Best Friend', display_name: 'Best Friend Forever', icon: '🌟', category: 'friendship', sort_order: 1 },
+                { id: 'rel_brother', slug: 'brother', name: 'Brother', display_name: 'Brother', icon: '🛡️', category: 'family', sort_order: 2 },
+                { id: 'rel_sister', slug: 'sister', name: 'Sister', display_name: 'Sister', icon: '🌸', category: 'family', sort_order: 3 },
+                { id: 'rel_boyfriend', slug: 'boyfriend', name: 'Boyfriend', display_name: 'Handsome Boyfriend', icon: '💙', category: 'romantic', sort_order: 4 },
+                { id: 'rel_girlfriend', slug: 'girlfriend', name: 'Girlfriend', display_name: 'Dearest Girlfriend', icon: '💖', category: 'romantic', sort_order: 5 },
+                { id: 'rel_husband', slug: 'husband', name: 'Husband', display_name: 'Beloved Husband', icon: '💍', category: 'romantic', sort_order: 6 },
+                { id: 'rel_wife', slug: 'wife', name: 'Wife', display_name: 'Beloved Wife', icon: '👰', category: 'romantic', sort_order: 7 },
+                { id: 'rel_mother', slug: 'mother', name: 'Mother', display_name: 'Dearest Mom', icon: '🌷', category: 'family', sort_order: 8 },
+                { id: 'rel_father', slug: 'father', name: 'Father', display_name: 'Dearest Dad', icon: '👑', category: 'family', sort_order: 9 },
+                { id: 'rel_parents', slug: 'parents', name: 'Parents', display_name: 'Mom & Dad Together', icon: '🌺', category: 'family', sort_order: 10 },
+                { id: 'rel_friend', slug: 'friend', name: 'Friend', display_name: 'Dear Friend', icon: '🤝', category: 'friendship', sort_order: 11 },
+                { id: 'rel_crush', slug: 'crush', name: 'Crush', display_name: 'Secret Crush', icon: '✨', category: 'romantic', sort_order: 12 },
+                { id: 'rel_partner', slug: 'partner', name: 'Partner', display_name: 'Life Partner', icon: '💑', category: 'romantic', sort_order: 13 },
+                { id: 'rel_family', slug: 'family', name: 'Family', display_name: 'Family', icon: '👨‍👩‍👧‍👦', category: 'family', sort_order: 14 }
+              ];
+            }
 
-            const tRelRows = await env.DB.prepare('SELECT * FROM template_relationships WHERE template_id = ?').bind(tId).all();
-            const tRels = tRelRows.results || [];
+            const tRelRows = await env.DB.prepare(
+              'SELECT * FROM template_relationships WHERE template_id = ?'
+            ).bind(tId).all().catch(() => ({ results: [] }));
+            const tRels = (tRelRows && tRelRows.results) || [];
             const bindingMap = new Map(tRels.map(r => [r.relationship_id, r]));
+
+            const parsedTplRels = template
+              ? (Array.isArray(template.relationships) ? template.relationships : safeJsonParse(template.relationships, []))
+              : [];
 
             relationships = relCatalog.map(r => {
               const b = bindingMap.get(r.id);
               let isSupported = false;
               if (b) {
                 isSupported = Boolean(b.enabled);
-              } else if (template && Array.isArray(template.relationships)) {
-                isSupported = template.relationships.some(tag => tag.toLowerCase().includes(r.slug.toLowerCase()) || tag.toLowerCase().includes(r.name.toLowerCase()));
+              } else if (Array.isArray(parsedTplRels) && parsedTplRels.length > 0) {
+                isSupported = parsedTplRels.some(tag => {
+                  const tLow = String(tag || '').toLowerCase();
+                  return tLow.includes(String(r.slug || '').toLowerCase()) || tLow.includes(String(r.name || '').toLowerCase());
+                });
               }
               return {
                 ...r,
+                displayName: r.display_name || r.displayName || r.name,
                 isSupported,
                 sortOrder: b ? b.sort_order : r.sort_order
               };
@@ -10388,25 +10530,67 @@ export default {
 
             // Variants
             const varRows = await env.DB.prepare(
-              `SELECT trv.*, r.slug as relationship_slug, r.name as relationship_name, r.display_name as relationship_display_name, r.icon as relationship_icon
+              `SELECT trv.*, r.slug as r_slug, r.name as r_name, r.display_name as r_display_name, r.icon as r_icon
                FROM template_relationship_variants trv
                LEFT JOIN relationships r ON trv.relationship_id = r.id
                WHERE (trv.template_id = ? OR trv.template_version_id = ?) AND trv.is_latest = 1
                ORDER BY trv.created_at ASC`
-            ).bind(tId, versionId).all();
-            variants = (varRows.results || []).map(v => {
+            ).bind(tId, versionId).all().catch(() => ({ results: [] }));
+            variants = ((varRows && varRows.results) || []).map(v => {
               let parsedCfg = {};
               try { parsedCfg = JSON.parse(v.configuration_json); } catch (e) {}
-              return { ...v, configuration: parsedCfg };
+              return {
+                ...v,
+                relationship_slug: v.relationship_slug || v.r_slug || '',
+                relationship_name: v.relationship_label || v.r_name || v.name || '',
+                relationship_display_name: v.r_display_name || v.relationship_label || v.r_name || v.name || '',
+                relationship_icon: v.r_icon || '✨',
+                configuration: parsedCfg
+              };
             });
 
+            if (variants.length === 0 && template && template.variants_json) {
+              const jsonVars = safeJsonParse(template.variants_json, []);
+              if (Array.isArray(jsonVars) && jsonVars.length > 0) {
+                variants = jsonVars.map(jv => {
+                  const cfg = jv.configuration || {
+                    displayName: jv.name || jv.relationshipLabel || jv.label || '',
+                    messages: jv.messages || {},
+                    theme: jv.theme || {},
+                    assets: jv.assets || {},
+                    fields: jv.fields || [],
+                    sections: jv.sections || []
+                  };
+                  return {
+                    id: jv.id || `trv_${tId}_${jv.relationshipSlug || jv.relationship || 'default'}`,
+                    template_id: tId,
+                    template_version_id: versionId,
+                    relationship_id: jv.relationshipId || jv.relationship_id || `rel_${jv.relationshipSlug || jv.relationship || 'friend'}`,
+                    relationship_slug: jv.relationshipSlug || jv.relationship || '',
+                    relationship_label: jv.relationshipLabel || jv.label || jv.name || '',
+                    name: jv.name || jv.relationshipLabel || '',
+                    status: jv.status || 'published',
+                    enabled: jv.enabled !== false ? 1 : 0,
+                    version_number: 1,
+                    lock_version: 1,
+                    configuration: cfg,
+                    configuration_json: JSON.stringify(cfg)
+                  };
+                });
+              }
+            }
+
             // Fields
-            const fieldRows = await env.DB.prepare('SELECT * FROM template_fields WHERE template_version_id = ? ORDER BY sort_order ASC').bind(versionId).all();
-            fields = fieldRows.results || [];
+            const fieldRows = await env.DB.prepare(
+              'SELECT * FROM template_fields WHERE template_version_id = ? ORDER BY sort_order ASC'
+            ).bind(versionId).all().catch(() => ({ results: [] }));
+            fields = (fieldRows && fieldRows.results) || [];
 
             // Images
-            const imgRows = await env.DB.prepare('SELECT * FROM template_images WHERE (template_id = ? OR template_version_id = ?) AND status = "active"').bind(tId, versionId).all();
-            images = imgRows.results || [];
+            const imgRows = await env.DB.prepare(
+              'SELECT * FROM template_images WHERE (template_id = ? OR template_version_id = ?) AND status = "active"'
+            ).bind(tId, versionId).all().catch(() => ({ results: [] }));
+            images = (imgRows && imgRows.results) || [];
 
             // Music
             const musRows = await env.DB.prepare(
@@ -10414,23 +10598,27 @@ export default {
                FROM template_music tm
                JOIN music_library ml ON tm.music_id = ml.id
                WHERE tm.template_version_id = ? AND tm.enabled = 1`
-            ).bind(versionId).all();
-            musicAssignments = musRows.results || [];
+            ).bind(versionId).all().catch(() => ({ results: [] }));
+            musicAssignments = (musRows && musRows.results) || [];
 
-            const allMusRows = await env.DB.prepare('SELECT * FROM music_library WHERE status = "active" ORDER BY title ASC').all();
-            allMusic = allMusRows.results || [];
+            const allMusRows = await env.DB.prepare(
+              'SELECT * FROM music_library WHERE status = "active" ORDER BY title ASC'
+            ).all().catch(() => ({ results: [] }));
+            allMusic = (allMusRows && allMusRows.results) || [];
 
             // Usage Counts
             const pubWishesRow = await env.DB.prepare(
-              'SELECT COUNT(*) as count FROM wishes WHERE (template_id = ? OR templateId = ?) AND (status = "published" OR active_snapshot_id IS NOT NULL)'
-            ).bind(tId, tId).first();
+              'SELECT COUNT(*) as count FROM wishes WHERE template_id = ? AND status = "published"'
+            ).bind(tId).first().catch(() => null);
             publishedWishesCount = (pubWishesRow && pubWishesRow.count) || 0;
 
             const draftWishesRow = await env.DB.prepare(
-              'SELECT COUNT(*) as count FROM wishes WHERE (template_id = ? OR templateId = ?) AND (status = "draft" OR is_draft = 1)'
-            ).bind(tId, tId).first();
+              'SELECT COUNT(*) as count FROM wishes WHERE template_id = ? AND status = "draft"'
+            ).bind(tId).first().catch(() => null);
             draftWishesCount = (draftWishesRow && draftWishesRow.count) || 0;
-          } catch (e) {}
+          } catch (e) {
+            console.warn('[Template Family Overview Notice]:', e.message);
+          }
         }
 
         if (!template) return applySecurityHeaders(jsonError('NOT_FOUND', 'Template not found', 404), request, env);
@@ -10504,9 +10692,9 @@ export default {
           if (!enabled && body.force !== true) {
             const pubDep = await env.DB.prepare(
               `SELECT COUNT(*) as count FROM wishes w
-               WHERE (w.template_id = ? OR w.templateId = ?) AND (w.status = 'published' OR w.active_snapshot_id IS NOT NULL)
+               WHERE w.template_id = ? AND w.status = 'published'
                AND (w.custom_data LIKE ? OR w.custom_data LIKE ?)`
-            ).bind(templateId, templateId, `%"relationship":"${relId}"%`, `%"relationship_id":"${relId}"%`).first();
+            ).bind(templateId, `%"relationship":"${relId}"%`, `%"relationship_id":"${relId}"%`).first().catch(() => null);
 
             if (pubDep && pubDep.count > 0) {
               return applySecurityHeaders(jsonError('DEPENDENCY_PROTECTED', `Cannot disable relationship. Referenced by ${pubDep.count} published wishes. Use force=true to override.`, 409), request, env);
@@ -10546,9 +10734,9 @@ export default {
           if (!force) {
             const pubDep = await env.DB.prepare(
               `SELECT COUNT(*) as count FROM wishes w
-               WHERE (w.template_id = ? OR w.templateId = ?) AND (w.status = 'published' OR w.active_snapshot_id IS NOT NULL)
+               WHERE w.template_id = ? AND w.status = 'published'
                AND (w.custom_data LIKE ? OR w.custom_data LIKE ?)`
-            ).bind(templateId, templateId, `%"relationship":"${relId}"%`, `%"relationship_id":"${relId}"%`).first();
+            ).bind(templateId, `%"relationship":"${relId}"%`, `%"relationship_id":"${relId}"%`).first().catch(() => null);
 
             if (pubDep && pubDep.count > 0) {
               return applySecurityHeaders(jsonError('DEPENDENCY_PROTECTED', `Cannot remove relationship. Referenced by ${pubDep.count} published wishes. Use force=true to override.`, 409), request, env);
@@ -10591,24 +10779,44 @@ export default {
       // 6. Get Specific Variant Configuration
       else if (pathname.startsWith('/api/templates/') && pathname.includes('/variants/') && !pathname.endsWith('/publish') && !pathname.endsWith('/validate') && !pathname.endsWith('/clone') && !pathname.endsWith('/archive') && method === 'GET') {
         const parts = pathname.split('/').filter(Boolean);
-        const templateId = sanitizeString(parts[2], 60);
-        const relId = sanitizeString(parts[4], 60);
+        const templateId = sanitizeString(decodeURIComponent(parts[2] || ''), 60);
+        const relId = sanitizeString(decodeURIComponent(parts[4] || ''), 60);
 
         let variant = null;
         let relationship = null;
+        const normRel = normalizeRelationshipIdentifier(relId) || {
+          id: relId.startsWith('rel_') ? relId : `rel_${relId}`,
+          slug: relId.replace(/^rel_/, ''),
+          label: relId.replace(/^rel_/, '').replace(/_/g, ' ').replace(/\b\w/g, c => c.toUpperCase()),
+          displayName: relId.replace(/^rel_/, '').replace(/_/g, ' ').replace(/\b\w/g, c => c.toUpperCase()),
+          icon: '✨',
+          category: 'celebration'
+        };
 
         if (env.DB && typeof env.DB.prepare === 'function') {
           try {
-            relationship = await env.DB.prepare('SELECT * FROM relationships WHERE id = ? OR slug = ? LIMIT 1').bind(relId, relId).first();
-            const relKey = relationship ? relationship.id : relId;
+            relationship = await env.DB.prepare('SELECT * FROM relationships WHERE id = ? OR slug = ? LIMIT 1').bind(relId, normRel.slug).first().catch(() => null);
+            if (!relationship) {
+              relationship = {
+                id: normRel.id,
+                slug: normRel.slug,
+                name: normRel.label,
+                display_name: normRel.displayName,
+                displayName: normRel.displayName,
+                icon: normRel.icon,
+                category: normRel.category
+              };
+            }
+            const relKey = relationship.id || normRel.id;
+            const relSlugKey = relationship.slug || normRel.slug;
 
             const row = await env.DB.prepare(
-              `SELECT trv.*, r.slug as relationship_slug, r.name as relationship_name, r.display_name as relationship_display_name, r.icon as relationship_icon
+              `SELECT trv.*, r.slug as r_slug, r.name as r_name, r.display_name as r_display_name, r.icon as r_icon
                FROM template_relationship_variants trv
                LEFT JOIN relationships r ON trv.relationship_id = r.id
-               WHERE (trv.template_id = ? OR trv.template_version_id LIKE ?) AND (trv.relationship_id = ? OR trv.relationship_slug = ?) AND trv.is_latest = 1
+               WHERE (trv.template_id = ? OR trv.template_version_id LIKE ?) AND (trv.relationship_id = ? OR trv.relationship_slug = ? OR trv.id = ?) AND trv.is_latest = 1
                LIMIT 1`
-            ).bind(templateId, `tv_${templateId}_%`, relKey, relKey).first();
+            ).bind(templateId, `tv_${templateId}_%`, relKey, relSlugKey, relId).first().catch(() => null);
 
             if (row) {
               let parsed = {};
@@ -10616,6 +10824,62 @@ export default {
               variant = { ...row, configuration: parsed };
             }
           } catch (e) {}
+        }
+
+        if (!relationship) {
+          relationship = {
+            id: normRel.id,
+            slug: normRel.slug,
+            name: normRel.label,
+            display_name: normRel.displayName,
+            displayName: normRel.displayName,
+            icon: normRel.icon,
+            category: normRel.category
+          };
+        }
+
+        if (!variant) {
+          const initialConfig = {
+            displayName: `${relationship.display_name || relationship.displayName || relationship.name} Edition`,
+            atmosphere: relationship.category === 'romantic' ? 'Soft, Dreamy & Romantic' : 'Joyful & Celebratory',
+            messages: {
+              hero_title: `Happy Celebration, ${relationship.name}! ✨`,
+              subtitle: 'A magical gift created especially for you',
+              main_message: 'Wishing you a day filled with laughter, love, and extraordinary moments.',
+              gallery_heading: 'Treasured Memories',
+              surprise_text: 'Tap to unbox your surprise 🎁'
+            },
+            theme: {
+              mood: relationship.category === 'romantic' ? 'Soft Romance' : 'Vibrant Celebration',
+              accentColor: relationship.category === 'romantic' ? '#ec4899' : '#a855f7',
+              cardStyle: 'glass-glow'
+            },
+            effects: {
+              particles: relationship.category === 'romantic' ? 'floating-hearts' : 'confetti-and-stars'
+            },
+            animations: {
+              intensity: 'smooth'
+            },
+            music: {
+              defaultMusicId: null
+            }
+          };
+          variant = {
+            id: `trv_${templateId}_${relationship.slug || normRel.slug}`,
+            template_id: templateId,
+            template_version_id: `tv_${templateId}_v1`,
+            template_family_id: `fam_${templateId}`,
+            relationship_id: relationship.id,
+            relationship_slug: relationship.slug,
+            name: `${relationship.name} Variant`,
+            status: 'draft',
+            enabled: 1,
+            version_number: 1,
+            lock_version: 1,
+            is_latest: 1,
+            configuration: initialConfig,
+            configuration_json: JSON.stringify(initialConfig)
+          };
         }
 
         response = jsonSuccess({ templateId, relationship, variant }, 200, {}, requestId);
@@ -10746,7 +11010,18 @@ export default {
           return applySecurityHeaders(jsonError('DATABASE_UNAVAILABLE', 'Database service is currently unavailable.', 503), request, env);
         }
 
-        const targetRel = await env.DB.prepare('SELECT * FROM relationships WHERE id = ? OR slug = ? LIMIT 1').bind(relId, relId).first();
+        let targetRel = await env.DB.prepare('SELECT * FROM relationships WHERE id = ? OR slug = ? LIMIT 1').bind(relId, relId).first().catch(() => null);
+        if (!targetRel) {
+          const normFallback = normalizeRelationshipIdentifier(relId);
+          if (normFallback) {
+            const nowSeed = new Date().toISOString();
+            await env.DB.prepare(
+              `INSERT OR IGNORE INTO relationships (id, slug, name, display_name, icon, category, status, sort_order, created_at, updated_at)
+               VALUES (?, ?, ?, ?, ?, ?, 'active', ?, ?, ?)`
+            ).bind(normFallback.id, normFallback.slug, normFallback.label, normFallback.displayName, normFallback.icon, normFallback.category, normFallback.sortOrder, nowSeed, nowSeed).run().catch(() => {});
+            targetRel = { id: normFallback.id, slug: normFallback.slug, name: normFallback.label, display_name: normFallback.displayName, icon: normFallback.icon };
+          }
+        }
         if (!targetRel) return applySecurityHeaders(jsonError('NOT_FOUND', 'Relationship not found', 404), request, env);
 
         const template = (await env.DB.prepare('SELECT * FROM templates WHERE id = ? LIMIT 1').bind(templateId).first());
@@ -10771,9 +11046,9 @@ export default {
         if (existing) {
           const countRow = await env.DB.prepare(
             `SELECT COUNT(*) as count FROM wishes
-             WHERE (template_id = ? OR templateId = ?) AND (status = 'published' OR active_snapshot_id IS NOT NULL)
+             WHERE template_id = ? AND status = 'published'
              AND (custom_data LIKE ? OR custom_data LIKE ?)`
-          ).bind(templateId, templateId, `%"relationship_variant_id":"${existing.id}"%`, `%"relationshipVariantId":"${existing.id}"%`).first();
+          ).bind(templateId, `%"relationship_variant_id":"${existing.id}"%`, `%"relationshipVariantId":"${existing.id}"%`).first().catch(() => null);
           publishedUsingVariant = (countRow && countRow.count) || 0;
         }
 
@@ -20911,27 +21186,39 @@ export default {
         const page = parseInt(url.searchParams.get('page') || '1', 10);
         const limit = parseInt(url.searchParams.get('limit') || '20', 10);
 
-        let templates = SEED_TEMPLATES;
+        const deletedSet = await getDeletedTemplateIdsSet(env);
+        let templates = SEED_TEMPLATES.filter(t => !deletedSet.has(t.id) && !deletedSet.has(t.slug));
         if (env.DB && typeof env.DB.prepare === 'function') {
           try {
             const rows = await env.DB.prepare('SELECT * FROM templates WHERE is_published = 1').all();
-            if (rows.results && rows.results.length > 0) {
-              templates = rows.results.map(r => ({
-                id: r.id,
-                slug: r.slug,
-                name: r.name,
-                category: r.category,
-                tier: r.tier,
-                price: r.price,
-                isPremium: Boolean(r.is_premium),
-                isPublished: Boolean(r.is_published),
-                status: r.status,
-                featured: Boolean(r.featured),
-                thumbnail: r.thumbnail,
-                description: r.description,
-                folder: r.folder,
-                entryFile: r.entry_file
-              }));
+            if (rows && Array.isArray(rows.results)) {
+              const dbTpls = rows.results
+                .filter(r => !deletedSet.has(r.id) && !deletedSet.has(r.slug))
+                .map(r => ({
+                  id: r.id,
+                  slug: r.slug,
+                  name: r.name,
+                  category: r.category,
+                  tier: r.tier,
+                  price: r.price,
+                  isPremium: Boolean(r.is_premium),
+                  isPublished: Boolean(r.is_published),
+                  status: r.status,
+                  featured: Boolean(r.featured),
+                  thumbnail: r.thumbnail,
+                  description: r.description,
+                  folder: r.folder,
+                  entryFile: r.entry_file,
+                  relationships: safeJsonParse(r.relationships, [])
+                }));
+              const seenIds = new Set(dbTpls.map(t => t.id));
+              const seenSlugs = new Set(dbTpls.map(t => t.slug).filter(Boolean));
+              for (const seed of SEED_TEMPLATES) {
+                if (!seenIds.has(seed.id) && !seenSlugs.has(seed.slug) && !deletedSet.has(seed.id) && !deletedSet.has(seed.slug)) {
+                  dbTpls.push(seed);
+                }
+              }
+              templates = dbTpls;
             }
           } catch (e) {}
         }
@@ -21010,11 +21297,21 @@ export default {
       // 2. Search Suggestions Auto-complete
       else if (pathname === '/api/search/suggestions' && method === 'GET') {
         const q = url.searchParams.get('q') || '';
-        let templates = SEED_TEMPLATES;
+        const deletedSet = await getDeletedTemplateIdsSet(env);
+        let templates = SEED_TEMPLATES.filter(t => !deletedSet.has(t.id) && !deletedSet.has(t.slug));
         if (env.DB && typeof env.DB.prepare === 'function') {
           try {
             const rows = await env.DB.prepare('SELECT * FROM templates WHERE is_published = 1 LIMIT 50').all();
-            if (rows.results && rows.results.length > 0) templates = rows.results;
+            if (rows && Array.isArray(rows.results)) {
+              const dbTpls = rows.results.filter(r => !deletedSet.has(r.id) && !deletedSet.has(r.slug));
+              const seenIds = new Set(dbTpls.map(t => t.id));
+              for (const seed of SEED_TEMPLATES) {
+                if (!seenIds.has(seed.id) && !deletedSet.has(seed.id) && !deletedSet.has(seed.slug)) {
+                  dbTpls.push(seed);
+                }
+              }
+              templates = dbTpls;
+            }
           } catch (e) {}
         }
 
@@ -21070,11 +21367,21 @@ export default {
       else if (pathname === '/api/search/related' && method === 'GET') {
         const templateId = url.searchParams.get('templateId');
         const limit = parseInt(url.searchParams.get('limit') || '4', 10);
-        let templates = SEED_TEMPLATES;
+        const deletedSet = await getDeletedTemplateIdsSet(env);
+        let templates = SEED_TEMPLATES.filter(t => !deletedSet.has(t.id) && !deletedSet.has(t.slug));
         if (env.DB && typeof env.DB.prepare === 'function') {
           try {
             const rows = await env.DB.prepare('SELECT * FROM templates WHERE is_published = 1').all();
-            if (rows.results && rows.results.length > 0) templates = rows.results;
+            if (rows && Array.isArray(rows.results)) {
+              const dbTpls = rows.results.filter(r => !deletedSet.has(r.id) && !deletedSet.has(r.slug));
+              const seenIds = new Set(dbTpls.map(t => t.id));
+              for (const seed of SEED_TEMPLATES) {
+                if (!seenIds.has(seed.id) && !deletedSet.has(seed.id) && !deletedSet.has(seed.slug)) {
+                  dbTpls.push(seed);
+                }
+              }
+              templates = dbTpls;
+            }
           } catch (e) {}
         }
 

@@ -3154,10 +3154,10 @@ body.dark .hero-gradient-text,
       </div>
     </div>
     <!-- Device Viewport Toggle & Close -->
-    <div class="flex items-center gap-2 flex-shrink-0">
-      <div class="hidden sm:flex items-center bg-purple-100/70 dark:bg-purple-950/80 p-0.5 rounded-xl border border-purple-200 dark:border-purple-800 text-xs font-semibold">
-        <button class="px-2.5 py-1 rounded-lg bg-white dark:bg-purple-800 text-purple-950 dark:text-white shadow-xs transition" id="preview-btn-mobile" onclick="setPreviewDevice('mobile')">📱 Mobile</button>
-        <button class="px-2.5 py-1 rounded-lg text-purple-700 dark:text-purple-300 hover:text-purple-950 dark:hover:text-white transition" id="preview-btn-desktop" onclick="setPreviewDevice('desktop')">💻 Desktop</button>
+    <div class="flex items-center gap-1.5 sm:gap-2 flex-shrink-0">
+      <div class="flex items-center bg-purple-100/70 dark:bg-purple-950/80 p-0.5 rounded-xl border border-purple-200 dark:border-purple-800 text-[11px] sm:text-xs font-semibold">
+        <button class="px-2 sm:px-2.5 py-1 rounded-lg bg-white dark:bg-purple-800 text-purple-950 dark:text-white shadow-xs transition cursor-pointer" id="preview-btn-mobile" onclick="setPreviewDevice('mobile')">📱 Mobile</button>
+        <button class="px-2 sm:px-2.5 py-1 rounded-lg text-purple-700 dark:text-purple-300 hover:text-purple-950 dark:hover:text-white transition cursor-pointer" id="preview-btn-desktop" onclick="setPreviewDevice('desktop')">💻 Desktop</button>
       </div>
       <a href="#" target="_blank" id="preview-modal-external" class="p-2 rounded-xl text-purple-700 dark:text-purple-300 hover:bg-purple-100 dark:hover:bg-purple-900 transition" title="Open in new window">
         <svg width="16" height="16" class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14" stroke-linecap="round" stroke-linejoin="round" stroke-width="2"></path></svg>
@@ -3168,10 +3168,23 @@ body.dark .hero-gradient-text,
   <!-- Live Iframe Sandbox Preview Container -->
   <div class="flex-grow bg-[#0c0316] relative flex items-center justify-center overflow-hidden p-2 sm:p-4" id="preview-viewport-shell">
     <div class="w-full max-w-[390px] h-full max-h-[740px] bg-black rounded-[36px] p-2.5 shadow-2xl border-4 border-purple-950 transition-all duration-300 relative flex flex-col overflow-hidden" id="preview-frame-container">
-      <div class="w-24 h-4 bg-black rounded-b-xl mx-auto mb-1 flex items-center justify-center flex-shrink-0">
+      <div id="preview-frame-notch" class="w-24 h-4 bg-black rounded-b-xl mx-auto mb-1 flex items-center justify-center flex-shrink-0">
         <span class="w-2 h-2 rounded-full bg-gray-800"></span>
       </div>
-      <iframe id="preview-modal-iframe" class="w-full h-full rounded-[24px] bg-white border-0 flex-grow" src="about:blank"></iframe>
+      <div id="preview-frame-browserbar" class="hidden w-full px-3 py-1.5 bg-[#140628] border-b border-purple-900/60 rounded-t-lg items-center justify-between gap-2 flex-shrink-0 text-[10px] text-purple-300 mb-1">
+        <div class="flex items-center gap-1.5">
+          <span class="w-2 h-2 rounded-full bg-red-500/80"></span>
+          <span class="w-2 h-2 rounded-full bg-amber-500/80"></span>
+          <span class="w-2 h-2 rounded-full bg-emerald-500/80"></span>
+        </div>
+        <div class="px-3 py-0.5 rounded bg-purple-950/70 border border-purple-800/60 text-purple-200 text-center font-mono text-[9px] truncate max-w-xs flex-grow mx-2">
+          🔒 wishmagic.live/desktop-preview
+        </div>
+        <div class="text-[9px] font-bold text-pink-400">1280×800</div>
+      </div>
+      <div id="preview-iframe-viewport" class="w-full h-full flex-grow relative overflow-hidden rounded-[24px] bg-white">
+        <iframe id="preview-modal-iframe" class="w-full h-full bg-white border-0" src="about:blank"></iframe>
+      </div>
     </div>
   </div>
   <!-- Modal Bottom Actions Bar -->
@@ -3425,15 +3438,11 @@ body.dark .hero-gradient-text,
       try {
         const res = await fetch("/api/templates");
         const data = await res.json();
-        let list = (data && data.success && Array.isArray(data.templates)) ? data.templates : [];
-        const seen = new Set(list.map(t => t.id));
-        for (const fb of FALLBACK_HOME_TEMPLATES) {
-          if (list.length < 8 && !seen.has(fb.id)) {
-            list.push(fb);
-            seen.add(fb.id);
-          }
+        if (res.ok && data && data.success && Array.isArray(data.templates)) {
+          loadedTemplates = data.templates;
+        } else {
+          loadedTemplates = FALLBACK_HOME_TEMPLATES;
         }
-        loadedTemplates = list.length > 0 ? list : FALLBACK_HOME_TEMPLATES;
         window._wmLoadedTemplatesMap = window._wmLoadedTemplatesMap || {};
         loadedTemplates.forEach(t => {
           if (t && t.id) window._wmLoadedTemplatesMap[t.id] = t;
@@ -3962,20 +3971,57 @@ body.dark .hero-gradient-text,
           : `<span>Create This Wish</span><span class="text-amber-300 text-xs">✨</span>`;
       }
 
-      setPreviewDevice('mobile');
       openModal('template-preview-modal');
+      setPreviewDevice('mobile');
     }
 
+    window._homePreviewDeviceMode = 'mobile';
     function setPreviewDevice(mode) {
+      window._homePreviewDeviceMode = mode;
+      const shell = document.getElementById('preview-viewport-shell');
       const container = document.getElementById('preview-frame-container');
+      const viewport = document.getElementById('preview-iframe-viewport');
+      const iframe = document.getElementById('preview-modal-iframe');
+      const notch = document.getElementById('preview-frame-notch');
+      const browserBar = document.getElementById('preview-frame-browserbar');
       const btnMobile = document.getElementById('preview-btn-mobile');
       const btnDesktop = document.getElementById('preview-btn-desktop');
 
       if (!container) return;
 
       if (mode === 'desktop') {
-        container.classList.remove('max-w-[390px]', 'rounded-[36px]', 'p-2.5', 'border-4');
-        container.classList.add('max-w-full', 'rounded-xl', 'p-1', 'border-2');
+        container.classList.remove('max-w-[390px]', 'rounded-[36px]', 'p-2.5', 'border-4', 'h-full');
+        container.classList.add('max-w-full', 'rounded-2xl', 'p-1.5', 'border-2');
+        if (notch) notch.classList.add('hidden');
+        if (browserBar) {
+          browserBar.classList.remove('hidden');
+          browserBar.classList.add('flex');
+        }
+        if (viewport) {
+          viewport.classList.remove('rounded-[24px]');
+          viewport.classList.add('rounded-xl');
+        }
+        requestAnimationFrame(() => {
+          const shellW = (shell ? shell.clientWidth : window.innerWidth) - 24;
+          const shellH = (shell ? shell.clientHeight : (window.innerHeight - 160)) - 24;
+          const DESKTOP_W = 1280;
+          const DESKTOP_H = 800;
+          const scale = Math.min(1, Math.max(0.22, Math.min((shellW - 16) / DESKTOP_W, (shellH - 44) / DESKTOP_H)));
+          const scaledW = Math.round(DESKTOP_W * scale);
+          const scaledH = Math.round(DESKTOP_H * scale);
+          container.style.width = (scaledW + 14) + 'px';
+          container.style.height = (scaledH + 42) + 'px';
+          if (viewport) {
+            viewport.style.width = scaledW + 'px';
+            viewport.style.height = scaledH + 'px';
+          }
+          if (iframe) {
+            iframe.style.width = DESKTOP_W + 'px';
+            iframe.style.height = DESKTOP_H + 'px';
+            iframe.style.transform = `scale(${scale.toFixed(4)})`;
+            iframe.style.transformOrigin = 'top left';
+          }
+        });
         if (btnDesktop) {
           btnDesktop.classList.add('bg-white', 'dark:bg-purple-800', 'text-purple-950', 'dark:text-white', 'shadow-xs');
           btnDesktop.classList.remove('text-purple-700', 'dark:text-purple-300');
@@ -3985,8 +4031,27 @@ body.dark .hero-gradient-text,
           btnMobile.classList.add('text-purple-700', 'dark:text-purple-300');
         }
       } else {
-        container.classList.add('max-w-[390px]', 'rounded-[36px]', 'p-2.5', 'border-4');
-        container.classList.remove('max-w-full', 'rounded-xl', 'p-1', 'border-2');
+        container.classList.add('max-w-[390px]', 'rounded-[36px]', 'p-2.5', 'border-4', 'h-full');
+        container.classList.remove('max-w-full', 'rounded-2xl', 'p-1.5', 'border-2');
+        container.style.width = '';
+        container.style.height = '';
+        if (notch) notch.classList.remove('hidden');
+        if (browserBar) {
+          browserBar.classList.remove('flex');
+          browserBar.classList.add('hidden');
+        }
+        if (viewport) {
+          viewport.classList.add('rounded-[24px]');
+          viewport.classList.remove('rounded-xl');
+          viewport.style.width = '100%';
+          viewport.style.height = '100%';
+        }
+        if (iframe) {
+          iframe.style.width = '100%';
+          iframe.style.height = '100%';
+          iframe.style.transform = 'none';
+          iframe.style.transformOrigin = 'top left';
+        }
         if (btnMobile) {
           btnMobile.classList.add('bg-white', 'dark:bg-purple-800', 'text-purple-950', 'dark:text-white', 'shadow-xs');
           btnMobile.classList.remove('text-purple-700', 'dark:text-purple-300');
@@ -3997,6 +4062,9 @@ body.dark .hero-gradient-text,
         }
       }
     }
+    window.addEventListener('resize', () => {
+      if (window._homePreviewDeviceMode === 'desktop') setPreviewDevice('desktop');
+    });
 
     function openAuthModal(mode) {
       if (window.WishAuth && typeof window.WishAuth.openAuthModal === 'function') {

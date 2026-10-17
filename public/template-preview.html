@@ -325,8 +325,10 @@
                 <div class="text-[10px] font-bold text-pink-400">Live Preview</div>
               </div>
 
-              <!-- Isolated Sandboxed Iframe (Renders the actual template with zero leakage) -->
-              <iframe id="live-template-iframe" class="w-full h-full rounded-[22px] bg-white border-0 flex-grow" sandbox="allow-scripts allow-same-origin allow-forms" src="about:blank" title="Template Live Preview"></iframe>
+              <!-- Isolated Sandboxed Iframe Viewport -->
+              <div id="live-template-viewport" class="w-full h-full rounded-[22px] bg-white flex-grow relative overflow-hidden">
+                <iframe id="live-template-iframe" class="w-full h-full bg-white border-0" sandbox="allow-scripts allow-same-origin allow-forms" src="about:blank" title="Template Live Preview"></iframe>
+              </div>
             </div>
           </div>
 
@@ -1241,20 +1243,52 @@
       }
     }
 
-    // Viewport Mode Switcher (Mobile vs Desktop)
+    // Viewport Mode Switcher (Mobile 375x680 vs True Scaled Desktop 1280x800)
+    window._previewPageViewportMode = 'mobile';
     function setPreviewViewport(mode) {
+      window._previewPageViewportMode = mode;
+      const stageWrapper = document.getElementById('preview-stage-wrapper');
       const frame = document.getElementById('preview-device-frame');
+      const viewport = document.getElementById('live-template-viewport');
+      const iframe = document.getElementById('live-template-iframe');
       const btnMobile = document.getElementById('btn-device-mobile');
       const btnDesktop = document.getElementById('btn-device-desktop');
       const notch = document.getElementById('device-notch');
       const browserBar = document.getElementById('device-browser-bar');
+      if (!frame) return;
 
       if (mode === 'desktop') {
         frame.classList.remove('mobile-frame-shell');
         frame.classList.add('desktop-frame-shell');
-        notch.classList.add('hidden');
-        browserBar.classList.remove('hidden');
-        browserBar.classList.add('flex');
+        if (notch) notch.classList.add('hidden');
+        if (browserBar) {
+          browserBar.classList.remove('hidden');
+          browserBar.classList.add('flex');
+        }
+        if (viewport) {
+          viewport.classList.remove('rounded-[22px]');
+          viewport.classList.add('rounded-b-xl');
+        }
+        if (stageWrapper) {
+          stageWrapper.style.minHeight = 'auto';
+        }
+        requestAnimationFrame(() => {
+          const availW = Math.max(260, frame.clientWidth - 16);
+          const DESKTOP_W = 1280;
+          const DESKTOP_H = 800;
+          const scale = Math.min(1, availW / DESKTOP_W);
+          const scaledH = Math.round(DESKTOP_H * scale);
+          frame.style.height = (scaledH + 52) + 'px';
+          if (viewport) {
+            viewport.style.height = scaledH + 'px';
+          }
+          if (iframe) {
+            iframe.style.width = DESKTOP_W + 'px';
+            iframe.style.height = DESKTOP_H + 'px';
+            iframe.style.transform = `scale(${scale.toFixed(4)})`;
+            iframe.style.transformOrigin = 'top left';
+          }
+        });
 
         btnDesktop.classList.remove('text-purple-700', 'dark:text-purple-300');
         btnDesktop.classList.add('bg-purple-700', 'text-white', 'font-bold');
@@ -1264,9 +1298,26 @@
       } else {
         frame.classList.remove('desktop-frame-shell');
         frame.classList.add('mobile-frame-shell');
-        notch.classList.remove('hidden');
-        browserBar.classList.remove('flex');
-        browserBar.classList.add('hidden');
+        frame.style.height = '';
+        if (stageWrapper) {
+          stageWrapper.style.minHeight = '';
+        }
+        if (notch) notch.classList.remove('hidden');
+        if (browserBar) {
+          browserBar.classList.remove('flex');
+          browserBar.classList.add('hidden');
+        }
+        if (viewport) {
+          viewport.classList.add('rounded-[22px]');
+          viewport.classList.remove('rounded-b-xl');
+          viewport.style.height = '100%';
+        }
+        if (iframe) {
+          iframe.style.width = '100%';
+          iframe.style.height = '100%';
+          iframe.style.transform = 'none';
+          iframe.style.transformOrigin = 'top left';
+        }
 
         btnMobile.classList.remove('text-purple-700', 'dark:text-purple-300');
         btnMobile.classList.add('bg-purple-700', 'text-white', 'font-bold');
@@ -1275,6 +1326,9 @@
         btnDesktop.classList.add('text-purple-700', 'dark:text-purple-300');
       }
     }
+    window.addEventListener('resize', () => {
+      if (window._previewPageViewportMode === 'desktop') setPreviewViewport('desktop');
+    });
 
     // Synthesized Web Audio API Melody for safe background music preview
     function toggleAudioPreview() {

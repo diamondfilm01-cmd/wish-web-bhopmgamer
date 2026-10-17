@@ -2322,31 +2322,42 @@ async function toggleTierTemplate(templateId, currentTier, currentPrice) {
 
 // 9. Safe Template Delete Action (Part 10 Section 12)
 async function deleteTemplate(templateId, name) {
-  if (!confirm(`Are you sure you want to delete template "${name}"?\n\nNote: Expired wish links will not block deletion, but active or upcoming future wish links are protected by the safeguard.`)) {
+  if (!confirm(`Are you sure you want to permanently delete template "${name}"?`)) {
     return;
   }
 
   try {
-    let result;
-    const res = await fetch(`/api/templates/${encodeURIComponent(templateId)}`, {
+    let res = await fetch(`/api/templates/${encodeURIComponent(templateId)}`, {
       method: 'DELETE',
       credentials: 'include'
     });
-    result = await res.json();
+    let result = await res.json();
 
-    const isReferenced = Boolean(result && (result.referenced || (result.data && result.data.referenced)));
-    const isDeleted = Boolean(result && (result.deleted || (result.data && result.data.deleted) || (result.success && !isReferenced)));
+    let isReferenced = Boolean(result && (result.referenced || (result.data && result.data.referenced)));
+    let isDeleted = Boolean(result && (result.deleted || (result.data && result.data.deleted) || (result.success && !isReferenced)));
+
+    if (isReferenced && !isDeleted) {
+      const msg = (result.data && result.data.message) || result.message || 'Active or upcoming future recipient wishes are using this template.';
+      const confirmForce = confirm(`⚠️ SAFEGUARD NOTICE:\n\n${msg}\n\nDo you want to FORCE DELETE "${name}" permanently anyway?`);
+      if (!confirmForce) return;
+
+      res = await fetch(`/api/templates/${encodeURIComponent(templateId)}?force=true`, {
+        method: 'DELETE',
+        credentials: 'include'
+      });
+      result = await res.json();
+      isReferenced = false;
+      isDeleted = Boolean(result && (result.deleted || (result.data && result.data.deleted) || result.success));
+    }
 
     if (isDeleted) {
-      if (typeof showToast === 'function') showToast(`Template "${name}" deleted successfully.`);
-      allAdminTemplates = (allAdminTemplates || []).filter(t => t.id !== templateId);
+      try { localStorage.removeItem('wishmagic_templates_v1'); } catch (_) {}
+      if (typeof showToast === 'function') showToast(`Template "${name}" deleted permanently.`);
+      allAdminTemplates = (allAdminTemplates || []).filter(t => t.id !== templateId && t.slug !== templateId);
       await loadDynamicTemplates();
       if (typeof renderQuickSetTemplatesList === 'function') {
         renderQuickSetTemplatesList(allAdminTemplates);
       }
-    } else if (isReferenced) {
-      const msg = (result.data && result.data.message) || result.message || 'Active or upcoming future recipient wishes are using this template.';
-      alert(`⚠️ SAFEGUARD BLOCKED DELETION:\n\n${msg}\n\nAction: Please use the "Unpublish / Draft" button to safely hide this template from the store while active/future links remain live.`);
     } else {
       alert('Error deleting template: ' + ((result && (result.error?.message || result.message)) || 'Unknown error'));
     }
@@ -2613,15 +2624,37 @@ let currentValidationState = { valid: true, errors: [], warnings: [] };
 async function openTemplateVariantsModal(templateId) {
   currentVariantsTemplateId = templateId;
   const modal = document.getElementById('template-variants-modal');
-  if (modal) modal.classList.remove('hidden');
 
   try {
     showToast('Loading template family & variants...');
-    const res = await fetch(`/api/templates/${templateId}/family`);
-    const data = await res.json();
-    if (!data.success) {
-      alert('Failed to load variants: ' + (data.message || 'Unknown error'));
-      return;
+    const res = await fetch(`/api/templates/${encodeURIComponent(templateId)}/family`);
+    let data = await res.json().catch(() => ({}));
+    if (!data || !data.success) {
+      // Fallback: if template exists in allAdminTemplates, construct family data so modal still works cleanly
+      const localTpl = (allAdminTemplates || []).find(t => t.id === templateId || t.slug === templateId);
+      if (localTpl) {
+        data = {
+          success: true,
+          template: localTpl,
+          activeVersion: { id: localTpl.currentVersionId || `tv_${localTpl.id}_v1` },
+          relationships: [
+            { id: 'rel_best_friend', slug: 'best_friend', name: 'Best Friend', displayName: 'Best Friend Forever', icon: '🌟', category: 'friendship', isSupported: false, sortOrder: 1 },
+            { id: 'rel_brother', slug: 'brother', name: 'Brother', displayName: 'Brother', icon: '🛡️', category: 'family', isSupported: false, sortOrder: 2 },
+            { id: 'rel_sister', slug: 'sister', name: 'Sister', displayName: 'Sister', icon: '🌸', category: 'family', isSupported: false, sortOrder: 3 },
+            { id: 'rel_boyfriend', slug: 'boyfriend', name: 'Boyfriend', displayName: 'Handsome Boyfriend', icon: '💙', category: 'romantic', isSupported: false, sortOrder: 4 },
+            { id: 'rel_girlfriend', slug: 'girlfriend', name: 'Girlfriend', displayName: 'Dearest Girlfriend', icon: '💖', category: 'romantic', isSupported: false, sortOrder: 5 },
+            { id: 'rel_mother', slug: 'mother', name: 'Mother', displayName: 'Dearest Mom', icon: '🌷', category: 'family', isSupported: false, sortOrder: 6 },
+            { id: 'rel_father', slug: 'father', name: 'Father', displayName: 'Dearest Dad', icon: '👑', category: 'family', isSupported: false, sortOrder: 7 }
+          ],
+          variants: Array.isArray(localTpl.variants) ? localTpl.variants : (Array.isArray(localTpl.availableVariants) ? localTpl.availableVariants : []),
+          allMusic: [],
+          usage: { publishedWishesCount: 0 }
+        };
+      } else {
+        if (modal) modal.classList.add('hidden');
+        alert('Failed to load variants: ' + ((data && (data.error?.message || data.message)) || 'Template not found'));
+        return;
+      }
     }
 
     currentFamilyData = data;
@@ -2658,12 +2691,14 @@ async function openTemplateVariantsModal(templateId) {
     populateAddRelationshipDropdown(data.relationships);
     populateMusicDropdown(data.allMusic || []);
 
-    // Select first supported relationship
+    // Select first supported relationship before showing modal so static placeholder is never visible
     const firstSupported = data.relationships.find(r => r.isSupported) || data.relationships[0];
     if (firstSupported) {
       await selectRelationshipVariant(firstSupported.id);
     }
+    if (modal) modal.classList.remove('hidden');
   } catch (err) {
+    if (modal) modal.classList.add('hidden');
     alert('Error loading template variants: ' + err.message);
   }
 }
@@ -2763,38 +2798,40 @@ async function selectRelationshipVariant(relId) {
   document.getElementById('var-active-rel-category').textContent = `${rel.category || 'General'} Relationship Category`;
 
   try {
-    const res = await fetch(`/api/templates/${currentVariantsTemplateId}/variants/${relId}`);
-    const data = await res.json();
-    if (!data.success) {
-      alert('Error fetching variant: ' + data.message);
-      return;
-    }
-
-    const variant = data.variant;
-    currentVariantConfig = variant.configuration || {};
+    const res = await fetch(`/api/templates/${encodeURIComponent(currentVariantsTemplateId)}/variants/${encodeURIComponent(relId)}`);
+    const data = await res.json().catch(() => ({}));
+    const localVar = (currentFamilyData?.variants || []).find(
+      v => v.relationship_id === relId || v.relationshipId === relId || v.relationship_slug === rel.slug || v.relationshipSlug === rel.slug
+    );
+    const variant = (data && data.variant) || localVar || { status: 'draft', lock_version: 1, configuration: {} };
+    currentVariantConfig = variant.configuration || {
+      displayName: variant.name || `${rel.displayName || rel.name} Edition`,
+      messages: variant.messages || {},
+      theme: variant.theme || {}
+    };
     currentLockVersion = variant.lock_version || 1;
 
     document.getElementById('var-active-status-badge').textContent = (variant.status === 'published' ? 'Published' : 'Draft');
     document.getElementById('var-active-status-badge').className = `px-2 py-0.5 rounded-full font-bold text-[10px] ${variant.status === 'published' ? 'bg-emerald-500/20 text-emerald-300' : 'bg-amber-500/20 text-amber-300'}`;
     document.getElementById('var-active-lock-version').textContent = `Lock V${currentLockVersion}`;
 
-    // Fill form fields
+    // Fill form fields (supports both UTP v1.1.0 keys and legacy keys)
     const msgs = currentVariantConfig.messages || {};
     const theme = currentVariantConfig.theme || {};
     const effects = currentVariantConfig.effects || {};
     const anim = currentVariantConfig.animations || {};
     const music = currentVariantConfig.music || {};
 
-    document.getElementById('var-field-displayName').value = currentVariantConfig.displayName || `${rel.displayName || rel.name} Edition`;
-    document.getElementById('var-field-atmosphere').value = currentVariantConfig.atmosphere || '';
+    document.getElementById('var-field-displayName').value = currentVariantConfig.displayName || variant.name || `${rel.displayName || rel.name} Edition`;
+    document.getElementById('var-field-atmosphere').value = currentVariantConfig.atmosphere || currentVariantConfig.description || '';
     document.getElementById('var-field-hero_title').value = msgs.hero_title || `Happy Celebration, ${rel.name}! ✨`;
-    document.getElementById('var-field-subtitle').value = msgs.subtitle || '';
-    document.getElementById('var-field-main_message').value = msgs.main_message || '';
+    document.getElementById('var-field-subtitle').value = msgs.hero_subtitle || msgs.subtitle || '';
+    document.getElementById('var-field-main_message').value = msgs.custom_message || msgs.main_message || '';
     document.getElementById('var-field-gallery_heading').value = msgs.gallery_heading || '';
-    document.getElementById('var-field-surprise_text').value = msgs.surprise_text || '';
+    document.getElementById('var-field-surprise_text').value = msgs.secret_note || msgs.surprise_text || '';
 
     // Style
-    const accentColor = theme.accentColor || '#ec4899';
+    const accentColor = theme.primary || theme.accentColor || '#ec4899';
     document.getElementById('var-theme-color').value = accentColor;
     document.getElementById('var-theme-color-hex').value = accentColor;
     document.getElementById('var-theme-cardStyle').value = theme.cardStyle || 'glass-glow';
@@ -2836,17 +2873,31 @@ function switchVariantTab(tabKey) {
 
 function collectVariantConfigFromForm() {
   const color = document.getElementById('var-theme-color').value;
+  const heroTitleVal = document.getElementById('var-field-hero_title').value.trim();
+  const subtitleVal = document.getElementById('var-field-subtitle').value.trim();
+  const mainMessageVal = document.getElementById('var-field-main_message').value.trim();
+  const galleryHeadingVal = document.getElementById('var-field-gallery_heading').value.trim();
+  const surpriseTextVal = document.getElementById('var-field-surprise_text').value.trim();
+  const prevMsgs = (currentVariantConfig && currentVariantConfig.messages) || {};
+  const prevTheme = (currentVariantConfig && currentVariantConfig.theme) || {};
   return {
+    ...(currentVariantConfig || {}),
     displayName: document.getElementById('var-field-displayName').value.trim(),
     atmosphere: document.getElementById('var-field-atmosphere').value.trim(),
     messages: {
-      hero_title: document.getElementById('var-field-hero_title').value.trim(),
-      subtitle: document.getElementById('var-field-subtitle').value.trim(),
-      main_message: document.getElementById('var-field-main_message').value.trim(),
-      gallery_heading: document.getElementById('var-field-gallery_heading').value.trim(),
-      surprise_text: document.getElementById('var-field-surprise_text').value.trim()
+      ...prevMsgs,
+      hero_title: heroTitleVal,
+      subtitle: subtitleVal,
+      hero_subtitle: subtitleVal,
+      main_message: mainMessageVal,
+      custom_message: mainMessageVal,
+      gallery_heading: galleryHeadingVal,
+      surprise_text: surpriseTextVal,
+      secret_note: surpriseTextVal
     },
     theme: {
+      ...prevTheme,
+      primary: color,
       accentColor: color,
       cardStyle: document.getElementById('var-theme-cardStyle').value,
       mood: document.getElementById('var-theme-mood').value.trim()
@@ -3169,7 +3220,7 @@ async function loadTemplateVersions(templateId) {
       `;
     }
 
-    const tpl = (window.allTemplatesCache || []).find(t => t.id === templateId) || { id: templateId, name: 'Template' };
+    const tpl = (allAdminTemplates || window.allTemplatesCache || []).find(t => t.id === templateId || t.slug === templateId) || { id: templateId, name: templateId };
     if (titleEl) titleEl.textContent = `${tpl.name} — Version Control`;
     if (subtitleEl) subtitleEl.textContent = `Template Family: fam_${templateId} • Storage: Backblaze B2 / Cloudflare`;
 
@@ -3244,22 +3295,22 @@ function renderVersionsTable(versions, template) {
       : `<span class="text-amber-400 flex items-center gap-1"><span class="material-symbols-outlined text-[14px]">help</span>Unverified</span>`;
 
     return `
-      <tr class="hover:bg-surface-container transition border-b border-purple-900/20">
-        <td class="py-3 px-4">
+      <tr class="hover:bg-surface-container transition border-b border-purple-900/20 whitespace-nowrap">
+        <td class="py-3 px-4 whitespace-nowrap">
           <div class="flex items-center gap-2">
             <span class="font-mono font-bold text-on-surface text-sm">${v.version_label || `v${v.version_number}.0.0`}</span>
             <span class="text-[10px] text-outline font-mono">(${v.id})</span>
           </div>
         </td>
-        <td class="py-3 px-3">${statusPill}</td>
-        <td class="py-3 px-3 text-on-surface-variant font-mono text-[11px]">
+        <td class="py-3 px-3 whitespace-nowrap">${statusPill}</td>
+        <td class="py-3 px-3 text-on-surface-variant font-mono text-[11px] whitespace-nowrap">
           ${v.file_count || 5} files • ${sizeKb > 0 ? sizeKb + ' KB' : '—'}
         </td>
-        <td class="py-3 px-3 text-xs">${integrityBadge}</td>
-        <td class="py-3 px-3 text-on-surface-variant max-w-xs truncate" title="${escapeQuotes(v.release_notes || 'No release notes')}">
+        <td class="py-3 px-3 text-xs whitespace-nowrap">${integrityBadge}</td>
+        <td class="py-3 px-3 text-on-surface-variant max-w-[180px] truncate" title="${escapeQuotes(v.release_notes || 'No release notes')}">
           ${v.release_notes || '<span class="text-outline italic">No release notes</span>'}
         </td>
-        <td class="py-3 px-3 text-on-surface-variant font-mono text-[11px]">${dateFormatted}</td>
+        <td class="py-3 px-3 text-on-surface-variant font-mono text-[11px] whitespace-nowrap">${dateFormatted}</td>
         <td class="py-3 px-4 text-right">
           <div class="flex items-center justify-end gap-1.5">
             <!-- View Details / File Inventory -->

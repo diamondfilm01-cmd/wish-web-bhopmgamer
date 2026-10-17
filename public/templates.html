@@ -652,26 +652,21 @@
   async function loadMarketplaceTemplates() {
     try {
       let templates = [];
+      let fetchedFromApi = false;
       try {
         const res = await fetch("/api/templates");
         if (res.ok) {
           const data = await res.json();
-          if (data && data.success && Array.isArray(data.templates) && data.templates.length > 0) {
+          if (data && data.success && Array.isArray(data.templates)) {
             templates = data.templates;
+            fetchedFromApi = true;
           }
         }
       } catch (netErr) {
         console.warn("Could not fetch /api/templates, using fallback seed templates:", netErr);
       }
 
-      const seen = new Set(templates.map(t => t.id));
-      for (const fb of FALLBACK_SEED_TEMPLATES) {
-        if (templates.length < 8 && !seen.has(fb.id)) {
-          templates.push(fb);
-          seen.add(fb.id);
-        }
-      }
-      if (!templates || templates.length === 0) {
+      if (!fetchedFromApi) {
         templates = FALLBACK_SEED_TEMPLATES;
       }
 
@@ -1091,12 +1086,12 @@
         : `<span>Create This Wish</span><span class="text-amber-300 text-xs">✨</span>`;
     }
 
-    setMarketplacePreviewDevice('mobile');
     if (modal) {
       modal.classList.remove('hidden');
       modal.classList.add('flex');
       document.body.classList.add('overflow-hidden');
     }
+    setMarketplacePreviewDevice('mobile');
   }
 
   function closeMarketplacePreview() {
@@ -1131,37 +1126,96 @@
     return true;
   };
 
+  window._mktPreviewDeviceMode = 'mobile';
   function setMarketplacePreviewDevice(mode) {
+    window._mktPreviewDeviceMode = mode;
+    const shell = document.getElementById('mkt-preview-viewport-shell');
     const container = document.getElementById('mkt-preview-frame-container');
+    const viewport = document.getElementById('mkt-preview-iframe-viewport');
+    const iframe = document.getElementById('mkt-preview-iframe');
+    const notch = document.getElementById('mkt-preview-notch');
+    const browserBar = document.getElementById('mkt-preview-browserbar');
     const btnMobile = document.getElementById('mkt-btn-mobile');
     const btnDesktop = document.getElementById('mkt-btn-desktop');
 
     if (!container) return;
 
     if (mode === 'desktop') {
-      container.classList.remove('max-w-[390px]', 'rounded-[36px]', 'p-2.5', 'border-4');
-      container.classList.add('max-w-full', 'rounded-xl', 'p-1', 'border-2');
+      container.classList.remove('max-w-[390px]', 'rounded-[36px]', 'p-2.5', 'border-4', 'h-full');
+      container.classList.add('max-w-full', 'rounded-2xl', 'p-1.5', 'border-2');
+      if (notch) notch.classList.add('hidden');
+      if (browserBar) {
+        browserBar.classList.remove('hidden');
+        browserBar.classList.add('flex');
+      }
+      if (viewport) {
+        viewport.classList.remove('rounded-[24px]');
+        viewport.classList.add('rounded-xl');
+      }
+      requestAnimationFrame(() => {
+        const shellW = (shell ? shell.clientWidth : window.innerWidth) - 24;
+        const shellH = (shell ? shell.clientHeight : (window.innerHeight - 160)) - 24;
+        const DESKTOP_W = 1280;
+        const DESKTOP_H = 800;
+        const scale = Math.min(1, Math.max(0.22, Math.min((shellW - 16) / DESKTOP_W, (shellH - 44) / DESKTOP_H)));
+        const scaledW = Math.round(DESKTOP_W * scale);
+        const scaledH = Math.round(DESKTOP_H * scale);
+        container.style.width = (scaledW + 14) + 'px';
+        container.style.height = (scaledH + 42) + 'px';
+        if (viewport) {
+          viewport.style.width = scaledW + 'px';
+          viewport.style.height = scaledH + 'px';
+        }
+        if (iframe) {
+          iframe.style.width = DESKTOP_W + 'px';
+          iframe.style.height = DESKTOP_H + 'px';
+          iframe.style.transform = `scale(${scale.toFixed(4)})`;
+          iframe.style.transformOrigin = 'top left';
+        }
+      });
       if (btnDesktop) {
-        btnDesktop.classList.add('bg-white', 'dark:bg-purple-800', 'text-purple-950', 'dark:text-white', 'shadow-xs');
-        btnDesktop.classList.remove('text-purple-700', 'dark:text-purple-300');
+        btnDesktop.classList.add('bg-surface-bright', 'text-on-surface', 'shadow-xs');
+        btnDesktop.classList.remove('text-on-surface-variant');
       }
       if (btnMobile) {
-        btnMobile.classList.remove('bg-white', 'dark:bg-purple-800', 'text-purple-950', 'dark:text-white', 'shadow-xs');
-        btnMobile.classList.add('text-purple-700', 'dark:text-purple-300');
+        btnMobile.classList.remove('bg-surface-bright', 'text-on-surface', 'shadow-xs');
+        btnMobile.classList.add('text-on-surface-variant');
       }
     } else {
-      container.classList.add('max-w-[390px]', 'rounded-[36px]', 'p-2.5', 'border-4');
-      container.classList.remove('max-w-full', 'rounded-xl', 'p-1', 'border-2');
+      container.classList.add('max-w-[390px]', 'rounded-[36px]', 'p-2.5', 'border-4', 'h-full');
+      container.classList.remove('max-w-full', 'rounded-2xl', 'p-1.5', 'border-2');
+      container.style.width = '';
+      container.style.height = '';
+      if (notch) notch.classList.remove('hidden');
+      if (browserBar) {
+        browserBar.classList.remove('flex');
+        browserBar.classList.add('hidden');
+      }
+      if (viewport) {
+        viewport.classList.add('rounded-[24px]');
+        viewport.classList.remove('rounded-xl');
+        viewport.style.width = '100%';
+        viewport.style.height = '100%';
+      }
+      if (iframe) {
+        iframe.style.width = '100%';
+        iframe.style.height = '100%';
+        iframe.style.transform = 'none';
+        iframe.style.transformOrigin = 'top left';
+      }
       if (btnMobile) {
-        btnMobile.classList.add('bg-white', 'dark:bg-purple-800', 'text-purple-950', 'dark:text-white', 'shadow-xs');
-        btnMobile.classList.remove('text-purple-700', 'dark:text-purple-300');
+        btnMobile.classList.add('bg-surface-bright', 'text-on-surface', 'shadow-xs');
+        btnMobile.classList.remove('text-on-surface-variant');
       }
       if (btnDesktop) {
-        btnDesktop.classList.remove('bg-white', 'dark:bg-purple-800', 'text-purple-950', 'dark:text-white', 'shadow-xs');
-        btnDesktop.classList.add('text-purple-700', 'dark:text-purple-300');
+        btnDesktop.classList.remove('bg-surface-bright', 'text-on-surface', 'shadow-xs');
+        btnDesktop.classList.add('text-on-surface-variant');
       }
     }
   }
+  window.addEventListener('resize', () => {
+    if (window._mktPreviewDeviceMode === 'desktop') setMarketplacePreviewDevice('desktop');
+  });
 
   function clearSearchFilter() {
     const input = document.getElementById('template-search-input');
@@ -1270,10 +1324,10 @@
       </div>
     </div>
     <!-- Device Viewport Toggle & Close -->
-    <div class="flex items-center gap-2 flex-shrink-0">
-      <div class="hidden sm:flex items-center bg-surface-container-high p-0.5 rounded-xl border border-purple-500/20 text-xs font-semibold">
-        <button class="px-2.5 py-1 rounded-lg bg-surface-bright text-on-surface shadow-xs transition" id="mkt-btn-mobile" onclick="setMarketplacePreviewDevice('mobile')">📱 Mobile</button>
-        <button class="px-2.5 py-1 rounded-lg text-on-surface-variant hover:text-on-surface transition" id="mkt-btn-desktop" onclick="setMarketplacePreviewDevice('desktop')">💻 Desktop</button>
+    <div class="flex items-center gap-1.5 sm:gap-2 flex-shrink-0">
+      <div class="flex items-center bg-surface-container-high p-0.5 rounded-xl border border-purple-500/20 text-[11px] sm:text-xs font-semibold">
+        <button class="px-2 sm:px-2.5 py-1 rounded-lg bg-surface-bright text-on-surface shadow-xs transition cursor-pointer" id="mkt-btn-mobile" onclick="setMarketplacePreviewDevice('mobile')">📱 Mobile</button>
+        <button class="px-2 sm:px-2.5 py-1 rounded-lg text-on-surface-variant hover:text-on-surface transition cursor-pointer" id="mkt-btn-desktop" onclick="setMarketplacePreviewDevice('desktop')">💻 Desktop</button>
       </div>
       <a href="#" target="_blank" id="mkt-preview-external" class="p-2 rounded-xl text-on-surface hover:bg-surface-bright transition" title="Open in new window">
         <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14" stroke-linecap="round" stroke-linejoin="round" stroke-width="2"></path></svg>
@@ -1282,12 +1336,25 @@
     </div>
   </div>
   <!-- Live Iframe Sandbox Preview Container -->
-  <div class="flex-grow bg-[#0c0316] relative flex items-center justify-center overflow-hidden p-2 sm:p-4">
+  <div class="flex-grow bg-[#0c0316] relative flex items-center justify-center overflow-hidden p-2 sm:p-4" id="mkt-preview-viewport-shell">
     <div class="w-full max-w-[390px] h-full max-h-[740px] bg-black rounded-[36px] p-2.5 shadow-2xl border-4 border-purple-950 transition-all duration-300 relative flex flex-col overflow-hidden" id="mkt-preview-frame-container">
-      <div class="w-24 h-4 bg-black rounded-b-xl mx-auto mb-1 flex items-center justify-center flex-shrink-0">
+      <div id="mkt-preview-notch" class="w-24 h-4 bg-black rounded-b-xl mx-auto mb-1 flex items-center justify-center flex-shrink-0">
         <span class="w-2 h-2 rounded-full bg-gray-800"></span>
       </div>
-      <iframe id="mkt-preview-iframe" class="w-full h-full rounded-[24px] bg-white border-0 flex-grow" src="about:blank"></iframe>
+      <div id="mkt-preview-browserbar" class="hidden w-full px-3 py-1.5 bg-[#140628] border-b border-purple-900/60 rounded-t-lg items-center justify-between gap-2 flex-shrink-0 text-[10px] text-purple-300 mb-1">
+        <div class="flex items-center gap-1.5">
+          <span class="w-2 h-2 rounded-full bg-red-500/80"></span>
+          <span class="w-2 h-2 rounded-full bg-amber-500/80"></span>
+          <span class="w-2 h-2 rounded-full bg-emerald-500/80"></span>
+        </div>
+        <div class="px-3 py-0.5 rounded bg-purple-950/70 border border-purple-800/60 text-purple-200 text-center font-mono text-[9px] truncate max-w-xs flex-grow mx-2">
+          🔒 wishmagic.live/desktop-preview
+        </div>
+        <div class="text-[9px] font-bold text-pink-400">1280×800</div>
+      </div>
+      <div id="mkt-preview-iframe-viewport" class="w-full h-full flex-grow relative overflow-hidden rounded-[24px] bg-white">
+        <iframe id="mkt-preview-iframe" class="w-full h-full bg-white border-0" src="about:blank"></iframe>
+      </div>
     </div>
   </div>
   <!-- Modal Bottom Actions Bar -->

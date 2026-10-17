@@ -351,5 +351,33 @@ describe('Part 48 — WishMagic UTP v1.1.0 Universal Template Variant System', (
       assert.ok(customizeJs.includes('applySelectedVariantToCustomizer'));
       assert.ok(customizeJs.includes('VARIANT_UNAVAILABLE'));
     });
+
+    it('verifies Admin Variants route unshadowing, Desktop 1280x800 preview scaling, permanent seed template deletion, and mobile version modal layout', () => {
+      const workerSrc = fs.readFileSync(path.join(process.cwd(), 'src/worker.js'), 'utf8');
+      const adminHtml = fs.readFileSync(path.join(process.cwd(), 'public/admin-templates.html'), 'utf8');
+      const adminJs = fs.readFileSync(path.join(process.cwd(), 'public/js/admin-template-uploader.js'), 'utf8');
+      const indexHtml = fs.readFileSync(path.join(process.cwd(), 'public/index.html'), 'utf8');
+      const templatesHtml = fs.readFileSync(path.join(process.cwd(), 'public/templates.html'), 'utf8');
+      const previewHtml = fs.readFileSync(path.join(process.cwd(), 'public/template-preview.html'), 'utf8');
+
+      // 1. Worker /api/templates/:id route does not shadow /family, /variants, /relationships, /resolver
+      assert.ok(workerSrc.includes("!pathname.endsWith('/family')"));
+      assert.ok(workerSrc.includes("!pathname.includes('/variants/')"));
+      assert.ok(workerSrc.includes("recordPermanentTemplateDeletion"));
+      assert.ok(workerSrc.includes("getDeletedTemplateIdsSet"));
+
+      // 2. Desktop vs Mobile preview scaling uses true 1280x800 desktop viewport
+      assert.ok(indexHtml.includes("const DESKTOP_W = 1280;"));
+      assert.ok(templatesHtml.includes("const DESKTOP_W = 1280;"));
+      assert.ok(previewHtml.includes("const DESKTOP_W = 1280;"));
+
+      // 3. Frontend no longer force-injects FALLBACK_HOME_TEMPLATES or FALLBACK_SEED_TEMPLATES when < 8 templates exist
+      assert.ok(!indexHtml.includes("if (list.length < 8 && !seen.has(fb.id))"));
+      assert.ok(!templatesHtml.includes("if (templates.length < 8 && !seen.has(fb.id))"));
+
+      // 4. Admin Versions & Variants modals have mobile-responsive flex-col sm:flex-row headers
+      assert.ok(adminHtml.includes("flex-col sm:flex-row sm:items-center sm:justify-between"));
+      assert.ok(adminJs.includes("encodeURIComponent(templateId)}/family"));
+    });
   });
 });

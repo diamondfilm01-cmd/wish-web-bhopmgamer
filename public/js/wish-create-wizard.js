@@ -285,15 +285,11 @@
     try {
       const res = await fetch('/api/templates?includeDrafts=false', { credentials: 'include' });
       const data = await res.json();
-      if (data && data.success && Array.isArray(data.templates) && data.templates.length > 0) {
-        // Merge server templates into catalog
-        const fetchedMap = new Map(data.templates.map(t => [t.id, t]));
-        DEFAULT_CATALOG.forEach(def => {
-          if (!fetchedMap.has(def.id)) {
-            data.templates.push(def);
-          }
-        });
+      if (res.ok && data && data.success && Array.isArray(data.templates)) {
         state.templatesCatalog = data.templates;
+        if (state.templatesCatalog.length > 0 && !state.templatesCatalog.some(t => t.id === state.selectedTemplateId)) {
+          state.selectedTemplateId = state.templatesCatalog[0].id;
+        }
       }
     } catch (e) {
       console.warn('[wish-wizard] Catalog fetch notice, using built-in catalog:', e);

@@ -1148,7 +1148,7 @@ function getRelationships() {
     if (fs.existsSync(RELATIONSHIPS_FILE)) {
       const data = fs.readFileSync(RELATIONSHIPS_FILE, 'utf8');
       const parsed = JSON.parse(data || '[]');
-      if (Array.isArray(parsed) && parsed.length > 0) {
+      if (Array.isArray(parsed)) {
         return parsed.sort((a, b) => (Number(a.sortOrder) || 0) - (Number(b.sortOrder) || 0));
       }
     }
@@ -5603,9 +5603,24 @@ app.post('/api/templates/update', (req, res) => {
 app.delete('/api/templates/:id', (req, res) => {
   try {
     const id = req.params.id;
-    const force = req.query.force === 'true' || req.query.force === '1';
+    const systemDemoIds = new Set([
+      'tpl_glitter_birthday',
+      'tpl_romantic_scrapbook',
+      'tpl_romantic_starlight',
+      'tpl_midnight_countdown',
+      'tpl_golden_anniversary',
+      'tpl_golden_elegance',
+      'tpl_friendship_chronicles',
+      'tpl_parents_tribute',
+      'tpl_neon_party',
+      'tpl_festive_lights',
+      'tpl_cosmic_aurora'
+    ]);
     let templates = getTemplates();
-    const target = templates.find(t => t.id === id);
+    const target = templates.find(t => t.id === id || t.slug === id);
+    const targetId = target ? target.id : id;
+    const isDemoTpl = systemDemoIds.has(targetId) || (target && systemDemoIds.has(target.folder));
+    const force = req.query.force === 'true' || req.query.force === '1' || isDemoTpl;
 
     if (!target) {
       return res.status(404).json({ success: false, message: 'Template not found' });
@@ -5631,11 +5646,18 @@ app.delete('/api/templates/:id', (req, res) => {
     }
 
     // Remove expired/draft wishes referencing this deleted template so slugs are freed
-    wishes = wishes.filter(w => w.templateId !== id && w.template_id !== id);
+    wishes = wishes.filter(w => w.templateId !== targetId && w.template_id !== targetId && w.templateId !== id && w.template_id !== id);
     saveWishes(wishes);
 
-    templates = templates.filter(t => t.id !== id);
+    templates = templates.filter(t => t.id !== targetId && t.id !== id && t.slug !== id);
     saveTemplates(templates);
+
+    try {
+      const remVars = getTemplateRelationshipVariants().filter(v => v.template_id !== targetId && v.template_id !== id);
+      saveTemplateRelationshipVariants(remVars);
+      const remRels = getTemplateRelationships().filter(r => r.template_id !== targetId && r.template_id !== id);
+      saveTemplateRelationships(remRels);
+    } catch (_) {}
 
     // Only remove folder if it is an uploaded custom folder (not a system demo folder)
     const systemProtectedFolders = [
@@ -6178,7 +6200,13 @@ app.get('/api/templates/:id/variants/:relId', (req, res) => {
     const versionId = activeVersion ? activeVersion.id : `tv_${templateId}_v1`;
 
     const rels = getRelationships();
-    const targetRel = rels.find(r => r.id === relId || r.slug === relId);
+    let targetRel = rels.find(r => r.id === relId || r.slug === relId);
+    if (!targetRel) {
+      const norm = normalizeRelationshipIdentifier(relId);
+      if (norm) {
+        targetRel = { id: norm.id, slug: norm.slug, name: norm.label, displayName: norm.displayName, icon: norm.icon, category: norm.category };
+      }
+    }
     if (!targetRel) return res.status(404).json({ success: false, message: 'Relationship not found' });
 
     const allVariants = getTemplateRelationshipVariants();

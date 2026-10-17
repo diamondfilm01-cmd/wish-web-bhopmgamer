@@ -1078,26 +1078,31 @@
 <div class="fixed inset-0 z-50 hidden bg-black/85 backdrop-blur-xl flex items-center justify-center p-2 sm:p-4 md:p-6 transition-opacity overflow-y-auto" id="template-variants-modal">
   <div class="wm-card bg-surface-container-low border border-purple-500/30 w-full max-w-6xl max-h-[94vh] rounded-2xl sm:rounded-3xl shadow-2xl flex flex-col overflow-hidden relative text-on-surface animate-in fade-in zoom-in-95 duration-200">
     
-    <!-- Modal Header -->
-    <div class="p-4 sm:p-5 border-b border-purple-500/20 bg-surface-container flex items-center justify-between shrink-0">
-      <div class="flex items-center gap-3">
-        <div class="w-10 h-10 rounded-xl bg-purple-500/20 text-primary flex items-center justify-center">
-          <span class="material-symbols-outlined text-[24px]">family_restroom</span>
-        </div>
-        <div class="flex flex-col">
-          <div class="flex items-center gap-2">
-            <h3 id="var-modal-title" class="font-bold text-base sm:text-lg text-on-surface">Relationship Variants Manager</h3>
-            <span id="var-modal-ver-badge" class="px-2 py-0.5 rounded-full bg-purple-500/20 text-purple-300 font-mono text-[10px] font-bold">V1 Active</span>
+    <!-- Modal Header (Mobile-Responsive) -->
+    <div class="p-3.5 sm:p-5 border-b border-purple-500/20 bg-surface-container flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 shrink-0">
+      <div class="flex items-start justify-between gap-2.5 w-full sm:w-auto min-w-0">
+        <div class="flex items-start sm:items-center gap-2.5 sm:gap-3 min-w-0">
+          <div class="w-9 h-9 sm:w-10 sm:h-10 rounded-xl bg-purple-500/20 text-primary flex items-center justify-center shrink-0">
+            <span class="material-symbols-outlined text-[20px] sm:text-[24px]">family_restroom</span>
           </div>
-          <span id="var-modal-subtitle" class="text-xs text-on-surface-variant">Customize tailored messages, themes, music and atmospheres per relationship</span>
+          <div class="flex flex-col min-w-0">
+            <div class="flex flex-wrap items-center gap-1.5 sm:gap-2">
+              <h3 id="var-modal-title" class="font-bold text-sm sm:text-lg text-on-surface leading-tight break-words">Relationship Variants Manager</h3>
+              <span id="var-modal-ver-badge" class="px-2 py-0.5 rounded-full bg-purple-500/20 text-purple-300 font-mono text-[10px] font-bold whitespace-nowrap">V1 Active</span>
+            </div>
+            <span id="var-modal-subtitle" class="text-[11px] sm:text-xs text-on-surface-variant leading-snug mt-0.5">Customize tailored messages, themes, music and atmospheres per relationship</span>
+          </div>
         </div>
-      </div>
-      <div class="flex items-center gap-2">
-        <button type="button" onclick="openResolverLivePreview()" class="px-3 py-1.5 rounded-xl bg-purple-500/15 hover:bg-purple-500/25 text-purple-300 font-semibold text-xs transition flex items-center gap-1 cursor-pointer">
-          <span class="material-symbols-outlined text-[16px]">visibility</span>
-          <span class="hidden sm:inline">Preview Live Variant</span>
+        <button type="button" class="sm:hidden p-1.5 rounded-lg text-outline hover:text-on-surface hover:bg-surface-container-high transition cursor-pointer shrink-0" onclick="closeTemplateVariantsModal()" aria-label="Close">
+          <span class="material-symbols-outlined text-[20px]">close</span>
         </button>
-        <button type="button" class="p-2 rounded-lg text-outline hover:text-on-surface hover:bg-surface-container-high transition cursor-pointer" onclick="closeTemplateVariantsModal()">
+      </div>
+      <div class="flex items-center justify-end gap-2 w-full sm:w-auto shrink-0">
+        <button type="button" onclick="openResolverLivePreview()" class="flex-1 sm:flex-initial justify-center px-3 py-2 sm:py-1.5 rounded-xl bg-purple-500/15 hover:bg-purple-500/25 text-purple-300 font-semibold text-xs transition flex items-center gap-1.5 cursor-pointer whitespace-nowrap">
+          <span class="material-symbols-outlined text-[16px]">visibility</span>
+          <span>Preview Live Variant</span>
+        </button>
+        <button type="button" class="hidden sm:flex p-2 rounded-lg text-outline hover:text-on-surface hover:bg-surface-container-high transition cursor-pointer" onclick="closeTemplateVariantsModal()" aria-label="Close">
           <span class="material-symbols-outlined text-[22px]">close</span>
         </button>
       </div>
@@ -1176,7 +1181,7 @@
         </div>
 
         <!-- Variant Configuration Tabs -->
-        <div class="border-b border-purple-500/20 flex gap-4 text-xs font-semibold">
+        <div class="border-b border-purple-500/20 flex gap-4 text-xs font-semibold overflow-x-auto no-scrollbar whitespace-nowrap">
           <button type="button" onclick="switchVariantTab('messages')" id="var-tab-btn-messages" class="pb-2 border-b-2 border-primary text-primary flex items-center gap-1.5 cursor-pointer">
             <span class="material-symbols-outlined text-[16px]">edit_note</span>
             <span>Messages & Copy</span>
@@ -1376,30 +1381,35 @@
 <!-- 1. Master Template Versions Modal -->
 <div class="fixed inset-0 z-50 hidden bg-black/85 backdrop-blur-xl flex items-center justify-center p-2 sm:p-4 md:p-6 transition-opacity overflow-y-auto" id="template-versions-modal">
   <div class="w-full max-w-6xl max-h-[92vh] bg-surface-container-low border border-purple-500/30 rounded-2xl sm:rounded-3xl shadow-2xl flex flex-col overflow-hidden my-auto">
-    <!-- Header -->
-    <div class="p-4 sm:p-5 bg-surface-container flex items-center justify-between border-b border-purple-500/20">
-      <div class="flex items-center gap-3">
-        <div class="w-10 h-10 rounded-xl bg-indigo-500/20 text-indigo-300 flex items-center justify-center shadow-inner">
-          <span class="material-symbols-outlined text-[24px]">account_tree</span>
-        </div>
-        <div class="flex flex-col">
-          <div class="flex items-center gap-2">
-            <h3 id="versions-modal-title" class="font-headline-sm text-headline-sm font-bold text-on-surface">Template Versions</h3>
-            <span id="versions-current-badge" class="px-2.5 py-0.5 rounded-full bg-emerald-500/20 text-emerald-300 text-xs font-bold border border-emerald-500/30">Current: Loading</span>
+    <!-- Header (Mobile-Responsive: fixes clipped buttons on mobile screens) -->
+    <div class="p-3.5 sm:p-5 bg-surface-container flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 border-b border-purple-500/20 shrink-0">
+      <div class="flex items-start justify-between gap-2.5 w-full sm:w-auto min-w-0">
+        <div class="flex items-start sm:items-center gap-2.5 sm:gap-3 min-w-0">
+          <div class="w-9 h-9 sm:w-10 sm:h-10 rounded-xl bg-indigo-500/20 text-indigo-300 flex items-center justify-center shadow-inner shrink-0">
+            <span class="material-symbols-outlined text-[20px] sm:text-[24px]">account_tree</span>
           </div>
-          <span id="versions-modal-subtitle" class="font-label-sm text-label-sm text-outline">Manage immutable versions, validation pipeline, safe release and rollback</span>
+          <div class="flex flex-col min-w-0">
+            <div class="flex flex-wrap items-center gap-1.5 sm:gap-2">
+              <h3 id="versions-modal-title" class="font-headline-sm text-sm sm:text-base font-bold text-on-surface leading-tight break-words">Template Versions</h3>
+              <span id="versions-current-badge" class="px-2.5 py-0.5 rounded-full bg-emerald-500/20 text-emerald-300 text-[11px] font-bold border border-emerald-500/30 whitespace-nowrap">Current: Loading</span>
+            </div>
+            <span id="versions-modal-subtitle" class="font-label-sm text-[11px] text-outline leading-snug break-all sm:break-normal mt-0.5">Manage immutable versions, validation pipeline, safe release and rollback</span>
+          </div>
         </div>
+        <button type="button" onclick="closeTemplateVersionsModal()" class="sm:hidden p-1.5 rounded-lg text-outline hover:text-on-surface hover:bg-surface-container-high transition shrink-0" aria-label="Close">
+          <span class="material-symbols-outlined text-[20px]">close</span>
+        </button>
       </div>
-      <div class="flex items-center gap-2">
-        <button type="button" onclick="openCreateVersionModal()" class="px-3.5 py-2 rounded-xl bg-primary hover:bg-primary-hover text-on-primary font-bold text-xs shadow-md transition flex items-center gap-1.5 cursor-pointer">
+      <div class="flex items-center gap-2 w-full sm:w-auto justify-end shrink-0">
+        <button type="button" onclick="openCreateVersionModal()" class="flex-1 sm:flex-initial justify-center px-3.5 py-2 rounded-xl bg-primary hover:bg-primary-hover text-on-primary font-bold text-xs shadow-md transition flex items-center gap-1.5 cursor-pointer whitespace-nowrap">
           <span class="material-symbols-outlined text-[16px]">add</span>
           <span>New Version</span>
         </button>
-        <button type="button" onclick="openVersionCompareModal()" class="px-3.5 py-2 rounded-xl bg-surface-container-high hover:bg-surface-container-highest text-on-surface font-semibold text-xs border border-purple-500/20 transition flex items-center gap-1.5 cursor-pointer" title="Compare two versions">
+        <button type="button" onclick="openVersionCompareModal()" class="flex-1 sm:flex-initial justify-center px-3.5 py-2 rounded-xl bg-surface-container-high hover:bg-surface-container-highest text-on-surface font-semibold text-xs border border-purple-500/20 transition flex items-center gap-1.5 cursor-pointer whitespace-nowrap" title="Compare two versions">
           <span class="material-symbols-outlined text-[16px] text-secondary">compare_arrows</span>
           <span>Compare</span>
         </button>
-        <button type="button" onclick="closeTemplateVersionsModal()" class="p-2 rounded-lg text-outline hover:text-on-surface hover:bg-surface-container-high transition">
+        <button type="button" onclick="closeTemplateVersionsModal()" class="hidden sm:flex p-2 rounded-lg text-outline hover:text-on-surface hover:bg-surface-container-high transition" aria-label="Close">
           <span class="material-symbols-outlined text-[22px]">close</span>
         </button>
       </div>
@@ -1419,7 +1429,7 @@
         <div class="overflow-x-auto">
           <table class="w-full text-left text-xs">
             <thead class="bg-surface-container/70 border-b border-purple-500/20 text-on-surface-variant uppercase font-bold text-[10px] tracking-wider">
-              <tr>
+              <tr class="whitespace-nowrap">
                 <th class="py-3 px-4">Version</th>
                 <th class="py-3 px-3">Status</th>
                 <th class="py-3 px-3">Files / Size</th>
