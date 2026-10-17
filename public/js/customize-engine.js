@@ -356,11 +356,117 @@ document.addEventListener('DOMContentLoaded', async () => {
   });
 });
 
-// Load template metadata & check for saved local draft
+function applySelectedVariantToCustomizer(variant, isInitialLoad = false) {
+  if (!activeTemplate || !variant) return;
+  activeTemplate.selectedVariant = variant;
+  activeTemplate.entryFile = variant.entryFile || activeTemplate.entryFile || 'index.html';
+
+  currentCustomData.variantId = variant.id;
+  currentCustomData.variantSlug = variant.slug || variant.id;
+  currentCustomData.relationship = variant.relationshipSlug || currentCustomData.relationship;
+  currentCustomData.relationshipLabel = variant.relationshipLabel || variant.relationshipSlug;
+
+  // Preserve selected variant and relation in URL for refresh & back navigation (Rule E)
+  try {
+    const url = new URL(window.location.href);
+    url.searchParams.set('template', activeTemplate.id);
+    url.searchParams.set('variant', variant.id);
+    url.searchParams.set('rel', variant.relationshipSlug);
+    window.history.replaceState({}, '', url.toString());
+  } catch (_) {}
+
+  // Merge variant-specific fields and sections onto activeTemplate
+  if (Array.isArray(variant.fields) && variant.fields.length > 0) {
+    const baseFields = Array.isArray(activeTemplate._baseFields)
+      ? activeTemplate._baseFields
+      : (Array.isArray(activeTemplate.fields) ? [...activeTemplate.fields] : []);
+    activeTemplate._baseFields = baseFields;
+    const mergedMap = new Map();
+    baseFields.forEach(f => {
+      const k = String(f.id || f.key || '').trim();
+      if (k) mergedMap.set(k, { ...f });
+    });
+    variant.fields.forEach(vf => {
+      const k = String(vf.id || vf.key || '').trim();
+      if (!k) return;
+      if (vf.disabled === true || vf.enabled === false) {
+        mergedMap.delete(k);
+      } else if (mergedMap.has(k)) {
+        mergedMap.set(k, { ...mergedMap.get(k), ...vf });
+      } else {
+        mergedMap.set(k, { ...vf });
+      }
+    });
+    const mergedList = Array.from(mergedMap.values());
+    activeTemplate.fields = mergedList;
+    if (activeTemplate.manifest && typeof activeTemplate.manifest === 'object') {
+      activeTemplate.manifest.fields = mergedList;
+    }
+  }
+
+  if (Array.isArray(variant.sections) && variant.sections.length > 0) {
+    activeTemplate.sections = variant.sections;
+    if (activeTemplate.manifest && typeof activeTemplate.manifest === 'object') {
+      activeTemplate.manifest.sections = variant.sections;
+    }
+  }
+
+  // Apply variant messages, assets, and theme palette into defaults (without overwriting user-edited wish values)
+  if (variant.messages && typeof variant.messages === 'object') {
+    Object.entries(variant.messages).forEach(([k, val]) => {
+      if (val !== undefined && val !== null && String(val) !== '') {
+        templateDefaultValues[k] = val;
+        if (!isMandatoryIdentityField(k) && (!currentCustomData[k] || !isInitialLoad)) {
+          currentCustomData[k] = val;
+        }
+      }
+    });
+    const varWish = variant.messages.custom_message || variant.messages.defaultWish || variant.messages.main_message;
+    if (varWish && (!currentCustomData.custom_message || !isInitialLoad)) {
+      currentCustomData.custom_message = varWish;
+      templateDefaultValues.custom_message = varWish;
+    }
+  }
+
+  if (variant.assets && typeof variant.assets === 'object') {
+    Object.entries(variant.assets).forEach(([k, val]) => {
+      if (val && typeof val === 'string') {
+        templateDefaultValues[k] = val;
+        if (!currentCustomData[k]) currentCustomData[k] = val;
+      }
+    });
+  }
+
+  if (variant.theme && typeof variant.theme === 'object') {
+    const pal = variant.theme.palette || variant.theme;
+    if (pal.primary) currentCustomData.colors.primary = pal.primary;
+    if (pal.secondary) currentCustomData.colors.secondary = pal.secondary;
+    if (pal.accent) currentCustomData.colors.accent = pal.accent;
+    if (pal.background) currentCustomData.colors.background = pal.background;
+  }
+
+  if (!isInitialLoad) {
+    renderCustomizerHeader();
+    applyUtpTemplateCapabilityGating(activeTemplate);
+    renderDynamicTemplateFields(activeTemplate);
+    populateFormValuesFromState();
+    loadTemplateInSandbox();
+  }
+}
+
+// Load template metadata & check for saved local draft (UTP v1.1.0 Variant-Aware + Rule D / E / Flow J)
 async function loadTemplateData(templateId) {
   const currentGen = ++customizerTemplateLoadGeneration;
   try {
-    const res = await fetch(`/api/templates/${encodeURIComponent(templateId)}`);
+    const urlParams = new URLSearchParams(window.location.search);
+    const variantParam = urlParams.get('variant') || '';
+    const relParam = urlParams.get('rel') || urlParams.get('relationship') || '';
+    const qs = new URLSearchParams();
+    if (variantParam) qs.set('variant', variantParam);
+    if (relParam) qs.set('rel', relParam);
+    const qsStr = qs.toString() ? `?${qs.toString()}` : '';
+
+    const res = await fetch(`/api/templates/${encodeURIComponent(templateId)}${qsStr}`);
     const data = await res.json();
     if (currentGen !== customizerTemplateLoadGeneration) return; // Stale request dropped
 
@@ -378,11 +484,45 @@ async function loadTemplateData(templateId) {
 
     if (!activeTemplate || currentGen !== customizerTemplateLoadGeneration) return;
 
+    // Flow J: Block invalid or unpublished variant IDs from bypassing availability checks
+    if (activeTemplate.selectedVariantError === 'VARIANT_UNAVAILABLE') {
+      if (window.WishMagicVariantFlow) {
+        window.WishMagicVariantFlow.showUnavailableVariantNotice(activeTemplate, variantParam || relParam);
+      }
+      return;
+    }
+
+    let resolvedInitialVariant = activeTemplate.selectedVariant || null;
+    let shouldPromptForVariant = false;
+    let availVariantsForPrompt = [];
+
+    if (window.WishMagicVariantFlow && window.WishMagicVariantFlow.isVariantFamily(activeTemplate) && !currentEditingWishId) {
+      availVariantsForPrompt = window.WishMagicVariantFlow.getAvailablePublishedVariants(activeTemplate);
+      const explicitRelOrVar = variantParam || relParam || window.WishMagicVariantFlow.getActiveRelationFilter();
+      if (explicitRelOrVar) {
+        const matched = window.WishMagicVariantFlow.resolveVariantForRelation(activeTemplate, explicitRelOrVar);
+        if (!matched) {
+          window.WishMagicVariantFlow.showUnavailableVariantNotice(activeTemplate, explicitRelOrVar);
+          return;
+        }
+        resolvedInitialVariant = matched;
+      } else if (availVariantsForPrompt.length === 1) {
+        resolvedInitialVariant = availVariantsForPrompt[0];
+      } else if (availVariantsForPrompt.length > 1) {
+        shouldPromptForVariant = true;
+      }
+    }
+
     // Apply template defaults
     applyTemplateDefaults(activeTemplate);
+    if (resolvedInitialVariant) {
+      applySelectedVariantToCustomizer(resolvedInitialVariant, true);
+    }
 
-    // Check for existing local draft
-    const draftKey = `wishmagic_draft_${activeTemplate.id}`;
+    // Check for existing local draft (scoped by variant if applicable)
+    const draftKey = resolvedInitialVariant
+      ? `wishmagic_draft_${activeTemplate.id}_${resolvedInitialVariant.id}`
+      : `wishmagic_draft_${activeTemplate.id}`;
     const rawSavedDraft = localStorage.getItem(draftKey);
     if (rawSavedDraft) {
       const parsed = window.WishSecurity ? window.WishSecurity.safeJSONParse(rawSavedDraft, null) : JSON.parse(rawSavedDraft);
@@ -397,6 +537,9 @@ async function loadTemplateData(templateId) {
     renderCustomizerHeader();
     await loadTemplateManifestIfNeeded(activeTemplate);
     if (currentGen !== customizerTemplateLoadGeneration) return;
+    if (resolvedInitialVariant) {
+      applySelectedVariantToCustomizer(resolvedInitialVariant, true);
+    }
 
     applyUtpTemplateCapabilityGating(activeTemplate);
     renderDynamicTemplateFields(activeTemplate);
@@ -404,6 +547,15 @@ async function loadTemplateData(templateId) {
     validateDraftEntitlements(currentCustomData);
     updateDevEntitlementUI();
     loadTemplateInSandbox();
+
+    // Rule D: If multi-variant template opened in Customizer without a chosen relation, prompt immediately
+    if (shouldPromptForVariant && availVariantsForPrompt.length > 1 && window.WishMagicVariantFlow) {
+      window.WishMagicVariantFlow.showRelationSelectionModal(activeTemplate, availVariantsForPrompt, 'customize', {
+        onSelectVariant: (chosen) => {
+          applySelectedVariantToCustomizer(chosen, false);
+        }
+      });
+    }
 
   } catch (err) {
     console.error('Error loading template for customizer:', err);
@@ -920,7 +1072,11 @@ function renderCustomizerHeader() {
   const isVip = activeTemplate.tier === 'vip' || (activeTemplate.price && Number(activeTemplate.price) > 0);
 
   const titleEl = document.getElementById('customizer-template-name');
-  if (titleEl) titleEl.textContent = activeTemplate.name;
+  if (titleEl) {
+    titleEl.textContent = (activeTemplate.selectedVariant && activeTemplate.selectedVariant.relationshipLabel)
+      ? `${activeTemplate.name} — ${activeTemplate.selectedVariant.relationshipLabel}`
+      : activeTemplate.name;
+  }
 
   const badgeEl = document.getElementById('customizer-tier-badge');
   if (badgeEl) {
@@ -941,10 +1097,12 @@ function renderCustomizerHeader() {
       : `<span>Finalize Free Wish</span><span class="material-symbols-outlined text-[16px]">arrow_forward</span>`;
   }
 
-  // Update back to preview link
+  // Update back to preview link (Rule E: preserve selected variant & relation on back navigation)
   const backLink = document.getElementById('btn-back-to-preview');
   if (backLink) {
-    backLink.href = `/template/${activeTemplate.id}`;
+    backLink.href = (activeTemplate.selectedVariant && activeTemplate.selectedVariant.id)
+      ? `/template-preview.html?template=${encodeURIComponent(activeTemplate.id)}&variant=${encodeURIComponent(activeTemplate.selectedVariant.id)}&rel=${encodeURIComponent(activeTemplate.selectedVariant.relationshipSlug || '')}`
+      : `/template/${activeTemplate.id}`;
   }
 }
 
@@ -1357,9 +1515,20 @@ const DEFAULT_RELATIONSHIP_CONFIGS = {
 
 function findRelationshipVariantConfig(rel) {
   if (!rel) return null;
-  const relNorm = String(rel).toLowerCase().trim();
+  const relNorm = String(rel).toLowerCase().trim().replace(/\s+/g, '_');
+  if (activeTemplate && window.WishMagicVariantFlow) {
+    const resolved = window.WishMagicVariantFlow.resolveVariantForRelation(activeTemplate, relNorm);
+    if (resolved) {
+      return {
+        ...resolved,
+        palette: (resolved.theme && (resolved.theme.palette || resolved.theme)) || null,
+        messages: resolved.messages || {}
+      };
+    }
+  }
   if (activeTemplate && Array.isArray(activeTemplate.variants)) {
     const match = activeTemplate.variants.find(v =>
+      (v.relationshipSlug && v.relationshipSlug.toLowerCase() === relNorm) ||
       (v.relationship_slug && v.relationship_slug.toLowerCase() === relNorm) ||
       (v.relationship && v.relationship.toLowerCase() === relNorm)
     );

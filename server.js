@@ -34,8 +34,17 @@ import {
   IMAGE_LIMITS
 } from './src/imgbb-provider.js';
 import {
+  normalizeRelationshipIdentifier
+} from './src/template-protocol-schema.js';
+import {
+  validateUtpManifest
+} from './src/template-protocol-validator.js';
+import {
   validateVariantConfiguration,
   resolveVariantHierarchy,
+  buildVariantRecordFromUtpDeclaration,
+  filterPublicAvailableVariants,
+  mergeTemplateAndVariantFields,
   cloneVariant,
   VARIANT_STATUS,
   STANDARD_IMAGE_SLOTS,
@@ -3997,10 +4006,48 @@ app.get('/api/admin/diagnostic', (req, res) => {
 // API: Get all templates (supports ?includeDrafts=true for admin, ?category=..., ?search=..., ?tier=..., ?featured=...)
 app.get('/api/templates', (req, res) => {
   const { includeDrafts, category, search, tier, featured } = req.query;
-  let templates = getTemplates();
+  const isAdminDraftView = includeDrafts === 'true' || includeDrafts === '1';
+  const rawTemplates = getTemplates();
+  const allStoredVariants = getTemplateRelationshipVariants();
+  const variantsByTplId = new Map();
+  for (const v of allStoredVariants) {
+    if (v.is_latest === 0) continue;
+    const tId = v.template_id;
+    if (!tId) continue;
+    if (!variantsByTplId.has(tId)) variantsByTplId.set(tId, []);
+    variantsByTplId.get(tId).push(v);
+  }
+
+  let templates = rawTemplates.map(t => {
+    const storedVars = variantsByTplId.get(t.id) || [];
+    const inlineVars = Array.isArray(t.variants) ? t.variants : [];
+    const rawVars = storedVars.length > 0 ? storedVars : inlineVars;
+    const hasVariants = Boolean(t.hasVariants || t.has_variants || rawVars.length > 0);
+    const availableVariants = filterPublicAvailableVariants(rawVars);
+    const availableRelations = availableVariants.map(av => ({
+      id: av.relationshipId,
+      slug: av.relationshipSlug,
+      label: av.label,
+      name: av.name,
+      variantId: av.id,
+      variantSlug: av.slug,
+      icon: av.icon,
+      thumbnail: av.thumbnail
+    }));
+
+    return {
+      ...t,
+      familyId: t.familyId || `fam_${t.id}`,
+      hasVariants,
+      availableVariants,
+      availableRelations,
+      relationships: hasVariants ? availableRelations.map(ar => ar.label) : (Array.isArray(t.relationships) ? t.relationships : []),
+      ...(isAdminDraftView ? { variants: rawVars } : {})
+    };
+  });
 
   // If not explicitly requesting drafts (public marketplace/home/preview), filter for published only
-  if (includeDrafts !== 'true' && includeDrafts !== '1') {
+  if (!isAdminDraftView) {
     templates = templates.filter(t => t.isPublished !== false && t.status !== 'draft');
   }
 
@@ -4013,21 +4060,47 @@ app.get('/api/templates', (req, res) => {
     });
   }
 
-  // Part 27: Filter by Supported Relationship (D1 template_relationships mapping)
-  const relFilter = (req.query.relationship || '').toLowerCase().trim();
+  // Part 27 & Part 48: Filter by Supported Relationship
+  const relFilter = (req.query.relationship || req.query.rel || '').toLowerCase().trim();
   if (relFilter && relFilter !== 'all') {
+    const normRel = normalizeRelationshipIdentifier(relFilter);
+    const targetSlug = normRel ? normRel.slug : relFilter;
+    const targetLabelLower = normRel ? normRel.label.toLowerCase() : relFilter;
     const allRels = getRelationships();
-    const targetRel = allRels.find(r => r.slug.toLowerCase() === relFilter || r.id.toLowerCase() === relFilter || r.name.toLowerCase() === relFilter);
-    const targetRelId = targetRel ? targetRel.id : relFilter;
-    const targetRelSlug = targetRel ? targetRel.slug.toLowerCase() : relFilter;
+    const targetRel = allRels.find(r => r.slug.toLowerCase() === targetSlug || r.id.toLowerCase() === relFilter || r.name.toLowerCase() === targetLabelLower);
+    const targetRelId = targetRel ? targetRel.id : (normRel ? normRel.id : relFilter);
     const tRels = getTemplateRelationships();
     const enabledTplIds = new Set(
       tRels.filter(tr => tr.enabled && (tr.relationship_id === targetRelId || (targetRel && tr.relationship_id === targetRel.id))).map(tr => tr.template_id)
     );
+
     templates = templates.filter(t => {
-      if (enabledTplIds.has(t.id)) return true;
+      if (t.hasVariants) {
+        const matchedVar = (t.availableVariants || []).find(av =>
+          av.relationshipSlug === targetSlug ||
+          av.relationshipId.toLowerCase() === relFilter ||
+          av.slug === relFilter ||
+          av.label.toLowerCase() === targetLabelLower ||
+          av.label.toLowerCase() === relFilter
+        );
+        if (!matchedVar) return false;
+        t.selectedRelation = matchedVar.relationshipSlug;
+        t.selectedVariant = matchedVar;
+        return true;
+      }
+      if (enabledTplIds.has(t.id)) {
+        t.selectedRelation = targetSlug;
+        return true;
+      }
       if (Array.isArray(t.relationships)) {
-        return t.relationships.some(r => r.toLowerCase().includes(targetRelSlug) || (targetRel && r.toLowerCase().includes(targetRel.name.toLowerCase())));
+        const matchLegacy = t.relationships.some(r => {
+          const rNorm = normalizeRelationshipIdentifier(r);
+          return (rNorm && rNorm.slug === targetSlug) || r.toLowerCase() === relFilter || r.toLowerCase() === targetLabelLower;
+        });
+        if (matchLegacy) {
+          t.selectedRelation = targetSlug;
+          return true;
+        }
       }
       return false;
     });
@@ -4129,19 +4202,80 @@ app.get('/api/templates/:id', (req, res) => {
   }
 
   const resolvedFolder = resolveServerTemplateFolder(template.folder, template.slug, template.id);
-  const previewUrl = (template.previewUrl && String(template.previewUrl).includes('/versions/'))
+  let entryFileName = template.entryFile || template.entry_file || 'index.html';
+  let previewUrl = (template.previewUrl && String(template.previewUrl).includes('/versions/'))
     ? template.previewUrl
-    : `/templates-store/${resolvedFolder}/${template.entryFile || template.entry_file || 'index.html'}`;
-  const fields = template.fields || template.detectedFields || [];
-  const variants = template.variants || [];
+    : `/templates-store/${resolvedFolder}/${entryFileName}`;
+  let fields = template.fields || template.detectedFields || [];
+  const storedVars = getTemplateRelationshipVariants().filter(v => v.template_id === template.id && v.is_latest !== 0);
+  const rawVariants = storedVars.length > 0 ? storedVars : (template.variants || []);
+  const hasVariants = Boolean(template.hasVariants || template.has_variants || rawVariants.length > 0);
+  const availableVariants = filterPublicAvailableVariants(rawVariants);
+  const availableRelations = availableVariants.map(av => ({
+    id: av.relationshipId,
+    slug: av.relationshipSlug,
+    label: av.label,
+    name: av.name,
+    variantId: av.id,
+    variantSlug: av.slug,
+    icon: av.icon,
+    thumbnail: av.thumbnail
+  }));
   const sections = template.sections || [];
   const capabilities = template.capabilities || {};
 
+  const reqVariantParam = String(req.query.variant || req.query.variantId || '').trim();
+  const reqRelParam = String(req.query.rel || req.query.relationship || '').trim();
+  const isDraftView = req.query.includeDrafts === 'true';
+  let selectedVariant = null;
+  let selectedVariantError = null;
+
+  if (reqVariantParam || reqRelParam) {
+    const normReqRel = reqRelParam ? normalizeRelationshipIdentifier(reqRelParam) : null;
+    const targetRelSlug = normReqRel ? normReqRel.slug : reqRelParam.toLowerCase();
+    const pool = isDraftView ? rawVariants : availableVariants;
+    selectedVariant = pool.find(v => {
+      if (reqVariantParam) {
+        const vIdMatch = String(v.id || '').toLowerCase() === reqVariantParam.toLowerCase() ||
+          String(v.slug || v.variant_slug || '').toLowerCase() === reqVariantParam.toLowerCase();
+        if (!vIdMatch) return false;
+        if (targetRelSlug) {
+          const vRel = String(v.relationshipSlug || v.relationship_slug || v.relationship || '').toLowerCase();
+          return vRel === targetRelSlug;
+        }
+        return true;
+      }
+      const vRel = String(v.relationshipSlug || v.relationship_slug || v.relationship || '').toLowerCase();
+      const vLabel = String(v.label || v.relationship_label || '').toLowerCase();
+      return vRel === targetRelSlug || vLabel === reqRelParam.toLowerCase() || String(v.relationshipId || v.relationship_id || '').toLowerCase() === reqRelParam.toLowerCase();
+    }) || null;
+
+    if (!selectedVariant && hasVariants) {
+      selectedVariantError = 'VARIANT_UNAVAILABLE';
+    } else if (selectedVariant) {
+      fields = mergeTemplateAndVariantFields(fields, selectedVariant.fields, selectedVariant.messages, selectedVariant.assets);
+      if (selectedVariant.entryFile && selectedVariant.entryFile !== entryFileName) {
+        entryFileName = selectedVariant.entryFile;
+        previewUrl = (template.previewUrl && String(template.previewUrl).includes('/versions/'))
+          ? template.previewUrl.replace(/[^/]+$/, entryFileName)
+          : `/templates-store/${resolvedFolder}/${entryFileName}`;
+      }
+    }
+  }
+
   const enrichedTemplate = {
     ...template,
+    familyId: template.familyId || `fam_${template.id}`,
+    entryFile: entryFileName,
     fields,
     detectedFields: fields,
-    variants,
+    hasVariants,
+    availableVariants,
+    availableRelations,
+    selectedVariant,
+    selectedVariantError,
+    variants: isDraftView ? rawVariants : availableVariants,
+    relationships: hasVariants ? availableRelations.map(ar => ar.label) : (template.relationships || []),
     sections,
     capabilities,
     previewUrl
@@ -4223,6 +4357,7 @@ app.post('/api/templates/upload', async (req, res) => {
         const existingIdx = templates.findIndex(t => t.id === ingestResult.templateId);
         const syncedTemplate = {
           id: ingestResult.templateId,
+          familyId: ingestResult.templateFamilyId || `fam_${ingestResult.templateId}`,
           slug: String(ingestResult.templateId).replace(/^tpl_/, ''),
           name: (name || ingestResult.name || 'Custom Celebration').trim(),
           category: category || 'Birthday',
@@ -4239,11 +4374,22 @@ app.post('/api/templates/upload', async (req, res) => {
           previewUrl: ingestResult.previewUrl,
           featured: Boolean(featured),
           placement: Number(placement) || 1,
+          hasVariants: Boolean(ingestResult.variantsDetected),
+          variants: ingestResult.variants || [],
+          availableVariants: ingestResult.availableVariants || [],
+          relationships: Array.isArray(ingestResult.availableVariants) && ingestResult.availableVariants.length > 0
+            ? ingestResult.availableVariants.map(v => v.label)
+            : [],
           detectedFields: ingestResult.detectedFields || (Array.isArray(detectedFields) ? detectedFields : []),
           imgbbImages: ingestResult.imgbbImages || [],
           b2MediaAssets: ingestResult.b2MediaAssets || [],
           createdAt: new Date().toISOString()
         };
+        if (Array.isArray(ingestResult.variants) && ingestResult.variants.length > 0) {
+          const allVars = getTemplateRelationshipVariants().filter(v => v.template_id !== ingestResult.templateId);
+          allVars.push(...ingestResult.variants);
+          saveTemplateRelationshipVariants(allVars);
+        }
         if (existingIdx >= 0) {
           templates[existingIdx] = { ...templates[existingIdx], ...syncedTemplate };
         } else {
@@ -6484,12 +6630,42 @@ app.get('/api/templates/:id/resolver', (req, res) => {
     const activeVersion = getOrSeedTemplateVersion(template.id);
     const versionId = activeVersion ? activeVersion.id : `tv_${template.id}_v1`;
 
-    const relQuery = req.query.relationship || req.query.relationshipId || req.query.rel || 'general';
-    const rels = getRelationships();
-    const targetRel = rels.find(r => r.slug.toLowerCase() === relQuery.toLowerCase() || r.id === relQuery) || rels[0];
+    const relQuery = String(req.query.relationship || req.query.relationshipId || req.query.rel || '').trim();
+    const variantQuery = String(req.query.variant || req.query.variantId || '').trim();
+    const includeDrafts = req.query.includeDrafts === 'true';
 
-    const allVariants = getTemplateRelationshipVariants();
-    const variant = allVariants.find(v => (v.template_id === template.id || v.template_version_id === versionId) && (v.relationship_id === targetRel.id || v.relationship_slug === targetRel.slug) && v.is_latest !== 0) || null;
+    const rels = getRelationships();
+    const normRel = relQuery ? normalizeRelationshipIdentifier(relQuery) : null;
+    const targetRel = rels.find(r => r.slug.toLowerCase() === (normRel ? normRel.slug : relQuery.toLowerCase()) || r.id === relQuery);
+    const targetRelId = targetRel ? targetRel.id : (normRel ? normRel.id : relQuery);
+    const targetRelSlug = targetRel ? targetRel.slug : (normRel ? normRel.slug : relQuery.toLowerCase());
+
+    const allVariants = getTemplateRelationshipVariants().filter(v => (v.template_id === template.id || v.template_version_id === versionId) && v.is_latest !== 0);
+    let variant = null;
+    if (variantQuery) {
+      variant = allVariants.find(v => v.id === variantQuery || (v.variant_slug && v.variant_slug.toLowerCase() === variantQuery.toLowerCase())) || null;
+    } else if (relQuery) {
+      variant = allVariants.find(v => v.relationship_id === targetRelId || (v.relationship_slug && v.relationship_slug.toLowerCase() === targetRelSlug)) || null;
+    }
+
+    const hasVariants = Boolean(template.hasVariants || template.has_variants || allVariants.length > 0);
+    if (hasVariants && (variantQuery || (relQuery && relQuery !== 'general'))) {
+      if (!variant) {
+        return res.status(404).json({
+          success: false,
+          code: 'VARIANT_UNAVAILABLE',
+          message: 'The requested relationship variant does not exist or is not supported by this template family.'
+        });
+      }
+      const isPubAndEnabled = (variant.status === 'published' || variant.status === 'active') && Number(variant.enabled ?? 1) !== 0;
+      if (!isPubAndEnabled && !includeDrafts) {
+        return res.status(404).json({
+          success: false,
+          code: 'VARIANT_UNAVAILABLE',
+          message: 'The requested relationship variant is currently unpublished or disabled.'
+        });
+      }
+    }
 
     const templateImages = getTemplateImages().filter(img => img.template_id === template.id || img.template_version_id === versionId);
     const musicLibrary = getMusicLibrary();

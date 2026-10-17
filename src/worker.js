@@ -19,6 +19,21 @@ import {
   createZipFromFiles
 } from './template-ingest-pipeline.js';
 import {
+  normalizeRelationshipIdentifier
+} from './template-protocol-schema.js';
+import {
+  VARIANT_STATUS,
+  STANDARD_IMAGE_SLOTS,
+  STANDARD_MESSAGE_FIELDS,
+  validateVariantConfiguration,
+  resolveVariantHierarchy,
+  buildVariantRecordFromUtpDeclaration,
+  filterPublicAvailableVariants,
+  mergeTemplateAndVariantFields,
+  getDefaultRelationshipVariantConfig,
+  cloneVariant
+} from './template-variant-engine.js';
+import {
   B2StorageProvider,
   getB2Config,
   buildTemplateStorageKeys,
@@ -7461,11 +7476,16 @@ export default {
 
       // --- Templates API ---
       else if (pathname === '/api/templates' && method === 'GET') {
-        let templates = SEED_TEMPLATES.filter(t => !deletedSeedTemplateIds.has(t.id));
+        const includeDrafts = url.searchParams.get('includeDrafts') === 'true';
+        let templates = SEED_TEMPLATES.filter(t => !deletedSeedTemplateIds.has(t.id)).map(t => ({
+          ...t,
+          hasVariants: false,
+          availableVariants: [],
+          availableRelations: []
+        }));
 
         if (env.DB && typeof env.DB.prepare === 'function') {
           try {
-            const includeDrafts = url.searchParams.get('includeDrafts') === 'true';
             let q = 'SELECT * FROM templates';
             if (!includeDrafts) {
               q += ' WHERE is_published = 1';
@@ -7473,6 +7493,28 @@ export default {
             q += ' ORDER BY placement ASC LIMIT 100';
 
             const rows = await env.DB.prepare(q).all();
+            // Batch-load all latest variants in a single query to avoid N+1 lookups
+            const variantsByTplId = new Map();
+            try {
+              const allVarRows = await env.DB.prepare(
+                `SELECT trv.*, r.slug as r_slug, r.name as r_name, r.icon as r_icon
+                 FROM template_relationship_variants trv
+                 LEFT JOIN relationships r ON trv.relationship_id = r.id
+                 WHERE trv.is_latest = 1`
+              ).all();
+              for (const vr of (allVarRows.results || [])) {
+                const tKey = vr.template_id || String(vr.template_version_id || '').replace(/^tv_/, '').replace(/_v\d+.*$/, '');
+                if (!tKey) continue;
+                if (!variantsByTplId.has(tKey)) variantsByTplId.set(tKey, []);
+                variantsByTplId.get(tKey).push({
+                  ...vr,
+                  relationship_slug: vr.relationship_slug || vr.r_slug || '',
+                  relationship_label: vr.relationship_label || vr.r_name || '',
+                  relationship_icon: vr.r_icon || '✨'
+                });
+              }
+            } catch (_) {}
+
             if (rows.results && rows.results.length > 0) {
               const dbTemplates = rows.results.map(r => {
                 const entryFile = r.entry_file || 'index.html';
@@ -7481,8 +7523,31 @@ export default {
                 const previewUrl = isB2Version
                   ? `/api/templates/${r.id}/versions/${r.current_version_id}/preview/${entryFile}`
                   : `/templates-store/${folder}/${entryFile}`;
+
+                const dbVars = variantsByTplId.get(r.id) || [];
+                const jsonVars = safeJsonParse(r.variants_json, []);
+                const rawTplVariants = dbVars.length > 0 ? dbVars : (Array.isArray(jsonVars) ? jsonVars : []);
+                const hasDeclaredVariants = Boolean(r.has_variants || rawTplVariants.length > 0);
+                const availableVariants = filterPublicAvailableVariants(rawTplVariants);
+                const availableRelations = availableVariants.map(av => ({
+                  id: av.relationshipId,
+                  slug: av.relationshipSlug,
+                  label: av.label,
+                  name: av.name,
+                  variantId: av.id,
+                  variantSlug: av.slug,
+                  icon: av.icon,
+                  thumbnail: av.thumbnail
+                }));
+
+                const parsedRels = safeJsonParse(r.relationships, []);
+                const publicRelationships = hasDeclaredVariants
+                  ? availableRelations.map(ar => ar.label)
+                  : (Array.isArray(parsedRels) ? parsedRels : []);
+
                 return {
                   id: r.id,
+                  familyId: `fam_${r.id}`,
                   slug: r.slug,
                   name: r.name,
                   category: r.category,
@@ -7498,6 +7563,11 @@ export default {
                   detectedFields: safeJsonParse(r.detected_fields, []),
                   fields: safeJsonParse(r.detected_fields, []),
                   capabilities: safeJsonParse(r.capabilities, {}),
+                  relationships: publicRelationships,
+                  hasVariants: hasDeclaredVariants,
+                  availableVariants,
+                  availableRelations,
+                  ...(includeDrafts ? { variants: rawTplVariants } : {}),
                   description: r.description,
                   folder,
                   entryFile,
@@ -7509,7 +7579,26 @@ export default {
               const merged = [...dbTemplates];
               for (const seed of SEED_TEMPLATES) {
                 if (!seenIds.has(seed.id) && !deletedSeedTemplateIds.has(seed.id)) {
-                  merged.push(seed);
+                  const seedVars = variantsByTplId.get(seed.id) || [];
+                  const seedAvail = filterPublicAvailableVariants(seedVars);
+                  const seedRels = seedAvail.map(av => ({
+                    id: av.relationshipId,
+                    slug: av.relationshipSlug,
+                    label: av.label,
+                    name: av.name,
+                    variantId: av.id,
+                    variantSlug: av.slug,
+                    icon: av.icon,
+                    thumbnail: av.thumbnail
+                  }));
+                  merged.push({
+                    ...seed,
+                    familyId: `fam_${seed.id}`,
+                    hasVariants: seedVars.length > 0,
+                    availableVariants: seedAvail,
+                    availableRelations: seedRels,
+                    relationships: seedVars.length > 0 ? seedRels.map(sr => sr.label) : (seed.relationships || [])
+                  });
                   seenIds.add(seed.id);
                 }
               }
@@ -7528,38 +7617,51 @@ export default {
           templates = templates.filter(t => t.tier === tierFilter || (tierFilter === 'vip' && t.isPremium));
         }
 
-        // Part 19: Filter by Relationship (e.g. ?relationship=girlfriend or ?relationship=rel_girlfriend)
-        const relFilter = url.searchParams.get('relationship');
+        // Part 19 & Part 48: Filter by Explicit Relationship (e.g. ?relationship=brother)
+        const relFilter = url.searchParams.get('relationship') || url.searchParams.get('rel');
         if (relFilter && relFilter !== 'all') {
           const cleanRel = sanitizeString(relFilter.toLowerCase().trim(), 60);
-          if (env.DB && typeof env.DB.prepare === 'function') {
-            try {
-              const relRows = await env.DB.prepare(
-                `SELECT tr.template_id 
-                 FROM template_relationships tr
-                 JOIN relationships r ON tr.relationship_id = r.id
-                 WHERE tr.enabled = 1 AND (LOWER(r.slug) = ? OR LOWER(r.id) = ?)`
-              ).bind(cleanRel, cleanRel).all();
-              if (relRows.results && relRows.results.length > 0) {
-                const allowedTplIds = new Set(relRows.results.map(r => r.template_id));
-                templates = templates.filter(t => allowedTplIds.has(t.id));
-              } else {
-                // Check if templates themselves define relationships in their records
-                templates = templates.filter(t => {
-                  if (t.relationships && Array.isArray(t.relationships)) {
-                    return t.relationships.some(r => String(r).toLowerCase().includes(cleanRel));
-                  }
-                  return true;
-                });
+          const normRel = normalizeRelationshipIdentifier(cleanRel);
+          const targetSlug = normRel ? normRel.slug : cleanRel;
+          const targetLabelLower = normRel ? normRel.label.toLowerCase() : cleanRel;
+
+          templates = templates.filter(t => {
+            if (t.hasVariants) {
+              const matchedVar = (t.availableVariants || []).find(av =>
+                av.relationshipSlug === targetSlug ||
+                av.relationshipId.toLowerCase() === cleanRel ||
+                av.slug === cleanRel ||
+                av.label.toLowerCase() === targetLabelLower ||
+                av.label.toLowerCase() === cleanRel
+              );
+              if (!matchedVar) return false;
+              t.selectedRelation = matchedVar.relationshipSlug;
+              t.selectedVariant = matchedVar;
+              return true;
+            }
+            if (Array.isArray(t.relationships) && t.relationships.length > 0) {
+              const matchesLegacy = t.relationships.some(r => {
+                const rNorm = normalizeRelationshipIdentifier(r);
+                return (rNorm && rNorm.slug === targetSlug) || String(r).toLowerCase() === cleanRel || String(r).toLowerCase() === targetLabelLower;
+              });
+              if (matchesLegacy) {
+                t.selectedRelation = targetSlug;
+                return true;
               }
-            } catch (e) {}
-          }
+            }
+            return false;
+          });
         }
 
         const searchFilter = url.searchParams.get('search');
         if (searchFilter) {
-          const q = searchFilter.toLowerCase();
-          templates = templates.filter(t => t.name.toLowerCase().includes(q) || t.category.toLowerCase().includes(q) || (t.description && t.description.toLowerCase().includes(q)));
+          const q = searchFilter.toLowerCase().trim();
+          templates = templates.filter(t =>
+            t.name.toLowerCase().includes(q) ||
+            t.category.toLowerCase().includes(q) ||
+            (t.description && t.description.toLowerCase().includes(q)) ||
+            (Array.isArray(t.relationships) && t.relationships.some(r => String(r).toLowerCase().includes(q)))
+          );
         }
 
         response = jsonSuccess({ templates, total: templates.length }, 200, {}, requestId);
@@ -9906,14 +10008,24 @@ export default {
             }
 
             // Load variants
-            const vRows = await env.DB.prepare(`
-              SELECT v.*, r.name as relationship_name, r.slug as relationship_slug, r.icon as relationship_icon
-              FROM template_relationship_variants v
-              LEFT JOIN relationships r ON v.relationship_id = r.id
-              WHERE (v.template_id = ? ${activeVer ? 'OR v.template_version_id = ?' : ''}) AND v.status != 'archived'
-              ORDER BY v.sort_order ASC
-            `).bind(...(activeVer ? [template.id, activeVer.id] : [template.id])).all();
-            variants = vRows.results || [];
+            const vQuery = activeVer
+              ? `SELECT v.*, r.name as r_name, r.slug as r_slug, r.icon as r_icon
+                 FROM template_relationship_variants v
+                 LEFT JOIN relationships r ON v.relationship_id = r.id
+                 WHERE (v.template_id = ? OR v.template_version_id = ?) AND v.is_latest = 1
+                 ORDER BY v.created_at ASC`
+              : `SELECT v.*, r.name as r_name, r.slug as r_slug, r.icon as r_icon
+                 FROM template_relationship_variants v
+                 LEFT JOIN relationships r ON v.relationship_id = r.id
+                 WHERE v.template_id = ? AND v.is_latest = 1
+                 ORDER BY v.created_at ASC`;
+            const vRows = await env.DB.prepare(vQuery).bind(...(activeVer ? [template.id, activeVer.id] : [template.id])).all();
+            variants = (vRows.results || []).map(vr => ({
+              ...vr,
+              relationship_slug: vr.relationship_slug || vr.r_slug || '',
+              relationship_label: vr.relationship_label || vr.r_name || '',
+              relationship_icon: vr.r_icon || '✨'
+            }));
 
             // Load assigned relationships
             const rRows = await env.DB.prepare(`
@@ -9963,18 +10075,83 @@ export default {
           previewUrl = `/api/templates/${template.id}/versions/${activeVer.id}/preview/${entryFileName}`;
         }
 
+        if (variants.length === 0 && template.variants_json) {
+          const parsedVars = safeJsonParse(template.variants_json, []);
+          if (Array.isArray(parsedVars)) variants = parsedVars;
+        }
+        const hasDeclaredVariants = Boolean(template.has_variants || variants.length > 0);
+        const availableVariants = filterPublicAvailableVariants(variants);
+        const availableRelations = availableVariants.map(av => ({
+          id: av.relationshipId,
+          slug: av.relationshipSlug,
+          label: av.label,
+          name: av.name,
+          variantId: av.id,
+          variantSlug: av.slug,
+          icon: av.icon,
+          thumbnail: av.thumbnail
+        }));
+
+        // Optional variant / relation resolution on single-template fetch (?variant=... or ?rel=...)
+        const reqVariantParam = sanitizeString(url.searchParams.get('variant') || url.searchParams.get('variantId') || '', 80);
+        const reqRelParam = sanitizeString(url.searchParams.get('rel') || url.searchParams.get('relationship') || '', 60);
+        let selectedVariant = null;
+        let selectedVariantError = null;
+        if (reqVariantParam || reqRelParam) {
+          const normReqRel = reqRelParam ? normalizeRelationshipIdentifier(reqRelParam) : null;
+          const targetRelSlug = normReqRel ? normReqRel.slug : reqRelParam.toLowerCase();
+          const candidatePool = url.searchParams.get('includeDrafts') === 'true' ? variants : availableVariants;
+          selectedVariant = candidatePool.find(v => {
+            if (reqVariantParam) {
+              const vIdMatch = String(v.id || '').toLowerCase() === reqVariantParam.toLowerCase() ||
+                String(v.slug || v.variant_slug || '').toLowerCase() === reqVariantParam.toLowerCase();
+              if (!vIdMatch) return false;
+              if (targetRelSlug) {
+                const vRel = String(v.relationshipSlug || v.relationship_slug || v.relationship || '').toLowerCase();
+                return vRel === targetRelSlug;
+              }
+              return true;
+            }
+            const vRel = String(v.relationshipSlug || v.relationship_slug || v.relationship || '').toLowerCase();
+            const vLabel = String(v.label || v.relationship_label || '').toLowerCase();
+            return vRel === targetRelSlug || vLabel === reqRelParam.toLowerCase() || String(v.relationshipId || v.relationship_id || '').toLowerCase() === reqRelParam.toLowerCase();
+          }) || null;
+
+          if (!selectedVariant && hasDeclaredVariants) {
+            selectedVariantError = 'VARIANT_UNAVAILABLE';
+          } else if (selectedVariant) {
+            fields = mergeTemplateAndVariantFields(fields, selectedVariant.fields, selectedVariant.messages, selectedVariant.assets);
+            if (selectedVariant.entryFile && selectedVariant.entryFile !== entryFileName) {
+              previewUrl = activeVer && activeVer.storage_provider === 'b2'
+                ? `/api/templates/${template.id}/versions/${activeVer.id}/preview/${selectedVariant.entryFile}`
+                : `/templates-store/${resolvedFolder}/${selectedVariant.entryFile}`;
+            }
+          }
+        }
+
+        const publicRelationships = hasDeclaredVariants
+          ? availableRelations.map(ar => ar.label)
+          : (relationshipsList.length > 0 ? relationshipsList.map(r => r.name || r.slug) : (Array.isArray(template.relationships) ? template.relationships : safeJsonParse(template.relationships, [])));
+
         const enrichedTemplate = {
           ...template,
+          familyId: `fam_${template.id}`,
           folder: resolvedFolder,
-          entryFile: entryFileName,
+          entryFile: (selectedVariant && selectedVariant.entryFile) || entryFileName,
           currentVersionId: activeVer ? activeVer.id : template.current_version_id,
           version: activeVer,
           fields,
           detectedFields: fields,
           sections,
           capabilities,
-          variants,
-          relationships: relationshipsList,
+          hasVariants: hasDeclaredVariants,
+          availableVariants,
+          availableRelations,
+          selectedVariant,
+          selectedVariantError,
+          variants: url.searchParams.get('includeDrafts') === 'true' ? variants : availableVariants,
+          relationships: publicRelationships,
+          relationshipsCatalog: relationshipsList,
           previewUrl
         };
 
@@ -10460,15 +10637,26 @@ export default {
           return applySecurityHeaders(jsonError('DATABASE_UNAVAILABLE', 'Database service is currently unavailable.', 503), request, env);
         }
 
-        const targetRel = await env.DB.prepare('SELECT * FROM relationships WHERE id = ? OR slug = ? LIMIT 1').bind(relId, relId).first();
+        let targetRel = await env.DB.prepare('SELECT * FROM relationships WHERE id = ? OR slug = ? LIMIT 1').bind(relId, relId).first();
+        if (!targetRel) {
+          const normFallback = normalizeRelationshipIdentifier(relId);
+          if (normFallback) {
+            const nowSeed = new Date().toISOString();
+            await env.DB.prepare(
+              `INSERT OR IGNORE INTO relationships (id, slug, name, display_name, icon, category, status, sort_order, created_at, updated_at)
+               VALUES (?, ?, ?, ?, ?, ?, 'active', ?, ?, ?)`
+            ).bind(normFallback.id, normFallback.slug, normFallback.label, normFallback.displayName, normFallback.icon, normFallback.category, normFallback.sortOrder, nowSeed, nowSeed).run().catch(() => {});
+            targetRel = { id: normFallback.id, slug: normFallback.slug, name: normFallback.label, display_name: normFallback.displayName, icon: normFallback.icon };
+          }
+        }
         if (!targetRel) return applySecurityHeaders(jsonError('NOT_FOUND', 'Relationship not found', 404), request, env);
 
         const activeVersion = await env.DB.prepare('SELECT * FROM template_versions WHERE template_id = ? ORDER BY version_number DESC LIMIT 1').bind(templateId).first();
         const versionId = activeVersion ? activeVersion.id : `tv_${templateId}_v1`;
 
         const existing = await env.DB.prepare(
-          'SELECT * FROM template_relationship_variants WHERE (template_id = ? OR template_version_id = ?) AND (relationship_id = ? OR relationship_slug = ?) AND is_latest = 1 LIMIT 1'
-        ).bind(templateId, versionId, targetRel.id, targetRel.slug).first();
+          'SELECT * FROM template_relationship_variants WHERE (template_id = ? OR template_version_id = ?) AND (relationship_id = ? OR relationship_slug = ? OR id = ?) AND is_latest = 1 LIMIT 1'
+        ).bind(templateId, versionId, targetRel.id, targetRel.slug, relId).first();
 
         const submittedLock = body.lockVersion !== undefined ? Number(body.lockVersion) : null;
         if (existing && submittedLock !== null && existing.lock_version !== undefined && submittedLock !== existing.lock_version) {
@@ -10482,6 +10670,9 @@ export default {
         const nowIso = new Date().toISOString();
         const nextLock = existing ? ((Number(existing.lock_version) || 1) + 1) : 1;
         const variantStatus = body.status || (existing ? existing.status : 'draft');
+        const variantEnabled = body.enabled !== undefined
+          ? (body.enabled ? 1 : 0)
+          : (variantStatus === 'disabled' || variantStatus === 'archived' ? 0 : (existing && existing.enabled !== undefined ? existing.enabled : 1));
         const variantName = body.name || (existing ? existing.name : `${targetRel.name} Variant`);
 
         let savedVariantId = existing ? existing.id : `trv_${templateId}_${targetRel.slug}`;
@@ -10489,19 +10680,26 @@ export default {
         if (existing) {
           await env.DB.prepare(
             `UPDATE template_relationship_variants
-             SET name = ?, configuration_json = ?, status = ?, lock_version = ?, updated_at = ?
+             SET name = ?, configuration_json = ?, status = ?, enabled = ?, lock_version = ?, updated_at = ?
              WHERE id = ?`
-          ).bind(variantName, configJson, variantStatus, nextLock, nowIso, existing.id).run();
+          ).bind(variantName, configJson, variantStatus, variantEnabled, nextLock, nowIso, existing.id).run();
         } else {
           await env.DB.prepare(
-            `INSERT INTO template_relationship_variants (id, template_id, template_version_id, template_family_id, relationship_id, name, configuration_json, status, version_number, lock_version, is_latest, created_at, updated_at)
-             VALUES (?, ?, ?, ?, ?, ?, ?, ?, 1, 1, 1, ?, ?)`
-          ).bind(savedVariantId, templateId, versionId, `fam_${templateId}`, targetRel.id, variantName, configJson, variantStatus, nowIso, nowIso).run();
+            `INSERT INTO template_relationship_variants (id, variant_slug, template_id, template_version_id, template_family_id, relationship_id, relationship_slug, relationship_label, name, configuration_json, status, enabled, version_number, lock_version, is_latest, created_at, updated_at)
+             VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 1, 1, 1, ?, ?)`
+          ).bind(savedVariantId, targetRel.slug, templateId, versionId, `fam_${templateId}`, targetRel.id, targetRel.slug, targetRel.name, variantName, configJson, variantStatus, variantEnabled, nowIso, nowIso).run();
         }
 
         await logAdminAudit(env, { actorId: user.id, actorName: user.name || user.email, actorRole: 'ADMIN', action: existing ? 'VARIANT_UPDATED' : 'VARIANT_CREATED', targetType: 'template_variant', targetId: savedVariantId, details: { templateId, relationshipId: targetRel.id, status: variantStatus } });
 
-        response = jsonSuccess({ success: true, message: 'Variant saved successfully', variantId: savedVariantId }, 200, {}, requestId);
+        const savedRow = await env.DB.prepare('SELECT * FROM template_relationship_variants WHERE id = ? LIMIT 1').bind(savedVariantId).first().catch(() => null);
+        const parsedCfg = savedRow ? safeJsonParse(savedRow.configuration_json, {}) : {};
+        response = jsonSuccess({
+          success: true,
+          message: 'Variant saved successfully',
+          variantId: savedVariantId,
+          variant: savedRow ? { ...savedRow, configuration: parsedCfg } : { id: savedVariantId, lock_version: nextLock, status: variantStatus, enabled: variantEnabled, configuration: parsedCfg }
+        }, 200, {}, requestId);
       }
 
       // 8. Validate Variant
@@ -10616,7 +10814,16 @@ export default {
 
         await logAdminAudit(env, { actorId: user.id, actorName: user.name || user.email, actorRole: 'ADMIN', action: 'VARIANT_PUBLISHED', targetType: 'template_variant', targetId: publishedVariantId, details: { templateId, relationshipId: targetRel.id, versionNumber: publishedVersionNumber } });
 
-        response = jsonSuccess({ success: true, message: `Variant for ${targetRel.name} successfully published!`, variantId: publishedVariantId, versionNumber: publishedVersionNumber }, 200, {}, requestId);
+        await env.DB.prepare('UPDATE template_relationship_variants SET enabled = 1 WHERE id = ?').bind(publishedVariantId).run().catch(() => {});
+        const pubRow = await env.DB.prepare('SELECT * FROM template_relationship_variants WHERE id = ? LIMIT 1').bind(publishedVariantId).first().catch(() => null);
+        const pubCfg = pubRow ? safeJsonParse(pubRow.configuration_json, {}) : {};
+        response = jsonSuccess({
+          success: true,
+          message: `Variant for ${targetRel.name} successfully published!`,
+          variantId: publishedVariantId,
+          versionNumber: publishedVersionNumber,
+          variant: pubRow ? { ...pubRow, configuration: pubCfg } : { id: publishedVariantId, status: 'published', enabled: 1, version_number: publishedVersionNumber, lock_version: 1, configuration: pubCfg }
+        }, 200, {}, requestId);
       }
 
       // 10. Clone Variant
@@ -10685,11 +10892,14 @@ export default {
       else if (pathname.startsWith('/api/templates/') && pathname.endsWith('/resolver') && method === 'GET') {
         const parts = pathname.split('/').filter(Boolean);
         const templateId = sanitizeString(parts[2], 60);
-        const relQuery = sanitizeString(url.searchParams.get('relationship') || url.searchParams.get('relationshipId') || 'general', 60);
+        const relQuery = sanitizeString(url.searchParams.get('relationship') || url.searchParams.get('relationshipId') || url.searchParams.get('rel') || '', 60);
+        const variantQuery = sanitizeString(url.searchParams.get('variant') || url.searchParams.get('variantId') || '', 80);
+        const includeDrafts = url.searchParams.get('includeDrafts') === 'true';
 
         let template = SEED_TEMPLATES.find(t => t.id === templateId || t.slug === templateId);
         let activeVersion = null;
         let variant = null;
+        let allFamilyVariants = [];
         let relationships = [];
         let templateImages = [];
         let musicLibrary = [];
@@ -10702,18 +10912,43 @@ export default {
           const versionId = activeVersion ? activeVersion.id : `tv_${tId}_v1`;
 
           relationships = (await env.DB.prepare('SELECT * FROM relationships WHERE status = "active" ORDER BY sort_order ASC').all()).results || [];
-          const targetRel = relationships.find(r => r.slug.toLowerCase() === relQuery.toLowerCase() || r.id === relQuery);
-          const targetRelId = targetRel ? targetRel.id : relQuery;
-          const targetRelSlug = targetRel ? targetRel.slug : relQuery;
+          const normRel = relQuery ? normalizeRelationshipIdentifier(relQuery) : null;
+          const targetRel = relationships.find(r => r.slug.toLowerCase() === (normRel ? normRel.slug : relQuery.toLowerCase()) || r.id === relQuery);
+          const targetRelId = targetRel ? targetRel.id : (normRel ? normRel.id : relQuery);
+          const targetRelSlug = targetRel ? targetRel.slug : (normRel ? normRel.slug : relQuery.toLowerCase());
 
-          const varRow = await env.DB.prepare(
+          const allVarRows = await env.DB.prepare(
             `SELECT * FROM template_relationship_variants
-             WHERE (template_id = ? OR template_version_id = ?) AND (relationship_id = ? OR relationship_slug = ?) AND is_latest = 1 LIMIT 1`
-          ).bind(tId, versionId, targetRelId, targetRelSlug).first();
-          if (varRow) variant = varRow;
+             WHERE (template_id = ? OR template_version_id = ?) AND is_latest = 1`
+          ).bind(tId, versionId).all();
+          allFamilyVariants = allVarRows.results || [];
+
+          if (variantQuery) {
+            variant = allFamilyVariants.find(v =>
+              v.id === variantQuery ||
+              (v.variant_slug && v.variant_slug.toLowerCase() === variantQuery.toLowerCase())
+            ) || null;
+          } else if (relQuery) {
+            variant = allFamilyVariants.find(v =>
+              v.relationship_id === targetRelId ||
+              (v.relationship_slug && v.relationship_slug.toLowerCase() === targetRelSlug)
+            ) || null;
+          }
 
           templateImages = (await env.DB.prepare('SELECT * FROM template_images WHERE (template_id = ? OR template_version_id = ?) AND status = "active"').bind(tId, versionId).all()).results || [];
           musicLibrary = (await env.DB.prepare('SELECT * FROM music_library WHERE status = "active"').all()).results || [];
+        }
+
+        // Enforce strict variant availability & family ownership check when a specific variant or relation is requested on a variant-enabled family
+        const hasVariants = Boolean((template && template.has_variants) || allFamilyVariants.length > 0);
+        if (hasVariants && (variantQuery || (relQuery && relQuery !== 'general'))) {
+          if (!variant) {
+            return applySecurityHeaders(jsonError('VARIANT_UNAVAILABLE', 'The requested relationship variant does not exist or is not supported by this template family.', 404), request, env);
+          }
+          const isPubAndEnabled = (variant.status === 'published' || variant.status === 'active') && Number(variant.enabled ?? 1) !== 0;
+          if (!isPubAndEnabled && !includeDrafts) {
+            return applySecurityHeaders(jsonError('VARIANT_UNAVAILABLE', 'The requested relationship variant is currently unpublished or disabled.', 404), request, env);
+          }
         }
 
         const resolved = resolveVariantHierarchy({

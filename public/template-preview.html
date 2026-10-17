@@ -761,36 +761,69 @@
       return bestMatch || templates[0];
     }
 
-    // Load template data from backend
+    let activeSelectedVariant = null;
+
+    function applySelectedVariantOnPreviewPage(variant) {
+      activeSelectedVariant = variant || null;
+      if (activeTemplate && activeSelectedVariant) {
+        try {
+          const url = new URL(window.location.href);
+          url.searchParams.set('template', activeTemplate.id);
+          url.searchParams.set('variant', activeSelectedVariant.id);
+          url.searchParams.set('rel', activeSelectedVariant.relationshipSlug);
+          window.history.replaceState({}, '', url.toString());
+        } catch (_) {}
+      }
+      const loadingEl = document.getElementById('preview-loading-skeleton');
+      const contentEl = document.getElementById('preview-content-shell');
+      try { renderTemplateDetails(activeTemplate, activeSelectedVariant); } catch (e) { console.warn(e); }
+      try { renderRelatedTemplates(activeTemplate, allTemplatesList); } catch (e) { console.warn(e); }
+      try { loadInteractivePreview(activeTemplate, activeSelectedVariant); } catch (e) { console.warn(e); }
+      if (loadingEl) loadingEl.classList.add('hidden');
+      if (contentEl) contentEl.classList.remove('hidden');
+      updateFavoriteState();
+    }
+
+    // Load template data from backend (with UTP v1.1.0 variant resolution & Rule C / Rule E / Flow J)
     async function initTemplatePreview() {
       const templateId = resolveTemplateId();
+      const urlParams = new URLSearchParams(window.location.search);
+      const variantParam = urlParams.get('variant') || '';
+      const relParam = urlParams.get('rel') || urlParams.get('relationship') || '';
       const loadingEl = document.getElementById('preview-loading-skeleton');
       const notFoundEl = document.getElementById('preview-not-found-state');
       const contentEl = document.getElementById('preview-content-shell');
 
       try {
-        // Fetch all templates to have reference for related templates and fallback
         const allRes = await fetch('/api/templates');
         const allData = await allRes.json();
         allTemplatesList = allData.templates || [];
+        window._wmLoadedTemplatesMap = window._wmLoadedTemplatesMap || {};
+        allTemplatesList.forEach(t => {
+          if (t && t.id) window._wmLoadedTemplatesMap[t.id] = t;
+          if (t && t.slug) window._wmLoadedTemplatesMap[t.slug] = t;
+        });
 
         let current = null;
         if (templateId) {
-          current = findMatchingTemplate(allTemplatesList, templateId);
-          
-          if (!current) {
-            // Try single item endpoint
-            try {
-              const singleRes = await fetch(`/api/templates/${encodeURIComponent(templateId)}`);
-              if (singleRes.ok) {
-                const singleData = await singleRes.json();
-                if (singleData.success && singleData.template) {
-                  current = singleData.template;
-                }
+          try {
+            const qs = new URLSearchParams();
+            if (variantParam) qs.set('variant', variantParam);
+            if (relParam) qs.set('rel', relParam);
+            const qsStr = qs.toString() ? `?${qs.toString()}` : '';
+            const singleRes = await fetch(`/api/templates/${encodeURIComponent(templateId)}${qsStr}`);
+            if (singleRes.ok) {
+              const singleData = await singleRes.json();
+              if (singleData.success && singleData.template) {
+                current = singleData.template;
               }
-            } catch (singleErr) {
-              console.warn('[Template Fetch Single]', singleErr);
             }
+          } catch (singleErr) {
+            console.warn('[Template Fetch Single]', singleErr);
+          }
+
+          if (!current) {
+            current = findMatchingTemplate(allTemplatesList, templateId);
           }
         }
 
@@ -805,36 +838,59 @@
         }
 
         activeTemplate = current;
-        try {
-          renderTemplateDetails(activeTemplate);
-        } catch (detailErr) {
-          console.warn('[Render Template Details]', detailErr);
+
+        // Flow J: If an explicit variant/relation parameter was passed, verify availability strictly
+        if (current.selectedVariantError === 'VARIANT_UNAVAILABLE') {
+          loadingEl.classList.add('hidden');
+          notFoundEl.classList.remove('hidden');
+          if (window.WishMagicVariantFlow) {
+            window.WishMagicVariantFlow.showUnavailableVariantNotice(current, variantParam || relParam);
+          }
+          return;
         }
 
-        try {
-          renderRelatedTemplates(activeTemplate, allTemplatesList);
-        } catch (relErr) {
-          console.warn('[Render Related]', relErr);
+        if (window.WishMagicVariantFlow && window.WishMagicVariantFlow.isVariantFamily(activeTemplate)) {
+          const avail = window.WishMagicVariantFlow.getAvailablePublishedVariants(activeTemplate);
+          const explicitRelOrVar = variantParam || relParam || window.WishMagicVariantFlow.getActiveRelationFilter();
+          if (explicitRelOrVar) {
+            const matched = window.WishMagicVariantFlow.resolveVariantForRelation(activeTemplate, explicitRelOrVar);
+            if (!matched) {
+              loadingEl.classList.add('hidden');
+              notFoundEl.classList.remove('hidden');
+              window.WishMagicVariantFlow.showUnavailableVariantNotice(activeTemplate, explicitRelOrVar);
+              return;
+            }
+            applySelectedVariantOnPreviewPage(matched);
+            return;
+          }
+
+          if (avail.length === 1) {
+            applySelectedVariantOnPreviewPage(avail[0]);
+            return;
+          }
+
+          if (avail.length > 1) {
+            // Rule C: Ask for a relation first before rendering a generic preview
+            loadingEl.classList.add('hidden');
+            window.WishMagicVariantFlow.showRelationSelectionModal(activeTemplate, avail, 'preview', {
+              onSelectVariant: (chosen) => {
+                applySelectedVariantOnPreviewPage(chosen);
+              },
+              onCancel: () => {
+                window.location.href = '/templates.html';
+              }
+            });
+            return;
+          }
         }
 
-        try {
-          loadInteractivePreview(activeTemplate);
-        } catch (prevErr) {
-          console.warn('[Load Preview]', prevErr);
-        }
-
-        loadingEl.classList.add('hidden');
-        contentEl.classList.remove('hidden');
-        updateFavoriteState();
+        applySelectedVariantOnPreviewPage(null);
 
       } catch (err) {
         console.error('Error loading template preview:', err);
         if (allTemplatesList && allTemplatesList.length > 0) {
           activeTemplate = allTemplatesList[0];
-          try { renderTemplateDetails(activeTemplate); } catch (e) {}
-          try { loadInteractivePreview(activeTemplate); } catch (e) {}
-          loadingEl.classList.add('hidden');
-          contentEl.classList.remove('hidden');
+          applySelectedVariantOnPreviewPage(null);
         } else {
           loadingEl.classList.add('hidden');
           notFoundEl.classList.remove('hidden');
@@ -842,9 +898,10 @@
       }
     }
 
-    // Render template metadata
-    function renderTemplateDetails(t) {
-      document.title = `${t.name} - Template Preview | WishMagic`;
+    // Render template metadata (Rule E: preserves selected relation on all Customize CTAs)
+    function renderTemplateDetails(t, selectedVariant) {
+      const displayTitle = selectedVariant ? `${t.name} — ${selectedVariant.relationshipLabel}` : t.name;
+      document.title = `${displayTitle} - Template Preview | WishMagic`;
 
       const isVip = t.tier === 'vip' || (t.price && Number(t.price) > 0);
       const priceText = isVip ? `₹${t.price || 49}` : 'Free';
@@ -852,28 +909,36 @@
       const tierClass = isVip ? 'bg-amber-400 text-purple-950 font-black' : 'bg-emerald-500 text-white font-black';
 
       // Breadcrumbs
-      document.getElementById('breadcrumb-title').textContent = t.name;
-      document.getElementById('breadcrumb-category').textContent = t.category || 'Celebration';
+      document.getElementById('breadcrumb-title').textContent = displayTitle;
+      document.getElementById('breadcrumb-category').textContent = selectedVariant ? `For ${selectedVariant.relationshipLabel}` : (t.category || 'Celebration');
 
       // Header info
-      document.getElementById('detail-title').textContent = t.name;
-      document.getElementById('detail-type').textContent = `${t.category || "Celebration"} • ${t.type || "Interactive 3D Experience"}`;
-      document.getElementById('detail-description').textContent = t.description || 'A delightful, interactive celebration experience designed to make someone special feel deeply loved.';
+      document.getElementById('detail-title').textContent = displayTitle;
+      document.getElementById('detail-type').textContent = selectedVariant
+        ? `${t.category || "Celebration"} • Tailored for ${selectedVariant.relationshipLabel}`
+        : `${t.category || "Celebration"} • ${t.type || "Interactive 3D Experience"}`;
+      document.getElementById('detail-description').textContent = (selectedVariant && selectedVariant.description)
+        ? selectedVariant.description
+        : (t.description || 'A delightful, interactive celebration experience designed to make someone special feel deeply loved.');
       
       const tierBadgeEl = document.getElementById('detail-tier-badge');
       tierBadgeEl.textContent = tierBadge;
       tierBadgeEl.className = `px-3 py-1 rounded-full text-[11px] uppercase tracking-wider shadow-sm ${tierClass}`;
 
-      document.getElementById('detail-category-badge').textContent = `✦ ${t.category || "Celebration"}`;
+      document.getElementById('detail-category-badge').textContent = selectedVariant
+        ? `✦ ${selectedVariant.relationshipLabel}`
+        : `✦ ${t.category || "Celebration"}`;
       document.getElementById('detail-price-text').textContent = isVip ? `₹${t.price || 49} VIP Pass` : '₹0 Free';
 
       // Dock mobile info
-      document.getElementById('dock-template-name').textContent = t.name;
+      document.getElementById('dock-template-name').textContent = displayTitle;
       document.getElementById('dock-template-price').textContent = isVip ? `₹${t.price || 49} VIP` : 'Free';
-      document.getElementById('dock-template-cat').textContent = t.category || 'Celebration';
+      document.getElementById('dock-template-cat').textContent = selectedVariant ? selectedVariant.relationshipLabel : (t.category || 'Celebration');
 
-      // Customizer CTA Links & Entitlement Authorization
-      const customizeUrl = `/customize.html?template=${t.id}`;
+      // Customizer CTA Links & Entitlement Authorization (Rule E: preserve variant + rel)
+      const customizeUrl = selectedVariant
+        ? `/customize.html?template=${encodeURIComponent(t.id)}&variant=${encodeURIComponent(selectedVariant.id)}&rel=${encodeURIComponent(selectedVariant.relationshipSlug)}`
+        : `/customize.html?template=${encodeURIComponent(t.id)}`;
       const handleCreateClick = (e) => {
         if (window.WishFeatureAccess) {
           const access = window.WishFeatureAccess.canUseTemplate(t);
@@ -1080,28 +1145,45 @@
       };
     }
 
-    // Load actual template into iframe with safe sample preview data
-    function loadInteractivePreview(t) {
+    // Load actual template (and selected variant) into iframe with safe sample preview data
+    function loadInteractivePreview(t, selectedVariant) {
       const iframe = document.getElementById('live-template-iframe');
       const fullscreenBtn = document.getElementById('btn-preview-fullscreen');
       const browserSlug = document.getElementById('browser-bar-slug');
 
-      const url = resolveTemplatePreviewUrlClient(t);
+      const previewTargetObj = selectedVariant
+        ? { ...t, entryFile: selectedVariant.entryFile || t.entryFile }
+        : t;
+      const url = resolveTemplatePreviewUrlClient(previewTargetObj);
       fullscreenBtn.href = url;
-      if (browserSlug) browserSlug.textContent = `${t.category ? t.category.toLowerCase() : 'celebrate'}/${t.id}`;
+      if (browserSlug) {
+        browserSlug.textContent = selectedVariant
+          ? `${t.id}/${selectedVariant.relationshipSlug}`
+          : `${t.category ? t.category.toLowerCase() : 'celebrate'}/${t.id}`;
+      }
 
       iframe.removeAttribute('srcdoc');
       iframe.removeAttribute('data-fallback-applied');
       iframe.src = url;
 
-      // Safe hydration when iframe loads
+      // Safe hydration when iframe loads (including UTP v1.1.0 variant messages, assets, and theme)
       iframe.onload = () => {
+        const varMsgs = (selectedVariant && selectedVariant.messages) || {};
+        const varAssets = (selectedVariant && selectedVariant.assets) || {};
         const sampleData = {
-          recipient_name: 'Someone Special',
-          sender_name: 'From Someone Who Cares',
-          custom_message: 'Wishing you a magnificent year filled with boundless joy, radiant smiles, and unforgettable magic!',
+          recipient_name: varMsgs.recipient_name || 'Someone Special',
+          sender_name: varMsgs.sender_name || 'From Someone Who Cares',
+          custom_message: varMsgs.custom_message || varMsgs.defaultWish || varMsgs.main_message || 'Wishing you a magnificent year filled with boundless joy, radiant smiles, and unforgettable magic!',
           event_date: 'Today',
-          photo_1: t.thumbnail || t.previewImage || '/assets/file_ab2082.png'
+          photo_1: varAssets.photo_1 || varAssets.cover || (selectedVariant && selectedVariant.thumbnail) || t.thumbnail || t.previewImage || '/assets/file_ab2082.png',
+          variantId: selectedVariant ? selectedVariant.id : '',
+          relationship: selectedVariant ? selectedVariant.relationshipSlug : '',
+          relationshipSlug: selectedVariant ? selectedVariant.relationshipSlug : '',
+          messages: varMsgs,
+          assets: varAssets,
+          palette: selectedVariant ? selectedVariant.theme : null,
+          ...varMsgs,
+          ...varAssets
         };
 
         if (iframe.contentWindow) {

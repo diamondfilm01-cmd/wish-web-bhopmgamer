@@ -679,15 +679,21 @@
       const countEl = document.getElementById("visible-card-count");
 
       allLoadedTemplates = templates;
+      window.allMarketplaceTemplates = templates;
+      window._wmLoadedTemplatesMap = window._wmLoadedTemplatesMap || {};
+      templates.forEach(t => {
+        if (t && t.id) window._wmLoadedTemplatesMap[t.id] = t;
+        if (t && t.slug) window._wmLoadedTemplatesMap[t.slug] = t;
+      });
       if (countEl) countEl.textContent = allLoadedTemplates.length;
 
       renderMarketplaceCards(allLoadedTemplates);
 
-      // Part 39: Parse URL query parameters (?q=... & category=... & relationship=...)
+      // Part 39 & Part 48: Parse URL query parameters (?q=... & category=... & relationship=... & rel=...)
       const urlParams = new URLSearchParams(window.location.search);
       const queryParam = urlParams.get('q') || urlParams.get('search');
       const catParam = urlParams.get('category');
-      const relParam = urlParams.get('relationship');
+      const relParam = urlParams.get('relationship') || urlParams.get('rel');
       const tierParam = urlParams.get('tier');
       const featParam = urlParams.get('feature');
 
@@ -695,10 +701,16 @@
         const input = document.getElementById('template-search-input');
         if (input) input.value = queryParam;
       }
-      if (catParam) {
-        activeOccasionFilter = catParam.toLowerCase().trim();
-      } else if (relParam) {
+      if (relParam) {
         activeOccasionFilter = relParam.toLowerCase().trim();
+        if (window.WishMagicVariantFlow) {
+          window.WishMagicVariantFlow.setActiveRelationFilter(relParam);
+        }
+      } else if (catParam) {
+        activeOccasionFilter = catParam.toLowerCase().trim();
+        if (window.WishMagicVariantFlow) {
+          window.WishMagicVariantFlow.setActiveRelationFilter('');
+        }
       }
       if (tierParam) {
         activeFeatureFilter = tierParam.toLowerCase().trim();
@@ -750,7 +762,13 @@
       const isVip = t.tier === "vip" || (t.price && Number(t.price) > 0);
       const price = t.price || 59;
       const previewImg = t.thumbnail || t.previewImage || "/assets/file_ab2082.png";
-      const rels = ((t.relationships || []).join(" ")).toLowerCase();
+      const availVariants = window.WishMagicVariantFlow ? window.WishMagicVariantFlow.getAvailablePublishedVariants(t) : [];
+      const hasVariants = Boolean(t.hasVariants || t.has_variants || availVariants.length > 0);
+      const availRelSlugs = hasVariants
+        ? availVariants.map(v => v.relationshipSlug).join(" ")
+        : ((t.relationships || []).map(r => String(r).toLowerCase().replace(/\s+/g, "_")).join(" "));
+      const relationTagsMarkup = window.WishMagicVariantFlow ? window.WishMagicVariantFlow.renderCardRelationTagsHtml(t) : "";
+      const rels = (((t.relationships || []).join(" ")) + " " + availRelSlugs).toLowerCase();
 
       // Realistic consistent star rating & review count matching reference screenshot
       const ratingSeed = (t.id.charCodeAt(t.id.length - 1) || 5) % 4;
@@ -786,6 +804,8 @@
         <div id="tpl-card-${t.id}" class="catalog-template-card group relative bg-white dark:bg-purple-950/85 rounded-2xl p-3.5 sm:p-4 border border-purple-100 dark:border-purple-800/60 shadow-md hover:shadow-2xl hover:-translate-y-1.5 transition-all duration-300 flex flex-col justify-between" data-id="${t.id}"
              data-category="${(t.category || "general").toLowerCase()}" 
              data-relationships="${rels}"
+             data-has-variants="${hasVariants ? 'true' : 'false'}"
+             data-available-relations="${availRelSlugs.toLowerCase()}"
              data-tier="${isVip ? "vip" : "free"}"
              data-features="${featStr}"
              data-name="${(t.name || "").toLowerCase()}"
@@ -793,7 +813,7 @@
           
           <div>
             <!-- Thumbnail Banner with Top-Right Badge -->
-            <div class="relative rounded-xl overflow-hidden mb-3 aspect-[16/10] bg-purple-900/10 dark:bg-purple-950/80 shadow-inner group/img cursor-pointer" onclick="location.href='/template/${t.id}'">
+            <div class="relative rounded-xl overflow-hidden mb-3 aspect-[16/10] bg-purple-900/10 dark:bg-purple-950/80 shadow-inner group/img cursor-pointer" onclick="window.handleTemplateAction ? window.handleTemplateAction('${t.id}', 'preview', { openPreviewModal: openMarketplacePreview }) : openMarketplacePreview('${t.id}')">
               <img class="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500" src="${previewImg}" alt="${t.name}" loading="lazy"/>
               <div class="absolute inset-0 bg-gradient-to-t from-black/45 via-transparent to-black/10 pointer-events-none"></div>
               ${badgeMarkup}
@@ -801,23 +821,28 @@
 
             <!-- Title -->
             <div class="mb-1.5">
-              <a href="/template/${t.id}" class="block">
+              <a href="/template/${t.id}" onclick="if(window.handleTemplateAction){event.preventDefault();window.handleTemplateAction('${t.id}','preview',{openPreviewModal:openMarketplacePreview});return false;}" class="block">
                 <h3 class="font-display font-bold text-base sm:text-lg text-gray-900 dark:text-white line-clamp-1 hover:text-[#6c5ce7] dark:hover:text-purple-300 transition-colors">
                   ${t.name}
                 </h3>
               </a>
             </div>
 
+            ${relationTagsMarkup}
+
             <!-- Rating & Review Count (Matching reference screenshot) -->
-            <div class="flex items-center gap-1.5 text-xs text-gray-500 dark:text-purple-300/80 mb-4">
+            <div class="flex items-center gap-1.5 text-xs text-gray-500 dark:text-purple-300/80 mb-3">
               <span class="text-amber-400 text-sm tracking-tighter">★★★★★</span>
               <span class="font-bold text-gray-700 dark:text-purple-200 text-xs">${rating} (${reviews})</span>
             </div>
           </div>
 
-          <!-- Bottom Action Buttons: Customize & Bookmark (Matching reference screenshot) -->
-          <div class="flex items-center gap-2.5 mt-auto pt-1">
-            <a href="/customize.html?template=${t.id}" class="flex-1 py-2.5 sm:py-3 px-4 rounded-full bg-gradient-to-r from-[#ff2a85] via-[#ec4899] to-[#a855f7] hover:brightness-110 text-white text-sm sm:text-base font-bold shadow-md shadow-purple-500/25 active:scale-95 transition-all text-center flex items-center justify-center gap-2">
+          <!-- Bottom Action Buttons: Preview, Customize & Bookmark -->
+          <div class="flex items-center gap-2 mt-auto pt-1">
+            <button type="button" onclick="window.handleTemplateAction ? window.handleTemplateAction('${t.id}', 'preview', { openPreviewModal: openMarketplacePreview }) : openMarketplacePreview('${t.id}')" class="px-3.5 py-2.5 sm:py-3 rounded-full border border-purple-200 dark:border-purple-700/80 bg-purple-50/80 dark:bg-purple-900/50 text-purple-900 dark:text-purple-200 hover:bg-purple-100 dark:hover:bg-purple-800 text-xs sm:text-sm font-bold transition active:scale-95 cursor-pointer">
+              Preview
+            </button>
+            <a href="/customize.html?template=${t.id}" onclick="if(window.handleTemplateAction){event.preventDefault();window.handleTemplateAction('${t.id}','customize');return false;}" class="flex-1 py-2.5 sm:py-3 px-4 rounded-full bg-gradient-to-r from-[#ff2a85] via-[#ec4899] to-[#a855f7] hover:brightness-110 text-white text-sm sm:text-base font-bold shadow-md shadow-purple-500/25 active:scale-95 transition-all text-center flex items-center justify-center gap-1.5">
               <span>Customize</span>
               <span>✨</span>
             </a>
@@ -854,15 +879,31 @@
     filterCatalog();
   }
 
+  const EXPLICIT_RELATION_FILTER_SET = new Set([
+    'crush', 'girlfriend', 'boyfriend', 'wife', 'husband', 'mother', 'father',
+    'brother', 'sister', 'best friend', 'best_friend', 'female friend', 'female_friend',
+    'male friend', 'male_friend', 'family', 'parents', 'friend', 'partner', 'colleague',
+    'teacher', 'fiance', 'kids'
+  ]);
+
   function selectOccasion(cat, btn) {
     document.querySelectorAll('.occasion-chip').forEach(b => {
       b.classList.remove('bg-primary-container', 'text-on-primary', 'active-chip');
       b.classList.add('bg-surface-container', 'text-on-surface');
     });
-    btn.classList.add('bg-primary-container', 'text-on-primary', 'active-chip');
-    btn.classList.remove('bg-surface-container', 'text-on-surface');
+    if (btn) {
+      btn.classList.add('bg-primary-container', 'text-on-primary', 'active-chip');
+      btn.classList.remove('bg-surface-container', 'text-on-surface');
+    }
 
     activeOccasionFilter = cat.toLowerCase().trim();
+    if (window.WishMagicVariantFlow) {
+      if (EXPLICIT_RELATION_FILTER_SET.has(activeOccasionFilter)) {
+        window.WishMagicVariantFlow.setActiveRelationFilter(activeOccasionFilter);
+      } else {
+        window.WishMagicVariantFlow.setActiveRelationFilter('');
+      }
+    }
     filterCatalog();
   }
 
@@ -877,9 +918,22 @@
       const relationships = (card.getAttribute('data-relationships') || '').toLowerCase();
       const desc = (card.getAttribute('data-description') || '').toLowerCase();
       const tier = card.getAttribute('data-tier') || '';
+      const hasVars = card.getAttribute('data-has-variants') === 'true';
+      const availRels = (card.getAttribute('data-available-relations') || '').split(/\s+/).filter(Boolean);
 
       const matchesSearch = !searchVal || name.includes(searchVal) || category.includes(searchVal) || relationships.includes(searchVal) || desc.includes(searchVal);
-      const matchesOccasion = activeOccasionFilter === 'all' || category.includes(activeOccasionFilter) || relationships.includes(activeOccasionFilter);
+      let matchesOccasion = true;
+      if (activeOccasionFilter !== 'all') {
+        const isExplicitRel = EXPLICIT_RELATION_FILTER_SET.has(activeOccasionFilter);
+        const normRelSlug = window.WishMagicVariantFlow
+          ? window.WishMagicVariantFlow.normalizeRelationSlug(activeOccasionFilter)
+          : activeOccasionFilter.replace(/\s+/g, '_');
+        if (isExplicitRel && hasVars) {
+          matchesOccasion = availRels.includes(normRelSlug);
+        } else {
+          matchesOccasion = category.includes(activeOccasionFilter) || relationships.includes(activeOccasionFilter) || (normRelSlug && availRels.includes(normRelSlug));
+        }
+      }
       
       let matchesFeature = true;
       if (activeFeatureFilter === 'free') {
@@ -924,10 +978,30 @@
     }
   }
 
-  // Template Preview Modal for Marketplace
-  function openMarketplacePreview(tplId) {
-    const tpl = allLoadedTemplates.find(t => t.id === tplId);
+  // Template Preview Modal for Marketplace (Rule C & Rule E variant-aware)
+  function openMarketplacePreview(tplId, selectedVariant) {
+    const tpl = allLoadedTemplates.find(t => t.id === tplId || t.slug === tplId) || (window._wmLoadedTemplatesMap && window._wmLoadedTemplatesMap[tplId]);
     if (!tpl) return;
+
+    if (!selectedVariant && window.WishMagicVariantFlow && window.WishMagicVariantFlow.isVariantFamily(tpl)) {
+      const avail = window.WishMagicVariantFlow.getAvailablePublishedVariants(tpl);
+      const activeRel = window.WishMagicVariantFlow.getActiveRelationFilter();
+      if (activeRel) {
+        const resolved = window.WishMagicVariantFlow.resolveVariantForRelation(tpl, activeRel);
+        if (!resolved) {
+          window.WishMagicVariantFlow.showUnavailableVariantNotice(tpl, activeRel);
+          return;
+        }
+        selectedVariant = resolved;
+      } else if (avail.length === 1) {
+        selectedVariant = avail[0];
+      } else if (avail.length > 1) {
+        window.WishMagicVariantFlow.showRelationSelectionModal(tpl, avail, 'preview', {
+          openPreviewModal: (id, chosenVar) => openMarketplacePreview(id, chosenVar)
+        });
+        return;
+      }
+    }
 
     const modal = document.getElementById('marketplace-preview-modal');
     const titleEl = document.getElementById('mkt-preview-title');
@@ -937,11 +1011,22 @@
     const extLink = document.getElementById('mkt-preview-external');
     const ctaBtn = document.getElementById('mkt-preview-cta');
 
-    const url = resolveTemplatePreviewUrlClient(tpl);
+    const previewTargetObj = selectedVariant
+      ? { ...tpl, entryFile: selectedVariant.entryFile || tpl.entryFile }
+      : tpl;
+    const url = resolveTemplatePreviewUrlClient(previewTargetObj);
     const isVip = tpl.tier === 'vip' || (tpl.price && Number(tpl.price) > 0);
 
-    if (titleEl) titleEl.textContent = tpl.name;
-    if (catEl) catEl.textContent = `${tpl.category || "Celebration"} • ${tpl.type || "Interactive 3D"}`;
+    if (titleEl) {
+      titleEl.textContent = selectedVariant
+        ? `${tpl.name} — ${selectedVariant.relationshipLabel}`
+        : tpl.name;
+    }
+    if (catEl) {
+      catEl.textContent = selectedVariant
+        ? `${tpl.category || "Celebration"} • For ${selectedVariant.relationshipLabel}`
+        : `${tpl.category || "Celebration"} • ${tpl.type || "Interactive 3D"}`;
+    }
     if (badgeEl) {
       badgeEl.textContent = isVip ? `PREMIUM • ₹${tpl.price || 59}` : 'FREE';
       badgeEl.className = `px-2 py-0.5 rounded-full text-[10px] font-black uppercase tracking-wider ${isVip ? 'bg-amber-400 text-purple-950' : 'bg-emerald-500 text-white'}`;
@@ -950,11 +1035,39 @@
       iframeEl.removeAttribute('srcdoc');
       iframeEl.removeAttribute('data-fallback-applied');
       iframeEl.src = url;
-      guardPreviewIframeAgainstMainSite(iframeEl, tpl);
+      guardPreviewIframeAgainstMainSite(iframeEl, previewTargetObj);
+      if (selectedVariant) {
+        const prevLoad = iframeEl.onload;
+        iframeEl.onload = function(ev) {
+          if (typeof prevLoad === 'function') prevLoad.call(this, ev);
+          try {
+            if (iframeEl.contentWindow) {
+              iframeEl.contentWindow.postMessage({
+                type: 'WISHMAGIC_INIT',
+                payload: {
+                  variantId: selectedVariant.id,
+                  relationship: selectedVariant.relationshipSlug,
+                  relationshipSlug: selectedVariant.relationshipSlug,
+                  messages: selectedVariant.messages || {},
+                  assets: selectedVariant.assets || {},
+                  palette: selectedVariant.theme || null,
+                  ...(selectedVariant.messages || {}),
+                  ...(selectedVariant.assets || {})
+                }
+              }, '*');
+            }
+          } catch (_) {}
+        };
+      }
     }
+
+    const customizeHref = selectedVariant
+      ? `/customize.html?template=${encodeURIComponent(tpl.id)}&variant=${encodeURIComponent(selectedVariant.id)}&rel=${encodeURIComponent(selectedVariant.relationshipSlug)}`
+      : `/customize.html?template=${encodeURIComponent(tpl.id)}`;
+
     if (extLink) extLink.href = url;
     if (ctaBtn) {
-      ctaBtn.href = `/customize.html?template=${tpl.id}`;
+      ctaBtn.href = customizeHref;
       ctaBtn.onclick = (e) => {
         if (window.WishFeatureAccess) {
           const access = window.WishFeatureAccess.canUseTemplate(tpl);
@@ -965,7 +1078,7 @@
                 context: 'template',
                 template: tpl,
                 onUnlocked: () => {
-                  window.location.href = `/customize.html?template=${tpl.id}`;
+                  window.location.href = customizeHref;
                 }
               });
             }
@@ -973,7 +1086,9 @@
           }
         }
       };
-      ctaBtn.innerHTML = `<span>Create This Wish</span><span class="text-amber-300 text-xs">✨</span>`;
+      ctaBtn.innerHTML = selectedVariant
+        ? `<span>Customize ${selectedVariant.relationshipLabel} Wish</span><span class="text-amber-300 text-xs">✨</span>`
+        : `<span>Create This Wish</span><span class="text-amber-300 text-xs">✨</span>`;
     }
 
     setMarketplacePreviewDevice('mobile');

@@ -1,17 +1,17 @@
 /**
- * WishMagic Universal Template Protocol (v1.0)
- * -------------------------------------------------------------
+ * WishMagic Universal Template Protocol (v1.0 & v1.1 Variant Runtime Bridge)
+ * --------------------------------------------------------------------------
  * Provides self-describing capability discovery, validation,
  * safe DOM data hydration, manifest binding target execution,
- * and event listeners for all UTP v1.0.0 wish templates.
+ * relationship variant resolution, and event listeners for all UTP wish templates.
  */
 
 (function (global) {
   'use strict';
 
-  const PROTOCOL_VERSION = '1.0';
-  const SCHEMA_VERSION = '1.0.0';
-  const RUNTIME_API_VERSION = '1.0';
+  const PROTOCOL_VERSION = '1.1';
+  const SCHEMA_VERSION = '1.1.0';
+  const RUNTIME_API_VERSION = '1.1';
 
   /**
    * Helper to safely sanitize and set text without XSS risks
@@ -52,7 +52,7 @@
     const selectorParts = [`[data-wm-field="${key}"]`, `[data-wm="${key}"]`];
     if (fieldConfig && fieldConfig.binding && fieldConfig.binding.selector) {
       const customSel = String(fieldConfig.binding.selector).trim();
-      if (customSel && ! customSel.startsWith('{{') && !customSel.startsWith('--')) {
+      if (customSel && !customSel.startsWith('{{') && !customSel.startsWith('--')) {
         selectorParts.push(customSel);
       }
     }
@@ -66,7 +66,7 @@
   }
 
   /**
-   * Universal Field Setter (supports all UTP v1.0.0 field types & binding targets)
+   * Universal Field Setter (supports all UTP v1.0.0 & v1.1.0 field types & binding targets)
    */
   function setWishMagicField(key, value, customData) {
     const fieldConfig = getManifestFieldConfig(key);
@@ -287,7 +287,6 @@
           } else if (key === 'custom_message') {
             setTextSafe(element, activeValue || originalDomText || 'May your day be filled with warm magic, sparkling smiles, and infinite moments of joy!');
           } else {
-            // If user did not customize this message/text field, keep its normal template text
             if (hasValue || activeValue !== '') {
               setTextSafe(element, activeValue);
             } else if (originalDomText) {
@@ -301,13 +300,49 @@
   }
 
   /**
-   * Apply entire dataset to template
+   * Apply entire dataset (including UTP v1.1.0 variant overrides, messages, palette, and assets) to template
    */
   function applyData(data) {
     if (!data || typeof data !== 'object') return;
 
-    // 1. Apply all direct keys in data
+    // 0. Apply UTP v1.1.0 variant & relationship attributes on root html/body
+    const variantId = data.variantId || data.variant_id || (data.variant && (data.variant.id || data.variant.slug)) || '';
+    const relSlug = data.relationshipSlug || data.relationship_slug || data.relationship || (data.variant && (data.variant.relationshipSlug || data.variant.relationship)) || '';
+    if (variantId && typeof variantId === 'string') {
+      document.documentElement.setAttribute('data-wm-variant', variantId);
+      if (document.body) document.body.setAttribute('data-wm-variant', variantId);
+    }
+    if (relSlug && typeof relSlug === 'string') {
+      document.documentElement.setAttribute('data-wm-relationship', relSlug);
+      if (document.body) document.body.setAttribute('data-wm-relationship', relSlug);
+    }
+
+    // 0b. Apply variant messages & default assets first (so direct user keys in step 1 take higher precedence)
+    const variantMessages = (data.messages && typeof data.messages === 'object')
+      ? data.messages
+      : (data.variant && data.variant.messages && typeof data.variant.messages === 'object' ? data.variant.messages : null);
+    if (variantMessages) {
+      Object.keys(variantMessages).forEach(msgKey => {
+        if (data[msgKey] === undefined || data[msgKey] === null || data[msgKey] === '') {
+          setWishMagicField(msgKey, variantMessages[msgKey], data);
+        }
+      });
+    }
+
+    const variantAssets = (data.assets && typeof data.assets === 'object')
+      ? data.assets
+      : (data.variant && data.variant.assets && typeof data.variant.assets === 'object' ? data.variant.assets : null);
+    if (variantAssets) {
+      Object.keys(variantAssets).forEach(assetKey => {
+        if (data[assetKey] === undefined || data[assetKey] === null || data[assetKey] === '') {
+          setWishMagicField(assetKey, variantAssets[assetKey], data);
+        }
+      });
+    }
+
+    // 1. Apply all direct keys in data (Customer Wish values override variant defaults)
     Object.keys(data).forEach(key => {
+      if (['messages', 'assets', 'variant', 'colors', 'palette', 'sections', 'media'].includes(key)) return;
       setWishMagicField(key, data[key], data);
     });
 
@@ -355,17 +390,27 @@
       setWishMagicField('voice', voiceSrc, data);
     }
 
-    // 4. Colors & CSS custom properties
-    if (data.colors && typeof data.colors === 'object') {
-      if (data.colors.primary) document.documentElement.style.setProperty('--wm-primary', data.colors.primary);
-      if (data.colors.secondary) document.documentElement.style.setProperty('--wm-secondary', data.colors.secondary);
-      if (data.colors.accent) document.documentElement.style.setProperty('--wm-accent', data.colors.accent);
+    // 4. Colors, Palette & CSS custom properties
+    const colorSource = (data.colors && typeof data.colors === 'object')
+      ? data.colors
+      : ((data.palette && typeof data.palette === 'object')
+        ? data.palette
+        : (data.theme && typeof data.theme === 'object' ? data.theme : (data.variant && data.variant.theme && typeof data.variant.theme === 'object' ? data.variant.theme : null)));
+    if (colorSource) {
+      if (colorSource.primary) document.documentElement.style.setProperty('--wm-primary', colorSource.primary);
+      if (colorSource.secondary) document.documentElement.style.setProperty('--wm-secondary', colorSource.secondary);
+      if (colorSource.accent) document.documentElement.style.setProperty('--wm-accent', colorSource.accent);
+      if (colorSource.background) document.documentElement.style.setProperty('--wm-bg', colorSource.background);
+      if (colorSource.text) document.documentElement.style.setProperty('--wm-text', colorSource.text);
     }
 
     // 5. Theme attribute synchronization
-    if (data.theme && typeof data.theme === 'string') {
-      document.documentElement.setAttribute('data-wm-theme', data.theme);
-      if (document.body) document.body.setAttribute('data-wm-theme', data.theme);
+    const themeName = typeof data.theme === 'string'
+      ? data.theme
+      : (data.theme && typeof data.theme.preset === 'string' ? data.theme.preset : '');
+    if (themeName) {
+      document.documentElement.setAttribute('data-wm-theme', themeName);
+      if (document.body) document.body.setAttribute('data-wm-theme', themeName);
     }
 
     // 6. Section visibility toggles

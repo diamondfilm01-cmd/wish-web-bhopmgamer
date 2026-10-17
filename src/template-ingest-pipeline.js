@@ -26,12 +26,17 @@ import {
 import {
   UTP_PROTOCOL_NAME,
   UTP_SCHEMA_VERSION,
-  UTP_RUNTIME_API_VERSION
+  UTP_RUNTIME_API_VERSION,
+  normalizeRelationshipIdentifier
 } from './template-protocol-schema.js';
 import {
   validateUtpManifest,
   normalizeManifestToUtp
 } from './template-protocol-validator.js';
+import {
+  buildVariantRecordFromUtpDeclaration,
+  filterPublicAvailableVariants
+} from './template-variant-engine.js';
 import {
   ImgBBProvider,
   getImgBBConfig
@@ -1143,6 +1148,100 @@ export async function ensureTemplateIngestionSchema(db, force = false) {
     { name: "updated_at", def: "TEXT" }
   ]);
 
+  await reconcileColumns("templates", [
+    { name: "variants_json", def: "TEXT DEFAULT '[]'" },
+    { name: "has_variants", def: "INTEGER DEFAULT 0" }
+  ]);
+  await reconcileColumns("template_versions", [
+    { name: "variants_json", def: "TEXT DEFAULT '[]'" }
+  ]);
+
+  // 8. relationships, template_relationships, template_relationship_variants (Part 48 UTP v1.1.0)
+  await execSql(`
+    CREATE TABLE IF NOT EXISTS relationships (
+      id TEXT PRIMARY KEY,
+      slug TEXT UNIQUE NOT NULL,
+      name TEXT NOT NULL,
+      display_name TEXT NOT NULL,
+      icon TEXT DEFAULT '❤️',
+      category TEXT DEFAULT 'general',
+      status TEXT NOT NULL DEFAULT 'active',
+      sort_order INTEGER NOT NULL DEFAULT 1,
+      created_at TEXT NOT NULL,
+      updated_at TEXT NOT NULL
+    )
+  `);
+
+  await execSql(`
+    CREATE TABLE IF NOT EXISTS template_relationships (
+      id TEXT PRIMARY KEY,
+      template_id TEXT NOT NULL,
+      relationship_id TEXT NOT NULL,
+      template_family_id TEXT,
+      template_version_id TEXT,
+      enabled INTEGER NOT NULL DEFAULT 1,
+      sort_order INTEGER NOT NULL DEFAULT 1,
+      created_at TEXT NOT NULL
+    )
+  `);
+  await execSql("CREATE UNIQUE INDEX IF NOT EXISTS idx_template_relationships_unique ON template_relationships(template_id, relationship_id)");
+
+  await execSql(`
+    CREATE TABLE IF NOT EXISTS template_relationship_variants (
+      id TEXT PRIMARY KEY,
+      variant_slug TEXT,
+      template_id TEXT,
+      template_family_id TEXT,
+      template_version_id TEXT NOT NULL,
+      relationship_id TEXT NOT NULL,
+      relationship_slug TEXT,
+      relationship_label TEXT,
+      name TEXT NOT NULL,
+      description TEXT DEFAULT '',
+      thumbnail TEXT DEFAULT '',
+      entry_file TEXT DEFAULT 'index.html',
+      configuration_json TEXT NOT NULL DEFAULT '{}',
+      fields_json TEXT DEFAULT '[]',
+      sections_json TEXT DEFAULT '[]',
+      assets_json TEXT DEFAULT '{}',
+      schema_hash TEXT,
+      status TEXT NOT NULL DEFAULT 'published',
+      enabled INTEGER NOT NULL DEFAULT 1,
+      sort_order INTEGER NOT NULL DEFAULT 1,
+      is_default INTEGER NOT NULL DEFAULT 0,
+      version_number INTEGER NOT NULL DEFAULT 1,
+      parent_variant_id TEXT,
+      is_latest INTEGER NOT NULL DEFAULT 1,
+      lock_version INTEGER NOT NULL DEFAULT 1,
+      published_at TEXT,
+      created_at TEXT NOT NULL,
+      updated_at TEXT NOT NULL
+    )
+  `);
+  await reconcileColumns("template_relationship_variants", [
+    { name: "variant_slug", def: "TEXT" },
+    { name: "template_id", def: "TEXT" },
+    { name: "template_family_id", def: "TEXT" },
+    { name: "relationship_slug", def: "TEXT" },
+    { name: "relationship_label", def: "TEXT" },
+    { name: "description", def: "TEXT DEFAULT ''" },
+    { name: "thumbnail", def: "TEXT DEFAULT ''" },
+    { name: "entry_file", def: "TEXT DEFAULT 'index.html'" },
+    { name: "fields_json", def: "TEXT DEFAULT '[]'" },
+    { name: "sections_json", def: "TEXT DEFAULT '[]'" },
+    { name: "assets_json", def: "TEXT DEFAULT '{}'" },
+    { name: "enabled", def: "INTEGER DEFAULT 1" },
+    { name: "sort_order", def: "INTEGER DEFAULT 1" },
+    { name: "is_default", def: "INTEGER DEFAULT 0" },
+    { name: "version_number", def: "INTEGER DEFAULT 1" },
+    { name: "parent_variant_id", def: "TEXT" },
+    { name: "is_latest", def: "INTEGER DEFAULT 1" },
+    { name: "lock_version", def: "INTEGER DEFAULT 1" },
+    { name: "published_at", def: "TEXT" }
+  ]);
+  await execSql("CREATE INDEX IF NOT EXISTS idx_trv_family_status ON template_relationship_variants(template_family_id, status, enabled, is_latest)");
+  await execSql("CREATE INDEX IF NOT EXISTS idx_trv_rel_slug ON template_relationship_variants(relationship_slug)");
+
   if (typeof db === "object") healedTemplateIngestionDbs.add(db);
   return true;
 }
@@ -1482,6 +1581,21 @@ export async function executeB2TemplateIngestPipeline(params) {
 
   if (!utpReport.valid && utpReport.issues.some(i => i.severity === 'error' && i.blocking !== false)) {
     await rollbackPreUploadedImgbbOnly();
+    const failedVariantReport = {
+      familyName: utpReport.template?.name || templateMetadata.name || 'Custom Template',
+      validationStatus: 'failed',
+      variantsDetected: Boolean(utpReport.variants?.hasVariants),
+      detectedVariantCount: utpReport.variants?.detectedCount || 0,
+      validVariantsCount: utpReport.variants?.validCount || 0,
+      invalidVariantsCount: utpReport.variants?.invalidCount || 0,
+      detectedRelations: utpReport.variants?.detectedRelations || [],
+      variants: utpReport.variants?.validVariants || [],
+      invalidVariants: utpReport.variants?.invalidVariants || [],
+      warnings: utpReport.issues.filter(i => i.severity === 'warning'),
+      errors: utpReport.issues.filter(i => i.severity === 'error'),
+      readyForReview: false,
+      readyForPublishing: false
+    };
     await updateOperation(UPLOAD_OPERATION_STATE.VALIDATION_FAILED, 'utp_validation_failed', 30, {
       errorCode: 'UTP_VALIDATION_FAILED',
       errorMessage: `Template package failed Universal Template Protocol validation with ${utpReport.summary.errors} error(s).`,
@@ -1495,6 +1609,9 @@ export async function executeB2TemplateIngestPipeline(params) {
       code: 'UTP_VALIDATION_FAILED',
       message: `Template package failed Universal Template Protocol validation with ${utpReport.summary.errors} error(s).`,
       validationReport: utpReport,
+      variantReport: failedVariantReport,
+      variantsDetected: failedVariantReport.variantsDetected,
+      variantsCount: failedVariantReport.detectedVariantCount,
       issues: utpReport.issues
     };
   }
@@ -1722,6 +1839,14 @@ export async function executeB2TemplateIngestPipeline(params) {
         versionLabel: duplicateVer.version_label,
         packageFingerprint
       });
+      const dupVariantsList = (utpReport.variants?.validVariants || []).map(v => buildVariantRecordFromUtpDeclaration(v, {
+        templateId,
+        templateFamilyId,
+        versionId: duplicateVer.id,
+        versionNumber: duplicateVer.version_number,
+        shouldPublish: duplicateVer.status === 'published',
+        nowIso
+      }));
       return {
         success: true,
         duplicateDetected: true,
@@ -1734,7 +1859,30 @@ export async function executeB2TemplateIngestPipeline(params) {
         status: duplicateVer.status || 'ready',
         isPublished: duplicateVer.status === 'published',
         message: `Identical package fingerprint already exists for this template family as ${duplicateVer.version_label}.`,
-        previewUrl: `/api/templates/${templateId}/versions/${duplicateVer.id}/preview/${extracted.entryFile}`
+        previewUrl: `/api/templates/${templateId}/versions/${duplicateVer.id}/preview/${extracted.entryFile}`,
+        validationReport: utpReport,
+        variantsDetected: Boolean(utpReport.variants?.hasVariants),
+        variantsCount: dupVariantsList.length,
+        variants: dupVariantsList,
+        availableVariants: filterPublicAvailableVariants(dupVariantsList),
+        variantReport: {
+          familyName: templateMetadata.name || utpReport.normalized?.template?.name || analyzed.title,
+          familyId: templateFamilyId,
+          templateId,
+          versionId: duplicateVer.id,
+          validationStatus: 'valid',
+          variantsDetected: Boolean(utpReport.variants?.hasVariants),
+          detectedVariantCount: utpReport.variants?.detectedCount || 0,
+          validVariantsCount: dupVariantsList.length,
+          invalidVariantsCount: utpReport.variants?.invalidCount || 0,
+          detectedRelations: utpReport.variants?.detectedRelations || [],
+          variants: dupVariantsList,
+          invalidVariants: utpReport.variants?.invalidVariants || [],
+          warnings: utpReport.issues.filter(i => i.severity === 'warning'),
+          errors: [],
+          readyForReview: true,
+          readyForPublishing: Boolean(utpReport.publishable)
+        }
       };
     }
   }
@@ -1814,7 +1962,9 @@ export async function executeB2TemplateIngestPipeline(params) {
   const b2MediaUrlByRelPath = new Map();
   const shouldPublishImmediately = Boolean(
     params.publishImmediately ||
+    params.shouldPublish ||
     templateMetadata.publishImmediately ||
+    templateMetadata.shouldPublish ||
     templateMetadata.autoPublish ||
     templateMetadata.isPublished === true
   );
@@ -2122,8 +2272,31 @@ export async function executeB2TemplateIngestPipeline(params) {
       fileRecord.b2FileId = fileUploadRes.fileId;
     }
 
-    // Enrich manifestPayload with ImgBB & B2 asset mappings before uploading manifest
+    // 6b. Build UTP v1.1.0 Variant Records from declared variants (with ImgBB & B2 URLs wired)
+    const declaredValidVariants = Array.isArray(utpReport.variants?.validVariants)
+      ? utpReport.variants.validVariants
+      : [];
+    const registeredVariantRecords = declaredValidVariants.map((normVar, idx) =>
+      buildVariantRecordFromUtpDeclaration({ ...normVar, sortOrder: normVar.sortOrder || (idx + 1) }, {
+        templateId,
+        templateFamilyId,
+        versionId,
+        versionNumber,
+        shouldPublish: shouldPublishImmediately,
+        imgbbUrlByRelPath,
+        b2MediaUrlByRelPath,
+        fallbackThumbnail: resolvedThumbnail,
+        nowIso
+      })
+    );
+    const publicAvailableVariants = filterPublicAvailableVariants(
+      registeredVariantRecords.map(vr => ({ ...vr, status: 'published' }))
+    );
+
+    // Enrich manifestPayload with ImgBB, B2, & Variant mappings before uploading manifest
     manifestPayload.thumbnail = resolvedThumbnail;
+    manifestPayload.hasVariants = registeredVariantRecords.length > 0;
+    manifestPayload.variants = registeredVariantRecords.map(vr => vr.configuration);
     manifestPayload.imgbbImages = uploadedImgbbImages.map(img => ({
       assetKey: img.assetKey,
       relativePath: img.relativePath,
@@ -2197,12 +2370,28 @@ export async function executeB2TemplateIngestPipeline(params) {
     const buildRegistrationStatements = async () => {
     const registrationStatements = [];
 
+    const declaredRelLabels = registeredVariantRecords.length > 0
+      ? registeredVariantRecords.filter(vr => vr.enabled !== 0).map(vr => vr.relationship_label)
+      : (Array.isArray(utpReport.normalized?.relationships) ? utpReport.normalized.relationships : []);
+    const declaredRelSlugs = registeredVariantRecords.length > 0
+      ? registeredVariantRecords.filter(vr => vr.enabled !== 0).map(vr => vr.relationship_slug)
+      : (Array.isArray(utpReport.normalized?.relationships) ? utpReport.normalized.relationships : []);
+
     // 1. Template Family statement
     registrationStatements.push(
       db.prepare(`
-        INSERT OR IGNORE INTO template_families (
-          id, slug, name, description, thumbnail, category, tier, price, is_featured, is_premium, status, visibility, created_by, created_at, updated_at
-        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'public', ?, ?, ?)
+        INSERT INTO template_families (
+          id, slug, name, description, thumbnail, category, tier, price, is_featured, is_premium, status, visibility, supported_relationships_json, created_by, created_at, updated_at
+        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'public', ?, ?, ?, ?)
+        ON CONFLICT(id) DO UPDATE SET
+          name = excluded.name,
+          description = excluded.description,
+          thumbnail = CASE WHEN excluded.thumbnail != '' THEN excluded.thumbnail ELSE template_families.thumbnail END,
+          category = excluded.category,
+          tier = excluded.tier,
+          price = excluded.price,
+          supported_relationships_json = excluded.supported_relationships_json,
+          updated_at = excluded.updated_at
       `).bind(
         templateFamilyId,
         familySlug,
@@ -2215,6 +2404,7 @@ export async function executeB2TemplateIngestPipeline(params) {
         templateMetadata.featured ? 1 : 0,
         templateMetadata.isPremium ? 1 : 0,
         targetTemplateStatus,
+        JSON.stringify(declaredRelSlugs),
         authorId,
         nowIso,
         nowIso
@@ -2228,16 +2418,19 @@ export async function executeB2TemplateIngestPipeline(params) {
           id, name, slug, description, category, relationships, tags,
           type, tier, price, is_premium, is_published, status, featured,
           placement, thumbnail, preview_images, capabilities, detected_fields,
-          sections, features, theme, folder, entry_file, created_at, updated_at
+          sections, features, theme, folder, entry_file, variants_json, has_variants, created_at, updated_at
         ) VALUES (
-          ?, ?, ?, ?, ?, '[]', '[]',
+          ?, ?, ?, ?, ?, ?, '[]',
           '3D Interactive', ?, ?, ?, ?, ?, ?,
           99, ?, ?, ?, ?,
-          ?, ?, '{}', ?, ?, ?, ?
+          ?, ?, '{}', ?, ?, ?, ?, ?, ?
         )
         ON CONFLICT(id) DO UPDATE SET
           sections = excluded.sections,
           features = excluded.features,
+          relationships = excluded.relationships,
+          variants_json = excluded.variants_json,
+          has_variants = excluded.has_variants,
           name = excluded.name,
           slug = excluded.slug,
           description = excluded.description,
@@ -2259,6 +2452,7 @@ export async function executeB2TemplateIngestPipeline(params) {
         familySlug,
         templateMetadata.description || 'Custom web celebration template',
         templateMetadata.category || 'celebration',
+        JSON.stringify(declaredRelLabels),
         templateMetadata.tier || 'free',
         Number(templateMetadata.price || 0),
         templateMetadata.tier === 'vip' || templateMetadata.isPremium ? 1 : 0,
@@ -2273,6 +2467,26 @@ export async function executeB2TemplateIngestPipeline(params) {
         JSON.stringify(utpReport.normalized || {}),
         familySlug,
         extracted.entryFile,
+        JSON.stringify(registeredVariantRecords.map(vr => ({
+          id: vr.id,
+          slug: vr.variant_slug,
+          relationshipId: vr.relationship_id,
+          relationshipSlug: vr.relationship_slug,
+          relationship: vr.relationship_slug,
+          label: vr.relationship_label,
+          relationshipLabel: vr.relationship_label,
+          name: vr.name,
+          description: vr.description,
+          icon: vr.relationship_icon,
+          thumbnail: vr.thumbnail,
+          entryFile: vr.entry_file,
+          status: vr.status,
+          enabled: Boolean(vr.enabled),
+          sortOrder: vr.sort_order,
+          isDefault: Boolean(vr.is_default),
+          configuration: vr.configuration
+        }))),
+        registeredVariantRecords.length > 0 ? 1 : 0,
         nowIso,
         nowIso
       )
@@ -2427,6 +2641,135 @@ export async function executeB2TemplateIngestPipeline(params) {
       );
     }
 
+    // 7. UTP v1.1.0 Automatic Variant Registration (Relationships, Template_Relationships, Template_Relationship_Variants)
+    if (utpReport.variants?.hasVariants) {
+      // First disable any previously registered relationships/variants for this template that were removed in the new package
+      // without deleting historical variant rows so existing customer Wishes remain 100% functional
+      registrationStatements.push(
+        db.prepare(`
+          UPDATE template_relationships
+          SET enabled = 0
+          WHERE template_id = ?
+        `).bind(templateId)
+      );
+      registrationStatements.push(
+        db.prepare(`
+          UPDATE template_relationship_variants
+          SET enabled = 0, is_latest = 0, updated_at = ?
+          WHERE template_id = ? AND is_latest = 1
+        `).bind(nowIso, templateId)
+      );
+
+      for (const vr of registeredVariantRecords) {
+        const relMeta = normalizeRelationshipIdentifier(vr.relationship_slug, vr.relationship_label);
+        registrationStatements.push(
+          db.prepare(`
+            INSERT OR IGNORE INTO relationships (
+              id, slug, name, display_name, icon, category, status, sort_order, created_at, updated_at
+            ) VALUES (?, ?, ?, ?, ?, ?, 'active', ?, ?, ?)
+          `).bind(
+            vr.relationship_id,
+            vr.relationship_slug,
+            vr.relationship_label,
+            relMeta ? relMeta.displayName : `${vr.relationship_label} Edition`,
+            vr.relationship_icon || '✨',
+            relMeta ? relMeta.category : 'celebration',
+            vr.sort_order || 1,
+            nowIso,
+            nowIso
+          )
+        );
+
+        const trelId = `trel_${templateId}_${vr.relationship_id}`;
+        registrationStatements.push(
+          db.prepare(`
+            INSERT INTO template_relationships (
+              id, template_id, relationship_id, template_family_id, template_version_id, enabled, sort_order, created_at
+            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+            ON CONFLICT(template_id, relationship_id) DO UPDATE SET
+              enabled = excluded.enabled,
+              template_family_id = excluded.template_family_id,
+              template_version_id = excluded.template_version_id,
+              sort_order = excluded.sort_order
+          `).bind(
+            trelId,
+            templateId,
+            vr.relationship_id,
+            templateFamilyId,
+            versionId,
+            vr.enabled ? 1 : 0,
+            vr.sort_order || 1,
+            nowIso
+          )
+        );
+
+        registrationStatements.push(
+          db.prepare(`
+            INSERT INTO template_relationship_variants (
+              id, variant_slug, template_id, template_family_id, template_version_id,
+              relationship_id, relationship_slug, relationship_label, name, description,
+              thumbnail, entry_file, configuration_json, fields_json, sections_json,
+              assets_json, status, enabled, sort_order, is_default,
+              version_number, lock_version, is_latest, published_at, created_at, updated_at
+            ) VALUES (
+              ?, ?, ?, ?, ?,
+              ?, ?, ?, ?, ?,
+              ?, ?, ?, ?, ?,
+              ?, ?, ?, ?, ?,
+              ?, 1, 1, ?, ?, ?
+            )
+            ON CONFLICT(id) DO UPDATE SET
+              variant_slug = excluded.variant_slug,
+              template_version_id = excluded.template_version_id,
+              relationship_slug = excluded.relationship_slug,
+              relationship_label = excluded.relationship_label,
+              name = excluded.name,
+              description = excluded.description,
+              thumbnail = excluded.thumbnail,
+              entry_file = excluded.entry_file,
+              configuration_json = excluded.configuration_json,
+              fields_json = excluded.fields_json,
+              sections_json = excluded.sections_json,
+              assets_json = excluded.assets_json,
+              status = excluded.status,
+              enabled = excluded.enabled,
+              sort_order = excluded.sort_order,
+              is_default = excluded.is_default,
+              version_number = excluded.version_number,
+              lock_version = template_relationship_variants.lock_version + 1,
+              is_latest = 1,
+              published_at = COALESCE(excluded.published_at, template_relationship_variants.published_at),
+              updated_at = excluded.updated_at
+          `).bind(
+            vr.id,
+            vr.variant_slug,
+            vr.template_id,
+            vr.template_family_id,
+            vr.template_version_id,
+            vr.relationship_id,
+            vr.relationship_slug,
+            vr.relationship_label,
+            vr.name,
+            vr.description,
+            vr.thumbnail,
+            vr.entry_file,
+            vr.configuration_json,
+            vr.fields_json,
+            vr.sections_json,
+            vr.assets_json,
+            vr.status,
+            vr.enabled,
+            vr.sort_order,
+            vr.is_default,
+            vr.version_number,
+            vr.published_at,
+            vr.created_at,
+            vr.updated_at
+          )
+        );
+      }
+    }
+
     return registrationStatements;
     };
 
@@ -2512,6 +2855,49 @@ export async function executeB2TemplateIngestPipeline(params) {
       }))
     });
 
+    const finalVariantReport = {
+      familyName: templateMetadata.name || utpReport.normalized?.template?.name || analyzed.title,
+      familyId: templateFamilyId,
+      templateId,
+      versionId,
+      validationStatus: utpReport.valid ? 'valid' : 'warnings',
+      variantsDetected: registeredVariantRecords.length > 0,
+      detectedVariantCount: utpReport.variants?.detectedCount || registeredVariantRecords.length,
+      validVariantsCount: registeredVariantRecords.length,
+      invalidVariantsCount: utpReport.variants?.invalidCount || 0,
+      detectedRelations: registeredVariantRecords.map(vr => ({
+        id: vr.relationship_id,
+        slug: vr.relationship_slug,
+        label: vr.relationship_label,
+        variantId: vr.id,
+        declaredId: vr.declaredId,
+        name: vr.name,
+        thumbnail: vr.thumbnail,
+        status: vr.status,
+        enabled: Boolean(vr.enabled)
+      })),
+      variants: registeredVariantRecords.map(vr => ({
+        id: vr.id,
+        declaredId: vr.declaredId,
+        slug: vr.variant_slug,
+        relationshipId: vr.relationship_id,
+        relationshipSlug: vr.relationship_slug,
+        relationshipLabel: vr.relationship_label,
+        label: vr.relationship_label,
+        name: vr.name,
+        description: vr.description,
+        thumbnail: vr.thumbnail,
+        entryFile: vr.entry_file,
+        status: vr.status,
+        enabled: Boolean(vr.enabled)
+      })),
+      invalidVariants: utpReport.variants?.invalidVariants || [],
+      warnings: utpReport.issues.filter(i => i.severity === 'warning'),
+      errors: utpReport.issues.filter(i => i.severity === 'error'),
+      readyForReview: true,
+      readyForPublishing: Boolean(utpReport.publishable)
+    };
+
     return {
       success: true,
       operationId,
@@ -2525,10 +2911,15 @@ export async function executeB2TemplateIngestPipeline(params) {
       isPublished: shouldPublishImmediately,
       thumbnail: resolvedThumbnail,
       protocol: {
-        schemaVersion: UTP_SCHEMA_VERSION,
+        schemaVersion: utpReport.protocol?.schemaVersion || UTP_SCHEMA_VERSION,
         runtimeApi: UTP_RUNTIME_API_VERSION
       },
       validationReport: utpReport,
+      variantsDetected: registeredVariantRecords.length > 0,
+      variantsCount: registeredVariantRecords.length,
+      variants: registeredVariantRecords,
+      availableVariants: publicAvailableVariants,
+      variantReport: finalVariantReport,
       entryFile: extracted.entryFile,
       previewUrl: `/api/templates/${templateId}/versions/${versionId}/preview/${extracted.entryFile}`,
       storageKeys: keys,
@@ -2603,6 +2994,10 @@ export async function executeB2TemplateIngestPipeline(params) {
           if (typeof s.run === 'function') await s.run();
         } catch (_) {}
       };
+      await safeRunDelete(`DELETE FROM template_relationship_variants WHERE template_version_id = ?`, versionId);
+      if (!hadExistingTemplateBeforeUpload && templateId) {
+        await safeRunDelete(`DELETE FROM template_relationships WHERE template_id = ?`, templateId);
+      }
       await safeRunDelete(`DELETE FROM template_images WHERE template_version_id = ?`, versionId);
       await safeRunDelete(`DELETE FROM template_fields WHERE template_version_id = ?`, versionId);
       await safeRunDelete(`DELETE FROM template_files WHERE template_version_id = ?`, versionId);

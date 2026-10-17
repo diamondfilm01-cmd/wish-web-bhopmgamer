@@ -5,6 +5,7 @@ let detectedDynamicFields = []; // Confirmed customizer fields
 let suggestedDynamicFields = []; // Undeclared HTML/media fields awaiting admin confirmation
 let currentParsedManifest = null;
 let currentUtpValidationIssues = [];
+let currentDetectedVariantsReport = null;
 let customCoverThumbnail = null;
 let customCoverThumbnailIsManual = false;
 let firstFoundImageRelPath = "";
@@ -764,6 +765,139 @@ function scanDynamicFields(html) {
     }
   }
 
+  // 5. Inspect UTP v1.1.0 Variant Family Declarations in wishmagic.json
+  const rawVariants = currentParsedManifest
+    ? (Array.isArray(currentParsedManifest.variants)
+        ? currentParsedManifest.variants
+        : (currentParsedManifest.template && Array.isArray(currentParsedManifest.template.variants) ? currentParsedManifest.template.variants : null))
+    : null;
+
+  if (Array.isArray(rawVariants) && rawVariants.length > 0) {
+    const seenVarIds = new Set();
+    const seenRels = new Set();
+    const validVars = [];
+    const invalidVars = [];
+    const missingFiles = [];
+    const duplicateRelIssues = [];
+    const tMeta = (currentParsedManifest && currentParsedManifest.template) || currentParsedManifest || {};
+    const familyName = tMeta.name || tMeta.title || (document.getElementById("new-tpl-title")?.value || "Template Family");
+
+    rawVariants.forEach((rv, idx) => {
+      const vErrs = [];
+      if (!rv || typeof rv !== "object") {
+        vErrs.push("Variant at index " + idx + " is not a valid object");
+        invalidVars.push({ id: "variant_" + idx, relationship: "unknown", errors: vErrs });
+        return;
+      }
+      const vId = String(rv.id || rv.variantId || rv.slug || "").trim();
+      const vRel = String(rv.relationship || rv.relationshipId || rv.relation || rv.relationshipSlug || "").trim();
+      const vLabel = String(rv.label || rv.relationshipLabel || vRel || "").trim();
+      const vName = String(rv.name || rv.displayName || (familyName + " — " + (vLabel || "Variant"))).trim();
+
+      if (!vId) {
+        vErrs.push("Missing variant id/slug");
+        currentUtpValidationIssues.push({ severity: "error", code: "MISSING_VARIANT_ID", message: "Variant at index " + idx + " is missing a stable id or slug." });
+      } else if (seenVarIds.has(vId.toLowerCase())) {
+        vErrs.push("Duplicate variant ID: " + vId);
+        currentUtpValidationIssues.push({ severity: "error", code: "DUPLICATE_VARIANT_ID", message: "Duplicate variant ID '" + vId + "' declared in wishmagic.json." });
+      } else {
+        seenVarIds.add(vId.toLowerCase());
+      }
+
+      const normRel = vRel.toLowerCase().replace(/^rel_/, "").replace(/[\s-]+/g, "_");
+      if (!normRel) {
+        vErrs.push("Missing relationship declaration");
+        currentUtpValidationIssues.push({ severity: "error", code: "MISSING_VARIANT_RELATIONSHIP", message: "Variant '" + (vId || idx) + "' is missing a relationship identifier." });
+      } else if (seenRels.has(normRel)) {
+        const dupMsg = "Duplicate relationship '" + (vLabel || normRel) + "' in variant '" + (vId || idx) + "'";
+        vErrs.push(dupMsg);
+        duplicateRelIssues.push(dupMsg);
+        currentUtpValidationIssues.push({ severity: "error", code: "DUPLICATE_VARIANT_RELATIONSHIP", message: dupMsg });
+      } else {
+        seenRels.add(normRel);
+      }
+
+      // Check referenced variant assets (entry, thumbnail, assets/images)
+      const checkPkgPath = (relP, labelDesc) => {
+        if (!relP || typeof relP !== "string") return;
+        const clean = relP.trim();
+        if (!clean || clean.startsWith("http://") || clean.startsWith("https://") || clean.startsWith("data:") || clean.startsWith("/assets/")) return;
+        const normP = clean.replace(/\\/g, "/").replace(/^\.?\/+/, "");
+        const exists = Boolean(currentUploadedFiles[normP] || Object.keys(currentUploadedFiles).some(k => k.toLowerCase() === normP.toLowerCase()));
+        if (!exists) {
+          const msg = "Missing " + labelDesc + " '" + normP + "' for variant '" + (vId || normRel) + "'";
+          vErrs.push(msg);
+          missingFiles.push(msg);
+          currentUtpValidationIssues.push({ severity: "error", code: "VARIANT_ASSET_NOT_FOUND", message: msg });
+        }
+      };
+
+      if (rv.entry) checkPkgPath(rv.entry, "entry file");
+      if (rv.thumbnail) checkPkgPath(rv.thumbnail, "thumbnail");
+      const vAssets = rv.assets || rv.images || {};
+      if (vAssets && typeof vAssets === "object") {
+        Object.entries(vAssets).forEach(([ak, av]) => {
+          const pStr = typeof av === "string" ? av : (av && (av.path || av.url || av.src));
+          if (pStr) checkPkgPath(pStr, "asset (" + ak + ")");
+        });
+      }
+
+      if (vErrs.length > 0) {
+        invalidVars.push({ id: vId || ("index_" + idx), name: vName, relationship: normRel, label: vLabel || normRel, errors: vErrs });
+      } else {
+        validVars.push({
+          id: vId,
+          slug: rv.slug || normRel,
+          name: vName,
+          relationship: normRel,
+          label: vLabel || normRel,
+          thumbnail: rv.thumbnail || "",
+          entry: rv.entry || "index.html",
+          status: rv.status || "published"
+        });
+      }
+    });
+
+    const hasBlockingErrors = currentUtpValidationIssues.some(i => i.severity === "error");
+    currentDetectedVariantsReport = {
+      familyName,
+      validationStatus: hasBlockingErrors ? "failed" : (currentUtpValidationIssues.length > 0 ? "warnings" : "valid"),
+      variantsDetected: true,
+      detectedVariantCount: rawVariants.length,
+      validVariantsCount: validVars.length,
+      invalidVariantsCount: invalidVars.length,
+      detectedRelations: validVars.map(v => ({ slug: v.relationship, label: v.label, variantId: v.id, name: v.name })),
+      variants: validVars,
+      invalidVariants: invalidVars,
+      missingFiles,
+      duplicateRelations: duplicateRelIssues,
+      warnings: currentUtpValidationIssues.filter(i => i.severity === "warning"),
+      errors: currentUtpValidationIssues.filter(i => i.severity === "error"),
+      readyForReview: !hasBlockingErrors,
+      readyForPublishing: !hasBlockingErrors && invalidVars.length === 0
+    };
+  } else {
+    const tMeta = (currentParsedManifest && currentParsedManifest.template) || currentParsedManifest || {};
+    const hasBlockingErrors = currentUtpValidationIssues.some(i => i.severity === "error");
+    currentDetectedVariantsReport = {
+      familyName: tMeta.name || tMeta.title || (document.getElementById("new-tpl-title")?.value || "Single Template"),
+      validationStatus: hasBlockingErrors ? "failed" : (currentUtpValidationIssues.length > 0 ? "warnings" : "valid"),
+      variantsDetected: false,
+      detectedVariantCount: 0,
+      validVariantsCount: 0,
+      invalidVariantsCount: 0,
+      detectedRelations: [],
+      variants: [],
+      invalidVariants: [],
+      missingFiles: [],
+      duplicateRelations: [],
+      warnings: currentUtpValidationIssues.filter(i => i.severity === "warning"),
+      errors: currentUtpValidationIssues.filter(i => i.severity === "error"),
+      readyForReview: !hasBlockingErrors,
+      readyForPublishing: !hasBlockingErrors
+    };
+  }
+
   detectedDynamicFields = Array.from(confirmedMap.values());
   suggestedDynamicFields = Array.from(suggestedMap.values());
   renderDetectedFieldsBadges();
@@ -869,7 +1003,73 @@ function renderCloudRoutingInspector(foundIndex, imageFiles, audioVideoFiles, co
         "<div class=\"flex flex-wrap gap-1 max-h-20 overflow-y-auto\">" + mediaListHtml + "</div>" +
       "</div>" +
     "</div>" +
+    renderAdminVariantUploadReportHtml(currentDetectedVariantsReport) +
     "<div id=\"deployed-cloud-links-summary\" class=\"hidden pt-2 border-t border-outline-variant/20\"></div>";
+}
+
+function renderAdminVariantUploadReportHtml(vReport, isServerVerified = false) {
+  if (!vReport) return "";
+  const isReady = Boolean(vReport.readyForPublishing || (vReport.readyForReview && (vReport.invalidVariantsCount || 0) === 0));
+  const statusBadge = isReady
+    ? '<span class="px-2.5 py-0.5 rounded-full bg-emerald-500/20 text-emerald-300 border border-emerald-500/40 text-[10px] font-bold">✓ Ready for Review & Publishing</span>'
+    : '<span class="px-2.5 py-0.5 rounded-full bg-rose-500/20 text-rose-300 border border-rose-500/40 text-[10px] font-bold">✕ Validation Blocked — Action Required</span>';
+
+  const relationsPills = Array.isArray(vReport.detectedRelations) && vReport.detectedRelations.length > 0
+    ? vReport.detectedRelations.map(r =>
+        '<span class="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full bg-purple-500/20 border border-purple-400/40 text-[11px] font-bold text-purple-200">' +
+          '<span>[' + (r.label || r.slug) + ']</span>' +
+          '<span class="text-[9px] font-mono opacity-80">(' + (r.variantId || r.id || r.slug) + ')</span>' +
+        '</span>'
+      ).join(" ")
+    : '<span class="text-[11px] text-outline">No multi-relation variants declared (Standard single/legacy template flow)</span>';
+
+  const invalidVarsHtml = Array.isArray(vReport.invalidVariants) && vReport.invalidVariants.length > 0
+    ? '<div class="mt-2 p-2 rounded-lg bg-rose-500/15 border border-rose-500/30 text-[11px] text-rose-200 space-y-1">' +
+        '<div class="font-bold text-[10px] uppercase tracking-wider text-rose-300">✕ Unprocessed / Invalid Variants (' + vReport.invalidVariants.length + ')</div>' +
+        vReport.invalidVariants.map(iv =>
+          '<div>• <b>' + (iv.id || iv.name || 'Variant') + '</b> (' + (iv.relationship || 'missing relation') + '): ' + (Array.isArray(iv.errors) ? iv.errors.join('; ') : '') + '</div>'
+        ).join("") +
+      '</div>'
+    : "";
+
+  return (
+    '<div id="admin-variant-discovery-report" class="p-3 rounded-xl bg-surface-container-lowest/90 border border-purple-500/30 space-y-2">' +
+      '<div class="flex flex-wrap items-center justify-between gap-2">' +
+        '<div class="flex items-center gap-2">' +
+          '<span class="material-symbols-outlined text-purple-400 text-[17px]">family_restroom</span>' +
+          '<span class="text-[11px] font-bold uppercase tracking-wider text-purple-200">' +
+            (isServerVerified ? 'Server-Verified Variant Family Report' : 'UTP v1.1.0 Variant Discovery Report') +
+          '</span>' +
+        '</div>' +
+        statusBadge +
+      '</div>' +
+      '<div class="grid grid-cols-2 sm:grid-cols-4 gap-2 text-[11px]">' +
+        '<div class="p-2 rounded-lg bg-surface-container-low border border-outline-variant/20">' +
+          '<div class="text-[9px] uppercase text-outline font-bold">Template Family</div>' +
+          '<div class="font-bold text-on-surface truncate">' + (vReport.familyName || 'Custom Family') + '</div>' +
+        '</div>' +
+        '<div class="p-2 rounded-lg bg-surface-container-low border border-outline-variant/20">' +
+          '<div class="text-[9px] uppercase text-outline font-bold">Variants Detected</div>' +
+          '<div class="font-bold ' + (vReport.variantsDetected ? 'text-emerald-300' : 'text-on-surface-variant') + '">' +
+            (vReport.variantsDetected ? ('Yes (' + (vReport.detectedVariantCount || 0) + ' Declared)') : 'No (Legacy Mode)') +
+          '</div>' +
+        '</div>' +
+        '<div class="p-2 rounded-lg bg-surface-container-low border border-outline-variant/20">' +
+          '<div class="text-[9px] uppercase text-outline font-bold">Valid Registered</div>' +
+          '<div class="font-bold text-emerald-400">' + (vReport.validVariantsCount || 0) + ' Variant(s)</div>' +
+        '</div>' +
+        '<div class="p-2 rounded-lg bg-surface-container-low border border-outline-variant/20">' +
+          '<div class="text-[9px] uppercase text-outline font-bold">Invalid / Blocked</div>' +
+          '<div class="font-bold ' + ((vReport.invalidVariantsCount || 0) > 0 ? 'text-rose-400' : 'text-outline') + '">' + (vReport.invalidVariantsCount || 0) + ' Variant(s)</div>' +
+        '</div>' +
+      '</div>' +
+      '<div class="pt-1">' +
+        '<div class="text-[10px] font-bold uppercase tracking-wider text-outline mb-1">Detected Relations & Stable Variant IDs:</div>' +
+        '<div class="flex flex-wrap gap-1.5">' + relationsPills + '</div>' +
+      '</div>' +
+      invalidVarsHtml +
+    '</div>'
+  );
 }
 
 window.removeDetectedFieldSlot = function(idx) {
@@ -1357,6 +1557,12 @@ async function deployUploadedTemplate(publishImmediately = true) {
         }
       }
 
+      const serverVarReport = resultObj.variantReport || data.variantReport || currentDetectedVariantsReport;
+      const reportEl = document.getElementById("admin-variant-discovery-report");
+      if (reportEl && serverVarReport) {
+        reportEl.outerHTML = renderAdminVariantUploadReportHtml(serverVarReport, true);
+      }
+
       // Show deployed cloud links summary right inside the inspector box
       const linksBox = document.getElementById("deployed-cloud-links-summary");
       if (linksBox) {
@@ -1397,6 +1603,10 @@ async function deployUploadedTemplate(publishImmediately = true) {
         } catch (_) {}
       }
       if (data && data.code === "UTP_VALIDATION_FAILED") {
+        if (data.variantReport) {
+          const reportEl = document.getElementById("admin-variant-discovery-report");
+          if (reportEl) reportEl.outerHTML = renderAdminVariantUploadReportHtml(data.variantReport, true);
+        }
         const issueDetails = Array.isArray(data.issues) ? data.issues.map(i => "• [" + i.severity.toUpperCase() + "] " + i.code + ": " + i.message).join("\n") : "";
         alert("⚠️ UNIVERSAL TEMPLATE PROTOCOL (UTP) VALIDATION FAILED:\n\n" + data.message + "\n\n" + issueDetails);
       } else if (data && data.code === "B2_NOT_CONFIGURED") {
@@ -2415,8 +2625,34 @@ async function openTemplateVariantsModal(templateId) {
     }
 
     currentFamilyData = data;
-    document.getElementById('var-modal-title').textContent = `${data.template.name} — Relationship Variants`;
-    document.getElementById('var-modal-ver-badge').textContent = `${data.activeVersion?.id || 'V1'} Active`;
+    // Reconcile any custom or UTP v1.1.0 variants into data.relationships so admin can inspect & manage every declared variant
+    const relsList = Array.isArray(data.relationships) ? data.relationships : [];
+    const varsList = Array.isArray(data.variants) ? data.variants : [];
+    varsList.forEach(v => {
+      const rId = v.relationship_id || v.relationshipId;
+      const rSlug = v.relationship_slug || v.relationshipSlug || v.variant_slug;
+      const existingRel = relsList.find(r => r.id === rId || (rSlug && r.slug === rSlug));
+      if (existingRel) {
+        if (v.enabled !== 0 && v.status !== 'archived' && v.status !== 'disabled') {
+          existingRel.isSupported = true;
+        }
+      } else if (rId || rSlug) {
+        relsList.push({
+          id: rId || `rel_${rSlug}`,
+          slug: rSlug || rId,
+          name: v.relationship_label || v.relationship_name || v.name || rSlug,
+          displayName: v.name || v.relationship_label || rSlug,
+          icon: v.relationship_icon || '✨',
+          category: 'celebration',
+          isSupported: v.enabled !== 0 && v.status !== 'archived' && v.status !== 'disabled',
+          sortOrder: v.sort_order || 99
+        });
+      }
+    });
+    data.relationships = relsList;
+
+    document.getElementById('var-modal-title').textContent = `${data.template.name} — Relationship Variants (${varsList.length} Registered)`;
+    document.getElementById('var-modal-ver-badge').textContent = `${data.activeVersion?.id || 'V1'} • ${data.usage?.publishedWishesCount || 0} Active Wishes`;
 
     renderVariantsRelationshipsList(data.relationships, data.variants);
     populateAddRelationshipDropdown(data.relationships);
