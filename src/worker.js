@@ -38,8 +38,27 @@ import {
   cloneVariant
 } from './template-variant-engine.js';
 import {
-  validateAdminTemplateConfiguration
+  validateAdminTemplateConfiguration,
+  normalizeManifestToUtp
 } from './template-protocol-validator.js';
+import {
+  RECOGNITION_OUTCOME,
+  IMPORT_SESSION_STATE,
+  IMPORT_DECISION_MODE,
+  SANDBOXED_PREVIEW_CSP,
+  inspectAndValidateTemplateZip,
+  recognizeTemplatePackage,
+  compareExistingTemplateWithStagedPackage,
+  buildSandboxedTemplatePreviewHtml,
+  deserializeStagedFilesBundle,
+  stageAndRecognizeTemplateZip,
+  formatImportSessionResponse,
+  compareImportSessionWithTarget,
+  validateImportSessionDecision,
+  publishImportSession,
+  cancelImportSession,
+  loadSingleTemplateComparisonContext
+} from './template-recognition-engine.js';
 import {
   B2StorageProvider,
   getB2Config,
@@ -5182,12 +5201,19 @@ async function getOrSeedActiveTemplateVersion(env, templateId, initialOverrides 
   if (!templateId) return null;
   const cleanId = String(templateId).trim();
 
-  // 1. Try DB lookup for latest active version (if no explicit initialOverrides creating new version)
+  // 1. Try DB lookup for current active version (honoring templates.current_version_id and is_current = 1)
   if (!initialOverrides && env && env.DB && typeof env.DB.prepare === 'function') {
     try {
-      const row = await env.DB.prepare(
-        'SELECT * FROM template_versions WHERE template_id = ? ORDER BY version_number DESC LIMIT 1'
-      ).bind(cleanId).first();
+      let row = null;
+      const tplPtr = await env.DB.prepare('SELECT current_version_id FROM templates WHERE id = ? OR slug = ? LIMIT 1').bind(cleanId, cleanId).first().catch(() => null);
+      if (tplPtr && tplPtr.current_version_id) {
+        row = await env.DB.prepare('SELECT * FROM template_versions WHERE id = ? LIMIT 1').bind(tplPtr.current_version_id).first().catch(() => null);
+      }
+      if (!row) {
+        row = await env.DB.prepare(
+          "SELECT * FROM template_versions WHERE template_id = ? ORDER BY is_current DESC, CASE WHEN status IN ('published', 'active') THEN 1 ELSE 0 END DESC, version_number DESC LIMIT 1"
+        ).bind(cleanId).first();
+      }
 
       if (row) {
         let snapshotData = null;
@@ -5196,12 +5222,13 @@ async function getOrSeedActiveTemplateVersion(env, templateId, initialOverrides 
         }
         if (snapshotData) return snapshotData;
 
-        // Construct from columns
+        // Construct from columns including UTP v1.2.0 configuration fields
         return {
           id: row.id,
           versionId: row.id,
           templateId: row.template_id,
           versionNumber: row.version_number,
+          versionLabel: row.version_label || `v${row.version_number || 1}.0.0`,
           name: row.name,
           description: row.description,
           category: row.category,
@@ -5211,10 +5238,17 @@ async function getOrSeedActiveTemplateVersion(env, templateId, initialOverrides 
           thumbnail: row.thumbnail,
           theme: row.theme ? (typeof row.theme === 'string' ? JSON.parse(row.theme) : row.theme) : (DEFAULT_TEMPLATE_THEMES[row.template_id] || {}),
           sections: row.sections ? (typeof row.sections === 'string' ? JSON.parse(row.sections) : row.sections) : DEFAULT_TEMPLATE_SECTIONS,
+          detectedFields: row.fields_json ? (typeof row.fields_json === 'string' ? safeJsonParse(row.fields_json, []) : row.fields_json) : undefined,
+          fields_json: row.fields_json || '[]',
+          actions_json: row.actions_json || '[]',
+          visibility_config_json: row.visibility_config_json || '{}',
+          actions_config_json: row.actions_config_json || '{}',
+          manifest_json: row.manifest_json || '{}',
           capabilities: row.capabilities ? (typeof row.capabilities === 'string' ? JSON.parse(row.capabilities) : row.capabilities) : {},
           layout: row.layout || 'centered-immersive',
           animations: row.animations ? (typeof row.animations === 'string' ? JSON.parse(row.animations) : row.animations) : [],
           status: row.status || 'active',
+          is_current: row.is_current,
           createdAt: row.created_at
         };
       }
@@ -6837,6 +6871,7 @@ export default {
             lifecycle_status: 'active',
             views: 0,
             custom_data: JSON.stringify(customData),
+            published_config_snapshot_json: JSON.stringify(publishedConfigSnapshot),
             payment: verifiedPaymentMeta,
             status: status,
             created_at: newWish.createdAt,
@@ -6875,6 +6910,10 @@ export default {
               newWish.updatedAt
             ).run();
             inserted = true;
+            try {
+              await env.DB.prepare('UPDATE wishes SET published_config_snapshot_json = ? WHERE id = ?')
+                .bind(JSON.stringify(publishedConfigSnapshot), newWish.id).run();
+            } catch (_) {}
           } catch (firstInsertErr) {
             console.warn('[Primary Wish Insert Notice, running adaptive recovery]', firstInsertErr);
           }
@@ -8786,6 +8825,482 @@ export default {
         }, 201, {}, requestId);
       }
 
+      // ======================================================================
+      // PART 50: SMART TEMPLATE RECOGNITION, SIDE-BY-SIDE PREVIEW & UPDATE STUDIO
+      // ======================================================================
+      else if (pathname === '/api/templates/import-studio/inspect' && method === 'POST') {
+        const user = await getAuthenticatedUser(request, env);
+        if (!user) return applySecurityHeaders(jsonError('AUTH_REQUIRED', 'Authentication required', 401), request, env);
+        const isAdmin = await verifyAdminRole(user, env);
+        if (!isAdmin) return applySecurityHeaders(jsonError('FORBIDDEN', 'Admin role required to inspect or stage template packages', 403), request, env);
+
+        const contentType = request.headers.get('content-type') || '';
+        let zipInput = null;
+        let filename = 'template-package.zip';
+        let intendedTargetTemplateId = url.searchParams.get('targetTemplateId') || null;
+        let idempotencyKey = request.headers.get('Idempotency-Key') || request.headers.get('X-Idempotency-Key') || null;
+        let zipLimits = {};
+
+        if (contentType.includes('multipart/form-data')) {
+          try {
+            const formData = await request.formData();
+            const file = formData.get('file') || formData.get('zip') || formData.get('template_zip');
+            if (file && typeof file.arrayBuffer === 'function') {
+              zipInput = new Uint8Array(await file.arrayBuffer());
+              filename = file.name || filename;
+            }
+            if (formData.get('intendedTargetTemplateId')) {
+              intendedTargetTemplateId = String(formData.get('intendedTargetTemplateId')).trim();
+            }
+          } catch (formErr) {
+            return applySecurityHeaders(jsonError('INVALID_FORM_DATA', formErr.message, 400), request, env);
+          }
+        } else if (contentType.includes('application/zip') || contentType.includes('application/octet-stream')) {
+          zipInput = new Uint8Array(await request.arrayBuffer());
+          filename = url.searchParams.get('filename') || filename;
+        } else {
+          const body = await request.json().catch(() => ({}));
+          filename = sanitizeString(body.filename || body.fileName || 'template-package.zip', 140);
+          intendedTargetTemplateId = body.intendedTargetTemplateId || body.targetTemplateId || intendedTargetTemplateId || null;
+          idempotencyKey = body.idempotencyKey || idempotencyKey || null;
+          if (body.zipLimits && typeof body.zipLimits === 'object') {
+            zipLimits = body.zipLimits;
+          }
+          if (body.zipBase64) {
+            zipInput = body.zipBase64;
+          } else if (body.files || body.filesMap) {
+            zipInput = body.files || body.filesMap;
+          }
+        }
+
+        if (!zipInput) {
+          return applySecurityHeaders(jsonError('ZIP_MISSING', 'A template ZIP archive or file bundle is required for inspection.', 400), request, env);
+        }
+
+        try {
+          const result = await stageAndRecognizeTemplateZip({
+            db: env.DB,
+            env,
+            zipBuffer: zipInput,
+            filename,
+            intendedTargetTemplateId,
+            idempotencyKey,
+            adminUser: user,
+            zipLimits
+          });
+
+          await recordAdminAuditLog(env, {
+            adminId: user.id || 'admin',
+            adminEmail: user.email,
+            action: 'STAGE_TEMPLATE_IMPORT_INSPECT',
+            targetType: 'template_import_session',
+            targetId: result.sessionId,
+            details: {
+              filename,
+              recognitionOutcome: result.recognitionOutcome,
+              selectedTargetTemplateId: result.selectedTargetTemplateId,
+              valid: result.validation?.valid
+            }
+          }).catch(() => {});
+
+          const httpStatus = result.state === IMPORT_SESSION_STATE.FAILED ? 422 : 200;
+          response = jsonSuccess(result, httpStatus, {}, requestId);
+        } catch (err) {
+          return applySecurityHeaders(
+            jsonError(err.code || 'IMPORT_INSPECT_FAILED', err.message, err.status || 400),
+            request, env
+          );
+        }
+      }
+
+      else if (pathname.match(/^\/api\/templates\/import-studio\/([^\/]+)\/preview\/(existing|staged)\/(.+)$/) && method === 'GET') {
+        const match = pathname.match(/^\/api\/templates\/import-studio\/([^\/]+)\/preview\/(existing|staged)\/(.+)$/);
+        const sessionId = match[1];
+        const side = match[2];
+        const rawRelPath = match[3];
+
+        if (rawRelPath.includes('..') || rawRelPath.includes('\\')) {
+          return applySecurityHeaders(jsonError('BAD_REQUEST', 'Path traversal in preview URL is prohibited.', 400), request, env);
+        }
+
+        await ensureTemplateIngestionSchema(env.DB);
+        const sessionRow = env.DB
+          ? await env.DB.prepare('SELECT * FROM template_import_sessions WHERE id = ? LIMIT 1').bind(sessionId).first().catch(() => null)
+          : null;
+        if (!sessionRow) {
+          return applySecurityHeaders(jsonError('SESSION_NOT_FOUND', `Import session "${sessionId}" not found.`, 404), request, env);
+        }
+
+        // Verify admin auth or valid preview token
+        const tokenParam = url.searchParams.get('token') || '';
+        const user = await getAuthenticatedUser(request, env);
+        const isAdmin = user ? await verifyAdminRole(user, env) : false;
+        if (!isAdmin && (!tokenParam || tokenParam !== sessionRow.preview_token)) {
+          return applySecurityHeaders(jsonError('FORBIDDEN', 'Admin authentication required to access staged template previews.', 403), request, env);
+        }
+
+        if (sessionRow.state === IMPORT_SESSION_STATE.CANCELLED) {
+          return applySecurityHeaders(jsonError('SESSION_CANCELLED', 'This import session was cancelled.', 410), request, env);
+        }
+
+        const relPath = rawRelPath.replace(/^\/+/, '');
+        const relationshipSlug = url.searchParams.get('rel') || url.searchParams.get('relationship') || null;
+        const previewHeaders = {
+          'Content-Security-Policy': SANDBOXED_PREVIEW_CSP,
+          'X-Frame-Options': 'SAMEORIGIN',
+          'X-Content-Type-Options': 'nosniff',
+          'Referrer-Policy': 'no-referrer',
+          'Cache-Control': 'no-store'
+        };
+
+        if (side === 'staged') {
+          const stagedBundle = safeJsonParse(sessionRow.staged_files_bundle_json, {});
+          const filesMap = deserializeStagedFilesBundle(stagedBundle);
+          const manifest = safeJsonParse(sessionRow.manifest_json, {});
+          const overrides = safeJsonParse(sessionRow.admin_config_overrides_json, {});
+
+          let matchedKey = null;
+          for (const k of filesMap.keys()) {
+            if (k.toLowerCase() === relPath.toLowerCase()) {
+              matchedKey = k;
+              break;
+            }
+          }
+
+          if (!matchedKey && relPath.toLowerCase().endsWith('.html')) {
+            for (const k of filesMap.keys()) {
+              if (k.toLowerCase() === 'index.html') {
+                matchedKey = k;
+                break;
+              }
+            }
+          }
+
+          if (!matchedKey) {
+            return new Response(JSON.stringify({
+              success: false,
+              error: { code: 'PREVIEW_ASSET_NOT_FOUND', message: `Staged preview file "${relPath}" not found.` }
+            }), {
+              status: 404,
+              headers: { ...previewHeaders, 'Content-Type': 'application/json; charset=utf-8' }
+            });
+          }
+
+          const fileObj = filesMap.get(matchedKey);
+          if (matchedKey.toLowerCase().endsWith('.html')) {
+            const entryHtml = fileObj.text ?? new TextDecoder('utf-8').decode(fileObj.content);
+            const previewRes = buildSandboxedTemplatePreviewHtml({
+              entryHtml,
+              filesMap,
+              normalizedManifest: manifest,
+              relationshipSlug,
+              visibilityConfig: overrides.visibilityConfig || manifest.visibilityConfig || {},
+              actionsConfig: overrides.actionsConfig || manifest.actionsConfig || {},
+              variantOverrides: overrides.variantOverrides || {},
+              previewBaseUrl: `/api/templates/import-studio/${sessionId}/preview/staged`,
+              side: 'staged'
+            });
+            return new Response(previewRes.html, {
+              status: previewRes.ok ? 200 : 422,
+              headers: { ...previewHeaders, 'Content-Type': 'text/html; charset=utf-8' }
+            });
+          }
+
+          return new Response(fileObj.content, {
+            status: 200,
+            headers: {
+              ...previewHeaders,
+              'Content-Type': fileObj.mimeType || getMimeType(matchedKey)
+            }
+          });
+        } else {
+          // side === "existing"
+          const targetId = url.searchParams.get('templateId') || sessionRow.selected_target_template_id;
+          if (!targetId) {
+            return new Response(`<!DOCTYPE html><html><body style="background:#120924;color:#cbd5e1;font-family:sans-serif;padding:32px;text-align:center;"><h3>No Existing Template Selected</h3><p>Select a candidate template to preview its current published version.</p></body></html>`, {
+              status: 404,
+              headers: { ...previewHeaders, 'Content-Type': 'text/html; charset=utf-8' }
+            });
+          }
+
+          const existingContext = await loadSingleTemplateComparisonContext(env.DB, targetId, env);
+          if (!existingContext || !existingContext.template) {
+            return new Response(`<!DOCTYPE html><html><body style="background:#120924;color:#fda4af;font-family:sans-serif;padding:32px;text-align:center;"><h3>Template Not Found</h3><p>Existing template "${targetId}" could not be loaded.</p></body></html>`, {
+              status: 404,
+              headers: { ...previewHeaders, 'Content-Type': 'text/html; charset=utf-8' }
+            });
+          }
+
+          const tpl = existingContext.template;
+          const ver = existingContext.version || {};
+          const rawManifest = safeJsonParse(ver.manifest_json || tpl.features, {});
+          const existingNormManifest = normalizeManifestToUtp({
+            ...rawManifest,
+            template: {
+              ...(rawManifest.template || {}),
+              id: tpl.id,
+              slug: tpl.slug,
+              name: ver.name || tpl.name,
+              description: ver.description || tpl.description,
+              entry: ver.entry_point || tpl.entry_file || 'index.html'
+            },
+            sections: safeJsonParse(ver.sections || tpl.sections, rawManifest.sections || []),
+            fields: safeJsonParse(ver.fields_json || tpl.detected_fields, rawManifest.fields || []),
+            actions: safeJsonParse(ver.actions_json || tpl.actions_json, rawManifest.actions || []),
+            variants: (Array.isArray(existingContext.variants) && existingContext.variants.length > 0 ? existingContext.variants.map(v => ({ ...safeJsonParse(v.configuration_json, {}), ...v, relationship: v.relationship_slug || v.relationship })) : (safeJsonParse(tpl.variants_json, []).length > 0 ? safeJsonParse(tpl.variants_json, []) : (rawManifest.variants || []))),
+            visibilityConfig: safeJsonParse(ver.visibility_config_json || tpl.visibility_config_json, {}),
+            actionsConfig: safeJsonParse(ver.actions_config_json || tpl.actions_config_json, {})
+          });
+
+          // If non-HTML asset requested for existing preview, serve from B2 or template asset store
+          if (!relPath.toLowerCase().endsWith('.html')) {
+            const fileRow = (existingContext.files || []).find(f => (f.relative_path || f.path || '').toLowerCase() === relPath.toLowerCase());
+            if (fileRow && fileRow.storage_key) {
+              if (/^https?:\/\//i.test(fileRow.storage_key)) {
+                return Response.redirect(fileRow.storage_key, 302);
+              }
+              const b2Provider = env.B2_STORAGE_PROVIDER || (getB2Config(env).isConfigured ? B2StorageProvider.fromEnv(env) : null);
+              if (b2Provider && typeof b2Provider.getObject === 'function') {
+                try {
+                  const obj = await b2Provider.getObject({ key: fileRow.storage_key });
+                  const bytes = obj.body instanceof Uint8Array ? obj.body : (typeof obj.body === 'string' ? new TextEncoder().encode(obj.body) : new Uint8Array(obj.body || 0));
+                  return new Response(bytes, {
+                    status: 200,
+                    headers: { ...previewHeaders, 'Content-Type': obj.contentType || fileRow.mime_type || getMimeType(relPath) }
+                  });
+                } catch (_) {}
+              }
+            }
+            const fallbackStatic = await fetchTemplateStoreAsset(env, request, tpl.id, relPath);
+            if (fallbackStatic) return fallbackStatic;
+            return new Response('Not found', { status: 404, headers: previewHeaders });
+          }
+
+          // Load existing entry HTML from B2, fileContentsMap, static store, or canonical template renderer
+          let existingEntryHtml = existingContext.fileContentsMap.get(relPath) || existingContext.fileContentsMap.get('index.html') || null;
+          if (!existingEntryHtml) {
+            const staticHtmlRes = await fetchTemplateStoreAsset(env, request, tpl.id, relPath);
+            if (staticHtmlRes && staticHtmlRes.ok) {
+              existingEntryHtml = await staticHtmlRes.text();
+            }
+          }
+          if (!existingEntryHtml) {
+            // Synthesize accurate structural HTML from the existing published version's sections, fields, and actions
+            const secsHtml = (existingNormManifest.sections || []).map(sec => {
+              const secFields = (existingNormManifest.fields || []).filter(f => (f.section || 'hero') === sec.id);
+              const subsHtml = (sec.subsections || []).map(sub => `
+                <div data-wm-subsection="${sub.id}" style="padding:12px;margin-top:8px;border:1px dashed rgba(168,85,247,0.35);border-radius:10px;">
+                  <strong>${sub.label || sub.id}</strong>
+                </div>`).join('');
+              const fHtml = secFields.map(f => `<div data-wm-field="${f.id}" data-wm-type="${f.type || 'text'}" style="margin:6px 0;">${f.defaultValue || f.label || f.id}</div>`).join('');
+              return `<section data-wm-section="${sec.id}" style="padding:20px;margin:14px auto;max-width:720px;background:rgba(255,255,255,0.05);border:1px solid rgba(168,85,247,0.3);border-radius:16px;">
+                <h2 style="margin:0 0 8px 0;font-size:18px;color:var(--wm-primary,#f472b6);">${sec.label || sec.id}</h2>
+                ${fHtml}
+                ${subsHtml}
+              </section>`;
+            }).join('\n');
+            const actsHtml = (existingNormManifest.actions || []).map(act => `
+              <button data-wm-action="${act.id}" style="margin:6px;padding:10px 18px;border-radius:999px;background:var(--wm-primary,#ec4899);color:#fff;border:0;font-weight:700;">${act.label || act.id}</button>
+            `).join('\n');
+            existingEntryHtml = `<!DOCTYPE html><html><head><meta charset="utf-8"><title>${tpl.name}</title></head><body style="background:var(--wm-bg,#0f0720);color:var(--wm-text,#fff);font-family:Plus Jakarta Sans,sans-serif;padding:24px;">
+              <header style="text-align:center;margin-bottom:20px;">
+                <h1 data-wm-field="hero_title">${tpl.name}</h1>
+                <p data-wm-field="hero_subtitle">${tpl.description || 'Published Template Version'}</p>
+              </header>
+              ${secsHtml}
+              <footer style="text-align:center;margin-top:20px;">${actsHtml}</footer>
+            </body></html>`;
+          }
+
+          const existingFilesMap = new Map();
+          for (const [k, txt] of existingContext.fileContentsMap.entries()) {
+            existingFilesMap.set(k, { relativePath: k, text: txt, content: new TextEncoder().encode(txt) });
+          }
+
+          const previewRes = buildSandboxedTemplatePreviewHtml({
+            entryHtml: existingEntryHtml,
+            filesMap: existingFilesMap,
+            normalizedManifest: existingNormManifest,
+            relationshipSlug,
+            visibilityConfig: existingNormManifest.visibilityConfig || {},
+            actionsConfig: existingNormManifest.actionsConfig || {},
+            variantOverrides: {},
+            previewBaseUrl: `/api/templates/import-studio/${sessionId}/preview/existing`,
+            side: 'existing'
+          });
+
+          return new Response(previewRes.html, {
+            status: previewRes.ok ? 200 : 422,
+            headers: { ...previewHeaders, 'Content-Type': 'text/html; charset=utf-8' }
+          });
+        }
+      }
+
+      else if (pathname.match(/^\/api\/templates\/import-studio\/([^\/]+)$/) && method === 'GET') {
+        const user = await getAuthenticatedUser(request, env);
+        if (!user) return applySecurityHeaders(jsonError('AUTH_REQUIRED', 'Authentication required', 401), request, env);
+        const isAdmin = await verifyAdminRole(user, env);
+        if (!isAdmin) return applySecurityHeaders(jsonError('FORBIDDEN', 'Admin role required', 403), request, env);
+
+        const sessionId = pathname.split('/').pop();
+        await ensureTemplateIngestionSchema(env.DB);
+        const row = await env.DB.prepare('SELECT * FROM template_import_sessions WHERE id = ? LIMIT 1').bind(sessionId).first();
+        if (!row) {
+          return applySecurityHeaders(jsonError('SESSION_NOT_FOUND', `Import session "${sessionId}" not found.`, 404), request, env);
+        }
+        const formatted = await formatImportSessionResponse(env.DB, row);
+        response = jsonSuccess(formatted, 200, {}, requestId);
+      }
+
+      else if (pathname.match(/^\/api\/templates\/import-studio\/([^\/]+)\/compare$/) && method === 'POST') {
+        const user = await getAuthenticatedUser(request, env);
+        if (!user) return applySecurityHeaders(jsonError('AUTH_REQUIRED', 'Authentication required', 401), request, env);
+        const isAdmin = await verifyAdminRole(user, env);
+        if (!isAdmin) return applySecurityHeaders(jsonError('FORBIDDEN', 'Admin role required', 403), request, env);
+
+        const match = pathname.match(/^\/api\/templates\/import-studio\/([^\/]+)\/compare$/);
+        const sessionId = match[1];
+        const body = await request.json().catch(() => ({}));
+
+        try {
+          const result = await compareImportSessionWithTarget({
+            db: env.DB,
+            env,
+            sessionId,
+            targetTemplateId: body.targetTemplateId || body.templateId || null
+          });
+          response = jsonSuccess(result, 200, {}, requestId);
+        } catch (err) {
+          return applySecurityHeaders(
+            jsonError(err.code || 'COMPARE_FAILED', err.message, err.status || 400),
+            request, env
+          );
+        }
+      }
+
+      else if (pathname.match(/^\/api\/templates\/import-studio\/([^\/]+)\/validate$/) && method === 'POST') {
+        const user = await getAuthenticatedUser(request, env);
+        if (!user) return applySecurityHeaders(jsonError('AUTH_REQUIRED', 'Authentication required', 401), request, env);
+        const isAdmin = await verifyAdminRole(user, env);
+        if (!isAdmin) return applySecurityHeaders(jsonError('FORBIDDEN', 'Admin role required', 403), request, env);
+
+        const match = pathname.match(/^\/api\/templates\/import-studio\/([^\/]+)\/validate$/);
+        const sessionId = match[1];
+        const body = await request.json().catch(() => ({}));
+
+        try {
+          const result = await validateImportSessionDecision({
+            db: env.DB,
+            env,
+            sessionId,
+            decisionMode: body.decisionMode || body.mode,
+            targetTemplateId: body.targetTemplateId || body.templateId || null,
+            newTemplateId: body.newTemplateId || null,
+            newTemplateSlug: body.newTemplateSlug || body.slug || null,
+            newTemplateName: body.newTemplateName || body.name || null,
+            allowSlugChange: Boolean(body.allowSlugChange),
+            adminConfigOverrides: body.adminConfigOverrides || null,
+            warningsAcknowledged: Boolean(body.warningsAcknowledged),
+            resolveConflictConfirmed: Boolean(body.resolveConflictConfirmed)
+          });
+          response = jsonSuccess(result, 200, {}, requestId);
+        } catch (err) {
+          return applySecurityHeaders(
+            jsonError(err.code || 'DECISION_VALIDATION_FAILED', err.message, err.status || 400, {
+              destructiveWarnings: err.destructiveWarnings,
+              conflicts: err.conflicts,
+              errors: err.errors,
+              existingOwner: err.existingOwner
+            }),
+            request, env
+          );
+        }
+      }
+
+      else if (pathname.match(/^\/api\/templates\/import-studio\/([^\/]+)\/publish$/) && method === 'POST') {
+        const user = await getAuthenticatedUser(request, env);
+        if (!user) return applySecurityHeaders(jsonError('AUTH_REQUIRED', 'Authentication required', 401), request, env);
+        const isAdmin = await verifyAdminRole(user, env);
+        if (!isAdmin) return applySecurityHeaders(jsonError('FORBIDDEN', 'Admin role required', 403), request, env);
+
+        const match = pathname.match(/^\/api\/templates\/import-studio\/([^\/]+)\/publish$/);
+        const sessionId = match[1];
+        const body = await request.json().catch(() => ({}));
+
+        try {
+          const result = await publishImportSession({
+            db: env.DB,
+            env,
+            sessionId,
+            expectedLockVersion: body.expectedLockVersion ?? body.lockVersion ?? null,
+            warningsAcknowledged: Boolean(body.warningsAcknowledged),
+            releaseNotes: sanitizeString(body.releaseNotes || '', 500),
+            adminUser: user,
+            storageProvider: env.B2_STORAGE_PROVIDER || null,
+            imgbbProvider: env.IMGBB_PROVIDER || null
+          });
+
+          await clearPermanentTemplateDeletion(env, result.publishedTemplateId, result.packageMetadata?.detectedSlug);
+          await recordAdminAuditLog(env, {
+            adminId: user.id || 'admin',
+            adminEmail: user.email,
+            action: result.decisionMode === IMPORT_DECISION_MODE.UPDATE_EXISTING ? 'PUBLISH_TEMPLATE_UPDATE' : 'PUBLISH_NEW_TEMPLATE',
+            targetType: 'template_version',
+            targetId: result.publishedVersionId || sessionId,
+            details: {
+              sessionId,
+              decisionMode: result.decisionMode,
+              templateId: result.publishedTemplateId,
+              versionId: result.publishedVersionId,
+              versionLabel: result.publishedVersionLabel,
+              previousVersionId: result.previousVersionId
+            }
+          }).catch(() => {});
+
+          response = jsonSuccess(result, 200, {}, requestId);
+        } catch (err) {
+          return applySecurityHeaders(
+            jsonError(err.code || 'IMPORT_PUBLISH_FAILED', err.message, err.status || 400, {
+              currentLockVersion: err.currentLockVersion
+            }),
+            request, env
+          );
+        }
+      }
+
+      else if (pathname.match(/^\/api\/templates\/import-studio\/([^\/]+)\/cancel$/) && method === 'POST') {
+        const user = await getAuthenticatedUser(request, env);
+        if (!user) return applySecurityHeaders(jsonError('AUTH_REQUIRED', 'Authentication required', 401), request, env);
+        const isAdmin = await verifyAdminRole(user, env);
+        if (!isAdmin) return applySecurityHeaders(jsonError('FORBIDDEN', 'Admin role required', 403), request, env);
+
+        const match = pathname.match(/^\/api\/templates\/import-studio\/([^\/]+)\/cancel$/);
+        const sessionId = match[1];
+
+        try {
+          const result = await cancelImportSession({
+            db: env.DB,
+            sessionId
+          });
+
+          await recordAdminAuditLog(env, {
+            adminId: user.id || 'admin',
+            adminEmail: user.email,
+            action: 'CANCEL_TEMPLATE_IMPORT',
+            targetType: 'template_import_session',
+            targetId: sessionId,
+            details: { sessionId, cancelledAt: result.cancelledAt }
+          }).catch(() => {});
+
+          response = jsonSuccess(result, 200, {}, requestId);
+        } catch (err) {
+          return applySecurityHeaders(
+            jsonError(err.code || 'IMPORT_CANCEL_FAILED', err.message, err.status || 400),
+            request, env
+          );
+        }
+      }
+
       else if (pathname === '/api/templates/upload' && method === 'POST') {
         const user = await getAuthenticatedUser(request, env);
         if (!user) return applySecurityHeaders(jsonError('AUTH_REQUIRED', 'Authentication required', 401), request, env);
@@ -9277,17 +9792,63 @@ export default {
             return applySecurityHeaders(jsonError('ROLLBACK_INELIGIBLE_STATUS', `Cannot rollback to version in status "${targetVer.status}". Target must be validated or previously published.`, 400), request, env);
           }
 
+          if (targetVer.integrity_status === 'INTEGRITY_FAILED' || targetVer.integrity_status === 'corrupted') {
+            return applySecurityHeaders(jsonError('ROLLBACK_INTEGRITY_FAILED', `Cannot rollback to version "${targetVersionId}": file checksum integrity check failed.`, 400), request, env);
+          }
+
+          // Verify runtime & schema compatibility
+          const verSchema = String(targetVer.schema_version || '1.0.0').trim();
+          const verRuntime = String(targetVer.runtime_api_version || '1.0').trim();
+          const validSchemas = new Set(['1.0.0', '1.1.0', '1.2.0', '1.0', '1.1', '1.2']);
+          const validRuntimes = new Set(['1.0', '1.1', '1.2', '1.0.0', '1.1.0', '1.2.0']);
+          if (!validSchemas.has(verSchema) || !validRuntimes.has(verRuntime)) {
+            return applySecurityHeaders(jsonError('ROLLBACK_INCOMPATIBLE_RUNTIME', `Target version "${targetVersionId}" uses unsupported schema/runtime (${verSchema} / ${verRuntime}).`, 400), request, env);
+          }
+
+          // Verify stored files are available for target version if registered
+          const targetFilesRes = await env.DB.prepare('SELECT * FROM template_files WHERE template_version_id = ?').bind(targetVersionId).all().catch(() => ({ results: [] }));
+          const targetFiles = targetFilesRes.results || [];
+          if (targetFiles.length > 0) {
+            const entryPt = (targetVer.entry_point || 'index.html').toLowerCase();
+            const hasEntryFile = targetFiles.some(f => String(f.relative_path || '').toLowerCase() === entryPt && f.status !== 'missing' && f.status !== 'corrupted');
+            if (!hasEntryFile) {
+              return applySecurityHeaders(jsonError('ROLLBACK_MISSING_FILES', `Cannot rollback to version "${targetVersionId}": required entry file "${entryPt}" is missing from stored file inventory.`, 400), request, env);
+            }
+          }
+
           try {
             // Cloudflare D1 batching executes atomically in a single transaction
             const rollbackStatements = [
               // Demote currently active version to rollback candidate
               env.DB.prepare("UPDATE template_versions SET is_current = 0, status = 'rollback_candidate', updated_at = ? WHERE template_id = ? AND is_current = 1").bind(nowIso, templateId),
-              // Promote target version to active published
-              env.DB.prepare("UPDATE template_versions SET is_current = 1, status = 'published', lock_version = lock_version + 1, updated_at = ? WHERE id = ? AND template_id = ?").bind(nowIso, targetVersionId, templateId),
-              // Update templates pointer
-              env.DB.prepare("UPDATE templates SET current_version_id = ?, updated_at = ? WHERE id = ?").bind(targetVersionId, nowIso, templateId),
+              // Promote target version to active published and record rollback_from_version_id
+              env.DB.prepare("UPDATE template_versions SET is_current = 1, status = 'published', rollback_from_version_id = ?, lock_version = COALESCE(lock_version, 1) + 1, updated_at = ? WHERE id = ? AND template_id = ?").bind(currentVer?.id || null, nowIso, targetVersionId, templateId),
+              // Update templates pointer and restore versioned configuration for future wishes while preserving existing wishes
+              env.DB.prepare(`
+                UPDATE templates
+                SET current_version_id = ?,
+                    rollback_version_id = ?,
+                    sections = COALESCE(?, sections),
+                    detected_fields = COALESCE(?, detected_fields),
+                    actions_json = COALESCE(?, actions_json),
+                    visibility_config_json = COALESCE(?, visibility_config_json),
+                    actions_config_json = COALESCE(?, actions_config_json),
+                    lock_version = COALESCE(lock_version, 1) + 1,
+                    updated_at = ?
+                WHERE id = ?
+              `).bind(
+                targetVersionId,
+                currentVer?.id || null,
+                targetVer.sections || null,
+                targetVer.fields_json || null,
+                targetVer.actions_json || null,
+                targetVer.visibility_config_json || null,
+                targetVer.actions_config_json || null,
+                nowIso,
+                templateId
+              ),
               // Update template_families pointer without swallowing errors
-              env.DB.prepare("UPDATE template_families SET current_version_id = ?, rollback_version_id = ?, updated_at = ? WHERE id = ? OR id = ?").bind(targetVersionId, currentVer?.id || null, nowIso, `fam_${templateId}`, templateId)
+              env.DB.prepare("UPDATE template_families SET current_version_id = ?, published_version_id = ?, rollback_version_id = ?, updated_at = ? WHERE id = ? OR id = ? OR slug = ?").bind(targetVersionId, targetVersionId, currentVer?.id || null, nowIso, `fam_${templateId.replace(/^tpl_/, '')}`, `fam_${templateId}`, template.slug || templateId)
             ];
 
             if (typeof env.DB.batch === 'function') {
@@ -9712,18 +10273,26 @@ export default {
         const templateId = pathname.replace('/api/templates/', '').replace('/versions', '').trim();
         let versions = [];
         if (env.DB && typeof env.DB.prepare === 'function') {
+          await ensureTemplateIngestionSchema(env.DB);
           const rows = await env.DB.prepare(`
             SELECT id, template_id, template_family_id, version_number, version_label,
                    name, status, is_current, file_count, total_size_bytes, entry_point,
                    integrity_status, release_notes, lock_version,
                    source_zip_storage_key, runtime_root_storage_key,
-                   schema_hash, runtime_hash, source_zip_hash, storage_provider,
-                   published_at, created_at
+                   schema_hash, runtime_hash, source_zip_hash, package_fingerprint, storage_provider,
+                   schema_version, runtime_api_version, validation_report_json,
+                   base_version_id, change_summary_json, import_session_id, rollback_from_version_id,
+                   published_by, created_by, published_at, created_at, updated_at
             FROM template_versions
             WHERE template_id = ?
             ORDER BY version_number DESC
           `).bind(templateId).all();
-          versions = rows.results || [];
+          const eligibleRollbackSet = new Set(['published', 'ready', 'rollback_candidate', 'archived', 'active']);
+          versions = (rows.results || []).map(v => ({
+            ...v,
+            changeSummary: safeJsonParse(v.change_summary_json, {}),
+            rollbackAvailable: v.is_current !== 1 && eligibleRollbackSet.has(v.status) && v.integrity_status !== 'INTEGRITY_FAILED'
+          }));
         }
         response = jsonSuccess({ success: true, templateId, versions, total: versions.length }, 200, {}, requestId);
       }

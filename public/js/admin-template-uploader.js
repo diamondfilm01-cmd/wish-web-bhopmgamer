@@ -397,6 +397,11 @@ function finishProcessingFiles(foundIndex, htmlContent, firstFoundImage, package
   // Render live sandbox preview in iframe
   renderLiveSandboxPreview();
 
+  // Part 50: Automatically start Smart Template Recognition & Side-by-Side Comparison Studio
+  if (typeof runSmartTemplateRecognitionStudio === "function") {
+    runSmartTemplateRecognitionStudio(packageHintName);
+  }
+
   // Show Step 2 & 3 in the modal
   const stepConfig = document.getElementById('upload-step-config');
   const placeholderState = document.getElementById('upload-placeholder-state');
@@ -2075,6 +2080,10 @@ function renderTemplatesGrid(templates) {
           <span class="material-symbols-outlined text-[15px]">family_restroom</span>
           <span>Variants</span>
         </button>
+        <button onclick="openUpdateTemplateStudio('${tpl.id}')" class="py-1.5 px-2 rounded-lg bg-pink-500/15 hover:bg-pink-500/25 text-pink-300 font-semibold text-xs transition flex items-center justify-center gap-1 cursor-pointer" title="Upload Updated Template ZIP & Compare Side-by-Side">
+          <span class="material-symbols-outlined text-[15px]">upload_file</span>
+          <span>Update</span>
+        </button>
         <button onclick="openTemplateVersionsModal('${tpl.id}')" class="py-1.5 px-2 rounded-lg bg-indigo-500/15 hover:bg-indigo-500/25 text-indigo-300 font-semibold text-xs transition flex items-center justify-center gap-1 cursor-pointer" title="Version Control & Release Pipeline">
           <span class="material-symbols-outlined text-[15px]">account_tree</span>
           <span>Versions</span>
@@ -2161,6 +2170,9 @@ function renderTemplatesTable(templates) {
             </button>
             <button onclick="openTemplateVariantsModal('${tpl.id}')" class="p-1.5 rounded-lg bg-surface-container-high hover:bg-surface-container-highest text-purple-400" title="Relationship Variants">
               <span class="material-symbols-outlined text-[15px]">family_restroom</span>
+            </button>
+            <button onclick="openUpdateTemplateStudio('${tpl.id}')" class="p-1.5 rounded-lg bg-surface-container-high hover:bg-surface-container-highest text-pink-400" title="Update Template with ZIP (Side-by-Side Compare)">
+              <span class="material-symbols-outlined text-[15px]">upload_file</span>
             </button>
             <button onclick="openTemplateVersionsModal('${tpl.id}')" class="p-1.5 rounded-lg bg-surface-container-high hover:bg-surface-container-highest text-indigo-400" title="Version Control & Release Pipeline">
               <span class="material-symbols-outlined text-[15px]">account_tree</span>
@@ -3393,13 +3405,18 @@ function renderVersionsTable(versions, template) {
         </td>
         <td class="py-3 px-3 whitespace-nowrap">${statusPill}</td>
         <td class="py-3 px-3 text-on-surface-variant font-mono text-[11px] whitespace-nowrap">
-          ${v.file_count || 5} files • ${sizeKb > 0 ? sizeKb + ' KB' : '—'}
+          <div>${v.file_count || 5} files • ${sizeKb > 0 ? sizeKb + ' KB' : '—'}</div>
+          <div class="text-[9px] text-purple-300 truncate max-w-[130px]" title="Package Checksum: ${v.package_fingerprint || v.runtime_hash || v.source_zip_hash || 'N/A'}">SHA: ${(v.package_fingerprint || v.runtime_hash || v.source_zip_hash || 'verified').slice(0, 12)}</div>
         </td>
         <td class="py-3 px-3 text-xs whitespace-nowrap">${integrityBadge}</td>
-        <td class="py-3 px-3 text-on-surface-variant max-w-[180px] truncate" title="${escapeQuotes(v.release_notes || 'No release notes')}">
-          ${v.release_notes || '<span class="text-outline italic">No release notes</span>'}
+        <td class="py-3 px-3 text-on-surface-variant max-w-[220px] truncate" title="${escapeQuotes(v.release_notes || 'No release notes')}">
+          <div>${v.release_notes || '<span class="text-outline italic">No release notes</span>'}</div>
+          ${v.changeSummary && v.changeSummary.filesSummary ? `<div class="text-[10px] font-mono text-cyan-300">+${v.changeSummary.filesSummary.addedCount || 0} ~${v.changeSummary.filesSummary.modifiedCount || 0} -${v.changeSummary.filesSummary.removedCount || 0} files</div>` : ''}
         </td>
-        <td class="py-3 px-3 text-on-surface-variant font-mono text-[11px] whitespace-nowrap">${dateFormatted}</td>
+        <td class="py-3 px-3 text-on-surface-variant font-mono text-[11px] whitespace-nowrap">
+          <div>${dateFormatted}</div>
+          <div class="text-[9px] text-outline">by ${v.published_by || v.created_by || 'admin'}</div>
+        </td>
         <td class="py-3 px-4 text-right">
           <div class="flex items-center justify-end gap-1.5">
             <!-- View Details / File Inventory -->
@@ -4736,5 +4753,1016 @@ window.resetEditTemplateUtpConfig = async function() {
     if (typeof showToast === "function") showToast(`↺ Reset ${scopeLabel} to manifest defaults!`);
   } catch (err) {
     alert("Error resetting configuration: " + err.message);
+  }
+};
+
+
+// ============================================================================
+// PART 50: SMART TEMPLATE RECOGNITION, SIDE-BY-SIDE PREVIEW & UPDATE STUDIO
+// ============================================================================
+
+let importStudioState = {
+  sessionId: null,
+  intendedTargetTemplateId: null,
+  selectedTargetTemplateId: null,
+  sessionData: null,
+  loading: false,
+  abortController: null,
+  viewport: "desktop", // "desktop" | "tablet" | "mobile"
+  mobilePanelMode: "both", // "both" | "existing" | "staged"
+  syncControls: true,
+  selectedVariant: "default",
+  existingVariant: "default",
+  stagedVariant: "default",
+  activeFileDiffPath: null,
+  warningsAcknowledged: false,
+  resolveConflictConfirmed: false,
+  newTemplateSlugOverride: "",
+  newTemplateIdOverride: "",
+  newTemplateNameOverride: "",
+  runtimePreviewErrors: []
+};
+
+if (typeof window !== "undefined" && typeof window.addEventListener === "function") {
+  window.addEventListener("message", (event) => {
+    if (!event.data || typeof event.data !== "object") return;
+    if (event.data.type === "WM_PREVIEW_DIAGNOSTIC" && event.data.error) {
+      importStudioState.runtimePreviewErrors.push(String(event.data.error));
+    }
+  });
+}
+
+function escapeHtmlSafe(str) {
+  return String(str ?? "")
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;")
+    .replace(/"/g, "&quot;")
+    .replace(/'/g, "&#39;");
+}
+
+function ensureSmartImportStudioDomContainers() {
+  let workspace = document.getElementById("smart-import-studio-workspace");
+  if (!workspace) {
+    const stepConfig = document.getElementById("upload-step-config");
+    if (stepConfig) {
+      workspace = document.createElement("div");
+      workspace.id = "smart-import-studio-workspace";
+      workspace.className = "hidden wm-card bg-surface-container-lowest p-4 sm:p-5 rounded-2xl border border-purple-500/40 flex flex-col gap-5 shadow-xl";
+      stepConfig.insertBefore(workspace, stepConfig.firstChild);
+    }
+  }
+  let confirmModal = document.getElementById("import-publish-confirm-modal");
+  if (!confirmModal && typeof document !== "undefined" && document.body) {
+    confirmModal = document.createElement("div");
+    confirmModal.id = "import-publish-confirm-modal";
+    confirmModal.className = "fixed inset-0 z-50 hidden bg-black/90 backdrop-blur-xl flex items-center justify-center p-2 sm:p-4 md:p-6 transition-opacity overflow-y-auto";
+    confirmModal.setAttribute("role", "dialog");
+    confirmModal.setAttribute("aria-modal", "true");
+    confirmModal.innerHTML =
+      '<div class="w-full max-w-3xl max-h-[92vh] bg-surface-container-low border border-purple-500/40 rounded-2xl sm:rounded-3xl shadow-2xl flex flex-col overflow-hidden my-auto">' +
+        '<div class="p-4 sm:p-5 bg-surface-container flex items-center justify-between border-b border-purple-500/20">' +
+          '<div class="flex items-center gap-3">' +
+            '<div class="w-10 h-10 rounded-xl bg-gradient-to-br from-emerald-500/25 to-purple-500/25 border border-emerald-400/40 text-emerald-300 flex items-center justify-center">' +
+              '<span class="material-symbols-outlined text-[24px]">verified_user</span>' +
+            '</div>' +
+            '<div>' +
+              '<h3 id="import-confirm-modal-title" class="font-headline-sm text-sm sm:text-base font-bold text-on-surface">Confirm Template Publication</h3>' +
+              '<span id="import-confirm-modal-subtitle" class="text-[11px] text-outline">Review computed change summary, existing-wish protection, and rollback readiness before publishing</span>' +
+            '</div>' +
+          '</div>' +
+          '<button type="button" onclick="closeImportPublishConfirmationModal()" class="p-1.5 rounded-lg text-outline hover:text-on-surface hover:bg-surface-container-high transition cursor-pointer" aria-label="Close">' +
+            '<span class="material-symbols-outlined text-[20px]">close</span>' +
+          '</button>' +
+        '</div>' +
+        '<div id="import-confirm-modal-body" class="p-4 sm:p-6 overflow-y-auto flex flex-col gap-4 text-xs text-on-surface"></div>' +
+      '</div>';
+    document.body.appendChild(confirmModal);
+  }
+  return { workspace, confirmModal };
+}
+
+window.openSmartImportStudio = function(intendedTemplateId = null) {
+  importStudioState.intendedTargetTemplateId = intendedTemplateId || null;
+  const uploadModal = document.getElementById("upload-code-modal");
+  if (uploadModal) {
+    uploadModal.classList.remove("hidden");
+    uploadModal.scrollIntoView({ behavior: "smooth", block: "start" });
+  }
+  const { workspace } = ensureSmartImportStudioDomContainers();
+  if (workspace && intendedTemplateId) {
+    const targetTpl = (allAdminTemplates || []).find(t => t.id === intendedTemplateId || t.slug === intendedTemplateId);
+    workspace.classList.remove("hidden");
+    workspace.innerHTML =
+      '<div class="p-4 rounded-xl bg-pink-500/10 border border-pink-500/30 flex flex-wrap items-center justify-between gap-3">' +
+        '<div class="flex items-center gap-3">' +
+          '<span class="material-symbols-outlined text-pink-400 text-[24px]">system_update_alt</span>' +
+          '<div>' +
+            '<div class="text-xs sm:text-sm font-extrabold text-on-surface">Update Target Pre-Selected: ' + escapeHtmlSafe(targetTpl ? targetTpl.name : intendedTemplateId) + ' <span class="font-mono text-pink-300">(' + escapeHtmlSafe(intendedTemplateId) + ')</span></div>' +
+            '<div class="text-[11px] text-on-surface-variant">Select or drop the updated .ZIP package above. WishMagic will verify package identity, compare files & UTP v1.2.0 sections side by side, and stage a new immutable version.</div>' +
+          '</div>' +
+        '</div>' +
+        '<button type="button" onclick="document.getElementById(\'zip-input\').click()" class="px-4 py-2 rounded-xl bg-pink-600 hover:bg-pink-500 text-white font-bold text-xs cursor-pointer flex items-center gap-1.5">' +
+          '<span class="material-symbols-outlined text-[16px]">archive</span>' +
+          '<span>Select Updated .ZIP</span>' +
+        '</button>' +
+      '</div>';
+  }
+};
+
+window.openUpdateTemplateStudio = function(templateId) {
+  window.openSmartImportStudio(templateId);
+};
+
+window.cancelSmartRecognitionInFlight = function() {
+  if (importStudioState.abortController) {
+    try { importStudioState.abortController.abort(); } catch (_) {}
+    importStudioState.abortController = null;
+  }
+  importStudioState.loading = false;
+  const { workspace } = ensureSmartImportStudioDomContainers();
+  if (workspace) {
+    workspace.innerHTML =
+      '<div class="p-4 rounded-xl bg-amber-500/10 border border-amber-500/30 flex items-center justify-between gap-3 text-xs text-amber-200">' +
+        '<span>⚠️ Package inspection was cancelled. Existing templates were not modified.</span>' +
+        '<button type="button" onclick="runSmartTemplateRecognitionStudio()" class="px-3 py-1.5 rounded-lg bg-amber-500/20 hover:bg-amber-500/30 text-amber-100 font-bold cursor-pointer">Retry Inspection</button>' +
+      '</div>';
+  }
+};
+
+async function runSmartTemplateRecognitionStudio(packageHintName = "") {
+  const { workspace } = ensureSmartImportStudioDomContainers();
+  if (!workspace) return;
+  if (importStudioState.loading) return;
+
+  workspace.classList.remove("hidden");
+  importStudioState.loading = true;
+  importStudioState.runtimePreviewErrors = [];
+  importStudioState.warningsAcknowledged = false;
+  importStudioState.resolveConflictConfirmed = false;
+
+  const filename = (currentZipRawFile && currentZipRawFile.name)
+    ? currentZipRawFile.name
+    : ((packageHintName || "template-package") + ".zip");
+  const approxBytes = (currentZipRawFile && currentZipRawFile.size)
+    ? currentZipRawFile.size
+    : Object.values(currentUploadedFiles).reduce((sum, f) => sum + Number((f && f.sizeBytes) || 0), 0);
+  const sizeKb = Math.max(1, Math.round(approxBytes / 1024));
+
+  workspace.innerHTML =
+    '<div class="p-4 rounded-xl bg-purple-500/10 border border-purple-500/30 flex flex-wrap items-center justify-between gap-3">' +
+      '<div class="flex items-center gap-3">' +
+        '<span class="material-symbols-outlined text-primary text-[24px] animate-spin">sync</span>' +
+        '<div>' +
+          '<div class="text-xs sm:text-sm font-extrabold text-on-surface">Inspecting "' + escapeHtmlSafe(filename) + '" (' + sizeKb + ' KB)...</div>' +
+          '<div class="text-[11px] text-on-surface-variant">Verifying ZIP security, computing SHA-256 file fingerprints, and matching against registered templates...</div>' +
+        '</div>' +
+      '</div>' +
+      '<button type="button" onclick="cancelSmartRecognitionInFlight()" class="px-3 py-1.5 rounded-lg bg-rose-500/20 hover:bg-rose-500/30 text-rose-200 font-bold text-xs cursor-pointer">Cancel</button>' +
+    '</div>';
+
+  const controller = typeof AbortController !== "undefined" ? new AbortController() : null;
+  importStudioState.abortController = controller;
+
+  try {
+    const reqBody = {
+      filename,
+      intendedTargetTemplateId: importStudioState.intendedTargetTemplateId || null
+    };
+    if (currentZipBase64) {
+      reqBody.zipBase64 = currentZipBase64;
+    } else {
+      reqBody.files = serializeUploadedFilesToArray(currentUploadedFiles);
+      reqBody.filesMap = currentUploadedFiles;
+    }
+
+    const res = await fetch("/api/templates/import-studio/inspect", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      credentials: "include",
+      body: JSON.stringify(reqBody),
+      ...(controller ? { signal: controller.signal } : {})
+    });
+
+    const json = await res.json().catch(() => ({}));
+    const data = json.data || json;
+
+    if (!data || (!data.sessionId && !res.ok)) {
+      throw new Error(data?.error?.message || data?.message || "Failed to inspect template package.");
+    }
+
+    importStudioState.sessionId = data.sessionId;
+    importStudioState.selectedTargetTemplateId = data.selectedTargetTemplateId || null;
+    importStudioState.sessionData = data;
+    importStudioState.selectedVariant = "default";
+    importStudioState.existingVariant = "default";
+    importStudioState.stagedVariant = "default";
+    importStudioState.newTemplateNameOverride = (data.packageMetadata?.detectedName || "") + " (New)";
+    importStudioState.newTemplateSlugOverride = (data.packageMetadata?.detectedSlug || "custom-template") + "-v2";
+    importStudioState.newTemplateIdOverride = "tpl_" + importStudioState.newTemplateSlugOverride.replace(/-/g, "_");
+
+    renderSmartImportStudioWorkspace();
+  } catch (err) {
+    if (err && err.name === "AbortError") return;
+    workspace.innerHTML =
+      '<div class="p-4 rounded-xl bg-rose-500/15 border border-rose-500/40 flex flex-wrap items-center justify-between gap-3 text-xs text-rose-200">' +
+        '<div class="flex items-center gap-2.5">' +
+          '<span class="material-symbols-outlined text-rose-400 text-[22px]">error</span>' +
+          '<div>' +
+            '<div class="font-bold text-rose-300">Package Recognition & Staging Failed</div>' +
+            '<div>' + escapeHtmlSafe(err.message || String(err)) + '</div>' +
+          '</div>' +
+        '</div>' +
+        '<div class="flex items-center gap-2">' +
+          '<button type="button" onclick="runSmartTemplateRecognitionStudio()" class="px-3.5 py-1.5 rounded-lg bg-rose-500/25 hover:bg-rose-500/40 text-white font-bold cursor-pointer">Retry Inspection</button>' +
+        '</div>' +
+      '</div>';
+  } finally {
+    importStudioState.loading = false;
+    importStudioState.abortController = null;
+  }
+}
+
+function getOutcomeBadgePresentation(outcome) {
+  switch (outcome) {
+    case "EXACT_EXISTING_IDENTITY":
+      return {
+        icon: "verified",
+        label: "EXACT EXISTING IDENTITY MATCH",
+        badgeClass: "bg-emerald-500/20 text-emerald-300 border-emerald-500/40",
+        bannerClass: "bg-emerald-500/10 border-emerald-500/35"
+      };
+    case "POSSIBLE_EXISTING_MATCH":
+      return {
+        icon: "find_replace",
+        label: "POSSIBLE EXISTING MATCH",
+        badgeClass: "bg-cyan-500/20 text-cyan-200 border-cyan-500/40",
+        bannerClass: "bg-cyan-500/10 border-cyan-500/35"
+      };
+    case "MULTIPLE_POSSIBLE_MATCHES":
+      return {
+        icon: "call_split",
+        label: "MULTIPLE POSSIBLE MATCHES — SELECT TARGET",
+        badgeClass: "bg-amber-500/20 text-amber-200 border-amber-500/40",
+        bannerClass: "bg-amber-500/10 border-amber-500/35"
+      };
+    case "IDENTITY_CONFLICT":
+      return {
+        icon: "warning",
+        label: "IDENTITY CONFLICT DETECTED",
+        badgeClass: "bg-rose-500/25 text-rose-200 border-rose-500/50",
+        bannerClass: "bg-rose-500/15 border-rose-500/45"
+      };
+    case "INVALID_OR_UNSUPPORTED_PACKAGE":
+      return {
+        icon: "block",
+        label: "INVALID OR UNSUPPORTED PACKAGE",
+        badgeClass: "bg-rose-500/25 text-rose-200 border-rose-500/50",
+        bannerClass: "bg-rose-500/15 border-rose-500/45"
+      };
+    default:
+      return {
+        icon: "new_releases",
+        label: "NO EXISTING MATCH — NEW TEMPLATE",
+        badgeClass: "bg-purple-500/20 text-purple-200 border-purple-500/40",
+        bannerClass: "bg-purple-500/10 border-purple-500/35"
+      };
+  }
+}
+
+window.selectImportCandidateTarget = async function(templateId) {
+  if (!importStudioState.sessionId) return;
+  try {
+    if (typeof showToast === "function") showToast("🔄 Loading side-by-side comparison for " + templateId + "...");
+    const res = await fetch("/api/templates/import-studio/" + encodeURIComponent(importStudioState.sessionId) + "/compare", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      credentials: "include",
+      body: JSON.stringify({ targetTemplateId: templateId })
+    });
+    const json = await res.json().catch(() => ({}));
+    const data = json.data || json;
+    if (!res.ok || data.success === false) {
+      throw new Error(data.error?.message || data.message || "Comparison failed");
+    }
+    importStudioState.selectedTargetTemplateId = data.selectedTargetTemplateId;
+    importStudioState.sessionData = data;
+    importStudioState.activeFileDiffPath = null;
+    renderSmartImportStudioWorkspace();
+  } catch (err) {
+    alert("Failed to compare against selected template: " + err.message);
+  }
+};
+
+window.setSideBySideViewport = function(vp) {
+  importStudioState.viewport = vp;
+  renderSmartImportStudioWorkspace();
+};
+
+window.setSideBySideMobileTab = function(tabMode) {
+  importStudioState.mobilePanelMode = tabMode;
+  renderSmartImportStudioWorkspace();
+};
+
+window.toggleSideBySideSync = function(checked) {
+  importStudioState.syncControls = Boolean(checked);
+  renderSmartImportStudioWorkspace();
+};
+
+window.setSideBySideVariant = function(side, variantSlug) {
+  if (importStudioState.syncControls || side === "both") {
+    importStudioState.selectedVariant = variantSlug;
+    importStudioState.existingVariant = variantSlug;
+    importStudioState.stagedVariant = variantSlug;
+  } else if (side === "existing") {
+    importStudioState.existingVariant = variantSlug;
+  } else if (side === "staged") {
+    importStudioState.stagedVariant = variantSlug;
+  }
+  refreshSideBySidePreviews();
+};
+
+window.refreshSideBySidePreviews = function() {
+  const sData = importStudioState.sessionData;
+  if (!sData) return;
+  const exIframe = document.getElementById("sbs-existing-preview-iframe");
+  const stIframe = document.getElementById("sbs-staged-preview-iframe");
+  const ts = Date.now();
+
+  if (exIframe && sData.previewUrls?.existing) {
+    const rel = importStudioState.syncControls ? importStudioState.selectedVariant : importStudioState.existingVariant;
+    const url = sData.previewUrls.existing + "?rel=" + encodeURIComponent(rel || "default") + "&t=" + ts;
+    exIframe.src = url;
+  }
+  if (stIframe && sData.previewUrls?.staged) {
+    const rel = importStudioState.syncControls ? importStudioState.selectedVariant : importStudioState.stagedVariant;
+    const url = sData.previewUrls.staged + "?rel=" + encodeURIComponent(rel || "default") + "&t=" + ts;
+    stIframe.src = url;
+  }
+};
+
+window.resetSideBySidePreviewState = function() {
+  importStudioState.viewport = "desktop";
+  importStudioState.syncControls = true;
+  importStudioState.selectedVariant = "default";
+  importStudioState.existingVariant = "default";
+  importStudioState.stagedVariant = "default";
+  renderSmartImportStudioWorkspace();
+};
+
+window.toggleFileDiffViewer = function(filePath) {
+  if (importStudioState.activeFileDiffPath === filePath) {
+    importStudioState.activeFileDiffPath = null;
+  } else {
+    importStudioState.activeFileDiffPath = filePath;
+  }
+  renderSmartImportStudioWorkspace();
+};
+
+function renderSmartImportStudioWorkspace() {
+  const { workspace } = ensureSmartImportStudioDomContainers();
+  const sData = importStudioState.sessionData;
+  if (!workspace || !sData) return;
+
+  workspace.classList.remove("hidden");
+
+  const outcomePres = getOutcomeBadgePresentation(sData.recognitionOutcome);
+  const pkgMeta = sData.packageMetadata || {};
+  const valReport = sData.validation || {};
+  const comp = sData.comparison || {};
+  const exTpl = sData.existingTemplate || comp.existingTemplate || null;
+  const candidates = Array.isArray(sData.candidates) ? sData.candidates : [];
+  const conflicts = Array.isArray(sData.conflicts) ? sData.conflicts : [];
+  const variantCatalog = Array.isArray(comp.variantCatalog) ? comp.variantCatalog : [];
+  const destructiveWarnings = Array.isArray(comp.destructiveWarnings) ? comp.destructiveWarnings : [];
+  const filesSummary = comp.files?.summary || { addedCount: 0, modifiedCount: 0, unchangedCount: 0, removedCount: 0, renamedCount: 0, invalidCount: 0 };
+  const mDiff = comp.manifestDiff || {};
+
+  // 1. Recognition Header & Package Summary Banner
+  const validationPill = valReport.valid
+    ? '<span class="px-2.5 py-0.5 rounded-full bg-emerald-500/20 text-emerald-300 border border-emerald-500/40 text-[10px] font-bold">✓ Server Validation Passed</span>'
+    : '<span class="px-2.5 py-0.5 rounded-full bg-rose-500/25 text-rose-200 border border-rose-500/50 text-[10px] font-bold">✕ Validation Failed (' + ((valReport.securityErrors?.length || 0) + (valReport.validationErrors?.length || 0)) + ' Error(s))</span>';
+
+  const errorsListHtml = (!valReport.valid)
+    ? '<div class="p-3 rounded-xl bg-rose-500/15 border border-rose-500/40 text-[11px] text-rose-200 space-y-1">' +
+        '<div class="font-bold uppercase tracking-wider text-[10px] text-rose-300">Blocking Package & Security Errors</div>' +
+        [...(valReport.securityErrors || []), ...(valReport.validationErrors || [])].map(e =>
+          '<div>• <b>[' + escapeHtmlSafe(e.code || "ERROR") + ']</b> ' + escapeHtmlSafe(e.message) + '</div>'
+        ).join("") +
+      '</div>'
+    : "";
+
+  const conflictsHtml = conflicts.length > 0
+    ? '<div class="p-3.5 rounded-xl bg-rose-500/15 border border-rose-500/45 text-xs text-rose-200 space-y-2">' +
+        '<div class="font-extrabold text-rose-300 flex items-center gap-1.5">' +
+          '<span class="material-symbols-outlined text-[18px]">gpp_maybe</span>' +
+          '<span>Identity Conflict Detected — Explicit Resolution Required</span>' +
+        '</div>' +
+        conflicts.map(c => '<div>• <b>[' + escapeHtmlSafe(c.code) + ']</b> ' + escapeHtmlSafe(c.message) + '</div>').join("") +
+        '<label class="flex items-center gap-2 pt-1 cursor-pointer font-semibold text-rose-100">' +
+          '<input type="checkbox" ' + (importStudioState.resolveConflictConfirmed ? 'checked' : '') + ' onchange="importStudioState.resolveConflictConfirmed = this.checked" class="rounded text-rose-500"/>' +
+          '<span>I understand this identity conflict and explicitly confirm preserving the selected target template\'s canonical database ID.</span>' +
+        '</label>' +
+      '</div>'
+    : "";
+
+  // 2. Candidate Selection Cards
+  const candidatesHtml = candidates.length > 0
+    ? '<div class="flex flex-col gap-2.5">' +
+        '<div class="flex items-center justify-between">' +
+          '<span class="text-xs font-extrabold uppercase tracking-wider text-on-surface flex items-center gap-1.5">' +
+            '<span class="material-symbols-outlined text-primary text-[17px]">manage_search</span>' +
+            '<span>Detected Matching Template Candidate(s) (' + candidates.length + ')</span>' +
+          '</span>' +
+          '<span class="text-[11px] text-outline">Select a candidate to compare side by side</span>' +
+        '</div>' +
+        '<div class="grid grid-cols-1 md:grid-cols-2 gap-3">' +
+          candidates.map(cand => {
+            const isSelected = cand.templateId === importStudioState.selectedTargetTemplateId;
+            return (
+              '<div class="p-3 rounded-xl border transition flex items-start justify-between gap-3 ' +
+                (isSelected ? 'border-primary bg-primary/10 shadow-md' : 'border-purple-500/25 bg-surface-container hover:bg-surface-container-high') + '">' +
+                '<div class="flex items-start gap-3 min-w-0">' +
+                  '<img src="' + escapeHtmlSafe(cand.thumbnail || '/assets/file_ab2082.png') + '" alt="' + escapeHtmlSafe(cand.name) + '" class="w-16 h-12 rounded-lg object-cover border border-purple-500/30 shrink-0" onerror="this.src=\'/assets/file_ab2082.png\'"/>' +
+                  '<div class="min-w-0 space-y-1">' +
+                    '<div class="flex flex-wrap items-center gap-1.5">' +
+                      '<span class="font-bold text-xs sm:text-sm text-on-surface">' + escapeHtmlSafe(cand.name) + '</span>' +
+                      '<span class="px-2 py-0.5 rounded-full text-[9px] font-bold uppercase ' + (cand.status === "published" ? "bg-emerald-500/20 text-emerald-300" : "bg-amber-500/20 text-amber-300") + '">' + escapeHtmlSafe(cand.status) + '</span>' +
+                      '<span class="px-2 py-0.5 rounded-full bg-purple-500/20 text-purple-200 font-mono text-[9px] font-bold">' + escapeHtmlSafe(cand.currentVersionLabel || "v1.0.0") + '</span>' +
+                    '</div>' +
+                    '<div class="text-[10px] font-mono text-primary">ID: ' + escapeHtmlSafe(cand.templateId) + ' • Slug: /' + escapeHtmlSafe(cand.slug) + ' • Updated: ' + escapeHtmlSafe(formatDate(cand.updatedAt)) + '</div>' +
+                    '<div class="flex flex-wrap gap-1 pt-0.5">' +
+                      (cand.evidenceCategories || []).map(ev =>
+                        '<span class="px-1.5 py-0.2 rounded bg-surface-container-highest text-cyan-300 font-mono text-[9px] font-bold">✓ ' + escapeHtmlSafe(ev) + '</span>'
+                      ).join("") +
+                    '</div>' +
+                    '<div class="text-[10px] text-on-surface-variant space-y-0.5">' +
+                      (cand.reasons || []).map(r => '<div>• ' + escapeHtmlSafe(r) + '</div>').join("") +
+                    '</div>' +
+                  '</div>' +
+                '</div>' +
+                '<button type="button" onclick="selectImportCandidateTarget(\'' + escapeQuotes(cand.templateId) + '\')" class="px-3 py-1.5 rounded-lg text-[11px] font-bold shrink-0 cursor-pointer transition ' +
+                  (isSelected ? 'bg-primary text-white shadow' : 'bg-surface-container-highest hover:bg-primary/20 text-on-surface') + '">' +
+                  (isSelected ? '✓ Active Target' : 'Select & Compare') +
+                '</button>' +
+              '</div>'
+            );
+          }).join("") +
+        '</div>' +
+      '</div>'
+    : "";
+
+  // 3. Side-by-Side Preview Controls & Two-Column Workspace
+  const vpHeightClass = importStudioState.viewport === "mobile"
+    ? "w-[360px] max-w-full h-[560px] mx-auto rounded-[28px] border-4 border-purple-900/80"
+    : (importStudioState.viewport === "tablet"
+        ? "w-[680px] max-w-full h-[520px] mx-auto rounded-2xl border-2 border-purple-500/40"
+        : "w-full h-[420px] rounded-xl border border-purple-500/35");
+
+  const variantOptionsHtml = '<option value="default">Default / Primary Edition</option>' +
+    variantCatalog.map(vc => {
+      const badgeText = vc.statusBadge === "NEW_ONLY"
+        ? " [NEW IN UPLOADED ZIP]"
+        : (vc.statusBadge === "REMOVED_IN_NEW" ? " [MISSING IN UPLOADED ZIP]" : " [IN BOTH]");
+      const isSel = importStudioState.selectedVariant === vc.slug;
+      return '<option value="' + escapeHtmlSafe(vc.slug) + '" ' + (isSel ? 'selected' : '') + '>' +
+        escapeHtmlSafe(vc.label) + ' (' + escapeHtmlSafe(vc.slug) + ')' + badgeText +
+      '</option>';
+    }).join("");
+
+  const previewDiag = valReport.previewDiagnostics || {};
+  const allDiagIssues = [
+    ...(previewDiag.missingAssets || []).map(a => a.message),
+    ...(previewDiag.brokenLinks || []).map(b => b.message),
+    ...(previewDiag.invalidVariants || []).map(iv => "Invalid variant " + (iv.id || "") + ": " + (iv.errors || []).join("; ")),
+    ...importStudioState.runtimePreviewErrors
+  ];
+
+  const previewDiagnosticsHtml = allDiagIssues.length > 0
+    ? '<div class="p-3 rounded-xl bg-amber-500/10 border border-amber-500/30 text-[11px] text-amber-200 space-y-1">' +
+        '<div class="flex items-center justify-between">' +
+          '<span class="font-bold uppercase tracking-wider text-[10px] text-amber-300">⚠️ Sandboxed Preview Diagnostics (' + allDiagIssues.length + ')</span>' +
+          '<button type="button" onclick="refreshSideBySidePreviews()" class="px-2 py-0.5 rounded bg-amber-500/20 hover:bg-amber-500/30 text-amber-100 font-bold text-[10px] cursor-pointer">Retry Preview</button>' +
+        '</div>' +
+        allDiagIssues.map(msg => '<div>• ' + escapeHtmlSafe(msg) + '</div>').join("") +
+      '</div>'
+    : "";
+
+  const ts = Date.now();
+  const existingRel = importStudioState.syncControls ? importStudioState.selectedVariant : importStudioState.existingVariant;
+  const stagedRel = importStudioState.syncControls ? importStudioState.selectedVariant : importStudioState.stagedVariant;
+  const existingIframeUrl = sData.previewUrls?.existing
+    ? (sData.previewUrls.existing + "?rel=" + encodeURIComponent(existingRel || "default") + "&t=" + ts)
+    : null;
+  const stagedIframeUrl = sData.previewUrls?.staged
+    ? (sData.previewUrls.staged + "?rel=" + encodeURIComponent(stagedRel || "default") + "&t=" + ts)
+    : null;
+
+  const showLeftPanel = importStudioState.mobilePanelMode !== "staged";
+  const showRightPanel = importStudioState.mobilePanelMode !== "existing";
+
+  const sideBySidePreviewHtml =
+    '<div id="side-by-side-preview-studio" class="flex flex-col gap-3 p-3.5 rounded-2xl bg-surface-container border border-purple-500/30">' +
+      '<div class="flex flex-wrap items-center justify-between gap-2 pb-2 border-b border-purple-500/20">' +
+        '<div class="flex items-center gap-2">' +
+          '<span class="material-symbols-outlined text-primary text-[20px]">compare</span>' +
+          '<div>' +
+            '<h4 class="text-xs sm:text-sm font-extrabold text-on-surface">Side-by-Side Sandboxed Preview Studio</h4>' +
+            '<span class="text-[10px] text-outline">Isolated iframe rendering (CSP enforced • zero admin token/DOM access)</span>' +
+          '</div>' +
+        '</div>' +
+        '<div class="flex flex-wrap items-center gap-2">' +
+          '<!-- Mobile Panel Switcher -->' +
+          '<div class="flex lg:hidden items-center bg-surface-container-lowest p-0.5 rounded-lg border border-purple-500/20 text-[10px] font-bold">' +
+            '<button type="button" onclick="setSideBySideMobileTab(\'both\')" class="px-2 py-1 rounded ' + (importStudioState.mobilePanelMode === "both" ? "bg-primary text-white" : "text-outline") + ' cursor-pointer">Stacked</button>' +
+            '<button type="button" onclick="setSideBySideMobileTab(\'existing\')" class="px-2 py-1 rounded ' + (importStudioState.mobilePanelMode === "existing" ? "bg-primary text-white" : "text-outline") + ' cursor-pointer">Existing</button>' +
+            '<button type="button" onclick="setSideBySideMobileTab(\'staged\')" class="px-2 py-1 rounded ' + (importStudioState.mobilePanelMode === "staged" ? "bg-primary text-white" : "text-outline") + ' cursor-pointer">Uploaded</button>' +
+          '</div>' +
+          '<!-- Viewport Toggles -->' +
+          '<div class="flex items-center bg-surface-container-lowest p-0.5 rounded-lg border border-purple-500/20 text-[11px] font-bold">' +
+            '<button type="button" onclick="setSideBySideViewport(\'desktop\')" class="px-2.5 py-1 rounded ' + (importStudioState.viewport === "desktop" ? "bg-primary text-white" : "text-on-surface-variant") + ' cursor-pointer" title="Desktop Preview">🖥️ Desktop</button>' +
+            '<button type="button" onclick="setSideBySideViewport(\'tablet\')" class="px-2.5 py-1 rounded ' + (importStudioState.viewport === "tablet" ? "bg-primary text-white" : "text-on-surface-variant") + ' cursor-pointer" title="Tablet Preview">📱 Tablet</button>' +
+            '<button type="button" onclick="setSideBySideViewport(\'mobile\')" class="px-2.5 py-1 rounded ' + (importStudioState.viewport === "mobile" ? "bg-primary text-white" : "text-on-surface-variant") + ' cursor-pointer" title="Mobile Preview">📲 Mobile</button>' +
+          '</div>' +
+          '<!-- Variant Selector -->' +
+          '<select id="sbs-variant-select" onchange="setSideBySideVariant(\'both\', this.value)" class="px-2.5 py-1 rounded-lg bg-surface-container-lowest border border-purple-500/30 text-[11px] text-on-surface font-semibold">' +
+            variantOptionsHtml +
+          '</select>' +
+          '<label class="flex items-center gap-1 text-[11px] font-semibold text-on-surface-variant cursor-pointer">' +
+            '<input type="checkbox" ' + (importStudioState.syncControls ? "checked" : "") + ' onchange="toggleSideBySideSync(this.checked)" class="rounded text-primary w-3.5 h-3.5"/>' +
+            '<span>Sync</span>' +
+          '</label>' +
+          '<button type="button" onclick="refreshSideBySidePreviews()" class="px-2.5 py-1 rounded-lg bg-surface-container-highest hover:bg-primary/20 text-on-surface text-[11px] font-bold cursor-pointer flex items-center gap-1" title="Refresh Both Previews">' +
+            '<span class="material-symbols-outlined text-[14px]">refresh</span><span>Refresh</span>' +
+          '</button>' +
+          '<button type="button" onclick="resetSideBySidePreviewState()" class="px-2 py-1 rounded-lg bg-surface-container-highest hover:bg-surface-container-high text-outline hover:text-on-surface text-[11px] font-semibold cursor-pointer" title="Reset Preview Controls">Reset</button>' +
+        '</div>' +
+      '</div>' +
+      previewDiagnosticsHtml +
+      '<div class="grid grid-cols-1 lg:grid-cols-2 gap-4">' +
+        '<!-- LEFT PANEL: EXISTING PUBLISHED TEMPLATE -->' +
+        '<div class="' + (showLeftPanel ? "flex" : "hidden lg:flex") + ' flex-col gap-2.5 p-3 rounded-xl bg-surface-container-lowest border border-purple-500/25">' +
+          '<div class="flex flex-wrap items-center justify-between gap-2">' +
+            '<div>' +
+              '<div class="flex items-center gap-1.5">' +
+                '<span class="px-2 py-0.5 rounded bg-indigo-500/20 text-indigo-300 font-bold text-[10px] uppercase">Left • Existing Published</span>' +
+                '<span class="font-bold text-xs text-on-surface">' + escapeHtmlSafe(exTpl ? exTpl.name : "No Existing Template Matched") + '</span>' +
+              '</div>' +
+              '<div class="text-[10px] font-mono text-outline mt-0.5">' +
+                (exTpl
+                  ? ('ID: ' + escapeHtmlSafe(exTpl.id) + ' • Slug: /' + escapeHtmlSafe(exTpl.slug) + ' • Version: ' + escapeHtmlSafe(exTpl.currentVersionLabel || "v1.0.0"))
+                  : 'Select an existing template above or proceed with Create New Template') +
+              '</div>' +
+            '</div>' +
+          '</div>' +
+          '<div class="w-full bg-[#0c0618] p-1 rounded-xl overflow-hidden flex items-center justify-center">' +
+            (existingIframeUrl
+              ? '<iframe id="sbs-existing-preview-iframe" src="' + escapeHtmlSafe(existingIframeUrl) + '" class="' + vpHeightClass + ' bg-black" sandbox="allow-scripts" referrerpolicy="no-referrer" title="Existing Published Template Preview"></iframe>'
+              : '<div class="h-[360px] flex flex-col items-center justify-center text-center p-6 text-outline text-xs">' +
+                  '<span class="material-symbols-outlined text-[32px] mb-2 opacity-50">web_asset_off</span>' +
+                  '<span>No existing published template selected for comparison.</span>' +
+                '</div>') +
+          '</div>' +
+          (exTpl
+            ? '<div class="grid grid-cols-4 gap-1.5 text-[10px] text-center pt-1">' +
+                '<div class="p-1.5 rounded bg-surface-container"><div class="text-outline">Variants</div><div class="font-bold text-on-surface">' + ((exTpl.variants || []).length) + '</div></div>' +
+                '<div class="p-1.5 rounded bg-surface-container"><div class="text-outline">Sections</div><div class="font-bold text-on-surface">' + ((exTpl.sections || []).length) + '</div></div>' +
+                '<div class="p-1.5 rounded bg-surface-container"><div class="text-outline">Fields</div><div class="font-bold text-on-surface">' + ((exTpl.fields || []).length) + '</div></div>' +
+                '<div class="p-1.5 rounded bg-surface-container"><div class="text-outline">Actions</div><div class="font-bold text-on-surface">' + ((exTpl.actions || []).length) + '</div></div>' +
+              '</div>'
+            : '') +
+        '</div>' +
+        '<!-- RIGHT PANEL: UPLOADED ZIP PACKAGE (STAGED) -->' +
+        '<div class="' + (showRightPanel ? "flex" : "hidden lg:flex") + ' flex-col gap-2.5 p-3 rounded-xl bg-surface-container-lowest border border-pink-500/30">' +
+          '<div class="flex flex-wrap items-center justify-between gap-2">' +
+            '<div>' +
+              '<div class="flex items-center gap-1.5">' +
+                '<span class="px-2 py-0.5 rounded bg-pink-500/20 text-pink-300 font-bold text-[10px] uppercase">Right • Uploaded ZIP (Staged)</span>' +
+                '<span class="font-bold text-xs text-on-surface">' + escapeHtmlSafe(pkgMeta.detectedName || pkgMeta.filename || "Uploaded Package") + '</span>' +
+              '</div>' +
+              '<div class="text-[10px] font-mono text-outline mt-0.5">' +
+                'Detected ID: ' + escapeHtmlSafe(pkgMeta.detectedId || "none") +
+                ' • Declared Ver: ' + escapeHtmlSafe(pkgMeta.declaredVersion || "auto") +
+                ' • UTP Schema: v' + escapeHtmlSafe(pkgMeta.schemaVersion || "1.0.0") +
+              '</div>' +
+            '</div>' +
+          '</div>' +
+          '<div class="w-full bg-[#0c0618] p-1 rounded-xl overflow-hidden flex items-center justify-center">' +
+            (stagedIframeUrl
+              ? '<iframe id="sbs-staged-preview-iframe" src="' + escapeHtmlSafe(stagedIframeUrl) + '" class="' + vpHeightClass + ' bg-black" sandbox="allow-scripts" referrerpolicy="no-referrer" title="Staged Uploaded Package Preview"></iframe>'
+              : '<div class="h-[360px] flex flex-col items-center justify-center text-center p-6 text-rose-300 text-xs">' +
+                  '<span class="material-symbols-outlined text-[32px] mb-2">error</span>' +
+                  '<span>Uploaded package cannot be safely rendered: ' + escapeHtmlSafe(valReport.errorMessage || "Invalid package structure") + '</span>' +
+                '</div>') +
+          '</div>' +
+          '<div class="grid grid-cols-4 gap-1.5 text-[10px] text-center pt-1">' +
+            '<div class="p-1.5 rounded bg-surface-container"><div class="text-outline">Variants</div><div class="font-bold text-pink-300">' + ((sData.manifest?.variants || []).length) + '</div></div>' +
+            '<div class="p-1.5 rounded bg-surface-container"><div class="text-outline">Sections</div><div class="font-bold text-pink-300">' + ((sData.manifest?.sections || []).length) + '</div></div>' +
+            '<div class="p-1.5 rounded bg-surface-container"><div class="text-outline">Fields</div><div class="font-bold text-pink-300">' + ((sData.manifest?.fields || []).length) + '</div></div>' +
+            '<div class="p-1.5 rounded bg-surface-container"><div class="text-outline">Actions</div><div class="font-bold text-pink-300">' + ((sData.manifest?.actions || []).length) + '</div></div>' +
+          '</div>' +
+        '</div>' +
+      '</div>' +
+    '</div>';
+
+  // 4. Destructive-Change Warnings & File / Configuration Comparison Panel
+  const destructiveWarningsHtml = destructiveWarnings.length > 0
+    ? '<div class="p-3.5 rounded-xl bg-amber-500/15 border border-amber-500/45 text-xs text-amber-100 space-y-2">' +
+        '<div class="flex items-center justify-between">' +
+          '<span class="font-extrabold text-amber-300 uppercase tracking-wider text-[11px] flex items-center gap-1.5">' +
+            '<span class="material-symbols-outlined text-[18px]">warning</span>' +
+            '<span>Destructive / Removal Warnings (' + destructiveWarnings.length + ')</span>' +
+          '</span>' +
+          '<span class="text-[10px] font-mono text-emerald-300">Existing Published Wishes Remain Protected</span>' +
+        '</div>' +
+        '<div class="space-y-1.5 text-[11px]">' +
+          destructiveWarnings.map(w =>
+            '<div class="p-2 rounded-lg bg-black/30 border border-amber-500/30">' +
+              '<div class="font-bold text-amber-200">• [' + escapeHtmlSafe(w.code) + '] ' + escapeHtmlSafe(w.message) + '</div>' +
+              '<div class="text-[10px] text-amber-100/80 mt-0.5"><b>Future Wishes:</b> ' + escapeHtmlSafe(w.futureWishesImpact) + ' | <b>Existing Wishes:</b> ' + escapeHtmlSafe(w.existingWishesImpact) + '</div>' +
+            '</div>'
+          ).join("") +
+        '</div>' +
+        '<label class="flex items-center gap-2 pt-1 cursor-pointer font-bold text-amber-200">' +
+          '<input type="checkbox" ' + (importStudioState.warningsAcknowledged ? 'checked' : '') + ' onchange="importStudioState.warningsAcknowledged = this.checked" class="rounded text-amber-500"/>' +
+          '<span>I acknowledge these removals and confirm that only future wishes should use the updated configuration.</span>' +
+        '</label>' +
+      '</div>'
+    : "";
+
+  const allDiffFiles = [
+    ...(comp.files?.modified || []).map(f => ({ ...f, badge: "MODIFIED", badgeClass: "bg-amber-500/20 text-amber-300" })),
+    ...(comp.files?.added || []).map(f => ({ ...f, badge: "ADDED", badgeClass: "bg-emerald-500/20 text-emerald-300" })),
+    ...(comp.files?.renamed || []).map(f => ({ ...f, path: f.oldPath + " → " + f.newPath, badge: "RENAMED", badgeClass: "bg-cyan-500/20 text-cyan-300" })),
+    ...(comp.files?.removed || []).map(f => ({ ...f, badge: "REMOVED", badgeClass: "bg-rose-500/20 text-rose-300" })),
+    ...(comp.files?.unchanged || []).map(f => ({ ...f, badge: "UNCHANGED", badgeClass: "bg-surface-container-highest text-outline" }))
+  ];
+
+  const activeDiffFileObj = allDiffFiles.find(f => f.path === importStudioState.activeFileDiffPath && f.diff && f.diff.diffText);
+
+  const comparisonPanelHtml =
+    '<div class="p-3.5 rounded-2xl bg-surface-container border border-purple-500/25 flex flex-col gap-3">' +
+      '<div class="flex flex-wrap items-center justify-between gap-2">' +
+        '<span class="text-xs font-extrabold uppercase tracking-wider text-on-surface flex items-center gap-1.5">' +
+          '<span class="material-symbols-outlined text-secondary text-[18px]">difference</span>' +
+          '<span>Automatic File & UTP v1.2.0 Configuration Comparison</span>' +
+        '</span>' +
+        '<div class="flex flex-wrap gap-1.5 text-[10px] font-mono font-bold">' +
+          '<span class="px-2 py-0.5 rounded bg-emerald-500/20 text-emerald-300">+' + filesSummary.addedCount + ' Added</span>' +
+          '<span class="px-2 py-0.5 rounded bg-amber-500/20 text-amber-300">~' + filesSummary.modifiedCount + ' Modified</span>' +
+          '<span class="px-2 py-0.5 rounded bg-cyan-500/20 text-cyan-300">⇄' + filesSummary.renamedCount + ' Renamed</span>' +
+          '<span class="px-2 py-0.5 rounded bg-rose-500/20 text-rose-300">-' + filesSummary.removedCount + ' Removed</span>' +
+          '<span class="px-2 py-0.5 rounded bg-surface-container-highest text-outline">=' + filesSummary.unchangedCount + ' Unchanged</span>' +
+        '</div>' +
+      '</div>' +
+      '<!-- Structural Manifest Diff Summary Cards -->' +
+      '<div class="grid grid-cols-2 sm:grid-cols-4 gap-2 text-[11px]">' +
+        '<div class="p-2.5 rounded-xl bg-surface-container-lowest border border-purple-500/20">' +
+          '<div class="text-[10px] font-bold uppercase text-outline">Relationship Variants</div>' +
+          '<div class="font-bold text-on-surface mt-0.5">' + (mDiff.variants?.existingCount ?? 0) + ' → ' + (mDiff.variants?.newCount ?? ((sData.manifest?.variants || []).length)) + '</div>' +
+          '<div class="text-[10px] font-mono text-emerald-300">+' + ((mDiff.variants?.added || []).length) + ' ~' + ((mDiff.variants?.modified || []).length) + ' -' + ((mDiff.variants?.removed || []).length) + '</div>' +
+        '</div>' +
+        '<div class="p-2.5 rounded-xl bg-surface-container-lowest border border-purple-500/20">' +
+          '<div class="text-[10px] font-bold uppercase text-outline">Sections & Subsections</div>' +
+          '<div class="font-bold text-on-surface mt-0.5">' + (mDiff.sections?.existingCount ?? 0) + ' → ' + (mDiff.sections?.newCount ?? 0) + ' (' + (mDiff.sections?.newSubsectionCount ?? 0) + ' subs)</div>' +
+          '<div class="text-[10px] font-mono text-cyan-300">+' + ((mDiff.sections?.added || []).length) + ' ~' + ((mDiff.sections?.modified || []).length) + ' -' + ((mDiff.sections?.removed || []).length) + '</div>' +
+        '</div>' +
+        '<div class="p-2.5 rounded-xl bg-surface-container-lowest border border-purple-500/20">' +
+          '<div class="text-[10px] font-bold uppercase text-outline">Customizer Fields</div>' +
+          '<div class="font-bold text-on-surface mt-0.5">' + (mDiff.fields?.existingCount ?? 0) + ' → ' + (mDiff.fields?.newCount ?? ((sData.manifest?.fields || []).length)) + '</div>' +
+          '<div class="text-[10px] font-mono text-purple-300">+' + ((mDiff.fields?.added || []).length) + ' ~' + ((mDiff.fields?.modified || []).length) + ' -' + ((mDiff.fields?.removed || []).length) + '</div>' +
+        '</div>' +
+        '<div class="p-2.5 rounded-xl bg-surface-container-lowest border border-purple-500/20">' +
+          '<div class="text-[10px] font-bold uppercase text-outline">Configurable Actions</div>' +
+          '<div class="font-bold text-on-surface mt-0.5">' + (mDiff.actions?.existingCount ?? 0) + ' → ' + (mDiff.actions?.newCount ?? ((sData.manifest?.actions || []).length)) + '</div>' +
+          '<div class="text-[10px] font-mono text-pink-300">+' + ((mDiff.actions?.added || []).length) + ' ~' + ((mDiff.actions?.modified || []).length) + ' -' + ((mDiff.actions?.removed || []).length) + '</div>' +
+        '</div>' +
+      '</div>' +
+      '<!-- File List with Text Diff Button -->' +
+      '<div class="max-h-44 overflow-y-auto border border-purple-500/20 rounded-xl divide-y divide-purple-900/20 bg-surface-container-lowest/70 text-[11px]">' +
+        allDiffFiles.map(f =>
+          '<div class="px-3 py-1.5 flex items-center justify-between gap-2 hover:bg-surface-container">' +
+            '<div class="flex items-center gap-2 min-w-0">' +
+              '<span class="px-1.5 py-0.2 rounded text-[9px] font-bold font-mono ' + f.badgeClass + '">' + f.badge + '</span>' +
+              '<span class="font-mono text-on-surface truncate">' + escapeHtmlSafe(f.path) + '</span>' +
+              '<span class="text-[10px] text-outline font-mono">' + Math.max(1, Math.round((f.newSizeBytes || f.sizeBytes || 0) / 1024)) + ' KB</span>' +
+            '</div>' +
+            (f.diff && f.diff.diffText
+              ? '<button type="button" onclick="toggleFileDiffViewer(\'' + escapeQuotes(f.path) + '\')" class="px-2 py-0.5 rounded bg-purple-500/20 hover:bg-purple-500/35 text-purple-200 font-mono text-[10px] font-bold cursor-pointer">' +
+                  (importStudioState.activeFileDiffPath === f.path ? 'Hide Diff' : 'Inspect Diff') +
+                '</button>'
+              : '') +
+          '</div>'
+        ).join("") +
+      '</div>' +
+      (activeDiffFileObj
+        ? '<div class="p-3 rounded-xl bg-black/80 border border-purple-500/30">' +
+            '<div class="flex items-center justify-between text-[10px] font-mono text-purple-300 mb-1.5">' +
+              '<span>Unified Text Diff — ' + escapeHtmlSafe(activeDiffFileObj.path) + ' (+' + activeDiffFileObj.diff.addedLines + ' / -' + activeDiffFileObj.diff.removedLines + ' lines)</span>' +
+              '<button type="button" onclick="toggleFileDiffViewer(\'' + escapeQuotes(activeDiffFileObj.path) + '\')" class="text-rose-300 hover:underline cursor-pointer">Close Diff</button>' +
+            '</div>' +
+            '<pre class="text-[10px] font-mono text-emerald-200 overflow-x-auto max-h-56 whitespace-pre">' + escapeHtmlSafe(activeDiffFileObj.diff.diffText) + '</pre>' +
+          '</div>'
+        : '') +
+    '</div>';
+
+  // 5. Manual Decision Bar (Option A: Update Existing, Option B: Create New, Option C: Cancel)
+  const canUpdateExisting = Boolean(valReport.valid && importStudioState.selectedTargetTemplateId);
+  const canCreateNew = Boolean(valReport.valid);
+
+  const decisionBarHtml =
+    '<div class="p-4 rounded-2xl bg-gradient-to-r from-surface-container via-purple-950/30 to-surface-container border border-purple-500/40 flex flex-col gap-3">' +
+      '<div class="flex flex-wrap items-center justify-between gap-2">' +
+        '<div>' +
+          '<h4 class="text-xs sm:text-sm font-extrabold text-on-surface">Manual Administrator Decision Required</h4>' +
+          '<p class="text-[11px] text-on-surface-variant">WishMagic never overwrites a live template automatically. Choose whether to update the selected template, create a new template, or cancel.</p>' +
+        '</div>' +
+        '<div class="flex flex-wrap items-center gap-2">' +
+          '<button type="button" onclick="cancelActiveImportStudioSession()" class="px-4 py-2 rounded-xl bg-surface-container-highest hover:bg-rose-500/20 text-on-surface hover:text-rose-200 font-bold text-xs transition cursor-pointer flex items-center gap-1.5">' +
+            '<span class="material-symbols-outlined text-[16px]">cancel</span>' +
+            '<span>Cancel Import</span>' +
+          '</button>' +
+          '<button type="button" ' + (!canCreateNew ? 'disabled' : '') + ' onclick="promptImportStudioDecision(\'create_new\')" class="px-4 py-2 rounded-xl bg-indigo-600 hover:bg-indigo-500 disabled:opacity-40 disabled:cursor-not-allowed text-white font-bold text-xs shadow-md transition cursor-pointer flex items-center gap-1.5">' +
+            '<span class="material-symbols-outlined text-[16px]">add_circle</span>' +
+            '<span>Create New Template</span>' +
+          '</button>' +
+          '<button type="button" ' + (!canUpdateExisting ? 'disabled' : '') + ' onclick="promptImportStudioDecision(\'update_existing\')" class="px-5 py-2 rounded-xl bg-gradient-to-r from-emerald-600 to-teal-500 hover:brightness-110 disabled:opacity-40 disabled:cursor-not-allowed text-white font-extrabold text-xs shadow-lg transition cursor-pointer flex items-center gap-1.5">' +
+            '<span class="material-symbols-outlined text-[16px]">system_update_alt</span>' +
+            '<span>Update Existing Template' + (exTpl ? ' (' + escapeHtmlSafe(exTpl.name) + ')' : '') + '</span>' +
+          '</button>' +
+        '</div>' +
+      '</div>' +
+    '</div>';
+
+  workspace.innerHTML =
+    '<!-- Recognition Banner -->' +
+    '<div class="p-4 rounded-2xl border ' + outcomePres.bannerClass + ' flex flex-col gap-3">' +
+      '<div class="flex flex-wrap items-center justify-between gap-2">' +
+        '<div class="flex items-center gap-2.5">' +
+          '<span class="material-symbols-outlined text-[22px]">' + outcomePres.icon + '</span>' +
+          '<span class="px-2.5 py-0.5 rounded-full border text-[10px] font-extrabold tracking-wider ' + outcomePres.badgeClass + '">' + outcomePres.label + '</span>' +
+          validationPill +
+        '</div>' +
+        '<span class="text-[10px] font-mono text-outline">Session: ' + escapeHtmlSafe(sData.sessionId) + ' • State: ' + escapeHtmlSafe(sData.state) + '</span>' +
+      '</div>' +
+      '<div class="text-xs sm:text-sm font-bold text-on-surface">' + escapeHtmlSafe(sData.recognitionSummary) + '</div>' +
+      '<div class="grid grid-cols-2 sm:grid-cols-5 gap-2 text-[11px]">' +
+        '<div class="p-2 rounded-lg bg-surface-container-lowest/80 border border-purple-500/20"><div class="text-[9px] uppercase text-outline font-bold">Uploaded File</div><div class="font-mono font-bold truncate">' + escapeHtmlSafe(pkgMeta.filename || "package.zip") + '</div></div>' +
+        '<div class="p-2 rounded-lg bg-surface-container-lowest/80 border border-purple-500/20"><div class="text-[9px] uppercase text-outline font-bold">Detected Template ID</div><div class="font-mono font-bold text-primary truncate">' + escapeHtmlSafe(pkgMeta.detectedId || "Auto / None") + '</div></div>' +
+        '<div class="p-2 rounded-lg bg-surface-container-lowest/80 border border-purple-500/20"><div class="text-[9px] uppercase text-outline font-bold">Detected Name</div><div class="font-bold truncate">' + escapeHtmlSafe(pkgMeta.detectedName || "Untitled") + '</div></div>' +
+        '<div class="p-2 rounded-lg bg-surface-container-lowest/80 border border-purple-500/20"><div class="text-[9px] uppercase text-outline font-bold">Current Published Ver</div><div class="font-mono font-bold text-emerald-300">' + escapeHtmlSafe(exTpl ? (exTpl.currentVersionLabel || "v1.0.0") : "— (New)") + '</div></div>' +
+        '<div class="p-2 rounded-lg bg-surface-container-lowest/80 border border-purple-500/20"><div class="text-[9px] uppercase text-outline font-bold">Uploaded Package Ver</div><div class="font-mono font-bold text-pink-300">' + escapeHtmlSafe(pkgMeta.declaredVersion || "Next Version") + '</div></div>' +
+      '</div>' +
+      errorsListHtml +
+      conflictsHtml +
+    '</div>' +
+    candidatesHtml +
+    sideBySidePreviewHtml +
+    destructiveWarningsHtml +
+    comparisonPanelHtml +
+    decisionBarHtml;
+}
+
+window.promptImportStudioDecision = async function(decisionMode) {
+  const sData = importStudioState.sessionData;
+  if (!sData || !importStudioState.sessionId) return;
+
+  let newTemplateId = null;
+  let newTemplateSlug = null;
+  let newTemplateName = document.getElementById("new-tpl-title")?.value?.trim() || sData.packageMetadata?.detectedName || "Custom Template";
+
+  if (decisionMode === "create_new") {
+    // If recognition found an existing template with the same stable ID or slug, ask the admin for a distinct slug/ID so we never overwrite or conflict!
+    if (sData.recognitionOutcome === "EXACT_EXISTING_IDENTITY" || sData.recognitionOutcome === "POSSIBLE_EXISTING_MATCH" || sData.recognitionOutcome === "IDENTITY_CONFLICT") {
+      const suggestedSlug = importStudioState.newTemplateSlugOverride || ((sData.packageMetadata?.detectedSlug || "template") + "-new");
+      const enteredSlug = prompt(
+        "To register this package as a separate NEW template without conflicting with the existing template's stable ID/slug, enter a unique URL slug:",
+        suggestedSlug
+      );
+      if (!enteredSlug) return;
+      newTemplateSlug = enteredSlug.trim().toLowerCase().replace(/[^a-z0-9-]+/g, "-").replace(/^-+|-+$/g, "");
+      newTemplateId = "tpl_" + newTemplateSlug.replace(/-/g, "_");
+      importStudioState.newTemplateSlugOverride = newTemplateSlug;
+      importStudioState.newTemplateIdOverride = newTemplateId;
+    }
+  }
+
+  const adminConfigOverrides = {
+    name: newTemplateName,
+    category: document.getElementById("new-tpl-category")?.value || sData.manifest?.template?.category || "Birthday",
+    description: document.getElementById("new-tpl-desc")?.value?.trim() || sData.manifest?.template?.description || "",
+    tier: document.getElementById("new-tpl-tier")?.value || sData.manifest?.template?.tier || "free",
+    price: Number(document.getElementById("new-tpl-price")?.value ?? sData.manifest?.template?.price ?? 0),
+    placement: Number(document.getElementById("new-tpl-placement")?.value ?? 1),
+    featured: Boolean(document.getElementById("new-tpl-featured")?.checked),
+    visibilityConfig: uploadUtpConfigState.visibilityConfig || {},
+    actionsConfig: uploadUtpConfigState.actionsConfig || {},
+    variantOverrides: uploadUtpConfigState.variantOverrides || {}
+  };
+
+  try {
+    const res = await fetch("/api/templates/import-studio/" + encodeURIComponent(importStudioState.sessionId) + "/validate", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      credentials: "include",
+      body: JSON.stringify({
+        decisionMode,
+        targetTemplateId: decisionMode === "update_existing" ? importStudioState.selectedTargetTemplateId : null,
+        newTemplateId,
+        newTemplateSlug,
+        newTemplateName,
+        adminConfigOverrides,
+        warningsAcknowledged: importStudioState.warningsAcknowledged,
+        resolveConflictConfirmed: importStudioState.resolveConflictConfirmed
+      })
+    });
+
+    const json = await res.json().catch(() => ({}));
+    const data = json.data || json;
+    if (!res.ok || data.success === false) {
+      const msg = data.error?.message || data.message || "Validation failed.";
+      alert("⚠️ Cannot proceed to publish:\n\n" + msg);
+      return;
+    }
+
+    importStudioState.sessionData = data;
+    renderSmartImportStudioWorkspace();
+    openImportPublishConfirmationModal(data);
+  } catch (err) {
+    alert("Error validating import decision: " + err.message);
+  }
+};
+
+function openImportPublishConfirmationModal(validatedSession) {
+  const { confirmModal } = ensureSmartImportStudioDomContainers();
+  const bodyEl = document.getElementById("import-confirm-modal-body");
+  if (!confirmModal || !bodyEl || !validatedSession) return;
+
+  const isUpdate = validatedSession.decisionMode === "update_existing";
+  const exTpl = validatedSession.existingTemplate || validatedSession.comparison?.existingTemplate || null;
+  const pkgMeta = validatedSession.packageMetadata || {};
+  const comp = validatedSession.comparison || {};
+  const fSum = comp.files?.summary || { addedCount: 0, modifiedCount: 0, removedCount: 0, renamedCount: 0, unchangedCount: 0 };
+  const mDiff = comp.manifestDiff || {};
+  const warnings = comp.destructiveWarnings || [];
+
+  bodyEl.innerHTML =
+    '<div class="p-3.5 rounded-xl ' + (isUpdate ? 'bg-emerald-500/10 border border-emerald-500/35' : 'bg-indigo-500/10 border border-indigo-500/35') + ' flex items-center justify-between gap-3">' +
+      '<div>' +
+        '<div class="text-[10px] font-extrabold uppercase tracking-wider ' + (isUpdate ? 'text-emerald-300' : 'text-indigo-300') + '">' +
+          (isUpdate ? 'Option A • Update Existing Template (Immutable New Version)' : 'Option B • Create Brand-New Template') +
+        '</div>' +
+        '<div class="text-sm font-extrabold text-on-surface mt-0.5">' +
+          (isUpdate && exTpl
+            ? (escapeHtmlSafe(exTpl.name) + ' (' + escapeHtmlSafe(exTpl.id) + ') — ' + escapeHtmlSafe(exTpl.currentVersionLabel || 'v1.0.0') + ' → ' + escapeHtmlSafe(pkgMeta.declaredVersion || 'Next Version'))
+            : (escapeHtmlSafe(validatedSession.adminConfigOverrides?.newTemplateName || pkgMeta.detectedName || 'New Template') + ' (' + escapeHtmlSafe(validatedSession.adminConfigOverrides?.newTemplateId || pkgMeta.canonicalTemplateId || 'new') + ')')) +
+        '</div>' +
+      '</div>' +
+      '<span class="px-2.5 py-1 rounded-full bg-emerald-500/20 text-emerald-300 font-bold text-[10px]">✓ READY TO PUBLISH</span>' +
+    '</div>' +
+
+    '<div class="grid grid-cols-2 sm:grid-cols-4 gap-2.5">' +
+      '<div class="p-2.5 rounded-xl bg-surface-container border border-purple-500/20">' +
+        '<div class="text-[10px] text-outline uppercase font-bold">Files Diff</div>' +
+        '<div class="font-bold text-on-surface mt-0.5">+' + fSum.addedCount + ' / ~' + fSum.modifiedCount + ' / -' + fSum.removedCount + '</div>' +
+      '</div>' +
+      '<div class="p-2.5 rounded-xl bg-surface-container border border-purple-500/20">' +
+        '<div class="text-[10px] text-outline uppercase font-bold">Variants Diff</div>' +
+        '<div class="font-bold text-on-surface mt-0.5">+' + ((mDiff.variants?.added || []).length) + ' / ~' + ((mDiff.variants?.modified || []).length) + ' / -' + ((mDiff.variants?.removed || []).length) + '</div>' +
+      '</div>' +
+      '<div class="p-2.5 rounded-xl bg-surface-container border border-purple-500/20">' +
+        '<div class="text-[10px] text-outline uppercase font-bold">Sections & Subs</div>' +
+        '<div class="font-bold text-on-surface mt-0.5">+' + ((mDiff.sections?.added || []).length) + ' / ~' + ((mDiff.sections?.modified || []).length) + ' / -' + ((mDiff.sections?.removed || []).length) + '</div>' +
+      '</div>' +
+      '<div class="p-2.5 rounded-xl bg-surface-container border border-purple-500/20">' +
+        '<div class="text-[10px] text-outline uppercase font-bold">Fields & Actions</div>' +
+        '<div class="font-bold text-on-surface mt-0.5">F: +' + ((mDiff.fields?.added || []).length) + '/-' + ((mDiff.fields?.removed || []).length) + ' • A: +' + ((mDiff.actions?.added || []).length) + '/-' + ((mDiff.actions?.removed || []).length) + '</div>' +
+      '</div>' +
+    '</div>' +
+
+    '<div class="p-3 rounded-xl bg-purple-500/10 border border-purple-500/25 space-y-1 text-[11px]">' +
+      '<div class="font-bold text-purple-200">🛡️ Existing Customer Wishes & Rollback Guarantee:</div>' +
+      '<div>• <b>Existing Wishes Impact:</b> Zero destructive impact. All previously created/published wishes retain their original template version and <code>published_config_snapshot_json</code>.</div>' +
+      '<div>• <b>New Wishes Impact:</b> Future wishes created after publication will use this new version.</div>' +
+      '<div>• <b>Rollback Availability:</b> ' + (isUpdate && exTpl ? ('Previous version (' + escapeHtmlSafe(exTpl.currentVersionLabel || exTpl.currentVersionId) + ') will remain preserved as an instant rollback candidate.') : 'Initial version v1.0.0 will be registered.') + '</div>' +
+    '</div>' +
+
+    (warnings.length > 0
+      ? '<div class="p-3 rounded-xl bg-amber-500/15 border border-amber-500/40 text-[11px] text-amber-200 space-y-1">' +
+          '<div class="font-bold text-amber-300">⚠️ Acknowledged Removal Warnings (' + warnings.length + '):</div>' +
+          warnings.map(w => '<div>• ' + escapeHtmlSafe(w.message) + '</div>').join("") +
+        '</div>'
+      : '') +
+
+    '<div class="flex flex-col gap-1.5">' +
+      '<label class="text-[11px] font-bold uppercase text-outline">Release Notes (Optional)</label>' +
+      '<input id="import-confirm-release-notes" type="text" placeholder="Describe what changed in this version..." class="w-full px-3 py-2 rounded-xl bg-surface-container border border-purple-500/30 text-xs text-on-surface"/>' +
+    '</div>' +
+
+    '<label class="p-3 rounded-xl bg-surface-container border border-purple-500/30 flex items-start gap-2.5 cursor-pointer">' +
+      '<input type="checkbox" id="import-final-confirm-checkbox" onchange="const b=document.getElementById(\'import-final-publish-btn\'); if(b) b.disabled=!this.checked;" class="mt-0.5 rounded text-emerald-500"/>' +
+      '<span class="text-xs text-on-surface font-semibold">I have reviewed the side-by-side preview and comparison report, and I explicitly confirm publishing this version.</span>' +
+    '</label>' +
+
+    '<div class="flex items-center justify-end gap-2.5 pt-2 border-t border-purple-500/20">' +
+      '<button type="button" onclick="closeImportPublishConfirmationModal()" class="px-4 py-2 rounded-xl bg-surface-container-high hover:bg-surface-container-highest text-on-surface font-bold text-xs cursor-pointer">Back to Review</button>' +
+      '<button type="button" id="import-final-publish-btn" disabled onclick="executeImportStudioConfirmedPublish()" class="px-5 py-2 rounded-xl bg-emerald-600 hover:bg-emerald-500 disabled:opacity-40 disabled:cursor-not-allowed text-white font-extrabold text-xs shadow-lg cursor-pointer flex items-center gap-1.5">' +
+        '<span class="material-symbols-outlined text-[16px]">rocket_launch</span>' +
+        '<span>Confirm & Publish Now</span>' +
+      '</button>' +
+    '</div>';
+
+  confirmModal.classList.remove("hidden");
+}
+
+window.closeImportPublishConfirmationModal = function() {
+  const modal = document.getElementById("import-publish-confirm-modal");
+  if (modal) modal.classList.add("hidden");
+};
+
+window.executeImportStudioConfirmedPublish = async function() {
+  const sData = importStudioState.sessionData;
+  if (!sData || !importStudioState.sessionId) return;
+
+  const btn = document.getElementById("import-final-publish-btn");
+  const releaseNotes = document.getElementById("import-confirm-release-notes")?.value?.trim() || "";
+  if (btn) {
+    btn.disabled = true;
+    btn.innerHTML = '<span class="material-symbols-outlined text-[16px] animate-spin">sync</span><span>Publishing Immutable Version...</span>';
+  }
+
+  try {
+    const res = await fetch("/api/templates/import-studio/" + encodeURIComponent(importStudioState.sessionId) + "/publish", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      credentials: "include",
+      body: JSON.stringify({
+        expectedLockVersion: sData.baseTemplateLockVersion,
+        warningsAcknowledged: true,
+        releaseNotes
+      })
+    });
+
+    const json = await res.json().catch(() => ({}));
+    const data = json.data || json;
+
+    if (res.status === 409) {
+      alert("⚠️ CONCURRENCY / STALE VERSION CONFLICT:\n\n" + (data.error?.message || data.message) + "\n\nRefreshing comparison against the latest published version...");
+      closeImportPublishConfirmationModal();
+      if (importStudioState.selectedTargetTemplateId) {
+        await window.selectImportCandidateTarget(importStudioState.selectedTargetTemplateId);
+      }
+      return;
+    }
+
+    if (!res.ok || data.success === false) {
+      throw new Error(data.error?.message || data.message || "Publication failed");
+    }
+
+    importStudioState.sessionData = data;
+    closeImportPublishConfirmationModal();
+    if (typeof showToast === "function") {
+      showToast("🚀 Published " + (data.publishedVersionLabel || data.publishedVersionId) + " for template " + data.publishedTemplateId + "!");
+    }
+    renderSmartImportStudioWorkspace();
+    await loadDynamicTemplates();
+  } catch (err) {
+    alert("Error publishing template version: " + err.message);
+    if (btn) {
+      btn.disabled = false;
+      btn.innerHTML = '<span class="material-symbols-outlined text-[16px]">rocket_launch</span><span>Confirm & Publish Now</span>';
+    }
+  }
+};
+
+window.cancelActiveImportStudioSession = async function() {
+  if (!importStudioState.sessionId) {
+    const { workspace } = ensureSmartImportStudioDomContainers();
+    if (workspace) workspace.classList.add("hidden");
+    return;
+  }
+
+  if (!confirm("Cancel this template import session and discard staged preview files? Existing templates will remain unchanged.")) {
+    return;
+  }
+
+  try {
+    await fetch("/api/templates/import-studio/" + encodeURIComponent(importStudioState.sessionId) + "/cancel", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      credentials: "include"
+    });
+    importStudioState.sessionId = null;
+    importStudioState.sessionData = null;
+    const { workspace } = ensureSmartImportStudioDomContainers();
+    if (workspace) {
+      workspace.innerHTML =
+        '<div class="p-3 rounded-xl bg-surface-container text-xs text-outline flex items-center justify-between">' +
+          '<span>Import session cancelled and staged preview resources cleaned up.</span>' +
+        '</div>';
+    }
+    if (typeof showToast === "function") showToast("Import session cancelled.");
+  } catch (err) {
+    alert("Failed to cancel import session: " + err.message);
   }
 };

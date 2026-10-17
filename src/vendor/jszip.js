@@ -142,15 +142,18 @@ async function _unused_inflateRaw(bytes) {
 }
 
 class ZipEntry {
-  constructor(name, dir, compressedData, method, compressedSize, uncompressedSize, rawUncompressed = null) {
+  constructor(name, dir, compressedData, method, compressedSize, uncompressedSize, rawUncompressed = null, extAttr = 0, unixPermissions = 0) {
     this.name = name;
     this.dir = Boolean(dir);
     this._compressedData = compressedData;
     this._method = method;
     this._rawUncompressed = rawUncompressed;
+    const parsedUnix = unixPermissions ? (typeof unixPermissions === 'string' ? parseInt(unixPermissions, 8) : Number(unixPermissions)) : ((extAttr >>> 16) & 0xffff);
+    this.unixPermissions = parsedUnix;
     this._data = {
       compressedSize: compressedSize ?? (compressedData ? compressedData.byteLength : 0),
-      uncompressedSize: uncompressedSize ?? (rawUncompressed ? rawUncompressed.byteLength : 0)
+      uncompressedSize: uncompressedSize ?? (rawUncompressed ? rawUncompressed.byteLength : 0),
+      externalFileAttributes: extAttr || ((parsedUnix & 0xffff) << 16) >>> 0
     };
   }
 
@@ -210,7 +213,7 @@ export default class JSZip {
       }
     }
     const raw = toUint8Array(data);
-    const entry = new ZipEntry(cleanName, Boolean(options.dir), null, 8, raw.byteLength, raw.byteLength, raw);
+    const entry = new ZipEntry(cleanName, Boolean(options.dir), null, 8, raw.byteLength, raw.byteLength, raw, 0, options.unixPermissions || 0);
     this.files[cleanName] = entry;
     return this;
   }
@@ -290,7 +293,8 @@ export default class JSZip {
       cdv.setUint16(32, 0, true);         // comment len
       cdv.setUint16(34, 0, true);         // disk num
       cdv.setUint16(36, 0, true);         // internal attrs
-      cdv.setUint32(38, entry.dir ? 0x10 : 0, true); // external attrs
+      const extVal = entry.unixPermissions ? (((entry.unixPermissions & 0xffff) << 16) | (entry.dir ? 0x10 : 0)) >>> 0 : (entry.dir ? 0x10 : 0);
+      cdv.setUint32(38, extVal, true); // external attrs
       cdv.setUint32(42, localOffset, true);          // relative offset
       cdh.set(nameBytes, 46);
 
@@ -395,7 +399,7 @@ export default class JSZip {
       }
 
       const compSlice = bytes.subarray(dataStart, dataEnd);
-      zip.files[name] = new ZipEntry(name, isDir, compSlice, method, compSize, uncompSize, null);
+      zip.files[name] = new ZipEntry(name, isDir, compSlice, method, compSize, uncompSize, null, extAttr, (extAttr >>> 16) & 0xffff);
 
       ptr += 46 + nameLen + extraLen + commentLen;
     }

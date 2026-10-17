@@ -1258,6 +1258,55 @@ export async function ensureTemplateIngestionSchema(db, force = false) {
   await reconcileColumns("wishes", [
     { name: "published_config_snapshot_json", def: "TEXT DEFAULT NULL" }
   ]);
+  await reconcileColumns("templates", [
+    { name: "rollback_version_id", def: "TEXT DEFAULT NULL" }
+  ]);
+  await reconcileColumns("template_versions", [
+    { name: "base_version_id", def: "TEXT DEFAULT NULL" },
+    { name: "change_summary_json", def: "TEXT DEFAULT '{}'" },
+    { name: "import_session_id", def: "TEXT DEFAULT NULL" },
+    { name: "rollback_from_version_id", def: "TEXT DEFAULT NULL" }
+  ]);
+  await execSql(`
+    CREATE TABLE IF NOT EXISTS template_import_sessions (
+      id TEXT PRIMARY KEY,
+      operation_id TEXT,
+      idempotency_key TEXT,
+      admin_id TEXT NOT NULL DEFAULT 'admin',
+      admin_email TEXT DEFAULT '',
+      state TEXT NOT NULL DEFAULT 'UPLOADED',
+      intended_target_template_id TEXT,
+      selected_target_template_id TEXT,
+      decision_mode TEXT NOT NULL DEFAULT 'undecided',
+      recognition_outcome TEXT NOT NULL DEFAULT 'NO_EXISTING_MATCH',
+      recognition_summary TEXT DEFAULT '',
+      recognition_report_json TEXT DEFAULT '{}',
+      package_metadata_json TEXT DEFAULT '{}',
+      package_fingerprint TEXT,
+      source_zip_sha256 TEXT,
+      runtime_hash TEXT,
+      schema_hash TEXT,
+      manifest_json TEXT DEFAULT '{}',
+      files_inventory_json TEXT DEFAULT '[]',
+      staged_files_bundle_json TEXT DEFAULT '{}',
+      validation_report_json TEXT DEFAULT '{}',
+      comparison_report_json TEXT DEFAULT '{}',
+      admin_config_overrides_json TEXT DEFAULT '{}',
+      base_template_lock_version INTEGER DEFAULT 1,
+      base_published_version_id TEXT,
+      published_template_id TEXT,
+      published_version_id TEXT,
+      published_version_label TEXT,
+      preview_token TEXT,
+      warnings_acknowledged INTEGER NOT NULL DEFAULT 0,
+      error_code TEXT,
+      error_message TEXT,
+      created_at TEXT NOT NULL,
+      updated_at TEXT NOT NULL,
+      published_at TEXT,
+      cancelled_at TEXT
+    )
+  `);
   if (typeof db === "object") healedTemplateIngestionDbs.add(db);
   return true;
 }
@@ -2934,9 +2983,12 @@ export async function executeB2TemplateIngestPipeline(params) {
     // If publishImmediately is requested, also update current_version_id / published_version_id safely
     if (shouldPublishImmediately) {
       try {
-        await db.prepare(`UPDATE templates SET current_version_id = ?, is_published = 1, status = 'published', updated_at = ? WHERE id = ?`).bind(versionId, nowIso, templateId).run();
-        await db.prepare(`UPDATE template_versions SET is_current = 1, status = 'published', published_at = ? WHERE id = ?`).bind(nowIso, versionId).run();
-        await db.prepare(`UPDATE template_families SET current_version_id = ?, published_version_id = ?, latest_version_id = ?, status = 'published', updated_at = ? WHERE id = ?`).bind(versionId, versionId, versionId, nowIso, templateFamilyId).run();
+        const prevCurrentRow = await db.prepare(`SELECT id FROM template_versions WHERE template_id = ? AND id != ? AND is_current = 1 LIMIT 1`).bind(templateId, versionId).first().catch(() => null);
+        const prevVersionId = prevCurrentRow?.id || null;
+        await db.prepare(`UPDATE template_versions SET is_current = 0, status = 'rollback_candidate', updated_at = ? WHERE template_id = ? AND id != ? AND is_current = 1`).bind(nowIso, templateId, versionId).run();
+        await db.prepare(`UPDATE templates SET current_version_id = ?, rollback_version_id = COALESCE(?, rollback_version_id), is_published = 1, status = 'published', updated_at = ? WHERE id = ?`).bind(versionId, prevVersionId, nowIso, templateId).run();
+        await db.prepare(`UPDATE template_versions SET is_current = 1, status = 'published', base_version_id = COALESCE(base_version_id, ?), published_at = ? WHERE id = ?`).bind(prevVersionId, nowIso, versionId).run();
+        await db.prepare(`UPDATE template_families SET current_version_id = ?, published_version_id = ?, latest_version_id = ?, rollback_version_id = COALESCE(?, rollback_version_id), status = 'published', updated_at = ? WHERE id = ?`).bind(versionId, versionId, versionId, prevVersionId, nowIso, templateFamilyId).run();
       } catch (_) {
         try {
           await db.prepare(`UPDATE template_families SET current_version_id = ?, status = 'published', updated_at = ? WHERE id = ?`).bind(versionId, nowIso, templateFamilyId).run();
