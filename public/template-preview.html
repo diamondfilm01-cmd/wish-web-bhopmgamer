@@ -1189,28 +1189,38 @@
       // Safe hydration when iframe loads (including UTP v1.1.0 variant messages, assets, and theme)
       iframe.onload = () => {
         const varMsgs = (selectedVariant && selectedVariant.messages) || {};
-        const varAssets = (selectedVariant && selectedVariant.assets) || {};
+        const rawVarAssets = (selectedVariant && selectedVariant.assets) || {};
+        const varAssets = {};
+        Object.entries(rawVarAssets).forEach(([ak, av]) => {
+          if (typeof av === 'string' && (/^https?:\/\//i.test(av) || av.startsWith('data:') || av.startsWith('/'))) {
+            varAssets[ak] = av;
+          }
+        });
+        const isCustomUploadedBundle = Boolean(t.entryUrl || t.previewUrl || t.storagePrefix || t.hasCustomCode);
         const effectiveSections = (selectedVariant && Array.isArray(selectedVariant.sections)) ? selectedVariant.sections : (Array.isArray(t.sections) ? t.sections : []);
         const effectiveActions = (selectedVariant && Array.isArray(selectedVariant.actions)) ? selectedVariant.actions : (Array.isArray(t.actions) ? t.actions : []);
         const sampleData = {
           templateId: t.id,
           templateSlug: t.slug || t.id,
-          recipient_name: varMsgs.recipient_name || 'Someone Special',
-          sender_name: varMsgs.sender_name || 'From Someone Who Cares',
-          custom_message: varMsgs.custom_message || varMsgs.defaultWish || varMsgs.main_message || 'Wishing you a magnificent year filled with boundless joy, radiant smiles, and unforgettable magic!',
-          event_date: 'Today',
-          photo_1: varAssets.photo_1 || varAssets.cover || (selectedVariant && selectedVariant.thumbnail) || t.thumbnail || t.previewImage || '/assets/file_ab2082.png',
+          ...(isCustomUploadedBundle ? {} : {
+            recipient_name: varMsgs.recipient_name || 'Someone Special',
+            sender_name: varMsgs.sender_name || 'From Someone Who Cares',
+            custom_message: varMsgs.custom_message || varMsgs.defaultWish || varMsgs.main_message || 'Wishing you a magnificent year filled with boundless joy, radiant smiles, and unforgettable magic!',
+            event_date: 'Today',
+            photo_1: varAssets.photo_1 || varAssets.cover || t.thumbnail || t.previewImage || '/assets/file_ab2082.png'
+          }),
           variantId: selectedVariant ? selectedVariant.id : '',
           variantSlug: selectedVariant ? (selectedVariant.slug || selectedVariant.id) : '',
           relationship: selectedVariant ? selectedVariant.relationshipSlug : '',
           relationshipSlug: selectedVariant ? selectedVariant.relationshipSlug : '',
-          visibilityMap: t.visibilityMap || {},
-          disabledIds: Array.isArray(t.disabledIds) ? t.disabledIds : [],
-          enabledIds: Array.isArray(t.enabledIds) ? t.enabledIds : [],
+          visibilityMap: (selectedVariant && selectedVariant.visibilityMap) || t.visibilityMap || {},
+          disabledIds: Array.isArray(selectedVariant && selectedVariant.disabledIds) ? selectedVariant.disabledIds : (Array.isArray(t.disabledIds) ? t.disabledIds : []),
+          enabledIds: Array.isArray(selectedVariant && selectedVariant.enabledIds) ? selectedVariant.enabledIds : (Array.isArray(t.enabledIds) ? t.enabledIds : []),
           sections: effectiveSections,
           actions: effectiveActions,
           messages: varMsgs,
           assets: varAssets,
+          theme: selectedVariant ? selectedVariant.theme : null,
           palette: selectedVariant ? selectedVariant.theme : null,
           ...varMsgs,
           ...varAssets
@@ -1252,16 +1262,18 @@
           }
 
           // Apply to [data-wm] elements if present in template
+          const reservedPreviewKeys = new Set(['templateId', 'templateSlug', 'variantId', 'variantSlug', 'relationship', 'relationshipSlug', 'messages', 'assets', 'theme', 'palette', 'visibilityMap', 'disabledIds', 'enabledIds', 'sections', 'actions']);
           Object.keys(sampleData).forEach(key => {
-            if (['messages', 'assets', 'palette', 'visibilityMap', 'disabledIds', 'enabledIds', 'sections', 'actions'].includes(key)) return;
-            const el = doc.querySelector(`[data-wm="${key}"], [data-wm-field="${key}"]`);
-            if (el) {
+            if (reservedPreviewKeys.has(key) || sampleData[key] === undefined || sampleData[key] === null) return;
+            doc.querySelectorAll(`[data-wm="${key}"], [data-wm-field="${key}"]`).forEach(el => {
               if (el.tagName === 'IMG') {
-                el.src = sampleData[key];
+                if (typeof sampleData[key] === 'string' && !sampleData[key].startsWith('assets/')) {
+                  el.src = sampleData[key];
+                }
               } else {
                 el.textContent = sampleData[key];
               }
-            }
+            });
           });
         } catch (e) {
           // Cross-origin safe guard

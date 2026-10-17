@@ -248,6 +248,7 @@ async function handleZipFile(zipFile) {
   detectedDynamicFields = [];
 
   try {
+    await new Promise(resolve => setTimeout(resolve, 15));
     const zipArrayBuffer = await zipFile.arrayBuffer();
     currentZipBase64 = encodeUint8ArrayToBase64(new Uint8Array(zipArrayBuffer));
     const zip = await JSZip.loadAsync(zipArrayBuffer);
@@ -394,19 +395,21 @@ function finishProcessingFiles(foundIndex, htmlContent, firstFoundImage, package
   // Render Cloud Storage Routing & Code Check panel
   renderCloudRoutingInspector(foundIndex, imageFiles, audioVideoFiles, codeFiles);
 
+  // Show Step 2 & 3 in the modal first so layout dimensions are non-zero and UI paints immediately
+  const stepConfig = document.getElementById('upload-step-config');
+  const placeholderState = document.getElementById('upload-placeholder-state');
+  if (stepConfig) stepConfig.classList.remove('hidden');
+  if (placeholderState) placeholderState.classList.add('hidden');
+
   // Render live sandbox preview in iframe
   renderLiveSandboxPreview();
 
   // Part 50: Automatically start Smart Template Recognition & Side-by-Side Comparison Studio
   if (typeof runSmartTemplateRecognitionStudio === "function") {
-    runSmartTemplateRecognitionStudio(packageHintName);
+    setTimeout(() => {
+      try { runSmartTemplateRecognitionStudio(packageHintName); } catch (_) {}
+    }, 20);
   }
-
-  // Show Step 2 & 3 in the modal
-  const stepConfig = document.getElementById('upload-step-config');
-  const placeholderState = document.getElementById('upload-placeholder-state');
-  if (stepConfig) stepConfig.classList.remove('hidden');
-  if (placeholderState) placeholderState.classList.add('hidden');
 }
 
 function checkClientFieldBinding(field, htmlContent, cssContent) {
@@ -1267,55 +1270,68 @@ function buildClientStagedPreviewHtml(relationshipSlug = null) {
     ""
   );
 
-  const sortedPaths = Object.keys(currentUploadedFiles).sort((a, b) => b.length - a.length);
-  const mediaDataUrls = {};
-  for (const p of sortedPaths) {
-    const d = currentUploadedFiles[p];
-    const rawContent = typeof d === "string" ? d : (d && d.content);
-    if (d && d.isBase64 && rawContent) {
-      mediaDataUrls[p] = rawContent;
-    }
-  }
+  // Build O(1) lookup table for bundled media & code files
+  const mediaLookup = {};
+  const cssFiles = [];
+  const jsFiles = [];
 
-  for (const p of sortedPaths) {
-    const d = currentUploadedFiles[p];
+  for (const [p, d] of Object.entries(currentUploadedFiles)) {
     const rawContent = typeof d === "string" ? d : (d && d.content);
     if (!rawContent) continue;
-    const escP = escapeRegex(p);
-    const lowerP = p.toLowerCase();
-
-    if (lowerP.endsWith(".css")) {
-      let cssText = String(rawContent);
-      for (const [mPath, mDataUrl] of Object.entries(mediaDataUrls)) {
-        const escM = escapeRegex(mPath);
-        cssText = cssText.replace(new RegExp("url\\(\\s*[\"']?(?:\\.\\.?\\/|\\/)*" + escM + "[\"']?\\s*\\)", "gi"), 'url("' + mDataUrl + '")');
-      }
-      const safeCss = cssText.replace(/<\/style>/gi, "<\\/style>");
-      const linkRegex = new RegExp("<link[^>]+href\\s*=\\s*[\"'](?:\\.\\.?\\/|\\/)*" + escP + "[\"'][^>]*>", "gi");
-      if (linkRegex.test(indexContent)) {
-        indexContent = indexContent.replace(linkRegex, () => '<style data-wm-inlined="' + p + '">\n' + safeCss + '\n</style>');
-      } else {
-        const cssDataUrl = "data:text/css;base64," + btoa(unescape(encodeURIComponent(cssText)));
-        indexContent = indexContent.replace(new RegExp("href=[\"'](?:\\.\\.?\\/|\\/)*" + escP + "[\"']", "gi"), 'href="' + cssDataUrl + '"');
-      }
+    const cleanP = p.replace(/\\/g, "/").replace(/^\.?\/+/, "");
+    const lowerP = cleanP.toLowerCase();
+    if (d && d.isBase64) {
+      mediaLookup[cleanP] = rawContent;
+      mediaLookup[lowerP] = rawContent;
+    } else if (lowerP.endsWith(".css")) {
+      cssFiles.push([cleanP, String(rawContent)]);
     } else if ((lowerP.endsWith(".js") || lowerP.endsWith(".mjs")) && !lowerP.endsWith(".json")) {
-      let jsText = String(rawContent);
-      for (const [mPath, mDataUrl] of Object.entries(mediaDataUrls)) {
-        const escM = escapeRegex(mPath);
-        jsText = jsText.replace(new RegExp("([\"'])(?:\\.\\.?\\/|\\/)*" + escM + "\\1", "g"), "$1" + mDataUrl + "$1");
-      }
-      const safeJs = jsText.replace(/<\/script>/gi, "<\\/script>");
-      const scriptRegex = new RegExp("<script[^>]+src\\s*=\\s*[\"'](?:\\.\\.?\\/|\\/)*" + escP + "[\"'][^>]*>\\s*<\\/script>", "gi");
-      if (scriptRegex.test(indexContent)) {
-        indexContent = indexContent.replace(scriptRegex, () => '<script data-wm-inlined="' + p + '">\n' + safeJs + '\n</script>');
-      } else {
-        const jsDataUrl = "data:text/javascript;base64," + btoa(unescape(encodeURIComponent(jsText)));
-        indexContent = indexContent.replace(new RegExp("src=[\"'](?:\\.\\.?\\/|\\/)*" + escP + "[\"']", "gi"), 'src="' + jsDataUrl + '"');
-      }
-    } else if (d && d.isBase64 && rawContent) {
-      indexContent = indexContent.replace(new RegExp("([\"'(\\s])(?:\\.\\.?\\/|\\/)*" + escP + "(?=[\"')?\\s#])", "gi"), "$1" + rawContent);
+      jsFiles.push([cleanP, String(rawContent)]);
     }
   }
+
+  // Inline CSS files with single-pass url(...) asset resolution
+  for (const [cssPath, rawCss] of cssFiles) {
+    const cssWithAssets = rawCss.replace(
+      /url\(\s*["']?(?:\.\.?\/|\/)*(assets\/[a-zA-Z0-9_./-]+)["']?\s*\)/gi,
+      (m, relAsset) => {
+        const found = mediaLookup[relAsset] || mediaLookup[relAsset.toLowerCase()];
+        return found ? ('url("' + found + '")') : m;
+      }
+    );
+    const safeCss = cssWithAssets.replace(/<\/style>/gi, "<\\/style>");
+    const escP = escapeRegex(cssPath);
+    const linkRegex = new RegExp("<link[^>]+href\\s*=\\s*[\"'](?:\\.\\.?\\/|\\/)*" + escP + "[\"'][^>]*>", "gi");
+    if (linkRegex.test(indexContent)) {
+      indexContent = indexContent.replace(linkRegex, () => '<style data-wm-inlined="' + cssPath + '">\n' + safeCss + '\n</style>');
+    } else {
+      const cssDataUrl = "data:text/css;base64," + btoa(unescape(encodeURIComponent(cssWithAssets)));
+      indexContent = indexContent.replace(new RegExp("href=[\"'](?:\\.\\.?\\/|\\/)*" + escP + "[\"']", "gi"), 'href="' + cssDataUrl + '"');
+    }
+  }
+
+  // Inline JS files without duplicating multi-MB base64 strings unless needed
+  for (const [jsPath, rawJs] of jsFiles) {
+    const safeJs = rawJs.replace(/<\/script>/gi, "<\\/script>");
+    const escP = escapeRegex(jsPath);
+    const scriptRegex = new RegExp("<script[^>]+src\\s*=\\s*[\"'](?:\\.\\.?\\/|\\/)*" + escP + "[\"'][^>]*>\\s*<\\/script>", "gi");
+    if (scriptRegex.test(indexContent)) {
+      indexContent = indexContent.replace(scriptRegex, () => '<script data-wm-inlined="' + jsPath + '">\n' + safeJs + '\n</script>');
+    } else {
+      const jsDataUrl = "data:text/javascript;base64," + btoa(unescape(encodeURIComponent(rawJs)));
+      indexContent = indexContent.replace(new RegExp("src=[\"'](?:\\.\\.?\\/|\\/)*" + escP + "[\"']", "gi"), 'src="' + jsDataUrl + '"');
+    }
+  }
+
+  // Single-pass asset replacement in index.html (< 1ms instead of 13 full-megabyte regex scans!)
+  indexContent = indexContent.replace(
+    /(["'(\s])(?:\.\.?\/|\/)*(assets\/[a-zA-Z0-9_./-]+)(?=["')?\s#])/gi,
+    (fullMatch, prefix, relAsset) => {
+      const cleanRel = relAsset.replace(/^\.?\/+/, "");
+      const found = mediaLookup[cleanRel] || mediaLookup[cleanRel.toLowerCase()];
+      return found ? (prefix + found) : fullMatch;
+    }
+  );
 
   // Determine active relationship variant & UTP v1.2.0 state
   const manifest = currentParsedManifest || (importStudioState.sessionData && importStudioState.sessionData.manifest) || {};
@@ -1392,20 +1408,25 @@ function buildClientStagedPreviewHtml(relationshipSlug = null) {
     };
   });
 
+  // Only include text/non-binary field defaults in bootstrapPayload (since images are already inlined in HTML!)
   const fieldValues = {};
   (manifest.fields || []).forEach(f => {
     const k = f.id || f.key;
-    if (k && f.defaultValue !== undefined) {
-      fieldValues[k] = mediaDataUrls[f.defaultValue] || f.defaultValue;
+    const fType = String(f.type || "text").toLowerCase();
+    if (k && f.defaultValue !== undefined && !["image", "audio", "video"].includes(fType)) {
+      fieldValues[k] = f.defaultValue;
     }
   });
   const variantMsgs = (selectedVariant && selectedVariant.messages) || {};
   Object.entries(variantMsgs).forEach(([mk, mv]) => {
-    fieldValues[mk] = mediaDataUrls[mv] || mv;
+    fieldValues[mk] = mv;
   });
   const variantAssets = (selectedVariant && selectedVariant.assets) || {};
   Object.entries(variantAssets).forEach(([ak, av]) => {
-    if (av) fieldValues[ak] = mediaDataUrls[av] || av;
+    if (av) {
+      const cleanAv = String(av).replace(/^\.?\/+/, "");
+      fieldValues[ak] = mediaLookup[cleanAv] || mediaLookup[cleanAv.toLowerCase()] || av;
+    }
   });
   const themeVars = (selectedVariant && selectedVariant.theme) || manifest.theme || {};
 
@@ -1415,7 +1436,6 @@ function buildClientStagedPreviewHtml(relationshipSlug = null) {
     variantId: selectedVariant ? selectedVariant.id : null,
     theme: themeVars,
     fieldValues,
-    fields: fieldValues,
     messages: variantMsgs,
     visibilityMap,
     visibility: visibilityMap,
@@ -1426,12 +1446,14 @@ function buildClientStagedPreviewHtml(relationshipSlug = null) {
 
   const clientBootstrapScript = `<script>
 (function() {
-  const wmPayload = ${JSON.stringify(bootstrapPayload)};
+  var _wmHydrating = false;
+  var wmPayload = ${JSON.stringify(bootstrapPayload)};
+  wmPayload.fields = wmPayload.fieldValues;
   try {
-    const rootEl = document.documentElement;
+    var rootEl = document.documentElement;
     if (wmPayload.relationshipSlug) rootEl.setAttribute('data-wm-relationship', wmPayload.relationshipSlug);
     if (wmPayload.variantId) rootEl.setAttribute('data-wm-variant', wmPayload.variantId);
-    const t = wmPayload.theme || {};
+    var t = wmPayload.theme || {};
     if (t.primary) rootEl.style.setProperty('--wm-primary', t.primary);
     if (t.secondary) rootEl.style.setProperty('--wm-secondary', t.secondary);
     if (t.accent) rootEl.style.setProperty('--wm-accent', t.accent);
@@ -1440,86 +1462,99 @@ function buildClientStagedPreviewHtml(relationshipSlug = null) {
   } catch (_) {}
 
   function applyHydration(p) {
-    if (!p) return;
-    const root = document.documentElement;
-    if (p.relationshipSlug) {
-      root.setAttribute('data-wm-relationship', p.relationshipSlug);
-      if (document.body) document.body.setAttribute('data-wm-relationship', p.relationshipSlug);
-    }
-    if (p.variantId) {
-      root.setAttribute('data-wm-variant', p.variantId);
-      if (document.body) document.body.setAttribute('data-wm-variant', p.variantId);
-    }
-    const t = p.theme || {};
-    if (t.primary) root.style.setProperty('--wm-primary', t.primary);
-    if (t.secondary) root.style.setProperty('--wm-secondary', t.secondary);
-    if (t.accent) root.style.setProperty('--wm-accent', t.accent);
-    if (t.background) root.style.setProperty('--wm-bg', t.background);
-    if (t.text) root.style.setProperty('--wm-text', t.text);
+    if (_wmHydrating || !p) return;
+    _wmHydrating = true;
+    try {
+      var root = document.documentElement;
+      if (p.relationshipSlug) {
+        root.setAttribute('data-wm-relationship', p.relationshipSlug);
+        if (document.body) document.body.setAttribute('data-wm-relationship', p.relationshipSlug);
+      }
+      if (p.variantId) {
+        root.setAttribute('data-wm-variant', p.variantId);
+        if (document.body) document.body.setAttribute('data-wm-variant', p.variantId);
+      }
+      var t = p.theme || {};
+      if (t.primary) root.style.setProperty('--wm-primary', t.primary);
+      if (t.secondary) root.style.setProperty('--wm-secondary', t.secondary);
+      if (t.accent) root.style.setProperty('--wm-accent', t.accent);
+      if (t.background) root.style.setProperty('--wm-bg', t.background);
+      if (t.text) root.style.setProperty('--wm-text', t.text);
 
-    (p.disabledSectionIds || []).forEach(function(secId) {
-      document.querySelectorAll('[data-wm-section="' + secId + '"], [data-wm-subsection="' + secId + '"]').forEach(function(el) { el.remove(); });
-      document.querySelectorAll('a[href="#' + secId + '"], [data-wm-nav-target="' + secId + '"]').forEach(function(nav) { nav.remove(); });
-    });
-
-    const fields = Object.assign({}, p.fieldValues || {}, p.fields || {}, p.messages || {});
-    Object.keys(fields).forEach(function(fKey) {
-      const val = fields[fKey];
-      if (val === undefined || val === null || val === '') return;
-      document.querySelectorAll('[data-wm-field="' + fKey + '"], [data-wm="' + fKey + '"]').forEach(function(el) {
-        const tag = el.tagName.toLowerCase();
-        if (tag === 'img' || tag === 'audio' || tag === 'video' || tag === 'source') {
-          if (typeof val === 'string' && !val.startsWith('assets/')) el.setAttribute('src', val);
-        } else {
-          el.textContent = String(val);
-        }
+      (p.disabledSectionIds || []).forEach(function(secId) {
+        document.querySelectorAll('[data-wm-section="' + secId + '"], [data-wm-subsection="' + secId + '"]').forEach(function(el) { el.remove(); });
+        document.querySelectorAll('a[href="#' + secId + '"], [data-wm-nav-target="' + secId + '"]').forEach(function(nav) { nav.remove(); });
       });
-    });
 
-    const acts = p.actionsMap || p.actions || {};
-    Object.keys(acts).forEach(function(actId) {
-      const act = acts[actId];
-      document.querySelectorAll('[data-wm-action="' + actId + '"]').forEach(function(btn) {
-        if (!act || act.effectiveEnabled === false || act.enabled === false) {
-          if (!act || act.fallbackBehavior !== 'disable') btn.remove();
-          else { btn.setAttribute('disabled', 'disabled'); btn.style.opacity = '0.5'; btn.style.pointerEvents = 'none'; }
-          return;
-        }
-        if (act.label) {
-          const labelSpan = btn.querySelector('.cta-label, [data-wm-action-label]');
-          if (labelSpan) labelSpan.textContent = String(act.label);
-          else btn.textContent = String(act.label);
-        }
-        btn.setAttribute('data-wm-action-type', act.type || 'section');
-        btn.setAttribute('data-wm-action-target', act.target || '');
-      });
-    });
-
-    if (window.BroCodeTemplate && typeof window.BroCodeTemplate.applyData === 'function') {
-      try {
-        window.BroCodeTemplate.applyData({
-          relationship: p.relationshipSlug,
-          variantId: p.variantId,
-          theme: p.theme,
-          fields: fields,
-          visibility: p.visibilityMap || p.visibility,
-          actions: acts
+      var fields = Object.assign({}, p.fieldValues || {}, p.fields || {}, p.messages || {});
+      Object.keys(fields).forEach(function(fKey) {
+        var val = fields[fKey];
+        if (val === undefined || val === null || val === '') return;
+        document.querySelectorAll('[data-wm-field="' + fKey + '"], [data-wm="' + fKey + '"]').forEach(function(el) {
+          var tag = el.tagName.toLowerCase();
+          if (tag === 'img' || tag === 'audio' || tag === 'video' || tag === 'source') {
+            if (typeof val === 'string' && !val.startsWith('assets/')) el.setAttribute('src', val);
+          } else {
+            el.textContent = String(val);
+          }
         });
-      } catch (_) {}
+      });
+
+      var acts = p.actionsMap || p.actions || {};
+      Object.keys(acts).forEach(function(actId) {
+        var act = acts[actId];
+        document.querySelectorAll('[data-wm-action="' + actId + '"]').forEach(function(btn) {
+          if (!act || act.effectiveEnabled === false || act.enabled === false) {
+            if (!act || act.fallbackBehavior !== 'disable') btn.remove();
+            else { btn.setAttribute('disabled', 'disabled'); btn.style.opacity = '0.5'; btn.style.pointerEvents = 'none'; }
+            return;
+          }
+          if (act.label) {
+            var labelSpan = btn.querySelector('.cta-label, [data-wm-action-label]');
+            if (labelSpan) labelSpan.textContent = String(act.label);
+            else btn.textContent = String(act.label);
+          }
+          btn.setAttribute('data-wm-action-type', act.type || 'section');
+          btn.setAttribute('data-wm-action-target', act.target || '');
+        });
+      });
+
+      if (window.BroCodeTemplate && typeof window.BroCodeTemplate.applyData === 'function') {
+        try {
+          window.BroCodeTemplate.applyData({
+            relationship: p.relationshipSlug,
+            variantId: p.variantId,
+            theme: p.theme,
+            fields: fields,
+            visibility: p.visibilityMap || p.visibility,
+            actions: acts
+          });
+        } catch (_) {}
+      }
+    } finally {
+      _wmHydrating = false;
     }
   }
 
   window.WishMagicTemplate = window.WishMagicTemplate || {
     version: '1.2.0',
-    applyData: function(data) { applyHydration(Object.assign({}, wmPayload, data || {})); },
-    removeDisabledContentFromDom: function() { applyHydration(wmPayload); }
+    applyData: function(data) {
+      if (_wmHydrating) return;
+      applyHydration(Object.assign({}, wmPayload, data || {}));
+    },
+    removeDisabledContentFromDom: function() {
+      if (_wmHydrating) return;
+      applyHydration(wmPayload);
+    }
   };
 
-  document.addEventListener('DOMContentLoaded', function() {
-    applyHydration(wmPayload);
-    setTimeout(function() { applyHydration(wmPayload); }, 60);
-  });
-  window.addEventListener('load', function() { applyHydration(wmPayload); });
+  if (document.readyState === 'loading') {
+    document.addEventListener('DOMContentLoaded', function() {
+      applyHydration(wmPayload);
+    });
+  } else {
+    setTimeout(function() { applyHydration(wmPayload); }, 0);
+  }
 })();
 </script>`;
 
@@ -5686,8 +5721,8 @@ function renderSmartImportStudioWorkspace() {
             '</div>' +
           '</div>' +
           '<div class="w-full bg-[#0c0618] p-1 rounded-xl overflow-hidden flex items-center justify-center">' +
-            (stagedIframeUrl
-              ? '<iframe id="sbs-staged-preview-iframe" src="' + escapeHtmlSafe(stagedIframeUrl) + '" class="' + vpHeightClass + ' bg-black" sandbox="allow-scripts" referrerpolicy="no-referrer" title="Staged Uploaded Package Preview"></iframe>'
+            ((stagedIframeUrl || Object.keys(currentUploadedFiles).length > 0)
+              ? '<iframe id="sbs-staged-preview-iframe"' + (Object.keys(currentUploadedFiles).length > 0 ? '' : (' src="' + escapeHtmlSafe(stagedIframeUrl) + '"')) + ' class="' + vpHeightClass + ' bg-black" sandbox="allow-scripts" referrerpolicy="no-referrer" title="Staged Uploaded Package Preview"></iframe>'
               : '<div class="h-[360px] flex flex-col items-center justify-center text-center p-6 text-rose-300 text-xs">' +
                   '<span class="material-symbols-outlined text-[32px] mb-2">error</span>' +
                   '<span>Uploaded package cannot be safely rendered: ' + escapeHtmlSafe(valReport.errorMessage || "Invalid package structure") + '</span>' +

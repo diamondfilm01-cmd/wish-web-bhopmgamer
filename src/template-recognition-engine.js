@@ -2583,8 +2583,11 @@ export function buildSandboxedTemplatePreviewHtml({
     }
   }, true);
 
+  var _wmHydrating = false;
   function applyPreviewHydration(payload) {
-    if (!payload) return;
+    if (_wmHydrating || !payload) return;
+    _wmHydrating = true;
+    try {
     const root = document.documentElement;
     const t = payload.theme || {};
     if (t.primary) root.style.setProperty('--wm-primary', t.primary);
@@ -2662,13 +2665,16 @@ export function buildSandboxedTemplatePreviewHtml({
           actions: actionsMap
         });
       } catch (_) {}
+    } else {
+      try {
+        window.dispatchEvent(new CustomEvent('wishmagic:data-updated', { detail: Object.assign({}, fields, payload) }));
+      } catch (_) {}
     }
 
-    try {
-      window.dispatchEvent(new CustomEvent('wishmagic:data-updated', { detail: Object.assign({}, fields, payload) }));
-    } catch (_) {}
-
     window.__WM_PREVIEW_DIAGNOSTICS__.ready = true;
+    } finally {
+      _wmHydrating = false;
+    }
   }
 
   // Provide global WishMagicTemplate bridge expected by UTP v1.0 / v1.1 / v1.2 templates
@@ -2690,13 +2696,13 @@ export function buildSandboxedTemplatePreviewHtml({
     }
   };
 
-  document.addEventListener('DOMContentLoaded', function() {
-    applyPreviewHydration(wmPreviewPayload);
-    setTimeout(function() { applyPreviewHydration(wmPreviewPayload); }, 60);
-  });
-  window.addEventListener('load', function() {
-    applyPreviewHydration(wmPreviewPayload);
-  });
+  if (document.readyState === 'loading') {
+    document.addEventListener('DOMContentLoaded', function() {
+      applyPreviewHydration(wmPreviewPayload);
+    });
+  } else {
+    setTimeout(function() { applyPreviewHydration(wmPreviewPayload); }, 0);
+  }
 })();
 </script>`;
 

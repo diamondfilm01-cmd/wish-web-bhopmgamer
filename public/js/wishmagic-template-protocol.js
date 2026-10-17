@@ -739,8 +739,11 @@
   /**
    * Apply entire dataset (including UTP v1.1.0 & v1.2.0 variant overrides, visibility removal, actions, messages, palette, and assets) to template
    */
+  let _isApplyingWishMagicData = false;
   function applyData(data) {
-    if (!data || typeof data !== 'object') return;
+    if (_isApplyingWishMagicData || !data || typeof data !== 'object') return;
+    _isApplyingWishMagicData = true;
+    try {
 
     // Mark parent sections that contain subsections before removal so empty-parent collapse knows which sections had subsections
     try {
@@ -872,6 +875,9 @@
       window.dispatchEvent(evt);
       document.dispatchEvent(evt);
     } catch (_) {}
+    } finally {
+      _isApplyingWishMagicData = false;
+    }
   }
 
   /**
