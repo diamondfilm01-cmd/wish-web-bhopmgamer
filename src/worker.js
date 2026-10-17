@@ -814,6 +814,7 @@ const PRETTY_ROUTES = {
   '/admin/anktech/anktech/admin/login/': '/index.html',
   '/legal': '/index.html',
   '/legal/': '/index.html',
+  '/index.html': '/index.html',
   '/terms': '/index.html',
   '/terms/': '/index.html',
   '/terms.html': '/index.html',
@@ -8997,6 +8998,8 @@ export default {
               actionsConfig: overrides.actionsConfig || manifest.actionsConfig || {},
               variantOverrides: overrides.variantOverrides || {},
               previewBaseUrl: `/api/templates/import-studio/${sessionId}/preview/staged`,
+              previewToken: sessionRow.preview_token || tokenParam || '',
+              allowMissingVariantFallback: url.searchParams.get('ui') === '1',
               side: 'staged'
             });
             return new Response(previewRes.html, {
@@ -9051,8 +9054,14 @@ export default {
             actionsConfig: safeJsonParse(ver.actions_config_json || tpl.actions_config_json, {})
           });
 
-          // If non-HTML asset requested for existing preview, serve from B2 or template asset store
+          // If non-HTML asset requested for existing preview, serve from ImgBB assetUrlMap, B2, or template asset store
           if (!relPath.toLowerCase().endsWith('.html')) {
+            const mappedImgUrl = existingContext.assetUrlMap instanceof Map
+              ? (existingContext.assetUrlMap.get(relPath) || existingContext.assetUrlMap.get(relPath.split('/').pop()))
+              : null;
+            if (mappedImgUrl && /^https?:\/\//i.test(mappedImgUrl)) {
+              return Response.redirect(mappedImgUrl, 302);
+            }
             const fileRow = (existingContext.files || []).find(f => (f.relative_path || f.path || '').toLowerCase() === relPath.toLowerCase());
             if (fileRow && fileRow.storage_key) {
               if (/^https?:\/\//i.test(fileRow.storage_key)) {
@@ -9075,8 +9084,11 @@ export default {
             return new Response('Not found', { status: 404, headers: previewHeaders });
           }
 
-          // Load existing entry HTML from B2, fileContentsMap, static store, or canonical template renderer
-          let existingEntryHtml = existingContext.fileContentsMap.get(relPath) || existingContext.fileContentsMap.get('index.html') || null;
+          // Load existing entry HTML from B2 previewFileContentsMap (preserving live ImgBB CDN URLs), fileContentsMap, static store, or canonical template renderer
+          const activePreviewTextMap = (existingContext.previewFileContentsMap && existingContext.previewFileContentsMap.size > 0)
+            ? existingContext.previewFileContentsMap
+            : existingContext.fileContentsMap;
+          let existingEntryHtml = activePreviewTextMap.get(relPath) || activePreviewTextMap.get('index.html') || null;
           if (!existingEntryHtml) {
             const staticHtmlRes = await fetchTemplateStoreAsset(env, request, tpl.id, relPath);
             if (staticHtmlRes && staticHtmlRes.ok) {
@@ -9112,7 +9124,7 @@ export default {
           }
 
           const existingFilesMap = new Map();
-          for (const [k, txt] of existingContext.fileContentsMap.entries()) {
+          for (const [k, txt] of activePreviewTextMap.entries()) {
             existingFilesMap.set(k, { relativePath: k, text: txt, content: new TextEncoder().encode(txt) });
           }
 
@@ -9125,6 +9137,9 @@ export default {
             actionsConfig: existingNormManifest.actionsConfig || {},
             variantOverrides: {},
             previewBaseUrl: `/api/templates/import-studio/${sessionId}/preview/existing`,
+            previewToken: sessionRow.preview_token || tokenParam || '',
+            assetUrlMap: existingContext.assetUrlMap || null,
+            allowMissingVariantFallback: url.searchParams.get('ui') === '1',
             side: 'existing'
           });
 
@@ -9234,6 +9249,9 @@ export default {
             expectedLockVersion: body.expectedLockVersion ?? body.lockVersion ?? null,
             warningsAcknowledged: Boolean(body.warningsAcknowledged),
             releaseNotes: sanitizeString(body.releaseNotes || '', 500),
+            zipBase64: body.zipBase64 || null,
+            preUploadedImgbbMap: body.preUploadedImgbbMap && typeof body.preUploadedImgbbMap === 'object' ? body.preUploadedImgbbMap : null,
+            skipServerImgbbRetry: Boolean(body.skipServerImgbbRetry),
             adminUser: user,
             storageProvider: env.B2_STORAGE_PROVIDER || null,
             imgbbProvider: env.IMGBB_PROVIDER || null
@@ -12851,6 +12869,8 @@ export default {
             mimeType: imgResult.mimeType || validation.mimeType,
             width: imgResult.width,
             height: imgResult.height,
+            sizeBytes: imgResult.sizeBytes,
+            mimeType: validation.mimeType,
             storageProvider: 'imgbb'
           }
         }, 201, {}, requestId);

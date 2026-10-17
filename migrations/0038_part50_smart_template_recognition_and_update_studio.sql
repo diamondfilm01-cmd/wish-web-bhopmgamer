@@ -68,3 +68,7 @@ CREATE INDEX IF NOT EXISTS idx_tis_target_tpl ON template_import_sessions(select
 CREATE INDEX IF NOT EXISTS idx_tis_fingerprint ON template_import_sessions(package_fingerprint);
 CREATE UNIQUE INDEX IF NOT EXISTS idx_tis_idempotency ON template_import_sessions(idempotency_key) WHERE idempotency_key IS NOT NULL;
 CREATE INDEX IF NOT EXISTS idx_tv_base_version ON template_versions(template_id, base_version_id);
+
+-- 4. RECORD MIGRATION IN _MIGRATIONS REGISTRY
+INSERT OR IGNORE INTO _migrations (id, name, applied_at) VALUES
+('mig_0038', '0038_part50_smart_template_recognition_and_update_studio.sql', '2026-10-17T00:00:00.000Z');

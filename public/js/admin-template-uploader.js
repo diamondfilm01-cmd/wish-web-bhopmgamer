@@ -1248,10 +1248,7 @@ function renderDetectedFieldsBadges() {
 }
 
 // 4. Render In-Memory Live Sandbox Preview in iframe (with CSS, JS, Images, Audio, and Video wired)
-function renderLiveSandboxPreview() {
-  const iframe = document.getElementById("upload-preview-iframe");
-  if (!iframe) return;
-
+function buildClientStagedPreviewHtml(relationshipSlug = null) {
   let indexContent = "";
   for (const [pathKey, data] of Object.entries(currentUploadedFiles)) {
     if (pathKey.toLowerCase() === "index.html" || pathKey.toLowerCase().endsWith("/index.html")) {
@@ -1261,42 +1258,302 @@ function renderLiveSandboxPreview() {
   }
 
   if (!indexContent) {
-    indexContent = "<h1 style=\"color:white;text-align:center;font-family:sans-serif;padding:40px;\">No index.html entry file detected</h1>";
+    return "<h1 style=\"color:white;text-align:center;font-family:sans-serif;padding:40px;\">No index.html entry file detected</h1>";
   }
 
-  // Inline CSS, JS, Images, Audio, and Video data URLs so preview works 100% offline/before deploy
+  // Strip external /js/wishmagic-template-protocol.js script tags because we inject the runtime bridge directly
+  indexContent = indexContent.replace(
+    /<script[^>]+src\s*=\s*["'][^"']*wishmagic-template-protocol\.js[^"']*["'][^>]*>\s*<\/script>/gi,
+    ""
+  );
+
   const sortedPaths = Object.keys(currentUploadedFiles).sort((a, b) => b.length - a.length);
+  const mediaDataUrls = {};
   for (const p of sortedPaths) {
     const d = currentUploadedFiles[p];
-    const rawContent = typeof d === "string" ? d : d.content;
-    const escP = escapeRegex(p);
-    if (p.toLowerCase().endsWith(".css")) {
-      const cssDataUrl = "data:text/css;base64," + btoa(unescape(encodeURIComponent(rawContent)));
-      indexContent = indexContent.replace(new RegExp("href=[\"'](?:\\.\\.?\\/|\\/)*" + escP + "[\"']", "gi"), "href=\"" + cssDataUrl + "\"");
-    } else if (p.toLowerCase().endsWith(".js") && !p.toLowerCase().endsWith(".json")) {
-      const jsDataUrl = "data:text/javascript;base64," + btoa(unescape(encodeURIComponent(rawContent)));
-      indexContent = indexContent.replace(new RegExp("src=[\"'](?:\\.\\.?\\/|\\/)*" + escP + "[\"']", "gi"), "src=\"" + jsDataUrl + "\"");
-    } else if (d && d.isBase64 && rawContent) {
-      indexContent = indexContent.replace(new RegExp("([\"'(\s])(?:\\.\\.?\\/|\\/)*" + escP + "(?=[\"')?\\s#])", "gi"), "$1" + rawContent);
+    const rawContent = typeof d === "string" ? d : (d && d.content);
+    if (d && d.isBase64 && rawContent) {
+      mediaDataUrls[p] = rawContent;
     }
   }
 
-  // Populate sample values for dynamic placeholders in preview
+  for (const p of sortedPaths) {
+    const d = currentUploadedFiles[p];
+    const rawContent = typeof d === "string" ? d : (d && d.content);
+    if (!rawContent) continue;
+    const escP = escapeRegex(p);
+    const lowerP = p.toLowerCase();
+
+    if (lowerP.endsWith(".css")) {
+      let cssText = String(rawContent);
+      for (const [mPath, mDataUrl] of Object.entries(mediaDataUrls)) {
+        const escM = escapeRegex(mPath);
+        cssText = cssText.replace(new RegExp("url\\(\\s*[\"']?(?:\\.\\.?\\/|\\/)*" + escM + "[\"']?\\s*\\)", "gi"), 'url("' + mDataUrl + '")');
+      }
+      const safeCss = cssText.replace(/<\/style>/gi, "<\\/style>");
+      const linkRegex = new RegExp("<link[^>]+href\\s*=\\s*[\"'](?:\\.\\.?\\/|\\/)*" + escP + "[\"'][^>]*>", "gi");
+      if (linkRegex.test(indexContent)) {
+        indexContent = indexContent.replace(linkRegex, () => '<style data-wm-inlined="' + p + '">\n' + safeCss + '\n</style>');
+      } else {
+        const cssDataUrl = "data:text/css;base64," + btoa(unescape(encodeURIComponent(cssText)));
+        indexContent = indexContent.replace(new RegExp("href=[\"'](?:\\.\\.?\\/|\\/)*" + escP + "[\"']", "gi"), 'href="' + cssDataUrl + '"');
+      }
+    } else if ((lowerP.endsWith(".js") || lowerP.endsWith(".mjs")) && !lowerP.endsWith(".json")) {
+      let jsText = String(rawContent);
+      for (const [mPath, mDataUrl] of Object.entries(mediaDataUrls)) {
+        const escM = escapeRegex(mPath);
+        jsText = jsText.replace(new RegExp("([\"'])(?:\\.\\.?\\/|\\/)*" + escM + "\\1", "g"), "$1" + mDataUrl + "$1");
+      }
+      const safeJs = jsText.replace(/<\/script>/gi, "<\\/script>");
+      const scriptRegex = new RegExp("<script[^>]+src\\s*=\\s*[\"'](?:\\.\\.?\\/|\\/)*" + escP + "[\"'][^>]*>\\s*<\\/script>", "gi");
+      if (scriptRegex.test(indexContent)) {
+        indexContent = indexContent.replace(scriptRegex, () => '<script data-wm-inlined="' + p + '">\n' + safeJs + '\n</script>');
+      } else {
+        const jsDataUrl = "data:text/javascript;base64," + btoa(unescape(encodeURIComponent(jsText)));
+        indexContent = indexContent.replace(new RegExp("src=[\"'](?:\\.\\.?\\/|\\/)*" + escP + "[\"']", "gi"), 'src="' + jsDataUrl + '"');
+      }
+    } else if (d && d.isBase64 && rawContent) {
+      indexContent = indexContent.replace(new RegExp("([\"'(\\s])(?:\\.\\.?\\/|\\/)*" + escP + "(?=[\"')?\\s#])", "gi"), "$1" + rawContent);
+    }
+  }
+
+  // Determine active relationship variant & UTP v1.2.0 state
+  const manifest = currentParsedManifest || (importStudioState.sessionData && importStudioState.sessionData.manifest) || {};
+  const variants = Array.isArray(manifest.variants) ? manifest.variants : [];
+  let targetRel = relationshipSlug;
+  if (!targetRel || targetRel === "default" || targetRel === "all") {
+    if (uploadUtpConfigState && uploadUtpConfigState.activeScope && uploadUtpConfigState.activeScope !== "all") {
+      targetRel = uploadUtpConfigState.activeScope;
+    }
+  }
+
+  let selectedVariant = null;
+  if (targetRel && targetRel !== "default" && targetRel !== "all") {
+    const normTarget = String(targetRel).toLowerCase().trim().replace(/[^a-z0-9]+/g, "_");
+    selectedVariant = variants.find(v => {
+      const vRel = String(v.relationship || v.relationshipSlug || v.slug || v.id || "").toLowerCase().trim().replace(/[^a-z0-9]+/g, "_");
+      return vRel === normTarget || String(v.slug || "").toLowerCase().trim() === String(targetRel).toLowerCase().trim();
+    }) || null;
+  }
+  if (!selectedVariant && variants.length > 0) {
+    selectedVariant = variants.find(v => v.isDefault) || variants[0];
+  }
+
+  const effectiveRelSlug = selectedVariant ? (selectedVariant.relationship || selectedVariant.slug) : null;
+  const isSingle = Boolean(effectiveRelSlug);
+  const varOvMap = (uploadUtpConfigState && uploadUtpConfigState.variantOverrides) || {};
+  const activeVarOv = (effectiveRelSlug && varOvMap[effectiveRelSlug]) || {};
+  const varVis = {
+    ...((selectedVariant && (selectedVariant.visibilityOverrides || selectedVariant.visibility)) || {}),
+    ...(activeVarOv.visibility || {})
+  };
+  const varActs = { ...(activeVarOv.actions || {}) };
+  if (selectedVariant && Array.isArray(selectedVariant.actions)) {
+    selectedVariant.actions.forEach(a => {
+      if (a && a.id && !varActs[a.id]) varActs[a.id] = { ...a };
+    });
+  }
+
+  const evalTree = evaluateClientSectionTree(
+    (uploadUtpConfigState && uploadUtpConfigState.sections) || manifest.sections || [],
+    (uploadUtpConfigState && uploadUtpConfigState.visibilityConfig) || {},
+    varVis,
+    isSingle,
+    true
+  );
+  const disabledSectionIds = [];
+  const visibilityMap = {};
+  const walkTree = (nodes) => {
+    (nodes || []).forEach(n => {
+      visibilityMap[n.id] = Boolean(n.effectiveEnabled);
+      if (!n.effectiveEnabled) disabledSectionIds.push(n.id);
+      if (Array.isArray(n.subsections)) walkTree(n.subsections);
+    });
+  };
+  walkTree(evalTree);
+
+  const evalActs = evaluateClientActions(
+    (uploadUtpConfigState && uploadUtpConfigState.actions) || manifest.actions || [],
+    (uploadUtpConfigState && uploadUtpConfigState.actionsConfig) || {},
+    varActs,
+    isSingle,
+    new Set(disabledSectionIds)
+  );
+  const actionsMap = {};
+  evalActs.forEach(a => {
+    actionsMap[a.id] = {
+      id: a.id,
+      label: a.effectiveLabel,
+      type: a.effectiveType,
+      target: a.effectiveTarget,
+      enabled: a.effectiveEnabled,
+      effectiveEnabled: a.effectiveEnabled,
+      fallbackBehavior: a.fallbackBehavior || "hide"
+    };
+  });
+
+  const fieldValues = {};
+  (manifest.fields || []).forEach(f => {
+    const k = f.id || f.key;
+    if (k && f.defaultValue !== undefined) {
+      fieldValues[k] = mediaDataUrls[f.defaultValue] || f.defaultValue;
+    }
+  });
+  const variantMsgs = (selectedVariant && selectedVariant.messages) || {};
+  Object.entries(variantMsgs).forEach(([mk, mv]) => {
+    fieldValues[mk] = mediaDataUrls[mv] || mv;
+  });
+  const variantAssets = (selectedVariant && selectedVariant.assets) || {};
+  Object.entries(variantAssets).forEach(([ak, av]) => {
+    if (av) fieldValues[ak] = mediaDataUrls[av] || av;
+  });
+  const themeVars = (selectedVariant && selectedVariant.theme) || manifest.theme || {};
+
+  const bootstrapPayload = {
+    relationshipSlug: effectiveRelSlug,
+    relationship: effectiveRelSlug,
+    variantId: selectedVariant ? selectedVariant.id : null,
+    theme: themeVars,
+    fieldValues,
+    fields: fieldValues,
+    messages: variantMsgs,
+    visibilityMap,
+    visibility: visibilityMap,
+    disabledSectionIds,
+    actionsMap,
+    actions: actionsMap
+  };
+
+  const clientBootstrapScript = `<script>
+(function() {
+  const wmPayload = ${JSON.stringify(bootstrapPayload)};
+  try {
+    const rootEl = document.documentElement;
+    if (wmPayload.relationshipSlug) rootEl.setAttribute('data-wm-relationship', wmPayload.relationshipSlug);
+    if (wmPayload.variantId) rootEl.setAttribute('data-wm-variant', wmPayload.variantId);
+    const t = wmPayload.theme || {};
+    if (t.primary) rootEl.style.setProperty('--wm-primary', t.primary);
+    if (t.secondary) rootEl.style.setProperty('--wm-secondary', t.secondary);
+    if (t.accent) rootEl.style.setProperty('--wm-accent', t.accent);
+    if (t.background) rootEl.style.setProperty('--wm-bg', t.background);
+    if (t.text) rootEl.style.setProperty('--wm-text', t.text);
+  } catch (_) {}
+
+  function applyHydration(p) {
+    if (!p) return;
+    const root = document.documentElement;
+    if (p.relationshipSlug) {
+      root.setAttribute('data-wm-relationship', p.relationshipSlug);
+      if (document.body) document.body.setAttribute('data-wm-relationship', p.relationshipSlug);
+    }
+    if (p.variantId) {
+      root.setAttribute('data-wm-variant', p.variantId);
+      if (document.body) document.body.setAttribute('data-wm-variant', p.variantId);
+    }
+    const t = p.theme || {};
+    if (t.primary) root.style.setProperty('--wm-primary', t.primary);
+    if (t.secondary) root.style.setProperty('--wm-secondary', t.secondary);
+    if (t.accent) root.style.setProperty('--wm-accent', t.accent);
+    if (t.background) root.style.setProperty('--wm-bg', t.background);
+    if (t.text) root.style.setProperty('--wm-text', t.text);
+
+    (p.disabledSectionIds || []).forEach(function(secId) {
+      document.querySelectorAll('[data-wm-section="' + secId + '"], [data-wm-subsection="' + secId + '"]').forEach(function(el) { el.remove(); });
+      document.querySelectorAll('a[href="#' + secId + '"], [data-wm-nav-target="' + secId + '"]').forEach(function(nav) { nav.remove(); });
+    });
+
+    const fields = Object.assign({}, p.fieldValues || {}, p.fields || {}, p.messages || {});
+    Object.keys(fields).forEach(function(fKey) {
+      const val = fields[fKey];
+      if (val === undefined || val === null || val === '') return;
+      document.querySelectorAll('[data-wm-field="' + fKey + '"], [data-wm="' + fKey + '"]').forEach(function(el) {
+        const tag = el.tagName.toLowerCase();
+        if (tag === 'img' || tag === 'audio' || tag === 'video' || tag === 'source') {
+          if (typeof val === 'string' && !val.startsWith('assets/')) el.setAttribute('src', val);
+        } else {
+          el.textContent = String(val);
+        }
+      });
+    });
+
+    const acts = p.actionsMap || p.actions || {};
+    Object.keys(acts).forEach(function(actId) {
+      const act = acts[actId];
+      document.querySelectorAll('[data-wm-action="' + actId + '"]').forEach(function(btn) {
+        if (!act || act.effectiveEnabled === false || act.enabled === false) {
+          if (!act || act.fallbackBehavior !== 'disable') btn.remove();
+          else { btn.setAttribute('disabled', 'disabled'); btn.style.opacity = '0.5'; btn.style.pointerEvents = 'none'; }
+          return;
+        }
+        if (act.label) {
+          const labelSpan = btn.querySelector('.cta-label, [data-wm-action-label]');
+          if (labelSpan) labelSpan.textContent = String(act.label);
+          else btn.textContent = String(act.label);
+        }
+        btn.setAttribute('data-wm-action-type', act.type || 'section');
+        btn.setAttribute('data-wm-action-target', act.target || '');
+      });
+    });
+
+    if (window.BroCodeTemplate && typeof window.BroCodeTemplate.applyData === 'function') {
+      try {
+        window.BroCodeTemplate.applyData({
+          relationship: p.relationshipSlug,
+          variantId: p.variantId,
+          theme: p.theme,
+          fields: fields,
+          visibility: p.visibilityMap || p.visibility,
+          actions: acts
+        });
+      } catch (_) {}
+    }
+  }
+
+  window.WishMagicTemplate = window.WishMagicTemplate || {
+    version: '1.2.0',
+    applyData: function(data) { applyHydration(Object.assign({}, wmPayload, data || {})); },
+    removeDisabledContentFromDom: function() { applyHydration(wmPayload); }
+  };
+
+  document.addEventListener('DOMContentLoaded', function() {
+    applyHydration(wmPayload);
+    setTimeout(function() { applyHydration(wmPayload); }, 60);
+  });
+  window.addEventListener('load', function() { applyHydration(wmPayload); });
+})();
+</script>`;
+
+  if (/<head[^>]*>/i.test(indexContent)) {
+    indexContent = indexContent.replace(/<head([^>]*)>/i, `<head$1>${clientBootstrapScript}`);
+  } else {
+    indexContent = clientBootstrapScript + "\n" + indexContent;
+  }
+
+  // Populate sample values for legacy {{mustache}} placeholders
   indexContent = indexContent.replace(/\{\{\s*recipient_name\s*\}\}/g, "Priya Sharma");
   indexContent = indexContent.replace(/\{\{\s*event_date\s*\}\}/g, "25 October 2026");
   indexContent = indexContent.replace(/\{\{\s*sender_name\s*\}\}/g, "Ankit Verma");
   indexContent = indexContent.replace(/\{\{\s*custom_message\s*\}\}/g, "May this special day bring you magical memories and endless joy!");
 
-  iframe.srcdoc = indexContent;
-  iframe.onload = function() {
-    try {
-      const doc = iframe.contentDocument || (iframe.contentWindow && iframe.contentWindow.document);
-      if (doc && typeof applyUtpV12StateToPreviewIframe === "function") {
-        applyUtpV12StateToPreviewIframe(doc, uploadUtpConfigState);
-      }
-    } catch (_) {}
-  };
+  return indexContent;
+}
+
+function renderLiveSandboxPreview() {
+  const iframe = document.getElementById("upload-preview-iframe");
+  if (!iframe) return;
+
+  const activeScope = (uploadUtpConfigState && uploadUtpConfigState.activeScope) || "all";
+  iframe.srcdoc = buildClientStagedPreviewHtml(activeScope);
   setTimeout(() => setSandboxViewport(currentSandboxViewportMode), 30);
+
+  // Also keep the Smart Import Studio Side-by-Side Right Panel in sync when UTP v1.2.0 config changes
+  const sbsStagedIframe = document.getElementById("sbs-staged-preview-iframe");
+  if (sbsStagedIframe && Object.keys(currentUploadedFiles).length > 0) {
+    const stagedRel = (activeScope && activeScope !== "all")
+      ? activeScope
+      : (importStudioState.syncControls ? importStudioState.selectedVariant : importStudioState.stagedVariant);
+    sbsStagedIframe.srcdoc = buildClientStagedPreviewHtml(stagedRel);
+  }
 }
 
 // 5. Deploy Template to Server API (Supports both Staged Draft Preview and Direct Publish)
@@ -1352,6 +1609,17 @@ async function buildCompactTemplateZipBase64(filesMap, preUploadedImgbbMap) {
 }
 
 async function deployUploadedTemplate(publishImmediately = true) {
+  if (
+    publishImmediately !== false &&
+    importStudioState &&
+    importStudioState.sessionId &&
+    importStudioState.selectedTargetTemplateId &&
+    importStudioState.sessionData &&
+    importStudioState.sessionData.state !== "PUBLISHED" &&
+    (importStudioState.sessionData.recognitionOutcome === "EXACT_EXISTING_IDENTITY" || importStudioState.intendedTargetTemplateId)
+  ) {
+    return window.promptImportStudioDecision("update_existing");
+  }
   const nameInput = document.getElementById("new-tpl-title");
   const catInput = document.getElementById("new-tpl-category");
   const descInput = document.getElementById("new-tpl-desc");
@@ -4311,7 +4579,10 @@ function discoverUploadUtpV12SectionsAndActions(html) {
       if (!rv || typeof rv !== "object") return;
       const relSlug = String(rv.relationship || rv.slug || "").toLowerCase().trim();
       if (!relSlug) return;
-      const vis = (rv.visibility && typeof rv.visibility === "object") ? { ...rv.visibility } : {};
+      const rawVisObj = (rv.visibilityOverrides && typeof rv.visibilityOverrides === "object")
+        ? rv.visibilityOverrides
+        : ((rv.visibility && typeof rv.visibility === "object") ? rv.visibility : {});
+      const vis = { ...rawVisObj };
       const acts = {};
       if (Array.isArray(rv.actions)) {
         rv.actions.forEach(va => {
@@ -5082,6 +5353,58 @@ window.setSideBySideVariant = function(side, variantSlug) {
   refreshSideBySidePreviews();
 };
 
+function appendPreviewQueryParams(baseUrl, paramsObj) {
+  if (!baseUrl) return null;
+  const sep = baseUrl.includes("?") ? "&" : "?";
+  const query = Object.entries(paramsObj)
+    .filter(([, v]) => v !== undefined && v !== null && v !== "")
+    .map(([k, v]) => encodeURIComponent(k) + "=" + encodeURIComponent(String(v)))
+    .join("&");
+  return query ? (baseUrl + sep + query) : baseUrl;
+}
+
+function applySideBySideViewportScaling() {
+  const vp = importStudioState.viewport || "desktop";
+  const targetW = vp === "mobile" ? 375 : (vp === "tablet" ? 768 : 1280);
+  const targetH = vp === "mobile" ? 667 : (vp === "tablet" ? 640 : 800);
+
+  ["sbs-existing-preview-iframe", "sbs-staged-preview-iframe"].forEach((iframeId) => {
+    const iframe = document.getElementById(iframeId);
+    if (!iframe) return;
+    const wrap = iframe.parentElement;
+    if (!wrap) return;
+
+    const parentEl = wrap.parentElement || wrap;
+    const availWidth = Math.max(260, (parentEl.clientWidth || 480) - 8);
+    const scale = Math.min(1, availWidth / targetW);
+    const scaledW = Math.round(targetW * scale);
+    const scaledH = Math.round(targetH * scale);
+
+    wrap.style.position = "relative";
+    wrap.style.width = scaledW + "px";
+    wrap.style.maxWidth = "100%";
+    wrap.style.height = scaledH + "px";
+    wrap.style.margin = "0 auto";
+    wrap.style.overflow = "hidden";
+    wrap.style.borderRadius = vp === "mobile" ? "24px" : "12px";
+    wrap.style.border = vp === "mobile" ? "4px solid rgba(168,85,247,0.45)" : "1px solid rgba(168,85,247,0.3)";
+    wrap.style.background = "#090612";
+
+    iframe.style.width = targetW + "px";
+    iframe.style.height = targetH + "px";
+    iframe.style.transform = scale < 1 ? ("scale(" + scale.toFixed(4) + ")") : "none";
+    iframe.style.transformOrigin = "top left";
+    iframe.style.border = "0";
+    iframe.style.display = "block";
+  });
+}
+
+if (typeof window !== "undefined" && typeof window.addEventListener === "function") {
+  window.addEventListener("resize", () => {
+    try { applySideBySideViewportScaling(); } catch (_) {}
+  });
+}
+
 window.refreshSideBySidePreviews = function() {
   const sData = importStudioState.sessionData;
   if (!sData) return;
@@ -5091,14 +5414,29 @@ window.refreshSideBySidePreviews = function() {
 
   if (exIframe && sData.previewUrls?.existing) {
     const rel = importStudioState.syncControls ? importStudioState.selectedVariant : importStudioState.existingVariant;
-    const url = sData.previewUrls.existing + "?rel=" + encodeURIComponent(rel || "default") + "&t=" + ts;
+    const url = appendPreviewQueryParams(sData.previewUrls.existing, {
+      rel: rel || "default",
+      ui: "1",
+      t: ts
+    });
+    exIframe.removeAttribute("srcdoc");
     exIframe.src = url;
   }
-  if (stIframe && sData.previewUrls?.staged) {
+  if (stIframe) {
     const rel = importStudioState.syncControls ? importStudioState.selectedVariant : importStudioState.stagedVariant;
-    const url = sData.previewUrls.staged + "?rel=" + encodeURIComponent(rel || "default") + "&t=" + ts;
-    stIframe.src = url;
+    if (Object.keys(currentUploadedFiles).length > 0) {
+      stIframe.srcdoc = buildClientStagedPreviewHtml(rel || "default");
+    } else if (sData.previewUrls?.staged) {
+      const url = appendPreviewQueryParams(sData.previewUrls.staged, {
+        rel: rel || "default",
+        ui: "1",
+        t: ts
+      });
+      stIframe.removeAttribute("srcdoc");
+      stIframe.src = url;
+    }
   }
+  setTimeout(() => { try { applySideBySideViewportScaling(); } catch (_) {} }, 30);
 };
 
 window.resetSideBySidePreviewState = function() {
@@ -5252,10 +5590,10 @@ function renderSmartImportStudioWorkspace() {
   const existingRel = importStudioState.syncControls ? importStudioState.selectedVariant : importStudioState.existingVariant;
   const stagedRel = importStudioState.syncControls ? importStudioState.selectedVariant : importStudioState.stagedVariant;
   const existingIframeUrl = sData.previewUrls?.existing
-    ? (sData.previewUrls.existing + "?rel=" + encodeURIComponent(existingRel || "default") + "&t=" + ts)
+    ? appendPreviewQueryParams(sData.previewUrls.existing, { rel: existingRel || "default", ui: "1", t: ts })
     : null;
   const stagedIframeUrl = sData.previewUrls?.staged
-    ? (sData.previewUrls.staged + "?rel=" + encodeURIComponent(stagedRel || "default") + "&t=" + ts)
+    ? appendPreviewQueryParams(sData.previewUrls.staged, { rel: stagedRel || "default", ui: "1", t: ts })
     : null;
 
   const showLeftPanel = importStudioState.mobilePanelMode !== "staged";
@@ -5521,6 +5859,13 @@ function renderSmartImportStudioWorkspace() {
     destructiveWarningsHtml +
     comparisonPanelHtml +
     decisionBarHtml;
+
+  // Hydrate staged iframe from in-memory uploaded files when available so all high-res images & live UTP v1.2.0 edits render immediately
+  const stIframe = document.getElementById("sbs-staged-preview-iframe");
+  if (stIframe && Object.keys(currentUploadedFiles).length > 0) {
+    stIframe.srcdoc = buildClientStagedPreviewHtml(stagedRel || "default");
+  }
+  setTimeout(() => { try { applySideBySideViewportScaling(); } catch (_) {} }, 25);
 }
 
 window.promptImportStudioDecision = async function(decisionMode) {
@@ -5686,12 +6031,102 @@ window.executeImportStudioConfirmedPublish = async function() {
 
   const btn = document.getElementById("import-final-publish-btn");
   const releaseNotes = document.getElementById("import-confirm-release-notes")?.value?.trim() || "";
-  if (btn) {
-    btn.disabled = true;
-    btn.innerHTML = '<span class="material-symbols-outlined text-[16px] animate-spin">sync</span><span>Publishing Immutable Version...</span>';
-  }
+  const setPublishBtnStatus = (msg) => {
+    if (btn) {
+      btn.disabled = true;
+      btn.innerHTML = '<span class="material-symbols-outlined text-[16px] animate-spin">sync</span><span>' + escapeHtmlSafe(msg) + '</span>';
+    }
+  };
+  setPublishBtnStatus("Preparing assets & publishing immutable version...");
 
   try {
+    const preUploadedImgbbMap = {};
+    const imageRelPaths = Object.keys(currentUploadedFiles || {}).filter(p => isImageFile(p) && !p.toLowerCase().endsWith(".svg"));
+    if (imageRelPaths.length > 0) {
+      let completedPhotos = 0;
+      let skipClientImgbb = false;
+      const CLIENT_BATCH_SIZE = 2;
+      let consecutiveBatchFailures = 0;
+
+      for (let i = 0; i < imageRelPaths.length && !skipClientImgbb; i += CLIENT_BATCH_SIZE) {
+        let batchSuccessCount = 0;
+        const batchPaths = imageRelPaths.slice(i, i + CLIENT_BATCH_SIZE);
+        setPublishBtnStatus("Uploading Photos to ImgBB (" + Math.min(i + 1, imageRelPaths.length) + "/" + imageRelPaths.length + ")...");
+
+        await Promise.all(batchPaths.map(async (relPath) => {
+          if (skipClientImgbb) return;
+          const fileEntry = currentUploadedFiles[relPath];
+          const dataUrl = typeof fileEntry === "string" ? fileEntry : (fileEntry && fileEntry.content);
+          if (!dataUrl) return;
+          const exactFileName = relPath.split("/").pop();
+          const controller = typeof AbortController !== "undefined" ? new AbortController() : null;
+          const timerId = controller ? setTimeout(() => { try { controller.abort(); } catch (_) {} }, 15000) : null;
+          try {
+            const imgRes = await fetch("/api/imgbb/upload", {
+              method: "POST",
+              headers: { "Content-Type": "application/json" },
+              credentials: "include",
+              body: JSON.stringify({
+                fileData: dataUrl,
+                filename: exactFileName,
+                type: "image",
+                isTemplateAsset: true,
+                title: exactFileName.replace(/\.[^/.]+$/, "")
+              }),
+              ...(controller ? { signal: controller.signal } : {})
+            });
+            if (timerId) clearTimeout(timerId);
+            const imgJson = await imgRes.json().catch(() => ({}));
+            if (imgRes.status === 503 && imgJson?.code === "IMGBB_NOT_CONFIGURED") {
+              skipClientImgbb = true;
+              return;
+            }
+            const resData = imgJson?.data || imgJson || {};
+            const liveUrl = resData.displayUrl || resData.originalUrl || resData.url;
+            if (imgRes.ok && liveUrl) {
+              batchSuccessCount++;
+              preUploadedImgbbMap[relPath] = {
+                mediaId: resData.mediaId || null,
+                deleteUrl: resData.deleteUrl || null,
+                displayUrl: liveUrl,
+                originalUrl: resData.originalUrl || liveUrl,
+                thumbnailUrl: resData.thumbnailUrl || resData.thumbUrl || liveUrl,
+                providerAssetId: resData.providerAssetId || resData.imageId || null,
+                mimeType: resData.mimeType || getMimeType(relPath),
+                width: resData.width || null,
+                height: resData.height || null,
+                sizeBytes: (fileEntry && fileEntry.sizeBytes) || resData.sizeBytes || 0,
+                filename: exactFileName
+              };
+            }
+          } catch (_) {
+            if (timerId) clearTimeout(timerId);
+          } finally {
+            completedPhotos++;
+            setPublishBtnStatus("Uploading Photos to ImgBB (" + completedPhotos + "/" + imageRelPaths.length + ")...");
+          }
+        }));
+
+        if (batchSuccessCount === 0) {
+          consecutiveBatchFailures++;
+          if (consecutiveBatchFailures >= 1) skipClientImgbb = true;
+        } else {
+          consecutiveBatchFailures = 0;
+        }
+      }
+    }
+
+    setPublishBtnStatus("Deploying code & media to Backblaze B2 & D1...");
+    let resolvedZipBase64 = null;
+    if (Object.keys(preUploadedImgbbMap).length > 0 && typeof JSZip !== "undefined") {
+      try {
+        resolvedZipBase64 = await buildCompactTemplateZipBase64(currentUploadedFiles, preUploadedImgbbMap);
+      } catch (_) {}
+    }
+    if (!resolvedZipBase64 && currentZipBase64) {
+      resolvedZipBase64 = currentZipBase64;
+    }
+
     const res = await fetch("/api/templates/import-studio/" + encodeURIComponent(importStudioState.sessionId) + "/publish", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
@@ -5699,7 +6134,10 @@ window.executeImportStudioConfirmedPublish = async function() {
       body: JSON.stringify({
         expectedLockVersion: sData.baseTemplateLockVersion,
         warningsAcknowledged: true,
-        releaseNotes
+        releaseNotes,
+        zipBase64: resolvedZipBase64,
+        preUploadedImgbbMap,
+        skipServerImgbbRetry: Boolean(imageRelPaths.length > 0 && Object.keys(preUploadedImgbbMap).length === 0)
       })
     });
 
