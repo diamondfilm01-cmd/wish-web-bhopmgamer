@@ -401,14 +401,20 @@ function finishProcessingFiles(foundIndex, htmlContent, firstFoundImage, package
   if (stepConfig) stepConfig.classList.remove('hidden');
   if (placeholderState) placeholderState.classList.add('hidden');
 
-  // Render live sandbox preview in iframe
-  renderLiveSandboxPreview();
+  // Invalidate cached staged preview HTML when a new ZIP is loaded
+  _stagedPreviewHtmlCache = { key: null, html: null };
 
-  // Part 50: Automatically start Smart Template Recognition & Side-by-Side Comparison Studio
+  // Part 50: Start Smart Template Recognition & Side-by-Side Comparison Studio first,
+  // and stagger the secondary bottom sandbox preview so 3 iframes never compete on the main thread!
   if (typeof runSmartTemplateRecognitionStudio === "function") {
     setTimeout(() => {
       try { runSmartTemplateRecognitionStudio(packageHintName); } catch (_) {}
-    }, 20);
+    }, 15);
+    setTimeout(() => {
+      try { renderLiveSandboxPreview({ skipSideBySideSync: true }); } catch (_) {}
+    }, 650);
+  } else {
+    renderLiveSandboxPreview();
   }
 }
 
@@ -1251,7 +1257,23 @@ function renderDetectedFieldsBadges() {
 }
 
 // 4. Render In-Memory Live Sandbox Preview in iframe (with CSS, JS, Images, Audio, and Video wired)
+let _stagedPreviewHtmlCache = { key: null, html: null };
+let _uploadPreviewBlobUrl = null;
+
+function getStagedPreviewCacheKey(relationshipSlug) {
+  const fileKeys = Object.keys(currentUploadedFiles || {});
+  const visJson = JSON.stringify((uploadUtpConfigState && uploadUtpConfigState.visibilityConfig) || {});
+  const actJson = JSON.stringify((uploadUtpConfigState && uploadUtpConfigState.actionsConfig) || {});
+  const varJson = JSON.stringify((uploadUtpConfigState && uploadUtpConfigState.variantOverrides) || {});
+  const scope = (uploadUtpConfigState && uploadUtpConfigState.activeScope) || "all";
+  return [fileKeys.length, fileKeys[0] || "", relationshipSlug || "default", scope, visJson, actJson, varJson].join("|");
+}
+
 function buildClientStagedPreviewHtml(relationshipSlug = null) {
+  const cacheKey = getStagedPreviewCacheKey(relationshipSlug);
+  if (_stagedPreviewHtmlCache.key === cacheKey && _stagedPreviewHtmlCache.html) {
+    return _stagedPreviewHtmlCache.html;
+  }
   let indexContent = "";
   for (const [pathKey, data] of Object.entries(currentUploadedFiles)) {
     if (pathKey.toLowerCase() === "index.html" || pathKey.toLowerCase().endsWith("/index.html")) {
@@ -1570,25 +1592,72 @@ function buildClientStagedPreviewHtml(relationshipSlug = null) {
   indexContent = indexContent.replace(/\{\{\s*sender_name\s*\}\}/g, "Ankit Verma");
   indexContent = indexContent.replace(/\{\{\s*custom_message\s*\}\}/g, "May this special day bring you magical memories and endless joy!");
 
+  _stagedPreviewHtmlCache = { key: cacheKey, html: indexContent };
   return indexContent;
 }
 
-function renderLiveSandboxPreview() {
-  const iframe = document.getElementById("upload-preview-iframe");
-  if (!iframe) return;
+function mountHtmlIntoPreviewIframe(iframe, html, options = {}) {
+  if (!iframe || !html) return;
+  const loaderEl = options.loaderId ? document.getElementById(options.loaderId) : null;
+  if (loaderEl) loaderEl.style.opacity = "1";
 
+  const handleLoadDone = () => {
+    if (loaderEl) {
+      loaderEl.style.opacity = "0";
+      setTimeout(() => { try { loaderEl.classList.add("hidden"); } catch (_) {} }, 200);
+    }
+    if (typeof options.onLoaded === "function") {
+      try { options.onLoaded(); } catch (_) {}
+    }
+  };
+  iframe.onload = handleLoadDone;
+
+  // Solution 2: Use Blob URL streaming when allowed (offloads HTML parsing from main thread),
+  // with automatic srcdoc support for strict opaque sandboxed iframes and test environments
+  const canUseBlobStream = Boolean(
+    options.allowBlobUrl &&
+    typeof Blob !== "undefined" &&
+    typeof URL !== "undefined" &&
+    typeof URL.createObjectURL === "function"
+  );
+
+  if (canUseBlobStream) {
+    try {
+      if (_uploadPreviewBlobUrl) {
+        try { URL.revokeObjectURL(_uploadPreviewBlobUrl); } catch (_) {}
+      }
+      const blob = new Blob([html], { type: "text/html;charset=utf-8" });
+      _uploadPreviewBlobUrl = URL.createObjectURL(blob);
+      iframe.removeAttribute("srcdoc");
+      iframe.src = _uploadPreviewBlobUrl;
+      return;
+    } catch (_) {}
+  }
+
+  iframe.removeAttribute("src");
+  iframe.srcdoc = html;
+}
+
+function renderLiveSandboxPreview(opts = {}) {
   const activeScope = (uploadUtpConfigState && uploadUtpConfigState.activeScope) || "all";
-  iframe.srcdoc = buildClientStagedPreviewHtml(activeScope);
-  setTimeout(() => setSandboxViewport(currentSandboxViewportMode), 30);
 
-  // Also keep the Smart Import Studio Side-by-Side Right Panel in sync when UTP v1.2.0 config changes
+  // Keep the Smart Import Studio Side-by-Side Right Panel in sync first when UTP v1.2.0 config changes
   const sbsStagedIframe = document.getElementById("sbs-staged-preview-iframe");
-  if (sbsStagedIframe && Object.keys(currentUploadedFiles).length > 0) {
+  if (!opts.skipSideBySideSync && sbsStagedIframe && Object.keys(currentUploadedFiles).length > 0) {
     const stagedRel = (activeScope && activeScope !== "all")
       ? activeScope
       : (importStudioState.syncControls ? importStudioState.selectedVariant : importStudioState.stagedVariant);
-    sbsStagedIframe.srcdoc = buildClientStagedPreviewHtml(stagedRel);
+    mountHtmlIntoPreviewIframe(sbsStagedIframe, buildClientStagedPreviewHtml(stagedRel), {
+      loaderId: "sbs-staged-loader",
+      allowBlobUrl: false
+    });
   }
+
+  const iframe = document.getElementById("upload-preview-iframe");
+  if (!iframe) return;
+  const html = buildClientStagedPreviewHtml(activeScope);
+  mountHtmlIntoPreviewIframe(iframe, html, { allowBlobUrl: true });
+  setTimeout(() => setSandboxViewport(currentSandboxViewportMode), 30);
 }
 
 // 5. Deploy Template to Server API (Supports both Staged Draft Preview and Direct Publish)
@@ -5231,24 +5300,41 @@ async function runSmartTemplateRecognitionStudio(packageHintName = "") {
   importStudioState.abortController = controller;
 
   try {
-    const reqBody = {
-      filename,
-      intendedTargetTemplateId: importStudioState.intendedTargetTemplateId || null
-    };
-    if (currentZipBase64) {
-      reqBody.zipBase64 = currentZipBase64;
+    let fetchOptions;
+    if (currentZipRawFile && typeof FormData !== "undefined") {
+      // Stream binary ZIP directly via FormData (33% smaller network transfer & zero JSON.stringify main-thread block)
+      const formData = new FormData();
+      formData.append("file", currentZipRawFile, filename);
+      if (importStudioState.intendedTargetTemplateId) {
+        formData.append("intendedTargetTemplateId", importStudioState.intendedTargetTemplateId);
+      }
+      fetchOptions = {
+        method: "POST",
+        credentials: "include",
+        body: formData,
+        ...(controller ? { signal: controller.signal } : {})
+      };
     } else {
-      reqBody.files = serializeUploadedFilesToArray(currentUploadedFiles);
-      reqBody.filesMap = currentUploadedFiles;
+      const reqBody = {
+        filename,
+        intendedTargetTemplateId: importStudioState.intendedTargetTemplateId || null
+      };
+      if (currentZipBase64) {
+        reqBody.zipBase64 = currentZipBase64;
+      } else {
+        reqBody.files = serializeUploadedFilesToArray(currentUploadedFiles);
+        reqBody.filesMap = currentUploadedFiles;
+      }
+      fetchOptions = {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        credentials: "include",
+        body: JSON.stringify(reqBody),
+        ...(controller ? { signal: controller.signal } : {})
+      };
     }
 
-    const res = await fetch("/api/templates/import-studio/inspect", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      credentials: "include",
-      body: JSON.stringify(reqBody),
-      ...(controller ? { signal: controller.signal } : {})
-    });
+    const res = await fetch("/api/templates/import-studio/inspect", fetchOptions);
 
     const json = await res.json().catch(() => ({}));
     const data = json.data || json;
@@ -5362,17 +5448,39 @@ window.selectImportCandidateTarget = async function(templateId) {
 
 window.setSideBySideViewport = function(vp) {
   importStudioState.viewport = vp;
-  renderSmartImportStudioWorkspace();
+  // Update viewport button active states in-place without destroying/reloading iframes!
+  ["desktop", "tablet", "mobile"].forEach(mode => {
+    const btn = document.getElementById("sbs-vp-btn-" + mode);
+    if (btn) {
+      btn.className = "px-2.5 py-1 rounded " + (vp === mode ? "bg-primary text-white" : "text-on-surface-variant") + " cursor-pointer";
+    }
+  });
+  applySideBySideViewportScaling();
 };
 
 window.setSideBySideMobileTab = function(tabMode) {
   importStudioState.mobilePanelMode = tabMode;
-  renderSmartImportStudioWorkspace();
+  const leftCard = document.getElementById("sbs-left-panel-card");
+  const rightCard = document.getElementById("sbs-right-panel-card");
+  if (leftCard && rightCard) {
+    leftCard.className = (tabMode !== "staged" ? "flex" : "hidden lg:flex") + " flex-col gap-2.5 p-3 rounded-xl bg-surface-container-lowest border border-purple-500/25";
+    rightCard.className = (tabMode !== "existing" ? "flex" : "hidden lg:flex") + " flex-col gap-2.5 p-3 rounded-xl bg-surface-container-lowest border border-pink-500/30";
+    ["both", "existing", "staged"].forEach(m => {
+      const b = document.getElementById("sbs-mob-tab-" + m);
+      if (b) b.className = "px-2 py-1 rounded " + (tabMode === m ? "bg-primary text-white" : "text-outline") + " cursor-pointer";
+    });
+    setTimeout(() => { try { applySideBySideViewportScaling(); } catch (_) {} }, 20);
+  } else {
+    renderSmartImportStudioWorkspace();
+  }
 };
 
 window.toggleSideBySideSync = function(checked) {
   importStudioState.syncControls = Boolean(checked);
-  renderSmartImportStudioWorkspace();
+  if (importStudioState.syncControls) {
+    importStudioState.existingVariant = importStudioState.selectedVariant;
+    importStudioState.stagedVariant = importStudioState.selectedVariant;
+  }
 };
 
 window.setSideBySideVariant = function(side, variantSlug) {
@@ -5415,6 +5523,7 @@ function applySideBySideViewportScaling() {
     const scaledW = Math.round(targetW * scale);
     const scaledH = Math.round(targetH * scale);
 
+    wrap.style.display = "block";
     wrap.style.position = "relative";
     wrap.style.width = scaledW + "px";
     wrap.style.maxWidth = "100%";
@@ -5440,38 +5549,97 @@ if (typeof window !== "undefined" && typeof window.addEventListener === "functio
   });
 }
 
+let _sbsStaggerTimer = null;
+
+function runStaggeredSideBySideLoad(existingUrl, stagedUrl, stagedRel) {
+  if (_sbsStaggerTimer) {
+    clearTimeout(_sbsStaggerTimer);
+    _sbsStaggerTimer = null;
+  }
+
+  const stIframe = document.getElementById("sbs-staged-preview-iframe");
+  const exIframe = document.getElementById("sbs-existing-preview-iframe");
+  const stLoader = document.getElementById("sbs-staged-loader");
+  const exLoader = document.getElementById("sbs-existing-loader");
+
+  if (stLoader) {
+    stLoader.classList.remove("hidden");
+    stLoader.style.opacity = "1";
+  }
+  if (exLoader && existingUrl) {
+    exLoader.classList.remove("hidden");
+    exLoader.style.opacity = "1";
+  }
+
+  let leftStarted = false;
+  const startLeftExistingPreview = () => {
+    if (leftStarted) return;
+    leftStarted = true;
+    if (_sbsStaggerTimer) {
+      clearTimeout(_sbsStaggerTimer);
+      _sbsStaggerTimer = null;
+    }
+    if (exIframe && existingUrl) {
+      exIframe.onload = () => {
+        if (exLoader) {
+          exLoader.style.opacity = "0";
+          setTimeout(() => { try { exLoader.classList.add("hidden"); } catch (_) {} }, 180);
+        }
+      };
+      exIframe.removeAttribute("srcdoc");
+      exIframe.src = existingUrl;
+    }
+  };
+
+  // Phase 1: Render Right (Staged Uploaded ZIP) immediately so admin sees new changes first
+  if (stIframe) {
+    if (Object.keys(currentUploadedFiles).length > 0) {
+      const html = buildClientStagedPreviewHtml(stagedRel || "default");
+      mountHtmlIntoPreviewIframe(stIframe, html, {
+        loaderId: "sbs-staged-loader",
+        allowBlobUrl: false,
+        onLoaded: () => {
+          // Trigger Left Panel 80ms after Right Panel finishes initial load
+          setTimeout(startLeftExistingPreview, 80);
+        }
+      });
+    } else if (stagedUrl) {
+      stIframe.onload = () => {
+        if (stLoader) {
+          stLoader.style.opacity = "0";
+          setTimeout(() => { try { stLoader.classList.add("hidden"); } catch (_) {} }, 180);
+        }
+        setTimeout(startLeftExistingPreview, 80);
+      };
+      stIframe.removeAttribute("srcdoc");
+      stIframe.src = stagedUrl;
+    } else {
+      startLeftExistingPreview();
+    }
+  } else {
+    startLeftExistingPreview();
+  }
+
+  // Fallback timer: ensure Left Panel starts within 180ms even if Right Panel has heavy assets
+  _sbsStaggerTimer = setTimeout(startLeftExistingPreview, 180);
+  setTimeout(() => { try { applySideBySideViewportScaling(); } catch (_) {} }, 20);
+}
+
 window.refreshSideBySidePreviews = function() {
   const sData = importStudioState.sessionData;
   if (!sData) return;
-  const exIframe = document.getElementById("sbs-existing-preview-iframe");
-  const stIframe = document.getElementById("sbs-staged-preview-iframe");
   const ts = Date.now();
+  const existingRel = importStudioState.syncControls ? importStudioState.selectedVariant : importStudioState.existingVariant;
+  const stagedRel = importStudioState.syncControls ? importStudioState.selectedVariant : importStudioState.stagedVariant;
 
-  if (exIframe && sData.previewUrls?.existing) {
-    const rel = importStudioState.syncControls ? importStudioState.selectedVariant : importStudioState.existingVariant;
-    const url = appendPreviewQueryParams(sData.previewUrls.existing, {
-      rel: rel || "default",
-      ui: "1",
-      t: ts
-    });
-    exIframe.removeAttribute("srcdoc");
-    exIframe.src = url;
-  }
-  if (stIframe) {
-    const rel = importStudioState.syncControls ? importStudioState.selectedVariant : importStudioState.stagedVariant;
-    if (Object.keys(currentUploadedFiles).length > 0) {
-      stIframe.srcdoc = buildClientStagedPreviewHtml(rel || "default");
-    } else if (sData.previewUrls?.staged) {
-      const url = appendPreviewQueryParams(sData.previewUrls.staged, {
-        rel: rel || "default",
-        ui: "1",
-        t: ts
-      });
-      stIframe.removeAttribute("srcdoc");
-      stIframe.src = url;
-    }
-  }
-  setTimeout(() => { try { applySideBySideViewportScaling(); } catch (_) {} }, 30);
+  const existingUrl = sData.previewUrls?.existing
+    ? appendPreviewQueryParams(sData.previewUrls.existing, { rel: existingRel || "default", ui: "1", t: ts })
+    : null;
+  const stagedUrl = sData.previewUrls?.staged
+    ? appendPreviewQueryParams(sData.previewUrls.staged, { rel: stagedRel || "default", ui: "1", t: ts })
+    : null;
+
+  runStaggeredSideBySideLoad(existingUrl, stagedUrl, stagedRel || "default");
 };
 
 window.resetSideBySidePreviewState = function() {
@@ -5488,6 +5656,29 @@ window.toggleFileDiffViewer = function(filePath) {
     importStudioState.activeFileDiffPath = null;
   } else {
     importStudioState.activeFileDiffPath = filePath;
+  }
+  const diffBox = document.getElementById("sbs-active-diff-viewer-box");
+  const sData = importStudioState.sessionData;
+  if (diffBox && sData) {
+    const comp = sData.comparison || {};
+    const allDiffFiles = [
+      ...(comp.files?.modified || []),
+      ...(comp.files?.added || []),
+      ...(comp.files?.renamed || []).map(f => ({ ...f, path: f.oldPath + " → " + f.newPath })),
+      ...(comp.files?.removed || []),
+      ...(comp.files?.unchanged || [])
+    ];
+    const activeObj = allDiffFiles.find(f => f.path === importStudioState.activeFileDiffPath && f.diff && f.diff.diffText);
+    diffBox.innerHTML = activeObj
+      ? ('<div class="p-3 rounded-xl bg-black/80 border border-purple-500/30">' +
+          '<div class="flex items-center justify-between text-[10px] font-mono text-purple-300 mb-1.5">' +
+            '<span>Unified Text Diff — ' + escapeHtmlSafe(activeObj.path) + ' (+' + activeObj.diff.addedLines + ' / -' + activeObj.diff.removedLines + ' lines)</span>' +
+            '<button type="button" onclick="toggleFileDiffViewer(\'' + escapeQuotes(activeObj.path) + '\')" class="text-rose-300 hover:underline cursor-pointer">Close Diff</button>' +
+          '</div>' +
+          '<pre class="text-[10px] font-mono text-emerald-200 overflow-x-auto max-h-56 whitespace-pre">' + escapeHtmlSafe(activeObj.diff.diffText) + '</pre>' +
+        '</div>')
+      : "";
+    return;
   }
   renderSmartImportStudioWorkspace();
 };
@@ -5674,7 +5865,7 @@ function renderSmartImportStudioWorkspace() {
       previewDiagnosticsHtml +
       '<div class="grid grid-cols-1 lg:grid-cols-2 gap-4">' +
         '<!-- LEFT PANEL: EXISTING PUBLISHED TEMPLATE -->' +
-        '<div class="' + (showLeftPanel ? "flex" : "hidden lg:flex") + ' flex-col gap-2.5 p-3 rounded-xl bg-surface-container-lowest border border-purple-500/25">' +
+        '<div id="sbs-left-panel-card" class="' + (showLeftPanel ? "flex" : "hidden lg:flex") + ' flex-col gap-2.5 p-3 rounded-xl bg-surface-container-lowest border border-purple-500/25">' +
           '<div class="flex flex-wrap items-center justify-between gap-2">' +
             '<div>' +
               '<div class="flex items-center gap-1.5">' +
@@ -5688,9 +5879,15 @@ function renderSmartImportStudioWorkspace() {
               '</div>' +
             '</div>' +
           '</div>' +
-          '<div class="w-full bg-[#0c0618] p-1 rounded-xl overflow-hidden flex items-center justify-center">' +
+          '<div class="w-full bg-[#0c0618] p-1 rounded-xl overflow-hidden flex items-center justify-center relative">' +
             (existingIframeUrl
-              ? '<iframe id="sbs-existing-preview-iframe" src="' + escapeHtmlSafe(existingIframeUrl) + '" class="' + vpHeightClass + ' bg-black" sandbox="allow-scripts" referrerpolicy="no-referrer" title="Existing Published Template Preview"></iframe>'
+              ? '<div class="relative w-full flex items-center justify-center">' +
+                  '<div id="sbs-existing-loader" class="absolute inset-0 z-10 flex flex-col items-center justify-center bg-[#090612]/90 backdrop-blur-sm transition-opacity duration-200 pointer-events-none">' +
+                    '<span class="material-symbols-outlined text-indigo-400 text-[24px] animate-spin mb-1.5">sync</span>' +
+                    '<span class="text-[11px] font-bold text-indigo-200">Loading Published Version...</span>' +
+                  '</div>' +
+                  '<iframe id="sbs-existing-preview-iframe" data-deferred-src="' + escapeHtmlSafe(existingIframeUrl) + '" class="' + vpHeightClass + ' bg-black" sandbox="allow-scripts" referrerpolicy="no-referrer" title="Existing Published Template Preview"></iframe>' +
+                '</div>'
               : '<div class="h-[360px] flex flex-col items-center justify-center text-center p-6 text-outline text-xs">' +
                   '<span class="material-symbols-outlined text-[32px] mb-2 opacity-50">web_asset_off</span>' +
                   '<span>No existing published template selected for comparison.</span>' +
@@ -5706,7 +5903,7 @@ function renderSmartImportStudioWorkspace() {
             : '') +
         '</div>' +
         '<!-- RIGHT PANEL: UPLOADED ZIP PACKAGE (STAGED) -->' +
-        '<div class="' + (showRightPanel ? "flex" : "hidden lg:flex") + ' flex-col gap-2.5 p-3 rounded-xl bg-surface-container-lowest border border-pink-500/30">' +
+        '<div id="sbs-right-panel-card" class="' + (showRightPanel ? "flex" : "hidden lg:flex") + ' flex-col gap-2.5 p-3 rounded-xl bg-surface-container-lowest border border-pink-500/30">' +
           '<div class="flex flex-wrap items-center justify-between gap-2">' +
             '<div>' +
               '<div class="flex items-center gap-1.5">' +
@@ -5720,9 +5917,15 @@ function renderSmartImportStudioWorkspace() {
               '</div>' +
             '</div>' +
           '</div>' +
-          '<div class="w-full bg-[#0c0618] p-1 rounded-xl overflow-hidden flex items-center justify-center">' +
+          '<div class="w-full bg-[#0c0618] p-1 rounded-xl overflow-hidden flex items-center justify-center relative">' +
             ((stagedIframeUrl || Object.keys(currentUploadedFiles).length > 0)
-              ? '<iframe id="sbs-staged-preview-iframe"' + (Object.keys(currentUploadedFiles).length > 0 ? '' : (' src="' + escapeHtmlSafe(stagedIframeUrl) + '"')) + ' class="' + vpHeightClass + ' bg-black" sandbox="allow-scripts" referrerpolicy="no-referrer" title="Staged Uploaded Package Preview"></iframe>'
+              ? '<div class="relative w-full flex items-center justify-center">' +
+                  '<div id="sbs-staged-loader" class="absolute inset-0 z-10 flex flex-col items-center justify-center bg-[#090612]/90 backdrop-blur-sm transition-opacity duration-200 pointer-events-none">' +
+                    '<span class="material-symbols-outlined text-pink-400 text-[24px] animate-spin mb-1.5">sync</span>' +
+                    '<span class="text-[11px] font-bold text-pink-200">Rendering Uploaded ZIP...</span>' +
+                  '</div>' +
+                  '<iframe id="sbs-staged-preview-iframe" class="' + vpHeightClass + ' bg-black" sandbox="allow-scripts" referrerpolicy="no-referrer" title="Staged Uploaded Package Preview"></iframe>' +
+                '</div>'
               : '<div class="h-[360px] flex flex-col items-center justify-center text-center p-6 text-rose-300 text-xs">' +
                   '<span class="material-symbols-outlined text-[32px] mb-2">error</span>' +
                   '<span>Uploaded package cannot be safely rendered: ' + escapeHtmlSafe(valReport.errorMessage || "Invalid package structure") + '</span>' +
@@ -5828,6 +6031,7 @@ function renderSmartImportStudioWorkspace() {
           '</div>'
         ).join("") +
       '</div>' +
+      '<div id="sbs-active-diff-viewer-box">' +
       (activeDiffFileObj
         ? '<div class="p-3 rounded-xl bg-black/80 border border-purple-500/30">' +
             '<div class="flex items-center justify-between text-[10px] font-mono text-purple-300 mb-1.5">' +
@@ -5837,6 +6041,7 @@ function renderSmartImportStudioWorkspace() {
             '<pre class="text-[10px] font-mono text-emerald-200 overflow-x-auto max-h-56 whitespace-pre">' + escapeHtmlSafe(activeDiffFileObj.diff.diffText) + '</pre>' +
           '</div>'
         : '') +
+      '</div>' +
     '</div>';
 
   // 5. Manual Decision Bar (Option A: Update Existing, Option B: Create New, Option C: Cancel)
@@ -5895,12 +6100,8 @@ function renderSmartImportStudioWorkspace() {
     comparisonPanelHtml +
     decisionBarHtml;
 
-  // Hydrate staged iframe from in-memory uploaded files when available so all high-res images & live UTP v1.2.0 edits render immediately
-  const stIframe = document.getElementById("sbs-staged-preview-iframe");
-  if (stIframe && Object.keys(currentUploadedFiles).length > 0) {
-    stIframe.srcdoc = buildClientStagedPreviewHtml(stagedRel || "default");
-  }
-  setTimeout(() => { try { applySideBySideViewportScaling(); } catch (_) {} }, 25);
+  // Staggered Sequential Loading: Render Right (Uploaded ZIP) first, then Left (Existing Published) 80-180ms later
+  runStaggeredSideBySideLoad(existingIframeUrl, stagedIframeUrl, stagedRel || "default");
 }
 
 window.promptImportStudioDecision = async function(decisionMode) {
@@ -5966,7 +6167,6 @@ window.promptImportStudioDecision = async function(decisionMode) {
     }
 
     importStudioState.sessionData = data;
-    renderSmartImportStudioWorkspace();
     openImportPublishConfirmationModal(data);
   } catch (err) {
     alert("Error validating import decision: " + err.message);

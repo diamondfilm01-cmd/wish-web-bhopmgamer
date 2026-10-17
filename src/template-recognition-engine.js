@@ -2425,85 +2425,103 @@ export function buildSandboxedTemplatePreviewHtml({
     ''
   );
 
-  // Collect all candidate asset paths from filesMap, assetUrlMap, and manifest
-  const allAssetPaths = new Set();
+  // Build O(1) lookup table for all candidate asset paths from filesMap and assetUrlMap
+  const fastAssetMap = new Map();
+  const codeFileKeys = [];
   if (filesMap && filesMap.size > 0) {
-    for (const k of filesMap.keys()) allAssetPaths.add(k);
+    for (const k of filesMap.keys()) {
+      const cleanK = String(k).replace(/^\.?\/+/, "");
+      const lowerK = cleanK.toLowerCase();
+      if (lowerK.endsWith(".css") || ((lowerK.endsWith(".js") || lowerK.endsWith(".mjs")) && !lowerK.endsWith(".json"))) {
+        codeFileKeys.push(k);
+      } else if (!lowerK.endsWith(".html") && !lowerK.endsWith(".json")) {
+        const resolved = resolvePreviewAssetUrl(cleanK);
+        fastAssetMap.set(cleanK, resolved);
+        fastAssetMap.set(lowerK, resolved);
+      }
+    }
   }
   if (assetUrlMap) {
-    const keys = assetUrlMap instanceof Map ? Array.from(assetUrlMap.keys()) : Object.keys(assetUrlMap);
-    for (const k of keys) allAssetPaths.add(k);
+    const entries = assetUrlMap instanceof Map ? Array.from(assetUrlMap.entries()) : Object.entries(assetUrlMap);
+    for (const [k, v] of entries) {
+      if (!k || !v) continue;
+      const cleanK = String(k).replace(/^\.?\/+/, "");
+      fastAssetMap.set(cleanK, v);
+      fastAssetMap.set(cleanK.toLowerCase(), v);
+    }
   }
 
-  if (allAssetPaths.size > 0) {
-    const sortedKeys = Array.from(allAssetPaths).sort((a, b) => b.length - a.length);
-    for (const relP of sortedKeys) {
-      const fObj = filesMap && filesMap.size > 0 ? filesMap.get(relP) : null;
-      const escP = relP.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
-      const lowerP = relP.toLowerCase();
+  const lookupPreviewAssetFast = (rawRel) => {
+    const cleanRel = String(rawRel || "").replace(/^\.?\/+/, "");
+    if (!cleanRel) return null;
+    const direct = fastAssetMap.get(cleanRel) || fastAssetMap.get(cleanRel.toLowerCase());
+    if (direct) return direct;
+    if (previewBaseUrl && /^assets\//i.test(cleanRel)) {
+      return resolvePreviewAssetUrl(cleanRel);
+    }
+    return null;
+  };
 
-      if (lowerP.endsWith('.css') && fObj && (fObj.text || fObj.content)) {
-        let cssText = fObj.text ?? new TextDecoder('utf-8').decode(fObj.content);
-        for (const assetKey of sortedKeys) {
-          if (assetKey.endsWith('.css') || assetKey.endsWith('.js')) continue;
-          const escAsset = assetKey.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
-          const resolvedAsset = resolvePreviewAssetUrl(assetKey);
-          cssText = cssText.replace(
-            new RegExp(`url\\(\\s*["']?(?:\\.\\.?\\/|\\/)*${escAsset}["']?\\s*\\)`, 'gi'),
-            `url("${resolvedAsset}")`
-          );
+  for (const relP of codeFileKeys) {
+    const fObj = filesMap.get(relP);
+    if (!fObj || (!fObj.text && !fObj.content)) continue;
+    const escP = relP.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+    const lowerP = relP.toLowerCase();
+
+    if (lowerP.endsWith(".css")) {
+      let cssText = fObj.text ?? new TextDecoder("utf-8").decode(fObj.content);
+      cssText = cssText.replace(
+        /url\(\s*["']?(?:\.\.?\/|\/)*(assets\/[a-zA-Z0-9_./-]+|[a-zA-Z0-9_./-]+\.(?:png|jpe?g|gif|webp|svg|mp3|wav|ogg|m4a|mp4|webm|woff2?|ttf|otf))["']?\s*\)/gi,
+        (m, relAsset) => {
+          const resolved = lookupPreviewAssetFast(relAsset);
+          return resolved ? `url("${resolved}")` : m;
         }
-        const safeCss = cssText.replace(/<\/style>/gi, '<\\/style>');
-        const linkRegex = new RegExp(`<link[^>]+href\\s*=\\s*["'](?:\\.\\.?\\/|\\/)*${escP}["'][^>]*>`, 'gi');
-        if (linkRegex.test(renderedHtml)) {
-          renderedHtml = renderedHtml.replace(linkRegex, () => `<style data-wm-inlined="${relP}">\n${safeCss}\n</style>`);
-        } else {
-          const b64Css = typeof Buffer !== 'undefined'
-            ? Buffer.from(cssText, 'utf8').toString('base64')
-            : btoa(unescape(encodeURIComponent(cssText)));
-          renderedHtml = renderedHtml.replace(
-            new RegExp(`href\\s*=\\s*["'](?:\\.\\.?\\/|\\/)*${escP}["']`, 'gi'),
-            `href="data:text/css;base64,${b64Css}"`
-          );
-        }
-      } else if ((lowerP.endsWith('.js') || lowerP.endsWith('.mjs')) && !lowerP.endsWith('.json') && fObj && (fObj.text || fObj.content)) {
-        let jsText = fObj.text ?? new TextDecoder('utf-8').decode(fObj.content);
-        for (const assetKey of sortedKeys) {
-          if (assetKey.endsWith('.css') || assetKey.endsWith('.js') || assetKey.endsWith('.html') || assetKey.endsWith('.json')) continue;
-          const escAsset = assetKey.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
-          const resolvedAsset = resolvePreviewAssetUrl(assetKey);
-          jsText = jsText.replace(
-            new RegExp(`(["'])(?:\\.\\.?\\/|\\/)*${escAsset}\\1`, 'g'),
-            `$1${resolvedAsset}$1`
-          );
-        }
-        const safeJs = jsText.replace(/<\/script>/gi, '<\\/script>');
-        const scriptRegex = new RegExp(`<script[^>]+src\\s*=\\s*["'](?:\\.\\.?\\/|\\/)*${escP}["'][^>]*>\\s*<\\/script>`, 'gi');
-        if (scriptRegex.test(renderedHtml)) {
-          renderedHtml = renderedHtml.replace(scriptRegex, () => `<script data-wm-inlined="${relP}">\n${safeJs}\n</script>`);
-        } else {
-          const b64Js = typeof Buffer !== 'undefined'
-            ? Buffer.from(jsText, 'utf8').toString('base64')
-            : btoa(unescape(encodeURIComponent(jsText)));
-          renderedHtml = renderedHtml.replace(
-            new RegExp(`src\\s*=\\s*["'](?:\\.\\.?\\/|\\/)*${escP}["']`, 'gi'),
-            `src="data:text/javascript;base64,${b64Js}"`
-          );
-        }
-      } else if (previewBaseUrl || assetUrlMap) {
-        const targetAssetUrl = resolvePreviewAssetUrl(relP);
+      );
+      const safeCss = cssText.replace(/<\/style>/gi, "<\\/style>");
+      const linkRegex = new RegExp(`<link[^>]+href\\s*=\\s*["'](?:\\.\\.?\\/|\\/)*${escP}["'][^>]*>`, "gi");
+      if (linkRegex.test(renderedHtml)) {
+        renderedHtml = renderedHtml.replace(linkRegex, () => `<style data-wm-inlined="${relP}">\n${safeCss}\n</style>`);
+      } else {
+        const b64Css = typeof Buffer !== "undefined"
+          ? Buffer.from(cssText, "utf8").toString("base64")
+          : btoa(unescape(encodeURIComponent(cssText)));
         renderedHtml = renderedHtml.replace(
-          new RegExp(`(["'(\\s])(?:\\.\\.?\\/|\\/)*${escP}(?=["')?\\s#])`, 'gi'),
-          `$1${targetAssetUrl}`
+          new RegExp(`href\\s*=\\s*["'](?:\\.\\.?\\/|\\/)*${escP}["']`, "gi"),
+          `href="data:text/css;base64,${b64Css}"`
+        );
+      }
+    } else if ((lowerP.endsWith(".js") || lowerP.endsWith(".mjs")) && !lowerP.endsWith(".json")) {
+      let jsText = fObj.text ?? new TextDecoder("utf-8").decode(fObj.content);
+      jsText = jsText.replace(
+        /(["'])(?:\.\.?\/|\/)*(assets\/[a-zA-Z0-9_./-]+|[a-zA-Z0-9_./-]+\.(?:png|jpe?g|gif|webp|svg|mp3|wav|ogg|m4a|mp4|webm))\1/gi,
+        (m, quote, relAsset) => {
+          const resolved = lookupPreviewAssetFast(relAsset);
+          return resolved ? `${quote}${resolved}${quote}` : m;
+        }
+      );
+      const safeJs = jsText.replace(/<\/script>/gi, "<\\/script>");
+      const scriptRegex = new RegExp(`<script[^>]+src\\s*=\\s*["'](?:\\.\\.?\\/|\\/)*${escP}["'][^>]*>\\s*<\\/script>`, "gi");
+      if (scriptRegex.test(renderedHtml)) {
+        renderedHtml = renderedHtml.replace(scriptRegex, () => `<script data-wm-inlined="${relP}">\n${safeJs}\n</script>`);
+      } else {
+        const b64Js = typeof Buffer !== "undefined"
+          ? Buffer.from(jsText, "utf8").toString("base64")
+          : btoa(unescape(encodeURIComponent(jsText)));
+        renderedHtml = renderedHtml.replace(
+          new RegExp(`src\\s*=\\s*["'](?:\\.\\.?\\/|\\/)*${escP}["']`, "gi"),
+          `src="data:text/javascript;base64,${b64Js}"`
         );
       }
     }
   }
 
-  if (previewBaseUrl) {
+  if (previewBaseUrl || fastAssetMap.size > 0) {
     renderedHtml = renderedHtml.replace(
-      /(["'(\s])(?:\.\.?\/|\/)*(assets\/[a-zA-Z0-9_./-]+)(?=["')?\s#])/gi,
-      (match, prefix, relAssetPath) => `${prefix}${resolvePreviewAssetUrl(relAssetPath)}`
+      /(["'(\s])(?:\.\.?\/|\/)*(assets\/[a-zA-Z0-9_./-]+|[a-zA-Z0-9_./-]+.(?:png|jpe?g|gif|webp|svg|mp3|wav|ogg|m4a|mp4|webm|woff2?|ttf|otf))(?=["')?\s#])/gi,
+      (match, prefix, relAssetPath) => {
+        const resolved = lookupPreviewAssetFast(relAssetPath);
+        return resolved ? `${prefix}${resolved}` : match;
+      }
     );
   }
 
@@ -2917,6 +2935,8 @@ export async function loadExistingTemplatesForRecognition(db) {
 /**
  * Loads a single existing template's full comparison context (template, current version, files, variants, and stored file text when available)
  */
+const B2_IMMUTABLE_TEXT_CACHE = new Map();
+
 export async function loadSingleTemplateComparisonContext(db, templateId, env = {}) {
   if (!db || !templateId) return null;
   const tpl = await db.prepare('SELECT * FROM templates WHERE id = ? OR slug = ? LIMIT 1').bind(templateId, templateId).first().catch(() => null);
@@ -2987,29 +3007,48 @@ export async function loadSingleTemplateComparisonContext(db, templateId, env = 
   }
 
   if (storageProvider && typeof storageProvider.getObject === 'function') {
-    for (const f of files) {
+    const isCustomMockProvider = Boolean(env?.B2_STORAGE_PROVIDER);
+    const textFilesToLoad = files.filter(f => {
       const relP = String(f.relative_path || f.path || '').replace(/^\.?\/+/, '');
       const ext = relP.split('.').pop().toLowerCase();
-      if (TEXT_FILE_EXTENSIONS.has(ext) && f.storage_key && !f.storage_key.startsWith('http')) {
-        try {
+      return TEXT_FILE_EXTENSIONS.has(ext) && f.storage_key && !f.storage_key.startsWith('http');
+    });
+
+    await Promise.all(textFilesToLoad.map(async (f) => {
+      const relP = String(f.relative_path || f.path || '').replace(/^\.?\/+/, '');
+      const cacheKey = `${f.storage_key}::${f.sha256 || f.size_bytes || ''}`;
+      try {
+        let rawText = (!isCustomMockProvider && B2_IMMUTABLE_TEXT_CACHE.has(cacheKey))
+          ? B2_IMMUTABLE_TEXT_CACHE.get(cacheKey)
+          : null;
+        if (rawText === null) {
           const obj = await storageProvider.getObject({ key: f.storage_key });
           if (obj && obj.body) {
-            const rawText = typeof obj.body === 'string'
+            rawText = typeof obj.body === 'string'
               ? obj.body
               : new TextDecoder('utf-8').decode(obj.body instanceof Uint8Array ? obj.body : new Uint8Array(obj.body));
-            previewFileContentsMap.set(relP, rawText);
-            // Reverse-normalize any rewritten ImgBB CDN URLs back to their original relative paths so diffs against a new local ZIP are clean
-            let normalizedDiffText = rawText;
-            for (const [assetPath, cdnUrl] of assetUrlMap.entries()) {
-              if (assetPath.startsWith('assets/') && cdnUrl && normalizedDiffText.includes(cdnUrl)) {
-                normalizedDiffText = normalizedDiffText.split(cdnUrl).join(assetPath);
+            if (!isCustomMockProvider && rawText) {
+              if (B2_IMMUTABLE_TEXT_CACHE.size >= 200) {
+                const oldestKey = B2_IMMUTABLE_TEXT_CACHE.keys().next().value;
+                if (oldestKey) B2_IMMUTABLE_TEXT_CACHE.delete(oldestKey);
               }
+              B2_IMMUTABLE_TEXT_CACHE.set(cacheKey, rawText);
             }
-            fileContentsMap.set(relP, normalizedDiffText);
           }
-        } catch (_) {}
-      }
-    }
+        }
+        if (rawText !== null) {
+          previewFileContentsMap.set(relP, rawText);
+          // Reverse-normalize any rewritten ImgBB CDN URLs back to their original relative paths so diffs against a new local ZIP are clean
+          let normalizedDiffText = rawText;
+          for (const [assetPath, cdnUrl] of assetUrlMap.entries()) {
+            if (assetPath.startsWith('assets/') && cdnUrl && normalizedDiffText.includes(cdnUrl)) {
+              normalizedDiffText = normalizedDiffText.split(cdnUrl).join(assetPath);
+            }
+          }
+          fileContentsMap.set(relP, normalizedDiffText);
+        }
+      } catch (_) {}
+    }));
   }
 
   return {
