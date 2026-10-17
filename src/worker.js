@@ -4034,8 +4034,11 @@ async function getEffectiveEntitlement(user, env, options = {}) {
 // LIFECYCLE & ASIA/KOLKATA TIME BOUNDARY
 // ============================================================================
 
+const deletedSeedTemplateIds = new Set();
+
 function computeLifecycle(wish) {
   if (!wish) return 'active';
+  if (wish.status === 'expired' || wish.status === 'deleted') return 'expired';
   const customData = wish.customData || wish.custom_data || {};
   if (customData.isDraft || wish.status === 'draft') return 'draft';
 
@@ -4050,16 +4053,63 @@ function computeLifecycle(wish) {
 
   const [year, month, day] = dateParts;
 
-  // IST Start: year-month-day 00:00:00 IST -> UTC = IST - 5:30
-  const startOfDayUtcMs = Date.UTC(year, month - 1, day, 0, 0, 0, 0) - IST_OFFSET_MS;
-  // IST End: year-month-day 23:59:59.999 IST
-  const endOfDayUtcMs = startOfDayUtcMs + (24 * 60 * 60 * 1000) - 1;
+  // Active Window: 2 days before event_date (00:00:00 IST) through 2 days after event_date (23:59:59.999 IST)
+  const startOfDayUtcMs = Date.UTC(year, month - 1, day - 2, 0, 0, 0, 0) - IST_OFFSET_MS;
+  const endOfDayUtcMs = Date.UTC(year, month - 1, day + 3, 0, 0, 0, 0) - IST_OFFSET_MS - 1;
 
   const nowMs = Date.now();
 
   if (nowMs < startOfDayUtcMs) return 'upcoming';
   if (nowMs >= startOfDayUtcMs && nowMs <= endOfDayUtcMs) return 'active';
   return 'expired';
+}
+
+async function releaseExpiredWishSlugInDb(db, wishRow) {
+  if (!db || typeof db.prepare !== 'function' || !wishRow || !wishRow.id) return;
+  const currSlug = String(wishRow.slug || '');
+  if (!currSlug || currSlug.includes('__expired__')) return;
+  const freedSlug = `${currSlug}__expired__${wishRow.id}`;
+  try {
+    await db.prepare(
+      'UPDATE wishes SET slug = ?, status = ?, lifecycle_status = ? WHERE id = ?'
+    ).bind(freedSlug, 'expired', 'expired', wishRow.id).run();
+  } catch (_) {
+    try {
+      await db.prepare(
+        'UPDATE wishes SET slug = ?, status = ? WHERE id = ?'
+      ).bind(freedSlug, 'expired', wishRow.id).run();
+    } catch (_2) {}
+  }
+}
+
+async function findActiveOrUpcomingWishBySlug(db, candidateSlug, excludeWishId = '') {
+  if (!db || typeof db.prepare !== 'function' || !candidateSlug) return null;
+  try {
+    const stmt = db.prepare('SELECT id, user_id, slug, event_date, status, custom_data FROM wishes WHERE slug = ?').bind(candidateSlug);
+    let rows = [];
+    if (typeof stmt.all === 'function') {
+      const res = await stmt.all();
+      rows = (res && res.results) || [];
+    } else if (typeof stmt.first === 'function') {
+      const single = await stmt.first();
+      if (single) rows = [single];
+    }
+    for (const r of rows) {
+      if (excludeWishId && r.id === excludeWishId) {
+        return r;
+      }
+      if (r.event_date || r.status === 'expired' || r.status === 'deleted') {
+        const cd = safeJsonParse(r.custom_data, {});
+        const lc = computeLifecycle({ eventDate: r.event_date, customData: cd, status: r.status });
+        if (lc === 'expired' || r.status === 'expired' || r.status === 'deleted') {
+          await releaseExpiredWishSlugInDb(db, r);
+          continue;
+        }
+      }
+      return r;
+    }
+  } catch (_) {}
+  return null;
 }
 
 // ============================================================================
@@ -5390,7 +5440,7 @@ async function generateUniqueRandomWishSlug(db, config = {}) {
     }
 
     try {
-      const existing = await db.prepare('SELECT id FROM wishes WHERE slug = ? LIMIT 1').bind(candidate).first();
+      const existing = await findActiveOrUpcomingWishBySlug(db, candidate);
       if (!existing) return candidate;
     } catch (e) {
       return candidate;
@@ -6129,9 +6179,9 @@ export default {
           );
         }
 
-        // Check database for collisions
+        // Check database for collisions (expired wish links are automatically released for reuse)
         try {
-          const row = await env.DB.prepare('SELECT id, user_id FROM wishes WHERE slug = ? LIMIT 1').bind(normalizedSlug).first();
+          const row = await findActiveOrUpcomingWishBySlug(env.DB, normalizedSlug, excludeWishId);
 
           if (!row) {
             return applySecurityHeaders(
@@ -6163,7 +6213,7 @@ export default {
           for (const suffix of candidateSuffixes) {
             const altSlug = `${normalizedSlug}-${suffix}`;
             if (altSlug.length <= 80 && !RESERVED_SLUGS.has(altSlug)) {
-              const altRow = await env.DB.prepare('SELECT id FROM wishes WHERE slug = ? LIMIT 1').bind(altSlug).first();
+              const altRow = await findActiveOrUpcomingWishBySlug(env.DB, altSlug);
               if (!altRow) {
                 alternatives.push(altSlug);
                 if (alternatives.length >= 3) break;
@@ -6475,12 +6525,12 @@ export default {
           const wishId = 'wm_' + Date.now().toString(36) + '_' + Math.random().toString(36).substring(2, 6);
           const userId = user.id; // Server-authoritative creator user ID
 
-          // Compute IST expiry date (start of next day in IST)
+          // Compute IST expiry date (expires after 2 days past event_date in IST)
           const cleanDate = eventDate.includes('T') ? eventDate.split('T')[0] : eventDate.trim();
           const parts = cleanDate.split('-').map(Number);
           let expiryDate = cleanDate;
           if (parts.length === 3 && !isNaN(parts[0]) && !isNaN(parts[1]) && !isNaN(parts[2])) {
-            const nextDayMs = Date.UTC(parts[0], parts[1] - 1, parts[2] + 1, 0, 0, 0, 0) - IST_OFFSET_MS;
+            const nextDayMs = Date.UTC(parts[0], parts[1] - 1, parts[2] + 3, 0, 0, 0, 0) - IST_OFFSET_MS;
             expiryDate = new Date(nextDayMs).toISOString().split('T')[0];
           }
 
@@ -6506,7 +6556,7 @@ export default {
                 request, env
               );
             }
-            const collision = await env.DB.prepare('SELECT id FROM wishes WHERE slug = ? LIMIT 1').bind(normRequested).first();
+            const collision = await findActiveOrUpcomingWishBySlug(env.DB, normRequested);
             if (collision) {
               return applySecurityHeaders(
                 jsonError('SLUG_TAKEN', 'That link is already taken. Try another one.', 409, {}, null, requestId),
@@ -7264,8 +7314,8 @@ export default {
               request, env
             );
           }
-          const collision = await env.DB.prepare('SELECT id FROM wishes WHERE slug = ? AND id != ? LIMIT 1').bind(normRequested, existing.id).first();
-          if (collision) {
+          const collision = await findActiveOrUpcomingWishBySlug(env.DB, normRequested, existing.id);
+          if (collision && collision.id !== existing.id) {
             return applySecurityHeaders(
               jsonError('SLUG_TAKEN', 'That link is already taken. Try another one.', 409, {}, null, requestId),
               request, env
@@ -7379,8 +7429,10 @@ export default {
             customData.is_locked = true;
             customData.lock_message = 'This magical surprise will automatically unlock when the clock strikes midnight on the celebration day! ✨';
           } else if (lifecycleStatus === 'expired') {
+            await releaseExpiredWishSlugInDb(env.DB, wish);
             customData.is_expired = true;
             customData.grace_period_ended = true;
+            customData.redirect_to_home = true;
             customData.expired_message = 'This celebration keepsake has completed its active celebration cycle.';
           }
         }
@@ -7409,7 +7461,7 @@ export default {
 
       // --- Templates API ---
       else if (pathname === '/api/templates' && method === 'GET') {
-        let templates = SEED_TEMPLATES;
+        let templates = SEED_TEMPLATES.filter(t => !deletedSeedTemplateIds.has(t.id));
 
         if (env.DB && typeof env.DB.prepare === 'function') {
           try {
@@ -7456,7 +7508,7 @@ export default {
               const seenIds = new Set(dbTemplates.map(t => t.id));
               const merged = [...dbTemplates];
               for (const seed of SEED_TEMPLATES) {
-                if (!seenIds.has(seed.id)) {
+                if (!seenIds.has(seed.id) && !deletedSeedTemplateIds.has(seed.id)) {
                   merged.push(seed);
                   seenIds.add(seed.id);
                 }
@@ -9676,28 +9728,35 @@ export default {
 
       else if (pathname.match(/^\/api\/templates\/([^\/]+)\/versions\/([^\/]+)$/) && method === 'DELETE') {
         const user = await getAuthenticatedUser(request, env);
-        if (!user || user.role !== 'admin') return applySecurityHeaders(jsonError('FORBIDDEN', 'Admin privileges required', 403), request, env);
+        if (!user) return applySecurityHeaders(jsonError('AUTH_REQUIRED', 'Authentication required', 401), request, env);
+        const isAdmin = await verifyAdminRole(user, env);
+        if (!isAdmin) return applySecurityHeaders(jsonError('FORBIDDEN', 'Admin privileges required', 403), request, env);
 
         const match = pathname.match(/^\/api\/templates\/([^\/]+)\/versions\/([^\/]+)$/);
         const templateId = match[1];
         const versionId = match[2];
 
-        // Safeguard: Check for active wish references
+        // Safeguard: Check for active or upcoming future wish references (expired wishes do NOT block deletion)
         const safety = await checkTemplateVersionReferences(env.DB, versionId);
         if (!safety.canDelete && url.searchParams.get('force') !== 'true') {
-          return jsonSuccess({
+          return applySecurityHeaders(jsonSuccess({
             success: false,
             referenced: true,
             activeReferencesCount: safety.activeReferencesCount,
             message: safety.message
-          }, 200, {}, requestId);
+          }, 200, {}, requestId), request, env);
         }
 
-        // Proceed with deletion if safe or forced
-        await env.DB.prepare('DELETE FROM template_versions WHERE id = ?').bind(versionId).run();
-        // Also cleanup related files and fields
-        await env.DB.prepare('DELETE FROM template_files WHERE template_version_id = ?').bind(versionId).run();
-        await env.DB.prepare('DELETE FROM template_fields WHERE template_version_id = ?').bind(versionId).run();
+        // Remove expired/draft wishes pinned to this version before deleting version
+        if (env.DB && typeof env.DB.prepare === 'function') {
+          await env.DB.prepare('DELETE FROM wishes WHERE template_version_id = ?').bind(versionId).run().catch(() => {});
+          await env.DB.prepare('DELETE FROM template_files WHERE template_version_id = ?').bind(versionId).run().catch(() => {});
+          await env.DB.prepare('DELETE FROM template_fields WHERE template_version_id = ?').bind(versionId).run().catch(() => {});
+          await env.DB.prepare('DELETE FROM template_images WHERE template_version_id = ?').bind(versionId).run().catch(() => {});
+          await env.DB.prepare('DELETE FROM template_music WHERE template_version_id = ?').bind(versionId).run().catch(() => {});
+          await env.DB.prepare('DELETE FROM template_relationship_variants WHERE template_version_id = ?').bind(versionId).run().catch(() => {});
+          await env.DB.prepare('DELETE FROM template_versions WHERE id = ?').bind(versionId).run().catch(() => {});
+        }
 
         await createAuditLogEntry(env.DB, {
           actorId: user.id,
@@ -9718,24 +9777,72 @@ export default {
         const isAdmin = await verifyAdminRole(user, env);
         if (!isAdmin) return applySecurityHeaders(jsonError('FORBIDDEN', 'Admin role required', 403), request, env);
 
-        const templateId = sanitizeString(pathname.replace('/api/templates/', '').trim(), 60);
+        const templateId = sanitizeString(decodeURIComponent(pathname.replace('/api/templates/', '').trim()), 60);
+        const cleanSlug = templateId.replace(/^tpl_/, '').replace(/_/g, '-');
+        const familyId = `fam_${templateId.replace(/^tpl_/, '')}`;
 
-        // Safeguard: Check if active wishes are referencing this template
+        // Safeguard: Only active (within event_date -2d to +2d) or upcoming (future) wishes block deletion.
+        // Expired wishes (past event_date + 2d) do NOT block template deletion.
         if (env.DB && typeof env.DB.prepare === 'function') {
           const force = url.searchParams.get('force') === 'true';
-          if (!force) {
-            const refRow = await env.DB.prepare('SELECT COUNT(*) as count FROM wishes WHERE template_id = ?').bind(templateId).first();
-            if (refRow && refRow.count > 0) {
-              return jsonSuccess({
-                success: false,
-                referenced: true,
-                count: refRow.count,
-                message: `Cannot delete: ${refRow.count} active recipient wish(es) are currently using this template. Unpublish instead.`
-              }, 200, {}, requestId);
+          let activeOrFutureCount = 0;
+
+          try {
+            const wishStmt = env.DB.prepare(
+              'SELECT id, slug, event_date, status, custom_data FROM wishes WHERE template_id = ? OR template_id = ?'
+            ).bind(templateId, cleanSlug);
+
+            let wishList = [];
+            if (typeof wishStmt.all === 'function') {
+              const wRes = await wishStmt.all();
+              wishList = (wRes && wRes.results) || [];
             }
+
+            for (const w of wishList) {
+              if (!w) continue;
+              const st = String(w.status || '').toLowerCase();
+              if (st === 'deleted' || st === 'expired' || st === 'archived' || st === 'draft' || st === 'unpublished') {
+                continue;
+              }
+              const cd = safeJsonParse(w.custom_data, {});
+              if (cd.isDraft || w.is_draft) continue;
+
+              const lc = computeLifecycle({ eventDate: w.event_date, customData: cd, status: w.status });
+              if (lc === 'active' || lc === 'upcoming') {
+                activeOrFutureCount++;
+              } else if (lc === 'expired') {
+                await releaseExpiredWishSlugInDb(env.DB, w);
+              }
+            }
+          } catch (_) {}
+
+          if (!force && activeOrFutureCount > 0) {
+            return applySecurityHeaders(jsonSuccess({
+              success: false,
+              deleted: false,
+              referenced: true,
+              count: activeOrFutureCount,
+              message: `Cannot delete: ${activeOrFutureCount} active or upcoming future recipient wish link(s) are currently using this template. Unpublish instead.`
+            }, 200, {}, requestId), request, env);
           }
-          await env.DB.prepare('DELETE FROM templates WHERE id = ? OR slug = ?').bind(templateId, templateId).run();
+
+          // Clean up expired/draft wishes and all dependent child records so FK constraints never block deletion
+          await env.DB.prepare('DELETE FROM wishes WHERE template_id = ? OR template_id = ?').bind(templateId, cleanSlug).run().catch(() => {});
+          await env.DB.prepare('DELETE FROM template_files WHERE template_version_id IN (SELECT id FROM template_versions WHERE template_id = ? OR template_id = ?)').bind(templateId, cleanSlug).run().catch(() => {});
+          await env.DB.prepare('DELETE FROM template_fields WHERE template_version_id IN (SELECT id FROM template_versions WHERE template_id = ? OR template_id = ?)').bind(templateId, cleanSlug).run().catch(() => {});
+          await env.DB.prepare('DELETE FROM template_images WHERE template_id = ? OR template_version_id IN (SELECT id FROM template_versions WHERE template_id = ? OR template_id = ?)').bind(templateId, templateId, cleanSlug).run().catch(() => {});
+          await env.DB.prepare('DELETE FROM template_music WHERE template_version_id IN (SELECT id FROM template_versions WHERE template_id = ? OR template_id = ?)').bind(templateId, cleanSlug).run().catch(() => {});
+          await env.DB.prepare('DELETE FROM template_relationship_variants WHERE template_id = ? OR template_version_id IN (SELECT id FROM template_versions WHERE template_id = ? OR template_id = ?)').bind(templateId, templateId, cleanSlug).run().catch(() => {});
+          await env.DB.prepare('DELETE FROM template_relationships WHERE template_id = ? OR template_id = ?').bind(templateId, cleanSlug).run().catch(() => {});
+          await env.DB.prepare('DELETE FROM template_versions WHERE template_id = ? OR template_id = ? OR template_family_id = ?').bind(templateId, cleanSlug, familyId).run().catch(() => {});
+          await env.DB.prepare('DELETE FROM template_upload_operations WHERE template_id = ? OR template_family_id = ?').bind(templateId, familyId).run().catch(() => {});
+          await env.DB.prepare('DELETE FROM favorites WHERE item_id = ?').bind(templateId).run().catch(() => {});
+          await env.DB.prepare('DELETE FROM templates WHERE id = ? OR slug = ? OR id = ?').bind(templateId, templateId, cleanSlug).run().catch(() => {});
+          await env.DB.prepare('DELETE FROM template_families WHERE id = ? OR slug = ?').bind(familyId, cleanSlug).run().catch(() => {});
         }
+
+        deletedSeedTemplateIds.add(templateId);
+        inMemoryTemplateVersions.delete(`tv_${templateId}_v1`);
 
         response = jsonSuccess({ deleted: true, templateId }, 200, {}, requestId);
       }
@@ -20972,8 +21079,8 @@ export default {
       }
 
       // --- Stage 4: Dynamic Public Wish Route with Server-Side Social SEO & Exact Status Codes ---
-      if (pathname.startsWith('/w/')) {
-        const rawParam = pathname.replace(/^\/w\//, '').split('?')[0].split('#')[0].trim();
+      if (pathname.startsWith('/w/') || pathname.startsWith('/wish/')) {
+        const rawParam = pathname.replace(/^\/(?:w|wish)\//, '').split('?')[0].split('#')[0].trim();
 
         if (!rawParam) {
           return applySecurityHeaders(new Response(renderWishErrorHtml({
@@ -21028,6 +21135,14 @@ export default {
         }
 
         if (!wish) {
+          // Check if this link belonged to an expired wish whose slug was already released
+          try {
+            const expiredMatch = await env.DB.prepare('SELECT id FROM wishes WHERE slug LIKE ? LIMIT 1').bind(`${rawParam}__expired__%`).first();
+            if (expiredMatch) {
+              return Response.redirect(new URL('/', request.url).toString(), 302);
+            }
+          } catch (_) {}
+
           return applySecurityHeaders(new Response(renderWishErrorHtml({
             title: 'Celebration Link Not Found',
             heading: 'Celebration Link Not Found',
@@ -21063,6 +21178,17 @@ export default {
           }), request, env);
         }
 
+        let customData = {};
+        try {
+          customData = typeof wish.custom_data === 'string' ? JSON.parse(wish.custom_data) : (wish.custom_data || {});
+        } catch (_) {}
+
+        const evaluatedLifecycle = computeLifecycle({ eventDate: wish.event_date, customData, status: wish.status });
+        if (evaluatedLifecycle === 'expired' || wish.status === 'expired' || wish.status === 'deleted') {
+          await releaseExpiredWishSlugInDb(env.DB, wish);
+          return Response.redirect(new URL('/', request.url).toString(), 302);
+        }
+
         // Fetch wish.html template
         let htmlTemplate = '';
         if (env.ASSETS && typeof env.ASSETS.fetch === 'function') {
@@ -21083,11 +21209,6 @@ export default {
         // Increment view count asynchronously
         try {
           await env.DB.prepare('UPDATE wishes SET views = views + 1 WHERE id = ?').bind(wish.id).run();
-        } catch (_) {}
-
-        let customData = {};
-        try {
-          customData = typeof wish.custom_data === 'string' ? JSON.parse(wish.custom_data) : (wish.custom_data || {});
         } catch (_) {}
 
         const recipientName = customData.recipient_name || customData.recipientName || wish.recipient_name || 'Someone Special';

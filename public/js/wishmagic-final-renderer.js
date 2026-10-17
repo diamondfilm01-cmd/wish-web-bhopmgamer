@@ -278,10 +278,10 @@
       if (parts.length !== 3 || isNaN(parts[0]) || isNaN(parts[1]) || isNaN(parts[2])) return 'active';
 
       const now = Date.now();
-      // Asia/Kolkata (IST = UTC+5:30 = 330 mins)
+      // Asia/Kolkata (IST = UTC+5:30 = 330 mins) — Active from 2 days before to 2 days after event_date
       const istOffsetMs = 330 * 60 * 1000;
-      const startOfDayMs = Date.UTC(parts[0], parts[1] - 1, parts[2], 0, 0, 0, 0) - istOffsetMs;
-      const endOfDayMs = Date.UTC(parts[0], parts[1] - 1, parts[2] + 1, 0, 0, 0, 0) - istOffsetMs;
+      const startOfDayMs = Date.UTC(parts[0], parts[1] - 1, parts[2] - 2, 0, 0, 0, 0) - istOffsetMs;
+      const endOfDayMs = Date.UTC(parts[0], parts[1] - 1, parts[2] + 3, 0, 0, 0, 0) - istOffsetMs;
 
       if (now < startOfDayMs) return 'upcoming';
       if (now >= endOfDayMs) return 'expired';

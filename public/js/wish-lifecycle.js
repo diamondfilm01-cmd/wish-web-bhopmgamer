@@ -38,12 +38,12 @@
       day = now.getUTCDate();
     }
 
-    // 00:00:00.000 in Asia/Kolkata on special date = (UTC Date at 00:00:00) minus 5 hours 30 minutes
-    const startMs = Date.UTC(year, month - 1, day, 0, 0, 0, 0) - IST_OFFSET_MS;
+    // Active window: 2 days before special date (00:00:00.000 IST) to 2 days after special date (end of day + 2, i.e. 00:00:00.000 IST on day + 3)
+    const startMs = Date.UTC(year, month - 1, day - 2, 0, 0, 0, 0) - IST_OFFSET_MS;
 
-    // Start of the next day (00:00:00.000 IST on specialDate + 1)
+    // Start of the day after the 2-day post-event window (00:00:00.000 IST on specialDate + 3)
     // Date.UTC handles overflow of days/months automatically
-    const endMs = Date.UTC(year, month - 1, day + 1, 0, 0, 0, 0) - IST_OFFSET_MS;
+    const endMs = Date.UTC(year, month - 1, day + 3, 0, 0, 0, 0) - IST_OFFSET_MS;
 
     // Current time in IST reference
     const nowUtcMs = Date.now();

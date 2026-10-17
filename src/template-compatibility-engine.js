@@ -278,17 +278,53 @@ export function planWishMigration(sourceWish, sourceVersion, targetVersion, expl
  * @param {string} versionId - Template version ID
  * @returns {Promise<Object>} { canDelete, canArchive, activeReferencesCount, wishes }
  */
+function isWishActiveOrFutureForSafeguard(wishRow) {
+  if (!wishRow) return false;
+  const st = String(wishRow.status || '').toLowerCase();
+  if (st === 'deleted' || st === 'expired' || st === 'archived' || st === 'draft' || st === 'unpublished') {
+    return false;
+  }
+  let cd = {};
+  try {
+    cd = typeof wishRow.custom_data === 'string' ? JSON.parse(wishRow.custom_data) : (wishRow.custom_data || {});
+  } catch (_) {}
+  if (cd.isDraft || wishRow.is_draft) return false;
+
+  const rawDate = wishRow.event_date || wishRow.eventDate || cd.event_date || cd.eventDate;
+  if (!rawDate) return true;
+  const cleanDate = String(rawDate).includes('T') ? String(rawDate).split('T')[0] : String(rawDate).trim();
+  const parts = cleanDate.split('-').map(Number);
+  if (parts.length !== 3 || isNaN(parts[0]) || isNaN(parts[1]) || isNaN(parts[2])) return true;
+
+  const istOffsetMs = 330 * 60 * 1000;
+  // Active up to 2 days after event_date (23:59:59.999 IST on day + 2)
+  const endOfActiveWindowUtcMs = Date.UTC(parts[0], parts[1] - 1, parts[2] + 3, 0, 0, 0, 0) - istOffsetMs - 1;
+  return Date.now() <= endOfActiveWindowUtcMs;
+}
+
 export async function checkTemplateVersionReferences(db, versionId) {
   if (!db || typeof db.prepare !== 'function') {
     return { canDelete: true, canArchive: true, activeReferencesCount: 0, wishes: [] };
   }
 
   try {
-    const row = await db.prepare(
-      'SELECT COUNT(*) as count FROM wishes WHERE template_version_id = ? AND status != "deleted"'
-    ).bind(versionId).first();
+    let count = 0;
+    const stmt = db.prepare(
+      'SELECT id, event_date, status, custom_data FROM wishes WHERE template_version_id = ? AND status != "deleted"'
+    ).bind(versionId);
 
-    const count = Number(row?.count || 0);
+    if (typeof stmt.all === 'function') {
+      const rows = await stmt.all();
+      if (rows && Array.isArray(rows.results)) {
+        const activeOrUpcoming = rows.results.filter(isWishActiveOrFutureForSafeguard);
+        count = activeOrUpcoming.length;
+      }
+    } else if (typeof stmt.first === 'function') {
+      const row = await db.prepare(
+        'SELECT COUNT(*) as count FROM wishes WHERE template_version_id = ? AND status != "deleted"'
+      ).bind(versionId).first();
+      count = Number(row?.count || 0);
+    }
 
     return {
       canDelete: count === 0,
@@ -296,8 +332,8 @@ export async function checkTemplateVersionReferences(db, versionId) {
       activeReferencesCount: count,
       versionId,
       message: count > 0
-        ? `Cannot delete version: ${count} active wish(es) are pinned to this exact version. Archive instead.`
-        : 'Version has zero active references and is safe for cleanup.'
+        ? `Cannot delete version: ${count} active or upcoming wish(es) are pinned to this exact version. Archive instead.`
+        : 'Version has zero active or upcoming references and is safe for cleanup.'
     };
   } catch (err) {
     return {

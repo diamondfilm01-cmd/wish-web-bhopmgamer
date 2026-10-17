@@ -53,15 +53,15 @@ window.WishMagicCore = {
     }
     const targetDateObj = new Date(targetDateStr);
 
-    // Active Window: Target Date - 1 day to Target Date + 1 day
-    // We set active_from to start of previous day (00:00:00)
+    // Active Window: Target Date - 2 days to Target Date + 2 days
+    // We set active_from to start of 2 days prior (00:00:00)
     const activeFrom = new Date(targetDateObj);
-    activeFrom.setDate(activeFrom.getDate() - 1);
+    activeFrom.setDate(activeFrom.getDate() - 2);
     activeFrom.setHours(0, 0, 0, 0);
 
-    // We set active_until to end of next day (23:59:59)
+    // We set active_until to end of 2 days after (23:59:59)
     const activeUntil = new Date(targetDateObj);
-    activeUntil.setDate(activeUntil.getDate() + 1);
+    activeUntil.setDate(activeUntil.getDate() + 2);
     activeUntil.setHours(23, 59, 59, 999);
 
     const newWish = {

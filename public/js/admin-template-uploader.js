@@ -2112,32 +2112,39 @@ async function toggleTierTemplate(templateId, currentTier, currentPrice) {
 
 // 9. Safe Template Delete Action (Part 10 Section 12)
 async function deleteTemplate(templateId, name) {
-  if (!confirm(`Are you sure you want to delete template "${name}"?\n\nIf active celebration wishes are using this template, you should Unpublish it instead.`)) {
+  if (!confirm(`Are you sure you want to delete template "${name}"?\n\nNote: Expired wish links will not block deletion, but active or upcoming future wish links are protected by the safeguard.`)) {
     return;
   }
 
   try {
     let result;
-    if (window.templateRepository && typeof window.templateRepository.delete === 'function') {
-      result = await window.templateRepository.delete(templateId);
-    } else {
-      const res = await fetch(`/api/templates/${encodeURIComponent(templateId)}`, { method: 'DELETE' });
-      result = await res.json();
-    }
+    const res = await fetch(`/api/templates/${encodeURIComponent(templateId)}`, {
+      method: 'DELETE',
+      credentials: 'include'
+    });
+    result = await res.json();
 
-    if (result.success) {
-      showToast(`Template "${name}" deleted.`);
+    const isReferenced = Boolean(result && (result.referenced || (result.data && result.data.referenced)));
+    const isDeleted = Boolean(result && (result.deleted || (result.data && result.data.deleted) || (result.success && !isReferenced)));
+
+    if (isDeleted) {
+      if (typeof showToast === 'function') showToast(`Template "${name}" deleted successfully.`);
+      allAdminTemplates = (allAdminTemplates || []).filter(t => t.id !== templateId);
       await loadDynamicTemplates();
-    } else if (result.referenced) {
-      // Safety block active wishes
-      alert(`⚠️ SAFEGUARD BLOCKED DELETION:\n\n${result.message}\n\nAction: Please use the "Unpublish / Draft" button to safely hide this template from the store without breaking existing recipient links.`);
+      if (typeof renderQuickSetTemplatesList === 'function') {
+        renderQuickSetTemplatesList(allAdminTemplates);
+      }
+    } else if (isReferenced) {
+      const msg = (result.data && result.data.message) || result.message || 'Active or upcoming future recipient wishes are using this template.';
+      alert(`⚠️ SAFEGUARD BLOCKED DELETION:\n\n${msg}\n\nAction: Please use the "Unpublish / Draft" button to safely hide this template from the store while active/future links remain live.`);
     } else {
-      alert('Error deleting template: ' + (result.message || 'Unknown error'));
+      alert('Error deleting template: ' + ((result && (result.error?.message || result.message)) || 'Unknown error'));
     }
   } catch (err) {
     alert('Network error deleting template: ' + err.message);
   }
 }
+window.deleteTemplate = deleteTemplate;
 
 // 10. Open Edit Template Modal (Part 10 Section 6 & 11)
 window.openEditTemplateModal = async function(templateId) {
@@ -3669,6 +3676,9 @@ function renderQuickSetTemplatesList(templates) {
           <a href="/template/${encodeURIComponent(tpl.id)}" target="_blank" class="wm-table-action-btn" title="Preview Template">
             <span class="material-symbols-outlined text-[16px]">visibility</span>
           </a>
+          <button type="button" onclick="deleteTemplate('${tpl.id}', '${escapeQuotes(tpl.name)}')" class="p-1.5 rounded-lg bg-rose-500/15 hover:bg-rose-500/30 text-rose-400 transition cursor-pointer" title="Delete Template">
+            <span class="material-symbols-outlined text-[16px]">delete</span>
+          </button>
         </div>
       </div>
     `;

@@ -301,10 +301,10 @@ test('Part 26: Wish Lifecycle & Ownership Test Suite', async (t) => {
   const istNow = new Date(nowUtc + IST_OFFSET_MS);
   const todayStr = istNow.toISOString().split('T')[0];
 
-  const tomorrowIst = new Date(nowUtc + IST_OFFSET_MS + 24 * 3600 * 1000);
+  const tomorrowIst = new Date(nowUtc + IST_OFFSET_MS + 4 * 24 * 3600 * 1000);
   const tomorrowStr = tomorrowIst.toISOString().split('T')[0];
 
-  const yesterdayIst = new Date(nowUtc + IST_OFFSET_MS - 24 * 3600 * 1000);
+  const yesterdayIst = new Date(nowUtc + IST_OFFSET_MS - 4 * 24 * 3600 * 1000);
   const yesterdayStr = yesterdayIst.toISOString().split('T')[0];
 
   // 1. Unauthenticated requests to /api/wishes rejected

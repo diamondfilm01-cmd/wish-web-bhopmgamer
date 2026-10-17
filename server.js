@@ -5465,18 +5465,28 @@ app.delete('/api/templates/:id', (req, res) => {
       return res.status(404).json({ success: false, message: 'Template not found' });
     }
 
-    // Safety check: verify if existing user wishes reference this template
-    const wishes = getWishes();
-    const activeReferences = wishes.filter(w => w.templateId === id);
+    // Safety check: only active (within -2d to +2d of event_date) or upcoming (future) wishes block deletion
+    let wishes = getWishes();
+    const activeReferences = wishes.filter(w => {
+      if (w.templateId !== id && w.template_id !== id) return false;
+      if (w.status === 'deleted' || w.status === 'expired' || w.status === 'archived' || w.status === 'draft' || w.isDraft) return false;
+      const st = computeWishStatus(w);
+      return st === 'active' || st === 'upcoming';
+    });
 
     if (activeReferences.length > 0 && !force) {
-      return res.status(409).json({
+      return res.status(200).json({
         success: false,
+        deleted: false,
         referenced: true,
         count: activeReferences.length,
-        message: `Template is currently used by ${activeReferences.length} live celebration wishes. Please Unpublish the template instead of deleting to keep active recipient celebration links working safely.`
+        message: `Cannot delete: ${activeReferences.length} active or upcoming future celebration wish link(s) are currently using this template. Please Unpublish the template instead.`
       });
     }
+
+    // Remove expired/draft wishes referencing this deleted template so slugs are freed
+    wishes = wishes.filter(w => w.templateId !== id && w.template_id !== id);
+    saveWishes(wishes);
 
     templates = templates.filter(t => t.id !== id);
     saveTemplates(templates);
@@ -12933,10 +12943,9 @@ function computeWishStatus(wish) {
     return 'active';
   }
 
-  // 00:00:00.000 IST start
-  const startMs = Date.UTC(year, month - 1, day, 0, 0, 0, 0) - IST_OFFSET_MS;
-  // 00:00:00.000 IST start of next day (expiry moment)
-  const endMs = Date.UTC(year, month - 1, day + 1, 0, 0, 0, 0) - IST_OFFSET_MS;
+  // Active window: 2 days before eventDate (00:00:00 IST) through 2 days after eventDate (23:59:59.999 IST)
+  const startMs = Date.UTC(year, month - 1, day - 2, 0, 0, 0, 0) - IST_OFFSET_MS;
+  const endMs = Date.UTC(year, month - 1, day + 3, 0, 0, 0, 0) - IST_OFFSET_MS;
 
   const nowMs = Date.now();
 
@@ -12947,6 +12956,31 @@ function computeWishStatus(wish) {
   } else {
     return 'expired';
   }
+}
+
+function releaseExpiredServerSlugs(wishes, candidateSlug, excludeWishId = '') {
+  let mutated = false;
+  let activeCollision = null;
+  for (const w of wishes) {
+    if ((w.slug || '').toLowerCase() === candidateSlug) {
+      if (excludeWishId && w.id === excludeWishId) {
+        activeCollision = w;
+        continue;
+      }
+      const st = computeWishStatus(w);
+      if (st === 'expired' || w.status === 'expired' || w.status === 'deleted') {
+        w.slug = `${candidateSlug}__expired__${w.id}`;
+        w.status = 'expired';
+        mutated = true;
+      } else if (!activeCollision) {
+        activeCollision = w;
+      }
+    }
+  }
+  if (mutated) {
+    try { saveWishes(wishes); } catch (_) {}
+  }
+  return activeCollision;
 }
 
 // --- Smart Wish Link Settings & Random Slug Generator in Server ---
@@ -13339,7 +13373,7 @@ app.get('/api/wishes/slug-availability', (req, res) => {
     }
 
     const wishes = getWishes();
-    const existing = wishes.find(w => (w.slug || '').toLowerCase() === normalized);
+    const existing = releaseExpiredServerSlugs(wishes, normalized, excludeWishId);
 
     if (!existing) {
       return res.json({
@@ -13471,7 +13505,7 @@ app.post('/api/wishes', (req, res) => {
           }
         });
       }
-      const collision = wishes.find(w => (w.slug || '').toLowerCase() === normRequested);
+      const collision = releaseExpiredServerSlugs(wishes, normRequested);
       if (collision) {
         return res.status(409).json({
           success: false,
@@ -13532,7 +13566,7 @@ app.post('/api/wishes', (req, res) => {
         const clean = String(eventDate || '').includes('T') ? String(eventDate).split('T')[0] : String(eventDate || '').trim();
         const parts = clean.split('-').map(Number);
         if (parts.length === 3 && !isNaN(parts[0]) && !isNaN(parts[1]) && !isNaN(parts[2])) {
-          const nextDayMs = Date.UTC(parts[0], parts[1] - 1, parts[2] + 1, 0, 0, 0, 0) - (330 * 60 * 1000);
+          const nextDayMs = Date.UTC(parts[0], parts[1] - 1, parts[2] + 3, 0, 0, 0, 0) - (330 * 60 * 1000);
           return new Date(nextDayMs).toISOString().split('T')[0];
         }
         return clean;
@@ -13871,8 +13905,8 @@ app.put('/api/wishes/:id', (req, res) => {
           }
         });
       }
-      const collision = wishes.find(w => (w.slug || '').toLowerCase() === norm && w.id !== current.id);
-      if (collision) {
+      const collision = releaseExpiredServerSlugs(wishes, norm, current.id);
+      if (collision && collision.id !== current.id) {
         return res.status(409).json({
           success: false,
           error: {
@@ -14334,7 +14368,7 @@ function renderServerWishErrorHtml({ title, heading, message, code = 404, button
 }
 
 // Public Clean URL Route: /w/:id and /w/:slug with Dynamic Server-Side SEO & Social Preview Meta Injection
-app.get('/w/:id', (req, res) => {
+app.get(['/w/:id', '/wish/:id'], (req, res) => {
   const wishParam = (req.params.id || '').trim();
 
   if (!wishParam) {
@@ -14359,12 +14393,21 @@ app.get('/w/:id', (req, res) => {
   const wish = wishes.find(w => w.id === wishParam || w.slug === wishParam || w.id === 'wm_' + wishParam);
 
   if (!wish) {
+    const expiredMatch = wishes.find(w => typeof w.slug === 'string' && w.slug.startsWith(`${wishParam}__expired__`));
+    if (expiredMatch) {
+      return res.redirect(302, '/');
+    }
     return res.status(404).send(renderServerWishErrorHtml({
       title: 'Celebration Link Not Found',
       heading: 'Celebration Link Not Found',
       message: 'This wish link does not exist or was typed incorrectly. Please verify the URL with the sender!',
       code: 404
     }));
+  }
+
+  if (wish.status === 'expired' || computeWishStatus(wish) === 'expired') {
+    releaseExpiredServerSlugs(wishes, (wish.slug || '').toLowerCase());
+    return res.redirect(302, '/');
   }
 
   if (wish.status === 'archived' || wish.status === 'deleted' || wish.status === 'draft' || wish.status === 'unpublished' || Boolean(wish.isDraft)) {

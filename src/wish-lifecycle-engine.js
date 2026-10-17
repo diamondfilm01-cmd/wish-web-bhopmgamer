@@ -166,8 +166,18 @@ export async function generateUniqueSlugWithRetry(db, options = {}) {
     }
     if (!db || typeof db.prepare !== 'function') return true;
     try {
-      const row = await db.prepare('SELECT id FROM wishes WHERE slug = ? LIMIT 1').bind(norm).first();
+      const row = await db.prepare('SELECT id, event_date, status, custom_data FROM wishes WHERE slug = ? LIMIT 1').bind(norm).first();
       if (row) {
+        if (row.event_date || row.status === 'expired' || row.status === 'deleted') {
+          let cd = {};
+          try { cd = typeof row.custom_data === 'string' ? JSON.parse(row.custom_data) : (row.custom_data || {}); } catch (_) {}
+          const lc = computeWishLifecycle({ eventDate: row.event_date, customData: cd, status: row.status });
+          if (lc === 'expired' || row.status === 'expired' || row.status === 'deleted') {
+            await db.prepare('UPDATE wishes SET slug = ?, status = ? WHERE id = ?')
+              .bind(`${norm}__expired__${row.id}`, 'expired', row.id).run().catch(() => {});
+            return true;
+          }
+        }
         return false;
       }
       return true;
@@ -196,10 +206,23 @@ export async function generateUniqueSlugWithRetry(db, options = {}) {
       throw new Error('SLUG_TAKEN');
     }
 
-    if (db && typeof db.prepare === 'function') {
-      const existing = await db.prepare('SELECT id FROM wishes WHERE slug = ? LIMIT 1').bind(normalized).first();
+    if (db && typeof db.prepare !== 'function') {
+      // no-op
+    } else if (db && typeof db.prepare === 'function') {
+      const existing = await db.prepare('SELECT id, event_date, status, custom_data FROM wishes WHERE slug = ? LIMIT 1').bind(normalized).first();
       if (existing) {
-        throw new Error('SLUG_TAKEN');
+        let isExpiredExisting = existing.status === 'expired' || existing.status === 'deleted';
+        if (!isExpiredExisting && existing.event_date) {
+          let cd = {};
+          try { cd = typeof existing.custom_data === 'string' ? JSON.parse(existing.custom_data) : (existing.custom_data || {}); } catch (_) {}
+          isExpiredExisting = computeWishLifecycle({ eventDate: existing.event_date, customData: cd, status: existing.status }) === 'expired';
+        }
+        if (isExpiredExisting) {
+          await db.prepare('UPDATE wishes SET slug = ?, status = ? WHERE id = ?')
+            .bind(`${normalized}__expired__${existing.id}`, 'expired', existing.id).run().catch(() => {});
+        } else {
+          throw new Error('SLUG_TAKEN');
+        }
       }
     }
     return claimSlug(normalized);
@@ -273,10 +296,10 @@ export function getISTDateBoundaries(eventDateStr) {
   }
 
   const [year, month, day] = parts;
-  // Start of day in IST (00:00:00.000 IST)
-  const startOfDayUtcMs = Date.UTC(year, month - 1, day, 0, 0, 0, 0) - IST_OFFSET_MS;
-  // End of day in IST (23:59:59.999 IST)
-  const endOfDayUtcMs = startOfDayUtcMs + (24 * 60 * 60 * 1000) - 1;
+  // Active window starts 2 days before event_date (00:00:00.000 IST)
+  const startOfDayUtcMs = Date.UTC(year, month - 1, day - 2, 0, 0, 0, 0) - IST_OFFSET_MS;
+  // Active window ends 2 days after event_date (23:59:59.999 IST on day + 2)
+  const endOfDayUtcMs = Date.UTC(year, month - 1, day + 3, 0, 0, 0, 0) - IST_OFFSET_MS - 1;
 
   return {
     isValid: true,
@@ -288,7 +311,7 @@ export function getISTDateBoundaries(eventDateStr) {
 }
 
 /**
- * Computes the date string (YYYY-MM-DD) for the day after the selected occasion date in IST
+ * Computes the date string (YYYY-MM-DD) when the wish expires (after 2 days past the selected occasion date in IST)
  * Handles leap years, month boundaries, and year boundaries correctly
  */
 export function computeExpiryDate(eventDateStr) {
@@ -301,8 +324,8 @@ export function computeExpiryDate(eventDateStr) {
   }
 
   const [year, month, day] = parts;
-  // Day + 1 at 00:00:00 IST
-  const nextDayUtcMs = Date.UTC(year, month - 1, day + 1, 0, 0, 0, 0) - IST_OFFSET_MS;
+  // Day + 3 at 00:00:00 IST (expires after 2 full days following event_date)
+  const nextDayUtcMs = Date.UTC(year, month - 1, day + 3, 0, 0, 0, 0) - IST_OFFSET_MS;
   const nextDayIst = new Date(nextDayUtcMs + IST_OFFSET_MS);
 
   const expY = nextDayIst.getUTCFullYear();

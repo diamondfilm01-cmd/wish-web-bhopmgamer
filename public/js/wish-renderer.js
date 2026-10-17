@@ -250,8 +250,9 @@
 
     if (status === 'upcoming' && !isCreatorPreview) {
       renderUpcomingExperience(sanitizedData, template, eventDate);
-    } else if (status === 'expired' && !isCreatorPreview) {
-      renderExpiredExperience(sanitizedData, template, eventDate);
+    } else if ((status === 'expired' || sanitizedData.is_expired || sanitizedData.redirect_to_home) && !isCreatorPreview) {
+      window.location.replace('/');
+      return;
     } else {
       // ACTIVE state (or creator preview)
       renderActiveWishStoryExperience(sanitizedData, template, eventDate, isCreatorPreview);
