@@ -1691,20 +1691,70 @@ function generateUniqueWishSlug(customData = {}, template = null, existingWishes
   return slug;
 }
 
+const SERVER_TEMPLATE_FOLDER_MAP = {
+  'tpl_glitter_birthday': 'tpl_glitter_birthday',
+  'glitter-birthday-blast': 'tpl_glitter_birthday',
+  'glitter-birthday-bash-3d': 'tpl_glitter_birthday',
+  'tpl_romantic_starlight': 'tpl_romantic_scrapbook',
+  'romantic-starlight': 'tpl_romantic_scrapbook',
+  'romantic-starlight-serenade': 'tpl_romantic_scrapbook',
+  'tpl_romantic_scrapbook': 'tpl_romantic_scrapbook',
+  'starlit-romance-love-letter': 'tpl_romantic_scrapbook',
+  'tpl_golden_elegance': 'tpl_golden_anniversary',
+  'golden-elegance-anniversary': 'tpl_golden_anniversary',
+  'tpl_golden_anniversary': 'tpl_golden_anniversary',
+  'golden-memories-keepsake': 'tpl_golden_anniversary',
+  'tpl_neon_party': 'tpl_cosmic_aurora',
+  'neon-night-celebration': 'tpl_cosmic_aurora',
+  'tpl_cosmic_aurora': 'tpl_cosmic_aurora',
+  'tpl_parents_tribute': 'tpl_parents_tribute',
+  'dearest-parents-tribute': 'tpl_parents_tribute',
+  'tpl_midnight_countdown': 'tpl_midnight_countdown',
+  'midnight-celebration-countdown': 'tpl_midnight_countdown',
+  'tpl_friendship_chronicles': 'tpl_friendship_chronicles',
+  'forever-friends-funhouse': 'tpl_friendship_chronicles',
+  'tpl_festive_lights': 'tpl_golden_anniversary',
+  'royal-festival-celebration': 'tpl_golden_anniversary',
+  'tpl_test_full_sections': 'tpl_test_full_sections',
+  'tpl_test_minimal_sections': 'tpl_test_minimal_sections'
+};
+
+function resolveServerTemplateFolder(folder, slug = '', id = '') {
+  const ordered = [id, slug, folder]
+    .map(v => String(v || '').trim().replace(/^\/+/, '').replace(/^(?:templates-store|templates)\/+/, '').replace(/\/+$/, ''))
+    .filter(Boolean);
+  for (const cand of ordered) {
+    const lower = cand.toLowerCase();
+    if (SERVER_TEMPLATE_FOLDER_MAP[lower]) return SERVER_TEMPLATE_FOLDER_MAP[lower];
+    const tplPrefixed = 'tpl_' + lower.replace(/-/g, '_');
+    if (SERVER_TEMPLATE_FOLDER_MAP[tplPrefixed]) return SERVER_TEMPLATE_FOLDER_MAP[tplPrefixed];
+  }
+  return ordered[0] || 'tpl_glitter_birthday';
+}
+
 // Serve templates-store files directly
 app.use('/templates-store', express.static(STORE_DIR));
 
 // Dedicated fallback handler for /templates-store to guarantee clean standalone template preview
 app.get(['/templates-store/:templateId', '/templates-store/:templateId/*', '/templates-store/:templateId/index.html'], (req, res) => {
   const tplParam = (req.params.templateId || '').trim();
+  const subFile = (req.params[0] && !req.params[0].includes('..')) ? req.params[0].replace(/^\/+/, '') : 'index.html';
   const templates = getTemplates();
   const matchedTpl = templates.find(t => t.id === tplParam || t.folder === tplParam || t.slug === tplParam);
-  
-  if (matchedTpl && matchedTpl.folder) {
-    const targetPath = path.join(STORE_DIR, matchedTpl.folder, 'index.html');
-    if (fs.existsSync(targetPath)) {
-      return res.sendFile(targetPath);
-    }
+  const resolvedFolder = resolveServerTemplateFolder(
+    matchedTpl ? matchedTpl.folder : tplParam,
+    matchedTpl ? matchedTpl.slug : tplParam,
+    matchedTpl ? matchedTpl.id : tplParam
+  );
+
+  const targetAssetPath = path.join(STORE_DIR, resolvedFolder, subFile);
+  if (fs.existsSync(targetAssetPath) && fs.statSync(targetAssetPath).isFile()) {
+    return res.sendFile(targetAssetPath);
+  }
+
+  const targetIndexPath = path.join(STORE_DIR, resolvedFolder, 'index.html');
+  if (fs.existsSync(targetIndexPath)) {
+    return res.sendFile(targetIndexPath);
   }
 
   // Fallback to primary birthday template index.html if exists
@@ -4078,7 +4128,10 @@ app.get('/api/templates/:id', (req, res) => {
     return res.status(404).json({ success: false, message: 'Template not found' });
   }
 
-  const previewUrl = template.previewUrl || `/templates-store/${template.folder || template.slug}/${template.entryFile || template.entry_file || 'index.html'}`;
+  const resolvedFolder = resolveServerTemplateFolder(template.folder, template.slug, template.id);
+  const previewUrl = (template.previewUrl && String(template.previewUrl).includes('/versions/'))
+    ? template.previewUrl
+    : `/templates-store/${resolvedFolder}/${template.entryFile || template.entry_file || 'index.html'}`;
   const fields = template.fields || template.detectedFields || [];
   const variants = template.variants || [];
   const sections = template.sections || [];
@@ -4289,20 +4342,25 @@ app.get('/api/templates/:id/versions/:versionId/preview/*', async (req, res) => 
     const b2Config = getB2Config(process.env);
 
     if (b2Config.isConfigured) {
-      const b2Provider = B2StorageProvider.fromEnv(process.env);
-      const storageKey = `templates/fam_${id}/versions/${versionId}/runtime/${relPath.replace(/^\/+/, '')}`;
-      const obj = await b2Provider.getObject({ key: storageKey });
-      res.setHeader('Content-Type', obj.contentType || getMimeType(relPath));
-      res.setHeader('X-Frame-Options', 'SAMEORIGIN');
-      return res.send(Buffer.from(obj.body));
+      try {
+        const b2Provider = B2StorageProvider.fromEnv(process.env);
+        const storageKey = `templates/fam_${id}/versions/${versionId}/runtime/${relPath.replace(/^\/+/, '')}`;
+        const obj = await b2Provider.getObject({ key: storageKey });
+        res.setHeader('Content-Type', obj.contentType || getMimeType(relPath));
+        res.setHeader('X-Frame-Options', 'SAMEORIGIN');
+        return res.send(Buffer.from(obj.body));
+      } catch (_) {}
     }
 
-    // Local file fallback if exists in STORE_DIR
-    const localPath = path.join(STORE_DIR, id, relPath);
-    if (fs.existsSync(localPath)) {
-      res.setHeader('Content-Type', getMimeType(relPath));
-      res.setHeader('X-Frame-Options', 'SAMEORIGIN');
-      return res.sendFile(localPath);
+    // Local file fallback if exists in STORE_DIR (with canonical folder resolution)
+    const resolvedFolder = resolveServerTemplateFolder(id, id, id);
+    for (const candidateDir of [id, resolvedFolder]) {
+      const localPath = path.join(STORE_DIR, candidateDir, relPath);
+      if (fs.existsSync(localPath) && fs.statSync(localPath).isFile()) {
+        res.setHeader('Content-Type', getMimeType(relPath));
+        res.setHeader('X-Frame-Options', 'SAMEORIGIN');
+        return res.sendFile(localPath);
+      }
     }
 
     return res.status(503).json({

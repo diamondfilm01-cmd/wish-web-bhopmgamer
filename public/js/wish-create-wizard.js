@@ -688,9 +688,45 @@
     const iframe = document.getElementById('wizard-live-iframe');
     if (!iframe) return;
 
-    const tpl = state.templatesCatalog.find(t => t.id === state.selectedTemplateId) || state.templatesCatalog[0];
-    const cleanFolder = String(tpl.folder || tpl.slug || tpl.id || '').replace(/^templates-store\/+/, '');
-    const entryUrl = tpl.previewUrl || `/templates-store/${cleanFolder}/${tpl.entryFile || 'index.html'}`;
+    const WIZARD_FOLDER_MAP = {
+      'tpl_glitter_birthday': 'tpl_glitter_birthday',
+      'glitter-birthday-blast': 'tpl_glitter_birthday',
+      'glitter-birthday-bash-3d': 'tpl_glitter_birthday',
+      'tpl_romantic_starlight': 'tpl_romantic_scrapbook',
+      'romantic-starlight': 'tpl_romantic_scrapbook',
+      'romantic-starlight-serenade': 'tpl_romantic_scrapbook',
+      'tpl_romantic_scrapbook': 'tpl_romantic_scrapbook',
+      'starlit-romance-love-letter': 'tpl_romantic_scrapbook',
+      'tpl_golden_elegance': 'tpl_golden_anniversary',
+      'golden-elegance-anniversary': 'tpl_golden_anniversary',
+      'tpl_golden_anniversary': 'tpl_golden_anniversary',
+      'golden-memories-keepsake': 'tpl_golden_anniversary',
+      'tpl_neon_party': 'tpl_cosmic_aurora',
+      'neon-night-celebration': 'tpl_cosmic_aurora',
+      'tpl_cosmic_aurora': 'tpl_cosmic_aurora',
+      'tpl_parents_tribute': 'tpl_parents_tribute',
+      'dearest-parents-tribute': 'tpl_parents_tribute',
+      'tpl_midnight_countdown': 'tpl_midnight_countdown',
+      'midnight-celebration-countdown': 'tpl_midnight_countdown',
+      'tpl_friendship_chronicles': 'tpl_friendship_chronicles',
+      'forever-friends-funhouse': 'tpl_friendship_chronicles',
+      'tpl_festive_lights': 'tpl_golden_anniversary',
+      'royal-festival-celebration': 'tpl_golden_anniversary'
+    };
+    const tpl = state.templatesCatalog.find(t => t.id === state.selectedTemplateId) || state.templatesCatalog[0] || {};
+    const rawCandidates = [tpl.id, tpl.slug, tpl.folder]
+      .map(v => String(v || '').trim().replace(/^\/+/, '').replace(/^(?:templates-store|templates)\/+/, '').replace(/\/+$/, ''))
+      .filter(Boolean);
+    let cleanFolder = rawCandidates[0] || 'tpl_glitter_birthday';
+    for (const c of rawCandidates) {
+      if (WIZARD_FOLDER_MAP[c.toLowerCase()]) {
+        cleanFolder = WIZARD_FOLDER_MAP[c.toLowerCase()];
+        break;
+      }
+    }
+    const entryUrl = (tpl.previewUrl && String(tpl.previewUrl).includes('/versions/ver_'))
+      ? tpl.previewUrl
+      : `/templates-store/${cleanFolder}/${tpl.entryFile || tpl.entry_file || 'index.html'}`;
 
     if (iframe.getAttribute('data-loaded-src') !== entryUrl) {
       iframe.setAttribute('data-loaded-src', entryUrl);

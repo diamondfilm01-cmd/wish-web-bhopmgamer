@@ -427,7 +427,7 @@ async function loadTemplateManifestIfNeeded(template) {
   }
   // Try fetching wishmagic.json from templates-store
   try {
-    const folder = template.folder || template.slug || template.id;
+    const folder = resolveCanonicalCustomizeFolder(template);
     const res = await fetch(`/templates-store/${folder}/wishmagic.json`);
     if (res.ok) {
       const manifest = await res.json();
@@ -4548,14 +4548,59 @@ window.handleWatermarkRemovalToggle = function(checked) {
 // -----------------------------------------------------------------------------
 // REAL-TIME SANDBOX HYDRATION & DOM INJECTION
 // -----------------------------------------------------------------------------
+const CUSTOMIZE_TEMPLATE_FOLDER_MAP = {
+  'tpl_glitter_birthday': 'tpl_glitter_birthday',
+  'glitter-birthday-blast': 'tpl_glitter_birthday',
+  'glitter-birthday-bash-3d': 'tpl_glitter_birthday',
+  'tpl_romantic_starlight': 'tpl_romantic_scrapbook',
+  'romantic-starlight': 'tpl_romantic_scrapbook',
+  'romantic-starlight-serenade': 'tpl_romantic_scrapbook',
+  'tpl_romantic_scrapbook': 'tpl_romantic_scrapbook',
+  'starlit-romance-love-letter': 'tpl_romantic_scrapbook',
+  'tpl_golden_elegance': 'tpl_golden_anniversary',
+  'golden-elegance-anniversary': 'tpl_golden_anniversary',
+  'tpl_golden_anniversary': 'tpl_golden_anniversary',
+  'golden-memories-keepsake': 'tpl_golden_anniversary',
+  'tpl_neon_party': 'tpl_cosmic_aurora',
+  'neon-night-celebration': 'tpl_cosmic_aurora',
+  'tpl_cosmic_aurora': 'tpl_cosmic_aurora',
+  'tpl_parents_tribute': 'tpl_parents_tribute',
+  'dearest-parents-tribute': 'tpl_parents_tribute',
+  'tpl_midnight_countdown': 'tpl_midnight_countdown',
+  'midnight-celebration-countdown': 'tpl_midnight_countdown',
+  'tpl_friendship_chronicles': 'tpl_friendship_chronicles',
+  'forever-friends-funhouse': 'tpl_friendship_chronicles',
+  'tpl_festive_lights': 'tpl_golden_anniversary',
+  'royal-festival-celebration': 'tpl_golden_anniversary',
+  'tpl_test_full_sections': 'tpl_test_full_sections',
+  'tpl_test_minimal_sections': 'tpl_test_minimal_sections'
+};
+
+function resolveCanonicalCustomizeFolder(tpl) {
+  if (!tpl) return 'tpl_glitter_birthday';
+  const candidates = [tpl.id, tpl.slug, tpl.folder]
+    .map(v => String(v || '').trim().replace(/^\/+/, '').replace(/^(?:templates-store|templates)\/+/, '').replace(/\/+$/, ''))
+    .filter(Boolean);
+  for (const c of candidates) {
+    const low = c.toLowerCase();
+    if (CUSTOMIZE_TEMPLATE_FOLDER_MAP[low]) return CUSTOMIZE_TEMPLATE_FOLDER_MAP[low];
+    const prefixed = 'tpl_' + low.replace(/-/g, '_');
+    if (CUSTOMIZE_TEMPLATE_FOLDER_MAP[prefixed]) return CUSTOMIZE_TEMPLATE_FOLDER_MAP[prefixed];
+  }
+  return candidates[0] || 'tpl_glitter_birthday';
+}
+
 function loadTemplateInSandbox() {
   if (!activeTemplate) return;
 
   const container = document.getElementById('sandbox-iframe-container');
   if (!container) return;
 
-  const cleanFolder = String(activeTemplate.folder || activeTemplate.slug || activeTemplate.id || '').replace(/^templates-store\/+/, '');
-  const templateEntryUrl = activeTemplate.previewUrl || `/templates-store/${cleanFolder}/${activeTemplate.entryFile || 'index.html'}`;
+  const cleanFolder = resolveCanonicalCustomizeFolder(activeTemplate);
+  const entryFile = activeTemplate.entryFile || activeTemplate.entry_file || 'index.html';
+  const templateEntryUrl = (activeTemplate.previewUrl && String(activeTemplate.previewUrl).includes('/versions/ver_'))
+    ? activeTemplate.previewUrl
+    : `/templates-store/${cleanFolder}/${entryFile}`;
 
   container.innerHTML = `
     <iframe id="live-custom-iframe" src="${templateEntryUrl}" class="w-full h-full border-0 rounded-2xl flex-grow bg-white" title="Live Template Sandbox" sandbox="allow-scripts allow-same-origin allow-forms"></iframe>

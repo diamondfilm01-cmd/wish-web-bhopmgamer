@@ -306,6 +306,181 @@ const SEED_CATEGORIES = [
   { id: 'cat_custom', name: 'Custom Magic Cards', slug: 'custom', icon: 'auto_awesome', sortOrder: 11, isActive: true }
 ];
 
+const BUILTIN_TEMPLATE_FOLDER_MAP = {
+  'tpl_glitter_birthday': 'tpl_glitter_birthday',
+  'glitter-birthday-blast': 'tpl_glitter_birthday',
+  'glitter-birthday-bash-3d': 'tpl_glitter_birthday',
+  'glitter-birthday-bash': 'tpl_glitter_birthday',
+  'tpl_romantic_starlight': 'tpl_romantic_scrapbook',
+  'romantic-starlight': 'tpl_romantic_scrapbook',
+  'romantic-starlight-serenade': 'tpl_romantic_scrapbook',
+  'endless-love-serenade': 'tpl_romantic_scrapbook',
+  'tpl_romantic_scrapbook': 'tpl_romantic_scrapbook',
+  'starlit-romance-love-letter': 'tpl_romantic_scrapbook',
+  'tpl_golden_elegance': 'tpl_golden_anniversary',
+  'golden-elegance-anniversary': 'tpl_golden_anniversary',
+  'golden-anniversary-wishes': 'tpl_golden_anniversary',
+  'tpl_golden_anniversary': 'tpl_golden_anniversary',
+  'golden-memories-keepsake': 'tpl_golden_anniversary',
+  'tpl_neon_party': 'tpl_cosmic_aurora',
+  'neon-night-celebration': 'tpl_cosmic_aurora',
+  'purr-fect-birthday-party': 'tpl_cosmic_aurora',
+  'tpl_cosmic_aurora': 'tpl_cosmic_aurora',
+  'cosmic-aurora': 'tpl_cosmic_aurora',
+  'cosmic-birthday-aurora': 'tpl_cosmic_aurora',
+  'tpl_parents_tribute': 'tpl_parents_tribute',
+  'dearest-parents-tribute': 'tpl_parents_tribute',
+  'heartfelt-thank-you-keepsake': 'tpl_parents_tribute',
+  'tpl_midnight_countdown': 'tpl_midnight_countdown',
+  'midnight-celebration-countdown': 'tpl_midnight_countdown',
+  'grand-congratulations-finale': 'tpl_midnight_countdown',
+  'tpl_friendship_chronicles': 'tpl_friendship_chronicles',
+  'forever-friends-funhouse': 'tpl_friendship_chronicles',
+  'forever-friends-polaroid-deck': 'tpl_friendship_chronicles',
+  'tpl_festive_lights': 'tpl_golden_anniversary',
+  'royal-festival-celebration': 'tpl_golden_anniversary',
+  'royal-festival-of-lights': 'tpl_golden_anniversary',
+  'tpl_test_full_sections': 'tpl_test_full_sections',
+  'tpl_test_minimal_sections': 'tpl_test_minimal_sections'
+};
+
+function resolveCanonicalTemplateFolder(folder, slug = '', id = '') {
+  const ordered = [id, slug, folder]
+    .map(v => String(v || '').trim().replace(/^\/+/, '').replace(/^(?:templates-store|templates)\/+/, '').replace(/\/+$/, ''))
+    .filter(Boolean);
+  for (const cand of ordered) {
+    const lower = cand.toLowerCase();
+    if (BUILTIN_TEMPLATE_FOLDER_MAP[lower]) {
+      return BUILTIN_TEMPLATE_FOLDER_MAP[lower];
+    }
+    const tplPrefixed = 'tpl_' + lower.replace(/-/g, '_');
+    if (BUILTIN_TEMPLATE_FOLDER_MAP[tplPrefixed]) {
+      return BUILTIN_TEMPLATE_FOLDER_MAP[tplPrefixed];
+    }
+  }
+  const cleanFolder = String(folder || slug || id || '').trim().replace(/^\/+/, '').replace(/^(?:templates-store|templates)\/+/, '').replace(/\/+$/, '');
+  return cleanFolder || 'tpl_glitter_birthday';
+}
+
+function isSpaMainWebsiteHtml(htmlText, requestedPath = '') {
+  if (!htmlText || typeof htmlText !== 'string') return false;
+  const normReq = String(requestedPath || '').split('?')[0].replace(/\/+$/, '') || '/';
+  if (normReq === '/' || normReq === '/index.html' || normReq === '/index') return false;
+  return (
+    htmlText.includes('<title>WishMagic | Gift a Magical Web-Experience!</title>') ||
+    (htmlText.includes('id="template-preview-modal"') && htmlText.includes('initHomepageTemplates'))
+  );
+}
+
+function renderStandaloneTemplateFallbackHtml(tplMeta = {}) {
+  const title = escapeHtml(tplMeta.name || 'Interactive Celebration Wish');
+  const category = escapeHtml(tplMeta.category || 'Celebration');
+  const thumb = escapeHtml(tplMeta.thumbnail || '/assets/file_ab2082.png');
+  return `<!DOCTYPE html>
+<html lang="en" data-wm-protocol="1.0" data-wm-template-runtime="1.0">
+<head>
+  <meta charset="utf-8"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>${title} ✨</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script src="https://cdn.jsdelivr.net/npm/canvas-confetti@1.6.0/dist/confetti.browser.min.js"></script>
+  <script src="/js/wishmagic-template-protocol.js"></script>
+  <script src="/js/wishmagic-template-analyzer.js"></script>
+  <script src="/js/wishmagic-template-runtime.js"></script>
+  <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@400;600;800;900&family=Plus+Jakarta+Sans:wght@400;600;700&display=swap" rel="stylesheet"/>
+  <style>
+    body {
+      font-family: 'Plus Jakarta Sans', sans-serif;
+      background: radial-gradient(circle at 50% 20%, #3b0764 0%, #1e1b4b 60%, #030712 100%);
+      color: #ffffff;
+      min-height: 100vh;
+      overflow-x: hidden;
+    }
+  </style>
+</head>
+<body class="flex flex-col items-center justify-between min-h-screen p-4 sm:p-8 text-center select-none">
+  <main class="relative z-10 w-full max-w-lg mx-auto my-auto py-6">
+    <section data-wm-section="hero">
+      <div class="inline-flex items-center gap-2 px-4 py-1.5 rounded-full bg-white/10 border border-white/20 text-xs font-semibold text-pink-300 mb-6 backdrop-blur-md">
+        <span>✨ ${category} Experience</span>
+        <span class="text-amber-400">✦</span>
+        <span data-wm="event_date" data-wm-field="event_date">Special Day</span>
+      </div>
+      <h1 class="text-3xl sm:text-5xl font-black text-transparent bg-clip-text bg-gradient-to-r from-pink-300 via-purple-200 to-amber-200 mb-3">
+        Happy Celebration, <br/><span class="text-pink-400" data-wm="recipient_name" data-wm-field="recipient_name">Someone Special</span>!
+      </h1>
+    </section>
+    <section data-wm-section="message" class="my-4">
+      <p class="text-sm sm:text-base text-purple-200/90 max-w-md mx-auto mb-6 leading-relaxed font-medium" data-wm="custom_message" data-wm-field="custom_message">
+        May your day be filled with warm magic, sparkling smiles, and infinite moments of joy!
+      </p>
+    </section>
+    <section data-wm-section="gallery" class="my-4 p-4 rounded-3xl bg-white/10 backdrop-blur-xl border border-white/20 shadow-2xl max-w-xs mx-auto">
+      <div class="aspect-square rounded-2xl overflow-hidden bg-purple-950/60 mb-2">
+        <img class="w-full h-full object-cover" data-wm="photo_1" data-wm-field="photo_1" src="${thumb}" alt="Memory" onerror="this.src='/assets/file_ab2082.png'"/>
+      </div>
+    </section>
+    <div class="mt-6 text-xs font-semibold text-purple-300">
+      <span>With all best wishes,</span><br/>
+      <span class="text-white font-bold text-sm" data-wm="sender_name" data-wm-field="sender_name">— From Someone Who Cares</span>
+    </div>
+  </main>
+</body>
+</html>`;
+}
+
+async function fetchTemplateStoreAsset(env, request, folderOrId, relPath = 'index.html') {
+  const cleanRel = (relPath || 'index.html').replace(/^\/+/, '');
+  const resolvedFolder = resolveCanonicalTemplateFolder(folderOrId, folderOrId, folderOrId);
+  const folderCandidates = Array.from(new Set([resolvedFolder, String(folderOrId || '').replace(/^\/+/, '').replace(/^templates-store\/+/, '')].filter(Boolean)));
+
+  if (env && env.ASSETS && typeof env.ASSETS.fetch === 'function') {
+    for (const fCand of folderCandidates) {
+      const pathCandidates = [`/templates-store/${fCand}/${cleanRel}`];
+      if (cleanRel.toLowerCase() === 'index.html') {
+        pathCandidates.push(`/templates-store/${fCand}/`, `/templates-store/${fCand}`);
+      }
+      for (const pCand of pathCandidates) {
+        try {
+          let assetRes = await env.ASSETS.fetch(new Request(new URL(pCand, request.url), { method: 'GET', headers: request.headers }));
+          if (assetRes && assetRes.status >= 300 && assetRes.status < 400) {
+            const loc = assetRes.headers.get('Location');
+            if (loc) {
+              assetRes = await env.ASSETS.fetch(new Request(new URL(loc, request.url), { method: 'GET', headers: request.headers }));
+            }
+          }
+          if (assetRes && assetRes.status === 200) {
+            const ct = (assetRes.headers && assetRes.headers.get('content-type')) || getMimeType(cleanRel);
+            if (ct.includes('text/html') || cleanRel.endsWith('.html')) {
+              const htmlText = await assetRes.text();
+              if (isSpaMainWebsiteHtml(htmlText, pCand)) {
+                continue;
+              }
+              return new Response(htmlText, {
+                status: 200,
+                headers: {
+                  'Content-Type': 'text/html; charset=utf-8',
+                  'Cache-Control': 'no-cache, must-revalidate',
+                  'X-Frame-Options': 'SAMEORIGIN'
+                }
+              });
+            }
+            return new Response(assetRes.body, {
+              status: 200,
+              headers: {
+                'Content-Type': ct,
+                'Cache-Control': 'public, max-age=3600',
+                'X-Frame-Options': 'SAMEORIGIN'
+              }
+            });
+          }
+        } catch (_) {}
+      }
+    }
+  }
+  return null;
+}
+
 const SEED_TEMPLATES = [
   {
     id: 'tpl_glitter_birthday',
@@ -322,8 +497,9 @@ const SEED_TEMPLATES = [
     placement: 1,
     thumbnail: 'https://images.unsplash.com/photo-1513151233558-d860c5398176?w=600&auto=format&fit=crop&q=80',
     description: 'Vibrant celebratory birthday card with confetti burst, countdown, and music sync.',
-    folder: 'templates-store/glitter-birthday-blast',
-    entryFile: 'index.html'
+    folder: 'tpl_glitter_birthday',
+    entryFile: 'index.html',
+    previewUrl: '/templates-store/tpl_glitter_birthday/index.html'
   },
   {
     id: 'tpl_romantic_starlight',
@@ -340,8 +516,9 @@ const SEED_TEMPLATES = [
     placement: 2,
     thumbnail: 'https://images.unsplash.com/photo-1518199266791-5375a83190b7?w=600&auto=format&fit=crop&q=80',
     description: 'Dreamy starlit romantic message with floating glowing hearts and voice note keepsake.',
-    folder: 'templates-store/romantic-starlight',
-    entryFile: 'index.html'
+    folder: 'tpl_romantic_scrapbook',
+    entryFile: 'index.html',
+    previewUrl: '/templates-store/tpl_romantic_scrapbook/index.html'
   },
   {
     id: 'tpl_golden_elegance',
@@ -358,8 +535,9 @@ const SEED_TEMPLATES = [
     placement: 3,
     thumbnail: 'https://images.unsplash.com/photo-1522673607200-164d1b6ce486?w=600&auto=format&fit=crop&q=80',
     description: 'Luxurious gold foil anniversary experience with interactive love timeline and photo gallery.',
-    folder: 'templates-store/golden-elegance-anniversary',
-    entryFile: 'index.html'
+    folder: 'tpl_golden_anniversary',
+    entryFile: 'index.html',
+    previewUrl: '/templates-store/tpl_golden_anniversary/index.html'
   },
   {
     id: 'tpl_neon_party',
@@ -376,8 +554,9 @@ const SEED_TEMPLATES = [
     placement: 4,
     thumbnail: 'https://images.unsplash.com/photo-1514888286974-6c03e2ca1dba?w=600&auto=format&fit=crop&q=80',
     description: 'Playful party wish with celebratory confetti, music beats, and fun birthday energy.',
-    folder: 'templates-store/neon-night-celebration',
-    entryFile: 'index.html'
+    folder: 'tpl_cosmic_aurora',
+    entryFile: 'index.html',
+    previewUrl: '/templates-store/tpl_cosmic_aurora/index.html'
   },
   {
     id: 'tpl_parents_tribute',
@@ -394,8 +573,9 @@ const SEED_TEMPLATES = [
     placement: 5,
     thumbnail: 'https://images.unsplash.com/photo-1490750967868-88aa4486c946?w=600&auto=format&fit=crop&q=80',
     description: 'Warm floral gratitude keepsake designed to thank parents, mentors, and loved ones.',
-    folder: 'templates-store/glitter-birthday-blast',
-    entryFile: 'index.html'
+    folder: 'tpl_parents_tribute',
+    entryFile: 'index.html',
+    previewUrl: '/templates-store/tpl_parents_tribute/index.html'
   },
   {
     id: 'tpl_midnight_countdown',
@@ -412,8 +592,9 @@ const SEED_TEMPLATES = [
     placement: 6,
     thumbnail: 'https://images.unsplash.com/photo-1492684223066-81342ee5ff30?w=600&auto=format&fit=crop&q=80',
     description: 'Synchronized celebration countdown unlocking midnight fireworks and custom music.',
-    folder: 'templates-store/neon-night-celebration',
-    entryFile: 'index.html'
+    folder: 'tpl_midnight_countdown',
+    entryFile: 'index.html',
+    previewUrl: '/templates-store/tpl_midnight_countdown/index.html'
   },
   {
     id: 'tpl_friendship_chronicles',
@@ -430,8 +611,9 @@ const SEED_TEMPLATES = [
     placement: 7,
     thumbnail: 'https://images.unsplash.com/photo-1529156069898-49953e39b3ac?w=600&auto=format&fit=crop&q=80',
     description: 'Interactive polaroid memory stack with party confetti pop and upbeat friendship tunes.',
-    folder: 'templates-store/glitter-birthday-blast',
-    entryFile: 'index.html'
+    folder: 'tpl_friendship_chronicles',
+    entryFile: 'index.html',
+    previewUrl: '/templates-store/tpl_friendship_chronicles/index.html'
   },
   {
     id: 'tpl_festive_lights',
@@ -448,8 +630,9 @@ const SEED_TEMPLATES = [
     placement: 8,
     thumbnail: 'https://images.unsplash.com/photo-1534447677768-be436bb09401?w=600&auto=format&fit=crop&q=80',
     description: 'Sparkling festive celebration with golden lanterns, fireworks, and warm family wishes.',
-    folder: 'templates-store/golden-elegance-anniversary',
-    entryFile: 'index.html'
+    folder: 'tpl_golden_anniversary',
+    entryFile: 'index.html',
+    previewUrl: '/templates-store/tpl_golden_anniversary/index.html'
   }
 ];
 
@@ -740,13 +923,13 @@ function applySecurityHeaders(response, request, env) {
 
   const csp = [
     "default-src 'self'",
-    "script-src 'self' 'unsafe-inline' 'unsafe-eval' https://cdn.tailwindcss.com https://fonts.googleapis.com https://www.gstatic.com https://apis.google.com",
-    "style-src 'self' 'unsafe-inline' https://fonts.googleapis.com",
-    "font-src 'self' https://fonts.gstatic.com data:",
+    "script-src 'self' 'unsafe-inline' 'unsafe-eval' https://cdn.tailwindcss.com https://cdn.jsdelivr.net https://cdnjs.cloudflare.com https://unpkg.com https://fonts.googleapis.com https://www.gstatic.com https://apis.google.com",
+    "style-src 'self' 'unsafe-inline' https://fonts.googleapis.com https://cdn.jsdelivr.net https://cdnjs.cloudflare.com https://unpkg.com",
+    "font-src 'self' https://fonts.gstatic.com https://cdnjs.cloudflare.com data:",
     "img-src 'self' data: blob: https: https://images.unsplash.com https://api.dicebear.com https://media.wishmagic.live https://*.googleusercontent.com",
     "media-src 'self' data: blob: https: https://media.wishmagic.live",
     "connect-src 'self' https://* http://localhost:* ws://localhost:*",
-    "frame-src 'self' https://*.firebaseapp.com https://accounts.google.com",
+    "frame-src 'self' blob: data: https://*.firebaseapp.com https://accounts.google.com",
     "object-src 'none'",
     "base-uri 'self'"
   ].join('; ');
@@ -7241,8 +7424,9 @@ export default {
             if (rows.results && rows.results.length > 0) {
               const dbTemplates = rows.results.map(r => {
                 const entryFile = r.entry_file || 'index.html';
-                const folder = r.folder || r.slug || r.id;
-                const previewUrl = r.current_version_id
+                const folder = resolveCanonicalTemplateFolder(r.folder, r.slug, r.id);
+                const isB2Version = Boolean(r.current_version_id && String(r.current_version_id).startsWith('ver_'));
+                const previewUrl = isB2Version
                   ? `/api/templates/${r.id}/versions/${r.current_version_id}/preview/${entryFile}`
                   : `/templates-store/${folder}/${entryFile}`;
                 return {
@@ -8504,9 +8688,27 @@ export default {
                 }
               });
             } catch (err) {
+              const staticFallbackRes = await fetchTemplateStoreAsset(env, request, templateId, relPath);
+              if (staticFallbackRes) return staticFallbackRes;
+              if (relPath.toLowerCase().endsWith('.html')) {
+                const seedMeta = SEED_TEMPLATES.find(t => t.id === templateId || t.slug === templateId) || { name: templateId };
+                return new Response(renderStandaloneTemplateFallbackHtml(seedMeta), {
+                  status: 200,
+                  headers: { 'Content-Type': 'text/html; charset=utf-8', 'Cache-Control': 'no-cache', 'X-Frame-Options': 'SAMEORIGIN' }
+                });
+              }
               return applySecurityHeaders(jsonError('PREVIEW_FILE_NOT_FOUND', `File ${relPath} not found in B2: ${err.message}`, 404), request, env);
             }
           } else {
+            const staticFallbackRes = await fetchTemplateStoreAsset(env, request, templateId, relPath);
+            if (staticFallbackRes) return staticFallbackRes;
+            if (relPath.toLowerCase().endsWith('.html')) {
+              const seedMeta = SEED_TEMPLATES.find(t => t.id === templateId || t.slug === templateId) || { name: templateId };
+              return new Response(renderStandaloneTemplateFallbackHtml(seedMeta), {
+                status: 200,
+                headers: { 'Content-Type': 'text/html; charset=utf-8', 'Cache-Control': 'no-cache', 'X-Frame-Options': 'SAMEORIGIN' }
+              });
+            }
             return applySecurityHeaders(jsonSuccess({
               success: false,
               code: 'B2_NOT_CONFIGURED',
@@ -9647,13 +9849,17 @@ export default {
         sections = activeVer?.sections ? (typeof activeVer.sections === 'string' ? safeJsonParse(activeVer.sections, []) : activeVer.sections) : (typeof template.sections === 'string' ? safeJsonParse(template.sections, []) : (template.sections || []));
 
         // Determine preview URL
-        let previewUrl = `/templates-store/${template.folder || template.slug}/${template.entry_file || 'index.html'}`;
+        const resolvedFolder = resolveCanonicalTemplateFolder(template.folder, template.slug, template.id);
+        const entryFileName = template.entry_file || template.entryFile || 'index.html';
+        let previewUrl = `/templates-store/${resolvedFolder}/${entryFileName}`;
         if (activeVer && activeVer.storage_provider === 'b2') {
-          previewUrl = `/api/templates/${template.id}/versions/${activeVer.id}/preview/${template.entry_file || 'index.html'}`;
+          previewUrl = `/api/templates/${template.id}/versions/${activeVer.id}/preview/${entryFileName}`;
         }
 
         const enrichedTemplate = {
           ...template,
+          folder: resolvedFolder,
+          entryFile: entryFileName,
           currentVersionId: activeVer ? activeVer.id : template.current_version_id,
           version: activeVer,
           fields,
@@ -20700,7 +20906,15 @@ export default {
       }
 
       const normalizedPath = pathname.replace(/\/+$/, '') || '/';
-      const targetHtml = PRETTY_ROUTES[pathname] || PRETTY_ROUTES[normalizedPath] || (pathname.endsWith('.html') ? pathname : null);
+      const isTemplateOrApiPath =
+        pathname.startsWith('/templates-store/') ||
+        pathname.startsWith('/api/') ||
+        pathname.startsWith('/template/') ||
+        pathname.startsWith('/w/') ||
+        pathname.startsWith('/wish/');
+      const targetHtml = !isTemplateOrApiPath
+        ? (PRETTY_ROUTES[pathname] || PRETTY_ROUTES[normalizedPath] || (pathname.endsWith('.html') ? pathname : null))
+        : null;
       if (targetHtml && env.ASSETS && typeof env.ASSETS.fetch === 'function') {
         try {
           const cleanExt = (targetHtml === '/index.html') ? '/' : targetHtml.replace(/\.html$/i, '');
@@ -20714,6 +20928,10 @@ export default {
               }
             }
             if (htmlRes && htmlRes.status === 200) {
+              const bodyText = await htmlRes.clone().text().catch(() => '');
+              if (isSpaMainWebsiteHtml(bodyText, targetHtml)) {
+                continue;
+              }
               const okRes = new Response(htmlRes.body, {
                 status: 200,
                 headers: {
@@ -20976,57 +21194,85 @@ export default {
         }), request, env);
       }
 
-      // 4b. Dynamic B2 Template Store Resolver (/templates-store/:folder/:relPath)
+      // 4b. Dynamic B2 & Canonical Static Template Store Resolver (/templates-store/:folder/:relPath)
       if (!response && pathname.startsWith('/templates-store/') && (method === 'GET' || method === 'HEAD')) {
-        const storeParts = pathname.replace(/^\/templates-store\/+/, '').split('/');
+        const rawStoreSubpath = pathname.replace(/^\/templates-store\/+/, '').replace(/^templates-store\/+/, '');
+        const storeParts = rawStoreSubpath.split('/').filter(Boolean);
         const folderOrId = storeParts.shift() || '';
         const relPath = (storeParts.join('/') || 'index.html').replace(/^\/+/, '');
-        if (folderOrId && !relPath.includes('..') && env.DB && typeof env.DB.prepare === 'function') {
-          try {
-            const cleanSlug = folderOrId.replace(/^tpl_/, '');
-            const tplRow = await env.DB.prepare(
-              'SELECT id, slug, current_version_id FROM templates WHERE id = ? OR slug = ? OR folder = ? OR id = ? LIMIT 1'
-            ).bind(folderOrId, cleanSlug, folderOrId, 'tpl_' + cleanSlug).first();
+        if (folderOrId && !relPath.includes('..')) {
+          let tplRow = null;
+          if (env.DB && typeof env.DB.prepare === 'function') {
+            try {
+              const cleanSlug = folderOrId.replace(/^tpl_/, '');
+              tplRow = await env.DB.prepare(
+                'SELECT id, name, category, thumbnail, slug, folder, current_version_id FROM templates WHERE id = ? OR slug = ? OR folder = ? OR id = ? LIMIT 1'
+              ).bind(folderOrId, cleanSlug, folderOrId, 'tpl_' + cleanSlug).first();
 
-            let verRow = null;
-            if (tplRow && tplRow.current_version_id) {
-              verRow = await env.DB.prepare('SELECT * FROM template_versions WHERE id = ? LIMIT 1').bind(tplRow.current_version_id).first();
-            }
-            if (!verRow) {
-              verRow = await env.DB.prepare(
-                "SELECT * FROM template_versions WHERE (template_id = ? OR template_id = ? OR template_family_id = ?) AND storage_provider = 'b2' ORDER BY is_current DESC, version_number DESC LIMIT 1"
-              ).bind(tplRow ? tplRow.id : ('tpl_' + cleanSlug), folderOrId, 'fam_' + cleanSlug).first();
-            }
+              let verRow = null;
+              if (tplRow && tplRow.current_version_id) {
+                verRow = await env.DB.prepare('SELECT * FROM template_versions WHERE id = ? LIMIT 1').bind(tplRow.current_version_id).first();
+              }
+              if (!verRow) {
+                verRow = await env.DB.prepare(
+                  "SELECT * FROM template_versions WHERE (template_id = ? OR template_id = ? OR template_family_id = ?) AND storage_provider = 'b2' ORDER BY is_current DESC, version_number DESC LIMIT 1"
+                ).bind(tplRow ? tplRow.id : ('tpl_' + cleanSlug), folderOrId, 'fam_' + cleanSlug).first();
+              }
 
-            if (verRow && verRow.storage_provider === 'b2') {
-              const fileRow = await env.DB.prepare(
-                'SELECT storage_key, mime_type FROM template_files WHERE template_version_id = ? AND relative_path = ? LIMIT 1'
-              ).bind(verRow.id, relPath).first();
-              const targetKey = fileRow?.storage_key || (relPath === 'wishmagic.json' ? verRow.manifest_storage_key : `templates/${verRow.template_family_id || ('fam_' + cleanSlug)}/versions/${verRow.id}/runtime/${relPath}`);
-              const b2Config = getB2Config(env);
-              const injectedStorageProvider = env.B2_STORAGE_PROVIDER || null;
-              if (targetKey && (b2Config.isConfigured || injectedStorageProvider)) {
-                const b2Provider = injectedStorageProvider || B2StorageProvider.fromEnv(env);
-                const b2Res = await b2Provider.getObject({ key: targetKey });
-                if (b2Res && b2Res.body !== undefined) {
-                  const rawBody = b2Res.body instanceof Uint8Array
-                    ? b2Res.body
-                    : (typeof b2Res.body === 'string' ? new TextEncoder().encode(b2Res.body) : new Uint8Array(b2Res.body || 0));
-                  return new Response(rawBody, {
-                    status: 200,
-                    headers: {
-                      'Content-Type': b2Res.contentType || fileRow?.mime_type || getMimeType(relPath),
-                      'Content-Length': String(rawBody.byteLength),
-                      'Accept-Ranges': 'bytes',
-                      'Access-Control-Allow-Origin': '*',
-                      'Cache-Control': 'public, max-age=3600',
-                      'X-Frame-Options': 'SAMEORIGIN'
-                    }
-                  });
+              if (verRow && verRow.storage_provider === 'b2') {
+                const fileRow = await env.DB.prepare(
+                  'SELECT storage_key, mime_type FROM template_files WHERE template_version_id = ? AND relative_path = ? LIMIT 1'
+                ).bind(verRow.id, relPath).first();
+                const targetKey = fileRow?.storage_key || (relPath === 'wishmagic.json' ? verRow.manifest_storage_key : `templates/${verRow.template_family_id || ('fam_' + cleanSlug)}/versions/${verRow.id}/runtime/${relPath}`);
+                const b2Config = getB2Config(env);
+                const injectedStorageProvider = env.B2_STORAGE_PROVIDER || null;
+                if (targetKey && (b2Config.isConfigured || injectedStorageProvider)) {
+                  const b2Provider = injectedStorageProvider || B2StorageProvider.fromEnv(env);
+                  const b2Res = await b2Provider.getObject({ key: targetKey });
+                  if (b2Res && b2Res.body !== undefined) {
+                    const rawBody = b2Res.body instanceof Uint8Array
+                      ? b2Res.body
+                      : (typeof b2Res.body === 'string' ? new TextEncoder().encode(b2Res.body) : new Uint8Array(b2Res.body || 0));
+                    return new Response(rawBody, {
+                      status: 200,
+                      headers: {
+                        'Content-Type': b2Res.contentType || fileRow?.mime_type || getMimeType(relPath),
+                        'Content-Length': String(rawBody.byteLength),
+                        'Accept-Ranges': 'bytes',
+                        'Access-Control-Allow-Origin': '*',
+                        'Cache-Control': 'public, max-age=3600',
+                        'X-Frame-Options': 'SAMEORIGIN'
+                      }
+                    });
+                  }
                 }
               }
-            }
-          } catch (_) {}
+            } catch (_) {}
+          }
+
+          // Resolve static template asset via canonical folder mapping (prevents SPA fallback to /index.html)
+          const staticStoreRes = await fetchTemplateStoreAsset(
+            env,
+            request,
+            resolveCanonicalTemplateFolder(tplRow?.folder || folderOrId, tplRow?.slug || folderOrId, tplRow?.id || folderOrId),
+            relPath
+          );
+          if (staticStoreRes) {
+            return applySecurityHeaders(staticStoreRes, request, env);
+          }
+
+          // If entry HTML was requested and not found in B2 or ASSETS, serve standalone interactive template preview
+          if (relPath.toLowerCase().endsWith('.html')) {
+            const seedMeta = tplRow || SEED_TEMPLATES.find(t => t.id === folderOrId || t.slug === folderOrId || t.folder === folderOrId) || { name: folderOrId };
+            return applySecurityHeaders(new Response(renderStandaloneTemplateFallbackHtml(seedMeta), {
+              status: 200,
+              headers: {
+                'Content-Type': 'text/html; charset=utf-8',
+                'Cache-Control': 'no-cache, must-revalidate',
+                'X-Frame-Options': 'SAMEORIGIN'
+              }
+            }), request, env);
+          }
         }
       }
 

@@ -187,6 +187,16 @@ const PUBLIC_PAGES_MAP = {
  * Fetches a static HTML file from Cloudflare Pages ASSETS or context.next
  * while resolving Clean-URL 308 redirects internally so the browser NEVER gets a redirect loop.
  */
+function isMainSiteSpaFallbackHtml(htmlText, requestedPath) {
+  if (!htmlText || typeof htmlText !== 'string') return false;
+  const normReq = String(requestedPath || '').split('?')[0].replace(/\/+$/, '') || '/';
+  if (normReq === '/' || normReq === '/index.html' || normReq === '/index') return false;
+  return (
+    htmlText.includes('<title>WishMagic | Gift a Magical Web-Experience!</title>') ||
+    (htmlText.includes('id="template-preview-modal"') && htmlText.includes('initHomepageTemplates'))
+  );
+}
+
 async function serveHtmlAsset(context, targetHtmlFile, search = '') {
   const cleanExtPath = (targetHtmlFile === '/index.html') ? '/' : targetHtmlFile.replace(/\.html$/i, '');
   const candidates = [targetHtmlFile + search, cleanExtPath + search];
@@ -214,6 +224,10 @@ async function serveHtmlAsset(context, targetHtmlFile, search = '') {
         }
       }
       if (res && res.status === 200) {
+        const bodyText = await res.clone().text().catch(() => '');
+        if (isMainSiteSpaFallbackHtml(bodyText, targetHtmlFile)) {
+          continue;
+        }
         const headers = new Headers(res.headers);
         headers.set('Content-Type', 'text/html; charset=utf-8');
         headers.set('Cache-Control', 'no-cache, must-revalidate');
@@ -285,13 +299,22 @@ export async function onRequest(context) {
     if (adminHtml) return adminHtml;
   }
 
-  const targetPublicFile = PUBLIC_PAGES_MAP[cleanPath] || PUBLIC_PAGES_MAP[pathname] || (pathname.endsWith('.html') ? pathname : null);
+  const isDynamicOrTemplateRoute =
+    pathname.startsWith('/api/') ||
+    pathname.startsWith('/templates-store/') ||
+    pathname.startsWith('/template/') ||
+    pathname.startsWith('/w/') ||
+    pathname.startsWith('/wish/');
+
+  const targetPublicFile = !isDynamicOrTemplateRoute
+    ? (PUBLIC_PAGES_MAP[cleanPath] || PUBLIC_PAGES_MAP[pathname] || (pathname.endsWith('.html') ? pathname : null))
+    : null;
   if (targetPublicFile) {
     const pubHtml = await serveHtmlAsset(context, targetPublicFile, url.search);
     if (pubHtml) return pubHtml;
   }
 
-  if (pathname.startsWith('/template/')) {
+  if (pathname.startsWith('/template/') || pathname === '/template-preview' || pathname === '/template-preview/') {
     const tplHtml = await serveHtmlAsset(context, '/template-preview.html', url.search);
     if (tplHtml) return tplHtml;
   }
@@ -311,6 +334,15 @@ export async function onRequest(context) {
           const loc = res.headers.get('Location');
           if (loc) {
             res = await rawFetcher(new Request(new URL(loc, context.request.url), { method: 'GET', headers: context.request.headers }));
+          }
+        }
+        if (res && res.status === 200 && reqUrl.pathname !== '/' && reqUrl.pathname !== '/index.html') {
+          const ct = (res.headers && res.headers.get('content-type')) || '';
+          if (ct.includes('text/html') || reqUrl.pathname.endsWith('.html') || reqUrl.pathname.startsWith('/templates-store/')) {
+            const cloneText = await res.clone().text().catch(() => '');
+            if (isMainSiteSpaFallbackHtml(cloneText, reqUrl.pathname)) {
+              return new Response('Not Found', { status: 404, headers: { 'Content-Type': 'text/plain; charset=utf-8' } });
+            }
           }
         }
         return res;
