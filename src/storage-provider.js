@@ -1039,22 +1039,22 @@ export class B2StorageProvider extends StorageProvider {
    * Resolves fileId via native B2 listing when not supplied, checks application permissions,
    * and reports remaining older versions.
    */
-  async deleteObject({ key, fileId = null }) {
+  async deleteObject({ key, fileId = null, skipPostCheck = false }) {
     if (!key) throw new Error('Object key is required for deletion');
 
     let auth = await this.authorizeAccount();
     let targetFileId = fileId;
     let existingVersions = [];
 
-    // Resolve targetFileId and check existence via native b2_list_file_versions
-    try {
-      const versionsData = await this.listFileVersions({ prefix: key, maxKeys: 100 });
-      existingVersions = (versionsData.files || []).filter(f => f.fileName === key);
-    } catch (listErr) {
-      console.warn('[B2 deleteObject] listFileVersions lookup warning:', listErr.message);
-    }
-
+    // Only call listFileVersions before delete when fileId was not supplied
     if (!targetFileId) {
+      try {
+        const versionsData = await this.listFileVersions({ prefix: key, maxKeys: 100 });
+        existingVersions = (versionsData.files || []).filter(f => f.fileName === key);
+      } catch (listErr) {
+        console.warn('[B2 deleteObject] listFileVersions lookup warning:', listErr.message);
+      }
+
       if (existingVersions.length > 0) {
         // Find newest active version (action !== 'hide') or newest version
         const activeVer = existingVersions.find(v => v.action !== 'hide') || existingVersions[0];
@@ -1151,14 +1151,16 @@ export class B2StorageProvider extends StorageProvider {
       throw err;
     }
 
-    // Inspect remaining versions for this key
+    // Inspect remaining versions for this key (skipped during bulk prefix sweeps to save subrequests)
     let remainingVersionsCount = 0;
-    try {
-      const remainingData = await this.listFileVersions({ prefix: key, maxKeys: 100 });
-      const remainingFiles = (remainingData.files || []).filter(f => f.fileName === key && f.fileId !== targetFileId && f.action !== 'hide');
-      remainingVersionsCount = remainingFiles.length;
-    } catch (_) {
-      remainingVersionsCount = Math.max(0, existingVersions.length - 1);
+    if (!skipPostCheck) {
+      try {
+        const remainingData = await this.listFileVersions({ prefix: key, maxKeys: 100 });
+        const remainingFiles = (remainingData.files || []).filter(f => f.fileName === key && f.fileId !== targetFileId && f.action !== 'hide');
+        remainingVersionsCount = remainingFiles.length;
+      } catch (_) {
+        remainingVersionsCount = Math.max(0, existingVersions.length - 1);
+      }
     }
 
     const allVersionsDeleted = remainingVersionsCount === 0;
@@ -1174,6 +1176,79 @@ export class B2StorageProvider extends StorageProvider {
         ? `Object "${key}" (version ${targetFileId}) permanently deleted from Backblaze B2.`
         : `Object version ${targetFileId} deleted. ${remainingVersionsCount} older version(s) remain in bucket.`
     };
+  }
+
+  /**
+   * Permanently deletes all object versions under a prefix in Backblaze B2 (e.g. templates/<familyId>/)
+   */
+  async deletePrefix({ prefix, excludeKeys = null }) {
+    const cleanPrefix = String(prefix || '').replace(/^\/+/, '');
+    if (!cleanPrefix) return { deletedCount: 0, errors: [] };
+    const excludedSet = excludeKeys instanceof Set ? excludeKeys : new Set(Array.isArray(excludeKeys) ? excludeKeys : []);
+    const targets = [];
+    const seenPairs = new Set();
+
+    try {
+      if (typeof this.listFileVersions === 'function') {
+        let startFileName = null;
+        let startFileId = null;
+        for (let page = 0; page < 5; page++) {
+          const verRes = await this.listFileVersions({
+            prefix: cleanPrefix,
+            startFileName,
+            startFileId,
+            maxKeys: 1000
+          });
+          const files = verRes?.files || [];
+          for (const f of files) {
+            const k = f.fileName || f.key;
+            if (!k || !k.startsWith(cleanPrefix) || excludedSet.has(k)) continue;
+            const pairKey = `${k}::${f.fileId || ''}`;
+            if (!seenPairs.has(pairKey)) {
+              seenPairs.add(pairKey);
+              targets.push({ key: k, fileId: f.fileId || null });
+            }
+          }
+          if (!verRes?.nextFileName) break;
+          startFileName = verRes.nextFileName;
+          startFileId = verRes.nextFileId || null;
+        }
+      }
+    } catch (_) {}
+
+    if (targets.length === 0 && typeof this.listObjects === 'function') {
+      try {
+        const listRes = await this.listObjects({ prefix: cleanPrefix, maxKeys: 1000 });
+        for (const f of (listRes?.files || [])) {
+          const k = f.key || f.fileName;
+          if (!k || !k.startsWith(cleanPrefix) || excludedSet.has(k)) continue;
+          const pairKey = `${k}::${f.fileId || ''}`;
+          if (!seenPairs.has(pairKey)) {
+            seenPairs.add(pairKey);
+            targets.push({ key: k, fileId: f.fileId || null });
+          }
+        }
+      } catch (_) {}
+    }
+
+    let deletedCount = 0;
+    const errors = [];
+    const BATCH_SIZE = 8;
+    for (let i = 0; i < targets.length; i += BATCH_SIZE) {
+      const batch = targets.slice(i, i + BATCH_SIZE);
+      await Promise.all(batch.map(async (item) => {
+        try {
+          const res = await this.deleteObject({ key: item.key, fileId: item.fileId, skipPostCheck: true });
+          if (res && (res.remoteDeleted || res.deleted || res.success)) {
+            deletedCount++;
+          }
+        } catch (err) {
+          errors.push({ key: item.key, error: err?.message || String(err) });
+        }
+      }));
+    }
+
+    return { deletedCount, totalFound: targets.length, errors };
   }
 
   /**

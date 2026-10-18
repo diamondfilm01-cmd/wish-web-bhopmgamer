@@ -209,7 +209,7 @@ window.WishMagicCore = {
   }
 
   function normalizeRelationSlug(relInput) {
-    const raw = String(relInput || '').trim().toLowerCase();
+    const raw = String(relInput || '').normalize('NFD').replace(/[\u0300-\u036f]/g, '').trim().toLowerCase();
     if (!raw || raw === 'all') return '';
     if (CANONICAL_RELATION_LABELS[raw]) return CANONICAL_RELATION_LABELS[raw].slug;
     const stripped = raw.replace(/^rel_/, '').replace(/[^a-z0-9]+/g, '_').replace(/^_+|_+$/g, '');

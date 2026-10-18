@@ -4145,8 +4145,31 @@ async function recordPermanentTemplateDeletion(env, templateId, cleanSlug) {
   }
 }
 
+function expandCandidateTemplateIdentifiers(templateId, cleanSlug) {
+  const rawSet = new Set();
+  for (const val of [templateId, cleanSlug]) {
+    if (!val) continue;
+    const s = String(val).trim();
+    if (!s) continue;
+    rawSet.add(s);
+    const bare = s.replace(/^(?:tpl_|fam_)/i, '');
+    if (bare) {
+      rawSet.add(bare);
+      const hyph = bare.replace(/_/g, '-');
+      const under = bare.replace(/-/g, '_');
+      rawSet.add(hyph);
+      rawSet.add(under);
+      rawSet.add(`tpl_${hyph}`);
+      rawSet.add(`tpl_${under}`);
+      rawSet.add(`fam_${hyph}`);
+      rawSet.add(`fam_${under}`);
+    }
+  }
+  return Array.from(rawSet);
+}
+
 async function clearPermanentTemplateDeletion(env, templateId, cleanSlug) {
-  const idsToClear = [templateId, cleanSlug].filter(Boolean);
+  const idsToClear = expandCandidateTemplateIdentifiers(templateId, cleanSlug);
   for (const item of idsToClear) {
     deletedSeedTemplateIds.delete(item);
   }
@@ -4157,6 +4180,392 @@ async function clearPermanentTemplateDeletion(env, templateId, cleanSlug) {
       }
     } catch (_) {}
   }
+}
+
+let _lastB2OrphanRecoveryTs = 0;
+
+/**
+ * Self-heals uploaded templates in D1 & B2 so that any template whose files exist in B2/D1
+ * is properly linked, published, and never ghost-hidden by stale deleted_templates tombstones
+ * or interrupted D1 batches.
+ */
+async function reconcileUploadedTemplatesInD1(env, { allowB2Scan = true } = {}) {
+  if (!env || !env.DB || typeof env.DB.prepare !== 'function') return;
+  try {
+    const db = env.DB;
+    const nowIso = new Date().toISOString();
+    const seedIdSet = new Set();
+    for (const s of SEED_TEMPLATES) {
+      if (s.id) seedIdSet.add(s.id);
+      if (s.slug) seedIdSet.add(s.slug);
+    }
+
+    // 1. Load existing templates, versions, and deleted_templates
+    const tplRowsRes = await db.prepare('SELECT * FROM templates').all().catch(() => ({ results: [] }));
+    const tplRows = tplRowsRes?.results || [];
+    const tplById = new Map();
+    const tplBySlug = new Map();
+    for (const r of tplRows) {
+      if (r.id) tplById.set(r.id, r);
+      if (r.slug) tplBySlug.set(r.slug, r);
+    }
+
+    // Clear stale deleted_templates tombstones for any non-seed template row that actually exists in templates table
+    for (const r of tplRows) {
+      const isSeed = seedIdSet.has(r.id) || seedIdSet.has(r.slug);
+      const isUploadedB2 = Boolean((r.current_version_id && String(r.current_version_id).startsWith('ver_')) || r.has_variants);
+      if (!isSeed || isUploadedB2) {
+        await clearPermanentTemplateDeletion(env, r.id, r.slug);
+      }
+      // Heal tier='premium' -> 'vip' and is_published mismatch when status='published'
+      const needsTierFix = String(r.tier || '').toLowerCase() === 'premium';
+      const needsPubFix = r.status === 'published' && Number(r.is_published) !== 1;
+      if (needsTierFix || needsPubFix) {
+        await db.prepare(
+          `UPDATE templates SET tier = ?, is_premium = ?, is_published = ?, updated_at = ? WHERE id = ?`
+        ).bind(
+          needsTierFix ? 'vip' : (r.tier || 'free'),
+          (needsTierFix || r.tier === 'vip' || r.is_premium || Number(r.price) > 0) ? 1 : 0,
+          needsPubFix ? 1 : Number(r.is_published || 0),
+          nowIso,
+          r.id
+        ).run().catch(() => {});
+      }
+    }
+
+    // 2. Check template_versions for B2 versions (id LIKE 'ver_%') whose parent templates row is missing, unlinked, or stuck in draft
+    const verRowsRes = await db.prepare(
+      `SELECT * FROM template_versions WHERE id LIKE 'ver_%' AND status != 'failed' ORDER BY is_current DESC, version_number DESC, created_at DESC`
+    ).all().catch(() => ({ results: [] }));
+    const verRows = verRowsRes?.results || [];
+    const deletedSet = await getDeletedTemplateIdsSet(env);
+
+    const latestB2VerByTplId = new Map();
+    for (const v of verRows) {
+      if (!v.template_id) continue;
+      if (!latestB2VerByTplId.has(v.template_id)) {
+        latestB2VerByTplId.set(v.template_id, v);
+      }
+    }
+
+    for (const [tId, ver] of latestB2VerByTplId.entries()) {
+      const manifest = safeJsonParse(ver.manifest_json, {});
+      const slug = manifest.slug || manifest.template?.slug || String(tId).replace(/^tpl_/, '').replace(/_/g, '-');
+      // Skip if this template was explicitly deleted by the admin and has no row in templates
+      if (!tplById.has(tId) && !tplBySlug.has(slug) && (deletedSet.has(tId) || deletedSet.has(slug))) {
+        continue;
+      }
+
+      const existingTpl = tplById.get(tId) || tplBySlug.get(slug);
+      if (existingTpl) {
+        // Heal broken tv_... current_version_id or missing current_version_id back to the real B2 ver_... version
+        const curVid = String(existingTpl.current_version_id || '');
+        const shouldHealVersionPtr = !curVid;
+        const shouldHealPublish = (ver.status === 'published' || ver.status === 'active') && Number(existingTpl.is_published) !== 1 && existingTpl.status !== 'draft';
+        if (shouldHealVersionPtr || shouldHealPublish) {
+          await db.prepare(
+            `UPDATE templates SET current_version_id = ?, is_published = ?, status = ?, updated_at = ? WHERE id = ?`
+          ).bind(
+            shouldHealVersionPtr ? ver.id : existingTpl.current_version_id,
+            shouldHealPublish ? 1 : Number(existingTpl.is_published || 0),
+            shouldHealPublish ? 'published' : (existingTpl.status || 'published'),
+            nowIso,
+            existingTpl.id
+          ).run().catch(() => {});
+        }
+      } else {
+        // Reconstruct missing templates row from orphaned B2 template_versions record
+        const rawTier = String(ver.tier || manifest.tier || manifest.template?.tier || 'free').toLowerCase();
+        const normTier = (rawTier === 'vip' || rawTier === 'premium' || Number(ver.price || manifest.price || 0) > 0) ? 'vip' : 'free';
+        const price = Number(ver.price ?? manifest.price ?? manifest.template?.price ?? 0);
+        const variantsList = Array.isArray(manifest.variants) ? manifest.variants : safeJsonParse(ver.variants_json, []);
+        const enabledVarSlugs = safeJsonParse(ver.enabled_variants_json, manifest.relationships || []);
+        const relLabels = variantsList.length > 0
+          ? variantsList.filter(v => v && v.enabled !== false && v.status !== 'disabled').map(v => v.relationshipLabel || v.label || v.relationship || v.slug)
+          : enabledVarSlugs;
+        const imgbbUrls = Array.isArray(manifest.imgbbImages) ? manifest.imgbbImages.map(i => i.displayUrl).filter(Boolean) : [];
+        const thumb = ver.thumbnail || manifest.thumbnail || imgbbUrls[0] || '/assets/file_ab2082.png';
+
+        await ensureTemplateIngestionSchema(db);
+        await db.prepare(`
+          INSERT OR IGNORE INTO templates (
+            id, name, slug, description, category, relationships, tags,
+            type, tier, price, is_premium, is_published, status, featured,
+            placement, thumbnail, preview_images, capabilities, detected_fields,
+            sections, actions_json, visibility_config_json, actions_config_json, enabled_variants_json,
+            features, theme, folder, entry_file, variants_json, has_variants, current_version_id, created_at, updated_at
+          ) VALUES (
+            ?, ?, ?, ?, ?, ?, '[]',
+            '3D Interactive', ?, ?, ?, 1, 'published', 1,
+            1, ?, ?, ?, ?,
+            ?, ?, ?, ?, ?,
+            ?, '{}', ?, ?, ?, ?, ?, ?, ?
+          )
+        `).bind(
+          tId,
+          ver.name || manifest.name || manifest.template?.name || slug,
+          slug,
+          ver.description || manifest.description || manifest.template?.description || 'Custom celebration template',
+          ver.category || manifest.category || manifest.template?.category || 'birthday',
+          JSON.stringify(relLabels),
+          normTier,
+          price,
+          normTier === 'vip' ? 1 : 0,
+          thumb,
+          JSON.stringify(imgbbUrls),
+          JSON.stringify(manifest.capabilities || {}),
+          ver.fields_json || JSON.stringify(manifest.fields || []),
+          ver.sections || JSON.stringify(manifest.sections || []),
+          ver.actions_json || JSON.stringify(manifest.actions || []),
+          ver.visibility_config_json || JSON.stringify(manifest.visibilityConfig || {}),
+          ver.actions_config_json || JSON.stringify(manifest.actionsConfig || {}),
+          JSON.stringify(enabledVarSlugs),
+          JSON.stringify({ protocol: 'wishmagic-utp', schemaVersion: manifest.schemaVersion || '1.3.0' }),
+          slug,
+          ver.entry_point || manifest.entryFile || 'index.html',
+          JSON.stringify(variantsList),
+          variantsList.length > 0 ? 1 : 0,
+          ver.id,
+          ver.created_at || nowIso,
+          nowIso
+        ).run().catch(() => {});
+
+        tplById.set(tId, { id: tId, slug });
+      }
+    }
+
+    // 3. Recover any B2-uploaded template whose files/manifest exist in B2 bucket (`templates/<fam>/versions/<ver>/manifests/manifest.json`)
+    //    but whose D1 rows were rolled back by the earlier >1MB D1 statement error!
+    const nowMs = Date.now();
+    if (allowB2Scan && (nowMs - _lastB2OrphanRecoveryTs > 45000)) {
+      _lastB2OrphanRecoveryTs = nowMs;
+      const b2Cfg = getB2Config(env);
+      const b2Provider = env.B2_STORAGE_PROVIDER || (b2Cfg.isConfigured ? B2StorageProvider.fromEnv(env) : null);
+      if (b2Provider && typeof b2Provider.listObjects === 'function' && typeof b2Provider.getObject === 'function') {
+        try {
+          const listRes = await b2Provider.listObjects({ prefix: 'templates/', maxKeys: 1000 });
+          const b2Files = listRes?.files || [];
+          const manifestEntries = b2Files.filter(f => {
+            const k = String(f.key || f.fileName || '');
+            return k.startsWith('templates/') && k.endsWith('/manifests/manifest.json');
+          });
+
+          // Group by familyId and pick latest manifest per family
+          const latestManifestByFamily = new Map();
+          for (const mf of manifestEntries) {
+            const k = String(mf.key || mf.fileName || '');
+            const parts = k.split('/');
+            if (parts.length < 5) continue;
+            const famId = parts[1];
+            const verId = parts[3];
+            const prev = latestManifestByFamily.get(famId);
+            if (!prev || (mf.uploadTimestamp || 0) >= (prev.uploadTimestamp || 0) || verId > prev.verId) {
+              latestManifestByFamily.set(famId, { key: k, famId, verId, uploadTimestamp: mf.uploadTimestamp || 0, allFiles: b2Files });
+            }
+          }
+
+          for (const [, info] of latestManifestByFamily.entries()) {
+            const candSlug = info.famId.replace(/^fam_/, '').replace(/_/g, '-');
+            const candTplId = `tpl_${candSlug}`;
+            // Skip if already in D1 templates or explicitly deleted by admin
+            if (tplById.has(candTplId) || tplBySlug.has(candSlug) || deletedSet.has(candTplId) || deletedSet.has(candSlug) || deletedSet.has(info.famId)) {
+              continue;
+            }
+            const obj = await b2Provider.getObject({ key: info.key }).catch(() => null);
+            if (!obj || !obj.body) continue;
+            const rawJsonStr = typeof obj.body === 'string'
+              ? obj.body
+              : new TextDecoder('utf-8').decode(obj.body instanceof Uint8Array ? obj.body : new Uint8Array(obj.body));
+            const manifest = safeJsonParse(rawJsonStr, null);
+            if (!manifest || typeof manifest !== 'object') continue;
+
+            const tId = manifest.templateId || candTplId;
+            const famId = manifest.templateFamilyId || info.famId;
+            const vId = manifest.versionId || info.verId;
+            const slug = manifest.slug || String(tId).replace(/^tpl_/, '').replace(/_/g, '-');
+            if (tplById.has(tId) || tplBySlug.has(slug) || deletedSet.has(tId) || deletedSet.has(slug)) {
+              continue;
+            }
+
+            await ensureTemplateIngestionSchema(db);
+            const rawTier = String(manifest.tier || manifest.template?.tier || 'free').toLowerCase();
+            const normTier = (rawTier === 'vip' || rawTier === 'premium' || Number(manifest.price ?? manifest.template?.price ?? 0) > 0) ? 'vip' : 'free';
+            const price = Number(manifest.price || 0);
+            const variantsList = Array.isArray(manifest.variants) ? manifest.variants : [];
+            const enabledRelSlugs = variantsList.length > 0
+              ? variantsList.filter(v => v && v.enabled !== false && v.status !== 'disabled').map(v => v.relationshipSlug || v.relationship || v.slug)
+              : (Array.isArray(manifest.relationships) ? manifest.relationships : []);
+            const enabledRelLabels = variantsList.length > 0
+              ? variantsList.filter(v => v && v.enabled !== false && v.status !== 'disabled').map(v => v.relationshipLabel || v.label || v.relationshipSlug || v.slug)
+              : enabledRelSlugs;
+            const imgbbUrls = Array.isArray(manifest.imgbbImages) ? manifest.imgbbImages.map(i => i.displayUrl).filter(Boolean) : [];
+            const thumb = manifest.thumbnail || imgbbUrls[0] || '/assets/file_ab2082.png';
+            const keys = buildTemplateStorageKeys(famId, vId);
+
+            const compactManifest = {
+              ...manifest,
+              validationReport: manifest.validationReport ? { valid: true } : undefined
+            };
+
+            await db.prepare(`
+              INSERT OR IGNORE INTO template_families (
+                id, slug, name, description, thumbnail, category, tier, price, is_featured, is_premium, status, visibility, supported_relationships_json, current_version_id, published_version_id, latest_version_id, created_by, created_at, updated_at
+              ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, 1, ?, 'published', 'public', ?, ?, ?, ?, 'admin', ?, ?)
+            `).bind(
+              famId, slug, manifest.name || slug, manifest.description || 'Custom celebration template',
+              thumb, manifest.category || 'birthday', normTier, price, normTier === 'vip' ? 1 : 0,
+              JSON.stringify(enabledRelSlugs), vId, vId, vId, manifest.createdAt || nowIso, nowIso
+            ).run().catch(() => {});
+
+            await db.prepare(`
+              INSERT OR IGNORE INTO templates (
+                id, name, slug, description, category, relationships, tags,
+                type, tier, price, is_premium, is_published, status, featured,
+                placement, thumbnail, preview_images, capabilities, detected_fields,
+                sections, actions_json, visibility_config_json, actions_config_json, enabled_variants_json,
+                features, theme, folder, entry_file, variants_json, has_variants, current_version_id, created_at, updated_at
+              ) VALUES (
+                ?, ?, ?, ?, ?, ?, '[]',
+                '3D Interactive', ?, ?, ?, 1, 'published', 1,
+                1, ?, ?, ?, ?,
+                ?, ?, ?, ?, ?,
+                ?, '{}', ?, ?, ?, ?, ?, ?, ?
+              )
+            `).bind(
+              tId, manifest.name || slug, slug, manifest.description || 'Custom celebration template',
+              manifest.category || 'birthday', JSON.stringify(enabledRelLabels), normTier, price,
+              normTier === 'vip' ? 1 : 0, thumb, JSON.stringify(imgbbUrls),
+              JSON.stringify(manifest.capabilities || {}), JSON.stringify(manifest.fields || []),
+              JSON.stringify(manifest.sections || []), JSON.stringify(manifest.actions || []),
+              JSON.stringify(manifest.visibilityConfig || {}), JSON.stringify(manifest.actionsConfig || {}),
+              JSON.stringify(enabledRelSlugs),
+              JSON.stringify({ protocol: 'wishmagic-utp', schemaVersion: manifest.schemaVersion || '1.3.0' }),
+              slug, manifest.entryFile || 'index.html', JSON.stringify(variantsList),
+              variantsList.length > 0 ? 1 : 0, vId, manifest.createdAt || nowIso, nowIso
+            ).run().catch(() => {});
+
+            await db.prepare(`
+              INSERT OR IGNORE INTO template_versions (
+                id, template_id, template_family_id, version_number, version_label,
+                name, description, category, tier, price, thumbnail,
+                source_zip_storage_key, runtime_root_storage_key, manifest_storage_key,
+                schema_hash, runtime_hash, source_zip_hash, package_fingerprint,
+                storage_provider, storage_bucket, storage_metadata_json,
+                sections, fields_json, actions_json, visibility_config_json, actions_config_json, enabled_variants_json, manifest_json,
+                status, is_current, published_at, created_at, created_by
+              ) VALUES (
+                ?, ?, ?, ?, ?,
+                ?, ?, ?, ?, ?, ?,
+                ?, ?, ?,
+                ?, ?, ?, ?,
+                'b2', ?, ?,
+                ?, ?, ?, ?, ?, ?, ?,
+                'published', 1, ?, ?, 'admin'
+              )
+            `).bind(
+              vId, tId, famId, Number(manifest.versionNumber || 1), manifest.versionLabel || 'v1.0.0',
+              manifest.name || slug, manifest.description || '', manifest.category || 'birthday',
+              normTier, price, thumb, keys.sourceZip, keys.runtimeRoot, keys.manifest,
+              manifest.schemaHash || '', manifest.runtimeHash || '', manifest.sourceZipSha256 || '', manifest.packageFingerprint || '',
+              b2Provider.bucketName || 'wishmagic-templates',
+              JSON.stringify({ imgbbImages: manifest.imgbbImages || [], b2MediaAssets: manifest.b2MediaAssets || [] }),
+              JSON.stringify(manifest.sections || []), JSON.stringify(manifest.fields || []),
+              JSON.stringify(manifest.actions || []), JSON.stringify(manifest.visibilityConfig || {}),
+              JSON.stringify(manifest.actionsConfig || {}), JSON.stringify(enabledRelSlugs),
+              JSON.stringify(compactManifest), nowIso, manifest.createdAt || nowIso
+            ).run().catch(() => {});
+
+            // Reconstruct template_files for runtime files under this version prefix + b2MediaAssets + imgbbImages
+            const runtimePrefix = `templates/${info.famId}/versions/${info.verId}/runtime/`;
+            for (const bf of info.allFiles) {
+              const bk = String(bf.key || bf.fileName || '');
+              if (!bk.startsWith(runtimePrefix)) continue;
+              const relP = bk.slice(runtimePrefix.length);
+              if (!relP) continue;
+              const fId = `tfile_${vId}_${relP.replace(/[^a-zA-Z0-9]/g, '_').slice(0, 32)}`;
+              await db.prepare(`
+                INSERT OR IGNORE INTO template_files (
+                  id, template_version_id, relative_path, storage_provider, storage_key,
+                  mime_type, size_bytes, sha256, file_role, is_entry_file, status, created_at
+                ) VALUES (?, ?, ?, 'b2', ?, ?, ?, '', 'asset', ?, 'active', ?)
+              `).bind(
+                fId, vId, relP, bk, bf.contentType || getMimeType(relP), Number(bf.sizeBytes || bf.contentLength || 0),
+                relP.toLowerCase() === (manifest.entryFile || 'index.html').toLowerCase() ? 1 : 0, nowIso
+              ).run().catch(() => {});
+            }
+            for (const bm of (manifest.b2MediaAssets || [])) {
+              if (!bm || !bm.relativePath || !bm.storageKey) continue;
+              const fId = `tfile_${vId}_${bm.relativePath.replace(/[^a-zA-Z0-9]/g, '_').slice(0, 32)}`;
+              await db.prepare(`
+                INSERT OR IGNORE INTO template_files (
+                  id, template_version_id, relative_path, storage_provider, storage_key,
+                  mime_type, size_bytes, sha256, file_role, is_entry_file, status, created_at
+                ) VALUES (?, ?, ?, 'b2', ?, ?, ?, '', 'audio', 0, 'active', ?)
+              `).bind(
+                fId, vId, bm.relativePath, bm.storageKey, bm.mimeType || getMimeType(bm.relativePath), Number(bm.sizeBytes || 0), nowIso
+              ).run().catch(() => {});
+            }
+            let rImgIdx = 0;
+            for (const im of (manifest.imgbbImages || [])) {
+              if (!im || !im.displayUrl) continue;
+              rImgIdx++;
+              const imgId = `timg_${vId}_${rImgIdx}`;
+              await db.prepare(`
+                INSERT OR IGNORE INTO template_images (
+                  id, template_id, template_version_id, asset_key, original_filename,
+                  storage_provider, provider_asset_id, original_url, display_url, thumbnail_url,
+                  mime_type, size_bytes, status, created_at, updated_at
+                ) VALUES (?, ?, ?, ?, ?, 'imgbb', ?, ?, ?, ?, ?, 0, 'active', ?, ?)
+              `).bind(
+                imgId, tId, vId, im.assetKey || `img_${rImgIdx}`, im.filename || im.relativePath || `img_${rImgIdx}.jpg`,
+                im.providerAssetId || '', im.originalUrl || im.displayUrl, im.displayUrl, im.thumbnailUrl || im.displayUrl,
+                im.mimeType || 'image/jpeg', nowIso, nowIso
+              ).run().catch(() => {});
+            }
+
+            // Reconstruct variants in template_relationships & template_relationship_variants
+            for (let idx = 0; idx < variantsList.length; idx++) {
+              const vCfg = variantsList[idx];
+              if (!vCfg || typeof vCfg !== 'object') continue;
+              const relSlug = vCfg.relationshipSlug || vCfg.relationship || vCfg.slug || `rel_${idx + 1}`;
+              const relId = vCfg.relationshipId || `rel_${relSlug}`;
+              const relLabel = vCfg.relationshipLabel || vCfg.label || relSlug;
+              const varId = vCfg.id || `trv_${tId}_${relSlug}_v1`;
+              const isEn = vCfg.enabled !== false && vCfg.status !== 'disabled';
+
+              await db.prepare(`
+                INSERT OR IGNORE INTO relationships (id, slug, name, display_name, icon, category, status, sort_order, created_at, updated_at)
+                VALUES (?, ?, ?, ?, ?, 'celebration', 'active', ?, ?, ?)
+              `).bind(relId, relSlug, relLabel, `${relLabel} Edition`, vCfg.icon || '✨', idx + 1, nowIso, nowIso).run().catch(() => {});
+
+              await db.prepare(`
+                INSERT OR REPLACE INTO template_relationships (id, template_id, relationship_id, template_family_id, template_version_id, enabled, sort_order, created_at)
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+              `).bind(`trel_${tId}_${relId}`, tId, relId, famId, vId, isEn ? 1 : 0, idx + 1, nowIso).run().catch(() => {});
+
+              await db.prepare(`
+                INSERT OR REPLACE INTO template_relationship_variants (
+                  id, variant_slug, template_id, template_family_id, template_version_id,
+                  relationship_id, relationship_slug, relationship_label, name, description,
+                  thumbnail, entry_file, configuration_json, fields_json, sections_json,
+                  actions_json, visibility_json, assets_json, status, enabled, sort_order, is_default,
+                  version_number, lock_version, is_latest, published_at, created_at, updated_at
+                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 1, 1, 1, ?, ?, ?)
+              `).bind(
+                varId, vCfg.slug || relSlug, tId, famId, vId,
+                relId, relSlug, relLabel, vCfg.displayName || vCfg.name || `${relLabel} Edition`, vCfg.description || '',
+                vCfg.thumbnail || thumb, vCfg.entry || 'index.html', JSON.stringify(vCfg),
+                JSON.stringify(vCfg.fields || []), JSON.stringify(vCfg.sections || []),
+                JSON.stringify(vCfg.actions || []), JSON.stringify(vCfg.visibility || {}),
+                JSON.stringify(vCfg.assets || {}), isEn ? 'published' : 'disabled', isEn ? 1 : 0,
+                idx + 1, vCfg.default ? 1 : 0, nowIso, nowIso, nowIso
+              ).run().catch(() => {});
+            }
+          }
+        } catch (_) {}
+      }
+    }
+  } catch (_) {}
 }
 
 function computeLifecycle(wish) {
@@ -5757,11 +6166,91 @@ async function createNewTemplateVersion(env, templateId, updatedFields = {}, act
         });
       }
 
-      // Also update live templates table pointer
+      const existingTplRow = await env.DB.prepare('SELECT id, slug, current_version_id, is_published, status, featured, placement FROM templates WHERE id = ? OR slug = ? LIMIT 1').bind(cleanId, cleanId).first().catch(() => null);
+      const activeB2VersionRow = await env.DB.prepare(
+        `SELECT * FROM template_versions WHERE template_id = ? AND id LIKE 'ver_%' ORDER BY version_number DESC, created_at DESC LIMIT 1`
+      ).bind(existingTplRow?.id || cleanId).first().catch(() => null);
+      const activeB2VersionId = activeB2VersionRow?.id || null;
+      const preservedVersionId = newSnapshot.id;
+      if (activeB2VersionRow) {
+        await env.DB.prepare(
+          `UPDATE template_versions SET
+             template_family_id = COALESCE(?, template_family_id),
+             source_zip_storage_key = COALESCE(?, source_zip_storage_key),
+             runtime_root_storage_key = COALESCE(?, runtime_root_storage_key),
+             manifest_storage_key = COALESCE(?, manifest_storage_key),
+             storage_provider = COALESCE(?, storage_provider),
+             storage_bucket = COALESCE(?, storage_bucket),
+             storage_metadata_json = COALESCE(?, storage_metadata_json),
+             fields_json = COALESCE(?, fields_json),
+             manifest_json = COALESCE(?, manifest_json)
+           WHERE id = ?`
+        ).bind(
+          activeB2VersionRow.template_family_id || null,
+          activeB2VersionRow.source_zip_storage_key || null,
+          activeB2VersionRow.runtime_root_storage_key || null,
+          activeB2VersionRow.manifest_storage_key || null,
+          activeB2VersionRow.storage_provider || null,
+          activeB2VersionRow.storage_bucket || null,
+          activeB2VersionRow.storage_metadata_json || null,
+          activeB2VersionRow.fields_json || null,
+          activeB2VersionRow.manifest_json || null,
+          newSnapshot.id
+        ).run().catch(() => {});
+      }
+
+      const resolvedStatus = updatedFields.status !== undefined
+        ? String(updatedFields.status)
+        : (updatedFields.isPublished !== undefined ? (updatedFields.isPublished ? 'published' : 'draft') : (existingTplRow?.status || 'published'));
+      const resolvedIsPublished = updatedFields.isPublished !== undefined
+        ? (updatedFields.isPublished ? 1 : 0)
+        : (updatedFields.status !== undefined ? (updatedFields.status === 'published' ? 1 : 0) : (existingTplRow?.is_published !== undefined ? Number(existingTplRow.is_published) : 1));
+      const resolvedFeatured = updatedFields.featured !== undefined
+        ? (updatedFields.featured ? 1 : 0)
+        : (existingTplRow?.featured !== undefined ? Number(existingTplRow.featured) : 0);
+      const resolvedPlacement = updatedFields.placement !== undefined
+        ? Number(updatedFields.placement)
+        : Number(existingTplRow?.placement ?? 99);
+
+      if (activeB2VersionId) {
+        await env.DB.prepare(
+          `UPDATE template_versions SET
+             name = ?, description = ?, category = ?, tier = ?, price = ?, thumbnail = ?,
+             sections = COALESCE(?, sections),
+             actions_json = COALESCE(?, actions_json),
+             visibility_config_json = COALESCE(?, visibility_config_json),
+             actions_config_json = COALESCE(?, actions_config_json),
+             status = ?,
+             is_current = 1,
+             updated_at = ?
+           WHERE id = ?`
+        ).bind(
+          newSnapshot.name,
+          newSnapshot.description,
+          newSnapshot.category,
+          newSnapshot.tier,
+          newSnapshot.price,
+          newSnapshot.thumbnail,
+          updatedFields.sections ? JSON.stringify(updatedFields.sections) : null,
+          updatedFields.actions ? JSON.stringify(updatedFields.actions) : null,
+          updatedFields.visibilityConfig ? JSON.stringify(updatedFields.visibilityConfig) : null,
+          updatedFields.actionsConfig ? JSON.stringify(updatedFields.actionsConfig) : null,
+          resolvedIsPublished ? 'published' : 'ready',
+          nowIso,
+          activeB2VersionId
+        ).run().catch(() => {});
+      }
+
+      if (resolvedIsPublished) {
+        await clearPermanentTemplateDeletion(env, existingTplRow?.id || cleanId, existingTplRow?.slug || cleanId);
+      }
+
+      // Also update live templates table pointer & publication state
       try {
         await env.DB.prepare(
           `UPDATE templates SET
            name = ?, description = ?, category = ?, tier = ?, price = ?, is_premium = ?, thumbnail = ?,
+           is_published = ?, status = ?, featured = ?, placement = ?,
            sections = COALESCE(?, sections),
            actions_json = COALESCE(?, actions_json),
            visibility_config_json = COALESCE(?, visibility_config_json),
@@ -5778,11 +6267,15 @@ async function createNewTemplateVersion(env, templateId, updatedFields = {}, act
           newSnapshot.price,
           newSnapshot.isPremium ? 1 : 0,
           newSnapshot.thumbnail,
+          resolvedIsPublished,
+          resolvedStatus,
+          resolvedFeatured,
+          resolvedPlacement,
           updatedFields.sections ? JSON.stringify(updatedFields.sections) : null,
           updatedFields.actions ? JSON.stringify(updatedFields.actions) : null,
           updatedFields.visibilityConfig ? JSON.stringify(updatedFields.visibilityConfig) : null,
           updatedFields.actionsConfig ? JSON.stringify(updatedFields.actionsConfig) : null,
-          newSnapshot.id,
+          preservedVersionId,
           nowIso,
           cleanId,
           cleanId
@@ -5790,7 +6283,8 @@ async function createNewTemplateVersion(env, templateId, updatedFields = {}, act
       } catch (_) {
         await env.DB.prepare(
           `UPDATE templates SET
-           name = ?, description = ?, category = ?, tier = ?, price = ?, is_premium = ?, thumbnail = ?, updated_at = ?
+           name = ?, description = ?, category = ?, tier = ?, price = ?, is_premium = ?, thumbnail = ?,
+           is_published = ?, status = ?, updated_at = ?
            WHERE id = ? OR slug = ?`
         ).bind(
           newSnapshot.name,
@@ -5800,6 +6294,8 @@ async function createNewTemplateVersion(env, templateId, updatedFields = {}, act
           newSnapshot.price,
           newSnapshot.isPremium ? 1 : 0,
           newSnapshot.thumbnail,
+          resolvedIsPublished,
+          resolvedStatus,
           nowIso,
           cleanId,
           cleanId
@@ -8022,6 +8518,7 @@ export default {
       // --- Templates API ---
       else if (pathname === '/api/templates' && method === 'GET') {
         const includeDrafts = url.searchParams.get('includeDrafts') === 'true';
+        await reconcileUploadedTemplatesInD1(env, { allowB2Scan: true });
         const deletedSet = await getDeletedTemplateIdsSet(env);
         let templates = SEED_TEMPLATES.filter(t => !deletedSet.has(t.id) && !deletedSet.has(t.slug)).map(t => ({
           ...t,
@@ -8079,7 +8576,17 @@ export default {
 
                 const dbVars = variantsByTplId.get(r.id) || [];
                 const jsonVars = safeJsonParse(r.variants_json, []);
-                const rawTplVariants = dbVars.length > 0 ? dbVars : (Array.isArray(jsonVars) ? jsonVars : []);
+                let rawTplVariants = dbVars.length > 0 ? [...dbVars] : (Array.isArray(jsonVars) ? [...jsonVars] : []);
+                if (dbVars.length > 0 && Array.isArray(jsonVars) && jsonVars.length > dbVars.length) {
+                  const seenVarSlugs = new Set(dbVars.map(v => String(v.relationship_slug || v.relationshipSlug || v.variant_slug || v.slug || '').toLowerCase()).filter(Boolean));
+                  for (const jv of jsonVars) {
+                    const jSlug = String(jv?.relationshipSlug || jv?.relationship_slug || jv?.relationship || jv?.slug || '').toLowerCase();
+                    if (jSlug && !seenVarSlugs.has(jSlug)) {
+                      rawTplVariants.push(jv);
+                      seenVarSlugs.add(jSlug);
+                    }
+                  }
+                }
                 const hasDeclaredVariants = Boolean(r.has_variants || rawTplVariants.length > 0);
                 const availableVariants = filterPublicAvailableVariants(rawTplVariants, {
                   template: r,
@@ -8101,15 +8608,16 @@ export default {
                   ? availableRelations.map(ar => ar.label)
                   : (Array.isArray(parsedRels) ? parsedRels : []);
 
+                const isVipRow = r.tier === 'vip' || r.tier === 'premium' || Boolean(r.is_premium) || Number(r.price) > 0;
                 return {
                   id: r.id,
                   familyId: `fam_${r.id}`,
                   slug: r.slug,
                   name: r.name,
                   category: r.category,
-                  tier: r.tier,
+                  tier: isVipRow ? 'vip' : (r.tier || 'free'),
                   price: r.price,
-                  isPremium: Boolean(r.is_premium),
+                  isPremium: isVipRow,
                   isPublished: Boolean(r.is_published),
                   status: r.status,
                   featured: Boolean(r.featured),
@@ -8131,7 +8639,18 @@ export default {
                   previewUrl
                 };
               });
-              const filteredDbTemplates = dbTemplates.filter(t => !deletedSet.has(t.id) && !deletedSet.has(t.slug));
+              const seedIdsAndSlugs = new Set();
+              for (const s of SEED_TEMPLATES) {
+                if (s.id) seedIdsAndSlugs.add(s.id);
+                if (s.slug) seedIdsAndSlugs.add(s.slug);
+              }
+              const filteredDbTemplates = dbTemplates.filter(t => {
+                const isUploadedB2 = Boolean((t.currentVersionId && String(t.currentVersionId).startsWith('ver_')) || t.hasVariants);
+                if (isUploadedB2 || (!seedIdsAndSlugs.has(t.id) && !seedIdsAndSlugs.has(t.slug))) {
+                  return true;
+                }
+                return !deletedSet.has(t.id) && !deletedSet.has(t.slug);
+              });
               const seenIds = new Set(filteredDbTemplates.map(t => t.id));
               const seenSlugs = new Set(filteredDbTemplates.map(t => t.slug).filter(Boolean));
               const merged = [...filteredDbTemplates];
@@ -9630,13 +10149,22 @@ export default {
               const ab = await file.arrayBuffer();
               zipBuffer = new Uint8Array(ab);
             }
+            const metaJsonRaw = formData.get('metadata');
+            const parsedMeta = metaJsonRaw ? safeJsonParse(String(metaJsonRaw), {}) : {};
+            const rawFormTier = String(formData.get('tier') || parsedMeta.tier || '').toLowerCase();
+            const rawFormName = formData.get('name') || formData.get('title') || parsedMeta.name || parsedMeta.title || '';
+            const rawFormCat = formData.get('category') || parsedMeta.category || '';
+            const rawFormPrice = formData.get('price') ?? parsedMeta.price;
             templateMeta = {
-              name: sanitizeString(formData.get('name') || formData.get('title') || 'Custom Template', 80),
-              category: sanitizeString(formData.get('category') || 'celebration', 50),
-              tier: formData.get('tier') === 'vip' ? 'vip' : 'free',
-              price: Number(formData.get('price') || 0),
-              description: sanitizeString(formData.get('description') || '', 300),
-              thumbnail: sanitizeString(formData.get('thumbnail') || '', 500)
+              ...parsedMeta,
+              name: rawFormName ? sanitizeString(rawFormName, 80) : undefined,
+              category: rawFormCat ? sanitizeString(rawFormCat, 50) : undefined,
+              tier: (rawFormTier === 'vip' || rawFormTier === 'premium') ? 'vip' : (rawFormTier === 'free' ? 'free' : undefined),
+              price: rawFormPrice !== undefined && rawFormPrice !== null && rawFormPrice !== '' ? Number(rawFormPrice) : undefined,
+              description: (formData.get('description') || parsedMeta.description) ? sanitizeString(formData.get('description') || parsedMeta.description, 300) : undefined,
+              thumbnail: (formData.get('thumbnail') || parsedMeta.thumbnail) ? sanitizeString(formData.get('thumbnail') || parsedMeta.thumbnail, 500) : undefined,
+              slug: (formData.get('slug') || parsedMeta.slug) ? sanitizeString(formData.get('slug') || parsedMeta.slug, 60) : undefined,
+              publishImmediately: Boolean(formData.get('publishImmediately') === 'true' || parsedMeta.publishImmediately || parsedMeta.autoPublish || parsedMeta.isPublished === true)
             };
           } catch (formErr) {
             return applySecurityHeaders(jsonError('INVALID_FORM_DATA', formErr.message, 400), request, env);
@@ -9655,7 +10183,7 @@ export default {
           templateMeta = {
             name: sanitizeString(body.title || body.name || 'Custom Template', 80),
             category: sanitizeString(body.category || 'celebration', 50),
-            tier: body.tier === 'vip' ? 'vip' : 'free',
+            tier: (String(body.tier || '').toLowerCase() === 'vip' || String(body.tier || '').toLowerCase() === 'premium') ? 'vip' : (body.tier ? 'free' : undefined),
             price: Number(body.price || 0),
             description: sanitizeString(body.description || '', 300),
             thumbnail: rawThumb.startsWith('data:image/') ? rawThumb : sanitizeString(rawThumb, 500),
@@ -11131,8 +11659,71 @@ export default {
           }, 200, {}, requestId), request, env);
         }
 
-        // Remove expired/draft wishes pinned to this version before deleting version
+        // Remove B2 files, ImgBB images, variants, and D1 records for this version
+        let b2DeletedCount = 0;
+        let imgbbDeletedCount = 0;
         if (env.DB && typeof env.DB.prepare === 'function') {
+          const verRow = await env.DB.prepare('SELECT * FROM template_versions WHERE id = ?').bind(versionId).first().catch(() => null);
+          const fileRowsRes = await env.DB.prepare('SELECT * FROM template_files WHERE template_version_id = ?').bind(versionId).all().catch(() => ({ results: [] }));
+          const imgRowsRes = await env.DB.prepare('SELECT * FROM template_images WHERE template_version_id = ?').bind(versionId).all().catch(() => ({ results: [] }));
+
+          const b2Cfg = getB2Config(env);
+          const b2Provider = env.B2_STORAGE_PROVIDER || (b2Cfg.isConfigured ? B2StorageProvider.fromEnv(env) : null);
+          if (b2Provider) {
+            const b2KeysToDelete = new Set();
+            for (const f of (fileRowsRes?.results || [])) {
+              if (f.storage_key && !String(f.storage_key).startsWith('http')) {
+                b2KeysToDelete.add(String(f.storage_key));
+              }
+            }
+            if (verRow) {
+              if (verRow.source_zip_storage_key) b2KeysToDelete.add(verRow.source_zip_storage_key);
+              if (verRow.manifest_storage_key) b2KeysToDelete.add(verRow.manifest_storage_key);
+              const famId = verRow.template_family_id || `fam_${String(templateId).replace(/^tpl_/, '')}`;
+              const stdKeys = buildTemplateStorageKeys(famId, versionId);
+              b2KeysToDelete.add(stdKeys.sourceZip);
+              b2KeysToDelete.add(stdKeys.manifest);
+              b2KeysToDelete.add(stdKeys.analyzerSchema);
+              b2KeysToDelete.add(stdKeys.hashes);
+              if (typeof b2Provider.deletePrefix === 'function') {
+                const prefRes = await b2Provider.deletePrefix({ prefix: `${stdKeys.base}/` }).catch(() => ({ deletedCount: 0 }));
+                b2DeletedCount += (prefRes?.deletedCount || 0);
+              }
+            }
+            const keyArr = Array.from(b2KeysToDelete);
+            for (let i = 0; i < keyArr.length; i += 8) {
+              const batch = keyArr.slice(i, i + 8);
+              await Promise.all(batch.map(async (k) => {
+                try {
+                  // Only delete shared_media if no other version references it
+                  if (k.startsWith('templates/shared_media/')) {
+                    const otherRef = await env.DB.prepare('SELECT id FROM template_files WHERE storage_key = ? AND template_version_id != ? LIMIT 1').bind(k, versionId).first().catch(() => null);
+                    if (otherRef) return;
+                  }
+                  const delRes = await b2Provider.deleteObject({ key: k, skipPostCheck: true });
+                  if (delRes && (delRes.remoteDeleted || delRes.deleted || delRes.success)) b2DeletedCount++;
+                } catch (_) {}
+              }));
+            }
+          }
+
+          // Delete ImgBB images for this version
+          const deleteUrls = new Set();
+          for (const img of (imgRowsRes?.results || [])) {
+            if (img.delete_url) deleteUrls.add(img.delete_url);
+          }
+          if (deleteUrls.size > 0) {
+            const imgCleaner = env.IMGBB_PROVIDER || (ImgBBProvider.isConfigured(env) ? ImgBBProvider.fromEnv(env) : new ImgBBProvider({ apiKey: 'cleanup' }));
+            if (imgCleaner && typeof imgCleaner.deleteImage === 'function') {
+              for (const dUrl of deleteUrls) {
+                try {
+                  await imgCleaner.deleteImage(dUrl);
+                  imgbbDeletedCount++;
+                } catch (_) {}
+              }
+            }
+          }
+
           await env.DB.prepare('DELETE FROM wishes WHERE template_version_id = ?').bind(versionId).run().catch(() => {});
           await env.DB.prepare('DELETE FROM template_files WHERE template_version_id = ?').bind(versionId).run().catch(() => {});
           await env.DB.prepare('DELETE FROM template_fields WHERE template_version_id = ?').bind(versionId).run().catch(() => {});
@@ -11149,10 +11740,10 @@ export default {
           action: 'TEMPLATE_VERSION_DELETED',
           targetType: 'template_version',
           targetId: versionId,
-          details: JSON.stringify({ templateId, forced: url.searchParams.get('force') === 'true' })
+          details: JSON.stringify({ templateId, b2DeletedCount, imgbbDeletedCount, forced: url.searchParams.get('force') === 'true' })
         });
 
-        response = jsonSuccess({ deleted: true, versionId, templateId }, 200, {}, requestId);
+        response = jsonSuccess({ deleted: true, versionId, templateId, b2DeletedCount, imgbbDeletedCount }, 200, {}, requestId);
       }
 
       else if (
@@ -11170,10 +11761,16 @@ export default {
 
         const templateId = sanitizeString(decodeURIComponent(pathname.replace('/api/templates/', '').trim()), 60);
         const cleanSlug = templateId.replace(/^tpl_/, '').replace(/_/g, '-');
+        const cleanSlugUnderscore = templateId.replace(/^tpl_/, '').replace(/-/g, '_');
         const familyId = `fam_${templateId.replace(/^tpl_/, '')}`;
         const isSeedDemoTemplate = SEED_TEMPLATES.some(
           s => s.id === templateId || s.slug === templateId || s.id === cleanSlug || s.slug === cleanSlug || s.folder === templateId
         );
+
+        let b2DeletedCount = 0;
+        let imgbbDeletedCount = 0;
+        let versionsDeletedCount = 0;
+        let variantsDeletedCount = 0;
 
         // Safeguard: Only active (within event_date -2d to +2d) or upcoming (future) wishes block deletion.
         // Expired wishes (past event_date + 2d) and built-in demo templates do NOT block template deletion.
@@ -11181,10 +11778,58 @@ export default {
           const force = url.searchParams.get('force') === 'true' || isSeedDemoTemplate;
           let activeOrFutureCount = 0;
 
+          // 1. Discover all matching template IDs, slugs, family IDs, and version IDs in D1
+          const allTemplateIds = new Set([
+            templateId,
+            cleanSlug,
+            cleanSlugUnderscore,
+            `tpl_${cleanSlug}`,
+            `tpl_${cleanSlugUnderscore}`
+          ].filter(Boolean));
+          const allFamilyIds = new Set([
+            familyId,
+            `fam_${cleanSlug}`,
+            `fam_${cleanSlugUnderscore}`,
+            `fam_${templateId}`
+          ].filter(Boolean));
+          const allSlugs = new Set([cleanSlug, cleanSlugUnderscore].filter(Boolean));
+
           try {
+            const matchedTpls = await env.DB.prepare(
+              'SELECT * FROM templates WHERE id IN (?, ?, ?, ?) OR slug IN (?, ?, ?)'
+            ).bind(
+              templateId, cleanSlug, `tpl_${cleanSlug}`, `tpl_${cleanSlugUnderscore}`,
+              templateId, cleanSlug, cleanSlugUnderscore
+            ).all().catch(() => ({ results: [] }));
+            for (const tRow of (matchedTpls?.results || [])) {
+              if (tRow.id) {
+                allTemplateIds.add(tRow.id);
+                allFamilyIds.add(`fam_${String(tRow.id).replace(/^tpl_/, '')}`);
+                allFamilyIds.add(`fam_${String(tRow.id).replace(/^tpl_/, '').replace(/-/g, '_')}`);
+              }
+              if (tRow.slug) {
+                allSlugs.add(tRow.slug);
+                allTemplateIds.add(tRow.slug);
+                allTemplateIds.add(`tpl_${tRow.slug}`);
+                allFamilyIds.add(`fam_${tRow.slug}`);
+                allFamilyIds.add(`fam_${String(tRow.slug).replace(/-/g, '_')}`);
+              }
+              if (tRow.folder) {
+                const fClean = String(tRow.folder).replace(/^templates-store\//, '');
+                if (fClean) {
+                  allSlugs.add(fClean);
+                  allFamilyIds.add(`fam_${fClean}`);
+                }
+              }
+            }
+          } catch (_) {}
+
+          try {
+            const tplIdList = Array.from(allTemplateIds);
+            const wishPlaceholders = tplIdList.map(() => '?').join(', ');
             const wishStmt = env.DB.prepare(
-              'SELECT id, slug, event_date, status, custom_data FROM wishes WHERE template_id = ? OR template_id = ?'
-            ).bind(templateId, cleanSlug);
+              `SELECT id, slug, event_date, status, custom_data FROM wishes WHERE template_id IN (${wishPlaceholders})`
+            ).bind(...tplIdList);
 
             let wishList = [];
             if (typeof wishStmt.all === 'function') {
@@ -11220,25 +11865,244 @@ export default {
             }, 200, {}, requestId), request, env);
           }
 
-          // Clean up expired/draft wishes and all dependent child records so FK constraints never block deletion
-          await env.DB.prepare('DELETE FROM wishes WHERE template_id = ? OR template_id = ?').bind(templateId, cleanSlug).run().catch(() => {});
-          await env.DB.prepare('DELETE FROM template_files WHERE template_version_id IN (SELECT id FROM template_versions WHERE template_id = ? OR template_id = ?)').bind(templateId, cleanSlug).run().catch(() => {});
-          await env.DB.prepare('DELETE FROM template_fields WHERE template_version_id IN (SELECT id FROM template_versions WHERE template_id = ? OR template_id = ?)').bind(templateId, cleanSlug).run().catch(() => {});
-          await env.DB.prepare('DELETE FROM template_images WHERE template_id = ? OR template_version_id IN (SELECT id FROM template_versions WHERE template_id = ? OR template_id = ?)').bind(templateId, templateId, cleanSlug).run().catch(() => {});
-          await env.DB.prepare('DELETE FROM template_music WHERE template_version_id IN (SELECT id FROM template_versions WHERE template_id = ? OR template_id = ?)').bind(templateId, cleanSlug).run().catch(() => {});
-          await env.DB.prepare('DELETE FROM template_relationship_variants WHERE template_id = ? OR template_version_id IN (SELECT id FROM template_versions WHERE template_id = ? OR template_id = ?)').bind(templateId, templateId, cleanSlug).run().catch(() => {});
-          await env.DB.prepare('DELETE FROM template_relationships WHERE template_id = ? OR template_id = ?').bind(templateId, cleanSlug).run().catch(() => {});
-          await env.DB.prepare('DELETE FROM template_versions WHERE template_id = ? OR template_id = ? OR template_family_id = ?').bind(templateId, cleanSlug, familyId).run().catch(() => {});
-          await env.DB.prepare('DELETE FROM template_upload_operations WHERE template_id = ? OR template_family_id = ?').bind(templateId, familyId).run().catch(() => {});
-          await env.DB.prepare('DELETE FROM favorites WHERE item_id = ?').bind(templateId).run().catch(() => {});
-          await env.DB.prepare('DELETE FROM templates WHERE id = ? OR slug = ? OR id = ?').bind(templateId, templateId, cleanSlug).run().catch(() => {});
-          await env.DB.prepare('DELETE FROM template_families WHERE id = ? OR slug = ?').bind(familyId, cleanSlug).run().catch(() => {});
+          // 2. Gather all versions, files, images, variants, upload operations, and import sessions to purge from B2, ImgBB, and D1
+          const allVersionIds = new Set();
+          const b2KeysToDelete = new Map(); // key -> fileId | null
+          const b2PrefixesToDelete = new Set();
+          const imgbbDeleteUrls = new Set();
+
+          for (const fId of allFamilyIds) {
+            const cleanFam = String(fId).replace(/[^a-zA-Z0-9_-]/g, '_');
+            b2PrefixesToDelete.add(`templates/${cleanFam}/`);
+            b2PrefixesToDelete.add(`templates/${fId}/`);
+          }
+          for (const tId of allTemplateIds) {
+            const cleanT = String(tId).replace(/[^a-zA-Z0-9_-]/g, '_');
+            b2PrefixesToDelete.add(`templates/${cleanT}/`);
+          }
+
+          try {
+            const tplArr = Array.from(allTemplateIds);
+            const famArr = Array.from(allFamilyIds);
+            const verQuerySql = `SELECT * FROM template_versions WHERE template_id IN (${tplArr.map(() => '?').join(', ')}) OR template_family_id IN (${famArr.map(() => '?').join(', ')})`;
+            const verRowsRes = await env.DB.prepare(verQuerySql).bind(...tplArr, ...famArr).all().catch(() => ({ results: [] }));
+            for (const vr of (verRowsRes?.results || [])) {
+              if (!vr || !vr.id) continue;
+              allVersionIds.add(vr.id);
+              if (vr.template_id) allTemplateIds.add(vr.template_id);
+              if (vr.template_family_id) {
+                allFamilyIds.add(vr.template_family_id);
+                b2PrefixesToDelete.add(`templates/${vr.template_family_id}/`);
+              }
+              if (vr.source_zip_storage_key) b2KeysToDelete.set(vr.source_zip_storage_key, null);
+              if (vr.manifest_storage_key) b2KeysToDelete.set(vr.manifest_storage_key, null);
+              const stdKeys = buildTemplateStorageKeys(vr.template_family_id || familyId, vr.id);
+              b2PrefixesToDelete.add(`${stdKeys.base}/`);
+              b2KeysToDelete.set(stdKeys.sourceZip, null);
+              b2KeysToDelete.set(stdKeys.manifest, null);
+              b2KeysToDelete.set(stdKeys.analyzerSchema, null);
+              b2KeysToDelete.set(stdKeys.hashes, null);
+
+              const stMeta = safeJsonParse(vr.storage_metadata_json, {});
+              for (const bm of (stMeta?.b2MediaAssets || [])) {
+                if (bm?.storageKey) b2KeysToDelete.set(bm.storageKey, bm.fileId || null);
+              }
+              for (const im of (stMeta?.imgbbImages || [])) {
+                if (im?.deleteUrl) imgbbDeleteUrls.add(im.deleteUrl);
+              }
+              const mfMeta = safeJsonParse(vr.manifest_json, {});
+              for (const bm of (mfMeta?.b2MediaAssets || [])) {
+                if (bm?.storageKey) b2KeysToDelete.set(bm.storageKey, bm.fileId || null);
+              }
+              for (const im of (mfMeta?.imgbbImages || [])) {
+                if (im?.deleteUrl) imgbbDeleteUrls.add(im.deleteUrl);
+              }
+            }
+            versionsDeletedCount = allVersionIds.size;
+          } catch (_) {}
+
+          // Gather template_files & template_images across all discovered versions and template IDs
+          try {
+            const verArr = Array.from(allVersionIds);
+            if (verArr.length > 0) {
+              const fRowsRes = await env.DB.prepare(
+                `SELECT storage_key, storage_provider FROM template_files WHERE template_version_id IN (${verArr.map(() => '?').join(', ')})`
+              ).bind(...verArr).all().catch(() => ({ results: [] }));
+              for (const fr of (fRowsRes?.results || [])) {
+                if (fr?.storage_key && !String(fr.storage_key).startsWith('http')) {
+                  b2KeysToDelete.set(String(fr.storage_key), null);
+                }
+              }
+            }
+            const tplArr = Array.from(allTemplateIds);
+            const imgSql = verArr.length > 0
+              ? `SELECT delete_url FROM template_images WHERE template_id IN (${tplArr.map(() => '?').join(', ')}) OR template_version_id IN (${verArr.map(() => '?').join(', ')})`
+              : `SELECT delete_url FROM template_images WHERE template_id IN (${tplArr.map(() => '?').join(', ')})`;
+            const imgRowsRes = await env.DB.prepare(imgSql).bind(...tplArr, ...(verArr.length > 0 ? verArr : [])).all().catch(() => ({ results: [] }));
+            for (const ir of (imgRowsRes?.results || [])) {
+              if (ir?.delete_url) imgbbDeleteUrls.add(ir.delete_url);
+            }
+          } catch (_) {}
+
+          // Gather B2 objects from template_upload_operations and template_import_sessions
+          try {
+            const tplArr = Array.from(allTemplateIds);
+            const famArr = Array.from(allFamilyIds);
+            const opRowsRes = await env.DB.prepare(
+              `SELECT b2_objects_json FROM template_upload_operations WHERE template_id IN (${tplArr.map(() => '?').join(', ')}) OR template_family_id IN (${famArr.map(() => '?').join(', ')})`
+            ).bind(...tplArr, ...famArr).all().catch(() => ({ results: [] }));
+            for (const op of (opRowsRes?.results || [])) {
+              const objs = safeJsonParse(op?.b2_objects_json, []);
+              if (Array.isArray(objs)) {
+                for (const o of objs) {
+                  if (o?.key) b2KeysToDelete.set(o.key, o.fileId || null);
+                }
+              }
+            }
+          } catch (_) {}
+
+          try {
+            const tplArr = Array.from(allTemplateIds);
+            const ph = tplArr.map(() => '?').join(', ');
+            const sessRowsRes = await env.DB.prepare(
+              `SELECT admin_config_overrides_json FROM template_import_sessions WHERE intended_target_template_id IN (${ph}) OR selected_target_template_id IN (${ph}) OR published_template_id IN (${ph})`
+            ).bind(...tplArr, ...tplArr, ...tplArr).all().catch(() => ({ results: [] }));
+            for (const sr of (sessRowsRes?.results || [])) {
+              const ov = safeJsonParse(sr?.admin_config_overrides_json, {});
+              for (const bItem of Object.values(ov?.preUploadedB2Map || {})) {
+                if (bItem?.storageKey) b2KeysToDelete.set(bItem.storageKey, bItem.fileId || null);
+              }
+              for (const iItem of Object.values(ov?.preUploadedImgbbMap || {})) {
+                if (iItem?.deleteUrl) imgbbDeleteUrls.add(iItem.deleteUrl);
+              }
+            }
+          } catch (_) {}
+
+          // Count variants before deletion
+          try {
+            const tplArr = Array.from(allTemplateIds);
+            const verArr = Array.from(allVersionIds);
+            const varCountSql = verArr.length > 0
+              ? `SELECT id FROM template_relationship_variants WHERE template_id IN (${tplArr.map(() => '?').join(', ')}) OR template_version_id IN (${verArr.map(() => '?').join(', ')})`
+              : `SELECT id FROM template_relationship_variants WHERE template_id IN (${tplArr.map(() => '?').join(', ')})`;
+            const varRowsRes = await env.DB.prepare(varCountSql).bind(...tplArr, ...(verArr.length > 0 ? verArr : [])).all().catch(() => ({ results: [] }));
+            variantsDeletedCount = (varRowsRes?.results || []).length;
+          } catch (_) {}
+
+          // 3. Delete all Backblaze B2 objects (both prefix sweep under templates/<familyId>/ and explicit keys)
+          try {
+            const b2Cfg = getB2Config(env);
+            const b2Provider = env.B2_STORAGE_PROVIDER || (b2Cfg.isConfigured ? B2StorageProvider.fromEnv(env) : null);
+            if (b2Provider) {
+              const deletedKeysTracker = new Set();
+              if (typeof b2Provider.deletePrefix === 'function') {
+                for (const prefix of b2PrefixesToDelete) {
+                  try {
+                    const prefRes = await b2Provider.deletePrefix({ prefix });
+                    b2DeletedCount += (prefRes?.deletedCount || 0);
+                    for (const k of b2KeysToDelete.keys()) {
+                      if (k.startsWith(prefix)) deletedKeysTracker.add(k);
+                    }
+                  } catch (_) {}
+                }
+              }
+
+              const remainingEntries = Array.from(b2KeysToDelete.entries()).filter(([k]) => !deletedKeysTracker.has(k));
+              const verArr = Array.from(allVersionIds);
+              for (let i = 0; i < remainingEntries.length; i += 8) {
+                const batch = remainingEntries.slice(i, i + 8);
+                await Promise.all(batch.map(async ([k, fId]) => {
+                  try {
+                    if (k.startsWith('templates/shared_media/') && verArr.length > 0) {
+                      const otherRef = await env.DB.prepare(
+                        `SELECT id FROM template_files WHERE storage_key = ? AND template_version_id NOT IN (${verArr.map(() => '?').join(', ')}) LIMIT 1`
+                      ).bind(k, ...verArr).first().catch(() => null);
+                      if (otherRef) return;
+                    }
+                    const delRes = await b2Provider.deleteObject({ key: k, fileId: fId || null, skipPostCheck: true });
+                    if (delRes && (delRes.remoteDeleted || delRes.deleted || delRes.success)) {
+                      b2DeletedCount++;
+                    }
+                  } catch (_) {}
+                }));
+              }
+            }
+          } catch (_) {}
+
+          // 4. Delete all ImgBB images associated with this template
+          if (imgbbDeleteUrls.size > 0) {
+            try {
+              const imgCleaner = env.IMGBB_PROVIDER || (ImgBBProvider.isConfigured(env) ? ImgBBProvider.fromEnv(env) : new ImgBBProvider({ apiKey: 'cleanup' }));
+              if (imgCleaner && typeof imgCleaner.deleteImage === 'function') {
+                const dUrls = Array.from(imgbbDeleteUrls);
+                for (let i = 0; i < dUrls.length; i += 4) {
+                  const batch = dUrls.slice(i, i + 4);
+                  await Promise.all(batch.map(async (dUrl) => {
+                    try {
+                      await imgCleaner.deleteImage(dUrl);
+                      imgbbDeletedCount++;
+                    } catch (_) {}
+                  }));
+                }
+              }
+            } catch (_) {}
+          }
+
+          // 5. Delete all dependent and primary records across all D1 tables
+          const tplArr = Array.from(allTemplateIds);
+          const famArr = Array.from(allFamilyIds);
+          const slugArr = Array.from(allSlugs);
+          const verArr = Array.from(allVersionIds);
+
+          for (const vid of verArr) {
+            await env.DB.prepare('DELETE FROM template_files WHERE template_version_id = ?').bind(vid).run().catch(() => {});
+            await env.DB.prepare('DELETE FROM template_fields WHERE template_version_id = ?').bind(vid).run().catch(() => {});
+            await env.DB.prepare('DELETE FROM template_music WHERE template_version_id = ?').bind(vid).run().catch(() => {});
+            await env.DB.prepare('DELETE FROM template_images WHERE template_version_id = ?').bind(vid).run().catch(() => {});
+            await env.DB.prepare('DELETE FROM template_relationship_variants WHERE template_version_id = ?').bind(vid).run().catch(() => {});
+          }
+          if (verArr.length === 0) {
+            await env.DB.prepare('DELETE FROM template_files WHERE template_version_id IN (SELECT id FROM template_versions WHERE template_id = ? OR template_id = ?)').bind(templateId, cleanSlug).run().catch(() => {});
+            await env.DB.prepare('DELETE FROM template_fields WHERE template_version_id IN (SELECT id FROM template_versions WHERE template_id = ? OR template_id = ?)').bind(templateId, cleanSlug).run().catch(() => {});
+            await env.DB.prepare('DELETE FROM template_images WHERE template_id = ? OR template_version_id IN (SELECT id FROM template_versions WHERE template_id = ? OR template_id = ?)').bind(templateId, templateId, cleanSlug).run().catch(() => {});
+            await env.DB.prepare('DELETE FROM template_music WHERE template_version_id IN (SELECT id FROM template_versions WHERE template_id = ? OR template_id = ?)').bind(templateId, cleanSlug).run().catch(() => {});
+          }
+          for (const tid of tplArr) {
+            await env.DB.prepare('DELETE FROM wishes WHERE template_id = ?').bind(tid).run().catch(() => {});
+            await env.DB.prepare('DELETE FROM template_images WHERE template_id = ?').bind(tid).run().catch(() => {});
+            await env.DB.prepare('DELETE FROM template_relationship_variants WHERE template_id = ?').bind(tid).run().catch(() => {});
+            await env.DB.prepare('DELETE FROM template_relationships WHERE template_id = ?').bind(tid).run().catch(() => {});
+            await env.DB.prepare('DELETE FROM template_versions WHERE template_id = ?').bind(tid).run().catch(() => {});
+            await env.DB.prepare('DELETE FROM template_upload_operations WHERE template_id = ?').bind(tid).run().catch(() => {});
+            await env.DB.prepare('DELETE FROM template_import_sessions WHERE intended_target_template_id = ? OR selected_target_template_id = ? OR published_template_id = ?').bind(tid, tid, tid).run().catch(() => {});
+            await env.DB.prepare('DELETE FROM template_link_migrations WHERE template_id = ?').bind(tid).run().catch(() => {});
+            await env.DB.prepare('DELETE FROM favorites WHERE item_id = ?').bind(tid).run().catch(() => {});
+            await env.DB.prepare('DELETE FROM templates WHERE id = ?').bind(tid).run().catch(() => {});
+          }
+          for (const fid of famArr) {
+            await env.DB.prepare('DELETE FROM template_relationship_variants WHERE template_family_id = ?').bind(fid).run().catch(() => {});
+            await env.DB.prepare('DELETE FROM template_relationships WHERE template_family_id = ?').bind(fid).run().catch(() => {});
+            await env.DB.prepare('DELETE FROM template_versions WHERE template_family_id = ?').bind(fid).run().catch(() => {});
+            await env.DB.prepare('DELETE FROM template_upload_operations WHERE template_family_id = ?').bind(fid).run().catch(() => {});
+            await env.DB.prepare('DELETE FROM template_families WHERE id = ?').bind(fid).run().catch(() => {});
+          }
+          for (const sl of slugArr) {
+            await env.DB.prepare('DELETE FROM templates WHERE slug = ?').bind(sl).run().catch(() => {});
+            await env.DB.prepare('DELETE FROM template_families WHERE slug = ?').bind(sl).run().catch(() => {});
+          }
         }
 
         await recordPermanentTemplateDeletion(env, templateId, cleanSlug);
         inMemoryTemplateVersions.delete(`tv_${templateId}_v1`);
 
-        response = jsonSuccess({ deleted: true, templateId }, 200, {}, requestId);
+        response = jsonSuccess({
+          deleted: true,
+          templateId,
+          b2DeletedCount,
+          imgbbDeletedCount,
+          versionsDeletedCount,
+          variantsDeletedCount
+        }, 200, {}, requestId);
       }
 
       else if (

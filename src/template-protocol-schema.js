@@ -372,6 +372,8 @@ export function normalizeRelationshipIdentifier(relInput, customLabel = null) {
   if (!rawSlug) return null;
 
   let cleanSlug = rawSlug
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '')
     .toLowerCase()
     .replace(/^rel_/, '')
     .replace(/[\s-]+/g, '_')

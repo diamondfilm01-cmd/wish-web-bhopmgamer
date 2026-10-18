@@ -1713,25 +1713,38 @@ export function extractAuthoritativeEnabledRelationshipSet(template = null, temp
 
   // 1. Check template_relationships rows if provided
   if (Array.isArray(templateRelationshipRows) && templateRelationshipRows.length > 0) {
-    let anyRowEnabled = false;
+    const enabledInRows = [];
+    const disabledInRows = [];
     for (const r of templateRelationshipRows) {
       if (!r || typeof r !== 'object') continue;
       const rKey = r.relationship_slug || r.relationship_id || r.slug || r.id || '';
       const norm = normalizeRelationshipIdentifier(rKey);
       const isRowEnabled = r.enabled === undefined ? true : (Number(r.enabled) !== 0 && r.enabled !== false);
       if (!isRowEnabled) {
-        if (norm?.slug) explicitlyDisabledSlugs.add(norm.slug);
-        if (norm?.id) explicitlyDisabledSlugs.add(norm.id.toLowerCase());
-        if (rKey) explicitlyDisabledSlugs.add(String(rKey).toLowerCase());
+        disabledInRows.push({ rKey, norm });
       } else {
-        anyRowEnabled = true;
+        enabledInRows.push({ rKey, norm });
+      }
+    }
+    const rawTplEnabledCheck = template?.enabled_variants_json !== undefined
+      ? (typeof template.enabled_variants_json === 'string' ? safeJsonParse(template.enabled_variants_json, null) : template.enabled_variants_json)
+      : null;
+    const hasNonEmptyTplEnabledJson = Array.isArray(rawTplEnabledCheck) && rawTplEnabledCheck.length > 0;
+    // Guard against interrupted batch updates where `UPDATE template_relationships SET enabled = 0` ran before new rows committed
+    if (enabledInRows.length > 0 || !hasNonEmptyTplEnabledJson) {
+      for (const { rKey, norm } of enabledInRows) {
         if (norm?.slug) allowedSlugs.add(norm.slug);
         if (norm?.id) allowedSlugs.add(norm.id.toLowerCase());
         if (rKey) allowedSlugs.add(String(rKey).toLowerCase());
       }
-    }
-    if (anyRowEnabled || explicitlyDisabledSlugs.size > 0) {
-      hasExplicitAllowlist = true;
+      for (const { rKey, norm } of disabledInRows) {
+        if (norm?.slug) explicitlyDisabledSlugs.add(norm.slug);
+        if (norm?.id) explicitlyDisabledSlugs.add(norm.id.toLowerCase());
+        if (rKey) explicitlyDisabledSlugs.add(String(rKey).toLowerCase());
+      }
+      if (enabledInRows.length > 0 || disabledInRows.length > 0) {
+        hasExplicitAllowlist = true;
+      }
     }
   }
 

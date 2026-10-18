@@ -3046,7 +3046,13 @@ async function deleteTemplate(templateId, name) {
 
     if (isDeleted) {
       try { localStorage.removeItem('wishmagic_templates_v1'); } catch (_) {}
-      if (typeof showToast === 'function') showToast(`Template "${name}" deleted permanently.`);
+      const rData = (result && result.data) ? result.data : (result || {});
+      const extraCounts = [];
+      if (rData.b2DeletedCount) extraCounts.push(`${rData.b2DeletedCount} B2 file(s)`);
+      if (rData.versionsDeletedCount) extraCounts.push(`${rData.versionsDeletedCount} version(s)`);
+      if (rData.variantsDeletedCount) extraCounts.push(`${rData.variantsDeletedCount} variant(s)`);
+      const suffix = extraCounts.length > 0 ? ` (${extraCounts.join(', ')} purged)` : '';
+      if (typeof showToast === 'function') showToast(`Template "${name}" deleted permanently${suffix}.`);
       allAdminTemplates = (allAdminTemplates || []).filter(t => t.id !== templateId && t.slug !== templateId);
       await loadDynamicTemplates();
       if (typeof renderQuickSetTemplatesList === 'function') {
