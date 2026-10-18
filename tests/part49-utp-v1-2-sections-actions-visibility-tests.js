@@ -805,7 +805,7 @@ describe('Part 49 — WishMagic UTP v1.2.0 Sections, Subsections, Visibility & A
     });
 
     it('discovers nested sections, subsections (up to depth 3), and actions during UTP v1.2.0 validation', () => {
-      assert.equal(UTP_LATEST_SCHEMA_VERSION, '1.2.0');
+      assert.ok(['1.2.0', '1.3.0'].includes(UTP_LATEST_SCHEMA_VERSION));
       assert.equal(UTP_MAX_SECTION_NESTING_DEPTH, 3);
       const report = validateUtpManifest(UTP_V12_MANIFEST, {
         htmlContent: UTP_V12_HTML,

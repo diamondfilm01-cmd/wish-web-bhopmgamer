@@ -1259,13 +1259,17 @@ export async function ensureTemplateIngestionSchema(db, force = false) {
     { name: "published_config_snapshot_json", def: "TEXT DEFAULT NULL" }
   ]);
   await reconcileColumns("templates", [
-    { name: "rollback_version_id", def: "TEXT DEFAULT NULL" }
+    { name: "rollback_version_id", def: "TEXT DEFAULT NULL" },
+    { name: "enabled_variants_json", def: "TEXT DEFAULT '[]'" },
+    { name: "link_mappings_json", def: "TEXT DEFAULT '{}'" }
   ]);
   await reconcileColumns("template_versions", [
     { name: "base_version_id", def: "TEXT DEFAULT NULL" },
     { name: "change_summary_json", def: "TEXT DEFAULT '{}'" },
     { name: "import_session_id", def: "TEXT DEFAULT NULL" },
-    { name: "rollback_from_version_id", def: "TEXT DEFAULT NULL" }
+    { name: "rollback_from_version_id", def: "TEXT DEFAULT NULL" },
+    { name: "enabled_variants_json", def: "TEXT DEFAULT '[]'" },
+    { name: "link_mappings_json", def: "TEXT DEFAULT '{}'" }
   ]);
   await execSql(`
     CREATE TABLE IF NOT EXISTS template_import_sessions (
@@ -1915,8 +1919,15 @@ export async function executeB2TemplateIngestPipeline(params) {
     throw err;
   }
 
-  // Duplicate Package Detection via package_fingerprint
-  if (db && typeof db.prepare === 'function') {
+  // Duplicate Package Detection via package_fingerprint (skip when creating an explicit new version or applying admin variant/config selections)
+  const hasExplicitAdminSelection = Boolean(
+    templateMetadata.forceNewVersion ||
+    templateMetadata.versionNumber ||
+    Array.isArray(templateMetadata.relationships) ||
+    Array.isArray(templateMetadata.enabledVariants) ||
+    (templateMetadata.variantOverrides && Object.keys(templateMetadata.variantOverrides).length > 0)
+  );
+  if (db && typeof db.prepare === 'function' && !hasExplicitAdminSelection) {
     let duplicateVer = null;
     const queryDuplicateFingerprint = async () => {
       const stmt = db.prepare(`
@@ -2394,14 +2405,90 @@ export async function executeB2TemplateIngestPipeline(params) {
       fileRecord.b2FileId = fileUploadRes.fileId;
     }
 
-    // 6b. Build UTP v1.1.0 Variant Records from declared variants (with ImgBB & B2 URLs wired)
+    // 6b. Build UTP v1.1.0 / v1.3.0 Variant Records from declared variants (enforcing admin selections & preserving disabled variants)
     const declaredValidVariants = Array.isArray(utpReport.variants?.validVariants)
       ? utpReport.variants.validVariants
       : [];
+
+    // Check if administrator explicitly supplied enabled relationships/variants in upload metadata
+    const rawAdminSelectedRels = Array.isArray(templateMetadata.enabledVariants)
+      ? templateMetadata.enabledVariants
+      : (Array.isArray(templateMetadata.relationships) ? templateMetadata.relationships : null);
+    let adminAllowedRelSlugs = null;
+    if (Array.isArray(rawAdminSelectedRels)) {
+      adminAllowedRelSlugs = new Set();
+      for (const item of rawAdminSelectedRels) {
+        if (!item) continue;
+        if (typeof item === 'object') {
+          if (item.enabled === false || item.disabled === true) continue;
+          const rk = item.slug || item.relationship || item.relationshipSlug || item.id || item.label || '';
+          const nr = normalizeRelationshipIdentifier(rk);
+          if (nr?.slug) adminAllowedRelSlugs.add(nr.slug);
+          if (rk) adminAllowedRelSlugs.add(String(rk).toLowerCase().trim());
+        } else {
+          const nr = normalizeRelationshipIdentifier(String(item));
+          if (nr?.slug) adminAllowedRelSlugs.add(nr.slug);
+          adminAllowedRelSlugs.add(String(item).toLowerCase().trim());
+        }
+      }
+    }
+
+    // Part A4: Query existing disabled variants for this template in D1 so re-uploading a package NEVER silently re-enables a variant disabled by the admin
+    const previouslyDisabledRelSlugs = new Set();
+    if (db && typeof db.prepare === 'function') {
+      try {
+        const prevVarRows = await db.prepare(
+          `SELECT relationship_slug, relationship_id, variant_slug, id, status, enabled FROM template_relationship_variants WHERE template_id = ? AND is_latest = 1`
+        ).bind(templateId).all().catch(() => ({ results: [] }));
+        for (const pv of (prevVarRows?.results || [])) {
+          if (Number(pv.enabled) === 0 || pv.enabled === false || pv.status === 'disabled' || pv.status === 'archived') {
+            const nr = normalizeRelationshipIdentifier(pv.relationship_slug || pv.relationship_id || pv.variant_slug);
+            if (nr?.slug) previouslyDisabledRelSlugs.add(nr.slug);
+            if (pv.variant_slug) previouslyDisabledRelSlugs.add(String(pv.variant_slug).toLowerCase());
+            if (pv.id) previouslyDisabledRelSlugs.add(String(pv.id).toLowerCase());
+          }
+        }
+        const prevRelRows = await db.prepare(
+          `SELECT relationship_id, enabled FROM template_relationships WHERE template_id = ?`
+        ).bind(templateId).all().catch(() => ({ results: [] }));
+        for (const pr of (prevRelRows?.results || [])) {
+          if (Number(pr.enabled) === 0 || pr.enabled === false) {
+            const nr = normalizeRelationshipIdentifier(pr.relationship_id);
+            if (nr?.slug) previouslyDisabledRelSlugs.add(nr.slug);
+            if (pr.relationship_id) previouslyDisabledRelSlugs.add(String(pr.relationship_id).toLowerCase());
+          }
+        }
+      } catch (_) {}
+    }
+
     const registeredVariantRecords = declaredValidVariants.map((normVar, idx) => {
       const vOverride = uploadVariantOverrides[normVar.relationship] || uploadVariantOverrides[normVar.slug] || uploadVariantOverrides[normVar.id] || {};
+      const relNorm = normalizeRelationshipIdentifier(normVar.relationship || normVar.slug, normVar.label || normVar.relationshipLabel);
+      const canonicalRelSlug = relNorm ? relNorm.slug : String(normVar.relationship || normVar.slug || '').toLowerCase();
+
+      let effectiveVarEnabled = normVar.enabled !== false && normVar.status !== 'disabled' && normVar.status !== 'archived';
+      if (vOverride.enabled !== undefined) {
+        effectiveVarEnabled = Boolean(vOverride.enabled);
+      } else if (vOverride.disabled !== undefined) {
+        effectiveVarEnabled = !vOverride.disabled;
+      } else if (adminAllowedRelSlugs !== null) {
+        effectiveVarEnabled =
+          adminAllowedRelSlugs.has(canonicalRelSlug) ||
+          adminAllowedRelSlugs.has(String(normVar.slug || '').toLowerCase()) ||
+          adminAllowedRelSlugs.has(String(normVar.id || '').toLowerCase()) ||
+          adminAllowedRelSlugs.has(String(normVar.label || normVar.relationshipLabel || '').toLowerCase());
+      } else if (
+        previouslyDisabledRelSlugs.has(canonicalRelSlug) ||
+        previouslyDisabledRelSlugs.has(String(normVar.slug || '').toLowerCase()) ||
+        previouslyDisabledRelSlugs.has(String(normVar.id || '').toLowerCase())
+      ) {
+        effectiveVarEnabled = false;
+      }
+
       const mergedVar = {
         ...normVar,
+        enabled: effectiveVarEnabled,
+        status: effectiveVarEnabled ? (normVar.status || 'published') : 'disabled',
         sortOrder: normVar.sortOrder || (idx + 1),
         visibility: { ...(normVar.visibility || {}), ...(vOverride.visibility || {}) },
         actions: vOverride.actions
@@ -2413,7 +2500,7 @@ export async function executeB2TemplateIngestPipeline(params) {
         templateFamilyId,
         versionId,
         versionNumber,
-        shouldPublish: shouldPublishImmediately,
+        shouldPublish: effectiveVarEnabled ? shouldPublishImmediately : false,
         imgbbUrlByRelPath,
         b2MediaUrlByRelPath,
         fallbackThumbnail: resolvedThumbnail,
@@ -2501,12 +2588,20 @@ export async function executeB2TemplateIngestPipeline(params) {
     const buildRegistrationStatements = async () => {
     const registrationStatements = [];
 
+    const fallbackManifestRels = Array.isArray(utpReport.normalized?.relationships) ? utpReport.normalized.relationships : [];
+    const filteredFallbackRels = adminAllowedRelSlugs !== null
+      ? fallbackManifestRels.filter(r => {
+          const nr = normalizeRelationshipIdentifier(r);
+          return (nr && adminAllowedRelSlugs.has(nr.slug)) || adminAllowedRelSlugs.has(String(r).toLowerCase().trim());
+        })
+      : (Array.isArray(templateMetadata.relationships) ? templateMetadata.relationships : fallbackManifestRels);
+
     const declaredRelLabels = registeredVariantRecords.length > 0
-      ? registeredVariantRecords.filter(vr => vr.enabled !== 0).map(vr => vr.relationship_label)
-      : (Array.isArray(utpReport.normalized?.relationships) ? utpReport.normalized.relationships : []);
+      ? registeredVariantRecords.filter(vr => vr.enabled !== 0 && vr.status !== 'disabled').map(vr => vr.relationship_label)
+      : filteredFallbackRels.map(r => normalizeRelationshipIdentifier(r)?.label || String(r));
     const declaredRelSlugs = registeredVariantRecords.length > 0
-      ? registeredVariantRecords.filter(vr => vr.enabled !== 0).map(vr => vr.relationship_slug)
-      : (Array.isArray(utpReport.normalized?.relationships) ? utpReport.normalized.relationships : []);
+      ? registeredVariantRecords.filter(vr => vr.enabled !== 0 && vr.status !== 'disabled').map(vr => vr.relationship_slug)
+      : filteredFallbackRels.map(r => normalizeRelationshipIdentifier(r)?.slug || String(r).toLowerCase());
 
     // 1. Template Family statement
     registrationStatements.push(
@@ -2549,18 +2644,19 @@ export async function executeB2TemplateIngestPipeline(params) {
           id, name, slug, description, category, relationships, tags,
           type, tier, price, is_premium, is_published, status, featured,
           placement, thumbnail, preview_images, capabilities, detected_fields,
-          sections, actions_json, visibility_config_json, actions_config_json, features, theme, folder, entry_file, variants_json, has_variants, created_at, updated_at
+          sections, actions_json, visibility_config_json, actions_config_json, enabled_variants_json, features, theme, folder, entry_file, variants_json, has_variants, created_at, updated_at
         ) VALUES (
           ?, ?, ?, ?, ?, ?, '[]',
           '3D Interactive', ?, ?, ?, ?, ?, ?,
           99, ?, ?, ?, ?,
-          ?, ?, ?, ?, ?, '{}', ?, ?, ?, ?, ?, ?
+          ?, ?, ?, ?, ?, ?, '{}', ?, ?, ?, ?, ?, ?
         )
         ON CONFLICT(id) DO UPDATE SET
           sections = excluded.sections,
           actions_json = excluded.actions_json,
           visibility_config_json = excluded.visibility_config_json,
           actions_config_json = excluded.actions_config_json,
+          enabled_variants_json = excluded.enabled_variants_json,
           features = excluded.features,
           relationships = excluded.relationships,
           variants_json = excluded.variants_json,
@@ -2601,6 +2697,7 @@ export async function executeB2TemplateIngestPipeline(params) {
         JSON.stringify(utpReport.normalized?.actions || templateMetadata.actions || []),
         JSON.stringify(uploadVisibilityConfig || {}),
         JSON.stringify(uploadActionsConfig || {}),
+        JSON.stringify(declaredRelSlugs),
         JSON.stringify(utpReport.normalized || {}),
         familySlug,
         extracted.entryFile,
@@ -2638,7 +2735,7 @@ export async function executeB2TemplateIngestPipeline(params) {
           source_zip_storage_key, runtime_root_storage_key, manifest_storage_key,
           schema_hash, runtime_hash, source_zip_hash, package_fingerprint,
           storage_provider, storage_bucket, storage_metadata_json,
-          sections, fields_json, actions_json, visibility_config_json, actions_config_json, manifest_json,
+          sections, fields_json, actions_json, visibility_config_json, actions_config_json, enabled_variants_json, manifest_json,
           status, created_at, created_by
         ) VALUES (
           ?, ?, ?, ?, ?,
@@ -2646,7 +2743,7 @@ export async function executeB2TemplateIngestPipeline(params) {
           ?, ?, ?,
           ?, ?, ?, ?,
           'b2', ?, ?,
-          ?, ?, ?, ?, ?, ?,
+          ?, ?, ?, ?, ?, ?, ?,
           ?, ?, ?
         )
         ON CONFLICT(id) DO UPDATE SET
@@ -2656,6 +2753,7 @@ export async function executeB2TemplateIngestPipeline(params) {
           actions_json = excluded.actions_json,
           visibility_config_json = excluded.visibility_config_json,
           actions_config_json = excluded.actions_config_json,
+          enabled_variants_json = excluded.enabled_variants_json,
           manifest_json = excluded.manifest_json,
           storage_metadata_json = excluded.storage_metadata_json
       `).bind(
@@ -2690,6 +2788,7 @@ export async function executeB2TemplateIngestPipeline(params) {
         JSON.stringify(utpReport.normalized?.actions || templateMetadata.actions || []),
         JSON.stringify(uploadVisibilityConfig || {}),
         JSON.stringify(uploadActionsConfig || {}),
+        JSON.stringify(declaredRelSlugs),
         JSON.stringify(manifestPayload || {}),
         targetVersionStatus,
         nowIso,

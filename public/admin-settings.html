@@ -869,6 +869,131 @@
       </div>
     </div>
 
+    
+    <!-- SECTION 3B: UTP v1.3.0 CENTRAL LINK MANAGER & FUTURE DOMAIN MIGRATION -->
+    <div id="central-link-manager-section" class="wm-card bg-surface-container rounded-2xl p-5 sm:p-7 border border-purple-500/35 shadow-xl flex flex-col gap-5">
+      <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pb-4 border-b border-purple-900/20">
+        <div class="flex items-center gap-3">
+          <div class="w-10 h-10 rounded-xl bg-primary-container/25 text-primary flex items-center justify-center">
+            <span class="material-symbols-outlined text-2xl">link</span>
+          </div>
+          <div>
+            <div class="flex items-center gap-2 flex-wrap">
+              <h2 class="font-headline-sm text-lg sm:text-xl font-bold text-on-surface">Central Link Manager &amp; Custom Domain Resolver</h2>
+              <span class="px-2 py-0.5 rounded-full bg-purple-500/20 text-purple-300 border border-purple-500/30 text-[10px] font-bold uppercase tracking-wider">UTP v1.3.0</span>
+            </div>
+            <p class="text-xs sm:text-sm text-on-surface-variant">Manage canonical production domain, global WishMagic links (<code>global.*</code>), and template-specific creation links (<code>template.*</code>) centrally without editing template ZIPs.</p>
+          </div>
+        </div>
+        <div class="flex items-center gap-2 flex-wrap">
+          <button type="button" onclick="scanTemplatesForLinkMigrationUI()" class="px-3.5 py-2 rounded-xl bg-surface-container-high hover:bg-surface-container-highest text-on-surface text-xs font-bold flex items-center gap-1.5 border border-purple-500/25 transition cursor-pointer">
+            <span class="material-symbols-outlined text-sm">radar</span>
+            <span>Scan Templates for Links</span>
+          </button>
+          <button type="button" onclick="saveCentralLinkSettingsUI()" class="px-4 py-2 rounded-xl bg-gradient-to-r from-pink-500 to-purple-600 hover:brightness-110 text-white font-bold text-xs sm:text-sm flex items-center gap-1.5 shadow-md transition cursor-pointer">
+            <span class="material-symbols-outlined text-sm">save</span>
+            <span>Save Central Link Config</span>
+          </button>
+        </div>
+      </div>
+
+      <!-- Domain Configuration Row -->
+      <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
+        <div>
+          <label class="block text-xs font-bold uppercase text-outline mb-1" for="setting-canonical-base-url">Canonical Production Base URL (HTTPS)</label>
+          <input id="setting-canonical-base-url" type="url" value="https://wishmagic.pages.dev" placeholder="https://wishmagic.pages.dev" class="w-full px-3 py-2 rounded-lg bg-surface-container-low text-on-surface border border-purple-900/30 text-sm font-mono"/>
+          <span class="text-[11px] text-on-surface-variant mt-1 block">Current default: <code>https://wishmagic.pages.dev</code></span>
+        </div>
+        <div>
+          <label class="block text-xs font-bold uppercase text-outline mb-1" for="setting-custom-domain-url">Future Custom Domain Origin (Optional)</label>
+          <input id="setting-custom-domain-url" type="url" value="" placeholder="https://wishmagic.in" class="w-full px-3 py-2 rounded-lg bg-surface-container-low text-on-surface border border-purple-900/30 text-sm font-mono"/>
+          <span class="text-[11px] text-on-surface-variant mt-1 block">Approved HTTPS custom domain origin</span>
+        </div>
+        <div>
+          <label class="block text-xs font-bold uppercase text-outline mb-1" for="setting-domain-migration-status">Domain Migration Status</label>
+          <select id="setting-domain-migration-status" class="w-full px-3 py-2 rounded-lg bg-surface-container-low text-on-surface border border-purple-900/30 text-sm">
+            <option value="pages_default">Cloudflare Pages Default (wishmagic.pages.dev)</option>
+            <option value="custom_domain_staged">Custom Domain Staged (Verify DNS/SSL First)</option>
+            <option value="custom_domain_active">Custom Domain Active (Production Cutover)</option>
+          </select>
+          <span class="text-[11px] text-amber-300/90 mt-1 block">DNS, SSL &amp; Cloudflare Custom Domain setup remain separate infrastructure steps.</span>
+        </div>
+      </div>
+
+      <!-- Two Separate Link Categories Grid -->
+      <div class="grid grid-cols-1 lg:grid-cols-2 gap-5">
+        <!-- Category 1: Global WishMagic Destinations -->
+        <div class="p-4 rounded-xl bg-surface-container-low border border-purple-900/30 space-y-3">
+          <div class="flex items-center justify-between">
+            <h3 class="text-xs font-extrabold uppercase tracking-wider text-pink-400">1. Global WishMagic Links (<code>global.*</code>)</h3>
+            <span class="text-[11px] text-on-surface-variant">Explore More, Visit WishMagic, Browse Templates</span>
+          </div>
+          <div class="grid grid-cols-1 sm:grid-cols-2 gap-3 text-xs">
+            <div>
+              <label class="block font-semibold text-on-surface-variant mb-1" for="setting-link-global-home"><code>global.home</code> (Home)</label>
+              <input id="setting-link-global-home" value="/" class="w-full px-2.5 py-1.5 rounded bg-surface-container text-on-surface border border-purple-900/30 font-mono"/>
+            </div>
+            <div>
+              <label class="block font-semibold text-on-surface-variant mb-1" for="setting-link-global-explore"><code>global.explore</code> (Explore More)</label>
+              <input id="setting-link-global-explore" value="/templates.html" class="w-full px-2.5 py-1.5 rounded bg-surface-container text-on-surface border border-purple-900/30 font-mono"/>
+            </div>
+            <div>
+              <label class="block font-semibold text-on-surface-variant mb-1" for="setting-link-global-browse"><code>global.browseTemplates</code></label>
+              <input id="setting-link-global-browse" value="/templates.html" class="w-full px-2.5 py-1.5 rounded bg-surface-container text-on-surface border border-purple-900/30 font-mono"/>
+            </div>
+            <div>
+              <label class="block font-semibold text-on-surface-variant mb-1" for="setting-link-global-create"><code>global.createWish</code> (Create a Wish)</label>
+              <input id="setting-link-global-create" value="/create.html" class="w-full px-2.5 py-1.5 rounded bg-surface-container text-on-surface border border-purple-900/30 font-mono"/>
+            </div>
+            <div>
+              <label class="block font-semibold text-on-surface-variant mb-1" for="setting-link-global-pricing"><code>global.pricing</code></label>
+              <input id="setting-link-global-pricing" value="/pricing.html" class="w-full px-2.5 py-1.5 rounded bg-surface-container text-on-surface border border-purple-900/30 font-mono"/>
+            </div>
+            <div>
+              <label class="block font-semibold text-on-surface-variant mb-1" for="setting-link-global-help"><code>global.help</code></label>
+              <input id="setting-link-global-help" value="/help.html" class="w-full px-2.5 py-1.5 rounded bg-surface-container text-on-surface border border-purple-900/30 font-mono"/>
+            </div>
+          </div>
+          <div>
+            <label class="block text-[11px] font-semibold text-on-surface-variant mb-1" for="setting-global-button-labels">Supported Global Button Labels (Comma-separated)</label>
+            <input id="setting-global-button-labels" value="Explore More, Visit WishMagic, Browse Templates, Create a Wish, Back to WishMagic, Back to Templates, Home" class="w-full px-2.5 py-1.5 rounded bg-surface-container text-on-surface border border-purple-900/30 text-xs"/>
+          </div>
+        </div>
+
+        <!-- Category 2: Template-Specific Creation Links -->
+        <div class="p-4 rounded-xl bg-surface-container-low border border-purple-900/30 space-y-3">
+          <div class="flex items-center justify-between">
+            <h3 class="text-xs font-extrabold uppercase tracking-wider text-emerald-400">2. Template-Specific Links (<code>template.*</code>)</h3>
+            <span class="text-[11px] text-on-surface-variant">Make For Yours, Create Yours, Customize This Template</span>
+          </div>
+          <div class="grid grid-cols-1 sm:grid-cols-3 gap-3 text-xs">
+            <div>
+              <label class="block font-semibold text-on-surface-variant mb-1" for="setting-link-template-create"><code>template.create</code></label>
+              <input id="setting-link-template-create" value="/customize.html" class="w-full px-2.5 py-1.5 rounded bg-surface-container text-on-surface border border-purple-900/30 font-mono"/>
+            </div>
+            <div>
+              <label class="block font-semibold text-on-surface-variant mb-1" for="setting-link-template-customize"><code>template.customize</code></label>
+              <input id="setting-link-template-customize" value="/customize.html" class="w-full px-2.5 py-1.5 rounded bg-surface-container text-on-surface border border-purple-900/30 font-mono"/>
+            </div>
+            <div>
+              <label class="block font-semibold text-on-surface-variant mb-1" for="setting-link-template-preview"><code>template.preview</code></label>
+              <input id="setting-link-template-preview" value="/template-preview.html" class="w-full px-2.5 py-1.5 rounded bg-surface-container text-on-surface border border-purple-900/30 font-mono"/>
+            </div>
+          </div>
+          <p class="text-[11px] text-on-surface-variant leading-relaxed">
+            Template-specific links automatically preserve <code>?template=&lt;slug&gt;&amp;variant=&lt;variant&gt;&amp;rel=&lt;relation&gt;</code> at runtime so visitors open the exact template and relationship edition they were viewing.
+          </p>
+          <div>
+            <label class="block text-[11px] font-semibold text-on-surface-variant mb-1" for="setting-template-button-labels">Supported Template-Specific Button Labels (Comma-separated)</label>
+            <input id="setting-template-button-labels" value="Make For Yours, Create Yours, Make One For Me, Customize This Template, Create Your Wish, Personalize This Template" class="w-full px-2.5 py-1.5 rounded bg-surface-container text-on-surface border border-purple-900/30 text-xs"/>
+          </div>
+        </div>
+      </div>
+
+      <!-- Existing Template Link Migration Scanner Results -->
+      <div id="central-link-scan-results" class="hidden p-4 rounded-xl bg-surface-container-low border border-purple-800/40 space-y-3 text-xs"></div>
+    </div>
+
     <!-- SECTION 4: PART 18 SECURITY & PRODUCTION READINESS DIAGNOSTIC MATRIX -->
     <div class="wm-card bg-surface-container rounded-2xl p-5 sm:p-7 border border-emerald-500/40 shadow-xl flex flex-col gap-5">
       <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pb-4 border-b border-purple-900/20">
@@ -1637,10 +1762,160 @@
     `).join('');
   }
 
+
+  async function loadCentralLinkSettings() {
+    try {
+      const res = await fetch('/api/admin/settings/links', { credentials: 'include' });
+      if (!res.ok) return;
+      const data = await res.json().catch(() => ({}));
+      const s = (data.data && data.data.settings) || data.settings;
+      if (!s) return;
+      if (s.canonicalBaseUrl) document.getElementById('setting-canonical-base-url').value = s.canonicalBaseUrl;
+      if (s.customDomainUrl !== undefined) document.getElementById('setting-custom-domain-url').value = s.customDomainUrl || '';
+      if (s.domainMigrationStatus) document.getElementById('setting-domain-migration-status').value = s.domainMigrationStatus;
+      if (s.globalDestinations) {
+        if (s.globalDestinations['global.home']) document.getElementById('setting-link-global-home').value = s.globalDestinations['global.home'];
+        if (s.globalDestinations['global.explore']) document.getElementById('setting-link-global-explore').value = s.globalDestinations['global.explore'];
+        if (s.globalDestinations['global.browseTemplates']) document.getElementById('setting-link-global-browse').value = s.globalDestinations['global.browseTemplates'];
+        if (s.globalDestinations['global.createWish']) document.getElementById('setting-link-global-create').value = s.globalDestinations['global.createWish'];
+        if (s.globalDestinations['global.pricing']) document.getElementById('setting-link-global-pricing').value = s.globalDestinations['global.pricing'];
+        if (s.globalDestinations['global.help']) document.getElementById('setting-link-global-help').value = s.globalDestinations['global.help'];
+      }
+      if (s.templateRoutes) {
+        if (s.templateRoutes['template.create']) document.getElementById('setting-link-template-create').value = s.templateRoutes['template.create'];
+        if (s.templateRoutes['template.customize']) document.getElementById('setting-link-template-customize').value = s.templateRoutes['template.customize'];
+        if (s.templateRoutes['template.preview']) document.getElementById('setting-link-template-preview').value = s.templateRoutes['template.preview'];
+      }
+      if (Array.isArray(s.globalButtonLabels)) {
+        document.getElementById('setting-global-button-labels').value = s.globalButtonLabels.join(', ');
+      }
+      if (Array.isArray(s.templateButtonLabels)) {
+        document.getElementById('setting-template-button-labels').value = s.templateButtonLabels.join(', ');
+      }
+    } catch (e) {
+      console.warn('Could not load central link settings:', e);
+    }
+  }
+
+  async function saveCentralLinkSettingsUI() {
+    const payload = {
+      canonicalBaseUrl: document.getElementById('setting-canonical-base-url')?.value?.trim() || 'https://wishmagic.pages.dev',
+      customDomainUrl: document.getElementById('setting-custom-domain-url')?.value?.trim() || '',
+      domainMigrationStatus: document.getElementById('setting-domain-migration-status')?.value || 'pages_default',
+      globalDestinations: {
+        'global.home': document.getElementById('setting-link-global-home')?.value?.trim() || '/',
+        'global.explore': document.getElementById('setting-link-global-explore')?.value?.trim() || '/templates.html',
+        'global.browseTemplates': document.getElementById('setting-link-global-browse')?.value?.trim() || '/templates.html',
+        'global.createWish': document.getElementById('setting-link-global-create')?.value?.trim() || '/create.html',
+        'global.pricing': document.getElementById('setting-link-global-pricing')?.value?.trim() || '/pricing.html',
+        'global.help': document.getElementById('setting-link-global-help')?.value?.trim() || '/help.html'
+      },
+      templateRoutes: {
+        'template.create': document.getElementById('setting-link-template-create')?.value?.trim() || '/customize.html',
+        'template.customize': document.getElementById('setting-link-template-customize')?.value?.trim() || '/customize.html',
+        'template.preview': document.getElementById('setting-link-template-preview')?.value?.trim() || '/template-preview.html'
+      },
+      globalButtonLabels: (document.getElementById('setting-global-button-labels')?.value || '').split(',').map(s => s.trim()).filter(Boolean),
+      templateButtonLabels: (document.getElementById('setting-template-button-labels')?.value || '').split(',').map(s => s.trim()).filter(Boolean)
+    };
+
+    try {
+      const res = await fetch('/api/admin/settings/links', {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        credentials: 'include',
+        body: JSON.stringify({ settings: payload })
+      });
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok || !data.success) {
+        const msg = data.error?.message || data.error || 'Failed to save central link settings';
+        showToast(`❌ ${msg}`);
+        showStatusBanner(`Link Manager Save Failed: ${msg}`, 'error');
+        return { success: false, error: msg };
+      }
+      notifyLiveStorefrontSettingsUpdated();
+      showToast('✨ Central Link Manager configuration persisted to D1!');
+      showStatusBanner('✨ Central Link Manager configuration persisted to D1!', 'success');
+      return { success: true, settings: data.data?.settings || data.settings };
+    } catch (e) {
+      showToast(`❌ Network error: ${e.message}`);
+      return { success: false, error: e.message };
+    }
+  }
+
+  async function scanTemplatesForLinkMigrationUI() {
+    const container = document.getElementById('central-link-scan-results');
+    if (!container) return;
+    container.classList.remove('hidden');
+    container.innerHTML = '<div class="text-primary font-bold animate-pulse">Scanning registered templates for internal links, buttons, and hardcoded URLs...</div>';
+    try {
+      const res = await fetch('/api/admin/settings/links/scan', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        credentials: 'include',
+        body: JSON.stringify({})
+      });
+      const data = await res.json().catch(() => ({}));
+      const reports = (data.data && data.data.reports) || data.reports || [];
+      if (!reports.length) {
+        container.innerHTML = '<div class="text-on-surface-variant">No templates found in database to scan.</div>';
+        return;
+      }
+      container.innerHTML = `
+        <div class="flex items-center justify-between border-b border-purple-900/30 pb-2">
+          <span class="font-bold text-on-surface">Scanned ${reports.length} Template(s) — Link Classification &amp; Normalization Report</span>
+          <span class="text-emerald-400 font-mono">Canonical: ${(data.data && data.data.canonicalBaseUrl) || 'https://wishmagic.pages.dev'}</span>
+        </div>
+        <div class="space-y-2 max-h-72 overflow-y-auto pr-1">
+          ${reports.map(r => `
+            <div class="p-3 rounded-lg bg-surface-container border border-purple-900/25 flex flex-col sm:flex-row sm:items-center justify-between gap-2">
+              <div>
+                <div class="font-bold text-on-surface">${r.templateName || r.templateId} <span class="text-outline font-mono">(${r.templateSlug})</span></div>
+                <div class="text-[11px] text-on-surface-variant mt-0.5">
+                  Global Links: <strong>${r.summary.globalInternalCount}</strong> •
+                  Template Creation Links: <strong>${r.summary.templateSpecificCount}</strong> •
+                  External Preserved: <strong>${r.summary.externalCount}</strong> •
+                  Ambiguous: <strong class="${r.summary.ambiguousCount > 0 ? 'text-amber-400' : 'text-emerald-400'}">${r.summary.ambiguousCount}</strong>
+                </div>
+              </div>
+              <div class="flex items-center gap-2">
+                <button type="button" onclick="migrateTemplateLinksUI('${r.templateId}', false)" class="px-2.5 py-1 rounded bg-purple-900/50 hover:bg-purple-800 text-purple-200 font-bold text-[11px] cursor-pointer">Stage Normalization</button>
+                <button type="button" onclick="migrateTemplateLinksUI('${r.templateId}', true)" class="px-2.5 py-1 rounded bg-emerald-500/20 hover:bg-emerald-500/30 text-emerald-300 border border-emerald-500/40 font-bold text-[11px] cursor-pointer">Confirm &amp; Publish</button>
+              </div>
+            </div>
+          `).join('')}
+        </div>
+      `;
+    } catch (e) {
+      container.innerHTML = `<div class="text-rose-400">Scan failed: ${e.message}</div>`;
+    }
+  }
+
+  async function migrateTemplateLinksUI(templateId, confirmPublish = false) {
+    try {
+      const res = await fetch('/api/admin/settings/links/migrate', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        credentials: 'include',
+        body: JSON.stringify({ templateId, confirmPublish, acknowledgeAmbiguous: true })
+      });
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok || !data.success) {
+        showToast(`❌ Migration failed: ${data.error?.message || 'Server error'}`);
+        return;
+      }
+      showToast(confirmPublish ? `✨ Published normalized links for ${templateId}!` : `✨ Staged normalized links for ${templateId}!`);
+      await scanTemplatesForLinkMigrationUI();
+    } catch (e) {
+      showToast(`❌ Error: ${e.message}`);
+    }
+  }
+
   // Auto-run initialization and security diagnostic on page load
   document.addEventListener('DOMContentLoaded', async () => {
     await loadSiteSettings();
     await loadWishLinkSettings();
+    await loadCentralLinkSettings();
     await loadStaffDirectory();
     setTimeout(runSecurityAudit, 300);
   });

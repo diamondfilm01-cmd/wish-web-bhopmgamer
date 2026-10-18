@@ -30,6 +30,7 @@ if (!globalThis.crypto) { globalThis.crypto = _nodeWebCrypto; }
  */
 
 import JSZip from './vendor/jszip.js';
+import { detectAndClassifyPackageButtons } from './template-link-resolver.js';
 import { computeSha256Hex, getMimeType, getB2Config, B2StorageProvider } from './storage-provider.js';
 import {
   UTP_SUPPORTED_SCHEMA_VERSIONS,
@@ -793,7 +794,7 @@ export async function inspectAndValidateTemplateZip(zipInput, options = {}) {
     const declaredSchemaVer = rawManifest.schemaVersion || rawManifest.protocolVersion || (rawManifest.template && rawManifest.template.schemaVersion);
     if (declaredSchemaVer !== undefined && declaredSchemaVer !== null) {
       const verStr = String(declaredSchemaVer).trim();
-      const supportedSet = new Set([...UTP_SUPPORTED_SCHEMA_VERSIONS, '1.0', '1.1', '1.2']);
+      const supportedSet = new Set([...UTP_SUPPORTED_SCHEMA_VERSIONS, '1.0', '1.1', '1.2', '1.3']);
       if (!supportedSet.has(verStr)) {
         validationErrors.push({
           code: 'UNSUPPORTED_SCHEMA_VERSION',
@@ -897,6 +898,24 @@ export async function inspectAndValidateTemplateZip(zipInput, options = {}) {
   const declaredSchemaVersion = (rawManifest && rawManifest.schemaVersion) || (utpReport?.protocol?.schemaVersion) || '1.0.0';
   const isLegacyPackage = !rawManifest || !rawManifest.schemaVersion || String(rawManifest.schemaVersion).startsWith('1.0');
 
+  const normalizedManifestObj = utpReport?.normalized || (rawManifest ? normalizeManifestToUtp(rawManifest) : null);
+  const buttonInspection = detectAndClassifyPackageButtons({
+    manifest: normalizedManifestObj || rawManifest || {},
+    htmlContent: entryHtmlText,
+    htmlFilesMap: extractedFiles,
+    templateContext: {
+      templateId: explicitStableId || explicitSlug || '',
+      templateSlug: explicitSlug || explicitStableId || ''
+    }
+  });
+  if (buttonInspection?.summary?.requiresAdminConfirmation) {
+    warnings.push({
+      code: 'AMBIGUOUS_BUTTON_LINKS_DETECTED',
+      severity: 'warning',
+      message: `${buttonInspection.summary.ambiguousCount} button/link target(s) have ambiguous intent and require administrator confirmation.`
+    });
+  }
+
   const isValid = securityErrors.length === 0 && validationErrors.length === 0;
 
   return {
@@ -923,10 +942,12 @@ export async function inspectAndValidateTemplateZip(zipInput, options = {}) {
     hasManifestFile: Boolean(rawManifest),
     manifestPath,
     rawManifest,
-    normalizedManifest: utpReport?.normalized || (rawManifest ? normalizeManifestToUtp(rawManifest) : null),
+    normalizedManifest: normalizedManifestObj,
     utpReport,
     htmlAnalysis,
     previewDiagnostics,
+    buttonInspection,
+    proposedLinkMappings: buttonInspection.buttons,
     identity: {
       explicitStableId,
       canonicalTemplateId: explicitStableId ? normalizeCanonicalTemplateId(explicitStableId) : null,
@@ -2697,7 +2718,7 @@ export function buildSandboxedTemplatePreviewHtml({
 
   // Provide global WishMagicTemplate bridge expected by UTP v1.0 / v1.1 / v1.2 templates
   window.WishMagicTemplate = window.WishMagicTemplate || {
-    version: '1.2.0',
+    version: '1.3.0',
     applyData: function(data) {
       if (!data || typeof data !== 'object') return;
       applyPreviewHydration(Object.assign({}, wmPreviewPayload, {
@@ -2762,9 +2783,20 @@ export function serializeStagedFilesBundle(extractedFiles, options = {}) {
   if (!extractedFiles || !(extractedFiles instanceof Map)) return bundle;
 
   // Cloudflare D1 enforces a hard 1 MB (1,000,000 byte) limit per SQL statement / bound parameter.
-  // Always retain 100% of text/code files (HTML, CSS, JS, JSON, SVG) and cap inline binary media
-  // in `staged_files_bundle_json` so the serialized JSON parameter never triggers D1 SQLITE_TOOBIG.
-  const maxBinaryInlineBytes = Number(options.maxBinaryInlineBytes ?? 550 * 1024);
+  // Always retain 100% of text/code files (HTML, CSS, JS, JSON, SVG) and dynamically cap inline binary media
+  // in `staged_files_bundle_json` accounting for text file size so the serialized JSON parameter never triggers D1 SQLITE_TOOBIG.
+  let totalTextSerializedChars = 0;
+  for (const [, fileObj] of extractedFiles.entries()) {
+    if (fileObj && fileObj.text !== null && fileObj.text !== undefined) {
+      totalTextSerializedChars += String(fileObj.text).length + 128;
+    }
+  }
+  const targetMaxBundleJsonBytes = Number(options.targetMaxBundleJsonBytes ?? 680 * 1024);
+  const dynamicBinaryBudgetBytes = Math.max(0, Math.floor((targetMaxBundleJsonBytes - totalTextSerializedChars) * 0.72));
+  const maxBinaryInlineBytes = Math.min(
+    Number(options.maxBinaryInlineBytes ?? 500 * 1024),
+    dynamicBinaryBudgetBytes
+  );
   let accumulatedBinaryBytes = 0;
 
   // Minimal valid 1x1 JPEG stub for binary image files that exceed the inline D1 staging budget
@@ -3151,7 +3183,9 @@ export async function stageAndRecognizeTemplateZip({
     declaredVersion: inspection.identity?.declaredVersion || null,
     schemaVersion: inspection.identity?.declaredSchemaVersion || '1.0.0',
     isLegacyPackage: Boolean(inspection.identity?.isLegacyPackage),
-    updateMetadata: inspection.identity?.updateMetadata || {}
+    updateMetadata: inspection.identity?.updateMetadata || {},
+    buttonInspection: inspection.buttonInspection || { buttons: [], summary: {} },
+    proposedLinkMappings: inspection.proposedLinkMappings || []
   };
 
   const validationPayload = {
@@ -3241,7 +3275,6 @@ export async function stageAndRecognizeTemplateZip({
         schema_hash = ?,
         manifest_json = ?,
         files_inventory_json = ?,
-        staged_files_bundle_json = ?,
         validation_report_json = ?,
         comparison_report_json = ?,
         base_template_lock_version = ?,
@@ -3261,12 +3294,21 @@ export async function stageAndRecognizeTemplateZip({
     inspection.schemaHash,
     JSON.stringify(inspection.normalizedManifest || {}),
     JSON.stringify(inspection.fileRecords || []),
-    JSON.stringify(stagedBundle),
     JSON.stringify(validationPayload),
     JSON.stringify(comparison),
     baseLockVersion,
     basePublishedVersionId,
     updatedAt,
+    sessionId
+  ).run();
+
+  // Persist staged_files_bundle_json in its own statement so combined parameters never exceed D1 1MB statement limit
+  await db.prepare(`
+    UPDATE template_import_sessions
+    SET staged_files_bundle_json = ?
+    WHERE id = ?
+  `).bind(
+    JSON.stringify(stagedBundle),
     sessionId
   ).run();
 
@@ -3338,6 +3380,8 @@ export async function formatImportSessionResponse(db, row, extra = {}) {
     candidates: recognition.candidates || [],
     conflicts: recognition.conflicts || [],
     packageMetadata,
+    buttonInspection: packageMetadata.buttonInspection || { buttons: [], summary: {} },
+    proposedLinkMappings: packageMetadata.proposedLinkMappings || [],
     manifest,
     filesInventory,
     validation,
@@ -3932,6 +3976,9 @@ export async function publishImportSession({
         visibilityConfig: overrides.visibilityConfig || manifest.visibilityConfig || (targetTpl ? safeJsonParse(targetTpl.visibility_config_json, {}) : {}),
         actionsConfig: overrides.actionsConfig || manifest.actionsConfig || (targetTpl ? safeJsonParse(targetTpl.actions_config_json, {}) : {}),
         variantOverrides: overrides.variantOverrides || {},
+        relationships: Array.isArray(overrides.relationships) ? overrides.relationships : undefined,
+        enabledVariants: Array.isArray(overrides.enabledVariants) ? overrides.enabledVariants : undefined,
+        forceNewVersion: true,
         preUploadedImgbbMap: {
           ...(overrides.preUploadedImgbbMap || {}),
           ...(preUploadedImgbbMap && typeof preUploadedImgbbMap === 'object' ? preUploadedImgbbMap : {})

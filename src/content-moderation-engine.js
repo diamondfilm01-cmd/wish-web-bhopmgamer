@@ -566,9 +566,35 @@ export function moderateTextContent(rawInput, options = {}) {
     }
   }
 
-  // 4. Tokenize Latin/Hinglish text and evaluate tokens with safe-word protection
+  // 4. Tokenize Latin/Hinglish text and evaluate tokens with O(1) indexed lookup + safe-word protection
+  if (!globalThis.__WM_PRECOMPUTED_TOKEN_BLOCKLIST__) {
+    const exactMap = new Map();
+    const collapsedMap = new Map();
+    const substrList = [];
+    const registerList = (list) => {
+      for (const entry of list) {
+        const tc = collapseRepeatedChars(entry.token);
+        const item = { ...entry, targetCollapsed: tc };
+        if (!exactMap.has(entry.token)) exactMap.set(entry.token, []);
+        exactMap.get(entry.token).push(item);
+        if (tc.length >= 4) {
+          if (!collapsedMap.has(tc)) collapsedMap.set(tc, []);
+          collapsedMap.get(tc).push(item);
+        }
+        if (entry.token.length >= 6) {
+          substrList.push(item);
+        }
+      }
+    };
+    registerList(HINGLISH_TOKEN_BLOCKLIST);
+    registerList(ENGLISH_TOKEN_BLOCKLIST);
+    globalThis.__WM_PRECOMPUTED_TOKEN_BLOCKLIST__ = { exactMap, collapsedMap, substrList };
+  }
+  const { exactMap, collapsedMap, substrList } = globalThis.__WM_PRECOMPUTED_TOKEN_BLOCKLIST__;
+
   const rawTokens = reconstructed.split(/[^a-z0-9@$!*#]+/).filter(Boolean);
   const cleanTokens = [];
+  const evaluatedDeobfTokens = new Set();
 
   for (const rawTok of rawTokens) {
     const pureAlpha = rawTok.replace(/[^a-z]/g, '');
@@ -583,35 +609,33 @@ export function moderateTextContent(rawInput, options = {}) {
       continue;
     }
 
-    const collapsed = collapseRepeatedChars(deobf);
     cleanTokens.push(deobf);
+    if (evaluatedDeobfTokens.has(deobf)) continue;
+    evaluatedDeobfTokens.add(deobf);
 
-    // Check Hinglish single-token blocklist
-    for (const hEntry of HINGLISH_TOKEN_BLOCKLIST) {
-      const targetCollapsed = collapseRepeatedChars(hEntry.token);
-      if (
-        deobf === hEntry.token ||
-        (collapsed.length >= 4 && collapsed === targetCollapsed) ||
-        (hEntry.token.length >= 6 && deobf.includes(hEntry.token) && !SAFE_WORDS_ALLOWLIST.has(deobf))
-      ) {
-        categoriesSet.add(hEntry.category);
-        matches.push({ term: hEntry.token, category: hEntry.category, severity: hEntry.severity, fieldName });
-        maxSeverityScore = Math.max(maxSeverityScore, severityToScore[hEntry.severity] || 90);
+    const collapsed = collapseRepeatedChars(deobf);
+    const matchedEntries = new Set();
+
+    const exactHits = exactMap.get(deobf);
+    if (exactHits) exactHits.forEach(e => matchedEntries.add(e));
+
+    if (collapsed.length >= 4) {
+      const colHits = collapsedMap.get(collapsed);
+      if (colHits) colHits.forEach(e => matchedEntries.add(e));
+    }
+
+    if (deobf.length >= 6) {
+      for (const subEntry of substrList) {
+        if (deobf.includes(subEntry.token)) {
+          matchedEntries.add(subEntry);
+        }
       }
     }
 
-    // Check English single-token blocklist
-    for (const eEntry of ENGLISH_TOKEN_BLOCKLIST) {
-      const targetCollapsed = collapseRepeatedChars(eEntry.token);
-      if (
-        deobf === eEntry.token ||
-        (collapsed.length >= 4 && collapsed === targetCollapsed) ||
-        (eEntry.token.length >= 6 && deobf.includes(eEntry.token) && !SAFE_WORDS_ALLOWLIST.has(deobf))
-      ) {
-        categoriesSet.add(eEntry.category);
-        matches.push({ term: eEntry.token, category: eEntry.category, severity: eEntry.severity, fieldName });
-        maxSeverityScore = Math.max(maxSeverityScore, severityToScore[eEntry.severity] || 90);
-      }
+    for (const hit of matchedEntries) {
+      categoriesSet.add(hit.category);
+      matches.push({ term: hit.token, category: hit.category, severity: hit.severity, fieldName });
+      maxSeverityScore = Math.max(maxSeverityScore, severityToScore[hit.severity] || 90);
     }
   }
 
@@ -1686,14 +1710,30 @@ export async function moderateAudioVideoAsset(input, options = {}) {
 
   const sha256 = await computeSha256Hex(bytes);
   const decoder = new TextDecoder('utf-8', { fatal: false });
-  const containerText = decoder.decode(bytes.subarray(0, Math.min(bytes.byteLength, 131072)));
+  const headerProbeText = decoder.decode(bytes.subarray(0, Math.min(bytes.byteLength, 4096)));
+
+  // Extract only legitimate container/ID3 metadata text (never decode compressed MPEG/AAC/MP4 audio-video frame entropy as text)
+  let containerText = '';
+  if (bytes.byteLength <= 4096) {
+    containerText = headerProbeText;
+  } else if (isMp3 && bytes[0] === 0x49 && bytes[1] === 0x44 && bytes[2] === 0x33 && bytes.byteLength >= 10) {
+    const id3Size = ((bytes[6] & 0x7f) << 21) | ((bytes[7] & 0x7f) << 14) | ((bytes[8] & 0x7f) << 7) | (bytes[9] & 0x7f);
+    const tagEnd = Math.min(10 + id3Size, 16384, bytes.byteLength);
+    const rawId3 = decoder.decode(bytes.subarray(10, tagEnd)).replace(/[\x00-\x1F]+/g, ' ');
+    const printable = rawId3.match(/[A-Za-z0-9\u0900-\u097F][A-Za-z0-9\u0900-\u097F\s.,!?@*$#_-]{4,200}/g);
+    containerText = printable ? printable.join(' ') : '';
+  } else {
+    const rawHdr = decoder.decode(bytes.subarray(0, Math.min(bytes.byteLength, 1024))).replace(/[\x00-\x1F]+/g, ' ');
+    const printable = rawHdr.match(/[A-Za-z0-9\u0900-\u097F][A-Za-z0-9\u0900-\u097F\s.,!?@*$#_-]{5,200}/g);
+    containerText = printable ? printable.join(' ') : '';
+  }
 
   // Check if corrupted/unreadable stream marker or explicit scan failure simulation is present
   if (
     options.simulateScanFailure ||
-    containerText.includes('corrupted_video_stream') ||
-    containerText.includes('corrupted_audio_stream') ||
-    containerText.includes('frame_decode_error')
+    headerProbeText.includes('corrupted_video_stream') ||
+    headerProbeText.includes('corrupted_audio_stream') ||
+    headerProbeText.includes('frame_decode_error')
   ) {
     return {
       allowed: false,

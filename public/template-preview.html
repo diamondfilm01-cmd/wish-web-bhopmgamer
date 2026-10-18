@@ -110,13 +110,25 @@
     .desktop-frame-shell {
       width: 100%;
       max-width: 100%;
-      height: 680px;
+      height: 760px;
+      min-height: 680px;
       border-radius: 24px;
       padding: 8px;
       background: #090314;
       border: 2px solid rgba(147, 51, 234, 0.35);
       box-shadow: 0 25px 50px -12px rgba(109, 40, 217, 0.25);
-      transition: all 0.35s cubic-bezier(0.4, 0, 0.2, 1);
+      transition: all 0.25s cubic-bezier(0.4, 0, 0.2, 1);
+    }
+    .tablet-frame-shell {
+      width: 100%;
+      max-width: 768px;
+      height: 740px;
+      border-radius: 32px;
+      padding: 10px;
+      background: #090314;
+      border: 4px solid #2A104E;
+      box-shadow: 0 25px 50px -12px rgba(109, 40, 217, 0.3);
+      transition: all 0.25s cubic-bezier(0.4, 0, 0.2, 1);
     }
 
     /* Shimmer loading animation */
@@ -211,7 +223,7 @@
   <!-- ========================================== -->
   <!-- 2. MAIN TEMPLATE PREVIEW CONTAINER         -->
   <!-- ========================================== -->
-  <main class="flex-grow pt-4 sm:pt-6 pb-20 px-3 sm:px-6 md:px-8 max-w-7xl mx-auto w-full">
+  <main class="flex-grow pt-4 sm:pt-6 pb-20 px-3 sm:px-6 md:px-8 max-w-[1440px] mx-auto w-full">
     
     <!-- Loading State Skeleton -->
     <div id="preview-loading-skeleton" class="w-full py-12 flex flex-col items-center justify-center space-y-6">
@@ -277,17 +289,20 @@
         <!-- ============================================== -->
         <!-- LEFT: LARGE INTERACTIVE PREVIEW CANVAS (7 COLS) -->
         <!-- ============================================== -->
-        <div class="lg:col-span-7 flex flex-col gap-3.5 order-1">
+        <div class="lg:col-span-8 flex flex-col gap-3.5 order-1">
           
           <!-- Viewport Switcher Controls Bar -->
           <div class="glass-surface rounded-2xl p-2 sm:px-4 sm:py-2.5 flex items-center justify-between gap-2 shadow-sm">
             <div class="flex items-center gap-1 sm:gap-2">
               <span class="text-xs font-bold text-purple-900 dark:text-purple-200 hidden sm:inline mr-1">Preview Mode:</span>
-              <button id="btn-device-mobile" onclick="setPreviewViewport('mobile')" class="px-3 py-1.5 rounded-xl bg-purple-700 text-white font-bold text-xs shadow-xs transition flex items-center gap-1">
-                <span>📱</span><span>Mobile (390px)</span>
-              </button>
-              <button id="btn-device-desktop" onclick="setPreviewViewport('desktop')" class="px-3 py-1.5 rounded-xl text-purple-700 dark:text-purple-300 hover:text-purple-950 dark:hover:text-white font-semibold text-xs transition flex items-center gap-1">
+              <button id="btn-device-desktop" onclick="setPreviewViewport('desktop')" class="px-3 py-1.5 rounded-xl bg-purple-700 text-white font-bold text-xs shadow-xs transition flex items-center gap-1">
                 <span>💻</span><span>Desktop</span>
+              </button>
+              <button id="btn-device-tablet" onclick="setPreviewViewport('tablet')" class="px-3 py-1.5 rounded-xl text-purple-700 dark:text-purple-300 hover:text-purple-950 dark:hover:text-white font-semibold text-xs transition flex items-center gap-1">
+                <span>📟</span><span>Tablet</span>
+              </button>
+              <button id="btn-device-mobile" onclick="setPreviewViewport('mobile')" class="px-3 py-1.5 rounded-xl text-purple-700 dark:text-purple-300 hover:text-purple-950 dark:hover:text-white font-semibold text-xs transition flex items-center gap-1">
+                <span>📱</span><span>Mobile (390px)</span>
               </button>
             </div>
 
@@ -783,6 +798,8 @@
       try { loadInteractivePreview(activeTemplate, activeSelectedVariant); } catch (e) { console.warn(e); }
       if (loadingEl) loadingEl.classList.add('hidden');
       if (contentEl) contentEl.classList.remove('hidden');
+      const initialDeviceMode = window._userSelectedPreviewViewportMode || (window.innerWidth >= 1024 ? 'desktop' : 'mobile');
+      setPreviewViewport(initialDeviceMode, false);
       updateFavoriteState();
     }
 
@@ -1292,22 +1309,49 @@
       }
     }
 
-    // Viewport Mode Switcher (Mobile 375x680 vs True Scaled Desktop 1280x800)
-    window._previewPageViewportMode = 'mobile';
-    function setPreviewViewport(mode) {
-      window._previewPageViewportMode = mode;
+    // Part B: Responsive Viewport Mode Switcher (Desktop default on >=1024px, Mobile default on <1024px)
+    window._previewPageViewportMode = (typeof window !== 'undefined' && window.innerWidth >= 1024) ? 'desktop' : 'mobile';
+    window._userSelectedPreviewViewportMode = null;
+
+    function setPreviewViewport(mode, isManualUserAction = true) {
+      const normalizedMode = (mode === 'desktop' || mode === 'tablet' || mode === 'mobile')
+        ? mode
+        : (window.innerWidth >= 1024 ? 'desktop' : 'mobile');
+      window._previewPageViewportMode = normalizedMode;
+      if (isManualUserAction) {
+        window._userSelectedPreviewViewportMode = normalizedMode;
+      }
+
       const stageWrapper = document.getElementById('preview-stage-wrapper');
       const frame = document.getElementById('preview-device-frame');
       const viewport = document.getElementById('live-template-viewport');
       const iframe = document.getElementById('live-template-iframe');
       const btnMobile = document.getElementById('btn-device-mobile');
+      const btnTablet = document.getElementById('btn-device-tablet');
       const btnDesktop = document.getElementById('btn-device-desktop');
       const notch = document.getElementById('device-notch');
       const browserBar = document.getElementById('device-browser-bar');
       if (!frame) return;
 
-      if (mode === 'desktop') {
-        frame.classList.remove('mobile-frame-shell');
+      const updateBtnState = (btn, active) => {
+        if (!btn) return;
+        if (active) {
+          btn.classList.remove('text-purple-700', 'dark:text-purple-300');
+          btn.classList.add('bg-purple-700', 'text-white', 'font-bold');
+          btn.setAttribute('aria-pressed', 'true');
+        } else {
+          btn.classList.remove('bg-purple-700', 'text-white', 'font-bold');
+          btn.classList.add('text-purple-700', 'dark:text-purple-300');
+          btn.setAttribute('aria-pressed', 'false');
+        }
+      };
+
+      updateBtnState(btnDesktop, normalizedMode === 'desktop');
+      updateBtnState(btnTablet, normalizedMode === 'tablet');
+      updateBtnState(btnMobile, normalizedMode === 'mobile');
+
+      if (normalizedMode === 'desktop') {
+        frame.classList.remove('mobile-frame-shell', 'tablet-frame-shell');
         frame.classList.add('desktop-frame-shell');
         if (notch) notch.classList.add('hidden');
         if (browserBar) {
@@ -1319,34 +1363,70 @@
           viewport.classList.add('rounded-b-xl');
         }
         if (stageWrapper) {
-          stageWrapper.style.minHeight = 'auto';
+          stageWrapper.style.minHeight = '720px';
         }
-        requestAnimationFrame(() => {
-          const availW = Math.max(260, frame.clientWidth - 16);
-          const DESKTOP_W = 1280;
-          const DESKTOP_H = 800;
-          const scale = Math.min(1, availW / DESKTOP_W);
-          const scaledH = Math.round(DESKTOP_H * scale);
-          frame.style.height = (scaledH + 52) + 'px';
+        const applyDesktopDimensions = () => {
+          const rawClientW = frame.clientWidth ? (frame.clientWidth - 16) : 0;
+          const availW = rawClientW > 320 ? rawClientW : Math.max(960, Math.min(1280, window.innerWidth - 120));
+          const targetStageHeight = Math.max(680, Math.min(820, window.innerHeight - 170));
+          const DESKTOP_MIN_VIEWPORT_W = 1024;
+
+          frame.style.width = '100%';
+          frame.style.maxWidth = '100%';
+          frame.style.height = (targetStageHeight + 48) + 'px';
           if (viewport) {
-            viewport.style.height = scaledH + 'px';
+            viewport.style.width = '100%';
+            viewport.style.height = targetStageHeight + 'px';
           }
           if (iframe) {
-            iframe.style.width = DESKTOP_W + 'px';
-            iframe.style.height = DESKTOP_H + 'px';
-            iframe.style.transform = `scale(${scale.toFixed(4)})`;
-            iframe.style.transformOrigin = 'top left';
+            if (availW >= DESKTOP_MIN_VIEWPORT_W) {
+              // Native 1:1 desktop viewport — zero downscaling!
+              iframe.style.width = '100%';
+              iframe.style.height = '100%';
+              iframe.style.transform = 'none';
+              iframe.style.transformOrigin = 'top left';
+            } else {
+              // Ensure template desktop @media (min-width: 1024px) rules trigger while preserving full stage height
+              const scale = availW / DESKTOP_MIN_VIEWPORT_W;
+              iframe.style.width = DESKTOP_MIN_VIEWPORT_W + 'px';
+              iframe.style.height = Math.round(targetStageHeight / scale) + 'px';
+              iframe.style.transform = `scale(${scale.toFixed(4)})`;
+              iframe.style.transformOrigin = 'top left';
+            }
           }
-        });
-
-        btnDesktop.classList.remove('text-purple-700', 'dark:text-purple-300');
-        btnDesktop.classList.add('bg-purple-700', 'text-white', 'font-bold');
-
-        btnMobile.classList.remove('bg-purple-700', 'text-white', 'font-bold');
-        btnMobile.classList.add('text-purple-700', 'dark:text-purple-300');
+        };
+        applyDesktopDimensions();
+        requestAnimationFrame(applyDesktopDimensions);
+        const DESKTOP_W = 1280;
+      } else if (normalizedMode === 'tablet') {
+        frame.classList.remove('mobile-frame-shell', 'desktop-frame-shell');
+        frame.classList.add('tablet-frame-shell');
+        frame.style.width = '100%';
+        frame.style.maxWidth = '768px';
+        frame.style.height = '740px';
+        if (stageWrapper) stageWrapper.style.minHeight = '760px';
+        if (notch) notch.classList.add('hidden');
+        if (browserBar) {
+          browserBar.classList.remove('hidden');
+          browserBar.classList.add('flex');
+        }
+        if (viewport) {
+          viewport.classList.remove('rounded-[22px]');
+          viewport.classList.add('rounded-b-xl');
+          viewport.style.width = '100%';
+          viewport.style.height = '100%';
+        }
+        if (iframe) {
+          iframe.style.width = '100%';
+          iframe.style.height = '100%';
+          iframe.style.transform = 'none';
+          iframe.style.transformOrigin = 'top left';
+        }
       } else {
-        frame.classList.remove('desktop-frame-shell');
+        frame.classList.remove('desktop-frame-shell', 'tablet-frame-shell');
         frame.classList.add('mobile-frame-shell');
+        frame.style.width = '100%';
+        frame.style.maxWidth = '380px';
         frame.style.height = '';
         if (stageWrapper) {
           stageWrapper.style.minHeight = '';
@@ -1359,6 +1439,7 @@
         if (viewport) {
           viewport.classList.add('rounded-[22px]');
           viewport.classList.remove('rounded-b-xl');
+          viewport.style.width = '100%';
           viewport.style.height = '100%';
         }
         if (iframe) {
@@ -1367,16 +1448,19 @@
           iframe.style.transform = 'none';
           iframe.style.transformOrigin = 'top left';
         }
-
-        btnMobile.classList.remove('text-purple-700', 'dark:text-purple-300');
-        btnMobile.classList.add('bg-purple-700', 'text-white', 'font-bold');
-
-        btnDesktop.classList.remove('bg-purple-700', 'text-white', 'font-bold');
-        btnDesktop.classList.add('text-purple-700', 'dark:text-purple-300');
       }
     }
     window.addEventListener('resize', () => {
-      if (window._previewPageViewportMode === 'desktop') setPreviewViewport('desktop');
+      if (!window._userSelectedPreviewViewportMode) {
+        const autoMode = window.innerWidth >= 1024 ? 'desktop' : 'mobile';
+        if (autoMode !== window._previewPageViewportMode) {
+          setPreviewViewport(autoMode, false);
+          return;
+        }
+      }
+      if (window._previewPageViewportMode === 'desktop') {
+        setPreviewViewport('desktop', false);
+      }
     });
 
     // Synthesized Web Audio API Melody for safe background music preview

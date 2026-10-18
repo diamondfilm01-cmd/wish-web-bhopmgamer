@@ -230,9 +230,22 @@ window.WishMagicCore = {
    */
   function getAvailablePublishedVariants(family) {
     if (!family || typeof family !== 'object') return [];
+    // Authoritative precedence: if availableVariants array is provided by the server, never fall back to raw variants
     const rawList = Array.isArray(family.availableVariants)
       ? family.availableVariants
       : (Array.isArray(family.variants) ? family.variants : []);
+
+    // Build authoritative enabled relationship set if family specifies enabledVariants or relationships
+    let allowedRelSlugs = null;
+    const rawEnabledList = Array.isArray(family.enabledVariants) && family.enabledVariants.length > 0
+      ? family.enabledVariants
+      : (Array.isArray(family.enabled_variants_json) ? family.enabled_variants_json : null);
+    if (Array.isArray(rawEnabledList) && rawEnabledList.length > 0) {
+      allowedRelSlugs = new Set(rawEnabledList.map(r => normalizeRelationSlug(r)).filter(Boolean));
+    } else if (!Array.isArray(family.availableVariants) && Array.isArray(family.relationships) && family.relationships.length > 0) {
+      const normRels = family.relationships.map(r => normalizeRelationSlug(r)).filter(Boolean);
+      if (normRels.length > 0) allowedRelSlugs = new Set(normRels);
+    }
 
     const seenRels = new Set();
     const seenIds = new Set();
@@ -248,6 +261,7 @@ window.WishMagicCore = {
       const relRaw = v.relationshipSlug || v.relationship || v.relationship_slug || v.relationship_id || v.relationshipId || '';
       const relMeta = getRelationMeta(relRaw, v.relationshipLabel || v.relationship_label || v.label);
       if (!relMeta.slug) continue;
+      if (allowedRelSlugs && !allowedRelSlugs.has(relMeta.slug)) continue;
 
       const varId = String(v.id || v.variant_id || v.slug || v.variant_slug || `var_${family.id || 'tpl'}_${relMeta.slug}`).trim();
       const varSlug = String(v.slug || v.variant_slug || varId).trim();

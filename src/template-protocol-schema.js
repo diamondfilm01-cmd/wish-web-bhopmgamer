@@ -12,11 +12,12 @@
 export const UTP_SCHEMA_VERSION = '1.0.0';
 export const UTP_VARIANT_SCHEMA_VERSION = '1.1.0';
 export const UTP_SECTIONS_ACTIONS_SCHEMA_VERSION = '1.2.0';
-export const UTP_LATEST_SCHEMA_VERSION = '1.2.0';
-export const UTP_SUPPORTED_SCHEMA_VERSIONS = Object.freeze(['1.0.0', '1.1.0', '1.2.0']);
+export const UTP_LINK_MANAGER_SCHEMA_VERSION = '1.3.0';
+export const UTP_LATEST_SCHEMA_VERSION = '1.3.0';
+export const UTP_SUPPORTED_SCHEMA_VERSIONS = Object.freeze(['1.0.0', '1.1.0', '1.2.0', '1.3.0']);
 export const UTP_RUNTIME_API_VERSION = '1.0';
-export const UTP_LATEST_RUNTIME_API_VERSION = '1.2';
-export const UTP_SUPPORTED_RUNTIME_API_VERSIONS = Object.freeze(['1.0', '1.1', '1.2']);
+export const UTP_LATEST_RUNTIME_API_VERSION = '1.3';
+export const UTP_SUPPORTED_RUNTIME_API_VERSIONS = Object.freeze(['1.0', '1.1', '1.2', '1.3']);
 export const UTP_PROTOCOL_NAME = 'wishmagic-template';
 
 /**
@@ -48,8 +49,29 @@ export const UTP_SUPPORTED_ACTION_TYPES = new Set([
   'section',
   'modal',
   'customizer',
+  'global_link',
+  'template_link',
   'none'
 ]);
+
+export const UTP_SUPPORTED_LOGICAL_LINKS = Object.freeze({
+  'global.home': '/',
+  'global.explore': '/templates.html',
+  'global.browseTemplates': '/templates.html',
+  'global.marketplace': '/marketplace.html',
+  'global.createWish': '/create.html',
+  'global.pricing': '/pricing.html',
+  'global.help': '/help.html',
+  'global.contact': '/contact.html',
+  'template.create': '/customize.html',
+  'template.customize': '/customize.html',
+  'template.preview': '/template-preview.html'
+});
+
+export function isValidLogicalLinkIdentifier(rawId) {
+  if (!rawId || typeof rawId !== 'string') return false;
+  return Object.prototype.hasOwnProperty.call(UTP_SUPPORTED_LOGICAL_LINKS, rawId.trim());
+}
 
 /**
  * Supported fallback behaviors when an action's target section or modal is disabled or unavailable:
@@ -128,8 +150,11 @@ export function validateActionDestinationUrl(arg1, arg2 = "external_url", option
     actionType = String(arg2 || "external_url").toLowerCase().trim();
   }
 
-  if (actionType === "customizer" && (rawUrl === undefined || rawUrl === null || String(rawUrl).trim() === "")) {
+  if ((actionType === "customizer" || actionType === "template_link") && (rawUrl === undefined || rawUrl === null || String(rawUrl).trim() === "")) {
     rawUrl = "/customize.html";
+  }
+  if (actionType === "global_link" && (rawUrl === undefined || rawUrl === null || String(rawUrl).trim() === "")) {
+    rawUrl = "global.home";
   }
 
   if (rawUrl === undefined || rawUrl === null) {
@@ -163,7 +188,21 @@ export function validateActionDestinationUrl(arg1, arg2 = "external_url", option
     };
   }
 
-  if (actionType === "internal_url" || actionType === "customizer") {
+  if (str.startsWith("global.") || str.startsWith("template.")) {
+    if (!isValidLogicalLinkIdentifier(str)) {
+      const msg = `Unknown UTP v1.3.0 logical link identifier "${str}".`;
+      return {
+        valid: false,
+        code: "UNKNOWN_LOGICAL_LINK_ID",
+        message: msg,
+        reason: msg
+      };
+    }
+    const defaultRoute = UTP_SUPPORTED_LOGICAL_LINKS[str];
+    return { valid: true, normalizedTarget: defaultRoute, normalizedUrl: defaultRoute, logicalLink: str };
+  }
+
+  if (actionType === "internal_url" || actionType === "customizer" || actionType === "global_link" || actionType === "template_link") {
     if (!isValidInternalWishMagicRoute(str)) {
       const msg = `Internal URL "${str}" does not match an existing supported WishMagic route.`;
       return {

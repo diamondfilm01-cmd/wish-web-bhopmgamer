@@ -23,6 +23,8 @@ import {
   UTP_EMPTY_PARENT_POLICIES,
   UTP_SUPPORTED_ACTION_TYPES,
   UTP_ACTION_FALLBACK_BEHAVIORS,
+  UTP_SUPPORTED_LOGICAL_LINKS,
+  isValidLogicalLinkIdentifier,
   normalizeRelationshipIdentifier,
   isValidSemver,
   isValidIdentifier,
@@ -225,13 +227,20 @@ export function normalizeActionEntry(a, idx = 0) {
   const rawLabel = a.label !== undefined
     ? String(a.label)
     : (a.defaultLabel !== undefined ? String(a.defaultLabel) : (id ? id.replace(/_/g, ' ').replace(/\b\w/g, c => c.toUpperCase()) : ''));
-  const rawTarget = a.target !== undefined
+  const rawLogicalLink = a.logicalLink !== undefined
+    ? String(a.logicalLink || '').trim()
+    : (a.linkId !== undefined ? String(a.linkId || '').trim() : '');
+  let rawTarget = a.target !== undefined
     ? String(a.target).trim()
     : (a.destination !== undefined
       ? String(a.destination).trim()
       : (a.url !== undefined
         ? String(a.url).trim()
         : (a.targetId !== undefined ? String(a.targetId).trim() : (a.defaultTarget !== undefined ? String(a.defaultTarget).trim() : ''))));
+  const logicalLink = rawLogicalLink || ((rawTarget.startsWith('global.') || rawTarget.startsWith('template.')) ? rawTarget : null);
+  if (!rawTarget && logicalLink && UTP_SUPPORTED_LOGICAL_LINKS[logicalLink]) {
+    rawTarget = UTP_SUPPORTED_LOGICAL_LINKS[logicalLink];
+  }
 
   const fallback = String(a.fallbackBehavior || a.fallback || 'hide').toLowerCase().trim();
   const sectionId = a.sectionId || a.section || a.parentSectionId || null;
@@ -247,6 +256,7 @@ export function normalizeActionEntry(a, idx = 0) {
     label: rawLabel.trim(),
     defaultLabel: String(a.defaultLabel !== undefined ? a.defaultLabel : rawLabel).trim(),
     type,
+    logicalLink: logicalLink || null,
     target: rawTarget,
     defaultTarget: String(a.defaultTarget !== undefined ? a.defaultTarget : rawTarget).trim(),
     sectionId: sectionId ? String(sectionId).trim() : null,
@@ -1325,9 +1335,21 @@ function validateRawActionsList(rawActions, issues, seenSectionIdsMap, htmlConte
       });
     }
 
+    if (normAct.logicalLink && !isValidLogicalLinkIdentifier(normAct.logicalLink)) {
+      issues.push({
+        code: 'UNKNOWN_LOGICAL_LINK_ID',
+        severity: 'error',
+        action: aId,
+        logicalLink: normAct.logicalLink,
+        message: `Action "${aId}" declares unknown UTP v1.3.0 logical link identifier "${normAct.logicalLink}".`,
+        blocking: true
+      });
+    }
+
     // Validate destination/target by action type
-    if (normAct.type === 'internal_url' || normAct.type === 'customizer' || normAct.type === 'external_url') {
-      const destCheck = validateActionDestinationUrl(normAct.type, normAct.target, {
+    if (normAct.type === 'internal_url' || normAct.type === 'customizer' || normAct.type === 'external_url' || normAct.type === 'global_link' || normAct.type === 'template_link') {
+      const targetToValidate = normAct.logicalLink || normAct.target;
+      const destCheck = validateActionDestinationUrl(normAct.type, targetToValidate, {
         allowHttp: Boolean(options.allowHttpExternalUrls)
       });
       if (!destCheck.valid) {
@@ -1581,7 +1603,19 @@ export function validateAdminTemplateConfiguration({
 
       const effectiveLabel = override.label !== undefined ? String(override.label).trim() : baseAct.label;
       const effectiveType = override.type !== undefined ? String(override.type).toLowerCase().trim() : baseAct.type;
-      const effectiveTarget = override.target !== undefined ? String(override.target).trim() : baseAct.target;
+      const effectiveLogicalLink = override.logicalLink !== undefined ? String(override.logicalLink || '').trim() : (baseAct.logicalLink || '');
+      const effectiveTarget = override.target !== undefined ? String(override.target).trim() : (effectiveLogicalLink && UTP_SUPPORTED_LOGICAL_LINKS[effectiveLogicalLink] ? UTP_SUPPORTED_LOGICAL_LINKS[effectiveLogicalLink] : baseAct.target);
+      if (effectiveLogicalLink && !isValidLogicalLinkIdentifier(effectiveLogicalLink)) {
+        issues.push({
+          code: 'UNKNOWN_LOGICAL_LINK_ID',
+          severity: 'error',
+          action: actId,
+          variant: variantSlug,
+          logicalLink: effectiveLogicalLink,
+          message: `Action "${actId}" in ${scopeLabel} specifies unknown logicalLink "${effectiveLogicalLink}".`,
+          blocking: true
+        });
+      }
 
       if (!UTP_SUPPORTED_ACTION_TYPES.has(effectiveType)) {
         issues.push({
@@ -1606,7 +1640,7 @@ export function validateAdminTemplateConfiguration({
         });
       }
 
-      if (effectiveType === 'internal_url' || effectiveType === 'customizer' || effectiveType === 'external_url') {
+      if (effectiveType === 'internal_url' || effectiveType === 'customizer' || effectiveType === 'external_url' || effectiveType === 'global_link' || effectiveType === 'template_link') {
         const urlCheck = validateActionDestinationUrl(effectiveType, effectiveTarget, { allowHttp: allowHttpExternalUrls });
         if (!urlCheck.valid) {
           issues.push({
@@ -1732,7 +1766,7 @@ export function validateUtpManifest(rawManifest, options = {}) {
     issues.push({
       code: 'INVALID_SCHEMA_VERSION',
       severity: 'error',
-      message: `Invalid schemaVersion "${rawManifest.schemaVersion}". Must follow semantic versioning (e.g., "1.0.0", "1.1.0", or "1.2.0").`,
+      message: `Invalid schemaVersion "${rawManifest.schemaVersion}". Must follow semantic versioning (e.g., "1.0.0", "1.1.0", "1.2.0", or "1.3.0").`,
       blocking: true
     });
   } else if (rawManifest.schemaVersion) {
@@ -1745,7 +1779,7 @@ export function validateUtpManifest(rawManifest, options = {}) {
         message: `Schema major version "${rawManifest.schemaVersion}" is not compatible with UTP validator v${UTP_LATEST_SCHEMA_VERSION}.`,
         blocking: true
       });
-    } else if (Number(minorStr) > 2 && !UTP_SUPPORTED_SCHEMA_VERSIONS.includes(cleanVer)) {
+    } else if (Number(minorStr) > 3 && !UTP_SUPPORTED_SCHEMA_VERSIONS.includes(cleanVer)) {
       issues.push({
         code: 'UNSUPPORTED_SCHEMA_VERSION',
         severity: 'error',

@@ -28,6 +28,9 @@ import {
   normalizeActionEntry,
   flattenSectionsTree
 } from './template-protocol-validator.js';
+import {
+  resolveLogicalLink
+} from './template-link-resolver.js';
 
 export const VARIANT_STATUS = {
   DRAFT: 'draft',
@@ -223,7 +226,8 @@ export function resolveEffectiveTemplateConfiguration({
   variantRecord = null,
   relationshipSlug = null,
   useDraft = false,
-  isAdminView = false
+  isAdminView = false,
+  linkSettings = null
 } = {}) {
   template = template || templateRecord || {};
   variant = variant || variantRecord || null;
@@ -570,6 +574,7 @@ export function resolveEffectiveTemplateConfiguration({
 
     let rawLabel = baseAct.defaultLabel || baseAct.label;
     let effectiveType = baseAct.type;
+    let effectiveLogicalLink = baseAct.logicalLink || null;
     let effectiveTarget = baseAct.defaultTarget !== undefined ? baseAct.defaultTarget : baseAct.target;
     let ownEnabled = baseAct.defaultEnabled !== false;
     let openInNewTab = baseAct.openInNewTab;
@@ -585,6 +590,9 @@ export function resolveEffectiveTemplateConfiguration({
       if (baseAct.configurable !== false) {
         if (tplOverride.type !== undefined && UTP_SUPPORTED_ACTION_TYPES.has(String(tplOverride.type).toLowerCase())) {
           effectiveType = String(tplOverride.type).toLowerCase();
+        }
+        if (tplOverride.logicalLink !== undefined) {
+          effectiveLogicalLink = tplOverride.logicalLink ? String(tplOverride.logicalLink).trim() : null;
         }
         if (tplOverride.target !== undefined) {
           effectiveTarget = String(tplOverride.target).trim();
@@ -610,6 +618,9 @@ export function resolveEffectiveTemplateConfiguration({
       if (baseAct.configurable !== false) {
         if (varOverride.type !== undefined && UTP_SUPPORTED_ACTION_TYPES.has(String(varOverride.type).toLowerCase())) {
           effectiveType = String(varOverride.type).toLowerCase();
+        }
+        if (varOverride.logicalLink !== undefined) {
+          effectiveLogicalLink = varOverride.logicalLink ? String(varOverride.logicalLink).trim() : null;
         }
         if (varOverride.target !== undefined) {
           effectiveTarget = String(varOverride.target).trim();
@@ -657,12 +668,19 @@ export function resolveEffectiveTemplateConfiguration({
       } else {
         resolvedUrl = `#${targetModalId}`;
       }
-    } else if (effectiveType === 'customizer') {
-      const baseTarget = effectiveTarget || '/customize';
-      const check = validateActionDestinationUrl('customizer', baseTarget);
+    } else if (effectiveType === 'customizer' || effectiveType === 'template_link') {
+      const targetOrLogical = effectiveLogicalLink || effectiveTarget || '/customize.html';
+      const check = validateActionDestinationUrl(effectiveType, targetOrLogical);
       if (!check.valid) {
         targetAvailable = false;
         targetUnavailableReason = check.reason;
+      } else if (effectiveLogicalLink || check.logicalLink || effectiveType === 'template_link') {
+        const resLink = resolveLogicalLink(
+          { type: effectiveType, logicalLink: effectiveLogicalLink || check.logicalLink || 'template.customize', target: effectiveTarget },
+          { templateSlug, templateId: template.id, variantSlug, relationshipSlug: effectiveRelSlug },
+          linkSettings
+        );
+        resolvedUrl = resLink.resolvedUrl;
       } else {
         resolvedUrl = buildContextualInternalUrl(check.normalizedUrl || '/customize', {
           templateSlug,
@@ -672,11 +690,19 @@ export function resolveEffectiveTemplateConfiguration({
           preserveRelationshipContext: baseAct.preserveRelationshipContext !== false
         });
       }
-    } else if (effectiveType === 'internal_url') {
-      const check = validateActionDestinationUrl('internal_url', effectiveTarget);
+    } else if (effectiveType === 'internal_url' || effectiveType === 'global_link') {
+      const targetOrLogical = effectiveLogicalLink || effectiveTarget || (effectiveType === 'global_link' ? 'global.home' : '');
+      const check = validateActionDestinationUrl(effectiveType, targetOrLogical);
       if (!check.valid) {
         targetAvailable = false;
         targetUnavailableReason = check.reason;
+      } else if (effectiveLogicalLink || check.logicalLink || effectiveType === 'global_link') {
+        const resLink = resolveLogicalLink(
+          { type: effectiveType, logicalLink: effectiveLogicalLink || check.logicalLink, target: effectiveTarget },
+          { templateSlug, templateId: template.id, variantSlug, relationshipSlug: effectiveRelSlug },
+          linkSettings
+        );
+        resolvedUrl = resLink.resolvedUrl;
       } else {
         resolvedUrl = buildContextualInternalUrl(check.normalizedUrl, {
           templateSlug,
@@ -717,6 +743,7 @@ export function resolveEffectiveTemplateConfiguration({
       defaultLabel: baseAct.defaultLabel || baseAct.label,
       type: effectiveType,
       defaultType: baseAct.type,
+      logicalLink: effectiveLogicalLink || null,
       target: effectiveTarget,
       defaultTarget: baseAct.defaultTarget !== undefined ? baseAct.defaultTarget : baseAct.target,
       resolvedUrl,
@@ -746,6 +773,7 @@ export function resolveEffectiveTemplateConfiguration({
       label: rawLabel,
       safeLabel,
       type: effectiveType,
+      logicalLink: effectiveLogicalLink || null,
       target: effectiveTarget,
       resolvedUrl,
       enabled: effectiveEnabled,
@@ -1647,8 +1675,155 @@ export function buildVariantRecordFromUtpDeclaration(normVar, context = {}) {
  * Filters a list of raw variant records down to ONLY public, valid, published, enabled variants
  * and strips any internal storage paths or admin-only metadata.
  */
+/**
+ * Extracts the authoritative set of enabled and disabled relationship variant slugs/IDs
+ * from a template record, active template version, and template_relationships table bindings.
+ * Enforces Part A3/A4: disabled or unselected variants must NEVER leak to public APIs or storefront.
+ */
+export function extractAuthoritativeEnabledRelationshipSet(template = null, templateVersion = null, templateRelationshipRows = null) {
+  const explicitlyDisabledSlugs = new Set();
+  const allowedSlugs = new Set();
+  let hasExplicitAllowlist = false;
+
+  const addIdentifierToSet = (targetSet, rawVal) => {
+    if (rawVal === null || rawVal === undefined) return;
+    if (typeof rawVal === 'object') {
+      const isOff = rawVal.enabled === false || rawVal.enabled === 0 || rawVal.disabled === true || rawVal.status === 'disabled' || rawVal.status === 'archived';
+      const idStr = String(rawVal.slug || rawVal.relationshipSlug || rawVal.relationship || rawVal.relationship_slug || rawVal.id || rawVal.relationship_id || rawVal.label || '').trim();
+      if (!idStr) return;
+      const norm = normalizeRelationshipIdentifier(idStr);
+      if (isOff) {
+        if (norm?.slug) explicitlyDisabledSlugs.add(norm.slug);
+        if (norm?.id) explicitlyDisabledSlugs.add(norm.id.toLowerCase());
+        explicitlyDisabledSlugs.add(idStr.toLowerCase());
+        return;
+      }
+      if (norm?.slug) targetSet.add(norm.slug);
+      if (norm?.id) targetSet.add(norm.id.toLowerCase());
+      targetSet.add(idStr.toLowerCase());
+      return;
+    }
+    const str = String(rawVal).trim();
+    if (!str) return;
+    const norm = normalizeRelationshipIdentifier(str);
+    if (norm?.slug) targetSet.add(norm.slug);
+    if (norm?.id) targetSet.add(norm.id.toLowerCase());
+    targetSet.add(str.toLowerCase());
+  };
+
+  // 1. Check template_relationships rows if provided
+  if (Array.isArray(templateRelationshipRows) && templateRelationshipRows.length > 0) {
+    let anyRowEnabled = false;
+    for (const r of templateRelationshipRows) {
+      if (!r || typeof r !== 'object') continue;
+      const rKey = r.relationship_slug || r.relationship_id || r.slug || r.id || '';
+      const norm = normalizeRelationshipIdentifier(rKey);
+      const isRowEnabled = r.enabled === undefined ? true : (Number(r.enabled) !== 0 && r.enabled !== false);
+      if (!isRowEnabled) {
+        if (norm?.slug) explicitlyDisabledSlugs.add(norm.slug);
+        if (norm?.id) explicitlyDisabledSlugs.add(norm.id.toLowerCase());
+        if (rKey) explicitlyDisabledSlugs.add(String(rKey).toLowerCase());
+      } else {
+        anyRowEnabled = true;
+        if (norm?.slug) allowedSlugs.add(norm.slug);
+        if (norm?.id) allowedSlugs.add(norm.id.toLowerCase());
+        if (rKey) allowedSlugs.add(String(rKey).toLowerCase());
+      }
+    }
+    if (anyRowEnabled || explicitlyDisabledSlugs.size > 0) {
+      hasExplicitAllowlist = true;
+    }
+  }
+
+  // 2. Check explicit enabled_variants_json on templateVersion or template
+  const rawVerEnabled = templateVersion?.enabled_variants_json !== undefined
+    ? (typeof templateVersion.enabled_variants_json === 'string' ? safeJsonParse(templateVersion.enabled_variants_json, null) : templateVersion.enabled_variants_json)
+    : null;
+  const rawTplEnabled = template?.enabled_variants_json !== undefined
+    ? (typeof template.enabled_variants_json === 'string' ? safeJsonParse(template.enabled_variants_json, null) : template.enabled_variants_json)
+    : null;
+
+  const explicitList = (Array.isArray(rawVerEnabled) && rawVerEnabled.length > 0)
+    ? rawVerEnabled
+    : (Array.isArray(rawTplEnabled) && rawTplEnabled.length > 0 ? rawTplEnabled : null);
+
+  if (Array.isArray(explicitList)) {
+    const explicitSet = new Set();
+    for (const item of explicitList) {
+      addIdentifierToSet(explicitSet, item);
+    }
+    if (hasExplicitAllowlist) {
+      // Intersect with table allowlist if both exist
+      for (const s of Array.from(allowedSlugs)) {
+        if (!explicitSet.has(s)) allowedSlugs.delete(s);
+      }
+    } else {
+      for (const s of explicitSet) allowedSlugs.add(s);
+      hasExplicitAllowlist = true;
+    }
+  }
+
+  // 3. Check template.relationships (admin-selected relationship labels/slugs on the template record)
+  const rawTplRels = template?.relationships !== undefined
+    ? (typeof template.relationships === 'string' ? safeJsonParse(template.relationships, null) : template.relationships)
+    : null;
+
+  if (Array.isArray(rawTplRels) && rawTplRels.length > 0) {
+    const relSet = new Set();
+    for (const item of rawTplRels) {
+      addIdentifierToSet(relSet, item);
+    }
+    if (relSet.size > 0) {
+      if (!hasExplicitAllowlist) {
+        for (const s of relSet) allowedSlugs.add(s);
+        hasExplicitAllowlist = true;
+      } else {
+        for (const s of Array.from(allowedSlugs)) {
+          if (!relSet.has(s)) allowedSlugs.delete(s);
+        }
+      }
+    }
+  }
+
+  // 4. Check template.variants_json for any variant explicitly marked enabled: false or status: disabled
+  const rawVarsJson = template?.variants_json !== undefined
+    ? (typeof template.variants_json === 'string' ? safeJsonParse(template.variants_json, null) : template.variants_json)
+    : null;
+  if (Array.isArray(rawVarsJson)) {
+    for (const jv of rawVarsJson) {
+      if (!jv || typeof jv !== 'object') continue;
+      if (jv.enabled === false || jv.enabled === 0 || jv.status === 'disabled' || jv.status === 'archived') {
+        const norm = normalizeRelationshipIdentifier(jv.relationshipSlug || jv.relationship || jv.slug || jv.id);
+        if (norm?.slug) explicitlyDisabledSlugs.add(norm.slug);
+        if (jv.id) explicitlyDisabledSlugs.add(String(jv.id).toLowerCase());
+        if (jv.slug) explicitlyDisabledSlugs.add(String(jv.slug).toLowerCase());
+      }
+    }
+  }
+
+  return {
+    hasExplicitAllowlist,
+    allowedSlugs,
+    explicitlyDisabledSlugs
+  };
+}
+
 export function filterPublicAvailableVariants(rawVariants = [], templateContext = null) {
   if (!Array.isArray(rawVariants) || rawVariants.length === 0) return [];
+
+  const tplObj = templateContext && typeof templateContext === 'object'
+    ? (templateContext.template || templateContext)
+    : null;
+  const verObj = templateContext && typeof templateContext === 'object'
+    ? (templateContext.templateVersion || null)
+    : null;
+  const relRows = templateContext && typeof templateContext === 'object' && Array.isArray(templateContext.templateRelationships)
+    ? templateContext.templateRelationships
+    : null;
+
+  const authRelSet = (tplObj || verObj || relRows)
+    ? extractAuthoritativeEnabledRelationshipSet(tplObj, verObj, relRows)
+    : { hasExplicitAllowlist: false, allowedSlugs: new Set(), explicitlyDisabledSlugs: new Set() };
 
   const seenRels = new Set();
   const publicList = [];
@@ -1668,10 +1843,39 @@ export function filterPublicAvailableVariants(rawVariants = [], templateContext 
       ? safeJsonParse(v.configuration_json, {})
       : (v.configuration || v);
 
+    if (cfg && (cfg.enabled === false || cfg.disabled === true || cfg.status === 'disabled')) {
+      continue;
+    }
+
     const rawRel = v.relationship_slug || v.relationshipSlug || v.relationship || cfg.relationshipSlug || cfg.relationship || v.relationship_id || '';
     const rawLabel = v.relationship_label || v.relationshipLabel || v.relationship_name || cfg.relationshipLabel || cfg.label || null;
     const relMeta = normalizeRelationshipIdentifier(rawRel, rawLabel);
     if (!relMeta || !relMeta.slug) continue;
+
+    const varIdLower = String(v.id || '').toLowerCase();
+    const varSlugLower = String(v.variant_slug || v.slug || cfg.slug || relMeta.slug).toLowerCase();
+    const relIdLower = String(v.relationship_id || relMeta.id || '').toLowerCase();
+
+    // Enforce authoritative disabled & allowlist checks
+    if (
+      authRelSet.explicitlyDisabledSlugs.has(relMeta.slug) ||
+      (varIdLower && authRelSet.explicitlyDisabledSlugs.has(varIdLower)) ||
+      (varSlugLower && authRelSet.explicitlyDisabledSlugs.has(varSlugLower)) ||
+      (relIdLower && authRelSet.explicitlyDisabledSlugs.has(relIdLower))
+    ) {
+      continue;
+    }
+
+    if (authRelSet.hasExplicitAllowlist) {
+      const isAllowed =
+        authRelSet.allowedSlugs.has(relMeta.slug) ||
+        (varIdLower && authRelSet.allowedSlugs.has(varIdLower)) ||
+        (varSlugLower && authRelSet.allowedSlugs.has(varSlugLower)) ||
+        (relIdLower && authRelSet.allowedSlugs.has(relIdLower));
+      if (!isAllowed) {
+        continue;
+      }
+    }
 
     if (seenRels.has(relMeta.slug)) continue;
     seenRels.add(relMeta.slug);

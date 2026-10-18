@@ -11,9 +11,67 @@
 (function (global) {
   'use strict';
 
-  const PROTOCOL_VERSION = '1.2';
-  const SCHEMA_VERSION = '1.2.0';
-  const RUNTIME_API_VERSION = '1.2';
+  const PROTOCOL_VERSION = '1.3';
+  const SCHEMA_VERSION = '1.3.0';
+  const RUNTIME_API_VERSION = '1.3';
+
+  const DEFAULT_CENTRAL_LINK_CONFIG = {
+    canonicalBaseUrl: 'https://wishmagic.pages.dev',
+    globalDestinations: {
+      'global.home': '/',
+      'global.explore': '/templates.html',
+      'global.browseTemplates': '/templates.html',
+      'global.marketplace': '/marketplace.html',
+      'global.createWish': '/create.html',
+      'global.pricing': '/pricing.html',
+      'global.help': '/help.html',
+      'global.contact': '/contact.html'
+    },
+    templateRoutes: {
+      'template.create': '/customize.html',
+      'template.customize': '/customize.html',
+      'template.preview': '/template-preview.html'
+    }
+  };
+
+  function getActiveCentralLinkConfig() {
+    const custom = global.WishMagicCentralLinks || (global.WishMagicData && global.WishMagicData.centralLinkConfig) || {};
+    return {
+      canonicalBaseUrl: custom.canonicalBaseUrl || DEFAULT_CENTRAL_LINK_CONFIG.canonicalBaseUrl,
+      globalDestinations: Object.assign({}, DEFAULT_CENTRAL_LINK_CONFIG.globalDestinations, custom.globalDestinations || {}),
+      templateRoutes: Object.assign({}, DEFAULT_CENTRAL_LINK_CONFIG.templateRoutes, custom.templateRoutes || {})
+    };
+  }
+
+  function setCentralLinkConfig(cfg) {
+    if (!cfg || typeof cfg !== 'object') return;
+    global.WishMagicCentralLinks = Object.assign({}, getActiveCentralLinkConfig(), cfg);
+  }
+
+  /**
+   * UTP v1.3.0 Runtime Logical Link Resolver (`global.*` and `template.*`)
+   */
+  function resolveLogicalLink(logicalIdOrTarget, contextData) {
+    const raw = String(logicalIdOrTarget || '').trim();
+    if (!raw) return '';
+    const cfg = getActiveCentralLinkConfig();
+    const ctx = contextData || global.WishMagicData || {};
+    const useAbsolute = Boolean(ctx.useAbsoluteCanonical || ctx.includeOrigin || ctx.absoluteUrl);
+    const baseOrigin = String(cfg.canonicalBaseUrl || 'https://wishmagic.pages.dev').replace(/\/+$/, '');
+
+    if (raw.startsWith('global.')) {
+      const route = cfg.globalDestinations[raw] || '/';
+      return useAbsolute ? (baseOrigin + route) : route;
+    }
+
+    if (raw.startsWith('template.')) {
+      const baseRoute = cfg.templateRoutes[raw] || '/customize.html';
+      const resolvedRel = resolveClientInternalActionUrl(baseRoute, ctx);
+      return useAbsolute ? (baseOrigin + resolvedRel) : resolvedRel;
+    }
+
+    return resolveClientInternalActionUrl(raw, ctx);
+  }
 
   /**
    * Helper to safely sanitize and set text without XSS risks
@@ -380,9 +438,12 @@
           if (!rawTarget || (!lowerUrl.startsWith('https://') && !lowerUrl.startsWith('http://')) || lowerUrl.startsWith('javascript:') || lowerUrl.startsWith('data:')) {
             isActionEnabled = false;
           }
-        } else if (actType === 'internal_url' || actType === 'customizer') {
-          const resolvedInternal = resolveClientInternalActionUrl(rawTarget || (actType === 'customizer' ? '/customize' : ''), ctx);
-          if (!resolvedInternal || !resolvedInternal.startsWith('/')) {
+        } else if (actType === 'internal_url' || actType === 'customizer' || actType === 'global_link' || actType === 'template_link') {
+          const logicalId = String(action.logicalLink || action.linkId || el.getAttribute('data-wm-link') || '').trim();
+          const resolvedInternal = logicalId
+            ? resolveLogicalLink(logicalId, ctx)
+            : resolveLogicalLink(rawTarget || (actType === 'customizer' || actType === 'template_link' ? 'template.customize' : (actType === 'global_link' ? 'global.home' : '')), ctx);
+          if (!resolvedInternal || (!resolvedInternal.startsWith('/') && !resolvedInternal.startsWith('https://'))) {
             isActionEnabled = false;
           }
         }
@@ -420,11 +481,14 @@
         el.removeAttribute('data-wm-action-disabled');
 
         // Configure href and deterministic click handler
-        if (actType === 'internal_url' || actType === 'customizer') {
-          const finalUrl = resolveClientInternalActionUrl(
-            action.resolvedUrl || action.target || (actType === 'customizer' ? '/customize' : ''),
-            ctx
-          );
+        if (actType === 'internal_url' || actType === 'customizer' || actType === 'global_link' || actType === 'template_link') {
+          const logicalId = String(action.logicalLink || action.linkId || el.getAttribute('data-wm-link') || '').trim();
+          const finalUrl = action.resolvedUrl
+            ? resolveClientInternalActionUrl(action.resolvedUrl, ctx)
+            : (logicalId
+              ? resolveLogicalLink(logicalId, ctx)
+              : resolveLogicalLink(action.target || (actType === 'customizer' || actType === 'template_link' ? 'template.customize' : 'global.home'), ctx));
+          if (logicalId) el.setAttribute('data-wm-link', logicalId);
           if (el.tagName === 'A') {
             el.setAttribute('href', finalUrl);
           }
@@ -865,8 +929,30 @@
       if (document.body) document.body.setAttribute('data-wm-theme', themeName);
     }
 
-    // 6. Apply UTP v1.2.0 Action / Button configurations (`data-wm-action`)
+    // 6. Apply UTP v1.2.0 / v1.3.0 Action & Logical Link configurations (`data-wm-action` & `data-wm-link`)
+    if (data.centralLinkConfig) {
+      setCentralLinkConfig(data.centralLinkConfig);
+    }
     applyActionsToDom(document, data, data);
+    try {
+      document.querySelectorAll('[data-wm-link]').forEach(el => {
+        if (el.hasAttribute('data-wm-action') || el.hasAttribute('data-wm-button')) return;
+        const linkId = el.getAttribute('data-wm-link');
+        if (!linkId) return;
+        const resolvedHref = resolveLogicalLink(linkId, data);
+        if (!resolvedHref) return;
+        if (el.tagName === 'A') el.setAttribute('href', resolvedHref);
+        el.onclick = function (ev) {
+          ev.preventDefault();
+          try {
+            if (window.top && window.top !== window) window.top.location.href = resolvedHref;
+            else window.location.href = resolvedHref;
+          } catch (_) {
+            window.location.href = resolvedHref;
+          }
+        };
+      });
+    } catch (_) {}
 
     // 7. Dispatch CustomEvent so template scripts (countdowns, carousels, particles) react immediately
     try {
@@ -1021,6 +1107,7 @@
 
   // Public API
   global.WishMagicTemplate = {
+    version: SCHEMA_VERSION,
     PROTOCOL_VERSION,
     SCHEMA_VERSION,
     RUNTIME_API_VERSION,
@@ -1030,7 +1117,10 @@
     setField: setWishMagicField,
     removeDisabledContentFromDom,
     applyActionsToDom,
-    resolveClientInternalActionUrl
+    resolveClientInternalActionUrl,
+    resolveLogicalLink,
+    setCentralLinkConfig,
+    getActiveCentralLinkConfig
   };
 
   global.validateWishMagicTemplate = validate;

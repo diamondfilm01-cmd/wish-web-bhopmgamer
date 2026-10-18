@@ -33,6 +33,7 @@ import {
   extractActionsOverrideMap,
   buildVariantRecordFromUtpDeclaration,
   filterPublicAvailableVariants,
+  extractAuthoritativeEnabledRelationshipSet,
   mergeTemplateAndVariantFields,
   getDefaultRelationshipVariantConfig,
   cloneVariant
@@ -41,6 +42,16 @@ import {
   validateAdminTemplateConfiguration,
   normalizeManifestToUtp
 } from './template-protocol-validator.js';
+import {
+  UTP_ALL_LOGICAL_LINKS,
+  getCentralLinkSettings,
+  saveCentralLinkSettings,
+  resetCentralLinkSettings,
+  resolveLogicalLink,
+  detectAndClassifyPackageButtons,
+  scanTemplateForLinkMigration,
+  applySafeLinkNormalizationToTemplate
+} from './template-link-resolver.js';
 import {
   RECOGNITION_OUTCOME,
   IMPORT_SESSION_STATE,
@@ -5409,6 +5420,214 @@ async function getTemplateVersionById(env, versionId, fallbackTemplateId = null)
   return null;
 }
 
+
+/**
+ * Synchronizes variant visibility across template_relationship_variants, template_relationships,
+ * templates.variants_json, templates.relationships, and templates.enabled_variants_json.
+ * Guarantees Part A3 & A4:
+ * - Admin selections persist authoritatively.
+ * - Unrelated edits never restore previously disabled variants.
+ */
+async function syncTemplateVariantVisibilityInD1(db, templateId, options = {}) {
+  if (!db || typeof db.prepare !== "function" || !templateId) return null;
+  const nowIso = options.nowIso || new Date().toISOString();
+  try {
+    await ensureTemplateIngestionSchema(db);
+    const tpl = await db.prepare("SELECT * FROM templates WHERE id = ? OR slug = ? LIMIT 1").bind(templateId, templateId).first();
+    if (!tpl) return null;
+    const tId = tpl.id;
+    const activeVer = await db.prepare("SELECT * FROM template_versions WHERE template_id = ? ORDER BY version_number DESC LIMIT 1").bind(tId).first();
+    const verId = options.versionId || (activeVer ? activeVer.id : `tv_${tId}_v1`);
+
+    // 1. Apply explicit enabledRelationships array if provided (e.g. from Edit Template or Upload checkboxes)
+    const hasExplicitRelArray = Array.isArray(options.enabledRelationships);
+    let allowedRelSlugs = null;
+    if (hasExplicitRelArray) {
+      allowedRelSlugs = new Set();
+      for (const item of options.enabledRelationships) {
+        if (!item) continue;
+        if (typeof item === "object") {
+          if (item.enabled === false || item.disabled === true) continue;
+          const rk = item.slug || item.relationship || item.relationshipSlug || item.id || item.label || "";
+          const nr = normalizeRelationshipIdentifier(rk);
+          if (nr?.slug) allowedRelSlugs.add(nr.slug);
+          if (rk) allowedRelSlugs.add(String(rk).toLowerCase().trim());
+        } else {
+          const nr = normalizeRelationshipIdentifier(String(item));
+          if (nr?.slug) allowedRelSlugs.add(nr.slug);
+          allowedRelSlugs.add(String(item).toLowerCase().trim());
+        }
+      }
+    }
+
+    // 2. Apply per-variant enabled overrides from options.variantOverrides if provided
+    const varOverrides = (options.variantOverrides && typeof options.variantOverrides === "object")
+      ? options.variantOverrides
+      : null;
+
+    const varRowsRes = await db.prepare(
+      "SELECT * FROM template_relationship_variants WHERE (template_id = ? OR template_version_id = ?) AND is_latest = 1 ORDER BY sort_order ASC, created_at ASC"
+    ).bind(tId, verId).all().catch(() => ({ results: [] }));
+    let varRows = varRowsRes?.results || [];
+
+    // If template has variants_json but no rows in template_relationship_variants yet, seed from variants_json
+    const jsonVars = safeJsonParse(tpl.variants_json, []);
+    if (varRows.length === 0 && Array.isArray(jsonVars) && jsonVars.length > 0) {
+      varRows = jsonVars.map((jv, idx) => {
+        const nr = normalizeRelationshipIdentifier(jv.relationshipSlug || jv.relationship || jv.slug, jv.relationshipLabel || jv.label);
+        const rSlug = nr ? nr.slug : String(jv.relationshipSlug || jv.relationship || jv.slug || "friend").toLowerCase();
+        return {
+          id: jv.id || `trv_${tId}_${rSlug}`,
+          variant_slug: jv.slug || rSlug,
+          template_id: tId,
+          template_version_id: verId,
+          relationship_id: jv.relationshipId || (nr ? nr.id : `rel_${rSlug}`),
+          relationship_slug: rSlug,
+          relationship_label: jv.relationshipLabel || jv.label || (nr ? nr.label : rSlug),
+          name: jv.name || `${rSlug} Edition`,
+          description: jv.description || "",
+          thumbnail: jv.thumbnail || tpl.thumbnail || "",
+          entry_file: jv.entryFile || "index.html",
+          status: jv.status || "published",
+          enabled: jv.enabled === false || jv.enabled === 0 ? 0 : 1,
+          sort_order: jv.sortOrder || (idx + 1),
+          is_default: jv.isDefault ? 1 : 0,
+          configuration_json: JSON.stringify(jv.configuration || jv)
+        };
+      });
+    }
+
+    if (varRows.length > 0) {
+      const updatedVarsJsonList = [];
+      const enabledLabels = [];
+      const enabledSlugs = [];
+
+      for (const vr of varRows) {
+        const nr = normalizeRelationshipIdentifier(vr.relationship_slug || vr.relationship_id || vr.variant_slug, vr.relationship_label);
+        const rSlug = nr ? nr.slug : String(vr.relationship_slug || vr.variant_slug || "").toLowerCase();
+        const rLabel = vr.relationship_label || (nr ? nr.label : rSlug);
+        const rId = vr.relationship_id || (nr ? nr.id : `rel_${rSlug}`);
+
+        let nextEnabled = Number(vr.enabled ?? 1) !== 0 && vr.status !== "disabled" && vr.status !== "archived";
+        let nextStatus = vr.status || "published";
+
+        if (allowedRelSlugs !== null) {
+          nextEnabled =
+            allowedRelSlugs.has(rSlug) ||
+            allowedRelSlugs.has(String(vr.id || "").toLowerCase()) ||
+            allowedRelSlugs.has(String(vr.variant_slug || "").toLowerCase()) ||
+            allowedRelSlugs.has(String(rId).toLowerCase()) ||
+            allowedRelSlugs.has(String(rLabel).toLowerCase());
+        }
+
+        if (varOverrides) {
+          const ov = varOverrides[rSlug] || varOverrides[vr.id] || varOverrides[vr.variant_slug] || varOverrides[rId] || null;
+          if (ov && typeof ov === "object") {
+            if (ov.enabled !== undefined) nextEnabled = Boolean(ov.enabled);
+            if (ov.disabled !== undefined) nextEnabled = !ov.disabled;
+            if (ov.status === "disabled") nextEnabled = false;
+          }
+        }
+
+        if (!nextEnabled && nextStatus === "published") {
+          nextStatus = "disabled";
+        } else if (nextEnabled && nextStatus === "disabled") {
+          nextStatus = "published";
+        }
+
+        const cfg = safeJsonParse(vr.configuration_json, {});
+        cfg.enabled = nextEnabled;
+        cfg.status = nextStatus;
+
+        await db.prepare(
+          `UPDATE template_relationship_variants
+           SET enabled = ?, status = ?, configuration_json = ?, updated_at = ?
+           WHERE id = ?`
+        ).bind(nextEnabled ? 1 : 0, nextStatus, JSON.stringify(cfg), nowIso, vr.id).run().catch(() => {});
+
+        await db.prepare(
+          `INSERT INTO template_relationships (id, template_id, relationship_id, template_family_id, template_version_id, enabled, sort_order, created_at)
+           VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+           ON CONFLICT(template_id, relationship_id) DO UPDATE SET enabled = excluded.enabled`
+        ).bind(`trel_${tId}_${rId}`, tId, rId, `fam_${tId}`, verId, nextEnabled ? 1 : 0, vr.sort_order || 1, nowIso).run().catch(() => {});
+
+        if (nextEnabled && nextStatus === "published") {
+          enabledLabels.push(rLabel);
+          enabledSlugs.push(rSlug);
+        }
+
+        updatedVarsJsonList.push({
+          id: vr.id,
+          slug: vr.variant_slug || rSlug,
+          relationshipId: rId,
+          relationshipSlug: rSlug,
+          relationship: rSlug,
+          label: rLabel,
+          relationshipLabel: rLabel,
+          name: vr.name || `${rLabel} Edition`,
+          description: vr.description || "",
+          icon: vr.relationship_icon || (nr ? nr.icon : "✨"),
+          thumbnail: vr.thumbnail || tpl.thumbnail || "",
+          entryFile: vr.entry_file || "index.html",
+          status: nextStatus,
+          enabled: nextEnabled,
+          sortOrder: vr.sort_order || 1,
+          isDefault: Boolean(vr.is_default),
+          configuration: cfg
+        });
+      }
+
+      await db.prepare(
+        `UPDATE templates
+         SET relationships = ?, enabled_variants_json = ?, variants_json = ?, updated_at = ?
+         WHERE id = ?`
+      ).bind(
+        JSON.stringify(enabledLabels),
+        JSON.stringify(enabledSlugs),
+        JSON.stringify(updatedVarsJsonList),
+        nowIso,
+        tId
+      ).run().catch(() => {});
+
+      if (activeVer) {
+        await db.prepare(
+          `UPDATE template_versions
+           SET enabled_variants_json = ?, variants_json = ?, updated_at = ?
+           WHERE id = ?`
+        ).bind(
+          JSON.stringify(enabledSlugs),
+          JSON.stringify(updatedVarsJsonList),
+          nowIso,
+          activeVer.id
+        ).run().catch(() => {});
+      }
+
+      return { enabledLabels, enabledSlugs, variants: updatedVarsJsonList };
+    } else if (hasExplicitRelArray) {
+      // Non-variant template with updated relationship tags
+      const normLabels = [];
+      const normSlugs = [];
+      for (const item of options.enabledRelationships) {
+        const nr = normalizeRelationshipIdentifier(item);
+        if (nr) {
+          normLabels.push(nr.label);
+          normSlugs.push(nr.slug);
+        } else if (item) {
+          normLabels.push(String(item).trim());
+          normSlugs.push(String(item).trim().toLowerCase());
+        }
+      }
+      await db.prepare(
+        "UPDATE templates SET relationships = ?, enabled_variants_json = ?, updated_at = ? WHERE id = ?"
+      ).bind(JSON.stringify(normLabels), JSON.stringify(normSlugs), nowIso, tId).run().catch(() => {});
+      return { enabledLabels: normLabels, enabledSlugs: normSlugs, variants: [] };
+    }
+  } catch (err) {
+    console.warn("[syncTemplateVariantVisibilityInD1 Notice]:", err.message);
+  }
+  return null;
+}
+
 async function createNewTemplateVersion(env, templateId, updatedFields = {}, actor = {}) {
   const cleanId = String(templateId).trim();
   
@@ -5523,6 +5742,20 @@ async function createNewTemplateVersion(env, templateId, updatedFields = {}, act
           newSnapshot.id
         ).run();
       } catch (_) {}
+
+      // Synchronize relationship variant visibility if relationships/enabledVariants/variantOverrides were updated
+      if (
+        Array.isArray(updatedFields.relationships) ||
+        Array.isArray(updatedFields.enabledVariants) ||
+        (updatedFields.variantOverrides && typeof updatedFields.variantOverrides === "object")
+      ) {
+        await syncTemplateVariantVisibilityInD1(env.DB, cleanId, {
+          enabledRelationships: Array.isArray(updatedFields.enabledVariants) ? updatedFields.enabledVariants : updatedFields.relationships,
+          variantOverrides: updatedFields.variantOverrides,
+          versionId: newSnapshot.id,
+          nowIso
+        });
+      }
 
       // Also update live templates table pointer
       try {
@@ -6652,18 +6885,63 @@ export default {
           // sanitize customer customData (preventing disabled sections/fields from being re-enabled),
           // and snapshot the published configuration so existing wish links remain immutable!
           let matchedWishVariant = null;
-          const requestedWishRel = customData.relationship || customData.rel || customData.relationshipSlug || body.relationship || '';
-          const requestedWishVarId = customData.relationship_variant_id || customData.relationshipVariantId || customData.variantId || customData.variant || '';
-          if (env.DB && (requestedWishRel || requestedWishVarId)) {
+          const requestedWishRel = sanitizeString(customData.relationship || customData.rel || customData.relationshipSlug || body.relationship || body.rel || '', 60);
+          const requestedWishVarId = sanitizeString(customData.relationship_variant_id || customData.relationshipVariantId || customData.variantId || customData.variant || body.variantId || body.variant || '', 80);
+          if (env.DB && template) {
             try {
               const vRows = await env.DB.prepare(
                 `SELECT * FROM template_relationship_variants WHERE (template_id = ? OR template_version_id = ?) AND is_latest = 1`
-              ).bind(template ? template.id : templateId, templateVersionId).all();
-              const vList = vRows.results || [];
-              matchedWishVariant = vList.find(v =>
-                (requestedWishVarId && (v.id === requestedWishVarId || v.variant_slug === requestedWishVarId)) ||
-                (requestedWishRel && (v.relationship_slug === requestedWishRel || v.relationship_id === requestedWishRel))
-              ) || null;
+              ).bind(template.id, templateVersionId).all().catch(() => ({ results: [] }));
+              const relRows = await env.DB.prepare(
+                `SELECT * FROM template_relationships WHERE template_id = ?`
+              ).bind(template.id).all().catch(() => ({ results: [] }));
+              let vList = vRows.results || [];
+              if (vList.length === 0 && template.variants_json) {
+                const jv = safeJsonParse(template.variants_json, []);
+                if (Array.isArray(jv)) vList = jv;
+              }
+              const hasVariants = Boolean(template.has_variants || vList.length > 0);
+              const pubAvailVars = filterPublicAvailableVariants(vList, {
+                template,
+                templateVersion: activeVersion || {},
+                templateRelationships: relRows.results || []
+              });
+
+              if (requestedWishRel || requestedWishVarId) {
+                const normReq = requestedWishRel ? normalizeRelationshipIdentifier(requestedWishRel) : null;
+                const reqSlug = normReq ? normReq.slug : requestedWishRel.toLowerCase();
+                const allowedMatch = pubAvailVars.find(av =>
+                  (requestedWishVarId && (av.id.toLowerCase() === requestedWishVarId.toLowerCase() || av.slug.toLowerCase() === requestedWishVarId.toLowerCase())) ||
+                  (reqSlug && (av.relationshipSlug.toLowerCase() === reqSlug || av.relationshipId.toLowerCase() === requestedWishRel.toLowerCase() || av.label.toLowerCase() === requestedWishRel.toLowerCase()))
+                );
+                if (hasVariants && !allowedMatch && reqSlug !== "general") {
+                  return applySecurityHeaders(
+                    jsonError(
+                      "VARIANT_DISABLED_OR_UNAVAILABLE",
+                      `The requested relationship variant ("${requestedWishRel || requestedWishVarId}") is disabled or not available for this template.`,
+                      422,
+                      {
+                        requestedVariant: requestedWishVarId || null,
+                        requestedRelationship: requestedWishRel || null,
+                        availableVariants: pubAvailVars.map(av => ({
+                          id: av.id,
+                          slug: av.slug,
+                          relationshipSlug: av.relationshipSlug,
+                          label: av.label
+                        }))
+                      }
+                    ),
+                    request, env
+                  );
+                }
+                if (allowedMatch) {
+                  matchedWishVariant = vList.find(v =>
+                    v.id === allowedMatch.id ||
+                    v.relationship_slug === allowedMatch.relationshipSlug ||
+                    v.relationshipSlug === allowedMatch.relationshipSlug
+                  ) || allowedMatch;
+                }
+              }
             } catch (_) {}
           }
           const wishEffectiveConfig = resolveEffectiveTemplateConfiguration({
@@ -7761,8 +8039,9 @@ export default {
             q += ' ORDER BY placement ASC LIMIT 100';
 
             const rows = await env.DB.prepare(q).all();
-            // Batch-load all latest variants in a single query to avoid N+1 lookups
+            // Batch-load all latest variants & template_relationships in a single query to avoid N+1 lookups
             const variantsByTplId = new Map();
+            const relRowsByTplId = new Map();
             try {
               const allVarRows = await env.DB.prepare(
                 `SELECT trv.*, r.slug as r_slug, r.name as r_name, r.icon as r_icon
@@ -7781,6 +8060,12 @@ export default {
                   relationship_icon: vr.r_icon || '✨'
                 });
               }
+              const allRelRows = await env.DB.prepare(`SELECT * FROM template_relationships`).all().catch(() => ({ results: [] }));
+              for (const tr of (allRelRows.results || [])) {
+                if (!tr.template_id) continue;
+                if (!relRowsByTplId.has(tr.template_id)) relRowsByTplId.set(tr.template_id, []);
+                relRowsByTplId.get(tr.template_id).push(tr);
+              }
             } catch (_) {}
 
             if (rows && Array.isArray(rows.results)) {
@@ -7796,7 +8081,10 @@ export default {
                 const jsonVars = safeJsonParse(r.variants_json, []);
                 const rawTplVariants = dbVars.length > 0 ? dbVars : (Array.isArray(jsonVars) ? jsonVars : []);
                 const hasDeclaredVariants = Boolean(r.has_variants || rawTplVariants.length > 0);
-                const availableVariants = filterPublicAvailableVariants(rawTplVariants);
+                const availableVariants = filterPublicAvailableVariants(rawTplVariants, {
+                  template: r,
+                  templateRelationships: relRowsByTplId.get(r.id) || []
+                });
                 const availableRelations = availableVariants.map(av => ({
                   id: av.relationshipId,
                   slug: av.relationshipSlug,
@@ -9380,7 +9668,9 @@ export default {
             actions: Array.isArray(body.actions) ? body.actions : undefined,
             visibilityConfig: (body.visibilityConfig && typeof body.visibilityConfig === 'object') ? body.visibilityConfig : undefined,
             actionsConfig: (body.actionsConfig && typeof body.actionsConfig === 'object') ? body.actionsConfig : undefined,
-            variantOverrides: (body.variantOverrides && typeof body.variantOverrides === 'object') ? body.variantOverrides : undefined
+            variantOverrides: (body.variantOverrides && typeof body.variantOverrides === 'object') ? body.variantOverrides : undefined,
+            relationships: Array.isArray(body.relationships) ? body.relationships : undefined,
+            enabledVariants: Array.isArray(body.enabledVariants) ? body.enabledVariants : undefined
           };
 
           if (body.zipBase64) {
@@ -9816,8 +10106,8 @@ export default {
           // Verify runtime & schema compatibility
           const verSchema = String(targetVer.schema_version || '1.0.0').trim();
           const verRuntime = String(targetVer.runtime_api_version || '1.0').trim();
-          const validSchemas = new Set(['1.0.0', '1.1.0', '1.2.0', '1.0', '1.1', '1.2']);
-          const validRuntimes = new Set(['1.0', '1.1', '1.2', '1.0.0', '1.1.0', '1.2.0']);
+          const validSchemas = new Set(['1.0.0', '1.1.0', '1.2.0', '1.3.0', '1.0', '1.1', '1.2', '1.3']);
+          const validRuntimes = new Set(['1.0', '1.1', '1.2', '1.3', '1.0.0', '1.1.0', '1.2.0', '1.3.0']);
           if (!validSchemas.has(verSchema) || !validRuntimes.has(verRuntime)) {
             return applySecurityHeaders(jsonError('ROLLBACK_INCOMPATIBLE_RUNTIME', `Target version "${targetVersionId}" uses unsupported schema/runtime (${verSchema} / ${verRuntime}).`, 400), request, env);
           }
@@ -9874,6 +10164,14 @@ export default {
               for (const stmt of rollbackStatements) {
                 await stmt.run();
               }
+            }
+            const targetEnabledVars = safeJsonParse(targetVer.enabled_variants_json, null);
+            if (Array.isArray(targetEnabledVars) && targetEnabledVars.length > 0) {
+              await syncTemplateVariantVisibilityInD1(env.DB, templateId, {
+                enabledRelationships: targetEnabledVars,
+                versionId: targetVersionId,
+                nowIso
+              });
             }
           } catch (dbErr) {
             return applySecurityHeaders(jsonError('DATABASE_ERROR', `Failed to execute rollback: ${dbErr.message}`, 500), request, env);
@@ -10917,12 +11215,19 @@ export default {
 
             // Load assigned relationships
             const rRows = await env.DB.prepare(`
-              SELECT r.* FROM relationships r
+              SELECT r.*, tr.enabled as tr_enabled, tr.relationship_id as tr_rel_id FROM relationships r
               JOIN template_relationships tr ON r.id = tr.relationship_id
-              WHERE tr.template_id = ? AND tr.enabled = 1
+              WHERE tr.template_id = ?
               ORDER BY r.sort_order ASC
             `).bind(template.id).all();
-            relationshipsList = rRows.results || [];
+            const allTplRelRows = (rRows.results || []).map(r => ({
+              ...r,
+              relationship_id: r.tr_rel_id || r.id,
+              relationship_slug: r.slug,
+              enabled: r.tr_enabled
+            }));
+            relationshipsList = allTplRelRows.filter(r => Number(r.enabled ?? 1) !== 0);
+            template._allTplRelRows = allTplRelRows;
           } catch (e) {
             console.warn('[Template Fetch Enrichment Notice]:', e.message);
           }
@@ -10968,7 +11273,12 @@ export default {
           if (Array.isArray(parsedVars)) variants = parsedVars;
         }
         const hasDeclaredVariants = Boolean(template.has_variants || variants.length > 0);
-        const availableVariants = filterPublicAvailableVariants(variants);
+        const availableVariants = filterPublicAvailableVariants(variants, {
+          template,
+          templateVersion: activeVer || {},
+          templateRelationships: template._allTplRelRows || []
+        });
+        delete template._allTplRelRows;
         const availableRelations = availableVariants.map(av => ({
           id: av.relationshipId,
           slug: av.relationshipSlug,
@@ -11538,6 +11848,14 @@ export default {
             ).bind(newId, templateId, relId, `fam_${templateId}`, enabled ? 1 : 0, sortOrder, new Date().toISOString()).run();
           }
 
+          const normRelToggle = normalizeRelationshipIdentifier(relId);
+          const relSlugToggle = normRelToggle ? normRelToggle.slug : relId.replace(/^rel_/, "").toLowerCase();
+          await env.DB.prepare(
+            `UPDATE template_relationship_variants SET enabled = ?, status = CASE WHEN ? = 0 THEN 'disabled' ELSE 'published' END, updated_at = ?
+             WHERE template_id = ? AND (relationship_id = ? OR relationship_slug = ?)`
+          ).bind(enabled ? 1 : 0, enabled ? 1 : 0, new Date().toISOString(), templateId, relId, relSlugToggle).run().catch(() => {});
+          await syncTemplateVariantVisibilityInD1(env.DB, templateId, { nowIso: new Date().toISOString() });
+
           await logAdminAudit(env, { actorId: user.id, actorName: user.name || user.email, actorRole: 'ADMIN', action: enabled ? 'RELATIONSHIP_ASSIGNED' : 'RELATIONSHIP_REMOVED', targetType: 'template_relationship', targetId: relId, details: { templateId, relationshipId: relId } });
         }
 
@@ -11571,6 +11889,12 @@ export default {
           }
 
           await env.DB.prepare('DELETE FROM template_relationships WHERE template_id = ? AND relationship_id = ?').bind(templateId, relId).run();
+          const normDelRel = normalizeRelationshipIdentifier(relId);
+          const delRelSlug = normDelRel ? normDelRel.slug : relId.replace(/^rel_/, "").toLowerCase();
+          await env.DB.prepare(
+            `UPDATE template_relationship_variants SET enabled = 0, status = 'disabled', updated_at = ? WHERE template_id = ? AND (relationship_id = ? OR relationship_slug = ?)`
+          ).bind(new Date().toISOString(), templateId, relId, delRelSlug).run().catch(() => {});
+          await syncTemplateVariantVisibilityInD1(env.DB, templateId, { nowIso: new Date().toISOString() });
           await logAdminAudit(env, { actorId: user.id, actorName: user.name || user.email, actorRole: 'ADMIN', action: 'RELATIONSHIP_REMOVED', targetType: 'template_relationship', targetId: relId, details: { templateId, relationshipId: relId } });
         }
 
@@ -11581,21 +11905,36 @@ export default {
       else if (pathname.startsWith('/api/templates/') && pathname.endsWith('/variants') && method === 'GET') {
         const parts = pathname.split('/').filter(Boolean);
         const templateId = sanitizeString(parts[2], 60);
+        const includeDrafts = url.searchParams.get('includeDrafts') === 'true';
+        let isAdminCaller = false;
+        if (includeDrafts) {
+          const u = await getAuthenticatedUser(request, env);
+          isAdminCaller = Boolean(u && await verifyAdminRole(u, env));
+        }
         let variants = [];
         if (env.DB && typeof env.DB.prepare === 'function') {
           try {
+            const tplRow = await env.DB.prepare('SELECT * FROM templates WHERE id = ? OR slug = ? LIMIT 1').bind(templateId, templateId).first();
+            const tId = tplRow ? tplRow.id : templateId;
             const rows = await env.DB.prepare(
               `SELECT trv.*, r.slug as relationship_slug, r.name as relationship_name, r.display_name as relationship_display_name, r.icon as relationship_icon
                FROM template_relationship_variants trv
-               JOIN relationships r ON trv.relationship_id = r.id
+               LEFT JOIN relationships r ON trv.relationship_id = r.id
                WHERE (trv.template_id = ? OR trv.template_version_id LIKE ?) AND trv.is_latest = 1
-               ORDER BY r.sort_order ASC`
-            ).bind(templateId, `tv_${templateId}_%`).all();
-            if (rows.results) {
-              variants = rows.results.map(v => {
-                let parsed = {};
-                try { parsed = JSON.parse(v.configuration_json); } catch (e) {}
-                return { ...v, configuration: parsed };
+               ORDER BY COALESCE(trv.sort_order, r.sort_order, 99) ASC`
+            ).bind(tId, `tv_${tId}_%`).all();
+            const rawVars = (rows.results || []).map(v => {
+              let parsed = {};
+              try { parsed = JSON.parse(v.configuration_json); } catch (e) {}
+              return { ...v, configuration: parsed };
+            });
+            if (includeDrafts && isAdminCaller) {
+              variants = rawVars;
+            } else {
+              const relRows = await env.DB.prepare('SELECT * FROM template_relationships WHERE template_id = ?').bind(tId).all().catch(() => ({ results: [] }));
+              variants = filterPublicAvailableVariants(rawVars, {
+                template: tplRow || { id: tId },
+                templateRelationships: relRows.results || []
               });
             }
           } catch (e) {}
@@ -11649,6 +11988,24 @@ export default {
               let parsed = {};
               try { parsed = JSON.parse(row.configuration_json); } catch (e) {}
               variant = { ...row, configuration: parsed };
+            }
+            const includeDrafts = url.searchParams.get("includeDrafts") === "true";
+            let isAdminCaller = false;
+            if (includeDrafts) {
+              const u = await getAuthenticatedUser(request, env);
+              isAdminCaller = Boolean(u && await verifyAdminRole(u, env));
+            }
+            if (!isAdminCaller) {
+              const tplRow = await env.DB.prepare("SELECT * FROM templates WHERE id = ? OR slug = ? LIMIT 1").bind(templateId, templateId).first().catch(() => null);
+              const tId = tplRow ? tplRow.id : templateId;
+              const relRows = await env.DB.prepare("SELECT * FROM template_relationships WHERE template_id = ?").bind(tId).all().catch(() => ({ results: [] }));
+              const pubVars = filterPublicAvailableVariants(variant ? [variant] : [], {
+                template: tplRow || { id: tId },
+                templateRelationships: relRows.results || []
+              });
+              if (pubVars.length === 0) {
+                return applySecurityHeaders(jsonError("VARIANT_UNAVAILABLE", "The requested relationship variant is disabled or unavailable.", 404), request, env);
+              }
             }
           } catch (e) {}
         }
@@ -11781,6 +12138,7 @@ export default {
           ).bind(savedVariantId, targetRel.slug, templateId, versionId, `fam_${templateId}`, targetRel.id, targetRel.slug, targetRel.name, variantName, configJson, variantStatus, variantEnabled, nowIso, nowIso).run();
         }
 
+        await syncTemplateVariantVisibilityInD1(env.DB, templateId, { nowIso });
         await logAdminAudit(env, { actorId: user.id, actorName: user.name || user.email, actorRole: 'ADMIN', action: existing ? 'VARIANT_UPDATED' : 'VARIANT_CREATED', targetType: 'template_variant', targetId: savedVariantId, details: { templateId, relationshipId: targetRel.id, status: variantStatus } });
 
         const savedRow = await env.DB.prepare('SELECT * FROM template_relationship_variants WHERE id = ? LIMIT 1').bind(savedVariantId).first().catch(() => null);
@@ -11917,6 +12275,8 @@ export default {
         await logAdminAudit(env, { actorId: user.id, actorName: user.name || user.email, actorRole: 'ADMIN', action: 'VARIANT_PUBLISHED', targetType: 'template_variant', targetId: publishedVariantId, details: { templateId, relationshipId: targetRel.id, versionNumber: publishedVersionNumber } });
 
         await env.DB.prepare('UPDATE template_relationship_variants SET enabled = 1 WHERE id = ?').bind(publishedVariantId).run().catch(() => {});
+        await env.DB.prepare(`UPDATE template_relationships SET enabled = 1 WHERE template_id = ? AND relationship_id = ?`).bind(templateId, targetRel.id).run().catch(() => {});
+        await syncTemplateVariantVisibilityInD1(env.DB, templateId, { nowIso });
         const pubRow = await env.DB.prepare('SELECT * FROM template_relationship_variants WHERE id = ? LIMIT 1').bind(publishedVariantId).first().catch(() => null);
         const pubCfg = pubRow ? safeJsonParse(pubRow.configuration_json, {}) : {};
         response = jsonSuccess({
@@ -11980,9 +12340,10 @@ export default {
 
         if (env.DB && typeof env.DB.prepare === 'function') {
           await env.DB.prepare(
-            `UPDATE template_relationship_variants SET status = 'archived', updated_at = ?
+            `UPDATE template_relationship_variants SET status = 'archived', enabled = 0, updated_at = ?
              WHERE template_id = ? AND (relationship_id = ? OR relationship_slug = ?) AND is_latest = 1`
           ).bind(new Date().toISOString(), templateId, relId, relId).run();
+          await syncTemplateVariantVisibilityInD1(env.DB, templateId, { nowIso: new Date().toISOString() });
 
           await logAdminAudit(env, { actorId: user.id, actorName: user.name || user.email, actorRole: 'ADMIN', action: 'VARIANT_ARCHIVED', targetType: 'template_variant', targetId: relId, details: { templateId, relationshipId: relId } });
         }
@@ -12041,16 +12402,30 @@ export default {
           musicLibrary = (await env.DB.prepare('SELECT * FROM music_library WHERE status = "active"').all()).results || [];
         }
 
-        // Enforce strict variant availability & family ownership check when a specific variant or relation is requested on a variant-enabled family
+        // Enforce strict authoritative variant availability & family ownership check
+        let tplRelRowsForResolver = [];
+        if (env.DB && typeof env.DB.prepare === 'function' && template) {
+          const trRes = await env.DB.prepare('SELECT * FROM template_relationships WHERE template_id = ?').bind(template.id).all().catch(() => ({ results: [] }));
+          tplRelRowsForResolver = trRes.results || [];
+        }
+        const publicAllowedVariants = filterPublicAvailableVariants(allFamilyVariants, {
+          template: template || { id: templateId },
+          templateVersion: activeVersion || {},
+          templateRelationships: tplRelRowsForResolver
+        });
         const hasVariants = Boolean((template && template.has_variants) || allFamilyVariants.length > 0);
         if (hasVariants && (variantQuery || (relQuery && relQuery !== 'general'))) {
           if (!variant) {
-            return applySecurityHeaders(jsonError('VARIANT_UNAVAILABLE', 'The requested relationship variant does not exist or is not supported by this template family.', 404), request, env);
+            return applySecurityHeaders(jsonError('VARIANT_UNAVAILABLE', 'The requested relationship variant does not exist or is not supported by this template family.', 404, { availableVariants: publicAllowedVariants }), request, env);
           }
-          const isPubAndEnabled = (variant.status === 'published' || variant.status === 'active') && Number(variant.enabled ?? 1) !== 0;
-          if (!isPubAndEnabled && !includeDrafts) {
-            return applySecurityHeaders(jsonError('VARIANT_UNAVAILABLE', 'The requested relationship variant is currently unpublished or disabled.', 404), request, env);
+          const isAllowedPublicly = publicAllowedVariants.some(pv => pv.id === variant.id || pv.relationshipSlug === variant.relationship_slug);
+          if (!isAllowedPublicly && !includeDrafts) {
+            return applySecurityHeaders(jsonError('VARIANT_UNAVAILABLE', 'The requested relationship variant is currently unpublished or disabled.', 404, { availableVariants: publicAllowedVariants }), request, env);
           }
+        } else if (hasVariants && !variant && !includeDrafts && publicAllowedVariants.length > 0) {
+          // Default to first enabled published variant (never a disabled one)
+          const defPub = publicAllowedVariants.find(pv => pv.isDefault) || publicAllowedVariants[0];
+          variant = allFamilyVariants.find(v => v.id === defPub.id || v.relationship_slug === defPub.relationshipSlug) || null;
         }
 
         const resolved = resolveVariantHierarchy({
@@ -12442,11 +12817,17 @@ export default {
                   const vCfg = safeJsonParse(matchVar.configuration_json, {});
                   if (vOver.visibility !== undefined) vCfg.visibility = vOver.visibility;
                   if (vOver.actions !== undefined) vCfg.actions = vOver.actions;
+                  const nextVarEnabled = vOver.enabled !== undefined ? (vOver.enabled ? 1 : 0) : Number(matchVar.enabled ?? 1);
+                  const nextVarStatus = nextVarEnabled === 0 ? 'disabled' : (matchVar.status === 'disabled' ? 'published' : (matchVar.status || 'published'));
+                  vCfg.enabled = Boolean(nextVarEnabled);
+                  vCfg.status = nextVarStatus;
                   await env.DB.prepare(
                     `UPDATE template_relationship_variants SET
                        configuration_json = ?,
                        visibility_json = ?,
                        actions_json = ?,
+                       enabled = ?,
+                       status = ?,
                        draft_configuration_json = NULL,
                        lock_version = COALESCE(lock_version, 1) + 1,
                        updated_at = ?
@@ -12455,6 +12836,8 @@ export default {
                     JSON.stringify(vCfg),
                     JSON.stringify(vCfg.visibility || {}),
                     JSON.stringify(Array.isArray(vCfg.actions) ? vCfg.actions : Object.entries(vCfg.actions || {}).map(([id, a]) => ({ id, ...a }))),
+                    nextVarEnabled,
+                    nextVarStatus,
                     nowIso,
                     matchVar.id
                   ).run();
@@ -12463,6 +12846,14 @@ export default {
             }
           }
 
+          if (shouldPublish) {
+            await syncTemplateVariantVisibilityInD1(env.DB, template.id, {
+              enabledRelationships: Array.isArray(body.enabledVariants) ? body.enabledVariants : (Array.isArray(body.relationships) ? body.relationships : undefined),
+              variantOverrides: nextVarOverrides,
+              versionId: publishedVersionId,
+              nowIso
+            });
+          }
           const updatedTpl = await env.DB.prepare('SELECT * FROM templates WHERE id = ? LIMIT 1').bind(template.id).first();
           const updatedVer = await env.DB.prepare('SELECT * FROM template_versions WHERE id = ? LIMIT 1').bind(publishedVersionId).first();
           const updatedVarRows = await env.DB.prepare('SELECT * FROM template_relationship_variants WHERE (template_id = ? OR template_version_id = ?) AND is_latest = 1').bind(template.id, publishedVersionId).all();
@@ -15531,6 +15922,359 @@ export default {
         response = jsonSuccess({
           settings: saveRes.settings,
           message: 'Wish link and monetization settings updated successfully.'
+        }, 200, {}, requestId);
+      }
+
+      // ============================================================================
+      // PART C / PART 51 — CENTRAL LINK MANAGER & TEMPLATE LINK MIGRATION ENDPOINTS
+      // ============================================================================
+      else if (pathname === '/api/settings/links' && method === 'GET') {
+        const settings = await getCentralLinkSettings(env);
+        response = jsonSuccess({
+          settings: {
+            canonicalBaseUrl: settings.canonicalBaseUrl,
+            customDomainUrl: settings.customDomainUrl,
+            domainMigrationStatus: settings.domainMigrationStatus,
+            globalDestinations: settings.globalDestinations,
+            templateRoutes: settings.templateRoutes,
+            logicalLinksCatalog: UTP_ALL_LOGICAL_LINKS,
+            updatedAt: settings.updatedAt
+          }
+        }, 200, {
+          'Cache-Control': 'no-cache, no-store, must-revalidate'
+        }, requestId);
+      }
+
+      else if (pathname === '/api/admin/settings/links' && method === 'GET') {
+        const user = await getAuthenticatedUser(request, env);
+        if (!user) return applySecurityHeaders(jsonError('AUTH_REQUIRED', 'Admin authentication required', 401), request, env);
+        const isAdmin = await verifyAdminRole(user, env);
+        if (!isAdmin) return applySecurityHeaders(jsonError('FORBIDDEN', 'Admin role required', 403), request, env);
+
+        const settings = await getCentralLinkSettings(env);
+        response = jsonSuccess({
+          settings,
+          logicalLinksCatalog: UTP_ALL_LOGICAL_LINKS
+        }, 200, {
+          'Cache-Control': 'no-cache, no-store, must-revalidate'
+        }, requestId);
+      }
+
+      else if (pathname === '/api/admin/settings/links' && (method === 'PUT' || method === 'POST')) {
+        const user = await getAuthenticatedUser(request, env);
+        if (!user) return applySecurityHeaders(jsonError('AUTH_REQUIRED', 'Admin authentication required', 401), request, env);
+        const isAdmin = await verifyAdminRole(user, env);
+        if (!isAdmin) return applySecurityHeaders(jsonError('FORBIDDEN', 'Admin role required', 403), request, env);
+
+        if (isCsrfViolation(request, env)) {
+          return applySecurityHeaders(jsonError('FORBIDDEN', 'Cross-origin mutation rejected', 403), request, env);
+        }
+
+        const body = await request.json().catch(() => ({}));
+        const incoming = body.settings || body;
+        const saveRes = await saveCentralLinkSettings(env, incoming, {
+          id: user.id,
+          name: user.display_name || user.email,
+          email: user.email,
+          role: user.role || 'admin',
+          ipAddress: clientIp
+        });
+
+        if (!saveRes.success) {
+          return applySecurityHeaders(
+            jsonError(saveRes.code || 'INVALID_LINK_SETTINGS', saveRes.error, saveRes.status || 400, { errors: saveRes.errors || [] }),
+            request, env
+          );
+        }
+
+        await logAdminAudit(env, {
+          actorId: user.id,
+          actorName: user.display_name || user.email || 'Admin',
+          actorRole: 'ADMIN',
+          action: 'CENTRAL_LINK_SETTINGS_UPDATED',
+          targetType: 'central_link_settings',
+          targetId: 'default',
+          details: {
+            canonicalBaseUrl: saveRes.settings.canonicalBaseUrl,
+            domainMigrationStatus: saveRes.settings.domainMigrationStatus
+          }
+        });
+
+        response = jsonSuccess({
+          settings: saveRes.settings,
+          message: 'Central Link Manager settings updated and persisted to D1.'
+        }, 200, {
+          'Cache-Control': 'no-cache, no-store, must-revalidate'
+        }, requestId);
+      }
+
+      else if (pathname === '/api/admin/settings/links/reset' && method === 'POST') {
+        const user = await getAuthenticatedUser(request, env);
+        if (!user) return applySecurityHeaders(jsonError('AUTH_REQUIRED', 'Admin authentication required', 401), request, env);
+        const isAdmin = await verifyAdminRole(user, env);
+        if (!isAdmin) return applySecurityHeaders(jsonError('FORBIDDEN', 'Admin role required', 403), request, env);
+
+        const resetRes = await resetCentralLinkSettings(env, {
+          id: user.id,
+          name: user.display_name || user.email,
+          role: user.role || 'admin'
+        });
+
+        response = jsonSuccess({
+          settings: resetRes.settings,
+          message: 'Central Link Manager restored to factory defaults.'
+        }, 200, {}, requestId);
+      }
+
+      else if (pathname === '/api/admin/settings/links/resolve' && (method === 'POST' || method === 'GET')) {
+        const settings = await getCentralLinkSettings(env);
+        const body = method === 'POST' ? (await request.json().catch(() => ({}))) : Object.fromEntries(url.searchParams.entries());
+        const target = body.logicalLink || body.linkId || body.action || body.target || 'global.home';
+        const resolved = resolveLogicalLink(target, {
+          templateId: body.templateId || body.template || '',
+          templateSlug: body.templateSlug || body.template || '',
+          variantSlug: body.variantSlug || body.variant || '',
+          relationshipSlug: body.relationshipSlug || body.rel || body.relationship || '',
+          useAbsoluteCanonical: Boolean(body.useAbsoluteCanonical || body.absoluteUrl === 'true' || body.absoluteUrl === true)
+        }, settings);
+        response = jsonSuccess({ resolved, settings: { canonicalBaseUrl: settings.canonicalBaseUrl } }, 200, {}, requestId);
+      }
+
+      else if (pathname === '/api/admin/settings/links/scan' && (method === 'GET' || method === 'POST')) {
+        const user = await getAuthenticatedUser(request, env);
+        if (!user) return applySecurityHeaders(jsonError('AUTH_REQUIRED', 'Admin authentication required', 401), request, env);
+        const isAdmin = await verifyAdminRole(user, env);
+        if (!isAdmin) return applySecurityHeaders(jsonError('FORBIDDEN', 'Admin role required', 403), request, env);
+
+        const body = method === 'POST' ? (await request.json().catch(() => ({}))) : {};
+        const targetTemplateId = sanitizeString(body.templateId || url.searchParams.get('templateId') || '', 80);
+        const linkSettings = await getCentralLinkSettings(env);
+
+        const reports = [];
+        if (env.DB && typeof env.DB.prepare === 'function') {
+          await ensureTemplateIngestionSchema(env.DB);
+          const tplQuery = targetTemplateId
+            ? await env.DB.prepare('SELECT * FROM templates WHERE id = ? OR slug = ?').bind(targetTemplateId, targetTemplateId).all()
+            : await env.DB.prepare('SELECT * FROM templates ORDER BY updated_at DESC LIMIT 100').all();
+          const tplList = tplQuery?.results || [];
+
+          for (const tpl of tplList) {
+            const activeVer = await env.DB.prepare('SELECT * FROM template_versions WHERE template_id = ? ORDER BY version_number DESC LIMIT 1').bind(tpl.id).first().catch(() => null);
+            const rawManifest = safeJsonParse(activeVer?.manifest_json, null) || {
+              template: { id: tpl.id, slug: tpl.slug, name: tpl.name },
+              sections: safeJsonParse(activeVer?.sections || tpl.sections, []),
+              actions: safeJsonParse(activeVer?.actions_json || tpl.actions_json, []),
+              fields: safeJsonParse(activeVer?.fields_json || tpl.detected_fields, []),
+              variants: safeJsonParse(activeVer?.variants_json || tpl.variants_json, [])
+            };
+            const htmlSample = body.htmlContent && targetTemplateId ? String(body.htmlContent) : '';
+            const scanReport = scanTemplateForLinkMigration({
+              templateId: tpl.id,
+              templateSlug: tpl.slug || tpl.id,
+              templateName: tpl.name,
+              versionId: activeVer?.id || tpl.current_version_id || `tv_${tpl.id}_v1`,
+              manifest: rawManifest,
+              htmlContent: htmlSample,
+              linkSettings
+            });
+
+            const migId = `tlm_${tpl.id}_${activeVer?.id || 'v1'}`;
+            const nowIso = new Date().toISOString();
+            await env.DB.prepare(`
+              INSERT INTO template_link_migrations (
+                id, template_id, source_version_id, status,
+                total_links_scanned, global_links_count, template_links_count,
+                external_links_count, ambiguous_links_count, requires_admin_review,
+                scan_report_json, proposed_mappings_json, created_at, updated_at
+              ) VALUES (?, ?, ?, 'scanned', ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+              ON CONFLICT(id) DO UPDATE SET
+                total_links_scanned = excluded.total_links_scanned,
+                global_links_count = excluded.global_links_count,
+                template_links_count = excluded.template_links_count,
+                external_links_count = excluded.external_links_count,
+                ambiguous_links_count = excluded.ambiguous_links_count,
+                requires_admin_review = excluded.requires_admin_review,
+                scan_report_json = excluded.scan_report_json,
+                proposed_mappings_json = excluded.proposed_mappings_json,
+                updated_at = excluded.updated_at
+            `).bind(
+              migId,
+              tpl.id,
+              activeVer?.id || null,
+              scanReport.summary.totalScanned,
+              scanReport.summary.globalInternalCount,
+              scanReport.summary.templateSpecificCount,
+              scanReport.summary.externalCount,
+              scanReport.summary.ambiguousCount,
+              scanReport.summary.requiresAdminReview ? 1 : 0,
+              JSON.stringify(scanReport),
+              JSON.stringify(scanReport.proposedMappings),
+              nowIso,
+              nowIso
+            ).run().catch(() => {});
+
+            reports.push({ migrationId: migId, ...scanReport });
+          }
+        }
+
+        response = jsonSuccess({
+          scannedCount: reports.length,
+          canonicalBaseUrl: linkSettings.canonicalBaseUrl,
+          reports
+        }, 200, {}, requestId);
+      }
+
+      else if (pathname === '/api/admin/settings/links/migrate' && method === 'POST') {
+        const user = await getAuthenticatedUser(request, env);
+        if (!user) return applySecurityHeaders(jsonError('AUTH_REQUIRED', 'Admin authentication required', 401), request, env);
+        const isAdmin = await verifyAdminRole(user, env);
+        if (!isAdmin) return applySecurityHeaders(jsonError('FORBIDDEN', 'Admin role required', 403), request, env);
+
+        if (!env.DB || typeof env.DB.prepare !== 'function') {
+          return applySecurityHeaders(jsonError('DATABASE_UNAVAILABLE', 'D1 database binding required', 503), request, env);
+        }
+
+        const body = await request.json().catch(() => ({}));
+        const templateId = sanitizeString(body.templateId || '', 80);
+        const confirmPublish = Boolean(body.confirmPublish);
+        const confirmedMappings = (body.confirmedMappings && typeof body.confirmedMappings === 'object') ? body.confirmedMappings : null;
+
+        if (!templateId) {
+          return applySecurityHeaders(jsonError('VALIDATION_ERROR', 'templateId is required for link migration', 400), request, env);
+        }
+
+        await ensureTemplateIngestionSchema(env.DB);
+        const tpl = await env.DB.prepare('SELECT * FROM templates WHERE id = ? OR slug = ? LIMIT 1').bind(templateId, templateId).first();
+        if (!tpl) {
+          return applySecurityHeaders(jsonError('NOT_FOUND', `Template "${templateId}" not found`, 404), request, env);
+        }
+
+        const activeVer = await env.DB.prepare('SELECT * FROM template_versions WHERE template_id = ? ORDER BY version_number DESC LIMIT 1').bind(tpl.id).first();
+        const linkSettings = await getCentralLinkSettings(env);
+        const rawManifest = safeJsonParse(activeVer?.manifest_json, null) || {
+          template: { id: tpl.id, slug: tpl.slug, name: tpl.name },
+          sections: safeJsonParse(activeVer?.sections || tpl.sections, []),
+          actions: safeJsonParse(activeVer?.actions_json || tpl.actions_json, []),
+          fields: safeJsonParse(activeVer?.fields_json || tpl.detected_fields, []),
+          variants: safeJsonParse(activeVer?.variants_json || tpl.variants_json, [])
+        };
+
+        const scanReport = scanTemplateForLinkMigration({
+          templateId: tpl.id,
+          templateSlug: tpl.slug || tpl.id,
+          templateName: tpl.name,
+          versionId: activeVer?.id || `tv_${tpl.id}_v1`,
+          manifest: rawManifest,
+          htmlContent: body.htmlContent || '',
+          linkSettings
+        });
+
+        const effectiveMappings = {
+          ...scanReport.proposedMappings,
+          ...(confirmedMappings || {})
+        };
+
+        // Check if any ambiguous links remain unresolved without admin confirmation
+        const unresolvedAmbiguous = scanReport.occurrences.filter(
+          occ => occ.requiresAdminConfirmation && !effectiveMappings[occ.id]
+        );
+        if (confirmPublish && unresolvedAmbiguous.length > 0 && !body.acknowledgeAmbiguous) {
+          return applySecurityHeaders(
+            jsonError(
+              'AMBIGUOUS_LINKS_REQUIRE_CONFIRMATION',
+              `${unresolvedAmbiguous.length} ambiguous link(s) require explicit administrator mapping or confirmation before publishing.`,
+              400,
+              { unresolvedAmbiguous, scanReport }
+            ),
+            request, env
+          );
+        }
+
+        const normalizedRes = applySafeLinkNormalizationToTemplate({
+          manifest: rawManifest,
+          htmlContent: body.htmlContent || '',
+          confirmedMappings: effectiveMappings,
+          templateContext: { templateId: tpl.id, templateSlug: tpl.slug || tpl.id },
+          linkSettings
+        });
+
+        const nowIso = new Date().toISOString();
+        const migId = `tlm_${tpl.id}_${activeVer?.id || 'v1'}`;
+        let publishedVersion = null;
+
+        if (confirmPublish) {
+          publishedVersion = await createNewTemplateVersion(env, tpl.id, {
+            actions: normalizedRes.normalizedManifest.actions,
+            actionsConfig: effectiveMappings
+          }, user);
+
+          await env.DB.prepare(
+            `UPDATE templates SET actions_json = ?, link_mappings_json = ?, updated_at = ? WHERE id = ?`
+          ).bind(
+            JSON.stringify(normalizedRes.normalizedManifest.actions),
+            JSON.stringify(effectiveMappings),
+            nowIso,
+            tpl.id
+          ).run().catch(() => {});
+
+          if (publishedVersion?.id) {
+            await env.DB.prepare(
+              `UPDATE template_versions SET actions_json = ?, link_mappings_json = ?, manifest_json = ?, updated_at = ? WHERE id = ?`
+            ).bind(
+              JSON.stringify(normalizedRes.normalizedManifest.actions),
+              JSON.stringify(effectiveMappings),
+              JSON.stringify(normalizedRes.normalizedManifest),
+              nowIso,
+              publishedVersion.id
+            ).run().catch(() => {});
+          }
+        }
+
+        await env.DB.prepare(`
+          INSERT INTO template_link_migrations (
+            id, template_id, source_version_id, target_version_id, status,
+            total_links_scanned, global_links_count, template_links_count,
+            external_links_count, ambiguous_links_count, requires_admin_review,
+            scan_report_json, proposed_mappings_json, created_at, updated_at, published_at, published_by
+          ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+          ON CONFLICT(id) DO UPDATE SET
+            target_version_id = excluded.target_version_id,
+            status = excluded.status,
+            proposed_mappings_json = excluded.proposed_mappings_json,
+            updated_at = excluded.updated_at,
+            published_at = COALESCE(excluded.published_at, template_link_migrations.published_at),
+            published_by = COALESCE(excluded.published_by, template_link_migrations.published_by)
+        `).bind(
+          migId,
+          tpl.id,
+          activeVer?.id || null,
+          publishedVersion?.id || null,
+          confirmPublish ? 'published' : 'normalized_draft',
+          scanReport.summary.totalScanned,
+          scanReport.summary.globalInternalCount,
+          scanReport.summary.templateSpecificCount,
+          scanReport.summary.externalCount,
+          unresolvedAmbiguous.length,
+          unresolvedAmbiguous.length > 0 ? 1 : 0,
+          JSON.stringify(scanReport),
+          JSON.stringify(effectiveMappings),
+          nowIso,
+          nowIso,
+          confirmPublish ? nowIso : null,
+          confirmPublish ? (user.id || 'admin') : null
+        ).run().catch(() => {});
+
+        response = jsonSuccess({
+          migrationId: migId,
+          templateId: tpl.id,
+          status: confirmPublish ? 'published' : 'normalized_draft',
+          published: confirmPublish,
+          newVersionId: publishedVersion?.id || null,
+          newVersionNumber: publishedVersion?.versionNumber || null,
+          appliedChanges: normalizedRes.appliedChanges,
+          normalizedActions: normalizedRes.normalizedManifest.actions,
+          normalizedHtml: normalizedRes.normalizedHtml,
+          unresolvedAmbiguous
         }, 200, {}, requestId);
       }
 

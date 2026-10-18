@@ -625,7 +625,7 @@ function scanDynamicFields(html) {
             originalSrc: srcVal
           });
         }
-      } else if (tagLower === "img" && srcVal && !srcVal.startsWith("data:image/svg")) {
+      } else if (!hasExplicitManifestFields && tagLower === "img" && srcVal && !srcVal.startsWith("data:image/svg")) {
         unmarkedImgIdx++;
         const idMatch = attrs.match(/\bid=["']([^"']+)["']/i);
         const altMatch = attrs.match(/\balt=["']([^"']+)["']/i);
@@ -642,7 +642,7 @@ function scanDynamicFields(html) {
           originalSrc: srcVal,
           autoDetected: true
         });
-      } else if (tagLower === "audio" && srcVal) {
+      } else if (!hasExplicitManifestFields && tagLower === "audio" && srcVal) {
         unmarkedAudioIdx++;
         const key = (unmarkedAudioIdx === 1 && !confirmedMap.has("background_music") && !suggestedMap.has("background_music")) ? "background_music" : ("audio_track_" + unmarkedAudioIdx);
         addCandidateOrSuggestedSlot({
@@ -653,7 +653,7 @@ function scanDynamicFields(html) {
           originalSrc: srcVal,
           autoDetected: true
         });
-      } else if (tagLower === "video" && srcVal) {
+      } else if (!hasExplicitManifestFields && tagLower === "video" && srcVal) {
         unmarkedVideoIdx++;
         const key = (unmarkedVideoIdx === 1 && !confirmedMap.has("celebration_video") && !suggestedMap.has("celebration_video")) ? "celebration_video" : ("video_clip_" + unmarkedVideoIdx);
         addCandidateOrSuggestedSlot({
@@ -667,41 +667,43 @@ function scanDynamicFields(html) {
       }
     }
 
-    // Check <audio><source src="..."></audio> and <video><source src="..."></video>
-    const audioBlockRegex = /<audio\b([^>]*)>([\s\S]*?)<\/audio>/gi;
-    while ((match = audioBlockRegex.exec(html)) !== null) {
-      if (!/data-wm(?:-field)?=/i.test(match[1]) && !/\bsrc=/i.test(match[1])) {
-        const sMatch = match[2].match(/<source\b[^>]*\bsrc=["']([^"']+)["']/i);
-        if (sMatch && sMatch[1]) {
-          unmarkedAudioIdx++;
-          const key = (!confirmedMap.has("background_music") && !suggestedMap.has("background_music")) ? "background_music" : ("audio_track_" + unmarkedAudioIdx);
-          addCandidateOrSuggestedSlot({
-            key,
-            label: "Background Music (" + sMatch[1].split("/").pop() + ")",
-            type: "audio",
-            defaultValue: sMatch[1].trim(),
-            originalSrc: sMatch[1].trim(),
-            autoDetected: true
-          });
+    // Check <audio><source src="..."></audio> and <video><source src="..."></video> when no explicit manifest fields are declared
+    if (!hasExplicitManifestFields) {
+      const audioBlockRegex = /<audio\b([^>]*)>([\s\S]*?)<\/audio>/gi;
+      while ((match = audioBlockRegex.exec(html)) !== null) {
+        if (!/data-wm(?:-field)?=/i.test(match[1]) && !/\bsrc=/i.test(match[1])) {
+          const sMatch = match[2].match(/<source\b[^>]*\bsrc=["']([^"']+)["']/i);
+          if (sMatch && sMatch[1]) {
+            unmarkedAudioIdx++;
+            const key = (!confirmedMap.has("background_music") && !suggestedMap.has("background_music")) ? "background_music" : ("audio_track_" + unmarkedAudioIdx);
+            addCandidateOrSuggestedSlot({
+              key,
+              label: "Background Music (" + sMatch[1].split("/").pop() + ")",
+              type: "audio",
+              defaultValue: sMatch[1].trim(),
+              originalSrc: sMatch[1].trim(),
+              autoDetected: true
+            });
+          }
         }
       }
-    }
 
-    const videoBlockRegex = /<video\b([^>]*)>([\s\S]*?)<\/video>/gi;
-    while ((match = videoBlockRegex.exec(html)) !== null) {
-      if (!/data-wm(?:-field)?=/i.test(match[1]) && !/\bsrc=/i.test(match[1])) {
-        const sMatch = match[2].match(/<source\b[^>]*\bsrc=["']([^"']+)["']/i);
-        if (sMatch && sMatch[1]) {
-          unmarkedVideoIdx++;
-          const key = (!confirmedMap.has("celebration_video") && !suggestedMap.has("celebration_video")) ? "celebration_video" : ("video_clip_" + unmarkedVideoIdx);
-          addCandidateOrSuggestedSlot({
-            key,
-            label: "Celebration Video (" + sMatch[1].split("/").pop() + ")",
-            type: "video",
-            defaultValue: sMatch[1].trim(),
-            originalSrc: sMatch[1].trim(),
-            autoDetected: true
-          });
+      const videoBlockRegex = /<video\b([^>]*)>([\s\S]*?)<\/video>/gi;
+      while ((match = videoBlockRegex.exec(html)) !== null) {
+        if (!/data-wm(?:-field)?=/i.test(match[1]) && !/\bsrc=/i.test(match[1])) {
+          const sMatch = match[2].match(/<source\b[^>]*\bsrc=["']([^"']+)["']/i);
+          if (sMatch && sMatch[1]) {
+            unmarkedVideoIdx++;
+            const key = (!confirmedMap.has("celebration_video") && !suggestedMap.has("celebration_video")) ? "celebration_video" : ("video_clip_" + unmarkedVideoIdx);
+            addCandidateOrSuggestedSlot({
+              key,
+              label: "Celebration Video (" + sMatch[1].split("/").pop() + ")",
+              type: "video",
+              defaultValue: sMatch[1].trim(),
+              originalSrc: sMatch[1].trim(),
+              autoDetected: true
+            });
+          }
         }
       }
     }
@@ -744,8 +746,8 @@ function scanDynamicFields(html) {
     }
   }
 
-  // 3. Check bundled media files in the ZIP
-  Object.keys(currentUploadedFiles).forEach((relPath) => {
+  // 3. Check bundled media files in the ZIP (only suggest unbound static assets when no explicit wishmagic.json fields are declared)
+  if (!hasExplicitManifestFields) Object.keys(currentUploadedFiles).forEach((relPath) => {
     const fileName = relPath.split("/").pop();
     const allKnown = [...Array.from(confirmedMap.values()), ...Array.from(suggestedMap.values())];
     const alreadyMapped = allKnown.some(f => {
@@ -881,6 +883,7 @@ function scanDynamicFields(html) {
       if (vErrs.length > 0) {
         invalidVars.push({ id: vId || ("index_" + idx), name: vName, relationship: normRel, label: vLabel || normRel, errors: vErrs });
       } else {
+        const isVarEnabled = rv.enabled !== false && String(rv.status || "published").toLowerCase() !== "disabled" && String(rv.status || "published").toLowerCase() !== "archived";
         validVars.push({
           id: vId,
           slug: rv.slug || normRel,
@@ -889,7 +892,8 @@ function scanDynamicFields(html) {
           label: vLabel || normRel,
           thumbnail: rv.thumbnail || "",
           entry: rv.entry || "index.html",
-          status: rv.status || "published"
+          status: rv.status || "published",
+          enabled: isVarEnabled
         });
       }
     });
@@ -902,7 +906,7 @@ function scanDynamicFields(html) {
       detectedVariantCount: rawVariants.length,
       validVariantsCount: validVars.length,
       invalidVariantsCount: invalidVars.length,
-      detectedRelations: validVars.map(v => ({ slug: v.relationship, label: v.label, variantId: v.id, name: v.name })),
+      detectedRelations: validVars.map(v => ({ slug: v.relationship, label: v.label, variantId: v.id, name: v.name, enabled: v.enabled !== false })),
       variants: validVars,
       invalidVariants: invalidVars,
       missingFiles,
@@ -1052,13 +1056,21 @@ function renderAdminVariantUploadReportHtml(vReport, isServerVerified = false) {
     ? '<span class="px-2.5 py-0.5 rounded-full bg-emerald-500/20 text-emerald-300 border border-emerald-500/40 text-[10px] font-bold">✓ Ready for Review & Publishing</span>'
     : '<span class="px-2.5 py-0.5 rounded-full bg-rose-500/20 text-rose-300 border border-rose-500/40 text-[10px] font-bold">✕ Validation Blocked — Action Required</span>';
 
+  const enabledMap = (uploadUtpConfigState && uploadUtpConfigState.enabledVariants) || {};
   const relationsPills = Array.isArray(vReport.detectedRelations) && vReport.detectedRelations.length > 0
-    ? vReport.detectedRelations.map(r =>
-        '<span class="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full bg-purple-500/20 border border-purple-400/40 text-[11px] font-bold text-purple-200">' +
-          '<span>[' + (r.label || r.slug) + ']</span>' +
-          '<span class="text-[9px] font-mono opacity-80">(' + (r.variantId || r.id || r.slug) + ')</span>' +
-        '</span>'
-      ).join(" ")
+    ? vReport.detectedRelations.map(r => {
+        const slugKey = String(r.slug || "").toLowerCase().trim();
+        const isChecked = enabledMap[slugKey] !== undefined ? Boolean(enabledMap[slugKey]) : (r.enabled !== false);
+        return (
+          '<label class="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full border text-[11px] font-bold cursor-pointer transition ' +
+            (isChecked ? 'bg-purple-500/20 border-purple-400/40 text-purple-200' : 'bg-surface-container border-outline-variant/30 text-outline line-through opacity-75') + '">' +
+            '<input type="checkbox" class="rounded text-primary w-3.5 h-3.5 cursor-pointer" ' + (isChecked ? 'checked' : '') +
+              ' onchange="handleUtpVariantInclusionToggle(\'upload\', \'' + escapeQuotes(slugKey) + '\', this.checked)"/>' +
+            '<span>[' + (r.label || r.slug) + ']</span>' +
+            '<span class="text-[9px] font-mono opacity-80">(' + (r.variantId || r.id || r.slug) + ')</span>' +
+          '</label>'
+        );
+      }).join(" ")
     : '<span class="text-[11px] text-outline">No multi-relation variants declared (Standard single/legacy template flow)</span>';
 
   const invalidVarsHtml = Array.isArray(vReport.invalidVariants) && vReport.invalidVariants.length > 0
@@ -1559,7 +1571,7 @@ function buildClientStagedPreviewHtml(relationshipSlug = null) {
   }
 
   window.WishMagicTemplate = window.WishMagicTemplate || {
-    version: '1.2.0',
+    version: '1.3.0',
     applyData: function(data) {
       if (_wmHydrating) return;
       applyHydration(Object.assign({}, wmPayload, data || {}));
@@ -1904,6 +1916,8 @@ async function deployUploadedTemplate(publishImmediately = true) {
       visibilityConfig: uploadUtpConfigState.visibilityConfig || {},
       actionsConfig: uploadUtpConfigState.actionsConfig || {},
       variantOverrides: uploadUtpConfigState.variantOverrides || {},
+      enabledVariants: getSelectedEnabledVariantSlugs(uploadUtpConfigState),
+      relationships: getSelectedEnabledVariantSlugs(uploadUtpConfigState),
       publishImmediately: shouldPublish,
       autoPublish: shouldPublish,
       isPublished: shouldPublish
@@ -2947,6 +2961,11 @@ window.saveTemplateEdits = async function(publishChanges = true) {
     const cfgEndpoint = publishChanges
       ? `/api/templates/${encodeURIComponent(currentEditingTemplateId)}/config/publish`
       : `/api/templates/${encodeURIComponent(currentEditingTemplateId)}/config`;
+    const authoritativeEnabledSlugs = getSelectedEnabledVariantSlugs(editUtpConfigState, relationships);
+    if (authoritativeEnabledSlugs.length > 0 || (editUtpConfigState.variants && editUtpConfigState.variants.length > 0)) {
+      updatePayload.relationships = authoritativeEnabledSlugs;
+      updatePayload.enabledVariants = authoritativeEnabledSlugs;
+    }
     const cfgRes = await fetch(cfgEndpoint, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
@@ -2959,7 +2978,9 @@ window.saveTemplateEdits = async function(publishChanges = true) {
         actionsList: editUtpConfigState.manifestActions,
         visibilityConfig: editUtpConfigState.visibilityConfig,
         actionsConfig: editUtpConfigState.actionsConfig,
-        variantOverrides: editUtpConfigState.variantOverrides
+        variantOverrides: editUtpConfigState.variantOverrides,
+        enabledVariants: authoritativeEnabledSlugs,
+        relationships: authoritativeEnabledSlugs
       })
     });
     const cfgData = await cfgRes.json().catch(() => ({}));
@@ -4591,7 +4612,8 @@ function normalizeClientActionNode(a, idx = 0) {
   if (!id) return null;
   const type = String(a.type || a.actionType || "section").toLowerCase().trim();
   const label = String(a.label !== undefined ? a.label : (a.defaultLabel !== undefined ? a.defaultLabel : id.replace(/_/g, " ").replace(/\b\w/g, c => c.toUpperCase()))).trim();
-  const target = String(a.target !== undefined ? a.target : (a.destination !== undefined ? a.destination : (a.url !== undefined ? a.url : (a.defaultTarget || "")))).trim();
+  const logicalLink = String(a.logicalLink || a.logical_link || "").trim();
+  const target = String(a.target !== undefined ? a.target : (a.destination !== undefined ? a.destination : (a.url !== undefined ? a.url : (a.defaultTarget || logicalLink || "")))).trim();
   return {
     id,
     label,
@@ -4600,6 +4622,8 @@ function normalizeClientActionNode(a, idx = 0) {
     defaultType: a.defaultType || type,
     target,
     defaultTarget: String(a.defaultTarget !== undefined ? a.defaultTarget : target).trim(),
+    logicalLink,
+    defaultLogicalLink: logicalLink,
     sectionId: a.sectionId || a.section || null,
     editableLabel: a.editableLabel !== false,
     configurable: a.configurable !== false,
@@ -4678,11 +4702,14 @@ function discoverUploadUtpV12SectionsAndActions(html) {
   }
 
   const varOverrides = {};
+  const enabledVariantsMap = {};
   if (Array.isArray(manifest.variants)) {
     manifest.variants.forEach(rv => {
       if (!rv || typeof rv !== "object") return;
-      const relSlug = String(rv.relationship || rv.slug || "").toLowerCase().trim();
+      const relSlug = String(rv.relationship || rv.slug || "").toLowerCase().trim().replace(/^rel_/, "").replace(/[\s-]+/g, "_");
       if (!relSlug) return;
+      const isVarEnabled = rv.enabled !== false && String(rv.status || "published").toLowerCase() !== "disabled" && String(rv.status || "published").toLowerCase() !== "archived";
+      enabledVariantsMap[relSlug] = isVarEnabled;
       const rawVisObj = (rv.visibilityOverrides && typeof rv.visibilityOverrides === "object")
         ? rv.visibilityOverrides
         : ((rv.visibility && typeof rv.visibility === "object") ? rv.visibility : {});
@@ -4695,7 +4722,7 @@ function discoverUploadUtpV12SectionsAndActions(html) {
       } else if (rv.actions && typeof rv.actions === "object") {
         Object.assign(acts, rv.actions);
       }
-      varOverrides[relSlug] = { visibility: vis, actions: acts };
+      varOverrides[relSlug] = { enabled: isVarEnabled, visibility: vis, actions: acts };
     });
   }
 
@@ -4706,6 +4733,7 @@ function discoverUploadUtpV12SectionsAndActions(html) {
     visibilityConfig: {},
     actionsConfig: {},
     variantOverrides: varOverrides,
+    enabledVariants: enabledVariantsMap,
     validationErrors: []
   };
 }
@@ -4767,6 +4795,7 @@ function evaluateClientActions(actions, tplActs, varActs, isSingleRelScope, disa
     let label = act.defaultLabel || act.label;
     let type = act.defaultType || act.type;
     let target = act.defaultTarget !== undefined ? act.defaultTarget : act.target;
+    let logicalLink = act.defaultLogicalLink || act.logicalLink || "";
     let enabled = act.defaultEnabled !== false;
     let sourceLabel = "Manifest Default";
 
@@ -4775,6 +4804,7 @@ function evaluateClientActions(actions, tplActs, varActs, isSingleRelScope, disa
       if (act.configurable !== false) {
         if (tplOv.type !== undefined) type = tplOv.type;
         if (tplOv.target !== undefined) target = tplOv.target;
+        if (tplOv.logicalLink !== undefined) logicalLink = tplOv.logicalLink;
       }
       if (!act.required && tplOv.enabled !== undefined) enabled = Boolean(tplOv.enabled);
       sourceLabel = isSingleRelScope ? "Inherited (All Relations)" : "Template-Wide Override";
@@ -4784,6 +4814,7 @@ function evaluateClientActions(actions, tplActs, varActs, isSingleRelScope, disa
       if (act.configurable !== false) {
         if (varOv.type !== undefined) type = varOv.type;
         if (varOv.target !== undefined) target = varOv.target;
+        if (varOv.logicalLink !== undefined) logicalLink = varOv.logicalLink;
       }
       if (!act.required && varOv.enabled !== undefined) enabled = Boolean(varOv.enabled);
       sourceLabel = "Relationship Override";
@@ -4795,6 +4826,7 @@ function evaluateClientActions(actions, tplActs, varActs, isSingleRelScope, disa
       effectiveLabel: label,
       effectiveType: type,
       effectiveTarget: target,
+      effectiveLogicalLink: logicalLink,
       effectiveEnabled: enabled && !targetDisabled,
       targetDisabled,
       sourceLabel
@@ -4814,7 +4846,34 @@ function renderUtpV12EditorHtml(state, modePrefix) {
   const isSingleRel = state.activeScope !== "all";
   const relList = modePrefix === "upload"
     ? ((currentDetectedVariantsReport && currentDetectedVariantsReport.detectedRelations) || [])
-    : ((state.variants || []).map(v => ({ slug: v.relationshipSlug || v.slug, label: v.label || v.relationshipSlug })));
+    : ((state.variants || []).map(v => ({
+        slug: String(v.relationshipSlug || v.relationship_slug || v.slug || "").toLowerCase().trim(),
+        label: v.label || v.relationship_label || v.name || v.relationshipSlug || v.slug,
+        enabled: v.enabled !== false && v.enabled !== 0 && v.status !== "disabled" && v.status !== "archived"
+      })));
+  const enabledVariantsMap = state.enabledVariants || {};
+  const variantInclusionBarHtml = relList.length > 0
+    ? `<div class="p-3 rounded-xl bg-surface-container border border-purple-500/25 space-y-2">
+        <div class="flex flex-wrap items-center justify-between gap-2">
+          <span class="text-[11px] font-bold uppercase tracking-wider text-purple-200 flex items-center gap-1.5">
+            <span class="material-symbols-outlined text-[15px] text-purple-400">family_restroom</span>
+            <span>Included Relationship Variants on Public Website (${relList.filter(r => enabledVariantsMap[r.slug] !== undefined ? Boolean(enabledVariantsMap[r.slug]) : (r.enabled !== false)).length}/${relList.length} Enabled)</span>
+          </span>
+          <span class="text-[10px] text-outline">Unchecked variants are strictly hidden from gallery, filters, preview, customizer &amp; APIs</span>
+        </div>
+        <div class="flex flex-wrap gap-2">
+          ${relList.map(r => {
+            const sKey = String(r.slug || "").toLowerCase().trim();
+            const isChecked = enabledVariantsMap[sKey] !== undefined ? Boolean(enabledVariantsMap[sKey]) : (r.enabled !== false);
+            return `<label class="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg border text-xs font-bold cursor-pointer transition ${isChecked ? 'bg-emerald-500/15 border-emerald-500/40 text-emerald-200' : 'bg-rose-500/10 border-rose-500/30 text-rose-300 opacity-80'}">
+              <input type="checkbox" ${isChecked ? "checked" : ""} onchange="handleUtpVariantInclusionToggle('${modePrefix}', '${escapeQuotes(sKey)}', this.checked)" class="rounded text-primary w-3.5 h-3.5 cursor-pointer"/>
+              <span>${escapeUtpHtml(r.label || r.slug)}</span>
+              <span class="text-[10px] font-mono opacity-75">(${isChecked ? "Included" : "Hidden"})</span>
+            </label>`;
+          }).join("")}
+        </div>
+      </div>`
+    : "";
 
   const varVis = isSingleRel ? ((state.variantOverrides[state.activeScope] && state.variantOverrides[state.activeScope].visibility) || {}) : {};
   const varActs = isSingleRel ? ((state.variantOverrides[state.activeScope] && state.variantOverrides[state.activeScope].actions) || {}) : {};
@@ -4892,6 +4951,8 @@ function renderUtpV12EditorHtml(state, modePrefix) {
           <div>
             <label class="block text-[10px] font-bold uppercase text-outline mb-1">Action Type</label>
             <select ${act.configurable === false ? 'disabled' : ''} onchange="handleUtpV12ActionChange('${modePrefix}', '${escapeQuotes(act.id)}', 'type', this.value)" class="w-full bg-surface-container-lowest text-on-surface px-2.5 py-1.5 rounded-lg border border-purple-500/30 text-xs font-semibold">
+              <option value="global_link" ${act.effectiveType === 'global_link' ? 'selected' : ''}>Central Global Link (global_link • UTP v1.3.0)</option>
+              <option value="template_link" ${act.effectiveType === 'template_link' ? 'selected' : ''}>Template Creation Link (template_link • UTP v1.3.0)</option>
               <option value="section" ${act.effectiveType === 'section' ? 'selected' : ''}>Scroll to Section (section)</option>
               <option value="customizer" ${act.effectiveType === 'customizer' ? 'selected' : ''}>Open Customizer (customizer)</option>
               <option value="internal_url" ${act.effectiveType === 'internal_url' ? 'selected' : ''}>Internal WishMagic Route (internal_url)</option>
@@ -4936,6 +4997,7 @@ function renderUtpV12EditorHtml(state, modePrefix) {
       </div>
     </div>
     ${errorsBanner}
+    ${variantInclusionBarHtml}
     <div class="space-y-2">
       <div class="flex items-center justify-between">
         <span class="text-[11px] font-bold uppercase tracking-wider text-outline">Sections &amp; Nested Subsections (${evaluatedTree.length})</span>
@@ -5067,7 +5129,57 @@ window.previewUtpV12SelectedRelationship = function(modePrefix) {
   }
 };
 
+function getSelectedEnabledVariantSlugs(state, fallbackRels = null) {
+  if (!state) return Array.isArray(fallbackRels) ? fallbackRels : [];
+  const enabledMap = state.enabledVariants || {};
+  const mapKeys = Object.keys(enabledMap);
+  if (mapKeys.length > 0) {
+    return mapKeys.filter(k => Boolean(enabledMap[k]));
+  }
+  return Array.isArray(fallbackRels) ? fallbackRels : [];
+}
+
+window.handleUtpVariantInclusionToggle = function(modePrefix, relSlug, enabled) {
+  const cleanSlug = String(relSlug || "").toLowerCase().trim().replace(/^rel_/, "").replace(/[\s-]+/g, "_");
+  if (!cleanSlug) return;
+  const state = modePrefix === "upload" ? uploadUtpConfigState : editUtpConfigState;
+  state.enabledVariants = { ...(state.enabledVariants || {}), [cleanSlug]: Boolean(enabled) };
+  const curVar = (state.variantOverrides && state.variantOverrides[cleanSlug]) || { visibility: {}, actions: {} };
+  curVar.enabled = Boolean(enabled);
+  state.variantOverrides = { ...(state.variantOverrides || {}), [cleanSlug]: curVar };
+
+  if (modePrefix === "upload") {
+    if (currentDetectedVariantsReport && Array.isArray(currentDetectedVariantsReport.detectedRelations)) {
+      currentDetectedVariantsReport.detectedRelations.forEach(r => {
+        if (String(r.slug || "").toLowerCase().trim() === cleanSlug) {
+          r.enabled = Boolean(enabled);
+        }
+      });
+      const reportEl = document.getElementById("admin-variant-discovery-report");
+      if (reportEl) reportEl.outerHTML = renderAdminVariantUploadReportHtml(currentDetectedVariantsReport, false);
+    }
+    renderUploadUtpV12ConfigPanel();
+    renderLiveSandboxPreview();
+  } else {
+    const elRels = document.getElementById("edit-tpl-relationships");
+    if (elRels) {
+      const enabledSlugs = getSelectedEnabledVariantSlugs(editUtpConfigState, []);
+      const labels = (editUtpConfigState.variants || [])
+        .filter(v => enabledSlugs.includes(String(v.relationshipSlug || v.slug || "").toLowerCase().trim()))
+        .map(v => v.label || v.relationshipSlug || v.slug);
+      elRels.value = (labels.length > 0 ? labels : enabledSlugs).join(", ");
+    }
+    renderEditUtpV12ConfigPanel();
+  }
+};
+
 async function loadEditTemplateUtpV12Config(templateId, fallbackTpl) {
+  const initialEnabledMap = {};
+  (fallbackTpl?.variants || fallbackTpl?.availableVariants || []).forEach(v => {
+    const s = String(v.relationshipSlug || v.relationship_slug || v.relationship || v.slug || "").toLowerCase().trim();
+    if (s) initialEnabledMap[s] = v.enabled !== false && v.enabled !== 0 && v.status !== "disabled" && v.status !== "archived";
+  });
+
   editUtpConfigState = {
     templateId,
     activeScope: "all",
@@ -5077,6 +5189,7 @@ async function loadEditTemplateUtpV12Config(templateId, fallbackTpl) {
     visibilityConfig: fallbackTpl?.visibilityConfig || {},
     actionsConfig: fallbackTpl?.actionsConfig || {},
     variantOverrides: {},
+    enabledVariants: initialEnabledMap,
     variants: fallbackTpl?.variants || fallbackTpl?.availableVariants || [],
     hasDraft: false,
     validationErrors: []
@@ -5097,6 +5210,29 @@ async function loadEditTemplateUtpV12Config(templateId, fallbackTpl) {
         editUtpConfigState.actionsConfig = (draft && draft.actions) ? { ...(data.actionsConfig || {}), ...draft.actions } : (data.actionsConfig || {});
         editUtpConfigState.variantOverrides = (draft && draft.variants) ? { ...(data.variantOverrides || {}), ...draft.variants } : (data.variantOverrides || {});
         editUtpConfigState.variants = data.variants || editUtpConfigState.variants;
+
+        const loadedEnabledMap = {};
+        const authoritativeList = Array.isArray(data.enabledVariants) ? data.enabledVariants.map(x => String(x).toLowerCase().trim()) : null;
+        (editUtpConfigState.variants || []).forEach(v => {
+          const s = String(v.relationshipSlug || v.relationship_slug || v.relationship || v.slug || "").toLowerCase().trim();
+          if (!s) return;
+          if (authoritativeList && authoritativeList.length > 0) {
+            loadedEnabledMap[s] = authoritativeList.includes(s);
+          } else {
+            loadedEnabledMap[s] = v.enabled !== false && v.enabled !== 0 && v.status !== "disabled" && v.status !== "archived";
+          }
+        });
+        if (Object.keys(loadedEnabledMap).length > 0) {
+          editUtpConfigState.enabledVariants = loadedEnabledMap;
+          const elRels = document.getElementById("edit-tpl-relationships");
+          if (elRels) {
+            const enabledSlugs = Object.keys(loadedEnabledMap).filter(k => loadedEnabledMap[k]);
+            const labels = (editUtpConfigState.variants || [])
+              .filter(v => enabledSlugs.includes(String(v.relationshipSlug || v.slug || "").toLowerCase().trim()))
+              .map(v => v.label || v.relationshipSlug || v.slug);
+            elRels.value = (labels.length > 0 ? labels : enabledSlugs).join(", ");
+          }
+        }
       }
     }
   } catch (err) {
@@ -6042,6 +6178,47 @@ function renderSmartImportStudioWorkspace() {
           '</div>'
         : '') +
       '</div>' +
+      (Array.isArray(sData.proposedLinkMappings || comp.proposedLinkMappings) && (sData.proposedLinkMappings || comp.proposedLinkMappings).length > 0
+        ? '<div class="pt-2 border-t border-purple-500/20 space-y-2">' +
+            '<div class="flex flex-wrap items-center justify-between gap-2">' +
+              '<span class="text-[11px] font-extrabold uppercase tracking-wider text-cyan-300 flex items-center gap-1.5">' +
+                '<span class="material-symbols-outlined text-[16px]">link</span>' +
+                '<span>UTP v1.3.0 Detected Buttons &amp; Proposed Central Link Mappings (' + (sData.proposedLinkMappings || comp.proposedLinkMappings).length + ')</span>' +
+              '</span>' +
+              '<span class="text-[10px] text-outline">Global buttons resolve via Central Link Manager • Template buttons open this template\'s creation flow</span>' +
+            '</div>' +
+            '<div class="overflow-x-auto rounded-xl border border-purple-500/20 bg-surface-container-lowest/80">' +
+              '<table class="w-full text-left text-[11px]">' +
+                '<thead class="bg-surface-container text-[10px] uppercase text-outline border-b border-purple-500/20">' +
+                  '<tr>' +
+                    '<th class="py-1.5 px-2.5">Button Label</th>' +
+                    '<th class="py-1.5 px-2.5">Action / Element ID</th>' +
+                    '<th class="py-1.5 px-2.5">Original Target</th>' +
+                    '<th class="py-1.5 px-2.5">Detected Category</th>' +
+                    '<th class="py-1.5 px-2.5">Proposed Destination</th>' +
+                    '<th class="py-1.5 px-2.5">Status / Evidence</th>' +
+                  '</tr>' +
+                '</thead>' +
+                '<tbody class="divide-y divide-purple-900/20">' +
+                  (sData.proposedLinkMappings || comp.proposedLinkMappings).map(pm =>
+                    '<tr>' +
+                      '<td class="py-1.5 px-2.5 font-bold text-on-surface">' + escapeHtmlSafe(pm.label || "—") + '</td>' +
+                      '<td class="py-1.5 px-2.5 font-mono text-primary">' + escapeHtmlSafe(pm.actionId || pm.elementId || "—") + '</td>' +
+                      '<td class="py-1.5 px-2.5 font-mono text-outline">' + escapeHtmlSafe(pm.originalTarget || "—") + '</td>' +
+                      '<td class="py-1.5 px-2.5"><span class="px-2 py-0.5 rounded bg-purple-500/20 text-purple-200 font-mono text-[10px] font-bold">' + escapeHtmlSafe(pm.detectedActionType || pm.category || "—") + '</span></td>' +
+                      '<td class="py-1.5 px-2.5 font-mono text-emerald-300 font-bold">' + escapeHtmlSafe(pm.logicalLink || pm.proposedTarget || "—") + '</td>' +
+                      '<td class="py-1.5 px-2.5">' +
+                        (pm.requiresAdminConfirmation
+                          ? '<span class="px-2 py-0.5 rounded bg-amber-500/20 text-amber-200 font-bold text-[10px]">⚠️ Review Needed: ' + escapeHtmlSafe(pm.evidence || "Ambiguous button intent") + '</span>'
+                          : '<span class="text-emerald-300 text-[10px]">✓ ' + escapeHtmlSafe(pm.evidence || "Validated") + '</span>') +
+                      '</td>' +
+                    '</tr>'
+                  ).join("") +
+                '</tbody>' +
+              '</table>' +
+            '</div>' +
+          '</div>'
+        : '') +
     '</div>';
 
   // 5. Manual Decision Bar (Option A: Update Existing, Option B: Create New, Option C: Cancel)
@@ -6138,7 +6315,9 @@ window.promptImportStudioDecision = async function(decisionMode) {
     featured: Boolean(document.getElementById("new-tpl-featured")?.checked),
     visibilityConfig: uploadUtpConfigState.visibilityConfig || {},
     actionsConfig: uploadUtpConfigState.actionsConfig || {},
-    variantOverrides: uploadUtpConfigState.variantOverrides || {}
+    variantOverrides: uploadUtpConfigState.variantOverrides || {},
+    enabledVariants: getSelectedEnabledVariantSlugs(uploadUtpConfigState),
+    relationships: getSelectedEnabledVariantSlugs(uploadUtpConfigState)
   };
 
   try {
