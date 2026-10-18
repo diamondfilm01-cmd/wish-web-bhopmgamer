@@ -3764,6 +3764,7 @@ export async function publishImportSession({
   releaseNotes = '',
   zipBase64 = null,
   preUploadedImgbbMap = null,
+  preUploadedB2Map = null,
   skipServerImgbbRetry = false,
   adminUser = { id: 'admin', email: 'admin@wishmagic.in' },
   storageProvider = null,
@@ -3982,6 +3983,10 @@ export async function publishImportSession({
         preUploadedImgbbMap: {
           ...(overrides.preUploadedImgbbMap || {}),
           ...(preUploadedImgbbMap && typeof preUploadedImgbbMap === 'object' ? preUploadedImgbbMap : {})
+        },
+        preUploadedB2Map: {
+          ...(overrides.preUploadedB2Map || {}),
+          ...(preUploadedB2Map && typeof preUploadedB2Map === 'object' ? preUploadedB2Map : {})
         },
         skipServerImgbbRetry: Boolean(skipServerImgbbRetry || overrides.skipServerImgbbRetry),
         publishImmediately: true

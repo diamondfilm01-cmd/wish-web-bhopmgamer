@@ -9539,6 +9539,7 @@ export default {
             releaseNotes: sanitizeString(body.releaseNotes || '', 500),
             zipBase64: body.zipBase64 || null,
             preUploadedImgbbMap: body.preUploadedImgbbMap && typeof body.preUploadedImgbbMap === 'object' ? body.preUploadedImgbbMap : null,
+            preUploadedB2Map: body.preUploadedB2Map && typeof body.preUploadedB2Map === 'object' ? body.preUploadedB2Map : null,
             skipServerImgbbRetry: Boolean(body.skipServerImgbbRetry),
             adminUser: user,
             storageProvider: env.B2_STORAGE_PROVIDER || null,
@@ -9662,6 +9663,7 @@ export default {
             featured: Boolean(body.featured),
             detectedFields: Array.isArray(body.detectedFields) ? body.detectedFields : undefined,
             preUploadedImgbbMap: (body.preUploadedImgbbMap && typeof body.preUploadedImgbbMap === 'object') ? body.preUploadedImgbbMap : undefined,
+            preUploadedB2Map: (body.preUploadedB2Map && typeof body.preUploadedB2Map === 'object') ? body.preUploadedB2Map : undefined,
             skipServerImgbbRetry: Boolean(body.skipServerImgbbRetry),
             publishImmediately: Boolean(body.publishImmediately || body.autoPublish || body.isPublished === true),
             sections: Array.isArray(body.sections) ? body.sections : undefined,
@@ -9761,6 +9763,99 @@ export default {
         response = jsonSuccess(ingestResult, 201, {}, requestId);
       }
 
+      // --- Part 51: Client-Assisted Backblaze B2 Audio/Video Pre-Upload for Large Template Packages ---
+      else if (pathname === '/api/templates/preupload-b2' && method === 'POST') {
+        const user = await getAuthenticatedUser(request, env);
+        if (!user) return applySecurityHeaders(jsonError('AUTH_REQUIRED', 'Authentication required', 401), request, env);
+        const isAdmin = await verifyAdminRole(user, env);
+        if (!isAdmin) return applySecurityHeaders(jsonError('FORBIDDEN', 'Admin role required', 403), request, env);
+
+        const b2Config = getB2Config(env);
+        const injectedStorageProvider = env.B2_STORAGE_PROVIDER || null;
+        if (!b2Config.isConfigured && !injectedStorageProvider) {
+          return applySecurityHeaders(jsonError('B2_NOT_CONFIGURED', 'Backblaze B2 is not configured in environment secrets.', 503), request, env);
+        }
+
+        const contentType = request.headers.get('content-type') || '';
+        let fileBytes = null;
+        let relativePath = '';
+        let filename = 'asset.mp3';
+        let mimeType = 'application/octet-stream';
+
+        if (contentType.includes('multipart/form-data')) {
+          const formData = await request.formData();
+          const file = formData.get('file');
+          relativePath = String(formData.get('relativePath') || '').replace(/^\.?\/+/, '');
+          filename = String(formData.get('filename') || (file && file.name) || relativePath.split('/').pop() || 'asset.mp3');
+          if (file && typeof file.arrayBuffer === 'function') {
+            const ab = await file.arrayBuffer();
+            fileBytes = new Uint8Array(ab);
+            mimeType = file.type || getMimeType(relativePath || filename);
+          }
+        } else {
+          const body = await request.json().catch(() => ({}));
+          relativePath = String(body.relativePath || '').replace(/^\.?\/+/, '');
+          filename = String(body.filename || relativePath.split('/').pop() || 'asset.mp3');
+          mimeType = String(body.mimeType || getMimeType(relativePath || filename));
+          const rawData = String(body.fileData || body.dataUrl || body.base64 || '');
+          if (rawData) {
+            const cleanB64 = rawData.includes(';base64,') ? rawData.split(';base64,')[1] : rawData;
+            const binStr = atob(cleanB64.replace(/\s+/g, ''));
+            fileBytes = new Uint8Array(binStr.length);
+            for (let i = 0; i < binStr.length; i++) fileBytes[i] = binStr.charCodeAt(i);
+          }
+        }
+
+        if (!fileBytes || fileBytes.byteLength === 0) {
+          return applySecurityHeaders(jsonError('EMPTY_FILE', 'Pre-uploaded B2 media file is empty.', 400), request, env);
+        }
+
+        const isVid = /\.(mp4|webm|mov|m4v)$/i.test(relativePath || filename);
+        const isAud = /\.(mp3|wav|ogg|m4a|aac|flac)$/i.test(relativePath || filename);
+        if (isVid || isAud) {
+          const avMod = await moderateAudioVideoAsset(fileBytes, {
+            mediaKind: isVid ? 'video' : 'audio',
+            filename: relativePath || filename,
+            env
+          });
+          if (!avMod.allowed) {
+            return applySecurityHeaders(jsonError('TEMPLATE_MODERATION_REJECTED', `Template ${isVid ? 'video' : 'audio'} "${relativePath || filename}" failed moderation: ${avMod.reason}`, 422), request, env);
+          }
+        }
+
+        const hashBuffer = await crypto.subtle.digest('SHA-256', fileBytes);
+        const sha256 = Array.from(new Uint8Array(hashBuffer)).map(b => b.toString(16).padStart(2, '0')).join('');
+        const safeName = filename.replace(/[^a-zA-Z0-9._-]/g, '_');
+        const storageKey = `templates/shared_media/${sha256.slice(0, 24)}_${safeName}`;
+
+        try {
+          const b2Provider = injectedStorageProvider || B2StorageProvider.fromEnv(env);
+          const putRes = await b2Provider.putObject({
+            key: storageKey,
+            body: fileBytes,
+            contentType: mimeType,
+            contentLength: fileBytes.byteLength,
+            skipDownloadAuth: true,
+            metadata: {
+              sha256,
+              originalFilename: filename
+            }
+          });
+          response = jsonSuccess({
+            success: true,
+            relativePath,
+            filename,
+            storageKey,
+            fileId: putRes.fileId || null,
+            sha256,
+            sizeBytes: fileBytes.byteLength,
+            mimeType
+          }, 200, {}, requestId);
+        } catch (b2Err) {
+          return applySecurityHeaders(jsonError(b2Err.code || 'B2_UPLOAD_FAILED', b2Err.message, 502), request, env);
+        }
+      }
+
       // --- Part 20/45: Client-Triggered Rollback of Pre-Uploaded Template Assets on Failed Upload ---
       else if (pathname === '/api/templates/upload-rollback' && method === 'POST') {
         const user = await getAuthenticatedUser(request, env);
@@ -9802,10 +9897,34 @@ export default {
           }
         }
 
+        const preB2Map = (body && body.preUploadedB2Map && typeof body.preUploadedB2Map === 'object')
+          ? body.preUploadedB2Map
+          : {};
+        const b2Items = Object.values(preB2Map).filter(Boolean);
+        let b2DeletedCount = 0;
+        if (b2Items.length > 0) {
+          const b2Config = getB2Config(env);
+          const b2Cleaner = env.B2_STORAGE_PROVIDER || (b2Config.isConfigured ? B2StorageProvider.fromEnv(env) : null);
+          if (b2Cleaner && typeof b2Cleaner.deleteObject === 'function') {
+            for (let i = 0; i < b2Items.length; i += 3) {
+              const batch = b2Items.slice(i, i + 3);
+              await Promise.all(batch.map(async (item) => {
+                if (item.storageKey) {
+                  try {
+                    await b2Cleaner.deleteObject({ key: item.storageKey, fileId: item.fileId || null });
+                    b2DeletedCount++;
+                  } catch (_) {}
+                }
+              }));
+            }
+          }
+        }
+
         response = jsonSuccess({
           success: true,
           rolledBack: true,
-          imgbbDeletedCount
+          imgbbDeletedCount,
+          b2DeletedCount
         }, 200, {}, requestId);
       }
 

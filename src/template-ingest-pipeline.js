@@ -710,6 +710,25 @@ const healedTemplateIngestionDbs = new WeakSet();
 export async function ensureTemplateIngestionSchema(db, force = false) {
   if (!db || typeof db.prepare !== "function") return false;
   if (!force && typeof db === "object" && healedTemplateIngestionDbs.has(db)) return true;
+  if (!force) {
+    try {
+      const probeStmts = [
+        db.prepare("SELECT enabled_variants_json, link_mappings_json, rollback_version_id FROM templates LIMIT 0"),
+        db.prepare("SELECT enabled_variants_json, link_mappings_json, base_version_id FROM template_versions LIMIT 0"),
+        db.prepare("SELECT staged_files_bundle_json FROM template_import_sessions LIMIT 0"),
+        db.prepare("SELECT actions_json, visibility_json FROM template_relationship_variants LIMIT 0"),
+        db.prepare("SELECT published_config_snapshot_json FROM wishes LIMIT 0"),
+        db.prepare("SELECT id FROM template_upload_operations LIMIT 0")
+      ];
+      if (typeof db.batch === "function") {
+        await db.batch(probeStmts);
+      } else {
+        for (const s of probeStmts) await s.all();
+      }
+      if (typeof db === "object") healedTemplateIngestionDbs.add(db);
+      return true;
+    } catch (_) {}
+  }
 
   const execSql = async (sql) => {
     try {
@@ -2364,12 +2383,22 @@ export async function executeB2TemplateIngestPipeline(params) {
       }
     }
 
-    // 5. Upload Original ZIP to B2
+    // 5. Upload Source ZIP to B2 (if ZIP is > 2MB because of embedded media, upload a lightweight archive descriptor so Worker never times out uploading duplicate 12MB+ ZIPs)
+    const zipBodyToUpload = zipBuffer.byteLength <= 2 * 1024 * 1024
+      ? zipBuffer
+      : new TextEncoder().encode(JSON.stringify({
+          compactSourceArchive: true,
+          templateFamilyId,
+          templateId,
+          versionId,
+          sourceZipSha256: analyzed.sourceZipSha256,
+          originalSizeBytes: zipBuffer.byteLength
+        }));
     const zipUploadRes = await b2Provider.putObject({
       key: keys.sourceZip,
-      body: zipBuffer,
-      contentType: 'application/zip',
-      contentLength: zipBuffer.byteLength,
+      body: zipBodyToUpload,
+      contentType: zipBuffer.byteLength <= 2 * 1024 * 1024 ? 'application/zip' : 'application/json',
+      contentLength: zipBodyToUpload.byteLength,
       skipDownloadAuth: true,
       metadata: {
         familyId: templateFamilyId,
@@ -2379,30 +2408,61 @@ export async function executeB2TemplateIngestPipeline(params) {
     });
     uploadedB2Objects.push({ key: keys.sourceZip, fileId: zipUploadRes.fileId });
 
-    // 6. Upload Extracted Runtime Files to B2 (music, videos, and code; images already hosted on ImgBB skip duplicate B2 upload)
+    // 6. Upload Extracted Runtime Files to B2 (reuse pre-uploaded B2 audio/video & ImgBB images; upload remaining files in parallel batches of 4)
+    const preUploadedB2Map = (templateMetadata && templateMetadata.preUploadedB2Map && typeof templateMetadata.preUploadedB2Map === 'object')
+      ? templateMetadata.preUploadedB2Map
+      : {};
+    const filesNeedingB2Upload = [];
+
     for (const fileRecord of analyzed.fileRecords) {
-      const b2Key = keys.runtimeFile(fileRecord.relativePath);
       if (fileRecord.imgbbUrl) {
         fileRecord.storageKey = fileRecord.imgbbUrl;
         fileRecord.storageProvider = 'imgbb';
         continue;
       }
-      const fileUploadRes = await b2Provider.putObject({
-        key: b2Key,
-        body: fileRecord.content,
-        contentType: fileRecord.mimeType,
-        contentLength: fileRecord.sizeBytes,
-        skipDownloadAuth: true,
-        metadata: {
-          familyId: templateFamilyId,
-          versionId,
-          sha256: fileRecord.sha256,
-          originalFilename: fileRecord.relativePath.split('/').pop()
+      const preB2 = preUploadedB2Map[fileRecord.relativePath];
+      if (preB2 && preB2.storageKey) {
+        fileRecord.storageKey = preB2.storageKey;
+        fileRecord.b2FileId = preB2.fileId || null;
+        fileRecord.storageProvider = 'b2';
+        if (preB2.sizeBytes && Number(preB2.sizeBytes) > 0) {
+          fileRecord.sizeBytes = Number(preB2.sizeBytes);
         }
-      });
-      uploadedB2Objects.push({ key: b2Key, fileId: fileUploadRes.fileId });
-      fileRecord.storageKey = b2Key;
-      fileRecord.b2FileId = fileUploadRes.fileId;
+        if (preB2.sha256) {
+          fileRecord.sha256 = preB2.sha256;
+        }
+        if (analyzed.hashesPayload && analyzed.hashesPayload.files && analyzed.hashesPayload.files[fileRecord.relativePath]) {
+          analyzed.hashesPayload.files[fileRecord.relativePath].sha256 = fileRecord.sha256;
+          analyzed.hashesPayload.files[fileRecord.relativePath].sizeBytes = fileRecord.sizeBytes;
+        }
+        uploadedB2Objects.push({ key: preB2.storageKey, fileId: preB2.fileId || null, preUploaded: true });
+        continue;
+      }
+      filesNeedingB2Upload.push(fileRecord);
+    }
+
+    const B2_UPLOAD_BATCH_SIZE = 4;
+    for (let i = 0; i < filesNeedingB2Upload.length; i += B2_UPLOAD_BATCH_SIZE) {
+      const batch = filesNeedingB2Upload.slice(i, i + B2_UPLOAD_BATCH_SIZE);
+      await Promise.all(batch.map(async (fileRecord) => {
+        const b2Key = keys.runtimeFile(fileRecord.relativePath);
+        const fileUploadRes = await b2Provider.putObject({
+          key: b2Key,
+          body: fileRecord.content,
+          contentType: fileRecord.mimeType,
+          contentLength: fileRecord.sizeBytes,
+          skipDownloadAuth: true,
+          metadata: {
+            familyId: templateFamilyId,
+            versionId,
+            sha256: fileRecord.sha256,
+            originalFilename: fileRecord.relativePath.split('/').pop()
+          }
+        });
+        uploadedB2Objects.push({ key: b2Key, fileId: fileUploadRes.fileId });
+        fileRecord.storageKey = b2Key;
+        fileRecord.b2FileId = fileUploadRes.fileId;
+      }));
     }
 
     // 6b. Build UTP v1.1.0 / v1.3.0 Variant Records from declared variants (enforcing admin selections & preserving disabled variants)
@@ -2538,36 +2598,34 @@ export async function executeB2TemplateIngestPipeline(params) {
         streamUrl: b2MediaUrlByRelPath.get(f.relativePath)
       }));
 
-    // 7. Upload Manifest, Analyzer Schema, Hashes to B2
+    // 7. Upload Manifest, Analyzer Schema, Hashes to B2 in parallel
     const manifestJson = JSON.stringify(manifestPayload, null, 2);
-    await b2Provider.putObject({
-      key: keys.manifest,
-      body: manifestJson,
-      contentType: 'application/json; charset=utf-8',
-      contentLength: new TextEncoder().encode(manifestJson).byteLength,
-      skipDownloadAuth: true
-    });
-    uploadedB2Objects.push({ key: keys.manifest });
-
     const schemaJson = JSON.stringify(analyzerSchemaPayload, null, 2);
-    await b2Provider.putObject({
-      key: keys.analyzerSchema,
-      body: schemaJson,
-      contentType: 'application/json; charset=utf-8',
-      contentLength: new TextEncoder().encode(schemaJson).byteLength,
-      skipDownloadAuth: true
-    });
-    uploadedB2Objects.push({ key: keys.analyzerSchema });
-
     const hashesJson = JSON.stringify(analyzed.hashesPayload, null, 2);
-    await b2Provider.putObject({
-      key: keys.hashes,
-      body: hashesJson,
-      contentType: 'application/json; charset=utf-8',
-      contentLength: new TextEncoder().encode(hashesJson).byteLength,
-      skipDownloadAuth: true
-    });
-    uploadedB2Objects.push({ key: keys.hashes });
+    await Promise.all([
+      b2Provider.putObject({
+        key: keys.manifest,
+        body: manifestJson,
+        contentType: 'application/json; charset=utf-8',
+        contentLength: new TextEncoder().encode(manifestJson).byteLength,
+        skipDownloadAuth: true
+      }),
+      b2Provider.putObject({
+        key: keys.analyzerSchema,
+        body: schemaJson,
+        contentType: 'application/json; charset=utf-8',
+        contentLength: new TextEncoder().encode(schemaJson).byteLength,
+        skipDownloadAuth: true
+      }),
+      b2Provider.putObject({
+        key: keys.hashes,
+        body: hashesJson,
+        contentType: 'application/json; charset=utf-8',
+        contentLength: new TextEncoder().encode(hashesJson).byteLength,
+        skipDownloadAuth: true
+      })
+    ]);
+    uploadedB2Objects.push({ key: keys.manifest }, { key: keys.analyzerSchema }, { key: keys.hashes });
 
     await updateOperation(UPLOAD_OPERATION_STATE.STAGED, 'b2_upload_complete', 70, {
       b2Objects: uploadedB2Objects
@@ -2796,22 +2854,17 @@ export async function executeB2TemplateIngestPipeline(params) {
       )
     );
 
-    // 4. Template Files statements
-    for (const f of analyzed.fileRecords) {
-      const pathHash = (await computeSha256Hex(f.relativePath)).slice(0, 12);
-      const fileRecordId = `tfile_${versionId}_${pathHash}`;
-      registrationStatements.push(
-        db.prepare(`
-          INSERT INTO template_files (
-            id, template_version_id, relative_path, storage_provider, storage_key,
-            mime_type, size_bytes, sha256, file_role, is_entry_file, status, created_at
-          ) VALUES (?, ?, ?, 'b2', ?, ?, ?, ?, ?, ?, 'active', ?)
-          ON CONFLICT(id) DO UPDATE SET
-            storage_key = excluded.storage_key,
-            size_bytes = excluded.size_bytes,
-            sha256 = excluded.sha256,
-            status = 'active'
-        `).bind(
+    // 4. Template Files statements (batched in multi-row INSERT chunks of 8 to minimize D1 subrequests)
+    const FILE_INSERT_CHUNK = 8;
+    for (let i = 0; i < analyzed.fileRecords.length; i += FILE_INSERT_CHUNK) {
+      const chunk = analyzed.fileRecords.slice(i, i + FILE_INSERT_CHUNK);
+      const placeholders = [];
+      const bindParams = [];
+      for (const f of chunk) {
+        const pathHash = (await computeSha256Hex(f.relativePath)).slice(0, 12);
+        const fileRecordId = `tfile_${versionId}_${pathHash}`;
+        placeholders.push("(?, ?, ?, 'b2', ?, ?, ?, ?, ?, ?, 'active', ?)");
+        bindParams.push(
           fileRecordId,
           versionId,
           f.relativePath,
@@ -2822,23 +2875,35 @@ export async function executeB2TemplateIngestPipeline(params) {
           f.fileRole,
           f.isEntryFile,
           nowIso
-        )
+        );
+      }
+      registrationStatements.push(
+        db.prepare(`
+          INSERT INTO template_files (
+            id, template_version_id, relative_path, storage_provider, storage_key,
+            mime_type, size_bytes, sha256, file_role, is_entry_file, status, created_at
+          ) VALUES ${placeholders.join(", ")}
+          ON CONFLICT(id) DO UPDATE SET
+            storage_key = excluded.storage_key,
+            size_bytes = excluded.size_bytes,
+            sha256 = excluded.sha256,
+            status = 'active'
+        `).bind(...bindParams)
       );
     }
 
-    // 5. Template Fields statements
-    let fieldOrder = 0;
-    for (const field of mergedFields) {
-      fieldOrder++;
-      const fieldId = `tfld_${versionId}_${field.key}`;
-      registrationStatements.push(
-        db.prepare(`
-          INSERT OR REPLACE INTO template_fields (
-            id, template_version_id, field_key, field_type, label, placeholder,
-            help_text, is_required, default_value, validation_json, capabilities_json,
-            sort_order, group_name, status, created_at
-          ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, '{}', ?, ?, 'active', ?)
-        `).bind(
+    // 5. Template Fields statements (batched in multi-row INSERT OR REPLACE chunks of 6 to minimize D1 subrequests)
+    const FIELD_INSERT_CHUNK = 6;
+    for (let i = 0; i < mergedFields.length; i += FIELD_INSERT_CHUNK) {
+      const chunk = mergedFields.slice(i, i + FIELD_INSERT_CHUNK);
+      const placeholders = [];
+      const bindParams = [];
+      for (let j = 0; j < chunk.length; j++) {
+        const field = chunk[j];
+        const fieldOrder = i + j + 1;
+        const fieldId = `tfld_${versionId}_${field.key}`;
+        placeholders.push("(?, ?, ?, ?, ?, ?, ?, ?, ?, ?, '{}', ?, ?, 'active', ?)");
+        bindParams.push(
           fieldId,
           versionId,
           field.key,
@@ -2852,7 +2917,16 @@ export async function executeB2TemplateIngestPipeline(params) {
           fieldOrder,
           field.category || 'personal',
           nowIso
-        )
+        );
+      }
+      registrationStatements.push(
+        db.prepare(`
+          INSERT OR REPLACE INTO template_fields (
+            id, template_version_id, field_key, field_type, label, placeholder,
+            help_text, is_required, default_value, validation_json, capabilities_json,
+            sort_order, group_name, status, created_at
+          ) VALUES ${placeholders.join(", ")}
+        `).bind(...bindParams)
       );
     }
 

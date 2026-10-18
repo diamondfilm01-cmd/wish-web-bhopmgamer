@@ -1697,6 +1697,31 @@ const MINIMAL_VALID_WEBP_BYTES = new Uint8Array([
   0x07,0x00
 ]);
 
+const MINIMAL_VALID_MP3_BYTES = new Uint8Array([
+  0x49,0x44,0x33,0x04,0x00,0x00,0x00,0x00,0x00,0x0A,
+  0x54,0x49,0x54,0x32,0x00,0x00,0x00,0x02,0x00,0x00,
+  0xFF,0xFB,0x90,0x64,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00
+]);
+const MINIMAL_VALID_WAV_BYTES = new Uint8Array([
+  0x52,0x49,0x46,0x46,0x24,0x00,0x00,0x00,0x57,0x41,0x56,0x45,
+  0x66,0x6D,0x74,0x20,0x10,0x00,0x00,0x00,0x01,0x00,0x01,0x00,
+  0x44,0xAC,0x00,0x00,0x88,0x58,0x01,0x00,0x02,0x00,0x10,0x00,
+  0x64,0x61,0x74,0x61,0x00,0x00,0x00,0x00
+]);
+const MINIMAL_VALID_OGG_BYTES = new Uint8Array([
+  0x4F,0x67,0x67,0x53,0x00,0x02,0x00,0x00,0x00,0x00,0x00,0x00,
+  0x00,0x00,0x01,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,
+  0x00,0x00,0x01,0x1E,0x01,0x76,0x6F,0x72,0x62,0x69,0x73
+]);
+const MINIMAL_VALID_MP4_BYTES = new Uint8Array([
+  0x00,0x00,0x00,0x18,0x66,0x74,0x79,0x70,0x6D,0x70,0x34,0x32,
+  0x00,0x00,0x00,0x00,0x6D,0x70,0x34,0x32,0x69,0x73,0x6F,0x6D
+]);
+
+function isAudioOrVideoFile(relPath) {
+  return /\.(mp3|wav|ogg|m4a|aac|flac|mp4|webm|mov|m4v)$/i.test(String(relPath || ""));
+}
+
 function getMinimalStubBytesForImage(relPath) {
   const lower = String(relPath || "").toLowerCase();
   if (lower.endsWith(".jpg") || lower.endsWith(".jpeg")) return MINIMAL_VALID_JPEG_BYTES;
@@ -1705,14 +1730,127 @@ function getMinimalStubBytesForImage(relPath) {
   return MINIMAL_VALID_PNG_BYTES;
 }
 
-async function buildCompactTemplateZipBase64(filesMap, preUploadedImgbbMap) {
+function getMinimalStubBytesForMedia(relPath) {
+  const lower = String(relPath || "").toLowerCase();
+  if (lower.endsWith(".wav")) return MINIMAL_VALID_WAV_BYTES;
+  if (lower.endsWith(".ogg")) return MINIMAL_VALID_OGG_BYTES;
+  if (lower.endsWith(".mp4") || lower.endsWith(".m4a") || lower.endsWith(".mov") || lower.endsWith(".m4v") || lower.endsWith(".webm")) return MINIMAL_VALID_MP4_BYTES;
+  return MINIMAL_VALID_MP3_BYTES;
+}
+
+async function preUploadTemplateMediaToB2(filesMap, setStatusFn) {
+  const preUploadedB2Map = {};
+  if (!filesMap || typeof filesMap !== "object") return preUploadedB2Map;
+  const mediaRelPaths = Object.keys(filesMap).filter(p => isAudioOrVideoFile(p));
+  if (mediaRelPaths.length === 0) return preUploadedB2Map;
+
+  let completedMedia = 0;
+  let skipClientB2 = false;
+  let consecutiveFailures = 0;
+  const B2_CLIENT_BATCH_SIZE = 2;
+
+  for (let i = 0; i < mediaRelPaths.length && !skipClientB2; i += B2_CLIENT_BATCH_SIZE) {
+    let batchSuccessCount = 0;
+    const batchPaths = mediaRelPaths.slice(i, i + B2_CLIENT_BATCH_SIZE);
+    if (typeof setStatusFn === "function") {
+      setStatusFn("Uploading Audio/Video to B2 (" + Math.min(i + 1, mediaRelPaths.length) + "/" + mediaRelPaths.length + ")...");
+    }
+
+    await Promise.all(batchPaths.map(async (relPath) => {
+      if (skipClientB2) return;
+      const fileEntry = filesMap[relPath];
+      const dataUrl = typeof fileEntry === "string" ? fileEntry : (fileEntry && fileEntry.content);
+      if (!dataUrl) return;
+      const exactFileName = relPath.split("/").pop();
+      const mimeType = getMimeType(relPath);
+      const controller = typeof AbortController !== "undefined" ? new AbortController() : null;
+      const timerId = controller ? setTimeout(() => { try { controller.abort(); } catch (_) {} }, 25000) : null;
+      try {
+        let fetchOpts;
+        if (typeof FormData !== "undefined" && typeof Blob !== "undefined") {
+          const cleanB64 = String(dataUrl).includes(";base64,") ? String(dataUrl).split(";base64,")[1] : String(dataUrl);
+          const binStr = atob(cleanB64.replace(/\s+/g, ""));
+          const bytes = new Uint8Array(binStr.length);
+          for (let j = 0; j < binStr.length; j++) bytes[j] = binStr.charCodeAt(j);
+          const blob = new Blob([bytes], { type: mimeType });
+          const fd = new FormData();
+          fd.append("file", blob, exactFileName);
+          fd.append("relativePath", relPath);
+          fd.append("filename", exactFileName);
+          fetchOpts = {
+            method: "POST",
+            credentials: "include",
+            body: fd,
+            ...(controller ? { signal: controller.signal } : {})
+          };
+        } else {
+          fetchOpts = {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            credentials: "include",
+            body: JSON.stringify({
+              fileData: dataUrl,
+              relativePath: relPath,
+              filename: exactFileName,
+              mimeType
+            }),
+            ...(controller ? { signal: controller.signal } : {})
+          };
+        }
+
+        const b2Res = await fetch("/api/templates/preupload-b2", fetchOpts);
+        if (timerId) clearTimeout(timerId);
+        const b2Json = await b2Res.json().catch(() => ({}));
+        if (b2Res.status === 503 && b2Json?.code === "B2_NOT_CONFIGURED") {
+          skipClientB2 = true;
+          return;
+        }
+        const resData = b2Json?.data || b2Json || {};
+        if (b2Res.ok && resData.storageKey) {
+          batchSuccessCount++;
+          preUploadedB2Map[relPath] = {
+            relativePath: relPath,
+            filename: exactFileName,
+            storageKey: resData.storageKey,
+            fileId: resData.fileId || null,
+            sha256: resData.sha256 || null,
+            sizeBytes: Number(resData.sizeBytes) || (fileEntry && fileEntry.sizeBytes) || 0,
+            mimeType: resData.mimeType || mimeType
+          };
+        }
+      } catch (b2Err) {
+        if (timerId) clearTimeout(timerId);
+        console.warn("[Client B2 Media Pre-Upload Warning]:", relPath, b2Err && b2Err.message ? b2Err.message : b2Err);
+      } finally {
+        completedMedia++;
+        if (typeof setStatusFn === "function") {
+          setStatusFn("Uploading Audio/Video to B2 (" + completedMedia + "/" + mediaRelPaths.length + ")...");
+        }
+      }
+    }));
+
+    if (batchSuccessCount === 0) {
+      consecutiveFailures++;
+      if (consecutiveFailures >= 1) skipClientB2 = true;
+    } else {
+      consecutiveFailures = 0;
+    }
+  }
+
+  return preUploadedB2Map;
+}
+
+async function buildCompactTemplateZipBase64(filesMap, preUploadedImgbbMap, preUploadedB2Map = null, options = {}) {
   if (typeof JSZip === "undefined") return null;
   const zip = new JSZip();
+  const forInspection = Boolean(options && options.forInspection);
   for (const [relPath, entry] of Object.entries(filesMap)) {
     const rawContent = typeof entry === "string" ? entry : (entry && entry.content !== undefined ? entry.content : "");
     const isB64 = Boolean(entry && entry.isBase64) || (typeof rawContent === "string" && rawContent.startsWith("data:") && rawContent.includes(";base64,"));
-    if (preUploadedImgbbMap && preUploadedImgbbMap[relPath] && isImageFile(relPath)) {
+    if (isImageFile(relPath) && ((preUploadedImgbbMap && preUploadedImgbbMap[relPath]) || (forInspection && isB64 && String(rawContent).length > 48000))) {
       zip.file(relPath, getMinimalStubBytesForImage(relPath));
+    } else if (isAudioOrVideoFile(relPath) && ((preUploadedB2Map && preUploadedB2Map[relPath]) || (forInspection && isB64))) {
+      zip.file(relPath, getMinimalStubBytesForMedia(relPath));
     } else if (isB64 && typeof rawContent === "string") {
       const b64Part = rawContent.includes(";base64,") ? rawContent.split(";base64,")[1] : rawContent;
       zip.file(relPath, b64Part, { base64: true });
@@ -1721,6 +1859,7 @@ async function buildCompactTemplateZipBase64(filesMap, preUploadedImgbbMap) {
     }
   }
   const zipBytes = await zip.generateAsync({ type: "uint8array", compression: "DEFLATE", compressionOptions: { level: 5 } });
+  if (options && options.returnUint8Array) return zipBytes;
   return encodeUint8ArrayToBase64(zipBytes);
 }
 
@@ -1858,12 +1997,15 @@ async function deployUploadedTemplate(publishImmediately = true) {
       }
     }
 
-    // Stage 2: Build compact ZIP archive (replacing already-uploaded ImgBB photos with tiny valid image stubs so upload payload is ~25KB instead of 10MB)
+    // Stage 1B: Pre-upload template audio/video files to Backblaze B2 in small batches of 2
+    const preUploadedB2Map = await preUploadTemplateMediaToB2(currentUploadedFiles, setLiveButtonStatus);
+
+    // Stage 2: Build compact ZIP archive (replacing already-uploaded ImgBB photos & B2 audio/video with tiny valid stubs so upload payload is ~80KB instead of 16MB)
     setLiveButtonStatus("Packaging & Deploying Code/Media to Backblaze B2 & D1...");
     let resolvedZipBase64 = null;
-    if (Object.keys(preUploadedImgbbMap).length > 0 && typeof JSZip !== "undefined") {
+    if ((Object.keys(preUploadedImgbbMap).length > 0 || Object.keys(preUploadedB2Map).length > 0) && typeof JSZip !== "undefined") {
       try {
-        resolvedZipBase64 = await buildCompactTemplateZipBase64(currentUploadedFiles, preUploadedImgbbMap);
+        resolvedZipBase64 = await buildCompactTemplateZipBase64(currentUploadedFiles, preUploadedImgbbMap, preUploadedB2Map);
       } catch (compactErr) {
         console.warn("Compact ZIP build fallback:", compactErr);
       }
@@ -1909,6 +2051,7 @@ async function deployUploadedTemplate(publishImmediately = true) {
       detectedFields: detectedDynamicFields,
       confirmedFields: detectedDynamicFields,
       preUploadedImgbbMap,
+      preUploadedB2Map,
       skipServerImgbbRetry: Boolean(imageRelPaths.length > 0 && Object.keys(preUploadedImgbbMap).length === 0),
       capabilities: currentParsedManifest?.capabilities || {},
       sections: (uploadUtpConfigState.sections && uploadUtpConfigState.sections.length > 0) ? uploadUtpConfigState.sections : (currentParsedManifest?.sections || []),
@@ -1950,7 +2093,12 @@ async function deployUploadedTemplate(publishImmediately = true) {
           ...(controller ? { signal: controller.signal } : {})
         });
         if (timeoutId) clearTimeout(timeoutId);
-        data = await res.json().catch(() => ({}));
+        const rawResText = await res.text().catch(() => "");
+        try {
+          data = rawResText ? JSON.parse(rawResText) : {};
+        } catch (_) {
+          data = { message: "Server returned HTTP " + res.status + (rawResText ? (": " + rawResText.replace(/<[^>]+>/g, " ").replace(/\s+/g, " ").trim().slice(0, 180)) : "") };
+        }
         if ((res.status === 409 || (res.status >= 502 && res.status <= 504)) && attempt < maxAttempts) {
           await new Promise(r => setTimeout(r, 700 * attempt));
           continue;
@@ -2019,13 +2167,13 @@ async function deployUploadedTemplate(publishImmediately = true) {
 
       loadDynamicTemplates();
     } else {
-      if (!resultObj?.rolledBack?.imgbb && Object.keys(preUploadedImgbbMap).length > 0) {
+      if (!resultObj?.rolledBack?.imgbb && (Object.keys(preUploadedImgbbMap).length > 0 || Object.keys(preUploadedB2Map).length > 0)) {
         setLiveButtonStatus("Rolling back uploaded cloud files after error...");
         try {
           await fetch("/api/templates/upload-rollback", {
             method: "POST",
             headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({ preUploadedImgbbMap })
+            body: JSON.stringify({ preUploadedImgbbMap, preUploadedB2Map })
           });
         } catch (_) {}
       }
@@ -6530,11 +6678,13 @@ window.executeImportStudioConfirmedPublish = async function() {
       }
     }
 
+    const preUploadedB2Map = await preUploadTemplateMediaToB2(currentUploadedFiles, setPublishBtnStatus);
+
     setPublishBtnStatus("Deploying code & media to Backblaze B2 & D1...");
     let resolvedZipBase64 = null;
-    if (Object.keys(preUploadedImgbbMap).length > 0 && typeof JSZip !== "undefined") {
+    if ((Object.keys(preUploadedImgbbMap).length > 0 || Object.keys(preUploadedB2Map).length > 0) && typeof JSZip !== "undefined") {
       try {
-        resolvedZipBase64 = await buildCompactTemplateZipBase64(currentUploadedFiles, preUploadedImgbbMap);
+        resolvedZipBase64 = await buildCompactTemplateZipBase64(currentUploadedFiles, preUploadedImgbbMap, preUploadedB2Map);
       } catch (_) {}
     }
     if (!resolvedZipBase64 && currentZipBase64) {
@@ -6551,6 +6701,7 @@ window.executeImportStudioConfirmedPublish = async function() {
         releaseNotes,
         zipBase64: resolvedZipBase64,
         preUploadedImgbbMap,
+        preUploadedB2Map,
         skipServerImgbbRetry: Boolean(imageRelPaths.length > 0 && Object.keys(preUploadedImgbbMap).length === 0)
       })
     });
