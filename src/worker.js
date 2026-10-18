@@ -9231,7 +9231,9 @@ export default {
           return applySecurityHeaders(jsonError('SESSION_CANCELLED', 'This import session was cancelled.', 410), request, env);
         }
 
-        const relPath = rawRelPath.replace(/^\/+/, '');
+        let decodedRelPath = rawRelPath;
+          try { decodedRelPath = decodeURIComponent(rawRelPath.split('?')[0]); } catch (_) {}
+          const relPath = decodedRelPath.replace(/^\/+/, '');
         const relationshipSlug = url.searchParams.get('rel') || url.searchParams.get('relationship') || null;
         const previewHeaders = {
           'Content-Security-Policy': SANDBOXED_PREVIEW_CSP,
@@ -24012,10 +24014,15 @@ export default {
               }
 
               if (verRow && verRow.storage_provider === 'b2') {
+                let decodedStoreRel = relPath;
+                try { decodedStoreRel = decodeURIComponent(relPath.split('?')[0]); } catch (_) {}
                 const fileRow = await env.DB.prepare(
-                  'SELECT storage_key, mime_type FROM template_files WHERE template_version_id = ? AND relative_path = ? LIMIT 1'
-                ).bind(verRow.id, relPath).first();
-                const targetKey = fileRow?.storage_key || (relPath === 'wishmagic.json' ? verRow.manifest_storage_key : `templates/${verRow.template_family_id || ('fam_' + cleanSlug)}/versions/${verRow.id}/runtime/${relPath}`);
+                  'SELECT storage_key, mime_type FROM template_files WHERE template_version_id = ? AND (relative_path = ? OR relative_path = ?) LIMIT 1'
+                ).bind(verRow.id, decodedStoreRel, relPath).first();
+                const targetKey = fileRow?.storage_key || (decodedStoreRel === 'wishmagic.json' ? verRow.manifest_storage_key : `templates/${verRow.template_family_id || ('fam_' + cleanSlug)}/versions/${verRow.id}/runtime/${decodedStoreRel}`);
+                if (targetKey && /^https?:\/\//i.test(targetKey)) {
+                  return Response.redirect(targetKey, 302);
+                }
                 const b2Config = getB2Config(env);
                 const injectedStorageProvider = env.B2_STORAGE_PROVIDER || null;
                 if (targetKey && (b2Config.isConfigured || injectedStorageProvider)) {
@@ -24025,11 +24032,36 @@ export default {
                     const rawBody = b2Res.body instanceof Uint8Array
                       ? b2Res.body
                       : (typeof b2Res.body === 'string' ? new TextEncoder().encode(b2Res.body) : new Uint8Array(b2Res.body || 0));
+                    const totalLen = rawBody.byteLength;
+                    const resolvedMime = b2Res.contentType || fileRow?.mime_type || getMimeType(decodedStoreRel);
+                    const rangeHeader = request.headers.get('range') || request.headers.get('Range');
+                    if (rangeHeader && totalLen > 0) {
+                      const rangeMatch = rangeHeader.match(/bytes=(\d*)-(\d*)/i);
+                      if (rangeMatch) {
+                        const start = rangeMatch[1] ? parseInt(rangeMatch[1], 10) : 0;
+                        const end = rangeMatch[2] ? Math.min(parseInt(rangeMatch[2], 10), totalLen - 1) : totalLen - 1;
+                        if (start >= 0 && start < totalLen && end >= start) {
+                          const chunk = rawBody.subarray(start, end + 1);
+                          return new Response(chunk, {
+                            status: 206,
+                            headers: {
+                              'Content-Type': resolvedMime,
+                              'Content-Range': `bytes ${start}-${end}/${totalLen}`,
+                              'Content-Length': String(chunk.byteLength),
+                              'Accept-Ranges': 'bytes',
+                              'Access-Control-Allow-Origin': '*',
+                              'Cache-Control': 'public, max-age=3600',
+                              'X-Frame-Options': 'SAMEORIGIN'
+                            }
+                          });
+                        }
+                      }
+                    }
                     return new Response(rawBody, {
                       status: 200,
                       headers: {
-                        'Content-Type': b2Res.contentType || fileRow?.mime_type || getMimeType(relPath),
-                        'Content-Length': String(rawBody.byteLength),
+                        'Content-Type': resolvedMime,
+                        'Content-Length': String(totalLen),
                         'Accept-Ranges': 'bytes',
                         'Access-Control-Allow-Origin': '*',
                         'Cache-Control': 'public, max-age=3600',

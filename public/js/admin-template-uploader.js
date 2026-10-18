@@ -2196,11 +2196,14 @@ async function deployUploadedTemplate(publishImmediately = true) {
     }
   } catch (err) {
     try {
-      if (typeof preUploadedImgbbMap === "object" && Object.keys(preUploadedImgbbMap).length > 0) {
+      if (
+        (typeof preUploadedImgbbMap === "object" && Object.keys(preUploadedImgbbMap).length > 0) ||
+        (typeof preUploadedB2Map === "object" && Object.keys(preUploadedB2Map).length > 0)
+      ) {
         await fetch("/api/templates/upload-rollback", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ preUploadedImgbbMap })
+          body: JSON.stringify({ preUploadedImgbbMap, preUploadedB2Map })
         });
       }
     } catch (_) {}
@@ -5586,9 +5589,21 @@ async function runSmartTemplateRecognitionStudio(packageHintName = "") {
   try {
     let fetchOptions;
     if (currentZipRawFile && typeof FormData !== "undefined") {
-      // Stream binary ZIP directly via FormData (33% smaller network transfer & zero JSON.stringify main-thread block)
+      // For multi-megabyte media ZIPs (>1.5MB), send a compact ~45KB inspection ZIP so mobile inspection completes in <1s
+      let fileToUpload = currentZipRawFile;
+      if (approxBytes > 1500 * 1024 && Object.keys(currentUploadedFiles).length > 0 && typeof JSZip !== "undefined" && typeof Blob !== "undefined") {
+        try {
+          const compactBytes = await buildCompactTemplateZipBase64(currentUploadedFiles, null, null, {
+            forInspection: true,
+            returnUint8Array: true
+          });
+          if (compactBytes && compactBytes.byteLength > 0) {
+            fileToUpload = new Blob([compactBytes], { type: "application/zip" });
+          }
+        } catch (_) {}
+      }
       const formData = new FormData();
-      formData.append("file", currentZipRawFile, filename);
+      formData.append("file", fileToUpload, filename);
       if (importStudioState.intendedTargetTemplateId) {
         formData.append("intendedTargetTemplateId", importStudioState.intendedTargetTemplateId);
       }

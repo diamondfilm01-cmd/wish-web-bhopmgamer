@@ -286,6 +286,7 @@ export class B2StorageProvider extends StorageProvider {
     this.authData = null;
     this.authExpiresAt = 0;
     this.uploadUrlCache = new Map(); // bucketId -> { uploadUrl, authorizationToken, expiresAt }
+    this.uploadUrlPool = new Map(); // bucketId -> Array<{ uploadUrl, authorizationToken, bucketId, expiresAt }>
   }
 
   /**
@@ -511,9 +512,10 @@ export class B2StorageProvider extends StorageProvider {
   }
 
   /**
-   * Retrieves an upload URL for the target bucket (b2_get_upload_url)
+   * Acquires an exclusive upload URL token from the idle pool or requests a fresh one via b2_get_upload_url.
+   * Backblaze B2 requires that each uploadUrl/authorizationToken pair is used by at most ONE active upload at a time.
    */
-  async getUploadUrl(bucketId = null, forceRefresh = false) {
+  async acquireUploadUrl(bucketId = null, forceRefresh = false) {
     const auth = await this.authorizeAccount(forceRefresh);
     let targetBucketId = bucketId || this.bucketId;
 
@@ -525,9 +527,18 @@ export class B2StorageProvider extends StorageProvider {
       throw new Error(`B2 Bucket ID could not be resolved for bucket "${this.bucketName || 'unknown'}". Please ensure B2_BUCKET_NAME exists in Backblaze or provide B2_BUCKET_ID.`);
     }
 
-    const cached = this.uploadUrlCache.get(targetBucketId);
-    if (!forceRefresh && cached && cached.expiresAt > Date.now()) {
-      return cached;
+    const now = Date.now();
+    if (!forceRefresh) {
+      const pool = this.uploadUrlPool.get(targetBucketId);
+      if (Array.isArray(pool)) {
+        while (pool.length > 0) {
+          const candidate = pool.pop();
+          if (candidate && candidate.uploadUrl && candidate.authorizationToken && candidate.expiresAt > now) {
+            this.uploadUrlCache.set(targetBucketId, candidate);
+            return candidate;
+          }
+        }
+      }
     }
 
     const apiUrl = auth.apiUrl || this.endpoint || 'https://api.backblazeb2.com';
@@ -544,7 +555,7 @@ export class B2StorageProvider extends StorageProvider {
       if (response.status === 401 && !forceRefresh) {
         // Auth token may have expired early, refresh and retry once
         await this.authorizeAccount(true);
-        return this.getUploadUrl(targetBucketId, true);
+        return this.acquireUploadUrl(targetBucketId, true);
       }
       const errorText = await response.text();
       let errorJson = {};
@@ -567,7 +578,48 @@ export class B2StorageProvider extends StorageProvider {
   }
 
   /**
+   * Returns a healthy upload URL token back to the idle pool after an upload finishes.
+   */
+  releaseUploadUrl(uploadEntry) {
+    if (!uploadEntry || !uploadEntry.bucketId || !uploadEntry.uploadUrl || !uploadEntry.authorizationToken) return;
+    if (uploadEntry.expiresAt <= Date.now()) return;
+    let pool = this.uploadUrlPool.get(uploadEntry.bucketId);
+    if (!Array.isArray(pool)) {
+      pool = [];
+      this.uploadUrlPool.set(uploadEntry.bucketId, pool);
+    }
+    if (!pool.some(item => item.authorizationToken === uploadEntry.authorizationToken) && pool.length < 16) {
+      pool.push(uploadEntry);
+    }
+    this.uploadUrlCache.set(uploadEntry.bucketId, uploadEntry);
+  }
+
+  /**
+   * Retrieves an upload URL for the target bucket (b2_get_upload_url)
+   */
+  async getUploadUrl(bucketId = null, forceRefresh = false) {
+    let targetBucketId = bucketId || this.bucketId;
+    if (!forceRefresh && targetBucketId) {
+      const pool = this.uploadUrlPool.get(targetBucketId);
+      if (Array.isArray(pool) && pool.length > 0) {
+        const top = pool[pool.length - 1];
+        if (top && top.expiresAt > Date.now()) {
+          return top;
+        }
+      }
+      const cached = this.uploadUrlCache.get(targetBucketId);
+      if (cached && cached.expiresAt > Date.now()) {
+        return cached;
+      }
+    }
+    const acquired = await this.acquireUploadUrl(bucketId, forceRefresh);
+    this.releaseUploadUrl(acquired);
+    return acquired;
+  }
+
+  /**
    * Upload an object into Backblaze B2 (b2_upload_file)
+   * Uses exclusive checkout/checkin upload URL pooling and automatic fresh-token retry on 400/401/408/429/5xx.
    */
   async putObject({ key, body, contentType, contentLength, metadata = {}, skipDownloadAuth = false }) {
     if (!key) throw new Error('Object storage key is required');
@@ -591,13 +643,10 @@ export class B2StorageProvider extends StorageProvider {
     const sha1Hex = await computeSha1Hex(uint8Body);
     const resolvedMime = contentType || getMimeType(key);
 
-    let uploadTarget = await this.getUploadUrl();
-
     // B2 RFC 3986 URL Encoding for file name
     const encodedFileName = encodeURIComponent(key).replace(/%2F/gi, '/');
 
-    const headers = {
-      'Authorization': uploadTarget.authorizationToken,
+    const baseHeaders = {
       'X-Bz-File-Name': encodedFileName,
       'Content-Type': resolvedMime,
       'Content-Length': String(size),
@@ -609,39 +658,73 @@ export class B2StorageProvider extends StorageProvider {
       for (const [metaK, metaV] of Object.entries(metadata)) {
         const cleanK = String(metaK).replace(/[^a-zA-Z0-9-]/g, '');
         if (cleanK) {
-          headers[`X-Bz-Info-${cleanK}`] = encodeURIComponent(String(metaV));
+          baseHeaders[`X-Bz-Info-${cleanK}`] = encodeURIComponent(String(metaV));
         }
       }
     }
 
-    let response = await this.fetchFn(uploadTarget.uploadUrl, {
-      method: 'POST',
-      headers,
-      body: uint8Body
-    });
+    let uploadTarget = await this.acquireUploadUrl();
+    let resData = null;
+    let lastError = null;
+    const maxAttempts = 3;
 
-    // Handle token expiration or upload URL invalidation
-    if (response.status === 401 || response.status === 408) {
-      uploadTarget = await this.getUploadUrl(null, true);
-      headers['Authorization'] = uploadTarget.authorizationToken;
-      response = await this.fetchFn(uploadTarget.uploadUrl, {
-        method: 'POST',
-        headers,
-        body: uint8Body
-      });
-    }
+    for (let attempt = 1; attempt <= maxAttempts; attempt++) {
+      const headers = {
+        ...baseHeaders,
+        'Authorization': uploadTarget.authorizationToken
+      };
 
-    if (!response.ok) {
-      const errText = await response.text();
+      let response;
+      try {
+        response = await this.fetchFn(uploadTarget.uploadUrl, {
+          method: 'POST',
+          headers,
+          body: uint8Body
+        });
+      } catch (netErr) {
+        if (attempt < maxAttempts) {
+          uploadTarget = await this.acquireUploadUrl(null, true);
+          continue;
+        }
+        throw netErr;
+      }
+
+      if (response.ok) {
+        this.releaseUploadUrl(uploadTarget);
+        resData = await response.json();
+        break;
+      }
+
+      const errText = await response.text().catch(() => '');
       let errJson = {};
       try { errJson = JSON.parse(errText); } catch (_) {}
-      const err = new Error(`B2 putObject failed for ${key} (${response.status}): ${errJson.message || errText}`);
-      err.code = errJson.code || 'B2_UPLOAD_FAILED';
-      err.status = response.status;
-      throw err;
-    }
+      const errMsg = String(errJson.message || errText || '');
+      const errCode = String(errJson.code || 'B2_UPLOAD_FAILED');
 
-    const resData = await response.json();
+      // Retry with a brand-new upload URL token if B2 reports concurrent auth token usage (400),
+      // expired/bad upload token (400/401), timeout (408), rate limit (429), or transient storage node error (5xx)
+      const isRetryableTokenOrNodeError =
+        response.status === 401 ||
+        response.status === 408 ||
+        response.status === 429 ||
+        (response.status >= 500 && response.status <= 504) ||
+        (response.status === 400 && (
+          errMsg.toLowerCase().includes('more than one upload using auth token') ||
+          errMsg.toLowerCase().includes('auth token') ||
+          errCode.toLowerCase().includes('auth_token') ||
+          errCode.toLowerCase().includes('bad_request')
+        ));
+
+      if (isRetryableTokenOrNodeError && attempt < maxAttempts) {
+        uploadTarget = await this.acquireUploadUrl(null, true);
+        continue;
+      }
+
+      lastError = new Error(`B2 putObject failed for ${key} (${response.status}): ${errMsg}`);
+      lastError.code = errCode;
+      lastError.status = response.status;
+      throw lastError;
+    }
     const downloadUrl = this.buildDownloadUrl(key);
 
     // Support Private Buckets: obtain download authorization token if available (unless skipped for internal template files)

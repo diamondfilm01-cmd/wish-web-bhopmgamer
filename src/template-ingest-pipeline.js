@@ -2441,28 +2441,25 @@ export async function executeB2TemplateIngestPipeline(params) {
       filesNeedingB2Upload.push(fileRecord);
     }
 
-    const B2_UPLOAD_BATCH_SIZE = 4;
-    for (let i = 0; i < filesNeedingB2Upload.length; i += B2_UPLOAD_BATCH_SIZE) {
-      const batch = filesNeedingB2Upload.slice(i, i + B2_UPLOAD_BATCH_SIZE);
-      await Promise.all(batch.map(async (fileRecord) => {
-        const b2Key = keys.runtimeFile(fileRecord.relativePath);
-        const fileUploadRes = await b2Provider.putObject({
-          key: b2Key,
-          body: fileRecord.content,
-          contentType: fileRecord.mimeType,
-          contentLength: fileRecord.sizeBytes,
-          skipDownloadAuth: true,
-          metadata: {
-            familyId: templateFamilyId,
-            versionId,
-            sha256: fileRecord.sha256,
-            originalFilename: fileRecord.relativePath.split('/').pop()
-          }
-        });
-        uploadedB2Objects.push({ key: b2Key, fileId: fileUploadRes.fileId });
-        fileRecord.storageKey = b2Key;
-        fileRecord.b2FileId = fileUploadRes.fileId;
-      }));
+    // Upload remaining runtime files sequentially so a single B2 upload URL token is reused with zero contention
+    for (const fileRecord of filesNeedingB2Upload) {
+      const b2Key = keys.runtimeFile(fileRecord.relativePath);
+      const fileUploadRes = await b2Provider.putObject({
+        key: b2Key,
+        body: fileRecord.content,
+        contentType: fileRecord.mimeType,
+        contentLength: fileRecord.sizeBytes,
+        skipDownloadAuth: true,
+        metadata: {
+          familyId: templateFamilyId,
+          versionId,
+          sha256: fileRecord.sha256,
+          originalFilename: fileRecord.relativePath.split('/').pop()
+        }
+      });
+      uploadedB2Objects.push({ key: b2Key, fileId: fileUploadRes.fileId });
+      fileRecord.storageKey = b2Key;
+      fileRecord.b2FileId = fileUploadRes.fileId;
     }
 
     // 6b. Build UTP v1.1.0 / v1.3.0 Variant Records from declared variants (enforcing admin selections & preserving disabled variants)
@@ -2598,34 +2595,54 @@ export async function executeB2TemplateIngestPipeline(params) {
         streamUrl: b2MediaUrlByRelPath.get(f.relativePath)
       }));
 
-    // 7. Upload Manifest, Analyzer Schema, Hashes to B2 in parallel
+    // Sync rewritten ImgBB & B2 URLs into utpReport.normalized so templates.features also carries live cloud URLs
+    if (utpReport.normalized) {
+      if (Array.isArray(utpReport.normalized.fields)) {
+        for (const nf of utpReport.normalized.fields) {
+          const mf = mergedFields.find(m => m.key === (nf.id || nf.key));
+          if (mf && mf.defaultValue) {
+            nf.defaultValue = mf.defaultValue;
+          }
+        }
+      }
+      if (Array.isArray(registeredVariantRecords) && registeredVariantRecords.length > 0) {
+        utpReport.normalized.variants = registeredVariantRecords.map(vr => vr.configuration);
+      }
+      if (resolvedThumbnail && utpReport.normalized.template) {
+        utpReport.normalized.template.thumbnail = resolvedThumbnail;
+      }
+    }
+
+    // 7. Upload Manifest, Analyzer Schema, Hashes to B2 sequentially (reusing the same B2 upload URL token)
     const manifestJson = JSON.stringify(manifestPayload, null, 2);
     const schemaJson = JSON.stringify(analyzerSchemaPayload, null, 2);
     const hashesJson = JSON.stringify(analyzed.hashesPayload, null, 2);
-    await Promise.all([
-      b2Provider.putObject({
-        key: keys.manifest,
-        body: manifestJson,
-        contentType: 'application/json; charset=utf-8',
-        contentLength: new TextEncoder().encode(manifestJson).byteLength,
-        skipDownloadAuth: true
-      }),
-      b2Provider.putObject({
-        key: keys.analyzerSchema,
-        body: schemaJson,
-        contentType: 'application/json; charset=utf-8',
-        contentLength: new TextEncoder().encode(schemaJson).byteLength,
-        skipDownloadAuth: true
-      }),
-      b2Provider.putObject({
-        key: keys.hashes,
-        body: hashesJson,
-        contentType: 'application/json; charset=utf-8',
-        contentLength: new TextEncoder().encode(hashesJson).byteLength,
-        skipDownloadAuth: true
-      })
-    ]);
-    uploadedB2Objects.push({ key: keys.manifest }, { key: keys.analyzerSchema }, { key: keys.hashes });
+    const manifestPutRes = await b2Provider.putObject({
+      key: keys.manifest,
+      body: manifestJson,
+      contentType: 'application/json; charset=utf-8',
+      contentLength: new TextEncoder().encode(manifestJson).byteLength,
+      skipDownloadAuth: true
+    });
+    const schemaPutRes = await b2Provider.putObject({
+      key: keys.analyzerSchema,
+      body: schemaJson,
+      contentType: 'application/json; charset=utf-8',
+      contentLength: new TextEncoder().encode(schemaJson).byteLength,
+      skipDownloadAuth: true
+    });
+    const hashesPutRes = await b2Provider.putObject({
+      key: keys.hashes,
+      body: hashesJson,
+      contentType: 'application/json; charset=utf-8',
+      contentLength: new TextEncoder().encode(hashesJson).byteLength,
+      skipDownloadAuth: true
+    });
+    uploadedB2Objects.push(
+      { key: keys.manifest, fileId: manifestPutRes.fileId },
+      { key: keys.analyzerSchema, fileId: schemaPutRes.fileId },
+      { key: keys.hashes, fileId: hashesPutRes.fileId }
+    );
 
     await updateOperation(UPLOAD_OPERATION_STATE.STAGED, 'b2_upload_complete', 70, {
       b2Objects: uploadedB2Objects
@@ -2855,7 +2872,7 @@ export async function executeB2TemplateIngestPipeline(params) {
     );
 
     // 4. Template Files statements (batched in multi-row INSERT chunks of 8 to minimize D1 subrequests)
-    const FILE_INSERT_CHUNK = 8;
+    const FILE_INSERT_CHUNK = 5;
     for (let i = 0; i < analyzed.fileRecords.length; i += FILE_INSERT_CHUNK) {
       const chunk = analyzed.fileRecords.slice(i, i + FILE_INSERT_CHUNK);
       const placeholders = [];
@@ -2893,7 +2910,7 @@ export async function executeB2TemplateIngestPipeline(params) {
     }
 
     // 5. Template Fields statements (batched in multi-row INSERT OR REPLACE chunks of 6 to minimize D1 subrequests)
-    const FIELD_INSERT_CHUNK = 6;
+    const FIELD_INSERT_CHUNK = 4;
     for (let i = 0; i < mergedFields.length; i += FIELD_INSERT_CHUNK) {
       const chunk = mergedFields.slice(i, i + FIELD_INSERT_CHUNK);
       const placeholders = [];
