@@ -1,0 +1,177 @@
+[
+  {
+    "id": "sess_mutuw52m",
+    "userId": "usr_ankit_101",
+    "token": "wm_tok_mutuw52m_4uz5kspl",
+    "expiresAt": 1793712487342,
+    "createdAt": "2026-10-04T13:28:07.342Z"
+  },
+  {
+    "id": "sess_adm_muwbyhtb",
+    "userId": "usr_admin_999",
+    "token": "wm_tok_muwbyhtb_uw3kj296zj",
+    "expiresAt": 1791356482991,
+    "createdAt": "2026-10-06T07:01:22.991Z"
+  },
+  {
+    "id": "sess_adm_muwcw1jb",
+    "userId": "usr_admin_999",
+    "token": "wm_tok_muwcw1ja_e30w3eim5m",
+    "expiresAt": 1791358048198,
+    "createdAt": "2026-10-06T07:27:28.199Z"
+  },
+  {
+    "id": "sess_adm_muwdo975",
+    "userId": "usr_admin_999",
+    "token": "wm_tok_muwdo975_8kvumh1jb0",
+    "expiresAt": 1791359364497,
+    "createdAt": "2026-10-06T07:49:24.497Z"
+  },
+  {
+    "id": "sess_adm_muwe1cx4",
+    "userId": "usr_admin_owner",
+    "token": "wm_tok_muwe1cx4_jqazi31lkp",
+    "expiresAt": 1791359975848,
+    "createdAt": "2026-10-06T07:59:35.848Z"
+  },
+  {
+    "id": "sess_muwj5cn0",
+    "userId": "usr_fb_5aZ10BmYKXb3pzBf",
+    "token": "wm_tok_muwj5cn0_njgswg5t",
+    "expiresAt": 1793874160188,
+    "createdAt": "2026-10-06T10:22:40.188Z"
+  },
+  {
+    "id": "sess_muwj5lfm",
+    "userId": "usr_fb_5aZ10BmYKXb3pzBf",
+    "token": "wm_tok_muwj5lfm_wanarhqb",
+    "expiresAt": 1793874171586,
+    "createdAt": "2026-10-06T10:22:51.586Z"
+  },
+  {
+    "id": "sess_adm_muwkubrf",
+    "userId": "usr_admin_999",
+    "token": "wm_tok_admin_muwkubrf_kjc3a9r0x6",
+    "expiresAt": 1793877005067,
+    "createdAt": "2026-10-06T11:10:05.067Z"
+  },
+  {
+    "id": "sess_adm_muwkuftm",
+    "userId": "usr_admin_owner",
+    "token": "wm_tok_admin_muwkuftm_kadvho2iqf",
+    "expiresAt": 1793877010330,
+    "createdAt": "2026-10-06T11:10:10.330Z"
+  },
+  {
+    "id": "sess_adm_muwkzs3q",
+    "userId": "usr_admin_master",
+    "token": "wm_tok_admin_muwkzs3q_xepfwk8s4j",
+    "expiresAt": 1793877259526,
+    "createdAt": "2026-10-06T11:14:19.526Z"
+  },
+  {
+    "id": "sess_muwr1f7u",
+    "userId": "usr_muwr1f7u_tmsb",
+    "token": "wm_tok_muwr1f7u_lxve9zow",
+    "expiresAt": 1793887413834,
+    "createdAt": "2026-10-06T14:03:33.834Z"
+  },
+  {
+    "id": "sess_muww9l7m",
+    "userId": "usr_master_ankit_babu",
+    "token": "wm_tok_muww9l7l_fslvwub8",
+    "expiresAt": 1793896192930,
+    "createdAt": "2026-10-06T16:29:52.930Z"
+  },
+  {
+    "id": "sess_muwwwiq8",
+    "userId": "usr_fb_usr_test_123",
+    "token": "wm_tok_muwwwiq8_fzg69dsz",
+    "expiresAt": 1793897262800,
+    "createdAt": "2026-10-06T16:47:42.800Z"
+  },
+  {
+    "id": "sess_muwwwmjx",
+    "userId": "usr_master_ankit_babu",
+    "token": "wm_tok_muwwwmjx_ir1zq95p",
+    "expiresAt": 1793897267757,
+    "createdAt": "2026-10-06T16:47:47.757Z"
+  },
+  {
+    "id": "sess_muwwy8gb",
+    "userId": "usr_muwwy8gb_6xh7",
+    "token": "wm_tok_muwwy8gb_pif1c1ws",
+    "expiresAt": 1793897342795,
+    "createdAt": "2026-10-06T16:49:02.795Z"
+  },
+  {
+    "id": "sess_mv5h44lj",
+    "userId": "usr_master_ankit_babu",
+    "token": "wm_tok_mv5h44lj_73gztobv",
+    "expiresAt": 1794414939463,
+    "createdAt": "2026-10-12T16:35:39.463Z"
+  },
+  {
+    "id": "sess_mv5hd6jy",
+    "userId": "usr_master_ankit_babu",
+    "token": "wm_tok_mv5hd6jy_y88wymtt",
+    "expiresAt": 1794415361902,
+    "createdAt": "2026-10-12T16:42:41.902Z"
+  },
+  {
+    "id": "sess_mv5hd9hq",
+    "userId": "usr_mv5hd9hq_b9ar",
+    "token": "wm_tok_mv5hd9hq_mf200yor",
+    "expiresAt": 1794415365710,
+    "createdAt": "2026-10-12T16:42:45.710Z"
+  },
+  {
+    "id": "sess_mv5i917g",
+    "userId": "usr_master_ankit_babu",
+    "token": "wm_tok_mv5i917g_ahg85v0f",
+    "expiresAt": 1794416847964,
+    "createdAt": "2026-10-12T17:07:27.964Z"
+  },
+  {
+    "id": "sess_mv5i9494",
+    "userId": "usr_mv5i9494_7yd5",
+    "token": "wm_tok_mv5i9494_orpzkfvi",
+    "expiresAt": 1794416851912,
+    "createdAt": "2026-10-12T17:07:31.912Z"
+  },
+  {
+    "id": "sess_mv5ib6kz",
+    "userId": "usr_mv5ib6kz_sw4w",
+    "token": "wm_tok_mv5ib6kz_vsxuf766",
+    "expiresAt": 1794416948243,
+    "createdAt": "2026-10-12T17:09:08.243Z"
+  },
+  {
+    "id": "sess_mv5iikvw",
+    "userId": "usr_master_ankit_babu",
+    "token": "wm_tok_mv5iikvw_1nl83ft8",
+    "expiresAt": 1794417293372,
+    "createdAt": "2026-10-12T17:14:53.372Z"
+  },
+  {
+    "id": "sess_mv5iinh6",
+    "userId": "usr_mv5iinh6_hhp2",
+    "token": "wm_tok_mv5iinh6_rc2h0ent",
+    "expiresAt": 1794417296730,
+    "createdAt": "2026-10-12T17:14:56.730Z"
+  },
+  {
+    "id": "sess_mv621iu8",
+    "userId": "usr_mv621iu7_xcmu",
+    "token": "wm_tok_mv621iu8_4qt4b7cc",
+    "expiresAt": 1794450089888,
+    "createdAt": "2026-10-13T02:21:29.888Z"
+  },
+  {
+    "id": "sess_mv621usy",
+    "userId": "usr_master_ankit_babu",
+    "token": "wm_tok_mv621usy_ieyjza0p",
+    "expiresAt": 1794450105394,
+    "createdAt": "2026-10-13T02:21:45.394Z"
+  }
+]

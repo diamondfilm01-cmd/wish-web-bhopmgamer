@@ -1,0 +1,514 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8"/>
+  <base href="/"/>
+  <meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+  <meta name="description" content="WishMagic Customer Support — Open a support ticket for payment issues, celebration link diagnostics, photo uploads, or account assistance."/>
+  <title>Contact Support &amp; Open Ticket | WishMagic</title>
+  
+  <link rel="preconnect" href="https://fonts.googleapis.com"/>
+  <link crossorigin="" href="https://fonts.gstatic.com" rel="preconnect"/>
+  <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&family=Outfit:wght@500;600;700;800;900&family=JetBrains+Mono:wght@400;500;700&display=swap" rel="stylesheet"/>
+  <link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:opsz,wght,FILL,GRAD@20..48,100..700,0..1,-50..200&display=swap" rel="stylesheet"/>
+  
+  <script src="/js/tailwind-config.js?v=20261015_wm47944_v7"></script>
+  <script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+  <script>
+    if (typeof tailwind !== 'undefined' && typeof sharedTailwindConfig !== 'undefined') {
+      tailwind.config = sharedTailwindConfig;
+    }
+  </script>
+  <script src="js/api-client.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/10.8.0/firebase-app-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/10.8.0/firebase-auth-compat.js"></script>
+  <script src="/js/firebase-auth.js?v=20261015_wm47944_v7"></script>
+  <script src="/js/auth-service.js?v=20261015_wm47944_v7"></script>
+  <script src="js/WishMagicCore.js"></script>
+  <script src="/js/site-theme.js?v=20261015_wm47944_v7"></script>
+  <link id="wishmagic-cloud-css" rel="stylesheet" href="/css/cloud-background.css?v=20261015_wm47944_v7"/>
+</head>
+<body class="bg-background text-on-surface font-body-md min-h-screen antialiased selection:bg-primary selection:text-white flex flex-col">
+
+  <!-- Header Navigation -->
+  <header class="sticky top-0 z-40 bg-surface/85 backdrop-blur-xl border-b border-purple-900/20">
+    <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 h-16 flex items-center justify-between gap-4">
+      <a href="/" class="flex items-center gap-2.5 group">
+        <div class="w-9 h-9 rounded-xl bg-gradient-to-tr from-purple-600 to-pink-500 flex items-center justify-center shadow-lg shadow-purple-500/25 transition-transform group-hover:scale-105">
+          <span class="material-symbols-outlined text-white text-[20px]">auto_fix_high</span>
+        </div>
+        <div class="flex flex-col">
+          <span class="font-display font-extrabold text-lg text-on-surface tracking-tight leading-none">WishMagic</span>
+          <span class="text-[10px] font-bold text-pink-500 uppercase tracking-widest leading-none mt-0.5">Support Desk</span>
+        </div>
+      </a>
+
+      <div class="flex items-center gap-3">
+        <a href="/help" class="px-3.5 py-1.5 rounded-xl bg-surface-container-high hover:bg-surface-container-highest text-on-surface text-xs font-bold transition flex items-center gap-1.5">
+          <span class="material-symbols-outlined text-[16px]">menu_book</span>
+          <span class="hidden sm:inline">Help Center</span>
+        </a>
+        <a href="/support/tickets" class="px-3.5 py-1.5 rounded-xl bg-surface-container-high hover:bg-surface-container-highest text-on-surface text-xs font-bold transition flex items-center gap-1.5">
+          <span class="material-symbols-outlined text-[16px] text-pink-400">confirmation_number</span>
+          <span>My Tickets</span>
+        </a>
+        <button onclick="toggleSiteTheme()" class="p-2 rounded-xl bg-surface-container hover:bg-surface-container-high text-on-surface transition cursor-pointer">
+          <span class="material-symbols-outlined text-[18px] theme-toggle-icon">light_mode</span>
+        </button>
+      </div>
+    </div>
+  </header>
+
+  <!-- Main Content -->
+  <main class="max-w-3xl mx-auto px-4 sm:px-6 lg:px-8 py-10 flex-1 w-full flex flex-col gap-6">
+
+    <!-- Breadcrumb & Header -->
+    <div>
+      <div class="flex items-center gap-2 text-xs text-outline mb-2">
+        <a href="/help" class="hover:text-pink-400 transition">Help Center</a>
+        <span>/</span>
+        <span class="text-on-surface font-semibold">Open Ticket</span>
+      </div>
+      <h1 class="font-display font-black text-2xl sm:text-4xl text-on-surface">Submit a Support Request</h1>
+      <p class="text-xs sm:text-sm text-on-surface-variant mt-1.5">
+        Need assistance with a celebration link, payment confirmation, or media upload? Tell us what's happening and our operations team will investigate.
+      </p>
+    </div>
+
+    <!-- Ticket Form Card -->
+    <div id="ticket-form-card" class="p-6 sm:p-8 rounded-3xl bg-surface-container border border-purple-500/20 shadow-xl flex flex-col gap-6">
+      
+      <!-- User Account Banner -->
+      <div id="auth-status-banner" class="p-3.5 rounded-2xl bg-purple-500/10 border border-purple-500/20 flex items-center justify-between text-xs">
+        <div class="flex items-center gap-2.5">
+          <span class="material-symbols-outlined text-purple-400 text-[18px]">verified_user</span>
+          <div>
+            <span class="text-outline">Submitting as:</span>
+            <span id="auth-user-name" class="font-bold text-on-surface ml-1">Checking session...</span>
+            <span id="auth-user-email" class="text-purple-300 font-mono text-[11px] ml-1"></span>
+          </div>
+        </div>
+        <a href="/account" class="text-[11px] font-bold text-pink-400 hover:underline">Change Account</a>
+      </div>
+
+      <!-- Error Alert -->
+      <div id="form-error-alert" class="hidden p-4 rounded-2xl bg-rose-500/10 border border-rose-500/30 text-rose-300 text-xs flex items-center gap-2">
+        <span class="material-symbols-outlined text-rose-400 text-[20px] flex-shrink-0">error</span>
+        <span id="form-error-msg">Please correct the highlighted fields.</span>
+      </div>
+
+      <form id="support-ticket-form" onsubmit="submitSupportTicket(event)" class="space-y-5">
+        
+        <!-- Category Selector -->
+        <div>
+          <label class="block text-xs font-bold uppercase tracking-wider text-outline mb-1.5">
+            What can we help you with? <span class="text-pink-500">*</span>
+          </label>
+          <div class="grid grid-cols-2 sm:grid-cols-3 gap-2.5" id="category-options-grid">
+            <button type="button" onclick="selectFormCategory('billing')" id="cat-btn-billing" class="cat-picker p-3 rounded-xl bg-surface-container-high border border-purple-900/30 text-left transition hover:border-pink-500/40 cursor-pointer">
+              <span class="material-symbols-outlined text-purple-400 text-[18px] block mb-1">payments</span>
+              <div class="text-xs font-bold text-on-surface">Payment &amp; Orders</div>
+            </button>
+            <button type="button" onclick="selectFormCategory('publishing')" id="cat-btn-publishing" class="cat-picker p-3 rounded-xl bg-surface-container-high border border-purple-900/30 text-left transition hover:border-pink-500/40 cursor-pointer">
+              <span class="material-symbols-outlined text-pink-400 text-[18px] block mb-1">share</span>
+              <div class="text-xs font-bold text-on-surface">Wish Publishing</div>
+            </button>
+            <button type="button" onclick="selectFormCategory('media')" id="cat-btn-media" class="cat-picker p-3 rounded-xl bg-surface-container-high border border-purple-900/30 text-left transition hover:border-pink-500/40 cursor-pointer">
+              <span class="material-symbols-outlined text-amber-400 text-[18px] block mb-1">perm_media</span>
+              <div class="text-xs font-bold text-on-surface">Photos &amp; Music</div>
+            </button>
+            <button type="button" onclick="selectFormCategory('templates')" id="cat-btn-templates" class="cat-picker p-3 rounded-xl bg-surface-container-high border border-purple-900/30 text-left transition hover:border-pink-500/40 cursor-pointer">
+              <span class="material-symbols-outlined text-cyan-400 text-[18px] block mb-1">auto_fix_high</span>
+              <div class="text-xs font-bold text-on-surface">Templates</div>
+            </button>
+            <button type="button" onclick="selectFormCategory('technical')" id="cat-btn-technical" class="cat-picker p-3 rounded-xl bg-surface-container-high border border-purple-900/30 text-left transition hover:border-pink-500/40 cursor-pointer">
+              <span class="material-symbols-outlined text-rose-400 text-[18px] block mb-1">pest_control</span>
+              <div class="text-xs font-bold text-on-surface">Link Error / Bug</div>
+            </button>
+            <button type="button" onclick="selectFormCategory('general')" id="cat-btn-general" class="cat-picker p-3 rounded-xl bg-surface-container-high border border-purple-900/30 text-left transition hover:border-pink-500/40 cursor-pointer">
+              <span class="material-symbols-outlined text-purple-300 text-[18px] block mb-1">help_center</span>
+              <div class="text-xs font-bold text-on-surface">General Question</div>
+            </button>
+          </div>
+          <input type="hidden" id="ticket-category" name="category" value="general" required/>
+        </div>
+
+        <!-- Dynamic Context: Related Order (shown if billing selected) -->
+        <div id="related-order-field" class="hidden p-4 rounded-2xl bg-surface-container-high/60 border border-purple-500/30 flex flex-col gap-2">
+          <label class="block text-xs font-bold uppercase tracking-wider text-purple-300">
+            Select Related Order (Optional)
+          </label>
+          <select id="related-order-select" class="w-full bg-surface-container text-on-surface text-xs rounded-xl px-3 py-2.5 border border-purple-900/40 focus:outline-none focus:border-pink-500">
+            <option value="">-- No specific order / Not applicable --</option>
+          </select>
+          <span class="text-[10px] text-outline">Linking an order helps our finance team review Razorpay payment status faster.</span>
+        </div>
+
+        <!-- Dynamic Context: Related Wish (shown if publishing or media selected) -->
+        <div id="related-wish-field" class="hidden p-4 rounded-2xl bg-surface-container-high/60 border border-purple-500/30 flex flex-col gap-2">
+          <label class="block text-xs font-bold uppercase tracking-wider text-pink-300">
+            Select Celebration Wish (Optional)
+          </label>
+          <select id="related-wish-select" class="w-full bg-surface-container text-on-surface text-xs rounded-xl px-3 py-2.5 border border-purple-900/40 focus:outline-none focus:border-pink-500">
+            <option value="">-- No specific celebration wish --</option>
+          </select>
+          <span class="text-[10px] text-outline">Linking your celebration wish enables automated health diagnostics on assets and links.</span>
+        </div>
+
+        <!-- Subject -->
+        <div>
+          <div class="flex items-center justify-between mb-1">
+            <label for="ticket-subject" class="block text-xs font-bold uppercase tracking-wider text-outline">
+              Subject <span class="text-pink-500">*</span>
+            </label>
+            <span id="subject-char-count" class="text-[10px] text-outline font-mono">0 / 200</span>
+          </div>
+          <input 
+            type="text" 
+            id="ticket-subject" 
+            name="subject" 
+            maxlength="200"
+            required 
+            placeholder="Brief summary of your inquiry or issue..." 
+            class="w-full bg-surface-container-low text-on-surface text-xs sm:text-sm rounded-xl px-4 py-3 border border-purple-900/30 focus:outline-none focus:border-pink-500 transition"
+            oninput="document.getElementById('subject-char-count').textContent = `${this.value.length} / 200`"
+          />
+        </div>
+
+        <!-- Description -->
+        <div>
+          <div class="flex items-center justify-between mb-1">
+            <label for="ticket-description" class="block text-xs font-bold uppercase tracking-wider text-outline">
+              Detailed Description <span class="text-pink-500">*</span>
+            </label>
+            <span id="desc-char-count" class="text-[10px] text-outline font-mono">0 / 5000</span>
+          </div>
+          <textarea 
+            id="ticket-description" 
+            name="description" 
+            rows="5" 
+            maxlength="5000"
+            required 
+            placeholder="Please describe what happened, steps to reproduce, or what you need help with. Include any error messages if visible..."
+            class="w-full bg-surface-container-low text-on-surface text-xs sm:text-sm rounded-xl px-4 py-3 border border-purple-900/30 focus:outline-none focus:border-pink-500 transition resize-y"
+            oninput="document.getElementById('desc-char-count').textContent = `${this.value.length} / 5000`"
+          ></textarea>
+        </div>
+
+        <!-- Safe Attachment Dropzone -->
+        <div>
+          <label class="block text-xs font-bold uppercase tracking-wider text-outline mb-1.5">
+            Attach Screenshots or Diagnostics (Optional)
+          </label>
+          <div 
+            class="p-5 rounded-2xl border-2 border-dashed border-purple-900/40 hover:border-pink-500/50 bg-surface-container-low/40 text-center transition flex flex-col items-center justify-center gap-2 cursor-pointer"
+            onclick="document.getElementById('attachment-file-input').click()"
+          >
+            <span class="material-symbols-outlined text-purple-400 text-3xl">cloud_upload</span>
+            <div class="text-xs text-on-surface font-semibold">Click to upload screenshot or diagnostic log</div>
+            <div class="text-[10px] text-outline">Supported: JPG, PNG, WebP (Max 5 MB each)</div>
+            <input 
+              type="file" 
+              id="attachment-file-input" 
+              class="hidden" 
+              accept="image/png,image/jpeg,image/webp,text/plain"
+              onchange="handleAttachmentFiles(this.files)"
+            />
+          </div>
+
+          <!-- Attachments List Preview -->
+          <div id="attachments-preview-list" class="mt-2.5 space-y-1.5"></div>
+        </div>
+
+        <!-- Notification Preference -->
+        <div class="pt-2">
+          <label class="block text-xs font-bold uppercase tracking-wider text-outline mb-1.5">Notification Preference</label>
+          <div class="flex items-center gap-4 text-xs">
+            <label class="flex items-center gap-2 cursor-pointer">
+              <input type="radio" name="contactPreference" value="in_app" checked class="text-pink-500 focus:ring-pink-500"/>
+              <span>In-App Notification Feed (Recommended)</span>
+            </label>
+            <label class="flex items-center gap-2 cursor-pointer">
+              <input type="radio" name="contactPreference" value="email" class="text-pink-500 focus:ring-pink-500"/>
+              <span>Email Updates</span>
+            </label>
+          </div>
+        </div>
+
+        <!-- Submit Button -->
+        <div class="pt-4 flex items-center justify-between gap-4">
+          <a href="/help" class="text-xs font-bold text-outline hover:text-white transition">Cancel</a>
+          <button 
+            type="submit" 
+            id="submit-ticket-btn"
+            class="px-6 py-3 rounded-2xl bg-gradient-to-r from-purple-600 to-pink-500 hover:brightness-110 active:scale-95 text-white font-extrabold text-xs sm:text-sm shadow-xl shadow-purple-600/30 transition flex items-center gap-2 cursor-pointer"
+          >
+            <span class="material-symbols-outlined text-[18px]">send</span>
+            <span>Submit Ticket</span>
+          </button>
+        </div>
+
+      </form>
+    </div>
+
+    <!-- Success Confirmation State (Hidden initially) -->
+    <div id="ticket-success-card" class="hidden p-8 sm:p-10 rounded-3xl bg-surface-container border border-emerald-500/40 shadow-2xl flex flex-col items-center text-center gap-5">
+      <div class="w-16 h-16 rounded-3xl bg-emerald-500/20 text-emerald-400 flex items-center justify-center shadow-lg shadow-emerald-500/20">
+        <span class="material-symbols-outlined text-4xl">check_circle</span>
+      </div>
+      <div>
+        <h2 class="font-display font-black text-2xl sm:text-3xl text-on-surface">Support Request Received!</h2>
+        <p class="text-xs sm:text-sm text-on-surface-variant max-w-md mt-1">
+          Your ticket has been registered in our support queue. Our support specialists have been notified and will review your case.
+        </p>
+      </div>
+
+      <div class="p-4 rounded-2xl bg-surface-container-low border border-purple-900/30 w-full max-w-md flex items-center justify-between">
+        <div class="text-left">
+          <span class="text-[10px] uppercase font-bold text-outline">Ticket Reference Number</span>
+          <div id="success-ticket-number" class="font-mono text-base font-black text-pink-400 mt-0.5">TKT-XXXXXX</div>
+        </div>
+        <span class="px-2.5 py-1 rounded-full bg-amber-500/20 text-amber-300 font-bold text-[10px] uppercase">Open</span>
+      </div>
+
+      <div class="flex flex-col sm:flex-row items-center gap-3 w-full max-w-md mt-2">
+        <a id="view-ticket-btn" href="/support/tickets" class="w-full sm:flex-1 py-3 px-4 rounded-xl bg-primary text-white font-bold text-xs shadow-md transition text-center">
+          View Ticket Thread
+        </a>
+        <a href="/help" class="w-full sm:flex-1 py-3 px-4 rounded-xl bg-surface-container-high hover:bg-surface-container-highest text-on-surface font-bold text-xs transition text-center">
+          Help Center
+        </a>
+      </div>
+    </div>
+
+  </main>
+
+  <script>
+    let uploadedAttachments = [];
+    let currentUser = null;
+
+    document.addEventListener('DOMContentLoaded', async () => {
+      // Check session
+      try {
+        const res = await fetch('/api/auth/session');
+        const data = await res.json();
+        if (data.success && data.user) {
+          currentUser = data.user;
+          document.getElementById('auth-user-name').textContent = currentUser.displayName || currentUser.name || 'Creator';
+          document.getElementById('auth-user-email').textContent = `(${currentUser.email})`;
+          loadUserContext();
+        } else {
+          document.getElementById('auth-user-name').textContent = 'Guest User';
+          document.getElementById('auth-user-email').textContent = '(Please sign in for full tracking)';
+        }
+      } catch (e) {
+        document.getElementById('auth-user-name').textContent = 'Guest User';
+      }
+
+      // Check query parameters for pre-filling
+      const params = new URLSearchParams(window.location.search);
+      const cat = params.get('category');
+      const wishId = params.get('wishId');
+      const orderId = params.get('orderId');
+      const subject = params.get('subject');
+
+      if (cat) selectFormCategory(cat);
+      else selectFormCategory('general');
+
+      if (subject) {
+        const subInput = document.getElementById('ticket-subject');
+        subInput.value = subject;
+        document.getElementById('subject-char-count').textContent = `${subject.length} / 200`;
+      }
+    });
+
+    function selectFormCategory(cat) {
+      document.getElementById('ticket-category').value = cat;
+
+      // Update button styling
+      document.querySelectorAll('.cat-picker').forEach(btn => {
+        btn.classList.remove('border-pink-500', 'bg-pink-500/10', 'shadow-md');
+        btn.classList.add('border-purple-900/30');
+      });
+
+      const activeBtn = document.getElementById(`cat-btn-${cat}`);
+      if (activeBtn) {
+        activeBtn.classList.add('border-pink-500', 'bg-pink-500/10', 'shadow-md');
+        activeBtn.classList.remove('border-purple-900/30');
+      }
+
+      // Toggle contextual fields
+      const orderField = document.getElementById('related-order-field');
+      const wishField = document.getElementById('related-wish-field');
+
+      if (cat === 'billing') {
+        orderField.classList.remove('hidden');
+        wishField.classList.add('hidden');
+      } else if (cat === 'publishing' || cat === 'media') {
+        wishField.classList.remove('hidden');
+        orderField.classList.add('hidden');
+      } else {
+        orderField.classList.add('hidden');
+        wishField.classList.add('hidden');
+      }
+    }
+
+    async function loadUserContext() {
+      // Load user wishes
+      try {
+        const res = await fetch('/api/wishes');
+        const data = await res.json();
+        if (data.success && data.wishes) {
+          const select = document.getElementById('related-wish-select');
+          data.wishes.forEach(w => {
+            const opt = document.createElement('option');
+            opt.value = w.id;
+            opt.textContent = `${w.recipientName || w.recipient_name || 'Loved One'} (/w/${w.slug || w.id})`;
+            select.appendChild(opt);
+          });
+        }
+      } catch (e) {}
+
+      // Load user orders
+      try {
+        const res = await fetch('/api/commerce/orders');
+        const data = await res.json();
+        if (data.success && data.orders) {
+          const select = document.getElementById('related-order-select');
+          data.orders.forEach(o => {
+            const opt = document.createElement('option');
+            opt.value = o.id;
+            const amt = ((o.amountPaise || o.amount_paise || 0) / 100).toFixed(0);
+            opt.textContent = `Order #${o.orderNumber || o.order_number || o.id.slice(0,8)} (₹${amt} • ${o.status})`;
+            select.appendChild(opt);
+          });
+        }
+      } catch (e) {}
+    }
+
+    function handleAttachmentFiles(files) {
+      if (!files || files.length === 0) return;
+      const file = files[0];
+
+      if (file.size > 5 * 1024 * 1024) {
+        alert('File size exceeds 5MB limit.');
+        return;
+      }
+
+      const reader = new FileReader();
+      reader.onload = (e) => {
+        uploadedAttachments.push({
+          fileName: file.name,
+          fileSize: file.size,
+          mimeType: file.type || 'image/png',
+          url: e.target.result,
+          storageProvider: 'data_url'
+        });
+        renderAttachmentsList();
+      };
+      reader.readAsDataURL(file);
+    }
+
+    function renderAttachmentsList() {
+      const list = document.getElementById('attachments-preview-list');
+      if (uploadedAttachments.length === 0) {
+        list.innerHTML = '';
+        return;
+      }
+
+      list.innerHTML = uploadedAttachments.map((att, idx) => `
+        <div class="p-2 rounded-xl bg-surface-container-high border border-purple-900/30 flex items-center justify-between text-xs">
+          <div class="flex items-center gap-2 truncate">
+            <span class="material-symbols-outlined text-pink-400 text-[18px]">attachment</span>
+            <span class="font-medium text-on-surface truncate">${att.fileName}</span>
+            <span class="text-outline text-[10px]">(${(att.fileSize / 1024).toFixed(1)} KB)</span>
+          </div>
+          <button type="button" onclick="removeAttachment(${idx})" class="p-1 rounded text-rose-400 hover:text-white transition">
+            <span class="material-symbols-outlined text-[16px]">close</span>
+          </button>
+        </div>
+      `).join('');
+    }
+
+    function removeAttachment(idx) {
+      uploadedAttachments.splice(idx, 1);
+      renderAttachmentsList();
+    }
+
+    async function submitSupportTicket(event) {
+      event.preventDefault();
+      const errAlert = document.getElementById('form-error-alert');
+      const errText = document.getElementById('form-error-msg');
+      const submitBtn = document.getElementById('submit-ticket-btn');
+
+      errAlert.classList.add('hidden');
+
+      const category = document.getElementById('ticket-category').value;
+      const subject = document.getElementById('ticket-subject').value.trim();
+      const description = document.getElementById('ticket-description').value.trim();
+      const orderId = document.getElementById('related-order-select')?.value || null;
+      const wishId = document.getElementById('related-wish-select')?.value || null;
+      const contactPreference = document.querySelector('input[name="contactPreference"]:checked')?.value || 'in_app';
+
+      if (!subject || subject.length < 5) {
+        errText.textContent = 'Subject must be at least 5 characters.';
+        errAlert.classList.remove('hidden');
+        return;
+      }
+      if (!description || description.length < 10) {
+        errText.textContent = 'Description must be at least 10 characters.';
+        errAlert.classList.remove('hidden');
+        return;
+      }
+
+      submitBtn.disabled = true;
+      submitBtn.innerHTML = `
+        <span class="material-symbols-outlined animate-spin text-[18px]">progress_activity</span>
+        <span>Submitting...</span>
+      `;
+
+      try {
+        const res = await fetch('/api/support/tickets', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            category,
+            subject,
+            description,
+            orderId: orderId || null,
+            wishId: wishId || null,
+            attachments: uploadedAttachments,
+            contactPreference
+          })
+        });
+
+        const data = await res.json();
+        if (data.success && data.ticket) {
+          // Display Success Card
+          document.getElementById('ticket-form-card').classList.add('hidden');
+          document.getElementById('ticket-success-card').classList.remove('hidden');
+          document.getElementById('success-ticket-number').textContent = data.ticket.ticketNumber || data.ticket.ticket_number;
+          document.getElementById('view-ticket-btn').href = `/support/tickets?id=${data.ticket.id}`;
+        } else {
+          errText.textContent = data.message || (data.error && data.error.message) || 'Failed to submit ticket. Please check your session.';
+          errAlert.classList.remove('hidden');
+          submitBtn.disabled = false;
+          submitBtn.innerHTML = `
+            <span class="material-symbols-outlined text-[18px]">send</span>
+            <span>Submit Ticket</span>
+          `;
+        }
+      } catch (err) {
+        errText.textContent = 'Network error submitting ticket. Please try again.';
+        errAlert.classList.remove('hidden');
+        submitBtn.disabled = false;
+        submitBtn.innerHTML = `
+          <span class="material-symbols-outlined text-[18px]">send</span>
+          <span>Submit Ticket</span>
+        `;
+      }
+    }
+  </script>
+
+</body>
+</html>

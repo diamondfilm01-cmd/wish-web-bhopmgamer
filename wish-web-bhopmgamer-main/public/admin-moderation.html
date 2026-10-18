@@ -1,0 +1,1009 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8"/>
+  <base href="/"/>
+  <meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+  <meta content="web_dashboard" name="shell-type"/>
+  <title>WishMagic | Content Moderation Queue &amp; Reports</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com"/>
+  <link crossorigin="" href="https://fonts.gstatic.com" rel="preconnect"/>
+  <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;600;700&family=Plus+Jakarta+Sans:wght@400;500;600;700;800&family=Outfit:wght@500;600;700;800&display=swap" rel="stylesheet"/>
+  <link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:opsz,wght,FILL,GRAD@20..48,100..700,0..1,-50..200&display=swap" rel="stylesheet"/>
+  <script src="js/tailwind-config.js?v=20261015_wm47944_v7"></script>
+  <script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+  <script>
+    if (typeof tailwind !== 'undefined' && typeof sharedTailwindConfig !== 'undefined') {
+      tailwind.config = sharedTailwindConfig;
+    }
+  </script>
+  <link rel="stylesheet" href="css/admin-theme.css?v=20261015_wm47944_v7"/>
+  <script src="js/api-client.js"></script>
+  <script src="js/auth-service.js?v=20261015_wm47944_v7"></script>
+  <script src="js/WishMagicCore.js"></script>
+  <script src="js/admin-theme.js?v=20261015_wm47944_v7"></script>
+
+</head>
+<body class="bg-background text-on-surface font-body-md min-h-screen antialiased selection:bg-primary selection:text-white">
+
+<!-- Mobile Sidebar Backdrop Overlay -->
+<div id="sidebar-backdrop" class="fixed inset-0 bg-black/75 backdrop-blur-sm z-40 hidden md:hidden" onclick="toggleSidebar()"></div>
+
+<!-- Magical Castle Sidebar (Pixel-Matched to 19728.png) -->
+<aside id="admin-sidebar" class="fixed left-0 top-0 h-screen w-[270px] z-50 flex flex-col justify-between -translate-x-full md:translate-x-0 transition-transform duration-300 ease-in-out select-none">
+  <div class="flex flex-col min-h-0 flex-1">
+    <!-- Brand Logo Header -->
+    <div class="px-5 pt-5 pb-3 flex-shrink-0">
+      <div class="flex items-center justify-between">
+        <a href="/admin/anktech/anktech/admin/overview" class="flex items-center gap-3 group text-decoration-none">
+          <!-- Magic Wand Icon -->
+          <div class="w-10 h-10 rounded-2xl bg-gradient-to-br from-pink-500/25 via-purple-500/25 to-amber-400/20 border border-pink-400/30 flex items-center justify-center shadow-[0_0_20px_rgba(236,72,153,0.35)] flex-shrink-0">
+            <svg class="w-6 h-6" viewBox="0 0 24 24" fill="none">
+              <path d="M4 20L15.5 8.5M15.5 8.5L18.5 5.5C19.05 4.95 19.95 4.95 20.5 5.5C21.05 6.05 21.05 6.95 20.5 7.5L17.5 10.5M15.5 8.5L17.5 10.5" stroke="url(#wandGrad)" stroke-width="2.4" stroke-linecap="round"/>
+              <path d="M11 4L11.6 5.4L13 6L11.6 6.6L11 8L10.4 6.6L9 6L10.4 5.4L11 4Z" fill="#FBBF24"/>
+              <path d="M19 13L19.4 14L20.4 14.4L19.4 14.8L19 15.8L18.6 14.8L17.6 14.4L18.6 14L19 13Z" fill="#F472B6"/>
+              <path d="M6 10L6.3 10.7L7 11L6.3 11.3L6 12L5.7 11.3L5 11L5.7 10.7L6 10Z" fill="#C084FC"/>
+              <defs>
+                <linearGradient id="wandGrad" x1="4" y1="20" x2="21" y2="5" gradientUnits="userSpaceOnUse">
+                  <stop stop-color="#C084FC"/>
+                  <stop offset="0.55" stop-color="#F472B6"/>
+                  <stop offset="1" stop-color="#FBBF24"/>
+                </linearGradient>
+              </defs>
+            </svg>
+          </div>
+          <div class="flex flex-col">
+            <div class="text-[22px] leading-none tracking-tight">
+              <span class="wm-brand-wish">Wish</span><span class="wm-brand-magic">Magic</span>
+            </div>
+            <span class="text-[10.5px] text-purple-200/80 font-medium tracking-wide mt-1">Create. Personalize. Celebrate.</span>
+          </div>
+        </a>
+        <button class="md:hidden p-1.5 rounded-lg bg-white/10 hover:bg-white/20 text-white transition-colors" onclick="toggleSidebar()" aria-label="Close Sidebar">
+          <span class="material-symbols-outlined text-[20px]">close</span>
+        </button>
+      </div>
+    </div>
+
+    <!-- Navigation Menu -->
+    <div class="px-3.5 flex-1 overflow-y-auto custom-scrollbar pb-6">
+      <nav class="flex flex-col gap-0.5">
+        <!-- Top Primary Dashboard Link -->
+        <div class="mb-1 pt-1">
+          <a data-nav-role="dashboard" href="/admin/anktech/anktech/admin/overview">
+            <span class="material-symbols-outlined text-[20px]" style="font-variation-settings: 'FILL' 1;">home</span>
+            <span>Dashboard</span>
+          </a>
+        </div>
+
+        <!-- TEMPLATES -->
+        <div class="wm-nav-section-label">TEMPLATES</div>
+        <a href="/admin/anktech/anktech/admin/templates">
+          <span class="material-symbols-outlined">grid_view</span>
+          <span>All Templates</span>
+        </a>
+        <a href="/admin/anktech/anktech/admin/add-template">
+          <span class="material-symbols-outlined">add_circle</span>
+          <span>Add Template</span>
+        </a>
+        <a href="/admin/anktech/anktech/admin/occasions">
+          <span class="material-symbols-outlined">category</span>
+          <span>Categories</span>
+        </a>
+        <a href="/admin/anktech/anktech/admin/media">
+          <span class="material-symbols-outlined">image</span>
+          <span>Media Library</span>
+        </a>
+        <a href="/admin/anktech/anktech/admin/media?tab=audio">
+          <span class="material-symbols-outlined">music_note</span>
+          <span>Music Library</span>
+        </a>
+
+        <!-- WISHES -->
+        <div class="wm-nav-section-label">WISHES</div>
+        <a href="/admin/anktech/anktech/admin/wishes">
+          <span class="material-symbols-outlined">description</span>
+          <span>All Wishes</span>
+        </a>
+        <a href="/admin/anktech/anktech/admin/wishes?filter=expiring">
+          <span class="material-symbols-outlined">schedule</span>
+          <span>Expiring Soon</span>
+        </a>
+        <a href="/admin/anktech/anktech/admin/analytics">
+          <span class="material-symbols-outlined">trending_up</span>
+          <span>Analytics</span>
+        </a>
+
+        <!-- USERS -->
+        <div class="wm-nav-section-label">USERS</div>
+        <a href="/admin/anktech/anktech/admin/users">
+          <span class="material-symbols-outlined">group</span>
+          <span>All Users</span>
+        </a>
+        <a href="/admin/anktech/anktech/admin/pricing">
+          <span class="material-symbols-outlined">workspace_premium</span>
+          <span>Subscriptions</span>
+        </a>
+        <a href="/admin/anktech/anktech/admin/orders">
+          <span class="material-symbols-outlined">credit_card</span>
+          <span>Payments</span>
+        </a>
+
+        <!-- SYSTEM -->
+        <div class="wm-nav-section-label">SYSTEM</div>
+        <a href="/admin/anktech/anktech/admin/settings">
+          <span class="material-symbols-outlined">settings</span>
+          <span>Settings</span>
+        </a>
+        <a href="/admin/anktech/anktech/admin/storage-health">
+          <span class="material-symbols-outlined">database</span>
+          <span>Storage</span>
+        </a>
+        <a href="/admin/anktech/anktech/admin/storage-health?tab=backups">
+          <span class="material-symbols-outlined">cloud_download</span>
+          <span>Backups</span>
+        </a>
+        <a href="/admin/anktech/anktech/admin/audit-logs">
+          <span class="material-symbols-outlined">receipt_long</span>
+          <span>Activity Logs</span>
+        </a>
+
+        <!-- Expandable More Studio Tools (Keeps all 19 platform routes accessible & tested) -->
+        <button type="button" onclick="toggleMoreSidebarSections()" class="mt-2 px-3 py-1.5 rounded-xl text-[11px] font-bold uppercase tracking-wider text-purple-200/75 hover:text-white hover:bg-white/10 transition flex items-center justify-between w-full text-left cursor-pointer">
+          <span>More Studio Sections</span>
+          <span id="wm-sidebar-more-chevron" class="material-symbols-outlined text-[16px] transition-transform">expand_more</span>
+        </button>
+        <div id="wm-sidebar-more-group" class="flex flex-col gap-0.5 pt-1 pl-1 border-l border-purple-400/25 ml-2">
+          <a href="/admin/anktech/anktech/admin/user-creations">
+            <span class="material-symbols-outlined">folder_shared</span>
+            <span>User Creations</span>
+          </a>
+          <a href="/admin/anktech/anktech/admin/search">
+            <span class="material-symbols-outlined">manage_search</span>
+            <span>Search &amp; Discovery</span>
+          </a>
+          <a href="/admin/anktech/anktech/admin/referrals">
+            <span class="material-symbols-outlined">loyalty</span>
+            <span>Referrals &amp; Rewards</span>
+          </a>
+          <a class="wm-nav-active" href="/admin/anktech/anktech/admin/moderation">
+            <span class="material-symbols-outlined">gavel</span>
+            <span>Moderation Queue</span>
+          </a>
+          <a href="/admin/anktech/anktech/admin/support">
+            <span class="material-symbols-outlined">support_agent</span>
+            <span>Support Console</span>
+          </a>
+          <a href="/admin/anktech/anktech/admin/staff">
+            <span class="material-symbols-outlined">badge</span>
+            <span>Staff &amp; Team</span>
+          </a>
+          <a href="/admin/anktech/anktech/admin/legal">
+            <span class="material-symbols-outlined">policy</span>
+            <span>Legal &amp; Compliance</span>
+          </a>
+          <a href="/admin/anktech/anktech/admin/announcements">
+            <span class="material-symbols-outlined">campaign</span>
+            <span>Announcements</span>
+          </a>
+          <a href="/admin/anktech/anktech/admin/notifications">
+            <span class="material-symbols-outlined">notifications_active</span>
+            <span>Notification Queue</span>
+          </a>
+        </div>
+      </nav>
+    </div>
+  </div>
+</aside>
+
+<!-- Main Viewport Wrapper -->
+<div class="w-full md:pl-[270px] min-h-screen flex flex-col">
+<!-- Universal Top Cloud Header (Pixel-Matched to 19728.png) -->
+  <header class="wm-top-header fixed top-0 left-0 md:left-[270px] right-0 h-[68px] z-30">
+    <div class="w-full h-full px-3 sm:px-6 flex items-center justify-between gap-2.5 sm:gap-4">
+      <!-- Left: Hamburger + Search Pill with Ctrl K -->
+      <div class="flex items-center gap-2 sm:gap-2.5 flex-1 max-w-lg min-w-0">
+        <button class="md:hidden p-2 rounded-xl bg-white/85 dark:bg-[#24144a] hover:bg-white text-[#2b194d] dark:text-white shadow-sm flex items-center justify-center flex-shrink-0" onclick="toggleSidebar()" aria-label="Open Sidebar">
+          <span class="material-symbols-outlined text-[22px]">menu</span>
+        </button>
+        <div class="wm-header-search-wrap">
+          <span class="material-symbols-outlined absolute left-3.5 text-[#6b5a88] dark:text-purple-300 text-[18px] pointer-events-none">search</span>
+          <input class="wm-header-search-input" placeholder="Search flagged wishes, abuse reports, moderation queue..." type="text"/>
+          <span class="wm-ctrl-k-badge hidden sm:inline-block">Ctrl K</span>
+          <!-- Search Dropdown Results Container -->
+          <div id="global-search-results" class="hidden absolute top-12 left-0 right-0 bg-white dark:bg-[#1c103b] rounded-2xl border border-purple-200 dark:border-purple-500/30 shadow-2xl p-3 z-50 max-h-96 overflow-y-auto custom-scrollbar"></div>
+        </div>
+      </div>
+
+      <!-- Right: Sun/Moon Pill Switcher + Live Bell + Admin Profile Card -->
+      <div class="flex items-center gap-2 sm:gap-3.5 flex-shrink-0">
+        <!-- Sun / Moon Pill Toggle -->
+        <button type="button" onclick="toggleAdminTheme()" class="wm-theme-pill-btn" title="Toggle Light / Dark Mode">
+          <span class="wm-theme-pill-sun" id="wm-theme-sun-pill">
+            <span class="material-symbols-outlined text-[16px]">light_mode</span>
+          </span>
+          <span class="wm-theme-pill-knob" id="wm-theme-moon-pill">
+            <span class="material-symbols-outlined text-[14px] theme-toggle-icon" id="theme-toggle-icon" style="font-variation-settings: 'FILL' 1;">dark_mode</span>
+          </span>
+        </button>
+
+        <!-- Live Notification Bell (Populated Dynamically from Real Backend APIs) -->
+        <div class="relative">
+          <button type="button" onclick="toggleAdminNotifMenu(event)" class="relative w-9 h-9 sm:w-10 sm:h-10 rounded-full bg-white/90 dark:bg-[#211342] border border-purple-200/80 dark:border-purple-500/35 flex items-center justify-center text-[#2b194d] dark:text-purple-200 shadow-sm hover:bg-white transition cursor-pointer" title="Live Notifications">
+            <span class="material-symbols-outlined text-[20px]">notifications</span>
+            <span id="wm-header-notif-badge" class="hidden absolute -top-0.5 -right-0.5 min-w-[18px] h-[18px] px-1 rounded-full bg-rose-500 text-white text-[10px] font-extrabold flex items-center justify-center shadow">0</span>
+          </button>
+
+          <!-- Notifications Popover (Populated by loadLiveAdminHeaderNotifications in admin-theme.js) -->
+          <div id="wm-admin-notif-dropdown" class="hidden absolute right-0 mt-2 w-80 bg-white dark:bg-[#1a0e36] rounded-2xl border border-purple-200 dark:border-purple-500/30 shadow-2xl p-3.5 z-50 text-xs" onclick="event.stopPropagation()">
+            <div class="py-4 text-center text-xs text-on-surface-variant">Loading live notifications...</div>
+          </div>
+        </div>
+
+        <!-- Admin Profile Pill -->
+        <div class="relative">
+          <div onclick="toggleAdminProfileMenu(event)" class="wm-admin-profile-pill">
+            <div class="w-8 h-8 sm:w-9 sm:h-9 rounded-full bg-gradient-to-br from-[#4c1d95] to-[#6d28d9] flex items-center justify-center text-white shadow-sm flex-shrink-0">
+              <span class="material-symbols-outlined text-[19px]">person</span>
+            </div>
+            <div class="hidden sm:flex flex-col text-left leading-tight">
+              <span class="text-[13.5px] font-extrabold text-on-surface">Admin</span>
+              <span id="wm-admin-header-email" class="text-[11px] font-medium text-on-surface-variant">ankit.babusaini@gmail.com</span>
+            </div>
+            <span class="material-symbols-outlined text-[18px] text-on-surface-variant ml-0.5">expand_more</span>
+          </div>
+
+          <!-- Profile Dropdown Menu -->
+          <div id="wm-admin-profile-dropdown" class="hidden absolute right-0 mt-2 w-60 bg-white dark:bg-[#1a0e36] rounded-2xl border border-purple-200 dark:border-purple-500/30 shadow-2xl p-2 z-50 text-xs" onclick="event.stopPropagation()">
+            <div class="px-3 py-2 border-b border-purple-100 dark:border-purple-800/40 mb-1">
+              <div class="font-bold text-sm text-on-surface">Admin Studio</div>
+              <div class="text-[11px] text-on-surface-variant truncate">ankit.babusaini@gmail.com</div>
+            </div>
+            <a href="/admin/anktech/anktech/admin/settings" class="flex items-center gap-2.5 px-3 py-2 rounded-xl hover:bg-purple-50 dark:hover:bg-purple-900/30 text-on-surface font-semibold transition">
+              <span class="material-symbols-outlined text-[17px] text-purple-600">settings</span>
+              <span>Main Website &amp; Site Settings</span>
+            </a>
+            <a href="/admin/anktech/anktech/admin/add-template" class="flex items-center gap-2.5 px-3 py-2 rounded-xl hover:bg-purple-50 dark:hover:bg-purple-900/30 text-on-surface font-semibold transition">
+              <span class="material-symbols-outlined text-[17px] text-pink-500">add_circle</span>
+              <span>Upload &amp; Set New Template</span>
+            </a>
+            <a href="/admin/anktech/anktech/admin/media" class="flex items-center gap-2.5 px-3 py-2 rounded-xl hover:bg-purple-50 dark:hover:bg-purple-900/30 text-on-surface font-semibold transition">
+              <span class="material-symbols-outlined text-[17px] text-indigo-500">perm_media</span>
+              <span>Hero Photo &amp; Media Vault</span>
+            </a>
+            <a href="/" target="_blank" class="flex items-center gap-2.5 px-3 py-2 rounded-xl hover:bg-purple-50 dark:hover:bg-purple-900/30 text-on-surface font-semibold transition">
+              <span class="material-symbols-outlined text-[17px] text-emerald-600">open_in_new</span>
+              <span>View Live Website</span>
+            </a>
+            <div class="border-t border-purple-100 dark:border-purple-800/40 my-1"></div>
+            <button type="button" onclick="window.AdminAuthController && window.AdminAuthController.logout()" class="w-full flex items-center gap-2.5 px-3 py-2 rounded-xl hover:bg-rose-50 dark:hover:bg-rose-950/40 text-rose-600 font-bold transition text-left cursor-pointer">
+              <span class="material-symbols-outlined text-[17px]">logout</span>
+              <span>Sign Out</span>
+            </button>
+          </div>
+        </div>
+      </div>
+    </div>
+  </header>
+
+  <!-- Main Workspace Content -->
+  <main id="admin-main-content" class="w-full pt-[80px] px-4 sm:px-6 pb-12 max-w-[1560px] mx-auto flex flex-col gap-5">
+
+    
+    <section class="wm-hero-banner">
+      <div class="relative z-10 flex flex-col items-start max-w-2xl">
+        <div class="wm-hero-welcome-pill">
+          <span>Moderation Hub • Content Safety Desk</span>
+          <span>🛡️</span>
+        </div>
+        <h1 class="wm-hero-title">
+          <span>Content</span> <span class="wm-pink-word">Moderation</span> <span class="wm-lavender-word">&amp; Flagged Queue</span>
+        </h1>
+        <p class="wm-hero-subtitle">
+          Review user reports, policy violations, and flagged celebration wishes, and execute safe enforcement actions.
+        </p>
+        <div class="flex flex-wrap items-center gap-3">
+          <a href="/admin/anktech/anktech/admin/wishes" class="wm-btn-pink-pill">
+            <span class="material-symbols-outlined text-[18px]">description</span>
+            <span>View All Wishes</span>
+          </a>
+        </div>
+      </div>
+    </section>
+    <!-- KPI Summary Cards (Part 47 Complete Content Moderation Console) -->
+    <div class="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-3.5">
+      <div class="wm-card p-4 rounded-2xl bg-amber-500/10 border border-amber-500/30 shadow-md">
+        <span class="text-[11px] font-bold uppercase tracking-wider text-amber-400">Pending Review</span>
+        <div id="stat-pending-items" class="font-display text-2xl font-black text-amber-400 mt-1">0</div>
+        <span class="text-[10px] text-amber-300/80">Quarantined queue</span>
+      </div>
+      <div class="wm-card p-4 rounded-2xl bg-emerald-500/10 border border-emerald-500/30 shadow-md">
+        <span class="text-[11px] font-bold uppercase tracking-wider text-emerald-400">Approved Items</span>
+        <div id="stat-approved-items" class="font-display text-2xl font-black text-emerald-400 mt-1">0</div>
+        <span class="text-[10px] text-emerald-300/80">Released to public</span>
+      </div>
+      <div class="wm-card p-4 rounded-2xl bg-rose-500/10 border border-rose-500/30 shadow-md">
+        <span class="text-[11px] font-bold uppercase tracking-wider text-rose-400">Rejected Items</span>
+        <div id="stat-rejected-items" class="font-display text-2xl font-black text-rose-400 mt-1">0</div>
+        <span class="text-[10px] text-rose-300/80">Blocked violations</span>
+      </div>
+      <div class="wm-card p-4 rounded-2xl bg-orange-500/10 border border-orange-500/30 shadow-md">
+        <span class="text-[11px] font-bold uppercase tracking-wider text-orange-400">Scan Failed</span>
+        <div id="stat-scan-failed-items" class="font-display text-2xl font-black text-orange-400 mt-1">0</div>
+        <span class="text-[10px] text-orange-300/80">Fail-closed hold</span>
+      </div>
+      <div class="wm-card p-4 rounded-2xl bg-purple-500/10 border border-purple-500/30 shadow-md">
+        <span class="text-[11px] font-bold uppercase tracking-wider text-purple-300">Pending Appeals</span>
+        <div id="stat-pending-appeals" class="font-display text-2xl font-black text-purple-300 mt-1">0</div>
+        <span class="text-[10px] text-purple-300/80">Recheck requests</span>
+      </div>
+      <div class="wm-card p-4 rounded-2xl bg-red-500/10 border border-red-500/30 shadow-md">
+        <span class="text-[11px] font-bold uppercase tracking-wider text-red-400">Restricted Users</span>
+        <div id="stat-restricted-users" class="font-display text-2xl font-black text-red-400 mt-1">0</div>
+        <span class="text-[10px] text-red-300/80">Repeat offenders</span>
+      </div>
+    </div>
+
+    <!-- Legacy KPI counters preserved for compatibility -->
+    <div class="hidden">
+      <span id="stat-pending-reports">0</span>
+      <span id="stat-flagged-wishes">0</span>
+      <span id="stat-resolved-reports">0</span>
+      <span id="sidebar-mod-badge">0</span>
+    </div>
+
+    <!-- Section 0: Content Moderation & Quarantine Vault Queue -->
+    <div class="wm-card bg-surface-container rounded-2xl border border-purple-900/30 shadow-xl overflow-hidden p-5 flex flex-col gap-4">
+      <div class="flex flex-wrap items-center justify-between gap-3">
+        <div class="flex items-center gap-2">
+          <span class="material-symbols-outlined text-pink-400 text-[22px]">shield_lock</span>
+          <h3 class="font-display text-base font-bold text-on-surface">Media &amp; Content Quarantine Moderation Queue</h3>
+        </div>
+        <div class="flex flex-wrap items-center gap-2">
+          <button onclick="filterModerationItems('ALL')" data-mod-tab="ALL" class="mod-tab-btn px-3 py-1.5 rounded-xl bg-primary text-white text-xs font-bold cursor-pointer">All</button>
+          <button onclick="filterModerationItems('PENDING_REVIEW')" data-mod-tab="PENDING_REVIEW" class="mod-tab-btn px-3 py-1.5 rounded-xl bg-surface-container-high text-on-surface-variant text-xs font-bold cursor-pointer">Pending Review</button>
+          <button onclick="filterModerationItems('APPROVED')" data-mod-tab="APPROVED" class="mod-tab-btn px-3 py-1.5 rounded-xl bg-surface-container-high text-on-surface-variant text-xs font-bold cursor-pointer">Approved</button>
+          <button onclick="filterModerationItems('REJECTED')" data-mod-tab="REJECTED" class="mod-tab-btn px-3 py-1.5 rounded-xl bg-surface-container-high text-on-surface-variant text-xs font-bold cursor-pointer">Rejected</button>
+          <button onclick="filterModerationItems('SCAN_FAILED')" data-mod-tab="SCAN_FAILED" class="mod-tab-btn px-3 py-1.5 rounded-xl bg-surface-container-high text-on-surface-variant text-xs font-bold cursor-pointer">Scan Failed</button>
+          <button onclick="runRetentionCleanup()" class="px-3 py-1.5 rounded-xl bg-rose-500/20 hover:bg-rose-500 text-rose-300 hover:text-white text-xs font-bold transition cursor-pointer flex items-center gap-1">
+            <span class="material-symbols-outlined text-[15px]">delete_sweep</span>
+            <span>Purge Expired Rejected</span>
+          </button>
+          <button onclick="loadModerationQueue()" class="px-3 py-1.5 rounded-xl bg-purple-500/20 hover:bg-purple-500 text-purple-200 hover:text-white text-xs font-bold transition cursor-pointer flex items-center gap-1">
+            <span class="material-symbols-outlined text-[15px]">refresh</span>
+            <span>Refresh</span>
+          </button>
+        </div>
+      </div>
+
+      <div class="overflow-x-auto custom-scrollbar">
+        <table class="w-full text-left border-collapse text-xs">
+          <thead>
+            <tr class="border-b border-purple-900/30 bg-surface-container-high/50 text-outline uppercase font-bold text-[10px] tracking-wider">
+              <th class="py-3 px-3">Item / Kind</th>
+              <th class="py-3 px-3">Owner &amp; Target</th>
+              <th class="py-3 px-3">Status &amp; Quarantine</th>
+              <th class="py-3 px-3">Reason, Categories &amp; Provider</th>
+              <th class="py-3 px-3">Timestamps</th>
+              <th class="py-3 px-3 text-right">Authorized Review Actions</th>
+            </tr>
+          </thead>
+          <tbody id="moderation-items-body" class="divide-y divide-purple-900/20 font-medium text-on-surface">
+            <!-- Populated dynamically -->
+          </tbody>
+        </table>
+      </div>
+      <div id="moderation-items-empty" class="hidden p-6 text-center text-outline text-xs">
+        No moderation items matching the current filter.
+      </div>
+    </div>
+
+    <!-- Section 0B: Appeals & Recheck Workflow + Repeat-Offender Account Restrictions -->
+    <div class="grid grid-cols-1 lg:grid-cols-2 gap-5">
+      <!-- Appeals & Recheck Queue -->
+      <div class="wm-card bg-surface-container rounded-2xl border border-purple-900/30 shadow-xl overflow-hidden p-5 flex flex-col gap-4">
+        <h3 class="font-display text-base font-bold text-on-surface flex items-center gap-2">
+          <span class="material-symbols-outlined text-purple-400 text-[20px]">rate_review</span>
+          <span>User Appeals &amp; Recheck Requests</span>
+        </h3>
+        <div class="overflow-x-auto custom-scrollbar">
+          <table class="w-full text-left border-collapse text-xs">
+            <thead>
+              <tr class="border-b border-purple-900/30 bg-surface-container-high/50 text-outline uppercase font-bold text-[10px] tracking-wider">
+                <th class="py-2.5 px-3">Appeal / Item</th>
+                <th class="py-2.5 px-3">User &amp; Reason</th>
+                <th class="py-2.5 px-3">Status</th>
+                <th class="py-2.5 px-3 text-right">Decision</th>
+              </tr>
+            </thead>
+            <tbody id="appeals-table-body" class="divide-y divide-purple-900/20 font-medium text-on-surface"></tbody>
+          </table>
+        </div>
+        <div id="appeals-empty" class="hidden p-4 text-center text-outline text-xs">No pending appeals.</div>
+      </div>
+
+      <!-- Repeat Violations & Account Restrictions -->
+      <div class="wm-card bg-surface-container rounded-2xl border border-purple-900/30 shadow-xl overflow-hidden p-5 flex flex-col gap-4">
+        <h3 class="font-display text-base font-bold text-on-surface flex items-center gap-2">
+          <span class="material-symbols-outlined text-red-400 text-[20px]">person_off</span>
+          <span>Repeated Violations &amp; Account Restrictions</span>
+        </h3>
+        <div class="overflow-x-auto custom-scrollbar">
+          <table class="w-full text-left border-collapse text-xs">
+            <thead>
+              <tr class="border-b border-purple-900/30 bg-surface-container-high/50 text-outline uppercase font-bold text-[10px] tracking-wider">
+                <th class="py-2.5 px-3">User Account</th>
+                <th class="py-2.5 px-3">Strikes</th>
+                <th class="py-2.5 px-3">Restriction Reason</th>
+                <th class="py-2.5 px-3 text-right">Control</th>
+              </tr>
+            </thead>
+            <tbody id="restricted-users-body" class="divide-y divide-purple-900/20 font-medium text-on-surface"></tbody>
+          </table>
+        </div>
+        <div id="restricted-users-empty" class="hidden p-4 text-center text-outline text-xs">No restricted accounts or strike records.</div>
+      </div>
+    </div>
+
+    <!-- Section 1: User Reports Queue -->
+    <div class="wm-card bg-surface-container rounded-2xl border border-purple-900/30 shadow-xl overflow-hidden p-5 flex flex-col gap-4">
+      <div class="flex items-center justify-between">
+        <h3 class="font-display text-base font-bold text-on-surface flex items-center gap-2">
+          <span class="material-symbols-outlined text-primary text-[20px]">flag</span>
+          <span>User &amp; System Incident Reports</span>
+        </h3>
+        <button onclick="loadModerationQueue()" class="text-xs font-bold text-primary hover:underline cursor-pointer flex items-center gap-1">
+          <span class="material-symbols-outlined text-[15px]">refresh</span>
+          <span>Refresh Queue</span>
+        </button>
+      </div>
+
+      <div class="overflow-x-auto custom-scrollbar">
+        <table class="w-full text-left border-collapse text-xs">
+          <thead>
+            <tr class="border-b border-purple-900/30 bg-surface-container-high/50 text-outline uppercase font-bold text-[10px] tracking-wider">
+              <th class="py-3 px-3">Report ID</th>
+              <th class="py-3 px-3">Target / Item</th>
+              <th class="py-3 px-3">Reason</th>
+              <th class="py-3 px-3">Reporter</th>
+              <th class="py-3 px-3">Status</th>
+              <th class="py-3 px-3">Filed At</th>
+              <th class="py-3 px-3 text-right">Action</th>
+            </tr>
+          </thead>
+          <tbody id="reports-table-body" class="divide-y divide-purple-900/20 font-medium text-on-surface">
+            <!-- Dynamic rows -->
+          </tbody>
+        </table>
+      </div>
+
+      <div id="reports-empty" class="hidden p-8 text-center text-outline">
+        No pending content reports found in the queue.
+      </div>
+    </div>
+
+    <!-- Section 2: Flagged Celebration Wishes -->
+    <div class="wm-card bg-surface-container rounded-2xl border border-purple-900/30 shadow-xl overflow-hidden p-5 flex flex-col gap-4">
+      <h3 class="font-display text-base font-bold text-on-surface flex items-center gap-2">
+        <span class="material-symbols-outlined text-amber-400 text-[20px]">warning</span>
+        <span>Flagged Wishes Requiring Review</span>
+      </h3>
+
+      <div class="overflow-x-auto custom-scrollbar">
+        <table class="w-full text-left border-collapse text-xs">
+          <thead>
+            <tr class="border-b border-purple-900/30 bg-surface-container-high/50 text-outline uppercase font-bold text-[10px] tracking-wider">
+              <th class="py-3 px-3">Recipient &amp; Occasion</th>
+              <th class="py-3 px-3">Public Slug</th>
+              <th class="py-3 px-3">Status</th>
+              <th class="py-3 px-3">Reason / Flag</th>
+              <th class="py-3 px-3 text-right">Moderation Actions</th>
+            </tr>
+          </thead>
+          <tbody id="flagged-wishes-body" class="divide-y divide-purple-900/20 font-medium text-on-surface">
+            <!-- Dynamic rows -->
+          </tbody>
+        </table>
+      </div>
+
+      <div id="flagged-empty" class="hidden p-8 text-center text-outline">
+        No flagged celebration wishes found.
+      </div>
+    </div>
+
+    <!-- Section 3: Moderation Audit Trail -->
+    <div class="wm-card bg-surface-container rounded-2xl border border-purple-900/30 shadow-xl overflow-hidden p-5 flex flex-col gap-4">
+      <h3 class="font-display text-base font-bold text-on-surface flex items-center gap-2">
+        <span class="material-symbols-outlined text-emerald-400 text-[20px]">history_edu</span>
+        <span>Moderation Enforcement Audit Logs</span>
+      </h3>
+      <div class="overflow-x-auto custom-scrollbar">
+        <table class="w-full text-left border-collapse text-xs">
+          <thead>
+            <tr class="border-b border-purple-900/30 bg-surface-container-high/50 text-outline uppercase font-bold text-[10px] tracking-wider">
+              <th class="py-2.5 px-3">Audit ID</th>
+              <th class="py-2.5 px-3">Actor</th>
+              <th class="py-2.5 px-3">Action</th>
+              <th class="py-2.5 px-3">Target</th>
+              <th class="py-2.5 px-3">Timestamp</th>
+            </tr>
+          </thead>
+          <tbody id="moderation-audit-body" class="divide-y divide-purple-900/20 font-medium text-on-surface"></tbody>
+        </table>
+      </div>
+    </div>
+  </main>
+</div>
+
+<script>
+  let queueReports = [];
+  let flaggedWishes = [];
+  let moderationItems = [];
+  let moderationAppeals = [];
+  let restrictedUsers = [];
+  let moderationAuditLogs = [];
+  let activeStatusTab = 'ALL';
+
+  document.addEventListener('DOMContentLoaded', loadModerationQueue);
+
+  function escapeModHtml(str) {
+    return String(str ?? '')
+      .replace(/&/g, '&amp;')
+      .replace(/</g, '&lt;')
+      .replace(/>/g, '&gt;')
+      .replace(/"/g, '&quot;');
+  }
+
+  async function loadModerationQueue() {
+    try {
+      const res = await fetch('/api/admin/moderation/queue');
+      const data = await res.json();
+      if (data.success) {
+        queueReports = data.reports || [];
+        flaggedWishes = data.flaggedWishes || [];
+        moderationItems = data.items || [];
+        moderationAppeals = data.appeals || [];
+        restrictedUsers = data.restrictedUsers || [];
+        moderationAuditLogs = data.auditLogs || [];
+        updateCounts(data.counts || {});
+        renderModerationItemsTable();
+        renderAppealsTable();
+        renderRestrictedUsersTable();
+        renderReportsTable();
+        renderFlaggedTable();
+        renderAuditLogsTable();
+      }
+    } catch (e) {
+      console.warn('Error loading moderation queue:', e);
+    }
+  }
+
+  function filterModerationItems(status) {
+    activeStatusTab = status;
+    document.querySelectorAll('.mod-tab-btn').forEach(btn => {
+      if (btn.getAttribute('data-mod-tab') === status) {
+        btn.className = 'mod-tab-btn px-3 py-1.5 rounded-xl bg-primary text-white text-xs font-bold cursor-pointer';
+      } else {
+        btn.className = 'mod-tab-btn px-3 py-1.5 rounded-xl bg-surface-container-high text-on-surface-variant text-xs font-bold cursor-pointer';
+      }
+    });
+    renderModerationItemsTable();
+  }
+
+  function updateCounts(counts = {}) {
+    const pendingReports = queueReports.filter(r => r.status === 'pending').length;
+    const resolvedReports = queueReports.filter(r => r.status === 'resolved' || r.status === 'dismissed').length;
+
+    const setEl = (id, val) => {
+      const el = document.getElementById(id);
+      if (el) el.textContent = val;
+    };
+
+    setEl('stat-pending-items', counts.pendingReview ?? moderationItems.filter(i => i.status === 'PENDING_REVIEW').length);
+    setEl('stat-approved-items', counts.approved ?? moderationItems.filter(i => i.status === 'APPROVED').length);
+    setEl('stat-rejected-items', counts.rejected ?? moderationItems.filter(i => i.status === 'REJECTED').length);
+    setEl('stat-scan-failed-items', counts.scanFailed ?? moderationItems.filter(i => i.status === 'SCAN_FAILED').length);
+    setEl('stat-pending-appeals', counts.appealed ?? moderationAppeals.filter(a => a.status === 'PENDING').length);
+    setEl('stat-restricted-users', counts.restrictedUsers ?? restrictedUsers.length);
+
+    setEl('stat-pending-reports', pendingReports);
+    setEl('stat-flagged-wishes', flaggedWishes.length);
+    setEl('stat-resolved-reports', resolvedReports);
+    setEl('sidebar-mod-badge', pendingReports + (counts.pendingReview || 0));
+  }
+
+  function renderModerationItemsTable() {
+    const tbody = document.getElementById('moderation-items-body');
+    const empty = document.getElementById('moderation-items-empty');
+    if (!tbody) return;
+
+    const list = activeStatusTab === 'ALL'
+      ? moderationItems
+      : moderationItems.filter(i => i.status === activeStatusTab);
+
+    if (list.length === 0) {
+      tbody.innerHTML = '';
+      if (empty) empty.classList.remove('hidden');
+      return;
+    }
+    if (empty) empty.classList.add('hidden');
+
+    tbody.innerHTML = list.map(item => {
+      const isCsam = Boolean(item.isCsamLocked || item.status === 'CSAM_LOCKED');
+      const statusBadgeClass =
+        item.status === 'APPROVED' ? 'bg-emerald-500/20 text-emerald-300' :
+        item.status === 'REJECTED' ? 'bg-rose-500/20 text-rose-300' :
+        item.status === 'SCAN_FAILED' ? 'bg-orange-500/20 text-orange-300' :
+        isCsam ? 'bg-red-700/40 text-red-200 border border-red-500' :
+        'bg-amber-500/20 text-amber-300';
+
+      // CSAM Zero-Exposure Policy: Never render media preview or public URL for CSAM_LOCKED items
+      const previewSummary = isCsam
+        ? '<div class="text-[11px] font-bold text-red-300">🔒 [SEALED FOR LEGAL COMPLIANCE — PREVIEW DISABLED]</div>'
+        : (item.contentExcerpt
+            ? '<div class="text-[11px] text-outline truncate max-w-xs">' + escapeModHtml(item.contentExcerpt) + '</div>'
+            : (item.extractedOcrText
+                ? '<div class="text-[11px] text-amber-300 truncate max-w-xs">OCR: ' + escapeModHtml(item.extractedOcrText) + '</div>'
+                : ''));
+
+      return `
+        <tr class="hover:bg-surface-container-high/40 transition">
+          <td class="py-3 px-3">
+            <div class="font-mono text-[11px] text-outline">${escapeModHtml(item.id)}</div>
+            <div class="font-bold uppercase text-[11px] text-primary">${escapeModHtml(item.mediaKind || 'media')} • ${escapeModHtml(item.filename || item.targetType)}</div>
+          </td>
+          <td class="py-3 px-3">
+            <div class="font-bold text-on-surface">${escapeModHtml(item.ownerEmail || item.ownerUserId || 'guest')}</div>
+            <div class="font-mono text-[10px] text-outline">Target: ${escapeModHtml(item.targetId)}</div>
+          </td>
+          <td class="py-3 px-3">
+            <span class="px-2 py-0.5 rounded text-[10px] font-black uppercase ${statusBadgeClass}">${escapeModHtml(item.status)}</span>
+            <div class="text-[10px] text-outline mt-1">${item.isQuarantined ? '🔒 Private Quarantine' : '🌐 Public Released'}</div>
+          </td>
+          <td class="py-3 px-3 max-w-sm">
+            <div class="font-semibold text-on-surface-variant">${escapeModHtml(item.rejectionReason || 'Passed automated checks')}</div>
+            ${previewSummary}
+            <div class="text-[10px] text-outline mt-0.5">
+              Categories: ${escapeModHtml((item.categories || []).join(', ') || 'none')} • Score: ${Number(item.confidenceScore) || 0}% • Provider: ${escapeModHtml(item.providerName || 'local_hybrid')}
+            </div>
+          </td>
+          <td class="py-3 px-3 font-mono text-[10px] text-outline">
+            <div>Created: ${item.createdAt ? new Date(item.createdAt).toLocaleString() : 'N/A'}</div>
+            ${item.reviewedAt ? '<div>Reviewed: ' + new Date(item.reviewedAt).toLocaleString() + '</div>' : ''}
+          </td>
+          <td class="py-3 px-3 text-right">
+            ${isCsam ? `
+              <span class="px-2.5 py-1 rounded-lg bg-red-900/40 text-red-200 font-bold text-[10px]">Sealed Legal Hold</span>
+            ` : `
+              <div class="flex flex-wrap items-center justify-end gap-1.5">
+                <button onclick="reviewModerationItem('${escapeModHtml(item.id)}', 'approve')" class="px-2.5 py-1 rounded-lg bg-emerald-500/20 hover:bg-emerald-500 text-emerald-300 hover:text-white font-bold text-xs transition cursor-pointer">Approve</button>
+                <button onclick="reviewModerationItem('${escapeModHtml(item.id)}', 'reject')" class="px-2.5 py-1 rounded-lg bg-rose-500/20 hover:bg-rose-500 text-rose-300 hover:text-white font-bold text-xs transition cursor-pointer">Reject</button>
+                <button onclick="reviewModerationItem('${escapeModHtml(item.id)}', 'rescan')" class="px-2.5 py-1 rounded-lg bg-amber-500/20 hover:bg-amber-500 text-amber-300 hover:text-white font-bold text-xs transition cursor-pointer">Recheck</button>
+                <button onclick="reviewModerationItem('${escapeModHtml(item.id)}', 'purge')" class="px-2.5 py-1 rounded-lg bg-surface-container-high hover:bg-rose-600 text-outline hover:text-white font-bold text-xs transition cursor-pointer">Purge</button>
+              </div>
+            `}
+          </td>
+        </tr>
+      `;
+    }).join('');
+  }
+
+  function renderAppealsTable() {
+    const tbody = document.getElementById('appeals-table-body');
+    const empty = document.getElementById('appeals-empty');
+    if (!tbody) return;
+
+    if (moderationAppeals.length === 0) {
+      tbody.innerHTML = '';
+      if (empty) empty.classList.remove('hidden');
+      return;
+    }
+    if (empty) empty.classList.add('hidden');
+
+    tbody.innerHTML = moderationAppeals.map(a => `
+      <tr class="hover:bg-surface-container-high/40 transition">
+        <td class="py-2.5 px-3 font-mono text-[11px]">
+          <div>${escapeModHtml(a.id)}</div>
+          <div class="text-outline text-[10px]">Item: ${escapeModHtml(a.moderation_item_id)}</div>
+        </td>
+        <td class="py-2.5 px-3">
+          <div class="font-bold">${escapeModHtml(a.user_email || a.user_id)}</div>
+          <div class="text-outline text-[11px]">${escapeModHtml(a.appeal_reason)}</div>
+        </td>
+        <td class="py-2.5 px-3">
+          <span class="px-2 py-0.5 rounded text-[10px] font-black uppercase ${a.status === 'PENDING' ? 'bg-amber-500/20 text-amber-300' : 'bg-emerald-500/20 text-emerald-300'}">${escapeModHtml(a.status)}</span>
+        </td>
+        <td class="py-2.5 px-3 text-right">
+          ${a.status === 'PENDING' ? `
+            <div class="flex items-center justify-end gap-1.5">
+              <button onclick="resolveAppeal('${escapeModHtml(a.id)}', 'approve')" class="px-2 py-1 rounded bg-emerald-500/20 hover:bg-emerald-500 text-emerald-300 hover:text-white font-bold text-[11px] cursor-pointer">Approve</button>
+              <button onclick="resolveAppeal('${escapeModHtml(a.id)}', 'reject')" class="px-2 py-1 rounded bg-rose-500/20 hover:bg-rose-500 text-rose-300 hover:text-white font-bold text-[11px] cursor-pointer">Reject</button>
+            </div>
+          ` : '<span class="text-[10px] text-outline">' + escapeModHtml(a.resolution_notes || 'Resolved') + '</span>'}
+        </td>
+      </tr>
+    `).join('');
+  }
+
+  function renderRestrictedUsersTable() {
+    const tbody = document.getElementById('restricted-users-body');
+    const empty = document.getElementById('restricted-users-empty');
+    if (!tbody) return;
+
+    if (restrictedUsers.length === 0) {
+      tbody.innerHTML = '';
+      if (empty) empty.classList.remove('hidden');
+      return;
+    }
+    if (empty) empty.classList.add('hidden');
+
+    tbody.innerHTML = restrictedUsers.map(u => {
+      const isRestricted = Number(u.moderation_restricted) === 1 || u.status === 'suspended' || u.status === 'banned';
+      return `
+        <tr class="hover:bg-surface-container-high/40 transition">
+          <td class="py-2.5 px-3">
+            <div class="font-bold">${escapeModHtml(u.display_name || u.email || u.id)}</div>
+            <div class="font-mono text-[10px] text-outline">${escapeModHtml(u.email || u.id)}</div>
+          </td>
+          <td class="py-2.5 px-3 font-mono font-bold text-rose-400">${Number(u.moderation_strikes) || 0} strikes</td>
+          <td class="py-2.5 px-3 text-outline text-[11px]">${escapeModHtml(u.moderation_restriction_reason || u.suspension_reason || 'Active watch')}</td>
+          <td class="py-2.5 px-3 text-right">
+            ${isRestricted ? `
+              <button onclick="toggleUserRestriction('${escapeModHtml(u.id)}', 'unrestrict')" class="px-2.5 py-1 rounded bg-emerald-500/20 hover:bg-emerald-500 text-emerald-300 hover:text-white font-bold text-[11px] cursor-pointer">Lift Restriction</button>
+            ` : `
+              <button onclick="toggleUserRestriction('${escapeModHtml(u.id)}', 'restrict')" class="px-2.5 py-1 rounded bg-rose-500/20 hover:bg-rose-500 text-rose-300 hover:text-white font-bold text-[11px] cursor-pointer">Restrict Account</button>
+            `}
+          </td>
+        </tr>
+      `;
+    }).join('');
+  }
+
+  function renderAuditLogsTable() {
+    const tbody = document.getElementById('moderation-audit-body');
+    if (!tbody) return;
+    if (moderationAuditLogs.length === 0) {
+      tbody.innerHTML = '<tr><td colspan="5" class="py-4 text-center text-outline">No recent moderation audit events.</td></tr>';
+      return;
+    }
+    tbody.innerHTML = moderationAuditLogs.map(l => `
+      <tr>
+        <td class="py-2 px-3 font-mono text-[10px] text-outline">${escapeModHtml(l.id)}</td>
+        <td class="py-2 px-3 font-bold">${escapeModHtml(l.actor_name || l.actor_id)}</td>
+        <td class="py-2 px-3 font-mono text-pink-400">${escapeModHtml(l.action)}</td>
+        <td class="py-2 px-3 font-mono text-[11px]">${escapeModHtml(l.target_type)}: ${escapeModHtml(l.target_id)}</td>
+        <td class="py-2 px-3 font-mono text-[10px] text-outline">${l.created_at ? new Date(l.created_at).toLocaleString() : ''}</td>
+      </tr>
+    `).join('');
+  }
+
+  async function reviewModerationItem(itemId, action) {
+    const reason = action === 'reject'
+      ? prompt('Rejection reason:', 'Violates WishMagic Content Safety Policy')
+      : 'Reviewed by moderator';
+    if (reason === null) return;
+    try {
+      const res = await fetch('/api/admin/moderation/items/' + encodeURIComponent(itemId) + '/review', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ action, reason, notes: reason })
+      });
+      const data = await res.json();
+      if (data.success) {
+        loadModerationQueue();
+      } else {
+        alert(data.error?.message || data.message || 'Action failed');
+      }
+    } catch (e) {
+      alert('Network error');
+    }
+  }
+
+  async function resolveAppeal(appealId, decision) {
+    const notes = prompt('Resolution notes for appeal (' + decision + '):', 'Reviewed by moderation team');
+    if (notes === null) return;
+    try {
+      const res = await fetch('/api/admin/moderation/appeals/' + encodeURIComponent(appealId) + '/resolve', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ decision, notes })
+      });
+      const data = await res.json();
+      if (data.success) {
+        loadModerationQueue();
+      } else {
+        alert(data.error?.message || data.message || 'Failed to resolve appeal');
+      }
+    } catch (e) {
+      alert('Network error');
+    }
+  }
+
+  async function toggleUserRestriction(userId, action) {
+    const reason = action === 'restrict'
+      ? prompt('Reason for account restriction:', 'Repeated content moderation violations')
+      : 'Restriction lifted by administrator';
+    if (reason === null) return;
+    try {
+      const res = await fetch('/api/admin/moderation/users/' + encodeURIComponent(userId) + '/restrict', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ action, reason })
+      });
+      const data = await res.json();
+      if (data.success) {
+        loadModerationQueue();
+      } else {
+        alert(data.error?.message || data.message || 'Failed to update user restriction');
+      }
+    } catch (e) {
+      alert('Network error');
+    }
+  }
+
+  async function runRetentionCleanup() {
+    try {
+      const res = await fetch('/api/admin/moderation/retention/cleanup', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ purgeAllRejected: false })
+      });
+      const data = await res.json();
+      if (data.success) {
+        alert('Retention cleanup completed: ' + (data.purgedCount || 0) + ' expired item(s) purged.');
+        loadModerationQueue();
+      }
+    } catch (e) {
+      alert('Network error');
+    }
+  }
+
+  function renderReportsTable() {
+    const tbody = document.getElementById('reports-table-body');
+    const empty = document.getElementById('reports-empty');
+    if (!tbody) return;
+
+    if (queueReports.length === 0) {
+      tbody.innerHTML = '';
+      empty.classList.remove('hidden');
+      return;
+    }
+
+    empty.classList.add('hidden');
+    tbody.innerHTML = queueReports.map(r => `
+      <tr class="hover:bg-surface-container-high/40 transition">
+        <td class="py-3 px-3 font-mono text-outline text-[11px]">${r.id}</td>
+        <td class="py-3 px-3 font-bold text-on-surface">
+          <div>${r.targetType.toUpperCase()}: ${r.targetId}</div>
+          ${r.details ? `<div class="text-[10px] text-outline truncate max-w-xs">${r.details}</div>` : ''}
+        </td>
+        <td class="py-3 px-3 text-amber-400 font-bold capitalize">${(r.reportReason || '').replace(/_/g, ' ')}</td>
+        <td class="py-3 px-3 font-mono text-[11px] text-on-surface-variant">${r.reporterEmail || 'guest'}</td>
+        <td class="py-3 px-3">
+          <span class="px-2 py-0.5 rounded text-[10px] font-black uppercase ${
+            r.status === 'pending' ? 'bg-amber-500/20 text-amber-300' :
+            r.status === 'resolved' ? 'bg-emerald-500/20 text-emerald-300' : 'bg-surface-container-high text-outline'
+          }">${r.status}</span>
+        </td>
+        <td class="py-3 px-3 font-mono text-[11px] text-outline">${new Date(r.createdAt).toLocaleDateString()}</td>
+        <td class="py-3 px-3 text-right">
+          ${r.status === 'pending' ? `
+            <div class="flex items-center justify-end gap-1.5">
+              <button onclick="resolveReport('${r.id}', 'approved')" class="px-2.5 py-1 rounded-lg bg-emerald-500/20 hover:bg-emerald-500 text-emerald-300 hover:text-white font-bold text-xs transition cursor-pointer">
+                Approve Target
+              </button>
+              <button onclick="resolveReport('${r.id}', 'suspended')" class="px-2.5 py-1 rounded-lg bg-rose-500/20 hover:bg-rose-500 text-rose-300 hover:text-white font-bold text-xs transition cursor-pointer">
+                Suspend Target
+              </button>
+              <button onclick="resolveReport('${r.id}', 'dismissed')" class="px-2.5 py-1 rounded-lg bg-surface-container-high hover:bg-surface-container-highest text-on-surface-variant font-bold text-xs transition cursor-pointer">
+                Dismiss
+              </button>
+            </div>
+          ` : `<span class="text-[11px] text-outline">Resolved: ${r.resolutionAction || 'Completed'}</span>`}
+        </td>
+      </tr>
+    `).join('');
+  }
+
+  function renderFlaggedTable() {
+    const tbody = document.getElementById('flagged-wishes-body');
+    const empty = document.getElementById('flagged-empty');
+    if (!tbody) return;
+
+    if (flaggedWishes.length === 0) {
+      tbody.innerHTML = '';
+      empty.classList.remove('hidden');
+      return;
+    }
+
+    empty.classList.add('hidden');
+    tbody.innerHTML = flaggedWishes.map(w => `
+      <tr class="hover:bg-surface-container-high/40 transition">
+        <td class="py-3 px-3 font-bold text-on-surface">To: ${w.recipient_name || w.recipientName || 'Loved One'}</td>
+        <td class="py-3 px-3 font-mono text-pink-400">
+          <a href="/w/${w.slug || w.id}" target="_blank" class="hover:underline flex items-center gap-1">
+            <span>/w/${w.slug || w.id}</span>
+            <span class="material-symbols-outlined text-[13px]">open_in_new</span>
+          </a>
+        </td>
+        <td class="py-3 px-3">
+          <span class="px-2 py-0.5 rounded text-[10px] font-black uppercase ${
+            (w.moderation_status || w.moderationStatus) === 'suspended' ? 'bg-rose-500/20 text-rose-300' : 'bg-amber-500/20 text-amber-300'
+          }">${w.moderation_status || w.moderationStatus || 'Flagged'}</span>
+        </td>
+        <td class="py-3 px-3 text-on-surface-variant text-xs">${w.moderation_reason || w.moderationReason || 'Reported content'}</td>
+        <td class="py-3 px-3 text-right">
+          <div class="flex items-center justify-end gap-1.5">
+            <button onclick="clearWishFlag('${w.id}')" class="px-2.5 py-1 rounded-lg bg-emerald-500/20 hover:bg-emerald-500 text-emerald-300 hover:text-white font-bold text-xs transition cursor-pointer">
+              Clear Flag
+            </button>
+            <button onclick="suspendWish('${w.id}')" class="px-2.5 py-1 rounded-lg bg-rose-500/20 hover:bg-rose-500 text-rose-300 hover:text-white font-bold text-xs transition cursor-pointer">
+              Suspend (403)
+            </button>
+          </div>
+        </td>
+      </tr>
+    `).join('');
+  }
+
+  async function resolveReport(reportId, action) {
+    const notes = prompt(`Resolution notes for "${action}":`, 'Staff verified');
+    if (notes === null) return;
+
+    try {
+      const res = await fetch('/api/admin/moderation/resolve', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ reportId, action, notes })
+      });
+      const data = await res.json();
+      if (data.success) {
+        alert(data.message || 'Report resolved successfully');
+        loadModerationQueue();
+      } else {
+        alert('Failed: ' + data.message);
+      }
+    } catch (e) {
+      alert('Network error');
+    }
+  }
+
+  async function clearWishFlag(wishId) {
+    try {
+      const res = await fetch(`/api/admin/wishes/${encodeURIComponent(wishId)}/moderate`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ action: 'approve', reason: 'Flag cleared by admin' })
+      });
+      const data = await res.json();
+      if (data.success) {
+        alert('Flag cleared successfully!');
+        loadModerationQueue();
+      }
+    } catch (e) {
+      alert('Network error');
+    }
+  }
+
+  async function suspendWish(wishId) {
+    const reason = prompt('Reason for suspension:', 'Terms of service violation');
+    if (reason === null) return;
+    try {
+      const res = await fetch(`/api/admin/wishes/${encodeURIComponent(wishId)}/moderate`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ action: 'suspend', reason })
+      });
+      const data = await res.json();
+      if (data.success) {
+        alert('Wish suspended! Access is now blocked with a 403 response.');
+        loadModerationQueue();
+      }
+    } catch (e) {
+      alert('Network error');
+    }
+  }
+</script>
+
+</body>
+</html>

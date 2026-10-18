@@ -1,0 +1,27 @@
+<!DOCTYPE html>
+<html lang="en" data-wm-protocol="1.0" data-wm-template-runtime="1.0">
+<head>
+  <meta charset="utf-8"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>Minimal Capability Test Template 🎈</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script src="/js/wishmagic-template-protocol.js"></script>
+  <script src="/js/wishmagic-template-analyzer.js"></script>
+  <script src="/js/wishmagic-template-runtime.js"></script>
+</head>
+<body class="bg-purple-950 text-white min-h-screen p-6 flex flex-col items-center">
+  <main class="w-full max-w-xl mx-auto space-y-6">
+    <!-- Hero Only -->
+    <section data-wm-section="hero" data-wm-label="Greeting Header" data-wm-required="true" data-wm-toggleable="false" data-wm-fixed-position="start" data-wm-order="1" class="p-6 bg-purple-900/60 rounded-2xl border border-purple-800 text-center">
+      <h1 class="text-3xl font-black text-pink-300" data-wm-field="recipient_name" data-wm-type="text" data-wm-required="true">Sweet Friend</h1>
+    </section>
+
+    <!-- Gallery Only (Carousel Layout ONLY) -->
+    <section data-wm-section="gallery" data-wm-label="Photo Keepsake" data-wm-toggleable="true" data-wm-reorderable="true" data-wm-order="2" data-wm-layouts="carousel" data-wm-default-layout="carousel" class="p-6 bg-purple-900/60 rounded-2xl border border-purple-800 text-center" data-wm-layout="carousel">
+      <div class="aspect-square max-w-xs mx-auto rounded-xl bg-purple-950 overflow-hidden">
+        <img class="w-full h-full object-cover" data-wm-field="photo_1" data-wm-type="image" src="https://images.unsplash.com/photo-1513151233558-d860c5398176?w=600" alt="Memory"/>
+      </div>
+    </section>
+  </main>
+</body>
+</html>

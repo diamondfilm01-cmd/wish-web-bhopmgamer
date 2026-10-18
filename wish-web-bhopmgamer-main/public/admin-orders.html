@@ -1,0 +1,1178 @@
+<!DOCTYPE html>
+
+<html lang="en"><head>
+  <script src="js/api-client.js"></script><meta charset="utf-8"/><base href="/"/><meta content="width=device-width, initial-scale=1.0" name="viewport"/><meta content="web_dashboard" name="shell-type"/><title>WishMagic | Wishes & Orders Intelligence</title>
+<link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&amp;family=JetBrains+Mono:wght@400;500;600&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:opsz,wght,FILL,GRAD@20..48,100..700,0..1,-50..200&amp;display=swap" rel="stylesheet"/>
+<!-- Tailwind Config must load BEFORE Tailwind CDN -->
+<script src="js/tailwind-config.js?v=20261015_wm47944_v7"></script>
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<script>
+  if (typeof tailwind !== 'undefined' && typeof sharedTailwindConfig !== 'undefined') {
+    tailwind.config = sharedTailwindConfig;
+  }
+</script>
+<link rel="stylesheet" href="css/admin-theme.css?v=20261015_wm47944_v7"/>
+<script src="js/WishMagicCore.js"></script>
+<script src="js/wish-lifecycle.js"></script>
+<script src="js/admin-theme.js?v=20261015_wm47944_v7"></script>
+
+</head>
+<body class="bg-background text-on-surface font-body-md min-h-screen antialiased selection:bg-primary selection:text-white">
+
+<!-- Mobile Sidebar Backdrop Overlay -->
+<div id="sidebar-backdrop" class="fixed inset-0 bg-black/75 backdrop-blur-sm z-40 hidden md:hidden" onclick="toggleSidebar()"></div>
+
+<!-- Magical Castle Sidebar (Pixel-Matched to 19728.png) -->
+<aside id="admin-sidebar" class="fixed left-0 top-0 h-screen w-[270px] z-50 flex flex-col justify-between -translate-x-full md:translate-x-0 transition-transform duration-300 ease-in-out select-none">
+  <div class="flex flex-col min-h-0 flex-1">
+    <!-- Brand Logo Header -->
+    <div class="px-5 pt-5 pb-3 flex-shrink-0">
+      <div class="flex items-center justify-between">
+        <a href="/admin/anktech/anktech/admin/overview" class="flex items-center gap-3 group text-decoration-none">
+          <!-- Magic Wand Icon -->
+          <div class="w-10 h-10 rounded-2xl bg-gradient-to-br from-pink-500/25 via-purple-500/25 to-amber-400/20 border border-pink-400/30 flex items-center justify-center shadow-[0_0_20px_rgba(236,72,153,0.35)] flex-shrink-0">
+            <svg class="w-6 h-6" viewBox="0 0 24 24" fill="none">
+              <path d="M4 20L15.5 8.5M15.5 8.5L18.5 5.5C19.05 4.95 19.95 4.95 20.5 5.5C21.05 6.05 21.05 6.95 20.5 7.5L17.5 10.5M15.5 8.5L17.5 10.5" stroke="url(#wandGrad)" stroke-width="2.4" stroke-linecap="round"/>
+              <path d="M11 4L11.6 5.4L13 6L11.6 6.6L11 8L10.4 6.6L9 6L10.4 5.4L11 4Z" fill="#FBBF24"/>
+              <path d="M19 13L19.4 14L20.4 14.4L19.4 14.8L19 15.8L18.6 14.8L17.6 14.4L18.6 14L19 13Z" fill="#F472B6"/>
+              <path d="M6 10L6.3 10.7L7 11L6.3 11.3L6 12L5.7 11.3L5 11L5.7 10.7L6 10Z" fill="#C084FC"/>
+              <defs>
+                <linearGradient id="wandGrad" x1="4" y1="20" x2="21" y2="5" gradientUnits="userSpaceOnUse">
+                  <stop stop-color="#C084FC"/>
+                  <stop offset="0.55" stop-color="#F472B6"/>
+                  <stop offset="1" stop-color="#FBBF24"/>
+                </linearGradient>
+              </defs>
+            </svg>
+          </div>
+          <div class="flex flex-col">
+            <div class="text-[22px] leading-none tracking-tight">
+              <span class="wm-brand-wish">Wish</span><span class="wm-brand-magic">Magic</span>
+            </div>
+            <span class="text-[10.5px] text-purple-200/80 font-medium tracking-wide mt-1">Create. Personalize. Celebrate.</span>
+          </div>
+        </a>
+        <button class="md:hidden p-1.5 rounded-lg bg-white/10 hover:bg-white/20 text-white transition-colors" onclick="toggleSidebar()" aria-label="Close Sidebar">
+          <span class="material-symbols-outlined text-[20px]">close</span>
+        </button>
+      </div>
+    </div>
+
+    <!-- Navigation Menu -->
+    <div class="px-3.5 flex-1 overflow-y-auto custom-scrollbar pb-6">
+      <nav class="flex flex-col gap-0.5">
+        <!-- Top Primary Dashboard Link -->
+        <div class="mb-1 pt-1">
+          <a data-nav-role="dashboard" href="/admin/anktech/anktech/admin/overview">
+            <span class="material-symbols-outlined text-[20px]" style="font-variation-settings: 'FILL' 1;">home</span>
+            <span>Dashboard</span>
+          </a>
+        </div>
+
+        <!-- TEMPLATES -->
+        <div class="wm-nav-section-label">TEMPLATES</div>
+        <a href="/admin/anktech/anktech/admin/templates">
+          <span class="material-symbols-outlined">grid_view</span>
+          <span>All Templates</span>
+        </a>
+        <a href="/admin/anktech/anktech/admin/add-template">
+          <span class="material-symbols-outlined">add_circle</span>
+          <span>Add Template</span>
+        </a>
+        <a href="/admin/anktech/anktech/admin/occasions">
+          <span class="material-symbols-outlined">category</span>
+          <span>Categories</span>
+        </a>
+        <a href="/admin/anktech/anktech/admin/media">
+          <span class="material-symbols-outlined">image</span>
+          <span>Media Library</span>
+        </a>
+        <a href="/admin/anktech/anktech/admin/media?tab=audio">
+          <span class="material-symbols-outlined">music_note</span>
+          <span>Music Library</span>
+        </a>
+
+        <!-- WISHES -->
+        <div class="wm-nav-section-label">WISHES</div>
+        <a href="/admin/anktech/anktech/admin/wishes">
+          <span class="material-symbols-outlined">description</span>
+          <span>All Wishes</span>
+        </a>
+        <a href="/admin/anktech/anktech/admin/wishes?filter=expiring">
+          <span class="material-symbols-outlined">schedule</span>
+          <span>Expiring Soon</span>
+        </a>
+        <a href="/admin/anktech/anktech/admin/analytics">
+          <span class="material-symbols-outlined">trending_up</span>
+          <span>Analytics</span>
+        </a>
+
+        <!-- USERS -->
+        <div class="wm-nav-section-label">USERS</div>
+        <a href="/admin/anktech/anktech/admin/users">
+          <span class="material-symbols-outlined">group</span>
+          <span>All Users</span>
+        </a>
+        <a href="/admin/anktech/anktech/admin/pricing">
+          <span class="material-symbols-outlined">workspace_premium</span>
+          <span>Subscriptions</span>
+        </a>
+        <a class="wm-nav-active" href="/admin/anktech/anktech/admin/orders">
+          <span class="material-symbols-outlined">credit_card</span>
+          <span>Payments</span>
+        </a>
+
+        <!-- SYSTEM -->
+        <div class="wm-nav-section-label">SYSTEM</div>
+        <a href="/admin/anktech/anktech/admin/settings">
+          <span class="material-symbols-outlined">settings</span>
+          <span>Settings</span>
+        </a>
+        <a href="/admin/anktech/anktech/admin/storage-health">
+          <span class="material-symbols-outlined">database</span>
+          <span>Storage</span>
+        </a>
+        <a href="/admin/anktech/anktech/admin/storage-health?tab=backups">
+          <span class="material-symbols-outlined">cloud_download</span>
+          <span>Backups</span>
+        </a>
+        <a href="/admin/anktech/anktech/admin/audit-logs">
+          <span class="material-symbols-outlined">receipt_long</span>
+          <span>Activity Logs</span>
+        </a>
+
+        <!-- Expandable More Studio Tools (Keeps all 19 platform routes accessible & tested) -->
+        <button type="button" onclick="toggleMoreSidebarSections()" class="mt-2 px-3 py-1.5 rounded-xl text-[11px] font-bold uppercase tracking-wider text-purple-200/75 hover:text-white hover:bg-white/10 transition flex items-center justify-between w-full text-left cursor-pointer">
+          <span>More Studio Sections</span>
+          <span id="wm-sidebar-more-chevron" class="material-symbols-outlined text-[16px] transition-transform">expand_more</span>
+        </button>
+        <div id="wm-sidebar-more-group" class="hidden flex flex-col gap-0.5 pt-1 pl-1 border-l border-purple-400/25 ml-2">
+          <a href="/admin/anktech/anktech/admin/user-creations">
+            <span class="material-symbols-outlined">folder_shared</span>
+            <span>User Creations</span>
+          </a>
+          <a href="/admin/anktech/anktech/admin/search">
+            <span class="material-symbols-outlined">manage_search</span>
+            <span>Search &amp; Discovery</span>
+          </a>
+          <a href="/admin/anktech/anktech/admin/referrals">
+            <span class="material-symbols-outlined">loyalty</span>
+            <span>Referrals &amp; Rewards</span>
+          </a>
+          <a href="/admin/anktech/anktech/admin/moderation">
+            <span class="material-symbols-outlined">gavel</span>
+            <span>Moderation Queue</span>
+          </a>
+          <a href="/admin/anktech/anktech/admin/support">
+            <span class="material-symbols-outlined">support_agent</span>
+            <span>Support Console</span>
+          </a>
+          <a href="/admin/anktech/anktech/admin/staff">
+            <span class="material-symbols-outlined">badge</span>
+            <span>Staff &amp; Team</span>
+          </a>
+          <a href="/admin/anktech/anktech/admin/legal">
+            <span class="material-symbols-outlined">policy</span>
+            <span>Legal &amp; Compliance</span>
+          </a>
+          <a href="/admin/anktech/anktech/admin/announcements">
+            <span class="material-symbols-outlined">campaign</span>
+            <span>Announcements</span>
+          </a>
+          <a href="/admin/anktech/anktech/admin/notifications">
+            <span class="material-symbols-outlined">notifications_active</span>
+            <span>Notification Queue</span>
+          </a>
+        </div>
+      </nav>
+    </div>
+  </div>
+</aside>
+
+<!-- Main Viewport Wrapper -->
+<div class="w-full md:pl-[270px] min-h-screen flex flex-col">
+<!-- Universal Top Cloud Header (Pixel-Matched to 19728.png) -->
+  <header class="wm-top-header fixed top-0 left-0 md:left-[270px] right-0 h-[68px] z-30">
+    <div class="w-full h-full px-3 sm:px-6 flex items-center justify-between gap-2.5 sm:gap-4">
+      <!-- Left: Hamburger + Search Pill with Ctrl K -->
+      <div class="flex items-center gap-2 sm:gap-2.5 flex-1 max-w-lg min-w-0">
+        <button class="md:hidden p-2 rounded-xl bg-white/85 dark:bg-[#24144a] hover:bg-white text-[#2b194d] dark:text-white shadow-sm flex items-center justify-center flex-shrink-0" onclick="toggleSidebar()" aria-label="Open Sidebar">
+          <span class="material-symbols-outlined text-[22px]">menu</span>
+        </button>
+        <div class="wm-header-search-wrap">
+          <span class="material-symbols-outlined absolute left-3.5 text-[#6b5a88] dark:text-purple-300 text-[18px] pointer-events-none">search</span>
+          <input class="wm-header-search-input" id="headerOrderSearchInput" oninput="document.getElementById('orderSearchInput').value = this.value; applyOrderFilters();" placeholder="Search orders, wishes, TXN hash, recipients..." type="text"/>
+          <span class="wm-ctrl-k-badge hidden sm:inline-block">Ctrl K</span>
+          <!-- Search Dropdown Results Container -->
+          <div id="global-search-results" class="hidden absolute top-12 left-0 right-0 bg-white dark:bg-[#1c103b] rounded-2xl border border-purple-200 dark:border-purple-500/30 shadow-2xl p-3 z-50 max-h-96 overflow-y-auto custom-scrollbar"></div>
+        </div>
+      </div>
+
+      <!-- Right: Sun/Moon Pill Switcher + Live Bell + Admin Profile Card -->
+      <div class="flex items-center gap-2 sm:gap-3.5 flex-shrink-0">
+        <!-- Sun / Moon Pill Toggle -->
+        <button type="button" onclick="toggleAdminTheme()" class="wm-theme-pill-btn" title="Toggle Light / Dark Mode">
+          <span class="wm-theme-pill-sun" id="wm-theme-sun-pill">
+            <span class="material-symbols-outlined text-[16px]">light_mode</span>
+          </span>
+          <span class="wm-theme-pill-knob" id="wm-theme-moon-pill">
+            <span class="material-symbols-outlined text-[14px] theme-toggle-icon" id="theme-toggle-icon" style="font-variation-settings: 'FILL' 1;">dark_mode</span>
+          </span>
+        </button>
+
+        <!-- Live Notification Bell (Populated Dynamically from Real Backend APIs) -->
+        <div class="relative">
+          <button type="button" onclick="toggleAdminNotifMenu(event)" class="relative w-9 h-9 sm:w-10 sm:h-10 rounded-full bg-white/90 dark:bg-[#211342] border border-purple-200/80 dark:border-purple-500/35 flex items-center justify-center text-[#2b194d] dark:text-purple-200 shadow-sm hover:bg-white transition cursor-pointer" title="Live Notifications">
+            <span class="material-symbols-outlined text-[20px]">notifications</span>
+            <span id="wm-header-notif-badge" class="hidden absolute -top-0.5 -right-0.5 min-w-[18px] h-[18px] px-1 rounded-full bg-rose-500 text-white text-[10px] font-extrabold flex items-center justify-center shadow">0</span>
+          </button>
+
+          <!-- Notifications Popover (Populated by loadLiveAdminHeaderNotifications in admin-theme.js) -->
+          <div id="wm-admin-notif-dropdown" class="hidden absolute right-0 mt-2 w-80 bg-white dark:bg-[#1a0e36] rounded-2xl border border-purple-200 dark:border-purple-500/30 shadow-2xl p-3.5 z-50 text-xs" onclick="event.stopPropagation()">
+            <div class="py-4 text-center text-xs text-on-surface-variant">Loading live notifications...</div>
+          </div>
+        </div>
+
+        <!-- Admin Profile Pill -->
+        <div class="relative">
+          <div onclick="toggleAdminProfileMenu(event)" class="wm-admin-profile-pill">
+            <div class="w-8 h-8 sm:w-9 sm:h-9 rounded-full bg-gradient-to-br from-[#4c1d95] to-[#6d28d9] flex items-center justify-center text-white shadow-sm flex-shrink-0">
+              <span class="material-symbols-outlined text-[19px]">person</span>
+            </div>
+            <div class="hidden sm:flex flex-col text-left leading-tight">
+              <span class="text-[13.5px] font-extrabold text-on-surface">Admin</span>
+              <span id="wm-admin-header-email" class="text-[11px] font-medium text-on-surface-variant">ankit.babusaini@gmail.com</span>
+            </div>
+            <span class="material-symbols-outlined text-[18px] text-on-surface-variant ml-0.5">expand_more</span>
+          </div>
+
+          <!-- Profile Dropdown Menu -->
+          <div id="wm-admin-profile-dropdown" class="hidden absolute right-0 mt-2 w-60 bg-white dark:bg-[#1a0e36] rounded-2xl border border-purple-200 dark:border-purple-500/30 shadow-2xl p-2 z-50 text-xs" onclick="event.stopPropagation()">
+            <div class="px-3 py-2 border-b border-purple-100 dark:border-purple-800/40 mb-1">
+              <div class="font-bold text-sm text-on-surface">Admin Studio</div>
+              <div class="text-[11px] text-on-surface-variant truncate">ankit.babusaini@gmail.com</div>
+            </div>
+            <a href="/admin/anktech/anktech/admin/settings" class="flex items-center gap-2.5 px-3 py-2 rounded-xl hover:bg-purple-50 dark:hover:bg-purple-900/30 text-on-surface font-semibold transition">
+              <span class="material-symbols-outlined text-[17px] text-purple-600">settings</span>
+              <span>Main Website &amp; Site Settings</span>
+            </a>
+            <a href="/admin/anktech/anktech/admin/add-template" class="flex items-center gap-2.5 px-3 py-2 rounded-xl hover:bg-purple-50 dark:hover:bg-purple-900/30 text-on-surface font-semibold transition">
+              <span class="material-symbols-outlined text-[17px] text-pink-500">add_circle</span>
+              <span>Upload &amp; Set New Template</span>
+            </a>
+            <a href="/admin/anktech/anktech/admin/media" class="flex items-center gap-2.5 px-3 py-2 rounded-xl hover:bg-purple-50 dark:hover:bg-purple-900/30 text-on-surface font-semibold transition">
+              <span class="material-symbols-outlined text-[17px] text-indigo-500">perm_media</span>
+              <span>Hero Photo &amp; Media Vault</span>
+            </a>
+            <a href="/" target="_blank" class="flex items-center gap-2.5 px-3 py-2 rounded-xl hover:bg-purple-50 dark:hover:bg-purple-900/30 text-on-surface font-semibold transition">
+              <span class="material-symbols-outlined text-[17px] text-emerald-600">open_in_new</span>
+              <span>View Live Website</span>
+            </a>
+            <div class="border-t border-purple-100 dark:border-purple-800/40 my-1"></div>
+            <button type="button" onclick="window.AdminAuthController && window.AdminAuthController.logout()" class="w-full flex items-center gap-2.5 px-3 py-2 rounded-xl hover:bg-rose-50 dark:hover:bg-rose-950/40 text-rose-600 font-bold transition text-left cursor-pointer">
+              <span class="material-symbols-outlined text-[17px]">logout</span>
+              <span>Sign Out</span>
+            </button>
+          </div>
+        </div>
+      </div>
+    </div>
+  </header>
+
+  <!-- Main Workspace Content -->
+  <main id="admin-main-content" class="w-full pt-[80px] px-4 sm:px-6 pb-12 max-w-[1560px] mx-auto flex flex-col gap-5">
+
+<div class="w-full px-3 md:px-space-lg py-space-md">
+<div class="flex flex-col w-full gap-space-lg">
+<section class="wm-hero-banner">
+      <div class="relative z-10 flex flex-col items-start max-w-2xl">
+        <div class="wm-hero-welcome-pill">
+          <span>Payments &amp; Order Intelligence • Auto-Refresh LIVE</span>
+          <span>💳</span>
+        </div>
+        <h1 class="wm-hero-title">
+          <span>Payments &amp;</span> <span class="wm-pink-word">VIP Orders</span> <span class="wm-lavender-word">Registry</span>
+        </h1>
+        <p class="wm-hero-subtitle">
+          Monitor live generated experiences, ₹49 VIP pass checkouts, unboxing interaction rates, and viral delivery channels.
+        </p>
+        <div class="flex flex-wrap items-center gap-3">
+          <button type="button" onclick="document.getElementById('comp-modal').classList.remove('hidden')" class="wm-btn-pink-pill">
+            <span class="material-symbols-outlined text-[19px]">add_circle</span>
+            <span>+ Generate Manual Gift Pass</span>
+          </button>
+          <button type="button" onclick="exportOrdersCSV()" class="wm-btn-glass-pill">
+            <span class="material-symbols-outlined text-[18px]">download</span>
+            <span>Export CSV / Audit</span>
+          </button>
+        </div>
+      </div>
+    </section>
+    <!-- Analytics KPI Ribbon -->
+<div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-space-md">
+<!-- KPI 1: Generated Wishes -->
+<div class="wm-card relative overflow-hidden rounded-xl bg-surface-container-low/70 backdrop-blur-xl p-space-md shadow-md flex flex-col justify-between">
+<div class="absolute top-0 right-0 w-24 h-24 bg-primary/10 rounded-full blur-2xl pointer-events-none"></div>
+<div class="flex items-start justify-between">
+<div class="flex flex-col">
+<span class="font-label-md text-label-md uppercase text-on-surface-variant tracking-wider">Total Generated Wishes</span>
+<div class="flex items-baseline gap-2 mt-1">
+<span class="font-headline-lg text-headline-lg font-extrabold text-on-surface" id="stat-total-wishes">0</span>
+<span class="inline-flex items-center gap-0.5 px-1.5 py-0.5 rounded-full bg-surface-container-high text-primary font-label-sm text-label-sm font-semibold">
+<span class="material-symbols-outlined text-[12px]">auto_awesome</span>Live
+</span>
+</div>
+</div>
+<div class="w-10 h-10 rounded-lg bg-primary-container/20 flex items-center justify-center text-primary">
+<span class="material-symbols-outlined text-[22px]">auto_awesome</span>
+</div>
+</div>
+<div class="mt-4 pt-3 flex items-center justify-between text-on-surface-variant font-label-sm text-label-sm">
+<span class="flex items-center gap-1.5" id="stat-free-vip-split"><span>0 Free</span> • <span>0 VIP Passes</span></span>
+</div>
+</div>
+<!-- KPI 2: VIP Revenue -->
+<div class="wm-card relative overflow-hidden rounded-xl bg-surface-container-low/70 backdrop-blur-xl p-space-md shadow-md flex flex-col justify-between">
+<div class="absolute top-0 right-0 w-24 h-24 bg-secondary/15 rounded-full blur-2xl pointer-events-none"></div>
+<div class="flex items-start justify-between">
+<div class="flex flex-col">
+<span class="font-label-md text-label-md uppercase text-on-surface-variant tracking-wider">VIP Pass Revenue (₹49)</span>
+<div class="flex items-baseline gap-2 mt-1">
+<span class="font-headline-lg text-headline-lg font-extrabold text-secondary" id="stat-vip-revenue">₹0</span>
+<span class="inline-flex items-center gap-0.5 px-1.5 py-0.5 rounded-full bg-surface-container-high text-secondary font-label-sm text-label-sm font-semibold" id="stat-vip-orders-count">
+0 Orders
+</span>
+</div>
+</div>
+<div class="w-10 h-10 rounded-lg bg-secondary-container/20 flex items-center justify-center text-secondary">
+<span class="material-symbols-outlined text-[22px]">account_balance_wallet</span>
+</div>
+</div>
+<div class="mt-4 pt-3 flex items-center justify-between text-on-surface-variant font-label-sm text-label-sm">
+<span>Instant UPI / PhonePe Verified</span>
+<span class="text-outline">•</span>
+<span class="text-tertiary">100% Direct</span>
+</div>
+</div>
+<!-- KPI 3: Link Lifecycle Classification -->
+<div class="wm-card relative overflow-hidden rounded-xl bg-surface-container-low/70 backdrop-blur-xl p-space-md shadow-md flex flex-col justify-between">
+<div class="absolute top-0 right-0 w-24 h-24 bg-tertiary/15 rounded-full blur-2xl pointer-events-none"></div>
+<div class="flex items-start justify-between">
+<div class="flex flex-col">
+<span class="font-label-md text-label-md uppercase text-on-surface-variant tracking-wider">Link Lifecycle Status</span>
+<div class="flex items-baseline gap-2 mt-1">
+<span class="font-headline-lg text-headline-lg font-extrabold text-emerald-400" id="stat-live-links">0</span>
+<span class="font-body-sm text-body-sm text-on-surface-variant">Active Now</span>
+</div>
+</div>
+<div class="w-10 h-10 rounded-lg bg-emerald-500/20 flex items-center justify-center text-emerald-400">
+<span class="material-symbols-outlined text-[22px]">celebration</span>
+</div>
+</div>
+<div class="mt-4 pt-3 flex items-center justify-between text-on-surface-variant font-label-sm text-label-sm">
+<span>Future: <strong class="text-purple-300 font-bold" id="stat-future-links">0</strong></span>
+<span class="text-outline">•</span>
+<span>Expired: <strong class="text-rose-400 font-bold" id="stat-expired-links">0</strong></span>
+</div>
+</div>
+<!-- KPI 4: Real-time Live Online Visitors -->
+<div class="wm-card relative overflow-hidden rounded-xl bg-surface-container-low/70 backdrop-blur-xl p-space-md shadow-md flex flex-col justify-between border border-emerald-500/30">
+<div class="absolute top-0 right-0 w-24 h-24 bg-emerald-500/10 rounded-full blur-2xl pointer-events-none"></div>
+<div class="flex items-start justify-between">
+<div class="flex flex-col">
+<span class="font-label-md text-label-md uppercase text-emerald-400 font-bold tracking-wider flex items-center gap-1.5">
+<span class="w-2 h-2 rounded-full bg-emerald-400 animate-pulse"></span> Live Online Visitors
+</span>
+<div class="flex items-baseline gap-2 mt-1">
+<span class="font-headline-lg text-headline-lg font-extrabold text-emerald-300" id="stat-live-views">0</span>
+<span class="font-body-sm text-body-sm text-emerald-400 font-medium">browsing site now</span>
+</div>
+</div>
+<div class="w-10 h-10 rounded-lg bg-emerald-500/20 flex items-center justify-center text-emerald-300">
+<span class="material-symbols-outlined text-[22px]">group</span>
+</div>
+</div>
+<div class="mt-4 pt-3 flex items-center justify-between text-on-surface-variant font-label-sm text-label-sm">
+<span class="text-emerald-400 font-semibold">100% Real-Time Heartbeat</span>
+<span class="text-outline">•</span>
+<span class="text-on-surface-variant">Instant Node Sync</span>
+</div>
+</div>
+</div>
+<!-- Main Multi-Column Console Area -->
+<div class="grid grid-cols-1 xl:grid-cols-12 gap-space-lg">
+<!-- Primary Center-Left: High Density Filter & Orders Table (9 Columns on XL) -->
+<div class="xl:col-span-9 flex flex-col gap-space-md">
+<!-- Glass Filter Toolbar -->
+<div class="rounded-xl bg-surface-container-low/75 backdrop-blur-xl p-space-md shadow-md flex flex-col gap-space-md">
+<!-- Search and Quick Action Bar -->
+<div class="flex flex-col md:flex-row items-center gap-space-sm justify-between">
+<div class="relative w-full md:max-w-xl">
+<span class="material-symbols-outlined absolute left-3.5 top-1/2 -translate-y-1/2 text-on-surface-variant text-[20px]">search</span>
+<input class="w-full h-11 pl-11 pr-14 rounded-lg bg-surface-container-lowest/80 text-on-surface placeholder:text-outline font-body-sm text-body-sm transition-all focus:outline-none focus:bg-surface-container-high focus:shadow-[0_0_0_2px_rgba(210,187,255,0.4)]" id="orderSearchInput" oninput="applyOrderFilters()" placeholder="Search by Order ID, Buyer, Recipient, Phone, or Template..." type="text"/>
+<span class="absolute right-3 top-1/2 -translate-y-1/2 px-1.5 py-0.5 rounded bg-surface-container-highest text-on-surface-variant font-label-sm text-label-sm">⌘F</span>
+</div>
+</div>
+<!-- Segmented Status Tabs & Bulk Action Pill -->
+<div class="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pt-2">
+<!-- Filter Tabs -->
+<div class="flex items-center gap-1.5 overflow-x-auto pb-1 sm:pb-0 font-body-sm text-body-sm scrollbar-none" id="filter-tabs-container">
+<button onclick="setActiveTab('all')" class="tab-btn px-3.5 py-1.5 rounded-lg bg-primary-container text-on-primary-container font-semibold shadow-sm whitespace-nowrap transition-all" data-tab="all" type="button">
+  All Wishes <span class="ml-1 text-on-primary-container/80 text-label-sm" id="tab-all-count">0</span>
+</button>
+<button onclick="setActiveTab('vip')" class="tab-btn px-3.5 py-1.5 rounded-lg text-on-surface-variant hover:text-on-surface hover:bg-surface-container-high transition-all whitespace-nowrap" data-tab="vip" type="button">
+  👑 VIP Buyers (₹49) <span class="ml-1 px-1.5 py-0.2 rounded-full bg-secondary-container/40 text-secondary text-label-sm font-semibold" id="tab-vip-count">0</span>
+</button>
+<button onclick="setActiveTab('free')" class="tab-btn px-3.5 py-1.5 rounded-lg text-on-surface-variant hover:text-on-surface hover:bg-surface-container-high transition-all whitespace-nowrap" data-tab="free" type="button">
+  🎁 Free Links <span class="ml-1 text-outline text-label-sm" id="tab-free-count">0</span>
+</button>
+<button onclick="setActiveTab('live')" class="tab-btn px-3.5 py-1.5 rounded-lg text-on-surface-variant hover:text-on-surface hover:bg-surface-container-high transition-all whitespace-nowrap" data-tab="live" type="button">
+  🟢 Live Active <span class="ml-1 px-1.5 py-0.2 rounded-full bg-emerald-500/20 text-emerald-300 text-label-sm font-semibold" id="tab-live-count">0</span>
+</button>
+<button onclick="setActiveTab('future')" class="tab-btn px-3.5 py-1.5 rounded-lg text-on-surface-variant hover:text-on-surface hover:bg-surface-container-high transition-all whitespace-nowrap" data-tab="future" type="button">
+  🟣 Future Scheduled <span class="ml-1 px-1.5 py-0.2 rounded-full bg-purple-500/20 text-purple-300 text-label-sm font-semibold" id="tab-future-count">0</span>
+</button>
+<button onclick="setActiveTab('expired')" class="tab-btn px-3.5 py-1.5 rounded-lg text-on-surface-variant hover:text-on-surface hover:bg-surface-container-high transition-all whitespace-nowrap" data-tab="expired" type="button">
+  🔴 Expired Links <span class="ml-1 px-1.5 py-0.2 rounded-full bg-rose-500/20 text-rose-300 text-label-sm font-semibold" id="tab-expired-count">0</span>
+</button>
+</div>
+</div>
+</div>
+<!-- High-Density Orders & Wishes Data Table -->
+<div class="relative overflow-hidden rounded-xl bg-surface-container-low/75 backdrop-blur-xl shadow-lg">
+<div class="overflow-x-auto">
+<table class="w-full text-left font-body-sm text-body-sm border-collapse">
+<thead>
+<tr class="bg-surface-container-lowest/80 text-on-surface-variant font-label-md text-label-md uppercase tracking-wider">
+<th class="py-3.5 pl-4 pr-2 w-10">
+<input class="rounded bg-surface-container-high text-primary-container focus:ring-0 cursor-pointer" type="checkbox"/>
+</th>
+<th class="py-3.5 px-3">Order / Wish ID</th>
+<th class="py-3.5 px-3">Sender / Buyer ➔ Recipient</th>
+<th class="py-3.5 px-3">Template &amp; Occasion</th>
+<th class="py-3.5 px-3">Link Lifecycle Status</th>
+<th class="py-3.5 px-3">Tier &amp; Monetization</th>
+<th class="py-3.5 px-3">Views</th>
+<th class="py-3.5 pr-4 pl-2 text-right">Actions</th>
+</tr>
+</thead>
+<tbody id="orders-table-body" class="text-on-surface divide-none">
+    <tr>
+      <td colspan="8" class="text-center py-16 text-on-surface-variant text-xs">
+        <span class="material-symbols-outlined text-4xl text-outline mb-2 block">receipt_long</span>
+        <p class="font-bold text-sm text-on-surface mb-1">Loading Wishes &amp; Orders...</p>
+        <span class="text-outline">Connecting to real-time telemetry node...</span>
+      </td>
+    </tr>
+  </tbody>
+</table>
+</div>
+<!-- Table Footer / Stats Controls -->
+<div class="px-space-md py-3 bg-surface-container-lowest/80 flex flex-col md:flex-row items-center justify-between gap-3">
+<div class="flex items-center gap-2 font-label-md text-label-md text-on-surface-variant">
+<span>Showing <strong class="text-primary font-semibold" id="footer-order-count">0</strong> matching wishes</span>
+<span class="text-outline">•</span>
+<span class="text-emerald-400 font-semibold" id="footer-tab-indicator">All Records</span>
+</div>
+<div class="flex items-center gap-2 text-xs text-on-surface-variant">
+  <span>Real-time node synced</span>
+  <span class="w-2 h-2 rounded-full bg-emerald-400 animate-pulse"></span>
+</div>
+</div>
+</div>
+</div>
+<!-- Secondary Right Column: Live Telemetry, Activity Stream & Quick Diagnostics (3 Columns on XL) -->
+<div class="xl:col-span-3 flex flex-col gap-space-md">
+<!-- Live Heartbeat Real-Time Activity Feed -->
+<div class="rounded-xl bg-surface-container-low/75 backdrop-blur-xl p-space-md shadow-md flex flex-col gap-space-md">
+<div class="flex items-center justify-between">
+<div class="flex items-center gap-2">
+<span class="w-2 h-2 rounded-full bg-emerald-400 animate-pulse"></span>
+<span class="font-headline-sm text-body-lg font-bold text-on-surface">Live Activity Stream</span>
+</div>
+<span class="font-label-sm text-label-sm text-emerald-400 font-semibold">Active Node</span>
+</div>
+<!-- Activity Timeline -->
+<div class="flex flex-col gap-2.5 font-body-sm text-body-sm" id="orders-live-stream">
+  <div class="p-4 text-center text-on-surface-variant text-xs">
+    <span class="material-symbols-outlined text-2xl text-outline mb-1 block">stream</span>
+    <span>No recent wish activity yet</span>
+  </div>
+</div>
+</div>
+<!-- Quick Diagnostic & Gateway Health Widget -->
+<div class="rounded-xl bg-surface-container-low/75 backdrop-blur-xl p-space-md shadow-md flex flex-col gap-space-sm">
+<span class="font-headline-sm text-body-lg font-bold text-on-surface">Delivery &amp; Safety Telemetry</span>
+<div class="flex flex-col gap-3 font-body-sm text-body-sm mt-1">
+<!-- Item 1 -->
+<div class="flex flex-col gap-1 p-2.5 rounded-lg bg-surface-container-lowest/50">
+<div class="flex items-center justify-between">
+<span class="font-medium text-on-surface flex items-center gap-1.5">
+<span class="material-symbols-outlined text-[16px] text-primary">security</span>
+<span>Abuse &amp; Phishing Filter</span>
+</span>
+<span class="font-label-sm text-label-sm text-tertiary font-semibold">Clean (0 threat)</span>
+</div>
+<span class="text-[11px] text-on-surface-variant">Real-time template code sandbox active.</span>
+</div>
+<!-- Item 2 -->
+<div class="flex flex-col gap-1 p-2.5 rounded-lg bg-surface-container-lowest/50">
+<div class="flex items-center justify-between">
+<span class="font-medium text-on-surface flex items-center gap-1.5">
+<span class="material-symbols-outlined text-[16px] text-emerald-400">timer</span>
+<span>Heartbeat Latency</span>
+</span>
+<span class="font-label-sm text-label-sm text-emerald-400 font-semibold">12ms ping</span>
+</div>
+<div class="w-full bg-surface-container-highest rounded-full h-1 mt-1">
+<div class="bg-emerald-400 h-1 rounded-full w-[100%]"></div>
+</div>
+</div>
+<!-- Item 3 -->
+<div class="flex flex-col gap-1 p-2.5 rounded-lg bg-surface-container-lowest/50">
+<div class="flex items-center justify-between">
+<span class="font-medium text-on-surface flex items-center gap-1.5">
+<span class="material-symbols-outlined text-[16px] text-secondary">flash_on</span>
+<span>UPI Payment Webhook</span>
+</span>
+<span class="font-label-sm text-label-sm text-primary font-bold">PhonePe / UPI Verified</span>
+</div>
+<span class="text-[11px] text-on-surface-variant">Direct credit to your connected bank UPI.</span>
+</div>
+</div>
+</div>
+<!-- Quick VIP Revenue Target Card -->
+<div class="rounded-xl bg-gradient-to-br from-primary-container/20 to-secondary-container/20 p-space-md backdrop-blur-xl shadow-md flex flex-col gap-2">
+<div class="flex items-center justify-between">
+<span class="font-label-sm text-label-sm uppercase tracking-wider text-primary">Current VIP Revenue</span>
+<span class="font-label-sm text-label-sm font-bold text-secondary" id="vip-goal-pct">₹0</span>
+</div>
+<div class="w-full bg-surface-container-lowest rounded-full h-2">
+<div class="bg-gradient-to-r from-primary-container to-secondary h-2 rounded-full" id="vip-goal-bar" style="width: 4%;"></div>
+</div>
+<span class="text-on-surface-variant font-body-sm text-body-sm" id="vip-goal-text">
+  Direct customer payments for ₹49 premium template unlocks.
+</span>
+</div>
+</div>
+</div>
+<!-- MODAL: Inspect Live Digital Wish Preview -->
+<div class="fixed inset-0 z-50 flex items-center justify-center p-4 bg-surface-container-lowest/80 backdrop-blur-2xl hidden" id="wish-preview-modal">
+<div class="relative w-full max-w-lg rounded-2xl bg-surface-container-low p-space-lg shadow-2xl flex flex-col gap-space-md">
+<!-- Close Button -->
+<button class="absolute top-4 right-4 p-1.5 rounded-lg text-on-surface-variant hover:text-on-surface hover:bg-surface-container-high transition-colors" onclick="closeWishModal()" type="button">
+<span class="material-symbols-outlined text-[20px]">close</span>
+</button>
+<!-- Modal Header -->
+<div class="flex flex-col">
+<div class="flex items-center gap-2">
+<span class="px-2 py-0.5 rounded-full bg-primary-container text-on-primary-container font-label-sm text-label-sm font-semibold">Live Experience Render</span>
+<span class="font-label-sm text-label-sm text-secondary font-semibold">VIP Pass Verified</span>
+</div>
+<h3 class="font-headline-md text-headline-md font-bold text-on-surface mt-1" id="modalWishRecipient">Recipient</h3>
+<p class="font-label-md text-label-md text-primary" id="modalWishTemplate">Template Experience</p>
+</div>
+<!-- Simulated Phone Screen Preview Frame -->
+<div class="relative w-full h-80 rounded-xl bg-surface-container-lowest overflow-hidden flex flex-col justify-between p-6 shadow-inner">
+<!-- Floating sparkles SVG -->
+<div class="absolute inset-0 pointer-events-none opacity-30">
+<svg class="w-full h-full" xmlns="http://www.w3.org/2000/svg">
+<circle cx="20%" cy="20%" fill="#d2bbff" r="2"></circle>
+<circle cx="80%" cy="30%" fill="#ffb0cd" r="3"></circle>
+<circle cx="40%" cy="70%" fill="#ffb95f" r="2.5"></circle>
+<circle cx="70%" cy="80%" fill="#d2bbff" r="1.5"></circle>
+</svg>
+</div>
+<div class="flex justify-between items-center z-10">
+<span class="px-2.5 py-1 rounded-full bg-surface-container/60 backdrop-blur-md text-[11px] font-label-md text-primary">✨ 3D Wax Seal Opened</span>
+<span class="material-symbols-outlined text-secondary text-[20px] animate-pulse">favorite</span>
+</div>
+<div class="flex flex-col items-center text-center z-10 my-auto">
+<div class="w-14 h-14 rounded-full bg-gradient-to-tr from-primary-container to-secondary flex items-center justify-center text-white shadow-[0_0_24px_rgba(124,58,237,0.6)] mb-3">
+<span class="material-symbols-outlined text-[28px]">cake</span>
+</div>
+<p class="font-body-md text-body-md text-on-surface italic max-w-xs leading-relaxed" id="modalWishMessage">
+            "Wishing you a memorable and joyful celebration filled with wonder!"
+          </p>
+<span class="font-label-md text-label-md text-on-surface-variant mt-2 font-semibold" id="modalWishSender">— From Sender</span>
+</div>
+<div class="flex items-center justify-between z-10 pt-2 bg-surface-container-lowest/80 backdrop-blur-sm rounded-lg px-3 py-1.5">
+<div class="flex items-center gap-1.5">
+<span class="material-symbols-outlined text-[16px] text-primary">volume_up</span>
+<span class="text-[11px] font-label-sm text-on-surface-variant">Celestial Waltz Lo-Fi (Playing)</span>
+</div>
+<span class="font-label-sm text-label-sm text-tertiary">01:42</span>
+</div>
+</div>
+<!-- Action buttons -->
+<div class="flex items-center justify-end gap-2 pt-2">
+<button class="px-3.5 py-2 rounded-lg bg-surface-container-high text-on-surface font-label-lg text-label-lg hover:bg-surface-bright" onclick="closeWishModal()" type="button">
+          Close Inspector
+        </button>
+<button class="px-4 py-2 rounded-lg bg-gradient-to-r from-primary-container to-secondary text-white font-label-lg text-label-lg font-semibold flex items-center gap-1.5" type="button">
+<span class="material-symbols-outlined text-[18px]">share</span>
+<span>Copy Public Web URL</span>
+</button>
+</div>
+</div>
+</div>
+<!-- MODAL: Generate Manual Comp Pass -->
+<div class="fixed inset-0 z-50 flex items-center justify-center p-4 bg-surface-container-lowest/80 backdrop-blur-2xl hidden" id="comp-modal">
+<div class="relative w-full max-w-lg rounded-2xl bg-surface-container-low p-space-lg shadow-2xl flex flex-col gap-space-md">
+<!-- Close Button -->
+<button class="absolute top-4 right-4 p-1.5 rounded-lg text-on-surface-variant hover:text-on-surface hover:bg-surface-container-high transition-colors" onclick="document.getElementById('comp-modal').classList.add('hidden')" type="button">
+<span class="material-symbols-outlined text-[20px]">close</span>
+</button>
+<div class="flex flex-col">
+<div class="flex items-center gap-2">
+<span class="material-symbols-outlined text-primary text-[20px]">card_membership</span>
+<h3 class="font-headline-md text-headline-md font-bold text-on-surface">Issue Complimentary VIP Pass</h3>
+</div>
+<p class="font-body-sm text-body-sm text-on-surface-variant mt-0.5">
+          Bypass the ₹49 UPI gateway for influencers, VIP support cases, or brand partners.
+        </p>
+</div>
+<!-- Comp Form -->
+<div class="flex flex-col gap-3 font-body-sm text-body-sm">
+<div>
+<label class="block font-label-sm text-label-sm text-on-surface-variant uppercase mb-1">Recipient Name</label>
+<input id="comp-recipient-name" class="w-full h-10 px-3 rounded-lg bg-surface-container-lowest text-on-surface focus:outline-none focus:bg-surface-container-high" placeholder="e.g. Aanya Singhania" type="text"/>
+</div>
+<div>
+<label class="block font-label-sm text-label-sm text-on-surface-variant uppercase mb-1">Recipient Mobile / WhatsApp</label>
+<input id="comp-recipient-contact" class="w-full h-10 px-3 rounded-lg bg-surface-container-lowest text-on-surface focus:outline-none focus:bg-surface-container-high" placeholder="+91 98..." type="text"/>
+</div>
+<div>
+<label class="block font-label-sm text-label-sm text-on-surface-variant uppercase mb-1">Template Style</label>
+<select id="comp-template-style" class="w-full h-10 px-3 rounded-lg bg-surface-container-lowest text-on-surface focus:outline-none focus:bg-surface-container-high">
+<option>Glitter Birthday Bash (3D Golden Wax Seal)</option>
+<option>Endless Love Romantic 3D</option>
+<option>Golden Anniversary 3D</option>
+<option>Midnight Neon Fireworks</option>
+</select>
+</div>
+<div>
+<label class="block font-label-sm text-label-sm text-on-surface-variant uppercase mb-1">Reason / Campaign Tag</label>
+<input id="comp-reason" class="w-full h-10 px-3 rounded-lg bg-surface-container-lowest text-on-surface focus:outline-none focus:bg-surface-container-high" placeholder="e.g. IG Influencer Collab @aanya_vibes" type="text"/>
+</div>
+</div>
+<div class="flex items-center justify-end gap-2 pt-2">
+<button class="px-3.5 py-2 rounded-lg bg-surface-container-high text-on-surface font-label-lg text-label-lg hover:bg-surface-bright" onclick="document.getElementById('comp-modal').classList.add('hidden')" type="button">
+          Cancel
+        </button>
+<button class="px-4 py-2 rounded-lg bg-gradient-to-r from-primary-container to-secondary text-white font-label-lg text-label-lg font-semibold flex items-center gap-1.5 shadow-[0_0_20px_rgba(124,58,237,0.4)]" onclick="generateCompSuccess()" type="button">
+<span class="material-symbols-outlined text-[18px]">bolt</span>
+<span>Generate &amp; Dispatch Comp Link</span>
+</button>
+</div>
+</div>
+</div>
+<!-- Inline Micro-Interaction Logic -->
+<script>
+    function previewWishModal(recipient, template, sender, message) {
+      document.getElementById('modalWishRecipient').innerText = recipient;
+      document.getElementById('modalWishTemplate').innerText = 'Template: ' + template;
+      document.getElementById('modalWishSender').innerText = '— From ' + sender;
+      document.getElementById('modalWishMessage').innerText = '"' + message + '"';
+      document.getElementById('wish-preview-modal').classList.remove('hidden');
+    }
+
+    function closeWishModal() {
+      document.getElementById('wish-preview-modal').classList.add('hidden');
+    }
+
+    async function generateCompSuccess() {
+      const recipientName = document.getElementById('comp-recipient-name')?.value.trim() || 'VIP Guest';
+      const recipientContact = document.getElementById('comp-recipient-contact')?.value.trim() || '+91 9876543210';
+      const templateName = document.getElementById('comp-template-style')?.value || 'Glitter Birthday Bash';
+      const reason = document.getElementById('comp-reason')?.value.trim() || 'Complimentary VIP Pass';
+      try {
+        const res = await fetch('/api/admin/commerce/comp-pass', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          credentials: 'include',
+          body: JSON.stringify({ recipientName, recipientContact, templateName, reason })
+        });
+        const data = await res.json();
+        document.getElementById('comp-modal').classList.add('hidden');
+        if (data.success) {
+          if (typeof showToast === 'function') showToast(`✨ Complimentary VIP Pass created for ${recipientName}!`, 'success');
+          await loadOrdersData();
+        } else {
+          alert(data.message || 'Failed to generate complimentary pass');
+        }
+      } catch (e) {
+        alert('Network error generating pass');
+      }
+    }
+
+    function exportOrdersCSV() {
+      if (!cachedWishes || cachedWishes.length === 0) {
+        if (typeof showToast === 'function') showToast('No records to export', 'warning');
+        return;
+      }
+      const headers = ['Order/Wish ID', 'Sender', 'Recipient', 'Template', 'Tier', 'Amount (INR)', 'Status', 'Views', 'Created At'];
+      const rows = cachedWishes.map(w => [
+        w.orderId || w.id || '',
+        `"${String(w.buyerName || (w.customData && w.customData.sender_name) || 'Anonymous').replace(/"/g, '""')}"`,
+        `"${String(w.recipientName || (w.customData && w.customData.recipient_name) || 'Recipient').replace(/"/g, '""')}"`,
+        `"${String(w.templateName || 'Template').replace(/"/g, '""')}"`,
+        w.tier || 'free',
+        w.price || 0,
+        w.lifecycleStatus || 'active',
+        w.views || 0,
+        w.createdAt || ''
+      ]);
+      const csv = [headers.join(','), ...rows.map(r => r.join(','))].join('\n');
+      const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = `wishmagic-payments-orders-${new Date().toISOString().slice(0, 10)}.csv`;
+      a.click();
+      URL.revokeObjectURL(url);
+      if (typeof showToast === 'function') showToast('📥 Payments & Orders CSV exported!', 'success');
+    }
+
+    function toggleSidebar() {
+      const sidebar = document.getElementById('admin-sidebar');
+      const backdrop = document.getElementById('sidebar-backdrop');
+      if (sidebar && backdrop) {
+        const isClosed = sidebar.classList.contains('-translate-x-full');
+        if (isClosed) {
+          sidebar.classList.remove('-translate-x-full');
+          backdrop.classList.remove('hidden');
+          document.body.style.overflow = 'hidden';
+        } else {
+          sidebar.classList.add('-translate-x-full');
+          backdrop.classList.add('hidden');
+          document.body.style.overflow = '';
+        }
+      }
+    }
+
+    // Keyboard shortcut CMD+F focusing search input
+    document.addEventListener('keydown', function(e) {
+      if ((e.metaKey || e.ctrlKey) && e.key === 'f') {
+        const input = document.getElementById('orderSearchInput');
+        if (input) {
+          e.preventDefault();
+          input.focus();
+        }
+      }
+    });
+
+    // State management for instant filtering and search
+    let cachedWishes = [];
+    let cachedMetrics = null;
+    let activeFilterTab = 'all';
+
+    function setActiveTab(tab) {
+      activeFilterTab = tab;
+      // Update UI button highlights
+      document.querySelectorAll('#filter-tabs-container .tab-btn').forEach(btn => {
+        if (btn.getAttribute('data-tab') === tab) {
+          btn.className = 'tab-btn px-3.5 py-1.5 rounded-lg bg-primary-container text-on-primary-container font-semibold shadow-sm whitespace-nowrap transition-all';
+        } else {
+          btn.className = 'tab-btn px-3.5 py-1.5 rounded-lg text-on-surface-variant hover:text-on-surface hover:bg-surface-container-high transition-all whitespace-nowrap';
+        }
+      });
+
+      const indicator = document.getElementById('footer-tab-indicator');
+      if (indicator) {
+        const labels = {
+          all: 'All Wishes',
+          vip: 'VIP Paid Buyers',
+          free: 'Free Links',
+          live: 'Live Active Links',
+          future: 'Future Scheduled Links',
+          expired: 'Expired Links'
+        };
+        indicator.textContent = labels[tab] || 'Filtered';
+      }
+
+      applyOrderFilters();
+    }
+
+    function applyOrderFilters() {
+      const searchInput = document.getElementById('orderSearchInput');
+      const query = (searchInput ? searchInput.value : '').toLowerCase().trim();
+
+      let filtered = cachedWishes.filter(w => {
+        const status = (window.WishLifecycle && typeof window.WishLifecycle.getWishStatus === 'function') 
+          ? window.WishLifecycle.getWishStatus(w) 
+          : (w.lifecycleStatus || 'active');
+
+        // Tab filtering
+        if (activeFilterTab === 'vip') {
+          if (w.tier !== 'vip' && (!w.price || w.price <= 0)) return false;
+        } else if (activeFilterTab === 'free') {
+          if (w.tier === 'vip' || (w.price && w.price > 0)) return false;
+        } else if (activeFilterTab === 'live' || activeFilterTab === 'active') {
+          if (status !== 'active') return false;
+        } else if (activeFilterTab === 'future' || activeFilterTab === 'upcoming') {
+          if (status !== 'upcoming') return false;
+        } else if (activeFilterTab === 'expired') {
+          if (status !== 'expired') return false;
+        }
+
+        // Search query filtering
+        if (query) {
+          const id = (w.id || '').toLowerCase();
+          const orderId = (w.orderId || '').toLowerCase();
+          const sender = ((w.customData && (w.customData.sender_name || w.customData.senderName)) || w.buyerName || '').toLowerCase();
+          const contact = (w.buyerContact || (w.customData && (w.customData.sender_contact || w.customData.senderEmail || w.customData.senderPhone)) || '').toLowerCase();
+          const recipient = ((w.customData && (w.customData.recipient_name || w.customData.recipientName)) || w.recipientName || '').toLowerCase();
+          const tpl = (w.templateName || '').toLowerCase();
+
+          const matches = id.includes(query) || orderId.includes(query) || sender.includes(query) || contact.includes(query) || recipient.includes(query) || tpl.includes(query);
+          if (!matches) return false;
+        }
+
+        return true;
+      });
+
+      renderWishesTable(filtered);
+    }
+
+    function renderWishesTable(wishes) {
+      const tableBody = document.getElementById('orders-table-body');
+      const footerCount = document.getElementById('footer-order-count');
+      if (footerCount) footerCount.textContent = wishes.length;
+
+      if (!tableBody) return;
+
+      if (wishes.length === 0) {
+        tableBody.innerHTML = `
+          <tr>
+            <td colspan="8" class="text-center py-16 text-on-surface-variant text-xs">
+              <span class="material-symbols-outlined text-4xl text-outline mb-2 block">receipt_long</span>
+              <p class="font-bold text-sm text-on-surface mb-1">No Matching Wishes Found</p>
+              <span class="text-outline">Try clearing your search query or selecting a different tab filter.</span>
+            </td>
+          </tr>
+        `;
+        return;
+      }
+
+      tableBody.innerHTML = wishes.map(w => {
+        const recipient = (w.customData && (w.customData.recipient_name || w.customData.recipientName)) || w.recipientName || 'Special Person';
+        const sender = (w.customData && (w.customData.sender_name || w.customData.senderName)) || w.buyerName || 'Anonymous';
+        const contact = w.buyerContact || (w.customData && (w.customData.sender_contact || w.customData.senderEmail || w.customData.senderPhone)) || '';
+        const initials = ((recipient[0] || 'W') + (sender[0] || 'M')).toUpperCase();
+        const dateStr = new Date(w.createdAt).toLocaleDateString('en-IN', { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' });
+        const isVip = w.tier === 'vip' || (w.price && w.price > 0);
+
+        // Lifecycle evaluation
+        const status = (window.WishLifecycle && typeof window.WishLifecycle.getWishStatus === 'function')
+          ? window.WishLifecycle.getWishStatus(w)
+          : (w.lifecycleStatus || 'active');
+
+        // Lifecycle Badge
+        let statusBadge = `
+          <span class="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-emerald-500/15 text-emerald-300 font-label-sm text-label-sm font-semibold border border-emerald-500/30">
+            <span class="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse"></span>
+            <span>Live Active</span>
+          </span>
+        `;
+        if (status === 'upcoming') {
+          statusBadge = `
+            <span class="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-purple-500/15 text-purple-300 font-label-sm text-label-sm font-semibold border border-purple-500/30">
+              <span class="w-1.5 h-1.5 rounded-full bg-purple-400"></span>
+              <span>Upcoming</span>
+            </span>
+          `;
+        } else if (status === 'expired') {
+          statusBadge = `
+            <span class="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-rose-500/15 text-rose-300 font-label-sm text-label-sm font-semibold border border-rose-500/30">
+              <span class="w-1.5 h-1.5 rounded-full bg-rose-400"></span>
+              <span>Expired</span>
+            </span>
+          `;
+        }
+
+        // Monetization Tag
+        let monetizationBadge = `
+          <span class="inline-flex items-center gap-1 px-2.5 py-1 rounded-lg bg-surface-container-high text-on-surface-variant font-label-sm text-label-sm font-medium">
+            <span class="material-symbols-outlined text-[14px]">card_giftcard</span>
+            <span>Free Tier</span>
+          </span>
+        `;
+        if (isVip) {
+          monetizationBadge = `
+            <div class="flex flex-col">
+              <span class="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-md bg-amber-500/20 text-amber-300 font-label-sm text-label-sm font-bold border border-amber-500/30">
+                <span>👑 VIP ₹${w.price || 49} Paid</span>
+              </span>
+              <span class="text-[10px] text-outline font-mono mt-0.5">${(w.payment && w.payment.method) || 'Instant UPI'}</span>
+            </div>
+          `;
+        }
+
+        return `
+          <tr class="hover:bg-primary-container/5 transition-colors group">
+            <td class="py-3.5 pl-4 pr-2">
+              <input class="rounded bg-surface-container-high text-primary cursor-pointer" type="checkbox"/>
+            </td>
+            <td class="py-3.5 px-3 whitespace-nowrap">
+              <div class="flex items-center gap-1.5">
+                <span class="font-label-md text-label-md font-mono font-bold text-primary">${w.orderId || ('#' + w.id.slice(-6).toUpperCase())}</span>
+              </div>
+              <span class="font-label-sm text-label-sm text-on-surface-variant">${dateStr}</span>
+            </td>
+            <td class="py-3.5 px-3">
+              <div class="flex items-center gap-2.5 min-w-[210px]">
+                <div class="w-8 h-8 rounded-full ${isVip ? 'bg-amber-400/20 text-amber-300' : 'bg-primary/20 text-primary'} flex items-center justify-center font-bold text-[12px] shrink-0">${initials}</div>
+                <div class="flex flex-col min-w-0">
+                  <div class="flex items-center gap-1 truncate font-semibold text-on-surface">
+                    <span>${sender}</span>
+                    <span class="text-on-surface-variant text-[11px] font-normal">➔</span>
+                    <span class="text-secondary truncate">${recipient}</span>
+                  </div>
+                  ${contact ? `<span class="font-label-sm text-label-sm text-outline truncate font-mono text-[10px]">${contact}</span>` : `<span class="font-label-sm text-label-sm text-on-surface-variant truncate">Direct Share</span>`}
+                </div>
+              </div>
+            </td>
+            <td class="py-3.5 px-3">
+              <div class="flex items-center gap-2 min-w-[190px]">
+                <div class="w-7 h-7 rounded-lg bg-surface-container-high flex items-center justify-center text-primary shrink-0">
+                  <span class="material-symbols-outlined text-[16px]">celebration</span>
+                </div>
+                <div class="flex flex-col truncate">
+                  <span class="font-medium text-on-surface truncate">${w.templateName || 'Custom Template'}</span>
+                  <span class="font-label-sm text-label-sm text-on-surface-variant truncate">Web Interactive Experience</span>
+                </div>
+              </div>
+            </td>
+            <td class="py-3.5 px-3 whitespace-nowrap">
+              ${statusBadge}
+            </td>
+            <td class="py-3.5 px-3 whitespace-nowrap">
+              ${monetizationBadge}
+            </td>
+            <td class="py-3.5 px-3 whitespace-nowrap">
+              <span class="font-label-sm text-label-sm text-tertiary font-bold">${w.views || 0} views</span>
+            </td>
+            <td class="py-3.5 pr-4 pl-2 text-right whitespace-nowrap">
+              <div class="flex items-center justify-end gap-1.5">
+                <a href="/w/${w.id}" target="_blank" class="px-2.5 py-1.5 rounded-lg bg-surface-container-high hover:bg-primary-container hover:text-on-primary-container text-on-surface font-label-sm text-label-sm transition-all inline-flex items-center gap-1" title="Open Public Link">
+                  <span>Open</span>
+                  <span class="material-symbols-outlined text-[13px]">open_in_new</span>
+                </a>
+                <a href="/w/${w.id}?preview=true" target="_blank" class="px-2.5 py-1.5 rounded-lg bg-surface-container-low hover:bg-surface-container-high text-on-surface-variant font-label-sm text-label-sm transition-all inline-flex items-center gap-1" title="Creator Preview Mode (Simulate States)">
+                  <span>Preview</span>
+                </a>
+                <a href="/customize.html?clone=${w.id}" class="px-2.5 py-1.5 rounded-lg bg-purple-600/20 hover:bg-purple-600/40 text-purple-300 font-label-sm text-label-sm transition-all inline-flex items-center gap-1" title="Create Again (Clones into a New Draft Wish)">
+                  <span>Create Again</span>
+                </a>
+                <button onclick="deleteWishRecord('${w.id}')" class="p-1.5 rounded-lg bg-surface-container-low hover:bg-rose-500/20 text-outline hover:text-rose-300 transition-all" title="Delete Wish Record">
+                  <span class="material-symbols-outlined text-[15px]">delete</span>
+                </button>
+              </div>
+            </td>
+          </tr>
+        `;
+      }).join('');
+    }
+
+    async function refundOrder(orderId) {
+      const reason = prompt('Enter reason for refund:', 'Customer Satisfaction Request');
+      if (!reason) return;
+      try {
+        const res = await fetch(`/api/admin/commerce/orders/${encodeURIComponent(orderId)}/refund`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          credentials: 'include',
+          body: JSON.stringify({ reason })
+        });
+        const data = await res.json();
+        if (data.success) {
+          alert('Refund processed successfully!');
+          loadOrdersData();
+        } else {
+          alert('Refund error: ' + (data.error?.message || data.message || 'Unknown error'));
+        }
+      } catch (err) {
+        alert('Network error: ' + err.message);
+      }
+    }
+
+    async function triggerReconcile() {
+      if (!confirm('Reconcile unresolved gateway payments now?')) return;
+      try {
+        const res = await fetch('/api/admin/commerce/reconcile', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          credentials: 'include'
+        });
+        const data = await res.json();
+        if (data.success) {
+          alert(`Reconciliation complete. Scanned: ${data.reconciliation.scanned}, Repaired: ${data.reconciliation.repaired}`);
+          loadOrdersData();
+        } else {
+          alert('Reconciliation error: ' + (data.error?.message || 'Failed'));
+        }
+      } catch (err) {
+        alert('Network error: ' + err.message);
+      }
+    }
+
+    async function deleteWishRecord(wishId) {
+      if (!confirm('Are you sure you want to remove this wish record?')) return;
+      try {
+        const res = await fetch(`/api/wishes/${encodeURIComponent(wishId)}`, { method: 'DELETE' });
+        const data = await res.json();
+        if (data.success) {
+          cachedWishes = cachedWishes.filter(w => w.id !== wishId);
+          applyOrderFilters();
+        } else {
+          alert('Error deleting wish: ' + (data.message || 'Unknown error'));
+        }
+      } catch (err) {
+        alert('Network error: ' + err.message);
+      }
+    }
+
+    async function loadOrdersData() {
+      try {
+        const [commerceRes, wishesRes, metricsRes] = await Promise.all([
+          fetch('/api/admin/commerce/orders', { credentials: 'include' }).catch(() => null),
+          fetch('/api/admin/wishes', { credentials: 'include' }).catch(() => null),
+          fetch('/api/admin/metrics', { credentials: 'include' }).catch(() => null)
+        ]);
+        const commerceData = commerceRes ? await commerceRes.json().catch(() => ({})) : {};
+        const wishesData = wishesRes ? await wishesRes.json().catch(() => ({})) : {};
+        const metricsData = metricsRes ? await metricsRes.json().catch(() => ({})) : {};
+
+        const mergedList = [];
+        const seenIds = new Set();
+
+        // 1. Add wishes from /api/admin/wishes
+        const rawWishes = Array.isArray(wishesData.wishes) ? wishesData.wishes : [];
+        rawWishes.forEach(w => {
+          mergedList.push({
+            id: w.id,
+            orderId: w.orderId || ('#' + String(w.id).slice(-6).toUpperCase()),
+            buyerName: w.creatorName || w.buyerName || 'Creator',
+            buyerContact: w.creatorEmail || w.buyerContact || '',
+            recipientName: w.recipientName || 'Special Person',
+            templateName: w.templateName || 'Celebration Template',
+            tier: w.tier === 'vip' || Number(w.price) > 0 ? 'vip' : 'free',
+            price: Number(w.price) || (w.tier === 'vip' ? 49 : 0),
+            createdAt: w.createdAt || new Date().toISOString(),
+            views: Number(w.views) || 0,
+            lifecycleStatus: w.lifecycleStatus || 'active',
+            customData: w.customData || {},
+            payment: {
+              status: w.tier === 'vip' ? 'PAID' : 'FREE',
+              method: 'Instant UPI'
+            }
+          });
+          seenIds.add(w.id);
+          if (w.orderId) seenIds.add(w.orderId);
+        });
+
+        // 2. Add any standalone commerce orders not already in wishes
+        const rawOrders = Array.isArray(commerceData.orders) ? commerceData.orders : [];
+        rawOrders.forEach(o => {
+          if (!seenIds.has(o.id) && (!o.wishId || !seenIds.has(o.wishId))) {
+            mergedList.push({
+              id: o.wishId || o.id,
+              orderId: o.id,
+              buyerName: o.customerName || 'Customer',
+              buyerContact: o.customerEmail || '',
+              recipientName: o.recipientName || 'VIP Pass Holder',
+              templateName: o.productName || 'VIP Creator Pass',
+              tier: o.status === 'PAID' ? 'vip' : 'free',
+              price: o.amountRupees || 49,
+              createdAt: o.createdAt || new Date().toISOString(),
+              views: 1,
+              lifecycleStatus: o.status === 'PAID' ? 'active' : 'upcoming',
+              payment: {
+                status: o.status,
+                method: o.provider || 'Instant UPI',
+                transactionId: o.transactionId
+              }
+            });
+            seenIds.add(o.id);
+          }
+        });
+
+        cachedWishes = mergedList;
+
+        const m = metricsData.metrics || metricsData || {};
+        const cm = commerceData.metrics || {};
+
+        const vipList = cachedWishes.filter(w => w.tier === 'vip' || Number(w.price) > 0);
+        const freeList = cachedWishes.filter(w => w.tier !== 'vip' && (!w.price || Number(w.price) <= 0));
+        const liveList = cachedWishes.filter(w => (w.lifecycleStatus || 'active') === 'active' || w.lifecycleStatus === 'live');
+        const futureList = cachedWishes.filter(w => w.lifecycleStatus === 'upcoming' || w.lifecycleStatus === 'future');
+        const expiredList = cachedWishes.filter(w => w.lifecycleStatus === 'expired');
+
+        const computedRevenue = Math.max(
+          vipList.reduce((acc, w) => acc + (Number(w.price) || 49), 0),
+          Number(cm.totalRevenueRupees || 0),
+          Number(m.totalRevenue || m.revenue || 0)
+        );
+
+        const elTotal = document.getElementById('stat-total-wishes');
+        const elRev = document.getElementById('stat-vip-revenue');
+        const elOrdCnt = document.getElementById('stat-vip-orders-count');
+        const elSplit = document.getElementById('stat-free-vip-split');
+        const elLive = document.getElementById('stat-live-links');
+        const elFuture = document.getElementById('stat-future-links');
+        const elExp = document.getElementById('stat-expired-links');
+        const elVisitors = document.getElementById('stat-live-views');
+        const elGoalPct = document.getElementById('vip-goal-pct');
+
+        if (elTotal) elTotal.textContent = cachedWishes.length.toLocaleString();
+        if (elRev) elRev.textContent = '₹' + computedRevenue.toLocaleString('en-IN');
+        if (elGoalPct) elGoalPct.textContent = '₹' + computedRevenue.toLocaleString('en-IN');
+        if (elOrdCnt) elOrdCnt.textContent = `${vipList.length} Orders`;
+        if (elSplit) elSplit.innerHTML = `<span>${freeList.length} Free</span> • <span>${vipList.length} VIP Passes</span>`;
+        if (elLive) elLive.textContent = liveList.length.toLocaleString();
+        if (elFuture) elFuture.textContent = futureList.length.toLocaleString();
+        if (elExp) elExp.textContent = expiredList.length.toLocaleString();
+        if (elVisitors) elVisitors.textContent = (m.liveVisitorsCount || 1).toLocaleString();
+
+        const tabAll = document.getElementById('tab-all-count');
+        const tabVip = document.getElementById('tab-vip-count');
+        const tabFree = document.getElementById('tab-free-count');
+        const tabLive = document.getElementById('tab-live-count');
+        const tabFuture = document.getElementById('tab-future-count');
+        const tabExpired = document.getElementById('tab-expired-count');
+
+        if (tabAll) tabAll.textContent = cachedWishes.length;
+        if (tabVip) tabVip.textContent = vipList.length;
+        if (tabFree) tabFree.textContent = freeList.length;
+        if (tabLive) tabLive.textContent = liveList.length;
+        if (tabFuture) tabFuture.textContent = futureList.length;
+        if (tabExpired) tabExpired.textContent = expiredList.length;
+
+        // Populate Live Activity Stream on the right column
+        const streamEl = document.getElementById('orders-live-stream');
+        if (streamEl && cachedWishes.length > 0) {
+          streamEl.innerHTML = cachedWishes.slice(0, 5).map(w => `
+            <div class="p-2.5 rounded-xl bg-surface-container-lowest/60 border border-purple-900/20 flex items-center justify-between gap-2 text-xs">
+              <div class="truncate">
+                <div class="font-bold text-on-surface truncate">${w.buyerName} ➔ ${w.recipientName}</div>
+                <div class="text-[10px] text-on-surface-variant truncate">${w.templateName}</div>
+              </div>
+              <span class="px-2 py-0.5 rounded-full text-[10px] font-bold shrink-0 ${w.tier === 'vip' ? 'bg-amber-500/20 text-amber-400' : 'bg-emerald-500/20 text-emerald-400'}">
+                ${w.tier === 'vip' ? ('₹' + (w.price || 49)) : 'FREE'}
+              </span>
+            </div>
+          `).join('');
+        }
+
+        applyOrderFilters();
+      } catch (err) {
+        console.error('Error loading orders data:', err);
+      }
+    }
+
+    document.addEventListener('DOMContentLoaded', loadOrdersData);
+    setInterval(loadOrdersData, 5000);
+  </script>
+</div></div></main></div></body></html>

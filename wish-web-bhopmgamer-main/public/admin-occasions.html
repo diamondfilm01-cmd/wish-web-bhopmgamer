@@ -1,0 +1,987 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8"/>
+  <base href="/"/>
+  <meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+  <meta content="web_dashboard" name="shell-type"/>
+  <title>WishMagic | Occasions & Tags Management</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com"/>
+  <link crossorigin="" href="https://fonts.gstatic.com" rel="preconnect"/>
+  <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;600;700&family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet"/>
+  <link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:opsz,wght,FILL,GRAD@20..48,100..700,0..1,-50..200&display=swap" rel="stylesheet"/>
+  <script src="js/tailwind-config.js?v=20261015_wm47944_v7"></script>
+  <script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+  <script>
+    if (typeof tailwind !== 'undefined' && typeof sharedTailwindConfig !== 'undefined') {
+      tailwind.config = sharedTailwindConfig;
+    }
+  </script>
+  <link rel="stylesheet" href="css/admin-theme.css?v=20261015_wm47944_v7"/>
+  <script src="js/WishMagicCore.js"></script>
+  <script src="js/admin-theme.js?v=20261015_wm47944_v7"></script>
+  <!-- Part 10 Auth & Repositories Layer -->
+  <script src="js/api-client.js"></script>
+  <script src="js/auth-service.js?v=20261015_wm47944_v7"></script>
+  <script src="js/repositories.js"></script>
+
+</head>
+<body class="bg-background text-on-surface font-body-md min-h-screen antialiased selection:bg-primary selection:text-white">
+
+<!-- Mobile Sidebar Backdrop Overlay -->
+<div id="sidebar-backdrop" class="fixed inset-0 bg-black/75 backdrop-blur-sm z-40 hidden md:hidden" onclick="toggleSidebar()"></div>
+
+<!-- Magical Castle Sidebar (Pixel-Matched to 19728.png) -->
+<aside id="admin-sidebar" class="fixed left-0 top-0 h-screen w-[270px] z-50 flex flex-col justify-between -translate-x-full md:translate-x-0 transition-transform duration-300 ease-in-out select-none">
+  <div class="flex flex-col min-h-0 flex-1">
+    <!-- Brand Logo Header -->
+    <div class="px-5 pt-5 pb-3 flex-shrink-0">
+      <div class="flex items-center justify-between">
+        <a href="/admin/anktech/anktech/admin/overview" class="flex items-center gap-3 group text-decoration-none">
+          <!-- Magic Wand Icon -->
+          <div class="w-10 h-10 rounded-2xl bg-gradient-to-br from-pink-500/25 via-purple-500/25 to-amber-400/20 border border-pink-400/30 flex items-center justify-center shadow-[0_0_20px_rgba(236,72,153,0.35)] flex-shrink-0">
+            <svg class="w-6 h-6" viewBox="0 0 24 24" fill="none">
+              <path d="M4 20L15.5 8.5M15.5 8.5L18.5 5.5C19.05 4.95 19.95 4.95 20.5 5.5C21.05 6.05 21.05 6.95 20.5 7.5L17.5 10.5M15.5 8.5L17.5 10.5" stroke="url(#wandGrad)" stroke-width="2.4" stroke-linecap="round"/>
+              <path d="M11 4L11.6 5.4L13 6L11.6 6.6L11 8L10.4 6.6L9 6L10.4 5.4L11 4Z" fill="#FBBF24"/>
+              <path d="M19 13L19.4 14L20.4 14.4L19.4 14.8L19 15.8L18.6 14.8L17.6 14.4L18.6 14L19 13Z" fill="#F472B6"/>
+              <path d="M6 10L6.3 10.7L7 11L6.3 11.3L6 12L5.7 11.3L5 11L5.7 10.7L6 10Z" fill="#C084FC"/>
+              <defs>
+                <linearGradient id="wandGrad" x1="4" y1="20" x2="21" y2="5" gradientUnits="userSpaceOnUse">
+                  <stop stop-color="#C084FC"/>
+                  <stop offset="0.55" stop-color="#F472B6"/>
+                  <stop offset="1" stop-color="#FBBF24"/>
+                </linearGradient>
+              </defs>
+            </svg>
+          </div>
+          <div class="flex flex-col">
+            <div class="text-[22px] leading-none tracking-tight">
+              <span class="wm-brand-wish">Wish</span><span class="wm-brand-magic">Magic</span>
+            </div>
+            <span class="text-[10.5px] text-purple-200/80 font-medium tracking-wide mt-1">Create. Personalize. Celebrate.</span>
+          </div>
+        </a>
+        <button class="md:hidden p-1.5 rounded-lg bg-white/10 hover:bg-white/20 text-white transition-colors" onclick="toggleSidebar()" aria-label="Close Sidebar">
+          <span class="material-symbols-outlined text-[20px]">close</span>
+        </button>
+      </div>
+    </div>
+
+    <!-- Navigation Menu -->
+    <div class="px-3.5 flex-1 overflow-y-auto custom-scrollbar pb-6">
+      <nav class="flex flex-col gap-0.5">
+        <!-- Top Primary Dashboard Link -->
+        <div class="mb-1 pt-1">
+          <a data-nav-role="dashboard" href="/admin/anktech/anktech/admin/overview">
+            <span class="material-symbols-outlined text-[20px]" style="font-variation-settings: 'FILL' 1;">home</span>
+            <span>Dashboard</span>
+          </a>
+        </div>
+
+        <!-- TEMPLATES -->
+        <div class="wm-nav-section-label">TEMPLATES</div>
+        <a href="/admin/anktech/anktech/admin/templates">
+          <span class="material-symbols-outlined">grid_view</span>
+          <span>All Templates</span>
+        </a>
+        <a href="/admin/anktech/anktech/admin/add-template">
+          <span class="material-symbols-outlined">add_circle</span>
+          <span>Add Template</span>
+        </a>
+        <a class="wm-nav-active" href="/admin/anktech/anktech/admin/occasions">
+          <span class="material-symbols-outlined">category</span>
+          <span>Categories</span>
+        </a>
+        <a href="/admin/anktech/anktech/admin/media">
+          <span class="material-symbols-outlined">image</span>
+          <span>Media Library</span>
+        </a>
+        <a href="/admin/anktech/anktech/admin/media?tab=audio">
+          <span class="material-symbols-outlined">music_note</span>
+          <span>Music Library</span>
+        </a>
+
+        <!-- WISHES -->
+        <div class="wm-nav-section-label">WISHES</div>
+        <a href="/admin/anktech/anktech/admin/wishes">
+          <span class="material-symbols-outlined">description</span>
+          <span>All Wishes</span>
+        </a>
+        <a href="/admin/anktech/anktech/admin/wishes?filter=expiring">
+          <span class="material-symbols-outlined">schedule</span>
+          <span>Expiring Soon</span>
+        </a>
+        <a href="/admin/anktech/anktech/admin/analytics">
+          <span class="material-symbols-outlined">trending_up</span>
+          <span>Analytics</span>
+        </a>
+
+        <!-- USERS -->
+        <div class="wm-nav-section-label">USERS</div>
+        <a href="/admin/anktech/anktech/admin/users">
+          <span class="material-symbols-outlined">group</span>
+          <span>All Users</span>
+        </a>
+        <a href="/admin/anktech/anktech/admin/pricing">
+          <span class="material-symbols-outlined">workspace_premium</span>
+          <span>Subscriptions</span>
+        </a>
+        <a href="/admin/anktech/anktech/admin/orders">
+          <span class="material-symbols-outlined">credit_card</span>
+          <span>Payments</span>
+        </a>
+
+        <!-- SYSTEM -->
+        <div class="wm-nav-section-label">SYSTEM</div>
+        <a href="/admin/anktech/anktech/admin/settings">
+          <span class="material-symbols-outlined">settings</span>
+          <span>Settings</span>
+        </a>
+        <a href="/admin/anktech/anktech/admin/storage-health">
+          <span class="material-symbols-outlined">database</span>
+          <span>Storage</span>
+        </a>
+        <a href="/admin/anktech/anktech/admin/storage-health?tab=backups">
+          <span class="material-symbols-outlined">cloud_download</span>
+          <span>Backups</span>
+        </a>
+        <a href="/admin/anktech/anktech/admin/audit-logs">
+          <span class="material-symbols-outlined">receipt_long</span>
+          <span>Activity Logs</span>
+        </a>
+
+        <!-- Expandable More Studio Tools (Keeps all 19 platform routes accessible & tested) -->
+        <button type="button" onclick="toggleMoreSidebarSections()" class="mt-2 px-3 py-1.5 rounded-xl text-[11px] font-bold uppercase tracking-wider text-purple-200/75 hover:text-white hover:bg-white/10 transition flex items-center justify-between w-full text-left cursor-pointer">
+          <span>More Studio Sections</span>
+          <span id="wm-sidebar-more-chevron" class="material-symbols-outlined text-[16px] transition-transform">expand_more</span>
+        </button>
+        <div id="wm-sidebar-more-group" class="hidden flex flex-col gap-0.5 pt-1 pl-1 border-l border-purple-400/25 ml-2">
+          <a href="/admin/anktech/anktech/admin/user-creations">
+            <span class="material-symbols-outlined">folder_shared</span>
+            <span>User Creations</span>
+          </a>
+          <a href="/admin/anktech/anktech/admin/search">
+            <span class="material-symbols-outlined">manage_search</span>
+            <span>Search &amp; Discovery</span>
+          </a>
+          <a href="/admin/anktech/anktech/admin/referrals">
+            <span class="material-symbols-outlined">loyalty</span>
+            <span>Referrals &amp; Rewards</span>
+          </a>
+          <a href="/admin/anktech/anktech/admin/moderation">
+            <span class="material-symbols-outlined">gavel</span>
+            <span>Moderation Queue</span>
+          </a>
+          <a href="/admin/anktech/anktech/admin/support">
+            <span class="material-symbols-outlined">support_agent</span>
+            <span>Support Console</span>
+          </a>
+          <a href="/admin/anktech/anktech/admin/staff">
+            <span class="material-symbols-outlined">badge</span>
+            <span>Staff &amp; Team</span>
+          </a>
+          <a href="/admin/anktech/anktech/admin/legal">
+            <span class="material-symbols-outlined">policy</span>
+            <span>Legal &amp; Compliance</span>
+          </a>
+          <a href="/admin/anktech/anktech/admin/announcements">
+            <span class="material-symbols-outlined">campaign</span>
+            <span>Announcements</span>
+          </a>
+          <a href="/admin/anktech/anktech/admin/notifications">
+            <span class="material-symbols-outlined">notifications_active</span>
+            <span>Notification Queue</span>
+          </a>
+        </div>
+      </nav>
+    </div>
+  </div>
+</aside>
+
+<!-- Main Viewport Wrapper -->
+<div class="w-full md:pl-[270px] min-h-screen flex flex-col">
+<!-- Universal Top Cloud Header (Pixel-Matched to 19728.png) -->
+  <header class="wm-top-header fixed top-0 left-0 md:left-[270px] right-0 h-[68px] z-30">
+    <div class="w-full h-full px-3 sm:px-6 flex items-center justify-between gap-2.5 sm:gap-4">
+      <!-- Left: Hamburger + Search Pill with Ctrl K -->
+      <div class="flex items-center gap-2 sm:gap-2.5 flex-1 max-w-lg min-w-0">
+        <button class="md:hidden p-2 rounded-xl bg-white/85 dark:bg-[#24144a] hover:bg-white text-[#2b194d] dark:text-white shadow-sm flex items-center justify-center flex-shrink-0" onclick="toggleSidebar()" aria-label="Open Sidebar">
+          <span class="material-symbols-outlined text-[22px]">menu</span>
+        </button>
+        <div class="wm-header-search-wrap">
+          <span class="material-symbols-outlined absolute left-3.5 text-[#6b5a88] dark:text-purple-300 text-[18px] pointer-events-none">search</span>
+          <input class="wm-header-search-input" id="header-search-occasions" onkeyup="filterOccasions(this.value)" placeholder="Search occasions, viral tags, slugs..." type="text"/>
+          <span class="wm-ctrl-k-badge hidden sm:inline-block">Ctrl K</span>
+          <!-- Search Dropdown Results Container -->
+          <div id="global-search-results" class="hidden absolute top-12 left-0 right-0 bg-white dark:bg-[#1c103b] rounded-2xl border border-purple-200 dark:border-purple-500/30 shadow-2xl p-3 z-50 max-h-96 overflow-y-auto custom-scrollbar"></div>
+        </div>
+      </div>
+
+      <!-- Right: Sun/Moon Pill Switcher + Live Bell + Admin Profile Card -->
+      <div class="flex items-center gap-2 sm:gap-3.5 flex-shrink-0">
+        <!-- Sun / Moon Pill Toggle -->
+        <button type="button" onclick="toggleAdminTheme()" class="wm-theme-pill-btn" title="Toggle Light / Dark Mode">
+          <span class="wm-theme-pill-sun" id="wm-theme-sun-pill">
+            <span class="material-symbols-outlined text-[16px]">light_mode</span>
+          </span>
+          <span class="wm-theme-pill-knob" id="wm-theme-moon-pill">
+            <span class="material-symbols-outlined text-[14px] theme-toggle-icon" id="theme-toggle-icon" style="font-variation-settings: 'FILL' 1;">dark_mode</span>
+          </span>
+        </button>
+
+        <!-- Live Notification Bell (Populated Dynamically from Real Backend APIs) -->
+        <div class="relative">
+          <button type="button" onclick="toggleAdminNotifMenu(event)" class="relative w-9 h-9 sm:w-10 sm:h-10 rounded-full bg-white/90 dark:bg-[#211342] border border-purple-200/80 dark:border-purple-500/35 flex items-center justify-center text-[#2b194d] dark:text-purple-200 shadow-sm hover:bg-white transition cursor-pointer" title="Live Notifications">
+            <span class="material-symbols-outlined text-[20px]">notifications</span>
+            <span id="wm-header-notif-badge" class="hidden absolute -top-0.5 -right-0.5 min-w-[18px] h-[18px] px-1 rounded-full bg-rose-500 text-white text-[10px] font-extrabold flex items-center justify-center shadow">0</span>
+          </button>
+
+          <!-- Notifications Popover (Populated by loadLiveAdminHeaderNotifications in admin-theme.js) -->
+          <div id="wm-admin-notif-dropdown" class="hidden absolute right-0 mt-2 w-80 bg-white dark:bg-[#1a0e36] rounded-2xl border border-purple-200 dark:border-purple-500/30 shadow-2xl p-3.5 z-50 text-xs" onclick="event.stopPropagation()">
+            <div class="py-4 text-center text-xs text-on-surface-variant">Loading live notifications...</div>
+          </div>
+        </div>
+
+        <!-- Admin Profile Pill -->
+        <div class="relative">
+          <div onclick="toggleAdminProfileMenu(event)" class="wm-admin-profile-pill">
+            <div class="w-8 h-8 sm:w-9 sm:h-9 rounded-full bg-gradient-to-br from-[#4c1d95] to-[#6d28d9] flex items-center justify-center text-white shadow-sm flex-shrink-0">
+              <span class="material-symbols-outlined text-[19px]">person</span>
+            </div>
+            <div class="hidden sm:flex flex-col text-left leading-tight">
+              <span class="text-[13.5px] font-extrabold text-on-surface">Admin</span>
+              <span id="wm-admin-header-email" class="text-[11px] font-medium text-on-surface-variant">ankit.babusaini@gmail.com</span>
+            </div>
+            <span class="material-symbols-outlined text-[18px] text-on-surface-variant ml-0.5">expand_more</span>
+          </div>
+
+          <!-- Profile Dropdown Menu -->
+          <div id="wm-admin-profile-dropdown" class="hidden absolute right-0 mt-2 w-60 bg-white dark:bg-[#1a0e36] rounded-2xl border border-purple-200 dark:border-purple-500/30 shadow-2xl p-2 z-50 text-xs" onclick="event.stopPropagation()">
+            <div class="px-3 py-2 border-b border-purple-100 dark:border-purple-800/40 mb-1">
+              <div class="font-bold text-sm text-on-surface">Admin Studio</div>
+              <div class="text-[11px] text-on-surface-variant truncate">ankit.babusaini@gmail.com</div>
+            </div>
+            <a href="/admin/anktech/anktech/admin/settings" class="flex items-center gap-2.5 px-3 py-2 rounded-xl hover:bg-purple-50 dark:hover:bg-purple-900/30 text-on-surface font-semibold transition">
+              <span class="material-symbols-outlined text-[17px] text-purple-600">settings</span>
+              <span>Main Website &amp; Site Settings</span>
+            </a>
+            <a href="/admin/anktech/anktech/admin/add-template" class="flex items-center gap-2.5 px-3 py-2 rounded-xl hover:bg-purple-50 dark:hover:bg-purple-900/30 text-on-surface font-semibold transition">
+              <span class="material-symbols-outlined text-[17px] text-pink-500">add_circle</span>
+              <span>Upload &amp; Set New Template</span>
+            </a>
+            <a href="/admin/anktech/anktech/admin/media" class="flex items-center gap-2.5 px-3 py-2 rounded-xl hover:bg-purple-50 dark:hover:bg-purple-900/30 text-on-surface font-semibold transition">
+              <span class="material-symbols-outlined text-[17px] text-indigo-500">perm_media</span>
+              <span>Hero Photo &amp; Media Vault</span>
+            </a>
+            <a href="/" target="_blank" class="flex items-center gap-2.5 px-3 py-2 rounded-xl hover:bg-purple-50 dark:hover:bg-purple-900/30 text-on-surface font-semibold transition">
+              <span class="material-symbols-outlined text-[17px] text-emerald-600">open_in_new</span>
+              <span>View Live Website</span>
+            </a>
+            <div class="border-t border-purple-100 dark:border-purple-800/40 my-1"></div>
+            <button type="button" onclick="window.AdminAuthController && window.AdminAuthController.logout()" class="w-full flex items-center gap-2.5 px-3 py-2 rounded-xl hover:bg-rose-50 dark:hover:bg-rose-950/40 text-rose-600 font-bold transition text-left cursor-pointer">
+              <span class="material-symbols-outlined text-[17px]">logout</span>
+              <span>Sign Out</span>
+            </button>
+          </div>
+        </div>
+      </div>
+    </div>
+  </header>
+
+  <!-- Main Workspace Content -->
+  <main id="admin-main-content" class="w-full pt-[80px] px-4 sm:px-6 pb-12 max-w-[1560px] mx-auto flex flex-col gap-5">
+
+    <section class="wm-hero-banner">
+      <div class="relative z-10 flex flex-col items-start max-w-2xl">
+        <div class="wm-hero-welcome-pill">
+          <span>Taxonomy &amp; Storefront Categories</span>
+          <span>🎉</span>
+        </div>
+        <h1 class="wm-hero-title">
+          <span>Occasions &amp;</span> <span class="wm-pink-word">Categories</span> <span class="wm-lavender-word">Manager</span>
+        </h1>
+        <p class="wm-hero-subtitle">
+          Organize greeting categories, viral campaign tags, and filter badges displayed on the public WishMagic marketplace.
+        </p>
+        <div class="flex flex-wrap items-center gap-3">
+          <button type="button" onclick="toggleModal('new-occasion-modal')" class="wm-btn-pink-pill">
+            <span class="material-symbols-outlined text-[19px]">add_circle</span>
+            <span>+ Add New Occasion</span>
+          </button>
+          <a href="/marketplace.html" target="_blank" class="wm-btn-glass-pill">
+            <span class="material-symbols-outlined text-[18px]">open_in_new</span>
+            <span>View Marketplace</span>
+          </a>
+        </div>
+      </div>
+    </section>
+    <!-- 4 Bento Cards (Matched to 19728.png) -->
+    <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+      <div class="wm-card p-4 sm:p-5 flex items-center justify-between gap-3">
+        <div class="flex items-start gap-3.5">
+          <div class="w-12 h-12 rounded-2xl bg-gradient-to-br from-[#a855f7] to-[#7c3aed] flex items-center justify-center text-white shadow-md shadow-purple-500/25 flex-shrink-0">
+            <span class="material-symbols-outlined text-[23px]">category</span>
+          </div>
+          <div>
+            <div class="text-[12.5px] font-semibold text-[#5e4f7d] dark:text-purple-300">Active Occasions</div>
+            <div class="text-[24px] font-extrabold text-[#1a0f30] dark:text-white leading-tight mt-0.5" id="stat-active-occasions">0 Live</div>
+            <div class="text-[11px] font-bold text-emerald-600 mt-1">↑ 100% active on store</div>
+          </div>
+        </div>
+        <div class="w-20 h-11 flex-shrink-0">
+    <svg viewBox="0 0 100 48" class="w-full h-full overflow-visible">
+      <defs>
+        <linearGradient id="spark_occ_1" x1="0" y1="0" x2="0" y2="1">
+          <stop offset="0%" stop-color="#7c3aed" stop-opacity="0.32"/>
+          <stop offset="100%" stop-color="#7c3aed" stop-opacity="0.0"/>
+        </linearGradient>
+      </defs>
+      <path d="M2,42 Q16,35 28,37 T52,25 T74,27 T98,10 L98,46 L2,46 Z" fill="url(#spark_occ_1)"/>
+      <path d="M2,42 Q16,35 28,37 T52,25 T74,27 T98,10" fill="none" stroke="#7c3aed" stroke-width="2.2" stroke-linecap="round"/>
+    </svg>
+  </div>
+      </div>
+
+      <div class="wm-card p-4 sm:p-5 flex items-center justify-between gap-3">
+        <div class="flex items-start gap-3.5">
+          <div class="w-12 h-12 rounded-2xl bg-gradient-to-br from-[#ff2a85] to-[#ec4899] flex items-center justify-center text-white shadow-md shadow-pink-500/25 flex-shrink-0">
+            <span class="material-symbols-outlined text-[23px]">style</span>
+          </div>
+          <div>
+            <div class="text-[12.5px] font-semibold text-[#5e4f7d] dark:text-purple-300">Total Templates</div>
+            <div class="text-[24px] font-extrabold text-[#1a0f30] dark:text-white leading-tight mt-0.5" id="stat-total-templates">0</div>
+            <div class="text-[11px] font-bold text-emerald-600 mt-1">↑ Live blueprints</div>
+          </div>
+        </div>
+        <div class="w-20 h-11 flex-shrink-0">
+    <svg viewBox="0 0 100 48" class="w-full h-full overflow-visible">
+      <defs>
+        <linearGradient id="spark_occ_2" x1="0" y1="0" x2="0" y2="1">
+          <stop offset="0%" stop-color="#ec4899" stop-opacity="0.32"/>
+          <stop offset="100%" stop-color="#ec4899" stop-opacity="0.0"/>
+        </linearGradient>
+      </defs>
+      <path d="M2,40 Q18,32 30,28 T56,22 T78,24 T98,10 L98,46 L2,46 Z" fill="url(#spark_occ_2)"/>
+      <path d="M2,40 Q18,32 30,28 T56,22 T78,24 T98,10" fill="none" stroke="#ec4899" stroke-width="2.2" stroke-linecap="round"/>
+    </svg>
+  </div>
+      </div>
+
+      <div class="wm-card p-4 sm:p-5 flex items-center justify-between gap-3">
+        <div class="flex items-start gap-3.5">
+          <div class="w-12 h-12 rounded-2xl bg-gradient-to-br from-[#fbbf24] to-[#f59e0b] flex items-center justify-center text-white shadow-md shadow-amber-500/25 flex-shrink-0">
+            <span class="material-symbols-outlined text-[23px]">cake</span>
+          </div>
+          <div>
+            <div class="text-[12.5px] font-semibold text-[#5e4f7d] dark:text-purple-300">Top Volume</div>
+            <div class="text-[22px] font-extrabold text-[#1a0f30] dark:text-white leading-tight mt-0.5" id="stat-top-occasion">Birthday</div>
+            <div class="text-[11px] font-bold text-amber-600 mt-1" id="stat-top-occasion-sub">0 Templates active</div>
+          </div>
+        </div>
+        <div class="w-20 h-11 flex-shrink-0">
+    <svg viewBox="0 0 100 48" class="w-full h-full overflow-visible">
+      <defs>
+        <linearGradient id="spark_occ_3" x1="0" y1="0" x2="0" y2="1">
+          <stop offset="0%" stop-color="#f59e0b" stop-opacity="0.32"/>
+          <stop offset="100%" stop-color="#f59e0b" stop-opacity="0.0"/>
+        </linearGradient>
+      </defs>
+      <path d="M2,42 Q20,38 35,30 T65,28 T85,18 T98,9 L98,46 L2,46 Z" fill="url(#spark_occ_3)"/>
+      <path d="M2,42 Q20,38 35,30 T65,28 T85,18 T98,9" fill="none" stroke="#f59e0b" stroke-width="2.2" stroke-linecap="round"/>
+    </svg>
+  </div>
+      </div>
+
+      <div class="wm-card p-4 sm:p-5 flex items-center justify-between gap-3">
+        <div class="flex items-start gap-3.5">
+          <div class="w-12 h-12 rounded-2xl bg-gradient-to-br from-[#10b981] to-[#059669] flex items-center justify-center text-white shadow-md shadow-emerald-500/25 flex-shrink-0">
+            <span class="material-symbols-outlined text-[23px]">trending_up</span>
+          </div>
+          <div>
+            <div class="text-[12.5px] font-semibold text-[#5e4f7d] dark:text-purple-300">Occasions Telemetry</div>
+            <div class="text-[22px] font-extrabold text-[#1a0f30] dark:text-white leading-tight mt-0.5" id="stat-total-shares">Real-time</div>
+            <div class="text-[11px] font-bold text-emerald-600 mt-1">↑ 100% synced</div>
+          </div>
+        </div>
+        <div class="w-20 h-11 flex-shrink-0">
+    <svg viewBox="0 0 100 48" class="w-full h-full overflow-visible">
+      <defs>
+        <linearGradient id="spark_occ_4" x1="0" y1="0" x2="0" y2="1">
+          <stop offset="0%" stop-color="#10b981" stop-opacity="0.32"/>
+          <stop offset="100%" stop-color="#10b981" stop-opacity="0.0"/>
+        </linearGradient>
+      </defs>
+      <path d="M2,42 Q14,36 22,38 T42,26 T64,28 T82,16 T98,8 L98,46 L2,46 Z" fill="url(#spark_occ_4)"/>
+      <path d="M2,42 Q14,36 22,38 T42,26 T64,28 T82,16 T98,8" fill="none" stroke="#10b981" stroke-width="2.2" stroke-linecap="round"/>
+    </svg>
+  </div>
+      </div>
+    </div>
+    <!-- Occasions Catalog Table (Part 10 Section 13) -->
+    <div class="wm-card bg-surface-container rounded-2xl p-5 sm:p-7 border border-purple-900/30 shadow-xl flex flex-col gap-5">
+      <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pb-4 border-b border-purple-900/20">
+        <div>
+          <h2 class="font-headline-sm text-lg font-bold text-on-surface">Storefront Categories &amp; Occasions Taxonomy</h2>
+          <p class="text-xs sm:text-sm text-on-surface-variant">Manage categories, icons, reorder navigation priority, and safeguard against broken template references.</p>
+        </div>
+        <div class="flex items-center gap-3">
+          <div class="relative flex items-center">
+            <span class="material-symbols-outlined absolute left-2.5 text-outline text-[16px]">search</span>
+            <input id="search-occasions" oninput="filterOccasions(this.value)" placeholder="Search categories..." class="wm-card bg-surface-container-low text-on-surface pl-8 pr-3 py-1.5 rounded-lg border border-purple-900/30 text-xs focus:outline-none focus:ring-1 focus:ring-primary w-48"/>
+          </div>
+          <span class="text-xs text-outline font-mono" id="occasions-count-badge">0 Categories</span>
+        </div>
+      </div>
+
+      <div class="overflow-x-auto">
+        <table class="w-full text-left border-collapse" id="occasions-table">
+          <thead>
+            <tr class="border-b border-purple-900/30 text-outline text-[11px] uppercase font-bold bg-surface-container-lowest/50">
+              <th class="py-3 px-3 w-16">Order</th>
+              <th class="py-3 px-3">Occasion &amp; Category</th>
+              <th class="py-3 px-3">Storefront Slug</th>
+              <th class="py-3 px-3">Description</th>
+              <th class="py-3 px-3">Templates</th>
+              <th class="py-3 px-3">Public Status</th>
+              <th class="py-3 px-3 text-right">Actions</th>
+            </tr>
+          </thead>
+          <tbody class="divide-y divide-purple-900/20 text-xs" id="occasions-table-body">
+            <tr>
+              <td colspan="7" class="text-center py-10 text-on-surface-variant text-xs">
+                <span class="material-symbols-outlined text-3xl text-outline mb-1 block">category</span>
+                <p class="font-semibold text-sm text-on-surface">Loading Occasions Registry...</p>
+              </td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+
+    <!-- Trending Tags Cloud & Manager -->
+    <div class="wm-card bg-surface-container rounded-2xl p-5 sm:p-7 border border-purple-900/30 shadow-xl flex flex-col gap-6">
+      <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pb-4 border-b border-purple-900/20">
+        <div>
+          <h2 class="font-headline-sm text-lg font-bold text-on-surface">Trending Tags Cloud &amp; Filters</h2>
+          <p class="text-xs sm:text-sm text-on-surface-variant">Tags allow customers to search and filter templates by specific magical traits.</p>
+        </div>
+        <div class="flex items-center gap-2">
+          <input id="new-tag-input" class="px-3 py-1.5 rounded-lg bg-surface-container-low text-on-surface border border-purple-900/30 text-xs focus:outline-none focus:ring-1 focus:ring-primary" placeholder="e.g. #HoliColors"/>
+          <button class="px-3 py-1.5 rounded-lg bg-primary-container text-white text-xs font-bold hover:brightness-110" onclick="addNewTag()">+ Add Tag</button>
+        </div>
+      </div>
+
+      <!-- Tag Badges Container -->
+      <div class="flex flex-wrap items-center gap-2.5" id="tags-cloud">
+        <span class="px-3 py-1.5 rounded-xl bg-surface-container-low border border-purple-900/30 text-xs font-semibold text-on-surface flex items-center gap-2 hover:border-primary transition">
+          <span class="text-primary font-bold">#MidnightSurprise</span>
+          <span class="text-outline text-[11px]">14.2k</span>
+          <button onclick="removeTag(this)" class="text-outline hover:text-red-400 text-xs">×</button>
+        </span>
+        <span class="px-3 py-1.5 rounded-xl bg-surface-container-low border border-purple-900/30 text-xs font-semibold text-on-surface flex items-center gap-2 hover:border-primary transition">
+          <span class="text-secondary font-bold">#WaxSealLetter</span>
+          <span class="text-outline text-[11px]">9.8k</span>
+          <button onclick="removeTag(this)" class="text-outline hover:text-red-400 text-xs">×</button>
+        </span>
+        <span class="px-3 py-1.5 rounded-xl bg-surface-container-low border border-purple-900/30 text-xs font-semibold text-on-surface flex items-center gap-2 hover:border-primary transition">
+          <span class="text-rose-400 font-bold">#CosmicLove</span>
+          <span class="text-outline text-[11px]">8.4k</span>
+          <button onclick="removeTag(this)" class="text-outline hover:text-red-400 text-xs">×</button>
+        </span>
+        <span class="px-3 py-1.5 rounded-xl bg-surface-container-low border border-purple-900/30 text-xs font-semibold text-on-surface flex items-center gap-2 hover:border-primary transition">
+          <span class="text-amber-400 font-bold">#GlitterConfetti</span>
+          <span class="text-outline text-[11px]">7.1k</span>
+          <button onclick="removeTag(this)" class="text-outline hover:text-red-400 text-xs">×</button>
+        </span>
+        <span class="px-3 py-1.5 rounded-xl bg-surface-container-low border border-purple-900/30 text-xs font-semibold text-on-surface flex items-center gap-2 hover:border-primary transition">
+          <span class="text-emerald-400 font-bold">#Golden50</span>
+          <span class="text-outline text-[11px]">5.6k</span>
+          <button onclick="removeTag(this)" class="text-outline hover:text-red-400 text-xs">×</button>
+        </span>
+        <span class="px-3 py-1.5 rounded-xl bg-surface-container-low border border-purple-900/30 text-xs font-semibold text-on-surface flex items-center gap-2 hover:border-primary transition">
+          <span class="text-cyan-400 font-bold">#CuteCatWish</span>
+          <span class="text-outline text-[11px]">4.1k</span>
+          <button onclick="removeTag(this)" class="text-outline hover:text-red-400 text-xs">×</button>
+        </span>
+        <span class="px-3 py-1.5 rounded-xl bg-surface-container-low border border-purple-900/30 text-xs font-semibold text-on-surface flex items-center gap-2 hover:border-primary transition">
+          <span class="text-purple-300 font-bold">#LofiRomance</span>
+          <span class="text-outline text-[11px]">3.9k</span>
+          <button onclick="removeTag(this)" class="text-outline hover:text-red-400 text-xs">×</button>
+        </span>
+      </div>
+    </div>
+  </main>
+</div>
+
+<!-- Modal: Add New Occasion Category -->
+<div id="new-occasion-modal" class="fixed inset-0 bg-black/80 backdrop-blur-sm z-50 hidden items-center justify-center p-4">
+  <div class="wm-card bg-surface-container w-full max-w-md rounded-2xl p-6 border border-purple-900/40 shadow-2xl flex flex-col gap-4">
+    <div class="flex items-center justify-between border-b border-purple-900/30 pb-3">
+      <h3 class="font-headline-sm text-base font-bold text-on-surface flex items-center gap-2">
+        <span class="material-symbols-outlined text-primary">add_circle</span>
+        <span>Add New Storefront Category</span>
+      </h3>
+      <button onclick="toggleModal('new-occasion-modal')" class="text-on-surface-variant hover:text-on-surface cursor-pointer">
+        <span class="material-symbols-outlined">close</span>
+      </button>
+    </div>
+    <div>
+      <label class="block text-[11px] font-bold uppercase text-outline mb-1">Category Name <span class="text-pink-400">*</span></label>
+      <input id="new-occasion-name" oninput="autoGenerateSlug(this.value, 'new-occasion-slug')" class="w-full px-3 py-2 rounded-lg bg-surface-container-low text-on-surface border border-purple-900/30 text-sm focus:outline-none focus:ring-1 focus:ring-primary" placeholder="e.g. Housewarming, Crush, Boyfriend..."/>
+    </div>
+    <div class="grid grid-cols-2 gap-3">
+      <div>
+        <label class="block text-[11px] font-bold uppercase text-outline mb-1">Icon / Emoji</label>
+        <input id="new-occasion-icon" class="w-full px-3 py-2 rounded-lg bg-surface-container-low text-on-surface border border-purple-900/30 text-sm text-center" placeholder="🎂, 💖, 💐" value="✨"/>
+      </div>
+      <div>
+        <label class="block text-[11px] font-bold uppercase text-outline mb-1">URL Slug</label>
+        <input id="new-occasion-slug" class="w-full px-3 py-2 rounded-lg bg-surface-container-low text-on-surface border border-purple-900/30 text-sm font-mono" placeholder="housewarming"/>
+      </div>
+    </div>
+    <div>
+      <label class="block text-[11px] font-bold uppercase text-outline mb-1">Description</label>
+      <textarea id="new-occasion-desc" rows="2" class="w-full px-3 py-2 rounded-lg bg-surface-container-low text-on-surface border border-purple-900/30 text-xs" placeholder="Celebration wishes and templates for this occasion"></textarea>
+    </div>
+    <div class="flex items-center justify-between p-2 rounded-lg bg-surface-container-low border border-purple-900/20">
+      <span class="text-xs font-semibold text-on-surface">Active on Marketplace:</span>
+      <input id="new-occasion-active" type="checkbox" checked class="rounded text-primary w-4 h-4"/>
+    </div>
+    <div class="flex justify-end gap-2 pt-2 border-t border-purple-900/30">
+      <button onclick="toggleModal('new-occasion-modal')" class="px-4 py-2 rounded-lg bg-surface-container-high text-on-surface text-xs font-bold cursor-pointer">Cancel</button>
+      <button onclick="saveNewOccasion()" class="px-5 py-2 rounded-lg bg-gradient-to-r from-primary to-secondary text-white text-xs font-bold shadow-md cursor-pointer">Create Category</button>
+    </div>
+  </div>
+</div>
+
+<!-- Modal: Edit Occasion Category -->
+<div id="edit-occasion-modal" class="fixed inset-0 bg-black/80 backdrop-blur-sm z-50 hidden items-center justify-center p-4">
+  <div class="wm-card bg-surface-container w-full max-w-md rounded-2xl p-6 border border-purple-900/40 shadow-2xl flex flex-col gap-4">
+    <div class="flex items-center justify-between border-b border-purple-900/30 pb-3">
+      <h3 class="font-headline-sm text-base font-bold text-on-surface flex items-center gap-2">
+        <span class="material-symbols-outlined text-secondary">edit</span>
+        <span>Edit Occasion Category</span>
+      </h3>
+      <button onclick="closeEditCategoryModal()" class="text-on-surface-variant hover:text-on-surface cursor-pointer">
+        <span class="material-symbols-outlined">close</span>
+      </button>
+    </div>
+    <input id="edit-occasion-id" type="hidden"/>
+    <div>
+      <label class="block text-[11px] font-bold uppercase text-outline mb-1">Category Name <span class="text-pink-400">*</span></label>
+      <input id="edit-occasion-name" class="w-full px-3 py-2 rounded-lg bg-surface-container-low text-on-surface border border-purple-900/30 text-sm focus:outline-none focus:ring-1 focus:ring-primary"/>
+    </div>
+    <div class="grid grid-cols-2 gap-3">
+      <div>
+        <label class="block text-[11px] font-bold uppercase text-outline mb-1">Icon / Emoji</label>
+        <input id="edit-occasion-icon" class="w-full px-3 py-2 rounded-lg bg-surface-container-low text-on-surface border border-purple-900/30 text-sm text-center"/>
+      </div>
+      <div>
+        <label class="block text-[11px] font-bold uppercase text-outline mb-1">URL Slug</label>
+        <input id="edit-occasion-slug" class="w-full px-3 py-2 rounded-lg bg-surface-container-low text-on-surface border border-purple-900/30 text-sm font-mono"/>
+      </div>
+    </div>
+    <div>
+      <label class="block text-[11px] font-bold uppercase text-outline mb-1">Description</label>
+      <textarea id="edit-occasion-desc" rows="2" class="w-full px-3 py-2 rounded-lg bg-surface-container-low text-on-surface border border-purple-900/30 text-xs"></textarea>
+    </div>
+    <div class="flex items-center justify-between p-2 rounded-lg bg-surface-container-low border border-purple-900/20">
+      <span class="text-xs font-semibold text-on-surface">Active on Marketplace:</span>
+      <input id="edit-occasion-active" type="checkbox" class="rounded text-primary w-4 h-4"/>
+    </div>
+    <div class="flex justify-end gap-2 pt-2 border-t border-purple-900/30">
+      <button onclick="closeEditCategoryModal()" class="px-4 py-2 rounded-lg bg-surface-container-high text-on-surface text-xs font-bold cursor-pointer">Cancel</button>
+      <button onclick="saveCategoryEdits()" class="px-5 py-2 rounded-lg bg-gradient-to-r from-primary to-secondary text-white text-xs font-bold shadow-md cursor-pointer">Update Category</button>
+    </div>
+  </div>
+</div>
+
+<script>
+  let loadedCategories = [];
+  let templateCountsMap = {};
+
+  function toggleModal(id) {
+    const el = document.getElementById(id);
+    if (!el) return;
+    el.classList.toggle('hidden');
+    el.classList.toggle('flex');
+  }
+
+  function autoGenerateSlug(text, targetInputId) {
+    const target = document.getElementById(targetInputId);
+    if (target) {
+      target.value = (text || '').toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-+|-+$/g, '');
+    }
+  }
+
+  function filterOccasions(q) {
+    const term = (q || '').toLowerCase().trim();
+    const rows = document.querySelectorAll('#occasions-table tbody tr');
+    rows.forEach(r => {
+      const text = r.textContent.toLowerCase();
+      r.style.display = text.includes(term) ? '' : 'none';
+    });
+  }
+
+  async function loadOccasionsData() {
+    try {
+      const [cats, templates] = await Promise.all([
+        window.categoryRepository ? window.categoryRepository.getAll() : fetch('/api/categories').then(r => r.json()).then(d => d.categories || []),
+        window.templateRepository ? window.templateRepository.getAll({ includeDrafts: true }) : fetch('/api/templates?includeDrafts=true').then(r => r.json()).then(d => d.templates || [])
+      ]);
+
+      loadedCategories = cats;
+
+      // Count templates per category
+      templateCountsMap = {};
+      templates.forEach(t => {
+        const catName = t.category || 'General';
+        templateCountsMap[catName.toLowerCase()] = (templateCountsMap[catName.toLowerCase()] || 0) + 1;
+      });
+
+      // Update KPI Tiles
+      const activeCount = cats.filter(c => c.isActive !== false).length;
+      const statActive = document.getElementById('stat-active-occasions');
+      const statTemplates = document.getElementById('stat-total-templates');
+      const statTop = document.getElementById('stat-top-occasion');
+      const statTopSub = document.getElementById('stat-top-occasion-sub');
+      const badgeCount = document.getElementById('occasions-count-badge');
+
+      if (statActive) statActive.textContent = `${activeCount} Live`;
+      if (statTemplates) statTemplates.textContent = templates.length;
+      if (badgeCount) badgeCount.textContent = `${cats.length} Categories Configured`;
+
+      // Top category by template count
+      if (cats.length > 0) {
+        const sortedByTemplates = [...cats].sort((a, b) => {
+          const cA = templateCountsMap[(a.name || '').toLowerCase()] || 0;
+          const cB = templateCountsMap[(b.name || '').toLowerCase()] || 0;
+          return cB - cA;
+        });
+        const topCat = sortedByTemplates[0];
+        const topCount = templateCountsMap[(topCat.name || '').toLowerCase()] || 0;
+        if (statTop) statTop.textContent = `${topCat.icon || ''} ${topCat.name || ''}`;
+        if (statTopSub) statTopSub.textContent = `${topCount} Templates assigned`;
+      }
+
+      renderCategoriesTable(cats);
+    } catch (err) {
+      console.error('Error loading categories data:', err);
+    }
+  }
+
+  function renderCategoriesTable(categories) {
+    const tbody = document.getElementById('occasions-table-body');
+    if (!tbody) return;
+
+    if (categories.length === 0) {
+      tbody.innerHTML = `
+        <tr>
+          <td colspan="7" class="text-center py-10 text-on-surface-variant text-xs">
+            <span class="material-symbols-outlined text-3xl text-outline mb-1 block">category</span>
+            <p class="font-semibold text-sm text-on-surface">No Categories Configured</p>
+            <span class="text-outline">Click "Add New Occasion" above to create your first category.</span>
+          </td>
+        </tr>
+      `;
+      return;
+    }
+
+    tbody.innerHTML = categories.map((cat, idx) => {
+      const count = templateCountsMap[(cat.name || '').toLowerCase()] || templateCountsMap[(cat.slug || '').toLowerCase()] || 0;
+      const isActive = cat.isActive !== false;
+
+      return `
+        <tr class="hover:bg-surface-container-low transition border-b border-purple-900/20">
+          <!-- Order Buttons -->
+          <td class="py-3 px-3">
+            <div class="flex items-center gap-1">
+              <span class="font-mono text-outline font-bold text-xs w-5 text-center">${cat.sortOrder || (idx + 1)}</span>
+              <div class="flex flex-col">
+                <button onclick="moveCategory('${cat.id}', 'up')" class="text-outline hover:text-primary leading-none text-xs cursor-pointer" title="Move Up" ${idx === 0 ? 'disabled style="opacity:0.3"' : ''}>▲</button>
+                <button onclick="moveCategory('${cat.id}', 'down')" class="text-outline hover:text-primary leading-none text-xs cursor-pointer" title="Move Down" ${idx === categories.length - 1 ? 'disabled style="opacity:0.3"' : ''}>▼</button>
+              </div>
+            </div>
+          </td>
+
+          <!-- Name & Icon -->
+          <td class="py-3.5 px-3">
+            <div class="flex items-center gap-3">
+              <span class="${/^[a-z0-9_]+$/i.test((cat.icon || '').trim()) ? 'material-symbols-outlined ' : ''}text-2xl p-1.5 rounded-xl bg-purple-500/10 shrink-0">${cat.icon || '✨'}</span>
+              <div>
+                <span class="font-bold text-on-surface block text-sm">${cat.name}</span>
+                <span class="text-[11px] text-on-surface-variant">${cat.description || 'Occasion category'}</span>
+              </div>
+            </div>
+          </td>
+
+          <!-- Slug -->
+          <td class="py-3.5 px-3 font-mono text-xs text-primary font-semibold">/${cat.slug}</td>
+
+          <!-- Description -->
+          <td class="py-3.5 px-3 text-on-surface-variant text-[11px] max-w-xs truncate">${cat.description || '—'}</td>
+
+          <!-- Template Count -->
+          <td class="py-3.5 px-3">
+            <span class="px-2 py-0.5 rounded-full font-bold text-xs ${count > 0 ? 'bg-primary/20 text-primary' : 'bg-surface-container-highest text-outline'}">
+              ${count} Templates
+            </span>
+          </td>
+
+          <!-- Active Status Toggle -->
+          <td class="py-3.5 px-3">
+            <button onclick="toggleCategoryActive('${cat.id}', ${isActive})" class="px-2.5 py-1 rounded-full font-bold text-xs flex items-center gap-1 cursor-pointer ${isActive ? 'bg-emerald-500/20 text-emerald-400' : 'bg-slate-500/20 text-slate-400'}" title="Toggle Active / Hidden on Store">
+              <span class="w-2 h-2 rounded-full ${isActive ? 'bg-emerald-400 animate-pulse' : 'bg-slate-400'}"></span>
+              <span>${isActive ? 'Active' : 'Hidden'}</span>
+            </button>
+          </td>
+
+          <!-- Actions -->
+          <td class="py-3.5 px-3 text-right">
+            <div class="flex items-center justify-end gap-1.5">
+              <button onclick="openEditCategoryModal('${cat.id}')" class="p-1.5 rounded-lg bg-surface-container-high hover:bg-surface-container-highest text-primary transition cursor-pointer" title="Edit Category">
+                <span class="material-symbols-outlined text-[16px]">edit</span>
+              </button>
+              <button onclick="deleteCategory('${cat.id}', '${escapeQuotes(cat.name)}')" class="p-1.5 rounded-lg bg-rose-500/10 hover:bg-rose-500/20 text-rose-400 transition cursor-pointer" title="Delete Category">
+                <span class="material-symbols-outlined text-[16px]">delete</span>
+              </button>
+            </div>
+          </td>
+        </tr>
+      `;
+    }).join('');
+  }
+
+  // Save New Category
+  async function saveNewOccasion() {
+    const name = document.getElementById('new-occasion-name').value.trim();
+    const icon = document.getElementById('new-occasion-icon').value.trim() || '✨';
+    const slug = document.getElementById('new-occasion-slug').value.trim();
+    const description = document.getElementById('new-occasion-desc').value.trim();
+    const isActive = document.getElementById('new-occasion-active').checked;
+
+    if (!name) {
+      alert('Please enter a category name');
+      return;
+    }
+
+    try {
+      const payload = {
+        name,
+        slug: slug || name.toLowerCase().replace(/[^a-z0-9]+/g, '-'),
+        icon,
+        description,
+        sortOrder: loadedCategories.length + 1,
+        isActive
+      };
+
+      if (window.categoryRepository) {
+        await window.categoryRepository.create(payload);
+      } else {
+        const res = await fetch('/api/categories', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(payload)
+        });
+        const data = await res.json();
+        if (!data.success) throw new Error(data.message);
+      }
+
+      toggleModal('new-occasion-modal');
+      showToast(`🎉 Category "${name}" created and synced!`);
+      document.getElementById('new-occasion-name').value = '';
+      document.getElementById('new-occasion-slug').value = '';
+      document.getElementById('new-occasion-desc').value = '';
+      await loadOccasionsData();
+    } catch (err) {
+      alert('Failed to save category: ' + err.message);
+    }
+  }
+
+  // Open Edit Category Modal
+  function openEditCategoryModal(id) {
+    const cat = loadedCategories.find(c => c.id === id);
+    if (!cat) return;
+
+    document.getElementById('edit-occasion-id').value = cat.id;
+    document.getElementById('edit-occasion-name').value = cat.name || '';
+    document.getElementById('edit-occasion-icon').value = cat.icon || '✨';
+    document.getElementById('edit-occasion-slug').value = cat.slug || '';
+    document.getElementById('edit-occasion-desc').value = cat.description || '';
+    document.getElementById('edit-occasion-active').checked = cat.isActive !== false;
+
+    const modal = document.getElementById('edit-occasion-modal');
+    if (modal) {
+      modal.classList.remove('hidden');
+      modal.classList.add('flex');
+    }
+  }
+
+  function closeEditCategoryModal() {
+    const modal = document.getElementById('edit-occasion-modal');
+    if (modal) {
+      modal.classList.add('hidden');
+      modal.classList.remove('flex');
+    }
+  }
+
+  // Save Category Edits
+  async function saveCategoryEdits() {
+    const id = document.getElementById('edit-occasion-id').value;
+    const name = document.getElementById('edit-occasion-name').value.trim();
+    const icon = document.getElementById('edit-occasion-icon').value.trim() || '✨';
+    const slug = document.getElementById('edit-occasion-slug').value.trim();
+    const description = document.getElementById('edit-occasion-desc').value.trim();
+    const isActive = document.getElementById('edit-occasion-active').checked;
+
+    if (!name) {
+      alert('Please enter a category name');
+      return;
+    }
+
+    try {
+      const updates = { name, icon, slug, description, isActive };
+
+      if (window.categoryRepository) {
+        await window.categoryRepository.update(id, updates);
+      } else {
+        const res = await fetch(`/api/categories/${encodeURIComponent(id)}`, {
+          method: 'PUT',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(updates)
+        });
+        const data = await res.json();
+        if (!data.success) throw new Error(data.message);
+      }
+
+      closeEditCategoryModal();
+      showToast(`Category "${name}" updated and synced to Marketplace.`);
+      await loadOccasionsData();
+    } catch (err) {
+      alert('Failed to update category: ' + err.message);
+    }
+  }
+
+  // Reorder Category (Move Up or Down)
+  async function moveCategory(id, direction) {
+    const idx = loadedCategories.findIndex(c => c.id === id);
+    if (idx === -1) return;
+
+    const targetIdx = direction === 'up' ? idx - 1 : idx + 1;
+    if (targetIdx < 0 || targetIdx >= loadedCategories.length) return;
+
+    // Swap
+    const temp = loadedCategories[idx];
+    loadedCategories[idx] = loadedCategories[targetIdx];
+    loadedCategories[targetIdx] = temp;
+
+    const orderedIds = loadedCategories.map(c => c.id);
+
+    try {
+      if (window.categoryRepository) {
+        await window.categoryRepository.reorder(orderedIds);
+      } else {
+        await fetch('/api/categories/reorder', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ orderedIds })
+        });
+      }
+      showToast('Category ordering updated.');
+      await loadOccasionsData();
+    } catch (err) {
+      console.error('Error reordering categories:', err);
+    }
+  }
+
+  // Toggle Category Active Status
+  async function toggleCategoryActive(id, currentStatus) {
+    try {
+      if (window.categoryRepository) {
+        await window.categoryRepository.update(id, { isActive: !currentStatus });
+      } else {
+        await fetch(`/api/categories/${encodeURIComponent(id)}`, {
+          method: 'PUT',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ isActive: !currentStatus })
+        });
+      }
+      showToast(!currentStatus ? 'Category set to Active on Store' : 'Category hidden from Store');
+      await loadOccasionsData();
+    } catch (err) {
+      alert('Error updating status: ' + err.message);
+    }
+  }
+
+  // Safe Category Delete (Checks template dependency)
+  async function deleteCategory(id, name) {
+    if (!confirm(`Are you sure you want to delete category "${name}"?\n\nIf templates currently use this category, deletion will be guarded to prevent breaking template catalogs.`)) {
+      return;
+    }
+
+    try {
+      let result;
+      if (window.categoryRepository) {
+        result = await window.categoryRepository.delete(id);
+      } else {
+        const res = await fetch(`/api/categories/${encodeURIComponent(id)}`, { method: 'DELETE' });
+        result = await res.json();
+      }
+
+      if (result.success) {
+        showToast(`Category "${name}" deleted.`);
+        await loadOccasionsData();
+      } else if (result.inUse) {
+        alert(`⚠️ SAFEGUARD BLOCKED DELETION:\n\n${result.message}\n\nAction: Please use the "Active / Hidden" toggle button to hide this category from the store instead.`);
+      } else {
+        alert('Error deleting category: ' + (result.message || 'Unknown error'));
+      }
+    } catch (err) {
+      alert('Failed to delete category: ' + err.message);
+    }
+  }
+
+  function addNewTag() {
+    const input = document.getElementById('new-tag-input');
+    let val = input.value.trim();
+    if (!val) return;
+    if (!val.startsWith('#')) val = '#' + val;
+    const cloud = document.getElementById('tags-cloud');
+    const span = document.createElement('span');
+    span.className = "px-3 py-1.5 rounded-xl bg-surface-container-low border border-purple-900/30 text-xs font-semibold text-on-surface flex items-center gap-2 hover:border-primary transition";
+    span.innerHTML = `<span class="text-primary font-bold">${val}</span><span class="text-outline text-[11px]">0</span><button onclick="removeTag(this)" class="text-outline hover:text-red-400 text-xs cursor-pointer">×</button>`;
+    cloud.appendChild(span);
+    input.value = '';
+    showToast(`Tag ${val} added`);
+  }
+
+  function removeTag(btn) {
+    btn.parentElement.remove();
+    showToast('Tag removed');
+  }
+
+  function showToast(msg) {
+    let toast = document.getElementById('wm-admin-toast');
+    if (!toast) {
+      toast = document.createElement('div');
+      toast.id = 'wm-admin-toast';
+      toast.className = 'fixed bottom-6 right-6 z-50 px-5 py-3 rounded-xl bg-purple-900/90 text-white font-semibold shadow-2xl border border-purple-500/40 backdrop-blur-xl transition-all duration-300 transform translate-y-12 opacity-0 pointer-events-none text-xs';
+      document.body.appendChild(toast);
+    }
+    toast.textContent = msg;
+    toast.classList.remove('translate-y-12', 'opacity-0', 'pointer-events-none');
+    setTimeout(() => {
+      toast.classList.add('translate-y-12', 'opacity-0', 'pointer-events-none');
+    }, 4000);
+  }
+
+  function escapeQuotes(str) {
+    return (str || '').replace(/'/g, "\\'");
+  }
+
+  document.addEventListener('DOMContentLoaded', () => {
+    loadOccasionsData();
+  });
+</script>
+</body>
+</html>

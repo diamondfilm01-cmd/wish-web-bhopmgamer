@@ -1,0 +1,95 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Starlit Memories</title>
+    <link href="https://fonts.googleapis.com/css2?family=Playfair+Display:wght@700&family=Plus+Jakarta+Sans:wght@400;600&display=swap" rel="stylesheet">
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link rel="stylesheet" href="style.css">
+</head>
+<body class="bg-[#050B1D] text-white overflow-x-hidden font-['Plus_Jakarta_Sans']">
+
+    <!-- Starry Background Layer -->
+    <div class="fixed inset-0 z-0 pointer-events-none overflow-hidden">
+        <div id="stars-container"></div>
+        <div id="hero-backdrop" class="absolute inset-0 bg-cover bg-center opacity-30 mix-blend-overlay scale-110"></div>
+    </div>
+
+    <!-- Main Content -->
+    <main class="relative z-10">
+        
+        <!-- Section: Hero -->
+        <section id="section-hero" class="min-h-screen flex flex-col items-center justify-center px-6 text-center">
+            <div class="animate-float">
+                <span class="text-[#FCD34D] font-semibold tracking-widest uppercase text-sm mb-4 block">A Wish from the Cosmos</span>
+                <h1 id="recipient-name" class="font-['Playfair_Display'] text-5xl md:text-7xl lg:text-8xl text-transparent bg-clip-text bg-gradient-to-b from-white to-[#FCD34D] mb-6">
+                    Recipient Name
+                </h1>
+                <div class="w-24 h-1 bg-gradient-to-r from-transparent via-[#FCD34D] to-transparent mx-auto"></div>
+            </div>
+            
+            <div class="absolute bottom-10 animate-bounce">
+                <span class="material-symbols-outlined">expand_more</span>
+            </div>
+        </section>
+
+        <!-- Section: Letter -->
+        <section id="section-letter" class="min-h-screen flex items-center justify-center px-6 py-24">
+            <div class="max-w-2xl w-full bg-white/5 backdrop-blur-xl border border-white/10 rounded-3xl p-8 md:p-12 shadow-2xl relative overflow-hidden group">
+                <div class="absolute -top-20 -left-20 w-40 h-40 bg-purple-500/20 blur-3xl rounded-full"></div>
+                <div class="absolute -bottom-20 -right-20 w-40 h-40 bg-blue-500/20 blur-3xl rounded-full"></div>
+                
+                <div class="relative z-10 text-center">
+                    <span class="text-[#A5B4FC] text-4xl mb-6 block font-['Playfair_Display'] italic">Dearest,</span>
+                    <p id="main-message" class="text-lg md:text-xl leading-relaxed text-blue-100/90 mb-8 whitespace-pre-wrap">
+                        The stars have aligned to celebrate your special day.
+                    </p>
+                    <div class="flex flex-col items-center">
+                        <span class="text-white/40 text-sm mb-1 uppercase tracking-widest">With Love,</span>
+                        <span id="sender-name" class="text-[#FCD34D] font-bold text-xl">Sender Name</span>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <!-- Section: Gallery -->
+        <section id="section-gallery" class="min-h-screen px-6 py-24">
+            <div class="max-w-6xl mx-auto">
+                <h2 class="font-['Playfair_Display'] text-3xl md:text-5xl text-center mb-16">Memory Constellations</h2>
+                <div id="memory-grid" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
+                    <!-- Memory Cards will be injected here by Runtime -->
+                </div>
+            </div>
+        </section>
+
+        <!-- Section: Countdown -->
+        <section id="section-countdown" class="min-h-screen flex flex-col items-center justify-center px-6 py-24">
+            <h2 class="text-white/60 uppercase tracking-[0.3em] text-sm mb-8">Counting Down to Magic</h2>
+            <div id="celebration-countdown" class="flex gap-4 md:gap-8 text-center">
+                <div class="flex flex-col">
+                    <span class="days text-4xl md:text-6xl font-bold text-[#FCD34D]">00</span>
+                    <span class="text-[10px] uppercase text-white/40">Days</span>
+                </div>
+                <div class="flex flex-col">
+                    <span class="hours text-4xl md:text-6xl font-bold text-[#FCD34D]">00</span>
+                    <span class="text-[10px] uppercase text-white/40">Hours</span>
+                </div>
+                <div class="flex flex-col">
+                    <span class="minutes text-4xl md:text-6xl font-bold text-[#FCD34D]">00</span>
+                    <span class="text-[10px] uppercase text-white/40">Mins</span>
+                </div>
+                <div class="flex flex-col">
+                    <span class="seconds text-4xl md:text-6xl font-bold text-[#FCD34D]">00</span>
+                    <span class="text-[10px] uppercase text-white/40">Secs</span>
+                </div>
+            </div>
+        </section>
+
+    </main>
+
+    <!-- Support Icons -->
+    <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:opsz,wght,FILL,GRAD@24,400,0,0" />
+    <script src="script.js"></script>
+</body>
+</html>

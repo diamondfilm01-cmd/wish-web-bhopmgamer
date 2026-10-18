@@ -1,0 +1,5 @@
+[
+  { "id": "tmus_tpl_glitter_birthday_1", "template_version_id": "tv_tpl_glitter_birthday_v1", "music_id": "mus_celebration_strings", "relationship_variant_id": "trv_tpl_glitter_birthday_friend", "relationship_id": "rel_friend", "is_default": 1, "sort_order": 1, "enabled": 1, "created_at": "2026-10-08T00:00:00.000Z" },
+  { "id": "tmus_tpl_glitter_birthday_2", "template_version_id": "tv_tpl_glitter_birthday_v1", "music_id": "mus_romantic_piano", "relationship_variant_id": "trv_tpl_glitter_birthday_girlfriend", "relationship_id": "rel_girlfriend", "is_default": 1, "sort_order": 2, "enabled": 1, "created_at": "2026-10-08T00:00:00.000Z" },
+  { "id": "tmus_tpl_glitter_birthday_3", "template_version_id": "tv_tpl_glitter_birthday_v1", "music_id": "mus_romantic_piano", "relationship_variant_id": "trv_tpl_glitter_birthday_crush", "relationship_id": "rel_crush", "is_default": 1, "sort_order": 3, "enabled": 1, "created_at": "2026-10-08T00:00:00.000Z" }
+]

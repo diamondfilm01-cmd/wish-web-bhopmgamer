@@ -1,0 +1,20 @@
+{
+  "protocol": "1.0",
+  "type": "wish-template",
+  "template": {
+    "id": "tpl_romantic_scrapbook",
+    "title": "Starlit Romance & Love Letter",
+    "category": "love",
+    "description": "Emotive vintage wax seal envelope unboxing revealing an intimate handwritten love letter and treasured photo keepsake."
+  },
+  "capabilities": {
+    "photos": true,
+    "video": false,
+    "music": true,
+    "voice": true,
+    "countdown": false,
+    "themes": true,
+    "animations": true,
+    "particles": true
+  }
+}

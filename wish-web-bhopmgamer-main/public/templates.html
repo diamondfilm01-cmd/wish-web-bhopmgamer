@@ -1,0 +1,2110 @@
+<!DOCTYPE html>
+
+<html lang="en"><head>
+<meta charset="utf-8"/>
+<base href="/"/>
+<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+<title>WishMagic | Gift a Magical Web-Experience!</title>
+<script src="/js/site-theme.js?v=20261015_wm47944_v7"></script>
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<link href="https://fonts.googleapis.com" rel="preconnect"/>
+<link crossorigin="" href="https://fonts.gstatic.com" rel="preconnect"/>
+<link href="https://fonts.googleapis.com/css2?family=Outfit:wght@400;500;600;700;800;900&amp;family=Plus+Jakarta+Sans:wght@400;500;600;700;800&amp;family=Playfair+Display:ital,wght@1,600&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<script src="/js/tailwind-config.js?v=20261015_wm47944_v7"></script>
+<script>if (typeof tailwind !== "undefined" && typeof sharedTailwindConfig !== "undefined") { tailwind.config = sharedTailwindConfig; }</script>
+<script src="js/WishMagicCore.js"></script>
+<!-- Part 11 & Part 12: Monetization & Section Content Engine -->
+<!-- Firebase Official SDK (Compat) -->
+<script src="https://www.gstatic.com/firebasejs/10.8.0/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.8.0/firebase-auth-compat.js"></script>
+<script src="/js/api-client.js"></script>
+<script src="/js/firebase-auth.js?v=20261015_wm47944_v7"></script>
+<script src="/js/auth-service.js?v=20261015_wm47944_v7"></script>
+<script src="js/plan-service.js"></script>
+<script src="js/entitlement-service.js"></script>
+<script src="js/feature-access-service.js"></script>
+<script src="js/payment-service.js"></script>
+<script src="/js/premium-lock-modal.js?v=20261015_wm47944_v7"></script>
+<script src="js/template-section-system.js"></script>
+<script src="/js/search-manager.js"></script>
+<style>
+    /* CRITICAL: Strictly 100% Solid Opaque Profile Dropdown Menu */
+    #account-dropdown-menu {
+      background: #ffffff !important;
+      background-color: #ffffff !important;
+      opacity: 1 !important;
+      backdrop-filter: none !important;
+      -webkit-backdrop-filter: none !important;
+      border: 2px solid #e9d5ff !important;
+      box-shadow: 0 25px 60px -10px rgba(0, 0, 0, 0.35), 0 0 30px rgba(124, 58, 237, 0.18) !important;
+      z-index: 99999 !important;
+    }
+    html.dark #account-dropdown-menu,
+    body.dark #account-dropdown-menu {
+      background: #150927 !important;
+      background-color: #150927 !important;
+      border-color: #6b21a8 !important;
+      box-shadow: 0 25px 60px -10px rgba(0, 0, 0, 0.85), 0 0 30px rgba(124, 58, 237, 0.35) !important;
+    }
+
+    :root {
+      --bg-body: #F6F0FF;
+      --text-main: #24113F;
+      --card-bg: rgba(255, 255, 255, 0.84);
+      --card-border: rgba(255, 255, 255, 0.95);
+      --nav-bg: rgba(255, 255, 255, 0.8);
+      --nav-border: rgba(255, 255, 255, 0.9);
+      --pill-bg: rgba(255, 255, 255, 0.9);
+      --pill-text: #24113F;
+      --pill-border: rgba(233, 213, 255, 0.9);
+    }
+
+    html.dark {
+      --bg-body: #0F0521;
+      --text-main: #F3E8FF;
+      --card-bg: rgba(29, 11, 54, 0.75);
+      --card-border: rgba(147, 51, 234, 0.25);
+      --nav-bg: rgba(20, 6, 40, 0.85);
+      --nav-border: rgba(147, 51, 234, 0.35);
+      --pill-bg: rgba(29, 11, 54, 0.8);
+      --pill-text: #E9D5FF;
+      --pill-border: rgba(147, 51, 234, 0.3);
+    }
+
+    body {
+      background-color: var(--bg-body);
+      background-image: 
+        radial-gradient(at 10% 8%, rgba(233, 213, 255, 0.75) 0px, transparent 45%),
+        radial-gradient(at 90% 12%, rgba(251, 207, 232, 0.6) 0px, transparent 50%),
+        radial-gradient(at 50% 45%, rgba(243, 232, 255, 0.8) 0px, transparent 65%),
+        radial-gradient(at 85% 75%, rgba(230, 205, 254, 0.5) 0px, transparent 55%),
+        radial-gradient(at 15% 90%, rgba(254, 215, 240, 0.5) 0px, transparent 50%);
+      min-height: 100vh;
+      overflow-x: hidden;
+      color: var(--text-main);
+      transition: background-color 0.3s ease, color 0.3s ease;
+    }
+
+    html.dark body {
+      background-image: 
+        radial-gradient(at 10% 8%, rgba(147, 51, 234, 0.22) 0px, transparent 50%),
+        radial-gradient(at 90% 12%, rgba(236, 72, 153, 0.18) 0px, transparent 50%),
+        radial-gradient(at 50% 45%, rgba(88, 28, 135, 0.25) 0px, transparent 65%),
+        radial-gradient(at 85% 75%, rgba(126, 34, 206, 0.18) 0px, transparent 55%),
+        radial-gradient(at 15% 90%, rgba(157, 23, 77, 0.18) 0px, transparent 50%);
+    }
+
+    .glass-card {
+      background: var(--card-bg);
+      backdrop-filter: blur(20px);
+      border: 1px solid var(--card-border);
+      box-shadow: 0 16px 40px -10px rgba(107, 33, 168, 0.08);
+    }
+    .glass-nav {
+      background: var(--nav-bg);
+      backdrop-filter: blur(24px);
+      border: 1px solid var(--nav-border);
+      box-shadow: 0 14px 35px -8px rgba(107, 33, 168, 0.12);
+    }
+    .glass-pill {
+      background: var(--pill-bg);
+      color: var(--pill-text);
+      backdrop-filter: blur(14px);
+      border: 1px solid var(--pill-border);
+      box-shadow: 0 4px 14px rgba(126, 34, 206, 0.06);
+      transition: all 0.2s ease;
+    }
+    .glass-pill:hover {
+      transform: translateY(-2px);
+      box-shadow: 0 8px 24px rgba(126, 34, 206, 0.14);
+    }
+    .pill-active {
+      background: linear-gradient(135deg, #EC4899 0%, #7C3AED 100%) !important;
+      color: #ffffff !important;
+      box-shadow: 0 8px 25px rgba(236, 72, 153, 0.35) !important;
+    }
+    .hero-desktop-canvas {
+      background: radial-gradient(circle at 75% 25%, #9d174d 0%, #6d28d9 28%, #4c1d95 62%, #2e0854 100%);
+      box-shadow: 0 30px 80px -15px rgba(46, 8, 84, 0.45);
+    }
+    .sparkle-dot {
+      position: absolute;
+      border-radius: 9999px;
+      background: white;
+      box-shadow: 0 0 14px 3px #fff, 0 0 28px 8px #f472b6;
+    }
+    @keyframes fallConfetti {
+      0% { transform: translateY(-20px) rotate(0deg); opacity: 1; }
+      100% { transform: translateY(280px) rotate(720deg); opacity: 0; }
+    }
+    .confetti-piece {
+      position: absolute;
+      width: 7px;
+      height: 10px;
+      pointer-events: none;
+      animation: fallConfetti 2s linear forwards;
+    }
+    @keyframes soundwave {
+      0%, 100% { height: 4px; }
+      50% { height: 18px; }
+    }
+    .wave-bar-1 { animation: soundwave 0.8s ease-in-out infinite; }
+    .wave-bar-2 { animation: soundwave 1.1s ease-in-out infinite 0.2s; }
+    .wave-bar-3 { animation: soundwave 0.7s ease-in-out infinite 0.4s; }
+    .wave-bar-4 { animation: soundwave 1.3s ease-in-out infinite 0.1s; }
+  </style>
+<meta content="web_standard" name="shell-type"/>  <script src="js/site-tracker.js"></script>
+  <!-- Repositories, Notifications & Security -->
+  <script src="js/repositories.js"></script>
+  <script src="/js/notification-service.js?v=20261015_wm47944_v7"></script>
+  <script src="js/security-hardening.js"></script>
+  <link id="wishmagic-cloud-css" rel="stylesheet" href="/css/cloud-background.css?v=20261015_wm47944_v7"/>
+</head>
+<body class="w-full min-h-screen font-sans antialiased selection:bg-pink-500 selection:text-white">
+<!-- Header -->
+<header class="sticky top-2 sm:top-5 z-40 px-2.5 sm:px-6 md:px-8 max-w-7xl mx-auto w-full transition-all">
+<div class="glass-nav rounded-2xl sm:rounded-full px-3 sm:px-5 lg:px-7 py-1.5 sm:py-2.5 flex items-center justify-between gap-2 sm:gap-4 shadow-lg shadow-purple-900/5">
+<a class="flex items-center gap-2 sm:gap-2.5 group flex-shrink-0" href="index.html">
+<div class="w-8 h-8 sm:w-9 sm:h-9 rounded-full bg-gradient-to-tr from-purple-600 via-pink-500 to-amber-300 flex items-center justify-center shadow-md shadow-pink-500/25 group-hover:rotate-12 transition-transform">
+<svg class="w-4 h-4 sm:w-4.5 sm:h-4.5 text-white" fill="none" stroke="currentColor" viewbox="0 0 24 24">
+<path d="M19.428 15.428a2 2 0 00-1.022-.547l-2.387-.477a6 6 0 00-3.86.517l-.318.158a6 6 0 01-3.86.517L6.05 15.21a2 2 0 00-1.806.547M8 4h8l-1 1v5.172a2 2 0 00.586 1.414l5 5c1.26 1.26.367 3.414-1.415 3.414H4.828c-1.782 0-2.674-2.154-1.414-3.414l5-5A2 2 0 009 10.172V5L8 4z" stroke-linecap="round" stroke-linejoin="round" stroke-width="2"></path>
+</svg>
+</div>
+<div class="flex flex-col">
+<span class="font-display font-extrabold text-base sm:text-xl lg:text-2xl tracking-tight bg-gradient-to-r from-purple-900 via-pink-600 to-purple-800 dark:from-purple-200 dark:via-pink-400 dark:to-purple-300 bg-clip-text text-transparent leading-none">WishMagic</span>
+<span class="text-[9px] sm:text-[10px] font-semibold text-purple-800/80 dark:text-purple-300/80 tracking-wider mt-0.5 hidden md:inline-block">Create. Personalize. Celebrate.</span>
+</div>
+</a>
+<nav class="hidden lg:flex items-center gap-1 xl:gap-2 text-sm font-semibold text-purple-950 dark:text-purple-100">
+<a class="px-3.5 py-1.5 rounded-full hover:bg-white/70 dark:hover:bg-purple-900/60 hover:text-purple-700 dark:hover:text-pink-300 transition" href="index.html">Home</a>
+<a class="px-3.5 py-1.5 rounded-full bg-purple-700 text-white shadow-sm" href="marketplace.html">Templates</a>
+<a class="px-3.5 py-1.5 rounded-full hover:bg-white/70 dark:hover:bg-purple-900/60 hover:text-purple-700 dark:hover:text-pink-300 transition flex items-center gap-1.5" href="/my-wishes">
+<span class="material-symbols-outlined text-[18px] text-pink-500">auto_awesome_mosaic</span>
+<span>My Wishes</span>
+</a>
+<a class="px-3.5 py-1.5 rounded-full hover:bg-white/70 dark:hover:bg-purple-900/60 hover:text-purple-700 dark:hover:text-pink-300 transition" href="index.html#how-it-works">How It Works</a>
+<a class="px-3.5 py-1.5 rounded-full hover:bg-white/70 dark:hover:bg-purple-900/60 hover:text-purple-700 dark:hover:text-pink-300 transition" href="index.html#pricing-section">Pricing</a>
+<a class="px-3.5 py-1.5 rounded-full hover:bg-white/70 dark:hover:bg-purple-900/60 hover:text-purple-700 dark:hover:text-pink-300 transition" href="index.html#about-section">About</a>
+</nav>
+<div class="flex items-center gap-1.5 sm:gap-2 flex-shrink-0">
+<!-- Dynamic Device/Manual Theme Switcher -->
+<button class="p-1.5 sm:px-2.5 sm:py-1 rounded-full glass-pill flex items-center gap-1 text-xs font-bold hover:text-pink-600 transition cursor-pointer" onclick="toggleSiteTheme()" title="Switch Light / Dark Theme (Matches Device Theme automatically)" aria-label="Toggle Theme">
+  <span class="material-symbols-outlined text-[18px] site-theme-icon">dark_mode</span>
+  <span class="hidden xl:inline text-[11px] site-theme-label">Theme</span>
+</button>
+<div class="relative hidden xl:block w-52">
+<input class="w-full text-xs font-semibold pl-9 pr-7 py-1.5 rounded-full border border-purple-200/90 dark:border-purple-800/80 bg-white/80 dark:bg-purple-950/60 text-purple-950 dark:text-purple-100 focus:bg-white dark:focus:bg-purple-900 focus:outline-none focus:ring-2 focus:ring-purple-400 placeholder-purple-400 dark:placeholder-purple-400/60 transition" id="nav-search-input" oninput="handleNavSearch(this.value)" placeholder="Search templates..." type="text"/>
+<svg class="w-3.5 h-3.5 text-purple-600 dark:text-purple-400 absolute left-3 top-2" fill="none" stroke="currentColor" viewbox="0 0 24 24"><path d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" stroke-linecap="round" stroke-linejoin="round" stroke-width="2"></path></svg>
+</div>
+<div data-purpose="navbar-auth" class="navbar-auth-container flex-shrink-0">
+  <div id="auth-ui" data-auth-state="booting" class="h-8 w-8 rounded-full bg-purple-500/10 border border-purple-500/15 flex items-center justify-center animate-pulse" aria-hidden="true">
+    <span class="inline-block w-2 h-2 rounded-full bg-purple-400/40"></span>
+  </div>
+</div>
+</div>
+</div>
+</header>
+<!-- Hero Section -->
+<main class="flex-grow pt-8 pb-16 px-6 md:px-12 max-w-7xl mx-auto w-full"><div class="flex flex-col w-full">
+<!-- Live Ambient Floating Sparks & Constellation Dust Layer -->
+<div class="relative w-full overflow-hidden">
+<!-- Atmospheric Ambient Glows -->
+<div class="absolute -top-32 -left-32 w-96 h-96 rounded-full bg-primary/10 blur-[130px] pointer-events-none"></div>
+<div class="absolute top-1/4 -right-40 w-[28rem] h-[28rem] rounded-full bg-secondary-container/15 blur-[150px] pointer-events-none"></div>
+<div class="absolute bottom-1/3 left-1/3 w-[32rem] h-[32rem] rounded-full bg-primary-container/10 blur-[160px] pointer-events-none"></div>
+<!-- GALLERY HERO & SEARCH MATRIX -->
+<section class="relative w-full flex flex-col items-center text-center px-4 sm:px-6 lg:px-8 py-6 sm:py-8">
+<!-- Overline Pill Tag -->
+<div class="inline-flex items-center gap-2 px-4 py-1.5 rounded-full bg-surface-container-high/80 text-secondary backdrop-blur-xl shadow-lg shadow-surface-container-lowest/40 mb-6">
+<span class="w-2 h-2 rounded-full bg-secondary animate-ping"></span>
+<span class="font-label-md text-label-md tracking-wider uppercase text-on-surface">Curated 3D Kept Experiences</span>
+<span class="text-tertiary">✦</span>
+<span class="font-label-sm text-label-sm text-on-surface-variant font-semibold">248 Active Blueprints</span>
+</div>
+<!-- Main Headline with Typographic Contrast -->
+<h1 class="text-3xl sm:text-4xl font-extrabold text-on-surface max-w-4xl tracking-tight">
+        Magical Template <span class="bg-gradient-to-r from-secondary via-primary to-tertiary bg-clip-text text-transparent italic">Gallery</span>
+</h1>
+<p class="font-body-lg text-body-lg text-on-surface-variant max-w-2xl mt-4 leading-relaxed">
+        Explore handcrafted 3D animations, emotive binaural soundscapes, and interactive digital keepsakes. Ready to customize and share in under 60 seconds.
+      </p>
+<!-- Instant Search & Quick Trigger Console -->
+<div class="w-full max-w-3xl mt-8">
+<div class="relative flex items-center bg-surface-container/90 backdrop-blur-2xl rounded-2xl p-2 shadow-2xl shadow-surface-container-lowest/80 transition-all focus-within:ring-2 focus-within:ring-secondary/70">
+<div class="pl-4 pr-2 text-primary flex items-center">
+<span class="material-symbols-outlined text-2xl" style="font-variation-settings: 'FILL' 1;">auto_awesome</span>
+</div>
+<input class="w-full bg-transparent text-on-surface font-body-md text-body-md placeholder-outline focus:outline-none py-3 px-2" id="template-search-input" oninput="handleCatalogSearch(this.value)" placeholder="Search by occasion, theme, song style, mood, or keyword (e.g., Birthday lo-fi, golden anniversary)..." type="text"/>
+<div class="hidden sm:flex items-center gap-1.5 bg-surface-container-highest/60 px-3 py-1.5 rounded-xl mr-2 text-outline text-label-sm font-label-sm">
+<span>⌘</span><span>K</span>
+</div>
+<button class="px-5 py-2.5 rounded-xl bg-gradient-to-r from-primary-container to-secondary-container text-on-primary font-headline-sm text-body-md hover:brightness-110 active:scale-95 transition flex items-center gap-1.5 shadow-md flex-shrink-0" onclick="clearSearchFilter()">
+<span>Explore</span>
+<span class="material-symbols-outlined text-sm">arrow_back_ios_new</span>
+</button>
+</div>
+</div>
+<!-- Capability Feature Badges -->
+<div class="flex flex-wrap items-center justify-center gap-2 mt-6 max-w-4xl">
+<button class="feature-filter-btn px-3.5 py-1.5 rounded-full bg-primary text-on-primary font-label-md text-label-md transition shadow-sm active" onclick="toggleFeatureFilter('all', this)">
+          All Blueprints
+        </button>
+<button class="feature-filter-btn px-3.5 py-1.5 rounded-full bg-surface-container text-on-surface hover:bg-surface-bright font-label-md text-label-md transition" onclick="toggleFeatureFilter('free', this)">
+          Free Tier
+        </button>
+<button class="feature-filter-btn px-3.5 py-1.5 rounded-full bg-surface-container text-tertiary hover:bg-surface-bright font-label-md text-label-md transition flex items-center gap-1" onclick="toggleFeatureFilter('vip', this)">
+<span class="material-symbols-outlined text-xs" style="font-variation-settings: 'FILL' 1;">workspace_premium</span> VIP Pass ₹49
+        </button>
+<button class="feature-filter-btn px-3.5 py-1.5 rounded-full bg-surface-container text-on-surface-variant hover:bg-surface-bright font-label-md text-label-md transition" onclick="toggleFeatureFilter('3d', this)">
+          3D Interactive
+        </button>
+<button class="feature-filter-btn px-3.5 py-1.5 rounded-full bg-surface-container text-on-surface-variant hover:bg-surface-bright font-label-md text-label-md transition" onclick="toggleFeatureFilter('audio', this)">
+          Audio Reactive &amp; BGM
+        </button>
+<button class="feature-filter-btn px-3.5 py-1.5 rounded-full bg-surface-container text-on-surface-variant hover:bg-surface-bright font-label-md text-label-md transition" onclick="toggleFeatureFilter('wax', this)">
+          Wax Seal &amp; Confetti
+        </button>
+<button class="feature-filter-btn px-3.5 py-1.5 rounded-full bg-surface-container text-on-surface-variant hover:bg-surface-bright font-label-md text-label-md transition" onclick="toggleFeatureFilter('polaroid', this)">
+          Photo Memories (Polaroid)
+        </button>
+<button class="feature-filter-btn px-3.5 py-1.5 rounded-full bg-surface-container text-on-surface-variant hover:bg-surface-bright font-label-md text-label-md transition" onclick="toggleFeatureFilter('secret', this)">
+          Secret Envelope Drop
+        </button>
+</div>
+</section>
+<!-- OCCASION CATEGORIES SCROLL / SEGMENT CONTROL -->
+<section class="w-full px-4 sm:px-6 lg:px-8 pb-4">
+<div class="bg-surface-container-low/70 backdrop-blur-xl p-3 rounded-2xl flex flex-col md:flex-row items-center justify-between gap-4">
+<!-- Horizontal Scrollable Category Pills -->
+<div class="flex items-center gap-2 overflow-x-auto w-full md:w-auto py-1 no-scrollbar" id="occasion-category-list">
+<button class="occasion-chip flex-shrink-0 px-4 py-2 rounded-xl bg-primary-container text-on-primary font-headline-sm text-body-sm flex items-center gap-1.5 transition active-chip" onclick="selectOccasion('all', this)">
+<span class="material-symbols-outlined text-base">stars</span>
+<span>All Occasions</span>
+</button>
+<button class="occasion-chip flex-shrink-0 px-4 py-2 rounded-xl bg-surface-container text-on-surface hover:bg-surface-bright font-headline-sm text-body-sm flex items-center gap-1.5 transition" onclick="selectOccasion('birthday', this)">
+<span>🎂</span><span>Birthdays</span>
+</button>
+<button class="occasion-chip flex-shrink-0 px-4 py-2 rounded-xl bg-surface-container text-on-surface hover:bg-surface-bright font-headline-sm text-body-sm flex items-center gap-1.5 transition" onclick="selectOccasion('anniversary', this)">
+<span>💍</span><span>Anniversaries</span>
+</button>
+<button class="occasion-chip flex-shrink-0 px-4 py-2 rounded-xl bg-surface-container text-on-surface hover:bg-surface-bright font-headline-sm text-body-sm flex items-center gap-1.5 transition" onclick="selectOccasion('love', this)">
+<span>❤️</span><span>Love &amp; Romance</span>
+</button>
+<button class="occasion-chip flex-shrink-0 px-4 py-2 rounded-xl bg-surface-container text-on-surface hover:bg-surface-bright font-headline-sm text-body-sm flex items-center gap-1.5 transition" onclick="selectOccasion('crush', this)">
+<span>💌</span><span>Crush</span>
+</button>
+<button class="occasion-chip flex-shrink-0 px-4 py-2 rounded-xl bg-surface-container text-on-surface hover:bg-surface-bright font-headline-sm text-body-sm flex items-center gap-1.5 transition" onclick="selectOccasion('girlfriend', this)">
+<span>🌹</span><span>Girlfriend</span>
+</button>
+<button class="occasion-chip flex-shrink-0 px-4 py-2 rounded-xl bg-surface-container text-on-surface hover:bg-surface-bright font-headline-sm text-body-sm flex items-center gap-1.5 transition" onclick="selectOccasion('boyfriend', this)">
+<span>✨</span><span>Boyfriend</span>
+</button>
+<button class="occasion-chip flex-shrink-0 px-4 py-2 rounded-xl bg-surface-container text-on-surface hover:bg-surface-bright font-headline-sm text-body-sm flex items-center gap-1.5 transition" onclick="selectOccasion('wife', this)">
+<span>👑</span><span>Wife</span>
+</button>
+<button class="occasion-chip flex-shrink-0 px-4 py-2 rounded-xl bg-surface-container text-on-surface hover:bg-surface-bright font-headline-sm text-body-sm flex items-center gap-1.5 transition" onclick="selectOccasion('husband', this)">
+<span>👔</span><span>Husband</span>
+</button>
+<button class="occasion-chip flex-shrink-0 px-4 py-2 rounded-xl bg-surface-container text-on-surface hover:bg-surface-bright font-headline-sm text-body-sm flex items-center gap-1.5 transition" onclick="selectOccasion('mother', this)">
+<span>🌸</span><span>Mother</span>
+</button>
+<button class="occasion-chip flex-shrink-0 px-4 py-2 rounded-xl bg-surface-container text-on-surface hover:bg-surface-bright font-headline-sm text-body-sm flex items-center gap-1.5 transition" onclick="selectOccasion('father', this)">
+<span>🌟</span><span>Father</span>
+</button>
+<button class="occasion-chip flex-shrink-0 px-4 py-2 rounded-xl bg-surface-container text-on-surface hover:bg-surface-bright font-headline-sm text-body-sm flex items-center gap-1.5 transition" onclick="selectOccasion('brother', this)">
+<span>⚡</span><span>Brother</span>
+</button>
+<button class="occasion-chip flex-shrink-0 px-4 py-2 rounded-xl bg-surface-container text-on-surface hover:bg-surface-bright font-headline-sm text-body-sm flex items-center gap-1.5 transition" onclick="selectOccasion('sister', this)">
+<span>🦋</span><span>Sister</span>
+</button>
+<button class="occasion-chip flex-shrink-0 px-4 py-2 rounded-xl bg-surface-container text-on-surface hover:bg-surface-bright font-headline-sm text-body-sm flex items-center gap-1.5 transition" onclick="selectOccasion('best friend', this)">
+<span>👯</span><span>Best Friend</span>
+</button>
+<button class="occasion-chip flex-shrink-0 px-4 py-2 rounded-xl bg-surface-container text-on-surface hover:bg-surface-bright font-headline-sm text-body-sm flex items-center gap-1.5 transition" onclick="selectOccasion('female friend', this)">
+<span>💖</span><span>Female Friend</span>
+</button>
+<button class="occasion-chip flex-shrink-0 px-4 py-2 rounded-xl bg-surface-container text-on-surface hover:bg-surface-bright font-headline-sm text-body-sm flex items-center gap-1.5 transition" onclick="selectOccasion('male friend', this)">
+<span>🤝</span><span>Male Friend</span>
+</button>
+<button class="occasion-chip flex-shrink-0 px-4 py-2 rounded-xl bg-surface-container text-on-surface hover:bg-surface-bright font-headline-sm text-body-sm flex items-center gap-1.5 transition" onclick="selectOccasion('family', this)">
+<span>🏡</span><span>Family</span>
+</button>
+<button class="occasion-chip flex-shrink-0 px-4 py-2 rounded-xl bg-surface-container text-on-surface hover:bg-surface-bright font-headline-sm text-body-sm flex items-center gap-1.5 transition" onclick="selectOccasion('friendship', this)">
+<span>🌈</span><span>Friendship</span>
+</button>
+</div>
+<!-- Sort Select & Metric Count -->
+<div class="flex items-center gap-3 w-full md:w-auto justify-between md:justify-end flex-shrink-0">
+<div class="flex items-center gap-2 bg-surface-container px-3 py-2 rounded-xl text-on-surface font-body-sm text-body-sm">
+<span class="material-symbols-outlined text-primary text-base">tune</span>
+<select class="bg-transparent text-on-surface text-body-sm font-body-sm focus:outline-none cursor-pointer" id="catalog-sort" onchange="sortCatalog(this.value)">
+<option class="bg-surface-container-high text-on-surface" value="trending">Popular &amp; Trending</option>
+<option class="bg-surface-container-high text-on-surface" value="rating">Highest Rated (4.9+)</option>
+<option class="bg-surface-container-high text-on-surface" value="newest">New Releases</option>
+<option class="bg-surface-container-high text-on-surface" value="free">Price: Free First</option>
+</select>
+</div>
+<div class="hidden lg:flex items-center gap-1.5 px-3 py-2 rounded-xl bg-surface-container-high text-outline text-label-sm font-label-sm">
+<span class="text-secondary font-bold" id="visible-card-count">0</span>
+<span>Visible</span>
+</div>
+</div>
+</div>
+</section>
+<!-- INTERACTIVE MINI SOUNDSCAPE FLOATING BAR (GLOBAL PREVIEW CONTROLLER) -->
+<div class="w-full px-4 sm:px-6 lg:px-8 py-2 hidden" id="floating-audio-banner">
+<div class="bg-gradient-to-r from-surface-container-high via-surface-container to-surface-container-high rounded-xl p-3 flex flex-wrap items-center justify-between gap-3 shadow-xl">
+<div class="flex items-center gap-3">
+<div class="w-8 h-8 rounded-lg bg-secondary-container flex items-center justify-center text-on-secondary">
+<span class="material-symbols-outlined text-sm">equalizer</span>
+</div>
+<div>
+<p class="font-headline-sm text-body-sm text-on-surface flex items-center gap-2">
+<span id="active-soundscape-title">Preview: Celebration Audio</span>
+<span class="w-1.5 h-1.5 rounded-full bg-secondary animate-pulse"></span>
+</p>
+<p class="font-label-sm text-label-sm text-on-surface-variant">Hover over any card's audio chip for a 10s spatial preview</p>
+</div>
+</div>
+<div class="flex items-center gap-4">
+<!-- Audio Waves Inline SVG visualizer -->
+<div class="flex items-end gap-1 h-5 px-3 py-1 bg-surface-container-lowest rounded-lg">
+<span class="w-1 h-3 bg-secondary rounded-full animate-bounce"></span>
+<span class="w-1 h-5 bg-primary rounded-full animate-bounce [animation-delay:0.15s]"></span>
+<span class="w-1 h-2 bg-tertiary rounded-full animate-bounce [animation-delay:0.3s]"></span>
+<span class="w-1 h-4 bg-secondary rounded-full animate-bounce [animation-delay:0.45s]"></span>
+<span class="w-1 h-3 bg-primary rounded-full animate-bounce [animation-delay:0.2s]"></span>
+</div>
+<button class="p-2 rounded-lg bg-surface-bright text-on-surface hover:text-secondary transition text-sm" id="audio-mute-toggle" onclick="muteAudioPreview()">
+<span class="material-symbols-outlined text-base">volume_up</span>
+</button>
+</div>
+</div>
+</div>
+<!-- MAIN TEMPLATE CATALOG GRID (Exact screenshot layout: 4 cards per row with generous spacing) -->
+<section class="w-full px-2.5 sm:px-6 lg:px-8 py-4 sm:py-6">
+<div class="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 lg:grid-cols-4 xl:grid-cols-4 gap-4 lg:gap-5" id="templates-grid-container">
+    <div id="dynamic-marketplace-templates" class="contents"></div>
+  </div>
+<!-- Empty Filter State Notice (Hidden by Default) -->
+<div class="hidden w-full py-16 text-center bg-surface-container-low/60 rounded-3xl mt-6 p-8" id="no-results-state">
+<div class="w-16 h-16 rounded-2xl bg-surface-container-highest flex items-center justify-center mx-auto text-3xl mb-4 text-secondary">
+          🔍
+        </div>
+<h4 class="font-headline-lg text-headline-lg text-on-surface">No Templates Matched Your Spark</h4>
+<p class="font-body-md text-body-md text-on-surface-variant max-w-md mx-auto mt-2">
+          Try clearing your search terms or selecting another occasion category to uncover more magical web experiences.
+        </p>
+<button class="mt-6 px-6 py-2.5 rounded-full bg-primary-container text-on-primary font-headline-sm text-body-md hover:brightness-110 transition shadow-lg" onclick="resetAllFilters()">
+          Reset All Filters
+        </button>
+</div>
+</section>
+<!-- BESPOKE CUSTOM REQUEST & STUDIO CTA BANNER -->
+<section class="w-full px-4 sm:px-6 lg:px-8 py-10">
+<div class="relative bg-gradient-to-br from-surface-container via-surface-container-high to-surface-container-low rounded-3xl p-8 sm:p-12 overflow-hidden shadow-2xl">
+<!-- Floating Corner Decorative Elements -->
+<div class="absolute -right-16 -top-16 w-64 h-64 rounded-full bg-primary-container/20 blur-3xl pointer-events-none"></div>
+<div class="absolute -left-16 -bottom-16 w-64 h-64 rounded-full bg-secondary-container/20 blur-3xl pointer-events-none"></div>
+<div class="relative z-10 flex flex-col lg:flex-row items-center justify-between gap-8 text-center lg:text-left">
+<div class="max-w-2xl">
+<div class="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-surface-bright text-tertiary font-label-md text-label-md mb-4">
+<span>✦</span> Bespoke Atelier Service
+            </div>
+<h2 class="font-display-lg text-display-lg text-on-surface tracking-tight">
+              Can't find the exact theme you're imagining?
+            </h2>
+<p class="font-body-lg text-body-lg text-on-surface-variant mt-3 leading-relaxed">
+              Commission a tailor-made 3D web experience designed by our visual artisans, or build your own custom scene inside WishMagic Studio.
+            </p>
+<div class="flex flex-wrap items-center justify-center lg:justify-start gap-4 mt-4 font-label-sm text-label-sm text-outline">
+<span class="flex items-center gap-1.5"><span class="text-secondary">✔</span> 24-Hour Express Crafting</span>
+<span class="flex items-center gap-1.5"><span class="text-secondary">✔</span> Custom Audio Voiceover Sync</span>
+<span class="flex items-center gap-1.5"><span class="text-secondary">✔</span> Lifetime Link Preservation</span>
+</div>
+</div>
+<div class="flex flex-col sm:flex-row items-center gap-3 w-full sm:w-auto flex-shrink-0">
+<button class="w-full sm:w-auto px-6 py-3.5 rounded-full bg-surface-container-highest hover:bg-surface-bright text-on-surface font-headline-sm text-body-md transition shadow-md flex items-center justify-center gap-2" onclick="triggerCustomDesignModal()">
+<span class="material-symbols-outlined text-lg">palette</span>
+<span>Request Custom Design</span>
+<span class="text-tertiary">✨</span>
+</button>
+<button class="w-full sm:w-auto px-7 py-3.5 rounded-full bg-gradient-to-r from-secondary-container via-primary-container to-secondary-container text-on-secondary font-headline-sm text-body-md hover:brightness-110 active:scale-95 transition shadow-lg shadow-secondary-container/30 flex items-center justify-center gap-2" onclick="location.href='/create.html'">
+<span>Start Magical Wish</span>
+<span class="material-symbols-outlined text-lg">magic_button</span>
+</button>
+</div>
+</div>
+</div>
+</section>
+</div>
+</div>
+<script>
+  let allLoadedTemplates = [];
+
+
+    const WM_BUILTIN_TEMPLATE_FOLDERS = {
+      'tpl_glitter_birthday': 'tpl_glitter_birthday',
+      'glitter-birthday-blast': 'tpl_glitter_birthday',
+      'glitter-birthday-bash-3d': 'tpl_glitter_birthday',
+      'glitter-birthday-bash': 'tpl_glitter_birthday',
+      'tpl_romantic_starlight': 'tpl_romantic_scrapbook',
+      'romantic-starlight': 'tpl_romantic_scrapbook',
+      'romantic-starlight-serenade': 'tpl_romantic_scrapbook',
+      'endless-love-serenade': 'tpl_romantic_scrapbook',
+      'tpl_romantic_scrapbook': 'tpl_romantic_scrapbook',
+      'starlit-romance-love-letter': 'tpl_romantic_scrapbook',
+      'tpl_golden_elegance': 'tpl_golden_anniversary',
+      'golden-elegance-anniversary': 'tpl_golden_anniversary',
+      'golden-anniversary-wishes': 'tpl_golden_anniversary',
+      'tpl_golden_anniversary': 'tpl_golden_anniversary',
+      'golden-memories-keepsake': 'tpl_golden_anniversary',
+      'tpl_neon_party': 'tpl_cosmic_aurora',
+      'neon-night-celebration': 'tpl_cosmic_aurora',
+      'purr-fect-birthday-party': 'tpl_cosmic_aurora',
+      'tpl_cosmic_aurora': 'tpl_cosmic_aurora',
+      'cosmic-aurora': 'tpl_cosmic_aurora',
+      'tpl_parents_tribute': 'tpl_parents_tribute',
+      'dearest-parents-tribute': 'tpl_parents_tribute',
+      'heartfelt-thank-you-keepsake': 'tpl_parents_tribute',
+      'tpl_midnight_countdown': 'tpl_midnight_countdown',
+      'midnight-celebration-countdown': 'tpl_midnight_countdown',
+      'grand-congratulations-finale': 'tpl_midnight_countdown',
+      'tpl_friendship_chronicles': 'tpl_friendship_chronicles',
+      'forever-friends-funhouse': 'tpl_friendship_chronicles',
+      'forever-friends-polaroid-deck': 'tpl_friendship_chronicles',
+      'tpl_festive_lights': 'tpl_golden_anniversary',
+      'royal-festival-celebration': 'tpl_golden_anniversary',
+      'royal-festival-of-lights': 'tpl_golden_anniversary',
+      'tpl_test_full_sections': 'tpl_test_full_sections',
+      'tpl_test_minimal_sections': 'tpl_test_minimal_sections'
+    };
+
+    function resolveCanonicalTemplateFolderClient(tpl) {
+      if (!tpl) return 'tpl_glitter_birthday';
+      const candidates = [tpl.id, tpl.slug, tpl.folder]
+        .map(v => String(v || '').trim().replace(/^\/+/, '').replace(/^(?:templates-store|templates)\/+/, '').replace(/\/+$/, ''))
+        .filter(Boolean);
+      for (const c of candidates) {
+        const low = c.toLowerCase();
+        if (WM_BUILTIN_TEMPLATE_FOLDERS[low]) return WM_BUILTIN_TEMPLATE_FOLDERS[low];
+        const prefixed = 'tpl_' + low.replace(/-/g, '_');
+        if (WM_BUILTIN_TEMPLATE_FOLDERS[prefixed]) return WM_BUILTIN_TEMPLATE_FOLDERS[prefixed];
+      }
+      return candidates[0] || 'tpl_glitter_birthday';
+    }
+
+    function resolveTemplatePreviewUrlClient(tpl) {
+      if (!tpl) return '/templates-store/tpl_glitter_birthday/index.html';
+      const entryFile = tpl.entryFile || tpl.entry_file || 'index.html';
+      if (tpl.previewUrl && String(tpl.previewUrl).includes('/versions/ver_')) {
+        return tpl.previewUrl;
+      }
+      const cleanFolder = resolveCanonicalTemplateFolderClient(tpl);
+      return `/templates-store/${cleanFolder}/${entryFile}`;
+    }
+
+    function guardPreviewIframeAgainstMainSite(iframe, tpl) {
+      if (!iframe) return;
+      const prevOnload = iframe.onload;
+      iframe.onload = function(ev) {
+        try {
+          const doc = iframe.contentDocument || (iframe.contentWindow && iframe.contentWindow.document);
+          if (doc) {
+            const isMainSite = Boolean(
+              doc.getElementById('template-preview-modal') ||
+              doc.getElementById('marketplace-preview-modal') ||
+              doc.getElementById('preview-content-shell') ||
+              (doc.title && doc.title.includes('Gift a Magical Web-Experience'))
+            );
+            if (isMainSite && !iframe.getAttribute('data-fallback-applied')) {
+              iframe.setAttribute('data-fallback-applied', '1');
+              const safeTitle = String((tpl && tpl.name) || 'Interactive Celebration').replace(/[<>&"]/g, '');
+              const safeCat = String((tpl && tpl.category) || 'Celebration').replace(/[<>&"]/g, '');
+              const safeThumb = String((tpl && (tpl.thumbnail || tpl.previewImage)) || '/assets/file_ab2082.png').replace(/[<>&"]/g, '');
+              iframe.srcdoc = `<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"/><meta name="viewport" content="width=device-width,initial-scale=1.0"/><title>${safeTitle}</title><script src="https://cdn.tailwindcss.com"><\/script><link href="https://fonts.googleapis.com/css2?family=Outfit:wght@600;800&family=Plus+Jakarta+Sans:wght@400;600;700&display=swap" rel="stylesheet"/><style>body{font-family:'Plus Jakarta Sans',sans-serif;background:radial-gradient(circle at 50% 20%,#3b0764 0%,#1e1b4b 60%,#030712 100%);color:#fff;min-height:100vh;margin:0;}</style></head><body class="flex flex-col items-center justify-center min-h-screen p-6 text-center"><div class="px-3.5 py-1 rounded-full bg-white/10 border border-white/20 text-xs font-bold text-pink-300 mb-4">✨ ${safeCat} Experience</div><h1 class="text-3xl font-extrabold text-pink-300 mb-3">${safeTitle}</h1><p class="text-sm text-purple-200 max-w-sm mb-6" data-wm="custom_message">Wishing you a magical celebration filled with joy, warm smiles, and unforgettable memories!</p><div class="w-48 h-48 rounded-2xl overflow-hidden border border-white/20 shadow-xl mb-4"><img src="${safeThumb}" class="w-full h-full object-cover" data-wm="photo_1" alt="Preview"/></div><div class="text-xs text-purple-300" data-wm="sender_name">— With Love</div></body></html>`;
+              return;
+            }
+          }
+        } catch (_) {}
+        if (typeof prevOnload === 'function') {
+          prevOnload.call(this, ev);
+        }
+      };
+    }
+
+  const FALLBACK_SEED_TEMPLATES = [
+    {
+      id: "tpl_glitter_birthday",
+      slug: "glitter-birthday-bash-3d",
+      folder: "tpl_glitter_birthday",
+      entryFile: "index.html",
+      name: "Glitter Birthday Bash",
+      category: "Birthday",
+      relationships: ["Birthday", "Best Friend", "Brother", "Sister", "Friendship", "Family"],
+      tier: "free",
+      price: 0,
+      isPremium: false,
+      thumbnail: "https://images.unsplash.com/photo-1513151233558-d860c5398176?w=600&auto=format&fit=crop&q=80",
+      description: "Interactive 3D celebration with real candle blowing, sparkling confetti bursts, and polaroid memory frames."
+    },
+    {
+      id: "tpl_romantic_starlight",
+      slug: "romantic-starlight-serenade",
+      folder: "tpl_romantic_scrapbook",
+      entryFile: "index.html",
+      name: "Endless Love Serenade",
+      category: "Love",
+      relationships: ["Girlfriend", "Boyfriend", "Crush", "Love", "Best Friend"],
+      tier: "vip",
+      price: 49,
+      isPremium: true,
+      thumbnail: "https://images.unsplash.com/photo-1518199266791-5375a83190b7?w=600&auto=format&fit=crop&q=80",
+      description: "Dreamy starlit romantic message with floating glowing hearts, wax seal envelope, and custom music keepsake."
+    },
+    {
+      id: "tpl_golden_elegance",
+      slug: "golden-elegance-anniversary",
+      folder: "tpl_golden_anniversary",
+      entryFile: "index.html",
+      name: "Golden Anniversary Wishes",
+      category: "Anniversary",
+      relationships: ["Anniversary", "Wife", "Husband", "Parents", "Grandparents", "Family"],
+      tier: "vip",
+      price: 49,
+      isPremium: true,
+      thumbnail: "https://images.unsplash.com/photo-1522673607200-164d1b6ce486?w=600&auto=format&fit=crop&q=80",
+      description: "Luxurious gold foil anniversary experience with interactive love timeline, romantic music, and photo gallery."
+    },
+    {
+      id: "tpl_neon_party",
+      slug: "neon-night-celebration",
+      folder: "tpl_cosmic_aurora",
+      entryFile: "index.html",
+      name: "Purr-fect Birthday Party",
+      category: "Birthday",
+      relationships: ["Birthday", "Friendship", "Best Friend", "Funny", "Colleague"],
+      tier: "free",
+      price: 0,
+      isPremium: false,
+      thumbnail: "https://images.unsplash.com/photo-1514888286974-6c03e2ca1dba?w=600&auto=format&fit=crop&q=80",
+      description: "Playful party wish with celebratory confetti, music beats, and fun birthday energy."
+    },
+    {
+      id: "tpl_parents_tribute",
+      slug: "dearest-parents-tribute",
+      folder: "tpl_parents_tribute",
+      entryFile: "index.html",
+      name: "Heartfelt Thank You Keepsake",
+      category: "Thank You",
+      relationships: ["Thank You", "Mother", "Father", "Parents", "Family", "Teacher"],
+      tier: "free",
+      price: 0,
+      isPremium: false,
+      thumbnail: "https://images.unsplash.com/photo-1490750967868-88aa4486c946?w=600&auto=format&fit=crop&q=80",
+      description: "Warm floral gratitude keepsake designed to thank parents, mentors, and loved ones."
+    },
+    {
+      id: "tpl_midnight_countdown",
+      slug: "midnight-celebration-countdown",
+      folder: "tpl_midnight_countdown",
+      entryFile: "index.html",
+      name: "Grand Congratulations Finale",
+      category: "Congratulations",
+      relationships: ["Birthday", "Congratulations", "Best Friend", "Brother", "Sister", "Colleague"],
+      tier: "vip",
+      price: 59,
+      isPremium: true,
+      thumbnail: "https://images.unsplash.com/photo-1492684223066-81342ee5ff30?w=600&auto=format&fit=crop&q=80",
+      description: "Synchronized celebration countdown unlocking midnight fireworks and custom music."
+    },
+    {
+      id: "tpl_friendship_chronicles",
+      slug: "forever-friends-funhouse",
+      folder: "tpl_friendship_chronicles",
+      entryFile: "index.html",
+      name: "Forever Friends Polaroid Deck",
+      category: "Friendship",
+      relationships: ["Friendship", "Best Friend", "Funny", "Brother", "Sister"],
+      tier: "free",
+      price: 0,
+      isPremium: false,
+      thumbnail: "https://images.unsplash.com/photo-1529156069898-49953e39b3ac?w=600&auto=format&fit=crop&q=80",
+      description: "Interactive polaroid memory stack with party confetti pop and upbeat friendship tunes."
+    },
+    {
+      id: "tpl_festive_lights",
+      slug: "royal-festival-celebration",
+      folder: "tpl_golden_anniversary",
+      entryFile: "index.html",
+      name: "Royal Festival of Lights",
+      category: "Festivals",
+      relationships: ["Festivals", "Family", "Parents", "Friendship"],
+      tier: "vip",
+      price: 149,
+      isPremium: true,
+      thumbnail: "https://images.unsplash.com/photo-1534447677768-be436bb09401?w=600&auto=format&fit=crop&q=80",
+      description: "Sparkling festive celebration with golden lanterns, fireworks, and warm family wishes."
+    }
+  ];
+
+  async function loadMarketplaceTemplates() {
+    try {
+      let templates = [];
+      let fetchedFromApi = false;
+      try {
+        const res = await fetch("/api/templates");
+        if (res.ok) {
+          const data = await res.json();
+          if (data && data.success && Array.isArray(data.templates)) {
+            templates = data.templates;
+            fetchedFromApi = true;
+          }
+        }
+      } catch (netErr) {
+        console.warn("Could not fetch /api/templates, using fallback seed templates:", netErr);
+      }
+
+      if (!fetchedFromApi) {
+        templates = FALLBACK_SEED_TEMPLATES;
+      }
+
+      const container = document.getElementById("templates-grid-container");
+      const countEl = document.getElementById("visible-card-count");
+
+      allLoadedTemplates = templates;
+      window.allMarketplaceTemplates = templates;
+      window._wmLoadedTemplatesMap = window._wmLoadedTemplatesMap || {};
+      templates.forEach(t => {
+        if (t && t.id) window._wmLoadedTemplatesMap[t.id] = t;
+        if (t && t.slug) window._wmLoadedTemplatesMap[t.slug] = t;
+      });
+      if (countEl) countEl.textContent = allLoadedTemplates.length;
+
+      renderMarketplaceCards(allLoadedTemplates);
+
+      // Part 39 & Part 48: Parse URL query parameters (?q=... & category=... & relationship=... & rel=...)
+      const urlParams = new URLSearchParams(window.location.search);
+      const queryParam = urlParams.get('q') || urlParams.get('search');
+      const catParam = urlParams.get('category');
+      const relParam = urlParams.get('relationship') || urlParams.get('rel');
+      const tierParam = urlParams.get('tier');
+      const featParam = urlParams.get('feature');
+
+      if (queryParam) {
+        const input = document.getElementById('template-search-input');
+        if (input) input.value = queryParam;
+      }
+      if (relParam) {
+        activeOccasionFilter = relParam.toLowerCase().trim();
+        if (window.WishMagicVariantFlow) {
+          window.WishMagicVariantFlow.setActiveRelationFilter(relParam);
+        }
+      } else if (catParam) {
+        activeOccasionFilter = catParam.toLowerCase().trim();
+        if (window.WishMagicVariantFlow) {
+          window.WishMagicVariantFlow.setActiveRelationFilter('');
+        }
+      }
+      if (tierParam) {
+        activeFeatureFilter = tierParam.toLowerCase().trim();
+      } else if (featParam) {
+        activeFeatureFilter = featParam.toLowerCase().trim();
+      }
+
+      filterCatalog();
+    } catch (err) {
+      console.error("Error loading templates:", err);
+    }
+  }
+
+  function getSavedFavorites() {
+    try {
+      return JSON.parse(localStorage.getItem('wishmagic_favs') || '[]');
+    } catch (e) {
+      return [];
+    }
+  }
+
+  function toggleMarketplaceFavorite(templateId, btn) {
+    const favs = getSavedFavorites();
+    const index = favs.indexOf(templateId);
+    const isFav = index !== -1;
+
+    if (isFav) {
+      favs.splice(index, 1);
+      btn.setAttribute('data-saved', 'false');
+      btn.querySelector('svg').classList.remove('fill-pink-500', 'text-pink-500');
+      btn.querySelector('svg').classList.add('fill-none', 'text-white/80');
+    } else {
+      favs.push(templateId);
+      btn.setAttribute('data-saved', 'true');
+      btn.querySelector('svg').classList.remove('fill-none', 'text-white/80');
+      btn.querySelector('svg').classList.add('fill-pink-500', 'text-pink-500');
+    }
+    localStorage.setItem('wishmagic_favs', JSON.stringify(favs));
+  }
+
+  function renderMarketplaceCards(templates) {
+    const container = document.getElementById("templates-grid-container");
+    if (!container) return;
+
+    const favs = getSavedFavorites();
+
+    container.innerHTML = templates.map(t => {
+      const isFav = favs.includes(t.id);
+      const isVip = t.tier === "vip" || (t.price && Number(t.price) > 0);
+      const price = t.price || 59;
+      const previewImg = t.thumbnail || t.previewImage || "/assets/file_ab2082.png";
+      const availVariants = window.WishMagicVariantFlow ? window.WishMagicVariantFlow.getAvailablePublishedVariants(t) : [];
+      const hasVariants = Boolean(t.hasVariants || t.has_variants || availVariants.length > 0);
+      const availRelSlugs = hasVariants
+        ? availVariants.map(v => v.relationshipSlug).join(" ")
+        : ((t.relationships || []).map(r => String(r).toLowerCase().replace(/\s+/g, "_")).join(" "));
+      const relationTagsMarkup = window.WishMagicVariantFlow ? window.WishMagicVariantFlow.renderCardRelationTagsHtml(t) : "";
+      const rels = (((t.relationships || []).join(" ")) + " " + availRelSlugs).toLowerCase();
+
+      // Realistic consistent star rating & review count matching reference screenshot
+      const ratingSeed = (t.id.charCodeAt(t.id.length - 1) || 5) % 4;
+      const rating = (4.6 + ratingSeed * 0.1).toFixed(1);
+      const reviews = 50 + ((t.name.length * 13) % 80);
+
+      // Derive feature keywords
+      const tFeats = [];
+      if (t.id.includes('glitter') || t.id.includes('3d') || (t.name || '').includes('3d')) tFeats.push('3d');
+      if (t.capabilities?.music !== false) tFeats.push('audio');
+      if (t.capabilities?.gallery !== false || (t.description || '').toLowerCase().includes('polaroid')) tFeats.push('polaroid');
+      if (t.id.includes('romantic') || (t.description || '').toLowerCase().includes('wax')) { tFeats.push('wax'); tFeats.push('secret'); }
+      if (t.capabilities?.countdown || t.id.includes('countdown')) tFeats.push('countdown');
+      if (t.capabilities?.timeline || t.id.includes('chronicles') || t.id.includes('tribute')) tFeats.push('timeline');
+      const featStr = tFeats.join(' ');
+
+      // Top-right badge (Free Gift box or Premium ₹49) exactly matching screenshot
+      const badgeMarkup = isVip
+        ? `<div class="absolute top-3 right-3 z-10 text-center">
+            <span class="inline-flex flex-col items-center justify-center px-3 py-1 rounded-xl bg-[#fbc531] text-[#24113F] text-xs font-black leading-tight shadow-md border border-yellow-200/90">
+              <span class="font-extrabold text-[10px] uppercase tracking-wider">Premium</span>
+              <span class="font-black text-xs">₹${price}</span>
+            </span>
+          </div>`
+        : `<div class="absolute top-3 right-3 z-10">
+            <span class="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-[#00c569] text-white text-xs font-bold shadow-md">
+              <svg class="w-3.5 h-3.5 fill-current" viewBox="0 0 24 24"><path d="M20 6h-2.18c.11-.31.18-.65.18-1a2.996 2.996 0 0 0-5.5-1.65l-.5.67-.5-.68C10.96 2.54 10.05 2 9 2 7.34 2 6 3.34 6 5c0 .35.07.69.18 1H4c-1.11 0-1.99.89-1.99 2L2 19c0 1.11.89 2 2 2h16c1.11 0 2-.89 2-2V8c0-1.11-.89-2-2-2zm-5-2c.55 0 1 .45 1 1s-.45 1-1 1h-2l1.3-1.74C14.47 4.1 14.72 4 15 4zm-6 0c.28 0 .53.11.7.26L11 6H9c-.55 0-1-.45-1-1s.45-1 1-1zm11 15H4v-2h16v2zm0-5H4V8h5.08L7 10.83 8.62 12 11 8.76l1-1.36 1 1.36 2.38 3.24L17 10.83 14.92 8H20v6z"/></svg>
+              Free
+            </span>
+          </div>`;
+
+      return `
+        <div id="tpl-card-${t.id}" class="catalog-template-card group relative bg-white dark:bg-purple-950/85 rounded-2xl p-3.5 sm:p-4 border border-purple-100 dark:border-purple-800/60 shadow-md hover:shadow-2xl hover:-translate-y-1.5 transition-all duration-300 flex flex-col justify-between" data-id="${t.id}"
+             data-category="${(t.category || "general").toLowerCase()}" 
+             data-relationships="${rels}"
+             data-has-variants="${hasVariants ? 'true' : 'false'}"
+             data-available-relations="${availRelSlugs.toLowerCase()}"
+             data-tier="${isVip ? "vip" : "free"}"
+             data-features="${featStr}"
+             data-name="${(t.name || "").toLowerCase()}"
+             data-description="${(t.description || "").toLowerCase()}">
+          
+          <div>
+            <!-- Thumbnail Banner with Top-Right Badge -->
+            <div class="relative rounded-xl overflow-hidden mb-3 aspect-[16/10] bg-purple-900/10 dark:bg-purple-950/80 shadow-inner group/img cursor-pointer" onclick="window.handleTemplateAction ? window.handleTemplateAction('${t.id}', 'preview', { openPreviewModal: openMarketplacePreview }) : openMarketplacePreview('${t.id}')">
+              <img class="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500" src="${previewImg}" alt="${t.name}" loading="lazy"/>
+              <div class="absolute inset-0 bg-gradient-to-t from-black/45 via-transparent to-black/10 pointer-events-none"></div>
+              ${badgeMarkup}
+            </div>
+
+            <!-- Title -->
+            <div class="mb-1.5">
+              <a href="/template/${t.id}" onclick="if(window.handleTemplateAction){event.preventDefault();window.handleTemplateAction('${t.id}','preview',{openPreviewModal:openMarketplacePreview});return false;}" class="block">
+                <h3 class="font-display font-bold text-base sm:text-lg text-gray-900 dark:text-white line-clamp-1 hover:text-[#6c5ce7] dark:hover:text-purple-300 transition-colors">
+                  ${t.name}
+                </h3>
+              </a>
+            </div>
+
+            ${relationTagsMarkup}
+
+            <!-- Rating & Review Count (Matching reference screenshot) -->
+            <div class="flex items-center gap-1.5 text-xs text-gray-500 dark:text-purple-300/80 mb-3">
+              <span class="text-amber-400 text-sm tracking-tighter">★★★★★</span>
+              <span class="font-bold text-gray-700 dark:text-purple-200 text-xs">${rating} (${reviews})</span>
+            </div>
+          </div>
+
+          <!-- Bottom Action Buttons: Preview, Customize & Bookmark -->
+          <div class="flex items-center gap-2 mt-auto pt-1">
+            <button type="button" onclick="window.handleTemplateAction ? window.handleTemplateAction('${t.id}', 'preview', { openPreviewModal: openMarketplacePreview }) : openMarketplacePreview('${t.id}')" class="px-3.5 py-2.5 sm:py-3 rounded-full border border-purple-200 dark:border-purple-700/80 bg-purple-50/80 dark:bg-purple-900/50 text-purple-900 dark:text-purple-200 hover:bg-purple-100 dark:hover:bg-purple-800 text-xs sm:text-sm font-bold transition active:scale-95 cursor-pointer">
+              Preview
+            </button>
+            <a href="/customize.html?template=${t.id}" onclick="if(window.handleTemplateAction){event.preventDefault();window.handleTemplateAction('${t.id}','customize');return false;}" class="flex-1 py-2.5 sm:py-3 px-4 rounded-full bg-gradient-to-r from-[#ff2a85] via-[#ec4899] to-[#a855f7] hover:brightness-110 text-white text-sm sm:text-base font-bold shadow-md shadow-purple-500/25 active:scale-95 transition-all text-center flex items-center justify-center gap-1.5">
+              <span>Customize</span>
+              <span>✨</span>
+            </a>
+            <button type="button" onclick="toggleMarketplaceFavorite('${t.id}', this)" data-saved="${isFav}" class="w-11 sm:w-12 h-11 sm:h-12 rounded-xl border border-purple-200 dark:border-purple-800 bg-white dark:bg-purple-900/40 text-purple-600 dark:text-purple-300 hover:bg-purple-50 dark:hover:bg-purple-800 flex items-center justify-center shrink-0 transition active:scale-90 cursor-pointer shadow-sm" title="Save to bookmarks" aria-label="Bookmark">
+              <svg class="w-5 h-5 ${isFav ? 'fill-[#6c5ce7] text-[#6c5ce7]' : 'fill-none text-purple-600 dark:text-purple-300'} transition-colors" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+                <path d="M5 5a2 2 0 012-2h10a2 2 0 012 2v16l-7-3.5L5 21V5z"/>
+              </svg>
+            </button>
+          </div>
+        </div>
+      `;
+    }).join("");
+  }
+
+  document.addEventListener("DOMContentLoaded", loadMarketplaceTemplates);
+  
+  let activeOccasionFilter = 'all';
+  let activeFeatureFilter = 'all';
+  let isSoundMuted = false;
+
+  function handleCatalogSearch(term) {
+    filterCatalog();
+  }
+
+  function toggleFeatureFilter(feature, btn) {
+    document.querySelectorAll('.feature-filter-btn').forEach(b => {
+      b.classList.remove('bg-primary', 'text-on-primary', 'active');
+      b.classList.add('bg-surface-container', 'text-on-surface');
+    });
+    btn.classList.add('bg-primary', 'text-on-primary', 'active');
+    btn.classList.remove('bg-surface-container', 'text-on-surface');
+
+    activeFeatureFilter = feature;
+    filterCatalog();
+  }
+
+  const EXPLICIT_RELATION_FILTER_SET = new Set([
+    'crush', 'girlfriend', 'boyfriend', 'wife', 'husband', 'mother', 'father',
+    'brother', 'sister', 'best friend', 'best_friend', 'female friend', 'female_friend',
+    'male friend', 'male_friend', 'family', 'parents', 'friend', 'partner', 'colleague',
+    'teacher', 'fiance', 'kids'
+  ]);
+
+  function selectOccasion(cat, btn) {
+    document.querySelectorAll('.occasion-chip').forEach(b => {
+      b.classList.remove('bg-primary-container', 'text-on-primary', 'active-chip');
+      b.classList.add('bg-surface-container', 'text-on-surface');
+    });
+    if (btn) {
+      btn.classList.add('bg-primary-container', 'text-on-primary', 'active-chip');
+      btn.classList.remove('bg-surface-container', 'text-on-surface');
+    }
+
+    activeOccasionFilter = cat.toLowerCase().trim();
+    if (window.WishMagicVariantFlow) {
+      if (EXPLICIT_RELATION_FILTER_SET.has(activeOccasionFilter)) {
+        window.WishMagicVariantFlow.setActiveRelationFilter(activeOccasionFilter);
+      } else {
+        window.WishMagicVariantFlow.setActiveRelationFilter('');
+      }
+    }
+    filterCatalog();
+  }
+
+  function filterCatalog() {
+    const searchVal = document.getElementById('template-search-input').value.toLowerCase().trim();
+    const cards = document.querySelectorAll('.catalog-template-card');
+    let visibleCount = 0;
+
+    cards.forEach(card => {
+      const name = (card.getAttribute('data-name') || '').toLowerCase();
+      const category = (card.getAttribute('data-category') || '').toLowerCase();
+      const relationships = (card.getAttribute('data-relationships') || '').toLowerCase();
+      const desc = (card.getAttribute('data-description') || '').toLowerCase();
+      const tier = card.getAttribute('data-tier') || '';
+      const hasVars = card.getAttribute('data-has-variants') === 'true';
+      const availRels = (card.getAttribute('data-available-relations') || '').split(/\s+/).filter(Boolean);
+
+      const matchesSearch = !searchVal || name.includes(searchVal) || category.includes(searchVal) || relationships.includes(searchVal) || desc.includes(searchVal);
+      let matchesOccasion = true;
+      if (activeOccasionFilter !== 'all') {
+        const isExplicitRel = EXPLICIT_RELATION_FILTER_SET.has(activeOccasionFilter);
+        const normRelSlug = window.WishMagicVariantFlow
+          ? window.WishMagicVariantFlow.normalizeRelationSlug(activeOccasionFilter)
+          : activeOccasionFilter.replace(/\s+/g, '_');
+        if (isExplicitRel && hasVars) {
+          matchesOccasion = availRels.includes(normRelSlug);
+        } else {
+          matchesOccasion = category.includes(activeOccasionFilter) || relationships.includes(activeOccasionFilter) || (normRelSlug && availRels.includes(normRelSlug));
+        }
+      }
+      
+      let matchesFeature = true;
+      if (activeFeatureFilter === 'free') {
+        matchesFeature = tier === 'free';
+      } else if (activeFeatureFilter === 'vip') {
+        matchesFeature = tier === 'vip';
+      } else if (activeFeatureFilter !== 'all') {
+        const feats = (card.getAttribute('data-features') || '').toLowerCase();
+        matchesFeature = feats.includes(activeFeatureFilter) || desc.includes(activeFeatureFilter) || name.includes(activeFeatureFilter);
+      }
+
+      if (matchesSearch && matchesOccasion && matchesFeature) {
+        card.classList.remove('hidden');
+        card.removeAttribute('hidden');
+        card.style.removeProperty('display');
+        visibleCount++;
+      } else {
+        card.classList.add('hidden');
+        card.setAttribute('hidden', 'hidden');
+        card.style.setProperty('display', 'none', 'important');
+      }
+    });
+
+    const countElem = document.getElementById('visible-card-count');
+    if (countElem) countElem.innerText = visibleCount;
+
+    const gridContainer = document.getElementById('templates-grid-container');
+    if (gridContainer) {
+      if (visibleCount === 0) {
+        gridContainer.classList.add('hidden');
+      } else {
+        gridContainer.classList.remove('hidden');
+      }
+    }
+    const noResults = document.getElementById('no-results-state');
+    if (noResults) {
+      if (visibleCount === 0) {
+        noResults.classList.remove('hidden');
+      } else {
+        noResults.classList.add('hidden');
+      }
+    }
+  }
+
+  // Template Preview Modal for Marketplace (Rule C & Rule E variant-aware)
+  function openMarketplacePreview(tplId, selectedVariant) {
+    const tpl = allLoadedTemplates.find(t => t.id === tplId || t.slug === tplId) || (window._wmLoadedTemplatesMap && window._wmLoadedTemplatesMap[tplId]);
+    if (!tpl) return;
+
+    if (!selectedVariant && window.WishMagicVariantFlow && window.WishMagicVariantFlow.isVariantFamily(tpl)) {
+      const avail = window.WishMagicVariantFlow.getAvailablePublishedVariants(tpl);
+      const activeRel = window.WishMagicVariantFlow.getActiveRelationFilter();
+      if (activeRel) {
+        const resolved = window.WishMagicVariantFlow.resolveVariantForRelation(tpl, activeRel);
+        if (!resolved) {
+          window.WishMagicVariantFlow.showUnavailableVariantNotice(tpl, activeRel);
+          return;
+        }
+        selectedVariant = resolved;
+      } else if (avail.length === 1) {
+        selectedVariant = avail[0];
+      } else if (avail.length > 1) {
+        window.WishMagicVariantFlow.showRelationSelectionModal(tpl, avail, 'preview', {
+          openPreviewModal: (id, chosenVar) => openMarketplacePreview(id, chosenVar)
+        });
+        return;
+      }
+    }
+
+    const modal = document.getElementById('marketplace-preview-modal');
+    const titleEl = document.getElementById('mkt-preview-title');
+    const catEl = document.getElementById('mkt-preview-cat');
+    const badgeEl = document.getElementById('mkt-preview-badge');
+    const iframeEl = document.getElementById('mkt-preview-iframe');
+    const extLink = document.getElementById('mkt-preview-external');
+    const ctaBtn = document.getElementById('mkt-preview-cta');
+
+    const previewTargetObj = selectedVariant
+      ? { ...tpl, entryFile: selectedVariant.entryFile || tpl.entryFile }
+      : tpl;
+    const url = resolveTemplatePreviewUrlClient(previewTargetObj);
+    const isVip = tpl.tier === 'vip' || (tpl.price && Number(tpl.price) > 0);
+
+    if (titleEl) {
+      titleEl.textContent = selectedVariant
+        ? `${tpl.name} — ${selectedVariant.relationshipLabel}`
+        : tpl.name;
+    }
+    if (catEl) {
+      catEl.textContent = selectedVariant
+        ? `${tpl.category || "Celebration"} • For ${selectedVariant.relationshipLabel}`
+        : `${tpl.category || "Celebration"} • ${tpl.type || "Interactive 3D"}`;
+    }
+    if (badgeEl) {
+      badgeEl.textContent = isVip ? `PREMIUM • ₹${tpl.price || 59}` : 'FREE';
+      badgeEl.className = `px-2 py-0.5 rounded-full text-[10px] font-black uppercase tracking-wider ${isVip ? 'bg-amber-400 text-purple-950' : 'bg-emerald-500 text-white'}`;
+    }
+    if (iframeEl) {
+      iframeEl.removeAttribute('srcdoc');
+      iframeEl.removeAttribute('data-fallback-applied');
+      iframeEl.src = url;
+      guardPreviewIframeAgainstMainSite(iframeEl, previewTargetObj);
+      if (selectedVariant) {
+        const prevLoad = iframeEl.onload;
+        iframeEl.onload = function(ev) {
+          if (typeof prevLoad === 'function') prevLoad.call(this, ev);
+          try {
+            if (iframeEl.contentWindow) {
+              iframeEl.contentWindow.postMessage({
+                type: 'WISHMAGIC_INIT',
+                payload: {
+                  variantId: selectedVariant.id,
+                  relationship: selectedVariant.relationshipSlug,
+                  relationshipSlug: selectedVariant.relationshipSlug,
+                  messages: selectedVariant.messages || {},
+                  assets: selectedVariant.assets || {},
+                  palette: selectedVariant.theme || null,
+                  ...(selectedVariant.messages || {}),
+                  ...(selectedVariant.assets || {})
+                }
+              }, '*');
+            }
+          } catch (_) {}
+        };
+      }
+    }
+
+    const customizeHref = selectedVariant
+      ? `/customize.html?template=${encodeURIComponent(tpl.id)}&variant=${encodeURIComponent(selectedVariant.id)}&rel=${encodeURIComponent(selectedVariant.relationshipSlug)}`
+      : `/customize.html?template=${encodeURIComponent(tpl.id)}`;
+
+    if (extLink) extLink.href = url;
+    if (ctaBtn) {
+      ctaBtn.href = customizeHref;
+      ctaBtn.onclick = (e) => {
+        if (window.WishFeatureAccess) {
+          const access = window.WishFeatureAccess.canUseTemplate(tpl);
+          if (!access.allowed) {
+            e.preventDefault();
+            if (window.WishPremiumLock) {
+              window.WishPremiumLock.open({
+                context: 'template',
+                template: tpl,
+                onUnlocked: () => {
+                  window.location.href = customizeHref;
+                }
+              });
+            }
+            return;
+          }
+        }
+      };
+      ctaBtn.innerHTML = selectedVariant
+        ? `<span>Customize ${selectedVariant.relationshipLabel} Wish</span><span class="text-amber-300 text-xs">✨</span>`
+        : `<span>Create This Wish</span><span class="text-amber-300 text-xs">✨</span>`;
+    }
+
+    if (modal) {
+      modal.classList.remove('hidden');
+      modal.classList.add('flex');
+      document.body.classList.add('overflow-hidden');
+    }
+    setMarketplacePreviewDevice(window.innerWidth >= 1024 ? 'desktop' : 'mobile', false);
+  }
+
+  function closeMarketplacePreview() {
+    const modal = document.getElementById('marketplace-preview-modal');
+    if (modal) {
+      modal.classList.remove('flex');
+      modal.classList.add('hidden');
+      document.body.classList.remove('overflow-hidden');
+      const iframe = document.getElementById('mkt-preview-iframe');
+      if (iframe) iframe.src = 'about:blank';
+    }
+  }
+
+  window.handleMarketplaceTemplateCardClick = function(e, tplId) {
+    const tpl = (typeof allLoadedTemplates !== 'undefined' && allLoadedTemplates.find(t => t.id === tplId)) || null;
+    if (tpl && window.WishFeatureAccess) {
+      const access = window.WishFeatureAccess.canUseTemplate(tpl);
+      if (!access.allowed) {
+        if (e) e.preventDefault();
+        if (window.WishPremiumLock) {
+          window.WishPremiumLock.open({
+            context: 'template',
+            template: tpl,
+            onUnlocked: () => {
+              window.location.href = `/customize.html?template=${tpl.id}`;
+            }
+          });
+        }
+        return false;
+      }
+    }
+    return true;
+  };
+
+  window._mktPreviewDeviceMode = (typeof window !== 'undefined' && window.innerWidth >= 1024) ? 'desktop' : 'mobile';
+  function setMarketplacePreviewDevice(mode) {
+    const normalizedMode = (mode === 'desktop' || mode === 'tablet' || mode === 'mobile')
+      ? mode
+      : (window.innerWidth >= 1024 ? 'desktop' : 'mobile');
+    window._mktPreviewDeviceMode = normalizedMode;
+    const shell = document.getElementById('mkt-preview-viewport-shell');
+    const container = document.getElementById('mkt-preview-frame-container');
+    const viewport = document.getElementById('mkt-preview-iframe-viewport');
+    const iframe = document.getElementById('mkt-preview-iframe');
+    const notch = document.getElementById('mkt-preview-notch');
+    const browserBar = document.getElementById('mkt-preview-browserbar');
+    const btnMobile = document.getElementById('mkt-btn-mobile');
+    const btnTablet = document.getElementById('mkt-btn-tablet');
+    const btnDesktop = document.getElementById('mkt-btn-desktop');
+
+    if (!container) return;
+
+    const setBtnActive = (btn, active) => {
+      if (!btn) return;
+      if (active) {
+        btn.classList.add('bg-surface-bright', 'text-on-surface', 'shadow-xs');
+        btn.classList.remove('text-on-surface-variant');
+      } else {
+        btn.classList.remove('bg-surface-bright', 'text-on-surface', 'shadow-xs');
+        btn.classList.add('text-on-surface-variant');
+      }
+    };
+    setBtnActive(btnDesktop, normalizedMode === 'desktop');
+    setBtnActive(btnTablet, normalizedMode === 'tablet');
+    setBtnActive(btnMobile, normalizedMode === 'mobile');
+
+    if (normalizedMode === 'desktop') {
+      container.classList.remove('max-w-[390px]', 'max-h-[740px]', 'rounded-[36px]', 'p-2.5', 'border-4');
+      container.classList.add('max-w-full', 'h-full', 'rounded-2xl', 'p-1.5', 'border-2');
+      container.style.width = '100%';
+      container.style.height = '100%';
+      if (notch) notch.classList.add('hidden');
+      if (browserBar) {
+        browserBar.classList.remove('hidden');
+        browserBar.classList.add('flex');
+      }
+      if (viewport) {
+        viewport.classList.remove('rounded-[24px]');
+        viewport.classList.add('rounded-xl');
+        viewport.style.width = '100%';
+        viewport.style.height = 'calc(100% - 34px)';
+      }
+      const applyDesktopBox = () => {
+        const DESKTOP_W = 1280;
+        const availW = Math.max(320, (viewport && viewport.clientWidth) || (shell ? shell.clientWidth - 28 : window.innerWidth - 64));
+        const availH = Math.max(480, (viewport && viewport.clientHeight) || (shell ? shell.clientHeight - 60 : window.innerHeight - 200));
+        const DESKTOP_MIN_W = 1024;
+        if (iframe) {
+          if (availW >= DESKTOP_MIN_W) {
+            iframe.style.width = '100%';
+            iframe.style.height = '100%';
+            iframe.style.transform = 'none';
+            iframe.style.transformOrigin = 'top left';
+          } else {
+            const scale = availW / DESKTOP_MIN_W;
+            iframe.style.width = DESKTOP_MIN_W + 'px';
+            iframe.style.height = Math.round(availH / scale) + 'px';
+            iframe.style.transform = `scale(${scale.toFixed(4)})`;
+            iframe.style.transformOrigin = 'top left';
+          }
+        }
+      };
+      applyDesktopBox();
+      requestAnimationFrame(applyDesktopBox);
+    } else if (normalizedMode === 'tablet') {
+      container.classList.remove('max-w-[390px]', 'max-w-full', 'rounded-[36px]');
+      container.classList.add('rounded-2xl', 'p-2', 'border-2', 'h-full');
+      container.style.width = '100%';
+      container.style.maxWidth = '768px';
+      container.style.height = '100%';
+      if (notch) notch.classList.add('hidden');
+      if (browserBar) {
+        browserBar.classList.remove('hidden');
+        browserBar.classList.add('flex');
+      }
+      if (viewport) {
+        viewport.classList.remove('rounded-[24px]');
+        viewport.classList.add('rounded-xl');
+        viewport.style.width = '100%';
+        viewport.style.height = '100%';
+      }
+      if (iframe) {
+        iframe.style.width = '100%';
+        iframe.style.height = '100%';
+        iframe.style.transform = 'none';
+        iframe.style.transformOrigin = 'top left';
+      }
+    } else {
+      container.classList.add('max-w-[390px]', 'max-h-[740px]', 'rounded-[36px]', 'p-2.5', 'border-4', 'h-full');
+      container.classList.remove('max-w-full', 'rounded-2xl', 'p-1.5', 'border-2');
+      container.style.width = '';
+      container.style.maxWidth = '';
+      container.style.height = '';
+      if (notch) notch.classList.remove('hidden');
+      if (browserBar) {
+        browserBar.classList.remove('flex');
+        browserBar.classList.add('hidden');
+      }
+      if (viewport) {
+        viewport.classList.add('rounded-[24px]');
+        viewport.classList.remove('rounded-xl');
+        viewport.style.width = '100%';
+        viewport.style.height = '100%';
+      }
+      if (iframe) {
+        iframe.style.width = '100%';
+        iframe.style.height = '100%';
+        iframe.style.transform = 'none';
+        iframe.style.transformOrigin = 'top left';
+      }
+    }
+  }
+  window.addEventListener('resize', () => {
+    if (window._mktPreviewDeviceMode === 'desktop') setMarketplacePreviewDevice('desktop');
+  });
+
+  function clearSearchFilter() {
+    const input = document.getElementById('template-search-input');
+    if (input) {
+      input.value = '';
+      filterCatalog();
+    }
+  }
+
+  function resetAllFilters() {
+    clearSearchFilter();
+    activeOccasionFilter = 'all';
+    activeFeatureFilter = 'all';
+
+    const firstFeatureBtn = document.querySelector('.feature-filter-btn');
+    if (firstFeatureBtn) toggleFeatureFilter('all', firstFeatureBtn);
+
+    const firstOccasionBtn = document.querySelector('.occasion-chip');
+    if (firstOccasionBtn) selectOccasion('all', firstOccasionBtn);
+  }
+
+  function sortCatalog(mode) {
+    const grid = document.getElementById('templates-grid-container');
+    const cards = Array.from(document.querySelectorAll('.catalog-template-card'));
+
+    cards.sort((a, b) => {
+      if (mode === 'rating') {
+        return parseFloat(b.getAttribute('data-rating') || 0) - parseFloat(a.getAttribute('data-rating') || 0);
+      }
+      if (mode === 'free') {
+        const aFree = a.getAttribute('data-tier') === 'free' ? 1 : 0;
+        const bFree = b.getAttribute('data-tier') === 'free' ? 1 : 0;
+        return bFree - aFree;
+      }
+      return 0; // default order preserved
+    });
+
+    cards.forEach(c => grid.appendChild(c));
+  }
+
+  function previewTrack(trackName) {
+    if (isSoundMuted) return;
+    const banner = document.getElementById('floating-audio-banner');
+    if (banner) banner.classList.remove('hidden');
+    const title = document.getElementById('active-soundscape-title');
+    if (title) {
+      title.innerText = 'Playing: ' + trackName;
+    }
+  }
+
+  function muteAudioPreview() {
+    isSoundMuted = !isSoundMuted;
+    const btn = document.getElementById('audio-mute-toggle');
+    const title = document.getElementById('active-soundscape-title');
+    if (isSoundMuted) {
+      btn.innerHTML = '<span class="material-symbols-outlined text-base">volume_off</span>';
+      title.innerText = 'Audio Previews Muted';
+    } else {
+      btn.innerHTML = '<span class="material-symbols-outlined text-base">volume_up</span>';
+      title.innerText = 'Hover over any card for sound';
+    }
+  }
+
+  function toggleCardBookmark(btn) {
+    const icon = btn.querySelector('.material-symbols-outlined');
+    if (icon.innerText === 'bookmark_border') {
+      icon.innerText = 'bookmark';
+      icon.style.fontVariationSettings = "'FILL' 1";
+      btn.classList.add('text-secondary');
+    } else {
+      icon.innerText = 'bookmark_border';
+      icon.style.fontVariationSettings = "'FILL' 0";
+      btn.classList.remove('text-secondary');
+    }
+  }
+
+  function triggerCustomDesignModal() {
+    alert("🎨 WishMagic Bespoke Atelier\\n\\nLet's design your one-of-a-kind digital universe! Our 3D creators will craft custom audio, tailored shaders, and physical keepsakes.\\n\\nDirect desk: studio@wishmagic.com");
+  }
+
+  // Keyboard shortcut listener for Command/Ctrl + K
+  document.addEventListener('keydown', function(e) {
+    if ((e.metaKey || e.ctrlKey) && e.key === 'k') {
+      e.preventDefault();
+      const searchBox = document.getElementById('template-search-input');
+      if (searchBox) {
+        searchBox.focus();
+        searchBox.select();
+      }
+    }
+  });
+</script>
+<!-- Template Live Preview Modal for Marketplace -->
+<div class="fixed inset-0 z-50 bg-black/80 backdrop-blur-md hidden items-center justify-center p-2 sm:p-4" id="marketplace-preview-modal">
+<div class="bg-surface-container dark:bg-[#1A0B2E] rounded-3xl max-w-6xl w-full h-[92vh] flex flex-col shadow-2xl relative border border-purple-500/20 overflow-hidden">
+  <!-- Modal Top Bar -->
+  <div class="px-4 sm:px-6 py-3.5 border-b border-purple-500/10 flex items-center justify-between gap-3 bg-surface-container/95 backdrop-blur-md flex-shrink-0">
+    <div class="flex items-center gap-3 min-w-0">
+      <span class="w-8 h-8 rounded-xl bg-primary-container text-on-primary flex items-center justify-center font-bold text-sm flex-shrink-0">👁️</span>
+      <div class="min-w-0">
+        <div class="flex items-center gap-2">
+          <h3 class="font-headline-sm text-headline-sm text-on-surface truncate font-bold" id="mkt-preview-title">Template Preview</h3>
+          <span class="px-2 py-0.5 rounded-full text-[10px] font-black uppercase tracking-wider" id="mkt-preview-badge">Free</span>
+        </div>
+        <p class="text-label-sm text-on-surface-variant truncate" id="mkt-preview-cat">Interactive Experience</p>
+      </div>
+    </div>
+    <!-- Device Viewport Toggle & Close -->
+    <div class="flex items-center gap-1.5 sm:gap-2 flex-shrink-0">
+      <div class="flex items-center bg-surface-container-high p-0.5 rounded-xl border border-purple-500/20 text-[11px] sm:text-xs font-semibold">
+        <button class="px-2 sm:px-2.5 py-1 rounded-lg bg-surface-bright text-on-surface shadow-xs transition cursor-pointer" id="mkt-btn-desktop" onclick="setMarketplacePreviewDevice('desktop')">💻 Desktop</button>
+        <button class="px-2 sm:px-2.5 py-1 rounded-lg text-on-surface-variant hover:text-on-surface transition cursor-pointer" id="mkt-btn-tablet" onclick="setMarketplacePreviewDevice('tablet')">📟 Tablet</button>
+        <button class="px-2 sm:px-2.5 py-1 rounded-lg text-on-surface-variant hover:text-on-surface transition cursor-pointer" id="mkt-btn-mobile" onclick="setMarketplacePreviewDevice('mobile')">📱 Mobile</button>
+      </div>
+      <a href="#" target="_blank" id="mkt-preview-external" class="p-2 rounded-xl text-on-surface hover:bg-surface-bright transition" title="Open in new window">
+        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14" stroke-linecap="round" stroke-linejoin="round" stroke-width="2"></path></svg>
+      </a>
+      <button class="w-8 h-8 rounded-full bg-surface-container-highest text-on-surface hover:bg-surface-bright flex items-center justify-center font-bold text-xs transition" onclick="closeMarketplacePreview()">✕</button>
+    </div>
+  </div>
+  <!-- Live Iframe Sandbox Preview Container -->
+  <div class="flex-grow bg-[#0c0316] relative flex items-center justify-center overflow-hidden p-2 sm:p-4" id="mkt-preview-viewport-shell">
+    <div class="w-full max-w-[390px] h-full max-h-[740px] bg-black rounded-[36px] p-2.5 shadow-2xl border-4 border-purple-950 transition-all duration-300 relative flex flex-col overflow-hidden" id="mkt-preview-frame-container">
+      <div id="mkt-preview-notch" class="w-24 h-4 bg-black rounded-b-xl mx-auto mb-1 flex items-center justify-center flex-shrink-0">
+        <span class="w-2 h-2 rounded-full bg-gray-800"></span>
+      </div>
+      <div id="mkt-preview-browserbar" class="hidden w-full px-3 py-1.5 bg-[#140628] border-b border-purple-900/60 rounded-t-lg items-center justify-between gap-2 flex-shrink-0 text-[10px] text-purple-300 mb-1">
+        <div class="flex items-center gap-1.5">
+          <span class="w-2 h-2 rounded-full bg-red-500/80"></span>
+          <span class="w-2 h-2 rounded-full bg-amber-500/80"></span>
+          <span class="w-2 h-2 rounded-full bg-emerald-500/80"></span>
+        </div>
+        <div class="px-3 py-0.5 rounded bg-purple-950/70 border border-purple-800/60 text-purple-200 text-center font-mono text-[9px] truncate max-w-xs flex-grow mx-2">
+          🔒 wishmagic.live/desktop-preview
+        </div>
+        <div class="text-[9px] font-bold text-pink-400">1280×800</div>
+      </div>
+      <div id="mkt-preview-iframe-viewport" class="w-full h-full flex-grow relative overflow-hidden rounded-[24px] bg-white">
+        <iframe id="mkt-preview-iframe" class="w-full h-full bg-white border-0" src="about:blank"></iframe>
+      </div>
+    </div>
+  </div>
+  <!-- Modal Bottom Actions Bar -->
+  <div class="px-4 sm:px-6 py-3 border-t border-purple-500/10 bg-surface-container/95 backdrop-blur-md flex flex-wrap items-center justify-between gap-3 flex-shrink-0">
+    <div class="text-body-sm text-on-surface-variant font-medium hidden sm:block">
+      ✨ All texts, photos, song &amp; surprise effects can be personalized in the customizer.
+    </div>
+    <div class="flex items-center gap-2.5 w-full sm:w-auto justify-end">
+      <button class="px-4 py-2 rounded-full border border-purple-500/20 text-on-surface text-xs font-bold hover:bg-surface-bright transition" onclick="closeMarketplacePreview()">Close</button>
+      <a href="/customize.html" id="mkt-preview-cta" class="px-6 py-2.5 rounded-full bg-gradient-to-r from-pink-500 via-purple-600 to-indigo-600 text-white text-xs sm:text-sm font-bold shadow-md hover:scale-105 active:scale-95 transition-all flex items-center gap-1.5">
+        <span>Create This Wish</span>
+        <span class="text-amber-300 text-xs">✨</span>
+      </a>
+    </div>
+  </div>
+</div>
+</div>
+</main>
+<!-- Adaptive Footer -->
+<footer class="bg-gradient-to-b from-purple-50/80 via-white to-purple-100/50 dark:from-[#140628] dark:via-[#1D0B36] dark:to-[#0D041A] text-[#24113F] dark:text-white pt-16 pb-12 px-6 md:px-12 mt-auto border-t border-purple-200/80 dark:border-purple-900/50 transition-colors duration-300" id="about-section">
+<div class="max-w-7xl mx-auto">
+<div class="grid grid-cols-1 md:grid-cols-3 gap-8 pb-12 border-b border-purple-200/70 dark:border-purple-800/40 text-xs sm:text-sm">
+<div class="p-4 rounded-2xl bg-white/90 dark:bg-purple-950/60 border border-purple-200/70 dark:border-purple-900/40 shadow-sm flex items-start gap-4 transition-colors">
+<div class="w-10 h-10 rounded-xl bg-purple-100 dark:bg-purple-900/80 text-pink-600 dark:text-pink-400 flex items-center justify-center flex-shrink-0 text-base shadow-sm">🛡️</div>
+<div><p class="font-bold text-purple-950 dark:text-white text-base">7-Friends Referral Program</p><p class="text-purple-800/80 dark:text-purple-300/80 mt-1">Share with 7 friends! When they create any template, unlock 1 Free Custom Link (₹59 value).</p></div>
+</div>
+<div class="p-4 rounded-2xl bg-white/90 dark:bg-purple-950/60 border border-purple-200/70 dark:border-purple-900/40 shadow-sm flex items-start gap-4 transition-colors">
+<div class="w-10 h-10 rounded-xl bg-purple-100 dark:bg-purple-900/80 text-pink-600 dark:text-pink-400 flex items-center justify-center flex-shrink-0 text-base shadow-sm">📄</div>
+<div><p class="font-bold text-purple-950 dark:text-white text-base">Pricing &amp; Combo Offers</p><p class="text-purple-800/80 dark:text-purple-300/80 mt-1">₹59 Custom Link, ₹59 HD Images + Style, ₹99 Free Combo & Template + ₹70 Premium Combo.</p></div>
+</div>
+<div class="p-4 rounded-2xl bg-white/90 dark:bg-purple-950/60 border border-purple-200/70 dark:border-purple-900/40 shadow-sm flex items-start gap-4 transition-colors">
+<div class="w-10 h-10 rounded-xl bg-purple-100 dark:bg-purple-900/80 text-pink-600 dark:text-pink-400 flex items-center justify-center flex-shrink-0 text-base shadow-sm">💬</div>
+<div><p class="font-bold text-purple-950 dark:text-white text-base">Contact Support</p><p class="text-purple-800/80 dark:text-purple-300/80 mt-1">We're here to help you 24/7 at hello@wishmagic.com.</p></div>
+</div>
+</div>
+<div class="grid grid-cols-2 md:grid-cols-5 gap-10 py-12 text-sm">
+<div class="col-span-2">
+<div class="flex items-center gap-3 mb-4">
+<div class="w-9 h-9 rounded-full bg-gradient-to-tr from-purple-600 to-pink-500 flex items-center justify-center font-bold text-white shadow-md">🪄</div>
+<span class="font-display font-extrabold text-2xl text-purple-950 dark:text-white">WishMagic</span>
+</div>
+<p class="text-purple-800/80 dark:text-purple-300/80 leading-relaxed max-w-sm mb-5 text-sm font-medium">Crafting joyous, emotional, and interactive digital web experiences that turn every birthday, anniversary, and celebration into a treasured memory.</p>
+</div>
+<div>
+<h4 class="font-bold text-purple-950 dark:text-white mb-4 uppercase tracking-wider text-xs">Occasions</h4>
+<ul class="space-y-2 text-purple-800/80 dark:text-purple-300/80 text-xs font-medium">
+<li>Birthday Wishes</li><li>Anniversary Celebrations</li><li>Romantic Love Notes</li><li>Graduation &amp; Success</li>
+</ul>
+</div>
+<div>
+<h4 class="font-bold text-purple-950 dark:text-white mb-4 uppercase tracking-wider text-xs">Product</h4>
+<ul class="space-y-2 text-purple-800/80 dark:text-purple-300/80 text-xs font-medium">
+<li>Template Library</li><li>Custom Audio Studio</li><li>QR Code Delivery</li><li>Magic Premium Pass</li>
+</ul>
+</div>
+<div>
+<h4 class="font-bold text-purple-950 dark:text-white mb-4 uppercase tracking-wider text-xs">Company</h4>
+<ul class="space-y-2 text-purple-800/80 dark:text-purple-300/80 text-xs font-medium">
+<li>About WishMagic</li><li>Press &amp; Media</li><li>Help Center</li><li>Contact Us</li>
+</ul>
+</div>
+</div>
+<div class="pt-8 border-t border-purple-200/80 dark:border-purple-900/50 flex flex-col sm:flex-row items-center justify-between text-xs text-purple-800/80 dark:text-purple-400 gap-3">
+<span>© 2026 WishMagic. All rights reserved. 💜</span>
+<span class="text-purple-600/80 dark:text-purple-300/60">Designed with wonder for people who care deeply.</span>
+</div>
+</div>
+</footer>
+<!-- ========================================== -->
+<!-- INTERACTIVE TEMPLATE CUSTOMIZATION MODAL   -->
+<!-- ========================================== -->
+<div class="fixed inset-0 z-50 bg-purple-950/70 backdrop-blur-md hidden items-center justify-center p-3 sm:p-5 md:p-6 overflow-y-auto" id="customize-modal" onclick="handleBackdropClick(event)">
+<div class="bg-white/95 rounded-3xl max-w-5xl w-full my-auto shadow-2xl relative border border-purple-300/50 backdrop-blur-2xl flex flex-col max-h-[942px] overflow-hidden" onclick="event.stopPropagation()">
+<!-- Modal Top Header Bar -->
+<div class="px-6 py-4 border-b border-purple-100 flex items-center justify-between bg-gradient-to-r from-purple-50/90 via-pink-50/50 to-white flex-shrink-0">
+<div class="flex items-center gap-3">
+<div class="w-10 h-10 rounded-2xl bg-gradient-to-tr from-purple-600 to-pink-500 text-white flex items-center justify-center text-xl shadow-md shadow-pink-500/20" id="modal-template-icon">
+            🪄
+          </div>
+<div>
+<div class="flex items-center gap-2.5">
+<h3 class="font-display font-extrabold text-lg sm:text-xl text-[#24113F]" id="modal-template-title">Glitter Birthday Bash</h3>
+<span class="px-2.5 py-0.5 rounded-full text-[11px] font-extrabold bg-emerald-100 text-emerald-800" id="modal-plan-badge">Free</span>
+</div>
+<div class="flex items-center gap-2 text-xs text-purple-700/80 mt-0.5">
+<span class="px-2 py-0.5 rounded bg-purple-100 text-purple-800 font-bold text-[10px]" id="modal-rating-score">✦ Verified Blueprint</span>
+<span class="text-purple-300">•</span>
+<span class="text-emerald-700 font-semibold flex items-center gap-1">
+<span class="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse"></span> Live Interactive Editor
+              </span>
+</div>
+</div>
+</div>
+<!-- Close Button -->
+<button aria-label="Close modal" class="w-9 h-9 rounded-full bg-purple-100/70 hover:bg-pink-100 text-purple-800 hover:text-pink-600 flex items-center justify-center font-bold text-sm transition shadow-sm" onclick="closeModal('customize-modal')">
+          ✕
+        </button>
+</div>
+<!-- Modal Body: 2-Column Responsive Split Layout -->
+<div class="grid grid-cols-1 lg:grid-cols-12 flex-grow overflow-y-auto">
+<!-- LEFT COLUMN: Customization Controls -->
+<div class="lg:col-span-7 p-6 sm:p-7 border-b lg:border-b-0 lg:border-r border-purple-100/80 flex flex-col justify-between space-y-6">
+<div>
+<!-- Step Navigation Tabs -->
+<div class="flex items-center gap-2 p-1.5 rounded-2xl bg-purple-100/60 border border-purple-200/60 mb-6 text-xs font-bold text-purple-900" role="tablist">
+<button class="flex-1 py-2 px-3 rounded-xl transition bg-white text-purple-900 shadow-sm flex items-center justify-center gap-1.5" id="tab-btn-details" onclick="switchCustomizerTab('details')">
+<span>1. Details</span><span class="text-pink-500">✨</span>
+</button>
+<button class="flex-1 py-2 px-3 rounded-xl transition text-purple-700 hover:text-purple-950 flex items-center justify-center gap-1.5" id="tab-btn-style" onclick="switchCustomizerTab('style')">
+<span>2. Style &amp; Media</span>
+</button>
+<button class="flex-1 py-2 px-3 rounded-xl transition text-purple-700 hover:text-purple-950 flex items-center justify-center gap-1.5" id="tab-btn-effects" onclick="switchCustomizerTab('effects')">
+<span>3. Music &amp; FX</span>
+</button>
+</div>
+<!-- TAB 1: DETAILS -->
+<div class="space-y-4" id="tab-content-details">
+<div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
+<div>
+<label class="block text-xs font-bold text-purple-950 mb-1.5">Recipient's Name <span class="text-pink-500">*</span></label>
+<input class="w-full text-xs font-medium rounded-xl border border-purple-200 px-3.5 py-2.5 focus:ring-2 focus:ring-purple-400 focus:outline-none bg-purple-50/30 text-purple-950 transition" id="cust-recipient" oninput="updateLivePreview()" placeholder="e.g. Sophia Parker" type="text" value="Sophia"/>
+</div>
+<div>
+<label class="block text-xs font-bold text-purple-950 mb-1.5">Sender / From <span class="text-pink-500">*</span></label>
+<input class="w-full text-xs font-medium rounded-xl border border-purple-200 px-3.5 py-2.5 focus:ring-2 focus:ring-purple-400 focus:outline-none bg-purple-50/30 text-purple-950 transition" id="cust-sender" oninput="updateLivePreview()" placeholder="e.g. Alex &amp; The Crew" type="text" value="Alex"/>
+</div>
+</div>
+<div>
+<label class="block text-xs font-bold text-purple-950 mb-1.5">Occasion / Greeting Headline</label>
+<select class="w-full text-xs font-medium rounded-xl border border-purple-200 px-3.5 py-2.5 focus:ring-2 focus:ring-purple-400 focus:outline-none bg-white text-purple-950 transition" id="cust-headline-select" onchange="updateHeadlineFromSelect()">
+<option value="Happy Birthday, {name}! 🎂">🎂 Happy Birthday, {name}!</option>
+<option value="You Make My World Sparkle, {name}! 💖">💖 You Make My World Sparkle, {name}!</option>
+<option value="Happy Anniversary, Beautiful Soul! 🥂">🥂 Happy Anniversary, Beautiful Soul!</option>
+<option value="Huge Congratulations, Super Star! 🎓">🎓 Huge Congratulations, Super Star!</option>
+<option value="A Huge Thank You From My Heart! 🌸">🌸 A Huge Thank You From My Heart!</option>
+<option value="Happy Festival &amp; Infinite Joy! 🪔">🪔 Happy Festival &amp; Infinite Joy!</option>
+</select>
+</div>
+<div>
+<div class="flex items-center justify-between mb-1.5">
+<label class="block text-xs font-bold text-purple-950">Heartfelt Message</label>
+<span class="text-[11px] text-purple-500 font-semibold" id="char-counter">112 / 300</span>
+</div>
+<textarea class="w-full text-xs font-medium rounded-xl border border-purple-200 px-3.5 py-2.5 focus:ring-2 focus:ring-purple-400 focus:outline-none bg-purple-50/30 text-purple-950 transition leading-relaxed" id="cust-message" maxlength="300" oninput="updateLivePreview()" rows="3">May your day be filled with warm magic, sparkling smiles, and memories that stay with you forever! Wishing you the brightest year ahead!</textarea>
+</div>
+</div>
+<!-- TAB 2: STYLE & MEDIA -->
+<div class="space-y-4 hidden" id="tab-content-style">
+<div>
+<label class="block text-xs font-bold text-purple-950 mb-1.5">Select Greeting Mood / Atmosphere</label>
+<div class="grid grid-cols-4 gap-2.5" id="color-mood-picker">
+<button class="mood-btn border-2 border-purple-600 rounded-xl p-2.5 bg-purple-50 text-left transition flex items-center gap-2" onclick="setMoodGradient(this, 'from-purple-950 via-indigo-900 to-purple-800')">
+<span class="w-4 h-4 rounded-full bg-gradient-to-tr from-purple-700 to-pink-500 flex-shrink-0"></span>
+<span class="text-[11px] font-bold text-purple-950">Cosmic</span>
+</button>
+<button class="mood-btn border border-purple-200 rounded-xl p-2.5 bg-white text-left transition flex items-center gap-2" onclick="setMoodGradient(this, 'from-rose-950 via-red-900 to-pink-900')">
+<span class="w-4 h-4 rounded-full bg-gradient-to-tr from-rose-500 to-red-600 flex-shrink-0"></span>
+<span class="text-[11px] font-bold text-purple-950">Rose</span>
+</button>
+<button class="mood-btn border border-purple-200 rounded-xl p-2.5 bg-white text-left transition flex items-center gap-2" onclick="setMoodGradient(this, 'from-amber-950 via-yellow-900 to-stone-900')">
+<span class="w-4 h-4 rounded-full bg-gradient-to-tr from-amber-400 to-yellow-600 flex-shrink-0"></span>
+<span class="text-[11px] font-bold text-purple-950">Golden</span>
+</button>
+<button class="mood-btn border border-purple-200 rounded-xl p-2.5 bg-white text-left transition flex items-center gap-2" onclick="setMoodGradient(this, 'from-teal-950 via-emerald-900 to-cyan-950')">
+<span class="w-4 h-4 rounded-full bg-gradient-to-tr from-emerald-400 to-teal-600 flex-shrink-0"></span>
+<span class="text-[11px] font-bold text-purple-950">Emerald</span>
+</button>
+</div>
+</div>
+<div>
+<label class="block text-xs font-bold text-purple-950 mb-1.5">Include a Favorite Memory Photo</label>
+<div class="border-2 border-dashed border-purple-300 rounded-2xl p-4 text-center bg-purple-50/40 hover:bg-purple-100/40 transition cursor-pointer" onclick="toggleSamplePhoto()">
+<div class="flex flex-col items-center justify-center gap-1">
+<span class="text-2xl" id="upload-icon-state">📸</span>
+<p class="text-xs font-bold text-purple-900" id="photo-upload-label">Sample Memory Photo Attached (Click to switch)</p>
+<p class="text-[11px] text-purple-600">Supports JPG, PNG up to 10MB • Auto-enhanced</p>
+</div>
+</div>
+</div>
+</div>
+<!-- TAB 3: MUSIC & EFFECTS -->
+<div class="space-y-4 hidden" id="tab-content-effects">
+<div>
+<label class="block text-xs font-bold text-purple-950 mb-1.5">Background Music Track</label>
+<div class="flex items-center gap-2.5 p-3 rounded-2xl bg-purple-50/80 border border-purple-200">
+<button class="w-10 h-10 rounded-xl bg-pink-500 hover:bg-pink-600 text-white flex items-center justify-center font-bold text-sm shadow-md transition flex-shrink-0" id="audio-play-toggle-btn" onclick="toggleAudioPreview()">
+<span id="play-icon">▶</span>
+</button>
+<div class="flex-grow">
+<select class="w-full text-xs font-semibold rounded-lg border border-purple-200 p-1.5 bg-white text-purple-950 focus:outline-none" id="bgm-selector" onchange="changeMusicTrack()">
+<option value="Magical Stardust Waltz">✨ Magical Stardust Waltz (Acoustic Strings)</option>
+<option value="Acoustic Birthday Ukulele">🎂 Acoustic Birthday Ukulele (Cheerful Pop)</option>
+<option value="Romantic Sunset Piano">💖 Romantic Sunset Piano (Soulful Melody)</option>
+<option value="Midnight Fireworks BGM">🎆 Midnight Fireworks Celebration Orchestral</option>
+</select>
+<div class="flex items-center gap-2 mt-1.5">
+<div class="flex items-end gap-1 h-3.5" id="audio-wave-bars">
+<span class="w-1 bg-pink-400 rounded-full h-1 wave-bar-1"></span>
+<span class="w-1 bg-purple-500 rounded-full h-1 wave-bar-2"></span>
+<span class="w-1 bg-amber-400 rounded-full h-1 wave-bar-3"></span>
+<span class="w-1 bg-indigo-500 rounded-full h-1 wave-bar-4"></span>
+</div>
+<span class="text-[10px] font-bold text-purple-700" id="audio-status-label">Click ▶ to preview audio</span>
+</div>
+</div>
+</div>
+</div>
+<div>
+<label class="block text-xs font-bold text-purple-950 mb-1.5">Active Celebration Magic Effects</label>
+<div class="grid grid-cols-2 gap-2 text-xs font-semibold">
+<label class="flex items-center gap-2 p-2.5 rounded-xl border border-purple-200 bg-white hover:bg-purple-50 cursor-pointer">
+<input checked="" class="rounded text-purple-600 focus:ring-purple-400" id="fx-confetti" type="checkbox"/>
+<span>🎉 Confetti Shower</span>
+</label>
+<label class="flex items-center gap-2 p-2.5 rounded-xl border border-purple-200 bg-white hover:bg-purple-50 cursor-pointer">
+<input checked="" class="rounded text-purple-600 focus:ring-purple-400" id="fx-waxseal" type="checkbox"/>
+<span>💌 Interactive Wax Seal</span>
+</label>
+<label class="flex items-center gap-2 p-2.5 rounded-xl border border-purple-200 bg-white hover:bg-purple-50 cursor-pointer">
+<input checked="" class="rounded text-purple-600 focus:ring-purple-400" id="fx-sparkles" type="checkbox"/>
+<span>✨ Floating Star Dust</span>
+</label>
+<label class="flex items-center gap-2 p-2.5 rounded-xl border border-purple-200 bg-white hover:bg-purple-50 cursor-pointer">
+<input class="rounded text-purple-600 focus:ring-purple-400" id="fx-fireworks" type="checkbox"/>
+<span>🎆 Midnight Fireworks</span>
+</label>
+</div>
+</div>
+</div>
+</div>
+<!-- Action Footer inside Left Column -->
+<div class="pt-4 border-t border-purple-100 flex flex-col sm:flex-row items-center gap-3">
+<button class="w-full sm:w-auto px-5 py-3 rounded-full border border-purple-300 hover:bg-purple-50 text-purple-900 font-bold text-xs flex items-center justify-center gap-2 transition" onclick="triggerConfettiBurstInsidePreview()">
+<span>🎉 Test Confetti</span>
+</button>
+<button class="w-full sm:flex-1 py-3 px-6 rounded-full bg-gradient-to-r from-[#EC4899] via-pink-600 to-[#7C3AED] hover:brightness-105 active:scale-95 text-white font-extrabold text-xs sm:text-sm shadow-lg shadow-pink-500/30 flex items-center justify-center gap-2 transition" onclick="generateMagicLink()">
+<span>Generate Magic Link</span><span>🪄</span>
+</button>
+</div>
+</div>
+<!-- RIGHT COLUMN: Interactive Live Mobile Preview Frame -->
+<div class="lg:col-span-5 p-6 sm:p-7 bg-gradient-to-b from-purple-50/60 via-purple-100/30 to-pink-50/40 flex flex-col items-center justify-between">
+<div class="w-full flex items-center justify-between mb-4">
+<span class="text-xs font-bold uppercase tracking-wider text-purple-800 flex items-center gap-1.5">
+<span class="w-2 h-2 rounded-full bg-emerald-500 animate-ping"></span> Live Real-Time Preview
+            </span>
+<div class="flex items-center gap-1 bg-white p-1 rounded-full border border-purple-200 shadow-sm text-xs font-bold text-purple-800">
+<button class="px-3 py-1 rounded-full bg-purple-700 text-white" id="view-mobile-btn" onclick="setViewMode('mobile')">📱 Mobile</button>
+<button class="px-3 py-1 rounded-full text-purple-700 hover:text-purple-950" id="view-card-btn" onclick="setViewMode('card')">🃏 Card</button>
+</div>
+</div>
+<!-- Phone Mockup Container -->
+<div class="relative w-full max-w-[290px] transition-all duration-300" id="preview-frame-wrapper">
+<!-- Floating Live Track Badge -->
+<div class="absolute -top-3 -left-3 bg-white/95 rounded-xl px-2.5 py-1 shadow-lg border border-purple-200 text-[10px] font-bold text-purple-700 z-20 flex items-center gap-1">
+<span>🎵</span> <span id="preview-floating-track-name">Magical Stardust Waltz</span>
+</div>
+<!-- Physical Phone Shell -->
+<div class="bg-gray-950 p-3 rounded-[2.5rem] shadow-2xl border-4 border-white/90 relative overflow-hidden" id="phone-shell">
+<div class="w-24 h-4 bg-gray-900 rounded-full mx-auto mb-2 flex items-center justify-center">
+<div class="w-8 h-1 bg-gray-700 rounded-full"></div>
+</div>
+<!-- Screen Canvas -->
+<div class="bg-gradient-to-tr from-purple-950 via-indigo-900 to-purple-800 rounded-[1.8rem] p-4 text-white text-center relative overflow-hidden min-h-[440px] flex flex-col justify-between transition-all duration-500" id="preview-screen-bg">
+<div class="flex justify-between items-center text-[10px] text-purple-300/80 mb-2 px-1 font-mono">
+<span>9:41</span><span class="text-white/80 font-bold truncate max-w-[130px]">wishmagic.link/for-you</span><span>⚡100%</span>
+</div>
+<div class="absolute inset-0 pointer-events-none overflow-hidden" id="screen-confetti-layer"></div>
+<!-- STATE 1: SEALED ENVELOPE -->
+<div class="space-y-4 my-auto transition-all duration-500" id="preview-sealed-state">
+<div class="relative w-20 h-20 mx-auto cursor-pointer" onclick="unsealEnvelopePreview()">
+<div class="w-20 h-20 rounded-full bg-pink-500/20 mx-auto flex items-center justify-center text-4xl border border-pink-400/40 shadow-inner animate-pulse">
+                      💌
+                    </div>
+<div class="absolute -bottom-1 -right-1 w-7 h-7 rounded-full bg-amber-400 text-amber-950 flex items-center justify-center text-xs font-black shadow-md border-2 border-purple-950" id="preview-wax-badge">
+                      ✨
+                    </div>
+</div>
+<div>
+<p class="text-[10px] uppercase tracking-widest text-amber-300 font-extrabold" id="preview-special-tag">Special Delivery For You</p>
+<h4 class="font-serifAccent text-xl font-bold italic mt-1 text-white leading-tight" id="preview-sealed-headline">
+                      "Happy Birthday, Sophia!"
+                    </h4>
+<p class="text-[11px] text-purple-200/90 mt-1.5 line-clamp-2 px-2" id="preview-sealed-snippet">
+                      "May your day be filled with warm magic, sparkling smiles..."
+                    </p>
+</div>
+<button class="w-full py-2.5 px-4 rounded-full bg-gradient-to-r from-[#EC4899] to-[#7C3AED] hover:brightness-110 active:scale-95 text-white text-xs font-bold shadow-lg flex items-center justify-center gap-1.5 transition" onclick="unsealEnvelopePreview()">
+<span>Tap to Unseal Envelope</span><span class="text-amber-300">✨</span>
+</button>
+<p class="text-[10px] text-purple-300/70">Click button or envelope to open</p>
+</div>
+<!-- STATE 2: UNBOXED REVEAL -->
+<div class="hidden space-y-3.5 my-auto text-left transition-all duration-500" id="preview-revealed-state">
+<div class="flex items-center justify-between pb-2 border-b border-white/20">
+<span class="text-[10px] font-bold text-amber-300 flex items-center gap-1">
+<span>✦</span> Unwrapped with Love
+                    </span>
+<button class="text-[10px] text-pink-300 hover:text-white underline" onclick="resealEnvelopePreview()">
+                      Close Envelope ↺
+                    </button>
+</div>
+<!-- Photo Frame -->
+<div class="relative w-full h-32 rounded-2xl overflow-hidden shadow-lg border border-white/30 bg-purple-900/50" id="preview-photo-box">
+<img alt="Personalized Memory" class="w-full h-full object-cover" id="preview-photo-img" src="https://lh3.googleusercontent.com/aida-public/AB6AXuDezlqPj5lm8nmhW_lrDCbZcHVfShmypgckEYJVl76VdD_wF-3cb1S24tsEyhhhFNYk3gRFkjpsnRJx-ZuCKWGLHeRTeeFuOyxAqvZGbAQwHb1zjYPCyCeCnQIyFrErRkWE0xCEXqH2U7JW_wrM-ahhk6okJlUGXnegMS_gVYSWfk0tYYzU41Y1jK4gM1pFceNSND1-NjDXI6SnWlSaixjtRPq7DE9cP1oX0up5buKgNEfZDBjAU9cN"/>
+<div class="absolute bottom-2 left-2 bg-black/60 backdrop-blur-sm px-2 py-0.5 rounded-md text-[10px] font-bold text-white flex items-center gap-1">
+<span>📸</span> Forever Memory
+                    </div>
+</div>
+<!-- Dynamic Text -->
+<div class="bg-white/10 backdrop-blur-md rounded-2xl p-3 border border-white/20">
+<h4 class="font-display font-extrabold text-sm text-pink-200" id="preview-revealed-recipient">Dear Sophia,</h4>
+<p class="text-xs text-white/95 mt-1 leading-relaxed font-sans" id="preview-revealed-message">
+                      May your day be filled with warm magic, sparkling smiles, and memories that stay with you forever! Wishing you the brightest year ahead!
+                    </p>
+<div class="mt-2.5 pt-2 border-t border-white/10 flex items-center justify-between text-[11px] text-amber-300 font-serifAccent italic">
+<span>With all my love,</span>
+<span class="font-bold text-white not-italic" id="preview-revealed-sender">— Alex</span>
+</div>
+</div>
+<div class="px-3 py-1.5 rounded-full bg-black/40 backdrop-blur-md border border-white/15 flex items-center justify-between text-[10px] text-purple-200">
+<span class="flex items-center gap-1.5">
+<span class="text-pink-400">🎶</span>
+<span class="truncate max-w-[130px]" id="preview-card-track-label">Magical Stardust Waltz</span>
+</span>
+<span class="text-amber-400 font-bold">Playing...</span>
+</div>
+</div>
+<div class="text-[10px] text-purple-300/80 pt-2 border-t border-purple-800/40">
+                  Made with ❤️ via WishMagic
+                </div>
+</div>
+</div>
+</div>
+<p class="text-[11px] font-semibold text-purple-700/80 mt-3 text-center">
+            ✨ Everything updates instantly as you customize.
+          </p>
+</div>
+</div>
+</div>
+</div>
+<!-- Auth Modal (Part 9 & 10 Architecture Integration) -->
+<div class="fixed inset-0 z-50 bg-black/70 backdrop-blur-md hidden items-center justify-center p-4" id="auth-modal">
+<div class="bg-surface-container dark:bg-purple-950 rounded-3xl max-w-sm w-full p-6 sm:p-8 shadow-2xl relative border border-purple-500/30 text-center">
+<button class="absolute top-4 right-4 w-8 h-8 rounded-full bg-surface-container-high text-on-surface hover:text-black flex items-center justify-center font-bold" onclick="closeModal('auth-modal')">✕</button>
+<div class="w-12 h-12 rounded-full bg-primary-container text-white flex items-center justify-center mx-auto text-2xl mb-3">🪄</div>
+<h3 class="font-display font-black text-xl text-on-surface">Welcome to WishMagic</h3>
+<p class="text-xs text-on-surface-variant mb-6">Save your wishes, drafts, and manage created experiences.</p>
+<div class="space-y-3">
+<button class="w-full py-3 px-4 rounded-2xl bg-white dark:bg-purple-900 border-2 border-purple-200 dark:border-purple-700 text-xs sm:text-sm font-bold text-gray-800 dark:text-white flex items-center justify-center gap-2.5 transition shadow-sm cursor-pointer" onclick="closeModal('auth-modal'); if (window.WishAuth) window.WishAuth.openAuthModal();">
+  <svg class="w-4 h-4 flex-shrink-0" viewBox="0 0 24 24"><path fill="#4285F4" d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z"/><path fill="#34A853" d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z"/><path fill="#FBBC05" d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.06H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.94l2.85-2.22.81-.63z"/><path fill="#EA4335" d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.06l3.66 2.84c.87-2.6 3.3-4.52 6.16-4.52z"/></svg>
+  <span>Continue with Google (Gmail)</span>
+</button>
+</div>
+</div>
+</div>
+<!-- Interactive JavaScript Logic -->
+<script>
+    let isAudioPlaying = false;
+    let samplePhotoActive = true;
+    const samplePhotos = [
+      "https://images.unsplash.com/photo-1513151233558-d860c5398176?w=600&auto=format&fit=crop&q=80",
+      "https://images.unsplash.com/photo-1530103862676-de8c9debad1d?w=600&auto=format&fit=crop&q=80",
+      "https://images.unsplash.com/photo-1514525253161-7a46d19cd819?w=600&auto=format&fit=crop&q=80"
+    ];
+    let photoIndex = 0;
+
+    function openModal(id) {
+      if (id === 'auth-modal') {
+        if (window.WishAuth && typeof window.WishAuth.openAuthModal === 'function') {
+          window.WishAuth.openAuthModal('signin');
+          return;
+        }
+      }
+      const modal = document.getElementById(id);
+      if (modal) {
+        modal.classList.remove('hidden');
+        modal.classList.add('flex');
+        document.body.style.overflow = 'hidden';
+      }
+    }
+
+    function closeModal(id) {
+      const modal = document.getElementById(id);
+      if (modal) {
+        modal.classList.add('hidden');
+        modal.classList.remove('flex');
+        document.body.style.overflow = '';
+      }
+    }
+
+    function handleBackdropClick(event) {
+      if (event.target.id === 'customize-modal') {
+        closeModal('customize-modal');
+      }
+    }
+
+    document.addEventListener('keydown', function(e) {
+      if (e.key === 'Escape') {
+        closeModal('customize-modal');
+        closeModal('auth-modal');
+      }
+    });
+
+    function openCustomizerModal(templateName, plan, rating) {
+      document.getElementById('modal-template-title').innerText = templateName || 'Glitter Birthday Bash';
+      const badge = document.getElementById('modal-plan-badge');
+      if (plan && plan.includes('Premium')) {
+        badge.innerText = 'Premium ₹49';
+        badge.className = 'px-2.5 py-0.5 rounded-full text-[11px] font-extrabold bg-[#F4C542] text-amber-950 shadow-sm';
+      } else {
+        badge.innerText = 'Free';
+        badge.className = 'px-2.5 py-0.5 rounded-full text-[11px] font-extrabold bg-emerald-100 text-emerald-800';
+      }
+      if (rating) {
+        document.getElementById('modal-rating-score').innerText = rating + ' reviews';
+      }
+      resealEnvelopePreview();
+      updateLivePreview();
+      openModal('customize-modal');
+    }
+
+    function switchCustomizerTab(tab) {
+      ['details', 'style', 'effects'].forEach(t => {
+        const btn = document.getElementById(`tab-btn-${t}`);
+        const content = document.getElementById(`tab-content-${t}`);
+        if (t === tab) {
+          btn.className = 'flex-1 py-2 px-3 rounded-xl transition bg-white text-purple-900 shadow-sm flex items-center justify-center gap-1.5 font-bold';
+          content.classList.remove('hidden');
+        } else {
+          btn.className = 'flex-1 py-2 px-3 rounded-xl transition text-purple-700 hover:text-purple-950 flex items-center justify-center gap-1.5 font-medium';
+          content.classList.add('hidden');
+        }
+      });
+    }
+
+    function updateLivePreview() {
+      const recipient = document.getElementById('cust-recipient').value.trim() || 'Someone Special';
+      const sender = document.getElementById('cust-sender').value.trim() || 'A Secret Admirer';
+      const message = document.getElementById('cust-message').value.trim() || 'Wishing you infinite smiles!';
+
+      // Counter
+      document.getElementById('char-counter').innerText = `${document.getElementById('cust-message').value.length} / 300`;
+
+      // Update Headline
+      const select = document.getElementById('cust-headline-select');
+      const headline = select.value.replace('{name}', recipient);
+      document.getElementById('preview-sealed-headline').innerText = `"${headline}"`;
+
+      // Update Snippet
+      document.getElementById('preview-sealed-snippet').innerText = `"${message.slice(0, 60)}..."`;
+
+      // Update Revealed Card
+      document.getElementById('preview-revealed-recipient').innerText = `Dear ${recipient},`;
+      document.getElementById('preview-revealed-message').innerText = message;
+      document.getElementById('preview-revealed-sender').innerText = `— ${sender}`;
+    }
+
+    function updateHeadlineFromSelect() {
+      updateLivePreview();
+    }
+
+    function setMoodGradient(btn, gradientClass) {
+      document.querySelectorAll('.mood-btn').forEach(b => {
+        b.classList.remove('border-2', 'border-purple-600', 'bg-purple-50');
+        b.classList.add('border', 'border-purple-200', 'bg-white');
+      });
+      btn.classList.add('border-2', 'border-purple-600', 'bg-purple-50');
+      btn.classList.remove('border-purple-200', 'bg-white');
+
+      const screenBg = document.getElementById('preview-screen-bg');
+      screenBg.className = `bg-gradient-to-tr ${gradientClass} rounded-[1.8rem] p-4 text-white text-center relative overflow-hidden min-h-[440px] flex flex-col justify-between transition-all duration-500`;
+    }
+
+    function toggleSamplePhoto() {
+      photoIndex = (photoIndex + 1) % samplePhotos.length;
+      document.getElementById('preview-photo-img').src = samplePhotos[photoIndex];
+      document.getElementById('upload-icon-state').innerText = '🖼️';
+      document.getElementById('photo-upload-label').innerText = `Memory Photo #${photoIndex + 1} Selected`;
+    }
+
+    function changeMusicTrack() {
+      const track = document.getElementById('bgm-selector').value;
+      document.getElementById('preview-floating-track-name').innerText = track;
+      document.getElementById('preview-card-track-label').innerText = track;
+    }
+
+    function toggleAudioPreview() {
+      isAudioPlaying = !isAudioPlaying;
+      const playIcon = document.getElementById('play-icon');
+      const statusLabel = document.getElementById('audio-status-label');
+      const waveBars = document.getElementById('audio-wave-bars');
+      
+      if (isAudioPlaying) {
+        playIcon.innerText = '⏸';
+        statusLabel.innerText = 'Playing preview melody...';
+        statusLabel.className = 'text-[10px] font-bold text-pink-600 animate-pulse';
+        waveBars.classList.remove('opacity-40');
+      } else {
+        playIcon.innerText = '▶';
+        statusLabel.innerText = 'Click ▶ to preview audio';
+        statusLabel.className = 'text-[10px] font-bold text-purple-700';
+        waveBars.classList.add('opacity-40');
+      }
+    }
+
+    function unsealEnvelopePreview() {
+      document.getElementById('preview-sealed-state').classList.add('hidden');
+      document.getElementById('preview-revealed-state').classList.remove('hidden');
+      triggerConfettiBurstInsidePreview();
+    }
+
+    function resealEnvelopePreview() {
+      document.getElementById('preview-revealed-state').classList.add('hidden');
+      document.getElementById('preview-sealed-state').classList.remove('hidden');
+    }
+
+    function triggerConfettiBurstInsidePreview() {
+      const container = document.getElementById('screen-confetti-layer');
+      if (!container) return;
+      container.innerHTML = '';
+      const colors = ['#EC4899', '#F4C542', '#A855F7', '#10B981', '#3B82F6', '#FFFFFF'];
+      for (let i = 0; i < 28; i++) {
+        const piece = document.createElement('div');
+        piece.className = 'confetti-piece';
+        piece.style.left = Math.random() * 100 + '%';
+        piece.style.top = Math.random() * 20 + '%';
+        piece.style.backgroundColor = colors[Math.floor(Math.random() * colors.length)];
+        piece.style.animationDelay = Math.random() * 0.4 + 's';
+        piece.style.animationDuration = (1.5 + Math.random() * 1) + 's';
+        container.appendChild(piece);
+      }
+    }
+
+    function setViewMode(mode) {
+      const wrapper = document.getElementById('preview-frame-wrapper');
+      const phoneShell = document.getElementById('phone-shell');
+      const mobileBtn = document.getElementById('view-mobile-btn');
+      const cardBtn = document.getElementById('view-card-btn');
+
+      if (mode === 'card') {
+        wrapper.classList.remove('max-w-[290px]');
+        wrapper.classList.add('max-w-[340px]');
+        phoneShell.classList.remove('rounded-[2.5rem]', 'border-4');
+        phoneShell.classList.add('rounded-2xl', 'border-2');
+        cardBtn.className = 'px-3 py-1 rounded-full bg-purple-700 text-white';
+        mobileBtn.className = 'px-3 py-1 rounded-full text-purple-700 hover:text-purple-950';
+      } else {
+        wrapper.classList.add('max-w-[290px]');
+        wrapper.classList.remove('max-w-[340px]');
+        phoneShell.classList.add('rounded-[2.5rem]', 'border-4');
+        phoneShell.classList.remove('rounded-2xl', 'border-2');
+        mobileBtn.className = 'px-3 py-1 rounded-full bg-purple-700 text-white';
+        cardBtn.className = 'px-3 py-1 rounded-full text-purple-700 hover:text-purple-950';
+      }
+    }
+
+    function generateMagicLink() {
+      const name = document.getElementById('cust-recipient').value || 'Friend';
+      const link = `https://wishmagic.link/w/${encodeURIComponent(name.toLowerCase())}-magic-982`;
+      navigator.clipboard ? navigator.clipboard.writeText(link) : null;
+      alert(`🎉 Magical link generated for ${name}!\n\nLink copied to clipboard:\n${link}\n\nReady to surprise them!`);
+    }
+
+    function filterCategory(category, button) {
+      document.querySelectorAll('.cat-pill').forEach(btn => {
+        btn.className = 'cat-pill glass-pill text-purple-950 px-6 py-2.5 rounded-full text-xs sm:text-sm font-semibold flex items-center gap-2';
+      });
+      button.className = 'cat-pill pill-active px-6 py-2.5 rounded-full text-xs sm:text-sm font-bold flex items-center gap-2 transition';
+
+      const cards = document.querySelectorAll('.catalog-template-card, .template-card');
+      cards.forEach(card => {
+        if (category === 'all' || card.getAttribute('data-category') === category) {
+          card.classList.remove('hidden');
+        } else {
+          card.classList.add('hidden');
+        }
+      });
+    }
+
+    function handleNavSearch(query) {
+      const mainSearch = document.getElementById('template-search-input');
+      if (mainSearch) {
+        mainSearch.value = query;
+      }
+      filterCatalog();
+    }
+
+    function toggleBookmark(btn) {
+      const svg = btn.querySelector('svg');
+      if (svg.getAttribute('fill') === 'currentColor') {
+        svg.setAttribute('fill', 'none');
+        btn.classList.remove('bg-purple-200');
+      } else {
+        svg.setAttribute('fill', 'currentColor');
+        btn.classList.add('bg-purple-200');
+      }
+    }
+
+    // Dynamic Live Custom Templates & Taxonomy Loading (Part 10)
+    (async function loadCustomTemplatesInMarketplace() {
+      try {
+        // 1. Sync Live Occasion Categories from Category Repository / API
+        try {
+          const catRes = await fetch('/api/categories');
+          const catData = await catRes.json();
+          if (catData.success && Array.isArray(catData.categories)) {
+            const catContainer = document.getElementById('occasion-category-list');
+            if (catContainer) {
+              const activeCats = catData.categories.filter(c => c.isActive !== false);
+              if (activeCats.length > 0) {
+                // Keep 'All Occasions' as first chip
+                catContainer.innerHTML = `
+                  <button class="occasion-chip flex-shrink-0 px-4 py-2 rounded-xl bg-primary-container text-on-primary font-headline-sm text-body-sm flex items-center gap-1.5 transition active-chip" onclick="selectOccasion('all', this)">
+                    <span class="material-symbols-outlined text-base">stars</span>
+                    <span>All Occasions</span>
+                  </button>
+                `;
+                activeCats.forEach(cat => {
+                  const btn = document.createElement('button');
+                  btn.className = "occasion-chip flex-shrink-0 px-4 py-2 rounded-xl bg-surface-container text-on-surface hover:bg-surface-bright font-headline-sm text-body-sm flex items-center gap-1.5 transition";
+                  btn.onclick = function() { selectOccasion(cat.name, this); };
+                  const isMatIcon = /^[a-z0-9_]+$/i.test((cat.icon || '').trim()); btn.innerHTML = `<span class="${isMatIcon ? 'material-symbols-outlined text-[16px]' : ''}">${cat.icon || '✨'}</span><span>${cat.name}</span>`;
+                  catContainer.appendChild(btn);
+                });
+              }
+            }
+          }
+        } catch (catErr) {
+          console.warn('Could not sync dynamic categories:', catErr);
+        }
+
+        // 2. Load Published Templates from Repository / API (drafts excluded for storefront)
+        const res = await fetch('/api/templates');
+        const data = await res.json();
+        if (!data.success || !data.templates) return;
+        const container = document.getElementById('templates-grid-container');
+        if (!container) return;
+
+        // Populate global allLoadedTemplates array
+        if (typeof allLoadedTemplates !== 'undefined' && Array.isArray(allLoadedTemplates)) {
+          data.templates.forEach(t => {
+            if (!allLoadedTemplates.find(existing => existing.id === t.id)) {
+              allLoadedTemplates.push(t);
+            }
+          });
+        }
+
+        data.templates.forEach(tpl => {
+          // If already in container, skip
+          if (document.getElementById(`tpl-card-${tpl.id}`)) return;
+
+          const card = document.createElement('div');
+          card.id = `tpl-card-${tpl.id}`;
+          card.className = "catalog-template-card group relative bg-white dark:bg-purple-950/85 rounded-2xl p-3.5 sm:p-4 border border-purple-100 dark:border-purple-800/60 shadow-md hover:shadow-2xl hover:-translate-y-1.5 transition-all duration-300 flex flex-col justify-between";
+          card.setAttribute('data-category', (tpl.category || 'all').toLowerCase());
+          card.setAttribute('data-name', (tpl.name || '').toLowerCase());
+          card.setAttribute('data-tier', tpl.tier || 'free');
+          card.setAttribute('data-description', (tpl.description || '').toLowerCase());
+          card.setAttribute('data-relationships', (Array.isArray(tpl.relationships) ? tpl.relationships.join(' ') : (tpl.relationships || '')).toLowerCase());
+
+          const isVip = tpl.tier === 'vip' || tpl.isPremium === true;
+          const priceTag = isVip ? `VIP Pass ₹${tpl.price || 59}` : 'Free Tier';
+          const priceClass = isVip ? 'text-amber-300 font-bold' : 'text-on-surface';
+
+          const ratingSeed = (tpl.id.charCodeAt(tpl.id.length - 1) || 5) % 4;
+          const rating = (4.6 + ratingSeed * 0.1).toFixed(1);
+          const reviews = 50 + ((tpl.name.length * 13) % 80);
+
+          const badgeMarkup = isVip
+            ? `<div class="absolute top-2.5 right-2.5 z-10 text-center">
+                <span class="inline-flex flex-col items-center justify-center px-2.5 py-0.5 rounded-lg bg-[#fbc531] text-[#24113F] text-[10px] font-black leading-tight shadow-sm border border-yellow-200">
+                  <span class="font-extrabold text-[9.5px] uppercase tracking-wide">Premium</span>
+                  <span class="font-black text-[11px]">₹${tpl.price || 59}</span>
+                </span>
+              </div>`
+            : `<div class="absolute top-2.5 right-2.5 z-10">
+                <span class="inline-flex items-center gap-1 px-2.5 py-1 rounded-lg bg-[#00c569] text-white text-[11px] font-bold shadow-sm">
+                  <svg class="w-3.5 h-3.5 fill-current" viewBox="0 0 24 24"><path d="M20 6h-2.18c.11-.31.18-.65.18-1a2.996 2.996 0 0 0-5.5-1.65l-.5.67-.5-.68C10.96 2.54 10.05 2 9 2 7.34 2 6 3.34 6 5c0 .35.07.69.18 1H4c-1.11 0-1.99.89-1.99 2L2 19c0 1.11.89 2 2 2h16c1.11 0 2-.89 2-2V8c0-1.11-.89-2-2-2zm-5-2c.55 0 1 .45 1 1s-.45 1-1 1h-2l1.3-1.74C14.47 4.1 14.72 4 15 4zm-6 0c.28 0 .53.11.7.26L11 6H9c-.55 0-1-.45-1-1s.45-1 1-1zm11 15H4v-2h16v2zm0-5H4V8h5.08L7 10.83 8.62 12 11 8.76l1-1.36 1 1.36 2.38 3.24L17 10.83 14.92 8H20v6z"/></svg>
+                  Free
+                </span>
+              </div>`;
+
+          card.innerHTML = `
+            <div>
+              <div class="relative rounded-xl overflow-hidden mb-2.5 aspect-[16/9] bg-purple-900/10 cursor-pointer" onclick="openMarketplacePreview('${tpl.id}')">
+                <img class="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500" src="${tpl.thumbnail || '/assets/file_ab2082.png'}" alt="${tpl.name}"/>
+                <div class="absolute inset-0 bg-gradient-to-t from-black/40 via-transparent to-black/10 pointer-events-none"></div>
+                ${badgeMarkup}
+              </div>
+              <div class="mb-1">
+                <h3 class="font-display font-bold text-sm sm:text-base text-gray-900 dark:text-white line-clamp-1 hover:text-[#6c5ce7] transition-colors cursor-pointer" onclick="openMarketplacePreview('${tpl.id}')">${tpl.name}</h3>
+              </div>
+              <div class="flex items-center gap-1.5 text-xs text-gray-500 dark:text-purple-300/70 mb-3">
+                <span class="text-amber-400 text-xs tracking-tighter">★★★★★</span>
+                <span class="font-bold text-gray-700 dark:text-purple-200 text-[11px]">${rating} (${reviews})</span>
+              </div>
+            </div>
+            <div class="flex items-center gap-2 mt-auto">
+              <a href="/customize.html?template=${tpl.id}" onclick="return handleMarketplaceTemplateCardClick(event, '${tpl.id}')" class="flex-1 py-2 px-3 rounded-full bg-gradient-to-r from-[#ff2a85] via-[#ec4899] to-[#a855f7] hover:brightness-110 text-white text-xs sm:text-sm font-bold shadow-md shadow-purple-500/20 active:scale-95 transition-all text-center flex items-center justify-center gap-1.5">
+                <span>Customize</span>
+                <span>✨</span>
+              </a>
+              <button type="button" class="w-10 h-9 rounded-xl border border-purple-200 dark:border-purple-800 bg-white dark:bg-purple-900/40 text-purple-600 dark:text-purple-300 hover:bg-purple-50 flex items-center justify-center shrink-0 transition active:scale-90" title="Save to bookmarks">
+                <svg class="w-4 h-4 fill-none text-purple-600 dark:text-purple-300" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M5 5a2 2 0 012-2h10a2 2 0 012 2v16l-7-3.5L5 21V5z"/></svg>
+              </button>
+            </div>
+          `;
+          container.prepend(card);
+        });
+
+        // Recompute filter card count
+        if (typeof filterCatalog === 'function') {
+          filterCatalog();
+        }
+      } catch (e) {
+        console.error('Error loading custom templates in marketplace:', e);
+      }
+    })();
+  </script>
+</body></html>

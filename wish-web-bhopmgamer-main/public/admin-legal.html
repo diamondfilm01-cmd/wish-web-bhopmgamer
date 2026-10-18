@@ -1,0 +1,927 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8"/>
+  <base href="/"/>
+  <meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+  <meta content="web_dashboard" name="shell-type"/>
+  <title>Legal &amp; Compliance Center | WishMagic Admin Studio</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com"/>
+  <link crossorigin="" href="https://fonts.gstatic.com" rel="preconnect"/>
+  <link href="https://fonts.googleapis.com/css2?family=Playfair+Display:ital,wght@0,600;0,700;1,400;1,600&family=Plus+Jakarta+Sans:ital,wght@0,400;0,500;0,600;0,700;0,800;1,700;1,800&family=Outfit:ital,wght@0,500;0,600;0,700;0,800;1,700;1,800&family=JetBrains+Mono:wght@400;500;600;700&display=swap" rel="stylesheet"/>
+  <link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:opsz,wght,FILL,GRAD@20..48,100..700,0..1,-50..200&display=swap" rel="stylesheet"/>
+  <script src="js/tailwind-config.js?v=20261015_wm47944_v7"></script>
+  <script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+  <script>
+    if (typeof tailwind !== 'undefined' && typeof sharedTailwindConfig !== 'undefined') {
+      tailwind.config = sharedTailwindConfig;
+    }
+  </script>
+  <link rel="stylesheet" href="css/admin-theme.css?v=20261015_wm47944_v7"/>
+  <script src="js/api-client.js"></script>
+  <script src="js/auth-service.js?v=20261015_wm47944_v7"></script>
+  <script src="js/WishMagicCore.js"></script>
+  <script src="js/admin-theme.js?v=20261015_wm47944_v7"></script>
+</head>
+<body class="bg-background text-on-surface font-body-md min-h-screen antialiased selection:bg-primary selection:text-white">
+
+<!-- Mobile Sidebar Backdrop Overlay -->
+<div id="sidebar-backdrop" class="fixed inset-0 bg-black/75 backdrop-blur-sm z-40 hidden md:hidden" onclick="toggleSidebar()"></div>
+
+<!-- Magical Castle Sidebar (Pixel-Matched to 19728.png) -->
+<aside id="admin-sidebar" class="fixed left-0 top-0 h-screen w-[270px] z-50 flex flex-col justify-between -translate-x-full md:translate-x-0 transition-transform duration-300 ease-in-out select-none">
+  <div class="flex flex-col min-h-0 flex-1">
+    <!-- Brand Logo Header -->
+    <div class="px-5 pt-5 pb-3 flex-shrink-0">
+      <div class="flex items-center justify-between">
+        <a href="/admin/anktech/anktech/admin/overview" class="flex items-center gap-3 group text-decoration-none">
+          <!-- Magic Wand Icon -->
+          <div class="w-10 h-10 rounded-2xl bg-gradient-to-br from-pink-500/25 via-purple-500/25 to-amber-400/20 border border-pink-400/30 flex items-center justify-center shadow-[0_0_20px_rgba(236,72,153,0.35)] flex-shrink-0">
+            <svg class="w-6 h-6" viewBox="0 0 24 24" fill="none">
+              <path d="M4 20L15.5 8.5M15.5 8.5L18.5 5.5C19.05 4.95 19.95 4.95 20.5 5.5C21.05 6.05 21.05 6.95 20.5 7.5L17.5 10.5M15.5 8.5L17.5 10.5" stroke="url(#wandGrad)" stroke-width="2.4" stroke-linecap="round"/>
+              <path d="M11 4L11.6 5.4L13 6L11.6 6.6L11 8L10.4 6.6L9 6L10.4 5.4L11 4Z" fill="#FBBF24"/>
+              <path d="M19 13L19.4 14L20.4 14.4L19.4 14.8L19 15.8L18.6 14.8L17.6 14.4L18.6 14L19 13Z" fill="#F472B6"/>
+              <path d="M6 10L6.3 10.7L7 11L6.3 11.3L6 12L5.7 11.3L5 11L5.7 10.7L6 10Z" fill="#C084FC"/>
+              <defs>
+                <linearGradient id="wandGrad" x1="4" y1="20" x2="21" y2="5" gradientUnits="userSpaceOnUse">
+                  <stop stop-color="#C084FC"/>
+                  <stop offset="0.55" stop-color="#F472B6"/>
+                  <stop offset="1" stop-color="#FBBF24"/>
+                </linearGradient>
+              </defs>
+            </svg>
+          </div>
+          <div class="flex flex-col">
+            <div class="text-[22px] leading-none tracking-tight">
+              <span class="wm-brand-wish">Wish</span><span class="wm-brand-magic">Magic</span>
+            </div>
+            <span class="text-[10.5px] text-purple-200/80 font-medium tracking-wide mt-1">Create. Personalize. Celebrate.</span>
+          </div>
+        </a>
+        <button class="md:hidden p-1.5 rounded-lg bg-white/10 hover:bg-white/20 text-white transition-colors" onclick="toggleSidebar()" aria-label="Close Sidebar">
+          <span class="material-symbols-outlined text-[20px]">close</span>
+        </button>
+      </div>
+    </div>
+
+    <!-- Navigation Menu -->
+    <div class="px-3.5 flex-1 overflow-y-auto custom-scrollbar pb-6">
+      <nav class="flex flex-col gap-0.5">
+        <!-- Top Primary Dashboard Link -->
+        <div class="mb-1 pt-1">
+          <a data-nav-role="dashboard" href="/admin/anktech/anktech/admin/overview">
+            <span class="material-symbols-outlined text-[20px]" style="font-variation-settings: 'FILL' 1;">home</span>
+            <span>Dashboard</span>
+          </a>
+        </div>
+
+        <!-- TEMPLATES -->
+        <div class="wm-nav-section-label">TEMPLATES</div>
+        <a href="/admin/anktech/anktech/admin/templates">
+          <span class="material-symbols-outlined">grid_view</span>
+          <span>All Templates</span>
+        </a>
+        <a href="/admin/anktech/anktech/admin/add-template">
+          <span class="material-symbols-outlined">add_circle</span>
+          <span>Add Template</span>
+        </a>
+        <a href="/admin/anktech/anktech/admin/occasions">
+          <span class="material-symbols-outlined">category</span>
+          <span>Categories</span>
+        </a>
+        <a href="/admin/anktech/anktech/admin/media">
+          <span class="material-symbols-outlined">image</span>
+          <span>Media Library</span>
+        </a>
+        <a href="/admin/anktech/anktech/admin/media?tab=audio">
+          <span class="material-symbols-outlined">music_note</span>
+          <span>Music Library</span>
+        </a>
+
+        <!-- WISHES -->
+        <div class="wm-nav-section-label">WISHES</div>
+        <a href="/admin/anktech/anktech/admin/wishes">
+          <span class="material-symbols-outlined">description</span>
+          <span>All Wishes</span>
+        </a>
+        <a href="/admin/anktech/anktech/admin/wishes?filter=expiring">
+          <span class="material-symbols-outlined">schedule</span>
+          <span>Expiring Soon</span>
+        </a>
+        <a href="/admin/anktech/anktech/admin/analytics">
+          <span class="material-symbols-outlined">trending_up</span>
+          <span>Analytics</span>
+        </a>
+
+        <!-- USERS -->
+        <div class="wm-nav-section-label">USERS</div>
+        <a href="/admin/anktech/anktech/admin/users">
+          <span class="material-symbols-outlined">group</span>
+          <span>All Users</span>
+        </a>
+        <a href="/admin/anktech/anktech/admin/pricing">
+          <span class="material-symbols-outlined">workspace_premium</span>
+          <span>Subscriptions</span>
+        </a>
+        <a href="/admin/anktech/anktech/admin/orders">
+          <span class="material-symbols-outlined">credit_card</span>
+          <span>Payments</span>
+        </a>
+
+        <!-- SYSTEM -->
+        <div class="wm-nav-section-label">SYSTEM</div>
+        <a href="/admin/anktech/anktech/admin/settings">
+          <span class="material-symbols-outlined">settings</span>
+          <span>Settings</span>
+        </a>
+        <a href="/admin/anktech/anktech/admin/storage-health">
+          <span class="material-symbols-outlined">database</span>
+          <span>Storage</span>
+        </a>
+        <a href="/admin/anktech/anktech/admin/storage-health?tab=backups">
+          <span class="material-symbols-outlined">cloud_download</span>
+          <span>Backups</span>
+        </a>
+        <a href="/admin/anktech/anktech/admin/audit-logs">
+          <span class="material-symbols-outlined">receipt_long</span>
+          <span>Activity Logs</span>
+        </a>
+
+        <!-- Expandable More Studio Tools (Keeps all 19 platform routes accessible & tested) -->
+        <button type="button" onclick="toggleMoreSidebarSections()" class="mt-2 px-3 py-1.5 rounded-xl text-[11px] font-bold uppercase tracking-wider text-purple-200/75 hover:text-white hover:bg-white/10 transition flex items-center justify-between w-full text-left cursor-pointer">
+          <span>More Studio Sections</span>
+          <span id="wm-sidebar-more-chevron" class="material-symbols-outlined text-[16px] transition-transform">expand_more</span>
+        </button>
+        <div id="wm-sidebar-more-group" class="flex flex-col gap-0.5 pt-1 pl-1 border-l border-purple-400/25 ml-2">
+          <a href="/admin/anktech/anktech/admin/user-creations">
+            <span class="material-symbols-outlined">folder_shared</span>
+            <span>User Creations</span>
+          </a>
+          <a href="/admin/anktech/anktech/admin/search">
+            <span class="material-symbols-outlined">manage_search</span>
+            <span>Search &amp; Discovery</span>
+          </a>
+          <a href="/admin/anktech/anktech/admin/referrals">
+            <span class="material-symbols-outlined">loyalty</span>
+            <span>Referrals &amp; Rewards</span>
+          </a>
+          <a href="/admin/anktech/anktech/admin/moderation">
+            <span class="material-symbols-outlined">gavel</span>
+            <span>Moderation Queue</span>
+          </a>
+          <a href="/admin/anktech/anktech/admin/support">
+            <span class="material-symbols-outlined">support_agent</span>
+            <span>Support Console</span>
+          </a>
+          <a href="/admin/anktech/anktech/admin/staff">
+            <span class="material-symbols-outlined">badge</span>
+            <span>Staff &amp; Team</span>
+          </a>
+          <a class="wm-nav-active" href="/admin/anktech/anktech/admin/legal">
+            <span class="material-symbols-outlined">policy</span>
+            <span>Legal &amp; Compliance</span>
+          </a>
+          <a href="/admin/anktech/anktech/admin/announcements">
+            <span class="material-symbols-outlined">campaign</span>
+            <span>Announcements</span>
+          </a>
+          <a href="/admin/anktech/anktech/admin/notifications">
+            <span class="material-symbols-outlined">notifications_active</span>
+            <span>Notification Queue</span>
+          </a>
+        </div>
+      </nav>
+    </div>
+  </div>
+</aside>
+
+<!-- Main Viewport Wrapper -->
+<div class="w-full md:pl-[270px] min-h-screen flex flex-col">
+<!-- Universal Top Cloud Header (Pixel-Matched to 19728.png) -->
+  <header class="wm-top-header fixed top-0 left-0 md:left-[270px] right-0 h-[68px] z-30">
+    <div class="w-full h-full px-3 sm:px-6 flex items-center justify-between gap-2.5 sm:gap-4">
+      <!-- Left: Hamburger + Search Pill with Ctrl K -->
+      <div class="flex items-center gap-2 sm:gap-2.5 flex-1 max-w-lg min-w-0">
+        <button class="md:hidden p-2 rounded-xl bg-white/85 dark:bg-[#24144a] hover:bg-white text-[#2b194d] dark:text-white shadow-sm flex items-center justify-center flex-shrink-0" onclick="toggleSidebar()" aria-label="Open Sidebar">
+          <span class="material-symbols-outlined text-[22px]">menu</span>
+        </button>
+        <div class="wm-header-search-wrap">
+          <span class="material-symbols-outlined absolute left-3.5 text-[#6b5a88] dark:text-purple-300 text-[18px] pointer-events-none">search</span>
+          <input class="wm-header-search-input" placeholder="Search legal policies, revisions, user acceptances..." type="text"/>
+          <span class="wm-ctrl-k-badge hidden sm:inline-block">Ctrl K</span>
+          <!-- Search Dropdown Results Container -->
+          <div id="global-search-results" class="hidden absolute top-12 left-0 right-0 bg-white dark:bg-[#1c103b] rounded-2xl border border-purple-200 dark:border-purple-500/30 shadow-2xl p-3 z-50 max-h-96 overflow-y-auto custom-scrollbar"></div>
+        </div>
+      </div>
+
+      <!-- Right: Sun/Moon Pill Switcher + Live Bell + Admin Profile Card -->
+      <div class="flex items-center gap-2 sm:gap-3.5 flex-shrink-0">
+        <!-- Sun / Moon Pill Toggle -->
+        <button type="button" onclick="toggleAdminTheme()" class="wm-theme-pill-btn" title="Toggle Light / Dark Mode">
+          <span class="wm-theme-pill-sun" id="wm-theme-sun-pill">
+            <span class="material-symbols-outlined text-[16px]">light_mode</span>
+          </span>
+          <span class="wm-theme-pill-knob" id="wm-theme-moon-pill">
+            <span class="material-symbols-outlined text-[14px] theme-toggle-icon" id="theme-toggle-icon" style="font-variation-settings: 'FILL' 1;">dark_mode</span>
+          </span>
+        </button>
+
+        <!-- Live Notification Bell (Populated Dynamically from Real Backend APIs) -->
+        <div class="relative">
+          <button type="button" onclick="toggleAdminNotifMenu(event)" class="relative w-9 h-9 sm:w-10 sm:h-10 rounded-full bg-white/90 dark:bg-[#211342] border border-purple-200/80 dark:border-purple-500/35 flex items-center justify-center text-[#2b194d] dark:text-purple-200 shadow-sm hover:bg-white transition cursor-pointer" title="Live Notifications">
+            <span class="material-symbols-outlined text-[20px]">notifications</span>
+            <span id="wm-header-notif-badge" class="hidden absolute -top-0.5 -right-0.5 min-w-[18px] h-[18px] px-1 rounded-full bg-rose-500 text-white text-[10px] font-extrabold flex items-center justify-center shadow">0</span>
+          </button>
+
+          <!-- Notifications Popover (Populated by loadLiveAdminHeaderNotifications in admin-theme.js) -->
+          <div id="wm-admin-notif-dropdown" class="hidden absolute right-0 mt-2 w-80 bg-white dark:bg-[#1a0e36] rounded-2xl border border-purple-200 dark:border-purple-500/30 shadow-2xl p-3.5 z-50 text-xs" onclick="event.stopPropagation()">
+            <div class="py-4 text-center text-xs text-on-surface-variant">Loading live notifications...</div>
+          </div>
+        </div>
+
+        <!-- Admin Profile Pill -->
+        <div class="relative">
+          <div onclick="toggleAdminProfileMenu(event)" class="wm-admin-profile-pill">
+            <div class="w-8 h-8 sm:w-9 sm:h-9 rounded-full bg-gradient-to-br from-[#4c1d95] to-[#6d28d9] flex items-center justify-center text-white shadow-sm flex-shrink-0">
+              <span class="material-symbols-outlined text-[19px]">person</span>
+            </div>
+            <div class="hidden sm:flex flex-col text-left leading-tight">
+              <span class="text-[13.5px] font-extrabold text-on-surface">Admin</span>
+              <span id="wm-admin-header-email" class="text-[11px] font-medium text-on-surface-variant">ankit.babusaini@gmail.com</span>
+            </div>
+            <span class="material-symbols-outlined text-[18px] text-on-surface-variant ml-0.5">expand_more</span>
+          </div>
+
+          <!-- Profile Dropdown Menu -->
+          <div id="wm-admin-profile-dropdown" class="hidden absolute right-0 mt-2 w-60 bg-white dark:bg-[#1a0e36] rounded-2xl border border-purple-200 dark:border-purple-500/30 shadow-2xl p-2 z-50 text-xs" onclick="event.stopPropagation()">
+            <div class="px-3 py-2 border-b border-purple-100 dark:border-purple-800/40 mb-1">
+              <div class="font-bold text-sm text-on-surface">Admin Studio</div>
+              <div class="text-[11px] text-on-surface-variant truncate">ankit.babusaini@gmail.com</div>
+            </div>
+            <a href="/admin/anktech/anktech/admin/settings" class="flex items-center gap-2.5 px-3 py-2 rounded-xl hover:bg-purple-50 dark:hover:bg-purple-900/30 text-on-surface font-semibold transition">
+              <span class="material-symbols-outlined text-[17px] text-purple-600">settings</span>
+              <span>Main Website &amp; Site Settings</span>
+            </a>
+            <a href="/admin/anktech/anktech/admin/add-template" class="flex items-center gap-2.5 px-3 py-2 rounded-xl hover:bg-purple-50 dark:hover:bg-purple-900/30 text-on-surface font-semibold transition">
+              <span class="material-symbols-outlined text-[17px] text-pink-500">add_circle</span>
+              <span>Upload &amp; Set New Template</span>
+            </a>
+            <a href="/admin/anktech/anktech/admin/media" class="flex items-center gap-2.5 px-3 py-2 rounded-xl hover:bg-purple-50 dark:hover:bg-purple-900/30 text-on-surface font-semibold transition">
+              <span class="material-symbols-outlined text-[17px] text-indigo-500">perm_media</span>
+              <span>Hero Photo &amp; Media Vault</span>
+            </a>
+            <a href="/" target="_blank" class="flex items-center gap-2.5 px-3 py-2 rounded-xl hover:bg-purple-50 dark:hover:bg-purple-900/30 text-on-surface font-semibold transition">
+              <span class="material-symbols-outlined text-[17px] text-emerald-600">open_in_new</span>
+              <span>View Live Website</span>
+            </a>
+            <div class="border-t border-purple-100 dark:border-purple-800/40 my-1"></div>
+            <button type="button" onclick="window.AdminAuthController && window.AdminAuthController.logout()" class="w-full flex items-center gap-2.5 px-3 py-2 rounded-xl hover:bg-rose-50 dark:hover:bg-rose-950/40 text-rose-600 font-bold transition text-left cursor-pointer">
+              <span class="material-symbols-outlined text-[17px]">logout</span>
+              <span>Sign Out</span>
+            </button>
+          </div>
+        </div>
+      </div>
+    </div>
+  </header>
+
+  <!-- Main Workspace Content -->
+  <main id="admin-main-content" class="w-full pt-[80px] px-4 sm:px-6 pb-12 max-w-[1560px] mx-auto flex flex-col gap-5">
+
+
+    <section class="wm-hero-banner">
+      <div class="relative z-10 flex flex-col items-start max-w-2xl">
+        <div class="wm-hero-welcome-pill">
+          <span>Legal &amp; Compliance Command Center</span>
+          <span>⚖️</span>
+        </div>
+        <h1 class="wm-hero-title">
+          <span>Legal</span> <span class="wm-pink-word">Policies</span> <span class="wm-lavender-word">&amp; Compliance</span>
+        </h1>
+        <p class="wm-hero-subtitle">
+          Authoritative version control for Privacy Policy, Terms of Service, Refund Policy, and user consent logs.
+        </p>
+        <div class="flex flex-wrap items-center gap-3">
+          <a href="/legal" target="_blank" class="wm-btn-pink-pill">
+            <span class="material-symbols-outlined text-[18px]">open_in_new</span>
+            <span>Open Public Legal Center</span>
+          </a>
+        </div>
+      </div>
+    </section>
+    <!-- High-Level Compliance Stats Cards -->
+    <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+      <div class="wm-card p-4 rounded-2xl bg-surface-container-low border border-outline-variant/30 shadow-xs">
+        <div class="flex items-center justify-between text-on-surface-variant text-xs mb-1">
+          <span>Published Policies</span>
+          <span class="material-symbols-outlined text-emerald-400 text-[18px]">verified</span>
+        </div>
+        <div class="text-2xl font-black text-on-surface" id="stat-published-count">0</div>
+        <div class="text-[11px] text-emerald-400 font-semibold mt-1">100% of Core Policies Active</div>
+      </div>
+
+      <div class="wm-card p-4 rounded-2xl bg-surface-container-low border border-outline-variant/30 shadow-xs">
+        <div class="flex items-center justify-between text-on-surface-variant text-xs mb-1">
+          <span>Active Drafts</span>
+          <span class="material-symbols-outlined text-amber-400 text-[18px]">edit_note</span>
+        </div>
+        <div class="text-2xl font-black text-on-surface" id="stat-drafts-count">0</div>
+        <div class="text-[11px] text-on-surface-variant mt-1" id="stat-drafts-label">No pending revisions</div>
+      </div>
+
+      <div class="wm-card p-4 rounded-2xl bg-surface-container-low border border-outline-variant/30 shadow-xs">
+        <div class="flex items-center justify-between text-on-surface-variant text-xs mb-1">
+          <span>User Acceptance Records</span>
+          <span class="material-symbols-outlined text-primary text-[18px]">how_to_reg</span>
+        </div>
+        <div class="text-2xl font-black text-on-surface" id="stat-acceptances-count">0</div>
+        <div class="text-[11px] text-primary font-semibold mt-1">Immutable Cryptographic Audit</div>
+      </div>
+
+      <div class="wm-card p-4 rounded-2xl bg-surface-container-low border border-outline-variant/30 shadow-xs">
+        <div class="flex items-center justify-between text-on-surface-variant text-xs mb-1">
+          <span>Analytics Consent Rate</span>
+          <span class="material-symbols-outlined text-pink-400 text-[18px]">cookie</span>
+        </div>
+        <div class="text-2xl font-black text-on-surface" id="stat-cookie-rate">0%</div>
+        <div class="text-[11px] text-on-surface-variant mt-1">Granular Opt-In Telemetry</div>
+      </div>
+    </div>
+
+    <!-- Tab Navigation -->
+    <div class="flex items-center gap-2 border-b border-outline-variant/30 pb-2">
+      <button onclick="switchAdminTab('policies')" id="tab-btn-policies" class="px-4 py-2 rounded-xl bg-primary-container text-white font-bold text-xs shadow-xs transition">
+        Policy Catalog &amp; Versions
+      </button>
+      <button onclick="switchAdminTab('editor')" id="tab-btn-editor" class="px-4 py-2 rounded-xl text-on-surface-variant hover:bg-surface-container font-semibold text-xs transition">
+        Draft Editor &amp; Publisher
+      </button>
+      <button onclick="switchAdminTab('acceptances')" id="tab-btn-acceptances" class="px-4 py-2 rounded-xl text-on-surface-variant hover:bg-surface-container font-semibold text-xs transition">
+        Acceptance Audit Records
+      </button>
+    </div>
+
+    <!-- TAB 1: Policy Catalog & Versions List -->
+    <div id="tab-pane-policies" class="space-y-4">
+      <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-3 bg-surface-container-low p-4 rounded-2xl border border-outline-variant/30">
+        <div>
+          <h2 class="font-bold text-sm text-on-surface">Production Legal Documents</h2>
+          <p class="text-xs text-on-surface-variant mt-0.5">Authoritative active pointers and immutable version history.</p>
+        </div>
+        <button onclick="openNewDraftModal()" class="flex items-center gap-1.5 px-4 py-2 rounded-xl bg-primary hover:bg-primary/90 text-white font-bold text-xs shadow-sm transition">
+          <span class="material-symbols-outlined text-[16px]">add</span>
+          <span>Create New Draft</span>
+        </button>
+      </div>
+
+      <!-- Policy Table -->
+      <div class="overflow-x-auto rounded-2xl border border-outline-variant/30 bg-surface-container-low shadow-xs">
+        <table class="w-full text-left text-xs">
+          <thead class="wm-card bg-surface-container border-b border-outline-variant/30 text-[11px] uppercase tracking-wider text-on-surface-variant font-bold">
+            <tr>
+              <th class="py-3 px-4">Policy Document</th>
+              <th class="py-3 px-4">Active Version</th>
+              <th class="py-3 px-4">Effective Date</th>
+              <th class="py-3 px-4">Status &amp; Re-Consent</th>
+              <th class="py-3 px-4">SHA-256 Checksum</th>
+              <th class="py-3 px-4 text-right">Actions</th>
+            </tr>
+          </thead>
+          <tbody id="policies-table-body" class="divide-y divide-outline-variant/20">
+            <tr>
+              <td colspan="6" class="py-8 text-center text-on-surface-variant animate-pulse">Loading policies catalog...</td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+
+    <!-- TAB 2: Draft Editor & Safe Publisher -->
+    <div id="tab-pane-editor" class="space-y-4 hidden">
+      <div class="p-6 rounded-3xl bg-surface-container-low border border-outline-variant/30 shadow-lg space-y-4">
+        <div class="flex items-center justify-between border-b border-outline-variant/30 pb-3">
+          <div>
+            <h2 class="font-bold text-base text-on-surface" id="editor-heading">Draft Policy Editor</h2>
+            <p class="text-xs text-on-surface-variant mt-0.5">Edit draft content with live preview before publishing immutable release.</p>
+          </div>
+          <span id="editor-status-pill" class="px-2.5 py-1 rounded-full bg-amber-500/20 text-amber-300 font-bold text-[10px]">
+            DRAFT MODE
+          </span>
+        </div>
+
+        <form id="policy-editor-form" onsubmit="handleSaveDraft(event)" class="space-y-4 text-xs">
+          <input type="hidden" id="editor-policy-id" value="">
+
+          <div class="grid grid-cols-1 sm:grid-cols-3 gap-3">
+            <div>
+              <label class="block font-bold mb-1">Policy Category</label>
+              <select id="editor-policy-type" class="w-full p-2.5 rounded-xl bg-surface border border-outline-variant/40 text-on-surface" onchange="handlePolicyTypeChange(this.value)">
+                <option value="terms_of_service">Terms of Service</option>
+                <option value="privacy_policy">Privacy Policy</option>
+                <option value="cookie_policy">Cookie &amp; Tracking Notice</option>
+                <option value="refund_policy">Refund &amp; Cancellation Policy</option>
+                <option value="premium_terms">Premium Purchase Terms</option>
+                <option value="content_policy">User Content &amp; Media Policy</option>
+                <option value="referral_terms">Referral &amp; Rewards Terms</option>
+                <option value="community_guidelines">Community &amp; Review Guidelines</option>
+              </select>
+            </div>
+
+            <div>
+              <label class="block font-bold mb-1">Version Number (Semver)</label>
+              <input type="text" id="editor-version" placeholder="e.g. 1.1.0 or 2.0.0" required class="w-full p-2.5 rounded-xl bg-surface border border-outline-variant/40 text-on-surface font-mono" />
+            </div>
+
+            <div>
+              <label class="block font-bold mb-1">Effective Date</label>
+              <input type="datetime-local" id="editor-effective-at" class="w-full p-2.5 rounded-xl bg-surface border border-outline-variant/40 text-on-surface font-mono" />
+            </div>
+          </div>
+
+          <div>
+            <label class="block font-bold mb-1">Display Title</label>
+            <input type="text" id="editor-title" placeholder="e.g. WishMagic Terms of Service" required class="w-full p-2.5 rounded-xl bg-surface border border-outline-variant/40 text-on-surface" />
+          </div>
+
+          <!-- Material Change Checkbox -->
+          <div class="p-3.5 rounded-xl bg-surface border border-outline-variant/40 flex items-start gap-3">
+            <input type="checkbox" id="editor-is-material" class="mt-0.5 w-4 h-4 rounded text-primary focus:ring-primary" onchange="toggleMaterialSection(this.checked)" />
+            <div class="flex-1">
+              <label for="editor-is-material" class="font-bold text-on-surface cursor-pointer">Mark as Material Change (Triggers User Re-Consent)</label>
+              <p class="text-[11px] text-on-surface-variant mt-0.5">
+                Check this box if legal terms alter rights, liabilities, pricing, or data processing. Active users will be presented with an acceptance modal upon next login.
+              </p>
+            </div>
+          </div>
+
+          <!-- Change Summary (Mandatory for material change) -->
+          <div>
+            <label class="block font-bold mb-1">Change Summary / Release Notes</label>
+            <textarea id="editor-change-summary" rows="2" placeholder="Concise summary of updates in this revision..." class="w-full p-2.5 rounded-xl bg-surface border border-outline-variant/40 text-on-surface"></textarea>
+          </div>
+
+          <!-- Markdown Content Editor with Preview Tabs -->
+          <div class="space-y-2">
+            <div class="flex items-center justify-between">
+              <label class="font-bold">Policy Content (Markdown)</label>
+              <div class="flex items-center gap-1 border border-outline-variant/40 rounded-lg p-0.5 bg-surface">
+                <button type="button" onclick="setEditorTab('raw')" id="btn-tab-raw" class="px-2.5 py-1 rounded-md bg-primary-container text-white font-bold text-[10px]">Raw Markdown</button>
+                <button type="button" onclick="setEditorTab('preview')" id="btn-tab-preview" class="px-2.5 py-1 rounded-md text-on-surface-variant font-semibold text-[10px]">Preview Render</button>
+              </div>
+            </div>
+
+            <textarea id="editor-content-raw" rows="16" class="w-full p-3.5 rounded-2xl bg-surface font-mono text-xs border border-outline-variant/40 text-on-surface custom-scrollbar" placeholder="Enter markdown legal content here..."></textarea>
+            <div id="editor-content-preview" class="hidden w-full p-5 rounded-2xl bg-surface border border-outline-variant/40 min-h-[300px] max-h-[500px] overflow-y-auto prose dark:prose-invert text-xs custom-scrollbar"></div>
+          </div>
+
+          <!-- Action Buttons -->
+          <div class="flex items-center justify-between pt-4 border-t border-outline-variant/30">
+            <button type="button" onclick="handleDiscardDraft()" class="px-4 py-2 rounded-xl border border-outline-variant/50 hover:bg-surface-container text-on-surface-variant font-bold transition">
+              Discard Changes
+            </button>
+            <div class="flex items-center gap-2">
+              <button type="submit" class="px-4 py-2 rounded-xl bg-surface-container-high hover:bg-surface-container-highest text-on-surface font-bold transition">
+                Save Draft
+              </button>
+              <button type="button" onclick="triggerPublishWorkflow()" class="px-5 py-2 rounded-xl bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-700 hover:to-teal-700 text-white font-bold shadow-md transition flex items-center gap-1.5">
+                <span class="material-symbols-outlined text-[16px]">publish</span>
+                <span>Validate &amp; Publish</span>
+              </button>
+            </div>
+          </div>
+        </form>
+      </div>
+    </div>
+
+    <!-- TAB 3: Acceptance Audit Trail Records -->
+    <div id="tab-pane-acceptances" class="space-y-4 hidden">
+      <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-3 bg-surface-container-low p-4 rounded-2xl border border-outline-variant/30">
+        <div>
+          <h2 class="font-bold text-sm text-on-surface">User Acceptance Audit Trail</h2>
+          <p class="text-xs text-on-surface-variant mt-0.5">Immutable record of every policy agreement, timestamp, method, and IP hash.</p>
+        </div>
+        <!-- Filter Controls -->
+        <div class="flex items-center gap-2">
+          <input type="text" id="acc-search" placeholder="Search user ID or policy..." oninput="handleAcceptanceSearch(this.value)" class="text-xs p-2 rounded-xl bg-surface border border-outline-variant/40 text-on-surface w-48 sm:w-64" />
+          <button onclick="loadAcceptanceAuditRecords()" class="p-2 rounded-xl bg-surface-container hover:bg-surface-container-high">
+            <span class="material-symbols-outlined text-[18px]">refresh</span>
+          </button>
+        </div>
+      </div>
+
+      <!-- Acceptances Table -->
+      <div class="overflow-x-auto rounded-2xl border border-outline-variant/30 bg-surface-container-low shadow-xs">
+        <table class="w-full text-left text-xs">
+          <thead class="wm-card bg-surface-container border-b border-outline-variant/30 text-[11px] uppercase tracking-wider text-on-surface-variant font-bold">
+            <tr>
+              <th class="py-3 px-4">User ID</th>
+              <th class="py-3 px-4">Policy Type</th>
+              <th class="py-3 px-4">Version</th>
+              <th class="py-3 px-4">Method</th>
+              <th class="py-3 px-4">Accepted Timestamp</th>
+              <th class="py-3 px-4">IP Hash</th>
+              <th class="py-3 px-4 font-mono">Checksum</th>
+            </tr>
+          </thead>
+          <tbody id="acceptances-table-body" class="divide-y divide-outline-variant/20">
+            <tr>
+              <td colspan="7" class="py-8 text-center text-on-surface-variant animate-pulse">Loading acceptances...</td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+
+  </main>
+</div>
+
+<!-- Modal: Publish Safeguard Confirmation Dialog -->
+<div id="publish-confirm-modal" class="fixed inset-0 z-50 bg-black/80 backdrop-blur-sm hidden items-center justify-center p-4">
+  <div class="wm-card bg-surface-container rounded-3xl max-w-md w-full p-6 shadow-2xl border border-outline-variant/40 space-y-4 text-xs">
+    <div class="flex items-center gap-3">
+      <div class="w-10 h-10 rounded-2xl bg-emerald-500/20 text-emerald-400 flex items-center justify-center text-xl font-bold">
+        🛡️
+      </div>
+      <div>
+        <h3 class="font-black text-base text-on-surface">Confirm Policy Publication</h3>
+        <p class="text-[11px] text-on-surface-variant">This action will publish an immutable legal release.</p>
+      </div>
+    </div>
+
+    <div class="p-3.5 rounded-2xl bg-surface border border-outline-variant/40 space-y-2">
+      <div class="flex justify-between"><span class="text-on-surface-variant">Policy:</span><span class="font-bold" id="pub-conf-type">Terms of Service</span></div>
+      <div class="flex justify-between"><span class="text-on-surface-variant">Version:</span><span class="font-mono font-bold text-primary" id="pub-conf-version">v1.1.0</span></div>
+      <div class="flex justify-between"><span class="text-on-surface-variant">Material Change:</span><span class="font-bold text-pink-400" id="pub-conf-material">Yes (Requires Re-Consent)</span></div>
+      <div class="flex justify-between"><span class="text-on-surface-variant">Effective Date:</span><span class="font-mono" id="pub-conf-date">Immediate</span></div>
+    </div>
+
+    <p class="text-on-surface-variant leading-relaxed text-[11px]">
+      Published versions are strictly immutable. Once published, this version will become the authoritative public document and will govern all current celebrations.
+    </p>
+
+    <div class="flex items-center justify-end gap-2 pt-2 border-t border-outline-variant/30">
+      <button type="button" onclick="closePublishConfirmModal()" class="px-4 py-2 rounded-xl border border-outline-variant/40 text-on-surface-variant font-bold hover:bg-surface">
+        Cancel
+      </button>
+      <button type="button" id="btn-final-publish" onclick="executePublishWorkflow()" class="px-5 py-2 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white font-bold shadow-md">
+        Publish Policy
+      </button>
+    </div>
+  </div>
+</div>
+
+<script>
+  let legalData = null;
+  let allAcceptances = [];
+  let editingPolicy = null;
+
+  document.addEventListener('DOMContentLoaded', async () => {
+    await loadLegalAdminData();
+    await loadAcceptanceAuditRecords();
+  });
+
+  async function loadLegalAdminData() {
+    try {
+      const res = await fetch('/api/admin/legal/policies');
+      if (!res.ok) throw new Error('Failed to fetch admin legal policies');
+      legalData = await res.json();
+
+      renderPoliciesTable(legalData);
+
+      // Load statistics
+      const statsRes = await fetch('/api/admin/legal/stats');
+      if (statsRes.ok) {
+        const statsData = await statsRes.json();
+        const s = statsData.stats || {};
+        document.getElementById('stat-published-count').textContent = s.publishedCount || 8;
+        document.getElementById('stat-drafts-count').textContent = s.draftCount || 0;
+        document.getElementById('stat-acceptances-count').textContent = s.totalAcceptances || 0;
+        document.getElementById('stat-cookie-rate').textContent = `${s.cookieConsents?.analyticsOptInRate || 0}%`;
+      }
+    } catch (err) {
+      console.error('[AdminLegal]', err);
+    }
+  }
+
+  function renderPoliciesTable(data) {
+    const tbody = document.getElementById('policies-table-body');
+    if (!tbody || !data || !data.grouped) return;
+
+    tbody.innerHTML = Object.entries(data.grouped).map(([typeKey, g]) => {
+      const active = g.activeDoc;
+      const draft = g.draftDoc;
+      const meta = g.metadata || {};
+
+      return `
+        <tr class="hover:bg-surface-container transition-colors">
+          <td class="py-3.5 px-4">
+            <div class="flex items-center gap-2.5">
+              <span class="material-symbols-outlined text-[18px] text-primary">${meta.icon || 'description'}</span>
+              <div>
+                <div class="font-bold text-on-surface">${meta.name || typeKey}</div>
+                <div class="text-[10px] text-on-surface-variant font-mono">${typeKey}</div>
+              </div>
+            </div>
+          </td>
+          <td class="py-3.5 px-4 font-mono font-bold text-primary">
+            v${active ? active.version : '1.0.0'}
+          </td>
+          <td class="py-3.5 px-4 text-on-surface-variant">
+            ${active ? formatDate(active.effective_at) : 'Active'}
+          </td>
+          <td class="py-3.5 px-4">
+            <div class="flex flex-col gap-1 items-start">
+              <span class="px-2 py-0.5 rounded-full bg-emerald-500/20 text-emerald-400 font-bold text-[10px]">
+                PUBLISHED
+              </span>
+              ${draft ? '<span class="px-2 py-0.5 rounded-full bg-amber-500/20 text-amber-300 font-bold text-[10px]">DRAFT v' + draft.version + '</span>' : ''}
+            </div>
+          </td>
+          <td class="py-3.5 px-4 font-mono text-[10px] text-on-surface-variant max-w-[120px] truncate" title="${active?.content_checksum}">
+            ${active?.content_checksum ? active.content_checksum.slice(0, 16) + '...' : '-'}
+          </td>
+          <td class="py-3.5 px-4 text-right">
+            <div class="flex items-center justify-end gap-1.5">
+              <button onclick="editPolicyDraft('${typeKey}')" class="px-2.5 py-1 rounded-lg bg-surface hover:bg-surface-container-high border border-outline-variant/30 text-on-surface text-xs font-semibold">
+                ${draft ? 'Edit Draft' : 'New Draft'}
+              </button>
+              <a href="/legal?policy=${typeKey}" target="_blank" class="p-1 rounded-lg hover:bg-surface-container text-on-surface-variant" title="View Public Page">
+                <span class="material-symbols-outlined text-[16px]">open_in_new</span>
+              </a>
+            </div>
+          </td>
+        </tr>
+      `;
+    }).join('');
+  }
+
+  function formatDate(iso) {
+    if (!iso) return '-';
+    try {
+      const d = new Date(iso);
+      return d.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
+    } catch (e) {
+      return iso;
+    }
+  }
+
+  function switchAdminTab(tab) {
+    document.getElementById('tab-pane-policies').classList.toggle('hidden', tab !== 'policies');
+    document.getElementById('tab-pane-editor').classList.toggle('hidden', tab !== 'editor');
+    document.getElementById('tab-pane-acceptances').classList.toggle('hidden', tab !== 'acceptances');
+
+    document.getElementById('tab-btn-policies').className = tab === 'policies' ? 'px-4 py-2 rounded-xl bg-primary-container text-white font-bold text-xs shadow-xs transition' : 'px-4 py-2 rounded-xl text-on-surface-variant hover:bg-surface-container font-semibold text-xs transition';
+    document.getElementById('tab-btn-editor').className = tab === 'editor' ? 'px-4 py-2 rounded-xl bg-primary-container text-white font-bold text-xs shadow-xs transition' : 'px-4 py-2 rounded-xl text-on-surface-variant hover:bg-surface-container font-semibold text-xs transition';
+    document.getElementById('tab-btn-acceptances').className = tab === 'acceptances' ? 'px-4 py-2 rounded-xl bg-primary-container text-white font-bold text-xs shadow-xs transition' : 'px-4 py-2 rounded-xl text-on-surface-variant hover:bg-surface-container font-semibold text-xs transition';
+  }
+
+  function setEditorTab(tab) {
+    document.getElementById('editor-content-raw').classList.toggle('hidden', tab !== 'raw');
+    document.getElementById('editor-content-preview').classList.toggle('hidden', tab !== 'preview');
+
+    document.getElementById('btn-tab-raw').className = tab === 'raw' ? 'px-2.5 py-1 rounded-md bg-primary-container text-white font-bold text-[10px]' : 'px-2.5 py-1 rounded-md text-on-surface-variant font-semibold text-[10px]';
+    document.getElementById('btn-tab-preview').className = tab === 'preview' ? 'px-2.5 py-1 rounded-md bg-primary-container text-white font-bold text-[10px]' : 'px-2.5 py-1 rounded-md text-on-surface-variant font-semibold text-[10px]';
+
+    if (tab === 'preview') {
+      const raw = document.getElementById('editor-content-raw').value;
+      // Simple preview rendering
+      document.getElementById('editor-content-preview').innerHTML = renderSimpleMarkdown(raw);
+    }
+  }
+
+  function renderSimpleMarkdown(md) {
+    if (!md) return '<p class="text-on-surface-variant">Empty content</p>';
+    let t = md.replace(/^### (.*$)/gim, '<h3 class="font-bold text-base mt-4 mb-1">$1</h3>');
+    t = t.replace(/^## (.*$)/gim, '<h2 class="font-extrabold text-lg mt-5 mb-2 border-b border-outline-variant/30 pb-1">$1</h2>');
+    t = t.replace(/^# (.*$)/gim, '<h1 class="font-black text-xl mt-4 mb-2">$1</h1>');
+    t = t.replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>');
+    t = t.replace(/^\- (.*$)/gim, '<li class="ml-4 list-disc my-1">$1</li>');
+    return t.split('\n\n').map(p => p.startsWith('<h') || p.startsWith('<li') ? p : `<p class="my-2">${p}</p>`).join('');
+  }
+
+  function editPolicyDraft(typeKey) {
+    const group = legalData?.grouped?.[typeKey];
+    if (!group) return;
+
+    const draft = group.draftDoc;
+    const active = group.activeDoc;
+    const meta = group.metadata || {};
+
+    editingPolicy = draft || active;
+
+    document.getElementById('editor-policy-id').value = draft ? draft.id : '';
+    document.getElementById('editor-policy-type').value = typeKey;
+    document.getElementById('editor-title').value = draft ? draft.title : active?.title || meta.name;
+    document.getElementById('editor-version').value = draft ? draft.version : getNextVersion(active?.version);
+    document.getElementById('editor-is-material').checked = draft ? Boolean(draft.is_material_change) : false;
+    document.getElementById('editor-change-summary').value = draft ? draft.change_summary || '' : '';
+    document.getElementById('editor-content-raw').value = draft ? draft.content : active?.content || '';
+
+    const nowIso = new Date().toISOString().slice(0, 16);
+    document.getElementById('editor-effective-at').value = draft?.effective_at ? draft.effective_at.slice(0, 16) : nowIso;
+
+    document.getElementById('editor-heading').textContent = draft ? `Editing Draft: ${meta.name} (v${draft.version})` : `Create Draft Revision: ${meta.name}`;
+    document.getElementById('editor-status-pill').textContent = draft ? 'EXISTING DRAFT' : 'NEW REVISION';
+
+    switchAdminTab('editor');
+  }
+
+  function getNextVersion(v) {
+    if (!v) return '1.1.0';
+    const parts = v.split('.').map(n => parseInt(n, 10) || 0);
+    parts[1] = (parts[1] || 0) + 1;
+    return parts.join('.');
+  }
+
+  function openNewDraftModal() {
+    editPolicyDraft('terms_of_service');
+  }
+
+  async function handleSaveDraft(e) {
+    e.preventDefault();
+    const policyId = document.getElementById('editor-policy-id').value;
+    const policyType = document.getElementById('editor-policy-type').value;
+    const version = document.getElementById('editor-version').value;
+    const title = document.getElementById('editor-title').value;
+    const isMaterial = document.getElementById('editor-is-material').checked;
+    const changeSummary = document.getElementById('editor-change-summary').value;
+    const content = document.getElementById('editor-content-raw').value;
+    const effectiveAt = document.getElementById('editor-effective-at').value;
+
+    const payload = {
+      policyType,
+      version,
+      title,
+      isMaterialChange: isMaterial ? 1 : 0,
+      changeSummary,
+      content,
+      effectiveAt: effectiveAt ? new Date(effectiveAt).toISOString() : new Date().toISOString()
+    };
+
+    try {
+      let res;
+      if (policyId) {
+        // Update existing draft
+        res = await fetch(`/api/admin/legal/policies/${policyId}`, {
+          method: 'PUT',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(payload)
+        });
+      } else {
+        // Create new draft
+        res = await fetch('/api/admin/legal/policies/draft', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(payload)
+        });
+      }
+
+      if (!res.ok) {
+        const errData = await res.json();
+        throw new Error(errData.message || 'Failed to save draft');
+      }
+
+      alert('Draft saved successfully!');
+      await loadLegalAdminData();
+      switchAdminTab('policies');
+    } catch (err) {
+      alert('Error: ' + err.message);
+    }
+  }
+
+  // Publish Dialog Workflow
+  function triggerPublishWorkflow() {
+    const policyType = document.getElementById('editor-policy-type').value;
+    const version = document.getElementById('editor-version').value;
+    const isMaterial = document.getElementById('editor-is-material').checked;
+    const effectiveAt = document.getElementById('editor-effective-at').value;
+
+    if (!version) {
+      alert('Version string is required before publishing');
+      return;
+    }
+
+    document.getElementById('pub-conf-type').textContent = policyType;
+    document.getElementById('pub-conf-version').textContent = `v${version}`;
+    document.getElementById('pub-conf-material').textContent = isMaterial ? 'Yes (Requires User Re-Consent)' : 'No (Standard Revision)';
+    document.getElementById('pub-conf-date').textContent = effectiveAt || 'Immediate';
+
+    document.getElementById('publish-confirm-modal').classList.remove('hidden');
+    document.getElementById('publish-confirm-modal').classList.add('flex');
+  }
+
+  function closePublishConfirmModal() {
+    document.getElementById('publish-confirm-modal').classList.add('hidden');
+    document.getElementById('publish-confirm-modal').classList.remove('flex');
+  }
+
+  async function executePublishWorkflow() {
+    const btn = document.getElementById('btn-final-publish');
+    btn.disabled = true;
+    btn.textContent = 'Publishing...';
+
+    try {
+      // 1. Ensure draft is saved first
+      let policyId = document.getElementById('editor-policy-id').value;
+      const policyType = document.getElementById('editor-policy-type').value;
+      const version = document.getElementById('editor-version').value;
+      const title = document.getElementById('editor-title').value;
+      const isMaterial = document.getElementById('editor-is-material').checked;
+      const changeSummary = document.getElementById('editor-change-summary').value;
+      const content = document.getElementById('editor-content-raw').value;
+      const effectiveAt = document.getElementById('editor-effective-at').value;
+
+      if (!policyId) {
+        // Create draft first
+        const createRes = await fetch('/api/admin/legal/policies/draft', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            policyType, version, title, isMaterialChange: isMaterial ? 1 : 0, changeSummary, content,
+            effectiveAt: effectiveAt ? new Date(effectiveAt).toISOString() : new Date().toISOString()
+          })
+        });
+        if (!createRes.ok) throw new Error('Could not initialize draft record');
+        const createData = await createRes.json();
+        policyId = createData.draft.id;
+      }
+
+      // 2. Publish draft
+      const pubRes = await fetch(`/api/admin/legal/policies/${policyId}/publish`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          effectiveAt: effectiveAt ? new Date(effectiveAt).toISOString() : new Date().toISOString()
+        })
+      });
+
+      if (!pubRes.ok) {
+        const pubErr = await pubRes.json();
+        throw new Error(pubErr.message || 'Publishing failed validation');
+      }
+
+      closePublishConfirmModal();
+      alert(`Success! Policy v${version} is now published and active.`);
+      await loadLegalAdminData();
+      switchAdminTab('policies');
+    } catch (err) {
+      alert('Publication Error: ' + err.message);
+    } finally {
+      btn.disabled = false;
+      btn.textContent = 'Publish Policy';
+    }
+  }
+
+  // Load User Acceptance Audit Records
+  async function loadAcceptanceAuditRecords() {
+    try {
+      const res = await fetch('/api/admin/legal/acceptances?limit=100');
+      if (!res.ok) return;
+      const data = await res.json();
+      allAcceptances = data.acceptances || [];
+      renderAcceptancesTable(allAcceptances);
+    } catch (e) {}
+  }
+
+  function renderAcceptancesTable(list) {
+    const tbody = document.getElementById('acceptances-table-body');
+    if (!tbody) return;
+
+    if (list.length === 0) {
+      tbody.innerHTML = '<tr><td colspan="7" class="py-6 text-center text-on-surface-variant">No user acceptance records logged yet.</td></tr>';
+      return;
+    }
+
+    tbody.innerHTML = list.map(a => `
+      <tr class="hover:bg-surface-container transition-colors">
+        <td class="py-3 px-4 font-mono font-bold text-on-surface truncate max-w-[120px]">${a.user_id || a.userId}</td>
+        <td class="py-3 px-4 text-on-surface font-semibold">${a.policy_type || a.policyType}</td>
+        <td class="py-3 px-4 font-mono text-primary font-bold">v${a.policy_version || a.policyVersion}</td>
+        <td class="py-3 px-4">
+          <span class="px-2 py-0.5 rounded-full bg-surface-container text-on-surface text-[10px] font-bold">
+            ${a.acceptance_method || a.acceptanceMethod || 'EXPLICIT'}
+          </span>
+        </td>
+        <td class="py-3 px-4 text-on-surface-variant">${formatDate(a.accepted_at || a.acceptedAt)}</td>
+        <td class="py-3 px-4 font-mono text-[10px] text-on-surface-variant">${a.ip_hash || a.ipHash || '-'}</td>
+        <td class="py-3 px-4 font-mono text-[10px] text-on-surface-variant truncate max-w-[100px]" title="${a.content_checksum || a.contentChecksum}">
+          ${(a.content_checksum || a.contentChecksum || '').slice(0, 12)}...
+        </td>
+      </tr>
+    `).join('');
+  }
+
+  function handleAcceptanceSearch(q) {
+    if (!q) {
+      renderAcceptancesTable(allAcceptances);
+      return;
+    }
+    const filtered = allAcceptances.filter(a =>
+      String(a.user_id || a.userId).toLowerCase().includes(q.toLowerCase()) ||
+      String(a.policy_type || a.policyType).toLowerCase().includes(q.toLowerCase())
+    );
+    renderAcceptancesTable(filtered);
+  }
+</script>
+</body>
+</html>

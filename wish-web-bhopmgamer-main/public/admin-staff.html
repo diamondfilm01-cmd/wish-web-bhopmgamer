@@ -1,0 +1,641 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8"/>
+  <base href="/"/>
+  <meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+  <meta content="web_dashboard" name="shell-type"/>
+  <title>WishMagic | Staff Management &amp; Access Control</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com"/>
+  <link crossorigin="" href="https://fonts.gstatic.com" rel="preconnect"/>
+  <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;600;700&family=Plus+Jakarta+Sans:wght@400;500;600;700;800&family=Outfit:wght@500;600;700;800&display=swap" rel="stylesheet"/>
+  <link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:opsz,wght,FILL,GRAD@20..48,100..700,0..1,-50..200&display=swap" rel="stylesheet"/>
+  <script src="js/tailwind-config.js?v=20261015_wm47944_v7"></script>
+  <script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+  <script>
+    if (typeof tailwind !== 'undefined' && typeof sharedTailwindConfig !== 'undefined') {
+      tailwind.config = sharedTailwindConfig;
+    }
+  </script>
+  <link rel="stylesheet" href="css/admin-theme.css?v=20261015_wm47944_v7"/>
+  <script src="js/api-client.js"></script>
+  <script src="js/auth-service.js?v=20261015_wm47944_v7"></script>
+  <script src="js/WishMagicCore.js"></script>
+  <script src="js/admin-theme.js?v=20261015_wm47944_v7"></script>
+  <script src="js/security-hardening.js"></script>
+
+</head>
+<body class="bg-background text-on-surface font-body-md min-h-screen antialiased selection:bg-primary selection:text-white">
+
+<!-- Mobile Sidebar Backdrop Overlay -->
+<div id="sidebar-backdrop" class="fixed inset-0 bg-black/75 backdrop-blur-sm z-40 hidden md:hidden" onclick="toggleSidebar()"></div>
+
+<!-- Magical Castle Sidebar (Pixel-Matched to 19728.png) -->
+<aside id="admin-sidebar" class="fixed left-0 top-0 h-screen w-[270px] z-50 flex flex-col justify-between -translate-x-full md:translate-x-0 transition-transform duration-300 ease-in-out select-none">
+  <div class="flex flex-col min-h-0 flex-1">
+    <!-- Brand Logo Header -->
+    <div class="px-5 pt-5 pb-3 flex-shrink-0">
+      <div class="flex items-center justify-between">
+        <a href="/admin/anktech/anktech/admin/overview" class="flex items-center gap-3 group text-decoration-none">
+          <!-- Magic Wand Icon -->
+          <div class="w-10 h-10 rounded-2xl bg-gradient-to-br from-pink-500/25 via-purple-500/25 to-amber-400/20 border border-pink-400/30 flex items-center justify-center shadow-[0_0_20px_rgba(236,72,153,0.35)] flex-shrink-0">
+            <svg class="w-6 h-6" viewBox="0 0 24 24" fill="none">
+              <path d="M4 20L15.5 8.5M15.5 8.5L18.5 5.5C19.05 4.95 19.95 4.95 20.5 5.5C21.05 6.05 21.05 6.95 20.5 7.5L17.5 10.5M15.5 8.5L17.5 10.5" stroke="url(#wandGrad)" stroke-width="2.4" stroke-linecap="round"/>
+              <path d="M11 4L11.6 5.4L13 6L11.6 6.6L11 8L10.4 6.6L9 6L10.4 5.4L11 4Z" fill="#FBBF24"/>
+              <path d="M19 13L19.4 14L20.4 14.4L19.4 14.8L19 15.8L18.6 14.8L17.6 14.4L18.6 14L19 13Z" fill="#F472B6"/>
+              <path d="M6 10L6.3 10.7L7 11L6.3 11.3L6 12L5.7 11.3L5 11L5.7 10.7L6 10Z" fill="#C084FC"/>
+              <defs>
+                <linearGradient id="wandGrad" x1="4" y1="20" x2="21" y2="5" gradientUnits="userSpaceOnUse">
+                  <stop stop-color="#C084FC"/>
+                  <stop offset="0.55" stop-color="#F472B6"/>
+                  <stop offset="1" stop-color="#FBBF24"/>
+                </linearGradient>
+              </defs>
+            </svg>
+          </div>
+          <div class="flex flex-col">
+            <div class="text-[22px] leading-none tracking-tight">
+              <span class="wm-brand-wish">Wish</span><span class="wm-brand-magic">Magic</span>
+            </div>
+            <span class="text-[10.5px] text-purple-200/80 font-medium tracking-wide mt-1">Create. Personalize. Celebrate.</span>
+          </div>
+        </a>
+        <button class="md:hidden p-1.5 rounded-lg bg-white/10 hover:bg-white/20 text-white transition-colors" onclick="toggleSidebar()" aria-label="Close Sidebar">
+          <span class="material-symbols-outlined text-[20px]">close</span>
+        </button>
+      </div>
+    </div>
+
+    <!-- Navigation Menu -->
+    <div class="px-3.5 flex-1 overflow-y-auto custom-scrollbar pb-6">
+      <nav class="flex flex-col gap-0.5">
+        <!-- Top Primary Dashboard Link -->
+        <div class="mb-1 pt-1">
+          <a data-nav-role="dashboard" href="/admin/anktech/anktech/admin/overview">
+            <span class="material-symbols-outlined text-[20px]" style="font-variation-settings: 'FILL' 1;">home</span>
+            <span>Dashboard</span>
+          </a>
+        </div>
+
+        <!-- TEMPLATES -->
+        <div class="wm-nav-section-label">TEMPLATES</div>
+        <a href="/admin/anktech/anktech/admin/templates">
+          <span class="material-symbols-outlined">grid_view</span>
+          <span>All Templates</span>
+        </a>
+        <a href="/admin/anktech/anktech/admin/add-template">
+          <span class="material-symbols-outlined">add_circle</span>
+          <span>Add Template</span>
+        </a>
+        <a href="/admin/anktech/anktech/admin/occasions">
+          <span class="material-symbols-outlined">category</span>
+          <span>Categories</span>
+        </a>
+        <a href="/admin/anktech/anktech/admin/media">
+          <span class="material-symbols-outlined">image</span>
+          <span>Media Library</span>
+        </a>
+        <a href="/admin/anktech/anktech/admin/media?tab=audio">
+          <span class="material-symbols-outlined">music_note</span>
+          <span>Music Library</span>
+        </a>
+
+        <!-- WISHES -->
+        <div class="wm-nav-section-label">WISHES</div>
+        <a href="/admin/anktech/anktech/admin/wishes">
+          <span class="material-symbols-outlined">description</span>
+          <span>All Wishes</span>
+        </a>
+        <a href="/admin/anktech/anktech/admin/wishes?filter=expiring">
+          <span class="material-symbols-outlined">schedule</span>
+          <span>Expiring Soon</span>
+        </a>
+        <a href="/admin/anktech/anktech/admin/analytics">
+          <span class="material-symbols-outlined">trending_up</span>
+          <span>Analytics</span>
+        </a>
+
+        <!-- USERS -->
+        <div class="wm-nav-section-label">USERS</div>
+        <a href="/admin/anktech/anktech/admin/users">
+          <span class="material-symbols-outlined">group</span>
+          <span>All Users</span>
+        </a>
+        <a href="/admin/anktech/anktech/admin/pricing">
+          <span class="material-symbols-outlined">workspace_premium</span>
+          <span>Subscriptions</span>
+        </a>
+        <a href="/admin/anktech/anktech/admin/orders">
+          <span class="material-symbols-outlined">credit_card</span>
+          <span>Payments</span>
+        </a>
+
+        <!-- SYSTEM -->
+        <div class="wm-nav-section-label">SYSTEM</div>
+        <a href="/admin/anktech/anktech/admin/settings">
+          <span class="material-symbols-outlined">settings</span>
+          <span>Settings</span>
+        </a>
+        <a href="/admin/anktech/anktech/admin/storage-health">
+          <span class="material-symbols-outlined">database</span>
+          <span>Storage</span>
+        </a>
+        <a href="/admin/anktech/anktech/admin/storage-health?tab=backups">
+          <span class="material-symbols-outlined">cloud_download</span>
+          <span>Backups</span>
+        </a>
+        <a href="/admin/anktech/anktech/admin/audit-logs">
+          <span class="material-symbols-outlined">receipt_long</span>
+          <span>Activity Logs</span>
+        </a>
+
+        <!-- Expandable More Studio Tools (Keeps all 19 platform routes accessible & tested) -->
+        <button type="button" onclick="toggleMoreSidebarSections()" class="mt-2 px-3 py-1.5 rounded-xl text-[11px] font-bold uppercase tracking-wider text-purple-200/75 hover:text-white hover:bg-white/10 transition flex items-center justify-between w-full text-left cursor-pointer">
+          <span>More Studio Sections</span>
+          <span id="wm-sidebar-more-chevron" class="material-symbols-outlined text-[16px] transition-transform">expand_more</span>
+        </button>
+        <div id="wm-sidebar-more-group" class="flex flex-col gap-0.5 pt-1 pl-1 border-l border-purple-400/25 ml-2">
+          <a href="/admin/anktech/anktech/admin/user-creations">
+            <span class="material-symbols-outlined">folder_shared</span>
+            <span>User Creations</span>
+          </a>
+          <a href="/admin/anktech/anktech/admin/search">
+            <span class="material-symbols-outlined">manage_search</span>
+            <span>Search &amp; Discovery</span>
+          </a>
+          <a href="/admin/anktech/anktech/admin/referrals">
+            <span class="material-symbols-outlined">loyalty</span>
+            <span>Referrals &amp; Rewards</span>
+          </a>
+          <a href="/admin/anktech/anktech/admin/moderation">
+            <span class="material-symbols-outlined">gavel</span>
+            <span>Moderation Queue</span>
+          </a>
+          <a href="/admin/anktech/anktech/admin/support">
+            <span class="material-symbols-outlined">support_agent</span>
+            <span>Support Console</span>
+          </a>
+          <a class="wm-nav-active" href="/admin/anktech/anktech/admin/staff">
+            <span class="material-symbols-outlined">badge</span>
+            <span>Staff &amp; Team</span>
+          </a>
+          <a href="/admin/anktech/anktech/admin/legal">
+            <span class="material-symbols-outlined">policy</span>
+            <span>Legal &amp; Compliance</span>
+          </a>
+          <a href="/admin/anktech/anktech/admin/announcements">
+            <span class="material-symbols-outlined">campaign</span>
+            <span>Announcements</span>
+          </a>
+          <a href="/admin/anktech/anktech/admin/notifications">
+            <span class="material-symbols-outlined">notifications_active</span>
+            <span>Notification Queue</span>
+          </a>
+        </div>
+      </nav>
+    </div>
+  </div>
+</aside>
+
+<!-- Main Viewport Wrapper -->
+<div class="w-full md:pl-[270px] min-h-screen flex flex-col">
+<!-- Universal Top Cloud Header (Pixel-Matched to 19728.png) -->
+  <header class="wm-top-header fixed top-0 left-0 md:left-[270px] right-0 h-[68px] z-30">
+    <div class="w-full h-full px-3 sm:px-6 flex items-center justify-between gap-2.5 sm:gap-4">
+      <!-- Left: Hamburger + Search Pill with Ctrl K -->
+      <div class="flex items-center gap-2 sm:gap-2.5 flex-1 max-w-lg min-w-0">
+        <button class="md:hidden p-2 rounded-xl bg-white/85 dark:bg-[#24144a] hover:bg-white text-[#2b194d] dark:text-white shadow-sm flex items-center justify-center flex-shrink-0" onclick="toggleSidebar()" aria-label="Open Sidebar">
+          <span class="material-symbols-outlined text-[22px]">menu</span>
+        </button>
+        <div class="wm-header-search-wrap">
+          <span class="material-symbols-outlined absolute left-3.5 text-[#6b5a88] dark:text-purple-300 text-[18px] pointer-events-none">search</span>
+          <input class="wm-header-search-input" placeholder="Search staff members, RBAC roles, permissions..." type="text"/>
+          <span class="wm-ctrl-k-badge hidden sm:inline-block">Ctrl K</span>
+          <!-- Search Dropdown Results Container -->
+          <div id="global-search-results" class="hidden absolute top-12 left-0 right-0 bg-white dark:bg-[#1c103b] rounded-2xl border border-purple-200 dark:border-purple-500/30 shadow-2xl p-3 z-50 max-h-96 overflow-y-auto custom-scrollbar"></div>
+        </div>
+      </div>
+
+      <!-- Right: Sun/Moon Pill Switcher + Live Bell + Admin Profile Card -->
+      <div class="flex items-center gap-2 sm:gap-3.5 flex-shrink-0">
+        <!-- Sun / Moon Pill Toggle -->
+        <button type="button" onclick="toggleAdminTheme()" class="wm-theme-pill-btn" title="Toggle Light / Dark Mode">
+          <span class="wm-theme-pill-sun" id="wm-theme-sun-pill">
+            <span class="material-symbols-outlined text-[16px]">light_mode</span>
+          </span>
+          <span class="wm-theme-pill-knob" id="wm-theme-moon-pill">
+            <span class="material-symbols-outlined text-[14px] theme-toggle-icon" id="theme-toggle-icon" style="font-variation-settings: 'FILL' 1;">dark_mode</span>
+          </span>
+        </button>
+
+        <!-- Live Notification Bell (Populated Dynamically from Real Backend APIs) -->
+        <div class="relative">
+          <button type="button" onclick="toggleAdminNotifMenu(event)" class="relative w-9 h-9 sm:w-10 sm:h-10 rounded-full bg-white/90 dark:bg-[#211342] border border-purple-200/80 dark:border-purple-500/35 flex items-center justify-center text-[#2b194d] dark:text-purple-200 shadow-sm hover:bg-white transition cursor-pointer" title="Live Notifications">
+            <span class="material-symbols-outlined text-[20px]">notifications</span>
+            <span id="wm-header-notif-badge" class="hidden absolute -top-0.5 -right-0.5 min-w-[18px] h-[18px] px-1 rounded-full bg-rose-500 text-white text-[10px] font-extrabold flex items-center justify-center shadow">0</span>
+          </button>
+
+          <!-- Notifications Popover (Populated by loadLiveAdminHeaderNotifications in admin-theme.js) -->
+          <div id="wm-admin-notif-dropdown" class="hidden absolute right-0 mt-2 w-80 bg-white dark:bg-[#1a0e36] rounded-2xl border border-purple-200 dark:border-purple-500/30 shadow-2xl p-3.5 z-50 text-xs" onclick="event.stopPropagation()">
+            <div class="py-4 text-center text-xs text-on-surface-variant">Loading live notifications...</div>
+          </div>
+        </div>
+
+        <!-- Admin Profile Pill -->
+        <div class="relative">
+          <div onclick="toggleAdminProfileMenu(event)" class="wm-admin-profile-pill">
+            <div class="w-8 h-8 sm:w-9 sm:h-9 rounded-full bg-gradient-to-br from-[#4c1d95] to-[#6d28d9] flex items-center justify-center text-white shadow-sm flex-shrink-0">
+              <span class="material-symbols-outlined text-[19px]">person</span>
+            </div>
+            <div class="hidden sm:flex flex-col text-left leading-tight">
+              <span class="text-[13.5px] font-extrabold text-on-surface">Admin</span>
+              <span id="wm-admin-header-email" class="text-[11px] font-medium text-on-surface-variant">ankit.babusaini@gmail.com</span>
+            </div>
+            <span class="material-symbols-outlined text-[18px] text-on-surface-variant ml-0.5">expand_more</span>
+          </div>
+
+          <!-- Profile Dropdown Menu -->
+          <div id="wm-admin-profile-dropdown" class="hidden absolute right-0 mt-2 w-60 bg-white dark:bg-[#1a0e36] rounded-2xl border border-purple-200 dark:border-purple-500/30 shadow-2xl p-2 z-50 text-xs" onclick="event.stopPropagation()">
+            <div class="px-3 py-2 border-b border-purple-100 dark:border-purple-800/40 mb-1">
+              <div class="font-bold text-sm text-on-surface">Admin Studio</div>
+              <div class="text-[11px] text-on-surface-variant truncate">ankit.babusaini@gmail.com</div>
+            </div>
+            <a href="/admin/anktech/anktech/admin/settings" class="flex items-center gap-2.5 px-3 py-2 rounded-xl hover:bg-purple-50 dark:hover:bg-purple-900/30 text-on-surface font-semibold transition">
+              <span class="material-symbols-outlined text-[17px] text-purple-600">settings</span>
+              <span>Main Website &amp; Site Settings</span>
+            </a>
+            <a href="/admin/anktech/anktech/admin/add-template" class="flex items-center gap-2.5 px-3 py-2 rounded-xl hover:bg-purple-50 dark:hover:bg-purple-900/30 text-on-surface font-semibold transition">
+              <span class="material-symbols-outlined text-[17px] text-pink-500">add_circle</span>
+              <span>Upload &amp; Set New Template</span>
+            </a>
+            <a href="/admin/anktech/anktech/admin/media" class="flex items-center gap-2.5 px-3 py-2 rounded-xl hover:bg-purple-50 dark:hover:bg-purple-900/30 text-on-surface font-semibold transition">
+              <span class="material-symbols-outlined text-[17px] text-indigo-500">perm_media</span>
+              <span>Hero Photo &amp; Media Vault</span>
+            </a>
+            <a href="/" target="_blank" class="flex items-center gap-2.5 px-3 py-2 rounded-xl hover:bg-purple-50 dark:hover:bg-purple-900/30 text-on-surface font-semibold transition">
+              <span class="material-symbols-outlined text-[17px] text-emerald-600">open_in_new</span>
+              <span>View Live Website</span>
+            </a>
+            <div class="border-t border-purple-100 dark:border-purple-800/40 my-1"></div>
+            <button type="button" onclick="window.AdminAuthController && window.AdminAuthController.logout()" class="w-full flex items-center gap-2.5 px-3 py-2 rounded-xl hover:bg-rose-50 dark:hover:bg-rose-950/40 text-rose-600 font-bold transition text-left cursor-pointer">
+              <span class="material-symbols-outlined text-[17px]">logout</span>
+              <span>Sign Out</span>
+            </button>
+          </div>
+        </div>
+      </div>
+    </div>
+  </header>
+
+  <!-- Main Workspace Content -->
+  <main id="admin-main-content" class="w-full pt-[80px] px-4 sm:px-6 pb-12 max-w-[1560px] mx-auto flex flex-col gap-5">
+
+    <section class="wm-hero-banner">
+      <div class="relative z-10 flex flex-col items-start max-w-2xl">
+        <div class="wm-hero-welcome-pill">
+          <span>Role-Based Access Control (RBAC)</span>
+          <span>🔐</span>
+        </div>
+        <h1 class="wm-hero-title">
+          <span>Staff &amp;</span> <span class="wm-pink-word">Access</span> <span class="wm-lavender-word">Control</span>
+        </h1>
+        <p class="wm-hero-subtitle">
+          Manage platform staff accounts, assign granular RBAC permissions, and inspect security audit logs.
+        </p>
+        <div class="flex flex-wrap items-center gap-3">
+          <button type="button" onclick="openAddStaffModal()" class="wm-btn-pink-pill">
+            <span class="material-symbols-outlined text-[18px]">person_add</span>
+            <span>+ Add New Staff</span>
+          </button>
+          <button type="button" onclick="loadAuditLogs()" class="wm-btn-glass-pill">
+            <span class="material-symbols-outlined text-[18px]">history</span>
+            <span>Refresh Audit Trail</span>
+          </button>
+        </div>
+      </div>
+    </section>
+    <!-- Staff Directory Section -->
+  <section class="flex flex-col gap-4">
+    <div class="flex items-center justify-between">
+      <h2 class="text-lg font-bold text-white flex items-center gap-2">
+        <span class="material-symbols-outlined text-primary">groups</span> Active Staff Directory
+      </h2>
+      <span id="staff-count" class="text-xs px-2.5 py-1 rounded-full bg-surface-container-high text-on-surface-variant font-mono">0 Members</span>
+    </div>
+
+    <div class="wm-card bg-surface-container-lowest border border-outline-variant/30 rounded-2xl overflow-hidden shadow-xl">
+      <div class="overflow-x-auto">
+        <table class="w-full text-left text-sm text-on-surface-variant">
+          <thead class="bg-surface-container-high/60 text-xs uppercase font-semibold text-outline tracking-wider border-b border-outline-variant/30">
+            <tr>
+              <th class="py-4 px-6">Staff Member</th>
+              <th class="py-4 px-6">Mobile Number</th>
+              <th class="py-4 px-6">Assigned Role</th>
+              <th class="py-4 px-6">Permissions</th>
+              <th class="py-4 px-6">Status</th>
+              <th class="py-4 px-6 text-right">Actions</th>
+            </tr>
+          </thead>
+          <tbody id="staff-table-body" class="divide-y divide-outline-variant/20">
+            <tr>
+              <td colspan="6" class="text-center py-8 text-on-surface-variant">Loading staff directory...</td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+  </section>
+
+  <!-- Audit Trail Section -->
+  <section id="audit-section" class="flex flex-col gap-4 mt-6">
+    <div class="flex items-center justify-between">
+      <h2 class="text-lg font-bold text-white flex items-center gap-2">
+        <span class="material-symbols-outlined text-secondary">manage_search</span> Security &amp; Administrative Audit Logs
+      </h2>
+      <button onclick="loadAuditLogs()" class="text-xs text-primary hover:underline flex items-center gap-1">
+        <span class="material-symbols-outlined text-sm">refresh</span> Refresh Logs
+      </button>
+    </div>
+
+    <div class="wm-card bg-surface-container-lowest border border-outline-variant/30 rounded-2xl overflow-hidden shadow-xl">
+      <div class="overflow-x-auto max-h-96">
+        <table class="w-full text-left text-xs text-on-surface-variant font-mono">
+          <thead class="bg-surface-container-high/60 text-[10px] uppercase font-semibold text-outline tracking-wider sticky top-0 bg-surface-container-high border-b border-outline-variant/30">
+            <tr>
+              <th class="py-3 px-4">Timestamp</th>
+              <th class="py-3 px-4">Actor</th>
+              <th class="py-3 px-4">Action</th>
+              <th class="py-3 px-4">Target</th>
+              <th class="py-3 px-4">Details</th>
+              <th class="py-3 px-4">IP</th>
+            </tr>
+          </thead>
+          <tbody id="audit-table-body" class="divide-y divide-outline-variant/20">
+            <tr>
+              <td colspan="6" class="text-center py-6 text-on-surface-variant font-sans">No audit records loaded yet.</td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+  </section>
+  </main>
+</div>
+
+<!-- Add Staff Modal -->
+<div id="add-staff-modal" class="fixed inset-0 bg-black/80 backdrop-blur-sm z-50 flex items-center justify-center p-4 hidden">
+  <div class="wm-card bg-surface-container-lowest border border-outline-variant/40 rounded-2xl w-full max-w-lg p-6 shadow-2xl flex flex-col gap-5">
+    <div class="flex items-center justify-between border-b border-outline-variant/30 pb-4">
+      <h3 class="text-lg font-bold text-white flex items-center gap-2">
+        <span class="material-symbols-outlined text-primary">person_add</span> Add New Staff Member
+      </h3>
+      <button onclick="closeAddStaffModal()" class="text-on-surface-variant hover:text-white">
+        <span class="material-symbols-outlined">close</span>
+      </button>
+    </div>
+
+    <form id="add-staff-form" onsubmit="submitAddStaff(event)" class="flex flex-col gap-4">
+      <div>
+        <label class="block text-xs font-semibold text-on-surface-variant uppercase mb-1">Full Name</label>
+        <input id="staff-name-input" type="text" required placeholder="e.g. Rahul Sharma" class="w-full px-4 py-2.5 rounded-xl bg-surface-container-high border border-outline-variant/40 text-white text-sm focus:outline-none focus:border-primary"/>
+      </div>
+      <div>
+        <label class="block text-xs font-semibold text-on-surface-variant uppercase mb-1">Mobile Number (with Country Code)</label>
+        <input id="staff-mobile-input" type="text" required placeholder="+919876543210" class="w-full px-4 py-2.5 rounded-xl bg-surface-container-high border border-outline-variant/40 text-white text-sm focus:outline-none focus:border-primary"/>
+      </div>
+      <div>
+        <label class="block text-xs font-semibold text-on-surface-variant uppercase mb-1">Assigned Staff Role</label>
+        <select id="staff-role-select" class="w-full px-4 py-2.5 rounded-xl bg-surface-container-high border border-outline-variant/40 text-white text-sm focus:outline-none focus:border-primary">
+          <option value="ADMIN">ADMIN (High Privilege Operations)</option>
+          <option value="MANAGER">MANAGER (Catalog &amp; Order Operations)</option>
+          <option value="EDITOR" selected>EDITOR (Templates &amp; Content)</option>
+          <option value="SUPPORT">SUPPORT (Customer Care &amp; Verification)</option>
+          <option value="ANALYST">ANALYST (Read-Only Metrics)</option>
+        </select>
+      </div>
+      <div>
+        <label class="block text-xs font-semibold text-on-surface-variant uppercase mb-1">Initial Password</label>
+        <input id="staff-password-input" type="password" required placeholder="••••••••••••" class="w-full px-4 py-2.5 rounded-xl bg-surface-container-high border border-outline-variant/40 text-white text-sm focus:outline-none focus:border-primary"/>
+      </div>
+
+      <div class="flex justify-end gap-3 mt-4">
+        <button type="button" onclick="closeAddStaffModal()" class="px-4 py-2.5 rounded-xl bg-surface-container-high hover:bg-surface-container-highest text-white text-sm font-semibold">Cancel</button>
+        <button type="submit" id="add-staff-btn" class="px-5 py-2.5 rounded-xl bg-primary hover:bg-primary/90 text-white text-sm font-semibold shadow-lg">Save Staff Member</button>
+      </div>
+    </form>
+  </div>
+</div>
+
+<script>
+let currentAdmin = null;
+
+document.addEventListener('DOMContentLoaded', async () => {
+  await verifyAdminSession();
+  await loadStaffList();
+  await loadAuditLogs();
+});
+
+async function verifyAdminSession() {
+  try {
+    const res = await fetch('/api/admin/auth/session', { credentials: 'include' });
+    const data = await res.json();
+    if (data.success && data.data && data.data.authenticated) {
+      currentAdmin = data.data.admin;
+      const badge = document.getElementById('current-admin-role');
+      if (badge) badge.innerText = currentAdmin.role || 'ADMIN';
+    }
+  } catch (e) {
+    console.warn('Admin session check note:', e);
+  }
+}
+
+async function loadStaffList() {
+  try {
+    const res = await fetch('/api/admin/staff', { credentials: 'include' });
+    const data = await res.json();
+    const tbody = document.getElementById('staff-table-body');
+    const countBadge = document.getElementById('staff-count');
+
+    if (!data.success || !Array.isArray(data.data.staff)) {
+      tbody.innerHTML = '<tr><td colspan="6" class="text-center py-6 text-error">Failed to load staff records.</td></tr>';
+      return;
+    }
+
+    const list = data.data.staff;
+    if (countBadge) countBadge.innerText = `${list.length} Members`;
+
+    if (list.length === 0) {
+      tbody.innerHTML = '<tr><td colspan="6" class="text-center py-6 text-on-surface-variant">No staff members created yet. Use the "Add New Staff" button to onboard staff.</td></tr>';
+      return;
+    }
+
+    tbody.innerHTML = list.map(s => `
+      <tr class="hover:bg-surface-container-high/40 transition-colors">
+        <td class="py-4 px-6 font-medium text-white flex items-center gap-3">
+          <div class="w-8 h-8 rounded-full bg-primary/20 text-primary flex items-center justify-center font-bold text-xs">
+            ${s.name.charAt(0).toUpperCase()}
+          </div>
+          <div>
+            <div>${escapeHtml(s.name)}</div>
+            <div class="text-xs text-outline font-mono">${s.userId}</div>
+          </div>
+        </td>
+        <td class="py-4 px-6 font-mono text-xs text-white">${escapeHtml(s.mobile)}</td>
+        <td class="py-4 px-6">
+          <span class="px-2.5 py-1 rounded-full text-xs font-bold font-mono ${
+            s.role === 'OWNER' ? 'bg-amber-500/20 text-amber-300 border border-amber-500/40' :
+            s.role === 'ADMIN' ? 'bg-purple-500/20 text-purple-300 border border-purple-500/40' :
+            'bg-blue-500/20 text-blue-300 border border-blue-500/40'
+          }">${s.role}</span>
+        </td>
+        <td class="py-4 px-6 text-xs text-on-surface-variant max-w-xs truncate font-mono">
+          ${Array.isArray(s.permissions) ? s.permissions.join(', ') : 'All'}
+        </td>
+        <td class="py-4 px-6">
+          <span class="px-2 py-0.5 rounded-full text-xs font-semibold ${
+            s.status === 'active' ? 'bg-emerald-500/20 text-emerald-300' : 'bg-rose-500/20 text-rose-300'
+          }">${s.status}</span>
+        </td>
+        <td class="py-4 px-6 text-right flex items-center justify-end gap-2">
+          ${s.role !== 'OWNER' ? `
+            <button onclick="toggleStaffStatus('${s.id}', '${s.status === 'active' ? 'disabled' : 'active'}')" class="p-1.5 rounded-lg bg-surface-container-high hover:bg-surface-container-highest text-xs text-white font-medium" title="${s.status === 'active' ? 'Disable Access' : 'Enable Access'}">
+              <span class="material-symbols-outlined text-sm">${s.status === 'active' ? 'block' : 'check_circle'}</span>
+            </button>
+            <button onclick="deleteStaff('${s.id}')" class="p-1.5 rounded-lg bg-error/10 hover:bg-error/20 text-xs text-error font-medium" title="Delete Staff">
+              <span class="material-symbols-outlined text-sm">delete</span>
+            </button>
+          ` : '<span class="text-xs text-outline italic">Protected</span>'}
+        </td>
+      </tr>
+    `).join('');
+  } catch (e) {
+    console.error('Error loading staff:', e);
+  }
+}
+
+async function loadAuditLogs() {
+  try {
+    const res = await fetch('/api/admin/audit-logs', { credentials: 'include' });
+    const data = await res.json();
+    const tbody = document.getElementById('audit-table-body');
+    if (!data.success || !Array.isArray(data.data.logs)) {
+      tbody.innerHTML = '<tr><td colspan="6" class="text-center py-4 text-on-surface-variant">No logs available.</td></tr>';
+      return;
+    }
+    const logs = data.data.logs;
+    if (logs.length === 0) {
+      tbody.innerHTML = '<tr><td colspan="6" class="text-center py-4 text-on-surface-variant">Audit trail is currently clean.</td></tr>';
+      return;
+    }
+    tbody.innerHTML = logs.map(l => `
+      <tr class="hover:bg-surface-container-high/30">
+        <td class="py-2.5 px-4 text-outline">${new Date(l.createdAt).toLocaleTimeString()}</td>
+        <td class="py-2.5 px-4 text-white">${escapeHtml(l.actorName)} <span class="text-[10px] text-primary">(${l.actorRole})</span></td>
+        <td class="py-2.5 px-4 font-bold text-amber-300">${escapeHtml(l.action)}</td>
+        <td class="py-2.5 px-4 text-on-surface-variant">${escapeHtml(l.targetType || '-')}</td>
+        <td class="py-2.5 px-4 max-w-sm truncate text-on-surface-variant">${l.details ? escapeHtml(JSON.stringify(l.details)) : '-'}</td>
+        <td class="py-2.5 px-4 text-outline">${escapeHtml(l.ipAddress || 'internal')}</td>
+      </tr>
+    `).join('');
+  } catch (e) {
+    console.error('Error loading audit logs:', e);
+  }
+}
+
+async function submitAddStaff(e) {
+  e.preventDefault();
+  const name = document.getElementById('staff-name-input').value.trim();
+  const mobile = document.getElementById('staff-mobile-input').value.trim();
+  const role = document.getElementById('staff-role-select').value;
+  const password = document.getElementById('staff-password-input').value;
+  const btn = document.getElementById('add-staff-btn');
+
+  btn.disabled = true;
+  btn.innerText = 'Creating...';
+
+  try {
+    const res = await fetch('/api/admin/staff', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      credentials: 'include',
+      body: JSON.stringify({ name, mobile, role, password, permissions: [role.toLowerCase() + '.all'] })
+    });
+    const data = await res.json();
+    if (data.success) {
+      closeAddStaffModal();
+      await loadStaffList();
+      await loadAuditLogs();
+    } else {
+      alert(data.error?.message || 'Failed to create staff member');
+    }
+  } catch (err) {
+    alert('Network error while saving staff.');
+  } finally {
+    btn.disabled = false;
+    btn.innerText = 'Save Staff Member';
+  }
+}
+
+async function toggleStaffStatus(id, newStatus) {
+  if (!confirm(`Are you sure you want to change this staff member to ${newStatus}?`)) return;
+  try {
+    const res = await fetch(`/api/admin/staff/${id}`, {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json' },
+      credentials: 'include',
+      body: JSON.stringify({ status: newStatus })
+    });
+    const data = await res.json();
+    if (data.success) {
+      await loadStaffList();
+      await loadAuditLogs();
+    } else {
+      alert(data.error?.message || 'Status update failed.');
+    }
+  } catch (e) {
+    alert('Network failure.');
+  }
+}
+
+async function deleteStaff(id) {
+  if (!confirm('Are you sure you want to remove this staff account? All their active sessions will be revoked.')) return;
+  try {
+    const res = await fetch(`/api/admin/staff/${id}`, {
+      method: 'DELETE',
+      credentials: 'include'
+    });
+    const data = await res.json();
+    if (data.success) {
+      await loadStaffList();
+      await loadAuditLogs();
+    } else {
+      alert(data.error?.message || 'Deletion failed.');
+    }
+  } catch (e) {
+    alert('Network failure.');
+  }
+}
+
+async function handleAdminLogout() {
+  try {
+    await fetch('/api/admin/auth/logout', { method: 'POST', credentials: 'include' });
+  } catch (e) {}
+  window.location.href = '/';
+}
+
+function openAddStaffModal() {
+  document.getElementById('add-staff-modal').classList.remove('hidden');
+}
+
+function closeAddStaffModal() {
+  document.getElementById('add-staff-modal').classList.add('hidden');
+  document.getElementById('add-staff-form').reset();
+}
+
+function escapeHtml(str) {
+  if (!str) return '';
+  return String(str).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
+}
+</script>
+</body>
+</html>
