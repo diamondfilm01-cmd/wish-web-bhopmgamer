@@ -196,9 +196,22 @@ export function parseAndValidateExplicitUpdateMetadata(rawManifest) {
   }
 
   const tplBlock = (rawManifest.template && typeof rawManifest.template === 'object') ? rawManifest.template : {};
-  const rawUpdateTarget = rawManifest.updateTarget !== undefined ? rawManifest.updateTarget : tplBlock.updateTarget;
-  const rawTemplateId = rawManifest.templateId !== undefined ? rawManifest.templateId : tplBlock.templateId;
-  const rawTemplateSlug = rawManifest.templateSlug !== undefined ? rawManifest.templateSlug : tplBlock.templateSlug;
+  const rawUpdatePolicy = (rawManifest.updatePolicy && typeof rawManifest.updatePolicy === 'object')
+    ? rawManifest.updatePolicy
+    : ((tplBlock.updatePolicy && typeof tplBlock.updatePolicy === 'object') ? tplBlock.updatePolicy : null);
+  const rawUpdateTarget = rawManifest.updateTarget !== undefined
+    ? rawManifest.updateTarget
+    : (tplBlock.updateTarget !== undefined ? tplBlock.updateTarget : rawUpdatePolicy);
+  const rawTemplateId = rawManifest.templateId !== undefined
+    ? rawManifest.templateId
+    : (tplBlock.templateId !== undefined
+        ? tplBlock.templateId
+        : (rawUpdatePolicy && (rawUpdatePolicy.targetTemplateId || rawUpdatePolicy.replacesTemplateId || rawUpdatePolicy.templateId)));
+  const rawTemplateSlug = rawManifest.templateSlug !== undefined
+    ? rawManifest.templateSlug
+    : (tplBlock.templateSlug !== undefined
+        ? tplBlock.templateSlug
+        : (rawUpdatePolicy && (rawUpdatePolicy.targetSlug || rawUpdatePolicy.templateSlug)));
   const rawVersion = rawManifest.version !== undefined
     ? rawManifest.version
     : (tplBlock.templateVersion !== undefined ? tplBlock.templateVersion : tplBlock.version);
@@ -206,7 +219,10 @@ export function parseAndValidateExplicitUpdateMetadata(rawManifest) {
     ? rawManifest.baseVersion
     : (tplBlock.baseVersion !== undefined
         ? tplBlock.baseVersion
-        : (rawUpdateTarget && typeof rawUpdateTarget === 'object' ? rawUpdateTarget.baseVersion : undefined));
+        : (rawUpdateTarget && typeof rawUpdateTarget === 'object' ? (rawUpdateTarget.baseVersion || rawUpdateTarget.previousVersion) : undefined));
+  const rawTargetAliases = Array.isArray(rawUpdatePolicy?.targetAliases || rawUpdatePolicy?.previousIds)
+    ? (rawUpdatePolicy.targetAliases || rawUpdatePolicy.previousIds).filter(x => typeof x === 'string' && /^[a-zA-Z0-9_.-]{1,80}$/.test(x.trim())).map(x => x.trim())
+    : [];
 
   const validateSafeIdentifier = (val, fieldName) => {
     if (val === undefined || val === null || val === '') return null;
@@ -246,8 +262,8 @@ export function parseAndValidateExplicitUpdateMetadata(rawManifest) {
         if (!targetId) targetId = cleanTarget;
       }
     } else if (typeof rawUpdateTarget === 'object' && !Array.isArray(rawUpdateTarget)) {
-      const utId = validateSafeIdentifier(rawUpdateTarget.templateId || rawUpdateTarget.id, 'updateTarget.templateId');
-      const utSlug = validateSafeIdentifier(rawUpdateTarget.templateSlug || rawUpdateTarget.slug, 'updateTarget.templateSlug');
+      const utId = validateSafeIdentifier(rawUpdateTarget.templateId || rawUpdateTarget.targetTemplateId || rawUpdateTarget.replacesTemplateId || rawUpdateTarget.id, 'updateTarget.templateId');
+      const utSlug = validateSafeIdentifier(rawUpdateTarget.templateSlug || rawUpdateTarget.targetSlug || rawUpdateTarget.slug, 'updateTarget.templateSlug');
       if (utId && !targetId) targetId = utId;
       if (utSlug && !targetSlug) targetSlug = utSlug;
       updateTargetNormalized = utId || utSlug || null;
@@ -299,7 +315,8 @@ export function parseAndValidateExplicitUpdateMetadata(rawManifest) {
       templateSlug: targetSlug ? normalizeTemplateSlug(targetSlug) : null,
       version: versionStr,
       baseVersion: baseVersionStr,
-      updateTarget: updateTargetNormalized
+      updateTarget: updateTargetNormalized,
+      targetAliases: rawTargetAliases
     },
     issues
   };
@@ -566,6 +583,9 @@ export async function inspectAndValidateTemplateZip(zipInput, options = {}) {
     }
     normalized = normalized.replace(/^(\.\/)+/, '').replace(/^\/+/, '').replace(/\/+/g, '/');
     if (!normalized) continue;
+    if (/^(?:tests?|__tests__|spec|cypress|playwright)\//i.test(normalized) || /(?:^|\/)test_[a-zA-Z0-9_.-]+\.(?:js|mjs|cjs|ts)$/i.test(normalized)) {
+      continue;
+    }
 
     const segments = normalized.split('/').filter(Boolean);
     if (segments.length > limits.MAX_DIRECTORY_DEPTH) {
@@ -899,10 +919,22 @@ export async function inspectAndValidateTemplateZip(zipInput, options = {}) {
   const isLegacyPackage = !rawManifest || !rawManifest.schemaVersion || String(rawManifest.schemaVersion).startsWith('1.0');
 
   const normalizedManifestObj = utpReport?.normalized || (rawManifest ? normalizeManifestToUtp(rawManifest) : null);
+  const runtimeEntryHtmlFilesMap = new Map();
+  const allowedEntryHtmlPaths = new Set([String(entryFileKey || 'index.html').toLowerCase()]);
+  if (Array.isArray(normalizedManifestObj?.variants)) {
+    for (const v of normalizedManifestObj.variants) {
+      if (v && v.entry) allowedEntryHtmlPaths.add(String(v.entry).replace(/^\.?\/+/, '').toLowerCase());
+    }
+  }
+  for (const [k, v] of extractedFiles.entries()) {
+    if (allowedEntryHtmlPaths.has(k.toLowerCase())) {
+      runtimeEntryHtmlFilesMap.set(k, v);
+    }
+  }
   const buttonInspection = detectAndClassifyPackageButtons({
     manifest: normalizedManifestObj || rawManifest || {},
     htmlContent: entryHtmlText,
-    htmlFilesMap: extractedFiles,
+    htmlFilesMap: runtimeEntryHtmlFilesMap,
     templateContext: {
       templateId: explicitStableId || explicitSlug || '',
       templateSlug: explicitSlug || explicitStableId || ''
@@ -1311,13 +1343,25 @@ export function recognizeTemplatePackage(inspection, existingTemplates = [], opt
     });
   }
 
-  // Conflict Case 4: Admin opened "Update Template" on Intended Template B, but uploaded a ZIP whose stable ID belongs to Template A (or a different explicit ID)
-  if (tplByIntended && pkgStableId && !matchesId(tplByIntended, pkgStableId)) {
+  const matchesTargetAliases = (tpl) => {
+    if (!tpl || !Array.isArray(updateMeta.targetAliases) || updateMeta.targetAliases.length === 0) return false;
+    return updateMeta.targetAliases.some(alias => matchesId(tpl, alias) || matchesSlug(tpl, alias));
+  };
+
+  // Conflict Case 4: Admin opened "Update Template" on Intended Template B, but uploaded a ZIP whose stable ID belongs to a DIFFERENT existing Template A
+  if (
+    tplByIntended &&
+    pkgStableId &&
+    !matchesId(tplByIntended, pkgStableId) &&
+    !matchesTargetAliases(tplByIntended) &&
+    tplByStableId &&
+    tplByStableId.id !== tplByIntended.id
+  ) {
     conflicts.push({
       code: 'INTENDED_TARGET_IDENTITY_MISMATCH',
-      message: `Selected update target is "${tplByIntended.name}" (${tplByIntended.id}), but the uploaded package declares stable ID "${pkgStableId}"${tplByStableId ? ` belonging to "${tplByStableId.name}" (${tplByStableId.id})` : ''}.`,
+      message: `Selected update target is "${tplByIntended.name}" (${tplByIntended.id}), but the uploaded package declares stable ID "${pkgStableId}" belonging to "${tplByStableId.name}" (${tplByStableId.id}).`,
       intendedTemplate: { id: tplByIntended.id, name: tplByIntended.name, slug: tplByIntended.slug },
-      conflictingTemplate: tplByStableId ? { id: tplByStableId.id, name: tplByStableId.name, slug: tplByStableId.slug } : null,
+      conflictingTemplate: { id: tplByStableId.id, name: tplByStableId.name, slug: tplByStableId.slug },
       uploadedId: pkgStableId
     });
   }
@@ -1335,7 +1379,9 @@ export function recognizeTemplatePackage(inspection, existingTemplates = [], opt
     const updateMetaMatched = Boolean(
       (updateMeta.templateId && matchesId(tpl, updateMeta.templateId)) ||
       (updateMeta.updateTarget && (matchesId(tpl, updateMeta.updateTarget) || matchesSlug(tpl, updateMeta.updateTarget))) ||
-      (updateMeta.templateSlug && matchesSlug(tpl, updateMeta.templateSlug))
+      (updateMeta.templateSlug && matchesSlug(tpl, updateMeta.templateSlug)) ||
+      matchesTargetAliases(tpl) ||
+      (tplByIntended && tplByIntended.id === tpl.id && !tplByStableId)
     );
 
     if (idMatched) {
@@ -2803,7 +2849,21 @@ export function serializeStagedFilesBundle(extractedFiles, options = {}) {
   const MINIMAL_JPEG_STUB_B64 = '/9j/4AAQSkZJRgABAQEASABIAAD/2wBDAP//////////////////////////////////////////////////////////////////////////////////////wgALCAABAAEBAREA/8QAFBABAAAAAAAAAAAAAAAAAAAAAP/aAAgBAQABPxA=';
 
   for (const [relPath, fileObj] of extractedFiles.entries()) {
+    const lowerRel = String(relPath).toLowerCase();
+    if (/^(?:tests?|__tests__|spec|docs)\//i.test(lowerRel)) continue;
     if (fileObj.text !== null && fileObj.text !== undefined) {
+      // If wishmagic.json is large (> 48KB), store a marker and reconstruct from manifest_json on deserialize
+      // so wishmagic.json is not stored twice in template_import_sessions!
+      if ((lowerRel === 'wishmagic.json' || lowerRel === 'manifest.json') && String(fileObj.text).length > 48 * 1024) {
+        bundle[relPath] = {
+          isBase64: false,
+          content: '',
+          useSessionManifestJson: true,
+          sizeBytes: fileObj.sizeBytes,
+          mimeType: fileObj.mimeType
+        };
+        continue;
+      }
       bundle[relPath] = {
         isBase64: false,
         content: fileObj.text,
@@ -2827,9 +2887,14 @@ export function serializeStagedFilesBundle(extractedFiles, options = {}) {
         accumulatedBinaryBytes += bytes.byteLength;
       } else {
         const mime = String(fileObj.mimeType || getMimeType(relPath)).toLowerCase();
+        const MINIMAL_MP3_STUB_B64 = 'SUQzBAAAAAAAClRJVDIAAAACAAAA//uQZAAAAAAAAAAA';
+        const MINIMAL_MP4_STUB_B64 = 'AAAAGGZ0eXBtcDQyAAAAAG1wNDJpc29t';
+        const stubB64 = mime.startsWith('image/')
+          ? MINIMAL_JPEG_STUB_B64
+          : (mime.startsWith('video/') ? MINIMAL_MP4_STUB_B64 : MINIMAL_MP3_STUB_B64);
         bundle[relPath] = {
           isBase64: true,
-          content: mime.startsWith('image/') ? MINIMAL_JPEG_STUB_B64 : '',
+          content: stubB64,
           sizeBytes: fileObj.sizeBytes,
           mimeType: fileObj.mimeType,
           omittedLargeBinary: true
@@ -2843,11 +2908,23 @@ export function serializeStagedFilesBundle(extractedFiles, options = {}) {
 /**
  * Reconstructs a Map of extracted files from a serialized staged bundle
  */
-export function deserializeStagedFilesBundle(bundleObj) {
+export function deserializeStagedFilesBundle(bundleObj, fallbackManifestJsonStr = null) {
   const map = new Map();
   if (!bundleObj || typeof bundleObj !== 'object') return map;
   for (const [relPath, item] of Object.entries(bundleObj)) {
     if (!item || typeof item !== 'object') continue;
+    if (item.useSessionManifestJson && fallbackManifestJsonStr) {
+      const text = typeof fallbackManifestJsonStr === 'string' ? fallbackManifestJsonStr : JSON.stringify(fallbackManifestJsonStr, null, 2);
+      const bytes = new TextEncoder().encode(text);
+      map.set(relPath, {
+        relativePath: relPath,
+        content: bytes,
+        text,
+        sizeBytes: item.sizeBytes || bytes.byteLength,
+        mimeType: item.mimeType || 'application/json'
+      });
+      continue;
+    }
     if (item.isBase64) {
       const clean = String(item.content || '').replace(/^data:[^;]+;base64,/i, '').replace(/\s+/g, '');
       const bin = atob(clean);
@@ -3276,7 +3353,6 @@ export async function stageAndRecognizeTemplateZip({
         manifest_json = ?,
         files_inventory_json = ?,
         validation_report_json = ?,
-        comparison_report_json = ?,
         base_template_lock_version = ?,
         base_published_version_id = ?,
         updated_at = ?
@@ -3295,14 +3371,22 @@ export async function stageAndRecognizeTemplateZip({
     JSON.stringify(inspection.normalizedManifest || {}),
     JSON.stringify(inspection.fileRecords || []),
     JSON.stringify(validationPayload),
-    JSON.stringify(comparison),
     baseLockVersion,
     basePublishedVersionId,
     updatedAt,
     sessionId
   ).run();
 
-  // Persist staged_files_bundle_json in its own statement so combined parameters never exceed D1 1MB statement limit
+  // Persist comparison_report_json and staged_files_bundle_json in separate statements so combined parameters never exceed D1 1MB statement limit
+  await db.prepare(`
+    UPDATE template_import_sessions
+    SET comparison_report_json = ?
+    WHERE id = ?
+  `).bind(
+    JSON.stringify(comparison),
+    sessionId
+  ).run();
+
   await db.prepare(`
     UPDATE template_import_sessions
     SET staged_files_bundle_json = ?
@@ -3438,7 +3522,7 @@ export async function compareImportSessionWithTarget({
   }
 
   const stagedBundle = safeJsonParse(row.staged_files_bundle_json, {});
-  const extractedFiles = deserializeStagedFilesBundle(stagedBundle);
+  const extractedFiles = deserializeStagedFilesBundle(stagedBundle, row.manifest_json);
   const fileRecords = safeJsonParse(row.files_inventory_json, []);
   const normalizedManifest = safeJsonParse(row.manifest_json, {});
   const packageMetadata = safeJsonParse(row.package_metadata_json, {});
@@ -3632,7 +3716,7 @@ export async function validateImportSessionDecision({
 
     // Recompute fresh comparison against target template
     const stagedBundle = safeJsonParse(row.staged_files_bundle_json, {});
-    const extractedFiles = deserializeStagedFilesBundle(stagedBundle);
+    const extractedFiles = deserializeStagedFilesBundle(stagedBundle, row.manifest_json);
     const fileRecords = safeJsonParse(row.files_inventory_json, []);
     comparison = compareExistingTemplateWithStagedPackage(existingContext, {
       valid: true,
@@ -3895,6 +3979,12 @@ export async function publishImportSession({
       for (let i = 0; i < binStr.length; i++) bytes[i] = binStr.charCodeAt(i);
       zipBuffer = bytes.buffer;
     } else {
+      for (const [k, v] of Object.entries(stagedBundle || {})) {
+        if (v && v.useSessionManifestJson && row.manifest_json) {
+          v.content = row.manifest_json;
+          delete v.useSessionManifestJson;
+        }
+      }
       zipBuffer = await createZipFromFiles(stagedBundle);
     }
 

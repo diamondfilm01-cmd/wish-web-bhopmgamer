@@ -301,6 +301,9 @@ export async function extractAndVerifyZip(zipBuffer) {
     }
     normalized = normalized.replace(/^\/+/, '');
     if (!normalized) continue;
+    if (/^(?:tests?|__tests__|spec|cypress|playwright)\//i.test(normalized) || /(?:^|\/)test_[a-zA-Z0-9_.-]+\.(?:js|mjs|cjs|ts)$/i.test(normalized)) {
+      continue;
+    }
 
     // Directory depth limit check
     const pathParts = normalized.split('/').filter(Boolean);
@@ -1393,7 +1396,18 @@ export async function executeB2TemplateIngestPipeline(params) {
           extra.isRetryable !== undefined ? (extra.isRetryable ? 1 : 0) : 1,
           extra.errorCode || null,
           extra.errorMessage || null,
-          typeof extra.validationReport === 'object' ? JSON.stringify(extra.validationReport) : (extra.validationReportJson || '{}'),
+          typeof extra.validationReport === 'object' && extra.validationReport !== null
+            ? JSON.stringify({
+                valid: Boolean(extra.validationReport.valid),
+                mode: extra.validationReport.mode || 'utp-manifest',
+                errors: extra.validationReport.errors || [],
+                warnings: extra.validationReport.warnings || [],
+                summary: extra.validationReport.summary || {},
+                configErrors: extra.validationReport.configErrors || undefined,
+                securityIssues: extra.validationReport.securityIssues || undefined,
+                moderationIssues: extra.validationReport.moderationIssues || undefined
+              })
+            : (extra.validationReportJson || '{}'),
           Array.isArray(extra.inventory) ? JSON.stringify(extra.inventory) : (extra.inventoryJson || '[]'),
           Array.isArray(extra.b2Objects) ? JSON.stringify(extra.b2Objects) : (extra.b2ObjectsJson || '[]'),
           nowIso,
@@ -2080,7 +2094,23 @@ export async function executeB2TemplateIngestPipeline(params) {
     actionsConfig: uploadActionsConfig,
     relationships: utpReport.normalized?.relationships || [],
     storageKeys: keys,
-    validationReport: utpReport,
+    validationReport: {
+      valid: Boolean(utpReport?.valid),
+      mode: utpReport?.mode || 'utp-manifest',
+      errors: utpReport?.errors || [],
+      warnings: utpReport?.warnings || [],
+      summary: utpReport?.summary || {},
+      variants: utpReport?.variants ? {
+        hasVariants: Boolean(utpReport.variants.hasVariants),
+        detectedVariantCount: utpReport.variants.detectedVariantCount || 0,
+        validVariantsCount: utpReport.variants.validVariantsCount || 0,
+        invalidVariantsCount: utpReport.variants.invalidVariantsCount || 0,
+        detectedRelations: utpReport.variants.detectedRelations || [],
+        invalidVariants: utpReport.variants.invalidVariants || [],
+        readyForReview: Boolean(utpReport.variants.readyForReview),
+        readyForPublishing: Boolean(utpReport.variants.readyForPublishing)
+      } : null
+    },
     createdAt: now.toISOString()
   };
 
@@ -2773,7 +2803,29 @@ export async function executeB2TemplateIngestPipeline(params) {
         JSON.stringify(uploadVisibilityConfig || {}),
         JSON.stringify(uploadActionsConfig || {}),
         JSON.stringify(declaredRelSlugs),
-        JSON.stringify(utpReport.normalized || {}),
+        JSON.stringify(
+          utpReport.normalized
+            ? {
+                ...utpReport.normalized,
+                variants: Array.isArray(utpReport.normalized.variants)
+                  ? utpReport.normalized.variants.map(v => ({
+                      id: v.id,
+                      slug: v.slug,
+                      name: v.name,
+                      relationship: v.relationship,
+                      relationshipLabel: v.relationshipLabel || v.label,
+                      enabled: v.enabled !== false,
+                      status: v.status || 'published',
+                      isDefault: Boolean(v.isDefault),
+                      order: v.order || v.sortOrder || 1,
+                      theme: v.theme || {},
+                      visibilityOverrides: v.visibilityOverrides || v.visibility || {},
+                      actions: v.actions || []
+                    }))
+                  : []
+              }
+            : {}
+        ),
         familySlug,
         extracted.entryFile,
         JSON.stringify(registeredVariantRecords.map(vr => ({
@@ -3122,8 +3174,17 @@ export async function executeB2TemplateIngestPipeline(params) {
     const runAtomicRegistration = async () => {
       const stmts = await buildRegistrationStatements();
       if (typeof db.batch === 'function') {
-        const D1_BATCH_CHUNK_SIZE = 40;
-        for (let i = 0; i < stmts.length; i += D1_BATCH_CHUNK_SIZE) {
+        // Execute core header statements (template_families, templates, template_versions) individually
+        // so large manifest_json / variants_json payloads never combine to exceed Cloudflare D1's 1MB batch limit
+        const headerCount = Math.min(3, stmts.length);
+        for (let h = 0; h < headerCount; h++) {
+          const singleRes = await db.batch([stmts[h]]);
+          if (Array.isArray(singleRes) && singleRes.some(r => r && r.success === false)) {
+            throw new Error('Atomic D1 registration header statement reported failed result');
+          }
+        }
+        const D1_BATCH_CHUNK_SIZE = 20;
+        for (let i = headerCount; i < stmts.length; i += D1_BATCH_CHUNK_SIZE) {
           const chunk = stmts.slice(i, i + D1_BATCH_CHUNK_SIZE);
           const batchResults = await db.batch(chunk);
           if (Array.isArray(batchResults) && batchResults.some(r => r && r.success === false)) {

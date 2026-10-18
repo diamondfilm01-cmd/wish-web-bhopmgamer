@@ -188,8 +188,13 @@ window.WishMagicCore = {
     colleague: { slug: 'colleague', label: 'Colleague', icon: '💼' },
     rel_crush: { slug: 'crush', label: 'Crush', icon: '💘' },
     crush: { slug: 'crush', label: 'Crush', icon: '💘' },
-    rel_fiance: { slug: 'fiance', label: 'Fiancé / Fiancée', icon: '💎' },
-    fiance: { slug: 'fiance', label: 'Fiancé / Fiancée', icon: '💎' },
+    rel_fiance: { slug: 'fiance', label: 'Fiancé', icon: '💎' },
+    fiance: { slug: 'fiance', label: 'Fiancé', icon: '💎' },
+    rel_fiancee: { slug: 'fiancee', label: 'Fiancée', icon: '🌸' },
+    fiancee: { slug: 'fiancee', label: 'Fiancée', icon: '🌸' },
+    rel_life_partner: { slug: 'life_partner', label: 'Life Partner', icon: '🪐' },
+    life_partner: { slug: 'life_partner', label: 'Life Partner', icon: '🪐' },
+    'life-partner': { slug: 'life_partner', label: 'Life Partner', icon: '🪐' },
     rel_teacher: { slug: 'teacher', label: 'Teacher / Mentor', icon: '🎓' },
     teacher: { slug: 'teacher', label: 'Teacher / Mentor', icon: '🎓' }
   };

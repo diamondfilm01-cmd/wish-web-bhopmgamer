@@ -1996,7 +1996,10 @@ export async function validateTemplateSecurityAndModeration(filesMap, manifest =
   // 2. Iterate through all files in package
   if (filesMap && typeof filesMap.entries === 'function') {
     for (const [relPath, fileObj] of filesMap.entries()) {
-      const lowerPath = String(relPath).toLowerCase();
+      const lowerPath = String(relPath).replace(/\\/g, '/').replace(/^\/+/, '').toLowerCase();
+      if (/^(?:tests?|__tests__|spec|cypress|playwright)\//i.test(lowerPath) || /(?:^|\/)test_[a-z0-9_.-]+\.(?:js|mjs|cjs|ts)$/i.test(lowerPath)) {
+        continue;
+      }
       const rawBytes = fileObj?.content instanceof Uint8Array
         ? fileObj.content
         : toUint8Array(fileObj?.content || new Uint8Array(0));

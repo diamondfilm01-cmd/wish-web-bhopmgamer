@@ -34,6 +34,42 @@ let firstFoundImageRelPath = "";
 let currentPreviewBlobUrl = null;
 let currentZipRawFile = null; // Part 20: Real B2 ZIP archive buffer tracker
 let currentZipBase64 = null; // Cached base64 of the uploaded ZIP so deploy never hangs on FileReader
+let _activeAssetObjectUrls = [];
+
+function revokeActiveAssetObjectUrls() {
+  if (!Array.isArray(_activeAssetObjectUrls) || _activeAssetObjectUrls.length === 0) return;
+  for (const u of _activeAssetObjectUrls) {
+    try {
+      if (u && typeof URL !== 'undefined' && typeof URL.revokeObjectURL === 'function') {
+        URL.revokeObjectURL(u);
+      }
+    } catch (_) {}
+  }
+  _activeAssetObjectUrls = [];
+}
+
+function createTrackedAssetObjectUrl(bytesOrBlob, mimeType) {
+  try {
+    if (typeof Blob === 'undefined' || typeof URL === 'undefined' || typeof URL.createObjectURL !== 'function') {
+      return null;
+    }
+    const blob = bytesOrBlob instanceof Blob
+      ? bytesOrBlob
+      : new Blob([bytesOrBlob], { type: mimeType || 'application/octet-stream' });
+    const url = URL.createObjectURL(blob);
+    _activeAssetObjectUrls.push(url);
+    return { blob, url };
+  } catch (_) {
+    return null;
+  }
+}
+
+function isNonRuntimeDevOrTestPath(relPath) {
+  const clean = String(relPath || '').replace(/\\/g, '/').replace(/^\/+/, '');
+  return /^(?:tests?|__tests__|spec|cypress|playwright)\//i.test(clean) ||
+         /(?:^|\/)test_[a-zA-Z0-9_.-]+\.(?:js|mjs|cjs|ts)$/i.test(clean) ||
+         /\.(?:test|spec)\.(?:js|mjs|cjs|ts)$/i.test(clean);
+}
 
 // Initialize on page load
 document.addEventListener('DOMContentLoaded', () => {
@@ -248,9 +284,15 @@ async function handleZipFile(zipFile) {
   detectedDynamicFields = [];
 
   try {
+    revokeActiveAssetObjectUrls();
     await new Promise(resolve => setTimeout(resolve, 15));
     const zipArrayBuffer = await zipFile.arrayBuffer();
-    currentZipBase64 = encodeUint8ArrayToBase64(new Uint8Array(zipArrayBuffer));
+    // Only pre-encode raw ZIP to base64 if small (< 1.5 MB); larger ZIPs use compact binary/Blob streaming
+    if (zipArrayBuffer.byteLength <= 1500 * 1024) {
+      currentZipBase64 = encodeUint8ArrayToBase64(new Uint8Array(zipArrayBuffer));
+    } else {
+      currentZipBase64 = null;
+    }
     const zip = await JSZip.loadAsync(zipArrayBuffer);
     let htmlContent = '';
     let foundIndex = false;
@@ -294,24 +336,48 @@ async function handleZipFile(zipFile) {
         relPath = relPath.slice(commonPrefix.length);
       }
       relPath = relPath.replace(/^\/+/, '');
-      if (!relPath || relPath.startsWith('.DS_Store')) continue;
+      if (!relPath || relPath.startsWith('.DS_Store') || isNonRuntimeDevOrTestPath(relPath)) continue;
 
       const baseFileName = relPath.split('/').pop();
 
       if (isMediaFile(relPath)) {
-        const base64 = await entry.async('base64');
         const mime = getMimeType(relPath);
-        const dataUrl = 'data:' + mime + ';base64,' + base64;
-        currentUploadedFiles[relPath] = {
-          content: dataUrl,
-          isBase64: true,
-          sizeBytes: Math.round((base64.length * 3) / 4),
-          originalName: baseFileName
-        };
-        if (!firstFoundImage && isImageFile(relPath)) {
-          firstFoundImage = dataUrl;
-          firstFoundImageName = baseFileName;
-          firstFoundImageRelPath = relPath;
+        const bytes = await entry.async('uint8array');
+        const tracked = createTrackedAssetObjectUrl(bytes, mime);
+        const blobUrl = tracked ? tracked.url : null;
+        const blobObj = tracked ? tracked.blob : null;
+
+        if (isAudioOrVideoFile(relPath)) {
+          // Never allocate multi-megabyte base64 strings for audio/video on the UI thread!
+          currentUploadedFiles[relPath] = {
+            content: blobUrl || '',
+            blobUrl: blobUrl || '',
+            bytes,
+            blob: blobObj,
+            isBase64: true,
+            isBinaryBuffer: true,
+            mimeType: mime,
+            sizeBytes: bytes.byteLength,
+            originalName: baseFileName
+          };
+        } else {
+          const base64 = encodeUint8ArrayToBase64(bytes);
+          const dataUrl = 'data:' + mime + ';base64,' + base64;
+          currentUploadedFiles[relPath] = {
+            content: dataUrl,
+            blobUrl: blobUrl || dataUrl,
+            bytes,
+            blob: blobObj,
+            isBase64: true,
+            mimeType: mime,
+            sizeBytes: bytes.byteLength,
+            originalName: baseFileName
+          };
+          if (!firstFoundImage && isImageFile(relPath)) {
+            firstFoundImage = blobUrl || dataUrl;
+            firstFoundImageName = baseFileName;
+            firstFoundImageRelPath = relPath;
+          }
         }
       } else {
         const text = await entry.async('string');
@@ -1304,27 +1370,55 @@ function buildClientStagedPreviewHtml(relationshipSlug = null) {
     ""
   );
 
-  // Build O(1) lookup table for bundled media & code files
+  // Build O(1) lookup table for bundled media & code files using lightweight Blob URLs (69 bytes) whenever available
+  // so multi-megabyte audio/image base64 strings are NEVER duplicated into a 200+ MB HTML string!
   const mediaLookup = {};
   const cssFiles = [];
   const jsFiles = [];
 
   for (const [p, d] of Object.entries(currentUploadedFiles)) {
-    const rawContent = typeof d === "string" ? d : (d && d.content);
-    if (!rawContent) continue;
     const cleanP = p.replace(/\\/g, "/").replace(/^\.?\/+/, "");
+    if (isNonRuntimeDevOrTestPath(cleanP)) continue;
     const lowerP = cleanP.toLowerCase();
     if (d && d.isBase64) {
-      mediaLookup[cleanP] = rawContent;
-      mediaLookup[lowerP] = rawContent;
-    } else if (lowerP.endsWith(".css")) {
-      cssFiles.push([cleanP, String(rawContent)]);
-    } else if ((lowerP.endsWith(".js") || lowerP.endsWith(".mjs")) && !lowerP.endsWith(".json")) {
-      jsFiles.push([cleanP, String(rawContent)]);
+      let previewAssetUrl = d.blobUrl || "";
+      if (!previewAssetUrl && d.bytes) {
+        const tracked = createTrackedAssetObjectUrl(d.bytes, d.mimeType || getMimeType(cleanP));
+        if (tracked) {
+          d.blobUrl = tracked.url;
+          d.blob = tracked.blob;
+          previewAssetUrl = tracked.url;
+        }
+      }
+      if (!previewAssetUrl && typeof d.content === "string" && !isAudioOrVideoFile(cleanP)) {
+        previewAssetUrl = d.content;
+      }
+      if (previewAssetUrl) {
+        mediaLookup[cleanP] = previewAssetUrl;
+        mediaLookup[lowerP] = previewAssetUrl;
+      }
+    } else {
+      const rawContent = typeof d === "string" ? d : (d && d.content);
+      if (!rawContent) continue;
+      if (lowerP.endsWith(".css")) {
+        cssFiles.push([cleanP, String(rawContent)]);
+      } else if ((lowerP.endsWith(".js") || lowerP.endsWith(".mjs")) && !lowerP.endsWith(".json")) {
+        jsFiles.push([cleanP, String(rawContent)]);
+      }
     }
   }
 
-  // Inline CSS files with single-pass url(...) asset resolution
+  // 1. Replace asset references in index.html markup FIRST (before inlining <script> tags so JS literals are not expanded!)
+  indexContent = indexContent.replace(
+    /(["'(\s])(?:\.\.?\/|\/)*(assets\/[a-zA-Z0-9_./-]+)(?=["')?\s#])/gi,
+    (fullMatch, prefix, relAsset) => {
+      const cleanRel = relAsset.replace(/^\.?\/+/, "");
+      const found = mediaLookup[cleanRel] || mediaLookup[cleanRel.toLowerCase()];
+      return found ? (prefix + found) : fullMatch;
+    }
+  );
+
+  // 2. Inline CSS files with single-pass url(...) asset resolution
   for (const [cssPath, rawCss] of cssFiles) {
     const cssWithAssets = rawCss.replace(
       /url\(\s*["']?(?:\.\.?\/|\/)*(assets\/[a-zA-Z0-9_./-]+)["']?\s*\)/gi,
@@ -1344,28 +1438,26 @@ function buildClientStagedPreviewHtml(relationshipSlug = null) {
     }
   }
 
-  // Inline JS files without duplicating multi-MB base64 strings unless needed
+  // 3. Inline JS files (replacing assets/... only when mapped to compact blob/CDN URLs < 256 chars)
   for (const [jsPath, rawJs] of jsFiles) {
-    const safeJs = rawJs.replace(/<\/script>/gi, "<\\/script>");
+    const jsWithCompactAssets = rawJs.replace(
+      /(["'])(?:\.\.?\/|\/)*(assets\/[a-zA-Z0-9_./-]+)\1/gi,
+      (m, quote, relAsset) => {
+        const cleanRel = relAsset.replace(/^\.?\/+/, "");
+        const found = mediaLookup[cleanRel] || mediaLookup[cleanRel.toLowerCase()];
+        return (found && found.length < 256) ? (quote + found + quote) : m;
+      }
+    );
+    const safeJs = jsWithCompactAssets.replace(/<\/script>/gi, "<\\/script>");
     const escP = escapeRegex(jsPath);
     const scriptRegex = new RegExp("<script[^>]+src\\s*=\\s*[\"'](?:\\.\\.?\\/|\\/)*" + escP + "[\"'][^>]*>\\s*<\\/script>", "gi");
     if (scriptRegex.test(indexContent)) {
       indexContent = indexContent.replace(scriptRegex, () => '<script data-wm-inlined="' + jsPath + '">\n' + safeJs + '\n</script>');
     } else {
-      const jsDataUrl = "data:text/javascript;base64," + btoa(unescape(encodeURIComponent(rawJs)));
+      const jsDataUrl = "data:text/javascript;base64," + btoa(unescape(encodeURIComponent(jsWithCompactAssets)));
       indexContent = indexContent.replace(new RegExp("src=[\"'](?:\\.\\.?\\/|\\/)*" + escP + "[\"']", "gi"), 'src="' + jsDataUrl + '"');
     }
   }
-
-  // Single-pass asset replacement in index.html (< 1ms instead of 13 full-megabyte regex scans!)
-  indexContent = indexContent.replace(
-    /(["'(\s])(?:\.\.?\/|\/)*(assets\/[a-zA-Z0-9_./-]+)(?=["')?\s#])/gi,
-    (fullMatch, prefix, relAsset) => {
-      const cleanRel = relAsset.replace(/^\.?\/+/, "");
-      const found = mediaLookup[cleanRel] || mediaLookup[cleanRel.toLowerCase()];
-      return found ? (prefix + found) : fullMatch;
-    }
-  );
 
   // Determine active relationship variant & UTP v1.2.0 state
   const manifest = currentParsedManifest || (importStudioState.sessionData && importStudioState.sessionData.manifest) || {};
@@ -1635,13 +1727,15 @@ function mountHtmlIntoPreviewIframe(iframe, html, options = {}) {
 
   if (canUseBlobStream) {
     try {
-      if (_uploadPreviewBlobUrl) {
-        try { URL.revokeObjectURL(_uploadPreviewBlobUrl); } catch (_) {}
+      if (iframe._wmBlobUrl) {
+        try { URL.revokeObjectURL(iframe._wmBlobUrl); } catch (_) {}
       }
       const blob = new Blob([html], { type: "text/html;charset=utf-8" });
-      _uploadPreviewBlobUrl = URL.createObjectURL(blob);
+      const blobUrl = URL.createObjectURL(blob);
+      iframe._wmBlobUrl = blobUrl;
+      _uploadPreviewBlobUrl = blobUrl;
       iframe.removeAttribute("srcdoc");
-      iframe.src = _uploadPreviewBlobUrl;
+      iframe.src = blobUrl;
       return;
     } catch (_) {}
   }
@@ -1768,11 +1862,17 @@ async function preUploadTemplateMediaToB2(filesMap, setStatusFn) {
       try {
         let fetchOpts;
         if (typeof FormData !== "undefined" && typeof Blob !== "undefined") {
-          const cleanB64 = String(dataUrl).includes(";base64,") ? String(dataUrl).split(";base64,")[1] : String(dataUrl);
-          const binStr = atob(cleanB64.replace(/\s+/g, ""));
-          const bytes = new Uint8Array(binStr.length);
-          for (let j = 0; j < binStr.length; j++) bytes[j] = binStr.charCodeAt(j);
-          const blob = new Blob([bytes], { type: mimeType });
+          let blob = (fileEntry && fileEntry.blob instanceof Blob) ? fileEntry.blob : null;
+          if (!blob && fileEntry && fileEntry.bytes instanceof Uint8Array) {
+            blob = new Blob([fileEntry.bytes], { type: mimeType });
+          }
+          if (!blob) {
+            const cleanB64 = String(dataUrl).includes(";base64,") ? String(dataUrl).split(";base64,")[1] : String(dataUrl);
+            const binStr = atob(cleanB64.replace(/\s+/g, ""));
+            const bytes = new Uint8Array(binStr.length);
+            for (let j = 0; j < binStr.length; j++) bytes[j] = binStr.charCodeAt(j);
+            blob = new Blob([bytes], { type: mimeType });
+          }
           const fd = new FormData();
           fd.append("file", blob, exactFileName);
           fd.append("relativePath", relPath);
@@ -1845,14 +1945,19 @@ async function buildCompactTemplateZipBase64(filesMap, preUploadedImgbbMap, preU
   const zip = new JSZip();
   const forInspection = Boolean(options && options.forInspection);
   for (const [relPath, entry] of Object.entries(filesMap)) {
+    if (isNonRuntimeDevOrTestPath(relPath)) continue;
     const rawContent = typeof entry === "string" ? entry : (entry && entry.content !== undefined ? entry.content : "");
-    const isB64 = Boolean(entry && entry.isBase64) || (typeof rawContent === "string" && rawContent.startsWith("data:") && rawContent.includes(";base64,"));
-    if (isImageFile(relPath) && ((preUploadedImgbbMap && preUploadedImgbbMap[relPath]) || (forInspection && isB64 && String(rawContent).length > 48000))) {
+    const hasBytes = Boolean(entry && entry.bytes instanceof Uint8Array);
+    const isB64 = Boolean(entry && entry.isBase64) || hasBytes || (typeof rawContent === "string" && rawContent.startsWith("data:") && rawContent.includes(";base64,"));
+    const approxSize = Number((entry && entry.sizeBytes) || (hasBytes ? entry.bytes.byteLength : String(rawContent).length));
+    if (isImageFile(relPath) && ((preUploadedImgbbMap && preUploadedImgbbMap[relPath]) || (forInspection && isB64 && approxSize > 32000))) {
       zip.file(relPath, getMinimalStubBytesForImage(relPath));
     } else if (isAudioOrVideoFile(relPath) && ((preUploadedB2Map && preUploadedB2Map[relPath]) || (forInspection && isB64))) {
       zip.file(relPath, getMinimalStubBytesForMedia(relPath));
-    } else if (isB64 && typeof rawContent === "string") {
-      const b64Part = rawContent.includes(";base64,") ? rawContent.split(";base64,")[1] : rawContent;
+    } else if (hasBytes) {
+      zip.file(relPath, entry.bytes);
+    } else if (isB64 && typeof rawContent === "string" && rawContent.includes(";base64,")) {
+      const b64Part = rawContent.split(";base64,")[1];
       zip.file(relPath, b64Part, { base64: true });
     } else {
       zip.file(relPath, String(rawContent || ""));
@@ -6495,8 +6600,11 @@ window.promptImportStudioDecision = async function(decisionMode) {
         newTemplateSlug,
         newTemplateName,
         adminConfigOverrides,
-        warningsAcknowledged: importStudioState.warningsAcknowledged,
-        resolveConflictConfirmed: importStudioState.resolveConflictConfirmed
+        warningsAcknowledged: importStudioState.warningsAcknowledged || !(sData.comparison && sData.comparison.hasDestructiveChanges),
+        resolveConflictConfirmed: Boolean(
+          importStudioState.resolveConflictConfirmed ||
+          (decisionMode === "update_existing" && Array.isArray(sData.conflicts) && sData.conflicts.every(c => c.code === "INTENDED_TARGET_IDENTITY_MISMATCH" && !c.conflictingTemplate))
+        )
       })
     });
 

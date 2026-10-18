@@ -9245,7 +9245,7 @@ export default {
 
         if (side === 'staged') {
           const stagedBundle = safeJsonParse(sessionRow.staged_files_bundle_json, {});
-          const filesMap = deserializeStagedFilesBundle(stagedBundle);
+          const filesMap = deserializeStagedFilesBundle(stagedBundle, sessionRow.manifest_json);
           const manifest = safeJsonParse(sessionRow.manifest_json, {});
           const overrides = safeJsonParse(sessionRow.admin_config_overrides_json, {});
 
