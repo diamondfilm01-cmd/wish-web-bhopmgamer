@@ -4010,8 +4010,13 @@ export async function publishImportSession({
       // Preserve administrative metadata unless explicitly overridden in studio
       ingestName = overrides.name || manifest.template?.name || targetTpl.name;
       ingestCategory = overrides.category || targetTpl.category || manifest.template?.category || 'celebration';
-      ingestTier = overrides.tier || targetTpl.tier || 'free';
-      ingestPrice = overrides.price !== undefined ? Number(overrides.price) : Number(targetTpl.price ?? 0);
+      const rawOverrideTier = String(overrides.tier || manifest.template?.tier || targetTpl.tier || 'free').toLowerCase().trim();
+      ingestTier = (rawOverrideTier === 'free' || overrides.isPremium === false) ? 'free' : ((rawOverrideTier === 'vip' || rawOverrideTier === 'premium' || overrides.isPremium === true) ? 'vip' : 'free');
+      ingestPrice = ingestTier === 'free'
+        ? 0
+        : (overrides.price !== undefined && Number(overrides.price) > 0
+            ? Number(overrides.price)
+            : (Number(manifest.template?.price) > 0 ? Number(manifest.template.price) : (Number(targetTpl.price) > 0 ? Number(targetTpl.price) : 49)));
       ingestDescription = overrides.description || manifest.template?.description || targetTpl.description || '';
       ingestFeatured = overrides.featured !== undefined ? Boolean(overrides.featured) : Boolean(targetTpl.featured);
       ingestPlacement = overrides.placement !== undefined ? Number(overrides.placement) : Number(targetTpl.placement ?? 99);
@@ -4033,8 +4038,13 @@ export async function publishImportSession({
       ingestFamilyId = `fam_${ingestSlug.replace(/-/g, '_')}`;
       ingestName = overrides.newTemplateName || overrides.name || packageMetadata.detectedName || manifest.template?.name || 'Custom Template';
       ingestCategory = overrides.category || manifest.template?.category || 'celebration';
-      ingestTier = overrides.tier || manifest.template?.tier || 'free';
-      ingestPrice = overrides.price !== undefined ? Number(overrides.price) : Number(manifest.template?.price ?? 0);
+      const rawCreateTier = String(overrides.tier || manifest.template?.tier || 'free').toLowerCase().trim();
+      ingestTier = (rawCreateTier === 'free' || overrides.isPremium === false) ? 'free' : ((rawCreateTier === 'vip' || rawCreateTier === 'premium' || overrides.isPremium === true) ? 'vip' : 'free');
+      ingestPrice = ingestTier === 'free'
+        ? 0
+        : (overrides.price !== undefined && Number(overrides.price) > 0
+            ? Number(overrides.price)
+            : (Number(manifest.template?.price) > 0 ? Number(manifest.template.price) : 49));
       ingestDescription = overrides.description || manifest.template?.description || '';
       ingestFeatured = overrides.featured !== undefined ? Boolean(overrides.featured) : false;
       ingestPlacement = overrides.placement !== undefined ? Number(overrides.placement) : 99;
@@ -4058,6 +4068,7 @@ export async function publishImportSession({
         category: ingestCategory,
         tier: ingestTier,
         price: ingestPrice,
+        isPremium: ingestTier === 'vip',
         description: ingestDescription,
         featured: ingestFeatured,
         placement: ingestPlacement,

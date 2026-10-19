@@ -2104,8 +2104,19 @@ export async function executeB2TemplateIngestPipeline(params) {
     versionLabel,
     name: templateMetadata.name || utpReport.normalized?.template?.name || analyzed.title,
     category: templateMetadata.category || utpReport.normalized?.template?.category || 'celebration',
-    tier: templateMetadata.tier || utpReport.normalized?.template?.tier || 'free',
-    price: Number(templateMetadata.price ?? utpReport.normalized?.template?.price ?? 0),
+    tier: (() => {
+      const rawT = String(templateMetadata.tier || utpReport.normalized?.template?.tier || 'free').toLowerCase().trim();
+      if (rawT === 'free' || templateMetadata.isPremium === false) return 'free';
+      if (rawT === 'vip' || rawT === 'premium' || templateMetadata.isPremium === true) return 'vip';
+      const rawP = Number(templateMetadata.price ?? utpReport.normalized?.template?.price ?? 0);
+      return rawP > 0 ? 'vip' : 'free';
+    })(),
+    price: (() => {
+      const rawT = String(templateMetadata.tier || utpReport.normalized?.template?.tier || 'free').toLowerCase().trim();
+      if (rawT === 'free' || templateMetadata.isPremium === false) return 0;
+      const rawP = Number(templateMetadata.price ?? utpReport.normalized?.template?.price ?? 0);
+      return (rawT === 'vip' || rawT === 'premium' || templateMetadata.isPremium === true) ? (rawP > 0 ? rawP : 49) : (rawP > 0 ? rawP : 0);
+    })(),
     entryFile: extracted.entryFile,
     fileCount: analyzed.fileRecords.length,
     totalBytes: extracted.totalUncompressedBytes,
@@ -2740,6 +2751,29 @@ export async function executeB2TemplateIngestPipeline(params) {
       ? registeredVariantRecords.filter(vr => vr.enabled !== 0 && vr.status !== 'disabled').map(vr => vr.relationship_slug)
       : filteredFallbackRels.map(r => normalizeRelationshipIdentifier(r)?.slug || String(r).toLowerCase());
 
+    const resolvedIngestTier = (() => {
+      const explicitTier = templateMetadata.tier !== undefined && templateMetadata.tier !== null && String(templateMetadata.tier).trim() !== ''
+        ? String(templateMetadata.tier).toLowerCase().trim()
+        : null;
+      if (explicitTier === 'free' || templateMetadata.isPremium === false) return 'free';
+      if (explicitTier === 'vip' || explicitTier === 'premium' || templateMetadata.isPremium === true) return 'vip';
+      const fallbackTier = String(utpReport.normalized?.template?.tier || 'free').toLowerCase().trim();
+      if (fallbackTier === 'vip' || fallbackTier === 'premium') return 'vip';
+      const p = Number(templateMetadata.price ?? utpReport.normalized?.template?.price ?? 0);
+      return p > 0 ? 'vip' : 'free';
+    })();
+    const resolvedIngestPrice = resolvedIngestTier === 'free'
+      ? 0
+      : (Number(templateMetadata.price ?? utpReport.normalized?.template?.price ?? 0) > 0
+          ? Number(templateMetadata.price ?? utpReport.normalized?.template?.price ?? 0)
+          : 49);
+    const resolvedIngestIsPremiumInt = resolvedIngestTier === 'vip' ? 1 : 0;
+
+    if (utpReport.normalized && utpReport.normalized.template) {
+      utpReport.normalized.template.tier = resolvedIngestTier;
+      utpReport.normalized.template.price = resolvedIngestPrice;
+    }
+
     // 1. Template Family statement
     registrationStatements.push(
       db.prepare(`
@@ -2753,6 +2787,9 @@ export async function executeB2TemplateIngestPipeline(params) {
           category = excluded.category,
           tier = excluded.tier,
           price = excluded.price,
+          is_featured = excluded.is_featured,
+          is_premium = excluded.is_premium,
+          status = excluded.status,
           supported_relationships_json = excluded.supported_relationships_json,
           updated_at = excluded.updated_at
       `).bind(
@@ -2762,10 +2799,10 @@ export async function executeB2TemplateIngestPipeline(params) {
         templateMetadata.description || 'Custom web celebration template',
         resolvedThumbnail,
         templateMetadata.category || 'celebration',
-        templateMetadata.tier || 'free',
-        Number(templateMetadata.price || 0),
+        resolvedIngestTier,
+        resolvedIngestPrice,
         templateMetadata.featured ? 1 : 0,
-        templateMetadata.isPremium ? 1 : 0,
+        resolvedIngestIsPremiumInt,
         targetTemplateStatus,
         JSON.stringify(declaredRelSlugs),
         authorId,
@@ -2820,9 +2857,9 @@ export async function executeB2TemplateIngestPipeline(params) {
         templateMetadata.description || 'Custom web celebration template',
         templateMetadata.category || 'celebration',
         JSON.stringify(declaredRelLabels),
-        (String(templateMetadata.tier || utpReport.normalized?.template?.tier || 'free').toLowerCase() === 'premium' ? 'vip' : (templateMetadata.tier || utpReport.normalized?.template?.tier || 'free')),
-        Number(templateMetadata.price ?? utpReport.normalized?.template?.price ?? 0),
-        (templateMetadata.tier === 'vip' || templateMetadata.tier === 'premium' || utpReport.normalized?.template?.tier === 'vip' || utpReport.normalized?.template?.tier === 'premium' || templateMetadata.isPremium || Number(templateMetadata.price ?? utpReport.normalized?.template?.price ?? 0) > 0) ? 1 : 0,
+        resolvedIngestTier,
+        resolvedIngestPrice,
+        resolvedIngestIsPremiumInt,
         targetIsPublishedInt,
         targetTemplateStatus,
         templateMetadata.featured ? 1 : 0,

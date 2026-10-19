@@ -565,8 +565,14 @@ function scanDynamicFields(html) {
       const matchOpt = Array.from(catInput.options || []).find(o => o.value.toLowerCase() === String(tMeta.category).toLowerCase());
       if (matchOpt) catInput.value = matchOpt.value;
     }
-    if (tierInput && tMeta.tier) tierInput.value = String(tMeta.tier).toLowerCase() === "vip" || Number(tMeta.price) > 0 ? "vip" : "free";
-    if (priceInput && tMeta.price !== undefined) priceInput.value = Number(tMeta.price) || 0;
+    const manifestTierStr = String(tMeta.tier || "").toLowerCase().trim();
+    const isManifestFree = manifestTierStr === "free" || (tMeta.price !== undefined && Number(tMeta.price) <= 0 && manifestTierStr !== "vip" && manifestTierStr !== "premium");
+    if (tierInput && (tMeta.tier !== undefined || tMeta.price !== undefined)) {
+      tierInput.value = isManifestFree ? "free" : ((manifestTierStr === "vip" || manifestTierStr === "premium" || Number(tMeta.price) > 0) ? "vip" : "free");
+    }
+    if (priceInput && (tMeta.tier !== undefined || tMeta.price !== undefined)) {
+      priceInput.value = isManifestFree ? 0 : (Number(tMeta.price) > 0 ? Number(tMeta.price) : (tierInput && tierInput.value === "vip" ? 49 : 0));
+    }
   }
 
   function addConfirmedSlot(slot) {
@@ -2147,8 +2153,21 @@ async function deployUploadedTemplate(publishImmediately = true) {
       name: title,
       category: catInput ? catInput.value : (currentParsedManifest?.template?.category || "Birthday"),
       description: descInput ? descInput.value.trim() : (currentParsedManifest?.template?.description || "Custom handcrafted celebration experience."),
-      tier: tierInput ? tierInput.value : (currentParsedManifest?.template?.tier || "vip"),
-      price: priceInput ? Number(priceInput.value) : Number(currentParsedManifest?.template?.price ?? 49),
+      tier: (() => {
+        const rt = String(tierInput ? tierInput.value : (currentParsedManifest?.template?.tier || "vip")).toLowerCase().trim();
+        const rp = priceInput ? Number(priceInput.value) : Number(currentParsedManifest?.template?.price ?? 49);
+        return (rt === "free" || rp <= 0) ? "free" : "vip";
+      })(),
+      price: (() => {
+        const rt = String(tierInput ? tierInput.value : (currentParsedManifest?.template?.tier || "vip")).toLowerCase().trim();
+        const rp = priceInput ? Number(priceInput.value) : Number(currentParsedManifest?.template?.price ?? 49);
+        return (rt === "free" || rp <= 0) ? 0 : (rp > 0 ? rp : 49);
+      })(),
+      isPremium: (() => {
+        const rt = String(tierInput ? tierInput.value : (currentParsedManifest?.template?.tier || "vip")).toLowerCase().trim();
+        const rp = priceInput ? Number(priceInput.value) : Number(currentParsedManifest?.template?.price ?? 49);
+        return !(rt === "free" || rp <= 0);
+      })(),
       placement: orderInput ? Number(orderInput.value) : 1,
       featured: featuredInput ? featuredInput.checked : true,
       thumbnail: thumbnailPayloadValue,
@@ -2961,22 +2980,23 @@ async function togglePublishTemplate(templateId, currentStatus) {
     const newStatus = isCurrentlyPub ? 'draft' : 'published';
     const isPub = !isCurrentlyPub;
 
-    if (window.templateRepository) {
-      if (isCurrentlyPub) {
-        await window.templateRepository.unpublish(templateId);
-      } else {
-        await window.templateRepository.publish(templateId);
-      }
-    } else {
-      await fetch('/api/templates/update', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ id: templateId, status: newStatus, isPublished: isPub })
-      });
+    const res = await fetch('/api/templates/update', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      credentials: 'include',
+      body: JSON.stringify({ id: templateId, status: newStatus, isPublished: isPub })
+    });
+    const resData = await res.json().catch(() => ({}));
+    if (!res.ok || resData.success === false) {
+      throw new Error(resData.error?.message || resData.message || 'Failed to update publish status');
     }
+    try { localStorage.removeItem('wishmagic_templates_v1'); } catch (_) {}
 
     showToast(isPub ? '🎉 Template published to live marketplace!' : '📁 Template moved to Drafts.');
     await loadDynamicTemplates();
+    if (typeof renderQuickSetTemplatesList === 'function') {
+      renderQuickSetTemplatesList(allAdminTemplates);
+    }
   } catch (err) {
     alert('Error toggling publish state: ' + err.message);
   }
@@ -2985,30 +3005,36 @@ async function togglePublishTemplate(templateId, currentStatus) {
 // 8b. Toggle Tier / Pricing Action (Part 11 Section 16)
 async function toggleTierTemplate(templateId, currentTier, currentPrice) {
   try {
-    const isVip = currentTier === 'vip' || currentTier === 'premium';
+    const isVip = currentTier === 'vip' || currentTier === 'premium' || Number(currentPrice) > 0;
     const newTier = isVip ? 'free' : 'vip';
-    const newPrice = isVip ? 0 : (currentPrice && currentPrice > 0 ? currentPrice : 49);
+    const newPrice = isVip ? 0 : (currentPrice && Number(currentPrice) > 0 ? Number(currentPrice) : 49);
     const isPremium = newTier === 'vip';
 
     const payload = {
       id: templateId,
       tier: newTier,
       price: newPrice,
-      isPremium
+      isPremium,
+      is_premium: isPremium ? 1 : 0
     };
 
-    if (window.templateRepository && typeof window.templateRepository.update === 'function') {
-      await window.templateRepository.update(payload);
-    } else {
-      await fetch('/api/templates/update', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(payload)
-      });
+    const res = await fetch('/api/templates/update', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      credentials: 'include',
+      body: JSON.stringify(payload)
+    });
+    const resData = await res.json().catch(() => ({}));
+    if (!res.ok || resData.success === false) {
+      throw new Error(resData.error?.message || resData.message || 'Failed to update template tier');
     }
+    try { localStorage.removeItem('wishmagic_templates_v1'); } catch (_) {}
 
     showToast(isPremium ? '👑 Switched to VIP Pass (₹' + newPrice + ')' : '✨ Switched to Free Tier (₹0)');
     await loadDynamicTemplates();
+    if (typeof renderQuickSetTemplatesList === 'function') {
+      renderQuickSetTemplatesList(allAdminTemplates);
+    }
   } catch (err) {
     alert('Error toggling template tier: ' + err.message);
   }
@@ -3069,19 +3095,43 @@ window.deleteTemplate = deleteTemplate;
 
 // 10. Open Edit Template Modal (Part 10 Section 6 & 11)
 window.openEditTemplateModal = async function(templateId) {
-  currentEditingTemplateId = templateId;
-  const tpl = allAdminTemplates.find(t => t.id === templateId);
+  const tpl = (allAdminTemplates || []).find(t => t.id === templateId || t.slug === templateId);
   if (!tpl) {
     alert('Template not found');
     return;
   }
+  currentEditingTemplateId = tpl.id;
 
-  // Populate Categories Select from Category Repository
+  // Populate Categories Select from Category Repository with guaranteed fallback options
   const catSelect = document.getElementById('edit-tpl-category');
-  if (catSelect && window.categoryRepository) {
-    const cats = await window.categoryRepository.getAll();
-    catSelect.innerHTML = cats.map(c => `
-      <option value="${c.name}" ${c.name.toLowerCase() === (tpl.category || '').toLowerCase() ? 'selected' : ''}>
+  if (catSelect) {
+    let cats = [];
+    if (window.categoryRepository && typeof window.categoryRepository.getAll === 'function') {
+      try { cats = await window.categoryRepository.getAll(); } catch (_) {}
+    }
+    const defaultCats = [
+      { name: 'Birthday', icon: '🎂' },
+      { name: 'Romantic', icon: '💖' },
+      { name: 'Love', icon: '💘' },
+      { name: 'Anniversary', icon: '💍' },
+      { name: 'Friendship', icon: '🤝' },
+      { name: 'Thank You', icon: '🌸' },
+      { name: 'Congratulations', icon: '🎉' },
+      { name: 'Festivals', icon: '🪔' },
+      { name: 'Celebration', icon: '✨' }
+    ];
+    const mergedCats = [...cats];
+    defaultCats.forEach(dc => {
+      if (!mergedCats.some(c => String(c.name || '').toLowerCase() === dc.name.toLowerCase())) {
+        mergedCats.push(dc);
+      }
+    });
+    const currentCat = String(tpl.category || 'Birthday').trim();
+    if (currentCat && !mergedCats.some(c => String(c.name || '').toLowerCase() === currentCat.toLowerCase())) {
+      mergedCats.unshift({ name: currentCat, icon: '✦' });
+    }
+    catSelect.innerHTML = mergedCats.map(c => `
+      <option value="${c.name}" ${String(c.name).toLowerCase() === currentCat.toLowerCase() ? 'selected' : ''}>
         ${c.icon || '✦'} ${c.name}
       </option>
     `).join('');
@@ -3102,14 +3152,38 @@ window.openEditTemplateModal = async function(templateId) {
   const elThumb = document.getElementById('edit-tpl-thumb');
   const elThumbImg = document.getElementById('edit-tpl-thumb-preview');
 
+  const isTplVip = tpl.tier === 'vip' || tpl.tier === 'premium' || tpl.isPremium === true || Number(tpl.price) > 0;
   if (elId) elId.value = tpl.id;
   if (elName) elName.value = tpl.name || '';
   if (elSlug) elSlug.value = tpl.slug || '';
   if (elRels) elRels.value = Array.isArray(tpl.relationships) ? tpl.relationships.join(', ') : '';
   if (elTags) elTags.value = Array.isArray(tpl.tags) ? tpl.tags.join(', ') : '';
   if (elDesc) elDesc.value = tpl.description || '';
-  if (elTier) elTier.value = tpl.tier === 'vip' || tpl.isPremium ? 'vip' : 'free';
-  if (elPrice) elPrice.value = tpl.price !== undefined ? tpl.price : 49;
+  if (elTier) {
+    elTier.value = isTplVip ? 'vip' : 'free';
+    elTier.onchange = function() {
+      if (elPrice) {
+        if (this.value === 'free') {
+          elPrice.value = '0';
+        } else if (Number(elPrice.value) <= 0) {
+          elPrice.value = '59';
+        }
+      }
+    };
+  }
+  if (elPrice) {
+    elPrice.value = isTplVip ? (Number(tpl.price) > 0 ? Number(tpl.price) : 49) : 0;
+    elPrice.oninput = function() {
+      const pVal = Number(this.value);
+      if (elTier) {
+        if (!isNaN(pVal) && pVal <= 0) {
+          elTier.value = 'free';
+        } else if (pVal > 0) {
+          elTier.value = 'vip';
+        }
+      }
+    };
+  }
   if (elStatus) elStatus.value = tpl.status || (tpl.isPublished ? 'published' : 'draft');
   if (elFeatured) elFeatured.checked = Boolean(tpl.featured);
   if (elPlacement) elPlacement.value = tpl.placement || 1;
@@ -3152,18 +3226,23 @@ window.saveTemplateEdits = async function(publishChanges = true) {
   }
 
   try {
-    const name = document.getElementById('edit-tpl-name').value.trim();
-    const slug = document.getElementById('edit-tpl-slug').value.trim();
-    const category = document.getElementById('edit-tpl-category').value;
+    const existingTplObj = (allAdminTemplates || []).find(t => t.id === currentEditingTemplateId || t.slug === currentEditingTemplateId) || {};
+    const name = document.getElementById('edit-tpl-name').value.trim() || existingTplObj.name || 'Celebration Template';
+    const slug = document.getElementById('edit-tpl-slug').value.trim() || existingTplObj.slug || currentEditingTemplateId;
+    const category = document.getElementById('edit-tpl-category').value || existingTplObj.category || 'Birthday';
     const relsRaw = document.getElementById('edit-tpl-relationships').value;
     const tagsRaw = document.getElementById('edit-tpl-tags').value;
     const description = document.getElementById('edit-tpl-desc').value.trim();
-    const tier = document.getElementById('edit-tpl-tier').value;
-    const price = Number(document.getElementById('edit-tpl-price').value) || 0;
-    const status = document.getElementById('edit-tpl-status').value;
+    const rawTierInput = String(document.getElementById('edit-tpl-tier').value || 'free').toLowerCase().trim();
+    const rawPriceInputStr = String(document.getElementById('edit-tpl-price').value ?? '').trim();
+    const rawPriceNum = Number(rawPriceInputStr);
+    // If admin selected Free Tier OR explicitly set price to 0, make it Free (tier='free', price=0, isPremium=false)
+    const tier = (rawTierInput === 'free' || (rawPriceInputStr !== '' && !isNaN(rawPriceNum) && rawPriceNum <= 0)) ? 'free' : 'vip';
+    const price = tier === 'free' ? 0 : ((!isNaN(rawPriceNum) && rawPriceNum > 0) ? rawPriceNum : 49);
+    const status = document.getElementById('edit-tpl-status').value || 'published';
     const featured = document.getElementById('edit-tpl-featured').checked;
     const placement = Number(document.getElementById('edit-tpl-placement').value) || 1;
-    const thumbnail = document.getElementById('edit-tpl-thumb').value.trim();
+    const thumbnail = document.getElementById('edit-tpl-thumb').value.trim() || existingTplObj.thumbnail || '/assets/file_ab2082.png';
 
     const relationships = relsRaw.split(',').map(s => s.trim()).filter(Boolean);
     const tags = tagsRaw.split(',').map(s => s.trim()).filter(Boolean);
@@ -3195,13 +3274,14 @@ window.saveTemplateEdits = async function(publishChanges = true) {
       tags,
       description,
       tier,
-      price: tier === 'vip' ? price : 0,
+      price,
       isPremium: tier === 'vip',
+      is_premium: tier === 'vip' ? 1 : 0,
       status,
       isPublished: status === 'published',
       featured,
       placement,
-      thumbnail: thumbnail || '/assets/file_ab2082.png',
+      thumbnail,
       capabilities,
       templateVersion: 1
     };
@@ -3228,24 +3308,37 @@ window.saveTemplateEdits = async function(publishChanges = true) {
       updatePayload.relationships = authoritativeEnabledSlugs;
       updatePayload.enabledVariants = authoritativeEnabledSlugs;
     }
-    const cfgRes = await fetch(cfgEndpoint, {
+    const buildCfgBody = (lockVer) => ({
+      publish: Boolean(publishChanges),
+      mode: publishChanges ? 'publish' : 'draft',
+      ...(lockVer !== undefined && lockVer !== null ? { lockVersion: lockVer } : {}),
+      sections: editUtpConfigState.manifestSections,
+      actionsList: editUtpConfigState.manifestActions,
+      visibilityConfig: editUtpConfigState.visibilityConfig,
+      actionsConfig: editUtpConfigState.actionsConfig,
+      variantOverrides: editUtpConfigState.variantOverrides,
+      enabledVariants: authoritativeEnabledSlugs,
+      relationships: authoritativeEnabledSlugs
+    });
+
+    let cfgRes = await fetch(cfgEndpoint, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       credentials: 'include',
-      body: JSON.stringify({
-        publish: Boolean(publishChanges),
-        mode: publishChanges ? 'publish' : 'draft',
-        lockVersion: editUtpConfigState.lockVersion,
-        sections: editUtpConfigState.manifestSections,
-        actionsList: editUtpConfigState.manifestActions,
-        visibilityConfig: editUtpConfigState.visibilityConfig,
-        actionsConfig: editUtpConfigState.actionsConfig,
-        variantOverrides: editUtpConfigState.variantOverrides,
-        enabledVariants: authoritativeEnabledSlugs,
-        relationships: authoritativeEnabledSlugs
-      })
+      body: JSON.stringify(buildCfgBody(editUtpConfigState.lockVersion))
     });
-    const cfgData = await cfgRes.json().catch(() => ({}));
+    let cfgData = await cfgRes.json().catch(() => ({}));
+    if (cfgRes.status === 409) {
+      // Auto-resolve stale lockVersion on single-admin edit modal save
+      const latestLock = cfgData.details?.currentLockVersion || cfgData.error?.details?.currentLockVersion || undefined;
+      cfgRes = await fetch(cfgEndpoint, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        credentials: 'include',
+        body: JSON.stringify(buildCfgBody(latestLock))
+      });
+      cfgData = await cfgRes.json().catch(() => ({}));
+    }
     if (!cfgRes.ok || cfgData.success === false) {
       const errList = Array.isArray(cfgData.errors)
         ? cfgData.errors.map(e => e.message || String(e))
@@ -3279,9 +3372,11 @@ window.saveTemplateEdits = async function(publishChanges = true) {
       throw new Error(data.error?.message || data.message || 'Update failed');
     }
 
+    try { localStorage.removeItem('wishmagic_templates_v1'); } catch (_) {}
+
     if (publishChanges) {
       closeEditTemplateModal();
-      showToast(`🎉 Template "${name}" configuration published!`);
+      showToast(`🎉 Template "${name}" updated (${tier === 'free' ? 'Free Tier • ₹0' : 'VIP Pass • ₹' + price})!`);
     } else {
       editUtpConfigState.hasDraft = true;
       editUtpConfigState.validationErrors = [];
@@ -3289,6 +3384,9 @@ window.saveTemplateEdits = async function(publishChanges = true) {
       showToast(`💾 Draft configuration saved for "${name}"!`);
     }
     await loadDynamicTemplates();
+    if (typeof renderQuickSetTemplatesList === 'function') {
+      renderQuickSetTemplatesList(allAdminTemplates);
+    }
   } catch (err) {
     alert('Failed to save changes: ' + err.message);
   } finally {
@@ -6579,12 +6677,18 @@ window.promptImportStudioDecision = async function(decisionMode) {
     }
   }
 
+  const rawStudioTier = String(document.getElementById("new-tpl-tier")?.value || sData.manifest?.template?.tier || "free").toLowerCase().trim();
+  const rawStudioPrice = Number(document.getElementById("new-tpl-price")?.value ?? sData.manifest?.template?.price ?? 0);
+  const resolvedStudioTier = (rawStudioTier === "free" || rawStudioPrice <= 0) ? "free" : "vip";
+  const resolvedStudioPrice = resolvedStudioTier === "free" ? 0 : (rawStudioPrice > 0 ? rawStudioPrice : 49);
+
   const adminConfigOverrides = {
     name: newTemplateName,
     category: document.getElementById("new-tpl-category")?.value || sData.manifest?.template?.category || "Birthday",
     description: document.getElementById("new-tpl-desc")?.value?.trim() || sData.manifest?.template?.description || "",
-    tier: document.getElementById("new-tpl-tier")?.value || sData.manifest?.template?.tier || "free",
-    price: Number(document.getElementById("new-tpl-price")?.value ?? sData.manifest?.template?.price ?? 0),
+    tier: resolvedStudioTier,
+    price: resolvedStudioPrice,
+    isPremium: resolvedStudioTier === "vip",
     placement: Number(document.getElementById("new-tpl-placement")?.value ?? 1),
     featured: Boolean(document.getElementById("new-tpl-featured")?.checked),
     visibilityConfig: uploadUtpConfigState.visibilityConfig || {},

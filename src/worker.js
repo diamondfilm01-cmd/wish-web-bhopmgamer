@@ -5589,6 +5589,16 @@ function buildCanonicalTemplateSnapshot(template, versionNumber = 1) {
 
   const nowIso = new Date().toISOString();
 
+  const rawSnapTier = String(template.tier || '').toLowerCase().trim();
+  const isSnapExplicitFree = rawSnapTier === 'free' || template.isPremium === false || (template.is_premium === 0 && rawSnapTier !== 'vip' && rawSnapTier !== 'premium');
+  const resolvedSnapTier = isSnapExplicitFree
+    ? 'free'
+    : ((rawSnapTier === 'vip' || rawSnapTier === 'premium' || template.isPremium === true || Boolean(template.is_premium) || Number(template.price) > 0) ? 'vip' : 'free');
+  const resolvedSnapPrice = resolvedSnapTier === 'free'
+    ? 0
+    : (Number(template.price) > 0 ? Number(template.price) : 49);
+  const resolvedSnapIsPremium = resolvedSnapTier === 'vip';
+
   const snapshot = {
     id: versionId,
     versionId,
@@ -5597,9 +5607,10 @@ function buildCanonicalTemplateSnapshot(template, versionNumber = 1) {
     name: template.name || 'Magical Celebration Experience',
     description: template.description || '',
     category: template.category || 'Birthday',
-    tier: template.tier || (template.isPremium ? 'vip' : 'free'),
-    price: Number(template.price) || 0,
-    isPremium: Boolean(template.isPremium || template.is_premium || template.tier === 'vip'),
+    tier: resolvedSnapTier,
+    price: resolvedSnapPrice,
+    isPremium: resolvedSnapIsPremium,
+    is_premium: resolvedSnapIsPremium ? 1 : 0,
     thumbnail: template.thumbnail || '/assets/default-template.jpg',
     previewImages: template.previewImages || [template.thumbnail || '/assets/default-template.jpg'],
     theme: parsedTheme,
@@ -6069,6 +6080,16 @@ async function createNewTemplateVersion(env, templateId, updatedFields = {}, act
   const versionId = `tv_${cleanId}_v${newVersionNumber}`;
   const nowIso = new Date().toISOString();
 
+  let existingTplRowPre = null;
+  if (env && env.DB && typeof env.DB.prepare === 'function') {
+    try {
+      existingTplRowPre = await env.DB.prepare('SELECT * FROM templates WHERE id = ? OR slug = ? LIMIT 1').bind(cleanId, cleanId).first();
+    } catch (_) {}
+  }
+  const seedTplPre = (typeof SEED_TEMPLATES !== 'undefined' && Array.isArray(SEED_TEMPLATES))
+    ? SEED_TEMPLATES.find(t => t.id === cleanId || t.slug === cleanId)
+    : null;
+
   // Merge base/previous snapshot with updated fields
   let base = currentActive;
   if (base && base.snapshot_data) {
@@ -6077,20 +6098,52 @@ async function createNewTemplateVersion(env, templateId, updatedFields = {}, act
   if (!base) {
     base = await getOrSeedActiveTemplateVersion(env, cleanId);
   }
+  base = {
+    ...(seedTplPre || {}),
+    ...(existingTplRowPre || {}),
+    ...(base || {}),
+    thumbnail: existingTplRowPre?.thumbnail || base?.thumbnail || seedTplPre?.thumbnail || '/assets/default-template.jpg',
+    description: existingTplRowPre?.description ?? base?.description ?? seedTplPre?.description ?? '',
+    category: existingTplRowPre?.category || base?.category || seedTplPre?.category || 'Birthday',
+    folder: existingTplRowPre?.folder || base?.folder || seedTplPre?.folder || `templates-store/${cleanId}`,
+    entryFile: existingTplRowPre?.entry_file || base?.entryFile || base?.entry_file || seedTplPre?.entryFile || 'index.html'
+  };
+
+  const hasExplicitTier = updatedFields.tier !== undefined && updatedFields.tier !== null && String(updatedFields.tier).trim() !== '';
+  const rawUpdTier = hasExplicitTier ? String(updatedFields.tier).toLowerCase().trim() : '';
+  let resolvedTierVal;
+  if (rawUpdTier === 'free' || updatedFields.isPremium === false || (updatedFields.is_premium === 0 && rawUpdTier !== 'vip' && rawUpdTier !== 'premium')) {
+    resolvedTierVal = 'free';
+  } else if (rawUpdTier === 'vip' || rawUpdTier === 'premium' || updatedFields.isPremium === true || updatedFields.is_premium === 1) {
+    resolvedTierVal = 'vip';
+  } else if (updatedFields.price !== undefined) {
+    resolvedTierVal = Number(updatedFields.price) > 0 ? 'vip' : 'free';
+  } else {
+    const baseTierStr = String(existingTplRowPre?.tier || base?.tier || 'free').toLowerCase().trim();
+    resolvedTierVal = (baseTierStr === 'vip' || baseTierStr === 'premium' || Boolean(existingTplRowPre?.is_premium ?? base?.isPremium) || Number(existingTplRowPre?.price ?? base?.price ?? 0) > 0) ? 'vip' : 'free';
+  }
+  const resolvedPriceVal = resolvedTierVal === 'free'
+    ? 0
+    : (updatedFields.price !== undefined && Number(updatedFields.price) > 0
+        ? Number(updatedFields.price)
+        : (Number(existingTplRowPre?.price ?? base?.price ?? 0) > 0 ? Number(existingTplRowPre?.price ?? base?.price) : 49));
+  const resolvedIsPremiumVal = resolvedTierVal === 'vip';
+
   const merged = {
     ...base,
     ...updatedFields,
     id: versionId,
     versionId,
-    templateId: cleanId,
+    templateId: existingTplRowPre?.id || cleanId,
     versionNumber: newVersionNumber,
-    name: updatedFields.name || base.name,
-    description: updatedFields.description !== undefined ? updatedFields.description : base.description,
-    category: updatedFields.category || base.category,
-    tier: updatedFields.tier || (updatedFields.isPremium ? 'vip' : base.tier),
-    price: updatedFields.price !== undefined ? Number(updatedFields.price) : base.price,
-    isPremium: updatedFields.isPremium !== undefined ? Boolean(updatedFields.isPremium) : base.isPremium,
-    thumbnail: updatedFields.thumbnail || base.thumbnail,
+    name: updatedFields.name || existingTplRowPre?.name || base.name,
+    description: updatedFields.description !== undefined ? updatedFields.description : (existingTplRowPre?.description ?? base.description),
+    category: updatedFields.category || existingTplRowPre?.category || base.category,
+    tier: resolvedTierVal,
+    price: resolvedPriceVal,
+    isPremium: resolvedIsPremiumVal,
+    is_premium: resolvedIsPremiumVal ? 1 : 0,
+    thumbnail: updatedFields.thumbnail || existingTplRowPre?.thumbnail || base.thumbnail,
     theme: updatedFields.theme || base.theme,
     sections: updatedFields.sections || base.sections,
     actions: updatedFields.actions || base.actions || safeJsonParse(base.actions_json, []),
@@ -6103,6 +6156,20 @@ async function createNewTemplateVersion(env, templateId, updatedFields = {}, act
     status: 'active',
     createdAt: nowIso
   };
+
+  if (seedTplPre) {
+    seedTplPre.name = merged.name || seedTplPre.name;
+    seedTplPre.description = merged.description !== undefined ? merged.description : seedTplPre.description;
+    seedTplPre.category = merged.category || seedTplPre.category;
+    seedTplPre.tier = resolvedTierVal;
+    seedTplPre.price = resolvedPriceVal;
+    seedTplPre.isPremium = resolvedIsPremiumVal;
+    if (updatedFields.thumbnail) seedTplPre.thumbnail = updatedFields.thumbnail;
+    if (updatedFields.status) seedTplPre.status = updatedFields.status;
+    if (updatedFields.isPublished !== undefined) seedTplPre.isPublished = Boolean(updatedFields.isPublished);
+    if (updatedFields.featured !== undefined) seedTplPre.featured = Boolean(updatedFields.featured);
+    if (updatedFields.placement !== undefined) seedTplPre.placement = Number(updatedFields.placement);
+  }
 
   const newSnapshot = buildCanonicalTemplateSnapshot(merged, newVersionNumber);
   inMemoryTemplateVersions.set(versionId, newSnapshot);
@@ -6213,9 +6280,27 @@ async function createNewTemplateVersion(env, templateId, updatedFields = {}, act
         : Number(existingTplRow?.placement ?? 99);
 
       if (activeB2VersionId) {
+        let updatedManifestJson = activeB2VersionRow?.manifest_json || null;
+        if (updatedManifestJson) {
+          try {
+            const parsedM = JSON.parse(updatedManifestJson);
+            parsedM.name = newSnapshot.name;
+            parsedM.category = newSnapshot.category;
+            parsedM.tier = newSnapshot.tier;
+            parsedM.price = newSnapshot.price;
+            if (parsedM.template && typeof parsedM.template === 'object') {
+              parsedM.template.name = newSnapshot.name;
+              parsedM.template.category = newSnapshot.category;
+              parsedM.template.tier = newSnapshot.tier;
+              parsedM.template.price = newSnapshot.price;
+            }
+            updatedManifestJson = JSON.stringify(parsedM);
+          } catch (_) {}
+        }
         await env.DB.prepare(
           `UPDATE template_versions SET
              name = ?, description = ?, category = ?, tier = ?, price = ?, thumbnail = ?,
+             manifest_json = COALESCE(?, manifest_json),
              sections = COALESCE(?, sections),
              actions_json = COALESCE(?, actions_json),
              visibility_config_json = COALESCE(?, visibility_config_json),
@@ -6231,6 +6316,7 @@ async function createNewTemplateVersion(env, templateId, updatedFields = {}, act
           newSnapshot.tier,
           newSnapshot.price,
           newSnapshot.thumbnail,
+          updatedManifestJson,
           updatedFields.sections ? JSON.stringify(updatedFields.sections) : null,
           updatedFields.actions ? JSON.stringify(updatedFields.actions) : null,
           updatedFields.visibilityConfig ? JSON.stringify(updatedFields.visibilityConfig) : null,
@@ -6241,16 +6327,94 @@ async function createNewTemplateVersion(env, templateId, updatedFields = {}, act
         ).run().catch(() => {});
       }
 
+      // Sync all template_versions & template_families for this template so tier/price/name never drift
+      const canonicalTplId = existingTplRow?.id || cleanId;
+      const canonicalSlug = updatedFields.slug || existingTplRow?.slug || String(canonicalTplId).replace(/^tpl_/, '');
+      const canonicalFamilyId = `fam_${String(canonicalTplId).replace(/^tpl_/, '')}`;
+      await env.DB.prepare(
+        `UPDATE template_versions SET tier = ?, price = ?, name = ?, description = ?, category = ? WHERE template_id = ?`
+      ).bind(
+        newSnapshot.tier,
+        newSnapshot.price,
+        newSnapshot.name,
+        newSnapshot.description,
+        newSnapshot.category,
+        canonicalTplId
+      ).run().catch(() => {});
+
+      await env.DB.prepare(
+        `UPDATE template_families SET
+           name = ?, description = ?, category = ?, tier = ?, price = ?, is_premium = ?, is_featured = ?,
+           thumbnail = CASE WHEN ? != '' THEN ? ELSE thumbnail END,
+           status = ?, updated_at = ?
+         WHERE id = ? OR slug = ? OR id = ?`
+      ).bind(
+        newSnapshot.name,
+        newSnapshot.description,
+        newSnapshot.category,
+        newSnapshot.tier,
+        newSnapshot.price,
+        newSnapshot.isPremium ? 1 : 0,
+        resolvedFeatured,
+        newSnapshot.thumbnail || '',
+        newSnapshot.thumbnail || '',
+        resolvedStatus,
+        nowIso,
+        canonicalFamilyId,
+        canonicalSlug,
+        `fam_${canonicalTplId}`
+      ).run().catch(() => {});
+
       if (resolvedIsPublished) {
-        await clearPermanentTemplateDeletion(env, existingTplRow?.id || cleanId, existingTplRow?.slug || cleanId);
+        await clearPermanentTemplateDeletion(env, canonicalTplId, canonicalSlug);
+      }
+
+      if (!existingTplRow && seedTplPre) {
+        // Seed template being edited for the first time: insert into templates table in D1 so edits persist
+        try {
+          await env.DB.prepare(
+            `INSERT OR IGNORE INTO templates (
+               id, name, slug, description, category, relationships, tags,
+               type, tier, price, is_premium, is_published, status, featured,
+               placement, thumbnail, preview_images, capabilities, detected_fields,
+               sections, theme, folder, entry_file, current_version_id, created_at, updated_at
+             ) VALUES (?, ?, ?, ?, ?, ?, ?, '3D Interactive', ?, ?, ?, ?, ?, ?, ?, ?, '[]', ?, ?, ?, '{}', ?, ?, ?, ?, ?)`
+          ).bind(
+            seedTplPre.id,
+            newSnapshot.name,
+            updatedFields.slug || seedTplPre.slug || seedTplPre.id,
+            newSnapshot.description,
+            newSnapshot.category,
+            JSON.stringify(updatedFields.relationships || seedTplPre.relationships || []),
+            JSON.stringify(updatedFields.tags || seedTplPre.tags || []),
+            newSnapshot.tier,
+            newSnapshot.price,
+            newSnapshot.isPremium ? 1 : 0,
+            resolvedIsPublished,
+            resolvedStatus,
+            resolvedFeatured,
+            resolvedPlacement,
+            newSnapshot.thumbnail,
+            JSON.stringify(newSnapshot.capabilities || {}),
+            JSON.stringify(seedTplPre.detectedFields || []),
+            JSON.stringify(newSnapshot.sections || []),
+            seedTplPre.folder || `templates-store/${seedTplPre.id}`,
+            seedTplPre.entryFile || 'index.html',
+            preservedVersionId,
+            nowIso,
+            nowIso
+          ).run();
+        } catch (_) {}
       }
 
       // Also update live templates table pointer & publication state
       try {
         await env.DB.prepare(
           `UPDATE templates SET
-           name = ?, description = ?, category = ?, tier = ?, price = ?, is_premium = ?, thumbnail = ?,
+           name = ?, slug = COALESCE(?, slug), description = ?, category = ?, tier = ?, price = ?, is_premium = ?, thumbnail = ?,
            is_published = ?, status = ?, featured = ?, placement = ?,
+           tags = COALESCE(?, tags),
+           capabilities = COALESCE(?, capabilities),
            sections = COALESCE(?, sections),
            actions_json = COALESCE(?, actions_json),
            visibility_config_json = COALESCE(?, visibility_config_json),
@@ -6261,6 +6425,7 @@ async function createNewTemplateVersion(env, templateId, updatedFields = {}, act
            WHERE id = ? OR slug = ?`
         ).bind(
           newSnapshot.name,
+          updatedFields.slug ? String(updatedFields.slug).trim() : null,
           newSnapshot.description,
           newSnapshot.category,
           newSnapshot.tier,
@@ -6271,13 +6436,15 @@ async function createNewTemplateVersion(env, templateId, updatedFields = {}, act
           resolvedStatus,
           resolvedFeatured,
           resolvedPlacement,
+          Array.isArray(updatedFields.tags) ? JSON.stringify(updatedFields.tags) : null,
+          updatedFields.capabilities ? JSON.stringify(updatedFields.capabilities) : null,
           updatedFields.sections ? JSON.stringify(updatedFields.sections) : null,
           updatedFields.actions ? JSON.stringify(updatedFields.actions) : null,
           updatedFields.visibilityConfig ? JSON.stringify(updatedFields.visibilityConfig) : null,
           updatedFields.actionsConfig ? JSON.stringify(updatedFields.actionsConfig) : null,
           preservedVersionId,
           nowIso,
-          cleanId,
+          canonicalTplId,
           cleanId
         ).run();
       } catch (_) {
@@ -6297,7 +6464,7 @@ async function createNewTemplateVersion(env, templateId, updatedFields = {}, act
           resolvedIsPublished,
           resolvedStatus,
           nowIso,
-          cleanId,
+          canonicalTplId,
           cleanId
         ).run();
       }
@@ -8539,7 +8706,16 @@ export default {
             // Batch-load all latest variants & template_relationships in a single query to avoid N+1 lookups
             const variantsByTplId = new Map();
             const relRowsByTplId = new Map();
+            const b2VerByTplId = new Map();
             try {
+              const b2VerRows = await env.DB.prepare(
+                `SELECT id, template_id FROM template_versions WHERE id LIKE 'ver_%' OR storage_provider = 'b2' ORDER BY version_number DESC, created_at DESC`
+              ).all().catch(() => ({ results: [] }));
+              for (const bvr of (b2VerRows.results || [])) {
+                if (bvr.template_id && !b2VerByTplId.has(bvr.template_id)) {
+                  b2VerByTplId.set(bvr.template_id, bvr.id);
+                }
+              }
               const allVarRows = await env.DB.prepare(
                 `SELECT trv.*, r.slug as r_slug, r.name as r_name, r.icon as r_icon
                  FROM template_relationship_variants trv
@@ -8569,9 +8745,12 @@ export default {
               const dbTemplates = rows.results.map(r => {
                 const entryFile = r.entry_file || 'index.html';
                 const folder = resolveCanonicalTemplateFolder(r.folder, r.slug, r.id);
-                const isB2Version = Boolean(r.current_version_id && String(r.current_version_id).startsWith('ver_'));
+                const resolvedB2VerId = (r.current_version_id && String(r.current_version_id).startsWith('ver_'))
+                  ? r.current_version_id
+                  : (b2VerByTplId.get(r.id) || null);
+                const isB2Version = Boolean(resolvedB2VerId);
                 const previewUrl = isB2Version
-                  ? `/api/templates/${r.id}/versions/${r.current_version_id}/preview/${entryFile}`
+                  ? `/api/templates/${r.id}/versions/${resolvedB2VerId}/preview/${entryFile}`
                   : `/templates-store/${folder}/${entryFile}`;
 
                 const dbVars = variantsByTplId.get(r.id) || [];
@@ -10526,12 +10705,26 @@ export default {
           const relPath = rawRelPath.replace(/^\/+/, '');
 
           let fileRecord = null;
+          let resolvedB2VersionId = versionId;
           if (env.DB && typeof env.DB.prepare === 'function') {
             fileRecord = await env.DB.prepare(`
               SELECT storage_key, mime_type FROM template_files
               WHERE template_version_id = ? AND (relative_path = ? OR relative_path = ?)
               LIMIT 1
             `).bind(versionId, relPath, relPath).first();
+            if (!fileRecord) {
+              const latestB2Ver = await env.DB.prepare(
+                `SELECT id FROM template_versions WHERE template_id = ? AND id LIKE 'ver_%' ORDER BY version_number DESC, created_at DESC LIMIT 1`
+              ).bind(templateId).first().catch(() => null);
+              if (latestB2Ver && latestB2Ver.id) {
+                resolvedB2VersionId = latestB2Ver.id;
+                fileRecord = await env.DB.prepare(`
+                  SELECT storage_key, mime_type FROM template_files
+                  WHERE template_version_id = ? AND (relative_path = ? OR relative_path = ?)
+                  LIMIT 1
+                `).bind(resolvedB2VersionId, relPath, relPath).first().catch(() => null);
+              }
+            }
           }
 
           const cleanFamilySlug = String(templateId || 'default').replace(/^tpl_/, '');
@@ -12340,8 +12533,13 @@ export default {
           delete safeTemplateBase.actions_config_json;
         }
 
+        const isVipEnriched = safeTemplateBase.tier === 'vip' || safeTemplateBase.tier === 'premium' || Boolean(safeTemplateBase.is_premium ?? safeTemplateBase.isPremium) || Number(safeTemplateBase.price) > 0;
         const enrichedTemplate = {
           ...safeTemplateBase,
+          tier: isVipEnriched ? 'vip' : 'free',
+          price: isVipEnriched ? (Number(safeTemplateBase.price) > 0 ? Number(safeTemplateBase.price) : 49) : 0,
+          isPremium: isVipEnriched,
+          is_premium: isVipEnriched ? 1 : 0,
           familyId: `fam_${template.id}`,
           folder: resolvedFolder,
           entryFile: (selectedVariant && selectedVariant.entryFile) || entryFileName,
