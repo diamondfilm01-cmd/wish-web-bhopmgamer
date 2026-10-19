@@ -154,6 +154,17 @@ function handleMultipleFiles(fileList) {
   return handleFolderSelection(fileList);
 }
 
+window.handleDeltaFilesSelection = async function(fileList) {
+  if (!fileList || fileList.length === 0) return;
+  if (typeof window.setUploadUpdatePackageMode === "function") {
+    window.setUploadUpdatePackageMode("delta_changed_only");
+  }
+  if (fileList.length === 1 && /\.zip$/i.test(fileList[0].name)) {
+    return handleZipFile(fileList[0]);
+  }
+  return handleFolderSelection(fileList);
+};
+
 function serializeUploadedFilesToArray(filesMap) {
   if (!filesMap) return [];
   if (Array.isArray(filesMap)) return filesMap;
@@ -807,7 +818,8 @@ function scanDynamicFields(html) {
       const cleanRef = rawRef.split("?")[0].split("#")[0].replace(/\\/g, "/").replace(/^\.?\/+/, "");
       if (cleanRef && !currentUploadedFiles[cleanRef]) {
         const caseMatch = Object.keys(currentUploadedFiles).some(k => k.toLowerCase() === cleanRef.toLowerCase());
-        if (!caseMatch) {
+        const isDeltaModeActive = Boolean(importStudioState && importStudioState.updatePackageMode === "delta_changed_only");
+        if (!caseMatch && !isDeltaModeActive) {
           currentUtpValidationIssues.push({
             severity: "warning",
             code: "MISSING_REFERENCED_ASSET",
@@ -933,7 +945,8 @@ function scanDynamicFields(html) {
         const clean = relP.trim();
         if (!clean || clean.startsWith("http://") || clean.startsWith("https://") || clean.startsWith("data:") || clean.startsWith("/assets/")) return;
         const normP = clean.replace(/\\/g, "/").replace(/^\.?\/+/, "");
-        const exists = Boolean(currentUploadedFiles[normP] || Object.keys(currentUploadedFiles).some(k => k.toLowerCase() === normP.toLowerCase()));
+        const isDeltaModeActive = Boolean(importStudioState && importStudioState.updatePackageMode === "delta_changed_only");
+        const exists = Boolean(isDeltaModeActive || currentUploadedFiles[normP] || Object.keys(currentUploadedFiles).some(k => k.toLowerCase() === normP.toLowerCase()));
         if (!exists) {
           const msg = "Missing " + labelDesc + " '" + normP + "' for variant '" + (vId || normRel) + "'";
           vErrs.push(msg);
@@ -1088,8 +1101,8 @@ function renderCloudRoutingInspector(foundIndex, imageFiles, audioVideoFiles, co
         "<span class=\"text-xs font-bold text-on-surface uppercase tracking-wider\">UTP v1.0.0 Code Check & Hybrid Cloud Routing</span>" +
       "</div>" +
       "<div class=\"flex flex-wrap items-center gap-1.5 text-[10px] font-bold\">" +
-        "<span class=\"px-2 py-0.5 rounded-full " + (foundIndex ? "bg-emerald-500/20 text-emerald-300 border border-emerald-500/30" : "bg-rose-500/20 text-rose-300 border border-rose-500/30") + "\">" +
-          (foundIndex ? "✓ index.html Ready" : "✕ Missing index.html") +
+        "<span class=\"px-2 py-0.5 rounded-full " + ((foundIndex || (importStudioState && importStudioState.updatePackageMode === "delta_changed_only")) ? "bg-emerald-500/20 text-emerald-300 border border-emerald-500/30" : "bg-rose-500/20 text-rose-300 border border-rose-500/30") + "\">" +
+          (foundIndex ? "✓ index.html Ready" : ((importStudioState && importStudioState.updatePackageMode === "delta_changed_only") ? "⚡ Delta Patch (Inherits index.html)" : "✕ Missing index.html")) +
         "</span>" +
         "<span class=\"px-2 py-0.5 rounded-full " + (hasManifest ? "bg-emerald-500/20 text-emerald-300 border border-emerald-500/30" : "bg-amber-500/20 text-amber-200 border border-amber-500/30") + "\">" +
           (hasManifest ? "✓ wishmagic.json Standard" : "Auto-Schema Mode") +
@@ -1769,6 +1782,12 @@ function renderLiveSandboxPreview(opts = {}) {
 
   const iframe = document.getElementById("upload-preview-iframe");
   if (!iframe) return;
+  const hasLocalIndex = Object.keys(currentUploadedFiles).some(k => k.toLowerCase() === "index.html" || k.toLowerCase().endsWith("/index.html"));
+  if (!hasLocalIndex && importStudioState && importStudioState.sessionData && importStudioState.sessionData.previewUrls && importStudioState.sessionData.previewUrls.staged) {
+    iframe.removeAttribute("srcdoc");
+    iframe.src = importStudioState.sessionData.previewUrls.staged;
+    return;
+  }
   const html = buildClientStagedPreviewHtml(activeScope);
   mountHtmlIntoPreviewIframe(iframe, html, { allowBlobUrl: true });
   setTimeout(() => setSandboxViewport(currentSandboxViewportMode), 30);
@@ -2452,6 +2471,7 @@ async function loadDynamicTemplates() {
     }
 
     allAdminTemplates = templates;
+    populateDeltaTargetTemplateDropdown(templates);
     updateKpiMetrics(templates);
     renderOccasionsFilter(templates);
     applyFiltersAndRender();
@@ -5799,6 +5819,7 @@ let importStudioState = {
   sessionId: null,
   intendedTargetTemplateId: null,
   selectedTargetTemplateId: null,
+  updatePackageMode: "full_package", // "full_package" | "delta_changed_only" 
   sessionData: null,
   loading: false,
   abortController: null,
@@ -5876,30 +5897,155 @@ function ensureSmartImportStudioDomContainers() {
   return { workspace, confirmModal };
 }
 
-window.openSmartImportStudio = function(intendedTemplateId = null) {
+function populateDeltaTargetTemplateDropdown(templatesList) {
+  const sel = document.getElementById("delta-target-template-select");
+  if (!sel) return;
+  const currentVal = sel.value || importStudioState.intendedTargetTemplateId || importStudioState.selectedTargetTemplateId || "";
+  const list = Array.isArray(templatesList) ? templatesList : (allAdminTemplates || []);
+  sel.innerHTML = '<option value="">Auto-Detect from wishmagic.json / Select Template...</option>' +
+    list.map(t => `<option value="${escapeHtmlSafe(t.id)}" ${t.id === currentVal ? "selected" : ""}>${escapeHtmlSafe(t.name)} (${escapeHtmlSafe(t.id)})</option>`).join("");
+}
+
+function syncUploadModeCardsUI() {
+  const mode = importStudioState.updatePackageMode === "delta_changed_only" ? "delta_changed_only" : "full_package";
+  const isDelta = mode === "delta_changed_only";
+  const cardFull = document.getElementById("upload-mode-card-full");
+  const cardDelta = document.getElementById("upload-mode-card-delta");
+  const badgeFull = document.getElementById("upload-mode-badge-full");
+  const badgeDelta = document.getElementById("upload-mode-badge-delta");
+  const targetBar = document.getElementById("delta-target-template-bar");
+  const targetSel = document.getElementById("delta-target-template-select");
+
+  if (cardFull) {
+    cardFull.className = isDelta
+      ? "p-3.5 rounded-xl border border-purple-500/30 bg-surface-container hover:bg-surface-container-high text-left flex items-start gap-3 transition cursor-pointer"
+      : "p-3.5 rounded-xl border-2 border-primary bg-primary/15 text-left flex items-start gap-3 transition cursor-pointer shadow-md";
+  }
+  if (cardDelta) {
+    cardDelta.className = isDelta
+      ? "p-3.5 rounded-xl border-2 border-emerald-500 bg-emerald-500/15 text-left flex items-start gap-3 transition cursor-pointer shadow-md"
+      : "p-3.5 rounded-xl border border-purple-500/30 bg-surface-container hover:bg-surface-container-high text-left flex items-start gap-3 transition cursor-pointer";
+  }
+  if (badgeFull) {
+    badgeFull.textContent = isDelta ? "Option 1" : "✓ Active";
+    badgeFull.className = isDelta
+      ? "px-2 py-0.5 rounded-full bg-surface-container-highest text-outline text-[9px] font-bold uppercase"
+      : "px-2 py-0.5 rounded-full bg-primary text-white text-[9px] font-bold uppercase";
+  }
+  if (badgeDelta) {
+    badgeDelta.textContent = isDelta ? "✓ Active" : "Option 2";
+    badgeDelta.className = isDelta
+      ? "px-2 py-0.5 rounded-full bg-emerald-500 text-purple-950 text-[9px] font-black uppercase"
+      : "px-2 py-0.5 rounded-full bg-emerald-500/20 text-emerald-300 text-[9px] font-bold uppercase";
+  }
+  if (targetBar) {
+    if (isDelta || importStudioState.intendedTargetTemplateId) {
+      targetBar.classList.remove("hidden");
+      populateDeltaTargetTemplateDropdown(allAdminTemplates);
+      if (targetSel && (importStudioState.intendedTargetTemplateId || importStudioState.selectedTargetTemplateId)) {
+        targetSel.value = importStudioState.intendedTargetTemplateId || importStudioState.selectedTargetTemplateId;
+      }
+    } else {
+      targetBar.classList.add("hidden");
+    }
+  }
+}
+
+window.handleDeltaTargetTemplateSelect = function(templateId) {
+  const cleanId = String(templateId || "").trim() || null;
+  importStudioState.intendedTargetTemplateId = cleanId;
+  importStudioState.selectedTargetTemplateId = cleanId;
+  if (importStudioState.sessionId && cleanId) {
+    window.selectImportCandidateTarget(cleanId);
+  }
+};
+
+window.setUploadUpdatePackageMode = async function(mode, optionalTargetId = null) {
+  const resolvedMode = mode === "delta_changed_only" ? "delta_changed_only" : "full_package";
+  importStudioState.updatePackageMode = resolvedMode;
+  if (optionalTargetId) {
+    importStudioState.intendedTargetTemplateId = optionalTargetId;
+    importStudioState.selectedTargetTemplateId = optionalTargetId;
+  }
+  syncUploadModeCardsUI();
+
+  if (typeof showToast === "function") {
+    showToast(
+      resolvedMode === "delta_changed_only"
+        ? "⚡ Mode 2 Selected: Only Changed & New Files will be updated (Unchanged files reused)!"
+        : "📦 Mode 1 Selected: Full Template ZIP Package will be uploaded!",
+      "info"
+    );
+  }
+
+  // If a session is already active in Smart Import Studio, re-run server comparison with the new updatePackageMode!
+  if (importStudioState.sessionId) {
+    try {
+      const res = await fetch("/api/templates/import-studio/" + encodeURIComponent(importStudioState.sessionId) + "/compare", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        credentials: "include",
+        body: JSON.stringify({
+          targetTemplateId: importStudioState.selectedTargetTemplateId || importStudioState.intendedTargetTemplateId || null,
+          updatePackageMode: resolvedMode
+        })
+      });
+      const json = await res.json().catch(() => ({}));
+      const data = json.data || json;
+      if (res.ok && data && data.sessionId) {
+        importStudioState.sessionData = data;
+        importStudioState.updatePackageMode = data.updatePackageMode || resolvedMode;
+        renderSmartImportStudioWorkspace();
+        const confirmModal = document.getElementById("import-publish-confirm-modal");
+        if (confirmModal && !confirmModal.classList.contains("hidden")) {
+          openImportPublishConfirmationModal(data);
+        }
+      }
+    } catch (_) {}
+  }
+};
+
+window.openSmartImportStudio = function(intendedTemplateId = null, initialMode = null) {
   importStudioState.intendedTargetTemplateId = intendedTemplateId || null;
+  if (initialMode) {
+    importStudioState.updatePackageMode = initialMode === "delta_changed_only" ? "delta_changed_only" : "full_package";
+  }
   const uploadModal = document.getElementById("upload-code-modal");
   if (uploadModal) {
     uploadModal.classList.remove("hidden");
     uploadModal.scrollIntoView({ behavior: "smooth", block: "start" });
   }
+  syncUploadModeCardsUI();
   const { workspace } = ensureSmartImportStudioDomContainers();
   if (workspace && intendedTemplateId) {
     const targetTpl = (allAdminTemplates || []).find(t => t.id === intendedTemplateId || t.slug === intendedTemplateId);
+    const isDelta = importStudioState.updatePackageMode === "delta_changed_only";
     workspace.classList.remove("hidden");
     workspace.innerHTML =
-      '<div class="p-4 rounded-xl bg-pink-500/10 border border-pink-500/30 flex flex-wrap items-center justify-between gap-3">' +
-        '<div class="flex items-center gap-3">' +
-          '<span class="material-symbols-outlined text-pink-400 text-[24px]">system_update_alt</span>' +
-          '<div>' +
-            '<div class="text-xs sm:text-sm font-extrabold text-on-surface">Update Target Pre-Selected: ' + escapeHtmlSafe(targetTpl ? targetTpl.name : intendedTemplateId) + ' <span class="font-mono text-pink-300">(' + escapeHtmlSafe(intendedTemplateId) + ')</span></div>' +
-            '<div class="text-[11px] text-on-surface-variant">Select or drop the updated .ZIP package above. WishMagic will verify package identity, compare files & UTP v1.2.0 sections side by side, and stage a new immutable version.</div>' +
+      '<div class="p-4 rounded-xl bg-pink-500/10 border border-pink-500/30 flex flex-col gap-3">' +
+        '<div class="flex flex-wrap items-center justify-between gap-3">' +
+          '<div class="flex items-center gap-3">' +
+            '<span class="material-symbols-outlined text-pink-400 text-[24px]">system_update_alt</span>' +
+            '<div>' +
+              '<div class="text-xs sm:text-sm font-extrabold text-on-surface">Update Target Pre-Selected: ' + escapeHtmlSafe(targetTpl ? targetTpl.name : intendedTemplateId) + ' <span class="font-mono text-pink-300">(' + escapeHtmlSafe(intendedTemplateId) + ')</span></div>' +
+              '<div class="text-[11px] text-on-surface-variant">Choose your preferred update method below — either upload the full template ZIP or update only changed/new files:</div>' +
+            '</div>' +
+          '</div>' +
+          '<div class="flex flex-wrap items-center gap-2">' +
+            '<button type="button" onclick="setUploadUpdatePackageMode(\'full_package\', \'' + escapeQuotes(intendedTemplateId) + '\'); document.getElementById(\'zip-input\').click()" class="px-3.5 py-2 rounded-xl ' + (!isDelta ? 'bg-pink-600 text-white' : 'bg-surface-container-highest text-on-surface') + ' hover:brightness-110 font-bold text-xs cursor-pointer flex items-center gap-1.5">' +
+              '<span class="material-symbols-outlined text-[16px]">folder_zip</span>' +
+              '<span>1. Upload Full Template .ZIP</span>' +
+            '</button>' +
+            '<button type="button" onclick="setUploadUpdatePackageMode(\'delta_changed_only\', \'' + escapeQuotes(intendedTemplateId) + '\'); document.getElementById(\'zip-input\').click()" class="px-3.5 py-2 rounded-xl ' + (isDelta ? 'bg-emerald-600 text-white' : 'bg-emerald-500/20 text-emerald-300 border border-emerald-500/40') + ' hover:brightness-110 font-bold text-xs cursor-pointer flex items-center gap-1.5">' +
+              '<span class="material-symbols-outlined text-[16px]">bolt</span>' +
+              '<span>2. Update Changed/New Files (.ZIP)</span>' +
+            '</button>' +
+            '<button type="button" onclick="setUploadUpdatePackageMode(\'delta_changed_only\', \'' + escapeQuotes(intendedTemplateId) + '\'); document.getElementById(\'delta-files-input\').click()" class="px-3 py-2 rounded-xl bg-surface-container-highest hover:bg-emerald-500/20 text-emerald-300 border border-emerald-500/30 font-bold text-xs cursor-pointer flex items-center gap-1">' +
+              '<span class="material-symbols-outlined text-[15px]">upload_file</span>' +
+              '<span>Pick Changed Files</span>' +
+            '</button>' +
           '</div>' +
         '</div>' +
-        '<button type="button" onclick="document.getElementById(\'zip-input\').click()" class="px-4 py-2 rounded-xl bg-pink-600 hover:bg-pink-500 text-white font-bold text-xs cursor-pointer flex items-center gap-1.5">' +
-          '<span class="material-symbols-outlined text-[16px]">archive</span>' +
-          '<span>Select Updated .ZIP</span>' +
-        '</button>' +
       '</div>';
   }
 };
@@ -5979,6 +6125,7 @@ async function runSmartTemplateRecognitionStudio(packageHintName = "") {
       if (importStudioState.intendedTargetTemplateId) {
         formData.append("intendedTargetTemplateId", importStudioState.intendedTargetTemplateId);
       }
+      formData.append("updatePackageMode", importStudioState.updatePackageMode || "full_package");
       fetchOptions = {
         method: "POST",
         credentials: "include",
@@ -5988,7 +6135,8 @@ async function runSmartTemplateRecognitionStudio(packageHintName = "") {
     } else {
       const reqBody = {
         filename,
-        intendedTargetTemplateId: importStudioState.intendedTargetTemplateId || null
+        intendedTargetTemplateId: importStudioState.intendedTargetTemplateId || null,
+        updatePackageMode: importStudioState.updatePackageMode || "full_package"
       };
       if (currentZipBase64) {
         reqBody.zipBase64 = currentZipBase64;
@@ -6017,6 +6165,10 @@ async function runSmartTemplateRecognitionStudio(packageHintName = "") {
     importStudioState.sessionId = data.sessionId;
     importStudioState.selectedTargetTemplateId = data.selectedTargetTemplateId || null;
     importStudioState.sessionData = data;
+    if (data.updatePackageMode) {
+      importStudioState.updatePackageMode = data.updatePackageMode;
+      syncUploadModeCardsUI();
+    }
     importStudioState.selectedVariant = "default";
     importStudioState.existingVariant = "default";
     importStudioState.stagedVariant = "default";
@@ -6101,7 +6253,7 @@ window.selectImportCandidateTarget = async function(templateId) {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       credentials: "include",
-      body: JSON.stringify({ targetTemplateId: templateId })
+      body: JSON.stringify({ targetTemplateId: templateId, updatePackageMode: importStudioState.updatePackageMode || "full_package" })
     });
     const json = await res.json().catch(() => ({}));
     const data = json.data || json;
@@ -6262,9 +6414,11 @@ function runStaggeredSideBySideLoad(existingUrl, stagedUrl, stagedRel) {
     }
   };
 
+  const hasLocalIndexHtml = Object.keys(currentUploadedFiles).some(k => k.toLowerCase() === "index.html" || k.toLowerCase().endsWith("/index.html"));
+
   // Phase 1: Render Right (Staged Uploaded ZIP) immediately so admin sees new changes first
   if (stIframe) {
-    if (Object.keys(currentUploadedFiles).length > 0) {
+    if (hasLocalIndexHtml && Object.keys(currentUploadedFiles).length > 0) {
       const html = buildClientStagedPreviewHtml(stagedRel || "default");
       mountHtmlIntoPreviewIframe(stIframe, html, {
         loaderId: "sbs-staged-loader",
@@ -6637,12 +6791,17 @@ function renderSmartImportStudioWorkspace() {
       '</div>'
     : "";
 
+  const isDeltaModeActive = (sData.updatePackageMode || importStudioState.updatePackageMode) === "delta_changed_only";
   const allDiffFiles = [
-    ...(comp.files?.modified || []).map(f => ({ ...f, badge: "MODIFIED", badgeClass: "bg-amber-500/20 text-amber-300" })),
-    ...(comp.files?.added || []).map(f => ({ ...f, badge: "ADDED", badgeClass: "bg-emerald-500/20 text-emerald-300" })),
+    ...(comp.files?.modified || []).map(f => ({ ...f, badge: isDeltaModeActive ? "MODIFIED • WILL UPDATE" : "MODIFIED", badgeClass: "bg-amber-500/20 text-amber-300" })),
+    ...(comp.files?.added || []).map(f => ({ ...f, badge: isDeltaModeActive ? "NEW • WILL ADD" : "ADDED", badgeClass: "bg-emerald-500/20 text-emerald-300" })),
     ...(comp.files?.renamed || []).map(f => ({ ...f, path: f.oldPath + " → " + f.newPath, badge: "RENAMED", badgeClass: "bg-cyan-500/20 text-cyan-300" })),
     ...(comp.files?.removed || []).map(f => ({ ...f, badge: "REMOVED", badgeClass: "bg-rose-500/20 text-rose-300" })),
-    ...(comp.files?.unchanged || []).map(f => ({ ...f, badge: "UNCHANGED", badgeClass: "bg-surface-container-highest text-outline" }))
+    ...(comp.files?.unchanged || []).map(f => ({
+      ...f,
+      badge: isDeltaModeActive ? "UNCHANGED • REUSED (SKIP UPLOAD)" : "UNCHANGED",
+      badgeClass: isDeltaModeActive ? "bg-emerald-500/15 text-emerald-300 border border-emerald-500/30" : "bg-surface-container-highest text-outline"
+    }))
   ];
 
   const activeDiffFileObj = allDiffFiles.find(f => f.path === importStudioState.activeFileDiffPath && f.diff && f.diff.diffText);
@@ -6756,16 +6915,60 @@ function renderSmartImportStudioWorkspace() {
         : '') +
     '</div>';
 
-  // 5. Manual Decision Bar (Option A: Update Existing, Option B: Create New, Option C: Cancel)
+  // 5. Manual Decision Bar & 2-Option Update Mode Selector (Full Package vs Changed/New Files Only)
   const canUpdateExisting = Boolean(valReport.valid && importStudioState.selectedTargetTemplateId);
   const canCreateNew = Boolean(valReport.valid);
+  const changedAndNewCount = Number(filesSummary.modifiedCount || 0) + Number(filesSummary.addedCount || 0) + Number(filesSummary.renamedCount || 0);
+  const unchangedReusedCount = Number(filesSummary.unchangedCount || 0);
+  const totalPackageFilesCount = changedAndNewCount + unchangedReusedCount;
+
+  const updateModeSelectorCardHtml = exTpl
+    ? '<div class="p-3.5 rounded-2xl bg-surface-container border border-purple-500/35 flex flex-col gap-2.5">' +
+        '<div class="flex flex-wrap items-center justify-between gap-2">' +
+          '<span class="text-xs font-extrabold uppercase tracking-wider text-on-surface flex items-center gap-1.5">' +
+            '<span class="material-symbols-outlined text-primary text-[18px]">tune</span>' +
+            '<span>Choose Update Method for "' + escapeHtmlSafe(exTpl.name) + '" (2 Options)</span>' +
+          '</span>' +
+          '<span class="text-[11px] font-bold ' + (isDeltaModeActive ? 'text-emerald-300' : 'text-purple-200') + '">' +
+            (isDeltaModeActive
+              ? ('⚡ Active: Updating ONLY ' + changedAndNewCount + ' changed/new file(s) • Reusing ' + unchangedReusedCount + ' unchanged file(s)')
+              : ('📦 Active: Uploading full template package (' + totalPackageFilesCount + ' file(s))')) +
+          '</span>' +
+        '</div>' +
+        '<div class="grid grid-cols-1 md:grid-cols-2 gap-3">' +
+          '<button type="button" onclick="setUploadUpdatePackageMode(\'full_package\')" class="p-3 rounded-xl border text-left transition cursor-pointer flex items-start gap-2.5 ' +
+            (!isDeltaModeActive ? 'border-2 border-primary bg-primary/15 shadow-md' : 'border-purple-500/25 bg-surface-container-lowest hover:bg-surface-container-high') + '">' +
+            '<span class="material-symbols-outlined text-primary text-[20px] mt-0.5">folder_zip</span>' +
+            '<div class="flex-1 min-w-0">' +
+              '<div class="flex items-center justify-between gap-2">' +
+                '<span class="text-xs font-extrabold text-on-surface">Option 1: Full Template ZIP Upload</span>' +
+                '<span class="px-2 py-0.5 rounded-full text-[9px] font-bold uppercase ' + (!isDeltaModeActive ? 'bg-primary text-white' : 'bg-surface-container-highest text-outline') + '">' + (!isDeltaModeActive ? '✓ Selected' : 'Select') + '</span>' +
+              '</div>' +
+              '<p class="text-[11px] text-on-surface-variant mt-0.5">Poora template ZIP upload karein (' + totalPackageFilesCount + ' files). Saari files naye version me fresh upload hongi.</p>' +
+            '</div>' +
+          '</button>' +
+          '<button type="button" onclick="setUploadUpdatePackageMode(\'delta_changed_only\')" class="p-3 rounded-xl border text-left transition cursor-pointer flex items-start gap-2.5 ' +
+            (isDeltaModeActive ? 'border-2 border-emerald-500 bg-emerald-500/15 shadow-md' : 'border-purple-500/25 bg-surface-container-lowest hover:bg-surface-container-high') + '">' +
+            '<span class="material-symbols-outlined text-emerald-400 text-[20px] mt-0.5">bolt</span>' +
+            '<div class="flex-1 min-w-0">' +
+              '<div class="flex items-center justify-between gap-2">' +
+                '<span class="text-xs font-extrabold text-on-surface">Option 2: Only Changed &amp; New Files Update</span>' +
+                '<span class="px-2 py-0.5 rounded-full text-[9px] font-bold uppercase ' + (isDeltaModeActive ? 'bg-emerald-500 text-purple-950 font-black' : 'bg-emerald-500/20 text-emerald-300') + '">' + (isDeltaModeActive ? '✓ Selected' : 'Select') + '</span>' +
+              '</div>' +
+              '<p class="text-[11px] text-on-surface-variant mt-0.5">Sirf <b>' + changedAndNewCount + ' changed/new file(s)</b> (' + filesSummary.modifiedCount + ' modified, ' + filesSummary.addedCount + ' new) update hongi • <b>' + unchangedReusedCount + ' unchanged file(s)</b> reuse hongi!</p>' +
+            '</div>' +
+          '</button>' +
+        '</div>' +
+      '</div>'
+    : '';
 
   const decisionBarHtml =
+    updateModeSelectorCardHtml +
     '<div class="p-4 rounded-2xl bg-gradient-to-r from-surface-container via-purple-950/30 to-surface-container border border-purple-500/40 flex flex-col gap-3">' +
       '<div class="flex flex-wrap items-center justify-between gap-2">' +
         '<div>' +
           '<h4 class="text-xs sm:text-sm font-extrabold text-on-surface">Manual Administrator Decision Required</h4>' +
-          '<p class="text-[11px] text-on-surface-variant">WishMagic never overwrites a live template automatically. Choose whether to update the selected template, create a new template, or cancel.</p>' +
+          '<p class="text-[11px] text-on-surface-variant">WishMagic never overwrites a live template automatically. Choose whether to update the selected template (Full ZIP or Changed/New Files Only), create a new template, or cancel.</p>' +
         '</div>' +
         '<div class="flex flex-wrap items-center gap-2">' +
           '<button type="button" onclick="cancelActiveImportStudioSession()" class="px-4 py-2 rounded-xl bg-surface-container-highest hover:bg-rose-500/20 text-on-surface hover:text-rose-200 font-bold text-xs transition cursor-pointer flex items-center gap-1.5">' +
@@ -6776,9 +6979,13 @@ function renderSmartImportStudioWorkspace() {
             '<span class="material-symbols-outlined text-[16px]">add_circle</span>' +
             '<span>Create New Template</span>' +
           '</button>' +
-          '<button type="button" ' + (!canUpdateExisting ? 'disabled' : '') + ' onclick="promptImportStudioDecision(\'update_existing\')" class="px-5 py-2 rounded-xl bg-gradient-to-r from-emerald-600 to-teal-500 hover:brightness-110 disabled:opacity-40 disabled:cursor-not-allowed text-white font-extrabold text-xs shadow-lg transition cursor-pointer flex items-center gap-1.5">' +
-            '<span class="material-symbols-outlined text-[16px]">system_update_alt</span>' +
-            '<span>Update Existing Template' + (exTpl ? ' (' + escapeHtmlSafe(exTpl.name) + ')' : '') + '</span>' +
+          '<button type="button" ' + (!canUpdateExisting ? 'disabled' : '') + ' onclick="promptImportStudioDecision(\'update_existing\', \'full_package\')" class="px-4 py-2 rounded-xl ' + (!isDeltaModeActive ? 'bg-gradient-to-r from-pink-600 to-purple-600 text-white font-extrabold shadow-lg' : 'bg-surface-container-highest hover:bg-purple-500/25 text-on-surface font-bold border border-purple-500/30') + ' disabled:opacity-40 disabled:cursor-not-allowed text-xs transition cursor-pointer flex items-center gap-1.5">' +
+            '<span class="material-symbols-outlined text-[16px]">folder_zip</span>' +
+            '<span>1. Update Full Template ZIP</span>' +
+          '</button>' +
+          '<button type="button" ' + (!canUpdateExisting ? 'disabled' : '') + ' onclick="promptImportStudioDecision(\'update_existing\', \'delta_changed_only\')" class="px-5 py-2 rounded-xl ' + (isDeltaModeActive ? 'bg-gradient-to-r from-emerald-600 to-teal-500 text-white font-extrabold shadow-lg' : 'bg-emerald-500/20 hover:bg-emerald-500/30 text-emerald-300 font-extrabold border border-emerald-500/40') + ' disabled:opacity-40 disabled:cursor-not-allowed text-xs transition cursor-pointer flex items-center gap-1.5">' +
+            '<span class="material-symbols-outlined text-[16px]">bolt</span>' +
+            '<span>2. Update Changed &amp; New Files Only (' + changedAndNewCount + ')</span>' +
           '</button>' +
         '</div>' +
       '</div>' +
@@ -6816,9 +7023,14 @@ function renderSmartImportStudioWorkspace() {
   runStaggeredSideBySideLoad(existingIframeUrl, stagedIframeUrl, stagedRel || "default");
 }
 
-window.promptImportStudioDecision = async function(decisionMode) {
+window.promptImportStudioDecision = async function(decisionMode, explicitUpdatePackageMode = null) {
   const sData = importStudioState.sessionData;
   if (!sData || !importStudioState.sessionId) return;
+  if (explicitUpdatePackageMode) {
+    importStudioState.updatePackageMode = explicitUpdatePackageMode === "delta_changed_only" ? "delta_changed_only" : "full_package";
+    syncUploadModeCardsUI();
+  }
+  const activeUpdatePackageMode = importStudioState.updatePackageMode || "full_package";
 
   let newTemplateId = null;
   let newTemplateSlug = null;
@@ -6868,6 +7080,7 @@ window.promptImportStudioDecision = async function(decisionMode) {
       credentials: "include",
       body: JSON.stringify({
         decisionMode,
+        updatePackageMode: activeUpdatePackageMode,
         targetTemplateId: decisionMode === "update_existing" ? importStudioState.selectedTargetTemplateId : null,
         newTemplateId,
         newTemplateSlug,
@@ -6902,18 +7115,39 @@ function openImportPublishConfirmationModal(validatedSession) {
   if (!confirmModal || !bodyEl || !validatedSession) return;
 
   const isUpdate = validatedSession.decisionMode === "update_existing";
+  const isDeltaUpdate = isUpdate && ((validatedSession.updatePackageMode || importStudioState.updatePackageMode) === "delta_changed_only");
   const exTpl = validatedSession.existingTemplate || validatedSession.comparison?.existingTemplate || null;
   const pkgMeta = validatedSession.packageMetadata || {};
   const comp = validatedSession.comparison || {};
   const fSum = comp.files?.summary || { addedCount: 0, modifiedCount: 0, removedCount: 0, renamedCount: 0, unchangedCount: 0 };
+  const changedOrNewTotal = Number(fSum.modifiedCount || 0) + Number(fSum.addedCount || 0) + Number(fSum.renamedCount || 0);
   const mDiff = comp.manifestDiff || {};
   const warnings = comp.destructiveWarnings || [];
+
+  const updateModeBannerInModal = isUpdate
+    ? '<div class="p-3 rounded-xl bg-surface-container border border-purple-500/30 flex flex-col gap-2">' +
+        '<div class="flex flex-wrap items-center justify-between gap-2">' +
+          '<span class="text-[11px] font-extrabold uppercase tracking-wider text-on-surface">Selected Update Method:</span>' +
+          '<div class="flex items-center gap-1.5">' +
+            '<button type="button" onclick="promptImportStudioDecision(\'update_existing\', \'full_package\')" class="px-2.5 py-1 rounded-lg text-[10px] font-bold cursor-pointer ' + (!isDeltaUpdate ? 'bg-primary text-white' : 'bg-surface-container-highest text-outline') + '">📦 1. Full ZIP Upload</button>' +
+            '<button type="button" onclick="promptImportStudioDecision(\'update_existing\', \'delta_changed_only\')" class="px-2.5 py-1 rounded-lg text-[10px] font-bold cursor-pointer ' + (isDeltaUpdate ? 'bg-emerald-500 text-purple-950 font-black' : 'bg-surface-container-highest text-outline') + '">⚡ 2. Changed &amp; New Files Only</button>' +
+          '</div>' +
+        '</div>' +
+        '<div class="text-[11px] ' + (isDeltaUpdate ? 'text-emerald-300' : 'text-purple-200') + '">' +
+          (isDeltaUpdate
+            ? ('⚡ <b>Smart Delta Update Active:</b> Only <b>' + changedOrNewTotal + ' file(s)</b> (' + fSum.modifiedCount + ' modified, ' + fSum.addedCount + ' new) will be uploaded &amp; updated. All <b>' + fSum.unchangedCount + ' unchanged file(s)</b> will be automatically reused from the current version without re-uploading!')
+            : ('📦 <b>Full Template ZIP Upload Active:</b> All <b>' + (changedOrNewTotal + fSum.unchangedCount) + ' file(s)</b> in the ZIP will be uploaded to create the new version.')) +
+        '</div>' +
+      '</div>'
+    : '';
 
   bodyEl.innerHTML =
     '<div class="p-3.5 rounded-xl ' + (isUpdate ? 'bg-emerald-500/10 border border-emerald-500/35' : 'bg-indigo-500/10 border border-indigo-500/35') + ' flex items-center justify-between gap-3">' +
       '<div>' +
         '<div class="text-[10px] font-extrabold uppercase tracking-wider ' + (isUpdate ? 'text-emerald-300' : 'text-indigo-300') + '">' +
-          (isUpdate ? 'Option A • Update Existing Template (Immutable New Version)' : 'Option B • Create Brand-New Template') +
+          (isUpdate
+            ? (isDeltaUpdate ? 'Option 2 • Smart Delta Update (Only Changed & New Files)' : 'Option 1 • Full Template Package Update (Immutable New Version)')
+            : 'Create Brand-New Template') +
         '</div>' +
         '<div class="text-sm font-extrabold text-on-surface mt-0.5">' +
           (isUpdate && exTpl
@@ -6924,6 +7158,7 @@ function openImportPublishConfirmationModal(validatedSession) {
       '<span class="px-2.5 py-1 rounded-full bg-emerald-500/20 text-emerald-300 font-bold text-[10px]">✓ READY TO PUBLISH</span>' +
     '</div>' +
 
+    updateModeBannerInModal +
     '<div class="grid grid-cols-2 sm:grid-cols-4 gap-2.5">' +
       '<div class="p-2.5 rounded-xl bg-surface-container border border-purple-500/20">' +
         '<div class="text-[10px] text-outline uppercase font-bold">Files Diff</div>' +
@@ -6997,9 +7232,28 @@ window.executeImportStudioConfirmedPublish = async function() {
   };
   setPublishBtnStatus("Preparing assets & publishing immutable version...");
 
+  const isDeltaPublish = Boolean(
+    sData.decisionMode === "update_existing" &&
+    (sData.updatePackageMode || importStudioState.updatePackageMode) === "delta_changed_only"
+  );
+  const deltaChangedSet = isDeltaPublish
+    ? new Set([
+        ...((sData.comparison?.files?.modified || []).map(f => String(f.path || "").replace(/^\.?\/+/, ""))),
+        ...((sData.comparison?.files?.added || []).map(f => String(f.path || "").replace(/^\.?\/+/, ""))),
+        ...((sData.comparison?.files?.renamed || []).map(f => String(f.newPath || "").replace(/^\.?\/+/, "")))
+      ].filter(Boolean))
+    : null;
+
   try {
     const preUploadedImgbbMap = {};
-    const imageRelPaths = Object.keys(currentUploadedFiles || {}).filter(p => isImageFile(p) && !p.toLowerCase().endsWith(".svg"));
+    const imageRelPaths = Object.keys(currentUploadedFiles || {}).filter(p => {
+      if (!isImageFile(p) || p.toLowerCase().endsWith(".svg")) return false;
+      const cleanP = String(p).replace(/^\.?\/+/, "");
+      if (isDeltaPublish && deltaChangedSet && !deltaChangedSet.has(cleanP)) {
+        return false; // Skip unchanged photos in Delta Mode — reused from current version!
+      }
+      return true;
+    });
     if (imageRelPaths.length > 0) {
       let completedPhotos = 0;
       let skipClientImgbb = false;
@@ -7074,7 +7328,10 @@ window.executeImportStudioConfirmedPublish = async function() {
       }
     }
 
-    const preUploadedB2Map = await preUploadTemplateMediaToB2(currentUploadedFiles, setPublishBtnStatus);
+    const filesForB2PreUpload = isDeltaPublish && deltaChangedSet
+      ? Object.fromEntries(Object.entries(currentUploadedFiles || {}).filter(([p]) => deltaChangedSet.has(String(p).replace(/^\.?\/+/, ""))))
+      : currentUploadedFiles;
+    const preUploadedB2Map = await preUploadTemplateMediaToB2(filesForB2PreUpload, setPublishBtnStatus);
 
     setPublishBtnStatus("Deploying code & media to Backblaze B2 & D1...");
     let resolvedZipBase64 = null;
@@ -7092,13 +7349,14 @@ window.executeImportStudioConfirmedPublish = async function() {
       headers: { "Content-Type": "application/json" },
       credentials: "include",
       body: JSON.stringify({
+        updatePackageMode: isDeltaPublish ? "delta_changed_only" : "full_package",
         expectedLockVersion: sData.baseTemplateLockVersion,
         warningsAcknowledged: true,
         releaseNotes,
         zipBase64: resolvedZipBase64,
         preUploadedImgbbMap,
         preUploadedB2Map,
-        skipServerImgbbRetry: Boolean(imageRelPaths.length > 0 && Object.keys(preUploadedImgbbMap).length === 0)
+        skipServerImgbbRetry: Boolean(isDeltaPublish || (imageRelPaths.length > 0 && Object.keys(preUploadedImgbbMap).length === 0))
       })
     });
 

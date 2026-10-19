@@ -81,6 +81,11 @@ export const IMPORT_DECISION_MODE = Object.freeze({
   CANCELLED: 'cancelled'
 });
 
+export const UPDATE_PACKAGE_MODE = Object.freeze({
+  FULL_PACKAGE: 'full_package',
+  DELTA_CHANGED_ONLY: 'delta_changed_only'
+});
+
 export const ALLOWED_IMPORT_STATE_TRANSITIONS = Object.freeze({
   UPLOADED: ['INSPECTING', 'FAILED', 'CANCELLED'],
   INSPECTING: ['RECOGNIZED', 'PREVIEW_READY', 'FAILED', 'CANCELLED'],
@@ -742,6 +747,22 @@ export async function inspectAndValidateTemplateZip(zipInput, options = {}) {
     };
   }
 
+  // Track exact file paths present in the uploaded archive BEFORE any delta baseline merge
+  const uploadedDeltaPaths = Array.from(extractedFiles.keys());
+  const inheritedBaselinePaths = [];
+  const requestedUpdateMode = options.updatePackageMode === UPDATE_PACKAGE_MODE.DELTA_CHANGED_ONLY
+    ? UPDATE_PACKAGE_MODE.DELTA_CHANGED_ONLY
+    : UPDATE_PACKAGE_MODE.FULL_PACKAGE;
+
+  if (options.baseTemplateContext && options.baseTemplateContext.template) {
+    const hasUploadedEntryHtml = Array.from(extractedFiles.keys()).some(k => k.toLowerCase() === 'index.html' || k.toLowerCase().endsWith('/index.html'));
+    const shouldMergeBaseline = requestedUpdateMode === UPDATE_PACKAGE_MODE.DELTA_CHANGED_ONLY || !hasUploadedEntryHtml;
+    if (shouldMergeBaseline) {
+      const mergedList = mergeBaselineIntoExtractedFiles(extractedFiles, options.baseTemplateContext);
+      inheritedBaselinePaths.push(...mergedList);
+    }
+  }
+
   // Parse manifest if present (wishmagic.json or manifest.json)
   let rawManifest = null;
   let manifestPath = null;
@@ -838,14 +859,16 @@ export async function inspectAndValidateTemplateZip(zipInput, options = {}) {
   const hashesMap = {};
 
   for (const [relPath, fileObj] of extractedFiles.entries()) {
-    const sha256 = await computeSha256Hex(fileObj.content);
+    const computedSha = await computeSha256Hex(fileObj.content);
+    const sha256 = (fileObj.inheritedFromBaseline && fileObj.existingSha256) ? fileObj.existingSha256 : computedSha;
     const isEntry = relPath === entryFileKey;
     const role = classifyFileRole(relPath, isEntry);
     hashesMap[relPath] = {
       sha256,
       sizeBytes: fileObj.sizeBytes,
       mimeType: fileObj.mimeType,
-      role
+      role,
+      inheritedFromBaseline: Boolean(fileObj.inheritedFromBaseline)
     };
     fileRecords.push({
       relativePath: relPath,
@@ -853,7 +876,9 @@ export async function inspectAndValidateTemplateZip(zipInput, options = {}) {
       mimeType: fileObj.mimeType,
       sha256,
       fileRole: role,
-      isEntryFile: isEntry ? 1 : 0
+      isEntryFile: isEntry ? 1 : 0,
+      inheritedFromBaseline: Boolean(fileObj.inheritedFromBaseline),
+      existingStorageKey: fileObj.existingStorageKey || null
     });
   }
 
@@ -962,6 +987,11 @@ export async function inspectAndValidateTemplateZip(zipInput, options = {}) {
     files: extractedFiles,
     fileRecords,
     hashesMap,
+    uploadedDeltaPaths,
+    inheritedBaselinePaths,
+    updatePackageMode: (inheritedBaselinePaths.length > 0 && !uploadedDeltaPaths.some(k => k.toLowerCase() === 'index.html'))
+      ? UPDATE_PACKAGE_MODE.DELTA_CHANGED_ONLY
+      : requestedUpdateMode,
     entryFile: entryFileKey,
     entryHtmlText,
     fileCount: extractedFiles.size,
@@ -1707,10 +1737,16 @@ export function computeUnifiedTextDiff(oldText = '', newText = '', filePath = 'f
  * Automatic Change Comparison Engine (Section 7)
  * Compares the selected existing published template version against the staged uploaded package.
  */
-export function compareExistingTemplateWithStagedPackage(existingContext, stagedInspection) {
+export function compareExistingTemplateWithStagedPackage(existingContext, stagedInspection, options = {}) {
   if (!stagedInspection) {
     throw new Error('Staged package inspection is required for comparison.');
   }
+  const updatePackageMode = (options.updatePackageMode || stagedInspection.updatePackageMode) === UPDATE_PACKAGE_MODE.DELTA_CHANGED_ONLY
+    ? UPDATE_PACKAGE_MODE.DELTA_CHANGED_ONLY
+    : UPDATE_PACKAGE_MODE.FULL_PACKAGE;
+  const uploadedDeltaSet = Array.isArray(options.uploadedDeltaPaths || stagedInspection.uploadedDeltaPaths)
+    ? new Set((options.uploadedDeltaPaths || stagedInspection.uploadedDeltaPaths).map(p => String(p).replace(/^\.?\/+/, '')))
+    : null;
 
   // If no existing template is selected (e.g. brand new template), return a clean initial-import comparison
   if (!existingContext || !existingContext.template) {
@@ -1818,7 +1854,8 @@ export function compareExistingTemplateWithStagedPackage(existingContext, staged
       mimeType: nf.mimeType,
       sha256: nf.sha256,
       role: nf.fileRole,
-      text: extractedObj?.text ?? null
+      text: extractedObj?.text ?? null,
+      inheritedFromBaseline: Boolean(nf.inheritedFromBaseline || extractedObj?.inheritedFromBaseline)
     });
   }
 
@@ -1832,9 +1869,44 @@ export function compareExistingTemplateWithStagedPackage(existingContext, staged
     : new Map();
 
   for (const [p, newF] of newFilesByPath.entries()) {
+    const extractedObj = stagedInspection.files?.get(p);
+    const isInheritedBaseline = Boolean(newF.inheritedFromBaseline || extractedObj?.inheritedFromBaseline);
+
+    // If switched to full_package mode after a partial delta upload, inherited baseline files were not in the uploaded ZIP
+    if (isInheritedBaseline && updatePackageMode === UPDATE_PACKAGE_MODE.FULL_PACKAGE && uploadedDeltaSet && !uploadedDeltaSet.has(p)) {
+      const oldBaseline = oldFilesByPath.get(p);
+      if (oldBaseline) rawRemoved.push(oldBaseline);
+      continue;
+    }
+
     const oldF = oldFilesByPath.get(p);
     if (!oldF) {
-      rawAdded.push(newF);
+      if (isInheritedBaseline) {
+        unchanged.push({
+          path: p,
+          status: 'unchanged',
+          sizeBytes: newF.sizeBytes,
+          mimeType: newF.mimeType,
+          sha256: newF.sha256,
+          role: newF.role,
+          preservedFromExisting: true
+        });
+      } else {
+        rawAdded.push(newF);
+      }
+      continue;
+    }
+
+    if (isInheritedBaseline) {
+      unchanged.push({
+        path: p,
+        status: 'unchanged',
+        sizeBytes: oldF.sizeBytes || newF.sizeBytes,
+        mimeType: newF.mimeType,
+        sha256: oldF.sha256 || newF.sha256,
+        role: newF.role,
+        preservedFromExisting: true
+      });
       continue;
     }
 
@@ -1843,9 +1915,7 @@ export function compareExistingTemplateWithStagedPackage(existingContext, staged
     const imgRecord = existingImagesByPath.get(p) || existingImagesByPath.get(p.split('/').pop()) || null;
     const isStubbedExistingImage = Boolean(
       (newF.mimeType || '').startsWith('image/') &&
-      oldF.sizeBytes > 0 &&
-      oldF.sizeBytes <= 100 &&
-      newF.sizeBytes > 100 &&
+      ((oldF.sizeBytes > 0 && oldF.sizeBytes <= 100 && newF.sizeBytes > 100) || (newF.sizeBytes > 0 && newF.sizeBytes <= 220 && oldF.sizeBytes > 220)) &&
       (!imgRecord || !imgRecord.sha256 || imgRecord.sha256 === newF.sha256)
     );
     const isImgHashMatch = Boolean(imgRecord && imgRecord.sha256 && imgRecord.sha256 === newF.sha256);
@@ -1868,7 +1938,8 @@ export function compareExistingTemplateWithStagedPackage(existingContext, staged
         sizeBytes: newF.sizeBytes,
         mimeType: newF.mimeType,
         sha256: newF.sha256,
-        role: newF.role
+        role: newF.role,
+        preservedFromExisting: updatePackageMode === UPDATE_PACKAGE_MODE.DELTA_CHANGED_ONLY
       });
     } else {
       const textDiff = isText
@@ -1892,7 +1963,19 @@ export function compareExistingTemplateWithStagedPackage(existingContext, staged
 
   for (const [p, oldF] of oldFilesByPath.entries()) {
     if (!newFilesByPath.has(p)) {
-      rawRemoved.push(oldF);
+      if (updatePackageMode === UPDATE_PACKAGE_MODE.DELTA_CHANGED_ONLY) {
+        unchanged.push({
+          path: p,
+          status: 'unchanged',
+          sizeBytes: oldF.sizeBytes,
+          mimeType: oldF.mimeType,
+          sha256: oldF.sha256,
+          role: oldF.role,
+          preservedFromExisting: true
+        });
+      } else {
+        rawRemoved.push(oldF);
+      }
     }
   }
 
@@ -2310,8 +2393,26 @@ export function compareExistingTemplateWithStagedPackage(existingContext, staged
     });
   }
 
+  const changedAndAddedPaths = [
+    ...modified.map(f => f.path),
+    ...added.map(f => f.path),
+    ...renamed.map(f => f.newPath)
+  ];
+
   return {
     hasExistingBaseline: true,
+    updatePackageMode,
+    deltaSummary: {
+      mode: updatePackageMode,
+      uploadedFilesCount: uploadedDeltaSet ? uploadedDeltaSet.size : (stagedInspection.fileRecords || []).length,
+      changedFilesCount: modified.length,
+      addedFilesCount: added.length,
+      renamedFilesCount: renamed.length,
+      totalFilesToUpdateCount: changedAndAddedPaths.length,
+      reusedUnchangedFilesCount: unchanged.length,
+      removedFilesCount: removed.length,
+      changedAndAddedPaths
+    },
     existingTemplate: {
       id: tpl.id,
       name: tpl.name,
@@ -2825,6 +2926,200 @@ export const SANDBOXED_PREVIEW_CSP = [
 ].join('; ');
 
 
+const MINIMAL_BASELINE_JPEG_B64 = '/9j/4AAQSkZJRgABAQEASABIAAD/2wBDAP//////////////////////////////////////////////////////////////////////////////////////wgALCAABAAEBAREA/8QAFBABAAAAAAAAAAAAAAAAAAAAAP/aAAgBAQABPxA=';
+const MINIMAL_BASELINE_MP3_B64 = 'SUQzBAAAAAAAClRJVDIAAAACAAAA//uQZAAAAAAAAAAA';
+const MINIMAL_BASELINE_MP4_B64 = 'AAAAGGZ0eXBtcDQyAAAAAG1wNDJpc29t';
+
+function decodeBase64ToBytes(b64Str) {
+  const clean = String(b64Str || '').replace(/^data:[^;]+;base64,/i, '').replace(/\s+/g, '');
+  const bin = atob(clean);
+  const bytes = new Uint8Array(bin.length);
+  for (let i = 0; i < bin.length; i++) bytes[i] = bin.charCodeAt(i);
+  return bytes;
+}
+
+/**
+ * Merges unchanged baseline files (HTML, CSS, JS, wishmagic.json, and media stubs) from an existing template version
+ * into `extractedFiles` for Delta / Changed-Files-Only updates (`delta_changed_only`).
+ * Also smartly remaps bare filenames (e.g. `style.css` -> `css/style.css` or `template.js` -> `js/template.js`)
+ * when an admin uploads standalone changed files without subfolder prefixes.
+ */
+export function mergeBaselineIntoExtractedFiles(extractedFiles, existingContext) {
+  const inheritedPaths = [];
+  if (!extractedFiles || !(extractedFiles instanceof Map) || !existingContext || !existingContext.template) {
+    return inheritedPaths;
+  }
+
+  const existingFiles = Array.isArray(existingContext.files) ? existingContext.files : [];
+  const fileContentsMap = existingContext.fileContentsMap instanceof Map
+    ? existingContext.fileContentsMap
+    : new Map(Object.entries(existingContext.fileContentsMap || {}));
+  const imagesByPath = existingContext.imagesByPath instanceof Map
+    ? existingContext.imagesByPath
+    : new Map();
+
+  // Step A: Smart Bare Filename Remapping (e.g. `style.css` -> `css/style.css` if `css/style.css` exists in template)
+  const existingRelPaths = existingFiles
+    .map(ef => String(ef.relative_path || ef.relativePath || ef.path || '').replace(/\\/g, '/').replace(/^\.?\/+/, ''))
+    .filter(Boolean);
+
+  for (const [upPath, upObj] of Array.from(extractedFiles.entries())) {
+    if (upPath.includes('/')) continue;
+    const lowerUp = upPath.toLowerCase();
+    if (lowerUp === 'index.html' || lowerUp === 'wishmagic.json' || lowerUp === 'manifest.json') continue;
+    const exactRootExists = existingRelPaths.some(ep => ep.toLowerCase() === lowerUp);
+    if (exactRootExists) continue;
+    const subMatches = existingRelPaths.filter(ep => ep.toLowerCase().endsWith('/' + lowerUp));
+    if (subMatches.length === 1) {
+      const targetSubPath = subMatches[0];
+      if (!extractedFiles.has(targetSubPath)) {
+        extractedFiles.delete(upPath);
+        extractedFiles.set(targetSubPath, {
+          ...upObj,
+          relativePath: targetSubPath
+        });
+      }
+    }
+  }
+
+  const hasPathIgnoreCase = (candidatePath) => {
+    const lower = String(candidatePath || '').toLowerCase();
+    for (const k of extractedFiles.keys()) {
+      if (k.toLowerCase() === lower) return true;
+    }
+    return false;
+  };
+
+  // Step B: Inherit text files from existingContext.fileContentsMap
+  for (const [relP, textContent] of fileContentsMap.entries()) {
+    const cleanRel = String(relP || '').replace(/\\/g, '/').replace(/^\.?\/+/, '');
+    if (!cleanRel || hasPathIgnoreCase(cleanRel)) continue;
+    const existingRow = existingFiles.find(ef => String(ef.relative_path || ef.path || '').replace(/^\.?\/+/, '').toLowerCase() === cleanRel.toLowerCase());
+    const textStr = String(textContent ?? '');
+    const bytes = new TextEncoder().encode(textStr);
+    extractedFiles.set(cleanRel, {
+      relativePath: cleanRel,
+      content: bytes,
+      text: textStr,
+      sizeBytes: existingRow?.size_bytes || bytes.byteLength,
+      mimeType: existingRow?.mime_type || getMimeType(cleanRel),
+      inheritedFromBaseline: true,
+      existingSha256: existingRow?.sha256 || null,
+      existingStorageKey: existingRow?.storage_key || null
+    });
+    inheritedPaths.push(cleanRel);
+  }
+
+  // Ensure wishmagic.json is available if not already present
+  if (!hasPathIgnoreCase('wishmagic.json') && !hasPathIgnoreCase('manifest.json')) {
+    const rawM = safeJsonParse(existingContext.version?.manifest_json || existingContext.template?.features, null);
+    if (rawM && typeof rawM === 'object') {
+      const cleanManifest = {
+        $schema: 'wishmagic-template',
+        schemaVersion: rawM.schemaVersion || '1.3.0',
+        template: {
+          ...(rawM.template || {}),
+          id: rawM.template?.id || existingContext.template.id,
+          slug: rawM.template?.slug || existingContext.template.slug,
+          name: rawM.template?.name || existingContext.template.name,
+          description: rawM.template?.description || existingContext.template.description || '',
+          category: rawM.template?.category || existingContext.template.category || 'celebration',
+          tier: rawM.template?.tier || existingContext.template.tier || 'free',
+          price: rawM.template?.price ?? existingContext.template.price ?? 0,
+          entry: rawM.template?.entry || existingContext.template.entry_file || 'index.html'
+        },
+        sections: rawM.sections || safeJsonParse(existingContext.version?.sections || existingContext.template.sections, []),
+        fields: rawM.fields || safeJsonParse(existingContext.version?.fields_json || existingContext.template.detected_fields, []),
+        actions: rawM.actions || safeJsonParse(existingContext.version?.actions_json || existingContext.template.actions_json, []),
+        variants: rawM.variants || safeJsonParse(existingContext.template.variants_json, []),
+        capabilities: rawM.capabilities || safeJsonParse(existingContext.template.capabilities, {})
+      };
+      const mText = JSON.stringify(cleanManifest, null, 2);
+      const mBytes = new TextEncoder().encode(mText);
+      extractedFiles.set('wishmagic.json', {
+        relativePath: 'wishmagic.json',
+        content: mBytes,
+        text: mText,
+        sizeBytes: mBytes.byteLength,
+        mimeType: 'application/json',
+        inheritedFromBaseline: true
+      });
+      inheritedPaths.push('wishmagic.json');
+    }
+  }
+
+  // Ensure index.html is available if not already present (fallback structural HTML if B2 text was not loaded)
+  if (!hasPathIgnoreCase('index.html')) {
+    const mObj = safeJsonParse(extractedFiles.get('wishmagic.json')?.text || existingContext.version?.manifest_json || existingContext.template?.features, {});
+    const secs = Array.isArray(mObj.sections) ? mObj.sections : safeJsonParse(existingContext.template.sections, []);
+    const flds = Array.isArray(mObj.fields) ? mObj.fields : safeJsonParse(existingContext.template.detected_fields, []);
+    const acts = Array.isArray(mObj.actions) ? mObj.actions : safeJsonParse(existingContext.template.actions_json, []);
+    const cssLinks = Array.from(extractedFiles.keys()).filter(k => k.toLowerCase().endsWith('.css')).map(k => `<link rel="stylesheet" href="${k}">`).join('\n');
+    const jsLinks = Array.from(extractedFiles.keys()).filter(k => k.toLowerCase().endsWith('.js') && !k.toLowerCase().endsWith('.json')).map(k => `<script src="${k}"></script>`).join('\n');
+    const secsHtml = secs.map(s => {
+      const sId = typeof s === 'string' ? s : s.id;
+      const sFlds = flds.filter(f => (f.section || 'hero') === sId).map(f => `<div data-wm-field="${f.id || f.key}" data-wm-type="${f.type || 'text'}">${f.defaultValue || ''}</div>`).join('');
+      const sSubs = (Array.isArray(s.subsections) ? s.subsections : []).map(sub => `<div data-wm-subsection="${sub.id}"></div>`).join('');
+      return `<section data-wm-section="${sId}">${sFlds}${sSubs}</section>`;
+    }).join('\n');
+    const actsHtml = acts.map(a => `<button data-wm-action="${a.id}">${a.label || a.id}</button>`).join('\n');
+    const synthHtml = `<!DOCTYPE html><html><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><title>${existingContext.template.name || 'Template'}</title>${cssLinks}</head><body>${secsHtml}${actsHtml}<script src="/js/wishmagic-template-protocol.js"></script>${jsLinks}</body></html>`;
+    const hBytes = new TextEncoder().encode(synthHtml);
+    extractedFiles.set('index.html', {
+      relativePath: 'index.html',
+      content: hBytes,
+      text: synthHtml,
+      sizeBytes: hBytes.byteLength,
+      mimeType: 'text/html',
+      inheritedFromBaseline: true
+    });
+    inheritedPaths.push('index.html');
+  }
+
+  // Step C: Inherit binary/media files from existingContext.files and existingContext.imagesByPath
+  for (const ef of existingFiles) {
+    const cleanRel = String(ef.relative_path || ef.relativePath || ef.path || '').replace(/\\/g, '/').replace(/^\.?\/+/, '');
+    if (!cleanRel || hasPathIgnoreCase(cleanRel)) continue;
+    const ext = cleanRel.split('.').pop().toLowerCase();
+    if (TEXT_FILE_EXTENSIONS.has(ext)) continue;
+    const mime = String(ef.mime_type || getMimeType(cleanRel)).toLowerCase();
+    const stubB64 = mime.startsWith('image/')
+      ? MINIMAL_BASELINE_JPEG_B64
+      : (mime.startsWith('video/') ? MINIMAL_BASELINE_MP4_B64 : MINIMAL_BASELINE_MP3_B64);
+    const stubBytes = decodeBase64ToBytes(stubB64);
+    extractedFiles.set(cleanRel, {
+      relativePath: cleanRel,
+      content: stubBytes,
+      text: null,
+      sizeBytes: Number(ef.size_bytes || stubBytes.byteLength),
+      mimeType: ef.mime_type || getMimeType(cleanRel),
+      inheritedFromBaseline: true,
+      existingSha256: ef.sha256 || null,
+      existingStorageKey: ef.storage_key || null
+    });
+    inheritedPaths.push(cleanRel);
+  }
+
+  for (const [imgPath, imgRow] of imagesByPath.entries()) {
+    const cleanRel = String(imgPath || '').replace(/\\/g, '/').replace(/^\.?\/+/, '');
+    if (!cleanRel || !cleanRel.includes('/') || hasPathIgnoreCase(cleanRel)) continue;
+    const stubBytes = decodeBase64ToBytes(MINIMAL_BASELINE_JPEG_B64);
+    extractedFiles.set(cleanRel, {
+      relativePath: cleanRel,
+      content: stubBytes,
+      text: null,
+      sizeBytes: Number(imgRow.size_bytes || stubBytes.byteLength),
+      mimeType: imgRow.mime_type || getMimeType(cleanRel),
+      inheritedFromBaseline: true,
+      existingSha256: imgRow.sha256 || null,
+      existingStorageKey: imgRow.display_url || imgRow.original_url || null
+    });
+    inheritedPaths.push(cleanRel);
+  }
+
+  return inheritedPaths;
+}
+
 /**
  * Serializes extracted files map into a compact JSON object for staging persistence in D1
  */
@@ -2872,7 +3167,10 @@ export function serializeStagedFilesBundle(extractedFiles, options = {}) {
         isBase64: false,
         content: fileObj.text,
         sizeBytes: fileObj.sizeBytes,
-        mimeType: fileObj.mimeType
+        mimeType: fileObj.mimeType,
+        ...(fileObj.inheritedFromBaseline ? { inheritedFromBaseline: true } : {}),
+        ...(fileObj.existingSha256 ? { existingSha256: fileObj.existingSha256 } : {}),
+        ...(fileObj.existingStorageKey ? { existingStorageKey: fileObj.existingStorageKey } : {})
       };
     } else if (fileObj.content instanceof Uint8Array) {
       const bytes = fileObj.content;
@@ -2886,7 +3184,10 @@ export function serializeStagedFilesBundle(extractedFiles, options = {}) {
           isBase64: true,
           content: btoa(binary),
           sizeBytes: fileObj.sizeBytes,
-          mimeType: fileObj.mimeType
+          mimeType: fileObj.mimeType,
+          ...(fileObj.inheritedFromBaseline ? { inheritedFromBaseline: true } : {}),
+          ...(fileObj.existingSha256 ? { existingSha256: fileObj.existingSha256 } : {}),
+          ...(fileObj.existingStorageKey ? { existingStorageKey: fileObj.existingStorageKey } : {})
         };
         accumulatedBinaryBytes += bytes.byteLength;
       } else {
@@ -2901,7 +3202,10 @@ export function serializeStagedFilesBundle(extractedFiles, options = {}) {
           content: stubB64,
           sizeBytes: fileObj.sizeBytes,
           mimeType: fileObj.mimeType,
-          omittedLargeBinary: true
+          omittedLargeBinary: true,
+          ...(fileObj.inheritedFromBaseline ? { inheritedFromBaseline: true } : {}),
+          ...(fileObj.existingSha256 ? { existingSha256: fileObj.existingSha256 } : {}),
+          ...(fileObj.existingStorageKey ? { existingStorageKey: fileObj.existingStorageKey } : {})
         };
       }
     }
@@ -2939,7 +3243,10 @@ export function deserializeStagedFilesBundle(bundleObj, fallbackManifestJsonStr 
         content: bytes,
         text: null,
         sizeBytes: item.sizeBytes || bytes.byteLength,
-        mimeType: item.mimeType || getMimeType(relPath)
+        mimeType: item.mimeType || getMimeType(relPath),
+        inheritedFromBaseline: Boolean(item.inheritedFromBaseline),
+        existingSha256: item.existingSha256 || null,
+        existingStorageKey: item.existingStorageKey || null
       });
     } else {
       const text = String(item.content ?? '');
@@ -2949,7 +3256,10 @@ export function deserializeStagedFilesBundle(bundleObj, fallbackManifestJsonStr 
         content: bytes,
         text,
         sizeBytes: item.sizeBytes || bytes.byteLength,
-        mimeType: item.mimeType || getMimeType(relPath)
+        mimeType: item.mimeType || getMimeType(relPath),
+        inheritedFromBaseline: Boolean(item.inheritedFromBaseline),
+        existingSha256: item.existingSha256 || null,
+        existingStorageKey: item.existingStorageKey || null
       });
     }
   }
@@ -3158,6 +3468,10 @@ export async function loadSingleTemplateComparisonContext(db, templateId, env = 
               normalizedDiffText = normalizedDiffText.split(cdnUrl).join(assetPath);
             }
           }
+          normalizedDiffText = normalizedDiffText.replace(
+            /\/api\/templates\/[^/"'\s]+\/versions\/[^/"'\s]+\/preview\/(assets\/[a-zA-Z0-9_./-]+)/g,
+            '$1'
+          );
           fileContentsMap.set(relP, normalizedDiffText);
         }
       } catch (_) {}
@@ -3199,6 +3513,7 @@ export async function stageAndRecognizeTemplateZip({
   zipBuffer,
   filename = 'template-package.zip',
   intendedTargetTemplateId = null,
+  updatePackageMode = UPDATE_PACKAGE_MODE.FULL_PACKAGE,
   idempotencyKey = null,
   adminUser = { id: 'admin', email: 'admin@wishmagic.in' },
   zipLimits = {}
@@ -3247,8 +3562,42 @@ export async function stageAndRecognizeTemplateZip({
     nowIso
   ).run();
 
-  // 2. Inspect and validate the ZIP package
-  const inspection = await inspectAndValidateTemplateZip(zipBuffer, zipLimits);
+  const resolvedInitialUpdateMode = updatePackageMode === UPDATE_PACKAGE_MODE.DELTA_CHANGED_ONLY
+    ? UPDATE_PACKAGE_MODE.DELTA_CHANGED_ONLY
+    : UPDATE_PACKAGE_MODE.FULL_PACKAGE;
+
+  // Pre-load target template context if intendedTargetTemplateId is known (or inferred from filename in delta mode)
+  let preloadedTargetContext = null;
+  if (intendedTargetTemplateId) {
+    preloadedTargetContext = await loadSingleTemplateComparisonContext(db, intendedTargetTemplateId, env);
+  } else if (resolvedInitialUpdateMode === UPDATE_PACKAGE_MODE.DELTA_CHANGED_ONLY && filename) {
+    const stemSlug = normalizeTemplateSlug(String(filename).replace(/\.zip$/i, ''));
+    if (stemSlug) {
+      preloadedTargetContext = await loadSingleTemplateComparisonContext(db, stemSlug, env) ||
+                               await loadSingleTemplateComparisonContext(db, `tpl_${stemSlug.replace(/-/g, '_')}`, env);
+    }
+  }
+
+  // 2. Inspect and validate the ZIP package (merging baseline files automatically when in delta_changed_only mode or partial patch)
+  let inspection = await inspectAndValidateTemplateZip(zipBuffer, {
+    ...zipLimits,
+    baseTemplateContext: preloadedTargetContext,
+    updatePackageMode: resolvedInitialUpdateMode
+  });
+
+  // If no intendedTargetTemplateId was passed, but a partial delta ZIP had wishmagic.json with template.id/slug and failed ENTRY_POINT_MISSING,
+  // auto-resolve the target template from manifest identity and re-run inspection with baseline merge!
+  if (!inspection.valid && !preloadedTargetContext && (inspection.identity?.explicitStableId || inspection.identity?.explicitSlug)) {
+    const fallbackTargetId = inspection.identity.explicitStableId || inspection.identity.explicitSlug;
+    preloadedTargetContext = await loadSingleTemplateComparisonContext(db, fallbackTargetId, env);
+    if (preloadedTargetContext) {
+      inspection = await inspectAndValidateTemplateZip(zipBuffer, {
+        ...zipLimits,
+        baseTemplateContext: preloadedTargetContext,
+        updatePackageMode: UPDATE_PACKAGE_MODE.DELTA_CHANGED_ONLY
+      });
+    }
+  }
 
   const packageMetadata = {
     filename: String(filename || 'template-package.zip'),
@@ -3265,6 +3614,9 @@ export async function stageAndRecognizeTemplateZip({
     schemaVersion: inspection.identity?.declaredSchemaVersion || '1.0.0',
     isLegacyPackage: Boolean(inspection.identity?.isLegacyPackage),
     updateMetadata: inspection.identity?.updateMetadata || {},
+    updatePackageMode: inspection.updatePackageMode || resolvedInitialUpdateMode,
+    uploadedDeltaPaths: inspection.uploadedDeltaPaths || [],
+    inheritedBaselinePaths: inspection.inheritedBaselinePaths || [],
     buttonInspection: inspection.buttonInspection || { buttons: [], summary: {} },
     proposedLinkMappings: inspection.proposedLinkMappings || []
   };
@@ -3321,12 +3673,41 @@ export async function stageAndRecognizeTemplateZip({
     recognition.recommendedTargetTemplateId ||
     (recognition.candidates.length === 1 ? recognition.candidates[0].templateId : null);
 
-  let existingContext = null;
-  if (selectedTargetId) {
+  let existingContext = preloadedTargetContext && preloadedTargetContext.template?.id === selectedTargetId
+    ? preloadedTargetContext
+    : null;
+  if (selectedTargetId && !existingContext) {
     existingContext = await loadSingleTemplateComparisonContext(db, selectedTargetId, env);
+    // If delta mode was requested and existingContext was resolved via recognition (not preloaded), merge any missing baseline files now
+    if (existingContext && (packageMetadata.updatePackageMode === UPDATE_PACKAGE_MODE.DELTA_CHANGED_ONLY || !inspection.entryFile)) {
+      const newlyInherited = mergeBaselineIntoExtractedFiles(inspection.files, existingContext);
+      if (newlyInherited.length > 0) {
+        packageMetadata.inheritedBaselinePaths = Array.from(new Set([...(packageMetadata.inheritedBaselinePaths || []), ...newlyInherited]));
+        for (const relPath of newlyInherited) {
+          const fObj = inspection.files.get(relPath);
+          if (!fObj) continue;
+          const sha256 = fObj.existingSha256 || (await computeSha256Hex(fObj.content));
+          const isEntry = relPath === (inspection.entryFile || 'index.html');
+          const role = classifyFileRole(relPath, isEntry);
+          inspection.fileRecords.push({
+            relativePath: relPath,
+            sizeBytes: fObj.sizeBytes,
+            mimeType: fObj.mimeType,
+            sha256,
+            fileRole: role,
+            isEntryFile: isEntry ? 1 : 0,
+            inheritedFromBaseline: true,
+            existingStorageKey: fObj.existingStorageKey || null
+          });
+        }
+      }
+    }
   }
 
-  const comparison = compareExistingTemplateWithStagedPackage(existingContext, inspection);
+  const comparison = compareExistingTemplateWithStagedPackage(existingContext, inspection, {
+    updatePackageMode: packageMetadata.updatePackageMode,
+    uploadedDeltaPaths: packageMetadata.uploadedDeltaPaths
+  });
   const variantCatalog = buildPreviewVariantCatalog(
     existingContext?.variants || [],
     inspection.normalizedManifest?.variants || []
@@ -3460,6 +3841,8 @@ export async function formatImportSessionResponse(db, row, extra = {}) {
     sessionId: row.id,
     state: row.state,
     decisionMode: row.decision_mode || IMPORT_DECISION_MODE.UNDECIDED,
+    updatePackageMode: adminConfigOverrides.updatePackageMode || comparison.updatePackageMode || packageMetadata.updatePackageMode || UPDATE_PACKAGE_MODE.FULL_PACKAGE,
+    deltaSummary: comparison.deltaSummary || null,
     intendedTargetTemplateId: row.intended_target_template_id || null,
     selectedTargetTemplateId: selectedTargetId,
     recognitionOutcome: row.recognition_outcome,
@@ -3508,7 +3891,8 @@ export async function compareImportSessionWithTarget({
   db,
   env = {},
   sessionId,
-  targetTemplateId
+  targetTemplateId,
+  updatePackageMode = null
 }) {
   await ensureTemplateIngestionSchema(db);
   const row = await db.prepare('SELECT * FROM template_import_sessions WHERE id = ? LIMIT 1').bind(sessionId).first();
@@ -3530,6 +3914,51 @@ export async function compareImportSessionWithTarget({
   const fileRecords = safeJsonParse(row.files_inventory_json, []);
   const normalizedManifest = safeJsonParse(row.manifest_json, {});
   const packageMetadata = safeJsonParse(row.package_metadata_json, {});
+  const effectiveTargetId = targetTemplateId || row.selected_target_template_id || row.intended_target_template_id || null;
+  const effectiveUpdateMode = updatePackageMode
+    ? (updatePackageMode === UPDATE_PACKAGE_MODE.DELTA_CHANGED_ONLY ? UPDATE_PACKAGE_MODE.DELTA_CHANGED_ONLY : UPDATE_PACKAGE_MODE.FULL_PACKAGE)
+    : (packageMetadata.updatePackageMode || UPDATE_PACKAGE_MODE.FULL_PACKAGE);
+  packageMetadata.updatePackageMode = effectiveUpdateMode;
+
+  let existingContext = null;
+  if (effectiveTargetId) {
+    existingContext = await loadSingleTemplateComparisonContext(db, effectiveTargetId, env);
+    if (!existingContext && targetTemplateId) {
+      const err = new Error(`Target template "${targetTemplateId}" not found.`);
+      err.code = 'TARGET_TEMPLATE_NOT_FOUND';
+      err.status = 404;
+      throw err;
+    }
+  }
+
+  // If switching to delta_changed_only mode with an existingContext, ensure any missing baseline files are merged into extractedFiles & fileRecords
+  let bundleUpdated = false;
+  if (existingContext && effectiveUpdateMode === UPDATE_PACKAGE_MODE.DELTA_CHANGED_ONLY) {
+    const newlyInherited = mergeBaselineIntoExtractedFiles(extractedFiles, existingContext);
+    if (newlyInherited.length > 0) {
+      bundleUpdated = true;
+      packageMetadata.inheritedBaselinePaths = Array.from(new Set([...(packageMetadata.inheritedBaselinePaths || []), ...newlyInherited]));
+      for (const relPath of newlyInherited) {
+        const fObj = extractedFiles.get(relPath);
+        if (!fObj) continue;
+        if (!fileRecords.some(fr => fr.relativePath === relPath)) {
+          const sha256 = fObj.existingSha256 || (await computeSha256Hex(fObj.content));
+          const isEntry = relPath === (packageMetadata.entryFile || 'index.html');
+          const role = classifyFileRole(relPath, isEntry);
+          fileRecords.push({
+            relativePath: relPath,
+            sizeBytes: fObj.sizeBytes,
+            mimeType: fObj.mimeType,
+            sha256,
+            fileRole: role,
+            isEntryFile: isEntry ? 1 : 0,
+            inheritedFromBaseline: true,
+            existingStorageKey: fObj.existingStorageKey || null
+          });
+        }
+      }
+    }
+  }
 
   const reconstructedInspection = {
     valid: row.state !== IMPORT_SESSION_STATE.FAILED,
@@ -3537,6 +3966,8 @@ export async function compareImportSessionWithTarget({
     fileRecords,
     normalizedManifest,
     entryFile: packageMetadata.entryFile || 'index.html',
+    updatePackageMode: effectiveUpdateMode,
+    uploadedDeltaPaths: packageMetadata.uploadedDeltaPaths || null,
     invalidFiles: [],
     identity: {
       explicitStableId: packageMetadata.detectedId,
@@ -3547,18 +3978,10 @@ export async function compareImportSessionWithTarget({
     }
   };
 
-  let existingContext = null;
-  if (targetTemplateId) {
-    existingContext = await loadSingleTemplateComparisonContext(db, targetTemplateId, env);
-    if (!existingContext) {
-      const err = new Error(`Target template "${targetTemplateId}" not found.`);
-      err.code = 'TARGET_TEMPLATE_NOT_FOUND';
-      err.status = 404;
-      throw err;
-    }
-  }
-
-  const comparison = compareExistingTemplateWithStagedPackage(existingContext, reconstructedInspection);
+  const comparison = compareExistingTemplateWithStagedPackage(existingContext, reconstructedInspection, {
+    updatePackageMode: effectiveUpdateMode,
+    uploadedDeltaPaths: packageMetadata.uploadedDeltaPaths || null
+  });
   comparison.variantCatalog = buildPreviewVariantCatalog(
     existingContext?.variants || [],
     normalizedManifest?.variants || []
@@ -3571,6 +3994,8 @@ export async function compareImportSessionWithTarget({
   await db.prepare(`
     UPDATE template_import_sessions
     SET selected_target_template_id = ?,
+        package_metadata_json = ?,
+        files_inventory_json = ?,
         comparison_report_json = ?,
         base_template_lock_version = ?,
         base_published_version_id = ?,
@@ -3578,12 +4003,20 @@ export async function compareImportSessionWithTarget({
     WHERE id = ?
   `).bind(
     existingContext?.template?.id || null,
+    JSON.stringify(packageMetadata),
+    JSON.stringify(fileRecords),
     JSON.stringify(comparison),
     baseLockVersion,
     basePublishedVersionId,
     nowIso,
     sessionId
   ).run();
+
+  if (bundleUpdated) {
+    const newStagedBundle = serializeStagedFilesBundle(extractedFiles);
+    await db.prepare('UPDATE template_import_sessions SET staged_files_bundle_json = ? WHERE id = ?')
+      .bind(JSON.stringify(newStagedBundle), sessionId).run();
+  }
 
   const updatedRow = await db.prepare('SELECT * FROM template_import_sessions WHERE id = ?').bind(sessionId).first();
   return await formatImportSessionResponse(db, updatedRow);
@@ -3598,6 +4031,7 @@ export async function validateImportSessionDecision({
   env = {},
   sessionId,
   decisionMode,
+  updatePackageMode = null,
   targetTemplateId = null,
   newTemplateId = null,
   newTemplateSlug = null,
@@ -3718,16 +4152,51 @@ export async function validateImportSessionDecision({
       throw err;
     }
 
+    const resolvedUpdatePackageMode = (
+      updatePackageMode ||
+      mergedOverrides.updatePackageMode ||
+      packageMetadata.updatePackageMode
+    ) === UPDATE_PACKAGE_MODE.DELTA_CHANGED_ONLY
+      ? UPDATE_PACKAGE_MODE.DELTA_CHANGED_ONLY
+      : UPDATE_PACKAGE_MODE.FULL_PACKAGE;
+    mergedOverrides.updatePackageMode = resolvedUpdatePackageMode;
+    packageMetadata.updatePackageMode = resolvedUpdatePackageMode;
+
     // Recompute fresh comparison against target template
     const stagedBundle = safeJsonParse(row.staged_files_bundle_json, {});
     const extractedFiles = deserializeStagedFilesBundle(stagedBundle, row.manifest_json);
     const fileRecords = safeJsonParse(row.files_inventory_json, []);
+    if (resolvedUpdatePackageMode === UPDATE_PACKAGE_MODE.DELTA_CHANGED_ONLY) {
+      const newlyInherited = mergeBaselineIntoExtractedFiles(extractedFiles, existingContext);
+      for (const relPath of newlyInherited) {
+        const fObj = extractedFiles.get(relPath);
+        if (!fObj) continue;
+        if (!fileRecords.some(fr => fr.relativePath === relPath)) {
+          const sha256 = fObj.existingSha256 || (await computeSha256Hex(fObj.content));
+          const isEntry = relPath === (packageMetadata.entryFile || 'index.html');
+          const role = classifyFileRole(relPath, isEntry);
+          fileRecords.push({
+            relativePath: relPath,
+            sizeBytes: fObj.sizeBytes,
+            mimeType: fObj.mimeType,
+            sha256,
+            fileRole: role,
+            isEntryFile: isEntry ? 1 : 0,
+            inheritedFromBaseline: true,
+            existingStorageKey: fObj.existingStorageKey || null
+          });
+        }
+      }
+    }
+
     comparison = compareExistingTemplateWithStagedPackage(existingContext, {
       valid: true,
       files: extractedFiles,
       fileRecords,
       normalizedManifest: manifest,
       entryFile: packageMetadata.entryFile || 'index.html',
+      updatePackageMode: resolvedUpdatePackageMode,
+      uploadedDeltaPaths: packageMetadata.uploadedDeltaPaths || null,
       invalidFiles: [],
       identity: {
         explicitStableId: packageMetadata.detectedId,
@@ -3736,6 +4205,9 @@ export async function validateImportSessionDecision({
         declaredVersion: packageMetadata.declaredVersion,
         declaredSchemaVersion: packageMetadata.schemaVersion
       }
+    }, {
+      updatePackageMode: resolvedUpdatePackageMode,
+      uploadedDeltaPaths: packageMetadata.uploadedDeltaPaths || null
     });
     comparison.variantCatalog = buildPreviewVariantCatalog(
       existingContext.variants || [],
@@ -3847,6 +4319,7 @@ export async function publishImportSession({
   db,
   env = {},
   sessionId,
+  updatePackageMode = null,
   expectedLockVersion = null,
   warningsAcknowledged = false,
   releaseNotes = '',
@@ -3973,15 +4446,108 @@ export async function publishImportSession({
   await db.prepare('UPDATE template_import_sessions SET state = ?, updated_at = ? WHERE id = ?')
     .bind(IMPORT_SESSION_STATE.PUBLISHING, new Date().toISOString(), sessionId).run();
 
+  const effectiveUpdatePackageMode = (
+    updatePackageMode ||
+    overrides.updatePackageMode ||
+    comparison.updatePackageMode ||
+    packageMetadata.updatePackageMode
+  ) === UPDATE_PACKAGE_MODE.DELTA_CHANGED_ONLY
+    ? UPDATE_PACKAGE_MODE.DELTA_CHANGED_ONLY
+    : UPDATE_PACKAGE_MODE.FULL_PACKAGE;
+
+  let deltaChangedPaths = null;
+  const reusedExistingFilesMap = {};
+  const reusedExistingImgbbMap = {};
+
   try {
-    // Use client-provided compact ZIP buffer if supplied during publish, otherwise rebuild from staged files
-    let zipBuffer;
+    if (mode === IMPORT_DECISION_MODE.UPDATE_EXISTING && targetTpl && effectiveUpdatePackageMode === UPDATE_PACKAGE_MODE.DELTA_CHANGED_ONLY) {
+      const existingCtx = await loadSingleTemplateComparisonContext(db, targetTpl.id, env);
+      const changedSet = new Set([
+        ...((comparison.files?.modified || []).map(f => String(f.path || '').replace(/^\.?\/+/, ''))),
+        ...((comparison.files?.added || []).map(f => String(f.path || '').replace(/^\.?\/+/, ''))),
+        ...((comparison.files?.renamed || []).map(f => String(f.newPath || '').replace(/^\.?\/+/, '')))
+      ].filter(Boolean));
+      deltaChangedPaths = Array.from(changedSet);
+
+      if (existingCtx) {
+        // Populate reusedExistingFilesMap for all unchanged B2 files
+        for (const ef of (existingCtx.files || [])) {
+          const relP = String(ef.relative_path || ef.relativePath || ef.path || '').replace(/\\/g, '/').replace(/^\.?\/+/, '');
+          if (!relP || changedSet.has(relP)) continue;
+          if (ef.storage_key) {
+            reusedExistingFilesMap[relP] = {
+              relativePath: relP,
+              storageKey: ef.storage_key,
+              sha256: ef.sha256 || null,
+              sizeBytes: Number(ef.size_bytes || 0),
+              mimeType: ef.mime_type || getMimeType(relP),
+              fileRole: ef.file_role || classifyFileRole(relP, relP.toLowerCase() === 'index.html')
+            };
+          }
+        }
+        // Populate reusedExistingImgbbMap for all unchanged ImgBB images
+        if (existingCtx.imagesByPath instanceof Map) {
+          for (const [imgPath, imgRow] of existingCtx.imagesByPath.entries()) {
+            const relP = String(imgPath || '').replace(/\\/g, '/').replace(/^\.?\/+/, '');
+            if (!relP || changedSet.has(relP)) continue;
+            const liveUrl = imgRow.display_url || imgRow.original_url || imgRow.image_url || '';
+            if (liveUrl) {
+              reusedExistingImgbbMap[relP] = {
+                displayUrl: liveUrl,
+                originalUrl: imgRow.original_url || liveUrl,
+                thumbnailUrl: imgRow.thumbnail_url || liveUrl,
+                deleteUrl: imgRow.delete_url || null,
+                providerAssetId: imgRow.provider_asset_id || null,
+                mimeType: imgRow.mime_type || getMimeType(relP),
+                width: Number(imgRow.width || 0),
+                height: Number(imgRow.height || 0),
+                sizeBytes: Number(imgRow.size_bytes || 0),
+                filename: imgRow.original_filename || relP.split('/').pop(),
+                sha256: imgRow.sha256 || (reusedExistingFilesMap[relP] && reusedExistingFilesMap[relP].sha256) || ''
+              };
+            }
+          }
+        }
+        // Ensure stagedBundle has all inherited baseline files if the admin uploaded a partial delta ZIP
+        const extractedMap = deserializeStagedFilesBundle(stagedBundle, row.manifest_json);
+        const addedBaseline = mergeBaselineIntoExtractedFiles(extractedMap, existingCtx);
+        if (addedBaseline.length > 0) {
+          const mergedBundle = serializeStagedFilesBundle(extractedMap);
+          for (const [k, v] of Object.entries(mergedBundle)) {
+            if (!stagedBundle[k]) stagedBundle[k] = v;
+          }
+        }
+      }
+    }
+
+    // Use client-provided compact ZIP buffer if supplied during publish (and if it contains index.html), otherwise rebuild from staged files
+    let zipBuffer = null;
     if (zipBase64 && typeof zipBase64 === 'string' && zipBase64.length > 0) {
       const cleanB64 = zipBase64.replace(/^data:[^;]+;base64,/i, '').replace(/\s+/g, '');
       const binStr = atob(cleanB64);
       const bytes = new Uint8Array(binStr.length);
       for (let i = 0; i < binStr.length; i++) bytes[i] = binStr.charCodeAt(i);
-      zipBuffer = bytes.buffer;
+      if (effectiveUpdatePackageMode === UPDATE_PACKAGE_MODE.DELTA_CHANGED_ONLY) {
+        // Ensure client zipBuffer also has any inherited baseline files if it was a partial ZIP
+        const clientZip = await JSZip.loadAsync(bytes);
+        const clientKeysLower = new Set(Object.keys(clientZip.files).map(k => k.toLowerCase()));
+        for (const [k, v] of Object.entries(stagedBundle || {})) {
+          if (!v) continue;
+          if (!clientKeysLower.has(k.toLowerCase())) {
+            if (v.useSessionManifestJson && row.manifest_json) {
+              clientZip.file(k, row.manifest_json);
+            } else if (v.isBase64) {
+              clientZip.file(k, String(v.content || '').replace(/^data:[^;]+;base64,/i, ''), { base64: true });
+            } else {
+              clientZip.file(k, String(v.content ?? ''));
+            }
+          }
+        }
+        const mergedZipBytes = await clientZip.generateAsync({ type: 'uint8array', compression: 'DEFLATE' });
+        zipBuffer = mergedZipBytes.buffer;
+      } else {
+        zipBuffer = bytes.buffer;
+      }
     } else {
       for (const [k, v] of Object.entries(stagedBundle || {})) {
         if (v && v.useSessionManifestJson && row.manifest_json) {
@@ -4010,7 +4576,8 @@ export async function publishImportSession({
       // Preserve canonical template ID and slug (unless explicit slug change was validated)
       ingestTemplateId = targetTpl.id;
       ingestSlug = (overrides.allowSlugChange && overrides.requestedSlug) ? overrides.requestedSlug : targetTpl.slug;
-      ingestFamilyId = `fam_${String(targetTpl.id).replace(/^tpl_/, '')}`;
+      const existingFamRow = await db.prepare(`SELECT id FROM template_families WHERE slug = ? OR id = ? LIMIT 1`).bind(targetTpl.slug, `fam_${String(targetTpl.slug || targetTpl.id).replace(/^tpl_/, '').replace(/-/g, '_')}`).first().catch(() => null);
+      ingestFamilyId = existingFamRow?.id || targetTpl.family_id || `fam_${String(ingestSlug).replace(/-/g, '_')}`;
       // Preserve administrative metadata unless explicitly overridden in studio
       ingestName = overrides.name || manifest.template?.name || targetTpl.name;
       ingestCategory = overrides.category || targetTpl.category || manifest.template?.category || 'celebration';
@@ -4085,6 +4652,10 @@ export async function publishImportSession({
         relationships: Array.isArray(overrides.relationships) ? overrides.relationships : undefined,
         enabledVariants: Array.isArray(overrides.enabledVariants) ? overrides.enabledVariants : undefined,
         forceNewVersion: true,
+        updatePackageMode: effectiveUpdatePackageMode,
+        deltaChangedPaths,
+        reusedExistingFilesMap,
+        reusedExistingImgbbMap,
         preUploadedImgbbMap: {
           ...(overrides.preUploadedImgbbMap || {}),
           ...(preUploadedImgbbMap && typeof preUploadedImgbbMap === 'object' ? preUploadedImgbbMap : {})
@@ -4116,6 +4687,8 @@ export async function publishImportSession({
 
     const changeSummary = {
       mode,
+      updatePackageMode: effectiveUpdatePackageMode,
+      deltaStats: ingestRes.deltaStats || null,
       baseVersionId: previousCurrentVersion?.id || null,
       baseVersionLabel: previousCurrentVersion?.version_label || null,
       filesSummary: comparison?.files?.summary || {},
@@ -4248,6 +4821,7 @@ export async function publishImportSession({
     return await formatImportSessionResponse(db, finalRow, {
       published: true,
       ingestResult: ingestRes,
+      deltaStats: ingestRes?.deltaStats || null,
       previousVersionId: previousCurrentVersion?.id || null,
       rollbackAvailable: Boolean(previousCurrentVersion?.id),
       changeSummary

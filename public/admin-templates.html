@@ -345,10 +345,53 @@
     <!-- Modal Body -->
     <div class="p-4 sm:p-6 flex flex-col gap-6 overflow-y-auto">
       
+      <!-- 2-Option Template Upload / Update Mode Selector (Full ZIP vs Changed/New Files Only) -->
+      <div id="template-upload-update-mode-bar" class="p-4 rounded-2xl bg-surface-container-low border border-purple-500/35 flex flex-col gap-3">
+        <div class="flex flex-wrap items-center justify-between gap-2">
+          <div class="flex items-center gap-2">
+            <span class="material-symbols-outlined text-primary text-[20px]">system_update_alt</span>
+            <span class="text-xs sm:text-sm font-extrabold text-on-surface">Select Template Upload / Update Mode (2 Options)</span>
+          </div>
+          <span class="px-2.5 py-0.5 rounded-full bg-emerald-500/20 text-emerald-300 border border-emerald-500/30 text-[10px] font-bold">Smart Delta &amp; Full Package Support</span>
+        </div>
+        <div class="grid grid-cols-1 md:grid-cols-2 gap-3">
+          <button type="button" id="upload-mode-card-full" onclick="setUploadUpdatePackageMode('full_package')" class="p-3.5 rounded-xl border-2 border-primary bg-primary/15 text-left flex items-start gap-3 transition cursor-pointer">
+            <span class="material-symbols-outlined text-primary text-[22px] mt-0.5">folder_zip</span>
+            <div class="flex-1 min-w-0">
+              <div class="flex items-center justify-between gap-2">
+                <span class="text-xs sm:text-sm font-extrabold text-on-surface">1. Full Template ZIP Upload</span>
+                <span id="upload-mode-badge-full" class="px-2 py-0.5 rounded-full bg-primary text-white text-[9px] font-bold uppercase">Active</span>
+              </div>
+              <p class="text-[11px] text-on-surface-variant mt-1 leading-relaxed">Poora template ZIP ya folder upload karein — saare code aur media files naye version me complete package ke roop me upload honge.</p>
+            </div>
+          </button>
+          <button type="button" id="upload-mode-card-delta" onclick="setUploadUpdatePackageMode('delta_changed_only')" class="p-3.5 rounded-xl border border-purple-500/30 bg-surface-container hover:bg-surface-container-high text-left flex items-start gap-3 transition cursor-pointer">
+            <span class="material-symbols-outlined text-emerald-400 text-[22px] mt-0.5">bolt</span>
+            <div class="flex-1 min-w-0">
+              <div class="flex items-center justify-between gap-2">
+                <span class="text-xs sm:text-sm font-extrabold text-on-surface">2. Only Changed &amp; New Files Update</span>
+                <span id="upload-mode-badge-delta" class="px-2 py-0.5 rounded-full bg-emerald-500/20 text-emerald-300 text-[9px] font-bold uppercase">Smart Delta</span>
+              </div>
+              <p class="text-[11px] text-on-surface-variant mt-1 leading-relaxed">Sirf wo code ya files update hongi jinme changes hue hain ya jo nayi bani hain! Unchanged files/photos/music automatically purane version se reuse honge.</p>
+            </div>
+          </button>
+        </div>
+        <div id="delta-target-template-bar" class="hidden pt-2 border-t border-purple-500/20 flex flex-col sm:flex-row sm:items-center justify-between gap-2 text-xs">
+          <label for="delta-target-template-select" class="font-bold text-emerald-300 flex items-center gap-1.5">
+            <span class="material-symbols-outlined text-[16px]">target</span>
+            <span>Target Template for Changed/New Files Update:</span>
+          </label>
+          <select id="delta-target-template-select" onchange="handleDeltaTargetTemplateSelect(this.value)" class="flex-1 max-w-md px-3 py-1.5 rounded-xl bg-surface-container-lowest text-on-surface border border-emerald-500/40 text-xs font-semibold">
+            <option value="">Auto-Detect from wishmagic.json / Select Template...</option>
+          </select>
+        </div>
+      </div>
+
       <!-- Upload Drop Zone & Selection Area -->
       <div id="code-drop-zone" class="border-2 border-dashed border-purple-400/40 rounded-2xl p-6 sm:p-8 flex flex-col items-center justify-center gap-4 text-center bg-surface-container-lowest/50 hover:bg-surface-container-high/30 transition-all cursor-pointer">
         <input type="file" id="folder-input" webkitdirectory directory multiple class="hidden" onchange="handleFolderSelection(this.files)"/>
         <input type="file" id="zip-input" accept=".zip" class="hidden" onchange="handleZipFile(this.files[0])"/>
+        <input type="file" id="delta-files-input" multiple class="hidden" onchange="handleDeltaFilesSelection(this.files)"/>
         <input type="file" id="custom-thumb-input" accept="image/*" class="hidden" onchange="handleCustomCoverThumb(this)"/>
 
         <div class="w-16 h-16 rounded-2xl bg-purple-500/20 text-purple-300 flex items-center justify-center shadow-inner">
@@ -373,6 +416,12 @@
           <button type="button" onclick="document.getElementById('zip-input').click()" class="flex items-center gap-2 px-5 py-2.5 rounded-xl bg-surface-container-high hover:bg-surface-container-highest text-on-surface font-bold text-sm border border-purple-500/30 transition-all">
             <span class="material-symbols-outlined text-[18px]">archive</span>
             <span>Select .ZIP Archive</span>
+          </button>
+          <span class="text-outline text-xs font-bold uppercase">OR</span>
+          <!-- Button 3: Select Only Changed / New Files -->
+          <button type="button" id="btn-select-delta-files" onclick="setUploadUpdatePackageMode('delta_changed_only'); document.getElementById('delta-files-input').click()" class="flex items-center gap-2 px-4 py-2.5 rounded-xl bg-emerald-500/15 hover:bg-emerald-500/25 text-emerald-300 font-bold text-sm border border-emerald-500/40 transition-all cursor-pointer">
+            <span class="material-symbols-outlined text-[18px]">bolt</span>
+            <span>Select Changed Files Only</span>
           </button>
         </div>
 

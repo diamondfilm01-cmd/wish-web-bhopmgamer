@@ -9866,6 +9866,7 @@ export default {
         let zipInput = null;
         let filename = 'template-package.zip';
         let intendedTargetTemplateId = url.searchParams.get('targetTemplateId') || null;
+        let updatePackageMode = url.searchParams.get('updatePackageMode') || 'full_package';
         let idempotencyKey = request.headers.get('Idempotency-Key') || request.headers.get('X-Idempotency-Key') || null;
         let zipLimits = {};
 
@@ -9880,6 +9881,9 @@ export default {
             if (formData.get('intendedTargetTemplateId')) {
               intendedTargetTemplateId = String(formData.get('intendedTargetTemplateId')).trim();
             }
+            if (formData.get('updatePackageMode')) {
+              updatePackageMode = String(formData.get('updatePackageMode')).trim();
+            }
           } catch (formErr) {
             return applySecurityHeaders(jsonError('INVALID_FORM_DATA', formErr.message, 400), request, env);
           }
@@ -9890,6 +9894,7 @@ export default {
           const body = await request.json().catch(() => ({}));
           filename = sanitizeString(body.filename || body.fileName || 'template-package.zip', 140);
           intendedTargetTemplateId = body.intendedTargetTemplateId || body.targetTemplateId || intendedTargetTemplateId || null;
+          if (body.updatePackageMode) updatePackageMode = String(body.updatePackageMode).trim();
           idempotencyKey = body.idempotencyKey || idempotencyKey || null;
           if (body.zipLimits && typeof body.zipLimits === 'object') {
             zipLimits = body.zipLimits;
@@ -9912,6 +9917,7 @@ export default {
             zipBuffer: zipInput,
             filename,
             intendedTargetTemplateId,
+            updatePackageMode,
             idempotencyKey,
             adminUser: user,
             zipLimits
@@ -10017,6 +10023,23 @@ export default {
           }
 
           const fileObj = filesMap.get(matchedKey);
+          let inheritedAssetUrlMap = null;
+          if (sessionRow.selected_target_template_id) {
+            const hasInheritedFiles = Array.from(filesMap.values()).some(f => f && f.inheritedFromBaseline);
+            if (hasInheritedFiles) {
+              const exCtx = await loadSingleTemplateComparisonContext(env.DB, sessionRow.selected_target_template_id, env).catch(() => null);
+              if (exCtx && exCtx.assetUrlMap instanceof Map) {
+                inheritedAssetUrlMap = new Map();
+                for (const [aKey, aUrl] of exCtx.assetUrlMap.entries()) {
+                  const stagedEntry = filesMap.get(aKey);
+                  if (!stagedEntry || stagedEntry.inheritedFromBaseline) {
+                    inheritedAssetUrlMap.set(aKey, aUrl);
+                  }
+                }
+              }
+            }
+          }
+
           if (matchedKey.toLowerCase().endsWith('.html')) {
             const entryHtml = fileObj.text ?? new TextDecoder('utf-8').decode(fileObj.content);
             const previewRes = buildSandboxedTemplatePreviewHtml({
@@ -10029,6 +10052,7 @@ export default {
               variantOverrides: overrides.variantOverrides || {},
               previewBaseUrl: `/api/templates/import-studio/${sessionId}/preview/staged`,
               previewToken: sessionRow.preview_token || tokenParam || '',
+              assetUrlMap: inheritedAssetUrlMap,
               allowMissingVariantFallback: url.searchParams.get('ui') === '1',
               side: 'staged'
             });
@@ -10036,6 +10060,26 @@ export default {
               status: previewRes.ok ? 200 : 422,
               headers: { ...previewHeaders, 'Content-Type': 'text/html; charset=utf-8' }
             });
+          }
+
+          // If this non-HTML asset was inherited from the baseline template in delta mode and has an existing storage key/URL, serve the real asset
+          if (fileObj.inheritedFromBaseline && fileObj.existingStorageKey) {
+            if (/^https?:\/\//i.test(fileObj.existingStorageKey)) {
+              return Response.redirect(fileObj.existingStorageKey, 302);
+            }
+            const b2Provider = env.B2_STORAGE_PROVIDER || (getB2Config(env).isConfigured ? B2StorageProvider.fromEnv(env) : null);
+            if (b2Provider && typeof b2Provider.getObject === 'function') {
+              try {
+                const obj = await b2Provider.getObject({ key: fileObj.existingStorageKey });
+                if (obj && obj.body) {
+                  const bytes = obj.body instanceof Uint8Array ? obj.body : (typeof obj.body === 'string' ? new TextEncoder().encode(obj.body) : new Uint8Array(obj.body || 0));
+                  return new Response(bytes, {
+                    status: 200,
+                    headers: { ...previewHeaders, 'Content-Type': obj.contentType || fileObj.mimeType || getMimeType(matchedKey) }
+                  });
+                }
+              } catch (_) {}
+            }
           }
 
           return new Response(fileObj.content, {
@@ -10211,7 +10255,8 @@ export default {
             db: env.DB,
             env,
             sessionId,
-            targetTemplateId: body.targetTemplateId || body.templateId || null
+            targetTemplateId: body.targetTemplateId || body.templateId || null,
+            updatePackageMode: body.updatePackageMode || null
           });
           response = jsonSuccess(result, 200, {}, requestId);
         } catch (err) {
@@ -10238,6 +10283,7 @@ export default {
             env,
             sessionId,
             decisionMode: body.decisionMode || body.mode,
+            updatePackageMode: body.updatePackageMode || null,
             targetTemplateId: body.targetTemplateId || body.templateId || null,
             newTemplateId: body.newTemplateId || null,
             newTemplateSlug: body.newTemplateSlug || body.slug || null,
@@ -10276,6 +10322,7 @@ export default {
             db: env.DB,
             env,
             sessionId,
+            updatePackageMode: body.updatePackageMode || null,
             expectedLockVersion: body.expectedLockVersion ?? body.lockVersion ?? null,
             warningsAcknowledged: Boolean(body.warningsAcknowledged),
             releaseNotes: sanitizeString(body.releaseNotes || '', 500),

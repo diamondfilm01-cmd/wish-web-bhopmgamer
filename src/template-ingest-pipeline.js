@@ -1893,8 +1893,16 @@ export async function executeB2TemplateIngestPipeline(params) {
 
   // 4. Generate deterministic identifiers and family/version reservation
   const familySlug = templateMetadata.slug || (utpReport.normalized?.template?.id) || (analyzed.title ? analyzed.title.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-+|-+$/g, '') : 'custom-template');
-  const templateFamilyId = templateMetadata.familyId || `fam_${familySlug}`;
+  let templateFamilyId = templateMetadata.familyId || `fam_${familySlug}`;
   const templateId = templateMetadata.templateId || `tpl_${familySlug}`;
+  if (db && typeof db.prepare === 'function') {
+    try {
+      const existingFamBySlug = await db.prepare(`SELECT id FROM template_families WHERE id = ? OR slug = ? LIMIT 1`).bind(templateFamilyId, familySlug).first();
+      if (existingFamBySlug && existingFamBySlug.id) {
+        templateFamilyId = existingFamBySlug.id;
+      }
+    } catch (_) {}
+  }
 
   // Auto-save this specific template's link (https://wishmagic.pages.dev/template/<templateId>) into Template-Specific Links (template_link / customizer / template.*) at upload time
   try {
@@ -2240,8 +2248,21 @@ export async function executeB2TemplateIngestPipeline(params) {
     }
   }
 
+  const isDeltaUpdate = templateMetadata?.updatePackageMode === 'delta_changed_only';
+  const deltaChangedPathsSet = (isDeltaUpdate && Array.isArray(templateMetadata?.deltaChangedPaths))
+    ? new Set(templateMetadata.deltaChangedPaths.map(p => String(p || '').replace(/\\/g, '/').replace(/^\.?\/+/, '')))
+    : null;
+  const reusedExistingFilesMap = (isDeltaUpdate && templateMetadata?.reusedExistingFilesMap && typeof templateMetadata.reusedExistingFilesMap === 'object')
+    ? templateMetadata.reusedExistingFilesMap
+    : {};
+  const reusedExistingImgbbMap = (isDeltaUpdate && templateMetadata?.reusedExistingImgbbMap && typeof templateMetadata.reusedExistingImgbbMap === 'object')
+    ? templateMetadata.reusedExistingImgbbMap
+    : {};
+  let reusedImgbbCount = 0;
+  let reusedB2FilesCount = 0;
+
   try {
-    // 5a. Map pre-uploaded ImgBB images (from client-assisted /api/imgbb/upload) or upload remaining images in batches of 3
+    // 5a. Map pre-uploaded ImgBB images (or reused unchanged images in delta_changed_only mode) or upload remaining images in batches of 3
     const preUploadedImgbbMap = (templateMetadata && templateMetadata.preUploadedImgbbMap && typeof templateMetadata.preUploadedImgbbMap === 'object')
       ? templateMetadata.preUploadedImgbbMap
       : {};
@@ -2249,7 +2270,17 @@ export async function executeB2TemplateIngestPipeline(params) {
     const remainingImageRecords = [];
 
     for (const fileRecord of imageRecords) {
-      const preItem = preUploadedImgbbMap[fileRecord.relativePath];
+      const exactFileName = fileRecord.relativePath.split('/').pop();
+      const isUnchangedInDelta = Boolean(
+        isDeltaUpdate &&
+        deltaChangedPathsSet &&
+        !deltaChangedPathsSet.has(fileRecord.relativePath)
+      );
+      const reusedImgItem = isUnchangedInDelta
+        ? (reusedExistingImgbbMap[fileRecord.relativePath] || reusedExistingImgbbMap[exactFileName] || null)
+        : null;
+      const preItem = preUploadedImgbbMap[fileRecord.relativePath] || reusedImgItem;
+      const isReusedFromPrev = Boolean(!preUploadedImgbbMap[fileRecord.relativePath] && reusedImgItem);
       const preUrl = preItem && (preItem.displayUrl || preItem.originalUrl || preItem.url);
       if (preUrl) {
         const exactFileName = fileRecord.relativePath.split('/').pop();
@@ -2261,6 +2292,10 @@ export async function executeB2TemplateIngestPipeline(params) {
         if (preItem.sizeBytes && Number(preItem.sizeBytes) > 0) {
           fileRecord.sizeBytes = Number(preItem.sizeBytes);
         }
+        const reusedFileSha = preItem.sha256 || (reusedExistingFilesMap[fileRecord.relativePath] && reusedExistingFilesMap[fileRecord.relativePath].sha256) || "";
+        if (reusedFileSha) {
+          fileRecord.sha256 = reusedFileSha;
+        }
 
         const matchingField = mergedFields.find(f => {
           const defClean = String(f.defaultValue || f.originalSrc || '').replace(/^\.?\/+/, '');
@@ -2268,21 +2303,24 @@ export async function executeB2TemplateIngestPipeline(params) {
         });
         const assetKey = matchingField ? matchingField.key : exactStem;
 
+        if (isReusedFromPrev) reusedImgbbCount++;
         uploadedImgbbImages.push({
           provider: 'imgbb',
           providerAssetId: preItem.providerAssetId || preItem.imageId || null,
           displayUrl: preUrl,
           originalUrl: preItem.originalUrl || preUrl,
           thumbnailUrl: preItem.thumbnailUrl || preItem.thumbUrl || preUrl,
-          deleteUrl: preItem.deleteUrl || null,
+          deleteUrl: isReusedFromPrev ? null : (preItem.deleteUrl || null),
           mimeType: preItem.mimeType || fileRecord.mimeType,
           width: preItem.width || null,
           height: preItem.height || null,
           sizeBytes: Number(preItem.sizeBytes) || fileRecord.sizeBytes,
+          sha256: preItem.sha256 || fileRecord.sha256 || '',
           relativePath: fileRecord.relativePath,
           exactFileName,
           filename: exactFileName,
-          assetKey
+          assetKey,
+          reusedFromPreviousVersion: isReusedFromPrev
         });
       } else {
         remainingImageRecords.push(fileRecord);
@@ -2502,7 +2540,7 @@ export async function executeB2TemplateIngestPipeline(params) {
     });
     uploadedB2Objects.push({ key: keys.sourceZip, fileId: zipUploadRes.fileId });
 
-    // 6. Upload Extracted Runtime Files to B2 (reuse pre-uploaded B2 audio/video & ImgBB images; upload remaining files in parallel batches of 4)
+    // 6. Upload Extracted Runtime Files to B2 (reuse pre-uploaded B2 audio/video, ImgBB images, & unchanged files in delta_changed_only mode)
     const preUploadedB2Map = (templateMetadata && templateMetadata.preUploadedB2Map && typeof templateMetadata.preUploadedB2Map === 'object')
       ? templateMetadata.preUploadedB2Map
       : {};
@@ -2532,6 +2570,40 @@ export async function executeB2TemplateIngestPipeline(params) {
         uploadedB2Objects.push({ key: preB2.storageKey, fileId: preB2.fileId || null, preUploaded: true });
         continue;
       }
+
+      // Delta Update Optimization: If this file was not modified/added in delta_changed_only mode, reuse its existing B2 storage_key!
+      const isUnchangedInDelta = Boolean(
+        isDeltaUpdate &&
+        deltaChangedPathsSet &&
+        !deltaChangedPathsSet.has(fileRecord.relativePath) &&
+        reusedExistingFilesMap[fileRecord.relativePath] &&
+        reusedExistingFilesMap[fileRecord.relativePath].storageKey
+      );
+      if (isUnchangedInDelta) {
+        const reusedB2 = reusedExistingFilesMap[fileRecord.relativePath];
+        const lowerRel = fileRecord.relativePath.toLowerCase();
+        const isCodeWithVersionedUrls = (lowerRel.endsWith('.html') || lowerRel.endsWith('.css') || lowerRel.endsWith('.js') || lowerRel.endsWith('.json')) &&
+          reusedB2.sha256 && fileRecord.sha256 && reusedB2.sha256 !== fileRecord.sha256 && b2MediaUrlByRelPath.size > 0;
+        if (!isCodeWithVersionedUrls) {
+          fileRecord.storageKey = reusedB2.storageKey;
+          fileRecord.b2FileId = null;
+          fileRecord.storageProvider = 'b2';
+          fileRecord.reusedFromPreviousVersion = true;
+          if (reusedB2.sizeBytes && Number(reusedB2.sizeBytes) > 0) {
+            fileRecord.sizeBytes = Number(reusedB2.sizeBytes);
+          }
+          if (reusedB2.sha256) {
+            fileRecord.sha256 = reusedB2.sha256;
+          }
+          if (analyzed.hashesPayload && analyzed.hashesPayload.files && analyzed.hashesPayload.files[fileRecord.relativePath]) {
+            analyzed.hashesPayload.files[fileRecord.relativePath].sha256 = fileRecord.sha256;
+            analyzed.hashesPayload.files[fileRecord.relativePath].sizeBytes = fileRecord.sizeBytes;
+          }
+          reusedB2FilesCount++;
+          continue;
+        }
+      }
+
       filesNeedingB2Upload.push(fileRecord);
     }
 
@@ -3461,6 +3533,15 @@ export async function executeB2TemplateIngestPipeline(params) {
       actionsConfig: uploadActionsConfig,
       imgbbImages: manifestPayload.imgbbImages,
       b2MediaAssets: manifestPayload.b2MediaAssets,
+      updatePackageMode: isDeltaUpdate ? 'delta_changed_only' : 'full_package',
+      deltaStats: {
+        mode: isDeltaUpdate ? 'delta_changed_only' : 'full_package',
+        uploadedB2FilesCount: filesNeedingB2Upload.length + Object.keys(preUploadedB2Map).length,
+        reusedB2FilesCount,
+        uploadedImgbbCount: uploadedImgbbImages.filter(i => !i.reusedFromPreviousVersion).length,
+        reusedImgbbCount,
+        totalVersionFilesCount: analyzed.fileRecords.length
+      },
       storageProvider: 'b2'
     };
 
