@@ -342,10 +342,16 @@
             <p class="text-xs sm:text-sm text-on-surface-variant">Update the headline, description, floating centerpiece visual, and CTA buttons on the homepage.</p>
           </div>
         </div>
-        <span class="px-3 py-1 rounded-full bg-emerald-500/20 text-emerald-400 font-label-sm text-xs font-bold self-start sm:self-auto flex items-center gap-1">
-          <span class="w-2 h-2 rounded-full bg-emerald-400 animate-pulse"></span>
-          D1 Persistence Active
-        </span>
+        <div class="flex items-center gap-2.5 flex-wrap self-start sm:self-auto">
+          <span class="px-3 py-1 rounded-full bg-emerald-500/20 text-emerald-400 font-label-sm text-xs font-bold flex items-center gap-1">
+            <span class="w-2 h-2 rounded-full bg-emerald-400 animate-pulse"></span>
+            D1 Persistence Active
+          </span>
+          <button type="button" onclick="saveAllSiteSettings('✨ Hero Section settings saved & published!')" class="px-4 py-2 rounded-xl bg-gradient-to-r from-pink-500 to-purple-600 hover:brightness-110 text-white font-bold text-xs sm:text-sm flex items-center gap-1.5 shadow-md transition cursor-pointer">
+            <span class="material-symbols-outlined text-sm">save</span>
+            <span>Save Hero Settings</span>
+          </button>
+        </div>
       </div>
 
       <div class="grid grid-cols-1 lg:grid-cols-12 gap-6">
@@ -473,14 +479,20 @@
 
     <!-- SECTION 2: GLOBAL STOREFRONT SETTINGS -->
     <div class="wm-card bg-surface-container rounded-2xl p-5 sm:p-7 border border-purple-900/30 shadow-xl flex flex-col gap-6">
-      <div class="flex items-center gap-3 pb-4 border-b border-purple-900/20">
-        <div class="w-10 h-10 rounded-xl bg-secondary-container/20 text-secondary flex items-center justify-center">
-          <span class="material-symbols-outlined text-2xl">public</span>
+      <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pb-4 border-b border-purple-900/20">
+        <div class="flex items-center gap-3">
+          <div class="w-10 h-10 rounded-xl bg-secondary-container/20 text-secondary flex items-center justify-center">
+            <span class="material-symbols-outlined text-2xl">public</span>
+          </div>
+          <div>
+            <h2 class="font-headline-sm text-lg sm:text-xl font-bold text-on-surface">Storefront &amp; Brand Parameters</h2>
+            <p class="text-xs sm:text-sm text-on-surface-variant">Manage global currencies, customer support channels, and ambient particle animations.</p>
+          </div>
         </div>
-        <div>
-          <h2 class="font-headline-sm text-lg sm:text-xl font-bold text-on-surface">Storefront &amp; Brand Parameters</h2>
-          <p class="text-xs sm:text-sm text-on-surface-variant">Manage global currencies, customer support channels, and ambient particle animations.</p>
-        </div>
+        <button type="button" onclick="saveAllSiteSettings('✨ Brand & Support WhatsApp settings saved!')" class="px-4 py-2 rounded-xl bg-gradient-to-r from-pink-500 to-purple-600 hover:brightness-110 text-white font-bold text-xs sm:text-sm flex items-center gap-1.5 shadow-md transition cursor-pointer self-start sm:self-auto">
+          <span class="material-symbols-outlined text-sm">save</span>
+          <span>Save Brand &amp; Support Settings</span>
+        </button>
       </div>
 
       <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-5">
@@ -489,8 +501,12 @@
           <input id="setting-brand-name" class="w-full px-3.5 py-2.5 rounded-xl bg-surface-container-low text-on-surface border border-purple-900/30 text-sm font-medium focus:ring-2 focus:ring-primary focus:outline-none" value="WishMagic"/>
         </div>
         <div>
-          <label class="block text-xs font-bold uppercase tracking-wider text-outline mb-1.5">Support WhatsApp Number</label>
-          <input id="setting-support-wa" class="w-full px-3.5 py-2.5 rounded-xl bg-surface-container-low text-on-surface border border-purple-900/30 text-sm font-medium focus:ring-2 focus:ring-primary focus:outline-none" value="+91 98765 43210"/>
+          <div class="flex items-center justify-between mb-1.5">
+            <label class="block text-xs font-bold uppercase tracking-wider text-outline" for="setting-support-wa">Support WhatsApp Number <span class="text-[10px] font-normal text-emerald-400">(Optional)</span></label>
+            <button type="button" onclick="document.getElementById('setting-support-wa').value=''; showToast('Support WhatsApp cleared — click Save to apply', 'info');" class="text-[11px] font-bold text-pink-400 hover:underline cursor-pointer">Clear Number</button>
+          </div>
+          <input id="setting-support-wa" placeholder="Leave blank to hide WhatsApp number" class="w-full px-3.5 py-2.5 rounded-xl bg-surface-container-low text-on-surface border border-purple-900/30 text-sm font-medium focus:ring-2 focus:ring-primary focus:outline-none" value="+91 98765 43210"/>
+          <span class="text-[10px] text-on-surface-variant mt-1 block">Leave blank to hide WhatsApp support until you add a number later.</span>
         </div>
         <div>
           <label class="block text-xs font-bold uppercase tracking-wider text-outline mb-1.5">Storefront Currency</label>
@@ -692,6 +708,10 @@
             <p class="text-xs sm:text-sm text-on-surface-variant">Configure strikethrough prices, discount badges, and 1-click 100% FREE limited-time promotional mode.</p>
           </div>
         </div>
+        <button type="button" onclick="saveAllSiteSettings('✨ Promotional & Offer settings saved!')" class="px-4 py-2 rounded-xl bg-gradient-to-r from-pink-500 to-purple-600 hover:brightness-110 text-white font-bold text-xs sm:text-sm flex items-center gap-1.5 shadow-md transition cursor-pointer self-start sm:self-auto">
+          <span class="material-symbols-outlined text-sm">save</span>
+          <span>Save Promotional Settings</span>
+        </button>
       </div>
 
       <!-- 100% FREE Limited Time Offer Master Switch -->
@@ -981,7 +1001,7 @@
             </div>
           </div>
           <p class="text-[11px] text-on-surface-variant leading-relaxed">
-            Template-specific links automatically preserve <code>?template=&lt;slug&gt;&amp;variant=&lt;variant&gt;&amp;rel=&lt;relation&gt;</code> at runtime so visitors open the exact template and relationship edition they were viewing.
+            Every template automatically saves its own link (<code>https://wishmagic.pages.dev/template/&lt;id&gt;</code>) at upload time — asking for the relation when relationship variants exist, or opening the template directly when single-variant.
           </p>
           <div>
             <label class="block text-[11px] font-semibold text-on-surface-variant mb-1" for="setting-template-button-labels">Supported Template-Specific Button Labels (Comma-separated)</label>
@@ -1284,7 +1304,7 @@
     }
   }
 
-  async function saveWishLinkSettings() {
+  async function saveWishLinkSettings(silent = false) {
     const pEnabled = document.getElementById('setting-personalized-enabled').checked;
     const rEnabled = document.getElementById('setting-random-enabled').checked;
     const price = parseFloat(document.getElementById('setting-personalized-price').value);
@@ -1354,10 +1374,24 @@
       });
       const data = await res.json().catch(() => ({}));
       if (res.ok && data.success) {
+        if (!silent) {
+          notifyLiveStorefrontSettingsUpdated();
+          showStatusBanner('✨ Wish Link & Monetization settings saved to D1 database!', 'success');
+          showToast('✨ Wish Link & Monetization settings saved!', 'success');
+        }
         return { success: true, settings: data.data?.settings || data.settings };
       }
-      return { success: false, error: data.error?.message || 'Server rejected wish link update' };
+      const errMsg = data.error?.message || 'Server rejected wish link update';
+      if (!silent) {
+        showStatusBanner(`Save Failed: ${errMsg}`, 'error');
+        showToast(`❌ Save Failed: ${errMsg}`, 'error');
+      }
+      return { success: false, error: errMsg };
     } catch (e) {
+      if (!silent) {
+        showStatusBanner(`Error: ${e.message}`, 'error');
+        showToast(`❌ Network error: ${e.message}`, 'error');
+      }
       return { success: false, error: e.message };
     }
   }
@@ -1532,7 +1566,7 @@
   }
 
   // Save All Authoritative Site Settings to D1
-  async function saveAllSiteSettings() {
+  async function saveAllSiteSettings(customToastMessage) {
     const payload = {
       heroBadge: document.getElementById('setting-hero-badge').value,
       heroHeadline: document.getElementById('setting-hero-headline').value,
@@ -1577,35 +1611,36 @@
       }
 
       // Also persist wish link monetization settings
-      const wishRes = await saveWishLinkSettings();
+      const wishRes = await saveWishLinkSettings(true);
       if (!wishRes || !wishRes.success) {
         const errorMsg = wishRes?.error || 'Failed to persist wish link configuration.';
         showStatusBanner(`Save Failed: ${errorMsg}`, 'error');
-        showToast(`❌ Wish Link Save Failed: ${errorMsg}`);
+        showToast(`❌ Wish Link Save Failed: ${errorMsg}`, 'error');
         return;
       }
 
       const persisted = (data.data && data.data.settings) || data.settings || payload;
-      if (persisted.heroBadge) document.getElementById('setting-hero-badge').value = persisted.heroBadge;
-      if (persisted.heroHeadline) document.getElementById('setting-hero-headline').value = persisted.heroHeadline;
-      if (persisted.heroSubheadline) document.getElementById('setting-hero-subheadline').value = persisted.heroSubheadline;
-      if (persisted.heroGiftIcon) document.getElementById('setting-hero-gift-icon').value = persisted.heroGiftIcon;
-      if (persisted.heroBgMode) document.getElementById('setting-hero-bg-mode').value = persisted.heroBgMode;
-      if (persisted.heroImageUrl) document.getElementById('setting-hero-image-url').value = persisted.heroImageUrl;
-      if (persisted.heroStyle) document.getElementById('setting-hero-style').value = persisted.heroStyle;
-      if (persisted.heroCta1) document.getElementById('setting-hero-cta1').value = persisted.heroCta1;
-      if (persisted.heroCta2) document.getElementById('setting-hero-cta2').value = persisted.heroCta2;
-      if (persisted.brandName) document.getElementById('setting-brand-name').value = persisted.brandName;
-      if (persisted.supportWa) document.getElementById('setting-support-wa').value = persisted.supportWa;
-      if (persisted.currency) document.getElementById('setting-currency').value = persisted.currency;
+      if (persisted.heroBadge !== undefined) document.getElementById('setting-hero-badge').value = persisted.heroBadge;
+      if (persisted.heroHeadline !== undefined) document.getElementById('setting-hero-headline').value = persisted.heroHeadline;
+      if (persisted.heroSubheadline !== undefined) document.getElementById('setting-hero-subheadline').value = persisted.heroSubheadline;
+      if (persisted.heroGiftIcon !== undefined) document.getElementById('setting-hero-gift-icon').value = persisted.heroGiftIcon;
+      if (persisted.heroBgMode !== undefined) document.getElementById('setting-hero-bg-mode').value = persisted.heroBgMode;
+      if (persisted.heroImageUrl !== undefined) document.getElementById('setting-hero-image-url').value = persisted.heroImageUrl;
+      if (persisted.heroStyle !== undefined) document.getElementById('setting-hero-style').value = persisted.heroStyle;
+      if (persisted.heroCta1 !== undefined) document.getElementById('setting-hero-cta1').value = persisted.heroCta1;
+      if (persisted.heroCta2 !== undefined) document.getElementById('setting-hero-cta2').value = persisted.heroCta2;
+      if (persisted.brandName !== undefined) document.getElementById('setting-brand-name').value = persisted.brandName;
+      if (persisted.supportWa !== undefined) document.getElementById('setting-support-wa').value = persisted.supportWa;
+      if (persisted.currency !== undefined) document.getElementById('setting-currency').value = persisted.currency;
       if (persisted.particleFx !== undefined) document.getElementById('setting-particle-fx').checked = Boolean(persisted.particleFx);
       if (persisted.maintenanceMode !== undefined) document.getElementById('setting-maintenance-mode').checked = Boolean(persisted.maintenanceMode);
 
       updateHeroPreview();
       updatePromoPreview();
       notifyLiveStorefrontSettingsUpdated();
-      showStatusBanner('✨ Site configuration successfully persisted to D1 and published to live website!', 'success');
-      showToast('✨ Published to Live Site! D1 Database Updated');
+      const toastMsg = (typeof customToastMessage === 'string' && customToastMessage) ? customToastMessage : '✨ Settings saved & published to live site!';
+      showStatusBanner(toastMsg, 'success');
+      showToast(toastMsg, 'success');
     } catch (err) {
       showStatusBanner(`Error: ${err.message}`, 'error');
       showToast(`❌ Network failure: ${err.message}`);

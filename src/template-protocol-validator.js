@@ -1602,9 +1602,23 @@ export function validateAdminTemplateConfiguration({
       }
 
       const effectiveLabel = override.label !== undefined ? String(override.label).trim() : baseAct.label;
-      const effectiveType = override.type !== undefined ? String(override.type).toLowerCase().trim() : baseAct.type;
-      const effectiveLogicalLink = override.logicalLink !== undefined ? String(override.logicalLink || '').trim() : (baseAct.logicalLink || '');
-      const effectiveTarget = override.target !== undefined ? String(override.target).trim() : (effectiveLogicalLink && UTP_SUPPORTED_LOGICAL_LINKS[effectiveLogicalLink] ? UTP_SUPPORTED_LOGICAL_LINKS[effectiveLogicalLink] : baseAct.target);
+      let effectiveType = override.type !== undefined ? String(override.type).toLowerCase().trim() : baseAct.type;
+      const rawOverrideTarget = override.target !== undefined ? String(override.target).trim() : undefined;
+      const isCustomTargetProvided = Boolean(
+        rawOverrideTarget &&
+        !rawOverrideTarget.startsWith('global.') &&
+        !rawOverrideTarget.startsWith('template.') &&
+        (override.logicalLink === undefined || !override.logicalLink || rawOverrideTarget !== (baseAct.defaultTarget || baseAct.target))
+      );
+      const effectiveLogicalLink = isCustomTargetProvided
+        ? ''
+        : (override.logicalLink !== undefined ? String(override.logicalLink || '').trim() : (baseAct.logicalLink || ''));
+      const effectiveTarget = rawOverrideTarget !== undefined
+        ? rawOverrideTarget
+        : (effectiveLogicalLink && UTP_SUPPORTED_LOGICAL_LINKS[effectiveLogicalLink] ? UTP_SUPPORTED_LOGICAL_LINKS[effectiveLogicalLink] : baseAct.target);
+      if ((effectiveType === 'section' || effectiveType === 'modal') && rawOverrideTarget && (/^https?:\/\//i.test(rawOverrideTarget) || rawOverrideTarget.startsWith('/'))) {
+        effectiveType = /^https?:\/\//i.test(rawOverrideTarget) ? 'external_url' : 'internal_url';
+      }
       if (effectiveLogicalLink && !isValidLogicalLinkIdentifier(effectiveLogicalLink)) {
         issues.push({
           code: 'UNKNOWN_LOGICAL_LINK_ID',
@@ -1641,7 +1655,7 @@ export function validateAdminTemplateConfiguration({
       }
 
       if (effectiveType === 'internal_url' || effectiveType === 'customizer' || effectiveType === 'external_url' || effectiveType === 'global_link' || effectiveType === 'template_link') {
-        const urlCheck = validateActionDestinationUrl(effectiveType, effectiveTarget, { allowHttp: allowHttpExternalUrls });
+        const urlCheck = validateActionDestinationUrl(effectiveType, effectiveTarget, { allowHttp: allowHttpExternalUrls, allowCustomAdminTarget: true });
         if (!urlCheck.valid) {
           issues.push({
             code: effectiveType === 'external_url' ? 'UNSAFE_EXTERNAL_ACTION_URL' : 'INVALID_INTERNAL_ACTION_URL',

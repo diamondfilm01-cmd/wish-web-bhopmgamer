@@ -756,44 +756,84 @@ function toggleSidebar() {
 }
 window.toggleSidebar = toggleSidebar;
 
-var showToast = function(msg, type = 'info') {
+var showToast = function(msg, type) {
+  let resolvedType = type || 'info';
+  const textStr = String(msg || '');
+  if (!type || type === 'info') {
+    if (textStr.includes('❌') || /fail|error|invalid|reject/i.test(textStr)) {
+      resolvedType = 'error';
+    } else if (textStr.includes('⚠️') || /warn|cannot/i.test(textStr)) {
+      resolvedType = 'warning';
+    } else if (textStr.includes('✨') || textStr.includes('✅') || /saved|published|updated|restored|exported|persisted/i.test(textStr)) {
+      resolvedType = 'success';
+    }
+  }
+
   let toast = document.getElementById('admin-toast');
   if (!toast) {
     toast = document.createElement('div');
     toast.id = 'admin-toast';
-    toast.className = 'fixed bottom-6 right-6 z-[9999] px-5 py-3 rounded-2xl text-white font-bold text-sm shadow-2xl backdrop-blur-xl border flex items-center gap-3 transform transition-all duration-300 translate-y-20 opacity-0 pointer-events-none';
+    toast.setAttribute('role', 'status');
+    toast.setAttribute('aria-live', 'polite');
     document.body.appendChild(toast);
   }
 
   let icon = 'magic_button';
-  let bg = 'bg-[#240d54]/95';
-  let border = 'border-purple-400/40';
-  let iconColor = 'text-pink-400';
+  let bgHex = 'rgba(36, 13, 84, 0.96)';
+  let borderHex = 'rgba(192, 132, 252, 0.45)';
+  let iconHex = '#f472b6';
 
-  if (type === 'success') {
+  if (resolvedType === 'success') {
     icon = 'check_circle';
-    bg = 'bg-emerald-900/95';
-    border = 'border-emerald-500/40';
-    iconColor = 'text-emerald-400';
-  } else if (type === 'error' || type === 'danger') {
+    bgHex = 'rgba(6, 78, 59, 0.96)';
+    borderHex = 'rgba(52, 211, 153, 0.55)';
+    iconHex = '#34d399';
+  } else if (resolvedType === 'error' || resolvedType === 'danger') {
     icon = 'error';
-    bg = 'bg-rose-900/95';
-    border = 'border-rose-500/40';
-    iconColor = 'text-rose-400';
-  } else if (type === 'warning') {
+    bgHex = 'rgba(136, 19, 55, 0.96)';
+    borderHex = 'rgba(251, 113, 133, 0.55)';
+    iconHex = '#fb7185';
+  } else if (resolvedType === 'warning') {
     icon = 'warning';
-    bg = 'bg-amber-900/95';
-    border = 'border-amber-500/40';
-    iconColor = 'text-amber-400';
+    bgHex = 'rgba(120, 53, 15, 0.96)';
+    borderHex = 'rgba(251, 191, 36, 0.55)';
+    iconHex = '#fbbf24';
   }
 
-  toast.className = `fixed bottom-6 right-6 z-[9999] px-5 py-3 rounded-2xl text-white font-bold text-sm shadow-2xl backdrop-blur-xl border flex items-center gap-3 transform transition-all duration-300 ${bg} ${border}`;
-  toast.innerHTML = `<span class="material-symbols-outlined ${iconColor}">${icon}</span><span>${msg}</span>`;
+  toast.className = 'fixed bottom-6 right-6 z-[9999] px-5 py-3.5 rounded-2xl text-white font-bold text-sm shadow-2xl backdrop-blur-xl border flex items-center gap-3 transform transition-all duration-300';
+  toast.style.cssText = [
+    'position: fixed',
+    'bottom: 24px',
+    'right: 24px',
+    'z-index: 2147483647',
+    'padding: 14px 20px',
+    'border-radius: 16px',
+    'background: ' + bgHex,
+    'border: 1px solid ' + borderHex,
+    'color: #ffffff',
+    'font-weight: 700',
+    'font-size: 14px',
+    'line-height: 1.4',
+    'box-shadow: 0 20px 45px rgba(0, 0, 0, 0.45)',
+    'backdrop-filter: blur(16px)',
+    '-webkit-backdrop-filter: blur(16px)',
+    'display: flex',
+    'align-items: center',
+    'gap: 12px',
+    'max-width: min(92vw, 460px)',
+    'transform: translateY(0)',
+    'opacity: 1',
+    'pointer-events: auto',
+    'transition: transform 0.28s cubic-bezier(0.16, 1, 0.3, 1), opacity 0.28s ease'
+  ].join('; ');
 
-  toast.classList.remove('translate-y-20', 'opacity-0', 'pointer-events-none');
+  toast.innerHTML = `<span class="material-symbols-outlined" style="color:${iconHex};font-size:22px;flex-shrink:0;">${icon}</span><span style="color:#ffffff;word-break:break-word;">${textStr}</span>`;
 
   if (window.toastTimeout) clearTimeout(window.toastTimeout);
   window.toastTimeout = setTimeout(() => {
-    toast.classList.add('translate-y-20', 'opacity-0', 'pointer-events-none');
-  }, 4000);
+    toast.style.transform = 'translateY(80px)';
+    toast.style.opacity = '0';
+    toast.style.pointerEvents = 'none';
+  }, 4200);
 };
+window.showToast = showToast;

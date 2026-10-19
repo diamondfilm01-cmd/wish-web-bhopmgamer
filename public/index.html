@@ -4300,14 +4300,24 @@ body.dark .hero-gradient-text,
           if (copyBrand) copyBrand.textContent = s.brandName;
         }
 
-        // 8. Support WhatsApp
-        if (s.supportWa) {
+        // 8. Support WhatsApp (Hides when left blank in Admin Settings)
+        if (s.supportWa !== undefined) {
           const waText = document.getElementById('footer-support-wa-text');
-          if (waText) waText.textContent = s.supportWa;
-        }
-        if (s.supportWaUrl) {
           const waLink = document.getElementById('footer-support-wa-link');
-          if (waLink) waLink.href = s.supportWaUrl;
+          const trimmedWa = String(s.supportWa || '').trim();
+          if (trimmedWa.length > 0) {
+            if (waText) waText.textContent = trimmedWa;
+            if (waLink) {
+              waLink.href = s.supportWaUrl || ('https://wa.me/' + trimmedWa.replace(/[^0-9]/g, ''));
+              waLink.style.display = '';
+            }
+          } else {
+            if (waText) waText.textContent = '';
+            if (waLink) {
+              waLink.removeAttribute('href');
+              waLink.style.display = 'none';
+            }
+          }
         }
 
         // 9. Ambient Cosmic Particle FX

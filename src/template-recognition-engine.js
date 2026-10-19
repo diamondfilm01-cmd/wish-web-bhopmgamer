@@ -2734,8 +2734,12 @@ export function buildSandboxedTemplatePreviewHtml({
           if (labelSpan) labelSpan.textContent = String(act.label);
           else btn.textContent = String(act.label);
         }
+        var finalHref = act.resolvedUrl || act.target || '';
         btn.setAttribute('data-wm-action-type', act.type || 'section');
-        btn.setAttribute('data-wm-action-target', act.target || '');
+        btn.setAttribute('data-wm-action-target', finalHref);
+        if (finalHref && (finalHref.indexOf('https://') === 0 || finalHref.indexOf('http://') === 0 || finalHref.indexOf('/') === 0 || finalHref.indexOf('#') === 0)) {
+          if (btn.tagName && btn.tagName.toLowerCase() === 'a') btn.setAttribute('href', finalHref);
+        }
       });
     });
 

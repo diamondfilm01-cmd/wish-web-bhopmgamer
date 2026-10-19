@@ -1895,6 +1895,31 @@ export async function executeB2TemplateIngestPipeline(params) {
   const familySlug = templateMetadata.slug || (utpReport.normalized?.template?.id) || (analyzed.title ? analyzed.title.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-+|-+$/g, '') : 'custom-template');
   const templateFamilyId = templateMetadata.familyId || `fam_${familySlug}`;
   const templateId = templateMetadata.templateId || `tpl_${familySlug}`;
+
+  // Auto-save this specific template's link (https://wishmagic.pages.dev/template/<templateId>) into Template-Specific Links (template_link / customizer / template.*) at upload time
+  try {
+    const autoTemplateUrl = `https://wishmagic.pages.dev/template/${templateId}`;
+    const genericTargets = new Set(['', '/customize.html', '/customize', '/template-preview.html', '/template-preview', 'template.customize', 'template.create', 'template.preview']);
+    const normActs = Array.isArray(utpReport.normalized?.actions) ? utpReport.normalized.actions : [];
+    for (const act of normActs) {
+      if (!act || typeof act !== 'object') continue;
+      const aId = String(act.id || act.key || '').trim();
+      if (!aId) continue;
+      const aType = String(act.type || act.actionType || '').toLowerCase().trim();
+      const aLogical = String(act.logicalLink || act.linkId || '').trim();
+      const isTemplateSpecific = aType === 'template_link' || aType === 'customizer' || aLogical.startsWith('template.');
+      if (!isTemplateSpecific) continue;
+      const existingOv = uploadActionsConfig[aId];
+      const existingTarget = existingOv && existingOv.target !== undefined ? String(existingOv.target).trim() : '';
+      if (!existingTarget || genericTargets.has(existingTarget)) {
+        uploadActionsConfig[aId] = {
+          ...(existingOv && typeof existingOv === 'object' ? existingOv : {}),
+          id: aId,
+          target: autoTemplateUrl
+        };
+      }
+    }
+  } catch (_) {}
   
   // Concurrency-safe version number calculation from DB
   let versionNumber = Number(templateMetadata.versionNumber || 0);

@@ -91,6 +91,37 @@ export function escapeHtmlText(raw = '') {
 export function buildContextualInternalUrl(rawTarget = '', context = {}) {
   const trimmed = String(rawTarget || '').trim();
   if (!trimmed) return '';
+
+  if (/^https?:\/\//i.test(trimmed)) {
+    try {
+      const parsed = new URL(trimmed);
+      const cleanPath = (parsed.pathname || '/').toLowerCase().replace(/\/+$/, '') || '/';
+      const isContextualRoute =
+        cleanPath === '/customize' ||
+        cleanPath === '/customize.html' ||
+        cleanPath === '/preview' ||
+        cleanPath === '/template-preview' ||
+        cleanPath === '/template-preview.html';
+      if (isContextualRoute && context.preserveRelationshipContext !== false) {
+        const tplSlug = context.templateSlug || context.templateId || '';
+        const varSlug = context.variantSlug || '';
+        const relSlug = context.relationshipSlug || '';
+        if (tplSlug && !parsed.searchParams.has('template') && !parsed.searchParams.has('id')) {
+          parsed.searchParams.set('template', tplSlug);
+        }
+        if (varSlug && !parsed.searchParams.has('variant')) {
+          parsed.searchParams.set('variant', varSlug);
+        }
+        if (relSlug && relSlug !== 'general' && !parsed.searchParams.has('rel') && !parsed.searchParams.has('relationship')) {
+          parsed.searchParams.set('rel', relSlug);
+        }
+      }
+      return parsed.toString();
+    } catch (_) {
+      return trimmed;
+    }
+  }
+
   const hashIdx = trimmed.indexOf('#');
   const hashPart = hashIdx !== -1 ? trimmed.slice(hashIdx) : '';
   const withoutHash = hashIdx !== -1 ? trimmed.slice(0, hashIdx) : trimmed;
@@ -572,15 +603,55 @@ export function resolveEffectiveTemplateConfiguration({
     const tplOverride = templateWideActionsMap[aId] || null;
     const varOverride = (baseAct.relationshipSpecific !== false && variantActionsMap[aId]) ? variantActionsMap[aId] : null;
 
+    const baseDefaultTarget = String(baseAct.defaultTarget !== undefined ? baseAct.defaultTarget : (baseAct.target || '')).trim();
+    const baseDefaultLogical = String(baseAct.logicalLink || '').trim() || null;
+    const isTemplateSpecificAction =
+      baseAct.type === 'template_link' ||
+      baseAct.type === 'customizer' ||
+      Boolean(baseDefaultLogical && baseDefaultLogical.startsWith('template.'));
+    const canonicalBaseForTemplate = String((linkSettings && linkSettings.canonicalBaseUrl) || 'https://wishmagic.pages.dev').replace(/\/+$/, '');
+    const autoTemplateSpecificLink = (template && template.id && isTemplateSpecificAction)
+      ? `${canonicalBaseForTemplate}/template/${template.id}`
+      : null;
+    const isGenericTemplateRoute = (t) =>
+      !t ||
+      t === '/customize.html' ||
+      t === '/customize' ||
+      t === '/template-preview.html' ||
+      t === '/template-preview' ||
+      t === 'template.customize' ||
+      t === 'template.create' ||
+      t === 'template.preview';
+
     let rawLabel = baseAct.defaultLabel || baseAct.label;
     let effectiveType = baseAct.type;
-    let effectiveLogicalLink = baseAct.logicalLink || null;
-    let effectiveTarget = baseAct.defaultTarget !== undefined ? baseAct.defaultTarget : baseAct.target;
+    let effectiveLogicalLink = baseDefaultLogical;
+    let effectiveTarget = (autoTemplateSpecificLink && isGenericTemplateRoute(baseDefaultTarget))
+      ? autoTemplateSpecificLink
+      : baseDefaultTarget;
     let ownEnabled = baseAct.defaultEnabled !== false;
     let openInNewTab = baseAct.openInNewTab;
     let fallbackBehavior = baseAct.fallbackBehavior || 'hide';
     let effectiveSource = 'manifest_default';
     let isOverridden = false;
+    let hasCustomAdminTarget = Boolean(autoTemplateSpecificLink && effectiveTarget === autoTemplateSpecificLink);
+
+    const isNonLogicalCustomTarget = (tStr, defTarget) => {
+      if (!tStr) return false;
+      if (tStr.startsWith('global.') || tStr.startsWith('template.')) return false;
+      if (/^https?:\/\//i.test(tStr) || tStr.startsWith('/template/') || tStr.startsWith('/templates/') || tStr.startsWith('/w/') || tStr.startsWith('/wish/')) {
+        return true;
+      }
+      if (tStr !== defTarget && tStr !== '/customize.html' && tStr !== '/customize') {
+        return true;
+      }
+      return false;
+    };
+
+    if (isNonLogicalCustomTarget(effectiveTarget, '')) {
+      effectiveLogicalLink = null;
+      hasCustomAdminTarget = true;
+    }
 
     // Apply Template-Wide Override
     if (tplOverride) {
@@ -595,7 +666,15 @@ export function resolveEffectiveTemplateConfiguration({
           effectiveLogicalLink = tplOverride.logicalLink ? String(tplOverride.logicalLink).trim() : null;
         }
         if (tplOverride.target !== undefined) {
-          effectiveTarget = String(tplOverride.target).trim();
+          const nextT = String(tplOverride.target).trim();
+          effectiveTarget = nextT;
+          if (nextT && (nextT.startsWith('global.') || nextT.startsWith('template.'))) {
+            effectiveLogicalLink = nextT;
+            hasCustomAdminTarget = false;
+          } else if (nextT && (!tplOverride.logicalLink || isNonLogicalCustomTarget(nextT, baseDefaultTarget))) {
+            effectiveLogicalLink = null;
+            hasCustomAdminTarget = true;
+          }
         }
         if (tplOverride.openInNewTab !== undefined) {
           openInNewTab = Boolean(tplOverride.openInNewTab);
@@ -608,6 +687,7 @@ export function resolveEffectiveTemplateConfiguration({
         ownEnabled = Boolean(tplOverride.enabled);
       }
       effectiveSource = 'template_wide';
+      isOverridden = true;
     }
 
     // Apply Relationship Variant Override (if relationshipSpecific !== false)
@@ -616,14 +696,32 @@ export function resolveEffectiveTemplateConfiguration({
         rawLabel = String(varOverride.label).trim();
       }
       if (baseAct.configurable !== false) {
-        if (varOverride.type !== undefined && UTP_SUPPORTED_ACTION_TYPES.has(String(varOverride.type).toLowerCase())) {
-          effectiveType = String(varOverride.type).toLowerCase();
-        }
-        if (varOverride.logicalLink !== undefined) {
-          effectiveLogicalLink = varOverride.logicalLink ? String(varOverride.logicalLink).trim() : null;
-        }
-        if (varOverride.target !== undefined) {
-          effectiveTarget = String(varOverride.target).trim();
+        const varTargetStr = varOverride.target !== undefined ? String(varOverride.target).trim() : undefined;
+        const varLogicalStr = varOverride.logicalLink !== undefined ? String(varOverride.logicalLink || '').trim() : undefined;
+        // If template-wide override set a custom target, do not let a variant's untouched manifest default (/customize.html + template.customize) clobber the template-wide custom target unless the variant has an explicit custom target
+        const isUntouchedVariantDefault = Boolean(
+          hasCustomAdminTarget &&
+          !varOverride._explicitVariantTarget &&
+          (varTargetStr === undefined || varTargetStr === baseDefaultTarget || varTargetStr === '/customize.html' || varTargetStr === '/customize') &&
+          (varLogicalStr === undefined || varLogicalStr === baseDefaultLogical || varLogicalStr === 'template.customize' || varLogicalStr === '')
+        );
+        if (!isUntouchedVariantDefault) {
+          if (varOverride.type !== undefined && UTP_SUPPORTED_ACTION_TYPES.has(String(varOverride.type).toLowerCase())) {
+            effectiveType = String(varOverride.type).toLowerCase();
+          }
+          if (varLogicalStr !== undefined) {
+            effectiveLogicalLink = varLogicalStr || null;
+          }
+          if (varTargetStr !== undefined) {
+            effectiveTarget = varTargetStr;
+            if (varTargetStr && (varTargetStr.startsWith('global.') || varTargetStr.startsWith('template.'))) {
+              effectiveLogicalLink = varTargetStr;
+              hasCustomAdminTarget = false;
+            } else if (varTargetStr && (!varLogicalStr || isNonLogicalCustomTarget(varTargetStr, baseDefaultTarget))) {
+              effectiveLogicalLink = null;
+              hasCustomAdminTarget = true;
+            }
+          }
         }
         if (varOverride.openInNewTab !== undefined) {
           openInNewTab = Boolean(varOverride.openInNewTab);
@@ -641,6 +739,11 @@ export function resolveEffectiveTemplateConfiguration({
 
     if (baseAct.required) {
       ownEnabled = true;
+    }
+
+    // Auto-adapt section/modal type if admin configured a direct URL or path in target
+    if ((effectiveType === 'section' || effectiveType === 'modal') && effectiveTarget && (/^https?:\/\//i.test(effectiveTarget) || effectiveTarget.startsWith('/'))) {
+      effectiveType = /^https?:\/\//i.test(effectiveTarget) ? 'external_url' : 'internal_url';
     }
 
     // Check if enclosing section is disabled
@@ -669,12 +772,12 @@ export function resolveEffectiveTemplateConfiguration({
         resolvedUrl = `#${targetModalId}`;
       }
     } else if (effectiveType === 'customizer' || effectiveType === 'template_link') {
-      const targetOrLogical = effectiveLogicalLink || effectiveTarget || '/customize.html';
-      const check = validateActionDestinationUrl(effectiveType, targetOrLogical);
+      const targetOrLogical = (!hasCustomAdminTarget && effectiveLogicalLink) ? effectiveLogicalLink : (effectiveTarget || effectiveLogicalLink || '/customize.html');
+      const check = validateActionDestinationUrl(effectiveType, targetOrLogical, { allowCustomAdminTarget: true });
       if (!check.valid) {
         targetAvailable = false;
         targetUnavailableReason = check.reason;
-      } else if (effectiveLogicalLink || check.logicalLink || effectiveType === 'template_link') {
+      } else if (!hasCustomAdminTarget && (effectiveLogicalLink || check.logicalLink || (effectiveType === 'template_link' && (!effectiveTarget || effectiveTarget === '/customize.html' || effectiveTarget === '/customize')))) {
         const resLink = resolveLogicalLink(
           { type: effectiveType, logicalLink: effectiveLogicalLink || check.logicalLink || 'template.customize', target: effectiveTarget },
           { templateSlug, templateId: template.id, variantSlug, relationshipSlug: effectiveRelSlug },
@@ -682,7 +785,7 @@ export function resolveEffectiveTemplateConfiguration({
         );
         resolvedUrl = resLink.resolvedUrl;
       } else {
-        resolvedUrl = buildContextualInternalUrl(check.normalizedUrl || '/customize', {
+        resolvedUrl = buildContextualInternalUrl(check.normalizedUrl || effectiveTarget || '/customize', {
           templateSlug,
           templateId: template.id,
           variantSlug,
@@ -691,12 +794,12 @@ export function resolveEffectiveTemplateConfiguration({
         });
       }
     } else if (effectiveType === 'internal_url' || effectiveType === 'global_link') {
-      const targetOrLogical = effectiveLogicalLink || effectiveTarget || (effectiveType === 'global_link' ? 'global.home' : '');
-      const check = validateActionDestinationUrl(effectiveType, targetOrLogical);
+      const targetOrLogical = (!hasCustomAdminTarget && effectiveLogicalLink) ? effectiveLogicalLink : (effectiveTarget || effectiveLogicalLink || (effectiveType === 'global_link' ? 'global.home' : ''));
+      const check = validateActionDestinationUrl(effectiveType, targetOrLogical, { allowCustomAdminTarget: true });
       if (!check.valid) {
         targetAvailable = false;
         targetUnavailableReason = check.reason;
-      } else if (effectiveLogicalLink || check.logicalLink || effectiveType === 'global_link') {
+      } else if (!hasCustomAdminTarget && (effectiveLogicalLink || check.logicalLink || (effectiveType === 'global_link' && !effectiveTarget))) {
         const resLink = resolveLogicalLink(
           { type: effectiveType, logicalLink: effectiveLogicalLink || check.logicalLink, target: effectiveTarget },
           { templateSlug, templateId: template.id, variantSlug, relationshipSlug: effectiveRelSlug },
@@ -704,7 +807,7 @@ export function resolveEffectiveTemplateConfiguration({
         );
         resolvedUrl = resLink.resolvedUrl;
       } else {
-        resolvedUrl = buildContextualInternalUrl(check.normalizedUrl, {
+        resolvedUrl = buildContextualInternalUrl(check.normalizedUrl || effectiveTarget, {
           templateSlug,
           templateId: template.id,
           variantSlug,
@@ -713,7 +816,7 @@ export function resolveEffectiveTemplateConfiguration({
         });
       }
     } else if (effectiveType === 'external_url') {
-      const check = validateActionDestinationUrl('external_url', effectiveTarget);
+      const check = validateActionDestinationUrl('external_url', effectiveTarget, { allowCustomAdminTarget: true });
       if (!check.valid) {
         targetAvailable = false;
         targetUnavailableReason = check.reason;

@@ -4231,6 +4231,46 @@ async function reconcileUploadedTemplatesInD1(env, { allowB2Scan = true } = {}) 
           r.id
         ).run().catch(() => {});
       }
+
+      // Auto-populate Template-Specific Links (template_link / customizer / template.*) with this specific template's own link (/template/<id>) for existing & new templates
+      if (r.id) {
+        try {
+          const parsedActs = safeJsonParse(r.actions_json, []);
+          const parsedActCfg = safeJsonParse(r.actions_config_json, {}) || {};
+          if (Array.isArray(parsedActs) && parsedActs.length > 0 && typeof parsedActCfg === 'object' && !Array.isArray(parsedActCfg)) {
+            const autoTemplateUrl = `https://wishmagic.pages.dev/template/${r.id}`;
+            const genericTargets = new Set(['', '/customize.html', '/customize', '/template-preview.html', '/template-preview', 'template.customize', 'template.create', 'template.preview']);
+            let cfgChanged = false;
+            for (const act of parsedActs) {
+              if (!act || typeof act !== 'object') continue;
+              const aId = String(act.id || act.key || '').trim();
+              if (!aId) continue;
+              const aType = String(act.type || act.actionType || '').toLowerCase().trim();
+              const aLogical = String(act.logicalLink || act.linkId || '').trim();
+              const isTemplateSpecific = aType === 'template_link' || aType === 'customizer' || aLogical.startsWith('template.');
+              if (!isTemplateSpecific) continue;
+              const existingOv = parsedActCfg[aId];
+              const existingTarget = existingOv && existingOv.target !== undefined ? String(existingOv.target).trim() : '';
+              if (!existingTarget || genericTargets.has(existingTarget)) {
+                parsedActCfg[aId] = {
+                  ...(existingOv && typeof existingOv === 'object' ? existingOv : {}),
+                  id: aId,
+                  target: autoTemplateUrl
+                };
+                cfgChanged = true;
+              }
+            }
+            if (cfgChanged) {
+              const nextActCfgJson = JSON.stringify(parsedActCfg);
+              r.actions_config_json = nextActCfgJson;
+              await db.prepare(`UPDATE templates SET actions_config_json = ? WHERE id = ?`).bind(nextActCfgJson, r.id).run().catch(() => {});
+              if (r.current_version_id) {
+                await db.prepare(`UPDATE template_versions SET actions_config_json = ? WHERE id = ?`).bind(nextActCfgJson, r.current_version_id).run().catch(() => {});
+              }
+            }
+          }
+        } catch (_) {}
+      }
     }
 
     // 2. Check template_versions for B2 versions (id LIKE 'ver_%') whose parent templates row is missing, unlinked, or stuck in draft
@@ -5091,14 +5131,16 @@ function validateSiteSettings(settings) {
     return { valid: false, error: 'Brand name must be between 1 and 80 characters.' };
   }
 
-  // Support WhatsApp
-  const supportWa = String(s.supportWa !== undefined ? s.supportWa : inMemorySiteSettings.supportWa).trim();
-  if (!supportWa || !/^[\+0-9\s\-\(\)]+$/.test(supportWa)) {
-    return { valid: false, error: 'Support WhatsApp number contains invalid characters.' };
-  }
-  const digits = supportWa.replace(/[^0-9]/g, '');
-  if (digits.length < 7 || digits.length > 15) {
-    return { valid: false, error: 'Support WhatsApp number must contain between 7 and 15 digits.' };
+  // Support WhatsApp (Optional — allowed to be blank/empty when admin removes number)
+  const supportWa = String(s.supportWa !== undefined ? s.supportWa : (inMemorySiteSettings.supportWa || '')).trim();
+  if (supportWa.length > 0) {
+    if (!/^[\+0-9\s\-\(\)]+$/.test(supportWa)) {
+      return { valid: false, error: 'Support WhatsApp number contains invalid characters.' };
+    }
+    const digits = supportWa.replace(/[^0-9]/g, '');
+    if (digits.length < 7 || digits.length > 15) {
+      return { valid: false, error: 'Support WhatsApp number must contain between 7 and 15 digits.' };
+    }
   }
 
   // Currency
@@ -5181,7 +5223,7 @@ async function getSiteSettings(env) {
           else if (row.key === 'hero_cta1') config.heroCta1 = val;
           else if (row.key === 'hero_cta2') config.heroCta2 = val;
           else if (row.key === 'brand_name') config.brandName = val;
-          else if (row.key === 'support_wa') config.supportWa = val;
+          else if (row.key === 'support_wa') config.supportWa = val !== undefined && val !== null ? String(val) : '';
           else if (row.key === 'currency') config.currency = val;
           else if (row.key === 'particle_fx') config.particleFx = val;
           else if (row.key === 'maintenance_mode') config.maintenanceMode = val;

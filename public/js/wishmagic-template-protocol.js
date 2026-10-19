@@ -299,10 +299,35 @@
     const trimmed = String(rawTarget || '').trim();
     if (!trimmed) return '';
     const lower = trimmed.toLowerCase();
-    if (lower.startsWith('javascript:') || lower.startsWith('data:') || lower.startsWith('vbscript:') || lower.startsWith('file:')) {
+    if (lower.startsWith('javascript:') || lower.startsWith('data:') || lower.startsWith('vbscript:') || lower.startsWith('file:') || lower.startsWith('//')) {
       return '';
     }
     const data = contextData || {};
+
+    if (lower.startsWith('https://') || lower.startsWith('http://')) {
+      try {
+        const parsed = new URL(trimmed);
+        const cleanPath = (parsed.pathname || '/').toLowerCase().replace(/\/+$/, '') || '/';
+        const isContextual =
+          cleanPath === '/customize' ||
+          cleanPath === '/customize.html' ||
+          cleanPath === '/preview' ||
+          cleanPath === '/template-preview' ||
+          cleanPath === '/template-preview.html';
+        if (isContextual) {
+          const tplId = data.templateId || data.template_id || data.templateSlug || '';
+          const varId = data.variantId || data.variant_id || data.variantSlug || (data.variant && (data.variant.id || data.variant.slug)) || '';
+          const relSlug = data.relationshipSlug || data.relationship_slug || data.relationship || (data.variant && (data.variant.relationshipSlug || data.variant.relationship)) || '';
+          if (tplId && !parsed.searchParams.has('template') && !parsed.searchParams.has('id')) parsed.searchParams.set('template', tplId);
+          if (varId && !parsed.searchParams.has('variant')) parsed.searchParams.set('variant', varId);
+          if (relSlug && relSlug !== 'general' && !parsed.searchParams.has('rel') && !parsed.searchParams.has('relationship')) parsed.searchParams.set('rel', relSlug);
+        }
+        return parsed.toString();
+      } catch (_) {
+        return trimmed;
+      }
+    }
+
     const hashIdx = trimmed.indexOf('#');
     const hashPart = hashIdx !== -1 ? trimmed.slice(hashIdx) : '';
     const withoutHash = hashIdx !== -1 ? trimmed.slice(0, hashIdx) : trimmed;
@@ -435,15 +460,25 @@
           }
         } else if (actType === 'external_url') {
           const lowerUrl = rawTarget.toLowerCase();
-          if (!rawTarget || (!lowerUrl.startsWith('https://') && !lowerUrl.startsWith('http://')) || lowerUrl.startsWith('javascript:') || lowerUrl.startsWith('data:')) {
+          if (!rawTarget || (!lowerUrl.startsWith('https://') && !lowerUrl.startsWith('http://') && !lowerUrl.startsWith('/')) || lowerUrl.startsWith('javascript:') || lowerUrl.startsWith('data:')) {
             isActionEnabled = false;
           }
         } else if (actType === 'internal_url' || actType === 'customizer' || actType === 'global_link' || actType === 'template_link') {
-          const logicalId = String(action.logicalLink || action.linkId || el.getAttribute('data-wm-link') || '').trim();
-          const resolvedInternal = logicalId
-            ? resolveLogicalLink(logicalId, ctx)
-            : resolveLogicalLink(rawTarget || (actType === 'customizer' || actType === 'template_link' ? 'template.customize' : (actType === 'global_link' ? 'global.home' : '')), ctx);
-          if (!resolvedInternal || (!resolvedInternal.startsWith('/') && !resolvedInternal.startsWith('https://'))) {
+          const explicitTarget = String(action.target || action.destination || '').trim();
+          const explicitResolved = String(action.resolvedUrl || '').trim();
+          const hasCustomTargetUrl = Boolean(
+            (explicitResolved && (explicitResolved.startsWith('https://') || explicitResolved.startsWith('http://') || explicitResolved.startsWith('/template/') || explicitResolved.startsWith('/w/'))) ||
+            (explicitTarget && !explicitTarget.startsWith('global.') && !explicitTarget.startsWith('template.') && (explicitTarget.startsWith('https://') || explicitTarget.startsWith('http://') || (explicitTarget !== '/customize.html' && explicitTarget !== '/customize' && !action.logicalLink)))
+          );
+          const logicalId = hasCustomTargetUrl
+            ? String(action.logicalLink || action.linkId || '').trim()
+            : String(action.logicalLink || action.linkId || el.getAttribute('data-wm-link') || '').trim();
+          const resolvedInternal = explicitResolved
+            ? resolveClientInternalActionUrl(explicitResolved, ctx)
+            : (logicalId
+              ? resolveLogicalLink(logicalId, ctx)
+              : resolveLogicalLink(rawTarget || (actType === 'customizer' || actType === 'template_link' ? 'template.customize' : (actType === 'global_link' ? 'global.home' : '')), ctx));
+          if (!resolvedInternal || (!resolvedInternal.startsWith('/') && !resolvedInternal.startsWith('https://') && !resolvedInternal.startsWith('http://') && !resolvedInternal.startsWith('#'))) {
             isActionEnabled = false;
           }
         }
@@ -482,26 +517,44 @@
 
         // Configure href and deterministic click handler
         if (actType === 'internal_url' || actType === 'customizer' || actType === 'global_link' || actType === 'template_link') {
-          const logicalId = String(action.logicalLink || action.linkId || el.getAttribute('data-wm-link') || '').trim();
-          const finalUrl = action.resolvedUrl
-            ? resolveClientInternalActionUrl(action.resolvedUrl, ctx)
-            : (logicalId
-              ? resolveLogicalLink(logicalId, ctx)
-              : resolveLogicalLink(action.target || (actType === 'customizer' || actType === 'template_link' ? 'template.customize' : 'global.home'), ctx));
-          if (logicalId) el.setAttribute('data-wm-link', logicalId);
+          const explicitTarget = String(action.target || action.destination || '').trim();
+          const explicitResolved = String(action.resolvedUrl || '').trim();
+          const hasCustomTargetUrl = Boolean(
+            (explicitResolved && (explicitResolved.startsWith('https://') || explicitResolved.startsWith('http://') || explicitResolved.startsWith('/template/') || explicitResolved.startsWith('/w/'))) ||
+            (explicitTarget && !explicitTarget.startsWith('global.') && !explicitTarget.startsWith('template.') && (explicitTarget.startsWith('https://') || explicitTarget.startsWith('http://') || (explicitTarget !== '/customize.html' && explicitTarget !== '/customize' && !action.logicalLink)))
+          );
+          const logicalId = hasCustomTargetUrl
+            ? String(action.logicalLink || action.linkId || '').trim()
+            : String(action.logicalLink || action.linkId || el.getAttribute('data-wm-link') || '').trim();
+          const finalUrl = explicitResolved
+            ? resolveClientInternalActionUrl(explicitResolved, ctx)
+            : (hasCustomTargetUrl && explicitTarget
+              ? resolveClientInternalActionUrl(explicitTarget, ctx)
+              : (logicalId
+                ? resolveLogicalLink(logicalId, ctx)
+                : resolveLogicalLink(explicitTarget || (actType === 'customizer' || actType === 'template_link' ? 'template.customize' : 'global.home'), ctx)));
+          if (logicalId) {
+            el.setAttribute('data-wm-link', logicalId);
+          } else if (hasCustomTargetUrl) {
+            el.removeAttribute('data-wm-link');
+          }
           if (el.tagName === 'A') {
             el.setAttribute('href', finalUrl);
           }
           el.onclick = function (ev) {
             ev.preventDefault();
+            let navUrl = finalUrl;
             try {
-              if (window.top && window.top !== window) {
-                window.top.location.href = finalUrl;
-              } else {
-                window.location.href = finalUrl;
+              const topWin = (window.top && window.top !== window) ? window.top : window;
+              const topPath = String((topWin.location && topWin.location.pathname) || "").toLowerCase();
+              const isAlreadyOnPreviewPage = topPath.startsWith("/template/") || topPath.includes("template-preview");
+              const isPointingToTemplatePreview = /\/template\/[a-zA-Z0-9_.-]+$/i.test(String(finalUrl || "").split("?")[0]);
+              if (isAlreadyOnPreviewPage && isPointingToTemplatePreview && (actType === "template_link" || actType === "customizer")) {
+                navUrl = resolveClientInternalActionUrl("/customize.html", ctx);
               }
+              topWin.location.href = navUrl;
             } catch (_) {
-              window.location.href = finalUrl;
+              window.location.href = navUrl;
             }
           };
         } else if (actType === 'external_url') {

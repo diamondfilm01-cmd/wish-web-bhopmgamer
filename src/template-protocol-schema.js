@@ -122,16 +122,44 @@ export const UTP_VALID_INTERNAL_ROUTES = Object.freeze([
  */
 export function isValidInternalWishMagicRoute(rawTarget) {
   if (!rawTarget || typeof rawTarget !== 'string') return false;
-  const trimmed = rawTarget.trim();
-  if (!trimmed.startsWith('/') || trimmed.startsWith('//')) return false;
+  let trimmed = rawTarget.trim();
+  if (!trimmed || trimmed.startsWith('//')) return false;
   if (/[\0<>'"`]/.test(trimmed)) return false;
+
+  if (/^https?:\/\//i.test(trimmed)) {
+    try {
+      const parsed = new URL(trimmed);
+      const host = parsed.hostname.toLowerCase();
+      const isWishMagicHost =
+        host === 'wishmagic.pages.dev' ||
+        host === 'www.wishmagic.pages.dev' ||
+        host === 'wishmagic.live' ||
+        host === 'www.wishmagic.live' ||
+        host === 'wishmagic.in' ||
+        host === 'www.wishmagic.in' ||
+        host.endsWith('.wishmagic.in') ||
+        host.endsWith('.wishmagic.live') ||
+        host.endsWith('.wishmagic.org') ||
+        host.endsWith('.pages.dev') ||
+        host === 'localhost' ||
+        host === '127.0.0.1';
+      if (!isWishMagicHost) return false;
+      if (parsed.protocol !== 'https:' && host !== 'localhost' && host !== '127.0.0.1') return false;
+      trimmed = `${parsed.pathname || '/'}${parsed.search || ''}${parsed.hash || ''}`;
+    } catch (_) {
+      return false;
+    }
+  }
+
+  if (!trimmed.startsWith('/') || trimmed.startsWith('//')) return false;
 
   const [pathnamePart] = trimmed.split(/[?#]/);
   const cleanPath = pathnamePart.replace(/\/+$/, '') || '/';
 
   if (UTP_VALID_INTERNAL_ROUTES.includes(cleanPath)) return true;
-  if (/^\/template\/[a-zA-Z0-9_-]+$/.test(cleanPath)) return true;
-  if (/^\/w\/[a-zA-Z0-9_-]+$/.test(cleanPath)) return true;
+  if (/^\/templates?\/[a-zA-Z0-9_.-]+$/.test(cleanPath)) return true;
+  if (/^\/w(ish)?\/[a-zA-Z0-9_.-]+$/.test(cleanPath)) return true;
+  if (/^\/(legal|privacy|terms|about|refund|faq|support)(\.html)?$/i.test(cleanPath)) return true;
   return false;
 }
 
@@ -202,8 +230,48 @@ export function validateActionDestinationUrl(arg1, arg2 = "external_url", option
     return { valid: true, normalizedTarget: defaultRoute, normalizedUrl: defaultRoute, logicalLink: str };
   }
 
+  // If target is a full http(s):// URL, validate as safe HTTPS URL regardless of whether actionType is internal_url, template_link, global_link, customizer, or external_url
+  if (lower.startsWith("https://") || lower.startsWith("http://")) {
+    let parsed;
+    try {
+      parsed = new URL(str);
+    } catch (_) {
+      const msg = `URL "${str}" is not a valid absolute URL.`;
+      return {
+        valid: false,
+        code: "INVALID_EXTERNAL_URL",
+        message: msg,
+        reason: msg
+      };
+    }
+    const allowHttp = Boolean(options.allowHttpExternal || options.allowHttp);
+    if (parsed.protocol !== "https:" && !(allowHttp && parsed.protocol === "http:")) {
+      const msg = `External URL "${str}" must use HTTPS (received "${parsed.protocol}").`;
+      return {
+        valid: false,
+        code: "UNSAFE_EXTERNAL_URL_PROTOCOL",
+        message: msg,
+        reason: msg
+      };
+    }
+    const norm = parsed.toString();
+    return { valid: true, normalizedTarget: norm, normalizedUrl: norm, isAbsoluteUrl: true };
+  }
+
   if (actionType === "internal_url" || actionType === "customizer" || actionType === "global_link" || actionType === "template_link") {
-    if (!isValidInternalWishMagicRoute(str)) {
+    if (str.startsWith("#") && /^#[a-zA-Z0-9_-]{1,80}$/.test(str)) {
+      return { valid: true, normalizedTarget: str, normalizedUrl: str };
+    }
+    const isStandardRoute = isValidInternalWishMagicRoute(str);
+    const isSafeCustomAdminPath = Boolean(
+      options.allowCustomAdminTarget &&
+      str.startsWith("/") &&
+      !str.startsWith("//") &&
+      !str.includes("..") &&
+      !/[\0<>'"`]/.test(str) &&
+      !/\.(php|exe|sh|bat|cmd|dll|py|cgi|jsp|asp|aspx)(\?|$|#)/i.test(str)
+    );
+    if (!isStandardRoute && !isSafeCustomAdminPath) {
       const msg = `Internal URL "${str}" does not match an existing supported WishMagic route.`;
       return {
         valid: false,
@@ -216,6 +284,18 @@ export function validateActionDestinationUrl(arg1, arg2 = "external_url", option
   }
 
   if (actionType === "external_url") {
+    if (str.startsWith("/") && !str.startsWith("//")) {
+      const isStandardRoute = isValidInternalWishMagicRoute(str);
+      const isSafeCustomAdminPath = Boolean(
+        options.allowCustomAdminTarget &&
+        !str.includes("..") &&
+        !/[\0<>'"`]/.test(str) &&
+        !/\.(php|exe|sh|bat|cmd|dll|py|cgi|jsp|asp|aspx)(\?|$|#)/i.test(str)
+      );
+      if (isStandardRoute || isSafeCustomAdminPath) {
+        return { valid: true, normalizedTarget: str, normalizedUrl: str };
+      }
+    }
     let parsed;
     try {
       parsed = new URL(str);
