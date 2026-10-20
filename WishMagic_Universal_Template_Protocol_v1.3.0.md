@@ -158,8 +158,11 @@ When a section or subsection resolves to `effectiveEnabled: false`:
    - Any navigation link (`<a href="#<disabled_id>">`, `[data-wm-nav-target="<disabled_id>"]`) or action button targeting a disabled section/modal is automatically removed or disabled according to `fallbackBehavior`.
 4. **Coherent Parent Layout & Empty-Parent Policy**:
    - If all child subsections inside a parent section are disabled and no standalone visible content remains inside the parent, and `emptyParentPolicy` is `"collapse"` (the default), the parent section itself is physically removed from the DOM.
-5. **Customer Customizer & Server Sanitization**:
-   - Disabled sections, subsections, and their bound fields are omitted from the Customer Customizer (`customize-engine.js`) and stripped server-side by `sanitizeCustomerWishDataAgainstConfig()`.
+5. **Customer Customizer Step-by-Step Section Cards, Customer Section Hiding (`_hiddenSections`) & Per-Photo Slot Hiding (`_hiddenFields` / `data-wm-photo-slot`)**:
+   - **Step-by-Step Bite-Sized Customizer**: `customize-engine.js` organizes fields into Quick Edit Sub-Tabs (`1. Basic Info`, `2. Template Text & Sections`, `3. Photos & Album Slots`, `4. Music & Voice`) and Section Pills so customers never have to scroll a long form.
+   - **Customer Section & Subsection Hide Toggles (`_hiddenSections`)**: Customers can toggle any optional section or subsection (`toggleable: true`, `required: false`) OFF directly in the Customizer, physically removing `[data-wm-section]` / `[data-wm-subsection]` from both the Live Preview and the final published wish website.
+   - **Per-Photo Slot Hide Toggles (`_hiddenFields` & `data-wm-photo-slot="photo_X"`)**: If a template album has e.g. 6 photo slots (`photo_1`..`photo_6`) and the customer only has 5 photos, the customer can hide `photo_6` (or click **Auto-Hide Unused Photo Slots**). `WishMagicTemplate.removeDisabledContentFromDom()` automatically locates and removes the entire photo card container (`[data-wm-photo-slot="photo_6"]` or the parent polaroid/card element) from the DOM so the remaining 5 photo cards reflow cleanly in CSS Grid/Flexbox.
+   - **Server Persistence**: `sanitizeCustomerWishDataAgainstConfig()` and `POST /api/wishes` / `PUT /api/wishes/:id` validate and persist `_hiddenSections` and `_hiddenFields` inside the wish's `custom_data` and `published_config_snapshot_json`.
 
 ---
 
@@ -793,8 +796,10 @@ Every customizable field in `wishmagic.json` must have a matching `[data-wm-fiel
 ### RULE 5: MULTI-RELATIONSHIP VARIANTS & AUTHORITATIVE VISIBILITY (`variants[]`)
 If the template supports multiple relationships (`best_friend`, `brother`, `sister`, `mother`, `father`, `boyfriend`, `girlfriend`, `husband`, `wife`, `partner`, `friend`, `parents`, `family`, `crush`, `fiance`, `colleague`, `teacher`, `kids`), declare each variant in `variants[]` with `"enabled": true`, `"status": "published"`, tailored `theme`, `messages`, optional `visibilityOverrides` (`{ "<section_or_subsection_id>": true|false }`), and optional `actions` overrides (`[{ "id": "<action_id>", "label": "Create for Your Best Friend", "type": "template_link", "logicalLink": "template.customize", "target": "/customize.html" }]`). Only variants enabled by the administrator in the effective published configuration will be exposed publicly.
 
-### RULE 6: COMPLETE DOM REMOVAL COMPATIBILITY
-Never hardcode JS that crashes if an optional `[data-wm-section]`, `[data-wm-subsection]`, or `[data-wm-action]` element is removed from the DOM. Always guard DOM lookups with null checks (`if (!el) return;`).
+### RULE 6: COMPLETE DOM REMOVAL COMPATIBILITY & CUSTOMER-HIDEABLE PHOTO SLOTS (`data-wm-photo-slot`)
+- Never hardcode JS that crashes if an optional `[data-wm-section]`, `[data-wm-subsection]`, `[data-wm-photo-slot]`, or `[data-wm-action]` element is removed from the DOM by the admin or customer. Always guard DOM lookups with null checks (`if (!el) return;`).
+- **Mandatory Photo Card Wrapper for Multi-Photo Albums**: Wrap every individual photo card/polaroid (including its `<img data-wm-field="photo_X" data-wm-type="image">` and any paired caption) inside a container with `data-wm-photo-slot="photo_X"` (and/or `data-wm-subsection="gallery_photo_X"`), and style the album grid with flexible auto-reflowing CSS (`grid-template-columns: repeat(auto-fit, minmax(220px, 1fr))` or `display: flex; flex-wrap: wrap; justify-content: center;`) so if a customer has 5 photos instead of 6 and hides `photo_6`, the remaining 5 photos reflow seamlessly with zero empty frames.
+- Every field in `wishmagic.json -> fields[]` MUST declare its parent `"section"` ID matching `sections[]` so the Step-by-Step Customizer groups fields cleanly into bite-sized section pills without long scrolling.
 
 ### RULE 7: DESKTOP & MOBILE VIEWPORT RESPONSIVENESS
 Ensure `index.html` includes `<meta name="viewport" content="width=device-width, initial-scale=1.0">` and `css/style.css` renders cleanly at both full desktop viewport widths (`1280px+`) and mobile viewport widths (`375px`) without horizontal overflow or clipped content.

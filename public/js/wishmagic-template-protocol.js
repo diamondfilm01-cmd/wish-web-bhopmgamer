@@ -167,6 +167,115 @@
    * cleans up dependent media/navigation links/separators, and collapses empty parent sections
    * according to the UTP v1.2.0 empty-parent policy so customers never see blank gaps or placeholders.
    */
+
+  /**
+   * Finds the outer visual card/frame/slot wrapper for a photo or field element
+   * so hiding photo_6 in a 6-photo album removes the entire polaroid/frame/caption card
+   * and lets the remaining 5 photo cards reflow cleanly without an empty frame.
+   */
+  function findPhotoOrFieldSlotContainer(el, doc, fieldKey) {
+    if (!el || !doc) return el;
+    const cleanKey = String(fieldKey || "").trim();
+    if (cleanKey) {
+      try {
+        const explicitSlot = el.closest(`[data-wm-photo-slot="${cleanKey}"], [data-wm-field-slot="${cleanKey}"]`) ||
+          doc.querySelector(`[data-wm-photo-slot="${cleanKey}"], [data-wm-field-slot="${cleanKey}"]`);
+        if (explicitSlot) return explicitSlot;
+      } catch (_) {}
+    }
+
+    // Check if wrapped in a dedicated subsection that only holds this photo (and optional caption)
+    try {
+      const subEl = el.closest("[data-wm-subsection]");
+      if (subEl) {
+        const allMediaFieldsInSub = Array.from(subEl.querySelectorAll("img[data-wm-field], img[data-wm], [data-wm-type=\"image\"]"));
+        const otherMedia = allMediaFieldsInSub.filter(node => {
+          const nk = node.getAttribute("data-wm-field") || node.getAttribute("data-wm") || "";
+          return nk && nk !== cleanKey;
+        });
+        if (otherMedia.length === 0) return subEl;
+      }
+    } catch (_) {}
+
+    // Walk up up to 4 levels to find the highest card/figure/item container that does not contain ANY OTHER photo slot
+    const isPhotoField = /^photo_\d+$/i.test(cleanKey) || el.tagName === "IMG" || (el.getAttribute("data-wm-type") || "").toLowerCase() === "image";
+    if (!isPhotoField) return el;
+
+    let bestContainer = el;
+    let curr = el.parentElement;
+    let depth = 0;
+    while (curr && depth < 4) {
+      const tag = (curr.tagName || "").toUpperCase();
+      if (tag === "BODY" || tag === "HTML" || tag === "MAIN" || tag === "SECTION" || curr.hasAttribute("data-wm-section")) {
+        break;
+      }
+      // Check if curr contains any OTHER photo field or image
+      const imgsAndPhotoFields = Array.from(curr.querySelectorAll("img, [data-wm-field], [data-wm]"));
+      const hasOtherPhoto = imgsAndPhotoFields.some(node => {
+        if (node === el || el.contains(node)) return false;
+        const nk = (node.getAttribute("data-wm-field") || node.getAttribute("data-wm") || "").trim();
+        const nType = (node.getAttribute("data-wm-type") || "").toLowerCase();
+        if (node.tagName === "IMG" && (!nk || nk !== cleanKey)) return true;
+        if (nType === "image" && nk && nk !== cleanKey) return true;
+        if (/^photo_\d+$/i.test(nk) && nk !== cleanKey) return true;
+        // Also stop if this ancestor contains an unrelated primary text field like recipient_name or custom_message
+        if (["recipient_name", "custom_message", "sender_name", "event_date", "hero_title"].includes(nk)) return true;
+        return false;
+      });
+      if (hasOtherPhoto) {
+        break;
+      }
+      bestContainer = curr;
+      curr = curr.parentElement;
+      depth++;
+    }
+    return bestContainer;
+  }
+
+  /**
+   * Restores any previously removed customer-toggled nodes in live preview mode when re-enabled.
+   */
+  function restorePreviouslyRemovedPreviewNodes(doc, activeDisabledSectionsSet, activeHiddenFieldsSet) {
+    if (!doc || !Array.isArray(doc._wmRestorableNodes) || doc._wmRestorableNodes.length === 0) return;
+    const remaining = [];
+    // Restore in reverse removal order so nested/sibling order stays intact
+    for (let i = doc._wmRestorableNodes.length - 1; i >= 0; i--) {
+      const entry = doc._wmRestorableNodes[i];
+      if (!entry || !entry.node || !entry.parent) continue;
+      const stillHidden = entry.kind === "field"
+        ? activeHiddenFieldsSet.has(entry.id)
+        : activeDisabledSectionsSet.has(entry.id);
+      if (stillHidden) {
+        remaining.unshift(entry);
+      } else {
+        try {
+          if (entry.nextSibling && entry.nextSibling.parentNode === entry.parent) {
+            entry.parent.insertBefore(entry.node, entry.nextSibling);
+          } else {
+            entry.parent.appendChild(entry.node);
+          }
+        } catch (_) {}
+      }
+    }
+    doc._wmRestorableNodes = remaining;
+  }
+
+  function recordRestorableNodeBeforeRemove(doc, kind, id, node) {
+    if (!doc || !node || !node.parentNode) return;
+    if (!Array.isArray(doc._wmRestorableNodes)) {
+      doc._wmRestorableNodes = [];
+    }
+    if (!doc._wmRestorableNodes.some(e => e.node === node)) {
+      doc._wmRestorableNodes.push({
+        kind,
+        id,
+        node,
+        parent: node.parentNode,
+        nextSibling: node.nextSibling
+      });
+    }
+  }
+
   function removeDisabledContentFromDom(rootDoc, visibilityConfigOrPayload) {
     const doc = rootDoc || document;
     if (!doc || typeof doc.querySelectorAll !== 'function') return { removedIds: [] };
@@ -205,7 +314,35 @@
     if (Array.isArray(eff.sections)) walkSectionsForDisabled(eff.sections, false);
     if (Array.isArray(data.sections)) walkSectionsForDisabled(data.sections, false);
 
+    // Support customer-hidden sections (_hiddenSections / hiddenSections / sectionsMap)
+    const customerHiddenSections = Array.isArray(data._hiddenSections)
+      ? data._hiddenSections
+      : (Array.isArray(data.hiddenSections) ? data.hiddenSections : (Array.isArray(eff._hiddenSections) ? eff._hiddenSections : []));
+    customerHiddenSections.forEach(sId => {
+      if (sId) disabledSet.add(String(sId).trim());
+    });
+    if (data.sectionsMap && typeof data.sectionsMap === "object") {
+      Object.entries(data.sectionsMap).forEach(([sId, cfg]) => {
+        if (cfg && cfg.enabled === false) disabledSet.add(String(sId).trim());
+      });
+    }
+
+    // Support customer-hidden photo slots & fields (_hiddenFields / hiddenFields)
+    const hiddenFieldsSet = new Set();
+    const rawHiddenFields = Array.isArray(data._hiddenFields)
+      ? data._hiddenFields
+      : (Array.isArray(data.hiddenFields) ? data.hiddenFields : (Array.isArray(eff._hiddenFields) ? eff._hiddenFields : []));
+    rawHiddenFields.forEach(fKey => {
+      if (fKey) hiddenFieldsSet.add(String(fKey).trim());
+    });
+
+    const isLivePreview = Boolean(data._isLiveCustomizerPreview);
+    if (isLivePreview) {
+      restorePreviouslyRemovedPreviewNodes(doc, disabledSet, hiddenFieldsSet);
+    }
+
     const removedIds = [];
+    const removedFieldIds = [];
 
     // 1. Physically remove all disabled sections and subsections from the DOM
     disabledSet.forEach(secId => {
@@ -220,11 +357,15 @@
           doc.querySelectorAll(sel).forEach(el => {
             const isReq = el.getAttribute('data-wm-required') === 'true';
             if (isReq) return;
-            cleanupElementResourcesBeforeRemoval(el, secId, doc);
-            // Also remove immediately adjacent decorative separator if marked
             const nextSib = el.nextElementSibling;
             if (nextSib && (nextSib.hasAttribute('data-wm-separator') || nextSib.getAttribute('data-wm-for-section') === secId)) {
+              if (isLivePreview) recordRestorableNodeBeforeRemove(doc, 'section', secId, nextSib);
               nextSib.remove();
+            }
+            if (isLivePreview) {
+              recordRestorableNodeBeforeRemove(doc, 'section', secId, el);
+            } else {
+              cleanupElementResourcesBeforeRemoval(el, secId, doc);
             }
             el.remove();
             if (!removedIds.includes(secId)) removedIds.push(secId);
@@ -289,7 +430,55 @@
       });
     } catch (_) {}
 
-    return { removedIds };
+    // 4. Physically remove customer-hidden individual photo slots / fields (_hiddenFields) and their card wrappers
+    if (hiddenFieldsSet.size > 0) {
+      hiddenFieldsSet.forEach(fieldKey => {
+        if (!fieldKey) return;
+        const fieldSelectors = [
+          `[data-wm-photo-slot="${fieldKey}"]`,
+          `[data-wm-field-slot="${fieldKey}"]`,
+          `[data-wm-field="${fieldKey}"]`,
+          `[data-wm="${fieldKey}"]`
+        ];
+        const matchedNodes = new Set();
+        fieldSelectors.forEach(sel => {
+          try {
+            doc.querySelectorAll(sel).forEach(n => matchedNodes.add(n));
+          } catch (_) {}
+        });
+        matchedNodes.forEach(el => {
+          if (!el || !el.isConnected) return;
+          const slotContainer = findPhotoOrFieldSlotContainer(el, doc, fieldKey) || el;
+          if (!slotContainer || !slotContainer.parentNode) return;
+          if (isLivePreview) {
+            recordRestorableNodeBeforeRemove(doc, 'field', fieldKey, slotContainer);
+          } else {
+            cleanupElementResourcesBeforeRemoval(slotContainer, fieldKey, doc);
+          }
+          slotContainer.remove();
+          if (!removedFieldIds.includes(fieldKey)) removedFieldIds.push(fieldKey);
+        });
+      });
+
+      // If all photo slots inside an optional gallery/album section were hidden by the customer, collapse the empty gallery section
+      try {
+        doc.querySelectorAll('[data-wm-section]').forEach(secEl => {
+          if (secEl.getAttribute('data-wm-required') === 'true') return;
+          const secId = secEl.getAttribute('data-wm-section') || '';
+          if (['gallery', 'photos', 'album', 'memories'].includes(secId.toLowerCase())) {
+            const remainingImgs = secEl.querySelectorAll('img');
+            if (remainingImgs.length === 0) {
+              if (isLivePreview) {
+                recordRestorableNodeBeforeRemove(doc, 'field', '__sec_' + secId, secEl);
+              }
+              secEl.remove();
+            }
+          }
+        });
+      } catch (_) {}
+    }
+
+    return { removedIds, removedFieldIds };
   }
 
   /**
@@ -911,7 +1100,7 @@
 
     // 1. Apply all direct keys in data (Customer Wish values override variant defaults)
     Object.keys(data).forEach(key => {
-      if (['messages', 'assets', 'variant', 'colors', 'palette', 'sections', 'media', 'visibilityMap', 'disabledIds', 'enabledIds', 'actions', 'actionsMap', 'effectiveConfig'].includes(key)) return;
+      if (['messages', 'assets', 'variant', 'colors', 'palette', 'sections', 'sectionsMap', '_hiddenSections', 'hiddenSections', '_hiddenFields', 'hiddenFields', '_isLiveCustomizerPreview', 'media', 'visibilityMap', 'disabledIds', 'enabledIds', 'actions', 'actionsMap', 'effectiveConfig'].includes(key)) return;
       setWishMagicField(key, data[key], data);
     });
 

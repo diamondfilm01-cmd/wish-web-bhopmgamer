@@ -965,12 +965,51 @@ export function sanitizeCustomerWishDataAgainstConfig(rawCustomData = {}, effect
 
   const excludedFieldsSet = new Set(Array.isArray(effectiveConfig.excludedFieldIds) ? effectiveConfig.excludedFieldIds : []);
   const disabledSectionIdsSet = new Set(Array.isArray(effectiveConfig.disabledIds) ? effectiveConfig.disabledIds : []);
+  const requiredSectionIdsSet = new Set(["hero"]);
+  const walkRequiredSecs = (list) => {
+    if (!Array.isArray(list)) return;
+    for (const s of list) {
+      if (!s || typeof s !== "object") continue;
+      if (s.required || s.toggleable === false) requiredSectionIdsSet.add(String(s.id || s.key || "").trim());
+      if (Array.isArray(s.subsections)) walkRequiredSecs(s.subsections);
+    }
+  };
+  walkRequiredSecs(effectiveConfig.sections);
 
   for (const [k, v] of Object.entries(rawCustomData)) {
     if (forbiddenMetaKeys.has(k)) continue;
     if (excludedFieldsSet.has(k)) continue;
     if (disabledSectionIdsSet.has(k)) continue;
     clean[k] = v;
+  }
+
+  // Normalize customer-hidden sections (_hiddenSections / hiddenSections) excluding required sections
+  const rawHiddenSecs = Array.isArray(rawCustomData._hiddenSections)
+    ? rawCustomData._hiddenSections
+    : (Array.isArray(rawCustomData.hiddenSections) ? rawCustomData.hiddenSections : []);
+  if (rawHiddenSecs.length > 0) {
+    const safeHiddenSecs = Array.from(new Set(
+      rawHiddenSecs
+        .map(s => String(s || "").trim())
+        .filter(s => s && /^[a-zA-Z0-9_-]{1,64}$/.test(s) && !requiredSectionIdsSet.has(s))
+    ));
+    clean._hiddenSections = safeHiddenSecs;
+    clean.hiddenSections = safeHiddenSecs;
+  }
+
+  // Normalize customer-hidden photo slots / optional fields (_hiddenFields / hiddenFields) excluding mandatory identity fields
+  const rawHiddenFields = Array.isArray(rawCustomData._hiddenFields)
+    ? rawCustomData._hiddenFields
+    : (Array.isArray(rawCustomData.hiddenFields) ? rawCustomData.hiddenFields : []);
+  if (rawHiddenFields.length > 0) {
+    const mandatoryFieldKeys = new Set(["recipient_name", "recipientname", "event_date", "eventdate", "dob", "birth_date"]);
+    const safeHiddenFields = Array.from(new Set(
+      rawHiddenFields
+        .map(f => String(f || "").trim())
+        .filter(f => f && /^[a-zA-Z0-9_-]{1,64}$/.test(f) && !mandatoryFieldKeys.has(f.toLowerCase()))
+    ));
+    clean._hiddenFields = safeHiddenFields;
+    clean.hiddenFields = safeHiddenFields;
   }
 
   return clean;

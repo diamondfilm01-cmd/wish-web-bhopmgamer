@@ -19,8 +19,15 @@ banwa sakte ho — aur ab har template mein:
 - Central Link Manager & Logical Link Identifiers (`global.*` aur `template.*` —
   future mein custom domain connect hone par kisi bhi template ZIP ko manually
   open karke link badalne ki zaroorat nahi padegi!)
-- Smart Template Recognition & Side-by-Side Isolated Preview (ZIP upload karte hi
-  automatic comparison + Update Existing / Create New / Cancel choice)
+- Smart Template Recognition, Side-by-Side Preview & 2-Option Update Mode:
+  Option 1: Full Template ZIP Upload | Option 2: Only Changed & New Files Update
+  (sirf modified/new files update hongi, unchanged photos/music/code reuse honge!)
+- Step-by-Step Bite-Sized Customizer & Customer Hide Controls:
+  Customer bina lambi scrolling ke Section Pills se edit kar sakta hai, aur agar
+  template album mein 6 photos hain par customer ke paas 5 hi photos hain, toh
+  customer 6th photo slot (`data-wm-photo-slot="photo_6"`) ya kisi bhi optional
+  section/subsection ko Hide kar sakta hai — customized site se woh card 100%
+  hat jayega aur baaki 5 photos automatically sundar grid mein adjust ho jayenge!
 automatically discover, validate, aur configure ho sakte hain!
 
 Jab tum UTP v1.3.0 wala ZIP WishMagic ke Admin Panel mein upload karoge:
@@ -123,7 +130,8 @@ Every customizable field in the template MUST have 3-way agreement between:
   - `"emptyParentPolicy"`: `"collapse"` (removes parent section if all child subsections are disabled) or `"keep"`
   - `"fields"`: array of field IDs inside this section/subsection
   - `"actions"`: array of action IDs inside this section/subsection
-- Layout Resilience: If an optional subsection is removed from the DOM, the parent section's CSS layout (Flexbox/Grid) must automatically reflow cleanly with zero empty gaps or broken borders.
+- Layout Resilience & Customer Section/Photo Hiding: Both Admins AND Customers can hide any optional section, subsection (`_hiddenSections`), or individual photo slot (`_hiddenFields`) in the Step-by-Step Customizer. If an optional section, subsection, or photo card is removed from the DOM (`el.remove()`), the parent section's CSS layout (Flexbox/Grid with `auto-fit` / `flex-wrap: wrap` / `justify-content: center`) MUST automatically reflow cleanly with zero empty gaps, broken frames, or orphan numbers.
+- Every field in `wishmagic.json -> fields[]` MUST include a valid `"section": "<section_id>"` matching a declared section in `sections[]` so the WishMagic Step-by-Step Customizer groups fields into clean, bite-sized section cards without long scrolling.
 
 ### RULE 4: CENTRAL LINK MANAGER, LOGICAL LINK IDENTIFIERS & ACTION REGISTRY (`actions[]` + `data-wm-action` + `data-wm-link`)
 - NEVER hardcode `https://wishmagic.pages.dev` inside buttons or links! Use UTP v1.3.0 Logical Link Identifiers so future custom domain migrations work automatically without editing template ZIPs.
@@ -168,15 +176,25 @@ If the template family supports multiple relationships, declare them in `wishmag
 - `"actions"`: optional array of relationship-specific button overrides (e.g. `[{ "id": "hero_cta", "label": "Create for Your Best Friend", "type": "template_link", "logicalLink": "template.customize", "target": "/customize.html" }]`)
 Only variants enabled in the effective published configuration will appear on the public website.
 
-### RULE 6: STANDARD FIELD IDs & TYPES TO USE
-- `recipient_name` (`type: "text"`, required)
-- `sender_name` (`type: "text"`)
-- `custom_message` (`type: "textarea"`)
-- `event_date` (`type: "date"` or `"datetime"`, required)
-- `photo_1`, `photo_2`, `photo_3`, `photo_4` (`type: "image"`)
+### RULE 6: STANDARD FIELD IDs, INDIVIDUAL PHOTO SLOTS (`data-wm-photo-slot`) & FLEXIBLE ALBUM REFLOW
+- `recipient_name` (`type: "text"`, required, `section: "hero"`)
+- `sender_name` (`type: "text"`, `section: "message"`)
+- `custom_message` (`type: "textarea"`, `section: "message"`)
+- `event_date` (`type: "date"` or `"datetime"`, required, `section: "countdown"`)
+- `photo_1`, `photo_2`, `photo_3`, `photo_4`, `photo_5`, `photo_6` (`type: "image"`, `section: "gallery"`)
 - `background_music` (`type: "audio"`)
 - `voice_note` (`type: "voice"`)
 - Any custom template fields (`hero_title`, `hero_subtitle`, `secret_note`, etc.)
+- **MANDATORY PHOTO SLOT WRAPPER RULE (For Customer Photo Hiding)**:
+  Whenever your template has multiple photos in an album/gallery (e.g., 4, 6, or 8 photos), a customer might only have 5 photos instead of 6 and will toggle **"Hide Photo Slot"** on the unused photo slot in the WishMagic Customizer.
+  1. Wrap EACH individual photo card/polaroid/frame (including its `<img data-wm-field="photo_X" data-wm-type="image">` and any paired caption like `<p data-wm-field="photo_X_caption">`) inside a self-contained card container with `data-wm-photo-slot="photo_X"` (and/or `data-wm-subsection="gallery_photo_X"`):
+     ```html
+     <div class="wm-photo-card" data-wm-photo-slot="photo_6" data-wm-subsection="gallery_photo_6">
+       <img data-wm-field="photo_6" data-wm-type="image" src="assets/images/memory-6.jpg" alt="Memory 6">
+       <p data-wm-field="photo_6_caption" data-wm-type="text">Unforgettable Moment</p>
+     </div>
+     ```
+  2. Style the parent gallery/album container using flexible auto-reflowing CSS (`display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 1.25rem;` or `display: flex; flex-wrap: wrap; justify-content: center;`) so when `[data-wm-photo-slot="photo_6"]` is removed from the DOM, the remaining 5 photos automatically center and look like a native 5-photo album with zero empty holes!
 
 ### RULE 7: DESKTOP & MOBILE VIEWPORT RESPONSIVENESS
 - Include `<meta name="viewport" content="width=device-width, initial-scale=1.0">` in `index.html`.

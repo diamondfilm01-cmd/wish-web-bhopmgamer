@@ -1094,43 +1094,47 @@ function renderCloudRoutingInspector(foundIndex, imageFiles, audioVideoFiles, co
       "</div>"
     : "";
 
+  const isInspectorExpanded = Boolean(window._cloudRoutingInspectorExpanded);
   inspectorEl.innerHTML =
     "<div class=\"flex flex-wrap items-center justify-between gap-2\">" +
       "<div class=\"flex items-center gap-2\">" +
         "<span class=\"material-symbols-outlined text-emerald-400 text-[18px]\">verified</span>" +
-        "<span class=\"text-xs font-bold text-on-surface uppercase tracking-wider\">UTP v1.0.0 Code Check & Hybrid Cloud Routing</span>" +
+        "<span class=\"text-xs font-bold text-on-surface uppercase tracking-wider\">Package Check & Cloud Routing Ready</span>" +
       "</div>" +
       "<div class=\"flex flex-wrap items-center gap-1.5 text-[10px] font-bold\">" +
         "<span class=\"px-2 py-0.5 rounded-full " + ((foundIndex || (importStudioState && importStudioState.updatePackageMode === "delta_changed_only")) ? "bg-emerald-500/20 text-emerald-300 border border-emerald-500/30" : "bg-rose-500/20 text-rose-300 border border-rose-500/30") + "\">" +
-          (foundIndex ? "✓ index.html Ready" : ((importStudioState && importStudioState.updatePackageMode === "delta_changed_only") ? "⚡ Delta Patch (Inherits index.html)" : "✕ Missing index.html")) +
+          (foundIndex ? "✓ index.html" : ((importStudioState && importStudioState.updatePackageMode === "delta_changed_only") ? "⚡ Delta Patch" : "✕ Missing index.html")) +
         "</span>" +
-        "<span class=\"px-2 py-0.5 rounded-full " + (hasManifest ? "bg-emerald-500/20 text-emerald-300 border border-emerald-500/30" : "bg-amber-500/20 text-amber-200 border border-amber-500/30") + "\">" +
-          (hasManifest ? "✓ wishmagic.json Standard" : "Auto-Schema Mode") +
-        "</span>" +
-        "<span class=\"px-2 py-0.5 rounded-full bg-purple-500/20 text-purple-200 border border-purple-500/30\">" + cssCount + " CSS • " + jsCount + " JS</span>" +
+        "<span class=\"px-2 py-0.5 rounded-full bg-pink-500/20 text-pink-200 border border-pink-500/30\">🖼️ " + imageFiles.length + " ImgBB</span>" +
+        "<span class=\"px-2 py-0.5 rounded-full bg-emerald-500/20 text-emerald-200 border border-emerald-500/30\">📦 " + (audioVideoFiles.length + codeFiles.length) + " B2</span>" +
         "<span class=\"px-2 py-0.5 rounded-full " + (unboundCount === 0 ? "bg-cyan-500/20 text-cyan-200 border border-cyan-500/30" : "bg-amber-500/20 text-amber-200 border border-amber-500/30") + "\">" +
-          boundCount + "/" + detectedDynamicFields.length + " Fields Bound" +
+          boundCount + "/" + detectedDynamicFields.length + " Fields" +
         "</span>" +
+        "<button type=\"button\" onclick=\"toggleCloudRoutingInspectorDetails()\" class=\"px-2.5 py-0.5 rounded-lg bg-surface-container-highest hover:bg-primary/20 text-on-surface text-[10px] font-bold cursor-pointer\">" +
+          (isInspectorExpanded ? "Hide Details ▴" : "View File Details ▾") +
+        "</button>" +
       "</div>" +
     "</div>" +
     issuesHtml +
-    "<div class=\"grid grid-cols-1 md:grid-cols-2 gap-2.5 pt-1\">" +
-      "<div class=\"p-2.5 rounded-lg bg-surface-container-lowest/80 border border-pink-500/20\">" +
-        "<div class=\"text-[10px] font-bold uppercase tracking-wider text-pink-300 mb-1.5 flex items-center justify-between\">" +
-          "<span>🖼️ Photos → ImgBB (Same Name & Format + Auto-Link)</span>" +
-          "<span class=\"px-1.5 py-0.2 rounded bg-pink-500/20 text-pink-200\">" + imageFiles.length + "</span>" +
+    "<div id=\"cloud-routing-collapsible-body\" class=\"" + (isInspectorExpanded ? "space-y-2.5 pt-1" : "hidden space-y-2.5 pt-1") + "\">" +
+      "<div class=\"grid grid-cols-1 md:grid-cols-2 gap-2.5\">" +
+        "<div class=\"p-2.5 rounded-lg bg-surface-container-lowest/80 border border-pink-500/20\">" +
+          "<div class=\"text-[10px] font-bold uppercase tracking-wider text-pink-300 mb-1.5 flex items-center justify-between\">" +
+            "<span>🖼️ Photos → ImgBB (Same Name & Format + Auto-Link)</span>" +
+            "<span class=\"px-1.5 py-0.2 rounded bg-pink-500/20 text-pink-200\">" + imageFiles.length + "</span>" +
+          "</div>" +
+          "<div class=\"flex flex-wrap gap-1 max-h-20 overflow-y-auto\">" + imgListHtml + "</div>" +
         "</div>" +
-        "<div class=\"flex flex-wrap gap-1 max-h-20 overflow-y-auto\">" + imgListHtml + "</div>" +
-      "</div>" +
-      "<div class=\"p-2.5 rounded-lg bg-surface-container-lowest/80 border border-emerald-500/20\">" +
-        "<div class=\"text-[10px] font-bold uppercase tracking-wider text-emerald-300 mb-1.5 flex items-center justify-between\">" +
-          "<span>🎵🎬 Music/Video & Code → Backblaze B2 (Same Name & Format)</span>" +
-          "<span class=\"px-1.5 py-0.2 rounded bg-emerald-500/20 text-emerald-200\">" + (audioVideoFiles.length + codeFiles.length) + "</span>" +
+        "<div class=\"p-2.5 rounded-lg bg-surface-container-lowest/80 border border-emerald-500/20\">" +
+          "<div class=\"text-[10px] font-bold uppercase tracking-wider text-emerald-300 mb-1.5 flex items-center justify-between\">" +
+            "<span>🎵🎬 Music/Video & Code → Backblaze B2 (Same Name & Format)</span>" +
+            "<span class=\"px-1.5 py-0.2 rounded bg-emerald-500/20 text-emerald-200\">" + (audioVideoFiles.length + codeFiles.length) + "</span>" +
+          "</div>" +
+          "<div class=\"flex flex-wrap gap-1 max-h-20 overflow-y-auto\">" + mediaListHtml + "</div>" +
         "</div>" +
-        "<div class=\"flex flex-wrap gap-1 max-h-20 overflow-y-auto\">" + mediaListHtml + "</div>" +
       "</div>" +
+      renderAdminVariantUploadReportHtml(currentDetectedVariantsReport) +
     "</div>" +
-    renderAdminVariantUploadReportHtml(currentDetectedVariantsReport) +
     "<div id=\"deployed-cloud-links-summary\" class=\"hidden pt-2 border-t border-outline-variant/20\"></div>";
 }
 
@@ -5467,16 +5471,22 @@ function renderUtpV12EditorHtml(state, modePrefix) {
       </div>`
     : "";
 
+  const isSecBtnExpanded = modePrefix !== 'upload' || Boolean(state.isExpandedInUpload) || (Array.isArray(state.validationErrors) && state.validationErrors.length > 0);
   return `
     <div class="flex flex-wrap items-center justify-between gap-2 pb-2 border-b border-purple-500/20">
       <div>
         <h4 class="font-bold text-sm text-on-surface flex items-center gap-1.5">
           <span class="material-symbols-outlined text-[18px] text-primary">visibility</span>
-          <span>UTP v1.2.0 Section Visibility &amp; Button Action Configuration</span>
+          <span>Relationship Variants, Section Toggles &amp; Button Links</span>
         </h4>
-        <p class="text-[11px] text-on-surface-variant">Configure section/subsection visibility and button destinations for All Relationships or a Single Relationship.</p>
+        <p class="text-[11px] text-on-surface-variant">Choose active relationships or customize sections (${evaluatedTree.length}) &amp; buttons (${evaluatedActions.length}).</p>
       </div>
       <div class="flex flex-wrap items-center gap-2">
+        ${modePrefix === 'upload' ? `
+          <button type="button" onclick="toggleUploadUtpEditorBody()" class="px-3 py-1.5 rounded-lg bg-surface-container-highest hover:bg-primary/20 text-on-surface text-xs font-bold cursor-pointer">
+            ${isSecBtnExpanded ? 'Hide Sections & Buttons ▴' : `🎛️ Customize Sections (${evaluatedTree.length}) & Buttons (${evaluatedActions.length}) ▾`}
+          </button>
+        ` : ''}
         <select onchange="handleUtpV12ScopeChange('${modePrefix}', this.value)" class="bg-surface-container text-on-surface px-3 py-1.5 rounded-lg border border-purple-500/40 text-xs font-bold">
           <option value="all" ${state.activeScope === 'all' ? 'selected' : ''}>🌐 ALL RELATIONSHIPS (Template-Wide Default)</option>
           ${relList.map(r => `<option value="${escapeUtpHtml(r.slug)}" ${state.activeScope === r.slug ? 'selected' : ''}>🎯 ONE RELATIONSHIP: ${escapeUtpHtml(r.label || r.slug)}</option>`).join("")}
@@ -5488,19 +5498,21 @@ function renderUtpV12EditorHtml(state, modePrefix) {
     </div>
     ${errorsBanner}
     ${variantInclusionBarHtml}
-    <div class="space-y-2">
-      <div class="flex items-center justify-between">
-        <span class="text-[11px] font-bold uppercase tracking-wider text-outline">Sections &amp; Nested Subsections (${evaluatedTree.length})</span>
-        <span class="text-[10px] text-outline">Precedence: Platform Required → Single Relationship Override → All Relationships → Manifest Default</span>
+    <div id="${modePrefix}-utp-sec-btn-collapsible" class="${isSecBtnExpanded ? 'space-y-3' : 'hidden space-y-3'}">
+      <div class="space-y-2">
+        <div class="flex items-center justify-between">
+          <span class="text-[11px] font-bold uppercase tracking-wider text-outline">Sections &amp; Nested Subsections (${evaluatedTree.length})</span>
+          <span class="text-[10px] text-outline">Precedence: Platform Required → Single Relationship Override → All Relationships → Manifest Default</span>
+        </div>
+        <div class="space-y-2 max-h-64 overflow-y-auto pr-1">${sectionsHtml}</div>
       </div>
-      <div class="space-y-2 max-h-64 overflow-y-auto pr-1">${sectionsHtml}</div>
-    </div>
-    <div class="space-y-2 pt-2 border-t border-purple-500/20">
-      <div class="flex items-center justify-between">
-        <span class="text-[11px] font-bold uppercase tracking-wider text-outline">Configurable Buttons &amp; Links (${evaluatedActions.length})</span>
-        <span class="text-[10px] text-outline">Validated against internal routes, safe HTTPS URLs &amp; active sections</span>
+      <div class="space-y-2 pt-2 border-t border-purple-500/20">
+        <div class="flex items-center justify-between">
+          <span class="text-[11px] font-bold uppercase tracking-wider text-outline">Configurable Buttons &amp; Links (${evaluatedActions.length})</span>
+          <span class="text-[10px] text-outline">Validated against internal routes, safe HTTPS URLs &amp; active sections</span>
+        </div>
+        <div class="space-y-2 max-h-64 overflow-y-auto pr-1">${actionsHtml}</div>
       </div>
-      <div class="space-y-2 max-h-64 overflow-y-auto pr-1">${actionsHtml}</div>
     </div>
   `;
 }
@@ -6991,33 +7003,59 @@ function renderSmartImportStudioWorkspace() {
       '</div>' +
     '</div>';
 
+  const activeStudioTab = importStudioState.activeStudioTab || "quick";
+  const studioTabsBarHtml =
+    '<div class="p-1.5 rounded-2xl bg-surface-container border border-purple-500/30 flex flex-wrap items-center justify-between gap-1.5">' +
+      '<div class="flex flex-wrap items-center gap-1.5">' +
+        '<button type="button" onclick="setImportStudioWorkspaceTab(\'quick\')" class="px-3.5 py-2 rounded-xl text-xs font-extrabold transition cursor-pointer flex items-center gap-1.5 ' +
+          (activeStudioTab === "quick" ? "bg-primary text-white shadow-md" : "bg-surface-container-lowest text-on-surface hover:bg-surface-container-high") + '">' +
+          '<span>🚀 1. Quick Review &amp; Publish</span>' +
+        '</button>' +
+        '<button type="button" onclick="setImportStudioWorkspaceTab(\'preview\')" class="px-3.5 py-2 rounded-xl text-xs font-extrabold transition cursor-pointer flex items-center gap-1.5 ' +
+          (activeStudioTab === "preview" ? "bg-primary text-white shadow-md" : "bg-surface-container-lowest text-on-surface hover:bg-surface-container-high") + '">' +
+          '<span>👁️ 2. Side-by-Side Preview</span>' +
+        '</button>' +
+        '<button type="button" onclick="setImportStudioWorkspaceTab(\'diff\')" class="px-3.5 py-2 rounded-xl text-xs font-extrabold transition cursor-pointer flex items-center gap-1.5 ' +
+          (activeStudioTab === "diff" ? "bg-primary text-white shadow-md" : "bg-surface-container-lowest text-on-surface hover:bg-surface-container-high") + '">' +
+          '<span>🔍 3. Changed Files &amp; Technical Diff (+' + filesSummary.addedCount + ' / ~' + filesSummary.modifiedCount + ')</span>' +
+        '</button>' +
+      '</div>' +
+      '<button type="button" onclick="setImportStudioWorkspaceTab(\'all\')" class="px-3 py-1.5 rounded-xl text-[11px] font-bold transition cursor-pointer ' +
+        (activeStudioTab === "all" ? "bg-purple-600 text-white" : "bg-surface-container-highest text-outline hover:text-on-surface") + '">' +
+        '📋 Show All Panels' +
+      '</button>' +
+    '</div>';
+
   workspace.innerHTML =
-    '<!-- Recognition Banner -->' +
-    '<div class="p-4 rounded-2xl border ' + outcomePres.bannerClass + ' flex flex-col gap-3">' +
+    '<!-- Clean Guided Tab Bar -->' +
+    studioTabsBarHtml +
+    '<!-- Compact Recognition Banner -->' +
+    '<div class="p-3.5 rounded-2xl border ' + outcomePres.bannerClass + ' flex flex-col gap-2.5">' +
       '<div class="flex flex-wrap items-center justify-between gap-2">' +
-        '<div class="flex items-center gap-2.5">' +
-          '<span class="material-symbols-outlined text-[22px]">' + outcomePres.icon + '</span>' +
+        '<div class="flex items-center gap-2">' +
+          '<span class="material-symbols-outlined text-[20px]">' + outcomePres.icon + '</span>' +
           '<span class="px-2.5 py-0.5 rounded-full border text-[10px] font-extrabold tracking-wider ' + outcomePres.badgeClass + '">' + outcomePres.label + '</span>' +
           validationPill +
+          '<span class="text-xs font-bold text-on-surface">' + escapeHtmlSafe(pkgMeta.detectedName || pkgMeta.filename || "Uploaded Package") + '</span>' +
         '</div>' +
-        '<span class="text-[10px] font-mono text-outline">Session: ' + escapeHtmlSafe(sData.sessionId) + ' • State: ' + escapeHtmlSafe(sData.state) + '</span>' +
+        '<span class="text-[10px] font-mono text-outline">' +
+          (exTpl ? ('Updating: ' + escapeHtmlSafe(exTpl.name) + ' (' + escapeHtmlSafe(exTpl.currentVersionLabel || "v1.0.0") + ' → ' + escapeHtmlSafe(pkgMeta.declaredVersion || "Next") + ')') : 'New Template Package') +
+        '</span>' +
       '</div>' +
-      '<div class="text-xs sm:text-sm font-bold text-on-surface">' + escapeHtmlSafe(sData.recognitionSummary) + '</div>' +
-      '<div class="grid grid-cols-2 sm:grid-cols-5 gap-2 text-[11px]">' +
-        '<div class="p-2 rounded-lg bg-surface-container-lowest/80 border border-purple-500/20"><div class="text-[9px] uppercase text-outline font-bold">Uploaded File</div><div class="font-mono font-bold truncate">' + escapeHtmlSafe(pkgMeta.filename || "package.zip") + '</div></div>' +
-        '<div class="p-2 rounded-lg bg-surface-container-lowest/80 border border-purple-500/20"><div class="text-[9px] uppercase text-outline font-bold">Detected Template ID</div><div class="font-mono font-bold text-primary truncate">' + escapeHtmlSafe(pkgMeta.detectedId || "Auto / None") + '</div></div>' +
-        '<div class="p-2 rounded-lg bg-surface-container-lowest/80 border border-purple-500/20"><div class="text-[9px] uppercase text-outline font-bold">Detected Name</div><div class="font-bold truncate">' + escapeHtmlSafe(pkgMeta.detectedName || "Untitled") + '</div></div>' +
-        '<div class="p-2 rounded-lg bg-surface-container-lowest/80 border border-purple-500/20"><div class="text-[9px] uppercase text-outline font-bold">Current Published Ver</div><div class="font-mono font-bold text-emerald-300">' + escapeHtmlSafe(exTpl ? (exTpl.currentVersionLabel || "v1.0.0") : "— (New)") + '</div></div>' +
-        '<div class="p-2 rounded-lg bg-surface-container-lowest/80 border border-purple-500/20"><div class="text-[9px] uppercase text-outline font-bold">Uploaded Package Ver</div><div class="font-mono font-bold text-pink-300">' + escapeHtmlSafe(pkgMeta.declaredVersion || "Next Version") + '</div></div>' +
-      '</div>' +
+      '<div class="text-xs text-on-surface-variant">' + escapeHtmlSafe(sData.recognitionSummary) + '</div>' +
       errorsListHtml +
       conflictsHtml +
     '</div>' +
-    candidatesHtml +
-    sideBySidePreviewHtml +
     destructiveWarningsHtml +
-    comparisonPanelHtml +
-    decisionBarHtml;
+    '<!-- Primary Action & 2-Option Update Selector right at the top for zero scrolling! -->' +
+    decisionBarHtml +
+    candidatesHtml +
+    '<div id="import-studio-pane-preview" class="' + ((activeStudioTab === "quick" || activeStudioTab === "preview" || activeStudioTab === "all") ? "block" : "hidden") + '">' +
+      sideBySidePreviewHtml +
+    '</div>' +
+    '<div id="import-studio-pane-diff" class="' + ((activeStudioTab === "diff" || activeStudioTab === "all") ? "block" : "hidden") + '">' +
+      comparisonPanelHtml +
+    '</div>';
 
   // Staggered Sequential Loading: Render Right (Uploaded ZIP) first, then Left (Existing Published) 80-180ms later
   runStaggeredSideBySideLoad(existingIframeUrl, stagedIframeUrl, stagedRel || "default");
@@ -7421,5 +7459,36 @@ window.cancelActiveImportStudioSession = async function() {
     if (typeof showToast === "function") showToast("Import session cancelled.");
   } catch (err) {
     alert("Failed to cancel import session: " + err.message);
+  }
+};
+
+
+window.setImportStudioWorkspaceTab = function(tabName) {
+  importStudioState.activeStudioTab = tabName || "quick";
+  renderSmartImportStudioWorkspace();
+};
+
+window.toggleCloudRoutingInspectorDetails = function() {
+  window._cloudRoutingInspectorExpanded = !window._cloudRoutingInspectorExpanded;
+  const bodyEl = document.getElementById("cloud-routing-collapsible-body");
+  if (bodyEl) {
+    bodyEl.classList.toggle("hidden", !window._cloudRoutingInspectorExpanded);
+  }
+};
+
+window.toggleUploadUtpEditorBody = function() {
+  if (typeof uploadUtpConfigState === "object" && uploadUtpConfigState) {
+    uploadUtpConfigState.isExpandedInUpload = !uploadUtpConfigState.isExpandedInUpload;
+    renderUploadUtpV12ConfigPanel();
+  }
+};
+
+window.toggleDetectedFieldsList = function() {
+  const container = document.getElementById("detected-fields-container");
+  const btn = document.getElementById("btn-toggle-detected-fields");
+  if (!container) return;
+  const isNowHidden = container.classList.toggle("hidden");
+  if (btn) {
+    btn.textContent = isNowHidden ? "Show Fields ▾" : "Hide Fields ▴";
   }
 };

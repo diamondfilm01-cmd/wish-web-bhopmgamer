@@ -465,7 +465,7 @@
             <div id="upload-placeholder-state" class="text-xs text-on-surface-variant">
               Upload a folder or ZIP above to auto-detect <code class="font-mono text-primary">data-wm="..."</code> and <code class="font-mono text-primary">{{tokens}}</code> in your HTML/JS.
             </div>
-            <div id="detected-fields-container" class="flex flex-wrap gap-2"></div>
+            <div class="flex items-center justify-end"><button type="button" id="btn-toggle-detected-fields" onclick="toggleDetectedFieldsList()" class="text-[11px] font-bold text-primary hover:underline cursor-pointer">Show Fields ▾</button></div><div id="detected-fields-container" class="hidden flex flex-wrap gap-2"></div>
           </div>
         </section>
 

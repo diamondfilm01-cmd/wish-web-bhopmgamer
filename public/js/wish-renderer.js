@@ -684,11 +684,25 @@
               sections: Array.isArray(template.sections) ? template.sections : [],
               actions: Array.isArray(template.actions) ? template.actions : []
             }) || {};
+            const custHiddenSecs = Array.isArray(normalized._hiddenSections) ? normalized._hiddenSections : (Array.isArray(normalized.hiddenSections) ? normalized.hiddenSections : []);
+            const custHiddenFields = Array.isArray(normalized._hiddenFields) ? normalized._hiddenFields : (Array.isArray(normalized.hiddenFields) ? normalized.hiddenFields : []);
+            const custDisabledFromSecs = Array.isArray(normalized.sections)
+              ? normalized.sections.filter(s => s && s.id && s.enabled === false).map(s => s.id)
+              : [];
+            const mergedDisabled = Array.from(new Set([
+              ...(Array.isArray(effCfg.disabledIds) ? effCfg.disabledIds : []),
+              ...custHiddenSecs,
+              ...custDisabledFromSecs
+            ]));
             const effectivePayload = {
               ...normalized,
+              _hiddenSections: custHiddenSecs,
+              hiddenSections: custHiddenSecs,
+              _hiddenFields: custHiddenFields,
+              hiddenFields: custHiddenFields,
               visibilityMap: effCfg.visibilityMap || {},
-              disabledIds: Array.isArray(effCfg.disabledIds) ? effCfg.disabledIds : [],
-              sections: Array.isArray(effCfg.sections) ? effCfg.sections : (normalized.sections || []),
+              disabledIds: mergedDisabled,
+              sections: Array.isArray(normalized.sections) && normalized.sections.length > 0 ? normalized.sections : (Array.isArray(effCfg.sections) ? effCfg.sections : []),
               actions: Array.isArray(effCfg.actions) ? effCfg.actions : []
             };
             tplFields.forEach(tf => {

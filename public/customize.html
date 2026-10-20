@@ -333,13 +333,41 @@
       <div id="customizer-controls-column" class="lg:col-span-5 flex flex-col gap-5 order-1 lg:order-1 w-full lg:!flex">
         
         <!-- STEP 1: DETAILS CONTAINER -->
-        <div id="step-content-1" class="flex flex-col gap-5">
+        <div id="step-content-1" class="flex flex-col gap-4">
           
           <!-- Validation error box placeholder -->
           <div id="step-1-validation-error" class="hidden"></div>
 
+          <!-- QUICK BITE-SIZED SUB-TAB NAVIGATOR (Eliminates Long Scrolling!) -->
+          <div id="step1-subtab-bar" class="glass-surface rounded-2xl p-2 shadow-md border border-purple-300/70 dark:border-purple-700/60 sticky top-[68px] z-20 backdrop-blur-xl">
+            <div class="flex items-center justify-between gap-1.5 mb-1.5 px-1">
+              <span class="text-[11px] font-extrabold text-purple-950 dark:text-purple-100 flex items-center gap-1">
+                <span>⚡ Quick Edit Cards</span>
+                <span class="text-[10px] font-normal text-purple-600 dark:text-purple-300">(No long scrolling — tap any card!)</span>
+              </span>
+              <span id="step1-progress-pill" class="px-2 py-0.5 rounded-full text-[10px] font-black bg-emerald-500/20 text-emerald-700 dark:text-emerald-300">Card 1 of 4</span>
+            </div>
+            <div class="grid grid-cols-2 sm:grid-cols-5 gap-1.5">
+              <button type="button" id="step1-subtab-btn-basic" onclick="switchStep1SubTab('basic')" class="step1-subtab-btn py-2 px-2.5 rounded-xl font-bold text-xs bg-gradient-to-r from-pink-500 to-purple-600 text-white shadow-sm flex items-center justify-center gap-1.5 transition cursor-pointer">
+                <span>👤</span><span class="truncate">1. Basic Info</span>
+              </button>
+              <button type="button" id="step1-subtab-btn-template" onclick="switchStep1SubTab('template')" class="step1-subtab-btn py-2 px-2.5 rounded-xl font-bold text-xs bg-white/80 dark:bg-purple-950/60 text-purple-900 dark:text-purple-200 hover:bg-purple-100 dark:hover:bg-purple-900/60 border border-purple-200/70 dark:border-purple-800/60 flex items-center justify-center gap-1.5 transition cursor-pointer">
+                <span>✨</span><span class="truncate">2. Text &amp; Sections</span>
+              </button>
+              <button type="button" id="step1-subtab-btn-photos" onclick="switchStep1SubTab('photos')" class="step1-subtab-btn py-2 px-2.5 rounded-xl font-bold text-xs bg-white/80 dark:bg-purple-950/60 text-purple-900 dark:text-purple-200 hover:bg-purple-100 dark:hover:bg-purple-900/60 border border-purple-200/70 dark:border-purple-800/60 flex items-center justify-center gap-1.5 transition cursor-pointer">
+                <span>📸</span><span class="truncate">3. Photos &amp; Slots</span>
+              </button>
+              <button type="button" id="step1-subtab-btn-audio" onclick="switchStep1SubTab('audio')" class="step1-subtab-btn py-2 px-2.5 rounded-xl font-bold text-xs bg-white/80 dark:bg-purple-950/60 text-purple-900 dark:text-purple-200 hover:bg-purple-100 dark:hover:bg-purple-900/60 border border-purple-200/70 dark:border-purple-800/60 flex items-center justify-center gap-1.5 transition cursor-pointer">
+                <span>🎵</span><span class="truncate">4. Music &amp; Voice</span>
+              </button>
+              <button type="button" id="step1-subtab-btn-all" onclick="switchStep1SubTab('all')" class="step1-subtab-btn col-span-2 sm:col-span-1 py-2 px-2.5 rounded-xl font-semibold text-[11px] bg-purple-100/70 dark:bg-purple-900/40 text-purple-800 dark:text-purple-300 hover:bg-purple-200 flex items-center justify-center gap-1 transition cursor-pointer" title="Show all cards on one page">
+                <span>📋</span><span class="truncate">Show All</span>
+              </button>
+            </div>
+          </div>
+
           <!-- Section: Personal Information -->
-          <div class="glass-surface rounded-3xl p-5 sm:p-6 shadow-xl space-y-4">
+          <div id="step1-card-basic" data-step1-tab="basic" class="glass-surface rounded-3xl p-5 sm:p-6 shadow-xl space-y-4">
             <div class="flex items-center justify-between pb-3 border-b border-purple-200/60 dark:border-purple-800/40">
               <h3 class="font-display font-extrabold text-base text-purple-950 dark:text-white flex items-center gap-2">
                 <span>👤 Personal Information</span>
@@ -453,18 +481,20 @@
           </div>
 
           <!-- SECTION: DYNAMIC TEMPLATE BLUEPRINT FIELDS (Part 4) -->
-          <div id="dynamic-template-fields-card" class="hidden glass-surface rounded-3xl p-5 sm:p-6 shadow-xl space-y-4">
+          <div id="dynamic-template-fields-card" data-step1-tab="template" class="hidden glass-surface rounded-3xl p-5 sm:p-6 shadow-xl space-y-4">
             <div class="flex items-center justify-between pb-3 border-b border-purple-200/60 dark:border-purple-800/40">
               <div>
                 <h3 class="font-display font-extrabold text-base text-purple-950 dark:text-white flex items-center gap-2">
-                  <span>✨ Template Custom Fields</span>
+                  <span>✨ Template Sections &amp; Custom Fields</span>
                 </h3>
-                <p class="text-[11px] text-purple-700/80 dark:text-purple-300/80 mt-0.5">Manifest-driven fields defined by this blueprint</p>
+                <p class="text-[11px] text-purple-700/80 dark:text-purple-300/80 mt-0.5">Pick any section below to edit its text or hide sections you don't need</p>
               </div>
               <span id="dynamic-fields-count-badge" class="px-2.5 py-1 rounded-full text-[10px] font-black uppercase tracking-wider bg-pink-500/20 text-pink-700 dark:text-pink-300">
                 0 Fields
               </span>
             </div>
+            <!-- Interactive Section Switcher & Section Hide/Show Header -->
+            <div id="dynamic-fields-section-navigator" class="space-y-2.5"></div>
             <div id="template-dynamic-fields-container" class="space-y-4">
               <!-- Dynamically generated fields will be rendered here by WishMagicFieldRenderer -->
             </div>
@@ -475,17 +505,22 @@
           <!-- ======================================================== -->
 
           <!-- SECTION 1: MULTIPLE PHOTO MEMORIES & GALLERY MANAGER -->
-          <div class="glass-surface rounded-3xl p-5 sm:p-6 shadow-xl space-y-4">
-            <div class="flex items-center justify-between pb-3 border-b border-purple-200/60 dark:border-purple-800/40">
+          <div id="step1-card-photos" data-step1-tab="photos" class="glass-surface rounded-3xl p-5 sm:p-6 shadow-xl space-y-4">
+            <div class="flex flex-wrap items-center justify-between gap-2 pb-3 border-b border-purple-200/60 dark:border-purple-800/40">
               <div>
                 <h3 class="font-display font-extrabold text-base text-purple-950 dark:text-white flex items-center gap-2">
-                  <span>📸 Celebration Photos &amp; Keepsake Gallery</span>
+                  <span>📸 Celebration Photos &amp; Album Slots</span>
                 </h3>
-                <p class="text-[11px] text-purple-700/80 dark:text-purple-300/80 mt-0.5">Attach precious memories, set cover photo &amp; choose gallery style</p>
+                <p class="text-[11px] text-purple-700/80 dark:text-purple-300/80 mt-0.5">Upload photos or hide any extra photo slot (e.g. if template has 6 photos &amp; you have 5)</p>
               </div>
-              <span id="photo-count-badge" class="px-2.5 py-1 rounded-full text-[10px] font-black uppercase tracking-wider bg-purple-100 dark:bg-purple-900/70 text-purple-900 dark:text-purple-200">
-                0 / 8 Photos
-              </span>
+              <div class="flex items-center gap-2">
+                <button type="button" id="btn-toggle-entire-gallery-section" onclick="toggleGallerySectionQuick()" class="px-2.5 py-1 rounded-full text-[10px] font-bold bg-emerald-500/15 text-emerald-700 dark:text-emerald-300 border border-emerald-500/30 hover:bg-emerald-500/25 transition cursor-pointer" title="Show or hide the entire photo gallery section on your website">
+                  👁️ Gallery Section: ON
+                </button>
+                <span id="photo-count-badge" class="px-2.5 py-1 rounded-full text-[10px] font-black uppercase tracking-wider bg-purple-100 dark:bg-purple-900/70 text-purple-900 dark:text-purple-200">
+                  0 / 8 Photos
+                </span>
+              </div>
             </div>
 
             <!-- Template Capability Notice (if template restricts gallery) -->
@@ -553,10 +588,14 @@
             <div id="photo-thumbnails-list" class="grid grid-cols-2 sm:grid-cols-4 gap-3 pt-1">
               <!-- Dynamically populated with photo thumbnails -->
             </div>
+
+            <!-- PER-PHOTO SLOT VISIBILITY MANAGER (Hide unused photo slots e.g. 6th slot when user has 5 photos!) -->
+            <div id="template-photo-slots-manager" class="pt-3 border-t border-purple-200/60 dark:border-purple-800/50 space-y-2.5"></div>
+            <input type="file" id="slot-specific-photo-picker" accept="image/jpeg,image/png,image/webp,image/jpg" class="hidden" onchange="handleSlotSpecificPhotoFile(this)"/>
           </div>
 
           <!-- SECTION 2: DEDICATED VOICE DEDICATION NOTE -->
-          <div class="glass-surface rounded-3xl p-5 sm:p-6 shadow-xl space-y-4" id="voice-note-section-wrapper">
+          <div class="glass-surface rounded-3xl p-5 sm:p-6 shadow-xl space-y-4" id="voice-note-section-wrapper" data-step1-tab="audio">
             <div class="flex items-center justify-between pb-3 border-b border-purple-200/60 dark:border-purple-800/40">
               <div>
                 <h3 class="font-display font-extrabold text-base text-purple-950 dark:text-white flex items-center gap-2">
@@ -619,7 +658,7 @@
           </div>
 
           <!-- SECTION 3: BACKGROUND SOUNDSCAPE & MUSIC ENGINE -->
-          <div class="glass-surface rounded-3xl p-5 sm:p-6 shadow-xl space-y-4" id="music-section-wrapper">
+          <div class="glass-surface rounded-3xl p-5 sm:p-6 shadow-xl space-y-4" id="music-section-wrapper" data-step1-tab="audio">
             <div class="flex items-center justify-between pb-3 border-b border-purple-200/60 dark:border-purple-800/40">
               <div>
                 <h3 class="font-display font-extrabold text-base text-purple-950 dark:text-white flex items-center gap-2">
@@ -720,13 +759,41 @@
             </div>
           </div>
 
+          <!-- Quick Card-to-Card Navigation Bar inside Step 1 -->
+          <div id="step1-subtab-footer" class="glass-surface rounded-2xl p-3 border border-purple-300/60 dark:border-purple-700/50 flex items-center justify-between gap-2">
+            <button type="button" id="btn-step1-prev-card" onclick="step1NavigateCard(-1)" class="py-2 px-3.5 rounded-xl bg-purple-100/80 dark:bg-purple-900/50 hover:bg-purple-200 text-purple-900 dark:text-purple-200 font-bold text-xs transition cursor-pointer">
+              ← Previous Card
+            </button>
+            <span id="step1-footer-card-label" class="text-[11px] font-bold text-purple-700 dark:text-purple-300 text-center">Card 1: Basic Info</span>
+            <button type="button" id="btn-step1-next-card" onclick="step1NavigateCard(1)" class="py-2 px-4 rounded-xl bg-gradient-to-r from-pink-500 to-purple-600 text-white font-bold text-xs shadow-md hover:brightness-110 transition cursor-pointer">
+              Next: Text &amp; Sections →
+            </button>
+          </div>
+
         </div>
 
         <!-- STEP 2: ADVANCED THEME ENGINE & VISUAL ATMOSPHERE CONTAINER -->
-        <div id="step-content-2" class="hidden flex flex-col gap-5">
+        <div id="step-content-2" class="hidden flex flex-col gap-4">
+          <!-- STEP 2 SUB-TAB BAR -->
+          <div id="step2-subtab-bar" class="glass-surface rounded-2xl p-2 shadow-md border border-purple-300/70 dark:border-purple-700/60 sticky top-[68px] z-20 backdrop-blur-xl">
+            <div class="grid grid-cols-2 sm:grid-cols-4 gap-1.5">
+              <button type="button" id="step2-subtab-btn-colors" onclick="switchStep2SubTab('colors')" class="step2-subtab-btn py-2 px-2.5 rounded-xl font-bold text-xs bg-gradient-to-r from-pink-500 to-purple-600 text-white shadow-sm flex items-center justify-center gap-1.5 transition cursor-pointer">
+                <span>🎨</span><span class="truncate">1. Themes &amp; Colors</span>
+              </button>
+              <button type="button" id="step2-subtab-btn-fonts" onclick="switchStep2SubTab('fonts')" class="step2-subtab-btn py-2 px-2.5 rounded-xl font-bold text-xs bg-white/80 dark:bg-purple-950/60 text-purple-900 dark:text-purple-200 border border-purple-200/70 dark:border-purple-800/60 flex items-center justify-center gap-1.5 transition cursor-pointer">
+                <span>✍️</span><span class="truncate">2. Fonts &amp; Cards</span>
+              </button>
+              <button type="button" id="step2-subtab-btn-fx" onclick="switchStep2SubTab('fx')" class="step2-subtab-btn py-2 px-2.5 rounded-xl font-bold text-xs bg-white/80 dark:bg-purple-950/60 text-purple-900 dark:text-purple-200 border border-purple-200/70 dark:border-purple-800/60 flex items-center justify-center gap-1.5 transition cursor-pointer">
+                <span>✨</span><span class="truncate">3. Magic Effects</span>
+              </button>
+              <button type="button" id="step2-subtab-btn-all" onclick="switchStep2SubTab('all')" class="step2-subtab-btn py-2 px-2.5 rounded-xl font-semibold text-xs bg-purple-100/70 dark:bg-purple-900/40 text-purple-800 dark:text-purple-300 flex items-center justify-center gap-1 transition cursor-pointer">
+                <span>📋</span><span class="truncate">Show All</span>
+              </button>
+            </div>
+          </div>
           
           <!-- 1. Theme Presets Selector -->
-          <div class="glass-surface rounded-3xl p-5 sm:p-6 shadow-xl space-y-4">
+          <div data-step2-tab="colors" class="glass-surface rounded-3xl p-5 sm:p-6 shadow-xl space-y-4">
             <div class="flex items-center justify-between pb-3 border-b border-purple-200/60 dark:border-purple-800/40">
               <div>
                 <h3 class="font-display font-extrabold text-base text-purple-950 dark:text-white flex items-center gap-2">
@@ -897,7 +964,7 @@
           </div>
 
           <!-- 2. Curated Color Palettes -->
-          <div class="glass-surface rounded-3xl p-5 sm:p-6 shadow-xl space-y-4">
+          <div data-step2-tab="colors" class="glass-surface rounded-3xl p-5 sm:p-6 shadow-xl space-y-4">
             <div class="flex items-center justify-between pb-3 border-b border-purple-200/60 dark:border-purple-800/40">
               <div>
                 <h3 class="font-display font-extrabold text-base text-purple-950 dark:text-white flex items-center gap-2">
@@ -951,7 +1018,7 @@
           </div>
 
           <!-- 3. Granular Color Controls & Contrast Protection -->
-          <div class="glass-surface rounded-3xl p-5 sm:p-6 shadow-xl space-y-4">
+          <div data-step2-tab="colors" class="glass-surface rounded-3xl p-5 sm:p-6 shadow-xl space-y-4">
             <div class="flex items-center justify-between pb-3 border-b border-purple-200/60 dark:border-purple-800/40">
               <h3 class="font-display font-extrabold text-base text-purple-950 dark:text-white">
                 🎨 Custom Color Pickers
@@ -1013,7 +1080,7 @@
           </div>
 
           <!-- 4. Typography Engine -->
-          <div class="glass-surface rounded-3xl p-5 sm:p-6 shadow-xl space-y-4">
+          <div data-step2-tab="fonts" class="glass-surface rounded-3xl p-5 sm:p-6 shadow-xl space-y-4">
             <h3 class="font-display font-extrabold text-base text-purple-950 dark:text-white pb-3 border-b border-purple-200/60 dark:border-purple-800/40">
               ✍️ Typography Engine & Pairings
             </h3>
@@ -1042,7 +1109,7 @@
           </div>
 
           <!-- 5. Surfaces, Cards & Buttons Styling -->
-          <div class="glass-surface rounded-3xl p-5 sm:p-6 shadow-xl space-y-4">
+          <div data-step2-tab="fonts" class="glass-surface rounded-3xl p-5 sm:p-6 shadow-xl space-y-4">
             <h3 class="font-display font-extrabold text-base text-purple-950 dark:text-white pb-3 border-b border-purple-200/60 dark:border-purple-800/40">
               💎 Card Surfaces &amp; Button Shapes
             </h3>
@@ -1089,7 +1156,7 @@
           </div>
 
           <!-- 6. Advanced Animation & Magical Effects Engine (Part 13) -->
-          <div class="glass-surface rounded-3xl p-5 sm:p-6 shadow-xl space-y-5">
+          <div data-step2-tab="fx" class="glass-surface rounded-3xl p-5 sm:p-6 shadow-xl space-y-5">
             <div class="flex items-center justify-between pb-3 border-b border-purple-200/60 dark:border-purple-800/40">
               <div>
                 <h3 class="font-display font-extrabold text-base text-purple-950 dark:text-white flex items-center gap-2">

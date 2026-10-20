@@ -330,8 +330,29 @@
       <button class="text-xs font-bold hover:underline opacity-80" onclick="document.getElementById('settings-status-banner').classList.add('hidden')">Dismiss</button>
     </div>
 
+    <!-- QUICK CATEGORY TABS (No More Information Overload!) -->
+    <div id="admin-settings-category-tabs" class="wm-card bg-surface-container-low/95 backdrop-blur-xl rounded-2xl p-2.5 border border-purple-500/35 shadow-lg sticky top-[76px] z-30 flex flex-wrap items-center justify-between gap-2">
+      <div class="flex flex-wrap items-center gap-1.5">
+        <button type="button" id="admin-settings-tab-storefront" onclick="switchAdminSettingsTab('storefront')" class="px-3.5 py-2 rounded-xl text-xs font-extrabold transition cursor-pointer flex items-center gap-1.5 bg-gradient-to-r from-pink-500 to-purple-600 text-white shadow-md">
+          <span>🏪</span><span>1. Storefront &amp; Support</span>
+        </button>
+        <button type="button" id="admin-settings-tab-links" onclick="switchAdminSettingsTab('links')" class="px-3.5 py-2 rounded-xl text-xs font-extrabold transition cursor-pointer flex items-center gap-1.5 bg-surface-container-high text-on-surface hover:bg-surface-container-highest border border-purple-500/20">
+          <span>🔗</span><span>2. Domain &amp; Wish Links</span>
+        </button>
+        <button type="button" id="admin-settings-tab-offers" onclick="switchAdminSettingsTab('offers')" class="px-3.5 py-2 rounded-xl text-xs font-extrabold transition cursor-pointer flex items-center gap-1.5 bg-surface-container-high text-on-surface hover:bg-surface-container-highest border border-purple-500/20">
+          <span>🏷️</span><span>3. Pricing &amp; Free Offers</span>
+        </button>
+        <button type="button" id="admin-settings-tab-system" onclick="switchAdminSettingsTab('system')" class="px-3.5 py-2 rounded-xl text-xs font-extrabold transition cursor-pointer flex items-center gap-1.5 bg-surface-container-high text-on-surface hover:bg-surface-container-highest border border-purple-500/20">
+          <span>🛡️</span><span>4. Team, Security &amp; Backup</span>
+        </button>
+      </div>
+      <button type="button" id="admin-settings-tab-all" onclick="switchAdminSettingsTab('all')" class="px-3 py-1.5 rounded-xl text-[11px] font-bold bg-surface-container-highest text-on-surface-variant hover:text-on-surface transition cursor-pointer">
+        📋 Show All Settings
+      </button>
+    </div>
+
     <!-- SECTION 1: HERO SECTION CMS MANAGER -->
-    <div class="wm-card bg-surface-container rounded-2xl p-5 sm:p-7 border border-purple-900/30 shadow-xl flex flex-col gap-6">
+    <div data-settings-tab="storefront" class="wm-card bg-surface-container rounded-2xl p-5 sm:p-7 border border-purple-900/30 shadow-xl flex flex-col gap-6">
       <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-2 pb-4 border-b border-purple-900/20">
         <div class="flex items-center gap-3">
           <div class="w-10 h-10 rounded-xl bg-primary-container/20 text-primary flex items-center justify-center">
@@ -478,7 +499,7 @@
     </div>
 
     <!-- SECTION 2: GLOBAL STOREFRONT SETTINGS -->
-    <div class="wm-card bg-surface-container rounded-2xl p-5 sm:p-7 border border-purple-900/30 shadow-xl flex flex-col gap-6">
+    <div data-settings-tab="storefront" class="wm-card bg-surface-container rounded-2xl p-5 sm:p-7 border border-purple-900/30 shadow-xl flex flex-col gap-6">
       <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pb-4 border-b border-purple-900/20">
         <div class="flex items-center gap-3">
           <div class="w-10 h-10 rounded-xl bg-secondary-container/20 text-secondary flex items-center justify-center">
@@ -540,7 +561,7 @@
     </div>
 
     <!-- SECTION: SMART WISH LINKS & MONETIZATION SETTINGS -->
-    <div class="wm-card bg-surface-container rounded-2xl p-5 sm:p-7 border border-pink-500/30 shadow-xl flex flex-col gap-6" id="section-wish-links">
+    <div data-settings-tab="links" class="hidden wm-card bg-surface-container rounded-2xl p-5 sm:p-7 border border-pink-500/30 shadow-xl flex flex-col gap-6" id="section-wish-links">
       <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-2 pb-4 border-b border-purple-900/20">
         <div class="flex items-center gap-3">
           <div class="w-10 h-10 rounded-xl bg-pink-500/20 text-pink-400 flex items-center justify-center">
@@ -694,7 +715,7 @@
     </div>
 
     <!-- SECTION 3: PROMOTIONAL PRICING, DISCOUNTS & 100% FREE LIMITED OFFER CMS -->
-    <div class="wm-card bg-surface-container rounded-2xl p-5 sm:p-7 border border-pink-500/40 shadow-xl flex flex-col gap-6">
+    <div data-settings-tab="offers" class="hidden wm-card bg-surface-container rounded-2xl p-5 sm:p-7 border border-pink-500/40 shadow-xl flex flex-col gap-6">
       <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-4 pb-4 border-b border-purple-900/20">
         <div class="flex items-center gap-3">
           <div class="w-10 h-10 rounded-xl bg-gradient-to-tr from-pink-500 to-amber-400 text-white flex items-center justify-center shadow-lg shadow-pink-500/30">
@@ -830,7 +851,7 @@
     </div>
 
     <!-- SECTION 4: TEAM & ROLE-BASED ACCESS CONTROL (RBAC) -->
-    <div class="wm-card bg-surface-container rounded-2xl p-5 sm:p-7 border border-purple-900/30 shadow-xl flex flex-col gap-6">
+    <div data-settings-tab="system" class="hidden wm-card bg-surface-container rounded-2xl p-5 sm:p-7 border border-purple-900/30 shadow-xl flex flex-col gap-6">
       <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-4 pb-4 border-b border-purple-900/20">
         <div class="flex items-center gap-3">
           <div class="w-10 h-10 rounded-xl bg-tertiary-container/30 text-tertiary flex items-center justify-center">
@@ -891,7 +912,7 @@
 
     
     <!-- SECTION 3B: UTP v1.3.0 CENTRAL LINK MANAGER & FUTURE DOMAIN MIGRATION -->
-    <div id="central-link-manager-section" class="wm-card bg-surface-container rounded-2xl p-5 sm:p-7 border border-purple-500/35 shadow-xl flex flex-col gap-5">
+    <div id="central-link-manager-section" data-settings-tab="links" class="hidden wm-card bg-surface-container rounded-2xl p-5 sm:p-7 border border-purple-500/35 shadow-xl flex flex-col gap-5">
       <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pb-4 border-b border-purple-900/20">
         <div class="flex items-center gap-3">
           <div class="w-10 h-10 rounded-xl bg-primary-container/25 text-primary flex items-center justify-center">
@@ -940,8 +961,12 @@
         </div>
       </div>
 
-      <!-- Two Separate Link Categories Grid -->
-      <div class="grid grid-cols-1 lg:grid-cols-2 gap-5">
+      <!-- Collapsible Advanced Link Route Patterns -->
+      <div class="flex items-center justify-between pt-1 border-t border-purple-900/20">
+        <span class="text-xs font-bold text-on-surface-variant">Global (<code>global.*</code>) &amp; Template (<code>template.*</code>) Route Mappings (Pre-configured)</span>
+        <button type="button" id="btn-toggle-central-link-routes" onclick="toggleCentralLinkRouteTables()" class="px-3 py-1 rounded-lg bg-surface-container-high hover:bg-surface-container-highest text-xs font-bold text-primary cursor-pointer">Show Advanced Route Mappings ▾</button>
+      </div>
+      <div id="central-link-advanced-routes-grid" class="hidden grid grid-cols-1 lg:grid-cols-2 gap-5">
         <!-- Category 1: Global WishMagic Destinations -->
         <div class="p-4 rounded-xl bg-surface-container-low border border-purple-900/30 space-y-3">
           <div class="flex items-center justify-between">
@@ -1015,7 +1040,7 @@
     </div>
 
     <!-- SECTION 4: PART 18 SECURITY & PRODUCTION READINESS DIAGNOSTIC MATRIX -->
-    <div class="wm-card bg-surface-container rounded-2xl p-5 sm:p-7 border border-emerald-500/40 shadow-xl flex flex-col gap-5">
+    <div data-settings-tab="system" class="hidden wm-card bg-surface-container rounded-2xl p-5 sm:p-7 border border-emerald-500/40 shadow-xl flex flex-col gap-5">
       <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pb-4 border-b border-purple-900/20">
         <div class="flex items-center gap-3">
           <div class="w-10 h-10 rounded-xl bg-emerald-500/20 text-emerald-400 flex items-center justify-center">
@@ -1065,7 +1090,7 @@
     </div>
 
     <!-- SECTION 5: DATA BACKUP & EXPORT -->
-    <div class="wm-card bg-surface-container rounded-2xl p-5 sm:p-7 border border-purple-900/30 shadow-xl flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
+    <div data-settings-tab="system" class="hidden wm-card bg-surface-container rounded-2xl p-5 sm:p-7 border border-purple-900/30 shadow-xl flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
       <div>
         <h3 class="font-headline-sm text-base sm:text-lg font-bold text-on-surface">Data Snapshot &amp; Configuration Export</h3>
         <p class="text-xs sm:text-sm text-on-surface-variant mt-0.5">Download a complete JSON export of templates, settings, audio catalog, and pricing rules.</p>
@@ -1945,6 +1970,43 @@
       showToast(`❌ Error: ${e.message}`);
     }
   }
+
+  window.switchAdminSettingsTab = function(tabKey) {
+    const active = tabKey || 'storefront';
+    const tabs = ['storefront', 'links', 'offers', 'system', 'all'];
+    tabs.forEach(k => {
+      const btn = document.getElementById('admin-settings-tab-' + k);
+      if (!btn) return;
+      if (k === active) {
+        btn.className = k === 'all'
+          ? 'px-3 py-1.5 rounded-xl text-[11px] font-extrabold bg-purple-600 text-white shadow-sm cursor-pointer'
+          : 'px-3.5 py-2 rounded-xl text-xs font-extrabold transition cursor-pointer flex items-center gap-1.5 bg-gradient-to-r from-pink-500 to-purple-600 text-white shadow-md';
+      } else {
+        btn.className = k === 'all'
+          ? 'px-3 py-1.5 rounded-xl text-[11px] font-bold bg-surface-container-highest text-on-surface-variant hover:text-on-surface transition cursor-pointer'
+          : 'px-3.5 py-2 rounded-xl text-xs font-extrabold transition cursor-pointer flex items-center gap-1.5 bg-surface-container-high text-on-surface hover:bg-surface-container-highest border border-purple-500/20';
+      }
+    });
+
+    document.querySelectorAll('[data-settings-tab]').forEach(secEl => {
+      const secTab = secEl.getAttribute('data-settings-tab');
+      if (active === 'all' || secTab === active) {
+        secEl.classList.remove('hidden');
+      } else {
+        secEl.classList.add('hidden');
+      }
+    });
+  };
+
+  window.toggleCentralLinkRouteTables = function() {
+    const grid = document.getElementById('central-link-advanced-routes-grid');
+    const btn = document.getElementById('btn-toggle-central-link-routes');
+    if (!grid) return;
+    const isHidden = grid.classList.toggle('hidden');
+    if (btn) {
+      btn.textContent = isHidden ? 'Show Advanced Route Mappings ▾' : 'Hide Advanced Route Mappings ▴';
+    }
+  };
 
   // Auto-run initialization and security diagnostic on page load
   document.addEventListener('DOMContentLoaded', async () => {

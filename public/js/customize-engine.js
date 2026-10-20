@@ -754,28 +754,48 @@ function applyUtpTemplateCapabilityGating(template) {
     : ((manifest && Array.isArray(manifest.sections) && manifest.sections.length > 0) ? manifest.sections : []);
 
   if (declaredSections.length > 0) {
-    currentCustomData.sections = declaredSections
-      .filter(sec => {
-        if (!sec) return false;
+    const prevEnabledMap = new Map();
+    if (Array.isArray(currentCustomData.sections)) {
+      currentCustomData.sections.forEach(s => {
+        if (s && s.id) prevEnabledMap.set(s.id, s.enabled !== false);
+      });
+    }
+    const hiddenSecSet = new Set(Array.isArray(currentCustomData._hiddenSections) ? currentCustomData._hiddenSections : []);
+    const flattenedCustomerSecs = [];
+    const walkDeclaredSecs = (secList, parentId = null, depth = 0) => {
+      if (!Array.isArray(secList)) return;
+      secList.forEach((sec) => {
+        if (!sec) return;
         const sId = typeof sec === "string" ? sec : (sec.id || sec.key);
-        if (!sId || adminDisabledSet.has(sId)) return false;
-        if (typeof sec === "object" && (sec.enabled === false || sec.isEnabled === false || sec.effectiveEnabled === false)) return false;
-        return true;
-      })
-      .map((sec, idx) => {
-        const sId = typeof sec === "string" ? sec : (sec.id || sec.key);
-        return {
+        if (!sId || adminDisabledSet.has(sId)) return;
+        if (typeof sec === "object" && (sec.enabled === false || sec.isEnabled === false || sec.effectiveEnabled === false)) return;
+        const isReq = Boolean(sec.required || sId === "hero");
+        const defaultOn = sec.defaultEnabled !== false && sec.enabled !== false && sec.isEnabled !== false;
+        const isEnabled = isReq
+          ? true
+          : (hiddenSecSet.has(sId) ? false : (prevEnabledMap.has(sId) ? prevEnabledMap.get(sId) : defaultOn));
+        flattenedCustomerSecs.push({
           id: sId,
           name: sec.label || sec.name || sId.replace(/_/g, " ").replace(/\b\w/g, c => c.toUpperCase()),
-          description: sec.description || "",
-          required: Boolean(sec.required),
-          toggleable: sec.required ? false : (sec.toggleable !== false),
-          enabled: sec.defaultEnabled !== false && sec.enabled !== false && sec.isEnabled !== false,
-          order: sec.order || (idx + 1),
-          selector: "[data-wm-section=\"" + sId + "\"]"
-        };
+          description: sec.description || (depth > 0 ? ("Sub-part of " + parentId.replace(/_/g, " ")) : ""),
+          required: isReq,
+          toggleable: isReq ? false : (sec.toggleable !== false),
+          enabled: isEnabled,
+          isSubsection: depth > 0,
+          parentSectionId: parentId,
+          depth,
+          order: flattenedCustomerSecs.length + 1,
+          selector: depth > 0 ? ("[data-wm-subsection=\"" + sId + "\"]") : ("[data-wm-section=\"" + sId + "\"]")
+        });
+        if (Array.isArray(sec.subsections) && sec.subsections.length > 0 && depth < 3) {
+          walkDeclaredSecs(sec.subsections, sId, depth + 1);
+        }
       });
+    };
+    walkDeclaredSecs(declaredSections, null, 0);
+    currentCustomData.sections = flattenedCustomerSecs;
     renderSectionsUI();
+    if (typeof updateGallerySectionQuickButtonUI === "function") updateGallerySectionQuickButtonUI();
   }
 }
 
@@ -823,10 +843,102 @@ function renderDynamicTemplateFields(template) {
   }
   container.innerHTML = '';
 
+  // Build section groups for dynamic fields so the user never has to scroll a giant wall of fields
+  const secLabelMap = new Map();
+  if (Array.isArray(currentCustomData.sections)) {
+    currentCustomData.sections.forEach(s => {
+      if (s && s.id) secLabelMap.set(s.id, s.name || s.label || s.id);
+    });
+  }
+  const sectionGroupsOrder = [];
+  const sectionGroupsMap = new Map();
   dynamicFields.forEach(field => {
     const fieldKey = field.id || field.key;
     field.key = fieldKey;
     field.id = fieldKey;
+    const secKey = String(field.section || field.sectionId || field.group || 'general').trim() || 'general';
+    if (!sectionGroupsMap.has(secKey)) {
+      const friendlyLabel = secLabelMap.get(secKey) || secKey.replace(/_/g, ' ').replace(/\b\w/g, c => c.toUpperCase());
+      sectionGroupsMap.set(secKey, { id: secKey, label: friendlyLabel, fields: [] });
+      sectionGroupsOrder.push(secKey);
+    }
+    sectionGroupsMap.get(secKey).fields.push(field);
+  });
+
+  if (!window._activeDynamicFieldSection || (window._activeDynamicFieldSection !== 'all' && !sectionGroupsMap.has(window._activeDynamicFieldSection))) {
+    window._activeDynamicFieldSection = (dynamicFields.length > 4 && sectionGroupsOrder.length > 1)
+      ? sectionGroupsOrder[0]
+      : 'all';
+  }
+
+  const navBox = document.getElementById('dynamic-fields-section-navigator');
+  const hiddenSecsSet = new Set(Array.isArray(currentCustomData._hiddenSections) ? currentCustomData._hiddenSections : []);
+  const hiddenFieldsSet = new Set(Array.isArray(currentCustomData._hiddenFields) ? currentCustomData._hiddenFields : []);
+
+  if (navBox) {
+    if (sectionGroupsOrder.length > 1) {
+      const activeSecId = window._activeDynamicFieldSection;
+      const activeIdx = sectionGroupsOrder.indexOf(activeSecId);
+      const activeSecObj = activeSecId !== 'all' ? (currentCustomData.sections || []).find(s => s.id === activeSecId) : null;
+      const isActiveSecHidden = activeSecId !== 'all' && (hiddenSecsSet.has(activeSecId) || (activeSecObj && activeSecObj.enabled === false));
+      const canToggleActiveSec = activeSecId !== 'all' && activeSecId !== 'hero' && (!activeSecObj || !activeSecObj.required);
+
+      navBox.innerHTML = `
+        <div class="flex flex-wrap items-center gap-1.5 pb-1">
+          ${sectionGroupsOrder.map((sId, idx) => {
+            const grp = sectionGroupsMap.get(sId);
+            const isSel = activeSecId === sId;
+            const secObj = (currentCustomData.sections || []).find(s => s.id === sId);
+            const isSecOff = hiddenSecsSet.has(sId) || (secObj && secObj.enabled === false);
+            return `<button type="button" onclick="selectDynamicFieldSection('${sId}')" class="px-2.5 py-1.5 rounded-xl text-xs font-bold transition flex items-center gap-1 cursor-pointer ${
+              isSel
+                ? 'bg-purple-700 text-white shadow-sm'
+                : 'bg-purple-100/80 dark:bg-purple-900/50 text-purple-900 dark:text-purple-200 hover:bg-purple-200'
+            } ${isSecOff ? 'opacity-60 line-through' : ''}">
+              <span>${idx + 1}. ${escapeHtml(grp.label)}</span>
+              <span class="px-1.5 py-0.2 rounded-full text-[9px] ${isSel ? 'bg-white/20 text-white' : 'bg-purple-200/80 dark:bg-purple-800 text-purple-800 dark:text-purple-200'}">${grp.fields.length}</span>
+              ${isSecOff ? '<span title="Hidden on website">🙈</span>' : ''}
+            </button>`;
+          }).join('')}
+          <button type="button" onclick="selectDynamicFieldSection('all')" class="px-2.5 py-1.5 rounded-xl text-xs font-semibold transition cursor-pointer ${
+            activeSecId === 'all'
+              ? 'bg-pink-600 text-white shadow-sm'
+              : 'bg-white/70 dark:bg-purple-950/50 text-purple-700 dark:text-purple-300 border border-purple-200/60 dark:border-purple-800/60'
+          }">
+            📋 All (${dynamicFields.length})
+          </button>
+        </div>
+        ${activeSecId !== 'all' ? `
+          <div class="p-2.5 rounded-2xl bg-purple-100/70 dark:bg-purple-900/40 border border-purple-200/70 dark:border-purple-800/50 flex flex-wrap items-center justify-between gap-2 text-xs">
+            <div class="flex items-center gap-2">
+              <span class="font-extrabold text-purple-950 dark:text-white">Section: ${escapeHtml(sectionGroupsMap.get(activeSecId)?.label || activeSecId)}</span>
+              ${canToggleActiveSec ? `
+                <button type="button" onclick="toggleCustomerSectionQuick('${activeSecId}')" class="px-2.5 py-1 rounded-full text-[10px] font-bold transition cursor-pointer ${
+                  isActiveSecHidden
+                    ? 'bg-rose-500/20 text-rose-700 dark:text-rose-300 border border-rose-500/40'
+                    : 'bg-emerald-500/20 text-emerald-700 dark:text-emerald-300 border border-emerald-500/40'
+                }">
+                  ${isActiveSecHidden ? '🙈 Hidden on Site (Tap to Show)' : '👁️ Showing on Site (Tap to Hide Section)'}
+                </button>
+              ` : '<span class="px-2 py-0.5 rounded text-[9px] font-bold bg-purple-200 dark:bg-purple-800 text-purple-800 dark:text-purple-200">Core Section</span>'}
+            </div>
+            <div class="flex items-center gap-1.5">
+              <button type="button" onclick="stepDynamicFieldSection(-1)" ${activeIdx <= 0 ? 'disabled class="opacity-30 pointer-events-none px-2 py-1 rounded-lg bg-white/60 text-[10px] font-bold"' : 'class="px-2.5 py-1 rounded-lg bg-white dark:bg-purple-950 text-purple-900 dark:text-purple-200 text-[10px] font-bold shadow-xs cursor-pointer"'}>← Prev</button>
+              <button type="button" onclick="stepDynamicFieldSection(1)" ${activeIdx >= sectionGroupsOrder.length - 1 ? 'disabled class="opacity-30 pointer-events-none px-2 py-1 rounded-lg bg-white/60 text-[10px] font-bold"' : 'class="px-2.5 py-1 rounded-lg bg-pink-600 text-white text-[10px] font-bold shadow-xs cursor-pointer"'}>Next Section →</button>
+            </div>
+          </div>
+        ` : ''}
+      `;
+    } else {
+      navBox.innerHTML = '';
+    }
+  }
+
+  dynamicFields.forEach(field => {
+    const fieldKey = field.id || field.key;
+    field.key = fieldKey;
+    field.id = fieldKey;
+    const secKey = String(field.section || field.sectionId || field.group || 'general').trim() || 'general';
 
     // Only Name and DOB are mandatory; all other template messages/texts are optional and keep their normal default text
     if (!isMandatoryIdentityField(fieldKey)) {
@@ -842,11 +954,13 @@ function renderDynamicTemplateFields(template) {
       currentCustomData[fieldKey] = (field.defaultValue !== undefined && field.defaultValue !== null) ? field.defaultValue : '';
     }
 
-    const isVisible = evaluateFieldVisibility(field, currentCustomData);
+    const isVisibleByRule = evaluateFieldVisibility(field, currentCustomData);
+    const isMatchedSectionTab = window._activeDynamicFieldSection === 'all' || window._activeDynamicFieldSection === secKey;
+    const isFieldHiddenByCustomer = hiddenFieldsSet.has(fieldKey);
     const fieldState = {
       value: currentCustomData[fieldKey],
-      visible: isVisible,
-      disabled: false
+      visible: isVisibleByRule && isMatchedSectionTab,
+      disabled: isFieldHiddenByCustomer
     };
 
     if (window.WishMagicFieldRenderer && typeof window.WishMagicFieldRenderer.render === 'function') {
@@ -857,15 +971,45 @@ function renderDynamicTemplateFields(template) {
           handleDynamicFieldChange(key, newVal, field);
         }
       );
+      let elNode = null;
       if (typeof renderedNode === 'string') {
         const wrapper = document.createElement('div');
         wrapper.innerHTML = renderedNode;
-        container.appendChild(wrapper.firstElementChild || wrapper);
+        elNode = wrapper.firstElementChild || wrapper;
       } else if (renderedNode instanceof HTMLElement) {
-        container.appendChild(renderedNode);
+        elNode = renderedNode;
+      }
+      if (elNode) {
+        elNode.setAttribute('data-field-section', secKey);
+        if (!isMatchedSectionTab) {
+          elNode.style.display = 'none';
+        }
+        // Add a "Show / Hide this item on website" toggle pill for optional fields/photos
+        if (!isMandatoryIdentityField(fieldKey)) {
+          const ctrlBar = document.createElement('div');
+          ctrlBar.className = 'flex items-center justify-between pt-1.5 mt-1.5 border-t border-purple-200/40 dark:border-purple-800/40 text-[10px]';
+          ctrlBar.innerHTML = `
+            <span class="text-purple-600/80 dark:text-purple-300/80 font-medium">${isFieldHiddenByCustomer ? '🙈 Hidden on your customized website' : '👁️ Visible on your customized website'}</span>
+            <button type="button" onclick="toggleCustomerFieldVisibility('${fieldKey}')" class="px-2 py-0.5 rounded-full font-bold transition cursor-pointer ${
+              isFieldHiddenByCustomer
+                ? 'bg-rose-500/20 text-rose-700 dark:text-rose-300 border border-rose-500/40'
+                : 'bg-purple-100 dark:bg-purple-900/60 text-purple-800 dark:text-purple-200 hover:bg-pink-500/20'
+            }">
+              ${isFieldHiddenByCustomer ? '👁️ Show Again' : '🙈 Hide This Item'}
+            </button>
+          `;
+          if (isFieldHiddenByCustomer) {
+            elNode.classList.add('opacity-60');
+          }
+          elNode.appendChild(ctrlBar);
+        }
+        container.appendChild(elNode);
       }
     }
   });
+  if (typeof renderTemplatePhotoSlotsManager === 'function') {
+    renderTemplatePhotoSlotsManager();
+  }
 }
 
 function evaluateFieldVisibility(field, state) {
@@ -2262,6 +2406,9 @@ function renderPhotosUI() {
 
     container.appendChild(card);
   });
+  if (typeof renderTemplatePhotoSlotsManager === 'function') {
+    renderTemplatePhotoSlotsManager();
+  }
 }
 
 // -----------------------------------------------------------------------------
@@ -4233,6 +4380,14 @@ window.toggleSection = function(sectionId, enabled) {
     enabled: Boolean(enabled),
     layout: sec.layout || null
   };
+  if (!Array.isArray(currentCustomData._hiddenSections)) currentCustomData._hiddenSections = [];
+  if (!enabled) {
+    if (!currentCustomData._hiddenSections.includes(sectionId)) currentCustomData._hiddenSections.push(sectionId);
+  } else {
+    currentCustomData._hiddenSections = currentCustomData._hiddenSections.filter(id => id !== sectionId);
+  }
+  currentCustomData.hiddenSections = [...currentCustomData._hiddenSections];
+  if (typeof updateGallerySectionQuickButtonUI === "function") updateGallerySectionQuickButtonUI();
 
   if (window.WishMagicRuntimeBridge && typeof window.WishMagicRuntimeBridge.updateSection === 'function') {
     window.WishMagicRuntimeBridge.updateSection(sectionId, enabled);
@@ -4822,8 +4977,23 @@ function syncDataToIframe() {
   if (!iframe) return;
 
   // 1. PostMessage Event Dispatch (including UTP v1.2.0 visibilityMap, disabledIds, and actions)
+  const customerHiddenSecsList = Array.from(new Set([
+    ...(Array.isArray(currentCustomData._hiddenSections) ? currentCustomData._hiddenSections : []),
+    ...((currentCustomData.sections || []).filter(s => s && s.id && s.enabled === false).map(s => s.id))
+  ]));
+  currentCustomData._hiddenSections = customerHiddenSecsList;
+  currentCustomData.hiddenSections = customerHiddenSecsList;
+  const customerHiddenFieldsList = Array.isArray(currentCustomData._hiddenFields) ? currentCustomData._hiddenFields : [];
+  currentCustomData._hiddenFields = customerHiddenFieldsList;
+  currentCustomData.hiddenFields = customerHiddenFieldsList;
+
   const livePayload = {
     ...currentCustomData,
+    _isLiveCustomizerPreview: true,
+    _hiddenSections: customerHiddenSecsList,
+    hiddenSections: customerHiddenSecsList,
+    _hiddenFields: customerHiddenFieldsList,
+    hiddenFields: customerHiddenFieldsList,
     templateId: activeTemplate ? activeTemplate.id : currentCustomData.templateId,
     templateSlug: activeTemplate ? (activeTemplate.slug || activeTemplate.id) : currentCustomData.templateId,
     visibilityMap: (activeTemplate && activeTemplate.visibilityMap) || {},
@@ -4977,17 +5147,7 @@ function syncDataToIframe() {
       window.WishMagicTemplate.applyActionsToDom(doc, livePayload.actions, livePayload);
     }
 
-    // Remove or toggle customer-toggled [data-wm-section] elements in iframe DOM
-    if (Array.isArray(currentCustomData.sections)) {
-      currentCustomData.sections.forEach(sec => {
-        if (!sec || !sec.id) return;
-        doc.querySelectorAll(`[data-wm-section="${sec.id}"]`).forEach(secEl => {
-          if (sec.enabled === false) {
-            secEl.remove();
-          }
-        });
-      });
-    }
+    // Customer-toggled sections, subsections, and photo slots are handled with full restore support by WishMagicTemplate.removeDisabledContentFromDom above
 
     // Dispatch wishmagic:data-updated custom event inside iframe so countdowns/galleries react live
     try {
@@ -6008,3 +6168,515 @@ var showToast = function(msg) {
     toast.classList.add('translate-y-[-150%]', 'opacity-0');
   }, 2800);
 }
+
+
+
+// =============================================================================
+// QUICK SUB-TAB NAVIGATION, SECTION FOCUS & PER-PHOTO SLOT HIDE/SHOW MANAGER
+// =============================================================================
+window._activeStep1SubTab = 'basic';
+window._activeStep2SubTab = 'colors';
+window._pendingSlotPhotoFieldKey = null;
+
+window.switchStep1SubTab = function(tabKey) {
+  window._activeStep1SubTab = tabKey || 'basic';
+  const tabsOrder = ['basic', 'template', 'photos', 'audio'];
+  const labelsMap = {
+    basic: 'Card 1: Basic Info',
+    template: 'Card 2: Template Text & Sections',
+    photos: 'Card 3: Photos & Album Slots',
+    audio: 'Card 4: Music & Voice',
+    all: 'Showing All Cards'
+  };
+
+  ['basic', 'template', 'photos', 'audio', 'all'].forEach(k => {
+    const btn = document.getElementById('step1-subtab-btn-' + k);
+    if (!btn) return;
+    if (k === window._activeStep1SubTab) {
+      btn.className = (k === 'all' ? 'step1-subtab-btn col-span-2 sm:col-span-1 ' : 'step1-subtab-btn ') +
+        'py-2 px-2.5 rounded-xl font-bold text-xs bg-gradient-to-r from-pink-500 to-purple-600 text-white shadow-sm flex items-center justify-center gap-1.5 transition cursor-pointer';
+    } else {
+      btn.className = (k === 'all' ? 'step1-subtab-btn col-span-2 sm:col-span-1 ' : 'step1-subtab-btn ') +
+        'py-2 px-2.5 rounded-xl font-bold text-xs bg-white/80 dark:bg-purple-950/60 text-purple-900 dark:text-purple-200 hover:bg-purple-100 dark:hover:bg-purple-900/60 border border-purple-200/70 dark:border-purple-800/60 flex items-center justify-center gap-1.5 transition cursor-pointer';
+    }
+  });
+
+  const step1Container = document.getElementById('step-content-1');
+  if (step1Container) {
+    step1Container.querySelectorAll('[data-step1-tab]').forEach(cardEl => {
+      const cardTab = cardEl.getAttribute('data-step1-tab');
+      if (cardEl.id === 'dynamic-template-fields-card') {
+        const hasDynFields = (document.getElementById('template-dynamic-fields-container')?.children.length || 0) > 0;
+        if (!hasDynFields && window._activeStep1SubTab !== 'template') {
+          cardEl.classList.add('hidden');
+          return;
+        }
+      }
+      if (window._activeStep1SubTab === 'all' || cardTab === window._activeStep1SubTab) {
+        cardEl.classList.remove('hidden');
+      } else {
+        cardEl.classList.add('hidden');
+      }
+    });
+  }
+
+  const progPill = document.getElementById('step1-progress-pill');
+  const footerLabel = document.getElementById('step1-footer-card-label');
+  const prevBtn = document.getElementById('btn-step1-prev-card');
+  const nextBtn = document.getElementById('btn-step1-next-card');
+  const idx = tabsOrder.indexOf(window._activeStep1SubTab);
+
+  if (progPill) {
+    progPill.textContent = idx !== -1 ? `Card ${idx + 1} of 4` : 'All Cards';
+  }
+  if (footerLabel) {
+    footerLabel.textContent = labelsMap[window._activeStep1SubTab] || '';
+  }
+  if (prevBtn) {
+    prevBtn.disabled = idx <= 0;
+    prevBtn.className = idx <= 0
+      ? 'py-2 px-3.5 rounded-xl bg-purple-100/40 dark:bg-purple-900/20 text-purple-400 text-xs font-bold opacity-40 pointer-events-none'
+      : 'py-2 px-3.5 rounded-xl bg-purple-100/80 dark:bg-purple-900/50 hover:bg-purple-200 text-purple-900 dark:text-purple-200 font-bold text-xs transition cursor-pointer';
+  }
+  if (nextBtn) {
+    if (idx !== -1 && idx < tabsOrder.length - 1) {
+      const nextNames = ['Basic Info', 'Text & Sections', 'Photos & Slots', 'Music & Voice'];
+      nextBtn.textContent = `Next: ${nextNames[idx + 1]} →`;
+      nextBtn.onclick = () => window.step1NavigateCard(1);
+    } else {
+      nextBtn.textContent = 'Next: Step 2 (Theme & Style) →';
+      nextBtn.onclick = () => window.goToStep(2);
+    }
+  }
+
+  if (window._activeStep1SubTab === 'photos') {
+    window.renderTemplatePhotoSlotsManager();
+    window.scrollIframeToSection('gallery');
+  } else if (window._activeStep1SubTab === 'basic') {
+    window.scrollIframeToSection('hero');
+  }
+};
+
+window.step1NavigateCard = function(direction) {
+  const hasDynFields = (document.getElementById('template-dynamic-fields-container')?.children.length || 0) > 0;
+  const tabsOrder = hasDynFields ? ['basic', 'template', 'photos', 'audio'] : ['basic', 'photos', 'audio'];
+  const curIdx = Math.max(0, tabsOrder.indexOf(window._activeStep1SubTab));
+  const nextIdx = curIdx + (direction >= 0 ? 1 : -1);
+  if (nextIdx >= 0 && nextIdx < tabsOrder.length) {
+    window.switchStep1SubTab(tabsOrder[nextIdx]);
+  } else if (nextIdx >= tabsOrder.length) {
+    window.goToStep(2);
+  }
+};
+
+window.switchStep2SubTab = function(tabKey) {
+  window._activeStep2SubTab = tabKey || 'colors';
+  ['colors', 'fonts', 'fx', 'all'].forEach(k => {
+    const btn = document.getElementById('step2-subtab-btn-' + k);
+    if (!btn) return;
+    if (k === window._activeStep2SubTab) {
+      btn.className = 'step2-subtab-btn py-2 px-2.5 rounded-xl font-bold text-xs bg-gradient-to-r from-pink-500 to-purple-600 text-white shadow-sm flex items-center justify-center gap-1.5 transition cursor-pointer';
+    } else {
+      btn.className = 'step2-subtab-btn py-2 px-2.5 rounded-xl font-bold text-xs bg-white/80 dark:bg-purple-950/60 text-purple-900 dark:text-purple-200 border border-purple-200/70 dark:border-purple-800/60 flex items-center justify-center gap-1.5 transition cursor-pointer';
+    }
+  });
+  const step2Container = document.getElementById('step-content-2');
+  if (step2Container) {
+    step2Container.querySelectorAll('[data-step2-tab]').forEach(cardEl => {
+      const cardTab = cardEl.getAttribute('data-step2-tab');
+      if (window._activeStep2SubTab === 'all' || cardTab === window._activeStep2SubTab) {
+        cardEl.classList.remove('hidden');
+      } else {
+        cardEl.classList.add('hidden');
+      }
+    });
+  }
+};
+
+window.selectDynamicFieldSection = function(secId) {
+  window._activeDynamicFieldSection = secId || 'all';
+  if (activeTemplate) {
+    renderDynamicTemplateFields(activeTemplate);
+  }
+  if (secId && secId !== 'all') {
+    window.scrollIframeToSection(secId);
+  }
+};
+
+window.stepDynamicFieldSection = function(dir) {
+  const container = document.getElementById('template-dynamic-fields-container');
+  if (!container) return;
+  const secSet = new Set();
+  container.querySelectorAll('[data-field-section]').forEach(el => {
+    const s = el.getAttribute('data-field-section');
+    if (s) secSet.add(s);
+  });
+  const order = Array.from(secSet);
+  if (order.length === 0) return;
+  const curIdx = Math.max(0, order.indexOf(window._activeDynamicFieldSection));
+  const nextIdx = Math.min(order.length - 1, Math.max(0, curIdx + dir));
+  window.selectDynamicFieldSection(order[nextIdx]);
+};
+
+window.scrollIframeToSection = function(sectionId) {
+  if (!sectionId) return;
+  try {
+    const iframe = document.getElementById('live-custom-iframe');
+    const doc = iframe && (iframe.contentDocument || iframe.contentWindow?.document);
+    if (!doc) return;
+    const target = doc.querySelector(`[data-wm-section="${sectionId}"], [data-wm-subsection="${sectionId}"], #${sectionId}, #section-${sectionId}`);
+    if (target && typeof target.scrollIntoView === 'function') {
+      target.scrollIntoView({ behavior: 'smooth', block: 'center' });
+    }
+  } catch (_) {}
+};
+
+window.toggleCustomerSectionQuick = function(sectionId) {
+  if (!sectionId || sectionId === 'hero') return;
+  if (!Array.isArray(currentCustomData._hiddenSections)) currentCustomData._hiddenSections = [];
+  const secObj = (currentCustomData.sections || []).find(s => s.id === sectionId);
+  const currentlyHidden = currentCustomData._hiddenSections.includes(sectionId) || (secObj && secObj.enabled === false);
+  const nextEnabled = currentlyHidden;
+
+  if (secObj) {
+    window.toggleSection(sectionId, nextEnabled);
+  } else {
+    if (!nextEnabled) {
+      if (!currentCustomData._hiddenSections.includes(sectionId)) currentCustomData._hiddenSections.push(sectionId);
+    } else {
+      currentCustomData._hiddenSections = currentCustomData._hiddenSections.filter(id => id !== sectionId);
+    }
+    currentCustomData.hiddenSections = [...currentCustomData._hiddenSections];
+    if (!currentCustomData.sectionsMap) currentCustomData.sectionsMap = {};
+    currentCustomData.sectionsMap[sectionId] = { enabled: nextEnabled };
+    triggerAutosave();
+    syncDataToIframe();
+    showToast(`Section "${sectionId.replace(/_/g, ' ')}" ${nextEnabled ? 'Shown 👁️' : 'Hidden 🙈'}`);
+  }
+  if (activeTemplate) renderDynamicTemplateFields(activeTemplate);
+  updateGallerySectionQuickButtonUI();
+};
+
+window.toggleGallerySectionQuick = function() {
+  const galSec = (currentCustomData.sections || []).find(s => ['gallery', 'photos', 'album', 'memories'].includes(String(s.id || '').toLowerCase()));
+  const secId = galSec ? galSec.id : 'gallery';
+  window.toggleCustomerSectionQuick(secId);
+};
+
+function updateGallerySectionQuickButtonUI() {
+  const btn = document.getElementById('btn-toggle-entire-gallery-section');
+  if (!btn) return;
+  const galSec = (currentCustomData.sections || []).find(s => ['gallery', 'photos', 'album', 'memories'].includes(String(s.id || '').toLowerCase()));
+  const secId = galSec ? galSec.id : 'gallery';
+  const hiddenSet = new Set(Array.isArray(currentCustomData._hiddenSections) ? currentCustomData._hiddenSections : []);
+  const isOff = hiddenSet.has(secId) || (galSec && galSec.enabled === false);
+  if (isOff) {
+    btn.textContent = '🙈 Gallery Section: HIDDEN (Tap to Show)';
+    btn.className = 'px-2.5 py-1 rounded-full text-[10px] font-bold bg-rose-500/20 text-rose-700 dark:text-rose-300 border border-rose-500/40 hover:bg-rose-500/30 transition cursor-pointer';
+  } else {
+    btn.textContent = '👁️ Gallery Section: ON (Tap to Hide)';
+    btn.className = 'px-2.5 py-1 rounded-full text-[10px] font-bold bg-emerald-500/15 text-emerald-700 dark:text-emerald-300 border border-emerald-500/30 hover:bg-emerald-500/25 transition cursor-pointer';
+  }
+}
+
+window.toggleCustomerFieldVisibility = function(fieldKey, forceState = null) {
+  const cleanKey = String(fieldKey || '').trim();
+  if (!cleanKey || isMandatoryIdentityField(cleanKey)) return;
+  if (!Array.isArray(currentCustomData._hiddenFields)) {
+    currentCustomData._hiddenFields = [];
+  }
+  const isCurrentlyHidden = currentCustomData._hiddenFields.includes(cleanKey);
+  const shouldHide = forceState !== null ? !forceState : !isCurrentlyHidden;
+
+  if (shouldHide) {
+    if (!currentCustomData._hiddenFields.includes(cleanKey)) {
+      currentCustomData._hiddenFields.push(cleanKey);
+    }
+    const numMatch = cleanKey.match(/^photo_(\d+)$/i);
+    if (numMatch) {
+      const n = numMatch[1];
+      [`photo_${n}_caption`, `caption_${n}`, `memory_${n}_caption`, `photo_caption_${n}`].forEach(capKey => {
+        if (!currentCustomData._hiddenFields.includes(capKey)) {
+          currentCustomData._hiddenFields.push(capKey);
+        }
+      });
+    }
+  } else {
+    const numMatch = cleanKey.match(/^photo_(\d+)$/i);
+    const pairedKeys = new Set([cleanKey]);
+    if (numMatch) {
+      const n = numMatch[1];
+      [`photo_${n}_caption`, `caption_${n}`, `memory_${n}_caption`, `photo_caption_${n}`].forEach(k => pairedKeys.add(k));
+    }
+    currentCustomData._hiddenFields = currentCustomData._hiddenFields.filter(k => !pairedKeys.has(k));
+  }
+  currentCustomData.hiddenFields = [...currentCustomData._hiddenFields];
+
+  if (activeTemplate) renderDynamicTemplateFields(activeTemplate);
+  renderTemplatePhotoSlotsManager();
+  triggerAutosave();
+  syncDataToIframe();
+  showToast(`${cleanKey.replace(/_/g, ' ').toUpperCase()} ${shouldHide ? 'hidden from your website 🙈' : 'restored on your website 👁️'}`);
+};
+
+function getTemplateDeclaredPhotoSlots() {
+  const slotMap = new Map();
+  const addSlot = (key, label, defaultSrc) => {
+    const k = String(key || '').trim();
+    if (!k) return;
+    if (!slotMap.has(k)) {
+      slotMap.set(k, {
+        key: k,
+        label: label || k.replace(/_/g, ' ').replace(/\b\w/g, c => c.toUpperCase()),
+        defaultSrc: defaultSrc || ''
+      });
+    }
+  };
+
+  const manifestFields = (activeTemplate && activeTemplate.manifest && Array.isArray(activeTemplate.manifest.fields))
+    ? activeTemplate.manifest.fields
+    : [];
+  const tplFields = (activeTemplate && Array.isArray(activeTemplate.fields)) ? activeTemplate.fields : [];
+  const detFields = (activeTemplate && Array.isArray(activeTemplate.detectedFields)) ? activeTemplate.detectedFields : [];
+
+  [...manifestFields, ...tplFields, ...detFields].forEach(f => {
+    if (!f) return;
+    const fKey = String(f.id || f.key || '').trim();
+    const fType = String(f.type || '').toLowerCase();
+    if (fType === 'image' || /^photo_\d+$/i.test(fKey) || fKey === 'cover_photo' || fKey.includes('photo') || fKey.includes('image')) {
+      if (fType !== 'text' && fType !== 'textarea') {
+        addSlot(fKey, f.label, f.defaultValue || f.originalSrc || '');
+      }
+    }
+  });
+
+  try {
+    const iframe = document.getElementById('live-custom-iframe');
+    const doc = iframe && (iframe.contentDocument || iframe.contentWindow?.document);
+    if (doc) {
+      doc.querySelectorAll('img[data-wm-field], img[data-wm], [data-wm-type="image"], [data-wm-photo-slot]').forEach(el => {
+        const k = el.getAttribute('data-wm-photo-slot') || el.getAttribute('data-wm-field') || el.getAttribute('data-wm');
+        if (k) {
+          addSlot(k, el.getAttribute('data-wm-label') || null, el.getAttribute('src') || '');
+        }
+      });
+    }
+  } catch (_) {}
+
+  return Array.from(slotMap.values());
+}
+
+window.renderTemplatePhotoSlotsManager = function() {
+  const managerEl = document.getElementById('template-photo-slots-manager');
+  if (!managerEl) return;
+
+  const slots = getTemplateDeclaredPhotoSlots();
+  if (slots.length === 0) {
+    managerEl.innerHTML = '';
+    return;
+  }
+
+  const uploadedPhotos = (currentCustomData.media && Array.isArray(currentCustomData.media.photos))
+    ? currentCustomData.media.photos
+    : (Array.isArray(currentCustomData.photos) ? currentCustomData.photos : []);
+  const hiddenFieldsSet = new Set(Array.isArray(currentCustomData._hiddenFields) ? currentCustomData._hiddenFields : []);
+
+  let unuploadedVisibleSlotsCount = 0;
+  let hiddenSlotsCount = 0;
+
+  const slotCardsHtml = slots.map((slot, idx) => {
+    const photoNumMatch = slot.key.match(/^photo_(\d+)$/i);
+    const slotNum = photoNumMatch ? Number(photoNumMatch[1]) : (idx + 1);
+    const uploadedForOrder = uploadedPhotos[slotNum - 1];
+    const directVal = currentCustomData[slot.key];
+    const hasCustomUpload = Boolean(
+      (uploadedForOrder && (uploadedForOrder.src || uploadedForOrder.url || uploadedForOrder.displayUrl)) ||
+      (directVal && directVal !== slot.defaultSrc && directVal !== templateDefaultValues[slot.key])
+    );
+    const previewSrc = (uploadedForOrder && (uploadedForOrder.src || uploadedForOrder.url || uploadedForOrder.displayUrl)) ||
+      directVal ||
+      slot.defaultSrc ||
+      templateDefaultValues[slot.key] ||
+      '/assets/file_ab2082.png';
+    const isHidden = hiddenFieldsSet.has(slot.key);
+
+    if (isHidden) {
+      hiddenSlotsCount++;
+    } else if (!hasCustomUpload) {
+      unuploadedVisibleSlotsCount++;
+    }
+
+    return `
+      <div class="p-2.5 rounded-2xl border transition flex items-center justify-between gap-2.5 ${
+        isHidden
+          ? 'bg-rose-500/10 border-rose-500/30 opacity-70'
+          : (hasCustomUpload
+              ? 'bg-emerald-500/10 border-emerald-500/35'
+              : 'bg-white/75 dark:bg-purple-950/50 border-purple-200/70 dark:border-purple-800/60')
+      }">
+        <div class="flex items-center gap-2.5 min-w-0">
+          <div class="w-11 h-11 rounded-xl overflow-hidden border border-purple-300/50 shrink-0 bg-purple-950/30 relative">
+            <img src="${escapeHtml(previewSrc)}" alt="${escapeHtml(slot.label)}" class="w-full h-full object-cover ${isHidden ? 'grayscale opacity-40' : ''}" onerror="this.src='/assets/file_ab2082.png'"/>
+            <span class="absolute bottom-0 right-0 px-1 bg-black/75 text-white font-mono text-[8px] font-bold">#${slotNum}</span>
+          </div>
+          <div class="min-w-0">
+            <div class="text-xs font-extrabold text-purple-950 dark:text-white truncate">${escapeHtml(slot.label)}</div>
+            <div class="text-[10px] font-semibold ${
+              isHidden ? 'text-rose-600 dark:text-rose-300' : (hasCustomUpload ? 'text-emerald-600 dark:text-emerald-300' : 'text-amber-600 dark:text-amber-300')
+            }">
+              ${isHidden ? '🙈 Hidden on Website' : (hasCustomUpload ? '🟢 Your Photo Uploaded' : '⚪ Template Default Photo')}
+            </div>
+          </div>
+        </div>
+        <div class="flex items-center gap-1.5 shrink-0">
+          <button type="button" onclick="triggerSlotSpecificPhotoUpload('${slot.key}')" class="px-2.5 py-1.5 rounded-xl bg-purple-100 dark:bg-purple-900/70 hover:bg-purple-200 text-purple-950 dark:text-purple-100 text-[10px] font-bold transition cursor-pointer" title="Upload photo for this slot">
+            📁 Upload
+          </button>
+          <button type="button" onclick="toggleCustomerFieldVisibility('${slot.key}')" class="px-2.5 py-1.5 rounded-xl text-[10px] font-extrabold transition cursor-pointer ${
+            isHidden
+              ? 'bg-emerald-500 text-white shadow-xs'
+              : 'bg-rose-500/15 hover:bg-rose-500/25 text-rose-700 dark:text-rose-300 border border-rose-500/30'
+          }" title="${isHidden ? 'Show this photo slot on website' : 'Hide this photo slot from website'}">
+            ${isHidden ? '👁️ Show' : '🙈 Hide'}
+          </button>
+        </div>
+      </div>
+    `;
+  }).join('');
+
+  managerEl.innerHTML = `
+    <div class="flex flex-wrap items-center justify-between gap-2">
+      <div>
+        <h4 class="text-xs font-extrabold text-purple-950 dark:text-white flex items-center gap-1.5">
+          <span>🖼️ Template Photo Slots (${slots.length - hiddenSlotsCount} of ${slots.length} Active)</span>
+        </h4>
+        <p class="text-[10px] text-purple-700/80 dark:text-purple-300/80">
+          Have fewer photos than the template? Tap <strong>🙈 Hide</strong> on any extra photo slot and it won't appear on your site!
+        </p>
+      </div>
+      <div class="flex flex-wrap items-center gap-1.5">
+        ${unuploadedVisibleSlotsCount > 0 ? `
+          <button type="button" onclick="autoHideUnusedPhotoSlots()" class="px-3 py-1.5 rounded-xl bg-gradient-to-r from-pink-500 to-purple-600 text-white text-[10px] font-extrabold shadow-sm hover:brightness-110 transition cursor-pointer">
+            ✨ Hide ${unuploadedVisibleSlotsCount} Unused Default Photo Slot${unuploadedVisibleSlotsCount === 1 ? '' : 's'}
+          </button>
+        ` : ''}
+        ${hiddenSlotsCount > 0 ? `
+          <button type="button" onclick="restoreAllHiddenPhotoSlots()" class="px-2.5 py-1.5 rounded-xl bg-emerald-500/20 text-emerald-700 dark:text-emerald-300 border border-emerald-500/30 text-[10px] font-bold hover:bg-emerald-500/30 transition cursor-pointer">
+            👁️ Show All (${slots.length})
+          </button>
+        ` : ''}
+      </div>
+    </div>
+    <div class="grid grid-cols-1 sm:grid-cols-2 gap-2">
+      ${slotCardsHtml}
+    </div>
+  `;
+};
+
+window.autoHideUnusedPhotoSlots = function() {
+  const slots = getTemplateDeclaredPhotoSlots();
+  const uploadedPhotos = (currentCustomData.media && Array.isArray(currentCustomData.media.photos))
+    ? currentCustomData.media.photos
+    : (Array.isArray(currentCustomData.photos) ? currentCustomData.photos : []);
+  if (!Array.isArray(currentCustomData._hiddenFields)) currentCustomData._hiddenFields = [];
+
+  let hiddenNow = 0;
+  slots.forEach((slot, idx) => {
+    const photoNumMatch = slot.key.match(/^photo_(\d+)$/i);
+    const slotNum = photoNumMatch ? Number(photoNumMatch[1]) : (idx + 1);
+    const uploadedForOrder = uploadedPhotos[slotNum - 1];
+    const directVal = currentCustomData[slot.key];
+    const hasCustomUpload = Boolean(
+      (uploadedForOrder && (uploadedForOrder.src || uploadedForOrder.url || uploadedForOrder.displayUrl)) ||
+      (directVal && directVal !== slot.defaultSrc && directVal !== templateDefaultValues[slot.key])
+    );
+    if (!hasCustomUpload && !currentCustomData._hiddenFields.includes(slot.key)) {
+      currentCustomData._hiddenFields.push(slot.key);
+      if (photoNumMatch) {
+        const n = photoNumMatch[1];
+        [`photo_${n}_caption`, `caption_${n}`, `memory_${n}_caption`, `photo_caption_${n}`].forEach(capKey => {
+          if (!currentCustomData._hiddenFields.includes(capKey)) currentCustomData._hiddenFields.push(capKey);
+        });
+      }
+      hiddenNow++;
+    }
+  });
+  currentCustomData.hiddenFields = [...currentCustomData._hiddenFields];
+  if (activeTemplate) renderDynamicTemplateFields(activeTemplate);
+  renderTemplatePhotoSlotsManager();
+  triggerAutosave();
+  syncDataToIframe();
+  showToast(`🙈 Hid ${hiddenNow} unused photo slot${hiddenNow === 1 ? '' : 's'} from your website!`);
+};
+
+window.restoreAllHiddenPhotoSlots = function() {
+  if (!Array.isArray(currentCustomData._hiddenFields)) return;
+  const slots = new Set(getTemplateDeclaredPhotoSlots().map(s => s.key));
+  currentCustomData._hiddenFields = currentCustomData._hiddenFields.filter(k => {
+    if (slots.has(k) || /^photo_\d+/i.test(k) || /^caption_\d+/i.test(k) || /^memory_\d+_caption/i.test(k)) return false;
+    return true;
+  });
+  currentCustomData.hiddenFields = [...currentCustomData._hiddenFields];
+  if (activeTemplate) renderDynamicTemplateFields(activeTemplate);
+  renderTemplatePhotoSlotsManager();
+  triggerAutosave();
+  syncDataToIframe();
+  showToast('👁️ Restored all photo slots on your website!');
+};
+
+window.triggerSlotSpecificPhotoUpload = function(slotKey) {
+  window._pendingSlotPhotoFieldKey = slotKey;
+  const picker = document.getElementById('slot-specific-photo-picker');
+  if (picker) picker.click();
+};
+
+window.handleSlotSpecificPhotoFile = async function(input) {
+  if (!input.files || input.files.length === 0 || !window._pendingSlotPhotoFieldKey) return;
+  const file = input.files[0];
+  const slotKey = window._pendingSlotPhotoFieldKey;
+  window._pendingSlotPhotoFieldKey = null;
+
+  try {
+    const optimized = await window.WishMediaSystem.ImageProcessor.processImageFile(file, 1600, 0.88);
+    currentCustomData[slotKey] = optimized.src;
+    const photoNumMatch = slotKey.match(/^photo_(\d+)$/i);
+    if (photoNumMatch && currentCustomData.media && Array.isArray(currentCustomData.media.photos)) {
+      const slotIdx = Number(photoNumMatch[1]) - 1;
+      if (slotIdx >= 0 && slotIdx < currentCustomData.media.photos.length) {
+        currentCustomData.media.photos[slotIdx].src = optimized.src;
+        currentCustomData.media.photos[slotIdx].url = optimized.src;
+      } else {
+        currentCustomData.media.photos.push({
+          id: 'photo_' + Date.now().toString(36),
+          name: file.name.replace(/\.[^/.]+$/, ''),
+          src: optimized.src,
+          url: optimized.src,
+          isCover: currentCustomData.media.photos.length === 0,
+          order: currentCustomData.media.photos.length
+        });
+      }
+      window.WishMediaSystem.syncMediaToCustomData(currentCustomData.media, currentCustomData);
+    }
+    if (Array.isArray(currentCustomData._hiddenFields) && currentCustomData._hiddenFields.includes(slotKey)) {
+      window.toggleCustomerFieldVisibility(slotKey, true);
+    } else {
+      renderPhotosUI();
+      if (activeTemplate) renderDynamicTemplateFields(activeTemplate);
+      renderTemplatePhotoSlotsManager();
+      triggerAutosave();
+      syncDataToIframe();
+      showToast(`📸 Uploaded photo to ${slotKey.replace(/_/g, ' ').toUpperCase()}!`);
+    }
+  } catch (err) {
+    showPhotoError(err.message || 'Could not process image.');
+  }
+  input.value = '';
+};
+
+document.addEventListener('DOMContentLoaded', () => {
+  setTimeout(() => {
+    if (typeof window.switchStep1SubTab === 'function') window.switchStep1SubTab('basic');
+    if (typeof window.switchStep2SubTab === 'function') window.switchStep2SubTab('colors');
+    if (typeof window.renderTemplatePhotoSlotsManager === 'function') window.renderTemplatePhotoSlotsManager();
+  }, 150);
+});

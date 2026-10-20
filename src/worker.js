@@ -7663,15 +7663,33 @@ export default {
               delete customData[k];
             }
           }
+          const customerHiddenSecs = new Set(Array.isArray(customData._hiddenSections) ? customData._hiddenSections : (Array.isArray(customData.hiddenSections) ? customData.hiddenSections : []));
+          if (Array.isArray(customData.sections)) {
+            customData.sections.forEach(s => {
+              if (s && s.id && s.enabled === false && !s.required && s.id !== "hero") customerHiddenSecs.add(String(s.id).trim());
+            });
+          }
+          if (customData.sectionsMap && typeof customData.sectionsMap === "object") {
+            Object.entries(customData.sectionsMap).forEach(([sId, cfg]) => {
+              if (cfg && cfg.enabled === false && sId !== "hero") customerHiddenSecs.add(String(sId).trim());
+            });
+          }
+          const mergedDisabledIds = Array.from(new Set([...(wishEffectiveConfig.disabledIds || []), ...customerHiddenSecs]));
+          const mergedVisMap = { ...(wishEffectiveConfig.visibilityMap || {}) };
+          customerHiddenSecs.forEach(sId => { mergedVisMap[sId] = false; });
+          const customerHiddenFields = Array.isArray(customData._hiddenFields) ? customData._hiddenFields : (Array.isArray(customData.hiddenFields) ? customData.hiddenFields : []);
+
           const publishedConfigSnapshot = {
             versionId: templateVersionId,
             versionNumber: templateVersionNumber,
             variantId: matchedWishVariant ? matchedWishVariant.id : null,
             relationshipSlug: wishEffectiveConfig.relationshipSlug,
-            visibilityMap: wishEffectiveConfig.visibilityMap,
-            disabledIds: wishEffectiveConfig.disabledIds,
-            enabledIds: wishEffectiveConfig.enabledIds,
+            visibilityMap: mergedVisMap,
+            disabledIds: mergedDisabledIds,
+            enabledIds: (wishEffectiveConfig.enabledIds || []).filter(id => !customerHiddenSecs.has(id)),
             excludedFieldIds: wishEffectiveConfig.excludedFieldIds,
+            _hiddenSections: Array.from(customerHiddenSecs),
+            _hiddenFields: customerHiddenFields,
             sections: wishEffectiveConfig.sections,
             actions: wishEffectiveConfig.actions,
             actionsMap: wishEffectiveConfig.actionsMap
@@ -8606,7 +8624,10 @@ export default {
           );
         }
 
-        const wish = await env.DB.prepare('SELECT * FROM wishes WHERE slug = ? OR id = ? LIMIT 1').bind(slug, slug).first();
+        let wish = await env.DB.prepare('SELECT * FROM wishes WHERE slug = ? OR id = ? LIMIT 1').bind(slug, slug).first();
+        if (!wish) {
+          wish = await env.DB.prepare('SELECT * FROM wishes WHERE slug LIKE ? ORDER BY created_at DESC LIMIT 1').bind(`${slug}__expired__%`).first().catch(() => null);
+        }
         if (!wish) {
           return applySecurityHeaders(jsonError('NOT_FOUND', 'Celebration wish not found', 404, {}, null, requestId), request, env);
         }
@@ -8701,8 +8722,20 @@ export default {
         const safePublicWish = {
           effectiveConfig: {
             visibilityMap: effectiveWishConfig?.visibilityMap || {},
-            disabledIds: effectiveWishConfig?.disabledIds || [],
+            disabledIds: Array.from(new Set([
+              ...(effectiveWishConfig?.disabledIds || []),
+              ...(Array.isArray(customData?._hiddenSections) ? customData._hiddenSections : []),
+              ...(Array.isArray(effectiveWishConfig?._hiddenSections) ? effectiveWishConfig._hiddenSections : [])
+            ])),
             enabledIds: effectiveWishConfig?.enabledIds || [],
+            _hiddenSections: Array.from(new Set([
+              ...(Array.isArray(customData?._hiddenSections) ? customData._hiddenSections : []),
+              ...(Array.isArray(effectiveWishConfig?._hiddenSections) ? effectiveWishConfig._hiddenSections : [])
+            ])),
+            _hiddenFields: Array.from(new Set([
+              ...(Array.isArray(customData?._hiddenFields) ? customData._hiddenFields : []),
+              ...(Array.isArray(effectiveWishConfig?._hiddenFields) ? effectiveWishConfig._hiddenFields : [])
+            ])),
             sections: effectiveWishConfig?.sections || [],
             actions: effectiveWishConfig?.actions || [],
             actionsMap: effectiveWishConfig?.actionsMap || {}
