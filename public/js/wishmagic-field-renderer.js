@@ -335,7 +335,7 @@
         });
 
         const label = createEl('label', {
-          className: 'wm-field-label block text-xs font-semibold text-slate-700 dark:text-slate-300 uppercase tracking-wider',
+          className: 'wm-field-label block text-xs font-bold text-purple-950 dark:text-purple-100 tracking-wide',
           htmlFor: `wm-ctrl-${fieldKey}`
         });
         label.textContent = labelText;
@@ -384,9 +384,19 @@
 
         // Error Message Box
         const errorEl = createEl('div', {
+          id: `wm-err-${fieldKey}`,
           className: `wm-field-error text-xs text-rose-600 dark:text-rose-400 mt-1.5 flex items-center gap-1 ${!initialError ? 'hidden' : ''}`,
-          role: 'alert'
+          role: 'alert',
+          'aria-live': 'polite'
         });
+        if (controlEl) {
+          const focusable = controlEl.matches && controlEl.matches('input, textarea, select') ? controlEl : (controlEl.querySelector ? controlEl.querySelector('input, textarea, select') : null);
+          if (focusable) {
+            if (isRequired) focusable.setAttribute('aria-required', 'true');
+            focusable.setAttribute('aria-describedby', `wm-err-${fieldKey}`);
+            if (initialError) focusable.setAttribute('aria-invalid', 'true');
+          }
+        }
         errorEl.innerHTML = `<svg class="w-3.5 h-3.5 inline shrink-0" fill="currentColor" viewBox="0 0 20 20"><path fill-rule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7 4a1 1 0 11-2 0 1 1 0 012 0zm-1-9a1 1 0 00-1 1v4a1 1 0 102 0V6a1 1 0 00-1-1z" clip-rule="evenodd"></path></svg><span class="wm-error-text">${escapeHtml(initialError)}</span>`;
         container.appendChild(errorEl);
 
@@ -412,7 +422,7 @@
           const textarea = createEl('textarea', {
             id: `wm-ctrl-${fieldKey}`,
             name: fieldKey,
-            className: 'wm-input wm-textarea w-full px-3.5 py-2.5 rounded-xl border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-900 text-slate-800 dark:text-slate-100 text-sm focus:ring-2 focus:ring-amber-500 focus:border-amber-500 outline-none transition resize-y min-h-[90px]',
+            className: 'wm-input wm-textarea w-full px-4 py-3 rounded-2xl border border-purple-200/80 dark:border-purple-800/60 bg-white/85 dark:bg-purple-950/60 text-purple-950 dark:text-purple-100 text-xs sm:text-sm font-semibold focus:ring-2 focus:ring-pink-500 focus:border-pink-500 outline-none transition resize-y min-h-[90px]',
             placeholder: field.placeholder || 'Enter your message...',
             rows: 3
           });
@@ -665,7 +675,7 @@
           const selectEl = createEl('select', {
             id: `wm-ctrl-${fieldKey}`,
             name: fieldKey,
-            className: 'wm-input w-full px-3.5 py-2.5 rounded-xl border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-900 text-slate-800 dark:text-slate-100 text-sm focus:ring-2 focus:ring-amber-500 outline-none'
+            className: 'wm-input w-full px-4 py-3 rounded-2xl border border-purple-200/80 dark:border-purple-800/60 bg-white/85 dark:bg-purple-950/60 text-purple-950 dark:text-purple-100 text-xs sm:text-sm font-semibold focus:ring-2 focus:ring-pink-500 outline-none'
           });
           if (isDisabled) selectEl.disabled = true;
 
@@ -796,7 +806,7 @@
           const selectEl = createEl('select', {
             id: `wm-ctrl-${fieldKey}`,
             name: fieldKey,
-            className: 'wm-input w-full px-3.5 py-2.5 rounded-xl border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-900 text-slate-800 dark:text-slate-100 text-sm focus:ring-2 focus:ring-amber-500 outline-none'
+            className: 'wm-input w-full px-4 py-3 rounded-2xl border border-purple-200/80 dark:border-purple-800/60 bg-white/85 dark:bg-purple-950/60 text-purple-950 dark:text-purple-100 text-xs sm:text-sm font-semibold focus:ring-2 focus:ring-pink-500 outline-none'
           });
           if (isDisabled) selectEl.disabled = true;
 
@@ -954,7 +964,7 @@
             name: fieldKey,
             value: value !== undefined && value !== null ? String(value) : '',
             placeholder: field.placeholder || `Enter ${field.label || fieldKey}...`,
-            className: 'wm-input w-full px-3.5 py-2.5 rounded-xl border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-900 text-slate-800 dark:text-slate-100 text-sm focus:ring-2 focus:ring-amber-500 focus:border-amber-500 outline-none transition'
+            className: 'wm-input w-full px-4 py-3 rounded-2xl border border-purple-200/80 dark:border-purple-800/60 bg-white/85 dark:bg-purple-950/60 text-purple-950 dark:text-purple-100 text-xs sm:text-sm font-semibold focus:ring-2 focus:ring-pink-500 focus:border-pink-500 outline-none transition'
           });
 
           if (field.maxLength || field.maxlength) {

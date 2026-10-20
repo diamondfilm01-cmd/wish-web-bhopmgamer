@@ -259,7 +259,7 @@ test('Part 3 — Automatic Template ZIP Ingestion Engine & Storage Pipeline', as
     assert.strictEqual(versionInsert.args[4], 'v1.0.0'); // version_label
 
     const fieldsInsert = dbStatements.filter(s => s.sql.includes('template_fields'));
-    assert.ok(fieldsInsert.length >= 2, 'template_fields records inserted into D1');
+    assert.ok(fieldsInsert.length >= 1 && fieldsInsert[0].args.includes('partner_name') && fieldsInsert[0].args.includes('love_note'), 'template_fields records inserted into D1');
   });
 
   await t.test('TEST 9: Idempotency & Duplicate Package Detection', async () => {

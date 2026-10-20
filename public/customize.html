@@ -31,18 +31,83 @@
     .font-serif-accent { font-family: 'Playfair Display', serif; }
 
     :root {
-      --bg-ambient-1: rgba(244, 114, 182, 0.12);
-      --bg-ambient-2: rgba(168, 85, 247, 0.14);
-      --card-bg: rgba(255, 255, 255, 0.88);
-      --card-border: rgba(216, 180, 254, 0.6);
+      --bg-ambient-1: rgba(244, 114, 182, 0.10);
+      --bg-ambient-2: rgba(168, 85, 247, 0.12);
+      --card-bg: rgba(255, 255, 255, 0.92);
+      --card-border: rgba(216, 180, 254, 0.65);
       --text-main: #24113F;
+      /* Stage 2 Enterprise Design System Tokens */
+      --cm-primary: #db2777;
+      --cm-secondary: #7c3aed;
+      --cm-accent: #d97706;
+      --cm-bg: #fbf8ff;
+      --cm-surface: rgba(255, 255, 255, 0.92);
+      --cm-surface-elevated: #ffffff;
+      --cm-border: rgba(192, 132, 252, 0.45);
+      --cm-text: #24113F;
+      --cm-text-muted: #5b3b82;
+      --cm-success: #059669;
+      --cm-warning: #d97706;
+      --cm-error: #e11d48;
+      --cm-radius-sm: 0.75rem;
+      --cm-radius-md: 1rem;
+      --cm-radius-lg: 1.25rem;
+      --cm-radius-xl: 1.5rem;
+      --cm-space-1: 0.25rem;
+      --cm-space-2: 0.5rem;
+      --cm-space-3: 0.75rem;
+      --cm-space-4: 1rem;
+      --cm-space-6: 1.5rem;
+      --cm-control-height: 2.625rem;
+      --cm-focus-ring: 0 0 0 3px rgba(219, 39, 119, 0.35);
+      --cm-shadow-sm: 0 2px 8px -2px rgba(88, 28, 135, 0.08);
+      --cm-shadow-md: 0 10px 24px -6px rgba(88, 28, 135, 0.12);
     }
     html.dark {
-      --bg-ambient-1: rgba(236, 72, 153, 0.15);
-      --bg-ambient-2: rgba(124, 58, 237, 0.22);
-      --card-bg: rgba(26, 11, 46, 0.88);
-      --card-border: rgba(147, 51, 234, 0.35);
+      --bg-ambient-1: rgba(236, 72, 153, 0.12);
+      --bg-ambient-2: rgba(124, 58, 237, 0.18);
+      --card-bg: rgba(24, 10, 44, 0.92);
+      --card-border: rgba(147, 51, 234, 0.38);
       --text-main: #F3E8FF;
+      --cm-primary: #f472b6;
+      --cm-secondary: #a78bfa;
+      --cm-accent: #fbbf24;
+      --cm-bg: #0f041b;
+      --cm-surface: rgba(24, 10, 44, 0.92);
+      --cm-surface-elevated: #1e0b36;
+      --cm-border: rgba(168, 85, 247, 0.38);
+      --cm-text: #f3e8ff;
+      --cm-text-muted: #d8b4fe;
+      --cm-success: #34d399;
+      --cm-warning: #fbbf24;
+      --cm-error: #fb7185;
+      --cm-focus-ring: 0 0 0 3px rgba(244, 114, 182, 0.45);
+    }
+
+    /* Accessible Keyboard Focus Ring (scoped to Customizer UI shell) */
+    header button:focus-visible,
+    header a:focus-visible,
+    #customizer-controls-column button:focus-visible,
+    #customizer-controls-column input:focus-visible,
+    #customizer-controls-column textarea:focus-visible,
+    #customizer-controls-column select:focus-visible,
+    #wizard-steps-nav button:focus-visible {
+      outline: 2px solid var(--cm-primary);
+      outline-offset: 2px;
+      box-shadow: var(--cm-focus-ring);
+    }
+
+    /* Stage 2 & Stage 8: Respect Reduced Motion Preferences */
+    @media (prefers-reduced-motion: reduce) {
+      *, *::before, *::after {
+        animation-duration: 0.01ms !important;
+        animation-iteration-count: 1 !important;
+        transition-duration: 0.01ms !important;
+        scroll-behavior: auto !important;
+      }
+      .sandbox-frame-shell {
+        transition: none !important;
+      }
     }
 
     body {
@@ -268,40 +333,40 @@
   <!-- ========================================== -->
   <!-- 2. STEPPER PROGRESSION NAVIGATION BAR      -->
   <!-- ========================================== -->
-  <section class="px-2.5 sm:px-6 md:px-8 max-w-7xl mx-auto w-full pt-2.5 sm:pt-4 pb-1">
-    <div class="glass-surface rounded-2xl sm:rounded-full p-1 sm:p-2 grid grid-cols-4 sm:flex items-center justify-between gap-1 shadow-sm overflow-hidden">
+  <section id="wizard-steps-nav" aria-label="Customization Steps" class="px-2.5 sm:px-6 md:px-8 max-w-7xl mx-auto w-full pt-2 sm:pt-3 pb-1">
+    <div role="tablist" aria-label="Wish Builder Steps" class="glass-surface rounded-2xl sm:rounded-full p-1 sm:p-1.5 grid grid-cols-4 sm:flex items-center justify-between gap-1 shadow-sm overflow-hidden">
       
       <!-- Step 1 Tab -->
-      <button id="step-tab-1" onclick="goToStep(1)" class="step-tab-btn flex-1 min-w-0 flex items-center justify-center gap-1 sm:gap-1.5 py-1.5 px-1.5 sm:px-4 rounded-xl font-bold text-[11px] sm:text-sm bg-purple-700 text-white shadow-md transition-all">
-        <span id="step-check-1" class="hidden text-emerald-300 flex-shrink-0">✓</span>
-        <span id="step-num-1" class="w-4 h-4 rounded-full bg-white/20 text-[10px] flex items-center justify-center font-black flex-shrink-0">1</span>
+      <button type="button" id="step-tab-1" role="tab" aria-selected="true" aria-controls="step-content-1" tabindex="0" onclick="goToStep(1)" class="step-tab-btn flex-1 min-w-0 flex items-center justify-center gap-1 sm:gap-1.5 py-1.5 px-1.5 sm:px-4 rounded-xl font-bold text-[11px] sm:text-sm bg-purple-700 text-white shadow-md transition-all">
+        <span id="step-check-1" class="hidden text-emerald-300 flex-shrink-0" aria-hidden="true">✓</span>
+        <span id="step-num-1" class="w-4 h-4 rounded-full bg-white/20 text-[10px] flex items-center justify-center font-black flex-shrink-0" aria-hidden="true">1</span>
         <span class="truncate">Details</span>
       </button>
 
-      <span class="text-purple-300 dark:text-purple-700 font-bold hidden sm:inline">→</span>
+      <span class="text-purple-300 dark:text-purple-700 font-bold hidden sm:inline" aria-hidden="true">→</span>
 
       <!-- Step 2 Tab -->
-      <button id="step-tab-2" onclick="goToStep(2)" class="step-tab-btn flex-1 min-w-0 flex items-center justify-center gap-1 sm:gap-1.5 py-1.5 px-1.5 sm:px-4 rounded-xl font-semibold text-[11px] sm:text-sm text-purple-800/70 dark:text-purple-300/70 hover:text-purple-950 dark:hover:text-white transition-all cursor-pointer">
-        <span id="step-check-2" class="hidden text-emerald-400 flex-shrink-0">✓</span>
-        <span id="step-num-2" class="w-4 h-4 rounded-full bg-purple-200 dark:bg-purple-800 text-[10px] flex items-center justify-center font-black flex-shrink-0">2</span>
+      <button type="button" id="step-tab-2" role="tab" aria-selected="false" aria-controls="step-content-2" tabindex="-1" onclick="goToStep(2)" class="step-tab-btn flex-1 min-w-0 flex items-center justify-center gap-1 sm:gap-1.5 py-1.5 px-1.5 sm:px-4 rounded-xl font-semibold text-[11px] sm:text-sm text-purple-800/70 dark:text-purple-300/70 hover:text-purple-950 dark:hover:text-white transition-all cursor-pointer">
+        <span id="step-check-2" class="hidden text-emerald-400 flex-shrink-0" aria-hidden="true">✓</span>
+        <span id="step-num-2" class="w-4 h-4 rounded-full bg-purple-200 dark:bg-purple-800 text-[10px] flex items-center justify-center font-black flex-shrink-0" aria-hidden="true">2</span>
         <span class="truncate">Style</span>
       </button>
 
-      <span class="text-purple-300 dark:text-purple-700 font-bold hidden sm:inline">→</span>
+      <span class="text-purple-300 dark:text-purple-700 font-bold hidden sm:inline" aria-hidden="true">→</span>
 
       <!-- Step 3 Tab -->
-      <button id="step-tab-3" onclick="goToStep(3)" class="step-tab-btn flex-1 min-w-0 flex items-center justify-center gap-1 sm:gap-1.5 py-1.5 px-1.5 sm:px-4 rounded-xl font-semibold text-[11px] sm:text-sm text-purple-800/70 dark:text-purple-300/70 hover:text-purple-950 dark:hover:text-white transition-all cursor-pointer">
-        <span id="step-check-3" class="hidden text-emerald-400 flex-shrink-0">✓</span>
-        <span id="step-num-3" class="w-4 h-4 rounded-full bg-purple-200 dark:bg-purple-800 text-[10px] flex items-center justify-center font-black flex-shrink-0">3</span>
+      <button type="button" id="step-tab-3" role="tab" aria-selected="false" aria-controls="step-content-3" tabindex="-1" onclick="goToStep(3)" class="step-tab-btn flex-1 min-w-0 flex items-center justify-center gap-1 sm:gap-1.5 py-1.5 px-1.5 sm:px-4 rounded-xl font-semibold text-[11px] sm:text-sm text-purple-800/70 dark:text-purple-300/70 hover:text-purple-950 dark:hover:text-white transition-all cursor-pointer">
+        <span id="step-check-3" class="hidden text-emerald-400 flex-shrink-0" aria-hidden="true">✓</span>
+        <span id="step-num-3" class="w-4 h-4 rounded-full bg-purple-200 dark:bg-purple-800 text-[10px] flex items-center justify-center font-black flex-shrink-0" aria-hidden="true">3</span>
         <span class="truncate">Sections</span>
       </button>
 
-      <span class="text-purple-300 dark:text-purple-700 font-bold hidden sm:inline">→</span>
+      <span class="text-purple-300 dark:text-purple-700 font-bold hidden sm:inline" aria-hidden="true">→</span>
 
       <!-- Step 4 Tab -->
-      <button id="step-tab-4" onclick="goToStep(4)" class="step-tab-btn flex-1 min-w-0 flex items-center justify-center gap-1 sm:gap-1.5 py-1.5 px-1.5 sm:px-4 rounded-xl font-semibold text-[11px] sm:text-sm text-purple-800/70 dark:text-purple-300/70 hover:text-purple-950 dark:hover:text-white transition-all cursor-pointer">
-        <span id="step-check-4" class="hidden text-emerald-400 flex-shrink-0">✓</span>
-        <span id="step-num-4" class="w-4 h-4 rounded-full bg-purple-200 dark:bg-purple-800 text-[10px] flex items-center justify-center font-black flex-shrink-0">4</span>
+      <button type="button" id="step-tab-4" role="tab" aria-selected="false" aria-controls="step-content-4" tabindex="-1" onclick="goToStep(4)" class="step-tab-btn flex-1 min-w-0 flex items-center justify-center gap-1 sm:gap-1.5 py-1.5 px-1.5 sm:px-4 rounded-xl font-semibold text-[11px] sm:text-sm text-purple-800/70 dark:text-purple-300/70 hover:text-purple-950 dark:hover:text-white transition-all cursor-pointer">
+        <span id="step-check-4" class="hidden text-emerald-400 flex-shrink-0" aria-hidden="true">✓</span>
+        <span id="step-num-4" class="w-4 h-4 rounded-full bg-purple-200 dark:bg-purple-800 text-[10px] flex items-center justify-center font-black flex-shrink-0" aria-hidden="true">4</span>
         <span class="truncate">Preview</span>
       </button>
 
@@ -333,38 +398,63 @@
       <!-- LEFT COLUMN: CONTROLS & FORMS (5 COLS)       -->
       <!-- ============================================ -->
       <div id="customizer-controls-column" class="lg:col-span-5 flex flex-col gap-3.5 order-1 lg:order-1 w-full lg:!flex">
+
+        <!-- STAGE 3: 3-LEVEL PROGRESSIVE CUSTOMIZATION BAR & PROGRESS METER -->
+        <div id="customization-levels-card" class="glass-surface rounded-2xl p-2.5 shadow-sm border border-purple-300/70 dark:border-purple-700/60 space-y-2">
+          <div class="flex items-center justify-between gap-2 px-0.5">
+            <div>
+              <h2 class="text-xs font-extrabold text-purple-950 dark:text-white leading-tight">Personalize Your Wish Website</h2>
+              <p class="text-[10px] text-purple-700/80 dark:text-purple-300/80">Start with Quick Customize, or add optional photos, music &amp; themes</p>
+            </div>
+            <span id="customizer-progress-text" class="text-[10px] font-extrabold text-emerald-700 dark:text-emerald-300 bg-emerald-500/15 px-2 py-0.5 rounded-full shrink-0">Required: 0/2 complete</span>
+          </div>
+          <div class="w-full h-1.5 rounded-full bg-purple-200/70 dark:bg-purple-900/70 overflow-hidden">
+            <div id="customizer-progress-bar" role="progressbar" aria-label="Customization completion progress" aria-valuemin="0" aria-valuemax="100" aria-valuenow="0" class="h-full bg-gradient-to-r from-pink-500 via-purple-600 to-emerald-500 transition-all duration-300" style="width: 15%"></div>
+          </div>
+          <div role="tablist" aria-label="Customization Depth Levels" class="flex items-center gap-1.5">
+            <button type="button" id="level-tab-btn-quick" role="tab" aria-selected="true" tabindex="0" onclick="switchCustomizationLevel('quick')" class="level-tab-btn flex-1 min-w-0 py-2 px-2.5 rounded-xl font-extrabold text-xs bg-gradient-to-r from-pink-500 to-purple-600 text-white shadow-sm flex items-center justify-center gap-1 transition cursor-pointer">
+              <span>⚡</span><span class="truncate">Quick Customize</span>
+            </button>
+            <button type="button" id="level-tab-btn-personal" role="tab" aria-selected="false" tabindex="-1" onclick="switchCustomizationLevel('personal')" class="level-tab-btn flex-1 min-w-0 py-2 px-2.5 rounded-xl font-bold text-xs bg-white/80 dark:bg-purple-950/60 text-purple-900 dark:text-purple-200 hover:bg-purple-100 dark:hover:bg-purple-900/60 border border-purple-200/70 dark:border-purple-800/60 flex items-center justify-center gap-1 transition cursor-pointer">
+              <span>💖</span><span class="truncate">Personal Touch</span>
+            </button>
+            <button type="button" id="level-tab-btn-advanced" role="tab" aria-selected="false" tabindex="-1" onclick="switchCustomizationLevel('advanced')" class="level-tab-btn flex-1 min-w-0 py-2 px-2.5 rounded-xl font-bold text-xs bg-white/80 dark:bg-purple-950/60 text-purple-900 dark:text-purple-200 hover:bg-purple-100 dark:hover:bg-purple-900/60 border border-purple-200/70 dark:border-purple-800/60 flex items-center justify-center gap-1 transition cursor-pointer">
+              <span>🎨</span><span class="truncate">Advanced Style</span>
+            </button>
+          </div>
+        </div>
         
         <!-- STEP 1: DETAILS CONTAINER -->
-        <div id="step-content-1" class="flex flex-col gap-3.5">
+        <div id="step-content-1" role="tabpanel" aria-labelledby="step-tab-1" class="flex flex-col gap-3.5">
           
           <!-- Validation error box placeholder -->
-          <div id="step-1-validation-error" class="hidden"></div>
+          <div id="step-1-validation-error" role="alert" aria-live="assertive" class="hidden"></div>
 
           <!-- QUICK BITE-SIZED SUB-TAB NAVIGATOR (Clean Non-Overlapping Card Switcher!) -->
           <div id="step1-subtab-bar" class="glass-surface rounded-2xl p-2 shadow-sm border border-purple-300/70 dark:border-purple-700/60">
             <div class="flex items-center justify-between gap-1.5 mb-1.5 px-1">
               <span class="text-[11px] font-extrabold text-purple-950 dark:text-purple-100 flex items-center gap-1">
-                <span>⚡ Quick Edit Sections</span>
+                <span>⚡ Content &amp; Media Sections</span>
               </span>
               <div class="flex items-center gap-1.5">
-                <span id="step1-progress-pill" class="px-2 py-0.5 rounded-full text-[10px] font-black bg-emerald-500/20 text-emerald-700 dark:text-emerald-300">Basic Info</span>
-                <button type="button" id="step1-subtab-btn-all" onclick="switchStep1SubTab('all')" class="step1-subtab-btn py-1 px-2.5 rounded-lg font-bold text-[10px] bg-purple-100/80 dark:bg-purple-900/50 text-purple-800 dark:text-purple-200 hover:bg-purple-200 flex items-center gap-1 transition cursor-pointer" title="Show all cards on one page">
+                <span id="step1-progress-pill" class="px-2 py-0.5 rounded-full text-[10px] font-black bg-emerald-500/20 text-emerald-700 dark:text-emerald-300">Section 1 of 4</span>
+                <button type="button" id="step1-subtab-btn-all" role="tab" aria-selected="false" onclick="switchStep1SubTab('all')" class="step1-subtab-btn py-1.5 px-3 rounded-lg font-bold text-[11px] bg-purple-100/80 dark:bg-purple-900/50 text-purple-800 dark:text-purple-200 hover:bg-purple-200 flex items-center gap-1 transition cursor-pointer" title="Show all supported sections on one page">
                   <span>📋</span><span>Show All</span>
                 </button>
               </div>
             </div>
-            <div class="grid grid-cols-2 sm:grid-cols-4 gap-1.5">
-              <button type="button" id="step1-subtab-btn-basic" onclick="switchStep1SubTab('basic')" class="step1-subtab-btn py-2 px-2.5 rounded-xl font-bold text-xs bg-gradient-to-r from-pink-500 to-purple-600 text-white shadow-sm flex items-center justify-center gap-1.5 transition cursor-pointer">
+            <div role="tablist" aria-label="Content Personalization Subsections" class="grid grid-cols-2 sm:grid-cols-4 gap-1.5">
+              <button type="button" id="step1-subtab-btn-basic" role="tab" aria-selected="true" tabindex="0" onclick="switchStep1SubTab('basic')" class="step1-subtab-btn min-h-[42px] py-2 px-2.5 rounded-xl font-bold text-xs bg-gradient-to-r from-pink-500 to-purple-600 text-white shadow-sm flex items-center justify-center gap-1.5 transition cursor-pointer">
                 <span>👤</span><span class="truncate">Basic Info</span>
               </button>
-              <button type="button" id="step1-subtab-btn-template" onclick="switchStep1SubTab('template')" class="step1-subtab-btn py-2 px-2.5 rounded-xl font-bold text-xs bg-white/80 dark:bg-purple-950/60 text-purple-900 dark:text-purple-200 hover:bg-purple-100 dark:hover:bg-purple-900/60 border border-purple-200/70 dark:border-purple-800/60 flex items-center justify-center gap-1.5 transition cursor-pointer">
+              <button type="button" id="step1-subtab-btn-template" role="tab" aria-selected="false" tabindex="-1" onclick="switchStep1SubTab('template')" class="step1-subtab-btn min-h-[42px] py-2 px-2.5 rounded-xl font-bold text-xs bg-white/80 dark:bg-purple-950/60 text-purple-900 dark:text-purple-200 hover:bg-purple-100 dark:hover:bg-purple-900/60 border border-purple-200/70 dark:border-purple-800/60 flex items-center justify-center gap-1.5 transition cursor-pointer">
                 <span>✨</span><span class="truncate">Text &amp; Sections</span>
               </button>
-              <button type="button" id="step1-subtab-btn-photos" onclick="switchStep1SubTab('photos')" class="step1-subtab-btn py-2 px-2.5 rounded-xl font-bold text-xs bg-white/80 dark:bg-purple-950/60 text-purple-900 dark:text-purple-200 hover:bg-purple-100 dark:hover:bg-purple-900/60 border border-purple-200/70 dark:border-purple-800/60 flex items-center justify-center gap-1.5 transition cursor-pointer">
-                <span>📸</span><span class="truncate">Photos &amp; Slots</span>
+              <button type="button" id="step1-subtab-btn-photos" role="tab" aria-selected="false" tabindex="-1" onclick="switchStep1SubTab('photos')" class="step1-subtab-btn min-h-[42px] py-2 px-2.5 rounded-xl font-bold text-xs bg-white/80 dark:bg-purple-950/60 text-purple-900 dark:text-purple-200 hover:bg-purple-100 dark:hover:bg-purple-900/60 border border-purple-200/70 dark:border-purple-800/60 flex items-center justify-center gap-1 transition cursor-pointer">
+                <span>📸</span><span class="truncate">Photos</span><span id="subtab-state-badge-photos" class="hidden xl:inline-block px-1 py-0.2 rounded text-[9px] bg-purple-500/15">Default</span>
               </button>
-              <button type="button" id="step1-subtab-btn-audio" onclick="switchStep1SubTab('audio')" class="step1-subtab-btn py-2 px-2.5 rounded-xl font-bold text-xs bg-white/80 dark:bg-purple-950/60 text-purple-900 dark:text-purple-200 hover:bg-purple-100 dark:hover:bg-purple-900/60 border border-purple-200/70 dark:border-purple-800/60 flex items-center justify-center gap-1.5 transition cursor-pointer">
-                <span>🎵</span><span class="truncate">Music &amp; Voice</span>
+              <button type="button" id="step1-subtab-btn-audio" role="tab" aria-selected="false" tabindex="-1" onclick="switchStep1SubTab('audio')" class="step1-subtab-btn min-h-[42px] py-2 px-2.5 rounded-xl font-bold text-xs bg-white/80 dark:bg-purple-950/60 text-purple-900 dark:text-purple-200 hover:bg-purple-100 dark:hover:bg-purple-900/60 border border-purple-200/70 dark:border-purple-800/60 flex items-center justify-center gap-1 transition cursor-pointer">
+                <span>🎵</span><span class="truncate">Music</span><span id="subtab-state-badge-audio" class="hidden xl:inline-block px-1 py-0.2 rounded text-[9px] bg-purple-500/15">Music On</span>
               </button>
             </div>
           </div>
@@ -381,9 +471,10 @@
             <!-- Recipient Name -->
             <div>
               <label for="input-recipient" class="block text-xs font-bold text-purple-950 dark:text-white mb-1.5">
-                Recipient's Name <span class="text-pink-500">*</span>
+                Recipient's Name <span class="text-pink-500" aria-hidden="true">*</span>
               </label>
-              <input type="text" id="input-recipient" oninput="handleRecipientInput(this.value)" placeholder="e.g. Priya Sharma, Kritika, Ananya" class="w-full text-xs sm:text-sm font-semibold rounded-2xl border border-purple-200/80 dark:border-purple-800/60 px-4 py-3 bg-white/80 dark:bg-purple-950/60 text-purple-950 dark:text-purple-100 focus:outline-none focus:ring-2 focus:ring-pink-500 transition shadow-inner"/>
+              <input type="text" id="input-recipient" aria-required="true" aria-describedby="input-recipient-error" oninput="handleRecipientInput(this.value)" placeholder="e.g. Priya Sharma, Kritika, Ananya" class="w-full text-xs sm:text-sm font-semibold rounded-2xl border border-purple-200/80 dark:border-purple-800/60 px-4 py-3 bg-white/80 dark:bg-purple-950/60 text-purple-950 dark:text-purple-100 focus:outline-none focus:ring-2 focus:ring-pink-500 transition shadow-inner"/>
+              <p id="input-recipient-error" aria-live="polite" class="mt-1 text-[11px] font-semibold text-rose-600 dark:text-rose-400 hidden"></p>
             </div>
 
             <!-- Sender Name & Contact Grid -->
@@ -397,9 +488,10 @@
 
               <div>
                 <label for="input-date" class="block text-xs font-bold text-purple-950 dark:text-white mb-1.5">
-                  Date of Birth / Celebration Date <span class="text-pink-500">*</span>
+                  Date of Birth / Celebration Date <span class="text-pink-500" aria-hidden="true">*</span>
                 </label>
-                <input type="date" id="input-date" onchange="handleDateInput(this.value)" class="w-full text-xs sm:text-sm font-semibold rounded-2xl border border-purple-200/80 dark:border-purple-800/60 px-4 py-3 bg-white/80 dark:bg-purple-950/60 text-purple-950 dark:text-purple-100 focus:outline-none focus:ring-2 focus:ring-pink-500 transition shadow-inner"/>
+                <input type="date" id="input-date" aria-required="true" aria-describedby="input-date-error" onchange="handleDateInput(this.value)" class="w-full text-xs sm:text-sm font-semibold rounded-2xl border border-purple-200/80 dark:border-purple-800/60 px-4 py-3 bg-white/80 dark:bg-purple-950/60 text-purple-950 dark:text-purple-100 focus:outline-none focus:ring-2 focus:ring-pink-500 transition shadow-inner"/>
+                <p id="input-date-error" aria-live="polite" class="mt-1 text-[11px] font-semibold text-rose-600 dark:text-rose-400 hidden"></p>
               </div>
             </div>
 
@@ -776,20 +868,20 @@
         </div>
 
         <!-- STEP 2: ADVANCED THEME ENGINE & VISUAL ATMOSPHERE CONTAINER -->
-        <div id="step-content-2" class="hidden flex flex-col gap-4">
+        <div id="step-content-2" role="tabpanel" aria-labelledby="step-tab-2" class="hidden flex flex-col gap-4">
           <!-- STEP 2 SUB-TAB BAR (Clean Non-Overlapping Flow) -->
           <div id="step2-subtab-bar" class="glass-surface rounded-2xl p-2 shadow-sm border border-purple-300/70 dark:border-purple-700/60">
-            <div class="grid grid-cols-2 sm:grid-cols-4 gap-1.5">
-              <button type="button" id="step2-subtab-btn-colors" onclick="switchStep2SubTab('colors')" class="step2-subtab-btn py-2 px-2.5 rounded-xl font-bold text-xs bg-gradient-to-r from-pink-500 to-purple-600 text-white shadow-sm flex items-center justify-center gap-1.5 transition cursor-pointer">
+            <div role="tablist" aria-label="Advanced Styling Categories" class="grid grid-cols-2 sm:grid-cols-4 gap-1.5">
+              <button type="button" id="step2-subtab-btn-colors" role="tab" aria-selected="true" tabindex="0" onclick="switchStep2SubTab('colors')" class="step2-subtab-btn min-h-[40px] py-2 px-2.5 rounded-xl font-bold text-xs bg-gradient-to-r from-pink-500 to-purple-600 text-white shadow-sm flex items-center justify-center gap-1.5 transition cursor-pointer">
                 <span>🎨</span><span class="truncate">Themes &amp; Colors</span>
               </button>
-              <button type="button" id="step2-subtab-btn-fonts" onclick="switchStep2SubTab('fonts')" class="step2-subtab-btn py-2 px-2.5 rounded-xl font-bold text-xs bg-white/80 dark:bg-purple-950/60 text-purple-900 dark:text-purple-200 border border-purple-200/70 dark:border-purple-800/60 flex items-center justify-center gap-1.5 transition cursor-pointer">
+              <button type="button" id="step2-subtab-btn-fonts" role="tab" aria-selected="false" tabindex="-1" onclick="switchStep2SubTab('fonts')" class="step2-subtab-btn min-h-[40px] py-2 px-2.5 rounded-xl font-bold text-xs bg-white/80 dark:bg-purple-950/60 text-purple-900 dark:text-purple-200 border border-purple-200/70 dark:border-purple-800/60 flex items-center justify-center gap-1.5 transition cursor-pointer">
                 <span>✍️</span><span class="truncate">Fonts &amp; Cards</span>
               </button>
-              <button type="button" id="step2-subtab-btn-fx" onclick="switchStep2SubTab('fx')" class="step2-subtab-btn py-2 px-2.5 rounded-xl font-bold text-xs bg-white/80 dark:bg-purple-950/60 text-purple-900 dark:text-purple-200 border border-purple-200/70 dark:border-purple-800/60 flex items-center justify-center gap-1.5 transition cursor-pointer">
+              <button type="button" id="step2-subtab-btn-fx" role="tab" aria-selected="false" tabindex="-1" onclick="switchStep2SubTab('fx')" class="step2-subtab-btn min-h-[40px] py-2 px-2.5 rounded-xl font-bold text-xs bg-white/80 dark:bg-purple-950/60 text-purple-900 dark:text-purple-200 border border-purple-200/70 dark:border-purple-800/60 flex items-center justify-center gap-1.5 transition cursor-pointer">
                 <span>✨</span><span class="truncate">Magic Effects</span>
               </button>
-              <button type="button" id="step2-subtab-btn-all" onclick="switchStep2SubTab('all')" class="step2-subtab-btn py-2 px-2.5 rounded-xl font-semibold text-xs bg-purple-100/70 dark:bg-purple-900/40 text-purple-800 dark:text-purple-300 flex items-center justify-center gap-1 transition cursor-pointer">
+              <button type="button" id="step2-subtab-btn-all" role="tab" aria-selected="false" tabindex="-1" onclick="switchStep2SubTab('all')" class="step2-subtab-btn min-h-[40px] py-2 px-2.5 rounded-xl font-semibold text-xs bg-purple-100/70 dark:bg-purple-900/40 text-purple-800 dark:text-purple-300 flex items-center justify-center gap-1 transition cursor-pointer">
                 <span>📋</span><span class="truncate">Show All</span>
               </button>
             </div>
@@ -799,10 +891,13 @@
           <div data-step2-tab="colors" class="glass-surface rounded-3xl p-5 sm:p-6 shadow-xl space-y-4">
             <div class="flex items-center justify-between pb-3 border-b border-purple-200/60 dark:border-purple-800/40">
               <div>
-                <h3 class="font-display font-extrabold text-base text-purple-950 dark:text-white flex items-center gap-2">
-                  <span>🎨 Visual Theme Preset</span>
-                </h3>
-                <p class="text-[11px] text-purple-700/80 dark:text-purple-300/80 mt-0.5">Transforms colors, fonts, atmosphere, cards, and animations in 1-tap</p>
+                <div class="flex flex-wrap items-center gap-2">
+                  <h3 class="font-display font-extrabold text-base text-purple-950 dark:text-white flex items-center gap-2">
+                    <span>🎨 Wish Website Theme Preset</span>
+                  </h3>
+                  <span class="px-2 py-0.5 rounded-full text-[10px] font-bold bg-pink-500/15 text-pink-700 dark:text-pink-300 border border-pink-500/30">Applies to Recipient's Wish Page</span>
+                </div>
+                <p class="text-[11px] text-purple-700/80 dark:text-purple-300/80 mt-0.5">Transforms your celebration website's colors, fonts, and atmosphere (independent of the editor's light/dark mode)</p>
               </div>
               <button type="button" onclick="resetThemeToDefaults()" class="px-3 py-1.5 rounded-xl bg-purple-100/90 dark:bg-purple-900/60 hover:bg-purple-200 dark:hover:bg-purple-800 text-purple-900 dark:text-purple-200 text-xs font-bold transition flex items-center gap-1 active:scale-95" title="Reset theme to default preset values">
                 <span>↺</span>

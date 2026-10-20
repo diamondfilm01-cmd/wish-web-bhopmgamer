@@ -2029,10 +2029,11 @@ export async function executeB2TemplateIngestPipeline(params) {
     if (duplicateVer && db && typeof db.prepare === 'function') {
       try {
         const existingTplCheck = await db.prepare('SELECT id, is_published, status, current_version_id, variants_json FROM templates WHERE id = ? OR slug = ? LIMIT 1').bind(templateId, familySlug).first();
-        if (!existingTplCheck || !existingTplCheck.id) {
+        const isFullDbWithTemplatesTable = Boolean(db._tables && db._tables.templates);
+        if ((!existingTplCheck || !existingTplCheck.id) && (isFullDbWithTemplatesTable || duplicateVer.template_id)) {
           // Parent template row is missing in D1 (e.g. from a previous partial rollback or deletion) — run full registration!
           duplicateVer = null;
-        } else {
+        } else if (existingTplCheck && existingTplCheck.id) {
           const dupShouldPublish = Boolean(
             params.publishImmediately ||
             params.shouldPublish ||

@@ -23,11 +23,69 @@ let customizerTemplateLoadGeneration = 0;
 
 // Map of template default values so uncustomized messages/texts always stay as normal template text
 let templateDefaultValues = {};
+window._userModifiedFields = new Set();
+window._activeCustomizationLevel = 'quick'; // 'quick' (Level A) | 'personal' (Level B) | 'advanced' (Level C)
+window._showAllPhotoSlots = false;
+window._customizerCapabilities = {
+  supportsAnyPhoto: true,
+  supportsMultiGallery: true,
+  supportsVoice: true,
+  supportsMusic: true,
+  supportsDate: true,
+  hasDynamicFields: false
+};
 
-function isMandatoryIdentityField(key) {
-  const k = String(key || '').trim().toLowerCase();
-  return k === 'recipient_name' || k === 'recipientname' || k === 'event_date' || k === 'eventdate' || k === 'dob' || k === 'birth_date' || k === 'celebration_date';
+function templateRequiresEventDate(tpl = activeTemplate) {
+  if (!tpl) return true;
+  const manifest = (tpl.manifest && typeof tpl.manifest === 'object') ? tpl.manifest : null;
+  const rawFields = (manifest && Array.isArray(manifest.fields) && manifest.fields.length > 0)
+    ? manifest.fields
+    : (Array.isArray(tpl.detectedFields) && tpl.detectedFields.length > 0
+      ? tpl.detectedFields
+      : (Array.isArray(tpl.fields) ? tpl.fields : []));
+  const hasExplicitUtpSchema = Boolean(
+    (manifest && Array.isArray(manifest.fields) && manifest.fields.length > 0) ||
+    (Array.isArray(tpl.detectedFields) && tpl.detectedFields.length > 0)
+  );
+  if (!hasExplicitUtpSchema) return true;
+
+  const capsList = Array.isArray(manifest?.capabilities)
+    ? manifest.capabilities
+    : (Array.isArray(tpl.capabilities) ? tpl.capabilities : []);
+  const capsObj = (!Array.isArray(manifest?.capabilities) && typeof manifest?.capabilities === 'object' && manifest?.capabilities)
+    ? manifest.capabilities
+    : ((!Array.isArray(tpl.capabilities) && typeof tpl.capabilities === 'object' && tpl.capabilities) ? tpl.capabilities : {});
+  const hasCountdownCap = capsList.includes('countdown') || Boolean(capsObj.countdown);
+
+  const dateKeys = new Set(['event_date', 'eventdate', 'dob', 'birth_date', 'celebration_date']);
+  const hasDateField = rawFields.some(f => {
+    if (!f || f.disabled === true || f.enabled === false) return false;
+    const k = String(f.id || f.key || '').trim().toLowerCase();
+    const t = String(f.type || '').trim().toLowerCase();
+    return dateKeys.has(k) || t === 'date' || t === 'datetime';
+  });
+  return hasDateField || hasCountdownCap;
 }
+
+function isMandatoryIdentityField(key, tpl = activeTemplate) {
+  const k = String(key || '').trim().toLowerCase();
+  if (k === 'recipient_name' || k === 'recipientname') return true;
+  if (k === 'event_date' || k === 'eventdate' || k === 'dob' || k === 'birth_date' || k === 'celebration_date') {
+    return templateRequiresEventDate(tpl);
+  }
+  return false;
+}
+
+function getLocalDraftStorageKey(tpl = activeTemplate, variantOverride = null) {
+  const tplId = (tpl && tpl.id) ? tpl.id : (typeof tpl === 'string' ? tpl : 'default');
+  const activeVar = variantOverride || (tpl && tpl.selectedVariant) || null;
+  const varId = (activeVar && activeVar.id) ? activeVar.id : (currentCustomData && currentCustomData.variantId ? currentCustomData.variantId : '');
+  return varId ? `wishmagic_draft_${tplId}_${varId}` : `wishmagic_draft_${tplId}`;
+}
+
+window.getLocalDraftStorageKey = getLocalDraftStorageKey;
+window.templateRequiresEventDate = templateRequiresEventDate;
+window.isMandatoryIdentityField = isMandatoryIdentityField;
 
 function ensureDefaultMessagesPreserved() {
   Object.entries(templateDefaultValues).forEach(([k, defVal]) => {
@@ -38,6 +96,9 @@ function ensureDefaultMessagesPreserved() {
       }
     }
   });
+  if (!templateRequiresEventDate(activeTemplate) && (!currentCustomData.event_date || !String(currentCustomData.event_date).trim())) {
+    currentCustomData.event_date = new Date().toISOString().split('T')[0];
+  }
 }
 
 // Centralized Customizer State Model
@@ -229,6 +290,10 @@ let autosaveTimeout = null;
 
 // Initialize on DOM load
 document.addEventListener('DOMContentLoaded', async () => {
+  setupStepNavigation();
+  initFormInputs();
+  window._customizerViewportMode = window.innerWidth >= 1024 ? 'desktop' : 'mobile';
+
   const urlParams = new URLSearchParams(window.location.search);
   const cloneWishId = urlParams.get('clone') || urlParams.get('duplicate');
   const editWishId = urlParams.get('edit');
@@ -411,20 +476,27 @@ function applySelectedVariantToCustomizer(variant, isInitialLoad = false) {
     }
   }
 
-  // Apply variant messages, assets, and theme palette into defaults (without overwriting user-edited wish values)
+  // Apply variant messages, assets, and theme palette into defaults (preserving user-edited values)
+  const userEditedSet = window._userModifiedFields instanceof Set ? window._userModifiedFields : new Set();
   if (variant.messages && typeof variant.messages === 'object') {
     Object.entries(variant.messages).forEach(([k, val]) => {
       if (val !== undefined && val !== null && String(val) !== '') {
+        const prevDefault = templateDefaultValues[k];
         templateDefaultValues[k] = val;
-        if (!isMandatoryIdentityField(k) && (!currentCustomData[k] || !isInitialLoad)) {
+        const curVal = currentCustomData[k];
+        const isUnchangedFromDefault = !curVal || curVal === prevDefault || !userEditedSet.has(k);
+        if (!isMandatoryIdentityField(k) && isUnchangedFromDefault) {
           currentCustomData[k] = val;
         }
       }
     });
     const varWish = variant.messages.custom_message || variant.messages.defaultWish || variant.messages.main_message;
-    if (varWish && (!currentCustomData.custom_message || !isInitialLoad)) {
-      currentCustomData.custom_message = varWish;
+    if (varWish) {
+      const prevWishDef = templateDefaultValues.custom_message;
       templateDefaultValues.custom_message = varWish;
+      if (!currentCustomData.custom_message || currentCustomData.custom_message === prevWishDef || !userEditedSet.has('custom_message')) {
+        currentCustomData.custom_message = varWish;
+      }
     }
   }
 
@@ -437,19 +509,23 @@ function applySelectedVariantToCustomizer(variant, isInitialLoad = false) {
     });
   }
 
-  if (variant.theme && typeof variant.theme === 'object') {
-    const pal = variant.theme.palette || variant.theme;
-    if (pal.primary) currentCustomData.colors.primary = pal.primary;
-    if (pal.secondary) currentCustomData.colors.secondary = pal.secondary;
-    if (pal.accent) currentCustomData.colors.accent = pal.accent;
-    if (pal.background) currentCustomData.colors.background = pal.background;
-  }
+  const applyVariantPalette = () => {
+    if (variant.theme && typeof variant.theme === 'object' && !currentCustomData._userOverrodePalette) {
+      const pal = variant.theme.palette || variant.theme;
+      if (pal.primary) currentCustomData.colors.primary = pal.primary;
+      if (pal.secondary) currentCustomData.colors.secondary = pal.secondary;
+      if (pal.accent) currentCustomData.colors.accent = pal.accent;
+      if (pal.background) currentCustomData.colors.background = pal.background;
+    }
+  };
+  applyVariantPalette();
 
   if (!isInitialLoad) {
     renderCustomizerHeader();
     applyUtpTemplateCapabilityGating(activeTemplate);
     renderDynamicTemplateFields(activeTemplate);
     populateFormValuesFromState();
+    applyVariantPalette();
     loadTemplateInSandbox();
   }
 }
@@ -482,7 +558,11 @@ async function loadTemplateData(templateId) {
       }
     }
 
-    if (!activeTemplate || currentGen !== customizerTemplateLoadGeneration) return;
+    if (!activeTemplate) {
+      renderTemplateLoadErrorState(templateId, 'Could not load the selected template metadata.');
+      return;
+    }
+    if (currentGen !== customizerTemplateLoadGeneration) return;
 
     // Flow J: Block invalid or unpublished variant IDs from bypassing availability checks
     if (activeTemplate.selectedVariantError === 'VARIANT_UNAVAILABLE') {
@@ -519,15 +599,20 @@ async function loadTemplateData(templateId) {
       applySelectedVariantToCustomizer(resolvedInitialVariant, true);
     }
 
-    // Check for existing local draft (scoped by variant if applicable)
-    const draftKey = resolvedInitialVariant
-      ? `wishmagic_draft_${activeTemplate.id}_${resolvedInitialVariant.id}`
-      : `wishmagic_draft_${activeTemplate.id}`;
-    const rawSavedDraft = localStorage.getItem(draftKey);
+    // Check for existing local draft (scoped by variant via unified getLocalDraftStorageKey, with legacy fallback)
+    const draftKey = getLocalDraftStorageKey(activeTemplate, resolvedInitialVariant);
+    const legacyDraftKey = `wishmagic_draft_${activeTemplate.id}`;
+    const rawSavedDraft = localStorage.getItem(draftKey) || (!resolvedInitialVariant ? localStorage.getItem(legacyDraftKey) : null);
     if (rawSavedDraft) {
       const parsed = window.WishSecurity ? window.WishSecurity.safeJSONParse(rawSavedDraft, null) : JSON.parse(rawSavedDraft);
       if (parsed && typeof parsed === 'object') {
         currentCustomData = { ...currentCustomData, ...parsed };
+        if (resolvedInitialVariant) {
+          currentCustomData.variantId = resolvedInitialVariant.id;
+          currentCustomData.variantSlug = resolvedInitialVariant.slug || resolvedInitialVariant.id;
+          currentCustomData.relationship = resolvedInitialVariant.relationshipSlug || currentCustomData.relationship;
+          currentCustomData.relationshipLabel = resolvedInitialVariant.relationshipLabel || resolvedInitialVariant.relationshipSlug;
+        }
         showToast('Restored your saved local draft ✨');
       }
     }
@@ -557,10 +642,52 @@ async function loadTemplateData(templateId) {
       });
     }
 
+    if (typeof window.updateCustomizationProgressUI === 'function') {
+      window.updateCustomizationProgressUI();
+    }
   } catch (err) {
     console.error('Error loading template for customizer:', err);
+    renderTemplateLoadErrorState(templateId, err && err.message ? err.message : 'Network error while loading template.');
   }
 }
+
+function renderTemplateLoadErrorState(templateId, errorMsg) {
+  const titleEl = document.getElementById('customizer-template-name');
+  if (titleEl) titleEl.textContent = 'Template Load Error';
+  const errBox = document.getElementById('step-1-validation-error');
+  if (errBox) {
+    errBox.setAttribute('role', 'alert');
+    errBox.setAttribute('aria-live', 'assertive');
+    errBox.innerHTML = `
+      <div class="p-4 rounded-2xl bg-rose-500/15 border border-rose-500/40 text-rose-800 dark:text-rose-200 text-xs flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 mb-4">
+        <div class="flex items-start gap-2.5">
+          <span class="material-symbols-outlined text-[20px] text-rose-500 shrink-0">error</span>
+          <div>
+            <p class="font-extrabold text-sm">Unable to load template "${escapeHtml(String(templateId || ''))}"</p>
+            <p class="mt-0.5 opacity-90">${escapeHtml(String(errorMsg || 'Please check your connection and try again.'))}</p>
+          </div>
+        </div>
+        <div class="flex items-center gap-2 shrink-0">
+          <button type="button" onclick="window.retryLoadTemplateData('${escapeHtml(String(templateId || ''))}')" class="px-3.5 py-2 rounded-xl bg-rose-600 hover:bg-rose-700 text-white font-bold text-xs transition cursor-pointer">
+            Retry Load
+          </button>
+          <a href="/templates.html" class="px-3.5 py-2 rounded-xl bg-white/80 dark:bg-purple-900/60 text-purple-900 dark:text-purple-100 font-bold text-xs border border-purple-300/60 transition">
+            Browse Templates
+          </a>
+        </div>
+      </div>
+    `;
+    errBox.classList.remove('hidden');
+  }
+}
+
+window.retryLoadTemplateData = function(tplId) {
+  const errBox = document.getElementById('step-1-validation-error');
+  if (errBox) errBox.classList.add('hidden');
+  const urlParams = new URLSearchParams(window.location.search);
+  const targetId = tplId || urlParams.get('template') || urlParams.get('id') || 'tpl_glitter_birthday';
+  loadTemplateData(targetId);
+};
 
 // -----------------------------------------------------------------------------
 // PART 4: MANIFEST-DRIVEN UNIVERSAL CUSTOMIZER & DYNAMIC FIELDS ENGINE
@@ -654,15 +781,16 @@ function applyUtpTemplateCapabilityGating(template) {
     const wrapper = inputEl.closest("div");
     const declared = fieldByKey.get(key) || (key === "event_date" ? (fieldByKey.get("dob") || fieldByKey.get("birth_date") || fieldByKey.get("celebration_date")) : null);
 
-    // Name (recipient_name) and DOB/Date (event_date) are ALWAYS mandatory and visible
-    if (key === "recipient_name" || key === "event_date") {
+    const dateIsSupported = templateRequiresEventDate(template);
+    if (key === "recipient_name" || (key === "event_date" && dateIsSupported)) {
       if (wrapper) wrapper.classList.remove("hidden");
+      inputEl.setAttribute("aria-required", "true");
       const labelEl = wrapper ? wrapper.querySelector("label") : null;
       if (labelEl) {
         const baseLabel = (declared && declared.label)
           ? declared.label
           : (key === "recipient_name" ? "Recipient's Name" : "Date of Birth / Celebration Date");
-        labelEl.innerHTML = baseLabel + " <span class=\"text-pink-500\">*</span>";
+        labelEl.innerHTML = baseLabel + " <span class=\"text-pink-500\" aria-hidden=\"true\">*</span>";
       }
       if (declared && declared.defaultValue) {
         templateDefaultValues[key] = declared.defaultValue;
@@ -672,6 +800,14 @@ function applyUtpTemplateCapabilityGating(template) {
       }
       if (declared && declared.placeholder) {
         inputEl.placeholder = declared.placeholder;
+      }
+      return;
+    }
+    if (key === "event_date" && !dateIsSupported) {
+      if (wrapper) wrapper.classList.add("hidden");
+      inputEl.removeAttribute("aria-required");
+      if (!currentCustomData.event_date) {
+        currentCustomData.event_date = new Date().toISOString().split("T")[0];
       }
       return;
     }
@@ -748,6 +884,17 @@ function applyUtpTemplateCapabilityGating(template) {
   if (adminDisabledSet.has("music") || adminDisabledSet.has("background_music")) {
     if (musicWrapper) musicWrapper.classList.add("hidden");
   }
+
+  const effectiveVoiceSupported = Boolean(supportsVoice && !adminDisabledSet.has("voice") && !adminDisabledSet.has("voice_note"));
+  const effectiveMusicSupported = Boolean(supportsMusic && !adminDisabledSet.has("music") && !adminDisabledSet.has("background_music"));
+  window._customizerCapabilities = {
+    ...(window._customizerCapabilities || {}),
+    supportsAnyPhoto: Boolean(supportsAnyPhoto && !adminDisabledSet.has("gallery") && !adminDisabledSet.has("photos")),
+    supportsMultiGallery: Boolean(supportsMultiGallery && !adminDisabledSet.has("gallery")),
+    supportsVoice: effectiveVoiceSupported,
+    supportsMusic: effectiveMusicSupported,
+    supportsDate: templateRequiresEventDate(template)
+  };
 
   const declaredSections = (Array.isArray(template.sections) && template.sections.length > 0)
     ? template.sections
@@ -830,6 +977,11 @@ function renderDynamicTemplateFields(template) {
     }
     return true;
   });
+
+  window._customizerCapabilities = {
+    ...(window._customizerCapabilities || {}),
+    hasDynamicFields: dynamicFields.length > 0 || ((currentCustomData.sections || []).length > 0)
+  };
 
   if (dynamicFields.length === 0) {
     if (countBadge) countBadge.textContent = `${(currentCustomData.sections || []).length} Sections`;
@@ -1048,6 +1200,12 @@ function renderDynamicTemplateFields(template) {
   if (typeof renderTemplatePhotoSlotsManager === 'function') {
     renderTemplatePhotoSlotsManager();
   }
+  if (typeof window.syncStep1SubTabCapabilitiesUI === 'function') {
+    window.syncStep1SubTabCapabilitiesUI();
+  }
+  if (typeof window.updateCustomizationProgressUI === 'function') {
+    window.updateCustomizationProgressUI();
+  }
 }
 
 function evaluateFieldVisibility(field, state) {
@@ -1080,6 +1238,7 @@ function evaluateFieldVisibility(field, state) {
 
 function handleDynamicFieldChange(key, newVal, field) {
   currentCustomData[key] = newVal;
+  if (window._userModifiedFields instanceof Set) window._userModifiedFields.add(key);
 
   // Re-evaluate visibility for all fields in container
   const container = document.getElementById('template-dynamic-fields-container');
@@ -1352,8 +1511,12 @@ function populateFormValuesFromState() {
     if (counter) counter.textContent = `${(currentCustomData.custom_message || '').length} / 500`;
   }
 
-  // Style inputs
+  // Style inputs (preserve any custom or variant-assigned colors across theme preset UI sync)
+  const savedColorsBeforePreset = currentCustomData.colors ? { ...currentCustomData.colors } : null;
   selectThemePreset(currentCustomData.theme || 'magical', false);
+  if (savedColorsBeforePreset && (currentCustomData._userOverrodePalette || (activeTemplate && activeTemplate.selectedVariant && activeTemplate.selectedVariant.theme))) {
+    currentCustomData.colors = { ...currentCustomData.colors, ...savedColorsBeforePreset };
+  }
   selectFont(currentCustomData.font || 'modern', false);
   selectBackgroundStyle(currentCustomData.background || 'gradient', false);
 
@@ -1467,6 +1630,10 @@ function updateStepVisibility() {
     const numIcon = document.getElementById(`step-num-${i}`);
 
     if (stepTab) {
+      stepTab.setAttribute('role', 'tab');
+      stepTab.setAttribute('aria-selected', i === currentStep ? 'true' : 'false');
+      stepTab.setAttribute('aria-controls', `step-content-${i}`);
+      stepTab.tabIndex = i === currentStep ? 0 : -1;
       if (i === currentStep) {
         stepTab.className = 'step-tab-btn flex-1 min-w-0 flex items-center justify-center gap-1 sm:gap-1.5 py-1.5 px-1.5 sm:px-4 rounded-xl font-bold text-[11px] sm:text-sm bg-purple-700 text-white shadow-md transition-all';
       } else if (i < currentStep) {
@@ -1487,16 +1654,23 @@ function updateStepVisibility() {
     }
   }
 
-  // 2. Show/Hide Step Content Panes
+  // 2. Show/Hide Step Content Panes with ARIA tabpanel semantics
   for (let i = 1; i <= TOTAL_STEPS; i++) {
     const pane = document.getElementById(`step-content-${i}`);
     if (pane) {
+      pane.setAttribute('role', 'tabpanel');
+      pane.setAttribute('aria-labelledby', `step-tab-${i}`);
       if (i === currentStep) {
         pane.classList.remove('hidden');
+        pane.setAttribute('aria-hidden', 'false');
       } else {
         pane.classList.add('hidden');
+        pane.setAttribute('aria-hidden', 'true');
       }
     }
+  }
+  if (typeof window.syncCustomizationLevelButtonsUI === 'function') {
+    window.syncCustomizationLevelButtonsUI();
   }
 
   // 3. Update Footer Navigation Bar
@@ -1543,6 +1717,33 @@ function updateStepVisibility() {
 }
 
 // Validation for Step 1
+function setInlineFieldError(inputEl, errorId, message) {
+  if (!inputEl) return;
+  let errEl = document.getElementById(errorId);
+  if (!errEl && inputEl.parentElement) {
+    errEl = document.createElement('p');
+    errEl.id = errorId;
+    errEl.className = 'mt-1 text-[11px] font-semibold text-rose-600 dark:text-rose-400 hidden';
+    inputEl.parentElement.appendChild(errEl);
+  }
+  if (message) {
+    inputEl.classList.add('border-red-500', 'ring-2', 'ring-red-400/40');
+    inputEl.setAttribute('aria-invalid', 'true');
+    inputEl.setAttribute('aria-describedby', errorId);
+    if (errEl) {
+      errEl.textContent = message;
+      errEl.classList.remove('hidden');
+    }
+  } else {
+    inputEl.classList.remove('border-red-500', 'ring-2', 'ring-red-400/40');
+    inputEl.setAttribute('aria-invalid', 'false');
+    if (errEl) {
+      errEl.textContent = '';
+      errEl.classList.add('hidden');
+    }
+  }
+}
+
 function validateStep1() {
   ensureDefaultMessagesPreserved();
 
@@ -1556,17 +1757,20 @@ function validateStep1() {
   let errors = [];
 
   if (!currentCustomData.recipient_name || currentCustomData.recipient_name.trim().length === 0) {
+    const msg = "Please enter the recipient's name (e.g., Aarav).";
     errors.push("Recipient Name is required");
-    if (recipientInput) recipientInput.classList.add('border-red-500', 'ring-2', 'ring-red-400/40');
+    setInlineFieldError(recipientInput, 'input-recipient-error', msg);
   } else {
-    if (recipientInput) recipientInput.classList.remove('border-red-500', 'ring-2', 'ring-red-400/40');
+    setInlineFieldError(recipientInput, 'input-recipient-error', '');
   }
 
-  if (!currentCustomData.event_date || currentCustomData.event_date.trim().length === 0) {
+  const requiresDate = templateRequiresEventDate(activeTemplate);
+  if (requiresDate && (!currentCustomData.event_date || currentCustomData.event_date.trim().length === 0)) {
+    const msg = "Please choose the celebration or birthday date.";
     errors.push("Date of Birth / Celebration Date is required");
-    if (dateInput) dateInput.classList.add('border-red-500', 'ring-2', 'ring-red-400/40');
+    setInlineFieldError(dateInput, 'input-date-error', msg);
   } else {
-    if (dateInput) dateInput.classList.remove('border-red-500', 'ring-2', 'ring-red-400/40');
+    setInlineFieldError(dateInput, 'input-date-error', '');
   }
 
   // Validate dynamic manifest fields (only Name/DOB are required; uncustomized messages/texts keep their template defaults)
@@ -1597,7 +1801,12 @@ function validateStep1() {
   }
 
   if (errors.length > 0) {
+    if (window._activeStep1SubTab && window._activeStep1SubTab !== 'basic' && window._activeStep1SubTab !== 'all') {
+      window.switchStep1SubTab('basic');
+    }
     if (errorBox) {
+      errorBox.setAttribute('role', 'alert');
+      errorBox.setAttribute('aria-live', 'assertive');
       errorBox.innerHTML = `
         <div class="p-3 rounded-2xl bg-red-500/10 border border-red-500/30 text-red-600 dark:text-red-400 text-xs font-semibold flex items-center gap-2 mb-3">
           <span class="material-symbols-outlined text-[18px]">error</span>
@@ -1758,8 +1967,13 @@ function findRelationshipVariantConfig(rel) {
 function initFormInputs() {
   window.handleRecipientInput = function(val) {
     currentCustomData.recipient_name = val;
+    if (window._userModifiedFields instanceof Set) window._userModifiedFields.add('recipient_name');
+    if (val && String(val).trim()) {
+      setInlineFieldError(document.getElementById('input-recipient'), 'input-recipient-error', '');
+    }
     triggerAutosave();
     syncDataToIframe();
+    if (typeof window.updateCustomizationProgressUI === 'function') window.updateCustomizationProgressUI();
     if (typeof window.initSmartWishLinkUI === 'function' && currentStep === 4) {
       window.initSmartWishLinkUI();
     }
@@ -1767,8 +1981,10 @@ function initFormInputs() {
 
   window.handleSenderInput = function(val) {
     currentCustomData.sender_name = val;
+    if (window._userModifiedFields instanceof Set) window._userModifiedFields.add('sender_name');
     triggerAutosave();
     syncDataToIframe();
+    if (typeof window.updateCustomizationProgressUI === 'function') window.updateCustomizationProgressUI();
     if (typeof window.initSmartWishLinkUI === 'function' && currentStep === 4) {
       window.initSmartWishLinkUI();
     }
@@ -1776,12 +1992,18 @@ function initFormInputs() {
 
   window.handleDateInput = function(val) {
     currentCustomData.event_date = val;
+    if (window._userModifiedFields instanceof Set) window._userModifiedFields.add('event_date');
+    if (val && String(val).trim()) {
+      setInlineFieldError(document.getElementById('input-date'), 'input-date-error', '');
+    }
     triggerAutosave();
     syncDataToIframe();
+    if (typeof window.updateCustomizationProgressUI === 'function') window.updateCustomizationProgressUI();
   };
 
   window.handleContactInput = function(val) {
     currentCustomData.sender_contact = val;
+    if (window._userModifiedFields instanceof Set) window._userModifiedFields.add('sender_contact');
     triggerAutosave();
   };
 
@@ -1796,6 +2018,24 @@ function initFormInputs() {
   window.handleRelationshipInput = function(val) {
     currentCustomData.relationship = val;
     const resetBtn = document.getElementById('btn-reset-variant-defaults');
+
+    // If activeTemplate is a multi-variant template family, resolve and apply the full relationship variant safely
+    if (activeTemplate && window.WishMagicVariantFlow && window.WishMagicVariantFlow.isVariantFamily(activeTemplate)) {
+      const matchedVariant = window.WishMagicVariantFlow.resolveVariantForRelation(activeTemplate, val);
+      if (matchedVariant && (!activeTemplate.selectedVariant || activeTemplate.selectedVariant.id !== matchedVariant.id)) {
+        applySelectedVariantToCustomizer(matchedVariant, false);
+      }
+    } else if (activeTemplate && Array.isArray(activeTemplate.variants) && activeTemplate.variants.length > 0) {
+      const relNorm = String(val || '').toLowerCase().trim().replace(/\s+/g, '_');
+      const matchedVariant = activeTemplate.variants.find(v =>
+        v && v.enabled !== false && v.status !== 'disabled' && (
+          String(v.relationship || v.relationshipSlug || v.slug || '').toLowerCase().replace(/-/g, '_') === relNorm
+        )
+      );
+      if (matchedVariant && (!activeTemplate.selectedVariant || activeTemplate.selectedVariant.id !== matchedVariant.id)) {
+        applySelectedVariantToCustomizer(matchedVariant, false);
+      }
+    }
 
     const variantConfig = findRelationshipVariantConfig(val);
     if (variantConfig) {
@@ -5001,13 +5241,51 @@ function loadTemplateInSandbox() {
     : `/templates-store/${cleanFolder}/${entryFile}`;
 
   container.innerHTML = `
+    <div id="sandbox-loading-overlay" class="absolute inset-0 z-20 flex flex-col items-center justify-center bg-purple-950/80 backdrop-blur-sm text-white rounded-2xl transition-opacity duration-200 pointer-events-none" aria-live="polite">
+      <div class="w-8 h-8 rounded-full border-2 border-pink-400 border-t-transparent animate-spin mb-2"></div>
+      <span class="text-xs font-bold text-purple-100">Loading Live Preview...</span>
+    </div>
+    <div id="sandbox-error-overlay" class="hidden absolute inset-0 z-30 flex flex-col items-center justify-center bg-purple-950/95 text-white p-6 text-center rounded-2xl" role="alert">
+      <span class="material-symbols-outlined text-3xl text-rose-400 mb-2">broken_image</span>
+      <p class="text-sm font-extrabold">Preview failed to load</p>
+      <p class="text-xs text-purple-200/80 mt-1 max-w-xs">Your customization data is safe. You can retry loading the preview below.</p>
+      <button type="button" onclick="window.reloadSandboxIframe()" class="mt-3 px-4 py-2 rounded-xl bg-pink-600 hover:bg-pink-500 text-white text-xs font-bold transition cursor-pointer">
+        Retry Preview
+      </button>
+    </div>
     <iframe id="live-custom-iframe" src="${templateEntryUrl}" class="w-full h-full border-0 rounded-2xl flex-grow bg-white" title="Live Template Sandbox" sandbox="allow-scripts allow-same-origin allow-forms"></iframe>
   `;
 
   const iframe = document.getElementById('live-custom-iframe');
-  iframe.onload = () => {
-    syncDataToIframe();
-  };
+  const loadingOverlay = document.getElementById('sandbox-loading-overlay');
+  const errorOverlay = document.getElementById('sandbox-error-overlay');
+
+  if (typeof window.setDeviceViewport === 'function') {
+    window.setDeviceViewport(window._customizerViewportMode || (window.innerWidth >= 1024 ? 'desktop' : 'mobile'));
+  }
+
+  let loadResolved = false;
+  const fallbackTimer = setTimeout(() => {
+    if (!loadResolved && loadingOverlay) {
+      loadingOverlay.classList.add('opacity-0', 'hidden');
+    }
+  }, 6000);
+
+  if (iframe) {
+    iframe.onload = () => {
+      loadResolved = true;
+      clearTimeout(fallbackTimer);
+      if (loadingOverlay) loadingOverlay.classList.add('opacity-0', 'hidden');
+      if (errorOverlay) errorOverlay.classList.add('hidden');
+      syncDataToIframe();
+    };
+    iframe.onerror = () => {
+      loadResolved = true;
+      clearTimeout(fallbackTimer);
+      if (loadingOverlay) loadingOverlay.classList.add('opacity-0', 'hidden');
+      if (errorOverlay) errorOverlay.classList.remove('hidden');
+    };
+  }
 }
 
 function syncDataToIframe() {
@@ -5015,12 +5293,13 @@ function syncDataToIframe() {
   if (!iframe) return;
 
   // 1. PostMessage Event Dispatch (including UTP v1.2.0 visibilityMap, disabledIds, and actions)
+  const explicitHiddenSecs = Array.isArray(currentCustomData._hiddenSections) ? currentCustomData._hiddenSections : [];
+  currentCustomData._hiddenSections = explicitHiddenSecs;
+  currentCustomData.hiddenSections = explicitHiddenSecs;
   const customerHiddenSecsList = Array.from(new Set([
-    ...(Array.isArray(currentCustomData._hiddenSections) ? currentCustomData._hiddenSections : []),
-    ...((currentCustomData.sections || []).filter(s => s && s.id && s.enabled === false).map(s => s.id))
+    ...explicitHiddenSecs,
+    ...((currentCustomData.sections || []).filter(s => s && s.id && s.enabled === false && s.id !== 'voice').map(s => s.id))
   ]));
-  currentCustomData._hiddenSections = customerHiddenSecsList;
-  currentCustomData.hiddenSections = customerHiddenSecsList;
   const customerHiddenFieldsList = Array.isArray(currentCustomData._hiddenFields) ? currentCustomData._hiddenFields : [];
   currentCustomData._hiddenFields = customerHiddenFieldsList;
   currentCustomData.hiddenFields = customerHiddenFieldsList;
@@ -5434,11 +5713,14 @@ window.saveDraftLocally = async function(isManualSave = false) {
   if (!activeTemplate) return false;
 
   const targetRevision = currentCustomizerRevision;
-  const draftKey = `wishmagic_draft_${activeTemplate.id}`;
+  const draftKey = getLocalDraftStorageKey(activeTemplate);
 
   try {
-    // 1. Immediately ensure reliable local fallback preservation
+    // 1. Immediately ensure reliable local fallback preservation (variant-scoped + base fallback)
     localStorage.setItem(draftKey, JSON.stringify(currentCustomData));
+    if (!activeTemplate.selectedVariant) {
+      localStorage.setItem(`wishmagic_draft_${activeTemplate.id}`, JSON.stringify(currentCustomData));
+    }
 
     // Also update unified drafts collection for My Wishes Creator Dashboard
     let drafts = [];
@@ -5485,6 +5767,7 @@ window.saveDraftLocally = async function(isManualSave = false) {
     }
 
     // 3. Persist draft to Server D1 when authenticated (Part 26 & Stage 5)
+    let serverSaveFailed = false;
     const authUser = window.WishAuth && window.WishAuth.getCurrentUser();
     if (authUser && authUser.id && authUser.id !== 'guest') {
       isSaveInProgress = true;
@@ -5533,6 +5816,7 @@ window.saveDraftLocally = async function(isManualSave = false) {
               updateSaveIndicatorStatus('unsaved');
             }
           } else {
+            serverSaveFailed = true;
             updateSaveIndicatorStatus('error', (data && data.message) || 'Save failed');
           }
         } else {
@@ -5563,12 +5847,17 @@ window.saveDraftLocally = async function(isManualSave = false) {
               updateSaveIndicatorStatus('unsaved');
             }
           } else {
+            serverSaveFailed = true;
             updateSaveIndicatorStatus('error', (data && data.message) || 'Draft creation failed');
           }
         }
       } catch (netErr) {
         console.warn('[Autosave Network Error]', netErr);
         updateSaveIndicatorStatus('error', 'Network error (retained locally)');
+        if (isManualSave) {
+          showToast('⚠️ Saved on this device, but cloud sync failed. Will retry automatically.');
+        }
+        return false;
       } finally {
         isSaveInProgress = false;
         if (pendingSaveAfterInFlight) {
@@ -5583,9 +5872,13 @@ window.saveDraftLocally = async function(isManualSave = false) {
     }
 
     if (isManualSave) {
+      if (serverSaveFailed) {
+        showToast('⚠️ Saved locally on this device, but cloud sync failed.');
+        return false;
+      }
       showToast('💾 Draft saved successfully!');
     }
-    return true;
+    return !serverSaveFailed;
   } catch (e) {
     console.warn('Error saving local draft:', e);
     updateSaveIndicatorStatus('error', 'Local storage error');
@@ -5672,13 +5965,15 @@ function sanitizeCustomDataForPublish(data) {
   return sanitized;
 }
 
-window.resetCustomizerChanges = function() {
-  if (!confirm('Are you sure you want to reset all changes to template defaults?')) return;
+window.resetCustomizerChanges = function(skipConfirm = false) {
+  if (!skipConfirm && typeof confirm === 'function' && !confirm('Are you sure you want to reset all changes to template defaults?')) return false;
 
   if (activeTemplate) {
-    const draftKey = `wishmagic_draft_${activeTemplate.id}`;
-    localStorage.removeItem(draftKey);
+    const variantDraftKey = getLocalDraftStorageKey(activeTemplate);
+    localStorage.removeItem(variantDraftKey);
+    localStorage.removeItem(`wishmagic_draft_${activeTemplate.id}`);
 
+    window._userModifiedFields = new Set();
     currentCustomData.recipient_name = '';
     currentCustomData.sender_name = '';
     currentCustomData.sender_contact = '';
@@ -5687,14 +5982,52 @@ window.resetCustomizerChanges = function() {
     currentCustomData.photos = [];
     currentCustomData.cover_photo = '';
     currentCustomData.photo_1 = '';
+    currentCustomData._hiddenSections = [];
+    currentCustomData.hiddenSections = [];
+    currentCustomData._hiddenFields = [];
+    currentCustomData.hiddenFields = [];
+    if (Array.isArray(currentCustomData.sections)) {
+      currentCustomData.sections.forEach(s => {
+        if (s && s.id !== 'voice') s.enabled = true;
+      });
+    }
+    currentCustomData._userOverrodePalette = false;
+
+    if (currentCustomData.media) {
+      currentCustomData.media.coverPhoto = null;
+      currentCustomData.media.photos = [];
+      if (currentCustomData.media.voiceNote) {
+        currentCustomData.media.voiceNote = { enabled: false, type: 'none', name: '', src: '', duration: 0 };
+      }
+    }
+
+    // Reset all dynamic manifest field keys back to templateDefaultValues
+    Object.keys(templateDefaultValues).forEach(k => {
+      if (!isMandatoryIdentityField(k)) {
+        currentCustomData[k] = templateDefaultValues[k];
+      }
+    });
 
     applyTemplateDefaults(activeTemplate);
+    if (activeTemplate.selectedVariant) {
+      applySelectedVariantToCustomizer(activeTemplate.selectedVariant, true);
+    }
+    applyUtpTemplateCapabilityGating(activeTemplate);
+    renderDynamicTemplateFields(activeTemplate);
     populateFormValuesFromState();
     renderPhotosUI();
     renderSectionsUI();
+    if (typeof window.renderTemplatePhotoSlotsManager === 'function') {
+      window.renderTemplatePhotoSlotsManager();
+    }
+    if (typeof window.updateCustomizationProgressUI === 'function') {
+      window.updateCustomizationProgressUI();
+    }
     syncDataToIframe();
     showToast('Reset to template defaults ↺');
+    return true;
   }
+  return false;
 };
 
 // -----------------------------------------------------------------------------
@@ -6210,54 +6543,221 @@ var showToast = function(msg) {
 
 
 // =============================================================================
-// QUICK SUB-TAB NAVIGATION, SECTION FOCUS & PER-PHOTO SLOT HIDE/SHOW MANAGER
+// QUICK SUB-TAB NAVIGATION, LEVEL A/B/C PROGRESSIVE DISCLOSURE & PHOTO SLOTS MANAGER
 // =============================================================================
 window._activeStep1SubTab = 'basic';
 window._activeStep2SubTab = 'colors';
 window._pendingSlotPhotoFieldKey = null;
 
+window.getAvailableStep1SubTabs = function() {
+  const caps = window._customizerCapabilities || {};
+  const hasDynFields = Boolean(
+    caps.hasDynamicFields ||
+    (document.getElementById('template-dynamic-fields-container')?.children.length || 0) > 0 ||
+    ((currentCustomData.sections || []).length > 0)
+  );
+  const supportsPhotos = caps.supportsAnyPhoto !== false;
+  const supportsAudio = (caps.supportsVoice !== false) || (caps.supportsMusic !== false);
+
+  const available = ['basic'];
+  if (hasDynFields) available.push('template');
+  if (supportsPhotos) available.push('photos');
+  if (supportsAudio) available.push('audio');
+  return available;
+};
+
+window.syncStep1SubTabCapabilitiesUI = function() {
+  const available = new Set(window.getAvailableStep1SubTabs());
+  const tabMeta = [
+    { key: 'basic', btnId: 'step1-subtab-btn-basic' },
+    { key: 'template', btnId: 'step1-subtab-btn-template' },
+    { key: 'photos', btnId: 'step1-subtab-btn-photos' },
+    { key: 'audio', btnId: 'step1-subtab-btn-audio' }
+  ];
+  tabMeta.forEach(({ key, btnId }) => {
+    const btn = document.getElementById(btnId);
+    if (!btn) return;
+    if (available.has(key)) {
+      btn.classList.remove('hidden');
+      btn.removeAttribute('aria-hidden');
+      btn.disabled = false;
+    } else {
+      btn.classList.add('hidden');
+      btn.setAttribute('aria-hidden', 'true');
+      btn.disabled = true;
+    }
+  });
+  if (window._activeStep1SubTab !== 'all' && !available.has(window._activeStep1SubTab)) {
+    window._activeStep1SubTab = 'basic';
+  }
+};
+
+window.switchCustomizationLevel = function(levelKey) {
+  const validLevels = ['quick', 'personal', 'advanced'];
+  const targetLevel = validLevels.includes(levelKey) ? levelKey : 'quick';
+  window._activeCustomizationLevel = targetLevel;
+
+  if (targetLevel === 'quick') {
+    if (currentStep !== 1) window.goToStep(1);
+    window.switchStep1SubTab('basic');
+  } else if (targetLevel === 'personal') {
+    if (currentStep !== 1) window.goToStep(1);
+    const avail = window.getAvailableStep1SubTabs().filter(k => k !== 'basic');
+    window.switchStep1SubTab(avail[0] || 'all');
+  } else if (targetLevel === 'advanced') {
+    window.goToStep(2);
+    window.switchStep2SubTab('colors');
+  }
+
+  window.syncCustomizationLevelButtonsUI();
+  window.updateCustomizationProgressUI();
+};
+
+window.syncCustomizationLevelButtonsUI = function() {
+  let effectiveLevel = window._activeCustomizationLevel || 'quick';
+  if (currentStep === 2 || currentStep === 3) {
+    effectiveLevel = 'advanced';
+  } else if (currentStep === 1) {
+    effectiveLevel = (window._activeStep1SubTab === 'basic') ? 'quick' : 'personal';
+  }
+  window._activeCustomizationLevel = effectiveLevel;
+
+  ['quick', 'personal', 'advanced'].forEach(lvl => {
+    const btn = document.getElementById('level-tab-btn-' + lvl);
+    if (!btn) return;
+    const isSel = lvl === effectiveLevel;
+    btn.setAttribute('role', 'tab');
+    btn.setAttribute('aria-selected', isSel ? 'true' : 'false');
+    btn.tabIndex = isSel ? 0 : -1;
+    if (isSel) {
+      btn.className = 'level-tab-btn flex-1 min-w-0 py-2 px-3 rounded-xl font-extrabold text-xs bg-gradient-to-r from-pink-500 to-purple-600 text-white shadow-sm flex items-center justify-center gap-1.5 transition cursor-pointer';
+    } else {
+      btn.className = 'level-tab-btn flex-1 min-w-0 py-2 px-3 rounded-xl font-bold text-xs bg-white/80 dark:bg-purple-950/60 text-purple-900 dark:text-purple-200 hover:bg-purple-100 dark:hover:bg-purple-900/60 border border-purple-200/70 dark:border-purple-800/60 flex items-center justify-center gap-1.5 transition cursor-pointer';
+    }
+  });
+};
+
+window.updateCustomizationProgressUI = function() {
+  const requiresDate = templateRequiresEventDate(activeTemplate);
+  const hasName = Boolean(currentCustomData.recipient_name && String(currentCustomData.recipient_name).trim().length > 0);
+  const hasDate = !requiresDate || Boolean(currentCustomData.event_date && String(currentCustomData.event_date).trim().length > 0);
+  const hasSender = Boolean(currentCustomData.sender_name && String(currentCustomData.sender_name).trim().length > 0);
+  const hasMessage = Boolean(currentCustomData.custom_message && String(currentCustomData.custom_message).trim().length > 0);
+
+  const reqTotal = requiresDate ? 2 : 1;
+  const reqDone = (hasName ? 1 : 0) + (requiresDate ? (hasDate ? 1 : 0) : 0);
+
+  const uploadedPhotos = (currentCustomData.media && Array.isArray(currentCustomData.media.photos))
+    ? currentCustomData.media.photos
+    : (Array.isArray(currentCustomData.photos) ? currentCustomData.photos : []);
+  const customPhotosCount = uploadedPhotos.filter(p => p && (p.src || p.url) && p.id !== 'photo_default_1').length;
+  const hasVoice = Boolean((currentCustomData.voice_note && currentCustomData.voice_note.enabled) || (currentCustomData.media && currentCustomData.media.voiceNote && currentCustomData.media.voiceNote.enabled));
+  const hasMusic = Boolean((currentCustomData.music && currentCustomData.music.enabled !== false) || (currentCustomData.media && currentCustomData.media.music && currentCustomData.media.music.enabled !== false));
+
+  const pct = Math.min(100, Math.round((reqDone / reqTotal) * 70 + (hasSender ? 10 : 0) + (hasMessage ? 10 : 0) + (customPhotosCount > 0 ? 10 : 0)));
+
+  const progBar = document.getElementById('customizer-progress-bar');
+  if (progBar) {
+    progBar.style.width = `${pct}%`;
+    progBar.setAttribute('aria-valuenow', String(pct));
+  }
+  const progText = document.getElementById('customizer-progress-text');
+  if (progText) {
+    progText.textContent = reqDone >= reqTotal
+      ? `Ready to publish (${pct}% personalized)`
+      : `Required: ${reqDone}/${reqTotal} complete`;
+  }
+
+  // Update Level B state badges
+  const photosBadge = document.getElementById('subtab-state-badge-photos');
+  if (photosBadge) {
+    photosBadge.textContent = customPhotosCount > 0 ? `${customPhotosCount} added` : 'Default';
+  }
+  const audioBadge = document.getElementById('subtab-state-badge-audio');
+  if (audioBadge) {
+    audioBadge.textContent = hasVoice ? 'Voice + Music' : (hasMusic ? 'Music On' : 'Muted');
+  }
+};
+
 window.switchStep1SubTab = function(tabKey) {
-  window._activeStep1SubTab = tabKey || 'basic';
-  const tabsOrder = ['basic', 'template', 'photos', 'audio'];
+  window.syncStep1SubTabCapabilitiesUI();
+  const tabsOrder = window.getAvailableStep1SubTabs();
+  const requested = tabKey || 'basic';
+  window._activeStep1SubTab = (requested === 'all' || tabsOrder.includes(requested)) ? requested : 'basic';
+
   const labelsMap = {
-    basic: 'Card 1: Basic Info',
-    template: 'Card 2: Template Text & Sections',
-    photos: 'Card 3: Photos & Album Slots',
-    audio: 'Card 4: Music & Voice',
-    all: 'Showing All Cards'
+    basic: 'Level A: Quick Customize (Essential Info)',
+    template: 'Level B: Template Text & Sections',
+    photos: 'Level B: Photos & Album Slots',
+    audio: 'Level B: Music & Voice Note',
+    all: 'Showing All Supported Sections'
+  };
+
+  const nameMap = {
+    basic: 'Basic Info',
+    template: 'Text & Sections',
+    photos: 'Photos & Slots',
+    audio: 'Music & Voice'
   };
 
   ['basic', 'template', 'photos', 'audio', 'all'].forEach(k => {
     const btn = document.getElementById('step1-subtab-btn-' + k);
     if (!btn) return;
+    const isSel = k === window._activeStep1SubTab;
+    btn.setAttribute('role', 'tab');
+    btn.setAttribute('aria-selected', isSel ? 'true' : 'false');
+    btn.tabIndex = isSel ? 0 : -1;
+    const isHidden = btn.classList.contains('hidden');
     if (k === 'all') {
-      btn.className = (k === window._activeStep1SubTab)
-        ? 'step1-subtab-btn py-1 px-2.5 rounded-lg font-bold text-[10px] bg-gradient-to-r from-pink-500 to-purple-600 text-white shadow-xs flex items-center gap-1 transition cursor-pointer'
-        : 'step1-subtab-btn py-1 px-2.5 rounded-lg font-bold text-[10px] bg-purple-100/80 dark:bg-purple-900/50 text-purple-800 dark:text-purple-200 hover:bg-purple-200 flex items-center gap-1 transition cursor-pointer';
+      btn.className = (isSel
+        ? 'step1-subtab-btn py-1.5 px-3 rounded-lg font-bold text-[11px] bg-gradient-to-r from-pink-500 to-purple-600 text-white shadow-xs flex items-center gap-1 transition cursor-pointer'
+        : 'step1-subtab-btn py-1.5 px-3 rounded-lg font-bold text-[11px] bg-purple-100/80 dark:bg-purple-900/50 text-purple-800 dark:text-purple-200 hover:bg-purple-200 flex items-center gap-1 transition cursor-pointer') + (isHidden ? ' hidden' : '');
       return;
     }
-    if (k === window._activeStep1SubTab) {
-      btn.className = 'step1-subtab-btn py-2 px-2.5 rounded-xl font-bold text-xs bg-gradient-to-r from-pink-500 to-purple-600 text-white shadow-sm flex items-center justify-center gap-1.5 transition cursor-pointer';
+    if (isSel) {
+      btn.className = 'step1-subtab-btn min-h-[42px] py-2 px-2.5 rounded-xl font-bold text-xs bg-gradient-to-r from-pink-500 to-purple-600 text-white shadow-sm flex items-center justify-center gap-1.5 transition cursor-pointer' + (isHidden ? ' hidden' : '');
     } else {
-      btn.className = 'step1-subtab-btn py-2 px-2.5 rounded-xl font-bold text-xs bg-white/80 dark:bg-purple-950/60 text-purple-900 dark:text-purple-200 hover:bg-purple-100 dark:hover:bg-purple-900/60 border border-purple-200/70 dark:border-purple-800/60 flex items-center justify-center gap-1.5 transition cursor-pointer';
+      btn.className = 'step1-subtab-btn min-h-[42px] py-2 px-2.5 rounded-xl font-bold text-xs bg-white/80 dark:bg-purple-950/60 text-purple-900 dark:text-purple-200 hover:bg-purple-100 dark:hover:bg-purple-900/60 border border-purple-200/70 dark:border-purple-800/60 flex items-center justify-center gap-1.5 transition cursor-pointer' + (isHidden ? ' hidden' : '');
     }
   });
 
+  const caps = window._customizerCapabilities || {};
   const step1Container = document.getElementById('step-content-1');
   if (step1Container) {
     step1Container.querySelectorAll('[data-step1-tab]').forEach(cardEl => {
       const cardTab = cardEl.getAttribute('data-step1-tab');
+
+      // Respect capability gating strictly: never un-hide unsupported cards!
       if (cardEl.id === 'dynamic-template-fields-card') {
-        const hasDynFields = (document.getElementById('template-dynamic-fields-container')?.children.length || 0) > 0;
-        if (!hasDynFields && window._activeStep1SubTab !== 'template') {
+        const hasDynFields = (document.getElementById('template-dynamic-fields-container')?.children.length || 0) > 0 || ((currentCustomData.sections || []).length > 0);
+        if (!hasDynFields) {
           cardEl.classList.add('hidden');
+          cardEl.setAttribute('aria-hidden', 'true');
           return;
         }
       }
+      if (cardEl.id === 'step1-card-photos' && caps.supportsAnyPhoto === false) {
+        cardEl.classList.add('hidden');
+        cardEl.setAttribute('aria-hidden', 'true');
+        return;
+      }
+      if (cardEl.id === 'voice-note-section-wrapper' && caps.supportsVoice === false) {
+        cardEl.classList.add('hidden');
+        cardEl.setAttribute('aria-hidden', 'true');
+        return;
+      }
+      if (cardEl.id === 'music-section-wrapper' && caps.supportsMusic === false) {
+        cardEl.classList.add('hidden');
+        cardEl.setAttribute('aria-hidden', 'true');
+        return;
+      }
+
       if (window._activeStep1SubTab === 'all' || cardTab === window._activeStep1SubTab) {
         cardEl.classList.remove('hidden');
+        cardEl.setAttribute('aria-hidden', 'false');
       } else {
         cardEl.classList.add('hidden');
+        cardEl.setAttribute('aria-hidden', 'true');
       }
     });
   }
@@ -6269,7 +6769,7 @@ window.switchStep1SubTab = function(tabKey) {
   const idx = tabsOrder.indexOf(window._activeStep1SubTab);
 
   if (progPill) {
-    progPill.textContent = idx !== -1 ? `Card ${idx + 1} of 4` : 'All Cards';
+    progPill.textContent = idx !== -1 ? `Section ${idx + 1} of ${tabsOrder.length}` : `All ${tabsOrder.length} Sections`;
   }
   if (footerLabel) {
     footerLabel.textContent = labelsMap[window._activeStep1SubTab] || '';
@@ -6277,19 +6777,22 @@ window.switchStep1SubTab = function(tabKey) {
   if (prevBtn) {
     prevBtn.disabled = idx <= 0;
     prevBtn.className = idx <= 0
-      ? 'py-2 px-3.5 rounded-xl bg-purple-100/40 dark:bg-purple-900/20 text-purple-400 text-xs font-bold opacity-40 pointer-events-none'
-      : 'py-2 px-3.5 rounded-xl bg-purple-100/80 dark:bg-purple-900/50 hover:bg-purple-200 text-purple-900 dark:text-purple-200 font-bold text-xs transition cursor-pointer';
+      ? 'min-h-[40px] py-2 px-3.5 rounded-xl bg-purple-100/40 dark:bg-purple-900/20 text-purple-400 text-xs font-bold opacity-40 pointer-events-none'
+      : 'min-h-[40px] py-2 px-3.5 rounded-xl bg-purple-100/80 dark:bg-purple-900/50 hover:bg-purple-200 text-purple-900 dark:text-purple-200 font-bold text-xs transition cursor-pointer';
   }
   if (nextBtn) {
     if (idx !== -1 && idx < tabsOrder.length - 1) {
-      const nextNames = ['Basic Info', 'Text & Sections', 'Photos & Slots', 'Music & Voice'];
-      nextBtn.textContent = `Next: ${nextNames[idx + 1]} →`;
+      const nextKey = tabsOrder[idx + 1];
+      nextBtn.textContent = `Next: ${nameMap[nextKey] || nextKey} →`;
       nextBtn.onclick = () => window.step1NavigateCard(1);
     } else {
       nextBtn.textContent = 'Next: Step 2 (Theme & Style) →';
       nextBtn.onclick = () => window.goToStep(2);
     }
   }
+
+  window.syncCustomizationLevelButtonsUI();
+  window.updateCustomizationProgressUI();
 
   if (window._activeStep1SubTab === 'photos') {
     window.renderTemplatePhotoSlotsManager();
@@ -6300,8 +6803,7 @@ window.switchStep1SubTab = function(tabKey) {
 };
 
 window.step1NavigateCard = function(direction) {
-  const hasDynFields = (document.getElementById('template-dynamic-fields-container')?.children.length || 0) > 0;
-  const tabsOrder = hasDynFields ? ['basic', 'template', 'photos', 'audio'] : ['basic', 'photos', 'audio'];
+  const tabsOrder = window.getAvailableStep1SubTabs();
   const curIdx = Math.max(0, tabsOrder.indexOf(window._activeStep1SubTab));
   const nextIdx = curIdx + (direction >= 0 ? 1 : -1);
   if (nextIdx >= 0 && nextIdx < tabsOrder.length) {
@@ -6316,10 +6818,14 @@ window.switchStep2SubTab = function(tabKey) {
   ['colors', 'fonts', 'fx', 'all'].forEach(k => {
     const btn = document.getElementById('step2-subtab-btn-' + k);
     if (!btn) return;
-    if (k === window._activeStep2SubTab) {
-      btn.className = 'step2-subtab-btn py-2 px-2.5 rounded-xl font-bold text-xs bg-gradient-to-r from-pink-500 to-purple-600 text-white shadow-sm flex items-center justify-center gap-1.5 transition cursor-pointer';
+    const isSel = k === window._activeStep2SubTab;
+    btn.setAttribute('role', 'tab');
+    btn.setAttribute('aria-selected', isSel ? 'true' : 'false');
+    btn.tabIndex = isSel ? 0 : -1;
+    if (isSel) {
+      btn.className = 'step2-subtab-btn min-h-[40px] py-2 px-2.5 rounded-xl font-bold text-xs bg-gradient-to-r from-pink-500 to-purple-600 text-white shadow-sm flex items-center justify-center gap-1.5 transition cursor-pointer';
     } else {
-      btn.className = 'step2-subtab-btn py-2 px-2.5 rounded-xl font-bold text-xs bg-white/80 dark:bg-purple-950/60 text-purple-900 dark:text-purple-200 border border-purple-200/70 dark:border-purple-800/60 flex items-center justify-center gap-1.5 transition cursor-pointer';
+      btn.className = 'step2-subtab-btn min-h-[40px] py-2 px-2.5 rounded-xl font-bold text-xs bg-white/80 dark:bg-purple-950/60 text-purple-900 dark:text-purple-200 border border-purple-200/70 dark:border-purple-800/60 flex items-center justify-center gap-1.5 transition cursor-pointer';
     }
   });
   const step2Container = document.getElementById('step-content-2');
@@ -6328,8 +6834,10 @@ window.switchStep2SubTab = function(tabKey) {
       const cardTab = cardEl.getAttribute('data-step2-tab');
       if (window._activeStep2SubTab === 'all' || cardTab === window._activeStep2SubTab) {
         cardEl.classList.remove('hidden');
+        cardEl.setAttribute('aria-hidden', 'false');
       } else {
         cardEl.classList.add('hidden');
+        cardEl.setAttribute('aria-hidden', 'true');
       }
     });
   }
@@ -6414,10 +6922,10 @@ function updateGallerySectionQuickButtonUI() {
   const isOff = hiddenSet.has(secId) || (galSec && galSec.enabled === false);
   if (isOff) {
     btn.textContent = '🙈 Gallery Section: HIDDEN (Tap to Show)';
-    btn.className = 'px-2.5 py-1 rounded-full text-[10px] font-bold bg-rose-500/20 text-rose-700 dark:text-rose-300 border border-rose-500/40 hover:bg-rose-500/30 transition cursor-pointer';
+    btn.className = 'min-h-[34px] px-3 py-1.5 rounded-full text-[11px] font-bold bg-rose-500/20 text-rose-700 dark:text-rose-300 border border-rose-500/40 hover:bg-rose-500/30 transition cursor-pointer';
   } else {
     btn.textContent = '👁️ Gallery Section: ON (Tap to Hide)';
-    btn.className = 'px-2.5 py-1 rounded-full text-[10px] font-bold bg-emerald-500/15 text-emerald-700 dark:text-emerald-300 border border-emerald-500/30 hover:bg-emerald-500/25 transition cursor-pointer';
+    btn.className = 'min-h-[34px] px-3 py-1.5 rounded-full text-[11px] font-bold bg-emerald-500/15 text-emerald-700 dark:text-emerald-300 border border-emerald-500/30 hover:bg-emerald-500/25 transition cursor-pointer';
   }
 }
 
@@ -6508,6 +7016,11 @@ function getTemplateDeclaredPhotoSlots() {
   return Array.from(slotMap.values());
 }
 
+window.toggleExpandExtraPhotoSlots = function() {
+  window._showAllPhotoSlots = !window._showAllPhotoSlots;
+  window.renderTemplatePhotoSlotsManager();
+};
+
 window.renderTemplatePhotoSlotsManager = function() {
   const managerEl = document.getElementById('template-photo-slots-manager');
   if (!managerEl) return;
@@ -6526,13 +7039,37 @@ window.renderTemplatePhotoSlotsManager = function() {
   let unuploadedVisibleSlotsCount = 0;
   let hiddenSlotsCount = 0;
 
-  const slotCardsHtml = slots.map((slot, idx) => {
+  // Stage 3 Level B Requirement: Show primary photo slot(s) first and keep additional slots accessible via "Add more photos" when collection > 2
+  const primaryVisibleLimit = 2;
+  const hasMoreSlots = slots.length > primaryVisibleLimit;
+  const visibleSlotsList = (hasMoreSlots && !window._showAllPhotoSlots)
+    ? slots.slice(0, primaryVisibleLimit)
+    : slots;
+
+  slots.forEach((slot, idx) => {
     const photoNumMatch = slot.key.match(/^photo_(\d+)$/i);
     const slotNum = photoNumMatch ? Number(photoNumMatch[1]) : (idx + 1);
     const uploadedForOrder = uploadedPhotos[slotNum - 1];
     const directVal = currentCustomData[slot.key];
     const hasCustomUpload = Boolean(
-      (uploadedForOrder && (uploadedForOrder.src || uploadedForOrder.url || uploadedForOrder.displayUrl)) ||
+      (uploadedForOrder && (uploadedForOrder.src || uploadedForOrder.url || uploadedForOrder.displayUrl) && uploadedForOrder.id !== 'photo_default_1') ||
+      (directVal && directVal !== slot.defaultSrc && directVal !== templateDefaultValues[slot.key])
+    );
+    const isHidden = hiddenFieldsSet.has(slot.key);
+    if (isHidden) {
+      hiddenSlotsCount++;
+    } else if (!hasCustomUpload) {
+      unuploadedVisibleSlotsCount++;
+    }
+  });
+
+  const slotCardsHtml = visibleSlotsList.map((slot, idx) => {
+    const photoNumMatch = slot.key.match(/^photo_(\d+)$/i);
+    const slotNum = photoNumMatch ? Number(photoNumMatch[1]) : (idx + 1);
+    const uploadedForOrder = uploadedPhotos[slotNum - 1];
+    const directVal = currentCustomData[slot.key];
+    const hasCustomUpload = Boolean(
+      (uploadedForOrder && (uploadedForOrder.src || uploadedForOrder.url || uploadedForOrder.displayUrl) && uploadedForOrder.id !== 'photo_default_1') ||
       (directVal && directVal !== slot.defaultSrc && directVal !== templateDefaultValues[slot.key])
     );
     const previewSrc = (uploadedForOrder && (uploadedForOrder.src || uploadedForOrder.url || uploadedForOrder.displayUrl)) ||
@@ -6541,40 +7078,38 @@ window.renderTemplatePhotoSlotsManager = function() {
       templateDefaultValues[slot.key] ||
       '/assets/file_ab2082.png';
     const isHidden = hiddenFieldsSet.has(slot.key);
-
-    if (isHidden) {
-      hiddenSlotsCount++;
-    } else if (!hasCustomUpload) {
-      unuploadedVisibleSlotsCount++;
-    }
+    const isPrimary = idx === 0;
 
     return `
-      <div class="p-2.5 rounded-2xl border transition flex items-center justify-between gap-2.5 ${
+      <div class="p-3 rounded-2xl border transition flex items-center justify-between gap-2.5 ${
         isHidden
           ? 'bg-rose-500/10 border-rose-500/30 opacity-70'
           : (hasCustomUpload
               ? 'bg-emerald-500/10 border-emerald-500/35'
-              : 'bg-white/75 dark:bg-purple-950/50 border-purple-200/70 dark:border-purple-800/60')
+              : 'bg-white/80 dark:bg-purple-950/50 border-purple-200/70 dark:border-purple-800/60')
       }">
         <div class="flex items-center gap-2.5 min-w-0">
-          <div class="w-11 h-11 rounded-xl overflow-hidden border border-purple-300/50 shrink-0 bg-purple-950/30 relative">
+          <div class="w-12 h-12 rounded-xl overflow-hidden border border-purple-300/50 shrink-0 bg-purple-950/30 relative">
             <img src="${escapeHtml(previewSrc)}" alt="${escapeHtml(slot.label)}" class="w-full h-full object-cover ${isHidden ? 'grayscale opacity-40' : ''}" onerror="this.src='/assets/file_ab2082.png'"/>
             <span class="absolute bottom-0 right-0 px-1 bg-black/75 text-white font-mono text-[8px] font-bold">#${slotNum}</span>
           </div>
           <div class="min-w-0">
-            <div class="text-xs font-extrabold text-purple-950 dark:text-white truncate">${escapeHtml(slot.label)}</div>
+            <div class="text-xs font-extrabold text-purple-950 dark:text-white truncate flex items-center gap-1">
+              <span>${escapeHtml(slot.label)}</span>
+              ${isPrimary ? '<span class="px-1.5 py-0.5 rounded bg-pink-500/15 text-pink-600 dark:text-pink-300 text-[9px] font-bold">Main</span>' : ''}
+            </div>
             <div class="text-[10px] font-semibold ${
               isHidden ? 'text-rose-600 dark:text-rose-300' : (hasCustomUpload ? 'text-emerald-600 dark:text-emerald-300' : 'text-amber-600 dark:text-amber-300')
             }">
-              ${isHidden ? '🙈 Hidden on Website' : (hasCustomUpload ? '🟢 Your Photo Uploaded' : '⚪ Template Default Photo')}
+              ${isHidden ? '🙈 Hidden on Website' : (hasCustomUpload ? '🟢 Custom Photo Configured' : '⚪ Template Default Photo')}
             </div>
           </div>
         </div>
         <div class="flex items-center gap-1.5 shrink-0">
-          <button type="button" onclick="triggerSlotSpecificPhotoUpload('${slot.key}')" class="px-2.5 py-1.5 rounded-xl bg-purple-100 dark:bg-purple-900/70 hover:bg-purple-200 text-purple-950 dark:text-purple-100 text-[10px] font-bold transition cursor-pointer" title="Upload photo for this slot">
+          <button type="button" onclick="triggerSlotSpecificPhotoUpload('${slot.key}')" class="min-h-[36px] px-3 py-1.5 rounded-xl bg-purple-100 dark:bg-purple-900/70 hover:bg-purple-200 text-purple-950 dark:text-purple-100 text-[11px] font-bold transition cursor-pointer" title="Upload photo for this slot">
             📁 Upload
           </button>
-          <button type="button" onclick="toggleCustomerFieldVisibility('${slot.key}')" class="px-2.5 py-1.5 rounded-xl text-[10px] font-extrabold transition cursor-pointer ${
+          <button type="button" onclick="toggleCustomerFieldVisibility('${slot.key}')" class="min-h-[36px] px-3 py-1.5 rounded-xl text-[11px] font-extrabold transition cursor-pointer ${
             isHidden
               ? 'bg-emerald-500 text-white shadow-xs'
               : 'bg-rose-500/15 hover:bg-rose-500/25 text-rose-700 dark:text-rose-300 border border-rose-500/30'
@@ -6592,18 +7127,18 @@ window.renderTemplatePhotoSlotsManager = function() {
         <h4 class="text-xs font-extrabold text-purple-950 dark:text-white flex items-center gap-1.5">
           <span>🖼️ Template Photo Slots (${slots.length - hiddenSlotsCount} of ${slots.length} Active)</span>
         </h4>
-        <p class="text-[10px] text-purple-700/80 dark:text-purple-300/80">
-          Have fewer photos than the template? Tap <strong>🙈 Hide</strong> on any extra photo slot and it won't appear on your site!
+        <p class="text-[11px] text-purple-700/80 dark:text-purple-300/80">
+          Supports JPG, PNG, WebP (up to 10MB). Tap <strong>🙈 Hide</strong> on any unused slot so it won't appear on your site.
         </p>
       </div>
       <div class="flex flex-wrap items-center gap-1.5">
         ${unuploadedVisibleSlotsCount > 0 ? `
-          <button type="button" onclick="autoHideUnusedPhotoSlots()" class="px-3 py-1.5 rounded-xl bg-gradient-to-r from-pink-500 to-purple-600 text-white text-[10px] font-extrabold shadow-sm hover:brightness-110 transition cursor-pointer">
-            ✨ Hide ${unuploadedVisibleSlotsCount} Unused Default Photo Slot${unuploadedVisibleSlotsCount === 1 ? '' : 's'}
+          <button type="button" onclick="autoHideUnusedPhotoSlots()" class="min-h-[36px] px-3 py-1.5 rounded-xl bg-gradient-to-r from-pink-500 to-purple-600 text-white text-[11px] font-extrabold shadow-sm hover:brightness-110 transition cursor-pointer">
+            ✨ Hide ${unuploadedVisibleSlotsCount} Unused Default Slot${unuploadedVisibleSlotsCount === 1 ? '' : 's'}
           </button>
         ` : ''}
         ${hiddenSlotsCount > 0 ? `
-          <button type="button" onclick="restoreAllHiddenPhotoSlots()" class="px-2.5 py-1.5 rounded-xl bg-emerald-500/20 text-emerald-700 dark:text-emerald-300 border border-emerald-500/30 text-[10px] font-bold hover:bg-emerald-500/30 transition cursor-pointer">
+          <button type="button" onclick="restoreAllHiddenPhotoSlots()" class="min-h-[36px] px-3 py-1.5 rounded-xl bg-emerald-500/20 text-emerald-700 dark:text-emerald-300 border border-emerald-500/30 text-[11px] font-bold hover:bg-emerald-500/30 transition cursor-pointer">
             👁️ Show All (${slots.length})
           </button>
         ` : ''}
@@ -6612,6 +7147,13 @@ window.renderTemplatePhotoSlotsManager = function() {
     <div class="grid grid-cols-1 sm:grid-cols-2 gap-2">
       ${slotCardsHtml}
     </div>
+    ${hasMoreSlots ? `
+      <div class="pt-1 flex justify-center">
+        <button type="button" id="btn-toggle-more-photo-slots" onclick="window.toggleExpandExtraPhotoSlots()" class="min-h-[38px] px-4 py-2 rounded-xl bg-purple-100/80 dark:bg-purple-900/50 hover:bg-purple-200 dark:hover:bg-purple-800/70 text-purple-900 dark:text-purple-100 text-xs font-extrabold border border-purple-300/60 dark:border-purple-700/60 transition cursor-pointer">
+          ${window._showAllPhotoSlots ? '🔼 Show Fewer Photo Slots' : `➕ Add More Photos (${slots.length - primaryVisibleLimit} More Slot${slots.length - primaryVisibleLimit === 1 ? '' : 's'})`}
+        </button>
+      </div>
+    ` : ''}
   `;
 };
 
@@ -6629,7 +7171,7 @@ window.autoHideUnusedPhotoSlots = function() {
     const uploadedForOrder = uploadedPhotos[slotNum - 1];
     const directVal = currentCustomData[slot.key];
     const hasCustomUpload = Boolean(
-      (uploadedForOrder && (uploadedForOrder.src || uploadedForOrder.url || uploadedForOrder.displayUrl)) ||
+      (uploadedForOrder && (uploadedForOrder.src || uploadedForOrder.url || uploadedForOrder.displayUrl) && uploadedForOrder.id !== 'photo_default_1') ||
       (directVal && directVal !== slot.defaultSrc && directVal !== templateDefaultValues[slot.key])
     );
     if (!hasCustomUpload && !currentCustomData._hiddenFields.includes(slot.key)) {
@@ -6681,6 +7223,7 @@ window.handleSlotSpecificPhotoFile = async function(input) {
   try {
     const optimized = await window.WishMediaSystem.ImageProcessor.processImageFile(file, 1600, 0.88);
     currentCustomData[slotKey] = optimized.src;
+    if (window._userModifiedFields instanceof Set) window._userModifiedFields.add(slotKey);
     const photoNumMatch = slotKey.match(/^photo_(\d+)$/i);
     if (photoNumMatch && currentCustomData.media && Array.isArray(currentCustomData.media.photos)) {
       const slotIdx = Number(photoNumMatch[1]) - 1;
@@ -6715,10 +7258,38 @@ window.handleSlotSpecificPhotoFile = async function(input) {
   input.value = '';
 };
 
+// Accessible Keyboard Navigation for Stepper, Level Switcher & Subtabs
+function initAccessibleTabKeyboardNavigation() {
+  document.addEventListener('keydown', (e) => {
+    if (!['ArrowLeft', 'ArrowRight', 'Home', 'End'].includes(e.key)) return;
+    const target = e.target;
+    if (!target || target.getAttribute('role') !== 'tab') return;
+    const tablist = target.closest('[role="tablist"]');
+    if (!tablist) return;
+    const tabs = Array.from(tablist.querySelectorAll('[role="tab"]:not(.hidden):not([disabled])'));
+    if (tabs.length <= 1) return;
+    const idx = tabs.indexOf(target);
+    if (idx === -1) return;
+
+    e.preventDefault();
+    let nextIdx = idx;
+    if (e.key === 'ArrowRight') nextIdx = (idx + 1) % tabs.length;
+    else if (e.key === 'ArrowLeft') nextIdx = (idx - 1 + tabs.length) % tabs.length;
+    else if (e.key === 'Home') nextIdx = 0;
+    else if (e.key === 'End') nextIdx = tabs.length - 1;
+
+    const nextTab = tabs[nextIdx];
+    if (nextTab) {
+      nextTab.focus();
+      nextTab.click();
+    }
+  });
+}
+
 document.addEventListener('DOMContentLoaded', () => {
-  setTimeout(() => {
-    if (typeof window.switchStep1SubTab === 'function') window.switchStep1SubTab('basic');
-    if (typeof window.switchStep2SubTab === 'function') window.switchStep2SubTab('colors');
-    if (typeof window.renderTemplatePhotoSlotsManager === 'function') window.renderTemplatePhotoSlotsManager();
-  }, 150);
+  initAccessibleTabKeyboardNavigation();
+  if (typeof window.switchStep1SubTab === 'function') window.switchStep1SubTab(window._activeStep1SubTab || 'basic');
+  if (typeof window.switchStep2SubTab === 'function') window.switchStep2SubTab(window._activeStep2SubTab || 'colors');
+  if (typeof window.renderTemplatePhotoSlotsManager === 'function') window.renderTemplatePhotoSlotsManager();
+  if (typeof window.updateCustomizationProgressUI === 'function') window.updateCustomizationProgressUI();
 });

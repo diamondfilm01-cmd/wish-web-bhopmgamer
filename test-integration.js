@@ -288,6 +288,14 @@ function createTestD1Database() {
                 }
                 return { results };
               }
+              if (normalized.includes('FROM wishes WHERE slug = ?')) {
+                const slug = args[0];
+                const results = [];
+                for (const w of wishes.values()) {
+                  if (w.slug === slug) results.push({ ...w });
+                }
+                return { results };
+              }
               if (normalized.includes('FROM wishes')) {
                 return { results: Array.from(wishes.values()) };
               }
@@ -363,11 +371,17 @@ function createTestD1Database() {
                 });
                 return { success: true };
               }
-              if (normalized.startsWith('INSERT OR IGNORE INTO template_families')) {
-                const [id, slug, name, description, thumbnail, category, tier, price, is_featured, is_premium, authorId, created_at, updated_at] = args;
-                if (!templateFamilies.has(id)) {
-                  templateFamilies.set(id, { id, slug, name, description, thumbnail, category, tier, price, is_featured, is_premium, status: 'draft', visibility: 'public', created_by: authorId, created_at, updated_at });
-                }
+              if (normalized.startsWith('INSERT OR IGNORE INTO template_families') || normalized.startsWith('INSERT INTO template_families')) {
+                const [id, slug, name, description, thumbnail, category, tier, price, is_featured, is_premium] = args;
+                const prev = templateFamilies.get(id) || {};
+                templateFamilies.set(id, {
+                  ...prev,
+                  id, slug, name, description, thumbnail, category, tier, price, is_featured, is_premium,
+                  status: prev.status || 'draft',
+                  visibility: 'public',
+                  created_at: prev.created_at || new Date().toISOString(),
+                  updated_at: new Date().toISOString()
+                });
                 return { success: true };
               }
               if (normalized.startsWith('INSERT INTO template_files')) {

@@ -590,10 +590,10 @@ export function processAccountDeletionRequest({
 }) {
   if (!user) throw new Error('User record is required');
 
-  // Confirmation check (accepts DELETE MY ACCOUNT, DELETE, or confirmed modal request)
-  const cleanConfirmation = (confirmationText || 'DELETE MY ACCOUNT').trim().toUpperCase();
-  if (cleanConfirmation && cleanConfirmation !== DELETION_CONFIRMATION_PHRASE && cleanConfirmation !== 'DELETE' && cleanConfirmation !== 'CONFIRM') {
-    throw new Error(`Confirmation failed: Please type "DELETE" or "${DELETION_CONFIRMATION_PHRASE}" to proceed.`);
+  // Strict confirmation phrase check ("DELETE MY ACCOUNT")
+  const cleanConfirmation = String(confirmationText || '').trim().toUpperCase();
+  if (cleanConfirmation !== DELETION_CONFIRMATION_PHRASE) {
+    throw new Error(`Confirmation failed: Please type "${DELETION_CONFIRMATION_PHRASE}" to proceed.`);
   }
 
   const now = new Date();
@@ -627,8 +627,9 @@ export function processAccountDeletionRequest({
   const deactivatedUser = {
     ...user,
     status: 'deactivated',
-    displayName: preservedName,
+    displayName: 'Deactivated Creator',
     display_name: preservedName,
+    originalDisplayName: preservedName,
     avatarUrl: preservedAvatar,
     avatar_url: preservedAvatar,
     updatedAt: requestedAt,

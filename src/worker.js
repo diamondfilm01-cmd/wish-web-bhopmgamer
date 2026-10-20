@@ -4667,6 +4667,7 @@ async function findActiveOrUpcomingWishBySlug(db, candidateSlug, excludeWishId =
       if (single) rows = [single];
     }
     for (const r of rows) {
+      if (r.slug && r.slug !== candidateSlug) continue;
       if (excludeWishId && r.id === excludeWishId) {
         return r;
       }
@@ -23508,7 +23509,7 @@ export default {
         try {
           deletionRes = processAccountDeletionRequest({
             user,
-            confirmationText: confirmationText || 'DELETE MY ACCOUNT',
+            confirmationText: (!confirmationText || ['DELETE', 'CONFIRM'].includes(String(confirmationText).trim().toUpperCase())) ? 'DELETE MY ACCOUNT' : confirmationText,
             reason: reason || 'User requested account deletion',
             feedback: feedback || '',
             wishesHandling: wishesHandling || 'retain_grace',
