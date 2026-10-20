@@ -105,6 +105,8 @@
     ::-webkit-scrollbar-track { background: transparent; }
     ::-webkit-scrollbar-thumb { background: rgba(168, 85, 247, 0.35); border-radius: 9999px; }
     ::-webkit-scrollbar-thumb:hover { background: rgba(168, 85, 247, 0.65); }
+    .no-scrollbar::-webkit-scrollbar { display: none !important; width: 0 !important; height: 0 !important; }
+    .no-scrollbar { -ms-overflow-style: none !important; scrollbar-width: none !important; }
   </style>
 
   <!-- Core & API Foundation -->
@@ -178,7 +180,7 @@
           </div>
           <div class="flex flex-col min-w-0">
             <div class="flex items-center gap-1 min-w-0">
-              <span class="font-display font-bold text-xs sm:text-sm text-purple-950 dark:text-white truncate max-w-[75px] xs:max-w-[110px] sm:max-w-[200px]" id="customizer-template-name">Loading...</span>
+              <span class="font-display font-bold text-xs sm:text-sm text-purple-950 dark:text-white truncate max-w-[105px] xs:max-w-[140px] sm:max-w-[220px]" id="customizer-template-name">Loading...</span>
               <span id="customizer-tier-badge" class="px-1.5 py-0.2 rounded-full text-[8px] sm:text-[9px] font-black uppercase tracking-wider bg-emerald-500 text-white shadow-xs flex-shrink-0">FREE</span>
             </div>
             <span class="text-[10px] text-purple-700/80 dark:text-purple-300/80 hidden sm:inline" id="customizer-category-name">✦ Celebration Blueprint</span>
@@ -266,40 +268,40 @@
   <!-- ========================================== -->
   <!-- 2. STEPPER PROGRESSION NAVIGATION BAR      -->
   <!-- ========================================== -->
-  <section class="px-3 sm:px-6 md:px-8 max-w-7xl mx-auto w-full pt-3 sm:pt-5 pb-2">
-    <div class="glass-surface rounded-2xl sm:rounded-full p-1.5 sm:p-2 flex items-center justify-between gap-1 overflow-x-auto no-scrollbar shadow-sm">
+  <section class="px-2.5 sm:px-6 md:px-8 max-w-7xl mx-auto w-full pt-2.5 sm:pt-4 pb-1">
+    <div class="glass-surface rounded-2xl sm:rounded-full p-1 sm:p-2 grid grid-cols-4 sm:flex items-center justify-between gap-1 shadow-sm overflow-hidden">
       
       <!-- Step 1 Tab -->
-      <button id="step-tab-1" onclick="goToStep(1)" class="step-tab-btn flex-1 flex items-center justify-center gap-1.5 py-2 px-3 sm:px-4 rounded-xl font-bold text-xs sm:text-sm bg-purple-700 text-white shadow-md transition-all">
-        <span id="step-check-1" class="hidden text-emerald-300">✓</span>
-        <span id="step-num-1" class="w-4 h-4 rounded-full bg-white/20 text-[10px] flex items-center justify-center font-black">1</span>
+      <button id="step-tab-1" onclick="goToStep(1)" class="step-tab-btn flex-1 min-w-0 flex items-center justify-center gap-1 sm:gap-1.5 py-1.5 px-1.5 sm:px-4 rounded-xl font-bold text-[11px] sm:text-sm bg-purple-700 text-white shadow-md transition-all">
+        <span id="step-check-1" class="hidden text-emerald-300 flex-shrink-0">✓</span>
+        <span id="step-num-1" class="w-4 h-4 rounded-full bg-white/20 text-[10px] flex items-center justify-center font-black flex-shrink-0">1</span>
         <span class="truncate">Details</span>
       </button>
 
       <span class="text-purple-300 dark:text-purple-700 font-bold hidden sm:inline">→</span>
 
       <!-- Step 2 Tab -->
-      <button id="step-tab-2" onclick="goToStep(2)" class="step-tab-btn flex-1 flex items-center justify-center gap-1.5 py-2 px-3 sm:px-4 rounded-xl font-semibold text-xs sm:text-sm text-purple-800/60 dark:text-purple-300/60 hover:text-purple-950 dark:hover:text-white transition-all cursor-pointer">
-        <span id="step-check-2" class="hidden text-emerald-400">✓</span>
-        <span id="step-num-2" class="w-4 h-4 rounded-full bg-purple-200 dark:bg-purple-800 text-[10px] flex items-center justify-center font-black">2</span>
-        <span class="truncate">Customize</span>
+      <button id="step-tab-2" onclick="goToStep(2)" class="step-tab-btn flex-1 min-w-0 flex items-center justify-center gap-1 sm:gap-1.5 py-1.5 px-1.5 sm:px-4 rounded-xl font-semibold text-[11px] sm:text-sm text-purple-800/70 dark:text-purple-300/70 hover:text-purple-950 dark:hover:text-white transition-all cursor-pointer">
+        <span id="step-check-2" class="hidden text-emerald-400 flex-shrink-0">✓</span>
+        <span id="step-num-2" class="w-4 h-4 rounded-full bg-purple-200 dark:bg-purple-800 text-[10px] flex items-center justify-center font-black flex-shrink-0">2</span>
+        <span class="truncate">Style</span>
       </button>
 
       <span class="text-purple-300 dark:text-purple-700 font-bold hidden sm:inline">→</span>
 
       <!-- Step 3 Tab -->
-      <button id="step-tab-3" onclick="goToStep(3)" class="step-tab-btn flex-1 flex items-center justify-center gap-1.5 py-2 px-3 sm:px-4 rounded-xl font-semibold text-xs sm:text-sm text-purple-800/60 dark:text-purple-300/60 hover:text-purple-950 dark:hover:text-white transition-all cursor-pointer">
-        <span id="step-check-3" class="hidden text-emerald-400">✓</span>
-        <span id="step-num-3" class="w-4 h-4 rounded-full bg-purple-200 dark:bg-purple-800 text-[10px] flex items-center justify-center font-black">3</span>
+      <button id="step-tab-3" onclick="goToStep(3)" class="step-tab-btn flex-1 min-w-0 flex items-center justify-center gap-1 sm:gap-1.5 py-1.5 px-1.5 sm:px-4 rounded-xl font-semibold text-[11px] sm:text-sm text-purple-800/70 dark:text-purple-300/70 hover:text-purple-950 dark:hover:text-white transition-all cursor-pointer">
+        <span id="step-check-3" class="hidden text-emerald-400 flex-shrink-0">✓</span>
+        <span id="step-num-3" class="w-4 h-4 rounded-full bg-purple-200 dark:bg-purple-800 text-[10px] flex items-center justify-center font-black flex-shrink-0">3</span>
         <span class="truncate">Sections</span>
       </button>
 
       <span class="text-purple-300 dark:text-purple-700 font-bold hidden sm:inline">→</span>
 
       <!-- Step 4 Tab -->
-      <button id="step-tab-4" onclick="goToStep(4)" class="step-tab-btn flex-1 flex items-center justify-center gap-1.5 py-2 px-3 sm:px-4 rounded-xl font-semibold text-xs sm:text-sm text-purple-800/60 dark:text-purple-300/60 hover:text-purple-950 dark:hover:text-white transition-all cursor-pointer">
-        <span id="step-check-4" class="hidden text-emerald-400">✓</span>
-        <span id="step-num-4" class="w-4 h-4 rounded-full bg-purple-200 dark:bg-purple-800 text-[10px] flex items-center justify-center font-black">4</span>
+      <button id="step-tab-4" onclick="goToStep(4)" class="step-tab-btn flex-1 min-w-0 flex items-center justify-center gap-1 sm:gap-1.5 py-1.5 px-1.5 sm:px-4 rounded-xl font-semibold text-[11px] sm:text-sm text-purple-800/70 dark:text-purple-300/70 hover:text-purple-950 dark:hover:text-white transition-all cursor-pointer">
+        <span id="step-check-4" class="hidden text-emerald-400 flex-shrink-0">✓</span>
+        <span id="step-num-4" class="w-4 h-4 rounded-full bg-purple-200 dark:bg-purple-800 text-[10px] flex items-center justify-center font-black flex-shrink-0">4</span>
         <span class="truncate">Preview</span>
       </button>
 
@@ -311,9 +313,9 @@
   <!-- ========================================== -->
   <main class="flex-grow pt-2 sm:pt-4 pb-24 px-3 sm:px-6 md:px-8 max-w-7xl mx-auto w-full">
     
-    <!-- Mobile View Mode Toggle (Customize vs Live Preview) -->
-    <div class="lg:hidden mb-4 sticky top-16 z-30 pt-1">
-      <div class="glass-surface rounded-2xl p-1.5 flex items-center shadow-md border border-purple-200/80 dark:border-purple-800/60 bg-white/95 dark:bg-[#1A0B2E]/95 backdrop-blur-xl">
+    <!-- Mobile View Mode Toggle (Customize vs Live Preview) — Clean Non-Overlapping Flow -->
+    <div class="lg:hidden mb-3">
+      <div class="glass-surface rounded-2xl p-1 flex items-center shadow-sm border border-purple-200/80 dark:border-purple-800/60">
         <button type="button" id="mobile-view-customize-btn" onclick="setMobileActiveView('customize')" class="flex-1 py-2 px-3 rounded-xl font-bold text-xs flex items-center justify-center gap-1.5 transition-all bg-gradient-to-r from-pink-500 to-purple-600 text-white shadow-sm cursor-pointer">
           <span class="material-symbols-outlined text-[16px]">tune</span>
           <span>Customize Setup</span>
@@ -325,81 +327,55 @@
       </div>
     </div>
 
-    <div class="grid grid-cols-1 lg:grid-cols-12 gap-6 sm:gap-8 items-start">
+    <div class="grid grid-cols-1 lg:grid-cols-12 gap-5 sm:gap-8 items-start">
       
       <!-- ============================================ -->
       <!-- LEFT COLUMN: CONTROLS & FORMS (5 COLS)       -->
       <!-- ============================================ -->
-      <div id="customizer-controls-column" class="lg:col-span-5 flex flex-col gap-5 order-1 lg:order-1 w-full lg:!flex">
+      <div id="customizer-controls-column" class="lg:col-span-5 flex flex-col gap-3.5 order-1 lg:order-1 w-full lg:!flex">
         
         <!-- STEP 1: DETAILS CONTAINER -->
-        <div id="step-content-1" class="flex flex-col gap-4">
+        <div id="step-content-1" class="flex flex-col gap-3.5">
           
           <!-- Validation error box placeholder -->
           <div id="step-1-validation-error" class="hidden"></div>
 
-          <!-- Progressive enhancement: quick path guidance. Existing controls and data bindings remain unchanged. -->
-          <section id="wm-quick-path-guide" class="rounded-2xl border border-purple-200/80 dark:border-purple-800/70 bg-white/75 dark:bg-slate-950/55 p-4 shadow-sm" aria-label="Quick customization guide">
-            <div class="flex items-start gap-3">
-              <div class="shrink-0 h-10 w-10 rounded-xl bg-gradient-to-br from-pink-100 to-purple-100 dark:from-pink-950/70 dark:to-purple-950/70 flex items-center justify-center text-xl" aria-hidden="true">✨</div>
-              <div class="min-w-0 flex-1">
-                <h2 class="font-display text-sm sm:text-base font-extrabold text-purple-950 dark:text-purple-100">Make it yours in a few simple steps</h2>
-                <p class="mt-1 text-xs sm:text-sm leading-relaxed text-slate-600 dark:text-slate-300">Start with the recipient details and your main message. Photos, music, extra sections, colors and effects are optional — open only what you want to personalize.</p>
-                <div class="mt-3 flex flex-wrap gap-2 text-[11px] sm:text-xs font-bold">
-                  <span class="inline-flex items-center gap-1 rounded-full bg-purple-100/80 dark:bg-purple-900/40 px-2.5 py-1 text-purple-800 dark:text-purple-200"><span aria-hidden="true">1</span> Essentials</span>
-                  <span class="inline-flex items-center gap-1 rounded-full bg-pink-100/80 dark:bg-pink-900/40 px-2.5 py-1 text-pink-800 dark:text-pink-200"><span aria-hidden="true">2</span> Optional memories</span>
-                  <span class="inline-flex items-center gap-1 rounded-full bg-slate-100 dark:bg-slate-800 px-2.5 py-1 text-slate-700 dark:text-slate-200"><span aria-hidden="true">3</span> Look &amp; effects</span>
-                </div>
-                <div class="mt-3 flex flex-wrap gap-2">
-                  <button type="button" onclick="if (typeof window.switchStep1SubTab === 'function') { window.switchStep1SubTab('basic'); document.getElementById('step-content-1')?.scrollIntoView({behavior:'smooth',block:'start'}); }" class="inline-flex items-center justify-center gap-1.5 rounded-xl bg-gradient-to-r from-pink-500 to-purple-600 px-3.5 py-2.5 text-xs font-extrabold text-white shadow-sm transition hover:brightness-105 focus:outline-none focus-visible:ring-2 focus-visible:ring-purple-500 focus-visible:ring-offset-2">
-                    <span aria-hidden="true">✍️</span> Start with essentials
-                  </button>
-                  <button type="button" onclick="if (typeof window.switchStep1SubTab === 'function') { window.switchStep1SubTab('photos'); document.getElementById('step-content-1')?.scrollIntoView({behavior:'smooth',block:'start'}); }" class="inline-flex items-center justify-center gap-1.5 rounded-xl border border-purple-200 dark:border-purple-700 bg-white/70 dark:bg-slate-900/60 px-3.5 py-2.5 text-xs font-bold text-purple-900 dark:text-purple-100 transition hover:bg-purple-50 dark:hover:bg-purple-900/40 focus:outline-none focus-visible:ring-2 focus-visible:ring-purple-500 focus-visible:ring-offset-2">
-                    <span aria-hidden="true">📸</span> Add photos
-                  </button>
-                  <button type="button" onclick="if (typeof window.switchStep1SubTab === 'function') { window.switchStep1SubTab('audio'); document.getElementById('step-content-1')?.scrollIntoView({behavior:'smooth',block:'start'}); }" class="inline-flex items-center justify-center gap-1.5 rounded-xl border border-purple-200 dark:border-purple-700 bg-white/70 dark:bg-slate-900/60 px-3.5 py-2.5 text-xs font-bold text-purple-900 dark:text-purple-100 transition hover:bg-purple-50 dark:hover:bg-purple-900/40 focus:outline-none focus-visible:ring-2 focus-visible:ring-purple-500 focus-visible:ring-offset-2">
-                    <span aria-hidden="true">🎵</span> Add music
-                  </button>
-                </div>
-              </div>
-            </div>
-          </section>
-
-          <!-- QUICK BITE-SIZED SUB-TAB NAVIGATOR (Eliminates Long Scrolling!) -->
-          <div id="step1-subtab-bar" class="glass-surface rounded-2xl p-2 shadow-md border border-purple-300/70 dark:border-purple-700/60 sticky top-[68px] z-20 backdrop-blur-xl">
+          <!-- QUICK BITE-SIZED SUB-TAB NAVIGATOR (Clean Non-Overlapping Card Switcher!) -->
+          <div id="step1-subtab-bar" class="glass-surface rounded-2xl p-2 shadow-sm border border-purple-300/70 dark:border-purple-700/60">
             <div class="flex items-center justify-between gap-1.5 mb-1.5 px-1">
               <span class="text-[11px] font-extrabold text-purple-950 dark:text-purple-100 flex items-center gap-1">
-                <span>⚡ Quick Edit Cards</span>
-                <span class="text-[10px] font-normal text-purple-600 dark:text-purple-300">(No long scrolling — tap any card!)</span>
+                <span>⚡ Quick Edit Sections</span>
               </span>
-              <span id="step1-progress-pill" class="px-2 py-0.5 rounded-full text-[10px] font-black bg-emerald-500/20 text-emerald-700 dark:text-emerald-300">Card 1 of 4</span>
+              <div class="flex items-center gap-1.5">
+                <span id="step1-progress-pill" class="px-2 py-0.5 rounded-full text-[10px] font-black bg-emerald-500/20 text-emerald-700 dark:text-emerald-300">Basic Info</span>
+                <button type="button" id="step1-subtab-btn-all" onclick="switchStep1SubTab('all')" class="step1-subtab-btn py-1 px-2.5 rounded-lg font-bold text-[10px] bg-purple-100/80 dark:bg-purple-900/50 text-purple-800 dark:text-purple-200 hover:bg-purple-200 flex items-center gap-1 transition cursor-pointer" title="Show all cards on one page">
+                  <span>📋</span><span>Show All</span>
+                </button>
+              </div>
             </div>
-            <div class="grid grid-cols-2 sm:grid-cols-5 gap-1.5">
+            <div class="grid grid-cols-2 sm:grid-cols-4 gap-1.5">
               <button type="button" id="step1-subtab-btn-basic" onclick="switchStep1SubTab('basic')" class="step1-subtab-btn py-2 px-2.5 rounded-xl font-bold text-xs bg-gradient-to-r from-pink-500 to-purple-600 text-white shadow-sm flex items-center justify-center gap-1.5 transition cursor-pointer">
-                <span>👤</span><span class="truncate">1. Basic Info</span>
+                <span>👤</span><span class="truncate">Basic Info</span>
               </button>
               <button type="button" id="step1-subtab-btn-template" onclick="switchStep1SubTab('template')" class="step1-subtab-btn py-2 px-2.5 rounded-xl font-bold text-xs bg-white/80 dark:bg-purple-950/60 text-purple-900 dark:text-purple-200 hover:bg-purple-100 dark:hover:bg-purple-900/60 border border-purple-200/70 dark:border-purple-800/60 flex items-center justify-center gap-1.5 transition cursor-pointer">
-                <span>✨</span><span class="truncate">2. Text &amp; Sections</span>
+                <span>✨</span><span class="truncate">Text &amp; Sections</span>
               </button>
               <button type="button" id="step1-subtab-btn-photos" onclick="switchStep1SubTab('photos')" class="step1-subtab-btn py-2 px-2.5 rounded-xl font-bold text-xs bg-white/80 dark:bg-purple-950/60 text-purple-900 dark:text-purple-200 hover:bg-purple-100 dark:hover:bg-purple-900/60 border border-purple-200/70 dark:border-purple-800/60 flex items-center justify-center gap-1.5 transition cursor-pointer">
-                <span>📸</span><span class="truncate">3. Photos &amp; Slots</span>
+                <span>📸</span><span class="truncate">Photos &amp; Slots</span>
               </button>
               <button type="button" id="step1-subtab-btn-audio" onclick="switchStep1SubTab('audio')" class="step1-subtab-btn py-2 px-2.5 rounded-xl font-bold text-xs bg-white/80 dark:bg-purple-950/60 text-purple-900 dark:text-purple-200 hover:bg-purple-100 dark:hover:bg-purple-900/60 border border-purple-200/70 dark:border-purple-800/60 flex items-center justify-center gap-1.5 transition cursor-pointer">
-                <span>🎵</span><span class="truncate">4. Music &amp; Voice</span>
-              </button>
-              <button type="button" id="step1-subtab-btn-all" onclick="switchStep1SubTab('all')" class="step1-subtab-btn col-span-2 sm:col-span-1 py-2 px-2.5 rounded-xl font-semibold text-[11px] bg-purple-100/70 dark:bg-purple-900/40 text-purple-800 dark:text-purple-300 hover:bg-purple-200 flex items-center justify-center gap-1 transition cursor-pointer" title="Show all cards on one page">
-                <span>📋</span><span class="truncate">Show All</span>
+                <span>🎵</span><span class="truncate">Music &amp; Voice</span>
               </button>
             </div>
           </div>
 
           <!-- Section: Personal Information -->
-          <div id="step1-card-basic" data-step1-tab="basic" class="glass-surface rounded-3xl p-5 sm:p-6 shadow-xl space-y-4">
-            <div class="flex items-center justify-between pb-3 border-b border-purple-200/60 dark:border-purple-800/40">
+          <div id="step1-card-basic" data-step1-tab="basic" class="glass-surface rounded-3xl p-4 sm:p-6 shadow-xl space-y-3.5">
+            <div class="flex items-center justify-between pb-2.5 border-b border-purple-200/60 dark:border-purple-800/40">
               <h3 class="font-display font-extrabold text-base text-purple-950 dark:text-white flex items-center gap-2">
                 <span>👤 Personal Information</span>
               </h3>
-              <span class="text-[11px] text-pink-600 dark:text-pink-400 font-bold">Step 1 of 4</span>
+              <span class="text-[11px] text-pink-600 dark:text-pink-400 font-bold">Essential Details</span>
             </div>
 
             <!-- Recipient Name -->
@@ -801,17 +777,17 @@
 
         <!-- STEP 2: ADVANCED THEME ENGINE & VISUAL ATMOSPHERE CONTAINER -->
         <div id="step-content-2" class="hidden flex flex-col gap-4">
-          <!-- STEP 2 SUB-TAB BAR -->
-          <div id="step2-subtab-bar" class="glass-surface rounded-2xl p-2 shadow-md border border-purple-300/70 dark:border-purple-700/60 sticky top-[68px] z-20 backdrop-blur-xl">
+          <!-- STEP 2 SUB-TAB BAR (Clean Non-Overlapping Flow) -->
+          <div id="step2-subtab-bar" class="glass-surface rounded-2xl p-2 shadow-sm border border-purple-300/70 dark:border-purple-700/60">
             <div class="grid grid-cols-2 sm:grid-cols-4 gap-1.5">
               <button type="button" id="step2-subtab-btn-colors" onclick="switchStep2SubTab('colors')" class="step2-subtab-btn py-2 px-2.5 rounded-xl font-bold text-xs bg-gradient-to-r from-pink-500 to-purple-600 text-white shadow-sm flex items-center justify-center gap-1.5 transition cursor-pointer">
-                <span>🎨</span><span class="truncate">1. Themes &amp; Colors</span>
+                <span>🎨</span><span class="truncate">Themes &amp; Colors</span>
               </button>
               <button type="button" id="step2-subtab-btn-fonts" onclick="switchStep2SubTab('fonts')" class="step2-subtab-btn py-2 px-2.5 rounded-xl font-bold text-xs bg-white/80 dark:bg-purple-950/60 text-purple-900 dark:text-purple-200 border border-purple-200/70 dark:border-purple-800/60 flex items-center justify-center gap-1.5 transition cursor-pointer">
-                <span>✍️</span><span class="truncate">2. Fonts &amp; Cards</span>
+                <span>✍️</span><span class="truncate">Fonts &amp; Cards</span>
               </button>
               <button type="button" id="step2-subtab-btn-fx" onclick="switchStep2SubTab('fx')" class="step2-subtab-btn py-2 px-2.5 rounded-xl font-bold text-xs bg-white/80 dark:bg-purple-950/60 text-purple-900 dark:text-purple-200 border border-purple-200/70 dark:border-purple-800/60 flex items-center justify-center gap-1.5 transition cursor-pointer">
-                <span>✨</span><span class="truncate">3. Magic Effects</span>
+                <span>✨</span><span class="truncate">Magic Effects</span>
               </button>
               <button type="button" id="step2-subtab-btn-all" onclick="switchStep2SubTab('all')" class="step2-subtab-btn py-2 px-2.5 rounded-xl font-semibold text-xs bg-purple-100/70 dark:bg-purple-900/40 text-purple-800 dark:text-purple-300 flex items-center justify-center gap-1 transition cursor-pointer">
                 <span>📋</span><span class="truncate">Show All</span>
@@ -1818,6 +1794,7 @@
       const previewCol = document.getElementById('customizer-preview-column');
       const custBtn = document.getElementById('mobile-view-customize-btn');
       const prevBtn = document.getElementById('mobile-view-preview-btn');
+      const floatingWrap = document.getElementById('mobile-floating-view-toggle-wrap');
       const floatingBtnText = document.getElementById('mobile-floating-toggle-text');
       const floatingBtnIcon = document.getElementById('mobile-floating-toggle-icon');
 
@@ -1833,6 +1810,7 @@
         if (prevBtn) {
           prevBtn.className = 'flex-1 py-2 px-3 rounded-xl font-bold text-xs flex items-center justify-center gap-1.5 transition-all bg-gradient-to-r from-pink-500 to-purple-600 text-white shadow-sm cursor-pointer';
         }
+        if (floatingWrap) floatingWrap.classList.remove('hidden');
         if (floatingBtnText) floatingBtnText.textContent = 'Edit Setup';
         if (floatingBtnIcon) floatingBtnIcon.textContent = 'tune';
       } else {
@@ -1844,6 +1822,7 @@
         if (prevBtn) {
           prevBtn.className = 'flex-1 py-2 px-3 rounded-xl font-bold text-xs flex items-center justify-center gap-1.5 transition-all text-purple-800 dark:text-purple-300 hover:text-purple-950 cursor-pointer';
         }
+        if (floatingWrap) floatingWrap.classList.add('hidden');
         if (floatingBtnText) floatingBtnText.textContent = 'Live Preview';
         if (floatingBtnIcon) floatingBtnIcon.textContent = 'visibility';
       }
@@ -1880,11 +1859,11 @@
     });
   </script>
 
-  <!-- Mobile Floating Quick-Toggle Button -->
-  <div class="lg:hidden fixed bottom-6 right-4 z-40">
+  <!-- Mobile Floating Quick-Toggle Button (Shown only when in Live Preview mode to return to Edit Setup without overlapping form inputs!) -->
+  <div id="mobile-floating-view-toggle-wrap" class="hidden fixed bottom-5 right-4 z-40">
     <button type="button" id="mobile-floating-view-toggle" onclick="toggleMobileActiveView()" class="px-4 py-2.5 rounded-full bg-gradient-to-r from-purple-700 via-pink-600 to-purple-800 hover:brightness-110 active:scale-95 text-white text-xs font-black shadow-2xl shadow-purple-950/50 border border-white/20 flex items-center gap-1.5 transition-all cursor-pointer">
-      <span class="material-symbols-outlined text-[18px]" id="mobile-floating-toggle-icon">visibility</span>
-      <span id="mobile-floating-toggle-text">Live Preview</span>
+      <span class="material-symbols-outlined text-[18px]" id="mobile-floating-toggle-icon">tune</span>
+      <span id="mobile-floating-toggle-text">Back to Edit Setup</span>
     </button>
   </div>
 </body>

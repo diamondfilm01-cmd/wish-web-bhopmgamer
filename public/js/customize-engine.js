@@ -832,12 +832,50 @@ function renderDynamicTemplateFields(template) {
   });
 
   if (dynamicFields.length === 0) {
-    card.classList.add('hidden');
+    if (countBadge) countBadge.textContent = `${(currentCustomData.sections || []).length} Sections`;
+    const navBoxEmpty = document.getElementById('dynamic-fields-section-navigator');
+    const hiddenSecsEmpty = new Set(Array.isArray(currentCustomData._hiddenSections) ? currentCustomData._hiddenSections : []);
+    if (navBoxEmpty && Array.isArray(currentCustomData.sections) && currentCustomData.sections.length > 0) {
+      navBoxEmpty.innerHTML = `
+        <div class="space-y-2">
+          <p class="text-[11px] text-purple-700 dark:text-purple-300 font-medium">Toggle any optional template section ON or OFF below:</p>
+          ${currentCustomData.sections.map(sec => {
+            const isReq = sec.id === 'hero' || sec.required === true || sec.isRequired === true || sec.toggleable === false;
+            const isOff = !isReq && (hiddenSecsEmpty.has(sec.id) || sec.enabled === false);
+            return `
+              <div class="p-2.5 rounded-2xl bg-white/80 dark:bg-purple-950/50 border border-purple-200/70 dark:border-purple-800/50 flex items-center justify-between gap-2 text-xs">
+                <div class="flex items-center gap-2 min-w-0">
+                  <span>${escapeHtml(sec.icon || '✨')}</span>
+                  <span class="font-bold text-purple-950 dark:text-white truncate">${escapeHtml(sec.name || sec.label || sec.id)}</span>
+                </div>
+                ${isReq
+                  ? '<span class="px-2 py-0.5 rounded-full text-[10px] font-bold bg-purple-200/70 dark:bg-purple-800/60 text-purple-800 dark:text-purple-200">Required</span>'
+                  : `<button type="button" onclick="toggleCustomerSectionQuick('${sec.id}')" class="px-2.5 py-1 rounded-full text-[10px] font-bold transition cursor-pointer ${
+                      isOff
+                        ? 'bg-rose-500/20 text-rose-700 dark:text-rose-300 border border-rose-500/40'
+                        : 'bg-emerald-500/20 text-emerald-700 dark:text-emerald-300 border border-emerald-500/40'
+                    }">${isOff ? '🙈 Hidden (Tap to Show)' : '👁️ Visible (Tap to Hide)'}</button>`
+                }
+              </div>
+            `;
+          }).join('')}
+        </div>
+      `;
+    }
     container.innerHTML = '';
+    if (window._activeStep1SubTab === 'template' || window._activeStep1SubTab === 'all') {
+      card.classList.remove('hidden');
+    } else {
+      card.classList.add('hidden');
+    }
     return;
   }
 
-  card.classList.remove('hidden');
+  if (window._activeStep1SubTab === 'template' || window._activeStep1SubTab === 'all') {
+    card.classList.remove('hidden');
+  } else {
+    card.classList.add('hidden');
+  }
   if (countBadge) {
     countBadge.textContent = `${dynamicFields.length} Field${dynamicFields.length === 1 ? '' : 's'}`;
   }
@@ -1265,12 +1303,12 @@ function renderCustomizerHeader() {
   const categoryEl = document.getElementById('customizer-category-name');
   if (categoryEl) categoryEl.textContent = `✦ ${activeTemplate.category || 'Celebration'}`;
 
-  // Update button labels
+  // Update button labels (Compact on mobile so template title is never crushed)
   const btnFinal = document.getElementById('btn-header-continue');
   if (btnFinal) {
     btnFinal.innerHTML = isVip
-      ? `<span>Proceed to Gift • ₹${activeTemplate.price || 49}</span><span class="material-symbols-outlined text-[16px]">arrow_forward</span>`
-      : `<span>Finalize Free Wish</span><span class="material-symbols-outlined text-[16px]">arrow_forward</span>`;
+      ? `<span class="hidden sm:inline">Proceed to Gift • ₹${activeTemplate.price || 49}</span><span class="sm:hidden">Gift • ₹${activeTemplate.price || 49}</span><span class="material-symbols-outlined text-[14px] sm:text-[16px]">arrow_forward</span>`
+      : `<span class="hidden sm:inline">Finalize Free Wish</span><span class="sm:hidden">Finalize</span><span class="material-symbols-outlined text-[14px] sm:text-[16px]">arrow_forward</span>`;
   }
 
   // Update back to preview link (Rule E: preserve selected variant & relation on back navigation)
@@ -1430,11 +1468,11 @@ function updateStepVisibility() {
 
     if (stepTab) {
       if (i === currentStep) {
-        stepTab.className = 'step-tab-btn flex items-center gap-1.5 py-1.5 px-3 sm:px-4 rounded-xl font-bold text-xs sm:text-sm bg-purple-700 text-white shadow-md transition-all';
+        stepTab.className = 'step-tab-btn flex-1 min-w-0 flex items-center justify-center gap-1 sm:gap-1.5 py-1.5 px-1.5 sm:px-4 rounded-xl font-bold text-[11px] sm:text-sm bg-purple-700 text-white shadow-md transition-all';
       } else if (i < currentStep) {
-        stepTab.className = 'step-tab-btn flex items-center gap-1.5 py-1.5 px-3 sm:px-4 rounded-xl font-bold text-xs sm:text-sm bg-purple-100/90 dark:bg-purple-900/60 text-purple-900 dark:text-purple-200 transition-all cursor-pointer';
+        stepTab.className = 'step-tab-btn flex-1 min-w-0 flex items-center justify-center gap-1 sm:gap-1.5 py-1.5 px-1.5 sm:px-4 rounded-xl font-bold text-[11px] sm:text-sm bg-purple-100/90 dark:bg-purple-900/60 text-purple-900 dark:text-purple-200 transition-all cursor-pointer';
       } else {
-        stepTab.className = 'step-tab-btn flex items-center gap-1.5 py-1.5 px-3 sm:px-4 rounded-xl font-semibold text-xs sm:text-sm text-purple-800/60 dark:text-purple-300/60 hover:text-purple-950 dark:hover:text-white transition-all cursor-pointer';
+        stepTab.className = 'step-tab-btn flex-1 min-w-0 flex items-center justify-center gap-1 sm:gap-1.5 py-1.5 px-1.5 sm:px-4 rounded-xl font-semibold text-[11px] sm:text-sm text-purple-800/70 dark:text-purple-300/70 hover:text-purple-950 dark:hover:text-white transition-all cursor-pointer';
       }
     }
 
@@ -6192,12 +6230,16 @@ window.switchStep1SubTab = function(tabKey) {
   ['basic', 'template', 'photos', 'audio', 'all'].forEach(k => {
     const btn = document.getElementById('step1-subtab-btn-' + k);
     if (!btn) return;
+    if (k === 'all') {
+      btn.className = (k === window._activeStep1SubTab)
+        ? 'step1-subtab-btn py-1 px-2.5 rounded-lg font-bold text-[10px] bg-gradient-to-r from-pink-500 to-purple-600 text-white shadow-xs flex items-center gap-1 transition cursor-pointer'
+        : 'step1-subtab-btn py-1 px-2.5 rounded-lg font-bold text-[10px] bg-purple-100/80 dark:bg-purple-900/50 text-purple-800 dark:text-purple-200 hover:bg-purple-200 flex items-center gap-1 transition cursor-pointer';
+      return;
+    }
     if (k === window._activeStep1SubTab) {
-      btn.className = (k === 'all' ? 'step1-subtab-btn col-span-2 sm:col-span-1 ' : 'step1-subtab-btn ') +
-        'py-2 px-2.5 rounded-xl font-bold text-xs bg-gradient-to-r from-pink-500 to-purple-600 text-white shadow-sm flex items-center justify-center gap-1.5 transition cursor-pointer';
+      btn.className = 'step1-subtab-btn py-2 px-2.5 rounded-xl font-bold text-xs bg-gradient-to-r from-pink-500 to-purple-600 text-white shadow-sm flex items-center justify-center gap-1.5 transition cursor-pointer';
     } else {
-      btn.className = (k === 'all' ? 'step1-subtab-btn col-span-2 sm:col-span-1 ' : 'step1-subtab-btn ') +
-        'py-2 px-2.5 rounded-xl font-bold text-xs bg-white/80 dark:bg-purple-950/60 text-purple-900 dark:text-purple-200 hover:bg-purple-100 dark:hover:bg-purple-900/60 border border-purple-200/70 dark:border-purple-800/60 flex items-center justify-center gap-1.5 transition cursor-pointer';
+      btn.className = 'step1-subtab-btn py-2 px-2.5 rounded-xl font-bold text-xs bg-white/80 dark:bg-purple-950/60 text-purple-900 dark:text-purple-200 hover:bg-purple-100 dark:hover:bg-purple-900/60 border border-purple-200/70 dark:border-purple-800/60 flex items-center justify-center gap-1.5 transition cursor-pointer';
     }
   });
 
