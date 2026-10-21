@@ -5072,6 +5072,7 @@ function buildPublishedWishRenderModel(snapshotRecord, lifecycleState = 'active'
 
 const DEFAULT_SITE_SETTINGS = {
   heroBadge: 'Make Every Moment Magical ✨',
+  heroBadgeIcon: '',
   heroHeadline: 'Gift a <span class="bg-gradient-to-r from-[#7c3aed] via-[#EC4899] to-[#f59e0b] dark:from-[#F472B6] dark:via-[#EC4899] dark:to-[#F4C542] bg-clip-text text-transparent">Magical</span> Web-Experience!',
   heroSubheadline: 'Create beautiful personalized digital wishes that feel like a real experience — interactive 3D unboxing, customized music & unforgettable celebration magic.',
   heroGiftIcon: '🎁',
@@ -5143,11 +5144,12 @@ function validateSiteSettings(settings) {
 
   const s = settings.settings || settings;
 
-  // Hero badge
+  // Hero badge & optional leading icon (e.g. '🪔' for '🪔 This Diwali')
   const heroBadge = String(s.heroBadge !== undefined ? s.heroBadge : inMemorySiteSettings.heroBadge).trim();
   if (!heroBadge || heroBadge.length > 120) {
     return { valid: false, error: 'Hero badge must be between 1 and 120 characters.' };
   }
+  const heroBadgeIcon = String(s.heroBadgeIcon !== undefined ? s.heroBadgeIcon : (inMemorySiteSettings.heroBadgeIcon || '')).trim().slice(0, 16);
 
   // Hero headline
   const heroHeadline = String(s.heroHeadline !== undefined ? s.heroHeadline : inMemorySiteSettings.heroHeadline).trim();
@@ -5225,7 +5227,8 @@ function validateSiteSettings(settings) {
   const promoBannerActive = s.promoBannerActive !== undefined ? Boolean(s.promoBannerActive) : inMemorySiteSettings.promoBannerActive;
   const promoBannerText = sanitizeString(String(s.promoBannerText !== undefined ? s.promoBannerText : inMemorySiteSettings.promoBannerText).trim(), 200);
   const heroImageUrl = s.heroImageUrl !== undefined ? String(s.heroImageUrl).trim() : (inMemorySiteSettings.heroImageUrl || '/assets/file_ab2082.png');
-  const heroBgMode = s.heroBgMode !== undefined ? (s.heroBgMode === 'gradient' ? 'gradient' : (s.heroBgMode === 'custom-photo' ? 'custom-photo' : 'image')) : (inMemorySiteSettings.heroBgMode || 'image');
+  const ALLOWED_BG_MODES = ['image', 'diwali-3d', 'custom-photo', 'gradient'];
+  const heroBgMode = (s.heroBgMode !== undefined && ALLOWED_BG_MODES.includes(s.heroBgMode)) ? s.heroBgMode : (ALLOWED_BG_MODES.includes(inMemorySiteSettings.heroBgMode) ? inMemorySiteSettings.heroBgMode : 'image');
   const hero3dFloatingEnabled = s.hero3dFloatingEnabled !== undefined ? Boolean(s.hero3dFloatingEnabled) : (inMemorySiteSettings.hero3dFloatingEnabled !== false);
   const heroTouchBurstEnabled = s.heroTouchBurstEnabled !== undefined ? Boolean(s.heroTouchBurstEnabled) : (inMemorySiteSettings.heroTouchBurstEnabled !== false);
   const coupons = Array.isArray(s.coupons) ? s.coupons : (Array.isArray(inMemorySiteSettings.coupons) ? inMemorySiteSettings.coupons : []);
@@ -5237,6 +5240,7 @@ function validateSiteSettings(settings) {
       coupons,
       popularTags,
       heroBadge,
+      heroBadgeIcon,
       heroHeadline,
       heroSubheadline,
       heroGiftIcon,
@@ -5279,6 +5283,7 @@ async function getSiteSettings(env) {
           }
 
           if (row.key === 'hero_badge') config.heroBadge = val;
+          else if (row.key === 'hero_badge_icon') config.heroBadgeIcon = val !== undefined && val !== null ? String(val) : '';
           else if (row.key === 'hero_headline') config.heroHeadline = val;
           else if (row.key === 'hero_subheadline') config.heroSubheadline = val;
           else if (row.key === 'hero_gift_icon') config.heroGiftIcon = val;
@@ -5331,6 +5336,7 @@ async function saveSiteSettings(env, newSettings, actor = {}) {
       const actorId = s.updatedBy;
       const entries = [
         ['hero_badge', s.heroBadge, 'string'],
+        ['hero_badge_icon', s.heroBadgeIcon || '', 'string'],
         ['hero_headline', s.heroHeadline, 'string'],
         ['hero_subheadline', s.heroSubheadline, 'string'],
         ['hero_gift_icon', s.heroGiftIcon, 'string'],
@@ -5404,10 +5410,12 @@ async function resetSiteSettingsToDefaults(env, actor = {}) {
 }
 
 function formatPublicSiteSettings(settings) {
-  const heroBgMode = (settings.heroBgMode === 'gradient') ? 'gradient' : 'image';
+  const allowedModes = ['image', 'diwali-3d', 'custom-photo', 'gradient'];
+  const heroBgMode = allowedModes.includes(settings.heroBgMode) ? settings.heroBgMode : 'image';
   const pureGrad = HERO_STYLE_GRADIENTS[settings.heroStyle] || HERO_STYLE_GRADIENTS['cosmic-purple'];
   return {
     heroBadge: settings.heroBadge,
+    heroBadgeIcon: settings.heroBadgeIcon || '',
     heroHeadline: settings.heroHeadline,
     heroSubheadline: settings.heroSubheadline,
     heroGiftIcon: settings.heroGiftIcon,

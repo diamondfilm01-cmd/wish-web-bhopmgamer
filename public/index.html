@@ -2247,6 +2247,48 @@ body.dark .hero-gradient-text,
       <span class="wm-spec-dome wm-spec-b9"></span>
     </div>
   </div>
+  <!-- Pure CSS 3D Royal Diwali Diyas, Sky Lanterns & Sequential Crackers Scene (Switchable in Admin Settings, 100% Separate from Gift Box Scene) -->
+  <div id="hero-diwali-3d-canvas" class="hero-diwali-3d-canvas" aria-hidden="true">
+    <div class="hero-diwali-stage-frame">
+      <div class="hero-diwali-bg-base"></div>
+      <div class="hero-diwali-ambient-glow"></div>
+      <!-- Plane 2: 5 Sequential Normal-Speed Sky Crackers / Fireworks -->
+      <div class="hero-diwali-plane-crackers">
+        <div class="wm-diwali-cracker wm-cracker-1"><span class="wm-cracker-rocket"></span><span class="wm-cracker-flash"></span><div class="wm-cracker-burst"></div></div>
+        <div class="wm-diwali-cracker wm-cracker-2"><span class="wm-cracker-rocket"></span><span class="wm-cracker-flash"></span><div class="wm-cracker-burst"></div></div>
+        <div class="wm-diwali-cracker wm-cracker-3"><span class="wm-cracker-rocket"></span><span class="wm-cracker-flash"></span><div class="wm-cracker-burst"></div></div>
+        <div class="wm-diwali-cracker wm-cracker-4"><span class="wm-cracker-rocket"></span><span class="wm-cracker-flash"></span><div class="wm-cracker-burst"></div></div>
+        <div class="wm-diwali-cracker wm-cracker-5"><span class="wm-cracker-rocket"></span><span class="wm-cracker-flash"></span><div class="wm-cracker-burst"></div></div>
+      </div>
+      <!-- Plane 3: 3D Floating Sky Lanterns -->
+      <div class="hero-diwali-plane-lanterns">
+        <div class="wm-diwali-lantern wm-diwali-lantern-main"></div>
+        <div class="wm-diwali-lantern wm-diwali-lantern-mid"></div>
+        <div class="wm-diwali-lantern wm-diwali-lantern-right"></div>
+      </div>
+      <!-- Plane 4: 3D Floating WishMagic Happy Diwali Book + Cover Burning Diya -->
+      <div class="hero-diwali-plane-book">
+        <div class="hero-diwali-book-layer">
+          <div class="wm-diwali-diya wm-diya-6-book"><span class="wm-diya-halo"></span><div class="wm-diya-flame"></div><span class="wm-diya-spark"></span></div>
+        </div>
+      </div>
+      <!-- Plane 5: 3D Swaying Marigold Garlands -->
+      <div class="hero-diwali-plane-garlands">
+        <div class="hero-diwali-garlands-layer"></div>
+      </div>
+      <!-- Plane 6: Real Burning Foreground Table & Lantern Diyas -->
+      <div class="hero-diwali-plane-diyas">
+        <div class="wm-diwali-diya wm-diya-1"><span class="wm-diya-halo"></span><div class="wm-diya-flame"></div><span class="wm-diya-spark"></span></div>
+        <div class="wm-diwali-diya wm-diya-2"><span class="wm-diya-halo"></span><div class="wm-diya-flame"></div><span class="wm-diya-spark"></span></div>
+        <div class="wm-diwali-diya wm-diya-3"><span class="wm-diya-halo"></span><div class="wm-diya-flame"></div><span class="wm-diya-spark"></span></div>
+        <div class="wm-diwali-diya wm-diya-4"><span class="wm-diya-halo"></span><div class="wm-diya-flame"></div><span class="wm-diya-spark"></span></div>
+        <div class="wm-diwali-diya wm-diya-5"><span class="wm-diya-halo"></span><div class="wm-diya-flame"></div><span class="wm-diya-spark"></span></div>
+        <div class="wm-diwali-diya wm-diya-7"><span class="wm-diya-halo"></span><div class="wm-diya-flame"></div><span class="wm-diya-spark"></span></div>
+        <div class="wm-diwali-diya wm-diya-8"><span class="wm-diya-halo"></span><div class="wm-diya-flame"></div><span class="wm-diya-spark"></span></div>
+        <div class="wm-diwali-diya wm-diya-9"><span class="wm-diya-halo"></span><div class="wm-diya-flame"></div><span class="wm-diya-spark"></span></div>
+      </div>
+    </div>
+  </div>
 </div>
 <div id="wm-hero-confetti-stage" class="wm-hero-confetti-stage" aria-hidden="true"></div>
 <!-- Ambient Decorative Backdrop inside Hero -->
@@ -2284,11 +2326,12 @@ body.dark .hero-gradient-text,
 
 <!-- EXPANSIVE HERO CONTENT (Clean, high-contrast, perfectly matches Light Mode & Dark Mode) -->
 <div id="hero-content-grid" class="relative z-10 w-full max-w-xl space-y-3 sm:space-y-4 pt-1 pb-2 sm:py-2">
-<!-- Glowing pill badge (Compact fit-content pill near top-left of Hero) -->
-<div class="inline-flex items-center gap-2 px-3.5 py-1.5 rounded-full bg-purple-950/80 backdrop-blur-md border border-pink-400/50 text-xs font-extrabold tracking-wider text-pink-100 shadow-md w-fit self-start">
-  <span class="w-2 h-2 rounded-full bg-gradient-to-r from-amber-300 to-pink-400 animate-pulse flex-shrink-0"></span>
+<!-- Glowing pill badge (Compact fit-content pill near top-left of Hero — supports "🪔 This Diwali" or custom icon + text from Admin Settings) -->
+<div id="hero-badge-pill" class="inline-flex items-center gap-2 px-3.5 py-1.5 rounded-full bg-purple-950/80 backdrop-blur-md border border-pink-400/50 text-xs font-extrabold tracking-wider text-pink-100 shadow-md w-fit self-start">
+  <span id="hero-badge-lead-dot" class="w-2 h-2 rounded-full bg-gradient-to-r from-amber-300 to-pink-400 animate-pulse flex-shrink-0"></span>
+  <span id="hero-badge-lead-emoji" class="hidden text-sm leading-none flex-shrink-0 filter drop-shadow-[0_0_6px_rgba(251,191,36,0.9)]">🪔</span>
   <span id="hero-badge-text" class="tracking-widest uppercase text-[10.5px] sm:text-[11.5px] font-extrabold text-white drop-shadow-sm">Make Every Moment Magical</span>
-  <span class="text-amber-300 text-xs leading-none flex-shrink-0">✨</span>
+  <span id="hero-badge-trail-icon" class="text-amber-300 text-xs leading-none flex-shrink-0">✨</span>
 </div>
 <!-- Main Display Headline (Luxury 3D Typography + Rose-Gold Gradient Highlight) -->
 <div class="w-full">
@@ -4119,11 +4162,57 @@ body.dark .hero-gradient-text,
       'emerald-aurora': 'radial-gradient(circle at 75% 25%, #059669 0%, #065f46 30%, #064e3b 65%, #022c22 100%)'
     };
 
+    function syncHeroBadgePill(s) {
+      if (!s) return;
+      const textEl = document.getElementById('hero-badge-text');
+      const dotEl = document.getElementById('hero-badge-lead-dot');
+      const emojiEl = document.getElementById('hero-badge-lead-emoji');
+      const trailEl = document.getElementById('hero-badge-trail-icon');
+      if (!textEl) return;
+
+      const rawBadge = String(s.heroBadge || 'Make Every Moment Magical ✨').trim();
+      const explicitIcon = String(s.heroBadgeIcon || '').trim();
+
+      // Check if rawBadge starts with an emoji/symbol (e.g. "🪔 This Diwali")
+      const leadEmojiMatch = rawBadge.match(/^([\u{1F300}-\u{1FAFF}\u{2600}-\u{27BF}🪔✨🎆🎇🎁🎉🎊💖👑🌙⭐🔥]+)\s*(.+)$/u);
+      const leadIcon = explicitIcon || (leadEmojiMatch ? leadEmojiMatch[1] : '');
+      let cleanText = leadEmojiMatch && !explicitIcon ? leadEmojiMatch[2].trim() : rawBadge;
+
+      // Strip redundant leading icon if it matches explicitIcon
+      if (explicitIcon && cleanText.startsWith(explicitIcon)) {
+        cleanText = cleanText.slice(explicitIcon.length).trim();
+      }
+
+      if (leadIcon) {
+        if (emojiEl) {
+          emojiEl.textContent = leadIcon;
+          emojiEl.classList.remove('hidden');
+        }
+        if (dotEl) dotEl.classList.add('hidden');
+        // Check if trailing ✨ was explicitly included at the end
+        const hasTrailSparkle = /[✨]\s*$/u.test(cleanText);
+        cleanText = cleanText.replace(/[✨\s]+$/u, '').trim() || cleanText;
+        textEl.textContent = cleanText;
+        if (trailEl) {
+          if (hasTrailSparkle) trailEl.classList.remove('hidden');
+          else trailEl.classList.add('hidden');
+        }
+      } else {
+        if (emojiEl) emojiEl.classList.add('hidden');
+        if (dotEl) dotEl.classList.remove('hidden');
+        textEl.textContent = cleanText.replace(/[✨\s]+$/u, '').trim() || cleanText;
+        if (trailEl) trailEl.classList.remove('hidden');
+      }
+    }
+    window.syncHeroBadgePill = syncHeroBadgePill;
+
     function updateHeroVisualsForTheme() {
       const heroSec = document.getElementById('hero-desktop-section');
       const ambientBackdrop = document.getElementById('ambient-hero-backdrop');
       const heroScrim = document.getElementById('hero-image-scrim');
       const stage3d = document.getElementById('hero-css-3d-viewport');
+      const giftboxCanvas = document.getElementById('hero-css-3d-canvas');
+      const diwaliCanvas = document.getElementById('hero-diwali-3d-canvas');
       const confettiStage = document.getElementById('wm-hero-confetti-stage');
       if (!heroSec) return;
       const s = window._cachedSiteSettings || {};
@@ -4133,15 +4222,17 @@ body.dark .hero-gradient-text,
       const floatEnabled = s.hero3dFloatingEnabled !== false;
       const burstEnabled = s.heroTouchBurstEnabled !== false;
       heroSec.setAttribute('data-3d-floating', floatEnabled ? 'on' : 'off');
+      heroSec.setAttribute('data-hero-3d-floating', floatEnabled ? 'on' : 'off');
       heroSec.setAttribute('data-3d-burst', burstEnabled ? 'on' : 'off');
       if (confettiStage) confettiStage.style.display = burstEnabled ? 'block' : 'none';
       if (stage3d) {
-        stage3d.querySelectorAll('.hero-3d-layer, .hero-3d-box-light-cone, .wm-spec-dome').forEach(el => {
+        stage3d.querySelectorAll('.hero-3d-layer, .hero-3d-box-light-cone, .wm-spec-dome, .wm-diwali-lantern, .hero-diwali-book-layer, .hero-diwali-garlands-layer').forEach(el => {
           el.style.animationPlayState = floatEnabled ? 'running' : 'paused';
         });
       }
 
       if (mode === 'gradient') {
+        heroSec.removeAttribute('data-hero-3d-scene');
         const grad = s.heroStyleGradient || HERO_STYLE_GRADIENTS_MAP[s.heroStyle || 'cosmic-purple'] || HERO_STYLE_GRADIENTS_MAP['cosmic-purple'];
         heroSec.style.setProperty('background', grad, 'important');
         if (ambientBackdrop) ambientBackdrop.style.display = 'block';
@@ -4150,9 +4241,25 @@ body.dark .hero-gradient-text,
           heroScrim.style.setProperty('opacity', '0', 'important');
           heroScrim.style.setProperty('display', 'none', 'important');
         }
+      } else if (mode === 'diwali-3d') {
+        // 3D Royal Diwali Diyas, Sky Lanterns & Sequential Crackers Scene (Zero mixing with Gift Box scene)
+        heroSec.setAttribute('data-hero-3d-scene', 'diwali');
+        heroSec.style.removeProperty('background');
+        heroSec.style.setProperty('background-image', 'none', 'important');
+        if (stage3d) stage3d.style.display = 'block';
+        if (giftboxCanvas) giftboxCanvas.style.display = 'none';
+        if (diwaliCanvas) diwaliCanvas.style.display = 'block';
+        if (ambientBackdrop) ambientBackdrop.style.display = 'none';
+        if (heroScrim) {
+          heroScrim.style.setProperty('opacity', '1', 'important');
+          heroScrim.style.setProperty('display', 'block', 'important');
+        }
       } else {
-        // 3D Hero Scene Mode ('image' or '3d-magic') or Custom Uploaded Photo ('custom-photo')
-        const isCustomPhoto = (mode === 'custom-photo') || (s.heroImageUrl && s.heroImageUrl !== '/assets/file_ab2082.png' && mode !== '3d-magic');
+        // 3D Gift Box, Balloons & Stars Scene ('image' / '3d-magic') or Custom Uploaded Photo ('custom-photo')
+        heroSec.setAttribute('data-hero-3d-scene', 'giftbox');
+        if (giftboxCanvas) giftboxCanvas.style.display = 'block';
+        if (diwaliCanvas) diwaliCanvas.style.display = 'none';
+        const isCustomPhoto = (mode === 'custom-photo');
         const customUrl = isCustomPhoto ? (s.heroImageUrl || '/assets/file_ab2082.png') : '';
         heroSec.style.removeProperty('background');
         if (customUrl) {
@@ -4173,6 +4280,18 @@ body.dark .hero-gradient-text,
       }
     }
     window.updateHeroVisualsForTheme = updateHeroVisualsForTheme;
+    window.addEventListener('storage', function(ev) {
+      if (ev.key === 'wishmagic_site_settings_v1' && ev.newValue) {
+        try {
+          const parsed = JSON.parse(ev.newValue);
+          if (parsed && typeof parsed === 'object') {
+            window._cachedSiteSettings = Object.assign({}, window._cachedSiteSettings || {}, parsed);
+            syncHeroBadgePill(window._cachedSiteSettings);
+            updateHeroVisualsForTheme();
+          }
+        } catch (e) {}
+      }
+    });
 
     function syncStorefrontPromoBanner(s) {
       let banner = document.getElementById('wm-storefront-promo-banner');
@@ -4243,11 +4362,8 @@ body.dark .hero-gradient-text,
 
         window._cachedSiteSettings = s;
 
-        // 1. Hero Badge (strip trailing ✨ so it never duplicates the badge icon)
-        if (s.heroBadge) {
-          const el = document.getElementById('hero-badge-text');
-          if (el) el.textContent = String(s.heroBadge).replace(/[✨\s]+$/u, '').trim() || s.heroBadge;
-        }
+        // 1. Hero Badge & Top Festival Pill Icon (e.g. "🪔 This Diwali" or "Make Every Moment Magical ✨")
+        syncHeroBadgePill(s);
 
         // 2. Hero Headline
         if (s.heroHeadline) {
