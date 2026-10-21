@@ -212,7 +212,7 @@
         </button>
         <div class="wm-header-search-wrap">
           <span class="material-symbols-outlined absolute left-3.5 text-[#6b5a88] dark:text-purple-300 text-[18px] pointer-events-none">search</span>
-          <input class="wm-header-search-input" placeholder="Search settings, CMS sections, hero controls..." type="text"/>
+          <input id="header-settings-search-input" class="wm-header-search-input" placeholder="Search settings, CMS sections, hero controls..." type="text" oninput="handleSettingsSearchInput(this.value)"/>
           <span class="wm-ctrl-k-badge hidden sm:inline-block">Ctrl K</span>
           <!-- Search Dropdown Results Container -->
           <div id="global-search-results" class="hidden absolute top-12 left-0 right-0 bg-white dark:bg-[#1c103b] rounded-2xl border border-purple-200 dark:border-purple-500/30 shadow-2xl p-3 z-50 max-h-96 overflow-y-auto custom-scrollbar"></div>
@@ -330,25 +330,62 @@
       <button class="text-xs font-bold hover:underline opacity-80" onclick="document.getElementById('settings-status-banner').classList.add('hidden')">Dismiss</button>
     </div>
 
-    <!-- QUICK CATEGORY TABS (No More Information Overload!) -->
-    <div id="admin-settings-category-tabs" class="wm-card bg-surface-container-low/95 backdrop-blur-xl rounded-2xl p-2.5 border border-purple-500/35 shadow-md flex flex-wrap items-center justify-between gap-2">
-      <div class="flex flex-wrap items-center gap-1.5">
-        <button type="button" id="admin-settings-tab-storefront" onclick="switchAdminSettingsTab('storefront')" class="px-3.5 py-2 rounded-xl text-xs font-extrabold transition cursor-pointer flex items-center gap-1.5 bg-gradient-to-r from-pink-500 to-purple-600 text-white shadow-md">
-          <span>🏪</span><span>1. Storefront &amp; Support</span>
+    <!-- COMPLETE 12-CATEGORY SETTINGS NAVIGATION & INSTANT SEARCH -->
+    <div id="admin-settings-category-tabs" class="wm-card bg-surface-container-low/95 backdrop-blur-xl rounded-2xl p-4 border border-purple-500/35 shadow-md flex flex-col gap-3.5">
+      <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pb-3 border-b border-purple-900/20">
+        <div>
+          <div class="text-xs font-extrabold uppercase tracking-wider text-pink-400">Complete Settings Architecture (12 Categories)</div>
+          <p class="text-xs text-on-surface-variant mt-0.5" id="active-settings-category-desc">Select a category below or search any setting by name, purpose, or keyword.</p>
+        </div>
+        <div class="relative w-full sm:w-80">
+          <span class="material-symbols-outlined absolute left-3 top-1/2 -translate-y-1/2 text-outline text-[18px] pointer-events-none">search</span>
+          <input id="settings-search-input" type="search" placeholder="Find any setting, domain, pricing, backup..." oninput="handleSettingsSearchInput(this.value)" class="w-full pl-9 pr-8 py-2 rounded-xl bg-surface-container text-on-surface border border-purple-500/30 text-xs font-semibold focus:ring-2 focus:ring-primary focus:outline-none"/>
+          <button type="button" id="settings-search-clear-btn" onclick="handleSettingsSearchInput('')" class="hidden absolute right-2.5 top-1/2 -translate-y-1/2 text-outline hover:text-on-surface text-xs font-bold cursor-pointer">✕</button>
+        </div>
+      </div>
+
+      <!-- Instant Search Results Panel -->
+      <div id="settings-search-results" class="hidden p-3.5 rounded-xl bg-surface-container border border-purple-500/35 space-y-2 max-h-80 overflow-y-auto custom-scrollbar"></div>
+
+      <!-- 12 Dedicated Category Navigation Pills (Responsive Grid on Mobile & Desktop) -->
+      <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-2" role="tablist" aria-label="Settings Categories">
+        <button type="button" role="tab" aria-selected="true" id="admin-settings-tab-storefront" onclick="switchAdminSettingsTab('storefront')" class="px-3.5 py-2.5 rounded-xl text-xs font-extrabold transition cursor-pointer flex items-center gap-2 text-left bg-gradient-to-r from-pink-500 to-purple-600 text-white shadow-md">
+          <span>🏪</span><span class="truncate">1. Storefront &amp; Homepage</span>
         </button>
-        <button type="button" id="admin-settings-tab-links" onclick="switchAdminSettingsTab('links')" class="px-3.5 py-2 rounded-xl text-xs font-extrabold transition cursor-pointer flex items-center gap-1.5 bg-surface-container-high text-on-surface hover:bg-surface-container-highest border border-purple-500/20">
-          <span>🔗</span><span>2. Domain &amp; Wish Links</span>
+        <button type="button" role="tab" aria-selected="false" id="admin-settings-tab-domain-links" onclick="switchAdminSettingsTab('domain-links')" class="px-3.5 py-2.5 rounded-xl text-xs font-extrabold transition cursor-pointer flex items-center gap-2 text-left bg-surface-container-high text-on-surface hover:bg-surface-container-highest border border-purple-500/20">
+          <span>🔗</span><span class="truncate">2. Domain, Slugs &amp; Wish Links</span>
         </button>
-        <button type="button" id="admin-settings-tab-offers" onclick="switchAdminSettingsTab('offers')" class="px-3.5 py-2 rounded-xl text-xs font-extrabold transition cursor-pointer flex items-center gap-1.5 bg-surface-container-high text-on-surface hover:bg-surface-container-highest border border-purple-500/20">
-          <span>🏷️</span><span>3. Pricing &amp; Free Offers</span>
+        <button type="button" role="tab" aria-selected="false" id="admin-settings-tab-templates-gallery" onclick="switchAdminSettingsTab('templates-gallery')" class="px-3.5 py-2.5 rounded-xl text-xs font-extrabold transition cursor-pointer flex items-center gap-2 text-left bg-surface-container-high text-on-surface hover:bg-surface-container-highest border border-purple-500/20">
+          <span>🎨</span><span class="truncate">3. Templates &amp; Template Gallery</span>
         </button>
-        <button type="button" id="admin-settings-tab-system" onclick="switchAdminSettingsTab('system')" class="px-3.5 py-2 rounded-xl text-xs font-extrabold transition cursor-pointer flex items-center gap-1.5 bg-surface-container-high text-on-surface hover:bg-surface-container-highest border border-purple-500/20">
-          <span>🛡️</span><span>4. Team, Security &amp; Backup</span>
+        <button type="button" role="tab" aria-selected="false" id="admin-settings-tab-payments-pricing" onclick="switchAdminSettingsTab('payments-pricing')" class="px-3.5 py-2.5 rounded-xl text-xs font-extrabold transition cursor-pointer flex items-center gap-2 text-left bg-surface-container-high text-on-surface hover:bg-surface-container-highest border border-purple-500/20">
+          <span>💳</span><span class="truncate">4. Payments, Pricing &amp; Free Offers</span>
+        </button>
+        <button type="button" role="tab" aria-selected="false" id="admin-settings-tab-team-rbac" onclick="switchAdminSettingsTab('team-rbac')" class="px-3.5 py-2.5 rounded-xl text-xs font-extrabold transition cursor-pointer flex items-center gap-2 text-left bg-surface-container-high text-on-surface hover:bg-surface-container-highest border border-purple-500/20">
+          <span>👥</span><span class="truncate">5. Team, Roles &amp; Access</span>
+        </button>
+        <button type="button" role="tab" aria-selected="false" id="admin-settings-tab-security-audit" onclick="switchAdminSettingsTab('security-audit')" class="px-3.5 py-2.5 rounded-xl text-xs font-extrabold transition cursor-pointer flex items-center gap-2 text-left bg-surface-container-high text-on-surface hover:bg-surface-container-highest border border-purple-500/20">
+          <span>🛡️</span><span class="truncate">6. Security, Auth &amp; Audit</span>
+        </button>
+        <button type="button" role="tab" aria-selected="false" id="admin-settings-tab-backup-data" onclick="switchAdminSettingsTab('backup-data')" class="px-3.5 py-2.5 rounded-xl text-xs font-extrabold transition cursor-pointer flex items-center gap-2 text-left bg-surface-container-high text-on-surface hover:bg-surface-container-highest border border-purple-500/20">
+          <span>💾</span><span class="truncate">7. Backup, Restore &amp; Data</span>
+        </button>
+        <button type="button" role="tab" aria-selected="false" id="admin-settings-tab-notifications-integrations" onclick="switchAdminSettingsTab('notifications-integrations')" class="px-3.5 py-2.5 rounded-xl text-xs font-extrabold transition cursor-pointer flex items-center gap-2 text-left bg-surface-container-high text-on-surface hover:bg-surface-container-highest border border-purple-500/20">
+          <span>🔔</span><span class="truncate">8. Notifications &amp; Integrations</span>
+        </button>
+        <button type="button" role="tab" aria-selected="false" id="admin-settings-tab-storage-performance" onclick="switchAdminSettingsTab('storage-performance')" class="px-3.5 py-2.5 rounded-xl text-xs font-extrabold transition cursor-pointer flex items-center gap-2 text-left bg-surface-container-high text-on-surface hover:bg-surface-container-highest border border-purple-500/20">
+          <span>⚡</span><span class="truncate">9. Platform, Storage &amp; Performance</span>
+        </button>
+        <button type="button" role="tab" aria-selected="false" id="admin-settings-tab-wish-lifecycle" onclick="switchAdminSettingsTab('wish-lifecycle')" class="px-3.5 py-2.5 rounded-xl text-xs font-extrabold transition cursor-pointer flex items-center gap-2 text-left bg-surface-container-high text-on-surface hover:bg-surface-container-highest border border-purple-500/20">
+          <span>⏳</span><span class="truncate">10. Wish Lifecycle &amp; Publication</span>
+        </button>
+        <button type="button" role="tab" aria-selected="false" id="admin-settings-tab-festivals-scheduling" onclick="switchAdminSettingsTab('festivals-scheduling')" class="px-3.5 py-2.5 rounded-xl text-xs font-extrabold transition cursor-pointer flex items-center gap-2 text-left bg-surface-container-high text-on-surface hover:bg-surface-container-highest border border-purple-500/20">
+          <span>🪔</span><span class="truncate">11. Festivals &amp; Scheduling</span>
+        </button>
+        <button type="button" role="tab" aria-selected="false" id="admin-settings-tab-advanced-maintenance" onclick="switchAdminSettingsTab('advanced-maintenance')" class="px-3.5 py-2.5 rounded-xl text-xs font-extrabold transition cursor-pointer flex items-center gap-2 text-left bg-surface-container-high text-on-surface hover:bg-surface-container-highest border border-purple-500/20">
+          <span>⚙️</span><span class="truncate">12. Advanced / Maintenance</span>
         </button>
       </div>
-      <button type="button" id="admin-settings-tab-all" onclick="switchAdminSettingsTab('all')" class="px-3 py-1.5 rounded-xl text-[11px] font-bold bg-surface-container-highest text-on-surface-variant hover:text-on-surface transition cursor-pointer">
-        📋 Show All Settings
-      </button>
     </div>
 
     <!-- SECTION 1: HERO SECTION CMS MANAGER -->
@@ -560,8 +597,8 @@
       </div>
     </div>
 
-    <!-- SECTION: SMART WISH LINKS & MONETIZATION SETTINGS -->
-    <div data-settings-tab="links" class="hidden wm-card bg-surface-container rounded-2xl p-5 sm:p-7 border border-pink-500/30 shadow-xl flex flex-col gap-6" id="section-wish-links">
+    <!-- SECTION: SMART WISH LINKS & SLUG ARCHITECTURE -->
+    <div data-settings-tab="domain-links" class="hidden wm-card bg-surface-container rounded-2xl p-5 sm:p-7 border border-pink-500/30 shadow-xl flex flex-col gap-6" id="section-wish-links">
       <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-2 pb-4 border-b border-purple-900/20">
         <div class="flex items-center gap-3">
           <div class="w-10 h-10 rounded-xl bg-pink-500/20 text-pink-400 flex items-center justify-center">
@@ -570,9 +607,9 @@
           <div>
             <div class="flex items-center gap-2">
               <h2 class="font-headline-sm text-lg sm:text-xl font-bold text-on-surface">Smart Wish Links &amp; Slug Architecture</h2>
-              <span class="px-2 py-0.5 rounded text-[10px] font-black uppercase tracking-wider bg-pink-500/20 text-pink-300 border border-pink-500/30">MONETIZATION</span>
+              <span class="px-2 py-0.5 rounded text-[10px] font-black uppercase tracking-wider bg-pink-500/20 text-pink-300 border border-pink-500/30">SLUG &amp; LINK RULES</span>
             </div>
-            <p class="text-xs sm:text-sm text-on-surface-variant">Configure publishing options: Paid Personalized links (pricing &amp; currency) and Free Random slug generation rules.</p>
+            <p class="text-xs sm:text-sm text-on-surface-variant">Configure Personalized wish link availability, display labels, and Free Random slug generation rules.</p>
           </div>
         </div>
         <button onclick="saveWishLinkSettings()" class="px-4 py-2 rounded-xl bg-gradient-to-r from-pink-500 to-purple-600 hover:brightness-110 text-white font-bold text-xs sm:text-sm flex items-center gap-1.5 shadow-md transition cursor-pointer self-start sm:self-auto">
@@ -590,7 +627,7 @@
             <div class="flex items-center gap-2">
               <span class="text-lg">✨</span>
               <div>
-                <h3 class="font-bold text-sm text-on-surface">Personalized Link (Paid Feature)</h3>
+                <h3 class="font-bold text-sm text-on-surface">Personalized Link Availability &amp; Copy</h3>
                 <span class="text-[11px] text-on-surface-variant">Custom memorable URLs like /w/happy-birthday-radha</span>
               </div>
             </div>
@@ -602,12 +639,12 @@
 
           <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
             <div>
-              <label class="block text-xs font-bold uppercase tracking-wider text-outline mb-1">Price (Authoritative)</label>
-              <div class="relative flex items-center">
-                <span class="absolute left-3 text-sm font-bold text-pink-400" id="currency-symbol-label">₹</span>
-                <input id="setting-personalized-price" type="number" min="0" max="100000" step="1" class="w-full pl-8 pr-3 py-2 rounded-xl bg-surface-container text-on-surface border border-purple-900/30 text-sm font-bold focus:ring-2 focus:ring-primary focus:outline-none" value="49" oninput="updateWishLinkPreview()"/>
+              <label class="block text-xs font-bold uppercase tracking-wider text-outline mb-1">Active Price (Managed in Pricing)</label>
+              <div class="flex items-center justify-between px-3 py-2 rounded-xl bg-surface-container border border-purple-900/30 text-sm">
+                <span class="font-extrabold text-pink-400" id="setting-personalized-price-readonly">₹59</span>
+                <a href="/admin/anktech/anktech/admin/pricing" class="text-[11px] font-bold text-primary hover:underline">Edit Price →</a>
               </div>
-              <span class="text-[10px] text-on-surface-variant mt-0.5 block">Changing this auto-updates checkout &amp; validation</span>
+              <span class="text-[10px] text-on-surface-variant mt-0.5 block">Owned by Subscriptions &amp; Pricing Studio</span>
             </div>
             <div>
               <label class="block text-xs font-bold uppercase tracking-wider text-outline mb-1">Currency</label>
@@ -714,8 +751,123 @@
       </div>
     </div>
 
-    <!-- SECTION 3: PROMOTIONAL PRICING, DISCOUNTS & 100% FREE LIMITED OFFER CMS -->
-    <div data-settings-tab="offers" class="hidden wm-card bg-surface-container rounded-2xl p-5 sm:p-7 border border-pink-500/40 shadow-xl flex flex-col gap-6">
+    <!-- CATEGORY 3: TEMPLATES & TEMPLATE GALLERY SETTINGS -->
+    <div id="section-templates-gallery" data-settings-tab="templates-gallery" class="hidden wm-card bg-surface-container rounded-2xl p-5 sm:p-7 border border-purple-500/35 shadow-xl flex flex-col gap-6">
+      <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pb-4 border-b border-purple-900/20">
+        <div class="flex items-center gap-3">
+          <div class="w-10 h-10 rounded-xl bg-purple-500/20 text-purple-300 flex items-center justify-center">
+            <span class="material-symbols-outlined text-2xl">grid_view</span>
+          </div>
+          <div>
+            <h2 class="font-headline-sm text-lg sm:text-xl font-bold text-on-surface">Templates, Relation Variants &amp; Gallery Discovery</h2>
+            <p class="text-xs sm:text-sm text-on-surface-variant">Manage storefront popular search tags, relation variant discovery, and navigate to the authoritative Template Studio.</p>
+          </div>
+        </div>
+        <div class="flex flex-wrap items-center gap-2">
+          <a href="/admin/anktech/anktech/admin/templates" class="px-4 py-2 rounded-xl bg-primary-container hover:brightness-110 text-white text-xs sm:text-sm font-bold flex items-center gap-1.5 transition">
+            <span class="material-symbols-outlined text-sm">grid_view</span>
+            <span>Manage All Templates →</span>
+          </a>
+          <a href="/admin/anktech/anktech/admin/add-template" class="px-3.5 py-2 rounded-xl bg-surface-container-high hover:bg-surface-container-highest text-on-surface text-xs font-bold flex items-center gap-1.5 border border-purple-500/25 transition">
+            <span class="material-symbols-outlined text-sm">upload_file</span>
+            <span>Upload UTP v1.4 ZIP</span>
+          </a>
+          <a href="/admin/anktech/anktech/admin/occasions" class="px-3.5 py-2 rounded-xl bg-surface-container-high hover:bg-surface-container-highest text-on-surface text-xs font-bold flex items-center gap-1.5 border border-purple-500/25 transition">
+            <span class="material-symbols-outlined text-sm">category</span>
+            <span>Categories &amp; Occasions</span>
+          </a>
+        </div>
+      </div>
+
+      <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
+        <div class="p-4 rounded-xl bg-surface-container-low border border-purple-900/30">
+          <div class="text-xs font-bold uppercase text-outline">Published Templates</div>
+          <div id="settings-tpl-total-count" class="text-2xl font-extrabold text-on-surface mt-1">—</div>
+          <div class="text-[11px] text-on-surface-variant mt-1">Active in public gallery &amp; UTP resolver</div>
+        </div>
+        <div class="p-4 rounded-xl bg-surface-container-low border border-purple-900/30">
+          <div class="text-xs font-bold uppercase text-outline">Free vs Premium Tiers</div>
+          <div id="settings-tpl-tier-breakdown" class="text-2xl font-extrabold text-emerald-400 mt-1">—</div>
+          <div class="text-[11px] text-on-surface-variant mt-1">Configured per template in Template Studio</div>
+        </div>
+        <div class="p-4 rounded-xl bg-surface-container-low border border-purple-900/30">
+          <div class="text-xs font-bold uppercase text-outline">UTP Protocol Standard</div>
+          <div class="text-2xl font-extrabold text-pink-400 mt-1">v1.4.0</div>
+          <div class="text-[11px] text-on-surface-variant mt-1">Multi-variant, nested sections &amp; festival metadata</div>
+        </div>
+      </div>
+
+      <div class="p-4 rounded-xl bg-surface-container-low border border-purple-900/30 flex flex-col gap-3">
+        <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
+          <div>
+            <label for="setting-popular-tags" class="text-xs font-bold uppercase tracking-wider text-on-surface block">Homepage &amp; Gallery Popular Search Tags (Comma-separated)</label>
+            <span class="text-[11px] text-on-surface-variant">Persisted in D1 <code>site_settings.popular_tags_json</code> and displayed as quick filter chips on the storefront.</span>
+          </div>
+          <button type="button" onclick="saveAllSiteSettings('✨ Popular Gallery Search Tags saved to D1!')" class="px-3.5 py-2 rounded-xl bg-gradient-to-r from-pink-500 to-purple-600 text-white text-xs font-bold cursor-pointer self-start sm:self-auto">
+            Save Gallery Tags
+          </button>
+        </div>
+        <input id="setting-popular-tags" class="w-full px-3.5 py-2.5 rounded-xl bg-surface-container text-on-surface border border-purple-900/30 text-xs sm:text-sm font-medium focus:ring-2 focus:ring-primary focus:outline-none" value="Birthday Surprise, Romantic Anniversary, Best Friend Roast, Diwali Special, 3D Unboxing, Voice Keepsake"/>
+      </div>
+    </div>
+
+    <!-- CATEGORY 4A: AUTHORITATIVE PAYMENTS & PRICING SUMMARY + DIRECT NAVIGATION -->
+    <div id="section-authoritative-pricing-link" data-settings-tab="payments-pricing" class="hidden wm-card bg-surface-container rounded-2xl p-5 sm:p-7 border-2 border-primary/60 shadow-xl flex flex-col gap-5">
+      <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-4 pb-4 border-b border-purple-900/20">
+        <div class="flex items-center gap-3">
+          <div class="w-11 h-11 rounded-xl bg-gradient-to-br from-pink-500 to-purple-600 text-white flex items-center justify-center shadow-lg">
+            <span class="material-symbols-outlined text-2xl">workspace_premium</span>
+          </div>
+          <div>
+            <div class="flex items-center gap-2 flex-wrap">
+              <h2 class="font-headline-sm text-lg sm:text-xl font-bold text-on-surface">Authoritative Payments, Pricing &amp; Combo Tiers</h2>
+              <span class="px-2.5 py-0.5 rounded-full bg-emerald-500/20 text-emerald-300 border border-emerald-500/30 text-[10px] font-extrabold uppercase">Single Source of Truth</span>
+            </div>
+            <p class="text-xs sm:text-sm text-on-surface-variant">All template base tiers, Custom Link prices, Free Template Combos, Premium Combo Add-Ons, Coupons, and Referral rules are managed in the dedicated Subscriptions &amp; Pricing Studio.</p>
+          </div>
+        </div>
+        <div class="flex flex-wrap items-center gap-2.5">
+          <a id="btn-open-authoritative-pricing" href="/admin/anktech/anktech/admin/pricing" class="px-4 py-2.5 rounded-xl bg-gradient-to-r from-pink-500 to-purple-600 hover:brightness-110 text-white font-extrabold text-xs sm:text-sm flex items-center gap-2 shadow-lg transition">
+            <span class="material-symbols-outlined text-base">payments</span>
+            <span>Manage Payments &amp; Pricing →</span>
+          </a>
+          <a href="/admin/anktech/anktech/admin/orders" class="px-3.5 py-2.5 rounded-xl bg-surface-container-high hover:bg-surface-container-highest text-on-surface font-bold text-xs flex items-center gap-1.5 border border-purple-500/25 transition">
+            <span class="material-symbols-outlined text-sm">receipt_long</span>
+            <span>Orders &amp; Refunds Ledger</span>
+          </a>
+        </div>
+      </div>
+
+      <div class="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-3 text-center">
+        <div class="p-3.5 rounded-xl bg-surface-container-low border border-purple-900/30">
+          <div class="text-[10px] font-bold uppercase text-outline">Custom Link Only</div>
+          <div id="summary-price-custom-link" class="text-lg font-black text-on-surface mt-1">₹59</div>
+        </div>
+        <div class="p-3.5 rounded-xl bg-surface-container-low border border-purple-900/30">
+          <div class="text-[10px] font-bold uppercase text-outline">HD Images + Style</div>
+          <div id="summary-price-hd-style" class="text-lg font-black text-on-surface mt-1">₹59</div>
+        </div>
+        <div class="p-3.5 rounded-xl bg-surface-container-low border border-primary/40">
+          <div class="text-[10px] font-bold uppercase text-pink-400">Free Template Combo</div>
+          <div id="summary-price-free-combo" class="text-lg font-black text-pink-400 mt-1">₹99</div>
+        </div>
+        <div class="p-3.5 rounded-xl bg-surface-container-low border border-amber-500/40">
+          <div class="text-[10px] font-bold uppercase text-amber-300">Premium Combo Add-On</div>
+          <div id="summary-price-premium-addon" class="text-lg font-black text-amber-300 mt-1">+₹70</div>
+        </div>
+        <div class="p-3.5 rounded-xl bg-surface-container-low border border-purple-900/30">
+          <div class="text-[10px] font-bold uppercase text-outline">Base Template Tiers</div>
+          <div id="summary-price-base-tiers" class="text-sm font-black text-on-surface mt-1.5">₹0 / ₹59 / ₹149</div>
+        </div>
+        <div class="p-3.5 rounded-xl bg-surface-container-low border border-emerald-500/30">
+          <div class="text-[10px] font-bold uppercase text-emerald-400">Referral Free Link</div>
+          <div id="summary-price-referral-rule" class="text-sm font-black text-emerald-400 mt-1.5">7 Friends → 1 Free</div>
+        </div>
+      </div>
+    </div>
+
+    <!-- CATEGORY 4B: PROMOTIONAL PRICING, DISCOUNTS & 100% FREE LIMITED OFFER CMS -->
+    <div id="section-promo-offers" data-settings-tab="payments-pricing" class="hidden wm-card bg-surface-container rounded-2xl p-5 sm:p-7 border border-pink-500/40 shadow-xl flex flex-col gap-6">
       <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-4 pb-4 border-b border-purple-900/20">
         <div class="flex items-center gap-3">
           <div class="w-10 h-10 rounded-xl bg-gradient-to-tr from-pink-500 to-amber-400 text-white flex items-center justify-center shadow-lg shadow-pink-500/30">
@@ -850,8 +1002,8 @@
       </div>
     </div>
 
-    <!-- SECTION 4: TEAM & ROLE-BASED ACCESS CONTROL (RBAC) -->
-    <div data-settings-tab="system" class="hidden wm-card bg-surface-container rounded-2xl p-5 sm:p-7 border border-purple-900/30 shadow-xl flex flex-col gap-6">
+    <!-- CATEGORY 5: TEAM, ROLES & ACCESS CONTROL (RBAC) -->
+    <div id="section-team-rbac" data-settings-tab="team-rbac" class="hidden wm-card bg-surface-container rounded-2xl p-5 sm:p-7 border border-purple-900/30 shadow-xl flex flex-col gap-6">
       <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-4 pb-4 border-b border-purple-900/20">
         <div class="flex items-center gap-3">
           <div class="w-10 h-10 rounded-xl bg-tertiary-container/30 text-tertiary flex items-center justify-center">
@@ -912,7 +1064,7 @@
 
     
     <!-- SECTION 3B: UTP v1.3.0 CENTRAL LINK MANAGER & FUTURE DOMAIN MIGRATION -->
-    <div id="central-link-manager-section" data-settings-tab="links" class="hidden wm-card bg-surface-container rounded-2xl p-5 sm:p-7 border border-purple-500/35 shadow-xl flex flex-col gap-5">
+    <div id="central-link-manager-section" data-settings-tab="domain-links" class="hidden wm-card bg-surface-container rounded-2xl p-5 sm:p-7 border border-purple-500/35 shadow-xl flex flex-col gap-5">
       <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pb-4 border-b border-purple-900/20">
         <div class="flex items-center gap-3">
           <div class="w-10 h-10 rounded-xl bg-primary-container/25 text-primary flex items-center justify-center">
@@ -1039,8 +1191,18 @@
       <div id="central-link-scan-results" class="hidden p-4 rounded-xl bg-surface-container-low border border-purple-800/40 space-y-3 text-xs"></div>
     </div>
 
-    <!-- SECTION 4: PART 18 SECURITY & PRODUCTION READINESS DIAGNOSTIC MATRIX -->
-    <div data-settings-tab="system" class="hidden wm-card bg-surface-container rounded-2xl p-5 sm:p-7 border border-emerald-500/40 shadow-xl flex flex-col gap-5">
+    <!-- CATEGORY 6: SECURITY, AUTHENTICATION & AUDIT -->
+    <div id="section-security-audit" data-settings-tab="security-audit" class="hidden wm-card bg-surface-container rounded-2xl p-5 sm:p-7 border border-emerald-500/40 shadow-xl flex flex-col gap-5">
+      <div class="flex flex-wrap items-center justify-between gap-3 p-4 rounded-xl bg-surface-container-low border border-purple-900/30">
+        <div>
+          <div class="text-xs font-extrabold uppercase tracking-wider text-emerald-400">Authentication, Session &amp; Audit Trail Controls</div>
+          <p class="text-xs text-on-surface-variant mt-0.5">HttpOnly session cookies, CSRF origin validation, RBAC role enforcement, and immutable admin audit logging are active. Secrets and API keys are never exposed in plaintext.</p>
+        </div>
+        <a href="/admin/anktech/anktech/admin/audit-logs" class="px-4 py-2 rounded-xl bg-surface-container-high hover:bg-surface-container-highest text-on-surface text-xs font-bold flex items-center gap-1.5 border border-purple-500/30 transition">
+          <span class="material-symbols-outlined text-sm">receipt_long</span>
+          <span>Open Security &amp; Activity Logs →</span>
+        </a>
+      </div>
       <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pb-4 border-b border-purple-900/20">
         <div class="flex items-center gap-3">
           <div class="w-10 h-10 rounded-xl bg-emerald-500/20 text-emerald-400 flex items-center justify-center">
@@ -1089,16 +1251,278 @@
       </div>
     </div>
 
-    <!-- SECTION 5: DATA BACKUP & EXPORT -->
-    <div data-settings-tab="system" class="hidden wm-card bg-surface-container rounded-2xl p-5 sm:p-7 border border-purple-900/30 shadow-xl flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
-      <div>
-        <h3 class="font-headline-sm text-base sm:text-lg font-bold text-on-surface">Data Snapshot &amp; Configuration Export</h3>
-        <p class="text-xs sm:text-sm text-on-surface-variant mt-0.5">Download a complete JSON export of templates, settings, audio catalog, and pricing rules.</p>
+    <!-- CATEGORY 7: BACKUP, RESTORE & DATA MANAGEMENT -->
+    <div id="section-backup-data" data-settings-tab="backup-data" class="hidden wm-card bg-surface-container rounded-2xl p-5 sm:p-7 border border-purple-900/30 shadow-xl flex flex-col gap-5">
+      <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-4 pb-4 border-b border-purple-900/20">
+        <div class="flex items-center gap-3">
+          <div class="w-10 h-10 rounded-xl bg-emerald-500/20 text-emerald-400 flex items-center justify-center">
+            <span class="material-symbols-outlined text-2xl">cloud_download</span>
+          </div>
+          <div>
+            <h2 class="font-headline-sm text-lg sm:text-xl font-bold text-on-surface">Backup, Restore &amp; Data Management</h2>
+            <p class="text-xs sm:text-sm text-on-surface-variant">Real-time D1 database backup status, on-demand snapshot creation, and JSON configuration exports.</p>
+          </div>
+        </div>
+        <div class="flex flex-wrap items-center gap-2">
+          <button type="button" onclick="triggerManualBackupFromSettings()" class="px-4 py-2 rounded-xl bg-gradient-to-r from-emerald-500 to-teal-600 text-slate-950 font-extrabold text-xs sm:text-sm flex items-center gap-1.5 shadow-md cursor-pointer">
+            <span class="material-symbols-outlined text-sm">backup</span>
+            <span>Create D1 Backup Snapshot</span>
+          </button>
+          <button type="button" class="px-4 py-2 rounded-xl bg-surface-container-high hover:bg-surface-container-highest text-on-surface text-xs sm:text-sm font-bold flex items-center gap-1.5 border border-purple-500/25 cursor-pointer" onclick="exportDataSnapshot()">
+            <span class="material-symbols-outlined text-sm">download</span>
+            <span>Export JSON Snapshot</span>
+          </button>
+          <a href="/admin/anktech/anktech/admin/storage-health?tab=backups" class="px-3.5 py-2 rounded-xl bg-surface-container-high hover:bg-surface-container-highest text-on-surface text-xs font-bold flex items-center gap-1.5 border border-purple-500/25">
+            <span>Open Backups &amp; Restore Studio →</span>
+          </a>
+        </div>
       </div>
-      <button class="px-4 py-2.5 rounded-xl bg-surface-container-high hover:bg-surface-container-highest text-on-surface text-xs sm:text-sm font-bold flex items-center gap-2 transition" onclick="exportDataSnapshot()">
-        <span class="material-symbols-outlined text-sm">download</span>
-        <span>Export JSON Snapshot</span>
-      </button>
+
+      <div class="grid grid-cols-1 sm:grid-cols-3 gap-4">
+        <div class="p-4 rounded-xl bg-surface-container-low border border-purple-900/30">
+          <div class="text-xs font-bold uppercase text-outline">Total D1 Snapshots</div>
+          <div id="settings-backup-count" class="text-2xl font-extrabold text-on-surface mt-1">—</div>
+          <div class="text-[11px] text-on-surface-variant mt-1">Verified in <code>backup_snapshots</code></div>
+        </div>
+        <div class="p-4 rounded-xl bg-surface-container-low border border-purple-900/30">
+          <div class="text-xs font-bold uppercase text-outline">Last Successful Backup</div>
+          <div id="settings-backup-last-time" class="text-sm font-extrabold text-emerald-400 mt-1.5">Loading...</div>
+          <div id="settings-backup-last-status" class="text-[11px] text-on-surface-variant mt-1">Checking D1 snapshot registry</div>
+        </div>
+        <div class="p-4 rounded-xl bg-surface-container-low border border-purple-900/30">
+          <div class="text-xs font-bold uppercase text-outline">Data Retention &amp; Recovery</div>
+          <div class="text-sm font-extrabold text-on-surface mt-1.5">Point-in-Time Snapshot Ready</div>
+          <div class="text-[11px] text-on-surface-variant mt-1">Restore dry-run &amp; verification supported</div>
+        </div>
+      </div>
+    </div>
+
+    <!-- CATEGORY 8: NOTIFICATIONS & INTEGRATIONS -->
+    <div id="section-notifications-integrations" data-settings-tab="notifications-integrations" class="hidden wm-card bg-surface-container rounded-2xl p-5 sm:p-7 border border-purple-900/30 shadow-xl flex flex-col gap-5">
+      <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-4 pb-4 border-b border-purple-900/20">
+        <div class="flex items-center gap-3">
+          <div class="w-10 h-10 rounded-xl bg-pink-500/20 text-pink-400 flex items-center justify-center">
+            <span class="material-symbols-outlined text-2xl">notifications_active</span>
+          </div>
+          <div>
+            <h2 class="font-headline-sm text-lg sm:text-xl font-bold text-on-surface">Notifications, Messaging &amp; External Integrations</h2>
+            <p class="text-xs sm:text-sm text-on-surface-variant">Real-time status of transactional notification queues, WhatsApp customer support, ImgBB, Backblaze B2, and Razorpay integrations.</p>
+          </div>
+        </div>
+        <div class="flex flex-wrap items-center gap-2">
+          <a href="/admin/anktech/anktech/admin/notifications" class="px-4 py-2 rounded-xl bg-primary-container text-white text-xs sm:text-sm font-bold flex items-center gap-1.5">
+            <span class="material-symbols-outlined text-sm">mail</span>
+            <span>Open Notification Queue →</span>
+          </a>
+          <a href="/admin/anktech/anktech/admin/announcements" class="px-3.5 py-2 rounded-xl bg-surface-container-high text-on-surface text-xs font-bold border border-purple-500/25">
+            <span>System Announcements →</span>
+          </a>
+          <a href="/admin/anktech/anktech/admin/support" class="px-3.5 py-2 rounded-xl bg-surface-container-high text-on-surface text-xs font-bold border border-purple-500/25">
+            <span>Support Console →</span>
+          </a>
+        </div>
+      </div>
+
+      <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+        <div class="p-4 rounded-xl bg-surface-container-low border border-purple-900/30">
+          <div class="text-xs font-bold uppercase text-outline">Notification Queue</div>
+          <div id="settings-notif-queue-status" class="text-lg font-extrabold text-on-surface mt-1">Loading...</div>
+          <div id="settings-notif-queue-sub" class="text-[11px] text-on-surface-variant mt-1">D1 <code>notification_queue</code></div>
+        </div>
+        <div class="p-4 rounded-xl bg-surface-container-low border border-purple-900/30">
+          <div class="text-xs font-bold uppercase text-outline">ImgBB Image CDN</div>
+          <div id="settings-int-imgbb" class="text-lg font-extrabold text-emerald-400 mt-1">Checking...</div>
+          <div class="text-[11px] text-on-surface-variant mt-1">Template &amp; customer photo hosting</div>
+        </div>
+        <div class="p-4 rounded-xl bg-surface-container-low border border-purple-900/30">
+          <div class="text-xs font-bold uppercase text-outline">Backblaze B2 Vault</div>
+          <div id="settings-int-b2" class="text-lg font-extrabold text-emerald-400 mt-1">Checking...</div>
+          <div class="text-[11px] text-on-surface-variant mt-1">Audio, video &amp; template package storage</div>
+        </div>
+        <div class="p-4 rounded-xl bg-surface-container-low border border-purple-900/30">
+          <div class="text-xs font-bold uppercase text-outline">Razorpay Checkout</div>
+          <div id="settings-int-razorpay" class="text-lg font-extrabold text-emerald-400 mt-1">Checking...</div>
+          <div class="text-[11px] text-on-surface-variant mt-1">Order creation &amp; webhook verification</div>
+        </div>
+      </div>
+    </div>
+
+    <!-- CATEGORY 9: PLATFORM, STORAGE & PERFORMANCE -->
+    <div id="section-storage-performance" data-settings-tab="storage-performance" class="hidden wm-card bg-surface-container rounded-2xl p-5 sm:p-7 border border-purple-900/30 shadow-xl flex flex-col gap-5">
+      <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-4 pb-4 border-b border-purple-900/20">
+        <div class="flex items-center gap-3">
+          <div class="w-10 h-10 rounded-xl bg-amber-500/20 text-amber-300 flex items-center justify-center">
+            <span class="material-symbols-outlined text-2xl">database</span>
+          </div>
+          <div>
+            <h2 class="font-headline-sm text-lg sm:text-xl font-bold text-on-surface">Platform, Storage &amp; Performance</h2>
+            <p class="text-xs sm:text-sm text-on-surface-variant">Cloudflare D1 database health, media asset storage utilization, upload limits, and edge cache synchronization.</p>
+          </div>
+        </div>
+        <div class="flex flex-wrap items-center gap-2">
+          <a href="/admin/anktech/anktech/admin/storage-health" class="px-4 py-2 rounded-xl bg-primary-container text-white text-xs sm:text-sm font-bold flex items-center gap-1.5">
+            <span class="material-symbols-outlined text-sm">monitoring</span>
+            <span>Open Storage Health Console →</span>
+          </a>
+          <a href="/admin/anktech/anktech/admin/media" class="px-3.5 py-2 rounded-xl bg-surface-container-high text-on-surface text-xs font-bold border border-purple-500/25">
+            <span>Media &amp; Music Vault →</span>
+          </a>
+        </div>
+      </div>
+
+      <div class="grid grid-cols-1 sm:grid-cols-3 gap-4">
+        <div class="p-4 rounded-xl bg-surface-container-low border border-purple-900/30">
+          <div class="text-xs font-bold uppercase text-outline">Cloudflare D1 Database</div>
+          <div id="settings-storage-d1-status" class="text-lg font-extrabold text-emerald-400 mt-1">Connected</div>
+          <div id="settings-storage-d1-sub" class="text-[11px] text-on-surface-variant mt-1">Parameterized SQL &amp; WAL durability</div>
+        </div>
+        <div class="p-4 rounded-xl bg-surface-container-low border border-purple-900/30">
+          <div class="text-xs font-bold uppercase text-outline">Upload Package Guardrails</div>
+          <div class="text-lg font-extrabold text-on-surface mt-1">50 MB Max ZIP</div>
+          <div class="text-[11px] text-on-surface-variant mt-1">Blocks path traversal &amp; executable files</div>
+        </div>
+        <div class="p-4 rounded-xl bg-surface-container-low border border-purple-900/30">
+          <div class="text-xs font-bold uppercase text-outline">Pricing &amp; CMS Cache Control</div>
+          <div class="text-lg font-extrabold text-pink-400 mt-1">no-store / Instant Sync</div>
+          <div class="text-[11px] text-on-surface-variant mt-1">BroadcastChannel + D1 immediate propagation</div>
+        </div>
+      </div>
+    </div>
+
+    <!-- CATEGORY 10: WISH LIFECYCLE & PUBLICATION -->
+    <div id="section-wish-lifecycle" data-settings-tab="wish-lifecycle" class="hidden wm-card bg-surface-container rounded-2xl p-5 sm:p-7 border border-purple-900/30 shadow-xl flex flex-col gap-5">
+      <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-4 pb-4 border-b border-purple-900/20">
+        <div class="flex items-center gap-3">
+          <div class="w-10 h-10 rounded-xl bg-purple-500/20 text-purple-300 flex items-center justify-center">
+            <span class="material-symbols-outlined text-2xl">schedule</span>
+          </div>
+          <div>
+            <h2 class="font-headline-sm text-lg sm:text-xl font-bold text-on-surface">Wish Lifecycle, Expiration &amp; Publication</h2>
+            <p class="text-xs sm:text-sm text-on-surface-variant">Asia/Kolkata (IST) wish lifecycle enforcement, immutable published wish snapshots, and content moderation controls.</p>
+          </div>
+        </div>
+        <div class="flex flex-wrap items-center gap-2">
+          <a href="/admin/anktech/anktech/admin/wishes" class="px-4 py-2 rounded-xl bg-primary-container text-white text-xs sm:text-sm font-bold flex items-center gap-1.5">
+            <span class="material-symbols-outlined text-sm">description</span>
+            <span>Manage All Wishes →</span>
+          </a>
+          <a href="/admin/anktech/anktech/admin/wishes?filter=expiring" class="px-3.5 py-2 rounded-xl bg-surface-container-high text-on-surface text-xs font-bold border border-purple-500/25">
+            <span>Expiring Soon →</span>
+          </a>
+          <a href="/admin/anktech/anktech/admin/moderation" class="px-3.5 py-2 rounded-xl bg-surface-container-high text-on-surface text-xs font-bold border border-purple-500/25">
+            <span>Moderation Queue →</span>
+          </a>
+        </div>
+      </div>
+
+      <div class="grid grid-cols-1 sm:grid-cols-3 gap-4">
+        <div class="p-4 rounded-xl bg-surface-container-low border border-purple-900/30">
+          <div class="text-xs font-bold uppercase text-outline">Active Published Wishes</div>
+          <div id="settings-lifecycle-active-wishes" class="text-2xl font-extrabold text-on-surface mt-1">—</div>
+          <div class="text-[11px] text-on-surface-variant mt-1">Live on <code>/w/:slug</code></div>
+        </div>
+        <div class="p-4 rounded-xl bg-surface-container-low border border-purple-900/30">
+          <div class="text-xs font-bold uppercase text-outline">Lifecycle Timezone</div>
+          <div class="text-lg font-extrabold text-emerald-400 mt-1">Asia/Kolkata (IST)</div>
+          <div class="text-[11px] text-on-surface-variant mt-1">Grace period &amp; expiry evaluated in IST</div>
+        </div>
+        <div class="p-4 rounded-xl bg-surface-container-low border border-purple-900/30">
+          <div class="text-xs font-bold uppercase text-outline">Published Snapshot Integrity</div>
+          <div class="text-lg font-extrabold text-pink-400 mt-1">Immutable v1.4</div>
+          <div class="text-[11px] text-on-surface-variant mt-1">Existing wishes preserved across template updates</div>
+        </div>
+      </div>
+    </div>
+
+    <!-- CATEGORY 11: FESTIVALS & SCHEDULING -->
+    <div id="section-festivals-scheduling" data-settings-tab="festivals-scheduling" class="hidden wm-card bg-surface-container rounded-2xl p-5 sm:p-7 border border-amber-500/40 shadow-xl flex flex-col gap-5">
+      <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-4 pb-4 border-b border-purple-900/20">
+        <div class="flex items-center gap-3">
+          <div class="w-10 h-10 rounded-xl bg-amber-500/20 text-amber-300 flex items-center justify-center">
+            <span class="material-symbols-outlined text-2xl">festival</span>
+          </div>
+          <div>
+            <div class="flex items-center gap-2 flex-wrap">
+              <h2 class="font-headline-sm text-lg sm:text-xl font-bold text-on-surface">Festival Scheduler &amp; Automated Campaign Windows</h2>
+              <span class="px-2 py-0.5 rounded-full bg-amber-500/20 text-amber-300 border border-amber-500/30 text-[10px] font-extrabold uppercase">Authoritative Scheduler</span>
+            </div>
+            <p class="text-xs sm:text-sm text-on-surface-variant">Server-resolved festival dates (Panchang/Gazette + year-scoped overrides) and automatic <code>F - 15</code> to <code>F + 3</code> publication windows are managed in the dedicated Festival Scheduler.</p>
+          </div>
+        </div>
+        <a id="btn-open-festival-scheduler" href="/admin/anktech/anktech/admin/festivals" class="px-4 py-2.5 rounded-xl bg-gradient-to-r from-amber-500 to-pink-500 hover:brightness-110 text-white font-extrabold text-xs sm:text-sm flex items-center gap-2 shadow-lg transition self-start sm:self-auto">
+          <span class="material-symbols-outlined text-base">calendar_month</span>
+          <span>Open Festival Scheduler →</span>
+        </a>
+      </div>
+
+      <div class="grid grid-cols-1 sm:grid-cols-3 gap-4">
+        <div class="p-4 rounded-xl bg-surface-container-low border border-purple-900/30">
+          <div class="text-xs font-bold uppercase text-outline">Registered Festivals</div>
+          <div id="settings-festivals-total" class="text-2xl font-extrabold text-on-surface mt-1">—</div>
+          <div class="text-[11px] text-on-surface-variant mt-1">Fixed, lunar/movable &amp; manual dates</div>
+        </div>
+        <div class="p-4 rounded-xl bg-surface-container-low border border-emerald-500/30">
+          <div class="text-xs font-bold uppercase text-emerald-400">Active Festival Campaigns</div>
+          <div id="settings-festivals-active" class="text-2xl font-extrabold text-emerald-400 mt-1">—</div>
+          <div class="text-[11px] text-on-surface-variant mt-1">Currently live in storefront discovery</div>
+        </div>
+        <div class="p-4 rounded-xl bg-surface-container-low border border-amber-500/30">
+          <div class="text-xs font-bold uppercase text-amber-300">Publication Window Rule</div>
+          <div class="text-lg font-extrabold text-amber-300 mt-1">F - 15d to F + 3d</div>
+          <div class="text-[11px] text-on-surface-variant mt-1">Immediate wish URLs; auto-expires day F + 4</div>
+        </div>
+      </div>
+    </div>
+
+    <!-- CATEGORY 12: ADVANCED / MAINTENANCE -->
+    <div id="section-advanced-maintenance" data-settings-tab="advanced-maintenance" class="hidden wm-card bg-surface-container rounded-2xl p-5 sm:p-7 border border-rose-500/35 shadow-xl flex flex-col gap-5">
+      <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-4 pb-4 border-b border-purple-900/20">
+        <div class="flex items-center gap-3">
+          <div class="w-10 h-10 rounded-xl bg-rose-500/20 text-rose-400 flex items-center justify-center">
+            <span class="material-symbols-outlined text-2xl">build_circle</span>
+          </div>
+          <div>
+            <h2 class="font-headline-sm text-lg sm:text-xl font-bold text-on-surface">Advanced Platform Controls &amp; Maintenance</h2>
+            <p class="text-xs sm:text-sm text-on-surface-variant">High-impact operational controls, legal compliance policies, search index management, and factory configuration reset.</p>
+          </div>
+        </div>
+        <div class="flex flex-wrap items-center gap-2">
+          <a href="/admin/anktech/anktech/admin/legal" class="px-3.5 py-2 rounded-xl bg-surface-container-high text-on-surface text-xs font-bold border border-purple-500/25">
+            <span>Legal &amp; Compliance →</span>
+          </a>
+          <a href="/admin/anktech/anktech/admin/search" class="px-3.5 py-2 rounded-xl bg-surface-container-high text-on-surface text-xs font-bold border border-purple-500/25">
+            <span>Search &amp; Discovery →</span>
+          </a>
+        </div>
+      </div>
+
+      <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+        <div class="p-4 rounded-xl bg-surface-container-low border border-amber-500/30 flex flex-col justify-between gap-3">
+          <div>
+            <div class="text-xs font-extrabold uppercase text-amber-300">Storefront Maintenance Mode</div>
+            <p class="text-xs text-on-surface-variant mt-1">When enabled, public visitors see a maintenance screen while administrators retain full studio access.</p>
+          </div>
+          <div class="flex items-center justify-between pt-2 border-t border-purple-900/20">
+            <span id="advanced-maintenance-status-label" class="text-xs font-bold text-emerald-400">Status: Live &amp; Public</span>
+            <button type="button" onclick="toggleMaintenanceModeWithConfirm()" class="px-3.5 py-1.5 rounded-lg bg-amber-500/20 hover:bg-amber-500/30 text-amber-300 border border-amber-500/40 text-xs font-bold cursor-pointer">
+              Toggle Maintenance Mode
+            </button>
+          </div>
+        </div>
+
+        <div class="p-4 rounded-xl bg-surface-container-low border border-rose-500/30 flex flex-col justify-between gap-3">
+          <div>
+            <div class="text-xs font-extrabold uppercase text-rose-400">Factory Default Site Settings Reset</div>
+            <p class="text-xs text-on-surface-variant mt-1">Restores homepage hero copy, brand parameters, and promotional banner settings in D1 back to factory defaults. Requires confirmation.</p>
+          </div>
+          <div class="flex items-center justify-between pt-2 border-t border-purple-900/20">
+            <span class="text-xs text-on-surface-variant">Protected by Admin RBAC &amp; CSRF</span>
+            <button type="button" onclick="resetToDefaults()" class="px-3.5 py-1.5 rounded-lg bg-rose-500/20 hover:bg-rose-500/35 text-rose-300 border border-rose-500/40 text-xs font-bold cursor-pointer">
+              Reset Site Defaults
+            </button>
+          </div>
+        </div>
+      </div>
     </div>
   </main>
 </div>
@@ -1274,26 +1698,28 @@
     }
   }
 
+  let authoritativeWishLinkPrice = 59;
+
   function handleCurrencyChange() {
-    const curr = document.getElementById('setting-personalized-currency').value;
+    const curr = document.getElementById('setting-personalized-currency')?.value || 'INR';
     const sym = getCurrencySymbol(curr);
-    const symLabel = document.getElementById('currency-symbol-label');
-    if (symLabel) symLabel.textContent = sym;
+    const readonlyEl = document.getElementById('setting-personalized-price-readonly');
+    if (readonlyEl) readonlyEl.textContent = `${sym}${authoritativeWishLinkPrice}`;
     updateWishLinkPreview();
   }
 
   function updateWishLinkPreview() {
-    const pEnabled = document.getElementById('setting-personalized-enabled').checked;
-    const rEnabled = document.getElementById('setting-random-enabled').checked;
-    const price = document.getElementById('setting-personalized-price').value || '49';
-    const currency = document.getElementById('setting-personalized-currency').value || 'INR';
+    const pEnabled = document.getElementById('setting-personalized-enabled')?.checked !== false;
+    const rEnabled = document.getElementById('setting-random-enabled')?.checked !== false;
+    const price = authoritativeWishLinkPrice;
+    const currency = document.getElementById('setting-personalized-currency')?.value || 'INR';
     const sym = getCurrencySymbol(currency);
-    const prefix = document.getElementById('setting-random-prefix').value || 'wish-';
-    const length = parseInt(document.getElementById('setting-random-length').value, 10) || 6;
+    const prefix = document.getElementById('setting-random-prefix')?.value || 'wish-';
+    const length = parseInt(document.getElementById('setting-random-length')?.value, 10) || 6;
 
-    const lower = document.getElementById('setting-chars-lower').checked;
-    const nums = document.getElementById('setting-chars-numbers').checked;
-    const upper = document.getElementById('setting-chars-upper').checked;
+    const lower = document.getElementById('setting-chars-lower')?.checked !== false;
+    const nums = document.getElementById('setting-chars-numbers')?.checked !== false;
+    const upper = Boolean(document.getElementById('setting-chars-upper')?.checked);
 
     let pool = '';
     if (lower) pool += 'abcdefghijklmnopqrstuvwxyz';
@@ -1301,7 +1727,6 @@
     if (upper) pool += 'ABCDEFGHIJKLMNOPQRSTUVWXYZ';
     if (!pool) pool = 'abcdefghijklmnopqrstuvwxyz0123456789';
 
-    // Generate sample random slug
     let sampleRandom = '';
     for (let i = 0; i < length; i++) {
       sampleRandom += pool.charAt(Math.floor(Math.random() * pool.length));
@@ -1318,7 +1743,6 @@
       sampleRandEl.textContent = rEnabled ? `wishmagic.live/w/${prefix}${sampleRandom}` : 'Disabled by Admin';
     }
 
-    // Validation check: cannot disable both
     const errBanner = document.getElementById('wish-links-validation-error');
     const errMsg = document.getElementById('wish-links-error-msg');
     if (!pEnabled && !rEnabled) {
@@ -1332,7 +1756,6 @@
   async function saveWishLinkSettings(silent = false) {
     const pEnabled = document.getElementById('setting-personalized-enabled').checked;
     const rEnabled = document.getElementById('setting-random-enabled').checked;
-    const price = parseFloat(document.getElementById('setting-personalized-price').value);
     const currency = document.getElementById('setting-personalized-currency').value.trim().toUpperCase();
     const displayName = document.getElementById('setting-personalized-name').value.trim();
     const description = document.getElementById('setting-personalized-desc').value.trim();
@@ -1348,11 +1771,6 @@
       document.getElementById('setting-random-enabled').checked = true;
       updateWishLinkPreview();
       return { success: false, error: 'Cannot disable both publishing options' };
-    }
-
-    if (isNaN(price) || price < 0) {
-      showToast('⚠️ Personalized link price must be a valid non-negative number.');
-      return { success: false, error: 'Invalid price' };
     }
 
     if (isNaN(length) || length < 5 || length > 20) {
@@ -1374,13 +1792,13 @@
       return { success: false, error: 'Invalid allowed characters' };
     }
 
+    // Do NOT send price or addons here — pricing is owned exclusively by the Subscriptions & Pricing Studio (/admin-pricing.html)
     const payload = {
       personalized: {
         enabled: pEnabled,
-        price,
         currency,
-        displayName: displayName || 'Personalized Link',
-        description: description || 'Create a memorable link for your wish.'
+        displayName: displayName || 'Custom Link Only',
+        description: description || 'Create a memorable custom link (/w/your-name) for your wish.'
       },
       random: {
         enabled: rEnabled,
@@ -1401,8 +1819,8 @@
       if (res.ok && data.success) {
         if (!silent) {
           notifyLiveStorefrontSettingsUpdated();
-          showStatusBanner('✨ Wish Link & Monetization settings saved to D1 database!', 'success');
-          showToast('✨ Wish Link & Monetization settings saved!', 'success');
+          showStatusBanner('✨ Wish Link & Slug settings saved to D1 database!', 'success');
+          showToast('✨ Wish Link & Slug settings saved!', 'success');
         }
         return { success: true, settings: data.data?.settings || data.settings };
       }
@@ -1423,14 +1841,28 @@
 
   async function loadWishLinkSettings() {
     try {
-      const res = await fetch('/api/admin/settings/wish-links', { credentials: 'include' });
+      const res = await fetch('/api/admin/settings/wish-links', { credentials: 'include', cache: 'no-store' })
+        .then(r => r.ok ? r : fetch('/api/settings/wish-links', { credentials: 'include', cache: 'no-store' }));
       const data = await res.json();
       const settings = (data.data && data.data.settings) || data.settings;
       if (data.success && settings) {
         const s = settings;
+        const a = s.addons || {};
+        const p = s.personalized || {};
+        const refCfg = s.referral || {};
+
+        const clPrice = Number.isFinite(Number(a.customLinkPrice ?? p.price)) ? Number(a.customLinkPrice ?? p.price) : 59;
+        const hdPrice = Number.isFinite(Number(a.hdImageStylePrice)) ? Number(a.hdImageStylePrice) : 59;
+        const fcPrice = Number.isFinite(Number(a.freeTemplateComboPrice)) ? Number(a.freeTemplateComboPrice) : 99;
+        const paPrice = Number.isFinite(Number(a.premiumComboAddonPrice)) ? Number(a.premiumComboAddonPrice) : 70;
+        const reqRefs = Number.isFinite(Number(refCfg.requiredReferrals)) ? Number(refCfg.requiredReferrals) : 7;
+        const rewCreds = Number.isFinite(Number(refCfg.rewardCredits)) ? Number(refCfg.rewardCredits) : 1;
+        const tiers = Array.isArray(a.templatePriceTiers) && a.templatePriceTiers.length > 0 ? a.templatePriceTiers : [0, 59, 149];
+
+        authoritativeWishLinkPrice = clPrice;
+
         if (s.personalized) {
           if (s.personalized.enabled !== undefined) document.getElementById('setting-personalized-enabled').checked = s.personalized.enabled;
-          if (s.personalized.price !== undefined) document.getElementById('setting-personalized-price').value = s.personalized.price;
           if (s.personalized.currency) document.getElementById('setting-personalized-currency').value = s.personalized.currency;
           if (s.personalized.displayName) document.getElementById('setting-personalized-name').value = s.personalized.displayName;
           if (s.personalized.description) document.getElementById('setting-personalized-desc').value = s.personalized.description;
@@ -1446,6 +1878,17 @@
             document.getElementById('setting-chars-upper').checked = /[A-Z]/.test(pool);
           }
         }
+
+        // Populate Category 4 Authoritative Pricing Summary Card
+        const setTxt = (id, val) => { const el = document.getElementById(id); if (el) el.textContent = val; };
+        setTxt('setting-personalized-price-readonly', `₹${clPrice}`);
+        setTxt('summary-price-custom-link', `₹${clPrice}`);
+        setTxt('summary-price-hd-style', `₹${hdPrice}`);
+        setTxt('summary-price-free-combo', `₹${fcPrice}`);
+        setTxt('summary-price-premium-addon', `+₹${paPrice}`);
+        setTxt('summary-price-base-tiers', tiers.map(t => `₹${t}`).join(' / '));
+        setTxt('summary-price-referral-rule', `${reqRefs} Friends → ${rewCreds} Free`);
+
         handleCurrencyChange();
         updateWishLinkPreview();
       }
@@ -1557,7 +2000,17 @@
         if (s.supportWa !== undefined) document.getElementById('setting-support-wa').value = s.supportWa;
         if (s.currency !== undefined) document.getElementById('setting-currency').value = s.currency;
         if (s.particleFx !== undefined) document.getElementById('setting-particle-fx').checked = Boolean(s.particleFx);
-        if (s.maintenanceMode !== undefined) document.getElementById('setting-maintenance-mode').checked = Boolean(s.maintenanceMode);
+        if (s.maintenanceMode !== undefined) {
+          document.getElementById('setting-maintenance-mode').checked = Boolean(s.maintenanceMode);
+          const mLabel = document.getElementById('advanced-maintenance-status-label');
+          if (mLabel) {
+            mLabel.textContent = s.maintenanceMode ? 'Status: Maintenance Mode Active' : 'Status: Live & Public';
+            mLabel.className = s.maintenanceMode ? 'text-xs font-bold text-amber-400' : 'text-xs font-bold text-emerald-400';
+          }
+        }
+        if (Array.isArray(s.popularTags) && s.popularTags.length > 0 && document.getElementById('setting-popular-tags')) {
+          document.getElementById('setting-popular-tags').value = s.popularTags.join(', ');
+        }
 
         // Promotional & 100% Free Offer Mode fields
         if (s.promoFreeOfferMode !== undefined && document.getElementById('setting-promo-free-mode')) {
@@ -1615,7 +2068,11 @@
       promoDiscountPrice: Number(document.getElementById('setting-promo-discount-price')?.value || 49),
       promoBadgeText: document.getElementById('setting-promo-badge-text')?.value || '🔥 Limited Time Offer',
       promoBannerActive: Boolean(document.getElementById('setting-promo-banner-active')?.checked),
-      promoBannerText: document.getElementById('setting-promo-banner-text')?.value || ''
+      promoBannerText: document.getElementById('setting-promo-banner-text')?.value || '',
+      popularTags: (document.getElementById('setting-popular-tags')?.value || '')
+        .split(',')
+        .map(t => t.trim())
+        .filter(Boolean)
     };
 
     try {
@@ -1971,32 +2428,269 @@
     }
   }
 
-  window.switchAdminSettingsTab = function(tabKey) {
-    const active = tabKey || 'storefront';
-    const tabs = ['storefront', 'links', 'offers', 'system', 'all'];
-    tabs.forEach(k => {
-      const btn = document.getElementById('admin-settings-tab-' + k);
+  const SETTINGS_CATEGORIES = [
+    { key: 'storefront', label: '1. Storefront & Homepage', desc: 'Homepage hero text, 3D visuals, CTAs, brand name, WhatsApp support, and storefront currency.' },
+    { key: 'domain-links', label: '2. Domain, Slugs & Wish Links', desc: 'Canonical domain, future custom domain, UTP v1.4 logical links, and personalized/random wish link slug rules.' },
+    { key: 'templates-gallery', label: '3. Templates & Template Gallery', desc: 'Storefront popular search tags, gallery telemetry, and direct access to the All Templates Studio.' },
+    { key: 'payments-pricing', label: '4. Payments, Pricing & Free Offers', desc: 'Authoritative pricing summary, direct link to Subscriptions & Pricing Studio, and promotional offer banner CMS.' },
+    { key: 'team-rbac', label: '5. Team, Roles & Access', desc: 'Active platform staff directory, role assignments, and RBAC permission studio.' },
+    { key: 'security-audit', label: '6. Security, Auth & Audit', desc: 'Runtime XSS/URL security diagnostics, session & CSRF protections, and immutable admin audit logs.' },
+    { key: 'backup-data', label: '7. Backup, Restore & Data', desc: 'Real D1 backup snapshots, on-demand snapshot creation, and JSON configuration exports.' },
+    { key: 'notifications-integrations', label: '8. Notifications & Integrations', desc: 'Transactional notification queue status, system announcements, ImgBB, Backblaze B2, and Razorpay readiness.' },
+    { key: 'storage-performance', label: '9. Platform, Storage & Performance', desc: 'Cloudflare D1 health, media storage utilization, package upload limits, and cache invalidation policy.' },
+    { key: 'wish-lifecycle', label: '10. Wish Lifecycle & Publication', desc: 'Asia/Kolkata (IST) wish expiration lifecycle, immutable published snapshots, and moderation queue.' },
+    { key: 'festivals-scheduling', label: '11. Festivals & Scheduling', desc: 'Server-resolved festival campaigns, F - 15 to F + 3 publication windows, and direct link to Festival Scheduler.' },
+    { key: 'advanced-maintenance', label: '12. Advanced / Maintenance', desc: 'Storefront maintenance mode, factory settings reset, legal compliance, and search index administration.' }
+  ];
+
+  const LEGACY_TAB_ALIASES = {
+    links: 'domain-links',
+    offers: 'payments-pricing',
+    system: 'team-rbac'
+  };
+
+  const SETTINGS_SEARCH_INDEX = [
+    { title: 'Hero Pill Badge Text', desc: 'Update top hero badge copy on the homepage', categoryKey: 'storefront', categoryLabel: '1. Storefront & Homepage', elementId: 'setting-hero-badge', keywords: 'hero badge pill welcome' },
+    { title: 'Main Display Headline & Subheadline', desc: 'Homepage hero title and supporting pitch', categoryKey: 'storefront', categoryLabel: '1. Storefront & Homepage', elementId: 'setting-hero-headline', keywords: 'headline title subheadline hero text' },
+    { title: 'Hero Visual Engine & 3D Physics', desc: '3D gift box, balloons, floating motion, touch confetti, and background photo', categoryKey: 'storefront', categoryLabel: '1. Storefront & Homepage', elementId: 'setting-hero-bg-mode', keywords: '3d gift box balloons gradient background photo' },
+    { title: 'Homepage Primary & Secondary CTA Buttons', desc: 'Configure Explore Magic and Create Your Wish CTA labels', categoryKey: 'storefront', categoryLabel: '1. Storefront & Homepage', elementId: 'setting-hero-cta1', keywords: 'cta button explore create wish' },
+    { title: 'Platform Brand Name & WhatsApp Support', desc: 'Configure brand title, optional WhatsApp help number, and currency', categoryKey: 'storefront', categoryLabel: '1. Storefront & Homepage', elementId: 'setting-brand-name', keywords: 'brand whatsapp support phone currency particle' },
+    { title: 'Personalized Wish Link Availability & Copy', desc: 'Enable/disable custom wish URLs (/w/your-name) and display copy', categoryKey: 'domain-links', categoryLabel: '2. Domain, Slugs & Wish Links', elementId: 'setting-personalized-enabled', keywords: 'personalized custom link slug url' },
+    { title: 'Free Random Wish Link Prefix & Length', desc: 'Configure random slug prefix (wish-), length (5-20), and allowed character pool', categoryKey: 'domain-links', categoryLabel: '2. Domain, Slugs & Wish Links', elementId: 'setting-random-prefix', keywords: 'random slug prefix length characters' },
+    { title: 'Central Link Manager & Custom Domain Resolver', desc: 'Canonical production URL, future custom domain, and global.* / template.* logical links', categoryKey: 'domain-links', categoryLabel: '2. Domain, Slugs & Wish Links', elementId: 'setting-canonical-base-url', keywords: 'domain canonical url central link manager migration' },
+    { title: 'Popular Gallery Search Tags & Templates', desc: 'Manage homepage/gallery search tags and open All Templates Studio', categoryKey: 'templates-gallery', categoryLabel: '3. Templates & Template Gallery', elementId: 'setting-popular-tags', keywords: 'templates gallery tags variants categories occasions' },
+    { title: 'Manage Payments, Pricing & Combo Tiers', desc: 'Authoritative pricing summary and link to Subscriptions & Pricing Studio', categoryKey: 'payments-pricing', categoryLabel: '4. Payments, Pricing & Free Offers', elementId: 'btn-open-authoritative-pricing', keywords: 'pricing payments combo addon custom link price coupons' },
+    { title: '100% Free Offer Mode & Promotional Banner CMS', desc: 'Strikethrough promotional badge, top banner, and 100% free launch mode', categoryKey: 'payments-pricing', categoryLabel: '4. Payments, Pricing & Free Offers', elementId: 'setting-promo-free-mode', keywords: 'promo discount free offer banner sale' },
+    { title: 'Team Magicians & Role-Based Access (RBAC)', desc: 'Staff directory, roles, and access permissions', categoryKey: 'team-rbac', categoryLabel: '5. Team, Roles & Access', elementId: 'section-team-rbac', keywords: 'team staff roles rbac permissions admin' },
+    { title: 'Security Diagnostic Matrix & Activity Audit Logs', desc: 'Run runtime security checks and open immutable admin audit trail', categoryKey: 'security-audit', categoryLabel: '6. Security, Auth & Audit', elementId: 'section-security-audit', keywords: 'security auth session csrf xss audit logs' },
+    { title: 'D1 Database Backup Snapshots & JSON Export', desc: 'Create D1 backup snapshots, view last backup status, or export JSON config', categoryKey: 'backup-data', categoryLabel: '7. Backup, Restore & Data', elementId: 'section-backup-data', keywords: 'backup restore snapshot export data d1' },
+    { title: 'Notifications, Announcements & Cloud Integrations', desc: 'Notification queue, ImgBB, Backblaze B2, and Razorpay integration health', categoryKey: 'notifications-integrations', categoryLabel: '8. Notifications & Integrations', elementId: 'section-notifications-integrations', keywords: 'notifications queue announcements imgbb b2 razorpay' },
+    { title: 'Platform Storage Health & Upload Guardrails', desc: 'D1 storage telemetry, media library, and 50MB ZIP security limits', categoryKey: 'storage-performance', categoryLabel: '9. Platform, Storage & Performance', elementId: 'section-storage-performance', keywords: 'storage performance cache upload media' },
+    { title: 'Wish Lifecycle, IST Expiry & Publication Rules', desc: 'Asia/Kolkata wish expiration rules, active wishes, and moderation queue', categoryKey: 'wish-lifecycle', categoryLabel: '10. Wish Lifecycle & Publication', elementId: 'section-wish-lifecycle', keywords: 'wish lifecycle expiry expiration publication moderation' },
+    { title: 'Festival Scheduler & Campaign Windows', desc: 'Server-resolved festival dates and F - 15 to F + 3 campaign windows', categoryKey: 'festivals-scheduling', categoryLabel: '11. Festivals & Scheduling', elementId: 'btn-open-festival-scheduler', keywords: 'festivals scheduler diwali holi campaign dates' },
+    { title: 'Maintenance Mode & Factory Defaults Reset', desc: 'Toggle storefront maintenance mode or reset site settings to defaults', categoryKey: 'advanced-maintenance', categoryLabel: '12. Advanced / Maintenance', elementId: 'section-advanced-maintenance', keywords: 'maintenance reset defaults legal compliance advanced' }
+  ];
+
+  window.switchAdminSettingsTab = function(tabKey, options = {}) {
+    const resolvedKey = LEGACY_TAB_ALIASES[tabKey] || tabKey || 'storefront';
+    const validCat = SETTINGS_CATEGORIES.find(c => c.key === resolvedKey) || SETTINGS_CATEGORIES[0];
+    const active = validCat.key;
+
+    SETTINGS_CATEGORIES.forEach(c => {
+      const btn = document.getElementById('admin-settings-tab-' + c.key);
       if (!btn) return;
-      if (k === active) {
-        btn.className = k === 'all'
-          ? 'px-3 py-1.5 rounded-xl text-[11px] font-extrabold bg-purple-600 text-white shadow-sm cursor-pointer'
-          : 'px-3.5 py-2 rounded-xl text-xs font-extrabold transition cursor-pointer flex items-center gap-1.5 bg-gradient-to-r from-pink-500 to-purple-600 text-white shadow-md';
-      } else {
-        btn.className = k === 'all'
-          ? 'px-3 py-1.5 rounded-xl text-[11px] font-bold bg-surface-container-highest text-on-surface-variant hover:text-on-surface transition cursor-pointer'
-          : 'px-3.5 py-2 rounded-xl text-xs font-extrabold transition cursor-pointer flex items-center gap-1.5 bg-surface-container-high text-on-surface hover:bg-surface-container-highest border border-purple-500/20';
-      }
+      const isSelected = c.key === active;
+      btn.setAttribute('aria-selected', isSelected ? 'true' : 'false');
+      btn.className = isSelected
+        ? 'px-3.5 py-2.5 rounded-xl text-xs font-extrabold transition cursor-pointer flex items-center gap-2 text-left bg-gradient-to-r from-pink-500 to-purple-600 text-white shadow-md'
+        : 'px-3.5 py-2.5 rounded-xl text-xs font-extrabold transition cursor-pointer flex items-center gap-2 text-left bg-surface-container-high text-on-surface hover:bg-surface-container-highest border border-purple-500/20';
     });
+
+    const descEl = document.getElementById('active-settings-category-desc');
+    if (descEl) descEl.textContent = validCat.desc;
 
     document.querySelectorAll('[data-settings-tab]').forEach(secEl => {
       const secTab = secEl.getAttribute('data-settings-tab');
-      if (active === 'all' || secTab === active) {
+      if (secTab === active) {
         secEl.classList.remove('hidden');
       } else {
         secEl.classList.add('hidden');
       }
     });
+
+    if (!options.skipHistory && window.history && typeof window.history.replaceState === 'function') {
+      const url = new URL(window.location.href);
+      url.searchParams.set('category', active);
+      window.history.replaceState({ category: active }, '', url.pathname + url.search);
+    }
   };
+
+  window.handleSettingsSearchInput = function(rawQuery) {
+    const q = String(rawQuery || '').trim().toLowerCase();
+    const sInput = document.getElementById('settings-search-input');
+    const hInput = document.getElementById('header-settings-search-input');
+    const clearBtn = document.getElementById('settings-search-clear-btn');
+    const resultsBox = document.getElementById('settings-search-results');
+
+    if (sInput && sInput.value !== rawQuery) sInput.value = rawQuery;
+    if (hInput && hInput.value !== rawQuery) hInput.value = rawQuery;
+    if (clearBtn) {
+      if (q) clearBtn.classList.remove('hidden');
+      else clearBtn.classList.add('hidden');
+    }
+    if (!resultsBox) return;
+
+    if (!q) {
+      resultsBox.classList.add('hidden');
+      resultsBox.innerHTML = '';
+      return;
+    }
+
+    const matches = SETTINGS_SEARCH_INDEX
+      .map((item, idx) => ({ item, idx }))
+      .filter(({ item }) => {
+        const hay = `${item.title} ${item.desc} ${item.categoryLabel} ${item.keywords}`.toLowerCase();
+        return hay.includes(q);
+      });
+
+    resultsBox.classList.remove('hidden');
+    if (matches.length === 0) {
+      resultsBox.innerHTML = `
+        <div class="py-4 text-center text-xs text-on-surface-variant">
+          No settings found matching <strong>"${q.replace(/[<>&"]/g, '')}"</strong>. Try searching for <em>hero</em>, <em>domain</em>, <em>pricing</em>, <em>backup</em>, or <em>festival</em>.
+        </div>
+      `;
+      return;
+    }
+
+    resultsBox.innerHTML = matches.map(({ item, idx }) => `
+      <button type="button" onclick="openSearchedSetting(${idx})" class="w-full p-2.5 rounded-xl bg-surface-container-low hover:bg-surface-container-high border border-purple-900/30 flex items-center justify-between gap-3 text-left transition cursor-pointer">
+        <div>
+          <div class="text-xs font-extrabold text-on-surface">${item.title}</div>
+          <div class="text-[11px] text-on-surface-variant mt-0.5">${item.desc}</div>
+        </div>
+        <span class="px-2.5 py-1 rounded-lg bg-purple-500/20 text-purple-300 text-[10px] font-bold shrink-0">${item.categoryLabel} →</span>
+      </button>
+    `).join('');
+  };
+
+  window.openSearchedSetting = function(index) {
+    const item = SETTINGS_SEARCH_INDEX[index];
+    if (!item) return;
+    window.switchAdminSettingsTab(item.categoryKey);
+    const resultsBox = document.getElementById('settings-search-results');
+    if (resultsBox) resultsBox.classList.add('hidden');
+    const targetEl = document.getElementById(item.elementId);
+    if (targetEl) {
+      targetEl.scrollIntoView({ behavior: 'smooth', block: 'center' });
+      if (typeof targetEl.focus === 'function') targetEl.focus({ preventScroll: true });
+      targetEl.classList.add('ring-2', 'ring-pink-500');
+      setTimeout(() => targetEl.classList.remove('ring-2', 'ring-pink-500'), 2200);
+    }
+  };
+
+  window.toggleMaintenanceModeWithConfirm = async function() {
+    const chk = document.getElementById('setting-maintenance-mode');
+    if (!chk) return;
+    const nextState = !chk.checked;
+    const confirmed = confirm(nextState
+      ? 'Enable Storefront Maintenance Mode? Public visitors will see a maintenance notice until you disable it.'
+      : 'Disable Storefront Maintenance Mode and restore public access?');
+    if (!confirmed) return;
+    chk.checked = nextState;
+    await saveAllSiteSettings(nextState ? '⚠️ Storefront Maintenance Mode enabled!' : '✅ Storefront is now Live & Public!');
+  };
+
+  window.triggerManualBackupFromSettings = async function() {
+    try {
+      showStatusBanner('Creating D1 database backup snapshot...', 'info');
+      const res = await fetch('/api/admin/ops/backups/create', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        credentials: 'include',
+        body: JSON.stringify({ notes: 'Manual snapshot from Admin Settings' })
+      });
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok || data.success === false) {
+        showToast('❌ Failed to create backup snapshot', 'error');
+        return;
+      }
+      showToast('✅ D1 Backup Snapshot created successfully!');
+      showStatusBanner('✅ D1 Backup Snapshot created and verified!', 'success');
+      await loadSettingsCategoryTelemetry();
+    } catch (e) {
+      showToast('❌ Network error creating backup snapshot', 'error');
+    }
+  };
+
+  async function loadSettingsCategoryTelemetry() {
+    const setTxt = (id, val) => { const el = document.getElementById(id); if (el) el.textContent = val; };
+    try {
+      const [tplRes, bkRes, notifRes, stRes, wishRes, festRes, gwRes] = await Promise.all([
+        fetch('/api/admin/templates', { credentials: 'include' }).catch(() => null),
+        fetch('/api/admin/ops/backups', { credentials: 'include' }).catch(() => null),
+        fetch('/api/admin/ops/notifications', { credentials: 'include' }).catch(() => null),
+        fetch('/api/admin/ops/storage-health', { credentials: 'include' }).catch(() => null),
+        fetch('/api/admin/wishes', { credentials: 'include' }).catch(() => null),
+        fetch('/api/admin/festivals', { credentials: 'include' }).catch(() => null),
+        fetch('/api/admin/commerce/health', { credentials: 'include' }).catch(() => null)
+      ]);
+
+      if (tplRes && tplRes.ok) {
+        const td = await tplRes.json().catch(() => ({}));
+        const list = td?.data?.templates || td?.templates || [];
+        const freeCnt = list.filter(t => Number(t.price || 0) === 0 || t.tier === 'free').length;
+        const premCnt = list.length - freeCnt;
+        setTxt('settings-tpl-total-count', `${list.length} Templates`);
+        setTxt('settings-tpl-tier-breakdown', `${freeCnt} Free / ${premCnt} VIP`);
+      } else {
+        setTxt('settings-tpl-total-count', 'Unavailable');
+        setTxt('settings-tpl-tier-breakdown', 'Unavailable');
+      }
+
+      if (bkRes && bkRes.ok) {
+        const bd = await bkRes.json().catch(() => ({}));
+        const snaps = bd?.data?.snapshots || bd?.snapshots || [];
+        setTxt('settings-backup-count', `${snaps.length} Snapshots`);
+        if (snaps.length > 0) {
+          const latest = snaps[0];
+          setTxt('settings-backup-last-time', latest.created_at || latest.createdAt || 'Verified');
+          setTxt('settings-backup-last-status', `Status: ${latest.status || 'COMPLETED'} (${latest.id})`);
+        } else {
+          setTxt('settings-backup-last-time', 'No snapshots yet');
+          setTxt('settings-backup-last-status', 'Click Create D1 Backup Snapshot above');
+        }
+      } else {
+        setTxt('settings-backup-count', 'Unavailable');
+        setTxt('settings-backup-last-time', 'Unavailable');
+      }
+
+      if (notifRes && notifRes.ok) {
+        const nd = await notifRes.json().catch(() => ({}));
+        const items = nd?.data?.notifications || nd?.notifications || [];
+        const failed = items.filter(n => String(n.status || '').toUpperCase() === 'FAILED').length;
+        setTxt('settings-notif-queue-status', `${items.length} Queued`);
+        setTxt('settings-notif-queue-sub', failed > 0 ? `${failed} failed deliveries` : '0 delivery errors');
+      } else {
+        setTxt('settings-notif-queue-status', 'Unavailable');
+      }
+
+      if (stRes && stRes.ok) {
+        const sd = await stRes.json().catch(() => ({}));
+        const h = sd?.data || sd || {};
+        setTxt('settings-int-imgbb', h.imgbbConfigured ? 'Configured' : 'Env Key Pending');
+        setTxt('settings-int-b2', h.b2Configured ? 'Configured' : 'Env Key Pending');
+        setTxt('settings-storage-d1-status', h.d1Connected !== false ? 'Healthy (D1 Active)' : 'Degraded');
+      }
+
+      if (gwRes && gwRes.ok) {
+        const gd = await gwRes.json().catch(() => ({}));
+        const gw = gd?.data || gd || {};
+        setTxt('settings-int-razorpay', gw.isConfigured ? 'Live Configured' : 'Not Configured');
+      } else {
+        setTxt('settings-int-razorpay', 'Unavailable');
+      }
+
+      if (wishRes && wishRes.ok) {
+        const wd = await wishRes.json().catch(() => ({}));
+        const wishes = wd?.data?.wishes || wd?.wishes || [];
+        setTxt('settings-lifecycle-active-wishes', `${wishes.length} Wishes`);
+      } else {
+        setTxt('settings-lifecycle-active-wishes', 'Unavailable');
+      }
+
+      if (festRes && festRes.ok) {
+        const fd = await festRes.json().catch(() => ({}));
+        const fests = fd?.data?.festivals || fd?.festivals || [];
+        const activeCampaigns = fests.filter(f => f.campaign && f.campaign.computedState === 'ACTIVE').length;
+        setTxt('settings-festivals-total', `${fests.length} Festivals`);
+        setTxt('settings-festivals-active', `${activeCampaigns} Active Now`);
+      } else {
+        setTxt('settings-festivals-total', 'Unavailable');
+        setTxt('settings-festivals-active', 'Unavailable');
+      }
+    } catch (_) {}
+  }
 
   window.toggleCentralLinkRouteTables = function() {
     const grid = document.getElementById('central-link-advanced-routes-grid');
@@ -2010,10 +2704,16 @@
 
   // Auto-run initialization and security diagnostic on page load
   document.addEventListener('DOMContentLoaded', async () => {
-    await loadSiteSettings();
-    await loadWishLinkSettings();
-    await loadCentralLinkSettings();
-    await loadStaffDirectory();
+    const params = new URLSearchParams(window.location.search);
+    const initialCat = params.get('category') || params.get('tab') || (window.location.hash ? window.location.hash.replace('#', '') : 'storefront');
+    window.switchAdminSettingsTab(initialCat, { skipHistory: true });
+    await Promise.all([
+      loadSiteSettings(),
+      loadWishLinkSettings(),
+      loadCentralLinkSettings(),
+      loadStaffDirectory(),
+      loadSettingsCategoryTelemetry()
+    ]);
     setTimeout(runSecurityAudit, 300);
   });
 </script>

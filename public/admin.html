@@ -90,6 +90,10 @@
           <span class="material-symbols-outlined">add_circle</span>
           <span>Add Template</span>
         </a>
+        <a href="/admin/anktech/anktech/admin/festivals">
+          <span class="material-symbols-outlined">event_available</span>
+          <span>Festival Scheduler</span>
+        </a>
         <a href="/admin/anktech/anktech/admin/occasions">
           <span class="material-symbols-outlined">category</span>
           <span>Categories</span>
@@ -788,8 +792,10 @@
         fetch('/api/admin/commerce/orders?limit=50', { credentials: 'include', cache: 'no-store' }).then(r => r.json()).catch(() => null)
       ]);
 
+      const telemetryUnavailable = Boolean(!summaryRes && !biRes && !ordersRes);
       const d1Summary = summaryRes?.data || summaryRes || {};
       const biOverview = biRes?.data || biRes || {};
+      const ordersMetrics = ordersRes?.metrics || ordersRes?.data?.metrics || null;
       const d1Wishes = Array.isArray(adminWishesRes?.wishes)
         ? adminWishesRes.wishes
         : (Array.isArray(adminWishesRes?.data?.wishes) ? adminWishesRes.data.wishes : []);
@@ -821,6 +827,8 @@
         wishes: mergedWishes,
         d1Summary,
         biOverview,
+        ordersMetrics,
+        telemetryUnavailable,
         d1AuditLogs,
         d1Orders
       };
@@ -893,25 +901,42 @@
     document.getElementById('stat-templates').textContent = totalTemplatesVal.toLocaleString('en-IN');
     document.getElementById('stat-templates-sub').textContent = `${publishedTemplatesVal} Live • ${vipTemplatesVal} VIP`;
 
-    // 4. Real Revenue Counts
-    let d1PaidRevenue = 0;
-    let d1PaidCount = 0;
-    ordersList.forEach(o => {
-      const st = String(o.status || o.payment_status || '').toUpperCase();
-      if (st === 'PAID' || st === 'COMPLETED' || st === 'CAPTURED') {
-        d1PaidCount++;
-        const amt = Number(o.amount || o.total_amount || 49);
-        d1PaidRevenue += (amt > 1000 && o.currency === 'INR') ? Math.round(amt / 100) : amt;
-      }
-    });
+    // 4. Real Settled Revenue & Order Counts (Strictly from D1 Orders & Refunds, Never Simulated from Wishes)
+    if (m.telemetryUnavailable) {
+      document.getElementById('stat-revenue').textContent = 'Unavailable';
+      document.getElementById('stat-paid-orders').innerHTML = `<span class="text-rose-400">Data unavailable • <button type="button" onclick="loadDashboard(false)" class="underline font-extrabold cursor-pointer">Retry</button></span>`;
+    } else {
+      let d1PaidRevenue = 0;
+      let d1PaidCount = 0;
+      ordersList.forEach(o => {
+        if (o.isComplimentary || String(o.provider || '').toLowerCase() === 'admin comp pass') return;
+        const st = String(o.status || o.payment_status || '').toUpperCase();
+        if (st === 'PAID' || st === 'PARTIALLY_REFUNDED') {
+          d1PaidCount++;
+          const netRupees = o.netAmountRupees !== undefined
+            ? Number(o.netAmountRupees)
+            : (o.amountRupees !== undefined ? Number(o.amountRupees) : Math.round(Number(o.amount || 0) / 100));
+          d1PaidRevenue += Math.max(0, netRupees || 0);
+        }
+      });
 
-    const biRev = Number(m.biOverview?.kpis?.netRevenue?.value || m.biOverview?.kpis?.grossRevenue?.value || 0);
-    const repoRev = Number(m.simulatedRevenue || m.revenue || 0);
-    const realRevVal = Math.max(d1PaidRevenue, biRev, repoRev);
-    const realPaidOrdersVal = Math.max(d1PaidCount, Number(m.simulatedPaidOrders || 0));
+      const biNetRev = m.biOverview?.metrics?.netRevenue?.current;
+      const ordNetRev = m.ordersMetrics?.netRevenueRupees ?? m.ordersMetrics?.totalRevenueRupees;
+      const sumNetRev = m.d1Summary?.totalRevenue;
+      const realRevVal = ordNetRev !== undefined
+        ? Number(ordNetRev)
+        : (biNetRev !== undefined ? Number(biNetRev) : (sumNetRev !== undefined ? Number(sumNetRev) : d1PaidRevenue));
 
-    document.getElementById('stat-revenue').textContent = `₹${realRevVal.toLocaleString('en-IN')}`;
-    document.getElementById('stat-paid-orders').textContent = `${realPaidOrdersVal} verified paid orders`;
+      const biPaidOrders = m.biOverview?.metrics?.paidOrders?.current;
+      const ordPaidOrders = m.ordersMetrics?.paidOrders;
+      const sumPaidOrders = m.d1Summary?.paidOrders;
+      const realPaidOrdersVal = ordPaidOrders !== undefined
+        ? Number(ordPaidOrders)
+        : (biPaidOrders !== undefined ? Number(biPaidOrders) : (sumPaidOrders !== undefined ? Number(sumPaidOrders) : d1PaidCount));
+
+      document.getElementById('stat-revenue').textContent = `₹${realRevVal.toLocaleString('en-IN')}`;
+      document.getElementById('stat-paid-orders').textContent = `${realPaidOrdersVal} settled order${realPaidOrdersVal === 1 ? '' : 's'} (Net INR • IST)`;
+    }
 
     // Secondary Engagement Stats
     document.getElementById('stat-views').textContent = Number(m.totalViews || 0).toLocaleString('en-IN');

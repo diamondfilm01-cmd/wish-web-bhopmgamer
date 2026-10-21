@@ -535,13 +535,20 @@
           const s = (data && data.data && data.data.settings) || (data && data.settings) || {};
           const a = s.addons || {};
           const refCfg = s.referral || {};
+          const toNonNeg = (val, fallback) => {
+            if (val === undefined || val === null || val === '' || typeof val === 'boolean') return fallback;
+            const n = Number(val);
+            return Number.isFinite(n) && n >= 0 ? n : fallback;
+          };
           activePricingRules = {
-            customLinkPrice: Number(a.customLinkPrice ?? s.personalized?.price ?? 59) || 59,
-            hdImageStylePrice: Number(a.hdImageStylePrice ?? 59) || 59,
-            freeTemplateComboPrice: Number(a.freeTemplateComboPrice ?? 99) || 99,
-            premiumComboAddonPrice: Number(a.premiumComboAddonPrice ?? 70) || 70,
-            templatePriceTiers: Array.isArray(a.templatePriceTiers) ? a.templatePriceTiers.map(Number) : [0, 59, 149],
-            requiredReferrals: Number(refCfg.requiredReferrals ?? 7) || 7
+            customLinkPrice: toNonNeg(a.customLinkPrice ?? s.personalized?.price, 59),
+            hdImageStylePrice: toNonNeg(a.hdImageStylePrice, 59),
+            freeTemplateComboPrice: toNonNeg(a.freeTemplateComboPrice, 99),
+            premiumComboAddonPrice: toNonNeg(a.premiumComboAddonPrice, 70),
+            creatorPackPrice: toNonNeg(a.creatorPackPrice, 99),
+            vipPassPrice: toNonNeg(a.vipPassPrice, 149),
+            templatePriceTiers: Array.isArray(a.templatePriceTiers) && a.templatePriceTiers.length > 0 ? a.templatePriceTiers.map(Number) : [0, 59, 149],
+            requiredReferrals: Math.max(1, parseInt(refCfg.requiredReferrals ?? 7, 10) || 7)
           };
           try {
             localStorage.setItem('wishmagic_pricing_rules_v4', JSON.stringify(activePricingRules));

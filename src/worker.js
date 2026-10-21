@@ -5283,6 +5283,8 @@ async function getSiteSettings(env) {
           else if (row.key === 'hero_subheadline') config.heroSubheadline = val;
           else if (row.key === 'hero_gift_icon') config.heroGiftIcon = val;
           else if (row.key === 'hero_bg_mode') config.heroBgMode = val;
+          else if (row.key === 'hero_3d_floating_enabled') config.hero3dFloatingEnabled = Boolean(val);
+          else if (row.key === 'hero_touch_burst_enabled') config.heroTouchBurstEnabled = Boolean(val);
           else if (row.key === 'hero_image_url') config.heroImageUrl = val;
           else if (row.key === 'hero_style') config.heroStyle = val;
           else if (row.key === 'hero_cta1') config.heroCta1 = val;
@@ -5313,6 +5315,7 @@ async function getSiteSettings(env) {
 }
 
 async function saveSiteSettings(env, newSettings, actor = {}) {
+  await getSiteSettings(env);
   const val = validateSiteSettings(newSettings);
   if (!val.valid) {
     return { success: false, error: val.error };
@@ -5332,6 +5335,8 @@ async function saveSiteSettings(env, newSettings, actor = {}) {
         ['hero_subheadline', s.heroSubheadline, 'string'],
         ['hero_gift_icon', s.heroGiftIcon, 'string'],
         ['hero_bg_mode', s.heroBgMode || 'image', 'string'],
+        ['hero_3d_floating_enabled', String(s.hero3dFloatingEnabled !== false), 'boolean'],
+        ['hero_touch_burst_enabled', String(s.heroTouchBurstEnabled !== false), 'boolean'],
         ['hero_image_url', s.heroImageUrl, 'string'],
         ['hero_style', s.heroStyle, 'string'],
         ['hero_cta1', s.heroCta1, 'string'],
@@ -5407,6 +5412,8 @@ function formatPublicSiteSettings(settings) {
     heroSubheadline: settings.heroSubheadline,
     heroGiftIcon: settings.heroGiftIcon,
     heroBgMode,
+    hero3dFloatingEnabled: settings.hero3dFloatingEnabled !== false,
+    heroTouchBurstEnabled: settings.heroTouchBurstEnabled !== false,
     heroImageUrl: settings.heroImageUrl || '/assets/file_ab2082.png',
     heroStyle: settings.heroStyle,
     heroStyleGradient: pureGrad,
@@ -5446,6 +5453,8 @@ const DEFAULT_WISH_LINK_SETTINGS = {
     hdImageStylePrice: 59,
     freeTemplateComboPrice: 99,
     premiumComboAddonPrice: 70,
+    creatorPackPrice: 99,
+    vipPassPrice: 49,
     templatePriceTiers: [0, 59, 149]
   },
   referral: {
@@ -5461,21 +5470,84 @@ const DEFAULT_WISH_LINK_SETTINGS = {
     length: 6,
     allowedCharacters: 'abcdefghijklmnopqrstuvwxyz0123456789'
   },
+  gateways: {
+    razorpayEnabled: true,
+    stripeEnabled: false,
+    upiEnabled: true
+  },
   updatedAt: '2026-10-15T00:00:00.000Z'
 };
 
 let inMemoryWishLinkSettings = JSON.parse(JSON.stringify(DEFAULT_WISH_LINK_SETTINGS));
 
-function validateWishLinkSettings(settings) {
+function normalizeStoredWishLinkSettings(raw) {
+  const base = JSON.parse(JSON.stringify(DEFAULT_WISH_LINK_SETTINGS));
+  if (!raw || typeof raw !== 'object') return base;
+  const p = raw.personalized && typeof raw.personalized === 'object' ? raw.personalized : {};
+  const a = raw.addons && typeof raw.addons === 'object' ? raw.addons : {};
+  const refCfg = raw.referral && typeof raw.referral === 'object' ? raw.referral : {};
+  const r = raw.random && typeof raw.random === 'object' ? raw.random : {};
+  const g = raw.gateways && typeof raw.gateways === 'object' ? raw.gateways : {};
+
+  const resolvedCustomLinkPrice = Number.isFinite(Number(a.customLinkPrice)) && Number(a.customLinkPrice) >= 0
+    ? Number(a.customLinkPrice)
+    : (Number.isFinite(Number(p.price)) && Number(p.price) >= 0 ? Number(p.price) : base.addons.customLinkPrice);
+
+  return {
+    personalized: {
+      enabled: p.enabled !== undefined ? Boolean(p.enabled) : base.personalized.enabled,
+      price: resolvedCustomLinkPrice,
+      currency: String(p.currency || base.personalized.currency).trim().toUpperCase(),
+      displayName: sanitizeString(p.displayName || base.personalized.displayName, 50),
+      description: sanitizeString(p.description || base.personalized.description, 150)
+    },
+    addons: {
+      customLinkPrice: resolvedCustomLinkPrice,
+      hdImageStylePrice: Number.isFinite(Number(a.hdImageStylePrice)) && Number(a.hdImageStylePrice) >= 0 ? Number(a.hdImageStylePrice) : base.addons.hdImageStylePrice,
+      freeTemplateComboPrice: Number.isFinite(Number(a.freeTemplateComboPrice)) && Number(a.freeTemplateComboPrice) >= 0 ? Number(a.freeTemplateComboPrice) : base.addons.freeTemplateComboPrice,
+      premiumComboAddonPrice: Number.isFinite(Number(a.premiumComboAddonPrice)) && Number(a.premiumComboAddonPrice) >= 0 ? Number(a.premiumComboAddonPrice) : base.addons.premiumComboAddonPrice,
+      creatorPackPrice: Number.isFinite(Number(a.creatorPackPrice)) && Number(a.creatorPackPrice) >= 0 ? Number(a.creatorPackPrice) : base.addons.creatorPackPrice,
+      vipPassPrice: Number.isFinite(Number(a.vipPassPrice)) && Number(a.vipPassPrice) >= 0 ? Number(a.vipPassPrice) : base.addons.vipPassPrice,
+      templatePriceTiers: Array.isArray(a.templatePriceTiers) && a.templatePriceTiers.length > 0
+        ? a.templatePriceTiers.map(Number).filter(n => Number.isFinite(n) && n >= 0)
+        : base.addons.templatePriceTiers
+    },
+    referral: {
+      enabled: refCfg.enabled !== undefined ? Boolean(refCfg.enabled) : base.referral.enabled,
+      requiredReferrals: Math.max(1, parseInt(refCfg.requiredReferrals !== undefined ? refCfg.requiredReferrals : base.referral.requiredReferrals, 10) || base.referral.requiredReferrals),
+      countFreeTemplates: refCfg.countFreeTemplates !== undefined ? Boolean(refCfg.countFreeTemplates) : base.referral.countFreeTemplates,
+      rewardType: 'FREE_CUSTOM_LINK',
+      rewardCredits: Math.max(1, parseInt(refCfg.rewardCredits || base.referral.rewardCredits, 10) || 1)
+    },
+    random: {
+      enabled: r.enabled !== undefined ? Boolean(r.enabled) : base.random.enabled,
+      prefix: String(r.prefix !== undefined ? r.prefix : base.random.prefix).trim().toLowerCase(),
+      length: parseInt(r.length !== undefined ? r.length : base.random.length, 10) || base.random.length,
+      allowedCharacters: String(r.allowedCharacters || base.random.allowedCharacters).trim()
+    },
+    gateways: {
+      razorpayEnabled: g.razorpayEnabled !== undefined ? Boolean(g.razorpayEnabled) : base.gateways.razorpayEnabled,
+      stripeEnabled: g.stripeEnabled !== undefined ? Boolean(g.stripeEnabled) : base.gateways.stripeEnabled,
+      upiEnabled: g.upiEnabled !== undefined ? Boolean(g.upiEnabled) : base.gateways.upiEnabled
+    },
+    updatedAt: raw.updatedAt || base.updatedAt
+  };
+}
+
+function validateWishLinkSettings(settings, baseSettings = inMemoryWishLinkSettings) {
   if (!settings || typeof settings !== 'object') {
     return { valid: false, error: 'Invalid settings payload.' };
   }
 
+  const base = normalizeStoredWishLinkSettings(baseSettings);
   const p = settings.personalized || {};
   const r = settings.random || {};
+  const a = settings.addons || {};
+  const refCfg = settings.referral || {};
+  const g = settings.gateways || {};
 
-  const pEnabled = p.enabled !== undefined ? Boolean(p.enabled) : true;
-  const rEnabled = r.enabled !== undefined ? Boolean(r.enabled) : true;
+  const pEnabled = p.enabled !== undefined ? Boolean(p.enabled) : base.personalized.enabled;
+  const rEnabled = r.enabled !== undefined ? Boolean(r.enabled) : base.random.enabled;
 
   // Rule: Cannot disable both
   if (!pEnabled && !rEnabled) {
@@ -5483,32 +5555,79 @@ function validateWishLinkSettings(settings) {
   }
 
   // Price validation: numeric, non-negative, sensible max
-  const a = settings.addons || {};
-  const refCfg = settings.referral || {};
-  const price = Number(p.price !== undefined ? p.price : (a.customLinkPrice !== undefined ? a.customLinkPrice : 59));
-  if (isNaN(price) || price < 0 || price > 100000) {
+  let rawCustomLinkPrice;
+  if (a.customLinkPrice !== undefined) {
+    rawCustomLinkPrice = a.customLinkPrice;
+  } else if (p.price !== undefined) {
+    rawCustomLinkPrice = p.price;
+  } else {
+    rawCustomLinkPrice = base.addons.customLinkPrice;
+  }
+  const customLinkPrice = (rawCustomLinkPrice === '' || rawCustomLinkPrice === null || typeof rawCustomLinkPrice === 'boolean')
+    ? NaN
+    : Number(rawCustomLinkPrice);
+  if (!Number.isFinite(customLinkPrice) || customLinkPrice < 0 || customLinkPrice > 100000) {
     return { valid: false, error: 'Personalized link price must be a valid non-negative number up to 100,000.' };
   }
-  const customLinkPrice = Number(a.customLinkPrice !== undefined ? a.customLinkPrice : price);
-  const hdImageStylePrice = Number(a.hdImageStylePrice !== undefined ? a.hdImageStylePrice : 59);
-  const freeTemplateComboPrice = Number(a.freeTemplateComboPrice !== undefined ? a.freeTemplateComboPrice : 99);
-  const premiumComboAddonPrice = Number(a.premiumComboAddonPrice !== undefined ? a.premiumComboAddonPrice : 70);
-  const requiredReferrals = Math.max(1, parseInt(refCfg.requiredReferrals !== undefined ? refCfg.requiredReferrals : 7, 10) || 7);
+  if (p.price !== undefined) {
+    const pPriceCheck = (p.price === '' || p.price === null || typeof p.price === 'boolean') ? NaN : Number(p.price);
+    if (!Number.isFinite(pPriceCheck) || pPriceCheck < 0 || pPriceCheck > 100000) {
+      return { valid: false, error: 'Personalized link price must be a valid non-negative number up to 100,000.' };
+    }
+  }
+
+  function validateAddonPrice(rawVal, fallbackVal, label) {
+    if (rawVal === undefined) return { valid: true, value: fallbackVal };
+    if (rawVal === '' || rawVal === null || typeof rawVal === 'boolean') {
+      return { valid: false, error: `${label} must be a valid non-negative number up to 100,000.` };
+    }
+    const num = Number(rawVal);
+    if (!Number.isFinite(num) || num < 0 || num > 100000) {
+      return { valid: false, error: `${label} must be a valid non-negative number up to 100,000.` };
+    }
+    return { valid: true, value: num };
+  }
+
+  const hdCheck = validateAddonPrice(a.hdImageStylePrice, base.addons.hdImageStylePrice, 'HD Images + Style price');
+  if (!hdCheck.valid) return hdCheck;
+  const freeComboCheck = validateAddonPrice(a.freeTemplateComboPrice, base.addons.freeTemplateComboPrice, 'Free Template Combo price');
+  if (!freeComboCheck.valid) return freeComboCheck;
+  const premiumAddonCheck = validateAddonPrice(a.premiumComboAddonPrice, base.addons.premiumComboAddonPrice, 'Premium Combo Add-On price');
+  if (!premiumAddonCheck.valid) return premiumAddonCheck;
+  const creatorPackCheck = validateAddonPrice(a.creatorPackPrice, base.addons.creatorPackPrice, 'Creator Pack price');
+  if (!creatorPackCheck.valid) return creatorPackCheck;
+  const vipPassCheck = validateAddonPrice(a.vipPassPrice, base.addons.vipPassPrice, 'VIP Pass price');
+  if (!vipPassCheck.valid) return vipPassCheck;
+
+  const hdImageStylePrice = hdCheck.value;
+  const freeTemplateComboPrice = freeComboCheck.value;
+  const premiumComboAddonPrice = premiumAddonCheck.value;
+  const creatorPackPrice = creatorPackCheck.value;
+  const vipPassPrice = vipPassCheck.value;
+
+  let requiredReferrals = base.referral.requiredReferrals;
+  if (refCfg.requiredReferrals !== undefined) {
+    const parsedRef = Number(refCfg.requiredReferrals);
+    if (!Number.isInteger(parsedRef) || parsedRef < 1 || parsedRef > 1000) {
+      return { valid: false, error: 'Required referrals must be an integer between 1 and 1,000.' };
+    }
+    requiredReferrals = parsedRef;
+  }
 
   // Currency validation
-  const currency = String(p.currency || 'INR').trim().toUpperCase();
+  const currency = String(p.currency !== undefined ? p.currency : base.personalized.currency).trim().toUpperCase();
   if (!/^[A-Z]{3}$/.test(currency)) {
     return { valid: false, error: 'Currency must be a valid 3-letter ISO code (e.g. INR, USD).' };
   }
 
   // Random length validation: 5-20 characters
-  const length = parseInt(r.length !== undefined ? r.length : 6, 10);
-  if (isNaN(length) || length < 5 || length > 20) {
+  const length = r.length !== undefined ? Number(r.length) : base.random.length;
+  if (!Number.isInteger(length) || length < 5 || length > 20) {
     return { valid: false, error: 'Random ID length must be an integer between 5 and 20.' };
   }
 
   // Prefix validation: URL safe, not reserved
-  const rawPrefix = String(r.prefix !== undefined ? r.prefix : 'wish-').trim().toLowerCase();
+  const rawPrefix = String(r.prefix !== undefined ? r.prefix : base.random.prefix).trim().toLowerCase();
   if (!/^[a-z0-9]+-?$/.test(rawPrefix) || rawPrefix.length > 20) {
     return { valid: false, error: 'Random prefix must contain only lowercase letters, numbers, and an optional trailing hyphen (e.g. "wish-" or "w-").' };
   }
@@ -5518,9 +5637,17 @@ function validateWishLinkSettings(settings) {
   }
 
   // Allowed characters validation
-  const allowed = String(r.allowedCharacters || 'abcdefghijklmnopqrstuvwxyz0123456789').trim();
+  const allowed = String(r.allowedCharacters !== undefined ? r.allowedCharacters : base.random.allowedCharacters).trim();
   if (!/^[a-zA-Z0-9]+$/.test(allowed) || allowed.length < 5) {
     return { valid: false, error: 'Allowed characters must contain only alphanumeric characters (at least 5 characters).' };
+  }
+
+  let templatePriceTiers = base.addons.templatePriceTiers;
+  if (a.templatePriceTiers !== undefined) {
+    if (!Array.isArray(a.templatePriceTiers) || a.templatePriceTiers.some(t => !Number.isFinite(Number(t)) || Number(t) < 0 || Number(t) > 100000)) {
+      return { valid: false, error: 'Template price tiers must be an array of valid non-negative numbers.' };
+    }
+    templatePriceTiers = a.templatePriceTiers.map(Number);
   }
 
   return {
@@ -5530,28 +5657,35 @@ function validateWishLinkSettings(settings) {
         enabled: pEnabled,
         price: customLinkPrice,
         currency,
-        displayName: sanitizeString(p.displayName || 'Custom Link Only', 50),
-        description: sanitizeString(p.description || 'Create a memorable custom link (/w/your-name) for your wish.', 150)
+        displayName: sanitizeString(p.displayName !== undefined ? p.displayName : base.personalized.displayName, 50),
+        description: sanitizeString(p.description !== undefined ? p.description : base.personalized.description, 150)
       },
       addons: {
         customLinkPrice,
         hdImageStylePrice,
         freeTemplateComboPrice,
         premiumComboAddonPrice,
-        templatePriceTiers: Array.isArray(a.templatePriceTiers) ? a.templatePriceTiers.map(Number) : [0, 59, 149]
+        creatorPackPrice,
+        vipPassPrice,
+        templatePriceTiers
       },
       referral: {
-        enabled: refCfg.enabled !== undefined ? Boolean(refCfg.enabled) : true,
+        enabled: refCfg.enabled !== undefined ? Boolean(refCfg.enabled) : base.referral.enabled,
         requiredReferrals,
-        countFreeTemplates: refCfg.countFreeTemplates !== undefined ? Boolean(refCfg.countFreeTemplates) : true,
+        countFreeTemplates: refCfg.countFreeTemplates !== undefined ? Boolean(refCfg.countFreeTemplates) : base.referral.countFreeTemplates,
         rewardType: 'FREE_CUSTOM_LINK',
-        rewardCredits: Math.max(1, parseInt(refCfg.rewardCredits || 1, 10) || 1)
+        rewardCredits: Math.max(1, parseInt(refCfg.rewardCredits !== undefined ? refCfg.rewardCredits : base.referral.rewardCredits, 10) || 1)
       },
       random: {
         enabled: rEnabled,
         prefix: rawPrefix,
         length,
         allowedCharacters: allowed
+      },
+      gateways: {
+        razorpayEnabled: g.razorpayEnabled !== undefined ? Boolean(g.razorpayEnabled) : base.gateways.razorpayEnabled,
+        stripeEnabled: g.stripeEnabled !== undefined ? Boolean(g.stripeEnabled) : base.gateways.stripeEnabled,
+        upiEnabled: g.upiEnabled !== undefined ? Boolean(g.upiEnabled) : base.gateways.upiEnabled
       },
       updatedAt: new Date().toISOString()
     }
@@ -5564,18 +5698,20 @@ async function getWishLinkSettings(env) {
       const row = await env.DB.prepare('SELECT message FROM system_announcements WHERE id = ? LIMIT 1').bind('config_wish_links').first();
       if (row && row.message) {
         const parsed = JSON.parse(row.message);
-        if (parsed && parsed.personalized && parsed.random) {
-          inMemoryWishLinkSettings = parsed;
-          return parsed;
+        if (parsed && typeof parsed === 'object') {
+          const normalized = normalizeStoredWishLinkSettings(parsed);
+          inMemoryWishLinkSettings = normalized;
+          return normalized;
         }
       }
     } catch (e) {}
   }
-  return inMemoryWishLinkSettings;
+  return normalizeStoredWishLinkSettings(inMemoryWishLinkSettings);
 }
 
 async function saveWishLinkSettings(env, newSettings, actor = {}) {
-  const val = validateWishLinkSettings(newSettings);
+  const currentSettings = await getWishLinkSettings(env);
+  const val = validateWishLinkSettings(newSettings, currentSettings);
   if (!val.valid) {
     return { success: false, error: val.error };
   }
@@ -17367,7 +17503,7 @@ export default {
               sampleSlug
             }
           }
-        }, 200, {}, requestId);
+        }, 200, { 'Cache-Control': 'no-cache, no-store, must-revalidate' }, requestId);
       }
 
       // --- Admin Wish Link & Monetization Settings Endpoints ---
@@ -17387,7 +17523,7 @@ export default {
               sampleSlug
             }
           }
-        }, 200, {}, requestId);
+        }, 200, { 'Cache-Control': 'no-cache, no-store, must-revalidate' }, requestId);
       }
 
       else if (pathname === '/api/admin/settings/wish-links' && (method === 'PUT' || method === 'POST')) {
@@ -18879,83 +19015,134 @@ export default {
         const isAdmin = await verifyAdminRole(user, env);
         if (!isAdmin) return applySecurityHeaders(jsonError('FORBIDDEN', 'Administrative rights required', 403), request, env);
 
-        let allOrders = [...inMemoryOrders];
-        let vipWishesAsOrders = [];
+        let allOrders = [];
+        const seenIds = new Set();
+        const addUniqueOrder = (o) => {
+          if (!o || !o.id || seenIds.has(o.id)) return;
+          seenIds.add(o.id);
+          allOrders.push(o);
+        };
+        (inMemoryOrders || []).forEach(addUniqueOrder);
+
+        let allRefunds = [];
         if (env.DB && typeof env.DB.prepare === 'function') {
           try {
             const res = await env.DB.prepare(
-              `SELECT * FROM orders ORDER BY created_at DESC LIMIT 100`
+              `SELECT * FROM orders ORDER BY created_at DESC LIMIT 250`
             ).all().catch(() => ({ results: [] }));
-            const dbOrders = (res && res.results) || [];
-            const seenIds = new Set(allOrders.map(o => o.id));
-            dbOrders.forEach(o => {
-              if (!seenIds.has(o.id)) {
-                allOrders.push(o);
-                seenIds.add(o.id);
-              }
-            });
+            ((res && res.results) || []).forEach(addUniqueOrder);
 
-            // Also synthesize order rows for VIP wishes that do not have a corresponding order row
-            const wRes = await env.DB.prepare(`SELECT * FROM wishes WHERE tier = 'vip' OR price > 0 ORDER BY created_at DESC LIMIT 100`).all().catch(() => ({ results: [] }));
-            ((wRes && wRes.results) || []).forEach(w => {
-              const ordId = w.order_id || (`ord_vip_${w.id}`);
-              if (!seenIds.has(ordId)) {
-                let cd = {};
-                try { cd = typeof w.custom_data === 'string' ? JSON.parse(w.custom_data) : (w.custom_data || {}); } catch (_) {}
-                allOrders.push({
-                  id: ordId,
-                  wish_id: w.id,
-                  user_id: w.user_id || 'guest',
-                  customer_name: w.buyer_name || cd.sender_name || cd.senderName || 'VIP Creator',
-                  customer_email: w.buyer_contact || cd.sender_contact || cd.senderEmail || '',
-                  recipient_name: w.recipient_name || cd.recipient_name || cd.recipientName || 'Loved One',
-                  product_name: w.template_name || 'VIP Magic Pass',
-                  plan: 'VIP',
-                  amount: (Number(w.price) || 49) * 100,
-                  currency: 'INR',
-                  status: 'PAID',
-                  provider: 'Instant UPI',
-                  transaction_id: `txn_${w.id.slice(-8)}`,
-                  created_at: w.created_at || new Date().toISOString(),
-                  verified_at: w.created_at || new Date().toISOString()
-                });
-                seenIds.add(ordId);
-              }
-            });
+            const refRes = await env.DB.prepare(
+              `SELECT id, order_id, amount, status, created_at FROM refunds`
+            ).all().catch(() => ({ results: [] }));
+            allRefunds = (refRes && refRes.results) || [];
           } catch (e) {}
         }
 
-        const paidCount = allOrders.filter(o => o.status === 'PAID' || o.status === 'paid').length;
-        const totalRevenue = allOrders
-          .filter(o => o.status === 'PAID' || o.status === 'paid')
-          .reduce((sum, o) => sum + (Number(o.amount) || 0), 0);
+        const refundedByOrderId = new Map();
+        const seenRefundIds = new Set();
+        allRefunds.forEach(r => {
+          if (!r || !r.order_id) return;
+          if (r.id) {
+            if (seenRefundIds.has(r.id)) return;
+            seenRefundIds.add(r.id);
+          }
+          const st = String(r.status || 'PROCESSED').toUpperCase();
+          if (st === 'FAILED' || st === 'REJECTED' || st === 'CANCELLED') return;
+          const prev = refundedByOrderId.get(r.order_id) || 0;
+          refundedByOrderId.set(r.order_id, prev + Math.max(0, Number(r.amount) || 0));
+        });
+
+        const isCompOrder = (o) => {
+          const prov = String(o.provider || '').toLowerCase();
+          return prov === 'admin comp pass' || prov === 'comp' || prov === 'complimentary';
+        };
+
+        let paidCount = 0;
+        let pendingCount = 0;
+        let failedCount = 0;
+        let refundedCount = 0;
+        let compCount = 0;
+        let grossRevenuePaise = 0;
+        let refundedPaise = 0;
+
+        allOrders.forEach(o => {
+          const st = String(o.status || 'PENDING').toUpperCase();
+          const amtPaise = Math.max(0, Number(o.amount) || 0);
+          const comp = isCompOrder(o);
+          if (comp) {
+            compCount++;
+            return;
+          }
+          if (st === 'PAID' || st === 'PARTIALLY_REFUNDED') {
+            paidCount++;
+            grossRevenuePaise += amtPaise;
+            const refAmt = Math.min(amtPaise, refundedByOrderId.get(o.id) || 0);
+            refundedPaise += refAmt;
+            if (st === 'PARTIALLY_REFUNDED' || refAmt > 0) refundedCount++;
+          } else if (st === 'REFUNDED') {
+            refundedCount++;
+            grossRevenuePaise += amtPaise;
+            const refAmt = refundedByOrderId.has(o.id) ? Math.min(amtPaise, refundedByOrderId.get(o.id)) : amtPaise;
+            refundedPaise += refAmt;
+          } else if (st === 'PENDING') {
+            pendingCount++;
+          } else if (st === 'PAYMENT_FAILED' || st === 'FAILED' || st === 'CANCELLED') {
+            failedCount++;
+          }
+        });
+
+        const netRevenuePaise = Math.max(0, grossRevenuePaise - refundedPaise);
 
         response = jsonSuccess({
-          orders: allOrders.map(o => ({
-            id: o.id,
-            wishId: o.wish_id || o.wishId || null,
-            userId: o.user_id || o.userId,
-            customerName: o.customer_name || o.customerName || 'Customer',
-            customerEmail: o.customer_email || o.customerEmail || '',
-            recipientName: o.recipient_name || o.recipientName || 'VIP Pass Holder',
-            productName: o.product_name || o.productName || 'VIP Creator Pass',
-            plan: o.plan || 'VIP',
-            amountPaise: Number(o.amount) || 0,
-            amountRupees: Math.round((Number(o.amount) || 0) / 100),
-            currency: o.currency || 'INR',
-            status: o.status || 'PAID',
-            provider: o.provider || 'Instant UPI',
-            providerOrderId: o.provider_order_id,
-            transactionId: o.transaction_id || o.transactionId,
-            createdAt: o.created_at || o.createdAt,
-            verifiedAt: o.verified_at || o.verifiedAt
-          })),
+          orders: allOrders.map(o => {
+            const amtPaise = Math.max(0, Number(o.amount) || 0);
+            const st = String(o.status || 'PENDING').toUpperCase();
+            const orderRefundPaise = st === 'REFUNDED' && !refundedByOrderId.has(o.id)
+              ? amtPaise
+              : Math.min(amtPaise, refundedByOrderId.get(o.id) || 0);
+            return {
+              id: o.id,
+              wishId: o.wish_id || o.wishId || null,
+              userId: o.user_id || o.userId,
+              customerName: o.customer_name || o.customerName || 'Customer',
+              customerEmail: o.customer_email || o.customerEmail || '',
+              recipientName: o.recipient_name || o.recipientName || 'Recipient',
+              productName: o.product_name || o.productName || 'WishMagic Order',
+              plan: o.plan || 'VIP',
+              amountPaise: amtPaise,
+              amountRupees: Math.round(amtPaise / 100),
+              refundedPaise: orderRefundPaise,
+              refundedRupees: Math.round(orderRefundPaise / 100),
+              netAmountRupees: Math.round(Math.max(0, amtPaise - orderRefundPaise) / 100),
+              currency: o.currency || 'INR',
+              status: st,
+              isComplimentary: isCompOrder(o),
+              provider: o.provider || 'Razorpay',
+              providerOrderId: o.provider_order_id,
+              transactionId: o.transaction_id || o.transactionId,
+              createdAt: o.created_at || o.createdAt,
+              verifiedAt: o.verified_at || o.verifiedAt
+            };
+          }),
           metrics: {
             totalOrders: allOrders.length,
             paidOrders: paidCount,
-            totalRevenueRupees: Math.round(totalRevenue / 100)
+            pendingOrders: pendingCount,
+            failedOrders: failedCount,
+            refundedOrders: refundedCount,
+            compOrders: compCount,
+            grossRevenuePaise,
+            grossRevenueRupees: Math.round(grossRevenuePaise / 100),
+            refundedPaise,
+            refundedRupees: Math.round(refundedPaise / 100),
+            netRevenuePaise,
+            netRevenueRupees: Math.round(netRevenuePaise / 100),
+            totalRevenueRupees: Math.round(netRevenuePaise / 100),
+            currency: 'INR',
+            timezone: 'Asia/Kolkata'
           }
-        }, 200, {}, requestId);
+        }, 200, { 'Cache-Control': 'no-cache, no-store, must-revalidate' }, requestId);
       }
 
       // API: Admin Generate Complimentary VIP Gift Pass

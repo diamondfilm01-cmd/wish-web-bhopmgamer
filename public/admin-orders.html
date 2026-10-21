@@ -1039,33 +1039,51 @@
         const mergedList = [];
         const seenIds = new Set();
 
-        // 1. Add wishes from /api/admin/wishes
-        const rawWishes = Array.isArray(wishesData.wishes) ? wishesData.wishes : [];
+        const rawOrders = Array.isArray(commerceData.orders)
+          ? commerceData.orders
+          : (Array.isArray(commerceData.data?.orders) ? commerceData.data.orders : []);
+        const orderByWishId = new Map();
+        rawOrders.forEach(o => {
+          if (o && o.wishId) orderByWishId.set(o.wishId, o);
+        });
+
+        // 1. Add wishes from /api/admin/wishes linked with their real order status (if any)
+        const rawWishes = Array.isArray(wishesData.wishes)
+          ? wishesData.wishes
+          : (Array.isArray(wishesData.data?.wishes) ? wishesData.data.wishes : []);
         rawWishes.forEach(w => {
+          const linkedOrder = orderByWishId.get(w.id) || null;
+          const actualPrice = linkedOrder
+            ? Number(linkedOrder.netAmountRupees ?? linkedOrder.amountRupees ?? 0)
+            : (Number.isFinite(Number(w.price)) && Number(w.price) >= 0 ? Number(w.price) : 0);
+          const payStatus = linkedOrder
+            ? linkedOrder.status
+            : (actualPrice > 0 ? 'UNVERIFIED' : 'FREE');
           mergedList.push({
             id: w.id,
-            orderId: w.orderId || ('#' + String(w.id).slice(-6).toUpperCase()),
-            buyerName: w.creatorName || w.buyerName || 'Creator',
-            buyerContact: w.creatorEmail || w.buyerContact || '',
-            recipientName: w.recipientName || 'Special Person',
-            templateName: w.templateName || 'Celebration Template',
-            tier: w.tier === 'vip' || Number(w.price) > 0 ? 'vip' : 'free',
-            price: Number(w.price) || (w.tier === 'vip' ? 49 : 0),
+            orderId: (linkedOrder && linkedOrder.id) || w.orderId || ('#' + String(w.id).slice(-6).toUpperCase()),
+            buyerName: w.creatorName || w.buyerName || (linkedOrder && linkedOrder.customerName) || 'Creator',
+            buyerContact: w.creatorEmail || w.buyerContact || (linkedOrder && linkedOrder.customerEmail) || '',
+            recipientName: w.recipientName || (linkedOrder && linkedOrder.recipientName) || 'Special Person',
+            templateName: w.templateName || (linkedOrder && linkedOrder.productName) || 'Celebration Template',
+            tier: (linkedOrder && (linkedOrder.status === 'PAID' || linkedOrder.status === 'PARTIALLY_REFUNDED')) || w.tier === 'vip' ? 'vip' : 'free',
+            price: actualPrice,
             createdAt: w.createdAt || new Date().toISOString(),
             views: Number(w.views) || 0,
             lifecycleStatus: w.lifecycleStatus || 'active',
             customData: w.customData || {},
             payment: {
-              status: w.tier === 'vip' ? 'PAID' : 'FREE',
-              method: 'Instant UPI'
+              status: payStatus,
+              method: (linkedOrder && linkedOrder.provider) || (actualPrice > 0 ? 'Razorpay' : 'Free Tier'),
+              transactionId: linkedOrder ? linkedOrder.transactionId : null
             }
           });
           seenIds.add(w.id);
+          if (linkedOrder && linkedOrder.id) seenIds.add(linkedOrder.id);
           if (w.orderId) seenIds.add(w.orderId);
         });
 
-        // 2. Add any standalone commerce orders not already in wishes
-        const rawOrders = Array.isArray(commerceData.orders) ? commerceData.orders : [];
+        // 2. Add any standalone commerce orders not already attached to a wish row
         rawOrders.forEach(o => {
           if (!seenIds.has(o.id) && (!o.wishId || !seenIds.has(o.wishId))) {
             mergedList.push({
@@ -1073,16 +1091,16 @@
               orderId: o.id,
               buyerName: o.customerName || 'Customer',
               buyerContact: o.customerEmail || '',
-              recipientName: o.recipientName || 'VIP Pass Holder',
-              templateName: o.productName || 'VIP Creator Pass',
-              tier: o.status === 'PAID' ? 'vip' : 'free',
-              price: o.amountRupees || 49,
+              recipientName: o.recipientName || 'Recipient',
+              templateName: o.productName || 'WishMagic Order',
+              tier: (o.status === 'PAID' || o.status === 'PARTIALLY_REFUNDED') ? 'vip' : 'free',
+              price: Number(o.netAmountRupees ?? o.amountRupees ?? 0),
               createdAt: o.createdAt || new Date().toISOString(),
-              views: 1,
-              lifecycleStatus: o.status === 'PAID' ? 'active' : 'upcoming',
+              views: 0,
+              lifecycleStatus: (o.status === 'PAID' || o.status === 'PARTIALLY_REFUNDED') ? 'active' : 'upcoming',
               payment: {
                 status: o.status,
-                method: o.provider || 'Instant UPI',
+                method: o.provider || 'Razorpay',
                 transactionId: o.transactionId
               }
             });
@@ -1092,20 +1110,18 @@
 
         cachedWishes = mergedList;
 
-        const m = metricsData.metrics || metricsData || {};
-        const cm = commerceData.metrics || {};
+        const m = metricsData.metrics || metricsData.data || metricsData || {};
+        const cm = commerceData.metrics || commerceData.data?.metrics || {};
 
-        const vipList = cachedWishes.filter(w => w.tier === 'vip' || Number(w.price) > 0);
-        const freeList = cachedWishes.filter(w => w.tier !== 'vip' && (!w.price || Number(w.price) <= 0));
+        const vipList = cachedWishes.filter(w => w.tier === 'vip');
+        const freeList = cachedWishes.filter(w => w.tier !== 'vip');
         const liveList = cachedWishes.filter(w => (w.lifecycleStatus || 'active') === 'active' || w.lifecycleStatus === 'live');
         const futureList = cachedWishes.filter(w => w.lifecycleStatus === 'upcoming' || w.lifecycleStatus === 'future');
         const expiredList = cachedWishes.filter(w => w.lifecycleStatus === 'expired');
 
-        const computedRevenue = Math.max(
-          vipList.reduce((acc, w) => acc + (Number(w.price) || 49), 0),
-          Number(cm.totalRevenueRupees || 0),
-          Number(m.totalRevenue || m.revenue || 0)
-        );
+        // Revenue & Paid Orders strictly from settled D1 commerce orders (never fabricated from wish rows)
+        const settledRevenue = Number(cm.netRevenueRupees ?? cm.totalRevenueRupees ?? m.totalRevenue ?? 0);
+        const settledPaidOrders = Number(cm.paidOrders ?? m.paidOrders ?? 0);
 
         const elTotal = document.getElementById('stat-total-wishes');
         const elRev = document.getElementById('stat-vip-revenue');
@@ -1117,15 +1133,20 @@
         const elVisitors = document.getElementById('stat-live-views');
         const elGoalPct = document.getElementById('vip-goal-pct');
 
-        if (elTotal) elTotal.textContent = cachedWishes.length.toLocaleString();
-        if (elRev) elRev.textContent = '₹' + computedRevenue.toLocaleString('en-IN');
-        if (elGoalPct) elGoalPct.textContent = '₹' + computedRevenue.toLocaleString('en-IN');
-        if (elOrdCnt) elOrdCnt.textContent = `${vipList.length} Orders`;
-        if (elSplit) elSplit.innerHTML = `<span>${freeList.length} Free</span> • <span>${vipList.length} VIP Passes</span>`;
-        if (elLive) elLive.textContent = liveList.length.toLocaleString();
-        if (elFuture) elFuture.textContent = futureList.length.toLocaleString();
-        if (elExp) elExp.textContent = expiredList.length.toLocaleString();
-        if (elVisitors) elVisitors.textContent = (m.liveVisitorsCount || 1).toLocaleString();
+        if (!commerceRes && !wishesRes && !metricsRes) {
+          if (elRev) elRev.textContent = 'Unavailable';
+          if (elOrdCnt) elOrdCnt.textContent = 'API Unavailable';
+        } else {
+          if (elTotal) elTotal.textContent = cachedWishes.length.toLocaleString();
+          if (elRev) elRev.textContent = '₹' + settledRevenue.toLocaleString('en-IN');
+          if (elGoalPct) elGoalPct.textContent = '₹' + settledRevenue.toLocaleString('en-IN');
+          if (elOrdCnt) elOrdCnt.textContent = `${settledPaidOrders} Settled Order${settledPaidOrders === 1 ? '' : 's'}`;
+          if (elSplit) elSplit.innerHTML = `<span>${freeList.length} Free</span> • <span>${settledPaidOrders} Paid Orders</span>`;
+          if (elLive) elLive.textContent = liveList.length.toLocaleString();
+          if (elFuture) elFuture.textContent = futureList.length.toLocaleString();
+          if (elExp) elExp.textContent = expiredList.length.toLocaleString();
+          if (elVisitors) elVisitors.textContent = Number(m.liveVisitorsCount ?? 0).toLocaleString();
+        }
 
         const tabAll = document.getElementById('tab-all-count');
         const tabVip = document.getElementById('tab-vip-count');
@@ -1151,7 +1172,7 @@
                 <div class="text-[10px] text-on-surface-variant truncate">${w.templateName}</div>
               </div>
               <span class="px-2 py-0.5 rounded-full text-[10px] font-bold shrink-0 ${w.tier === 'vip' ? 'bg-amber-500/20 text-amber-400' : 'bg-emerald-500/20 text-emerald-400'}">
-                ${w.tier === 'vip' ? ('₹' + (w.price || 49)) : 'FREE'}
+                ${w.price > 0 ? ('₹' + w.price) : 'FREE'}
               </span>
             </div>
           `).join('');

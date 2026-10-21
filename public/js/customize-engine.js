@@ -3743,7 +3743,7 @@ function getCurrencySymbol(curr) {
 window.loadWishLinkStudioSettings = async function() {
   try {
     const [res, refRes] = await Promise.all([
-      fetch('/api/settings/wish-links', { credentials: 'include' }).catch(() => null),
+      fetch('/api/settings/wish-links', { credentials: 'include', cache: 'no-store' }).catch(() => null),
       fetch('/api/referrals/dashboard', { credentials: 'include' }).catch(() => null)
     ]);
     if (res) {
@@ -3851,12 +3851,17 @@ window.renderPersonalizedPaymentCallout = function(overrideState = null) {
   const container = document.getElementById('personalized-payment-callout');
   if (!container) return;
 
+  const toNonNeg = (val, fallback) => {
+    if (val === undefined || val === null || val === '' || typeof val === 'boolean') return fallback;
+    const n = Number(val);
+    return Number.isFinite(n) && n >= 0 ? n : fallback;
+  };
   const sym = getCurrencySymbol(currentWishLinkSettings.personalized.currency);
   const a = currentWishLinkSettings.addons || {};
-  const clPrice = Number(a.customLinkPrice ?? currentWishLinkSettings.personalized.price ?? 59) || 59;
-  const hdPrice = Number(a.hdImageStylePrice ?? 59) || 59;
-  const freeComboPrice = Number(a.freeTemplateComboPrice ?? 99) || 99;
-  const premComboAddon = Number(a.premiumComboAddonPrice ?? 70) || 70;
+  const clPrice = toNonNeg(a.customLinkPrice ?? currentWishLinkSettings.personalized.price, 59);
+  const hdPrice = toNonNeg(a.hdImageStylePrice, 59);
+  const freeComboPrice = toNonNeg(a.freeTemplateComboPrice, 99);
+  const premComboAddon = toNonNeg(a.premiumComboAddonPrice, 70);
   const tplPrice = Math.max(0, Number((activeTemplate && activeTemplate.price) || 0));
   const isPremTpl = tplPrice > 0;
   const premComboTotal = tplPrice + premComboAddon;

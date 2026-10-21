@@ -664,19 +664,40 @@
     return q;
   }
 
+  function setAnalyticsUnavailableState(reason) {
+    ['stat-gross-rev', 'stat-net-rev', 'stat-paid-orders', 'stat-new-users', 'stat-published-wishes', 'stat-active-wishes', 'stat-aov', 'stat-refunds'].forEach(id => {
+      const el = document.getElementById(id);
+      if (el) el.textContent = 'Unavailable';
+    });
+    const freshEl = document.getElementById('label-freshness');
+    if (freshEl) {
+      freshEl.innerHTML = `<span class="text-rose-400 font-bold">${reason || 'Telemetry Unavailable'} • <button type="button" onclick="loadAllAnalytics()" class="underline cursor-pointer">Retry</button></span>`;
+    }
+  }
+
   async function fetchOverview(signal) {
     try {
       const res = await fetch(`/api/admin/analytics/overview?${getQueryString()}`, {
-        headers: { 'Cache-Control': 'no-cache' }, signal
+        headers: { 'Cache-Control': 'no-cache' },
+        credentials: 'include',
+        signal
       });
-      if (!res.ok) return;
-      const data = await res.json();
-      if (data.success && data.metrics) {
+      if (!res.ok) {
+        setAnalyticsUnavailableState(res.status === 401 || res.status === 403 ? 'Permission Denied' : 'Data Unavailable');
+        return;
+      }
+      const payload = await res.json();
+      const data = payload.data && payload.data.metrics ? payload.data : payload;
+      if (data && data.metrics) {
         cachedOverview = data;
         renderExecutiveKpis(data);
+      } else {
+        setAnalyticsUnavailableState('Data Unavailable');
       }
     } catch (e) {
+      if (e && e.name === 'AbortError') return;
       console.warn('Overview fetch error:', e);
+      setAnalyticsUnavailableState('Connection Failed');
     }
   }
 

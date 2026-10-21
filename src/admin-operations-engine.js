@@ -1208,7 +1208,7 @@ export async function getCentralizedDashboardSummary(db, env = {}) {
   let totalRevenue = 0;
   let paidOrders = 0;
   let recentWishesCreated24h = 0;
-  let liveVisitorsCount = 1;
+  let liveVisitorsCount = 0;
 
   let totalSongs = 0;
   let availableSongs = 0;
@@ -1293,29 +1293,64 @@ export async function getCentralizedDashboardSummary(db, env = {}) {
         const isVip = w.tier === "vip" || Number(w.price) > 0;
         if (isVip) {
           vipWishes++;
-          totalRevenue += Number(w.price) || 49;
         } else {
           freeWishes++;
         }
-        if (w.created_at && w.created_at >= dayAgoIso) {
-          recentWishesCreated24h++;
+      });
+
+      // Orders & Refunds Overview (Authoritative D1 commercial records only — never fabricate revenue from wishes)
+      const [ordRows, refRows] = await Promise.all([
+        db.prepare("SELECT * FROM orders").all().catch(() => ({ results: [] })),
+        db.prepare("SELECT * FROM refunds").all().catch(() => ({ results: [] }))
+      ]);
+      const ordList = (ordRows && ordRows.results) || [];
+      const refList = (refRows && refRows.results) || [];
+
+      const seenOrdIds = new Set();
+      let grossRevenuePaise = 0;
+      let orderRefundedPaise = 0;
+      let settledPaidCount = 0;
+
+      ordList.forEach(o => {
+        if (!o) return;
+        const oid = o.id || o.transaction_id;
+        if (oid && seenOrdIds.has(oid)) return;
+        if (oid) seenOrdIds.add(oid);
+
+        const isComp = String(o.provider || "").toLowerCase().includes("comp");
+        if (isComp) return;
+
+        const st = String(o.status || "").toUpperCase();
+        const amtPaise = Number(o.amount) || 0;
+        if (st === "PAID" || st === "COMPLETED" || st === "PARTIALLY_REFUNDED") {
+          settledPaidCount++;
+          grossRevenuePaise += amtPaise;
+          orderRefundedPaise += Number(o.total_refunded || 0);
+        } else if (st === "REFUNDED") {
+          grossRevenuePaise += amtPaise;
+          orderRefundedPaise += Number(o.total_refunded || amtPaise);
         }
       });
 
-      if (totalUsers < creatorSet.size) totalUsers = creatorSet.size;
-      if (totalUsers === 0) totalUsers = 1; // At least the active platform owner/admin
+      const seenRefIds = new Set();
+      const tableRefundedPaise = refList
+        .filter(r => {
+          if (!r) return false;
+          const rk = r.id || r.provider_refund_id;
+          if (rk && seenRefIds.has(rk)) return false;
+          const st = String(r.status || "SUCCEEDED").toUpperCase();
+          const ok = st === "SUCCEEDED" || st === "PROCESSED" || st === "COMPLETED";
+          if (ok && rk) seenRefIds.add(rk);
+          return ok;
+        })
+        .reduce((acc, r) => acc + (Number(r.amount) || 0), 0);
+      const totalRefundedPaise = Math.max(orderRefundedPaise, tableRefundedPaise);
+      const netRevenuePaise = Math.max(0, grossRevenuePaise - totalRefundedPaise);
 
-      // Orders Overview
-      const ordRows = await db.prepare("SELECT * FROM orders").all().catch(() => ({ results: [] }));
-      const ordList = (ordRows && ordRows.results) || [];
-      const paidOrdList = ordList.filter(o => o.status === "PAID" || o.status === "paid" || o.status === "COMPLETED");
-      if (paidOrdList.length > 0) {
-        paidOrders = paidOrdList.length;
-        const ordRev = paidOrdList.reduce((acc, o) => acc + Math.round((Number(o.amount) || 4900) / 100), 0);
-        if (ordRev > totalRevenue) totalRevenue = ordRev;
-      } else {
-        paidOrders = vipWishes;
-      }
+      paidOrders = settledPaidCount;
+      totalRevenue = Math.round(netRevenuePaise / 100);
+      var grossRevenue = Math.round(grossRevenuePaise / 100);
+      var refundedRevenue = Math.round(totalRefundedPaise / 100);
 
       // Active sessions as live visitors proxy
       const sessRow = await db.prepare("SELECT COUNT(*) as cnt FROM sessions WHERE expires_at > ?").bind(nowIso).first().catch(() => null);
@@ -1375,6 +1410,8 @@ export async function getCentralizedDashboardSummary(db, env = {}) {
     freeWishes,
     totalRevenue,
     revenue: totalRevenue,
+    grossRevenue: typeof grossRevenue === "number" ? grossRevenue : totalRevenue,
+    refundedRevenue: typeof refundedRevenue === "number" ? refundedRevenue : 0,
     paidOrders,
     liveLinks: liveWishes,
     futureLinks: upcomingWishes,

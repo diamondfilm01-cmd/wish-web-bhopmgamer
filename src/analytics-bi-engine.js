@@ -329,42 +329,92 @@ export function calculateExecutiveOverview({
     }
   });
 
-  // 3. Financial metrics (authoritative orders in D1)
-  const isPaidOrder = (o) => (
-    o.status === ORDER_STATUS.PAID || 
+  // 3. Financial metrics (authoritative orders in D1 — excludes pending, failed, cancelled & complimentary passes)
+  const isComplimentaryOrder = (o) => String(o.provider || '').toLowerCase().includes('comp');
+  const isSettledPaidOrder = (o) => !isComplimentaryOrder(o) && (
+    o.status === ORDER_STATUS.PAID ||
     o.status === ORDER_STATUS.PARTIALLY_REFUNDED ||
     o.status === 'PAID'
   );
+  const isGrossCapturedOrder = (o) => !isComplimentaryOrder(o) && (
+    o.status === ORDER_STATUS.PAID ||
+    o.status === ORDER_STATUS.PARTIALLY_REFUNDED ||
+    o.status === ORDER_STATUS.REFUNDED ||
+    o.status === 'PAID' ||
+    o.status === 'REFUNDED'
+  );
 
-  const periodPaidOrders = orders.filter(o => {
-    if (!isPaidOrder(o)) return false;
-    const t = new Date(o.paid_at || o.paidAt || o.created_at || o.createdAt || 0).getTime();
+  // Deduplicate orders by ID or transaction_id to prevent double-counting retries/webhooks
+  const dedupedOrders = [];
+  const seenOrderKeys = new Set();
+  orders.forEach(o => {
+    if (!o) return;
+    const k = o.id || o.transaction_id || o.transactionId;
+    if (k && seenOrderKeys.has(k)) return;
+    if (k) seenOrderKeys.add(k);
+    dedupedOrders.push(o);
+  });
+
+  const periodPaidOrders = dedupedOrders.filter(o => {
+    if (!isSettledPaidOrder(o)) return false;
+    const t = new Date(o.paid_at || o.paidAt || o.verified_at || o.verifiedAt || o.created_at || o.createdAt || 0).getTime();
     return t >= startMs && t <= endMs;
   });
 
-  const prevPaidOrders = orders.filter(o => {
-    if (!isPaidOrder(o)) return false;
-    const t = new Date(o.paid_at || o.paidAt || o.created_at || o.createdAt || 0).getTime();
+  const prevPaidOrders = dedupedOrders.filter(o => {
+    if (!isSettledPaidOrder(o)) return false;
+    const t = new Date(o.paid_at || o.paidAt || o.verified_at || o.verifiedAt || o.created_at || o.createdAt || 0).getTime();
     return t >= comparison.startMs && t <= comparison.endMs;
   });
 
-  const grossRevenuePaiseCurrent = periodPaidOrders.reduce((sum, o) => sum + Number(o.amount || 0), 0);
-  const grossRevenuePaisePrev = prevPaidOrders.reduce((sum, o) => sum + Number(o.amount || 0), 0);
+  const periodCapturedOrders = dedupedOrders.filter(o => {
+    if (!isGrossCapturedOrder(o)) return false;
+    const t = new Date(o.paid_at || o.paidAt || o.verified_at || o.verifiedAt || o.created_at || o.createdAt || 0).getTime();
+    return t >= startMs && t <= endMs;
+  });
 
-  // Authoritative refunds from refunds table
-  const periodRefunds = refunds.filter(r => {
-    if (r.status !== 'SUCCEEDED' && r.status !== 'processed') return false;
+  const prevCapturedOrders = dedupedOrders.filter(o => {
+    if (!isGrossCapturedOrder(o)) return false;
+    const t = new Date(o.paid_at || o.paidAt || o.verified_at || o.verifiedAt || o.created_at || o.createdAt || 0).getTime();
+    return t >= comparison.startMs && t <= comparison.endMs;
+  });
+
+  const grossRevenuePaiseCurrent = periodCapturedOrders.reduce((sum, o) => sum + Number(o.amount || 0), 0);
+  const grossRevenuePaisePrev = prevCapturedOrders.reduce((sum, o) => sum + Number(o.amount || 0), 0);
+
+  // Authoritative refunds from refunds table (deduplicated by id / provider_refund_id)
+  const dedupedRefunds = [];
+  const seenRefundKeys = new Set();
+  refunds.forEach(r => {
+    if (!r) return;
+    const rk = r.id || r.provider_refund_id || r.providerRefundId;
+    if (rk && seenRefundKeys.has(rk)) return;
+    if (rk) seenRefundKeys.add(rk);
+    dedupedRefunds.push(r);
+  });
+
+  const isSucceededRefund = (r) => {
+    const st = String(r.status || 'SUCCEEDED').toUpperCase();
+    return st === 'SUCCEEDED' || st === 'PROCESSED' || st === 'COMPLETED';
+  };
+  const periodRefunds = dedupedRefunds.filter(r => {
+    if (!isSucceededRefund(r)) return false;
     const t = new Date(r.created_at || r.createdAt || 0).getTime();
     return t >= startMs && t <= endMs;
   });
-  const prevRefunds = refunds.filter(r => {
-    if (r.status !== 'SUCCEEDED' && r.status !== 'processed') return false;
+  const prevRefunds = dedupedRefunds.filter(r => {
+    if (!isSucceededRefund(r)) return false;
     const t = new Date(r.created_at || r.createdAt || 0).getTime();
     return t >= comparison.startMs && t <= comparison.endMs;
   });
 
-  const refundPaiseCurrent = periodRefunds.reduce((sum, r) => sum + Number(r.amount || 0), 0);
-  const refundPaisePrev = prevRefunds.reduce((sum, r) => sum + Number(r.amount || 0), 0);
+  const refundPaiseFromTableCurrent = periodRefunds.reduce((sum, r) => sum + Number(r.amount || 0), 0);
+  const refundPaiseFromOrdersCurrent = periodCapturedOrders.reduce((sum, o) => sum + Number(o.total_refunded || o.totalRefunded || (o.status === ORDER_STATUS.REFUNDED ? o.amount : 0) || 0), 0);
+  const refundPaiseCurrent = Math.max(refundPaiseFromTableCurrent, refundPaiseFromOrdersCurrent);
+
+  const refundPaiseFromTablePrev = prevRefunds.reduce((sum, r) => sum + Number(r.amount || 0), 0);
+  const refundPaiseFromOrdersPrev = prevCapturedOrders.reduce((sum, o) => sum + Number(o.total_refunded || o.totalRefunded || (o.status === ORDER_STATUS.REFUNDED ? o.amount : 0) || 0), 0);
+  const refundPaisePrev = Math.max(refundPaiseFromTablePrev, refundPaiseFromOrdersPrev);
 
   const netRevenuePaiseCurrent = Math.max(0, grossRevenuePaiseCurrent - refundPaiseCurrent);
   const netRevenuePaisePrev = Math.max(0, grossRevenuePaisePrev - refundPaisePrev);
@@ -765,13 +815,24 @@ export function calculateTemplatePerformance({
 export function calculateRevenueAnalytics({ orders = [], orderItems = [], refunds = [], dateBounds }) {
   const { startMs, endMs } = dateBounds;
 
+  const isComp = (o) => String(o.provider || '').toLowerCase().includes('comp');
+  const seenOrderIds = new Set();
+  const dedupedOrders = [];
+  orders.forEach(o => {
+    if (!o) return;
+    const k = o.id || o.transaction_id || o.transactionId;
+    if (k && seenOrderIds.has(k)) return;
+    if (k) seenOrderIds.add(k);
+    dedupedOrders.push(o);
+  });
+
   // Filter orders in period
-  const periodOrders = orders.filter(o => {
+  const periodOrders = dedupedOrders.filter(o => {
     const t = new Date(o.created_at || o.createdAt || 0).getTime();
     return t >= startMs && t <= endMs;
   });
 
-  // Status distribution
+  // Status distribution (excluding complimentary admin passes)
   const statusDistribution = {
     [ORDER_STATUS.PAID]: 0,
     [ORDER_STATUS.PENDING]: 0,
@@ -782,27 +843,38 @@ export function calculateRevenueAnalytics({ orders = [], orderItems = [], refund
   };
 
   periodOrders.forEach(o => {
+    if (isComp(o)) return;
     const s = o.status || ORDER_STATUS.PENDING;
     statusDistribution[s] = (statusDistribution[s] || 0) + 1;
   });
 
-  // Daily revenue series
+  // Daily revenue series (excludes complimentary admin passes; includes captured orders for gross, subtracts refunds for net)
   const dailyRevenue = {};
-  const periodPaid = periodOrders.filter(o => o.status === ORDER_STATUS.PAID || o.status === ORDER_STATUS.PARTIALLY_REFUNDED);
+  const periodPaid = periodOrders.filter(o => !isComp(o) && (o.status === ORDER_STATUS.PAID || o.status === ORDER_STATUS.PARTIALLY_REFUNDED));
+  const periodCaptured = periodOrders.filter(o => !isComp(o) && (o.status === ORDER_STATUS.PAID || o.status === ORDER_STATUS.PARTIALLY_REFUNDED || o.status === ORDER_STATUS.REFUNDED));
 
-  periodPaid.forEach(o => {
-    const key = formatIstDateKey(o.paid_at || o.paidAt || o.created_at || o.createdAt || 0);
+  periodCaptured.forEach(o => {
+    const key = formatIstDateKey(o.paid_at || o.paidAt || o.verified_at || o.verifiedAt || o.created_at || o.createdAt || 0);
     if (key) {
       if (!dailyRevenue[key]) dailyRevenue[key] = { grossPaise: 0, count: 0, refundPaise: 0 };
       dailyRevenue[key].grossPaise += Number(o.amount || 0);
-      dailyRevenue[key].count += 1;
+      if (o.status === ORDER_STATUS.PAID || o.status === ORDER_STATUS.PARTIALLY_REFUNDED) {
+        dailyRevenue[key].count += 1;
+      }
     }
   });
 
-  // Succeeded refunds
+  // Succeeded refunds (deduplicated)
+  const seenRefIds = new Set();
   const periodRefunds = refunds.filter(r => {
+    if (!r) return false;
+    const rk = r.id || r.provider_refund_id || r.providerRefundId;
+    if (rk && seenRefIds.has(rk)) return false;
     const t = new Date(r.created_at || r.createdAt || 0).getTime();
-    return t >= startMs && t <= endMs && (r.status === 'SUCCEEDED' || r.status === 'processed');
+    const rst = String(r.status || 'SUCCEEDED').toUpperCase();
+    const ok = t >= startMs && t <= endMs && (rst === 'SUCCEEDED' || rst === 'PROCESSED' || rst === 'COMPLETED');
+    if (ok && rk) seenRefIds.add(rk);
+    return ok;
   });
 
   periodRefunds.forEach(r => {
@@ -848,8 +920,9 @@ export function calculateRevenueAnalytics({ orders = [], orderItems = [], refund
     revenueRupees: Math.round(p.revenuePaise / 100)
   })).sort((a, b) => b.revenueRupees - a.revenueRupees);
 
-  const totalGrossPaise = periodPaid.reduce((s, o) => s + Number(o.amount || 0), 0);
-  const totalRefundPaise = periodRefunds.reduce((s, r) => s + Number(r.amount || 0), 0);
+  const totalGrossPaise = periodCaptured.reduce((s, o) => s + Number(o.amount || 0), 0);
+  const refundFromOrdersPaise = periodCaptured.reduce((s, o) => s + Number(o.total_refunded || o.totalRefunded || (o.status === ORDER_STATUS.REFUNDED ? o.amount : 0) || 0), 0);
+  const totalRefundPaise = Math.max(periodRefunds.reduce((s, r) => s + Number(r.amount || 0), 0), refundFromOrdersPaise);
 
   return {
     totalOrders: periodOrders.length,

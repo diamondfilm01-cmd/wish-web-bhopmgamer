@@ -705,9 +705,6 @@
         const isVip = w.tier === 'vip' || (w.price && Number(w.price) > 0) || (w.payment && w.payment.status === 'Completed');
         if (isVip) {
           vipWishesCount++;
-          const price = Number(w.price) || 49;
-          simulatedRevenue += price;
-          simulatedPaidOrders++;
         } else {
           freeWishesCount++;
         }

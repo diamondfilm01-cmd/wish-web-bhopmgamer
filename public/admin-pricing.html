@@ -300,21 +300,50 @@
         <h1 class="wm-hero-title">
           <span>Subscriptions,</span> <span class="wm-pink-word">Plans</span> <span class="wm-lavender-word">&amp; Coupons</span>
         </h1>
-        <p class="wm-hero-subtitle">
+        <p id="pricing-hero-subtitle" class="wm-hero-subtitle">
           Control ₹59 Custom Link Only, ₹59 HD Images + Style, ₹99 Free Template Combo, Template + ₹70 Premium Combo, and 7-Friends Referral rules.
         </p>
         <div class="flex flex-wrap items-center gap-3">
-          <button type="button" onclick="savePricingConfig()" class="wm-btn-pink-pill">
+          <button id="btn-hero-save-pricing" type="button" onclick="savePricingConfig()" class="wm-btn-pink-pill">
             <span class="material-symbols-outlined text-[19px]">save</span>
-            <span>Save Pricing Changes</span>
+            <span id="btn-hero-save-pricing-label">Save Pricing Changes</span>
           </button>
           <a href="/pricing.html" target="_blank" class="wm-btn-glass-pill">
             <span class="material-symbols-outlined text-[18px]">open_in_new</span>
             <span>View Public Pricing</span>
           </a>
+          <span id="pricing-sync-status-badge" class="px-3 py-1.5 rounded-full bg-emerald-500/15 border border-emerald-500/30 text-emerald-300 text-xs font-bold">
+            ● Synced with D1 Config
+          </span>
         </div>
       </div>
     </section>
+
+    <!-- Honest Error & Unsaved Changes Banners -->
+    <div id="pricing-error-banner" class="hidden p-4 rounded-2xl bg-rose-500/15 border border-rose-500/40 text-rose-200 text-xs sm:text-sm flex items-center justify-between gap-3">
+      <div class="flex items-center gap-2.5">
+        <span class="material-symbols-outlined text-rose-400">error</span>
+        <span id="pricing-error-message" class="font-bold">Unable to save or load pricing configuration.</span>
+      </div>
+      <button type="button" onclick="loadWishLinkSettings(); loadPricingMetrics();" class="px-3 py-1.5 rounded-xl bg-rose-500/25 hover:bg-rose-500/40 text-white font-bold text-xs cursor-pointer">
+        Retry Sync
+      </button>
+    </div>
+
+    <div id="pricing-unsaved-banner" class="hidden p-3.5 rounded-2xl bg-amber-500/15 border border-amber-500/40 text-amber-200 text-xs sm:text-sm flex flex-wrap items-center justify-between gap-3">
+      <div class="flex items-center gap-2">
+        <span class="material-symbols-outlined text-amber-400">edit_notifications</span>
+        <span id="pricing-unsaved-summary" class="font-bold">You have unsaved pricing changes. Click Save to persist to D1 and update live checkout.</span>
+      </div>
+      <div class="flex items-center gap-2">
+        <button type="button" onclick="discardPricingChanges()" class="px-3 py-1.5 rounded-xl bg-surface-container-high text-on-surface font-bold text-xs cursor-pointer">
+          Discard Changes
+        </button>
+        <button type="button" onclick="savePricingConfig()" class="px-3.5 py-1.5 rounded-xl bg-amber-500 text-slate-950 font-extrabold text-xs cursor-pointer">
+          Save Changes Now
+        </button>
+      </div>
+    </div>
     <!-- 4 Bento Cards (Matched to 19728.png) -->
     <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
       <div class="wm-card p-4 sm:p-5 flex items-center justify-between gap-3">
@@ -440,8 +469,8 @@
             <li class="flex items-center gap-2"><span class="text-outline">•</span> Standard images &amp; default style</li>
           </ul>
         </div>
-        <button class="mt-5 w-full py-2.5 rounded-xl bg-surface-container-high text-on-surface text-xs font-bold transition hover:bg-surface-container-highest cursor-pointer" onclick="savePricingConfig()">
-          Save Custom Link Price
+        <button id="btn-save-custom-link" class="mt-5 w-full py-2.5 rounded-xl bg-surface-container-high text-on-surface text-xs font-bold transition hover:bg-surface-container-highest cursor-pointer" onclick="savePricingConfig()">
+          Update Custom Link (₹59)
         </button>
       </div>
 
@@ -450,13 +479,13 @@
         <div>
           <div class="flex items-center justify-between mb-3">
             <span class="px-2.5 py-1 rounded-full bg-pink-500/20 text-pink-300 text-xs font-extrabold">2. HD Images + Style</span>
-            <span class="text-[11px] font-bold text-pink-400">Visual Add-On</span>
+            <span id="hd-style-badge" class="text-[11px] font-bold text-pink-400">₹59 Add-On</span>
           </div>
           <div class="flex items-baseline gap-2 mb-2">
             <span class="text-xs font-bold text-outline">Price:</span>
             <div class="flex items-center gap-1">
               <span class="text-lg font-bold text-secondary">₹</span>
-              <input id="hd-style-price-input" type="number" min="0" class="w-20 px-2.5 py-1 rounded-lg bg-surface-container-low text-on-surface border border-purple-500/40 text-xl font-black focus:outline-none" value="59"/>
+              <input id="hd-style-price-input" type="number" min="0" max="100000" class="w-20 px-2.5 py-1 rounded-lg bg-surface-container-low text-on-surface border border-purple-500/40 text-xl font-black focus:outline-none" value="59"/>
             </div>
           </div>
           <p class="text-xs text-on-surface-variant mb-3">High quality (HD) images upload karne aur custom theme/font/particle style set karne ka price.</p>
@@ -466,12 +495,12 @@
             <li class="flex items-center gap-2"><span class="text-outline">•</span> Uses random wish link unless combined</li>
           </ul>
         </div>
-        <button class="mt-5 w-full py-2.5 rounded-xl bg-surface-container-high text-on-surface text-xs font-bold transition hover:bg-surface-container-highest cursor-pointer" onclick="savePricingConfig()">
-          Save HD + Style Price
+        <button id="btn-save-hd-style" class="mt-5 w-full py-2.5 rounded-xl bg-surface-container-high text-on-surface text-xs font-bold transition hover:bg-surface-container-highest cursor-pointer" onclick="savePricingConfig()">
+          Update HD + Style (₹59)
         </button>
       </div>
 
-      <!-- Card 3: Free Template Combo Offer (₹99) -->
+      <!-- Card 3: Free Template Combo Offer -->
       <div class="wm-card bg-surface-container rounded-2xl p-5 border-2 border-primary shadow-2xl relative flex flex-col justify-between">
         <div class="absolute -top-3 left-1/2 -translate-x-1/2 px-3 py-0.5 rounded-full bg-gradient-to-r from-primary to-secondary text-white font-bold text-[10px] uppercase tracking-wider shadow-md whitespace-nowrap">
           Best Seller • Free Template Combo
@@ -479,28 +508,28 @@
         <div>
           <div class="flex items-center justify-between mb-3 mt-1">
             <span class="px-2.5 py-1 rounded-full bg-primary-container text-white text-xs font-bold">3. Free Template Combo</span>
-            <span class="text-xs text-emerald-400 font-bold">Save ₹19</span>
+            <span id="free-combo-savings-badge" class="text-xs text-emerald-400 font-bold">Save ₹19</span>
           </div>
           <div class="flex items-baseline gap-2 mb-2">
             <span class="text-xs font-bold text-outline">Combo Price:</span>
             <div class="flex items-center gap-1">
               <span class="text-lg font-bold text-primary">₹</span>
-              <input id="free-combo-price-input" type="number" min="0" class="w-20 px-2.5 py-1 rounded-lg bg-surface-container-low text-on-surface border border-primary text-xl font-black focus:outline-none" value="99"/>
+              <input id="free-combo-price-input" type="number" min="0" max="100000" class="w-20 px-2.5 py-1 rounded-lg bg-surface-container-low text-on-surface border border-primary text-xl font-black focus:outline-none" value="99"/>
             </div>
           </div>
-          <p class="text-xs text-on-surface-variant mb-3">Free template ke saath Custom Link + High Quality Images + Custom Style sab kuch ek saath.</p>
+          <p id="free-combo-desc" class="text-xs text-on-surface-variant mb-3">Free template ke saath Custom Link + High Quality Images + Custom Style sab kuch ek saath.</p>
           <ul class="flex flex-col gap-2 text-xs text-on-surface-variant pt-3 border-t border-purple-900/20">
             <li class="flex items-center gap-2"><span class="text-emerald-400">✓</span> Custom Link (<code class="text-pink-400">/w/custom-name</code>)</li>
             <li class="flex items-center gap-2"><span class="text-emerald-400">✓</span> High Quality (HD) Images upload</li>
             <li class="flex items-center gap-2"><span class="text-emerald-400">✓</span> Custom Style, Fonts, Colors &amp; Effects</li>
           </ul>
         </div>
-        <button class="mt-5 w-full py-2.5 rounded-xl bg-gradient-to-r from-primary to-secondary text-white text-xs font-bold shadow-lg shadow-purple-600/30 hover:brightness-110 transition cursor-pointer" onclick="savePricingConfig()">
+        <button id="btn-save-free-combo" class="mt-5 w-full py-2.5 rounded-xl bg-gradient-to-r from-primary to-secondary text-white text-xs font-bold shadow-lg shadow-purple-600/30 hover:brightness-110 transition cursor-pointer" onclick="savePricingConfig()">
           Update Free Combo (₹99)
         </button>
       </div>
 
-      <!-- Card 4: Premium Template Royal Combo (Template Price + ₹70) -->
+      <!-- Card 4: Premium Template Royal Combo -->
       <div class="wm-card bg-surface-container rounded-2xl p-5 border-2 border-amber-500/50 shadow-xl relative flex flex-col justify-between">
         <div class="absolute -top-3 left-1/2 -translate-x-1/2 px-3 py-0.5 rounded-full bg-gradient-to-r from-amber-500 to-pink-500 text-white font-bold text-[10px] uppercase tracking-wider shadow-md whitespace-nowrap">
           Premium Template + Combo
@@ -508,23 +537,23 @@
         <div>
           <div class="flex items-center justify-between mb-3 mt-1">
             <span class="px-2.5 py-1 rounded-full bg-amber-500/20 text-amber-300 text-xs font-bold">4. Premium Combo Add-On</span>
-            <span class="text-xs text-amber-300 font-bold">Tpl + ₹70</span>
+            <span id="premium-addon-badge" class="text-xs text-amber-300 font-bold">Tpl + ₹70</span>
           </div>
           <div class="flex items-baseline gap-2 mb-2">
             <span class="text-xs font-bold text-outline">Tpl Price +</span>
             <div class="flex items-center gap-1">
               <span class="text-lg font-bold text-amber-400">₹</span>
-              <input id="premium-combo-addon-input" type="number" min="0" class="w-20 px-2.5 py-1 rounded-lg bg-surface-container-low text-on-surface border border-amber-500/50 text-xl font-black focus:outline-none" value="70"/>
+              <input id="premium-combo-addon-input" type="number" min="0" max="100000" class="w-20 px-2.5 py-1 rounded-lg bg-surface-container-low text-on-surface border border-amber-500/50 text-xl font-black focus:outline-none" value="70"/>
             </div>
           </div>
-          <p class="text-xs text-on-surface-variant mb-3">Premium template (₹59 ya ₹149) ke saath +₹70 me Custom Link + HD Images + Style sab milega.</p>
+          <p id="premium-addon-desc" class="text-xs text-on-surface-variant mb-3">Premium template (₹59 ya ₹149) ke saath +₹70 me Custom Link + HD Images + Style sab milega.</p>
           <ul class="flex flex-col gap-2 text-xs text-on-surface-variant pt-3 border-t border-purple-900/20">
-            <li class="flex items-center gap-2"><span class="text-amber-400">★</span> ₹59 Template Combo = <strong>₹129</strong></li>
-            <li class="flex items-center gap-2"><span class="text-amber-400">★</span> ₹149 Template Combo = <strong>₹219</strong></li>
+            <li class="flex items-center gap-2"><span class="text-amber-400">★</span> ₹<span id="prem-tier-1-base">59</span> Template Combo = <strong id="prem-tier-1-total">₹129</strong></li>
+            <li class="flex items-center gap-2"><span class="text-amber-400">★</span> ₹<span id="prem-tier-2-base">149</span> Template Combo = <strong id="prem-tier-2-total">₹219</strong></li>
             <li class="flex items-center gap-2"><span class="text-emerald-400">✓</span> Unlocks Template + Link + HD + Style</li>
           </ul>
         </div>
-        <button class="mt-5 w-full py-2.5 rounded-xl bg-gradient-to-r from-amber-500 to-pink-500 text-white text-xs font-bold shadow-lg hover:brightness-110 transition cursor-pointer" onclick="savePricingConfig()">
+        <button id="btn-save-premium-addon" class="mt-5 w-full py-2.5 rounded-xl bg-gradient-to-r from-amber-500 to-pink-500 text-white text-xs font-bold shadow-lg hover:brightness-110 transition cursor-pointer" onclick="savePricingConfig()">
           Update Premium Add-On (+₹70)
         </button>
       </div>
@@ -867,19 +896,258 @@
     el.classList.toggle('flex');
   }
 
-  async function savePricingConfig() {
-    const customLinkPrice = Math.max(0, parseFloat(document.getElementById('vip-price-input')?.value) || 59);
-    const hdImageStylePrice = Math.max(0, parseFloat(document.getElementById('hd-style-price-input')?.value) || 59);
-    const freeTemplateComboPrice = Math.max(0, parseFloat(document.getElementById('free-combo-price-input')?.value) || 99);
-    const premiumComboAddonPrice = Math.max(0, parseFloat(document.getElementById('premium-combo-addon-input')?.value) || 70);
-    const creator = Math.max(0, parseFloat(document.getElementById('creator-price-input')?.value) || 199);
-    const requiredReferrals = Math.max(1, parseInt(document.getElementById('ref-required-friends-input')?.value, 10) || 7);
+  let authoritativeSavedPricing = {
+    customLinkPrice: 59,
+    hdImageStylePrice: 59,
+    freeTemplateComboPrice: 99,
+    premiumComboAddonPrice: 70,
+    creatorPackPrice: 99,
+    templatePriceTiers: [0, 59, 149],
+    requiredReferrals: 7,
+    countFreeTemplates: true,
+    rewardCredits: 1
+  };
+
+  function setPricingErrorBanner(msg) {
+    const banner = document.getElementById('pricing-error-banner');
+    const msgEl = document.getElementById('pricing-error-message');
+    if (!banner) return;
+    if (!msg) {
+      banner.classList.add('hidden');
+    } else {
+      if (msgEl) msgEl.textContent = msg;
+      banner.classList.remove('hidden');
+    }
+  }
+
+  function parseNonNegNumberInput(inputId, label, minVal = 0, maxVal = 100000, requireInt = false) {
+    const el = document.getElementById(inputId);
+    const raw = el ? String(el.value).trim() : '';
+    if (raw === '') {
+      return { valid: false, error: `${label} cannot be empty.` };
+    }
+    const num = Number(raw);
+    if (!Number.isFinite(num) || num < minVal || num > maxVal || (requireInt && !Number.isInteger(num))) {
+      return { valid: false, error: `${label} must be a valid ${requireInt ? 'integer' : 'number'} between ${minVal} and ${maxVal.toLocaleString('en-IN')}.` };
+    }
+    return { valid: true, value: num };
+  }
+
+  function readAndValidatePricingForm() {
+    const cl = parseNonNegNumberInput('vip-price-input', 'Custom Link Price', 0, 100000);
+    if (!cl.valid) return cl;
+    const hd = parseNonNegNumberInput('hd-style-price-input', 'HD Images + Style Price', 0, 100000);
+    if (!hd.valid) return hd;
+    const fc = parseNonNegNumberInput('free-combo-price-input', 'Free Template Combo Price', 0, 100000);
+    if (!fc.valid) return fc;
+    const pa = parseNonNegNumberInput('premium-combo-addon-input', 'Premium Combo Add-On Price', 0, 100000);
+    if (!pa.valid) return pa;
+    const cp = parseNonNegNumberInput('creator-price-input', 'Creator Bulk Pack Price', 0, 100000);
+    if (!cp.valid) return cp;
+    const rf = parseNonNegNumberInput('ref-required-friends-input', 'Friends Required for Referral', 1, 1000, true);
+    if (!rf.valid) return rf;
+    const rc = parseNonNegNumberInput('ref-reward-credits-input', 'Free Custom Links Earned', 1, 100, true);
+    if (!rc.valid) return rc;
     const countFreeTemplates = document.getElementById('ref-count-free-select')?.value !== 'false';
-    const rewardCredits = Math.max(1, parseInt(document.getElementById('ref-reward-credits-input')?.value, 10) || 1);
+
+    return {
+      valid: true,
+      values: {
+        customLinkPrice: cl.value,
+        hdImageStylePrice: hd.value,
+        freeTemplateComboPrice: fc.value,
+        premiumComboAddonPrice: pa.value,
+        creatorPackPrice: cp.value,
+        templatePriceTiers: authoritativeSavedPricing.templatePriceTiers || [0, 59, 149],
+        requiredReferrals: rf.value,
+        countFreeTemplates,
+        rewardCredits: rc.value
+      }
+    };
+  }
+
+  function syncPricingDynamicLabelsAndTotals() {
+    const saved = authoritativeSavedPricing;
+    const clRaw = Number(document.getElementById('vip-price-input')?.value);
+    const hdRaw = Number(document.getElementById('hd-style-price-input')?.value);
+    const fcRaw = Number(document.getElementById('free-combo-price-input')?.value);
+    const paRaw = Number(document.getElementById('premium-combo-addon-input')?.value);
+    const cpRaw = Number(document.getElementById('creator-price-input')?.value);
+    const rfRaw = Number(document.getElementById('ref-required-friends-input')?.value);
+    const rcRaw = Number(document.getElementById('ref-reward-credits-input')?.value);
+    const cfRaw = document.getElementById('ref-count-free-select')?.value !== 'false';
+
+    const cl = Number.isFinite(clRaw) && clRaw >= 0 ? clRaw : saved.customLinkPrice;
+    const hd = Number.isFinite(hdRaw) && hdRaw >= 0 ? hdRaw : saved.hdImageStylePrice;
+    const fc = Number.isFinite(fcRaw) && fcRaw >= 0 ? fcRaw : saved.freeTemplateComboPrice;
+    const pa = Number.isFinite(paRaw) && paRaw >= 0 ? paRaw : saved.premiumComboAddonPrice;
+    const rf = Number.isFinite(rfRaw) && rfRaw >= 1 ? rfRaw : saved.requiredReferrals;
+
+    const tiers = Array.isArray(saved.templatePriceTiers) && saved.templatePriceTiers.length >= 3
+      ? saved.templatePriceTiers
+      : [0, 59, 149];
+    const tier1Base = Number(tiers[1] ?? 59);
+    const tier2Base = Number(tiers[2] ?? 149);
+
+    // 1. Update Card 1 button & badge
+    const btnCl = document.getElementById('btn-save-custom-link');
+    if (btnCl) {
+      btnCl.textContent = (cl !== saved.customLinkPrice)
+        ? `Save Custom Link (₹${saved.customLinkPrice} → ₹${cl})`
+        : `Update Custom Link (₹${saved.customLinkPrice})`;
+    }
+
+    // 2. Update Card 2 button & badge
+    const hdBadge = document.getElementById('hd-style-badge');
+    if (hdBadge) hdBadge.textContent = `₹${hd} Add-On`;
+    const btnHd = document.getElementById('btn-save-hd-style');
+    if (btnHd) {
+      btnHd.textContent = (hd !== saved.hdImageStylePrice)
+        ? `Save HD + Style (₹${saved.hdImageStylePrice} → ₹${hd})`
+        : `Update HD + Style (₹${saved.hdImageStylePrice})`;
+    }
+
+    // 3. Update Card 3 savings badge & button
+    const savings = (cl + hd) - fc;
+    const savBadge = document.getElementById('free-combo-savings-badge');
+    if (savBadge) {
+      savBadge.textContent = savings > 0 ? `Save ₹${savings}` : `Combo ₹${fc}`;
+    }
+    const btnFc = document.getElementById('btn-save-free-combo');
+    if (btnFc) {
+      btnFc.textContent = (fc !== saved.freeTemplateComboPrice)
+        ? `Save Free Combo (₹${saved.freeTemplateComboPrice} → ₹${fc})`
+        : `Update Free Combo (₹${saved.freeTemplateComboPrice})`;
+    }
+
+    // 4. Update Card 4 badge, description, calculated totals, and button
+    const paBadge = document.getElementById('premium-addon-badge');
+    if (paBadge) paBadge.textContent = `Tpl + ₹${pa}`;
+    const paDesc = document.getElementById('premium-addon-desc');
+    if (paDesc) {
+      paDesc.textContent = `Premium template (₹${tier1Base} ya ₹${tier2Base}) ke saath +₹${pa} me Custom Link + HD Images + Style sab milega.`;
+    }
+    const t1BaseEl = document.getElementById('prem-tier-1-base');
+    const t1TotalEl = document.getElementById('prem-tier-1-total');
+    const t2BaseEl = document.getElementById('prem-tier-2-base');
+    const t2TotalEl = document.getElementById('prem-tier-2-total');
+    if (t1BaseEl) t1BaseEl.textContent = String(tier1Base);
+    if (t1TotalEl) t1TotalEl.textContent = `₹${tier1Base + pa}`;
+    if (t2BaseEl) t2BaseEl.textContent = String(tier2Base);
+    if (t2TotalEl) t2TotalEl.textContent = `₹${tier2Base + pa}`;
+
+    const btnPa = document.getElementById('btn-save-premium-addon');
+    if (btnPa) {
+      btnPa.textContent = (pa !== saved.premiumComboAddonPrice)
+        ? `Save Premium Add-On (+₹${saved.premiumComboAddonPrice} → +₹${pa})`
+        : `Update Premium Add-On (+₹${saved.premiumComboAddonPrice})`;
+    }
+
+    // 5. Update Hero Subtitle & Primary Tier Stat from SAVED configuration (with unsaved indicator if dirty)
+    const isDirty = (
+      cl !== saved.customLinkPrice ||
+      hd !== saved.hdImageStylePrice ||
+      fc !== saved.freeTemplateComboPrice ||
+      pa !== saved.premiumComboAddonPrice ||
+      (Number.isFinite(cpRaw) && cpRaw !== saved.creatorPackPrice) ||
+      rf !== saved.requiredReferrals ||
+      (Number.isFinite(rcRaw) && rcRaw !== saved.rewardCredits) ||
+      cfRaw !== saved.countFreeTemplates
+    );
+
+    const heroSub = document.getElementById('pricing-hero-subtitle');
+    if (heroSub) {
+      heroSub.textContent = `Control ₹${saved.customLinkPrice} Custom Link Only, ₹${saved.hdImageStylePrice} HD Images + Style, ₹${saved.freeTemplateComboPrice} Free Template Combo, Template + ₹${saved.premiumComboAddonPrice} Premium Combo, and ${saved.requiredReferrals}-Friends Referral rules.`;
+    }
 
     const tierLabel = document.getElementById('stat-primary-tier-price');
-    if (tierLabel) tierLabel.textContent = `₹${customLinkPrice} / ₹${freeTemplateComboPrice}`;
+    if (tierLabel) {
+      tierLabel.textContent = `₹${saved.customLinkPrice} / ₹${saved.freeTemplateComboPrice}`;
+    }
 
+    const unsavedBanner = document.getElementById('pricing-unsaved-banner');
+    const syncBadge = document.getElementById('pricing-sync-status-badge');
+    if (unsavedBanner) {
+      if (isDirty) unsavedBanner.classList.remove('hidden');
+      else unsavedBanner.classList.add('hidden');
+    }
+    if (syncBadge) {
+      if (isDirty) {
+        syncBadge.className = 'px-3 py-1.5 rounded-full bg-amber-500/20 border border-amber-500/40 text-amber-300 text-xs font-bold';
+        syncBadge.textContent = '● Unsaved Changes Pending';
+      } else {
+        syncBadge.className = 'px-3 py-1.5 rounded-full bg-emerald-500/15 border border-emerald-500/30 text-emerald-300 text-xs font-bold';
+        syncBadge.textContent = '● Synced with D1 Config';
+      }
+    }
+  }
+
+  function applyConfirmedPricingToForm(s) {
+    const a = s.addons || {};
+    const p = s.personalized || {};
+    const refCfg = s.referral || {};
+    const toNonNeg = (val, fallback) => {
+      if (val === undefined || val === null || val === '' || typeof val === 'boolean') return fallback;
+      const n = Number(val);
+      return Number.isFinite(n) && n >= 0 ? n : fallback;
+    };
+
+    authoritativeSavedPricing = {
+      customLinkPrice: toNonNeg(a.customLinkPrice ?? p.price, 59),
+      hdImageStylePrice: toNonNeg(a.hdImageStylePrice, 59),
+      freeTemplateComboPrice: toNonNeg(a.freeTemplateComboPrice, 99),
+      premiumComboAddonPrice: toNonNeg(a.premiumComboAddonPrice, 70),
+      creatorPackPrice: toNonNeg(a.creatorPackPrice, 99),
+      templatePriceTiers: Array.isArray(a.templatePriceTiers) && a.templatePriceTiers.length >= 3 ? a.templatePriceTiers.map(Number) : [0, 59, 149],
+      requiredReferrals: Math.max(1, parseInt(refCfg.requiredReferrals ?? 7, 10) || 7),
+      countFreeTemplates: refCfg.countFreeTemplates !== false,
+      rewardCredits: Math.max(1, parseInt(refCfg.rewardCredits ?? 1, 10) || 1)
+    };
+
+    if (document.getElementById('vip-price-input')) document.getElementById('vip-price-input').value = authoritativeSavedPricing.customLinkPrice;
+    if (document.getElementById('hd-style-price-input')) document.getElementById('hd-style-price-input').value = authoritativeSavedPricing.hdImageStylePrice;
+    if (document.getElementById('free-combo-price-input')) document.getElementById('free-combo-price-input').value = authoritativeSavedPricing.freeTemplateComboPrice;
+    if (document.getElementById('premium-combo-addon-input')) document.getElementById('premium-combo-addon-input').value = authoritativeSavedPricing.premiumComboAddonPrice;
+    if (document.getElementById('creator-price-input')) document.getElementById('creator-price-input').value = authoritativeSavedPricing.creatorPackPrice;
+    if (document.getElementById('ref-required-friends-input')) document.getElementById('ref-required-friends-input').value = authoritativeSavedPricing.requiredReferrals;
+    if (document.getElementById('ref-count-free-select')) document.getElementById('ref-count-free-select').value = authoritativeSavedPricing.countFreeTemplates ? 'true' : 'false';
+    if (document.getElementById('ref-reward-credits-input')) document.getElementById('ref-reward-credits-input').value = authoritativeSavedPricing.rewardCredits;
+
+    syncPricingDynamicLabelsAndTotals();
+  }
+
+  function discardPricingChanges() {
+    applyConfirmedPricingToForm({
+      personalized: { price: authoritativeSavedPricing.customLinkPrice },
+      addons: authoritativeSavedPricing,
+      referral: authoritativeSavedPricing
+    });
+    setPricingErrorBanner(null);
+    showToast('↩️ Reverted to saved server pricing');
+  }
+
+  async function savePricingConfig() {
+    setPricingErrorBanner(null);
+    const check = readAndValidatePricingForm();
+    if (!check.valid) {
+      setPricingErrorBanner(check.error);
+      showToast(`❌ ${check.error}`, 'error');
+      return;
+    }
+
+    const {
+      customLinkPrice,
+      hdImageStylePrice,
+      freeTemplateComboPrice,
+      premiumComboAddonPrice,
+      creatorPackPrice,
+      templatePriceTiers,
+      requiredReferrals,
+      countFreeTemplates,
+      rewardCredits
+    } = check.values;
+
+    window.__wmAdminMutationInFlight = true;
     try {
       const [wishLinksRes] = await Promise.all([
         fetch('/api/admin/settings/wish-links', {
@@ -897,7 +1165,8 @@
                 hdImageStylePrice,
                 freeTemplateComboPrice,
                 premiumComboAddonPrice,
-                templatePriceTiers: [0, 59, 149]
+                creatorPackPrice,
+                templatePriceTiers
               },
               referral: {
                 enabled: true,
@@ -927,30 +1196,70 @@
         }).catch(() => null)
       ]);
 
-      if (!wishLinksRes || !wishLinksRes.ok) {
-        showToast('❌ Failed to persist pricing configuration on server', 'error');
+      const resData = wishLinksRes ? await wishLinksRes.json().catch(() => ({})) : {};
+      if (!wishLinksRes || !wishLinksRes.ok || resData.success === false) {
+        const errMsg = resData?.error?.message || resData?.error || 'Failed to persist pricing configuration on server';
+        setPricingErrorBanner(errMsg);
+        showToast(`❌ ${errMsg}`, 'error');
         return;
       }
 
-      localStorage.setItem('wishmagic_pricing', JSON.stringify({
-        vip: customLinkPrice,
-        customLinkPrice,
-        hdImageStylePrice,
-        freeTemplateComboPrice,
-        premiumComboAddonPrice,
-        creator,
-        requiredReferrals,
-        countFreeTemplates,
-        rewardCredits
-      }));
-      localStorage.setItem('wishmagic_site_settings_updated_at', String(Date.now()));
-      if (typeof BroadcastChannel !== 'undefined') {
-        const bc = new BroadcastChannel('wishmagic_site_settings');
-        bc.postMessage({ updatedAt: Date.now() });
-      }
-      showToast(`✅ Saved! Link: ₹${customLinkPrice} | HD+Style: ₹${hdImageStylePrice} | Free Combo: ₹${freeTemplateComboPrice} | Premium Combo: +₹${premiumComboAddonPrice} | Referral: ${requiredReferrals} Friends`);
+      const confirmedSettings = (resData.data && resData.data.settings) || resData.settings || {
+        personalized: { price: customLinkPrice },
+        addons: {
+          customLinkPrice,
+          hdImageStylePrice,
+          freeTemplateComboPrice,
+          premiumComboAddonPrice,
+          creatorPackPrice,
+          templatePriceTiers
+        },
+        referral: {
+          requiredReferrals,
+          countFreeTemplates,
+          rewardCredits
+        }
+      };
+
+      applyConfirmedPricingToForm(confirmedSettings);
+
+      try {
+        localStorage.setItem('wishmagic_pricing_rules_v4', JSON.stringify({
+          customLinkPrice: authoritativeSavedPricing.customLinkPrice,
+          hdImageStylePrice: authoritativeSavedPricing.hdImageStylePrice,
+          freeTemplateComboPrice: authoritativeSavedPricing.freeTemplateComboPrice,
+          premiumComboAddonPrice: authoritativeSavedPricing.premiumComboAddonPrice,
+          creatorPackPrice: authoritativeSavedPricing.creatorPackPrice,
+          templatePriceTiers: authoritativeSavedPricing.templatePriceTiers,
+          requiredReferrals: authoritativeSavedPricing.requiredReferrals
+        }));
+        localStorage.setItem('wishmagic_pricing', JSON.stringify({
+          vip: authoritativeSavedPricing.customLinkPrice,
+          customLinkPrice: authoritativeSavedPricing.customLinkPrice,
+          hdImageStylePrice: authoritativeSavedPricing.hdImageStylePrice,
+          freeTemplateComboPrice: authoritativeSavedPricing.freeTemplateComboPrice,
+          premiumComboAddonPrice: authoritativeSavedPricing.premiumComboAddonPrice,
+          creator: authoritativeSavedPricing.creatorPackPrice,
+          requiredReferrals: authoritativeSavedPricing.requiredReferrals,
+          countFreeTemplates: authoritativeSavedPricing.countFreeTemplates,
+          rewardCredits: authoritativeSavedPricing.rewardCredits
+        }));
+        localStorage.setItem('wishmagic_site_settings_updated_at', String(Date.now()));
+        if (window.WishPricingEngine && typeof window.WishPricingEngine.refreshFromServer === 'function') {
+          await window.WishPricingEngine.refreshFromServer();
+        }
+        if (typeof BroadcastChannel !== 'undefined') {
+          const bc = new BroadcastChannel('wishmagic_site_settings');
+          bc.postMessage({ updatedAt: Date.now(), pricingUpdated: true });
+        }
+      } catch (_) {}
+
+      showToast(`✅ Saved to D1! Link: ₹${authoritativeSavedPricing.customLinkPrice} | HD+Style: ₹${authoritativeSavedPricing.hdImageStylePrice} | Free Combo: ₹${authoritativeSavedPricing.freeTemplateComboPrice} | Premium Add-On: +₹${authoritativeSavedPricing.premiumComboAddonPrice}`);
     } catch (e) {
+      setPricingErrorBanner('Network error while saving pricing configuration to server.');
       showToast('❌ Network error saving pricing configuration', 'error');
+    } finally {
+      window.__wmAdminMutationInFlight = false;
     }
   }
 
@@ -1016,52 +1325,70 @@
       const convEl = document.getElementById('stat-conversion-rate');
       const convSub = document.getElementById('stat-conversion-sub');
 
-      const totalRev = Math.max(Number(m.totalRevenue || m.revenue || 0), Number(om.totalRevenueRupees || 0));
-      const vipCount = Math.max(Number(m.vipWishes || m.paidOrders || 0), Number(om.paidOrders || 0));
-      const totalWishes = Math.max(Number(m.totalWishes || 0), vipCount);
+      if ((!res || !res.ok) && (!ordRes || !ordRes.ok)) {
+        if (revEl) revEl.textContent = 'Unavailable';
+        if (ordersEl) ordersEl.textContent = 'API telemetry unavailable';
+        if (convEl) convEl.textContent = 'Unavailable';
+        if (convSub) convSub.textContent = 'Check connection & retry';
+        return;
+      }
 
-      if (revEl) revEl.textContent = '₹' + totalRev.toLocaleString('en-IN');
-      if (ordersEl) ordersEl.textContent = `${vipCount} paid pass${vipCount === 1 ? '' : 'es'}`;
+      const netRev = Number(om.netRevenueRupees ?? om.totalRevenueRupees ?? m.totalRevenue ?? 0);
+      const paidOrdersCount = Number(om.paidOrders ?? m.paidOrders ?? 0);
+      const totalWishes = Number(m.totalWishes ?? 0);
+
+      if (revEl) revEl.textContent = '₹' + netRev.toLocaleString('en-IN');
+      if (ordersEl) ordersEl.textContent = `${paidOrdersCount} settled order${paidOrdersCount === 1 ? '' : 's'} (Net INR)`;
 
       if (convEl) {
-        const rate = totalWishes > 0 ? ((vipCount / totalWishes) * 100).toFixed(1) + '%' : '0.0%';
+        const rate = totalWishes > 0 ? ((paidOrdersCount / totalWishes) * 100).toFixed(1) + '%' : '0.0%';
         convEl.textContent = rate;
       }
       if (convSub) {
-        convSub.textContent = `${vipCount} VIP of ${totalWishes} total wishes`;
+        convSub.textContent = `${paidOrdersCount} paid orders / ${totalWishes} wishes`;
       }
     } catch (e) {
       console.error('Error loading pricing telemetry:', e);
+      const revEl = document.getElementById('stat-vip-revenue');
+      if (revEl) revEl.textContent = 'Unavailable';
     }
   }
 
   async function loadWishLinkSettings() {
     try {
-      const res = await fetch('/api/settings/wish-links', { credentials: 'include' });
+      const res = await fetch('/api/admin/settings/wish-links', { credentials: 'include', cache: 'no-store' })
+        .then(r => r.ok ? r : fetch('/api/settings/wish-links', { credentials: 'include', cache: 'no-store' }));
+      if (!res || !res.ok) {
+        setPricingErrorBanner('Unable to load authoritative pricing configuration from server.');
+        return;
+      }
       const data = await res.json();
       const s = (data.data && data.data.settings) || data.settings || {};
-      const linkPrice = s.addons?.customLinkPrice ?? s.personalized?.price ?? 59;
-      const hdPrice = s.addons?.hdImageStylePrice ?? 59;
-      const freeCombo = s.addons?.freeTemplateComboPrice ?? 99;
-      const premAddon = s.addons?.premiumComboAddonPrice ?? 70;
-      const reqRefs = s.referral?.requiredReferrals ?? 7;
-      const countFree = s.referral?.countFreeTemplates !== false;
-      const rewCreds = s.referral?.rewardCredits ?? 1;
-
-      if (document.getElementById('vip-price-input')) document.getElementById('vip-price-input').value = linkPrice;
-      if (document.getElementById('hd-style-price-input')) document.getElementById('hd-style-price-input').value = hdPrice;
-      if (document.getElementById('free-combo-price-input')) document.getElementById('free-combo-price-input').value = freeCombo;
-      if (document.getElementById('premium-combo-addon-input')) document.getElementById('premium-combo-addon-input').value = premAddon;
-      if (document.getElementById('ref-required-friends-input')) document.getElementById('ref-required-friends-input').value = reqRefs;
-      if (document.getElementById('ref-count-free-select')) document.getElementById('ref-count-free-select').value = countFree ? 'true' : 'false';
-      if (document.getElementById('ref-reward-credits-input')) document.getElementById('ref-reward-credits-input').value = rewCreds;
-
-      const tierLabel = document.getElementById('stat-primary-tier-price');
-      if (tierLabel) tierLabel.textContent = `₹${linkPrice} / ₹${freeCombo}`;
-    } catch (e) {}
+      applyConfirmedPricingToForm(s);
+      setPricingErrorBanner(null);
+    } catch (e) {
+      setPricingErrorBanner('Network error loading pricing configuration from server.');
+    }
   }
 
   document.addEventListener('DOMContentLoaded', () => {
+    const watchedInputs = [
+      'vip-price-input',
+      'hd-style-price-input',
+      'free-combo-price-input',
+      'premium-combo-addon-input',
+      'creator-price-input',
+      'ref-required-friends-input',
+      'ref-reward-credits-input',
+      'ref-count-free-select'
+    ];
+    watchedInputs.forEach(id => {
+      const el = document.getElementById(id);
+      if (el) {
+        el.addEventListener('input', syncPricingDynamicLabelsAndTotals);
+        el.addEventListener('change', syncPricingDynamicLabelsAndTotals);
+      }
+    });
     loadServerCoupons();
     loadPricingMetrics();
     loadWishLinkSettings();

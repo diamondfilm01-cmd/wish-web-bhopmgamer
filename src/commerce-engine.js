@@ -135,32 +135,44 @@ export function verifyRazorpayWebhookSignature({ rawBody, signature, webhookSecr
 export function resolveAuthoritativeProduct({ productId, templateId, options = {}, templates = [], families = [], siteSettings = {} }) {
   const normId = String(productId || '').trim().toLowerCase();
 
+  const toFiniteNonNeg = (val, fallback) => {
+    if (val === undefined || val === null || val === '') return fallback;
+    const n = Number(val);
+    return Number.isFinite(n) && n >= 0 ? n : fallback;
+  };
+
+  const addons = siteSettings?.addons || {};
+  const customLinkUnit = toFiniteNonNeg(addons.customLinkPrice ?? siteSettings?.personalized?.price, 59);
+  const hdStyleUnit = toFiniteNonNeg(addons.hdImageStylePrice, 59);
+  const freeComboUnit = toFiniteNonNeg(addons.freeTemplateComboPrice, 99);
+  const premComboAddon = toFiniteNonNeg(addons.premiumComboAddonPrice, 70);
+  const vipPassUnit = toFiniteNonNeg(addons.vipPassPrice, 49);
+  const resolvedCurrency = String(siteSettings?.personalized?.currency || siteSettings?.currency || 'INR').trim().toUpperCase() || 'INR';
+
   // 1. VIP Pass (Universal creator upgrade)
   if (normId === 'vip_pass' || normId === 'vip' || normId === 'premium') {
+    const paise = Math.round(vipPassUnit * 100);
     return {
       productId: 'vip_pass',
       productType: PRODUCT_TYPES.VIP_PASS,
       productName: 'WishMagic VIP Creator Pass',
       description: 'Unlimited VIP blueprints, custom audio, watermark removal & permanent link preservation.',
-      amountPaise: 4900, // ₹49.00
-      price: 49,
-      currency: 'INR',
-      priceDisplay: '₹49',
+      amountPaise: paise,
+      price: vipPassUnit,
+      currency: resolvedCurrency,
+      priceDisplay: `₹${vipPassUnit}`,
       scope: 'all_templates',
-      isFree: false
+      isFree: paise === 0
     };
   }
 
-  const addons = siteSettings?.addons || {};
-  const customLinkUnit = Number(addons.customLinkPrice ?? siteSettings?.personalized?.price ?? 59) || 59;
-  const hdStyleUnit = Number(addons.hdImageStylePrice ?? 59) || 59;
-  const freeComboUnit = Number(addons.freeTemplateComboPrice ?? 99) || 99;
-  const premComboAddon = Number(addons.premiumComboAddonPrice ?? 70) || 70;
-
   // 2. Personalized Link Only (₹59 default)
   if (normId === 'personalized_link' || normId === 'custom_link_only') {
-    const customPrice = siteSettings?.monetization?.personalizedLinkPrice || siteSettings?.personalized?.price || customLinkUnit;
-    const paise = Math.round(Number(customPrice) * 100) || 5900;
+    const customPrice = toFiniteNonNeg(
+      siteSettings?.monetization?.personalizedLinkPrice ?? addons.customLinkPrice ?? siteSettings?.personalized?.price,
+      customLinkUnit
+    );
+    const paise = Math.round(customPrice * 100);
     const price = Math.round(paise / 100);
     return {
       productId: 'personalized_link',
@@ -214,7 +226,7 @@ export function resolveAuthoritativeProduct({ productId, templateId, options = {
   if (normId === 'premium_template_combo' || normId.startsWith('premium_combo:')) {
     const targetTplId = templateId || normId.replace('premium_combo:', '');
     const tplObj = templates.find(t => t.id === targetTplId);
-    const baseTplPrice = Number(options.templatePrice ?? tplObj?.price ?? 59) || 59;
+    const baseTplPrice = toFiniteNonNeg(options.templatePrice ?? tplObj?.price, 59);
     const totalRupees = baseTplPrice + premComboAddon;
     const paise = Math.round(totalRupees * 100);
     return {
