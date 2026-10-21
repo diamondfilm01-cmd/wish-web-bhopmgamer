@@ -22,6 +22,55 @@ import {
   normalizeRelationshipIdentifier
 } from './template-protocol-schema.js';
 import {
+  DEFAULT_FESTIVAL_TIMEZONE,
+  DEFAULT_DAYS_BEFORE_FESTIVAL,
+  DEFAULT_DAYS_AFTER_FESTIVAL,
+  FESTIVAL_CALCULATION_METHODS,
+  FESTIVAL_VERIFICATION_STATUS,
+  CAMPAIGN_STATUS,
+  VALID_CAMPAIGN_STATUSES,
+  VALID_VERIFICATION_STATUSES,
+  VALID_CALCULATION_METHODS,
+  CANONICAL_FESTIVAL_CATALOG,
+  isValidIanaTimezone,
+  parseDateOnlyStrict,
+  addCalendarDays,
+  startOfDay,
+  calculatePublicationWindow,
+  isTimestampWithinPublicationWindow,
+  resolveAutomaticFestivalDateForYear,
+  resolveEffectiveFestivalDate,
+  evaluateCampaignEligibility,
+  syncFestivalDatesFromExternalProvider,
+  ensureFestivalSchedulerSchema,
+  recordFestivalAuditLog,
+  recalculateCampaignWindowsForFestivalYear,
+  setFestivalDateOverride,
+  removeFestivalDateOverride,
+  upsertFestivalCampaign,
+  assignTemplatesToFestivalCampaign,
+  removeTemplateFromFestivalCampaign,
+  loadFestivalSchedulerState,
+  validateWishCreationAgainstFestivalSchedule,
+  applyFestivalScheduleToPublicGallery,
+  invalidateFestivalSchedulerCache
+} from './festival-scheduler-engine.js';
+
+function resolveAuthoritativeServerNowMs(request, env) {
+  if (env && (env.ALLOW_TEST_CLOCK === 'true' || env.ALLOW_TEST_CLOCK === true) && request && request.headers) {
+    const rawHeader = request.headers.get('x-test-now');
+    if (rawHeader) {
+      const trimmed = String(rawHeader).trim();
+      if (/^\d+$/.test(trimmed)) return Number(trimmed);
+      const dateCheck = parseDateOnlyStrict(trimmed);
+      if (dateCheck.valid) return startOfDay(dateCheck.dateStr, DEFAULT_FESTIVAL_TIMEZONE) + (12 * 3600 * 1000);
+      const parsed = Date.parse(trimmed);
+      if (!Number.isNaN(parsed)) return parsed;
+    }
+  }
+  return Date.now();
+}
+import {
   VARIANT_STATUS,
   STANDARD_IMAGE_SLOTS,
   STANDARD_MESSAGE_FIELDS,
@@ -764,6 +813,10 @@ const PRETTY_ROUTES = {
   '/admin/anktech/anktech/admin/templates/': '/admin-templates.html',
   '/admin/anktech/anktech/admin/add-template': '/admin-add-template.html',
   '/admin/anktech/anktech/admin/add-template/': '/admin-add-template.html',
+  '/admin/anktech/anktech/admin/festivals': '/admin-festivals.html',
+  '/admin/anktech/anktech/admin/festivals/': '/admin-festivals.html',
+  '/admin/anktech/anktech/admin/festival-scheduler': '/admin-festivals.html',
+  '/admin/anktech/anktech/admin/festival-scheduler/': '/admin-festivals.html',
   '/admin/anktech/anktech/admin/occasions': '/admin-occasions.html',
   '/admin/anktech/anktech/admin/occasions/': '/admin-occasions.html',
   '/admin/anktech/anktech/admin/categories': '/admin-occasions.html',
@@ -4631,7 +4684,14 @@ function computeLifecycle(wish) {
 
   const nowMs = Date.now();
 
-  if (nowMs < startOfDayUtcMs) return 'upcoming';
+  const isFestivalCampaignWish = Boolean(
+    wish.festivalCampaignId ||
+    wish.festival_campaign_id ||
+    customData.festivalCampaignId ||
+    customData.festival_campaign_id ||
+    customData._festivalImmediatePublish
+  );
+  if (nowMs < startOfDayUtcMs) return isFestivalCampaignWish ? 'active' : 'upcoming';
   if (nowMs >= startOfDayUtcMs && nowMs <= endOfDayUtcMs) return 'active';
   return 'expired';
 }
@@ -7658,6 +7718,56 @@ export default {
               }
             } catch (_) {}
           }
+
+          // Part 52: Authoritative Festival Campaign Window & Variant Eligibility Check
+          const requestedCampaignId = sanitizeString(
+            body.campaignId || body.festivalCampaignId || customData.campaignId || customData.festivalCampaignId || '',
+            80
+          );
+          const isDraftWishCheck = Boolean(customData.isDraft || body.isDraft || body.status === 'draft');
+          let festivalEligibility = { allowed: true, isFestivalCampaignWish: false, campaignId: null, campaign: null };
+          if (env.DB && !isDraftWishCheck) {
+            festivalEligibility = await validateWishCreationAgainstFestivalSchedule(env.DB, {
+              template: template || { id: templateId },
+              templateId: template ? template.id : templateId,
+              requestedCampaignId: requestedCampaignId || null,
+              requestedRelationship: requestedWishRel,
+              requestedVariantId: requestedWishVarId,
+              nowMs: resolveAuthoritativeServerNowMs(request, env)
+            });
+            if (!festivalEligibility.allowed) {
+              return applySecurityHeaders(
+                jsonError(
+                  festivalEligibility.code || 'FESTIVAL_CAMPAIGN_INACTIVE',
+                  festivalEligibility.message || 'This festival campaign is not currently accepting new wish creations.',
+                  festivalEligibility.status || 422,
+                  {
+                    effectiveState: festivalEligibility.effectiveState || null,
+                    campaignId: festivalEligibility.campaignId || requestedCampaignId || null,
+                    windowStartDate: festivalEligibility.windowStartDate || null,
+                    windowEndDate: festivalEligibility.windowEndDate || null,
+                    firstBlockedDate: festivalEligibility.firstBlockedDate || null,
+                    allowedVariants: festivalEligibility.allowedVariants || null
+                  }
+                ),
+                request,
+                env
+              );
+            }
+          }
+
+          // Validate explicit empty required fields on non-draft wishes
+          if (!isDraftWishCheck) {
+            const explicitRecip = customData.recipient_name !== undefined ? customData.recipient_name : (customData.recipientName !== undefined ? customData.recipientName : body.recipientName);
+            if (explicitRecip !== undefined && String(explicitRecip).trim() === '') {
+              return applySecurityHeaders(
+                jsonError('REQUIRED_FIELD_MISSING', 'Recipient name is required and cannot be empty.', 422, { field: 'recipient_name' }),
+                request,
+                env
+              );
+            }
+          }
+
           const wishEffectiveConfig = resolveEffectiveTemplateConfiguration({
             template: template || { id: templateId },
             templateVersion: activeVersion || {},
@@ -7705,7 +7815,16 @@ export default {
           };
           customData._publishedConfigSnapshot = publishedConfigSnapshot;
 
-          // Stamp immutable version IDs into customData
+          // Stamp immutable version IDs & festival campaign context into customData
+          if (festivalEligibility && festivalEligibility.isFestivalCampaignWish && festivalEligibility.campaignId) {
+            customData.festivalCampaignId = festivalEligibility.campaignId;
+            customData.festival_campaign_id = festivalEligibility.campaignId;
+            customData._festivalImmediatePublish = true;
+            if (!customData.event_date && !customData.eventDate && festivalEligibility.effectiveFestivalDate) {
+              customData.event_date = festivalEligibility.effectiveFestivalDate;
+              customData.eventDate = festivalEligibility.effectiveFestivalDate;
+            }
+          }
           customData.templateId = templateId;
           customData.template_version_id = templateVersionId;
           customData.templateVersionId = templateVersionId;
@@ -7921,9 +8040,14 @@ export default {
             ).run();
             inserted = true;
             try {
-              await env.DB.prepare('UPDATE wishes SET published_config_snapshot_json = ? WHERE id = ?')
-                .bind(JSON.stringify(publishedConfigSnapshot), newWish.id).run();
-            } catch (_) {}
+              await env.DB.prepare('UPDATE wishes SET published_config_snapshot_json = ?, festival_campaign_id = ? WHERE id = ?')
+                .bind(JSON.stringify(publishedConfigSnapshot), (festivalEligibility && festivalEligibility.campaignId) ? festivalEligibility.campaignId : null, newWish.id).run();
+            } catch (_) {
+              try {
+                await env.DB.prepare('UPDATE wishes SET published_config_snapshot_json = ? WHERE id = ?')
+                  .bind(JSON.stringify(publishedConfigSnapshot), newWish.id).run();
+              } catch (_2) {}
+            }
           } catch (firstInsertErr) {
             console.warn('[Primary Wish Insert Notice, running adaptive recovery]', firstInsertErr);
           }
@@ -8947,6 +9071,20 @@ export default {
           } catch (e) {}
         }
 
+        // Part 52: Enrich & filter public gallery with authoritative Festival Scheduler state
+        let activeFestivalCampaigns = [];
+        if (!includeDrafts && env.DB && typeof env.DB.prepare === 'function') {
+          try {
+            const festGalleryRes = await applyFestivalScheduleToPublicGallery(env.DB, templates, {
+              festivalSlug: url.searchParams.get('festival') || url.searchParams.get('festivalId') || '',
+              campaignId: url.searchParams.get('campaign') || url.searchParams.get('campaignId') || '',
+              nowMs: resolveAuthoritativeServerNowMs(request, env)
+            });
+            templates = festGalleryRes.templates;
+            activeFestivalCampaigns = festGalleryRes.activeCampaigns || [];
+          } catch (_) {}
+        }
+
         const categoryFilter = url.searchParams.get('category');
         if (categoryFilter && categoryFilter !== 'all') {
           templates = templates.filter(t => t.category.toLowerCase() === categoryFilter.toLowerCase());
@@ -9004,7 +9142,7 @@ export default {
           );
         }
 
-        response = jsonSuccess({ templates, total: templates.length }, 200, {}, requestId);
+        response = jsonSuccess({ templates, total: templates.length, activeFestivalCampaigns }, 200, {}, requestId);
       }
 
       else if ((pathname === '/api/templates' || pathname === '/api/templates/create') && method === 'POST') {
@@ -11079,8 +11217,8 @@ export default {
           // Verify runtime & schema compatibility
           const verSchema = String(targetVer.schema_version || '1.0.0').trim();
           const verRuntime = String(targetVer.runtime_api_version || '1.0').trim();
-          const validSchemas = new Set(['1.0.0', '1.1.0', '1.2.0', '1.3.0', '1.0', '1.1', '1.2', '1.3']);
-          const validRuntimes = new Set(['1.0', '1.1', '1.2', '1.3', '1.0.0', '1.1.0', '1.2.0', '1.3.0']);
+          const validSchemas = new Set(['1.0.0', '1.1.0', '1.2.0', '1.3.0', '1.4.0', '1.0', '1.1', '1.2', '1.3', '1.4']);
+          const validRuntimes = new Set(['1.0', '1.1', '1.2', '1.3', '1.4', '1.0.0', '1.1.0', '1.2.0', '1.3.0', '1.4.0']);
           if (!validSchemas.has(verSchema) || !validRuntimes.has(verRuntime)) {
             return applySecurityHeaders(jsonError('ROLLBACK_INCOMPATIBLE_RUNTIME', `Target version "${targetVersionId}" uses unsupported schema/runtime (${verSchema} / ${verRuntime}).`, 400), request, env);
           }
@@ -11304,7 +11442,44 @@ export default {
           const targetRel = rels.find(r => r.slug?.toLowerCase() === relQuery.toLowerCase() || r.id === relQuery) || rels[0] || { id: 'rel_general', slug: 'general', name: 'General' };
           const variant = variants.find(v => (v.template_version_id === targetVersion.id || v.template_id === templateId) && (v.relationship_id === targetRel.id || v.relationship_slug === targetRel.slug) && v.is_latest !== 0) || null;
 
-          const resolved = resolveVariantHierarchy({
+          let festivalCampaignStatus = null;
+        const requestedResolverCampaignId = sanitizeString(url.searchParams.get('campaign') || url.searchParams.get('campaignId') || '', 80);
+        if (env.DB && typeof env.DB.prepare === 'function' && !includeDrafts) {
+          const festResCheck = await validateWishCreationAgainstFestivalSchedule(env.DB, {
+            template: template || { id: templateId },
+            templateId: template ? template.id : templateId,
+            requestedCampaignId: requestedResolverCampaignId || null,
+            requestedRelationship: variant ? variant.relationship_slug : relQuery,
+            requestedVariantId: variant ? variant.id : variantQuery,
+            nowMs: resolveAuthoritativeServerNowMs(request, env)
+          });
+          if (festResCheck.isFestivalCampaignWish || !festResCheck.allowed || requestedResolverCampaignId) {
+            festivalCampaignStatus = {
+              eligible: festResCheck.allowed,
+              code: festResCheck.code || (festResCheck.allowed ? 'ELIGIBLE' : 'FESTIVAL_CAMPAIGN_INACTIVE'),
+              message: festResCheck.message || null,
+              effectiveState: festResCheck.effectiveState || (festResCheck.allowed ? 'ACTIVE' : 'INACTIVE'),
+              campaignId: festResCheck.campaignId || requestedResolverCampaignId || null,
+              campaign: festResCheck.campaign || null,
+              effectiveFestivalDate: festResCheck.effectiveFestivalDate || null,
+              window: festResCheck.window || null
+            };
+            if (!festResCheck.allowed && url.searchParams.get('strictCampaign') === 'true') {
+              return applySecurityHeaders(
+                jsonError(
+                  festivalCampaignStatus.code,
+                  festivalCampaignStatus.message || 'This festival campaign is no longer active.',
+                  festResCheck.status || 422,
+                  { festivalCampaignStatus }
+                ),
+                request,
+                env
+              );
+            }
+          }
+        }
+
+        const resolved = resolveVariantHierarchy({
             template,
             templateVersion: targetVersion,
             variant,
@@ -13755,7 +13930,8 @@ export default {
           musicLibrary
         });
 
-        response = jsonSuccess({ success: true, resolved }, 200, {}, requestId);
+        if (festivalCampaignStatus) resolved.festivalCampaignStatus = festivalCampaignStatus;
+        response = jsonSuccess({ success: true, resolved, festivalCampaignStatus }, 200, {}, requestId);
       }
 
       // 12b. UTP v1.2.0 Admin Section/Subsection Visibility & Button/Action Configuration Endpoints
@@ -24904,6 +25080,886 @@ export default {
           message: 'D1 search index reindexed',
           totalIndexed: SEED_TEMPLATES.length + 3 + (DEFAULT_HELP_ARTICLES || []).length
         }, 200, {}, requestId);
+      }
+
+      // ============================================================================
+      // PART 52: PUBLIC & ADMIN FESTIVAL SCHEDULER API ENDPOINTS
+      // ============================================================================
+      else if ((pathname === '/api/festivals/active' || pathname === '/api/festivals/campaigns') && method === 'GET') {
+        if (!env.DB || typeof env.DB.prepare !== 'function') {
+          return applySecurityHeaders(jsonSuccess({ activeCampaigns: [], upcomingFestivals: [], templates: [] }, 200, {}, requestId), request, env);
+        }
+        await ensureFestivalSchedulerSchema(env.DB, { seedDefaults: true });
+        const nowMs = resolveAuthoritativeServerNowMs(request, env);
+        const state = await loadFestivalSchedulerState(env.DB, { seedDefaults: false, nowMs });
+
+        // Sanitize public campaign payload (strip private admin notes, actor identities, provider internals)
+        const publicActiveCampaigns = state.campaigns
+          .filter(c => c.eligible)
+          .map(c => ({
+            id: c.id,
+            slug: c.slug,
+            festivalId: c.festivalId,
+            festivalSlug: c.festivalSlug,
+            festivalName: c.festivalName,
+            festivalCategory: c.festivalCategory,
+            applicableYear: c.applicableYear,
+            title: c.title,
+            badgeLabel: c.badgeLabel,
+            description: c.description,
+            effectiveFestivalDate: c.effectiveFestivalDate,
+            windowStartDate: c.windowStartDate,
+            windowEndDate: c.windowEndDate,
+            firstBlockedDate: c.firstBlockedDate,
+            timezone: c.timezone,
+            daysBefore: c.daysBefore,
+            daysAfter: c.daysAfter,
+            assignedTemplatesCount: c.assignedTemplatesCount
+          }));
+
+        // Build upcoming confirmed festivals list (sanitized for public display)
+        const todayIso = new Date(nowMs + IST_OFFSET_MS).toISOString().split('T')[0];
+        const upcomingFestivals = [];
+        for (const f of state.festivals) {
+          if (!Boolean(Number(f.is_enabled))) continue;
+          let localizedNames = {};
+          try { localizedNames = JSON.parse(f.localized_names_json || '{}'); } catch (_) {}
+          for (const yr of [new Date(nowMs).getUTCFullYear(), new Date(nowMs).getUTCFullYear() + 1]) {
+            const key = `${f.id}::${yr}`;
+            const yearRec = state.yearDatesByKey.get(key);
+            const activeOv = state.activeOverridesByKey.get(key);
+            const dateRes = resolveEffectiveFestivalDate({
+              festival: f,
+              yearRecord: yearRec,
+              activeOverride: activeOv,
+              applicableYear: yr
+            });
+            if (dateRes.isConfirmed && dateRes.effectiveDate && dateRes.effectiveDate >= todayIso) {
+              const win = calculatePublicationWindow(dateRes.effectiveDate, {
+                daysBefore: Number(f.default_days_before ?? DEFAULT_DAYS_BEFORE_FESTIVAL),
+                daysAfter: Number(f.default_days_after ?? DEFAULT_DAYS_AFTER_FESTIVAL),
+                timezone: dateRes.timezone
+              });
+              upcomingFestivals.push({
+                festivalId: f.id,
+                slug: f.slug,
+                name: f.name,
+                localizedNames,
+                category: f.category,
+                applicableYear: yr,
+                effectiveDate: dateRes.effectiveDate,
+                timezone: dateRes.timezone,
+                windowStartDate: win.startDate,
+                windowEndDate: win.endDate,
+                isWindowOpen: isTimestampWithinPublicationWindow(win, nowMs).inWindow
+              });
+              break;
+            }
+          }
+        }
+        upcomingFestivals.sort((a, b) => a.effectiveDate.localeCompare(b.effectiveDate));
+
+        response = jsonSuccess({
+          activeCampaigns: publicActiveCampaigns,
+          upcomingFestivals: upcomingFestivals.slice(0, 12)
+        }, 200, { 'Cache-Control': 'public, max-age=30, must-revalidate' }, requestId);
+      }
+
+      else if (pathname.startsWith('/api/admin/festivals')) {
+        const user = await getAuthenticatedUser(request, env);
+        if (!user) {
+          return applySecurityHeaders(jsonError('AUTH_REQUIRED', 'Authentication required to access Festival Scheduler.', 401, {}, null, requestId), request, env);
+        }
+        const isAdmin = await verifyAdminRole(user, env);
+        if (!isAdmin) {
+          return applySecurityHeaders(jsonError('FORBIDDEN', 'Administrator privileges required to manage Festival Scheduler.', 403, {}, null, requestId), request, env);
+        }
+        if (method !== 'GET' && isCsrfViolation(request, env)) {
+          return applySecurityHeaders(jsonError('FORBIDDEN', 'Cross-origin mutation rejected.', 403, {}, null, requestId), request, env);
+        }
+        if (!env.DB || typeof env.DB.prepare !== 'function') {
+          return applySecurityHeaders(jsonError('DATABASE_UNAVAILABLE', 'Database service is currently unavailable.', 503, {}, null, requestId), request, env);
+        }
+
+        await ensureFestivalSchedulerSchema(env.DB, { seedDefaults: true });
+        const nowMs = resolveAuthoritativeServerNowMs(request, env);
+
+        // 1. GET /api/admin/festivals — Complete Admin Festival Scheduler State
+        if ((pathname === '/api/admin/festivals' || pathname === '/api/admin/festivals/') && method === 'GET') {
+          const selectedYear = Number(url.searchParams.get('year') || new Date(nowMs).getUTCFullYear());
+          const state = await loadFestivalSchedulerState(env.DB, { seedDefaults: true, nowMs });
+
+          // Ensure year dates exist for selectedYear across all festivals
+          for (const f of state.festivals) {
+            const key = `${f.id}::${selectedYear}`;
+            if (!state.yearDatesByKey.has(key)) {
+              const autoRes = resolveAutomaticFestivalDateForYear(f, selectedYear);
+              const fydId = `fyd_${f.id}_${selectedYear}`;
+              const nowIso = new Date().toISOString();
+              await env.DB.prepare(`
+                INSERT OR IGNORE INTO festival_year_dates (
+                  id, festival_id, applicable_year, resolved_date, timezone,
+                  verification_status, resolution_source, source_reference,
+                  provider_payload_json, last_verified_at, verified_by,
+                  requires_approval, notes, created_at, updated_at
+                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, '{}', ?, ?, ?, ?, ?, ?)
+              `).bind(
+                fydId,
+                f.id,
+                selectedYear,
+                autoRes.resolvedDate,
+                f.default_timezone || DEFAULT_FESTIVAL_TIMEZONE,
+                autoRes.verificationStatus,
+                autoRes.resolutionSource,
+                autoRes.sourceReference || '',
+                autoRes.verificationStatus === FESTIVAL_VERIFICATION_STATUS.AUTO_VERIFIED ? nowIso : null,
+                autoRes.verificationStatus === FESTIVAL_VERIFICATION_STATUS.AUTO_VERIFIED ? 'system_resolver' : null,
+                f.requires_admin_approval ? 1 : 0,
+                autoRes.notes || '',
+                nowIso,
+                nowIso
+              ).run().catch(() => {});
+            }
+          }
+
+          const refreshedState = await loadFestivalSchedulerState(env.DB, { seedDefaults: false, nowMs });
+          const festivalsView = refreshedState.festivals.map(f => {
+            const key = `${f.id}::${selectedYear}`;
+            const yearRec = refreshedState.yearDatesByKey.get(key) || null;
+            const activeOv = refreshedState.activeOverridesByKey.get(key) || null;
+            const dateRes = resolveEffectiveFestivalDate({
+              festival: f,
+              yearRecord: yearRec,
+              activeOverride: activeOv,
+              applicableYear: selectedYear
+            });
+            const winPreview = dateRes.effectiveDate
+              ? calculatePublicationWindow(dateRes.effectiveDate, {
+                  daysBefore: Number(f.default_days_before ?? DEFAULT_DAYS_BEFORE_FESTIVAL),
+                  daysAfter: Number(f.default_days_after ?? DEFAULT_DAYS_AFTER_FESTIVAL),
+                  timezone: dateRes.timezone
+                })
+              : null;
+            let localizedNames = {};
+            try { localizedNames = JSON.parse(f.localized_names_json || '{}'); } catch (_) {}
+            return {
+              id: f.id,
+              slug: f.slug,
+              name: f.name,
+              localizedNames,
+              description: f.description || '',
+              category: f.category || 'festival',
+              calculationMethod: f.calculation_method,
+              fixedMonth: f.fixed_month,
+              fixedDay: f.fixed_day,
+              defaultTimezone: f.default_timezone || DEFAULT_FESTIVAL_TIMEZONE,
+              defaultDaysBefore: Number(f.default_days_before ?? DEFAULT_DAYS_BEFORE_FESTIVAL),
+              defaultDaysAfter: Number(f.default_days_after ?? DEFAULT_DAYS_AFTER_FESTIVAL),
+              requiresAdminApproval: Boolean(Number(f.requires_admin_approval)),
+              isEnabled: Boolean(Number(f.is_enabled)),
+              sourceAttribution: f.source_attribution || '',
+              notes: f.notes || '',
+              applicableYear: selectedYear,
+              yearRecord: yearRec,
+              activeOverride: activeOv,
+              dateResolution: dateRes,
+              windowPreview: winPreview,
+              updatedAt: f.updated_at
+            };
+          });
+
+          // Load audit logs
+          const logsRes = await env.DB.prepare('SELECT * FROM festival_sync_logs ORDER BY created_at DESC LIMIT 100').all().catch(() => ({ results: [] }));
+          const auditLogs = (logsRes.results || []).map(l => ({
+            id: l.id,
+            festivalId: l.festival_id,
+            applicableYear: l.applicable_year,
+            campaignId: l.campaign_id,
+            actionType: l.action_type,
+            providerName: l.provider_name,
+            status: l.status,
+            previousValue: safeJsonParse(l.previous_value_json, {}),
+            newValue: safeJsonParse(l.new_value_json, {}),
+            reason: l.reason,
+            errorCode: l.error_code,
+            errorMessage: l.error_message,
+            actorId: l.actor_id,
+            actorEmail: l.actor_email,
+            createdAt: l.created_at
+          }));
+
+          // Load available templates for assignment picker
+          const dbTplRows = await env.DB.prepare('SELECT id, slug, name, category, tier, price, is_published, status, thumbnail, relationships, variants_json, has_variants FROM templates ORDER BY name ASC').all().catch(() => ({ results: [] }));
+          const allVarRows = await env.DB.prepare('SELECT * FROM template_relationship_variants WHERE is_latest = 1').all().catch(() => ({ results: [] }));
+          const varsByTpl = new Map();
+          for (const vr of (allVarRows.results || [])) {
+            if (!vr.template_id) continue;
+            if (!varsByTpl.has(vr.template_id)) varsByTpl.set(vr.template_id, []);
+            varsByTpl.get(vr.template_id).push({
+              id: vr.id,
+              slug: vr.variant_slug,
+              relationshipSlug: vr.relationship_slug,
+              label: vr.relationship_label,
+              enabled: Boolean(Number(vr.enabled)),
+              status: vr.status
+            });
+          }
+
+          const tplMap = new Map();
+          for (const r of (dbTplRows.results || [])) {
+            tplMap.set(r.id, {
+              id: r.id,
+              slug: r.slug,
+              name: r.name,
+              category: r.category,
+              tier: r.tier || 'free',
+              price: Number(r.price || 0),
+              isPublished: Boolean(Number(r.is_published)),
+              status: r.status || 'published',
+              thumbnail: r.thumbnail || '',
+              hasVariants: Boolean(Number(r.has_variants)) || (varsByTpl.get(r.id) || []).length > 0,
+              variants: varsByTpl.get(r.id) || safeJsonParse(r.variants_json, []),
+              relationships: safeJsonParse(r.relationships, [])
+            });
+          }
+          for (const s of SEED_TEMPLATES) {
+            if (!tplMap.has(s.id)) {
+              tplMap.set(s.id, {
+                id: s.id,
+                slug: s.slug,
+                name: s.name,
+                category: s.category,
+                tier: s.tier || 'free',
+                price: Number(s.price || 0),
+                isPublished: true,
+                status: 'published',
+                thumbnail: s.thumbnail || '',
+                hasVariants: (varsByTpl.get(s.id) || []).length > 0,
+                variants: varsByTpl.get(s.id) || [],
+                relationships: s.relationships || []
+              });
+            }
+          }
+
+          response = jsonSuccess({
+            selectedYear,
+            serverTimestampIso: new Date(nowMs).toISOString(),
+            providerConfigured: Boolean(env.FESTIVAL_CALENDAR_PROVIDER_URL),
+            festivals: festivalsView,
+            campaigns: refreshedState.campaigns,
+            overrides: refreshedState.activeOverrides,
+            auditLogs,
+            availableTemplates: Array.from(tplMap.values())
+          }, 200, {}, requestId);
+        }
+
+        // 2. POST /api/admin/festivals or PUT /api/admin/festivals/:id — Create or Update Festival Definition
+        else if (
+          (pathname === '/api/admin/festivals' && method === 'POST') ||
+          (pathname.match(/^\/api\/admin\/festivals\/([^\/]+)$/) && method === 'PUT' && !pathname.endsWith('/campaigns'))
+        ) {
+          const body = await request.json().catch(() => ({}));
+          const urlFestId = pathname.match(/^\/api\/admin\/festivals\/([^\/]+)$/)?.[1] || null;
+          const rawName = sanitizeString(body.name || body.displayName || '', 120);
+          const rawSlug = sanitizeString(body.slug || rawName.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-+|-+$/g, ''), 80);
+          const rawId = sanitizeString(urlFestId || body.id || (rawSlug ? `fest_${rawSlug.replace(/-/g, '_')}` : ''), 80);
+
+          if (!rawId || !/^[a-zA-Z0-9_-]{2,80}$/.test(rawId)) {
+            return applySecurityHeaders(jsonError('INVALID_FESTIVAL_ID', 'A valid alphanumeric festival ID is required.', 400), request, env);
+          }
+
+          const existingFest = await env.DB.prepare('SELECT * FROM festival_definitions WHERE id = ? OR slug = ? LIMIT 1')
+            .bind(rawId, rawSlug || rawId).first();
+
+          const finalName = rawName || existingFest?.name || '';
+          if (!finalName) {
+            return applySecurityHeaders(jsonError('MISSING_FESTIVAL_NAME', 'Festival display name is required.', 400), request, env);
+          }
+
+          const calcMethod = String(body.calculationMethod || body.calculation_method || existingFest?.calculation_method || FESTIVAL_CALCULATION_METHODS.VERIFIED_CALENDAR_TABLE).toUpperCase().trim();
+          if (!VALID_CALCULATION_METHODS.has(calcMethod)) {
+            return applySecurityHeaders(jsonError('INVALID_CALCULATION_METHOD', `Unsupported calculationMethod "${calcMethod}".`, 400), request, env);
+          }
+
+          const defaultTz = String(body.defaultTimezone || body.default_timezone || existingFest?.default_timezone || DEFAULT_FESTIVAL_TIMEZONE).trim();
+          if (!isValidIanaTimezone(defaultTz)) {
+            return applySecurityHeaders(jsonError('INVALID_TIMEZONE', `Unsupported IANA timezone "${defaultTz}".`, 400), request, env);
+          }
+
+          const defBefore = body.defaultDaysBefore !== undefined ? Number(body.defaultDaysBefore) : (existingFest ? Number(existingFest.default_days_before) : DEFAULT_DAYS_BEFORE_FESTIVAL);
+          const defAfter = body.defaultDaysAfter !== undefined ? Number(body.defaultDaysAfter) : (existingFest ? Number(existingFest.default_days_after) : DEFAULT_DAYS_AFTER_FESTIVAL);
+          if (!Number.isInteger(defBefore) || defBefore < 0 || defBefore > 180 || !Number.isInteger(defAfter) || defAfter < 0 || defAfter > 60) {
+            return applySecurityHeaders(jsonError('INVALID_DEFAULT_WINDOW', 'defaultDaysBefore (0-180) and defaultDaysAfter (0-60) must be valid integers.', 400), request, env);
+          }
+
+          const fixedMonth = body.fixedMonth !== undefined && body.fixedMonth !== null && body.fixedMonth !== '' ? Number(body.fixedMonth) : (existingFest?.fixed_month ?? null);
+          const fixedDay = body.fixedDay !== undefined && body.fixedDay !== null && body.fixedDay !== '' ? Number(body.fixedDay) : (existingFest?.fixed_day ?? null);
+          if (calcMethod === FESTIVAL_CALCULATION_METHODS.FIXED_GREGORIAN) {
+            const testCheck = parseDateOnlyStrict(`2026-${String(fixedMonth || 0).padStart(2, '0')}-${String(fixedDay || 0).padStart(2, '0')}`);
+            if (!testCheck.valid) {
+              return applySecurityHeaders(jsonError('INVALID_FIXED_GREGORIAN_DATE', 'FIXED_GREGORIAN requires valid fixedMonth (1-12) and fixedDay (1-31).', 400), request, env);
+            }
+          }
+
+          const localizedJson = typeof body.localizedNames === 'object' && body.localizedNames !== null
+            ? JSON.stringify(body.localizedNames)
+            : (existingFest?.localized_names_json || '{}');
+          const ruleJson = typeof body.calculationRule === 'object' && body.calculationRule !== null
+            ? JSON.stringify(body.calculationRule)
+            : (existingFest?.calculation_rule_json || '{}');
+
+          const isEnabled = body.isEnabled !== undefined ? (body.isEnabled ? 1 : 0) : (existingFest ? Number(existingFest.is_enabled) : 1);
+          const reqApproval = body.requiresAdminApproval !== undefined ? (body.requiresAdminApproval ? 1 : 0) : (existingFest ? Number(existingFest.requires_admin_approval) : 0);
+          const category = sanitizeString(body.category || existingFest?.category || 'indian_festival', 60);
+          const description = sanitizeString(body.description ?? existingFest?.description ?? '', 500);
+          const sourceAttribution = sanitizeString(body.sourceAttribution ?? existingFest?.source_attribution ?? '', 250);
+          const notes = sanitizeString(body.notes ?? existingFest?.notes ?? '', 500);
+          const nowIso = new Date().toISOString();
+          const targetId = existingFest ? existingFest.id : rawId;
+          const targetSlug = existingFest ? existingFest.slug : (rawSlug || rawId);
+
+          if (existingFest) {
+            await env.DB.prepare(`
+              UPDATE festival_definitions
+              SET name = ?,
+                  localized_names_json = ?,
+                  description = ?,
+                  category = ?,
+                  calculation_method = ?,
+                  fixed_month = ?,
+                  fixed_day = ?,
+                  calculation_rule_json = ?,
+                  default_timezone = ?,
+                  default_days_before = ?,
+                  default_days_after = ?,
+                  requires_admin_approval = ?,
+                  is_enabled = ?,
+                  source_attribution = ?,
+                  notes = ?,
+                  lock_version = lock_version + 1,
+                  updated_at = ?,
+                  updated_by = ?
+              WHERE id = ?
+            `).bind(
+              finalName,
+              localizedJson,
+              description,
+              category,
+              calcMethod,
+              fixedMonth,
+              fixedDay,
+              ruleJson,
+              defaultTz,
+              defBefore,
+              defAfter,
+              reqApproval,
+              isEnabled,
+              sourceAttribution,
+              notes,
+              nowIso,
+              user.id || 'admin',
+              targetId
+            ).run();
+          } else {
+            await env.DB.prepare(`
+              INSERT INTO festival_definitions (
+                id, slug, name, localized_names_json, description, category,
+                calculation_method, fixed_month, fixed_day, calculation_rule_json,
+                default_timezone, default_days_before, default_days_after,
+                requires_admin_approval, is_enabled, source_attribution, notes,
+                lock_version, created_at, updated_at, updated_by
+              ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 1, ?, ?, ?)
+            `).bind(
+              targetId,
+              targetSlug,
+              finalName,
+              localizedJson,
+              description,
+              category,
+              calcMethod,
+              fixedMonth,
+              fixedDay,
+              ruleJson,
+              defaultTz,
+              defBefore,
+              defAfter,
+              reqApproval,
+              isEnabled,
+              sourceAttribution,
+              notes,
+              nowIso,
+              nowIso,
+              user.id || 'admin'
+            ).run();
+          }
+
+          const savedFest = await env.DB.prepare('SELECT * FROM festival_definitions WHERE id = ? LIMIT 1').bind(targetId).first();
+
+          // Optional immediate year date resolution or manual date setting if supplied in body
+          const targetYear = Number(body.applicableYear || new Date(nowMs).getUTCFullYear());
+          if (body.resolvedDate) {
+            const dCheck = parseDateOnlyStrict(String(body.resolvedDate));
+            if (!dCheck.valid || dCheck.year !== targetYear) {
+              return applySecurityHeaders(jsonError('INVALID_RESOLVED_DATE', dCheck.reason || `Date must belong to year ${targetYear}.`, 400), request, env);
+            }
+            const verStatus = body.verificationStatus && VALID_VERIFICATION_STATUSES.has(String(body.verificationStatus).toUpperCase())
+              ? String(body.verificationStatus).toUpperCase()
+              : FESTIVAL_VERIFICATION_STATUS.MANUALLY_CONFIRMED;
+            const fydId = `fyd_${targetId}_${targetYear}`;
+            await env.DB.prepare(`
+              INSERT INTO festival_year_dates (
+                id, festival_id, applicable_year, resolved_date, timezone,
+                verification_status, resolution_source, source_reference,
+                provider_payload_json, last_verified_at, verified_by,
+                requires_approval, notes, created_at, updated_at
+              ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, '{}', ?, ?, ?, ?, ?, ?)
+              ON CONFLICT(festival_id, applicable_year) DO UPDATE SET
+                resolved_date = excluded.resolved_date,
+                timezone = excluded.timezone,
+                verification_status = excluded.verification_status,
+                resolution_source = excluded.resolution_source,
+                source_reference = excluded.source_reference,
+                last_verified_at = excluded.last_verified_at,
+                verified_by = excluded.verified_by,
+                requires_approval = excluded.requires_approval,
+                notes = excluded.notes,
+                updated_at = excluded.updated_at
+            `).bind(
+              fydId,
+              targetId,
+              targetYear,
+              dCheck.dateStr,
+              defaultTz,
+              verStatus,
+              calcMethod,
+              sourceAttribution || 'Admin Configured',
+              verStatus === FESTIVAL_VERIFICATION_STATUS.MANUALLY_CONFIRMED || verStatus === FESTIVAL_VERIFICATION_STATUS.AUTO_VERIFIED ? nowIso : null,
+              user.id || 'admin',
+              reqApproval,
+              notes,
+              nowIso,
+              nowIso
+            ).run();
+          } else {
+            const autoRes = resolveAutomaticFestivalDateForYear(savedFest, targetYear);
+            const fydId = `fyd_${targetId}_${targetYear}`;
+            await env.DB.prepare(`
+              INSERT OR IGNORE INTO festival_year_dates (
+                id, festival_id, applicable_year, resolved_date, timezone,
+                verification_status, resolution_source, source_reference,
+                provider_payload_json, last_verified_at, verified_by,
+                requires_approval, notes, created_at, updated_at
+              ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, '{}', ?, ?, ?, ?, ?, ?)
+            `).bind(
+              fydId,
+              targetId,
+              targetYear,
+              autoRes.resolvedDate,
+              defaultTz,
+              autoRes.verificationStatus,
+              autoRes.resolutionSource,
+              autoRes.sourceReference || '',
+              autoRes.verificationStatus === FESTIVAL_VERIFICATION_STATUS.AUTO_VERIFIED ? nowIso : null,
+              autoRes.verificationStatus === FESTIVAL_VERIFICATION_STATUS.AUTO_VERIFIED ? 'system_resolver' : null,
+              reqApproval,
+              autoRes.notes || '',
+              nowIso,
+              nowIso
+            ).run();
+          }
+
+          await recalculateCampaignWindowsForFestivalYear(env.DB, targetId, targetYear);
+          await recordFestivalAuditLog(env.DB, {
+            festivalId: targetId,
+            applicableYear: targetYear,
+            actionType: existingFest ? 'FESTIVAL_UPDATED' : 'FESTIVAL_CREATED',
+            previousValue: existingFest || {},
+            newValue: savedFest || {},
+            reason: body.reason || `${existingFest ? 'Updated' : 'Created'} festival ${finalName}`,
+            actorId: user.id || 'admin',
+            actorEmail: user.email || ''
+          });
+
+          response = jsonSuccess({
+            festival: savedFest,
+            applicableYear: targetYear
+          }, existingFest ? 200 : 201, {}, requestId);
+        }
+
+        // 3. POST /api/admin/festivals/:id/resolve-date or PUT /api/admin/festivals/:id/year-date
+        else if (pathname.match(/^\/api\/admin\/festivals\/([^\/]+)\/(resolve-date|year-date)$/) && (method === 'POST' || method === 'PUT')) {
+          const festId = pathname.match(/^\/api\/admin\/festivals\/([^\/]+)\/(resolve-date|year-date)$/)[1];
+          const body = await request.json().catch(() => ({}));
+          const yr = Number(body.applicableYear || body.year || new Date(nowMs).getUTCFullYear());
+          if (!Number.isInteger(yr) || yr < 1970 || yr > 2100) {
+            return applySecurityHeaders(jsonError('INVALID_YEAR', 'applicableYear must be between 1970 and 2100.', 400), request, env);
+          }
+
+          const festival = await env.DB.prepare('SELECT * FROM festival_definitions WHERE id = ? OR slug = ? LIMIT 1')
+            .bind(festId, festId).first();
+          if (!festival) {
+            return applySecurityHeaders(jsonError('FESTIVAL_NOT_FOUND', `Festival "${festId}" not found.`, 404), request, env);
+          }
+
+          const existingYearRow = await env.DB.prepare(
+            'SELECT * FROM festival_year_dates WHERE festival_id = ? AND applicable_year = ? LIMIT 1'
+          ).bind(festival.id, yr).first();
+
+          const nowIso = new Date().toISOString();
+          let nextDate = null;
+          let nextStatus = FESTIVAL_VERIFICATION_STATUS.DATE_UNAVAILABLE;
+          let nextSource = festival.calculation_method;
+          let nextRef = festival.source_attribution || '';
+          let nextNotes = String(body.notes || '').slice(0, 400);
+
+          if (body.resolvedDate !== undefined && body.resolvedDate !== null && String(body.resolvedDate).trim() !== '') {
+            const dCheck = parseDateOnlyStrict(String(body.resolvedDate).trim());
+            if (!dCheck.valid || dCheck.year !== yr) {
+              return applySecurityHeaders(
+                jsonError('INVALID_FESTIVAL_DATE', dCheck.reason || `Date "${body.resolvedDate}" must belong to year ${yr}.`, 400),
+                request,
+                env
+              );
+            }
+            nextDate = dCheck.dateStr;
+            nextStatus = body.verificationStatus && VALID_VERIFICATION_STATUSES.has(String(body.verificationStatus).toUpperCase())
+              ? String(body.verificationStatus).toUpperCase()
+              : FESTIVAL_VERIFICATION_STATUS.MANUALLY_CONFIRMED;
+            nextSource = String(body.resolutionSource || FESTIVAL_CALCULATION_METHODS.MANUAL_ADMIN);
+            nextRef = String(body.sourceReference || festival.source_attribution || 'Administrator Confirmed').slice(0, 200);
+          } else {
+            const autoRes = resolveAutomaticFestivalDateForYear(festival, yr);
+            if (!autoRes.resolved && existingYearRow && existingYearRow.resolved_date && parseDateOnlyStrict(existingYearRow.resolved_date).valid) {
+              // Preserve last valid date if automatic refresh cannot resolve
+              nextDate = existingYearRow.resolved_date;
+              nextStatus = body.confirmExisting ? FESTIVAL_VERIFICATION_STATUS.MANUALLY_CONFIRMED : existingYearRow.verification_status;
+              nextSource = existingYearRow.resolution_source;
+              nextRef = existingYearRow.source_reference;
+              nextNotes = nextNotes || existingYearRow.notes || 'Preserved existing valid date.';
+            } else {
+              nextDate = autoRes.resolvedDate;
+              nextStatus = body.confirmExisting && nextDate
+                ? FESTIVAL_VERIFICATION_STATUS.MANUALLY_CONFIRMED
+                : (body.verificationStatus && VALID_VERIFICATION_STATUSES.has(String(body.verificationStatus).toUpperCase())
+                    ? String(body.verificationStatus).toUpperCase()
+                    : autoRes.verificationStatus);
+              nextSource = autoRes.resolutionSource;
+              nextRef = autoRes.sourceReference || nextRef;
+              nextNotes = nextNotes || autoRes.notes || '';
+            }
+          }
+
+          const tz = body.timezone ? String(body.timezone).trim() : (existingYearRow?.timezone || festival.default_timezone || DEFAULT_FESTIVAL_TIMEZONE);
+          if (!isValidIanaTimezone(tz)) {
+            return applySecurityHeaders(jsonError('INVALID_TIMEZONE', `Unsupported IANA timezone "${tz}".`, 400), request, env);
+          }
+
+          const fydId = existingYearRow?.id || `fyd_${festival.id}_${yr}`;
+          await env.DB.prepare(`
+            INSERT INTO festival_year_dates (
+              id, festival_id, applicable_year, resolved_date, timezone,
+              verification_status, resolution_source, source_reference,
+              provider_payload_json, last_verified_at, verified_by,
+              requires_approval, notes, created_at, updated_at
+            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, '{}', ?, ?, ?, ?, ?, ?)
+            ON CONFLICT(festival_id, applicable_year) DO UPDATE SET
+              resolved_date = excluded.resolved_date,
+              timezone = excluded.timezone,
+              verification_status = excluded.verification_status,
+              resolution_source = excluded.resolution_source,
+              source_reference = excluded.source_reference,
+              last_verified_at = excluded.last_verified_at,
+              verified_by = excluded.verified_by,
+              notes = excluded.notes,
+              updated_at = excluded.updated_at
+          `).bind(
+            fydId,
+            festival.id,
+            yr,
+            nextDate,
+            tz,
+            nextStatus,
+            nextSource,
+            nextRef,
+            (nextStatus === FESTIVAL_VERIFICATION_STATUS.AUTO_VERIFIED || nextStatus === FESTIVAL_VERIFICATION_STATUS.MANUALLY_CONFIRMED) ? nowIso : (existingYearRow?.last_verified_at || null),
+            user.id || 'admin',
+            festival.requires_admin_approval ? 1 : 0,
+            nextNotes,
+            existingYearRow?.created_at || nowIso,
+            nowIso
+          ).run();
+
+          const updatedWindows = await recalculateCampaignWindowsForFestivalYear(env.DB, festival.id, yr);
+          const updatedYearRow = await env.DB.prepare('SELECT * FROM festival_year_dates WHERE id = ? LIMIT 1').bind(fydId).first();
+          const activeOverride = await env.DB.prepare(
+            'SELECT * FROM festival_date_overrides WHERE festival_id = ? AND applicable_year = ? AND is_active = 1 LIMIT 1'
+          ).bind(festival.id, yr).first();
+
+          const dateResolution = resolveEffectiveFestivalDate({
+            festival,
+            yearRecord: updatedYearRow,
+            activeOverride,
+            applicableYear: yr
+          });
+
+          await recordFestivalAuditLog(env.DB, {
+            festivalId: festival.id,
+            applicableYear: yr,
+            actionType: 'YEAR_DATE_RESOLVED_OR_UPDATED',
+            previousValue: existingYearRow || {},
+            newValue: updatedYearRow || {},
+            reason: body.reason || `Resolved/updated ${festival.name} (${yr}) date to ${nextDate || 'UNAVAILABLE'} [${nextStatus}]`,
+            actorId: user.id || 'admin',
+            actorEmail: user.email || ''
+          });
+
+          response = jsonSuccess({
+            yearRecord: updatedYearRow,
+            dateResolution,
+            updatedCampaignWindows: updatedWindows
+          }, 200, {}, requestId);
+        }
+
+        // 4. POST /api/admin/festivals/sync-provider — External Calendar Provider Sync
+        else if (pathname === '/api/admin/festivals/sync-provider' && method === 'POST') {
+          const body = await request.json().catch(() => ({}));
+          const yr = Number(body.year || body.applicableYear || new Date(nowMs).getUTCFullYear());
+          const syncRes = await syncFestivalDatesFromExternalProvider(env.DB, env, {
+            year: yr,
+            actorId: user.id || 'admin',
+            actorEmail: user.email || ''
+          });
+          response = jsonSuccess(syncRes, 200, {}, requestId);
+        }
+
+        // 5. POST /api/admin/festivals/:id/overrides — Set Manual Date Override
+        else if (pathname.match(/^\/api\/admin\/festivals\/([^\/]+)\/overrides$/) && method === 'POST') {
+          const festId = pathname.match(/^\/api\/admin\/festivals\/([^\/]+)\/overrides$/)[1];
+          const body = await request.json().catch(() => ({}));
+          const result = await setFestivalDateOverride(env.DB, {
+            festivalId: festId,
+            applicableYear: body.applicableYear ?? body.year,
+            overrideDate: body.overrideDate ?? body.override_date ?? body.date,
+            timezone: body.timezone || DEFAULT_FESTIVAL_TIMEZONE,
+            reason: body.reason || '',
+            notes: body.notes || '',
+            actorId: user.id || 'admin',
+            actorEmail: user.email || ''
+          });
+          if (!result.ok) {
+            return applySecurityHeaders(jsonError(result.code, result.message, result.status || 400), request, env);
+          }
+          response = jsonSuccess(result, 200, {}, requestId);
+        }
+
+        // 6. DELETE /api/admin/festivals/:id/overrides/:year — Remove Manual Date Override
+        else if (pathname.match(/^\/api\/admin\/festivals\/([^\/]+)\/overrides\/(\d{4})$/) && method === 'DELETE') {
+          const m = pathname.match(/^\/api\/admin\/festivals\/([^\/]+)\/overrides\/(\d{4})$/);
+          const festId = m[1];
+          const yr = Number(m[2]);
+          const body = await request.json().catch(() => ({}));
+          const result = await removeFestivalDateOverride(env.DB, {
+            festivalId: festId,
+            applicableYear: yr,
+            reason: body.reason || url.searchParams.get('reason') || 'Manual override removed by administrator; restored automatic resolution.',
+            actorId: user.id || 'admin',
+            actorEmail: user.email || ''
+          });
+          if (!result.ok) {
+            return applySecurityHeaders(jsonError(result.code, result.message, result.status || 400), request, env);
+          }
+          response = jsonSuccess(result, 200, {}, requestId);
+        }
+
+        // 7. GET/POST /api/admin/festivals/campaigns & PUT /api/admin/festivals/campaigns/:campaignId
+        else if (pathname === '/api/admin/festivals/campaigns' && method === 'GET') {
+          const state = await loadFestivalSchedulerState(env.DB, { seedDefaults: false, nowMs });
+          response = jsonSuccess({ campaigns: state.campaigns, total: state.campaigns.length }, 200, {}, requestId);
+        }
+        else if (
+          (pathname === '/api/admin/festivals/campaigns' && method === 'POST') ||
+          (pathname.match(/^\/api\/admin\/festivals\/campaigns\/([^\/]+)$/) && method === 'PUT')
+        ) {
+          const campIdFromUrl = pathname.match(/^\/api\/admin\/festivals\/campaigns\/([^\/]+)$/)?.[1] || null;
+          const body = await request.json().catch(() => ({}));
+          if (campIdFromUrl) body.id = campIdFromUrl;
+          const result = await upsertFestivalCampaign(env.DB, body, { id: user.id || 'admin', email: user.email || '' });
+          if (!result.ok) {
+            return applySecurityHeaders(jsonError(result.code, result.message, result.status || 400), request, env);
+          }
+          response = jsonSuccess(result, result.status || 200, {}, requestId);
+        }
+
+        // 8. POST /api/admin/festivals/campaigns/:campaignId/status — Pause / Resume / Activate / End Campaign
+        else if (pathname.match(/^\/api\/admin\/festivals\/campaigns\/([^\/]+)\/status$/) && method === 'POST') {
+          const campId = pathname.match(/^\/api\/admin\/festivals\/campaigns\/([^\/]+)\/status$/)[1];
+          const body = await request.json().catch(() => ({}));
+          const existing = await env.DB.prepare('SELECT * FROM festival_campaigns WHERE id = ? OR slug = ? LIMIT 1')
+            .bind(campId, campId).first();
+          if (!existing) {
+            return applySecurityHeaders(jsonError('CAMPAIGN_NOT_FOUND', `Campaign "${campId}" not found.`, 404), request, env);
+          }
+          const result = await upsertFestivalCampaign(
+            env.DB,
+            {
+              id: existing.id,
+              festivalId: existing.festival_id,
+              applicableYear: existing.applicable_year,
+              status: body.status || existing.status,
+              isEnabled: body.isEnabled !== undefined ? body.isEnabled : Boolean(Number(existing.is_enabled)),
+              reason: body.reason || `Changed campaign status to ${body.status || existing.status}`
+            },
+            { id: user.id || 'admin', email: user.email || '' }
+          );
+          if (!result.ok) {
+            return applySecurityHeaders(jsonError(result.code, result.message, result.status || 400), request, env);
+          }
+          response = jsonSuccess(result, 200, {}, requestId);
+        }
+
+        // 9. POST /api/admin/festivals/campaigns/:campaignId/templates — Assign Templates & Variants
+        else if (pathname.match(/^\/api\/admin\/festivals\/campaigns\/([^\/]+)\/templates$/) && method === 'POST') {
+          const campId = pathname.match(/^\/api\/admin\/festivals\/campaigns\/([^\/]+)\/templates$/)[1];
+          const body = await request.json().catch(() => ({}));
+          const assignments = Array.isArray(body.assignments)
+            ? body.assignments
+            : (body.templateId ? [body] : []);
+          const result = await assignTemplatesToFestivalCampaign(env.DB, {
+            campaignId: campId,
+            assignments,
+            seedTemplatesCatalog: SEED_TEMPLATES,
+            actorId: user.id || 'admin',
+            actorEmail: user.email || ''
+          });
+          if (!result.ok) {
+            return applySecurityHeaders(jsonError(result.code, result.message, result.status || 400), request, env);
+          }
+          response = jsonSuccess(result, 200, {}, requestId);
+        }
+
+        // 10. DELETE /api/admin/festivals/campaigns/:campaignId/templates/:templateId — Remove Assignment
+        else if (pathname.match(/^\/api\/admin\/festivals\/campaigns\/([^\/]+)\/templates\/([^\/]+)$/) && method === 'DELETE') {
+          const m = pathname.match(/^\/api\/admin\/festivals\/campaigns\/([^\/]+)\/templates\/([^\/]+)$/);
+          const campId = m[1];
+          const tplId = decodeURIComponent(m[2]);
+          const result = await removeTemplateFromFestivalCampaign(env.DB, {
+            campaignId: campId,
+            templateId: tplId,
+            actorId: user.id || 'admin',
+            actorEmail: user.email || ''
+          });
+          if (!result.ok) {
+            return applySecurityHeaders(jsonError(result.code, result.message, result.status || 400), request, env);
+          }
+          response = jsonSuccess(result, 200, {}, requestId);
+        }
+
+        // 11. POST /api/admin/festivals/preview-window — Publication Window Preview & Diagnostics
+        else if (pathname === '/api/admin/festivals/preview-window' && method === 'POST') {
+          const body = await request.json().catch(() => ({}));
+          const festId = String(body.festivalId || '').trim();
+          const yr = Number(body.applicableYear || body.year || new Date(nowMs).getUTCFullYear());
+          const daysBefore = body.daysBefore !== undefined ? Number(body.daysBefore) : DEFAULT_DAYS_BEFORE_FESTIVAL;
+          const daysAfter = body.daysAfter !== undefined ? Number(body.daysAfter) : DEFAULT_DAYS_AFTER_FESTIVAL;
+          const tz = String(body.timezone || DEFAULT_FESTIVAL_TIMEZONE).trim();
+
+          let festival = null;
+          let yearRecord = null;
+          let activeOverride = null;
+          let assignedTemplatesCount = 0;
+          let campaignStatus = body.campaignStatus || CAMPAIGN_STATUS.SCHEDULED;
+
+          if (festId) {
+            festival = await env.DB.prepare('SELECT * FROM festival_definitions WHERE id = ? OR slug = ? LIMIT 1').bind(festId, festId).first();
+            if (festival) {
+              yearRecord = await env.DB.prepare('SELECT * FROM festival_year_dates WHERE festival_id = ? AND applicable_year = ? LIMIT 1').bind(festival.id, yr).first();
+              activeOverride = await env.DB.prepare('SELECT * FROM festival_date_overrides WHERE festival_id = ? AND applicable_year = ? AND is_active = 1 LIMIT 1').bind(festival.id, yr).first();
+              const camp = await env.DB.prepare('SELECT * FROM festival_campaigns WHERE festival_id = ? AND applicable_year = ? LIMIT 1').bind(festival.id, yr).first();
+              if (camp) {
+                campaignStatus = body.campaignStatus || camp.status;
+                const cntRow = await env.DB.prepare('SELECT COUNT(*) as cnt FROM festival_campaign_templates WHERE campaign_id = ? AND is_enabled = 1').bind(camp.id).first();
+                assignedTemplatesCount = Number(cntRow?.cnt || 0);
+              }
+            }
+          }
+
+          const simulatedOverride = body.overrideDate
+            ? { is_active: 1, applicable_year: yr, override_date: String(body.overrideDate).trim(), timezone: tz, reason: body.reason || 'Preview simulation' }
+            : activeOverride;
+          const simulatedYearRec = body.effectiveDate && !body.overrideDate
+            ? { applicable_year: yr, resolved_date: String(body.effectiveDate).trim(), verification_status: FESTIVAL_VERIFICATION_STATUS.MANUALLY_CONFIRMED, timezone: tz, resolution_source: 'PREVIEW_INPUT' }
+            : yearRecord;
+
+          const dateRes = resolveEffectiveFestivalDate({
+            festival: festival || { default_timezone: tz },
+            yearRecord: simulatedYearRec,
+            activeOverride: simulatedOverride,
+            applicableYear: yr
+          });
+
+          const windowPreview = dateRes.effectiveDate
+            ? calculatePublicationWindow(dateRes.effectiveDate, { daysBefore, daysAfter, timezone: tz })
+            : { valid: false, reason: 'No confirmed festival date available for preview.' };
+
+          const evalTimestamp = body.simulateAt ? body.simulateAt : nowMs;
+          const windowState = windowPreview.valid
+            ? isTimestampWithinPublicationWindow(windowPreview, evalTimestamp)
+            : { inWindow: false, phase: 'UNCONFIRMED', reason: windowPreview.reason };
+
+          const warnings = [];
+          if (!dateRes.isConfirmed) warnings.push('Festival date is not confirmed; campaign will remain inactive until verified or overridden.');
+          if (campaignStatus === CAMPAIGN_STATUS.DRAFT) warnings.push('Campaign is in DRAFT state and will not appear publicly even during its publication window.');
+          if (campaignStatus === CAMPAIGN_STATUS.PAUSED) warnings.push('Campaign is PAUSED and will reject new wish creations.');
+          if (assignedTemplatesCount === 0 && festId) warnings.push('No enabled templates are currently assigned to this festival campaign.');
+
+          response = jsonSuccess({
+            preview: {
+              festivalId: festival?.id || festId || null,
+              festivalName: festival?.name || body.festivalName || 'Preview Festival',
+              applicableYear: yr,
+              dateSource: dateRes.dateSource,
+              originalResolvedDate: yearRecord?.resolved_date || dateRes.sourceDate || null,
+              effectiveDate: dateRes.effectiveDate,
+              isOverridden: dateRes.isOverridden,
+              overrideStatus: dateRes.isOverridden ? 'ACTIVE_MANUAL_OVERRIDE' : 'NONE',
+              verificationStatus: dateRes.verificationStatus,
+              timezone: windowPreview.timezone || tz,
+              daysBefore,
+              daysAfter,
+              windowStartDate: windowPreview.startDate || null,
+              inclusiveFinalDay: windowPreview.endDate || null,
+              firstBlockedDate: windowPreview.firstBlockedDate || null,
+              assignedTemplatesCount,
+              campaignStatus,
+              simulatedAtState: windowState,
+              warnings
+            }
+          }, 200, {}, requestId);
+        }
+
+        // 12. GET /api/admin/festivals/audit-logs — Audit & Sync History
+        else if (pathname === '/api/admin/festivals/audit-logs' && method === 'GET') {
+          const rows = await env.DB.prepare('SELECT * FROM festival_sync_logs ORDER BY created_at DESC LIMIT 200').all().catch(() => ({ results: [] }));
+          response = jsonSuccess({
+            logs: (rows.results || []).map(l => ({
+              id: l.id,
+              festivalId: l.festival_id,
+              applicableYear: l.applicable_year,
+              campaignId: l.campaign_id,
+              actionType: l.action_type,
+              providerName: l.provider_name,
+              status: l.status,
+              previousValue: safeJsonParse(l.previous_value_json, {}),
+              newValue: safeJsonParse(l.new_value_json, {}),
+              reason: l.reason,
+              errorCode: l.error_code,
+              errorMessage: l.error_message,
+              actorId: l.actor_id,
+              actorEmail: l.actor_email,
+              createdAt: l.created_at
+            }))
+          }, 200, {}, requestId);
+        }
       }
 
       // --- 4. Server-Side Maintenance Mode Enforcement for Public Storefront ---

@@ -399,12 +399,15 @@ window.WishMagicCore = {
     const tplId = encodeURIComponent(family.id || family.slug || '');
     const isCustomize = action === 'customize' || action === 'create';
     const basePath = isCustomize ? '/customize.html' : '/template-preview.html';
+    const campId = family && family.festivalCampaign && family.festivalCampaign.campaignId
+      ? `&campaign=${encodeURIComponent(family.festivalCampaign.campaignId)}`
+      : '';
     if (!variant) {
-      return `${basePath}?template=${tplId}`;
+      return `${basePath}?template=${tplId}${campId}`;
     }
     const varParam = encodeURIComponent(variant.id || variant.slug || '');
     const relParam = encodeURIComponent(variant.relationshipSlug || '');
-    return `${basePath}?template=${tplId}&variant=${varParam}&rel=${relParam}`;
+    return `${basePath}?template=${tplId}&variant=${varParam}&rel=${relParam}${campId}`;
   }
 
   /**

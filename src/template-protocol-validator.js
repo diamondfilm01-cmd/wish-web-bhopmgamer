@@ -15,6 +15,9 @@ import {
   UTP_SUPPORTED_SCHEMA_VERSIONS,
   UTP_RUNTIME_API_VERSION,
   UTP_LATEST_RUNTIME_API_VERSION,
+  UTP_FESTIVAL_RUNTIME_API_VERSION,
+  UTP_SUPPORTED_RUNTIME_API_VERSIONS,
+  validateAndNormalizeFestivalMetadata,
   UTP_SUPPORTED_FIELD_TYPES,
   UTP_SUPPORTED_BINDING_TARGETS,
   UTP_CANONICAL_RELATIONSHIPS,
@@ -562,6 +565,7 @@ export function normalizeManifestToUtp(raw = {}) {
     variants: normalizedVariants,
     hasVariants: normalizedVariants.length > 0,
     capabilities: normalizedCaps,
+    festivalMetadata: validateAndNormalizeFestivalMetadata(raw.festivalMetadata !== undefined ? raw.festivalMetadata : tObj.festivalMetadata, raw).normalized,
     assets: Array.isArray(raw.assets) ? raw.assets : (Array.isArray(tObj.assets) ? tObj.assets : [])
   };
 }
@@ -1793,7 +1797,7 @@ export function validateUtpManifest(rawManifest, options = {}) {
         message: `Schema major version "${rawManifest.schemaVersion}" is not compatible with UTP validator v${UTP_LATEST_SCHEMA_VERSION}.`,
         blocking: true
       });
-    } else if (Number(minorStr) > 3 && !UTP_SUPPORTED_SCHEMA_VERSIONS.includes(cleanVer)) {
+    } else if (Number(minorStr) > 4 || !UTP_SUPPORTED_SCHEMA_VERSIONS.includes(cleanVer)) {
       issues.push({
         code: 'UNSUPPORTED_SCHEMA_VERSION',
         severity: 'error',
@@ -1804,7 +1808,8 @@ export function validateUtpManifest(rawManifest, options = {}) {
   }
 
   const minRuntimeApi = rawManifest.compatibility?.minimumRuntimeApi || rawManifest.compatibility?.runtimeApi;
-  if (minRuntimeApi && parseFloat(String(minRuntimeApi)) > parseFloat(UTP_LATEST_RUNTIME_API_VERSION || UTP_RUNTIME_API_VERSION)) {
+  const maxSupportedRuntimeFloat = parseFloat(UTP_FESTIVAL_RUNTIME_API_VERSION || UTP_LATEST_RUNTIME_API_VERSION || UTP_RUNTIME_API_VERSION);
+  if (minRuntimeApi && (Number.isNaN(parseFloat(String(minRuntimeApi))) || parseFloat(String(minRuntimeApi)) > maxSupportedRuntimeFloat)) {
     issues.push({
       code: 'INCOMPATIBLE_RUNTIME_API',
       severity: 'error',
@@ -2847,6 +2852,38 @@ export function validateUtpManifest(rawManifest, options = {}) {
         });
       }
     });
+  }
+
+  // 6c. UTP v1.4.0 Festival Metadata & Server Schedule Authority Validation
+  const rawFestivalMetaBlock = rawManifest.festivalMetadata !== undefined
+    ? rawManifest.festivalMetadata
+    : (rawManifest.template && rawManifest.template.festivalMetadata !== undefined
+        ? rawManifest.template.festivalMetadata
+        : undefined);
+  const festivalMetaCheck = validateAndNormalizeFestivalMetadata(rawFestivalMetaBlock, rawManifest);
+  if (festivalMetaCheck.issues && festivalMetaCheck.issues.length > 0) {
+    issues.push(...festivalMetaCheck.issues);
+  }
+
+  // 6d. Required Features / Required Capabilities Strict Enforcement (cannot be silently ignored)
+  const rawRequiredFeatures = Array.isArray(rawManifest.requiredCapabilities)
+    ? rawManifest.requiredCapabilities
+    : (Array.isArray(rawManifest.compatibility?.requiredFeatures)
+        ? rawManifest.compatibility.requiredFeatures
+        : (Array.isArray(rawManifest.compatibility?.requiredCapabilities)
+            ? rawManifest.compatibility.requiredCapabilities
+            : []));
+  for (const reqFeat of rawRequiredFeatures) {
+    const cleanFeat = String(reqFeat || '').trim();
+    if (!cleanFeat || !UTP_CAPABILITY_REGISTRY[cleanFeat]) {
+      issues.push({
+        code: 'UNSUPPORTED_REQUIRED_FEATURE',
+        severity: 'error',
+        feature: cleanFeat,
+        message: `Template requires unsupported feature/capability "${cleanFeat}". Unsupported required features cannot be silently ignored.`,
+        blocking: true
+      });
+    }
   }
 
   // 7. Capabilities Registry & Implementation Cross-Verification

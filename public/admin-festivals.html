@@ -1,0 +1,1096 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8"/>
+  <base href="/"/>
+  <meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+  <meta content="web_dashboard" name="shell-type"/>
+  <title>WishMagic | Festival Scheduler & Campaign Studio</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com"/>
+  <link crossorigin="" href="https://fonts.gstatic.com" rel="preconnect"/>
+  <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;600;700&family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet"/>
+  <link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:opsz,wght,FILL,GRAD@20..48,100..700,0..1,-50..200&display=swap" rel="stylesheet"/>
+  <script src="js/tailwind-config.js?v=20261015_wm47944_v7"></script>
+  <script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+  <script>
+    if (typeof tailwind !== 'undefined' && typeof sharedTailwindConfig !== 'undefined') {
+      tailwind.config = sharedTailwindConfig;
+    }
+  </script>
+  <link rel="stylesheet" href="css/admin-theme.css?v=20261015_wm47944_v7"/>
+  <script src="js/WishMagicCore.js"></script>
+  <script src="js/admin-theme.js?v=20261015_wm47944_v7"></script>
+  <script src="js/api-client.js"></script>
+  <script src="js/auth-service.js?v=20261015_wm47944_v7"></script>
+  <script src="js/repositories.js"></script>
+</head>
+<body class="bg-background text-on-surface font-body-md min-h-screen antialiased selection:bg-primary selection:text-white">
+
+<!-- Mobile Sidebar Backdrop Overlay -->
+<div id="sidebar-backdrop" class="fixed inset-0 bg-black/75 backdrop-blur-sm z-40 hidden md:hidden" onclick="toggleSidebar()"></div>
+
+<!-- Magical Castle Sidebar -->
+<aside id="admin-sidebar" class="fixed left-0 top-0 h-screen w-[270px] z-50 flex flex-col justify-between -translate-x-full md:translate-x-0 transition-transform duration-300 ease-in-out select-none">
+  <div class="flex flex-col min-h-0 flex-1">
+    <div class="px-5 pt-5 pb-3 flex-shrink-0">
+      <div class="flex items-center justify-between">
+        <a href="/admin/anktech/anktech/admin/overview" class="flex items-center gap-3 group text-decoration-none">
+          <div class="w-10 h-10 rounded-2xl bg-gradient-to-br from-pink-500/25 via-purple-500/25 to-amber-400/20 border border-pink-400/30 flex items-center justify-center shadow-[0_0_20px_rgba(236,72,153,0.35)] flex-shrink-0">
+            <span class="material-symbols-outlined text-pink-300">auto_awesome</span>
+          </div>
+          <div class="flex flex-col">
+            <div class="text-[22px] leading-none tracking-tight">
+              <span class="wm-brand-wish">Wish</span><span class="wm-brand-magic">Magic</span>
+            </div>
+            <span class="text-[10.5px] text-purple-200/80 font-medium tracking-wide mt-1">Create. Personalize. Celebrate.</span>
+          </div>
+        </a>
+        <button class="md:hidden p-1.5 rounded-lg bg-white/10 hover:bg-white/20 text-white transition-colors" onclick="toggleSidebar()" aria-label="Close Sidebar">
+          <span class="material-symbols-outlined text-[20px]">close</span>
+        </button>
+      </div>
+    </div>
+
+    <div class="px-3.5 flex-1 overflow-y-auto custom-scrollbar pb-6">
+      <nav class="flex flex-col gap-0.5" aria-label="Admin Navigation">
+        <div class="mb-1 pt-1">
+          <a data-nav-role="dashboard" href="/admin/anktech/anktech/admin/overview">
+            <span class="material-symbols-outlined text-[20px]">home</span>
+            <span>Dashboard</span>
+          </a>
+        </div>
+
+        <div class="wm-nav-section-label">TEMPLATES & CAMPAIGNS</div>
+        <a href="/admin/anktech/anktech/admin/templates">
+          <span class="material-symbols-outlined">grid_view</span>
+          <span>All Templates</span>
+        </a>
+        <a href="/admin/anktech/anktech/admin/add-template">
+          <span class="material-symbols-outlined">add_circle</span>
+          <span>Add Template</span>
+        </a>
+        <a class="wm-nav-active" href="/admin/anktech/anktech/admin/festivals">
+          <span class="material-symbols-outlined">event_available</span>
+          <span>Festival Scheduler</span>
+        </a>
+        <a href="/admin/anktech/anktech/admin/occasions">
+          <span class="material-symbols-outlined">category</span>
+          <span>Categories</span>
+        </a>
+        <a href="/admin/anktech/anktech/admin/media">
+          <span class="material-symbols-outlined">image</span>
+          <span>Media Library</span>
+        </a>
+
+        <div class="wm-nav-section-label">WISHES</div>
+        <a href="/admin/anktech/anktech/admin/wishes">
+          <span class="material-symbols-outlined">description</span>
+          <span>All Wishes</span>
+        </a>
+        <a href="/admin/anktech/anktech/admin/analytics">
+          <span class="material-symbols-outlined">trending_up</span>
+          <span>Analytics</span>
+        </a>
+
+        <div class="wm-nav-section-label">SYSTEM</div>
+        <a href="/admin/anktech/anktech/admin/settings">
+          <span class="material-symbols-outlined">settings</span>
+          <span>Settings</span>
+        </a>
+        <a href="/admin/anktech/anktech/admin/audit-logs">
+          <span class="material-symbols-outlined">receipt_long</span>
+          <span>Activity Logs</span>
+        </a>
+      </nav>
+    </div>
+  </div>
+</aside>
+
+<!-- Main Content Area -->
+<main class="md:pl-[270px] min-h-screen flex flex-col">
+  <!-- Top Bar -->
+  <header class="sticky top-0 z-30 backdrop-blur-xl bg-surface/85 border-b border-outline-variant/25 px-4 sm:px-8 py-4 flex flex-wrap items-center justify-between gap-4">
+    <div class="flex items-center gap-3">
+      <button type="button" class="md:hidden p-2 rounded-xl bg-surface-container text-on-surface" onclick="toggleSidebar()" aria-label="Toggle Menu">
+        <span class="material-symbols-outlined">menu</span>
+      </button>
+      <div>
+        <div class="flex items-center gap-2">
+          <h1 class="text-xl sm:text-2xl font-extrabold tracking-tight text-on-surface">Festival Scheduler</h1>
+          <span class="px-2.5 py-0.5 rounded-full text-[11px] font-bold bg-purple-500/20 text-purple-300 border border-purple-500/30">UTP v1.4.0</span>
+        </div>
+        <p class="text-xs text-on-surface-variant">Annual Festival Calendar, Year-Scoped Date Overrides, Campaign Windows (F-15 to F+3 Inclusive) &amp; Template Variant Assignments</p>
+      </div>
+    </div>
+
+    <div class="flex items-center gap-3">
+      <label for="scheduler-year-select" class="text-xs font-bold text-on-surface-variant">Year:</label>
+      <select id="scheduler-year-select" onchange="loadFestivalSchedulerData()" class="rounded-xl bg-surface-container border border-outline-variant/40 text-xs font-bold px-3 py-2 text-on-surface focus:ring-2 focus:ring-primary">
+        <option value="2025">2025</option>
+        <option value="2026" selected>2026</option>
+        <option value="2027">2027</option>
+        <option value="2028">2028</option>
+      </select>
+      <button type="button" onclick="triggerProviderSync()" id="btn-sync-provider" class="px-3.5 py-2 rounded-xl bg-surface-container-high hover:bg-purple-500/20 border border-outline-variant/40 text-xs font-bold text-on-surface flex items-center gap-1.5 transition cursor-pointer">
+        <span class="material-symbols-outlined text-[16px]">sync</span>
+        <span>Sync Calendar Feed</span>
+      </button>
+      <button type="button" onclick="openFestivalModal()" class="px-4 py-2 rounded-xl bg-gradient-to-r from-pink-500 to-purple-600 text-white text-xs font-bold shadow-lg flex items-center gap-1.5 hover:brightness-110 transition cursor-pointer">
+        <span class="material-symbols-outlined text-[16px]">add</span>
+        <span>New Festival</span>
+      </button>
+    </div>
+  </header>
+
+  <!-- Status Banner -->
+  <div id="scheduler-feedback-banner" class="hidden mx-4 sm:mx-8 mt-4 p-4 rounded-2xl border text-xs font-semibold flex items-center justify-between" role="status" aria-live="polite"></div>
+
+  <!-- Navigation Tabs for Required Admin Sections A–H -->
+  <div class="px-4 sm:px-8 pt-4">
+    <div class="flex flex-wrap gap-2 border-b border-outline-variant/25 pb-3" role="tablist" aria-label="Festival Scheduler Sections">
+      <button type="button" role="tab" aria-selected="true" data-section-tab="section-calendar" onclick="switchSchedulerTab('section-calendar')" class="scheduler-tab-btn px-3.5 py-2 rounded-xl text-xs font-bold bg-primary text-white cursor-pointer">A. Festival Calendar</button>
+      <button type="button" role="tab" aria-selected="false" data-section-tab="section-details" onclick="switchSchedulerTab('section-details')" class="scheduler-tab-btn px-3.5 py-2 rounded-xl text-xs font-bold bg-surface-container text-on-surface hover:bg-surface-container-high cursor-pointer">B. Festival Details</button>
+      <button type="button" role="tab" aria-selected="false" data-section-tab="section-assignments" onclick="switchSchedulerTab('section-assignments')" class="scheduler-tab-btn px-3.5 py-2 rounded-xl text-xs font-bold bg-surface-container text-on-surface hover:bg-surface-container-high cursor-pointer">C. Template Assignments</button>
+      <button type="button" role="tab" aria-selected="false" data-section-tab="section-schedule" onclick="switchSchedulerTab('section-schedule')" class="scheduler-tab-btn px-3.5 py-2 rounded-xl text-xs font-bold bg-surface-container text-on-surface hover:bg-surface-container-high cursor-pointer">D. Publication Schedule</button>
+      <button type="button" role="tab" aria-selected="false" data-section-tab="section-overrides" onclick="switchSchedulerTab('section-overrides')" class="scheduler-tab-btn px-3.5 py-2 rounded-xl text-xs font-bold bg-surface-container text-on-surface hover:bg-surface-container-high cursor-pointer">E. Date Overrides</button>
+      <button type="button" role="tab" aria-selected="false" data-section-tab="section-upcoming" onclick="switchSchedulerTab('section-upcoming')" class="scheduler-tab-btn px-3.5 py-2 rounded-xl text-xs font-bold bg-surface-container text-on-surface hover:bg-surface-container-high cursor-pointer">F. Upcoming Festivals</button>
+      <button type="button" role="tab" aria-selected="false" data-section-tab="section-preview" onclick="switchSchedulerTab('section-preview')" class="scheduler-tab-btn px-3.5 py-2 rounded-xl text-xs font-bold bg-surface-container text-on-surface hover:bg-surface-container-high cursor-pointer">G. Preview &amp; Diagnostics</button>
+      <button type="button" role="tab" aria-selected="false" data-section-tab="section-history" onclick="switchSchedulerTab('section-history')" class="scheduler-tab-btn px-3.5 py-2 rounded-xl text-xs font-bold bg-surface-container text-on-surface hover:bg-surface-container-high cursor-pointer">H. Change History</button>
+    </div>
+  </div>
+
+  <!-- Main Workspace Sections -->
+  <div class="p-4 sm:p-8 space-y-8 flex-1">
+
+    <!-- SECTION A: FESTIVAL CALENDAR -->
+    <section id="section-calendar" class="scheduler-panel space-y-4" aria-labelledby="heading-calendar">
+      <div class="flex flex-wrap items-center justify-between gap-4">
+        <div>
+          <h2 id="heading-calendar" class="text-lg font-extrabold text-on-surface">A. Annual Festival Calendar</h2>
+          <p class="text-xs text-on-surface-variant">Resolved festival dates, verification statuses, manual overrides, and authoritative publication windows (`F - daysBefore` through `F + 3 days` inclusive).</p>
+        </div>
+        <div class="flex flex-wrap items-center gap-2">
+          <input type="search" id="calendar-search-input" oninput="renderFestivalCalendarTable()" placeholder="Search festival name or slug..." class="rounded-xl bg-surface-container border border-outline-variant/40 text-xs px-3.5 py-2 text-on-surface w-60" aria-label="Search festivals"/>
+          <select id="calendar-status-filter" onchange="renderFestivalCalendarTable()" class="rounded-xl bg-surface-container border border-outline-variant/40 text-xs px-3 py-2 text-on-surface" aria-label="Filter by verification status">
+            <option value="all">All Statuses</option>
+            <option value="AUTO_VERIFIED">Auto-Verified</option>
+            <option value="MANUALLY_CONFIRMED">Manually Confirmed</option>
+            <option value="IMPORTED_PENDING">Imported (Awaiting Approval)</option>
+            <option value="NEEDS_REVIEW">Needs Review</option>
+            <option value="DATE_UNAVAILABLE">Date Unavailable</option>
+          </select>
+        </div>
+      </div>
+
+      <div class="rounded-2xl border border-outline-variant/30 bg-surface-container/60 overflow-x-auto">
+        <table class="w-full text-left border-collapse text-xs">
+          <thead>
+            <tr class="border-b border-outline-variant/30 text-[11px] uppercase tracking-wider text-on-surface-variant bg-surface-container">
+              <th class="py-3 px-4">Festival</th>
+              <th class="py-3 px-4">Method &amp; Source</th>
+              <th class="py-3 px-4">Source Date</th>
+              <th class="py-3 px-4">Effective Date</th>
+              <th class="py-3 px-4">Verification Status</th>
+              <th class="py-3 px-4">Publication Window (Inclusive)</th>
+              <th class="py-3 px-4">First Blocked Day</th>
+              <th class="py-3 px-4 text-right">Actions</th>
+            </tr>
+          </thead>
+          <tbody id="festival-calendar-tbody" class="divide-y divide-outline-variant/20">
+            <tr><td colspan="8" class="py-8 text-center text-on-surface-variant">Loading festival calendar...</td></tr>
+          </tbody>
+        </table>
+      </div>
+    </section>
+
+    <!-- SECTION B: FESTIVAL DETAILS -->
+    <section id="section-details" class="scheduler-panel hidden space-y-4" aria-labelledby="heading-details">
+      <div class="rounded-2xl border border-outline-variant/30 bg-surface-container/60 p-6 space-y-5">
+        <div class="flex items-center justify-between">
+          <div>
+            <h2 id="heading-details" class="text-lg font-extrabold text-on-surface">B. Festival Details &amp; Configuration</h2>
+            <p class="text-xs text-on-surface-variant">Configure festival identity, localized names, date-calculation method, timezone, and default publication window offsets.</p>
+          </div>
+        </div>
+
+        <form id="form-festival-details" onsubmit="saveFestivalDefinition(event)" class="grid grid-cols-1 md:grid-cols-2 gap-4 text-xs">
+          <div>
+            <label for="fest-id-input" class="block font-bold mb-1">Festival ID / Slug *</label>
+            <input type="text" id="fest-id-input" required placeholder="e.g. fest_diwali or diwali" class="w-full rounded-xl bg-surface border border-outline-variant/40 px-3 py-2 text-on-surface"/>
+            <p id="err-fest-id" class="text-[11px] text-rose-400 mt-1 hidden"></p>
+          </div>
+          <div>
+            <label for="fest-name-input" class="block font-bold mb-1">Display Name *</label>
+            <input type="text" id="fest-name-input" required placeholder="e.g. Diwali (Deepavali)" class="w-full rounded-xl bg-surface border border-outline-variant/40 px-3 py-2 text-on-surface"/>
+          </div>
+          <div>
+            <label for="fest-category-input" class="block font-bold mb-1">Festival Category</label>
+            <select id="fest-category-input" class="w-full rounded-xl bg-surface border border-outline-variant/40 px-3 py-2 text-on-surface">
+              <option value="indian_festival">Indian Festival (Lunar / Panchang)</option>
+              <option value="global_festival">Global Festival</option>
+              <option value="cultural_celebration">Cultural Celebration</option>
+              <option value="national_observance">National Observance</option>
+            </select>
+          </div>
+          <div>
+            <label for="fest-method-input" class="block font-bold mb-1">Date Calculation / Resolution Method *</label>
+            <select id="fest-method-input" class="w-full rounded-xl bg-surface border border-outline-variant/40 px-3 py-2 text-on-surface">
+              <option value="VERIFIED_CALENDAR_TABLE">Verified Calendar Table (Panchang / Gazette)</option>
+              <option value="FIXED_GREGORIAN">Fixed Gregorian Date (e.g. 25 Dec, 1 Jan)</option>
+              <option value="DETERMINISTIC_RULE">Deterministic Rule (Nth Weekday / Easter)</option>
+              <option value="EXTERNAL_PROVIDER">External Calendar Provider Feed</option>
+              <option value="MANUAL_ADMIN">Manual Administrator Entry</option>
+            </select>
+          </div>
+          <div>
+            <label for="fest-resolved-date-input" class="block font-bold mb-1">Resolved Date for Selected Year (YYYY-MM-DD)</label>
+            <input type="date" id="fest-resolved-date-input" class="w-full rounded-xl bg-surface border border-outline-variant/40 px-3 py-2 text-on-surface"/>
+          </div>
+          <div>
+            <label for="fest-verification-status-input" class="block font-bold mb-1">Date Verification Status</label>
+            <select id="fest-verification-status-input" class="w-full rounded-xl bg-surface border border-outline-variant/40 px-3 py-2 text-on-surface">
+              <option value="MANUALLY_CONFIRMED">Manually Confirmed</option>
+              <option value="AUTO_VERIFIED">Automatically Resolved &amp; Verified</option>
+              <option value="IMPORTED_PENDING">Imported, Awaiting Verification</option>
+              <option value="NEEDS_REVIEW">Needs Review</option>
+              <option value="DATE_UNAVAILABLE">Date Unavailable</option>
+            </select>
+          </div>
+          <div>
+            <label for="fest-timezone-input" class="block font-bold mb-1">Timezone (IANA)</label>
+            <input type="text" id="fest-timezone-input" value="Asia/Kolkata" class="w-full rounded-xl bg-surface border border-outline-variant/40 px-3 py-2 text-on-surface"/>
+          </div>
+          <div class="grid grid-cols-2 gap-3">
+            <div>
+              <label for="fest-days-before-input" class="block font-bold mb-1">Days Before (Default 15)</label>
+              <input type="number" id="fest-days-before-input" value="15" min="0" max="180" class="w-full rounded-xl bg-surface border border-outline-variant/40 px-3 py-2 text-on-surface"/>
+            </div>
+            <div>
+              <label for="fest-days-after-input" class="block font-bold mb-1">Days After (Default 3)</label>
+              <input type="number" id="fest-days-after-input" value="3" min="0" max="60" class="w-full rounded-xl bg-surface border border-outline-variant/40 px-3 py-2 text-on-surface"/>
+            </div>
+          </div>
+          <div>
+            <label for="fest-localized-input" class="block font-bold mb-1">Localized Names (JSON)</label>
+            <input type="text" id="fest-localized-input" placeholder='{"hi":"दीपावली","en":"Diwali"}' class="w-full rounded-xl bg-surface border border-outline-variant/40 px-3 py-2 text-on-surface font-mono"/>
+          </div>
+          <div>
+            <label for="fest-source-input" class="block font-bold mb-1">Source Attribution / Reference</label>
+            <input type="text" id="fest-source-input" placeholder="e.g. Positional Astronomy Centre (IMD Panchang)" class="w-full rounded-xl bg-surface border border-outline-variant/40 px-3 py-2 text-on-surface"/>
+          </div>
+          <div class="md:col-span-2">
+            <label for="fest-desc-input" class="block font-bold mb-1">Description &amp; Notes</label>
+            <textarea id="fest-desc-input" rows="2" class="w-full rounded-xl bg-surface border border-outline-variant/40 px-3 py-2 text-on-surface"></textarea>
+          </div>
+          <div class="md:col-span-2 flex flex-wrap items-center gap-6">
+            <label class="inline-flex items-center gap-2 cursor-pointer">
+              <input type="checkbox" id="fest-enabled-input" checked class="rounded text-primary"/>
+              <span class="font-bold">Festival Enabled</span>
+            </label>
+            <label class="inline-flex items-center gap-2 cursor-pointer">
+              <input type="checkbox" id="fest-approval-input" class="rounded text-primary"/>
+              <span class="font-bold">Requires Administrator Approval Before Going Live</span>
+            </label>
+          </div>
+          <div class="md:col-span-2 flex justify-end gap-3 pt-2">
+            <button type="submit" class="px-5 py-2.5 rounded-xl bg-gradient-to-r from-pink-500 to-purple-600 text-white font-bold shadow-md cursor-pointer">Save Festival Definition</button>
+          </div>
+        </form>
+      </div>
+    </section>
+
+    <!-- SECTION C: TEMPLATE ASSIGNMENTS -->
+    <section id="section-assignments" class="scheduler-panel hidden space-y-4" aria-labelledby="heading-assignments">
+      <div class="rounded-2xl border border-outline-variant/30 bg-surface-container/60 p-6 space-y-5">
+        <div class="flex flex-wrap items-center justify-between gap-4">
+          <div>
+            <h2 id="heading-assignments" class="text-lg font-extrabold text-on-surface">C. Campaign Template &amp; Relation Variant Assignments</h2>
+            <p class="text-xs text-on-surface-variant">Assign existing WishMagic templates to a festival campaign, filter supported relation variants, set display order, and preview without duplicating template files.</p>
+          </div>
+          <div class="flex items-center gap-2">
+            <label for="assign-campaign-select" class="text-xs font-bold">Target Campaign:</label>
+            <select id="assign-campaign-select" onchange="renderCampaignAssignmentsPanel()" class="rounded-xl bg-surface border border-outline-variant/40 text-xs font-bold px-3 py-2 text-on-surface min-w-[220px]"></select>
+          </div>
+        </div>
+
+        <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
+          <!-- Available Templates Search & Picker -->
+          <div class="space-y-3">
+            <div class="flex items-center justify-between gap-2">
+              <h3 class="text-sm font-bold text-on-surface">Available WishMagic Templates</h3>
+              <input type="search" id="assign-template-search" oninput="renderAvailableTemplatesForAssignment()" placeholder="Search templates..." class="rounded-xl bg-surface border border-outline-variant/40 text-xs px-3 py-1.5 text-on-surface w-48"/>
+            </div>
+            <div id="assign-available-templates-list" class="space-y-2 max-h-[420px] overflow-y-auto pr-1"></div>
+          </div>
+
+          <!-- Currently Assigned Templates for Selected Campaign -->
+          <div class="space-y-3">
+            <h3 class="text-sm font-bold text-on-surface">Assigned Templates on Selected Campaign</h3>
+            <div id="assign-current-list" class="space-y-2 max-h-[420px] overflow-y-auto pr-1"></div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- SECTION D: PUBLICATION SCHEDULE -->
+    <section id="section-schedule" class="scheduler-panel hidden space-y-4" aria-labelledby="heading-schedule">
+      <div class="rounded-2xl border border-outline-variant/30 bg-surface-container/60 p-6 space-y-5">
+        <div>
+          <h2 id="heading-schedule" class="text-lg font-extrabold text-on-surface">D. Campaign Publication Schedule &amp; Status Controls</h2>
+          <p class="text-xs text-on-surface-variant">Create or configure festival campaigns. Default window: Start = <code>F - 15 days</code>, End = <code>F + 3 days</code> (inclusive). Wishes created during the active window become accessible immediately.</p>
+        </div>
+
+        <form id="form-campaign-schedule" onsubmit="saveCampaignSchedule(event)" class="grid grid-cols-1 md:grid-cols-3 gap-4 text-xs border-b border-outline-variant/25 pb-6">
+          <div>
+            <label for="camp-festival-select" class="block font-bold mb-1">Festival *</label>
+            <select id="camp-festival-select" required class="w-full rounded-xl bg-surface border border-outline-variant/40 px-3 py-2 text-on-surface"></select>
+          </div>
+          <div>
+            <label for="camp-year-input" class="block font-bold mb-1">Applicable Year *</label>
+            <input type="number" id="camp-year-input" value="2026" min="2024" max="2035" required class="w-full rounded-xl bg-surface border border-outline-variant/40 px-3 py-2 text-on-surface"/>
+          </div>
+          <div>
+            <label for="camp-status-select" class="block font-bold mb-1">Campaign Status *</label>
+            <select id="camp-status-select" class="w-full rounded-xl bg-surface border border-outline-variant/40 px-3 py-2 text-on-surface">
+              <option value="SCHEDULED">SCHEDULED (Auto-opens in window)</option>
+              <option value="ACTIVE">ACTIVE (Live during confirmed window)</option>
+              <option value="PAUSED">PAUSED (Temporarily blocks new wishes)</option>
+              <option value="DRAFT">DRAFT (Hidden from public gallery)</option>
+              <option value="ENDED">ENDED (Closed for new wishes)</option>
+              <option value="CANCELLED">CANCELLED</option>
+            </select>
+          </div>
+          <div>
+            <label for="camp-title-input" class="block font-bold mb-1">Campaign Title</label>
+            <input type="text" id="camp-title-input" placeholder="e.g. Diwali 2026 Grand Celebration" class="w-full rounded-xl bg-surface border border-outline-variant/40 px-3 py-2 text-on-surface"/>
+          </div>
+          <div>
+            <label for="camp-badge-input" class="block font-bold mb-1">Gallery Badge Label</label>
+            <input type="text" id="camp-badge-input" placeholder="e.g. ✨ Diwali Special" class="w-full rounded-xl bg-surface border border-outline-variant/40 px-3 py-2 text-on-surface"/>
+          </div>
+          <div>
+            <label for="camp-tz-input" class="block font-bold mb-1">Timezone</label>
+            <input type="text" id="camp-tz-input" value="Asia/Kolkata" class="w-full rounded-xl bg-surface border border-outline-variant/40 px-3 py-2 text-on-surface"/>
+          </div>
+          <div>
+            <label for="camp-days-before" class="block font-bold mb-1">Days Before Festival (Default 15)</label>
+            <input type="number" id="camp-days-before" value="15" min="0" max="180" required class="w-full rounded-xl bg-surface border border-outline-variant/40 px-3 py-2 text-on-surface"/>
+          </div>
+          <div>
+            <label for="camp-days-after" class="block font-bold mb-1">Days After Festival (Default 3, Inclusive)</label>
+            <input type="number" id="camp-days-after" value="3" min="0" max="60" required class="w-full rounded-xl bg-surface border border-outline-variant/40 px-3 py-2 text-on-surface"/>
+          </div>
+          <div class="flex items-end">
+            <button type="submit" class="w-full py-2.5 px-4 rounded-xl bg-gradient-to-r from-pink-500 to-purple-600 text-white font-bold shadow-md cursor-pointer">Save Campaign Schedule</button>
+          </div>
+        </form>
+
+        <div id="campaigns-schedule-list" class="space-y-3"></div>
+      </div>
+    </section>
+
+    <!-- SECTION E: DATE OVERRIDES -->
+    <section id="section-overrides" class="scheduler-panel hidden space-y-4" aria-labelledby="heading-overrides">
+      <div class="rounded-2xl border border-outline-variant/30 bg-surface-container/60 p-6 space-y-5">
+        <div>
+          <h2 id="heading-overrides" class="text-lg font-extrabold text-on-surface">E. Year-Scoped Manual Date Overrides</h2>
+          <p class="text-xs text-on-surface-variant">Override an automatically resolved or imported festival date for a specific year without modifying source code or affecting other years. Removing an override immediately restores automatic resolution.</p>
+        </div>
+
+        <form id="form-date-override" onsubmit="submitFestivalDateOverride(event)" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 text-xs">
+          <div>
+            <label for="ov-festival-select" class="block font-bold mb-1">Select Festival *</label>
+            <select id="ov-festival-select" onchange="updateOverrideComparisonPreview()" required class="w-full rounded-xl bg-surface border border-outline-variant/40 px-3 py-2 text-on-surface"></select>
+          </div>
+          <div>
+            <label for="ov-year-input" class="block font-bold mb-1">Applicable Year *</label>
+            <input type="number" id="ov-year-input" value="2026" min="2024" max="2035" onchange="updateOverrideComparisonPreview()" required class="w-full rounded-xl bg-surface border border-outline-variant/40 px-3 py-2 text-on-surface"/>
+          </div>
+          <div>
+            <label for="ov-date-input" class="block font-bold mb-1">Manual Override Date (YYYY-MM-DD) *</label>
+            <input type="date" id="ov-date-input" onchange="updateOverrideComparisonPreview()" required class="w-full rounded-xl bg-surface border border-outline-variant/40 px-3 py-2 text-on-surface"/>
+            <p id="err-ov-date" class="text-[11px] text-rose-400 mt-1 hidden"></p>
+          </div>
+          <div>
+            <label for="ov-tz-input" class="block font-bold mb-1">Timezone (IANA) *</label>
+            <input type="text" id="ov-tz-input" value="Asia/Kolkata" required class="w-full rounded-xl bg-surface border border-outline-variant/40 px-3 py-2 text-on-surface"/>
+          </div>
+          <div class="md:col-span-2">
+            <label for="ov-reason-input" class="block font-bold mb-1">Override Reason (Required for Audit Log) *</label>
+            <input type="text" id="ov-reason-input" required placeholder="e.g. Regional Panchang / Gazette adjustment for Amavasya tithi" class="w-full rounded-xl bg-surface border border-outline-variant/40 px-3 py-2 text-on-surface"/>
+          </div>
+          <div class="lg:col-span-3 p-4 rounded-xl bg-surface border border-outline-variant/30 flex flex-wrap items-center justify-between gap-4" id="ov-side-by-side-box">
+            <div>
+              <span class="text-[11px] uppercase tracking-wider text-on-surface-variant block">Automatically Resolved Source Date</span>
+              <span id="ov-source-date-display" class="text-sm font-extrabold font-mono text-on-surface">—</span>
+            </div>
+            <div>
+              <span class="text-[11px] uppercase tracking-wider text-on-surface-variant block">Current Effective Date</span>
+              <span id="ov-effective-date-display" class="text-sm font-extrabold font-mono text-amber-400">—</span>
+            </div>
+            <div>
+              <span class="text-[11px] uppercase tracking-wider text-on-surface-variant block">Resulting Publication Window</span>
+              <span id="ov-window-preview-display" class="text-sm font-extrabold font-mono text-emerald-400">—</span>
+            </div>
+            <div class="flex items-center gap-2">
+              <button type="submit" class="px-4 py-2 rounded-xl bg-gradient-to-r from-amber-500 to-pink-600 text-white font-bold shadow-md cursor-pointer">Save Override</button>
+              <button type="button" onclick="removeCurrentSelectedOverride()" class="px-3.5 py-2 rounded-xl bg-surface-container-high hover:bg-rose-500/20 text-rose-300 border border-rose-500/30 font-bold cursor-pointer">Remove Override</button>
+            </div>
+          </div>
+        </form>
+      </div>
+    </section>
+
+    <!-- SECTION F: UPCOMING FESTIVALS -->
+    <section id="section-upcoming" class="scheduler-panel hidden space-y-4" aria-labelledby="heading-upcoming">
+      <div>
+        <h2 id="heading-upcoming" class="text-lg font-extrabold text-on-surface">F. Upcoming Festivals &amp; Campaign Readiness</h2>
+        <p class="text-xs text-on-surface-variant">Chronological view of upcoming festivals, their publication window opening dates, and assigned template readiness.</p>
+      </div>
+      <div id="upcoming-festivals-grid" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4"></div>
+    </section>
+
+    <!-- SECTION G: PREVIEW AND DIAGNOSTICS -->
+    <section id="section-preview" class="scheduler-panel hidden space-y-4" aria-labelledby="heading-preview">
+      <div class="rounded-2xl border border-outline-variant/30 bg-surface-container/60 p-6 space-y-5">
+        <div>
+          <h2 id="heading-preview" class="text-lg font-extrabold text-on-surface">G. Publication Window Preview &amp; Schedule Diagnostics</h2>
+          <p class="text-xs text-on-surface-variant">Simulate any festival date, offset, and timestamp to verify authoritative server window calculations (`startOfDay(start_date, tz) &lt;= t &lt; startOfDay(end_date + 1 day, tz)`).</p>
+        </div>
+
+        <div class="grid grid-cols-1 md:grid-cols-4 gap-4 text-xs">
+          <div>
+            <label for="diag-festival-select" class="block font-bold mb-1">Festival</label>
+            <select id="diag-festival-select" onchange="runScheduleDiagnosticsPreview()" class="w-full rounded-xl bg-surface border border-outline-variant/40 px-3 py-2 text-on-surface"></select>
+          </div>
+          <div>
+            <label for="diag-days-before" class="block font-bold mb-1">Days Before (Default 15)</label>
+            <input type="number" id="diag-days-before" value="15" min="0" max="180" onchange="runScheduleDiagnosticsPreview()" class="w-full rounded-xl bg-surface border border-outline-variant/40 px-3 py-2 text-on-surface"/>
+          </div>
+          <div>
+            <label for="diag-days-after" class="block font-bold mb-1">Days After (Default 3)</label>
+            <input type="number" id="diag-days-after" value="3" min="0" max="60" onchange="runScheduleDiagnosticsPreview()" class="w-full rounded-xl bg-surface border border-outline-variant/40 px-3 py-2 text-on-surface"/>
+          </div>
+          <div>
+            <label for="diag-simulate-date" class="block font-bold mb-1">Simulate Current Date</label>
+            <input type="date" id="diag-simulate-date" onchange="runScheduleDiagnosticsPreview()" class="w-full rounded-xl bg-surface border border-outline-variant/40 px-3 py-2 text-on-surface"/>
+          </div>
+        </div>
+
+        <div id="diagnostics-preview-card" class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-3 pt-2"></div>
+        <div id="diagnostics-warnings-box" class="space-y-1.5 text-xs"></div>
+      </div>
+    </section>
+
+    <!-- SECTION H: CHANGE HISTORY -->
+    <section id="section-history" class="scheduler-panel hidden space-y-4" aria-labelledby="heading-history">
+      <div>
+        <h2 id="heading-history" class="text-lg font-extrabold text-on-surface">H. Administrative Change History &amp; Synchronization Audit Logs</h2>
+        <p class="text-xs text-on-surface-variant">Immutable audit trail recording administrator identity, timestamp, affected festival/year, previous value, new value, and override reason.</p>
+      </div>
+      <div class="rounded-2xl border border-outline-variant/30 bg-surface-container/60 overflow-x-auto">
+        <table class="w-full text-left border-collapse text-xs">
+          <thead>
+            <tr class="border-b border-outline-variant/30 text-[11px] uppercase tracking-wider text-on-surface-variant bg-surface-container">
+              <th class="py-3 px-4">Timestamp</th>
+              <th class="py-3 px-4">Action</th>
+              <th class="py-3 px-4">Festival / Year</th>
+              <th class="py-3 px-4">Actor</th>
+              <th class="py-3 px-4">Previous → New Value</th>
+              <th class="py-3 px-4">Reason / Status</th>
+            </tr>
+          </thead>
+          <tbody id="festival-audit-tbody" class="divide-y divide-outline-variant/20">
+            <tr><td colspan="6" class="py-6 text-center text-on-surface-variant">Loading audit history...</td></tr>
+          </tbody>
+        </table>
+      </div>
+    </section>
+
+  </div>
+</main>
+
+<script>
+  let schedulerState = {
+    selectedYear: 2026,
+    festivals: [],
+    campaigns: [],
+    overrides: [],
+    auditLogs: [],
+    availableTemplates: []
+  };
+
+  function escapeSafe(str) {
+    return String(str === undefined || str === null ? '' : str)
+      .replace(/&/g, '&amp;')
+      .replace(/</g, '&lt;')
+      .replace(/>/g, '&gt;')
+      .replace(/"/g, '&quot;');
+  }
+
+  function showSchedulerBanner(message, type = 'success') {
+    const el = document.getElementById('scheduler-feedback-banner');
+    if (!el) return;
+    el.className = 'mx-4 sm:mx-8 mt-4 p-4 rounded-2xl border text-xs font-semibold flex items-center justify-between ' +
+      (type === 'error'
+        ? 'bg-rose-500/15 border-rose-500/40 text-rose-200'
+        : 'bg-emerald-500/15 border-emerald-500/40 text-emerald-200');
+    el.innerHTML = `<span>${escapeSafe(message)}</span><button type="button" onclick="this.parentElement.classList.add('hidden')" class="px-2 py-1 rounded bg-white/10 hover:bg-white/20">Dismiss</button>`;
+    el.classList.remove('hidden');
+  }
+
+  function switchSchedulerTab(targetId) {
+    document.querySelectorAll('.scheduler-panel').forEach(p => p.classList.add('hidden'));
+    const target = document.getElementById(targetId);
+    if (target) target.classList.remove('hidden');
+
+    document.querySelectorAll('.scheduler-tab-btn').forEach(btn => {
+      const isMatch = btn.getAttribute('data-section-tab') === targetId;
+      btn.setAttribute('aria-selected', isMatch ? 'true' : 'false');
+      if (isMatch) {
+        btn.classList.add('bg-primary', 'text-white');
+        btn.classList.remove('bg-surface-container', 'text-on-surface');
+      } else {
+        btn.classList.remove('bg-primary', 'text-white');
+        btn.classList.add('bg-surface-container', 'text-on-surface');
+      }
+    });
+  }
+
+  async function loadFestivalSchedulerData() {
+    const yearEl = document.getElementById('scheduler-year-select');
+    const year = yearEl ? Number(yearEl.value) : 2026;
+    try {
+      const res = await fetch(`/api/admin/festivals?year=${encodeURIComponent(year)}`, { credentials: 'include' });
+      const json = await res.json();
+      if (!res.ok || !json.success) {
+        throw new Error(json.message || 'Failed to load Festival Scheduler data.');
+      }
+      const data = json.data || json;
+      schedulerState = {
+        selectedYear: data.selectedYear || year,
+        festivals: data.festivals || [],
+        campaigns: data.campaigns || [],
+        overrides: data.overrides || [],
+        auditLogs: data.auditLogs || [],
+        availableTemplates: data.availableTemplates || []
+      };
+      renderAllSchedulerViews();
+    } catch (err) {
+      showSchedulerBanner(err.message, 'error');
+    }
+  }
+
+  function renderAllSchedulerViews() {
+    renderFestivalCalendarTable();
+    populateFestivalSelectors();
+    renderCampaignAssignmentsPanel();
+    renderAvailableTemplatesForAssignment();
+    renderCampaignsScheduleList();
+    updateOverrideComparisonPreview();
+    renderUpcomingFestivalsGrid();
+    runScheduleDiagnosticsPreview();
+    renderAuditHistoryTable();
+  }
+
+  function renderFestivalCalendarTable() {
+    const tbody = document.getElementById('festival-calendar-tbody');
+    if (!tbody) return;
+    const q = (document.getElementById('calendar-search-input')?.value || '').toLowerCase().trim();
+    const statusFilter = document.getElementById('calendar-status-filter')?.value || 'all';
+
+    const filtered = schedulerState.festivals.filter(f => {
+      if (q && !f.name.toLowerCase().includes(q) && !f.slug.toLowerCase().includes(q)) return false;
+      const vStatus = f.dateResolution?.verificationStatus || f.yearRecord?.verification_status || 'DATE_UNAVAILABLE';
+      if (statusFilter !== 'all' && vStatus !== statusFilter) return false;
+      return true;
+    });
+
+    if (filtered.length === 0) {
+      tbody.innerHTML = `<tr><td colspan="8" class="py-8 text-center text-on-surface-variant">No festivals match the current filter.</td></tr>`;
+      return;
+    }
+
+    tbody.innerHTML = filtered.map(f => {
+      const dr = f.dateResolution || {};
+      const wp = f.windowPreview || {};
+      const statusBadge = dr.isConfirmed
+        ? `<span class="px-2 py-0.5 rounded-full text-[10px] font-bold bg-emerald-500/20 text-emerald-300 border border-emerald-500/30">${escapeSafe(dr.verificationStatus)}</span>`
+        : `<span class="px-2 py-0.5 rounded-full text-[10px] font-bold bg-amber-500/20 text-amber-300 border border-amber-500/30">${escapeSafe(dr.verificationStatus || 'UNCONFIRMED')}</span>`;
+      const overrideBadge = dr.isOverridden
+        ? `<span class="ml-1 px-2 py-0.5 rounded-full text-[10px] font-bold bg-pink-500/20 text-pink-300 border border-pink-500/30">Overridden</span>`
+        : '';
+
+      return `
+        <tr class="hover:bg-surface-container-high/50 transition">
+          <td class="py-3 px-4">
+            <div class="font-bold text-on-surface">${escapeSafe(f.name)}</div>
+            <div class="text-[11px] text-on-surface-variant font-mono">${escapeSafe(f.slug)} • ${escapeSafe(f.defaultTimezone)}</div>
+          </td>
+          <td class="py-3 px-4">
+            <div class="font-semibold">${escapeSafe(f.calculationMethod)}</div>
+            <div class="text-[11px] text-on-surface-variant truncate max-w-[180px]">${escapeSafe(f.sourceAttribution || '—')}</div>
+          </td>
+          <td class="py-3 px-4 font-mono">${escapeSafe(dr.sourceDate || '—')}</td>
+          <td class="py-3 px-4 font-mono font-bold text-amber-300">${escapeSafe(dr.effectiveDate || 'Unconfirmed')}${overrideBadge}</td>
+          <td class="py-3 px-4">${statusBadge}</td>
+          <td class="py-3 px-4 font-mono text-emerald-300">${wp.valid ? `${escapeSafe(wp.startDate)} → ${escapeSafe(wp.endDate)}` : '—'}</td>
+          <td class="py-3 px-4 font-mono text-rose-300">${wp.valid ? escapeSafe(wp.firstBlockedDate) : '—'}</td>
+          <td class="py-3 px-4 text-right space-x-1">
+            <button type="button" onclick="editFestivalInForm('${escapeSafe(f.id)}')" class="px-2.5 py-1 rounded-lg bg-surface-container hover:bg-primary/20 text-on-surface font-bold cursor-pointer">Edit</button>
+            <button type="button" onclick="openOverrideForFestival('${escapeSafe(f.id)}')" class="px-2.5 py-1 rounded-lg bg-amber-500/20 hover:bg-amber-500/30 text-amber-300 font-bold cursor-pointer">Override</button>
+          </td>
+        </tr>
+      `;
+    }).join('');
+  }
+
+  function populateFestivalSelectors() {
+    const festOptions = schedulerState.festivals.map(f =>
+      `<option value="${escapeSafe(f.id)}">${escapeSafe(f.name)} (${escapeSafe(f.dateResolution?.effectiveDate || 'Unconfirmed')})</option>`
+    ).join('');
+    ['camp-festival-select', 'ov-festival-select', 'diag-festival-select'].forEach(id => {
+      const el = document.getElementById(id);
+      if (el) {
+        const prev = el.value;
+        el.innerHTML = festOptions;
+        if (prev && schedulerState.festivals.some(f => f.id === prev)) el.value = prev;
+      }
+    });
+
+    const campSelect = document.getElementById('assign-campaign-select');
+    if (campSelect) {
+      const prevCamp = campSelect.value;
+      campSelect.innerHTML = schedulerState.campaigns.length > 0
+        ? schedulerState.campaigns.map(c => `<option value="${escapeSafe(c.id)}">${escapeSafe(c.title)} (${escapeSafe(c.applicableYear)} • ${escapeSafe(c.effectiveState)})</option>`).join('')
+        : `<option value="">No campaigns created yet — create one in Tab D</option>`;
+      if (prevCamp && schedulerState.campaigns.some(c => c.id === prevCamp)) campSelect.value = prevCamp;
+    }
+
+    const campYearInput = document.getElementById('camp-year-input');
+    if (campYearInput) campYearInput.value = schedulerState.selectedYear;
+    const ovYearInput = document.getElementById('ov-year-input');
+    if (ovYearInput) ovYearInput.value = schedulerState.selectedYear;
+  }
+
+  function editFestivalInForm(festId) {
+    const f = schedulerState.festivals.find(x => x.id === festId);
+    if (!f) return;
+    document.getElementById('fest-id-input').value = f.id;
+    document.getElementById('fest-name-input').value = f.name;
+    document.getElementById('fest-category-input').value = f.category || 'indian_festival';
+    document.getElementById('fest-method-input').value = f.calculationMethod || 'VERIFIED_CALENDAR_TABLE';
+    document.getElementById('fest-resolved-date-input').value = f.yearRecord?.resolved_date || f.dateResolution?.sourceDate || '';
+    document.getElementById('fest-verification-status-input').value = f.yearRecord?.verification_status || 'MANUALLY_CONFIRMED';
+    document.getElementById('fest-timezone-input').value = f.defaultTimezone || 'Asia/Kolkata';
+    document.getElementById('fest-days-before-input').value = f.defaultDaysBefore ?? 15;
+    document.getElementById('fest-days-after-input').value = f.defaultDaysAfter ?? 3;
+    document.getElementById('fest-localized-input').value = JSON.stringify(f.localizedNames || {});
+    document.getElementById('fest-source-input').value = f.sourceAttribution || '';
+    document.getElementById('fest-desc-input').value = f.description || '';
+    document.getElementById('fest-enabled-input').checked = Boolean(f.isEnabled);
+    document.getElementById('fest-approval-input').checked = Boolean(f.requiresAdminApproval);
+    switchSchedulerTab('section-details');
+  }
+
+  function openFestivalModal() {
+    document.getElementById('form-festival-details')?.reset();
+    switchSchedulerTab('section-details');
+  }
+
+  async function saveFestivalDefinition(ev) {
+    ev.preventDefault();
+    let localizedNames = {};
+    try {
+      const rawLoc = document.getElementById('fest-localized-input').value.trim();
+      if (rawLoc) localizedNames = JSON.parse(rawLoc);
+    } catch (_) {
+      showSchedulerBanner('Localized names must be valid JSON (e.g. {"hi":"दीपावली","en":"Diwali"}).', 'error');
+      return;
+    }
+
+    const payload = {
+      id: document.getElementById('fest-id-input').value.trim(),
+      name: document.getElementById('fest-name-input').value.trim(),
+      category: document.getElementById('fest-category-input').value,
+      calculationMethod: document.getElementById('fest-method-input').value,
+      resolvedDate: document.getElementById('fest-resolved-date-input').value || null,
+      verificationStatus: document.getElementById('fest-verification-status-input').value,
+      defaultTimezone: document.getElementById('fest-timezone-input').value.trim(),
+      defaultDaysBefore: Number(document.getElementById('fest-days-before-input').value),
+      defaultDaysAfter: Number(document.getElementById('fest-days-after-input').value),
+      localizedNames,
+      sourceAttribution: document.getElementById('fest-source-input').value.trim(),
+      description: document.getElementById('fest-desc-input').value.trim(),
+      isEnabled: document.getElementById('fest-enabled-input').checked,
+      requiresAdminApproval: document.getElementById('fest-approval-input').checked,
+      applicableYear: schedulerState.selectedYear
+    };
+
+    try {
+      const res = await fetch('/api/admin/festivals', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        credentials: 'include',
+        body: JSON.stringify(payload)
+      });
+      const json = await res.json();
+      if (!res.ok || !json.success) throw new Error(json.message || 'Failed to save festival.');
+      showSchedulerBanner(`Saved festival "${payload.name}" for ${schedulerState.selectedYear}.`);
+      await loadFestivalSchedulerData();
+      switchSchedulerTab('section-calendar');
+    } catch (err) {
+      showSchedulerBanner(err.message, 'error');
+    }
+  }
+
+  function openOverrideForFestival(festId) {
+    const sel = document.getElementById('ov-festival-select');
+    if (sel) sel.value = festId;
+    document.getElementById('ov-year-input').value = schedulerState.selectedYear;
+    updateOverrideComparisonPreview();
+    switchSchedulerTab('section-overrides');
+  }
+
+  function updateOverrideComparisonPreview() {
+    const festId = document.getElementById('ov-festival-select')?.value;
+    const f = schedulerState.festivals.find(x => x.id === festId);
+    if (!f) return;
+    const dr = f.dateResolution || {};
+    document.getElementById('ov-source-date-display').textContent = dr.sourceDate || 'Unresolved';
+    document.getElementById('ov-effective-date-display').textContent = dr.effectiveDate
+      ? `${dr.effectiveDate} (${dr.isOverridden ? 'Manual Override' : 'Source'})`
+      : 'Unconfirmed';
+    const wp = f.windowPreview;
+    document.getElementById('ov-window-preview-display').textContent = wp && wp.valid
+      ? `${wp.startDate} to ${wp.endDate} (Blocked: ${wp.firstBlockedDate})`
+      : '—';
+    const dateIn = document.getElementById('ov-date-input');
+    if (dateIn && !dateIn.value && dr.effectiveDate) {
+      dateIn.value = dr.effectiveDate;
+    }
+  }
+
+  async function submitFestivalDateOverride(ev) {
+    ev.preventDefault();
+    const festId = document.getElementById('ov-festival-select').value;
+    const applicableYear = Number(document.getElementById('ov-year-input').value);
+    const overrideDate = document.getElementById('ov-date-input').value;
+    const timezone = document.getElementById('ov-tz-input').value.trim();
+    const reason = document.getElementById('ov-reason-input').value.trim();
+
+    try {
+      const res = await fetch(`/api/admin/festivals/${encodeURIComponent(festId)}/overrides`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        credentials: 'include',
+        body: JSON.stringify({ applicableYear, overrideDate, timezone, reason })
+      });
+      const json = await res.json();
+      if (!res.ok || !json.success) throw new Error(json.message || 'Failed to save manual date override.');
+      showSchedulerBanner(`Saved manual date override (${overrideDate}) for ${applicableYear}. Publication window recalculated.`);
+      await loadFestivalSchedulerData();
+    } catch (err) {
+      showSchedulerBanner(err.message, 'error');
+    }
+  }
+
+  async function removeCurrentSelectedOverride() {
+    const festId = document.getElementById('ov-festival-select').value;
+    const applicableYear = Number(document.getElementById('ov-year-input').value);
+    if (!confirm(`Remove manual date override for ${applicableYear} and restore automatic source resolution?`)) return;
+    try {
+      const res = await fetch(`/api/admin/festivals/${encodeURIComponent(festId)}/overrides/${encodeURIComponent(applicableYear)}`, {
+        method: 'DELETE',
+        headers: { 'Content-Type': 'application/json' },
+        credentials: 'include',
+        body: JSON.stringify({ reason: 'Admin restored automatic festival date resolution.' })
+      });
+      const json = await res.json();
+      if (!res.ok || !json.success) throw new Error(json.message || 'Failed to remove override.');
+      showSchedulerBanner(`Removed manual override for ${applicableYear}. Automatic resolution restored.`);
+      await loadFestivalSchedulerData();
+    } catch (err) {
+      showSchedulerBanner(err.message, 'error');
+    }
+  }
+
+  async function saveCampaignSchedule(ev) {
+    ev.preventDefault();
+    const payload = {
+      festivalId: document.getElementById('camp-festival-select').value,
+      applicableYear: Number(document.getElementById('camp-year-input').value),
+      status: document.getElementById('camp-status-select').value,
+      title: document.getElementById('camp-title-input').value.trim(),
+      badgeLabel: document.getElementById('camp-badge-input').value.trim(),
+      timezone: document.getElementById('camp-tz-input').value.trim(),
+      daysBefore: Number(document.getElementById('camp-days-before').value),
+      daysAfter: Number(document.getElementById('camp-days-after').value)
+    };
+    try {
+      const res = await fetch('/api/admin/festivals/campaigns', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        credentials: 'include',
+        body: JSON.stringify(payload)
+      });
+      const json = await res.json();
+      if (!res.ok || !json.success) throw new Error(json.message || 'Failed to save campaign.');
+      showSchedulerBanner('Saved festival campaign schedule.');
+      await loadFestivalSchedulerData();
+    } catch (err) {
+      showSchedulerBanner(err.message, 'error');
+    }
+  }
+
+  async function quickUpdateCampaignStatus(campaignId, nextStatus) {
+    try {
+      const res = await fetch(`/api/admin/festivals/campaigns/${encodeURIComponent(campaignId)}/status`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        credentials: 'include',
+        body: JSON.stringify({ status: nextStatus, reason: `Admin changed status to ${nextStatus}` })
+      });
+      const json = await res.json();
+      if (!res.ok || !json.success) throw new Error(json.message || 'Failed to update campaign status.');
+      showSchedulerBanner(`Campaign status updated to ${nextStatus}.`);
+      await loadFestivalSchedulerData();
+    } catch (err) {
+      showSchedulerBanner(err.message, 'error');
+    }
+  }
+
+  function renderCampaignsScheduleList() {
+    const box = document.getElementById('campaigns-schedule-list');
+    if (!box) return;
+    if (schedulerState.campaigns.length === 0) {
+      box.innerHTML = `<div class="p-6 text-center text-on-surface-variant text-xs">No festival campaigns configured yet. Use the form above to create one.</div>`;
+      return;
+    }
+    box.innerHTML = schedulerState.campaigns.map(c => `
+      <div class="p-4 rounded-xl bg-surface border border-outline-variant/30 flex flex-wrap items-center justify-between gap-4 text-xs">
+        <div>
+          <div class="flex items-center gap-2">
+            <span class="font-extrabold text-sm text-on-surface">${escapeSafe(c.title)}</span>
+            <span class="px-2 py-0.5 rounded-full text-[10px] font-bold ${c.eligible ? 'bg-emerald-500/20 text-emerald-300' : 'bg-amber-500/20 text-amber-300'}">${escapeSafe(c.effectiveState)} (Admin: ${escapeSafe(c.status)})</span>
+          </div>
+          <div class="text-on-surface-variant mt-1 font-mono">
+            Festival Date: <strong>${escapeSafe(c.effectiveFestivalDate || 'Unconfirmed')}</strong> • Window: <strong>${escapeSafe(c.windowStartDate || '—')}</strong> to <strong>${escapeSafe(c.windowEndDate || '—')}</strong> (Inclusive) • Blocked From: <strong>${escapeSafe(c.firstBlockedDate || '—')}</strong> (${escapeSafe(c.timezone)})
+          </div>
+        </div>
+        <div class="flex items-center gap-2">
+          <button type="button" onclick="quickUpdateCampaignStatus('${escapeSafe(c.id)}', '${c.status === 'PAUSED' ? 'SCHEDULED' : 'PAUSED'}')" class="px-3 py-1.5 rounded-lg bg-surface-container-high hover:bg-amber-500/20 font-bold cursor-pointer">${c.status === 'PAUSED' ? 'Resume' : 'Pause'}</button>
+          <button type="button" onclick="document.getElementById('assign-campaign-select').value='${escapeSafe(c.id)}';renderCampaignAssignmentsPanel();switchSchedulerTab('section-assignments');" class="px-3 py-1.5 rounded-lg bg-primary/20 text-purple-200 font-bold cursor-pointer">Assign Templates (${c.assignedTemplatesCount})</button>
+        </div>
+      </div>
+    `).join('');
+  }
+
+  function renderAvailableTemplatesForAssignment() {
+    const container = document.getElementById('assign-available-templates-list');
+    if (!container) return;
+    const q = (document.getElementById('assign-template-search')?.value || '').toLowerCase().trim();
+    const list = schedulerState.availableTemplates.filter(t =>
+      !q || t.name.toLowerCase().includes(q) || t.id.toLowerCase().includes(q) || (t.category || '').toLowerCase().includes(q)
+    );
+    container.innerHTML = list.map(t => {
+      const vars = Array.isArray(t.variants) ? t.variants : [];
+      const varCheckboxes = vars.length > 0
+        ? `<div class="mt-2 flex flex-wrap gap-2">${vars.map(v => `
+            <label class="inline-flex items-center gap-1 text-[11px] bg-surface-container px-2 py-0.5 rounded-lg">
+              <input type="checkbox" class="assign-var-cb-${escapeSafe(t.id)}" value="${escapeSafe(v.relationshipSlug || v.slug || v.id)}" checked/>
+              <span>${escapeSafe(v.label || v.relationshipSlug)}</span>
+            </label>
+          `).join('')}</div>`
+        : '';
+      return `
+        <div class="p-3 rounded-xl bg-surface border border-outline-variant/30 flex flex-col gap-1 text-xs">
+          <div class="flex items-center justify-between gap-2">
+            <div>
+              <div class="font-bold text-on-surface">${escapeSafe(t.name)}</div>
+              <div class="text-[11px] text-on-surface-variant font-mono">${escapeSafe(t.id)} • ${escapeSafe(t.category)} • ${escapeSafe(t.tier)}</div>
+            </div>
+            <div class="flex items-center gap-1.5">
+              <a href="/template-preview.html?template=${encodeURIComponent(t.id)}" target="_blank" class="px-2.5 py-1 rounded-lg bg-surface-container text-on-surface font-bold">Preview</a>
+              <button type="button" onclick="assignTemplateToSelectedCampaign('${escapeSafe(t.id)}')" class="px-3 py-1 rounded-lg bg-gradient-to-r from-pink-500 to-purple-600 text-white font-bold cursor-pointer">Assign</button>
+            </div>
+          </div>
+          ${varCheckboxes}
+        </div>
+      `;
+    }).join('');
+  }
+
+  async function assignTemplateToSelectedCampaign(templateId) {
+    const campId = document.getElementById('assign-campaign-select')?.value;
+    if (!campId) {
+      showSchedulerBanner('Please create and select a festival campaign first (Tab D).', 'error');
+      return;
+    }
+    const varCbs = Array.from(document.querySelectorAll(`.assign-var-cb-${CSS.escape(templateId)}:checked`)).map(cb => cb.value);
+    try {
+      const res = await fetch(`/api/admin/festivals/campaigns/${encodeURIComponent(campId)}/templates`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        credentials: 'include',
+        body: JSON.stringify({
+          assignments: [{ templateId, allowedVariants: varCbs, isEnabled: true }]
+        })
+      });
+      const json = await res.json();
+      if (!res.ok || !json.success) throw new Error(json.message || 'Failed to assign template.');
+      showSchedulerBanner(`Assigned template "${templateId}" to campaign.`);
+      await loadFestivalSchedulerData();
+    } catch (err) {
+      showSchedulerBanner(err.message, 'error');
+    }
+  }
+
+  async function removeAssignedTemplate(campaignId, templateId) {
+    if (!confirm(`Remove template "${templateId}" from this festival campaign? (The underlying template and existing wishes will NOT be deleted.)`)) return;
+    try {
+      const res = await fetch(`/api/admin/festivals/campaigns/${encodeURIComponent(campaignId)}/templates/${encodeURIComponent(templateId)}`, {
+        method: 'DELETE',
+        credentials: 'include'
+      });
+      const json = await res.json();
+      if (!res.ok || !json.success) throw new Error(json.message || 'Failed to remove template assignment.');
+      showSchedulerBanner(`Removed template "${templateId}" from campaign.`);
+      await loadFestivalSchedulerData();
+    } catch (err) {
+      showSchedulerBanner(err.message, 'error');
+    }
+  }
+
+  function renderCampaignAssignmentsPanel() {
+    const container = document.getElementById('assign-current-list');
+    if (!container) return;
+    const campId = document.getElementById('assign-campaign-select')?.value;
+    const camp = schedulerState.campaigns.find(c => c.id === campId);
+    if (!camp || !Array.isArray(camp.assignments) || camp.assignments.length === 0) {
+      container.innerHTML = `<div class="p-6 rounded-xl bg-surface border border-outline-variant/20 text-center text-xs text-on-surface-variant">No templates assigned to this campaign yet.</div>`;
+      return;
+    }
+    container.innerHTML = camp.assignments.map(a => `
+      <div class="p-3 rounded-xl bg-surface border border-outline-variant/30 flex items-center justify-between gap-2 text-xs">
+        <div>
+          <div class="font-bold text-on-surface">${escapeSafe(a.template_id)}</div>
+          <div class="text-[11px] text-on-surface-variant">Order: #${escapeSafe(a.display_order)} • Allowed Variants: ${a.allowedVariants && a.allowedVariants.length > 0 ? escapeSafe(a.allowedVariants.join(', ')) : 'All Enabled Variants'}</div>
+        </div>
+        <button type="button" onclick="removeAssignedTemplate('${escapeSafe(camp.id)}', '${escapeSafe(a.template_id)}')" class="px-2.5 py-1 rounded-lg bg-rose-500/20 text-rose-300 font-bold cursor-pointer">Remove</button>
+      </div>
+    `).join('');
+  }
+
+  function renderUpcomingFestivalsGrid() {
+    const grid = document.getElementById('upcoming-festivals-grid');
+    if (!grid) return;
+    const sorted = [...schedulerState.festivals].sort((a, b) =>
+      String(a.dateResolution?.effectiveDate || '9999').localeCompare(String(b.dateResolution?.effectiveDate || '9999'))
+    );
+    grid.innerHTML = sorted.map(f => {
+      const dr = f.dateResolution || {};
+      const wp = f.windowPreview || {};
+      return `
+        <div class="p-5 rounded-2xl bg-surface-container/70 border border-outline-variant/30 space-y-2 text-xs">
+          <div class="flex items-center justify-between">
+            <span class="font-extrabold text-sm text-on-surface">${escapeSafe(f.name)}</span>
+            <span class="px-2 py-0.5 rounded-full text-[10px] font-bold ${dr.isConfirmed ? 'bg-emerald-500/20 text-emerald-300' : 'bg-amber-500/20 text-amber-300'}">${escapeSafe(dr.verificationStatus)}</span>
+          </div>
+          <div class="font-mono text-amber-300 font-bold">Effective Festival Date: ${escapeSafe(dr.effectiveDate || 'Unconfirmed')}</div>
+          <div class="text-on-surface-variant font-mono">Window: ${wp.valid ? `${escapeSafe(wp.startDate)} → ${escapeSafe(wp.endDate)} (Inclusive)` : 'Pending confirmation'}</div>
+          <div class="text-rose-300 font-mono text-[11px]">Blocked From: ${wp.valid ? escapeSafe(wp.firstBlockedDate) : '—'} (${escapeSafe(f.defaultTimezone)})</div>
+        </div>
+      `;
+    }).join('');
+  }
+
+  async function runScheduleDiagnosticsPreview() {
+    const festId = document.getElementById('diag-festival-select')?.value;
+    if (!festId) return;
+    const daysBefore = Number(document.getElementById('diag-days-before')?.value ?? 15);
+    const daysAfter = Number(document.getElementById('diag-days-after')?.value ?? 3);
+    const simulateAt = document.getElementById('diag-simulate-date')?.value || null;
+
+    try {
+      const res = await fetch('/api/admin/festivals/preview-window', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        credentials: 'include',
+        body: JSON.stringify({
+          festivalId: festId,
+          applicableYear: schedulerState.selectedYear,
+          daysBefore,
+          daysAfter,
+          simulateAt
+        })
+      });
+      const json = await res.json();
+      const p = (json.data || json).preview;
+      if (!p) return;
+
+      const card = document.getElementById('diagnostics-preview-card');
+      if (card) {
+        card.innerHTML = `
+          <div class="p-3 rounded-xl bg-surface border border-outline-variant/30"><div class="text-[10px] uppercase text-on-surface-variant">Date Source</div><div class="font-bold text-xs mt-1">${escapeSafe(p.dateSource)}</div></div>
+          <div class="p-3 rounded-xl bg-surface border border-outline-variant/30"><div class="text-[10px] uppercase text-on-surface-variant">Original Resolved Date</div><div class="font-mono font-bold text-xs mt-1">${escapeSafe(p.originalResolvedDate || '—')}</div></div>
+          <div class="p-3 rounded-xl bg-surface border border-outline-variant/30"><div class="text-[10px] uppercase text-on-surface-variant">Effective Date</div><div class="font-mono font-bold text-amber-300 text-xs mt-1">${escapeSafe(p.effectiveDate || 'Unconfirmed')}</div></div>
+          <div class="p-3 rounded-xl bg-surface border border-outline-variant/30"><div class="text-[10px] uppercase text-on-surface-variant">Override Status</div><div class="font-bold text-xs mt-1">${escapeSafe(p.overrideStatus)}</div></div>
+          <div class="p-3 rounded-xl bg-surface border border-outline-variant/30"><div class="text-[10px] uppercase text-on-surface-variant">Start of Campaign Window</div><div class="font-mono font-bold text-emerald-300 text-xs mt-1">${escapeSafe(p.windowStartDate || '—')}</div></div>
+          <div class="p-3 rounded-xl bg-surface border border-outline-variant/30"><div class="text-[10px] uppercase text-on-surface-variant">Inclusive Final Day</div><div class="font-mono font-bold text-emerald-300 text-xs mt-1">${escapeSafe(p.inclusiveFinalDay || '—')}</div></div>
+          <div class="p-3 rounded-xl bg-surface border border-outline-variant/30"><div class="text-[10px] uppercase text-on-surface-variant">First Blocked Day</div><div class="font-mono font-bold text-rose-300 text-xs mt-1">${escapeSafe(p.firstBlockedDate || '—')}</div></div>
+          <div class="p-3 rounded-xl bg-surface border border-outline-variant/30"><div class="text-[10px] uppercase text-on-surface-variant">Assigned Templates</div><div class="font-bold text-xs mt-1">${escapeSafe(p.assignedTemplatesCount)}</div></div>
+          <div class="p-3 rounded-xl bg-surface border border-outline-variant/30"><div class="text-[10px] uppercase text-on-surface-variant">Campaign Status</div><div class="font-bold text-xs mt-1">${escapeSafe(p.campaignStatus)}</div></div>
+          <div class="p-3 rounded-xl bg-surface border border-outline-variant/30"><div class="text-[10px] uppercase text-on-surface-variant">Simulated Eligibility</div><div class="font-bold text-xs mt-1 ${p.simulatedAtState?.inWindow ? 'text-emerald-300' : 'text-rose-300'}">${escapeSafe(p.simulatedAtState?.phase || '—')}</div></div>
+        `;
+      }
+
+      const warnBox = document.getElementById('diagnostics-warnings-box');
+      if (warnBox) {
+        warnBox.innerHTML = (p.warnings || []).map(w =>
+          `<div class="p-2.5 rounded-xl bg-amber-500/15 border border-amber-500/30 text-amber-200">⚠️ ${escapeSafe(w)}</div>`
+        ).join('');
+      }
+    } catch (_) {}
+  }
+
+  function renderAuditHistoryTable() {
+    const tbody = document.getElementById('festival-audit-tbody');
+    if (!tbody) return;
+    if (!schedulerState.auditLogs || schedulerState.auditLogs.length === 0) {
+      tbody.innerHTML = `<tr><td colspan="6" class="py-6 text-center text-on-surface-variant">No audit events recorded yet.</td></tr>`;
+      return;
+    }
+    tbody.innerHTML = schedulerState.auditLogs.map(l => `
+      <tr>
+        <td class="py-2.5 px-4 font-mono text-[11px]">${escapeSafe(l.createdAt)}</td>
+        <td class="py-2.5 px-4 font-bold">${escapeSafe(l.actionType)}</td>
+        <td class="py-2.5 px-4 font-mono">${escapeSafe(l.festivalId || '—')} (${escapeSafe(l.applicableYear || '—')})</td>
+        <td class="py-2.5 px-4">${escapeSafe(l.actorEmail || l.actorId)}</td>
+        <td class="py-2.5 px-4 font-mono text-[11px] max-w-[260px] truncate">${escapeSafe(JSON.stringify(l.newValue || {}))}</td>
+        <td class="py-2.5 px-4">${escapeSafe(l.reason || l.errorMessage || l.status)}</td>
+      </tr>
+    `).join('');
+  }
+
+  async function triggerProviderSync() {
+    try {
+      const res = await fetch('/api/admin/festivals/sync-provider', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        credentials: 'include',
+        body: JSON.stringify({ year: schedulerState.selectedYear })
+      });
+      const json = await res.json();
+      const data = json.data || json;
+      showSchedulerBanner(data.message || `Calendar sync completed (${data.updatedCount || 0} updated).`, data.ok ? 'success' : 'error');
+      await loadFestivalSchedulerData();
+    } catch (err) {
+      showSchedulerBanner(err.message, 'error');
+    }
+  }
+
+  document.addEventListener('DOMContentLoaded', loadFestivalSchedulerData);
+</script>
+</body>
+</html>

@@ -3409,6 +3409,13 @@ export async function executeB2TemplateIngestPipeline(params) {
       ).run().catch(() => {});
     } catch (_) {}
 
+    // Persist UTP v1.4.0 festival_metadata_json on templates and template_versions when present
+    try {
+      const festMetaJson = JSON.stringify(utpReport.normalized?.festivalMetadata || templateMetadata.festivalMetadata || {});
+      await db.prepare(`UPDATE templates SET festival_metadata_json = ? WHERE id = ?`).bind(festMetaJson, templateId).run().catch(() => {});
+      await db.prepare(`UPDATE template_versions SET festival_metadata_json = ?, schema_version = ? WHERE id = ?`).bind(festMetaJson, String(utpReport.normalized?.schemaVersion || "1.3.0"), versionId).run().catch(() => {});
+    } catch (_) {}
+
     // Always ensure current_version_id is set on templates & template_families even for drafts, and publish if requested
     try {
       await db.prepare(`UPDATE templates SET current_version_id = COALESCE(?, current_version_id), updated_at = ? WHERE id = ?`).bind(versionId, nowIso, templateId).run().catch(() => {});

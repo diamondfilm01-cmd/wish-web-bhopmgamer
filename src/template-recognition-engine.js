@@ -835,7 +835,7 @@ export async function inspectAndValidateTemplateZip(zipInput, options = {}) {
     const declaredSchemaVer = rawManifest.schemaVersion || rawManifest.protocolVersion || (rawManifest.template && rawManifest.template.schemaVersion);
     if (declaredSchemaVer !== undefined && declaredSchemaVer !== null) {
       const verStr = String(declaredSchemaVer).trim();
-      const supportedSet = new Set([...UTP_SUPPORTED_SCHEMA_VERSIONS, '1.0', '1.1', '1.2', '1.3']);
+      const supportedSet = new Set([...UTP_SUPPORTED_SCHEMA_VERSIONS, '1.0', '1.1', '1.2', '1.3', '1.4']);
       if (!supportedSet.has(verStr)) {
         validationErrors.push({
           code: 'UNSUPPORTED_SCHEMA_VERSION',

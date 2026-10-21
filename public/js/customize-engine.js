@@ -6210,8 +6210,11 @@ async function executeWishCreation(extraPayload = {}) {
     const linkType = extraPayload.linkType || currentCustomData.linkType || (chosenSlug ? 'personalized' : 'random');
     const sanitizedData = sanitizeCustomDataForPublish(currentCustomData);
 
+    const urlParamsForCamp = new URLSearchParams(window.location.search || '');
+    const activeFestivalCampaignId = window._activeFestivalCampaignId || currentCustomData.festivalCampaignId || urlParamsForCamp.get('campaign') || urlParamsForCamp.get('campaignId') || (activeTemplate && activeTemplate.festivalCampaign && activeTemplate.festivalCampaign.campaignId) || null;
     const payload = {
       templateId: activeTemplate.id,
+      ...(activeFestivalCampaignId ? { campaignId: activeFestivalCampaignId, festivalCampaignId: activeFestivalCampaignId } : {}),
       templateVersionId: activeTemplate.activeVersionId || activeTemplate.versionId || activeTemplate.templateVersionId || null,
       linkType,
       userId: currentUserId,
@@ -6291,6 +6294,12 @@ async function executeWishCreation(extraPayload = {}) {
           window.checkSlugAvailability(chosenSlug, true);
         }
         return null;
+      }
+      const errCode = (data && (data.code || data.error)) || '';
+      if (String(errCode).startsWith('FESTIVAL_') || errCode === 'VARIANT_NOT_ENABLED_FOR_CAMPAIGN') {
+        if (typeof window.showFestivalCampaignExpiredNotice === 'function') {
+          window.showFestivalCampaignExpiredNotice(data.message || 'This festival campaign is no longer accepting new wishes.', data);
+        }
       }
       showToast('⚠️ ' + (data && data.message ? data.message : 'Could not generate wish link. Please try again.'));
       return null;
@@ -7293,3 +7302,25 @@ document.addEventListener('DOMContentLoaded', () => {
   if (typeof window.renderTemplatePhotoSlotsManager === 'function') window.renderTemplatePhotoSlotsManager();
   if (typeof window.updateCustomizationProgressUI === 'function') window.updateCustomizationProgressUI();
 });
+
+
+window.showFestivalCampaignExpiredNotice = function(message, details = {}) {
+  let banner = document.getElementById('wm-festival-campaign-expired-banner');
+  if (!banner) {
+    banner = document.createElement('div');
+    banner.id = 'wm-festival-campaign-expired-banner';
+    banner.setAttribute('role', 'alert');
+    banner.style.cssText = 'position:fixed;top:16px;left:50%;transform:translateX(-50%);z-index:99999;max-width:560px;width:calc(100% - 32px);background:#2e1065;border:2px solid #f43f5e;border-radius:16px;padding:16px 20px;color:#fff;box-shadow:0 20px 50px rgba(0,0,0,0.65);font-family:Plus Jakarta Sans,sans-serif;';
+    document.body.appendChild(banner);
+  }
+  const safeMsg = String(message || 'This festival campaign has ended and is no longer accepting new wish creations.').replace(/[<>&"]/g, '');
+  banner.innerHTML = `
+    <div style="display:flex;align-items:flex-start;justify-content:space-between;gap:12px;">
+      <div>
+        <div style="font-weight:800;font-size:0.95rem;color:#fda4af;margin-bottom:4px;">Festival Campaign Unavailable for New Wishes</div>
+        <div style="font-size:0.84rem;color:#e2e8f0;line-height:1.45;">${safeMsg}</div>
+      </div>
+      <button type="button" onclick="this.closest('#wm-festival-campaign-expired-banner').remove()" style="background:rgba(255,255,255,0.12);border:none;color:#fff;border-radius:8px;padding:4px 10px;cursor:pointer;font-weight:700;font-size:0.75rem;">Dismiss</button>
+    </div>
+  `;
+};

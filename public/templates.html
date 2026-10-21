@@ -811,6 +811,7 @@
             <div class="relative rounded-xl overflow-hidden mb-3 aspect-[16/10] bg-purple-900/10 dark:bg-purple-950/80 shadow-inner group/img cursor-pointer" onclick="window.handleTemplateAction ? window.handleTemplateAction('${t.id}', 'preview', { openPreviewModal: openMarketplacePreview }) : openMarketplacePreview('${t.id}')">
               <img class="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500" src="${previewImg}" alt="${t.name}" loading="lazy"/>
               <div class="absolute inset-0 bg-gradient-to-t from-black/45 via-transparent to-black/10 pointer-events-none"></div>
+              ${t.festivalCampaign ? `<div class="absolute top-3 left-3 z-10 max-w-[68%]"><span class="inline-flex items-center gap-1 px-2.5 py-1 rounded-xl bg-gradient-to-r from-amber-500 to-pink-600 text-white text-[10px] font-extrabold shadow-md border border-white/25 truncate" title="Active Festival Campaign through ${t.festivalCampaign.windowEndDate}">${t.festivalCampaign.badgeLabel || ("✨ " + t.festivalCampaign.festivalName)}</span></div>` : ""}
               ${badgeMarkup}
             </div>
 
@@ -837,7 +838,7 @@
             <button type="button" onclick="window.handleTemplateAction ? window.handleTemplateAction('${t.id}', 'preview', { openPreviewModal: openMarketplacePreview }) : openMarketplacePreview('${t.id}')" class="px-3.5 py-2.5 sm:py-3 rounded-full border border-purple-200 dark:border-purple-700/80 bg-purple-50/80 dark:bg-purple-900/50 text-purple-900 dark:text-purple-200 hover:bg-purple-100 dark:hover:bg-purple-800 text-xs sm:text-sm font-bold transition active:scale-95 cursor-pointer">
               Preview
             </button>
-            <a href="/customize.html?template=${t.id}" onclick="if(window.handleTemplateAction){event.preventDefault();window.handleTemplateAction('${t.id}','customize');return false;}" class="flex-1 py-2.5 sm:py-3 px-4 rounded-full bg-gradient-to-r from-[#ff2a85] via-[#ec4899] to-[#a855f7] hover:brightness-110 text-white text-sm sm:text-base font-bold shadow-md shadow-purple-500/25 active:scale-95 transition-all text-center flex items-center justify-center gap-1.5">
+            <a href="/customize.html?template=${t.id}${t.festivalCampaign && t.festivalCampaign.campaignId ? ('&campaign=' + encodeURIComponent(t.festivalCampaign.campaignId)) : ''}" onclick="if(window.handleTemplateAction){event.preventDefault();window.handleTemplateAction('${t.id}','customize');return false;}" class="flex-1 py-2.5 sm:py-3 px-4 rounded-full bg-gradient-to-r from-[#ff2a85] via-[#ec4899] to-[#a855f7] hover:brightness-110 text-white text-sm sm:text-base font-bold shadow-md shadow-purple-500/25 active:scale-95 transition-all text-center flex items-center justify-center gap-1.5">
               <span>Customize</span>
               <span>✨</span>
             </a>

@@ -13,11 +13,14 @@ export const UTP_SCHEMA_VERSION = '1.0.0';
 export const UTP_VARIANT_SCHEMA_VERSION = '1.1.0';
 export const UTP_SECTIONS_ACTIONS_SCHEMA_VERSION = '1.2.0';
 export const UTP_LINK_MANAGER_SCHEMA_VERSION = '1.3.0';
+export const UTP_FESTIVAL_SCHEMA_VERSION = '1.4.0';
+export const UTP_V1_4_SCHEMA_VERSION = '1.4.0';
 export const UTP_LATEST_SCHEMA_VERSION = '1.3.0';
-export const UTP_SUPPORTED_SCHEMA_VERSIONS = Object.freeze(['1.0.0', '1.1.0', '1.2.0', '1.3.0']);
+export const UTP_SUPPORTED_SCHEMA_VERSIONS = Object.freeze(['1.0.0', '1.1.0', '1.2.0', '1.3.0', '1.4.0']);
 export const UTP_RUNTIME_API_VERSION = '1.0';
 export const UTP_LATEST_RUNTIME_API_VERSION = '1.3';
-export const UTP_SUPPORTED_RUNTIME_API_VERSIONS = Object.freeze(['1.0', '1.1', '1.2', '1.3']);
+export const UTP_FESTIVAL_RUNTIME_API_VERSION = '1.4';
+export const UTP_SUPPORTED_RUNTIME_API_VERSIONS = Object.freeze(['1.0', '1.1', '1.2', '1.3', '1.4']);
 export const UTP_PROTOCOL_NAME = 'wishmagic-template';
 
 /**
@@ -671,6 +674,12 @@ export const UTP_CAPABILITY_REGISTRY = Object.freeze({
     label: 'Multi-Relationship Template Variants',
     customizerGroup: 'personal',
     requiresFieldTypes: []
+  },
+  festivalMetadata: {
+    key: 'festivalMetadata',
+    label: 'Festival Campaign Compatibility Metadata (UTP v1.4.0)',
+    customizerGroup: 'personal',
+    requiresFieldTypes: []
   }
 });
 
@@ -688,4 +697,280 @@ export function isValidSemver(version) {
 export function isValidIdentifier(id) {
   if (!id || typeof id !== 'string') return false;
   return /^[a-z0-9][a-z0-9_-]{1,63}$/i.test(id.trim());
+}
+
+
+/**
+ * UTP v1.4.0 Canonical Festival & Occasion Tags
+ */
+export const UTP_CANONICAL_FESTIVAL_TAGS = new Set([
+  'diwali',
+  'deepavali',
+  'holi',
+  'raksha-bandhan',
+  'rakhi',
+  'bhai-dooj',
+  'karwa-chauth',
+  'navratri',
+  'dussehra',
+  'ganesh-chaturthi',
+  'eid-ul-fitr',
+  'eid-ul-adha',
+  'eid',
+  'janmashtami',
+  'makar-sankranti',
+  'pongal',
+  'onam',
+  'baisakhi',
+  'durga-puja',
+  'mahashivratri',
+  'ram-navami',
+  'chhath-puja',
+  'christmas',
+  'new-year',
+  'valentines-day',
+  'friendship-day',
+  'mothers-day',
+  'fathers-day',
+  'independence-day',
+  'republic-day',
+  'easter',
+  'thanksgiving',
+  'festival',
+  'celebration'
+]);
+
+/**
+ * UTP v1.4.0 Forbidden Template-Level Scheduling Keys:
+ * Templates MUST NEVER declare an authoritative festival date, publication window,
+ * or bypass flag that attempts to override the platform Festival Scheduler.
+ */
+export const UTP_FORBIDDEN_FESTIVAL_SCHEDULE_KEYS = new Set([
+  'authoritativeFestivalDate',
+  'effectiveFestivalDate',
+  'fixedFestivalDate',
+  'hardcodedFestivalDate',
+  'festivalDate',
+  'authoritativeDate',
+  'forceActive',
+  'alwaysActive',
+  'permanentlyActive',
+  'bypassSchedule',
+  'bypassCampaignWindow',
+  'overrideServerSchedule',
+  'ignoreExpiry',
+  'disableExpiry',
+  'publicationStartDate',
+  'publicationEndDate',
+  'windowStartDate',
+  'windowEndDate',
+  'clientScheduleEnforcement'
+]);
+
+export const UTP_SUPPORTED_CAMPAIGN_COMPATIBILITY_MODES = new Set([
+  'festival_campaign',
+  'evergreen_and_festival',
+  'festival_only',
+  'any'
+]);
+
+/**
+ * Validates and normalizes UTP v1.4.0 optional `festivalMetadata` block.
+ */
+export function validateAndNormalizeFestivalMetadata(rawFestivalMeta, rootManifest = {}) {
+  const issues = [];
+
+  // Check root and template object for forbidden schedule-override keys even if festivalMetadata is omitted
+  for (const container of [rootManifest, rootManifest?.template]) {
+    if (!container || typeof container !== 'object') continue;
+    for (const key of Object.keys(container)) {
+      if (UTP_FORBIDDEN_FESTIVAL_SCHEDULE_KEYS.has(key) && key !== 'festivalDate') {
+        issues.push({
+          code: 'TEMPLATE_CANNOT_OVERRIDE_SERVER_SCHEDULE',
+          severity: 'error',
+          field: key,
+          message: `Template manifest property "${key}" is forbidden in UTP v1.4.0. Templates must not declare authoritative festival dates or bypass server-controlled campaign windows.`,
+          blocking: true
+        });
+      }
+    }
+  }
+
+  if (rawFestivalMeta === undefined || rawFestivalMeta === null) {
+    return {
+      valid: issues.length === 0,
+      issues,
+      normalized: null
+    };
+  }
+
+  if (typeof rawFestivalMeta !== 'object' || Array.isArray(rawFestivalMeta)) {
+    issues.push({
+      code: 'INVALID_FESTIVAL_METADATA_OBJECT',
+      severity: 'error',
+      message: '"festivalMetadata" in wishmagic.json must be a JSON object.',
+      blocking: true
+    });
+    return { valid: false, issues, normalized: null };
+  }
+
+  for (const key of Object.keys(rawFestivalMeta)) {
+    if (UTP_FORBIDDEN_FESTIVAL_SCHEDULE_KEYS.has(key)) {
+      issues.push({
+        code: 'TEMPLATE_CANNOT_OVERRIDE_SERVER_SCHEDULE',
+        severity: 'error',
+        field: `festivalMetadata.${key}`,
+        message: `"festivalMetadata.${key}" is forbidden in UTP v1.4.0. Authoritative festival dates and publication windows are controlled exclusively by the WishMagic Festival Scheduler.`,
+        blocking: true
+      });
+    }
+  }
+
+  const rawTags = rawFestivalMeta.festivalTags !== undefined
+    ? rawFestivalMeta.festivalTags
+    : (rawFestivalMeta.occasionTags !== undefined ? rawFestivalMeta.occasionTags : rawFestivalMeta.festivals);
+
+  const normalizedTags = [];
+  if (rawTags !== undefined) {
+    if (!Array.isArray(rawTags)) {
+      issues.push({
+        code: 'INVALID_FESTIVAL_TAGS',
+        severity: 'error',
+        message: '"festivalMetadata.festivalTags" must be an array of festival/occasion slug strings.',
+        blocking: true
+      });
+    } else {
+      for (const t of rawTags) {
+        if (typeof t !== 'string' || !t.trim() || !/^[a-zA-Z0-9_-]{1,64}$/.test(t.trim())) {
+          issues.push({
+            code: 'INVALID_FESTIVAL_TAG_ENTRY',
+            severity: 'error',
+            message: `Invalid festival tag "${t}" in festivalMetadata.festivalTags. Use alphanumeric slug strings.`,
+            blocking: true
+          });
+        } else {
+          normalizedTags.push(t.trim().toLowerCase());
+        }
+      }
+    }
+  }
+
+  const rawRels = rawFestivalMeta.suitableRelationships !== undefined
+    ? rawFestivalMeta.suitableRelationships
+    : rawFestivalMeta.supportedRelationships;
+  const normalizedRels = [];
+  if (rawRels !== undefined) {
+    if (!Array.isArray(rawRels)) {
+      issues.push({
+        code: 'INVALID_FESTIVAL_RELATIONSHIPS',
+        severity: 'error',
+        message: '"festivalMetadata.suitableRelationships" must be an array of relationship identifiers.',
+        blocking: true
+      });
+    } else {
+      for (const r of rawRels) {
+        const normRel = normalizeRelationshipIdentifier(r);
+        if (!normRel) {
+          issues.push({
+            code: 'INVALID_FESTIVAL_RELATIONSHIP_ENTRY',
+            severity: 'error',
+            message: `Invalid relationship identifier "${r}" in festivalMetadata.suitableRelationships.`,
+            blocking: true
+          });
+        } else {
+          normalizedRels.push(normRel.slug);
+        }
+      }
+    }
+  }
+
+  let campaignMode = 'evergreen_and_festival';
+  if (rawFestivalMeta.campaignCompatibility !== undefined) {
+    if (typeof rawFestivalMeta.campaignCompatibility === 'boolean') {
+      campaignMode = rawFestivalMeta.campaignCompatibility ? 'evergreen_and_festival' : 'any';
+    } else if (typeof rawFestivalMeta.campaignCompatibility === 'string') {
+      const m = rawFestivalMeta.campaignCompatibility.trim().toLowerCase();
+      if (!UTP_SUPPORTED_CAMPAIGN_COMPATIBILITY_MODES.has(m)) {
+        issues.push({
+          code: 'INVALID_CAMPAIGN_COMPATIBILITY_MODE',
+          severity: 'error',
+          message: `Invalid festivalMetadata.campaignCompatibility "${rawFestivalMeta.campaignCompatibility}". Allowed: festival_campaign, evergreen_and_festival, festival_only, any.`,
+          blocking: true
+        });
+      } else {
+        campaignMode = m;
+      }
+    } else {
+      issues.push({
+        code: 'INVALID_CAMPAIGN_COMPATIBILITY_MODE',
+        severity: 'error',
+        message: '"festivalMetadata.campaignCompatibility" must be a boolean or valid compatibility mode string.',
+        blocking: true
+      });
+    }
+  }
+
+  const rawPref = rawFestivalMeta.suggestedPublicationPreferences || rawFestivalMeta.suggestedWindowPreference;
+  let suggestedPreferences = null;
+  if (rawPref !== undefined && rawPref !== null) {
+    if (typeof rawPref !== 'object' || Array.isArray(rawPref)) {
+      issues.push({
+        code: 'INVALID_FESTIVAL_SUGGESTED_PREFERENCES',
+        severity: 'error',
+        message: '"festivalMetadata.suggestedPublicationPreferences" must be a JSON object.',
+        blocking: true
+      });
+    } else {
+      if (rawPref.authoritative === true || rawPref.enforceOnClient === true || rawPref.overrideServerWindow === true) {
+        issues.push({
+          code: 'TEMPLATE_CANNOT_OVERRIDE_SERVER_SCHEDULE',
+          severity: 'error',
+          message: '"festivalMetadata.suggestedPublicationPreferences" is strictly advisory and cannot set authoritative=true or enforceOnClient=true.',
+          blocking: true
+        });
+      }
+      for (const k of Object.keys(rawPref)) {
+        if (UTP_FORBIDDEN_FESTIVAL_SCHEDULE_KEYS.has(k)) {
+          issues.push({
+            code: 'TEMPLATE_CANNOT_OVERRIDE_SERVER_SCHEDULE',
+            severity: 'error',
+            message: `"festivalMetadata.suggestedPublicationPreferences.${k}" is forbidden. Templates must not hardcode authoritative festival dates or windows.`,
+            blocking: true
+          });
+        }
+      }
+      const sBefore = rawPref.suggestedDaysBefore !== undefined ? Number(rawPref.suggestedDaysBefore) : 15;
+      const sAfter = rawPref.suggestedDaysAfter !== undefined ? Number(rawPref.suggestedDaysAfter) : 3;
+      if (!Number.isInteger(sBefore) || sBefore < 0 || sBefore > 180 || !Number.isInteger(sAfter) || sAfter < 0 || sAfter > 60) {
+        issues.push({
+          code: 'INVALID_FESTIVAL_SUGGESTED_WINDOW_DAYS',
+          severity: 'error',
+          message: 'Suggested publication window days must be valid integers (suggestedDaysBefore: 0-180, suggestedDaysAfter: 0-60).',
+          blocking: true
+        });
+      }
+      suggestedPreferences = {
+        suggestedDaysBefore: sBefore,
+        suggestedDaysAfter: sAfter,
+        advisoryOnly: true
+      };
+    }
+  }
+
+  const displayBadge = rawFestivalMeta.displayBadge !== undefined
+    ? String(rawFestivalMeta.displayBadge || '').trim().slice(0, 80)
+    : (rawFestivalMeta.suggestedBadge !== undefined ? String(rawFestivalMeta.suggestedBadge || '').trim().slice(0, 80) : '');
+
+  return {
+    valid: !issues.some(i => i.severity === 'error'),
+    issues,
+    normalized: {
+      festivalTags: Array.from(new Set(normalizedTags)),
+      suitableRelationships: Array.from(new Set(normalizedRels)),
+      campaignCompatibility: campaignMode,
+      displayBadge,
+      suggestedPublicationPreferences: suggestedPreferences,
+      scheduleAuthority: 'platform_server'
+    }
+  };
 }
