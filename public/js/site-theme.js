@@ -238,7 +238,7 @@
       cloudLink = document.createElement('link');
       cloudLink.id = 'wishmagic-cloud-css';
       cloudLink.rel = 'stylesheet';
-      cloudLink.href = '/css/cloud-background.css?v=20261015_wm_v8';
+      cloudLink.href = '/css/cloud-background.css?v=20261021_diwali_v1';
       document.head.appendChild(cloudLink);
     }
 
@@ -449,6 +449,17 @@
       const s = (data.data && data.data.settings) || data.settings;
       if (!s) return;
       window._cachedSiteSettings = s;
+      try {
+        const bgm = s.pageBgMode === 'diwali-palace' ? 'diwali-palace' : 'cloudy';
+        const bgl = Math.min(50, Math.max(1, Math.round(Number(s.pageBgBlur) || 1)));
+        document.documentElement.setAttribute('data-page-bg-mode', bgm);
+        document.documentElement.setAttribute('data-page-bg-blur', String(bgl));
+        if (document.body) {
+          document.body.setAttribute('data-page-bg-mode', bgm);
+          document.body.setAttribute('data-page-bg-blur', String(bgl));
+        }
+        localStorage.setItem('wishmagic_site_settings_v1', JSON.stringify(s));
+      } catch (_) {}
 
       if (s.brandName) {
         document.querySelectorAll('.brand-name-text, #navbar-brand-name, #footer-brand-name, #copyright-brand-name').forEach(el => {

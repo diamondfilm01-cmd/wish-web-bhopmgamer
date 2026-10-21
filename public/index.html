@@ -1915,6 +1915,18 @@ body.dark .hero-gradient-text,
 </style>
 <script>
 (function() {
+  try {
+    var cachedStr = localStorage.getItem('wishmagic_site_settings_v1');
+    if (cachedStr) {
+      var cs = JSON.parse(cachedStr);
+      if (cs && typeof cs === 'object') {
+        var bgm = cs.pageBgMode === 'diwali-palace' ? 'diwali-palace' : 'cloudy';
+        var bgl = Math.min(50, Math.max(1, Math.round(Number(cs.pageBgBlur) || 1)));
+        document.documentElement.setAttribute('data-page-bg-mode', bgm);
+        document.documentElement.setAttribute('data-page-bg-blur', String(bgl));
+      }
+    }
+  } catch (e) {}
   function syncHeroCastleBoundary() {
     var hero = document.getElementById('hero-desktop-section') || document.querySelector('.hero-desktop-canvas');
     if (!hero || !document.body) return;
@@ -2111,7 +2123,7 @@ body.dark .hero-gradient-text,
 })();
 </script>
 <!-- END: WishMagic Inline Cloud Background Engine -->
-  <link id="wishmagic-cloud-css" rel="stylesheet" href="/css/cloud-background.css?v=20261015_wm_v8"/>
+  <link id="wishmagic-cloud-css" rel="stylesheet" href="/css/cloud-background.css?v=20261021_diwali_v1"/>
 </head>
 <body data-page="home" class="w-full min-h-screen font-sans antialiased selection:bg-pink-500 selection:text-white">
 
@@ -4206,7 +4218,23 @@ body.dark .hero-gradient-text,
     }
     window.syncHeroBadgePill = syncHeroBadgePill;
 
+    function syncPageBackgroundAndBlur(s) {
+      const cfg = s || window._cachedSiteSettings || {};
+      const pageBgMode = cfg.pageBgMode === 'diwali-palace' ? 'diwali-palace' : 'cloudy';
+      const rawBlur = Number(cfg.pageBgBlur !== undefined ? cfg.pageBgBlur : 1);
+      const blurLevel = Number.isFinite(rawBlur) ? Math.min(50, Math.max(1, Math.round(rawBlur))) : 1;
+      document.documentElement.setAttribute('data-page-bg-mode', pageBgMode);
+      document.documentElement.setAttribute('data-page-bg-blur', String(blurLevel));
+      if (document.body) {
+        document.body.setAttribute('data-page-bg-mode', pageBgMode);
+        document.body.setAttribute('data-page-bg-blur', String(blurLevel));
+      }
+    }
+    window.syncPageBackgroundAndBlur = syncPageBackgroundAndBlur;
+
     function updateHeroVisualsForTheme() {
+      const s = window._cachedSiteSettings || {};
+      syncPageBackgroundAndBlur(s);
       const heroSec = document.getElementById('hero-desktop-section');
       const ambientBackdrop = document.getElementById('ambient-hero-backdrop');
       const heroScrim = document.getElementById('hero-image-scrim');
@@ -4215,7 +4243,6 @@ body.dark .hero-gradient-text,
       const diwaliCanvas = document.getElementById('hero-diwali-3d-canvas');
       const confettiStage = document.getElementById('wm-hero-confetti-stage');
       if (!heroSec) return;
-      const s = window._cachedSiteSettings || {};
       const mode = s.heroBgMode || 'image';
 
       // Apply 3D Floating & Touch Celebration Burst toggles from Admin Settings
@@ -4361,6 +4388,8 @@ body.dark .hero-gradient-text,
         if (!s) return;
 
         window._cachedSiteSettings = s;
+        try { localStorage.setItem('wishmagic_site_settings_v1', JSON.stringify(s)); } catch (e) {}
+        syncPageBackgroundAndBlur(s);
 
         // 1. Hero Badge & Top Festival Pill Icon (e.g. "🪔 This Diwali" or "Make Every Moment Magical ✨")
         syncHeroBadgePill(s);

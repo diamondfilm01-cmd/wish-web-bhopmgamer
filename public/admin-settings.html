@@ -586,6 +586,126 @@
       </div>
     </div>
 
+    <!-- SECTION 1B: GLOBAL PAGE BACKGROUND THEME SWITCHER & 50-LEVEL BLUR INTENSITY STUDIO -->
+    <div id="page-bg-studio-card" data-settings-tab="storefront" class="wm-card bg-surface-container rounded-2xl p-5 sm:p-7 border border-purple-900/30 shadow-xl flex flex-col gap-6">
+      <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pb-4 border-b border-purple-900/20">
+        <div class="flex items-center gap-3">
+          <div class="w-10 h-10 rounded-xl bg-amber-500/20 text-amber-300 flex items-center justify-center">
+            <span class="material-symbols-outlined text-2xl">wallpaper</span>
+          </div>
+          <div>
+            <h2 class="font-headline-sm text-lg sm:text-xl font-bold text-on-surface">Page Background Switcher &amp; 50-Level Blur Studio</h2>
+            <p class="text-xs sm:text-sm text-on-surface-variant">Switch anytime between the Fairytale Cloudy Castle background and the 4-View Royal Diwali Cloud Palace background, and adjust 1–50 CSS Blur Intensity (applied strictly to the background only).</p>
+          </div>
+        </div>
+        <button type="button" onclick="saveAllSiteSettings('✨ Page Background & 50-Level Blur saved & published!')" class="px-4 py-2 rounded-xl bg-gradient-to-r from-amber-500 via-pink-500 to-purple-600 hover:brightness-110 text-white font-bold text-xs sm:text-sm flex items-center gap-1.5 shadow-md transition cursor-pointer self-start sm:self-auto">
+          <span class="material-symbols-outlined text-sm">save</span>
+          <span>Save Background &amp; Blur</span>
+        </button>
+      </div>
+
+      <div class="grid grid-cols-1 lg:grid-cols-12 gap-6">
+        <!-- Left Controls (7 cols) -->
+        <div class="lg:col-span-7 flex flex-col gap-4">
+          <!-- 1-Click Page Background Switcher -->
+          <div class="p-4 rounded-2xl bg-surface-container-low border border-purple-500/30">
+            <div class="flex items-center justify-between mb-2.5">
+              <label class="block text-xs font-bold uppercase tracking-wider text-pink-300" for="setting-page-bg-mode">🌌 Active Website Page Background Theme</label>
+              <span class="text-[10px] text-emerald-300 font-semibold">Both backgrounds preserved in CSS • Zero code removed</span>
+            </div>
+            <div class="grid grid-cols-1 sm:grid-cols-2 gap-3 mb-3">
+              <button type="button" id="btn-page-bg-cloudy" onclick="switchPageBgMode('cloudy')" class="flex items-start gap-3 p-3 rounded-xl border-2 border-pink-400 bg-pink-500/20 text-left transition cursor-pointer shadow-md">
+                <span class="text-2xl mt-0.5">☁️</span>
+                <div>
+                  <span class="text-xs font-extrabold text-white block">Fairytale Cloudy Castle (Default)</span>
+                  <span class="text-[10px] text-purple-200/85 block mt-0.5">Original Light &amp; Dark Castle + Repeating Cloud Canyon</span>
+                </div>
+              </button>
+              <button type="button" id="btn-page-bg-diwali" onclick="switchPageBgMode('diwali-palace')" class="flex items-start gap-3 p-3 rounded-xl border border-purple-800/40 bg-surface-container text-left transition hover:border-amber-400/60 cursor-pointer">
+                <span class="text-2xl mt-0.5">🪔</span>
+                <div>
+                  <span class="text-xs font-extrabold text-amber-300 block">Royal Diwali Cloud Palace &amp; Diyas</span>
+                  <span class="text-[10px] text-purple-200/85 block mt-0.5">4-View CSS Engine: Desktop Light/Dark + Mobile Light/Dark</span>
+                </div>
+              </button>
+            </div>
+            <select id="setting-page-bg-mode" class="w-full px-3.5 py-2.5 rounded-xl bg-surface-container text-on-surface border border-purple-900/30 text-sm font-medium focus:ring-2 focus:ring-primary focus:outline-none" onchange="updatePageBgPreview()">
+              <option value="cloudy" selected>☁️ Fairytale Cloudy Castle &amp; Cloud Canyon Background (Original)</option>
+              <option value="diwali-palace">🪔 Royal Diwali Cloud Palace, Sky Lanterns, Fireworks &amp; Diyas (4-View Desktop/Mobile Light/Dark)</option>
+            </select>
+          </div>
+
+          <!-- 50-Level Background Blur Intensity Control (1 to 50) -->
+          <div class="p-4 rounded-2xl bg-surface-container-low border border-amber-500/30">
+            <div class="flex flex-wrap items-center justify-between gap-2 mb-2">
+              <label class="block text-xs font-bold uppercase tracking-wider text-amber-300" for="setting-page-bg-blur">💧 Background Blur Intensity (50 Levels: 1 = Low to 50 = High)</label>
+              <span id="page-bg-blur-badge" class="px-2.5 py-0.5 rounded-full bg-amber-500/20 border border-amber-400/40 text-amber-200 text-[11px] font-extrabold">Level 1 / 50 (0px • Sharp)</span>
+            </div>
+            <p class="text-[11px] text-on-surface-variant mb-3">Applies CSS <code class="text-pink-300">filter: blur(...)</code> strictly to the page background layer only — foreground cards, navbar, hero, and text remain 100% crisp!</p>
+
+            <div class="flex items-center gap-3 mb-3">
+              <span class="text-[11px] font-bold text-purple-300 flex-shrink-0">Low (1)</span>
+              <input type="range" id="setting-page-bg-blur" min="1" max="50" step="1" value="1" oninput="syncPageBgBlurInputs(this.value)" class="flex-1 h-2 bg-purple-950 rounded-lg appearance-none cursor-pointer accent-pink-500"/>
+              <span class="text-[11px] font-bold text-amber-300 flex-shrink-0">High (50)</span>
+              <input type="number" id="setting-page-bg-blur-num" min="1" max="50" step="1" value="1" oninput="syncPageBgBlurInputs(this.value)" class="w-16 px-2.5 py-1.5 rounded-xl bg-surface-container text-on-surface border border-purple-900/40 text-center text-sm font-extrabold focus:ring-2 focus:ring-primary focus:outline-none"/>
+            </div>
+
+            <div class="flex flex-wrap items-center gap-1.5">
+              <span class="text-[10px] text-outline font-bold mr-1">Quick Blur Levels:</span>
+              <button type="button" onclick="syncPageBgBlurInputs(1)" class="px-2.5 py-1 rounded-full bg-emerald-500/15 hover:bg-emerald-500/25 border border-emerald-400/30 text-emerald-200 text-[11px] font-bold transition cursor-pointer">Level 1 (Sharp)</button>
+              <button type="button" onclick="syncPageBgBlurInputs(6)" class="px-2.5 py-1 rounded-full bg-purple-500/15 hover:bg-purple-500/25 border border-purple-400/30 text-purple-200 text-[11px] font-bold transition cursor-pointer">Level 6 (Subtle)</button>
+              <button type="button" onclick="syncPageBgBlurInputs(15)" class="px-2.5 py-1 rounded-full bg-pink-500/15 hover:bg-pink-500/25 border border-pink-400/30 text-pink-200 text-[11px] font-bold transition cursor-pointer">Level 15 (Soft)</button>
+              <button type="button" onclick="syncPageBgBlurInputs(28)" class="px-2.5 py-1 rounded-full bg-amber-500/15 hover:bg-amber-500/25 border border-amber-400/30 text-amber-200 text-[11px] font-bold transition cursor-pointer">Level 28 (Dreamy)</button>
+              <button type="button" onclick="syncPageBgBlurInputs(50)" class="px-2.5 py-1 rounded-full bg-rose-500/15 hover:bg-rose-500/25 border border-rose-400/30 text-rose-200 text-[11px] font-bold transition cursor-pointer">Level 50 (Max Blur)</button>
+            </div>
+          </div>
+        </div>
+
+        <!-- Right Live 4-View Preview Grid (5 cols) -->
+        <div class="lg:col-span-5 flex flex-col justify-between p-4 rounded-2xl bg-surface-container-low border border-purple-500/30">
+          <div class="flex items-center justify-between mb-2.5">
+            <span class="text-[10px] uppercase font-bold tracking-widest text-pink-300 px-2.5 py-0.5 rounded-full bg-white/10">4-View Live Background + Blur Preview</span>
+            <span id="preview-page-bg-label" class="text-xs font-bold text-amber-300">☁️ Cloudy Castle • Blur Lv 1</span>
+          </div>
+          <div class="grid grid-cols-2 gap-2.5">
+            <!-- View 1: Desktop Light -->
+            <div class="relative rounded-xl overflow-hidden border border-white/15 aspect-video bg-[#f6f0ff]">
+              <div id="prev-bg-desk-light" class="absolute inset-0 bg-cover bg-center transition-all duration-200" style="background-image: url('/assets/page-bg-diwali-desk-light.webp');"></div>
+              <div class="relative z-10 p-2 flex flex-col justify-between h-full">
+                <span class="px-1.5 py-0.5 rounded bg-black/55 text-white text-[9px] font-bold w-fit">1. Desktop • Light</span>
+                <span class="px-2 py-0.5 rounded-md bg-white/90 text-purple-950 text-[9px] font-extrabold shadow self-start">Sharp UI Card ✨</span>
+              </div>
+            </div>
+            <!-- View 2: Desktop Dark -->
+            <div class="relative rounded-xl overflow-hidden border border-white/15 aspect-video bg-[#0f0521]">
+              <div id="prev-bg-desk-dark" class="absolute inset-0 bg-cover bg-center transition-all duration-200" style="background-image: url('/assets/page-bg-diwali-desk-dark.webp');"></div>
+              <div class="relative z-10 p-2 flex flex-col justify-between h-full">
+                <span class="px-1.5 py-0.5 rounded bg-black/65 text-amber-300 text-[9px] font-bold w-fit">2. Desktop • Dark</span>
+                <span class="px-2 py-0.5 rounded-md bg-purple-950/90 border border-pink-400/40 text-white text-[9px] font-extrabold shadow self-start">Sharp UI Card 🌙</span>
+              </div>
+            </div>
+            <!-- View 3: Mobile Light -->
+            <div class="relative rounded-xl overflow-hidden border border-white/15 h-28 bg-[#f6f0ff]">
+              <div id="prev-bg-mob-light" class="absolute inset-0 bg-cover bg-center transition-all duration-200" style="background-image: url('/assets/page-bg-diwali-mob-light.webp');"></div>
+              <div class="relative z-10 p-2 flex flex-col justify-between h-full">
+                <span class="px-1.5 py-0.5 rounded bg-black/55 text-white text-[9px] font-bold w-fit">3. Mobile • Light</span>
+                <span class="px-2 py-0.5 rounded-md bg-white/90 text-purple-950 text-[9px] font-extrabold shadow self-start">Sharp Text</span>
+              </div>
+            </div>
+            <!-- View 4: Mobile Dark -->
+            <div class="relative rounded-xl overflow-hidden border border-white/15 h-28 bg-[#0f0521]">
+              <div id="prev-bg-mob-dark" class="absolute inset-0 bg-cover bg-center transition-all duration-200" style="background-image: url('/assets/page-bg-diwali-mob-dark.webp');"></div>
+              <div class="relative z-10 p-2 flex flex-col justify-between h-full">
+                <span class="px-1.5 py-0.5 rounded bg-black/65 text-amber-300 text-[9px] font-bold w-fit">4. Mobile • Dark</span>
+                <span class="px-2 py-0.5 rounded-md bg-purple-950/90 border border-pink-400/40 text-white text-[9px] font-extrabold shadow self-start">Sharp Text</span>
+              </div>
+            </div>
+          </div>
+          <span class="text-[10px] text-emerald-300/90 mt-2 block">✅ Notice how the "Sharp UI Card" badges stay 100% crisp while only the background blurs!</span>
+        </div>
+      </div>
+    </div>
+
     <!-- SECTION 2: GLOBAL STOREFRONT SETTINGS -->
     <div data-settings-tab="storefront" class="wm-card bg-surface-container rounded-2xl p-5 sm:p-7 border border-purple-900/30 shadow-xl flex flex-col gap-6">
       <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pb-4 border-b border-purple-900/20">
@@ -1688,6 +1808,65 @@
     updateHeroPreview();
   }
 
+  function switchPageBgMode(mode) {
+    const sel = document.getElementById('setting-page-bg-mode');
+    if (sel) sel.value = mode;
+    updatePageBgPreview();
+  }
+
+  function syncPageBgBlurInputs(val) {
+    const lvl = Math.min(50, Math.max(1, Math.round(Number(val) || 1)));
+    const slider = document.getElementById('setting-page-bg-blur');
+    const num = document.getElementById('setting-page-bg-blur-num');
+    if (slider && Number(slider.value) !== lvl) slider.value = lvl;
+    if (num && Number(num.value) !== lvl) num.value = lvl;
+    updatePageBgPreview();
+  }
+
+  function updatePageBgPreview() {
+    const mode = document.getElementById('setting-page-bg-mode')?.value || 'cloudy';
+    const rawLvl = Number(document.getElementById('setting-page-bg-blur')?.value || 1);
+    const lvl = Math.min(50, Math.max(1, Math.round(rawLvl)));
+    const px = Number(((lvl - 1) * 0.5).toFixed(1));
+
+    const badge = document.getElementById('page-bg-blur-badge');
+    if (badge) {
+      badge.textContent = `Level ${lvl} / 50 (${px}px Blur • Background Only)`;
+    }
+
+    const label = document.getElementById('preview-page-bg-label');
+    if (label) {
+      label.textContent = `${mode === 'diwali-palace' ? '🪔 Royal Diwali Palace' : '☁️ Cloudy Castle'} • Blur Lv ${lvl} (${px}px)`;
+    }
+
+    const btnCloudy = document.getElementById('btn-page-bg-cloudy');
+    const btnDiwali = document.getElementById('btn-page-bg-diwali');
+    if (btnCloudy && btnDiwali) {
+      if (mode === 'diwali-palace') {
+        btnDiwali.className = 'flex items-start gap-3 p-3 rounded-xl border-2 border-amber-400 bg-amber-500/20 text-left transition cursor-pointer shadow-md';
+        btnCloudy.className = 'flex items-start gap-3 p-3 rounded-xl border border-purple-800/40 bg-surface-container text-left transition hover:border-pink-400/50 cursor-pointer opacity-80';
+      } else {
+        btnCloudy.className = 'flex items-start gap-3 p-3 rounded-xl border-2 border-pink-400 bg-pink-500/20 text-left transition cursor-pointer shadow-md';
+        btnDiwali.className = 'flex items-start gap-3 p-3 rounded-xl border border-purple-800/40 bg-surface-container text-left transition hover:border-amber-400/60 cursor-pointer opacity-80';
+      }
+    }
+
+    const views = [
+      { id: 'prev-bg-desk-light', diwali: "url('/assets/page-bg-diwali-desk-light.webp')", cloudy: "radial-gradient(circle at 50% 25%, #e9d5ff 0%, #fbcfe8 48%, #f3e8ff 100%)" },
+      { id: 'prev-bg-desk-dark',  diwali: "url('/assets/page-bg-diwali-desk-dark.webp')",  cloudy: "radial-gradient(circle at 50% 25%, #581c87 0%, #3b0764 52%, #0f0521 100%)" },
+      { id: 'prev-bg-mob-light',  diwali: "url('/assets/page-bg-diwali-mob-light.webp')",  cloudy: "radial-gradient(circle at 50% 30%, #e9d5ff 0%, #fbcfe8 52%, #f3e8ff 100%)" },
+      { id: 'prev-bg-mob-dark',   diwali: "url('/assets/page-bg-diwali-mob-dark.webp')",   cloudy: "radial-gradient(circle at 50% 30%, #581c87 0%, #3b0764 52%, #0f0521 100%)" },
+    ];
+    views.forEach(v => {
+      const el = document.getElementById(v.id);
+      if (el) {
+        el.style.backgroundImage = mode === 'diwali-palace' ? v.diwali : v.cloudy;
+        el.style.filter = `blur(${px}px)`;
+        el.style.transform = `scale(${(1 + (lvl - 1) * 0.003).toFixed(3)})`;
+      }
+    });
+  }
+
   function applyHeroBadgeQuickPreset(iconVal, textVal) {
     const iconEl = document.getElementById('setting-hero-badge-icon');
     const textEl = document.getElementById('setting-hero-badge');
@@ -2076,6 +2255,8 @@
         if (s.heroSubheadline !== undefined) document.getElementById('setting-hero-subheadline').value = s.heroSubheadline;
         if (s.heroGiftIcon !== undefined) document.getElementById('setting-hero-gift-icon').value = s.heroGiftIcon;
         if (s.heroBgMode !== undefined) document.getElementById('setting-hero-bg-mode').value = s.heroBgMode;
+        if (s.pageBgMode !== undefined && document.getElementById('setting-page-bg-mode')) document.getElementById('setting-page-bg-mode').value = s.pageBgMode;
+        if (s.pageBgBlur !== undefined) syncPageBgBlurInputs(s.pageBgBlur);
         if (s.heroImageUrl !== undefined) document.getElementById('setting-hero-image-url').value = s.heroImageUrl;
         if (s.heroStyle !== undefined) document.getElementById('setting-hero-style').value = s.heroStyle;
         if (s.heroCta1 !== undefined) document.getElementById('setting-hero-cta1').value = s.heroCta1;
@@ -2142,6 +2323,8 @@
       heroSubheadline: document.getElementById('setting-hero-subheadline').value,
       heroGiftIcon: document.getElementById('setting-hero-gift-icon').value,
       heroBgMode: document.getElementById('setting-hero-bg-mode').value,
+      pageBgMode: document.getElementById('setting-page-bg-mode') ? document.getElementById('setting-page-bg-mode').value : 'cloudy',
+      pageBgBlur: document.getElementById('setting-page-bg-blur') ? Math.min(50, Math.max(1, Math.round(Number(document.getElementById('setting-page-bg-blur').value) || 1))) : 1,
       heroImageUrl: document.getElementById('setting-hero-image-url').value,
       heroStyle: document.getElementById('setting-hero-style').value,
       heroCta1: document.getElementById('setting-hero-cta1').value,
@@ -2200,6 +2383,8 @@
       if (persisted.heroSubheadline !== undefined) document.getElementById('setting-hero-subheadline').value = persisted.heroSubheadline;
       if (persisted.heroGiftIcon !== undefined) document.getElementById('setting-hero-gift-icon').value = persisted.heroGiftIcon;
       if (persisted.heroBgMode !== undefined) document.getElementById('setting-hero-bg-mode').value = persisted.heroBgMode;
+      if (persisted.pageBgMode !== undefined && document.getElementById('setting-page-bg-mode')) document.getElementById('setting-page-bg-mode').value = persisted.pageBgMode;
+      if (persisted.pageBgBlur !== undefined) syncPageBgBlurInputs(persisted.pageBgBlur);
       if (persisted.heroImageUrl !== undefined) document.getElementById('setting-hero-image-url').value = persisted.heroImageUrl;
       if (persisted.heroStyle !== undefined) document.getElementById('setting-hero-style').value = persisted.heroStyle;
       if (persisted.heroCta1 !== undefined) document.getElementById('setting-hero-cta1').value = persisted.heroCta1;
@@ -2543,6 +2728,8 @@
   };
 
   const SETTINGS_SEARCH_INDEX = [
+    { title: 'Page Background Switcher (Cloudy Castle vs Diwali Palace)', desc: 'Switch between Fairytale Cloudy Castle and 4-View Royal Diwali Cloud Palace background', categoryKey: 'storefront', categoryLabel: '1. Storefront & Homepage', elementId: 'setting-page-bg-mode', keywords: 'cloudy background diwali palace desktop mobile light dark switch' },
+    { title: 'Background Blur Intensity (Levels 1 to 50)', desc: 'Adjust 50 levels of CSS blur intensity applied strictly to the page background only', categoryKey: 'storefront', categoryLabel: '1. Storefront & Homepage', elementId: 'setting-page-bg-blur', keywords: 'blur intensity 1 to 50 level background softness bokeh' },
     { title: 'Hero Pill Badge Text', desc: 'Update top hero badge copy on the homepage', categoryKey: 'storefront', categoryLabel: '1. Storefront & Homepage', elementId: 'setting-hero-badge', keywords: 'hero badge pill welcome' },
     { title: 'Main Display Headline & Subheadline', desc: 'Homepage hero title and supporting pitch', categoryKey: 'storefront', categoryLabel: '1. Storefront & Homepage', elementId: 'setting-hero-headline', keywords: 'headline title subheadline hero text' },
     { title: 'Hero Visual Engine & 3D Physics', desc: '3D gift box, balloons, floating motion, touch confetti, and background photo', categoryKey: 'storefront', categoryLabel: '1. Storefront & Homepage', elementId: 'setting-hero-bg-mode', keywords: '3d gift box balloons gradient background photo' },

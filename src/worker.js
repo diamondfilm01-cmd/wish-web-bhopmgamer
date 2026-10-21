@@ -5077,6 +5077,8 @@ const DEFAULT_SITE_SETTINGS = {
   heroSubheadline: 'Create beautiful personalized digital wishes that feel like a real experience — interactive 3D unboxing, customized music & unforgettable celebration magic.',
   heroGiftIcon: '🎁',
   heroBgMode: 'image',
+  pageBgMode: 'cloudy',
+  pageBgBlur: 1,
   hero3dFloatingEnabled: true,
   heroTouchBurstEnabled: true,
   heroImageUrl: '/assets/file_ab2082.png',
@@ -5229,6 +5231,10 @@ function validateSiteSettings(settings) {
   const heroImageUrl = s.heroImageUrl !== undefined ? String(s.heroImageUrl).trim() : (inMemorySiteSettings.heroImageUrl || '/assets/file_ab2082.png');
   const ALLOWED_BG_MODES = ['image', 'diwali-3d', 'custom-photo', 'gradient'];
   const heroBgMode = (s.heroBgMode !== undefined && ALLOWED_BG_MODES.includes(s.heroBgMode)) ? s.heroBgMode : (ALLOWED_BG_MODES.includes(inMemorySiteSettings.heroBgMode) ? inMemorySiteSettings.heroBgMode : 'image');
+  const ALLOWED_PAGE_BG_MODES = ['cloudy', 'diwali-palace'];
+  const pageBgMode = (s.pageBgMode !== undefined && ALLOWED_PAGE_BG_MODES.includes(s.pageBgMode)) ? s.pageBgMode : (ALLOWED_PAGE_BG_MODES.includes(inMemorySiteSettings.pageBgMode) ? inMemorySiteSettings.pageBgMode : 'cloudy');
+  const rawPageBgBlur = s.pageBgBlur !== undefined ? Number(s.pageBgBlur) : Number(inMemorySiteSettings.pageBgBlur || 1);
+  const pageBgBlur = Number.isFinite(rawPageBgBlur) ? Math.min(50, Math.max(1, Math.round(rawPageBgBlur))) : 1;
   const hero3dFloatingEnabled = s.hero3dFloatingEnabled !== undefined ? Boolean(s.hero3dFloatingEnabled) : (inMemorySiteSettings.hero3dFloatingEnabled !== false);
   const heroTouchBurstEnabled = s.heroTouchBurstEnabled !== undefined ? Boolean(s.heroTouchBurstEnabled) : (inMemorySiteSettings.heroTouchBurstEnabled !== false);
   const coupons = Array.isArray(s.coupons) ? s.coupons : (Array.isArray(inMemorySiteSettings.coupons) ? inMemorySiteSettings.coupons : []);
@@ -5245,6 +5251,8 @@ function validateSiteSettings(settings) {
       heroSubheadline,
       heroGiftIcon,
       heroBgMode,
+      pageBgMode,
+      pageBgBlur,
       hero3dFloatingEnabled,
       heroTouchBurstEnabled,
       heroImageUrl,
@@ -5288,6 +5296,8 @@ async function getSiteSettings(env) {
           else if (row.key === 'hero_subheadline') config.heroSubheadline = val;
           else if (row.key === 'hero_gift_icon') config.heroGiftIcon = val;
           else if (row.key === 'hero_bg_mode') config.heroBgMode = val;
+          else if (row.key === 'page_bg_mode') config.pageBgMode = (val === 'diwali-palace') ? 'diwali-palace' : 'cloudy';
+          else if (row.key === 'page_bg_blur') config.pageBgBlur = Math.min(50, Math.max(1, Math.round(Number(val) || 1)));
           else if (row.key === 'hero_3d_floating_enabled') config.hero3dFloatingEnabled = Boolean(val);
           else if (row.key === 'hero_touch_burst_enabled') config.heroTouchBurstEnabled = Boolean(val);
           else if (row.key === 'hero_image_url') config.heroImageUrl = val;
@@ -5341,6 +5351,8 @@ async function saveSiteSettings(env, newSettings, actor = {}) {
         ['hero_subheadline', s.heroSubheadline, 'string'],
         ['hero_gift_icon', s.heroGiftIcon, 'string'],
         ['hero_bg_mode', s.heroBgMode || 'image', 'string'],
+        ['page_bg_mode', s.pageBgMode || 'cloudy', 'string'],
+        ['page_bg_blur', String(s.pageBgBlur || 1), 'number'],
         ['hero_3d_floating_enabled', String(s.hero3dFloatingEnabled !== false), 'boolean'],
         ['hero_touch_burst_enabled', String(s.heroTouchBurstEnabled !== false), 'boolean'],
         ['hero_image_url', s.heroImageUrl, 'string'],
@@ -5420,6 +5432,8 @@ function formatPublicSiteSettings(settings) {
     heroSubheadline: settings.heroSubheadline,
     heroGiftIcon: settings.heroGiftIcon,
     heroBgMode,
+    pageBgMode: settings.pageBgMode === 'diwali-palace' ? 'diwali-palace' : 'cloudy',
+    pageBgBlur: Math.min(50, Math.max(1, Math.round(Number(settings.pageBgBlur) || 1))),
     hero3dFloatingEnabled: settings.hero3dFloatingEnabled !== false,
     heroTouchBurstEnabled: settings.heroTouchBurstEnabled !== false,
     heroImageUrl: settings.heroImageUrl || '/assets/file_ab2082.png',
