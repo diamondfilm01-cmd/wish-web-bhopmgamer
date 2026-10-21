@@ -501,14 +501,16 @@
   }
 
   async function loadUsers() {
+    const signal = window.AdminStudio ? window.AdminStudio.createAbortSignal('admin_users_list') : undefined;
     try {
-      const res = await fetch('/api/admin/users');
+      const res = await fetch('/api/admin/users', { credentials: 'include', signal });
       const data = await res.json();
+      if (signal && signal.aborted) return;
       allUsers = data.users || [];
       updateKPIs(data.counts);
       renderUsersTable();
     } catch (e) {
-      console.warn('Error loading users:', e);
+      if (e && e.name !== 'AbortError') console.warn('Error loading users:', e);
     }
   }
 

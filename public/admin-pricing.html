@@ -699,7 +699,7 @@
           </div>
           <div>
             <label class="block text-xs font-bold uppercase text-outline mb-1">Razorpay Live Key ID</label>
-            <input class="w-full px-3 py-2 rounded-lg bg-surface-container text-on-surface border border-purple-900/30 text-xs font-mono" value="rzp_live_9a2b84cd12ef44"/>
+            <input class="w-full px-3 py-2 rounded-lg bg-surface-container text-on-surface border border-purple-900/30 text-xs font-mono" id="razorpay-gateway-status-input" value="Checking server gateway configuration..." readonly/>
           </div>
           <span class="text-[11px] text-on-surface-variant">Automatic webhook signature verification enabled</span>
         </div>
@@ -742,24 +742,34 @@
 </div>
 
 <script>
-  const DEFAULT_COUPONS = [
-    { code: 'MAGIC50', type: '50% OFF VIP Pass', redemptions: '12 / 2,000', expiry: 'Dec 31, 2026', status: 'Active' },
-    { code: 'BIRTHDAYGIFT', type: 'Flat ₹20 OFF', redemptions: '8 / 1,000', expiry: 'Nov 15, 2026', status: 'Active' },
-    { code: 'LAUNCHVIP', type: '100% Free VIP Pass', redemptions: '45 / 500', expiry: 'Oct 30, 2026', status: 'Active' }
-  ];
+  let serverCouponsList = [];
 
-  function getCouponsList() {
-    try {
-      const saved = localStorage.getItem('wishmagic_coupons_v2');
-      if (saved) return JSON.parse(saved);
-    } catch (_) {}
-    return DEFAULT_COUPONS;
+  function escapePricingHtml(str) {
+    return String(str == null ? '' : str)
+      .replace(/&/g, '&amp;')
+      .replace(/</g, '&lt;')
+      .replace(/>/g, '&gt;')
+      .replace(/"/g, '&quot;')
+      .replace(/'/g, '&#39;');
   }
 
-  function saveCouponsList(list) {
+  async function loadServerCoupons() {
+    const tbody = document.getElementById('coupons-table-body');
     try {
-      localStorage.setItem('wishmagic_coupons_v2', JSON.stringify(list));
-    } catch (_) {}
+      const res = await fetch('/api/admin/settings/coupons', { credentials: 'include' });
+      const payload = await res.json().catch(() => ({}));
+      const list = payload?.data?.coupons || payload?.coupons || [];
+      serverCouponsList = Array.isArray(list) ? list : [];
+      renderCouponsTable();
+    } catch (e) {
+      if (tbody) {
+        tbody.innerHTML = '<tr><td colspan="6" class="py-6 text-center text-xs text-rose-400">Unable to load coupons from server.</td></tr>';
+      }
+    }
+  }
+
+  function getCouponsList() {
+    return serverCouponsList;
   }
 
   function renderCouponsTable() {
@@ -770,18 +780,30 @@
     if (activeStat) activeStat.textContent = `${activeCount} Active`;
     if (!tbody) return;
 
+    if (list.length === 0) {
+      tbody.innerHTML = `
+        <tr>
+          <td colspan="6" class="py-8 text-center text-xs text-on-surface-variant">
+            No promotional coupon codes configured yet. Click <strong>Create Coupon</strong> above to add a server-backed discount code.
+          </td>
+        </tr>
+      `;
+      return;
+    }
+
     tbody.innerHTML = list.map((c, idx) => {
       const isAct = c.status === 'Active';
+      const safeCode = escapePricingHtml(c.code);
       return `
         <tr>
           <td class="py-3.5 px-3">
-            <span class="font-mono font-bold text-primary bg-primary-container/20 px-2 py-1 rounded">${c.code}</span>
+            <span class="font-mono font-bold text-primary bg-primary-container/20 px-2 py-1 rounded">${safeCode}</span>
           </td>
-          <td class="py-3.5 px-3 font-semibold text-on-surface">${c.type}</td>
-          <td class="py-3.5 px-3 font-mono text-xs text-on-surface-variant">${c.redemptions}</td>
-          <td class="py-3.5 px-3 text-xs text-outline">${c.expiry}</td>
+          <td class="py-3.5 px-3 font-semibold text-on-surface">${escapePricingHtml(c.type)}</td>
+          <td class="py-3.5 px-3 font-mono text-xs text-on-surface-variant">${escapePricingHtml(c.redemptions || '0 / 1,000')}</td>
+          <td class="py-3.5 px-3 text-xs text-outline">${escapePricingHtml(c.expiry || 'Dec 31, 2026')}</td>
           <td class="py-3.5 px-3">
-            <span class="px-2 py-0.5 rounded-full ${isAct ? 'bg-emerald-500/20 text-emerald-400' : 'bg-rose-500/20 text-rose-400'} text-xs font-bold">${c.status}</span>
+            <span class="px-2 py-0.5 rounded-full ${isAct ? 'bg-emerald-500/20 text-emerald-400' : 'bg-rose-500/20 text-rose-400'} text-xs font-bold">${escapePricingHtml(c.status)}</span>
           </td>
           <td class="py-3.5 px-3 text-right space-x-2">
             <button class="text-xs ${isAct ? 'text-amber-400' : 'text-emerald-400'} hover:underline font-bold cursor-pointer" onclick="toggleCouponStatus(${idx})">${isAct ? 'Disable' : 'Enable'}</button>
@@ -792,22 +814,50 @@
     }).join('');
   }
 
-  function toggleCouponStatus(idx) {
-    const list = getCouponsList();
-    if (!list[idx]) return;
-    list[idx].status = list[idx].status === 'Active' ? 'Disabled' : 'Active';
-    saveCouponsList(list);
-    renderCouponsTable();
-    showToast(`🎟 Coupon ${list[idx].code} is now ${list[idx].status}`);
+  async function toggleCouponStatus(idx) {
+    const item = serverCouponsList[idx];
+    if (!item) return;
+    const nextStatus = item.status === 'Active' ? 'Disabled' : 'Active';
+    try {
+      const res = await fetch(`/api/admin/settings/coupons/${encodeURIComponent(item.code)}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        credentials: 'include',
+        body: JSON.stringify({ status: nextStatus })
+      });
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok || data.success === false) {
+        showToast(data?.error?.message || 'Failed to update coupon status', 'error');
+        return;
+      }
+      serverCouponsList = data?.data?.coupons || data?.coupons || serverCouponsList;
+      renderCouponsTable();
+      showToast(`✅ Coupon ${item.code} is now ${nextStatus}`);
+    } catch (e) {
+      showToast('Failed to update coupon status', 'error');
+    }
   }
 
-  function deleteCoupon(idx) {
-    const list = getCouponsList();
-    if (!list[idx]) return;
-    const removed = list.splice(idx, 1);
-    saveCouponsList(list);
-    renderCouponsTable();
-    showToast(`🗑 Coupon ${removed[0].code} removed`);
+  async function deleteCoupon(idx) {
+    const item = serverCouponsList[idx];
+    if (!item) return;
+    if (!confirm(`Delete promotional coupon "${item.code}" permanently?`)) return;
+    try {
+      const res = await fetch(`/api/admin/settings/coupons/${encodeURIComponent(item.code)}`, {
+        method: 'DELETE',
+        credentials: 'include'
+      });
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok || data.success === false) {
+        showToast(data?.error?.message || 'Failed to delete coupon', 'error');
+        return;
+      }
+      serverCouponsList = data?.data?.coupons || data?.coupons || [];
+      renderCouponsTable();
+      showToast(`✅ Coupon ${item.code} removed from server`);
+    } catch (e) {
+      showToast('Failed to delete coupon', 'error');
+    }
   }
 
   function toggleModal(id) {
@@ -827,23 +877,11 @@
     const countFreeTemplates = document.getElementById('ref-count-free-select')?.value !== 'false';
     const rewardCredits = Math.max(1, parseInt(document.getElementById('ref-reward-credits-input')?.value, 10) || 1);
 
-    localStorage.setItem('wishmagic_pricing', JSON.stringify({
-      vip: customLinkPrice,
-      customLinkPrice,
-      hdImageStylePrice,
-      freeTemplateComboPrice,
-      premiumComboAddonPrice,
-      creator,
-      requiredReferrals,
-      countFreeTemplates,
-      rewardCredits
-    }));
-
     const tierLabel = document.getElementById('stat-primary-tier-price');
     if (tierLabel) tierLabel.textContent = `₹${customLinkPrice} / ₹${freeTemplateComboPrice}`;
 
     try {
-      await Promise.all([
+      const [wishLinksRes] = await Promise.all([
         fetch('/api/admin/settings/wish-links', {
           method: 'PUT',
           headers: { 'Content-Type': 'application/json' },
@@ -888,50 +926,90 @@
           })
         }).catch(() => null)
       ]);
+
+      if (!wishLinksRes || !wishLinksRes.ok) {
+        showToast('❌ Failed to persist pricing configuration on server', 'error');
+        return;
+      }
+
+      localStorage.setItem('wishmagic_pricing', JSON.stringify({
+        vip: customLinkPrice,
+        customLinkPrice,
+        hdImageStylePrice,
+        freeTemplateComboPrice,
+        premiumComboAddonPrice,
+        creator,
+        requiredReferrals,
+        countFreeTemplates,
+        rewardCredits
+      }));
       localStorage.setItem('wishmagic_site_settings_updated_at', String(Date.now()));
       if (typeof BroadcastChannel !== 'undefined') {
         const bc = new BroadcastChannel('wishmagic_site_settings');
         bc.postMessage({ updatedAt: Date.now() });
       }
-    } catch (e) {}
-
-    showToast(`💰 Saved! Link: ₹${customLinkPrice} | HD+Style: ₹${hdImageStylePrice} | Free Combo: ₹${freeTemplateComboPrice} | Premium Combo: +₹${premiumComboAddonPrice} | Referral: ${requiredReferrals} Friends`);
+      showToast(`✅ Saved! Link: ₹${customLinkPrice} | HD+Style: ₹${hdImageStylePrice} | Free Combo: ₹${freeTemplateComboPrice} | Premium Combo: +₹${premiumComboAddonPrice} | Referral: ${requiredReferrals} Friends`);
+    } catch (e) {
+      showToast('❌ Network error saving pricing configuration', 'error');
+    }
   }
 
-  function saveCoupon() {
+  async function saveCoupon() {
     const code = (document.getElementById('coupon-code').value || '').trim().toUpperCase();
     const typeSelect = document.getElementById('coupon-type-select')?.value || 'Percentage (% Off)';
-    const valInput = document.getElementById('coupon-value-input')?.value || '50';
+    const valInput = Number(document.getElementById('coupon-value-input')?.value || 50);
     if (!code) {
-      alert('Please enter coupon code');
+      showToast('⚠️ Please enter an uppercase coupon code', 'warning');
       return;
     }
-    const typeLabel = typeSelect.includes('%') ? `${valInput}% OFF VIP Pass` : `Flat ₹${valInput} OFF`;
-    const list = getCouponsList();
-    list.unshift({
-      code,
-      type: typeLabel,
-      redemptions: '0 / 1,000',
-      expiry: 'Dec 31, 2026',
-      status: 'Active'
-    });
-    saveCouponsList(list);
-    renderCouponsTable();
-    toggleModal('new-coupon-modal');
-    showToast(`🎟 Coupon "${code}" created and active!`);
-    document.getElementById('coupon-code').value = '';
+    const discountType = typeSelect.includes('%') ? 'percentage' : 'flat';
+    try {
+      const res = await fetch('/api/admin/settings/coupons', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        credentials: 'include',
+        body: JSON.stringify({
+          code,
+          discountType,
+          discountValue: valInput,
+          expiry: 'Dec 31, 2026'
+        })
+      });
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok || data.success === false) {
+        showToast(data?.error?.message || 'Failed to create coupon', 'error');
+        return;
+      }
+      serverCouponsList = data?.data?.coupons || data?.coupons || [];
+      renderCouponsTable();
+      toggleModal('new-coupon-modal');
+      showToast(`✅ Coupon "${code}" persisted and activated!`);
+      document.getElementById('coupon-code').value = '';
+    } catch (e) {
+      showToast('Failed to save coupon to server', 'error');
+    }
   }
 
   async function loadPricingMetrics() {
     try {
-      const [res, ordRes] = await Promise.all([
+      const [res, ordRes, healthRes] = await Promise.all([
         fetch('/api/admin/metrics', { credentials: 'include' }).catch(() => null),
-        fetch('/api/admin/commerce/orders', { credentials: 'include' }).catch(() => null)
+        fetch('/api/admin/commerce/orders', { credentials: 'include' }).catch(() => null),
+        fetch('/api/admin/commerce/health', { credentials: 'include' }).catch(() => null)
       ]);
       const data = res ? await res.json().catch(() => ({})) : {};
       const ordData = ordRes ? await ordRes.json().catch(() => ({})) : {};
-      const m = data.metrics || data || {};
-      const om = ordData.metrics || {};
+      const healthData = healthRes ? await healthRes.json().catch(() => ({})) : {};
+      const m = data.metrics || data.data || data || {};
+      const om = ordData.metrics || ordData.data?.metrics || {};
+      const gw = healthData.data || healthData || {};
+
+      const gwInput = document.getElementById('razorpay-gateway-status-input');
+      if (gwInput) {
+        gwInput.value = gw.isConfigured
+          ? 'Configured (RAZORPAY_KEY_ID & SECRET active)'
+          : 'Not Configured (Set RAZORPAY_KEY_ID in env)';
+      }
 
       const revEl = document.getElementById('stat-vip-revenue');
       const ordersEl = document.getElementById('stat-vip-orders-count');
@@ -984,11 +1062,15 @@
   }
 
   document.addEventListener('DOMContentLoaded', () => {
-    renderCouponsTable();
+    loadServerCoupons();
     loadPricingMetrics();
     loadWishLinkSettings();
   });
-  setInterval(loadPricingMetrics, 5000);
+  setInterval(() => {
+    if (document.visibilityState === 'visible' && !window.__wmAdminMutationInFlight) {
+      loadPricingMetrics();
+    }
+  }, 30000);
 </script>
 </body>
 </html>

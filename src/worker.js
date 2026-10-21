@@ -5168,10 +5168,14 @@ function validateSiteSettings(settings) {
   const heroBgMode = s.heroBgMode !== undefined ? (s.heroBgMode === 'gradient' ? 'gradient' : (s.heroBgMode === 'custom-photo' ? 'custom-photo' : 'image')) : (inMemorySiteSettings.heroBgMode || 'image');
   const hero3dFloatingEnabled = s.hero3dFloatingEnabled !== undefined ? Boolean(s.hero3dFloatingEnabled) : (inMemorySiteSettings.hero3dFloatingEnabled !== false);
   const heroTouchBurstEnabled = s.heroTouchBurstEnabled !== undefined ? Boolean(s.heroTouchBurstEnabled) : (inMemorySiteSettings.heroTouchBurstEnabled !== false);
+  const coupons = Array.isArray(s.coupons) ? s.coupons : (Array.isArray(inMemorySiteSettings.coupons) ? inMemorySiteSettings.coupons : []);
+  const popularTags = Array.isArray(s.popularTags) ? s.popularTags : (Array.isArray(inMemorySiteSettings.popularTags) ? inMemorySiteSettings.popularTags : []);
 
   return {
     valid: true,
     normalized: {
+      coupons,
+      popularTags,
       heroBadge,
       heroHeadline,
       heroSubheadline,
@@ -5235,6 +5239,8 @@ async function getSiteSettings(env) {
           else if (row.key === 'promo_badge_text') config.promoBadgeText = val;
           else if (row.key === 'promo_banner_active') config.promoBannerActive = val;
           else if (row.key === 'promo_banner_text') config.promoBannerText = val;
+          else if (row.key === 'promo_coupons_json') config.coupons = Array.isArray(val) ? val : [];
+          else if (row.key === 'popular_tags_json') config.popularTags = Array.isArray(val) ? val : [];
           if (row.updated_at) config.updatedAt = row.updated_at;
           if (row.updated_by) config.updatedBy = row.updated_by;
         }
@@ -5281,7 +5287,9 @@ async function saveSiteSettings(env, newSettings, actor = {}) {
         ['promo_discount_price', String(s.promoDiscountPrice), 'number'],
         ['promo_badge_text', s.promoBadgeText, 'string'],
         ['promo_banner_active', String(s.promoBannerActive), 'boolean'],
-        ['promo_banner_text', s.promoBannerText, 'string']
+        ['promo_banner_text', s.promoBannerText, 'string'],
+        ['promo_coupons_json', JSON.stringify(s.coupons || []), 'json'],
+        ['popular_tags_json', JSON.stringify(s.popularTags || []), 'json']
       ];
 
       for (const [k, v, t] of entries) {
@@ -11812,6 +11820,10 @@ export default {
 
       // --- Part 21: Master Admin Template Images List & Search API ---
       else if (pathname === '/api/admin/template-images' && method === 'GET') {
+        const user = await getAuthenticatedUser(request, env);
+        if (!user) return applySecurityHeaders(jsonError('AUTH_REQUIRED', 'Admin authentication required', 401), request, env);
+        const isAdmin = await verifyAdminRole(user, env);
+        if (!isAdmin) return applySecurityHeaders(jsonError('FORBIDDEN', 'Admin privileges required', 403), request, env);
         const urlObj = new URL(request.url);
         const templateId = urlObj.searchParams.get('templateId') || urlObj.searchParams.get('template_id');
         const relationshipId = urlObj.searchParams.get('relationshipId') || urlObj.searchParams.get('relationship_id');
@@ -17231,6 +17243,90 @@ export default {
         }, 200, {}, requestId);
       }
 
+      // --- Admin Promotional Coupons CRUD (Persisted in D1 site_settings) ---
+      else if (pathname === '/api/admin/settings/coupons' && method === 'GET') {
+        const user = await getAuthenticatedUser(request, env);
+        if (!user) return applySecurityHeaders(jsonError('AUTH_REQUIRED', 'Admin authentication required', 401), request, env);
+        const isAdmin = await verifyAdminRole(user, env);
+        if (!isAdmin) return applySecurityHeaders(jsonError('FORBIDDEN', 'Admin role required', 403), request, env);
+
+        const settings = await getSiteSettings(env);
+        const coupons = Array.isArray(settings.coupons) ? settings.coupons : [];
+        response = jsonSuccess({ coupons, total: coupons.length }, 200, {}, requestId);
+      }
+      else if (pathname === '/api/admin/settings/coupons' && method === 'POST') {
+        const user = await getAuthenticatedUser(request, env);
+        if (!user) return applySecurityHeaders(jsonError('AUTH_REQUIRED', 'Admin authentication required', 401), request, env);
+        const isAdmin = await verifyAdminRole(user, env);
+        if (!isAdmin) return applySecurityHeaders(jsonError('FORBIDDEN', 'Admin role required', 403), request, env);
+        if (isCsrfViolation(request, env)) return applySecurityHeaders(jsonError('FORBIDDEN', 'Cross-origin mutation rejected', 403), request, env);
+
+        const body = await request.json().catch(() => ({}));
+        const code = String(body.code || '').trim().toUpperCase();
+        if (!/^[A-Z0-9_-]{3,24}$/.test(code)) {
+          return applySecurityHeaders(jsonError('VALIDATION_ERROR', 'Coupon code must be 3-24 uppercase alphanumeric characters', 422), request, env);
+        }
+        const discountType = body.discountType === 'flat' ? 'flat' : 'percentage';
+        const discountValue = Math.max(1, Number(body.discountValue || body.value || 10));
+        if (discountType === 'percentage' && discountValue > 100) {
+          return applySecurityHeaders(jsonError('VALIDATION_ERROR', 'Percentage discount cannot exceed 100%', 422), request, env);
+        }
+        const maxRedemptions = Math.max(1, parseInt(body.maxRedemptions, 10) || 1000);
+        const expiry = String(body.expiry || 'Dec 31, 2026').trim();
+        const typeLabel = discountType === 'percentage'
+          ? (discountValue === 100 ? '100% Free VIP Pass' : `${discountValue}% OFF VIP Pass`)
+          : `Flat ₹${discountValue} OFF`;
+
+        const settings = await getSiteSettings(env);
+        const coupons = Array.isArray(settings.coupons) ? [...settings.coupons] : [];
+        if (coupons.some(c => String(c.code || '').toUpperCase() === code)) {
+          return applySecurityHeaders(jsonError('CONFLICT', `Coupon code "${code}" already exists`, 409), request, env);
+        }
+
+        const newCoupon = {
+          code,
+          discountType,
+          discountValue,
+          type: typeLabel,
+          redemptionsCount: 0,
+          maxRedemptions,
+          redemptions: `0 / ${maxRedemptions.toLocaleString('en-IN')}`,
+          expiry,
+          status: 'Active',
+          createdAt: new Date().toISOString()
+        };
+        coupons.unshift(newCoupon);
+        settings.coupons = coupons;
+        await saveSiteSettings(env, settings, { id: user.id, name: user.displayName || user.email, role: user.role || 'admin' });
+        response = jsonSuccess({ coupon: newCoupon, coupons, total: coupons.length }, 201, {}, requestId);
+      }
+      else if (pathname.startsWith('/api/admin/settings/coupons/') && (method === 'PATCH' || method === 'DELETE')) {
+        const user = await getAuthenticatedUser(request, env);
+        if (!user) return applySecurityHeaders(jsonError('AUTH_REQUIRED', 'Admin authentication required', 401), request, env);
+        const isAdmin = await verifyAdminRole(user, env);
+        if (!isAdmin) return applySecurityHeaders(jsonError('FORBIDDEN', 'Admin role required', 403), request, env);
+        if (isCsrfViolation(request, env)) return applySecurityHeaders(jsonError('FORBIDDEN', 'Cross-origin mutation rejected', 403), request, env);
+
+        const targetCode = decodeURIComponent(pathname.replace('/api/admin/settings/coupons/', '').trim()).toUpperCase();
+        const settings = await getSiteSettings(env);
+        let coupons = Array.isArray(settings.coupons) ? [...settings.coupons] : [];
+        const idx = coupons.findIndex(c => String(c.code || '').toUpperCase() === targetCode);
+        if (idx === -1) {
+          return applySecurityHeaders(jsonError('NOT_FOUND', `Coupon "${targetCode}" not found`, 404), request, env);
+        }
+
+        if (method === 'DELETE') {
+          coupons.splice(idx, 1);
+        } else {
+          const body = await request.json().catch(() => ({}));
+          const nextStatus = body.status || (coupons[idx].status === 'Active' ? 'Disabled' : 'Active');
+          coupons[idx] = { ...coupons[idx], status: nextStatus, updatedAt: new Date().toISOString() };
+        }
+        settings.coupons = coupons;
+        await saveSiteSettings(env, settings, { id: user.id, name: user.displayName || user.email, role: user.role || 'admin' });
+        response = jsonSuccess({ coupons, total: coupons.length }, 200, {}, requestId);
+      }
+
       // ============================================================================
       // PART C / PART 51 — CENTRAL LINK MANAGER & TEMPLATE LINK MIGRATION ENDPOINTS
       // ============================================================================
@@ -19342,6 +19438,11 @@ export default {
         }, 200, {}, requestId);
       }
       else if ((pathname === '/api/admin/hero-image' || pathname === '/api/admin/hero/photo') && method === 'POST') {
+        const user = await getAuthenticatedUser(request, env);
+        if (!user) return applySecurityHeaders(jsonError('AUTH_REQUIRED', 'Admin authentication required', 401), request, env);
+        const isAdmin = await verifyAdminRole(user, env);
+        if (!isAdmin) return applySecurityHeaders(jsonError('FORBIDDEN', 'Admin privileges required to update hero photo', 403), request, env);
+        if (isCsrfViolation(request, env)) return applySecurityHeaders(jsonError('FORBIDDEN', 'Cross-origin mutation rejected', 403), request, env);
         const body = await request.json().catch(() => ({}));
         let targetUrl = (body.heroImageUrl || body.photoUrl || body.imageUrl || body.imagePayload || (body.resetDefault ? '/assets/file_ab2082.png' : '') || '').trim();
         if (!targetUrl) {
@@ -19382,6 +19483,11 @@ export default {
         }, 200, {}, requestId);
       }
       else if (pathname === '/api/admin/hero/bg-mode' && (method === 'POST' || method === 'PUT')) {
+        const user = await getAuthenticatedUser(request, env);
+        if (!user) return applySecurityHeaders(jsonError('AUTH_REQUIRED', 'Admin authentication required', 401), request, env);
+        const isAdmin = await verifyAdminRole(user, env);
+        if (!isAdmin) return applySecurityHeaders(jsonError('FORBIDDEN', 'Admin privileges required to update hero background mode', 403), request, env);
+        if (isCsrfViolation(request, env)) return applySecurityHeaders(jsonError('FORBIDDEN', 'Cross-origin mutation rejected', 403), request, env);
         const body = await request.json().catch(() => ({}));
         const settings = await getSiteSettings(env);
         if (body.heroBgMode === 'gradient' || body.heroBgMode === 'image') {
@@ -20806,7 +20912,9 @@ export default {
           } catch (e) {}
         }
 
-        response = jsonSuccess({ logs, total: logs.length }, 200, {}, requestId);
+        const queryObj = Object.fromEntries(url.searchParams.entries());
+        const filteredResult = filterAuditLogs(logs, queryObj);
+        response = jsonSuccess(filteredResult, 200, {}, requestId);
       }
 
       // --- Admin Bootstrap (Secure first-run bootstrap with secret) ---
@@ -22850,37 +22958,7 @@ export default {
         response = jsonSuccess({ success: true, message: 'Link repaired and renewed', newExpiryDate }, 200, {}, requestId);
       }
 
-      // --- Audit Trail APIs ---
-      else if (pathname === '/api/admin/audit-logs' && method === 'GET') {
-        const user = await getAuthenticatedUser(request, env);
-        if (!user) return applySecurityHeaders(jsonError('AUTH_REQUIRED', 'Authentication required', 401), request, env);
-        const isAdmin = await verifyAdminRole(user, env);
-        if (!isAdmin) return applySecurityHeaders(jsonError('FORBIDDEN', 'Admin role required', 403), request, env);
-
-        let logs = [];
-        if (env.DB && typeof env.DB.prepare === 'function') {
-          try {
-            const rows = await env.DB.prepare('SELECT * FROM admin_audit_logs ORDER BY created_at DESC LIMIT 200').all();
-            logs = (rows.results || []).map(l => ({
-              id: l.id,
-              actorId: l.actor_id,
-              actorName: l.actor_name,
-              actorRole: l.actor_role,
-              action: l.action,
-              targetType: l.target_type,
-              targetId: l.target_id,
-              details: l.details,
-              ipAddress: l.ip_address,
-              createdAt: l.created_at
-            }));
-          } catch (e) {}
-        }
-
-        const queryObj = Object.fromEntries(url.searchParams.entries());
-        const result = filterAuditLogs(logs, queryObj);
-        response = jsonSuccess(result, 200, {}, requestId);
-      }
-
+      // --- Audit Trail Export API ---
       else if (pathname === '/api/admin/audit-logs/export' && method === 'GET') {
         const user = await getAuthenticatedUser(request, env);
         if (!user) return applySecurityHeaders(jsonError('AUTH_REQUIRED', 'Authentication required', 401), request, env);

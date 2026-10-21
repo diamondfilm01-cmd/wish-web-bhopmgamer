@@ -655,7 +655,8 @@
       listEl.innerHTML = '<div class="p-3 text-center text-xs text-on-surface-variant">Running relevance calculation...</div>';
 
       try {
-        const res = await fetch(`/api/search?q=${encodeURIComponent(q)}&sort=trending&limit=5`);
+        const signal = window.AdminStudio ? window.AdminStudio.createAbortSignal('search_sim') : undefined;
+        const res = await fetch(`/api/search?q=${encodeURIComponent(q)}&sort=trending&limit=5`, { credentials: 'include', signal });
         const data = await res.json();
 
         tagsEl.innerHTML = `

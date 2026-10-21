@@ -761,12 +761,12 @@
 
   document.addEventListener('DOMContentLoaded', async () => {
     await loadDashboard(false);
-    // Live auto-refresh every 5 seconds for real-time telemetry
+    // Live auto-refresh every 25 seconds when tab is visible and idle
     dashboardPollTimer = setInterval(() => {
-      if (document.visibilityState === 'visible') {
+      if (document.visibilityState === 'visible' && !window.__wmAdminMutationInFlight) {
         loadDashboard(true);
       }
-    }, 5000);
+    }, 25000);
   });
 
   window.addEventListener('focus', () => loadDashboard(true));

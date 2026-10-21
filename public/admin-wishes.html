@@ -447,14 +447,16 @@
   });
 
   async function loadWishes() {
+    const signal = window.AdminStudio ? window.AdminStudio.createAbortSignal('admin_wishes_list') : undefined;
     try {
-      const res = await fetch('/api/admin/wishes');
+      const res = await fetch('/api/admin/wishes', { credentials: 'include', signal });
       const data = await res.json();
+      if (signal && signal.aborted) return;
       allWishes = data.wishes || [];
       updateKPIs(data.counts);
       renderWishesTable();
     } catch (e) {
-      console.warn('Error loading wishes:', e);
+      if (e && e.name !== 'AbortError') console.warn('Error loading wishes:', e);
     }
   }
 

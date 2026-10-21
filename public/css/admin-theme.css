@@ -1480,3 +1480,54 @@ html.dark main input#setting-promo-free-mode.peer:checked + div {
   border-color: #10b981 !important;
   box-shadow: 0 4px 12px rgba(16, 185, 129, 0.42) !important;
 }
+
+/* ==========================================================================
+   9. ACCESSIBILITY, REDUCED MOTION & GLOBAL COMMAND SEARCH PALETTE
+   ========================================================================== */
+.wm-cmd-result-item.wm-cmd-item-focused,
+.wm-cmd-result-item:focus-visible {
+  background-color: rgba(147, 51, 234, 0.14) !important;
+  outline: 2px solid #9333ea !important;
+  outline-offset: -2px !important;
+}
+
+html.dark .wm-cmd-result-item.wm-cmd-item-focused,
+html.dark .wm-cmd-result-item:focus-visible {
+  background-color: rgba(168, 85, 247, 0.28) !important;
+  outline: 2px solid #c084fc !important;
+}
+
+aside#admin-sidebar a:focus-visible,
+header.wm-top-header button:focus-visible,
+main button:focus-visible,
+main a:focus-visible,
+main select:focus-visible,
+main input:focus-visible,
+main textarea:focus-visible {
+  outline: 2px solid #9333ea !important;
+  outline-offset: 2px !important;
+}
+
+html.dark aside#admin-sidebar a:focus-visible,
+html.dark header.wm-top-header button:focus-visible,
+html.dark main button:focus-visible,
+html.dark main a:focus-visible {
+  outline-color: #c084fc !important;
+}
+
+main button[disabled],
+main button[aria-busy="true"] {
+  opacity: 0.62 !important;
+  cursor: not-allowed !important;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
+}

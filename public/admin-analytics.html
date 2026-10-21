@@ -631,17 +631,19 @@
     loadAllAnalytics();
   });
 
+  let analyticsAbortSignal = null;
   async function loadAllAnalytics() {
     const refreshIcon = document.getElementById('refresh-icon');
     if (refreshIcon) refreshIcon.classList.add('animate-spin');
+    analyticsAbortSignal = window.AdminStudio ? window.AdminStudio.createAbortSignal('analytics_all') : null;
 
     try {
       await Promise.all([
-        fetchOverview(),
-        fetchRevenue(),
-        fetchUsers(),
-        fetchFunnel(),
-        fetchTemplates()
+        fetchOverview(analyticsAbortSignal),
+        fetchRevenue(analyticsAbortSignal),
+        fetchUsers(analyticsAbortSignal),
+        fetchFunnel(analyticsAbortSignal),
+        fetchTemplates(analyticsAbortSignal)
       ]);
       const now = new Date();
       const timeStr = now.toLocaleTimeString('en-IN', { timeZone: 'Asia/Kolkata', hour: '2-digit', minute: '2-digit', second: '2-digit' });
@@ -662,10 +664,10 @@
     return q;
   }
 
-  async function fetchOverview() {
+  async function fetchOverview(signal) {
     try {
       const res = await fetch(`/api/admin/analytics/overview?${getQueryString()}`, {
-        headers: { 'Cache-Control': 'no-cache' }
+        headers: { 'Cache-Control': 'no-cache' }, signal
       });
       if (!res.ok) return;
       const data = await res.json();
@@ -762,10 +764,10 @@
     `;
   }
 
-  async function fetchRevenue() {
+  async function fetchRevenue(signal) {
     try {
       const res = await fetch(`/api/admin/analytics/revenue?${getQueryString()}`, {
-        headers: { 'Cache-Control': 'no-cache' }
+        headers: { 'Cache-Control': 'no-cache' }, signal
       });
       if (!res.ok) return;
       const data = await res.json();
@@ -815,10 +817,10 @@
     `;
   }
 
-  async function fetchUsers() {
+  async function fetchUsers(signal) {
     try {
       const res = await fetch(`/api/admin/analytics/users?${getQueryString()}`, {
-        headers: { 'Cache-Control': 'no-cache' }
+        headers: { 'Cache-Control': 'no-cache' }, signal
       });
       if (!res.ok) return;
       const data = await res.json();
@@ -866,10 +868,10 @@
     `;
   }
 
-  async function fetchFunnel() {
+  async function fetchFunnel(signal) {
     try {
       const res = await fetch(`/api/admin/analytics/funnel?${getQueryString()}`, {
-        headers: { 'Cache-Control': 'no-cache' }
+        headers: { 'Cache-Control': 'no-cache' }, signal
       });
       if (!res.ok) return;
       const data = await res.json();
@@ -917,10 +919,10 @@
     }).join('');
   }
 
-  async function fetchTemplates() {
+  async function fetchTemplates(signal) {
     try {
       const res = await fetch(`/api/admin/analytics/templates?${getQueryString()}`, {
-        headers: { 'Cache-Control': 'no-cache' }
+        headers: { 'Cache-Control': 'no-cache' }, signal
       });
       if (!res.ok) return;
       const data = await res.json();

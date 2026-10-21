@@ -409,7 +409,7 @@
           window.WishMagicAdminSession &&
           window.WishMagicAdminSession.authenticated === true &&
           window.WishMagicAdminSession.user &&
-          isMasterAdminEmail(window.WishMagicAdminSession.user.email)
+          (isMasterAdminEmail(window.WishMagicAdminSession.user.email) || window.WishMagicAdminSession.user.isAdmin === true)
         );
       }
 
@@ -452,8 +452,9 @@
     },
 
     isAdmin() {
-      if (!currentUser || !currentUser.email) return false;
-      return isMasterAdminEmail(currentUser.email);
+      const adminUser = (window.WishMagicAdminSession && window.WishMagicAdminSession.user) || window.__WishMagicVerifiedAdminUser || currentUser;
+      if (!adminUser) return false;
+      return isMasterAdminEmail(adminUser.email) || adminUser.isAdmin === true || adminUser.isOwner === true;
     },
 
     async hydrateSessionFromServer() {

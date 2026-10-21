@@ -662,13 +662,7 @@
 <script>
   let currentHealthData = null;
   let currentOrphansData = null;
-
-  function toggleSidebar() {
-    const sb = document.getElementById('admin-sidebar');
-    const overlay = document.getElementById('sidebar-backdrop');
-    if (sb) sb.classList.toggle('-translate-x-full');
-    if (overlay) overlay.classList.toggle('hidden');
-  }
+    // Uses unified window.toggleSidebar from admin-theme.js
 
   function toggleModal(id) {
     const el = document.getElementById(id);

@@ -1,6 +1,7 @@
 <!DOCTYPE html>
 
 <html lang="en"><head>
+  <script src="js/auth-service.js"></script>
   <script src="js/api-client.js"></script><meta charset="utf-8"/><base href="/"/><meta content="width=device-width, initial-scale=1.0" name="viewport"/><meta content="web_dashboard" name="shell-type"/><title>WishMagic | Wishes & Orders Intelligence</title>
 <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&amp;family=JetBrains+Mono:wght@400;500;600&amp;display=swap" rel="stylesheet"/>
 <link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:opsz,wght,FILL,GRAD@20..48,100..700,0..1,-50..200&amp;display=swap" rel="stylesheet"/>
@@ -734,17 +735,7 @@
       URL.revokeObjectURL(url);
       if (typeof showToast === 'function') showToast('📥 Payments & Orders CSV exported!', 'success');
     }
-
-    function toggleSidebar() {
-      const sidebar = document.getElementById('admin-sidebar');
-      const backdrop = document.getElementById('sidebar-backdrop');
-      if (sidebar && backdrop) {
-        const isClosed = sidebar.classList.contains('-translate-x-full');
-        if (isClosed) {
-          sidebar.classList.remove('-translate-x-full');
-          backdrop.classList.remove('hidden');
-          document.body.style.overflow = 'hidden';
-        } else {
+    // Uses unified window.toggleSidebar from admin-theme.js else {
           sidebar.classList.add('-translate-x-full');
           backdrop.classList.add('hidden');
           document.body.style.overflow = '';
