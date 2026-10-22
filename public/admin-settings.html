@@ -90,6 +90,10 @@
           <span class="material-symbols-outlined">add_circle</span>
           <span>Add Template</span>
         </a>
+        <a href="/admin/anktech/anktech/admin/festivals">
+          <span class="material-symbols-outlined">event_available</span>
+          <span>Festival Scheduler</span>
+        </a>
         <a href="/admin/anktech/anktech/admin/occasions">
           <span class="material-symbols-outlined">category</span>
           <span>Categories</span>
@@ -1620,7 +1624,12 @@
             <p class="text-xs sm:text-sm text-on-surface-variant">Server-resolved festival dates (Panchang/Gazette + year-scoped overrides) and automatic <code>F - 15</code> to <code>F + 3</code> publication windows are managed in the dedicated Festival Scheduler.</p>
           </div>
         </div>
-        <a id="btn-open-festival-scheduler" href="/admin/anktech/anktech/admin/festivals" class="px-4 py-2.5 rounded-xl bg-gradient-to-r from-amber-500 to-pink-500 hover:brightness-110 text-white font-extrabold text-xs sm:text-sm flex items-center gap-2 shadow-lg transition self-start sm:self-auto">
+        <div class="flex flex-wrap items-center gap-2 self-start sm:self-auto">
+          <button type="button" id="btn-quick-launch-diwali-from-settings" onclick="quickLaunchFestivalFromSettings('fest_diwali', true)" class="px-4 py-2.5 rounded-xl bg-gradient-to-r from-emerald-500 to-teal-600 hover:brightness-110 text-white font-extrabold text-xs sm:text-sm flex items-center gap-2 shadow-lg transition cursor-pointer">
+            <span class="material-symbols-outlined text-[18px]">rocket_launch</span>
+            <span>🚀 Launch Diwali Campaign on Website</span>
+          </button>
+          <a id="btn-open-festival-scheduler" href="/admin/anktech/anktech/admin/festivals" class="px-4 py-2.5 rounded-xl bg-gradient-to-r from-amber-500 to-pink-500 hover:brightness-110 text-white font-extrabold text-xs sm:text-sm flex items-center gap-2 shadow-lg transition self-start sm:self-auto">
           <span class="material-symbols-outlined text-base">calendar_month</span>
           <span>Open Festival Scheduler →</span>
         </a>
@@ -1787,40 +1796,112 @@
     reader.readAsDataURL(file);
   }
 
+  let _settingsFloatingConfirmTimer = null;
+  let _settingsAutoSaveTimer = null;
+  let _isInitialSettingsLoad = true;
+
+  function showFloatingSettingsConfirmation(msg, type = 'success') {
+    let pop = document.getElementById('wm-settings-floating-confirm');
+    if (!pop) {
+      pop = document.createElement('div');
+      pop.id = 'wm-settings-floating-confirm';
+      pop.setAttribute('role', 'status');
+      pop.setAttribute('aria-live', 'polite');
+      document.body.appendChild(pop);
+    }
+    const isErr = type === 'error';
+    const isInfo = type === 'info';
+    pop.className = 'fixed top-20 left-1/2 -translate-x-1/2 z-[99999] px-5 py-3 rounded-2xl shadow-2xl border text-xs sm:text-sm font-extrabold flex items-center gap-3 transition-all duration-300 ' +
+      (isErr
+        ? 'bg-rose-950/95 border-rose-400 text-rose-100'
+        : isInfo
+          ? 'bg-purple-950/95 border-purple-400 text-purple-100'
+          : 'bg-emerald-950/95 border-emerald-400 text-emerald-100');
+    pop.innerHTML = `
+      <span class="material-symbols-outlined text-[22px] ${isErr ? 'text-rose-400' : isInfo ? 'text-purple-300' : 'text-emerald-400'}">${isErr ? 'error' : isInfo ? 'sync' : 'task_alt'}</span>
+      <div>
+        <div class="leading-tight">${isErr ? '❌ Action Failed' : isInfo ? '⏳ Saving Changes...' : '✅ Ho Gaya! Setting Saved & Applied to Website'}</div>
+        <div class="text-[11px] font-semibold opacity-90 mt-0.5">${String(msg || '').replace(/</g, '&lt;')}</div>
+      </div>
+      <button type="button" onclick="this.parentElement.classList.add('hidden')" class="ml-2 px-2 py-0.5 rounded bg-white/10 hover:bg-white/20 text-[11px] cursor-pointer">OK</button>
+    `;
+    pop.classList.remove('hidden');
+    if (_settingsFloatingConfirmTimer) clearTimeout(_settingsFloatingConfirmTimer);
+    _settingsFloatingConfirmTimer = setTimeout(() => {
+      pop.classList.add('hidden');
+    }, isInfo ? 2000 : 4500);
+  }
+
+  function animateSaveButtonsSuccess(labelMsg) {
+    document.querySelectorAll('button[onclick*="saveAllSiteSettings"], button[onclick*="saveWishLinkSettings"], button[onclick*="saveCentralLinkSettingsUI"]').forEach(btn => {
+      if (!btn.dataset.origHtml) btn.dataset.origHtml = btn.innerHTML;
+      btn.innerHTML = '<span class="material-symbols-outlined text-[18px]">check_circle</span><span>' + (labelMsg || '✅ Saved & Applied!') + '</span>';
+      btn.classList.add('ring-2', 'ring-emerald-400');
+      setTimeout(() => {
+        if (btn.dataset.origHtml) btn.innerHTML = btn.dataset.origHtml;
+        btn.classList.remove('ring-2', 'ring-emerald-400');
+      }, 2600);
+    });
+  }
+
+  function scheduleAutoSaveSiteSettings(confirmMessage, delayMs = 350) {
+    if (_isInitialSettingsLoad) return;
+    if (_settingsAutoSaveTimer) clearTimeout(_settingsAutoSaveTimer);
+    _settingsAutoSaveTimer = setTimeout(() => {
+      saveAllSiteSettings(confirmMessage || '✅ Ho Gaya! Setting saved & applied to Main Website!');
+    }, delayMs);
+  }
+
   function showStatusBanner(msg, type = 'info') {
     const banner = document.getElementById('settings-status-banner');
     const text = document.getElementById('settings-status-text');
     const icon = document.getElementById('settings-status-icon');
-    if (!banner || !text || !icon) return;
-
-    banner.className = 'p-4 rounded-xl border text-sm flex items-center justify-between transition-all ' +
-      (type === 'error' ? 'bg-rose-500/15 border-rose-500/30 text-rose-300' :
-       type === 'success' ? 'bg-emerald-500/15 border-emerald-500/30 text-emerald-300' :
-       'bg-purple-900/40 border-purple-800/50 text-purple-200');
-    icon.textContent = type === 'error' ? 'error' : type === 'success' ? 'check_circle' : 'info';
-    text.textContent = msg;
-    banner.classList.remove('hidden');
+    if (banner && text && icon) {
+      banner.className = 'p-4 rounded-xl border text-sm flex items-center justify-between transition-all ' +
+        (type === 'error' ? 'bg-rose-500/15 border-rose-500/30 text-rose-300' :
+         type === 'success' ? 'bg-emerald-500/15 border-emerald-500/30 text-emerald-300' :
+         'bg-purple-900/40 border-purple-800/50 text-purple-200');
+      icon.textContent = type === 'error' ? 'error' : type === 'success' ? 'check_circle' : 'info';
+      text.textContent = msg;
+      banner.classList.remove('hidden');
+    }
+    if (type === 'success' || type === 'error') {
+      showFloatingSettingsConfirmation(msg, type);
+      if (type === 'success') animateSaveButtonsSuccess('✅ Ho Gaya — Saved!');
+    }
   }
 
   function switchHero3DSceneMode(mode) {
     const sel = document.getElementById('setting-hero-bg-mode');
     if (sel) sel.value = mode;
     updateHeroPreview();
+    const label = mode === 'diwali-3d'
+      ? '🪔 3D Diwali Diyas & Crackers Hero Scene saved & live on Main Website!'
+      : '🎁 3D Gift Box & Balloons Hero Scene saved & live on Main Website!';
+    scheduleAutoSaveSiteSettings(label, 120);
   }
 
   function switchPageBgMode(mode) {
     const sel = document.getElementById('setting-page-bg-mode');
     if (sel) sel.value = mode;
     updatePageBgPreview();
+    const label = mode === 'diwali-palace'
+      ? '🪔 4-View Royal Diwali Cloud Palace Background saved & live on Main Website!'
+      : '☁️ Fairytale Cloudy Castle Background saved & live on Main Website!';
+    scheduleAutoSaveSiteSettings(label, 120);
   }
 
-  function syncPageBgBlurInputs(val) {
+  function syncPageBgBlurInputs(val, shouldAutoSave = true) {
     const lvl = Math.min(50, Math.max(1, Math.round(Number(val) || 1)));
     const slider = document.getElementById('setting-page-bg-blur');
     const num = document.getElementById('setting-page-bg-blur-num');
     if (slider && Number(slider.value) !== lvl) slider.value = lvl;
     if (num && Number(num.value) !== lvl) num.value = lvl;
     updatePageBgPreview();
+    if (shouldAutoSave && !_isInitialSettingsLoad) {
+      const px = Number(((lvl - 1) * 0.5).toFixed(1));
+      scheduleAutoSaveSiteSettings(`✨ Background Blur Level ${lvl}/50 (${px}px) saved & applied to Main Website!`, 400);
+    }
   }
 
   function updatePageBgPreview() {
@@ -1873,6 +1954,7 @@
     if (iconEl) iconEl.value = iconVal || '';
     if (textEl) textEl.value = textVal || '';
     updateHeroPreview();
+    scheduleAutoSaveSiteSettings(`✨ Top Hero Pill Badge updated to "${iconVal ? iconVal + ' ' : ''}${textVal}"!`, 150);
   }
 
   function updateHeroPreview() {
@@ -2187,6 +2269,7 @@
       if (saleEl && Number(saleEl.value) === 0) saleEl.value = 49;
     }
     updatePromoPreview();
+    scheduleAutoSaveSiteSettings('🎉 Promotional Offer Mode updated & applied to Main Website!', 180);
   }
 
   function updatePromoPreview() {
@@ -2256,7 +2339,7 @@
         if (s.heroGiftIcon !== undefined) document.getElementById('setting-hero-gift-icon').value = s.heroGiftIcon;
         if (s.heroBgMode !== undefined) document.getElementById('setting-hero-bg-mode').value = s.heroBgMode;
         if (s.pageBgMode !== undefined && document.getElementById('setting-page-bg-mode')) document.getElementById('setting-page-bg-mode').value = s.pageBgMode;
-        if (s.pageBgBlur !== undefined) syncPageBgBlurInputs(s.pageBgBlur);
+        if (s.pageBgBlur !== undefined) syncPageBgBlurInputs(s.pageBgBlur, false);
         if (s.heroImageUrl !== undefined) document.getElementById('setting-hero-image-url').value = s.heroImageUrl;
         if (s.heroStyle !== undefined) document.getElementById('setting-hero-style').value = s.heroStyle;
         if (s.heroCta1 !== undefined) document.getElementById('setting-hero-cta1').value = s.heroCta1;
@@ -2384,7 +2467,7 @@
       if (persisted.heroGiftIcon !== undefined) document.getElementById('setting-hero-gift-icon').value = persisted.heroGiftIcon;
       if (persisted.heroBgMode !== undefined) document.getElementById('setting-hero-bg-mode').value = persisted.heroBgMode;
       if (persisted.pageBgMode !== undefined && document.getElementById('setting-page-bg-mode')) document.getElementById('setting-page-bg-mode').value = persisted.pageBgMode;
-      if (persisted.pageBgBlur !== undefined) syncPageBgBlurInputs(persisted.pageBgBlur);
+      if (persisted.pageBgBlur !== undefined) syncPageBgBlurInputs(persisted.pageBgBlur, false);
       if (persisted.heroImageUrl !== undefined) document.getElementById('setting-hero-image-url').value = persisted.heroImageUrl;
       if (persisted.heroStyle !== undefined) document.getElementById('setting-hero-style').value = persisted.heroStyle;
       if (persisted.heroCta1 !== undefined) document.getElementById('setting-hero-cta1').value = persisted.heroCta1;
@@ -2962,7 +3045,8 @@
       if (festRes && festRes.ok) {
         const fd = await festRes.json().catch(() => ({}));
         const fests = fd?.data?.festivals || fd?.festivals || [];
-        const activeCampaigns = fests.filter(f => f.campaign && f.campaign.computedState === 'ACTIVE').length;
+        const camps = fd?.data?.campaigns || fd?.campaigns || [];
+        const activeCampaigns = camps.filter(c => c.eligible || c.effectiveState === 'ACTIVE').length;
         setTxt('settings-festivals-total', `${fests.length} Festivals`);
         setTxt('settings-festivals-active', `${activeCampaigns} Active Now`);
       } else {
@@ -2971,6 +3055,39 @@
       }
     } catch (_) {}
   }
+
+  window.quickLaunchFestivalFromSettings = async function(festivalId = 'fest_diwali', applyTheme = true) {
+    try {
+      showStatusBanner('Launching festival campaign & syncing with Main Website...', 'info');
+      const res = await fetch('/api/admin/festivals/quick-launch', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        credentials: 'include',
+        body: JSON.stringify({
+          festivalId,
+          applicableYear: new Date().getUTCFullYear(),
+          openWindowNow: true,
+          autoAssignTemplates: true,
+          applyStorefrontTheme: Boolean(applyTheme)
+        })
+      });
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok || !data.success) {
+        const msg = (data.error && data.error.message) || data.message || 'Failed to launch festival campaign';
+        showStatusBanner(msg, 'error');
+        showToast('❌ ' + msg, 'error');
+        return;
+      }
+      await loadSiteSettings();
+      await loadSettingsCategoryTelemetry();
+      notifyLiveStorefrontSettingsUpdated();
+      const msg = (data.data && data.data.message) || '🚀 Festival Campaign & 3D Theme are now LIVE on the Main Website!';
+      showStatusBanner(msg, 'success');
+      showToast('✅ ' + msg, 'success');
+    } catch (e) {
+      showStatusBanner('Error: ' + e.message, 'error');
+    }
+  };
 
   window.toggleCentralLinkRouteTables = function() {
     const grid = document.getElementById('central-link-advanced-routes-grid');
@@ -2994,6 +3111,43 @@
       loadStaffDirectory(),
       loadSettingsCategoryTelemetry()
     ]);
+    _isInitialSettingsLoad = false;
+
+    // Attach auto-save + confirmation feedback on all site setting checkboxes, selects, and text inputs
+    const siteSettingInputIds = [
+      'setting-hero-badge-icon', 'setting-hero-badge', 'setting-hero-headline', 'setting-hero-subheadline',
+      'setting-hero-gift-icon', 'setting-hero-bg-mode', 'setting-page-bg-mode', 'setting-hero-image-url',
+      'setting-hero-style', 'setting-hero-cta1', 'setting-hero-cta2', 'setting-hero-3d-floating',
+      'setting-hero-touch-burst', 'setting-brand-name', 'setting-support-wa', 'setting-currency',
+      'setting-particle-fx', 'setting-popular-tags', 'setting-promo-enabled', 'setting-promo-original-price',
+      'setting-promo-discount-price', 'setting-promo-badge-text', 'setting-promo-banner-active', 'setting-promo-banner-text'
+    ];
+    siteSettingInputIds.forEach(id => {
+      const el = document.getElementById(id);
+      if (!el) return;
+      el.addEventListener('change', () => {
+        updateHeroPreview();
+        updatePageBgPreview();
+        updatePromoPreview();
+        scheduleAutoSaveSiteSettings('✅ Ho Gaya! Setting saved & applied to Main Website!', 250);
+      });
+    });
+
+    // Attach auto-save + confirmation feedback on wish link settings
+    const wishLinkInputIds = [
+      'setting-personalized-enabled', 'setting-random-enabled', 'setting-personalized-currency',
+      'setting-personalized-name', 'setting-personalized-desc', 'setting-random-prefix',
+      'setting-random-length', 'setting-chars-lower', 'setting-chars-numbers', 'setting-chars-upper'
+    ];
+    wishLinkInputIds.forEach(id => {
+      const el = document.getElementById(id);
+      if (!el) return;
+      el.addEventListener('change', () => {
+        updateWishLinkPreview();
+        saveWishLinkSettings(false);
+      });
+    });
+
     setTimeout(runSecurityAudit, 300);
   });
 </script>

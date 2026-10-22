@@ -351,6 +351,8 @@ window.AdminAuthController = AdminAuthController;
 // 2. Automatically ensure all sidebar and navigation links strictly use /admin/anktech/anktech/admin/<section> and highlight ONLY the active section
 function rewriteAdminSidebarLinks() {
   const sectionMap = {
+    'festival-scheduler': 'festivals',
+    'festivals': 'festivals',
     'user-creations': 'user-creations',
     ' storage-health': 'storage-health',
     'storage-health': 'storage-health',
@@ -425,6 +427,20 @@ function rewriteAdminSidebarLinks() {
     (currentSection === 'storage-health' && (currentSearch.includes('tab=backups') || currentHash.includes('backups')));
 
   // Scope rewriting to navigation/header/admin-file links and preserve query/hash suffixes
+  // Ensure Festival Scheduler link is always present in #admin-sidebar nav
+  const primarySidebarNav = document.querySelector('#admin-sidebar nav, aside nav');
+  if (primarySidebarNav && !primarySidebarNav.querySelector('a[href*="/festivals"], a[href*="admin-festivals"]')) {
+    const addTplLink = primarySidebarNav.querySelector('a[href*="add-template"]');
+    const festLink = document.createElement('a');
+    festLink.setAttribute('href', SECRET_ADMIN_PREFIX + '/festivals');
+    festLink.innerHTML = '<span class="material-symbols-outlined">event_available</span><span>Festival Scheduler</span>';
+    if (addTplLink && addTplLink.parentNode === primarySidebarNav) {
+      addTplLink.insertAdjacentElement('afterend', festLink);
+    } else {
+      primarySidebarNav.appendChild(festLink);
+    }
+  }
+
   const candidateLinks = document.querySelectorAll(
     '#admin-sidebar a, aside a, header a[href*="admin"], a[data-admin-nav-link], a[href^="/admin/"], a[href^="/admin-"], a[href^="admin-"]'
   );

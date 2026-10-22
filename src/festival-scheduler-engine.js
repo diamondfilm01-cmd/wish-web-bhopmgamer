@@ -322,7 +322,7 @@ export const CANONICAL_FESTIVAL_CATALOG = Object.freeze([
 // ============================================================================
 let _festivalCacheVersion = 1;
 const _activeCampaignCache = new Map();
-const CACHE_TTL_MS = 30 * 1000; // Short 30s TTL; also invalidated immediately on any admin write
+const CACHE_TTL_MS = 30 * 1000;
 
 export function invalidateFestivalSchedulerCache() {
   _festivalCacheVersion += 1;
@@ -338,9 +338,6 @@ export function getFestivalCacheVersion() {
 // TIMEZONE & CALENDAR-DAY ARITHMETIC UTILITIES
 // ============================================================================
 
-/**
- * Validates whether a timezone identifier is supported by Intl.DateTimeFormat in the runtime.
- */
 export function isValidIanaTimezone(tz) {
   if (!tz || typeof tz !== 'string') return false;
   const trimmed = tz.trim();
@@ -354,10 +351,6 @@ export function isValidIanaTimezone(tz) {
   }
 }
 
-/**
- * Strictly validates a YYYY-MM-DD calendar date string, including leap-year and month-length checks.
- * Rejects malformed strings, impossible dates (e.g., 2026-02-29, 2026-11-31, 2026-13-01), and timestamps.
- */
 export function parseDateOnlyStrict(dateInput) {
   if (!dateInput || typeof dateInput !== 'string') {
     return { valid: false, reason: 'Date must be a non-empty YYYY-MM-DD string.' };
@@ -402,10 +395,6 @@ export function parseDateOnlyStrict(dateInput) {
   };
 }
 
-/**
- * Adds or subtracts integer calendar days from a validated YYYY-MM-DD date string.
- * Handles leap years, month boundaries, and year boundaries deterministically.
- */
 export function addCalendarDays(dateStr, deltaDays) {
   const parsed = parseDateOnlyStrict(dateStr);
   if (!parsed.valid) {
@@ -422,9 +411,6 @@ export function addCalendarDays(dateStr, deltaDays) {
   return `${y}-${m}-${day}`;
 }
 
-/**
- * Extracts local calendar parts (year, month, day, hour, minute, second) for a UTC timestamp in `timezone`.
- */
 export function getLocalTimePartsInTimezone(utcMs, timezone = DEFAULT_FESTIVAL_TIMEZONE) {
   const tz = isValidIanaTimezone(timezone) ? timezone.trim() : DEFAULT_FESTIVAL_TIMEZONE;
   if (tz === 'Asia/Kolkata' || tz === 'Asia/Calcutta') {
@@ -477,11 +463,6 @@ export function getLocalTimePartsInTimezone(utcMs, timezone = DEFAULT_FESTIVAL_T
   };
 }
 
-/**
- * Computes the exact UTC epoch timestamp (in milliseconds) corresponding to 00:00:00.000
- * at the start of `dateStr` (YYYY-MM-DD) in the specified IANA `timezone`.
- * Handles fixed-offset timezones (such as Asia/Kolkata) and DST-observing timezones accurately.
- */
 export function startOfDay(dateStr, timezone = DEFAULT_FESTIVAL_TIMEZONE) {
   const parsed = parseDateOnlyStrict(dateStr);
   if (!parsed.valid) {
@@ -497,7 +478,6 @@ export function startOfDay(dateStr, timezone = DEFAULT_FESTIVAL_TIMEZONE) {
     return targetMidnightUtc;
   }
 
-  // Two-pass offset convergence for general IANA timezones (handles DST transitions cleanly)
   let guessUtc = targetMidnightUtc;
   for (let i = 0; i < 3; i++) {
     const localParts = getLocalTimePartsInTimezone(guessUtc, tz);
@@ -517,16 +497,6 @@ export function startOfDay(dateStr, timezone = DEFAULT_FESTIVAL_TIMEZONE) {
   return guessUtc;
 }
 
-/**
- * Resolves the authoritative publication window for a festival date `F` (`YYYY-MM-DD`).
- *
- * REQUIRED BUSINESS RULE:
- * - Start date = F minus `daysBefore` calendar days (default 15, inclusive)
- * - End date   = F plus `daysAfter` calendar days (default 3, inclusive)
- * - First blocked date = End date + 1 calendar day
- * - Authoritative Interval:
- *   startOfDay(start_date, timezone) <= current_time < startOfDay(end_date + 1 calendar day, timezone)
- */
 export function calculatePublicationWindow(festivalDateStr, options = {}) {
   const parsed = parseDateOnlyStrict(festivalDateStr);
   if (!parsed.valid) {
@@ -593,10 +563,6 @@ export function calculatePublicationWindow(festivalDateStr, options = {}) {
   };
 }
 
-/**
- * Checks whether a timestamp (or YYYY-MM-DD local date in the festival timezone) falls inside
- * the publication window `[startOfDay(startDate, tz), startOfDay(endDate + 1 day, tz))`.
- */
 export function isTimestampWithinPublicationWindow(windowInfo, nowInput = Date.now()) {
   if (!windowInfo || !windowInfo.valid) {
     return {
@@ -615,7 +581,6 @@ export function isTimestampWithinPublicationWindow(windowInfo, nowInput = Date.n
     const trimmed = nowInput.trim();
     const dateOnlyCheck = parseDateOnlyStrict(trimmed);
     if (dateOnlyCheck.valid) {
-      // Interpret bare YYYY-MM-DD in the festival's configured timezone
       nowUtcMs = startOfDay(trimmed, windowInfo.timezone);
     } else {
       const parsedMs = Date.parse(trimmed);
@@ -667,11 +632,6 @@ export function isTimestampWithinPublicationWindow(windowInfo, nowInput = Date.n
 // FESTIVAL DATE RESOLUTION & ALGORITHMIC / TABLE / PROVIDER RESOLVERS
 // ============================================================================
 
-/**
- * Computes Nth weekday of a given month and year (e.g. 1st Sunday of August).
- * weekday: 0 = Sunday .. 6 = Saturday
- * nth: 1..5
- */
 export function computeNthWeekdayOfMonth(year, month, weekday, nth) {
   const y = Number(year);
   const m = Number(month);
@@ -688,9 +648,6 @@ export function computeNthWeekdayOfMonth(year, month, weekday, nth) {
   return check.valid ? check.dateStr : null;
 }
 
-/**
- * Computes Gregorian Easter Sunday using the anonymous Gregorian (Meeus/Jones/Butcher) algorithm.
- */
 export function computeEasterSunday(year) {
   const Y = Number(year);
   if (!Number.isInteger(Y) || Y < 1970 || Y > 2100) return null;
@@ -713,10 +670,6 @@ export function computeEasterSunday(year) {
   return check.valid ? check.dateStr : null;
 }
 
-/**
- * Resolves a festival date for `applicableYear` using its configured calculation method.
- * Never fabricates a formula for lunar/tithi festivals when no verified table or provider date exists.
- */
 export function resolveAutomaticFestivalDateForYear(festivalDef, applicableYear) {
   const year = Number(applicableYear);
   if (!Number.isInteger(year) || year < 1970 || year > 2100) {
@@ -741,7 +694,6 @@ export function resolveAutomaticFestivalDateForYear(festivalDef, applicableYear)
     ruleObj = {};
   }
 
-  // 1. Fixed Gregorian Date (only for genuinely fixed Gregorian observances like Christmas, New Year, Valentine's Day)
   if (method === FESTIVAL_CALCULATION_METHODS.FIXED_GREGORIAN) {
     const fm = Number(festivalDef?.fixed_month ?? festivalDef?.fixedMonth ?? ruleObj.month);
     const fd = Number(festivalDef?.fixed_day ?? festivalDef?.fixedDay ?? ruleObj.day);
@@ -771,7 +723,6 @@ export function resolveAutomaticFestivalDateForYear(festivalDef, applicableYear)
     };
   }
 
-  // 2. Deterministic Algorithmic Rule (e.g. Nth weekday of month, Easter)
   if (method === FESTIVAL_CALCULATION_METHODS.DETERMINISTIC_RULE) {
     let computedDate = null;
     const ruleType = String(ruleObj.type || '').toUpperCase();
@@ -805,7 +756,6 @@ export function resolveAutomaticFestivalDateForYear(festivalDef, applicableYear)
     };
   }
 
-  // 3. Verified Calendar Table (Maintained Official Panchang / Gazette Table)
   if (method === FESTIVAL_CALCULATION_METHODS.VERIFIED_CALENDAR_TABLE) {
     const catalogMatch = CANONICAL_FESTIVAL_CATALOG.find(
       c => c.id === festivalDef?.id || c.slug === festivalDef?.slug
@@ -844,7 +794,6 @@ export function resolveAutomaticFestivalDateForYear(festivalDef, applicableYear)
     };
   }
 
-  // 4. Manual Admin / External Provider without cached sync yet
   return {
     resolved: false,
     resolvedDate: null,
@@ -856,12 +805,6 @@ export function resolveAutomaticFestivalDateForYear(festivalDef, applicableYear)
   };
 }
 
-/**
- * Evaluates explicit 3-tier date precedence for a festival and applicable year:
- * 1. Active administrator manual override for (festival_id, applicable_year)
- * 2. Confirmed & validated automatic or imported festival date for (festival_id, applicable_year)
- * 3. Unconfirmed / Date Unavailable (never silently promoted to confirmed schedule)
- */
 export function resolveEffectiveFestivalDate({ festival, yearRecord, activeOverride, applicableYear }) {
   const targetYear = Number(applicableYear || yearRecord?.applicable_year || activeOverride?.applicable_year || new Date().getUTCFullYear());
   const defaultTz = isValidIanaTimezone(festival?.default_timezone || festival?.defaultTimezone)
@@ -955,21 +898,6 @@ export function resolveEffectiveFestivalDate({ festival, yearRecord, activeOverr
   };
 }
 
-/**
- * Evaluates authoritative campaign eligibility and publication window state.
- * Enforces deterministic precedence:
- * 1. Disabled festival -> ineligible
- * 2. Disabled campaign -> ineligible
- * 3. Cancelled campaign -> ineligible
- * 4. Draft campaign -> ineligible (even if date falls within window!)
- * 5. Paused campaign -> ineligible
- * 6. Ended campaign -> ineligible
- * 7. Unconfirmed / missing effective festival date -> ineligible (even if status is ACTIVE!)
- * 8. Timezone-aware calendar-day window check:
- *    - Before startOfDay(startDate, tz) -> UPCOMING_SCHEDULED (ineligible)
- *    - >= startOfDay(endDate + 1 day, tz) -> EXPIRED (ineligible)
- *    - Inside [startOfDay(startDate, tz), startOfDay(endDate + 1 day, tz)) -> ACTIVE (eligible)
- */
 export function evaluateCampaignEligibility({
   campaign,
   festival,
@@ -1142,18 +1070,6 @@ export function evaluateCampaignEligibility({
 // EXTERNAL FESTIVAL CALENDAR PROVIDER SYNCHRONIZATION (SAFE, BOUNDED & CACHED)
 // ============================================================================
 
-/**
- * Synchronizes festival dates for a given year from an external calendar provider
- * (configured via `env.FESTIVAL_CALENDAR_PROVIDER_URL` and optional `env.FESTIVAL_CALENDAR_API_KEY`,
- * or an injected `options.fetchImpl` for deterministic testing).
- *
- * Security & Reliability Guarantees:
- * - Never called during public gallery requests.
- * - Enforces request timeout (default 5000ms) and bounded retries (default 2) with rate-limit (429) handling.
- * - Validates response schema and every date string strictly with `parseDateOnlyStrict`.
- * - Preserves the last valid resolved date in D1 if the provider fails, times out, or returns invalid data.
- * - Records detailed synchronization audit entries in `festival_sync_logs`.
- */
 export async function syncFestivalDatesFromExternalProvider(db, env = {}, options = {}) {
   await ensureFestivalSchedulerSchema(db);
   const year = Number(options.year || new Date().getUTCFullYear());
@@ -1323,7 +1239,6 @@ export async function syncFestivalDatesFromExternalProvider(db, env = {}, option
     const rawDate = String(item.date || item.resolvedDate || '').trim();
     const dateCheck = parseDateOnlyStrict(rawDate);
     if (!dateCheck.valid || dateCheck.year !== year) {
-      // NEVER replace a valid date with an empty, malformed, or wrong-year result!
       preservedCount++;
       rejectedCount++;
       continue;
@@ -1338,8 +1253,6 @@ export async function syncFestivalDatesFromExternalProvider(db, env = {}, option
       'SELECT * FROM festival_year_dates WHERE festival_id = ? AND applicable_year = ? LIMIT 1'
     ).bind(fest.id, year).first();
 
-    // If existing row is already MANUALLY_CONFIRMED or AUTO_VERIFIED and incoming is unverified (IMPORTED_PENDING),
-    // preserve the existing verified date rather than downgrading a confirmed production date!
     if (
       existingRow &&
       existingRow.resolved_date &&
@@ -1565,7 +1478,6 @@ export async function ensureFestivalSchedulerSchema(db, options = {}) {
     } catch (_) {}
   }
 
-  // Ensure additive columns on templates, template_versions, and wishes if running on an unmigrated test DB
   try {
     await db.prepare(`ALTER TABLE templates ADD COLUMN festival_metadata_json TEXT DEFAULT '{}'`).run();
   } catch (_) {}
@@ -1583,9 +1495,6 @@ export async function ensureFestivalSchedulerSchema(db, options = {}) {
   }
 }
 
-/**
- * Seeds the canonical festival definitions and resolves their initial year dates if `festival_definitions` is empty.
- */
 export async function seedDefaultFestivalsIfEmpty(db, years = [2025, 2026, 2027]) {
   if (!db || typeof db.prepare !== 'function') return;
   try {
@@ -1659,9 +1568,6 @@ export async function seedDefaultFestivalsIfEmpty(db, years = [2025, 2026, 2027]
   } catch (_) {}
 }
 
-/**
- * Records an immutable audit event in `festival_sync_logs` and mirrors it to `admin_audit_logs` when available.
- */
 export async function recordFestivalAuditLog(db, entry = {}) {
   if (!db || typeof db.prepare !== 'function') return null;
   const id = `fsl_${Date.now().toString(36)}_${Math.random().toString(36).slice(2, 8)}`;
@@ -1702,11 +1608,6 @@ export async function recordFestivalAuditLog(db, entry = {}) {
   return id;
 }
 
-/**
- * Recalculates and persists the authoritative window boundaries (`effective_festival_date`,
- * `window_start_date`, `window_end_date`, `first_blocked_date`) on all campaigns for `(festivalId, year)`.
- * Ensures public availability never depends on a stale cached window when an admin updates or removes an override.
- */
 export async function recalculateCampaignWindowsForFestivalYear(db, festivalId, applicableYear) {
   if (!db || typeof db.prepare !== 'function') return [];
   const yr = Number(applicableYear);
@@ -1779,10 +1680,6 @@ export async function recalculateCampaignWindowsForFestivalYear(db, festivalId, 
   return updatedCampaigns;
 }
 
-/**
- * Sets or updates a manual administrator date override for `(festivalId, applicableYear)`.
- * Stores the override separately in `festival_date_overrides` without overwriting `festival_year_dates`.
- */
 export async function setFestivalDateOverride(db, {
   festivalId,
   applicableYear,
@@ -1945,10 +1842,6 @@ export async function setFestivalDateOverride(db, {
   };
 }
 
-/**
- * Removes an active manual date override for `(festivalId, applicableYear)` and restores
- * the underlying automatic/imported source date resolution without destroying source data.
- */
 export async function removeFestivalDateOverride(db, {
   festivalId,
   applicableYear,
@@ -2046,9 +1939,6 @@ export async function removeFestivalDateOverride(db, {
   };
 }
 
-/**
- * Creates or updates a festival campaign for `(festivalId, applicableYear)`.
- */
 export async function upsertFestivalCampaign(db, payload = {}, actor = {}) {
   await ensureFestivalSchedulerSchema(db);
   const actorId = String(actor.id || 'admin');
@@ -2069,7 +1959,6 @@ export async function upsertFestivalCampaign(db, payload = {}, actor = {}) {
     return { ok: false, status: 404, code: 'FESTIVAL_NOT_FOUND', message: `Festival "${rawFestId}" does not exist.` };
   }
 
-  // Ensure year date row exists or resolve automatically
   let yearRecord = await db.prepare(
     'SELECT * FROM festival_year_dates WHERE festival_id = ? AND applicable_year = ? LIMIT 1'
   ).bind(festival.id, yr).first();
@@ -2271,10 +2160,6 @@ export async function upsertFestivalCampaign(db, payload = {}, actor = {}) {
   };
 }
 
-/**
- * Assigns one or more existing WishMagic templates (and optional relation variant restrictions)
- * to a festival campaign without duplicating template files.
- */
 export async function assignTemplatesToFestivalCampaign(db, {
   campaignId,
   assignments = [],
@@ -2308,7 +2193,6 @@ export async function assignTemplatesToFestivalCampaign(db, {
       return { ok: false, status: 400, code: 'MISSING_TEMPLATE_ID', message: `Assignment at index ${i} is missing templateId.` };
     }
 
-    // Verify template exists in D1 `templates` or `seedTemplatesCatalog`
     let tplRecord = await db.prepare('SELECT * FROM templates WHERE id = ? OR slug = ? LIMIT 1')
       .bind(rawTplId, rawTplId).first();
     if (!tplRecord && Array.isArray(seedTemplatesCatalog)) {
@@ -2325,7 +2209,6 @@ export async function assignTemplatesToFestivalCampaign(db, {
 
     const canonicalTplId = tplRecord.id;
 
-    // Validate optional allowedVariants against template's actual declared variants if specified
     const rawAllowedVars = Array.isArray(item.allowedVariants)
       ? item.allowedVariants
       : (Array.isArray(item.allowed_variants) ? item.allowed_variants : []);
@@ -2454,9 +2337,6 @@ export async function assignTemplatesToFestivalCampaign(db, {
   };
 }
 
-/**
- * Removes a template assignment from a campaign without deleting the underlying WishMagic template or existing wishes.
- */
 export async function removeTemplateFromFestivalCampaign(db, {
   campaignId,
   templateId,
@@ -2494,10 +2374,6 @@ export async function removeTemplateFromFestivalCampaign(db, {
   };
 }
 
-/**
- * Loads the complete festival scheduler state (festivals, year dates, overrides, campaigns, assignments)
- * and evaluates live eligibility for every campaign and template assignment at `nowMs`.
- */
 export async function loadFestivalSchedulerState(db, options = {}) {
   await ensureFestivalSchedulerSchema(db, { seedDefaults: options.seedDefaults !== false });
   const nowMs = options.nowMs !== undefined ? options.nowMs : Date.now();
@@ -2617,23 +2493,6 @@ export async function loadFestivalSchedulerState(db, options = {}) {
   };
 }
 
-/**
- * Authoritative Server-Side Wish Creation Eligibility Check for Festival Campaigns & Templates.
- *
- * Rules Enforced:
- * 1. If `requestedCampaignId` is explicitly supplied:
- *    - The campaign must exist, be currently ACTIVE within `[startOfDay(startDate, tz), startOfDay(endDate + 1 day, tz))`,
- *      and have an enabled assignment for `templateId`.
- *    - If the assignment restricts `allowedVariants`, the requested relationship/variant must be permitted.
- * 2. If `requestedCampaignId` is NOT supplied, but `templateId` has campaign assignments in `festival_campaign_templates`:
- *    - If at least one assigned campaign for `templateId` is currently eligible (ACTIVE in window) and permits the requested variant,
- *      the wish is linked to the primary active campaign and allowed.
- *    - If `templateId` is assigned ONLY to festival campaign(s) that are all expired, paused, draft, or outside their window,
- *      creation is rejected with the authoritative campaign error (`FESTIVAL_CAMPAIGN_EXPIRED` / `FESTIVAL_CAMPAIGN_PAUSED` / etc.)
- *      so a stale open customizer or direct API call cannot bypass campaign expiry!
- * 3. If `templateId` has NO festival campaign assignments at all (regular evergreen birthday/anniversary template),
- *    it is not restricted by festival campaign windows.
- */
 export async function validateWishCreationAgainstFestivalSchedule(db, {
   template,
   templateId,
@@ -2705,7 +2564,6 @@ export async function validateWishCreationAgainstFestivalSchedule(db, {
       };
     }
 
-    // Check variant restriction on assignment if configured
     if (Array.isArray(assign.allowedVariants) && assign.allowedVariants.length > 0 && (requestedRelationship || requestedVariantId)) {
       const normReq = requestedRelationship ? normalizeRelationshipIdentifier(requestedRelationship) : null;
       const reqSlug = normReq ? normReq.slug : String(requestedRelationship || '').toLowerCase().trim();
@@ -2764,7 +2622,6 @@ export async function validateWishCreationAgainstFestivalSchedule(db, {
       });
 
     if (activeMatches.length > 0) {
-      // Check variant restriction on the winning active campaign assignment
       const primary = activeMatches[0];
       if (
         Array.isArray(primary.assign.allowedVariants) &&
@@ -2774,7 +2631,6 @@ export async function validateWishCreationAgainstFestivalSchedule(db, {
         const normReq = requestedRelationship ? normalizeRelationshipIdentifier(requestedRelationship) : null;
         const reqSlug = normReq ? normReq.slug : String(requestedRelationship || '').toLowerCase().trim();
         const reqVarLower = String(requestedVariantId || '').toLowerCase().trim();
-        // Check if ANY active campaign assignment for this template permits this variant
         const matchingActiveForVariant = activeMatches.find(m => {
           if (!Array.isArray(m.assign.allowedVariants) || m.assign.allowedVariants.length === 0) return true;
           const s = new Set(m.assign.allowedVariants.map(v => String(v).toLowerCase().trim()));
@@ -2811,8 +2667,6 @@ export async function validateWishCreationAgainstFestivalSchedule(db, {
       };
     }
 
-    // None of the assigned campaigns for this template are active!
-    // Block wish creation so expired/paused/draft festival campaigns cannot be bypassed via direct templateId submission.
     const mostRelevant = evaluatedForTemplate[0];
     if (mostRelevant) {
       return {
@@ -2838,17 +2692,6 @@ export async function validateWishCreationAgainstFestivalSchedule(db, {
   };
 }
 
-/**
- * Enriches and filters the public template gallery list with authoritative Festival Scheduler state.
- *
- * Responsibilities:
- * - Attaches active festival campaign metadata (`festivalCampaign`, `activeFestivalCampaigns`, `isFestivalTemplate`)
- *   to templates assigned to currently active campaigns.
- * - Enforces campaign-level `allowedVariants` restrictions when filtering `availableVariants` and `availableRelations`.
- * - Deduplicates when a reusable template is assigned to multiple active festival campaigns (deterministic primary campaign).
- * - Hides templates whose assigned festival campaign(s) are all expired/paused/draft/upcoming so an expired
- *   campaign is NEVER advertised as available for new wish creation in the public gallery!
- */
 export async function applyFestivalScheduleToPublicGallery(db, templates = [], options = {}) {
   if (!db || typeof db.prepare !== 'function' || !Array.isArray(templates)) {
     return { templates: templates || [], activeCampaigns: [] };
@@ -2867,11 +2710,10 @@ export async function applyFestivalScheduleToPublicGallery(db, templates = [], o
 
   for (const tpl of templates) {
     if (!tpl || !tpl.id) continue;
-    if (seenTemplateIds.has(tpl.id)) continue; // Prevent duplicate cards
+    if (seenTemplateIds.has(tpl.id)) continue;
 
     const tplAssignments = state.assignmentsByTemplateId.get(tpl.id) || [];
     if (tplAssignments.length === 0) {
-      // Not assigned to any festival campaign
       if (requestedFestivalFilter || requestedCampaignFilter) {
         continue;
       }
@@ -2885,7 +2727,6 @@ export async function applyFestivalScheduleToPublicGallery(db, templates = [], o
       continue;
     }
 
-    // Evaluate all assignments for this template
     const activeAssignsForTemplate = [];
     for (const assign of tplAssignments) {
       const camp = state.campaignsById.get(assign.campaign_id);
@@ -2915,14 +2756,10 @@ export async function applyFestivalScheduleToPublicGallery(db, templates = [], o
       }
     }
 
-    // If this template is governed by festival campaign(s) and NONE are currently active,
-    // hide it from active gallery discovery so expired/paused/upcoming campaigns are never shown as available!
     if (activeAssignsForTemplate.length === 0) {
       continue;
     }
 
-    // Deterministic policy when a reusable template is assigned to multiple active festivals:
-    // Sort by soonest effective festival date -> campaign displayPriority -> assignment displayOrder -> campaignId
     activeAssignsForTemplate.sort((a, b) => {
       const dA = a.evalRes.dateResolution.effectiveDate || '9999-99-99';
       const dB = b.evalRes.dateResolution.effectiveDate || '9999-99-99';

@@ -25323,10 +25323,13 @@ export default {
             timezone: c.timezone,
             daysBefore: c.daysBefore,
             daysAfter: c.daysAfter,
-            assignedTemplatesCount: c.assignedTemplatesCount
+            assignedTemplatesCount: c.assignedTemplatesCount,
+            assignedTemplateIds: Array.isArray(c.assignments)
+              ? c.assignments.filter(a => a.isEnabled).map(a => a.template_id)
+              : []
           }));
 
-        // Build upcoming confirmed festivals list (sanitized for public display)
+        // Build upcoming & currently-in-window confirmed festivals list (sanitized for public display)
         const todayIso = new Date(nowMs + IST_OFFSET_MS).toISOString().split('T')[0];
         const upcomingFestivals = [];
         for (const f of state.festivals) {
@@ -25343,35 +25346,44 @@ export default {
               activeOverride: activeOv,
               applicableYear: yr
             });
-            if (dateRes.isConfirmed && dateRes.effectiveDate && dateRes.effectiveDate >= todayIso) {
+            if (dateRes.isConfirmed && dateRes.effectiveDate) {
               const win = calculatePublicationWindow(dateRes.effectiveDate, {
                 daysBefore: Number(f.default_days_before ?? DEFAULT_DAYS_BEFORE_FESTIVAL),
                 daysAfter: Number(f.default_days_after ?? DEFAULT_DAYS_AFTER_FESTIVAL),
                 timezone: dateRes.timezone
               });
-              upcomingFestivals.push({
-                festivalId: f.id,
-                slug: f.slug,
-                name: f.name,
-                localizedNames,
-                category: f.category,
-                applicableYear: yr,
-                effectiveDate: dateRes.effectiveDate,
-                timezone: dateRes.timezone,
-                windowStartDate: win.startDate,
-                windowEndDate: win.endDate,
-                isWindowOpen: isTimestampWithinPublicationWindow(win, nowMs).inWindow
-              });
-              break;
+              const inWin = isTimestampWithinPublicationWindow(win, nowMs).inWindow;
+              if (inWin || dateRes.effectiveDate >= todayIso || (win.endDate && win.endDate >= todayIso)) {
+                upcomingFestivals.push({
+                  festivalId: f.id,
+                  slug: f.slug,
+                  name: f.name,
+                  description: f.description || '',
+                  localizedNames,
+                  category: f.category,
+                  applicableYear: yr,
+                  effectiveDate: dateRes.effectiveDate,
+                  timezone: dateRes.timezone,
+                  windowStartDate: win.startDate,
+                  windowEndDate: win.endDate,
+                  firstBlockedDate: win.firstBlockedDate,
+                  isWindowOpen: inWin
+                });
+                break;
+              }
             }
           }
         }
         upcomingFestivals.sort((a, b) => a.effectiveDate.localeCompare(b.effectiveDate));
+        const inWindowFestivals = upcomingFestivals.filter(f => f.isWindowOpen);
+        const storefrontSpotlight = publicActiveCampaigns[0] || inWindowFestivals[0] || upcomingFestivals[0] || null;
 
         response = jsonSuccess({
           activeCampaigns: publicActiveCampaigns,
-          upcomingFestivals: upcomingFestivals.slice(0, 12)
-        }, 200, { 'Cache-Control': 'public, max-age=30, must-revalidate' }, requestId);
+          inWindowFestivals,
+          upcomingFestivals: upcomingFestivals.slice(0, 12),
+          storefrontSpotlight
+        }, 200, { 'Cache-Control': 'no-cache, no-store, must-revalidate' }, requestId);
       }
 
       else if (pathname.startsWith('/api/admin/festivals')) {
@@ -26143,6 +26155,156 @@ export default {
               simulatedAtState: windowState,
               warnings
             }
+          }, 200, {}, requestId);
+        }
+
+        // 11b. POST /api/admin/festivals/quick-launch — 1-Click Activate Campaign on Main Website + Auto-Assign Templates + Optional Theme Sync
+        else if (pathname === '/api/admin/festivals/quick-launch' && method === 'POST') {
+          const body = await request.json().catch(() => ({}));
+          const festId = String(body.festivalId || 'fest_diwali').trim();
+          const yr = Number(body.applicableYear || body.year || new Date(nowMs).getUTCFullYear());
+          const openWindowNow = body.openWindowNow !== false;
+          const autoAssignTemplates = body.autoAssignTemplates !== false;
+          const applyStorefrontTheme = Boolean(body.applyStorefrontTheme);
+
+          const festival = await env.DB.prepare('SELECT * FROM festival_definitions WHERE id = ? OR slug = ? LIMIT 1').bind(festId, festId).first();
+          if (!festival) {
+            return applySecurityHeaders(jsonError('FESTIVAL_NOT_FOUND', `Festival "${festId}" not found.`, 404), request, env);
+          }
+
+          let yearRecord = await env.DB.prepare('SELECT * FROM festival_year_dates WHERE festival_id = ? AND applicable_year = ? LIMIT 1').bind(festival.id, yr).first();
+          const activeOverride = await env.DB.prepare('SELECT * FROM festival_date_overrides WHERE festival_id = ? AND applicable_year = ? AND is_active = 1 LIMIT 1').bind(festival.id, yr).first();
+          const dateRes = resolveEffectiveFestivalDate({ festival, yearRecord, activeOverride, applicableYear: yr });
+
+          let daysBefore = Number(body.daysBefore ?? festival.default_days_before ?? DEFAULT_DAYS_BEFORE_FESTIVAL);
+          const daysAfter = Number(body.daysAfter ?? festival.default_days_after ?? DEFAULT_DAYS_AFTER_FESTIVAL);
+
+          if (openWindowNow && dateRes.effectiveDate) {
+            const effMs = startOfDay(dateRes.effectiveDate, dateRes.timezone);
+            if (effMs > nowMs) {
+              const diffDays = Math.ceil((effMs - nowMs) / (86400 * 1000)) + 1;
+              if (diffDays > daysBefore && diffDays <= 180) {
+                daysBefore = diffDays;
+              }
+            }
+          }
+
+          const upRes = await upsertFestivalCampaign(
+            env.DB,
+            {
+              festivalId: festival.id,
+              applicableYear: yr,
+              title: body.title || `${festival.name} ${yr} Celebration Campaign`,
+              badgeLabel: body.badgeLabel || `✨ ${festival.name} Special`,
+              description: body.description || festival.description || '',
+              status: 'ACTIVE',
+              isEnabled: true,
+              daysBefore,
+              daysAfter,
+              timezone: dateRes.timezone || DEFAULT_FESTIVAL_TIMEZONE,
+              reason: '1-Click Quick Launch on Main Website from Admin Festival Scheduler'
+            },
+            { id: user.id || 'admin', email: user.email || '' }
+          );
+          if (!upRes.ok) {
+            return applySecurityHeaders(jsonError(upRes.code, upRes.message, upRes.status || 400), request, env);
+          }
+
+          let assignedTemplates = [];
+          if (autoAssignTemplates) {
+            const existingAssigns = await env.DB.prepare('SELECT * FROM festival_campaign_templates WHERE campaign_id = ? AND is_enabled = 1').bind(upRes.campaign.id).all().catch(() => ({ results: [] }));
+            if (!existingAssigns.results || existingAssigns.results.length === 0) {
+              const dbFests = await env.DB.prepare("SELECT id FROM templates WHERE LOWER(category) IN ('festival', 'festivals', 'celebration') OR LOWER(id) LIKE '%diwali%' OR LOWER(id) LIKE '%fest%' LIMIT 6").all().catch(() => ({ results: [] }));
+              const candidateIds = new Set((dbFests.results || []).map(r => r.id));
+              for (const st of SEED_TEMPLATES) {
+                if (st.category === 'festival' || st.id === 'tpl_festive_lights') {
+                  candidateIds.add(st.id);
+                }
+              }
+              if (candidateIds.size === 0 && SEED_TEMPLATES.length > 0) {
+                candidateIds.add(SEED_TEMPLATES[0].id);
+              }
+              const toAssign = Array.from(candidateIds).map((tid, idx) => ({
+                templateId: tid,
+                displayOrder: idx + 1,
+                isEnabled: true
+              }));
+              if (toAssign.length > 0) {
+                const aRes = await assignTemplatesToFestivalCampaign(env.DB, {
+                  campaignId: upRes.campaign.id,
+                  assignments: toAssign,
+                  seedTemplatesCatalog: SEED_TEMPLATES,
+                  actorId: user.id || 'admin',
+                  actorEmail: user.email || ''
+                });
+                if (aRes.ok) assignedTemplates = aRes.assignments || [];
+              }
+            } else {
+              assignedTemplates = existingAssigns.results;
+            }
+          }
+
+          let appliedTheme = null;
+          if (applyStorefrontTheme) {
+            const isDiwaliFamily = /diwali|deepavali|bhai|karwa|navratri|ganesh/i.test(festival.slug || festival.id);
+            const currentSettings = await getSiteSettings(env);
+            const updatedThemeSettings = {
+              ...currentSettings,
+              hero3dSceneMode: isDiwaliFamily ? 'diwali-3d' : currentSettings.hero3dSceneMode,
+              pageBgMode: isDiwaliFamily ? 'diwali-palace' : currentSettings.pageBgMode,
+              heroBadgeText: `🪔 ${festival.name} ${yr} Special Celebrations Live!`,
+              promoBannerActive: true,
+              promoBannerText: `✨ ${festival.name} Special Campaign is LIVE! Create & Share Instant Personalized Festival Wishes Now!`
+            };
+            await saveSiteSettings(env, updatedThemeSettings, user.email || user.id || 'admin');
+            appliedTheme = {
+              hero3dSceneMode: updatedThemeSettings.hero3dSceneMode,
+              pageBgMode: updatedThemeSettings.pageBgMode,
+              heroBadgeText: updatedThemeSettings.heroBadgeText
+            };
+          }
+
+          response = jsonSuccess({
+            ok: true,
+            campaign: upRes.campaign,
+            eligibility: upRes.eligibility,
+            assignedTemplatesCount: assignedTemplates.length,
+            appliedTheme,
+            message: `Launched "${upRes.campaign.title}" on the main website (${assignedTemplates.length} template(s) assigned).`
+          }, 200, {}, requestId);
+        }
+
+        // 11c. POST /api/admin/festivals/apply-storefront-theme — Sync Storefront Hero/Background/Banner with Festival
+        else if (pathname === '/api/admin/festivals/apply-storefront-theme' && method === 'POST') {
+          const body = await request.json().catch(() => ({}));
+          const mode = String(body.mode || 'diwali').toLowerCase();
+          const currentSettings = await getSiteSettings(env);
+          let nextSettings;
+          if (mode === 'default' || mode === 'cloudy') {
+            nextSettings = {
+              ...currentSettings,
+              hero3dSceneMode: 'image',
+              pageBgMode: 'cloudy',
+              heroBadgeText: '✨ Number #1 Gifting Platform'
+            };
+          } else {
+            const festName = sanitizeString(body.festivalName || 'Diwali (Deepavali)', 80);
+            nextSettings = {
+              ...currentSettings,
+              hero3dSceneMode: 'diwali-3d',
+              pageBgMode: 'diwali-palace',
+              heroBadgeText: `🪔 Happy ${festName} — Festival of Lights Live!`,
+              promoBannerActive: true,
+              promoBannerText: `✨ ${festName} Special Edition Templates & 3D Celebration Wishes Are Live Now!`
+            };
+          }
+          await saveSiteSettings(env, nextSettings, user.email || user.id || 'admin');
+          response = jsonSuccess({
+            ok: true,
+            settings: nextSettings,
+            message: mode === 'default' || mode === 'cloudy'
+              ? 'Restored default Cloudy Castle & 3D Gift Box theme on the main website.'
+              : 'Applied Festival 3D Hero Scene, Diwali Cloud Palace Background & Live Banner to the main website!'
           }, 200, {}, requestId);
         }
 

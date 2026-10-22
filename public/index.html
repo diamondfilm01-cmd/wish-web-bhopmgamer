@@ -3488,14 +3488,16 @@ body.dark .hero-gradient-text,
     ];
 
     // Load templates from API
+    window.refreshHomepageTemplates = initHomepageTemplates;
     async function initHomepageTemplates() {
       const grid = document.getElementById("templates-grid");
       if (!grid) return;
       try {
-        const res = await fetch("/api/templates");
+        const res = await fetch("/api/templates?_t=" + Date.now());
         const data = await res.json();
-        if (res.ok && data && data.success && Array.isArray(data.templates)) {
-          loadedTemplates = data.templates;
+        const apiTpls = (data && Array.isArray(data.templates)) ? data.templates : (data && data.data && Array.isArray(data.data.templates) ? data.data.templates : null);
+        if (res.ok && data && data.success && apiTpls) {
+          loadedTemplates = apiTpls;
         } else {
           loadedTemplates = FALLBACK_HOME_TEMPLATES;
         }
@@ -3588,12 +3590,16 @@ body.dark .hero-gradient-text,
 
         card.setAttribute("data-id", tpl.id);
         card.setAttribute("data-name", (tpl.name || "").toLowerCase());
-        card.setAttribute("data-category", (tpl.category || "").toLowerCase());
+        card.setAttribute("data-category", ((tpl.category || "") + (tpl.isFestivalTemplate || tpl.festivalCampaign ? " festival festive" : "")).toLowerCase());
         card.setAttribute("data-relationships", ((tpl.relationships || []).join(" ") + " " + availRelSlugs).toLowerCase());
         card.setAttribute("data-has-variants", hasVariants ? "true" : "false");
         card.setAttribute("data-available-relations", availRelSlugs.toLowerCase());
         card.setAttribute("data-tier", tpl.tier === "vip" || (tpl.price && Number(tpl.price) > 0) ? "vip" : "free");
         card.setAttribute("data-description", (tpl.description || "").toLowerCase());
+        if (tpl.festivalCampaign) {
+          card.setAttribute("data-festival-campaign", tpl.festivalCampaign.campaignId || "");
+          card.setAttribute("data-festival-slug", (tpl.festivalCampaign.festivalSlug || "").toLowerCase());
+        }
 
         const siteCfg = window._cachedSiteSettings || {};
         const linkCfg = window._cachedWishLinkSettings || {};
@@ -3646,6 +3652,7 @@ body.dark .hero-gradient-text,
             <div class="relative rounded-xl overflow-hidden mb-3 aspect-[16/10] bg-purple-900/10 dark:bg-purple-950/80 shadow-inner group/img cursor-pointer" onclick="window.handleTemplateAction ? window.handleTemplateAction('${tpl.id}', 'preview', { openPreviewModal: openTemplatePreview }) : openTemplatePreview('${tpl.id}')">
               <img class="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500" src="${previewImg}" alt="${tpl.name}" loading="lazy"/>
               <div class="absolute inset-0 bg-gradient-to-t from-black/45 via-transparent to-black/10 pointer-events-none"></div>
+              ${tpl.festivalCampaign ? `<div class="absolute top-3 left-3 z-10 max-w-[65%]"><span class="inline-flex items-center gap-1 px-2.5 py-1 rounded-xl bg-gradient-to-r from-amber-500 via-orange-500 to-pink-600 text-white text-[10px] font-extrabold shadow-md border border-white/30 truncate" title="Active Festival Window: ${tpl.festivalCampaign.windowStartDate} to ${tpl.festivalCampaign.windowEndDate}">${tpl.festivalCampaign.badgeLabel || ("✨ " + tpl.festivalCampaign.festivalName)}</span></div>` : ""}
               ${badgeMarkup}
             </div>
 
@@ -3670,7 +3677,7 @@ body.dark .hero-gradient-text,
             <button type="button" onclick="window.handleTemplateAction ? window.handleTemplateAction('${tpl.id}', 'preview', { openPreviewModal: openTemplatePreview }) : openTemplatePreview('${tpl.id}')" class="px-3.5 py-2.5 sm:py-3 rounded-full border border-purple-200 dark:border-purple-700/80 bg-purple-50/80 dark:bg-purple-900/50 text-purple-900 dark:text-purple-200 hover:bg-purple-100 dark:hover:bg-purple-800 text-xs sm:text-sm font-bold transition active:scale-95 cursor-pointer">
               Preview
             </button>
-            <a href="/customize.html?template=${tpl.id}" onclick="if(window.handleTemplateAction){event.preventDefault();window.handleTemplateAction('${tpl.id}','customize');return false;}" class="flex-1 py-2.5 sm:py-3 px-4 rounded-xl bg-gradient-to-r from-[#ff2a85] via-[#ec4899] to-[#a855f7] hover:brightness-110 text-white text-sm sm:text-base font-extrabold rounded-full shadow-md shadow-purple-500/25 active:scale-95 transition-all text-center flex items-center justify-center gap-1.5">
+            <a href="/customize.html?template=${tpl.id}${tpl.festivalCampaign && tpl.festivalCampaign.campaignId ? ('&campaign=' + encodeURIComponent(tpl.festivalCampaign.campaignId)) : ''}" onclick="if(window.handleTemplateAction){event.preventDefault();window.handleTemplateAction('${tpl.id}','customize');return false;}" class="flex-1 py-2.5 sm:py-3 px-4 rounded-xl bg-gradient-to-r from-[#ff2a85] via-[#ec4899] to-[#a855f7] hover:brightness-110 text-white text-sm sm:text-base font-extrabold rounded-full shadow-md shadow-purple-500/25 active:scale-95 transition-all text-center flex items-center justify-center gap-1.5">
               <span>Customize</span>
               <span>✨</span>
             </a>
@@ -3787,7 +3794,13 @@ body.dark .hero-gradient-text,
           const hasVars = card.getAttribute('data-has-variants') === 'true';
           const availRels = (card.getAttribute('data-available-relations') || '').split(/\s+/).filter(Boolean);
 
-          if (isExplicitRel && hasVars) {
+          const festSlug = card.getAttribute('data-festival-slug') || '';
+          const festCamp = card.getAttribute('data-festival-campaign') || '';
+          if (currentCategory === 'festive' || currentCategory === 'festival' || currentCategory === 'festivals') {
+            matchesCategory = cat.includes('fest') || Boolean(festCamp);
+          } else if (festSlug && currentCategory === festSlug) {
+            matchesCategory = true;
+          } else if (isExplicitRel && hasVars) {
             matchesCategory = availRels.includes(normRelSlug);
           } else {
             matchesCategory = cat.includes(currentCategory) || rels.includes(currentCategory) || (normRelSlug && availRels.includes(normRelSlug));

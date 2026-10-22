@@ -495,20 +495,140 @@
     } catch (_) {}
   }
 
+  function escapeHtmlSafe(str) {
+    return String(str === undefined || str === null ? '' : str)
+      .replace(/&/g, '&amp;')
+      .replace(/</g, '&lt;')
+      .replace(/>/g, '&gt;')
+      .replace(/"/g, '&quot;');
+  }
+
+  async function syncStorefrontFestivalSchedule() {
+    if (typeof document === 'undefined' || !document.body) return;
+    const pathname = (window.location.pathname || '/').toLowerCase();
+    if (pathname.startsWith('/admin') || pathname.includes('wish.html')) return;
+
+    try {
+      const res = await fetch('/api/festivals/active?_t=' + Date.now(), {
+        headers: { 'Cache-Control': 'no-cache', 'Pragma': 'no-cache' }
+      }).catch(() => null);
+      if (!res || !res.ok) return;
+      const json = await res.json().catch(() => ({}));
+      const data = json.data || json || {};
+      const activeCampaigns = Array.isArray(data.activeCampaigns) ? data.activeCampaigns : [];
+      const inWindowFestivals = Array.isArray(data.inWindowFestivals) ? data.inWindowFestivals : [];
+      const upcomingFestivals = Array.isArray(data.upcomingFestivals) ? data.upcomingFestivals : [];
+      window._wmActiveFestivalState = { activeCampaigns, inWindowFestivals, upcomingFestivals, storefrontSpotlight: data.storefrontSpotlight || null };
+
+      // 1. Inject dynamic active campaign filter pills into #occasion-pills if present
+      const pillsBox = document.getElementById('occasion-pills');
+      if (pillsBox) {
+        pillsBox.querySelectorAll('[data-dynamic-festival-pill="1"]').forEach(el => el.remove());
+        activeCampaigns.forEach(camp => {
+          const pill = document.createElement('button');
+          pill.type = 'button';
+          pill.setAttribute('data-dynamic-festival-pill', '1');
+          pill.setAttribute('data-category', camp.festivalSlug || 'festive');
+          pill.className = 'category-btn glass-pill px-4 py-2 rounded-full text-xs sm:text-sm font-extrabold text-amber-900 dark:text-amber-200 border border-amber-400/50 bg-amber-500/10 flex items-center gap-1.5 transition whitespace-nowrap shadow-sm cursor-pointer';
+          pill.innerHTML = '<span>🪔</span><span>' + escapeHtmlSafe(camp.badgeLabel || camp.festivalName || camp.title) + '</span>';
+          pill.onclick = function() {
+            if (typeof window.filterTemplates === 'function') {
+              window.filterTemplates('festive', pill);
+            }
+          };
+          pillsBox.insertAdjacentElement('afterbegin', pill);
+        });
+      }
+
+      // 2. Render Live Festival Campaign Spotlight Banner above templates grid on Home & Templates pages
+      const anchorEl = document.getElementById('occasion-pills') || document.getElementById('templates-grid') || document.getElementById('templates-grid-container');
+      let spotlightEl = document.getElementById('wm-festival-scheduler-spotlight');
+
+      const primaryActive = activeCampaigns[0] || null;
+      const primaryFestival = primaryActive || inWindowFestivals[0] || upcomingFestivals[0] || null;
+
+      if (!primaryFestival || !anchorEl || !anchorEl.parentNode) {
+        if (spotlightEl) spotlightEl.classList.add('hidden');
+        return;
+      }
+
+      const festName = primaryActive ? (primaryActive.festivalName || primaryActive.title) : (primaryFestival.name || 'Festival Celebration');
+      const badgeLabel = primaryActive ? (primaryActive.badgeLabel || ('✨ ' + festName + ' Live')) : (primaryFestival.isWindowOpen ? ('🟢 ' + festName + ' Window Open') : ('📅 Upcoming: ' + festName));
+      const effDate = primaryActive ? primaryActive.effectiveFestivalDate : primaryFestival.effectiveDate;
+      const winStart = primaryActive ? primaryActive.windowStartDate : primaryFestival.windowStartDate;
+      const winEnd = primaryActive ? primaryActive.windowEndDate : primaryFestival.windowEndDate;
+      const firstTplId = (primaryActive && Array.isArray(primaryActive.assignedTemplateIds) && primaryActive.assignedTemplateIds[0]) || 'tpl_festive_lights';
+      const campParam = primaryActive && primaryActive.id ? ('&campaign=' + encodeURIComponent(primaryActive.id)) : '';
+
+      let daysAwayText = 'Live Now!';
+      if (effDate) {
+        const diffMs = new Date(effDate + 'T00:00:00+05:30').getTime() - Date.now();
+        const diffDays = Math.ceil(diffMs / (1000 * 60 * 60 * 24));
+        if (diffDays > 0) daysAwayText = diffDays + (diffDays === 1 ? ' Day to Go' : ' Days to Go');
+        else if (diffDays === 0) daysAwayText = '🎉 Festival Today!';
+        else daysAwayText = '✨ Celebration Window Open';
+      }
+
+      if (!spotlightEl) {
+        spotlightEl = document.createElement('div');
+        spotlightEl.id = 'wm-festival-scheduler-spotlight';
+        anchorEl.parentNode.insertBefore(spotlightEl, anchorEl);
+      }
+
+      spotlightEl.className = 'mb-6 p-4 sm:p-5 rounded-2xl bg-gradient-to-r from-[#2b1055]/95 via-[#4c1d95]/95 to-[#831843]/95 border border-amber-400/40 text-white shadow-xl flex flex-col md:flex-row items-start md:items-center justify-between gap-4';
+      spotlightEl.innerHTML = `
+        <div class="space-y-1.5">
+          <div class="flex flex-wrap items-center gap-2">
+            <span class="px-3 py-1 rounded-full text-[11px] font-extrabold bg-gradient-to-r from-amber-400 to-orange-500 text-slate-950 shadow-sm">${escapeHtmlSafe(badgeLabel)}</span>
+            <span class="px-2.5 py-0.5 rounded-full text-[11px] font-bold bg-white/15 text-amber-200 border border-white/20">⏳ ${escapeHtmlSafe(daysAwayText)}</span>
+            <span class="text-xs font-mono text-purple-200">Festival Date: <strong>${escapeHtmlSafe(effDate || '—')}</strong> • Active Window: <strong>${escapeHtmlSafe(winStart || '—')} → ${escapeHtmlSafe(winEnd || '—')}</strong></span>
+          </div>
+          <h3 class="text-base sm:text-lg font-extrabold tracking-tight text-white">🪔 ${escapeHtmlSafe(primaryActive ? primaryActive.title : (festName + ' Celebration Special'))}</h3>
+          <p class="text-xs text-purple-100/90 max-w-2xl">${escapeHtmlSafe(primaryActive && primaryActive.description ? primaryActive.description : 'Create personalized interactive festival wishes with 3D animations, photos & music — your wish link opens immediately!')}</p>
+        </div>
+        <div class="flex flex-wrap items-center gap-2.5 shrink-0">
+          <button type="button" onclick="if(window.filterTemplates){window.filterTemplates('festive');const g=document.getElementById('templates-grid');if(g)g.scrollIntoView({behavior:'smooth'});}else{window.location.href='/templates.html?category=festival';}" class="px-4 py-2.5 rounded-full bg-white/15 hover:bg-white/25 border border-white/30 text-white text-xs font-extrabold transition cursor-pointer">
+            🎉 View Festival Templates
+          </button>
+          <a href="/customize.html?template=${encodeURIComponent(firstTplId)}${campParam}" class="px-4 py-2.5 rounded-full bg-gradient-to-r from-amber-400 via-orange-500 to-pink-500 hover:brightness-110 text-slate-950 text-xs font-extrabold shadow-lg transition">
+            ✨ Create Festival Wish Now
+          </a>
+        </div>
+      `;
+    } catch (_) {}
+  }
+
+  window.syncStorefrontFestivalSchedule = syncStorefrontFestivalSchedule;
+
+  function triggerAllStorefrontLiveSync() {
+    syncGlobalStorefrontSettings();
+    syncStorefrontFestivalSchedule();
+    if (typeof window.loadLiveSiteConfiguration === 'function') {
+      try { window.loadLiveSiteConfiguration(); } catch (_) {}
+    }
+    if (typeof window.refreshHomepageTemplates === 'function') {
+      try { window.refreshHomepageTemplates(); } catch (_) {}
+    }
+  }
+
   if (document.readyState === 'loading') {
-    document.addEventListener('DOMContentLoaded', syncGlobalStorefrontSettings);
+    document.addEventListener('DOMContentLoaded', () => {
+      syncGlobalStorefrontSettings();
+      syncStorefrontFestivalSchedule();
+    });
   } else {
     syncGlobalStorefrontSettings();
+    syncStorefrontFestivalSchedule();
   }
   try {
     if (typeof BroadcastChannel !== 'undefined') {
       const bc = new BroadcastChannel('wishmagic_site_settings');
-      bc.onmessage = () => syncGlobalStorefrontSettings();
+      bc.onmessage = () => triggerAllStorefrontLiveSync();
     }
   } catch (_) {}
   window.addEventListener('storage', (e) => {
     if (e.key === 'wishmagic_site_settings_updated_at') {
-      syncGlobalStorefrontSettings();
+      triggerAllStorefrontLiveSync();
       WishPricingEngine.refreshFromServer();
     }
   });
