@@ -178,6 +178,49 @@
     getPlanLimits(planId = 'free') {
       const plan = this.getPlan(planId);
       return { ...plan.limits };
+    },
+
+    syncFromServerSettings(settings) {
+      if (!settings || typeof settings !== "object") return;
+      const a = settings.addons || {};
+      const plansList = Array.isArray(settings.vipPlans) ? settings.vipPlans : [];
+      const vipPlan = plansList.find(p => p && p.id === "vip_pass");
+      if (vipPlan) {
+        PLANS.premium.name = vipPlan.name || PLANS.premium.name;
+        PLANS.premium.badge = vipPlan.badge || PLANS.premium.badge;
+        PLANS.premium.description = vipPlan.description || PLANS.premium.description;
+        PLANS.premium.price = Number.isFinite(Number(vipPlan.price)) ? Number(vipPlan.price) : PLANS.premium.price;
+        PLANS.premium.isActive = vipPlan.isActive !== false;
+        if (vipPlan.perks) {
+          PLANS.premium.limits.maxPhotos = Number(vipPlan.perks.maxPhotos) || 16;
+          PLANS.premium.limits.allowMusicUpload = Boolean(vipPlan.perks.customMusicVoice);
+          PLANS.premium.limits.watermarkRequired = !vipPlan.perks.removeWatermark;
+          PLANS.premium.limits.lifetimePreservation = Boolean(vipPlan.perks.lifetimeLink);
+        }
+        if (Array.isArray(vipPlan.features) && vipPlan.features.length > 0) {
+          PLANS.premium.customBullets = vipPlan.features;
+        }
+      } else if (Number.isFinite(Number(a.vipPassPrice))) {
+        PLANS.premium.price = Number(a.vipPassPrice);
+      }
+      plansList.forEach(cp => {
+        if (!cp || !cp.id) return;
+        PLANS[cp.id] = {
+          id: cp.id,
+          name: cp.name,
+          badge: cp.badge || "VIP PLAN",
+          description: cp.description || "",
+          price: Number(cp.price || 0),
+          originalPrice: Number(cp.originalPrice || cp.price || 0),
+          billingLabel: cp.billingLabel || "one-time",
+          ctaText: cp.ctaText || `Unlock ${cp.name} • ₹${cp.price}`,
+          isPopular: Boolean(cp.isPopular),
+          isActive: cp.isActive !== false,
+          perks: cp.perks || {},
+          features: Array.isArray(cp.features) ? cp.features : [],
+          customBullets: Array.isArray(cp.features) ? cp.features : []
+        };
+      });
     }
   };
 

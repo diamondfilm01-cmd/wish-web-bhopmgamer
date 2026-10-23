@@ -288,8 +288,87 @@ let isPlayingStudioMusic = false;
 // Debounce helper for autosave
 let autosaveTimeout = null;
 
+function ensureCustomizerGoogleAuthGate() {
+  if (!window.WishAuth) return;
+  const checkAndRenderGate = () => {
+    const isLogged = typeof window.WishAuth.isGoogleLoggedIn === 'function'
+      ? window.WishAuth.isGoogleLoggedIn()
+      : window.WishAuth.isAuthenticated();
+    const existingGate = document.getElementById('wm-customizer-google-gate');
+    if (isLogged) {
+      if (existingGate) existingGate.remove();
+      return true;
+    }
+    if (!existingGate) {
+      const gate = document.createElement('div');
+      gate.id = 'wm-customizer-google-gate';
+      gate.className = 'fixed inset-0 z-[140] bg-black/80 backdrop-blur-lg flex items-center justify-center p-4';
+      gate.innerHTML = `
+        <div class="bg-white dark:bg-[#1f123e] rounded-3xl max-w-md w-full p-6 sm:p-8 shadow-2xl border-2 border-purple-300 dark:border-purple-500/40 text-center flex flex-col items-center">
+          <div class="w-16 h-16 rounded-2xl bg-gradient-to-br from-[#a855f7] via-[#ec4899] to-[#f59e0b] text-white flex items-center justify-center mb-4 shadow-lg text-2xl">🔒</div>
+          <span class="px-3 py-1 rounded-full bg-purple-100 dark:bg-purple-900/60 text-purple-800 dark:text-purple-200 text-[11px] font-extrabold mb-2">✨ Google Account Required</span>
+          <h3 class="font-display font-extrabold text-xl sm:text-2xl text-purple-950 dark:text-white">Sign In to Customize Template</h3>
+          <p class="text-xs sm:text-sm text-purple-800/80 dark:text-purple-200/80 mt-2 mb-6 leading-relaxed">
+            Template customize karne aur apna personalized wish link banane ke liye pehle Google Account se login karna zaroori hai.
+          </p>
+          <button type="button" id="wm-gate-google-btn" class="w-full py-3.5 px-5 rounded-full bg-gradient-to-r from-[#ff2a85] via-[#ec4899] to-[#a855f7] hover:brightness-105 text-white font-extrabold text-sm shadow-xl flex items-center justify-center gap-3 transition active:scale-95 cursor-pointer">
+            <span class="w-7 h-7 rounded-full bg-white flex items-center justify-center shrink-0">
+              <svg class="w-4 h-4" viewBox="0 0 24 24">
+                <path fill="#4285F4" d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z"/>
+                <path fill="#34A853" d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z"/>
+                <path fill="#FBBC05" d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.06H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.94l2.85-2.22.81-.63z"/>
+                <path fill="#EA4335" d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.06l3.66 2.84c.87-2.6 3.3-4.52 6.16-4.52z"/>
+              </svg>
+            </span>
+            <span>Continue with Google</span>
+          </button>
+          <a href="/templates.html" class="mt-4 text-xs font-bold text-purple-700 dark:text-purple-300 hover:underline">← Back to Templates Preview</a>
+        </div>
+      `;
+      document.body.appendChild(gate);
+      const btn = gate.querySelector('#wm-gate-google-btn');
+      if (btn) {
+        btn.addEventListener('click', async () => {
+          btn.disabled = true;
+          btn.classList.add('opacity-75');
+          try {
+            const u = await window.WishAuth.signInWithGoogle();
+            if (u) {
+              gate.remove();
+            }
+          } catch (_) {}
+          btn.disabled = false;
+          btn.classList.remove('opacity-75');
+        });
+      }
+    }
+    return false;
+  };
+
+  if (typeof window.WishAuth.onAuthStateChange === 'function') {
+    window.WishAuth.onAuthStateChange((user) => {
+      if (user && user.id) {
+        const g = document.getElementById('wm-customizer-google-gate');
+        if (g) g.remove();
+      }
+    });
+  }
+
+  if (typeof window.WishAuth.isGoogleLoggedIn === 'function' && window.WishAuth.isGoogleLoggedIn()) {
+    return;
+  }
+  if (typeof window.WishAuth.waitForAuthReady === 'function') {
+    window.WishAuth.waitForAuthReady(1500).then(() => {
+      checkAndRenderGate();
+    });
+  } else {
+    checkAndRenderGate();
+  }
+}
+
 // Initialize on DOM load
 document.addEventListener('DOMContentLoaded', async () => {
+  ensureCustomizerGoogleAuthGate();
   setupStepNavigation();
   initFormInputs();
   window._customizerViewportMode = window.innerWidth >= 1024 ? 'desktop' : 'mobile';
@@ -1566,12 +1645,16 @@ function populateFormValuesFromState() {
     fieldGroups.forEach(grp => {
       const fKey = grp.getAttribute('data-field-key');
       if (fKey && currentCustomData[fKey] !== undefined) {
-        const input = grp.querySelector('input, textarea, select');
+        const input = grp.querySelector('input:not([type="file"]), textarea, select');
         if (input) {
-          if (input.type === 'checkbox') {
+          if (input.type === 'file') {
+            // Never programmatically set a non-empty value on <input type="file">
+          } else if (input.type === 'checkbox') {
             input.checked = Boolean(currentCustomData[fKey]);
           } else {
-            input.value = currentCustomData[fKey] || '';
+            try {
+              input.value = currentCustomData[fKey] || '';
+            } catch (_) {}
           }
         }
       }
@@ -3944,7 +4027,12 @@ window.renderPersonalizedPaymentCallout = function(overrideState = null) {
     ? `Template (₹${tplPrice}) + Full Combo (+₹${premComboAddon}) = ₹${optComboPrice}`
     : `All-in-One Combo (Custom Link + HD Images & Style) = ₹${optComboPrice}`;
 
-  if (selectedCustomizerPack === 'custom_link') {
+  const matchedCustomVipPlan = (Array.isArray(currentWishLinkSettings.vipPlans) ? currentWishLinkSettings.vipPlans : [])
+    .find(p => p && p.id === selectedCustomizerPack);
+  if (matchedCustomVipPlan) {
+    selectedAmount = Number(matchedCustomVipPlan.price ?? 49);
+    selectedLabel = `${matchedCustomVipPlan.name} = ₹${selectedAmount}`;
+  } else if (selectedCustomizerPack === 'custom_link') {
     selectedAmount = opt1Price;
     selectedLabel = isPremTpl ? `Template (₹${tplPrice}) + Custom Link (₹${clPrice}) = ₹${opt1Price}` : `Custom Link Only = ₹${opt1Price}`;
   } else if (selectedCustomizerPack === 'hd_style') {
@@ -3988,6 +4076,37 @@ window.renderPersonalizedPaymentCallout = function(overrideState = null) {
         <div class="text-[10px] opacity-85 mt-1">${isPremTpl ? `₹${tplPrice} Template + ₹${premComboAddon} Combo` : `Custom Link + HD + Style (₹${freeComboPrice})`}</div>
       </div>
     </div>
+
+    ${(() => {
+      const extraPlans = (Array.isArray(currentWishLinkSettings.vipPlans) ? currentWishLinkSettings.vipPlans : [])
+        .filter(p => p && p.isActive !== false && !["personalized_link", "hd_image_style_pack", "free_template_combo", "premium_template_combo"].includes(p.id));
+      if (extraPlans.length === 0) return "";
+      return `
+        <div class="pt-2 border-t border-purple-200/50 dark:border-purple-800/50 space-y-2">
+          <div class="text-[10px] font-extrabold uppercase tracking-wider text-pink-600 dark:text-pink-400">👑 Special VIP Passes &amp; Custom Plans:</div>
+          <div class="grid grid-cols-1 sm:grid-cols-2 gap-2">
+            ${extraPlans.map(vp => {
+              const isSel = selectedCustomizerPack === vp.id;
+              const pk = vp.perks || {};
+              const tags = [];
+              if (pk.unlockVipTemplates) tags.push("VIP Templates");
+              if (pk.freeCustomLink) tags.push("Free Link");
+              if (pk.freeHdPhotos) tags.push("HD Photos");
+              if (pk.freeCustomStyle) tags.push("Custom Style");
+              return `
+                <div onclick="selectCustomizerPack('${vp.id}')" class="p-2.5 rounded-xl border-2 cursor-pointer transition ${isSel ? "border-pink-500 bg-pink-500/15 shadow-md" : "border-purple-200 dark:border-purple-800 bg-white/70 dark:bg-purple-950/50"}">
+                  <div class="flex items-center justify-between font-extrabold text-xs">
+                    <span>👑 ${vp.name}</span>
+                    <span class="text-pink-600 dark:text-pink-400">${Number(vp.price) === 0 ? "FREE" : (sym + vp.price)}</span>
+                  </div>
+                  <div class="text-[10px] opacity-85 mt-0.5 truncate">${tags.length > 0 ? ("Includes: " + tags.join(" + ")) : (vp.description || "")}</div>
+                </div>
+              `;
+            }).join("")}
+          </div>
+        </div>
+      `;
+    })()}
 
     <button type="button" onclick="handlePersonalizedLinkCheckout('${selectedCustomizerPack}', ${selectedAmount})" class="w-full py-3 px-4 rounded-xl bg-gradient-to-r from-[#ff2a85] via-[#ec4899] to-[#a855f7] text-white font-extrabold text-xs shadow-lg hover:brightness-110 transition flex items-center justify-center gap-2 cursor-pointer">
       <span class="material-symbols-outlined text-sm">lock_open</span>
@@ -4182,9 +4301,13 @@ window.handlePersonalizedLinkCheckout = async function(packType = null, amountOv
 
   try {
     const tplPrice = Math.max(0, Number((activeTemplate && activeTemplate.price) || 0));
-    const resolvedPlanId = activePack === 'combo'
-      ? (tplPrice > 0 ? 'premium_template_combo' : 'free_template_combo')
-      : (activePack === 'hd_style' ? 'hd_image_style_pack' : 'personalized_link');
+    const isCustomVipPlan = (Array.isArray(currentWishLinkSettings.vipPlans) ? currentWishLinkSettings.vipPlans : [])
+      .some(p => p && p.id === activePack);
+    const resolvedPlanId = isCustomVipPlan
+      ? activePack
+      : (activePack === 'combo'
+        ? (tplPrice > 0 ? 'premium_template_combo' : 'free_template_combo')
+        : (activePack === 'hd_style' ? 'hd_image_style_pack' : 'personalized_link'));
 
     try {
       localStorage.setItem('wm_checkout_cart', JSON.stringify({

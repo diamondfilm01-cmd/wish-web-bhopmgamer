@@ -172,7 +172,8 @@
     }
 
     if (targetAttr === 'value' && ('value' in el)) {
-      el.value = strVal;
+      if (el.tagName === 'INPUT' && el.type === 'file') return;
+      try { el.value = strVal; } catch (_) {}
       return;
     }
 
@@ -1047,7 +1048,9 @@
         } else if (type === 'toggle' && el.tagName === 'INPUT' && el.type === 'checkbox') {
           el.checked = Boolean(value);
         } else if ((el.tagName === 'INPUT' || el.tagName === 'TEXTAREA' || el.tagName === 'SELECT') && target === 'value') {
-          el.value = displayValue !== undefined && displayValue !== null ? displayValue : '';
+          if (!(el.tagName === 'INPUT' && el.type === 'file')) {
+            try { el.value = displayValue !== undefined && displayValue !== null ? displayValue : ''; } catch (_) {}
+          }
         } else {
           setElementTextSafe(el, displayValue, target);
         }

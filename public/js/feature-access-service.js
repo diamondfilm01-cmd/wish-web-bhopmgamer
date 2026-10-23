@@ -374,7 +374,24 @@
             cta: 'Unlock 16 Photos & Style • ₹59'
           };
 
-        case 'voice':
+        case 'voice': {
+          const vpPrice = (window._cachedWishLinkSettings?.addons?.vipPassPrice !== undefined)
+            ? Number(window._cachedWishLinkSettings.addons.vipPassPrice)
+            : (window.WishPlanService ? window.WishPlanService.getPlan('premium').price : 49);
+          return {
+            title: 'Add a Spoken Voice Dedication',
+            badge: 'AUDIO BLESSING',
+            priceLabel: `₹${vpPrice} VIP PASS`,
+            subtitle: 'Nothing touches the heart like hearing someone you love speak directly to you.',
+            bullets: [
+              'Record directly in your browser or upload any audio file',
+              'Up to 2 minutes of genuine laughter, songs, or blessings',
+              'Interactive waveform player with custom soundboard controls'
+            ],
+            cta: `Unlock Voice Notes • ₹${vpPrice}`
+          };
+        }
+        case '_legacy_voice':
           return {
             title: 'Add a Spoken Voice Dedication',
             badge: 'AUDIO BLESSING',
@@ -430,19 +447,27 @@
             cta: 'Preserve Forever • ₹49'
           };
 
-        default:
+        default: {
+          const ls = window._cachedWishLinkSettings;
+          const vipPlan = (ls && Array.isArray(ls.vipPlans)) ? ls.vipPlans.find(p => p && p.id === 'vip_pass') : null;
+          const vpPrice = vipPlan ? Number(vipPlan.price) : ((ls?.addons?.vipPassPrice !== undefined) ? Number(ls.addons.vipPassPrice) : 49);
+          const vpName = (vipPlan && vipPlan.name) || 'VIP Magic Pass';
+          const vpBullets = (vipPlan && Array.isArray(vipPlan.features) && vipPlan.features.length > 0)
+            ? vipPlan.features
+            : [
+                'All current and future VIP templates',
+                '16 photos, voice notes, and custom MP3 music',
+                'Permanent link & zero platform watermark'
+              ];
           return {
-            title: 'Unlock VIP Magic Pass',
-            badge: 'VIP ACCESS',
-            priceLabel: '₹49 ONE-TIME',
-            subtitle: 'Get unlimited access to all templates, advanced themes, audio, and lifetime memories.',
-            bullets: [
-              'All current and future VIP templates',
-              '16 photos, voice notes, and custom MP3 music',
-              'Permanent link & zero platform watermark'
-            ],
-            cta: 'Unlock VIP Pass • ₹49'
+            title: `Unlock ${vpName}`,
+            badge: (vipPlan && vipPlan.badge) || 'VIP ACCESS',
+            priceLabel: `₹${vpPrice} ONE-TIME`,
+            subtitle: (vipPlan && vipPlan.description) || 'Get unlimited access to all templates, advanced themes, audio, and lifetime memories.',
+            bullets: vpBullets,
+            cta: (vipPlan && vipPlan.ctaText) || `Unlock ${vpName} • ₹${vpPrice}`
           };
+        }
       }
     }
   };

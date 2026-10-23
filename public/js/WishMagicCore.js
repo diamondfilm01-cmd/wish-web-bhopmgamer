@@ -588,6 +588,10 @@ window.WishMagicCore = {
     }
 
     const targetUrl = buildActionDestinationUrl(family, action, variant);
+    if (isCustomize && window.WishAuth && typeof window.WishAuth.requireGoogleAuthForCustomize === 'function') {
+      window.WishAuth.requireGoogleAuthForCustomize(targetUrl);
+      return;
+    }
     window.location.href = targetUrl;
   }
 
@@ -607,6 +611,10 @@ window.WishMagicCore = {
     }
 
     const targetUrl = buildActionDestinationUrl(family, action, null);
+    if (isCustomize && window.WishAuth && typeof window.WishAuth.requireGoogleAuthForCustomize === 'function') {
+      window.WishAuth.requireGoogleAuthForCustomize(targetUrl);
+      return;
+    }
     window.location.href = targetUrl;
   }
 
@@ -616,6 +624,13 @@ window.WishMagicCore = {
    * handles 1-variant auto-open, >1-variant relation prompt, and legacy 0-variant preservation.
    */
   function handleTemplateAction(familyOrId, action = 'preview', context = {}) {
+    const isCustomizeAction = action === 'customize' || action === 'create';
+    if (isCustomizeAction && window.WishAuth && typeof window.WishAuth.isGoogleLoggedIn === 'function' && !window.WishAuth.isGoogleLoggedIn()) {
+      window.WishAuth.requireGoogleAuthForCustomize(() => {
+        handleTemplateAction(familyOrId, action, context);
+      });
+      return;
+    }
     let family = familyOrId;
     if (typeof familyOrId === 'string') {
       const map = window._wmLoadedTemplatesMap || {};

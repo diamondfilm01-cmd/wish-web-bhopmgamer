@@ -24,6 +24,18 @@
 
   let authState = AUTH_STATE.BOOTING;
   let currentUser = null;
+  let pendingPostLoginAction = null;
+
+  try {
+    const rawCachedUser = localStorage.getItem(STORAGE_KEY_USER) || localStorage.getItem('wishmagic_user');
+    if (rawCachedUser) {
+      const parsedCached = JSON.parse(rawCachedUser);
+      if (parsedCached && parsedCached.id && parsedCached.email) {
+        currentUser = parsedCached;
+        authState = AUTH_STATE.AUTHENTICATED;
+      }
+    }
+  } catch (_) {}
   let authInitialized = false;
   let authBootstrapPromise = null;
   let inFlightSessionPromise = null;
@@ -140,6 +152,22 @@
     }
 
     notifyAuthChange();
+
+    if (state === AUTH_STATE.AUTHENTICATED && user && pendingPostLoginAction) {
+      const actionToRun = pendingPostLoginAction;
+      pendingPostLoginAction = null;
+      setTimeout(() => {
+        try {
+          if (typeof actionToRun === 'function') {
+            actionToRun(user);
+          } else if (typeof actionToRun === 'string' && actionToRun.trim()) {
+            window.location.href = actionToRun.trim();
+          }
+        } catch (err) {
+          console.error('[WishAuth] Post-login action error:', err);
+        }
+      }, 120);
+    }
 
     if (state !== AUTH_STATE.BOOTING && authReadyResolve) {
       authReadyResolve(user);
@@ -670,9 +698,45 @@
       }
     },
 
-    requireAuth(actionLabel = 'continue') {
-      if (this.isAuthenticated()) {
+    isGoogleLoggedIn() {
+      if (this.isAuthenticated()) return true;
+      try {
+        const raw = localStorage.getItem(STORAGE_KEY_USER) || localStorage.getItem('wishmagic_user');
+        if (raw) {
+          const parsed = JSON.parse(raw);
+          if (parsed && parsed.id && parsed.email) {
+            currentUser = applyProfileOverrides(parsed);
+            authState = AUTH_STATE.AUTHENTICATED;
+            return true;
+          }
+        }
+      } catch (_) {}
+      return false;
+    },
+
+    requireGoogleAuthForCustomize(targetUrlOrCallback, customPrompt = null) {
+      if (this.isGoogleLoggedIn()) {
+        if (typeof targetUrlOrCallback === 'function') {
+          targetUrlOrCallback(currentUser);
+        } else if (typeof targetUrlOrCallback === 'string' && targetUrlOrCallback.trim()) {
+          window.location.href = targetUrlOrCallback.trim();
+        }
         return true;
+      }
+      pendingPostLoginAction = targetUrlOrCallback || null;
+      const msg = customPrompt || 'Template customize karne ke liye pehle apne Google Account se Sign In karein ✨';
+      showUniversalAuthModal(msg);
+      return false;
+    },
+
+    requireAuth(actionLabel = 'continue') {
+      if (this.isGoogleLoggedIn()) {
+        return true;
+      }
+      if (typeof actionLabel === 'object' && actionLabel !== null) {
+        if (actionLabel.onSuccess || actionLabel.redirectUrl) {
+          pendingPostLoginAction = actionLabel.onSuccess || actionLabel.redirectUrl;
+        }
       }
       const msg = typeof actionLabel === 'object' && actionLabel !== null
         ? (actionLabel.message || 'Sign in with Google to continue')

@@ -973,9 +973,22 @@
           </div>
         </div>
         <div class="flex flex-col items-center justify-center gap-2">
-          <label class="block text-[11px] font-bold uppercase tracking-wider text-outline">Cover Thumbnail</label>
-          <img id="edit-tpl-thumb-preview" src="/assets/file_ab2082.png" alt="Preview" class="w-28 h-20 rounded-xl object-cover border border-purple-500/30 shadow-md" onerror="this.src='/assets/file_ab2082.png'"/>
-          <input id="edit-tpl-thumb" type="text" oninput="document.getElementById('edit-tpl-thumb-preview').src = this.value" placeholder="Thumbnail URL" class="w-full bg-surface-container text-[11px] text-on-surface px-2.5 py-1.5 rounded-lg border border-purple-500/20"/>
+          <label class="block text-[11px] font-bold uppercase tracking-wider text-outline">Cover Thumbnail Image</label>
+          <div class="relative group cursor-pointer" onclick="document.getElementById('edit-tpl-thumb-file-input').click()" title="Click to upload a new cover image">
+            <img id="edit-tpl-thumb-preview" src="/assets/file_ab2082.png" alt="Preview" class="w-36 h-24 rounded-xl object-cover border-2 border-purple-500/40 shadow-md group-hover:brightness-75 transition" onerror="this.src='/assets/file_ab2082.png'"/>
+            <div class="absolute inset-0 flex items-center justify-center opacity-0 group-hover:opacity-100 transition bg-black/45 rounded-xl text-white text-[10px] font-bold gap-1">
+              <span class="material-symbols-outlined text-[16px]">upload</span>
+              <span>Change Cover</span>
+            </div>
+          </div>
+          <input type="file" id="edit-tpl-thumb-file-input" accept="image/*" class="hidden" onchange="handleEditTemplateCoverUpload(this)"/>
+          <div class="flex items-center gap-1.5 w-full">
+            <button type="button" onclick="document.getElementById('edit-tpl-thumb-file-input').click()" class="flex-1 py-1.5 px-2.5 rounded-lg bg-gradient-to-r from-primary to-secondary text-white font-bold text-[11px] shadow hover:brightness-110 active:scale-95 transition flex items-center justify-center gap-1 cursor-pointer">
+              <span class="material-symbols-outlined text-[14px]">add_photo_alternate</span>
+              <span id="edit-tpl-thumb-upload-btn-label">Upload New Cover</span>
+            </button>
+          </div>
+          <input id="edit-tpl-thumb" type="text" oninput="document.getElementById('edit-tpl-thumb-preview').src = this.value || '/assets/file_ab2082.png'" placeholder="Or paste Cover Image URL..." class="w-full bg-surface-container text-[11px] text-on-surface px-2.5 py-1.5 rounded-lg border border-purple-500/20"/>
         </div>
       </div>
 

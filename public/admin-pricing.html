@@ -450,6 +450,140 @@
   </div>
       </div>
     </div>
+    <!-- ===================================================================== -->
+    <!-- VIP PLANS & PERKS STUDIO (CREATE / EDIT ANY PLAN INCLUDING ₹49 / DELETE) -->
+    <!-- ===================================================================== -->
+    <div class="wm-card bg-surface-container rounded-2xl p-5 sm:p-6 border-2 border-primary/50 shadow-2xl space-y-5" id="vip-plans-studio-section">
+      <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pb-4 border-b border-purple-900/25">
+        <div>
+          <div class="flex items-center gap-2">
+            <span class="px-2.5 py-0.5 rounded-full bg-gradient-to-r from-[#ff2a85] to-[#a855f7] text-white text-[10px] font-black uppercase tracking-wider">👑 VIP PLANS &amp; PERKS STUDIO</span>
+            <span id="vip-plans-count-badge" class="px-2 py-0.5 rounded-full bg-purple-500/20 text-purple-300 text-[11px] font-bold">5 Active Plans</span>
+          </div>
+          <h2 class="text-lg sm:text-xl font-extrabold text-on-surface mt-1">Manage All VIP Plans (Create, Edit ₹49 &amp; Default Plans, Delete &amp; Set Free Perks)</h2>
+          <p class="text-xs text-on-surface-variant mt-0.5">Har plan (jaise ₹49 VIP Pass, ₹59 Link, ₹99 Combo) ko edit ya delete karein, naye VIP plans banayein, aur set karein ki wo user ko kya-kya FREE denge.</p>
+        </div>
+        <div class="flex flex-wrap items-center gap-2.5">
+          <button type="button" onclick="openVipPlanModal(null)" class="px-4 py-2.5 rounded-xl bg-gradient-to-r from-[#ff2a85] via-[#ec4899] to-[#a855f7] text-white text-xs font-extrabold shadow-lg hover:brightness-110 transition flex items-center gap-1.5 cursor-pointer">
+            <span class="material-symbols-outlined text-[17px]">add_circle</span>
+            <span>+ Create New VIP Plan</span>
+          </button>
+          <button type="button" onclick="restoreDefaultVipPlans()" class="px-3 py-2 rounded-xl bg-surface-container-high hover:bg-surface-container-highest text-on-surface-variant text-xs font-bold border border-purple-900/30 transition cursor-pointer" title="Restore factory default plans">
+            Restore Default Plans
+          </button>
+        </div>
+      </div>
+
+      <!-- Dynamic VIP Plans Grid -->
+      <div id="vip-plans-admin-grid" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+        <!-- Populated dynamically by renderAdminVipPlansGrid() -->
+      </div>
+    </div>
+
+    <!-- VIP PLAN CREATE / EDIT MODAL -->
+    <div id="vip-plan-modal" class="fixed inset-0 z-[150] bg-black/75 backdrop-blur-md hidden items-center justify-center p-4 overflow-y-auto">
+      <div class="wm-card bg-surface-container rounded-3xl max-w-2xl w-full p-5 sm:p-7 border-2 border-primary/50 shadow-2xl space-y-4 my-8" onclick="event.stopPropagation()">
+        <div class="flex items-center justify-between pb-3 border-b border-purple-900/30">
+          <div class="flex items-center gap-2.5">
+            <span class="w-9 h-9 rounded-xl bg-gradient-to-br from-[#ff2a85] to-[#a855f7] text-white flex items-center justify-center font-bold">👑</span>
+            <div>
+              <h3 id="vip-plan-modal-title" class="text-base sm:text-lg font-extrabold text-on-surface">Edit VIP Plan &amp; Free Perks</h3>
+              <p class="text-[11px] text-on-surface-variant">Set plan price, badge, and what free perks/features users unlock.</p>
+            </div>
+          </div>
+          <button type="button" onclick="closeVipPlanModal()" class="w-8 h-8 rounded-full bg-surface-container-high text-on-surface flex items-center justify-center font-bold text-xs cursor-pointer">✕</button>
+        </div>
+
+        <input type="hidden" id="vp-edit-id" value=""/>
+
+        <div class="grid grid-cols-1 sm:grid-cols-2 gap-3 text-xs">
+          <div>
+            <label class="block font-bold text-on-surface-variant mb-1">Plan Name *</label>
+            <input id="vp-edit-name" type="text" placeholder="e.g. VIP Magic Pass" class="w-full px-3 py-2 rounded-xl bg-surface-container-low text-on-surface border border-purple-900/40 font-bold text-sm focus:outline-none focus:border-primary"/>
+          </div>
+          <div>
+            <label class="block font-bold text-on-surface-variant mb-1">Top Badge Text</label>
+            <input id="vp-edit-badge" type="text" placeholder="e.g. 👑 VIP PASS or 🔥 BEST SELLER" class="w-full px-3 py-2 rounded-xl bg-surface-container-low text-on-surface border border-purple-900/40 font-bold text-sm focus:outline-none focus:border-primary"/>
+          </div>
+          <div>
+            <label class="block font-bold text-on-surface-variant mb-1">Plan Price (₹) * (Set 0 for Free)</label>
+            <input id="vp-edit-price" type="number" min="0" max="100000" placeholder="49" class="w-full px-3 py-2 rounded-xl bg-surface-container-low text-on-surface border border-primary font-black text-base focus:outline-none"/>
+          </div>
+          <div>
+            <label class="block font-bold text-on-surface-variant mb-1">Strike-Through Original Price (₹)</label>
+            <input id="vp-edit-orig-price" type="number" min="0" max="100000" placeholder="99" class="w-full px-3 py-2 rounded-xl bg-surface-container-low text-on-surface border border-purple-900/40 font-bold text-sm focus:outline-none"/>
+          </div>
+          <div>
+            <label class="block font-bold text-on-surface-variant mb-1">Billing / Validity Label</label>
+            <input id="vp-edit-billing" type="text" placeholder="e.g. one-time, / wish, / month" class="w-full px-3 py-2 rounded-xl bg-surface-container-low text-on-surface border border-purple-900/40 font-semibold text-xs focus:outline-none"/>
+          </div>
+          <div>
+            <label class="block font-bold text-on-surface-variant mb-1">Button CTA Text</label>
+            <input id="vp-edit-cta" type="text" placeholder="e.g. Unlock VIP Magic Pass ✨" class="w-full px-3 py-2 rounded-xl bg-surface-container-low text-on-surface border border-purple-900/40 font-semibold text-xs focus:outline-none"/>
+          </div>
+        </div>
+
+        <div class="text-xs">
+          <label class="block font-bold text-on-surface-variant mb-1">Plan Description</label>
+          <textarea id="vp-edit-desc" rows="2" placeholder="Describe what this VIP plan offers..." class="w-full px-3 py-2 rounded-xl bg-surface-container-low text-on-surface border border-purple-900/40 font-medium text-xs focus:outline-none"></textarea>
+        </div>
+
+        <!-- WHAT THIS PLAN GIVES FREE (PERKS TOGGLES) -->
+        <div class="p-3.5 rounded-2xl bg-surface-container-low border border-purple-900/30 space-y-2.5">
+          <div class="flex items-center justify-between">
+            <span class="text-xs font-extrabold uppercase tracking-wider text-pink-400">🎁 What Free Perks &amp; Features Does This Plan Give?</span>
+            <span class="text-[10px] font-bold text-on-surface-variant">Check all included perks</span>
+          </div>
+          <div class="grid grid-cols-1 sm:grid-cols-2 gap-2 text-xs">
+            <label class="flex items-center gap-2 p-2 rounded-xl bg-surface-container border border-purple-900/20 cursor-pointer">
+              <input type="checkbox" id="vp-perk-custom-link" checked class="rounded text-pink-500"/>
+              <span class="font-bold text-on-surface">🔗 Free Custom Link (<code>/w/name</code>)</span>
+            </label>
+            <label class="flex items-center gap-2 p-2 rounded-xl bg-surface-container border border-purple-900/20 cursor-pointer">
+              <input type="checkbox" id="vp-perk-hd-photos" checked class="rounded text-pink-500"/>
+              <span class="font-bold text-on-surface">🖼️ Free HD Quality Photos (Up to 16)</span>
+            </label>
+            <label class="flex items-center gap-2 p-2 rounded-xl bg-surface-container border border-purple-900/20 cursor-pointer">
+              <input type="checkbox" id="vp-perk-custom-style" checked class="rounded text-pink-500"/>
+              <span class="font-bold text-on-surface">🎨 Free Custom Fonts, Themes &amp; FX</span>
+            </label>
+            <label class="flex items-center gap-2 p-2 rounded-xl bg-surface-container border border-purple-900/20 cursor-pointer">
+              <input type="checkbox" id="vp-perk-unlock-vip" checked class="rounded text-pink-500"/>
+              <span class="font-bold text-on-surface">👑 Unlock Paid / VIP Templates Free</span>
+            </label>
+            <label class="flex items-center gap-2 p-2 rounded-xl bg-surface-container border border-purple-900/20 cursor-pointer">
+              <input type="checkbox" id="vp-perk-music-voice" checked class="rounded text-pink-500"/>
+              <span class="font-bold text-on-surface">🎵 Custom Music &amp; Voice Dedication</span>
+            </label>
+            <label class="flex items-center gap-2 p-2 rounded-xl bg-surface-container border border-purple-900/20 cursor-pointer">
+              <input type="checkbox" id="vp-perk-no-watermark" checked class="rounded text-pink-500"/>
+              <span class="font-bold text-on-surface">✨ Remove Watermark (White-Label)</span>
+            </label>
+            <label class="flex items-center gap-2 p-2 rounded-xl bg-surface-container border border-purple-900/20 cursor-pointer">
+              <input type="checkbox" id="vp-perk-lifetime" checked class="rounded text-pink-500"/>
+              <span class="font-bold text-on-surface">♾️ Permanent Lifetime Link Validity</span>
+            </label>
+            <label class="flex items-center gap-2 p-2 rounded-xl bg-surface-container border border-purple-900/20 cursor-pointer">
+              <input type="checkbox" id="vp-edit-popular" class="rounded text-amber-500"/>
+              <span class="font-bold text-amber-300">⭐ Highlight as "Most Popular" Plan</span>
+            </label>
+          </div>
+        </div>
+
+        <div class="text-xs">
+          <label class="block font-bold text-on-surface-variant mb-1">Custom Feature Bullet Points (One per line — shown on Website Pricing Cards)</label>
+          <textarea id="vp-edit-features" rows="4" placeholder="Unlock VIP & Premium 3D Templates&#10;Free Custom Link (/w/your-name) Included&#10;Up to 16 Uncompressed HD Photos" class="w-full px-3 py-2 rounded-xl bg-surface-container-low text-on-surface border border-purple-900/40 font-mono text-xs focus:outline-none"></textarea>
+        </div>
+
+        <div class="flex items-center justify-end gap-2.5 pt-2 border-t border-purple-900/30">
+          <button type="button" onclick="closeVipPlanModal()" class="px-4 py-2.5 rounded-xl bg-surface-container-high text-on-surface text-xs font-bold cursor-pointer">Cancel</button>
+          <button type="button" onclick="saveVipPlanFromModal()" class="px-5 py-2.5 rounded-xl bg-gradient-to-r from-[#ff2a85] via-[#ec4899] to-[#a855f7] text-white text-xs font-extrabold shadow-lg hover:brightness-110 transition cursor-pointer">
+            💾 Save VIP Plan &amp; Sync to Website
+          </button>
+        </div>
+      </div>
+    </div>
+
     <!-- MODULAR & COMBO PRICING CONFIGURATOR (4 CARDS + 7-REFERRAL & TEMPLATE TIERS) -->
     <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-5">
       <!-- Card 1: Custom Link Only (₹59) -->
@@ -900,7 +1034,81 @@
     el.classList.toggle('flex');
   }
 
+  const FACTORY_DEFAULT_VIP_PLANS = [
+    {
+      id: "vip_pass",
+      name: "VIP Magic Pass",
+      badge: "👑 VIP PASS",
+      price: 49,
+      originalPrice: 99,
+      billingLabel: "one-time",
+      description: "Unlock VIP templates, custom link (/w/your-name), HD photos, custom styles, voice & music, zero watermark, and lifetime link.",
+      ctaText: "Unlock VIP Magic Pass ✨",
+      isPopular: true,
+      isActive: true,
+      perks: { freeCustomLink: true, freeHdPhotos: true, freeCustomStyle: true, unlockVipTemplates: true, customMusicVoice: true, removeWatermark: true, lifetimeLink: true, maxPhotos: 16, validityDays: 0 },
+      features: ["Unlock VIP & Premium 3D Templates", "Free Custom Link (/w/your-name) Included", "Up to 16 Uncompressed HD Photos & Custom Styles", "Custom Music & 2-Min Voice Dedication", "100% Zero Watermark & Permanent Lifetime Link"]
+    },
+    {
+      id: "personalized_link",
+      name: "Custom Link Pack",
+      badge: "ADD-ON PACK 1",
+      price: 59,
+      originalPrice: 79,
+      billingLabel: "/ wish",
+      description: "Replace random codes with your own custom celebration URL (/w/happy-birthday-priya).",
+      ctaText: "Choose Custom Link",
+      isPopular: false,
+      isActive: true,
+      perks: { freeCustomLink: true, freeHdPhotos: false, freeCustomStyle: false, unlockVipTemplates: false, customMusicVoice: false, removeWatermark: false, lifetimeLink: false, maxPhotos: 3, validityDays: 30 },
+      features: ["Custom Personalized URL (/w/your-name)", "Instant Real-Time Availability Check", "Works on Any Free or Premium Template", "Free via 7-Friends Referral Reward"]
+    },
+    {
+      id: "hd_image_style_pack",
+      name: "HD Images + Custom Style",
+      badge: "ADD-ON PACK 2",
+      price: 59,
+      originalPrice: 79,
+      billingLabel: "/ wish",
+      description: "Upload crystal-clear High Quality (HD) photos and customize fonts, colors, frames & particle styles.",
+      ctaText: "Choose HD Images & Style",
+      isPopular: false,
+      isActive: true,
+      perks: { freeCustomLink: false, freeHdPhotos: true, freeCustomStyle: true, unlockVipTemplates: false, customMusicVoice: true, removeWatermark: true, lifetimeLink: false, maxPhotos: 16, validityDays: 30 },
+      features: ["Uncompressed High-Quality (HD) Photos (Up to 16)", "Custom Fonts, Color Themes & Frames", "Polaroid, Filmstrip & Mosaic Layouts", "Custom Particle & Celebration Effects"]
+    },
+    {
+      id: "free_template_combo",
+      name: "Custom Link + HD & Style Combo",
+      badge: "🔥 ALL-IN-ONE COMBO",
+      price: 99,
+      originalPrice: 118,
+      billingLabel: "/ wish",
+      description: "For any Free Template: Get both Custom Link + High Quality Images + Custom Style together in one combo!",
+      ctaText: "Unlock All-in-One Combo ✨",
+      isPopular: true,
+      isActive: true,
+      perks: { freeCustomLink: true, freeHdPhotos: true, freeCustomStyle: true, unlockVipTemplates: false, customMusicVoice: true, removeWatermark: true, lifetimeLink: true, maxPhotos: 16, validityDays: 365 },
+      features: ["Custom Link (/w/your-name) Included", "HD Quality Images (Up to 16) Included", "Full Custom Style, Fonts & Themes", "Zero Watermark & QR Share Card"]
+    },
+    {
+      id: "premium_template_combo",
+      name: "Premium Template + Full Combo",
+      badge: "👑 ROYAL COMBO ADD-ON",
+      price: 70,
+      originalPrice: 118,
+      billingLabel: "+ template price",
+      description: "Picking a Premium Template? Add this combo to get the Template + Custom Link + HD Images + Custom Style!",
+      ctaText: "Explore Premium Combo →",
+      isPopular: false,
+      isActive: true,
+      perks: { freeCustomLink: true, freeHdPhotos: true, freeCustomStyle: true, unlockVipTemplates: true, customMusicVoice: true, removeWatermark: true, lifetimeLink: true, maxPhotos: 16, validityDays: 0 },
+      features: ["Unlocks Selected Premium 3D Template", "Includes Custom Link + HD Photos + Style", "Custom Music, Voice Note & Zero Watermark", "Permanent Lifetime Celebration Link"]
+    }
+  ];
+
   let authoritativeSavedPricing = {
+    vipPassPrice: 49,
     customLinkPrice: 59,
     hdImageStylePrice: 59,
     freeTemplateComboPrice: 99,
@@ -909,8 +1117,238 @@
     templatePriceTiers: [0, 59, 149],
     requiredReferrals: 7,
     countFreeTemplates: true,
-    rewardCredits: 1
+    rewardCredits: 1,
+    vipPlans: JSON.parse(JSON.stringify(FACTORY_DEFAULT_VIP_PLANS))
   };
+
+  function renderAdminVipPlansGrid() {
+    const grid = document.getElementById("vip-plans-admin-grid");
+    if (!grid) return;
+    const plans = Array.isArray(authoritativeSavedPricing.vipPlans) ? authoritativeSavedPricing.vipPlans : FACTORY_DEFAULT_VIP_PLANS;
+    const countBadge = document.getElementById("vip-plans-count-badge");
+    if (countBadge) countBadge.textContent = `${plans.length} Active Plan${plans.length === 1 ? "" : "s"}`;
+
+    if (plans.length === 0) {
+      grid.innerHTML = `<div class="col-span-full p-8 rounded-2xl bg-surface-container-low border border-purple-900/30 text-center space-y-3">
+        <div class="text-2xl">👑</div>
+        <div class="text-sm font-extrabold text-on-surface">No VIP Plans Configured</div>
+        <p class="text-xs text-on-surface-variant">Click "+ Create New VIP Plan" or "Restore Default Plans" to add plans.</p>
+      </div>`;
+      return;
+    }
+
+    grid.innerHTML = plans.map((plan) => {
+      const pk = plan.perks || {};
+      const perkBadges = [];
+      if (pk.unlockVipTemplates) perkBadges.push("👑 Free VIP Templates");
+      if (pk.freeCustomLink) perkBadges.push("🔗 Free Custom Link");
+      if (pk.freeHdPhotos) perkBadges.push("🖼️ Free HD Photos");
+      if (pk.freeCustomStyle) perkBadges.push("🎨 Free Custom Style");
+      if (pk.customMusicVoice) perkBadges.push("🎵 Music & Voice");
+      if (pk.removeWatermark) perkBadges.push("✨ Zero Watermark");
+      if (pk.lifetimeLink) perkBadges.push("♾️ Lifetime Link");
+
+      const feats = Array.isArray(plan.features) ? plan.features.slice(0, 4) : [];
+      const safeId = String(plan.id).replace(/'/g, "");
+
+      return `
+        <div class="wm-card bg-surface-container-low rounded-2xl p-4 sm:p-5 border ${plan.isPopular ? "border-2 border-primary shadow-xl" : "border-purple-900/30"} flex flex-col justify-between gap-3 relative">
+          <div>
+            <div class="flex items-center justify-between gap-2 mb-2">
+              <span class="px-2.5 py-0.5 rounded-full text-[10px] font-black uppercase tracking-wider ${plan.isPopular ? "bg-gradient-to-r from-[#ff2a85] to-[#a855f7] text-white" : "bg-purple-500/20 text-purple-300"}">${plan.badge || "VIP PLAN"}</span>
+              <span class="text-[10px] font-mono text-on-surface-variant">ID: ${plan.id}</span>
+            </div>
+            <h3 class="text-base font-extrabold text-on-surface">${plan.name}</h3>
+            <div class="flex items-baseline gap-2 my-1.5">
+              <span class="text-2xl font-black text-primary">${Number(plan.price) === 0 ? "₹0 FREE" : "₹" + plan.price}</span>
+              ${plan.originalPrice && Number(plan.originalPrice) > Number(plan.price) ? `<span class="text-xs line-through text-on-surface-variant">₹${plan.originalPrice}</span>` : ""}
+              <span class="text-[11px] font-semibold text-on-surface-variant">${plan.billingLabel || "one-time"}</span>
+            </div>
+            <p class="text-xs text-on-surface-variant line-clamp-2 mb-2.5">${plan.description || ""}</p>
+            <div class="flex flex-wrap gap-1 mb-2.5">
+              ${perkBadges.map(b => `<span class="px-2 py-0.5 rounded-md bg-emerald-500/15 border border-emerald-500/30 text-emerald-300 text-[10px] font-bold">${b}</span>`).join("")}
+            </div>
+            <ul class="space-y-1 text-[11px] text-on-surface-variant pt-2 border-t border-purple-900/20">
+              ${feats.map(f => `<li class="flex items-center gap-1.5 truncate"><span class="text-emerald-400 font-bold">✓</span><span>${f}</span></li>`).join("")}
+            </ul>
+          </div>
+          <div class="flex items-center gap-2 pt-3 border-t border-purple-900/20">
+            <button type="button" onclick="openVipPlanModal('${safeId}')" class="flex-1 py-2 px-3 rounded-xl bg-primary/20 hover:bg-primary/30 text-primary border border-primary/30 text-xs font-extrabold transition flex items-center justify-center gap-1 cursor-pointer">
+              <span class="material-symbols-outlined text-[15px]">edit</span>
+              <span>Edit Plan &amp; Perks</span>
+            </button>
+            <button type="button" onclick="deleteVipPlanById('${safeId}')" class="py-2 px-3 rounded-xl bg-rose-500/15 hover:bg-rose-500/30 text-rose-300 border border-rose-500/30 text-xs font-extrabold transition flex items-center justify-center gap-1 cursor-pointer" title="Delete this plan">
+              <span class="material-symbols-outlined text-[15px]">delete</span>
+              <span>Delete</span>
+            </button>
+          </div>
+        </div>
+      `;
+    }).join("");
+  }
+
+  function openVipPlanModal(planId) {
+    const modal = document.getElementById("vip-plan-modal");
+    if (!modal) return;
+    const plans = Array.isArray(authoritativeSavedPricing.vipPlans) ? authoritativeSavedPricing.vipPlans : FACTORY_DEFAULT_VIP_PLANS;
+    const existing = planId ? plans.find(p => p.id === planId) : null;
+    const titleEl = document.getElementById("vip-plan-modal-title");
+    if (titleEl) titleEl.textContent = existing ? `Edit Plan: ${existing.name} (₹${existing.price})` : "Create New VIP Celebration Plan";
+
+    document.getElementById("vp-edit-id").value = existing ? existing.id : "";
+    document.getElementById("vp-edit-name").value = existing ? existing.name : "";
+    document.getElementById("vp-edit-badge").value = existing ? (existing.badge || "👑 VIP PLAN") : "👑 SPECIAL VIP";
+    document.getElementById("vp-edit-price").value = existing ? existing.price : 49;
+    document.getElementById("vp-edit-orig-price").value = existing ? (existing.originalPrice ?? 99) : 99;
+    document.getElementById("vp-edit-billing").value = existing ? (existing.billingLabel || "one-time") : "one-time";
+    document.getElementById("vp-edit-cta").value = existing ? (existing.ctaText || "") : "Unlock VIP Plan ✨";
+    document.getElementById("vp-edit-desc").value = existing ? (existing.description || "") : "Unlock custom link, HD photos, custom style & VIP celebration perks.";
+    document.getElementById("vp-edit-popular").checked = existing ? Boolean(existing.isPopular) : true;
+
+    const pk = (existing && existing.perks) || {
+      freeCustomLink: true,
+      freeHdPhotos: true,
+      freeCustomStyle: true,
+      unlockVipTemplates: true,
+      customMusicVoice: true,
+      removeWatermark: true,
+      lifetimeLink: true
+    };
+    document.getElementById("vp-perk-custom-link").checked = Boolean(pk.freeCustomLink);
+    document.getElementById("vp-perk-hd-photos").checked = Boolean(pk.freeHdPhotos);
+    document.getElementById("vp-perk-custom-style").checked = Boolean(pk.freeCustomStyle);
+    document.getElementById("vp-perk-unlock-vip").checked = Boolean(pk.unlockVipTemplates);
+    document.getElementById("vp-perk-music-voice").checked = Boolean(pk.customMusicVoice);
+    document.getElementById("vp-perk-no-watermark").checked = Boolean(pk.removeWatermark);
+    document.getElementById("vp-perk-lifetime").checked = Boolean(pk.lifetimeLink);
+
+    const feats = (existing && Array.isArray(existing.features)) ? existing.features : [
+      "Unlock VIP & Premium 3D Templates",
+      "Free Custom Link (/w/your-name) Included",
+      "Up to 16 Uncompressed HD Photos & Custom Styles",
+      "100% Zero Watermark & Permanent Lifetime Link"
+    ];
+    document.getElementById("vp-edit-features").value = feats.join("\n");
+
+    modal.classList.remove("hidden");
+    modal.classList.add("flex");
+  }
+
+  function closeVipPlanModal() {
+    const modal = document.getElementById("vip-plan-modal");
+    if (!modal) return;
+    modal.classList.add("hidden");
+    modal.classList.remove("flex");
+  }
+
+  async function saveVipPlanFromModal() {
+    const editId = document.getElementById("vp-edit-id").value.trim();
+    const name = document.getElementById("vp-edit-name").value.trim();
+    const badge = document.getElementById("vp-edit-badge").value.trim() || "👑 VIP PLAN";
+    const priceRaw = document.getElementById("vp-edit-price").value.trim();
+    const origRaw = document.getElementById("vp-edit-orig-price").value.trim();
+    const billingLabel = document.getElementById("vp-edit-billing").value.trim() || "one-time";
+    const ctaText = document.getElementById("vp-edit-cta").value.trim();
+    const description = document.getElementById("vp-edit-desc").value.trim();
+    const isPopular = document.getElementById("vp-edit-popular").checked;
+
+    if (!name) {
+      showToast("⚠️ Please enter a Plan Name", "error");
+      return;
+    }
+    const price = Number(priceRaw);
+    if (priceRaw === "" || !Number.isFinite(price) || price < 0 || price > 100000) {
+      showToast("⚠️ Please enter a valid Plan Price between ₹0 and ₹100,000", "error");
+      return;
+    }
+    const originalPrice = origRaw !== "" && Number.isFinite(Number(origRaw)) ? Number(origRaw) : price;
+
+    const perks = {
+      freeCustomLink: document.getElementById("vp-perk-custom-link").checked,
+      freeHdPhotos: document.getElementById("vp-perk-hd-photos").checked,
+      freeCustomStyle: document.getElementById("vp-perk-custom-style").checked,
+      unlockVipTemplates: document.getElementById("vp-perk-unlock-vip").checked,
+      customMusicVoice: document.getElementById("vp-perk-music-voice").checked,
+      removeWatermark: document.getElementById("vp-perk-no-watermark").checked,
+      lifetimeLink: document.getElementById("vp-perk-lifetime").checked,
+      maxPhotos: document.getElementById("vp-perk-hd-photos").checked ? 16 : 3,
+      validityDays: document.getElementById("vp-perk-lifetime").checked ? 0 : 30
+    };
+
+    let features = document.getElementById("vp-edit-features").value
+      .split(/\r?\n/)
+      .map(s => s.trim())
+      .filter(Boolean);
+    if (features.length === 0) {
+      if (perks.unlockVipTemplates) features.push("Unlock VIP & Premium 3D Templates");
+      if (perks.freeCustomLink) features.push("Free Custom Link (/w/your-name) Included");
+      if (perks.freeHdPhotos) features.push("Up to 16 Uncompressed HD Photos");
+      if (perks.freeCustomStyle) features.push("Custom Fonts, Themes & 4K FX");
+      if (perks.customMusicVoice) features.push("Custom Music & Voice Dedication");
+      if (perks.removeWatermark) features.push("100% Zero Watermark");
+      if (perks.lifetimeLink) features.push("Permanent Lifetime Celebration Link");
+    }
+
+    const planId = editId || ("vip_" + name.toLowerCase().replace(/[^a-z0-9]+/g, "_").replace(/^_|_$/g, "") + "_" + Date.now().toString(36).slice(-3));
+    const newPlanObj = {
+      id: planId,
+      name,
+      badge,
+      price,
+      originalPrice,
+      billingLabel,
+      description,
+      ctaText: ctaText || (price === 0 ? `Claim ${name} (FREE) ✨` : `Unlock ${name} • ₹${price}`),
+      isPopular,
+      isActive: true,
+      perks,
+      features
+    };
+
+    const currentPlans = Array.isArray(authoritativeSavedPricing.vipPlans) ? [...authoritativeSavedPricing.vipPlans] : [...FACTORY_DEFAULT_VIP_PLANS];
+    const idx = currentPlans.findIndex(p => p.id === planId);
+    if (idx >= 0) currentPlans[idx] = newPlanObj;
+    else currentPlans.push(newPlanObj);
+
+    // Sync quick inputs if this was one of the core plan IDs
+    if (planId === "personalized_link" && document.getElementById("vip-price-input")) {
+      document.getElementById("vip-price-input").value = price;
+    } else if (planId === "hd_image_style_pack" && document.getElementById("hd-style-price-input")) {
+      document.getElementById("hd-style-price-input").value = price;
+    } else if (planId === "free_template_combo" && document.getElementById("free-combo-price-input")) {
+      document.getElementById("free-combo-price-input").value = price;
+    } else if (planId === "premium_template_combo" && document.getElementById("premium-combo-addon-input")) {
+      document.getElementById("premium-combo-addon-input").value = price;
+    } else if (planId === "vip_pass") {
+      authoritativeSavedPricing.vipPassPrice = price;
+    }
+
+    authoritativeSavedPricing.vipPlans = currentPlans;
+    closeVipPlanModal();
+    renderAdminVipPlansGrid();
+    await savePricingConfig();
+  }
+
+  async function deleteVipPlanById(planId) {
+    const currentPlans = Array.isArray(authoritativeSavedPricing.vipPlans) ? [...authoritativeSavedPricing.vipPlans] : [...FACTORY_DEFAULT_VIP_PLANS];
+    const target = currentPlans.find(p => p.id === planId);
+    if (!target) return;
+    authoritativeSavedPricing.vipPlans = currentPlans.filter(p => p.id !== planId);
+    renderAdminVipPlansGrid();
+    await savePricingConfig();
+    showToast(`🗑️ Deleted VIP plan "${target.name}" and synced to Main Website!`);
+  }
+
+  async function restoreDefaultVipPlans() {
+    authoritativeSavedPricing.vipPlans = JSON.parse(JSON.stringify(FACTORY_DEFAULT_VIP_PLANS));
+    if (document.getElementById("vip-price-input")) document.getElementById("vip-price-input").value = 59;
+    if (document.getElementById("hd-style-price-input")) document.getElementById("hd-style-price-input").value = 59;
+    if (document.getElementById("free-combo-price-input")) document.getElementById("free-combo-price-input").value = 99;
+    if (document.getElementById("premium-combo-addon-input")) document.getElementById("premium-combo-addon-input").value = 70;
+    renderAdminVipPlansGrid();
+    await savePricingConfig();
+    showToast("✅ Restored default VIP plans and synced to Main Website!");
+  }
 
   function setPricingErrorBanner(msg) {
     const banner = document.getElementById('pricing-error-banner');
@@ -1096,7 +1534,13 @@
       return Number.isFinite(n) && n >= 0 ? n : fallback;
     };
 
+    const resolvedPlans = Array.isArray(s.vipPlans)
+      ? s.vipPlans
+      : (Array.isArray(authoritativeSavedPricing.vipPlans) ? authoritativeSavedPricing.vipPlans : JSON.parse(JSON.stringify(FACTORY_DEFAULT_VIP_PLANS)));
+    const vipPlanEntry = resolvedPlans.find(pl => pl && pl.id === "vip_pass");
+
     authoritativeSavedPricing = {
+      vipPassPrice: toNonNeg(vipPlanEntry ? vipPlanEntry.price : a.vipPassPrice, 49),
       customLinkPrice: toNonNeg(a.customLinkPrice ?? p.price, 59),
       hdImageStylePrice: toNonNeg(a.hdImageStylePrice, 59),
       freeTemplateComboPrice: toNonNeg(a.freeTemplateComboPrice, 99),
@@ -1105,8 +1549,10 @@
       templatePriceTiers: Array.isArray(a.templatePriceTiers) && a.templatePriceTiers.length >= 3 ? a.templatePriceTiers.map(Number) : [0, 59, 149],
       requiredReferrals: Math.max(1, parseInt(refCfg.requiredReferrals ?? 7, 10) || 7),
       countFreeTemplates: refCfg.countFreeTemplates !== false,
-      rewardCredits: Math.max(1, parseInt(refCfg.rewardCredits ?? 1, 10) || 1)
+      rewardCredits: Math.max(1, parseInt(refCfg.rewardCredits ?? 1, 10) || 1),
+      vipPlans: resolvedPlans
     };
+    renderAdminVipPlansGrid();
 
     if (document.getElementById('vip-price-input')) document.getElementById('vip-price-input').value = authoritativeSavedPricing.customLinkPrice;
     if (document.getElementById('hd-style-price-input')) document.getElementById('hd-style-price-input').value = authoritativeSavedPricing.hdImageStylePrice;
@@ -1165,6 +1611,10 @@
                 price: customLinkPrice
               },
               addons: {
+                vipPassPrice: (() => {
+                  const vp = (authoritativeSavedPricing.vipPlans || []).find(p => p && p.id === "vip_pass");
+                  return vp ? Number(vp.price) : (authoritativeSavedPricing.vipPassPrice ?? 49);
+                })(),
                 customLinkPrice,
                 hdImageStylePrice,
                 freeTemplateComboPrice,
@@ -1172,6 +1622,13 @@
                 creatorPackPrice,
                 templatePriceTiers
               },
+              vipPlans: (authoritativeSavedPricing.vipPlans || []).map(p => {
+                if (p.id === "personalized_link") return { ...p, price: customLinkPrice };
+                if (p.id === "hd_image_style_pack") return { ...p, price: hdImageStylePrice };
+                if (p.id === "free_template_combo") return { ...p, price: freeTemplateComboPrice };
+                if (p.id === "premium_template_combo") return { ...p, price: premiumComboAddonPrice };
+                return p;
+              }),
               referral: {
                 enabled: true,
                 requiredReferrals,

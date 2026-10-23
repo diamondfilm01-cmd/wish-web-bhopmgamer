@@ -307,7 +307,11 @@
             </div>
 
             <div class="flex items-center gap-1 sm:gap-2">
-              <button onclick="reloadPreviewIframe()" class="p-1.5 rounded-lg text-purple-700 dark:text-purple-300 hover:bg-purple-100 dark:hover:bg-purple-900/60 transition text-xs flex items-center gap-1" title="Reload interactive preview">
+              <button type="button" id="btn-preview-cinema" onclick="togglePreviewCinemaMode()" class="hidden lg:flex p-1.5 px-2.5 rounded-lg bg-purple-100/80 dark:bg-purple-900/50 text-purple-800 dark:text-purple-200 hover:bg-purple-200 transition text-xs items-center gap-1 cursor-pointer" title="Expand or collapse wide cinema preview">
+                <span class="material-symbols-outlined text-[16px]">fullscreen</span>
+                <span id="btn-preview-cinema-label" class="text-[11px] font-bold">Expand View</span>
+              </button>
+              <button onclick="reloadPreviewIframe()" class="p-1.5 rounded-lg text-purple-700 dark:text-purple-300 hover:bg-purple-100 dark:hover:bg-purple-900/60 transition text-xs flex items-center gap-1 cursor-pointer" title="Reload interactive preview">
                 <span class="material-symbols-outlined text-[16px]">refresh</span>
                 <span class="hidden md:inline text-[11px] font-semibold">Reload</span>
               </button>
@@ -317,6 +321,9 @@
               </a>
             </div>
           </div>
+
+          <!-- Live Relationship Variant Switcher Bar -->
+          <div id="preview-variant-switcher-bar" class="hidden glass-surface rounded-2xl px-3.5 py-2.5 flex items-center gap-2 overflow-x-auto no-scrollbar shadow-sm"></div>
 
           <!-- Interactive Sandbox Stage Frame -->
           <div class="w-full flex items-center justify-center p-2 sm:p-5 rounded-3xl glass-surface border border-purple-200/80 dark:border-purple-800/60 shadow-xl overflow-hidden min-h-[580px]" id="preview-stage-wrapper">
@@ -814,36 +821,39 @@
       const contentEl = document.getElementById('preview-content-shell');
 
       try {
-        const allRes = await fetch('/api/templates');
-        const allData = await allRes.json();
-        allTemplatesList = allData.templates || [];
+        try {
+          const cachedRaw = sessionStorage.getItem('wm_public_templates_cache_v1');
+          const cachedArr = cachedRaw ? JSON.parse(cachedRaw) : null;
+          if (Array.isArray(cachedArr) && cachedArr.length > 0) {
+            allTemplatesList = cachedArr;
+          }
+        } catch (_) {}
+
+        const qs = new URLSearchParams();
+        if (variantParam) qs.set('variant', variantParam);
+        if (relParam) qs.set('rel', relParam);
+        const qsStr = qs.toString() ? `?${qs.toString()}` : '';
+
+        const [allData, singleData] = await Promise.all([
+          fetch('/api/templates').then(r => r.ok ? r.json() : null).catch(() => null),
+          templateId
+            ? fetch(`/api/templates/${encodeURIComponent(templateId)}${qsStr}`).then(r => r.ok ? r.json() : null).catch(() => null)
+            : Promise.resolve(null)
+        ]);
+
+        if (allData && Array.isArray(allData.templates) && allData.templates.length > 0) {
+          allTemplatesList = allData.templates;
+          try { sessionStorage.setItem('wm_public_templates_cache_v1', JSON.stringify(allTemplatesList)); } catch (_) {}
+        }
         window._wmLoadedTemplatesMap = window._wmLoadedTemplatesMap || {};
         allTemplatesList.forEach(t => {
           if (t && t.id) window._wmLoadedTemplatesMap[t.id] = t;
           if (t && t.slug) window._wmLoadedTemplatesMap[t.slug] = t;
         });
 
-        let current = null;
-        if (templateId) {
-          try {
-            const qs = new URLSearchParams();
-            if (variantParam) qs.set('variant', variantParam);
-            if (relParam) qs.set('rel', relParam);
-            const qsStr = qs.toString() ? `?${qs.toString()}` : '';
-            const singleRes = await fetch(`/api/templates/${encodeURIComponent(templateId)}${qsStr}`);
-            if (singleRes.ok) {
-              const singleData = await singleRes.json();
-              if (singleData.success && singleData.template) {
-                current = singleData.template;
-              }
-            }
-          } catch (singleErr) {
-            console.warn('[Template Fetch Single]', singleErr);
-          }
-
-          if (!current) {
-            current = findMatchingTemplate(allTemplatesList, templateId);
-          }
+        let current = (singleData && singleData.success && singleData.template) ? singleData.template : null;
+        if (!current && templateId) {
+          current = findMatchingTemplate(allTemplatesList, templateId);
         }
 
         if (!current && allTemplatesList.length > 0) {
@@ -959,6 +969,11 @@
         ? `/customize.html?template=${encodeURIComponent(t.id)}&variant=${encodeURIComponent(selectedVariant.id)}&rel=${encodeURIComponent(selectedVariant.relationshipSlug)}`
         : `/customize.html?template=${encodeURIComponent(t.id)}`;
       const handleCreateClick = (e) => {
+        if (window.WishAuth && typeof window.WishAuth.isGoogleLoggedIn === 'function' && !window.WishAuth.isGoogleLoggedIn()) {
+          if (e) e.preventDefault();
+          window.WishAuth.requireGoogleAuthForCustomize(customizeUrl);
+          return false;
+        }
         if (window.WishFeatureAccess) {
           const access = window.WishFeatureAccess.canUseTemplate(t);
           if (!access.allowed) {
@@ -994,16 +1009,48 @@
         btnDock.onclick = handleCreateClick;
       }
 
-      // Relationships Chips
+      // Relationships Chips & Live Variant Switcher Bar
       const relContainer = document.getElementById('detail-relationships-container');
       relContainer.innerHTML = '';
-      const rels = t.relationships && t.relationships.length > 0 ? t.relationships : [t.category || "Celebration", "Special Someone"];
-      rels.forEach(r => {
-        const chip = document.createElement('span');
-        chip.className = 'px-2.5 py-1 rounded-full bg-purple-100/90 dark:bg-purple-900/60 text-purple-900 dark:text-purple-200 text-xs font-semibold';
-        chip.textContent = `#${r}`;
-        relContainer.appendChild(chip);
-      });
+      const varBarEl = document.getElementById('preview-variant-switcher-bar');
+      const availVars = (window.WishMagicVariantFlow && window.WishMagicVariantFlow.isVariantFamily(t))
+        ? window.WishMagicVariantFlow.getAvailablePublishedVariants(t)
+        : [];
+
+      if (varBarEl) {
+        if (availVars.length > 1) {
+          varBarEl.classList.remove('hidden');
+          varBarEl.innerHTML = `<span class="text-[11px] font-extrabold text-purple-900 dark:text-purple-200 shrink-0">🎯 Switch Relation Edition:</span>` +
+            availVars.map(v => {
+              const isAct = selectedVariant && (selectedVariant.id === v.id || selectedVariant.relationshipSlug === v.relationshipSlug);
+              return `<button type="button" onclick="switchPreviewVariantBySlug('${escapeHTML(v.relationshipSlug)}')" class="px-3 py-1 rounded-full text-xs font-bold transition shrink-0 cursor-pointer ${isAct ? 'bg-gradient-to-r from-pink-500 to-purple-600 text-white shadow-sm' : 'bg-white/80 dark:bg-purple-900/60 text-purple-900 dark:text-purple-200 border border-purple-200 dark:border-purple-700/60 hover:border-pink-400'}">${escapeHTML(v.relationshipLabel)}</button>`;
+            }).join('');
+        } else {
+          varBarEl.classList.add('hidden');
+        }
+      }
+
+      if (availVars.length > 0) {
+        availVars.forEach(v => {
+          const isAct = selectedVariant && (selectedVariant.id === v.id || selectedVariant.relationshipSlug === v.relationshipSlug);
+          const chip = document.createElement('button');
+          chip.type = 'button';
+          chip.onclick = () => switchPreviewVariantBySlug(v.relationshipSlug);
+          chip.className = isAct
+            ? 'px-3 py-1 rounded-full bg-gradient-to-r from-pink-500 to-purple-600 text-white text-xs font-extrabold shadow-xs cursor-pointer transition'
+            : 'px-2.5 py-1 rounded-full bg-purple-100/90 dark:bg-purple-900/60 text-purple-900 dark:text-purple-200 hover:bg-purple-200 text-xs font-semibold cursor-pointer transition';
+          chip.textContent = `✦ ${v.relationshipLabel}`;
+          relContainer.appendChild(chip);
+        });
+      } else {
+        const rels = t.relationships && t.relationships.length > 0 ? t.relationships : [t.category || "Celebration", "Special Someone"];
+        rels.forEach(r => {
+          const chip = document.createElement('span');
+          chip.className = 'px-2.5 py-1 rounded-full bg-purple-100/90 dark:bg-purple-900/60 text-purple-900 dark:text-purple-200 text-xs font-semibold';
+          chip.textContent = `#${r}`;
+          relContainer.appendChild(chip);
+        });
+      }
 
       // Background Song Preview
       const audioCard = document.getElementById('audio-preview-card');
@@ -1588,9 +1635,46 @@
       });
     }
 
+    window.switchPreviewVariantBySlug = function(relSlug) {
+      if (!activeTemplate || !window.WishMagicVariantFlow) return;
+      const resolved = window.WishMagicVariantFlow.resolveVariantForRelation(activeTemplate, relSlug);
+      if (resolved) {
+        applySelectedVariantOnPreviewPage(resolved);
+        showToast(`Switched preview to ${resolved.relationshipLabel} Edition ✨`);
+      }
+    };
+
+    window._isPreviewCinemaMode = false;
+    window.togglePreviewCinemaMode = function() {
+      window._isPreviewCinemaMode = !window._isPreviewCinemaMode;
+      const leftCol = document.querySelector('#preview-content-shell .lg\\:col-span-8, #preview-content-shell [data-preview-left]');
+      const rightCol = document.querySelector('#preview-content-shell .lg\\:col-span-5, #preview-content-shell [data-preview-right]');
+      const lbl = document.getElementById('btn-preview-cinema-label');
+      if (leftCol) {
+        leftCol.setAttribute('data-preview-left', '1');
+        if (window._isPreviewCinemaMode) {
+          leftCol.classList.remove('lg:col-span-8');
+          leftCol.classList.add('lg:col-span-12');
+        } else {
+          leftCol.classList.remove('lg:col-span-12');
+          leftCol.classList.add('lg:col-span-8');
+        }
+      }
+      if (rightCol) {
+        rightCol.setAttribute('data-preview-right', '1');
+      }
+      if (lbl) lbl.textContent = window._isPreviewCinemaMode ? 'Compact View' : 'Expand View';
+      setPreviewViewport(window._previewPageViewportMode || 'desktop', false);
+    };
+
     function handleRelatedCreateWish(event, tplId) {
       const tpl = allTemplatesList.find(t => t.id === tplId);
       const url = `/customize.html?template=${tplId}`;
+      if (window.WishAuth && typeof window.WishAuth.isGoogleLoggedIn === 'function' && !window.WishAuth.isGoogleLoggedIn()) {
+        if (event) event.preventDefault();
+        window.WishAuth.requireGoogleAuthForCustomize(url);
+        return;
+      }
       if (window.WishFeatureAccess && tpl) {
         const access = window.WishFeatureAccess.canUseTemplate(tpl);
         if (!access.allowed) {

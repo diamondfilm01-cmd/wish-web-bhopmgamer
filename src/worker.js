@@ -803,6 +803,8 @@ const PRETTY_ROUTES = {
   '/admin/anktech/anktech/admin/': '/admin-overview.html',
   '/admin/anktech/anktech/admin/overview': '/admin-overview.html',
   '/admin/anktech/anktech/admin/overview/': '/admin-overview.html',
+  '/admin/anktech/anktech/admin/app': '/admin-app.html',
+  '/admin/anktech/anktech/admin/app/': '/admin-app.html',
   '/admin/anktech/anktech/admin/analytics': '/admin-analytics.html',
   '/admin/anktech/anktech/admin/analytics/': '/admin-analytics.html',
   '/admin/anktech/anktech/admin/user-creations': '/admin-user-creations.html',
@@ -994,6 +996,14 @@ function getValidatedOrigin(request, env) {
     return origin;
   }
 
+  // 5b. Native Standalone Admin App wrappers (Capacitor Android/iOS & Electron Desktop)
+  if (
+    (originUrl.protocol === "capacitor:" || originUrl.protocol === "ionic:" || originUrl.protocol === "app:") &&
+    (originHostname === "localhost" || originHostname === ".")
+  ) {
+    return origin;
+  }
+
   // 6. Development environment or local test runner targeting localhost / 127.0.0.1
   const isLocalRequest = reqHostname === 'localhost' || reqHostname === '127.0.0.1';
   const isLocalOrigin = originHostname === 'localhost' || originHostname === '127.0.0.1';
@@ -1019,7 +1029,8 @@ function applySecurityHeaders(response, request, env) {
     headers.set('Vary', 'Origin');
   }
   headers.set('Access-Control-Allow-Methods', 'GET, POST, PUT, PATCH, DELETE, OPTIONS');
-  headers.set('Access-Control-Allow-Headers', 'Content-Type, Authorization, X-Requested-With, If-None-Match, X-Request-ID, X-CSRF-Token');
+  headers.set('Access-Control-Allow-Headers', 'Content-Type, Authorization, X-Requested-With, If-None-Match, X-Request-ID, X-CSRF-Token, X-WishMagic-Admin-App, Idempotency-Key');
+  headers.set('Access-Control-Expose-Headers', 'X-WishMagic-Admin-Session, X-Request-ID');
   headers.set('X-Content-Type-Options', 'nosniff');
   headers.set('X-Frame-Options', 'SAMEORIGIN');
   headers.set('Referrer-Policy', 'strict-origin-when-cross-origin');
@@ -4001,6 +4012,22 @@ function mapProductToEntitlementScope(productIdOrPlan, templateId = null, reques
       unlocksHdStyle: false
     };
   }
+  const customPlan = (Array.isArray(inMemoryWishLinkSettings?.vipPlans) ? inMemoryWishLinkSettings.vipPlans : []).find(
+    p => p && String(p.id || "").toLowerCase() === norm
+  );
+  if (customPlan) {
+    const pk = customPlan.perks || {};
+    return {
+      plan: pk.unlockVipTemplates ? "VIP" : String(customPlan.id).toUpperCase(),
+      itemType: pk.unlockVipTemplates ? "vip_pass" : customPlan.id,
+      itemId: pk.unlockVipTemplates ? "all_templates" : (templateId || requestedSlug || "single_wish"),
+      productId: customPlan.id,
+      templateId: templateId || null,
+      unlocksAllTemplates: Boolean(pk.unlockVipTemplates),
+      unlocksCustomLink: Boolean(pk.freeCustomLink),
+      unlocksHdStyle: Boolean(pk.freeHdPhotos || pk.freeCustomStyle)
+    };
+  }
   return {
     plan: String(productIdOrPlan || "PRO").toUpperCase(),
     itemType: norm || "custom",
@@ -4113,6 +4140,29 @@ async function getEffectiveEntitlement(user, env, options = {}) {
           if (tplId) {
             unlockedTemplatesSet.add(tplId);
             featuresSet.add(`template:${tplId}`);
+          }
+        } else {
+          const matchedPlan = (Array.isArray(inMemoryWishLinkSettings?.vipPlans) ? inMemoryWishLinkSettings.vipPlans : []).find(
+            vp => vp && String(vp.id || "").toLowerCase() === pPlan
+          );
+          if (matchedPlan && matchedPlan.perks) {
+            const pk = matchedPlan.perks;
+            if (pk.unlockVipTemplates) {
+              hasVipPass = true;
+              featuresSet.add("premium_templates");
+            }
+            if (pk.freeCustomLink) {
+              hasCustomLinkEntitlement = true;
+              featuresSet.add("custom_slug");
+            }
+            if (pk.freeHdPhotos || pk.freeCustomStyle) {
+              hasHdStyleEntitlement = true;
+              featuresSet.add("hd_style");
+              featuresSet.add("advanced_themes");
+              featuresSet.add("unlimited_photos");
+            }
+            if (pk.customMusicVoice) featuresSet.add("voice_note");
+            if (pk.removeWatermark) featuresSet.add("watermark_removed");
           }
         }
       }
@@ -4263,11 +4313,12 @@ async function reconcileUploadedTemplatesInD1(env, { allowB2Scan = true } = {}) 
       if (r.slug) tplBySlug.set(r.slug, r);
     }
 
-    // Clear stale deleted_templates tombstones for any non-seed template row that actually exists in templates table
+    const initialDeletedSet = await getDeletedTemplateIdsSet(env);
+    // Clear stale deleted_templates tombstones ONLY when present in initialDeletedSet
     for (const r of tplRows) {
       const isSeed = seedIdSet.has(r.id) || seedIdSet.has(r.slug);
       const isUploadedB2 = Boolean((r.current_version_id && String(r.current_version_id).startsWith('ver_')) || r.has_variants);
-      if (!isSeed || isUploadedB2) {
+      if ((!isSeed || isUploadedB2) && (initialDeletedSet.has(r.id) || initialDeletedSet.has(r.slug))) {
         await clearPermanentTemplateDeletion(env, r.id, r.slug);
       }
       // Heal tier='premium' -> 'vip' and is_published mismatch when status='published'
@@ -5462,6 +5513,236 @@ function formatPublicSiteSettings(settings) {
   };
 }
 
+const DEFAULT_VIP_PLANS = [
+  {
+    id: 'vip_pass',
+    name: 'VIP Magic Pass',
+    badge: '👑 VIP PASS',
+    price: 49,
+    originalPrice: 99,
+    billingLabel: 'one-time',
+    description: 'Unlock VIP templates, custom link (/w/your-name), HD photos, custom styles, voice & music, zero watermark, and lifetime link.',
+    ctaText: 'Unlock VIP Magic Pass ✨',
+    isPopular: true,
+    isActive: true,
+    perks: {
+      freeCustomLink: true,
+      freeHdPhotos: true,
+      freeCustomStyle: true,
+      unlockVipTemplates: true,
+      customMusicVoice: true,
+      removeWatermark: true,
+      lifetimeLink: true,
+      maxPhotos: 16,
+      validityDays: 0
+    },
+    features: [
+      'Unlock VIP & Premium 3D Templates',
+      'Free Custom Link (/w/your-name) Included',
+      'Up to 16 Uncompressed HD Photos & Custom Styles',
+      'Custom Music & 2-Min Voice Dedication',
+      '100% Zero Watermark & Permanent Lifetime Link'
+    ]
+  },
+  {
+    id: 'personalized_link',
+    name: 'Custom Link Pack',
+    badge: 'ADD-ON PACK 1',
+    price: 59,
+    originalPrice: 79,
+    billingLabel: '/ wish',
+    description: 'Replace random codes with your own custom celebration URL (/w/happy-birthday-priya).',
+    ctaText: 'Choose Custom Link',
+    isPopular: false,
+    isActive: true,
+    perks: {
+      freeCustomLink: true,
+      freeHdPhotos: false,
+      freeCustomStyle: false,
+      unlockVipTemplates: false,
+      customMusicVoice: false,
+      removeWatermark: false,
+      lifetimeLink: false,
+      maxPhotos: 3,
+      validityDays: 30
+    },
+    features: [
+      'Custom Personalized URL (/w/your-name)',
+      'Instant Real-Time Availability Check',
+      'Works on Any Free or Premium Template',
+      'Free via 7-Friends Referral Reward'
+    ]
+  },
+  {
+    id: 'hd_image_style_pack',
+    name: 'HD Images + Custom Style',
+    badge: 'ADD-ON PACK 2',
+    price: 59,
+    originalPrice: 79,
+    billingLabel: '/ wish',
+    description: 'Upload crystal-clear High Quality (HD) photos and customize fonts, colors, frames & particle styles.',
+    ctaText: 'Choose HD Images & Style',
+    isPopular: false,
+    isActive: true,
+    perks: {
+      freeCustomLink: false,
+      freeHdPhotos: true,
+      freeCustomStyle: true,
+      unlockVipTemplates: false,
+      customMusicVoice: true,
+      removeWatermark: true,
+      lifetimeLink: false,
+      maxPhotos: 16,
+      validityDays: 30
+    },
+    features: [
+      'Uncompressed High-Quality (HD) Photos (Up to 16)',
+      'Custom Fonts, Color Themes & Frames',
+      'Polaroid, Filmstrip & Mosaic Layouts',
+      'Custom Particle & Celebration Effects'
+    ]
+  },
+  {
+    id: 'free_template_combo',
+    name: 'Custom Link + HD & Style Combo',
+    badge: '🔥 ALL-IN-ONE COMBO',
+    price: 99,
+    originalPrice: 118,
+    billingLabel: '/ wish',
+    description: 'For any Free Template: Get both Custom Link + High Quality Images + Custom Style together in one combo!',
+    ctaText: 'Unlock All-in-One Combo ✨',
+    isPopular: true,
+    isActive: true,
+    perks: {
+      freeCustomLink: true,
+      freeHdPhotos: true,
+      freeCustomStyle: true,
+      unlockVipTemplates: false,
+      customMusicVoice: true,
+      removeWatermark: true,
+      lifetimeLink: true,
+      maxPhotos: 16,
+      validityDays: 365
+    },
+    features: [
+      'Custom Link (/w/your-name) Included',
+      'HD Quality Images (Up to 16) Included',
+      'Full Custom Style, Fonts & Themes',
+      'Zero Watermark & QR Share Card'
+    ]
+  },
+  {
+    id: 'premium_template_combo',
+    name: 'Premium Template + Full Combo',
+    badge: '👑 ROYAL COMBO ADD-ON',
+    price: 70,
+    originalPrice: 118,
+    billingLabel: '+ template price',
+    description: 'Picking a Premium Template? Add this combo to get the Template + Custom Link + HD Images + Custom Style!',
+    ctaText: 'Explore Premium Combo →',
+    isPopular: false,
+    isActive: true,
+    perks: {
+      freeCustomLink: true,
+      freeHdPhotos: true,
+      freeCustomStyle: true,
+      unlockVipTemplates: true,
+      customMusicVoice: true,
+      removeWatermark: true,
+      lifetimeLink: true,
+      maxPhotos: 16,
+      validityDays: 0
+    },
+    features: [
+      'Unlocks Selected Premium 3D Template',
+      'Includes Custom Link + HD Photos + Style',
+      'Custom Music, Voice Note & Zero Watermark',
+      'Permanent Lifetime Celebration Link'
+    ]
+  }
+];
+
+function normalizeSingleVipPlan(rawPlan, index = 0) {
+  if (!rawPlan || typeof rawPlan !== 'object') return null;
+  const rawId = String(rawPlan.id || rawPlan.planId || `vip_plan_${index + 1}`).trim().toLowerCase().replace(/[^a-z0-9_-]/g, '_');
+  if (!rawId) return null;
+  const defaultMatch = DEFAULT_VIP_PLANS.find(d => d.id === rawId) || {};
+  const priceNum = Number(rawPlan.price !== undefined ? rawPlan.price : (defaultMatch.price ?? 49));
+  const price = Number.isFinite(priceNum) && priceNum >= 0 && priceNum <= 100000 ? priceNum : (defaultMatch.price ?? 49);
+  const origNum = Number(rawPlan.originalPrice !== undefined ? rawPlan.originalPrice : (defaultMatch.originalPrice ?? price));
+  const originalPrice = Number.isFinite(origNum) && origNum >= 0 && origNum <= 100000 ? origNum : price;
+
+  const rawPerks = (rawPlan.perks && typeof rawPlan.perks === 'object') ? rawPlan.perks : (defaultMatch.perks || {});
+  const perks = {
+    freeCustomLink: rawPerks.freeCustomLink !== undefined ? Boolean(rawPerks.freeCustomLink) : Boolean(defaultMatch.perks?.freeCustomLink ?? true),
+    freeHdPhotos: rawPerks.freeHdPhotos !== undefined ? Boolean(rawPerks.freeHdPhotos) : Boolean(defaultMatch.perks?.freeHdPhotos ?? true),
+    freeCustomStyle: rawPerks.freeCustomStyle !== undefined ? Boolean(rawPerks.freeCustomStyle) : Boolean(defaultMatch.perks?.freeCustomStyle ?? true),
+    unlockVipTemplates: rawPerks.unlockVipTemplates !== undefined ? Boolean(rawPerks.unlockVipTemplates) : Boolean(defaultMatch.perks?.unlockVipTemplates ?? false),
+    customMusicVoice: rawPerks.customMusicVoice !== undefined ? Boolean(rawPerks.customMusicVoice) : Boolean(defaultMatch.perks?.customMusicVoice ?? true),
+    removeWatermark: rawPerks.removeWatermark !== undefined ? Boolean(rawPerks.removeWatermark) : Boolean(defaultMatch.perks?.removeWatermark ?? true),
+    lifetimeLink: rawPerks.lifetimeLink !== undefined ? Boolean(rawPerks.lifetimeLink) : Boolean(defaultMatch.perks?.lifetimeLink ?? true),
+    maxPhotos: Math.max(1, Math.min(50, parseInt(rawPerks.maxPhotos ?? defaultMatch.perks?.maxPhotos ?? 16, 10) || 16)),
+    validityDays: Math.max(0, Math.min(3650, parseInt(rawPerks.validityDays ?? defaultMatch.perks?.validityDays ?? 0, 10) || 0))
+  };
+
+  let features = [];
+  if (Array.isArray(rawPlan.features) && rawPlan.features.length > 0) {
+    features = rawPlan.features.map(f => sanitizeString(String(f || '').trim(), 120)).filter(Boolean);
+  } else if (typeof rawPlan.featuresText === 'string' && rawPlan.featuresText.trim()) {
+    features = rawPlan.featuresText.split(/\r?\n|,/).map(f => sanitizeString(f.trim(), 120)).filter(Boolean);
+  } else if (Array.isArray(defaultMatch.features) && defaultMatch.features.length > 0) {
+    features = [...defaultMatch.features];
+  } else {
+    if (perks.unlockVipTemplates) features.push('Unlocks All VIP & Premium Templates');
+    if (perks.freeCustomLink) features.push('Free Custom Link (/w/your-name) Included');
+    if (perks.freeHdPhotos) features.push(`Up to ${perks.maxPhotos} Uncompressed HD Photos`);
+    if (perks.freeCustomStyle) features.push('Custom Fonts, Themes & 4K Celebration FX');
+    if (perks.customMusicVoice) features.push('Custom Music & Voice Note Dedication');
+    if (perks.removeWatermark) features.push('100% White-Label Zero Watermark');
+    if (perks.lifetimeLink) features.push('Permanent Lifetime Celebration Link');
+  }
+
+  return {
+    id: rawId,
+    name: sanitizeString(rawPlan.name || defaultMatch.name || 'VIP Celebration Plan', 70),
+    badge: sanitizeString(rawPlan.badge || defaultMatch.badge || '👑 VIP PLAN', 40),
+    price,
+    originalPrice,
+    billingLabel: sanitizeString(rawPlan.billingLabel || defaultMatch.billingLabel || 'one-time', 30),
+    description: sanitizeString(rawPlan.description || defaultMatch.description || 'Special celebration upgrade plan.', 220),
+    ctaText: sanitizeString(rawPlan.ctaText || defaultMatch.ctaText || `Unlock ${rawPlan.name || 'Plan'} • ₹${price}`, 60),
+    isPopular: rawPlan.isPopular !== undefined ? Boolean(rawPlan.isPopular) : Boolean(defaultMatch.isPopular),
+    isActive: rawPlan.isActive !== undefined ? Boolean(rawPlan.isActive) : true,
+    perks,
+    features
+  };
+}
+
+function normalizeVipPlansArray(rawPlans, addons = {}) {
+  let list = [];
+  if (Array.isArray(rawPlans)) {
+    const seen = new Set();
+    rawPlans.forEach((p, idx) => {
+      const norm = normalizeSingleVipPlan(p, idx);
+      if (norm && !seen.has(norm.id)) {
+        seen.add(norm.id);
+        list.push(norm);
+      }
+    });
+  } else {
+    list = DEFAULT_VIP_PLANS.map((p, idx) => normalizeSingleVipPlan(p, idx));
+    // Sync default list prices from addons if addons were customized
+    list.forEach(plan => {
+      if (plan.id === 'vip_pass' && Number.isFinite(Number(addons.vipPassPrice))) plan.price = Number(addons.vipPassPrice);
+      if (plan.id === 'personalized_link' && Number.isFinite(Number(addons.customLinkPrice))) plan.price = Number(addons.customLinkPrice);
+      if (plan.id === 'hd_image_style_pack' && Number.isFinite(Number(addons.hdImageStylePrice))) plan.price = Number(addons.hdImageStylePrice);
+      if (plan.id === 'free_template_combo' && Number.isFinite(Number(addons.freeTemplateComboPrice))) plan.price = Number(addons.freeTemplateComboPrice);
+      if (plan.id === 'premium_template_combo' && Number.isFinite(Number(addons.premiumComboAddonPrice))) plan.price = Number(addons.premiumComboAddonPrice);
+    });
+  }
+  return list;
+}
+
 const DEFAULT_WISH_LINK_SETTINGS = {
   personalized: {
     enabled: true,
@@ -5479,6 +5760,7 @@ const DEFAULT_WISH_LINK_SETTINGS = {
     vipPassPrice: 49,
     templatePriceTiers: [0, 59, 149]
   },
+  vipPlans: JSON.parse(JSON.stringify(DEFAULT_VIP_PLANS)),
   referral: {
     enabled: true,
     requiredReferrals: 7,
@@ -5547,6 +5829,13 @@ function normalizeStoredWishLinkSettings(raw) {
       length: parseInt(r.length !== undefined ? r.length : base.random.length, 10) || base.random.length,
       allowedCharacters: String(r.allowedCharacters || base.random.allowedCharacters).trim()
     },
+    vipPlans: normalizeVipPlansArray(raw.vipPlans, {
+      customLinkPrice: resolvedCustomLinkPrice,
+      hdImageStylePrice: Number.isFinite(Number(a.hdImageStylePrice)) && Number(a.hdImageStylePrice) >= 0 ? Number(a.hdImageStylePrice) : base.addons.hdImageStylePrice,
+      freeTemplateComboPrice: Number.isFinite(Number(a.freeTemplateComboPrice)) && Number(a.freeTemplateComboPrice) >= 0 ? Number(a.freeTemplateComboPrice) : base.addons.freeTemplateComboPrice,
+      premiumComboAddonPrice: Number.isFinite(Number(a.premiumComboAddonPrice)) && Number(a.premiumComboAddonPrice) >= 0 ? Number(a.premiumComboAddonPrice) : base.addons.premiumComboAddonPrice,
+      vipPassPrice: Number.isFinite(Number(a.vipPassPrice)) && Number(a.vipPassPrice) >= 0 ? Number(a.vipPassPrice) : base.addons.vipPassPrice
+    }),
     gateways: {
       razorpayEnabled: g.razorpayEnabled !== undefined ? Boolean(g.razorpayEnabled) : base.gateways.razorpayEnabled,
       stripeEnabled: g.stripeEnabled !== undefined ? Boolean(g.stripeEnabled) : base.gateways.stripeEnabled,
@@ -5682,15 +5971,48 @@ function validateWishLinkSettings(settings, baseSettings = inMemoryWishLinkSetti
         displayName: sanitizeString(p.displayName !== undefined ? p.displayName : base.personalized.displayName, 50),
         description: sanitizeString(p.description !== undefined ? p.description : base.personalized.description, 150)
       },
-      addons: {
-        customLinkPrice,
-        hdImageStylePrice,
-        freeTemplateComboPrice,
-        premiumComboAddonPrice,
-        creatorPackPrice,
-        vipPassPrice,
-        templatePriceTiers
-      },
+      addons: (() => {
+        const syncedAddons = {
+          customLinkPrice,
+          hdImageStylePrice,
+          freeTemplateComboPrice,
+          premiumComboAddonPrice,
+          creatorPackPrice,
+          vipPassPrice,
+          templatePriceTiers
+        };
+        if (Array.isArray(settings.vipPlans)) {
+          const vp = normalizeVipPlansArray(settings.vipPlans, syncedAddons);
+          const findP = (id) => vp.find(x => x.id === id);
+          if (findP('vip_pass') && a.vipPassPrice === undefined) syncedAddons.vipPassPrice = findP('vip_pass').price;
+          if (findP('personalized_link') && a.customLinkPrice === undefined && p.price === undefined) syncedAddons.customLinkPrice = findP('personalized_link').price;
+          if (findP('hd_image_style_pack') && a.hdImageStylePrice === undefined) syncedAddons.hdImageStylePrice = findP('hd_image_style_pack').price;
+          if (findP('free_template_combo') && a.freeTemplateComboPrice === undefined) syncedAddons.freeTemplateComboPrice = findP('free_template_combo').price;
+          if (findP('premium_template_combo') && a.premiumComboAddonPrice === undefined) syncedAddons.premiumComboAddonPrice = findP('premium_template_combo').price;
+        }
+        return syncedAddons;
+      })(),
+      vipPlans: (() => {
+        const rawList = Array.isArray(settings.vipPlans) ? settings.vipPlans : base.vipPlans;
+        const normList = normalizeVipPlansArray(rawList, {
+          customLinkPrice,
+          hdImageStylePrice,
+          freeTemplateComboPrice,
+          premiumComboAddonPrice,
+          vipPassPrice
+        });
+        // If addons were explicitly passed in payload without vipPlans, sync them into matching plan entries
+        if (!Array.isArray(settings.vipPlans)) {
+          normList.forEach(pl => {
+            if (pl.id === 'vip_pass' && a.vipPassPrice !== undefined) pl.price = vipPassPrice;
+            if (pl.id === 'personalized_link' && (a.customLinkPrice !== undefined || p.price !== undefined)) pl.price = customLinkPrice;
+            if (pl.id === 'hd_image_style_pack' && a.hdImageStylePrice !== undefined) pl.price = hdImageStylePrice;
+            if (pl.id === 'free_template_combo' && a.freeTemplateComboPrice !== undefined) pl.price = freeTemplateComboPrice;
+            if (pl.id === 'premium_template_combo' && a.premiumComboAddonPrice !== undefined) pl.price = premiumComboAddonPrice;
+          });
+        }
+        return normList;
+      })(),
       referral: {
         enabled: refCfg.enabled !== undefined ? Boolean(refCfg.enabled) : base.referral.enabled,
         requiredReferrals,
@@ -6601,13 +6923,15 @@ async function createNewTemplateVersion(env, templateId, updatedFields = {}, act
       const canonicalSlug = updatedFields.slug || existingTplRow?.slug || String(canonicalTplId).replace(/^tpl_/, '');
       const canonicalFamilyId = `fam_${String(canonicalTplId).replace(/^tpl_/, '')}`;
       await env.DB.prepare(
-        `UPDATE template_versions SET tier = ?, price = ?, name = ?, description = ?, category = ? WHERE template_id = ?`
+        `UPDATE template_versions SET tier = ?, price = ?, name = ?, description = ?, category = ?, thumbnail = CASE WHEN ? != '' THEN ? ELSE thumbnail END WHERE template_id = ?`
       ).bind(
         newSnapshot.tier,
         newSnapshot.price,
         newSnapshot.name,
         newSnapshot.description,
         newSnapshot.category,
+        newSnapshot.thumbnail || '',
+        newSnapshot.thumbnail || '',
         canonicalTplId
       ).run().catch(() => {});
 
@@ -7273,7 +7597,8 @@ export default {
                 ? 'Welcome back! Your 14-day account deletion timer has been cancelled and your account is active again.'
                 : 'Signed in successfully.'
             }, 200, {
-              'Set-Cookie': createSessionCookie(sessionToken)
+              'Set-Cookie': createSessionCookie(sessionToken),
+              'X-WishMagic-Admin-Session': sessionToken
             }, requestId),
             request, env
           );
@@ -7338,7 +7663,7 @@ export default {
             plan: userRecord.plan,
             isPremium: Boolean(userRecord.is_premium || userRecord.isPremium)
           }
-        }, 200, { 'Set-Cookie': createSessionCookie(sessionToken) }, requestId);
+        }, 200, { 'Set-Cookie': createSessionCookie(sessionToken), 'X-WishMagic-Admin-Session': sessionToken }, requestId);
       }
 
       else if (pathname === '/api/auth/email-signup' && method === 'POST') {
@@ -9051,7 +9376,10 @@ export default {
       // --- Templates API ---
       else if (pathname === '/api/templates' && method === 'GET') {
         const includeDrafts = url.searchParams.get('includeDrafts') === 'true';
-        await reconcileUploadedTemplatesInD1(env, { allowB2Scan: true });
+        const forceReconcile = url.searchParams.get('reconcile') === 'true';
+        if (includeDrafts || forceReconcile) {
+          await reconcileUploadedTemplatesInD1(env, { allowB2Scan: forceReconcile || _lastB2OrphanRecoveryTs === 0 });
+        }
         const deletedSet = await getDeletedTemplateIdsSet(env);
         let templates = SEED_TEMPLATES.filter(t => !deletedSet.has(t.id) && !deletedSet.has(t.slug)).map(t => ({
           ...t,
@@ -9068,26 +9396,29 @@ export default {
             }
             q += ' ORDER BY placement ASC LIMIT 100';
 
-            const rows = await env.DB.prepare(q).all();
-            // Batch-load all latest variants & template_relationships in a single query to avoid N+1 lookups
+            // Parallelize all template & variant queries in a single Promise.all roundtrip
             const variantsByTplId = new Map();
             const relRowsByTplId = new Map();
             const b2VerByTplId = new Map();
-            try {
-              const b2VerRows = await env.DB.prepare(
+            const [rows, b2VerRows, allVarRows, allRelRows] = await Promise.all([
+              env.DB.prepare(q).all().catch(() => ({ results: [] })),
+              env.DB.prepare(
                 `SELECT id, template_id FROM template_versions WHERE id LIKE 'ver_%' OR storage_provider = 'b2' ORDER BY version_number DESC, created_at DESC`
-              ).all().catch(() => ({ results: [] }));
+              ).all().catch(() => ({ results: [] })),
+              env.DB.prepare(
+                `SELECT trv.*, r.slug as r_slug, r.name as r_name, r.icon as r_icon
+                 FROM template_relationship_variants trv
+                 LEFT JOIN relationships r ON trv.relationship_id = r.id
+                 WHERE trv.is_latest = 1`
+              ).all().catch(() => ({ results: [] })),
+              env.DB.prepare(`SELECT * FROM template_relationships`).all().catch(() => ({ results: [] }))
+            ]);
+            try {
               for (const bvr of (b2VerRows.results || [])) {
                 if (bvr.template_id && !b2VerByTplId.has(bvr.template_id)) {
                   b2VerByTplId.set(bvr.template_id, bvr.id);
                 }
               }
-              const allVarRows = await env.DB.prepare(
-                `SELECT trv.*, r.slug as r_slug, r.name as r_name, r.icon as r_icon
-                 FROM template_relationship_variants trv
-                 LEFT JOIN relationships r ON trv.relationship_id = r.id
-                 WHERE trv.is_latest = 1`
-              ).all();
               for (const vr of (allVarRows.results || [])) {
                 const tKey = vr.template_id || String(vr.template_version_id || '').replace(/^tv_/, '').replace(/_v\d+.*$/, '');
                 if (!tKey) continue;
@@ -9099,7 +9430,6 @@ export default {
                   relationship_icon: vr.r_icon || '✨'
                 });
               }
-              const allRelRows = await env.DB.prepare(`SELECT * FROM template_relationships`).all().catch(() => ({ results: [] }));
               for (const tr of (allRelRows.results || [])) {
                 if (!tr.template_id) continue;
                 if (!relRowsByTplId.has(tr.template_id)) relRowsByTplId.set(tr.template_id, []);
@@ -17574,6 +17904,159 @@ export default {
         response = jsonSuccess({
           settings: saveRes.settings,
           message: 'Wish link and monetization settings updated successfully.'
+        }, 200, {}, requestId);
+      }
+
+      // --- Public & Admin VIP Plans CRUD Endpoints ---
+      else if (pathname === '/api/pricing/plans' && method === 'GET') {
+        const settings = await getWishLinkSettings(env);
+        const plans = (Array.isArray(settings.vipPlans) ? settings.vipPlans : DEFAULT_VIP_PLANS).filter(p => p && p.isActive !== false);
+        response = jsonSuccess({
+          plans,
+          vipPlans: plans,
+          addons: settings.addons,
+          personalized: settings.personalized,
+          referral: settings.referral
+        }, 200, { 'Cache-Control': 'no-cache, no-store, must-revalidate' }, requestId);
+      }
+      else if (pathname === '/api/admin/pricing/plans' && method === 'GET') {
+        const user = await getAuthenticatedUser(request, env);
+        if (!user) return applySecurityHeaders(jsonError('AUTH_REQUIRED', 'Admin authentication required', 401), request, env);
+        const isAdmin = await verifyAdminRole(user, env);
+        if (!isAdmin) return applySecurityHeaders(jsonError('FORBIDDEN', 'Admin role required', 403), request, env);
+
+        const settings = await getWishLinkSettings(env);
+        const plans = Array.isArray(settings.vipPlans) ? settings.vipPlans : DEFAULT_VIP_PLANS;
+        response = jsonSuccess({
+          plans,
+          vipPlans: plans,
+          addons: settings.addons,
+          settings
+        }, 200, { 'Cache-Control': 'no-cache, no-store, must-revalidate' }, requestId);
+      }
+      else if (pathname === '/api/admin/pricing/plans' && (method === 'POST' || method === 'PUT')) {
+        const user = await getAuthenticatedUser(request, env);
+        if (!user) return applySecurityHeaders(jsonError('AUTH_REQUIRED', 'Admin authentication required', 401), request, env);
+        const isAdmin = await verifyAdminRole(user, env);
+        if (!isAdmin) return applySecurityHeaders(jsonError('FORBIDDEN', 'Admin role required', 403), request, env);
+        if (isCsrfViolation(request, env)) return applySecurityHeaders(jsonError('FORBIDDEN', 'Cross-origin mutation rejected', 403), request, env);
+
+        const body = await request.json().catch(() => ({}));
+        const currentSettings = await getWishLinkSettings(env);
+        let nextPlans = Array.isArray(currentSettings.vipPlans) ? [...currentSettings.vipPlans] : [...DEFAULT_VIP_PLANS];
+
+        if (Array.isArray(body.vipPlans || body.plans)) {
+          nextPlans = normalizeVipPlansArray(body.vipPlans || body.plans, currentSettings.addons);
+        } else {
+          const rawPlan = body.plan || body;
+          const generatedId = rawPlan.id || `vip_${slugify(rawPlan.name || 'plan')}_${Date.now().toString(36).slice(-4)}`;
+          const normalizedPlan = normalizeSingleVipPlan({ ...rawPlan, id: generatedId }, nextPlans.length);
+          if (!normalizedPlan) {
+            return applySecurityHeaders(jsonError('VALIDATION_ERROR', 'Invalid VIP plan payload', 400), request, env);
+          }
+          const existingIdx = nextPlans.findIndex(p => p.id === normalizedPlan.id);
+          if (existingIdx >= 0) {
+            nextPlans[existingIdx] = normalizedPlan;
+          } else {
+            nextPlans.push(normalizedPlan);
+          }
+        }
+
+        const nextAddons = { ...currentSettings.addons };
+        const findById = (id) => nextPlans.find(p => p.id === id);
+        if (findById('vip_pass')) nextAddons.vipPassPrice = findById('vip_pass').price;
+        if (findById('personalized_link')) nextAddons.customLinkPrice = findById('personalized_link').price;
+        if (findById('hd_image_style_pack')) nextAddons.hdImageStylePrice = findById('hd_image_style_pack').price;
+        if (findById('free_template_combo')) nextAddons.freeTemplateComboPrice = findById('free_template_combo').price;
+        if (findById('premium_template_combo')) nextAddons.premiumComboAddonPrice = findById('premium_template_combo').price;
+
+        const saveRes = await saveWishLinkSettings(env, {
+          ...currentSettings,
+          personalized: {
+            ...currentSettings.personalized,
+            price: nextAddons.customLinkPrice
+          },
+          addons: nextAddons,
+          vipPlans: nextPlans
+        }, {
+          id: user.id,
+          name: user.display_name || user.email,
+          role: user.role || 'admin',
+          ipAddress: clientIp
+        });
+
+        if (!saveRes.success) {
+          return applySecurityHeaders(jsonError('INVALID_SETTINGS', saveRes.error, 400), request, env);
+        }
+
+        response = jsonSuccess({
+          plans: saveRes.settings.vipPlans,
+          vipPlans: saveRes.settings.vipPlans,
+          settings: saveRes.settings,
+          message: 'VIP plan saved and synced across the website.'
+        }, 200, {}, requestId);
+      }
+      else if (pathname.startsWith('/api/admin/pricing/plans/') && (method === 'PUT' || method === 'DELETE')) {
+        const user = await getAuthenticatedUser(request, env);
+        if (!user) return applySecurityHeaders(jsonError('AUTH_REQUIRED', 'Admin authentication required', 401), request, env);
+        const isAdmin = await verifyAdminRole(user, env);
+        if (!isAdmin) return applySecurityHeaders(jsonError('FORBIDDEN', 'Admin role required', 403), request, env);
+        if (isCsrfViolation(request, env)) return applySecurityHeaders(jsonError('FORBIDDEN', 'Cross-origin mutation rejected', 403), request, env);
+
+        const targetPlanId = decodeURIComponent(pathname.slice('/api/admin/pricing/plans/'.length)).trim().toLowerCase();
+        const currentSettings = await getWishLinkSettings(env);
+        let nextPlans = Array.isArray(currentSettings.vipPlans) ? [...currentSettings.vipPlans] : [...DEFAULT_VIP_PLANS];
+
+        if (method === 'DELETE') {
+          nextPlans = nextPlans.filter(p => String(p.id || '').toLowerCase() !== targetPlanId);
+        } else {
+          const body = await request.json().catch(() => ({}));
+          const rawPlan = body.plan || body;
+          const existingIdx = nextPlans.findIndex(p => String(p.id || '').toLowerCase() === targetPlanId);
+          const mergedRaw = existingIdx >= 0 ? { ...nextPlans[existingIdx], ...rawPlan, id: nextPlans[existingIdx].id } : { ...rawPlan, id: targetPlanId };
+          const normalizedPlan = normalizeSingleVipPlan(mergedRaw, existingIdx >= 0 ? existingIdx : nextPlans.length);
+          if (!normalizedPlan) {
+            return applySecurityHeaders(jsonError('VALIDATION_ERROR', 'Invalid VIP plan payload', 400), request, env);
+          }
+          if (existingIdx >= 0) {
+            nextPlans[existingIdx] = normalizedPlan;
+          } else {
+            nextPlans.push(normalizedPlan);
+          }
+        }
+
+        const nextAddons = { ...currentSettings.addons };
+        const findById = (id) => nextPlans.find(p => p.id === id);
+        if (findById('vip_pass')) nextAddons.vipPassPrice = findById('vip_pass').price;
+        if (findById('personalized_link')) nextAddons.customLinkPrice = findById('personalized_link').price;
+        if (findById('hd_image_style_pack')) nextAddons.hdImageStylePrice = findById('hd_image_style_pack').price;
+        if (findById('free_template_combo')) nextAddons.freeTemplateComboPrice = findById('free_template_combo').price;
+        if (findById('premium_template_combo')) nextAddons.premiumComboAddonPrice = findById('premium_template_combo').price;
+
+        const saveRes = await saveWishLinkSettings(env, {
+          ...currentSettings,
+          personalized: {
+            ...currentSettings.personalized,
+            price: nextAddons.customLinkPrice
+          },
+          addons: nextAddons,
+          vipPlans: nextPlans
+        }, {
+          id: user.id,
+          name: user.display_name || user.email,
+          role: user.role || 'admin',
+          ipAddress: clientIp
+        });
+
+        if (!saveRes.success) {
+          return applySecurityHeaders(jsonError('INVALID_SETTINGS', saveRes.error, 400), request, env);
+        }
+
+        response = jsonSuccess({
+          plans: saveRes.settings.vipPlans,
+          vipPlans: saveRes.settings.vipPlans,
+          settings: saveRes.settings,
+          message: method === 'DELETE' ? 'VIP plan deleted.' : 'VIP plan updated.'
         }, 200, {}, requestId);
       }
 

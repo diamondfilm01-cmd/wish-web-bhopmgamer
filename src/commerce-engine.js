@@ -149,19 +149,46 @@ export function resolveAuthoritativeProduct({ productId, templateId, options = {
   const vipPassUnit = toFiniteNonNeg(addons.vipPassPrice, 49);
   const resolvedCurrency = String(siteSettings?.personalized?.currency || siteSettings?.currency || 'INR').trim().toUpperCase() || 'INR';
 
+  const configuredPlans = Array.isArray(siteSettings?.vipPlans) ? siteSettings.vipPlans : [];
+  const matchedVipPlan = configuredPlans.find(p => p && String(p.id || "").toLowerCase() === normId);
+
   // 1. VIP Pass (Universal creator upgrade)
   if (normId === 'vip_pass' || normId === 'vip' || normId === 'premium') {
-    const paise = Math.round(vipPassUnit * 100);
+    const vipPlanObj = matchedVipPlan || configuredPlans.find(p => p && (p.id === 'vip_pass' || p.id === 'plan_vip_49'));
+    const effectiveVipPrice = vipPlanObj && Number.isFinite(Number(vipPlanObj.price)) && Number(vipPlanObj.price) >= 0
+      ? Number(vipPlanObj.price)
+      : vipPassUnit;
+    const paise = Math.round(effectiveVipPrice * 100);
     return {
       productId: 'vip_pass',
       productType: PRODUCT_TYPES.VIP_PASS,
-      productName: 'WishMagic VIP Creator Pass',
-      description: 'Unlimited VIP blueprints, custom audio, watermark removal & permanent link preservation.',
+      productName: (vipPlanObj && vipPlanObj.name) || 'WishMagic VIP Creator Pass',
+      description: (vipPlanObj && vipPlanObj.description) || 'Unlimited VIP blueprints, custom audio, watermark removal & permanent link preservation.',
       amountPaise: paise,
-      price: vipPassUnit,
+      price: effectiveVipPrice,
       currency: resolvedCurrency,
-      priceDisplay: `₹${vipPassUnit}`,
+      priceDisplay: `₹${effectiveVipPrice}`,
       scope: 'all_templates',
+      perks: (vipPlanObj && vipPlanObj.perks) || null,
+      isFree: paise === 0
+    };
+  }
+
+  // 1b. Any Custom or Admin-Configured VIP Plan in siteSettings.vipPlans
+  if (matchedVipPlan && !['personalized_link', 'custom_link_only', 'hd_image_style_pack', 'hd_style', 'free_template_combo', 'combo_99', 'premium_template_combo'].includes(normId)) {
+    const planPrice = toFiniteNonNeg(matchedVipPlan.price, 49);
+    const paise = Math.round(planPrice * 100);
+    return {
+      productId: matchedVipPlan.id,
+      productType: PRODUCT_TYPES.VIP_PASS,
+      productName: matchedVipPlan.name || 'WishMagic VIP Plan',
+      description: matchedVipPlan.description || 'Custom VIP celebration plan.',
+      amountPaise: paise,
+      price: planPrice,
+      currency: resolvedCurrency,
+      priceDisplay: `₹${planPrice}`,
+      scope: matchedVipPlan.perks && matchedVipPlan.perks.unlockVipTemplates ? 'all_templates' : 'combo_pack',
+      perks: matchedVipPlan.perks || {},
       isFree: paise === 0
     };
   }

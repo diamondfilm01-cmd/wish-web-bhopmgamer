@@ -1016,7 +1016,13 @@
         case 'range':
         default: {
           if (element.tagName === 'INPUT' || element.tagName === 'TEXTAREA' || element.tagName === 'SELECT') {
-            element.value = activeValue !== undefined && activeValue !== null ? String(activeValue) : '';
+            if (element.tagName === 'INPUT' && element.type === 'file') {
+              // Never set non-empty string on <input type="file">
+            } else {
+              try {
+                element.value = activeValue !== undefined && activeValue !== null ? String(activeValue) : '';
+              } catch (_) {}
+            }
           } else if (key === 'sender_name') {
             if (hasValue) {
               const rawSender = String(value).trim();

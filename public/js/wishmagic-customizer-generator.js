@@ -905,10 +905,14 @@
       const input = currentContainer.querySelector(`[data-wm-control-for="${key}"]`);
       if (!input) return;
 
-      if (input.type === 'checkbox') {
+      if (input.type === 'file') {
+        // Never set non-empty string on <input type="file">
+      } else if (input.type === 'checkbox') {
         input.checked = Boolean(value);
       } else if (input.tagName === 'SELECT' || input.tagName === 'TEXTAREA' || input.tagName === 'INPUT') {
-        input.value = value !== undefined && value !== null ? value : '';
+        try {
+          input.value = value !== undefined && value !== null ? value : '';
+        } catch (_) {}
       }
 
       // Update live character counter if textarea

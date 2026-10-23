@@ -85,9 +85,25 @@
     </section>
 
     <!-- ========================================================================= -->
+    <!-- LIVE DYNAMIC VIP & CELEBRATION PLANS (SYNCED FROM ADMIN & ANDROID APP)     -->
+    <!-- ========================================================================= -->
+    <section id="dynamic-vip-plans-section" class="space-y-4">
+      <div class="flex flex-wrap items-center justify-between gap-2">
+        <div>
+          <span class="px-3 py-1 rounded-full bg-pink-500/15 text-pink-600 dark:text-pink-300 text-xs font-extrabold uppercase tracking-wider">👑 Active VIP &amp; Add-On Plans</span>
+          <h2 class="font-display font-extrabold text-xl sm:text-2xl text-purple-950 dark:text-white mt-1">Choose Your Celebration Upgrade</h2>
+        </div>
+        <span id="live-plans-sync-pill" class="text-xs font-bold text-emerald-600 dark:text-emerald-400">● Live Storefront Plans</span>
+      </div>
+      <div id="dynamic-vip-plans-grid" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5 items-stretch">
+        <!-- Populated dynamically by renderPublicVipPlans() -->
+      </div>
+    </section>
+
+    <!-- ========================================================================= -->
     <!-- 4 MODULAR & COMBO PRICING CARDS                                            -->
     <!-- ========================================================================= -->
-    <section class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-5 items-stretch">
+    <section id="legacy-modular-cards-section" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-5 items-stretch">
 
       <!-- CARD 1: CUSTOM LINK ONLY (₹59) -->
       <div class="wm-card rounded-3xl p-6 flex flex-col justify-between shadow-lg border border-purple-200/80 dark:border-purple-800/50">
@@ -394,11 +410,96 @@
       document.getElementById('calc-cta-link').href = `/customize.html?pack=${encodeURIComponent(quote.planCode)}&templatePrice=${selectedCalcTplPrice}`;
     }
 
-    document.addEventListener('DOMContentLoaded', async () => {
+    function renderPublicVipPlans(vipPlans) {
+      const grid = document.getElementById("dynamic-vip-plans-grid");
+      const legacySec = document.getElementById("legacy-modular-cards-section");
+      if (!grid) return;
+      if (!Array.isArray(vipPlans) || vipPlans.length === 0) {
+        document.getElementById("dynamic-vip-plans-section")?.classList.add("hidden");
+        if (legacySec) legacySec.classList.remove("hidden");
+        return;
+      }
+      const activePlans = vipPlans.filter(p => p && p.isActive !== false);
+      if (activePlans.length === 0) {
+        grid.innerHTML = `<div class="col-span-full wm-card rounded-3xl p-8 text-center text-sm font-bold text-purple-800 dark:text-purple-200">All templates are currently available with standard free links!</div>`;
+        if (legacySec) legacySec.classList.add("hidden");
+        return;
+      }
+      if (legacySec) legacySec.classList.add("hidden");
+      document.getElementById("dynamic-vip-plans-section")?.classList.remove("hidden");
+
+      grid.innerHTML = activePlans.map(plan => {
+        const pk = plan.perks || {};
+        const perkPills = [];
+        if (pk.unlockVipTemplates) perkPills.push("👑 Free VIP Templates");
+        if (pk.freeCustomLink) perkPills.push("🔗 Free Custom Link");
+        if (pk.freeHdPhotos) perkPills.push("🖼️ Free HD Photos");
+        if (pk.freeCustomStyle) perkPills.push("🎨 Free Custom Style");
+        if (pk.customMusicVoice) perkPills.push("🎵 Music & Voice");
+        if (pk.removeWatermark) perkPills.push("✨ Zero Watermark");
+        if (pk.lifetimeLink) perkPills.push("♾️ Lifetime Link");
+
+        const feats = Array.isArray(plan.features) ? plan.features : [];
+        const isPop = Boolean(plan.isPopular);
+        const packParam = plan.id === "personalized_link" ? "custom_link"
+          : (plan.id === "hd_image_style_pack" ? "hd_style"
+          : (plan.id === "free_template_combo" ? "combo_99"
+          : (plan.id === "premium_template_combo" ? "premium_70" : plan.id)));
+
+        return `
+          <div class="wm-card rounded-3xl p-6 flex flex-col justify-between shadow-xl ${isPop ? "border-2 border-pink-500 relative overflow-hidden" : "border border-purple-200/80 dark:border-purple-800/50"}">
+            ${isPop ? `<div class="absolute top-0 right-0 px-3 py-1 rounded-bl-2xl bg-gradient-to-r from-[#ff2a85] to-[#a855f7] text-white font-black text-[10px] uppercase tracking-wider">★ MOST POPULAR</div>` : ""}
+            <div>
+              <div class="flex items-center justify-between mb-3">
+                <span class="px-3 py-1 rounded-full text-[11px] font-black uppercase tracking-wider ${isPop ? "bg-pink-500 text-white" : "bg-purple-500/15 text-purple-700 dark:text-purple-300"}">
+                  ${plan.badge || "VIP PLAN"}
+                </span>
+              </div>
+              <h3 class="font-display font-extrabold text-xl text-purple-950 dark:text-white">${plan.name}</h3>
+              <div class="my-3 flex items-baseline gap-2">
+                <span class="font-display font-black text-4xl ${isPop ? "text-pink-600 dark:text-pink-400" : "text-purple-950 dark:text-white"}">${Number(plan.price) === 0 ? "₹0 FREE" : "₹" + plan.price}</span>
+                ${plan.originalPrice && Number(plan.originalPrice) > Number(plan.price) ? `<span class="text-xs line-through text-purple-500">₹${plan.originalPrice}</span>` : ""}
+                <span class="text-xs font-semibold text-purple-700/70 dark:text-purple-300/70">${plan.billingLabel || "one-time"}</span>
+              </div>
+              <p class="text-xs text-purple-800/80 dark:text-purple-300/80 mb-3 leading-relaxed">${plan.description || ""}</p>
+              <div class="flex flex-wrap gap-1.5 mb-3">
+                ${perkPills.map(b => `<span class="px-2 py-0.5 rounded-lg bg-emerald-500/15 border border-emerald-500/30 text-emerald-700 dark:text-emerald-300 text-[10px] font-extrabold">${b}</span>`).join("")}
+              </div>
+              <ul class="space-y-2 text-xs text-purple-950 dark:text-purple-100 font-medium pt-3 border-t border-purple-200/60 dark:border-purple-800/40">
+                ${feats.map(f => `<li class="flex items-center gap-2"><span class="text-emerald-500 font-bold">✓</span><span>${f}</span></li>`).join("")}
+              </ul>
+            </div>
+            <a href="/customize.html?pack=${encodeURIComponent(packParam)}" class="mt-6 w-full py-3.5 px-4 rounded-2xl ${isPop ? "bg-gradient-to-r from-[#ff2a85] via-[#ec4899] to-[#a855f7] text-white shadow-lg" : "bg-purple-100 dark:bg-purple-900/60 hover:bg-purple-200 text-purple-950 dark:text-white"} font-extrabold text-xs text-center block transition">
+              ${plan.ctaText || (`Unlock ${plan.name} • ₹${plan.price}`)}
+            </a>
+          </div>
+        `;
+      }).join("");
+    }
+
+    async function syncPublicPricingFromServer() {
       if (window.WishPricingEngine) {
-        await window.WishPricingEngine.refreshFromServer();
+        const rules = await window.WishPricingEngine.refreshFromServer();
+        if (rules && Array.isArray(rules.vipPlans)) {
+          renderPublicVipPlans(rules.vipPlans);
+        }
       }
       updateInteractiveCalc();
+    }
+
+    document.addEventListener('DOMContentLoaded', () => {
+      syncPublicPricingFromServer();
+      try {
+        if (typeof BroadcastChannel !== "undefined") {
+          const bc = new BroadcastChannel("wishmagic_site_settings");
+          bc.onmessage = () => syncPublicPricingFromServer();
+        }
+      } catch (_) {}
+      window.addEventListener("storage", (e) => {
+        if (e.key === "wishmagic_site_settings_updated_at" || e.key === "wishmagic_pricing") {
+          syncPublicPricingFromServer();
+        }
+      });
     });
   </script>
 </body>

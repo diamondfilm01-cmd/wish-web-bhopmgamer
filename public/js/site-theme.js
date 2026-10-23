@@ -677,10 +677,15 @@
             freeTemplateComboPrice: toNonNeg(a.freeTemplateComboPrice, 99),
             premiumComboAddonPrice: toNonNeg(a.premiumComboAddonPrice, 70),
             creatorPackPrice: toNonNeg(a.creatorPackPrice, 99),
-            vipPassPrice: toNonNeg(a.vipPassPrice, 149),
+            vipPassPrice: toNonNeg(a.vipPassPrice, 49),
             templatePriceTiers: Array.isArray(a.templatePriceTiers) && a.templatePriceTiers.length > 0 ? a.templatePriceTiers.map(Number) : [0, 59, 149],
-            requiredReferrals: Math.max(1, parseInt(refCfg.requiredReferrals ?? 7, 10) || 7)
+            requiredReferrals: Math.max(1, parseInt(refCfg.requiredReferrals ?? 7, 10) || 7),
+            vipPlans: Array.isArray(s.vipPlans) ? s.vipPlans : []
           };
+          window._cachedWishLinkSettings = s;
+          if (window.WishPlanService && typeof window.WishPlanService.syncFromServerSettings === "function") {
+            window.WishPlanService.syncFromServerSettings(s);
+          }
           try {
             localStorage.setItem('wishmagic_pricing_rules_v4', JSON.stringify(activePricingRules));
           } catch (_) {}

@@ -82,6 +82,18 @@
      * Get available monetization plans
      */
     async getAvailablePlans() {
+      const ls = window._cachedWishLinkSettings;
+      if (ls && Array.isArray(ls.vipPlans) && ls.vipPlans.length > 0) {
+        return ls.vipPlans.filter(p => p && p.isActive !== false).map(p => ({
+          id: p.id,
+          name: p.name,
+          badge: p.badge,
+          price: Number(p.price ?? 49),
+          currency: (ls.personalized && ls.personalized.currency) || 'INR',
+          perks: p.perks || {},
+          features: p.features || []
+        }));
+      }
       if (window.WishPlanService) {
         return window.WishPlanService.getAllPlans();
       }

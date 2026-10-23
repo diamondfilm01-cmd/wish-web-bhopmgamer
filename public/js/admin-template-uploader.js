@@ -3236,6 +3236,72 @@ window.openEditTemplateModal = async function(templateId) {
   if (modal) modal.classList.remove('hidden');
 };
 
+window.handleEditTemplateCoverUpload = async function(input) {
+  if (!input || !input.files || !input.files[0]) return;
+  const file = input.files[0];
+  const btnLabel = document.getElementById('edit-tpl-thumb-upload-btn-label');
+  const previewImg = document.getElementById('edit-tpl-thumb-preview');
+  const urlInput = document.getElementById('edit-tpl-thumb');
+
+  if (btnLabel) btnLabel.textContent = 'Uploading...';
+
+  const reader = new FileReader();
+  reader.onload = async (ev) => {
+    const dataUrl = ev.target.result;
+    if (previewImg) previewImg.src = dataUrl;
+    if (urlInput) urlInput.value = dataUrl;
+
+    try {
+      const res = await fetch('/api/imgbb/upload', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        credentials: 'include',
+        body: JSON.stringify({
+          fileData: dataUrl,
+          filename: file.name,
+          type: 'image',
+          title: file.name.replace(/\.[^/.]+$/, '')
+        })
+      });
+      const json = await res.json().catch(() => ({}));
+      let uploadedUrl = json?.data?.displayUrl || json?.displayUrl || json?.data?.url || json?.url;
+
+      if (!uploadedUrl) {
+        const fallbackRes = await fetch('/api/admin/media/upload', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          credentials: 'include',
+          body: JSON.stringify({
+            name: file.name,
+            title: file.name,
+            type: 'image',
+            mimeType: file.type || 'image/jpeg',
+            fileData: dataUrl
+          })
+        });
+        const fallbackJson = await fallbackRes.json().catch(() => ({}));
+        uploadedUrl = fallbackJson?.data?.asset?.url || fallbackJson?.asset?.url || fallbackJson?.url;
+      }
+
+      if (uploadedUrl) {
+        if (previewImg) previewImg.src = uploadedUrl;
+        if (urlInput) urlInput.value = uploadedUrl;
+        if (typeof showToast === 'function') {
+          showToast('🖼️ New cover image uploaded! Click "Save & Publish Changes" to apply.');
+        }
+      } else if (typeof showToast === 'function') {
+        showToast('🖼️ Cover image ready! Click "Save & Publish Changes" to apply.');
+      }
+    } catch (err) {
+      console.warn('[Cover Upload Notice]:', err);
+    } finally {
+      if (btnLabel) btnLabel.textContent = 'Upload New Cover';
+      try { input.value = ''; } catch (_) {}
+    }
+  };
+  reader.readAsDataURL(file);
+};
+
 window.closeEditTemplateModal = function() {
   const modal = document.getElementById('edit-template-modal');
   if (modal) modal.classList.add('hidden');

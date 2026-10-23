@@ -1334,10 +1334,20 @@ export async function syncFestivalDatesFromExternalProvider(db, env = {}, option
 // ============================================================================
 
 let _schemaEnsuredForDb = new WeakSet();
+let _d1SchemaVerifiedOnce = false;
 
 export async function ensureFestivalSchedulerSchema(db, options = {}) {
   if (!db || typeof db.prepare !== 'function') return;
   if (_schemaEnsuredForDb.has(db) && !options.force) return;
+  if (_d1SchemaVerifiedOnce && options.seedDefaults === false && !options.force) {
+    try {
+      const probe = await db.prepare('SELECT 1 as ok FROM festival_definitions LIMIT 1').first();
+      if (probe) {
+        _schemaEnsuredForDb.add(db);
+        return;
+      }
+    } catch (_) {}
+  }
 
   const statements = [
     `CREATE TABLE IF NOT EXISTS festival_definitions (
@@ -1472,23 +1482,15 @@ export async function ensureFestivalSchedulerSchema(db, options = {}) {
     `CREATE INDEX IF NOT EXISTS idx_fsl_action_created ON festival_sync_logs(action_type, created_at)`
   ];
 
-  for (const stmt of statements) {
-    try {
-      await db.prepare(stmt).run();
-    } catch (_) {}
-  }
-
-  try {
-    await db.prepare(`ALTER TABLE templates ADD COLUMN festival_metadata_json TEXT DEFAULT '{}'`).run();
-  } catch (_) {}
-  try {
-    await db.prepare(`ALTER TABLE template_versions ADD COLUMN festival_metadata_json TEXT DEFAULT '{}'`).run();
-  } catch (_) {}
-  try {
-    await db.prepare(`ALTER TABLE wishes ADD COLUMN festival_campaign_id TEXT DEFAULT NULL`).run();
-  } catch (_) {}
+  await Promise.all(statements.map(stmt => db.prepare(stmt).run().catch(() => null)));
+  await Promise.all([
+    db.prepare(`ALTER TABLE templates ADD COLUMN festival_metadata_json TEXT DEFAULT '{}'`).run().catch(() => null),
+    db.prepare(`ALTER TABLE template_versions ADD COLUMN festival_metadata_json TEXT DEFAULT '{}'`).run().catch(() => null),
+    db.prepare(`ALTER TABLE wishes ADD COLUMN festival_campaign_id TEXT DEFAULT NULL`).run().catch(() => null)
+  ]);
 
   _schemaEnsuredForDb.add(db);
+  _d1SchemaVerifiedOnce = true;
 
   if (options.seedDefaults !== false) {
     await seedDefaultFestivalsIfEmpty(db, options.defaultYears || [2025, 2026, 2027]);
