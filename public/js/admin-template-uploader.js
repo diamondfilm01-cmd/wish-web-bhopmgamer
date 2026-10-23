@@ -66,9 +66,12 @@ function createTrackedAssetObjectUrl(bytesOrBlob, mimeType) {
 
 function isNonRuntimeDevOrTestPath(relPath) {
   const clean = String(relPath || '').replace(/\\/g, '/').replace(/^\/+/, '');
-  return /^(?:tests?|__tests__|spec|cypress|playwright)\//i.test(clean) ||
+  return /^(?:engine|tests?|__tests__|spec|cypress|playwright|node_modules|\.git|__pycache__)\//i.test(clean) ||
          /(?:^|\/)test_[a-zA-Z0-9_.-]+\.(?:js|mjs|cjs|ts)$/i.test(clean) ||
-         /\.(?:test|spec)\.(?:js|mjs|cjs|ts)$/i.test(clean);
+         /\.(?:test|spec)\.(?:js|mjs|cjs|ts)$/i.test(clean) ||
+         /^(?:assets\/)?readme\.(?:txt|md)$/i.test(clean) ||
+         /^package-lock\.json$/i.test(clean) ||
+         /^preview\.html$/i.test(clean);
 }
 
 // Initialize on page load
@@ -650,12 +653,13 @@ function scanDynamicFields(html) {
     rawFields.forEach(mf => {
       if (mf && (mf.id || mf.key)) {
         addConfirmedSlot({
+          ...mf,
           id: mf.id || mf.key,
           key: mf.id || mf.key,
           label: mf.label,
           type: mf.type || "text",
           required: Boolean(mf.required),
-          defaultValue: mf.defaultValue !== undefined ? mf.defaultValue : (mf.default || ""),
+          defaultValue: mf.defaultValue !== undefined ? mf.defaultValue : (mf.default !== undefined ? mf.default : ""),
           binding: mf.binding,
           options: mf.options,
           visibleIf: mf.visibleIf,
@@ -955,8 +959,10 @@ function scanDynamicFields(html) {
         }
       };
 
+      const fallbackCover = (tMeta && (tMeta.thumbnail || tMeta.coverImage)) || (currentParsedManifest && (currentParsedManifest.thumbnail || (currentParsedManifest.metadata && currentParsedManifest.metadata.coverImage))) || "";
+      const effectiveVarThumb = rv.thumbnail || fallbackCover || "";
       if (rv.entry) checkPkgPath(rv.entry, "entry file");
-      if (rv.thumbnail) checkPkgPath(rv.thumbnail, "thumbnail");
+      if (effectiveVarThumb) checkPkgPath(effectiveVarThumb, "thumbnail");
       const vAssets = rv.assets || rv.images || {};
       if (vAssets && typeof vAssets === "object") {
         Object.entries(vAssets).forEach(([ak, av]) => {
@@ -975,7 +981,7 @@ function scanDynamicFields(html) {
           name: vName,
           relationship: normRel,
           label: vLabel || normRel,
-          thumbnail: rv.thumbnail || "",
+          thumbnail: effectiveVarThumb,
           entry: rv.entry || "index.html",
           status: rv.status || "published",
           enabled: isVarEnabled
@@ -1641,15 +1647,24 @@ function buildClientStagedPreviewHtml(relationshipSlug = null) {
       Object.keys(fields).forEach(function(fKey) {
         var val = fields[fKey];
         if (val === undefined || val === null || val === '') return;
+        if (Array.isArray(val) || typeof val === 'object') return;
         document.querySelectorAll('[data-wm-field="' + fKey + '"], [data-wm="' + fKey + '"]').forEach(function(el) {
           var tag = el.tagName.toLowerCase();
           if (tag === 'img' || tag === 'audio' || tag === 'video' || tag === 'source') {
             if (typeof val === 'string' && !val.startsWith('assets/')) el.setAttribute('src', val);
+          } else if (tag === 'input') {
+            if (el.type === 'checkbox') el.checked = Boolean(val && val !== 'false');
+            else if (el.type !== 'file') el.value = String(val);
+          } else if (tag === 'select' || tag === 'textarea') {
+            el.value = String(val);
           } else {
             el.textContent = String(val);
           }
         });
       });
+      if (window.WishMagicRuntime && typeof window.WishMagicRuntime.applyThemeVariant === 'function' && p.variantId) {
+        try { window.WishMagicRuntime.applyThemeVariant(p.variantId); } catch (_) {}
+      }
 
       var acts = p.actionsMap || p.actions || {};
       Object.keys(acts).forEach(function(actId) {
@@ -1660,7 +1675,7 @@ function buildClientStagedPreviewHtml(relationshipSlug = null) {
             else { btn.setAttribute('disabled', 'disabled'); btn.style.opacity = '0.5'; btn.style.pointerEvents = 'none'; }
             return;
           }
-          if (act.label) {
+          if (act.label && (act.type !== 'interaction' || act.isOverridden)) {
             var labelSpan = btn.querySelector('.cta-label, [data-wm-action-label]');
             if (labelSpan) labelSpan.textContent = String(act.label);
             else btn.textContent = String(act.label);
@@ -5529,6 +5544,7 @@ function renderUtpV12EditorHtml(state, modePrefix) {
               <option value="internal_url" ${act.effectiveType === 'internal_url' ? 'selected' : ''}>Internal WishMagic Route (internal_url)</option>
               <option value="external_url" ${act.effectiveType === 'external_url' ? 'selected' : ''}>Safe HTTPS External Link (external_url)</option>
               <option value="modal" ${act.effectiveType === 'modal' ? 'selected' : ''}>Open Template Modal (modal)</option>
+              <option value="interaction" ${act.effectiveType === 'interaction' ? 'selected' : ''}>In-Template Interaction / Handler (interaction • UTP v1.4.0)</option>
               <option value="none" ${act.effectiveType === 'none' ? 'selected' : ''}>Display Only / No Action (none)</option>
             </select>
           </div>

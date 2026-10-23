@@ -440,7 +440,7 @@ export function normalizeVariantDeclaration(rawVar, familyMeta = {}, idx = 0) {
     displayName: name,
     description: String(rawVar.description || familyMeta.description || '').trim(),
     category: String(rawVar.category || rawVar.occasion || familyMeta.category || 'celebration').toLowerCase().trim(),
-    thumbnail: String(rawVar.thumbnail || rawVar.previewImage || '').trim(),
+    thumbnail: String(rawVar.thumbnail || rawVar.previewImage || familyMeta.thumbnail || familyMeta.coverImage || '').trim(),
     entry,
     default: Boolean(rawVar.default || rawVar.isDefault),
     status: ['published', 'draft', 'ready', 'disabled', 'archived'].includes(status) ? status : 'published',
@@ -506,15 +506,18 @@ export function normalizeManifestToUtp(raw = {}) {
   const normalizedActions = rawActions.map((a, idx) => normalizeActionEntry(a, idx)).filter(Boolean);
 
   const entry = String(tObj.entry || raw.entry || raw.files?.entry || 'index.html').trim();
+  const resolvedThumb = String(tObj.thumbnail || tObj.coverImage || raw.thumbnail || raw.coverImage || raw.metadata?.coverImage || raw.metadata?.thumbnail || '').trim();
   const templateMeta = {
-    id: String(tObj.id || tObj.templateId || tObj.slug || '').trim(),
-    name: String(tObj.name || tObj.title || '').trim(),
-    description: String(tObj.description || raw.description || '').trim(),
-    templateVersion: String(tObj.templateVersion || tObj.version || raw.version || '1.0.0').trim(),
-    category: String(tObj.category || raw.category || 'celebration').toLowerCase().trim(),
+    id: String(tObj.id || tObj.templateId || tObj.slug || raw.id || raw.slug || '').trim(),
+    name: String(tObj.name || tObj.title || raw.name || raw.metadata?.name || '').trim(),
+    description: String(tObj.description || raw.description || raw.metadata?.description || '').trim(),
+    templateVersion: String(tObj.templateVersion || tObj.version || raw.version || raw.metadata?.version || '1.0.0').trim(),
+    category: String(tObj.category || raw.category || raw.metadata?.category || 'celebration').toLowerCase().trim(),
     tier: String(tObj.tier || raw.tier || 'free').toLowerCase().trim(),
     price: Number(tObj.price ?? raw.price ?? 0),
-    author: tObj.author || raw.author || 'WishMagic',
+    author: tObj.author || raw.author || raw.metadata?.author || 'WishMagic',
+    thumbnail: resolvedThumb,
+    coverImage: resolvedThumb,
     entry
   };
 
@@ -1974,10 +1977,13 @@ export function validateUtpManifest(rawManifest, options = {}) {
       }
     }
   }
+  const manifestHasAnyExplicitSubsections = Array.isArray(rawSectionsProp) && rawSectionsProp.some(
+    s => s && typeof s === 'object' && ((Array.isArray(s.subsections) && s.subsections.length > 0) || (Array.isArray(s.children) && s.children.length > 0))
+  );
   for (const hSub of htmlDiscovery.subsections) {
     if (!seenSectionIdsMap.has(hSub.id)) {
       suggestedSections.push(hSub);
-      if (hasExplicitManifestSections) {
+      if (hasExplicitManifestSections && (options.strictSections || manifestHasAnyExplicitSubsections)) {
         issues.push({
           code: 'UNDECLARED_HTML_SUBSECTION',
           severity: options.strictSections ? 'error' : 'warning',

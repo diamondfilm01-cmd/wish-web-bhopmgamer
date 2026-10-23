@@ -54,6 +54,11 @@ export const UTP_SUPPORTED_ACTION_TYPES = new Set([
   'customizer',
   'global_link',
   'template_link',
+  'interaction',
+  'navigation',
+  'button',
+  'audio',
+  'trigger',
   'none'
 ]);
 
@@ -342,6 +347,10 @@ export const UTP_SUPPORTED_FIELD_TYPES = new Set([
   'select',
   'multiselect',
   'toggle',
+  'checkbox',
+  'boolean',
+  'repeater',
+  'media_list',
   'range',
   'image',
   'image-multiple',
@@ -365,7 +374,12 @@ export const UTP_SUPPORTED_BINDING_TARGETS = new Set([
   'css-variable',
   'visibility',
   'toggle',
+  'boolean',
   'collection',
+  'media_list',
+  'theme',
+  'attribute',
+  'html',
   'value'
 ]);
 
@@ -398,8 +412,19 @@ export const UTP_CANONICAL_RELATIONSHIPS = new Set([
   'mentor',
   'teacher',
   'crush',
+  'boy_best_friend',
+  'girl_best_friend',
+  'cousin',
+  'grandfather',
+  'grandmother',
+  'uncle',
+  'aunt',
+  'nephew',
+  'niece',
+  'in_laws',
   'family',
   'kids',
+  'universal',
   'custom',
   'any'
 ]);
@@ -432,7 +457,11 @@ export const UTP_RELATIONSHIP_CATALOG = Object.freeze({
   colleague: { id: 'rel_colleague', slug: 'colleague', label: 'Colleague', displayName: 'Valued Colleague', icon: '🎉', category: 'professional', sortOrder: 20 },
   teacher: { id: 'rel_teacher', slug: 'teacher', label: 'Teacher', displayName: 'Inspiring Teacher', icon: '📚', category: 'professional', sortOrder: 21 },
   mentor: { id: 'rel_mentor', slug: 'mentor', label: 'Mentor', displayName: 'Trusted Mentor', icon: '🧭', category: 'professional', sortOrder: 22 },
-  kids: { id: 'rel_kids', slug: 'kids', label: 'Kids', displayName: 'Kids Celebration', icon: '🎈', category: 'family', sortOrder: 23 }
+  kids: { id: 'rel_kids', slug: 'kids', label: 'Kids', displayName: 'Kids Celebration', icon: '🎈', category: 'family', sortOrder: 23 },
+  boy_best_friend: { id: 'rel_boy_best_friend', slug: 'boy_best_friend', label: 'Boy Best Friend', displayName: 'Boy Best Friend', icon: '⚡', category: 'friendship', sortOrder: 24 },
+  girl_best_friend: { id: 'rel_girl_best_friend', slug: 'girl_best_friend', label: 'Girl Best Friend', displayName: 'Girl Best Friend', icon: '🌸', category: 'friendship', sortOrder: 25 },
+  cousin: { id: 'rel_cousin', slug: 'cousin', label: 'Cousin', displayName: 'Beloved Cousin', icon: '🎉', category: 'family', sortOrder: 26 },
+  universal: { id: 'rel_universal', slug: 'universal', label: 'Everyone', displayName: 'Universal Edition', icon: '✨', category: 'celebration', sortOrder: 27 }
 });
 
 /**

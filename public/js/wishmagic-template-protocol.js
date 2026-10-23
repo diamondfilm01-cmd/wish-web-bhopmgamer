@@ -110,7 +110,12 @@
    */
   function resolveFieldElements(key, fieldConfig, rootDoc) {
     const doc = rootDoc || document;
-    const selectorParts = [`[data-wm-field="${key}"]`, `[data-wm="${key}"]`];
+    const selectorParts = [`[data-wm-field="${key}"]`, `[data-wm="${key}"]`, `[data-wm-alias="${key}"]`, `[data-wm-alias~="${key}"]`];
+    if (fieldConfig && Array.isArray(fieldConfig.aliases)) {
+      fieldConfig.aliases.forEach(al => {
+        if (al) selectorParts.push(`[data-wm-field="${al}"]`, `[data-wm="${al}"]`, `[data-wm-alias="${al}"]`);
+      });
+    }
     if (fieldConfig && fieldConfig.binding && fieldConfig.binding.selector) {
       const customSel = String(fieldConfig.binding.selector).trim();
       if (customSel && !customSel.startsWith('{{') && !customSel.startsWith('--')) {
@@ -689,8 +694,10 @@
           return;
         }
 
-        // Safely set button label via textContent (preventing HTML/script injection)
-        if (action.label !== undefined && action.label !== null && String(action.label).trim() !== '') {
+        // Safely set button label via textContent (for interaction buttons, preserve template icon/text unless explicitly overridden)
+        const shouldSetLabel = action.label !== undefined && action.label !== null && String(action.label).trim() !== '' &&
+          (!(['interaction', 'button', 'audio', 'trigger'].includes(actType)) || Boolean(action.isOverridden));
+        if (shouldSetLabel) {
           const labelSpan = el.querySelector('[data-wm-action-label]');
           if (labelSpan) {
             setTextSafe(labelSpan, action.label);
@@ -796,6 +803,19 @@
           };
           el.onclick = modalClickHandler;
           if (typeof el.addEventListener === 'function') el.addEventListener('click', modalClickHandler);
+        } else if (['interaction', 'button', 'audio', 'trigger'].includes(actType)) {
+          const targetSec = String(action.targetSection || action.sectionId || action.target || '').replace(/^#/, '').trim();
+          if (targetSec && disabledSectionSet.has(targetSec)) {
+            if (fallback === 'disable') {
+              el.disabled = true;
+              el.setAttribute('disabled', 'disabled');
+              el.style.pointerEvents = 'none';
+              el.style.opacity = '0.5';
+            } else {
+              el.remove();
+            }
+            return;
+          }
         } else if (actType === 'none') {
           if (el.tagName === 'A') {
             el.removeAttribute('href');
@@ -980,8 +1000,13 @@
           break;
         }
 
-        case 'toggle': {
+        case 'toggle':
+        case 'boolean':
+        case 'checkbox': {
           const boolVal = typeof activeValue === 'boolean' ? activeValue : (String(activeValue).toLowerCase() === 'true');
+          if (element.tagName === 'INPUT' && element.type === 'checkbox') {
+            element.checked = boolVal;
+          }
           if (!boolVal) {
             element.setAttribute('data-wm-disabled', 'true');
             if (target === 'toggle' && element.hasAttribute('data-wm-hide-when-off')) {
@@ -993,6 +1018,12 @@
               element.style.display = '';
             }
           }
+          break;
+        }
+
+        case 'repeater':
+        case 'media_list': {
+          // Do not overwrite repeater container innerHTML with [object Object]
           break;
         }
 
@@ -1046,6 +1077,16 @@
         }
       }
     });
+
+    if (global.WishMagicRuntime) {
+      try {
+        if ((key === 'theme_variant' || bindingTarget === 'theme') && typeof global.WishMagicRuntime.applyThemeVariant === 'function' && value) {
+          global.WishMagicRuntime.applyThemeVariant(String(value));
+        } else if (typeof global.WishMagicRuntime.applyFieldUpdate === 'function' && value !== undefined && value !== null && value !== '') {
+          global.WishMagicRuntime.applyFieldUpdate(key, value);
+        }
+      } catch (_) {}
+    }
   }
 
   /**
@@ -1075,6 +1116,9 @@
     if (variantId && typeof variantId === 'string') {
       document.documentElement.setAttribute('data-wm-variant', variantId);
       if (document.body) document.body.setAttribute('data-wm-variant', variantId);
+      if (global.WishMagicRuntime && typeof global.WishMagicRuntime.applyThemeVariant === 'function' && !data.theme_variant) {
+        try { global.WishMagicRuntime.applyThemeVariant(variantId); } catch (_) {}
+      }
     }
     if (relSlug && typeof relSlug === 'string') {
       document.documentElement.setAttribute('data-wm-relationship', relSlug);

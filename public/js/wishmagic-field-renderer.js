@@ -439,7 +439,9 @@
           return textarea;
         }
 
-        case 'toggle': {
+        case 'toggle':
+        case 'boolean':
+        case 'checkbox': {
           const isChecked = value === true || value === 'true' || value === 1 || value === '1';
           const toggleWrap = createEl('div', { className: 'flex items-center gap-3 py-1' });
 
@@ -824,6 +826,21 @@
 
           selectEl.addEventListener('change', (e) => onChange(e.target.value));
           return selectEl;
+        }
+
+        case 'repeater':
+        case 'media_list': {
+          const items = Array.isArray(value) ? value : (Array.isArray(field.defaultValue) ? field.defaultValue : (Array.isArray(field.default) ? field.default : []));
+          const repWrap = createEl('div', {
+            id: `wm-ctrl-${fieldKey}`,
+            className: 'p-3 rounded-2xl border border-purple-200/80 dark:border-purple-800/60 bg-purple-50/60 dark:bg-purple-950/40 space-y-1.5'
+          });
+          const headerLine = createEl('div', {
+            className: 'flex items-center justify-between text-xs font-bold text-purple-900 dark:text-purple-200'
+          });
+          headerLine.innerHTML = `<span>📸 Collection (${items.length} items)</span><span class="text-[10px] font-semibold text-pink-600 dark:text-pink-300">Customize individual photos & captions below</span>`;
+          repWrap.appendChild(headerLine);
+          return repWrap;
         }
 
         case 'image':

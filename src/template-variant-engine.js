@@ -823,7 +823,12 @@ export function resolveEffectiveTemplateConfiguration({
       } else {
         resolvedUrl = check.normalizedUrl;
       }
-    } else if (effectiveType === 'none') {
+    } else if (['none', 'interaction', 'button', 'audio', 'trigger'].includes(effectiveType)) {
+      const targetSecId = String(baseAct.targetSection || effectiveTarget || '').replace(/^#/, '').trim();
+      if (targetSecId && disabledIdsSet.has(targetSecId)) {
+        targetAvailable = false;
+        targetUnavailableReason = 'target_section_disabled';
+      }
       resolvedUrl = '';
     }
 

@@ -5491,10 +5491,11 @@ function syncDataToIframe() {
       el.textContent = dtVal || defText || 'Today';
     });
 
-    // Custom Message
-    doc.querySelectorAll('[data-wm="custom_message"], [data-wm-field="custom_message"]').forEach(el => {
-      const defText = captureAndGetOrigText(el, 'custom_message');
-      const msgVal = (currentCustomData.custom_message || '').trim();
+    // Custom Message (including data-wm-alias="custom_message")
+    doc.querySelectorAll('[data-wm="custom_message"], [data-wm-field="custom_message"], [data-wm-alias="custom_message"], [data-wm-alias~="custom_message"]').forEach(el => {
+      const fKeyAttr = el.getAttribute('data-wm-field') || 'custom_message';
+      const defText = captureAndGetOrigText(el, fKeyAttr);
+      const msgVal = (currentCustomData.custom_message || currentCustomData[fKeyAttr] || '').trim();
       el.textContent = msgVal || defText || 'May your day be filled with warm magic, sparkling smiles, and infinite moments of joy!';
     });
 
@@ -5543,8 +5544,15 @@ function syncDataToIframe() {
           : (templateDefaultValues[f.key] || '');
         const effectiveVal = (val !== undefined && val !== null && String(val).trim() !== '') ? val : fallbackDef;
         if (effectiveVal !== undefined && effectiveVal !== null && String(effectiveVal) !== '') {
-          doc.querySelectorAll(`[data-wm="${f.key}"], [data-wm-field="${f.key}"]`).forEach(el => {
-            if (!el.hasAttribute('data-wm-original-text') && !['IMG', 'AUDIO', 'VIDEO'].includes(el.tagName)) {
+          const fTypeLower = String(f.type || 'text').toLowerCase();
+          if (fTypeLower === 'repeater' || fTypeLower === 'media_list' || Array.isArray(effectiveVal) || (typeof effectiveVal === 'object' && !effectiveVal.url && !effectiveVal.displayUrl && !effectiveVal.src)) {
+            if (iframe.contentWindow && iframe.contentWindow.WishMagicRuntime && typeof iframe.contentWindow.WishMagicRuntime.applyFieldUpdate === 'function') {
+              try { iframe.contentWindow.WishMagicRuntime.applyFieldUpdate(f.key, effectiveVal); } catch (_) {}
+            }
+            return;
+          }
+          doc.querySelectorAll(`[data-wm="${f.key}"], [data-wm-field="${f.key}"], [data-wm-alias="${f.key}"]`).forEach(el => {
+            if (!el.hasAttribute('data-wm-original-text') && !['IMG', 'AUDIO', 'VIDEO', 'INPUT', 'SELECT', 'TEXTAREA'].includes(el.tagName)) {
               el.setAttribute('data-wm-original-text', el.textContent || '');
             }
             if (el.tagName === 'IMG') {
@@ -5556,6 +5564,11 @@ function syncDataToIframe() {
                 if (srcChild) srcChild.src = effectiveVal;
                 try { el.load(); } catch (_) {}
               }
+            } else if (el.tagName === 'INPUT') {
+              if (el.type === 'checkbox') el.checked = Boolean(effectiveVal && effectiveVal !== 'false');
+              else if (el.type !== 'file') el.value = String(effectiveVal);
+            } else if (el.tagName === 'SELECT' || el.tagName === 'TEXTAREA') {
+              el.value = String(effectiveVal);
             } else if (f.key === 'sender_name') {
               const origHasDash = (el.getAttribute('data-wm-original-text') || '').trim().startsWith('—');
               el.textContent = origHasDash && !String(effectiveVal).startsWith('—') ? `— ${effectiveVal}` : effectiveVal;
@@ -5563,6 +5576,15 @@ function syncDataToIframe() {
               el.textContent = effectiveVal;
             }
           });
+          if (iframe.contentWindow && iframe.contentWindow.WishMagicRuntime) {
+            try {
+              if (f.key === 'theme_variant' && typeof iframe.contentWindow.WishMagicRuntime.applyThemeVariant === 'function') {
+                iframe.contentWindow.WishMagicRuntime.applyThemeVariant(String(effectiveVal));
+              } else if (typeof iframe.contentWindow.WishMagicRuntime.applyFieldUpdate === 'function') {
+                iframe.contentWindow.WishMagicRuntime.applyFieldUpdate(f.key, effectiveVal);
+              }
+            } catch (_) {}
+          }
         }
       });
     }

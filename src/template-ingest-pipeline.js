@@ -301,7 +301,14 @@ export async function extractAndVerifyZip(zipBuffer) {
     }
     normalized = normalized.replace(/^\/+/, '');
     if (!normalized) continue;
-    if (/^(?:tests?|__tests__|spec|cypress|playwright)\//i.test(normalized) || /(?:^|\/)test_[a-zA-Z0-9_.-]+\.(?:js|mjs|cjs|ts)$/i.test(normalized)) {
+    if (
+      /^(?:engine|tests?|__tests__|spec|cypress|playwright|node_modules|\.git|__pycache__)\//i.test(normalized) ||
+      /(?:^|\/)test_[a-zA-Z0-9_.-]+\.(?:js|mjs|cjs|ts)$/i.test(normalized) ||
+      /\.(?:test|spec)\.(?:js|mjs|cjs|ts)$/i.test(normalized) ||
+      /^(?:assets\/)?readme\.(?:txt|md)$/i.test(normalized) ||
+      /^package-lock\.json$/i.test(normalized) ||
+      /^preview\.html$/i.test(normalized)
+    ) {
       continue;
     }
 
@@ -2429,6 +2436,23 @@ export async function executeB2TemplateIngestPipeline(params) {
 
     // 5c. Update mergedFields default values so image slots point to ImgBB URLs and audio/video slots point to B2 stream URLs
     for (const field of mergedFields) {
+      if (Array.isArray(field.defaultValue)) {
+        for (const item of field.defaultValue) {
+          if (item && typeof item === 'object' && typeof item.src === 'string') {
+            const cleanItemSrc = item.src.trim().replace(/^\.?\/+/, '');
+            if (imgbbUrlByRelPath.has(cleanItemSrc)) item.src = imgbbUrlByRelPath.get(cleanItemSrc);
+          }
+        }
+        if (Array.isArray(field.default)) {
+          for (const item of field.default) {
+            if (item && typeof item === 'object' && typeof item.src === 'string') {
+              const cleanItemSrc = item.src.trim().replace(/^\.?\/+/, '');
+              if (imgbbUrlByRelPath.has(cleanItemSrc)) item.src = imgbbUrlByRelPath.get(cleanItemSrc);
+            }
+          }
+        }
+        continue;
+      }
       const rawDef = String(field.defaultValue || field.originalSrc || '').trim();
       if (!rawDef || rawDef.startsWith('http://') || rawDef.startsWith('https://') || rawDef.startsWith('data:')) continue;
       const cleanRel = rawDef.replace(/^\.?\/+/, '');

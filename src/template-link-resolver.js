@@ -1094,23 +1094,28 @@ export function inspectAndClassifySingleButton(btnInput = {}, context = {}, link
     };
   }
 
-  // 3. Passive / None Button (`type: "none"`)
-  if (declaredType === 'none' && !originalDestination && !declaredLogicalLink) {
-    evidence.push('Declared as passive/local button (`type: "none"`)');
+  // 3. Passive / None / Interaction / Local Runtime Handler Button (`type: "none" | "interaction" | "button" | "audio" | "trigger"`)
+  if (
+    ('none' === declaredType && !originalDestination && !declaredLogicalLink) ||
+    ['interaction', 'button', 'audio', 'trigger'].includes(declaredType) ||
+    Boolean(btnInput.handler && !declaredLogicalLink && !urlInfo.isInternalDomain && !urlInfo.isExternalUrl)
+  ) {
+    const isInteractive = declaredType !== 'none' || Boolean(btnInput.handler);
+    evidence.push(isInteractive ? `Declared as in-template interactive action (${btnInput.handler || declaredType})` : 'Declared as passive/local button (`type: "none"`)');
     return {
       id,
       label,
-      originalDestination: '',
-      detectedActionType: 'none',
+      originalDestination: originalDestination || btnInput.targetSection || '',
+      detectedActionType: isInteractive ? (declaredType || 'interaction') : 'none',
       category: 'passive_button',
       logicalLink: null,
-      proposedDestination: '',
+      proposedDestination: originalDestination || btnInput.targetSection || '',
       evidence,
       validationResult: {
         valid: true,
         status: 'valid',
-        code: 'VALID_PASSIVE_BUTTON',
-        message: 'Passive/decorative button preserved with no navigation.'
+        code: isInteractive ? 'VALID_INTERACTION_ACTION' : 'VALID_PASSIVE_BUTTON',
+        message: isInteractive ? `In-template interactive handler (${btnInput.handler || id}) preserved.` : 'Passive/decorative button preserved with no navigation.'
       },
       requiresAdminConfirmation: false
     };

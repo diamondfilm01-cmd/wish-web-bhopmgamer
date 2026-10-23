@@ -385,6 +385,7 @@ const LEET_CHAR_MAP = {
 export function normalizeRawText(input) {
   if (input === null || input === undefined) return '';
   return String(input)
+    .replace(/data:[a-zA-Z0-9/+.-]+;base64,[A-Za-z0-9+/=\s]+/gi, ' ')
     .normalize('NFKC')
     .replace(/[\u200B-\u200F\u202A-\u202E\u2060-\u206F\uFEFF\u00AD]/g, '')
     .trim();
@@ -524,7 +525,11 @@ export function moderateTextContent(rawInput, options = {}) {
 
   // 1. Check CSAM / Child Sexual Exploitation triggers first (Zero-Tolerance Lock)
   for (const csamPhrase of CSAM_PATTERNS) {
-    if (lowerNormalized.includes(csamPhrase) || reconstructed.includes(csamPhrase)) {
+    const isShortAcronym = !csamPhrase.includes(' ') && csamPhrase.length <= 5;
+    const matchedCsam = isShortAcronym
+      ? (new RegExp(`\\b${csamPhrase}\\b`, 'i').test(lowerNormalized) || new RegExp(`\\b${csamPhrase}\\b`, 'i').test(reconstructed))
+      : (lowerNormalized.includes(csamPhrase) || reconstructed.includes(csamPhrase));
+    if (matchedCsam) {
       isCsam = true;
       categoriesSet.add(MODERATION_CATEGORIES.CSAM_SUSPECTED);
       matches.push({ term: 'CSAM_POLICY_TRIGGER', category: MODERATION_CATEGORIES.CSAM_SUSPECTED, severity: 'CRITICAL', fieldName });
@@ -1997,7 +2002,15 @@ export async function validateTemplateSecurityAndModeration(filesMap, manifest =
   if (filesMap && typeof filesMap.entries === 'function') {
     for (const [relPath, fileObj] of filesMap.entries()) {
       const lowerPath = String(relPath).replace(/\\/g, '/').replace(/^\/+/, '').toLowerCase();
-      if (/^(?:tests?|__tests__|spec|cypress|playwright)\//i.test(lowerPath) || /(?:^|\/)test_[a-z0-9_.-]+\.(?:js|mjs|cjs|ts)$/i.test(lowerPath)) {
+      if (
+        /^(?:engine|tests?|__tests__|spec|cypress|playwright|node_modules|\.git|__pycache__)\//i.test(lowerPath) ||
+        /(?:^|\/)test_[a-z0-9_.-]+\.(?:js|mjs|cjs|ts)$/i.test(lowerPath) ||
+        /\.(?:test|spec)\.(?:js|mjs|cjs|ts)$/i.test(lowerPath) ||
+        lowerPath === 'assets/readme.txt' ||
+        lowerPath === 'readme.txt' ||
+        lowerPath === 'readme.md' ||
+        lowerPath === 'package-lock.json'
+      ) {
         continue;
       }
       const rawBytes = fileObj?.content instanceof Uint8Array
