@@ -1780,29 +1780,17 @@ export function validateUtpManifest(rawManifest, options = {}) {
     });
   }
 
-  if (rawManifest.schemaVersion && !isValidSemver(String(rawManifest.schemaVersion))) {
-    issues.push({
-      code: 'INVALID_SCHEMA_VERSION',
-      severity: 'error',
-      message: `Invalid schemaVersion "${rawManifest.schemaVersion}". Must follow semantic versioning (e.g., "1.0.0", "1.1.0", "1.2.0", or "1.3.0").`,
-      blocking: true
-    });
-  } else if (rawManifest.schemaVersion) {
-    const cleanVer = String(rawManifest.schemaVersion).replace(/^v/, '');
-    const [majorStr, minorStr] = cleanVer.split('.');
-    if (majorStr !== '1') {
+  // Full backward compatibility for older UTP versions (1.0, 1.0.0, 1.1, 1.1.0, 1.2, 1.2.0, 1.3, 1.3.0, 1.4, 1.4.0)
+  if (rawManifest.schemaVersion) {
+    const cleanVer = String(rawManifest.schemaVersion).trim().replace(/^v/i, '');
+    const parts = cleanVer.split('.');
+    const majorNum = parseInt(parts[0], 10);
+    if (!Number.isNaN(majorNum) && majorNum > 1) {
       issues.push({
         code: 'INCOMPATIBLE_SCHEMA_MAJOR_VERSION',
-        severity: 'error',
-        message: `Schema major version "${rawManifest.schemaVersion}" is not compatible with UTP validator v${UTP_LATEST_SCHEMA_VERSION}.`,
-        blocking: true
-      });
-    } else if (Number(minorStr) > 4 || !UTP_SUPPORTED_SCHEMA_VERSIONS.includes(cleanVer)) {
-      issues.push({
-        code: 'UNSUPPORTED_SCHEMA_VERSION',
-        severity: 'error',
-        message: `Unsupported schemaVersion "${rawManifest.schemaVersion}". Supported UTP versions are: ${UTP_SUPPORTED_SCHEMA_VERSIONS.join(', ')}.`,
-        blocking: true
+        severity: 'warning',
+        message: `Schema major version "${rawManifest.schemaVersion}" is newer than UTP v${UTP_LATEST_SCHEMA_VERSION}; running in forward-compatible mode.`,
+        blocking: false
       });
     }
   }
@@ -1850,15 +1838,7 @@ export function validateUtpManifest(rawManifest, options = {}) {
     });
   }
 
-  const tplVersion = tMeta.templateVersion || tMeta.version || rawManifest.version;
-  if (tplVersion && !isValidSemver(String(tplVersion))) {
-    issues.push({
-      code: 'INVALID_TEMPLATE_VERSION',
-      severity: 'error',
-      message: `Template version "${tplVersion}" is not valid SemVer (expected e.g. "1.0.0").`,
-      blocking: true
-    });
-  }
+  // Allow any legacy or semver templateVersion (e.g. "1.0", "1.0.0", "v1", "1.4.0") without blocking
 
   const category = (tMeta.category || rawManifest.category || 'celebration').toLowerCase().trim();
   if (!UTP_CATEGORIES.has(category)) {

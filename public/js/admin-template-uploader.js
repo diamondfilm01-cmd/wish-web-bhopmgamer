@@ -3583,15 +3583,7 @@ async function openTemplateVariantsModal(templateId) {
           success: true,
           template: localTpl,
           activeVersion: { id: localTpl.currentVersionId || `tv_${localTpl.id}_v1` },
-          relationships: [
-            { id: 'rel_best_friend', slug: 'best_friend', name: 'Best Friend', displayName: 'Best Friend Forever', icon: '🌟', category: 'friendship', isSupported: false, sortOrder: 1 },
-            { id: 'rel_brother', slug: 'brother', name: 'Brother', displayName: 'Brother', icon: '🛡️', category: 'family', isSupported: false, sortOrder: 2 },
-            { id: 'rel_sister', slug: 'sister', name: 'Sister', displayName: 'Sister', icon: '🌸', category: 'family', isSupported: false, sortOrder: 3 },
-            { id: 'rel_boyfriend', slug: 'boyfriend', name: 'Boyfriend', displayName: 'Handsome Boyfriend', icon: '💙', category: 'romantic', isSupported: false, sortOrder: 4 },
-            { id: 'rel_girlfriend', slug: 'girlfriend', name: 'Girlfriend', displayName: 'Dearest Girlfriend', icon: '💖', category: 'romantic', isSupported: false, sortOrder: 5 },
-            { id: 'rel_mother', slug: 'mother', name: 'Mother', displayName: 'Dearest Mom', icon: '🌷', category: 'family', isSupported: false, sortOrder: 6 },
-            { id: 'rel_father', slug: 'father', name: 'Father', displayName: 'Dearest Dad', icon: '👑', category: 'family', isSupported: false, sortOrder: 7 }
-          ],
+          relationships: [],
           variants: Array.isArray(localTpl.variants) ? localTpl.variants : (Array.isArray(localTpl.availableVariants) ? localTpl.availableVariants : []),
           allMusic: [],
           usage: { publishedWishesCount: 0 }
@@ -3633,8 +3625,16 @@ async function openTemplateVariantsModal(templateId) {
     document.getElementById('var-modal-title').textContent = `${data.template.name} — Relationship Variants (${varsList.length} Registered)`;
     document.getElementById('var-modal-ver-badge').textContent = `${data.activeVersion?.id || 'V1'} • ${data.usage?.publishedWishesCount || 0} Active Wishes`;
 
+    // Filter data.relationships so ONLY relationships actually created for this template are shown in the sidebar
+    const createdVarIds = new Set((data.variants || []).map(v => String(v.relationship_id || v.relationshipId || '').toLowerCase()).filter(Boolean));
+    const createdVarSlugs = new Set((data.variants || []).map(v => String(v.relationship_slug || v.relationshipSlug || v.variant_slug || v.slug || '').toLowerCase()).filter(Boolean));
+    data.relationships = (data.relationships || []).filter(r =>
+      r.isSupported ||
+      createdVarIds.has(String(r.id || '').toLowerCase()) ||
+      createdVarSlugs.has(String(r.slug || '').toLowerCase())
+    );
     renderVariantsRelationshipsList(data.relationships, data.variants);
-    populateAddRelationshipDropdown(data.relationships);
+    populateAddRelationshipDropdown(data.availableRelationshipCatalog || data.relationships);
     populateMusicDropdown(data.allMusic || []);
 
     // Select first supported relationship before showing modal so static placeholder is never visible
@@ -3665,6 +3665,15 @@ function renderVariantsRelationshipsList(relationships, variants) {
   if (countBadge) countBadge.textContent = `${supportedCount} Active`;
 
   const varMap = new Map((variants || []).map(v => [v.relationship_id, v]));
+
+  if (!relationships || relationships.length === 0) {
+    listContainer.innerHTML = `
+      <div class="p-4 rounded-xl bg-surface-container border border-purple-500/20 text-xs text-outline">
+        No relationship variants created for this template yet. Use the dropdown below to create a variant if needed.
+      </div>
+    `;
+    return;
+  }
 
   listContainer.innerHTML = relationships.map(r => {
     const isSelected = r.id === currentActiveRelId;
@@ -5433,7 +5442,9 @@ function renderUtpV12EditorHtml(state, modePrefix) {
           }).join("")}
         </div>
       </div>`
-    : "";
+    : `<div class="p-3 rounded-xl bg-surface-container border border-purple-500/20 text-xs text-outline">
+        <span class="font-bold text-purple-200">Single-Edition Template:</span> No relationship variants created for this template (shows only variants built for this template).
+      </div>`;
 
   const varVis = isSingleRel ? ((state.variantOverrides[state.activeScope] && state.variantOverrides[state.activeScope].visibility) || {}) : {};
   const varActs = isSingleRel ? ((state.variantOverrides[state.activeScope] && state.variantOverrides[state.activeScope].actions) || {}) : {};

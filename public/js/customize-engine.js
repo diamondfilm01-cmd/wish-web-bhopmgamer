@@ -643,14 +643,7 @@ async function loadTemplateData(templateId) {
     }
     if (currentGen !== customizerTemplateLoadGeneration) return;
 
-    // Flow J: Block invalid or unpublished variant IDs from bypassing availability checks
-    if (activeTemplate.selectedVariantError === 'VARIANT_UNAVAILABLE') {
-      if (window.WishMagicVariantFlow) {
-        window.WishMagicVariantFlow.showUnavailableVariantNotice(activeTemplate, variantParam || relParam);
-      }
-      return;
-    }
-
+    // Graceful backward compatibility for all template versions (v1.0 - v1.4.0): never error on missing/mismatched variant
     let resolvedInitialVariant = activeTemplate.selectedVariant || null;
     let shouldPromptForVariant = false;
     let availVariantsForPrompt = [];
@@ -660,11 +653,13 @@ async function loadTemplateData(templateId) {
       const explicitRelOrVar = variantParam || relParam || window.WishMagicVariantFlow.getActiveRelationFilter();
       if (explicitRelOrVar) {
         const matched = window.WishMagicVariantFlow.resolveVariantForRelation(activeTemplate, explicitRelOrVar);
-        if (!matched) {
-          window.WishMagicVariantFlow.showUnavailableVariantNotice(activeTemplate, explicitRelOrVar);
-          return;
+        if (matched) {
+          resolvedInitialVariant = matched;
+        } else if (availVariantsForPrompt.length === 1) {
+          resolvedInitialVariant = availVariantsForPrompt[0];
+        } else if (availVariantsForPrompt.length > 1) {
+          shouldPromptForVariant = true;
         }
-        resolvedInitialVariant = matched;
       } else if (availVariantsForPrompt.length === 1) {
         resolvedInitialVariant = availVariantsForPrompt[0];
       } else if (availVariantsForPrompt.length > 1) {

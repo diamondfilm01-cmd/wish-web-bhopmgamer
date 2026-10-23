@@ -868,27 +868,13 @@
 
         activeTemplate = current;
 
-        // Flow J: If an explicit variant/relation parameter was passed, verify availability strictly
-        if (current.selectedVariantError === 'VARIANT_UNAVAILABLE') {
-          loadingEl.classList.add('hidden');
-          notFoundEl.classList.remove('hidden');
-          if (window.WishMagicVariantFlow) {
-            window.WishMagicVariantFlow.showUnavailableVariantNotice(current, variantParam || relParam);
-          }
-          return;
-        }
-
+        // Graceful backward compatibility for all template versions (v1.0 - v1.4.0): never block preview on variant mismatch
         if (window.WishMagicVariantFlow && window.WishMagicVariantFlow.isVariantFamily(activeTemplate)) {
           const avail = window.WishMagicVariantFlow.getAvailablePublishedVariants(activeTemplate);
           const explicitRelOrVar = variantParam || relParam || window.WishMagicVariantFlow.getActiveRelationFilter();
           if (explicitRelOrVar) {
-            const matched = window.WishMagicVariantFlow.resolveVariantForRelation(activeTemplate, explicitRelOrVar);
-            if (!matched) {
-              loadingEl.classList.add('hidden');
-              notFoundEl.classList.remove('hidden');
-              window.WishMagicVariantFlow.showUnavailableVariantNotice(activeTemplate, explicitRelOrVar);
-              return;
-            }
+            const matched = window.WishMagicVariantFlow.resolveVariantForRelation(activeTemplate, explicitRelOrVar) ||
+              avail.find(v => v.isDefault) || avail[0] || null;
             applySelectedVariantOnPreviewPage(matched);
             return;
           }

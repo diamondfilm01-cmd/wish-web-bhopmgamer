@@ -13292,8 +13292,10 @@ export default {
           }) || null;
 
           if (!selectedVariant && hasDeclaredVariants) {
-            selectedVariantError = 'VARIANT_UNAVAILABLE';
-          } else if (selectedVariant) {
+            // Graceful backward-compatible fallback to default or first available variant so older/mismatched templates never error
+            selectedVariant = candidatePool.find(v => v.isDefault || v.is_default) || candidatePool[0] || null;
+          }
+          if (selectedVariant) {
             fields = mergeTemplateAndVariantFields(fields, selectedVariant.fields, selectedVariant.messages, selectedVariant.assets);
             if (selectedVariant.entryFile && selectedVariant.entryFile !== entryFileName) {
               previewUrl = activeVer && activeVer.storage_provider === 'b2'
@@ -13632,11 +13634,6 @@ export default {
               let isSupported = false;
               if (b) {
                 isSupported = Boolean(b.enabled);
-              } else if (Array.isArray(parsedTplRels) && parsedTplRels.length > 0) {
-                isSupported = parsedTplRels.some(tag => {
-                  const tLow = String(tag || '').toLowerCase();
-                  return tLow.includes(String(r.slug || '').toLowerCase()) || tLow.includes(String(r.name || '').toLowerCase());
-                });
               }
               return {
                 ...r,
@@ -13741,12 +13738,23 @@ export default {
 
         if (!template) return applySecurityHeaders(jsonError('NOT_FOUND', 'Template not found', 404), request, env);
 
+        // Filter relationships to ONLY those created/bound for this template so Edit/Variants modal only shows this template's variants
+        const createdRelIds = new Set(variants.map(v => String(v.relationship_id || '').toLowerCase()).filter(Boolean));
+        const createdRelSlugs = new Set(variants.map(v => String(v.relationship_slug || v.r_slug || v.variant_slug || '').toLowerCase()).filter(Boolean));
+        const templateSpecificRelationships = relationships
+          .map(r => {
+            const hasVar = createdRelIds.has(String(r.id || '').toLowerCase()) || createdRelSlugs.has(String(r.slug || '').toLowerCase());
+            return hasVar ? { ...r, isSupported: true } : r;
+          })
+          .filter(r => r.isSupported || createdRelIds.has(String(r.id || '').toLowerCase()) || createdRelSlugs.has(String(r.slug || '').toLowerCase()));
+
         response = jsonSuccess({
           template,
           family,
           activeVersion,
           versions,
-          relationships,
+          relationships: templateSpecificRelationships,
+          availableRelationshipCatalog: relationships,
           variants,
           fields,
           sections: activeVersion ? (activeVersion.sections || template.sections || []) : [],
@@ -13984,9 +13992,7 @@ export default {
                 template: tplRow || { id: tId },
                 templateRelationships: relRows.results || []
               });
-              if (pubVars.length === 0) {
-                return applySecurityHeaders(jsonError("VARIANT_UNAVAILABLE", "The requested relationship variant is disabled or unavailable.", 404), request, env);
-              }
+              // Graceful backward compatibility: allow fallback variant synthesis if not explicitly in pubVars
             }
           } catch (e) {}
         }
@@ -14396,12 +14402,9 @@ export default {
         });
         const hasVariants = Boolean((template && template.has_variants) || allFamilyVariants.length > 0);
         if (hasVariants && (variantQuery || (relQuery && relQuery !== 'general'))) {
-          if (!variant) {
-            return applySecurityHeaders(jsonError('VARIANT_UNAVAILABLE', 'The requested relationship variant does not exist or is not supported by this template family.', 404, { availableVariants: publicAllowedVariants }), request, env);
-          }
-          const isAllowedPublicly = publicAllowedVariants.some(pv => pv.id === variant.id || pv.relationshipSlug === variant.relationship_slug);
-          if (!isAllowedPublicly && !includeDrafts) {
-            return applySecurityHeaders(jsonError('VARIANT_UNAVAILABLE', 'The requested relationship variant is currently unpublished or disabled.', 404, { availableVariants: publicAllowedVariants }), request, env);
+          if (!variant && publicAllowedVariants.length > 0) {
+            const defPub = publicAllowedVariants.find(pv => pv.isDefault) || publicAllowedVariants[0];
+            variant = allFamilyVariants.find(v => v.id === defPub.id || v.relationship_slug === defPub.relationshipSlug) || null;
           }
         } else if (hasVariants && !variant && !includeDrafts && publicAllowedVariants.length > 0) {
           // Default to first enabled published variant (never a disabled one)
@@ -14450,7 +14453,24 @@ export default {
 
         const activeVer = await env.DB.prepare('SELECT * FROM template_versions WHERE template_id = ? ORDER BY version_number DESC LIMIT 1').bind(template.id).first();
         const varRows = await env.DB.prepare('SELECT * FROM template_relationship_variants WHERE (template_id = ? OR template_version_id = ?) AND is_latest = 1 ORDER BY sort_order ASC').bind(template.id, activeVer ? activeVer.id : `tv_${template.id}_v1`).all();
-        const variantsList = varRows.results || [];
+        let variantsList = varRows.results || [];
+        if (variantsList.length === 0) {
+          const fallbackJsonVars = safeJsonParse(template.variants_json || activeVer?.variants_json, []);
+          if (Array.isArray(fallbackJsonVars) && fallbackJsonVars.length > 0) {
+            variantsList = fallbackJsonVars.map((jv, idx) => ({
+              id: jv.id || `trv_${template.id}_${jv.relationshipSlug || jv.relationship || idx}`,
+              variant_slug: jv.slug || jv.variant_slug || jv.relationshipSlug || jv.relationship || `var_${idx}`,
+              relationship_id: jv.relationshipId || jv.relationship_id || `rel_${jv.relationshipSlug || jv.relationship || idx}`,
+              relationship_slug: jv.relationshipSlug || jv.relationship_slug || jv.relationship || jv.slug || '',
+              relationship_label: jv.relationshipLabel || jv.relationship_label || jv.label || jv.name || '',
+              name: jv.name || jv.label || '',
+              status: jv.status || 'published',
+              enabled: jv.enabled !== false && jv.enabled !== 0 ? 1 : 0,
+              lock_version: 1,
+              configuration_json: JSON.stringify(jv.configuration || jv)
+            }));
+          }
+        }
 
         const pickNonEmptyArray = (...candidates) => {
           for (const c of candidates) {
@@ -20429,10 +20449,36 @@ export default {
         ];
 
         const allAssetsMap = new Map();
-        defaultAssets.forEach(a => allAssetsMap.set(a.id, { ...a, catalogType: 'demo_asset' }));
+        defaultAssets.forEach(a => allAssetsMap.set(a.id, {
+          ...a,
+          catalogType: 'demo_asset',
+          uploaderRole: 'admin',
+          userId: 'usr_admin_master',
+          userName: 'Admin Studio',
+          userEmail: 'ankit.babusaini@gmail.com'
+        }));
 
-        // Index wish_media from D1
+        const usersLookupMap = new Map();
+        const wishesLookupMap = new Map();
+
+        // Index wish_media and customer wish uploads from D1
         if (env.DB && typeof env.DB.prepare === 'function') {
+          try {
+            const uRows = await env.DB.prepare('SELECT id, email, display_name, role FROM users').all().catch(() => ({ results: [] }));
+            (uRows.results || []).forEach(u => {
+              if (u.id) usersLookupMap.set(u.id, u);
+              if (u.email) usersLookupMap.set(String(u.email).toLowerCase(), u);
+            });
+          } catch (_) {}
+
+          try {
+            const wRows = await env.DB.prepare('SELECT * FROM wishes ORDER BY created_at DESC LIMIT 300').all().catch(() => ({ results: [] }));
+            (wRows.results || []).forEach(w => {
+              wishesLookupMap.set(w.id, w);
+              if (w.slug) wishesLookupMap.set(w.slug, w);
+            });
+          } catch (_) {}
+
           try {
             const wmRows = await env.DB.prepare('SELECT * FROM wish_media WHERE (status != "archived" OR status IS NULL) ORDER BY created_at DESC LIMIT 500').all();
             (wmRows.results || []).forEach(m => {
@@ -20450,6 +20496,28 @@ export default {
                 }
                 if (format === 'MPEG') format = 'MP3';
                 if (format === 'JPEG') format = 'JPG';
+
+                const linkedWish = m.wish_id ? wishesLookupMap.get(m.wish_id) : null;
+                let linkedCustom = {};
+                if (linkedWish && linkedWish.custom_data) {
+                  try { linkedCustom = typeof linkedWish.custom_data === 'string' ? JSON.parse(linkedWish.custom_data) : linkedWish.custom_data; } catch (_) {}
+                }
+                const linkedUser = (m.user_id && usersLookupMap.get(m.user_id)) || (linkedWish && linkedWish.user_id && usersLookupMap.get(linkedWish.user_id)) || null;
+                const isCustomerUpload = Boolean(
+                  m.wish_id ||
+                  (m.object_key && (String(m.object_key).startsWith('wishes/') || String(m.object_key).startsWith('user'))) ||
+                  (linkedUser && linkedUser.role !== 'admin' && linkedUser.role !== 'OWNER')
+                );
+                const resolvedUserEmail = isCustomerUpload
+                  ? ((linkedUser && linkedUser.email) || (linkedWish && linkedWish.buyer_contact) || linkedCustom.sender_contact || 'customer@wishmagic.live')
+                  : 'ankit.babusaini@gmail.com';
+                const resolvedUserName = isCustomerUpload
+                  ? ((linkedWish && linkedWish.buyer_name) || linkedCustom.sender_name || (linkedUser && linkedUser.display_name) || resolvedUserEmail.split('@')[0] || 'Customer')
+                  : 'Admin Studio';
+                const resolvedUserId = isCustomerUpload
+                  ? (m.user_id || (linkedWish && linkedWish.user_id) || resolvedUserEmail)
+                  : 'usr_admin_master';
+
                 allAssetsMap.set(m.id, {
                   id: m.id,
                   title: resolveSafeDisplayTitle(m.filename, m.filename, m.object_key),
@@ -20461,11 +20529,17 @@ export default {
                   streamUrl,
                   thumbnailUrl: m.thumbnail_url || url,
                   fileSizeFormatted: m.size_bytes ? `${(m.size_bytes / 1024).toFixed(1)} KB` : 'Media Asset',
-                  category: m.wish_id ? 'User Wish Upload' : (detectedType === 'audio' ? 'Celebration Music' : (detectedType === 'video' ? 'Video Reel' : 'Storefront Asset')),
+                  category: isCustomerUpload ? 'User Wish Upload' : (detectedType === 'audio' ? 'Celebration Music' : (detectedType === 'video' ? 'Video Reel' : 'Storefront Asset')),
                   storageProvider: provider,
                   storageKey: m.object_key,
                   deleteUrl: m.delete_url || null,
                   catalogType: 'application_managed',
+                  uploaderRole: isCustomerUpload ? 'user' : 'admin',
+                  userId: resolvedUserId,
+                  userName: resolvedUserName,
+                  userEmail: resolvedUserEmail,
+                  wishSlug: linkedWish ? (linkedWish.slug || linkedWish.id) : (m.wish_id || ''),
+                  recipientName: linkedWish ? (linkedWish.recipient_name || linkedCustom.recipient_name || '') : '',
                   isDemo: false,
                   cloudVerified: true,
                   createdAt: m.created_at
@@ -20475,6 +20549,117 @@ export default {
           } catch (e) {
             console.warn('wish_media query error:', e.message);
           }
+
+          // Also index customer uploads directly from wishes.custom_data (photos, voice_note, custom audio, video)
+          try {
+            const seenUrls = new Set(Array.from(allAssetsMap.values()).map(a => a.url));
+            for (const w of wishesLookupMap.values()) {
+              if (!w || !w.id || seenUrls.has(`wish_processed_${w.id}`)) continue;
+              seenUrls.add(`wish_processed_${w.id}`);
+              let custom = {};
+              try { custom = typeof w.custom_data === 'string' ? JSON.parse(w.custom_data) : (w.custom_data || {}); } catch (_) {}
+              const creator = (w.user_id && usersLookupMap.get(w.user_id)) || {};
+              const uEmail = creator.email || w.buyer_contact || custom.sender_contact || 'customer@wishmagic.live';
+              const uName = w.buyer_name || custom.sender_name || creator.display_name || uEmail.split('@')[0] || 'Customer';
+              const uId = w.user_id || creator.id || uEmail;
+              const wSlug = w.slug || w.id;
+              const rName = w.recipient_name || custom.recipient_name || 'Loved One';
+
+              const photosList = Array.isArray(custom.photos) ? [...custom.photos] : [];
+              if (custom.cover_photo && !photosList.some(p => (p && (p.url === custom.cover_photo || p.src === custom.cover_photo)) || p === custom.cover_photo)) {
+                photosList.unshift({ id: 'cover', url: custom.cover_photo, name: 'Cover Photo' });
+              }
+              photosList.forEach((p, idx) => {
+                const pUrl = typeof p === 'string' ? p : (p && (p.url || p.src || p.displayUrl));
+                if (pUrl && !seenUrls.has(pUrl)) {
+                  seenUrls.add(pUrl);
+                  const pid = `usr_photo_${w.id}_${idx}`;
+                  allAssetsMap.set(pid, {
+                    id: pid,
+                    title: `${rName} — ${(p && p.name) || `Photo #${idx + 1}`}`,
+                    type: 'image',
+                    format: 'JPG',
+                    url: pUrl,
+                    displayUrl: pUrl,
+                    thumbnailUrl: pUrl,
+                    fileSizeFormatted: 'User Photo',
+                    category: 'User Wish Photo',
+                    storageProvider: pUrl.includes('ibb.co') ? 'imgbb' : 'd1',
+                    catalogType: 'user_wish_upload',
+                    uploaderRole: 'user',
+                    userId: uId,
+                    userName: uName,
+                    userEmail: uEmail,
+                    wishSlug: wSlug,
+                    recipientName: rName,
+                    isDemo: false,
+                    cloudVerified: true,
+                    createdAt: w.created_at || new Date().toISOString()
+                  });
+                }
+              });
+
+              const voice = custom.voice_note;
+              if (voice && voice.url && !seenUrls.has(voice.url)) {
+                seenUrls.add(voice.url);
+                const vid = `usr_voice_${w.id}`;
+                allAssetsMap.set(vid, {
+                  id: vid,
+                  title: `${rName} — ${voice.fileName || 'Voice Dedication'}`,
+                  type: 'audio',
+                  format: 'MP3',
+                  url: voice.url,
+                  displayUrl: voice.url,
+                  playbackUrl: voice.url,
+                  streamUrl: voice.url,
+                  fileSizeFormatted: voice.duration || 'Voice Note',
+                  duration: voice.duration || '0:15',
+                  category: 'User Voice Note',
+                  storageProvider: 'b2',
+                  catalogType: 'user_wish_upload',
+                  uploaderRole: 'user',
+                  userId: uId,
+                  userName: uName,
+                  userEmail: uEmail,
+                  wishSlug: wSlug,
+                  recipientName: rName,
+                  isDemo: false,
+                  cloudVerified: true,
+                  createdAt: w.created_at || new Date().toISOString()
+                });
+              }
+
+              const customVid = custom.video || custom.videoUrl;
+              const vidUrl = typeof customVid === 'string' ? customVid : (customVid && customVid.url);
+              if (vidUrl && !seenUrls.has(vidUrl)) {
+                seenUrls.add(vidUrl);
+                const vItemId = `usr_video_${w.id}`;
+                allAssetsMap.set(vItemId, {
+                  id: vItemId,
+                  title: `${rName} — Celebration Video`,
+                  type: 'video',
+                  format: 'MP4',
+                  url: vidUrl,
+                  displayUrl: vidUrl,
+                  playbackUrl: vidUrl,
+                  streamUrl: vidUrl,
+                  fileSizeFormatted: 'User Video',
+                  category: 'User Video Upload',
+                  storageProvider: 'b2',
+                  catalogType: 'user_wish_upload',
+                  uploaderRole: 'user',
+                  userId: uId,
+                  userName: uName,
+                  userEmail: uEmail,
+                  wishSlug: wSlug,
+                  recipientName: rName,
+                  isDemo: false,
+                  cloudVerified: true,
+                  createdAt: w.created_at || new Date().toISOString()
+                });
+              }
+            }
+          } catch (_) {}
 
           // Index template_images from D1
           try {
@@ -20628,17 +20813,50 @@ export default {
             });
           }
 
+          const uploaderRole = asset.uploaderRole || (asset.category && String(asset.category).toLowerCase().includes('user') ? 'user' : 'admin');
           return {
             ...asset,
+            uploaderRole,
+            userId: asset.userId || (uploaderRole === 'admin' ? 'usr_admin_master' : ''),
+            userName: asset.userName || (uploaderRole === 'admin' ? 'Admin Studio' : 'Customer'),
+            userEmail: asset.userEmail || (uploaderRole === 'admin' ? 'ankit.babusaini@gmail.com' : ''),
+            wishSlug: asset.wishSlug || '',
+            recipientName: asset.recipientName || '',
             usedIn,
             isInUse: usedIn.length > 0,
             usageCount: usedIn.length
           };
         });
 
+        // Build distinct user uploaders list for User Filter dropdown
+        const userStatsMap = new Map();
+        results.filter(r => r.uploaderRole === 'user').forEach(r => {
+          const uKey = String(r.userEmail || r.userId || r.userName || 'customer').toLowerCase();
+          if (!userStatsMap.has(uKey)) {
+            userStatsMap.set(uKey, {
+              key: uKey,
+              userId: r.userId || uKey,
+              userName: r.userName || 'Customer',
+              userEmail: r.userEmail || '',
+              totalCount: 0,
+              photosCount: 0,
+              audioCount: 0,
+              videoCount: 0
+            });
+          }
+          const st = userStatsMap.get(uKey);
+          st.totalCount += 1;
+          if (r.type === 'image') st.photosCount += 1;
+          else if (r.type === 'audio') st.audioCount += 1;
+          else if (r.type === 'video') st.videoCount += 1;
+        });
+        const users = Array.from(userStatsMap.values()).sort((a, b) => b.totalCount - a.totalCount);
+
         // Compute truthful metrics separating demo assets from cloud storage
         const realAssets = results.filter(r => !r.isDemo);
         const demoAssets = results.filter(r => Boolean(r.isDemo));
+        const adminUploadsCount = results.filter(r => r.uploaderRole !== 'user').length;
+        const userUploadsCount = results.filter(r => r.uploaderRole === 'user').length;
 
         const summary = {
           totalAssets: realAssets.length,
@@ -20649,13 +20867,15 @@ export default {
           b2CloudCount: realAssets.filter(r => r.storageProvider === 'b2').length,
           imgbbCount: realAssets.filter(r => r.storageProvider === 'imgbb').length,
           untrackedCloudCount: realAssets.filter(r => Boolean(r.isUntracked)).length,
+          adminUploadsCount,
+          userUploadsCount,
           inUseCount: realAssets.filter(r => r.isInUse).length,
           unusedCount: realAssets.filter(r => !r.isInUse && !r.isUntracked).length,
           demoAssetsCount: demoAssets.length,
           currentHeroImage
         };
 
-        response = jsonSuccess({ summary, assets: results }, 200, {}, requestId);
+        response = jsonSuccess({ summary, assets: results, users }, 200, {}, requestId);
       }
 
       // --- Part 21 & Part 41 & Part 44: Admin Universal & Bulk Media Uploader (B2 Audio/Video/Photos & ImgBB) ---

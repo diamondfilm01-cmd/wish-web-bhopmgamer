@@ -11,9 +11,9 @@
 (function (global) {
   'use strict';
 
-  const PROTOCOL_VERSION = '1.3';
-  const SCHEMA_VERSION = '1.3.0';
-  const RUNTIME_API_VERSION = '1.3';
+  const PROTOCOL_VERSION = '1.4';
+  const SCHEMA_VERSION = '1.4.0';
+  const RUNTIME_API_VERSION = '1.4';
 
   const DEFAULT_CENTRAL_LINK_CONFIG = {
     canonicalBaseUrl: 'https://wishmagic.pages.dev',
