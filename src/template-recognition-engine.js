@@ -672,8 +672,8 @@ export async function inspectAndValidateTemplateZip(zipInput, options = {}) {
       continue;
     }
 
-    const entryBytes = await entry.async('uint8array');
-    const actualSize = entryBytes.byteLength;
+    let entryBytes = await entry.async('uint8array');
+    let actualSize = entryBytes.byteLength;
 
     if (actualSize > limits.MAX_ENTRY_BYTES) {
       securityErrors.push({
