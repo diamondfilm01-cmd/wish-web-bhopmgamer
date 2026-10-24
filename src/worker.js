@@ -7128,6 +7128,72 @@ async function generateServerSlug(db, customData, templateId, config = {}) {
 // WORKER MAIN HANDLER
 // ============================================================================
 
+
+const DEFAULT_BRANDING_FOOTER_CONFIG = Object.freeze({
+  enabled: true,
+  websiteName: 'WishMagic',
+  brandIcon: '✨',
+  badgeText: '✨ Official WishMagic Celebration Experience',
+  tagline: 'Crafted with Love on WishMagic — Interactive 3D Celebration Studio',
+  detailsText: 'Create personalized 3D wishes, polaroid memories & festival greetings for your loved ones in 60 seconds.',
+  primaryBtnLabel: 'Create Your Own Wish ✨',
+  primaryBtnLink: 'template.customize',
+  secondaryBtnLabel: 'Explore All Templates ➔',
+  secondaryBtnLink: 'global.explore',
+  copyrightText: '© 2026 WishMagic • All Rights Reserved',
+  showPrimaryBtn: true,
+  showSecondaryBtn: true
+});
+
+async function getBrandingFooterSettings(env) {
+  try {
+    if (!env || !env.DB) return { ...DEFAULT_BRANDING_FOOTER_CONFIG };
+    const row = await env.DB.prepare("SELECT value FROM platform_settings WHERE key = 'template_branding_footer_config' LIMIT 1").first().catch(() => null);
+    if (row && row.value) {
+      const parsed = JSON.parse(row.value);
+      if (parsed && typeof parsed === 'object') {
+        return { ...DEFAULT_BRANDING_FOOTER_CONFIG, ...parsed };
+      }
+    }
+  } catch (_) {}
+  return { ...DEFAULT_BRANDING_FOOTER_CONFIG };
+}
+
+async function saveBrandingFooterSettings(env, incoming = {}) {
+  const merged = {
+    enabled: incoming.enabled !== undefined ? Boolean(incoming.enabled) : true,
+    websiteName: String(incoming.websiteName ?? DEFAULT_BRANDING_FOOTER_CONFIG.websiteName).trim().slice(0, 80) || 'WishMagic',
+    brandIcon: String(incoming.brandIcon ?? DEFAULT_BRANDING_FOOTER_CONFIG.brandIcon).trim().slice(0, 16) || '✨',
+    badgeText: String(incoming.badgeText ?? DEFAULT_BRANDING_FOOTER_CONFIG.badgeText).trim().slice(0, 120),
+    tagline: String(incoming.tagline ?? DEFAULT_BRANDING_FOOTER_CONFIG.tagline).trim().slice(0, 180),
+    detailsText: String(incoming.detailsText ?? DEFAULT_BRANDING_FOOTER_CONFIG.detailsText).trim().slice(0, 280),
+    primaryBtnLabel: String(incoming.primaryBtnLabel ?? DEFAULT_BRANDING_FOOTER_CONFIG.primaryBtnLabel).trim().slice(0, 80),
+    primaryBtnLink: String(incoming.primaryBtnLink ?? DEFAULT_BRANDING_FOOTER_CONFIG.primaryBtnLink).trim().slice(0, 120) || 'template.customize',
+    secondaryBtnLabel: String(incoming.secondaryBtnLabel ?? DEFAULT_BRANDING_FOOTER_CONFIG.secondaryBtnLabel).trim().slice(0, 80),
+    secondaryBtnLink: String(incoming.secondaryBtnLink ?? DEFAULT_BRANDING_FOOTER_CONFIG.secondaryBtnLink).trim().slice(0, 120) || 'global.explore',
+    copyrightText: String(incoming.copyrightText ?? DEFAULT_BRANDING_FOOTER_CONFIG.copyrightText).trim().slice(0, 140),
+    showPrimaryBtn: incoming.showPrimaryBtn !== undefined ? Boolean(incoming.showPrimaryBtn) : true,
+    showSecondaryBtn: incoming.showSecondaryBtn !== undefined ? Boolean(incoming.showSecondaryBtn) : true,
+    updatedAt: new Date().toISOString()
+  };
+  try {
+    if (env && env.DB) {
+      await env.DB.prepare(`
+        CREATE TABLE IF NOT EXISTS platform_settings (
+          key TEXT PRIMARY KEY,
+          value TEXT,
+          updated_at TEXT
+        )
+      `).run().catch(() => {});
+      await env.DB.prepare(`
+        INSERT OR REPLACE INTO platform_settings (key, value, updated_at)
+        VALUES ('template_branding_footer_config', ?, ?)
+      `).bind(JSON.stringify(merged), merged.updatedAt).run();
+    }
+  } catch (_) {}
+  return merged;
+}
+
 export default {
   async fetch(request, rawEnv = {}, ctx) {
     const env = rawEnv || {};
@@ -18197,6 +18263,25 @@ export default {
         }, 200, {
           'Cache-Control': 'no-cache, no-store, must-revalidate'
         }, requestId);
+      }
+
+      else if ((pathname === '/api/public/branding-footer' || pathname === '/api/admin/branding-footer') && method === 'GET') {
+        const brandingFooter = await getBrandingFooterSettings(env);
+        response = jsonSuccess({ brandingFooter }, 200, { 'Cache-Control': 'no-cache, no-store, must-revalidate' }, requestId);
+      }
+
+      else if (pathname === '/api/admin/branding-footer' && (method === 'PUT' || method === 'POST')) {
+        const user = await getAuthenticatedUser(request, env);
+        if (!user) return applySecurityHeaders(jsonError('AUTH_REQUIRED', 'Admin authentication required', 401), request, env);
+        const isAdmin = await verifyAdminRole(user, env);
+        if (!isAdmin) return applySecurityHeaders(jsonError('FORBIDDEN', 'Admin role required', 403), request, env);
+        const body = await request.json().catch(() => ({}));
+        const incoming = body.brandingFooter || body;
+        const saved = await saveBrandingFooterSettings(env, incoming);
+        response = jsonSuccess({
+          brandingFooter: saved,
+          message: 'Template Platform Branding Footer configuration saved to D1.'
+        }, 200, { 'Cache-Control': 'no-cache, no-store, must-revalidate' }, requestId);
       }
 
       else if (pathname === '/api/admin/settings/links' && (method === 'PUT' || method === 'POST')) {

@@ -307,7 +307,8 @@ export async function extractAndVerifyZip(zipBuffer) {
       /\.(?:test|spec)\.(?:js|mjs|cjs|ts)$/i.test(normalized) ||
       /^(?:assets\/)?readme\.(?:txt|md)$/i.test(normalized) ||
       /^package-lock\.json$/i.test(normalized) ||
-      /^preview\.html$/i.test(normalized)
+      /^preview\.html$/i.test(normalized) ||
+      /(?:^|\/)wishmagic-template-protocol\.js$/i.test(normalized)
     ) {
       continue;
     }
@@ -362,7 +363,26 @@ export async function extractAndVerifyZip(zipBuffer) {
       }
     }
 
-    const entryBuffer = await entry.async('uint8array');
+    let entryBuffer = await entry.async('uint8array');
+    if (/\.(?:js|mjs)$/i.test(normalized) && !/\.json$/i.test(normalized)) {
+      try {
+        let jsStr = new TextDecoder('utf-8').decode(entryBuffer);
+        let modifiedJs = false;
+        if (jsStr.length > 100000 && jsStr.includes('data:image/')) {
+          jsStr = jsStr.replace(/"data:image\/[^;]+;base64,[A-Za-z0-9+/=]{2048,}"/g, '""');
+          modifiedJs = true;
+        }
+        // Neutralize legacy synchronous recursion where wishmagic:data-updated calls WishMagicTemplate.applyData / Protocol.applyData
+        if (jsStr.includes('wishmagic:data-updated') && jsStr.includes('.applyData(') && !jsStr.includes('__wmLoopGuardInjected')) {
+          const loopGuardPrefix = "/* __wmLoopGuardInjected */ (function(){ try { if (window.WishMagicTemplate && typeof window.WishMagicTemplate.applyData === 'function' && !window.WishMagicTemplate.__wmGuarded) { var _origApply = window.WishMagicTemplate.applyData; var _inApply = false; window.WishMagicTemplate.applyData = function(p) { if (_inApply) return; _inApply = true; try { return _origApply.call(this, p); } finally { _inApply = false; } }; window.WishMagicTemplate.__wmGuarded = true; } } catch(_){} })();\n";
+          jsStr = loopGuardPrefix + jsStr;
+          modifiedJs = true;
+        }
+        if (modifiedJs) {
+          entryBuffer = new TextEncoder().encode(jsStr);
+        }
+      } catch (_) {}
+    }
     const entrySize = entryBuffer.byteLength;
 
     // Always verify the actual size too; ZIP metadata is not trusted blindly.
@@ -2350,9 +2370,15 @@ export async function executeB2TemplateIngestPipeline(params) {
     }
 
     if (activeImgbbProvider && remainingImageRecords.length > 0 && !templateMetadata?.skipServerImgbbRetry) {
-      const IMGBB_BATCH_SIZE = 3;
-      for (let i = 0; i < remainingImageRecords.length; i += IMGBB_BATCH_SIZE) {
-        const batch = remainingImageRecords.slice(i, i + IMGBB_BATCH_SIZE);
+      const MAX_SYNC_IMGBB_UPLOADS = 6;
+      const IMGBB_BATCH_SIZE = 6;
+      const prioritizedRemaining = remainingImageRecords.slice().sort((a, b) => {
+        const aScore = /(?:cover|thumb|backdrop|memory-[1234]|photo[_-]?[1234])/i.test(a.relativePath) ? 0 : 1;
+        const bScore = /(?:cover|thumb|backdrop|memory-[1234]|photo[_-]?[1234])/i.test(b.relativePath) ? 0 : 1;
+        return aScore - bScore;
+      }).slice(0, MAX_SYNC_IMGBB_UPLOADS);
+      for (let i = 0; i < prioritizedRemaining.length; i += IMGBB_BATCH_SIZE) {
+        const batch = prioritizedRemaining.slice(i, i + IMGBB_BATCH_SIZE);
         const batchResults = await Promise.all(batch.map(async (fileRecord) => {
           const exactFileName = fileRecord.relativePath.split('/').pop();
           const exactStem = exactFileName.replace(/\.[^/.]+$/, '');
@@ -2649,25 +2675,29 @@ export async function executeB2TemplateIngestPipeline(params) {
       filesNeedingB2Upload.push(fileRecord);
     }
 
-    // Upload remaining runtime files sequentially so a single B2 upload URL token is reused with zero contention
-    for (const fileRecord of filesNeedingB2Upload) {
-      const b2Key = keys.runtimeFile(fileRecord.relativePath);
-      const fileUploadRes = await b2Provider.putObject({
-        key: b2Key,
-        body: fileRecord.content,
-        contentType: fileRecord.mimeType,
-        contentLength: fileRecord.sizeBytes,
-        skipDownloadAuth: true,
-        metadata: {
-          familyId: templateFamilyId,
-          versionId,
-          sha256: fileRecord.sha256,
-          originalFilename: fileRecord.relativePath.split('/').pop()
-        }
-      });
-      uploadedB2Objects.push({ key: b2Key, fileId: fileUploadRes.fileId });
-      fileRecord.storageKey = b2Key;
-      fileRecord.b2FileId = fileUploadRes.fileId;
+    // Upload remaining runtime files in parallel batches of 4 for fast non-blocking ingest
+    const B2_UPLOAD_CONCURRENCY = 4;
+    for (let i = 0; i < filesNeedingB2Upload.length; i += B2_UPLOAD_CONCURRENCY) {
+      const batch = filesNeedingB2Upload.slice(i, i + B2_UPLOAD_CONCURRENCY);
+      await Promise.all(batch.map(async (fileRecord) => {
+        const b2Key = keys.runtimeFile(fileRecord.relativePath);
+        const fileUploadRes = await b2Provider.putObject({
+          key: b2Key,
+          body: fileRecord.content,
+          contentType: fileRecord.mimeType,
+          contentLength: fileRecord.sizeBytes,
+          skipDownloadAuth: true,
+          metadata: {
+            familyId: templateFamilyId,
+            versionId,
+            sha256: fileRecord.sha256,
+            originalFilename: fileRecord.relativePath.split('/').pop()
+          }
+        });
+        uploadedB2Objects.push({ key: b2Key, fileId: fileUploadRes.fileId });
+        fileRecord.storageKey = b2Key;
+        fileRecord.b2FileId = fileUploadRes.fileId;
+      }));
     }
 
     // 6b. Build UTP v1.1.0 / v1.3.0 Variant Records from declared variants (enforcing admin selections & preserving disabled variants)

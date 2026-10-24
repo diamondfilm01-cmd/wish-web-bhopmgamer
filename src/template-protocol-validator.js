@@ -2209,7 +2209,8 @@ export function validateUtpManifest(rawManifest, options = {}) {
           });
         } else {
           const cleanDef = defPath.replace(/\\/g, '/').replace(/^\.?\/+/, '');
-          if (!hasFileInMap(filesMap, cleanDef)) {
+          const isSynthAudioPreset = (fType === 'audio' || fType === 'voice') && !cleanDef.includes('/') && !/\.(mp3|wav|ogg|m4a|aac|flac|webm)$/i.test(cleanDef);
+          if (!isSynthAudioPreset && !hasFileInMap(filesMap, cleanDef)) {
             issues.push({
               code: 'FIELD_DEFAULT_ASSET_MISSING',
               severity: 'warning',

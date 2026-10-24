@@ -321,6 +321,10 @@
             <span class="material-symbols-outlined text-[18px]">folder_zip</span>
             <span>Upload / Update Template ZIP (Smart Studio)</span>
           </button>
+          <button type="button" onclick="toggleWebsiteBrandingFooterStudio()" class="wm-btn-glass-pill border-amber-400/40 text-amber-200">
+            <span class="material-symbols-outlined text-[18px]">verified</span>
+            <span>🏷️ Brand Footer Studio (UTP v1.4.0)</span>
+          </button>
           <a href="/" target="_blank" class="wm-btn-glass-pill">
             <span class="material-symbols-outlined text-[18px]">open_in_new</span>
             <span>View Live Storefront</span>
@@ -328,6 +332,80 @@
         </div>
       </div>
     </section>
+        <!-- Dedicated UTP v1.4.0 Website Branding & Template Footer Studio Section -->
+    <section id="website-branding-footer-studio-section" class="wm-card hidden p-5 sm:p-6 mb-4 border border-amber-500/40 bg-surface-container-low rounded-2xl">
+      <div class="flex flex-col gap-4">
+        <div class="flex flex-wrap items-center justify-between gap-3 border-b border-amber-500/20 pb-3">
+          <div class="flex items-center gap-3">
+            <div class="w-10 h-10 rounded-xl bg-gradient-to-tr from-amber-500 to-pink-500 flex items-center justify-center text-slate-950 font-black shadow-lg">
+              <span class="material-symbols-outlined text-[22px]">verified</span>
+            </div>
+            <div>
+              <h3 class="text-sm sm:text-base font-extrabold text-on-surface">🏷️ Website Branding &amp; Template Footer Studio (UTP v1.4.0)</h3>
+              <p class="text-xs text-on-surface-variant">Template ke last me dikhne wale Branding Footer ka design template ke andar rehta hai (upload se pehle hidden), lekin usme kya Website Name aur text dikhega wo yahan se tay hota hai.</p>
+            </div>
+          </div>
+          <div class="flex items-center gap-2">
+            <label class="inline-flex items-center gap-2 px-3 py-1.5 rounded-xl bg-emerald-500/15 border border-emerald-500/35 text-xs font-bold text-emerald-300 cursor-pointer">
+              <input type="checkbox" id="global-bf-enabled" checked class="rounded text-emerald-500" />
+              <span>Attach &amp; Show on Uploaded Templates</span>
+            </label>
+            <button type="button" onclick="saveGlobalBrandingFooterStudio()" class="px-4 py-2 rounded-xl bg-gradient-to-r from-amber-500 to-pink-500 text-slate-950 font-extrabold text-xs cursor-pointer shadow-md hover:brightness-110">
+              💾 Save Website Footer Text
+            </button>
+            <button type="button" onclick="toggleWebsiteBrandingFooterStudio()" class="p-2 rounded-lg text-outline hover:text-on-surface">
+              <span class="material-symbols-outlined text-[20px]">close</span>
+            </button>
+          </div>
+        </div>
+
+        <div class="grid grid-cols-1 md:grid-cols-3 gap-3 text-xs">
+          <div class="flex flex-col gap-1">
+            <label class="font-bold text-amber-200">Website / Brand Name</label>
+            <input id="global-bf-website-name" type="text" value="WishMagic" class="px-3 py-2 rounded-xl bg-surface-container-lowest border border-purple-500/30 text-on-surface font-bold" />
+          </div>
+          <div class="flex flex-col gap-1">
+            <label class="font-bold text-amber-200">Brand Icon / Emoji</label>
+            <input id="global-bf-icon" type="text" value="✨" class="px-3 py-2 rounded-xl bg-surface-container-lowest border border-purple-500/30 text-on-surface" />
+          </div>
+          <div class="flex flex-col gap-1">
+            <label class="font-bold text-amber-200">Top Badge Text</label>
+            <input id="global-bf-badge" type="text" value="✨ Official WishMagic Celebration Experience" class="px-3 py-2 rounded-xl bg-surface-container-lowest border border-purple-500/30 text-on-surface" />
+          </div>
+          <div class="flex flex-col gap-1 md:col-span-2">
+            <label class="font-bold text-amber-200">Main Tagline</label>
+            <input id="global-bf-tagline" type="text" value="Crafted with Love on WishMagic — Interactive 3D Celebration Studio" class="px-3 py-2 rounded-xl bg-surface-container-lowest border border-purple-500/30 text-on-surface" />
+          </div>
+          <div class="flex flex-col gap-1">
+            <label class="font-bold text-amber-200">Copyright / Bottom Line</label>
+            <input id="global-bf-copyright" type="text" value="© 2026 WishMagic • All Rights Reserved" class="px-3 py-2 rounded-xl bg-surface-container-lowest border border-purple-500/30 text-on-surface" />
+          </div>
+          <div class="flex flex-col gap-1 md:col-span-3">
+            <label class="font-bold text-amber-200">Extra Description / Details Text</label>
+            <input id="global-bf-details" type="text" value="Create personalized 3D wishes, polaroid memories &amp; festival greetings for your loved ones in 60 seconds." class="px-3 py-2 rounded-xl bg-surface-container-lowest border border-purple-500/30 text-on-surface" />
+          </div>
+          <div class="flex flex-col gap-1">
+            <label class="font-bold text-amber-200">Primary CTA Button Text</label>
+            <input id="global-bf-primary-btn" type="text" value="Create Your Own Wish ✨" class="px-3 py-2 rounded-xl bg-surface-container-lowest border border-purple-500/30 text-on-surface" />
+          </div>
+          <div class="flex flex-col gap-1">
+            <label class="font-bold text-amber-200">Secondary CTA Button Text</label>
+            <input id="global-bf-secondary-btn" type="text" value="Explore All Templates ➔" class="px-3 py-2 rounded-xl bg-surface-container-lowest border border-purple-500/30 text-on-surface" />
+          </div>
+          <div class="flex items-end gap-3">
+            <label class="inline-flex items-center gap-1.5 text-on-surface-variant cursor-pointer">
+              <input type="checkbox" id="global-bf-show-primary" checked class="rounded text-primary" />
+              <span>Show Primary Button</span>
+            </label>
+            <label class="inline-flex items-center gap-1.5 text-on-surface-variant cursor-pointer">
+              <input type="checkbox" id="global-bf-show-secondary" checked class="rounded text-primary" />
+              <span>Show Secondary Button</span>
+            </label>
+          </div>
+        </div>
+      </div>
+    </section>
+
     <section class="wm-card hidden p-0 overflow-hidden mb-2" id="upload-code-modal">
   <div class="w-full flex flex-col">
     <!-- Modal Header -->
@@ -448,6 +526,37 @@
         <!-- Part 50: Smart Template Recognition, Side-by-Side Preview & Safe Update Studio Workspace -->
         <div id="smart-import-studio-workspace" class="hidden wm-card bg-surface-container-lowest p-4 sm:p-5 rounded-2xl border border-purple-500/40 flex flex-col gap-5 shadow-xl" role="region" aria-label="Smart Template Recognition and Side-by-Side Comparison Studio"></div>
         
+                <!-- UTP v1.4.0 Auto-Attached Platform Branding Footer Card (Unhides [data-wm-platform-footer] on Upload) -->
+        <div id="upload-branding-footer-card" class="wm-card bg-surface-container-lowest p-4 rounded-xl border border-amber-500/35 flex flex-col gap-3">
+          <div class="flex flex-wrap items-center justify-between gap-2">
+            <div class="flex items-center gap-2 text-on-surface font-bold text-xs sm:text-sm">
+              <span class="material-symbols-outlined text-amber-400 text-[20px]">verified</span>
+              <span>🏷️ UTP v1.4.0 Platform Branding Footer (Auto-Attached at Upload Time)</span>
+            </div>
+            <div class="flex items-center gap-2">
+              <span class="px-2.5 py-0.5 rounded-full bg-amber-500/20 text-amber-200 border border-amber-500/35 text-[10px] font-bold">Hidden Offline • Live on Website</span>
+              <label class="inline-flex items-center gap-1.5 text-xs font-bold text-emerald-300 cursor-pointer">
+                <input type="checkbox" id="upload-bf-enabled" checked onchange="syncUploadBrandingFooterToPreview()" class="rounded text-emerald-500" />
+                <span>Enable Footer</span>
+              </label>
+            </div>
+          </div>
+          <div class="grid grid-cols-1 sm:grid-cols-3 gap-2.5 text-xs">
+            <div>
+              <label class="block text-[10px] uppercase font-bold text-outline mb-1">Website Name</label>
+              <input id="upload-bf-website-name" type="text" value="WishMagic" oninput="syncUploadBrandingFooterToPreview()" class="w-full px-2.5 py-1.5 rounded-lg bg-surface-container border border-purple-500/30 text-on-surface font-bold" />
+            </div>
+            <div>
+              <label class="block text-[10px] uppercase font-bold text-outline mb-1">Main Tagline</label>
+              <input id="upload-bf-tagline" type="text" value="Crafted with Love on WishMagic — Interactive 3D Celebration Studio" oninput="syncUploadBrandingFooterToPreview()" class="w-full px-2.5 py-1.5 rounded-lg bg-surface-container border border-purple-500/30 text-on-surface" />
+            </div>
+            <div>
+              <label class="block text-[10px] uppercase font-bold text-outline mb-1">Extra Info / Subtext</label>
+              <input id="upload-bf-details" type="text" value="Create personalized 3D wishes, polaroid memories &amp; festival greetings for your loved ones in 60 seconds." oninput="syncUploadBrandingFooterToPreview()" class="w-full px-2.5 py-1.5 rounded-lg bg-surface-container border border-purple-500/30 text-on-surface" />
+            </div>
+          </div>
+        </div>
+
         <!-- Detected Dynamic Slots Notification -->
         <div class="wm-card bg-surface-container-lowest p-4 rounded-xl border border-purple-500/30 flex flex-col gap-3">
           <div class="flex items-center justify-between">

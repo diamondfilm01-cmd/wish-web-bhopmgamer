@@ -1098,9 +1098,243 @@
   /**
    * Apply entire dataset (including UTP v1.1.0 & v1.2.0 variant overrides, visibility removal, actions, messages, palette, and assets) to template
    */
+
+  const DEFAULT_PLATFORM_BRANDING_FOOTER = {
+    enabled: true,
+    websiteName: 'WishMagic',
+    brandIcon: '✨',
+    badgeText: '✨ Official WishMagic Celebration Experience',
+    tagline: 'Crafted with Love on WishMagic — Interactive 3D Celebration Studio',
+    detailsText: 'Create personalized 3D wishes, polaroid memories & festival greetings for your loved ones in 60 seconds.',
+    primaryBtnLabel: 'Create Your Own Wish ✨',
+    primaryBtnLink: 'template.customize',
+    secondaryBtnLabel: 'Explore All Templates ➔',
+    secondaryBtnLink: 'global.explore',
+    copyrightText: '© 2026 WishMagic • All Rights Reserved',
+    showPrimaryBtn: true,
+    showSecondaryBtn: true
+  };
+
+  let activePlatformBrandingFooter = Object.assign({}, DEFAULT_PLATFORM_BRANDING_FOOTER);
+
+  function setPlatformBrandingFooterConfig(customBranding) {
+    if (!customBranding || typeof customBranding !== 'object') return activePlatformBrandingFooter;
+    activePlatformBrandingFooter = Object.assign({}, DEFAULT_PLATFORM_BRANDING_FOOTER, customBranding);
+    return activePlatformBrandingFooter;
+  }
+
+  function getPlatformBrandingFooterConfig() {
+    return Object.assign({}, activePlatformBrandingFooter);
+  }
+
+  /**
+   * UTP v1.4.0 Host-Controlled Customization & Variant Switcher Enforcement:
+   * Customization and variant selection happen exclusively on the WishMagic website/app after upload,
+   * never via an in-template drawer or in-template relation bar.
+   */
+  function enforceHostControlledTemplateUi(doc) {
+    const rootDoc = doc || document;
+    if (!rootDoc || typeof rootDoc.querySelectorAll !== 'function') return;
+    try {
+      const forbiddenInTemplateSelectors = [
+        '#wmCustomizerBackdrop',
+        '#wmCustomizerPanel',
+        '#wmOpenCustomizerBtn',
+        '.wm-customizer-drawer-backdrop',
+        '.wm-customizer-panel',
+        '[data-wm-in-template-customizer]',
+        '.wm-relation-bar',
+        '#wmEligibilityModalBackdrop',
+        '[data-wm-in-template-variants]',
+        '#btn-theme-cycle'
+      ];
+      rootDoc.querySelectorAll(forbiddenInTemplateSelectors.join(', ')).forEach(el => {
+        el.remove();
+      });
+    } catch (_) {}
+  }
+
+  /**
+   * UTP v1.4.0 Platform Branding Footer Hydration:
+   * The visual design lives inside the template (`[data-wm-platform-footer]`, hidden before upload),
+   * while the WishMagic platform controls the text and activates it upon upload/preview/publish.
+   */
+  function applyBrandingFooterToDom(brandingOverride, contextData, targetDoc) {
+    const doc = targetDoc || document;
+    if (!doc || !doc.body) return;
+    const rawBranding = (brandingOverride && typeof brandingOverride === 'object')
+      ? brandingOverride
+      : ((contextData && contextData.brandingFooter && typeof contextData.brandingFooter === 'object')
+        ? contextData.brandingFooter
+        : (global.__WM_BRANDING_FOOTER__ || activePlatformBrandingFooter));
+    const cfg = Object.assign({}, DEFAULT_PLATFORM_BRANDING_FOOTER, rawBranding || {});
+
+    let footerEl = doc.querySelector('[data-wm-platform-footer], #wm-platform-footer');
+    if (cfg.enabled === false) {
+      if (footerEl) {
+        footerEl.setAttribute('hidden', 'hidden');
+        footerEl.style.display = 'none';
+      }
+      return;
+    }
+
+    // If an older template does not have a [data-wm-platform-footer] container yet, inject a sleek theme-adaptive one
+    if (!footerEl) {
+      footerEl = doc.createElement('footer');
+      footerEl.id = 'wm-platform-footer';
+      footerEl.className = 'wm-platform-footer';
+      footerEl.setAttribute('data-wm-platform-footer', 'true');
+      footerEl.style.cssText = 'position:relative;width:100%;padding:40px 18px 52px;text-align:center;background:rgba(8,12,26,0.94);border-top:1px solid rgba(212,175,55,0.35);color:var(--wm-text,#f8fafc);font-family:system-ui,-apple-system,sans-serif;z-index:35;';
+      footerEl.innerHTML =
+        '<div class="wm-platform-footer-card" style="max-width:680px;margin:0 auto;padding:24px 20px;border-radius:22px;background:rgba(255,255,255,0.05);border:1px solid rgba(212,175,55,0.38);backdrop-filter:blur(12px);">' +
+          '<div class="wm-platform-footer-badge" data-wm-brand-badge style="display:inline-block;padding:4px 12px;border-radius:999px;background:rgba(212,175,55,0.16);border:1px solid rgba(212,175,55,0.4);color:var(--wm-primary,#fde047);font-size:11px;font-weight:700;letter-spacing:0.08em;text-transform:uppercase;margin-bottom:10px;"></div>' +
+          '<div class="wm-platform-footer-title-row" style="display:flex;align-items:center;justify-content:center;gap:8px;margin-bottom:6px;">' +
+            '<span class="wm-platform-footer-icon" data-wm-brand-icon style="font-size:22px;"></span>' +
+            '<strong class="wm-platform-footer-name" data-wm-brand-name style="font-size:22px;font-weight:800;color:var(--wm-primary,#fde047);"></strong>' +
+          '</div>' +
+          '<p class="wm-platform-footer-tagline" data-wm-brand-tagline style="font-size:15px;font-weight:600;margin:0 auto 6px;max-width:540px;opacity:0.95;"></p>' +
+          '<p class="wm-platform-footer-details" data-wm-brand-details style="font-size:13px;line-height:1.5;margin:0 auto 16px;max-width:520px;opacity:0.78;"></p>' +
+          '<div class="wm-platform-footer-links" style="display:flex;flex-wrap:wrap;align-items:center;justify-content:center;gap:10px;margin-bottom:14px;">' +
+            '<a href="/customize.html" class="wm-platform-footer-btn-primary" data-wm-brand-primary-btn data-wm-link="template.customize" style="padding:9px 18px;border-radius:999px;background:linear-gradient(135deg,var(--wm-primary,#f59e0b),var(--wm-secondary,#ec4899));color:#fff;font-weight:700;font-size:13px;text-decoration:none;"></a>' +
+            '<a href="/templates.html" class="wm-platform-footer-btn-secondary" data-wm-brand-secondary-btn data-wm-link="global.explore" style="padding:9px 16px;border-radius:999px;background:rgba(255,255,255,0.08);border:1px solid rgba(255,255,255,0.22);color:var(--wm-text,#fff);font-weight:600;font-size:13px;text-decoration:none;"></a>' +
+          '</div>' +
+          '<div class="wm-platform-footer-copyright" data-wm-brand-copyright style="font-size:11px;opacity:0.65;border-top:1px solid rgba(255,255,255,0.12);padding-top:10px;"></div>' +
+        '</div>';
+      const mainEl = doc.querySelector('main') || doc.body;
+      mainEl.appendChild(footerEl);
+    }
+
+    footerEl.removeAttribute('hidden');
+    footerEl.style.display = '';
+    footerEl.setAttribute('data-wm-footer-hydrated', 'true');
+
+    const setSlot = (selector, val) => {
+      const el = footerEl.querySelector(selector);
+      if (!el) return;
+      if (val !== undefined && val !== null && String(val).trim() !== '') {
+        setTextSafe(el, String(val));
+        el.style.display = '';
+      } else {
+        el.style.display = 'none';
+      }
+    };
+
+    setSlot('[data-wm-brand-badge]', cfg.badgeText);
+    setSlot('[data-wm-brand-icon], [data-wm-brand-logo]', cfg.brandIcon);
+    setSlot('[data-wm-brand-name]', cfg.websiteName || cfg.brandName);
+    setSlot('[data-wm-brand-tagline]', cfg.tagline);
+    setSlot('[data-wm-brand-details], [data-wm-brand-note]', cfg.detailsText || cfg.footerNote);
+    setSlot('[data-wm-brand-copyright]', cfg.copyrightText);
+
+    const ctx = contextData || global.WishMagicData || {};
+    const primaryBtn = footerEl.querySelector('[data-wm-brand-primary-btn], [data-wm-brand-cta]');
+    if (primaryBtn) {
+      if (cfg.showPrimaryBtn === false || !cfg.primaryBtnLabel) {
+        primaryBtn.style.display = 'none';
+      } else {
+        primaryBtn.style.display = '';
+        setTextSafe(primaryBtn, cfg.primaryBtnLabel);
+        const pLink = cfg.primaryBtnLink || 'template.customize';
+        const resolvedPrimary = pLink.startsWith('/') || pLink.startsWith('http')
+          ? resolveClientInternalActionUrl(pLink, ctx)
+          : resolveLogicalLink(pLink, ctx);
+        if (primaryBtn.tagName === 'A' && resolvedPrimary) {
+          primaryBtn.setAttribute('href', resolvedPrimary);
+        }
+      }
+    }
+
+    const secondaryBtn = footerEl.querySelector('[data-wm-brand-secondary-btn], [data-wm-brand-secondary-cta]');
+    if (secondaryBtn) {
+      if (cfg.showSecondaryBtn === false || !cfg.secondaryBtnLabel) {
+        secondaryBtn.style.display = 'none';
+      } else {
+        secondaryBtn.style.display = '';
+        setTextSafe(secondaryBtn, cfg.secondaryBtnLabel);
+        const sLink = cfg.secondaryBtnLink || 'global.explore';
+        const resolvedSecondary = sLink.startsWith('/') || sLink.startsWith('http')
+          ? resolveClientInternalActionUrl(sLink, ctx)
+          : resolveLogicalLink(sLink, ctx);
+        if (secondaryBtn.tagName === 'A' && resolvedSecondary) {
+          secondaryBtn.setAttribute('href', resolvedSecondary);
+        }
+      }
+    }
+
+    if (global.WishMagicRuntime && typeof global.WishMagicRuntime.applyBrandingFooter === 'function') {
+      try { global.WishMagicRuntime.applyBrandingFooter(cfg); } catch (_) {}
+    }
+  }
+
+  function checkRelationEligibility(relationSlug, enabledVariants, campaignAllowedVariants) {
+    const normalized = String(relationSlug || '').trim().toLowerCase();
+    const allowedList = Array.isArray(enabledVariants) && enabledVariants.length > 0
+      ? enabledVariants.map(r => String(r).toLowerCase())
+      : null;
+    const campaignList = Array.isArray(campaignAllowedVariants) && campaignAllowedVariants.length > 0
+      ? campaignAllowedVariants.map(r => String(r).toLowerCase())
+      : null;
+    if (allowedList && !allowedList.includes(normalized)) {
+      return { eligible: false, code: 'VARIANT_DISABLED_OR_UNAVAILABLE', relationship: normalized, availableRelationships: allowedList };
+    }
+    if (campaignList && !campaignList.includes(normalized)) {
+      return { eligible: false, code: 'VARIANT_NOT_ENABLED_FOR_CAMPAIGN', relationship: normalized, availableRelationships: campaignList };
+    }
+    return { eligible: true, code: 'ELIGIBLE', relationship: normalized };
+  }
+
   let _isApplyingWishMagicData = false;
+  let _isDispatchingDataUpdatedEvent = false;
+  let _applyBurstWindowStart = 0;
+  let _applyBurstCount = 0;
+  let _lastAppliedPayloadSig = '';
+  let _lastAppliedPayloadTime = 0;
+
+  function computeFastPayloadSignature(data) {
+    if (!data || typeof data !== 'object') return '';
+    try {
+      const f = data.fields || data.customData || data;
+      const keys = Object.keys(f).slice(0, 24);
+      let sig = (data.variantId || data.variant || '') + '|' + (data.relationshipSlug || data.relationship || '') + '|';
+      for (let i = 0; i < keys.length; i++) {
+        const k = keys[i];
+        const v = f[k];
+        if (typeof v === 'string' || typeof v === 'number' || typeof v === 'boolean') {
+          sig += k + ':' + String(v).slice(0, 40) + ';';
+        }
+      }
+      return sig;
+    } catch (_) {
+      return '';
+    }
+  }
+
   function applyData(data) {
-    if (_isApplyingWishMagicData || !data || typeof data !== 'object') return;
+    enforceHostControlledTemplateUi(document);
+    // HARD CIRCUIT BREAKER:
+    // 1. Block any re-entrant call or any call triggered from inside a 'wishmagic:data-updated' listener!
+    if (_isApplyingWishMagicData || _isDispatchingDataUpdatedEvent || !data || typeof data !== 'object') {
+      return;
+    }
+    // 2. Burst rate-limiter: prevent synchronous/asynchronous postMessage or MutationObserver echo loops (>8 calls in 60ms)
+    const now = Date.now();
+    if (now - _applyBurstWindowStart < 60) {
+      _applyBurstCount++;
+      if (_applyBurstCount > 8) {
+        return;
+      }
+    } else {
+      _applyBurstWindowStart = now;
+      _applyBurstCount = 1;
+    }
+    // 3. Deduplicate identical back-to-back payloads within 40ms
+    const sig = computeFastPayloadSignature(data);
+    if (sig && sig === _lastAppliedPayloadSig && (now - _lastAppliedPayloadTime) < 40) {
+      return;
+    }
+    _lastAppliedPayloadSig = sig;
+    _lastAppliedPayloadTime = now;
+
     _isApplyingWishMagicData = true;
     try {
 
@@ -1252,13 +1486,25 @@
       });
     } catch (_) {}
 
+    // 6b. Apply UTP v1.4.0 Platform Branding Footer (unhides [data-wm-platform-footer] and populates website-controlled text)
+    if (data.brandingFooter) {
+      setPlatformBrandingFooterConfig(data.brandingFooter);
+    }
+    applyBrandingFooterToDom(data.brandingFooter, data, document);
+
     // 7. Dispatch CustomEvent so template scripts (countdowns, carousels, particles) react immediately
+    // Keep _isDispatchingDataUpdatedEvent = true during dispatch so if a legacy template calls
+    // WishMagicTemplate.applyData() inside its 'wishmagic:data-updated' listener, it is safely ignored!
     try {
       global.WishMagicData = data;
+      _isDispatchingDataUpdatedEvent = true;
       const evt = new CustomEvent('wishmagic:data-updated', { detail: data });
       window.dispatchEvent(evt);
       document.dispatchEvent(evt);
-    } catch (_) {}
+    } catch (_) {
+    } finally {
+      _isDispatchingDataUpdatedEvent = false;
+    }
     } finally {
       _isApplyingWishMagicData = false;
     }
@@ -1407,6 +1653,7 @@
   global.WishMagicTemplate = {
     version: SCHEMA_VERSION,
     utpVersion: '1.4.0',
+    UTP_VERSION: '1.4.0',
     supportedVersions: ['1.0.0', '1.1.0', '1.2.0', '1.3.0', '1.4.0'],
     PROTOCOL_VERSION,
     SCHEMA_VERSION,
@@ -1420,7 +1667,12 @@
     resolveClientInternalActionUrl,
     resolveLogicalLink,
     setCentralLinkConfig,
-    getActiveCentralLinkConfig
+    getActiveCentralLinkConfig,
+    applyBrandingFooterToDom,
+    setPlatformBrandingFooterConfig,
+    getPlatformBrandingFooterConfig,
+    enforceHostControlledTemplateUi,
+    checkRelationEligibility
   };
 
   global.validateWishMagicTemplate = validate;
@@ -1434,17 +1686,25 @@
       event.data.type === 'WISHMAGIC_LIVE_UPDATE' ||
       event.data.type === 'WISHMAGIC_UPDATE'
     ) {
-      applyData(event.data.payload);
+      applyData(event.data.payload || event.data);
+    } else if (event.data.type === 'WISHMAGIC_BRANDING_FOOTER') {
+      const bf = event.data.brandingFooter || event.data.payload || event.data;
+      setPlatformBrandingFooterConfig(bf);
+      applyBrandingFooterToDom(bf, global.WishMagicData || {}, document);
     }
   });
 
   // Auto-hydrate if window.WishMagicData is preset
   if (document.readyState === 'loading') {
     document.addEventListener('DOMContentLoaded', () => {
+      enforceHostControlledTemplateUi(document);
       if (global.WishMagicData) applyData(global.WishMagicData);
+      else applyBrandingFooterToDom(global.__WM_BRANDING_FOOTER__, {}, document);
     });
   } else {
+    enforceHostControlledTemplateUi(document);
     if (global.WishMagicData) applyData(global.WishMagicData);
+    else applyBrandingFooterToDom(global.__WM_BRANDING_FOOTER__, {}, document);
   }
 
 })(typeof window !== 'undefined' ? window : this);

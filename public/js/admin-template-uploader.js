@@ -71,7 +71,24 @@ function isNonRuntimeDevOrTestPath(relPath) {
          /\.(?:test|spec)\.(?:js|mjs|cjs|ts)$/i.test(clean) ||
          /^(?:assets\/)?readme\.(?:txt|md)$/i.test(clean) ||
          /^package-lock\.json$/i.test(clean) ||
-         /^preview\.html$/i.test(clean);
+         /^preview\.html$/i.test(clean) ||
+         /(?:^|\/)wishmagic-template-protocol\.js$/i.test(clean);
+}
+
+function getOrEncodeEntryDataUrl(entryObj, fallbackMime = 'image/jpeg') {
+  if (!entryObj) return '';
+  if (typeof entryObj === 'string') return entryObj;
+  if (typeof entryObj.content === 'string' && entryObj.content.startsWith('data:')) {
+    return entryObj.content;
+  }
+  if (entryObj.bytes instanceof Uint8Array) {
+    const mime = entryObj.mimeType || fallbackMime;
+    const b64 = encodeUint8ArrayToBase64(entryObj.bytes);
+    const dataUrl = 'data:' + mime + ';base64,' + b64;
+    entryObj.content = dataUrl;
+    return dataUrl;
+  }
+  return entryObj.content || '';
 }
 
 // Initialize on page load
@@ -301,8 +318,8 @@ async function handleZipFile(zipFile) {
     revokeActiveAssetObjectUrls();
     await new Promise(resolve => setTimeout(resolve, 15));
     const zipArrayBuffer = await zipFile.arrayBuffer();
-    // Only pre-encode raw ZIP to base64 if small (< 1.5 MB); larger ZIPs use compact binary/Blob streaming
-    if (zipArrayBuffer.byteLength <= 1500 * 1024) {
+    // Only pre-encode raw ZIP to base64 on drop if tiny (<= 250 KB); larger ZIPs encode lazily on publish so UI thread never freezes!
+    if (zipArrayBuffer.byteLength <= 250 * 1024) {
       currentZipBase64 = encodeUint8ArrayToBase64(new Uint8Array(zipArrayBuffer));
     } else {
       currentZipBase64 = null;
@@ -375,11 +392,11 @@ async function handleZipFile(zipFile) {
             originalName: baseFileName
           };
         } else {
-          const base64 = encodeUint8ArrayToBase64(bytes);
-          const dataUrl = 'data:' + mime + ';base64,' + base64;
+          // Use fast O(1) Blob URL on initial drop instead of synchronously Base64-encoding 19 images on the UI thread!
+          const lazyDataUrl = (!blobUrl) ? ('data:' + mime + ';base64,' + encodeUint8ArrayToBase64(bytes)) : '';
           currentUploadedFiles[relPath] = {
-            content: dataUrl,
-            blobUrl: blobUrl || dataUrl,
+            content: lazyDataUrl || blobUrl,
+            blobUrl: blobUrl || lazyDataUrl,
             bytes,
             blob: blobObj,
             isBase64: true,
@@ -388,7 +405,7 @@ async function handleZipFile(zipFile) {
             originalName: baseFileName
           };
           if (!firstFoundImage && isImageFile(relPath)) {
-            firstFoundImage = blobUrl || dataUrl;
+            firstFoundImage = blobUrl || lazyDataUrl;
             firstFoundImageName = baseFileName;
             firstFoundImageRelPath = relPath;
           }
@@ -1615,7 +1632,8 @@ function buildClientStagedPreviewHtml(relationshipSlug = null) {
     visibility: visibilityMap,
     disabledSectionIds,
     actionsMap,
-    actions: actionsMap
+    actions: actionsMap,
+    brandingFooter: getActiveUploadBrandingFooterConfig()
   };
 
   const clientBootstrapScript = `<script>
@@ -1680,6 +1698,44 @@ function buildClientStagedPreviewHtml(relationshipSlug = null) {
           }
         });
       });
+      // UTP v1.4.0: Remove any in-template customizer drawer or in-template variant bar
+      try {
+        document.querySelectorAll('#wmCustomizerBackdrop, #wmCustomizerPanel, #wmOpenCustomizerBtn, .wm-customizer-drawer-backdrop, .wm-customizer-panel, .wm-relation-bar, #wmEligibilityModalBackdrop, #btn-theme-cycle').forEach(function(el) { el.remove(); });
+      } catch (_) {}
+
+      // UTP v1.4.0: Activate & hydrate Platform Branding Footer ([data-wm-platform-footer])
+      try {
+        var bf = p.brandingFooter || window.__WM_BRANDING_FOOTER__;
+        if (bf) {
+          window.__WM_BRANDING_FOOTER__ = bf;
+          var footerEl = document.querySelector('[data-wm-platform-footer], #wm-platform-footer');
+          if (footerEl) {
+            if (bf.enabled === false) {
+              footerEl.setAttribute('hidden', 'hidden');
+              footerEl.style.display = 'none';
+            } else {
+              footerEl.removeAttribute('hidden');
+              footerEl.style.display = '';
+              var setB = function(sel, val) {
+                var n = footerEl.querySelector(sel);
+                if (n && val !== undefined && val !== null) { n.textContent = String(val); n.style.display = ''; }
+              };
+              setB('[data-wm-brand-badge]', bf.badgeText);
+              setB('[data-wm-brand-icon], [data-wm-brand-logo]', bf.brandIcon);
+              setB('[data-wm-brand-name]', bf.websiteName);
+              setB('[data-wm-brand-tagline]', bf.tagline);
+              setB('[data-wm-brand-details], [data-wm-brand-note]', bf.detailsText);
+              setB('[data-wm-brand-primary-btn], [data-wm-brand-cta]', bf.primaryBtnLabel);
+              setB('[data-wm-brand-secondary-btn], [data-wm-brand-secondary-cta]', bf.secondaryBtnLabel);
+              setB('[data-wm-brand-copyright]', bf.copyrightText);
+            }
+          }
+          if (window.WishMagicRuntime && typeof window.WishMagicRuntime.applyBrandingFooter === 'function') {
+            window.WishMagicRuntime.applyBrandingFooter(bf);
+          }
+        }
+      } catch (_) {}
+
       if (window.WishMagicRuntime && typeof window.WishMagicRuntime.applyThemeVariant === 'function' && p.variantId) {
         try { window.WishMagicRuntime.applyThemeVariant(p.variantId); } catch (_) {}
       }
@@ -1917,7 +1973,7 @@ async function preUploadTemplateMediaToB2(filesMap, setStatusFn) {
     await Promise.all(batchPaths.map(async (relPath) => {
       if (skipClientB2) return;
       const fileEntry = filesMap[relPath];
-      const dataUrl = typeof fileEntry === "string" ? fileEntry : (fileEntry && fileEntry.content);
+      const dataUrl = getOrEncodeEntryDataUrl(fileEntry, getMimeType(relPath));
       if (!dataUrl) return;
       const exactFileName = relPath.split("/").pop();
       const mimeType = getMimeType(relPath);
@@ -2094,7 +2150,12 @@ async function deployUploadedTemplate(publishImmediately = true) {
 
     // Stage 1: Pre-upload template images to /api/imgbb/upload in small batches of 2
     // so each image gets its own fast Worker request and never hits Cloudflare subrequest/CPU limits!
-    const imageRelPaths = Object.keys(currentUploadedFiles).filter(p => isImageFile(p) && !p.toLowerCase().endsWith(".svg"));
+    const allImageRelPaths = Object.keys(currentUploadedFiles).filter(p => isImageFile(p) && !p.toLowerCase().endsWith(".svg"));
+    const imageRelPaths = allImageRelPaths.slice().sort((a, b) => {
+      const aPri = /(?:cover|thumb|backdrop|memory-[1234]|photo[_-]?[1234])/i.test(a) ? 0 : 1;
+      const bPri = /(?:cover|thumb|backdrop|memory-[1234]|photo[_-]?[1234])/i.test(b) ? 0 : 1;
+      return aPri - bPri;
+    }).slice(0, 6);
     if (imageRelPaths.length > 0) {
       let completedPhotos = 0;
       let skipClientImgbb = false;
@@ -2109,7 +2170,7 @@ async function deployUploadedTemplate(publishImmediately = true) {
         await Promise.all(batchPaths.map(async (relPath) => {
           if (skipClientImgbb) return;
           const fileEntry = currentUploadedFiles[relPath];
-          const dataUrl = typeof fileEntry === "string" ? fileEntry : (fileEntry && fileEntry.content);
+          const dataUrl = getOrEncodeEntryDataUrl(fileEntry, getMimeType(relPath));
           if (!dataUrl) return;
           const exactFileName = relPath.split("/").pop();
           const controller = typeof AbortController !== "undefined" ? new AbortController() : null;
@@ -7415,7 +7476,11 @@ window.executeImportStudioConfirmedPublish = async function() {
         return false; // Skip unchanged photos in Delta Mode — reused from current version!
       }
       return true;
-    });
+    }).sort((a, b) => {
+      const aPri = /(?:cover|thumb|backdrop|memory-[1234]|photo[_-]?[1234])/i.test(a) ? 0 : 1;
+      const bPri = /(?:cover|thumb|backdrop|memory-[1234]|photo[_-]?[1234])/i.test(b) ? 0 : 1;
+      return aPri - bPri;
+    }).slice(0, 6);
     if (imageRelPaths.length > 0) {
       let completedPhotos = 0;
       let skipClientImgbb = false;
@@ -7430,7 +7495,7 @@ window.executeImportStudioConfirmedPublish = async function() {
         await Promise.all(batchPaths.map(async (relPath) => {
           if (skipClientImgbb) return;
           const fileEntry = currentUploadedFiles[relPath];
-          const dataUrl = typeof fileEntry === "string" ? fileEntry : (fileEntry && fileEntry.content);
+          const dataUrl = getOrEncodeEntryDataUrl(fileEntry, getMimeType(relPath));
           if (!dataUrl) return;
           const exactFileName = relPath.split("/").pop();
           const controller = typeof AbortController !== "undefined" ? new AbortController() : null;
@@ -7504,6 +7569,11 @@ window.executeImportStudioConfirmedPublish = async function() {
     }
     if (!resolvedZipBase64 && currentZipBase64) {
       resolvedZipBase64 = currentZipBase64;
+    }
+    if (!resolvedZipBase64 && typeof JSZip !== "undefined" && Object.keys(currentUploadedFiles || {}).length > 0) {
+      try {
+        resolvedZipBase64 = await buildCompactTemplateZipBase64(currentUploadedFiles, preUploadedImgbbMap, preUploadedB2Map);
+      } catch (_) {}
     }
 
     const res = await fetch("/api/templates/import-studio/" + encodeURIComponent(importStudioState.sessionId) + "/publish", {
@@ -7616,3 +7686,126 @@ window.toggleDetectedFieldsList = function() {
     btn.textContent = isNowHidden ? "Show Fields ▾" : "Hide Fields ▴";
   }
 };
+
+
+// ============================================================================
+// UTP v1.4.0 WEBSITE BRANDING & TEMPLATE FOOTER STUDIO
+// ============================================================================
+window.activeBrandingFooterConfig = {
+  enabled: true,
+  websiteName: "WishMagic",
+  brandIcon: "✨",
+  badgeText: "✨ Official WishMagic Celebration Experience",
+  tagline: "Crafted with Love on WishMagic — Interactive 3D Celebration Studio",
+  detailsText: "Create personalized 3D wishes, polaroid memories & festival greetings for your loved ones in 60 seconds.",
+  primaryBtnLabel: "Create Your Own Wish ✨",
+  primaryBtnLink: "template.customize",
+  secondaryBtnLabel: "Explore All Templates ➔",
+  secondaryBtnLink: "global.explore",
+  copyrightText: "© 2026 WishMagic • All Rights Reserved",
+  showPrimaryBtn: true,
+  showSecondaryBtn: true
+};
+
+function getActiveUploadBrandingFooterConfig() {
+  const enEl = document.getElementById("upload-bf-enabled");
+  const nameEl = document.getElementById("upload-bf-website-name");
+  const tagEl = document.getElementById("upload-bf-tagline");
+  const detEl = document.getElementById("upload-bf-details");
+  return {
+    ...window.activeBrandingFooterConfig,
+    enabled: enEl ? Boolean(enEl.checked) : Boolean(window.activeBrandingFooterConfig.enabled),
+    websiteName: nameEl && nameEl.value.trim() ? nameEl.value.trim() : window.activeBrandingFooterConfig.websiteName,
+    tagline: tagEl && tagEl.value.trim() ? tagEl.value.trim() : window.activeBrandingFooterConfig.tagline,
+    detailsText: detEl && detEl.value.trim() ? detEl.value.trim() : window.activeBrandingFooterConfig.detailsText
+  };
+}
+
+window.toggleWebsiteBrandingFooterStudio = function() {
+  const sec = document.getElementById("website-branding-footer-studio-section");
+  if (!sec) return;
+  const isNowHidden = sec.classList.toggle("hidden");
+  if (!isNowHidden) {
+    loadAdminBrandingFooterStudio();
+    sec.scrollIntoView({ behavior: "smooth", block: "start" });
+  }
+};
+
+async function loadAdminBrandingFooterStudio() {
+  try {
+    const res = await fetch("/api/admin/branding-footer", { credentials: "include" });
+    const json = await res.json().catch(() => ({}));
+    const bf = json?.data?.brandingFooter || json?.brandingFooter;
+    if (bf && typeof bf === "object") {
+      window.activeBrandingFooterConfig = { ...window.activeBrandingFooterConfig, ...bf };
+    }
+  } catch (_) {}
+  const cfg = window.activeBrandingFooterConfig;
+  const setVal = (id, v) => { const el = document.getElementById(id); if (el && v !== undefined) el.value = v; };
+  const setChk = (id, v) => { const el = document.getElementById(id); if (el) el.checked = Boolean(v); };
+  setChk("global-bf-enabled", cfg.enabled !== false);
+  setVal("global-bf-website-name", cfg.websiteName);
+  setVal("global-bf-icon", cfg.brandIcon);
+  setVal("global-bf-badge", cfg.badgeText);
+  setVal("global-bf-tagline", cfg.tagline);
+  setVal("global-bf-details", cfg.detailsText);
+  setVal("global-bf-primary-btn", cfg.primaryBtnLabel);
+  setVal("global-bf-secondary-btn", cfg.secondaryBtnLabel);
+  setVal("global-bf-copyright", cfg.copyrightText);
+  setChk("global-bf-show-primary", cfg.showPrimaryBtn !== false);
+  setChk("global-bf-show-secondary", cfg.showSecondaryBtn !== false);
+
+  setChk("upload-bf-enabled", cfg.enabled !== false);
+  setVal("upload-bf-website-name", cfg.websiteName);
+  setVal("upload-bf-tagline", cfg.tagline);
+  setVal("upload-bf-details", cfg.detailsText);
+}
+
+window.saveGlobalBrandingFooterStudio = async function() {
+  const getVal = (id, def) => { const el = document.getElementById(id); return el ? el.value.trim() : def; };
+  const getChk = (id, def) => { const el = document.getElementById(id); return el ? Boolean(el.checked) : def; };
+  const payload = {
+    enabled: getChk("global-bf-enabled", true),
+    websiteName: getVal("global-bf-website-name", "WishMagic"),
+    brandIcon: getVal("global-bf-icon", "✨"),
+    badgeText: getVal("global-bf-badge", "✨ Official WishMagic Celebration Experience"),
+    tagline: getVal("global-bf-tagline", "Crafted with Love on WishMagic — Interactive 3D Celebration Studio"),
+    detailsText: getVal("global-bf-details", "Create personalized 3D wishes, polaroid memories & festival greetings for your loved ones in 60 seconds."),
+    primaryBtnLabel: getVal("global-bf-primary-btn", "Create Your Own Wish ✨"),
+    secondaryBtnLabel: getVal("global-bf-secondary-btn", "Explore All Templates ➔"),
+    copyrightText: getVal("global-bf-copyright", "© 2026 WishMagic • All Rights Reserved"),
+    showPrimaryBtn: getChk("global-bf-show-primary", true),
+    showSecondaryBtn: getChk("global-bf-show-secondary", true)
+  };
+  window.activeBrandingFooterConfig = { ...window.activeBrandingFooterConfig, ...payload };
+  try {
+    await fetch("/api/admin/branding-footer", {
+      method: "PUT",
+      headers: { "Content-Type": "application/json" },
+      credentials: "include",
+      body: JSON.stringify({ brandingFooter: payload })
+    });
+  } catch (_) {}
+  await loadAdminBrandingFooterStudio();
+  window.syncUploadBrandingFooterToPreview();
+  if (typeof showToast === "function") {
+    showToast("🏷️ Saved Website Branding Footer text & synced to templates!");
+  }
+};
+
+window.syncUploadBrandingFooterToPreview = function() {
+  const bf = getActiveUploadBrandingFooterConfig();
+  _stagedPreviewHtmlCache = { key: null, html: null };
+  ["upload-preview-iframe", "sbs-staged-preview-iframe"].forEach(id => {
+    const ifr = document.getElementById(id);
+    if (ifr && ifr.contentWindow) {
+      try {
+        ifr.contentWindow.postMessage({ type: "WISHMAGIC_BRANDING_FOOTER", brandingFooter: bf }, "*");
+      } catch (_) {}
+    }
+  });
+};
+
+document.addEventListener("DOMContentLoaded", () => {
+  loadAdminBrandingFooterStudio();
+});

@@ -424,6 +424,10 @@ export const UTP_CANONICAL_RELATIONSHIPS = new Set([
   'in_laws',
   'family',
   'kids',
+  'relatives',
+  'teachers',
+  'elders',
+  'colleagues',
   'universal',
   'custom',
   'any'
@@ -461,7 +465,27 @@ export const UTP_RELATIONSHIP_CATALOG = Object.freeze({
   boy_best_friend: { id: 'rel_boy_best_friend', slug: 'boy_best_friend', label: 'Boy Best Friend', displayName: 'Boy Best Friend', icon: '⚡', category: 'friendship', sortOrder: 24 },
   girl_best_friend: { id: 'rel_girl_best_friend', slug: 'girl_best_friend', label: 'Girl Best Friend', displayName: 'Girl Best Friend', icon: '🌸', category: 'friendship', sortOrder: 25 },
   cousin: { id: 'rel_cousin', slug: 'cousin', label: 'Cousin', displayName: 'Beloved Cousin', icon: '🎉', category: 'family', sortOrder: 26 },
-  universal: { id: 'rel_universal', slug: 'universal', label: 'Everyone', displayName: 'Universal Edition', icon: '✨', category: 'celebration', sortOrder: 27 }
+  universal: { id: 'rel_universal', slug: 'universal', label: 'Everyone', displayName: 'Universal Edition', icon: '✨', category: 'celebration', sortOrder: 27 },
+  relatives: { id: 'rel_relatives', slug: 'relatives', label: 'Relatives', displayName: 'Extended Family & Relatives', icon: '🪷', category: 'family', sortOrder: 28 },
+  teachers: { id: 'rel_teachers', slug: 'teachers', label: 'Teachers', displayName: 'Respected Teachers & Mentors', icon: '📖', category: 'professional', sortOrder: 29 },
+  elders: { id: 'rel_elders', slug: 'elders', label: 'Elders', displayName: 'Respected Elders', icon: '🙏', category: 'family', sortOrder: 30 },
+  colleagues: { id: 'rel_colleagues', slug: 'colleagues', label: 'Colleagues', displayName: 'Team & Colleagues', icon: '🏛️', category: 'professional', sortOrder: 31 }
+});
+
+export const DEFAULT_PLATFORM_BRANDING_FOOTER = Object.freeze({
+  enabled: true,
+  websiteName: 'WishMagic',
+  brandIcon: '✨',
+  badgeText: '✨ Official WishMagic Celebration Experience',
+  tagline: 'Crafted with Love on WishMagic — Interactive 3D Celebration Studio',
+  detailsText: 'Create personalized 3D wishes, polaroid memories & festival greetings for your loved ones in 60 seconds.',
+  primaryBtnLabel: 'Create Your Own Wish ✨',
+  primaryBtnLink: 'template.customize',
+  secondaryBtnLabel: 'Explore All Templates ➔',
+  secondaryBtnLink: 'global.explore',
+  copyrightText: '© 2026 WishMagic • All Rights Reserved',
+  showPrimaryBtn: true,
+  showSecondaryBtn: true
 });
 
 /**
@@ -708,6 +732,12 @@ export const UTP_CAPABILITY_REGISTRY = Object.freeze({
     key: 'festivalMetadata',
     label: 'Festival Campaign Compatibility Metadata (UTP v1.4.0)',
     customizerGroup: 'personal',
+    requiresFieldTypes: []
+  },
+  brandingFooter: {
+    key: 'brandingFooter',
+    label: 'Platform Branding Footer Bar (UTP v1.4.0)',
+    customizerGroup: 'sections',
     requiresFieldTypes: []
   }
 });

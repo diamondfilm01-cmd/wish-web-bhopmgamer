@@ -594,7 +594,8 @@ export async function inspectAndValidateTemplateZip(zipInput, options = {}) {
       /\.(?:test|spec)\.(?:js|mjs|cjs|ts)$/i.test(normalized) ||
       /^(?:assets\/)?readme\.(?:txt|md)$/i.test(normalized) ||
       /^package-lock\.json$/i.test(normalized) ||
-      /^preview\.html$/i.test(normalized)
+      /^preview\.html$/i.test(normalized) ||
+      /(?:^|\/)wishmagic-template-protocol\.js$/i.test(normalized)
     ) {
       continue;
     }
@@ -720,6 +721,14 @@ export async function inspectAndValidateTemplateZip(zipInput, options = {}) {
       }
     }
 
+    if (typeof decodedText === 'string' && /\.(?:js|mjs)$/i.test(normalized) && !/\.json$/i.test(normalized)) {
+      if (decodedText.includes('wishmagic:data-updated') && decodedText.includes('.applyData(') && !decodedText.includes('__wmLoopGuardInjected')) {
+        const loopGuardPrefix = "/* __wmLoopGuardInjected */ (function(){ try { if (window.WishMagicTemplate && typeof window.WishMagicTemplate.applyData === 'function' && !window.WishMagicTemplate.__wmGuarded) { var _origApply = window.WishMagicTemplate.applyData; var _inApply = false; window.WishMagicTemplate.applyData = function(p) { if (_inApply) return; _inApply = true; try { return _origApply.call(this, p); } finally { _inApply = false; } }; window.WishMagicTemplate.__wmGuarded = true; } } catch(_){} })();\n";
+        decodedText = loopGuardPrefix + decodedText;
+        entryBytes = new TextEncoder().encode(decodedText);
+        actualSize = entryBytes.byteLength;
+      }
+    }
     extractedFiles.set(normalized, {
       relativePath: normalized,
       content: entryBytes,
@@ -2848,6 +2857,51 @@ export function buildSandboxedTemplatePreviewHtml({
         }
       });
     });
+    // UTP v1.4.0: Remove any in-template customizer drawer or in-template variant bar
+    try {
+      document.querySelectorAll('#wmCustomizerBackdrop, #wmCustomizerPanel, #wmOpenCustomizerBtn, .wm-customizer-drawer-backdrop, .wm-customizer-panel, .wm-relation-bar, #wmEligibilityModalBackdrop, #btn-theme-cycle').forEach(function(el) { el.remove(); });
+    } catch (_) {}
+
+    // UTP v1.4.0: Activate & hydrate Platform Branding Footer ([data-wm-platform-footer])
+    try {
+      var bf = payload.brandingFooter || window.__WM_BRANDING_FOOTER__ || {
+        enabled: true,
+        websiteName: 'WishMagic',
+        brandIcon: '✨',
+        badgeText: '✨ Official WishMagic Celebration Experience',
+        tagline: 'Crafted with Love on WishMagic — Interactive 3D Celebration Studio',
+        detailsText: 'Create personalized 3D wishes, polaroid memories & festival greetings for your loved ones in 60 seconds.',
+        primaryBtnLabel: 'Create Your Own Wish ✨',
+        secondaryBtnLabel: 'Explore All Templates ➔',
+        copyrightText: '© 2026 WishMagic • All Rights Reserved'
+      };
+      var footerEl = document.querySelector('[data-wm-platform-footer], #wm-platform-footer');
+      if (footerEl) {
+        if (bf.enabled === false) {
+          footerEl.setAttribute('hidden', 'hidden');
+          footerEl.style.display = 'none';
+        } else {
+          footerEl.removeAttribute('hidden');
+          footerEl.style.display = '';
+          var setB = function(sel, val) {
+            var n = footerEl.querySelector(sel);
+            if (n && val) { n.textContent = String(val); n.style.display = ''; }
+          };
+          setB('[data-wm-brand-badge]', bf.badgeText);
+          setB('[data-wm-brand-icon], [data-wm-brand-logo]', bf.brandIcon);
+          setB('[data-wm-brand-name]', bf.websiteName);
+          setB('[data-wm-brand-tagline]', bf.tagline);
+          setB('[data-wm-brand-details], [data-wm-brand-note]', bf.detailsText);
+          setB('[data-wm-brand-primary-btn], [data-wm-brand-cta]', bf.primaryBtnLabel);
+          setB('[data-wm-brand-secondary-btn], [data-wm-brand-secondary-cta]', bf.secondaryBtnLabel);
+          setB('[data-wm-brand-copyright]', bf.copyrightText);
+        }
+      }
+      if (window.WishMagicRuntime && typeof window.WishMagicRuntime.applyBrandingFooter === 'function') {
+        window.WishMagicRuntime.applyBrandingFooter(bf);
+      }
+    } catch (_) {}
+
     if (window.WishMagicRuntime && typeof window.WishMagicRuntime.applyThemeVariant === 'function' && payload.variantId) {
       try { window.WishMagicRuntime.applyThemeVariant(payload.variantId); } catch (_) {}
     }
