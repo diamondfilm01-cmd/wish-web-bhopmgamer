@@ -610,7 +610,8 @@
 
       const selectors = [
         `[data-wm-action="${actId}"]`,
-        `[data-wm-button="${actId}"]`
+        `[data-wm-button="${actId}"]`,
+        `[data-wm-cta="${actId}"]`
       ];
       if (action.binding && action.binding.selector) {
         const customSel = String(action.binding.selector).trim();
@@ -625,8 +626,11 @@
       });
 
       elements.forEach(el => {
-        const actType = String(action.type || action.actionType || 'section').toLowerCase().trim();
-        const rawTarget = String(action.resolvedUrl || action.target || action.destination || '').trim();
+        let actType = String(action.type || action.actionType || 'section').toLowerCase().trim();
+        const rawTarget = String(action.resolvedUrl || action.target || action.targetSection || action.destination || '').trim();
+        if (actType === 'navigation' && rawTarget && !rawTarget.startsWith('/') && !rawTarget.startsWith('http')) {
+          actType = 'section';
+        }
         const fallback = String(action.fallbackBehavior || 'hide').toLowerCase().trim();
         let isActionEnabled = action.enabled !== false && action.effectiveEnabled !== false;
 
@@ -1082,6 +1086,8 @@
       try {
         if ((key === 'theme_variant' || bindingTarget === 'theme') && typeof global.WishMagicRuntime.applyThemeVariant === 'function' && value) {
           global.WishMagicRuntime.applyThemeVariant(String(value));
+        } else if ((key === 'music_enabled' || bindingTarget === 'boolean') && typeof global.WishMagicRuntime.setMusicEnabled === 'function' && value !== undefined && value !== null) {
+          global.WishMagicRuntime.setMusicEnabled(value, false);
         } else if (typeof global.WishMagicRuntime.applyFieldUpdate === 'function' && value !== undefined && value !== null && value !== '') {
           global.WishMagicRuntime.applyFieldUpdate(key, value);
         }
@@ -1324,8 +1330,8 @@
     });
 
     const actions = [];
-    document.querySelectorAll('[data-wm-action], [data-wm-button]').forEach(el => {
-      const actionId = el.getAttribute('data-wm-action') || el.getAttribute('data-wm-button');
+    document.querySelectorAll('[data-wm-action], [data-wm-button], [data-wm-cta]').forEach(el => {
+      const actionId = el.getAttribute('data-wm-action') || el.getAttribute('data-wm-button') || el.getAttribute('data-wm-cta');
       if (!actionId) return;
       actions.push({
         id: actionId,

@@ -409,6 +409,16 @@ async function handleZipFile(zipFile) {
       }
     }
 
+    // Strip redundant multi-hundred-KB inline base64 image maps inside large .js files when bundled images exist in the ZIP
+    Object.keys(currentUploadedFiles).forEach((pKey) => {
+      const entryObj = currentUploadedFiles[pKey];
+      if (entryObj && !entryObj.isBase64 && pKey.toLowerCase().endsWith(".js") && typeof entryObj.content === "string" && entryObj.content.length > 100000 && entryObj.content.includes("data:image/")) {
+        const slimmed = entryObj.content.replace(/"data:image\/[a-zA-Z0-9.+_-]+;base64,[A-Za-z0-9+/=]{2048,}"/g, '""');
+        entryObj.content = slimmed;
+        entryObj.sizeBytes = slimmed.length;
+      }
+    });
+
     finishProcessingFiles(foundIndex, htmlContent, firstFoundImage, zipHintName, firstFoundImageName);
   } catch (err) {
     alert('Failed to read ZIP file: ' + err.message);
@@ -513,7 +523,14 @@ function checkClientFieldBinding(field, htmlContent, cssContent) {
   if (new RegExp("data-wm(?:-field|-media)?\\s*=\\s*[\"']" + esc + "[\"']", "i").test(htmlContent)) return true;
   if (new RegExp("\\{\\{\\s*" + esc + "\\s*\\}\\}", "i").test(htmlContent)) return true;
   if (new RegExp("\\bid\\s*=\\s*[\"']" + esc + "[\"']", "i").test(htmlContent)) return true;
-  if (fType === "image-multiple" && (/data-wm(?:-field)?\s*=\s*["']photo_\d+["']/i.test(htmlContent) || /data-wm-section\s*=\s*["']gallery["']/i.test(htmlContent))) return true;
+  if ((fType === "image-multiple" || fType === "repeater" || fType === "media_list") && (/data-wm(?:-field)?\s*=\s*["']photo_\d+["']/i.test(htmlContent) || /data-wm-section\s*=\s*["']gallery["']/i.test(htmlContent))) return true;
+  if (new RegExp('data-wm-alias\\s*=\\s*["\'][^"\']*\\b' + esc + '\\b[^"\']*["\']', "i").test(htmlContent)) return true;
+  const rtCtrl = String((field.binding && field.binding.runtimeControl) || "").trim().replace(/^#/, "");
+  if (rtCtrl && new RegExp('\\bid\\s*=\\s*["\']' + rtCtrl.replace(/[.*+?^${}()|[\]\\]/g, "\\$&") + '["\']', "i").test(htmlContent)) return true;
+  if (Array.isArray(field.subfields) && field.subfields.length > 0) {
+    const sub0 = String(field.subfields[0] || "").trim().replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+    if (sub0 && new RegExp('data-wm(?:-field)?\\s*=\\s*["\']' + sub0 + '["\']', "i").test(htmlContent)) return true;
+  }
   if (bSel) {
     const attrM = bSel.match(/\[\s*([a-zA-Z0-9_-]+)\s*=\s*["']?([^"'\]]+)["']?\s*\]/);
     if (attrM && new RegExp(attrM[1] + "\\s*=\\s*[\"']" + attrM[2].replace(/[.*+?^${}()|[\]\\]/g, "\\$&") + "[\"']", "i").test(htmlContent)) {
@@ -1604,6 +1621,7 @@ function buildClientStagedPreviewHtml(relationshipSlug = null) {
   const clientBootstrapScript = `<script>
 (function() {
   var _wmHydrating = false;
+  window.__WM_ASSET_MAP__ = ${JSON.stringify(mediaLookup)};
   var wmPayload = ${JSON.stringify(bootstrapPayload)};
   wmPayload.fields = wmPayload.fieldValues;
   try {
@@ -1669,7 +1687,7 @@ function buildClientStagedPreviewHtml(relationshipSlug = null) {
       var acts = p.actionsMap || p.actions || {};
       Object.keys(acts).forEach(function(actId) {
         var act = acts[actId];
-        document.querySelectorAll('[data-wm-action="' + actId + '"]').forEach(function(btn) {
+        document.querySelectorAll('[data-wm-action="' + actId + '"], [data-wm-cta="' + actId + '"]').forEach(function(btn) {
           if (!act || act.effectiveEnabled === false || act.enabled === false) {
             if (!act || act.fallbackBehavior !== 'disable') btn.remove();
             else { btn.setAttribute('disabled', 'disabled'); btn.style.opacity = '0.5'; btn.style.pointerEvents = 'none'; }
@@ -2009,7 +2027,11 @@ async function buildCompactTemplateZipBase64(filesMap, preUploadedImgbbMap, preU
       zip.file(relPath, String(rawContent || ""));
     }
   }
-  const zipBytes = await zip.generateAsync({ type: "uint8array", compression: "DEFLATE", compressionOptions: { level: 5 } });
+  const zipBytes = await zip.generateAsync(
+    forInspection
+      ? { type: "uint8array", compression: "STORE" }
+      : { type: "uint8array", compression: "DEFLATE", compressionOptions: { level: 3 } }
+  );
   if (options && options.returnUint8Array) return zipBytes;
   return encodeUint8ArrayToBase64(zipBytes);
 }
@@ -2076,7 +2098,7 @@ async function deployUploadedTemplate(publishImmediately = true) {
     if (imageRelPaths.length > 0) {
       let completedPhotos = 0;
       let skipClientImgbb = false;
-      const CLIENT_BATCH_SIZE = 2;
+      const CLIENT_BATCH_SIZE = 6;
 
       let consecutiveBatchFailures = 0;
       for (let i = 0; i < imageRelPaths.length && !skipClientImgbb; i += CLIENT_BATCH_SIZE) {
@@ -5086,10 +5108,13 @@ function normalizeClientActionNode(a, idx = 0) {
   if (!a || typeof a !== "object") return null;
   const id = String(a.id || a.key || a.actionId || "").trim();
   if (!id) return null;
-  const type = String(a.type || a.actionType || "section").toLowerCase().trim();
+  let type = String(a.type || a.actionType || "section").toLowerCase().trim();
   const label = String(a.label !== undefined ? a.label : (a.defaultLabel !== undefined ? a.defaultLabel : id.replace(/_/g, " ").replace(/\b\w/g, c => c.toUpperCase()))).trim();
   const logicalLink = String(a.logicalLink || a.logical_link || "").trim();
-  const target = String(a.target !== undefined ? a.target : (a.destination !== undefined ? a.destination : (a.url !== undefined ? a.url : (a.defaultTarget || logicalLink || "")))).trim();
+  const target = String(a.target !== undefined ? a.target : (a.targetSection !== undefined ? a.targetSection : (a.destination !== undefined ? a.destination : (a.url !== undefined ? a.url : (a.defaultTarget || logicalLink || ""))))).trim();
+  if (type === "navigation" && target && !target.startsWith("/") && !target.startsWith("http")) {
+    type = "section";
+  }
   return {
     id,
     label,
@@ -5117,9 +5142,13 @@ function discoverUploadUtpV12SectionsAndActions(html) {
   const rawSections = Array.isArray(manifest.sections)
     ? manifest.sections
     : (manifest.template && Array.isArray(manifest.template.sections) ? manifest.template.sections : []);
-  const rawActions = Array.isArray(manifest.actions)
+  const baseManifestActions = Array.isArray(manifest.actions)
     ? manifest.actions
     : (manifest.template && Array.isArray(manifest.template.actions) ? manifest.template.actions : []);
+  const navManifestActions = Array.isArray(manifest.navigationActions)
+    ? manifest.navigationActions
+    : (manifest.template && Array.isArray(manifest.template.navigationActions) ? manifest.template.navigationActions : []);
+  const rawActions = [...baseManifestActions, ...navManifestActions];
 
   const normSections = rawSections.map((s, idx) => normalizeClientSectionNode(s, idx, 1, null)).filter(Boolean);
   const seenSecIds = new Set();
@@ -6214,7 +6243,7 @@ async function runSmartTemplateRecognitionStudio(packageHintName = "") {
     if (currentZipRawFile && typeof FormData !== "undefined") {
       // For multi-megabyte media ZIPs (>1.5MB), send a compact ~45KB inspection ZIP so mobile inspection completes in <1s
       let fileToUpload = currentZipRawFile;
-      if (approxBytes > 1500 * 1024 && Object.keys(currentUploadedFiles).length > 0 && typeof JSZip !== "undefined" && typeof Blob !== "undefined") {
+      if (approxBytes > 150 * 1024 && Object.keys(currentUploadedFiles).length > 0 && typeof JSZip !== "undefined" && typeof Blob !== "undefined") {
         try {
           const compactBytes = await buildCompactTemplateZipBase64(currentUploadedFiles, null, null, {
             forInspection: true,
@@ -6527,7 +6556,7 @@ function runStaggeredSideBySideLoad(existingUrl, stagedUrl, stagedRel) {
       const html = buildClientStagedPreviewHtml(stagedRel || "default");
       mountHtmlIntoPreviewIframe(stIframe, html, {
         loaderId: "sbs-staged-loader",
-        allowBlobUrl: false,
+        allowBlobUrl: true,
         onLoaded: () => {
           // Trigger Left Panel 80ms after Right Panel finishes initial load
           setTimeout(startLeftExistingPreview, 80);
@@ -6816,7 +6845,7 @@ function renderSmartImportStudioWorkspace() {
                     '<span class="material-symbols-outlined text-indigo-400 text-[24px] animate-spin mb-1.5">sync</span>' +
                     '<span class="text-[11px] font-bold text-indigo-200">Loading Published Version...</span>' +
                   '</div>' +
-                  '<iframe id="sbs-existing-preview-iframe" data-deferred-src="' + escapeHtmlSafe(existingIframeUrl) + '" class="' + vpHeightClass + ' bg-black" sandbox="allow-scripts" referrerpolicy="no-referrer" title="Existing Published Template Preview"></iframe>' +
+                  '<iframe id="sbs-existing-preview-iframe" data-deferred-src="' + escapeHtmlSafe(existingIframeUrl) + '" class="' + vpHeightClass + ' bg-black" sandbox="allow-scripts allow-same-origin" referrerpolicy="no-referrer" title="Existing Published Template Preview"></iframe>' +
                 '</div>'
               : '<div class="h-[360px] flex flex-col items-center justify-center text-center p-6 text-outline text-xs">' +
                   '<span class="material-symbols-outlined text-[32px] mb-2 opacity-50">web_asset_off</span>' +
@@ -6854,7 +6883,7 @@ function renderSmartImportStudioWorkspace() {
                     '<span class="material-symbols-outlined text-pink-400 text-[24px] animate-spin mb-1.5">sync</span>' +
                     '<span class="text-[11px] font-bold text-pink-200">Rendering Uploaded ZIP...</span>' +
                   '</div>' +
-                  '<iframe id="sbs-staged-preview-iframe" class="' + vpHeightClass + ' bg-black" sandbox="allow-scripts" referrerpolicy="no-referrer" title="Staged Uploaded Package Preview"></iframe>' +
+                  '<iframe id="sbs-staged-preview-iframe" class="' + vpHeightClass + ' bg-black" sandbox="allow-scripts allow-same-origin" referrerpolicy="no-referrer" title="Staged Uploaded Package Preview"></iframe>' +
                 '</div>'
               : '<div class="h-[360px] flex flex-col items-center justify-center text-center p-6 text-rose-300 text-xs">' +
                   '<span class="material-symbols-outlined text-[32px] mb-2">error</span>' +
@@ -7143,15 +7172,17 @@ function renderSmartImportStudioWorkspace() {
     '<!-- Primary Action & 2-Option Update Selector right at the top for zero scrolling! -->' +
     decisionBarHtml +
     candidatesHtml +
-    '<div id="import-studio-pane-preview" class="' + ((activeStudioTab === "quick" || activeStudioTab === "preview" || activeStudioTab === "all") ? "block" : "hidden") + '">' +
+    '<div id="import-studio-pane-preview" class="' + ((activeStudioTab === "preview" || activeStudioTab === "all") ? "block" : "hidden") + '">' +
       sideBySidePreviewHtml +
     '</div>' +
     '<div id="import-studio-pane-diff" class="' + ((activeStudioTab === "diff" || activeStudioTab === "all") ? "block" : "hidden") + '">' +
       comparisonPanelHtml +
     '</div>';
 
-  // Staggered Sequential Loading: Render Right (Uploaded ZIP) first, then Left (Existing Published) 80-180ms later
-  runStaggeredSideBySideLoad(existingIframeUrl, stagedIframeUrl, stagedRel || "default");
+  // Only mount the dual Side-by-Side iframes when the Side-by-Side Preview tab is active so 3 heavy 3D iframes never run simultaneously on initial ZIP drop
+  if (activeStudioTab === "preview" || activeStudioTab === "all") {
+    runStaggeredSideBySideLoad(existingIframeUrl, stagedIframeUrl, stagedRel || "default");
+  }
 }
 
 window.promptImportStudioDecision = async function(decisionMode, explicitUpdatePackageMode = null) {
@@ -7388,7 +7419,7 @@ window.executeImportStudioConfirmedPublish = async function() {
     if (imageRelPaths.length > 0) {
       let completedPhotos = 0;
       let skipClientImgbb = false;
-      const CLIENT_BATCH_SIZE = 2;
+      const CLIENT_BATCH_SIZE = 6;
       let consecutiveBatchFailures = 0;
 
       for (let i = 0; i < imageRelPaths.length && !skipClientImgbb; i += CLIENT_BATCH_SIZE) {

@@ -1857,6 +1857,17 @@ export async function executeB2TemplateIngestPipeline(params) {
         subsectionId: mf.subsectionId || mf.subsection || htmlDetected?.subsectionId || null,
         binding: mf.binding || { target: "text", selector: "[data-wm-field='" + fKey + "']" },
         options: mf.options || null,
+        aliases: Array.isArray(mf.aliases) ? mf.aliases : undefined,
+        subfields: Array.isArray(mf.subfields) ? mf.subfields : undefined,
+        linkedBookSlots: Array.isArray(mf.linkedBookSlots) ? mf.linkedBookSlots : undefined,
+        itemSchema: mf.itemSchema || undefined,
+        minItems: mf.minItems,
+        maxItems: mf.maxItems,
+        allowReorder: mf.allowReorder,
+        allowRemoveRestore: mf.allowRemoveRestore,
+        valueType: mf.valueType || undefined,
+        collectionType: mf.collectionType || undefined,
+        inputType: mf.inputType || undefined,
         visibleIf: mf.visibleIf || null,
         clearOnHide: Boolean(mf.clearOnHide),
         autoDetected: false,
@@ -1877,13 +1888,16 @@ export async function executeB2TemplateIngestPipeline(params) {
       const fKey = df && (df.key || df.id);
       if (!fKey) continue;
       const existing = finalFieldsMap.get(fKey);
+      const mergedDefVal = df.defaultValue !== undefined ? df.defaultValue : (existing?.defaultValue ?? '');
       finalFieldsMap.set(fKey, {
+        ...(existing || {}),
+        id: fKey,
         key: fKey,
         label: df.label || existing?.label || fKey.replace(/_/g, ' ').replace(/\b\w/g, c => c.toUpperCase()),
         type: df.type || existing?.type || 'text',
         placeholder: df.placeholder || existing?.placeholder || '',
-        defaultValue: df.defaultValue !== undefined ? df.defaultValue : (existing?.defaultValue || ''),
-        originalSrc: df.originalSrc || existing?.originalSrc || df.defaultValue || '',
+        defaultValue: mergedDefVal,
+        originalSrc: df.originalSrc || existing?.originalSrc || (typeof mergedDefVal === 'string' ? mergedDefVal : ''),
         isRequired: ["recipient_name", "recipientname", "event_date", "eventdate", "dob", "birth_date", "celebration_date"].includes(String(fKey).toLowerCase())
           ? true
           : ((df.defaultValue || existing?.defaultValue) ? false : (df.isRequired !== undefined ? Boolean(df.isRequired) : Boolean(df.required ?? existing?.isRequired))),
@@ -2507,6 +2521,9 @@ export async function executeB2TemplateIngestPipeline(params) {
         if (lowerPath.endsWith('.html') || lowerPath.endsWith('.css') || lowerPath.endsWith('.js') || lowerPath.endsWith('.json')) {
           const originalText = new TextDecoder('utf-8').decode(fileRecord.content);
           let rewrittenText = replaceAssetReferencesInText(originalText);
+          if (lowerPath.endsWith('.js') && rewrittenText.length > 120000 && rewrittenText.includes('data:image/')) {
+            rewrittenText = rewrittenText.replace(/"data:image\/[a-zA-Z0-9.+_-]+;base64,[A-Za-z0-9+/=]{2048,}"/g, '""');
+          }
 
           // For entry HTML, also ensure unmarked <img>/<audio>/<video> have data-wm-field attributes & live bridge listener
           if (fileRecord.isEntryFile && lowerPath.endsWith('.html')) {
@@ -3164,7 +3181,9 @@ export async function executeB2TemplateIngestPipeline(params) {
           field.placeholder || '',
           field.helpText || '',
           field.isRequired ? 1 : 0,
-          field.defaultValue || '',
+          (field.defaultValue === undefined || field.defaultValue === null)
+            ? ''
+            : (typeof field.defaultValue === 'object' ? JSON.stringify(field.defaultValue) : String(field.defaultValue)),
           JSON.stringify(field.validation || {}),
           fieldOrder,
           field.category || 'personal',

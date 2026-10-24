@@ -41,6 +41,11 @@
     'select',
     'multiselect',
     'toggle',
+    'checkbox',
+    'boolean',
+    'repeater',
+    'media_list',
+    'theme',
     'range',
     'image',
     'image-multiple',
@@ -645,7 +650,7 @@
 
       if (Array.isArray(jsonFields)) {
         jsonFields.forEach(jf => {
-          const key = jf.key || jf.name;
+          const key = jf.id || jf.key || jf.name;
           if (!key) return;
 
           if (fieldsMap.has(key)) {
@@ -1098,13 +1103,19 @@
       const referencedPaths = new Set();
 
       if (htmlContent) {
-        const srcMatches = htmlContent.match(/(?:src|href|poster)=["']([^"']+)["']/gi) || [];
+        const srcMatches = htmlContent.match(/<(?:img|audio|video|source|link|script)\b[^>]*?\b(?:src|href|poster)=["']([^"']+)["']/gi) || [];
         srcMatches.forEach(m => {
-          const val = m.replace(/^(?:src|href|poster)=["']|["']$/gi, '').trim();
-          if (val && !val.startsWith('http://') && !val.startsWith('https://') && !val.startsWith('data:')) {
+          const attrMatch = m.match(/\b(?:src|href|poster)=["']([^"']+)["']/i);
+          const val = attrMatch ? attrMatch[1].trim() : '';
+          if (val && !val.startsWith('http://') && !val.startsWith('https://') && !val.startsWith('data:') && !val.startsWith('#') && !val.includes('wishmagic-template-protocol.js')) {
             referencedPaths.add(sanitizePath(val));
           }
         });
+      }
+      if (context.metadata && context.metadata.raw) {
+        const rawM = context.metadata.raw;
+        const thumbP = (rawM.template && (rawM.template.thumbnail || rawM.template.coverImage)) || rawM.thumbnail || rawM.coverImage || (rawM.metadata && (rawM.metadata.coverImage || rawM.metadata.thumbnail));
+        if (thumbP && typeof thumbP === 'string') referencedPaths.add(sanitizePath(thumbP));
       }
 
       if (cssContent) {
@@ -1138,7 +1149,8 @@
       });
 
       fileMap.forEach((entry, pathKey) => {
-        if (!referencedPaths.has(pathKey) && !referencedPaths.has(`./${pathKey}`) && !pathKey.endsWith('index.html') && !pathKey.endsWith('wishmagic.json')) {
+        const isDevOrCover = /^(?:engine|tests?|__tests__|spec|node_modules)\//i.test(pathKey) || /(?:^|\/)readme\.(?:txt|md)$/i.test(pathKey) || /^preview\.html$/i.test(pathKey) || /(?:^|\/)cover\.(?:jpe?g|png|webp)$/i.test(pathKey);
+        if (!isDevOrCover && !referencedPaths.has(pathKey) && !referencedPaths.has(`./${pathKey}`) && !pathKey.endsWith('index.html') && !pathKey.endsWith('wishmagic.json')) {
           warnings.push({
             code: 'UNUSED_MEDIA_ASSET',
             path: pathKey,

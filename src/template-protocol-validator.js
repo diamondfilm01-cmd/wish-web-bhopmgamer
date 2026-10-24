@@ -226,7 +226,7 @@ export function normalizeActionEntry(a, idx = 0) {
   }
   if (!a || typeof a !== 'object' || Array.isArray(a)) return null;
   const id = String(a.id || a.key || a.actionId || '').trim();
-  const type = String(a.type || a.actionType || 'section').toLowerCase().trim();
+  let type = String(a.type || a.actionType || 'section').toLowerCase().trim();
   const rawLabel = a.label !== undefined
     ? String(a.label)
     : (a.defaultLabel !== undefined ? String(a.defaultLabel) : (id ? id.replace(/_/g, ' ').replace(/\b\w/g, c => c.toUpperCase()) : ''));
@@ -235,11 +235,16 @@ export function normalizeActionEntry(a, idx = 0) {
     : (a.linkId !== undefined ? String(a.linkId || '').trim() : '');
   let rawTarget = a.target !== undefined
     ? String(a.target).trim()
-    : (a.destination !== undefined
-      ? String(a.destination).trim()
-      : (a.url !== undefined
-        ? String(a.url).trim()
-        : (a.targetId !== undefined ? String(a.targetId).trim() : (a.defaultTarget !== undefined ? String(a.defaultTarget).trim() : ''))));
+    : (a.targetSection !== undefined
+      ? String(a.targetSection).trim()
+      : (a.destination !== undefined
+        ? String(a.destination).trim()
+        : (a.url !== undefined
+          ? String(a.url).trim()
+          : (a.targetId !== undefined ? String(a.targetId).trim() : (a.defaultTarget !== undefined ? String(a.defaultTarget).trim() : '')))));
+  if (type === 'navigation' && rawTarget && !rawTarget.startsWith('/') && !rawTarget.startsWith('http') && !rawTarget.startsWith('global.') && !rawTarget.startsWith('template.')) {
+    type = 'section';
+  }
   const logicalLink = rawLogicalLink || ((rawTarget.startsWith('global.') || rawTarget.startsWith('template.')) ? rawTarget : null);
   if (!rawTarget && logicalLink && UTP_SUPPORTED_LOGICAL_LINKS[logicalLink]) {
     rawTarget = UTP_SUPPORTED_LOGICAL_LINKS[logicalLink];
@@ -499,9 +504,21 @@ export function normalizeManifestToUtp(raw = {}) {
 
   const normalizedSections = rawSections.map((s, idx) => normalizeSectionEntry(s, idx, 1, null)).filter(Boolean);
 
-  const rawActions = Array.isArray(raw.actions)
+  const baseRawActions = Array.isArray(raw.actions)
     ? raw.actions
     : (Array.isArray(tObj.actions) ? tObj.actions : (Array.isArray(raw.buttons) ? raw.buttons : []));
+  const navRawActions = Array.isArray(raw.navigationActions)
+    ? raw.navigationActions
+    : (Array.isArray(tObj.navigationActions) ? tObj.navigationActions : []);
+  const seenRawActIds = new Set();
+  const rawActions = [];
+  for (const item of [...baseRawActions, ...navRawActions]) {
+    if (!item) continue;
+    const aid = typeof item === 'string' ? item.trim() : String(item.id || item.key || item.actionId || '').trim();
+    if (aid && seenRawActIds.has(aid)) continue;
+    if (aid) seenRawActIds.add(aid);
+    rawActions.push(item);
+  }
 
   const normalizedActions = rawActions.map((a, idx) => normalizeActionEntry(a, idx)).filter(Boolean);
 
@@ -521,9 +538,34 @@ export function normalizeManifestToUtp(raw = {}) {
     entry
   };
 
-  const rawVariants = Array.isArray(raw.variants)
+  const rawVariantsBase = Array.isArray(raw.variants)
     ? raw.variants
-    : (Array.isArray(tObj.variants) ? tObj.variants : []);
+    : (Array.isArray(tObj.variants) ? tObj.variants : (Array.isArray(raw.relationshipVariants) ? raw.relationshipVariants : []));
+  const rawRelVariants = Array.isArray(raw.relationshipVariants)
+    ? raw.relationshipVariants
+    : (Array.isArray(tObj.relationshipVariants) ? tObj.relationshipVariants : []);
+  const relVarBySlug = new Map();
+  for (const rv of rawRelVariants) {
+    if (rv && typeof rv === 'object') {
+      const rk = String(rv.relationship || rv.slug || rv.id || '').toLowerCase().trim().replace(/^rel_/, '');
+      if (rk) relVarBySlug.set(rk, rv);
+    }
+  }
+  const rawVariants = rawVariantsBase.map((v) => {
+    if (!v || typeof v !== 'object') return v;
+    const rk = String(v.relationship || v.slug || v.id || '').toLowerCase().trim().replace(/^rel_/, '');
+    const rvMatch = relVarBySlug.get(rk);
+    if (rvMatch) {
+      return {
+        ...rvMatch,
+        ...v,
+        label: v.label || rvMatch.label || v.name,
+        relationshipLabel: v.relationshipLabel || rvMatch.label || v.label,
+        messages: (v.messages && Object.keys(v.messages).length > 0) ? v.messages : (rvMatch.messages || {})
+      };
+    }
+    return v;
+  });
 
   const normalizedVariants = rawVariants
     .map((v, idx) => normalizeVariantDeclaration(v, templateMeta, idx))
@@ -696,13 +738,26 @@ export function checkFieldBindingInCode(field, htmlContent = '', cssContent = ''
     }
   }
 
-  // 5. Fallback: element with id="<field_id>"
+  // 5. Fallback: element with id="<field_id>" or runtimeControl or data-wm-alias or repeater subfields
   if (new RegExp(`\\bid\\s*=\\s*["']${escapedId}["']`, 'i').test(htmlContent)) {
     return { bound: true, via: `#${fId}` };
   }
+  if (new RegExp(`data-wm-alias\\s*=\\s*["'][^"']*\\b${escapedId}\\b[^"']*["']`, 'i').test(htmlContent)) {
+    return { bound: true, via: `data-wm-alias="${fId}"` };
+  }
+  const rtCtrl = String(field.binding?.runtimeControl || '').trim().replace(/^#/, '');
+  if (rtCtrl && new RegExp(`\\bid\\s*=\\s*["']${rtCtrl.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}["']`, 'i').test(htmlContent)) {
+    return { bound: true, via: `#${rtCtrl}` };
+  }
+  if ((fType === 'repeater' || fType === 'media_list') && Array.isArray(field.subfields) && field.subfields.length > 0) {
+    const firstSub = String(field.subfields[0] || '').trim().replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+    if (firstSub && new RegExp(`data-wm(?:-field)?\\s*=\\s*["']${firstSub}["']`, 'i').test(htmlContent)) {
+      return { bound: true, via: `subfields:${field.subfields[0]}` };
+    }
+  }
 
   // 6. Gallery / multi-photo slot convention
-  if (fType === 'image-multiple' && (/data-wm(?:-field)?\s*=\s*["']photo_\d+["']/i.test(htmlContent) || /data-wm-section\s*=\s*["']gallery["']/i.test(htmlContent))) {
+  if ((fType === 'image-multiple' || fType === 'repeater' || fType === 'media_list') && (/data-wm(?:-field)?\s*=\s*["']photo_\d+["']/i.test(htmlContent) || /data-wm-section\s*=\s*["']gallery["']/i.test(htmlContent))) {
     return { bound: true, via: 'gallery-photo-slots' };
   }
 

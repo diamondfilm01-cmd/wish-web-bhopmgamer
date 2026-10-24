@@ -1671,6 +1671,22 @@ function redactSecretsFromText(text) {
  * Generates a concise unified text diff between two strings (up to maxDiffLines)
  */
 export function computeUnifiedTextDiff(oldText = '', newText = '', filePath = 'file', maxDiffLines = 120) {
+  if (oldText === newText) {
+    return {
+      hasChanges: false,
+      addedLines: 0,
+      removedLines: 0,
+      diffText: `--- a/${filePath}\n+++ b/${filePath}\n(No text differences)`
+    };
+  }
+  if (String(oldText || '').length > 120000 || String(newText || '').length > 120000) {
+    return {
+      hasChanges: true,
+      addedLines: 1,
+      removedLines: oldText ? 1 : 0,
+      diffText: `--- a/${filePath}\n+++ b/${filePath}\n@@ Large file updated (${Math.round(String(oldText || '').length / 1024)} KB -> ${Math.round(String(newText || '').length / 1024)} KB) @@`
+    };
+  }
   const cleanOld = redactSecretsFromText(String(oldText || '')).replace(/\r\n/g, '\n').split('\n');
   const cleanNew = redactSecretsFromText(String(newText || '')).replace(/\r\n/g, '\n').split('\n');
 
@@ -2840,7 +2856,7 @@ export function buildSandboxedTemplatePreviewHtml({
     const actionsMap = payload.actionsMap || payload.actions || {};
     Object.keys(actionsMap).forEach(function(actId) {
       const act = actionsMap[actId];
-      document.querySelectorAll('[data-wm-action="' + actId + '"]').forEach(function(btn) {
+      document.querySelectorAll('[data-wm-action="' + actId + '"], [data-wm-cta="' + actId + '"]').forEach(function(btn) {
         if (!act || act.effectiveEnabled === false || act.enabled === false) {
           if (!act || act.fallbackBehavior !== 'disable') btn.remove();
           else { btn.setAttribute('disabled', 'disabled'); btn.style.opacity = '0.5'; btn.style.pointerEvents = 'none'; }
@@ -3179,9 +3195,13 @@ export function serializeStagedFilesBundle(extractedFiles, options = {}) {
         };
         continue;
       }
+      let stagedTextContent = String(fileObj.text);
+      if (lowerRel.endsWith('.js') && stagedTextContent.length > 100000 && stagedTextContent.includes('data:image/')) {
+        stagedTextContent = stagedTextContent.replace(/"data:image\/[a-zA-Z0-9.+_-]+;base64,[A-Za-z0-9+/=]{2048,}"/g, '""');
+      }
       bundle[relPath] = {
         isBase64: false,
-        content: fileObj.text,
+        content: stagedTextContent,
         sizeBytes: fileObj.sizeBytes,
         mimeType: fileObj.mimeType,
         ...(fileObj.inheritedFromBaseline ? { inheritedFromBaseline: true } : {}),
