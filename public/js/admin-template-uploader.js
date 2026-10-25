@@ -2560,26 +2560,33 @@ function updateOccasionButtonsUI() {
   });
 }
 
-// Fetch & Load Templates in Admin Studio
+// Fetch & Load Templates in Admin Studio (Deduplicated)
+let _loadDynamicTemplatesPromise = null;
 async function loadDynamicTemplates() {
-  try {
-    let templates = [];
-    if (window.templateRepository && typeof window.templateRepository.getAll === 'function') {
-      templates = await window.templateRepository.getAll({ includeDrafts: true });
-    } else {
-      const res = await fetch('/api/templates?includeDrafts=true');
-      const data = await res.json();
-      templates = data.templates || [];
-    }
+  if (_loadDynamicTemplatesPromise) return _loadDynamicTemplatesPromise;
+  _loadDynamicTemplatesPromise = (async () => {
+    try {
+      let templates = [];
+      if (window.templateRepository && typeof window.templateRepository.getAll === 'function') {
+        templates = await window.templateRepository.getAll({ includeDrafts: true });
+      } else {
+        const res = await fetch('/api/templates?includeDrafts=true');
+        const data = await res.json();
+        templates = data.templates || [];
+      }
 
-    allAdminTemplates = templates;
-    populateDeltaTargetTemplateDropdown(templates);
-    updateKpiMetrics(templates);
-    renderOccasionsFilter(templates);
-    applyFiltersAndRender();
-  } catch (e) {
-    console.error('Error loading admin templates:', e);
-  }
+      allAdminTemplates = templates;
+      populateDeltaTargetTemplateDropdown(templates);
+      updateKpiMetrics(templates);
+      renderOccasionsFilter(templates);
+      applyFiltersAndRender();
+    } catch (e) {
+      console.error('Error loading admin templates:', e);
+    } finally {
+      _loadDynamicTemplatesPromise = null;
+    }
+  })();
+  return _loadDynamicTemplatesPromise;
 }
 
 function updateKpiMetrics(templates) {

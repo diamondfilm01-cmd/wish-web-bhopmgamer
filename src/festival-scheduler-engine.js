@@ -1339,10 +1339,11 @@ let _d1SchemaVerifiedOnce = false;
 export async function ensureFestivalSchedulerSchema(db, options = {}) {
   if (!db || typeof db.prepare !== 'function') return;
   if (_schemaEnsuredForDb.has(db) && !options.force) return;
-  if (_d1SchemaVerifiedOnce && options.seedDefaults === false && !options.force) {
+  if (!options.force) {
     try {
       const probe = await db.prepare('SELECT 1 as ok FROM festival_definitions LIMIT 1').first();
       if (probe) {
+        _d1SchemaVerifiedOnce = true;
         _schemaEnsuredForDb.add(db);
         return;
       }

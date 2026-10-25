@@ -2630,10 +2630,26 @@ let schemaInitialized = false;
 let schemaInitPromise = null;
 
 const moderationInitializedDbs = new WeakSet();
+let moderationSchemaVerified = false;
 
 async function ensureModerationSchema(db) {
   if (!db || typeof db.prepare !== 'function') return false;
   if (moderationInitializedDbs.has(db)) return true;
+
+  if (moderationSchemaVerified) {
+    moderationInitializedDbs.add(db);
+    return true;
+  }
+
+  try {
+    const probe = await db.prepare('SELECT moderation_status FROM wish_media LIMIT 0').all();
+    const probeItems = await db.prepare('SELECT id FROM moderation_items LIMIT 0').all();
+    if (probe && probeItems) {
+      moderationSchemaVerified = true;
+      moderationInitializedDbs.add(db);
+      return true;
+    }
+  } catch (_) {}
 
   async function execModSql(sql) {
     try {
@@ -2759,6 +2775,7 @@ async function ensureModerationSchema(db) {
   await execModSql("ALTER TABLE users ADD COLUMN moderation_restriction_reason TEXT");
   await execModSql("ALTER TABLE users ADD COLUMN moderation_restricted_until TEXT");
 
+  moderationSchemaVerified = true;
   moderationInitializedDbs.add(db);
   return true;
 }
@@ -4189,14 +4206,30 @@ async function getEffectiveEntitlement(user, env, options = {}) {
 // ============================================================================
 
 const deletedSeedTemplateIds = new Set();
+let _deletedTableCreated = false;
+let _lastDeletedTplFetchTs = 0;
+let _lastB2OrphanRecoveryTs = 0;
+let _lastD1TemplateReconcileTs = 0;
+
+function invalidateTemplateReconcileCache() {
+  _lastDeletedTplFetchTs = 0;
+  _lastD1TemplateReconcileTs = 0;
+}
 
 async function getDeletedTemplateIdsSet(env) {
+  const nowMs = Date.now();
+  if (_lastDeletedTplFetchTs > 0 && (nowMs - _lastDeletedTplFetchTs < 30000)) {
+    return new Set(deletedSeedTemplateIds);
+  }
   const combined = new Set(deletedSeedTemplateIds);
   if (env && env.DB && typeof env.DB.prepare === "function") {
     try {
-      await env.DB.prepare(
-        "CREATE TABLE IF NOT EXISTS deleted_templates (id TEXT PRIMARY KEY, slug TEXT, deleted_at TEXT)"
-      ).run().catch(() => {});
+      if (!_deletedTableCreated) {
+        await env.DB.prepare(
+          "CREATE TABLE IF NOT EXISTS deleted_templates (id TEXT PRIMARY KEY, slug TEXT, deleted_at TEXT)"
+        ).run().catch(() => {});
+        _deletedTableCreated = true;
+      }
       const rows = await env.DB.prepare("SELECT id, slug FROM deleted_templates").all().catch(() => null);
       if (rows && Array.isArray(rows.results)) {
         for (const r of rows.results) {
@@ -4209,6 +4242,7 @@ async function getDeletedTemplateIdsSet(env) {
             deletedSeedTemplateIds.add(String(r.slug));
           }
         }
+        _lastDeletedTplFetchTs = nowMs;
       }
     } catch (_) {}
   }
@@ -4216,6 +4250,7 @@ async function getDeletedTemplateIdsSet(env) {
 }
 
 async function recordPermanentTemplateDeletion(env, templateId, cleanSlug) {
+  invalidateTemplateReconcileCache();
   const nowIso = new Date().toISOString();
   const idsToRecord = new Set([templateId, cleanSlug].filter(Boolean));
   for (const seed of SEED_TEMPLATES) {
@@ -4271,6 +4306,7 @@ function expandCandidateTemplateIdentifiers(templateId, cleanSlug) {
 }
 
 async function clearPermanentTemplateDeletion(env, templateId, cleanSlug) {
+  invalidateTemplateReconcileCache();
   const idsToClear = expandCandidateTemplateIdentifiers(templateId, cleanSlug);
   for (const item of idsToClear) {
     deletedSeedTemplateIds.delete(item);
@@ -4284,15 +4320,18 @@ async function clearPermanentTemplateDeletion(env, templateId, cleanSlug) {
   }
 }
 
-let _lastB2OrphanRecoveryTs = 0;
-
 /**
  * Self-heals uploaded templates in D1 & B2 so that any template whose files exist in B2/D1
  * is properly linked, published, and never ghost-hidden by stale deleted_templates tombstones
  * or interrupted D1 batches.
  */
-async function reconcileUploadedTemplatesInD1(env, { allowB2Scan = true } = {}) {
+async function reconcileUploadedTemplatesInD1(env, { allowB2Scan = true, force = false } = {}) {
   if (!env || !env.DB || typeof env.DB.prepare !== 'function') return;
+  const nowEntryMs = Date.now();
+  if (!force && _lastD1TemplateReconcileTs > 0 && (nowEntryMs - _lastD1TemplateReconcileTs < 120000)) {
+    return;
+  }
+  _lastD1TemplateReconcileTs = nowEntryMs;
   try {
     const db = env.DB;
     const nowIso = new Date().toISOString();
@@ -4508,12 +4547,15 @@ async function reconcileUploadedTemplatesInD1(env, { allowB2Scan = true } = {}) 
           }
 
           for (const [, info] of latestManifestByFamily.entries()) {
-            const candSlug = info.famId.replace(/^fam_/, '').replace(/_/g, '-');
-            const candTplId = `tpl_${candSlug}`;
-            // Skip if already in D1 templates or explicitly deleted by admin
-            if (tplById.has(candTplId) || tplBySlug.has(candSlug) || deletedSet.has(candTplId) || deletedSet.has(candSlug) || deletedSet.has(info.famId)) {
+            const candidateIds = expandCandidateTemplateIdentifiers(info.famId, info.famId);
+            const alreadyKnownOrDeleted = candidateIds.some(
+              cid => tplById.has(cid) || tplBySlug.has(cid) || latestB2VerByTplId.has(cid) || deletedSet.has(cid)
+            );
+            if (alreadyKnownOrDeleted) {
               continue;
             }
+            const candSlug = info.famId.replace(/^fam_/, '').replace(/_/g, '-');
+            const candTplId = `tpl_${candSlug}`;
             const obj = await b2Provider.getObject({ key: info.key }).catch(() => null);
             if (!obj || !obj.body) continue;
             const rawJsonStr = typeof obj.body === 'string'
@@ -9443,7 +9485,10 @@ export default {
         const includeDrafts = url.searchParams.get('includeDrafts') === 'true';
         const forceReconcile = url.searchParams.get('reconcile') === 'true';
         if (includeDrafts || forceReconcile) {
-          await reconcileUploadedTemplatesInD1(env, { allowB2Scan: forceReconcile || _lastB2OrphanRecoveryTs === 0 });
+          await reconcileUploadedTemplatesInD1(env, {
+            allowB2Scan: forceReconcile || _lastB2OrphanRecoveryTs === 0,
+            force: forceReconcile
+          });
         }
         const deletedSet = await getDeletedTemplateIdsSet(env);
         let templates = SEED_TEMPLATES.filter(t => !deletedSet.has(t.id) && !deletedSet.has(t.slug)).map(t => ({

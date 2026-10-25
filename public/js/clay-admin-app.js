@@ -538,8 +538,41 @@
     });
   }
 
+  function applyOverviewStatsPayload(payload) {
+    if (!payload) return;
+    state.stats.templates = payload.totalTemplates || payload.templateCount || 28;
+    state.stats.festivals = payload.activeFestivals || payload.festivalCount || 6;
+    state.stats.wishes = payload.totalWishes || payload.wishCount || 1420;
+    state.stats.users = payload.totalUsers || payload.userCount || 890;
+    state.stats.orders = payload.totalOrders || payload.orderCount || 342;
+
+    if (dom.badgeTemplates) dom.badgeTemplates.textContent = state.stats.templates;
+    if (dom.badgeFestivals) dom.badgeFestivals.textContent = state.stats.festivals;
+    if (dom.badgeWishes) dom.badgeWishes.textContent = state.stats.wishes;
+    if (dom.badgeUsers) dom.badgeUsers.textContent = state.stats.users;
+    if (dom.badgeOrders) dom.badgeOrders.textContent = state.stats.orders;
+
+    if (state.viewMode === 'native' && state.activeSection === 'overview') {
+      renderNativeWorkspace('overview');
+    }
+  }
+
   // Data sync with backend
-  async function syncLiveData() {
+  async function syncLiveData(forceNetwork = false) {
+    const OVERVIEW_CACHE_KEY = 'clay_admin_overview_cache_v1';
+    if (!forceNetwork && !(forceNetwork && typeof forceNetwork === 'object')) {
+      try {
+        const cachedRaw = sessionStorage.getItem(OVERVIEW_CACHE_KEY);
+        if (cachedRaw) {
+          const parsed = JSON.parse(cachedRaw);
+          if (parsed && parsed.payload && parsed.ts && (Date.now() - parsed.ts < 30000)) {
+            applyOverviewStatsPayload(parsed.payload);
+            return;
+          }
+        }
+      } catch (_) {}
+    }
+
     if (dom.syncIcon) dom.syncIcon.classList.add('fa-spin');
 
     try {
@@ -549,26 +582,16 @@
         headers['Authorization'] = `Bearer ${state.bearerToken}`;
       }
 
-      const res = await fetch(`${base}/api/admin/overview`, { headers });
+      const res = await fetch(`${base}/api/admin/overview`, { headers, credentials: 'include' });
       if (res.ok) {
         const data = await res.json();
         const payload = data.data || data;
 
-        state.stats.templates = payload.totalTemplates || payload.templateCount || 28;
-        state.stats.festivals = payload.activeFestivals || payload.festivalCount || 6;
-        state.stats.wishes = payload.totalWishes || payload.wishCount || 1420;
-        state.stats.users = payload.totalUsers || payload.userCount || 890;
-        state.stats.orders = payload.totalOrders || payload.orderCount || 342;
+        try {
+          sessionStorage.setItem(OVERVIEW_CACHE_KEY, JSON.stringify({ ts: Date.now(), payload }));
+        } catch (_) {}
 
-        if (dom.badgeTemplates) dom.badgeTemplates.textContent = state.stats.templates;
-        if (dom.badgeFestivals) dom.badgeFestivals.textContent = state.stats.festivals;
-        if (dom.badgeWishes) dom.badgeWishes.textContent = state.stats.wishes;
-        if (dom.badgeUsers) dom.badgeUsers.textContent = state.stats.users;
-        if (dom.badgeOrders) dom.badgeOrders.textContent = state.stats.orders;
-
-        if (state.viewMode === 'native' && state.activeSection === 'overview') {
-          renderNativeWorkspace('overview');
-        }
+        applyOverviewStatsPayload(payload);
         showToast('✅ Live Synced!', 'Pulled latest statistics and configuration from Cloudflare D1.');
       } else {
         showToast('Connected (Cached)', 'Server reached. Local views updated.');

@@ -1,15 +1,108 @@
-// Universal Admin Fetch Credentials Interceptor (Ensures all /api/ calls send session cookies)
+// Universal Admin Fetch Credentials, In-Flight Deduplication & Fast Section Sync Cache Interceptor
 (function patchAdminFetchCredentials() {
   if (typeof window === 'undefined' || !window.fetch || window.__wmFetchPatched) return;
   const originalFetch = window.fetch.bind(window);
-  window.fetch = function(input, init) {
+  const inFlightGets = new Map();
+  const CACHE_PREFIX = 'wm_api_fastcache_v1:';
+  const CACHE_TTL_MS = 20000;
+
+  function clearAdminApiCache() {
     try {
-      const urlStr = typeof input === 'string' ? input : (input && input.url ? input.url : '');
+      const keysToRemove = [];
+      for (let i = 0; i < sessionStorage.length; i++) {
+        const k = sessionStorage.key(i);
+        if (k && (k.startsWith(CACHE_PREFIX) || k === 'wm_admin_header_notif_v1' || k === 'clay_admin_overview_cache_v1')) {
+          keysToRemove.push(k);
+        }
+      }
+      keysToRemove.forEach(k => sessionStorage.removeItem(k));
+    } catch (_) {}
+  }
+  window.clearAdminApiCache = clearAdminApiCache;
+
+  function isCacheableGetUrl(urlStr, init) {
+    if (!urlStr) return false;
+    if (init && (init.cache === 'no-store' || init.cache === 'reload')) return false;
+    if (urlStr.includes('reconcile=true') || urlStr.includes('/api/auth/') || urlStr.includes('/api/admin/auth/')) return false;
+    return (
+      urlStr.includes('/api/templates') ||
+      urlStr.includes('/api/categories') ||
+      urlStr.includes('/api/admin/') ||
+      urlStr.includes('/api/wishes') ||
+      urlStr.includes('/api/users') ||
+      urlStr.includes('/api/media') ||
+      urlStr.includes('/api/music') ||
+      urlStr.includes('/api/pricing') ||
+      urlStr.includes('/api/settings') ||
+      urlStr.includes('/api/analytics')
+    );
+  }
+
+  window.fetch = function(input, init) {
+    let urlStr = '';
+    let method = 'GET';
+    try {
+      urlStr = typeof input === 'string' ? input : (input && input.url ? input.url : '');
+      method = String((init && init.method) || (input && input.method) || 'GET').toUpperCase();
       if (urlStr.startsWith('/api/') || urlStr.includes('/api/')) {
         init = Object.assign({ credentials: 'include' }, init || {});
         if (!init.credentials) init.credentials = 'include';
       }
     } catch (_) {}
+
+    if (method !== 'GET' && method !== 'HEAD') {
+      if (urlStr.startsWith('/api/') || urlStr.includes('/api/')) {
+        clearAdminApiCache();
+      }
+      return originalFetch(input, init);
+    }
+
+    if (typeof input === 'string' && isCacheableGetUrl(urlStr, init)) {
+      const cacheKey = CACHE_PREFIX + urlStr;
+      try {
+        const rawCached = sessionStorage.getItem(cacheKey);
+        if (rawCached) {
+          const parsed = JSON.parse(rawCached);
+          if (parsed && parsed.ts && (Date.now() - parsed.ts < CACHE_TTL_MS) && typeof parsed.body === 'string') {
+            return Promise.resolve(new Response(parsed.body, {
+              status: parsed.status || 200,
+              headers: { 'Content-Type': parsed.contentType || 'application/json', 'X-WM-Fast-Cache': 'HIT' }
+            }));
+          }
+        }
+      } catch (_) {}
+
+      if (inFlightGets.has(urlStr)) {
+        return inFlightGets.get(urlStr).then(r => r.clone());
+      }
+
+      const reqPromise = originalFetch(input, init).then(async (res) => {
+        try {
+          if (res && res.ok) {
+            const cType = res.headers.get('content-type') || '';
+            if (cType.includes('application/json')) {
+              const cloned = res.clone();
+              const text = await cloned.text();
+              if (text && text.length < 350000) {
+                sessionStorage.setItem(cacheKey, JSON.stringify({
+                  ts: Date.now(),
+                  status: res.status,
+                  contentType: cType,
+                  body: text
+                }));
+              }
+            }
+          }
+        } catch (_) {}
+        return res;
+      }).finally(() => {
+        inFlightGets.delete(urlStr);
+      });
+
+      inFlightGets.set(urlStr, reqPromise);
+      return reqPromise.then(r => r.clone());
+    }
+
     return originalFetch(input, init);
   };
   window.__wmFetchPatched = true;
@@ -76,8 +169,45 @@ const AdminAuthController = (() => {
     return perms.includes(permission);
   }
 
+  const SESSION_CACHE_KEY = 'wm_verified_admin_session_v1';
+  const SESSION_CACHE_TTL_MS = 60000;
+
+  function saveVerifiedSessionCache(sessionObj) {
+    try {
+      sessionStorage.setItem(SESSION_CACHE_KEY, JSON.stringify({
+        ts: Date.now(),
+        session: sessionObj
+      }));
+    } catch (_) {}
+  }
+
+  function clearVerifiedSessionCache() {
+    try {
+      sessionStorage.removeItem(SESSION_CACHE_KEY);
+    } catch (_) {}
+  }
+
   // Deduplicated authoritative server session check (/api/auth/session + /api/admin/auth/session)
-  async function checkSession() {
+  async function checkSession(options = {}) {
+    if (!options.force) {
+      try {
+        const cachedRaw = sessionStorage.getItem(SESSION_CACHE_KEY);
+        if (cachedRaw) {
+          const parsed = JSON.parse(cachedRaw);
+          const age = Date.now() - (parsed?.ts || 0);
+          if (parsed?.session?.authenticated && parsed?.session?.user && age < SESSION_CACHE_TTL_MS) {
+            window.__WishMagicVerifiedAdminUser = parsed.session.user;
+            window.WishMagicAdminSession = parsed.session;
+            currentState = STATE.READY;
+            if (age > 20000 && !sessionCheckPromise) {
+              setTimeout(() => { checkSession({ force: true }).catch(() => {}); }, 800);
+            }
+            return parsed.session.user;
+          }
+        }
+      } catch (_) {}
+    }
+
     if (sessionCheckPromise) {
       return sessionCheckPromise;
     }
@@ -110,6 +240,7 @@ const AdminAuthController = (() => {
             role: 'OWNER',
             permissions: ['*']
           };
+          saveVerifiedSessionCache(window.WishMagicAdminSession);
           currentState = STATE.READY;
           return enrichedOwner;
         }
@@ -146,11 +277,13 @@ const AdminAuthController = (() => {
               role: verifiedAdmin.role,
               permissions: verifiedAdmin.permissions
             };
+            saveVerifiedSessionCache(window.WishMagicAdminSession);
             currentState = STATE.READY;
             return verifiedAdmin;
           }
         }
 
+        clearVerifiedSessionCache();
         currentState = isAuth ? STATE.UNAUTHORIZED : STATE.LOGIN_REQUIRED;
         return null;
       } catch (err) {
@@ -276,6 +409,8 @@ const AdminAuthController = (() => {
       try { await window.WishFirebaseAuth.signOut(); } catch (_) {}
     }
     try {
+      clearVerifiedSessionCache();
+      if (typeof window.clearAdminApiCache === 'function') window.clearAdminApiCache();
       localStorage.removeItem('wishmagic_auth_user');
       localStorage.removeItem('wishmagic_user');
       localStorage.removeItem('wishmagic_last_user_email');
@@ -605,11 +740,62 @@ function escapeAdminHtml(str) {
     .replace(/'/g, '&#39;');
 }
 
-async function loadLiveAdminHeaderNotifications() {
+function renderAdminHeaderNotificationsItems(items) {
+  const badge = document.getElementById('wm-header-notif-badge');
+  const dropdown = document.getElementById('wm-admin-notif-dropdown');
+  const totalCount = Array.isArray(items) ? items.length : 0;
+  if (badge) {
+    badge.textContent = String(totalCount);
+    if (totalCount === 0) badge.classList.add('hidden');
+    else badge.classList.remove('hidden');
+  }
+
+  if (dropdown) {
+    const listHtml = totalCount === 0
+      ? '<div class="py-6 text-center text-xs text-on-surface-variant">No new live notifications right now.</div>'
+      : items.slice(0, 5).map(item => `
+          <a href="${item.href}" class="flex items-start gap-2.5 p-2 rounded-xl hover:bg-purple-50 dark:hover:bg-purple-900/30 transition">
+            <span class="w-7 h-7 rounded-full ${item.iconCls} flex items-center justify-center shrink-0 mt-0.5">
+              <span class="material-symbols-outlined text-[15px]">${item.icon}</span>
+            </span>
+            <div class="min-w-0 flex-1">
+              <div class="font-bold text-on-surface truncate capitalize">${item.title}</div>
+              <div class="text-[11px] text-on-surface-variant truncate">${item.sub}</div>
+            </div>
+          </a>
+        `).join('');
+
+    dropdown.innerHTML = `
+      <div class="flex items-center justify-between pb-2.5 mb-2 border-b border-purple-100 dark:border-purple-800/40">
+        <span class="font-bold text-sm text-on-surface">Live Notifications</span>
+        <a href="/admin/anktech/anktech/admin/notifications" class="text-[11px] font-bold text-purple-600 dark:text-purple-300 hover:underline">Delivery Queue →</a>
+      </div>
+      <div class="space-y-1.5">${listHtml}</div>
+    `;
+  }
+}
+
+async function loadLiveAdminHeaderNotifications(forceNetwork = false) {
   if (typeof document !== 'undefined' && document.visibilityState === 'hidden') return;
   const badge = document.getElementById('wm-header-notif-badge');
   const dropdown = document.getElementById('wm-admin-notif-dropdown');
   if (!badge && !dropdown) return;
+
+  const NOTIF_CACHE_KEY = 'wm_admin_header_notif_v1';
+  if (!forceNetwork) {
+    try {
+      const raw = sessionStorage.getItem(NOTIF_CACHE_KEY);
+      if (raw) {
+        const parsed = JSON.parse(raw);
+        if (parsed && Array.isArray(parsed.items)) {
+          renderAdminHeaderNotificationsItems(parsed.items);
+          if (parsed.ts && (Date.now() - parsed.ts < 30000)) {
+            return;
+          }
+        }
+      }
+    } catch (_) {}
+  }
 
   try {
     const [wishesRes, auditRes] = await Promise.all([
@@ -645,36 +831,11 @@ async function loadLiveAdminHeaderNotifications() {
       });
     });
 
-    const totalCount = items.length;
-    if (badge) {
-      badge.textContent = String(totalCount);
-      if (totalCount === 0) badge.classList.add('hidden');
-      else badge.classList.remove('hidden');
-    }
+    try {
+      sessionStorage.setItem(NOTIF_CACHE_KEY, JSON.stringify({ ts: Date.now(), items }));
+    } catch (_) {}
 
-    if (dropdown) {
-      const listHtml = items.length === 0
-        ? '<div class="py-6 text-center text-xs text-on-surface-variant">No new live notifications right now.</div>'
-        : items.slice(0, 5).map(item => `
-            <a href="${item.href}" class="flex items-start gap-2.5 p-2 rounded-xl hover:bg-purple-50 dark:hover:bg-purple-900/30 transition">
-              <span class="w-7 h-7 rounded-full ${item.iconCls} flex items-center justify-center shrink-0 mt-0.5">
-                <span class="material-symbols-outlined text-[15px]">${item.icon}</span>
-              </span>
-              <div class="min-w-0 flex-1">
-                <div class="font-bold text-on-surface truncate capitalize">${item.title}</div>
-                <div class="text-[11px] text-on-surface-variant truncate">${item.sub}</div>
-              </div>
-            </a>
-          `).join('');
-
-      dropdown.innerHTML = `
-        <div class="flex items-center justify-between pb-2.5 mb-2 border-b border-purple-100 dark:border-purple-800/40">
-          <span class="font-bold text-sm text-on-surface">Live Notifications</span>
-          <a href="/admin/anktech/anktech/admin/notifications" class="text-[11px] font-bold text-purple-600 dark:text-purple-300 hover:underline">Delivery Queue →</a>
-        </div>
-        <div class="space-y-1.5">${listHtml}</div>
-      `;
-    }
+    renderAdminHeaderNotificationsItems(items);
   } catch (e) {
     console.warn('[AdminTheme] Notification poll note:', e);
   }
@@ -1061,6 +1222,21 @@ function initAdminNavigationAndNotifications() {
   const sidebarNav = document.querySelector('#admin-sidebar nav, aside nav');
   if (sidebarNav && !sidebarNav.dataset.wmNavBound) {
     sidebarNav.dataset.wmNavBound = 'true';
+    const prefetchedHrefs = new Set();
+    sidebarNav.addEventListener('mouseover', (e) => {
+      const link = e.target.closest('a');
+      if (!link) return;
+      const href = link.getAttribute('href');
+      if (href && href.startsWith('/') && !prefetchedHrefs.has(href)) {
+        prefetchedHrefs.add(href);
+        try {
+          const pf = document.createElement('link');
+          pf.rel = 'prefetch';
+          pf.href = href;
+          document.head.appendChild(pf);
+        } catch (_) {}
+      }
+    });
     sidebarNav.addEventListener('click', (e) => {
       const link = e.target.closest('a');
       if (!link) return;

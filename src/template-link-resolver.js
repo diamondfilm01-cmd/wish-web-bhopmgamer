@@ -518,8 +518,13 @@ export function validateLogicalDestinationTarget(rawDest, approvedOriginsSet = n
 // In-memory cache invalidated immediately on save/reset
 let cachedCentralLinkSettings = null;
 
+let cachedCentralLinkSettingsAt = 0;
+let centralLinkSchemaVerified = false;
+const centralLinkInitializedDbs = new WeakSet();
+
 export function invalidateCentralLinkSettingsCache() {
   cachedCentralLinkSettings = null;
+  cachedCentralLinkSettingsAt = 0;
 }
 
 /**
@@ -527,6 +532,11 @@ export function invalidateCentralLinkSettingsCache() {
  */
 export async function ensureCentralLinkManagerSchema(db) {
   if (!db || typeof db.prepare !== 'function') return false;
+  if (centralLinkInitializedDbs.has(db)) return true;
+  if (centralLinkSchemaVerified) {
+    centralLinkInitializedDbs.add(db);
+    return true;
+  }
   try {
     await db.prepare(`
       CREATE TABLE IF NOT EXISTS central_link_settings (
@@ -567,6 +577,8 @@ export async function ensureCentralLinkManagerSchema(db) {
         published_by TEXT
       )
     `).run();
+    centralLinkSchemaVerified = true;
+    centralLinkInitializedDbs.add(db);
     return true;
   } catch (_) {
     return false;
@@ -580,6 +592,11 @@ export async function getCentralLinkSettings(env = {}) {
   const db = env?.DB || env?.wishmagic_db || env?.DATABASE || null;
   if (!db || typeof db.prepare !== 'function') {
     return cachedCentralLinkSettings || getDefaultCentralLinkSettings();
+  }
+
+  const nowMs = Date.now();
+  if (cachedCentralLinkSettings && cachedCentralLinkSettingsAt > 0 && (nowMs - cachedCentralLinkSettingsAt < 30000)) {
+    return cachedCentralLinkSettings;
   }
 
   try {
@@ -607,6 +624,7 @@ export async function getCentralLinkSettings(env = {}) {
         defaults.updatedAt
       ).run().catch(() => {});
       cachedCentralLinkSettings = defaults;
+      cachedCentralLinkSettingsAt = nowMs;
       return defaults;
     }
 
@@ -634,6 +652,7 @@ export async function getCentralLinkSettings(env = {}) {
       infrastructureAdvisory: defaults.infrastructureAdvisory
     };
     cachedCentralLinkSettings = loaded;
+    cachedCentralLinkSettingsAt = nowMs;
     return loaded;
   } catch (_) {
     return cachedCentralLinkSettings || getDefaultCentralLinkSettings();

@@ -631,18 +631,26 @@
       let events = [];
 
       try {
-        templates = await templateRepository.getAll({ includeDrafts: true });
-        categories = await categoryRepository.getAll();
-        media = await mediaRepository.getAll();
-        users = await userRepository.getAll();
+        const [tplList, catList, medList, usrList, wData, evList] = await Promise.all([
+          templateRepository.getAll({ includeDrafts: true }).catch(() => []),
+          categoryRepository.getAll().catch(() => []),
+          mediaRepository.getAll().catch(() => []),
+          userRepository.getAll().catch(() => []),
+          api.get('/api/wishes?all=true').catch(() => null),
+          window.WishAnalyticsService ? window.WishAnalyticsService.getEvents().catch(() => []) : Promise.resolve([])
+        ]);
 
-        const wData = await api.get('/api/wishes?all=true');
+        templates = Array.isArray(tplList) ? tplList : [];
+        categories = Array.isArray(catList) ? catList : [];
+        media = Array.isArray(medList) ? medList : [];
+        users = Array.isArray(usrList) ? usrList : [];
+
         if (wData && wData.success && Array.isArray(wData.wishes)) {
           wishes = wData.wishes;
         }
 
-        if (window.WishAnalyticsService) {
-          events = await window.WishAnalyticsService.getEvents();
+        if (Array.isArray(evList)) {
+          events = evList;
         }
       } catch (err) {
         console.warn('[adminRepository] Error assembling datasets:', err);
