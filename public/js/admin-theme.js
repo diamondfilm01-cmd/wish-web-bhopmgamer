@@ -1080,6 +1080,232 @@ function initAdminNavigationAndNotifications() {
   }
 }
 
+// ============================================================================
+// VESSA BOTANICAL SAGE & FOREST EMERALD SHELL + CIRCULAR VIEW-TRANSITION WIPE
+// Pixel-Matched 1:1 to Reference Video (src > ui.ts > wipe) Across All 24 Pages
+// ============================================================================
+
+function getGreetingByHour() {
+  const hr = new Date().getHours();
+  if (hr < 12) return 'Good morning';
+  if (hr < 17) return 'Good afternoon';
+  return 'Good evening';
+}
+
+function getVessaCenterTabsForPath(pathname) {
+  const p = String(pathname || '').toLowerCase();
+  if (p.includes('template') || p.includes('festival') || p.includes('occasion') || p.includes('media')) {
+    return [
+      { label: 'Catalog', href: `${SECRET_ADMIN_PREFIX}/templates`, match: ['templates'] },
+      { label: 'Batches & Upload', href: `${SECRET_ADMIN_PREFIX}/add-template`, match: ['add-template'] },
+      { label: 'Festivals', href: `${SECRET_ADMIN_PREFIX}/festivals`, match: ['festivals'] },
+      { label: 'Categories', href: `${SECRET_ADMIN_PREFIX}/occasions`, match: ['occasions'] },
+      { label: 'Media Vault', href: `${SECRET_ADMIN_PREFIX}/media`, match: ['media'] }
+    ];
+  }
+  if (p.includes('analytic') || p.includes('order') || p.includes('pricing') || p.includes('referral')) {
+    return [
+      { label: 'Overview', href: `${SECRET_ADMIN_PREFIX}/overview`, match: ['overview'] },
+      { label: 'Sales', href: `${SECRET_ADMIN_PREFIX}/orders`, match: ['orders'] },
+      { label: 'Reports', href: `${SECRET_ADMIN_PREFIX}/analytics`, match: ['analytics'] },
+      { label: 'VIP Plans', href: `${SECRET_ADMIN_PREFIX}/pricing`, match: ['pricing'] },
+      { label: 'Stock health', href: `${SECRET_ADMIN_PREFIX}/storage-health`, match: ['storage-health'] }
+    ];
+  }
+  if (p.includes('wish') || p.includes('creation') || p.includes('user') || p.includes('moderation')) {
+    return [
+      { label: 'All Wishes', href: `${SECRET_ADMIN_PREFIX}/wishes`, match: ['wishes'] },
+      { label: 'User Creations', href: `${SECRET_ADMIN_PREFIX}/user-creations`, match: ['user-creations'] },
+      { label: 'Users', href: `${SECRET_ADMIN_PREFIX}/users`, match: ['users'] },
+      { label: 'Moderation', href: `${SECRET_ADMIN_PREFIX}/moderation`, match: ['moderation'] }
+    ];
+  }
+  if (p.includes('setting') || p.includes('staff') || p.includes('legal') || p.includes('announcement') || p.includes('support') || p.includes('search')) {
+    return [
+      { label: 'Storefront CMS', href: `${SECRET_ADMIN_PREFIX}/settings`, match: ['settings'] },
+      { label: 'Search', href: `${SECRET_ADMIN_PREFIX}/search`, match: ['search'] },
+      { label: 'Announcements', href: `${SECRET_ADMIN_PREFIX}/announcements`, match: ['announcements'] },
+      { label: 'Staff & RBAC', href: `${SECRET_ADMIN_PREFIX}/staff`, match: ['staff'] },
+      { label: 'Support', href: `${SECRET_ADMIN_PREFIX}/support`, match: ['support'] }
+    ];
+  }
+  // Default Overview / Activity / Alerts / Stock health (Matches Video Top Center Pill 1:1)
+  return [
+    { label: 'Overview', href: `${SECRET_ADMIN_PREFIX}/overview`, match: ['overview', 'admin.html'] },
+    { label: 'Activity', href: `${SECRET_ADMIN_PREFIX}/audit-logs`, match: ['audit-logs'] },
+    { label: 'Alerts', href: `${SECRET_ADMIN_PREFIX}/notifications`, match: ['notifications'] },
+    { label: 'Sales', href: `${SECRET_ADMIN_PREFIX}/orders`, match: ['orders'] },
+    { label: 'Stock health', href: `${SECRET_ADMIN_PREFIX}/storage-health`, match: ['storage-health'] }
+  ];
+}
+
+function mountVessaAdminShell() {
+  const pathname = window.location.pathname.toLowerCase();
+
+  // 1. Mount Vessa 3-Zone Top Bar inside <header class="wm-top-header">
+  const header = document.querySelector('header.wm-top-header');
+  if (header && !header.dataset.vessaMounted) {
+    header.dataset.vessaMounted = 'true';
+
+    const searchWrap = header.querySelector('.wm-header-search-wrap');
+    const searchInput = header.querySelector('.wm-header-search-input');
+    if (searchInput) {
+      searchInput.setAttribute('placeholder', 'Search...');
+    }
+    const ctrlK = header.querySelector('.wm-ctrl-k-badge');
+    if (ctrlK) {
+      ctrlK.textContent = '⌘K';
+    }
+
+    const notifBadge = document.getElementById('wm-header-notif-badge');
+    const notifDropdown = document.getElementById('wm-admin-notif-dropdown');
+    const profileDropdown = document.getElementById('wm-admin-profile-dropdown');
+    const existingEmail = document.getElementById('wm-admin-header-email')?.textContent || 'ankit.babusaini@gmail.com';
+
+    const tabs = getVessaCenterTabsForPath(pathname);
+    const tabsHtml = tabs.map((t, idx) => {
+      const isAct = t.match.some(m => pathname.includes(m)) || (idx === 0 && !tabs.some(x => x.match.some(m => pathname.includes(m))));
+      return `<a href="${t.href}" class="vessa-center-tab ${isAct ? 'active' : ''}">${escapeAdminHtml(t.label)}</a>`;
+    }).join('');
+
+    const inner = document.createElement('div');
+    inner.className = 'vessa-top-header-inner';
+
+    // Left Zone: Mobile Menu + Brand Emblem + WishMagic
+    const leftDiv = document.createElement('div');
+    leftDiv.className = 'flex items-center gap-3 flex-shrink-0';
+    leftDiv.innerHTML = `
+      <button type="button" class="md:hidden vessa-icon-circle-btn" onclick="toggleSidebar()" aria-label="Open Navigation">
+        <span class="material-symbols-outlined text-[20px]">menu</span>
+      </button>
+      <a href="${SECRET_ADMIN_PREFIX}/overview" class="vessa-brand-block">
+        <div class="vessa-brand-logo-circle">
+          <span class="material-symbols-outlined text-[20px]">experiment</span>
+        </div>
+        <div class="flex flex-col">
+          <span class="vessa-brand-title">WishMagic</span>
+          <span class="vessa-brand-sub">Admin &amp; Studio</span>
+        </div>
+      </a>
+    `;
+
+    // Center Zone: Segmented Sub-Tab Pill Switcher
+    const centerDiv = document.createElement('nav');
+    centerDiv.className = 'vessa-center-tabs hidden lg:inline-flex';
+    centerDiv.setAttribute('aria-label', 'Section Switcher');
+    centerDiv.innerHTML = tabsHtml;
+
+    // Right Zone: Search + Settings + Notifications + "+ New" + Greeting Profile
+    const rightDiv = document.createElement('div');
+    rightDiv.className = 'vessa-header-right';
+
+    if (searchWrap) {
+      rightDiv.appendChild(searchWrap);
+    }
+
+    // Settings quick button
+    const settingsLink = document.createElement('a');
+    settingsLink.href = `${SECRET_ADMIN_PREFIX}/settings`;
+    settingsLink.className = 'vessa-icon-circle-btn hidden sm:inline-flex';
+    settingsLink.title = 'Storefront CMS & Settings';
+    settingsLink.innerHTML = `<span class="material-symbols-outlined text-[18px]">settings</span>`;
+    rightDiv.appendChild(settingsLink);
+
+    // Notification Bell wrapper
+    const notifWrap = document.createElement('div');
+    notifWrap.className = 'relative';
+    const notifBtn = document.createElement('button');
+    notifBtn.type = 'button';
+    notifBtn.className = 'vessa-icon-circle-btn';
+    notifBtn.title = 'Live Notifications';
+    notifBtn.setAttribute('onclick', 'toggleAdminNotifMenu(event)');
+    notifBtn.innerHTML = `<span class="material-symbols-outlined text-[18px]">notifications</span>`;
+    if (notifBadge) {
+      notifBadge.className = 'hidden absolute -top-1 -right-1 min-w-[17px] h-[17px] px-1 rounded-full bg-rose-500 text-white text-[10px] font-extrabold flex items-center justify-center shadow';
+      notifBtn.appendChild(notifBadge);
+    }
+    notifWrap.appendChild(notifBtn);
+    if (notifDropdown) {
+      notifWrap.appendChild(notifDropdown);
+    }
+    rightDiv.appendChild(notifWrap);
+
+    // Primary "+ New" Emerald Pill Button
+    const newBtn = document.createElement('a');
+    newBtn.href = `${SECRET_ADMIN_PREFIX}/add-template`;
+    newBtn.className = 'vessa-new-btn';
+    newBtn.innerHTML = `<span class="material-symbols-outlined text-[16px]">add</span><span>New</span>`;
+    rightDiv.appendChild(newBtn);
+
+    // Profile Greeting Pill ("Good morning / Ankit Saini")
+    const profWrap = document.createElement('div');
+    profWrap.className = 'relative';
+    const profPill = document.createElement('div');
+    profPill.className = 'wm-admin-profile-pill';
+    profPill.setAttribute('onclick', 'toggleAdminProfileMenu(event)');
+    profPill.innerHTML = `
+      <div class="vessa-avatar-circle">AS</div>
+      <div class="hidden sm:flex flex-col text-left leading-tight">
+        <span class="text-[10px] font-medium text-on-surface-variant">${getGreetingByHour()}</span>
+        <span class="text-[12px] font-bold text-on-surface">Ankit Saini</span>
+        <span id="wm-admin-header-email" class="hidden">${escapeAdminHtml(existingEmail)}</span>
+      </div>
+      <span class="material-symbols-outlined text-[16px] text-on-surface-variant">expand_more</span>
+    `;
+    profWrap.appendChild(profPill);
+    if (profileDropdown) {
+      profWrap.appendChild(profileDropdown);
+    }
+    rightDiv.appendChild(profWrap);
+
+    header.innerHTML = '';
+    inner.appendChild(leftDiv);
+    inner.appendChild(centerDiv);
+    inner.appendChild(rightDiv);
+    header.appendChild(inner);
+  }
+
+  // 2. Mount Vessa Vertical Sun/Moon Theme Wipe Capsule & Expand Button in <aside id="admin-sidebar">
+  const sidebar = document.getElementById('admin-sidebar');
+  if (sidebar && !sidebar.dataset.vessaMounted) {
+    sidebar.dataset.vessaMounted = 'true';
+
+    const capsule = document.createElement('div');
+    capsule.className = 'vessa-theme-capsule';
+    capsule.innerHTML = `
+      <button type="button" class="vessa-theme-circle-btn" data-theme-target="light" onclick="window.setTheme('light', this)" title="Light Mode (Circular Wipe)" aria-label="Switch to Light Mode">
+        <span class="material-symbols-outlined text-[18px]">light_mode</span>
+      </button>
+      <button type="button" class="vessa-theme-circle-btn" data-theme-target="dark" onclick="window.setTheme('dark', this)" title="Dark Mode (Circular Wipe)" aria-label="Switch to Dark Mode">
+        <span class="material-symbols-outlined text-[17px]">dark_mode</span>
+      </button>
+    `;
+    sidebar.insertBefore(capsule, sidebar.firstChild);
+
+    // Ensure all 23 sections inside #wm-sidebar-more-group are visible as icons on the rail or in expanded mode
+    const moreGroup = document.getElementById('wm-sidebar-more-group');
+    if (moreGroup) {
+      moreGroup.classList.remove('hidden');
+      moreGroup.style.borderLeft = 'none';
+      moreGroup.style.marginLeft = '0';
+      moreGroup.style.paddingLeft = '0';
+    }
+
+    // Add bottom rail button to expand/collapse full text labels for all 23 sections
+    const expandBtn = document.createElement('button');
+    expandBtn.type = 'button';
+    expandBtn.className = 'vessa-rail-expand-btn';
+    expandBtn.title = 'Expand / Collapse All 23 Studio Sections';
+    expandBtn.innerHTML = `<span class="material-symbols-outlined text-[19px]" id="vessa-rail-expand-icon">dock_to_right</span>`;
+    expandBtn.addEventListener('click', () => {
+      const isExp = sidebar.classList.toggle('vessa-rail-expanded');
+      const ic = document.getElementById('vessa-rail-expand-icon');
+      if (ic) ic.textContent = isExp ? 'keyboard_double_arrow_left' : 'dock_to_right';
+    });
+    sidebar.appendChild(expandBtn);
+  }
+}
+
 window.addEventListener('popstate', () => {
   rewriteAdminSidebarLinks();
   handleAdminQueryActions();
@@ -1090,29 +1316,87 @@ window.addEventListener('hashchange', () => {
 });
 
 if (document.readyState === 'loading') {
-  document.addEventListener('DOMContentLoaded', initAdminNavigationAndNotifications);
+  document.addEventListener('DOMContentLoaded', () => {
+    mountVessaAdminShell();
+    initAdminNavigationAndNotifications();
+  });
 } else {
+  mountVessaAdminShell();
   initAdminNavigationAndNotifications();
 }
 
 function updateThemeIcons(isDark) {
-  const sunPill = document.getElementById('wm-theme-sun-pill');
-  const moonPill = document.getElementById('wm-theme-moon-pill');
-  if (sunPill) {
-    sunPill.className = 'wm-theme-pill-sun';
-    const sunIcon = sunPill.querySelector('.material-symbols-outlined');
-    if (sunIcon) sunIcon.textContent = 'light_mode';
-  }
-  if (moonPill) {
-    moonPill.className = 'wm-theme-pill-knob';
-    const moonIcon = moonPill.querySelector('.material-symbols-outlined');
-    if (moonIcon) moonIcon.textContent = 'dark_mode';
-  }
   document.querySelectorAll('.wm-theme-pill-btn').forEach(btn => {
     btn.setAttribute('data-theme-mode', isDark ? 'dark' : 'light');
     btn.setAttribute('aria-checked', isDark ? 'true' : 'false');
   });
+  document.querySelectorAll('.vessa-theme-circle-btn').forEach(btn => {
+    const target = btn.getAttribute('data-theme-target');
+    const active = (target === 'dark' && isDark) || (target === 'light' && !isDark);
+    btn.setAttribute('aria-pressed', active ? 'true' : 'false');
+  });
 }
+
+// Exact Circular View-Transition Theme Wipe from Video (src > ui.ts > wipe)
+function wipe(origin, change) {
+  const r = origin && typeof origin.getBoundingClientRect === 'function'
+    ? origin.getBoundingClientRect()
+    : null;
+  const x = r ? r.left + r.width / 2 : window.innerWidth / 2;
+  const y = r ? r.top + r.height / 2 : window.innerHeight / 2;
+  const end = Math.hypot(
+    Math.max(x, window.innerWidth - x),
+    Math.max(y, window.innerHeight - y)
+  );
+  if (typeof document.startViewTransition !== 'function') {
+    change();
+    return;
+  }
+  try {
+    const transition = document.startViewTransition(change);
+    transition.ready.then(() => {
+      document.documentElement.animate(
+        {
+          clipPath: [
+            `circle(0px at ${x}px ${y}px)`,
+            `circle(${end}px at ${x}px ${y}px)`
+          ]
+        },
+        {
+          duration: 620,
+          easing: 'cubic-bezier(.65,0,.35,1)',
+          pseudoElement: '::view-transition-new(root)'
+        }
+      );
+    }).catch(() => {});
+  } catch (_) {
+    change();
+  }
+}
+window.wipe = wipe;
+
+function applyThemePreference(pref) {
+  const isDark = pref === 'dark';
+  if (isDark) {
+    document.documentElement.classList.add('dark');
+  } else {
+    document.documentElement.classList.remove('dark');
+  }
+  localStorage.setItem('wishmagic_admin_theme_v2', isDark ? 'dark' : 'light');
+  localStorage.setItem('wishmagic_admin_theme', isDark ? 'dark' : 'light');
+  updateThemeIcons(isDark);
+}
+
+function setTheme(pref, origin) {
+  const targetDark = pref === 'dark';
+  const isCurrentlyDark = document.documentElement.classList.contains('dark');
+  if (targetDark === isCurrentlyDark) return;
+  const originEl = origin || document.querySelector(`.vessa-theme-circle-btn[data-theme-target="${pref}"]`);
+  wipe(originEl, () => {
+    applyThemePreference(pref);
+  });
+}
+window.setTheme = setTheme;
 
 (function initTheme() {
   const savedTheme = localStorage.getItem('wishmagic_admin_theme_v2') || 'light';
@@ -1130,21 +1414,13 @@ function updateThemeIcons(isDark) {
   }
 })();
 
-function toggleAdminTheme() {
+function toggleAdminTheme(event) {
   const isCurrentlyDark = document.documentElement.classList.contains('dark');
-  if (isCurrentlyDark) {
-    document.documentElement.classList.remove('dark');
-    localStorage.setItem('wishmagic_admin_theme_v2', 'light');
-    localStorage.setItem('wishmagic_admin_theme', 'light');
-    updateThemeIcons(false);
-    showToast('☀️ Fairytale Light Mode Activated');
-  } else {
-    document.documentElement.classList.add('dark');
-    localStorage.setItem('wishmagic_admin_theme_v2', 'dark');
-    localStorage.setItem('wishmagic_admin_theme', 'dark');
-    updateThemeIcons(true);
-    showToast('🌙 Cosmic Dark Mode Activated');
-  }
+  const nextPref = isCurrentlyDark ? 'light' : 'dark';
+  const originEl = (event && event.currentTarget) ||
+    document.querySelector(`.vessa-theme-circle-btn[data-theme-target="${nextPref}"]`) ||
+    document.querySelector('.wm-theme-pill-btn');
+  setTheme(nextPref, originEl);
 }
 window.toggleAdminTheme = toggleAdminTheme;
 window.toggleTheme = toggleAdminTheme;
@@ -1200,16 +1476,16 @@ var showToast = function(msg, type) {
     document.body.appendChild(toast);
   }
 
-  let icon = 'magic_button';
-  let bgHex = 'rgba(36, 13, 84, 0.96)';
-  let borderHex = 'rgba(192, 132, 252, 0.45)';
-  let iconHex = '#f472b6';
+  let icon = 'check_circle';
+  let bgHex = 'rgba(20, 30, 24, 0.96)';
+  let borderHex = 'rgba(56, 201, 118, 0.45)';
+  let iconHex = '#38c976';
 
   if (resolvedType === 'success') {
     icon = 'check_circle';
-    bgHex = 'rgba(6, 78, 59, 0.96)';
-    borderHex = 'rgba(52, 211, 153, 0.55)';
-    iconHex = '#34d399';
+    bgHex = 'rgba(17, 42, 29, 0.96)';
+    borderHex = 'rgba(56, 201, 118, 0.55)';
+    iconHex = '#38c976';
   } else if (resolvedType === 'error' || resolvedType === 'danger') {
     icon = 'error';
     bgHex = 'rgba(136, 19, 55, 0.96)';
@@ -1228,35 +1504,35 @@ var showToast = function(msg, type) {
     'bottom: 24px',
     'right: 24px',
     'z-index: 2147483647',
-    'padding: 14px 20px',
-    'border-radius: 16px',
+    'padding: 13px 18px',
+    'border-radius: 14px',
     'background: ' + bgHex,
     'border: 1px solid ' + borderHex,
     'color: #ffffff',
     'font-weight: 700',
-    'font-size: 14px',
+    'font-size: 13.5px',
     'line-height: 1.4',
-    'box-shadow: 0 20px 45px rgba(0, 0, 0, 0.45)',
-    'backdrop-filter: blur(16px)',
-    '-webkit-backdrop-filter: blur(16px)',
+    'box-shadow: 0 18px 40px rgba(0, 0, 0, 0.35)',
+    'backdrop-filter: blur(14px)',
+    '-webkit-backdrop-filter: blur(14px)',
     'display: flex',
     'align-items: center',
-    'gap: 12px',
-    'max-width: min(92vw, 460px)',
+    'gap: 10px',
+    'max-width: min(92vw, 440px)',
     'transform: translateY(0)',
     'opacity: 1',
     'pointer-events: auto',
-    'transition: transform 0.28s cubic-bezier(0.16, 1, 0.3, 1), opacity 0.28s ease'
+    'transition: transform 0.25s cubic-bezier(0.16, 1, 0.3, 1), opacity 0.25s ease'
   ].join('; ');
 
-  toast.innerHTML = `<span class="material-symbols-outlined" style="color:${iconHex};font-size:22px;flex-shrink:0;">${icon}</span><span style="color:#ffffff;word-break:break-word;">${escapeAdminHtml(textStr)}</span>`;
+  toast.innerHTML = `<span class="material-symbols-outlined" style="color:${iconHex};font-size:20px;flex-shrink:0;">${icon}</span><span style="color:#ffffff;word-break:break-word;">${escapeAdminHtml(textStr)}</span>`;
 
   if (window.toastTimeout) clearTimeout(window.toastTimeout);
   window.toastTimeout = setTimeout(() => {
     toast.style.transform = 'translateY(80px)';
     toast.style.opacity = '0';
     toast.style.pointerEvents = 'none';
-  }, 4200);
+  }, 4000);
 };
 window.showToast = showToast;
 

@@ -5,11 +5,11 @@
   <base href="/"/>
   <meta content="width=device-width, initial-scale=1.0" name="viewport"/>
   <meta content="web_dashboard" name="shell-type"/>
-  <title>WishMagic | Festival Scheduler & Campaign Studio</title>
+  <title>WishMagic | Festival Scheduler &amp; Main Website Campaign Studio</title>
   <link rel="preconnect" href="https://fonts.googleapis.com"/>
   <link crossorigin="" href="https://fonts.gstatic.com" rel="preconnect"/>
-  <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;600;700&family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet"/>
-  <link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:opsz,wght,FILL,GRAD@20..48,100..700,0..1,-50..200&display=swap" rel="stylesheet"/>
+  <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;600;700&amp;family=Plus+Jakarta+Sans:wght@400;500;600;700;800&amp;display=swap" rel="stylesheet"/>
+  <link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:opsz,wght,FILL,GRAD@20..48,100..700,0..1,-50..200&amp;display=swap" rel="stylesheet"/>
   <script src="js/tailwind-config.js?v=20261015_wm47944_v7"></script>
   <script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
   <script>
@@ -29,14 +29,27 @@
 <!-- Mobile Sidebar Backdrop Overlay -->
 <div id="sidebar-backdrop" class="fixed inset-0 bg-black/75 backdrop-blur-sm z-40 hidden md:hidden" onclick="toggleSidebar()"></div>
 
-<!-- Magical Castle Sidebar -->
+<!-- Magical Castle Sidebar (Complete 21-Route Canonical Admin Sidebar — Zero Missing Items) -->
 <aside id="admin-sidebar" class="fixed left-0 top-0 h-screen w-[270px] z-50 flex flex-col justify-between -translate-x-full md:translate-x-0 transition-transform duration-300 ease-in-out select-none">
   <div class="flex flex-col min-h-0 flex-1">
+    <!-- Brand Logo Header -->
     <div class="px-5 pt-5 pb-3 flex-shrink-0">
       <div class="flex items-center justify-between">
         <a href="/admin/anktech/anktech/admin/overview" class="flex items-center gap-3 group text-decoration-none">
           <div class="w-10 h-10 rounded-2xl bg-gradient-to-br from-pink-500/25 via-purple-500/25 to-amber-400/20 border border-pink-400/30 flex items-center justify-center shadow-[0_0_20px_rgba(236,72,153,0.35)] flex-shrink-0">
-            <span class="material-symbols-outlined text-pink-300">auto_awesome</span>
+            <svg width="24" height="24" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+              <path d="M4.5 19.5L15.5 8.5" stroke="url(#wandGrad)" stroke-width="2.4" stroke-linecap="round"/>
+              <path d="M18 3L19.1 5.9L22 7L19.1 8.1L18 11L16.9 8.1L14 7L16.9 5.9L18 3Z" fill="#FDE047"/>
+              <circle cx="11" cy="5" r="1.2" fill="#F472B6"/>
+              <circle cx="20" cy="14" r="1.2" fill="#C084FC"/>
+              <defs>
+                <linearGradient id="wandGrad" x1="4" y1="20" x2="21" y2="5" gradientUnits="userSpaceOnUse">
+                  <stop stop-color="#C084FC"/>
+                  <stop offset="0.55" stop-color="#F472B6"/>
+                  <stop offset="1" stop-color="#FBBF24"/>
+                </linearGradient>
+              </defs>
+            </svg>
           </div>
           <div class="flex flex-col">
             <div class="text-[22px] leading-none tracking-tight">
@@ -51,16 +64,19 @@
       </div>
     </div>
 
+    <!-- Navigation Menu -->
     <div class="px-3.5 flex-1 overflow-y-auto custom-scrollbar pb-6">
       <nav class="flex flex-col gap-0.5" aria-label="Admin Navigation">
+        <!-- Top Primary Dashboard Link -->
         <div class="mb-1 pt-1">
           <a data-nav-role="dashboard" href="/admin/anktech/anktech/admin/overview">
-            <span class="material-symbols-outlined text-[20px]">home</span>
+            <span class="material-symbols-outlined text-[20px]" style="font-variation-settings: 'FILL' 1;">home</span>
             <span>Dashboard</span>
           </a>
         </div>
 
-        <div class="wm-nav-section-label">TEMPLATES & CAMPAIGNS</div>
+        <!-- TEMPLATES -->
+        <div class="wm-nav-section-label">TEMPLATES</div>
         <a href="/admin/anktech/anktech/admin/templates">
           <span class="material-symbols-outlined">grid_view</span>
           <span>All Templates</span>
@@ -81,434 +97,615 @@
           <span class="material-symbols-outlined">image</span>
           <span>Media Library</span>
         </a>
+        <a href="/admin/anktech/anktech/admin/media?tab=audio">
+          <span class="material-symbols-outlined">music_note</span>
+          <span>Music Library</span>
+        </a>
 
+        <!-- WISHES -->
         <div class="wm-nav-section-label">WISHES</div>
         <a href="/admin/anktech/anktech/admin/wishes">
           <span class="material-symbols-outlined">description</span>
           <span>All Wishes</span>
+        </a>
+        <a href="/admin/anktech/anktech/admin/wishes?filter=expiring">
+          <span class="material-symbols-outlined">schedule</span>
+          <span>Expiring Soon</span>
         </a>
         <a href="/admin/anktech/anktech/admin/analytics">
           <span class="material-symbols-outlined">trending_up</span>
           <span>Analytics</span>
         </a>
 
+        <!-- USERS -->
+        <div class="wm-nav-section-label">USERS</div>
+        <a href="/admin/anktech/anktech/admin/users">
+          <span class="material-symbols-outlined">group</span>
+          <span>All Users</span>
+        </a>
+        <a href="/admin/anktech/anktech/admin/pricing">
+          <span class="material-symbols-outlined">workspace_premium</span>
+          <span>Subscriptions</span>
+        </a>
+        <a href="/admin/anktech/anktech/admin/orders">
+          <span class="material-symbols-outlined">credit_card</span>
+          <span>Payments</span>
+        </a>
+
+        <!-- SYSTEM -->
         <div class="wm-nav-section-label">SYSTEM</div>
         <a href="/admin/anktech/anktech/admin/settings">
           <span class="material-symbols-outlined">settings</span>
           <span>Settings</span>
         </a>
+        <a href="/admin/anktech/anktech/admin/storage-health">
+          <span class="material-symbols-outlined">database</span>
+          <span>Storage</span>
+        </a>
+        <a href="/admin/anktech/anktech/admin/storage-health?tab=backups">
+          <span class="material-symbols-outlined">cloud_download</span>
+          <span>Backups</span>
+        </a>
         <a href="/admin/anktech/anktech/admin/audit-logs">
           <span class="material-symbols-outlined">receipt_long</span>
           <span>Activity Logs</span>
         </a>
+
+        <!-- Expandable More Studio Tools -->
+        <button type="button" onclick="toggleMoreSidebarSections()" class="mt-2 px-3 py-1.5 rounded-xl text-[11px] font-bold uppercase tracking-wider text-purple-200/75 hover:text-white hover:bg-white/10 transition flex items-center justify-between w-full text-left cursor-pointer">
+          <span>More Studio Sections</span>
+          <span id="wm-sidebar-more-chevron" class="material-symbols-outlined text-[16px] transition-transform">expand_more</span>
+        </button>
+        <div id="wm-sidebar-more-group" class="hidden flex flex-col gap-0.5 pt-1 pl-1 border-l border-purple-400/25 ml-2">
+          <a href="/admin/anktech/anktech/admin/user-creations">
+            <span class="material-symbols-outlined">folder_shared</span>
+            <span>User Creations</span>
+          </a>
+          <a href="/admin/anktech/anktech/admin/search">
+            <span class="material-symbols-outlined">manage_search</span>
+            <span>Search &amp; Discovery</span>
+          </a>
+          <a href="/admin/anktech/anktech/admin/referrals">
+            <span class="material-symbols-outlined">loyalty</span>
+            <span>Referrals &amp; Rewards</span>
+          </a>
+          <a href="/admin/anktech/anktech/admin/moderation">
+            <span class="material-symbols-outlined">gavel</span>
+            <span>Moderation Queue</span>
+          </a>
+          <a href="/admin/anktech/anktech/admin/support">
+            <span class="material-symbols-outlined">support_agent</span>
+            <span>Support Console</span>
+          </a>
+          <a href="/admin/anktech/anktech/admin/staff">
+            <span class="material-symbols-outlined">badge</span>
+            <span>Staff &amp; Team</span>
+          </a>
+          <a href="/admin/anktech/anktech/admin/legal">
+            <span class="material-symbols-outlined">policy</span>
+            <span>Legal &amp; Compliance</span>
+          </a>
+          <a href="/admin/anktech/anktech/admin/announcements">
+            <span class="material-symbols-outlined">campaign</span>
+            <span>Announcements</span>
+          </a>
+          <a href="/admin/anktech/anktech/admin/notifications">
+            <span class="material-symbols-outlined">notifications_active</span>
+            <span>Notification Queue</span>
+          </a>
+        </div>
       </nav>
     </div>
   </div>
 </aside>
 
-<!-- Main Content Area -->
-<main class="md:pl-[270px] min-h-screen flex flex-col">
-  <!-- Top Bar -->
-  <header class="sticky top-0 z-30 backdrop-blur-xl bg-surface/85 border-b border-outline-variant/25 px-4 sm:px-8 py-4 flex flex-wrap items-center justify-between gap-4">
-    <div class="flex items-center gap-3">
-      <button type="button" class="md:hidden p-2 rounded-xl bg-surface-container text-on-surface" onclick="toggleSidebar()" aria-label="Toggle Menu">
-        <span class="material-symbols-outlined">menu</span>
-      </button>
-      <div>
-        <div class="flex items-center gap-2">
-          <h1 class="text-xl sm:text-2xl font-extrabold tracking-tight text-on-surface">Festival Scheduler</h1>
-          <span class="px-2.5 py-0.5 rounded-full text-[11px] font-bold bg-purple-500/20 text-purple-300 border border-purple-500/30">UTP v1.4.0</span>
-        </div>
-        <p class="text-xs text-on-surface-variant">Annual Festival Calendar, Year-Scoped Date Overrides, Campaign Windows (F-15 to F+3 Inclusive) &amp; Template Variant Assignments</p>
-      </div>
-    </div>
+<!-- Main Viewport Wrapper -->
+<div class="w-full md:pl-[270px] min-h-screen flex flex-col">
 
-    <div class="flex items-center gap-3">
-      <label for="scheduler-year-select" class="text-xs font-bold text-on-surface-variant">Year:</label>
-      <select id="scheduler-year-select" onchange="loadFestivalSchedulerData()" class="rounded-xl bg-surface-container border border-outline-variant/40 text-xs font-bold px-3 py-2 text-on-surface focus:ring-2 focus:ring-primary">
-        <option value="2025">2025</option>
-        <option value="2026" selected>2026</option>
-        <option value="2027">2027</option>
-        <option value="2028">2028</option>
-      </select>
-      <button type="button" onclick="triggerProviderSync()" id="btn-sync-provider" class="px-3.5 py-2 rounded-xl bg-surface-container-high hover:bg-purple-500/20 border border-outline-variant/40 text-xs font-bold text-on-surface flex items-center gap-1.5 transition cursor-pointer">
-        <span class="material-symbols-outlined text-[16px]">sync</span>
-        <span>Sync Calendar Feed</span>
-      </button>
-      <button type="button" onclick="openFestivalModal()" class="px-4 py-2 rounded-xl bg-gradient-to-r from-pink-500 to-purple-600 text-white text-xs font-bold shadow-lg flex items-center gap-1.5 hover:brightness-110 transition cursor-pointer">
-        <span class="material-symbols-outlined text-[16px]">add</span>
-        <span>New Festival</span>
-      </button>
+  <!-- Universal Top Cloud Header -->
+  <header class="wm-top-header fixed top-0 left-0 md:left-[270px] right-0 h-[68px] z-30">
+    <div class="w-full h-full px-3 sm:px-6 flex items-center justify-between gap-2.5 sm:gap-4">
+      <div class="flex items-center gap-2 sm:gap-2.5 flex-1 max-w-lg min-w-0">
+        <button class="md:hidden p-2 rounded-xl bg-white/85 dark:bg-[#24144a] hover:bg-white text-[#2b194d] dark:text-white shadow-sm flex items-center justify-center flex-shrink-0" onclick="toggleSidebar()" aria-label="Open Sidebar">
+          <span class="material-symbols-outlined text-[22px]">menu</span>
+        </button>
+        <div class="wm-header-search-wrap">
+          <span class="material-symbols-outlined absolute left-3.5 text-[#6b5a88] dark:text-purple-300 text-[18px] pointer-events-none">search</span>
+          <input id="global-admin-search-input" oninput="handleGlobalSearch(this.value)" class="wm-header-search-input" placeholder="Search festivals, templates, campaigns..." type="text"/>
+          <span class="wm-ctrl-k-badge hidden sm:inline-block">Ctrl K</span>
+          <div id="global-search-results" class="hidden absolute top-12 left-0 right-0 bg-white dark:bg-[#1c103b] rounded-2xl border border-purple-200 dark:border-purple-500/30 shadow-2xl p-3 z-50 max-h-96 overflow-y-auto custom-scrollbar"></div>
+        </div>
+      </div>
+
+      <div class="flex items-center gap-2 sm:gap-3.5 flex-shrink-0">
+        <button type="button" onclick="toggleAdminTheme()" class="wm-theme-pill-btn" title="Toggle Light / Dark Mode">
+          <span class="wm-theme-pill-sun" id="wm-theme-sun-pill">
+            <span class="material-symbols-outlined text-[16px]">light_mode</span>
+          </span>
+          <span class="wm-theme-pill-knob" id="wm-theme-moon-pill">
+            <span class="material-symbols-outlined text-[14px] theme-toggle-icon" id="theme-toggle-icon" style="font-variation-settings: 'FILL' 1;">dark_mode</span>
+          </span>
+        </button>
+
+        <div class="relative">
+          <button type="button" onclick="toggleAdminNotifMenu(event)" class="relative w-9 h-9 sm:w-10 sm:h-10 rounded-full bg-white/90 dark:bg-[#211342] border border-purple-200/80 dark:border-purple-500/35 flex items-center justify-center text-[#2b194d] dark:text-purple-200 shadow-sm hover:bg-white transition cursor-pointer" title="Live Notifications">
+            <span class="material-symbols-outlined text-[20px]">notifications</span>
+            <span id="wm-header-notif-badge" class="hidden absolute -top-0.5 -right-0.5 min-w-[18px] h-[18px] px-1 rounded-full bg-rose-500 text-white text-[10px] font-extrabold flex items-center justify-center shadow">0</span>
+          </button>
+          <div id="wm-admin-notif-dropdown" class="hidden absolute right-0 mt-2 w-80 bg-white dark:bg-[#1a0e36] rounded-2xl border border-purple-200 dark:border-purple-500/30 shadow-2xl p-3.5 z-50 text-xs" onclick="event.stopPropagation()">
+            <div class="py-4 text-center text-xs text-on-surface-variant">Loading live notifications...</div>
+          </div>
+        </div>
+
+        <div class="relative">
+          <div onclick="toggleAdminProfileMenu(event)" class="wm-admin-profile-pill">
+            <div class="w-8 h-8 sm:w-9 sm:h-9 rounded-full bg-gradient-to-br from-[#4c1d95] to-[#6d28d9] flex items-center justify-center text-white shadow-sm flex-shrink-0">
+              <span class="material-symbols-outlined text-[19px]">person</span>
+            </div>
+            <div class="hidden sm:flex flex-col text-left leading-tight">
+              <span class="text-[13.5px] font-extrabold text-on-surface">Admin</span>
+              <span id="wm-admin-header-email" class="text-[11px] font-medium text-on-surface-variant">ankit.babusaini@gmail.com</span>
+            </div>
+            <span class="material-symbols-outlined text-[18px] text-on-surface-variant ml-0.5">expand_more</span>
+          </div>
+          <div id="wm-admin-profile-dropdown" class="hidden absolute right-0 mt-2 w-60 bg-white dark:bg-[#1a0e36] rounded-2xl border border-purple-200 dark:border-purple-500/30 shadow-2xl p-2 z-50 text-xs">
+            <a href="/" target="_blank" class="flex items-center gap-2.5 px-3 py-2 rounded-xl hover:bg-purple-500/10 text-on-surface font-semibold">
+              <span class="material-symbols-outlined text-[17px]">open_in_new</span>
+              <span>View Main Website</span>
+            </a>
+            <a href="/admin/anktech/anktech/admin/settings" class="flex items-center gap-2.5 px-3 py-2 rounded-xl hover:bg-purple-500/10 text-on-surface font-semibold">
+              <span class="material-symbols-outlined text-[17px]">settings</span>
+              <span>Platform Settings</span>
+            </a>
+          </div>
+        </div>
+      </div>
     </div>
   </header>
 
-  <!-- Status Banner -->
-  <div id="scheduler-feedback-banner" class="hidden mx-4 sm:mx-8 mt-4 p-4 rounded-2xl border text-xs font-semibold flex items-center justify-between" role="status" aria-live="polite"></div>
-
-  <!-- Navigation Tabs for Required Admin Sections A–H -->
-  <div class="px-4 sm:px-8 pt-4">
-    <div class="flex flex-wrap gap-2 border-b border-outline-variant/25 pb-3" role="tablist" aria-label="Festival Scheduler Sections">
-      <button type="button" role="tab" aria-selected="true" data-section-tab="section-calendar" onclick="switchSchedulerTab('section-calendar')" class="scheduler-tab-btn px-3.5 py-2 rounded-xl text-xs font-bold bg-primary text-white cursor-pointer">A. Festival Calendar</button>
-      <button type="button" role="tab" aria-selected="false" data-section-tab="section-details" onclick="switchSchedulerTab('section-details')" class="scheduler-tab-btn px-3.5 py-2 rounded-xl text-xs font-bold bg-surface-container text-on-surface hover:bg-surface-container-high cursor-pointer">B. Festival Details</button>
-      <button type="button" role="tab" aria-selected="false" data-section-tab="section-assignments" onclick="switchSchedulerTab('section-assignments')" class="scheduler-tab-btn px-3.5 py-2 rounded-xl text-xs font-bold bg-surface-container text-on-surface hover:bg-surface-container-high cursor-pointer">C. Template Assignments</button>
-      <button type="button" role="tab" aria-selected="false" data-section-tab="section-schedule" onclick="switchSchedulerTab('section-schedule')" class="scheduler-tab-btn px-3.5 py-2 rounded-xl text-xs font-bold bg-surface-container text-on-surface hover:bg-surface-container-high cursor-pointer">D. Publication Schedule</button>
-      <button type="button" role="tab" aria-selected="false" data-section-tab="section-overrides" onclick="switchSchedulerTab('section-overrides')" class="scheduler-tab-btn px-3.5 py-2 rounded-xl text-xs font-bold bg-surface-container text-on-surface hover:bg-surface-container-high cursor-pointer">E. Date Overrides</button>
-      <button type="button" role="tab" aria-selected="false" data-section-tab="section-upcoming" onclick="switchSchedulerTab('section-upcoming')" class="scheduler-tab-btn px-3.5 py-2 rounded-xl text-xs font-bold bg-surface-container text-on-surface hover:bg-surface-container-high cursor-pointer">F. Upcoming Festivals</button>
-      <button type="button" role="tab" aria-selected="false" data-section-tab="section-preview" onclick="switchSchedulerTab('section-preview')" class="scheduler-tab-btn px-3.5 py-2 rounded-xl text-xs font-bold bg-surface-container text-on-surface hover:bg-surface-container-high cursor-pointer">G. Preview &amp; Diagnostics</button>
-      <button type="button" role="tab" aria-selected="false" data-section-tab="section-history" onclick="switchSchedulerTab('section-history')" class="scheduler-tab-btn px-3.5 py-2 rounded-xl text-xs font-bold bg-surface-container text-on-surface hover:bg-surface-container-high cursor-pointer">H. Change History</button>
-    </div>
-  </div>
-
-  <!-- Main Workspace Sections -->
-  <div class="p-4 sm:p-8 space-y-8 flex-1">
-
-    <!-- SECTION A: FESTIVAL CALENDAR -->
-    <section id="section-calendar" class="scheduler-panel space-y-4" aria-labelledby="heading-calendar">
-      <div class="flex flex-wrap items-center justify-between gap-4">
-        <div>
-          <h2 id="heading-calendar" class="text-lg font-extrabold text-on-surface">A. Annual Festival Calendar</h2>
-          <p class="text-xs text-on-surface-variant">Resolved festival dates, verification statuses, manual overrides, and authoritative publication windows (`F - daysBefore` through `F + 3 days` inclusive).</p>
-        </div>
+  <!-- Main Content Area -->
+  <main class="pt-[78px] pb-12 flex-1 flex flex-col">
+    <!-- Page Header & Quick Actions -->
+    <div class="px-4 sm:px-8 pt-4 pb-3 flex flex-wrap items-center justify-between gap-4 border-b border-outline-variant/25">
+      <div>
         <div class="flex flex-wrap items-center gap-2">
-          <input type="search" id="calendar-search-input" oninput="renderFestivalCalendarTable()" placeholder="Search festival name or slug..." class="rounded-xl bg-surface-container border border-outline-variant/40 text-xs px-3.5 py-2 text-on-surface w-60" aria-label="Search festivals"/>
-          <select id="calendar-status-filter" onchange="renderFestivalCalendarTable()" class="rounded-xl bg-surface-container border border-outline-variant/40 text-xs px-3 py-2 text-on-surface" aria-label="Filter by verification status">
-            <option value="all">All Statuses</option>
-            <option value="AUTO_VERIFIED">Auto-Verified</option>
-            <option value="MANUALLY_CONFIRMED">Manually Confirmed</option>
-            <option value="IMPORTED_PENDING">Imported (Awaiting Approval)</option>
-            <option value="NEEDS_REVIEW">Needs Review</option>
-            <option value="DATE_UNAVAILABLE">Date Unavailable</option>
-          </select>
+          <h1 class="text-xl sm:text-2xl font-extrabold tracking-tight text-on-surface">Festival Scheduler &amp; Main Website Campaign Studio</h1>
+          <span class="px-2.5 py-0.5 rounded-full text-[11px] font-bold bg-purple-500/20 text-purple-300 border border-purple-500/30">UTP v1.4.0 Live</span>
         </div>
+        <p class="text-xs text-on-surface-variant mt-0.5">Annual Festival Calendar, Year-Scoped Date Overrides, Campaign Windows (F-15 to F+3 Inclusive), Template Assignments &amp; Direct Main Website Spotlight Sync</p>
       </div>
 
-      <div class="rounded-2xl border border-outline-variant/30 bg-surface-container/60 overflow-x-auto">
-        <table class="w-full text-left border-collapse text-xs">
-          <thead>
-            <tr class="border-b border-outline-variant/30 text-[11px] uppercase tracking-wider text-on-surface-variant bg-surface-container">
-              <th class="py-3 px-4">Festival</th>
-              <th class="py-3 px-4">Method &amp; Source</th>
-              <th class="py-3 px-4">Source Date</th>
-              <th class="py-3 px-4">Effective Date</th>
-              <th class="py-3 px-4">Verification Status</th>
-              <th class="py-3 px-4">Publication Window (Inclusive)</th>
-              <th class="py-3 px-4">First Blocked Day</th>
-              <th class="py-3 px-4 text-right">Actions</th>
-            </tr>
-          </thead>
-          <tbody id="festival-calendar-tbody" class="divide-y divide-outline-variant/20">
-            <tr><td colspan="8" class="py-8 text-center text-on-surface-variant">Loading festival calendar...</td></tr>
-          </tbody>
-        </table>
+      <div class="flex flex-wrap items-center gap-2.5">
+        <label for="scheduler-year-select" class="text-xs font-bold text-on-surface-variant">Year:</label>
+        <select id="scheduler-year-select" onchange="loadFestivalSchedulerData()" class="rounded-xl bg-surface-container border border-outline-variant/40 text-xs font-bold px-3 py-2 text-on-surface focus:ring-2 focus:ring-primary">
+          <option value="2025">2025</option>
+          <option value="2026" selected>2026</option>
+          <option value="2027">2027</option>
+          <option value="2028">2028</option>
+        </select>
+        <button type="button" onclick="quickLaunchFestivalOnWebsite('fest_diwali', true)" class="px-3.5 py-2 rounded-xl bg-gradient-to-r from-amber-500 via-orange-500 to-pink-600 text-white text-xs font-extrabold shadow-lg flex items-center gap-1.5 hover:brightness-110 transition cursor-pointer" title="1-Click Launch Diwali Campaign + Templates + 3D Theme on Main Website">
+          <span class="material-symbols-outlined text-[16px]">rocket_launch</span>
+          <span>🚀 Launch Diwali on Main Website</span>
+        </button>
+        <button type="button" onclick="triggerProviderSync()" id="btn-sync-provider" class="px-3 py-2 rounded-xl bg-surface-container-high hover:bg-purple-500/20 border border-outline-variant/40 text-xs font-bold text-on-surface flex items-center gap-1.5 transition cursor-pointer">
+          <span class="material-symbols-outlined text-[16px]">sync</span>
+          <span>Sync Calendar</span>
+        </button>
+        <button type="button" onclick="openFestivalModal()" class="px-3.5 py-2 rounded-xl bg-gradient-to-r from-pink-500 to-purple-600 text-white text-xs font-bold shadow-lg flex items-center gap-1.5 hover:brightness-110 transition cursor-pointer">
+          <span class="material-symbols-outlined text-[16px]">add</span>
+          <span>New Festival</span>
+        </button>
       </div>
-    </section>
+    </div>
 
-    <!-- SECTION B: FESTIVAL DETAILS -->
-    <section id="section-details" class="scheduler-panel hidden space-y-4" aria-labelledby="heading-details">
-      <div class="rounded-2xl border border-outline-variant/30 bg-surface-container/60 p-6 space-y-5">
-        <div class="flex items-center justify-between">
-          <div>
-            <h2 id="heading-details" class="text-lg font-extrabold text-on-surface">B. Festival Details &amp; Configuration</h2>
-            <p class="text-xs text-on-surface-variant">Configure festival identity, localized names, date-calculation method, timezone, and default publication window offsets.</p>
-          </div>
+    <!-- Live KPI Summary & Main Website Impact Bar -->
+    <div class="px-4 sm:px-8 pt-4 grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-3">
+      <div class="p-3.5 rounded-2xl bg-surface-container/70 border border-outline-variant/30 flex items-center justify-between">
+        <div>
+          <span class="text-[10px] font-bold uppercase tracking-wider text-on-surface-variant block">Total Festivals</span>
+          <span id="kpi-total-festivals" class="text-xl font-extrabold text-on-surface mt-0.5 block">11</span>
         </div>
+        <span class="material-symbols-outlined text-purple-400 text-[26px]">calendar_month</span>
+      </div>
+      <div class="p-3.5 rounded-2xl bg-surface-container/70 border border-emerald-500/30 flex items-center justify-between">
+        <div>
+          <span class="text-[10px] font-bold uppercase tracking-wider text-emerald-300 block">Live on Main Website</span>
+          <span id="kpi-active-campaigns" class="text-xl font-extrabold text-emerald-400 mt-0.5 block">0 Active</span>
+        </div>
+        <span class="material-symbols-outlined text-emerald-400 text-[26px]">campaign</span>
+      </div>
+      <div class="p-3.5 rounded-2xl bg-surface-container/70 border border-amber-500/30 flex items-center justify-between">
+        <div>
+          <span class="text-[10px] font-bold uppercase tracking-wider text-amber-300 block">Open Windows Now</span>
+          <span id="kpi-open-windows" class="text-xl font-extrabold text-amber-400 mt-0.5 block">0 Open</span>
+        </div>
+        <span class="material-symbols-outlined text-amber-400 text-[26px]">event_available</span>
+      </div>
+      <div class="p-3.5 rounded-2xl bg-surface-container/70 border border-pink-500/30 flex items-center justify-between">
+        <div>
+          <span class="text-[10px] font-bold uppercase tracking-wider text-pink-300 block">Assigned Templates</span>
+          <span id="kpi-assigned-templates" class="text-xl font-extrabold text-pink-400 mt-0.5 block">0 Linked</span>
+        </div>
+        <span class="material-symbols-outlined text-pink-400 text-[26px]">style</span>
+      </div>
+      <div class="p-3.5 rounded-2xl bg-surface-container/70 border border-outline-variant/30 flex flex-col justify-between gap-1.5">
+        <span class="text-[10px] font-bold uppercase tracking-wider text-on-surface-variant block">Main Website Theme Sync</span>
+        <div class="flex items-center gap-1.5">
+          <button type="button" onclick="applyStorefrontFestivalTheme('diwali')" class="flex-1 py-1.5 px-2 rounded-lg bg-amber-500/20 hover:bg-amber-500/30 text-amber-300 border border-amber-500/35 text-[11px] font-extrabold cursor-pointer transition">🪔 Diwali Theme</button>
+          <button type="button" onclick="applyStorefrontFestivalTheme('default')" class="flex-1 py-1.5 px-2 rounded-lg bg-surface hover:bg-purple-500/20 text-on-surface border border-outline-variant/40 text-[11px] font-bold cursor-pointer transition">☁️ Default</button>
+        </div>
+      </div>
+    </div>
 
-        <form id="form-festival-details" onsubmit="saveFestivalDefinition(event)" class="grid grid-cols-1 md:grid-cols-2 gap-4 text-xs">
+    <!-- Status Banner -->
+    <div id="scheduler-feedback-banner" class="hidden mx-4 sm:mx-8 mt-4 p-4 rounded-2xl border text-xs font-semibold flex items-center justify-between shadow-lg" role="status" aria-live="polite"></div>
+
+    <!-- Navigation Tabs for Required Admin Sections A–H -->
+    <div class="px-4 sm:px-8 pt-4">
+      <div class="flex flex-wrap gap-2 border-b border-outline-variant/25 pb-3" role="tablist" aria-label="Festival Scheduler Sections">
+        <button type="button" role="tab" aria-selected="true" data-section-tab="section-calendar" onclick="switchSchedulerTab('section-calendar')" class="scheduler-tab-btn px-3.5 py-2 rounded-xl text-xs font-bold bg-primary text-white cursor-pointer">A. Festival Calendar</button>
+        <button type="button" role="tab" aria-selected="false" data-section-tab="section-details" onclick="switchSchedulerTab('section-details')" class="scheduler-tab-btn px-3.5 py-2 rounded-xl text-xs font-bold bg-surface-container text-on-surface hover:bg-surface-container-high cursor-pointer">B. Festival Details</button>
+        <button type="button" role="tab" aria-selected="false" data-section-tab="section-assignments" onclick="switchSchedulerTab('section-assignments')" class="scheduler-tab-btn px-3.5 py-2 rounded-xl text-xs font-bold bg-surface-container text-on-surface hover:bg-surface-container-high cursor-pointer">C. Template Assignments</button>
+        <button type="button" role="tab" aria-selected="false" data-section-tab="section-schedule" onclick="switchSchedulerTab('section-schedule')" class="scheduler-tab-btn px-3.5 py-2 rounded-xl text-xs font-bold bg-surface-container text-on-surface hover:bg-surface-container-high cursor-pointer">D. Publication Schedule</button>
+        <button type="button" role="tab" aria-selected="false" data-section-tab="section-overrides" onclick="switchSchedulerTab('section-overrides')" class="scheduler-tab-btn px-3.5 py-2 rounded-xl text-xs font-bold bg-surface-container text-on-surface hover:bg-surface-container-high cursor-pointer">E. Date Overrides</button>
+        <button type="button" role="tab" aria-selected="false" data-section-tab="section-upcoming" onclick="switchSchedulerTab('section-upcoming')" class="scheduler-tab-btn px-3.5 py-2 rounded-xl text-xs font-bold bg-surface-container text-on-surface hover:bg-surface-container-high cursor-pointer">F. Upcoming Festivals</button>
+        <button type="button" role="tab" aria-selected="false" data-section-tab="section-preview" onclick="switchSchedulerTab('section-preview')" class="scheduler-tab-btn px-3.5 py-2 rounded-xl text-xs font-bold bg-surface-container text-on-surface hover:bg-surface-container-high cursor-pointer">G. Preview &amp; Diagnostics</button>
+        <button type="button" role="tab" aria-selected="false" data-section-tab="section-history" onclick="switchSchedulerTab('section-history')" class="scheduler-tab-btn px-3.5 py-2 rounded-xl text-xs font-bold bg-surface-container text-on-surface hover:bg-surface-container-high cursor-pointer">H. Change History</button>
+      </div>
+    </div>
+
+    <!-- Main Workspace Sections -->
+    <div class="p-4 sm:p-8 space-y-8 flex-1">
+
+      <!-- SECTION A: FESTIVAL CALENDAR -->
+      <section id="section-calendar" class="scheduler-panel space-y-4" aria-labelledby="heading-calendar">
+        <div class="flex flex-wrap items-center justify-between gap-4">
           <div>
-            <label for="fest-id-input" class="block font-bold mb-1">Festival ID / Slug *</label>
-            <input type="text" id="fest-id-input" required placeholder="e.g. fest_diwali or diwali" class="w-full rounded-xl bg-surface border border-outline-variant/40 px-3 py-2 text-on-surface"/>
-            <p id="err-fest-id" class="text-[11px] text-rose-400 mt-1 hidden"></p>
+            <h2 id="heading-calendar" class="text-lg font-extrabold text-on-surface">A. Annual Festival Calendar &amp; 1-Click Website Launch</h2>
+            <p class="text-xs text-on-surface-variant">Resolved festival dates, verification statuses, manual overrides, publication windows (<code>F - daysBefore</code> through <code>F + 3 days</code> inclusive), and 1-click Main Website launch controls.</p>
           </div>
-          <div>
-            <label for="fest-name-input" class="block font-bold mb-1">Display Name *</label>
-            <input type="text" id="fest-name-input" required placeholder="e.g. Diwali (Deepavali)" class="w-full rounded-xl bg-surface border border-outline-variant/40 px-3 py-2 text-on-surface"/>
-          </div>
-          <div>
-            <label for="fest-category-input" class="block font-bold mb-1">Festival Category</label>
-            <select id="fest-category-input" class="w-full rounded-xl bg-surface border border-outline-variant/40 px-3 py-2 text-on-surface">
-              <option value="indian_festival">Indian Festival (Lunar / Panchang)</option>
-              <option value="global_festival">Global Festival</option>
-              <option value="cultural_celebration">Cultural Celebration</option>
-              <option value="national_observance">National Observance</option>
-            </select>
-          </div>
-          <div>
-            <label for="fest-method-input" class="block font-bold mb-1">Date Calculation / Resolution Method *</label>
-            <select id="fest-method-input" class="w-full rounded-xl bg-surface border border-outline-variant/40 px-3 py-2 text-on-surface">
-              <option value="VERIFIED_CALENDAR_TABLE">Verified Calendar Table (Panchang / Gazette)</option>
-              <option value="FIXED_GREGORIAN">Fixed Gregorian Date (e.g. 25 Dec, 1 Jan)</option>
-              <option value="DETERMINISTIC_RULE">Deterministic Rule (Nth Weekday / Easter)</option>
-              <option value="EXTERNAL_PROVIDER">External Calendar Provider Feed</option>
-              <option value="MANUAL_ADMIN">Manual Administrator Entry</option>
-            </select>
-          </div>
-          <div>
-            <label for="fest-resolved-date-input" class="block font-bold mb-1">Resolved Date for Selected Year (YYYY-MM-DD)</label>
-            <input type="date" id="fest-resolved-date-input" class="w-full rounded-xl bg-surface border border-outline-variant/40 px-3 py-2 text-on-surface"/>
-          </div>
-          <div>
-            <label for="fest-verification-status-input" class="block font-bold mb-1">Date Verification Status</label>
-            <select id="fest-verification-status-input" class="w-full rounded-xl bg-surface border border-outline-variant/40 px-3 py-2 text-on-surface">
+          <div class="flex flex-wrap items-center gap-2">
+            <input type="search" id="calendar-search-input" oninput="renderFestivalCalendarTable()" placeholder="Search festival name or slug..." class="rounded-xl bg-surface-container border border-outline-variant/40 text-xs px-3.5 py-2 text-on-surface w-60" aria-label="Search festivals"/>
+            <select id="calendar-status-filter" onchange="renderFestivalCalendarTable()" class="rounded-xl bg-surface-container border border-outline-variant/40 text-xs px-3 py-2 text-on-surface" aria-label="Filter by verification status">
+              <option value="all">All Statuses</option>
+              <option value="AUTO_VERIFIED">Auto-Verified</option>
               <option value="MANUALLY_CONFIRMED">Manually Confirmed</option>
-              <option value="AUTO_VERIFIED">Automatically Resolved &amp; Verified</option>
-              <option value="IMPORTED_PENDING">Imported, Awaiting Verification</option>
+              <option value="IMPORTED_PENDING">Imported (Awaiting Approval)</option>
               <option value="NEEDS_REVIEW">Needs Review</option>
               <option value="DATE_UNAVAILABLE">Date Unavailable</option>
             </select>
           </div>
-          <div>
-            <label for="fest-timezone-input" class="block font-bold mb-1">Timezone (IANA)</label>
-            <input type="text" id="fest-timezone-input" value="Asia/Kolkata" class="w-full rounded-xl bg-surface border border-outline-variant/40 px-3 py-2 text-on-surface"/>
-          </div>
-          <div class="grid grid-cols-2 gap-3">
-            <div>
-              <label for="fest-days-before-input" class="block font-bold mb-1">Days Before (Default 15)</label>
-              <input type="number" id="fest-days-before-input" value="15" min="0" max="180" class="w-full rounded-xl bg-surface border border-outline-variant/40 px-3 py-2 text-on-surface"/>
-            </div>
-            <div>
-              <label for="fest-days-after-input" class="block font-bold mb-1">Days After (Default 3)</label>
-              <input type="number" id="fest-days-after-input" value="3" min="0" max="60" class="w-full rounded-xl bg-surface border border-outline-variant/40 px-3 py-2 text-on-surface"/>
-            </div>
-          </div>
-          <div>
-            <label for="fest-localized-input" class="block font-bold mb-1">Localized Names (JSON)</label>
-            <input type="text" id="fest-localized-input" placeholder='{"hi":"दीपावली","en":"Diwali"}' class="w-full rounded-xl bg-surface border border-outline-variant/40 px-3 py-2 text-on-surface font-mono"/>
-          </div>
-          <div>
-            <label for="fest-source-input" class="block font-bold mb-1">Source Attribution / Reference</label>
-            <input type="text" id="fest-source-input" placeholder="e.g. Positional Astronomy Centre (IMD Panchang)" class="w-full rounded-xl bg-surface border border-outline-variant/40 px-3 py-2 text-on-surface"/>
-          </div>
-          <div class="md:col-span-2">
-            <label for="fest-desc-input" class="block font-bold mb-1">Description &amp; Notes</label>
-            <textarea id="fest-desc-input" rows="2" class="w-full rounded-xl bg-surface border border-outline-variant/40 px-3 py-2 text-on-surface"></textarea>
-          </div>
-          <div class="md:col-span-2 flex flex-wrap items-center gap-6">
-            <label class="inline-flex items-center gap-2 cursor-pointer">
-              <input type="checkbox" id="fest-enabled-input" checked class="rounded text-primary"/>
-              <span class="font-bold">Festival Enabled</span>
-            </label>
-            <label class="inline-flex items-center gap-2 cursor-pointer">
-              <input type="checkbox" id="fest-approval-input" class="rounded text-primary"/>
-              <span class="font-bold">Requires Administrator Approval Before Going Live</span>
-            </label>
-          </div>
-          <div class="md:col-span-2 flex justify-end gap-3 pt-2">
-            <button type="submit" class="px-5 py-2.5 rounded-xl bg-gradient-to-r from-pink-500 to-purple-600 text-white font-bold shadow-md cursor-pointer">Save Festival Definition</button>
-          </div>
-        </form>
-      </div>
-    </section>
-
-    <!-- SECTION C: TEMPLATE ASSIGNMENTS -->
-    <section id="section-assignments" class="scheduler-panel hidden space-y-4" aria-labelledby="heading-assignments">
-      <div class="rounded-2xl border border-outline-variant/30 bg-surface-container/60 p-6 space-y-5">
-        <div class="flex flex-wrap items-center justify-between gap-4">
-          <div>
-            <h2 id="heading-assignments" class="text-lg font-extrabold text-on-surface">C. Campaign Template &amp; Relation Variant Assignments</h2>
-            <p class="text-xs text-on-surface-variant">Assign existing WishMagic templates to a festival campaign, filter supported relation variants, set display order, and preview without duplicating template files.</p>
-          </div>
-          <div class="flex items-center gap-2">
-            <label for="assign-campaign-select" class="text-xs font-bold">Target Campaign:</label>
-            <select id="assign-campaign-select" onchange="renderCampaignAssignmentsPanel()" class="rounded-xl bg-surface border border-outline-variant/40 text-xs font-bold px-3 py-2 text-on-surface min-w-[220px]"></select>
-          </div>
         </div>
 
-        <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
-          <!-- Available Templates Search & Picker -->
-          <div class="space-y-3">
-            <div class="flex items-center justify-between gap-2">
-              <h3 class="text-sm font-bold text-on-surface">Available WishMagic Templates</h3>
-              <input type="search" id="assign-template-search" oninput="renderAvailableTemplatesForAssignment()" placeholder="Search templates..." class="rounded-xl bg-surface border border-outline-variant/40 text-xs px-3 py-1.5 text-on-surface w-48"/>
-            </div>
-            <div id="assign-available-templates-list" class="space-y-2 max-h-[420px] overflow-y-auto pr-1"></div>
-          </div>
-
-          <!-- Currently Assigned Templates for Selected Campaign -->
-          <div class="space-y-3">
-            <h3 class="text-sm font-bold text-on-surface">Assigned Templates on Selected Campaign</h3>
-            <div id="assign-current-list" class="space-y-2 max-h-[420px] overflow-y-auto pr-1"></div>
-          </div>
+        <div class="rounded-2xl border border-outline-variant/30 bg-surface-container/60 overflow-x-auto">
+          <table class="w-full text-left border-collapse text-xs">
+            <thead>
+              <tr class="border-b border-outline-variant/30 text-[11px] uppercase tracking-wider text-on-surface-variant bg-surface-container">
+                <th class="py-3 px-4">Festival</th>
+                <th class="py-3 px-4">Method &amp; Source</th>
+                <th class="py-3 px-4">Source Date</th>
+                <th class="py-3 px-4">Effective Date</th>
+                <th class="py-3 px-4">Website Campaign Status</th>
+                <th class="py-3 px-4">Publication Window (Inclusive)</th>
+                <th class="py-3 px-4">First Blocked Day</th>
+                <th class="py-3 px-4 text-right">Actions</th>
+              </tr>
+            </thead>
+            <tbody id="festival-calendar-tbody" class="divide-y divide-outline-variant/20">
+              <tr><td colspan="8" class="py-8 text-center text-on-surface-variant">Loading festival calendar...</td></tr>
+            </tbody>
+          </table>
         </div>
-      </div>
-    </section>
+      </section>
 
-    <!-- SECTION D: PUBLICATION SCHEDULE -->
-    <section id="section-schedule" class="scheduler-panel hidden space-y-4" aria-labelledby="heading-schedule">
-      <div class="rounded-2xl border border-outline-variant/30 bg-surface-container/60 p-6 space-y-5">
-        <div>
-          <h2 id="heading-schedule" class="text-lg font-extrabold text-on-surface">D. Campaign Publication Schedule &amp; Status Controls</h2>
-          <p class="text-xs text-on-surface-variant">Create or configure festival campaigns. Default window: Start = <code>F - 15 days</code>, End = <code>F + 3 days</code> (inclusive). Wishes created during the active window become accessible immediately.</p>
-        </div>
-
-        <form id="form-campaign-schedule" onsubmit="saveCampaignSchedule(event)" class="grid grid-cols-1 md:grid-cols-3 gap-4 text-xs border-b border-outline-variant/25 pb-6">
-          <div>
-            <label for="camp-festival-select" class="block font-bold mb-1">Festival *</label>
-            <select id="camp-festival-select" required class="w-full rounded-xl bg-surface border border-outline-variant/40 px-3 py-2 text-on-surface"></select>
-          </div>
-          <div>
-            <label for="camp-year-input" class="block font-bold mb-1">Applicable Year *</label>
-            <input type="number" id="camp-year-input" value="2026" min="2024" max="2035" required class="w-full rounded-xl bg-surface border border-outline-variant/40 px-3 py-2 text-on-surface"/>
-          </div>
-          <div>
-            <label for="camp-status-select" class="block font-bold mb-1">Campaign Status *</label>
-            <select id="camp-status-select" class="w-full rounded-xl bg-surface border border-outline-variant/40 px-3 py-2 text-on-surface">
-              <option value="SCHEDULED">SCHEDULED (Auto-opens in window)</option>
-              <option value="ACTIVE">ACTIVE (Live during confirmed window)</option>
-              <option value="PAUSED">PAUSED (Temporarily blocks new wishes)</option>
-              <option value="DRAFT">DRAFT (Hidden from public gallery)</option>
-              <option value="ENDED">ENDED (Closed for new wishes)</option>
-              <option value="CANCELLED">CANCELLED</option>
-            </select>
-          </div>
-          <div>
-            <label for="camp-title-input" class="block font-bold mb-1">Campaign Title</label>
-            <input type="text" id="camp-title-input" placeholder="e.g. Diwali 2026 Grand Celebration" class="w-full rounded-xl bg-surface border border-outline-variant/40 px-3 py-2 text-on-surface"/>
-          </div>
-          <div>
-            <label for="camp-badge-input" class="block font-bold mb-1">Gallery Badge Label</label>
-            <input type="text" id="camp-badge-input" placeholder="e.g. ✨ Diwali Special" class="w-full rounded-xl bg-surface border border-outline-variant/40 px-3 py-2 text-on-surface"/>
-          </div>
-          <div>
-            <label for="camp-tz-input" class="block font-bold mb-1">Timezone</label>
-            <input type="text" id="camp-tz-input" value="Asia/Kolkata" class="w-full rounded-xl bg-surface border border-outline-variant/40 px-3 py-2 text-on-surface"/>
-          </div>
-          <div>
-            <label for="camp-days-before" class="block font-bold mb-1">Days Before Festival (Default 15)</label>
-            <input type="number" id="camp-days-before" value="15" min="0" max="180" required class="w-full rounded-xl bg-surface border border-outline-variant/40 px-3 py-2 text-on-surface"/>
-          </div>
-          <div>
-            <label for="camp-days-after" class="block font-bold mb-1">Days After Festival (Default 3, Inclusive)</label>
-            <input type="number" id="camp-days-after" value="3" min="0" max="60" required class="w-full rounded-xl bg-surface border border-outline-variant/40 px-3 py-2 text-on-surface"/>
-          </div>
-          <div class="flex items-end">
-            <button type="submit" class="w-full py-2.5 px-4 rounded-xl bg-gradient-to-r from-pink-500 to-purple-600 text-white font-bold shadow-md cursor-pointer">Save Campaign Schedule</button>
-          </div>
-        </form>
-
-        <div id="campaigns-schedule-list" class="space-y-3"></div>
-      </div>
-    </section>
-
-    <!-- SECTION E: DATE OVERRIDES -->
-    <section id="section-overrides" class="scheduler-panel hidden space-y-4" aria-labelledby="heading-overrides">
-      <div class="rounded-2xl border border-outline-variant/30 bg-surface-container/60 p-6 space-y-5">
-        <div>
-          <h2 id="heading-overrides" class="text-lg font-extrabold text-on-surface">E. Year-Scoped Manual Date Overrides</h2>
-          <p class="text-xs text-on-surface-variant">Override an automatically resolved or imported festival date for a specific year without modifying source code or affecting other years. Removing an override immediately restores automatic resolution.</p>
-        </div>
-
-        <form id="form-date-override" onsubmit="submitFestivalDateOverride(event)" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 text-xs">
-          <div>
-            <label for="ov-festival-select" class="block font-bold mb-1">Select Festival *</label>
-            <select id="ov-festival-select" onchange="updateOverrideComparisonPreview()" required class="w-full rounded-xl bg-surface border border-outline-variant/40 px-3 py-2 text-on-surface"></select>
-          </div>
-          <div>
-            <label for="ov-year-input" class="block font-bold mb-1">Applicable Year *</label>
-            <input type="number" id="ov-year-input" value="2026" min="2024" max="2035" onchange="updateOverrideComparisonPreview()" required class="w-full rounded-xl bg-surface border border-outline-variant/40 px-3 py-2 text-on-surface"/>
-          </div>
-          <div>
-            <label for="ov-date-input" class="block font-bold mb-1">Manual Override Date (YYYY-MM-DD) *</label>
-            <input type="date" id="ov-date-input" onchange="updateOverrideComparisonPreview()" required class="w-full rounded-xl bg-surface border border-outline-variant/40 px-3 py-2 text-on-surface"/>
-            <p id="err-ov-date" class="text-[11px] text-rose-400 mt-1 hidden"></p>
-          </div>
-          <div>
-            <label for="ov-tz-input" class="block font-bold mb-1">Timezone (IANA) *</label>
-            <input type="text" id="ov-tz-input" value="Asia/Kolkata" required class="w-full rounded-xl bg-surface border border-outline-variant/40 px-3 py-2 text-on-surface"/>
-          </div>
-          <div class="md:col-span-2">
-            <label for="ov-reason-input" class="block font-bold mb-1">Override Reason (Required for Audit Log) *</label>
-            <input type="text" id="ov-reason-input" required placeholder="e.g. Regional Panchang / Gazette adjustment for Amavasya tithi" class="w-full rounded-xl bg-surface border border-outline-variant/40 px-3 py-2 text-on-surface"/>
-          </div>
-          <div class="lg:col-span-3 p-4 rounded-xl bg-surface border border-outline-variant/30 flex flex-wrap items-center justify-between gap-4" id="ov-side-by-side-box">
+      <!-- SECTION B: FESTIVAL DETAILS -->
+      <section id="section-details" class="scheduler-panel hidden space-y-4" aria-labelledby="heading-details">
+        <div class="rounded-2xl border border-outline-variant/30 bg-surface-container/60 p-6 space-y-5">
+          <div class="flex items-center justify-between">
             <div>
-              <span class="text-[11px] uppercase tracking-wider text-on-surface-variant block">Automatically Resolved Source Date</span>
-              <span id="ov-source-date-display" class="text-sm font-extrabold font-mono text-on-surface">—</span>
+              <h2 id="heading-details" class="text-lg font-extrabold text-on-surface">B. Festival Details &amp; Configuration</h2>
+              <p class="text-xs text-on-surface-variant">Configure festival identity, localized names, date-calculation method, timezone, and default publication window offsets.</p>
+            </div>
+          </div>
+
+          <form id="form-festival-details" onsubmit="saveFestivalDefinition(event)" class="grid grid-cols-1 md:grid-cols-2 gap-4 text-xs">
+            <div>
+              <label for="fest-id-input" class="block font-bold mb-1">Festival ID / Slug *</label>
+              <input type="text" id="fest-id-input" required placeholder="e.g. fest_diwali or diwali" class="w-full rounded-xl bg-surface border border-outline-variant/40 px-3 py-2 text-on-surface"/>
+              <p id="err-fest-id" class="text-[11px] text-rose-400 mt-1 hidden"></p>
             </div>
             <div>
-              <span class="text-[11px] uppercase tracking-wider text-on-surface-variant block">Current Effective Date</span>
-              <span id="ov-effective-date-display" class="text-sm font-extrabold font-mono text-amber-400">—</span>
+              <label for="fest-name-input" class="block font-bold mb-1">Display Name *</label>
+              <input type="text" id="fest-name-input" required placeholder="e.g. Diwali (Deepavali)" class="w-full rounded-xl bg-surface border border-outline-variant/40 px-3 py-2 text-on-surface"/>
             </div>
             <div>
-              <span class="text-[11px] uppercase tracking-wider text-on-surface-variant block">Resulting Publication Window</span>
-              <span id="ov-window-preview-display" class="text-sm font-extrabold font-mono text-emerald-400">—</span>
+              <label for="fest-category-input" class="block font-bold mb-1">Festival Category</label>
+              <select id="fest-category-input" class="w-full rounded-xl bg-surface border border-outline-variant/40 px-3 py-2 text-on-surface">
+                <option value="indian_festival">Indian Festival (Lunar / Panchang)</option>
+                <option value="global_festival">Global Festival</option>
+                <option value="cultural_celebration">Cultural Celebration</option>
+                <option value="national_observance">National Observance</option>
+              </select>
+            </div>
+            <div>
+              <label for="fest-method-input" class="block font-bold mb-1">Date Calculation / Resolution Method *</label>
+              <select id="fest-method-input" class="w-full rounded-xl bg-surface border border-outline-variant/40 px-3 py-2 text-on-surface">
+                <option value="VERIFIED_CALENDAR_TABLE">Verified Calendar Table (Panchang / Gazette)</option>
+                <option value="FIXED_GREGORIAN">Fixed Gregorian Date (e.g. 25 Dec, 1 Jan)</option>
+                <option value="DETERMINISTIC_RULE">Deterministic Rule (Nth Weekday / Easter)</option>
+                <option value="EXTERNAL_PROVIDER">External Calendar Provider Feed</option>
+                <option value="MANUAL_ADMIN">Manual Administrator Entry</option>
+              </select>
+            </div>
+            <div>
+              <label for="fest-resolved-date-input" class="block font-bold mb-1">Resolved Date for Selected Year (YYYY-MM-DD)</label>
+              <input type="date" id="fest-resolved-date-input" class="w-full rounded-xl bg-surface border border-outline-variant/40 px-3 py-2 text-on-surface"/>
+            </div>
+            <div>
+              <label for="fest-verification-status-input" class="block font-bold mb-1">Date Verification Status</label>
+              <select id="fest-verification-status-input" class="w-full rounded-xl bg-surface border border-outline-variant/40 px-3 py-2 text-on-surface">
+                <option value="MANUALLY_CONFIRMED">Manually Confirmed</option>
+                <option value="AUTO_VERIFIED">Automatically Resolved &amp; Verified</option>
+                <option value="IMPORTED_PENDING">Imported, Awaiting Verification</option>
+                <option value="NEEDS_REVIEW">Needs Review</option>
+                <option value="DATE_UNAVAILABLE">Date Unavailable</option>
+              </select>
+            </div>
+            <div>
+              <label for="fest-timezone-input" class="block font-bold mb-1">Timezone (IANA)</label>
+              <input type="text" id="fest-timezone-input" value="Asia/Kolkata" class="w-full rounded-xl bg-surface border border-outline-variant/40 px-3 py-2 text-on-surface"/>
+            </div>
+            <div class="grid grid-cols-2 gap-3">
+              <div>
+                <label for="fest-days-before-input" class="block font-bold mb-1">Days Before (Default 15)</label>
+                <input type="number" id="fest-days-before-input" value="15" min="0" max="180" class="w-full rounded-xl bg-surface border border-outline-variant/40 px-3 py-2 text-on-surface"/>
+              </div>
+              <div>
+                <label for="fest-days-after-input" class="block font-bold mb-1">Days After (Default 3)</label>
+                <input type="number" id="fest-days-after-input" value="3" min="0" max="60" class="w-full rounded-xl bg-surface border border-outline-variant/40 px-3 py-2 text-on-surface"/>
+              </div>
+            </div>
+            <div>
+              <label for="fest-localized-input" class="block font-bold mb-1">Localized Names (JSON)</label>
+              <input type="text" id="fest-localized-input" placeholder='{"hi":"दीपावली","en":"Diwali"}' class="w-full rounded-xl bg-surface border border-outline-variant/40 px-3 py-2 text-on-surface font-mono"/>
+            </div>
+            <div>
+              <label for="fest-source-input" class="block font-bold mb-1">Source Attribution / Reference</label>
+              <input type="text" id="fest-source-input" placeholder="e.g. Positional Astronomy Centre (IMD Panchang)" class="w-full rounded-xl bg-surface border border-outline-variant/40 px-3 py-2 text-on-surface"/>
+            </div>
+            <div class="md:col-span-2">
+              <label for="fest-desc-input" class="block font-bold mb-1">Description &amp; Notes</label>
+              <textarea id="fest-desc-input" rows="2" class="w-full rounded-xl bg-surface border border-outline-variant/40 px-3 py-2 text-on-surface"></textarea>
+            </div>
+            <div class="md:col-span-2 flex flex-wrap items-center gap-6">
+              <label class="inline-flex items-center gap-2 cursor-pointer">
+                <input type="checkbox" id="fest-enabled-input" checked class="rounded text-primary"/>
+                <span class="font-bold">Festival Enabled</span>
+              </label>
+              <label class="inline-flex items-center gap-2 cursor-pointer">
+                <input type="checkbox" id="fest-approval-input" class="rounded text-primary"/>
+                <span class="font-bold">Requires Administrator Approval Before Going Live</span>
+              </label>
+            </div>
+            <div class="md:col-span-2 flex justify-end gap-3 pt-2">
+              <button type="submit" class="px-5 py-2.5 rounded-xl bg-gradient-to-r from-pink-500 to-purple-600 text-white font-bold shadow-md cursor-pointer">Save Festival Definition</button>
+            </div>
+          </form>
+        </div>
+      </section>
+
+      <!-- SECTION C: TEMPLATE ASSIGNMENTS -->
+      <section id="section-assignments" class="scheduler-panel hidden space-y-4" aria-labelledby="heading-assignments">
+        <div class="rounded-2xl border border-outline-variant/30 bg-surface-container/60 p-6 space-y-5">
+          <div class="flex flex-wrap items-center justify-between gap-4">
+            <div>
+              <h2 id="heading-assignments" class="text-lg font-extrabold text-on-surface">C. Campaign Template &amp; Relation Variant Assignments</h2>
+              <p class="text-xs text-on-surface-variant">Assign existing WishMagic templates to a festival campaign, filter supported relation variants, set display order, and preview without duplicating template files.</p>
             </div>
             <div class="flex items-center gap-2">
-              <button type="submit" class="px-4 py-2 rounded-xl bg-gradient-to-r from-amber-500 to-pink-600 text-white font-bold shadow-md cursor-pointer">Save Override</button>
-              <button type="button" onclick="removeCurrentSelectedOverride()" class="px-3.5 py-2 rounded-xl bg-surface-container-high hover:bg-rose-500/20 text-rose-300 border border-rose-500/30 font-bold cursor-pointer">Remove Override</button>
+              <label for="assign-campaign-select" class="text-xs font-bold">Target Campaign:</label>
+              <select id="assign-campaign-select" onchange="renderCampaignAssignmentsPanel()" class="rounded-xl bg-surface border border-outline-variant/40 text-xs font-bold px-3 py-2 text-on-surface min-w-[220px]"></select>
             </div>
           </div>
-        </form>
-      </div>
-    </section>
 
-    <!-- SECTION F: UPCOMING FESTIVALS -->
-    <section id="section-upcoming" class="scheduler-panel hidden space-y-4" aria-labelledby="heading-upcoming">
-      <div>
-        <h2 id="heading-upcoming" class="text-lg font-extrabold text-on-surface">F. Upcoming Festivals &amp; Campaign Readiness</h2>
-        <p class="text-xs text-on-surface-variant">Chronological view of upcoming festivals, their publication window opening dates, and assigned template readiness.</p>
-      </div>
-      <div id="upcoming-festivals-grid" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4"></div>
-    </section>
+          <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
+            <div class="space-y-3">
+              <div class="flex items-center justify-between gap-2">
+                <h3 class="text-sm font-bold text-on-surface">Available WishMagic Templates</h3>
+                <input type="search" id="assign-template-search" oninput="renderAvailableTemplatesForAssignment()" placeholder="Search templates..." class="rounded-xl bg-surface border border-outline-variant/40 text-xs px-3 py-1.5 text-on-surface w-48"/>
+              </div>
+              <div id="assign-available-templates-list" class="space-y-2 max-h-[420px] overflow-y-auto pr-1"></div>
+            </div>
 
-    <!-- SECTION G: PREVIEW AND DIAGNOSTICS -->
-    <section id="section-preview" class="scheduler-panel hidden space-y-4" aria-labelledby="heading-preview">
-      <div class="rounded-2xl border border-outline-variant/30 bg-surface-container/60 p-6 space-y-5">
+            <div class="space-y-3">
+              <h3 class="text-sm font-bold text-on-surface">Assigned Templates on Selected Campaign</h3>
+              <div id="assign-current-list" class="space-y-2 max-h-[420px] overflow-y-auto pr-1"></div>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <!-- SECTION D: PUBLICATION SCHEDULE -->
+      <section id="section-schedule" class="scheduler-panel hidden space-y-4" aria-labelledby="heading-schedule">
+        <div class="rounded-2xl border border-outline-variant/30 bg-surface-container/60 p-6 space-y-5">
+          <div>
+            <h2 id="heading-schedule" class="text-lg font-extrabold text-on-surface">D. Campaign Publication Schedule &amp; Status Controls</h2>
+            <p class="text-xs text-on-surface-variant">Create or configure festival campaigns. Default window: Start = <code>F - 15 days</code>, End = <code>F + 3 days</code> (inclusive). Wishes created during the active window become accessible immediately.</p>
+          </div>
+
+          <form id="form-campaign-schedule" onsubmit="saveCampaignSchedule(event)" class="grid grid-cols-1 md:grid-cols-3 gap-4 text-xs border-b border-outline-variant/25 pb-6">
+            <div>
+              <label for="camp-festival-select" class="block font-bold mb-1">Festival *</label>
+              <select id="camp-festival-select" required class="w-full rounded-xl bg-surface border border-outline-variant/40 px-3 py-2 text-on-surface"></select>
+            </div>
+            <div>
+              <label for="camp-year-input" class="block font-bold mb-1">Applicable Year *</label>
+              <input type="number" id="camp-year-input" value="2026" min="2024" max="2035" required class="w-full rounded-xl bg-surface border border-outline-variant/40 px-3 py-2 text-on-surface"/>
+            </div>
+            <div>
+              <label for="camp-status-select" class="block font-bold mb-1">Campaign Status *</label>
+              <select id="camp-status-select" class="w-full rounded-xl bg-surface border border-outline-variant/40 px-3 py-2 text-on-surface">
+                <option value="ACTIVE">ACTIVE (Live during confirmed window)</option>
+                <option value="SCHEDULED">SCHEDULED (Auto-opens in window)</option>
+                <option value="PAUSED">PAUSED (Temporarily blocks new wishes)</option>
+                <option value="DRAFT">DRAFT (Hidden from public gallery)</option>
+                <option value="ENDED">ENDED (Closed for new wishes)</option>
+                <option value="CANCELLED">CANCELLED</option>
+              </select>
+            </div>
+            <div>
+              <label for="camp-title-input" class="block font-bold mb-1">Campaign Title</label>
+              <input type="text" id="camp-title-input" placeholder="e.g. Diwali 2026 Grand Celebration" class="w-full rounded-xl bg-surface border border-outline-variant/40 px-3 py-2 text-on-surface"/>
+            </div>
+            <div>
+              <label for="camp-badge-input" class="block font-bold mb-1">Gallery Badge Label</label>
+              <input type="text" id="camp-badge-input" placeholder="e.g. ✨ Diwali Special" class="w-full rounded-xl bg-surface border border-outline-variant/40 px-3 py-2 text-on-surface"/>
+            </div>
+            <div>
+              <label for="camp-tz-input" class="block font-bold mb-1">Timezone</label>
+              <input type="text" id="camp-tz-input" value="Asia/Kolkata" class="w-full rounded-xl bg-surface border border-outline-variant/40 px-3 py-2 text-on-surface"/>
+            </div>
+            <div>
+              <label for="camp-days-before" class="block font-bold mb-1">Days Before Festival (Default 15)</label>
+              <input type="number" id="camp-days-before" value="15" min="0" max="180" required class="w-full rounded-xl bg-surface border border-outline-variant/40 px-3 py-2 text-on-surface"/>
+            </div>
+            <div>
+              <label for="camp-days-after" class="block font-bold mb-1">Days After Festival (Default 3, Inclusive)</label>
+              <input type="number" id="camp-days-after" value="3" min="0" max="60" required class="w-full rounded-xl bg-surface border border-outline-variant/40 px-3 py-2 text-on-surface"/>
+            </div>
+            <div class="flex items-end">
+              <button type="submit" class="w-full py-2.5 px-4 rounded-xl bg-gradient-to-r from-pink-500 to-purple-600 text-white font-bold shadow-md cursor-pointer">Save Campaign Schedule</button>
+            </div>
+          </form>
+
+          <div id="campaigns-schedule-list" class="space-y-3"></div>
+        </div>
+      </section>
+
+      <!-- SECTION E: DATE OVERRIDES -->
+      <section id="section-overrides" class="scheduler-panel hidden space-y-4" aria-labelledby="heading-overrides">
+        <div class="rounded-2xl border border-outline-variant/30 bg-surface-container/60 p-6 space-y-5">
+          <div>
+            <h2 id="heading-overrides" class="text-lg font-extrabold text-on-surface">E. Year-Scoped Manual Date Overrides</h2>
+            <p class="text-xs text-on-surface-variant">Override an automatically resolved or imported festival date for a specific year without modifying source code or affecting other years. Removing an override immediately restores automatic resolution.</p>
+          </div>
+
+          <form id="form-date-override" onsubmit="submitFestivalDateOverride(event)" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 text-xs">
+            <div>
+              <label for="ov-festival-select" class="block font-bold mb-1">Select Festival *</label>
+              <select id="ov-festival-select" onchange="updateOverrideComparisonPreview()" required class="w-full rounded-xl bg-surface border border-outline-variant/40 px-3 py-2 text-on-surface"></select>
+            </div>
+            <div>
+              <label for="ov-year-input" class="block font-bold mb-1">Applicable Year *</label>
+              <input type="number" id="ov-year-input" value="2026" min="2024" max="2035" onchange="updateOverrideComparisonPreview()" required class="w-full rounded-xl bg-surface border border-outline-variant/40 px-3 py-2 text-on-surface"/>
+            </div>
+            <div>
+              <label for="ov-date-input" class="block font-bold mb-1">Manual Override Date (YYYY-MM-DD) *</label>
+              <input type="date" id="ov-date-input" onchange="updateOverrideComparisonPreview()" required class="w-full rounded-xl bg-surface border border-outline-variant/40 px-3 py-2 text-on-surface"/>
+              <p id="err-ov-date" class="text-[11px] text-rose-400 mt-1 hidden"></p>
+            </div>
+            <div>
+              <label for="ov-tz-input" class="block font-bold mb-1">Timezone (IANA) *</label>
+              <input type="text" id="ov-tz-input" value="Asia/Kolkata" required class="w-full rounded-xl bg-surface border border-outline-variant/40 px-3 py-2 text-on-surface"/>
+            </div>
+            <div class="md:col-span-2">
+              <label for="ov-reason-input" class="block font-bold mb-1">Override Reason (Required for Audit Log) *</label>
+              <input type="text" id="ov-reason-input" required placeholder="e.g. Regional Panchang / Gazette adjustment for Amavasya tithi" class="w-full rounded-xl bg-surface border border-outline-variant/40 px-3 py-2 text-on-surface"/>
+            </div>
+            <div class="lg:col-span-3 p-4 rounded-xl bg-surface border border-outline-variant/30 flex flex-wrap items-center justify-between gap-4" id="ov-side-by-side-box">
+              <div>
+                <span class="text-[11px] uppercase tracking-wider text-on-surface-variant block">Automatically Resolved Source Date</span>
+                <span id="ov-source-date-display" class="text-sm font-extrabold font-mono text-on-surface">—</span>
+              </div>
+              <div>
+                <span class="text-[11px] uppercase tracking-wider text-on-surface-variant block">Current Effective Date</span>
+                <span id="ov-effective-date-display" class="text-sm font-extrabold font-mono text-amber-400">—</span>
+              </div>
+              <div>
+                <span class="text-[11px] uppercase tracking-wider text-on-surface-variant block">Resulting Publication Window</span>
+                <span id="ov-window-preview-display" class="text-sm font-extrabold font-mono text-emerald-400">—</span>
+              </div>
+              <div class="flex items-center gap-2">
+                <button type="submit" class="px-4 py-2 rounded-xl bg-gradient-to-r from-amber-500 to-pink-600 text-white font-bold shadow-md cursor-pointer">Save Override</button>
+                <button type="button" onclick="removeCurrentSelectedOverride()" class="px-3.5 py-2 rounded-xl bg-surface-container-high hover:bg-rose-500/20 text-rose-300 border border-rose-500/30 font-bold cursor-pointer">Remove Override</button>
+              </div>
+            </div>
+          </form>
+        </div>
+      </section>
+
+      <!-- SECTION F: UPCOMING FESTIVALS -->
+      <section id="section-upcoming" class="scheduler-panel hidden space-y-4" aria-labelledby="heading-upcoming">
         <div>
-          <h2 id="heading-preview" class="text-lg font-extrabold text-on-surface">G. Publication Window Preview &amp; Schedule Diagnostics</h2>
-          <p class="text-xs text-on-surface-variant">Simulate any festival date, offset, and timestamp to verify authoritative server window calculations (`startOfDay(start_date, tz) &lt;= t &lt; startOfDay(end_date + 1 day, tz)`).</p>
+          <h2 id="heading-upcoming" class="text-lg font-extrabold text-on-surface">F. Upcoming Festivals &amp; Campaign Readiness</h2>
+          <p class="text-xs text-on-surface-variant">Chronological view of upcoming festivals, their publication window opening dates, and 1-click website launch controls.</p>
         </div>
+        <div id="upcoming-festivals-grid" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4"></div>
+      </section>
 
-        <div class="grid grid-cols-1 md:grid-cols-4 gap-4 text-xs">
+      <!-- SECTION G: PREVIEW AND DIAGNOSTICS -->
+      <section id="section-preview" class="scheduler-panel hidden space-y-4" aria-labelledby="heading-preview">
+        <div class="rounded-2xl border border-outline-variant/30 bg-surface-container/60 p-6 space-y-5">
           <div>
-            <label for="diag-festival-select" class="block font-bold mb-1">Festival</label>
-            <select id="diag-festival-select" onchange="runScheduleDiagnosticsPreview()" class="w-full rounded-xl bg-surface border border-outline-variant/40 px-3 py-2 text-on-surface"></select>
+            <h2 id="heading-preview" class="text-lg font-extrabold text-on-surface">G. Publication Window Preview &amp; Schedule Diagnostics</h2>
+            <p class="text-xs text-on-surface-variant">Simulate any festival date, offset, and timestamp to verify authoritative server window calculations (<code>startOfDay(start_date, tz) &lt;= t &lt; startOfDay(end_date + 1 day, tz)</code>).</p>
           </div>
-          <div>
-            <label for="diag-days-before" class="block font-bold mb-1">Days Before (Default 15)</label>
-            <input type="number" id="diag-days-before" value="15" min="0" max="180" onchange="runScheduleDiagnosticsPreview()" class="w-full rounded-xl bg-surface border border-outline-variant/40 px-3 py-2 text-on-surface"/>
+
+          <div class="grid grid-cols-1 md:grid-cols-4 gap-4 text-xs">
+            <div>
+              <label for="diag-festival-select" class="block font-bold mb-1">Festival</label>
+              <select id="diag-festival-select" onchange="runScheduleDiagnosticsPreview()" class="w-full rounded-xl bg-surface border border-outline-variant/40 px-3 py-2 text-on-surface"></select>
+            </div>
+            <div>
+              <label for="diag-days-before" class="block font-bold mb-1">Days Before (Default 15)</label>
+              <input type="number" id="diag-days-before" value="15" min="0" max="180" onchange="runScheduleDiagnosticsPreview()" class="w-full rounded-xl bg-surface border border-outline-variant/40 px-3 py-2 text-on-surface"/>
+            </div>
+            <div>
+              <label for="diag-days-after" class="block font-bold mb-1">Days After (Default 3)</label>
+              <input type="number" id="diag-days-after" value="3" min="0" max="60" onchange="runScheduleDiagnosticsPreview()" class="w-full rounded-xl bg-surface border border-outline-variant/40 px-3 py-2 text-on-surface"/>
+            </div>
+            <div>
+              <label for="diag-simulate-date" class="block font-bold mb-1">Simulate Current Date</label>
+              <input type="date" id="diag-simulate-date" onchange="runScheduleDiagnosticsPreview()" class="w-full rounded-xl bg-surface border border-outline-variant/40 px-3 py-2 text-on-surface"/>
+            </div>
           </div>
-          <div>
-            <label for="diag-days-after" class="block font-bold mb-1">Days After (Default 3)</label>
-            <input type="number" id="diag-days-after" value="3" min="0" max="60" onchange="runScheduleDiagnosticsPreview()" class="w-full rounded-xl bg-surface border border-outline-variant/40 px-3 py-2 text-on-surface"/>
-          </div>
-          <div>
-            <label for="diag-simulate-date" class="block font-bold mb-1">Simulate Current Date</label>
-            <input type="date" id="diag-simulate-date" onchange="runScheduleDiagnosticsPreview()" class="w-full rounded-xl bg-surface border border-outline-variant/40 px-3 py-2 text-on-surface"/>
-          </div>
+
+          <div id="diagnostics-preview-card" class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-3 pt-2"></div>
+          <div id="diagnostics-warnings-box" class="space-y-1.5 text-xs"></div>
         </div>
+      </section>
 
-        <div id="diagnostics-preview-card" class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-3 pt-2"></div>
-        <div id="diagnostics-warnings-box" class="space-y-1.5 text-xs"></div>
-      </div>
-    </section>
+      <!-- SECTION H: CHANGE HISTORY -->
+      <section id="section-history" class="scheduler-panel hidden space-y-4" aria-labelledby="heading-history">
+        <div>
+          <h2 id="heading-history" class="text-lg font-extrabold text-on-surface">H. Administrative Change History &amp; Synchronization Audit Logs</h2>
+          <p class="text-xs text-on-surface-variant">Immutable audit trail recording administrator identity, timestamp, affected festival/year, previous value, new value, and override reason.</p>
+        </div>
+        <div class="rounded-2xl border border-outline-variant/30 bg-surface-container/60 overflow-x-auto">
+          <table class="w-full text-left border-collapse text-xs">
+            <thead>
+              <tr class="border-b border-outline-variant/30 text-[11px] uppercase tracking-wider text-on-surface-variant bg-surface-container">
+                <th class="py-3 px-4">Timestamp</th>
+                <th class="py-3 px-4">Action</th>
+                <th class="py-3 px-4">Festival / Year</th>
+                <th class="py-3 px-4">Actor</th>
+                <th class="py-3 px-4">Previous → New Value</th>
+                <th class="py-3 px-4">Reason / Status</th>
+              </tr>
+            </thead>
+            <tbody id="festival-audit-tbody" class="divide-y divide-outline-variant/20">
+              <tr><td colspan="6" class="py-6 text-center text-on-surface-variant">Loading audit history...</td></tr>
+            </tbody>
+          </table>
+        </div>
+      </section>
 
-    <!-- SECTION H: CHANGE HISTORY -->
-    <section id="section-history" class="scheduler-panel hidden space-y-4" aria-labelledby="heading-history">
-      <div>
-        <h2 id="heading-history" class="text-lg font-extrabold text-on-surface">H. Administrative Change History &amp; Synchronization Audit Logs</h2>
-        <p class="text-xs text-on-surface-variant">Immutable audit trail recording administrator identity, timestamp, affected festival/year, previous value, new value, and override reason.</p>
-      </div>
-      <div class="rounded-2xl border border-outline-variant/30 bg-surface-container/60 overflow-x-auto">
-        <table class="w-full text-left border-collapse text-xs">
-          <thead>
-            <tr class="border-b border-outline-variant/30 text-[11px] uppercase tracking-wider text-on-surface-variant bg-surface-container">
-              <th class="py-3 px-4">Timestamp</th>
-              <th class="py-3 px-4">Action</th>
-              <th class="py-3 px-4">Festival / Year</th>
-              <th class="py-3 px-4">Actor</th>
-              <th class="py-3 px-4">Previous → New Value</th>
-              <th class="py-3 px-4">Reason / Status</th>
-            </tr>
-          </thead>
-          <tbody id="festival-audit-tbody" class="divide-y divide-outline-variant/20">
-            <tr><td colspan="6" class="py-6 text-center text-on-surface-variant">Loading audit history...</td></tr>
-          </tbody>
-        </table>
-      </div>
-    </section>
+    </div>
+  </main>
+</div>
 
-  </div>
-</main>
+<!-- Floating High-Contrast Confirmation Toast -->
+<div id="scheduler-toast-popup" class="fixed bottom-6 right-6 z-[9999] hidden max-w-md rounded-2xl px-5 py-3.5 shadow-2xl border text-xs sm:text-sm font-extrabold flex items-center gap-3 transition-all duration-300"></div>
 
 <script>
   let schedulerState = {
@@ -528,15 +725,42 @@
       .replace(/"/g, '&quot;');
   }
 
+  let _schedulerToastTimer = null;
   function showSchedulerBanner(message, type = 'success') {
     const el = document.getElementById('scheduler-feedback-banner');
-    if (!el) return;
-    el.className = 'mx-4 sm:mx-8 mt-4 p-4 rounded-2xl border text-xs font-semibold flex items-center justify-between ' +
-      (type === 'error'
-        ? 'bg-rose-500/15 border-rose-500/40 text-rose-200'
-        : 'bg-emerald-500/15 border-emerald-500/40 text-emerald-200');
-    el.innerHTML = `<span>${escapeSafe(message)}</span><button type="button" onclick="this.parentElement.classList.add('hidden')" class="px-2 py-1 rounded bg-white/10 hover:bg-white/20">Dismiss</button>`;
-    el.classList.remove('hidden');
+    if (el) {
+      el.className = 'mx-4 sm:mx-8 mt-4 p-4 rounded-2xl border text-xs font-extrabold flex items-center justify-between shadow-lg ' +
+        (type === 'error'
+          ? 'bg-rose-500/20 border-rose-500/50 text-rose-200'
+          : 'bg-emerald-500/20 border-emerald-500/50 text-emerald-200');
+      el.innerHTML = `<div class="flex items-center gap-2"><span class="material-symbols-outlined text-[18px]">${type === 'error' ? 'error' : 'check_circle'}</span><span>${escapeSafe(message)}</span></div><button type="button" onclick="this.parentElement.classList.add('hidden')" class="px-2.5 py-1 rounded-lg bg-white/10 hover:bg-white/20 cursor-pointer">Dismiss</button>`;
+      el.classList.remove('hidden');
+    }
+
+    const toast = document.getElementById('scheduler-toast-popup');
+    if (toast) {
+      if (_schedulerToastTimer) clearTimeout(_schedulerToastTimer);
+      toast.className = 'fixed bottom-6 right-6 z-[9999] max-w-md rounded-2xl px-5 py-3.5 shadow-2xl border text-xs sm:text-sm font-extrabold flex items-center gap-3 transition-all duration-300 ' +
+        (type === 'error'
+          ? 'bg-rose-950/95 border-rose-500 text-rose-100'
+          : 'bg-emerald-950/95 border-emerald-400 text-emerald-100');
+      toast.innerHTML = `<span class="material-symbols-outlined text-[22px] ${type === 'error' ? 'text-rose-400' : 'text-emerald-400'}">${type === 'error' ? 'error' : 'task_alt'}</span><div class="flex-1"><div>${type === 'error' ? 'Action Failed' : '✅ Kaam Ho Gaya — Live on Website!'}</div><div class="text-[11px] font-semibold opacity-90 mt-0.5">${escapeSafe(message)}</div></div>`;
+      toast.classList.remove('hidden');
+      _schedulerToastTimer = setTimeout(() => {
+        toast.classList.add('hidden');
+      }, 4500);
+    }
+  }
+
+  function notifyStorefrontLiveUpdate() {
+    try {
+      localStorage.setItem('wishmagic_site_settings_updated_at', String(Date.now()));
+      if (typeof BroadcastChannel !== 'undefined') {
+        const bc = new BroadcastChannel('wishmagic_site_settings');
+        bc.postMessage({ type: 'FESTIVAL_SCHEDULE_UPDATED', timestamp: Date.now() });
+        bc.close();
+      }
+    } catch (_) {}
   }
 
   function switchSchedulerTab(targetId) {
@@ -581,7 +805,29 @@
     }
   }
 
+  function renderKpiSummaryBar() {
+    const totalEl = document.getElementById('kpi-total-festivals');
+    const activeEl = document.getElementById('kpi-active-campaigns');
+    const openWinEl = document.getElementById('kpi-open-windows');
+    const assignedEl = document.getElementById('kpi-assigned-templates');
+
+    if (totalEl) totalEl.textContent = String(schedulerState.festivals.length);
+    const activeCount = schedulerState.campaigns.filter(c => c.eligible).length;
+    if (activeEl) activeEl.textContent = `${activeCount} Active Now`;
+
+    const todayIso = new Date().toISOString().split('T')[0];
+    const openWinCount = schedulerState.festivals.filter(f => {
+      const wp = f.windowPreview;
+      return wp && wp.valid && wp.startDate <= todayIso && wp.endDate >= todayIso;
+    }).length;
+    if (openWinEl) openWinEl.textContent = `${Math.max(activeCount, openWinCount)} Open`;
+
+    const totalAssigned = schedulerState.campaigns.reduce((acc, c) => acc + Number(c.assignedTemplatesCount || 0), 0);
+    if (assignedEl) assignedEl.textContent = `${totalAssigned} Linked`;
+  }
+
   function renderAllSchedulerViews() {
+    renderKpiSummaryBar();
     renderFestivalCalendarTable();
     populateFestivalSelectors();
     renderCampaignAssignmentsPanel();
@@ -591,6 +837,53 @@
     renderUpcomingFestivalsGrid();
     runScheduleDiagnosticsPreview();
     renderAuditHistoryTable();
+  }
+
+  async function quickLaunchFestivalOnWebsite(festivalId, applyTheme = false) {
+    try {
+      const res = await fetch('/api/admin/festivals/quick-launch', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        credentials: 'include',
+        body: JSON.stringify({
+          festivalId,
+          applicableYear: schedulerState.selectedYear,
+          openWindowNow: true,
+          autoAssignTemplates: true,
+          applyStorefrontTheme: Boolean(applyTheme)
+        })
+      });
+      const json = await res.json();
+      if (!res.ok || !json.success) {
+        throw new Error((json.error && json.error.message) || json.message || 'Failed to launch festival campaign.');
+      }
+      const data = json.data || json;
+      notifyStorefrontLiveUpdate();
+      showSchedulerBanner(data.message || 'Festival campaign is now LIVE on the Main Website!');
+      await loadFestivalSchedulerData();
+    } catch (err) {
+      showSchedulerBanner(err.message, 'error');
+    }
+  }
+
+  async function applyStorefrontFestivalTheme(mode) {
+    try {
+      const res = await fetch('/api/admin/festivals/apply-storefront-theme', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        credentials: 'include',
+        body: JSON.stringify({ mode })
+      });
+      const json = await res.json();
+      if (!res.ok || !json.success) {
+        throw new Error((json.error && json.error.message) || json.message || 'Failed to apply storefront theme.');
+      }
+      const data = json.data || json;
+      notifyStorefrontLiveUpdate();
+      showSchedulerBanner(data.message || 'Main Website theme updated!');
+    } catch (err) {
+      showSchedulerBanner(err.message, 'error');
+    }
   }
 
   function renderFestivalCalendarTable() {
@@ -614,12 +907,19 @@
     tbody.innerHTML = filtered.map(f => {
       const dr = f.dateResolution || {};
       const wp = f.windowPreview || {};
+      const camp = schedulerState.campaigns.find(c => c.festivalId === f.id && Number(c.applicableYear) === Number(schedulerState.selectedYear));
       const statusBadge = dr.isConfirmed
         ? `<span class="px-2 py-0.5 rounded-full text-[10px] font-bold bg-emerald-500/20 text-emerald-300 border border-emerald-500/30">${escapeSafe(dr.verificationStatus)}</span>`
         : `<span class="px-2 py-0.5 rounded-full text-[10px] font-bold bg-amber-500/20 text-amber-300 border border-amber-500/30">${escapeSafe(dr.verificationStatus || 'UNCONFIRMED')}</span>`;
       const overrideBadge = dr.isOverridden
         ? `<span class="ml-1 px-2 py-0.5 rounded-full text-[10px] font-bold bg-pink-500/20 text-pink-300 border border-pink-500/30">Overridden</span>`
         : '';
+
+      const campStateBadge = camp
+        ? (camp.eligible
+            ? `<span class="px-2.5 py-1 rounded-full text-[10px] font-extrabold bg-emerald-500/25 text-emerald-300 border border-emerald-400/40">🟢 LIVE ON WEBSITE (${camp.assignedTemplatesCount} tpl)</span>`
+            : `<span class="px-2.5 py-1 rounded-full text-[10px] font-bold bg-amber-500/20 text-amber-300 border border-amber-400/30">${escapeSafe(camp.effectiveState)} (${camp.assignedTemplatesCount} tpl)</span>`)
+        : statusBadge;
 
       return `
         <tr class="hover:bg-surface-container-high/50 transition">
@@ -633,10 +933,11 @@
           </td>
           <td class="py-3 px-4 font-mono">${escapeSafe(dr.sourceDate || '—')}</td>
           <td class="py-3 px-4 font-mono font-bold text-amber-300">${escapeSafe(dr.effectiveDate || 'Unconfirmed')}${overrideBadge}</td>
-          <td class="py-3 px-4">${statusBadge}</td>
+          <td class="py-3 px-4">${campStateBadge}</td>
           <td class="py-3 px-4 font-mono text-emerald-300">${wp.valid ? `${escapeSafe(wp.startDate)} → ${escapeSafe(wp.endDate)}` : '—'}</td>
           <td class="py-3 px-4 font-mono text-rose-300">${wp.valid ? escapeSafe(wp.firstBlockedDate) : '—'}</td>
-          <td class="py-3 px-4 text-right space-x-1">
+          <td class="py-3 px-4 text-right whitespace-nowrap space-x-1">
+            <button type="button" onclick="quickLaunchFestivalOnWebsite('${escapeSafe(f.id)}', false)" class="px-2.5 py-1 rounded-lg bg-gradient-to-r from-emerald-500 to-teal-600 text-white font-extrabold cursor-pointer shadow-sm" title="Activate this festival campaign on Main Website now">🚀 Go Live</button>
             <button type="button" onclick="editFestivalInForm('${escapeSafe(f.id)}')" class="px-2.5 py-1 rounded-lg bg-surface-container hover:bg-primary/20 text-on-surface font-bold cursor-pointer">Edit</button>
             <button type="button" onclick="openOverrideForFestival('${escapeSafe(f.id)}')" class="px-2.5 py-1 rounded-lg bg-amber-500/20 hover:bg-amber-500/30 text-amber-300 font-bold cursor-pointer">Override</button>
           </td>
@@ -663,7 +964,7 @@
       const prevCamp = campSelect.value;
       campSelect.innerHTML = schedulerState.campaigns.length > 0
         ? schedulerState.campaigns.map(c => `<option value="${escapeSafe(c.id)}">${escapeSafe(c.title)} (${escapeSafe(c.applicableYear)} • ${escapeSafe(c.effectiveState)})</option>`).join('')
-        : `<option value="">No campaigns created yet — create one in Tab D</option>`;
+        : `<option value="">No campaigns created yet — click "🚀 Go Live" in Tab A or create one in Tab D</option>`;
       if (prevCamp && schedulerState.campaigns.some(c => c.id === prevCamp)) campSelect.value = prevCamp;
     }
 
@@ -736,6 +1037,7 @@
       });
       const json = await res.json();
       if (!res.ok || !json.success) throw new Error(json.message || 'Failed to save festival.');
+      notifyStorefrontLiveUpdate();
       showSchedulerBanner(`Saved festival "${payload.name}" for ${schedulerState.selectedYear}.`);
       await loadFestivalSchedulerData();
       switchSchedulerTab('section-calendar');
@@ -788,6 +1090,7 @@
       });
       const json = await res.json();
       if (!res.ok || !json.success) throw new Error(json.message || 'Failed to save manual date override.');
+      notifyStorefrontLiveUpdate();
       showSchedulerBanner(`Saved manual date override (${overrideDate}) for ${applicableYear}. Publication window recalculated.`);
       await loadFestivalSchedulerData();
     } catch (err) {
@@ -808,6 +1111,7 @@
       });
       const json = await res.json();
       if (!res.ok || !json.success) throw new Error(json.message || 'Failed to remove override.');
+      notifyStorefrontLiveUpdate();
       showSchedulerBanner(`Removed manual override for ${applicableYear}. Automatic resolution restored.`);
       await loadFestivalSchedulerData();
     } catch (err) {
@@ -836,7 +1140,8 @@
       });
       const json = await res.json();
       if (!res.ok || !json.success) throw new Error(json.message || 'Failed to save campaign.');
-      showSchedulerBanner('Saved festival campaign schedule.');
+      notifyStorefrontLiveUpdate();
+      showSchedulerBanner('Saved festival campaign schedule & synced with Main Website.');
       await loadFestivalSchedulerData();
     } catch (err) {
       showSchedulerBanner(err.message, 'error');
@@ -853,6 +1158,7 @@
       });
       const json = await res.json();
       if (!res.ok || !json.success) throw new Error(json.message || 'Failed to update campaign status.');
+      notifyStorefrontLiveUpdate();
       showSchedulerBanner(`Campaign status updated to ${nextStatus}.`);
       await loadFestivalSchedulerData();
     } catch (err) {
@@ -864,7 +1170,7 @@
     const box = document.getElementById('campaigns-schedule-list');
     if (!box) return;
     if (schedulerState.campaigns.length === 0) {
-      box.innerHTML = `<div class="p-6 text-center text-on-surface-variant text-xs">No festival campaigns configured yet. Use the form above to create one.</div>`;
+      box.innerHTML = `<div class="p-6 text-center text-on-surface-variant text-xs">No festival campaigns configured yet. Click "🚀 Go Live" in Tab A or use the form above to create one.</div>`;
       return;
     }
     box.innerHTML = schedulerState.campaigns.map(c => `
@@ -878,8 +1184,9 @@
             Festival Date: <strong>${escapeSafe(c.effectiveFestivalDate || 'Unconfirmed')}</strong> • Window: <strong>${escapeSafe(c.windowStartDate || '—')}</strong> to <strong>${escapeSafe(c.windowEndDate || '—')}</strong> (Inclusive) • Blocked From: <strong>${escapeSafe(c.firstBlockedDate || '—')}</strong> (${escapeSafe(c.timezone)})
           </div>
         </div>
-        <div class="flex items-center gap-2">
-          <button type="button" onclick="quickUpdateCampaignStatus('${escapeSafe(c.id)}', '${c.status === 'PAUSED' ? 'SCHEDULED' : 'PAUSED'}')" class="px-3 py-1.5 rounded-lg bg-surface-container-high hover:bg-amber-500/20 font-bold cursor-pointer">${c.status === 'PAUSED' ? 'Resume' : 'Pause'}</button>
+        <div class="flex flex-wrap items-center gap-2">
+          <button type="button" onclick="quickLaunchFestivalOnWebsite('${escapeSafe(c.festivalId)}', false)" class="px-3 py-1.5 rounded-lg bg-emerald-500/20 hover:bg-emerald-500/30 text-emerald-300 font-extrabold cursor-pointer">🚀 Activate Now</button>
+          <button type="button" onclick="quickUpdateCampaignStatus('${escapeSafe(c.id)}', '${c.status === 'PAUSED' ? 'ACTIVE' : 'PAUSED'}')" class="px-3 py-1.5 rounded-lg bg-surface-container-high hover:bg-amber-500/20 font-bold cursor-pointer">${c.status === 'PAUSED' ? '▶️ Resume' : '⏸️ Pause'}</button>
           <button type="button" onclick="document.getElementById('assign-campaign-select').value='${escapeSafe(c.id)}';renderCampaignAssignmentsPanel();switchSchedulerTab('section-assignments');" class="px-3 py-1.5 rounded-lg bg-primary/20 text-purple-200 font-bold cursor-pointer">Assign Templates (${c.assignedTemplatesCount})</button>
         </div>
       </div>
@@ -924,7 +1231,7 @@
   async function assignTemplateToSelectedCampaign(templateId) {
     const campId = document.getElementById('assign-campaign-select')?.value;
     if (!campId) {
-      showSchedulerBanner('Please create and select a festival campaign first (Tab D).', 'error');
+      showSchedulerBanner('Please create and select a festival campaign first (or click "🚀 Go Live" in Tab A).', 'error');
       return;
     }
     const varCbs = Array.from(document.querySelectorAll(`.assign-var-cb-${CSS.escape(templateId)}:checked`)).map(cb => cb.value);
@@ -939,6 +1246,7 @@
       });
       const json = await res.json();
       if (!res.ok || !json.success) throw new Error(json.message || 'Failed to assign template.');
+      notifyStorefrontLiveUpdate();
       showSchedulerBanner(`Assigned template "${templateId}" to campaign.`);
       await loadFestivalSchedulerData();
     } catch (err) {
@@ -955,6 +1263,7 @@
       });
       const json = await res.json();
       if (!res.ok || !json.success) throw new Error(json.message || 'Failed to remove template assignment.');
+      notifyStorefrontLiveUpdate();
       showSchedulerBanner(`Removed template "${templateId}" from campaign.`);
       await loadFestivalSchedulerData();
     } catch (err) {
@@ -991,15 +1300,22 @@
     grid.innerHTML = sorted.map(f => {
       const dr = f.dateResolution || {};
       const wp = f.windowPreview || {};
+      const camp = schedulerState.campaigns.find(c => c.festivalId === f.id && Number(c.applicableYear) === Number(schedulerState.selectedYear));
       return `
-        <div class="p-5 rounded-2xl bg-surface-container/70 border border-outline-variant/30 space-y-2 text-xs">
-          <div class="flex items-center justify-between">
-            <span class="font-extrabold text-sm text-on-surface">${escapeSafe(f.name)}</span>
-            <span class="px-2 py-0.5 rounded-full text-[10px] font-bold ${dr.isConfirmed ? 'bg-emerald-500/20 text-emerald-300' : 'bg-amber-500/20 text-amber-300'}">${escapeSafe(dr.verificationStatus)}</span>
+        <div class="p-5 rounded-2xl bg-surface-container/70 border border-outline-variant/30 space-y-2.5 text-xs flex flex-col justify-between">
+          <div class="space-y-2">
+            <div class="flex items-center justify-between">
+              <span class="font-extrabold text-sm text-on-surface">${escapeSafe(f.name)}</span>
+              <span class="px-2 py-0.5 rounded-full text-[10px] font-bold ${camp && camp.eligible ? 'bg-emerald-500/20 text-emerald-300' : (dr.isConfirmed ? 'bg-purple-500/20 text-purple-300' : 'bg-amber-500/20 text-amber-300')}">${camp && camp.eligible ? '🟢 LIVE ON WEBSITE' : escapeSafe(dr.verificationStatus)}</span>
+            </div>
+            <div class="font-mono text-amber-300 font-bold">Effective Festival Date: ${escapeSafe(dr.effectiveDate || 'Unconfirmed')}</div>
+            <div class="text-on-surface-variant font-mono">Window: ${wp.valid ? `${escapeSafe(wp.startDate)} → ${escapeSafe(wp.endDate)} (Inclusive)` : 'Pending confirmation'}</div>
+            <div class="text-rose-300 font-mono text-[11px]">Blocked From: ${wp.valid ? escapeSafe(wp.firstBlockedDate) : '—'} (${escapeSafe(f.defaultTimezone)})</div>
           </div>
-          <div class="font-mono text-amber-300 font-bold">Effective Festival Date: ${escapeSafe(dr.effectiveDate || 'Unconfirmed')}</div>
-          <div class="text-on-surface-variant font-mono">Window: ${wp.valid ? `${escapeSafe(wp.startDate)} → ${escapeSafe(wp.endDate)} (Inclusive)` : 'Pending confirmation'}</div>
-          <div class="text-rose-300 font-mono text-[11px]">Blocked From: ${wp.valid ? escapeSafe(wp.firstBlockedDate) : '—'} (${escapeSafe(f.defaultTimezone)})</div>
+          <div class="pt-2 border-t border-outline-variant/20 flex items-center gap-2">
+            <button type="button" onclick="quickLaunchFestivalOnWebsite('${escapeSafe(f.id)}', false)" class="flex-1 py-2 px-3 rounded-xl bg-gradient-to-r from-emerald-500 to-teal-600 text-white font-extrabold cursor-pointer text-center">🚀 Launch on Website</button>
+            <button type="button" onclick="openOverrideForFestival('${escapeSafe(f.id)}')" class="py-2 px-3 rounded-xl bg-surface hover:bg-amber-500/20 text-amber-300 border border-amber-500/30 font-bold cursor-pointer">Override</button>
+          </div>
         </div>
       `;
     }).join('');

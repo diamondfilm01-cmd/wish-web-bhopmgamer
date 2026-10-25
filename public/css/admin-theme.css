@@ -1,722 +1,930 @@
 /* ==========================================================================
-   WishMagic — Fairytale Castle & Cosmic Cloud Admin Studio Theme (v2026.10.14_v3)
-   Pixel-Matched to Reference Screenshot (19728.png) Across All 23 Admin Pages
-   Full Desktop & Mobile Responsiveness + Seamless Light & Dark Mode
+   WishMagic — Vessa Botanical Sage & Forest Emerald Admin Studio UI (v2026.10.24)
+   Pixel-Matched 1:1 to Reference Video (_code_and_chill_ Inventory Dashboard UI)
+   Across All 24 Website Admin Pages + Circular View-Transition Theme Wipe
    ========================================================================== */
 
-@import url('https://fonts.googleapis.com/css2?family=Playfair+Display:ital,wght@0,600;0,700;1,400;1,600&family=Plus+Jakarta+Sans:ital,wght@0,400;0,500;0,600;0,700;0,800;1,700;1,800&family=Outfit:ital,wght@0,500;0,600;0,700;0,800;1,700;1,800&family=JetBrains+Mono:wght@400;500;600;700&display=swap');
+@import url('https://fonts.googleapis.com/css2?family=Instrument+Serif:ital@0;1&family=Plus+Jakarta+Sans:ital,wght@0,400;0,500;0,600;0,700;0,800;1,600;1,700&family=Outfit:wght@500;600;700;800&family=JetBrains+Mono:wght@400;500;600;700&display=swap');
+
+/* ==========================================================================
+   0. CIRCULAR VIEW-TRANSITION THEME WIPE (::view-transition-new(root))
+      Exact implementation from video: src > ui.ts > wipe()
+   ========================================================================== */
+::view-transition-old(root),
+::view-transition-new(root) {
+  animation: none !important;
+  mix-blend-mode: normal !important;
+  display: block;
+}
+
+::view-transition-old(root) {
+  z-index: 1;
+}
+
+::view-transition-new(root) {
+  z-index: 2147483646;
+}
 
 :root,
 html:not(.dark) {
-  /* Tailwind Config CSS Variables (--color-*) — Light Mode Default (19728.png) */
-  --color-background: #f3effa;
+  /* Vessa Botanical Sage & Crisp Alabaster — Light Mode */
+  --color-background: #eef2ef;
   --color-surface: #ffffff;
-  --color-surface-variant: #f3effb;
+  --color-surface-variant: #f3f7f4;
   --color-surface-bright: #ffffff;
   --color-surface-container-lowest: #ffffff;
-  --color-surface-container-low: #faf8ff;
+  --color-surface-container-low: #f7faf8;
   --color-surface-container: #ffffff;
-  --color-surface-container-high: #f3eefc;
-  --color-surface-container-highest: #e9e1f8;
-  --color-on-surface: #1a0f30;
-  --color-on-surface-variant: #533f78;
-  --color-outline: #736099;
-  --color-outline-variant: #ded4f2;
+  --color-surface-container-high: #eef3f0;
+  --color-surface-container-highest: #e3ece6;
+  --color-on-surface: #111c16;
+  --color-on-surface-variant: #526358;
+  --color-outline: #74877b;
+  --color-outline-variant: #dde6e0;
 
-  /* RGB Channel Variables (--c-*) */
-  --c-background: 243 239 250;
-  --c-on-background: 26 15 48;
+  /* RGB Channel Variables (--c-*) for Tailwind Config */
+  --c-background: 238 242 239;
+  --c-on-background: 17 28 22;
   --c-surface: 255 255 255;
-  --c-surface-variant: 243 239 251;
-  --c-surface-dim: 235 229 247;
+  --c-surface-variant: 243 247 244;
+  --c-surface-dim: 229 236 231;
   --c-surface-bright: 255 255 255;
   --c-surface-container-lowest: 255 255 255;
-  --c-surface-container-low: 250 248 255;
+  --c-surface-container-low: 247 250 248;
   --c-surface-container: 255 255 255;
-  --c-surface-container-high: 243 238 252;
-  --c-surface-container-highest: 233 225 248;
-  --c-on-surface: 26 15 48;
-  --c-on-surface-variant: 83 63 120;
-  --c-outline: 115 96 153;
-  --c-outline-variant: 222 212 242;
-  --c-primary: 124 58 237;
-  --c-primary-container: 109 40 217;
+  --c-surface-container-high: 238 243 240;
+  --c-surface-container-highest: 227 236 230;
+  --c-on-surface: 17 28 22;
+  --c-on-surface-variant: 82 99 88;
+  --c-outline: 116 135 123;
+  --c-outline-variant: 221 230 224;
+  --c-primary: 30 127 78;
+  --c-primary-container: 225 243 232;
   --c-on-primary: 255 255 255;
-  --c-on-primary-container: 255 255 255;
-  --c-secondary: 219 39 119;
-  --c-secondary-container: 252 231 243;
+  --c-on-primary-container: 15 66 40;
+  --c-secondary: 20 30 24;
+  --c-secondary-container: 232 239 234;
   --c-on-secondary: 255 255 255;
-  --c-on-secondary-container: 157 23 77;
-  --c-tertiary: 16 185 129;
-  --c-tertiary-container: 209 250 229;
+  --c-on-secondary-container: 17 28 22;
+  --c-tertiary: 22 163 74;
+  --c-tertiary-container: 220 252 231;
 
-  /* Universal Component Tokens — Light Mode */
-  --wm-card-bg: rgba(255, 255, 255, 0.97);
-  --wm-card-border: rgba(214, 200, 242, 0.90);
-  --wm-card-shadow: 0 6px 24px -4px rgba(55, 25, 110, 0.07), 0 2px 6px -1px rgba(55, 25, 110, 0.04);
-  --wm-text-main: #1a0f30;
-  --wm-text-muted: #533f78;
-  --wm-text-soft: #736099;
-  --wm-table-head-bg: #f5f0fd;
-  --wm-table-row-hover: #faf7ff;
+  /* Vessa Component Tokens — Light Mode */
+  --vessa-bg: #eef2ef;
+  --vessa-shell-bg: #f5f8f6;
+  --vessa-header-bg: #ffffff;
+  --vessa-rail-bg: #ffffff;
+  --vessa-card-bg: #ffffff;
+  --vessa-card-border: #e3ebe6;
+  --vessa-card-shadow: 0 1px 3px rgba(16, 28, 22, 0.03), 0 4px 12px rgba(16, 28, 22, 0.025);
+  --vessa-welcome-grad: linear-gradient(140deg, #e2f1e7 0%, #edf6f0 58%, #e4f2e9 100%);
+  --vessa-welcome-border: #cfe4d6;
+  --vessa-emerald: #1e7f4e;
+  --vessa-emerald-hover: #17663e;
+  --vessa-emerald-soft: #e1f3e8;
+  --vessa-emerald-text: #15623b;
+  --vessa-pill-track: #eaf0ec;
+  --vessa-pill-active-bg: #141e18;
+  --vessa-pill-active-text: #ffffff;
+  --vessa-text-main: #111c16;
+  --vessa-text-muted: #526358;
+  --vessa-text-soft: #788a7f;
+  --wm-card-bg: #ffffff;
+  --wm-card-border: #e3ebe6;
+  --wm-card-shadow: 0 1px 3px rgba(16, 28, 22, 0.03), 0 4px 12px rgba(16, 28, 22, 0.025);
+  --wm-text-main: #111c16;
+  --wm-text-muted: #526358;
+  --wm-text-soft: #788a7f;
+  --wm-table-head-bg: #f4f8f5;
+  --wm-table-row-hover: #f8fbf9;
   --wm-input-bg: #ffffff;
-  --wm-input-border: #d5c7f0;
+  --wm-input-border: #d5e0d9;
 }
 
 html.dark {
-  /* Tailwind Config CSS Variables (--color-*) — Cosmic Dark Mode */
-  --color-background: #0f0822;
-  --color-surface: #180e32;
-  --color-surface-variant: #221445;
-  --color-surface-bright: #2c1a58;
-  --color-surface-container-lowest: #140b29;
-  --color-surface-container-low: #1b1038;
-  --color-surface-container: #211342;
-  --color-surface-container-high: #2a1952;
-  --color-surface-container-highest: #352166;
-  --color-on-surface: #f7f4ff;
-  --color-on-surface-variant: #cfc2eb;
-  --color-outline: #a391c9;
-  --color-outline-variant: #48327a;
+  /* Vessa Deep Forest Obsidian & Mint Emerald — Dark Mode (Matches frame_014.jpg) */
+  --color-background: #111714;
+  --color-surface: #1a231e;
+  --color-surface-variant: #202b25;
+  --color-surface-bright: #26342d;
+  --color-surface-container-lowest: #0e1310;
+  --color-surface-container-low: #151d18;
+  --color-surface-container: #1a231e;
+  --color-surface-container-high: #212d26;
+  --color-surface-container-highest: #293830;
+  --color-on-surface: #eff5f1;
+  --color-on-surface-variant: #96aba0;
+  --color-outline: #6c8276;
+  --color-outline-variant: #26342c;
 
-  /* RGB Channel Variables (--c-*) — Cosmic Dark Mode */
-  --c-background: 15 8 34;
-  --c-on-background: 247 244 255;
-  --c-surface: 24 14 50;
-  --c-surface-variant: 34 20 69;
-  --c-surface-dim: 11 6 24;
-  --c-surface-bright: 44 26 88;
-  --c-surface-container-lowest: 20 11 41;
-  --c-surface-container-low: 27 16 56;
-  --c-surface-container: 33 19 66;
-  --c-surface-container-high: 42 25 82;
-  --c-surface-container-highest: 53 33 102;
-  --c-on-surface: 247 244 255;
-  --c-on-surface-variant: 207 194 235;
-  --c-outline: 163 145 201;
-  --c-outline-variant: 72 50 122;
-  --c-primary: 192 132 252;
-  --c-primary-container: 124 58 237;
-  --c-on-primary: 255 255 255;
-  --c-on-primary-container: 243 232 255;
-  --c-secondary: 244 114 182;
-  --c-secondary-container: 157 23 77;
-  --c-on-secondary: 255 255 255;
-  --c-on-secondary-container: 252 231 243;
+  /* RGB Channel Variables (--c-*) — Dark Mode */
+  --c-background: 17 23 20;
+  --c-on-background: 239 245 241;
+  --c-surface: 26 35 30;
+  --c-surface-variant: 32 43 37;
+  --c-surface-dim: 13 18 15;
+  --c-surface-bright: 38 52 45;
+  --c-surface-container-lowest: 14 19 16;
+  --c-surface-container-low: 21 29 24;
+  --c-surface-container: 26 35 30;
+  --c-surface-container-high: 33 45 38;
+  --c-surface-container-highest: 41 56 48;
+  --c-on-surface: 239 245 241;
+  --c-on-surface-variant: 150 171 160;
+  --c-outline: 108 130 118;
+  --c-outline-variant: 38 52 44;
+  --c-primary: 56 201 118;
+  --c-primary-container: 24 68 45;
+  --c-on-primary: 10 24 16;
+  --c-on-primary-container: 209 250 229;
+  --c-secondary: 239 245 241;
+  --c-secondary-container: 33 45 38;
+  --c-on-secondary: 17 28 22;
+  --c-on-secondary-container: 239 245 241;
   --c-tertiary: 52 211 153;
-  --c-tertiary-container: 6 95 70;
+  --c-tertiary-container: 19 58 40;
 
-  /* Universal Component Tokens — Dark Mode */
-  --wm-card-bg: rgba(31, 18, 62, 0.94);
-  --wm-card-border: rgba(147, 102, 245, 0.32);
-  --wm-card-shadow: 0 10px 30px -6px rgba(0, 0, 0, 0.50);
-  --wm-text-main: #f7f4ff;
-  --wm-text-muted: #cfc2eb;
-  --wm-text-soft: #a391c9;
-  --wm-table-head-bg: rgba(45, 27, 88, 0.90);
-  --wm-table-row-hover: rgba(139, 92, 246, 0.14);
-  --wm-input-bg: rgba(20, 11, 42, 0.95);
-  --wm-input-border: rgba(147, 102, 245, 0.42);
+  /* Vessa Component Tokens — Dark Mode */
+  --vessa-bg: #111714;
+  --vessa-shell-bg: #141b17;
+  --vessa-header-bg: #171f1b;
+  --vessa-rail-bg: #171f1b;
+  --vessa-card-bg: #1a231e;
+  --vessa-card-border: #26342c;
+  --vessa-card-shadow: 0 8px 24px rgba(0, 0, 0, 0.32);
+  --vessa-welcome-grad: linear-gradient(140deg, #172a20 0%, #1c3327 58%, #16281e 100%);
+  --vessa-welcome-border: #284737;
+  --vessa-emerald: #38c976;
+  --vessa-emerald-hover: #2eb868;
+  --vessa-emerald-soft: rgba(56, 201, 118, 0.16);
+  --vessa-emerald-text: #5ce092;
+  --vessa-pill-track: #222e27;
+  --vessa-pill-active-bg: #eff5f1;
+  --vessa-pill-active-text: #111c16;
+  --vessa-text-main: #eff5f1;
+  --vessa-text-muted: #96aba0;
+  --vessa-text-soft: #6c8276;
+  --wm-card-bg: #1a231e;
+  --wm-card-border: #26342c;
+  --wm-card-shadow: 0 8px 24px rgba(0, 0, 0, 0.32);
+  --wm-text-main: #eff5f1;
+  --wm-text-muted: #96aba0;
+  --wm-text-soft: #6c8276;
+  --wm-table-head-bg: #1f2a24;
+  --wm-table-row-hover: rgba(56, 201, 118, 0.06);
+  --wm-input-bg: #141c18;
+  --wm-input-border: #2b3b32;
 }
 
-/* Base Body & Typography matching 19728.png */
+/* ==========================================================================
+   1. BASE BODY, SHELL & TYPOGRAPHY
+   ========================================================================== */
 *, *::before, *::after {
   box-sizing: border-box;
 }
 
 html, body {
   font-family: 'Plus Jakarta Sans', -apple-system, BlinkMacSystemFont, sans-serif !important;
-  color: var(--wm-text-main) !important;
-  background-color: var(--color-background) !important;
-  transition: background-color 0.22s ease, color 0.22s ease;
+  color: var(--vessa-text-main) !important;
+  background-color: var(--vessa-bg) !important;
+  background-image: none !important;
   overflow-x: hidden;
   max-width: 100vw;
+  -webkit-font-smoothing: antialiased;
 }
 
-html:not(.dark) body {
-  background-color: #f3effa !important;
-  background-image:
-    radial-gradient(at 15% 10%, rgba(244, 218, 255, 0.55) 0px, transparent 48%),
-    radial-gradient(at 85% 12%, rgba(216, 200, 255, 0.50) 0px, transparent 50%),
-    radial-gradient(at 50% 90%, rgba(252, 228, 246, 0.45) 0px, transparent 55%) !important;
-  background-attachment: fixed;
-}
-
-html.dark body {
-  background-color: #0f0822 !important;
-  background-image:
-    radial-gradient(at 15% 10%, rgba(124, 58, 237, 0.20) 0px, transparent 48%),
-    radial-gradient(at 85% 12%, rgba(219, 39, 119, 0.15) 0px, transparent 50%),
-    radial-gradient(at 50% 90%, rgba(88, 28, 135, 0.22) 0px, transparent 55%) !important;
-  background-attachment: fixed;
+/* Adjust desktop viewport wrapper for slim 72px Vessa Icon Rail */
+@media (min-width: 768px) {
+  body > div.md\:pl-\[270px\] {
+    padding-left: 72px !important;
+  }
 }
 
 /* ==========================================================================
-   1. LEFT SIDEBAR — Exact Cosmic Fairytale Castle Artwork from 19728.png
-      Fixed Active Highlighting: ONLY the selected section gets the pink pill!
+   2. FULL-WIDTH 3-ZONE TOP HEADER BAR (Matches Video Top Bar 1:1)
+      Left: Vessa/WishMagic Brand | Center: Segmented Sub-Tab Pills | Right: Search + Actions + Profile
    ========================================================================== */
-aside#admin-sidebar {
-  width: 270px !important;
-  z-index: 60 !important;
-  transition: background 0.28s ease, border-color 0.28s ease, box-shadow 0.28s ease, transform 0.3s ease-in-out !important;
+header.wm-top-header {
+  position: fixed !important;
+  top: 0 !important;
+  left: 0 !important;
+  right: 0 !important;
+  height: 64px !important;
+  background: var(--vessa-header-bg) !important;
+  background-image: none !important;
+  border-bottom: 1px solid var(--vessa-card-border) !important;
+  box-shadow: none !important;
+  z-index: 65 !important;
+  display: flex !important;
+  align-items: center !important;
 }
 
-/* LIGHT MODE SIDEBAR: Clean, Bright Fairytale Lavender & White Panel */
-html:not(.dark) aside#admin-sidebar {
-  background-color: #faf7ff !important;
-  background-image: linear-gradient(180deg, #ffffff 0%, #f6f0ff 54%, #fdf2f8 100%) !important;
-  border-right: 1px solid #dfd3f6 !important;
-  box-shadow: 6px 0 24px rgba(109, 40, 217, 0.08) !important;
-  color: #1a0f30 !important;
+.vessa-top-header-inner {
+  width: 100%;
+  height: 100%;
+  padding: 0 18px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
 }
 
-html:not(.dark) aside#admin-sidebar::before {
-  content: '';
-  position: absolute;
-  inset: 0;
-  background:
-    radial-gradient(circle at 20% 8%, rgba(168, 85, 247, 0.08), transparent 45%),
-    radial-gradient(circle at 80% 92%, rgba(236, 72, 153, 0.10), transparent 50%);
-  pointer-events: none;
-  z-index: 0;
+/* Zone 1: Brand Emblem & Title (Far Left) */
+.vessa-brand-block {
+  display: flex;
+  align-items: center;
+  gap: 11px;
+  text-decoration: none !important;
+  flex-shrink: 0;
 }
 
-/* DARK MODE SIDEBAR: Deep Cosmic Fairytale Castle Artwork */
-html.dark aside#admin-sidebar {
-  background-color: #160d31 !important;
-  background-image: url('/assets/admin-sidebar-bg.png') !important;
-  background-size: 100% 100% !important;
-  background-position: center bottom !important;
-  background-repeat: no-repeat !important;
-  border-right: 1px solid rgba(255, 255, 255, 0.14) !important;
-  box-shadow: 6px 0 28px rgba(18, 9, 43, 0.35) !important;
-  color: #ffffff !important;
+.vessa-brand-logo-circle {
+  width: 38px;
+  height: 38px;
+  border-radius: 9999px;
+  background: #238854;
+  color: #ffffff;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  box-shadow: 0 2px 8px rgba(35, 136, 84, 0.25);
+  flex-shrink: 0;
 }
 
-html.dark aside#admin-sidebar::before {
-  content: '';
-  position: absolute;
-  inset: 0;
-  background: linear-gradient(180deg, rgba(20, 11, 46, 0.58) 0%, rgba(23, 13, 52, 0.44) 58%, rgba(20, 11, 46, 0.08) 100%);
-  pointer-events: none;
-  z-index: 0;
+html.dark .vessa-brand-logo-circle {
+  background: #38c976;
+  color: #0b1911;
 }
 
-aside#admin-sidebar > * {
-  position: relative;
-  z-index: 1;
-}
-
-#sidebar-backdrop {
-  z-index: 55 !important;
-}
-
-/* Brand Typography in Sidebar ("WishMagic") */
-.wm-brand-wish {
-  font-family: 'Outfit', 'Plus Jakarta Sans', sans-serif;
+.vessa-brand-title {
+  font-size: 16px;
   font-weight: 800;
+  color: var(--vessa-text-main);
+  line-height: 1.1;
   letter-spacing: -0.02em;
 }
 
-html:not(.dark) .wm-brand-wish {
-  color: #1a0f30 !important;
+.vessa-brand-sub {
+  font-size: 11px;
+  font-weight: 500;
+  color: var(--vessa-text-soft);
+  line-height: 1.15;
+  margin-top: 1px;
 }
 
-html.dark .wm-brand-wish {
-  color: #ffffff !important;
+/* Zone 2: Center Segmented Sub-Tab Pill Switcher (Overview | Activity | Alerts / Sales | Stock health) */
+.vessa-center-tabs {
+  display: inline-flex;
+  align-items: center;
+  gap: 2px;
+  padding: 4px;
+  border-radius: 9999px;
+  background: var(--vessa-pill-track);
+  border: 1px solid var(--vessa-card-border);
 }
 
-html:not(.dark) aside#admin-sidebar [class*="text-purple-200"] {
-  color: #5e4f7d !important;
-}
-
-html:not(.dark) aside#admin-sidebar button[onclick*="toggleSidebar"] {
-  background: #f2ebfc !important;
-  color: #2b194d !important;
-}
-
-html:not(.dark) aside#admin-sidebar button[onclick*="toggleMoreSidebarSections"] {
-  color: #5b3ea8 !important;
-  background: rgba(139, 92, 246, 0.08) !important;
-}
-
-html:not(.dark) aside#admin-sidebar button[onclick*="toggleMoreSidebarSections"]:hover {
-  color: #1a0f30 !important;
-  background: rgba(139, 92, 246, 0.16) !important;
-}
-
-.wm-brand-magic {
-  font-family: 'Outfit', 'Plus Jakarta Sans', sans-serif;
-  font-weight: 800;
-  font-style: italic;
-  background: linear-gradient(90deg, #ff2a85 0%, #ec4899 55%, #f59e0b 100%);
-  -webkit-background-clip: text;
-  -webkit-text-fill-color: transparent;
-  padding-right: 2px;
-}
-
-/* Sidebar Section Headers (TEMPLATES, WISHES, USERS, SYSTEM) */
-.wm-nav-section-label,
-.wm-sidebar-section-label {
-  font-size: 10.5px;
-  font-weight: 800;
-  letter-spacing: 0.10em;
-  text-transform: uppercase;
-  padding: 12px 14px 4px;
-  user-select: none;
-}
-
-html:not(.dark) .wm-nav-section-label,
-html:not(.dark) .wm-sidebar-section-label {
-  color: #7c3aed !important;
-}
-
-html.dark .wm-nav-section-label,
-html.dark .wm-sidebar-section-label {
-  color: rgba(206, 188, 252, 0.68) !important;
-}
-
-/* Unified Sidebar Navigation Links (Including Dashboard!) */
-aside#admin-sidebar nav a,
-.wm-dashboard-pill,
-.wm-nav-item {
-  display: flex !important;
-  align-items: center !important;
-  gap: 11px !important;
-  padding: 9px 15px !important;
-  margin: 1.5px 0 !important;
-  border-radius: 9999px !important;
-  font-size: 13.5px !important;
-  background: transparent !important;
-  border: 1px solid transparent !important;
-  box-shadow: none !important;
-  transition: all 0.18s ease !important;
+.vessa-center-tab {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 6px 15px;
+  border-radius: 9999px;
+  font-size: 12.5px;
+  font-weight: 600;
+  color: var(--vessa-text-muted) !important;
   text-decoration: none !important;
+  transition: all 0.18s ease;
+  white-space: nowrap;
   cursor: pointer;
 }
 
-html:not(.dark) aside#admin-sidebar nav a:not(.wm-nav-active):not(.active) {
-  color: #2b194d !important;
-  font-weight: 600 !important;
+.vessa-center-tab:hover:not(.active) {
+  color: var(--vessa-text-main) !important;
 }
 
-html:not(.dark) aside#admin-sidebar nav a:not(.wm-nav-active):not(.active) .material-symbols-outlined {
-  font-size: 19px !important;
-  color: #6d28d9 !important;
-  transition: transform 0.18s ease, color 0.18s ease;
+.vessa-center-tab.active {
+  background: var(--vessa-pill-active-bg) !important;
+  color: var(--vessa-pill-active-text) !important;
+  font-weight: 700;
+  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.12);
+}
+
+/* Zone 3: Right Search, Quick Icons, + New Button & Greeting Profile Pill */
+.vessa-header-right {
+  display: flex;
+  align-items: center;
+  gap: 8px;
   flex-shrink: 0;
-}
-
-html:not(.dark) aside#admin-sidebar nav a:not(.wm-nav-active):not(.active):hover {
-  background: rgba(139, 92, 246, 0.12) !important;
-  border-color: rgba(139, 92, 246, 0.24) !important;
-  color: #1a0f30 !important;
-}
-
-html:not(.dark) aside#admin-sidebar nav a:not(.wm-nav-active):not(.active):hover .material-symbols-outlined {
-  color: #db2777 !important;
-  transform: translateX(2px);
-}
-
-html.dark aside#admin-sidebar nav a:not(.wm-nav-active):not(.active) {
-  color: rgba(238, 230, 255, 0.86) !important;
-  font-weight: 500 !important;
-}
-
-html.dark aside#admin-sidebar nav a:not(.wm-nav-active):not(.active) .material-symbols-outlined {
-  font-size: 19px !important;
-  color: rgba(218, 200, 255, 0.84) !important;
-  transition: transform 0.18s ease, color 0.18s ease;
-  flex-shrink: 0;
-}
-
-html.dark aside#admin-sidebar nav a:not(.wm-nav-active):not(.active):hover {
-  background: rgba(255, 255, 255, 0.12) !important;
-  border-color: rgba(255, 255, 255, 0.16) !important;
-  color: #ffffff !important;
-}
-
-html.dark aside#admin-sidebar nav a:not(.wm-nav-active):not(.active):hover .material-symbols-outlined {
-  color: #ffffff !important;
-  transform: translateX(2px);
-}
-
-/* ACTIVE SIDEBAR SECTION PILL — Glowing Pink-Magenta Pill in Both Light & Dark Modes */
-aside#admin-sidebar nav a.wm-nav-active,
-aside#admin-sidebar nav a.active {
-  background: linear-gradient(90deg, #ff2a85 0%, #ec4899 52%, #a855f7 100%) !important;
-  border: 1px solid rgba(255, 255, 255, 0.36) !important;
-  border-radius: 9999px !important;
-  box-shadow: 0 6px 20px rgba(236, 72, 153, 0.42), inset 0 1px 0 rgba(255, 255, 255, 0.35) !important;
-  color: #ffffff !important;
-  font-weight: 700 !important;
-}
-
-aside#admin-sidebar nav a.wm-nav-active span,
-aside#admin-sidebar nav a.active span,
-aside#admin-sidebar nav a.wm-nav-active .material-symbols-outlined,
-aside#admin-sidebar nav a.active .material-symbols-outlined {
-  color: #ffffff !important;
-}
-
-.custom-scrollbar {
-  scrollbar-width: thin;
-  scrollbar-color: rgba(168, 85, 247, 0.35) transparent;
-}
-.custom-scrollbar::-webkit-scrollbar {
-  width: 5px;
-  height: 5px;
-}
-.custom-scrollbar::-webkit-scrollbar-thumb {
-  background: rgba(168, 85, 247, 0.35);
-  border-radius: 9999px;
-}
-
-/* ==========================================================================
-   2. TOP HEADER BAR — Pastel Lavender-Pink Cloud Strip (Matches 19728.png)
-   ========================================================================== */
-header.wm-top-header {
-  height: 68px !important;
-  border-bottom: 1px solid var(--wm-card-border) !important;
-  backdrop-filter: blur(16px) !important;
-  -webkit-backdrop-filter: blur(16px) !important;
-  z-index: 40 !important;
-}
-
-html:not(.dark) header.wm-top-header {
-  background-color: rgba(248, 243, 255, 0.95) !important;
-  background-image:
-    linear-gradient(90deg, rgba(255, 255, 255, 0.65) 0%, rgba(248, 238, 255, 0.55) 50%, rgba(255, 242, 250, 0.65) 100%),
-    url('/assets/admin-header-clouds.png') !important;
-  background-size: cover !important;
-  background-position: center !important;
-  box-shadow: 0 2px 14px rgba(88, 40, 160, 0.06) !important;
-}
-
-html.dark header.wm-top-header {
-  background: rgba(20, 11, 42, 0.94) !important;
-  border-bottom: 1px solid rgba(147, 102, 245, 0.28) !important;
-  box-shadow: 0 2px 16px rgba(0, 0, 0, 0.45) !important;
 }
 
 .wm-header-search-wrap {
   position: relative;
   display: flex;
   align-items: center;
-  width: 100%;
-  max-width: 440px;
+  width: 220px;
+  max-width: 260px;
 }
 
 .wm-header-search-input {
   width: 100%;
-  height: 40px;
-  padding: 0 64px 0 38px;
+  height: 36px !important;
+  padding: 0 46px 0 34px !important;
   border-radius: 9999px !important;
-  background: rgba(255, 255, 255, 0.94) !important;
-  border: 1px solid rgba(198, 182, 242, 0.90) !important;
-  color: #1a0f30 !important;
-  font-size: 13px;
-  font-weight: 500;
-  box-shadow: 0 2px 10px rgba(88, 28, 135, 0.04), inset 0 1px 2px rgba(255, 255, 255, 0.8) !important;
-  transition: all 0.2s ease;
+  background: var(--vessa-pill-track) !important;
+  border: 1px solid var(--vessa-card-border) !important;
+  color: var(--vessa-text-main) !important;
+  font-size: 12.5px !important;
+  font-weight: 500 !important;
+  box-shadow: none !important;
+  transition: all 0.18s ease;
 }
 
 .wm-header-search-input::placeholder {
-  color: #736099 !important;
-}
-
-html.dark .wm-header-search-input {
-  background: rgba(33, 19, 66, 0.94) !important;
-  border: 1px solid rgba(147, 102, 245, 0.42) !important;
-  color: #f7f4ff !important;
-  box-shadow: none !important;
-}
-
-html.dark .wm-header-search-input::placeholder {
-  color: #a996d1 !important;
+  color: var(--vessa-text-soft) !important;
 }
 
 .wm-header-search-input:focus {
   outline: none !important;
-  border-color: #9333ea !important;
-  box-shadow: 0 0 0 3px rgba(147, 51, 234, 0.18) !important;
+  background: var(--vessa-card-bg) !important;
+  border-color: var(--vessa-emerald) !important;
+  box-shadow: 0 0 0 3px rgba(30, 127, 78, 0.14) !important;
 }
 
 .wm-ctrl-k-badge {
   position: absolute;
-  right: 10px;
-  padding: 2.5px 8px;
-  border-radius: 9999px;
-  background: #f2ecfc;
-  border: 1px solid #dfd3f6;
-  color: #533f78;
-  font-size: 11px;
+  right: 8px;
+  padding: 2px 6px;
+  border-radius: 6px;
+  background: var(--vessa-card-bg);
+  border: 1px solid var(--vessa-card-border);
+  color: var(--vessa-text-soft);
+  font-size: 10px;
   font-weight: 700;
   pointer-events: none;
 }
 
-html.dark .wm-ctrl-k-badge {
-  background: rgba(139, 92, 246, 0.25);
-  border-color: rgba(139, 92, 246, 0.40);
-  color: #e9d5ff;
-}
-
-/* Sun / Moon Pill Toggle Switch in Top Header (Smooth Sliding Thumb + Rotating Icons) */
-.wm-theme-pill-btn {
+.vessa-icon-circle-btn {
   position: relative;
+  width: 36px;
+  height: 36px;
+  border-radius: 9999px;
+  background: var(--vessa-pill-track);
+  border: 1px solid var(--vessa-card-border);
+  color: var(--vessa-text-muted);
   display: inline-flex;
   align-items: center;
-  justify-content: space-between;
-  width: 68px;
-  height: 34px;
-  padding: 3px;
-  border-radius: 9999px;
-  background: linear-gradient(135deg, #f8f2ff 0%, #ede4fc 100%);
-  border: 1px solid rgba(186, 164, 238, 0.92);
-  box-shadow: inset 0 1px 3px rgba(88, 28, 135, 0.10), 0 2px 8px rgba(88, 28, 135, 0.06);
-  cursor: pointer;
-  transition: background 0.35s ease, border-color 0.35s ease, box-shadow 0.35s ease;
-  flex-shrink: 0;
-  overflow: hidden;
-}
-
-html.dark .wm-theme-pill-btn {
-  background: linear-gradient(135deg, #1b0f38 0%, #2a1654 100%);
-  border-color: rgba(168, 85, 247, 0.50);
-  box-shadow: inset 0 1px 4px rgba(0, 0, 0, 0.55), 0 0 12px rgba(139, 92, 246, 0.25);
-}
-
-/* Sliding Circular Thumb Indicator */
-.wm-theme-pill-btn::before {
-  content: '';
-  position: absolute;
-  top: 3px;
-  left: 3px;
-  width: 26px;
-  height: 26px;
-  border-radius: 9999px;
-  background: linear-gradient(135deg, #fbbf24 0%, #f59e0b 100%);
-  box-shadow: 0 2px 8px rgba(245, 158, 11, 0.48);
-  transform: translateX(0px);
-  transition: transform 0.42s cubic-bezier(0.34, 1.56, 0.64, 1), background 0.35s ease, box-shadow 0.35s ease;
-  z-index: 1;
-}
-
-html.dark .wm-theme-pill-btn::before {
-  transform: translateX(34px);
-  background: linear-gradient(135deg, #ec4899 0%, #7c3aed 100%);
-  box-shadow: 0 0 12px rgba(236, 72, 153, 0.65);
-}
-
-.wm-theme-pill-sun,
-.wm-theme-pill-knob {
-  position: relative;
-  z-index: 2;
-  width: 26px;
-  height: 26px;
-  border-radius: 9999px;
-  display: flex;
-  align-items: center;
   justify-content: center;
-  background: transparent !important;
-  box-shadow: none !important;
-  transition: transform 0.42s cubic-bezier(0.34, 1.56, 0.64, 1), color 0.3s ease, opacity 0.3s ease;
+  cursor: pointer;
+  transition: all 0.16s ease;
+  text-decoration: none !important;
+  flex-shrink: 0;
 }
 
-html:not(.dark) .wm-theme-pill-sun {
+.vessa-icon-circle-btn:hover {
+  background: var(--vessa-emerald-soft);
+  color: var(--vessa-emerald-text);
+  border-color: var(--vessa-emerald);
+}
+
+.vessa-new-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  height: 36px;
+  padding: 0 15px;
+  border-radius: 9999px;
+  background: var(--vessa-emerald) !important;
   color: #ffffff !important;
-  transform: rotate(0deg) scale(1.08);
+  font-size: 12.5px;
+  font-weight: 700;
+  text-decoration: none !important;
+  border: none;
+  cursor: pointer;
+  transition: all 0.18s ease;
+  white-space: nowrap;
+  flex-shrink: 0;
 }
 
-html:not(.dark) .wm-theme-pill-knob {
-  color: #6d5594 !important;
-  transform: rotate(-30deg) scale(0.88);
-  opacity: 0.78;
+html.dark .vessa-new-btn {
+  background: #38c976 !important;
+  color: #0b1911 !important;
 }
 
-html.dark .wm-theme-pill-sun {
-  color: #9b88c4 !important;
-  transform: rotate(90deg) scale(0.85);
-  opacity: 0.72;
+.vessa-new-btn:hover {
+  background: var(--vessa-emerald-hover) !important;
+  transform: translateY(-1px);
 }
 
-html.dark .wm-theme-pill-knob {
-  color: #fef08a !important;
-  transform: rotate(0deg) scale(1.10);
-  opacity: 1;
-}
-
-/* Admin Profile Card Pill in Top Header */
 .wm-admin-profile-pill {
   display: flex;
   align-items: center;
-  gap: 9px;
-  padding: 4px 12px 4px 5px;
+  gap: 8px;
+  padding: 3px 11px 3px 4px;
   border-radius: 9999px;
-  background: rgba(255, 255, 255, 0.90);
-  border: 1px solid rgba(198, 182, 242, 0.88);
-  box-shadow: 0 2px 8px rgba(88, 28, 135, 0.05);
+  background: var(--vessa-pill-track) !important;
+  border: 1px solid var(--vessa-card-border) !important;
+  box-shadow: none !important;
   cursor: pointer;
-  transition: all 0.2s ease;
+  transition: all 0.18s ease;
   flex-shrink: 0;
 }
 
-html.dark .wm-admin-profile-pill {
-  background: rgba(33, 19, 66, 0.94);
-  border-color: rgba(147, 102, 245, 0.42);
+.vessa-avatar-circle {
+  width: 30px;
+  height: 30px;
+  border-radius: 9999px;
+  background: #d3eadc;
+  color: #15623b;
+  font-size: 11px;
+  font-weight: 800;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+}
+
+html.dark .vessa-avatar-circle {
+  background: #254433;
+  color: #6ee7b7;
 }
 
 /* ==========================================================================
-   3. FAIRYTALE CASTLE HERO BANNER — Matches 19728.png Across All 23 Pages
+   3. LEFT SLIM VERTICAL ICON RAIL + VERTICAL SUN/MOON THEME CAPSULE
+      Matches Video Left Sidebar Rail 1:1 (with Expandable All-Modules Drawer)
    ========================================================================== */
-.wm-hero-banner {
-  position: relative;
-  border-radius: 22px;
-  overflow: hidden;
-  background-color: #1b0f3b !important;
-  background-image: url('/assets/admin-hero-banner.png') !important;
-  background-size: cover !important;
-  background-position: right center !important;
-  background-repeat: no-repeat !important;
-  min-height: 188px;
-  padding: 24px 30px;
+aside#admin-sidebar {
+  position: fixed !important;
+  top: 64px !important;
+  left: 0 !important;
+  width: 72px !important;
+  height: calc(100vh - 64px) !important;
+  background: var(--vessa-rail-bg) !important;
+  background-image: none !important;
+  border-right: 1px solid var(--vessa-card-border) !important;
+  box-shadow: none !important;
+  z-index: 60 !important;
+  display: flex !important;
+  flex-direction: column !important;
+  align-items: center !important;
+  padding: 12px 0 !important;
+  transition: width 0.24s cubic-bezier(0.22, 1, 0.36, 1), transform 0.25s ease !important;
+  overflow: visible !important;
+}
+
+aside#admin-sidebar::before {
+  display: none !important;
+}
+
+/* Expanded Drawer Mode when user clicks "All Sections" button or on Mobile */
+aside#admin-sidebar.vessa-rail-expanded {
+  width: 268px !important;
+  align-items: stretch !important;
+  box-shadow: 12px 0 36px rgba(0, 0, 0, 0.14) !important;
+}
+
+/* Vertical Sun / Moon Theme Wipe Capsule at Top of Left Rail (Exact Video Match!) */
+.vessa-theme-capsule {
   display: flex;
   flex-direction: column;
+  align-items: center;
+  justify-content: space-between;
+  width: 44px;
+  height: 82px;
+  padding: 4px;
+  border-radius: 9999px;
+  background: var(--vessa-pill-track);
+  border: 1px solid var(--vessa-card-border);
+  margin: 0 auto 14px auto;
+  flex-shrink: 0;
+}
+
+aside#admin-sidebar.vessa-rail-expanded .vessa-theme-capsule {
+  flex-direction: row;
+  width: calc(100% - 28px);
+  height: 42px;
+  margin: 0 14px 12px 14px;
+}
+
+.vessa-theme-circle-btn {
+  width: 34px;
+  height: 34px;
+  border-radius: 9999px;
+  border: none;
+  background: transparent;
+  color: var(--vessa-text-soft);
+  display: flex;
+  align-items: center;
   justify-content: center;
-  box-shadow: 0 12px 32px -6px rgba(45, 20, 95, 0.28) !important;
-  border: 1px solid rgba(255, 255, 255, 0.24) !important;
+  cursor: pointer;
+  transition: transform 0.2s ease, background-color 0.2s ease, color 0.2s ease;
+  padding: 0;
+}
+
+.vessa-theme-circle-btn:hover {
+  color: var(--vessa-text-main);
+}
+
+/* Active Sun in Light Mode: Dark Forest Circle (#141E18) with White Sun Icon */
+html:not(.dark) .vessa-theme-circle-btn[data-theme-target="light"] {
+  background: #141e18 !important;
+  color: #ffffff !important;
+  box-shadow: 0 2px 6px rgba(20, 30, 24, 0.25);
+}
+
+/* Active Moon in Dark Mode: Crisp White Circle (#EFF5F1) with Dark Moon Icon */
+html.dark .vessa-theme-circle-btn[data-theme-target="dark"] {
+  background: #eff5f1 !important;
+  color: #111c16 !important;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.35);
+}
+
+/* Slim Rail Icon Navigation List */
+.vessa-rail-scroller {
+  width: 100%;
+  flex: 1;
+  overflow-y: auto;
+  overflow-x: hidden;
+  padding: 0 10px;
+}
+
+/* Hide legacy brand header inside sidebar on desktop since brand is in top bar */
+aside#admin-sidebar > div > div:first-child {
+  display: none !important;
+}
+
+/* Hide section text headers in collapsed icon rail, show in expanded drawer */
+aside#admin-sidebar:not(.vessa-rail-expanded) .wm-nav-section-label,
+aside#admin-sidebar:not(.vessa-rail-expanded) .wm-sidebar-section-label,
+aside#admin-sidebar:not(.vessa-rail-expanded) button[onclick*="toggleMoreSidebarSections"] {
+  display: none !important;
+}
+
+aside#admin-sidebar.vessa-rail-expanded .wm-nav-section-label,
+aside#admin-sidebar.vessa-rail-expanded .wm-sidebar-section-label {
+  display: block !important;
+  font-size: 10px !important;
+  font-weight: 800 !important;
+  letter-spacing: 0.08em !important;
+  text-transform: uppercase !important;
+  color: var(--vessa-text-soft) !important;
+  padding: 10px 12px 4px !important;
+}
+
+/* Sidebar Links in Slim Rail Mode (44x44 Circular/Rounded Buttons with Hover Tooltip) */
+aside#admin-sidebar:not(.vessa-rail-expanded) nav {
+  display: flex !important;
+  flex-direction: column !important;
+  align-items: center !important;
+  gap: 6px !important;
+}
+
+aside#admin-sidebar:not(.vessa-rail-expanded) nav a {
+  position: relative !important;
+  width: 44px !important;
+  height: 44px !important;
+  padding: 0 !important;
+  margin: 0 auto !important;
+  border-radius: 9999px !important;
+  display: flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  color: var(--vessa-text-muted) !important;
+  background: transparent !important;
+  border: 1px solid transparent !important;
+  box-shadow: none !important;
+  transition: all 0.18s ease !important;
+}
+
+aside#admin-sidebar:not(.vessa-rail-expanded) nav a > span:not(.material-symbols-outlined):not(.vessa-rail-badge) {
+  position: fixed;
+  left: 78px;
+  padding: 5px 11px;
+  border-radius: 8px;
+  background: #141e18;
+  color: #ffffff !important;
+  font-size: 12px;
+  font-weight: 700;
+  white-space: nowrap;
+  opacity: 0;
+  pointer-events: none;
+  transform: translateX(-6px);
+  transition: opacity 0.15s ease, transform 0.15s ease;
+  z-index: 999;
+  box-shadow: 0 4px 14px rgba(0, 0, 0, 0.18);
+}
+
+aside#admin-sidebar:not(.vessa-rail-expanded) nav a:hover > span:not(.material-symbols-outlined):not(.vessa-rail-badge) {
+  opacity: 1;
+  transform: translateX(0);
+}
+
+/* Sidebar Links in Expanded Mode */
+aside#admin-sidebar.vessa-rail-expanded nav a {
+  width: 100% !important;
+  padding: 9px 14px !important;
+  border-radius: 12px !important;
+  display: flex !important;
+  align-items: center !important;
+  gap: 11px !important;
+  font-size: 13px !important;
+  font-weight: 600 !important;
+  color: var(--vessa-text-muted) !important;
+}
+
+aside#admin-sidebar nav a .material-symbols-outlined {
+  font-size: 20px !important;
+  color: inherit !important;
+}
+
+aside#admin-sidebar nav a:hover:not(.wm-nav-active):not(.active) {
+  background: var(--vessa-pill-track) !important;
+  color: var(--vessa-text-main) !important;
+}
+
+/* ACTIVE RAIL ITEM — Vibrant Forest Emerald Circle/Pill (Matches Video Left Rail Active State 1:1!) */
+aside#admin-sidebar nav a.wm-nav-active,
+aside#admin-sidebar nav a.active {
+  background: var(--vessa-emerald) !important;
+  border-color: transparent !important;
+  color: #ffffff !important;
+  box-shadow: 0 4px 12px rgba(30, 127, 78, 0.28) !important;
+  font-weight: 700 !important;
+}
+
+html.dark aside#admin-sidebar nav a.wm-nav-active,
+html.dark aside#admin-sidebar nav a.active {
+  background: #38c976 !important;
+  color: #0b1911 !important;
+  box-shadow: 0 4px 14px rgba(56, 201, 118, 0.30) !important;
+}
+
+aside#admin-sidebar nav a.wm-nav-active .material-symbols-outlined,
+aside#admin-sidebar nav a.active .material-symbols-outlined {
   color: #ffffff !important;
 }
 
-.wm-hero-banner::before {
-  content: '';
-  position: absolute;
-  inset: 0;
-  background: linear-gradient(90deg, rgba(22, 10, 52, 0.86) 0%, rgba(36, 16, 78, 0.68) 46%, rgba(36, 16, 78, 0.14) 76%, rgba(36, 16, 78, 0.02) 100%);
-  pointer-events: none;
-  z-index: 0;
+html.dark aside#admin-sidebar nav a.wm-nav-active .material-symbols-outlined,
+html.dark aside#admin-sidebar nav a.active .material-symbols-outlined {
+  color: #0b1911 !important;
 }
 
-.wm-hero-banner > * {
+/* Little count badges on rail icons (like "3" and "2" in the video) */
+.vessa-rail-badge {
+  position: absolute;
+  top: 2px;
+  right: 2px;
+  min-width: 16px;
+  height: 16px;
+  padding: 0 4px;
+  border-radius: 9999px;
+  font-size: 9.5px;
+  font-weight: 800;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  background: #141e18;
+  color: #ffffff;
+  border: 2px solid var(--vessa-rail-bg);
+  line-height: 1;
+}
+
+.vessa-rail-badge.badge-danger {
+  background: #e11d48;
+  color: #ffffff;
+}
+
+/* Bottom Rail Expand/Collapse Toggle Button */
+.vessa-rail-expand-btn {
+  margin-top: 8px;
+  width: 42px;
+  height: 42px;
+  border-radius: 9999px;
+  border: 1px solid var(--vessa-card-border);
+  background: var(--vessa-pill-track);
+  color: var(--vessa-text-muted);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  flex-shrink: 0;
+  transition: all 0.18s ease;
+}
+
+.vessa-rail-expand-btn:hover {
+  background: var(--vessa-emerald-soft);
+  color: var(--vessa-emerald-text);
+  border-color: var(--vessa-emerald);
+}
+
+/* ==========================================================================
+   4. VESSA WELCOME HERO CARD, PAGE HEADERS & KPI CARDS
+      Matches Overview (frame_001), Catalog (frame_004), Reports (frame_007), Sales (frame_011)
+   ========================================================================== */
+
+/* Welcome Back Hero Card on Overview (Soft Mint-Sage Card) */
+.vessa-welcome-card {
+  background: var(--vessa-welcome-grad) !important;
+  border: 1px solid var(--vessa-welcome-border) !important;
+  border-radius: 20px !important;
+  padding: 20px 22px !important;
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+  box-shadow: var(--vessa-card-shadow) !important;
+}
+
+.vessa-welcome-greeting {
+  font-family: 'Instrument Serif', Georgia, serif;
+  font-size: 30px;
+  font-weight: 400;
+  line-height: 1.08;
+  letter-spacing: -0.01em;
+  color: var(--vessa-text-main) !important;
+  margin: 6px 0 8px 0;
+}
+
+/* Transform legacy .wm-hero-banner on all 24 admin pages into Clean Vessa Editorial Page Header */
+.wm-hero-banner {
   position: relative;
-  z-index: 1;
+  border-radius: 20px !important;
+  overflow: hidden;
+  background: var(--vessa-welcome-grad) !important;
+  background-image: var(--vessa-welcome-grad) !important;
+  min-height: auto !important;
+  padding: 20px 24px !important;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  box-shadow: var(--vessa-card-shadow) !important;
+  border: 1px solid var(--vessa-welcome-border) !important;
+  color: var(--vessa-text-main) !important;
+}
+
+.wm-hero-banner::before {
+  display: none !important;
 }
 
 .wm-hero-welcome-pill {
   display: inline-flex;
   align-items: center;
   gap: 6px;
-  padding: 4px 13px;
+  padding: 3.5px 11px;
   border-radius: 9999px;
-  background: rgba(255, 255, 255, 0.15) !important;
-  backdrop-filter: blur(8px);
-  -webkit-backdrop-filter: blur(8px);
-  border: 1px solid rgba(255, 255, 255, 0.26) !important;
-  color: #f5ebff !important;
-  font-size: 12px;
-  font-weight: 600;
-  margin-bottom: 8px;
+  background: rgba(30, 127, 78, 0.12) !important;
+  border: 1px solid rgba(30, 127, 78, 0.24) !important;
+  color: var(--vessa-emerald-text) !important;
+  font-size: 11.5px;
+  font-weight: 700;
+  margin-bottom: 6px;
 }
 
 .wm-hero-title,
-.wm-hero-title span:not(.wm-pink-word) {
-  font-family: 'Outfit', 'Plus Jakarta Sans', sans-serif;
-  font-weight: 800;
-  font-size: clamp(1.5rem, 2.5vw, 2.15rem);
-  color: #ffffff !important;
-  letter-spacing: -0.02em;
-  line-height: 1.15;
-  text-shadow: 0 2px 14px rgba(0, 0, 0, 0.35);
-}
-
-.wm-pink-word {
-  font-style: italic;
-  background: linear-gradient(90deg, #ff3b9a 0%, #f472b6 55%, #fbbf24 100%);
-  -webkit-background-clip: text;
-  -webkit-text-fill-color: transparent !important;
-  padding-right: 3px;
-}
-
+.wm-hero-title span,
+.wm-pink-word,
 .wm-lavender-word {
-  color: #f3e8ff !important;
+  font-family: 'Plus Jakarta Sans', sans-serif !important;
+  font-style: normal !important;
+  font-weight: 800 !important;
+  font-size: clamp(1.45rem, 2.1vw, 1.9rem) !important;
+  color: var(--vessa-text-main) !important;
+  background: none !important;
+  -webkit-text-fill-color: var(--vessa-text-main) !important;
+  letter-spacing: -0.025em !important;
+  line-height: 1.15 !important;
+  text-shadow: none !important;
 }
 
 .wm-hero-subtitle {
-  font-size: 13.5px;
-  color: rgba(243, 236, 255, 0.94) !important;
-  margin-top: 6px;
-  margin-bottom: 16px;
-  font-weight: 500;
-  max-width: 560px;
+  font-size: 13px !important;
+  color: var(--vessa-text-muted) !important;
+  margin-top: 4px !important;
+  margin-bottom: 14px !important;
+  font-weight: 500 !important;
+  max-width: 640px;
 }
 
-.wm-btn-pink-pill {
+/* Primary & Secondary Pill Buttons in Vessa Style */
+.wm-btn-pink-pill,
+.vessa-btn-emerald {
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  gap: 7px;
-  padding: 9.5px 18px;
-  border-radius: 9999px;
-  background: linear-gradient(90deg, #ff2a85 0%, #ec4899 55%, #a855f7 100%) !important;
+  gap: 6px;
+  padding: 8.5px 16px;
+  border-radius: 9999px !important;
+  background: var(--vessa-emerald) !important;
+  background-image: none !important;
   color: #ffffff !important;
-  font-size: 13px;
+  font-size: 12.5px;
   font-weight: 700;
-  box-shadow: 0 6px 20px rgba(236, 72, 153, 0.45), inset 0 1px 0 rgba(255, 255, 255, 0.35);
-  border: 1px solid rgba(255, 255, 255, 0.32) !important;
-  text-decoration: none;
+  box-shadow: 0 2px 8px rgba(30, 127, 78, 0.22) !important;
+  border: 1px solid transparent !important;
+  text-decoration: none !important;
   cursor: pointer;
-  transition: all 0.2s ease;
+  transition: all 0.18s ease;
+}
+
+html.dark .wm-btn-pink-pill,
+html.dark .vessa-btn-emerald {
+  background: #38c976 !important;
+  color: #0b1911 !important;
 }
 
 .wm-btn-pink-pill *,
-.wm-btn-glass-pill *,
-.wm-hero-pill-btn * {
-  color: #ffffff !important;
+.vessa-btn-emerald * {
+  color: inherit !important;
 }
 
-.wm-btn-pink-pill:hover {
+.wm-btn-pink-pill:hover,
+.vessa-btn-emerald:hover {
+  background: var(--vessa-emerald-hover) !important;
   transform: translateY(-1px);
-  box-shadow: 0 8px 24px rgba(236, 72, 153, 0.58);
 }
 
 .wm-btn-glass-pill,
-.wm-hero-pill-btn {
+.wm-hero-pill-btn,
+.vessa-btn-white {
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  gap: 7px;
-  padding: 9px 17px;
-  border-radius: 9999px;
-  font-size: 13px;
+  gap: 6px;
+  padding: 8.5px 16px;
+  border-radius: 9999px !important;
+  font-size: 12.5px;
   font-weight: 700;
-  color: #ffffff !important;
-  background: rgba(255, 255, 255, 0.16) !important;
-  backdrop-filter: blur(10px);
-  -webkit-backdrop-filter: blur(10px);
-  border: 1px solid rgba(255, 255, 255, 0.34) !important;
-  box-shadow: 0 4px 14px rgba(0, 0, 0, 0.18);
+  color: var(--vessa-text-main) !important;
+  background: var(--vessa-card-bg) !important;
+  border: 1px solid var(--vessa-card-border) !important;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.04) !important;
   transition: all 0.18s ease;
   cursor: pointer;
-  text-decoration: none;
+  text-decoration: none !important;
+}
+
+.wm-btn-glass-pill *,
+.wm-hero-pill-btn *,
+.vessa-btn-white * {
+  color: var(--vessa-text-main) !important;
 }
 
 .wm-btn-glass-pill:hover,
-.wm-hero-pill-btn:hover {
-  background: rgba(255, 255, 255, 0.26) !important;
-  transform: translateY(-1px);
+.wm-hero-pill-btn:hover,
+.vessa-btn-white:hover {
+  background: var(--vessa-pill-track) !important;
+  border-color: var(--vessa-emerald) !important;
 }
 
 /* ==========================================================================
-   4. CARDS, TABLES, STATUS BADGES & QUICK ACTION TILES (Matches 19728.png)
+   5. CARDS, STAT BOXES, TABLES & BADGES (Vessa Clean Botanical Surface)
    ========================================================================== */
 .wm-card,
-.wm-stat-card {
-  background: var(--wm-card-bg) !important;
-  border: 1px solid var(--wm-card-border) !important;
+.wm-stat-card,
+.vessa-card {
+  background: var(--vessa-card-bg) !important;
+  border: 1px solid var(--vessa-card-border) !important;
   border-radius: 20px !important;
-  box-shadow: var(--wm-card-shadow) !important;
-  backdrop-filter: blur(12px);
-  transition: transform 0.2s ease, box-shadow 0.2s ease, background-color 0.2s ease;
+  box-shadow: var(--vessa-card-shadow) !important;
+  transition: border-color 0.18s ease, box-shadow 0.18s ease, background-color 0.18s ease;
+}
+
+/* KPI Icon Circles (Soft Mint/Teal/Amber Circular Badges from Video) */
+.vessa-kpi-icon-circle {
+  width: 38px;
+  height: 38px;
+  border-radius: 9999px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  background: #cdece1;
+  color: #136847;
+  flex-shrink: 0;
+}
+
+html.dark .vessa-kpi-icon-circle {
+  background: rgba(56, 201, 118, 0.18);
+  color: #5ce092;
+}
+
+.vessa-kpi-icon-circle.amber {
+  background: #f5e6c8;
+  color: #9a6715;
+}
+
+html.dark .vessa-kpi-icon-circle.amber {
+  background: rgba(245, 158, 11, 0.20);
+  color: #fbbf24;
+}
+
+.vessa-trend-pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 3px;
+  padding: 2px 8px;
+  border-radius: 9999px;
+  background: var(--vessa-emerald-soft);
+  color: var(--vessa-emerald-text);
+  font-size: 11px;
+  font-weight: 700;
 }
 
 .wm-view-all-pill {
@@ -725,19 +933,19 @@ html.dark .wm-admin-profile-pill {
   gap: 4px;
   padding: 5px 12px;
   border-radius: 9999px;
-  background: #f5f1fd;
-  border: 1px solid #e4daf7;
-  color: #5b3ea8 !important;
+  background: var(--vessa-pill-track) !important;
+  border: 1px solid var(--vessa-card-border) !important;
+  color: var(--vessa-text-main) !important;
   font-size: 12px;
   font-weight: 700;
   text-decoration: none;
-  transition: all 0.18s ease;
+  transition: all 0.16s ease;
 }
 
-html.dark .wm-view-all-pill {
-  background: rgba(139, 92, 246, 0.20) !important;
-  border-color: rgba(139, 92, 246, 0.36) !important;
-  color: #e9d5ff !important;
+.wm-view-all-pill:hover {
+  background: var(--vessa-emerald-soft) !important;
+  color: var(--vessa-emerald-text) !important;
+  border-color: var(--vessa-emerald) !important;
 }
 
 .wm-status-active,
@@ -745,20 +953,13 @@ html.dark .wm-view-all-pill {
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  padding: 3.5px 12px;
+  padding: 3.5px 11px;
   border-radius: 9999px;
-  font-size: 11.5px;
+  font-size: 11px;
   font-weight: 700;
-  background: #d1fae5 !important;
-  color: #047857 !important;
-  border: 1px solid #a7f3d0 !important;
-}
-
-html.dark .wm-status-active,
-html.dark .wm-badge-active {
-  background: rgba(16, 185, 129, 0.22) !important;
-  color: #6ee7b7 !important;
-  border-color: rgba(16, 185, 129, 0.40) !important;
+  background: var(--vessa-emerald-soft) !important;
+  color: var(--vessa-emerald-text) !important;
+  border: 1px solid rgba(30, 127, 78, 0.25) !important;
 }
 
 .wm-status-expired,
@@ -766,20 +967,18 @@ html.dark .wm-badge-active {
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  padding: 3.5px 12px;
+  padding: 3.5px 11px;
   border-radius: 9999px;
-  font-size: 11.5px;
+  font-size: 11px;
   font-weight: 700;
-  background: #ffe4e6 !important;
+  background: rgba(225, 29, 72, 0.12) !important;
   color: #be123c !important;
-  border: 1px solid #fecdd3 !important;
+  border: 1px solid rgba(225, 29, 72, 0.24) !important;
 }
 
 html.dark .wm-status-expired,
 html.dark .wm-badge-expiring {
-  background: rgba(244, 63, 94, 0.22) !important;
   color: #fda4af !important;
-  border-color: rgba(244, 63, 94, 0.40) !important;
 }
 
 .wm-table-action-btn {
@@ -789,23 +988,17 @@ html.dark .wm-badge-expiring {
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  background: #f6f2fd;
-  border: 1px solid #e5dcf7;
-  color: #5b4682;
+  background: var(--vessa-pill-track) !important;
+  border: 1px solid var(--vessa-card-border) !important;
+  color: var(--vessa-text-muted) !important;
   transition: all 0.16s ease;
   cursor: pointer;
 }
 
-html.dark .wm-table-action-btn {
-  background: rgba(139, 92, 246, 0.20) !important;
-  border-color: rgba(139, 92, 246, 0.35) !important;
-  color: #e9d5ff !important;
-}
-
 .wm-table-action-btn:hover {
-  background: #ece3fc;
-  color: #4c1d95;
-  transform: translateY(-1px);
+  background: var(--vessa-emerald-soft) !important;
+  color: var(--vessa-emerald-text) !important;
+  border-color: var(--vessa-emerald) !important;
 }
 
 .wm-quick-action-tile {
@@ -816,49 +1009,33 @@ html.dark .wm-table-action-btn {
   gap: 8px;
   padding: 14px 8px;
   border-radius: 16px;
-  background: #faf7ff;
-  border: 1px solid #e9e0fa;
-  color: #2b194d !important;
+  background: var(--color-surface-container-low) !important;
+  border: 1px solid var(--vessa-card-border) !important;
+  color: var(--vessa-text-main) !important;
   text-decoration: none;
-  transition: all 0.2s ease;
-}
-
-html.dark .wm-quick-action-tile {
-  background: rgba(42, 25, 82, 0.72) !important;
-  border-color: rgba(147, 102, 245, 0.32) !important;
-  color: #f5f0ff !important;
+  transition: all 0.18s ease;
 }
 
 .wm-quick-action-tile:hover {
-  background: #f2ebff;
-  border-color: #d0bef5;
+  background: var(--vessa-emerald-soft) !important;
+  border-color: var(--vessa-emerald) !important;
   transform: translateY(-2px);
-  box-shadow: 0 6px 16px rgba(109, 40, 217, 0.08);
 }
 
-html.dark .wm-quick-action-tile:hover {
-  background: rgba(58, 35, 110, 0.90) !important;
-}
-
-/* Universal Tables */
+/* Tables */
 main table thead tr th {
   background: var(--wm-table-head-bg) !important;
-  color: var(--wm-text-muted) !important;
+  color: var(--vessa-text-muted) !important;
   font-size: 11.5px !important;
   font-weight: 700 !important;
   letter-spacing: 0.02em;
-  border-bottom: 1px solid var(--wm-card-border) !important;
+  border-bottom: 1px solid var(--vessa-card-border) !important;
 }
 
 main table tbody tr td {
-  color: var(--wm-text-main);
-  border-bottom: 1px solid rgba(216, 204, 242, 0.42);
+  color: var(--vessa-text-main);
+  border-bottom: 1px solid var(--vessa-card-border);
   vertical-align: middle;
-}
-
-html.dark main table tbody tr td {
-  color: #f5f0ff;
-  border-bottom: 1px solid rgba(147, 102, 245, 0.18);
 }
 
 main table tbody tr:hover td {
@@ -866,277 +1043,173 @@ main table tbody tr:hover td {
 }
 
 /* ==========================================================================
-   5. COMPLETE LIGHT MODE & DARK MODE CONTRAST GUARANTEES (100% VALID CSS)
-   Fixes every invisible text and non-switching element across all 23 pages
+   6. UNIVERSAL PURPLE/PINK TO VESSA EMERALD & SAGE HARMONIZER
+      Automatically converts legacy purple/pink accents across all 24 admin pages
    ========================================================================== */
 
-/* --- A. LIGHT MODE (html:not(.dark)) --- */
-html:not(.dark) .text-on-surface {
-  color: #1a0f30 !important;
-}
-html:not(.dark) .text-on-surface-variant {
-  color: #533f78 !important;
-}
-html:not(.dark) .text-outline {
-  color: #6e5a94 !important;
-}
-
-html:not(.dark) main .bg-surface-container,
-html:not(.dark) main .bg-surface-container-low,
-html:not(.dark) main .bg-surface-container-lowest,
-html:not(.dark) [id*="modal"] .bg-surface-container,
-html:not(.dark) [id*="modal"] .bg-surface-container-low,
-html:not(.dark) [id*="modal"] .bg-surface-container-lowest {
-  background-color: #ffffff !important;
-  border-color: rgba(214, 200, 242, 0.90) !important;
-}
-
-html:not(.dark) main .bg-surface-container-high,
-html:not(.dark) [id*="modal"] .bg-surface-container-high {
-  background-color: #f4effc !important;
-  border-color: #dfd4f4 !important;
+/* Convert solid purple/pink gradient buttons & badges to Forest Emerald */
+main button[class*="from-pink-"],
+main button[class*="from-purple-"],
+main button[class*="from-[#a855f7]"],
+main button[class*="from-[#6d28d9]"],
+main button[class*="bg-purple-6"],
+main button[class*="bg-pink-6"],
+main button[class*="bg-primary"],
+main a[class*="from-pink-"],
+main a[class*="from-purple-"],
+main a[class*="bg-purple-6"],
+main a[class*="bg-primary"],
+[id*="modal"] button[class*="from-pink-"],
+[id*="modal"] button[class*="from-purple-"],
+[id*="modal"] button[class*="bg-purple-6"],
+[id*="modal"] button[class*="bg-primary"] {
+  background: var(--vessa-emerald) !important;
+  background-image: none !important;
+  border-color: transparent !important;
+  color: #ffffff !important;
+  box-shadow: 0 2px 8px rgba(30, 127, 78, 0.22) !important;
 }
 
-html:not(.dark) main .bg-surface-container-highest,
-html:not(.dark) [id*="modal"] .bg-surface-container-highest {
-  background-color: #eae1f9 !important;
+html.dark main button[class*="from-pink-"],
+html.dark main button[class*="from-purple-"],
+html.dark main button[class*="bg-purple-6"],
+html.dark main button[class*="bg-primary"],
+html.dark main a[class*="from-pink-"],
+html.dark main a[class*="from-purple-"],
+html.dark [id*="modal"] button[class*="from-pink-"],
+html.dark [id*="modal"] button[class*="from-purple-"],
+html.dark [id*="modal"] button[class*="bg-primary"] {
+  background: #38c976 !important;
+  color: #0b1911 !important;
 }
 
-/* Convert legacy dark containers to crisp Light Mode surfaces */
+/* Convert purple/pink icon badges to soft Vessa Mint-Emerald circles */
+main div[class*="from-[#a855f7]"],
+main div[class*="from-[#d946ef]"],
+main div[class*="from-[#ff2a85]"],
+main div[class*="from-pink-500"],
+main div[class*="from-purple-500"],
+main div[class*="from-purple-600"] {
+  background: var(--vessa-emerald-soft) !important;
+  background-image: none !important;
+  color: var(--vessa-emerald-text) !important;
+  box-shadow: none !important;
+  border: 1px solid rgba(30, 127, 78, 0.20) !important;
+}
+
+main div[class*="from-[#a855f7]"] span,
+main div[class*="from-[#d946ef]"] span,
+main div[class*="from-[#ff2a85]"] span,
+main div[class*="from-pink-500"] span,
+main div[class*="from-purple-500"] span {
+  color: var(--vessa-emerald-text) !important;
+}
+
+/* Convert pastel purple/pink containers & borders to Botanical Sage */
+html:not(.dark) main [class*="bg-purple-50"],
+html:not(.dark) main [class*="bg-purple-100"],
+html:not(.dark) main [class*="bg-pink-50"],
+html:not(.dark) main [class*="bg-pink-100"],
+html:not(.dark) main [class*="bg-[#f5f1fd]"],
+html:not(.dark) main [class*="bg-[#f6f3fd]"],
+html:not(.dark) main [class*="bg-[#faf7ff]"],
+html:not(.dark) [id*="modal"] [class*="bg-purple-50"],
+html:not(.dark) [id*="modal"] [class*="bg-purple-100"] {
+  background-color: #eef4f0 !important;
+  border-color: #d8e4dc !important;
+  color: #15623b !important;
+}
+
+html.dark main [class*="bg-purple-950"],
+html.dark main [class*="bg-purple-900"],
+html.dark main [class*="bg-pink-950"],
+html.dark main [class*="bg-[#26164d]"],
+html.dark main [class*="bg-[#211342]"],
+html.dark main [class*="bg-[#1c103b]"],
+html.dark main [class*="bg-[#1a0e36]"],
+html.dark [id*="modal"] [class*="bg-purple-950"],
+html.dark [id*="modal"] [class*="bg-purple-900"] {
+  background-color: #212d26 !important;
+  border-color: #2d3e34 !important;
+  color: #eff5f1 !important;
+}
+
 html:not(.dark) main [class*="bg-purple-950"],
 html:not(.dark) main [class*="bg-purple-900"],
+html:not(.dark) main [class*="bg-pink-950"],
 html:not(.dark) [id*="modal"] [class*="bg-purple-950"],
 html:not(.dark) [id*="modal"] [class*="bg-purple-900"] {
-  background-color: #f4effc !important;
-  border-color: #dccff4 !important;
-  color: #3b1d70 !important;
-}
-
-html:not(.dark) main [class*="bg-amber-950"],
-html:not(.dark) main [class*="bg-amber-900"],
-html:not(.dark) [id*="modal"] [class*="bg-amber-950"],
-html:not(.dark) [id*="modal"] [class*="bg-amber-900"] {
-  background-color: #fffbeb !important;
-  border-color: #fde68a !important;
-  color: #92400e !important;
-}
-
-html:not(.dark) main [class*="bg-emerald-950"],
-html:not(.dark) main [class*="bg-emerald-900"],
-html:not(.dark) [id*="modal"] [class*="bg-emerald-950"] {
-  background-color: #ecfdf5 !important;
-  border-color: #a7f3d0 !important;
-  color: #065f46 !important;
-}
-
-html:not(.dark) main [class*="bg-rose-950"],
-html:not(.dark) main [class*="bg-rose-900"],
-html:not(.dark) [id*="modal"] [class*="bg-rose-950"] {
-  background-color: #fff1f2 !important;
-  border-color: #fecdd3 !important;
-  color: #9f1239 !important;
-}
-
-html:not(.dark) main [class*="bg-pink-950"],
-html:not(.dark) [id*="modal"] [class*="bg-pink-950"] {
-  background-color: #fdf2f8 !important;
-  border-color: #fbcfe8 !important;
-  color: #9d174d !important;
+  background-color: #f2f7f4 !important;
+  border-color: #dce6e0 !important;
+  color: #111c16 !important;
 }
 
 html:not(.dark) main [class*="from-purple-950"],
 html:not(.dark) main [class*="from-pink-950"],
-html:not(.dark) main [class*="from-emerald-950"],
-html:not(.dark) [id*="modal"] [class*="from-purple-950"],
-html:not(.dark) [id*="modal"] [class*="from-pink-950"] {
-  background-image: linear-gradient(135deg, #ffffff 0%, #f7f2ff 55%, #fdf2f8 100%) !important;
-  border-color: #e2d4f8 !important;
+html:not(.dark) [id*="modal"] [class*="from-purple-950"] {
+  background-image: linear-gradient(135deg, #ffffff 0%, #f3f8f5 100%) !important;
+  border-color: #dce6e0 !important;
 }
 
-html:not(.dark) main div[class*="bg-black/"]:not(.fixed):not(.absolute),
-html:not(.dark) main pre[class*="bg-black/"],
-html:not(.dark) [id*="modal"] div[class*="bg-black/"]:not(.fixed):not(.absolute),
-html:not(.dark) [id*="modal"] pre[class*="bg-black/"] {
-  background-color: #f6f2fc !important;
-  border-color: #e0d4f5 !important;
-  color: #1a0f30 !important;
+html.dark main [class*="from-purple-950"],
+html.dark main [class*="from-pink-950"],
+html.dark [id*="modal"] [class*="from-purple-950"] {
+  background-image: linear-gradient(135deg, #1a231e 0%, #151d18 100%) !important;
+  border-color: #26342c !important;
 }
 
-html:not(.dark) main [class*="border-purple-900"],
-html:not(.dark) main [class*="border-purple-800"],
-html:not(.dark) main [class*="border-purple-500/20"],
-html:not(.dark) main [class*="border-purple-500/30"],
-html:not(.dark) [id*="modal"] [class*="border-purple-900"],
-html:not(.dark) [id*="modal"] [class*="border-purple-800"] {
-  border-color: #e2d8f5 !important;
+main [class*="border-purple-"],
+main [class*="border-pink-"],
+main [class*="border-[#e5dcf7]"],
+main [class*="divide-[#f1ecfa]"],
+[id*="modal"] [class*="border-purple-"],
+[id*="modal"] [class*="border-pink-"] {
+  border-color: var(--vessa-card-border) !important;
 }
 
-/* VALID CSS RULE: Convert .text-white inside Light Mode cards/modals to #1a0f30,
-   then explicitly preserve white text on Hero Banner & solid colored buttons/icons! */
-html:not(.dark) main .text-white,
-html:not(.dark) [id*="modal"] .text-white {
-  color: #1a0f30 !important;
+main [class*="text-purple-"],
+main [class*="text-pink-"],
+main [class*="text-[#7c3aed]"],
+main [class*="text-[#6d28d9]"],
+[id*="modal"] [class*="text-purple-"],
+[id*="modal"] [class*="text-pink-"] {
+  color: var(--vessa-emerald-text) !important;
 }
 
-html:not(.dark) .wm-hero-banner,
-html:not(.dark) .wm-hero-banner h1,
-html:not(.dark) .wm-hero-banner h2,
-html:not(.dark) .wm-hero-banner p,
-html:not(.dark) .wm-hero-banner > div > span,
-html:not(.dark) .wm-hero-banner .wm-hero-welcome-pill,
-html:not(.dark) .wm-hero-banner .wm-hero-welcome-pill span,
-html:not(.dark) .wm-btn-pink-pill,
-html:not(.dark) .wm-btn-pink-pill span,
-html:not(.dark) .wm-btn-glass-pill,
-html:not(.dark) .wm-btn-glass-pill span,
-html:not(.dark) .wm-hero-pill-btn,
-html:not(.dark) .wm-hero-pill-btn span,
-html:not(.dark) main button[class*="bg-primary"],
-html:not(.dark) main button[class*="bg-primary"] span,
-html:not(.dark) main a[class*="bg-primary"],
-html:not(.dark) main a[class*="bg-primary"] span,
-html:not(.dark) main button[class*="bg-purple-6"],
-html:not(.dark) main button[class*="bg-purple-6"] span,
-html:not(.dark) main button[class*="bg-pink-5"],
-html:not(.dark) main button[class*="bg-pink-6"],
-html:not(.dark) main button[class*="bg-emerald-5"],
-html:not(.dark) main button[class*="bg-emerald-6"],
-html:not(.dark) main button[class*="bg-rose-5"],
-html:not(.dark) main button[class*="bg-rose-6"],
-html:not(.dark) main button[class*="bg-amber-5"],
-html:not(.dark) main button[class*="bg-amber-6"],
-html:not(.dark) main button[class*="from-"],
-html:not(.dark) main button[class*="from-"] span,
-html:not(.dark) main a[class*="from-"],
-html:not(.dark) main a[class*="from-"] span,
-html:not(.dark) [id*="modal"] button[class*="bg-primary"],
-html:not(.dark) [id*="modal"] button[class*="bg-primary"] span,
-html:not(.dark) [id*="modal"] button[class*="bg-purple-6"],
-html:not(.dark) [id*="modal"] button[class*="bg-pink-6"],
-html:not(.dark) [id*="modal"] button[class*="bg-emerald-6"],
-html:not(.dark) [id*="modal"] button[class*="bg-rose-6"],
-html:not(.dark) [id*="modal"] button[class*="from-"],
-html:not(.dark) [id*="modal"] button[class*="from-"] span,
-html:not(.dark) main div[class*="from-[#"],
-html:not(.dark) main div[class*="from-[#"] span,
-html:not(.dark) main div[class*="from-pink-500"],
-html:not(.dark) main div[class*="from-pink-600"],
-html:not(.dark) main div[class*="from-purple-600"],
-html:not(.dark) main span[class*="bg-emerald-500"],
-html:not(.dark) main span[class*="bg-amber-500"],
-html:not(.dark) main span[class*="bg-pink-500"],
-html:not(.dark) main span[class*="bg-rose-500"],
-html:not(.dark) main span[class*="bg-primary"],
-html:not(.dark) main .absolute[class*="bg-black"],
-html:not(.dark) main .absolute[class*="bg-black"] span {
-  color: #ffffff !important;
+/* Surface Container Mappings */
+html:not(.dark) main .bg-surface-container,
+html:not(.dark) main .bg-surface-container-low,
+html:not(.dark) main .bg-surface-container-lowest,
+html:not(.dark) [id*="modal"] .bg-surface-container,
+html:not(.dark) [id*="modal"] .bg-surface-container-low {
+  background-color: #ffffff !important;
+  border-color: var(--vessa-card-border) !important;
 }
 
-/* Readable pastel text utilities in Light Mode */
-html:not(.dark) main [class*="text-purple-100"],
-html:not(.dark) main [class*="text-purple-200"],
-html:not(.dark) main [class*="text-purple-300"],
-html:not(.dark) [id*="modal"] [class*="text-purple-100"],
-html:not(.dark) [id*="modal"] [class*="text-purple-200"],
-html:not(.dark) [id*="modal"] [class*="text-purple-300"] {
-  color: #533f78 !important;
-}
-
-html:not(.dark) main [class*="text-amber-200"],
-html:not(.dark) main [class*="text-amber-300"],
-html:not(.dark) main [class*="text-amber-400"]:not(.wm-stat-icon *),
-html:not(.dark) [id*="modal"] [class*="text-amber-200"],
-html:not(.dark) [id*="modal"] [class*="text-amber-300"] {
-  color: #b45309 !important;
-}
-
-html:not(.dark) main [class*="text-emerald-200"],
-html:not(.dark) main [class*="text-emerald-300"],
-html:not(.dark) main [class*="text-emerald-400"],
-html:not(.dark) [id*="modal"] [class*="text-emerald-200"],
-html:not(.dark) [id*="modal"] [class*="text-emerald-300"] {
-  color: #047857 !important;
-}
-
-html:not(.dark) main [class*="text-rose-200"],
-html:not(.dark) main [class*="text-rose-300"],
-html:not(.dark) main [class*="text-rose-400"],
-html:not(.dark) [id*="modal"] [class*="text-rose-200"],
-html:not(.dark) [id*="modal"] [class*="text-rose-300"] {
-  color: #be123c !important;
-}
-
-html:not(.dark) main [class*="text-pink-200"]:not([class*="bg-black"]),
-html:not(.dark) main [class*="text-pink-300"]:not([class*="bg-black"]),
-html:not(.dark) [id*="modal"] [class*="text-pink-200"]:not([class*="bg-black"]),
-html:not(.dark) [id*="modal"] [class*="text-pink-300"]:not([class*="bg-black"]) {
-  color: #be185d !important;
-}
-
-/* --- B. DARK MODE (html.dark) --- */
-html.dark .text-on-surface {
-  color: #f7f4ff !important;
-}
-html.dark .text-on-surface-variant {
-  color: #cfc2eb !important;
-}
-html.dark .text-outline {
-  color: #a391c9 !important;
-}
-
-html.dark main [class*="text-[#1a0f30]"],
-html.dark main [class*="text-[#2b194d]"],
-html.dark header [class*="text-[#1a0f30]"],
-html.dark header [class*="text-[#2b194d]"],
-html.dark [id*="modal"] [class*="text-[#1a0f30]"],
-html.dark [id*="modal"] [class*="text-[#2b194d]"] {
-  color: #f7f4ff !important;
-}
-
-html.dark main [class*="text-[#4e3f6b]"],
-html.dark main [class*="text-[#5e4f7d]"],
-html.dark main [class*="text-[#3b2860]"],
-html.dark main [class*="text-[#4c1d95]"],
-html.dark header [class*="text-[#5e4f7d]"],
-html.dark [id*="modal"] [class*="text-[#5e4f7d]"] {
-  color: #cfc2eb !important;
+html:not(.dark) main .bg-surface-container-high,
+html:not(.dark) [id*="modal"] .bg-surface-container-high {
+  background-color: #f3f7f4 !important;
+  border-color: #dde6e0 !important;
 }
 
 html.dark main .bg-surface-container,
 html.dark main .bg-surface-container-low,
 html.dark main .bg-surface-container-lowest,
 html.dark [id*="modal"] .bg-surface-container,
-html.dark [id*="modal"] .bg-surface-container-low,
-html.dark [id*="modal"] .bg-surface-container-lowest {
-  background-color: rgba(31, 18, 62, 0.94) !important;
-  border-color: rgba(147, 102, 245, 0.32) !important;
-  color: #f7f4ff !important;
+html.dark [id*="modal"] .bg-surface-container-low {
+  background-color: #1a231e !important;
+  border-color: #26342c !important;
+  color: #eff5f1 !important;
 }
 
 html.dark main .bg-surface-container-high,
 html.dark [id*="modal"] .bg-surface-container-high {
-  background-color: rgba(42, 25, 82, 0.92) !important;
-  border-color: rgba(147, 102, 245, 0.36) !important;
-  color: #f7f4ff !important;
+  background-color: #212d26 !important;
+  border-color: #2c3c33 !important;
+  color: #eff5f1 !important;
 }
 
-html.dark main .bg-surface-container-highest,
-html.dark [id*="modal"] .bg-surface-container-highest {
-  background-color: rgba(55, 34, 105, 0.95) !important;
-  color: #f7f4ff !important;
-}
-
-html.dark main [class*="bg-[#f6f3fd]"],
-html.dark main [class*="bg-[#f5f1fd]"],
-html.dark main [class*="bg-[#faf7ff]"],
-html.dark main [class*="bg-[#f5f0fd]"],
-html.dark [id*="modal"] [class*="bg-white"] {
-  background-color: rgba(38, 22, 76, 0.94) !important;
-  border-color: rgba(147, 102, 245, 0.34) !important;
-  color: #f7f4ff !important;
-}
-
-/* Inputs, Selects & Textareas across all Admin Pages & Modals */
+/* Inputs, Selects & Textareas */
 html:not(.dark) main input:not([type="checkbox"]):not([type="radio"]):not([type="range"]):not([type="color"]):not([type="file"]),
 html:not(.dark) main select,
 html:not(.dark) main textarea,
@@ -1144,8 +1217,8 @@ html:not(.dark) [id*="modal"] input:not([type="checkbox"]):not([type="radio"]):n
 html:not(.dark) [id*="modal"] select,
 html:not(.dark) [id*="modal"] textarea {
   background-color: #ffffff !important;
-  border: 1px solid #d5c7f0 !important;
-  color: #1a0f30 !important;
+  border: 1px solid #d5e0d9 !important;
+  color: #111c16 !important;
 }
 
 html.dark main input:not([type="checkbox"]):not([type="radio"]):not([type="range"]):not([type="color"]):not([type="file"]),
@@ -1154,198 +1227,59 @@ html.dark main textarea,
 html.dark [id*="modal"] input:not([type="checkbox"]):not([type="radio"]):not([type="range"]):not([type="color"]):not([type="file"]),
 html.dark [id*="modal"] select,
 html.dark [id*="modal"] textarea {
-  background-color: rgba(20, 11, 42, 0.95) !important;
-  border: 1px solid rgba(147, 102, 245, 0.42) !important;
-  color: #f7f4ff !important;
+  background-color: #141c18 !important;
+  border: 1px solid #2b3b32 !important;
+  color: #eff5f1 !important;
 }
 
-/* ==========================================================================
-   6. DESKTOP VIEW & MOBILE VIEW RESPONSIVE ENGINE
-   Fixes full-width alignment on Desktop and compact responsive layout on Mobile
-   ========================================================================== */
-
-/* Normalize inner legacy wrappers inside <main> so there is no double padding */
-main#admin-main-content {
-  width: 100% !important;
-  max-width: 1560px !important;
-  margin-left: auto !important;
-  margin-right: auto !important;
+/* Checkboxes & Toggle Switches in Vessa Forest Emerald */
+main input[type="checkbox"]:not(.sr-only),
+[id*="modal"] input[type="checkbox"]:not(.sr-only) {
+  -webkit-appearance: none !important;
+  appearance: none !important;
+  width: 19px !important;
+  height: 19px !important;
+  min-width: 19px !important;
+  min-height: 19px !important;
+  border-radius: 6px !important;
+  cursor: pointer !important;
+  display: inline-grid !important;
+  place-content: center !important;
+  border: 2px solid var(--vessa-emerald) !important;
+  background-color: var(--wm-input-bg) !important;
 }
 
-main#admin-main-content > div.flex.flex-col.w-full > div.relative.w-full > div[class*="px-space-"],
-main#admin-main-content > div[class*="px-space-"],
-main#admin-main-content > div.w-full[class*="px-3"] {
-  padding-left: 0 !important;
-  padding-right: 0 !important;
-  padding-top: 0 !important;
-  max-width: 100% !important;
+main input[type="checkbox"]:not(.sr-only)::before,
+[id*="modal"] input[type="checkbox"]:not(.sr-only)::before {
+  content: "" !important;
+  width: 10px !important;
+  height: 6px !important;
+  border-left: 2.4px solid #ffffff !important;
+  border-bottom: 2.4px solid #ffffff !important;
+  transform: rotate(-45deg) translate(1px, -1px) scale(0) !important;
+  transition: transform 0.15s ease !important;
 }
 
-@media (max-width: 767px) {
-  aside#admin-sidebar {
-    width: 270px !important;
-    max-width: 84vw !important;
-  }
-
-  header.wm-top-header {
-    left: 0 !important;
-    right: 0 !important;
-    height: 60px !important;
-  }
-
-  .wm-header-search-input {
-    height: 36px !important;
-    padding: 0 12px 0 34px !important;
-    font-size: 12px !important;
-  }
-
-  .wm-theme-pill-btn {
-    width: 56px !important;
-    height: 28px !important;
-    padding: 2px !important;
-    border-width: 1.5px !important;
-    box-sizing: border-box !important;
-    gap: 0px !important;
-  }
-  .wm-theme-pill-btn::before {
-    top: 2px !important;
-    left: 2px !important;
-    width: 21px !important;
-    height: 21px !important;
-    transform: translate3d(0px, 0, 0) !important;
-  }
-  html.dark .wm-theme-pill-btn::before {
-    transform: translate3d(28px, 0, 0) !important;
-  }
-  .wm-theme-pill-sun,
-  .wm-theme-pill-knob {
-    width: 21px !important;
-    height: 21px !important;
-    flex: 0 0 21px !important;
-  }
-
-  .wm-admin-profile-pill {
-    padding: 3px !important;
-    gap: 0 !important;
-  }
-
-  .wm-admin-profile-pill > span.material-symbols-outlined {
-    display: none !important;
-  }
-
-  #wm-admin-notif-dropdown,
-  #wm-admin-profile-dropdown,
-  #global-search-results {
-    position: fixed !important;
-    top: 64px !important;
-    right: 12px !important;
-    left: 12px !important;
-    width: auto !important;
-    max-width: calc(100vw - 24px) !important;
-  }
-
-  main#admin-main-content {
-    padding-top: 72px !important;
-    padding-left: 12px !important;
-    padding-right: 12px !important;
-    padding-bottom: 40px !important;
-    gap: 14px !important;
-  }
-
-  .wm-hero-banner {
-    padding: 18px 16px !important;
-    min-height: 152px !important;
-    border-radius: 16px !important;
-    background-position: 76% center !important;
-  }
-
-  .wm-hero-banner::before {
-    background: linear-gradient(180deg, rgba(20, 9, 48, 0.90) 0%, rgba(28, 14, 64, 0.84) 100%) !important;
-  }
-
-  .wm-hero-title,
-  .wm-hero-title span:not(.wm-pink-word) {
-    font-size: 1.35rem !important;
-  }
-
-  .wm-hero-subtitle {
-    font-size: 12px !important;
-    margin-bottom: 12px !important;
-    line-height: 1.4 !important;
-  }
-
-  .wm-btn-pink-pill,
-  .wm-btn-glass-pill,
-  .wm-hero-pill-btn {
-    padding: 8px 13px !important;
-    font-size: 12px !important;
-  }
-
-  .wm-card,
-  .wm-stat-card {
-    border-radius: 16px !important;
-  }
-
-  /* Prevent tables or wide flex rows from breaking mobile viewport */
-  main section,
-  main .wm-card {
-    max-width: 100% !important;
-    overflow-x: hidden;
-  }
-
-  main .overflow-x-auto {
-    overflow-x: auto !important;
-    -webkit-overflow-scrolling: touch;
-  }
+main input[type="checkbox"]:not(.sr-only):checked,
+[id*="modal"] input[type="checkbox"]:not(.sr-only):checked {
+  background-color: var(--vessa-emerald) !important;
+  background-image: none !important;
+  border-color: var(--vessa-emerald) !important;
 }
 
-@media (min-width: 768px) {
-  aside#admin-sidebar {
-    transform: translateX(0) !important;
-  }
+main input[type="checkbox"]:not(.sr-only):checked::before,
+[id*="modal"] input[type="checkbox"]:not(.sr-only):checked::before {
+  transform: rotate(-45deg) translate(1px, -1px) scale(1) !important;
 }
 
-/* Comprehensive Light Mode Surface Overrides for Opacity & Slate/Dark Gradient Containers */
-html:not(.dark) main [class*="bg-surface-container-low"],
-html:not(.dark) main [class*="bg-surface-container-lowest"],
-html:not(.dark) [id*="modal"] [class*="bg-surface-container-low"],
-html:not(.dark) [id*="modal"] [class*="bg-surface-container-lowest"] {
-  background-color: #ffffff !important;
-  border-color: rgba(214, 200, 242, 0.90) !important;
+main input[type="checkbox"].peer:checked + div,
+[id*="modal"] input[type="checkbox"].peer:checked + div {
+  background-color: var(--vessa-emerald) !important;
+  background-image: none !important;
+  border-color: var(--vessa-emerald) !important;
 }
 
-html:not(.dark) main [class*="bg-surface-container-high"],
-html:not(.dark) [id*="modal"] [class*="bg-surface-container-high"] {
-  background-color: #f4effc !important;
-  border-color: #dfd4f4 !important;
-}
-
-html:not(.dark) main [class*="to-slate-950"],
-html:not(.dark) main [class*="via-purple-950"],
-html:not(.dark) main [class*="bg-slate-9"],
-html:not(.dark) main [class*="bg-zinc-9"],
-html:not(.dark) main [class*="bg-gray-9"],
-html:not(.dark) main [class*="bg-[#120924]"],
-html:not(.dark) main [class*="bg-[#140b29]"],
-html:not(.dark) main [class*="bg-[#1a0e36]"] {
-  background-color: #f6f1fe !important;
-  background-image: linear-gradient(135deg, #ffffff 0%, #f5eeff 52%, #fdf2f8 100%) !important;
-  border-color: #decff5 !important;
-  color: #1a0f30 !important;
-}
-
-/* Keep Hero Preview Canvas in Settings readable with crisp white text */
-html:not(.dark) #hero-preview-canvas,
-html:not(.dark) #hero-preview-canvas h3,
-html:not(.dark) #hero-preview-canvas p,
-html:not(.dark) #hero-preview-canvas span {
-  color: #ffffff !important;
-}
-
-
-/* ==========================================================================
-   8. GLOBAL ADMIN MODAL & POPUP ELEVATION FIX (Always above Sidebar z-60 & Header z-40)
-   ========================================================================== */
+/* Modals */
 .fixed.inset-0:not(#sidebar-backdrop),
 [id$="-modal"].fixed,
 [id*="modal"].fixed {
@@ -1355,179 +1289,240 @@ html:not(.dark) #hero-preview-canvas span {
 html:not(.dark) [id*="modal"].fixed > div,
 html:not(.dark) .fixed.inset-0:not(#sidebar-backdrop) > div:not(#preview-viewport-shell) {
   background-color: #ffffff !important;
-  border-color: #d6c8f2 !important;
-  color: #1a0f30 !important;
-  box-shadow: 0 25px 70px rgba(26, 15, 48, 0.28) !important;
+  border-color: #d8e4dc !important;
+  color: #111c16 !important;
+  box-shadow: 0 24px 64px rgba(17, 28, 22, 0.18) !important;
 }
 
 html.dark [id*="modal"].fixed > div,
 html.dark .fixed.inset-0:not(#sidebar-backdrop) > div:not(#preview-viewport-shell) {
-  background-color: #1f123e !important;
-  border-color: rgba(147, 102, 245, 0.38) !important;
-  color: #f7f4ff !important;
-  box-shadow: 0 25px 70px rgba(0, 0, 0, 0.72) !important;
+  background-color: #1a231e !important;
+  border-color: #2b3b32 !important;
+  color: #eff5f1 !important;
+  box-shadow: 0 24px 64px rgba(0, 0, 0, 0.65) !important;
 }
 
-
-/* ==========================================================================
-   9. UNIVERSAL ADMIN CHECKBOX, RADIO & TOGGLE SWITCH ENGINE (Light & Dark Mode)
-   Fixes checkboxes and peer toggle switches so checked/unchecked state is 100% clear!
-   ========================================================================== */
-main input[type="checkbox"]:not(.sr-only),
-[id*="modal"] input[type="checkbox"]:not(.sr-only) {
-  -webkit-appearance: none !important;
-  appearance: none !important;
-  width: 20px !important;
-  height: 20px !important;
-  min-width: 20px !important;
-  min-height: 20px !important;
-  border-radius: 6px !important;
-  cursor: pointer !important;
-  display: inline-grid !important;
-  place-content: center !important;
-  vertical-align: middle !important;
-  transition: background-color 0.18s ease, border-color 0.18s ease, box-shadow 0.18s ease, transform 0.12s ease !important;
-  position: relative !important;
-  flex-shrink: 0 !important;
+/* Main Content Layout & Responsive Padding */
+main#admin-main-content {
+  width: 100% !important;
+  max-width: 1600px !important;
+  margin-left: auto !important;
+  margin-right: auto !important;
+  padding-top: 80px !important;
 }
 
-html:not(.dark) main input[type="checkbox"]:not(.sr-only),
-html:not(.dark) [id*="modal"] input[type="checkbox"]:not(.sr-only) {
-  background-color: #ffffff !important;
-  background-image: none !important;
-  border: 2px solid #9333ea !important;
-  box-shadow: inset 0 1px 2px rgba(26, 15, 48, 0.08) !important;
-}
-
-html.dark main input[type="checkbox"]:not(.sr-only),
-html.dark [id*="modal"] input[type="checkbox"]:not(.sr-only) {
-  background-color: #190d33 !important;
-  background-image: none !important;
-  border: 2px solid #a855f7 !important;
-  box-shadow: inset 0 1px 3px rgba(0, 0, 0, 0.45) !important;
-}
-
-main input[type="checkbox"]:not(.sr-only)::before,
-[id*="modal"] input[type="checkbox"]:not(.sr-only)::before {
-  content: "" !important;
-  width: 11px !important;
-  height: 6.5px !important;
-  border-left: 2.5px solid #ffffff !important;
-  border-bottom: 2.5px solid #ffffff !important;
-  transform: rotate(-45deg) translate(1px, -1px) scale(0) !important;
-  transition: transform 0.16s cubic-bezier(0.34, 1.56, 0.64, 1) !important;
-  pointer-events: none !important;
-}
-
-html:not(.dark) main input[type="checkbox"]:not(.sr-only):checked,
-html:not(.dark) [id*="modal"] input[type="checkbox"]:not(.sr-only):checked,
-html.dark main input[type="checkbox"]:not(.sr-only):checked,
-html.dark [id*="modal"] input[type="checkbox"]:not(.sr-only):checked {
-  background-color: #ec4899 !important;
-  background-image: linear-gradient(135deg, #ff2a85 0%, #7c3aed 100%) !important;
-  border-color: #ec4899 !important;
-  box-shadow: 0 3px 10px rgba(236, 72, 153, 0.42) !important;
-}
-
-main input[type="checkbox"]:not(.sr-only):checked::before,
-[id*="modal"] input[type="checkbox"]:not(.sr-only):checked::before {
-  transform: rotate(-45deg) translate(1px, -1px) scale(1) !important;
-}
-
-main input[type="checkbox"]:not(.sr-only):focus-visible,
-[id*="modal"] input[type="checkbox"]:not(.sr-only):focus-visible {
-  outline: 2px solid #ec4899 !important;
-  outline-offset: 2px !important;
-}
-
-/* Peer Toggle Switches (e.g. <input type="checkbox" class="sr-only peer"> + <div>) */
-html:not(.dark) main input[type="checkbox"].peer + div,
-html:not(.dark) [id*="modal"] input[type="checkbox"].peer + div {
-  background-color: #d6c6f6 !important;
-  border: 1.5px solid #b399e8 !important;
-  box-shadow: inset 0 1px 3px rgba(76, 29, 149, 0.18) !important;
-  cursor: pointer !important;
-}
-
-html.dark main input[type="checkbox"].peer + div,
-html.dark [id*="modal"] input[type="checkbox"].peer + div {
-  background-color: #2d1857 !important;
-  border: 1.5px solid rgba(168, 85, 247, 0.45) !important;
-  box-shadow: inset 0 1px 4px rgba(0, 0, 0, 0.5) !important;
-  cursor: pointer !important;
-}
-
-main input[type="checkbox"].peer + div::after,
-[id*="modal"] input[type="checkbox"].peer + div::after {
-  background-color: #ffffff !important;
-  box-shadow: 0 2px 6px rgba(26, 15, 48, 0.32) !important;
-}
-
-html:not(.dark) main input[type="checkbox"].peer:checked + div,
-html:not(.dark) [id*="modal"] input[type="checkbox"].peer:checked + div,
-html.dark main input[type="checkbox"].peer:checked + div,
-html.dark [id*="modal"] input[type="checkbox"].peer:checked + div {
-  background-color: #ec4899 !important;
-  background-image: linear-gradient(135deg, #ff2a85 0%, #8b5cf6 100%) !important;
-  border-color: #ec4899 !important;
-  box-shadow: 0 4px 12px rgba(236, 72, 153, 0.42) !important;
-}
-
-html:not(.dark) main input#setting-promo-free-mode.peer:checked + div,
-html.dark main input#setting-promo-free-mode.peer:checked + div {
-  background-color: #10b981 !important;
-  background-image: linear-gradient(135deg, #10b981 0%, #059669 100%) !important;
-  border-color: #10b981 !important;
-  box-shadow: 0 4px 12px rgba(16, 185, 129, 0.42) !important;
-}
-
-/* ==========================================================================
-   9. ACCESSIBILITY, REDUCED MOTION & GLOBAL COMMAND SEARCH PALETTE
-   ========================================================================== */
-.wm-cmd-result-item.wm-cmd-item-focused,
-.wm-cmd-result-item:focus-visible {
-  background-color: rgba(147, 51, 234, 0.14) !important;
-  outline: 2px solid #9333ea !important;
-  outline-offset: -2px !important;
-}
-
-html.dark .wm-cmd-result-item.wm-cmd-item-focused,
-html.dark .wm-cmd-result-item:focus-visible {
-  background-color: rgba(168, 85, 247, 0.28) !important;
-  outline: 2px solid #c084fc !important;
-}
-
-aside#admin-sidebar a:focus-visible,
-header.wm-top-header button:focus-visible,
-main button:focus-visible,
-main a:focus-visible,
-main select:focus-visible,
-main input:focus-visible,
-main textarea:focus-visible {
-  outline: 2px solid #9333ea !important;
-  outline-offset: 2px !important;
-}
-
-html.dark aside#admin-sidebar a:focus-visible,
-html.dark header.wm-top-header button:focus-visible,
-html.dark main button:focus-visible,
-html.dark main a:focus-visible {
-  outline-color: #c084fc !important;
-}
-
-main button[disabled],
-main button[aria-busy="true"] {
-  opacity: 0.62 !important;
-  cursor: not-allowed !important;
-}
-
-@media (prefers-reduced-motion: reduce) {
-  *,
-  *::before,
-  *::after {
-    animation-duration: 0.01ms !important;
-    animation-iteration-count: 1 !important;
-    transition-duration: 0.01ms !important;
-    scroll-behavior: auto !important;
+@media (max-width: 767px) {
+  aside#admin-sidebar {
+    top: 60px !important;
+    width: 268px !important;
+    height: calc(100vh - 60px) !important;
+    align-items: stretch !important;
   }
+
+  aside#admin-sidebar nav a {
+    width: 100% !important;
+    padding: 9px 14px !important;
+    border-radius: 12px !important;
+    justify-content: flex-start !important;
+    gap: 11px !important;
+  }
+
+  aside#admin-sidebar nav a > span:not(.material-symbols-outlined):not(.vessa-rail-badge) {
+    position: static !important;
+    opacity: 1 !important;
+    background: transparent !important;
+    color: inherit !important;
+    box-shadow: none !important;
+    padding: 0 !important;
+    transform: none !important;
+  }
+
+  header.wm-top-header {
+    height: 60px !important;
+  }
+
+  .vessa-center-tabs {
+    display: none !important;
+  }
+
+  .wm-header-search-wrap {
+    width: 140px !important;
+  }
+}
+
+.custom-scrollbar {
+  scrollbar-width: thin;
+  scrollbar-color: rgba(30, 127, 78, 0.3) transparent;
+}
+.custom-scrollbar::-webkit-scrollbar {
+  width: 5px;
+  height: 5px;
+}
+.custom-scrollbar::-webkit-scrollbar-thumb {
+  background: rgba(30, 127, 78, 0.3);
+  border-radius: 9999px;
+}
+
+/* ==========================================================================
+   7. VESSA EDITORIAL PAGE HEADER, CATALOG PILLS & PRODUCT CARDS
+      Matches Catalog (frame_004), Reports (frame_007) & Sales (frame_011 / frame_014)
+   ========================================================================== */
+
+/* Transform .wm-hero-banner into the horizontal Vessa Editorial Page Header (Left Title/Sub | Right Actions) */
+.wm-hero-banner {
+  background: transparent !important;
+  background-image: none !important;
+  border: none !important;
+  box-shadow: none !important;
+  padding: 4px 2px 10px 2px !important;
+  border-radius: 0 !important;
+}
+
+.wm-hero-banner > div {
+  max-width: 100% !important;
+  width: 100% !important;
+  display: grid !important;
+  grid-template-columns: 1fr auto;
+  align-items: end;
+  gap: 12px;
+}
+
+.wm-hero-welcome-pill {
+  grid-column: 1 / -1;
+  justify-self: start;
+  background: transparent !important;
+  border: none !important;
+  padding: 0 !important;
+  margin-bottom: 2px !important;
+  color: var(--vessa-text-muted) !important;
+  font-size: 12px !important;
+  font-weight: 500 !important;
+}
+
+.wm-hero-title {
+  grid-column: 1 / 2;
+  font-size: clamp(1.65rem, 2.3vw, 2.15rem) !important;
+  font-weight: 800 !important;
+  letter-spacing: -0.03em !important;
+  margin: 0 !important;
+}
+
+.wm-hero-subtitle {
+  grid-column: 1 / 2;
+  margin: 2px 0 0 0 !important;
+  font-size: 12.5px !important;
+  color: var(--vessa-text-soft) !important;
+}
+
+.wm-hero-banner > div > div:last-child {
+  grid-column: 2 / 3;
+  grid-row: 2 / 4;
+  justify-self: end;
+  align-self: center;
+}
+
+@media (max-width: 900px) {
+  .wm-hero-banner > div {
+    display: flex !important;
+    flex-direction: column !important;
+    align-items: flex-start !important;
+  }
+  .wm-hero-banner > div > div:last-child {
+    margin-top: 8px;
+  }
+}
+
+/* Catalog Filter Pills (Matches "All 12", "Cleanse 3", "Treat 2" in frame_004.jpg) */
+#btn-filter-all,
+#btn-filter-published,
+#btn-filter-draft,
+#btn-filter-free,
+#btn-filter-vip,
+#btn-filter-featured,
+#filter-occasions-container button,
+#btn-range-today,
+#btn-range-yesterday,
+#btn-range-7d,
+#btn-range-30d,
+#btn-range-90d,
+#btn-range-this_month,
+#btn-range-this_year,
+#btn-range-custom {
+  border-radius: 9999px !important;
+  padding: 6px 14px !important;
+  font-size: 12px !important;
+  font-weight: 700 !important;
+  border: 1px solid var(--vessa-card-border) !important;
+  background: var(--vessa-card-bg) !important;
+  color: var(--vessa-text-muted) !important;
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.02) !important;
+  transition: all 0.16s ease !important;
+}
+
+/* Active Catalog / Range Pill -> Dark Forest Pill in Light Mode, Crisp White Pill in Dark Mode */
+#btn-filter-all.bg-primary-container,
+#btn-filter-published.bg-primary-container,
+#btn-filter-draft.bg-primary-container,
+#btn-filter-free.bg-primary-container,
+#btn-filter-vip.bg-primary-container,
+#btn-filter-featured.bg-primary-container,
+#filter-occasions-container button.bg-primary-container,
+#btn-range-today.bg-primary,
+#btn-range-yesterday.bg-primary,
+#btn-range-7d.bg-primary,
+#btn-range-30d.bg-primary,
+#btn-range-90d.bg-primary,
+#btn-range-this_month.bg-primary,
+#btn-range-this_year.bg-primary,
+#btn-range-custom.bg-primary {
+  background: var(--vessa-pill-active-bg) !important;
+  color: var(--vessa-pill-active-text) !important;
+  border-color: var(--vessa-pill-active-bg) !important;
+}
+
+/* Product-Style Template Cards in Catalog Grid (#templates-grid) */
+#templates-grid > div {
+  background: var(--vessa-card-bg) !important;
+  border: 1px solid var(--vessa-card-border) !important;
+  border-radius: 20px !important;
+  box-shadow: var(--vessa-card-shadow) !important;
+  padding: 10px !important;
+  transition: transform 0.2s ease, box-shadow 0.2s ease !important;
+}
+
+#templates-grid > div:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 10px 24px rgba(17, 28, 22, 0.07) !important;
+}
+
+#templates-grid > div > div:first-child {
+  border-radius: 14px !important;
+  background: #f1f5f2 !important;
+  overflow: hidden;
+}
+
+html.dark #templates-grid > div > div:first-child {
+  background: #141c18 !important;
+}
+
+/* Harmonize text-amber-300 / text-secondary / text-emerald-400 on KPI cards in Light Mode */
+html:not(.dark) main [class*="text-amber-300"],
+html:not(.dark) main [class*="text-amber-200"] {
+  color: #111c16 !important;
+}
+
+html:not(.dark) main [class*="text-secondary"] {
+  color: #1e7f4e !important;
+}
+
+html:not(.dark) main [class*="text-emerald-300"],
+html:not(.dark) main [class*="text-emerald-400"] {
+  color: #15623b !important;
+}
+
+/* Remove blurred neon glow orbs inside legacy admin containers */
+main div[class*="blur-[128px]"],
+main div[class*="blur-[140px]"],
+main div[class*="blur-2xl"].pointer-events-none {
+  display: none !important;
 }

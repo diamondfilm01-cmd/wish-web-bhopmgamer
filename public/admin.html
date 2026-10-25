@@ -296,227 +296,277 @@
   </header>
 
   <!-- Main Dashboard Content Area (Pixel-Matched to 19728.png — 100% Real Live Data) -->
-  <main id="admin-main-content" class="w-full pt-[80px] px-4 sm:px-6 pb-12 max-w-[1560px] mx-auto flex flex-col gap-5">
+  <main id="admin-main-content" class="w-full pt-[80px] px-4 sm:px-6 pb-12 max-w-[1600px] mx-auto flex flex-col gap-5">
 
-    <!-- 1. HERO BANNER: WishMagic Dashboard -->
-    <section class="wm-hero-banner">
-      <div class="relative z-10 flex flex-col items-start max-w-xl">
-        <div class="flex flex-wrap items-center gap-2 mb-2">
-          <div class="wm-hero-welcome-pill !mb-0">
-            <span>Welcome Back, Admin</span>
-            <span>🪄</span>
+    <!-- 1. TOP 4-CARD VESSA ROW (Matches Video frame_001.jpg 1:1: Welcome Card + 3 KPI Cards) -->
+    <section class="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-4 items-stretch">
+
+      <!-- Card 1: Vessa Mint-Sage Welcome Hero Card -->
+      <div class="vessa-welcome-card">
+        <div>
+          <div class="flex items-center gap-2 text-[11.5px] font-semibold text-[#15623b] dark:text-[#5ce092]">
+            <span class="w-2 h-2 rounded-full bg-[#1e7f4e] dark:bg-[#38c976] animate-pulse"></span>
+            <span id="dashboard-live-sync-status">Live Telemetry • Ready</span>
           </div>
-          <div class="wm-hero-welcome-pill !mb-0 !bg-emerald-500/25 !border-emerald-400/40">
-            <span class="w-2 h-2 rounded-full bg-emerald-400 animate-pulse"></span>
-            <span id="dashboard-live-sync-status">Live Real-Time Telemetry</span>
+          <h1 class="vessa-welcome-greeting">
+            Welcome back,<br/>Ankit!
+          </h1>
+          <p class="text-[12.5px] text-on-surface-variant leading-relaxed mb-4">
+            Here's what's moving in your studio today —
+            <strong id="hero-active-wishes-inline" class="text-on-surface font-bold">0 active wishes</strong> to celebrate and
+            <strong id="hero-live-templates-inline" class="text-on-surface font-bold">0 templates</strong> live on storefront.
+          </p>
+        </div>
+        <div class="flex flex-wrap items-center gap-2 pt-1">
+          <a href="/admin/anktech/anktech/admin/add-template" class="vessa-btn-emerald">
+            <span class="material-symbols-outlined text-[16px]">add</span>
+            <span>New template</span>
+          </a>
+          <a href="/admin/anktech/anktech/admin/festivals" class="vessa-btn-white">
+            <span class="material-symbols-outlined text-[15px]">science</span>
+            <span>Festival batch</span>
+          </a>
+        </div>
+      </div>
+
+      <!-- Card 2: Units / Wishes on Hand (Matches "Units on hand" in frame_001.jpg) -->
+      <div class="wm-card p-5 flex flex-col justify-between">
+        <div class="flex items-start justify-between gap-2">
+          <div>
+            <div class="text-[12.5px] font-semibold text-on-surface-variant">Wishes on hand</div>
+            <div class="flex items-baseline gap-2.5 mt-2">
+              <div id="stat-wishes" class="text-[28px] font-extrabold text-on-surface tracking-tight leading-none">0</div>
+              <span id="stat-wishes-sub" class="vessa-trend-pill">↗ Live</span>
+            </div>
+          </div>
+          <div class="vessa-kpi-icon-circle">
+            <span class="material-symbols-outlined text-[20px]">inventory_2</span>
           </div>
         </div>
-        <h1 class="wm-hero-title">
-          <span>Wish</span><span class="wm-pink-word">Magic</span> <span class="wm-lavender-word">Dashboard</span>
-        </h1>
-        <p class="wm-hero-subtitle">
-          Manage templates, users, wishes and make every celebration magical!
-        </p>
-        <div class="flex flex-wrap items-center gap-3">
-          <a href="/admin/anktech/anktech/admin/add-template" class="wm-btn-pink-pill">
-            <span class="material-symbols-outlined text-[19px]" style="font-variation-settings: 'FILL' 1;">add_circle</span>
-            <span>Add New Template</span>
-          </a>
-          <a href="/" target="_blank" class="wm-btn-glass-pill">
-            <span class="material-symbols-outlined text-[18px]">open_in_new</span>
-            <span>View Website</span>
-          </a>
-          <button type="button" onclick="loadDashboard(false)" class="wm-btn-glass-pill">
-            <span class="material-symbols-outlined text-[17px]" id="dashboard-refresh-icon">refresh</span>
-            <span>Sync Live Data</span>
+        <div class="flex items-end justify-between gap-3 pt-6 mt-2 border-t border-[#eef3f0] dark:border-[#24322b]">
+          <div class="text-[11.5px] font-medium text-on-surface-variant">
+            <strong id="stat-active-wishes" class="text-on-surface font-bold">0</strong> Active ·
+            <strong id="stat-upcoming-wishes" class="text-on-surface font-bold">0</strong> Upcoming ·
+            <strong id="stat-expired-wishes" class="text-on-surface font-bold">0</strong> Exp
+          </div>
+          <div class="w-24 h-9 flex-shrink-0">
+            <svg viewBox="0 0 100 38" class="w-full h-full overflow-visible">
+              <path d="M2,30 C18,28 26,12 42,20 C58,28 68,8 98,14" fill="none" stroke="#1e7f4e" stroke-width="2" stroke-linecap="round"/>
+            </svg>
+          </div>
+        </div>
+      </div>
+
+      <!-- Card 3: Total Stock / Store Value (Matches "Total stock value" in frame_001.jpg) -->
+      <div class="wm-card p-5 flex flex-col justify-between">
+        <div class="flex items-start justify-between gap-2">
+          <div>
+            <div class="text-[12.5px] font-semibold text-on-surface-variant">Total store revenue</div>
+            <div class="flex items-baseline gap-2.5 mt-2">
+              <div id="stat-revenue" class="text-[28px] font-extrabold text-on-surface tracking-tight leading-none">₹0</div>
+              <span id="stat-paid-orders" class="vessa-trend-pill">↗ 0 orders</span>
+            </div>
+          </div>
+          <div class="vessa-kpi-icon-circle">
+            <span class="material-symbols-outlined text-[20px]">paid</span>
+          </div>
+        </div>
+        <div class="flex items-end justify-between gap-3 pt-6 mt-2 border-t border-[#eef3f0] dark:border-[#24322b]">
+          <div class="text-[11.5px] font-medium text-on-surface-variant">
+            <strong id="stat-users" class="text-on-surface font-bold">0</strong> Users (<span id="stat-users-sub">0 VIP</span>)
+          </div>
+          <div class="w-24 h-9 flex-shrink-0">
+            <svg viewBox="0 0 100 38" class="w-full h-full overflow-visible">
+              <defs>
+                <linearGradient id="vessaSparkGrad" x1="0" y1="0" x2="0" y2="1">
+                  <stop offset="0%" stop-color="#1e7f4e" stop-opacity="0.24"/>
+                  <stop offset="100%" stop-color="#1e7f4e" stop-opacity="0.0"/>
+                </linearGradient>
+              </defs>
+              <path d="M2,34 Q24,30 44,22 T98,6 L98,36 L2,36 Z" fill="url(#vessaSparkGrad)"/>
+              <path d="M2,34 Q24,30 44,22 T98,6" fill="none" stroke="#1e7f4e" stroke-width="2" stroke-linecap="round"/>
+            </svg>
+          </div>
+        </div>
+      </div>
+
+      <!-- Card 4: Templates & Catalog Items (Matches "Low stock items" in frame_001.jpg) -->
+      <div class="wm-card p-5 flex flex-col justify-between">
+        <div class="flex items-start justify-between gap-2">
+          <div>
+            <div class="text-[12.5px] font-semibold text-on-surface-variant">Templates catalog</div>
+            <div class="flex items-baseline gap-2.5 mt-2">
+              <div id="stat-templates" class="text-[28px] font-extrabold text-on-surface tracking-tight leading-none">0</div>
+              <span id="stat-templates-sub" class="text-[11.5px] font-bold text-amber-700 dark:text-amber-400">▲ Live UTP</span>
+            </div>
+          </div>
+          <div class="vessa-kpi-icon-circle amber">
+            <span class="material-symbols-outlined text-[20px]">auto_awesome_mosaic</span>
+          </div>
+        </div>
+        <div class="flex items-center justify-between gap-2 pt-5 mt-2 border-t border-[#eef3f0] dark:border-[#24322b]">
+          <div class="text-[11.5px] font-medium text-on-surface-variant leading-tight">
+            <strong id="stat-views" class="text-on-surface font-bold">0</strong> views ·
+            <strong id="stat-shares" class="text-on-surface font-bold">0</strong> shares ·
+            <strong id="stat-favorites" class="hidden">0</strong>
+            <button type="button" onclick="loadDashboard(false)" class="underline font-bold text-[#1e7f4e] dark:text-[#38c976] ml-1 cursor-pointer">Sync</button>
+          </div>
+          <div class="flex items-center -space-x-1.5">
+            <img src="/assets/admin-tpl-thumb-1.png" alt="T1" class="w-8 h-8 rounded-lg object-cover border-2 border-white dark:border-[#1a231e] shadow-xs" onerror="this.style.display='none'"/>
+            <img src="/assets/admin-tpl-thumb-2.png" alt="T2" class="w-8 h-8 rounded-lg object-cover border-2 border-white dark:border-[#1a231e] shadow-xs" onerror="this.style.display='none'"/>
+            <img src="/assets/admin-tpl-thumb-3.png" alt="T3" class="w-8 h-8 rounded-lg object-cover border-2 border-white dark:border-[#1a231e] shadow-xs" onerror="this.style.display='none'"/>
+          </div>
+        </div>
+      </div>
+
+    </section>
+
+    <!-- 2. VESSA PRIMARY ANALYTICS ROW (Left 8 Cols: Dual-Tone Statistics Bar Chart | Right 4 Cols: Semi-Circle Radial Tick Gauge) -->
+    <section class="grid grid-cols-1 xl:grid-cols-12 gap-4 items-stretch">
+
+      <!-- Left 8 Cols: Inventory / Platform Statistics Bar Chart (Matches frame_001.jpg Bottom-Left 1:1) -->
+      <div class="xl:col-span-8 wm-card p-5 flex flex-col justify-between relative">
+        <div class="flex flex-wrap items-center justify-between gap-3 mb-4">
+          <div>
+            <h2 class="text-[16px] font-extrabold text-on-surface tracking-tight">Platform &amp; template statistics</h2>
+            <span id="perf-chart-subtitle" class="text-[11.5px] text-on-surface-variant">Live category &amp; wish creation breakdown</span>
+          </div>
+
+          <div class="flex flex-wrap items-center gap-3">
+            <!-- Legend Dots matching video -->
+            <div class="hidden sm:flex items-center gap-3 text-[11.5px] font-semibold text-on-surface-variant">
+              <span class="inline-flex items-center gap-1.5"><span class="w-2 h-2 rounded-full bg-[#eab308]"></span>Wishes in</span>
+              <span class="inline-flex items-center gap-1.5"><span class="w-2 h-2 rounded-full bg-[#1e7f4e]"></span>Active out</span>
+              <span class="inline-flex items-center gap-1.5"><span class="w-2 h-2 rounded-full bg-[#94a89b]"></span>Templates</span>
+            </div>
+
+            <!-- Range Dropdown Pill -->
+            <div class="relative">
+              <select id="perf-range-select" onchange="setAnalyticsRange(this.value)" class="appearance-none bg-[#eef3f0] dark:bg-[#222e27] border border-[#dce6e0] dark:border-[#2d3e34] text-on-surface text-[11.5px] font-bold rounded-full pl-3.5 pr-7 py-1.5 cursor-pointer focus:outline-none">
+                <option value="30d" selected>Monthly</option>
+                <option value="7d">Weekly (7d)</option>
+                <option value="90d">Quarterly (90d)</option>
+                <option value="all">All Time</option>
+              </select>
+              <span class="material-symbols-outlined text-[15px] text-on-surface-variant absolute right-2 top-1/2 -translate-y-1/2 pointer-events-none">expand_more</span>
+            </div>
+
+            <a href="/admin/anktech/anktech/admin/analytics" class="vessa-icon-circle-btn !w-8 !h-8" title="Open Full Reports">
+              <span class="material-symbols-outlined text-[16px]">north_east</span>
+            </a>
+          </div>
+        </div>
+
+        <!-- Floating Callout Card (Matches "Oct: Stock in / Stock out / Stock value" floating card in frame_001.jpg) -->
+        <div class="hidden md:flex flex-col gap-1.5 absolute right-8 top-16 z-20 bg-white/95 dark:bg-[#161f1a]/95 border border-[#dce6e0] dark:border-[#2b3c33] rounded-2xl shadow-lg px-4 py-3 min-w-[175px]">
+          <div class="text-[11px] font-extrabold text-on-surface mb-0.5">Live Snapshot</div>
+          <div class="flex items-center justify-between gap-4 text-[11.5px]">
+            <span class="inline-flex items-center gap-1.5 text-on-surface-variant"><span class="w-2 h-2 rounded-full bg-[#eab308]"></span>Wishes in</span>
+            <strong id="callout-wishes-in" class="text-on-surface font-bold">0</strong>
+          </div>
+          <div class="flex items-center justify-between gap-4 text-[11.5px]">
+            <span class="inline-flex items-center gap-1.5 text-on-surface-variant"><span class="w-2 h-2 rounded-full bg-[#1e7f4e]"></span>Views &amp; shares</span>
+            <strong id="callout-views-out" class="text-on-surface font-bold">0</strong>
+          </div>
+          <div class="flex items-center justify-between gap-4 text-[11.5px]">
+            <span class="inline-flex items-center gap-1.5 text-on-surface-variant"><span class="w-2 h-2 rounded-full bg-[#64748b]"></span>Store value</span>
+            <strong id="callout-store-val" class="text-on-surface font-bold">₹0</strong>
+          </div>
+        </div>
+
+        <!-- Bar Chart Area -->
+        <div id="template-performance-chart" class="w-full pt-3">
+          <div class="flex items-stretch gap-3 h-[215px]">
+            <div id="perf-y-axis" class="flex flex-col justify-between text-[11px] font-semibold text-on-surface-variant pb-6 pr-1 select-none text-right w-8">
+              <span>20</span>
+              <span>15</span>
+              <span>10</span>
+              <span>5</span>
+              <span>0</span>
+            </div>
+            <div class="flex-1 flex flex-col justify-between relative min-w-0">
+              <div class="absolute inset-x-0 top-1 bottom-6 flex flex-col justify-between pointer-events-none">
+                <div class="border-b border-dashed border-[#e5ede8] dark:border-[#24322b] w-full"></div>
+                <div class="border-b border-dashed border-[#e5ede8] dark:border-[#24322b] w-full"></div>
+                <div class="border-b border-dashed border-[#e5ede8] dark:border-[#24322b] w-full"></div>
+                <div class="border-b border-dashed border-[#e5ede8] dark:border-[#24322b] w-full"></div>
+                <div class="border-b border-[#d8e3dc] dark:border-[#2d3e34] w-full"></div>
+              </div>
+              <div id="category-bars-container" class="relative z-10 flex-1 flex items-end justify-around gap-2 px-2 pt-2">
+                <!-- Dynamically populated dual-tone Vessa bars -->
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Right 4 Cols: Sales & Engagement Overview Semi-Circle Radial Tick Gauge (Matches frame_001.jpg Bottom-Right 1:1) -->
+      <div class="xl:col-span-4 wm-card p-5 flex flex-col justify-between">
+        <div class="flex items-center justify-between">
+          <h2 class="text-[16px] font-extrabold text-on-surface tracking-tight">Sales &amp; active overview</h2>
+          <button type="button" onclick="openHealthModal()" class="vessa-icon-circle-btn !w-7 !h-7" title="System & Template Health Diagnostics">
+            <span class="material-symbols-outlined text-[15px]">info</span>
           </button>
         </div>
+
+        <!-- Semi-Circle Radial Tick Gauge (Exact Match to 65.9% Sales goal gauge in frame_001.jpg) -->
+        <div class="relative flex flex-col items-center justify-center my-2 pt-2">
+          <svg id="vessa-radial-gauge-svg" viewBox="0 0 260 145" class="w-full max-w-[270px] h-auto overflow-visible">
+            <g id="vessa-gauge-ticks"></g>
+          </svg>
+          <div class="absolute bottom-2 flex flex-col items-center text-center">
+            <div id="vessa-gauge-pct" class="text-[32px] font-extrabold text-on-surface tracking-tight leading-none">68.5%</div>
+            <div class="text-[11.5px] font-semibold text-on-surface-variant mt-1">Active conversion goal</div>
+          </div>
+        </div>
+
+        <!-- Bottom Two-Column Stats + Mint Progress Pill -->
+        <div class="pt-3 border-t border-[#eef3f0] dark:border-[#24322b] flex flex-col gap-3">
+          <div class="flex items-center justify-between">
+            <div>
+              <div class="text-[11px] font-medium text-on-surface-variant">Number of wishes</div>
+              <div id="vessa-gauge-wishes" class="text-[18px] font-extrabold text-on-surface mt-0.5">0</div>
+            </div>
+            <div class="text-right">
+              <div class="text-[11px] font-medium text-on-surface-variant">Total sales</div>
+              <div id="vessa-gauge-sales" class="text-[18px] font-extrabold text-on-surface mt-0.5">₹0</div>
+            </div>
+          </div>
+          <div class="px-3 py-1.5 rounded-xl bg-[#e6f4ec] dark:bg-[#1d3326] text-[#15623b] dark:text-[#6ee7b7] text-[11px] font-bold flex items-center justify-between">
+            <span>↗ Live Storefront &amp; D1 Sync Active</span>
+            <button type="button" onclick="openHealthModal()" class="underline font-extrabold cursor-pointer">Health <span id="badge-health-summary">OK</span></button>
+          </div>
+        </div>
       </div>
+
     </section>
 
-    <!-- 2. FOUR PRIMARY KPI STAT CARDS WITH SPARKLINE CHARTS (100% Real Live Counts) -->
-    <section class="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-4">
-      <!-- Card 1: Total Wishes -->
-      <div class="wm-card p-4 sm:p-5 flex items-center justify-between gap-3">
-        <div class="flex items-start gap-3.5 min-w-0">
-          <div class="w-12 h-12 rounded-2xl bg-gradient-to-br from-[#a855f7] to-[#7c3aed] flex items-center justify-center text-white shadow-md shadow-purple-500/25 flex-shrink-0">
-            <span class="material-symbols-outlined text-[24px]" style="transform: rotate(-25deg); margin-left: 2px;">send</span>
-          </div>
-          <div class="min-w-0">
-            <div class="text-[12.5px] font-semibold text-on-surface-variant">Total Wishes</div>
-            <div id="stat-wishes" class="text-[26px] font-extrabold text-on-surface leading-tight mt-0.5">0</div>
-            <div class="flex items-center gap-1 text-[11.5px] font-bold text-emerald-600 dark:text-emerald-400 mt-1 truncate">
-              <span id="stat-wishes-sub">Loading live wishes...</span>
-            </div>
-          </div>
-        </div>
-        <!-- Green Area Sparkline -->
-        <div class="w-20 sm:w-24 h-12 flex-shrink-0">
-          <svg viewBox="0 0 100 48" class="w-full h-full overflow-visible">
-            <defs>
-              <linearGradient id="sparkGreen" x1="0" y1="0" x2="0" y2="1">
-                <stop offset="0%" stop-color="#10b981" stop-opacity="0.32"/>
-                <stop offset="100%" stop-color="#10b981" stop-opacity="0.0"/>
-              </linearGradient>
-            </defs>
-            <path d="M2,42 Q14,36 22,38 T42,26 T64,28 T82,16 T98,8 L98,46 L2,46 Z" fill="url(#sparkGreen)"/>
-            <path d="M2,42 Q14,36 22,38 T42,26 T64,28 T82,16 T98,8" fill="none" stroke="#10b981" stroke-width="2.2" stroke-linecap="round"/>
-          </svg>
-        </div>
-      </div>
+    <!-- 3. WORKSPACE LOWER GRID: Recent Wishes Table (8 Cols) + Top Templates & Activity (4 Cols) -->
+    <div class="grid grid-cols-1 xl:grid-cols-12 gap-4 items-start">
 
-      <!-- Card 2: Total Users -->
-      <div class="wm-card p-4 sm:p-5 flex items-center justify-between gap-3">
-        <div class="flex items-start gap-3.5 min-w-0">
-          <div class="w-12 h-12 rounded-2xl bg-gradient-to-br from-[#d946ef] to-[#9333ea] flex items-center justify-center text-white shadow-md shadow-purple-500/25 flex-shrink-0">
-            <span class="material-symbols-outlined text-[24px]" style="font-variation-settings: 'FILL' 1;">group</span>
-          </div>
-          <div class="min-w-0">
-            <div class="text-[12.5px] font-semibold text-on-surface-variant">Total Users</div>
-            <div id="stat-users" class="text-[26px] font-extrabold text-on-surface leading-tight mt-0.5">0</div>
-            <div class="flex items-center gap-1 text-[11.5px] font-bold text-emerald-600 dark:text-emerald-400 mt-1 truncate">
-              <span id="stat-users-sub">Loading live users...</span>
-            </div>
-          </div>
-        </div>
-        <!-- Purple Area Sparkline -->
-        <div class="w-20 sm:w-24 h-12 flex-shrink-0">
-          <svg viewBox="0 0 100 48" class="w-full h-full overflow-visible">
-            <defs>
-              <linearGradient id="sparkPurple" x1="0" y1="0" x2="0" y2="1">
-                <stop offset="0%" stop-color="#a855f7" stop-opacity="0.32"/>
-                <stop offset="100%" stop-color="#a855f7" stop-opacity="0.0"/>
-              </linearGradient>
-            </defs>
-            <path d="M2,40 Q18,32 30,28 T56,22 T78,24 T98,10 L98,46 L2,46 Z" fill="url(#sparkPurple)"/>
-            <path d="M2,40 Q18,32 30,28 T56,22 T78,24 T98,10" fill="none" stroke="#a855f7" stroke-width="2.2" stroke-linecap="round"/>
-          </svg>
-        </div>
-      </div>
+      <!-- Left 8 Columns: Recent Wishes Table + Top Templates -->
+      <div class="xl:col-span-8 flex flex-col gap-4 min-w-0">
 
-      <!-- Card 3: Total Templates -->
-      <div class="wm-card p-4 sm:p-5 flex items-center justify-between gap-3">
-        <div class="flex items-start gap-3.5 min-w-0">
-          <div class="w-12 h-12 rounded-2xl bg-gradient-to-br from-[#fbbf24] to-[#f59e0b] flex items-center justify-center text-white shadow-md shadow-amber-500/25 flex-shrink-0">
-            <span class="material-symbols-outlined text-[24px]" style="font-variation-settings: 'FILL' 1;">description</span>
-          </div>
-          <div class="min-w-0">
-            <div class="text-[12.5px] font-semibold text-on-surface-variant">Total Templates</div>
-            <div id="stat-templates" class="text-[26px] font-extrabold text-on-surface leading-tight mt-0.5">0</div>
-            <div class="flex items-center gap-1 text-[11.5px] font-bold text-emerald-600 dark:text-emerald-400 mt-1 truncate">
-              <span id="stat-templates-sub">Loading live templates...</span>
-            </div>
-          </div>
-        </div>
-        <!-- Amber Area Sparkline -->
-        <div class="w-20 sm:w-24 h-12 flex-shrink-0">
-          <svg viewBox="0 0 100 48" class="w-full h-full overflow-visible">
-            <defs>
-              <linearGradient id="sparkAmber" x1="0" y1="0" x2="0" y2="1">
-                <stop offset="0%" stop-color="#f59e0b" stop-opacity="0.32"/>
-                <stop offset="100%" stop-color="#f59e0b" stop-opacity="0.0"/>
-              </linearGradient>
-            </defs>
-            <path d="M2,42 Q20,38 35,30 T65,28 T85,18 T98,9 L98,46 L2,46 Z" fill="url(#sparkAmber)"/>
-            <path d="M2,42 Q20,38 35,30 T65,28 T85,18 T98,9" fill="none" stroke="#f59e0b" stroke-width="2.2" stroke-linecap="round"/>
-          </svg>
-        </div>
-      </div>
-
-      <!-- Card 4: Total Revenue -->
-      <div class="wm-card p-4 sm:p-5 flex items-center justify-between gap-3">
-        <div class="flex items-start gap-3.5 min-w-0">
-          <div class="w-12 h-12 rounded-2xl bg-gradient-to-br from-[#ff2a85] to-[#ec4899] flex items-center justify-center text-white shadow-md shadow-pink-500/25 flex-shrink-0">
-            <span class="text-[22px] font-extrabold">₹</span>
-          </div>
-          <div class="min-w-0">
-            <div class="text-[12.5px] font-semibold text-on-surface-variant">Total Revenue</div>
-            <div id="stat-revenue" class="text-[26px] font-extrabold text-on-surface leading-tight mt-0.5">₹0</div>
-            <div class="flex items-center gap-1 text-[11.5px] font-bold text-emerald-600 dark:text-emerald-400 mt-1 truncate">
-              <span id="stat-paid-orders">0 paid orders</span>
-            </div>
-          </div>
-        </div>
-        <!-- Pink Area Sparkline -->
-        <div class="w-20 sm:w-24 h-12 flex-shrink-0">
-          <svg viewBox="0 0 100 48" class="w-full h-full overflow-visible">
-            <defs>
-              <linearGradient id="sparkPink" x1="0" y1="0" x2="0" y2="1">
-                <stop offset="0%" stop-color="#ec4899" stop-opacity="0.32"/>
-                <stop offset="100%" stop-color="#ec4899" stop-opacity="0.0"/>
-              </linearGradient>
-            </defs>
-            <path d="M2,42 Q16,35 28,37 T52,25 T74,27 T98,10 L98,46 L2,46 Z" fill="url(#sparkPink)"/>
-            <path d="M2,42 Q16,35 28,37 T52,25 T74,27 T98,10" fill="none" stroke="#ec4899" stroke-width="2.2" stroke-linecap="round"/>
-          </svg>
-        </div>
-      </div>
-    </section>
-
-    <!-- Secondary Live Lifecycle & Engagement Telemetry Strip -->
-    <div class="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-3">
-      <div class="wm-card px-4 py-3 flex items-center justify-between">
-        <div>
-          <span class="text-[10.5px] font-bold uppercase tracking-wider text-emerald-600 dark:text-emerald-400">🟢 Live Active</span>
-          <div id="stat-active-wishes" class="text-lg font-extrabold text-on-surface mt-0.5">0</div>
-        </div>
-        <span class="material-symbols-outlined text-emerald-500 text-xl">check_circle</span>
-      </div>
-      <div class="wm-card px-4 py-3 flex items-center justify-between">
-        <div>
-          <span class="text-[10.5px] font-bold uppercase tracking-wider text-purple-600 dark:text-purple-300">🟣 Upcoming</span>
-          <div id="stat-upcoming-wishes" class="text-lg font-extrabold text-on-surface mt-0.5">0</div>
-        </div>
-        <span class="material-symbols-outlined text-purple-500 text-xl">event_upcoming</span>
-      </div>
-      <div class="wm-card px-4 py-3 flex items-center justify-between">
-        <div>
-          <span class="text-[10.5px] font-bold uppercase tracking-wider text-rose-600 dark:text-rose-400">🔴 Expired</span>
-          <div id="stat-expired-wishes" class="text-lg font-extrabold text-on-surface mt-0.5">0</div>
-        </div>
-        <span class="material-symbols-outlined text-rose-500 text-xl">timer_off</span>
-      </div>
-      <div class="wm-card px-4 py-3 flex items-center justify-between">
-        <div>
-          <span class="text-[10.5px] font-bold uppercase tracking-wider text-on-surface-variant">👁️ Total Views</span>
-          <div id="stat-views" class="text-lg font-extrabold text-on-surface mt-0.5">0</div>
-        </div>
-        <span class="material-symbols-outlined text-indigo-500 text-xl">visibility</span>
-      </div>
-      <div class="wm-card px-4 py-3 flex items-center justify-between">
-        <div>
-          <span class="text-[10.5px] font-bold uppercase tracking-wider text-on-surface-variant">🔗 Total Shares</span>
-          <div id="stat-shares" class="text-lg font-extrabold text-on-surface mt-0.5">0</div>
-        </div>
-        <span class="material-symbols-outlined text-pink-500 text-xl">share</span>
-      </div>
-      <div class="wm-card px-4 py-3 flex items-center justify-between">
-        <div>
-          <span class="text-[10.5px] font-bold uppercase tracking-wider text-on-surface-variant">❤️ Favorites</span>
-          <div id="stat-favorites" class="text-lg font-extrabold text-on-surface mt-0.5">0</div>
-        </div>
-        <span class="material-symbols-outlined text-amber-500 text-xl">favorite</span>
-      </div>
-    </div>
-
-    <!-- 3. MAIN 2-COLUMN WORKSPACE GRID (Left 8 Cols | Right 4 Cols) -->
-    <div class="grid grid-cols-1 xl:grid-cols-12 gap-5 items-start">
-
-      <!-- LEFT 8 COLUMNS: Recent Wishes Table + (Template Performance & Top Templates) -->
-      <div class="xl:col-span-8 flex flex-col gap-5 min-w-0">
-
-        <!-- RECENT WISHES CARD (100% Real Wishes from Database) -->
-        <section class="wm-card p-4 sm:p-5">
+        <!-- RECENT WISHES CARD -->
+        <section class="wm-card p-5">
           <div class="flex flex-wrap items-center justify-between gap-2 mb-4">
             <div class="flex items-center gap-2.5">
-              <span class="material-symbols-outlined text-[#7c3aed] dark:text-purple-400 text-[22px]" style="transform: rotate(-25deg);">send</span>
-              <h2 class="text-[17px] sm:text-[18px] font-extrabold text-on-surface">Recent Wishes</h2>
-              <span id="recent-wishes-live-count" class="px-2 py-0.5 rounded-full bg-purple-100 dark:bg-purple-900/50 text-purple-700 dark:text-purple-200 text-[11px] font-bold">Live</span>
+              <div class="vessa-kpi-icon-circle !w-8 !h-8">
+                <span class="material-symbols-outlined text-[17px]">redeem</span>
+              </div>
+              <h2 class="text-[16px] font-extrabold text-on-surface">Recent wishes</h2>
+              <span id="recent-wishes-live-count" class="vessa-trend-pill">Live</span>
             </div>
-            <a href="/admin/anktech/anktech/admin/wishes" class="wm-view-all-pill">
-              <span>View All</span>
-              <span class="material-symbols-outlined text-[15px]">arrow_forward</span>
-            </a>
+            <div class="flex items-center gap-2">
+              <button type="button" onclick="exportData('wishes')" class="wm-view-all-pill cursor-pointer">
+                <span class="material-symbols-outlined text-[14px]">download</span>
+                <span>Export CSV</span>
+              </button>
+              <a href="/admin/anktech/anktech/admin/wishes" class="wm-view-all-pill">
+                <span>View all</span>
+                <span class="material-symbols-outlined text-[15px]">arrow_forward</span>
+              </a>
+            </div>
           </div>
 
           <div class="overflow-x-auto -mx-1 px-1">
@@ -533,7 +583,7 @@
                   <th class="py-2.5 px-3 rounded-r-xl text-right">Actions</th>
                 </tr>
               </thead>
-              <tbody id="recent-wishes-tbody" class="divide-y divide-[#f1ecfa] dark:divide-purple-900/30">
+              <tbody id="recent-wishes-tbody" class="divide-y divide-[#eef3f0] dark:divide-[#24322b]">
                 <tr>
                   <td colspan="8" class="py-8 text-center text-xs text-on-surface-variant">Loading real wishes from database...</td>
                 </tr>
@@ -542,201 +592,72 @@
           </div>
         </section>
 
-        <!-- BOTTOM SUB-GRID (Template Performance Bar Chart & Top Templates Leaderboard) -->
-        <div class="grid grid-cols-1 md:grid-cols-12 gap-5">
-
-          <!-- TEMPLATE PERFORMANCE BAR CHART (7 Cols) -->
-          <section class="md:col-span-7 wm-card p-4 sm:p-5 flex flex-col justify-between">
-            <div class="flex flex-wrap items-center justify-between gap-2 mb-4">
+        <!-- TOP TEMPLATES & QUICK STUDIO ACTIONS -->
+        <div class="grid grid-cols-1 md:grid-cols-12 gap-4">
+          <section class="md:col-span-7 wm-card p-5">
+            <div class="flex items-center justify-between mb-3">
               <div class="flex items-center gap-2">
-                <span class="material-symbols-outlined text-[#7c3aed] dark:text-purple-400 text-[20px]" style="transform: rotate(-25deg);">send</span>
-                <div>
-                  <h3 class="text-[16px] sm:text-[16.5px] font-extrabold text-on-surface">Template Performance</h3>
-                  <span id="perf-chart-subtitle" class="text-[11px] text-on-surface-variant">Live category breakdown</span>
-                </div>
+                <span class="material-symbols-outlined text-[#1e7f4e] dark:text-[#38c976] text-[20px]">workspace_premium</span>
+                <h3 class="text-[15.5px] font-extrabold text-on-surface">Top performing templates</h3>
               </div>
-              <div class="relative">
-                <select id="perf-range-select" onchange="setAnalyticsRange(this.value)" class="appearance-none bg-[#f5f1fd] dark:bg-[#26164d] border border-[#e5dcf7] dark:border-purple-500/30 text-on-surface text-[11.5px] font-semibold rounded-full pl-3 pr-7 py-1 cursor-pointer focus:outline-none">
-                  <option value="30d" selected>Last 30 Days</option>
-                  <option value="7d">Last 7 Days</option>
-                  <option value="90d">Last 90 Days</option>
-                  <option value="all">All Time</option>
-                </select>
-                <span class="material-symbols-outlined text-[15px] text-on-surface-variant absolute right-2 top-1/2 -translate-y-1/2 pointer-events-none">expand_more</span>
-              </div>
+              <a href="/admin/anktech/anktech/admin/templates" class="wm-view-all-pill">
+                <span>Catalog</span>
+                <span class="material-symbols-outlined text-[14px]">arrow_forward</span>
+              </a>
             </div>
-
-            <!-- Vertical Bar Chart (Dynamically Scaled to Real Data) -->
-            <div id="template-performance-chart" class="w-full pt-2">
-              <div class="flex items-stretch gap-2.5 sm:gap-3 h-[190px]">
-                <!-- Dynamic Y-Axis Labels -->
-                <div id="perf-y-axis" class="flex flex-col justify-between text-[11px] font-medium text-on-surface-variant pb-6 pr-1 select-none text-right w-7">
-                  <span>20</span>
-                  <span>15</span>
-                  <span>10</span>
-                  <span>5</span>
-                  <span>0</span>
-                </div>
-                <!-- Bars Area with Gridlines -->
-                <div class="flex-1 flex flex-col justify-between relative min-w-0">
-                  <div class="absolute inset-x-0 top-1 bottom-6 flex flex-col justify-between pointer-events-none">
-                    <div class="border-b border-[#f0ebf8] dark:border-purple-900/30 w-full"></div>
-                    <div class="border-b border-[#f0ebf8] dark:border-purple-900/30 w-full"></div>
-                    <div class="border-b border-[#f0ebf8] dark:border-purple-900/30 w-full"></div>
-                    <div class="border-b border-[#f0ebf8] dark:border-purple-900/30 w-full"></div>
-                    <div class="border-b border-[#e5ddf5] dark:border-purple-800/40 w-full"></div>
-                  </div>
-                  <!-- 6 Purple Gradient Bars -->
-                  <div id="category-bars-container" class="relative z-10 flex-1 flex items-end justify-around gap-1.5 sm:gap-2 px-1 pt-2">
-                    <!-- Rendered dynamically from real database metrics -->
-                  </div>
-                </div>
-              </div>
+            <div id="top-templates-list" class="flex flex-col divide-y divide-[#eef3f0] dark:divide-[#24322b]">
+              <div class="py-6 text-center text-xs text-on-surface-variant">Loading real templates...</div>
             </div>
           </section>
 
-          <!-- TOP TEMPLATES LEADERBOARD (5 Cols) -->
-          <section class="md:col-span-5 wm-card p-4 sm:p-5 flex flex-col justify-between">
-            <div>
-              <div class="flex items-center justify-between mb-4">
-                <div class="flex items-center gap-2">
-                  <span class="text-[19px]">🏆</span>
-                  <h3 class="text-[16px] sm:text-[16.5px] font-extrabold text-on-surface">Top Templates</h3>
-                </div>
-                <a href="/admin/anktech/anktech/admin/templates" class="wm-view-all-pill">
-                  <span>View All</span>
-                  <span class="material-symbols-outlined text-[15px]">arrow_forward</span>
-                </a>
-              </div>
-
-              <div id="top-templates-list" class="flex flex-col divide-y divide-[#f1ecfa] dark:divide-purple-900/30">
-                <div class="py-6 text-center text-xs text-on-surface-variant">Loading real templates...</div>
-              </div>
+          <section class="md:col-span-5 wm-card p-5">
+            <div class="flex items-center gap-2 mb-3">
+              <span class="material-symbols-outlined text-[#1e7f4e] dark:text-[#38c976] text-[20px]">bolt</span>
+              <h3 class="text-[15.5px] font-extrabold text-on-surface">Studio shortcuts</h3>
+            </div>
+            <div class="grid grid-cols-2 gap-2.5">
+              <a href="/admin/anktech/anktech/admin/add-template" class="wm-quick-action-tile">
+                <span class="material-symbols-outlined text-[20px] text-[#1e7f4e] dark:text-[#38c976]">upload_file</span>
+                <span class="text-[11.5px] font-bold">Upload ZIP</span>
+              </a>
+              <a href="/admin/anktech/anktech/admin/templates" class="wm-quick-action-tile">
+                <span class="material-symbols-outlined text-[20px] text-[#1e7f4e] dark:text-[#38c976]">grid_view</span>
+                <span class="text-[11.5px] font-bold">Catalog</span>
+              </a>
+              <a href="/admin/anktech/anktech/admin/pricing" class="wm-quick-action-tile">
+                <span class="material-symbols-outlined text-[20px] text-[#1e7f4e] dark:text-[#38c976]">sell</span>
+                <span class="text-[11.5px] font-bold">VIP Plans</span>
+              </a>
+              <a href="/admin/anktech/anktech/admin/settings" class="wm-quick-action-tile">
+                <span class="material-symbols-outlined text-[20px] text-[#1e7f4e] dark:text-[#38c976]">settings</span>
+                <span class="text-[11.5px] font-bold">Site CMS</span>
+              </a>
             </div>
           </section>
-
         </div>
+
       </div>
 
-      <!-- RIGHT 4 COLUMNS: Quick Actions (3x2 Grid) + Recent Activity -->
-      <div class="xl:col-span-4 flex flex-col gap-5 min-w-0">
-
-        <!-- QUICK ACTIONS CARD -->
-        <section class="wm-card p-4 sm:p-5">
-          <div class="flex items-center gap-2 mb-4">
-            <span class="text-[18px]">⚡</span>
-            <h2 class="text-[17px] font-extrabold text-on-surface">Quick Actions</h2>
-          </div>
-
-          <div class="grid grid-cols-2 sm:grid-cols-3 gap-3">
-            <!-- 1. Add Template (Dedicated Inline Studio Page) -->
-            <a href="/admin/anktech/anktech/admin/add-template" class="wm-quick-action-tile group">
-              <div class="w-11 h-11 rounded-full bg-gradient-to-br from-[#a855f7] to-[#6d28d9] flex items-center justify-center text-white shadow-md shadow-purple-500/25 group-hover:scale-105 transition">
-                <span class="material-symbols-outlined text-[22px]">add</span>
-              </div>
-              <span class="text-[11.5px] font-bold text-center leading-tight">Add Template</span>
-            </a>
-
-            <!-- 2. Manage Templates -->
-            <a href="/admin/anktech/anktech/admin/templates" class="wm-quick-action-tile group">
-              <div class="w-11 h-11 rounded-2xl bg-pink-50 dark:bg-pink-950/50 border border-pink-200/70 dark:border-pink-500/30 flex items-center justify-center text-[#ec4899] group-hover:scale-105 transition">
-                <span class="material-symbols-outlined text-[22px]" style="font-variation-settings: 'FILL' 1;">image</span>
-              </div>
-              <span class="text-[11.5px] font-bold text-center leading-tight">Manage Templates</span>
-            </a>
-
-            <!-- 3. Upload Media -->
-            <a href="/admin/anktech/anktech/admin/media?action=upload" class="wm-quick-action-tile group">
-              <div class="w-11 h-11 rounded-2xl bg-sky-50 dark:bg-sky-950/50 border border-sky-200/70 dark:border-sky-500/30 flex items-center justify-center text-[#0ea5e9] group-hover:scale-105 transition">
-                <span class="material-symbols-outlined text-[22px]" style="font-variation-settings: 'FILL' 1;">cloud_upload</span>
-              </div>
-              <span class="text-[11.5px] font-bold text-center leading-tight">Upload Media</span>
-            </a>
-
-            <!-- 4. Add Music -->
-            <a href="/admin/anktech/anktech/admin/media?tab=audio&action=upload" class="wm-quick-action-tile group">
-              <div class="w-11 h-11 rounded-2xl bg-pink-50 dark:bg-pink-950/50 border border-pink-200/70 dark:border-pink-500/30 flex items-center justify-center text-[#f43f5e] group-hover:scale-105 transition">
-                <span class="material-symbols-outlined text-[22px]" style="font-variation-settings: 'FILL' 1;">music_note</span>
-              </div>
-              <span class="text-[11.5px] font-bold text-center leading-tight">Add Music</span>
-            </a>
-
-            <!-- 5. View Website -->
-            <a href="/" target="_blank" class="wm-quick-action-tile group">
-              <div class="w-11 h-11 rounded-2xl bg-blue-50 dark:bg-blue-950/50 border border-blue-200/70 dark:border-blue-500/30 flex items-center justify-center text-[#2563eb] group-hover:scale-105 transition">
-                <span class="material-symbols-outlined text-[22px]">open_in_new</span>
-              </div>
-              <span class="text-[11.5px] font-bold text-center leading-tight">View Website</span>
-            </a>
-
-            <!-- 6. Site Settings -->
-            <a href="/admin/anktech/anktech/admin/settings" class="wm-quick-action-tile group">
-              <div class="w-11 h-11 rounded-2xl bg-rose-50 dark:bg-rose-950/50 border border-rose-200/70 dark:border-rose-500/30 flex items-center justify-center text-[#e11d48] group-hover:scale-105 transition">
-                <span class="material-symbols-outlined text-[22px]" style="font-variation-settings: 'FILL' 1;">settings</span>
-              </div>
-              <span class="text-[11.5px] font-bold text-center leading-tight">Site Settings</span>
-            </a>
-          </div>
-        </section>
-
-        <!-- RECENT ACTIVITY CARD (100% Real Live Activity & Audit Logs) -->
-        <section class="wm-card p-4 sm:p-5">
-          <div class="flex items-center justify-between mb-4">
+      <!-- Right 4 Columns: Live Activity Feed -->
+      <div class="xl:col-span-4 flex flex-col gap-4 min-w-0">
+        <section class="wm-card p-5">
+          <div class="flex items-center justify-between mb-3">
             <div class="flex items-center gap-2">
-              <span class="material-symbols-outlined text-[#6d28d9] dark:text-purple-400 text-[20px]">schedule</span>
-              <h2 class="text-[17px] font-extrabold text-on-surface">Recent Activity</h2>
+              <span class="material-symbols-outlined text-[#1e7f4e] dark:text-[#38c976] text-[20px]">history</span>
+              <h2 class="text-[16px] font-extrabold text-on-surface">Recent activity</h2>
             </div>
             <a href="/admin/anktech/anktech/admin/audit-logs" class="wm-view-all-pill">
-              <span>View All</span>
-              <span class="material-symbols-outlined text-[15px]">arrow_forward</span>
+              <span>All logs</span>
+              <span class="material-symbols-outlined text-[14px]">arrow_forward</span>
             </a>
           </div>
-
-          <div id="activity-feed-container" class="flex flex-col divide-y divide-[#f1ecfa] dark:divide-purple-900/30">
+          <div id="activity-feed-container" class="flex flex-col divide-y divide-[#eef3f0] dark:divide-[#24322b]">
             <div class="py-6 text-center text-xs text-on-surface-variant">Loading real platform activity...</div>
           </div>
         </section>
-
       </div>
 
     </div>
-
-    <!-- 4. WEBSITE UPDATE, TEMPLATE STUDIO & DIAGNOSTICS QUICK CONTROL BAR -->
-    <section class="wm-card p-4 sm:p-5 flex flex-col lg:flex-row items-start lg:items-center justify-between gap-4">
-      <div class="flex items-center gap-3.5">
-        <div class="w-11 h-11 rounded-2xl bg-gradient-to-br from-pink-500 to-purple-600 text-white flex items-center justify-center shadow-md flex-shrink-0">
-          <span class="material-symbols-outlined text-[22px]">magic_button</span>
-        </div>
-        <div>
-          <h3 class="text-sm sm:text-base font-extrabold text-on-surface">Main Website Live Updater, Template Set &amp; Diagnostics</h3>
-          <p class="text-xs text-on-surface-variant">Directly update homepage hero photo/text, upload &amp; set templates on main store, audit user creations, or export CSV telemetry.</p>
-        </div>
-      </div>
-
-      <div class="flex flex-wrap items-center gap-2">
-        <a href="/admin/anktech/anktech/admin/settings" class="px-3.5 py-2 rounded-xl bg-gradient-to-r from-pink-500 to-purple-600 text-white font-bold text-xs flex items-center gap-1.5 shadow-sm hover:brightness-110 transition">
-          <span class="material-symbols-outlined text-[16px]">web</span>
-          <span>Update Main Website</span>
-        </a>
-        <a href="/admin/anktech/anktech/admin/add-template" class="px-3.5 py-2 rounded-xl bg-surface-container-high hover:bg-surface-container-highest text-on-surface font-bold text-xs flex items-center gap-1.5 border border-purple-200 dark:border-purple-500/30 transition">
-          <span class="material-symbols-outlined text-[16px] text-pink-500">add_circle</span>
-          <span>Add &amp; Set Template</span>
-        </a>
-        <a href="/admin/anktech/anktech/admin/user-creations" class="px-3.5 py-2 rounded-xl bg-surface-container-high hover:bg-surface-container-highest text-on-surface font-bold text-xs flex items-center gap-1.5 border border-purple-200 dark:border-purple-500/30 transition">
-          <span class="material-symbols-outlined text-[16px] text-purple-500">folder_shared</span>
-          <span>User Creations Vault</span>
-        </a>
-        <button onclick="openHealthModal()" class="px-3.5 py-2 rounded-xl bg-emerald-50 dark:bg-emerald-950/40 hover:bg-emerald-100 border border-emerald-200 dark:border-emerald-500/30 text-emerald-700 dark:text-emerald-300 font-bold text-xs flex items-center gap-1.5 cursor-pointer transition">
-          <span class="material-symbols-outlined text-[16px]">health_and_safety</span>
-          <span>Health Check</span>
-          <span id="badge-health-summary" class="px-1.5 py-0.2 rounded bg-emerald-500 text-white font-black text-[9px] uppercase">OK</span>
-        </button>
-        <button onclick="exportData('wishes')" class="px-3 py-2 rounded-xl bg-surface-container-high hover:bg-surface-container-highest text-on-surface font-semibold text-xs flex items-center gap-1 border border-purple-200 dark:border-purple-500/30 cursor-pointer transition">
-          <span class="material-symbols-outlined text-[15px]">download</span>
-          <span>Export CSV</span>
-        </button>
-      </div>
-    </section>
 
   </main>
 </div>
@@ -943,6 +864,8 @@
     document.getElementById('stat-shares').textContent = Number(m.totalShares || 0).toLocaleString('en-IN');
     document.getElementById('stat-favorites').textContent = Number(m.totalFavorites || 0).toLocaleString('en-IN');
 
+    const calloutViewsEl = document.getElementById('callout-views-out'); if (calloutViewsEl) calloutViewsEl.textContent = (Number(m.totalViews || 0) + Number(m.totalShares || 0)).toLocaleString('en-IN');
+    renderVessaRadialGauge(activeWishesVal, totalWishesVal, totalTemplatesVal, typeof realRevVal !== 'undefined' ? realRevVal : 0);
     renderRecentWishes(wishesList, templatesList);
     renderCategoryBars(m);
     renderTopTemplates(m);
@@ -958,6 +881,54 @@
     } catch (_) {
       return '—';
     }
+  }
+
+  
+  function renderVessaRadialGauge(activeWishesVal, totalWishesVal, totalTemplatesVal, realRevVal) {
+    const ticksGroup = document.getElementById('vessa-gauge-ticks');
+    const pctEl = document.getElementById('vessa-gauge-pct');
+    const wishesEl = document.getElementById('vessa-gauge-wishes');
+    const salesEl = document.getElementById('vessa-gauge-sales');
+    const heroActiveEl = document.getElementById('hero-active-wishes-inline');
+    const heroTplEl = document.getElementById('hero-live-templates-inline');
+    const calloutWishes = document.getElementById('callout-wishes-in');
+    const calloutViews = document.getElementById('callout-views-out');
+    const calloutVal = document.getElementById('callout-store-val');
+
+    if (heroActiveEl) heroActiveEl.textContent = `${activeWishesVal.toLocaleString('en-IN')} active wishes`;
+    if (heroTplEl) heroTplEl.textContent = `${totalTemplatesVal.toLocaleString('en-IN')} templates`;
+    if (wishesEl) wishesEl.textContent = totalWishesVal.toLocaleString('en-IN');
+    if (salesEl) salesEl.textContent = `₹${Number(realRevVal || 0).toLocaleString('en-IN')}`;
+    if (calloutWishes) calloutWishes.textContent = totalWishesVal.toLocaleString('en-IN');
+    if (calloutVal) calloutVal.textContent = `₹${Number(realRevVal || 0).toLocaleString('en-IN')}`;
+
+    const ratio = totalWishesVal > 0 ? Math.min(1, Math.max(0.15, activeWishesVal / totalWishesVal)) : 0.659;
+    const pctNum = (ratio * 100).toFixed(1);
+    if (pctEl) pctEl.textContent = `${pctNum}%`;
+
+    if (!ticksGroup) return;
+    const totalTicks = 44;
+    const activeTicks = Math.round(ratio * totalTicks);
+    const cx = 130;
+    const cy = 132;
+    const rOuter = 112;
+    const rInner = 82;
+    const isDark = document.documentElement.classList.contains('dark');
+    const activeColor = isDark ? '#38c976' : '#1e7f4e';
+    const inactiveColor = isDark ? '#283830' : '#dce6e0';
+
+    let svgLines = '';
+    for (let i = 0; i < totalTicks; i++) {
+      const angleDeg = 180 - (i / (totalTicks - 1)) * 180;
+      const rad = (angleDeg * Math.PI) / 180;
+      const x1 = (cx + rInner * Math.cos(rad)).toFixed(2);
+      const y1 = (cy - rInner * Math.sin(rad)).toFixed(2);
+      const x2 = (cx + rOuter * Math.cos(rad)).toFixed(2);
+      const y2 = (cy - rOuter * Math.sin(rad)).toFixed(2);
+      const stroke = i < activeTicks ? activeColor : inactiveColor;
+      svgLines += `<line x1="${x1}" y1="${y1}" x2="${x2}" y2="${y2}" stroke="${stroke}" stroke-width="3.2" stroke-linecap="round" />`;
+    }
+    ticksGroup.innerHTML = svgLines;
   }
 
   function renderRecentWishes(liveWishes, templatesList) {
@@ -1109,7 +1080,7 @@
       return `
         <div class="flex-1 flex flex-col items-center justify-end h-full group min-w-0">
           <div class="w-full flex-1 flex items-end justify-center pb-1.5">
-            <div class="w-5 sm:w-8 rounded-t-lg bg-gradient-to-t from-[#6d28d9] via-[#9333ea] to-[#c084fc] shadow-sm group-hover:brightness-110 transition-all relative" style="height: ${pct}%;" title="${label}: ${val}">
+            <div class="w-6 sm:w-9 rounded-t-md bg-gradient-to-t from-[#cbe5d6] to-[#dff0e6] dark:from-[#20382b] dark:to-[#294837] border-t-[3px] border-[#1e7f4e] dark:border-[#38c976] shadow-xs group-hover:brightness-105 transition-all relative" style="height: ${pct}%;" title="${label}: ${val}">
               <span class="opacity-0 group-hover:opacity-100 absolute -top-6 left-1/2 -translate-x-1/2 px-1.5 py-0.5 rounded bg-[#1a0f30] text-white text-[10px] font-bold whitespace-nowrap transition pointer-events-none">${val}</span>
             </div>
           </div>

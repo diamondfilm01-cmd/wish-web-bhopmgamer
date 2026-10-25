@@ -1,0 +1,484 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="light">
+<head>
+  <meta charset="utf-8"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=5.0"/>
+  <meta name="theme-color" content="#7c3aed"/>
+  <meta name="apple-mobile-web-app-capable" content="yes"/>
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent"/>
+  <meta name="apple-mobile-web-app-title" content="WishMagic Admin"/>
+  <title>WishMagic Clay Admin App — Complete Live Control Studio (v1.4.0)</title>
+  <link rel="manifest" href="/wm-clay-admin.webmanifest"/>
+  <link rel="preconnect" href="https://fonts.googleapis.com"/>
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin/>
+  <link href="https://fonts.googleapis.com/css2?family=Nunito:wght@600;700;800;900&family=Plus+Jakarta+Sans:wght@500;600;700;800&display=swap" rel="stylesheet"/>
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css"/>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <link rel="stylesheet" href="/css/clay-admin-app.css"/>
+</head>
+<body>
+  <div class="clay-app-shell">
+    <!-- ====================================================================
+         LEFT 3D CLAY SIDEBAR (SAME FAMILIAR ADMIN LAYOUT, UPGRADED TO CLAY)
+         ==================================================================== -->
+    <aside id="clay-sidebar" class="clay-sidebar" aria-label="WishMagic Clay Admin Navigation">
+      <div class="clay-sidebar-brand">
+        <div class="flex items-center gap-3">
+          <div class="clay-brand-orb">
+            <i class="fa-solid fa-wand-magic-sparkles"></i>
+          </div>
+          <div>
+            <div class="flex items-center gap-1.5">
+              <span class="font-black text-base tracking-tight">WishMagic</span>
+              <span class="text-[10px] font-extrabold px-2 py-0.5 rounded-full bg-purple-500/15 text-purple-600 dark:text-purple-300">CLAY APP</span>
+            </div>
+            <p class="text-[11px] font-bold opacity-70 m-0">Live Control Studio • v1.4.0</p>
+          </div>
+        </div>
+        <button type="button" id="clay-sidebar-close-mobile" class="clay-btn lg:hidden !p-2.5" aria-label="Close Sidebar">
+          <i class="fa-solid fa-xmark"></i>
+        </button>
+      </div>
+
+      <nav class="clay-sidebar-nav" id="clay-sidebar-nav">
+        <div class="clay-nav-group-title">MAIN</div>
+        <button type="button" class="clay-nav-btn active" data-section="overview">
+          <span class="flex items-center gap-2.5">
+            <span class="clay-nav-icon"><i class="fa-solid fa-chart-pie"></i></span>
+            <span>Dashboard</span>
+          </span>
+          <span class="clay-nav-badge">LIVE</span>
+        </button>
+
+        <div class="clay-nav-group-title">CONTENT</div>
+        <button type="button" class="clay-nav-btn" data-section="templates">
+          <span class="flex items-center gap-2.5">
+            <span class="clay-nav-icon"><i class="fa-solid fa-layer-group"></i></span>
+            <span>All Templates</span>
+          </span>
+          <span class="clay-nav-badge" id="nav-badge-templates">…</span>
+        </button>
+        <button type="button" class="clay-nav-btn" data-section="add-template">
+          <span class="flex items-center gap-2.5">
+            <span class="clay-nav-icon"><i class="fa-solid fa-cloud-arrow-up"></i></span>
+            <span>Add Template</span>
+          </span>
+          <span class="clay-nav-badge">v1.4</span>
+        </button>
+        <button type="button" class="clay-nav-btn" data-section="festivals">
+          <span class="flex items-center gap-2.5">
+            <span class="clay-nav-icon"><i class="fa-solid fa-calendar-Days fa-calendar-check"></i></span>
+            <span>Festival Scheduler</span>
+          </span>
+          <span class="clay-nav-badge" id="nav-badge-festivals">🪔</span>
+        </button>
+        <button type="button" class="clay-nav-btn" data-section="occasions">
+          <span class="flex items-center gap-2.5">
+            <span class="clay-nav-icon"><i class="fa-solid fa-tags"></i></span>
+            <span>Categories</span>
+          </span>
+        </button>
+        <button type="button" class="clay-nav-btn" data-section="media">
+          <span class="flex items-center gap-2.5">
+            <span class="clay-nav-icon"><i class="fa-solid fa-photo-film"></i></span>
+            <span>Media Library</span>
+          </span>
+        </button>
+        <button type="button" class="clay-nav-btn" data-section="music">
+          <span class="flex items-center gap-2.5">
+            <span class="clay-nav-icon"><i class="fa-solid fa-music"></i></span>
+            <span>Music Library</span>
+          </span>
+        </button>
+
+        <div class="clay-nav-group-title">WISHES</div>
+        <button type="button" class="clay-nav-btn" data-section="wishes">
+          <span class="flex items-center gap-2.5">
+            <span class="clay-nav-icon"><i class="fa-solid fa-heart"></i></span>
+            <span>All Wishes</span>
+          </span>
+          <span class="clay-nav-badge" id="nav-badge-wishes">…</span>
+        </button>
+        <button type="button" class="clay-nav-btn" data-section="expiring">
+          <span class="flex items-center gap-2.5">
+            <span class="clay-nav-icon"><i class="fa-solid fa-hourglass-half"></i></span>
+            <span>Expiring Soon</span>
+          </span>
+        </button>
+        <button type="button" class="clay-nav-btn" data-section="analytics">
+          <span class="flex items-center gap-2.5">
+            <span class="clay-nav-icon"><i class="fa-solid fa-chart-line"></i></span>
+            <span>Analytics</span>
+          </span>
+        </button>
+
+        <div class="clay-nav-group-title">USERS &amp; COMMERCE</div>
+        <button type="button" class="clay-nav-btn" data-section="users">
+          <span class="flex items-center gap-2.5">
+            <span class="clay-nav-icon"><i class="fa-solid fa-users"></i></span>
+            <span>All Users</span>
+          </span>
+          <span class="clay-nav-badge" id="nav-badge-users">…</span>
+        </button>
+        <button type="button" class="clay-nav-btn" data-section="pricing">
+          <span class="flex items-center gap-2.5">
+            <span class="clay-nav-icon"><i class="fa-solid fa-crown"></i></span>
+            <span>Subscriptions &amp; Pricing</span>
+          </span>
+        </button>
+        <button type="button" class="clay-nav-btn" data-section="orders">
+          <span class="flex items-center gap-2.5">
+            <span class="clay-nav-icon"><i class="fa-solid fa-receipt"></i></span>
+            <span>Payments &amp; Orders</span>
+          </span>
+          <span class="clay-nav-badge" id="nav-badge-orders">…</span>
+        </button>
+
+        <div class="clay-nav-group-title">SYSTEM</div>
+        <button type="button" class="clay-nav-btn" data-section="settings">
+          <span class="flex items-center gap-2.5">
+            <span class="clay-nav-icon"><i class="fa-solid fa-sliders"></i></span>
+            <span>Settings (All 12)</span>
+          </span>
+          <span class="clay-nav-badge">SYNC</span>
+        </button>
+        <button type="button" class="clay-nav-btn" data-section="storage-health">
+          <span class="flex items-center gap-2.5">
+            <span class="clay-nav-icon"><i class="fa-solid fa-server"></i></span>
+            <span>Storage Health</span>
+          </span>
+        </button>
+        <button type="button" class="clay-nav-btn" data-section="backups">
+          <span class="flex items-center gap-2.5">
+            <span class="clay-nav-icon"><i class="fa-solid fa-database"></i></span>
+            <span>Backups</span>
+          </span>
+        </button>
+        <button type="button" class="clay-nav-btn" data-section="audit-logs">
+          <span class="flex items-center gap-2.5">
+            <span class="clay-nav-icon"><i class="fa-solid fa-clipboard-list"></i></span>
+            <span>Activity Logs</span>
+          </span>
+        </button>
+
+        <div class="clay-nav-group-title">MORE STUDIO TOOLS</div>
+        <button type="button" class="clay-nav-btn" data-section="user-creations">
+          <span class="flex items-center gap-2.5">
+            <span class="clay-nav-icon"><i class="fa-solid fa-wand-sparkles"></i></span>
+            <span>User Creations</span>
+          </span>
+        </button>
+        <button type="button" class="clay-nav-btn" data-section="search">
+          <span class="flex items-center gap-2.5">
+            <span class="clay-nav-icon"><i class="fa-solid fa-magnifying-glass"></i></span>
+            <span>Search &amp; Discovery</span>
+          </span>
+        </button>
+        <button type="button" class="clay-nav-btn" data-section="referrals">
+          <span class="flex items-center gap-2.5">
+            <span class="clay-nav-icon"><i class="fa-solid fa-gift"></i></span>
+            <span>Referrals (7-Invite)</span>
+          </span>
+        </button>
+        <button type="button" class="clay-nav-btn" data-section="moderation">
+          <span class="flex items-center gap-2.5">
+            <span class="clay-nav-icon"><i class="fa-solid fa-shield-halved"></i></span>
+            <span>Moderation Queue</span>
+          </span>
+        </button>
+        <button type="button" class="clay-nav-btn" data-section="support">
+          <span class="flex items-center gap-2.5">
+            <span class="clay-nav-icon"><i class="fa-solid fa-headset"></i></span>
+            <span>Support Console</span>
+          </span>
+        </button>
+        <button type="button" class="clay-nav-btn" data-section="staff">
+          <span class="flex items-center gap-2.5">
+            <span class="clay-nav-icon"><i class="fa-solid fa-user-shield"></i></span>
+            <span>Staff &amp; Team</span>
+          </span>
+        </button>
+        <button type="button" class="clay-nav-btn" data-section="legal">
+          <span class="flex items-center gap-2.5">
+            <span class="clay-nav-icon"><i class="fa-solid fa-scale-balanced"></i></span>
+            <span>Legal &amp; Compliance</span>
+          </span>
+        </button>
+        <button type="button" class="clay-nav-btn" data-section="announcements">
+          <span class="flex items-center gap-2.5">
+            <span class="clay-nav-icon"><i class="fa-solid fa-bullhorn"></i></span>
+            <span>Announcements</span>
+          </span>
+        </button>
+        <button type="button" class="clay-nav-btn" data-section="notifications">
+          <span class="flex items-center gap-2.5">
+            <span class="clay-nav-icon"><i class="fa-solid fa-bell"></i></span>
+            <span>Notification Queue</span>
+          </span>
+        </button>
+      </nav>
+
+      <div class="clay-sidebar-footer">
+        <button type="button" id="clay-btn-open-live-site" class="clay-btn clay-btn-primary w-full justify-center">
+          <i class="fa-solid fa-arrow-up-right-from-square"></i>
+          <span>Open Live Website</span>
+        </button>
+      </div>
+    </aside>
+
+    <!-- ====================================================================
+         MAIN COLUMN: TOP 3D CLOUD BAR + DYNAMIC CLAY VIEWPORT
+         ==================================================================== -->
+    <div class="clay-main-column">
+      <!-- Top Cloud Header -->
+      <header class="clay-topbar">
+        <div class="flex items-center gap-3 flex-1 min-w-[240px]">
+          <button type="button" id="clay-sidebar-open-mobile" class="clay-btn lg:hidden !p-2.5" aria-label="Open Navigation">
+            <i class="fa-solid fa-bars"></i>
+          </button>
+          <div class="relative flex-1 max-w-md">
+            <i class="fa-solid fa-magnifying-glass absolute left-4 top-1/2 -translate-y-1/2 opacity-50 text-sm"></i>
+            <input
+              type="search"
+              id="clay-global-search"
+              class="clay-input !pl-10 !pr-16 !py-2.5 text-sm"
+              placeholder="Search sections, templates, wishes, festivals, settings..."
+            />
+            <span class="clay-pill absolute right-2.5 top-1/2 -translate-y-1/2 !py-0.5 !px-2 text-[10px] opacity-75">Ctrl K</span>
+          </div>
+        </div>
+
+        <div class="flex items-center gap-2.5 flex-wrap">
+          <!-- View Mode Switcher: Native Clay View vs Full Embedded Studio Dock -->
+          <div class="clay-well-box !p-1.5 !rounded-2xl flex items-center gap-1" role="group" aria-label="Workspace View Mode">
+            <button type="button" id="clay-mode-native-btn" class="clay-btn clay-btn-primary !py-1.5 !px-3 text-xs">
+              <i class="fa-solid fa-cubes"></i>
+              <span>Clay App View</span>
+            </button>
+            <button type="button" id="clay-mode-dock-btn" class="clay-btn !py-1.5 !px-3 text-xs">
+              <i class="fa-solid fa-window-maximize"></i>
+              <span>Full Studio View</span>
+            </button>
+          </div>
+
+          <!-- Backend Connection Status Pill -->
+          <button type="button" id="clay-backend-conn-btn" class="clay-btn !py-2 !px-3.5 text-xs" title="Configure Backend URL & Admin Session">
+            <span id="clay-conn-dot" class="w-2.5 h-2.5 rounded-full bg-emerald-500 animate-pulse"></span>
+            <span id="clay-conn-label">Live Backend Connected</span>
+          </button>
+
+          <!-- Refresh / Sync All Data Now -->
+          <button type="button" id="clay-sync-now-btn" class="clay-btn clay-btn-emerald !py-2 !px-3.5 text-xs" title="Pull latest data from live website">
+            <i class="fa-solid fa-rotate" id="clay-sync-icon"></i>
+            <span>Sync Live</span>
+          </button>
+
+          <!-- PWA Install App Button -->
+          <button type="button" id="clay-install-pwa-btn" class="clay-btn clay-btn-amber !py-2 !px-3.5 text-xs">
+            <i class="fa-solid fa-download"></i>
+            <span>Install App</span>
+          </button>
+
+          <!-- Clay Light / Dark Theme Switcher -->
+          <button type="button" id="clay-theme-toggle-btn" class="clay-btn !p-2.5" aria-label="Toggle Light/Dark Clay Theme" title="Switch Light / Dark Claymorphism">
+            <i class="fa-solid fa-moon text-sm" id="clay-theme-icon"></i>
+          </button>
+
+          <!-- Admin Profile Pill -->
+          <button type="button" id="clay-admin-profile-btn" class="clay-btn !py-1.5 !px-3 text-xs">
+            <span class="w-7 h-7 rounded-xl bg-gradient-to-br from-purple-500 to-pink-500 text-white flex items-center justify-center font-black">A</span>
+            <span class="hidden sm:inline font-extrabold" id="clay-admin-name-label">Master Admin</span>
+          </button>
+        </div>
+      </header>
+
+      <!-- Section Title & Quick Action Ribbon -->
+      <section class="clay-card !py-4 !px-6 flex flex-wrap items-center justify-between gap-4">
+        <div class="flex items-center gap-3.5">
+          <div id="clay-active-section-orb" class="clay-kpi-orb" style="background: var(--clay-primary-grad); box-shadow: var(--clay-primary-shadow);">
+            <i class="fa-solid fa-chart-pie" id="clay-active-section-icon"></i>
+          </div>
+          <div>
+            <div class="flex items-center gap-2 flex-wrap">
+              <h1 id="clay-active-section-title" class="text-xl sm:text-2xl font-black tracking-tight m-0">Dashboard &amp; Live Website Control</h1>
+              <span id="clay-active-section-pill" class="clay-pill text-purple-600 dark:text-purple-300">REAL-TIME D1 SYNC</span>
+            </div>
+            <p id="clay-active-section-desc" class="text-xs sm:text-sm font-semibold opacity-75 m-0 mt-0.5">
+              Yahan se jo bhi update karoge woh seedha live WishMagic website par turant update ho jayega.
+            </p>
+          </div>
+        </div>
+        <div class="flex items-center gap-2.5 flex-wrap" id="clay-section-quick-actions">
+          <button type="button" class="clay-btn clay-btn-pink text-xs" data-jump-section="festivals">
+            <i class="fa-solid fa-rocket"></i>
+            <span>Launch Festival on Site</span>
+          </button>
+          <button type="button" class="clay-btn clay-btn-primary text-xs" data-jump-section="add-template">
+            <i class="fa-solid fa-cloud-arrow-up"></i>
+            <span>Upload Template ZIP</span>
+          </button>
+          <button type="button" class="clay-btn text-xs" data-jump-section="settings">
+            <i class="fa-solid fa-wand-magic-sparkles"></i>
+            <span>Hero 3D &amp; Blur (1–50)</span>
+          </button>
+        </div>
+      </section>
+
+      <!-- ==================================================================
+           VIEWPORT 1: NATIVE 3D CLAYMORPHISM INTERACTIVE WORKSPACE
+           ================================================================== -->
+      <main id="clay-native-workspace" class="flex flex-col gap-5"></main>
+
+      <!-- ==================================================================
+           VIEWPORT 2: EMBEDDED FULL ADMIN STUDIO DOCK (ALL 23 SPECIALIZED PAGES)
+           ================================================================== -->
+      <section id="clay-dock-workspace" class="hidden flex-col gap-3">
+        <div class="clay-card !py-3 !px-5 flex items-center justify-between gap-3 flex-wrap">
+          <div class="flex items-center gap-2.5 text-xs font-extrabold">
+            <span class="w-2.5 h-2.5 rounded-full bg-emerald-500"></span>
+            <span>Embedded Full Studio View:</span>
+            <code id="clay-dock-route-label" class="px-2.5 py-1 rounded-lg bg-purple-500/10 text-purple-600 dark:text-purple-300">/admin/anktech/anktech/admin/overview</code>
+          </div>
+          <div class="flex items-center gap-2">
+            <button type="button" id="clay-dock-reload-btn" class="clay-btn !py-1.5 !px-3 text-xs">
+              <i class="fa-solid fa-rotate"></i>
+              <span>Reload Studio</span>
+            </button>
+            <button type="button" id="clay-dock-popout-btn" class="clay-btn !py-1.5 !px-3 text-xs">
+              <i class="fa-solid fa-up-right-from-square"></i>
+              <span>Open in Browser Tab</span>
+            </button>
+            <button type="button" id="clay-dock-back-native-btn" class="clay-btn clay-btn-primary !py-1.5 !px-3 text-xs">
+              <i class="fa-solid fa-cubes"></i>
+              <span>Back to Clay App View</span>
+            </button>
+          </div>
+        </div>
+        <div class="clay-studio-iframe-wrap">
+          <iframe id="clay-studio-iframe" class="clay-studio-iframe" title="WishMagic Full Studio View" src="about:blank"></iframe>
+        </div>
+      </section>
+    </div>
+  </div>
+
+  <!-- ======================================================================
+       MOBILE BOTTOM 3D CLAY DOCK
+       ====================================================================== -->
+  <nav class="clay-mobile-dock" aria-label="Mobile Quick Navigation">
+    <button type="button" class="clay-btn !py-2 !px-3 text-xs" data-section="overview">
+      <i class="fa-solid fa-chart-pie"></i>
+      <span>Home</span>
+    </button>
+    <button type="button" class="clay-btn !py-2 !px-3 text-xs" data-section="templates">
+      <i class="fa-solid fa-layer-group"></i>
+      <span>Templates</span>
+    </button>
+    <button type="button" class="clay-btn clay-btn-primary !py-2 !px-3.5 text-xs" data-section="festivals">
+      <i class="fa-solid fa-rocket"></i>
+      <span>Festivals</span>
+    </button>
+    <button type="button" class="clay-btn !py-2 !px-3 text-xs" data-section="settings">
+      <i class="fa-solid fa-sliders"></i>
+      <span>Settings</span>
+    </button>
+    <button type="button" id="clay-mobile-more-btn" class="clay-btn !py-2 !px-3 text-xs">
+      <i class="fa-solid fa-bars"></i>
+      <span>All 21</span>
+    </button>
+  </nav>
+
+  <!-- ======================================================================
+       MODAL: LIVE BACKEND CONNECTION, SERVER URL & ADMIN LOGIN
+       ====================================================================== -->
+  <div id="clay-connection-modal" class="clay-modal-backdrop" role="dialog" aria-modal="true" aria-labelledby="clay-conn-modal-title">
+    <div class="clay-modal-dialog">
+      <div class="flex items-center justify-between gap-3 mb-4">
+        <div class="flex items-center gap-3">
+          <div class="clay-brand-orb !w-11 !h-11">
+            <i class="fa-solid fa-plug-circle-check"></i>
+          </div>
+          <div>
+            <h2 id="clay-conn-modal-title" class="text-lg font-black m-0">Backend Connection &amp; Admin Login</h2>
+            <p class="text-xs font-bold opacity-70 m-0">Connect standalone app directly to your live WishMagic server</p>
+          </div>
+        </div>
+        <button type="button" id="clay-conn-modal-close" class="clay-btn !p-2.5" aria-label="Close">
+          <i class="fa-solid fa-xmark"></i>
+        </button>
+      </div>
+
+      <div class="flex flex-col gap-4">
+        <div>
+          <label class="block text-xs font-extrabold uppercase tracking-wider mb-1.5" for="clay-api-base-input">
+            Live Website / Backend Server URL
+          </label>
+          <input
+            type="url"
+            id="clay-api-base-input"
+            class="clay-input"
+            placeholder="https://wishmagic.live (leave blank for same-origin)"
+          />
+          <p class="text-[11px] font-semibold opacity-70 mt-1 mb-0">
+            Jab app website se open ho toh khali chhod sakte ho (auto-connected). Agar phone APK ya PC folder se chala rahe ho toh apna live domain (e.g. <code>https://wishmagic.live</code> ya <code>https://wishmagic.pages.dev</code>) daalo.
+          </p>
+        </div>
+
+        <div class="clay-well-box flex flex-col gap-3">
+          <div class="flex items-center justify-between">
+            <span class="text-xs font-extrabold uppercase tracking-wider">Quick Admin Sign-In</span>
+            <span id="clay-auth-status-badge" class="clay-pill text-xs">Checking session…</span>
+          </div>
+          <div class="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
+            <input type="email" id="clay-login-email" class="clay-input" placeholder="Admin Email (ankit.babusaini@gmail.com)" value="ankit.babusaini@gmail.com"/>
+            <input type="password" id="clay-login-password" class="clay-input" placeholder="Password (optional for session sync)"/>
+          </div>
+          <div class="flex flex-wrap gap-2">
+            <button type="button" id="clay-login-submit-btn" class="clay-btn clay-btn-primary text-xs flex-1">
+              <i class="fa-solid fa-right-to-bracket"></i>
+              <span>Connect &amp; Sign In as Admin</span>
+            </button>
+            <button type="button" id="clay-test-ping-btn" class="clay-btn clay-btn-emerald text-xs">
+              <i class="fa-solid fa-bolt"></i>
+              <span>Test Server Ping</span>
+            </button>
+          </div>
+        </div>
+
+        <div>
+          <label class="block text-xs font-extrabold uppercase tracking-wider mb-1.5" for="clay-bearer-token-input">
+            Optional Session Bearer Token (For Cross-Origin / Native APK)
+          </label>
+          <input
+            type="text"
+            id="clay-bearer-token-input"
+            class="clay-input text-xs font-mono"
+            placeholder="wm_tok_... (auto-filled when you sign in above)"
+          />
+        </div>
+
+        <div class="flex items-center justify-end gap-2.5 pt-2">
+          <button type="button" id="clay-save-conn-btn" class="clay-btn clay-btn-emerald w-full justify-center">
+            <i class="fa-solid fa-check-double"></i>
+            <span>Save Backend Connection &amp; Sync Now</span>
+          </button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ======================================================================
+       FLOATING CLAY LIVE CONFIRMATION TOAST
+       ====================================================================== -->
+  <div id="clay-live-sync-toast" class="clay-sync-toast" role="status" aria-live="polite">
+    <div class="w-10 h-10 rounded-2xl bg-white/25 flex items-center justify-center text-lg shrink-0">
+      <i class="fa-solid fa-circle-check"></i>
+    </div>
+    <div>
+      <div class="font-black text-sm tracking-tight" id="clay-toast-title">✅ Ho Gaya! Live Website Updated</div>
+      <div class="text-xs font-bold opacity-95 mt-0.5" id="clay-toast-msg">Changes saved to Cloudflare D1 &amp; synced to storefront.</div>
+    </div>
+  </div>
+
+  <script src="/js/clay-admin-app.js"></script>
+</body>
+</html>
