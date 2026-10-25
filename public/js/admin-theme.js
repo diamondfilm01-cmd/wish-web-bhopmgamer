@@ -1439,6 +1439,16 @@ function mountVessaAdminShell() {
     inner.appendChild(centerDiv);
     inner.appendChild(rightDiv);
     header.appendChild(inner);
+
+    // Mount Mobile Scrollable Sub-Tabs Strip right below top header for <1024px viewports
+    if (!document.getElementById('vessa-mobile-subtabs') && tabs.length > 0) {
+      const mobileSubBar = document.createElement('nav');
+      mobileSubBar.id = 'vessa-mobile-subtabs';
+      mobileSubBar.className = 'vessa-mobile-subtabs-bar lg:hidden';
+      mobileSubBar.setAttribute('aria-label', 'Mobile Section Switcher');
+      mobileSubBar.innerHTML = tabsHtml;
+      header.insertAdjacentElement('afterend', mobileSubBar);
+    }
   }
 
   // 2. Mount Vessa Vertical Sun/Moon Theme Wipe Capsule & Expand Button in <aside id="admin-sidebar">

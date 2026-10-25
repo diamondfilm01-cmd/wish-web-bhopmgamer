@@ -548,6 +548,35 @@
           Loading media catalog...
         </div>
       </div>
+
+      <!-- MULTI-SELECT BULK ACTION BAR (Sticky & Always Accessible) -->
+      <div id="media-bulk-action-bar" class="mt-1 p-3.5 rounded-2xl bg-surface-container-low border border-purple-500/30 flex flex-wrap items-center justify-between gap-3 transition-all">
+        <div class="flex flex-wrap items-center gap-2.5">
+          <label class="inline-flex items-center gap-2 px-3 py-1.5 rounded-xl bg-surface-container-high border border-purple-800/40 text-xs font-bold text-on-surface cursor-pointer select-none">
+            <input type="checkbox" id="chk-select-all-visible" onchange="toggleSelectAllVisibleMedia(this.checked)" class="w-4 h-4 rounded cursor-pointer"/>
+            <span>Select All Visible</span>
+          </label>
+          <button type="button" onclick="selectSectionMedia('admin')" class="px-3 py-1.5 rounded-xl bg-emerald-950/50 hover:bg-emerald-900/60 border border-emerald-600/40 text-emerald-300 text-xs font-bold transition cursor-pointer">
+            🛡️ Select Admin Media
+          </button>
+          <button type="button" onclick="selectSectionMedia('user')" class="px-3 py-1.5 rounded-xl bg-pink-950/50 hover:bg-pink-900/60 border border-pink-600/40 text-pink-300 text-xs font-bold transition cursor-pointer">
+            👤 Select User Media
+          </button>
+          <button type="button" id="btn-clear-media-selection" onclick="clearMediaSelection()" class="hidden px-3 py-1.5 rounded-xl bg-surface-container-high hover:bg-surface-container-highest text-outline hover:text-white text-xs font-bold transition cursor-pointer">
+            ✕ Clear Selection
+          </button>
+        </div>
+
+        <div class="flex flex-wrap items-center gap-2.5 w-full sm:w-auto justify-between sm:justify-end">
+          <div id="media-bulk-selection-summary" class="text-xs font-mono text-outline">
+            0 items selected (Tick cards to multi-select)
+          </div>
+          <button type="button" id="btn-bulk-delete-media" onclick="executeBulkDeleteSelectedMedia()" disabled class="px-4 py-2 rounded-xl bg-rose-600 hover:bg-rose-500 disabled:opacity-40 disabled:pointer-events-none text-white text-xs font-extrabold flex items-center gap-1.5 shadow-lg shadow-rose-600/30 transition cursor-pointer">
+            <span class="material-symbols-outlined text-sm">delete_sweep</span>
+            <span id="btn-bulk-delete-media-label">Delete Selected (0)</span>
+          </button>
+        </div>
+      </div>
     </div>
 
     <!-- =================================================================== -->
@@ -563,6 +592,12 @@
             </h2>
             <p class="text-xs text-on-surface-variant" id="admin-media-summary-badge">Scanning Admin media vault...</p>
           </div>
+        </div>
+        <div class="flex items-center gap-2">
+          <button type="button" onclick="selectSectionMedia('admin')" class="px-3 py-1.5 rounded-xl bg-emerald-500/20 hover:bg-emerald-500/30 border border-emerald-500/40 text-emerald-200 text-xs font-bold cursor-pointer transition flex items-center gap-1">
+            <span class="material-symbols-outlined text-sm">select_all</span>
+            <span>Select All in Section 1</span>
+          </button>
         </div>
       </div>
 
@@ -587,6 +622,12 @@
             </h2>
             <p class="text-xs text-on-surface-variant" id="user-media-summary-badge">Scanning Customer wish uploads...</p>
           </div>
+        </div>
+        <div class="flex items-center gap-2">
+          <button type="button" onclick="selectSectionMedia('user')" class="px-3 py-1.5 rounded-xl bg-pink-500/20 hover:bg-pink-500/30 border border-pink-500/40 text-pink-200 text-xs font-bold cursor-pointer transition flex items-center gap-1">
+            <span class="material-symbols-outlined text-sm">select_all</span>
+            <span>Select All in Section 2</span>
+          </button>
         </div>
       </div>
 
@@ -944,13 +985,17 @@
     <!-- TAB 1: BACKBLAZE B2 INVENTORY -->
     <div id="tab-inv-b2-pane" class="space-y-4">
       <div class="flex flex-wrap items-center justify-between gap-3 bg-surface-container-low p-3.5 rounded-2xl border border-purple-900/20">
-        <div class="flex items-center gap-2">
+        <div class="flex flex-wrap items-center gap-2">
           <span class="text-xs font-bold text-outline uppercase font-mono">Bucket:</span>
           <span id="inv-b2-bucket-name" class="font-mono text-xs px-2.5 py-1 rounded bg-black/60 text-amber-300 border border-amber-900/40">wishmagic-assets</span>
           <span id="inv-b2-count-badge" class="font-mono text-xs text-purple-300 ml-1">0 objects loaded</span>
         </div>
-        <div class="flex items-center gap-2">
-          <input id="inv-b2-prefix-input" type="text" placeholder="Filter prefix (e.g. music/)" class="px-3 py-1.5 rounded-xl bg-surface-container text-xs border border-purple-900/40 text-white font-mono placeholder:text-outline w-44 focus:outline-none focus:border-primary"/>
+        <div class="flex flex-wrap items-center gap-2">
+          <button id="btn-bulk-delete-b2-inv" onclick="bulkDeleteSelectedB2Inventory()" disabled class="px-3 py-1.5 rounded-xl bg-rose-600 hover:bg-rose-500 disabled:opacity-40 disabled:pointer-events-none text-white text-xs font-bold transition cursor-pointer flex items-center gap-1">
+            <span class="material-symbols-outlined text-sm">delete_sweep</span>
+            <span id="btn-bulk-delete-b2-inv-label">Delete Selected B2 (0)</span>
+          </button>
+          <input id="inv-b2-prefix-input" type="text" placeholder="Filter prefix (e.g. music/)" class="px-3 py-1.5 rounded-xl bg-surface-container text-xs border border-purple-900/40 text-white font-mono placeholder:text-outline w-40 sm:w-44 focus:outline-none focus:border-primary"/>
           <button onclick="loadB2Inventory()" class="px-3 py-1.5 rounded-xl bg-purple-900/60 hover:bg-purple-800 text-purple-200 text-xs font-bold transition cursor-pointer flex items-center gap-1">
             <span class="material-symbols-outlined text-sm">refresh</span>
             <span>Refresh</span>
@@ -962,6 +1007,9 @@
         <table class="w-full text-left text-xs border-collapse">
           <thead>
             <tr class="bg-surface-container-high text-outline uppercase font-mono text-[11px] border-b border-purple-900/30">
+              <th class="p-3 w-10">
+                <input type="checkbox" id="chk-select-all-b2-inv" onchange="toggleSelectAllB2Inv(this.checked)" class="w-4 h-4 rounded cursor-pointer"/>
+              </th>
               <th class="p-3">Object Key &amp; Name</th>
               <th class="p-3">Type / MIME</th>
               <th class="p-3">Size</th>
@@ -972,7 +1020,7 @@
           </thead>
           <tbody id="inv-b2-table-body" class="divide-y divide-purple-900/20 font-mono text-[11px]">
             <tr>
-              <td colspan="6" class="p-8 text-center text-outline">Loading Backblaze B2 objects...</td>
+              <td colspan="7" class="p-8 text-center text-outline">Loading Backblaze B2 objects...</td>
             </tr>
           </tbody>
         </table>
@@ -988,18 +1036,27 @@
 
     <!-- TAB 2: IMGBB INVENTORY -->
     <div id="tab-inv-imgbb-pane" class="space-y-4 hidden">
-      <div class="p-4 rounded-2xl bg-pink-950/20 border border-pink-900/40 text-pink-200 text-xs flex items-start gap-3">
-        <span class="material-symbols-outlined text-pink-400 mt-0.5">info</span>
-        <div>
-          <strong class="text-white block font-semibold mb-0.5">ImgBB Architecture Note:</strong>
-          ImgBB does not provide an account-wide listing API. This view catalogs all <strong>application-managed</strong> image assets registered in the database, displays their verified URLs, and offers live accessibility checks.
+      <div class="p-4 rounded-2xl bg-pink-950/20 border border-pink-900/40 text-pink-200 text-xs flex flex-wrap items-center justify-between gap-3">
+        <div class="flex items-start gap-3 max-w-2xl">
+          <span class="material-symbols-outlined text-pink-400 mt-0.5">info</span>
+          <div>
+            <strong class="text-white block font-semibold mb-0.5">ImgBB Architecture Note:</strong>
+            ImgBB does not provide an account-wide listing API. This view catalogs all <strong>application-managed</strong> image assets registered in the database, displays their verified URLs, and supports multi-select deletion from ImgBB + D1.
+          </div>
         </div>
+        <button id="btn-bulk-delete-imgbb-inv" onclick="bulkDeleteSelectedImgbbInventory()" disabled class="px-3.5 py-2 rounded-xl bg-rose-600 hover:bg-rose-500 disabled:opacity-40 disabled:pointer-events-none text-white text-xs font-bold transition cursor-pointer flex items-center gap-1.5">
+          <span class="material-symbols-outlined text-sm">delete_sweep</span>
+          <span id="btn-bulk-delete-imgbb-inv-label">Delete Selected ImgBB (0)</span>
+        </button>
       </div>
 
       <div class="overflow-x-auto rounded-2xl border border-purple-900/30">
         <table class="w-full text-left text-xs border-collapse">
           <thead>
             <tr class="bg-surface-container-high text-outline uppercase font-mono text-[11px] border-b border-purple-900/30">
+              <th class="p-3 w-10">
+                <input type="checkbox" id="chk-select-all-imgbb-inv" onchange="toggleSelectAllImgbbInv(this.checked)" class="w-4 h-4 rounded cursor-pointer"/>
+              </th>
               <th class="p-3">Preview</th>
               <th class="p-3">Slot / Title</th>
               <th class="p-3">Direct URL</th>
@@ -1010,7 +1067,7 @@
           </thead>
           <tbody id="inv-imgbb-table-body" class="divide-y divide-purple-900/20 font-mono text-[11px]">
             <tr>
-              <td colspan="6" class="p-8 text-center text-outline">Loading ImgBB assets...</td>
+              <td colspan="7" class="p-8 text-center text-outline">Loading ImgBB assets...</td>
             </tr>
           </tbody>
         </table>
@@ -1438,7 +1495,13 @@
       resultsCountEl.innerText = `Admin: ${adminFiltered.length} | User: ${userFiltered.length} (Total: ${allMediaAssets.length})`;
     }
 
+    window.__lastFilteredAdminIds = adminFiltered.map(a => String(a.id));
+    window.__lastFilteredUserIds = userFiltered.map(a => String(a.id));
+    window.__lastFilteredAllIds = [...window.__lastFilteredAdminIds, ...window.__lastFilteredUserIds];
+
     const renderCardHtml = (a) => {
+      const assetIdStr = String(a.id);
+      const isSelected = selectedMediaIds.has(assetIdStr);
       const isHero = a.url === currentHeroImage;
       const isAudio = a.type === 'audio';
       const isVideo = a.type === 'video';
@@ -1448,7 +1511,7 @@
       const isCurrentlyPlaying = activeTrackId === a.id && activeAudio && !activeAudio.paused;
 
       return `
-        <div class="media-card-hover bg-surface-container rounded-2xl p-4 sm:p-5 border ${isHero ? 'border-pink-500 shadow-lg shadow-pink-500/10' : (isTpl ? 'border-purple-500/50 shadow-md' : 'border-purple-900/30')} flex flex-col justify-between gap-4">
+        <div id="media-card-${escapeHtml(assetIdStr)}" class="media-card-hover bg-surface-container rounded-2xl p-4 sm:p-5 border ${isSelected ? 'border-rose-500 ring-2 ring-rose-500/70 bg-rose-950/10' : (isHero ? 'border-pink-500 shadow-lg shadow-pink-500/10' : (isTpl ? 'border-purple-500/50 shadow-md' : 'border-purple-900/30'))} flex flex-col justify-between gap-4 transition-all">
           
           <!-- Top: Thumbnail Preview & Type Badge -->
           <div class="flex flex-col gap-3">
@@ -1470,8 +1533,11 @@
                 </div>
               `}
 
-              <!-- Top Left: Media Type Badge -->
-              <div class="absolute top-2 left-2 flex flex-wrap items-center gap-1.5">
+              <!-- Top Left: Multi-Select Checkbox + Media Type Badge -->
+              <div class="absolute top-2 left-2 flex flex-wrap items-center gap-1.5 z-10">
+                <label onclick="event.stopPropagation()" class="inline-flex items-center justify-center w-7 h-7 rounded-lg bg-black/80 hover:bg-black border ${isSelected ? 'border-rose-400 bg-rose-600/30' : 'border-white/30'} shadow-md cursor-pointer backdrop-blur-sm" title="Select this item for bulk delete">
+                  <input type="checkbox" class="media-card-select-chk w-4 h-4 rounded cursor-pointer" data-asset-id="${escapeHtml(assetIdStr)}" ${isSelected ? 'checked' : ''} onchange="toggleSelectMediaAsset(this.dataset.assetId, this.checked)"/>
+                </label>
                 <span class="px-2 py-0.5 rounded-md ${isTpl ? 'bg-purple-600' : (isImage ? 'bg-pink-500' : (isVideo ? 'bg-indigo-600' : 'bg-amber-600'))} text-white font-mono text-[10px] font-bold shadow uppercase">
                   ${isTpl ? 'TEMPLATE IMAGE' : (a.format || a.type)}
                 </span>
@@ -1638,6 +1704,7 @@
         ? userFiltered.map(renderCardHtml).join('')
         : `<div class="col-span-full py-8 px-6 rounded-2xl bg-surface-container text-center text-xs text-outline border border-purple-900/30">No Customer-uploaded media matches the current filter.</div>`;
     }
+    updateMediaBulkSelectionUI();
   }
 
   // --- Hero Section Photo Updates ---
@@ -2737,6 +2804,195 @@
     return deleteMediaAsset(assetId, title, 'imgbb', '', false);
   }
 
+  // --- Multi-Select Media State & Batch Deletion (ImgBB + Backblaze B2 + D1) ---
+  const selectedMediaIds = new Set();
+  const selectedB2InvKeys = new Map(); // key -> { key, fileId, name }
+  const selectedImgbbInvItems = new Map(); // key -> { id, url, name, deleteUrl }
+
+  function toggleSelectMediaAsset(assetId, isChecked) {
+    const idStr = String(assetId);
+    if (isChecked) {
+      selectedMediaIds.add(idStr);
+    } else {
+      selectedMediaIds.delete(idStr);
+    }
+    const cardEl = document.getElementById(`media-card-${idStr}`);
+    if (cardEl) {
+      if (isChecked) {
+        cardEl.classList.add('border-rose-500', 'ring-2', 'ring-rose-500/70', 'bg-rose-950/10');
+      } else {
+        cardEl.classList.remove('border-rose-500', 'ring-2', 'ring-rose-500/70', 'bg-rose-950/10');
+      }
+    }
+    updateMediaBulkSelectionUI();
+  }
+
+  function toggleSelectAllVisibleMedia(shouldSelect) {
+    const visibleIds = window.__lastFilteredAllIds || [];
+    visibleIds.forEach(id => {
+      if (shouldSelect) selectedMediaIds.add(String(id));
+      else selectedMediaIds.delete(String(id));
+    });
+    renderMediaGrid();
+  }
+
+  function selectSectionMedia(sectionRole) {
+    const targetIds = sectionRole === 'admin'
+      ? (window.__lastFilteredAdminIds || [])
+      : (window.__lastFilteredUserIds || []);
+    if (targetIds.length === 0) {
+      showToast(`ℹ️ No visible ${sectionRole} media items to select.`);
+      return;
+    }
+    const allAlreadySelected = targetIds.every(id => selectedMediaIds.has(String(id)));
+    targetIds.forEach(id => {
+      if (allAlreadySelected) selectedMediaIds.delete(String(id));
+      else selectedMediaIds.add(String(id));
+    });
+    renderMediaGrid();
+  }
+
+  function clearMediaSelection() {
+    selectedMediaIds.clear();
+    renderMediaGrid();
+  }
+
+  function updateMediaBulkSelectionUI() {
+    // Strictly keep only IDs that exist in allMediaAssets AND are currently visible in the filtered view
+    const validMap = new Map(allMediaAssets.map(a => [String(a.id), a]));
+    const visibleSet = new Set((window.__lastFilteredAllIds || []).map(id => String(id)));
+    for (const id of Array.from(selectedMediaIds)) {
+      if (!validMap.has(id) || !visibleSet.has(id)) {
+        selectedMediaIds.delete(id);
+      }
+    }
+
+    const count = selectedMediaIds.size;
+    const summaryEl = document.getElementById('media-bulk-selection-summary');
+    const delBtn = document.getElementById('btn-bulk-delete-media');
+    const delLabel = document.getElementById('btn-bulk-delete-media-label');
+    const clearBtn = document.getElementById('btn-clear-media-selection');
+    const selectAllChk = document.getElementById('chk-select-all-visible');
+
+    const visibleIds = window.__lastFilteredAllIds || [];
+    if (selectAllChk) {
+      selectAllChk.checked = visibleIds.length > 0 && visibleIds.every(id => selectedMediaIds.has(String(id)));
+    }
+    if (clearBtn) {
+      clearBtn.classList.toggle('hidden', count === 0);
+    }
+    if (delBtn) {
+      delBtn.disabled = count === 0;
+    }
+    if (delLabel) {
+      delLabel.innerText = `Delete Selected (${count})`;
+    }
+
+    if (summaryEl) {
+      if (count === 0) {
+        summaryEl.innerText = '0 items selected (Tick cards to multi-select)';
+      } else {
+        let imgbbCount = 0;
+        let b2Count = 0;
+        let d1Count = 0;
+        selectedMediaIds.forEach(id => {
+          const item = validMap.get(id);
+          if (!item) return;
+          if (item.storageProvider === 'imgbb' || (item.url && item.url.includes('ibb.co'))) imgbbCount++;
+          else if (item.storageProvider === 'b2') b2Count++;
+          else d1Count++;
+        });
+        summaryEl.innerHTML = `<strong class="text-rose-400">${count} selected</strong> — 🖼️ ImgBB: ${imgbbCount} • ☁️ B2: ${b2Count} • 🗄️ D1: ${count}`;
+      }
+    }
+  }
+
+  async function executeBulkDeleteSelectedMedia() {
+    // Collect strictly from currently checked checkboxes in the DOM intersected with selectedMediaIds
+    const checkedDomBoxes = Array.from(document.querySelectorAll('.media-card-select-chk:checked'));
+    const checkedIds = checkedDomBoxes
+      .map(cb => String(cb.dataset.assetId || '').trim())
+      .filter(id => id && selectedMediaIds.has(id));
+
+    if (checkedIds.length === 0) {
+      showToast('ℹ️ Koi bhi media item select nahi kiya gaya hai.');
+      updateMediaBulkSelectionUI();
+      return;
+    }
+
+    const validMap = new Map(allMediaAssets.map(a => [String(a.id), a]));
+    const itemsToDelete = [];
+    let inUseCount = 0;
+
+    checkedIds.forEach(id => {
+      const a = validMap.get(id);
+      if (a) {
+        if (a.isInUse) inUseCount++;
+        itemsToDelete.push({
+          id: a.id,
+          title: a.title,
+          storageKey: a.storageKey || '',
+          provider: a.storageProvider || '',
+          url: a.url || '',
+          deleteUrl: a.deleteUrl || a.delete_url || '',
+          fileId: a.providerFileId || a.fileId || '',
+          wishId: a.wishId || a.wishSlug || ''
+        });
+      }
+    });
+
+    if (itemsToDelete.length === 0) return;
+
+    const previewNames = itemsToDelete.slice(0, 8).map((it, idx) => `  ${idx + 1}. ${it.title || it.id} [${(it.provider || 'd1').toUpperCase()}]`).join('\n');
+    const moreText = itemsToDelete.length > 8 ? `\n  ...aur ${itemsToDelete.length - 8} selected item(s)` : '';
+
+    let confirmMsg = `Kya aap SIRF in ${itemsToDelete.length} selected media item(s) ko ImgBB, Backblaze B2, aur D1 se permanently delete karna chahte hain?\n(Jo select nahi kiya gaya hai wo bilkul safe rahega)\n\n${previewNames}${moreText}`;
+    if (inUseCount > 0) {
+      confirmMsg += `\n\n⚠️ Dhyaan de: Inme se ${inUseCount} selected item(s) kisi template ya wish me use ho rahe hain.`;
+    }
+    if (!confirm(confirmMsg)) return;
+
+    const delBtn = document.getElementById('btn-bulk-delete-media');
+    const delLabel = document.getElementById('btn-bulk-delete-media-label');
+    if (delBtn) delBtn.disabled = true;
+    if (delLabel) delLabel.innerText = `Deleting ${itemsToDelete.length} items...`;
+
+    showToast(`🗑️ Deleting ${itemsToDelete.length} selected media assets from ImgBB, Backblaze B2 & D1...`);
+
+    try {
+      const res = await fetch('/api/admin/media/bulk-delete', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        credentials: 'include',
+        body: JSON.stringify({
+          items: itemsToDelete,
+          force: true,
+          catalogOnly: true
+        })
+      });
+      const data = await res.json().catch(() => ({}));
+
+      if (res.ok && data.success) {
+        itemsToDelete.forEach(item => {
+          selectedMediaIds.delete(String(item.id));
+          if (activeTrackId && String(activeTrackId) === String(item.id)) {
+            stopAndCloseAudioPlayer();
+          }
+        });
+        showToast(`✅ Sirf chune gaye ${data.deletedCount || itemsToDelete.length} media item(s) delete ho gaye!`);
+        await loadAllMedia();
+        if (currentInventoryTab === 'b2') loadB2Inventory();
+        if (currentInventoryTab === 'imgbb') loadImgbbInventory();
+      } else {
+        showToast(`⚠️ Bulk delete error: ${data.message || 'Could not complete bulk deletion'}`);
+      }
+    } catch (err) {
+      showToast(`⚠️ Network error during bulk delete: ${err.message}`);
+    } finally {
+      updateMediaBulkSelectionUI();
+    }
+  }
+
   // --- Track active in-flight deletion operations to prevent duplicate requests ---
   const activeDeletingIds = new Set();
 
@@ -2766,11 +3022,12 @@
         method: 'DELETE',
         headers: { 'Content-Type': 'application/json' },
         credentials: 'include',
-        body: JSON.stringify({ id: assetId, storageKey, provider, url, deleteUrl })
+        body: JSON.stringify({ id: assetId, storageKey, provider, url, deleteUrl, force: true, autoFallbackCatalog: true })
       });
       const data = await res.json().catch(() => ({}));
 
       if (res.ok && data.success) {
+        selectedMediaIds.delete(String(assetId));
         if (data.b2Deleted) {
           if (data.cloudOutcome?.allVersionsDeleted) {
             showToast(`✅ "${title}" Backblaze B2 bucket aur catalog dono se permanently delete ho gaya!`);
@@ -2779,15 +3036,8 @@
           }
         } else if (data.imgbbRemoteDeleted) {
           showToast(`✅ "${title}" ImgBB server aur catalog dono se permanently delete ho gaya!`);
-        } else if (data.imgbbOutcome && !data.imgbbOutcome.remoteDeleted) {
-          const manualUrl = data.imgbbOutcome.rawDeleteUrl || data.deleteUrl;
-          if (manualUrl) {
-            alert(`⚠️ ImgBB Remote Deletion Unconfirmed:\n\nCatalog se entry remove ho gayi hai, lekin ImgBB server ne deletion confirm nahi kiya.\n\nKripya is link par jaakar manually delete karein:\n${manualUrl}`);
-            window.open(manualUrl, '_blank');
-          }
-          showToast(`ℹ️ "${title}" catalog se remove ho gaya (ImgBB manual cleanup requested).`);
         } else if (data.databaseOutcome?.catalogOnly) {
-          showToast(`ℹ️ "${title}" catalog se remove ho gaya (remote cloud file retain ki gayi).`);
+          showToast(`✅ "${title}" D1 catalog aur media vault se remove ho gaya!`);
         } else {
           showToast(`✅ "${title}" successfully delete ho gaya!`);
         }
@@ -2799,31 +3049,11 @@
         if (currentInventoryTab === 'b2') loadB2Inventory();
         if (currentInventoryTab === 'imgbb') loadImgbbInventory();
       } else {
-        // Cloud deletion failed or unconfirmed - keep asset visible and offer safe choices
         const errMsg = data.message || 'Remote cloud deletion could not be completed';
-        if (data.canRemoveCatalogOnly) {
-          if (confirm(`⚠️ Remote Cloud Deletion Issue:\n${errMsg}\n\nKya aap ise remote cloud se delete kiye bina sirf "Catalog se remove" karna chahte hain?`)) {
-            // Attempt catalog-only removal
-            const catRes = await fetch(`/api/admin/media/${encodeURIComponent(assetId)}`, {
-              method: 'DELETE',
-              headers: { 'Content-Type': 'application/json' },
-              credentials: 'include',
-              body: JSON.stringify({ id: assetId, storageKey, provider, url, deleteUrl, catalogOnly: true })
-            });
-            const catData = await catRes.json().catch(() => ({}));
-            if (catRes.ok && catData.success) {
-              showToast(`ℹ️ "${title}" catalog se remove kar diya gaya.`);
-              loadAllMedia();
-            } else {
-              alert('Catalog removal error: ' + (catData.message || 'Failed'));
-            }
-          }
-        } else {
-          alert(`❌ Deletion Failed:\n${errMsg}\n\nAsset catalog me retain kiya gaya hai taaki aap baad me retry kar sakein.`);
-        }
+        showToast(`⚠️ Delete failed: ${errMsg}`);
       }
     } catch (e) {
-      alert('Delete network error: ' + e.message);
+      showToast('⚠️ Delete network error: ' + e.message);
     } finally {
       activeDeletingIds.delete(assetId);
     }
@@ -2832,33 +3062,30 @@
   // --- Backblaze B2 Direct Object Deletion ---
   async function deleteB2InventoryObject(key, fileId, name) {
     if (activeDeletingIds.has(key)) return;
-    if (!confirm(`Kya aap "${name}" ko Backblaze B2 bucket se permanently delete karna chahte hain? Yeh operation undo nahi ho sakta.`)) return;
+    if (!confirm(`Kya aap "${name}" ko Backblaze B2 bucket aur D1 se permanently delete karna chahte hain? Yeh operation undo nahi ho sakta.`)) return;
 
     activeDeletingIds.add(key);
     showToast(`🗑️ Deleting B2 object: ${name}...`);
 
     try {
-      const res = await fetch('/api/admin/storage/b2/delete', {
+      const res = await fetch('/api/admin/media/bulk-delete', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         credentials: 'include',
-        body: JSON.stringify({ key, fileId })
+        body: JSON.stringify({ items: [{ id: key, storageKey: key, fileId, provider: 'b2' }], force: true })
       });
       const data = await res.json().catch(() => ({}));
 
       if (res.ok && data.success) {
-        if (data.allVersionsDeleted) {
-          showToast(`✅ B2 object "${name}" permanently delete ho gaya (koi version baaki nahi)!`);
-        } else {
-          showToast(`✅ B2 version delete ho gaya (${data.remainingVersionsCount} older version(s) remain).`);
-        }
+        selectedB2InvKeys.delete(key);
+        showToast(`✅ B2 object "${name}" Backblaze B2 aur D1 se permanently delete ho gaya!`);
         loadB2Inventory();
         loadAllMedia();
       } else {
-        alert('B2 delete failed: ' + (data.message || 'Storage error'));
+        showToast('⚠️ B2 delete failed: ' + (data.message || 'Storage error'));
       }
     } catch (e) {
-      alert('B2 delete error: ' + e.message);
+      showToast('⚠️ B2 delete error: ' + e.message);
     } finally {
       activeDeletingIds.delete(key);
     }
@@ -2867,50 +3094,151 @@
   // --- ImgBB Catalog Asset Deletion ---
   async function deleteImgbbInventoryAsset(id, url, name, deleteUrl) {
     if (activeDeletingIds.has(id || url)) return;
-    if (!confirm(`Kya aap "${name}" ko ImgBB server aur catalog se permanently delete karna chahte hain?`)) return;
+    if (!confirm(`Kya aap "${name}" ko ImgBB server aur D1 catalog se permanently delete karna chahte hain?`)) return;
 
     activeDeletingIds.add(id || url);
-    showToast(`🗑️ Deleting ImgBB asset: ${name} from ImgBB server...`);
+    showToast(`🗑️ Deleting ImgBB asset: ${name} from ImgBB server & D1...`);
 
     try {
-      const res = await fetch('/api/admin/storage/imgbb/delete', {
+      const res = await fetch('/api/admin/media/bulk-delete', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         credentials: 'include',
-        body: JSON.stringify({ id, url, deleteUrl })
+        body: JSON.stringify({ items: [{ id, url, deleteUrl, provider: 'imgbb' }], force: true })
       });
       const data = await res.json().catch(() => ({}));
 
       if (res.ok && data.success) {
-        if (data.imgbbRemoteDeleted) {
-          showToast(`✅ ImgBB asset "${name}" ImgBB server aur database dono se permanently delete ho gaya!`);
-        } else {
-          showToast(`ℹ️ ImgBB asset "${name}" database catalog se remove kiya gaya (remote image retained).`);
-        }
+        selectedImgbbInvItems.delete(id || url);
+        showToast(`✅ ImgBB asset "${name}" ImgBB aur database se delete ho gaya!`);
         loadImgbbInventory();
         loadAllMedia();
-      } else if (data.canRemoveCatalogOnly) {
-        if (confirm(`⚠️ Remote ImgBB verification incomplete:\n${data.message || ''}\n\nKya aap ise database catalog se remove karna chahte hain?`)) {
-          const catRes = await fetch('/api/admin/storage/imgbb/delete', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            credentials: 'include',
-            body: JSON.stringify({ id, url, deleteUrl, catalogOnly: true })
-          });
-          const catData = await catRes.json().catch(() => ({}));
-          if (catRes.ok && catData.success) {
-            showToast(`ℹ️ ImgBB asset "${name}" catalog se remove kar diya gaya.`);
-            loadImgbbInventory();
-            loadAllMedia();
-          }
-        }
       } else {
-        alert('ImgBB delete failed: ' + (data.message || 'Server error'));
+        showToast('⚠️ ImgBB delete failed: ' + (data.message || 'Server error'));
       }
     } catch (e) {
-      alert('ImgBB delete error: ' + e.message);
+      showToast('⚠️ ImgBB delete error: ' + e.message);
     } finally {
       activeDeletingIds.delete(id || url);
+    }
+  }
+
+  // --- Storage Inventory Multi-Select Helpers ---
+  function toggleSelectB2InvItem(key, fileId, name, isChecked) {
+    if (isChecked) selectedB2InvKeys.set(key, { key, fileId, name });
+    else selectedB2InvKeys.delete(key);
+    updateB2InvSelectionUI();
+  }
+
+  function toggleSelectAllB2Inv(isChecked) {
+    const checkboxes = document.querySelectorAll('.chk-b2-inv-row');
+    checkboxes.forEach(cb => {
+      cb.checked = isChecked;
+      const key = cb.dataset.key;
+      const fileId = cb.dataset.fileId || '';
+      const name = cb.dataset.name || key;
+      if (isChecked) selectedB2InvKeys.set(key, { key, fileId, name });
+      else selectedB2InvKeys.delete(key);
+    });
+    updateB2InvSelectionUI();
+  }
+
+  function updateB2InvSelectionUI() {
+    const btn = document.getElementById('btn-bulk-delete-b2-inv');
+    const lbl = document.getElementById('btn-bulk-delete-b2-inv-label');
+    const count = selectedB2InvKeys.size;
+    if (btn) btn.disabled = count === 0;
+    if (lbl) lbl.innerText = `Delete Selected B2 (${count})`;
+  }
+
+  async function bulkDeleteSelectedB2Inventory() {
+    if (selectedB2InvKeys.size === 0) return;
+    const list = Array.from(selectedB2InvKeys.values());
+    if (!confirm(`Kya aap chune gaye ${list.length} Backblaze B2 object(s) ko B2 bucket aur D1 database se permanently delete karna chahte hain?`)) return;
+
+    showToast(`🗑️ Deleting ${list.length} B2 objects from Backblaze B2 & D1...`);
+    try {
+      const res = await fetch('/api/admin/media/bulk-delete', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        credentials: 'include',
+        body: JSON.stringify({
+          items: list.map(i => ({ id: i.key, storageKey: i.key, fileId: i.fileId, provider: 'b2' })),
+          force: true
+        })
+      });
+      const data = await res.json().catch(() => ({}));
+      if (res.ok && data.success) {
+        selectedB2InvKeys.clear();
+        updateB2InvSelectionUI();
+        showToast(`✅ ${data.deletedCount || list.length} B2 object(s) deleted!`);
+        loadB2Inventory();
+        loadAllMedia();
+      } else {
+        showToast('⚠️ Bulk B2 delete failed: ' + (data.message || 'Error'));
+      }
+    } catch (e) {
+      showToast('⚠️ Bulk B2 delete error: ' + e.message);
+    }
+  }
+
+  function toggleSelectImgbbInvItem(itemKey, id, url, name, deleteUrl, isChecked) {
+    if (isChecked) selectedImgbbInvItems.set(itemKey, { id, url, name, deleteUrl });
+    else selectedImgbbInvItems.delete(itemKey);
+    updateImgbbInvSelectionUI();
+  }
+
+  function toggleSelectAllImgbbInv(isChecked) {
+    const checkboxes = document.querySelectorAll('.chk-imgbb-inv-row');
+    checkboxes.forEach(cb => {
+      cb.checked = isChecked;
+      const itemKey = cb.dataset.itemKey;
+      const id = cb.dataset.id || '';
+      const url = cb.dataset.url || '';
+      const name = cb.dataset.name || '';
+      const deleteUrl = cb.dataset.deleteUrl || '';
+      if (isChecked) selectedImgbbInvItems.set(itemKey, { id, url, name, deleteUrl });
+      else selectedImgbbInvItems.delete(itemKey);
+    });
+    updateImgbbInvSelectionUI();
+  }
+
+  function updateImgbbInvSelectionUI() {
+    const btn = document.getElementById('btn-bulk-delete-imgbb-inv');
+    const lbl = document.getElementById('btn-bulk-delete-imgbb-inv-label');
+    const count = selectedImgbbInvItems.size;
+    if (btn) btn.disabled = count === 0;
+    if (lbl) lbl.innerText = `Delete Selected ImgBB (${count})`;
+  }
+
+  async function bulkDeleteSelectedImgbbInventory() {
+    if (selectedImgbbInvItems.size === 0) return;
+    const list = Array.from(selectedImgbbInvItems.values());
+    if (!confirm(`Kya aap chune gaye ${list.length} ImgBB image(s) ko ImgBB server aur D1 database se permanently delete karna chahte hain?`)) return;
+
+    showToast(`🗑️ Deleting ${list.length} ImgBB assets from ImgBB & D1...`);
+    try {
+      const res = await fetch('/api/admin/media/bulk-delete', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        credentials: 'include',
+        body: JSON.stringify({
+          items: list.map(i => ({ id: i.id, url: i.url, deleteUrl: i.deleteUrl, provider: 'imgbb' })),
+          force: true
+        })
+      });
+      const data = await res.json().catch(() => ({}));
+      if (res.ok && data.success) {
+        selectedImgbbInvItems.clear();
+        updateImgbbInvSelectionUI();
+        showToast(`✅ ${data.deletedCount || list.length} ImgBB asset(s) deleted!`);
+        loadImgbbInventory();
+        loadAllMedia();
+      } else {
+        showToast('⚠️ Bulk ImgBB delete failed: ' + (data.message || 'Error'));
+      }
+    } catch (e) {
+      showToast('⚠️ Bulk ImgBB delete error: ' + e.message);
     }
   }
 
@@ -2958,7 +3286,7 @@
     const prefix = document.getElementById('inv-b2-prefix-input')?.value.trim() || '';
 
     if (!startFileName && tbody) {
-      tbody.innerHTML = `<tr><td colspan="6" class="p-8 text-center text-outline animate-pulse">Scanning Backblaze B2 bucket objects...</td></tr>`;
+      tbody.innerHTML = `<tr><td colspan="7" class="p-8 text-center text-outline animate-pulse">Scanning Backblaze B2 bucket objects...</td></tr>`;
     }
 
     try {
@@ -2972,9 +3300,9 @@
 
       if (!data.success) {
         if (data.error && data.error.code === 'B2_NOT_CONFIGURED') {
-          tbody.innerHTML = `<tr><td colspan="6" class="p-8 text-center text-amber-300">⚠️ Backblaze B2 credentials are not configured in environment secrets. (B2_KEY_ID &amp; B2_APPLICATION_KEY)</td></tr>`;
+          tbody.innerHTML = `<tr><td colspan="7" class="p-8 text-center text-amber-300">⚠️ Backblaze B2 credentials are not configured in environment secrets. (B2_KEY_ID &amp; B2_APPLICATION_KEY)</td></tr>`;
         } else {
-          tbody.innerHTML = `<tr><td colspan="6" class="p-8 text-center text-rose-400">Failed to load B2 objects: ${escapeHtml(data.message || (data.error && data.error.message) || 'Error')}</td></tr>`;
+          tbody.innerHTML = `<tr><td colspan="7" class="p-8 text-center text-rose-400">Failed to load B2 objects: ${escapeHtml(data.message || (data.error && data.error.message) || 'Error')}</td></tr>`;
         }
         return;
       }
@@ -2990,7 +3318,7 @@
 
       const files = data.files || [];
       if (files.length === 0) {
-        tbody.innerHTML = `<tr><td colspan="6" class="p-8 text-center text-outline">No storage objects found matching prefix "${escapeHtml(prefix)}".</td></tr>`;
+        tbody.innerHTML = `<tr><td colspan="7" class="p-8 text-center text-outline">No storage objects found matching prefix "${escapeHtml(prefix)}".</td></tr>`;
         return;
       }
 
@@ -2998,12 +3326,16 @@
         const isAudio = f.contentType?.includes('audio') || f.key.endsWith('.mp3') || f.key.endsWith('.wav');
         const formattedSize = f.sizeBytes ? `${(f.sizeBytes / (1024 * 1024)).toFixed(2)} MB` : (f.sizeFormatted || 'Unknown');
         const uploadDate = f.uploadTimestamp ? new Date(f.uploadTimestamp).toLocaleString() : 'Unknown';
+        const isChecked = selectedB2InvKeys.has(f.key);
         const d1Status = f.hasD1Record
           ? `<span class="px-2 py-0.5 rounded bg-emerald-950 text-emerald-300 font-bold border border-emerald-800">Catalogued</span>`
           : `<span class="px-2 py-0.5 rounded bg-amber-950 text-amber-300 font-bold border border-amber-800">Cloud Only</span>`;
 
         return `
           <tr class="hover:bg-purple-950/20 transition">
+            <td class="p-3">
+              <input type="checkbox" class="chk-b2-inv-row w-4 h-4 rounded cursor-pointer" data-key="${escapeHtml(f.key)}" data-file-id="${escapeHtml(f.fileId || '')}" data-name="${escapeHtml(f.displayTitle || f.filename || f.key)}" ${isChecked ? 'checked' : ''} onchange="toggleSelectB2InvItem(this.dataset.key, this.dataset.fileId, this.dataset.name, this.checked)"/>
+            </td>
             <td class="p-3">
               <div class="font-bold text-white truncate max-w-xs" title="${escapeHtml(f.key)}">${escapeHtml(f.filename || f.key)}</div>
               <div class="text-[10px] text-outline truncate max-w-xs flex items-center gap-1">
@@ -3040,8 +3372,9 @@
           </tr>
         `;
       }).join('');
+      updateB2InvSelectionUI();
     } catch (err) {
-      if (tbody) tbody.innerHTML = `<tr><td colspan="6" class="p-8 text-center text-rose-400">Network error fetching B2 inventory: ${err.message}</td></tr>`;
+      if (tbody) tbody.innerHTML = `<tr><td colspan="7" class="p-8 text-center text-rose-400">Network error fetching B2 inventory: ${err.message}</td></tr>`;
     }
   }
 
@@ -3053,20 +3386,20 @@
 
   async function loadImgbbInventory() {
     const tbody = document.getElementById('inv-imgbb-table-body');
-    if (tbody) tbody.innerHTML = `<tr><td colspan="6" class="p-8 text-center text-outline animate-pulse">Cataloging application-managed ImgBB image assets...</td></tr>`;
+    if (tbody) tbody.innerHTML = `<tr><td colspan="7" class="p-8 text-center text-outline animate-pulse">Cataloging application-managed ImgBB image assets...</td></tr>`;
 
     try {
       const res = await fetch('/api/admin/storage/imgbb/inventory', { credentials: 'include' });
       const data = await res.json();
 
       if (!data.success) {
-        tbody.innerHTML = `<tr><td colspan="6" class="p-8 text-center text-rose-400">Failed to load ImgBB assets: ${escapeHtml(data.message || 'Error')}</td></tr>`;
+        tbody.innerHTML = `<tr><td colspan="7" class="p-8 text-center text-rose-400">Failed to load ImgBB assets: ${escapeHtml(data.message || 'Error')}</td></tr>`;
         return;
       }
 
       const assets = data.assets || [];
       if (assets.length === 0) {
-        tbody.innerHTML = `<tr><td colspan="6" class="p-8 text-center text-outline">No ImgBB image records recorded in database.</td></tr>`;
+        tbody.innerHTML = `<tr><td colspan="7" class="p-8 text-center text-outline">No ImgBB image records recorded in database.</td></tr>`;
         return;
       }
 
@@ -3074,9 +3407,14 @@
         const btnId = `btn-verify-img-${idx}`;
         const sizeFormatted = a.sizeBytes ? `${(a.sizeBytes / 1024).toFixed(1)} KB` : 'ImgBB Web';
         const dims = a.dimensions || 'Dynamic';
+        const itemKey = String(a.id || a.url || idx);
+        const isChecked = selectedImgbbInvItems.has(itemKey);
 
         return `
           <tr class="hover:bg-purple-950/20 transition">
+            <td class="p-3">
+              <input type="checkbox" class="chk-imgbb-inv-row w-4 h-4 rounded cursor-pointer" data-item-key="${escapeHtml(itemKey)}" data-id="${escapeHtml(a.id || '')}" data-url="${escapeHtml(a.url || '')}" data-name="${escapeHtml(a.title || '')}" data-delete-url="${escapeHtml(a.deleteUrl || '')}" ${isChecked ? 'checked' : ''} onchange="toggleSelectImgbbInvItem(this.dataset.itemKey, this.dataset.id, this.dataset.url, this.dataset.name, this.dataset.deleteUrl, this.checked)"/>
+            </td>
             <td class="p-3">
               <img src="${a.thumbnailUrl || a.url}" alt="" class="w-10 h-10 object-cover rounded-lg border border-purple-900/40 bg-surface-container-high cursor-pointer" onclick="openLightboxImage('${a.url}', '${escapeHtml(a.title)}')" onerror="this.onerror=null;this.src='/assets/file_ab2082.png';"/>
             </td>
@@ -3110,8 +3448,9 @@
           </tr>
         `;
       }).join('');
+      updateImgbbInvSelectionUI();
     } catch (err) {
-      if (tbody) tbody.innerHTML = `<tr><td colspan="6" class="p-8 text-center text-rose-400">Network error fetching ImgBB catalog: ${err.message}</td></tr>`;
+      if (tbody) tbody.innerHTML = `<tr><td colspan="7" class="p-8 text-center text-rose-400">Network error fetching ImgBB catalog: ${err.message}</td></tr>`;
     }
   }
 

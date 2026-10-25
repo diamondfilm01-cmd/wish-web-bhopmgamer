@@ -20575,15 +20575,19 @@ export default {
           }
         ];
 
+        const deletedDemoSet = new Set(Array.isArray(settings.deletedDemoAssetIds) ? settings.deletedDemoAssetIds : []);
         const allAssetsMap = new Map();
-        defaultAssets.forEach(a => allAssetsMap.set(a.id, {
-          ...a,
-          catalogType: 'demo_asset',
-          uploaderRole: 'admin',
-          userId: 'usr_admin_master',
-          userName: 'Admin Studio',
-          userEmail: 'ankit.babusaini@gmail.com'
-        }));
+        defaultAssets.forEach(a => {
+          if (deletedDemoSet.has(a.id)) return;
+          allAssetsMap.set(a.id, {
+            ...a,
+            catalogType: 'demo_asset',
+            uploaderRole: 'admin',
+            userId: 'usr_admin_master',
+            userName: 'Admin Studio',
+            userEmail: 'ankit.babusaini@gmail.com'
+          });
+        });
 
         const usersLookupMap = new Map();
         const wishesLookupMap = new Map();
@@ -20890,12 +20894,12 @@ export default {
               if (!key) return;
               // Check if key is already represented in allAssetsMap
               const alreadyPresent = Array.from(allAssetsMap.values()).some(a => a.storageKey === key || a.id === b.entity_id || a.id === b.id);
-              if (!alreadyPresent) {
+              if (!alreadyPresent && !allAssetsMap.has(b.id)) {
                 const isMusic = b.entity_type === 'music' || key.startsWith('music/');
                 const isVideo = key.startsWith('videos/') || key.startsWith('video/');
                 const mediaType = isMusic ? 'audio' : (isVideo ? 'video' : 'file');
                 const streamUrl = `/api/media/stream?key=${encodeURIComponent(key)}`;
-                allAssetsMap.set(`untracked_${b.id}`, {
+                allAssetsMap.set(b.id, {
                   id: b.id,
                   title: resolveSafeDisplayTitle(null, null, key),
                   type: mediaType,
@@ -21481,6 +21485,309 @@ export default {
         }
       }
 
+      // --- Bulk Multi-Select Media Deletion (Strictly Scoped to Selected IDs Only: ImgBB + Backblaze B2 + D1) ---
+      else if (pathname === '/api/admin/media/bulk-delete' && (method === 'POST' || method === 'DELETE')) {
+        const user = await getAuthenticatedUser(request, env);
+        if (!user) return applySecurityHeaders(jsonError('AUTH_REQUIRED', 'Admin authentication required', 401), request, env);
+        const isAdmin = await verifyAdminRole(user, env);
+        if (!isAdmin) return applySecurityHeaders(jsonError('FORBIDDEN', 'Admin privileges required', 403), request, env);
+
+        const body = await request.json().catch(() => ({}));
+        const items = Array.isArray(body.items) ? body.items : (Array.isArray(body.ids) ? body.ids.map(id => ({ id })) : []);
+        if (items.length === 0) {
+          return applySecurityHeaders(jsonError('BAD_REQUEST', 'At least one media item is required in items[] for bulk deletion', 400), request, env);
+        }
+
+        const results = [];
+        let deletedCount = 0;
+        let b2DeletedCount = 0;
+        let imgbbDeletedCount = 0;
+        let d1DeletedCount = 0;
+        let failedCount = 0;
+
+        const b2Config = getB2Config(env);
+        const b2Client = b2Config.isConfigured ? B2StorageProvider.fromEnv(env) : null;
+        const imgbbClient = ImgBBProvider.fromEnv(env);
+        const DEMO_IDS = new Set(['ast_hero_default', 'ast_unboxing_cover', 'vid_sparkles_particles']);
+        let demoSettingsModified = false;
+        let siteSettingsObj = null;
+
+        for (const rawItem of items) {
+          const itemObj = typeof rawItem === 'string' ? { id: rawItem } : (rawItem || {});
+          const targetId = String(itemObj.id || '').trim();
+          const clientKey = String(itemObj.storageKey || itemObj.key || '').trim() || null;
+          const clientUrl = String(itemObj.url || '').trim() || null;
+          const clientDeleteUrl = String(itemObj.deleteUrl || itemObj.delete_url || '').trim() || null;
+          const clientFileId = String(itemObj.fileId || '').trim() || null;
+          const clientProvider = String(itemObj.provider || itemObj.storageProvider || '').trim().toLowerCase() || null;
+
+          if (!targetId && !clientKey && !clientUrl) {
+            failedCount++;
+            results.push({ id: null, success: false, error: 'Missing id, storageKey, and url' });
+            continue;
+          }
+
+          // Handle built-in demo asset deletion strictly for the selected demo ID
+          if (targetId && DEMO_IDS.has(targetId)) {
+            try {
+              if (!siteSettingsObj) siteSettingsObj = await getSiteSettings(env);
+              const delList = Array.isArray(siteSettingsObj.deletedDemoAssetIds) ? siteSettingsObj.deletedDemoAssetIds : [];
+              if (!delList.includes(targetId)) {
+                delList.push(targetId);
+                siteSettingsObj.deletedDemoAssetIds = delList;
+                demoSettingsModified = true;
+              }
+              deletedCount++;
+              d1DeletedCount++;
+              results.push({ id: targetId, provider: 'static', success: true, b2Deleted: false, imgbbDeleted: false, d1Deleted: true });
+              continue;
+            } catch (_) {}
+          }
+
+          let mediaRecord = null;
+          let candidateDeleteUrls = new Set();
+          let candidateB2Keys = new Set();
+          let candidateB2FileIds = new Map();
+
+          if (clientDeleteUrl) candidateDeleteUrls.add(clientDeleteUrl);
+          if (clientKey) {
+            candidateB2Keys.add(clientKey);
+            if (clientFileId) candidateB2FileIds.set(clientKey, clientFileId);
+          }
+
+          // 1. Resolve ONLY the exact selected record by targetId (never match other rows by shared URL or provider_asset_id)
+          if (env.DB && typeof env.DB.prepare === 'function') {
+            if (targetId) {
+              const mRec = await env.DB.prepare('SELECT id, title, storage_key, playback_url, storage_provider, provider_file_id FROM music_library WHERE id = ? LIMIT 1').bind(targetId).first().catch(() => null);
+              if (mRec) {
+                mediaRecord = mediaRecord || mRec;
+                if (mRec.storage_key) {
+                  candidateB2Keys.add(mRec.storage_key);
+                  if (mRec.provider_file_id) candidateB2FileIds.set(mRec.storage_key, mRec.provider_file_id);
+                }
+              }
+              const wRec = await env.DB.prepare('SELECT id, filename as title, object_key as storage_key, url as playback_url, delete_url, storage_provider, wish_id FROM wish_media WHERE id = ? LIMIT 1').bind(targetId).first().catch(() => null);
+              if (wRec) {
+                mediaRecord = mediaRecord || wRec;
+                if (wRec.storage_key) candidateB2Keys.add(wRec.storage_key);
+                if (wRec.delete_url) candidateDeleteUrls.add(wRec.delete_url);
+              }
+              const tRec = await env.DB.prepare('SELECT id, asset_key as title, provider_asset_id, original_url as playback_url, delete_url, storage_provider FROM template_images WHERE id = ? LIMIT 1').bind(targetId).first().catch(() => null);
+              if (tRec) {
+                mediaRecord = mediaRecord || tRec;
+                if (tRec.delete_url) candidateDeleteUrls.add(tRec.delete_url);
+              }
+              const libRec = await env.DB.prepare('SELECT id, title, url as playback_url, storage_key, delete_url FROM media_library WHERE id = ? LIMIT 1').bind(targetId).first().catch(() => null);
+              if (libRec) {
+                mediaRecord = mediaRecord || libRec;
+                if (libRec.storage_key) candidateB2Keys.add(libRec.storage_key);
+                if (libRec.delete_url) candidateDeleteUrls.add(libRec.delete_url);
+              }
+              const b2ById = await env.DB.prepare('SELECT id, object_key as storage_key, public_url as playback_url, file_id as provider_file_id FROM b2_storage_objects WHERE id = ? OR entity_id = ? LIMIT 1').bind(targetId, targetId).first().catch(() => null);
+              if (b2ById) {
+                mediaRecord = mediaRecord || b2ById;
+                if (b2ById.storage_key) {
+                  candidateB2Keys.add(b2ById.storage_key);
+                  if (b2ById.provider_file_id) candidateB2FileIds.set(b2ById.storage_key, b2ById.provider_file_id);
+                }
+              }
+            } else if (clientKey) {
+              // Direct B2 Inventory deletion where no D1 row ID was passed, only the exact B2 object key
+              const b2ByKey = await env.DB.prepare('SELECT id, object_key as storage_key, public_url as playback_url, file_id as provider_file_id FROM b2_storage_objects WHERE object_key = ? LIMIT 1').bind(clientKey).first().catch(() => null);
+              if (b2ByKey) {
+                mediaRecord = b2ByKey;
+                if (b2ByKey.provider_file_id) candidateB2FileIds.set(clientKey, b2ByKey.provider_file_id);
+              }
+            }
+          }
+
+          let itemB2Deleted = false;
+          let itemImgbbDeleted = false;
+          let itemD1Deleted = false;
+          const errors = [];
+
+          // 2. Delete ONLY the exact selected record from D1 tables first
+          if (env.DB && typeof env.DB.prepare === 'function') {
+            try {
+              if (targetId) {
+                await env.DB.prepare('DELETE FROM wish_media WHERE id = ?').bind(targetId).run().catch(() => {});
+                await env.DB.prepare('DELETE FROM wish_media_mappings WHERE media_id = ?').bind(targetId).run().catch(() => {});
+                await env.DB.prepare('DELETE FROM music_library WHERE id = ?').bind(targetId).run().catch(() => {});
+                await env.DB.prepare('DELETE FROM template_music WHERE music_id = ?').bind(targetId).run().catch(() => {});
+                await env.DB.prepare('DELETE FROM template_images WHERE id = ?').bind(targetId).run().catch(() => {});
+                await env.DB.prepare('DELETE FROM b2_storage_objects WHERE id = ? OR entity_id = ?').bind(targetId, targetId).run().catch(() => {});
+                await env.DB.prepare('DELETE FROM media_library WHERE id = ?').bind(targetId).run().catch(() => {});
+                await env.DB.prepare('DELETE FROM moderation_items WHERE id = ? OR target_id = ?').bind(targetId, targetId).run().catch(() => {});
+                await env.DB.prepare('DELETE FROM storage_quarantine WHERE id = ?').bind(targetId).run().catch(() => {});
+
+                // If this is a synthesized customer wish custom_data media asset (usr_photo_<wishId>_<idx>, usr_voice_<wishId>, usr_video_<wishId>)
+                const usrMatch = targetId.match(/^(?:usr|wish)_(photo|voice|video|audio)_(.+)$/);
+                if (usrMatch) {
+                  const mediaKind = usrMatch[1];
+                  const rest = usrMatch[2];
+                  let resolvedWishId = itemObj.wishId || rest;
+                  let photoIdx = null;
+                  if (mediaKind === 'photo') {
+                    const idxMatch = rest.match(/^(.*)_(\d+)$/);
+                    if (idxMatch) {
+                      resolvedWishId = idxMatch[1];
+                      photoIdx = parseInt(idxMatch[2], 10);
+                    }
+                  }
+                  if (resolvedWishId) {
+                    const wRow = await env.DB.prepare('SELECT id, custom_data FROM wishes WHERE id = ? OR slug = ? LIMIT 1').bind(resolvedWishId, resolvedWishId).first().catch(() => null);
+                    if (wRow && wRow.custom_data) {
+                      try {
+                        const cData = JSON.parse(wRow.custom_data);
+                        let modified = false;
+                        if (mediaKind === 'photo') {
+                          if (Array.isArray(cData.photos)) {
+                            if (photoIdx !== null && photoIdx >= 0 && photoIdx < cData.photos.length && (!clientUrl || (typeof cData.photos[photoIdx] === 'string' ? cData.photos[photoIdx] === clientUrl : (cData.photos[photoIdx]?.url === clientUrl || cData.photos[photoIdx]?.src === clientUrl)))) {
+                              cData.photos.splice(photoIdx, 1);
+                              modified = true;
+                            } else if (clientUrl) {
+                              const foundIdx = cData.photos.findIndex(p => (typeof p === 'string' ? p === clientUrl : (p?.url === clientUrl || p?.src === clientUrl)));
+                              if (foundIdx !== -1) {
+                                cData.photos.splice(foundIdx, 1);
+                                modified = true;
+                              }
+                            }
+                          }
+                          if (clientUrl && cData.cover_photo === clientUrl) {
+                            delete cData.cover_photo;
+                            modified = true;
+                          }
+                        } else if (mediaKind === 'voice' || mediaKind === 'audio') {
+                          if (cData.voice_note) {
+                            delete cData.voice_note;
+                            modified = true;
+                          }
+                          if (clientUrl && cData.voiceNoteUrl === clientUrl) {
+                            delete cData.voiceNoteUrl;
+                            modified = true;
+                          }
+                        } else if (mediaKind === 'video') {
+                          if (cData.video) {
+                            delete cData.video;
+                            modified = true;
+                          }
+                          if (cData.videoUrl) {
+                            delete cData.videoUrl;
+                            modified = true;
+                          }
+                        }
+                        if (modified) {
+                          await env.DB.prepare('UPDATE wishes SET custom_data = ? WHERE id = ?').bind(JSON.stringify(cData), wRow.id).run().catch(() => {});
+                        }
+                      } catch (_) {}
+                    }
+                  }
+                }
+              } else if (clientKey && !targetId) {
+                // Direct B2 object deletion from B2 Inventory table
+                await env.DB.prepare('DELETE FROM b2_storage_objects WHERE object_key = ?').bind(clientKey).run().catch(() => {});
+              }
+
+              itemD1Deleted = true;
+            } catch (dbErr) {
+              errors.push(`D1: ${dbErr.message}`);
+            }
+          }
+
+          // 3. Delete from Backblaze B2 ONLY if no remaining unselected D1 record still uses that storage_key
+          if (candidateB2Keys.size > 0) {
+            for (const b2Key of candidateB2Keys) {
+              if (!b2Key || b2Key.startsWith('http://') || b2Key.startsWith('https://')) continue;
+              let stillReferencedInD1 = false;
+              if (env.DB && typeof env.DB.prepare === 'function') {
+                const refMusic = await env.DB.prepare('SELECT id FROM music_library WHERE storage_key = ? LIMIT 1').bind(b2Key).first().catch(() => null);
+                const refWish = !refMusic ? await env.DB.prepare('SELECT id FROM wish_media WHERE object_key = ? LIMIT 1').bind(b2Key).first().catch(() => null) : null;
+                const refLib = (!refMusic && !refWish) ? await env.DB.prepare('SELECT id FROM media_library WHERE storage_key = ? LIMIT 1').bind(b2Key).first().catch(() => null) : null;
+                stillReferencedInD1 = Boolean(refMusic || refWish || refLib);
+                if (!stillReferencedInD1) {
+                  await env.DB.prepare('DELETE FROM b2_storage_objects WHERE object_key = ?').bind(b2Key).run().catch(() => {});
+                }
+              }
+              if (!stillReferencedInD1 && b2Client) {
+                try {
+                  const fId = candidateB2FileIds.get(b2Key) || clientFileId || null;
+                  const delRes = await b2Client.deleteObject({ key: b2Key, fileId: fId });
+                  if (delRes && delRes.success) {
+                    itemB2Deleted = true;
+                  }
+                } catch (b2Err) {
+                  errors.push(`B2(${b2Key}): ${b2Err.message}`);
+                }
+              }
+            }
+          }
+
+          // 4. Delete from ImgBB ONLY if no remaining unselected D1 record still uses that delete_url
+          if (candidateDeleteUrls.size > 0 && imgbbClient) {
+            for (const delUrl of candidateDeleteUrls) {
+              if (!delUrl) continue;
+              let stillReferencedInD1 = false;
+              if (env.DB && typeof env.DB.prepare === 'function') {
+                const refTpl = await env.DB.prepare('SELECT id FROM template_images WHERE delete_url = ? LIMIT 1').bind(delUrl).first().catch(() => null);
+                const refWish = !refTpl ? await env.DB.prepare('SELECT id FROM wish_media WHERE delete_url = ? LIMIT 1').bind(delUrl).first().catch(() => null) : null;
+                const refLib = (!refTpl && !refWish) ? await env.DB.prepare('SELECT id FROM media_library WHERE delete_url = ? LIMIT 1').bind(delUrl).first().catch(() => null) : null;
+                stillReferencedInD1 = Boolean(refTpl || refWish || refLib);
+              }
+              if (!stillReferencedInD1) {
+                try {
+                  const imgRes = await imgbbClient.deleteImage(delUrl);
+                  if (imgRes && imgRes.success && imgRes.remoteDeleted) {
+                    itemImgbbDeleted = true;
+                  }
+                } catch (imgErr) {
+                  errors.push(`ImgBB: ${imgErr.message}`);
+                }
+              }
+            }
+          }
+
+          if (itemB2Deleted) b2DeletedCount++;
+          if (itemImgbbDeleted) imgbbDeletedCount++;
+          if (itemD1Deleted) d1DeletedCount++;
+
+          const itemSuccess = Boolean(itemD1Deleted || itemB2Deleted || itemImgbbDeleted);
+          if (itemSuccess) deletedCount++;
+          else failedCount++;
+
+          results.push({
+            id: targetId || clientKey || clientUrl,
+            provider: clientProvider || mediaRecord?.storage_provider || 'd1',
+            success: itemSuccess,
+            b2Deleted: itemB2Deleted,
+            imgbbDeleted: itemImgbbDeleted,
+            d1Deleted: itemD1Deleted,
+            errors: errors.length > 0 ? errors : undefined
+          });
+        }
+
+        if (demoSettingsModified && siteSettingsObj) {
+          await saveSiteSettings(env, siteSettingsObj, { id: 'admin', role: 'admin' }).catch(() => {});
+        }
+
+        try {
+          if (typeof invalidateAdminCache === 'function') {
+            invalidateAdminCache('');
+          }
+        } catch (_) {}
+
+        response = jsonSuccess({
+          success: deletedCount > 0,
+          totalRequested: items.length,
+          deletedCount,
+          b2DeletedCount,
+          imgbbDeletedCount,
+          d1DeletedCount,
+          failedCount,
+          results,
+          message: `Successfully deleted ${deletedCount} of ${items.length} selected media asset(s) across ImgBB, Backblaze B2, and D1.`
+        }, 200, {}, requestId);
+      }
+
       // --- Universal Media Deletion (Provider-Aware: Backblaze B2, ImgBB, D1 Catalog) ---
       else if ((pathname === '/api/admin/media/delete' || pathname.startsWith('/api/admin/media/')) && (method === 'DELETE' || method === 'POST')) {
         const user = await getAuthenticatedUser(request, env);
@@ -21496,14 +21803,34 @@ export default {
         const targetId = body.id || urlObj.searchParams.get('id') || pathname.replace('/api/admin/media/', '').replace('/delete', '').trim();
         const clientKey = body.storageKey || body.key || null;
         const clientProvider = body.provider || null;
-        const allowCatalogOnly = Boolean(body.catalogOnly || body.removeCatalogOnly);
+        const clientUrl = body.url || null;
+        const allowCatalogOnly = Boolean(body.catalogOnly || body.removeCatalogOnly || body.autoFallbackCatalog);
         const forceDelete = Boolean(body.force);
 
         if (!targetId && !clientKey) {
           return applySecurityHeaders(jsonError('BAD_REQUEST', 'Target media ID or storageKey is required', 400), request, env);
         }
 
-        // 1. Resolve authoritative record from D1
+        // Handle built-in demo asset deletion strictly for the selected demo ID
+        const DEMO_IDS = new Set(['ast_hero_default', 'ast_unboxing_cover', 'vid_sparkles_particles']);
+        if (targetId && DEMO_IDS.has(targetId)) {
+          const settings = await getSiteSettings(env);
+          const delList = Array.isArray(settings.deletedDemoAssetIds) ? settings.deletedDemoAssetIds : [];
+          if (!delList.includes(targetId)) {
+            delList.push(targetId);
+            settings.deletedDemoAssetIds = delList;
+            await saveSiteSettings(env, settings, { id: 'admin', role: 'admin' }).catch(() => {});
+          }
+          return applySecurityHeaders(jsonSuccess({
+            success: true,
+            id: targetId,
+            provider: 'static',
+            d1Deleted: true,
+            message: `Demo media asset "${targetId}" removed from catalog.`
+          }, 200, {}, requestId), request, env);
+        }
+
+        // 1. Resolve authoritative record from D1 strictly by targetId (or clientKey if targetId is absent)
         let mediaRecord = null;
         let sourceTable = null;
         if (env.DB && typeof env.DB.prepare === 'function') {
@@ -21517,16 +21844,24 @@ export default {
             mediaRecord = await env.DB.prepare('SELECT id, filename as title, object_key as storage_key, url as playback_url, delete_url, storage_provider, mime_type, wish_id FROM wish_media WHERE id = ? LIMIT 1').bind(targetId).first().catch(() => null);
             if (mediaRecord) sourceTable = 'wish_media';
           }
-          // Check template_images
+          // Check template_images strictly by id (fallback to provider_asset_id ONLY if no row matched id)
           if (!mediaRecord && targetId) {
-            mediaRecord = await env.DB.prepare('SELECT id, asset_key as title, provider_asset_id, original_url as playback_url, delete_url, storage_provider, mime_type, template_id, template_version_id FROM template_images WHERE id = ? OR provider_asset_id = ? LIMIT 1').bind(targetId, targetId).first().catch(() => null);
+            mediaRecord = await env.DB.prepare('SELECT id, asset_key as title, provider_asset_id, original_url as playback_url, delete_url, storage_provider, mime_type, template_id, template_version_id FROM template_images WHERE id = ? LIMIT 1').bind(targetId).first().catch(() => null);
+            if (!mediaRecord) {
+              mediaRecord = await env.DB.prepare('SELECT id, asset_key as title, provider_asset_id, original_url as playback_url, delete_url, storage_provider, mime_type, template_id, template_version_id FROM template_images WHERE provider_asset_id = ? LIMIT 1').bind(targetId).first().catch(() => null);
+            }
             if (mediaRecord) sourceTable = 'template_images';
           }
           // Check b2_storage_objects
           if (!mediaRecord && (targetId || clientKey)) {
-            const queryKey = clientKey || targetId;
-            mediaRecord = await env.DB.prepare('SELECT id, object_key as storage_key, public_url as playback_url, file_id as provider_file_id, "b2" as storage_provider FROM b2_storage_objects WHERE id = ? OR object_key = ? LIMIT 1').bind(queryKey, queryKey).first().catch(() => null);
+            const queryKey = targetId || clientKey;
+            mediaRecord = await env.DB.prepare('SELECT id, object_key as storage_key, public_url as playback_url, file_id as provider_file_id, "b2" as storage_provider FROM b2_storage_objects WHERE id = ? OR object_key = ? LIMIT 1').bind(queryKey, clientKey || queryKey).first().catch(() => null);
             if (mediaRecord) sourceTable = 'b2_storage_objects';
+          }
+          // Check media_library
+          if (!mediaRecord && targetId) {
+            mediaRecord = await env.DB.prepare('SELECT id, title, url as playback_url, storage_key, delete_url, type as mime_type FROM media_library WHERE id = ? LIMIT 1').bind(targetId).first().catch(() => null);
+            if (mediaRecord) sourceTable = 'media_library';
           }
         }
 
@@ -21558,11 +21893,30 @@ export default {
           } catch (_) {}
         }
 
+        // Check if another unselected record in D1 shares the same B2 storage_key or ImgBB delete_url
+        let sharedWithOtherRecord = false;
+        const resolvedRowId = mediaRecord?.id || targetId;
+        if (env.DB && typeof env.DB.prepare === 'function' && resolvedRowId) {
+          if (effectiveProvider === 'b2' && effectiveKey) {
+            const otherMusic = await env.DB.prepare('SELECT id FROM music_library WHERE storage_key = ? AND id != ? LIMIT 1').bind(effectiveKey, resolvedRowId).first().catch(() => null);
+            const otherWish = !otherMusic ? await env.DB.prepare('SELECT id FROM wish_media WHERE object_key = ? AND id != ? LIMIT 1').bind(effectiveKey, resolvedRowId).first().catch(() => null) : null;
+            sharedWithOtherRecord = Boolean(otherMusic || otherWish);
+          } else if (effectiveProvider === 'imgbb' && effectiveDeleteUrl) {
+            const otherTpl = await env.DB.prepare('SELECT id FROM template_images WHERE delete_url = ? AND id != ? LIMIT 1').bind(effectiveDeleteUrl, resolvedRowId).first().catch(() => null);
+            const otherWish = !otherTpl ? await env.DB.prepare('SELECT id FROM wish_media WHERE delete_url = ? AND id != ? LIMIT 1').bind(effectiveDeleteUrl, resolvedRowId).first().catch(() => null) : null;
+            sharedWithOtherRecord = Boolean(otherTpl || otherWish);
+          }
+        }
+
         let cloudSuccess = false;
         let cloudOutcome = { provider: effectiveProvider, attempted: false, deleted: false, message: '' };
 
-        // 3. Provider-Aware Remote Deletion
-        if (effectiveProvider === 'b2') {
+        // 3. Provider-Aware Remote Deletion (Skip remote destruction if another unselected record shares this cloud asset)
+        if (sharedWithOtherRecord) {
+          cloudSuccess = true;
+          cloudOutcome.deleted = false;
+          cloudOutcome.message = 'Shared cloud object preserved for other unselected catalog entries';
+        } else if (effectiveProvider === 'b2') {
           cloudOutcome.attempted = true;
           const b2Config = getB2Config(env);
           if (!b2Config.isConfigured) {
@@ -21615,21 +21969,72 @@ export default {
           cloudOutcome.message = 'Local catalog asset';
         }
 
-        // 4. Update Database only when cloud deletion succeeded OR catalogOnly requested
+        // 4. Update Database strictly for the selected record ID (never wipe unselected rows by URL or shared key)
         let d1Deleted = false;
         if (cloudSuccess || allowCatalogOnly) {
           if (env.DB && typeof env.DB.prepare === 'function') {
             try {
-              if (targetId) {
-                await env.DB.prepare('DELETE FROM wish_media WHERE id = ?').bind(targetId).run().catch(() => {});
-                await env.DB.prepare('DELETE FROM music_library WHERE id = ?').bind(targetId).run().catch(() => {});
-                await env.DB.prepare('DELETE FROM template_images WHERE id = ? OR provider_asset_id = ?').bind(targetId, targetId).run().catch(() => {});
-                await env.DB.prepare('DELETE FROM b2_storage_objects WHERE id = ? OR entity_id = ?').bind(targetId, targetId).run().catch(() => {});
+              if (resolvedRowId) {
+                await env.DB.prepare('DELETE FROM wish_media WHERE id = ?').bind(resolvedRowId).run().catch(() => {});
+                await env.DB.prepare('DELETE FROM wish_media_mappings WHERE media_id = ?').bind(resolvedRowId).run().catch(() => {});
+                await env.DB.prepare('DELETE FROM music_library WHERE id = ?').bind(resolvedRowId).run().catch(() => {});
+                await env.DB.prepare('DELETE FROM template_music WHERE music_id = ?').bind(resolvedRowId).run().catch(() => {});
+                await env.DB.prepare('DELETE FROM template_images WHERE id = ?').bind(resolvedRowId).run().catch(() => {});
+                await env.DB.prepare('DELETE FROM b2_storage_objects WHERE id = ? OR entity_id = ?').bind(resolvedRowId, resolvedRowId).run().catch(() => {});
+                await env.DB.prepare('DELETE FROM media_library WHERE id = ?').bind(resolvedRowId).run().catch(() => {});
+                await env.DB.prepare('DELETE FROM moderation_items WHERE id = ? OR target_id = ?').bind(resolvedRowId, resolvedRowId).run().catch(() => {});
+                await env.DB.prepare('DELETE FROM storage_quarantine WHERE id = ?').bind(resolvedRowId).run().catch(() => {});
+
+                // Also handle customer wish custom_data asset if single-deleted (usr_photo_<wishId>_<idx>, usr_voice_<wishId>, usr_video_<wishId>)
+                const usrMatch = String(resolvedRowId).match(/^(?:usr|wish)_(photo|voice|video|audio)_(.+)$/);
+                if (usrMatch) {
+                  const mediaKind = usrMatch[1];
+                  const rest = usrMatch[2];
+                  let resolvedWishId = rest;
+                  let photoIdx = null;
+                  if (mediaKind === 'photo') {
+                    const idxMatch = rest.match(/^(.*)_(\d+)$/);
+                    if (idxMatch) {
+                      resolvedWishId = idxMatch[1];
+                      photoIdx = parseInt(idxMatch[2], 10);
+                    }
+                  }
+                  const wRow = await env.DB.prepare('SELECT id, custom_data FROM wishes WHERE id = ? OR slug = ? LIMIT 1').bind(resolvedWishId, resolvedWishId).first().catch(() => null);
+                  if (wRow && wRow.custom_data) {
+                    try {
+                      const cData = JSON.parse(wRow.custom_data);
+                      let modified = false;
+                      if (mediaKind === 'photo' && Array.isArray(cData.photos)) {
+                        if (photoIdx !== null && photoIdx >= 0 && photoIdx < cData.photos.length) {
+                          cData.photos.splice(photoIdx, 1);
+                          modified = true;
+                        } else if (clientUrl) {
+                          const foundIdx = cData.photos.findIndex(p => (typeof p === 'string' ? p === clientUrl : (p?.url === clientUrl || p?.src === clientUrl)));
+                          if (foundIdx !== -1) {
+                            cData.photos.splice(foundIdx, 1);
+                            modified = true;
+                          }
+                        }
+                      } else if (mediaKind === 'voice' || mediaKind === 'audio') {
+                        if (cData.voice_note) { delete cData.voice_note; modified = true; }
+                      } else if (mediaKind === 'video') {
+                        if (cData.video) { delete cData.video; modified = true; }
+                        if (cData.videoUrl) { delete cData.videoUrl; modified = true; }
+                      }
+                      if (modified) {
+                        await env.DB.prepare('UPDATE wishes SET custom_data = ? WHERE id = ?').bind(JSON.stringify(cData), wRow.id).run().catch(() => {});
+                      }
+                    } catch (_) {}
+                  }
+                }
               }
-              if (effectiveKey && effectiveProvider === 'b2') {
+              if (effectiveKey && effectiveProvider === 'b2' && !sharedWithOtherRecord) {
                 await env.DB.prepare('DELETE FROM b2_storage_objects WHERE object_key = ?').bind(effectiveKey).run().catch(() => {});
-                await env.DB.prepare('DELETE FROM music_library WHERE storage_key = ?').bind(effectiveKey).run().catch(() => {});
-                await env.DB.prepare('DELETE FROM wish_media WHERE object_key = ?').bind(effectiveKey).run().catch(() => {});
+                if (!resolvedRowId || resolvedRowId === effectiveKey) {
+                  await env.DB.prepare('DELETE FROM music_library WHERE storage_key = ?').bind(effectiveKey).run().catch(() => {});
+                  await env.DB.prepare('DELETE FROM wish_media WHERE object_key = ?').bind(effectiveKey).run().catch(() => {});
+                  await env.DB.prepare('DELETE FROM media_library WHERE storage_key = ?').bind(effectiveKey).run().catch(() => {});
+                }
               }
               d1Deleted = true;
             } catch (dbErr) {
@@ -21638,6 +22043,12 @@ export default {
             }
           }
         }
+
+        try {
+          if (typeof invalidateAdminCache === 'function') {
+            invalidateAdminCache('');
+          }
+        } catch (_) {}
 
         response = jsonSuccess({
           success: true,
