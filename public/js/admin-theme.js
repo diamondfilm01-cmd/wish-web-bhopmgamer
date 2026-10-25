@@ -1387,6 +1387,15 @@ function mountVessaAdminShell() {
     settingsLink.innerHTML = `<span class="material-symbols-outlined text-[18px]">settings</span>`;
     rightDiv.appendChild(settingsLink);
 
+    // Mobile Quick Theme Wipe Button (1-Tap Sun/Moon in Top Header on <768px)
+    const mobileThemeBtn = document.createElement('button');
+    mobileThemeBtn.type = 'button';
+    mobileThemeBtn.className = 'vessa-icon-circle-btn md:hidden';
+    mobileThemeBtn.title = 'Switch Light / Dark Theme';
+    mobileThemeBtn.setAttribute('onclick', 'toggleAdminTheme(event)');
+    mobileThemeBtn.innerHTML = `<span class="material-symbols-outlined text-[18px]" id="vessa-mobile-top-theme-icon">${document.documentElement.classList.contains('dark') ? 'light_mode' : 'dark_mode'}</span>`;
+    rightDiv.appendChild(mobileThemeBtn);
+
     // Notification Bell wrapper
     const notifWrap = document.createElement('div');
     notifWrap.className = 'relative';
@@ -1456,6 +1465,23 @@ function mountVessaAdminShell() {
   if (sidebar && !sidebar.dataset.vessaMounted) {
     sidebar.dataset.vessaMounted = 'true';
 
+    const mobileDrawerHeader = document.createElement('div');
+    mobileDrawerHeader.className = 'vessa-mobile-drawer-header';
+    mobileDrawerHeader.innerHTML = `
+      <a href="${SECRET_ADMIN_PREFIX}/overview" class="vessa-brand-block">
+        <div class="vessa-brand-logo-circle !w-8 !h-8">
+          <span class="material-symbols-outlined text-[18px]">experiment</span>
+        </div>
+        <div class="flex flex-col">
+          <span class="text-[14px] font-extrabold text-on-surface leading-tight">WishMagic</span>
+          <span class="text-[10px] font-semibold text-on-surface-variant leading-tight">Admin Studio</span>
+        </div>
+      </a>
+      <button type="button" class="vessa-icon-circle-btn !w-8 !h-8" onclick="toggleSidebar(false)" aria-label="Close Sidebar">
+        <span class="material-symbols-outlined text-[18px]">close</span>
+      </button>
+    `;
+
     const capsule = document.createElement('div');
     capsule.className = 'vessa-theme-capsule';
     capsule.innerHTML = `
@@ -1467,6 +1493,7 @@ function mountVessaAdminShell() {
       </button>
     `;
     sidebar.insertBefore(capsule, sidebar.firstChild);
+    sidebar.insertBefore(mobileDrawerHeader, capsule);
 
     // Ensure all 23 sections inside #wm-sidebar-more-group are visible as icons on the rail or in expanded mode
     const moreGroup = document.getElementById('wm-sidebar-more-group');
@@ -1521,6 +1548,10 @@ function updateThemeIcons(isDark) {
     const active = (target === 'dark' && isDark) || (target === 'light' && !isDark);
     btn.setAttribute('aria-pressed', active ? 'true' : 'false');
   });
+  const mobIcon = document.getElementById('vessa-mobile-top-theme-icon');
+  if (mobIcon) {
+    mobIcon.textContent = isDark ? 'light_mode' : 'dark_mode';
+  }
 }
 
 // Exact Circular View-Transition Theme Wipe from Video (src > ui.ts > wipe)

@@ -233,9 +233,7 @@
       <!-- Top Cloud Header -->
       <header class="clay-topbar">
         <div class="flex items-center gap-3 flex-1 min-w-[240px]">
-          <button type="button" id="clay-sidebar-open-mobile" class="clay-btn lg:hidden !p-2.5" aria-label="Open Navigation">
-            <i class="fa-solid fa-bars"></i>
-          </button>
+
           <div class="relative flex-1 max-w-md">
             <i class="fa-solid fa-magnifying-glass absolute left-4 top-1/2 -translate-y-1/2 opacity-50 text-sm"></i>
             <input
@@ -362,29 +360,71 @@
   </div>
 
   <!-- ======================================================================
-       MOBILE BOTTOM 3D CLAY DOCK
+       UNIFIED HORIZONTAL SCROLLABLE BOTTOM SECTION BAR (ALL SECTIONS DIRECTLY)
        ====================================================================== -->
-  <nav class="clay-mobile-dock" aria-label="Mobile Quick Navigation">
-    <button type="button" class="clay-btn !py-2 !px-3 text-xs" data-section="overview">
-      <i class="fa-solid fa-chart-pie"></i>
-      <span>Home</span>
-    </button>
-    <button type="button" class="clay-btn !py-2 !px-3 text-xs" data-section="templates">
-      <i class="fa-solid fa-layer-group"></i>
-      <span>Templates</span>
-    </button>
-    <button type="button" class="clay-btn clay-btn-primary !py-2 !px-3.5 text-xs" data-section="festivals">
-      <i class="fa-solid fa-rocket"></i>
-      <span>Festivals</span>
-    </button>
-    <button type="button" class="clay-btn !py-2 !px-3 text-xs" data-section="settings">
-      <i class="fa-solid fa-sliders"></i>
-      <span>Settings</span>
-    </button>
-    <button type="button" id="clay-mobile-more-btn" class="clay-btn !py-2 !px-3 text-xs">
-      <i class="fa-solid fa-bars"></i>
-      <span>All 21</span>
-    </button>
+  <nav class="clay-mobile-dock" aria-label="Bottom Section Navigation Bar">
+    <div class="clay-bottom-scroll-track">
+      <button type="button" class="clay-btn clay-btn-primary !py-2 !px-3.5 text-xs" data-section="overview">
+        <i class="fa-solid fa-chart-pie"></i>
+        <span>Dashboard</span>
+      </button>
+      <button type="button" class="clay-btn !py-2 !px-3.5 text-xs" data-section="templates">
+        <i class="fa-solid fa-layer-group"></i>
+        <span>Templates</span>
+      </button>
+      <button type="button" class="clay-btn !py-2 !px-3.5 text-xs" data-section="add-template">
+        <i class="fa-solid fa-cloud-arrow-up"></i>
+        <span>+ Upload ZIP</span>
+      </button>
+      <button type="button" class="clay-btn !py-2 !px-3.5 text-xs" data-section="media">
+        <i class="fa-solid fa-photo-film"></i>
+        <span>Media Library</span>
+      </button>
+      <button type="button" class="clay-btn !py-2 !px-3.5 text-xs" data-section="festivals">
+        <i class="fa-solid fa-calendar-check"></i>
+        <span>Festivals</span>
+      </button>
+      <button type="button" class="clay-btn !py-2 !px-3.5 text-xs" data-section="wishes">
+        <i class="fa-solid fa-heart"></i>
+        <span>Wishes</span>
+      </button>
+      <button type="button" class="clay-btn !py-2 !px-3.5 text-xs" data-section="pricing">
+        <i class="fa-solid fa-crown"></i>
+        <span>VIP Plans</span>
+      </button>
+      <button type="button" class="clay-btn !py-2 !px-3.5 text-xs" data-section="orders">
+        <i class="fa-solid fa-receipt"></i>
+        <span>Orders</span>
+      </button>
+      <button type="button" class="clay-btn !py-2 !px-3.5 text-xs" data-section="users">
+        <i class="fa-solid fa-users"></i>
+        <span>Users</span>
+      </button>
+      <button type="button" class="clay-btn !py-2 !px-3.5 text-xs" data-section="analytics">
+        <i class="fa-solid fa-chart-line"></i>
+        <span>Analytics</span>
+      </button>
+      <button type="button" class="clay-btn !py-2 !px-3.5 text-xs" data-section="notifications">
+        <i class="fa-solid fa-bell"></i>
+        <span>Alerts</span>
+      </button>
+      <button type="button" class="clay-btn !py-2 !px-3.5 text-xs" data-section="occasions">
+        <i class="fa-solid fa-tags"></i>
+        <span>Categories</span>
+      </button>
+      <button type="button" class="clay-btn !py-2 !px-3.5 text-xs" data-section="storage-health">
+        <i class="fa-solid fa-server"></i>
+        <span>Storage</span>
+      </button>
+      <button type="button" class="clay-btn !py-2 !px-3.5 text-xs" data-section="audit-logs">
+        <i class="fa-solid fa-clipboard-list"></i>
+        <span>Audit Logs</span>
+      </button>
+      <button type="button" class="clay-btn !py-2 !px-3.5 text-xs" data-section="settings">
+        <i class="fa-solid fa-sliders"></i>
+        <span>Settings</span>
+      </button>
+    </div>
   </nav>
 
   <!-- ======================================================================
