@@ -4,7 +4,7 @@
   const originalFetch = window.fetch.bind(window);
   const inFlightGets = new Map();
   const CACHE_PREFIX = 'wm_api_fastcache_v1:';
-  const CACHE_TTL_MS = 20000;
+  const CACHE_TTL_MS = 45000;
 
   function clearAdminApiCache() {
     try {
@@ -170,7 +170,7 @@ const AdminAuthController = (() => {
   }
 
   const SESSION_CACHE_KEY = 'wm_verified_admin_session_v1';
-  const SESSION_CACHE_TTL_MS = 60000;
+  const SESSION_CACHE_TTL_MS = 180000;
 
   function saveVerifiedSessionCache(sessionObj) {
     try {
@@ -1153,7 +1153,11 @@ function initAdminNavigationAndNotifications() {
   rewriteAdminSidebarLinks();
   handleAdminQueryActions();
   initGlobalAdminCommandSearch();
-  loadLiveAdminHeaderNotifications();
+  if (typeof window.requestIdleCallback === "function") {
+    window.requestIdleCallback(() => loadLiveAdminHeaderNotifications(), { timeout: 2000 });
+  } else {
+    setTimeout(() => loadLiveAdminHeaderNotifications(), 1200);
+  }
 
   // Compatibility aliases for page refresh callbacks
   if (typeof window.loadAuditLogs !== 'function' && typeof window.loadLogs === 'function') {
@@ -1178,7 +1182,7 @@ function initAdminNavigationAndNotifications() {
   }
 
   if (!window.__wmAdminNotifTimer) {
-    window.__wmAdminNotifTimer = setInterval(loadLiveAdminHeaderNotifications, 30000);
+    window.__wmAdminNotifTimer = setInterval(loadLiveAdminHeaderNotifications, 60000);
   }
 
   if (!window.__wmAdminAutoRefreshTimer) {
@@ -1216,7 +1220,7 @@ function initAdminNavigationAndNotifications() {
           if (typeof window.loadAdminReferralData === 'function') window.loadAdminReferralData();
         }
       } catch (_) {}
-    }, 20000);
+    }, 45000);
   }
 
   const sidebarNav = document.querySelector('#admin-sidebar nav, aside nav');
@@ -1349,7 +1353,7 @@ function mountVessaAdminShell() {
 
     // Left Zone: Mobile Menu + Brand Emblem + WishMagic
     const leftDiv = document.createElement('div');
-    leftDiv.className = 'flex items-center gap-3 flex-shrink-0';
+    leftDiv.className = 'flex items-center gap-2.5 sm:gap-3 flex-shrink-0';
     leftDiv.innerHTML = `
       <button type="button" class="md:hidden vessa-icon-circle-btn" onclick="toggleSidebar()" aria-label="Open Navigation">
         <span class="material-symbols-outlined text-[20px]">menu</span>
@@ -1460,11 +1464,58 @@ function mountVessaAdminShell() {
     }
   }
 
-  // 2. Mount Vessa Vertical Sun/Moon Theme Wipe Capsule & Expand Button in <aside id="admin-sidebar">
+  // 2. Ensure #sidebar-backdrop exists for Mobile Drawer
+  let backdrop = document.getElementById('sidebar-backdrop');
+  if (!backdrop && document.body) {
+    backdrop = document.createElement('div');
+    backdrop.id = 'sidebar-backdrop';
+    backdrop.className = 'fixed inset-0 bg-black/60 z-40 hidden md:hidden transition-opacity';
+    backdrop.setAttribute('onclick', 'toggleSidebar(false)');
+    document.body.appendChild(backdrop);
+  } else if (backdrop) {
+    backdrop.onclick = () => toggleSidebar(false);
+  }
+
+  // 3. Cleanly Rebuild & Normalize <aside id="admin-sidebar"> (Zero Nested Scrollbars, Perfect Mobile Drawer & Desktop Rail)
   const sidebar = document.getElementById('admin-sidebar');
   if (sidebar && !sidebar.dataset.vessaMounted) {
     sidebar.dataset.vessaMounted = 'true';
 
+    const existingNav = sidebar.querySelector('nav');
+    if (existingNav) {
+      existingNav.className = 'vessa-sidebar-nav';
+
+      // Unwrap Dashboard <div class="mb-1 pt-1"> wrapper so Dashboard <a> is a direct child of <nav>
+      const dashLink = existingNav.querySelector('a[data-nav-role="dashboard"], a[href*="/overview"], a[href*="admin-overview"]');
+      if (dashLink && dashLink.parentElement && dashLink.parentElement !== existingNav) {
+        const wrapperDiv = dashLink.parentElement;
+        const mainLabel = document.createElement('div');
+        mainLabel.className = 'wm-nav-section-label';
+        mainLabel.textContent = 'MAIN';
+        existingNav.insertBefore(mainLabel, wrapperDiv);
+        existingNav.insertBefore(dashLink, wrapperDiv);
+        wrapperDiv.remove();
+      }
+
+      // Hide legacy "More Studio Sections" button and replace with clean section label
+      const moreBtn = existingNav.querySelector('button[onclick*="toggleMoreSidebarSections"]');
+      if (moreBtn) {
+        const govLabel = document.createElement('div');
+        govLabel.className = 'wm-nav-section-label';
+        govLabel.textContent = 'STUDIO & GOVERNANCE';
+        existingNav.insertBefore(govLabel, moreBtn);
+        moreBtn.style.display = 'none';
+      }
+
+      // Normalize #wm-sidebar-more-group so its 9 links sit flush inside <nav>
+      const moreGroup = existingNav.querySelector('#wm-sidebar-more-group');
+      if (moreGroup) {
+        moreGroup.className = 'vessa-more-group';
+        moreGroup.removeAttribute('style');
+      }
+    }
+
+    // Drawer Header (Visible on Mobile <768px and Desktop Expanded Mode)
     const mobileDrawerHeader = document.createElement('div');
     mobileDrawerHeader.className = 'vessa-mobile-drawer-header';
     mobileDrawerHeader.innerHTML = `
@@ -1477,45 +1528,114 @@ function mountVessaAdminShell() {
           <span class="text-[10px] font-semibold text-on-surface-variant leading-tight">Admin Studio</span>
         </div>
       </a>
-      <button type="button" class="vessa-icon-circle-btn !w-8 !h-8" onclick="toggleSidebar(false)" aria-label="Close Sidebar">
+      <button type="button" class="vessa-icon-circle-btn !w-8 !h-8 md:hidden" onclick="toggleSidebar(false)" aria-label="Close Sidebar">
         <span class="material-symbols-outlined text-[18px]">close</span>
+      </button>
+      <button type="button" class="vessa-icon-circle-btn !w-8 !h-8 hidden md:inline-flex" onclick="window.toggleDesktopSidebarRail()" title="Collapse Sidebar" aria-label="Collapse Sidebar">
+        <span class="material-symbols-outlined text-[18px]">keyboard_double_arrow_left</span>
       </button>
     `;
 
+    // Sun / Moon Theme Wipe Capsule (Vertical in 72px rail, Horizontal labeled switcher in Mobile Drawer & Expanded Sidebar)
     const capsule = document.createElement('div');
     capsule.className = 'vessa-theme-capsule';
     capsule.innerHTML = `
       <button type="button" class="vessa-theme-circle-btn" data-theme-target="light" onclick="window.setTheme('light', this)" title="Light Mode (Circular Wipe)" aria-label="Switch to Light Mode">
-        <span class="material-symbols-outlined text-[18px]">light_mode</span>
+        <span class="material-symbols-outlined text-[17px]">light_mode</span>
+        <span class="vessa-theme-btn-label">Light</span>
       </button>
       <button type="button" class="vessa-theme-circle-btn" data-theme-target="dark" onclick="window.setTheme('dark', this)" title="Dark Mode (Circular Wipe)" aria-label="Switch to Dark Mode">
-        <span class="material-symbols-outlined text-[17px]">dark_mode</span>
+        <span class="material-symbols-outlined text-[16px]">dark_mode</span>
+        <span class="vessa-theme-btn-label">Dark</span>
       </button>
     `;
-    sidebar.insertBefore(capsule, sidebar.firstChild);
-    sidebar.insertBefore(mobileDrawerHeader, capsule);
 
-    // Ensure all 23 sections inside #wm-sidebar-more-group are visible as icons on the rail or in expanded mode
-    const moreGroup = document.getElementById('wm-sidebar-more-group');
-    if (moreGroup) {
-      moreGroup.classList.remove('hidden');
-      moreGroup.style.borderLeft = 'none';
-      moreGroup.style.marginLeft = '0';
-      moreGroup.style.paddingLeft = '0';
+    // Single Unified Scroll Container for Navigation
+    const scroller = document.createElement('div');
+    scroller.className = 'vessa-sidebar-scroll custom-scrollbar';
+    if (existingNav) {
+      scroller.appendChild(existingNav);
     }
 
-    // Add bottom rail button to expand/collapse full text labels for all 23 sections
+    // Bottom Desktop Expand/Collapse Button
     const expandBtn = document.createElement('button');
     expandBtn.type = 'button';
     expandBtn.className = 'vessa-rail-expand-btn';
     expandBtn.title = 'Expand / Collapse All 23 Studio Sections';
-    expandBtn.innerHTML = `<span class="material-symbols-outlined text-[19px]" id="vessa-rail-expand-icon">dock_to_right</span>`;
-    expandBtn.addEventListener('click', () => {
-      const isExp = sidebar.classList.toggle('vessa-rail-expanded');
+    expandBtn.innerHTML = `
+      <span class="material-symbols-outlined text-[19px]" id="vessa-rail-expand-icon">dock_to_right</span>
+      <span class="vessa-rail-expand-label">Collapse Sidebar</span>
+    `;
+
+    window.toggleDesktopSidebarRail = function(forceState) {
+      const isExp = typeof forceState === 'boolean'
+        ? forceState
+        : !sidebar.classList.contains('vessa-rail-expanded');
+      sidebar.classList.toggle('vessa-rail-expanded', isExp);
+      document.body.classList.toggle('vessa-sidebar-expanded', isExp);
       const ic = document.getElementById('vessa-rail-expand-icon');
       if (ic) ic.textContent = isExp ? 'keyboard_double_arrow_left' : 'dock_to_right';
-    });
+      const tip = document.getElementById('vessa-rail-floating-tooltip');
+      if (tip) tip.classList.remove('visible');
+      try {
+        localStorage.setItem('wm_vessa_rail_expanded', isExp ? '1' : '0');
+      } catch (_) {}
+    };
+
+    expandBtn.addEventListener('click', () => window.toggleDesktopSidebarRail());
+
+    // Replace inner sidebar DOM cleanly
+    sidebar.innerHTML = '';
+    sidebar.appendChild(mobileDrawerHeader);
+    sidebar.appendChild(capsule);
+    sidebar.appendChild(scroller);
     sidebar.appendChild(expandBtn);
+
+    // Restore user desktop expanded preference if saved
+    try {
+      if (window.innerWidth >= 768 && localStorage.getItem('wm_vessa_rail_expanded') === '1') {
+        window.toggleDesktopSidebarRail(true);
+      }
+    } catch (_) {}
+
+    // Floating Tooltip for Desktop Collapsed 72px Icon Rail (Never clipped by scroll container)
+    let railTooltip = document.getElementById('vessa-rail-floating-tooltip');
+    if (!railTooltip && document.body) {
+      railTooltip = document.createElement('div');
+      railTooltip.id = 'vessa-rail-floating-tooltip';
+      railTooltip.className = 'vessa-rail-floating-tooltip';
+      document.body.appendChild(railTooltip);
+    }
+
+    if (railTooltip && existingNav) {
+      existingNav.addEventListener('mouseover', (e) => {
+        if (window.innerWidth < 768 || sidebar.classList.contains('vessa-rail-expanded')) {
+          railTooltip.classList.remove('visible');
+          return;
+        }
+        const link = e.target.closest('a');
+        if (!link) {
+          railTooltip.classList.remove('visible');
+          return;
+        }
+        const labelSpan = link.querySelector('span:not(.material-symbols-outlined):not(.vessa-rail-badge)');
+        const text = labelSpan ? labelSpan.textContent.trim() : (link.title || '');
+        if (!text) return;
+        const rect = link.getBoundingClientRect();
+        railTooltip.textContent = text;
+        railTooltip.style.top = `${Math.round(rect.top + rect.height / 2)}px`;
+        railTooltip.style.left = `${Math.round(rect.right + 10)}px`;
+        railTooltip.classList.add('visible');
+      });
+
+      existingNav.addEventListener('mouseleave', () => {
+        railTooltip.classList.remove('visible');
+      });
+
+      scroller.addEventListener('scroll', () => {
+        railTooltip.classList.remove('visible');
+      }, { passive: true });
+    }
   }
 }
 
@@ -1580,7 +1700,7 @@ function wipe(origin, change) {
           ]
         },
         {
-          duration: 620,
+          duration: 560,
           easing: 'cubic-bezier(.65,0,.35,1)',
           pseudoElement: '::view-transition-new(root)'
         }
@@ -1655,10 +1775,14 @@ function toggleSidebar(forceOpen) {
     if (backdrop) backdrop.classList.remove('hidden');
     if (window.innerWidth < 768) {
       document.body.style.overflow = 'hidden';
-      const firstLink = sidebar.querySelector('nav a, button');
-      if (firstLink && typeof firstLink.focus === 'function') {
-        setTimeout(() => firstLink.focus({ preventScroll: true }), 50);
-      }
+      setTimeout(() => {
+        const activeLink = sidebar.querySelector('nav a.wm-nav-active, nav a.active');
+        const scroller = sidebar.querySelector('.vessa-sidebar-scroll');
+        if (activeLink && scroller) {
+          const topOffset = activeLink.offsetTop - Math.max(60, scroller.clientHeight / 3);
+          scroller.scrollTo({ top: Math.max(0, topOffset), behavior: 'smooth' });
+        }
+      }, 60);
     }
   } else {
     sidebar.classList.add('-translate-x-full');

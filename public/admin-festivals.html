@@ -10,18 +10,18 @@
   <link crossorigin="" href="https://fonts.gstatic.com" rel="preconnect"/>
   <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;600;700&amp;family=Plus+Jakarta+Sans:wght@400;500;600;700;800&amp;display=swap" rel="stylesheet"/>
   <link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:opsz,wght,FILL,GRAD@20..48,100..700,0..1,-50..200&amp;display=swap" rel="stylesheet"/>
-  <script src="js/tailwind-config.js?v=20261015_wm47944_v7"></script>
+  <script src="js/tailwind-config.js?v=20261025_vessa_mobile_v10"></script>
   <script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
   <script>
     if (typeof tailwind !== 'undefined' && typeof sharedTailwindConfig !== 'undefined') {
       tailwind.config = sharedTailwindConfig;
     }
   </script>
-  <link rel="stylesheet" href="css/admin-theme.css?v=20261015_wm47944_v7"/>
+  <link rel="stylesheet" href="css/admin-theme.css?v=20261025_vessa_mobile_v10"/>
   <script src="js/WishMagicCore.js"></script>
-  <script src="js/admin-theme.js?v=20261015_wm47944_v7"></script>
+  <script src="js/admin-theme.js?v=20261025_vessa_mobile_v10"></script>
   <script src="js/api-client.js"></script>
-  <script src="js/auth-service.js?v=20261015_wm47944_v7"></script>
+  <script src="js/auth-service.js?v=20261025_vessa_mobile_v10"></script>
   <script src="js/repositories.js"></script>
 </head>
 <body class="bg-background text-on-surface font-body-md min-h-screen antialiased selection:bg-primary selection:text-white">
@@ -342,7 +342,7 @@
 
     <!-- Navigation Tabs for Required Admin Sections A–H -->
     <div class="px-4 sm:px-8 pt-4">
-      <div class="flex flex-wrap gap-2 border-b border-outline-variant/25 pb-3" role="tablist" aria-label="Festival Scheduler Sections">
+      <div class="flex flex-nowrap sm:flex-wrap overflow-x-auto custom-scrollbar gap-2 border-b border-outline-variant/25 pb-3" role="tablist" aria-label="Festival Scheduler Sections">
         <button type="button" role="tab" aria-selected="true" data-section-tab="section-calendar" onclick="switchSchedulerTab('section-calendar')" class="scheduler-tab-btn px-3.5 py-2 rounded-xl text-xs font-bold bg-primary text-white cursor-pointer">A. Festival Calendar</button>
         <button type="button" role="tab" aria-selected="false" data-section-tab="section-details" onclick="switchSchedulerTab('section-details')" class="scheduler-tab-btn px-3.5 py-2 rounded-xl text-xs font-bold bg-surface-container text-on-surface hover:bg-surface-container-high cursor-pointer">B. Festival Details</button>
         <button type="button" role="tab" aria-selected="false" data-section-tab="section-assignments" onclick="switchSchedulerTab('section-assignments')" class="scheduler-tab-btn px-3.5 py-2 rounded-xl text-xs font-bold bg-surface-container text-on-surface hover:bg-surface-container-high cursor-pointer">C. Template Assignments</button>
@@ -365,7 +365,7 @@
             <p class="text-xs text-on-surface-variant">Resolved festival dates, verification statuses, manual overrides, publication windows (<code>F - daysBefore</code> through <code>F + 3 days</code> inclusive), and 1-click Main Website launch controls.</p>
           </div>
           <div class="flex flex-wrap items-center gap-2">
-            <input type="search" id="calendar-search-input" oninput="renderFestivalCalendarTable()" placeholder="Search festival name or slug..." class="rounded-xl bg-surface-container border border-outline-variant/40 text-xs px-3.5 py-2 text-on-surface w-60" aria-label="Search festivals"/>
+            <input type="search" id="calendar-search-input" oninput="renderFestivalCalendarTable()" placeholder="Search festival name or slug..." class="rounded-xl bg-surface-container border border-outline-variant/40 text-xs px-3.5 py-2 text-on-surface w-full sm:w-60" aria-label="Search festivals"/>
             <select id="calendar-status-filter" onchange="renderFestivalCalendarTable()" class="rounded-xl bg-surface-container border border-outline-variant/40 text-xs px-3 py-2 text-on-surface" aria-label="Filter by verification status">
               <option value="all">All Statuses</option>
               <option value="AUTO_VERIFIED">Auto-Verified</option>
@@ -504,7 +504,7 @@
             </div>
             <div class="flex items-center gap-2">
               <label for="assign-campaign-select" class="text-xs font-bold">Target Campaign:</label>
-              <select id="assign-campaign-select" onchange="renderCampaignAssignmentsPanel()" class="rounded-xl bg-surface border border-outline-variant/40 text-xs font-bold px-3 py-2 text-on-surface min-w-[220px]"></select>
+              <select id="assign-campaign-select" onchange="renderCampaignAssignmentsPanel()" class="rounded-xl bg-surface border border-outline-variant/40 text-xs font-bold px-3 py-2 text-on-surface w-full sm:w-auto sm:min-w-[220px]"></select>
             </div>
           </div>
 
@@ -512,7 +512,7 @@
             <div class="space-y-3">
               <div class="flex items-center justify-between gap-2">
                 <h3 class="text-sm font-bold text-on-surface">Available WishMagic Templates</h3>
-                <input type="search" id="assign-template-search" oninput="renderAvailableTemplatesForAssignment()" placeholder="Search templates..." class="rounded-xl bg-surface border border-outline-variant/40 text-xs px-3 py-1.5 text-on-surface w-48"/>
+                <input type="search" id="assign-template-search" oninput="renderAvailableTemplatesForAssignment()" placeholder="Search templates..." class="rounded-xl bg-surface border border-outline-variant/40 text-xs px-3 py-1.5 text-on-surface w-full sm:w-48"/>
               </div>
               <div id="assign-available-templates-list" class="space-y-2 max-h-[420px] overflow-y-auto pr-1"></div>
             </div>

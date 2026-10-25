@@ -10,18 +10,18 @@
   <link crossorigin="" href="https://fonts.gstatic.com" rel="preconnect"/>
   <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;600;700&family=Plus+Jakarta+Sans:wght@400;500;600;700;800&family=Outfit:wght@500;600;700;800&display=swap" rel="stylesheet"/>
   <link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:opsz,wght,FILL,GRAD@20..48,100..700,0..1,-50..200&display=swap" rel="stylesheet"/>
-  <script src="js/tailwind-config.js?v=20261015_wm47944_v7"></script>
+  <script src="js/tailwind-config.js?v=20261025_vessa_mobile_v10"></script>
   <script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
   <script>
     if (typeof tailwind !== 'undefined' && typeof sharedTailwindConfig !== 'undefined') {
       tailwind.config = sharedTailwindConfig;
     }
   </script>
-  <link rel="stylesheet" href="css/admin-theme.css?v=20261015_wm47944_v7"/>
+  <link rel="stylesheet" href="css/admin-theme.css?v=20261025_vessa_mobile_v10"/>
   <script src="js/api-client.js"></script>
-  <script src="js/auth-service.js?v=20261015_wm47944_v7"></script>
+  <script src="js/auth-service.js?v=20261025_vessa_mobile_v10"></script>
   <script src="js/WishMagicCore.js"></script>
-  <script src="js/admin-theme.js?v=20261015_wm47944_v7"></script>
+  <script src="js/admin-theme.js?v=20261025_vessa_mobile_v10"></script>
 
 </head>
 <body class="bg-background text-on-surface font-body-md min-h-screen antialiased selection:bg-primary selection:text-white">
@@ -366,9 +366,9 @@
           <span class="material-symbols-outlined text-cyan-400 text-[22px]">confirmation_number</span>
           <h3 class="font-display text-base font-bold text-on-surface">Support Tickets Desk</h3>
         </div>
-        <div class="flex items-center gap-2">
+        <div class="flex flex-wrap items-center gap-2 w-full sm:w-auto">
           <!-- Status Filters -->
-          <div class="flex items-center gap-1 bg-surface-container-low p-1 rounded-xl text-xs font-bold border border-purple-900/30">
+          <div class="flex flex-wrap items-center gap-1 bg-surface-container-low p-1 rounded-xl text-xs font-bold border border-purple-900/30">
             <button onclick="setAdminTicketFilter('all')" id="flt-all" class="px-2.5 py-1 rounded-lg bg-primary text-white cursor-pointer">All</button>
             <button onclick="setAdminTicketFilter('open')" id="flt-open" class="px-2.5 py-1 rounded-lg text-outline hover:text-white cursor-pointer">Open</button>
             <button onclick="setAdminTicketFilter('in_progress')" id="flt-in_progress" class="px-2.5 py-1 rounded-lg text-outline hover:text-white cursor-pointer">In Progress</button>
