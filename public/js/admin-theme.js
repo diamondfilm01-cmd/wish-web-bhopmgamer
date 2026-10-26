@@ -1524,8 +1524,8 @@ function mountVessaAdminShell() {
           <span class="material-symbols-outlined text-[18px]">experiment</span>
         </div>
         <div class="flex flex-col">
-          <span class="text-[14px] font-extrabold text-on-surface leading-tight">WishMagic</span>
-          <span class="text-[10px] font-semibold text-on-surface-variant leading-tight">Admin Studio</span>
+          <span class="text-[13px] font-extrabold text-on-surface leading-tight">WishMagic</span>
+          <span class="text-[9.5px] font-semibold text-on-surface-variant leading-tight">Studio Menu</span>
         </div>
       </a>
       <button type="button" class="vessa-icon-circle-btn !w-8 !h-8 md:hidden" onclick="toggleSidebar(false)" aria-label="Close Sidebar">
@@ -1591,9 +1591,20 @@ function mountVessaAdminShell() {
     sidebar.appendChild(scroller);
     sidebar.appendChild(expandBtn);
 
-    // Restore user desktop expanded preference if saved
+    // Ensure every nav link has a visible label span and set expanded class on mobile (<768px)
+    if (existingNav) {
+      existingNav.querySelectorAll("a").forEach(a => {
+        const spans = a.querySelectorAll("span:not(.material-symbols-outlined):not(.vessa-rail-badge)");
+        spans.forEach(s => {
+          s.classList.remove("hidden", "md:inline", "lg:inline", "sr-only");
+          s.style.removeProperty("display");
+        });
+      });
+    }
     try {
-      if (window.innerWidth >= 768 && localStorage.getItem('wm_vessa_rail_expanded') === '1') {
+      if (window.innerWidth < 768) {
+        sidebar.classList.add("vessa-rail-expanded");
+      } else if (localStorage.getItem('wm_vessa_rail_expanded') === '1') {
         window.toggleDesktopSidebarRail(true);
       }
     } catch (_) {}
@@ -1770,6 +1781,9 @@ function toggleSidebar(forceOpen) {
   const shouldOpen = typeof forceOpen === 'boolean' ? forceOpen : isCurrentlyClosed;
 
   if (shouldOpen) {
+    if (window.innerWidth < 768) {
+      sidebar.classList.add('vessa-rail-expanded');
+    }
     sidebar.classList.remove('-translate-x-full');
     sidebar.setAttribute('aria-hidden', 'false');
     if (backdrop) backdrop.classList.remove('hidden');

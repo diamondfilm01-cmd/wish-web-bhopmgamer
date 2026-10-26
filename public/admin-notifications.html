@@ -17,11 +17,11 @@
       tailwind.config = sharedTailwindConfig;
     }
   </script>
-  <link rel="stylesheet" href="css/admin-theme.css?v=20261025_vessa_mobile_v10"/>
+  <link rel="stylesheet" href="css/admin-theme.css?v=20261025_vessa_mobile_v11"/>
   <script src="js/api-client.js"></script>
   <script src="js/auth-service.js?v=20261025_vessa_mobile_v10"></script>
   <script src="js/WishMagicCore.js"></script>
-  <script src="js/admin-theme.js?v=20261025_vessa_mobile_v10"></script>
+  <script src="js/admin-theme.js?v=20261025_vessa_mobile_v11"></script>
 
 </head>
 <body class="bg-background text-on-surface font-body-md min-h-screen antialiased selection:bg-primary selection:text-white">
@@ -238,7 +238,7 @@
             <span id="wm-header-notif-badge" class="hidden absolute -top-0.5 -right-0.5 min-w-[18px] h-[18px] px-1 rounded-full bg-rose-500 text-white text-[10px] font-extrabold flex items-center justify-center shadow">0</span>
           </button>
 
-          <!-- Notifications Popover (Populated by loadLiveAdminHeaderNotifications in admin-theme.js) -->
+          <!-- Notifications Popover (Populated by loadLiveAdminHeaderNotifications in admin-theme.js?v=20261025_vessa_mobile_v11) -->
           <div id="wm-admin-notif-dropdown" class="hidden absolute right-0 mt-2 w-80 bg-white dark:bg-[#1a0e36] rounded-2xl border border-purple-200 dark:border-purple-500/30 shadow-2xl p-3.5 z-50 text-xs" onclick="event.stopPropagation()">
             <div class="py-4 text-center text-xs text-on-surface-variant">Loading live notifications...</div>
           </div>
@@ -397,7 +397,7 @@
 </div>
 
 <script>
-    // Uses unified window.toggleSidebar from admin-theme.js
+    // Uses unified window.toggleSidebar from admin-theme.js?v=20261025_vessa_mobile_v11
 
 async function loadQueueData() {
   const statusFilter = document.getElementById('job-status-filter').value;

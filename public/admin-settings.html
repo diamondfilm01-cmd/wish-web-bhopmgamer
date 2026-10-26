@@ -17,11 +17,11 @@
       tailwind.config = sharedTailwindConfig;
     }
   </script>
-  <link rel="stylesheet" href="css/admin-theme.css?v=20261025_vessa_mobile_v10"/>
+  <link rel="stylesheet" href="css/admin-theme.css?v=20261025_vessa_mobile_v11"/>
   <script src="js/api-client.js"></script>
   <script src="js/auth-service.js?v=20261025_vessa_mobile_v10"></script>
   <script src="js/WishMagicCore.js"></script>
-  <script src="js/admin-theme.js?v=20261025_vessa_mobile_v10"></script>
+  <script src="js/admin-theme.js?v=20261025_vessa_mobile_v11"></script>
   <script src="js/wish-lifecycle.js"></script>
   <script src="js/repositories.js"></script>
   <script src="js/analytics-service.js"></script>
@@ -242,7 +242,7 @@
             <span id="wm-header-notif-badge" class="hidden absolute -top-0.5 -right-0.5 min-w-[18px] h-[18px] px-1 rounded-full bg-rose-500 text-white text-[10px] font-extrabold flex items-center justify-center shadow">0</span>
           </button>
 
-          <!-- Notifications Popover (Populated by loadLiveAdminHeaderNotifications in admin-theme.js) -->
+          <!-- Notifications Popover (Populated by loadLiveAdminHeaderNotifications in admin-theme.js?v=20261025_vessa_mobile_v11) -->
           <div id="wm-admin-notif-dropdown" class="hidden absolute right-0 mt-2 w-80 bg-white dark:bg-[#1a0e36] rounded-2xl border border-purple-200 dark:border-purple-500/30 shadow-2xl p-3.5 z-50 text-xs" onclick="event.stopPropagation()">
             <div class="py-4 text-center text-xs text-on-surface-variant">Loading live notifications...</div>
           </div>
@@ -352,7 +352,7 @@
       <div id="settings-search-results" class="hidden p-3.5 rounded-xl bg-surface-container border border-purple-500/35 space-y-2 max-h-80 overflow-y-auto custom-scrollbar"></div>
 
       <!-- 12 Dedicated Category Navigation Pills (Responsive Grid on Mobile & Desktop) -->
-      <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-2" role="tablist" aria-label="Settings Categories">
+      <div class="grid grid-cols-2 sm:grid-cols-2 lg:grid-cols-4 gap-2" role="tablist" aria-label="Settings Categories">
         <button type="button" role="tab" aria-selected="true" id="admin-settings-tab-storefront" onclick="switchAdminSettingsTab('storefront')" class="px-3.5 py-2.5 rounded-xl text-xs font-extrabold transition cursor-pointer flex items-center gap-2 text-left bg-gradient-to-r from-pink-500 to-purple-600 text-white shadow-md">
           <span>🏪</span><span class="truncate">1. Storefront &amp; Homepage</span>
         </button>
@@ -1498,7 +1498,7 @@
         </div>
       </div>
 
-      <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+      <div class="grid grid-cols-2 sm:grid-cols-2 lg:grid-cols-4 gap-2.5 sm:gap-4">
         <div class="p-4 rounded-xl bg-surface-container-low border border-purple-900/30">
           <div class="text-xs font-bold uppercase text-outline">Notification Queue</div>
           <div id="settings-notif-queue-status" class="text-lg font-extrabold text-on-surface mt-1">Loading...</div>

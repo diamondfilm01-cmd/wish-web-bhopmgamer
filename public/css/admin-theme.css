@@ -2,7 +2,7 @@
    WishMagic — Vessa Botanical Sage & Forest Emerald Admin Studio UI (v2026.10.25)
    Pixel-Matched 1:1 to Reference Video (_code_and_chill_ Inventory Dashboard UI)
    Across All 25 Website Admin Pages + Circular View-Transition Theme Wipe
-   + Complete Mobile Drawer, Responsive Sections & Zero-Lag GPU Optimization
+   + Compact Labeled Mobile Drawer (216px), Desktop Rail & Zero-Lag GPU Optimization
    ========================================================================== */
 
 @import url('https://fonts.googleapis.com/css2?family=Instrument+Serif:ital@0;1&family=Plus+Jakarta+Sans:ital,wght@0,400;0,500;0,600;0,700;0,800;1,600;1,700&family=Outfit:wght@500;600;700;800&family=JetBrains+Mono:wght@400;500;600;700&display=swap');
@@ -103,7 +103,7 @@ html:not(.dark) {
 }
 
 html.dark {
-  /* Vessa Deep Forest Obsidian & Mint Emerald — Dark Mode (Matches frame_014.jpg) */
+  /* Vessa Deep Forest Obsidian & Mint Emerald — Dark Mode */
   --color-background: #111714;
   --color-surface: #1a231e;
   --color-surface-variant: #202b25;
@@ -217,14 +217,14 @@ main span.w-1\.5.h-1\.5.animate-pulse {
   animation: none !important;
 }
 
-/* Adjust desktop viewport wrapper for slim 72px Vessa Icon Rail or 264px Expanded Sidebar */
+/* Adjust desktop viewport wrapper for slim 68px Vessa Icon Rail or 216px Expanded Sidebar */
 @media (min-width: 768px) {
   body > div.md\:pl-\[270px\] {
-    padding-left: 72px !important;
-    transition: padding-left 0.22s cubic-bezier(0.22, 1, 0.36, 1);
+    padding-left: 68px !important;
+    transition: padding-left 0.2s cubic-bezier(0.22, 1, 0.36, 1);
   }
   body.vessa-sidebar-expanded > div.md\:pl-\[270px\] {
-    padding-left: 264px !important;
+    padding-left: 216px !important;
   }
 }
 
@@ -476,118 +476,26 @@ html.dark .vessa-avatar-circle {
 
 /* ==========================================================================
    3. UNIFIED SIDE PANEL (aside#admin-sidebar)
-      - Desktop Collapsed Icon Rail (72px, matches reference video 1:1)
-      - Desktop Expanded Labeled Sidebar (264px)
-      - Mobile Full-Height Smooth Slide-Over Drawer (<768px)
+      - Desktop Collapsed Icon Rail (68px resting, matches reference video 1:1)
+      - Desktop Hover / Pinned Expanded Labeled Sidebar (216px compact)
+      - Mobile Compact Labeled Drawer (<768px: 216px, shows ALL icons + section names)
    ========================================================================== */
 aside#admin-sidebar {
   position: fixed !important;
-  top: 64px !important;
-  left: 0 !important;
-  width: 72px !important;
-  height: calc(100vh - 64px) !important;
   background: var(--vessa-rail-bg) !important;
   background-image: none !important;
   border-right: 1px solid var(--vessa-card-border) !important;
-  box-shadow: none !important;
   z-index: 60 !important;
   display: flex !important;
   flex-direction: column !important;
-  align-items: center !important;
   justify-content: flex-start !important;
-  padding: 10px 0 !important;
   overflow: hidden !important;
   will-change: transform, width;
-  transition: width 0.22s cubic-bezier(0.22, 1, 0.36, 1), transform 0.24s cubic-bezier(0.22, 1, 0.36, 1) !important;
+  transition: width 0.2s cubic-bezier(0.22, 1, 0.36, 1), transform 0.22s cubic-bezier(0.22, 1, 0.36, 1) !important;
 }
 
 aside#admin-sidebar::before {
   display: none !important;
-}
-
-/* Expanded Sidebar on Desktop when user clicks Expand button */
-aside#admin-sidebar.vessa-rail-expanded {
-  width: 264px !important;
-  align-items: stretch !important;
-  padding: 0 0 12px 0 !important;
-  box-shadow: 8px 0 28px rgba(0, 0, 0, 0.08) !important;
-}
-
-/* Drawer Header (Hidden in 72px collapsed rail, shown in Expanded Desktop & Mobile Drawer) */
-.vessa-mobile-drawer-header {
-  display: none;
-  align-items: center;
-  justify-content: space-between;
-  gap: 8px;
-  padding: 12px 14px;
-  border-bottom: 1px solid var(--vessa-card-border);
-  background: var(--vessa-header-bg);
-  flex-shrink: 0;
-  width: 100%;
-}
-
-aside#admin-sidebar.vessa-rail-expanded .vessa-mobile-drawer-header {
-  display: flex !important;
-}
-
-/* Sun / Moon Theme Wipe Capsule */
-.vessa-theme-capsule {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  justify-content: space-between;
-  width: 44px;
-  height: 80px;
-  padding: 4px;
-  border-radius: 9999px;
-  background: var(--vessa-pill-track);
-  border: 1px solid var(--vessa-card-border);
-  margin: 0 auto 10px auto;
-  flex-shrink: 0;
-}
-
-.vessa-theme-btn-label {
-  display: none;
-  font-size: 12px;
-  font-weight: 700;
-}
-
-aside#admin-sidebar.vessa-rail-expanded .vessa-theme-capsule {
-  flex-direction: row;
-  width: calc(100% - 24px);
-  height: 40px;
-  margin: 10px 12px 6px 12px;
-  padding: 3px;
-}
-
-aside#admin-sidebar.vessa-rail-expanded .vessa-theme-btn-label {
-  display: inline;
-}
-
-.vessa-theme-circle-btn {
-  width: 34px;
-  height: 34px;
-  border-radius: 9999px;
-  border: none;
-  background: transparent;
-  color: var(--vessa-text-soft);
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  gap: 6px;
-  cursor: pointer;
-  transition: background-color 0.18s ease, color 0.18s ease;
-  padding: 0;
-}
-
-aside#admin-sidebar.vessa-rail-expanded .vessa-theme-circle-btn {
-  flex: 1;
-  width: auto;
-  height: 32px;
-}
-
-.vessa-theme-circle-btn:hover {
-  color: var(--vessa-text-main);
 }
 
 /* Active Sun in Light Mode: Dark Forest Circle (#141E18) with White Sun Icon */
@@ -612,18 +520,6 @@ html.dark .vessa-theme-circle-btn[data-theme-target="dark"] {
   overflow-y: auto !important;
   overflow-x: hidden !important;
   -webkit-overflow-scrolling: touch !important;
-  padding: 2px 0 12px 0 !important;
-  scrollbar-width: none;
-}
-
-.vessa-sidebar-scroll::-webkit-scrollbar {
-  width: 0px;
-  display: none;
-}
-
-aside#admin-sidebar.vessa-rail-expanded .vessa-sidebar-scroll {
-  padding: 4px 10px 16px 10px !important;
-  scrollbar-width: thin;
 }
 
 /* Normalize #wm-sidebar-more-group so all 23 links are direct flex children of <nav> */
@@ -632,121 +528,12 @@ aside#admin-sidebar.vessa-rail-expanded .vessa-sidebar-scroll {
   display: contents !important;
 }
 
-/* Hide section text headers in 72px collapsed icon rail, show in expanded & mobile drawer */
-aside#admin-sidebar:not(.vessa-rail-expanded) .wm-nav-section-label,
-aside#admin-sidebar:not(.vessa-rail-expanded) .wm-sidebar-section-label,
 aside#admin-sidebar button[onclick*="toggleMoreSidebarSections"] {
   display: none !important;
 }
 
-aside#admin-sidebar.vessa-rail-expanded .wm-nav-section-label,
-aside#admin-sidebar.vessa-rail-expanded .wm-sidebar-section-label {
-  display: block !important;
-  font-size: 10px !important;
-  font-weight: 800 !important;
-  letter-spacing: 0.08em !important;
-  text-transform: uppercase !important;
-  color: var(--vessa-text-soft) !important;
-  padding: 12px 12px 4px 12px !important;
-  margin: 0 !important;
-}
-
-/* Navigation Flex List */
-aside#admin-sidebar nav.vessa-sidebar-nav,
-aside#admin-sidebar nav {
-  display: flex !important;
-  flex-direction: column !important;
-  align-items: center !important;
-  gap: 5px !important;
-  width: 100% !important;
-}
-
-aside#admin-sidebar.vessa-rail-expanded nav.vessa-sidebar-nav,
-aside#admin-sidebar.vessa-rail-expanded nav {
-  align-items: stretch !important;
-  gap: 3px !important;
-}
-
-/* Sidebar Links in 72px Collapsed Rail Mode */
-aside#admin-sidebar:not(.vessa-rail-expanded) nav a {
-  position: relative !important;
-  width: 44px !important;
-  height: 44px !important;
-  min-height: 44px !important;
-  padding: 0 !important;
-  margin: 0 auto !important;
-  border-radius: 9999px !important;
-  display: flex !important;
-  align-items: center !important;
-  justify-content: center !important;
-  color: var(--vessa-text-muted) !important;
-  background: transparent !important;
-  border: 1px solid transparent !important;
-  box-shadow: none !important;
-  text-decoration: none !important;
-  flex-shrink: 0 !important;
-  transition: background-color 0.15s ease, color 0.15s ease !important;
-}
-
-/* Hide inline text span in 72px rail (handled by body-level #vessa-rail-floating-tooltip) */
-aside#admin-sidebar:not(.vessa-rail-expanded) nav a > span:not(.material-symbols-outlined):not(.vessa-rail-badge) {
-  display: none !important;
-}
-
-/* Body-level Floating Tooltip for 72px Rail */
-.vessa-rail-floating-tooltip {
-  position: fixed;
-  padding: 6px 12px;
-  border-radius: 9px;
-  background: #141e18;
-  color: #ffffff;
-  font-size: 12px;
-  font-weight: 700;
-  white-space: nowrap;
-  pointer-events: none;
-  opacity: 0;
-  transform: translateY(-50%) translateX(-4px);
-  transition: opacity 0.14s ease, transform 0.14s ease;
-  z-index: 9999;
-  box-shadow: 0 6px 18px rgba(0, 0, 0, 0.22);
-}
-
-html.dark .vessa-rail-floating-tooltip {
-  background: #eff5f1;
-  color: #111c16;
-}
-
-.vessa-rail-floating-tooltip.visible {
-  opacity: 1;
-  transform: translateY(-50%) translateX(0);
-}
-
-/* Sidebar Links in Expanded Mode */
-aside#admin-sidebar.vessa-rail-expanded nav a {
-  width: 100% !important;
-  min-height: 40px !important;
-  padding: 8.5px 12px !important;
-  border-radius: 12px !important;
-  display: flex !important;
-  align-items: center !important;
-  justify-content: flex-start !important;
-  gap: 11px !important;
-  font-size: 13px !important;
-  font-weight: 600 !important;
-  color: var(--vessa-text-muted) !important;
-  text-decoration: none !important;
-  flex-shrink: 0 !important;
-}
-
-aside#admin-sidebar.vessa-rail-expanded nav a > span:not(.material-symbols-outlined):not(.vessa-rail-badge) {
-  display: inline !important;
-  white-space: nowrap !important;
-  overflow: hidden !important;
-  text-overflow: ellipsis !important;
-}
-
 aside#admin-sidebar nav a .material-symbols-outlined {
-  font-size: 20px !important;
+  font-size: 19px !important;
   color: inherit !important;
   flex-shrink: 0 !important;
 }
@@ -756,13 +543,13 @@ aside#admin-sidebar nav a:hover:not(.wm-nav-active):not(.active) {
   color: var(--vessa-text-main) !important;
 }
 
-/* ACTIVE SIDEBAR ITEM — Vibrant Forest Emerald Circle/Pill */
+/* ACTIVE SIDEBAR ITEM — Vibrant Forest Emerald Pill/Circle */
 aside#admin-sidebar nav a.wm-nav-active,
 aside#admin-sidebar nav a.active {
   background: var(--vessa-emerald) !important;
   border-color: transparent !important;
   color: #ffffff !important;
-  box-shadow: 0 3px 10px rgba(30, 127, 78, 0.25) !important;
+  box-shadow: 0 3px 10px rgba(30, 127, 78, 0.24) !important;
   font-weight: 700 !important;
 }
 
@@ -783,45 +570,282 @@ html.dark aside#admin-sidebar nav a.active .material-symbols-outlined {
   color: #0b1911 !important;
 }
 
-/* Bottom Rail Expand/Collapse Toggle Button */
-.vessa-rail-expand-btn {
-  margin: 6px auto 0 auto;
-  width: 42px;
-  height: 42px;
-  border-radius: 9999px;
-  border: 1px solid var(--vessa-card-border);
-  background: var(--vessa-pill-track);
-  color: var(--vessa-text-muted);
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  gap: 8px;
-  cursor: pointer;
-  flex-shrink: 0;
-  transition: background-color 0.16s ease, color 0.16s ease;
-}
-
-.vessa-rail-expand-label {
-  display: none;
-  font-size: 12px;
+/* Body-level Floating Tooltip for Desktop Collapsed Rail */
+.vessa-rail-floating-tooltip {
+  position: fixed;
+  padding: 5px 11px;
+  border-radius: 8px;
+  background: #141e18;
+  color: #ffffff;
+  font-size: 11.5px;
   font-weight: 700;
+  white-space: nowrap;
+  pointer-events: none;
+  opacity: 0;
+  transform: translateY(-50%) translateX(-4px);
+  transition: opacity 0.14s ease, transform 0.14s ease;
+  z-index: 9999;
+  box-shadow: 0 6px 18px rgba(0, 0, 0, 0.22);
 }
 
-aside#admin-sidebar.vessa-rail-expanded .vessa-rail-expand-btn {
-  width: calc(100% - 24px);
-  margin: 6px 12px 0 12px;
-  border-radius: 12px;
-  height: 38px;
+html.dark .vessa-rail-floating-tooltip {
+  background: #eff5f1;
+  color: #111c16;
 }
 
-aside#admin-sidebar.vessa-rail-expanded .vessa-rail-expand-label {
-  display: inline;
+.vessa-rail-floating-tooltip.visible {
+  opacity: 1;
+  transform: translateY(-50%) translateX(0);
 }
 
-.vessa-rail-expand-btn:hover {
-  background: var(--vessa-emerald-soft);
-  color: var(--vessa-emerald-text);
-  border-color: var(--vessa-emerald);
+/* --------------------------------------------------------------------------
+   3A. DESKTOP SIDEBAR RULES (Strictly scoped to @media (min-width: 768px))
+   -------------------------------------------------------------------------- */
+@media (min-width: 768px) {
+  aside#admin-sidebar {
+    top: 64px !important;
+    left: 0 !important;
+    width: 68px !important;
+    height: calc(100vh - 64px) !important;
+    align-items: center !important;
+    padding: 8px 0 !important;
+    box-shadow: none !important;
+  }
+
+  /* Expand to sleek 216px on Hover OR when Pinned (.vessa-rail-expanded) */
+  aside#admin-sidebar.vessa-rail-expanded,
+  aside#admin-sidebar:hover {
+    width: 216px !important;
+    align-items: stretch !important;
+    padding: 0 0 10px 0 !important;
+    box-shadow: 8px 0 26px rgba(0, 0, 0, 0.08) !important;
+  }
+
+  .vessa-mobile-drawer-header {
+    display: none;
+    align-items: center;
+    justify-content: space-between;
+    gap: 6px;
+    padding: 9px 11px;
+    border-bottom: 1px solid var(--vessa-card-border);
+    background: var(--vessa-header-bg);
+    flex-shrink: 0;
+    width: 100%;
+  }
+
+  aside#admin-sidebar.vessa-rail-expanded .vessa-mobile-drawer-header,
+  aside#admin-sidebar:hover .vessa-mobile-drawer-header {
+    display: flex !important;
+  }
+
+  .vessa-theme-capsule {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: space-between;
+    width: 40px;
+    height: 74px;
+    padding: 3px;
+    border-radius: 9999px;
+    background: var(--vessa-pill-track);
+    border: 1px solid var(--vessa-card-border);
+    margin: 0 auto 8px auto;
+    flex-shrink: 0;
+  }
+
+  .vessa-theme-btn-label {
+    display: none;
+    font-size: 11.5px;
+    font-weight: 700;
+  }
+
+  aside#admin-sidebar.vessa-rail-expanded .vessa-theme-capsule,
+  aside#admin-sidebar:hover .vessa-theme-capsule {
+    flex-direction: row;
+    width: calc(100% - 18px);
+    height: 34px;
+    margin: 7px 9px 4px 9px;
+    padding: 2.5px;
+  }
+
+  aside#admin-sidebar.vessa-rail-expanded .vessa-theme-btn-label,
+  aside#admin-sidebar:hover .vessa-theme-btn-label {
+    display: inline;
+  }
+
+  .vessa-theme-circle-btn {
+    width: 32px;
+    height: 32px;
+    border-radius: 9999px;
+    border: none;
+    background: transparent;
+    color: var(--vessa-text-soft);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 5px;
+    cursor: pointer;
+    transition: background-color 0.16s ease, color 0.16s ease;
+    padding: 0;
+  }
+
+  aside#admin-sidebar.vessa-rail-expanded .vessa-theme-circle-btn,
+  aside#admin-sidebar:hover .vessa-theme-circle-btn {
+    flex: 1;
+    width: auto;
+    height: 27px;
+  }
+
+  .vessa-sidebar-scroll {
+    padding: 2px 0 10px 0 !important;
+    scrollbar-width: none;
+  }
+
+  .vessa-sidebar-scroll::-webkit-scrollbar {
+    width: 0px;
+    display: none;
+  }
+
+  aside#admin-sidebar.vessa-rail-expanded .vessa-sidebar-scroll,
+  aside#admin-sidebar:hover .vessa-sidebar-scroll {
+    padding: 3px 8px 14px 8px !important;
+    scrollbar-width: thin;
+  }
+
+  /* Collapsed 68px Rail State (when NOT expanded and NOT hovered) */
+  aside#admin-sidebar:not(.vessa-rail-expanded):not(:hover) .wm-nav-section-label,
+  aside#admin-sidebar:not(.vessa-rail-expanded):not(:hover) .wm-sidebar-section-label {
+    display: none !important;
+  }
+
+  aside#admin-sidebar:not(.vessa-rail-expanded):not(:hover) nav.vessa-sidebar-nav,
+  aside#admin-sidebar:not(.vessa-rail-expanded):not(:hover) nav {
+    display: flex !important;
+    flex-direction: column !important;
+    align-items: center !important;
+    gap: 4px !important;
+    width: 100% !important;
+  }
+
+  aside#admin-sidebar:not(.vessa-rail-expanded):not(:hover) nav a {
+    position: relative !important;
+    width: 40px !important;
+    height: 40px !important;
+    min-height: 40px !important;
+    padding: 0 !important;
+    margin: 0 auto !important;
+    border-radius: 9999px !important;
+    display: flex !important;
+    align-items: center !important;
+    justify-content: center !important;
+    color: var(--vessa-text-muted) !important;
+    background: transparent !important;
+    border: 1px solid transparent !important;
+    box-shadow: none !important;
+    text-decoration: none !important;
+    flex-shrink: 0 !important;
+  }
+
+  aside#admin-sidebar:not(.vessa-rail-expanded):not(:hover) nav a > span:not(.material-symbols-outlined):not(.vessa-rail-badge) {
+    display: none !important;
+  }
+
+  /* Expanded / Hovered 216px Desktop Sidebar State */
+  aside#admin-sidebar.vessa-rail-expanded .wm-nav-section-label,
+  aside#admin-sidebar.vessa-rail-expanded .wm-sidebar-section-label,
+  aside#admin-sidebar:hover .wm-nav-section-label,
+  aside#admin-sidebar:hover .wm-sidebar-section-label {
+    display: block !important;
+    font-size: 9.5px !important;
+    font-weight: 800 !important;
+    letter-spacing: 0.08em !important;
+    text-transform: uppercase !important;
+    color: var(--vessa-text-soft) !important;
+    padding: 9px 10px 3px 10px !important;
+    margin: 0 !important;
+  }
+
+  aside#admin-sidebar.vessa-rail-expanded nav.vessa-sidebar-nav,
+  aside#admin-sidebar.vessa-rail-expanded nav,
+  aside#admin-sidebar:hover nav.vessa-sidebar-nav,
+  aside#admin-sidebar:hover nav {
+    display: flex !important;
+    flex-direction: column !important;
+    align-items: stretch !important;
+    gap: 2px !important;
+    width: 100% !important;
+  }
+
+  aside#admin-sidebar.vessa-rail-expanded nav a,
+  aside#admin-sidebar:hover nav a {
+    width: 100% !important;
+    min-height: 36px !important;
+    height: auto !important;
+    padding: 7px 10px !important;
+    border-radius: 10px !important;
+    display: flex !important;
+    align-items: center !important;
+    justify-content: flex-start !important;
+    gap: 9px !important;
+    font-size: 12.5px !important;
+    font-weight: 600 !important;
+    color: var(--vessa-text-muted) !important;
+    text-decoration: none !important;
+    flex-shrink: 0 !important;
+    margin: 0 !important;
+  }
+
+  aside#admin-sidebar.vessa-rail-expanded nav a > span:not(.material-symbols-outlined):not(.vessa-rail-badge),
+  aside#admin-sidebar:hover nav a > span:not(.material-symbols-outlined):not(.vessa-rail-badge) {
+    display: inline-block !important;
+    visibility: visible !important;
+    opacity: 1 !important;
+    white-space: nowrap !important;
+    overflow: hidden !important;
+    text-overflow: ellipsis !important;
+  }
+
+  .vessa-rail-expand-btn {
+    margin: 4px auto 0 auto;
+    width: 38px;
+    height: 38px;
+    border-radius: 9999px;
+    border: 1px solid var(--vessa-card-border);
+    background: var(--vessa-pill-track);
+    color: var(--vessa-text-muted);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 6px;
+    cursor: pointer;
+    flex-shrink: 0;
+    transition: background-color 0.16s ease, color 0.16s ease;
+  }
+
+  .vessa-rail-expand-label {
+    display: none;
+    font-size: 11.5px;
+    font-weight: 700;
+  }
+
+  aside#admin-sidebar.vessa-rail-expanded .vessa-rail-expand-btn,
+  aside#admin-sidebar:hover .vessa-rail-expand-btn {
+    width: calc(100% - 18px);
+    margin: 4px 9px 0 9px;
+    border-radius: 10px;
+    height: 34px;
+  }
+
+  aside#admin-sidebar.vessa-rail-expanded .vessa-rail-expand-label,
+  aside#admin-sidebar:hover .vessa-rail-expand-label {
+    display: inline;
+  }
+
+  .vessa-rail-expand-btn:hover {
+    background: var(--vessa-emerald-soft);
+    color: var(--vessa-emerald-text);
+    border-color: var(--vessa-emerald);
+  }
 }
 
 /* ==========================================================================
@@ -1188,6 +1212,10 @@ main table tbody tr:hover td {
 /* Convert solid purple/pink gradient buttons & active tabs to Forest Emerald */
 main button[class*="from-pink-"],
 main button[class*="from-purple-"],
+main button[class*="to-pink-"],
+main button[class*="to-purple-"],
+main button[class*="via-pink-"],
+main button[class*="via-purple-"],
 main button[class*="from-[#a855f7]"],
 main button[class*="from-[#6d28d9]"],
 main button[class*="from-[#ff2a85]"],
@@ -1196,10 +1224,14 @@ main button[class*="bg-pink-6"],
 main button[class*="bg-primary"],
 main a[class*="from-pink-"],
 main a[class*="from-purple-"],
+main a[class*="to-pink-"],
+main a[class*="to-purple-"],
 main a[class*="bg-purple-6"],
 main a[class*="bg-primary"],
 [id*="modal"] button[class*="from-pink-"],
 [id*="modal"] button[class*="from-purple-"],
+[id*="modal"] button[class*="to-pink-"],
+[id*="modal"] button[class*="to-purple-"],
 [id*="modal"] button[class*="bg-purple-6"],
 [id*="modal"] button[class*="bg-primary"] {
   background: var(--vessa-emerald) !important;
@@ -1211,13 +1243,21 @@ main a[class*="bg-primary"],
 
 html.dark main button[class*="from-pink-"],
 html.dark main button[class*="from-purple-"],
+html.dark main button[class*="to-pink-"],
+html.dark main button[class*="to-purple-"],
+html.dark main button[class*="via-pink-"],
+html.dark main button[class*="via-purple-"],
 html.dark main button[class*="from-[#ff2a85]"],
 html.dark main button[class*="bg-purple-6"],
 html.dark main button[class*="bg-primary"],
 html.dark main a[class*="from-pink-"],
 html.dark main a[class*="from-purple-"],
+html.dark main a[class*="to-pink-"],
+html.dark main a[class*="to-purple-"],
 html.dark [id*="modal"] button[class*="from-pink-"],
 html.dark [id*="modal"] button[class*="from-purple-"],
+html.dark [id*="modal"] button[class*="to-pink-"],
+html.dark [id*="modal"] button[class*="to-purple-"],
 html.dark [id*="modal"] button[class*="bg-primary"] {
   background: #38c976 !important;
   color: #0b1911 !important;
@@ -1565,7 +1605,8 @@ main#admin-main-content {
 
 /* ==========================================================================
    7. COMPLETE MOBILE & TABLET VIEW OPTIMIZATION (<1024px & <768px)
-      Fixes Side Panel Drawer, Sub-Tabs, Hero Banners, Tables, Grids & Modals
+      Fixes Side Panel Drawer (Compact 216px + 100% Visible Section Names),
+      Sub-Tabs, Hero Banners, 2-Col Mobile KPI Cards, Tables, Grids & Modals
    ========================================================================== */
 
 /* Mobile Sub-Navigation Pill Strip (Visible on <1024px when center header tabs are hidden) */
@@ -1586,7 +1627,7 @@ main#admin-main-content {
     border-bottom: 1px solid var(--vessa-card-border) !important;
     position: fixed !important;
     top: 64px !important;
-    left: 72px !important;
+    left: 68px !important;
     right: 0 !important;
     height: 44px !important;
     z-index: 55 !important;
@@ -1616,28 +1657,28 @@ main#admin-main-content {
 
   /* 1. Top Header on Mobile (<768px) */
   header.wm-top-header {
-    height: 58px !important;
-    padding: 0 10px !important;
+    height: 56px !important;
+    padding: 0 8px !important;
   }
 
   .vessa-top-header-inner {
     padding: 0 2px !important;
-    gap: 6px !important;
+    gap: 5px !important;
     width: 100% !important;
     justify-content: space-between !important;
   }
 
   .vessa-brand-block {
-    gap: 7px !important;
+    gap: 6px !important;
   }
 
   .vessa-brand-logo-circle {
-    width: 32px !important;
-    height: 32px !important;
+    width: 30px !important;
+    height: 30px !important;
   }
 
   .vessa-brand-title {
-    font-size: 14px !important;
+    font-size: 13.5px !important;
   }
 
   .vessa-brand-sub,
@@ -1647,70 +1688,75 @@ main#admin-main-content {
   }
 
   .vessa-header-right {
-    gap: 5px !important;
+    gap: 4px !important;
     flex-shrink: 1 !important;
     min-width: 0 !important;
   }
 
   .wm-header-search-wrap {
-    width: clamp(88px, 27vw, 150px) !important;
-    height: 34px !important;
+    width: clamp(84px, 26vw, 145px) !important;
+    height: 32px !important;
     flex-shrink: 1 !important;
-    min-width: 80px !important;
+    min-width: 76px !important;
   }
 
   .wm-header-search-input {
-    height: 34px !important;
-    padding: 0 10px 0 30px !important;
-    font-size: 12px !important;
+    height: 32px !important;
+    padding: 0 8px 0 28px !important;
+    font-size: 11.5px !important;
   }
 
   .vessa-icon-circle-btn {
-    width: 34px !important;
-    height: 34px !important;
+    width: 32px !important;
+    height: 32px !important;
     flex-shrink: 0 !important;
   }
 
   .vessa-new-btn {
-    height: 34px !important;
+    height: 32px !important;
     padding: 0 10px !important;
-    font-size: 11.5px !important;
+    font-size: 11px !important;
     gap: 3px !important;
     flex-shrink: 0 !important;
   }
 
   .wm-admin-profile-pill {
-    padding: 3px 6px 3px 3px !important;
-    gap: 3px !important;
+    padding: 2px 5px 2px 2px !important;
+    gap: 2px !important;
   }
 
   .vessa-avatar-circle {
-    width: 28px !important;
-    height: 28px !important;
-    font-size: 10.5px !important;
+    width: 26px !important;
+    height: 26px !important;
+    font-size: 10px !important;
   }
 
-  /* 2. Mobile Sub-Tabs Bar right under 58px Top Header */
+  /* 2. Mobile Sub-Tabs Bar right under 56px Top Header */
   .vessa-mobile-subtabs-bar {
-    top: 58px !important;
+    top: 56px !important;
     left: 0 !important;
     right: 0 !important;
-    height: 42px !important;
-    padding: 5px 10px !important;
+    height: 40px !important;
+    padding: 4px 10px !important;
     z-index: 58 !important;
   }
 
-  /* 3. Mobile Side Panel Drawer (aside#admin-sidebar) — Single Smooth Scroller */
+  /* 3. Compact Mobile Side Panel Drawer (aside#admin-sidebar)
+        - Compact 216px width (max-width: 66vw) so it never takes too much screen space
+        - Unbeatable specificity so EVERY section's Icon + Name + Group Label is 100% visible */
   #sidebar-backdrop {
     z-index: 190 !important;
-    background: rgba(10, 18, 14, 0.55) !important;
+    background: rgba(10, 18, 14, 0.52) !important;
   }
 
-  aside#admin-sidebar {
+  aside#admin-sidebar,
+  aside#admin-sidebar.vessa-rail-expanded,
+  aside#admin-sidebar:not(.vessa-rail-expanded) {
     top: 0 !important;
     left: 0 !important;
     bottom: 0 !important;
-    width: min(296px, 85vw) !important;
+    width: 216px !important;
+    max-width: 66vw !important;
     height: 100dvh !important;
     max-height: 100dvh !important;
     z-index: 200 !important;
@@ -1721,32 +1767,54 @@ main#admin-main-content {
     align-items: stretch !important;
     justify-content: flex-start !important;
     border-right: 1px solid var(--vessa-card-border) !important;
-    box-shadow: 16px 0 42px rgba(0, 0, 0, 0.32) !important;
+    box-shadow: 12px 0 34px rgba(0, 0, 0, 0.28) !important;
   }
 
-  .vessa-mobile-drawer-header {
+  aside#admin-sidebar .vessa-mobile-drawer-header {
     display: flex !important;
-    padding: 12px 14px !important;
+    align-items: center !important;
+    justify-content: space-between !important;
+    padding: 9px 10px !important;
+    border-bottom: 1px solid var(--vessa-card-border) !important;
+    background: var(--vessa-header-bg) !important;
     flex-shrink: 0 !important;
+    width: 100% !important;
   }
 
   aside#admin-sidebar .vessa-theme-capsule {
+    display: flex !important;
     flex-direction: row !important;
-    width: calc(100% - 24px) !important;
-    height: 38px !important;
-    margin: 10px 12px 6px 12px !important;
-    padding: 3px !important;
+    align-items: center !important;
+    justify-content: space-between !important;
+    width: calc(100% - 16px) !important;
+    height: 32px !important;
+    margin: 6px 8px 3px 8px !important;
+    padding: 2.5px !important;
+    border-radius: 9999px !important;
+    background: var(--vessa-pill-track) !important;
+    border: 1px solid var(--vessa-card-border) !important;
     flex-shrink: 0 !important;
   }
 
   aside#admin-sidebar .vessa-theme-circle-btn {
     flex: 1 !important;
     width: auto !important;
-    height: 30px !important;
+    height: 25px !important;
+    border-radius: 9999px !important;
+    border: none !important;
+    background: transparent;
+    color: var(--vessa-text-soft);
+    display: flex !important;
+    align-items: center !important;
+    justify-content: center !important;
+    gap: 4px !important;
+    padding: 0 6px !important;
   }
 
   aside#admin-sidebar .vessa-theme-btn-label {
-    display: inline !important;
+    display: inline-block !important;
+    font-size: 11px !important;
+    font-weight: 700 !important;
   }
 
   aside#admin-sidebar .vessa-sidebar-scroll {
@@ -1756,47 +1824,75 @@ main#admin-main-content {
     overflow-y: auto !important;
     overflow-x: hidden !important;
     -webkit-overflow-scrolling: touch !important;
-    padding: 4px 10px 32px 10px !important;
+    padding: 2px 7px 26px 7px !important;
     scrollbar-width: thin !important;
   }
 
   aside#admin-sidebar nav.vessa-sidebar-nav,
-  aside#admin-sidebar nav {
+  aside#admin-sidebar nav,
+  aside#admin-sidebar:not(.vessa-rail-expanded) nav {
+    display: flex !important;
+    flex-direction: column !important;
     align-items: stretch !important;
-    gap: 3px !important;
+    gap: 2px !important;
     width: 100% !important;
   }
 
   aside#admin-sidebar .wm-nav-section-label,
-  aside#admin-sidebar .wm-sidebar-section-label {
+  aside#admin-sidebar .wm-sidebar-section-label,
+  aside#admin-sidebar:not(.vessa-rail-expanded) .wm-nav-section-label,
+  aside#admin-sidebar:not(.vessa-rail-expanded) .wm-sidebar-section-label {
     display: block !important;
-    font-size: 10px !important;
+    visibility: visible !important;
+    opacity: 1 !important;
+    font-size: 9px !important;
     font-weight: 800 !important;
     letter-spacing: 0.08em !important;
     text-transform: uppercase !important;
     color: var(--vessa-text-soft) !important;
-    padding: 10px 12px 4px 12px !important;
+    padding: 8px 8px 2px 8px !important;
     margin: 0 !important;
+    text-align: left !important;
   }
 
-  aside#admin-sidebar nav a {
+  aside#admin-sidebar nav a,
+  aside#admin-sidebar:not(.vessa-rail-expanded) nav a,
+  aside#admin-sidebar.vessa-rail-expanded nav a {
     width: 100% !important;
-    min-height: 41px !important;
+    min-height: 34px !important;
     height: auto !important;
-    padding: 9px 12px !important;
-    border-radius: 12px !important;
+    padding: 6.5px 9px !important;
+    border-radius: 9px !important;
+    display: flex !important;
+    flex-direction: row !important;
+    align-items: center !important;
     justify-content: flex-start !important;
-    gap: 11px !important;
+    gap: 8.5px !important;
     margin: 0 !important;
+    text-align: left !important;
+    text-decoration: none !important;
   }
 
-  aside#admin-sidebar nav a > span:not(.material-symbols-outlined):not(.vessa-rail-badge) {
-    display: inline !important;
-    font-size: 13px !important;
+  aside#admin-sidebar nav a .material-symbols-outlined,
+  aside#admin-sidebar:not(.vessa-rail-expanded) nav a .material-symbols-outlined {
+    font-size: 17.5px !important;
+    flex-shrink: 0 !important;
+    display: inline-flex !important;
+  }
+
+  aside#admin-sidebar nav a > span:not(.material-symbols-outlined):not(.vessa-rail-badge),
+  aside#admin-sidebar:not(.vessa-rail-expanded) nav a > span:not(.material-symbols-outlined):not(.vessa-rail-badge),
+  aside#admin-sidebar.vessa-rail-expanded nav a > span:not(.material-symbols-outlined):not(.vessa-rail-badge) {
+    display: inline-block !important;
+    visibility: visible !important;
+    opacity: 1 !important;
+    font-size: 12px !important;
     font-weight: 600 !important;
+    line-height: 1.25 !important;
     white-space: nowrap !important;
     overflow: hidden !important;
     text-overflow: ellipsis !important;
+    color: inherit !important;
   }
 
   aside#admin-sidebar .vessa-rail-expand-btn,
@@ -1808,38 +1904,38 @@ main#admin-main-content {
   main#admin-main-content,
   body > div > main,
   main.flex-1 {
-    padding-top: 110px !important;
-    padding-left: 12px !important;
-    padding-right: 12px !important;
-    padding-bottom: 72px !important;
+    padding-top: 104px !important;
+    padding-left: 10px !important;
+    padding-right: 10px !important;
+    padding-bottom: 68px !important;
     width: 100% !important;
     max-width: 100vw !important;
     overflow-x: hidden !important;
-    gap: 14px !important;
+    gap: 12px !important;
   }
 
   /* Remove redundant horizontal padding on inner page wrappers inside main */
   main#admin-main-content > div.px-4,
   main#admin-main-content > div.sm\:px-8 {
-    padding-left: 4px !important;
-    padding-right: 4px !important;
+    padding-left: 2px !important;
+    padding-right: 2px !important;
   }
 
   /* 5. Hero Banner on Mobile (<768px) */
   .wm-hero-banner {
-    padding: 14px 15px !important;
-    border-radius: 18px !important;
+    padding: 13px 14px !important;
+    border-radius: 16px !important;
   }
 
   .wm-hero-title,
   .wm-hero-title span {
-    font-size: 1.25rem !important;
-    line-height: 1.22 !important;
+    font-size: 1.2rem !important;
+    line-height: 1.2 !important;
   }
 
   .wm-hero-subtitle {
-    font-size: 11.5px !important;
-    line-height: 1.42 !important;
+    font-size: 11px !important;
+    line-height: 1.4 !important;
   }
 
   .wm-hero-banner > div > div:last-child {
@@ -1851,28 +1947,40 @@ main#admin-main-content {
 
   .wm-hero-banner > div > div:last-child > a,
   .wm-hero-banner > div > div:last-child > button {
-    font-size: 11.5px !important;
-    padding: 7.5px 12px !important;
+    font-size: 11px !important;
+    padding: 7px 11px !important;
   }
 
-  /* 6. Overview Bar Chart Callout & KPI Cards on Mobile */
+  /* 6. Overview Bar Chart Callout & Compact 2-Col Mobile KPI Cards */
   .wm-card,
   .wm-stat-card,
   .vessa-card,
   .vessa-welcome-card {
-    padding: 14px !important;
-    border-radius: 18px !important;
+    padding: 12px 13px !important;
+    border-radius: 16px !important;
+  }
+
+
+  /* Make 5th card in 5-card KPI grids span full width cleanly on 2-col mobile/tablet layouts */
+  main .grid-cols-2.lg\:grid-cols-5 > *:nth-child(5):last-child {
+    grid-column: span 2 / span 2 !important;
+  }
+
+  main .grid-cols-2 > .wm-card,
+  main .grid-cols-2 > .wm-stat-card {
+    padding: 10px 11px !important;
+    border-radius: 14px !important;
   }
 
   .vessa-welcome-greeting {
-    font-size: 24px !important;
-    margin: 4px 0 6px 0 !important;
+    font-size: 22px !important;
+    margin: 3px 0 5px 0 !important;
   }
 
   #stat-wishes,
   #stat-revenue,
   #stat-templates {
-    font-size: 23px !important;
+    font-size: 21px !important;
   }
 
   div.hidden.md\:flex.absolute.right-8.top-16 {
@@ -1919,8 +2027,8 @@ main#admin-main-content {
 
   main table th,
   main table td {
-    padding: 9px 10px !important;
-    font-size: 11.5px !important;
+    padding: 8.5px 9px !important;
+    font-size: 11px !important;
   }
 
   /* 8. Multi-Column Grid & Min-Width Safeguards on Mobile */
@@ -1952,7 +2060,7 @@ main#admin-main-content {
   #wm-admin-profile-dropdown,
   #wm-global-command-dropdown {
     position: fixed !important;
-    top: 62px !important;
+    top: 60px !important;
     left: 8px !important;
     right: 8px !important;
     width: auto !important;
@@ -1991,7 +2099,7 @@ main#admin-main-content {
   }
 
   .wm-header-search-wrap {
-    width: clamp(82px, 34vw, 130px) !important;
+    width: clamp(80px, 33vw, 128px) !important;
   }
 
   .vessa-new-btn span:not(.material-symbols-outlined) {
@@ -1999,7 +2107,7 @@ main#admin-main-content {
   }
 
   .vessa-new-btn {
-    width: 34px !important;
+    width: 32px !important;
     padding: 0 !important;
     justify-content: center !important;
   }
