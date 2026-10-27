@@ -29,11 +29,11 @@
 <!-- Firebase Official SDK (Compat for universal browser support) -->
 <script src="https://www.gstatic.com/firebasejs/10.8.0/firebase-app-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.8.0/firebase-auth-compat.js"></script>
-<script src="/js/site-theme.js?v=20261015_wm_v8"></script>
+<script src="/js/site-theme.js?v=20261027_mobile2col_v1"></script>
 <!-- Canvas Confetti for Interactive Celebrations -->
 <script src="https://cdn.jsdelivr.net/npm/canvas-confetti@1.9.3/dist/confetti.browser.min.js"></script>
 <!-- WishMagic Core, Auth, Repositories & Section System Layer -->
-<script src="/js/WishMagicCore.js"></script>
+<script src="/js/WishMagicCore.js?v=20261027_mobile2col_v1"></script>
 <script src="/js/api-client.js"></script>
 <script src="/js/firebase-auth.js?v=20261015_wm_v8"></script>
 <script src="/js/auth-service.js?v=20261015_wm_v8"></script>
@@ -2121,7 +2121,7 @@ body.dark .hero-gradient-text,
 })();
 </script>
 <!-- END: WishMagic Inline Cloud Background Engine -->
-  <link id="wishmagic-cloud-css" rel="stylesheet" href="/css/cloud-background.css?v=20261021_diwali_v1"/>
+  <link id="wishmagic-cloud-css" rel="stylesheet" href="/css/cloud-background.css?v=20261027_mobile2col_v1"/>
 </head>
 <body data-page="home" class="w-full min-h-screen font-sans antialiased selection:bg-pink-500 selection:text-white">
 
@@ -2507,7 +2507,7 @@ body.dark .hero-gradient-text,
   </div>
 
   <!-- Templates Grid (Populated dynamically by initHomepageTemplates / renderTemplateCards) -->
-  <div class="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 lg:grid-cols-4 gap-4 lg:gap-5" id="templates-grid">
+  <div class="grid grid-cols-2 sm:grid-cols-2 md:grid-cols-4 lg:grid-cols-4 gap-2.5 sm:gap-4 lg:gap-5" id="templates-grid">
     <!-- Skeleton loader cards while templates load -->
     <div class="animate-pulse bg-white/60 dark:bg-purple-950/60 rounded-2xl p-4 sm:p-5 border border-purple-100 dark:border-purple-800/60 h-80"></div>
     <div class="animate-pulse bg-white/60 dark:bg-purple-950/60 rounded-2xl p-4 sm:p-5 border border-purple-100 dark:border-purple-800/60 h-80"></div>
@@ -2541,11 +2541,11 @@ body.dark .hero-gradient-text,
           ? '<div class="absolute top-3 right-3 z-10 text-center"><span class="inline-flex flex-col items-center justify-center px-3 py-1 rounded-xl bg-[#fbc531] text-[#24113F] text-xs font-black leading-tight shadow-md border border-yellow-200/90"><span class="font-extrabold text-[10px] uppercase tracking-wider">Premium</span><span class="font-black text-xs">₹' + price + '</span></span></div>'
           : '<div class="absolute top-3 right-3 z-10"><span class="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-[#00c569] text-white text-xs font-bold shadow-md">Free</span></div>';
         var img = tpl.thumbnail || tpl.previewImage || "";
-        return '<div class="template-card group relative bg-white dark:bg-purple-950/85 rounded-2xl p-4 sm:p-5 border border-purple-100 dark:border-purple-800/60 shadow-md hover:shadow-2xl hover:-translate-y-1.5 transition-all duration-300 flex flex-col justify-between" data-id="' + tpl.id + '" data-name="' + String(tpl.name || "").toLowerCase() + '" data-category="' + String(tpl.category || "").toLowerCase() + '" data-tier="' + (isVip ? "vip" : "free") + '">' +
+        return '<div class="template-card group relative bg-white dark:bg-purple-950/85 rounded-2xl p-2.5 sm:p-5 border border-purple-100 dark:border-purple-800/60 shadow-md hover:shadow-2xl hover:-translate-y-1.5 transition-all duration-300 flex flex-col justify-between" data-id="' + tpl.id + '" data-name="' + String(tpl.name || "").toLowerCase() + '" data-category="' + String(tpl.category || "").toLowerCase() + '" data-tier="' + (isVip ? "vip" : "free") + '">' +
           '<div><div class="relative rounded-xl overflow-hidden mb-3 aspect-[16/10] bg-purple-900/10 dark:bg-purple-950/80 shadow-inner cursor-pointer" onclick="if(window.openTemplatePreview)openTemplatePreview(\'' + tpl.id + '\')"><img class="w-full h-full object-cover" src="' + img + '" alt="' + String(tpl.name || "").replace(/"/g, "&quot;") + '" fetchpriority="high"/>' + badge + '</div>' +
           '<div class="mb-1.5"><h3 class="font-display font-bold text-base sm:text-lg text-gray-900 dark:text-white line-clamp-1">' + tpl.name + '</h3></div>' +
           '<div class="flex items-center gap-1.5 text-xs text-gray-500 dark:text-purple-300/80 mb-3"><span class="text-amber-400 text-sm">★★★★★</span><span class="font-bold text-gray-700 dark:text-purple-200 text-xs">4.8 (64)</span></div></div>' +
-          '<div class="flex items-center gap-2 mt-auto pt-1"><button type="button" onclick="if(window.openTemplatePreview)openTemplatePreview(\'' + tpl.id + '\')" class="px-3.5 py-2.5 sm:py-3 rounded-full border border-purple-200 dark:border-purple-700/80 bg-purple-50/80 dark:bg-purple-900/50 text-purple-900 dark:text-purple-200 text-xs sm:text-sm font-bold cursor-pointer">Preview</button><a href="/customize.html?template=' + tpl.id + '" onclick="if(window.handleTemplateAction){event.preventDefault();window.handleTemplateAction(\'' + tpl.id + '\',\'customize\');return false;}" class="flex-1 py-2.5 sm:py-3 px-4 bg-gradient-to-r from-[#ff2a85] via-[#ec4899] to-[#a855f7] text-white text-sm sm:text-base font-extrabold rounded-full shadow-md text-center flex items-center justify-center gap-1.5"><span>Customize</span><span>✨</span></a></div></div>';
+          '<div class="flex items-center gap-1 sm:gap-2 mt-auto pt-1"><button type="button" onclick="if(window.openTemplatePreview)openTemplatePreview(\'' + tpl.id + '\')" class="px-2 sm:px-3.5 py-1.5 sm:py-3 rounded-full border border-purple-200 dark:border-purple-700/80 bg-purple-50/80 dark:bg-purple-900/50 text-purple-900 dark:text-purple-200 text-[10.5px] sm:text-sm font-bold cursor-pointer shrink-0">Preview</button><a href="/customize.html?template=' + tpl.id + '" onclick="if(window.handleTemplateAction){event.preventDefault();window.handleTemplateAction(\'' + tpl.id + '\',\'customize\');return false;}" class="flex-1 min-w-0 py-1.5 sm:py-3 px-2 sm:px-4 bg-gradient-to-r from-[#ff2a85] via-[#ec4899] to-[#a855f7] text-white text-[11px] sm:text-base font-extrabold rounded-full shadow-md text-center flex items-center justify-center gap-1"><span>Customize</span><span class="hidden sm:inline">✨</span></a></div></div>';
       }).join("");
     })();
   </script>
@@ -4011,10 +4011,10 @@ body.dark .hero-gradient-text,
       let tpl = (loadedTemplates || []).find(t => t.id === tplId);
       if (!tpl) tpl = (loadedTemplates || []).find(t => t.folder === tplId || t.slug === tplId);
       if (!tpl && window._wmLoadedTemplatesMap && window._wmLoadedTemplatesMap[tplId]) tpl = window._wmLoadedTemplatesMap[tplId];
-      if (!tpl && (loadedTemplates || []).length > 0) tpl = loadedTemplates[0];
-      if (!tpl) return;
+      if (!tpl && (loadedTemplates || []).length > 0) tpl = loadedTemplates.find(t => t.id === tplId) || { id: tplId, slug: tplId, name: tplId };
+      if (!tpl) tpl = { id: tplId, slug: tplId, name: tplId };
 
-      // Enforce Rule C: If multiple variants exist and no relation was selected yet, ask for relation first
+      // If multiple variants exist and no relation was selected yet, ask for relation first; otherwise open directly in new tab
       if (!selectedVariant && window.WishMagicVariantFlow && window.WishMagicVariantFlow.isVariantFamily(tpl)) {
         const avail = window.WishMagicVariantFlow.getAvailablePublishedVariants(tpl);
         const activeRel = window.WishMagicVariantFlow.getActiveRelationFilter();
@@ -4028,122 +4028,23 @@ body.dark .hero-gradient-text,
         } else if (avail.length === 1) {
           selectedVariant = avail[0];
         } else if (avail.length > 1) {
-          window.WishMagicVariantFlow.showRelationSelectionModal(tpl, avail, 'preview', {
-            openPreviewModal: (id, chosenVar) => openTemplatePreview(id, chosenVar)
-          });
+          window.WishMagicVariantFlow.showRelationSelectionModal(tpl, avail, preview, {});
           return;
         }
       }
 
-      const titleEl = document.getElementById('preview-modal-title');
-      const catEl = document.getElementById('preview-modal-cat');
-      const badgeEl = document.getElementById('preview-modal-badge');
-      const iframeEl = document.getElementById('preview-modal-iframe');
-      const extLink = document.getElementById('preview-modal-external');
-      const ctaBtn = document.getElementById('preview-modal-cta');
-
-      const previewTargetObj = selectedVariant
-        ? { ...tpl, entryFile: selectedVariant.entryFile || tpl.entryFile }
-        : tpl;
-      const url = resolveTemplatePreviewUrlClient(previewTargetObj);
-      const isVip = tpl.tier === 'vip' || (tpl.price && Number(tpl.price) > 0);
-
-      if (titleEl) {
-        titleEl.textContent = selectedVariant
-          ? `${tpl.name} — ${selectedVariant.relationshipLabel}`
-          : tpl.name;
-      }
-      if (catEl) {
-        catEl.textContent = selectedVariant
-          ? `${tpl.category || "Celebration"} • For ${selectedVariant.relationshipLabel}`
-          : `${tpl.category || "Celebration"} • ${tpl.type || "Interactive 3D"}`;
-      }
-      if (badgeEl) {
-        badgeEl.textContent = isVip ? `PREMIUM • ₹${tpl.price || 59}` : 'FREE';
-        badgeEl.className = `px-2 py-0.5 rounded-full text-[10px] font-black uppercase tracking-wider ${isVip ? 'bg-amber-400 text-purple-950' : 'bg-emerald-500 text-white'}`;
-      }
-      if (iframeEl) {
-        iframeEl.removeAttribute('srcdoc');
-        iframeEl.removeAttribute('data-fallback-applied');
-        iframeEl.src = url;
-        guardPreviewIframeAgainstMainSite(iframeEl, previewTargetObj);
-        if (selectedVariant) {
-          const prevLoad = iframeEl.onload;
-          iframeEl.onload = function(ev) {
-            if (typeof prevLoad === 'function') prevLoad.call(this, ev);
-            try {
-              if (iframeEl.contentWindow) {
-                iframeEl.contentWindow.postMessage({
-                  type: 'WISHMAGIC_INIT',
-                  payload: {
-                    variantId: selectedVariant.id,
-                    relationship: selectedVariant.relationshipSlug,
-                    relationshipSlug: selectedVariant.relationshipSlug,
-                    messages: selectedVariant.messages || {},
-                    assets: selectedVariant.assets || {},
-                    palette: selectedVariant.theme || null,
-                     ...(selectedVariant.messages || {}),
-                    ...(selectedVariant.assets || {})
-                  }
-                }, '*');
-              }
-            } catch (_) {}
-          };
-        }
-      }
-
-      const customizeHref = selectedVariant
-        ? `/customize.html?template=${encodeURIComponent(tpl.id)}&variant=${encodeURIComponent(selectedVariant.id)}&rel=${encodeURIComponent(selectedVariant.relationshipSlug)}`
-        : `/customize.html?template=${encodeURIComponent(tpl.id)}`;
+      const campSuffix = (tpl.festivalCampaign && tpl.festivalCampaign.campaignId)
+        ? `&campaign=${encodeURIComponent(tpl.festivalCampaign.campaignId)}`
+        : ;
       const fullPreviewHref = selectedVariant
-        ? `/template-preview.html?template=${encodeURIComponent(tpl.id)}&variant=${encodeURIComponent(selectedVariant.id)}&rel=${encodeURIComponent(selectedVariant.relationshipSlug)}`
-        : `/template/${tpl.id}`;
+        ? `/template-preview.html?template=${encodeURIComponent(tpl.id)}&variant=${encodeURIComponent(selectedVariant.id)}&rel=${encodeURIComponent(selectedVariant.relationshipSlug)}${campSuffix}`
+        : `/template-preview.html?template=${encodeURIComponent(tpl.id)}${campSuffix}`;
 
-      if (extLink) extLink.href = fullPreviewHref;
-      if (ctaBtn) {
-        ctaBtn.href = customizeHref;
-        ctaBtn.onclick = function(ev) {
-          if (window.WishAuth && typeof window.WishAuth.isGoogleLoggedIn === 'function' && !window.WishAuth.isGoogleLoggedIn()) {
-            ev.preventDefault();
-            closeModal('template-preview-modal');
-            window.WishAuth.requireGoogleAuthForCustomize(customizeHref);
-            return false;
-          }
-        };
-        ctaBtn.innerHTML = selectedVariant
-          ? `<span>Customize ${selectedVariant.relationshipLabel} Wish</span><span class="text-amber-300 text-xs">✨</span>`
-          : `<span>Create This Wish</span><span class="text-amber-300 text-xs">✨</span>`;
-      }
-
-      // Render interactive relationship variant switcher bar inside preview modal if template has multiple variants
-      let varBar = document.getElementById('preview-modal-variant-switcher');
-      if (!varBar) {
-        const modalTopBar = document.querySelector('#template-preview-modal > div > div:first-child');
-        if (modalTopBar) {
-          varBar = document.createElement('div');
-          varBar.id = 'preview-modal-variant-switcher';
-          varBar.className = 'px-4 sm:px-6 py-2 bg-purple-50/90 dark:bg-[#140726] border-b border-purple-200/60 dark:border-purple-800/60 flex items-center gap-2 overflow-x-auto no-scrollbar shrink-0 hidden';
-          modalTopBar.insertAdjacentElement('afterend', varBar);
-        }
-      }
-      if (varBar && window.WishMagicVariantFlow && window.WishMagicVariantFlow.isVariantFamily(tpl)) {
-        const availVars = window.WishMagicVariantFlow.getAvailablePublishedVariants(tpl);
-        if (availVars.length > 1) {
-          varBar.classList.remove('hidden');
-          varBar.innerHTML = `<span class="text-[11px] font-extrabold text-purple-800 dark:text-purple-300 shrink-0">Switch Relation:</span>` +
-            availVars.map(v => {
-              const isAct = selectedVariant && (selectedVariant.id === v.id || selectedVariant.relationshipSlug === v.relationshipSlug);
-              return `<button type="button" onclick="openTemplatePreview('${tpl.id}', window.WishMagicVariantFlow.resolveVariantForRelation(window._wmLoadedTemplatesMap['${tpl.id}'], '${v.relationshipSlug}'))" class="px-3 py-1 rounded-full text-xs font-bold transition shrink-0 cursor-pointer ${isAct ? 'bg-gradient-to-r from-pink-500 to-purple-600 text-white shadow-sm' : 'bg-white dark:bg-purple-900/60 text-purple-900 dark:text-purple-200 border border-purple-200 dark:border-purple-700/60 hover:border-pink-400'}">${v.relationshipLabel}</button>`;
-            }).join('');
-        } else {
-          varBar.classList.add('hidden');
-        }
-      } else if (varBar) {
-        varBar.classList.add('hidden');
-      }
-
-      openModal('template-preview-modal');
-      setPreviewDevice(window.innerWidth >= 1024 ? 'desktop' : 'mobile');
+      try {
+        const win = window.open(fullPreviewHref, _blank, noopener);
+        if (win) return;
+      } catch (_) {}
+      window.location.href = fullPreviewHref;
     }
 
     window._homePreviewDeviceMode = (typeof window !== 'undefined' && window.innerWidth >= 1024) ? 'desktop' : 'mobile';

@@ -477,12 +477,42 @@ window.WishMagicCore = {
 
     const cardsHtml = variants.map((v, idx) => {
       const thumbHtml = v.thumbnail
-        ? `<img src="${escapeHtmlSafe(v.thumbnail)}" alt="${escapeHtmlSafe(v.relationshipLabel)}" style="width:46px;height:46px;border-radius:12px;object-fit:cover;border:1px solid rgba(255,255,255,0.14);flex-shrink:0;" onerror="this.style.display='none'" />`
-        : `<div style="width:46px;height:46px;border-radius:12px;background:linear-gradient(135deg,rgba(236,72,153,0.22),rgba(139,92,246,0.22));border:1px solid rgba(236,72,153,0.35);display:flex;align-items:center;justify-content:center;font-size:1.35rem;flex-shrink:0;">${escapeHtmlSafe(v.icon || '✨')}</div>`;
+        ? `<img src="${escapeHtmlSafe(v.thumbnail)}" alt="${escapeHtmlSafe(v.relationshipLabel)}" style="width:44px;height:44px;border-radius:12px;object-fit:cover;border:1px solid rgba(255,255,255,0.14);flex-shrink:0;" onerror="this.style.display='none'" />`
+        : `<div style="width:44px;height:44px;border-radius:12px;background:linear-gradient(135deg,rgba(236,72,153,0.22),rgba(139,92,246,0.22));border:1px solid rgba(236,72,153,0.35);display:flex;align-items:center;justify-content:center;font-size:1.3rem;flex-shrink:0;">${escapeHtmlSafe(v.icon || '✨')}</div>`;
 
       const descHtml = v.description
-        ? `<span style="display:block;font-size:0.75rem;color:#94a3b8;margin-top:2px;line-height:1.35;">${escapeHtmlSafe(v.description)}</span>`
-        : `<span style="display:block;font-size:0.74rem;color:#94a3b8;margin-top:2px;">Open ${escapeHtmlSafe(v.relationshipLabel)} edition</span>`;
+        ? `<span style="display:block;font-size:0.74rem;color:#94a3b8;margin-top:2px;line-height:1.35;">${escapeHtmlSafe(v.description)}</span>`
+        : `<span style="display:block;font-size:0.73rem;color:#94a3b8;margin-top:2px;">Open ${escapeHtmlSafe(v.relationshipLabel)} edition</span>`;
+
+      const previewHref = buildActionDestinationUrl(family, "preview", v);
+      const useDirectNewTabLink = !isCustomize && typeof context.onSelectVariant !== "function";
+
+      if (useDirectNewTabLink) {
+        return `
+          <a href="${escapeHtmlSafe(previewHref)}"
+             target="_blank"
+             rel="noopener"
+             class="wm-relation-option-btn"
+             data-variant-id="${escapeHtmlSafe(v.id)}"
+             data-relation-slug="${escapeHtmlSafe(v.relationshipSlug)}"
+             data-option-index="${idx}"
+             style="width:100%;display:flex;align-items:center;justify-content:space-between;gap:12px;padding:12px 14px;border-radius:14px;background:rgba(255,255,255,0.04);border:1px solid rgba(255,255,255,0.1);color:#f8fafc;text-align:left;cursor:pointer;transition:all 0.16s ease;text-decoration:none;">
+            <div style="display:flex;align-items:center;gap:12px;min-width:0;flex:1;">
+              ${thumbHtml}
+              <div style="min-width:0;flex:1;">
+                <div style="font-size:0.95rem;font-weight:700;color:#fff;display:flex;align-items:center;gap:6px;flex-wrap:wrap;">
+                  <span>${escapeHtmlSafe(v.relationshipLabel)}</span>
+                  ${v.isDefault ? '<span style="font-size:0.65rem;padding:2px 7px;border-radius:999px;background:rgba(236,72,153,0.18);color:#f472b6;border:1px solid rgba(236,72,153,0.35);font-weight:700;">Default</span>' : ''}
+                </div>
+                ${descHtml}
+              </div>
+            </div>
+            <span style="display:inline-flex;align-items:center;gap:4px;padding:6px 12px;border-radius:999px;background:linear-gradient(135deg,#ec4899,#8b5cf6);color:#fff;font-size:0.75rem;font-weight:700;flex-shrink:0;">
+              Preview ↗
+            </span>
+          </a>
+        `;
+      }
 
       return `
         <button type="button"
@@ -509,16 +539,16 @@ window.WishMagicCore = {
     }).join('');
 
     overlay.innerHTML = `
-      <div class="wm-relation-modal-card" style="width:100%;max-width:500px;max-height:88vh;display:flex;flex-direction:column;background:#130f26;border:1px solid rgba(255,255,255,0.14);border-radius:22px;padding:22px;color:#f8fafc;box-shadow:0 28px 70px rgba(0,0,0,0.72);font-family:'Plus Jakarta Sans',sans-serif;">
-        <div style="display:flex;align-items:flex-start;justify-content:space-between;gap:12px;margin-bottom:14px;">
+      <div class="wm-relation-modal-card" style="width:100%;max-width:480px;max-height:88vh;display:flex;flex-direction:column;background:#130f26;border:1px solid rgba(255,255,255,0.14);border-radius:22px;padding:20px;color:#f8fafc;box-shadow:0 28px 70px rgba(0,0,0,0.72);font-family:'Plus Jakarta Sans',sans-serif;">
+        <div style="display:flex;align-items:flex-start;justify-content:space-between;gap:12px;margin-bottom:12px;">
           <div>
-            <span style="display:inline-block;font-size:0.7rem;font-weight:800;text-transform:uppercase;letter-spacing:0.06em;padding:3px 10px;border-radius:999px;background:rgba(236,72,153,0.15);color:#f472b6;border:1px solid rgba(236,72,153,0.35);margin-bottom:6px;">${actionBadgeText}</span>
-            <h3 id="wm-rel-modal-title" style="margin:0;font-size:1.2rem;font-weight:800;color:#fff;">${actionTitle}</h3>
+            <span style="display:inline-block;font-size:0.68rem;font-weight:800;text-transform:uppercase;letter-spacing:0.06em;padding:3px 10px;border-radius:999px;background:rgba(236,72,153,0.15);color:#f472b6;border:1px solid rgba(236,72,153,0.35);margin-bottom:6px;">${actionBadgeText}</span>
+            <h3 id="wm-rel-modal-title" style="margin:0;font-size:1.15rem;font-weight:800;color:#fff;">${actionTitle}</h3>
           </div>
           <button type="button" id="wm-rel-modal-close" aria-label="Close relation selector" style="width:34px;height:34px;border-radius:50%;border:1px solid rgba(255,255,255,0.12);background:rgba(255,255,255,0.05);color:#cbd5e1;font-size:1.1rem;cursor:pointer;display:flex;align-items:center;justify-content:center;flex-shrink:0;">✕</button>
         </div>
-        <p style="margin:0 0 16px;font-size:0.84rem;color:#94a3b8;line-height:1.5;">${actionSubtitle}</p>
-        <div class="wm-relation-options-list" style="display:flex;flex-direction:column;gap:10px;overflow-y:auto;padding-right:4px;max-height:56vh;">
+        <p style="margin:0 0 14px;font-size:0.82rem;color:#94a3b8;line-height:1.45;">${actionSubtitle}</p>
+        <div class="wm-relation-options-list" style="display:flex;flex-direction:column;gap:9px;overflow-y:auto;padding-right:4px;max-height:56vh;">
           ${cardsHtml}
         </div>
       </div>
@@ -562,6 +592,10 @@ window.WishMagicCore = {
         const varId = btn.getAttribute('data-variant-id');
         const selected = variants.find(v => v.id === varId) || variants[0];
         document.removeEventListener('keydown', onKeyDown);
+        if (btn.tagName.toLowerCase() === 'a') {
+          setTimeout(() => overlay.remove(), 60);
+          return;
+        }
         overlay.remove();
         continueOriginalAction(family, action, selected, context);
       });
@@ -570,6 +604,14 @@ window.WishMagicCore = {
     if (optionBtns[0]) {
       optionBtns[0].focus();
     }
+  }
+
+  function openPreviewInNewTabOrNavigate(targetUrl) {
+    try {
+      const win = window.open(targetUrl, '_blank', 'noopener');
+      if (win) return;
+    } catch (_) {}
+    window.location.href = targetUrl;
   }
 
   /**
@@ -582,13 +624,13 @@ window.WishMagicCore = {
     }
 
     const isCustomize = action === 'customize' || action === 'create';
-    if (!isCustomize && typeof context.openPreviewModal === 'function') {
-      context.openPreviewModal(family.id, variant, family);
+    const targetUrl = buildActionDestinationUrl(family, action, variant);
+    if (!isCustomize) {
+      openPreviewInNewTabOrNavigate(targetUrl);
       return;
     }
 
-    const targetUrl = buildActionDestinationUrl(family, action, variant);
-    if (isCustomize && window.WishAuth && typeof window.WishAuth.requireGoogleAuthForCustomize === 'function') {
+    if (window.WishAuth && typeof window.WishAuth.requireGoogleAuthForCustomize === 'function') {
       window.WishAuth.requireGoogleAuthForCustomize(targetUrl);
       return;
     }
@@ -605,24 +647,19 @@ window.WishMagicCore = {
     }
 
     const isCustomize = action === 'customize' || action === 'create';
-    if (!isCustomize && typeof context.openPreviewModal === 'function') {
-      context.openPreviewModal(family.id, null, family);
+    const targetUrl = buildActionDestinationUrl(family, action, null);
+    if (!isCustomize) {
+      openPreviewInNewTabOrNavigate(targetUrl);
       return;
     }
 
-    const targetUrl = buildActionDestinationUrl(family, action, null);
-    if (isCustomize && window.WishAuth && typeof window.WishAuth.requireGoogleAuthForCustomize === 'function') {
+    if (window.WishAuth && typeof window.WishAuth.requireGoogleAuthForCustomize === 'function') {
       window.WishAuth.requireGoogleAuthForCustomize(targetUrl);
       return;
     }
     window.location.href = targetUrl;
   }
 
-  /**
-   * Unified Template Action Handler (Part 7 Pseudo-logic implementation):
-   * Resolves family from object or window._wmLoadedTemplatesMap, checks explicit relation context,
-   * handles 1-variant auto-open, >1-variant relation prompt, and legacy 0-variant preservation.
-   */
   function handleTemplateAction(familyOrId, action = 'preview', context = {}) {
     const isCustomizeAction = action === 'customize' || action === 'create';
     if (isCustomizeAction && window.WishAuth && typeof window.WishAuth.isGoogleLoggedIn === 'function' && !window.WishAuth.isGoogleLoggedIn()) {

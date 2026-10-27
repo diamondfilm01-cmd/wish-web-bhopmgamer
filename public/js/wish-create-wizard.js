@@ -481,11 +481,11 @@
             </div>
           </div>
 
-          <div class="p-4 sm:p-5 flex flex-col flex-1 justify-between gap-4">
+          <div class="p-2.5 sm:p-5 flex flex-col flex-1 justify-between gap-2.5 sm:gap-4">
             <p class="text-xs text-purple-800/80 dark:text-purple-300/80 line-clamp-2">${tpl.description || 'Interactive personalized keepsake experience.'}</p>
 
             <div class="flex items-center gap-2 pt-2 border-t border-purple-200/50 dark:border-purple-800/40">
-              <button type="button" onclick="window.WishWizard.selectTemplate('${tpl.id}')" class="flex-1 py-2.5 px-3 rounded-xl ${isSelected ? 'bg-emerald-600 text-white font-extrabold' : 'bg-gradient-to-r from-pink-500 to-purple-600 text-white font-bold'} text-xs shadow-md hover:brightness-110 active:scale-95 transition flex items-center justify-center gap-1.5 cursor-pointer">
+              <button type="button" onclick="window.WishWizard.selectTemplate('${tpl.id}')" class="flex-1 py-2 sm:py-2.5 px-2 sm:px-3 rounded-xl ${isSelected ? 'bg-emerald-600 text-white font-extrabold' : 'bg-gradient-to-r from-pink-500 to-purple-600 text-white font-bold'} text-[11px] sm:text-xs shadow-md hover:brightness-110 active:scale-95 transition flex items-center justify-center gap-1 sm:gap-1.5 cursor-pointer">
                 <span class="material-symbols-outlined text-[16px]">${isSelected ? 'check_circle' : 'auto_fix_high'}</span>
                 <span>${isSelected ? 'Selected Template' : 'Choose This Template'}</span>
               </button>

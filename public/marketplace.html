@@ -5,7 +5,7 @@
 <base href="/"/>
 <meta content="width=device-width, initial-scale=1.0" name="viewport"/>
 <title>WishMagic | Gift a Magical Web-Experience!</title>
-<script src="/js/site-theme.js?v=20261015_wm47944_v7"></script>
+<script src="/js/site-theme.js?v=20261027_mobile2col_v1"></script>
 <script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
 <link href="https://fonts.googleapis.com" rel="preconnect"/>
 <link crossorigin="" href="https://fonts.gstatic.com" rel="preconnect"/>
@@ -13,7 +13,7 @@
 <link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
 <script src="/js/tailwind-config.js?v=20261015_wm47944_v7"></script>
 <script>if (typeof tailwind !== "undefined" && typeof sharedTailwindConfig !== "undefined") { tailwind.config = sharedTailwindConfig; }</script>
-<script src="js/WishMagicCore.js"></script>
+<script src="js/WishMagicCore.js?v=20261027_mobile2col_v1"></script>
 <!-- Part 11 & Part 12: Monetization & Section Content Engine -->
 <!-- Firebase Official SDK (Compat) -->
 <script src="https://www.gstatic.com/firebasejs/10.8.0/firebase-app-compat.js"></script>
@@ -159,7 +159,7 @@
   <script src="js/repositories.js"></script>
   <script src="/js/notification-service.js?v=20261015_wm47944_v7"></script>
   <script src="js/security-hardening.js"></script>
-  <link id="wishmagic-cloud-css" rel="stylesheet" href="/css/cloud-background.css?v=20261015_wm47944_v7"/>
+  <link id="wishmagic-cloud-css" rel="stylesheet" href="/css/cloud-background.css?v=20261027_mobile2col_v1"/>
 </head>
 <body class="w-full min-h-screen font-sans antialiased selection:bg-pink-500 selection:text-white">
 <!-- Header -->
@@ -384,7 +384,7 @@
 </div>
 <!-- MAIN TEMPLATE CATALOG GRID (Exact screenshot layout: 4 cards per row with generous spacing) -->
 <section class="w-full px-2.5 sm:px-6 lg:px-8 py-4 sm:py-6">
-<div class="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 lg:grid-cols-4 xl:grid-cols-4 gap-4 lg:gap-5" id="templates-grid-container">
+<div class="grid grid-cols-2 sm:grid-cols-2 md:grid-cols-4 lg:grid-cols-4 xl:grid-cols-4 gap-2.5 sm:gap-4 lg:gap-5" id="templates-grid-container">
     <div id="dynamic-marketplace-templates" class="contents"></div>
   </div>
 <!-- Empty Filter State Notice (Hidden by Default) -->
@@ -993,8 +993,8 @@
 
   // Template Preview Modal for Marketplace (Rule C & Rule E variant-aware)
   function openMarketplacePreview(tplId, selectedVariant) {
-    const tpl = allLoadedTemplates.find(t => t.id === tplId || t.slug === tplId) || (window._wmLoadedTemplatesMap && window._wmLoadedTemplatesMap[tplId]);
-    if (!tpl) return;
+    let tpl = allLoadedTemplates.find(t => t.id === tplId || t.slug === tplId) || (window._wmLoadedTemplatesMap && window._wmLoadedTemplatesMap[tplId]);
+    if (!tpl) tpl = { id: tplId, slug: tplId, name: tplId };
 
     if (!selectedVariant && window.WishMagicVariantFlow && window.WishMagicVariantFlow.isVariantFamily(tpl)) {
       const avail = window.WishMagicVariantFlow.getAvailablePublishedVariants(tpl);
@@ -1009,140 +1009,23 @@
       } else if (avail.length === 1) {
         selectedVariant = avail[0];
       } else if (avail.length > 1) {
-        window.WishMagicVariantFlow.showRelationSelectionModal(tpl, avail, 'preview', {
-          openPreviewModal: (id, chosenVar) => openMarketplacePreview(id, chosenVar)
-        });
+        window.WishMagicVariantFlow.showRelationSelectionModal(tpl, avail, preview, {});
         return;
       }
     }
 
-    const modal = document.getElementById('marketplace-preview-modal');
-    const titleEl = document.getElementById('mkt-preview-title');
-    const catEl = document.getElementById('mkt-preview-cat');
-    const badgeEl = document.getElementById('mkt-preview-badge');
-    const iframeEl = document.getElementById('mkt-preview-iframe');
-    const extLink = document.getElementById('mkt-preview-external');
-    const ctaBtn = document.getElementById('mkt-preview-cta');
+    const campSuffix = (tpl.festivalCampaign && tpl.festivalCampaign.campaignId)
+      ? `&campaign=${encodeURIComponent(tpl.festivalCampaign.campaignId)}`
+      : ;
+    const fullPreviewHref = selectedVariant
+      ? `/template-preview.html?template=${encodeURIComponent(tpl.id)}&variant=${encodeURIComponent(selectedVariant.id)}&rel=${encodeURIComponent(selectedVariant.relationshipSlug)}${campSuffix}`
+      : `/template-preview.html?template=${encodeURIComponent(tpl.id)}${campSuffix}`;
 
-    const previewTargetObj = selectedVariant
-      ? { ...tpl, entryFile: selectedVariant.entryFile || tpl.entryFile }
-      : tpl;
-    const url = resolveTemplatePreviewUrlClient(previewTargetObj);
-    const isVip = tpl.tier === 'vip' || (tpl.price && Number(tpl.price) > 0);
-
-    if (titleEl) {
-      titleEl.textContent = selectedVariant
-        ? `${tpl.name} — ${selectedVariant.relationshipLabel}`
-        : tpl.name;
-    }
-    if (catEl) {
-      catEl.textContent = selectedVariant
-        ? `${tpl.category || "Celebration"} • For ${selectedVariant.relationshipLabel}`
-        : `${tpl.category || "Celebration"} • ${tpl.type || "Interactive 3D"}`;
-    }
-    if (badgeEl) {
-      badgeEl.textContent = isVip ? `PREMIUM • ₹${tpl.price || 59}` : 'FREE';
-      badgeEl.className = `px-2 py-0.5 rounded-full text-[10px] font-black uppercase tracking-wider ${isVip ? 'bg-amber-400 text-purple-950' : 'bg-emerald-500 text-white'}`;
-    }
-    if (iframeEl) {
-      iframeEl.removeAttribute('srcdoc');
-      iframeEl.removeAttribute('data-fallback-applied');
-      iframeEl.src = url;
-      guardPreviewIframeAgainstMainSite(iframeEl, previewTargetObj);
-      if (selectedVariant) {
-        const prevLoad = iframeEl.onload;
-        iframeEl.onload = function(ev) {
-          if (typeof prevLoad === 'function') prevLoad.call(this, ev);
-          try {
-            if (iframeEl.contentWindow) {
-              iframeEl.contentWindow.postMessage({
-                type: 'WISHMAGIC_INIT',
-                payload: {
-                  variantId: selectedVariant.id,
-                  relationship: selectedVariant.relationshipSlug,
-                  relationshipSlug: selectedVariant.relationshipSlug,
-                  messages: selectedVariant.messages || {},
-                  assets: selectedVariant.assets || {},
-                  palette: selectedVariant.theme || null,
-                  ...(selectedVariant.messages || {}),
-                  ...(selectedVariant.assets || {})
-                }
-              }, '*');
-            }
-          } catch (_) {}
-        };
-      }
-    }
-
-    const customizeHref = selectedVariant
-      ? `/customize.html?template=${encodeURIComponent(tpl.id)}&variant=${encodeURIComponent(selectedVariant.id)}&rel=${encodeURIComponent(selectedVariant.relationshipSlug)}`
-      : `/customize.html?template=${encodeURIComponent(tpl.id)}`;
-
-    if (extLink) extLink.href = url;
-    // Render live relationship variant switcher bar inside marketplace preview modal
-    let mktVarBar = document.getElementById('mkt-preview-variant-switcher');
-    if (!mktVarBar) {
-      const mktModalTop = document.querySelector('#marketplace-preview-modal > div > div:first-child');
-      if (mktModalTop) {
-        mktVarBar = document.createElement('div');
-        mktVarBar.id = 'mkt-preview-variant-switcher';
-        mktVarBar.className = 'px-4 sm:px-6 py-2 bg-purple-50/90 dark:bg-[#140726] border-b border-purple-200/60 dark:border-purple-800/60 flex items-center gap-2 overflow-x-auto no-scrollbar shrink-0 hidden';
-        mktModalTop.insertAdjacentElement('afterend', mktVarBar);
-      }
-    }
-    if (mktVarBar && window.WishMagicVariantFlow && window.WishMagicVariantFlow.isVariantFamily(tpl)) {
-      const availVars = window.WishMagicVariantFlow.getAvailablePublishedVariants(tpl);
-      if (availVars.length > 1) {
-        mktVarBar.classList.remove('hidden');
-        mktVarBar.innerHTML = `<span class="text-[11px] font-extrabold text-purple-800 dark:text-purple-300 shrink-0">Switch Relation:</span>` +
-          availVars.map(v => {
-            const isAct = selectedVariant && (selectedVariant.id === v.id || selectedVariant.relationshipSlug === v.relationshipSlug);
-            return `<button type="button" onclick="openMarketplacePreview('${tpl.id}', window.WishMagicVariantFlow.resolveVariantForRelation(window._wmLoadedTemplatesMap['${tpl.id}'], '${v.relationshipSlug}'))" class="px-3 py-1 rounded-full text-xs font-bold transition shrink-0 cursor-pointer ${isAct ? 'bg-gradient-to-r from-pink-500 to-purple-600 text-white shadow-sm' : 'bg-white dark:bg-purple-900/60 text-purple-900 dark:text-purple-200 border border-purple-200 dark:border-purple-700/60 hover:border-pink-400'}">${v.relationshipLabel}</button>`;
-          }).join('');
-      } else {
-        mktVarBar.classList.add('hidden');
-      }
-    } else if (mktVarBar) {
-      mktVarBar.classList.add('hidden');
-    }
-
-    if (ctaBtn) {
-      ctaBtn.href = customizeHref;
-      ctaBtn.onclick = (e) => {
-        if (window.WishAuth && typeof window.WishAuth.isGoogleLoggedIn === 'function' && !window.WishAuth.isGoogleLoggedIn()) {
-          e.preventDefault();
-          closeMarketplacePreview();
-          window.WishAuth.requireGoogleAuthForCustomize(customizeHref);
-          return;
-        }
-        if (window.WishFeatureAccess) {
-          const access = window.WishFeatureAccess.canUseTemplate(tpl);
-          if (!access.allowed) {
-            e.preventDefault();
-            if (window.WishPremiumLock) {
-              window.WishPremiumLock.open({
-                context: 'template',
-                template: tpl,
-                onUnlocked: () => {
-                  window.location.href = customizeHref;
-                }
-              });
-            }
-            return;
-          }
-        }
-      };
-      ctaBtn.innerHTML = selectedVariant
-        ? `<span>Customize ${selectedVariant.relationshipLabel} Wish</span><span class="text-amber-300 text-xs">✨</span>`
-        : `<span>Create This Wish</span><span class="text-amber-300 text-xs">✨</span>`;
-    }
-
-    if (modal) {
-      modal.classList.remove('hidden');
-      modal.classList.add('flex');
-      document.body.classList.add('overflow-hidden');
-    }
-    setMarketplacePreviewDevice(window.innerWidth >= 1024 ? 'desktop' : 'mobile', false);
+    try {
+      const win = window.open(fullPreviewHref, _blank, noopener);
+      if (win) return;
+    } catch (_) {}
+    window.location.href = fullPreviewHref;
   }
 
   function closeMarketplacePreview() {

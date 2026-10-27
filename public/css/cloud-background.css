@@ -715,8 +715,21 @@ html.dark .wm-theme-pill-knob { color: #ffffff !important; }
     white-space: nowrap !important;
   }
 
-  .template-card > div:last-child > button,
-  .catalog-template-card > div:last-child > button {
+  .template-card > div:last-child > button:first-child,
+  .catalog-template-card > div:last-child > button:first-child {
+    width: auto !important;
+    height: 35px !important;
+    min-width: 0 !important;
+    padding: 0 11px !important;
+    font-size: 12px !important;
+    font-weight: 800 !important;
+    border-radius: 9999px !important;
+    white-space: nowrap !important;
+    flex-shrink: 0 !important;
+  }
+
+  .template-card > div:last-child > button:last-child:not(:first-child),
+  .catalog-template-card > div:last-child > button:last-child:not(:first-child) {
     width: 35px !important;
     height: 35px !important;
     min-width: 35px !important;
@@ -750,8 +763,16 @@ html.dark .wm-theme-pill-knob { color: #ffffff !important; }
     font-size: 13.5px !important;
   }
 
-  .template-card > div:last-child > button,
-  .catalog-template-card > div:last-child > button {
+  .template-card > div:last-child > button:first-child,
+  .catalog-template-card > div:last-child > button:first-child {
+    width: auto !important;
+    height: 38px !important;
+    padding: 0 13px !important;
+    font-size: 12.5px !important;
+  }
+
+  .template-card > div:last-child > button:last-child:not(:first-child),
+  .catalog-template-card > div:last-child > button:last-child:not(:first-child) {
     width: 38px !important;
     height: 38px !important;
     min-width: 38px !important;
@@ -1107,11 +1128,11 @@ html.dark textarea::placeholder {
     padding-top: 10px !important;
   }
 
-  /* 2. Templates Grid on Mobile (< 640px): 1 Clean Full-Width Column */
+  /* 2. Templates Grid on Mobile (< 640px): 2 Templates Per Row + Proportional Button Sizing */
   #templates-section {
-    padding-left: 4px !important;
-    padding-right: 4px !important;
-    padding-top: 20px !important;
+    padding-left: 2px !important;
+    padding-right: 2px !important;
+    padding-top: 16px !important;
     padding-bottom: 20px !important;
     max-width: 100% !important;
     overflow-x: hidden !important;
@@ -1122,9 +1143,162 @@ html.dark textarea::placeholder {
   #wizard-templates-grid:not(.hidden),
   #fav-grid:not(.hidden) {
     display: grid !important;
-    grid-template-columns: 1fr !important;
-    gap: 14px !important;
+    grid-template-columns: repeat(2, minmax(0, 1fr)) !important;
+    gap: 9px !important;
     width: 100% !important;
+    align-items: stretch !important;
+  }
+
+  .template-card:not(.hidden),
+  .catalog-template-card:not(.hidden) {
+    width: 100% !important;
+    min-width: 0 !important;
+    height: 100% !important;
+    padding: 8.5px !important;
+    border-radius: 15px !important;
+    display: flex !important;
+    flex-direction: column !important;
+    justify-content: space-between !important;
+    box-sizing: border-box !important;
+  }
+
+  .template-card > div > div:first-child,
+  .catalog-template-card > div > div:first-child {
+    aspect-ratio: 16 / 10 !important;
+    width: 100% !important;
+    height: auto !important;
+    border-radius: 10px !important;
+    margin-bottom: 6px !important;
+    overflow: hidden !important;
+  }
+
+  .template-card > div > div:first-child > div.absolute,
+  .catalog-template-card > div > div:first-child > div.absolute {
+    top: 5px !important;
+    right: 5px !important;
+  }
+
+  .template-card > div > div:first-child > div.absolute.left-3,
+  .catalog-template-card > div > div:first-child > div.absolute.left-3 {
+    top: 5px !important;
+    left: 5px !important;
+    right: auto !important;
+  }
+
+  .template-card > div > div:first-child > div.absolute > span,
+  .catalog-template-card > div > div:first-child > div.absolute > span {
+    padding: 2px 6px !important;
+    font-size: 8.5px !important;
+    border-radius: 7px !important;
+    line-height: 1.15 !important;
+  }
+
+  .template-card > div > div:first-child > div.absolute > span > span {
+    font-size: 8px !important;
+  }
+
+  .template-card h3,
+  .catalog-template-card h3 {
+    font-size: 12.5px !important;
+    line-height: 1.25 !important;
+    font-weight: 800 !important;
+    white-space: nowrap !important;
+    overflow: hidden !important;
+    text-overflow: ellipsis !important;
+  }
+
+  .template-card .wm-card-relation-tags,
+  .catalog-template-card .wm-card-relation-tags {
+    gap: 3px !important;
+    margin-top: 3px !important;
+    margin-bottom: 3px !important;
+    max-height: 19px !important;
+    overflow: hidden !important;
+  }
+
+  .template-card .wm-relation-tag,
+  .catalog-template-card .wm-relation-tag,
+  .template-card .wm-relation-tag-more,
+  .catalog-template-card .wm-relation-tag-more {
+    font-size: 8.5px !important;
+    padding: 1.5px 5.5px !important;
+  }
+
+  .template-card > div > div.flex.items-center.gap-1\.5,
+  .catalog-template-card > div > div.flex.items-center.gap-1\.5 {
+    font-size: 10px !important;
+    margin-bottom: 6px !important;
+    gap: 3px !important;
+  }
+
+  .template-card > div > div.flex.items-center.gap-1\.5 span,
+  .catalog-template-card > div > div.flex.items-center.gap-1\.5 span {
+    font-size: 10px !important;
+  }
+
+  /* Bottom Action Buttons Row on Mobile 2-Column Cards */
+  .template-card > div:last-child,
+  .catalog-template-card > div:last-child {
+    display: flex !important;
+    align-items: center !important;
+    gap: 4px !important;
+    padding-top: 2px !important;
+    width: 100% !important;
+  }
+
+  .template-card > div:last-child > button:first-child,
+  .catalog-template-card > div:last-child > button:first-child {
+    width: auto !important;
+    min-width: 0 !important;
+    height: 29px !important;
+    padding: 0 7px !important;
+    font-size: 10px !important;
+    font-weight: 800 !important;
+    border-radius: 9999px !important;
+    white-space: nowrap !important;
+    flex-shrink: 0 !important;
+    display: inline-flex !important;
+    align-items: center !important;
+    justify-content: center !important;
+  }
+
+  .template-card a[href*="customize"],
+  .catalog-template-card a[href*="customize"] {
+    flex: 1 1 0% !important;
+    min-width: 0 !important;
+    height: 29px !important;
+    padding: 0 6px !important;
+    font-size: 10.5px !important;
+    font-weight: 800 !important;
+    border-radius: 9999px !important;
+    display: inline-flex !important;
+    align-items: center !important;
+    justify-content: center !important;
+    gap: 2px !important;
+    white-space: nowrap !important;
+    overflow: hidden !important;
+    text-overflow: ellipsis !important;
+  }
+
+  .template-card a[href*="customize"] > span:nth-child(2),
+  .catalog-template-card a[href*="customize"] > span:nth-child(2) {
+    display: none !important;
+  }
+
+  .template-card > div:last-child > button:last-child:not(:first-child),
+  .catalog-template-card > div:last-child > button:last-child:not(:first-child) {
+    width: 27px !important;
+    height: 29px !important;
+    min-width: 27px !important;
+    padding: 0 !important;
+    border-radius: 8px !important;
+    flex-shrink: 0 !important;
+  }
+
+  .template-card > div:last-child > button:last-child:not(:first-child) svg,
+  .catalog-template-card > div:last-child > button:last-child:not(:first-child) svg {
+    width: 13.5px !important;
+    height: 13.5px !important;
   }
 
   [data-purpose="category-tabs"] {

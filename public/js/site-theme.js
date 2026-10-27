@@ -215,7 +215,7 @@
     const hash = (window.location.hash || '').toLowerCase();
 
     // Do not inject storefront header on Admin pages or fullscreen Wish player
-    if (pathname.startsWith('/admin') || pathname.includes('wish.html')) return;
+    if (pathname.startsWith('/admin') || pathname.includes('wish.html') || pathname.includes('template-preview') || pathname.startsWith('/template/')) return;
 
     const isHome = pathname === '/' || pathname.endsWith('/index.html');
     if (isHome) {
@@ -238,7 +238,7 @@
       cloudLink = document.createElement('link');
       cloudLink.id = 'wishmagic-cloud-css';
       cloudLink.rel = 'stylesheet';
-      cloudLink.href = '/css/cloud-background.css?v=20261021_diwali_v1';
+      cloudLink.href = '/css/cloud-background.css?v=20261027_mobile2col_v1';
       document.head.appendChild(cloudLink);
     }
 
@@ -437,6 +437,8 @@
 // 5. Universal Storefront Live Settings Synchronizer
 (function() {
   async function syncGlobalStorefrontSettings() {
+    const _p = (window.location.pathname || '/').toLowerCase();
+    if (_p.includes('template-preview') || _p.startsWith('/template/')) return;
     if (typeof window.loadLiveSiteConfiguration === 'function') {
       return;
     }
@@ -506,7 +508,7 @@
   async function syncStorefrontFestivalSchedule() {
     if (typeof document === 'undefined' || !document.body) return;
     const pathname = (window.location.pathname || '/').toLowerCase();
-    if (pathname.startsWith('/admin') || pathname.includes('wish.html')) return;
+    if (pathname.startsWith('/admin') || pathname.includes('wish.html') || pathname.includes('template-preview') || pathname.startsWith('/template/')) return;
 
     try {
       const res = await fetch('/api/festivals/active?_t=' + Date.now(), {
