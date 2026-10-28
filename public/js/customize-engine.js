@@ -501,7 +501,7 @@ document.addEventListener('DOMContentLoaded', async () => {
 });
 
 function applySelectedVariantToCustomizer(variant, isInitialLoad = false) {
-  if (!activeTemplate || !variant) return;
+  if (!activeTemplate || !variant || variant.code === 'VARIANT_UNAVAILABLE') return;
   activeTemplate.selectedVariant = variant;
   activeTemplate.entryFile = variant.entryFile || activeTemplate.entryFile || 'index.html';
 

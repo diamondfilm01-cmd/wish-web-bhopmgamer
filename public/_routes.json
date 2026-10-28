@@ -57,6 +57,8 @@
     "/notifications",
     "/notifications.html",
     "/referrals",
-    "/referrals.html"
+    "/referrals.html",
+    "/wm-clay-admin.webmanifest",
+    "/wm-admin-sw.js"
   ]
 }

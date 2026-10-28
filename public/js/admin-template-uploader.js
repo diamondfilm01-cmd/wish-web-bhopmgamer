@@ -2155,7 +2155,7 @@ async function deployUploadedTemplate(publishImmediately = true) {
       const aPri = /(?:cover|thumb|backdrop|memory-[1234]|photo[_-]?[1234])/i.test(a) ? 0 : 1;
       const bPri = /(?:cover|thumb|backdrop|memory-[1234]|photo[_-]?[1234])/i.test(b) ? 0 : 1;
       return aPri - bPri;
-    }).slice(0, 6);
+    }).slice(0, 40);
     if (imageRelPaths.length > 0) {
       let completedPhotos = 0;
       let skipClientImgbb = false;
@@ -5852,7 +5852,22 @@ function getSelectedEnabledVariantSlugs(state, fallbackRels = null) {
   const enabledMap = state.enabledVariants || {};
   const mapKeys = Object.keys(enabledMap);
   if (mapKeys.length > 0) {
-    return mapKeys.filter(k => Boolean(enabledMap[k]));
+    const selected = mapKeys.filter(k => Boolean(enabledMap[k]));
+    if (selected.length > 0) return selected;
+  }
+  if (Array.isArray(state.variants) && state.variants.length > 0) {
+    const fromVars = state.variants
+      .filter(v => v && v.enabled !== false && v.status !== "disabled")
+      .map(v => String(v.relationshipSlug || v.relationship || v.slug || "").trim())
+      .filter(Boolean);
+    if (fromVars.length > 0) return fromVars;
+  }
+  if (typeof currentDetectedVariantsReport === "object" && currentDetectedVariantsReport && Array.isArray(currentDetectedVariantsReport.detectedRelations) && currentDetectedVariantsReport.detectedRelations.length > 0) {
+    const fromRep = currentDetectedVariantsReport.detectedRelations
+      .filter(r => r && r.enabled !== false)
+      .map(r => String(r.slug || r.id || "").trim())
+      .filter(Boolean);
+    if (fromRep.length > 0) return fromRep;
   }
   return Array.isArray(fallbackRels) ? fallbackRels : [];
 }
@@ -7487,7 +7502,7 @@ window.executeImportStudioConfirmedPublish = async function() {
       const aPri = /(?:cover|thumb|backdrop|memory-[1234]|photo[_-]?[1234])/i.test(a) ? 0 : 1;
       const bPri = /(?:cover|thumb|backdrop|memory-[1234]|photo[_-]?[1234])/i.test(b) ? 0 : 1;
       return aPri - bPri;
-    }).slice(0, 6);
+    }).slice(0, 40);
     if (imageRelPaths.length > 0) {
       let completedPhotos = 0;
       let skipClientImgbb = false;

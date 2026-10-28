@@ -164,7 +164,7 @@ describe('Part 48 — WishMagic UTP v1.1.0 Universal Template Variant System', (
   describe('13.1 Manifest & Upload Validation Tests', () => {
     it('supports both UTP v1.0.0 and UTP v1.1.0 schema versions cleanly', () => {
       assert.equal(UTP_SCHEMA_VERSION, '1.0.0');
-      assert.ok(['1.1.0', '1.2.0', '1.3.0'].includes(UTP_LATEST_SCHEMA_VERSION));
+      assert.ok(['1.1.0', '1.2.0', '1.3.0', '1.4.0'].includes(UTP_LATEST_SCHEMA_VERSION));
       assert.ok(UTP_SUPPORTED_SCHEMA_VERSIONS.includes('1.0.0'));
       assert.ok(UTP_SUPPORTED_SCHEMA_VERSIONS.includes('1.1.0'));
       assert.ok(UTP_RELATIONSHIP_CATALOG.brother);

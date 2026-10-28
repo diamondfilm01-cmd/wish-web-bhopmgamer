@@ -282,10 +282,11 @@
   }
 
   function removeDisabledContentFromDom(rootDoc, visibilityConfigOrPayload) {
-    const doc = rootDoc || document;
+    const isDocFirst = Boolean(rootDoc && typeof rootDoc.querySelectorAll === 'function');
+    const doc = isDocFirst ? rootDoc : document;
     if (!doc || typeof doc.querySelectorAll !== 'function') return { removedIds: [] };
 
-    const data = visibilityConfigOrPayload || {};
+    const data = (isDocFirst ? visibilityConfigOrPayload : rootDoc) || {};
     const eff = data.effectiveConfig || data;
     const visibilityMap = (eff.visibilityMap && typeof eff.visibilityMap === 'object')
       ? eff.visibilityMap
@@ -1161,7 +1162,7 @@
    */
   function applyBrandingFooterToDom(brandingOverride, contextData, targetDoc) {
     const doc = targetDoc || document;
-    if (!doc || !doc.body) return;
+    if (!doc || !doc.body || typeof doc.querySelector !== 'function') return;
     const rawBranding = (brandingOverride && typeof brandingOverride === 'object')
       ? brandingOverride
       : ((contextData && contextData.brandingFooter && typeof contextData.brandingFooter === 'object')
@@ -1178,30 +1179,16 @@
       return;
     }
 
-    // If an older template does not have a [data-wm-platform-footer] container yet, inject a sleek theme-adaptive one
+    // Never inject a synthetic footer into host shell pages or templates that do not declare [data-wm-platform-footer]
+    if (typeof doc.getElementById === 'function' && (doc.getElementById('live-template-viewport') || doc.getElementById('live-template-iframe'))) {
+      if (footerEl) footerEl.remove();
+      return;
+    }
     if (!footerEl) {
-      footerEl = doc.createElement('footer');
-      footerEl.id = 'wm-platform-footer';
-      footerEl.className = 'wm-platform-footer';
-      footerEl.setAttribute('data-wm-platform-footer', 'true');
-      footerEl.style.cssText = 'position:relative;width:100%;padding:40px 18px 52px;text-align:center;background:rgba(8,12,26,0.94);border-top:1px solid rgba(212,175,55,0.35);color:var(--wm-text,#f8fafc);font-family:system-ui,-apple-system,sans-serif;z-index:35;';
-      footerEl.innerHTML =
-        '<div class="wm-platform-footer-card" style="max-width:680px;margin:0 auto;padding:24px 20px;border-radius:22px;background:rgba(255,255,255,0.05);border:1px solid rgba(212,175,55,0.38);backdrop-filter:blur(12px);">' +
-          '<div class="wm-platform-footer-badge" data-wm-brand-badge style="display:inline-block;padding:4px 12px;border-radius:999px;background:rgba(212,175,55,0.16);border:1px solid rgba(212,175,55,0.4);color:var(--wm-primary,#fde047);font-size:11px;font-weight:700;letter-spacing:0.08em;text-transform:uppercase;margin-bottom:10px;"></div>' +
-          '<div class="wm-platform-footer-title-row" style="display:flex;align-items:center;justify-content:center;gap:8px;margin-bottom:6px;">' +
-            '<span class="wm-platform-footer-icon" data-wm-brand-icon style="font-size:22px;"></span>' +
-            '<strong class="wm-platform-footer-name" data-wm-brand-name style="font-size:22px;font-weight:800;color:var(--wm-primary,#fde047);"></strong>' +
-          '</div>' +
-          '<p class="wm-platform-footer-tagline" data-wm-brand-tagline style="font-size:15px;font-weight:600;margin:0 auto 6px;max-width:540px;opacity:0.95;"></p>' +
-          '<p class="wm-platform-footer-details" data-wm-brand-details style="font-size:13px;line-height:1.5;margin:0 auto 16px;max-width:520px;opacity:0.78;"></p>' +
-          '<div class="wm-platform-footer-links" style="display:flex;flex-wrap:wrap;align-items:center;justify-content:center;gap:10px;margin-bottom:14px;">' +
-            '<a href="/customize.html" class="wm-platform-footer-btn-primary" data-wm-brand-primary-btn data-wm-link="template.customize" style="padding:9px 18px;border-radius:999px;background:linear-gradient(135deg,var(--wm-primary,#f59e0b),var(--wm-secondary,#ec4899));color:#fff;font-weight:700;font-size:13px;text-decoration:none;"></a>' +
-            '<a href="/templates.html" class="wm-platform-footer-btn-secondary" data-wm-brand-secondary-btn data-wm-link="global.explore" style="padding:9px 16px;border-radius:999px;background:rgba(255,255,255,0.08);border:1px solid rgba(255,255,255,0.22);color:var(--wm-text,#fff);font-weight:600;font-size:13px;text-decoration:none;"></a>' +
-          '</div>' +
-          '<div class="wm-platform-footer-copyright" data-wm-brand-copyright style="font-size:11px;opacity:0.65;border-top:1px solid rgba(255,255,255,0.12);padding-top:10px;"></div>' +
-        '</div>';
-      const mainEl = doc.querySelector('main') || doc.body;
-      mainEl.appendChild(footerEl);
+      return;
+    }
+    if (footerEl.style && footerEl.style.zIndex === '35') {
+      footerEl.style.zIndex = '1';
     }
 
     footerEl.removeAttribute('hidden');
@@ -1679,7 +1666,9 @@
   global.setWishMagicField = setWishMagicField;
 
   // Auto-listen to incoming postMessage data from customizer or parent iframe
+  if (typeof window !== 'undefined' && typeof window.addEventListener === 'function') {
   window.addEventListener('message', (event) => {
+    if (event.source === window) return; // UTP v1.4.0 Anti-Hang #3: ignore self-echo postMessages
     if (!event.data || typeof event.data !== 'object') return;
     if (
       event.data.type === 'WISHMAGIC_INIT' ||
@@ -1693,18 +1682,107 @@
       applyBrandingFooterToDom(bf, global.WishMagicData || {}, document);
     }
   });
+  }
 
-  // Auto-hydrate if window.WishMagicData is preset
-  if (document.readyState === 'loading') {
+  function installTemplateBrokenImageGuard(rootDoc) {
+    const doc = rootDoc || document;
+    if (!doc || doc._wmBrokenImgGuardInstalled) return;
+    doc._wmBrokenImgGuardInstalled = true;
+
+    const getTplIdFromEnv = () => {
+      try {
+        if (global.__WM_PREVIEW_TEMPLATE_ID__) return global.__WM_PREVIEW_TEMPLATE_ID__;
+        if (global.WishMagicData && (global.WishMagicData.templateId || global.WishMagicData.template_id)) {
+          return global.WishMagicData.templateId || global.WishMagicData.template_id;
+        }
+        const htmlTpl = doc.documentElement && doc.documentElement.getAttribute('data-wm-template-id');
+        if (htmlTpl) return htmlTpl;
+        const m = String(doc.location && doc.location.pathname || '').match(/\/api\/templates\/([^/]+)\/versions\/([^/]+)\/preview\//);
+        if (m) return m[1];
+        const up = new URLSearchParams(String(doc.location && doc.location.search || ''));
+        return up.get('template') || up.get('id') || '';
+      } catch (_) {
+        return '';
+      }
+    };
+
+    const getVerIdFromEnv = () => {
+      try {
+        if (global.__WM_PREVIEW_VERSION_ID__) return global.__WM_PREVIEW_VERSION_ID__;
+        const m = String(doc.location && doc.location.pathname || '').match(/\/api\/templates\/([^/]+)\/versions\/([^/]+)\/preview\//);
+        return m ? m[2] : '';
+      } catch (_) {
+        return '';
+      }
+    };
+
+    const healImgElement = (img) => {
+      if (!img || img.tagName !== 'IMG' || img.dataset.wmImgHealed === '1') return;
+      const src = String(img.getAttribute('src') || img.src || '').trim();
+      if (!src || src.startsWith('data:') || src.includes('/api/media/safe-img')) return;
+      const isIbb = src.includes('ibb.co/');
+      const isUnavailablePlaceholder = isIbb && img.complete && img.naturalWidth > 0 && img.naturalWidth <= 220 && img.naturalHeight > 0 && img.naturalHeight <= 220 && Math.abs(img.naturalWidth - img.naturalHeight) <= 4;
+      const isBroken = img.complete && img.naturalWidth === 0 && src.length > 0;
+      if (isUnavailablePlaceholder || (isIbb && isBroken)) {
+        img.dataset.wmImgHealed = '1';
+        const tplId = img.getAttribute('data-wm-tpl-id') || getTplIdFromEnv();
+        const verId = getVerIdFromEnv();
+        img.src = '/api/media/safe-img?u=' + encodeURIComponent(src) + (tplId ? '&tpl=' + encodeURIComponent(tplId) : '') + (verId ? '&ver=' + encodeURIComponent(verId) : '');
+      }
+    };
+
+    if (typeof doc.addEventListener === 'function') {
+      doc.addEventListener('load', (e) => {
+        if (e && e.target && e.target.tagName === 'IMG') healImgElement(e.target);
+      }, true);
+
+      doc.addEventListener('error', (e) => {
+        const img = e && e.target;
+        if (!img || img.tagName !== 'IMG' || img.dataset.wmImgHealed === '1') return;
+        const src = String(img.getAttribute('src') || img.src || '').trim();
+        if (!src || src.startsWith('data:') || src.includes('/api/media/safe-img')) return;
+        img.dataset.wmImgHealed = '1';
+        const tplId = img.getAttribute('data-wm-tpl-id') || getTplIdFromEnv();
+        const verId = getVerIdFromEnv();
+        img.src = '/api/media/safe-img?u=' + encodeURIComponent(src) + (tplId ? '&tpl=' + encodeURIComponent(tplId) : '') + (verId ? '&ver=' + encodeURIComponent(verId) : '');
+      }, true);
+    }
+
+    const scanAll = () => {
+      try {
+        if (typeof doc.querySelectorAll === 'function') {
+          doc.querySelectorAll('img').forEach(healImgElement);
+        }
+      } catch (_) {}
+    };
+    scanAll();
+    if (typeof setTimeout === 'function' && typeof doc.addEventListener === 'function') {
+      setTimeout(scanAll, 600);
+      setTimeout(scanAll, 1800);
+    }
+  }
+
+  // Auto-hydrate if window.WishMagicData is preset (skip host wrapper shells like template-preview.html)
+  const isHostPreviewShell = () => Boolean(
+    typeof document !== 'undefined' &&
+    typeof document.getElementById === 'function' &&
+    (document.getElementById('live-template-viewport') || document.getElementById('live-template-iframe'))
+  );
+  if (typeof document !== 'undefined' && document.readyState === 'loading' && typeof document.addEventListener === 'function') {
     document.addEventListener('DOMContentLoaded', () => {
+      installTemplateBrokenImageGuard(document);
+      if (isHostPreviewShell()) return;
       enforceHostControlledTemplateUi(document);
       if (global.WishMagicData) applyData(global.WishMagicData);
       else applyBrandingFooterToDom(global.__WM_BRANDING_FOOTER__, {}, document);
     });
-  } else {
-    enforceHostControlledTemplateUi(document);
-    if (global.WishMagicData) applyData(global.WishMagicData);
-    else applyBrandingFooterToDom(global.__WM_BRANDING_FOOTER__, {}, document);
+  } else if (typeof document !== 'undefined') {
+    installTemplateBrokenImageGuard(document);
+    if (!isHostPreviewShell()) {
+      enforceHostControlledTemplateUi(document);
+      if (global.WishMagicData) applyData(global.WishMagicData);
+      else applyBrandingFooterToDom(global.__WM_BRANDING_FOOTER__, {}, document);
+    }
   }
 
 })(typeof window !== 'undefined' ? window : this);

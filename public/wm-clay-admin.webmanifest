@@ -1,22 +1,117 @@
 {
-  "name": "WishMagic Clay Admin Studio",
+  "id": "/admin/anktech/anktech/admin/overview",
+  "name": "WishMagic Admin Studio",
   "short_name": "WM Admin",
-  "description": "Live control studio and executive operations dashboard for WishMagic",
-  "start_url": "/admin/anktech/anktech/admin/app",
+  "description": "WishMagic Executive Admin Panel & Live Control Studio \u2014 Manage templates, festival campaigns, wishes, pricing, media, and analytics.",
+  "start_url": "/admin/anktech/anktech/admin/overview",
+  "scope": "/",
   "display": "standalone",
-  "background_color": "#eef2f8",
-  "theme_color": "#7c3aed",
+  "display_override": [
+    "standalone",
+    "minimal-ui"
+  ],
   "orientation": "any",
+  "background_color": "#111714",
+  "theme_color": "#1e7f4e",
+  "lang": "en-IN",
+  "dir": "ltr",
+  "prefer_related_applications": false,
+  "categories": [
+    "business",
+    "productivity",
+    "utilities"
+  ],
   "icons": [
     {
-      "src": "/assets/admin-header-clouds.png",
+      "src": "/assets/icons/admin-icon-192.png",
       "sizes": "192x192",
-      "type": "image/png"
+      "type": "image/png",
+      "purpose": "any"
     },
     {
-      "src": "/assets/admin-header-clouds.png",
+      "src": "/assets/icons/admin-icon-512.png",
       "sizes": "512x512",
-      "type": "image/png"
+      "type": "image/png",
+      "purpose": "any"
+    },
+    {
+      "src": "/assets/icons/admin-icon-maskable-192.png",
+      "sizes": "192x192",
+      "type": "image/png",
+      "purpose": "maskable"
+    },
+    {
+      "src": "/assets/icons/admin-icon-maskable-512.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "maskable"
+    }
+  ],
+  "shortcuts": [
+    {
+      "name": "Overview Dashboard",
+      "short_name": "Dashboard",
+      "description": "Executive KPIs, live revenue, and system health",
+      "url": "/admin/anktech/anktech/admin/overview",
+      "icons": [
+        {
+          "src": "/assets/icons/admin-icon-192.png",
+          "sizes": "192x192",
+          "type": "image/png"
+        }
+      ]
+    },
+    {
+      "name": "Templates Library",
+      "short_name": "Templates",
+      "description": "Manage UTP v1.4.0 templates, variants, and pricing",
+      "url": "/admin/anktech/anktech/admin/templates",
+      "icons": [
+        {
+          "src": "/assets/icons/admin-icon-192.png",
+          "sizes": "192x192",
+          "type": "image/png"
+        }
+      ]
+    },
+    {
+      "name": "Upload Template ZIP",
+      "short_name": "Upload ZIP",
+      "description": "Upload and extract new UTP template packages",
+      "url": "/admin/anktech/anktech/admin/add-template",
+      "icons": [
+        {
+          "src": "/assets/icons/admin-icon-192.png",
+          "sizes": "192x192",
+          "type": "image/png"
+        }
+      ]
+    },
+    {
+      "name": "Festival Scheduler",
+      "short_name": "Festivals",
+      "description": "Manage festival campaigns and date overrides",
+      "url": "/admin/anktech/anktech/admin/festivals",
+      "icons": [
+        {
+          "src": "/assets/icons/admin-icon-192.png",
+          "sizes": "192x192",
+          "type": "image/png"
+        }
+      ]
+    },
+    {
+      "name": "All Wishes & Links",
+      "short_name": "Wishes",
+      "description": "Inspect, moderate, and manage live wish links",
+      "url": "/admin/anktech/anktech/admin/wishes",
+      "icons": [
+        {
+          "src": "/assets/icons/admin-icon-192.png",
+          "sizes": "192x192",
+          "type": "image/png"
+        }
+      ]
     }
   ]
 }

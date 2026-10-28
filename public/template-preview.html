@@ -182,6 +182,24 @@
     let activeTemplate = null;
     let activeSelectedVariant = null;
     let allTemplatesList = [];
+    const DESKTOP_W = 1280;
+    const defaultPreviewDeviceMode = typeof window !== 'undefined' && (window.innerWidth >= 1024 ? 'desktop' : 'mobile');
+    function syncPreviewViewportFrame(mode) {
+      const normalizedMode = mode || defaultPreviewDeviceMode;
+      const frame = document.getElementById('live-template-viewport');
+      const iframe = document.getElementById('live-template-iframe');
+      const targetStageHeight = (typeof window !== 'undefined' && window.innerHeight) || 800;
+      if (frame && iframe) {
+        // Native full-screen viewport (desktop-frame-shell / btn-device-tablet / VARIANT_UNAVAILABLE compatible)
+        if (normalizedMode === 'tablet' || normalizedMode === 'desktop' || normalizedMode === 'mobile') {
+          frame.style.maxWidth = '100%';
+          iframe.style.width = '100%';
+          iframe.style.transform = 'none';
+        } else {
+          frame.style.height = (targetStageHeight + 48) + 'px';
+        }
+      }
+    }
 
     const WM_BUILTIN_TEMPLATE_FOLDERS = {
       'tpl_glitter_birthday': 'tpl_glitter_birthday',
@@ -356,30 +374,52 @@
       };
     }
 
+    function installIframeBrokenImageGuard(doc, tplId, verId) {
+      if (!doc || doc._wmIframeImgGuardInstalled) return;
+      doc._wmIframeImgGuardInstalled = true;
+      const healImg = (img) => {
+        if (!img || img.tagName !== 'IMG' || img.dataset.wmImgHealed === '1') return;
+        const src = String(img.getAttribute('src') || img.src || '').trim();
+        if (!src || src.startsWith('data:') || src.includes('/api/media/safe-img')) return;
+        const isIbb = src.includes('ibb.co/');
+        const isUnavailable = isIbb && img.complete && img.naturalWidth > 0 && img.naturalWidth <= 220 && img.naturalHeight > 0 && img.naturalHeight <= 220 && Math.abs(img.naturalWidth - img.naturalHeight) <= 4;
+        const isBroken = img.complete && img.naturalWidth === 0 && src.length > 0;
+        if (isUnavailable || (isIbb && isBroken)) {
+          img.dataset.wmImgHealed = '1';
+          img.src = '/api/media/safe-img?u=' + encodeURIComponent(src) + (tplId ? '&tpl=' + encodeURIComponent(tplId) : '') + (verId ? '&ver=' + encodeURIComponent(verId) : '');
+        }
+      };
+      doc.addEventListener('load', (e) => {
+        if (e && e.target && e.target.tagName === 'IMG') healImg(e.target);
+      }, true);
+      doc.addEventListener('error', (e) => {
+        const img = e && e.target;
+        if (!img || img.tagName !== 'IMG' || img.dataset.wmImgHealed === '1') return;
+        const src = String(img.getAttribute('src') || img.src || '').trim();
+        if (!src || src.startsWith('data:') || src.includes('/api/media/safe-img')) return;
+        img.dataset.wmImgHealed = '1';
+        img.src = '/api/media/safe-img?u=' + encodeURIComponent(src) + (tplId ? '&tpl=' + encodeURIComponent(tplId) : '') + (verId ? '&ver=' + encodeURIComponent(verId) : '');
+      }, true);
+      const scanAll = () => {
+        try { doc.querySelectorAll('img').forEach(healImg); } catch (_) {}
+      };
+      scanAll();
+      setTimeout(scanAll, 500);
+      setTimeout(scanAll, 1500);
+    }
+
     function ensureAndHydrateBrandingFooterInDoc(doc, customizeUrl, bfCfg) {
+      // Also ensure no stray #wm-platform-footer exists on the outer host document
+      try {
+        document.querySelectorAll('#wm-platform-footer, [data-wm-platform-footer]').forEach(el => el.remove());
+      } catch (_) {}
       if (!doc || !doc.body) return;
       let footer = doc.querySelector('[data-wm-platform-footer], #wm-platform-footer');
-      if (!footer && bfCfg.enabled !== false) {
-        footer = doc.createElement('footer');
-        footer.id = 'wm-platform-footer';
-        footer.setAttribute('data-wm-platform-footer', 'true');
-        footer.style.cssText = 'margin:40px auto 28px;max-width:720px;padding:26px 22px;border-radius:24px;background:rgba(15,8,28,0.88);border:1px solid rgba(236,72,153,0.35);box-shadow:0 18px 45px rgba(0,0,0,0.45);backdrop-filter:blur(14px);text-align:center;color:#f8fafc;font-family:"Plus Jakarta Sans",system-ui,sans-serif;';
-        footer.innerHTML = `
-          <div style="display:inline-flex;align-items:center;gap:6px;padding:5px 13px;border-radius:999px;background:rgba(236,72,153,0.16);border:1px solid rgba(236,72,153,0.38);color:#fbcfe8;font-size:12px;font-weight:700;margin-bottom:10px;">
-            <span data-wm-brand-slot="icon">🪄</span>
-            <span data-wm-brand-slot="badge">✨ Official Celebration Experience</span>
-          </div>
-          <h3 data-wm-brand-slot="name" style="margin:4px 0 6px;font-size:22px;font-weight:800;color:#ffffff;">WishMagic</h3>
-          <p data-wm-brand-slot="tagline" style="margin:0 auto 6px;font-size:14px;font-weight:600;color:#f1f5f9;max-width:520px;"></p>
-          <p data-wm-brand-slot="details" style="margin:0 auto 16px;font-size:12.5px;color:#cbd5e1;max-width:500px;line-height:1.5;"></p>
-          <div style="display:flex;flex-wrap:wrap;justify-content:center;gap:10px;margin-bottom:12px;">
-            <a href="${escapeHTML(customizeUrl)}" data-wm-link="template.customize" data-wm-brand-slot="primary_cta" style="display:inline-flex;align-items:center;justify-content:center;padding:10px 20px;border-radius:999px;font-size:13px;font-weight:700;text-decoration:none;background:linear-gradient(135deg,#ec4899,#8b5cf6);color:#fff;box-shadow:0 8px 20px rgba(236,72,153,0.32);">✨ Create For Yours</a>
-            <a href="/templates.html" data-wm-link="global.explore" data-wm-brand-slot="secondary_cta" style="display:inline-flex;align-items:center;justify-content:center;padding:10px 20px;border-radius:999px;font-size:13px;font-weight:700;text-decoration:none;background:rgba(255,255,255,0.08);border:1px solid rgba(255,255,255,0.22);color:#f8fafc;">🌐 Explore More Templates</a>
-          </div>
-          <div data-wm-brand-slot="copyright" style="font-size:11.5px;color:#94a3b8;"></div>
-        `;
-        const mainEl = doc.querySelector('main') || doc.body;
-        mainEl.appendChild(footer);
+      if (!footer) {
+        return;
+      }
+      if (footer.style && footer.style.zIndex === '35') {
+        footer.style.zIndex = '1';
       }
 
       if (footer) {
@@ -535,6 +575,7 @@
             window.WishMagicTemplate.applyActionsToDom(doc, sampleData.actions, sampleData);
           }
 
+          installIframeBrokenImageGuard(doc, t.id || t.slug || '', t.currentVersionId || '');
           ensureAndHydrateBrandingFooterInDoc(doc, customizeUrl, bfCfg);
 
           // Bind all Customize / Create links inside the previewed template to navigate the top window

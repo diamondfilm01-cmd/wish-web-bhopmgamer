@@ -314,6 +314,24 @@ const AdminAuthController = (() => {
     signInPromise = (async () => {
       try {
         if (!window.WishFirebaseAuth) {
+          const loadScript = (src) => new Promise((res) => {
+            if (document.querySelector(`script[src*="${src}"]`)) return res();
+            const s = document.createElement('script');
+            s.src = src;
+            s.onload = () => res();
+            s.onerror = () => res();
+            document.head.appendChild(s);
+          });
+          if (!window.firebase) {
+            await loadScript('https://www.gstatic.com/firebasejs/10.8.0/firebase-app-compat.js');
+            await loadScript('https://www.gstatic.com/firebasejs/10.8.0/firebase-auth-compat.js');
+          }
+          await loadScript('/js/firebase-auth.js');
+          if (window.WishFirebaseAuth && typeof window.WishFirebaseAuth.ready === 'function') {
+            try { await window.WishFirebaseAuth.ready(); } catch (_) {}
+          }
+        }
+        if (!window.WishFirebaseAuth) {
           throw new Error('Firebase Google Authentication is initializing. Please sign in from the Main Website.');
         }
 
@@ -417,6 +435,12 @@ const AdminAuthController = (() => {
     try {
       clearVerifiedSessionCache();
       if (typeof window.clearAdminApiCache === 'function') window.clearAdminApiCache();
+      if (navigator.serviceWorker && navigator.serviceWorker.controller) {
+        navigator.serviceWorker.controller.postMessage({ type: 'WM_ADMIN_LOGOUT' });
+      }
+      if (typeof caches !== 'undefined' && typeof caches.keys === 'function') {
+        caches.keys().then(keys => Promise.all(keys.map(k => caches.delete(k)))).catch(() => {});
+      }
       localStorage.removeItem('wishmagic_auth_user');
       localStorage.removeItem('wishmagic_user');
       localStorage.removeItem('wishmagic_last_user_email');
@@ -472,6 +496,51 @@ window.AdminAuthController = AdminAuthController;
       const dropdownEmailEls = document.querySelectorAll('#wm-admin-profile-dropdown .truncate');
       if (dropdownEmailEls.length > 0 && (user.email || user.mobile)) {
         dropdownEmailEls[dropdownEmailEls.length - 1].textContent = user.email || user.mobile;
+      }
+      return;
+    }
+
+    const isStandalonePwa = Boolean(
+      (window.matchMedia && window.matchMedia('(display-mode: standalone)').matches) ||
+      (window.matchMedia && window.matchMedia('(display-mode: minimal-ui)').matches) ||
+      window.navigator.standalone === true
+    );
+    if (isStandalonePwa && document.body) {
+      let authOverlay = document.getElementById('admin-pwa-signin-screen');
+      if (!authOverlay) {
+        authOverlay = document.createElement('div');
+        authOverlay.id = 'admin-pwa-signin-screen';
+        authOverlay.style.cssText = 'position:fixed;inset:0;z-index:2147483646;background:#111714;color:#eff5f1;display:flex;align-items:center;justify-content:center;padding:20px;font-family:"Plus Jakarta Sans",sans-serif;';
+        authOverlay.innerHTML = `
+          <div style="width:100%;max-width:400px;background:#1a231e;border:1px solid #26342c;border-radius:24px;padding:28px 24px;text-align:center;box-shadow:0 24px 60px rgba(0,0,0,0.5);">
+            <div style="width:56px;height:56px;border-radius:999px;background:#38c976;color:#0b1911;display:inline-flex;align-items:center;justify-content:center;font-size:26px;font-weight:900;margin-bottom:14px;">W</div>
+            <h2 style="font-size:20px;font-weight:800;margin:0 0 8px 0;color:#eff5f1;">WishMagic Admin Studio</h2>
+            <p style="font-size:13px;line-height:1.5;color:#96aba0;margin:0 0 22px 0;">Sign in with your authorized Owner Google account to access the standalone Admin App.</p>
+            <button type="button" id="wm-pwa-google-signin-btn" style="width:100%;min-height:46px;border-radius:999px;background:#38c976;color:#0b1911;font-size:14px;font-weight:800;border:none;cursor:pointer;margin-bottom:12px;">Sign In with Google</button>
+            <a href="/" style="display:inline-block;font-size:12px;font-weight:700;color:#96aba0;text-decoration:none;">← Open Public Storefront</a>
+            <div id="wm-pwa-signin-error" style="margin-top:12px;font-size:12px;color:#fb7185;display:none;"></div>
+          </div>
+        `;
+        document.body.appendChild(authOverlay);
+        const btn = document.getElementById('wm-pwa-google-signin-btn');
+        const errBox = document.getElementById('wm-pwa-signin-error');
+        if (btn) {
+          btn.onclick = async () => {
+            btn.disabled = true;
+            btn.textContent = 'Signing in...';
+            if (errBox) errBox.style.display = 'none';
+            try {
+              await window.AdminAuthController.signIn();
+            } catch (signInErr) {
+              btn.disabled = false;
+              btn.textContent = 'Sign In with Google';
+              if (errBox) {
+                errBox.textContent = signInErr?.message || 'Sign-in failed. Please try again.';
+                errBox.style.display = 'block';
+              }
+            }
+          };
+        }
       }
       return;
     }
@@ -1425,6 +1494,17 @@ function mountVessaAdminShell() {
     }
     rightDiv.appendChild(notifWrap);
 
+    // Install Admin PWA Button (Auto-hidden when running in standalone mode)
+    const pwaInstallBtn = document.createElement('button');
+    pwaInstallBtn.type = 'button';
+    pwaInstallBtn.id = 'wm-pwa-install-btn';
+    pwaInstallBtn.className = 'vessa-pwa-install-btn';
+    pwaInstallBtn.title = 'Install WishMagic Admin App on Phone / Desktop';
+    pwaInstallBtn.setAttribute('aria-label', 'Install Admin Web App');
+    pwaInstallBtn.setAttribute('onclick', 'window.triggerAdminPwaInstall && window.triggerAdminPwaInstall(event)');
+    pwaInstallBtn.innerHTML = `<span class="material-symbols-outlined text-[16px]">install_mobile</span><span>Install App</span>`;
+    rightDiv.appendChild(pwaInstallBtn);
+
     // Primary "+ New" Emerald Pill Button
     const newBtn = document.createElement('a');
     newBtn.href = `${SECRET_ADMIN_PREFIX}/add-template`;
@@ -1738,6 +1818,17 @@ function applyThemePreference(pref) {
   }
   localStorage.setItem('wishmagic_admin_theme_v2', isDark ? 'dark' : 'light');
   localStorage.setItem('wishmagic_admin_theme', isDark ? 'dark' : 'light');
+  try {
+    let metaTheme = document.querySelector('meta[name="theme-color"]');
+    if (!metaTheme && document.head) {
+      metaTheme = document.createElement('meta');
+      metaTheme.name = 'theme-color';
+      document.head.appendChild(metaTheme);
+    }
+    if (metaTheme) {
+      metaTheme.setAttribute('content', isDark ? '#111714' : '#1e7f4e');
+    }
+  } catch (_) {}
   updateThemeIcons(isDark);
 }
 
@@ -1945,3 +2036,352 @@ const AdminStudio = (() => {
   };
 })();
 window.AdminStudio = AdminStudio;
+
+// ============================================================================
+// 5. ADMIN PWA ENGINE, SERVICE WORKER, MOBILE KEYBOARD & TOUCH UX (Phases 3-7)
+// ============================================================================
+(function initWishMagicAdminPwaAndMobileUx() {
+  if (typeof window === 'undefined' || window.__wmAdminPwaInitialized) return;
+  window.__wmAdminPwaInitialized = true;
+
+  let deferredInstallPrompt = null;
+  let swRegistration = null;
+  let isRefreshingForSwUpdate = false;
+
+  function isRunningStandalone() {
+    try {
+      return Boolean(
+        (window.matchMedia && window.matchMedia('(display-mode: standalone)').matches) ||
+        (window.matchMedia && window.matchMedia('(display-mode: minimal-ui)').matches) ||
+        window.navigator.standalone === true
+      );
+    } catch (_) {
+      return false;
+    }
+  }
+
+  function syncStandaloneClass() {
+    const standalone = isRunningStandalone();
+    document.documentElement.classList.toggle('wm-pwa-standalone', standalone);
+    const installBtn = document.getElementById('wm-pwa-install-btn');
+    if (installBtn) {
+      installBtn.style.display = standalone ? 'none' : '';
+    }
+  }
+
+  syncStandaloneClass();
+  try {
+    if (window.matchMedia) {
+      const mq = window.matchMedia('(display-mode: standalone)');
+      if (typeof mq.addEventListener === 'function') {
+        mq.addEventListener('change', syncStandaloneClass);
+      }
+    }
+  } catch (_) {}
+
+  window.addEventListener('beforeinstallprompt', (e) => {
+    e.preventDefault();
+    deferredInstallPrompt = e;
+    window.__wmDeferredPwaPrompt = e;
+    syncStandaloneClass();
+  });
+
+  window.addEventListener('appinstalled', () => {
+    deferredInstallPrompt = null;
+    window.__wmDeferredPwaPrompt = null;
+    syncStandaloneClass();
+    if (typeof window.showToast === 'function') {
+      window.showToast('✨ WishMagic Admin App installed! Open it anytime from your Home Screen.', 'success');
+    }
+  });
+
+  function showPwaInstallGuideModal() {
+    let modal = document.getElementById('wm-pwa-install-guide-modal');
+    if (!modal) {
+      modal = document.createElement('div');
+      modal.id = 'wm-pwa-install-guide-modal';
+      modal.className = 'fixed inset-0 z-[220] flex items-center justify-center p-4 bg-black/60';
+      modal.innerHTML = `
+        <div class="w-full max-w-md rounded-2xl p-5 border shadow-2xl" style="background:var(--vessa-card-bg);border-color:var(--vessa-card-border);color:var(--vessa-text-main);">
+          <div class="flex items-center justify-between mb-3">
+            <div class="flex items-center gap-2.5">
+              <div class="vessa-brand-logo-circle !w-9 !h-9">
+                <span class="material-symbols-outlined text-[19px]">install_mobile</span>
+              </div>
+              <div>
+                <h3 class="text-base font-extrabold leading-tight m-0">Install WishMagic Admin App</h3>
+                <p class="text-[11px] m-0" style="color:var(--vessa-text-muted);">Add to Home Screen for 1-tap standalone access</p>
+              </div>
+            </div>
+            <button type="button" class="vessa-icon-circle-btn !w-8 !h-8" onclick="document.getElementById('wm-pwa-install-guide-modal').classList.add('hidden')" aria-label="Close">
+              <span class="material-symbols-outlined text-[18px]">close</span>
+            </button>
+          </div>
+          <div class="space-y-2.5 text-xs leading-relaxed my-3">
+            <div class="p-3 rounded-xl border" style="background:var(--vessa-pill-track);border-color:var(--vessa-card-border);">
+              <div class="font-bold mb-1">📱 Android (Chrome / Samsung Internet / Brave):</div>
+              <div>Tap the browser menu <strong>(⋮ or ≡)</strong> and select <strong>"Install app"</strong> or <strong>"Add page to → Home screen"</strong>.</div>
+            </div>
+            <div class="p-3 rounded-xl border" style="background:var(--vessa-pill-track);border-color:var(--vessa-card-border);">
+              <div class="font-bold mb-1">🍎 iPhone / iPad (Safari):</div>
+              <div>Tap the <strong>Share</strong> button at the bottom and choose <strong>"Add to Home Screen"</strong>.</div>
+            </div>
+            <div class="p-3 rounded-xl border" style="background:var(--vessa-pill-track);border-color:var(--vessa-card-border);">
+              <div class="font-bold mb-1">💻 Desktop (Chrome / Edge):</div>
+              <div>Click the <strong>Install icon</strong> on the right side of the address bar.</div>
+            </div>
+          </div>
+          <div class="flex justify-end pt-2">
+            <button type="button" class="vessa-new-btn !h-9 !px-5" onclick="document.getElementById('wm-pwa-install-guide-modal').classList.add('hidden')">Got it</button>
+          </div>
+        </div>
+      `;
+      modal.addEventListener('click', (ev) => {
+        if (ev.target === modal) modal.classList.add('hidden');
+      });
+      document.body.appendChild(modal);
+    }
+    modal.classList.remove('hidden');
+  }
+
+  window.triggerAdminPwaInstall = async function triggerAdminPwaInstall(ev) {
+    if (ev) ev.preventDefault();
+    if (isRunningStandalone()) {
+      if (typeof window.showToast === 'function') {
+        window.showToast('✅ You are already using the installed WishMagic Admin App.', 'success');
+      }
+      return;
+    }
+    const promptEvent = deferredInstallPrompt || window.__wmDeferredPwaPrompt;
+    if (promptEvent && typeof promptEvent.prompt === 'function') {
+      try {
+        promptEvent.prompt();
+        const choice = await promptEvent.userChoice;
+        if (choice && choice.outcome === 'accepted') {
+          deferredInstallPrompt = null;
+          window.__wmDeferredPwaPrompt = null;
+        }
+      } catch (_) {
+        showPwaInstallGuideModal();
+      }
+    } else {
+      showPwaInstallGuideModal();
+    }
+  };
+
+  function showServiceWorkerUpdateBanner(waitingWorker) {
+    if (!waitingWorker || !document.body) return;
+    let banner = document.getElementById('wm-pwa-update-banner');
+    if (!banner) {
+      banner = document.createElement('div');
+      banner.id = 'wm-pwa-update-banner';
+      banner.setAttribute('role', 'status');
+      banner.innerHTML = `
+        <span class="material-symbols-outlined text-[18px]" style="color:#38c976;">system_update</span>
+        <span>New Admin Studio version ready</span>
+        <button type="button" class="wm-pwa-update-now" id="wm-pwa-apply-update-btn">Update Now</button>
+        <button type="button" style="background:transparent;border:none;color:#96aba0;cursor:pointer;padding:2px;" onclick="this.parentElement.remove()" aria-label="Dismiss">✕</button>
+      `;
+      document.body.appendChild(banner);
+    }
+    const applyBtn = document.getElementById('wm-pwa-apply-update-btn');
+    if (applyBtn) {
+      applyBtn.onclick = () => {
+        try {
+          waitingWorker.postMessage({ type: 'SKIP_WAITING' });
+        } catch (_) {
+          window.location.reload();
+        }
+      };
+    }
+  }
+
+  function registerAdminServiceWorker() {
+    if (!('serviceWorker' in navigator)) return;
+    const isSecure = window.location.protocol === 'https:' || window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1';
+    if (!isSecure) return;
+
+    navigator.serviceWorker.addEventListener('controllerchange', () => {
+      if (isRefreshingForSwUpdate) return;
+      isRefreshingForSwUpdate = true;
+      if (typeof window.clearAdminApiCache === 'function') window.clearAdminApiCache();
+      window.location.reload();
+    });
+
+    navigator.serviceWorker.register('/wm-admin-sw.js', { scope: '/' })
+      .then((reg) => {
+        swRegistration = reg;
+        if (reg.waiting) {
+          showServiceWorkerUpdateBanner(reg.waiting);
+        }
+        reg.addEventListener('updatefound', () => {
+          const newWorker = reg.installing;
+          if (!newWorker) return;
+          newWorker.addEventListener('statechange', () => {
+            if (newWorker.state === 'installed' && navigator.serviceWorker.controller) {
+              showServiceWorkerUpdateBanner(newWorker);
+            }
+          });
+        });
+
+        document.addEventListener('visibilitychange', () => {
+          if (document.visibilityState === 'visible' && swRegistration) {
+            swRegistration.update().catch(() => {});
+          }
+        });
+      })
+      .catch((err) => {
+        console.warn('[AdminPWA] Service Worker registration note:', err);
+      });
+  }
+
+  function initNetworkStatusMonitor() {
+    function getOrCreateNetBar() {
+      let bar = document.getElementById('wm-network-status-bar');
+      if (!bar && document.body) {
+        bar = document.createElement('div');
+        bar.id = 'wm-network-status-bar';
+        bar.setAttribute('role', 'status');
+        bar.setAttribute('aria-live', 'polite');
+        document.body.appendChild(bar);
+      }
+      return bar;
+    }
+
+    window.addEventListener('offline', () => {
+      const bar = getOrCreateNetBar();
+      if (bar) {
+        bar.className = 'offline';
+        bar.innerHTML = `<span class="material-symbols-outlined text-[16px]">wifi_off</span><span>You are offline — Live D1 & Cloud changes will resume once connected.</span>`;
+      }
+    });
+
+    window.addEventListener('online', () => {
+      const bar = getOrCreateNetBar();
+      if (bar) {
+        bar.className = 'online-restored';
+        bar.innerHTML = `<span class="material-symbols-outlined text-[16px]">wifi</span><span>Back online — Syncing latest Admin Studio data...</span>`;
+        setTimeout(() => {
+          if (bar.classList.contains('online-restored')) {
+            bar.className = '';
+          }
+        }, 3200);
+      }
+      if (typeof window.clearAdminApiCache === 'function') window.clearAdminApiCache();
+      loadLiveAdminHeaderNotifications(true);
+    });
+  }
+
+  function initMobileKeyboardViewportHelper() {
+    if (!window.visualViewport) return;
+    const vv = window.visualViewport;
+    const updateKeyboardState = () => {
+      if (window.innerWidth >= 768) {
+        document.body.classList.remove('wm-keyboard-open');
+        document.documentElement.style.removeProperty('--wm-kb-height');
+        return;
+      }
+      const kbHeight = Math.max(0, Math.round(window.innerHeight - vv.height));
+      const isKbOpen = kbHeight > 130;
+      document.body.classList.toggle('wm-keyboard-open', isKbOpen);
+      document.documentElement.style.setProperty('--wm-kb-height', `${kbHeight}px`);
+      document.documentElement.style.setProperty('--wm-vv-height', `${Math.round(vv.height)}px`);
+    };
+
+    vv.addEventListener('resize', updateKeyboardState, { passive: true });
+    document.addEventListener('focusin', (e) => {
+      if (window.innerWidth >= 768) return;
+      const el = e.target;
+      if (!el || !['INPUT', 'TEXTAREA', 'SELECT'].includes(el.tagName)) return;
+      if (el.classList.contains('wm-header-search-input')) return;
+      setTimeout(() => {
+        try {
+          el.scrollIntoView({ behavior: 'smooth', block: 'center' });
+        } catch (_) {}
+      }, 240);
+    }, { passive: true });
+  }
+
+  function initMobileTouchGesturesAndTables() {
+    let touchStartX = 0;
+    let touchStartY = 0;
+
+    document.addEventListener('touchstart', (e) => {
+      if (!e.touches || e.touches.length !== 1) return;
+      touchStartX = e.touches[0].clientX;
+      touchStartY = e.touches[0].clientY;
+    }, { passive: true });
+
+    document.addEventListener('touchend', (e) => {
+      if (window.innerWidth >= 768 || !e.changedTouches || e.changedTouches.length !== 1) return;
+      const dx = e.changedTouches[0].clientX - touchStartX;
+      const dy = Math.abs(e.changedTouches[0].clientY - touchStartY);
+      if (dy > 60) return;
+
+      const sidebar = document.getElementById('admin-sidebar');
+      if (!sidebar) return;
+      const isOpen = !sidebar.classList.contains('-translate-x-full');
+
+      if (isOpen && dx < -55) {
+        toggleSidebar(false);
+      } else if (!isOpen && touchStartX < 24 && dx > 65) {
+        toggleSidebar(true);
+      }
+    }, { passive: true });
+
+    function wrapAdminTablesForMobile() {
+      document.querySelectorAll('main table, [id*="modal"] table').forEach((tbl) => {
+        const parent = tbl.parentElement;
+        if (!parent) return;
+        const parentCls = String(parent.className || '');
+        if (!parentCls.includes('overflow-x-auto') && !parent.classList.contains('wm-table-scroll-wrap')) {
+          parent.classList.add('overflow-x-auto', 'wm-table-scroll-wrap');
+        }
+      });
+    }
+    wrapAdminTablesForMobile();
+
+    document.addEventListener('click', (e) => {
+      const a = e.target && e.target.closest ? e.target.closest('a[href]') : null;
+      if (!a) return;
+      const href = a.getAttribute('href') || '';
+      if ((href.startsWith('/w/') || href.startsWith('/wish/') || href.startsWith('/template/')) && !a.getAttribute('target')) {
+        a.setAttribute('target', '_blank');
+        a.setAttribute('rel', 'noopener');
+      }
+    });
+  }
+
+  function initAdminDoubleSubmitProtection() {
+    document.addEventListener('submit', (e) => {
+      const form = e.target;
+      if (!form || form.tagName !== 'FORM') return;
+      const now = Date.now();
+      const lastSubmitTs = Number(form.dataset.wmLastSubmitTs || 0);
+      if (now - lastSubmitTs < 1200) {
+        e.preventDefault();
+        e.stopImmediatePropagation();
+        return;
+      }
+      form.dataset.wmLastSubmitTs = String(now);
+    }, true);
+  }
+
+  if (document.readyState === 'loading') {
+    document.addEventListener('DOMContentLoaded', () => {
+      syncStandaloneClass();
+      registerAdminServiceWorker();
+      initNetworkStatusMonitor();
+      initMobileKeyboardViewportHelper();
+      initMobileTouchGesturesAndTables();
+      initAdminDoubleSubmitProtection();
+    });
+  } else {
+    syncStandaloneClass();
+    registerAdminServiceWorker();
+    initNetworkStatusMonitor();
+    initMobileKeyboardViewportHelper();
+    initMobileTouchGesturesAndTables();
+    initAdminDoubleSubmitProtection();
+  }
+})();

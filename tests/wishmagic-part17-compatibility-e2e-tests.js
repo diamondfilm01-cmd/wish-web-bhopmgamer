@@ -907,7 +907,7 @@ describe('PART 17 — WISHMAGIC COMPLETE TEMPLATE COMPATIBILITY + END-TO-END TES
       recipient_name: 'Kritika',
       sender_name: 'Ankit',
       custom_message: 'Happy Birthday!',
-      event_date: '2026-10-25',
+      event_date: '2027-10-25',
       photos: [
         { id: '1', url: 'https://img.example.com/1.jpg' },
         { id: '2', url: 'https://img.example.com/2.jpg' },
@@ -991,7 +991,7 @@ describe('PART 17 — WISHMAGIC COMPLETE TEMPLATE COMPATIBILITY + END-TO-END TES
       id: 'wish_v1_001',
       recipient_name: 'Sophia',
       sender_name: 'Ethan',
-      event_date: '2026-10-25'
+      event_date: '2027-10-25'
     };
 
     const snapshot1 = SnapshotMgr.createPublishSnapshot(wishData1, templateV1);
@@ -1202,7 +1202,7 @@ describe('PART 17 — WISHMAGIC COMPLETE TEMPLATE COMPATIBILITY + END-TO-END TES
       recipient_name: 'Priya',
       sender_name: 'Rohan',
       custom_message: 'Happy Birthday Priya!',
-      event_date: '2026-10-25',
+      event_date: '2027-10-25',
       photos: [{ id: 'p1', url: 'https://img.example.com/p1.jpg' }]
     });
 
@@ -1437,7 +1437,7 @@ async function runAllPart17StagesDirectly() {
         const SnapshotMgr = env.WishMagicSnapshotManager;
         const Renderer = env.WishMagicFinalRenderer;
         const analysis = Analyzer.analyze({ id: FIXTURES.templateA.id, html: FIXTURES.templateA.files['index.html'], manifestJson: FIXTURES.templateA.files['wishmagic.json'] });
-        const canonical = Migrator.createCanonicalData({ recipient_name: 'Priya', sender_name: 'Rohan', event_date: '2026-10-25' });
+        const canonical = Migrator.createCanonicalData({ recipient_name: 'Priya', sender_name: 'Rohan', event_date: '2027-10-25' });
         const snapshot = SnapshotMgr.createPublishSnapshot(canonical, { id: 'tpl_a_basic', version: 1, templateVersionId: 'tv_1' });
         const pubEl = env.document.createElement('div');
         await Renderer.render(pubEl, snapshot);

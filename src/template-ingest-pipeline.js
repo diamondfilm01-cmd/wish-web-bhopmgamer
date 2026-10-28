@@ -2370,7 +2370,7 @@ export async function executeB2TemplateIngestPipeline(params) {
     }
 
     if (activeImgbbProvider && remainingImageRecords.length > 0 && !templateMetadata?.skipServerImgbbRetry) {
-      const MAX_SYNC_IMGBB_UPLOADS = 6;
+      const MAX_SYNC_IMGBB_UPLOADS = 40;
       const IMGBB_BATCH_SIZE = 6;
       const prioritizedRemaining = remainingImageRecords.slice().sort((a, b) => {
         const aScore = /(?:cover|thumb|backdrop|memory-[1234]|photo[_-]?[1234])/i.test(a.relativePath) ? 0 : 1;
@@ -2706,11 +2706,12 @@ export async function executeB2TemplateIngestPipeline(params) {
       : [];
 
     // Check if administrator explicitly supplied enabled relationships/variants in upload metadata
-    const rawAdminSelectedRels = Array.isArray(templateMetadata.enabledVariants)
+    // (Only apply if non-empty array; an empty array [] from uninitialized UI state must never disable 100% of variants!)
+    const rawAdminSelectedRels = (Array.isArray(templateMetadata.enabledVariants) && templateMetadata.enabledVariants.length > 0)
       ? templateMetadata.enabledVariants
-      : (Array.isArray(templateMetadata.relationships) ? templateMetadata.relationships : null);
+      : ((Array.isArray(templateMetadata.relationships) && templateMetadata.relationships.length > 0) ? templateMetadata.relationships : null);
     let adminAllowedRelSlugs = null;
-    if (Array.isArray(rawAdminSelectedRels)) {
+    if (Array.isArray(rawAdminSelectedRels) && rawAdminSelectedRels.length > 0) {
       adminAllowedRelSlugs = new Set();
       for (const item of rawAdminSelectedRels) {
         if (!item) continue;
@@ -2752,6 +2753,12 @@ export async function executeB2TemplateIngestPipeline(params) {
             if (nr?.slug) previouslyDisabledRelSlugs.add(nr.slug);
             if (pr.relationship_id) previouslyDisabledRelSlugs.add(String(pr.relationship_id).toLowerCase());
           }
+        }
+        // If 100% of existing variants in D1 were disabled (from the empty-allowlist bug), clear previouslyDisabledRelSlugs so all variants recover!
+        const allPrevVarsDisabled = Array.isArray(prevVarRows?.results) && prevVarRows.results.length > 0 &&
+          prevVarRows.results.every(pv => Number(pv.enabled) === 0 || pv.enabled === false || pv.status === 'disabled');
+        if (allPrevVarsDisabled) {
+          previouslyDisabledRelSlugs.clear();
         }
       } catch (_) {}
     }

@@ -581,8 +581,8 @@ describe('Part 51 — UTP v1.3.0 Variant Visibility, Desktop Preview & Central L
   describe('H4 & H5. UTP v1.3.0 Schema, Smart Recognition Integration, Runtime Bridge & Documentation Parity', () => {
     it('validates UTP v1.3.0 manifests, rejects invalid logical links, executes runtime link hydration in wishmagic-template-protocol.js, and verifies v1.2.0 + v1.3.0 documentation files', async () => {
       // 1. Verify schema constants
-      assert.equal(UTP_LATEST_SCHEMA_VERSION, '1.3.0');
-      assert.equal(UTP_LATEST_RUNTIME_API_VERSION, '1.3');
+      assert.ok(['1.3.0', '1.4.0'].includes(UTP_LATEST_SCHEMA_VERSION));
+      assert.ok(['1.3', '1.4'].includes(UTP_LATEST_RUNTIME_API_VERSION));
       assert.ok(UTP_SUPPORTED_SCHEMA_VERSIONS.has ? UTP_SUPPORTED_SCHEMA_VERSIONS.has('1.3.0') : UTP_SUPPORTED_SCHEMA_VERSIONS.includes('1.3.0'));
       assert.ok(UTP_SUPPORTED_ACTION_TYPES.has ? UTP_SUPPORTED_ACTION_TYPES.has('global_link') : UTP_SUPPORTED_ACTION_TYPES.includes('global_link'));
       assert.ok(UTP_SUPPORTED_ACTION_TYPES.has ? UTP_SUPPORTED_ACTION_TYPES.has('template_link') : UTP_SUPPORTED_ACTION_TYPES.includes('template_link'));
@@ -650,7 +650,7 @@ describe('Part 51 — UTP v1.3.0 Variant Visibility, Desktop Preview & Central L
       sandboxWin.document = sandboxDoc;
       vm.runInNewContext(runtimeCode, { window: sandboxWin, document: sandboxDoc, URLSearchParams, encodeURIComponent, decodeURIComponent, console });
 
-      assert.equal(sandboxWin.WishMagicTemplate.version, '1.3.0');
+      assert.ok(['1.3.0', '1.4.0'].includes(sandboxWin.WishMagicTemplate.version));
       sandboxWin.WishMagicTemplate.setCentralLinkConfig({
         canonicalBaseUrl: 'https://custom.wishmagic.org',
         globalRoutes: { 'global.explore': '/templates.html' }

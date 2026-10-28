@@ -787,6 +787,9 @@
     initEvents();
     renderNativeWorkspace('overview');
     syncLiveData();
+    if ('serviceWorker' in navigator && (window.location.protocol === 'https:' || window.location.hostname === 'localhost')) {
+      navigator.serviceWorker.register('/wm-admin-sw.js', { scope: '/' }).catch(() => {});
+    }
   }
 
   if (document.readyState === 'loading') {

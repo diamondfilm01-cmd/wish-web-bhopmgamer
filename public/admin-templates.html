@@ -1,6 +1,14 @@
 <!DOCTYPE html>
 
 <html lang="en"><head><meta charset="utf-8"/><base href="/"/><meta content="width=device-width, initial-scale=1.0" name="viewport"/><meta content="web_dashboard" name="shell-type"/><title>WishMagic | Templates Library</title>
+  <meta name="theme-color" content="#1e7f4e"/>
+  <meta name="mobile-web-app-capable" content="yes"/>
+  <meta name="apple-mobile-web-app-capable" content="yes"/>
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent"/>
+  <meta name="apple-mobile-web-app-title" content="WM Admin"/>
+  <link rel="manifest" href="/wm-clay-admin.webmanifest"/>
+  <link rel="apple-touch-icon" sizes="180x180" href="/assets/icons/apple-touch-icon.png"/>
+  <link rel="icon" type="image/png" sizes="192x192" href="/assets/icons/admin-icon-192.png"/>
 <link rel="preconnect" href="https://fonts.googleapis.com"/>
 <link crossorigin="" href="https://fonts.gstatic.com" rel="preconnect"/>
 <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;600;700&amp;family=Plus+Jakarta+Sans:wght@400;500;600;700;800&amp;display=swap" rel="stylesheet"/>
@@ -13,10 +21,10 @@
     tailwind.config = sharedTailwindConfig;
   }
 </script>
-<link rel="stylesheet" href="css/admin-theme.css?v=20261025_vessa_mobile_v11"/>
+<link rel="stylesheet" href="css/admin-theme.css?v=20261028_pwa_v1"/>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
 <script src="js/WishMagicCore.js"></script>
-<script src="js/admin-theme.js?v=20261025_vessa_mobile_v11"></script>
+<script src="js/admin-theme.js?v=20261028_pwa_v1"></script>
 <!-- Part 10-12 Auth, Repositories & Section System Layer -->
 <script src="js/api-client.js"></script>
   <script src="js/auth-service.js?v=20261025_vessa_mobile_v10"></script>
@@ -1774,7 +1782,7 @@
           <span id="detail-files-subtotal" class="text-xs text-outline font-semibold">0 files listed</span>
         </div>
         <div class="border border-purple-500/20 rounded-xl overflow-hidden bg-surface-container-lowest/50">
-          <div class="max-h-60 overflow-y-auto">
+          <div class="max-h-60 overflow-y-auto overflow-x-auto">
             <table class="w-full text-left text-xs">
               <thead class="bg-surface-container/70 border-b border-purple-500/20 text-on-surface-variant uppercase font-bold text-[10px] sticky top-0">
                 <tr>

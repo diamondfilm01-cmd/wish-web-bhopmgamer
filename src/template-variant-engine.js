@@ -1877,8 +1877,8 @@ export function extractAuthoritativeEnabledRelationshipSet(template = null, temp
       ? (typeof template.enabled_variants_json === 'string' ? safeJsonParse(template.enabled_variants_json, null) : template.enabled_variants_json)
       : null;
     const hasNonEmptyTplEnabledJson = Array.isArray(rawTplEnabledCheck) && rawTplEnabledCheck.length > 0;
-    // Guard against interrupted batch updates where `UPDATE template_relationships SET enabled = 0` ran before new rows committed
-    if (enabledInRows.length > 0 || !hasNonEmptyTplEnabledJson) {
+    // Guard against interrupted batch updates or empty-allowlist upload bug where 100% of rows have enabled = 0
+    if (enabledInRows.length > 0) {
       for (const { rKey, norm } of enabledInRows) {
         if (norm?.slug) allowedSlugs.add(norm.slug);
         if (norm?.id) allowedSlugs.add(norm.id.toLowerCase());
@@ -1889,9 +1889,7 @@ export function extractAuthoritativeEnabledRelationshipSet(template = null, temp
         if (norm?.id) explicitlyDisabledSlugs.add(norm.id.toLowerCase());
         if (rKey) explicitlyDisabledSlugs.add(String(rKey).toLowerCase());
       }
-      if (enabledInRows.length > 0 || disabledInRows.length > 0) {
-        hasExplicitAllowlist = true;
-      }
+      hasExplicitAllowlist = true;
     }
   }
 
@@ -1913,11 +1911,15 @@ export function extractAuthoritativeEnabledRelationshipSet(template = null, temp
       addIdentifierToSet(explicitSet, item);
     }
     if (hasExplicitAllowlist) {
-      // Intersect with table allowlist if both exist
-      for (const s of Array.from(allowedSlugs)) {
-        if (!explicitSet.has(s)) allowedSlugs.delete(s);
+      // Intersect with table allowlist if both exist and overlap; never wipe out to 0
+      const overlap = Array.from(allowedSlugs).filter(s => explicitSet.has(s));
+      if (overlap.length > 0) {
+        allowedSlugs.clear();
+        for (const s of overlap) allowedSlugs.add(s);
+      } else {
+        for (const s of explicitSet) allowedSlugs.add(s);
       }
-    } else {
+    } else if (explicitSet.size > 0) {
       for (const s of explicitSet) allowedSlugs.add(s);
       hasExplicitAllowlist = true;
     }
@@ -1938,25 +1940,33 @@ export function extractAuthoritativeEnabledRelationshipSet(template = null, temp
         for (const s of relSet) allowedSlugs.add(s);
         hasExplicitAllowlist = true;
       } else {
-        for (const s of Array.from(allowedSlugs)) {
-          if (!relSet.has(s)) allowedSlugs.delete(s);
+        const overlap = Array.from(allowedSlugs).filter(s => relSet.has(s));
+        if (overlap.length > 0) {
+          allowedSlugs.clear();
+          for (const s of overlap) allowedSlugs.add(s);
         }
       }
     }
   }
 
   // 4. Check template.variants_json for any variant explicitly marked enabled: false or status: disabled
+  // (Only if at least one variant in variants_json is enabled; if 100% were marked disabled by the empty-allowlist upload bug, recover all!)
   const rawVarsJson = template?.variants_json !== undefined
     ? (typeof template.variants_json === 'string' ? safeJsonParse(template.variants_json, null) : template.variants_json)
     : null;
-  if (Array.isArray(rawVarsJson)) {
-    for (const jv of rawVarsJson) {
-      if (!jv || typeof jv !== 'object') continue;
-      if (jv.enabled === false || jv.enabled === 0 || jv.status === 'disabled' || jv.status === 'archived') {
-        const norm = normalizeRelationshipIdentifier(jv.relationshipSlug || jv.relationship || jv.slug || jv.id);
-        if (norm?.slug) explicitlyDisabledSlugs.add(norm.slug);
-        if (jv.id) explicitlyDisabledSlugs.add(String(jv.id).toLowerCase());
-        if (jv.slug) explicitlyDisabledSlugs.add(String(jv.slug).toLowerCase());
+  if (Array.isArray(rawVarsJson) && rawVarsJson.length > 0) {
+    const hasAtLeastOneEnabledInJson = rawVarsJson.some(
+      jv => jv && typeof jv === 'object' && jv.enabled !== false && jv.enabled !== 0 && jv.status !== 'disabled' && jv.status !== 'archived'
+    );
+    if (hasAtLeastOneEnabledInJson) {
+      for (const jv of rawVarsJson) {
+        if (!jv || typeof jv !== 'object') continue;
+        if (jv.enabled === false || jv.enabled === 0 || jv.status === 'disabled' || jv.status === 'archived') {
+          const norm = normalizeRelationshipIdentifier(jv.relationshipSlug || jv.relationship || jv.slug || jv.id);
+          if (norm?.slug) explicitlyDisabledSlugs.add(norm.slug);
+          if (jv.id) explicitlyDisabledSlugs.add(String(jv.id).toLowerCase());
+          if (jv.slug) explicitlyDisabledSlugs.add(String(jv.slug).toLowerCase());
+        }
       }
     }
   }
@@ -1985,13 +1995,25 @@ export function filterPublicAvailableVariants(rawVariants = [], templateContext 
     ? extractAuthoritativeEnabledRelationshipSet(tplObj, verObj, relRows)
     : { hasExplicitAllowlist: false, allowedSlugs: new Set(), explicitlyDisabledSlugs: new Set() };
 
+  // Detect if 100% of variants across the template were accidentally marked disabled by the empty-allowlist upload bug
+  const tplJsonVarsForCheck = tplObj?.variants_json
+    ? (typeof tplObj.variants_json === 'string' ? safeJsonParse(tplObj.variants_json, []) : tplObj.variants_json)
+    : [];
+  const allTemplateVariantsDisabledBug = Boolean(
+    (rawVariants.length > 1 && rawVariants.every(v => v && (v.enabled === 0 || v.enabled === false || String(v.status || '').toLowerCase() === 'disabled'))) ||
+    (Array.isArray(tplJsonVarsForCheck) && tplJsonVarsForCheck.length > 0 && tplJsonVarsForCheck.every(jv => jv && (jv.enabled === 0 || jv.enabled === false || String(jv.status || '').toLowerCase() === 'disabled')) && (!Array.isArray(relRows) || relRows.every(r => Number(r.enabled) === 0)))
+  );
+
   const seenRels = new Set();
   const publicList = [];
 
   for (const v of rawVariants) {
     if (!v || typeof v !== 'object') continue;
-    const status = String(v.status || 'published').toLowerCase().trim();
-    const isEnabled = v.enabled === undefined ? true : Boolean(Number(v.enabled) !== 0 && v.enabled !== false);
+    const rawStatus = String(v.status || 'published').toLowerCase().trim();
+    const status = (allTemplateVariantsDisabledBug && rawStatus === 'disabled') ? 'published' : rawStatus;
+    const isEnabled = allTemplateVariantsDisabledBug
+      ? true
+      : (v.enabled === undefined ? true : Boolean(Number(v.enabled) !== 0 && v.enabled !== false));
     const isLatest = v.is_latest === undefined ? true : Boolean(Number(v.is_latest) !== 0 && v.is_latest !== false);
 
     // Public users must ONLY see valid, published/active, enabled variants
@@ -2003,7 +2025,7 @@ export function filterPublicAvailableVariants(rawVariants = [], templateContext 
       ? safeJsonParse(v.configuration_json, {})
       : (v.configuration || v);
 
-    if (cfg && (cfg.enabled === false || cfg.disabled === true || cfg.status === 'disabled')) {
+    if (!allTemplateVariantsDisabledBug && cfg && (cfg.enabled === false || cfg.disabled === true || cfg.status === 'disabled')) {
       continue;
     }
 

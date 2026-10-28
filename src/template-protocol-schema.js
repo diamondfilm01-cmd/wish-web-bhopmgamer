@@ -823,7 +823,23 @@ export const UTP_FORBIDDEN_FESTIVAL_SCHEDULE_KEYS = new Set([
   'publicationEndDate',
   'windowStartDate',
   'windowEndDate',
-  'clientScheduleEnforcement'
+  'clientScheduleEnforcement',
+  'startDate',
+  'endDate',
+  'publishAt',
+  'unpublishAt',
+  'expireAt',
+  'activeFrom',
+  'activeUntil',
+  'scheduleStart',
+  'scheduleEnd',
+  'cron',
+  'forcePublish',
+  'autoPublishDate',
+  'windowStart',
+  'windowEnd',
+  'leadDays',
+  'graceDays'
 ]);
 
 export const UTP_SUPPORTED_CAMPAIGN_COMPATIBILITY_MODES = new Set([
@@ -944,6 +960,7 @@ export function validateAndNormalizeFestivalMetadata(rawFestivalMeta, rootManife
   }
 
   let campaignMode = 'evergreen_and_festival';
+  let campaignCompatibilityObj = null;
   if (rawFestivalMeta.campaignCompatibility !== undefined) {
     if (typeof rawFestivalMeta.campaignCompatibility === 'boolean') {
       campaignMode = rawFestivalMeta.campaignCompatibility ? 'evergreen_and_festival' : 'any';
@@ -959,11 +976,24 @@ export function validateAndNormalizeFestivalMetadata(rawFestivalMeta, rootManife
       } else {
         campaignMode = m;
       }
+    } else if (
+      rawFestivalMeta.campaignCompatibility &&
+      typeof rawFestivalMeta.campaignCompatibility === 'object' &&
+      !Array.isArray(rawFestivalMeta.campaignCompatibility)
+    ) {
+      campaignCompatibilityObj = {
+        spotlightEligible: Boolean(rawFestivalMeta.campaignCompatibility.spotlightEligible !== false),
+        bannerEligible: Boolean(rawFestivalMeta.campaignCompatibility.bannerEligible !== false),
+        festivalHubEligible: Boolean(rawFestivalMeta.campaignCompatibility.festivalHubEligible),
+        autoFeatureInFestival: Boolean(rawFestivalMeta.campaignCompatibility.autoFeatureInFestival),
+        priorityWeight: Number(rawFestivalMeta.campaignCompatibility.priorityWeight || 80)
+      };
+      campaignMode = campaignCompatibilityObj.festivalHubEligible ? 'evergreen_and_festival' : 'any';
     } else {
       issues.push({
         code: 'INVALID_CAMPAIGN_COMPATIBILITY_MODE',
         severity: 'error',
-        message: '"festivalMetadata.campaignCompatibility" must be a boolean or valid compatibility mode string.',
+        message: '"festivalMetadata.campaignCompatibility" must be a boolean, compatibility object, or valid compatibility mode string.',
         blocking: true
       });
     }
@@ -1017,7 +1047,9 @@ export function validateAndNormalizeFestivalMetadata(rawFestivalMeta, rootManife
   }
 
   const displayBadge = rawFestivalMeta.displayBadge !== undefined
-    ? String(rawFestivalMeta.displayBadge || '').trim().slice(0, 80)
+    ? (typeof rawFestivalMeta.displayBadge === 'object' && rawFestivalMeta.displayBadge !== null
+        ? String(rawFestivalMeta.displayBadge.text || rawFestivalMeta.displayBadge.label || '').trim().slice(0, 80)
+        : String(rawFestivalMeta.displayBadge || '').trim().slice(0, 80))
     : (rawFestivalMeta.suggestedBadge !== undefined ? String(rawFestivalMeta.suggestedBadge || '').trim().slice(0, 80) : '');
 
   return {

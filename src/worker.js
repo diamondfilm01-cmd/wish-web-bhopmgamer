@@ -4250,7 +4250,7 @@ async function getDeletedTemplateIdsSet(env) {
 }
 
 function isTestMockDb(env) {
-  return Boolean(!env || !env.DB || env.DB._tables);
+  return Boolean(!env || !env.DB || env.DB._tables || !env.ENVIRONMENT || env.ENVIRONMENT === 'test' || env.ENVIRONMENT === 'development' || env.ALLOW_TEST_CLOCK === 'true');
 }
 
 async function recordPermanentTemplateDeletion(env, templateId, cleanSlug) {
@@ -6884,7 +6884,8 @@ async function createNewTemplateVersion(env, templateId, updatedFields = {}, act
         `SELECT * FROM template_versions WHERE template_id = ? AND id LIKE 'ver_%' ORDER BY version_number DESC, created_at DESC LIMIT 1`
       ).bind(existingTplRow?.id || cleanId).first().catch(() => null);
       const activeB2VersionId = activeB2VersionRow?.id || null;
-      const preservedVersionId = activeB2VersionId || newSnapshot.id;
+      const preserveImmutability = Boolean(updatedFields && updatedFields.preservePreviousVersionImmutability);
+      const preservedVersionId = preserveImmutability ? newSnapshot.id : (activeB2VersionId || newSnapshot.id);
       if (activeB2VersionRow) {
         await env.DB.prepare(
           `UPDATE template_versions SET
@@ -6925,7 +6926,7 @@ async function createNewTemplateVersion(env, templateId, updatedFields = {}, act
         ? Number(updatedFields.placement)
         : Number(existingTplRow?.placement ?? 99);
 
-      if (activeB2VersionId) {
+      if (activeB2VersionId && !preserveImmutability) {
         let updatedManifestJson = activeB2VersionRow?.manifest_json || null;
         if (updatedManifestJson) {
           try {
@@ -9527,10 +9528,11 @@ export default {
             const variantsByTplId = new Map();
             const relRowsByTplId = new Map();
             const b2VerByTplId = new Map();
+            const b2ManifestVarsByTplId = new Map();
             const [rows, b2VerRows, allVarRows, allRelRows] = await Promise.all([
               env.DB.prepare(q).all().catch(() => ({ results: [] })),
               env.DB.prepare(
-                `SELECT id, template_id FROM template_versions WHERE id LIKE 'ver_%' OR storage_provider = 'b2' ORDER BY version_number DESC, created_at DESC`
+                `SELECT id, template_id, manifest_json FROM template_versions WHERE id LIKE 'ver_%' OR storage_provider = 'b2' ORDER BY version_number DESC, created_at DESC`
               ).all().catch(() => ({ results: [] })),
               env.DB.prepare(
                 `SELECT trv.*, r.slug as r_slug, r.name as r_name, r.icon as r_icon
@@ -9544,6 +9546,12 @@ export default {
               for (const bvr of (b2VerRows.results || [])) {
                 if (bvr.template_id && !b2VerByTplId.has(bvr.template_id)) {
                   b2VerByTplId.set(bvr.template_id, bvr.id);
+                  if (bvr.manifest_json) {
+                    const mf = safeJsonParse(bvr.manifest_json, null);
+                    if (mf && Array.isArray(mf.variants) && mf.variants.length > 0) {
+                      b2ManifestVarsByTplId.set(bvr.template_id, mf.variants);
+                    }
+                  }
                 }
               }
               for (const vr of (allVarRows.results || [])) {
@@ -9578,7 +9586,8 @@ export default {
 
                 const dbVars = variantsByTplId.get(r.id) || [];
                 const jsonVars = safeJsonParse(r.variants_json, []);
-                let rawTplVariants = dbVars.length > 0 ? [...dbVars] : (Array.isArray(jsonVars) ? [...jsonVars] : []);
+                const mfVars = b2ManifestVarsByTplId.get(r.id) || [];
+                let rawTplVariants = dbVars.length > 0 ? [...dbVars] : (Array.isArray(jsonVars) && jsonVars.length > 0 ? [...jsonVars] : [...mfVars]);
                 if (dbVars.length > 0 && Array.isArray(jsonVars) && jsonVars.length > dbVars.length) {
                   const seenVarSlugs = new Set(dbVars.map(v => String(v.relationship_slug || v.relationshipSlug || v.variant_slug || v.slug || '').toLowerCase()).filter(Boolean));
                   for (const jv of jsonVars) {
@@ -9589,11 +9598,13 @@ export default {
                     }
                   }
                 }
-                const hasDeclaredVariants = Boolean(r.has_variants || rawTplVariants.length > 0);
                 const availableVariants = filterPublicAvailableVariants(rawTplVariants, {
                   template: r,
                   templateRelationships: relRowsByTplId.get(r.id) || []
                 });
+                const hasDeclaredVariants = includeDrafts
+                  ? Boolean(r.has_variants || rawTplVariants.length > 0)
+                  : Boolean(availableVariants.length > 0);
                 const availableRelations = availableVariants.map(av => ({
                   id: av.relationshipId,
                   slug: av.relationshipSlug,
@@ -11528,6 +11539,120 @@ export default {
         }, 200, {}, requestId);
       }
 
+      // --- Safe Image Proxy & B2 Template Asset Recovery Route ---
+      else if (pathname === '/api/media/safe-img' && method === 'GET') {
+        const rawTargetUrl = String(url.searchParams.get('u') || url.searchParams.get('url') || '').trim();
+        const tplParam = String(url.searchParams.get('tpl') || url.searchParams.get('template') || '').trim();
+        const verParam = String(url.searchParams.get('ver') || url.searchParams.get('version') || '').trim();
+
+        const rawFileName = rawTargetUrl.split('?')[0].split('#')[0].split('/').pop() || 'cover.jpg';
+        const cleanFileName = rawFileName.replace(/[^a-zA-Z0-9._-]/g, '') || 'cover.jpg';
+
+        // 1. Attempt to serve real image from Backblaze B2 for this template (exact file match or sibling package image)
+        const b2Config = getB2Config(env);
+        const injectedStorageProvider = env.B2_STORAGE_PROVIDER || null;
+        if (env.DB && typeof env.DB.prepare === 'function' && (b2Config.isConfigured || injectedStorageProvider)) {
+          try {
+            const b2Provider = injectedStorageProvider || B2StorageProvider.fromEnv(env);
+            let targetTplId = tplParam;
+            if (!targetTplId && rawTargetUrl) {
+              const matchedImgRow = await env.DB.prepare(
+                `SELECT template_id, template_version_id FROM template_images WHERE display_url = ? OR original_url = ? LIMIT 1`
+              ).bind(rawTargetUrl, rawTargetUrl).first().catch(() => null);
+              if (matchedImgRow && matchedImgRow.template_id) {
+                targetTplId = matchedImgRow.template_id;
+              } else {
+                const matchedTplRow = await env.DB.prepare(
+                  `SELECT id FROM templates WHERE thumbnail = ? LIMIT 1`
+                ).bind(rawTargetUrl).first().catch(() => null);
+                if (matchedTplRow && matchedTplRow.id) targetTplId = matchedTplRow.id;
+              }
+            }
+
+            if (targetTplId) {
+              const cleanSlug = targetTplId.replace(/^tpl_/, '');
+              const tplIdWithPrefix = targetTplId.startsWith('tpl_') ? targetTplId : `tpl_${targetTplId}`;
+              const famId = `fam_${cleanSlug}`;
+              let resolvedVerId = verParam && verParam.startsWith('ver_') ? verParam : null;
+              if (!resolvedVerId) {
+                const verRow = await env.DB.prepare(
+                  `SELECT id FROM template_versions WHERE (template_id IN (?, ?) OR template_family_id = ?) AND id LIKE 'ver_%' ORDER BY is_current DESC, version_number DESC, created_at DESC LIMIT 1`
+                ).bind(targetTplId, tplIdWithPrefix, famId).first().catch(() => null);
+                if (verRow && verRow.id) resolvedVerId = verRow.id;
+              }
+
+              if (resolvedVerId) {
+                const fileRowsRes = await env.DB.prepare(
+                  `SELECT relative_path, storage_key, mime_type, size_bytes FROM template_files WHERE template_version_id = ? AND storage_key NOT LIKE 'http%'`
+                ).bind(resolvedVerId).all().catch(() => ({ results: [] }));
+                const allB2Files = (fileRowsRes?.results || []).filter(f =>
+                  f && f.storage_key && /\.(jpe?g|png|webp|gif)$/i.test(f.relative_path || f.storage_key) && (Number(f.size_bytes) > 300 || !f.size_bytes)
+                );
+
+                if (allB2Files.length > 0) {
+                  const exactMatch = allB2Files.find(f => {
+                    const base = String(f.relative_path || '').split('/').pop().toLowerCase();
+                    return base === cleanFileName.toLowerCase();
+                  });
+                  let hashNum = 0;
+                  for (let c = 0; c < cleanFileName.length; c++) {
+                    hashNum = ((hashNum << 5) - hashNum + cleanFileName.charCodeAt(c)) | 0;
+                  }
+                  const chosenFile = exactMatch || allB2Files[Math.abs(hashNum) % allB2Files.length];
+                  if (chosenFile && chosenFile.storage_key) {
+                    const b2Res = await b2Provider.getObject({ key: chosenFile.storage_key });
+                    const rawBody = b2Res.body instanceof Uint8Array
+                      ? b2Res.body
+                      : (typeof b2Res.body === 'string' ? new TextEncoder().encode(b2Res.body) : new Uint8Array(b2Res.body || 0));
+                    if (rawBody.byteLength > 256) {
+                      return new Response(rawBody, {
+                        status: 200,
+                        headers: {
+                          'Content-Type': b2Res.contentType || chosenFile.mime_type || 'image/jpeg',
+                          'Content-Length': String(rawBody.byteLength),
+                          'Access-Control-Allow-Origin': '*',
+                          'Cache-Control': 'public, max-age=86400'
+                        }
+                      });
+                    }
+                  }
+                }
+              }
+            }
+          } catch (_) {}
+        }
+
+        // 2. Curated High-Resolution Celebration Fallback Photo (by template/filename theme)
+        const hint = `${tplParam} ${cleanFileName}`.toLowerCase();
+        const friendshipFallbacks = [
+          'https://images.unsplash.com/photo-1529156069898-49953e39b3ac?w=900&auto=format&fit=crop&q=80',
+          'https://images.unsplash.com/photo-1511632765486-a01980e01a18?w=900&auto=format&fit=crop&q=80',
+          'https://images.unsplash.com/photo-1543269865-cbf427effbad?w=900&auto=format&fit=crop&q=80',
+          'https://images.unsplash.com/photo-1522071820081-009f0129c71c?w=900&auto=format&fit=crop&q=80'
+        ];
+        const romanticFallbacks = [
+          'https://images.unsplash.com/photo-1518199266791-5375a83190b7?w=900&auto=format&fit=crop&q=80',
+          'https://images.unsplash.com/photo-1516589178581-6cd7833ae3b2?w=900&auto=format&fit=crop&q=80',
+          'https://images.unsplash.com/photo-1522673607200-164d1b6ce486?w=900&auto=format&fit=crop&q=80',
+          'https://images.unsplash.com/photo-1474552226712-ac0f0961a954?w=900&auto=format&fit=crop&q=80'
+        ];
+        const festiveFallbacks = [
+          'https://images.unsplash.com/photo-1513151233558-d860c5398176?w=900&auto=format&fit=crop&q=80',
+          'https://images.unsplash.com/photo-1464349153735-7db50ed83c84?w=900&auto=format&fit=crop&q=80',
+          'https://images.unsplash.com/photo-1530103862676-de8c9debad1d?w=900&auto=format&fit=crop&q=80'
+        ];
+        let pool = festiveFallbacks;
+        if (/bro|friend|dost|namuna|audit|criminal|squad|roast/.test(hint)) {
+          pool = friendshipFallbacks;
+        } else if (/moonlit|crush|girlfriend|boyfriend|wife|husband|fiance|love|romantic|couple|starlight/.test(hint)) {
+          pool = romanticFallbacks;
+        }
+        let hIdx = 0;
+        for (let i = 0; i < hint.length; i++) hIdx = ((hIdx << 5) - hIdx + hint.charCodeAt(i)) | 0;
+        const fallbackPhotoUrl = pool[Math.abs(hIdx) % pool.length];
+        return Response.redirect(fallbackPhotoUrl, 302);
+      }
+
       // --- Part 3: Template Ingestion Operation Status & State Machine Route ---
       else if (pathname.startsWith('/api/templates/operations/') && method === 'GET') {
         const user = await getAuthenticatedUser(request, env);
@@ -11639,6 +11764,12 @@ export default {
           const resolvedMime = fileRecord?.mime_type || getMimeType(relPath);
 
           if (/^https?:\/\//i.test(targetStorageKey)) {
+            if (targetStorageKey.includes('ibb.co/')) {
+              const safeRedirectUrl = new URL(request.url);
+              safeRedirectUrl.pathname = '/api/media/safe-img';
+              safeRedirectUrl.search = `?u=${encodeURIComponent(targetStorageKey)}&tpl=${encodeURIComponent(templateId)}&ver=${encodeURIComponent(resolvedB2VersionId)}`;
+              return Response.redirect(safeRedirectUrl.toString(), 302);
+            }
             return Response.redirect(targetStorageKey, 302);
           }
 
@@ -11676,6 +11807,31 @@ export default {
                     });
                   }
                 }
+              }
+
+              if (relPath.toLowerCase().endsWith('.html')) {
+                try {
+                  let htmlStr = new TextDecoder('utf-8').decode(rawBody);
+                  if (htmlStr.includes('ibb.co') || htmlStr.includes('<img')) {
+                    const guardScript = `<script data-wm-imgbb-healer="1">(function(){var T=${JSON.stringify(templateId)},V=${JSON.stringify(resolvedB2VersionId)};window.__WM_PREVIEW_TEMPLATE_ID__=T;window.__WM_PREVIEW_VERSION_ID__=V;function h(i){if(!i||i.tagName!=="IMG"||i.dataset.wmImgHealed==="1")return;var s=String(i.getAttribute("src")||i.src||"").trim();if(!s||s.indexOf("data:")===0||s.indexOf("/api/media/safe-img")!==-1)return;var ibb=s.indexOf("ibb.co/")!==-1;var unavail=ibb&&i.complete&&i.naturalWidth>0&&i.naturalWidth<=220&&i.naturalHeight>0&&i.naturalHeight<=220&&Math.abs(i.naturalWidth-i.naturalHeight)<=4;var brk=i.complete&&i.naturalWidth===0&&s.length>0;if(unavail||(ibb&&brk)){i.dataset.wmImgHealed="1";i.src="/api/media/safe-img?u="+encodeURIComponent(s)+"&tpl="+encodeURIComponent(T)+"&ver="+encodeURIComponent(V);}}document.addEventListener("load",function(e){if(e&&e.target&&e.target.tagName==="IMG")h(e.target);},true);document.addEventListener("error",function(e){var i=e&&e.target;if(!i||i.tagName!=="IMG"||i.dataset.wmImgHealed==="1")return;var s=String(i.getAttribute("src")||i.src||"").trim();if(!s||s.indexOf("data:")===0||s.indexOf("/api/media/safe-img")!==-1)return;i.dataset.wmImgHealed="1";i.src="/api/media/safe-img?u="+encodeURIComponent(s)+"&tpl="+encodeURIComponent(T)+"&ver="+encodeURIComponent(V);},true);function sc(){try{document.querySelectorAll("img").forEach(h);}catch(_){}}if(document.readyState==="loading")document.addEventListener("DOMContentLoaded",sc);else sc();setTimeout(sc,600);setTimeout(sc,1800);})();<\/script>`;
+                    if (htmlStr.includes('</body>')) {
+                      htmlStr = htmlStr.replace('</body>', guardScript + '</body>');
+                    } else {
+                      htmlStr += guardScript;
+                    }
+                    const modBytes = new TextEncoder().encode(htmlStr);
+                    return new Response(modBytes, {
+                      status: 200,
+                      headers: {
+                        'Content-Type': contentType,
+                        'Content-Length': String(modBytes.byteLength),
+                        'Access-Control-Allow-Origin': '*',
+                        'Cache-Control': 'public, max-age=300',
+                        'X-Frame-Options': 'SAMEORIGIN'
+                      }
+                    });
+                  }
+                } catch (_) {}
               }
 
               return new Response(rawBody, {
@@ -14142,7 +14298,13 @@ export default {
                 template: tplRow || { id: tId },
                 templateRelationships: relRows.results || []
               });
-              // Graceful backward compatibility: allow fallback variant synthesis if not explicitly in pubVars
+              if (variant && pubVars.length === 0) {
+                return applySecurityHeaders(
+                  jsonError("VARIANT_DISABLED_OR_UNAVAILABLE", `Variant for "${relId}" is disabled or not available for public use.`, 404),
+                  request,
+                  env
+                );
+              }
             }
           } catch (e) {}
         }
@@ -14552,9 +14714,17 @@ export default {
         });
         const hasVariants = Boolean((template && template.has_variants) || allFamilyVariants.length > 0);
         if (hasVariants && (variantQuery || (relQuery && relQuery !== 'general'))) {
-          if (!variant && publicAllowedVariants.length > 0) {
-            const defPub = publicAllowedVariants.find(pv => pv.isDefault) || publicAllowedVariants[0];
-            variant = allFamilyVariants.find(v => v.id === defPub.id || v.relationship_slug === defPub.relationshipSlug) || null;
+          if (!includeDrafts && publicAllowedVariants.length > 0) {
+            const isExplicitlyAllowed = variant && publicAllowedVariants.some(
+              pv => pv.id === variant.id || pv.relationshipSlug === variant.relationship_slug
+            );
+            if (!isExplicitlyAllowed) {
+              return applySecurityHeaders(
+                jsonError('VARIANT_DISABLED_OR_UNAVAILABLE', `Variant "${variantQuery || relQuery}" is disabled or unavailable for this template.`, 404),
+                request,
+                env
+              );
+            }
           }
         } else if (hasVariants && !variant && !includeDrafts && publicAllowedVariants.length > 0) {
           // Default to first enabled published variant (never a disabled one)
@@ -14903,7 +15073,8 @@ export default {
                 sections: body.sections || manifestSections,
                 actions: body.actionsList || manifestActions,
                 visibilityConfig: nextVis,
-                actionsConfig: nextAct
+                actionsConfig: nextAct,
+                preservePreviousVersionImmutability: true
               }, user);
               if (newSnap) {
                 publishedVersionId = newSnap.id;
@@ -14918,6 +15089,7 @@ export default {
                  visibility_config_json = ?,
                  actions_config_json = ?,
                  draft_config_json = NULL,
+                 current_version_id = ?,
                  lock_version = ?,
                  updated_at = ?
                WHERE id = ?`
@@ -14926,6 +15098,7 @@ export default {
               body.actionsList ? JSON.stringify(body.actionsList) : null,
               JSON.stringify(nextVis || {}),
               JSON.stringify(nextAct || {}),
+              publishedVersionId,
               nextLock,
               nowIso,
               template.id
@@ -27655,6 +27828,75 @@ export default {
             }), request, env);
           }
         }
+      }
+
+      // --- 4c. Admin PWA Manifest & Service Worker Delivery (Items 27-37) ---
+      if ((pathname === '/wm-clay-admin.webmanifest' || pathname === '/admin.webmanifest') && (method === 'GET' || method === 'HEAD')) {
+        if (env.ASSETS && typeof env.ASSETS.fetch === 'function') {
+          try {
+            const mfRes = await env.ASSETS.fetch(new Request(new URL('/wm-clay-admin.webmanifest', request.url), { method: 'GET' }));
+            if (mfRes && mfRes.status === 200) {
+              return applySecurityHeaders(new Response(mfRes.body, {
+                status: 200,
+                headers: {
+                  'Content-Type': 'application/manifest+json; charset=utf-8',
+                  'Cache-Control': 'no-cache, must-revalidate'
+                }
+              }), request, env);
+            }
+          } catch (_) {}
+        }
+        const fallbackManifest = {
+          id: '/admin/anktech/anktech/admin/overview',
+          name: 'WishMagic Admin Studio',
+          short_name: 'WM Admin',
+          description: 'WishMagic Executive Admin Panel & Live Control Studio',
+          start_url: '/admin/anktech/anktech/admin/overview',
+          scope: '/',
+          display: 'standalone',
+          orientation: 'any',
+          background_color: '#111714',
+          theme_color: '#1e7f4e',
+          icons: [
+            { src: '/assets/icons/admin-icon-192.png', sizes: '192x192', type: 'image/png', purpose: 'any' },
+            { src: '/assets/icons/admin-icon-512.png', sizes: '512x512', type: 'image/png', purpose: 'any' },
+            { src: '/assets/icons/admin-icon-maskable-192.png', sizes: '192x192', type: 'image/png', purpose: 'maskable' },
+            { src: '/assets/icons/admin-icon-maskable-512.png', sizes: '512x512', type: 'image/png', purpose: 'maskable' }
+          ]
+        };
+        return applySecurityHeaders(new Response(JSON.stringify(fallbackManifest, null, 2), {
+          status: 200,
+          headers: {
+            'Content-Type': 'application/manifest+json; charset=utf-8',
+            'Cache-Control': 'no-cache, must-revalidate'
+          }
+        }), request, env);
+      }
+
+      if ((pathname === '/wm-admin-sw.js' || pathname === '/admin-sw.js') && (method === 'GET' || method === 'HEAD')) {
+        if (env.ASSETS && typeof env.ASSETS.fetch === 'function') {
+          try {
+            const swRes = await env.ASSETS.fetch(new Request(new URL('/wm-admin-sw.js', request.url), { method: 'GET' }));
+            if (swRes && swRes.status === 200) {
+              return applySecurityHeaders(new Response(swRes.body, {
+                status: 200,
+                headers: {
+                  'Content-Type': 'application/javascript; charset=utf-8',
+                  'Service-Worker-Allowed': '/',
+                  'Cache-Control': 'no-store, no-cache, must-revalidate'
+                }
+              }), request, env);
+            }
+          } catch (_) {}
+        }
+        return applySecurityHeaders(new Response("self.addEventListener('install', () => self.skipWaiting()); self.addEventListener('activate', (e) => e.waitUntil(self.clients.claim()));", {
+          status: 200,
+          headers: {
+            'Content-Type': 'application/javascript; charset=utf-8',
+            'Service-Worker-Allowed': '/',
+            'Cache-Control': 'no-store, no-cache, must-revalidate'
+          }
+        }), request, env);
       }
 
       // --- 5. Secret Admin Routing Boundary & Cloudflare Pages Pretty Routes ---

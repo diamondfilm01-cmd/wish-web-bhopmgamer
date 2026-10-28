@@ -235,10 +235,12 @@ window.WishMagicCore = {
    */
   function getAvailablePublishedVariants(family) {
     if (!family || typeof family !== 'object') return [];
-    // Authoritative precedence: if availableVariants array is provided by the server, never fall back to raw variants
-    const rawList = Array.isArray(family.availableVariants)
+    const rawList = (Array.isArray(family.availableVariants) && family.availableVariants.length > 0)
       ? family.availableVariants
-      : (Array.isArray(family.variants) ? family.variants : []);
+      : (Array.isArray(family.variants) && family.variants.length > 0
+          ? family.variants
+          : (Array.isArray(family.availableRelations) ? family.availableRelations : []));
+    const allDisabledBug = rawList.length > 0 && rawList.every(v => v && (v.enabled === false || v.enabled === 0 || String(v.status || '').toLowerCase() === 'disabled'));
 
     // Build authoritative enabled relationship set if family specifies enabledVariants or relationships
     let allowedRelSlugs = null;
@@ -260,8 +262,10 @@ window.WishMagicCore = {
       const v = rawList[i];
       if (!v || typeof v !== 'object') continue;
       const status = String(v.status || 'published').toLowerCase();
-      if (status !== 'published' && status !== 'active') continue;
-      if (v.enabled === false || v.enabled === 0) continue;
+      if (!allDisabledBug) {
+        if (status !== 'published' && status !== 'active') continue;
+        if (v.enabled === false || v.enabled === 0) continue;
+      }
 
       const relRaw = v.relationshipSlug || v.relationship || v.relationship_slug || v.relationship_id || v.relationshipId || '';
       const relMeta = getRelationMeta(relRaw, v.relationshipLabel || v.relationship_label || v.label);
@@ -325,7 +329,6 @@ window.WishMagicCore = {
    */
   function isVariantFamily(family) {
     if (!family || typeof family !== 'object') return false;
-    if (family.hasVariants === true || family.has_variants === 1) return true;
     const avail = getAvailablePublishedVariants(family);
     return avail.length > 0;
   }
@@ -477,7 +480,7 @@ window.WishMagicCore = {
 
     const cardsHtml = variants.map((v, idx) => {
       const thumbHtml = v.thumbnail
-        ? `<img src="${escapeHtmlSafe(v.thumbnail)}" alt="${escapeHtmlSafe(v.relationshipLabel)}" style="width:44px;height:44px;border-radius:12px;object-fit:cover;border:1px solid rgba(255,255,255,0.14);flex-shrink:0;" onerror="this.style.display='none'" />`
+        ? `<img src="${escapeHtmlSafe(v.thumbnail)}" data-wm-tpl-id="${escapeHtmlSafe(family.id || family.slug || '')}" alt="${escapeHtmlSafe(v.relationshipLabel)}" style="width:44px;height:44px;border-radius:12px;object-fit:cover;border:1px solid rgba(255,255,255,0.14);flex-shrink:0;" onerror="if(!this.dataset.wmImgHealed){this.dataset.wmImgHealed='1';this.src='/api/media/safe-img?u='+encodeURIComponent(this.src)+'&tpl=${escapeHtmlSafe(encodeURIComponent(family.id || family.slug || ''))}';}else{this.style.display='none';}" />`
         : `<div style="width:44px;height:44px;border-radius:12px;background:linear-gradient(135deg,rgba(236,72,153,0.22),rgba(139,92,246,0.22));border:1px solid rgba(236,72,153,0.35);display:flex;align-items:center;justify-content:center;font-size:1.3rem;flex-shrink:0;">${escapeHtmlSafe(v.icon || '✨')}</div>`;
 
       const descHtml = v.description
@@ -717,12 +720,12 @@ window.WishMagicCore = {
       return;
     }
 
-    if (!hasDeclaredVariants) {
+    if (!hasDeclaredVariants || variants.length === 0 || !explicitRelOrVariant) {
       continueLegacyAction(family, action, context);
       return;
     }
 
-    showUnavailableVariantNotice(family, explicitRelOrVariant || 'any relation');
+    showUnavailableVariantNotice(family, explicitRelOrVariant);
   }
 
   window.WishMagicVariantFlow = {
@@ -742,4 +745,81 @@ window.WishMagicCore = {
   };
 
   window.handleTemplateAction = handleTemplateAction;
+
+  // Global Automatic ImgBB "service unavailable" (180x180) & Broken Image Healer
+  function resolveTemplateIdForImgElement(img) {
+    if (!img) return '';
+    const direct = img.getAttribute('data-wm-tpl-id') || img.getAttribute('data-template-id');
+    if (direct) return direct;
+    try {
+      const card = img.closest('[data-template-id], [onclick*="handleTemplateAction"], [onclick*="openTemplatePreview"], [onclick*="openMarketplacePreview"], .group');
+      if (card) {
+        const dt = card.getAttribute('data-template-id');
+        if (dt) return dt;
+        const htmlStr = card.outerHTML || '';
+        const m = htmlStr.match(/(?:handleTemplateAction|openTemplatePreview|openMarketplacePreview)\(\s*['"]([^'"]+)['"]/) ||
+                  htmlStr.match(/customize\.html\?template=([^&"'\s>]+)/);
+        if (m && m[1]) return decodeURIComponent(m[1]);
+      }
+      const src = String(img.getAttribute('src') || img.src || '').trim();
+      const map = window._wmLoadedTemplatesMap || {};
+      for (const k of Object.keys(map)) {
+        const t = map[k];
+        if (!t) continue;
+        if (t.thumbnail === src) return t.id || k;
+        if (Array.isArray(t.availableVariants) && t.availableVariants.some(v => v && v.thumbnail === src)) {
+          return t.id || k;
+        }
+      }
+    } catch (_) {}
+    return '';
+  }
+
+  function healStorefrontImageIfUnavailable(img) {
+    if (!img || img.tagName !== 'IMG' || img.dataset.wmImgHealed === '1') return;
+    const src = String(img.getAttribute('src') || img.src || '').trim();
+    if (!src || src.startsWith('data:') || src.includes('/api/media/safe-img')) return;
+    const isIbb = src.includes('ibb.co/');
+    const isUnavailableBox = isIbb && img.complete && img.naturalWidth > 0 && img.naturalWidth <= 220 && img.naturalHeight > 0 && img.naturalHeight <= 220 && Math.abs(img.naturalWidth - img.naturalHeight) <= 4;
+    const isBroken = img.complete && img.naturalWidth === 0 && src.length > 0;
+    if (isUnavailableBox || (isIbb && isBroken)) {
+      img.dataset.wmImgHealed = '1';
+      const tplId = resolveTemplateIdForImgElement(img);
+      img.src = '/api/media/safe-img?u=' + encodeURIComponent(src) + (tplId ? '&tpl=' + encodeURIComponent(tplId) : '');
+    }
+  }
+
+  if (typeof document !== 'undefined') {
+    document.addEventListener('load', (e) => {
+      if (e && e.target && e.target.tagName === 'IMG') {
+        healStorefrontImageIfUnavailable(e.target);
+      }
+    }, true);
+
+    document.addEventListener('error', (e) => {
+      const img = e && e.target;
+      if (!img || img.tagName !== 'IMG' || img.dataset.wmImgHealed === '1') return;
+      const src = String(img.getAttribute('src') || img.src || '').trim();
+      if (!src || src.startsWith('data:') || src.includes('/api/media/safe-img')) return;
+      if (src.includes('ibb.co/') || src.startsWith('/api/templates/')) {
+        e.stopImmediatePropagation();
+        img.dataset.wmImgHealed = '1';
+        const tplId = resolveTemplateIdForImgElement(img);
+        img.src = '/api/media/safe-img?u=' + encodeURIComponent(src) + (tplId ? '&tpl=' + encodeURIComponent(tplId) : '');
+      }
+    }, true);
+
+    const runInitialScan = () => {
+      try {
+        document.querySelectorAll('img').forEach(healStorefrontImageIfUnavailable);
+      } catch (_) {}
+    };
+    if (document.readyState === 'loading') {
+      document.addEventListener('DOMContentLoaded', runInitialScan);
+    } else {
+      runInitialScan();
+    }
+    setTimeout(runInitialScan, 800);
+    setTimeout(runInitialScan, 2200);
+  }
 })();
